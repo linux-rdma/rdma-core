@@ -619,7 +619,7 @@ static int num_inline_segs(int data, enum ibv_qp_type type)
 }
 
 void mlx4_calc_sq_wqe_size(struct ibv_qp_cap *cap, enum ibv_qp_type type,
-			   struct mlx4_qp *qp)
+			   struct mlx4_qp *qp, struct ibv_qp_init_attr_ex *attr)
 {
 	int size;
 	int max_sq_sge;
@@ -666,6 +666,9 @@ void mlx4_calc_sq_wqe_size(struct ibv_qp_cap *cap, enum ibv_qp_type type,
 		size = sizeof (struct mlx4_wqe_bind_seg);
 
 	size += sizeof (struct mlx4_wqe_ctrl_seg);
+
+	if (attr->comp_mask & IBV_QP_INIT_ATTR_MAX_TSO_HEADER)
+		size += align(sizeof (struct mlx4_wqe_lso_seg) + attr->max_tso_header, 16);
 
 	for (qp->sq.wqe_shift = 6; 1 << qp->sq.wqe_shift < size;
 	     qp->sq.wqe_shift++)

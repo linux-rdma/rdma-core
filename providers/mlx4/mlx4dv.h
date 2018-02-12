@@ -393,6 +393,11 @@ struct mlx4_wqe_raddr_seg {
 	__be32			reserved;
 };
 
+struct mlx4_wqe_lso_seg {
+	__be32			mss_hdr_size;
+	__be32			header[0];
+};
+
 struct mlx4_wqe_atomic_seg {
 	__be64			swap_add;
 	__be64			compare;

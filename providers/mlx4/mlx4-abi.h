@@ -105,6 +105,14 @@ struct mlx4_rss_caps {
 	__u8 reserved[7];
 };
 
+struct mlx4_ib_tso_caps {
+	__u32 max_tso; /* Maximum tso payload size in bytes */
+	/* Corresponding bit will be set if qp type from
+	 * 'enum ib_qp_type' is supported.
+	 */
+	__u32 supported_qpts;
+};
+
 struct mlx4_query_device_ex_resp {
 	struct ib_uverbs_ex_query_device_resp ibv_resp;
 	__u32				comp_mask;
@@ -114,6 +122,7 @@ struct mlx4_query_device_ex_resp {
 	/* Explicitly align the response to u64 */
 	__u32				reserved;
 	struct mlx4_rss_caps            rss_caps; /* vendor data channel */
+	struct mlx4_ib_tso_caps		tso_caps;
 };
 
 struct mlx4_query_device_ex {
