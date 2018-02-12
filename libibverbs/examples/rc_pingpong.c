@@ -376,14 +376,14 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 
 		if (ibv_query_device_ex(ctx->context, NULL, &attrx)) {
 			fprintf(stderr, "Couldn't query device for its features\n");
-			goto clean_comp_channel;
+			goto clean_pd;
 		}
 
 		if (use_odp) {
 			if (!(attrx.odp_caps.general_caps & IBV_ODP_SUPPORT) ||
 			    (attrx.odp_caps.per_transport_caps.rc_odp_caps & rc_caps_mask) != rc_caps_mask) {
 				fprintf(stderr, "The device isn't ODP capable or does not support RC send and receive with ODP\n");
-				goto clean_comp_channel;
+				goto clean_pd;
 			}
 			access_flags |= IBV_ACCESS_ON_DEMAND;
 		}
@@ -391,7 +391,7 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 		if (use_ts) {
 			if (!attrx.completion_timestamp_mask) {
 				fprintf(stderr, "The device isn't completion timestamp capable\n");
-				goto clean_comp_channel;
+				goto clean_pd;
 			}
 			ctx->completion_timestamp_mask = attrx.completion_timestamp_mask;
 		}
