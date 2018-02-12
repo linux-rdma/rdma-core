@@ -35,6 +35,7 @@ struct ibv_packet_pacing_caps packet_pacing_caps; /* Packet pacing capabilities 
 uint32_t               raw_packet_caps;            /* Raw packet capabilities, use enum ibv_raw_packet_caps */
 struct ibv_tm_caps     tm_caps;                    /* Tag matching capabilities */
 struct ibv_cq_moderation_caps  cq_mod_caps;        /* CQ moderation max capabilities */
+uint64_t     	       max_dm_size;		   /* Max Device Memory size (in bytes) available for allocation */
 .in -8
 };
 

@@ -552,6 +552,10 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		print_packet_pacing_caps(&device_attr.packet_pacing_caps);
 		print_tm_caps(&device_attr.tm_caps);
 		print_cq_moderation_caps(&device_attr.cq_mod_caps);
+
+		if (device_attr.max_dm_size)
+			printf("\tmaximum available device memory:\t%" PRIu64"Bytes\n\n",
+			      device_attr.max_dm_size);
 	}
 
 	for (port = 1; port <= device_attr.orig_attr.phys_port_cnt; ++port) {

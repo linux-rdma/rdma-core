@@ -292,6 +292,7 @@ struct ibv_device_attr_ex {
 	uint32_t		raw_packet_caps; /* Use ibv_raw_packet_caps */
 	struct ibv_tm_caps	tm_caps;
 	struct ibv_cq_moderation_caps  cq_mod_caps;
+	uint64_t max_dm_size;
 };
 
 enum ibv_mtu {
