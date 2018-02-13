@@ -144,6 +144,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.post_srq_ops = mlx5_post_srq_ops,
 	.query_device_ex = mlx5_query_device_ex,
 	.query_rt_values = mlx5_query_rt_values,
+	.read_counters = mlx5_read_counters,
 	.reg_dm_mr = mlx5_reg_dm_mr,
 };
 

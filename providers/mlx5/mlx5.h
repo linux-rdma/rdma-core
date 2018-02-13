@@ -858,6 +858,10 @@ int mlx5_destroy_counters(struct ibv_counters *counters);
 int mlx5_attach_counters_point_flow(struct ibv_counters *counters,
 				    struct ibv_counter_attach_attr *attr,
 				    struct ibv_flow *flow);
+int mlx5_read_counters(struct ibv_counters *counters,
+		       uint64_t *counters_value,
+		       uint32_t ncounters,
+		       uint32_t flags);
 
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {

@@ -3360,3 +3360,18 @@ int mlx5_attach_counters_point_flow(struct ibv_counters *counters,
 
 	return 0;
 }
+
+int mlx5_read_counters(struct ibv_counters *counters,
+		       uint64_t *counters_value,
+		       uint32_t ncounters,
+		       uint32_t flags)
+{
+	struct mlx5_counters *mcntrs = to_mcounters(counters);
+
+	return ibv_cmd_read_counters(&mcntrs->vcounters,
+				     counters_value,
+				     ncounters,
+				     flags,
+				     NULL);
+
+}
