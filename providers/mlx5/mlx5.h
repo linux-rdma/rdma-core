@@ -535,6 +535,10 @@ struct mlx5_rwq {
 	int wq_sig;
 };
 
+struct mlx5_counters {
+	struct verbs_counters vcounters;
+};
+
 static inline int mlx5_ilog2(int n)
 {
 	int t;
@@ -663,6 +667,11 @@ static inline struct mlx5_srq *rsc_to_msrq(struct mlx5_resource *rsc)
 static inline struct mlx5_rwq *rsc_to_mrwq(struct mlx5_resource *rsc)
 {
 	return (struct mlx5_rwq *)rsc;
+}
+
+static inline struct mlx5_counters *to_mcounters(struct ibv_counters *ibcounters)
+{
+	return container_of(ibcounters, struct mlx5_counters, vcounters.counters);
 }
 
 int mlx5_alloc_buf(struct mlx5_buf *buf, size_t size, int page_size);
@@ -833,6 +842,11 @@ struct ibv_pd *mlx5_alloc_parent_domain(struct ibv_context *context,
 
 void *mlx5_mmap(struct mlx5_uar_info *uar, int index,
 		int cmd_fd, int page_size, int uar_type);
+
+struct ibv_counters *mlx5_create_counters(struct ibv_context *context,
+					  struct ibv_counters_init_attr *init_attr);
+int mlx5_destroy_counters(struct ibv_counters *counters);
+
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {
 	int tind = uidx >> MLX5_UIDX_TABLE_SHIFT;

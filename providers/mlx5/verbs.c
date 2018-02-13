@@ -3272,6 +3272,49 @@ int mlx5_free_dm(struct ibv_dm *ibdm)
 
 	munmap(dm->mmap_va, act_size);
 	free(dm);
+	return 0;
+}
 
+struct ibv_counters *mlx5_create_counters(struct ibv_context *context,
+					  struct ibv_counters_init_attr *init_attr)
+{
+	struct mlx5_counters *mcntrs;
+	int ret;
+
+	if (!check_comp_mask(init_attr->comp_mask, 0)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	mcntrs = calloc(1, sizeof(*mcntrs));
+	if (!mcntrs) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	ret = ibv_cmd_create_counters(context,
+				      init_attr,
+				      &mcntrs->vcounters,
+				      NULL);
+	if (ret)
+		goto err_create;
+
+	return &mcntrs->vcounters.counters;
+
+err_create:
+	free(mcntrs);
+	return NULL;
+}
+
+int mlx5_destroy_counters(struct ibv_counters *counters)
+{
+	struct mlx5_counters *mcntrs = to_mcounters(counters);
+	int ret;
+
+	ret = ibv_cmd_destroy_counters(&mcntrs->vcounters);
+	if (ret)
+		return ret;
+
+	free(mcntrs);
 	return 0;
 }
