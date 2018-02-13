@@ -3292,12 +3292,15 @@ struct ibv_counters *mlx5_create_counters(struct ibv_context *context,
 		return NULL;
 	}
 
+	pthread_mutex_init(&mcntrs->lock, NULL);
 	ret = ibv_cmd_create_counters(context,
 				      init_attr,
 				      &mcntrs->vcounters,
 				      NULL);
 	if (ret)
 		goto err_create;
+
+	list_head_init(&mcntrs->counters_list);
 
 	return &mcntrs->vcounters.counters;
 
@@ -3309,12 +3312,51 @@ err_create:
 int mlx5_destroy_counters(struct ibv_counters *counters)
 {
 	struct mlx5_counters *mcntrs = to_mcounters(counters);
+	struct mlx5_counter_node *tmp, *cntrs_node;
 	int ret;
 
 	ret = ibv_cmd_destroy_counters(&mcntrs->vcounters);
 	if (ret)
 		return ret;
 
+	list_for_each_safe(&mcntrs->counters_list, cntrs_node, tmp, entry) {
+		list_del(&cntrs_node->entry);
+		free(cntrs_node);
+	}
+
 	free(mcntrs);
+	return 0;
+}
+
+int mlx5_attach_counters_point_flow(struct ibv_counters *counters,
+				    struct ibv_counter_attach_attr *attr,
+				    struct ibv_flow *flow)
+{
+	struct mlx5_counters *mcntrs = to_mcounters(counters);
+	struct mlx5_counter_node *cntrs_node;
+
+	/* The driver supports only the static binding mode as part of ibv_create_flow */
+	if (flow)
+		return ENOTSUP;
+
+	if (!check_comp_mask(attr->comp_mask, 0))
+		return EOPNOTSUPP;
+
+	/* Check whether the attached counter is supported */
+	if (attr->counter_desc < IBV_COUNTER_PACKETS ||
+	    attr->counter_desc  > IBV_COUNTER_BYTES)
+		return ENOTSUP;
+
+	cntrs_node = calloc(1, sizeof(*cntrs_node));
+	if (!cntrs_node)
+		return ENOMEM;
+
+	cntrs_node->index = attr->index;
+	cntrs_node->desc = attr->counter_desc;
+	pthread_mutex_lock(&mcntrs->lock);
+	list_add(&mcntrs->counters_list, &cntrs_node->entry);
+	mcntrs->ncounters++;
+	pthread_mutex_unlock(&mcntrs->lock);
+
 	return 0;
 }

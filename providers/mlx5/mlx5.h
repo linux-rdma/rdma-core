@@ -535,8 +535,17 @@ struct mlx5_rwq {
 	int wq_sig;
 };
 
+struct mlx5_counter_node {
+	uint32_t index;
+	struct list_node entry;
+	enum ibv_counter_description desc;
+};
+
 struct mlx5_counters {
 	struct verbs_counters vcounters;
+	struct list_head counters_list;
+	pthread_mutex_t lock;
+	uint32_t ncounters;
 };
 
 static inline int mlx5_ilog2(int n)
@@ -846,6 +855,9 @@ void *mlx5_mmap(struct mlx5_uar_info *uar, int index,
 struct ibv_counters *mlx5_create_counters(struct ibv_context *context,
 					  struct ibv_counters_init_attr *init_attr);
 int mlx5_destroy_counters(struct ibv_counters *counters);
+int mlx5_attach_counters_point_flow(struct ibv_counters *counters,
+				    struct ibv_counter_attach_attr *attr,
+				    struct ibv_flow *flow);
 
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {

@@ -118,6 +118,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.alloc_dm = mlx5_alloc_dm,
 	.alloc_parent_domain = mlx5_alloc_parent_domain,
 	.alloc_td = mlx5_alloc_td,
+	.attach_counters_point_flow = mlx5_attach_counters_point_flow,
 	.close_xrcd = mlx5_close_xrcd,
 	.create_counters = mlx5_create_counters,
 	.create_cq_ex = mlx5_create_cq_ex,
