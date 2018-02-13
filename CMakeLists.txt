@@ -250,6 +250,20 @@ CHECK_C_SOURCE_COMPILES("
   HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE
   FAIL_REGEX "warning")
 
+# Linux __u64 is an unsigned long long
+CHECK_C_SOURCE_COMPILES("
+#include <linux/types.h>
+ int main(int argc,const char *argv[]) { __u64 tmp = 0; unsigned long long *tmp2 = &tmp; return *tmp2; }"
+  HAVE_LONG_LONG_U64
+  FAIL_REGEX "warning")
+
+if (NOT HAVE_LONG_LONG_U64)
+  # Modern Linux has switched to use ull in all cases, but to avoid disturbing
+  # userspace some platforms continued to use unsigned long by default. This
+  # define will cause kernel headers to consistently use unsigned long long
+  add_definitions("-D__SANE_USERSPACE_TYPES__")
+endif()
+
 # Provide a shim if C11 stdatomic.h is not supported.
 if (NOT HAVE_SPARSE)
   CHECK_INCLUDE_FILE("stdatomic.h" HAVE_STDATOMIC)

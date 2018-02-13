@@ -49,6 +49,8 @@ function(RDMA_EnableCStd)
     CHECK_C_COMPILER_FLAG("-std=gnu11" SUPPORTS_GNU11)
     if (SUPPORTS_GNU11)
       SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu11" PARENT_SCOPE)
+    else()
+      SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99" PARENT_SCOPE)
     endif()
   else()
     # Newer cmake can do this internally
