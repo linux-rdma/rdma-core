@@ -1,0 +1,2 @@
+# The wantedby target remote-fs-pre.target is intentional
+srptools: systemd-service-file-refers-to-unusual-wantedby-target lib/systemd/system/*.service remote-fs-pre.target
