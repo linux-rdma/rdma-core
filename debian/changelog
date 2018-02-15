@@ -1,3 +1,11 @@
+rdma-core (16.2-1) unstable; urgency=medium
+
+  * New upstream bugfix release
+  * Guard udevadm call again
+  * Override intentional systemd WantedBy= relationship lintian warning
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Thu, 15 Feb 2018 11:41:14 +0100
+
 rdma-core (16.1-2) unstable; urgency=medium
 
   * Do not require valgrind on ia64 (Closes: #887511)
