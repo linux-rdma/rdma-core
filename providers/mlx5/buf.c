@@ -245,6 +245,9 @@ static int alloc_huge_buf(struct mlx5_context *mctx, struct mlx5_buf *buf,
 	buf->length = align(size, MLX5_Q_CHUNK_SIZE);
 	nchunk = buf->length / MLX5_Q_CHUNK_SIZE;
 
+	if (!nchunk)
+		return 0;
+
 	mlx5_spin_lock(&mctx->hugetlb_lock);
 	list_for_each(&mctx->hugetlb_list, hmem, entry) {
 		if (bitmap_avail(&hmem->bitmap)) {
@@ -310,6 +313,9 @@ static void free_huge_buf(struct mlx5_context *ctx, struct mlx5_buf *buf)
 	int nchunk;
 
 	nchunk = buf->length / MLX5_Q_CHUNK_SIZE;
+	if (!nchunk)
+		return;
+
 	mlx5_spin_lock(&ctx->hugetlb_lock);
 	bitmap_free_range(&buf->hmem->bitmap, buf->base, nchunk);
 	if (bitmap_empty(&buf->hmem->bitmap)) {
