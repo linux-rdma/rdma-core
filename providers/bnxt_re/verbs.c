@@ -58,12 +58,14 @@ int bnxt_re_query_device(struct ibv_context *ibvctx,
 			 struct ibv_device_attr *dev_attr)
 {
 	struct ibv_query_device cmd;
-	uint64_t fw_ver;
+	uint8_t fw_ver[8];
 	int status;
 
 	memset(dev_attr, 0, sizeof(struct ibv_device_attr));
-	status = ibv_cmd_query_device(ibvctx, dev_attr, &fw_ver,
+	status = ibv_cmd_query_device(ibvctx, dev_attr, (uint64_t *)&fw_ver,
 				      &cmd, sizeof(cmd));
+	snprintf(dev_attr->fw_ver, 64, "%d.%d.%d.%d",
+		 fw_ver[0], fw_ver[1], fw_ver[2], fw_ver[3]);
 	return status;
 }
 
@@ -202,6 +204,7 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	cq->phase = resp.phase;
 	cq->cqq.tail = resp.tail;
 	cq->udpi = &cntx->udpi;
+	cq->first_arm = true;
 
 	list_head_init(&cq->sfhead);
 	list_head_init(&cq->rfhead);
@@ -654,6 +657,11 @@ int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 
 	pthread_spin_lock(&cq->cqq.qlock);
 	dqed = bnxt_re_poll_one(cq, nwc, wc);
+	if (cq->deferred_arm) {
+		bnxt_re_ring_cq_arm_db(cq, cq->deferred_arm_flags);
+		cq->deferred_arm = false;
+		cq->deferred_arm_flags = 0;
+	}
 	pthread_spin_unlock(&cq->cqq.qlock);
 	/* Check if anything is there to flush. */
 	pthread_spin_lock(&cntx->fqlock);
@@ -718,7 +726,12 @@ int bnxt_re_arm_cq(struct ibv_cq *ibvcq, int flags)
 	pthread_spin_lock(&cq->cqq.qlock);
 	flags = !flags ? BNXT_RE_QUE_TYPE_CQ_ARMALL :
 			 BNXT_RE_QUE_TYPE_CQ_ARMSE;
-	bnxt_re_ring_cq_arm_db(cq, flags);
+	if (cq->first_arm) {
+		bnxt_re_ring_cq_arm_db(cq, flags);
+		cq->first_arm = false;
+	}
+	cq->deferred_arm = true;
+	cq->deferred_arm_flags = flags;
 	pthread_spin_unlock(&cq->cqq.qlock);
 
 	return 0;
