@@ -113,7 +113,7 @@ struct ibv_srq *pvrdma_create_srq(struct ibv_pd *pd,
 	int ret;
 
 	attr->attr.max_wr = align_next_power2(max_t(uint32_t, 1U, attr->attr.max_wr));
-	attr->attr.max_sge = align_next_power2(max_t(uint32_t, 1U, attr->attr.max_sge));
+	attr->attr.max_sge = max_t(uint32_t, 1U, attr->attr.max_sge);
 
 	srq = malloc(sizeof(*srq));
 	if (!srq)
@@ -216,14 +216,12 @@ struct ibv_qp *pvrdma_create_qp(struct ibv_pd *pd,
 	int ret;
 	int is_srq = !!(attr->srq);
 
-	attr->cap.max_send_sge =
-		align_next_power2(max_t(uint32_t, 1U, attr->cap.max_send_sge));
+	attr->cap.max_send_sge = max_t(uint32_t, 1U, attr->cap.max_send_sge);
 	attr->cap.max_send_wr =
 		align_next_power2(max_t(uint32_t, 1U, attr->cap.max_send_wr));
 
 	if (!is_srq) {
-		attr->cap.max_recv_sge =
-			align_next_power2(max_t(uint32_t, 1U, attr->cap.max_recv_sge));
+		attr->cap.max_recv_sge = max_t(uint32_t, 1U, attr->cap.max_recv_sge);
 		attr->cap.max_recv_wr =
 			align_next_power2(max_t(uint32_t, 1U, attr->cap.max_recv_wr));
 	} else {
