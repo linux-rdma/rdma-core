@@ -22,8 +22,6 @@
 #      Produce static libraries along with the usual shared libraries.
 #  -DVERBS_PROVIDER_DIR='' (default /usr/lib.../libibverbs)
 #      Use the historical search path for providers, in the standard system library.
-#  -DKERNEL_DIR='.../linux' (default '')
-#      If set use the kernel UAPI headers from this kernel source tree.
 #  -DNO_COMPAT_SYMS=1 (default disabled)
 #      Do not generate backwards compatibility symbols in the shared
 #      libraries. This may is necessary if using a dynmic linker that does
@@ -264,6 +262,17 @@ if (NOT HAVE_LONG_LONG_U64)
   add_definitions("-D__SANE_USERSPACE_TYPES__")
 endif()
 
+# glibc and kernel uapi headers can co-exist
+CHECK_C_SOURCE_COMPILES("
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <linux/in.h>
+ #include <linux/in6.h>
+ int main(int argc,const char *argv[]) { return 0; }"
+  HAVE_GLIBC_UAPI_COMPAT)
+RDMA_DoFixup("${HAVE_GLIBC_UAPI_COMPAT}" "linux/in.h")
+RDMA_DoFixup("${HAVE_GLIBC_UAPI_COMPAT}" "linux/in6.h")
+
 # Provide a shim if C11 stdatomic.h is not supported.
 if (NOT HAVE_SPARSE)
   CHECK_INCLUDE_FILE("stdatomic.h" HAVE_STDATOMIC)
@@ -351,8 +360,6 @@ include_directories(${UDEV_INCLUDE_DIRS})
 # should rely on this.
 check_type_size("long" SIZEOF_LONG BUILTIN_TYPES_ONLY LANGUAGE C)
 
-include(RDMA_LinuxHeaders)
-
 # Determine if this arch supports cache coherent DMA. This isn't really an
 # arch specific property, but for our purposes arches that do not support it
 # also do not define wmb/etc which breaks our compile.
@@ -436,6 +443,7 @@ add_subdirectory(ccan)
 add_subdirectory(util)
 add_subdirectory(Documentation)
 add_subdirectory(kernel-boot)
+add_subdirectory(kernel-headers)
 # Libraries
 add_subdirectory(libibumad)
 add_subdirectory(libibumad/man)
@@ -520,7 +528,6 @@ endif()
 if (NOT UDEV_FOUND)
   message(STATUS " libudev NOT found (disabling features)")
 endif()
-rdma_report_missing_kheaders()
 if (NOT HAVE_C_WARNINGS)
   message(STATUS " extended C warnings NOT supported")
 endif()
@@ -535,4 +542,7 @@ if (NOT HAVE_C_WORKING_SHADOW)
 endif()
 if (NOT HAVE_C_WREDUNDANT_DECLS)
   message(STATUS " -Wredundant-decls does NOT work")
+endif()
+if (NOT HAVE_GLIBC_UAPI_COMPAT)
+  message(STATUS " libc netinet/in.h and linux/in.h do NOT coexist")
 endif()
