@@ -1,5 +1,5 @@
 Name: rdma-core
-Version: 16.2
+Version: 17.0
 Release: 1%{?dist}
 Summary: RDMA core userspace libraries and daemons
 
@@ -56,9 +56,6 @@ Requires: %{name}%{?_isa} = %{version}-%{release}
 Requires: libibverbs = %{version}-%{release}
 Provides: libibverbs-devel = %{version}-%{release}
 Obsoletes: libibverbs-devel < %{version}-%{release}
-Requires: libibcm = %{version}-%{release}
-Provides: libibcm-devel = %{version}-%{release}
-Obsoletes: libibcm-devel < %{version}-%{release}
 Requires: libibumad = %{version}-%{release}
 Provides: libibumad-devel = %{version}-%{release}
 Obsoletes: libibumad-devel < %{version}-%{release}
@@ -160,15 +157,6 @@ Requires: %{name}%{?_isa} = %{version}-%{release}
 iwpmd provides a userspace service for iWarp drivers to claim
 tcp ports through the standard socket interface.
 
-%package -n libibcm
-Summary: Userspace InfiniBand Connection Manager
-ExcludeArch: s390 s390x
-Requires: %{name}%{?_isa} = %{version}-%{release}
-
-%description -n libibcm
-libibcm provides a userspace library that handles the majority of the low
-level work required to open an RDMA connection between two machines.
-
 %package -n libibumad
 Summary: OpenFabrics Alliance InfiniBand umad (userspace management datagram) library
 Requires: %{name}%{?_isa} = %{version}-%{release}
@@ -217,6 +205,8 @@ discover and use SCSI devices via the SCSI RDMA Protocol over InfiniBand.
 %define _rundir /var/run
 %endif
 
+%{!?EXTRA_CMAKE_FLAGS: %define EXTRA_CMAKE_FLAGS %{nil}}
+
 # Pass all of the rpm paths directly to GNUInstallDirs and our other defines.
 %cmake %{CMAKE_FLAGS} \
          -DCMAKE_BUILD_TYPE=Release \
@@ -234,7 +224,8 @@ discover and use SCSI devices via the SCSI RDMA Protocol over InfiniBand.
          -DCMAKE_INSTALL_INITDDIR:PATH=%{_initrddir} \
          -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
          -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version} \
-         -DCMAKE_INSTALL_UDEV_RULESDIR:PATH=%{_udevrulesdir}
+         -DCMAKE_INSTALL_UDEV_RULESDIR:PATH=%{_udevrulesdir} \
+         %{EXTRA_CMAKE_FLAGS}
 %make_jobs
 
 %install
@@ -245,7 +236,6 @@ mkdir -p %{buildroot}/%{_sysconfdir}/rdma
 # Red Hat specific glue
 %global dracutlibdir %{_prefix}/lib/dracut
 %global sysmodprobedir %{_prefix}/lib/modprobe.d
-mkdir -p %{buildroot}/%{_sysconfdir}/sysconfig/network-scripts
 mkdir -p %{buildroot}%{_sysconfdir}/udev/rules.d
 mkdir -p %{buildroot}%{_libexecdir}
 mkdir -p %{buildroot}%{_udevrulesdir}
@@ -254,8 +244,6 @@ mkdir -p %{buildroot}%{sysmodprobedir}
 install -D -m0644 redhat/rdma.conf %{buildroot}/%{_sysconfdir}/rdma/rdma.conf
 install -D -m0644 redhat/rdma.sriov-vfs %{buildroot}/%{_sysconfdir}/rdma/sriov-vfs
 install -D -m0644 redhat/rdma.mlx4.conf %{buildroot}/%{_sysconfdir}/rdma/mlx4.conf
-install -D -m0755 redhat/rdma.ifup-ib %{buildroot}/%{_sysconfdir}/sysconfig/network-scripts/ifup-ib
-install -D -m0755 redhat/rdma.ifdown-ib %{buildroot}/%{_sysconfdir}/sysconfig/network-scripts/ifdown-ib
 install -D -m0644 redhat/rdma.service %{buildroot}%{_unitdir}/rdma.service
 install -D -m0755 redhat/rdma.modules-setup.sh %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
 install -D -m0644 redhat/rdma.udev-rules %{buildroot}%{_udevrulesdir}/98-rdma.rules
@@ -275,10 +263,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 # libibverbs
 %post -n libibverbs -p /sbin/ldconfig
 %postun -n libibverbs -p /sbin/ldconfig
-
-# libibcm
-%post -n libibcm -p /sbin/ldconfig
-%postun -n libibcm -p /sbin/ldconfig
 
 # libibumad
 %post -n libibumad -p /sbin/ldconfig
@@ -330,7 +314,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %config(noreplace) %{_sysconfdir}/udev/rules.d/*
 %config(noreplace) %{_sysconfdir}/modprobe.d/mlx4.conf
 %config(noreplace) %{_sysconfdir}/modprobe.d/truescale.conf
-%{_sysconfdir}/sysconfig/network-scripts/*
 %{_unitdir}/rdma-hw.target
 %{_unitdir}/rdma-load-modules@.service
 %{_unitdir}/rdma.service
@@ -408,10 +391,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_udevrulesdir}/90-iwpmd.rules
 %{_mandir}/man8/iwpmd.*
 %{_mandir}/man5/iwpmd.*
-
-%files -n libibcm
-%{_libdir}/libibcm*.so.*
-%doc %{_docdir}/%{name}-%{version}/libibcm.md
 
 %files -n libibumad
 %{_libdir}/libibumad*.so.*

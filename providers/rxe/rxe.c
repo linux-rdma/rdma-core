@@ -51,7 +51,6 @@
 
 #include <infiniband/driver.h>
 #include <infiniband/verbs.h>
-#include <rdma/rdma_user_rxe.h>
 
 #include "rxe_queue.h"
 #include "rxe-abi.h"
@@ -97,7 +96,7 @@ static int rxe_query_port(struct ibv_context *context, uint8_t port,
 static struct ibv_pd *rxe_alloc_pd(struct ibv_context *context)
 {
 	struct ibv_alloc_pd cmd;
-	struct ibv_alloc_pd_resp resp;
+	struct ib_uverbs_alloc_pd_resp resp;
 	struct ibv_pd *pd;
 
 	pd = malloc(sizeof *pd);
@@ -128,7 +127,7 @@ static struct ibv_mr *rxe_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 {
 	struct ibv_mr *mr;
 	struct ibv_reg_mr cmd;
-	struct ibv_reg_mr_resp resp;
+	struct ib_uverbs_reg_mr_resp resp;
 	int ret;
 
 	mr = malloc(sizeof *mr);
@@ -670,11 +669,11 @@ static int post_one_send(struct rxe_qp *qp, struct rxe_wq *sq,
 static int post_send_db(struct ibv_qp *ibqp)
 {
 	struct ibv_post_send cmd;
-	struct ibv_post_send_resp resp;
+	struct ib_uverbs_post_send_resp resp;
 
-	cmd.command	= IB_USER_VERBS_CMD_POST_SEND;
-	cmd.in_words	= sizeof(cmd)/4;
-	cmd.out_words	= sizeof(resp)/4;
+	cmd.hdr.command	= IB_USER_VERBS_CMD_POST_SEND;
+	cmd.hdr.in_words = sizeof(cmd) / 4;
+	cmd.hdr.out_words = sizeof(resp) / 4;
 	cmd.response	= (uintptr_t)&resp;
 	cmd.qp_handle	= ibqp->handle;
 	cmd.wr_count	= 0;
@@ -762,17 +761,17 @@ static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
 	return IN6_IS_ADDR_V4MAPPED(a);
 }
 
-static inline int rdma_gid2ip(struct sockaddr *out, union ibv_gid *gid)
+typedef typeof(((struct rxe_av *)0)->sgid_addr) sockaddr_union_t;
+
+static inline int rdma_gid2ip(sockaddr_union_t *out, union ibv_gid *gid)
 {
 	if (ipv6_addr_v4mapped((struct in6_addr *)gid)) {
-		struct sockaddr_in *out_in = (struct sockaddr_in *)out;
-		memset(out_in, 0, sizeof(*out_in));
-		memcpy(&out_in->sin_addr.s_addr, gid->raw + 12, 4);
+		memset(&out->_sockaddr_in, 0, sizeof(out->_sockaddr_in));
+		memcpy(&out->_sockaddr_in.sin_addr.s_addr, gid->raw + 12, 4);
 	} else {
-		struct sockaddr_in6 *out_in = (struct sockaddr_in6 *)out;
-		memset(out_in, 0, sizeof(*out_in));
-		out_in->sin6_family = AF_INET6;
-		memcpy(&out_in->sin6_addr.s6_addr, gid->raw, 16);
+		memset(&out->_sockaddr_in6, 0, sizeof(out->_sockaddr_in6));
+		out->_sockaddr_in6.sin6_family = AF_INET6;
+		memcpy(&out->_sockaddr_in6.sin6_addr.s6_addr, gid->raw, 16);
 	}
 	return 0;
 }
@@ -783,7 +782,7 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	struct rxe_ah *ah;
 	struct rxe_av *av;
 	union ibv_gid sgid;
-	struct ibv_create_ah_resp resp;
+	struct ib_uverbs_create_ah_resp resp;
 
 	err = ibv_query_gid(pd->context, attr->port_num, attr->grh.sgid_index,
 			    &sgid);
@@ -803,8 +802,8 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		ipv6_addr_v4mapped((struct in6_addr *)attr->grh.dgid.raw) ?
 		RDMA_NETWORK_IPV4 : RDMA_NETWORK_IPV6;
 
-	rdma_gid2ip(&av->sgid_addr._sockaddr, &sgid);
-	rdma_gid2ip(&av->dgid_addr._sockaddr, &attr->grh.dgid);
+	rdma_gid2ip(&av->sgid_addr, &sgid);
+	rdma_gid2ip(&av->dgid_addr, &attr->grh.dgid);
 
 	memset(&resp, 0, sizeof(resp));
 	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr, &resp, sizeof(resp))) {
@@ -828,7 +827,7 @@ static int rxe_destroy_ah(struct ibv_ah *ibah)
 	return 0;
 }
 
-static struct ibv_context_ops rxe_ctx_ops = {
+static const struct verbs_context_ops rxe_ctx_ops = {
 	.query_device = rxe_query_device,
 	.query_port = rxe_query_port,
 	.alloc_pd = rxe_alloc_pd,
@@ -838,7 +837,6 @@ static struct ibv_context_ops rxe_ctx_ops = {
 	.create_cq = rxe_create_cq,
 	.poll_cq = rxe_poll_cq,
 	.req_notify_cq = ibv_cmd_req_notify_cq,
-	.cq_event = NULL,
 	.resize_cq = rxe_resize_cq,
 	.destroy_cq = rxe_destroy_cq,
 	.create_srq = rxe_create_srq,
@@ -858,29 +856,27 @@ static struct ibv_context_ops rxe_ctx_ops = {
 	.detach_mcast = ibv_cmd_detach_mcast
 };
 
-static struct ibv_context *rxe_alloc_context(struct ibv_device *ibdev,
-					     int cmd_fd)
+static struct verbs_context *rxe_alloc_context(struct ibv_device *ibdev,
+					       int cmd_fd)
 {
 	struct rxe_context *context;
 	struct ibv_get_context cmd;
-	struct ibv_get_context_resp resp;
+	struct ib_uverbs_get_context_resp resp;
 
-	context = malloc(sizeof *context);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
 	if (!context)
 		return NULL;
-
-	memset(context, 0, sizeof *context);
-	context->ibv_ctx.cmd_fd = cmd_fd;
 
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd,
 				sizeof cmd, &resp, sizeof resp))
 		goto out;
 
-	context->ibv_ctx.ops = rxe_ctx_ops;
+	verbs_set_ops(&context->ibv_ctx, &rxe_ctx_ops);
 
 	return &context->ibv_ctx;
 
 out:
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
 }
@@ -889,6 +885,7 @@ static void rxe_free_context(struct ibv_context *ibctx)
 {
 	struct rxe_context *context = to_rctx(ibctx);
 
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }
 

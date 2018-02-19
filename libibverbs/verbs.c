@@ -269,11 +269,6 @@ LATEST_SYMVER_FUNC(ibv_rereg_mr, 1_1, "IBVERBS_1.1",
 		return IBV_REREG_MR_ERR_INPUT;
 	}
 
-	if (!mr->context->ops.rereg_mr) {
-		errno = ENOSYS;
-		return IBV_REREG_MR_ERR_INPUT;
-	}
-
 	if (flags & IBV_REREG_MR_CHANGE_TRANSLATION) {
 		err = ibv_dontfork_range(addr, length);
 		if (err)
@@ -320,32 +315,11 @@ LATEST_SYMVER_FUNC(ibv_dereg_mr, 1_1, "IBVERBS_1.1",
 	return ret;
 }
 
-static struct ibv_comp_channel *ibv_create_comp_channel_v2(struct ibv_context *context)
-{
-	struct ibv_abi_compat_v2 *t = context->abi_compat;
-	static int warned;
-
-	if (!pthread_mutex_trylock(&t->in_use))
-		return &t->channel;
-
-	if (!warned) {
-		fprintf(stderr, PFX "Warning: kernel's ABI version %d limits capacity.\n"
-			"    Only one completion channel can be created per context.\n",
-			abi_ver);
-		++warned;
-	}
-
-	return NULL;
-}
-
 struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 {
 	struct ibv_comp_channel            *channel;
 	struct ibv_create_comp_channel      cmd;
-	struct ibv_create_comp_channel_resp resp;
-
-	if (abi_ver <= 2)
-		return ibv_create_comp_channel_v2(context);
+	struct ib_uverbs_create_comp_channel_resp resp;
 
 	channel = malloc(sizeof *channel);
 	if (!channel)
@@ -366,13 +340,6 @@ struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 	return channel;
 }
 
-static int ibv_destroy_comp_channel_v2(struct ibv_comp_channel *channel)
-{
-	struct ibv_abi_compat_v2 *t = (struct ibv_abi_compat_v2 *) channel;
-	pthread_mutex_unlock(&t->in_use);
-	return 0;
-}
-
 int ibv_destroy_comp_channel(struct ibv_comp_channel *channel)
 {
 	struct ibv_context *context;
@@ -383,11 +350,6 @@ int ibv_destroy_comp_channel(struct ibv_comp_channel *channel)
 
 	if (channel->refcnt) {
 		ret = EBUSY;
-		goto out;
-	}
-
-	if (abi_ver <= 2) {
-		ret = ibv_destroy_comp_channel_v2(channel);
 		goto out;
 	}
 
@@ -420,9 +382,6 @@ LATEST_SYMVER_FUNC(ibv_resize_cq, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_cq *cq, int cqe)
 {
-	if (!cq->context->ops.resize_cq)
-		return ENOSYS;
-
 	return cq->context->ops.resize_cq(cq, cqe);
 }
 
@@ -451,7 +410,7 @@ LATEST_SYMVER_FUNC(ibv_get_cq_event, 1_1, "IBVERBS_1.1",
 		   struct ibv_comp_channel *channel,
 		   struct ibv_cq **cq, void **cq_context)
 {
-	struct ibv_comp_event ev;
+	struct ib_uverbs_comp_event_desc ev;
 
 	if (read(channel->fd, &ev, sizeof ev) != sizeof ev)
 		return -1;
@@ -459,8 +418,7 @@ LATEST_SYMVER_FUNC(ibv_get_cq_event, 1_1, "IBVERBS_1.1",
 	*cq         = (struct ibv_cq *) (uintptr_t) ev.cq_handle;
 	*cq_context = (*cq)->cq_context;
 
-	if ((*cq)->context->ops.cq_event)
-		(*cq)->context->ops.cq_event(*cq);
+	(*cq)->context->ops.cq_event(*cq);
 
 	return 0;
 }
@@ -481,9 +439,6 @@ LATEST_SYMVER_FUNC(ibv_create_srq, 1_1, "IBVERBS_1.1",
 		   struct ibv_srq_init_attr *srq_init_attr)
 {
 	struct ibv_srq *srq;
-
-	if (!pd->context->ops.create_srq)
-		return NULL;
 
 	srq = pd->context->ops.create_srq(pd, srq_init_attr);
 	if (srq) {

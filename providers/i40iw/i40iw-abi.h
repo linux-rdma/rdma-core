@@ -47,7 +47,7 @@ struct i40iw_get_context {
 };
 
 struct i40iw_ualloc_ucontext_resp {
-	struct ibv_get_context_resp ibv_resp;
+	struct ib_uverbs_get_context_resp ibv_resp;
 	__u32 max_pds;		/* maximum pds allowed for this user process */
 	__u32 max_qps;		/* maximum qps allowed for this user process */
 	__u32 wq_size;		/* defines the size of the WQs (sq+rq) allocated to the mmaped area */
@@ -56,7 +56,7 @@ struct i40iw_ualloc_ucontext_resp {
 };
 
 struct i40iw_ualloc_pd_resp {
-	struct ibv_alloc_pd_resp ibv_resp;
+	struct ib_uverbs_alloc_pd_resp ibv_resp;
 	__u32 pd_id;
 	__u8 reserved[4];
 };
@@ -67,7 +67,7 @@ struct i40iw_ucreate_cq {
 };
 
 struct i40iw_ucreate_cq_resp {
-	struct ibv_create_cq_resp ibv_resp;
+	struct ib_uverbs_create_cq_resp ibv_resp;
 	__u32 cq_id;
 	__u32 cq_size;
 	__u32 mmap_db_index;
@@ -95,7 +95,7 @@ struct i40iw_ucreate_qp {
 };
 
 struct i40iw_ucreate_qp_resp {
-	struct ibv_create_qp_resp ibv_resp;
+	struct ib_uverbs_create_qp_resp ibv_resp;
 	__u32 qp_id;
 	__u32 actual_sq_size;
 	__u32 actual_rq_size;

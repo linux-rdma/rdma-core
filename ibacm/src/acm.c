@@ -2017,7 +2017,7 @@ static int acm_assign_ep_names(struct acmc_ep *ep)
 		if (s[0] == '#')
 			continue;
 
-		if (sscanf(s, "%46s%32s%d%8s", name, dev, &port, pkey_str) != 4)
+		if (sscanf(s, "%46s%31s%d%7s", name, dev, &port, pkey_str) != 4)
 			continue;
 
 		acm_log(2, "%s", s);
@@ -2584,6 +2584,7 @@ static void acm_load_prov_config(void)
 				subnet = calloc(1, sizeof (*subnet));
 				if (!subnet) {
 					acm_log(0, "Error: out of memory\n");
+					fclose(fd);
 					return;
 				}
 				subnet->subnet_prefix = htobe64(prefix);
@@ -2934,7 +2935,7 @@ static void acm_set_options(void)
 		if (s[0] == '#')
 			continue;
 
-		if (sscanf(s, "%32s%256s", opt, value) != 2)
+		if (sscanf(s, "%31s%255s", opt, value) != 2)
 			continue;
 
 		if (!strcasecmp("log_file", opt))

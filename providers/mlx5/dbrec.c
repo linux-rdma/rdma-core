@@ -49,7 +49,7 @@ struct mlx5_db_page {
 static struct mlx5_db_page *__add_page(struct mlx5_context *context)
 {
 	struct mlx5_db_page *page;
-	int ps = to_mdev(context->ibv_ctx.device)->page_size;
+	int ps = to_mdev(context->ibv_ctx.context.device)->page_size;
 	int pp;
 	int i;
 	int nlong;
@@ -121,7 +121,7 @@ out:
 void mlx5_free_db(struct mlx5_context *context, __be32 *db)
 {
 	struct mlx5_db_page *page;
-	uintptr_t ps = to_mdev(context->ibv_ctx.device)->page_size;
+	uintptr_t ps = to_mdev(context->ibv_ctx.context.device)->page_size;
 	int i;
 
 	pthread_mutex_lock(&context->db_list_mutex);

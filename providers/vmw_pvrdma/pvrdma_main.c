@@ -51,7 +51,7 @@
 #define PCI_VENDOR_ID_VMWARE		0x15AD
 #define PCI_DEVICE_ID_VMWARE_PVRDMA	0x0820
 
-static struct ibv_context_ops pvrdma_ctx_ops = {
+static const struct verbs_context_ops pvrdma_ctx_ops = {
 	.query_device = pvrdma_query_device,
 	.query_port = pvrdma_query_port,
 	.alloc_pd = pvrdma_alloc_pd,
@@ -111,7 +111,7 @@ static int pvrdma_init_context_shared(struct pvrdma_context *context,
 	struct ibv_get_context cmd;
 	struct user_pvrdma_alloc_ucontext_resp resp;
 
-	context->ibv_ctx.cmd_fd = cmd_fd;
+	context->ibv_ctx.context.cmd_fd = cmd_fd;
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
 		return errno;
@@ -129,7 +129,8 @@ static int pvrdma_init_context_shared(struct pvrdma_context *context,
 	}
 
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
-	context->ibv_ctx.ops = pvrdma_ctx_ops;
+
+	verbs_set_ops(&context->ibv_ctx, &pvrdma_ctx_ops);
 
 	return 0;
 }
@@ -141,18 +142,17 @@ static void pvrdma_free_context_shared(struct pvrdma_context *context,
 	free(context->qp_tbl);
 }
 
-static struct ibv_context *pvrdma_alloc_context(struct ibv_device *ibdev,
-						int cmd_fd)
+static struct verbs_context *pvrdma_alloc_context(struct ibv_device *ibdev,
+						  int cmd_fd)
 {
 	struct pvrdma_context *context;
 
-	context = malloc(sizeof(*context));
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
 	if (!context)
 		return NULL;
 
-	memset(context, 0, sizeof(*context));
-
 	if (pvrdma_init_context_shared(context, ibdev, cmd_fd)) {
+		verbs_uninit_context(&context->ibv_ctx);
 		free(context);
 		return NULL;
 	}
@@ -165,6 +165,7 @@ static void pvrdma_free_context(struct ibv_context *ibctx)
 	struct pvrdma_context *context = to_vctx(ibctx);
 
 	pvrdma_free_context_shared(context, to_vdev(ibctx->device));
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }
 

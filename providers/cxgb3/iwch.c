@@ -75,7 +75,7 @@ static const struct verbs_match_ent hca_table[] = {
 	{},
 };
 
-static struct ibv_context_ops iwch_ctx_ops = {
+static const struct verbs_context_ops iwch_ctx_common_ops = {
 	.query_device = iwch_query_device,
 	.query_port = iwch_query_port,
 	.alloc_pd = iwch_alloc_pd,
@@ -100,46 +100,49 @@ static struct ibv_context_ops iwch_ctx_ops = {
 	.req_notify_cq = iwch_arm_cq,
 };
 
+static const struct verbs_context_ops iwch_ctx_t3a_ops = {
+	.poll_cq = t3a_poll_cq,
+	.post_recv = t3a_post_recv,
+	.post_send = t3a_post_send,
+};
+
+static const struct verbs_context_ops iwch_ctx_t3b_ops = {
+	.async_event = t3b_async_event,
+	.poll_cq = t3b_poll_cq,
+	.post_recv = t3b_post_recv,
+	.post_send = t3b_post_send,
+};
+
 unsigned long iwch_page_size;
 unsigned long iwch_page_shift;
 unsigned long iwch_page_mask;
 
-static struct ibv_context *iwch_alloc_context(struct ibv_device *ibdev,
-					      int cmd_fd)
+static struct verbs_context *iwch_alloc_context(struct ibv_device *ibdev,
+						int cmd_fd)
 {
 	struct iwch_context *context;
 	struct ibv_get_context cmd;
 	struct iwch_alloc_ucontext_resp resp;
 	struct iwch_device *rhp = to_iwch_dev(ibdev);
 
-	context = malloc(sizeof *context);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
 	if (!context)
 		return NULL;
-
-	memset(context, 0, sizeof *context);
-	context->ibv_ctx.cmd_fd = cmd_fd;
 
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof cmd,
 				&resp.ibv_resp, sizeof resp))
 		goto err_free;
 
-	context->ibv_ctx.device = ibdev;
-	context->ibv_ctx.ops = iwch_ctx_ops;
+	verbs_set_ops(&context->ibv_ctx, &iwch_ctx_common_ops);
 
 	switch (rhp->hca_type) {
 	case CHELSIO_T3B:
 		PDBG("%s T3B device\n", __FUNCTION__);
-		context->ibv_ctx.ops.async_event = t3b_async_event;
-		context->ibv_ctx.ops.post_send = t3b_post_send;
-		context->ibv_ctx.ops.post_recv = t3b_post_recv;
-		context->ibv_ctx.ops.poll_cq = t3b_poll_cq;
+		verbs_set_ops(&context->ibv_ctx, &iwch_ctx_t3b_ops);
 		break;
 	case CHELSIO_T3A:
 		PDBG("%s T3A device\n", __FUNCTION__);
-		context->ibv_ctx.ops.async_event = NULL;
-		context->ibv_ctx.ops.post_send = t3a_post_send;
-		context->ibv_ctx.ops.post_recv = t3a_post_recv;
-		context->ibv_ctx.ops.poll_cq = t3a_poll_cq;
+		verbs_set_ops(&context->ibv_ctx, &iwch_ctx_t3a_ops);
 		break;
 	default:
 		PDBG("%s unknown hca type %d\n", __FUNCTION__, rhp->hca_type);
@@ -150,6 +153,7 @@ static struct ibv_context *iwch_alloc_context(struct ibv_device *ibdev,
 	return &context->ibv_ctx;
 
 err_free:
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
 }
@@ -158,6 +162,7 @@ static void iwch_free_context(struct ibv_context *ibctx)
 {
 	struct iwch_context *context = to_iwch_ctx(ibctx);
 
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }
 

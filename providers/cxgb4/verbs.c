@@ -113,7 +113,7 @@ static struct ibv_mr *__c4iw_reg_mr(struct ibv_pd *pd, void *addr,
 {
 	struct c4iw_mr *mhp;
 	struct ibv_reg_mr cmd;
-	struct ibv_reg_mr_resp resp;
+	struct ib_uverbs_reg_mr_resp resp;
 	struct c4iw_dev *dev = to_c4iw_dev(pd->context->device);
 
 	mhp = malloc(sizeof *mhp);
@@ -245,7 +245,7 @@ int c4iw_resize_cq(struct ibv_cq *ibcq, int cqe)
 	int ret;
 
 	struct ibv_resize_cq cmd;
-	struct ibv_resize_cq_resp resp;
+	struct ib_uverbs_resize_cq_resp resp;
 	ret = ibv_cmd_resize_cq(ibcq, cqe, &cmd, sizeof cmd, &resp, sizeof resp);
 	PDBG("%s ret %d\n", __func__, ret);
 	return ret;

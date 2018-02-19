@@ -54,7 +54,7 @@ struct rxe_device {
 };
 
 struct rxe_context {
-	struct ibv_context	ibv_ctx;
+	struct verbs_context	ibv_ctx;
 };
 
 struct rxe_cq {
@@ -94,18 +94,16 @@ struct rxe_srq {
 	uint32_t		srq_num;
 };
 
-#define to_rxxx(xxx, type)						\
-	((struct rxe_##type *)					      \
-	 ((void *) ib##xxx - offsetof(struct rxe_##type, ibv_##xxx)))
+#define to_rxxx(xxx, type) container_of(ib##xxx, struct rxe_##type, ibv_##xxx)
 
 static inline struct rxe_context *to_rctx(struct ibv_context *ibctx)
 {
-	return to_rxxx(ctx, context);
+	return container_of(ibctx, struct rxe_context, ibv_ctx.context);
 }
 
 static inline struct rxe_device *to_rdev(struct ibv_device *ibdev)
 {
-	return to_rxxx(dev, device);
+	return container_of(ibdev, struct rxe_device, ibv_dev.device);
 }
 
 static inline struct rxe_cq *to_rcq(struct ibv_cq *ibcq)

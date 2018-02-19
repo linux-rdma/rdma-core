@@ -867,7 +867,7 @@ int ucma_complete(struct rdma_cm_id *id)
 		else if (id_priv->id.event->status < 0)
 			ret = ERR(-id_priv->id.event->status);
 		else
-			ret = ERR(-id_priv->id.event->status);
+			ret = ERR(id_priv->id.event->status);
 	}
 	return ret;
 }
@@ -993,7 +993,7 @@ static int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
 			     int *qp_attr_mask)
 {
 	struct ucma_abi_init_qp_attr cmd;
-	struct ibv_kern_qp_attr resp;
+	struct ib_uverbs_qp_attr resp;
 	struct cma_id_private *id_priv;
 	int ret;
 	

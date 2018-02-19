@@ -67,18 +67,6 @@ union ibv_gid {
 	} global;
 };
 
-#ifndef container_of
-/**
-  * container_of - cast a member of a structure out to the containing structure
-  * @ptr:        the pointer to the member.
-  * @type:       the type of the container struct this is embedded in.
-  * @member:     the name of the member within the struct.
-  *
- */
-#define container_of(ptr, type, member) \
-	((type *) ((uint8_t *)(ptr) - offsetof(type, member)))
-#endif
-
 #define vext_field_avail(type, fld, sz) (offsetof(type, fld) < (sz))
 
 #ifdef __cplusplus
@@ -156,7 +144,7 @@ struct ibv_device_attr {
 	uint32_t		hw_ver;
 	int			max_qp;
 	int			max_qp_wr;
-	int			device_cap_flags;
+	unsigned int		device_cap_flags;
 	int			max_sge;
 	int			max_sge_rd;
 	int			max_cq;
@@ -478,6 +466,7 @@ enum ibv_create_cq_wc_flags {
 	IBV_WC_EX_WITH_CVLAN		= 1 << 8,
 	IBV_WC_EX_WITH_FLOW_TAG		= 1 << 9,
 	IBV_WC_EX_WITH_TM_INFO		= 1 << 10,
+	IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK	= 1 << 11,
 };
 
 enum {
@@ -495,7 +484,8 @@ enum {
 				IBV_WC_EX_WITH_COMPLETION_TIMESTAMP |
 				IBV_WC_EX_WITH_CVLAN |
 				IBV_WC_EX_WITH_FLOW_TAG |
-				IBV_WC_EX_WITH_TM_INFO
+				IBV_WC_EX_WITH_TM_INFO |
+				IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK
 };
 
 enum ibv_wc_flags {
@@ -523,7 +513,7 @@ struct ibv_wc {
 	};
 	uint32_t		qp_num;
 	uint32_t		src_qp;
-	int			wc_flags;
+	unsigned int		wc_flags;
 	uint16_t		pkey_index;
 	uint16_t		slid;
 	uint8_t			sl;
@@ -544,12 +534,20 @@ struct ibv_mw_bind_info {
 	struct ibv_mr	*mr;
 	uint64_t	 addr;
 	uint64_t	 length;
-	int		 mw_access_flags; /* use ibv_access_flags */
+	unsigned int	 mw_access_flags; /* use ibv_access_flags */
 };
 
 struct ibv_pd {
 	struct ibv_context     *context;
 	uint32_t		handle;
+};
+
+struct ibv_td_init_attr {
+	uint32_t comp_mask;
+};
+
+struct ibv_td {
+	struct ibv_context     *context;
 };
 
 enum ibv_xrcd_init_attr_mask {
@@ -809,7 +807,8 @@ enum ibv_qp_type {
 	IBV_QPT_UD,
 	IBV_QPT_RAW_PACKET = 8,
 	IBV_QPT_XRC_SEND = 9,
-	IBV_QPT_XRC_RECV
+	IBV_QPT_XRC_RECV,
+	IBV_QPT_DRIVER = 0xff,
 };
 
 struct ibv_qp_cap {
@@ -950,7 +949,7 @@ struct ibv_qp_attr {
 	uint32_t		rq_psn;
 	uint32_t		sq_psn;
 	uint32_t		dest_qp_num;
-	int			qp_access_flags;
+	unsigned int		qp_access_flags;
 	struct ibv_qp_cap	cap;
 	struct ibv_ah_attr	ah_attr;
 	struct ibv_ah_attr	alt_ah_attr;
@@ -1004,7 +1003,7 @@ struct ibv_send_wr {
 	struct ibv_sge	       *sg_list;
 	int			num_sge;
 	enum ibv_wr_opcode	opcode;
-	int			send_flags;
+	unsigned int		send_flags;
 	/* When opcode is *_WITH_IMM: Immediate data in network byte order.
 	 * When opcode is *_INV: Stores the rkey to invalidate
 	 */
@@ -1086,7 +1085,7 @@ struct ibv_ops_wr {
 
 struct ibv_mw_bind {
 	uint64_t		wr_id;
-	int			send_flags;
+	unsigned int		send_flags;
 	struct ibv_mw_bind_info bind_info;
 };
 
@@ -1200,7 +1199,7 @@ struct ibv_cq_ex {
 	__be32 (*read_imm_data)(struct ibv_cq_ex *current);
 	uint32_t (*read_qp_num)(struct ibv_cq_ex *current);
 	uint32_t (*read_src_qp)(struct ibv_cq_ex *current);
-	int (*read_wc_flags)(struct ibv_cq_ex *current);
+	unsigned int (*read_wc_flags)(struct ibv_cq_ex *current);
 	uint32_t (*read_slid)(struct ibv_cq_ex *current);
 	uint8_t (*read_sl)(struct ibv_cq_ex *current);
 	uint8_t (*read_dlid_path_bits)(struct ibv_cq_ex *current);
@@ -1209,6 +1208,7 @@ struct ibv_cq_ex {
 	uint32_t (*read_flow_tag)(struct ibv_cq_ex *current);
 	void (*read_tm_info)(struct ibv_cq_ex *current,
 			     struct ibv_wc_tm_info *tm_info);
+	uint64_t (*read_completion_wallclock_ns)(struct ibv_cq_ex *current);
 };
 
 static inline struct ibv_cq *ibv_cq_ex_to_cq(struct ibv_cq_ex *cq)
@@ -1286,7 +1286,7 @@ static inline uint32_t ibv_wc_read_src_qp(struct ibv_cq_ex *cq)
 	return cq->read_src_qp(cq);
 }
 
-static inline int ibv_wc_read_wc_flags(struct ibv_cq_ex *cq)
+static inline unsigned int ibv_wc_read_wc_flags(struct ibv_cq_ex *cq)
 {
 	return cq->read_wc_flags(cq);
 }
@@ -1309,6 +1309,11 @@ static inline uint8_t ibv_wc_read_dlid_path_bits(struct ibv_cq_ex *cq)
 static inline uint64_t ibv_wc_read_completion_ts(struct ibv_cq_ex *cq)
 {
 	return cq->read_completion_ts(cq);
+}
+
+static inline uint64_t ibv_wc_read_completion_wallclock_ns(struct ibv_cq_ex *cq)
+{
+	return cq->read_completion_wallclock_ns(cq);
 }
 
 static inline uint16_t ibv_wc_read_cvlan(struct ibv_cq_ex *cq)
@@ -1636,6 +1641,12 @@ struct ibv_cq_init_attr_ex {
 	uint32_t		flags;
 };
 
+struct ibv_parent_domain_init_attr {
+	struct ibv_pd *pd; /* referance to a protection domain object, can't be NULL */
+	struct ibv_td *td; /* referance to a thread domain object, or NULL */
+	uint32_t comp_mask;
+};
+
 enum ibv_values_mask {
 	IBV_VALUES_MASK_RAW_CLOCK	= 1 << 0,
 	IBV_VALUES_MASK_RESERVED	= 1 << 1
@@ -1646,17 +1657,12 @@ struct ibv_values_ex {
 	struct timespec raw_clock;
 };
 
-enum verbs_context_mask {
-	VERBS_CONTEXT_XRCD	= 1 << 0,
-	VERBS_CONTEXT_SRQ	= 1 << 1,
-	VERBS_CONTEXT_QP	= 1 << 2,
-	VERBS_CONTEXT_CREATE_FLOW = 1 << 3,
-	VERBS_CONTEXT_DESTROY_FLOW = 1 << 4,
-	VERBS_CONTEXT_RESERVED	= 1 << 5
-};
-
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	struct ibv_pd *(*alloc_parent_domain)(struct ibv_context *context,
+					      struct ibv_parent_domain_init_attr *attr);
+	int (*dealloc_td)(struct ibv_td *td);
+	struct ibv_td *(*alloc_td)(struct ibv_context *context, struct ibv_td_init_attr *init_attr);
 	int (*modify_cq)(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 	int (*post_srq_ops)(struct ibv_srq *srq,
 			    struct ibv_ops_wr *op,
@@ -1692,26 +1698,26 @@ struct verbs_context {
 	struct ibv_xrcd *	(*open_xrcd)(struct ibv_context *context,
 					     struct ibv_xrcd_init_attr *xrcd_init_attr);
 	int			(*close_xrcd)(struct ibv_xrcd *xrcd);
-	uint64_t has_comp_mask;
+	uint64_t _ABI_placeholder3;
 	size_t   sz;			/* Must be immediately before struct ibv_context */
 	struct ibv_context context;	/* Must be last field in the struct */
 };
 
 static inline struct verbs_context *verbs_get_ctx(struct ibv_context *ctx)
 {
-	return (ctx->abi_compat != __VERBS_ABI_IS_EXTENDED) ?
-		NULL : container_of(ctx, struct verbs_context, context);
+	if (ctx->abi_compat != __VERBS_ABI_IS_EXTENDED)
+		return NULL;
+
+	/* open code container_of to not pollute the global namespace */
+	return (struct verbs_context *)(((uint8_t *)ctx) -
+					offsetof(struct verbs_context,
+						 context));
 }
 
 #define verbs_get_ctx_op(ctx, op) ({ \
 	struct verbs_context *__vctx = verbs_get_ctx(ctx); \
 	(!__vctx || (__vctx->sz < sizeof(*__vctx) - offsetof(struct verbs_context, op)) || \
 	 !__vctx->op) ? NULL : __vctx; })
-
-#define verbs_set_ctx_op(_vctx, op, ptr) ({ \
-	struct verbs_context *vctx = _vctx; \
-	if (vctx && (vctx->sz >= sizeof(*vctx) - offsetof(struct verbs_context, op))) \
-		vctx->op = ptr; })
 
 /**
  * ibv_get_device_list - Get list of IB devices currently available
@@ -1828,7 +1834,7 @@ static inline struct ibv_flow *ibv_create_flow(struct ibv_qp *qp,
 {
 	struct verbs_context *vctx = verbs_get_ctx_op(qp->context,
 						      ibv_create_flow);
-	if (!vctx || !vctx->ibv_create_flow) {
+	if (!vctx) {
 		errno = ENOSYS;
 		return NULL;
 	}
@@ -1840,7 +1846,7 @@ static inline int ibv_destroy_flow(struct ibv_flow *flow_id)
 {
 	struct verbs_context *vctx = verbs_get_ctx_op(flow_id->context,
 						      ibv_destroy_flow);
-	if (!vctx || !vctx->ibv_destroy_flow)
+	if (!vctx)
 		return -ENOSYS;
 	return vctx->ibv_destroy_flow(flow_id);
 }
@@ -1985,11 +1991,6 @@ struct ibv_cq_ex *ibv_create_cq_ex(struct ibv_context *context,
 
 	if (!vctx) {
 		errno = ENOSYS;
-		return NULL;
-	}
-
-	if (cq_attr->comp_mask & ~(IBV_CQ_INIT_ATTR_MASK_RESERVED - 1)) {
-		errno = EINVAL;
 		return NULL;
 	}
 
@@ -2207,6 +2208,55 @@ ibv_create_qp_ex(struct ibv_context *context, struct ibv_qp_init_attr_ex *qp_ini
 }
 
 /**
+ * ibv_alloc_td - Allocate a thread domain
+ */
+static inline struct ibv_td *ibv_alloc_td(struct ibv_context *context,
+					  struct ibv_td_init_attr *init_attr)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(context, alloc_td);
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+
+	return vctx->alloc_td(context, init_attr);
+}
+
+/**
+ * ibv_dealloc_td - Free a thread domain
+ */
+static inline int ibv_dealloc_td(struct ibv_td *td)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(td->context, dealloc_td);
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->dealloc_td(td);
+}
+
+/**
+ * ibv_alloc_parent_domain - Allocate a parent domain
+ */
+static inline struct ibv_pd *
+ibv_alloc_parent_domain(struct ibv_context *context,
+			struct ibv_parent_domain_init_attr *attr)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(context, alloc_parent_domain);
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+
+	return vctx->alloc_parent_domain(context, attr);
+}
+
+/**
  * ibv_query_rt_values_ex - Get current real time @values of a device.
  * @values - in/out - defines the attributes we need to query/queried.
  * (Or's bits of enum ibv_values_mask on values->comp_mask field)
@@ -2220,9 +2270,6 @@ ibv_query_rt_values_ex(struct ibv_context *context,
 	vctx = verbs_get_ctx_op(context, query_rt_values);
 	if (!vctx)
 		return ENOSYS;
-
-	if (values->comp_mask & ~(IBV_VALUES_MASK_RESERVED - 1))
-		return EINVAL;
 
 	return vctx->query_rt_values(context, values);
 }

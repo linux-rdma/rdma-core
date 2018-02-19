@@ -50,6 +50,7 @@
 #include <byteswap.h>
 #include <util/compiler.h>
 #include <util/util.h>
+#include <ccan/container_of.h>
 
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_verbs.h>

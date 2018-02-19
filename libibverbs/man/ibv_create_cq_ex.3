@@ -40,9 +40,10 @@ enum ibv_wc_flags_ex {
         IBV_WC_EX_WITH_SLID                  = 1 << 4,  /* Require slid in WC */
         IBV_WC_EX_WITH_SL                    = 1 << 5,  /* Require sl in WC */
         IBV_WC_EX_WITH_DLID_PATH_BITS        = 1 << 6,  /* Require dlid path bits in WC */
-        IBV_WC_EX_WITH_COMPLETION_TIMESTAMP  = 1 << 7,  /* Require completion timestamp in WC /*
+        IBV_WC_EX_WITH_COMPLETION_TIMESTAMP  = 1 << 7,  /* Require completion device timestamp in WC /*
         IBV_WC_EX_WITH_CVLAN                 = 1 << 8,  /* Require VLAN info in WC */
         IBV_WC_EX_WITH_FLOW_TAG		     = 1 << 9,  /* Require flow tag in WC */
+        IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK  = 1 << 11, /* Require completion wallclock timestamp in WC */
 };
 
 enum ibv_cq_init_attr_mask {
@@ -132,7 +133,11 @@ Below members and functions are used in order to poll the current completion. Th
  Get the dlid_path_bits field from the current completion.
 
 .BI "uint64_t ibv_wc_read_completion_ts(struct ibv_cq_ex " "*cq"); \c
- Get the completion timestamp from the current completion.
+ Get the completion timestamp from the current completion in HCA clock units.
+
+.BI "uint64_t ibv_wc_read_completion_wallclock_ns(struct ibv_cq_ex " *cq ");
+Get the completion timestamp from the current completion and convert it
+from HCA clock units to wall clock nanoseconds.
 
 .BI "uint16_t ibv_wc_read_cvlan(struct ibv_cq_ex " "*cq"); \c
  Get the CVLAN field from the current completion.

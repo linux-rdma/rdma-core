@@ -151,32 +151,6 @@ Description: Library for direct userspace use of RDMA (InfiniBand/iWARP)
  .
  This package contains the shared library.
 
-Package: libibcm-dev
-Section: libdevel
-Architecture: linux-any
-Multi-Arch: same
-Depends: libibcm1 (= ${binary:Version}), libibverbs-dev, ${misc:Depends}
-Description: Development files for the libibcm library
- libibcm provides a userspace implementation of an InfiniBand
- Communication Manager (CM). The CM handles both connection
- establishment as well as service ID resolution.
- .
- This package is needed to compile programs against libibcm1.
- It contains the header files and static libraries (optionally)
- needed for compiling.
-
-Package: libibcm1
-Architecture: linux-any
-Multi-Arch: same
-Section: libs
-Depends: ${misc:Depends}, ${shlibs:Depends}
-Description: InfiniBand Communication Manager (CM) library
- libibcm provides a userspace implementation of an InfiniBand
- Communication Manager (CM). The CM handles both connection
- establishment as well as service ID resolution.
- .
- This package contains the shared library.
-
 Package: libibumad-dev
 Section: libdevel
 Architecture: linux-any

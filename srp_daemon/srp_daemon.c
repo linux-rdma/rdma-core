@@ -2073,12 +2073,6 @@ static int ibsrpdm(int argc, char *argv[])
 	if (ret)
 		pr_err("Querying SRP targets failed\n");
 
-	assert(res->sync_res);
-	pthread_mutex_lock(&res->sync_res->retry_mutex);
-	res->sync_res->stop_threads = 1;
-	pthread_cond_signal(&res->sync_res->retry_cond);
-	pthread_mutex_unlock(&res->sync_res->retry_mutex);
-
 	free_res(res);
 umad_done:
 	umad_done();
@@ -2214,7 +2208,7 @@ catas_start:
 			if (res->ud_res->ah) {
 				if (register_to_traps(res, 1))
 					pr_err("Fail to register to traps, maybe there "
-					       "is no opensm running on fabric or IB port is down\n");
+					       "is no SM running on fabric or IB port is down\n");
 				else
 					subscribed = 1;
 			}
@@ -2348,7 +2342,7 @@ static int recalc(struct resources *res)
 
 	umad_res->sm_lid = strtol(val, NULL, 0);
 	if (umad_res->sm_lid == 0) {
-		pr_err("SM LID is 0, maybe no opensm is running\n");
+		pr_err("SM LID is 0, maybe no SM is running\n");
 		return -1;
 	}
 

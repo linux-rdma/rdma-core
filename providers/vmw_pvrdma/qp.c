@@ -108,12 +108,12 @@ struct ibv_srq *pvrdma_create_srq(struct ibv_pd *pd,
 {
 	struct pvrdma_device *dev = to_vdev(pd->context->device);
 	struct user_pvrdma_create_srq cmd;
-	struct ibv_create_srq_resp resp;
+	struct user_pvrdma_create_srq_resp resp;
 	struct pvrdma_srq *srq;
 	int ret;
 
 	attr->attr.max_wr = align_next_power2(max_t(uint32_t, 1U, attr->attr.max_wr));
-	attr->attr.max_sge = align_next_power2(max_t(uint32_t, 1U, attr->attr.max_sge));
+	attr->attr.max_sge = max_t(uint32_t, 1U, attr->attr.max_sge);
 
 	srq = malloc(sizeof(*srq));
 	if (!srq)
@@ -142,12 +142,12 @@ struct ibv_srq *pvrdma_create_srq(struct ibv_pd *pd,
 
 	ret = ibv_cmd_create_srq(pd, &srq->ibv_srq, attr,
 				 &cmd.ibv_cmd, sizeof(cmd),
-				 &resp, sizeof(resp));
+				 &resp.ibv_resp, sizeof(resp));
 
 	if (ret)
 		goto err_free;
 
-	srq->srqn = resp.srqn;
+	srq->srqn = resp.udata.srqn;
 
 	return &srq->ibv_srq;
 
@@ -211,19 +211,17 @@ struct ibv_qp *pvrdma_create_qp(struct ibv_pd *pd,
 {
 	struct pvrdma_device *dev = to_vdev(pd->context->device);
 	struct user_pvrdma_create_qp cmd;
-	struct ibv_create_qp_resp resp;
+	struct ib_uverbs_create_qp_resp resp;
 	struct pvrdma_qp *qp;
 	int ret;
 	int is_srq = !!(attr->srq);
 
-	attr->cap.max_send_sge =
-		align_next_power2(max_t(uint32_t, 1U, attr->cap.max_send_sge));
+	attr->cap.max_send_sge = max_t(uint32_t, 1U, attr->cap.max_send_sge);
 	attr->cap.max_send_wr =
 		align_next_power2(max_t(uint32_t, 1U, attr->cap.max_send_wr));
 
 	if (!is_srq) {
-		attr->cap.max_recv_sge =
-			align_next_power2(max_t(uint32_t, 1U, attr->cap.max_recv_sge));
+		attr->cap.max_recv_sge = max_t(uint32_t, 1U, attr->cap.max_recv_sge);
 		attr->cap.max_recv_wr =
 			align_next_power2(max_t(uint32_t, 1U, attr->cap.max_recv_wr));
 	} else {

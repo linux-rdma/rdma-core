@@ -97,7 +97,7 @@ struct mthca_device {
 struct mthca_db_table;
 
 struct mthca_context {
-	struct ibv_context     ibv_ctx;
+	struct verbs_context     ibv_ctx;
 	void                  *uar;
 	pthread_spinlock_t     uar_lock;
 	struct mthca_db_table *db_tab;
@@ -220,18 +220,16 @@ static inline uintptr_t db_align(__be32 *db)
 	return (uintptr_t) db & ~((uintptr_t) MTHCA_DB_REC_PAGE_SIZE - 1);
 }
 
-#define to_mxxx(xxx, type)						\
-	((struct mthca_##type *)					\
-	 ((void *) ib##xxx - offsetof(struct mthca_##type, ibv_##xxx)))
+#define to_mxxx(xxx, type) container_of(ib##xxx, struct mthca_##type, ibv_##xxx)
 
 static inline struct mthca_device *to_mdev(struct ibv_device *ibdev)
 {
-	return to_mxxx(dev, device);
+	return container_of(ibdev, struct mthca_device, ibv_dev.device);
 }
 
 static inline struct mthca_context *to_mctx(struct ibv_context *ibctx)
 {
-	return to_mxxx(ctx, context);
+	return container_of(ibctx, struct mthca_context, ibv_ctx.context);
 }
 
 static inline struct mthca_pd *to_mpd(struct ibv_pd *ibpd)

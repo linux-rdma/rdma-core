@@ -1,0 +1,74 @@
+.\" -*- nroff -*-
+.\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+.\"
+.TH IBV_ALLOC_PARENT_DOMAIN 3 2017-11-06 libibverbs "Libibverbs Programmer's Manual"
+.SH "NAME"
+ibv_alloc_parent_domain(), ibv_dealloc_pd() \- allocate and deallocate the parent domain object
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/verbs.h>
+.sp
+.BI "struct ibv_pd *ibv_alloc_parent_domain(struct ibv_context "*context" ", struct ibv_domain_init_attr " "*attr");
+.sp
+.SH "DESCRIPTION"
+.B ibv_alloc_parent_domain()
+allocates a parent domain object for the RDMA device context
+.I context\fR.
+.sp
+The parent domain object extends the normal protection domain with additional
+objects, such as a thread domain.
+.sp
+A parent domain is completely interchangable with the
+.I
+struct ibv_pd
+used to create it, and can be used as an input argument to any function accepting a
+.I
+struct ibv_pd.
+.sp
+The behavior of each verb may be different if the verb is passed a parent
+domain
+.I
+struct ibv_pd
+that contains a
+.I
+struct ibv_td pointer\fR.
+For instance the verb my choose to share resources
+between objects using the same thread domain. The exact behavior is provider
+dependent.
+.sp
+The
+.I attr
+argument specifies the following:
+.PP
+.nf
+struct ibv_parent_domain_init_attr {
+.in +8
+struct ibv_pd *pd; /* referance to a protection domain, can't be NULL */
+struct ibv_td *td; /* referance to a thread domain, or NULL */
+uint32_t comp_mask;
+.in -8
+};
+.fi
+.PP
+.sp
+.B ibv_dealloc_pd()
+will deallocate the parent domain as its exposed as an ibv_pd
+.I pd\fR.
+All resources created with the parent domain
+should be destroyed prior to deallocating the parent domain\fR.
+.SH "RETURN VALUE"
+.B ibv_alloc_parent_domain()
+returns a pointer to the allocated struct
+.I ibv_pd
+object, or NULL if the request fails (and sets errno to indicate the failure reason).
+.sp
+.SH "SEE ALSO"
+.BR ibv_alloc_parent_domain (3),
+.BR ibv_dealloc_pd (3),
+.BR ibv_alloc_pd (3),
+.BR ibv_alloc_td (3)
+.SH "AUTHORS"
+.TP
+Alex Rosenbaum <alexr@mellanox.com>
+.TP
+Yishai Hadas <yishaih@mellanox.com>

@@ -94,7 +94,7 @@ struct hns_roce_buf {
 };
 
 struct hns_roce_context {
-	struct ibv_context		ibv_ctx;
+	struct verbs_context		ibv_ctx;
 	void				*uar;
 	pthread_spinlock_t		uar_lock;
 
@@ -216,12 +216,12 @@ static inline unsigned long align(unsigned long val, unsigned long align)
 
 static inline struct hns_roce_device *to_hr_dev(struct ibv_device *ibv_dev)
 {
-	return container_of(ibv_dev, struct hns_roce_device, ibv_dev);
+	return container_of(ibv_dev, struct hns_roce_device, ibv_dev.device);
 }
 
 static inline struct hns_roce_context *to_hr_ctx(struct ibv_context *ibv_ctx)
 {
-	return container_of(ibv_ctx, struct hns_roce_context, ibv_ctx);
+	return container_of(ibv_ctx, struct hns_roce_context, ibv_ctx.context);
 }
 
 static inline struct hns_roce_pd *to_hr_pd(struct ibv_pd *ibv_pd)

@@ -89,7 +89,7 @@ static const struct verbs_match_ent hca_table[] = {
 	{}
 };
 
-static struct ibv_context_ops mthca_ctx_ops = {
+static const struct verbs_context_ops mthca_ctx_common_ops = {
 	.query_device  = mthca_query_device,
 	.query_port    = mthca_query_port,
 	.alloc_pd      = mthca_alloc_pd,
@@ -114,18 +114,32 @@ static struct ibv_context_ops mthca_ctx_ops = {
 	.detach_mcast  = ibv_cmd_detach_mcast
 };
 
-static struct ibv_context *mthca_alloc_context(struct ibv_device *ibdev, int cmd_fd)
+static const struct verbs_context_ops mthca_ctx_arbel_ops = {
+	.cq_event = mthca_arbel_cq_event,
+	.post_recv = mthca_arbel_post_recv,
+	.post_send = mthca_arbel_post_send,
+	.post_srq_recv = mthca_arbel_post_srq_recv,
+	.req_notify_cq = mthca_arbel_arm_cq,
+};
+
+static const struct verbs_context_ops mthca_ctx_tavor_ops = {
+	.post_recv = mthca_tavor_post_recv,
+	.post_send = mthca_tavor_post_send,
+	.post_srq_recv = mthca_tavor_post_srq_recv,
+	.req_notify_cq = mthca_tavor_arm_cq,
+};
+
+static struct verbs_context *mthca_alloc_context(struct ibv_device *ibdev,
+						 int cmd_fd)
 {
 	struct mthca_context            *context;
 	struct ibv_get_context           cmd;
 	struct mthca_alloc_ucontext_resp resp;
 	int                              i;
 
-	context = calloc(1, sizeof *context);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
 	if (!context)
 		return NULL;
-
-	context->ibv_ctx.cmd_fd = cmd_fd;
 
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof cmd,
 				&resp.ibv_resp, sizeof resp))
@@ -135,13 +149,7 @@ static struct ibv_context *mthca_alloc_context(struct ibv_device *ibdev, int cmd
 	context->qp_table_shift = ffs(context->num_qps) - 1 - MTHCA_QP_TABLE_BITS;
 	context->qp_table_mask  = (1 << context->qp_table_shift) - 1;
 
-	/*
-	 * Need to set ibv_ctx.device because mthca_is_memfree() will
-	 * look at it to figure out the HCA type.
-	 */
-	context->ibv_ctx.device = ibdev;
-
-	if (mthca_is_memfree(&context->ibv_ctx)) {
+	if (mthca_is_memfree(&context->ibv_ctx.context)) {
 		context->db_tab = mthca_alloc_db_tab(resp.uarc_size);
 		if (!context->db_tab)
 			goto err_free;
@@ -159,27 +167,17 @@ static struct ibv_context *mthca_alloc_context(struct ibv_device *ibdev, int cmd
 
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
 
-	context->pd = mthca_alloc_pd(&context->ibv_ctx);
+	context->pd = mthca_alloc_pd(&context->ibv_ctx.context);
 	if (!context->pd)
 		goto err_unmap;
 
-	context->pd->context = &context->ibv_ctx;
+	context->pd->context = &context->ibv_ctx.context;
 
-	context->ibv_ctx.ops = mthca_ctx_ops;
-
-	if (mthca_is_memfree(&context->ibv_ctx)) {
-		context->ibv_ctx.ops.req_notify_cq = mthca_arbel_arm_cq;
-		context->ibv_ctx.ops.cq_event      = mthca_arbel_cq_event;
-		context->ibv_ctx.ops.post_send     = mthca_arbel_post_send;
-		context->ibv_ctx.ops.post_recv     = mthca_arbel_post_recv;
-		context->ibv_ctx.ops.post_srq_recv = mthca_arbel_post_srq_recv;
-	} else {
-		context->ibv_ctx.ops.req_notify_cq = mthca_tavor_arm_cq;
-		context->ibv_ctx.ops.cq_event      = NULL;
-		context->ibv_ctx.ops.post_send     = mthca_tavor_post_send;
-		context->ibv_ctx.ops.post_recv     = mthca_tavor_post_recv;
-		context->ibv_ctx.ops.post_srq_recv = mthca_tavor_post_srq_recv;
-	}
+	verbs_set_ops(&context->ibv_ctx, &mthca_ctx_common_ops);
+	if (mthca_is_memfree(&context->ibv_ctx.context))
+		verbs_set_ops(&context->ibv_ctx, &mthca_ctx_arbel_ops);
+	else
+		verbs_set_ops(&context->ibv_ctx, &mthca_ctx_tavor_ops);
 
 	return &context->ibv_ctx;
 
@@ -190,6 +188,7 @@ err_db_tab:
 	mthca_free_db_tab(context->db_tab);
 
 err_free:
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
 }
@@ -201,6 +200,8 @@ static void mthca_free_context(struct ibv_context *ibctx)
 	mthca_free_pd(context->pd);
 	munmap(context->uar, to_mdev(ibctx->device)->page_size);
 	mthca_free_db_tab(context->db_tab);
+
+	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }
 

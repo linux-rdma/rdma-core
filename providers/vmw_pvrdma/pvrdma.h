@@ -58,8 +58,6 @@
 #include <ccan/minmax.h>
 #include <util/compiler.h>
 
-#define BIT(nr) (1UL << (nr))
-
 #include "pvrdma-abi-fix.h"
 #include "pvrdma_ring.h"
 
@@ -105,7 +103,7 @@ struct pvrdma_device {
 };
 
 struct pvrdma_context {
-	struct ibv_context		ibv_ctx;
+	struct verbs_context		ibv_ctx;
 	void				*uar;
 	pthread_spinlock_t		uar_lock;
 	int				max_qp_wr;
@@ -196,12 +194,12 @@ static inline int align_next_power2(int size)
 
 static inline struct pvrdma_device *to_vdev(struct ibv_device *ibdev)
 {
-	return container_of(ibdev, struct pvrdma_device, ibv_dev);
+	return container_of(ibdev, struct pvrdma_device, ibv_dev.device);
 }
 
 static inline struct pvrdma_context *to_vctx(struct ibv_context *ibctx)
 {
-	return container_of(ibctx, struct pvrdma_context, ibv_ctx);
+	return container_of(ibctx, struct pvrdma_context, ibv_ctx.context);
 }
 
 static inline struct pvrdma_pd *to_vpd(struct ibv_pd *ibpd)

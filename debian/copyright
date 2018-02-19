@@ -77,12 +77,6 @@ Files: iwpmd/*
 Copyright: 2013-2016, Intel Corporation.
 License: BSD-MIT or GPL-2
 
-Files: libibcm/*
-Copyright: 2004-2006, Intel Corporation.
-           2004-2005, Topspin Communications.
-           2004, Voltaire Corporation.
-License: BSD-MIT or GPL-2
-
 Files: libibumad/*
 Copyright: 2004-2017, Mellanox Technologies Ltd.
            2004, Infinicon Corporation.

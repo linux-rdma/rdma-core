@@ -48,7 +48,7 @@ struct nes_get_context {
 
 
 struct nes_ualloc_ucontext_resp {
-	struct ibv_get_context_resp ibv_resp;
+	struct ib_uverbs_get_context_resp ibv_resp;
 	__u32 max_pds; 	/* maximum pds allowed for this user process */
 	__u32 max_qps; 	/* maximum qps allowed for this user process */
 	__u32 wq_size; 	/* defines the size of the WQs (sq+rq) allocated to the mmaped area */
@@ -58,7 +58,7 @@ struct nes_ualloc_ucontext_resp {
 };
 
 struct nes_ualloc_pd_resp {
-	struct ibv_alloc_pd_resp ibv_resp;
+	struct ib_uverbs_alloc_pd_resp ibv_resp;
 	__u32 pd_id;
 	__u32 db_index;
 };
@@ -71,7 +71,7 @@ struct nes_ucreate_cq {
 };
 
 struct nes_ucreate_cq_resp {
-	struct ibv_create_cq_resp ibv_resp;
+	struct ib_uverbs_create_cq_resp ibv_resp;
 	__u32 cq_id;
 	__u32 cq_size;
 	__u32 mmap_db_index;
@@ -97,7 +97,7 @@ struct nes_ucreate_qp {
 };
 
 struct nes_ucreate_qp_resp {
-	struct ibv_create_qp_resp ibv_resp;
+	struct ib_uverbs_create_qp_resp ibv_resp;
 	__u32 qp_id;
 	__u32 actual_sq_size;
 	__u32 actual_rq_size;

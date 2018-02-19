@@ -58,7 +58,9 @@ enum {
 
 enum {
 	MLX5_MMAP_GET_CONTIGUOUS_PAGES_CMD = 1,
-	MLX5_MMAP_GET_CORE_CLOCK_CMD    = 5
+	MLX5_MMAP_GET_CORE_CLOCK_CMD    = 5,
+	MLX5_MMAP_ALLOC_WC		= 6,
+	MLX5_MMAP_GET_CLOCK_INFO_CMD    = 7,
 };
 
 enum {
@@ -222,6 +224,7 @@ struct mlx5_spinlock {
 enum mlx5_uar_type {
 	MLX5_UAR_TYPE_REGULAR,
 	MLX5_UAR_TYPE_NC,
+	MLX5_UAR_TYPE_REGULAR_DYN,
 };
 
 struct mlx5_uar_info {
@@ -230,7 +233,7 @@ struct mlx5_uar_info {
 };
 
 struct mlx5_context {
-	struct ibv_context		ibv_ctx;
+	struct verbs_context		ibv_ctx;
 	int				max_num_qps;
 	int				bf_reg_size;
 	int				tot_uuars;
@@ -278,13 +281,14 @@ struct mlx5_context {
 	struct list_head                hugetlb_list;
 	int				cqe_version;
 	uint8_t				cached_link_layer[MLX5_MAX_PORTS_NUM];
-	int				cached_device_cap_flags;
+	unsigned int			cached_device_cap_flags;
 	enum ibv_atomic_cap		atomic_cap;
 	struct {
 		uint64_t                offset;
 		uint64_t                mask;
 	} core_clock;
 	void			       *hca_core_clock;
+	const struct mlx5_ib_clock_info *clock_info_page;
 	struct ibv_tso_caps		cached_tso_caps;
 	int				cmds_supp_uhw;
 	uint32_t			uar_size;
@@ -294,6 +298,10 @@ struct mlx5_context {
 	struct mlx5dv_sw_parsing_caps	sw_parsing_caps;
 	struct mlx5dv_striding_rq_caps	striding_rq_caps;
 	uint32_t			tunnel_offloads_caps;
+	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
+	uint32_t			num_dyn_bfregs;
+	uint32_t			*count_dyn_bfregs;
+	uint32_t			start_dyn_bfregs_index;
 };
 
 struct mlx5_bitmap {
@@ -320,9 +328,22 @@ struct mlx5_buf {
 	enum mlx5_alloc_type		type;
 };
 
+struct mlx5_td {
+	struct ibv_td			ibv_td;
+	struct mlx5_bf			*bf;
+	atomic_int			refcount;
+};
+
 struct mlx5_pd {
 	struct ibv_pd			ibv_pd;
 	uint32_t			pdn;
+	atomic_int			refcount;
+	struct mlx5_pd			*mprotection_domain;
+};
+
+struct mlx5_parent_domain {
+	struct mlx5_pd mpd;
+	struct mlx5_td *mtd;
 };
 
 enum {
@@ -366,6 +387,7 @@ struct mlx5_cq {
 	struct mlx5_cqe64		*cqe64;
 	uint32_t			flags;
 	int			umr_opcode;
+	struct mlx5dv_clock_info	last_clock_info;
 };
 
 struct mlx5_tag_entry {
@@ -450,6 +472,10 @@ struct mlx5_bf {
 	unsigned			buf_size;
 	unsigned			uuarn;
 	off_t				uar_mmap_offset;
+	/* The virtual address of the mmaped uar, applicable for the dynamic use case */
+	void				*uar;
+	/* Index in the dynamic bfregs portion */
+	uint32_t			bfreg_dyn_index;
 };
 
 struct mlx5_mr {
@@ -488,6 +514,7 @@ struct mlx5_qp {
 	uint16_t			max_tso_header;
 	int                             rss_qp;
 	uint32_t			flags; /* Use enum mlx5_qp_flags */
+	enum mlx5dv_dc_type		dc_type;
 };
 
 struct mlx5_ah {
@@ -539,31 +566,44 @@ static inline unsigned long align(unsigned long val, unsigned long align)
 	return (val + align - 1) & ~(align - 1);
 }
 
-#define to_mxxx(xxx, type)						\
-	((struct mlx5_##type *)					\
-	 ((void *) ib##xxx - offsetof(struct mlx5_##type, ibv_##xxx)))
+#define to_mxxx(xxx, type) container_of(ib##xxx, struct mlx5_##type, ibv_##xxx)
 
 static inline struct mlx5_device *to_mdev(struct ibv_device *ibdev)
 {
-	struct mlx5_device *ret;
-
-	ret = (void *)ibdev - offsetof(struct mlx5_device, verbs_dev);
-	return ret;
+	return container_of(ibdev, struct mlx5_device, verbs_dev.device);
 }
 
 static inline struct mlx5_context *to_mctx(struct ibv_context *ibctx)
 {
-	return to_mxxx(ctx, context);
+	return container_of(ibctx, struct mlx5_context, ibv_ctx.context);
 }
 
+/* to_mpd always returns the real mlx5_pd object ie the protection domain. */
 static inline struct mlx5_pd *to_mpd(struct ibv_pd *ibpd)
 {
-	return to_mxxx(pd, pd);
+	struct mlx5_pd *mpd = to_mxxx(pd, pd);
+
+	if (mpd->mprotection_domain)
+		return mpd->mprotection_domain;
+
+	return mpd;
+}
+
+static inline struct mlx5_parent_domain *to_mparent_domain(struct ibv_pd *ibpd)
+{
+	struct mlx5_parent_domain *mparent_domain =
+	    ibpd ? container_of(ibpd, struct mlx5_parent_domain, mpd.ibv_pd) : NULL;
+
+	if (mparent_domain && mparent_domain->mpd.mprotection_domain)
+		return mparent_domain;
+
+	/* Otherwise ibpd isn't a parent_domain */
+	return NULL;
 }
 
 static inline struct mlx5_cq *to_mcq(struct ibv_cq *ibcq)
 {
-	return to_mxxx(cq, cq);
+	return container_of((struct ibv_cq_ex *)ibcq, struct mlx5_cq, ibv_cq);
 }
 
 static inline struct mlx5_srq *to_msrq(struct ibv_srq *ibsrq)
@@ -571,6 +611,11 @@ static inline struct mlx5_srq *to_msrq(struct ibv_srq *ibsrq)
 	struct verbs_srq *vsrq = (struct verbs_srq *)ibsrq;
 
 	return container_of(vsrq, struct mlx5_srq, vsrq);
+}
+
+static inline struct mlx5_td *to_mtd(struct ibv_td *ibtd)
+{
+	return to_mxxx(td, td);
 }
 
 static inline struct mlx5_qp *to_mqp(struct ibv_qp *ibqp)
@@ -670,7 +715,9 @@ struct ibv_cq *mlx5_create_cq(struct ibv_context *context, int cqe,
 			       int comp_vector);
 struct ibv_cq_ex *mlx5_create_cq_ex(struct ibv_context *context,
 				    struct ibv_cq_init_attr_ex *cq_attr);
-void mlx5_cq_fill_pfns(struct mlx5_cq *cq, const struct ibv_cq_init_attr_ex *cq_attr);
+int mlx5_cq_fill_pfns(struct mlx5_cq *cq,
+		      const struct ibv_cq_init_attr_ex *cq_attr,
+		      struct mlx5_context *mctx);
 int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_cq *cq,
 		      struct mlx5_buf *buf, int nent, int cqe_sz);
 int mlx5_free_cq_buf(struct mlx5_context *ctx, struct mlx5_buf *buf);
@@ -758,6 +805,15 @@ int mlx5_post_srq_ops(struct ibv_srq *srq,
 		      struct ibv_ops_wr *wr,
 		      struct ibv_ops_wr **bad_wr);
 
+struct ibv_td *mlx5_alloc_td(struct ibv_context *context, struct ibv_td_init_attr *init_attr);
+int mlx5_dealloc_td(struct ibv_td *td);
+
+struct ibv_pd *mlx5_alloc_parent_domain(struct ibv_context *context,
+					struct ibv_parent_domain_init_attr *attr);
+
+
+void *mlx5_mmap(struct mlx5_uar_info *uar, int index,
+		int cmd_fd, int page_size, int uar_type);
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {
 	int tind = uidx >> MLX5_UIDX_TABLE_SHIFT;
@@ -829,6 +885,11 @@ static inline void set_order(int order, off_t *offset)
 static inline void set_index(int index, off_t *offset)
 {
 	set_arg(index, offset);
+}
+
+static inline void set_extended_index(int index, off_t *offset)
+{
+	*offset |= (index & 0xff) | ((index >> 8) << 16);
 }
 
 static inline uint8_t calc_sig(void *wqe, int size)
