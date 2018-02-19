@@ -528,7 +528,7 @@ ibv_check_alloc_parent_domain(struct ibv_parent_domain_init_attr *attr)
 
 /*
  * Initialize the ibv_pd which is being used as a parent_domain. From the
- * perspective of the core code the new ibv_pd is completely interchangable
+ * perspective of the core code the new ibv_pd is completely interchangeable
  * with the passed contained_pd.
  */
 static inline void ibv_initialize_parent_domain(struct ibv_pd *parent_domain,
