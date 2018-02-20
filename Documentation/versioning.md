@@ -155,6 +155,24 @@ being used with libibverbs.
 Due to this there is no reason to provide compat symbol versions for the
 private ABI.
 
+When the private symbol version is bumped, the packaging files should be updated:
+
+```diff
+diff --git a/debian/control b/debian/control
+index 642a715e..8def05c9 100644
+--- a/debian/control
++++ b/debian/control
+@@ -138,7 +138,7 @@ Section: libs
+ Pre-Depends: ${misc:Pre-Depends}
+ Depends: adduser, ${misc:Depends}, ${shlibs:Depends}
+ Recommends: ibverbs-providers
+-Breaks: ibverbs-providers (<< 16~)
++Breaks: ibverbs-providers (<< 17~)
+ Description: Library for direct userspace use of RDMA (InfiniBand/iWARP)
+  libibverbs is a library that allows userspace processes to use RDMA
+  "verbs" as described in the InfiniBand Architecture Specification and
+```
+
 ### Use of private symbols between component packages
 
 A distribution packaging system still must have the correct dependencies
