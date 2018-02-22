@@ -48,4 +48,15 @@
 # define NRESOLVE_NEIGH 1
 #endif
 
+#if @IOCTL_MODE_NUM@ == 1
+# define VERBS_IOCTL_ONLY 1
+# define VERBS_WRITE_ONLY 0
+#elif  @IOCTL_MODE_NUM@ == 2
+# define VERBS_IOCTL_ONLY 0
+# define VERBS_WRITE_ONLY 1
+#elif  @IOCTL_MODE_NUM@ == 3
+# define VERBS_IOCTL_ONLY 0
+# define VERBS_WRITE_ONLY 0
+#endif
+
 #endif

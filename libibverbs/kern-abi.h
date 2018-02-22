@@ -170,12 +170,7 @@ struct ibv_create_comp_channel {
 
 struct ibv_create_cq {
 	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u64 user_handle;
-	__u32 cqe;
-	__u32 comp_vector;
-	__s32 comp_channel;
-	__u32 reserved;
+	struct ib_uverbs_create_cq core_payload;
 };
 
 enum ibv_create_cq_ex_kernel_flags {
@@ -184,13 +179,7 @@ enum ibv_create_cq_ex_kernel_flags {
 
 struct ibv_create_cq_ex {
 	struct ex_hdr	hdr;
-	__u64		user_handle;
-	__u32		cqe;
-	__u32		comp_vector;
-	__s32		comp_channel;
-	__u32		comp_mask;
-	__u32		flags;
-	__u32		reserved;
+	struct ib_uverbs_ex_create_cq core_payload;
 };
 
 struct ibv_poll_cq {
@@ -215,9 +204,7 @@ struct ibv_resize_cq {
 
 struct ibv_destroy_cq {
 	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u32 cq_handle;
-	__u32 reserved;
+	struct ib_uverbs_destroy_cq core_payload;
 };
 
 #define IBV_CREATE_QP_COMMON	\

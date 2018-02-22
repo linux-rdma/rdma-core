@@ -217,7 +217,7 @@ int verbs_init_context(struct verbs_context *context_ex,
 	context_ex->ABI_placeholder2 =
 		(void (*)(void))context_ex->ibv_destroy_flow;
 
-	context_ex->priv = calloc(1, sizeof(context_ex->priv));
+	context_ex->priv = calloc(1, sizeof(*context_ex->priv));
 	if (!context_ex->priv) {
 		errno = ENOMEM;
 		close(cmd_fd);

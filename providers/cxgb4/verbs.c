@@ -168,7 +168,6 @@ int c4iw_dereg_mr(struct ibv_mr *mr)
 struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 			      struct ibv_comp_channel *channel, int comp_vector)
 {
-	struct ibv_create_cq cmd;
 	struct c4iw_create_cq_resp resp;
 	struct c4iw_cq *chp;
 	struct c4iw_dev *dev = to_c4iw_dev(context->device);
@@ -181,7 +180,7 @@ struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 
 	resp.reserved = 0;
 	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
-				&chp->ibv_cq, &cmd, sizeof cmd,
+				&chp->ibv_cq, NULL, 0,
 				&resp.ibv_resp, sizeof resp);
 	if (ret)
 		goto err1;
