@@ -120,7 +120,7 @@ necessary permissions to release your work.
 
 Submitted patches must pass the TravisCI automatic builds without warnings.
 A build similar to TravisCI can be run locally using docker and the
-'buildlib/cbuild' script.
+'buildlib/cbuild' script. Let's put new line here to test mention-bot.
 
 ```sh
 $ buildlib/cbuild build-images travis
