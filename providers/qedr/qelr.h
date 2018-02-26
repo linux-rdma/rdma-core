@@ -61,6 +61,7 @@ enum DP_MODULE {
 	QELR_MSG_QP		= (QELR_MSG_SQ | QELR_MSG_RQ),
 	QELR_MSG_MR		= 0x80000,
 	QELR_MSG_INIT		= 0x100000,
+	QELR_MSG_SRQ		= 0x200000,
 	/* to be added...up to 0x8000000 */
 };
 
@@ -128,8 +129,10 @@ struct qelr_devctx {
 
 	uint32_t		max_send_wr;
 	uint32_t		max_recv_wr;
+	uint32_t		max_srq_wr;
 	uint32_t		sges_per_send_wr;
 	uint32_t		sges_per_recv_wr;
+	uint32_t		sges_per_srq_wr;
 	int			max_cqes;
 };
 
@@ -221,6 +224,26 @@ struct qelr_dpm {
 	struct qelr_rdma_ext    *rdma_ext;
 };
 
+struct qelr_srq_hwq_info {
+	uint32_t max_sges;
+	uint32_t max_wr;
+	struct qelr_chain chain;
+	uint32_t wqe_prod;     /* WQE prod index in HW ring */
+	uint32_t sge_prod;     /* SGE prod index in HW ring */
+	uint32_t wr_prod_cnt;  /* wr producer count */
+	uint32_t wr_cons_cnt;  /* wr consumer count */
+	uint32_t num_elems;
+
+	void  *virt_prod_pair_addr;  /* producer pair virtual address */
+};
+
+struct qelr_srq {
+	struct ibv_srq ibv_srq;
+	struct qelr_srq_hwq_info hw_srq;
+	uint16_t srq_id;
+	pthread_spinlock_t lock;
+};
+
 struct qelr_qp {
 	struct ibv_qp				ibv_qp;
 	pthread_spinlock_t			q_lock;
@@ -247,6 +270,7 @@ struct qelr_qp {
 	int					sq_sig_all;
 	int					atomic_supported;
 	uint8_t					edpm_disabled;
+	struct qelr_srq				*srq;
 };
 
 static inline struct qelr_devctx *get_qelr_ctx(struct ibv_context *ibctx)
@@ -272,6 +296,11 @@ static inline struct qelr_pd *get_qelr_pd(struct ibv_pd *ibpd)
 static inline struct qelr_cq *get_qelr_cq(struct ibv_cq *ibcq)
 {
 	return container_of(ibcq, struct qelr_cq, ibv_cq);
+}
+
+static inline struct qelr_srq *get_qelr_srq(struct ibv_srq *ibsrq)
+{
+	return container_of(ibsrq, struct qelr_srq, ibv_srq);
 }
 
 #define SET_FIELD(value, name, flag)				\
@@ -306,6 +335,19 @@ static inline struct qelr_cq *get_qelr_cq(struct ibv_cq *ibcq)
 		TYPEPTR_ADDR_SET(sge, addr, vaddr);		\
 		(sge)->length = htole32(vlength);		\
 		(sge)->flags = htole32(vflags);		\
+	} while (0)
+
+#define SRQ_HDR_SET(hdr, vwr_id, num_sge)			\
+	do {							\
+		TYPEPTR_ADDR_SET(hdr, wr_id, vwr_id);		\
+		(hdr)->num_sges = num_sge;			\
+	} while (0)
+
+#define SRQ_SGE_SET(sge, vaddr, vlength, vlkey)			\
+	do {							\
+		TYPEPTR_ADDR_SET(sge, addr, vaddr);		\
+		(sge)->length = htole32(vlength);		\
+		(sge)->l_key = htole32(vlkey);		\
 	} while (0)
 
 #define U64_HI(val) ((uint32_t)(((uint64_t)(uintptr_t)(val)) >> 32))

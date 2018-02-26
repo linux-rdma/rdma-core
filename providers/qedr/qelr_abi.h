@@ -49,5 +49,7 @@ DECLARE_DRV_CMD(qelr_get_context, IB_USER_VERBS_CMD_GET_CONTEXT,
 		empty, qedr_alloc_ucontext_resp);
 DECLARE_DRV_CMD(qelr_reg_mr, IB_USER_VERBS_CMD_REG_MR,
 		empty, empty);
+DECLARE_DRV_CMD(qelr_create_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
+		qedr_create_srq_ureq, qedr_create_srq_uresp);
 
 #endif /* __QELR_ABI_H__ */
