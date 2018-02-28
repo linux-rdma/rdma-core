@@ -37,6 +37,10 @@
 #include <endian.h>
 #include <infiniband/verbs.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Always inline the functions */
 #ifdef __GNUC__
 #define MLX4DV_ALWAYS_INLINE inline __attribute__((always_inline))
@@ -529,4 +533,9 @@ enum mlx4dv_set_ctx_attr_type {
 int mlx4dv_set_context_attr(struct ibv_context *context,
 			    enum mlx4dv_set_ctx_attr_type attr_type,
 			    void *attr);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* _MLX4DV_H_ */

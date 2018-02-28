@@ -46,6 +46,10 @@
 #include <infiniband/verbs.h>
 #include <infiniband/tm_types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Always inline the functions */
 #ifdef __GNUC__
 #define MLX5DV_ALWAYS_INLINE inline __attribute__((always_inline))
@@ -786,5 +790,10 @@ struct mlx5dv_ctx_allocators {
  */
 int mlx5dv_set_context_attr(struct ibv_context *context,
 		enum mlx5dv_set_ctx_attr_type type, void *attr);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _MLX5DV_H_ */
