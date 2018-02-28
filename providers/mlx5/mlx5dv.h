@@ -46,6 +46,10 @@
 #include <infiniband/verbs.h>
 #include <infiniband/tm_types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Always inline the functions */
 #ifdef __GNUC__
 #define MLX5DV_ALWAYS_INLINE inline __attribute__((always_inline))
@@ -863,5 +867,9 @@ static inline uint64_t mlx5dv_ts_to_ns(struct mlx5dv_clock_info *clock_info,
 
 	return nsec;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _MLX5DV_H_ */
