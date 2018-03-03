@@ -775,7 +775,7 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	/* check that state is OK to post receive */
 	ind = qp->rq.head & (qp->rq.wqe_cnt - 1);
 
-	if (ibvqp->state == IBV_QPS_RESET || ibvqp->state == IBV_QPS_ERR) {
+	if (ibvqp->state == IBV_QPS_RESET) {
 		pthread_spin_unlock(&qp->rq.lock);
 		*bad_wr = wr;
 		return -1;
