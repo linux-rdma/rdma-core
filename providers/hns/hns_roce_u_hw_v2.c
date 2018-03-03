@@ -536,7 +536,8 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	ind = qp->sq.head;
 	ind_sge = qp->next_sge;
 
-	if (ibvqp->state != IBV_QPS_RTS && ibvqp->state != IBV_QPS_SQD) {
+	if (ibvqp->state == IBV_QPS_RESET || ibvqp->state == IBV_QPS_INIT ||
+	    ibvqp->state == IBV_QPS_RTR) {
 		pthread_spin_unlock(&qp->sq.lock);
 		*bad_wr = wr;
 		return EINVAL;
