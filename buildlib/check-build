@@ -213,17 +213,23 @@ def get_headers(incdir):
                 includes.add(os.path.join(root,I));
     return includes;
 
-def compile_test_headers(tmpd,incdir,includes):
+def compile_test_headers(tmpd,incdir,includes,with_cxx=False):
     with open(os.path.join(tmpd,"build.ninja"),"wt") as F:
         print >> F,"rule comp";
         print >> F," command = %s -Werror -c -I %s $in -o $out"%(args.CC,incdir);
         print >> F," description=Header check for $in";
+        print >> F,"rule comp_cxx";
+        print >> F," command = %s -Werror -c -I %s $in -o $out"%(args.CXX,incdir);
+        print >> F," description=Header C++ check for $in";
         count = 0;
         for I in sorted(includes):
             if is_obsolete(I) or is_fixup(I):
                 continue;
             print >> F,"build %s : comp %s"%("out%d.o"%(count),I);
             print >> F,"default %s"%("out%d.o"%(count));
+            print >> F,"build %s : comp_cxx %s"%("outxx%d.o"%(count),I);
+            if with_cxx:
+                print >> F,"default %s"%("outxx%d.o"%(count));
             count = count + 1;
     subprocess.check_call(["ninja"],cwd=tmpd);
 
@@ -244,6 +250,15 @@ allowed_uapi_headers = {
     # This header is installed in all supported distributions
     "rdma/ib_user_sa.h",
     "rdma/ib_user_verbs.h",
+}
+
+non_cxx_headers = {
+    "infiniband/arch.h",
+    "infiniband/ib.h",
+    "infiniband/opcode.h",
+    "infiniband/sa-kern-abi.h",
+    "infiniband/sa.h",
+    "rdma/rdma_cma_abi.h",
 }
 
 def test_installed_headers(args):
@@ -280,7 +295,14 @@ def test_installed_headers(args):
             with open(I,"w") as F:
                 print >> F,'#error "Private internal header"';
 
-        compile_test_headers(tmpd,incdir,includes);
+        # Roughly check that the headers have the extern "C" for C++
+        # compilation.
+        for I in sorted(rincludes - non_cxx_headers):
+            with open(os.path.join(incdir,I)) as F:
+                if 'extern "C" {' not in F.read():
+                    raise ValueError("No extern C in %r"%(I));
+
+        compile_test_headers(tmpd,incdir,includes,with_cxx=True);
 
 # -------------------------------------------------------------------------
 
@@ -291,6 +313,8 @@ parser.add_argument("--src",default=None,dest="SRC",
                     help="Top of the source tree");
 parser.add_argument("--cc",default="cc",dest="CC",
                     help="C compiler to use");
+parser.add_argument("--cxx",default="c++",dest="CXX",
+                    help="C++ compiler to use");
 args = parser.parse_args();
 
 if args.SRC is None:

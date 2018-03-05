@@ -34,6 +34,10 @@
 #include <infiniband/umad.h>
 #include <infiniband/umad_sa.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define ACM_PROV_VERSION          1
 
 struct acm_device {
@@ -116,5 +120,9 @@ extern int acm_send_sa_mad(struct acm_sa_mad *mad);
 
 extern const char *acm_get_opts_file(void);
 extern void acm_increment_counter(int type);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ACM_PROV_H */

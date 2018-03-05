@@ -194,6 +194,16 @@ static int align_qp_size(int req)
 	return nent;
 }
 
+static int align_queue_size(int req)
+{
+	int nent;
+
+	for (nent = 1; nent < req; nent <<= 1)
+		;
+
+	return nent;
+}
+
 static void hns_roce_set_sq_sizes(struct hns_roce_qp *qp,
 				  struct ibv_qp_cap *cap, enum ibv_qp_type type)
 {
@@ -269,7 +279,10 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 	if (pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto err;
 
-	cqe = align_cq_size(cqe);
+	if (to_hr_dev(context->device)->hw_version == HNS_ROCE_HW_VER1)
+		cqe = align_cq_size(cqe);
+	else
+		cqe = align_queue_size(cqe);
 
 	if (hns_roce_alloc_cq_buf(to_hr_dev(context->device), &cq->buf, cqe))
 		goto err;
@@ -518,8 +531,14 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	}
 
 	hns_roce_calc_sq_wqe_size(&attr->cap, attr->qp_type, qp);
-	qp->sq.wqe_cnt = align_qp_size(attr->cap.max_send_wr);
-	qp->rq.wqe_cnt = align_qp_size(attr->cap.max_recv_wr);
+
+	if (to_hr_dev(pd->context->device)->hw_version == HNS_ROCE_HW_VER1) {
+		qp->sq.wqe_cnt = align_qp_size(attr->cap.max_send_wr);
+		qp->rq.wqe_cnt = align_qp_size(attr->cap.max_recv_wr);
+	} else {
+		qp->sq.wqe_cnt = align_queue_size(attr->cap.max_send_wr);
+		qp->rq.wqe_cnt = align_queue_size(attr->cap.max_recv_wr);
+	}
 
 	if (to_hr_dev(pd->context->device)->hw_version == HNS_ROCE_HW_VER1) {
 		qp->sq.max_gs = 2;

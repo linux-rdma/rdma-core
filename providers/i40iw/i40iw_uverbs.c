@@ -342,6 +342,8 @@ int i40iw_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 		ret = iwucq->cq.ops.iw_cq_poll_completion(&iwucq->cq, &cq_poll_info);
 		if (ret == I40IW_ERR_QUEUE_EMPTY) {
 			break;
+		} else if (ret == I40IW_ERR_QUEUE_DESTROYED) {
+			continue;
 		} else if (ret) {
 			fprintf(stderr, PFX "%s: Error polling CQ, status %d\n", __func__, ret);
 			if (!cqe_count)
@@ -835,17 +837,15 @@ int i40iw_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr, struct ibv
 			info.op_type = I40IW_OP_TYPE_RDMA_WRITE;
 
 			if (ib_wr->send_flags & IBV_SEND_INLINE) {
-			  info.op.inline_rdma_write.data = (void *)(uintptr_t)ib_wr->sg_list[0].addr;
+				info.op.inline_rdma_write.data = (void *)(uintptr_t)ib_wr->sg_list[0].addr;
 				info.op.inline_rdma_write.len = ib_wr->sg_list[0].length;
 				info.op.inline_rdma_write.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
-				info.op.inline_rdma_write.rem_addr.len = ib_wr->sg_list->length;
 				info.op.inline_rdma_write.rem_addr.stag = ib_wr->wr.rdma.rkey;
 				ret = iwuqp->qp.ops.iw_inline_rdma_write(&iwuqp->qp, &info, false);
 			} else {
 				info.op.rdma_write.lo_sg_list = (void *)ib_wr->sg_list;
 				info.op.rdma_write.num_lo_sges = ib_wr->num_sge;
 				info.op.rdma_write.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
-				info.op.rdma_write.rem_addr.len = ib_wr->sg_list->length;
 				info.op.rdma_write.rem_addr.stag = ib_wr->wr.rdma.rkey;
 				ret = iwuqp->qp.ops.iw_rdma_write(&iwuqp->qp, &info, false);
 			}
@@ -866,7 +866,6 @@ int i40iw_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr, struct ibv
 			info.op_type = I40IW_OP_TYPE_RDMA_READ;
 			info.op.rdma_read.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
 			info.op.rdma_read.rem_addr.stag = ib_wr->wr.rdma.rkey;
-			info.op.rdma_read.rem_addr.len = ib_wr->sg_list->length;
 			info.op.rdma_read.lo_addr.tag_off = ib_wr->sg_list->addr;
 			info.op.rdma_read.lo_addr.stag = ib_wr->sg_list->lkey;
 			info.op.rdma_read.lo_addr.len = ib_wr->sg_list->length;

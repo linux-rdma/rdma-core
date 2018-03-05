@@ -536,7 +536,8 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	ind = qp->sq.head;
 	ind_sge = qp->next_sge;
 
-	if (ibvqp->state != IBV_QPS_RTS && ibvqp->state != IBV_QPS_SQD) {
+	if (ibvqp->state == IBV_QPS_RESET || ibvqp->state == IBV_QPS_INIT ||
+	    ibvqp->state == IBV_QPS_RTR) {
 		pthread_spin_unlock(&qp->sq.lock);
 		*bad_wr = wr;
 		return EINVAL;
@@ -774,7 +775,7 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	/* check that state is OK to post receive */
 	ind = qp->rq.head & (qp->rq.wqe_cnt - 1);
 
-	if (ibvqp->state == IBV_QPS_RESET || ibvqp->state == IBV_QPS_ERR) {
+	if (ibvqp->state == IBV_QPS_RESET) {
 		pthread_spin_unlock(&qp->rq.lock);
 		*bad_wr = wr;
 		return -1;
