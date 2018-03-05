@@ -225,14 +225,18 @@ void acm_write(int level, const char *format, ...)
 {
 	va_list args;
 	struct timeval tv;
+	struct tm tmtime;
+	char buffer[20];
 
 	if (level > log_level)
 		return;
 
 	gettimeofday(&tv, NULL);
+	localtime_r(&tv.tv_sec, &tmtime);
+	strftime(buffer, 20, "%Y-%m-%dT%H:%M:%S", &tmtime);
 	va_start(args, format);
 	pthread_mutex_lock(&log_lock);
-	fprintf(flog, "%u.%03u: ", (unsigned) tv.tv_sec, (unsigned) (tv.tv_usec / 1000));
+	fprintf(flog, "%s.%03u: ", buffer, (unsigned) (tv.tv_usec / 1000));
 	vfprintf(flog, format, args);
 	fflush(flog);
 	pthread_mutex_unlock(&log_lock);
