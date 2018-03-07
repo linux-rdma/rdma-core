@@ -89,6 +89,8 @@ int mlx4_query_device_ex(struct ibv_context *context,
 
 	attr->rss_caps.rx_hash_fields_mask = resp.rss_caps.rx_hash_fields_mask;
 	attr->rss_caps.rx_hash_function = resp.rss_caps.rx_hash_function;
+	attr->tso_caps.max_tso = resp.tso_caps.max_tso;
+	attr->tso_caps.supported_qpts = resp.tso_caps.supported_qpts;
 
 	if (resp.comp_mask & MLX4_QUERY_DEV_RESP_MASK_CORE_CLOCK_OFFSET) {
 		mctx->core_clock.offset = resp.hca_core_clock_offset;
@@ -849,11 +851,13 @@ static int mlx4_cmd_create_qp_ex(struct ibv_context *context,
 enum {
 	MLX4_CREATE_QP_SUP_COMP_MASK = (IBV_QP_INIT_ATTR_PD |
 					IBV_QP_INIT_ATTR_XRCD |
-					IBV_QP_INIT_ATTR_CREATE_FLAGS),
+					IBV_QP_INIT_ATTR_CREATE_FLAGS |
+					IBV_QP_INIT_ATTR_MAX_TSO_HEADER),
 };
 
 enum {
-	MLX4_CREATE_QP_EX2_COMP_MASK = (IBV_QP_INIT_ATTR_CREATE_FLAGS),
+	MLX4_CREATE_QP_EX2_COMP_MASK = (IBV_QP_INIT_ATTR_CREATE_FLAGS |
+					IBV_QP_INIT_ATTR_MAX_TSO_HEADER),
 };
 
 static struct ibv_qp *create_qp_ex(struct ibv_context *context,
@@ -898,7 +902,7 @@ static struct ibv_qp *create_qp_ex(struct ibv_context *context,
 	if (attr->qp_type == IBV_QPT_XRC_RECV) {
 		attr->cap.max_send_wr = qp->sq.wqe_cnt = 0;
 	} else {
-		mlx4_calc_sq_wqe_size(&attr->cap, attr->qp_type, qp);
+		mlx4_calc_sq_wqe_size(&attr->cap, attr->qp_type, qp, attr);
 		/*
 		 * We need to leave 2 KB + 1 WQE of headroom in the SQ to
 		 * allow HW to prefetch.
