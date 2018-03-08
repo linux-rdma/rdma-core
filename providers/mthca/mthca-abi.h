@@ -35,33 +35,27 @@
 #define MTHCA_ABI_H
 
 #include <infiniband/kern-abi.h>
+#include <rdma/mthca-abi.h>
 
-#define MTHCA_UVERBS_ABI_VERSION	1
-
-struct mthca_alloc_ucontext_resp {
+struct umthca_alloc_ucontext_resp {
 	struct ib_uverbs_get_context_resp	ibv_resp;
 	__u32				qp_tab_size;
 	__u32				uarc_size;
 };
 
-struct mthca_alloc_pd_resp {
+struct umthca_alloc_pd_resp {
 	struct ib_uverbs_alloc_pd_resp	ibv_resp;
 	__u32				pdn;
 	__u32				reserved;
 };
 
-struct mthca_reg_mr {
+struct umthca_reg_mr {
 	struct ibv_reg_mr		ibv_cmd;
-/*
- * Mark the memory region with a DMA attribute that causes
- * in-flight DMA to be flushed when the region is written to:
- */
-#define MTHCA_MR_DMASYNC	0x1
 	__u32				mr_attrs;
 	__u32				reserved;
 };
 
-struct mthca_create_cq {
+struct umthca_create_cq {
 	struct ibv_create_cq		ibv_cmd;
 	__u32				lkey;
 	__u32				pdn;
@@ -71,32 +65,32 @@ struct mthca_create_cq {
 	__u32				set_db_index;
 };
 
-struct mthca_create_cq_resp {
+struct umthca_create_cq_resp {
 	struct ib_uverbs_create_cq_resp	ibv_resp;
 	__u32				cqn;
 	__u32				reserved;
 };
 
-struct mthca_resize_cq {
+struct umthca_resize_cq {
 	struct ibv_resize_cq		ibv_cmd;
 	__u32				lkey;
 	__u32				reserved;
 };
 
-struct mthca_create_srq {
+struct umthca_create_srq {
 	struct ibv_create_srq		ibv_cmd;
 	__u32				lkey;
 	__u32				db_index;
 	__u64				db_page;
 };
 
-struct mthca_create_srq_resp {
+struct umthca_create_srq_resp {
 	struct ib_uverbs_create_srq_resp	ibv_resp;
 	__u32				srqn;
 	__u32				reserved;
 };
 
-struct mthca_create_qp {
+struct umthca_create_qp {
 	struct ibv_create_qp		ibv_cmd;
 	__u32				lkey;
 	__u32				reserved;

@@ -74,7 +74,7 @@ int mthca_query_port(struct ibv_context *context, uint8_t port,
 struct ibv_pd *mthca_alloc_pd(struct ibv_context *context)
 {
 	struct ibv_alloc_pd        cmd;
-	struct mthca_alloc_pd_resp resp;
+	struct umthca_alloc_pd_resp resp;
 	struct mthca_pd           *pd;
 
 	pd = malloc(sizeof *pd);
@@ -118,7 +118,7 @@ static struct ibv_mr *__mthca_reg_mr(struct ibv_pd *pd, void *addr,
 				     int dma_sync)
 {
 	struct ibv_mr *mr;
-	struct mthca_reg_mr cmd;
+	struct umthca_reg_mr cmd;
 	struct ib_uverbs_reg_mr_resp resp;
 	int ret;
 
@@ -177,8 +177,8 @@ struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,
 			       int comp_vector)
 {
-	struct mthca_create_cq      cmd;
-	struct mthca_create_cq_resp resp;
+	struct umthca_create_cq      cmd;
+	struct umthca_create_cq_resp resp;
 	struct mthca_cq      	   *cq;
 	int                  	    ret;
 
@@ -272,7 +272,7 @@ err:
 int mthca_resize_cq(struct ibv_cq *ibcq, int cqe)
 {
 	struct mthca_cq *cq = to_mcq(ibcq);
-	struct mthca_resize_cq cmd;
+	struct umthca_resize_cq cmd;
 	struct ibv_mr *mr;
 	struct mthca_buf buf;
 	struct ib_uverbs_resize_cq_resp resp;
@@ -375,8 +375,8 @@ static int align_queue_size(struct ibv_context *context, int size, int spare)
 struct ibv_srq *mthca_create_srq(struct ibv_pd *pd,
 				 struct ibv_srq_init_attr *attr)
 {
-	struct mthca_create_srq      cmd;
-	struct mthca_create_srq_resp resp;
+	struct umthca_create_srq      cmd;
+	struct umthca_create_srq_resp resp;
 	struct mthca_srq            *srq;
 	int                          ret;
 
@@ -489,7 +489,7 @@ int mthca_destroy_srq(struct ibv_srq *srq)
 
 struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 {
-	struct mthca_create_qp    cmd;
+	struct umthca_create_qp    cmd;
 	struct ib_uverbs_create_qp_resp resp;
 	struct mthca_qp          *qp;
 	int                       ret;
