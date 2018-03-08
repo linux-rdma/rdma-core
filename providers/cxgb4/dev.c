@@ -109,7 +109,7 @@ static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
 {
 	struct c4iw_context *context;
 	struct ibv_get_context cmd;
-	struct c4iw_alloc_ucontext_resp resp;
+	struct uc4iw_alloc_ucontext_resp resp;
 	struct c4iw_dev *rhp = to_c4iw_dev(ibdev);
 	struct ibv_query_device qcmd;
 	uint64_t raw_fw_ver;
