@@ -200,7 +200,7 @@ static struct verbs_context *mlx4_alloc_context(struct ibv_device *ibdev,
 
 		context->num_qps  = resp.qp_tab_size;
 		bf_reg_size	  = resp.bf_reg_size;
-		if (resp.dev_caps & MLX4_USER_DEV_CAP_64B_CQE)
+		if (resp.dev_caps & MLX4_USER_DEV_CAP_LARGE_CQE)
 			context->cqe_size = resp.cqe_size;
 		else
 			context->cqe_size = sizeof (struct mlx4_cqe);

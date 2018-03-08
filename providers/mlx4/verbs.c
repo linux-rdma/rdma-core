@@ -92,7 +92,7 @@ int mlx4_query_device_ex(struct ibv_context *context,
 	attr->tso_caps.max_tso = resp.tso_caps.max_tso;
 	attr->tso_caps.supported_qpts = resp.tso_caps.supported_qpts;
 
-	if (resp.comp_mask & MLX4_QUERY_DEV_RESP_MASK_CORE_CLOCK_OFFSET) {
+	if (resp.comp_mask & MLX4_IB_QUERY_DEV_RESP_MASK_CORE_CLOCK_OFFSET) {
 		mctx->core_clock.offset = resp.hca_core_clock_offset;
 		mctx->core_clock.offset_valid = 1;
 	}
@@ -767,17 +767,17 @@ static int mlx4_cmd_create_qp_ex_rss(struct ibv_context *context,
 	int ret;
 
 	if (attr->rx_hash_conf.rx_hash_key_len !=
-	    sizeof(cmd_ex.drv_ex.hash_key)) {
+	    sizeof(cmd_ex.drv_ex.rx_hash_key)) {
 		errno = ENOTSUP;
 		return errno;
 	}
 
-	cmd_ex.drv_ex.hash_fields_mask =
+	cmd_ex.drv_ex.rx_hash_fields_mask =
 		attr->rx_hash_conf.rx_hash_fields_mask;
-	cmd_ex.drv_ex.hash_function =
+	cmd_ex.drv_ex.rx_hash_function =
 		attr->rx_hash_conf.rx_hash_function;
-	memcpy(cmd_ex.drv_ex.hash_key, attr->rx_hash_conf.rx_hash_key,
-	       sizeof(cmd_ex.drv_ex.hash_key));
+	memcpy(cmd_ex.drv_ex.rx_hash_key, attr->rx_hash_conf.rx_hash_key,
+	       sizeof(cmd_ex.drv_ex.rx_hash_key));
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
 				    sizeof(qp->verbs_qp), attr,

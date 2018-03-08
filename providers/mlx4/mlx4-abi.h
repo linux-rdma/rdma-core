@@ -34,25 +34,18 @@
 #define MLX4_ABI_H
 
 #include <infiniband/kern-abi.h>
+#include <rdma/mlx4-abi.h>
 
 #define MLX4_UVERBS_MIN_ABI_VERSION	2
 #define MLX4_UVERBS_MAX_ABI_VERSION	4
 
 #define MLX4_UVERBS_NO_DEV_CAPS_ABI_VERSION	3
 
-enum {
-	MLX4_USER_DEV_CAP_64B_CQE	= 1L << 0
-};
-
 struct mlx4_alloc_ucontext_resp_v3 {
 	struct ib_uverbs_get_context_resp	ibv_resp;
 	__u32				qp_tab_size;
 	__u16				bf_reg_size;
 	__u16				bf_regs_per_page;
-};
-
-enum mlx4_query_dev_ex_resp_mask {
-	MLX4_QUERY_DEV_RESP_MASK_CORE_CLOCK_OFFSET = 1UL << 0,
 };
 
 struct mlx4_alloc_ucontext_resp {
@@ -99,20 +92,6 @@ struct mlx4_resize_cq {
 	__u64				buf_addr;
 };
 
-struct mlx4_rss_caps {
-	__u64 rx_hash_fields_mask; /* enum ibv_rx_hash_fields */
-	__u8 rx_hash_function; /* enum ibv_rx_hash_function_flags */
-	__u8 reserved[7];
-};
-
-struct mlx4_ib_tso_caps {
-	__u32 max_tso; /* Maximum tso payload size in bytes */
-	/* Corresponding bit will be set if qp type from
-	 * 'enum ib_qp_type' is supported.
-	 */
-	__u32 supported_qpts;
-};
-
 struct mlx4_query_device_ex_resp {
 	struct ib_uverbs_ex_query_device_resp ibv_resp;
 	__u32				comp_mask;
@@ -121,7 +100,7 @@ struct mlx4_query_device_ex_resp {
 	__u32				max_inl_recv_sz;
 	/* Explicitly align the response to u64 */
 	__u32				reserved;
-	struct mlx4_rss_caps            rss_caps; /* vendor data channel */
+	struct mlx4_ib_rss_caps            rss_caps; /* vendor data channel */
 	struct mlx4_ib_tso_caps		tso_caps;
 };
 
@@ -158,49 +137,23 @@ struct mlx4_create_qp {
 	__u32				inl_recv_sz;
 };
 
-struct mlx4_create_qp_drv_ex_rss {
-	__u64		hash_fields_mask; /* enum ibv_rx_hash_fields */
-	__u8		hash_function; /* enum ibv_rx_hash_function_flags */
-	__u8		reserved[7];
-	__u8		hash_key[40];
-	__u32		comp_mask;
-	__u32		reserved1;
-};
-
 struct mlx4_create_qp_ex_rss {
 	struct ibv_create_qp_ex		 ibv_cmd;
-	struct mlx4_create_qp_drv_ex_rss drv_ex;
-};
-
-struct mlx4_create_qp_drv_ex {
-	__u64		buf_addr;
-	__u64		db_addr;
-	__u8		log_sq_bb_count;
-	__u8		log_sq_stride;
-	__u8		sq_no_prefetch;	/* was reserved in ABI 2 */
-	__u8		reserved[5];
+	struct mlx4_ib_create_qp_rss drv_ex;
 };
 
 struct mlx4_create_qp_ex {
 	struct ibv_create_qp_ex		ibv_cmd;
-	struct mlx4_create_qp_drv_ex	drv_ex;
+	struct mlx4_ib_create_qp	drv_ex;
 };
 
 struct mlx4_create_qp_resp_ex {
 	struct ib_uverbs_ex_create_qp_resp	ibv_resp;
 };
 
-struct mlx4_drv_create_wq {
-	__u64		buf_addr;
-	__u64		db_addr;
-	__u8		log_range_size;
-	__u8		reserved[3];
-	__u32		comp_mask;
-};
-
 struct mlx4_create_wq {
 	struct ibv_create_wq		ibv_cmd;
-	struct mlx4_drv_create_wq	drv;
+	struct mlx4_ib_create_wq	drv;
 };
 
 struct mlx4_modify_wq {
