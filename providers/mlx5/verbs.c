@@ -2617,7 +2617,8 @@ int mlx5_query_device_ex(struct ibv_context *context,
 	if (err)
 		return err;
 
-	attr->tso_caps = resp.tso_caps;
+	attr->tso_caps.max_tso = resp.tso_caps.max_tso;
+	attr->tso_caps.supported_qpts = resp.tso_caps.supported_qpts;
 	attr->rss_caps.rx_hash_fields_mask = resp.rss_caps.rx_hash_fields_mask;
 	attr->rss_caps.rx_hash_function = resp.rss_caps.rx_hash_function;
 	attr->packet_pacing_caps.qp_rate_limit_min =
@@ -2633,9 +2634,22 @@ int mlx5_query_device_ex(struct ibv_context *context,
 	if (resp.support_multi_pkt_send_wqe & MLX5_IB_SUPPORT_EMPW)
 		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_ENHANCED_MPW;
 
-	mctx->cqe_comp_caps = resp.cqe_comp_caps;
-	mctx->sw_parsing_caps = resp.sw_parsing_caps;
-	mctx->striding_rq_caps = resp.striding_rq_caps.caps;
+	mctx->cqe_comp_caps.max_num = resp.cqe_comp_caps.max_num;
+	mctx->cqe_comp_caps.supported_format = resp.cqe_comp_caps.supported_format;
+	mctx->sw_parsing_caps.sw_parsing_offloads =
+		resp.sw_parsing_caps.sw_parsing_offloads;
+	mctx->sw_parsing_caps.supported_qpts =
+		resp.sw_parsing_caps.supported_qpts;
+	mctx->striding_rq_caps.min_single_stride_log_num_of_bytes =
+		resp.striding_rq_caps.min_single_stride_log_num_of_bytes;
+	mctx->striding_rq_caps.max_single_stride_log_num_of_bytes =
+		resp.striding_rq_caps.max_single_stride_log_num_of_bytes;
+	mctx->striding_rq_caps.min_single_wqe_log_num_of_strides =
+		resp.striding_rq_caps.min_single_wqe_log_num_of_strides;
+	mctx->striding_rq_caps.max_single_wqe_log_num_of_strides =
+		resp.striding_rq_caps.max_single_wqe_log_num_of_strides;
+	mctx->striding_rq_caps.supported_qpts =
+		resp.striding_rq_caps.supported_qpts;
 	mctx->tunnel_offloads_caps = resp.tunnel_offloads_caps;
 	mctx->packet_pacing_caps = resp.packet_pacing_caps;
 
