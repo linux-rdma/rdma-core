@@ -35,23 +35,11 @@
 
 #include <infiniband/kern-abi.h>
 #include <infiniband/verbs.h>
+#include <rdma/mlx5-abi.h>
 #include "mlx5dv.h"
 
 #define MLX5_UVERBS_MIN_ABI_VERSION	1
 #define MLX5_UVERBS_MAX_ABI_VERSION	1
-
-enum {
-	MLX5_QP_FLAG_SIGNATURE		= 1 << 0,
-	MLX5_QP_FLAG_SCATTER_CQE	= 1 << 1,
-	MLX5_QP_FLAG_TUNNEL_OFFLOADS	= 1 << 2,
-	MLX5_QP_FLAG_BFREG_INDEX	= 1 << 3,
-	MLX5_QP_FLAG_TYPE_DCT		= 1 << 4,
-	MLX5_QP_FLAG_TYPE_DCI		= 1 << 5,
-};
-
-enum {
-	MLX5_RWQ_FLAG_SIGNATURE		= 1 << 0,
-};
 
 enum {
 	MLX5_NUM_NON_FP_BFREGS_PER_UAR	= 2,
@@ -60,10 +48,6 @@ enum {
 	MLX5_MAX_BFREGS			= MLX5_MAX_UARS * MLX5_NUM_NON_FP_BFREGS_PER_UAR,
 	MLX5_DEF_TOT_UUARS		= 8 * MLX5_NUM_NON_FP_BFREGS_PER_UAR,
 	MLX5_MED_BFREGS_TSHOLD		= 12,
-};
-
-enum mlx5_lib_caps {
-	MLX5_LIB_CAP_4K_UAR		= 1 << 0,
 };
 
 struct mlx5_alloc_ucontext {
@@ -77,31 +61,6 @@ struct mlx5_alloc_ucontext {
 	__u16				reserved1;
 	__u32				reserved2;
 	__u64				lib_caps;
-};
-
-enum mlx5_ib_alloc_ucontext_resp_mask {
-	MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_CORE_CLOCK_OFFSET = 1UL << 0,
-};
-
-/* Bit indexes for the mlx5_alloc_ucontext_resp.clock_info_versions bitmap */
-enum {
-	MLX5_IB_CLOCK_INFO_V1	= 0,
-};
-
-enum {
-	MLX5_IB_CLOCK_INFO_KERNEL_UPDATING = 1,
-};
-
-struct mlx5_ib_clock_info {
-	__u32 sig;
-	__u32 resv;
-	__u64 nsec;
-	__u64 last_cycles;
-	__u64 frac;
-	__u32 mult;
-	__u32 shift;
-	__u64 mask;
-	__u64 overflow_period;
 };
 
 struct mlx5_alloc_ucontext_resp {
@@ -140,10 +99,6 @@ struct mlx5_create_ah_resp {
 struct mlx5_alloc_pd_resp {
 	struct ib_uverbs_alloc_pd_resp	ibv_resp;
 	__u32				pdn;
-};
-
-enum mlx5_create_cq_flags {
-	MLX5_CREATE_CQ_FLAGS_CQE_128B_PAD	= 1 << 0,
 };
 
 struct mlx5_create_cq {
@@ -246,10 +201,6 @@ struct mlx5_create_qp_resp {
 	__u32				uuar_index;
 };
 
-enum mlx5_create_wq_comp_mask {
-	MLX5_IB_CREATE_WQ_STRIDING_RQ =		1 << 0,
-};
-
 struct mlx5_drv_create_wq {
 	__u64		buf_addr;
 	__u64		db_addr;
@@ -304,35 +255,10 @@ struct mlx5_query_device_ex {
 	struct ibv_query_device_ex	ibv_cmd;
 };
 
-struct mlx5_reserved_tso_caps {
-	__u64 reserved;
-};
-
 struct mlx5_rss_caps {
 	__u64 rx_hash_fields_mask; /* enum ibv_rx_hash_fields */
 	__u8 rx_hash_function; /* enum ibv_rx_hash_function_flags */
 	__u8 reserved[7];
-};
-
-enum mlx5_ib_packet_pacing_cap_flags {
-	MLX5_IB_PP_SUPPORT_BURST	= 1 << 0,
-};
-
-struct mlx5_packet_pacing_caps {
-	struct ibv_packet_pacing_caps caps;
-	__u8   cap_flags; /* enum mlx5_ib_packet_pacing_cap_flags */
-	__u8   reserved[3];
-};
-
-enum mlx5_mpw_caps {
-	MLX5_MPW_OBSOLETE	= 1 << 0, /* Obsoleted, don't use */
-	MLX5_ALLOW_MPW		= 1 << 1,
-	MLX5_SUPPORT_EMPW	= 1 << 2,
-};
-
-enum mlx5_query_dev_resp_flags {
-	MLX5_QUERY_DEV_RESP_FLAGS_CQE_128B_COMP	= 1 << 0,
-	MLX5_QUERY_DEV_RESP_FLAGS_CQE_128B_PAD	= 1 << 1,
 };
 
 struct mlx5_striding_rq_caps {
@@ -362,13 +288,7 @@ struct mlx5_modify_qp_resp_ex {
 	__u32  dctn;
 };
 
-struct mlx5_ib_burst_info {
-	__u32	max_burst_sz;
-	__u16	typical_pkt_sz;
-	__u16	reserved;
-};
-
-struct mlx5_ib_modify_qp {
+struct mlx5_modify_qp {
 	struct ibv_modify_qp_ex		ibv_cmd;
 	__u32				comp_mask;
 	struct mlx5_ib_burst_info	burst_info;

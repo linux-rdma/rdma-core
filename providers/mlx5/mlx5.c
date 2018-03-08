@@ -917,7 +917,7 @@ int mlx5dv_get_clock_info(struct ibv_context *ctx_in,
 	if (!ci)
 		return EINVAL;
 
-	sig = (atomic_uint32_t *)&ci->sig;
+	sig = (atomic_uint32_t *)&ci->sign;
 
 	do {
 		retry = 10;
@@ -930,7 +930,7 @@ repeat:
 			return EBUSY;
 		}
 		clock_info->nsec   = ci->nsec;
-		clock_info->last_cycles = ci->last_cycles;
+		clock_info->last_cycles = ci->cycles;
 		clock_info->frac   = ci->frac;
 		clock_info->mult   = ci->mult;
 		clock_info->shift  = ci->shift;

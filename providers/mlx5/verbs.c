@@ -685,7 +685,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 					goto err_db;
 				}
 
-				cmd.flags |= MLX5_CREATE_CQ_FLAGS_CQE_128B_PAD;
+				cmd.flags |= MLX5_IB_CREATE_CQ_FLAGS_CQE_128B_PAD;
 			}
 		}
 	}
@@ -2133,7 +2133,7 @@ int mlx5_modify_qp_rate_limit(struct ibv_qp *qp,
 {
 	struct ibv_qp_attr qp_attr = {};
 	struct ib_uverbs_ex_modify_qp_resp resp = {};
-	struct mlx5_ib_modify_qp cmd = {};
+	struct mlx5_modify_qp cmd = {};
 	struct mlx5_context *mctx = to_mctx(qp->context);
 	int ret;
 
@@ -2620,12 +2620,17 @@ int mlx5_query_device_ex(struct ibv_context *context,
 	attr->tso_caps = resp.tso_caps;
 	attr->rss_caps.rx_hash_fields_mask = resp.rss_caps.rx_hash_fields_mask;
 	attr->rss_caps.rx_hash_function = resp.rss_caps.rx_hash_function;
-	attr->packet_pacing_caps = resp.packet_pacing_caps.caps;
+	attr->packet_pacing_caps.qp_rate_limit_min =
+		resp.packet_pacing_caps.qp_rate_limit_min;
+	attr->packet_pacing_caps.qp_rate_limit_max =
+		resp.packet_pacing_caps.qp_rate_limit_max;
+	attr->packet_pacing_caps.supported_qpts =
+		resp.packet_pacing_caps.supported_qpts;
 
-	if (resp.support_multi_pkt_send_wqe & MLX5_ALLOW_MPW)
+	if (resp.support_multi_pkt_send_wqe & MLX5_IB_ALLOW_MPW)
 		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_MPW_ALLOWED;
 
-	if (resp.support_multi_pkt_send_wqe & MLX5_SUPPORT_EMPW)
+	if (resp.support_multi_pkt_send_wqe & MLX5_IB_SUPPORT_EMPW)
 		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_ENHANCED_MPW;
 
 	mctx->cqe_comp_caps = resp.cqe_comp_caps;
@@ -2634,10 +2639,10 @@ int mlx5_query_device_ex(struct ibv_context *context,
 	mctx->tunnel_offloads_caps = resp.tunnel_offloads_caps;
 	mctx->packet_pacing_caps = resp.packet_pacing_caps;
 
-	if (resp.flags & MLX5_QUERY_DEV_RESP_FLAGS_CQE_128B_COMP)
+	if (resp.flags & MLX5_IB_QUERY_DEV_RESP_FLAGS_CQE_128B_COMP)
 		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_CQE_128B_COMP;
 
-	if (resp.flags & MLX5_QUERY_DEV_RESP_FLAGS_CQE_128B_PAD)
+	if (resp.flags & MLX5_IB_QUERY_DEV_RESP_FLAGS_CQE_128B_PAD)
 		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_CQE_128B_PAD;
 
 	major     = (raw_fw_ver >> 32) & 0xffff;
@@ -2726,7 +2731,7 @@ static struct ibv_wq *create_wq(struct ibv_context *context,
 
 	rwq->wq_sig = rwq_sig_enabled(context);
 	if (rwq->wq_sig)
-		cmd.drv.flags = MLX5_RWQ_FLAG_SIGNATURE;
+		cmd.drv.flags = MLX5_WQ_FLAG_SIGNATURE;
 
 	ret = mlx5_calc_rwq_size(ctx, rwq, attr, mlx5wq_attr);
 	if (ret < 0) {
