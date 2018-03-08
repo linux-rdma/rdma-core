@@ -35,9 +35,7 @@
 #define nes_ABI_H
 
 #include <infiniband/kern-abi.h>
-
-#define NES_ABI_USERSPACE_VER 2
-#define NES_ABI_KERNEL_VER 2
+#include <rdma/nes-abi.h>
 
 struct nes_get_context {
 	struct ibv_get_context cmd;
@@ -78,12 +76,6 @@ struct nes_ucreate_cq_resp {
 	__u32 reserved;
 };
 
-enum nes_umemreg_type {
-	NES_UMEMREG_TYPE_MEM = 0x0000,
-	NES_UMEMREG_TYPE_QP = 0x0001,
-	NES_UMEMREG_TYPE_CQ = 0x0002,
-};
-
 struct nes_ureg_mr {
 	struct ibv_reg_mr ibv_cmd;
 	__u32 reg_type;	/* indicates if id is memory, QP or CQ */
@@ -104,13 +96,6 @@ struct nes_ucreate_qp_resp {
 	__u32 mmap_sq_db_index;
 	__u32 mmap_rq_db_index;
 	__u32 nes_drv_opt;
-};
-
-struct nes_cqe {
-	__u32 header;
-	__u32 len;
-	__u32 wrid_hi_stag;
-	__u32 wrid_low_msn;
 };
 
 #endif			/* nes_ABI_H */
