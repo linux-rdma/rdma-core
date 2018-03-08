@@ -308,9 +308,9 @@ static int rxe_modify_srq(struct ibv_srq *ibsrq,
 		   struct ibv_srq_attr *attr, int attr_mask)
 {
 	struct rxe_srq *srq = to_rsrq(ibsrq);
-	struct urxe_modify_srq_cmd cmd;
+	struct urxe_modify_srq cmd;
 	int rc = 0;
-	struct mmap_info mi;
+	struct mminfo mi;
 
 	mi.offset = 0;
 	mi.size = 0;
