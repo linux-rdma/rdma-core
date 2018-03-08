@@ -242,9 +242,7 @@ int _execute_write_raw_ex(uint32_t cmdnum, struct ibv_context *ctx,
 	size_t resp_bytes =
 		(hdr->hdr.out_words + hdr->ex_hdr.provider_out_words) * 8;
 
-	hdr->hdr.command = (IB_USER_VERBS_CMD_FLAG_EXTENDED
-			    << IB_USER_VERBS_CMD_FLAGS_SHIFT) |
-			   cmdnum;
+	hdr->hdr.command = IB_USER_VERBS_CMD_FLAG_EXTENDED | cmdnum;
 	hdr->ex_hdr.cmd_hdr_reserved = 0;
 	hdr->ex_hdr.response =  ioctl_ptr_to_u64(resp);
 
