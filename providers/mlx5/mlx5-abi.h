@@ -139,26 +139,9 @@ struct mlx5_create_srq_ex {
 	__u32                           reserved1;
 };
 
-struct mlx5_create_qp_drv_ex {
-	__u64			buf_addr;
-	__u64			db_addr;
-	__u32			sq_wqe_count;
-	__u32			rq_wqe_count;
-	__u32			rq_wqe_shift;
-	__u32			flags;
-	__u32			uidx;
-	__u32			reserved;
-	union {
-		/* SQ buffer address - used for Raw Packet QP */
-		__u64			sq_buf_addr;
-		/* DC access key - used to create a DCT QP */
-		__u64			access_key;
-	};
-};
-
 struct mlx5_create_qp_ex {
 	struct ibv_create_qp_ex	ibv_cmd;
-	struct mlx5_create_qp_drv_ex drv_ex;
+	struct mlx5_ib_create_qp drv_ex;
 };
 
 struct mlx5_create_qp_ex_rss {
@@ -201,22 +184,9 @@ struct mlx5_create_qp_resp {
 	__u32				uuar_index;
 };
 
-struct mlx5_drv_create_wq {
-	__u64		buf_addr;
-	__u64		db_addr;
-	__u32		rq_wqe_count;
-	__u32		rq_wqe_shift;
-	__u32		user_index;
-	__u32		flags;
-	__u32		comp_mask;
-	__u32		single_stride_log_num_of_bytes;
-	__u32		single_wqe_log_num_of_strides;
-	__u32		two_byte_shift_en;
-};
-
 struct mlx5_create_wq {
 	struct ibv_create_wq	ibv_cmd;
-	struct mlx5_drv_create_wq	drv;
+	struct mlx5_ib_create_wq	drv;
 };
 
 struct mlx5_create_wq_resp {
@@ -255,12 +225,6 @@ struct mlx5_query_device_ex {
 	struct ibv_query_device_ex	ibv_cmd;
 };
 
-struct mlx5_rss_caps {
-	__u64 rx_hash_fields_mask; /* enum ibv_rx_hash_fields */
-	__u8 rx_hash_function; /* enum ibv_rx_hash_function_flags */
-	__u8 reserved[7];
-};
-
 struct mlx5_striding_rq_caps {
 	struct mlx5dv_striding_rq_caps	caps;
 	__u32				reserved;
@@ -271,7 +235,7 @@ struct mlx5_query_device_ex_resp {
 	__u32				comp_mask;
 	__u32				response_length;
 	struct ibv_tso_caps		tso_caps;
-	struct mlx5_rss_caps            rss_caps; /* vendor data channel */
+	struct mlx5_ib_rss_caps            rss_caps; /* vendor data channel */
 	struct mlx5dv_cqe_comp_caps	cqe_comp_caps;
 	struct mlx5_packet_pacing_caps	packet_pacing_caps;
 	__u32				support_multi_pkt_send_wqe;
