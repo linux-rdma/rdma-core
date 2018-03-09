@@ -173,10 +173,6 @@ struct ibv_create_cq {
 	struct ib_uverbs_create_cq core_payload;
 };
 
-enum ibv_create_cq_ex_kernel_flags {
-	IBV_CREATE_CQ_EX_KERNEL_FLAG_COMPLETION_TIMESTAMP = 1 << 0,
-};
-
 struct ibv_create_cq_ex {
 	struct ex_hdr	hdr;
 	struct ib_uverbs_ex_create_cq core_payload;
