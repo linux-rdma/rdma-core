@@ -160,7 +160,6 @@ struct ibv_alloc_mw {
 struct ibv_dealloc_mw {
 	struct ib_uverbs_cmd_hdr hdr;
 	__u32 mw_handle;
-	__u32 reserved;
 };
 
 struct ibv_create_comp_channel {

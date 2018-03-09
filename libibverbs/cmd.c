@@ -478,7 +478,6 @@ int ibv_cmd_dealloc_mw(struct ibv_mw *mw,
 {
 	IBV_INIT_CMD(cmd, cmd_size, DEALLOC_MW);
 	cmd->mw_handle = mw->handle;
-	cmd->reserved = 0;
 
 	if (write(mw->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
