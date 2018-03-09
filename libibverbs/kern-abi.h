@@ -37,6 +37,7 @@
 
 #include <linux/types.h>
 #include <assert.h>
+#include <ccan/container_of.h>
 
 #include <rdma/ib_user_verbs.h>
 #include <kernel-abi/ib_user_verbs.h>
@@ -170,6 +171,7 @@ DECLARE_CMDX(IB_USER_VERBS_CMD_CLOSE_XRCD, ibv_close_xrcd, ib_uverbs_close_xrcd,
 DECLARE_CMD(IB_USER_VERBS_CMD_CREATE_AH, ibv_create_ah, ib_uverbs_create_ah);
 DECLARE_CMD(IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL, ibv_create_comp_channel, ib_uverbs_create_comp_channel);
 DECLARE_CMD(IB_USER_VERBS_CMD_CREATE_CQ, ibv_create_cq, ib_uverbs_create_cq);
+DECLARE_CMD(IB_USER_VERBS_CMD_CREATE_QP, ibv_create_qp, ib_uverbs_create_qp);
 DECLARE_CMD(IB_USER_VERBS_CMD_CREATE_SRQ, ibv_create_srq, ib_uverbs_create_srq);
 DECLARE_CMDX(IB_USER_VERBS_CMD_CREATE_XSRQ, ibv_create_xsrq, ib_uverbs_create_xsrq, ib_uverbs_create_srq_resp);
 DECLARE_CMDX(IB_USER_VERBS_CMD_DEALLOC_MW, ibv_dealloc_mw, ib_uverbs_dealloc_mw, empty);
@@ -200,6 +202,7 @@ DECLARE_CMD(IB_USER_VERBS_CMD_RESIZE_CQ, ibv_resize_cq, ib_uverbs_resize_cq);
 
 DECLARE_CMD_EX(IB_USER_VERBS_EX_CMD_CREATE_CQ, ibv_create_cq_ex, ib_uverbs_ex_create_cq);
 DECLARE_CMD_EX(IB_USER_VERBS_EX_CMD_CREATE_FLOW, ibv_create_flow, ib_uverbs_create_flow);
+DECLARE_CMD_EX(IB_USER_VERBS_EX_CMD_CREATE_QP, ibv_create_qp_ex, ib_uverbs_ex_create_qp);
 DECLARE_CMD_EX(IB_USER_VERBS_EX_CMD_CREATE_RWQ_IND_TBL, ibv_create_rwq_ind_table, ib_uverbs_ex_create_rwq_ind_table);
 DECLARE_CMD_EX(IB_USER_VERBS_EX_CMD_CREATE_WQ, ibv_create_wq, ib_uverbs_ex_create_wq);
 DECLARE_CMD_EXX(IB_USER_VERBS_EX_CMD_DESTROY_FLOW, ibv_destroy_flow, ib_uverbs_destroy_flow, empty);
@@ -211,47 +214,28 @@ DECLARE_CMD_EXX(IB_USER_VERBS_EX_CMD_MODIFY_WQ, ibv_modify_wq, ib_uverbs_ex_modi
 DECLARE_CMD_EX(IB_USER_VERBS_EX_CMD_QUERY_DEVICE, ibv_query_device_ex, ib_uverbs_ex_query_device);
 
 /*
+ * Both ib_uverbs_create_qp and ib_uverbs_ex_create_qp start with the same
+ * structure, this function converts the ex version into the normal version
+ */
+static inline struct ib_uverbs_create_qp *
+ibv_create_cq_ex_to_reg(struct ibv_create_qp_ex *cmd_ex)
+{
+	/*
+	 * user_handle is the start in both places, note that the ex
+	 * does not have response located in the same place, so response
+	 * cannot be touched.
+	 */
+	return container_of(&cmd_ex->user_handle, struct ib_uverbs_create_qp,
+			    user_handle);
+}
+
+/*
  * This file contains copied data from the kernel's include/uapi/rdma/ib_user_verbs.h,
  * now included above.
  *
  * Whenever possible use the definition from the kernel header and avoid
  * copying from that header into this file.
  */
-
-#define IBV_CREATE_QP_COMMON	\
-	__u64 user_handle;	\
-	__u32 pd_handle;	\
-	__u32 send_cq_handle;	\
-	__u32 recv_cq_handle;	\
-	__u32 srq_handle;	\
-	__u32 max_send_wr;	\
-	__u32 max_recv_wr;	\
-	__u32 max_send_sge;	\
-	__u32 max_recv_sge;	\
-	__u32 max_inline_data;	\
-	__u8  sq_sig_all;	\
-	__u8  qp_type;		\
-	__u8  is_srq;		\
-	__u8  reserved
-
-struct ibv_create_qp {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	IBV_CREATE_QP_COMMON;
-};
-
-struct ibv_create_qp_common {
-	IBV_CREATE_QP_COMMON;
-};
-
-struct ibv_create_qp_ex {
-	struct ex_hdr	hdr;
-	struct ibv_create_qp_common base;
-	__u32 comp_mask;
-	__u32 create_flags;
-	__u32 ind_tbl_handle;
-	__u32 source_qpn;
-};
 
 struct ibv_kern_ipv4_filter {
 	__u32 src_ip;
