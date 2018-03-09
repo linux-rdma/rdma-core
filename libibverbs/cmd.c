@@ -538,7 +538,7 @@ int ibv_cmd_req_notify_cq(struct ibv_cq *ibcq, int solicited_only)
 
 	IBV_INIT_CMD(&cmd, sizeof cmd, REQ_NOTIFY_CQ);
 	cmd.cq_handle = ibcq->handle;
-	cmd.solicited = !!solicited_only;
+	cmd.solicited_only = !!solicited_only;
 
 	if (write(ibcq->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
 		return errno;
@@ -1271,7 +1271,7 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 	IBV_INIT_CMD(cmd, cmd_size, MODIFY_QP);
 
-	copy_modify_qp_fields(qp, attr, attr_mask, &cmd->base);
+	copy_modify_qp_fields(qp, attr, attr_mask, &cmd->core_payload);
 
 	if (write(qp->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
