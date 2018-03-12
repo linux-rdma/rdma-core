@@ -28,7 +28,7 @@ function(rdma_create_symlink LINK_CONTENT DEST)
 
   IF(NOT EXISTS "${DDIR}/")
     execute_process(COMMAND "${CMAKE_COMMAND}" "-E" "make_directory"
-      "${BUILD_LIB}" RESULT_VARIABLE retcode)
+      "${DDIR}" RESULT_VARIABLE retcode)
     if(NOT "${retcode}" STREQUAL "0")
       message(FATAL_ERROR "Failed to create directory ${DDIR}")
     endif()
