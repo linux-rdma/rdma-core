@@ -56,4 +56,5 @@ endfunction()
 # Transform the kernel ABIs used by the providers
 rdma_kernel_provider_abi(
   rdma/ib_user_verbs.h
+  rdma/qedr-abi.h
   )
