@@ -1771,6 +1771,7 @@ static void __process_resp_one(struct qelr_qp *qp, struct qelr_cq *cq,
 	uint8_t flags;
 
 	wc->opcode = IBV_WC_RECV;
+	wc->wr_id = wr_id;
 	wc->wc_flags = 0;
 
 	switch (resp->status) {
@@ -1815,7 +1816,6 @@ static void __process_resp_one(struct qelr_qp *qp, struct qelr_cq *cq,
 			break;
 		}
 
-		wc->wr_id = wr_id;
 		break;
 	default:
 		wc->status = IBV_WC_GENERAL_ERR;
