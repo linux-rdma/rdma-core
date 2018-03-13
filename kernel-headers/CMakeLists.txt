@@ -57,6 +57,7 @@ endfunction()
 rdma_kernel_provider_abi(
   rdma/ib_user_verbs.h
   rdma/mlx4-abi.h
+  rdma/mlx5-abi.h
   rdma/qedr-abi.h
   rdma/rdma_user_rxe.h
   )

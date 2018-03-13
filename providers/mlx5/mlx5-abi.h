@@ -36,6 +36,7 @@
 #include <infiniband/kern-abi.h>
 #include <infiniband/verbs.h>
 #include <rdma/mlx5-abi.h>
+#include <kernel-abi/mlx5-abi.h>
 #include "mlx5dv.h"
 
 #define MLX5_UVERBS_MIN_ABI_VERSION	1
@@ -50,202 +51,38 @@ enum {
 	MLX5_MED_BFREGS_TSHOLD		= 12,
 };
 
-struct mlx5_alloc_ucontext {
-	struct ibv_get_context		ibv_req;
-	__u32				total_num_uuars;
-	__u32				num_low_latency_uuars;
-	__u32				flags;
-	__u32				comp_mask;
-	__u8				cqe_version;
-	__u8				reserved0;
-	__u16				reserved1;
-	__u32				reserved2;
-	__u64				lib_caps;
-};
-
-struct mlx5_alloc_ucontext_resp {
-	struct ib_uverbs_get_context_resp	ibv_resp;
-	__u32				qp_tab_size;
-	__u32				bf_reg_size;
-	__u32				tot_uuars;
-	__u32				cache_line_size;
-	__u16				max_sq_desc_sz;
-	__u16				max_rq_desc_sz;
-	__u32				max_send_wqebb;
-	__u32				max_recv_wr;
-	__u32				max_srq_recv_wr;
-	__u16				num_ports;
-	__u16				reserved1;
-	__u32				comp_mask;
-	__u32				response_length;
-	__u8				cqe_version;
-	__u8				cmds_supp_uhw;
-	__u8				reserved2;
-	__u8				clock_info_versions;
-	__u64				hca_core_clock_offset;
-	__u32				log_uar_size;
-	__u32				num_uars_per_page;
-	__u32				num_dyn_bfregs;
-	__u32				reserved3;
-};
-
-struct mlx5_create_ah_resp {
-	struct ib_uverbs_create_ah_resp	ibv_resp;
-	__u32				response_length;
-	__u8				dmac[ETHERNET_LL_SIZE];
-	__u8				reserved[6];
-};
-
-struct mlx5_alloc_pd_resp {
-	struct ib_uverbs_alloc_pd_resp	ibv_resp;
-	__u32				pdn;
-};
-
-struct mlx5_create_cq {
-	struct ibv_create_cq		ibv_cmd;
-	__u64				buf_addr;
-	__u64				db_addr;
-	__u32				cqe_size;
-	__u8                            cqe_comp_en;
-	__u8                            cqe_comp_res_format;
-	__u16                           flags; /* Use enum mlx5_create_cq_flags */
-};
-
-struct mlx5_create_cq_resp {
-	struct ib_uverbs_create_cq_resp	ibv_resp;
-	__u32				cqn;
-};
-
-struct mlx5_create_srq {
-	struct ibv_create_srq		ibv_cmd;
-	__u64				buf_addr;
-	__u64				db_addr;
-	__u32				flags;
-};
-
-struct mlx5_create_srq_resp {
-	struct ib_uverbs_create_srq_resp	ibv_resp;
-	__u32				srqn;
-	__u32				reserved;
-};
-
-struct mlx5_create_srq_ex {
-	struct ibv_create_xsrq		ibv_cmd;
-	__u64				buf_addr;
-	__u64				db_addr;
-	__u32				flags;
-	__u32				reserved;
-	__u32                           uidx;
-	__u32                           reserved1;
-};
-
-struct mlx5_create_qp_ex {
-	struct ibv_create_qp_ex	ibv_cmd;
-	struct mlx5_ib_create_qp drv_ex;
-};
-
-struct mlx5_create_qp_ex_rss {
-	struct ibv_create_qp_ex	ibv_cmd;
-	__u64 rx_hash_fields_mask; /* enum ibv_rx_hash_fields */
-	__u8 rx_hash_function; /* enum ibv_rx_hash_function_flags */
-	__u8 rx_key_len;
-	__u8 reserved[6];
-	__u8 rx_hash_key[128];
-	__u32   comp_mask;
-	__u32   create_flags;
-};
-
-struct mlx5_create_qp_resp_ex {
-	struct ib_uverbs_ex_create_qp_resp	ibv_resp;
-	__u32				uuar_index;
-	__u32				reserved;
-};
-
-struct mlx5_create_qp {
-	struct ibv_create_qp		ibv_cmd;
-	__u64				buf_addr;
-	__u64				db_addr;
-	__u32				sq_wqe_count;
-	__u32				rq_wqe_count;
-	__u32				rq_wqe_shift;
-	__u32				flags;
-	__u32                           uidx;
-	__u32                           bfreg_index;
-	union {
-		/* SQ buffer address - used for Raw Packet QP */
-		__u64			sq_buf_addr;
-		/* DC access key - used to create a DCT QP */
-		__u64			access_key;
-	};
-};
-
-struct mlx5_create_qp_resp {
-	struct ib_uverbs_create_qp_resp	ibv_resp;
-	__u32				uuar_index;
-};
-
-struct mlx5_create_wq {
-	struct ibv_create_wq	ibv_cmd;
-	struct mlx5_ib_create_wq	drv;
-};
-
-struct mlx5_create_wq_resp {
-	struct ib_uverbs_ex_create_wq_resp	ibv_resp;
-	__u32			response_length;
-	__u32			reserved;
-};
-
-struct mlx5_modify_wq {
-	struct ibv_modify_wq	ibv_cmd;
-	__u32			comp_mask;
-	__u32			reserved;
-};
-
-struct mlx5_create_rwq_ind_table_resp {
-	struct ib_uverbs_ex_create_rwq_ind_table_resp ibv_resp;
-};
-
-struct mlx5_destroy_rwq_ind_table {
-	struct ibv_destroy_rwq_ind_table ibv_cmd;
-};
-
-struct mlx5_resize_cq {
-	struct ibv_resize_cq		ibv_cmd;
-	__u64				buf_addr;
-	__u16				cqe_size;
-	__u16				reserved0;
-	__u32				reserved1;
-};
-
-struct mlx5_resize_cq_resp {
-	struct ib_uverbs_resize_cq_resp	ibv_resp;
-};
-
-struct mlx5_query_device_ex {
-	struct ibv_query_device_ex	ibv_cmd;
-};
-
-struct mlx5_query_device_ex_resp {
-	struct ib_uverbs_ex_query_device_resp ibv_resp;
-	__u32				comp_mask;
-	__u32				response_length;
-	struct mlx5_ib_tso_caps		tso_caps;
-	struct mlx5_ib_rss_caps            rss_caps; /* vendor data channel */
-	struct mlx5_ib_cqe_comp_caps	cqe_comp_caps;
-	struct mlx5_packet_pacing_caps	packet_pacing_caps;
-	__u32				support_multi_pkt_send_wqe;
-	__u32				flags; /* Use enum mlx5_query_dev_resp_flags */
-	struct mlx5_ib_sw_parsing_caps	sw_parsing_caps;
-	struct mlx5_ib_striding_rq_caps	striding_rq_caps;
-	__u32				tunnel_offloads_caps;
-	__u32				reserved;
-};
-
-struct mlx5_modify_qp_resp_ex {
-	struct ib_uverbs_ex_modify_qp_resp base;
-	__u32  response_length;
-	__u32  dctn;
-};
+DECLARE_DRV_CMD(mlx5_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT,
+		mlx5_ib_alloc_ucontext_req_v2, mlx5_ib_alloc_ucontext_resp);
+DECLARE_DRV_CMD(mlx5_create_ah, IB_USER_VERBS_CMD_CREATE_AH,
+		empty, mlx5_ib_create_ah_resp);
+DECLARE_DRV_CMD(mlx5_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
+		empty, mlx5_ib_alloc_pd_resp);
+DECLARE_DRV_CMD(mlx5_create_cq, IB_USER_VERBS_CMD_CREATE_CQ,
+		mlx5_ib_create_cq, mlx5_ib_create_cq_resp);
+DECLARE_DRV_CMD(mlx5_create_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
+		mlx5_ib_create_srq, mlx5_ib_create_srq_resp);
+DECLARE_DRV_CMD(mlx5_create_srq_ex, IB_USER_VERBS_CMD_CREATE_XSRQ,
+		mlx5_ib_create_srq, mlx5_ib_create_srq_resp);
+DECLARE_DRV_CMD(mlx5_create_qp_ex, IB_USER_VERBS_EX_CMD_CREATE_QP,
+		mlx5_ib_create_qp, mlx5_ib_create_qp_resp);
+DECLARE_DRV_CMD(mlx5_create_qp_ex_rss, IB_USER_VERBS_EX_CMD_CREATE_QP,
+		mlx5_ib_create_qp_rss, mlx5_ib_create_qp_resp);
+DECLARE_DRV_CMD(mlx5_create_qp, IB_USER_VERBS_CMD_CREATE_QP,
+		mlx5_ib_create_qp, mlx5_ib_create_qp_resp);
+DECLARE_DRV_CMD(mlx5_create_wq, IB_USER_VERBS_EX_CMD_CREATE_WQ,
+		mlx5_ib_create_wq, mlx5_ib_create_wq_resp);
+DECLARE_DRV_CMD(mlx5_modify_wq, IB_USER_VERBS_EX_CMD_MODIFY_WQ,
+		mlx5_ib_modify_wq, empty);
+DECLARE_DRV_CMD(mlx5_create_rwq_ind_table, IB_USER_VERBS_EX_CMD_CREATE_RWQ_IND_TBL,
+		empty, empty);
+DECLARE_DRV_CMD(mlx5_destroy_rwq_ind_table, IB_USER_VERBS_EX_CMD_DESTROY_RWQ_IND_TBL,
+		empty, empty);
+DECLARE_DRV_CMD(mlx5_resize_cq, IB_USER_VERBS_CMD_RESIZE_CQ,
+		mlx5_ib_resize_cq, empty);
+DECLARE_DRV_CMD(mlx5_query_device_ex, IB_USER_VERBS_EX_CMD_QUERY_DEVICE,
+		empty, mlx5_ib_query_device_resp);
+DECLARE_DRV_CMD(mlx5_modify_qp_ex, IB_USER_VERBS_EX_CMD_MODIFY_QP,
+		empty, mlx5_ib_modify_qp_resp);
 
 struct mlx5_modify_qp {
 	struct ibv_modify_qp_ex		ibv_cmd;
