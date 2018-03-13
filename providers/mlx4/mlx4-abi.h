@@ -35,131 +35,40 @@
 
 #include <infiniband/kern-abi.h>
 #include <rdma/mlx4-abi.h>
+#include <kernel-abi/mlx4-abi.h>
 
 #define MLX4_UVERBS_MIN_ABI_VERSION	2
 #define MLX4_UVERBS_MAX_ABI_VERSION	4
 
 #define MLX4_UVERBS_NO_DEV_CAPS_ABI_VERSION	3
 
-struct mlx4_alloc_ucontext_resp_v3 {
-	struct ib_uverbs_get_context_resp	ibv_resp;
-	__u32				qp_tab_size;
-	__u16				bf_reg_size;
-	__u16				bf_regs_per_page;
-};
-
-struct mlx4_alloc_ucontext_resp {
-	struct ib_uverbs_get_context_resp	ibv_resp;
-	__u32				dev_caps;
-	__u32				qp_tab_size;
-	__u16				bf_reg_size;
-	__u16				bf_regs_per_page;
-	__u32				cqe_size;
-};
-
-struct mlx4_alloc_pd_resp {
-	struct ib_uverbs_alloc_pd_resp	ibv_resp;
-	__u32				pdn;
-	__u32				reserved;
-};
-
-struct mlx4_create_cq {
-	struct ibv_create_cq		ibv_cmd;
-	__u64				buf_addr;
-	__u64				db_addr;
-};
-
-struct mlx4_create_cq_resp {
-	struct ib_uverbs_create_cq_resp	ibv_resp;
-	__u32				cqn;
-	__u32				reserved;
-};
-
-struct mlx4_create_cq_ex {
-	struct ibv_create_cq_ex		ibv_cmd;
-	__u64				buf_addr;
-	__u64				db_addr;
-};
-
-struct mlx4_create_cq_resp_ex {
-	struct ib_uverbs_ex_create_cq_resp	ibv_resp;
-	__u32				cqn;
-	__u32				reserved;
-};
-
-struct mlx4_resize_cq {
-	struct ibv_resize_cq		ibv_cmd;
-	__u64				buf_addr;
-};
-
-struct mlx4_query_device_ex_resp {
-	struct ib_uverbs_ex_query_device_resp ibv_resp;
-	__u32				comp_mask;
-	__u32				response_length;
-	__u64				hca_core_clock_offset;
-	__u32				max_inl_recv_sz;
-	/* Explicitly align the response to u64 */
-	__u32				reserved;
-	struct mlx4_ib_rss_caps            rss_caps; /* vendor data channel */
-	struct mlx4_ib_tso_caps		tso_caps;
-};
-
-struct mlx4_query_device_ex {
-	struct ibv_query_device_ex	ibv_cmd;
-};
-
-struct mlx4_create_srq {
-	struct ibv_create_srq		ibv_cmd;
-	__u64				buf_addr;
-	__u64				db_addr;
-};
-
-struct mlx4_create_xsrq {
-	struct ibv_create_xsrq		ibv_cmd;
-	__u64				buf_addr;
-	__u64				db_addr;
-};
-
-struct mlx4_create_srq_resp {
-	struct ib_uverbs_create_srq_resp	ibv_resp;
-	__u32				srqn;
-	__u32				reserved;
-};
-
-struct mlx4_create_qp {
-	struct ibv_create_qp		ibv_cmd;
-	__u64				buf_addr;
-	__u64				db_addr;
-	__u8				log_sq_bb_count;
-	__u8				log_sq_stride;
-	__u8				sq_no_prefetch;	/* was reserved in ABI 2 */
-	__u8				reserved;
-	__u32				inl_recv_sz;
-};
-
-struct mlx4_create_qp_ex_rss {
-	struct ibv_create_qp_ex		 ibv_cmd;
-	struct mlx4_ib_create_qp_rss drv_ex;
-};
-
-struct mlx4_create_qp_ex {
-	struct ibv_create_qp_ex		ibv_cmd;
-	struct mlx4_ib_create_qp	drv_ex;
-};
-
-struct mlx4_create_qp_resp_ex {
-	struct ib_uverbs_ex_create_qp_resp	ibv_resp;
-};
-
-struct mlx4_create_wq {
-	struct ibv_create_wq		ibv_cmd;
-	struct mlx4_ib_create_wq	drv;
-};
-
-struct mlx4_modify_wq {
-	struct ibv_modify_wq	ibv_cmd;
-	__u32			comp_mask;
-	__u32			reserved;
-};
+DECLARE_DRV_CMD(mlx4_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
+		empty, mlx4_ib_alloc_pd_resp);
+DECLARE_DRV_CMD(mlx4_create_cq, IB_USER_VERBS_CMD_CREATE_CQ,
+		mlx4_ib_create_cq, mlx4_ib_create_cq_resp);
+DECLARE_DRV_CMD(mlx4_create_cq_ex, IB_USER_VERBS_EX_CMD_CREATE_CQ,
+		mlx4_ib_create_cq, mlx4_ib_create_cq_resp);
+DECLARE_DRV_CMD(mlx4_create_qp, IB_USER_VERBS_CMD_CREATE_QP,
+		mlx4_ib_create_qp, empty);
+DECLARE_DRV_CMD(mlx4_create_qp_ex, IB_USER_VERBS_EX_CMD_CREATE_QP,
+		mlx4_ib_create_qp, empty);
+DECLARE_DRV_CMD(mlx4_create_qp_ex_rss, IB_USER_VERBS_EX_CMD_CREATE_QP,
+		mlx4_ib_create_qp_rss, empty);
+DECLARE_DRV_CMD(mlx4_create_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
+		mlx4_ib_create_srq, mlx4_ib_create_srq_resp);
+DECLARE_DRV_CMD(mlx4_create_wq, IB_USER_VERBS_EX_CMD_CREATE_WQ,
+		mlx4_ib_create_wq, empty);
+DECLARE_DRV_CMD(mlx4_create_xsrq, IB_USER_VERBS_CMD_CREATE_XSRQ,
+		mlx4_ib_create_srq, mlx4_ib_create_srq_resp);
+DECLARE_DRV_CMD(mlx4_alloc_ucontext_v3, IB_USER_VERBS_CMD_GET_CONTEXT,
+		empty, mlx4_ib_alloc_ucontext_resp_v3);
+DECLARE_DRV_CMD(mlx4_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT,
+		empty, mlx4_ib_alloc_ucontext_resp);
+DECLARE_DRV_CMD(mlx4_modify_wq, IB_USER_VERBS_EX_CMD_MODIFY_WQ,
+		mlx4_ib_modify_wq, empty);
+DECLARE_DRV_CMD(mlx4_query_device_ex, IB_USER_VERBS_EX_CMD_QUERY_DEVICE,
+		empty, mlx4_uverbs_ex_query_device_resp);
+DECLARE_DRV_CMD(mlx4_resize_cq, IB_USER_VERBS_CMD_RESIZE_CQ,
+		mlx4_ib_resize_cq, empty);
 
 #endif /* MLX4_ABI_H */

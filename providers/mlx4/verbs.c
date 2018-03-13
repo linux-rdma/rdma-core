@@ -439,7 +439,7 @@ static int mlx4_cmd_create_cq_ex(struct ibv_context *context,
 				 struct mlx4_cq *cq)
 {
 	struct mlx4_create_cq_ex      cmd;
-	struct mlx4_create_cq_resp_ex resp;
+	struct mlx4_create_cq_ex_resp resp;
 	int ret;
 
 	cmd.buf_addr = (uintptr_t) cq->buf.buf;
@@ -763,21 +763,21 @@ static int mlx4_cmd_create_qp_ex_rss(struct ibv_context *context,
 				     struct mlx4_qp *qp)
 {
 	struct mlx4_create_qp_ex_rss cmd_ex = {};
-	struct mlx4_create_qp_resp_ex resp;
+	struct mlx4_create_qp_ex_resp resp;
 	int ret;
 
 	if (attr->rx_hash_conf.rx_hash_key_len !=
-	    sizeof(cmd_ex.drv_ex.rx_hash_key)) {
+	    sizeof(cmd_ex.rx_hash_key)) {
 		errno = ENOTSUP;
 		return errno;
 	}
 
-	cmd_ex.drv_ex.rx_hash_fields_mask =
+	cmd_ex.rx_hash_fields_mask =
 		attr->rx_hash_conf.rx_hash_fields_mask;
-	cmd_ex.drv_ex.rx_hash_function =
+	cmd_ex.rx_hash_function =
 		attr->rx_hash_conf.rx_hash_function;
-	memcpy(cmd_ex.drv_ex.rx_hash_key, attr->rx_hash_conf.rx_hash_key,
-	       sizeof(cmd_ex.drv_ex.rx_hash_key));
+	memcpy(cmd_ex.rx_hash_key, attr->rx_hash_conf.rx_hash_key,
+	       sizeof(cmd_ex.rx_hash_key));
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
 				    sizeof(qp->verbs_qp), attr,
@@ -827,15 +827,13 @@ static int mlx4_cmd_create_qp_ex(struct ibv_context *context,
 				 struct mlx4_qp *qp)
 {
 	struct mlx4_create_qp_ex cmd_ex;
-	struct mlx4_create_qp_resp_ex resp;
+	struct mlx4_create_qp_ex_resp resp;
 	int ret;
 
 	memset(&cmd_ex, 0, sizeof(cmd_ex));
 	*ibv_create_cq_ex_to_reg(&cmd_ex.ibv_cmd) = cmd->ibv_cmd.core_payload;
 
-	memcpy(&cmd_ex.drv_ex, &cmd->buf_addr,
-	       offsetof(typeof(*cmd), sq_no_prefetch) +
-	       sizeof(cmd->sq_no_prefetch) - sizeof(cmd->ibv_cmd));
+	cmd_ex.drv_payload = cmd->drv_payload;
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
 				    sizeof(qp->verbs_qp), attr,
@@ -1457,11 +1455,11 @@ struct ibv_wq *mlx4_create_wq(struct ibv_context *context,
 		goto err_free;
 
 	*qp->db = 0;
-	cmd.drv.db_addr = (uintptr_t)qp->db;
+	cmd.db_addr = (uintptr_t)qp->db;
 
-	cmd.drv.buf_addr = (uintptr_t)qp->buf.buf;
+	cmd.buf_addr = (uintptr_t)qp->buf.buf;
 
-	cmd.drv.log_range_size = ctx->log_wqs_range_sz;
+	cmd.log_range_size = ctx->log_wqs_range_sz;
 
 	pthread_mutex_lock(&to_mctx(context)->qp_table_mutex);
 

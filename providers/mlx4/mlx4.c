@@ -171,7 +171,7 @@ static struct verbs_context *mlx4_alloc_context(struct ibv_device *ibdev,
 	struct ibv_get_context		cmd;
 	struct mlx4_alloc_ucontext_resp resp;
 	int				i;
-	struct mlx4_alloc_ucontext_resp_v3 resp_v3;
+	struct mlx4_alloc_ucontext_v3_resp resp_v3;
 	__u16				bf_reg_size;
 	struct mlx4_device              *dev = to_mdev(ibdev);
 	struct verbs_context		*verbs_ctx;
