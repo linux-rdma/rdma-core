@@ -12,4 +12,3 @@ cdef class Context(PyverbsObject):
 
 cdef class DeviceAttr(PyverbsObject):
     cdef v.ibv_device_attr dev_attr
-

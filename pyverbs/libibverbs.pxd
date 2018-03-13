@@ -61,3 +61,4 @@ cdef extern from 'infiniband/verbs.h':
     ibv_context *ibv_open_device(ibv_device *device);
     int ibv_close_device(ibv_context *context)
     int ibv_query_device(ibv_context *context, ibv_device_attr *device_attr)
+    unsigned long ibv_get_device_guid(ibv_device *device)

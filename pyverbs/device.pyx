@@ -14,6 +14,45 @@ cimport pyverbs.libibverbs as v
 cdef extern from 'errno.h':
     int errno
 
+cdef extern from 'endian.h':
+    unsigned long be64toh(unsigned long host_64bits);
+
+
+class Device(PyverbsObject):
+    """
+    Device class represents the C ibv_device. It stores device's properties.
+    It is not a part of objects creation order - there's no need for the user
+    to create it for such purposes.
+    """
+    def __init__(self, name, guid, node_type, transport_type):
+        self._node_type = node_type
+        self._transport_type = transport_type
+        self._name = name
+        self._guid = guid
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def node_type(self):
+        return self._node_type
+
+    @property
+    def transport_type(self):
+        return self._transport_type
+
+    @property
+    def guid(self):
+        return self._guid
+
+    def __str__(self):
+        return 'Device {dev}, node type {ntype}, transport type {ttype},' \
+               ' guid {guid}'.format(dev=self.name.decode(),
+                ntype=translate_node_type(self.node_type),
+                ttype=translate_transport_type(self.transport_type),
+                guid=guid_to_hex(self.guid))
+
 
 cdef class Context(PyverbsObject):
     """
@@ -271,3 +310,40 @@ def guid_format(num):
     hex_array = [hex_str[i:i+2] for i in range(0, len(hex_str), 2)]
     hex_array = [''.join(x) for x in zip(hex_array[0::2], hex_array[1::2])]
     return ':'.join(hex_array)
+
+def translate_transport_type(transport_type):
+    return {-1:'UNKNOWN', 0:'IB', 1:'IWARP', 2:'USNIC',
+            3:'USNIC_UDP'}[transport_type]
+
+def translate_node_type(node_type):
+    return {-1:'UNKNOWN', 1:'CA', 2:'SWITCH', 3:'ROUTER',
+            4:'RNIC', 5:'USNIC', 6:'USNIC_UDP'}[node_type]
+
+def guid_to_hex(node_guid):
+    return hex(node_guid).replace('L', '').replace('0x', '')
+
+def get_device_list():
+    """
+    :return: list of IB_devices on current node
+             each list element contains a Device with:
+                 device name
+                 device node type
+                 device transport type
+                 device guid
+    """
+    cdef int count = 0;
+    cdef v.ibv_device **dev_list;
+    dev_list = v.ibv_get_device_list(&count)
+    if dev_list == NULL:
+            raise PyverbsRDMAError('Failed to get devices list')
+    devices = []
+    try:
+        for i in range(count):
+            name = dev_list[i].name
+            node = dev_list[i].node_type
+            transport = dev_list[i].transport_type
+            guid = be64toh(v.ibv_get_device_guid(dev_list[i]))
+            devices.append(Device(name, guid, node, transport))
+    finally:
+        v.ibv_free_device_list(dev_list)
+    return devices
