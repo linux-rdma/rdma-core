@@ -36,68 +36,21 @@
 
 #include <infiniband/kern-abi.h>
 #include <rdma/mthca-abi.h>
+#include <kernel-abi/mthca-abi.h>
 
-struct umthca_alloc_ucontext_resp {
-	struct ib_uverbs_get_context_resp	ibv_resp;
-	__u32				qp_tab_size;
-	__u32				uarc_size;
-};
-
-struct umthca_alloc_pd_resp {
-	struct ib_uverbs_alloc_pd_resp	ibv_resp;
-	__u32				pdn;
-	__u32				reserved;
-};
-
-struct umthca_reg_mr {
-	struct ibv_reg_mr		ibv_cmd;
-	__u32				mr_attrs;
-	__u32				reserved;
-};
-
-struct umthca_create_cq {
-	struct ibv_create_cq		ibv_cmd;
-	__u32				lkey;
-	__u32				pdn;
-	__u64				arm_db_page;
-	__u64				set_db_page;
-	__u32				arm_db_index;
-	__u32				set_db_index;
-};
-
-struct umthca_create_cq_resp {
-	struct ib_uverbs_create_cq_resp	ibv_resp;
-	__u32				cqn;
-	__u32				reserved;
-};
-
-struct umthca_resize_cq {
-	struct ibv_resize_cq		ibv_cmd;
-	__u32				lkey;
-	__u32				reserved;
-};
-
-struct umthca_create_srq {
-	struct ibv_create_srq		ibv_cmd;
-	__u32				lkey;
-	__u32				db_index;
-	__u64				db_page;
-};
-
-struct umthca_create_srq_resp {
-	struct ib_uverbs_create_srq_resp	ibv_resp;
-	__u32				srqn;
-	__u32				reserved;
-};
-
-struct umthca_create_qp {
-	struct ibv_create_qp		ibv_cmd;
-	__u32				lkey;
-	__u32				reserved;
-	__u64				sq_db_page;
-	__u64				rq_db_page;
-	__u32				sq_db_index;
-	__u32				rq_db_index;
-};
+DECLARE_DRV_CMD(umthca_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
+		empty, mthca_alloc_pd_resp);
+DECLARE_DRV_CMD(umthca_create_cq, IB_USER_VERBS_CMD_CREATE_CQ,
+		mthca_create_cq, mthca_create_cq_resp);
+DECLARE_DRV_CMD(umthca_create_qp, IB_USER_VERBS_CMD_CREATE_QP,
+		mthca_create_qp, empty);
+DECLARE_DRV_CMD(umthca_create_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
+		mthca_create_srq, mthca_create_srq_resp);
+DECLARE_DRV_CMD(umthca_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT,
+		empty, mthca_alloc_ucontext_resp);
+DECLARE_DRV_CMD(umthca_reg_mr, IB_USER_VERBS_CMD_REG_MR,
+		mthca_reg_mr, empty);
+DECLARE_DRV_CMD(umthca_resize_cq, IB_USER_VERBS_CMD_RESIZE_CQ,
+		mthca_resize_cq, empty);
 
 #endif /* MTHCA_ABI_H */
