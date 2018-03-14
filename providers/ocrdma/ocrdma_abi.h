@@ -38,8 +38,22 @@
 #include <stdint.h>
 #include <infiniband/kern-abi.h>
 #include <rdma/ocrdma-abi.h>
+#include <kernel-abi/ocrdma-abi.h>
 
 #define OCRDMA_ABI_VERSION	2
+
+DECLARE_DRV_CMD(uocrdma_get_context, IB_USER_VERBS_CMD_GET_CONTEXT,
+		empty, ocrdma_alloc_ucontext_resp);
+DECLARE_DRV_CMD(uocrdma_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
+		ocrdma_alloc_pd_ureq, ocrdma_alloc_pd_uresp);
+DECLARE_DRV_CMD(uocrdma_create_cq, IB_USER_VERBS_CMD_CREATE_CQ,
+		ocrdma_create_cq_ureq, ocrdma_create_cq_uresp);
+DECLARE_DRV_CMD(uocrdma_reg_mr, IB_USER_VERBS_CMD_REG_MR,
+		empty, empty);
+DECLARE_DRV_CMD(uocrdma_create_qp, IB_USER_VERBS_CMD_CREATE_QP,
+		ocrdma_create_qp_ureq, ocrdma_create_qp_uresp);
+DECLARE_DRV_CMD(uocrdma_create_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
+		empty, ocrdma_create_srq_uresp);
 
 #define Bit(_b) (1 << (_b))
 
@@ -61,122 +75,6 @@ enum {
 
 /* solicited bit */
 #define OCRDMA_DB_CQ_SOLICIT_SHIFT		(31)	/* bit 31 */
-
-struct uocrdma_get_context {
-	struct ibv_get_context cmd;
-};
-
-struct uocrdma_alloc_ucontext_resp {
-	struct ib_uverbs_get_context_resp ibv_resp;
-	uint32_t dev_id;
-	uint32_t wqe_size;
-	uint32_t max_inline_data;
-	uint32_t dpp_wqe_size;
-	uint64_t ah_tbl_page;
-	uint32_t ah_tbl_len;
-	uint32_t rqe_size;
-	uint8_t fw_ver[32];
-	uint64_t rsvd1;
-	uint64_t rsvd2;
-};
-
-struct uocrdma_alloc_pd_req {
-	struct ibv_alloc_pd cmd;
-	uint64_t rsvd;
-};
-
-struct uocrdma_alloc_pd_resp {
-	struct ib_uverbs_alloc_pd_resp ibv_resp;
-	uint32_t id;
-	uint32_t dpp_enabled;
-	uint32_t dpp_page_addr_hi;
-	uint32_t dpp_page_addr_lo;
-	uint64_t rsvd;
-};
-
-struct uocrdma_create_cq_req {
-	struct ibv_create_cq ibv_cmd;
-	uint32_t dpp_cq;
-	uint32_t rsvd;
-};
-
-struct uocrdma_create_cq_resp {
-	struct ib_uverbs_create_cq_resp ibv_resp;
-	uint32_t cq_id;
-	uint32_t size;
-	uint32_t num_pages;
-	uint32_t max_hw_cqe;
-	uint64_t page_addr[MAX_CQ_PAGES];
-	uint64_t db_page_addr;
-	uint32_t db_page_size;
-	uint32_t phase_change;
-	uint64_t rsvd1;
-	uint64_t rsvd2;
-};
-
-struct uocrdma_reg_mr {
-	struct ibv_reg_mr ibv_cmd;
-};
-
-struct uocrdma_reg_mr_resp {
-	struct ib_uverbs_reg_mr_resp ibv_resp;
-};
-
-struct uocrdma_create_qp_cmd {
-	struct ibv_create_qp ibv_cmd;
-	uint8_t enable_dpp_cq;
-	uint8_t rsvd;
-	uint16_t dpp_cq_id;
-	uint32_t rsvd1;		/* pad */
-};
-
-struct uocrdma_create_qp_uresp {
-	struct ib_uverbs_create_qp_resp ibv_resp;
-	uint16_t qp_id;
-	uint16_t sq_dbid;
-	uint16_t rq_dbid;
-	uint16_t resv0;		/* pad */
-	uint32_t sq_page_size;
-	uint32_t rq_page_size;
-	uint32_t num_sq_pages;
-	uint32_t num_rq_pages;
-	uint64_t sq_page_addr[MAX_QP_PAGES];
-	uint64_t rq_page_addr[MAX_QP_PAGES];
-	uint64_t db_page_addr;
-	uint32_t db_page_size;
-	uint32_t dpp_credit;
-	uint32_t dpp_offset;
-	uint32_t num_wqe_allocated;
-	uint32_t num_rqe_allocated;
-	uint32_t db_sq_offset;
-	uint32_t db_rq_offset;
-	uint32_t db_shift;
-	uint64_t rsvd[11]; /* 8*8 + 4*4 + 8 */
-};
-
-struct uocrdma_create_srq_cmd {
-	struct ibv_create_srq ibv_cmd;
-};
-
-struct uocrdma_create_srq_resp {
-	struct ib_uverbs_create_srq_resp ibv_resp;
-	uint16_t rq_dbid;
-	uint16_t resv0;
-	uint32_t resv1;
-
-	uint32_t rq_page_size;
-	uint32_t num_rq_pages;
-
-	uint64_t rq_page_addr[MAX_QP_PAGES];
-	uint64_t db_page_addr;
-
-	uint32_t db_page_size;
-	uint32_t num_rqe_allocated;
-	uint32_t db_rq_offset;
-	uint32_t db_shift;
-	uint64_t rsvd2;
-	uint64_t rsvd3;
-};
 
 enum OCRDMA_CQE_STATUS {
 	OCRDMA_CQE_SUCCESS 		= 0,

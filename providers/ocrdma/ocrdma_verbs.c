@@ -133,7 +133,7 @@ static void ocrdma_free_ah_tbl_id(struct ocrdma_devctx *ctx, int idx)
  */
 struct ibv_pd *ocrdma_alloc_pd(struct ibv_context *context)
 {
-	struct uocrdma_alloc_pd_req cmd;
+	struct uocrdma_alloc_pd cmd;
 	struct uocrdma_alloc_pd_resp resp;
 	struct ocrdma_pd *pd;
 	uint64_t map_address = 0;
@@ -144,8 +144,8 @@ struct ibv_pd *ocrdma_alloc_pd(struct ibv_context *context)
 	bzero(pd, sizeof *pd);
 	memset(&cmd, 0, sizeof(cmd));
 
-	if (ibv_cmd_alloc_pd(context, &pd->ibv_pd, &cmd.cmd, sizeof cmd,
-			     &resp.ibv_resp, sizeof resp)) {
+	if (ibv_cmd_alloc_pd(context, &pd->ibv_pd, &cmd.ibv_cmd, sizeof(cmd),
+			     &resp.ibv_resp, sizeof(resp))) {
 		free(pd);
 		return NULL;
 	}
@@ -230,7 +230,7 @@ static struct ibv_cq *ocrdma_create_cq_common(struct ibv_context *context,
 					      int comp_vector, int dpp_cq)
 {
 	int status;
-	struct uocrdma_create_cq_req cmd;
+	struct uocrdma_create_cq cmd;
 	struct uocrdma_create_cq_resp resp;
 	struct ocrdma_cq *cq;
 	struct ocrdma_device *dev = get_ocrdma_dev(context->device);
@@ -252,10 +252,10 @@ static struct ibv_cq *ocrdma_create_cq_common(struct ibv_context *context,
 	cq->dev = dev;
 	cq->cq_id = resp.cq_id;
 	cq->cq_dbid = resp.cq_id;
-	cq->cq_mem_size = resp.size;
+	cq->cq_mem_size = resp.page_size;
 	cq->max_hw_cqe = resp.max_hw_cqe;
 	cq->phase_change = resp.phase_change;
-	cq->va = mmap(NULL, resp.size, PROT_READ | PROT_WRITE,
+	cq->va = mmap(NULL, resp.page_size, PROT_READ | PROT_WRITE,
 		      MAP_SHARED, context->cmd_fd, resp.page_addr[0]);
 	if (cq->va == MAP_FAILED)
 		goto cq_err2;
@@ -354,7 +354,7 @@ struct ibv_srq *ocrdma_create_srq(struct ibv_pd *pd,
 {
 	int status = 0;
 	struct ocrdma_srq *srq;
-	struct uocrdma_create_srq_cmd cmd;
+	struct uocrdma_create_srq cmd;
 	struct uocrdma_create_srq_resp resp;
 	void *map_addr;
 
@@ -464,8 +464,8 @@ struct ibv_qp *ocrdma_create_qp(struct ibv_pd *pd,
 				struct ibv_qp_init_attr *attrs)
 {
 	int status = 0;
-	struct uocrdma_create_qp_cmd cmd;
-	struct uocrdma_create_qp_uresp resp;
+	struct uocrdma_create_qp cmd;
+	struct uocrdma_create_qp_resp resp;
 	struct ocrdma_qp *qp;
 	void *map_addr;
 #ifdef DPP_CQ_SUPPORT
