@@ -127,7 +127,7 @@ struct ibv_pd *nes_ualloc_pd(struct ibv_context *context)
 		return NULL;
 	}
 	nesupd->pd_id = resp.pd_id;
-	nesupd->db_index = resp.db_index;
+	nesupd->db_index = resp.mmap_db_index;
 
 	nesupd->udoorbell = mmap(NULL, page_size, PROT_WRITE | PROT_READ, MAP_SHARED,
 			context->cmd_fd, nesupd->db_index * page_size);
@@ -967,7 +967,7 @@ static int nes_vmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_
         }
 	// So now the memory has been registered..
 	memset (&cmd, 0, sizeof(cmd) );
-	cmd.user_sq_buffer = (__u64) ((uintptr_t) nesuqp->sq_vbase);
+	cmd.user_wqe_buffers = (__u64) ((uintptr_t) nesuqp->sq_vbase);
 	cmd.user_qp_buffer = (__u64) ((uintptr_t) nesuqp);
 	ret = ibv_cmd_create_qp(pd, &nesuqp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd,
 				&resp->ibv_resp, sizeof (struct nes_ucreate_qp_resp) );

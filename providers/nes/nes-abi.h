@@ -36,66 +36,17 @@
 
 #include <infiniband/kern-abi.h>
 #include <rdma/nes-abi.h>
+#include <kernel-abi/nes-abi.h>
 
-struct nes_get_context {
-	struct ibv_get_context cmd;
-	__u32 reserved32;
-	__u8 userspace_ver;
-	__u8 reserved8[3];
-};
-
-
-struct nes_ualloc_ucontext_resp {
-	struct ib_uverbs_get_context_resp ibv_resp;
-	__u32 max_pds; 	/* maximum pds allowed for this user process */
-	__u32 max_qps; 	/* maximum qps allowed for this user process */
-	__u32 wq_size; 	/* defines the size of the WQs (sq+rq) allocated to the mmaped area */
-	__u8 virtwq;
-	__u8 kernel_ver;
-	__u8 reserved[2];
-};
-
-struct nes_ualloc_pd_resp {
-	struct ib_uverbs_alloc_pd_resp ibv_resp;
-	__u32 pd_id;
-	__u32 db_index;
-};
-
-struct nes_ucreate_cq {
-	struct ibv_create_cq ibv_cmd;
-	__u64 user_cq_buffer;
-	__u32 mcrqf;
-	__u8 reserved[4];
-};
-
-struct nes_ucreate_cq_resp {
-	struct ib_uverbs_create_cq_resp ibv_resp;
-	__u32 cq_id;
-	__u32 cq_size;
-	__u32 mmap_db_index;
-	__u32 reserved;
-};
-
-struct nes_ureg_mr {
-	struct ibv_reg_mr ibv_cmd;
-	__u32 reg_type;	/* indicates if id is memory, QP or CQ */
-	__u32 reserved;
-};
-
-struct nes_ucreate_qp {
-	struct ibv_create_qp ibv_cmd;
-	__u64	user_sq_buffer;
-	__u64   user_qp_buffer;
-};
-
-struct nes_ucreate_qp_resp {
-	struct ib_uverbs_create_qp_resp ibv_resp;
-	__u32 qp_id;
-	__u32 actual_sq_size;
-	__u32 actual_rq_size;
-	__u32 mmap_sq_db_index;
-	__u32 mmap_rq_db_index;
-	__u32 nes_drv_opt;
-};
+DECLARE_DRV_CMD(nes_ualloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
+		empty, nes_alloc_pd_resp);
+DECLARE_DRV_CMD(nes_ucreate_cq, IB_USER_VERBS_CMD_CREATE_CQ,
+		nes_create_cq_req, nes_create_cq_resp);
+DECLARE_DRV_CMD(nes_ucreate_qp, IB_USER_VERBS_CMD_CREATE_QP,
+		nes_create_qp_req, nes_create_qp_resp);
+DECLARE_DRV_CMD(nes_get_context, IB_USER_VERBS_CMD_GET_CONTEXT,
+		nes_alloc_ucontext_req, nes_alloc_ucontext_resp);
+DECLARE_DRV_CMD(nes_ureg_mr, IB_USER_VERBS_CMD_REG_MR,
+		nes_mem_reg_req, empty);
 
 #endif			/* nes_ABI_H */
