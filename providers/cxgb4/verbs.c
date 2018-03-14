@@ -303,7 +303,7 @@ static struct ibv_qp *create_qp_v0(struct ibv_pd *pd,
 				   struct ibv_qp_init_attr *attr)
 {
 	struct ibv_create_qp cmd;
-	struct uc4iw_create_qp_resp_v0 resp;
+	struct uc4iw_create_qp_v0_resp resp;
 	struct c4iw_qp *qhp;
 	struct c4iw_dev *dev = to_c4iw_dev(pd->context->device);
 	int ret;
