@@ -35,53 +35,17 @@
 #include <stdint.h>
 #include <infiniband/kern-abi.h>
 #include <rdma/cxgb3-abi.h>
+#include <kernel-abi/cxgb3-abi.h>
 
-struct uiwch_alloc_ucontext_resp {
-	struct ib_uverbs_get_context_resp ibv_resp;
-};
+DECLARE_DRV_CMD(uiwch_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
+		empty, iwch_alloc_pd_resp);
+DECLARE_DRV_CMD(uiwch_create_cq, IB_USER_VERBS_CMD_CREATE_CQ,
+		iwch_create_cq_req, iwch_create_cq_resp);
+DECLARE_DRV_CMD(uiwch_create_qp, IB_USER_VERBS_CMD_CREATE_QP,
+		empty, iwch_create_qp_resp);
+DECLARE_DRV_CMD(uiwch_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT,
+		empty, empty);
+DECLARE_DRV_CMD(uiwch_reg_mr, IB_USER_VERBS_CMD_REG_MR,
+		empty, iwch_reg_user_mr_resp);
 
-struct uiwch_alloc_pd_resp {
-	struct ib_uverbs_alloc_pd_resp ibv_resp;
-	uint32_t pdid;
-};
-
-struct uiwch_create_cq {
-	struct ibv_create_cq ibv_cmd;
-	uint64_t user_rptr_addr;
-};
-
-struct uiwch_reg_mr_resp {
-	struct ib_uverbs_reg_mr_resp ibv_resp;
-	uint32_t pbl_addr;
-};
-
-struct uiwch_create_cq_resp_v0 {
-	struct ib_uverbs_create_cq_resp ibv_resp;
-	uint64_t physaddr;
-	uint32_t cqid;
-	uint32_t size_log2;
-};
-
-struct uiwch_create_cq_resp_v1 {
-	struct ib_uverbs_create_cq_resp ibv_resp;
-	uint64_t physaddr;
-	uint32_t cqid;
-	uint32_t size_log2;
-	uint32_t memsize;
-	uint32_t reserved; /* for proper alignment */
-};
-
-struct uiwch_create_qp {
-	struct ibv_create_qp ibv_cmd;
-};
-
-struct uiwch_create_qp_resp {
-	struct ib_uverbs_create_qp_resp ibv_resp;
-	uint64_t physaddr;
-	uint64_t doorbell;
-	uint32_t qpid;
-	uint32_t size_log2;
-	uint32_t sq_size_log2;
-	uint32_t rq_size_log2;
-};
 #endif				/* IWCH_ABI_H */
