@@ -34,43 +34,16 @@
 #define _HNS_ROCE_U_ABI_H
 
 #include <infiniband/kern-abi.h>
+#include <rdma/hns-abi.h>
+#include <kernel-abi/hns-abi.h>
 
-struct hns_roce_alloc_ucontext_resp {
-	struct ib_uverbs_get_context_resp	ibv_resp;
-	__u32				qp_tab_size;
-	__u32				reserved;
-};
+DECLARE_DRV_CMD(hns_roce_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
+		empty, hns_roce_ib_alloc_pd_resp);
+DECLARE_DRV_CMD(hns_roce_create_cq, IB_USER_VERBS_CMD_CREATE_CQ,
+		hns_roce_ib_create_cq, hns_roce_ib_create_cq_resp);
+DECLARE_DRV_CMD(hns_roce_create_qp, IB_USER_VERBS_CMD_CREATE_QP,
+		hns_roce_ib_create_qp, hns_roce_ib_create_qp_resp);
+DECLARE_DRV_CMD(hns_roce_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT,
+		empty, hns_roce_ib_alloc_ucontext_resp);
 
-struct hns_roce_alloc_pd_resp {
-	struct ib_uverbs_alloc_pd_resp	ibv_resp;
-	__u32				pdn;
-	__u32				reserved;
-};
-
-struct hns_roce_create_cq {
-	struct ibv_create_cq		ibv_cmd;
-	__u64				buf_addr;
-	__u64				db_addr;
-};
-
-struct hns_roce_create_cq_resp {
-	struct ib_uverbs_create_cq_resp	ibv_resp;
-	__u64				cqn; /* Only 32 bits used, 64 for compat */
-	__u64				cap_flags;
-};
-
-struct hns_roce_create_qp {
-	struct ibv_create_qp		ibv_cmd;
-	__u64				buf_addr;
-	__u64				db_addr;
-	__u8				log_sq_bb_count;
-	__u8				log_sq_stride;
-	__u8				sq_no_prefetch;
-	__u8				reserved[5];
-};
-
-struct hns_roce_create_qp_resp {
-	struct ib_uverbs_create_qp_resp	base;
-	__u64				cap_flags;
-};
 #endif /* _HNS_ROCE_U_ABI_H */

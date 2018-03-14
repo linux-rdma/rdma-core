@@ -605,7 +605,7 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	pthread_mutex_lock(&to_hr_ctx(pd->context)->qp_table_mutex);
 
 	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd.ibv_cmd,
-				sizeof(cmd), &resp.base, sizeof(resp));
+				sizeof(cmd), &resp.ibv_resp, sizeof(resp));
 	if (ret) {
 		fprintf(stderr, "ibv_cmd_create_qp failed!\n");
 		goto err_rq_db;
