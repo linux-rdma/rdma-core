@@ -116,7 +116,7 @@ static int pvrdma_init_context_shared(struct pvrdma_context *context,
 				&resp.ibv_resp, sizeof(resp)))
 		return errno;
 
-	context->qp_tbl = calloc(resp.udata.qp_tab_size & 0xFFFF,
+	context->qp_tbl = calloc(resp.qp_tab_size & 0xFFFF,
 				 sizeof(struct pvrdma_qp *));
 	if (!context->qp_tbl)
 		return -ENOMEM;
