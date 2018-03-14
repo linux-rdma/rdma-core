@@ -408,8 +408,8 @@ static int process_opt(void *context, int ch, char *optarg)
 		break;
 	case 1:
 		node_name_map_file = strdup(optarg);
-                if (node_name_map_file == NULL)
-                        IBEXIT("out of memory, strdup for node_name_map_file name failed");
+		if (node_name_map_file == NULL)
+			IBEXIT("out of memory, strdup for node_name_map_file name failed");
 		break;
 	default:
 		return -1;
