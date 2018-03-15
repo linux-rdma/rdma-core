@@ -150,6 +150,7 @@ struct hns_roce_cq {
 	unsigned int			*set_ci_db;
 	unsigned int			*arm_db;
 	int				arm_sn;
+	unsigned long			flags;
 };
 
 struct hns_roce_srq {

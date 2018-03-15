@@ -263,8 +263,8 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 				    struct ibv_comp_channel *channel,
 				    int comp_vector)
 {
-	struct hns_roce_create_cq	cmd;
-	struct hns_roce_create_cq_resp	resp;
+	struct hns_roce_create_cq	cmd = {};
+	struct hns_roce_create_cq_resp	resp = {};
 	struct hns_roce_cq		*cq;
 	int				ret;
 
@@ -290,6 +290,15 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 
 	cmd.buf_addr = (uintptr_t) cq->buf.buf;
 
+	if (to_hr_dev(context->device)->hw_version != HNS_ROCE_HW_VER1) {
+		cq->set_ci_db = hns_roce_alloc_db(to_hr_ctx(context),
+						  HNS_ROCE_CQ_TYPE_DB);
+		if (!cq->set_ci_db)
+			goto err_buf;
+
+		cmd.db_addr  = (uintptr_t) cq->set_ci_db;
+	}
+
 	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
 				&cq->ibv_cq, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp));
@@ -298,12 +307,10 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 
 	cq->cqn = resp.cqn;
 	cq->cq_depth = cqe;
+	cq->flags = resp.cap_flags;
 
 	if (to_hr_dev(context->device)->hw_version == HNS_ROCE_HW_VER1)
 		cq->set_ci_db = to_hr_ctx(context)->cq_tptr_base + cq->cqn * 2;
-	else
-		cq->set_ci_db = to_hr_ctx(context)->uar +
-				ROCEE_VF_DB_CFG0_OFFSET;
 
 	cq->arm_db    = cq->set_ci_db;
 	cq->arm_sn    = 1;
@@ -313,6 +320,11 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 	return &cq->ibv_cq;
 
 err_db:
+	if (to_hr_dev(context->device)->hw_version != HNS_ROCE_HW_VER1)
+		hns_roce_free_db(to_hr_ctx(context), cq->set_ci_db,
+				 HNS_ROCE_CQ_TYPE_DB);
+
+err_buf:
 	hns_roce_free_buf(&cq->buf);
 
 err:
@@ -334,6 +346,9 @@ int hns_roce_u_destroy_cq(struct ibv_cq *cq)
 	if (ret)
 		return ret;
 
+	if (to_hr_dev(cq->context->device)->hw_version != HNS_ROCE_HW_VER1)
+		hns_roce_free_db(to_hr_ctx(cq->context),
+				 to_hr_cq(cq)->set_ci_db, HNS_ROCE_CQ_TYPE_DB);
 	hns_roce_free_buf(&to_hr_cq(cq)->buf);
 	free(to_hr_cq(cq));
 

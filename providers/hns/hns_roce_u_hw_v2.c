@@ -476,7 +476,11 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 	if (npolled) {
 		mmio_ordered_writes_hack();
 
-		hns_roce_v2_update_cq_cons_index(ctx, cq);
+		if (cq->flags & HNS_ROCE_SUPPORT_CQ_RECORD_DB)
+			*cq->set_ci_db = (unsigned int)(cq->cons_index &
+						((cq->cq_depth << 1) - 1));
+		else
+			hns_roce_v2_update_cq_cons_index(ctx, cq);
 	}
 
 	pthread_spin_unlock(&cq->lock);
