@@ -38,6 +38,7 @@
 struct hns_roce_alloc_ucontext_resp {
 	struct ib_uverbs_get_context_resp	ibv_resp;
 	__u32				qp_tab_size;
+	__u32				reserved;
 };
 
 struct hns_roce_alloc_pd_resp {
@@ -68,4 +69,8 @@ struct hns_roce_create_qp {
 	__u8				reserved[5];
 };
 
+struct hns_roce_create_qp_resp {
+	struct ib_uverbs_create_qp_resp	base;
+	__u64				cap_flags;
+};
 #endif /* _HNS_ROCE_U_ABI_H */

@@ -51,4 +51,9 @@ static inline void hns_roce_write64(uint32_t val[2],
 	*(volatile uint64_t *) (ctx->uar + offset) = HNS_ROCE_PAIR_TO_64(val);
 }
 
+void *hns_roce_alloc_db(struct hns_roce_context *ctx,
+			enum hns_roce_db_type type);
+void hns_roce_free_db(struct hns_roce_context *ctx, unsigned int *db,
+		      enum hns_roce_db_type type);
+
 #endif /* _HNS_ROCE_U_DB_H */

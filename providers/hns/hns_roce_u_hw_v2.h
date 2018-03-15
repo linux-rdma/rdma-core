@@ -40,6 +40,10 @@
 
 #define HNS_ROCE_CMDSN_MASK			0x3
 
+enum {
+	HNS_ROCE_SUPPORT_RQ_RECORD_DB = 1 << 0,
+};
+
 /* V2 REG DEFINITION */
 #define ROCEE_VF_DB_CFG0_OFFSET			0x0230
 

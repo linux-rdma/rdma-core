@@ -41,6 +41,7 @@
 #include <ccan/minmax.h>
 #include "hns_roce_u.h"
 #include "hns_roce_u_abi.h"
+#include "hns_roce_u_db.h"
 #include "hns_roce_u_hw_v1.h"
 #include "hns_roce_u_hw_v2.h"
 
@@ -514,8 +515,8 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 {
 	int ret;
 	struct hns_roce_qp *qp = NULL;
-	struct hns_roce_create_qp cmd;
-	struct ib_uverbs_create_qp_resp resp;
+	struct hns_roce_create_qp cmd = {};
+	struct hns_roce_create_qp_resp resp = {};
 	struct hns_roce_context *context = to_hr_ctx(pd->context);
 	unsigned int sge_ex_count;
 
@@ -567,6 +568,17 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 		goto err_free;
 	}
 
+	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
+	    attr->cap.max_recv_sge) {
+		qp->rdb = hns_roce_alloc_db(context, HNS_ROCE_QP_TYPE_DB);
+		if (!qp->rdb)
+			goto err_free;
+
+		*(qp->rdb) = 0;
+		cmd.db_addr = (uintptr_t) qp->rdb;
+	} else
+		cmd.db_addr = 0;
+
 	cmd.buf_addr = (uintptr_t) qp->buf.buf;
 	cmd.log_sq_stride = qp->sq.wqe_shift;
 	for (cmd.log_sq_bb_count = 0; qp->sq.wqe_cnt > 1 << cmd.log_sq_bb_count;
@@ -578,7 +590,7 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	pthread_mutex_lock(&to_hr_ctx(pd->context)->qp_table_mutex);
 
 	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd.ibv_cmd,
-				sizeof(cmd), &resp, sizeof(resp));
+				sizeof(cmd), &resp.base, sizeof(resp));
 	if (ret) {
 		fprintf(stderr, "ibv_cmd_create_qp failed!\n");
 		goto err_rq_db;
@@ -593,6 +605,7 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 
 	qp->rq.wqe_cnt = attr->cap.max_recv_wr;
 	qp->rq.max_gs	= attr->cap.max_recv_sge;
+	qp->flags	= resp.cap_flags;
 
 	/* adjust rq maxima to not exceed reported device maxima */
 	attr->cap.max_recv_wr = min(context->max_qp_wr, attr->cap.max_recv_wr);
@@ -610,6 +623,9 @@ err_destroy:
 
 err_rq_db:
 	pthread_mutex_unlock(&to_hr_ctx(pd->context)->qp_table_mutex);
+	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
+	    attr->cap.max_recv_sge)
+		hns_roce_free_db(context, qp->rdb, HNS_ROCE_QP_TYPE_DB);
 
 err_free:
 	free(qp->sq.wrid);

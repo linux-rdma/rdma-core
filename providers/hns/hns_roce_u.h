@@ -39,6 +39,7 @@
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>
 #include <infiniband/verbs.h>
+#include <ccan/bitmap.h>
 #include <ccan/container_of.h>
 
 #define HNS_ROCE_CQE_ENTRY_SIZE		0x20
@@ -93,6 +94,21 @@ struct hns_roce_buf {
 	unsigned int			length;
 };
 
+/* the sw doorbell type; */
+enum hns_roce_db_type {
+	HNS_ROCE_QP_TYPE_DB,
+	HNS_ROCE_CQ_TYPE_DB,
+	HNS_ROCE_DB_TYPE_NUM
+};
+
+struct hns_roce_db_page {
+	struct hns_roce_db_page	*prev, *next;
+	struct hns_roce_buf	buf;
+	unsigned int		num_db;
+	unsigned int		use_cnt;
+	bitmap			*bitmap;
+};
+
 struct hns_roce_context {
 	struct verbs_context		ibv_ctx;
 	void				*uar;
@@ -110,6 +126,10 @@ struct hns_roce_context {
 	int				num_qps;
 	int				qp_table_shift;
 	int				qp_table_mask;
+
+	struct hns_roce_db_page		*db_list[HNS_ROCE_DB_TYPE_NUM];
+	pthread_mutex_t			db_list_mutex;
+
 	unsigned int			max_qp_wr;
 	unsigned int			max_sge;
 	int				max_cqe;
@@ -188,12 +208,14 @@ struct hns_roce_qp {
 	unsigned int			sq_signal_bits;
 	struct hns_roce_wq		sq;
 	struct hns_roce_wq		rq;
+	uint32_t			*rdb;
 	struct hns_roce_sge_ex		sge;
 	unsigned int			next_sge;
 	int				port_num;
 	int				sl;
 
 	struct hns_roce_rinl_buf	rq_rinl_buf;
+	unsigned long			flags;
 };
 
 struct hns_roce_u_hw {
