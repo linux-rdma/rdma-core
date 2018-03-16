@@ -133,8 +133,8 @@ static void ocrdma_free_ah_tbl_id(struct ocrdma_devctx *ctx, int idx)
  */
 struct ibv_pd *ocrdma_alloc_pd(struct ibv_context *context)
 {
-	struct ocrdma_alloc_pd_req cmd;
-	struct ocrdma_alloc_pd_resp resp;
+	struct uocrdma_alloc_pd_req cmd;
+	struct uocrdma_alloc_pd_resp resp;
 	struct ocrdma_pd *pd;
 	uint64_t map_address = 0;
 
@@ -191,7 +191,7 @@ struct ibv_mr *ocrdma_reg_mr(struct ibv_pd *pd, void *addr,
 {
 	struct ocrdma_mr *mr;
 	struct ibv_reg_mr cmd;
-	struct ocrdma_reg_mr_resp resp;
+	struct uocrdma_reg_mr_resp resp;
 	uint64_t hca_va = (uintptr_t) addr;
 
 	mr = malloc(sizeof *mr);
@@ -230,8 +230,8 @@ static struct ibv_cq *ocrdma_create_cq_common(struct ibv_context *context,
 					      int comp_vector, int dpp_cq)
 {
 	int status;
-	struct ocrdma_create_cq_req cmd;
-	struct ocrdma_create_cq_resp resp;
+	struct uocrdma_create_cq_req cmd;
+	struct uocrdma_create_cq_resp resp;
 	struct ocrdma_cq *cq;
 	struct ocrdma_device *dev = get_ocrdma_dev(context->device);
 	void *map_addr;
@@ -354,8 +354,8 @@ struct ibv_srq *ocrdma_create_srq(struct ibv_pd *pd,
 {
 	int status = 0;
 	struct ocrdma_srq *srq;
-	struct ocrdma_create_srq_cmd cmd;
-	struct ocrdma_create_srq_resp resp;
+	struct uocrdma_create_srq_cmd cmd;
+	struct uocrdma_create_srq_resp resp;
 	void *map_addr;
 
 	srq = calloc(1, sizeof *srq);
@@ -464,8 +464,8 @@ struct ibv_qp *ocrdma_create_qp(struct ibv_pd *pd,
 				struct ibv_qp_init_attr *attrs)
 {
 	int status = 0;
-	struct ocrdma_create_qp_cmd cmd;
-	struct ocrdma_create_qp_uresp resp;
+	struct uocrdma_create_qp_cmd cmd;
+	struct uocrdma_create_qp_uresp resp;
 	struct ocrdma_qp *qp;
 	void *map_addr;
 #ifdef DPP_CQ_SUPPORT

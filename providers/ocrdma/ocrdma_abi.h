@@ -37,6 +37,7 @@
 
 #include <stdint.h>
 #include <infiniband/kern-abi.h>
+#include <rdma/ocrdma-abi.h>
 
 #define OCRDMA_ABI_VERSION	2
 
@@ -61,11 +62,11 @@ enum {
 /* solicited bit */
 #define OCRDMA_DB_CQ_SOLICIT_SHIFT		(31)	/* bit 31 */
 
-struct ocrdma_get_context {
+struct uocrdma_get_context {
 	struct ibv_get_context cmd;
 };
 
-struct ocrdma_alloc_ucontext_resp {
+struct uocrdma_alloc_ucontext_resp {
 	struct ib_uverbs_get_context_resp ibv_resp;
 	uint32_t dev_id;
 	uint32_t wqe_size;
@@ -79,12 +80,12 @@ struct ocrdma_alloc_ucontext_resp {
 	uint64_t rsvd2;
 };
 
-struct ocrdma_alloc_pd_req {
+struct uocrdma_alloc_pd_req {
 	struct ibv_alloc_pd cmd;
 	uint64_t rsvd;
 };
 
-struct ocrdma_alloc_pd_resp {
+struct uocrdma_alloc_pd_resp {
 	struct ib_uverbs_alloc_pd_resp ibv_resp;
 	uint32_t id;
 	uint32_t dpp_enabled;
@@ -93,14 +94,13 @@ struct ocrdma_alloc_pd_resp {
 	uint64_t rsvd;
 };
 
-struct ocrdma_create_cq_req {
+struct uocrdma_create_cq_req {
 	struct ibv_create_cq ibv_cmd;
 	uint32_t dpp_cq;
 	uint32_t rsvd;
 };
 
-#define MAX_CQ_PAGES 8
-struct ocrdma_create_cq_resp {
+struct uocrdma_create_cq_resp {
 	struct ib_uverbs_create_cq_resp ibv_resp;
 	uint32_t cq_id;
 	uint32_t size;
@@ -114,15 +114,15 @@ struct ocrdma_create_cq_resp {
 	uint64_t rsvd2;
 };
 
-struct ocrdma_reg_mr {
+struct uocrdma_reg_mr {
 	struct ibv_reg_mr ibv_cmd;
 };
 
-struct ocrdma_reg_mr_resp {
+struct uocrdma_reg_mr_resp {
 	struct ib_uverbs_reg_mr_resp ibv_resp;
 };
 
-struct ocrdma_create_qp_cmd {
+struct uocrdma_create_qp_cmd {
 	struct ibv_create_qp ibv_cmd;
 	uint8_t enable_dpp_cq;
 	uint8_t rsvd;
@@ -130,10 +130,7 @@ struct ocrdma_create_qp_cmd {
 	uint32_t rsvd1;		/* pad */
 };
 
-#define MAX_QP_PAGES 8
-#define MAX_UD_HDR_PAGES 8
-
-struct ocrdma_create_qp_uresp {
+struct uocrdma_create_qp_uresp {
 	struct ib_uverbs_create_qp_resp ibv_resp;
 	uint16_t qp_id;
 	uint16_t sq_dbid;
@@ -157,11 +154,11 @@ struct ocrdma_create_qp_uresp {
 	uint64_t rsvd[11]; /* 8*8 + 4*4 + 8 */
 };
 
-struct ocrdma_create_srq_cmd {
+struct uocrdma_create_srq_cmd {
 	struct ibv_create_srq ibv_cmd;
 };
 
-struct ocrdma_create_srq_resp {
+struct uocrdma_create_srq_resp {
 	struct ib_uverbs_create_srq_resp ibv_resp;
 	uint16_t rq_dbid;
 	uint16_t resv0;
