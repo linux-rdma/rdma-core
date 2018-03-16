@@ -113,7 +113,7 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 						   int cmd_fd)
 {
 	struct ibv_get_context cmd;
-	struct bnxt_re_cntx_resp resp;
+	struct ubnxt_re_cntx_resp resp;
 	struct bnxt_re_dev *dev = to_bnxt_re_dev(vdev);
 	struct bnxt_re_context *cntx;
 
