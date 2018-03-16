@@ -93,11 +93,13 @@ struct ibv_pd *bnxt_re_alloc_pd(struct ibv_context *ibvctx)
 
 	memset(&resp, 0, sizeof(resp));
 	if (ibv_cmd_alloc_pd(ibvctx, &pd->ibvpd, &cmd, sizeof(cmd),
-			     &resp.resp, sizeof(resp)))
+			     &resp.ibv_resp, sizeof(resp)))
 		goto out;
 
 	pd->pdid = resp.pdid;
-	dbr = *(uint64_t *)((uint32_t *)&resp + 3);
+	dbr = resp.dbr;
+	static_assert(offsetof(struct ubnxt_re_pd_resp, dbr) == 4 * 3,
+		      "Bad dbr placement");
 
 	/* Map DB page now. */
 	if (!cntx->udpi.dbpage) {
@@ -144,7 +146,7 @@ struct ibv_mr *bnxt_re_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
 		return NULL;
 
 	if (ibv_cmd_reg_mr(ibvpd, sva, len, (uintptr_t)sva, access, &mr->ibvmr,
-			   &cmd, sizeof(cmd), &resp.resp, sizeof(resp))) {
+			   &cmd, sizeof(cmd), &resp.ibv_resp, sizeof(resp))) {
 		free(mr);
 		return NULL;
 	}
@@ -169,7 +171,7 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 				 struct ibv_comp_channel *channel, int vec)
 {
 	struct bnxt_re_cq *cq;
-	struct ubnxt_re_cq_req cmd;
+	struct ubnxt_re_cq cmd;
 	struct ubnxt_re_cq_resp resp;
 
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
@@ -196,8 +198,8 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 
 	memset(&resp, 0, sizeof(resp));
 	if (ibv_cmd_create_cq(ibvctx, ncqe, channel, vec,
-			      &cq->ibvcq, &cmd.cmd, sizeof(cmd),
-			      &resp.resp, sizeof(resp)))
+			      &cq->ibvcq, &cmd.ibv_cmd, sizeof(cmd),
+			      &resp.ibv_resp, sizeof(resp)))
 		goto cmdfail;
 
 	cq->cqid = resp.cqid;
@@ -873,7 +875,7 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 				 struct ibv_qp_init_attr *attr)
 {
 	struct bnxt_re_qp *qp;
-	struct ubnxt_re_qp_req req;
+	struct ubnxt_re_qp req;
 	struct ubnxt_re_qp_resp resp;
 	struct bnxt_re_qpcap *cap;
 
@@ -898,8 +900,8 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	req.qprva = qp->rqq ? (uintptr_t)qp->rqq->va : 0;
 	req.qp_handle = (uintptr_t)qp;
 
-	if (ibv_cmd_create_qp(ibvpd, &qp->ibvqp, attr, &req.cmd, sizeof(req),
-			      &resp.resp, sizeof(resp))) {
+	if (ibv_cmd_create_qp(ibvpd, &qp->ibvqp, attr, &req.ibv_cmd, sizeof(req),
+			      &resp.ibv_resp, sizeof(resp))) {
 		goto failcmd;
 	}
 

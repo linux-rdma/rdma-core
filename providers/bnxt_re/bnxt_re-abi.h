@@ -41,10 +41,22 @@
 
 #include <infiniband/kern-abi.h>
 #include <rdma/bnxt_re-abi.h>
+#include <kernel-abi/bnxt_re-abi.h>
 
 #define BNXT_RE_ABI_VERSION 1
 
 #define BNXT_RE_FULL_FLAG_DELTA        0x80
+
+DECLARE_DRV_CMD(ubnxt_re_pd, IB_USER_VERBS_CMD_ALLOC_PD,
+		empty, bnxt_re_pd_resp);
+DECLARE_DRV_CMD(ubnxt_re_cq, IB_USER_VERBS_CMD_CREATE_CQ,
+		bnxt_re_cq_req, bnxt_re_cq_resp);
+DECLARE_DRV_CMD(ubnxt_re_qp, IB_USER_VERBS_CMD_CREATE_QP,
+		bnxt_re_qp_req, bnxt_re_qp_resp);
+DECLARE_DRV_CMD(ubnxt_re_cntx, IB_USER_VERBS_CMD_GET_CONTEXT,
+		empty, bnxt_re_uctx_resp);
+DECLARE_DRV_CMD(ubnxt_re_mr, IB_USER_VERBS_CMD_REG_MR,
+		empty, empty);
 
 enum bnxt_re_wr_opcode {
 	BNXT_RE_WR_OPCD_SEND		= 0x00,
@@ -189,41 +201,6 @@ struct bnxt_re_db_hdr {
 	__le32 typ_qid; /* typ: 4, qid:20*/
 };
 
-struct ubnxt_re_cntx_resp {
-	struct ib_uverbs_get_context_resp resp;
-	__u32 dev_id;
-	__u32 max_qp; /* To allocate qp-table */
-	__u32 pg_size;
-	__u32 cqe_size;
-	__u32 max_cqd;
-	__u32 rsvd;
-};
-
-struct ubnxt_re_pd_resp {
-	struct ib_uverbs_alloc_pd_resp resp;
-	__u32 pdid;
-	__u32 dpi;
-	__u64 dbr;
-};
-
-struct ubnxt_re_mr_resp {
-	struct ib_uverbs_reg_mr_resp resp;
-};
-
-struct ubnxt_re_cq_req {
-	struct ibv_create_cq cmd;
-	__u64 cq_va;
-	__u64 cq_handle;
-};
-
-struct ubnxt_re_cq_resp {
-	struct ib_uverbs_create_cq_resp resp;
-	__u32 cqid;
-	__u32 tail;
-	__u32 phase;
-	__u32 rsvd;
-};
-
 struct bnxt_re_bcqe {
 	__le32 flg_st_typ_ph;
 	__le32 qphi_rwrid;
@@ -255,19 +232,6 @@ struct bnxt_re_term_cqe {
 	__le32 rq_sq_cidx;
 	__le32 rsvd;
 	__le64 rsvd1;
-};
-
-struct ubnxt_re_qp_req {
-	struct ibv_create_qp cmd;
-	__u64 qpsva;
-	__u64 qprva;
-	__u64 qp_handle;
-};
-
-struct ubnxt_re_qp_resp {
-	struct ib_uverbs_create_qp_resp resp;
-	__u32 qpid;
-	__u32 rsvd;
 };
 
 struct bnxt_re_bsqe {

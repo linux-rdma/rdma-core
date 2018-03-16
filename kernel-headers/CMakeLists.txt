@@ -55,6 +55,7 @@ endfunction()
 
 # Transform the kernel ABIs used by the providers
 rdma_kernel_provider_abi(
+  rdma/bnxt_re-abi.h
   rdma/cxgb4-abi.h
   rdma/ib_user_verbs.h
   rdma/mlx4-abi.h

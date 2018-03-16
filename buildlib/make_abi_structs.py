@@ -24,8 +24,8 @@ def in_struct(ln,FO,nesting=0):
     """Copy a top level structure over to the #define output, keeping track of
     nested structures."""
     if nesting == 0:
-        if ln == "};":
-            FO.write("}\n\n");
+        if re.match(r"(}.*);",ln):
+            FO.write(ln[:-1] + "\n\n");
             return find_struct;
 
     FO.write(ln + " \\\n");
@@ -33,7 +33,7 @@ def in_struct(ln,FO,nesting=0):
     if ln == "struct {" or ln == "union {":
         return functools.partial(in_struct,nesting=nesting+1);
 
-    if  re.match(r"}.*;",ln):
+    if re.match(r"}.*;",ln):
         return functools.partial(in_struct,nesting=nesting-1);
     return functools.partial(in_struct,nesting=nesting);
 
