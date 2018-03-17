@@ -32,10 +32,11 @@
 *
 *******************************************************************************/
 
-#ifndef I40IW_ABI_H
-#define I40IW_ABI_H
+#ifndef PROVIDER_I40IW_ABI_H
+#define PROVIDER_I40IW_ABI_H
 
 #include <infiniband/kern-abi.h>
+#include <rdma/i40iw-abi.h>
 
 #define I40IW_ABI_VER 5
 
@@ -72,12 +73,6 @@ struct i40iw_ucreate_cq_resp {
 	__u32 cq_size;
 	__u32 mmap_db_index;
 	__u32 reserved;
-};
-
-enum i40iw_umemreg_type {
-	I40IW_UMEMREG_TYPE_MEM = 0x0000,
-	I40IW_UMEMREG_TYPE_QP = 0x0001,
-	I40IW_UMEMREG_TYPE_CQ = 0x0002
 };
 
 struct i40iw_ureg_mr {
