@@ -38,6 +38,12 @@
 
 struct hns_roce_ib_create_cq {
 	__u64   buf_addr;
+	__u64	db_addr;
+};
+
+struct hns_roce_ib_create_cq_resp {
+	__u64	cqn; /* Only 32 bits used, 64 for compat */
+	__u64	cap_flags;
 };
 
 struct hns_roce_ib_create_qp {
@@ -49,7 +55,17 @@ struct hns_roce_ib_create_qp {
 	__u8    reserved[5];
 };
 
+struct hns_roce_ib_create_qp_resp {
+	__u64	cap_flags;
+};
+
 struct hns_roce_ib_alloc_ucontext_resp {
 	__u32	qp_tab_size;
+	__u32	reserved;
 };
+
+struct hns_roce_ib_alloc_pd_resp {
+	__u32 pdn;
+};
+
 #endif /* HNS_ABI_USER_H */

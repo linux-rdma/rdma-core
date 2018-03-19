@@ -3,6 +3,7 @@ publish_internal_headers(rdma
   rdma/cxgb3-abi.h
   rdma/cxgb4-abi.h
   rdma/hns-abi.h
+  rdma/i40iw-abi.h
   rdma/ib_user_cm.h
   rdma/ib_user_ioctl_verbs.h
   rdma/ib_user_mad.h
