@@ -1,3 +1,9 @@
+rdma-core (17.1-1) unstable; urgency=medium
+
+  * New upstream bugfix release.
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Mon, 19 Mar 2018 13:32:31 +0100
+
 rdma-core (17.0-1) unstable; urgency=medium
 
   * New upstream release
