@@ -1466,10 +1466,7 @@ static int mlx5_cmd_create_qp_ex(struct ibv_context *context,
 	int ret;
 
 	memset(&cmd_ex, 0, sizeof(cmd_ex));
-	memcpy(&cmd_ex.ibv_cmd.base, &cmd->ibv_cmd.user_handle,
-	       offsetof(typeof(cmd->ibv_cmd), is_srq) +
-	       sizeof(cmd->ibv_cmd.is_srq) -
-	       offsetof(typeof(cmd->ibv_cmd), user_handle));
+	*ibv_create_cq_ex_to_reg(&cmd_ex.ibv_cmd) = cmd->ibv_cmd.core_payload;
 
 	memcpy(&cmd_ex.drv_ex, &cmd->buf_addr,
 	       offsetof(typeof(*cmd), sq_buf_addr) +

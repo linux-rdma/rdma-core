@@ -141,7 +141,7 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 		return EOPNOTSUPP;
 
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP)
-		flags |= IBV_CREATE_CQ_EX_KERNEL_FLAG_COMPLETION_TIMESTAMP;
+		flags |= IB_UVERBS_CQ_FLAGS_TIMESTAMP_COMPLETION;
 
 	return ibv_icmd_create_cq(context, cq_attr->cqe, cq_attr->channel,
 				  cq_attr->comp_vector, flags,

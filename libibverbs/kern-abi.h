@@ -36,8 +36,198 @@
 #define KERN_ABI_H
 
 #include <linux/types.h>
+#include <assert.h>
+#include <ccan/container_of.h>
 
 #include <rdma/ib_user_verbs.h>
+#include <kernel-abi/ib_user_verbs.h>
+
+/*
+ * The minimum and maximum kernel ABI that we can handle.
+ */
+#define IB_USER_VERBS_MIN_ABI_VERSION	3
+#define IB_USER_VERBS_MAX_ABI_VERSION	6
+
+struct ex_hdr {
+	struct ib_uverbs_cmd_hdr hdr;
+	struct ib_uverbs_ex_cmd_hdr ex_hdr;
+};
+
+/*
+ * These macros expand to type names that refer to the ABI structure type
+ * associated with the given enum string.
+ */
+#define IBV_ABI_REQ(_enum) _ABI_REQ_STRUCT_##_enum
+#define IBV_KABI_REQ(_enum) _KABI_REQ_STRUCT_##_enum
+#define IBV_KABI_RESP(_enum) _KABI_RESP_STRUCT_##_enum
+
+/*
+ * Historically the code had copied the data in the kernel headers, modified
+ * it and placed them in structs.  To avoid recoding eveything we continue to
+ * preserve the same struct layout, with the kernel struct 'loose' inside the
+ * modified userspace struct.
+ *
+ * This is automated with the make_abi_structs.py script which produces the
+ * _STRUCT_xx macro that produces a tagless version of the kernel struct. The
+ * tagless struct produces a layout that matches the original code.
+ */
+#define DECLARE_CMDX(_enum, _name, _kabi, _kabi_resp)                          \
+	struct _name {                                                         \
+		struct ib_uverbs_cmd_hdr hdr;                                  \
+		union {                                                        \
+			_STRUCT_##_kabi;                                       \
+			struct _kabi core_payload;                             \
+		};                                                             \
+	};                                                                     \
+	typedef struct _name IBV_ABI_REQ(_enum);                               \
+	typedef struct _kabi IBV_KABI_REQ(_enum);                              \
+	typedef struct _kabi_resp IBV_KABI_RESP(_enum);                        \
+	static_assert(sizeof(struct _kabi_resp) % 4 == 0,                      \
+		      "Bad resp alignment");                                   \
+	static_assert(_enum != -1, "Bad enum");                                \
+	static_assert(sizeof(struct _name) ==                                  \
+			      sizeof(struct ib_uverbs_cmd_hdr) +               \
+				      sizeof(struct _kabi),                    \
+		      "Bad size")
+
+#define DECLARE_CMD(_enum, _name, _kabi)                                       \
+	DECLARE_CMDX(_enum, _name, _kabi, _kabi##_resp)
+
+#define DECLARE_CMD_EXX(_enum, _name, _kabi, _kabi_resp)                       \
+	struct _name {                                                         \
+		struct ex_hdr hdr;                                             \
+		union {                                                        \
+			_STRUCT_##_kabi;                                       \
+			struct _kabi core_payload;                             \
+		};                                                             \
+	};                                                                     \
+	typedef struct _name IBV_ABI_REQ(_enum);                               \
+	typedef struct _kabi IBV_KABI_REQ(_enum);                              \
+	typedef struct _kabi_resp IBV_KABI_RESP(_enum);                        \
+	static_assert(_enum != -1, "Bad enum");                                \
+	static_assert(sizeof(struct _kabi) % 8 == 0, "Bad req alignment");     \
+	static_assert(sizeof(struct _kabi_resp) % 8 == 0,                      \
+		      "Bad resp alignment");                                   \
+	static_assert(sizeof(struct _name) ==                                  \
+			      sizeof(struct ex_hdr) + sizeof(struct _kabi),    \
+		      "Bad size");                                             \
+	static_assert(sizeof(struct _name) % 8 == 0, "Bad alignment")
+#define DECLARE_CMD_EX(_enum, _name, _kabi)                                    \
+	DECLARE_CMD_EXX(_enum, _name, _kabi, _kabi##_resp)
+
+/* Drivers may use 'empty' for _kabi to signal no struct */
+struct empty {};
+#define _STRUCT_empty struct {}
+
+/*
+ * Define the ABI struct for use by the driver. The internal cmd APIs require
+ * this layout. The driver specifies the enum # they wish to define for and
+ * the base name, and the macros figure out the rest correctly.
+ *
+ * The static asserts check that the layout produced by the wrapper struct has
+ * no implicit padding in strange places, specifically between the core
+ * structure and the driver structure and between the driver structure and the
+ * end of the struct.
+ *
+ * Implicit padding can arise in various cases where the structs are not sizes
+ * to a multiple of 8 bytes.
+ */
+#define DECLARE_DRV_CMD(_name, _enum, _kabi_req, _kabi_resp)                   \
+	struct _name {                                                         \
+		IBV_ABI_REQ(_enum) ibv_cmd;                                    \
+		union {                                                        \
+			_STRUCT_##_kabi_req;                                   \
+			struct _kabi_req drv_payload;                          \
+		};                                                             \
+	};                                                                     \
+	struct _name##_resp {                                                  \
+		IBV_KABI_RESP(_enum) ibv_resp;                                 \
+		union {                                                        \
+			_STRUCT_##_kabi_resp;                                  \
+			struct _kabi_resp drv_payload;                         \
+		};                                                             \
+	};                                                                     \
+	static_assert(sizeof(IBV_KABI_REQ(_enum)) %                            \
+				      __alignof__(struct _kabi_req) ==         \
+			      0,                                               \
+		      "Bad kabi req struct length");                           \
+	static_assert(sizeof(struct _name) ==                                  \
+			      sizeof(IBV_ABI_REQ(_enum)) +                     \
+				      sizeof(struct _kabi_req),                \
+		      "Bad req size");                                         \
+	static_assert(sizeof(IBV_KABI_RESP(_enum)) %                           \
+				      __alignof__(struct _kabi_resp) ==        \
+			      0,                                               \
+		      "Bad kabi req struct length");                           \
+	static_assert(sizeof(struct _name##_resp) ==                           \
+			      sizeof(IBV_KABI_RESP(_enum)) +                   \
+				      sizeof(struct _kabi_resp),               \
+		      "Bad resp size")
+
+DECLARE_CMD(IB_USER_VERBS_CMD_ALLOC_MW, ibv_alloc_mw, ib_uverbs_alloc_mw);
+DECLARE_CMD(IB_USER_VERBS_CMD_ALLOC_PD, ibv_alloc_pd, ib_uverbs_alloc_pd);
+DECLARE_CMDX(IB_USER_VERBS_CMD_ATTACH_MCAST, ibv_attach_mcast, ib_uverbs_attach_mcast, empty);
+DECLARE_CMDX(IB_USER_VERBS_CMD_CLOSE_XRCD, ibv_close_xrcd, ib_uverbs_close_xrcd, empty);
+DECLARE_CMD(IB_USER_VERBS_CMD_CREATE_AH, ibv_create_ah, ib_uverbs_create_ah);
+DECLARE_CMD(IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL, ibv_create_comp_channel, ib_uverbs_create_comp_channel);
+DECLARE_CMD(IB_USER_VERBS_CMD_CREATE_CQ, ibv_create_cq, ib_uverbs_create_cq);
+DECLARE_CMD(IB_USER_VERBS_CMD_CREATE_QP, ibv_create_qp, ib_uverbs_create_qp);
+DECLARE_CMD(IB_USER_VERBS_CMD_CREATE_SRQ, ibv_create_srq, ib_uverbs_create_srq);
+DECLARE_CMDX(IB_USER_VERBS_CMD_CREATE_XSRQ, ibv_create_xsrq, ib_uverbs_create_xsrq, ib_uverbs_create_srq_resp);
+DECLARE_CMDX(IB_USER_VERBS_CMD_DEALLOC_MW, ibv_dealloc_mw, ib_uverbs_dealloc_mw, empty);
+DECLARE_CMDX(IB_USER_VERBS_CMD_DEALLOC_PD, ibv_dealloc_pd, ib_uverbs_dealloc_pd, empty);
+DECLARE_CMDX(IB_USER_VERBS_CMD_DEREG_MR, ibv_dereg_mr, ib_uverbs_dereg_mr, empty);
+DECLARE_CMDX(IB_USER_VERBS_CMD_DESTROY_AH, ibv_destroy_ah, ib_uverbs_destroy_ah, empty);
+DECLARE_CMD(IB_USER_VERBS_CMD_DESTROY_CQ, ibv_destroy_cq, ib_uverbs_destroy_cq);
+DECLARE_CMD(IB_USER_VERBS_CMD_DESTROY_QP, ibv_destroy_qp, ib_uverbs_destroy_qp);
+DECLARE_CMD(IB_USER_VERBS_CMD_DESTROY_SRQ, ibv_destroy_srq, ib_uverbs_destroy_srq);
+DECLARE_CMDX(IB_USER_VERBS_CMD_DETACH_MCAST, ibv_detach_mcast, ib_uverbs_detach_mcast, empty);
+DECLARE_CMD(IB_USER_VERBS_CMD_GET_CONTEXT, ibv_get_context, ib_uverbs_get_context);
+DECLARE_CMD(IB_USER_VERBS_CMD_MODIFY_QP, ibv_modify_qp, ib_uverbs_modify_qp);
+DECLARE_CMDX(IB_USER_VERBS_CMD_MODIFY_SRQ, ibv_modify_srq, ib_uverbs_modify_srq, empty);
+DECLARE_CMDX(IB_USER_VERBS_CMD_OPEN_QP, ibv_open_qp, ib_uverbs_open_qp, empty);
+DECLARE_CMD(IB_USER_VERBS_CMD_OPEN_XRCD, ibv_open_xrcd, ib_uverbs_open_xrcd);
+DECLARE_CMD(IB_USER_VERBS_CMD_POLL_CQ, ibv_poll_cq, ib_uverbs_poll_cq);
+DECLARE_CMD(IB_USER_VERBS_CMD_POST_RECV, ibv_post_recv, ib_uverbs_post_recv);
+DECLARE_CMD(IB_USER_VERBS_CMD_POST_SEND, ibv_post_send, ib_uverbs_post_send);
+DECLARE_CMD(IB_USER_VERBS_CMD_POST_SRQ_RECV, ibv_post_srq_recv, ib_uverbs_post_srq_recv);
+DECLARE_CMD(IB_USER_VERBS_CMD_QUERY_DEVICE, ibv_query_device, ib_uverbs_query_device);
+DECLARE_CMD(IB_USER_VERBS_CMD_QUERY_PORT, ibv_query_port, ib_uverbs_query_port);
+DECLARE_CMD(IB_USER_VERBS_CMD_QUERY_QP, ibv_query_qp, ib_uverbs_query_qp);
+DECLARE_CMD(IB_USER_VERBS_CMD_QUERY_SRQ, ibv_query_srq, ib_uverbs_query_srq);
+DECLARE_CMD(IB_USER_VERBS_CMD_REG_MR, ibv_reg_mr, ib_uverbs_reg_mr);
+DECLARE_CMDX(IB_USER_VERBS_CMD_REQ_NOTIFY_CQ, ibv_req_notify_cq, ib_uverbs_req_notify_cq, empty);
+DECLARE_CMD(IB_USER_VERBS_CMD_REREG_MR, ibv_rereg_mr, ib_uverbs_rereg_mr);
+DECLARE_CMD(IB_USER_VERBS_CMD_RESIZE_CQ, ibv_resize_cq, ib_uverbs_resize_cq);
+
+DECLARE_CMD_EX(IB_USER_VERBS_EX_CMD_CREATE_CQ, ibv_create_cq_ex, ib_uverbs_ex_create_cq);
+DECLARE_CMD_EX(IB_USER_VERBS_EX_CMD_CREATE_FLOW, ibv_create_flow, ib_uverbs_create_flow);
+DECLARE_CMD_EX(IB_USER_VERBS_EX_CMD_CREATE_QP, ibv_create_qp_ex, ib_uverbs_ex_create_qp);
+DECLARE_CMD_EX(IB_USER_VERBS_EX_CMD_CREATE_RWQ_IND_TBL, ibv_create_rwq_ind_table, ib_uverbs_ex_create_rwq_ind_table);
+DECLARE_CMD_EX(IB_USER_VERBS_EX_CMD_CREATE_WQ, ibv_create_wq, ib_uverbs_ex_create_wq);
+DECLARE_CMD_EXX(IB_USER_VERBS_EX_CMD_DESTROY_FLOW, ibv_destroy_flow, ib_uverbs_destroy_flow, empty);
+DECLARE_CMD_EXX(IB_USER_VERBS_EX_CMD_DESTROY_RWQ_IND_TBL, ibv_destroy_rwq_ind_table, ib_uverbs_ex_destroy_rwq_ind_table, empty);
+DECLARE_CMD_EX(IB_USER_VERBS_EX_CMD_DESTROY_WQ, ibv_destroy_wq, ib_uverbs_ex_destroy_wq);
+DECLARE_CMD_EXX(IB_USER_VERBS_EX_CMD_MODIFY_CQ, ibv_modify_cq, ib_uverbs_ex_modify_cq, empty);
+DECLARE_CMD_EX(IB_USER_VERBS_EX_CMD_MODIFY_QP, ibv_modify_qp_ex, ib_uverbs_ex_modify_qp);
+DECLARE_CMD_EXX(IB_USER_VERBS_EX_CMD_MODIFY_WQ, ibv_modify_wq, ib_uverbs_ex_modify_wq, empty);
+DECLARE_CMD_EX(IB_USER_VERBS_EX_CMD_QUERY_DEVICE, ibv_query_device_ex, ib_uverbs_ex_query_device);
+
+/*
+ * Both ib_uverbs_create_qp and ib_uverbs_ex_create_qp start with the same
+ * structure, this function converts the ex version into the normal version
+ */
+static inline struct ib_uverbs_create_qp *
+ibv_create_cq_ex_to_reg(struct ibv_create_qp_ex *cmd_ex)
+{
+	/*
+	 * user_handle is the start in both places, note that the ex
+	 * does not have response located in the same place, so response
+	 * cannot be touched.
+	 */
+	return container_of(&cmd_ex->user_handle, struct ib_uverbs_create_qp,
+			    user_handle);
+}
 
 /*
  * This file contains copied data from the kernel's include/uapi/rdma/ib_user_verbs.h,
@@ -46,237 +236,6 @@
  * Whenever possible use the definition from the kernel header and avoid
  * copying from that header into this file.
  */
-
-/*
- * The minimum and maximum kernel ABI that we can handle.
- */
-#define IB_USER_VERBS_MIN_ABI_VERSION	3
-#define IB_USER_VERBS_MAX_ABI_VERSION	6
-
-/*
- * Make sure that all structs defined in this file remain laid out so
- * that they pack the same way on 32-bit and 64-bit architectures (to
- * avoid incompatibility between 32-bit userspace and 64-bit kernels).
- * Specifically:
- *  - Do not use pointer types -- pass pointers in __u64 instead.
- *  - Make sure that any structure larger than 4 bytes is padded to a
- *    multiple of 8 bytes.  Otherwise the structure size will be
- *    different between 32-bit and 64-bit architectures.
- */
-
-struct ex_hdr {
-	struct ib_uverbs_cmd_hdr hdr;
-	struct ib_uverbs_ex_cmd_hdr ex_hdr;
-};
-
-/*
- * All commands from userspace should start with a __u32 command field
- * followed by __u16 in_words and out_words fields (which give the
- * length of the command block and response buffer if any in 32-bit
- * words).  The kernel driver will read these fields first and read
- * the rest of the command struct based on these value.
- */
-
-struct ibv_get_context {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-};
-
-struct ibv_query_device {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-};
-
-struct ibv_query_device_ex {
-	struct ex_hdr	hdr;
-	__u32		comp_mask;
-	__u32		reserved;
-};
-
-struct ibv_query_port {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u8  port_num;
-	__u8  reserved[7];
-};
-
-struct ibv_alloc_pd {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-};
-
-struct ibv_dealloc_pd {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u32 pd_handle;
-};
-
-struct ibv_open_xrcd {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u32 fd;
-	__u32 oflags;
-};
-
-struct ibv_close_xrcd {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u32 xrcd_handle;
-};
-
-struct ibv_reg_mr {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u64 start;
-	__u64 length;
-	__u64 hca_va;
-	__u32 pd_handle;
-	__u32 access_flags;
-};
-
-struct ibv_rereg_mr {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u32 mr_handle;
-	__u32 flags;
-	__u64 start;
-	__u64 length;
-	__u64 hca_va;
-	__u32 pd_handle;
-	__u32 access_flags;
-};
-
-struct ibv_dereg_mr {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u32 mr_handle;
-};
-
-struct ibv_alloc_mw {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u32 pd_handle;
-	__u8  mw_type;
-	__u8  reserved[3];
-};
-
-struct ibv_dealloc_mw {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u32 mw_handle;
-	__u32 reserved;
-};
-
-struct ibv_create_comp_channel {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-};
-
-struct ibv_create_cq {
-	struct ib_uverbs_cmd_hdr hdr;
-	struct ib_uverbs_create_cq core_payload;
-};
-
-enum ibv_create_cq_ex_kernel_flags {
-	IBV_CREATE_CQ_EX_KERNEL_FLAG_COMPLETION_TIMESTAMP = 1 << 0,
-};
-
-struct ibv_create_cq_ex {
-	struct ex_hdr	hdr;
-	struct ib_uverbs_ex_create_cq core_payload;
-};
-
-struct ibv_poll_cq {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u32 cq_handle;
-	__u32 ne;
-};
-
-struct ibv_req_notify_cq {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u32 cq_handle;
-	__u32 solicited;
-};
-
-struct ibv_resize_cq {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u32 cq_handle;
-	__u32 cqe;
-};
-
-struct ibv_destroy_cq {
-	struct ib_uverbs_cmd_hdr hdr;
-	struct ib_uverbs_destroy_cq core_payload;
-};
-
-#define IBV_CREATE_QP_COMMON	\
-	__u64 user_handle;	\
-	__u32 pd_handle;	\
-	__u32 send_cq_handle;	\
-	__u32 recv_cq_handle;	\
-	__u32 srq_handle;	\
-	__u32 max_send_wr;	\
-	__u32 max_recv_wr;	\
-	__u32 max_send_sge;	\
-	__u32 max_recv_sge;	\
-	__u32 max_inline_data;	\
-	__u8  sq_sig_all;	\
-	__u8  qp_type;		\
-	__u8  is_srq;		\
-	__u8  reserved
-
-struct ibv_create_qp {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	IBV_CREATE_QP_COMMON;
-};
-
-struct ibv_create_qp_common {
-	IBV_CREATE_QP_COMMON;
-};
-
-struct ibv_open_qp {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u64 user_handle;
-	__u32 pd_handle;
-	__u32 qpn;
-	__u8  qp_type;
-	__u8  reserved[7];
-};
-
-struct ibv_create_qp_ex {
-	struct ex_hdr	hdr;
-	struct ibv_create_qp_common base;
-	__u32 comp_mask;
-	__u32 create_flags;
-	__u32 ind_tbl_handle;
-	__u32 source_qpn;
-};
-
-struct ibv_query_qp {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u32 qp_handle;
-	__u32 attr_mask;
-};
-
-struct ibv_modify_qp {
-	struct ib_uverbs_cmd_hdr hdr;
-	struct ib_uverbs_modify_qp base;
-};
-
-struct ibv_modify_qp_ex {
-	struct ex_hdr		    hdr;
-	struct ib_uverbs_modify_qp base;
-	__u32  rate_limit;
-	__u32  reserved;
-};
-
-struct ibv_destroy_qp {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u32 qp_handle;
-	__u32 reserved;
-};
 
 struct ibv_kern_ipv4_filter {
 	__u32 src_ip;
@@ -303,125 +262,6 @@ struct ibv_kern_spec {
 		struct ib_uverbs_flow_spec_action_tag flow_tag;
 		struct ib_uverbs_flow_spec_action_drop drop;
 	};
-};
-
-struct ibv_post_send {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u32 qp_handle;
-	__u32 wr_count;
-	__u32 sge_count;
-	__u32 wqe_size;
-	struct ib_uverbs_send_wr send_wr[0];
-};
-
-struct ibv_post_recv {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u32 qp_handle;
-	__u32 wr_count;
-	__u32 sge_count;
-	__u32 wqe_size;
-	struct ib_uverbs_recv_wr recv_wr[0];
-};
-
-struct ibv_post_srq_recv {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u32 srq_handle;
-	__u32 wr_count;
-	__u32 sge_count;
-	__u32 wqe_size;
-	struct ib_uverbs_recv_wr recv_wr[0];
-};
-
-struct ibv_create_ah {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u64 user_handle;
-	__u32 pd_handle;
-	__u32 reserved;
-	struct ib_uverbs_ah_attr attr;
-};
-
-struct ibv_destroy_ah {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u32 ah_handle;
-};
-
-struct ibv_attach_mcast {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u8  gid[16];
-	__u32 qp_handle;
-	__u16 mlid;
-	__u16 reserved;
-};
-
-struct ibv_create_flow  {
-	struct ex_hdr hdr;
-	__u32 comp_mask;
-	__u32 qp_handle;
-	struct ib_uverbs_flow_attr flow_attr;
-};
-
-struct ibv_destroy_flow  {
-	struct ex_hdr hdr;
-	__u32 comp_mask;
-	__u32 flow_handle;
-};
-
-struct ibv_detach_mcast {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u8  gid[16];
-	__u32 qp_handle;
-	__u16 mlid;
-	__u16 reserved;
-};
-
-struct ibv_create_srq {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u64 user_handle;
-	__u32 pd_handle;
-	__u32 max_wr;
-	__u32 max_sge;
-	__u32 srq_limit;
-};
-
-struct ibv_create_xsrq {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u64 user_handle;
-	__u32 srq_type;
-	__u32 pd_handle;
-	__u32 max_wr;
-	__u32 max_sge;
-	__u32 srq_limit;
-	__u32 max_num_tags;
-	__u32 xrcd_handle;
-	__u32 cq_handle;
-};
-
-struct ibv_modify_srq {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u32 srq_handle;
-	__u32 attr_mask;
-	__u32 max_wr;
-	__u32 srq_limit;
-};
-
-struct ibv_query_srq {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u32 srq_handle;
-	__u32 reserved;
-};
-
-struct ibv_destroy_srq {
-	struct ib_uverbs_cmd_hdr hdr;
-	__u64 response;
-	__u32 srq_handle;
-	__u32 reserved;
 };
 
 struct ibv_modify_srq_v3 {
@@ -451,59 +291,6 @@ struct ibv_create_qp_resp_v4 {
 
 struct ibv_create_srq_resp_v5 {
 	__u32 srq_handle;
-};
-
-struct ibv_create_wq {
-	struct ex_hdr hdr;
-	__u32 comp_mask;
-	__u32 wq_type;
-	__u64 user_handle;
-	__u32 pd_handle;
-	__u32 cq_handle;
-	__u32 max_wr;
-	__u32 max_sge;
-	__u32 create_flags;
-	__u32 reserved;
-};
-
-struct ibv_destroy_wq {
-	struct ex_hdr hdr;
-	__u32 comp_mask;
-	__u32 wq_handle;
-};
-
-struct ibv_modify_wq  {
-	struct ex_hdr hdr;
-	__u32 attr_mask;
-	__u32 wq_handle;
-	__u32 wq_state;
-	__u32 curr_wq_state;
-	__u32 flags;
-	__u32 flags_mask;
-};
-
-struct ibv_create_rwq_ind_table {
-	struct ex_hdr hdr;
-	__u32 comp_mask;
-	__u32 log_ind_tbl_size;
-	/* Following are wq handles based on log_ind_tbl_size, must be 64 bytes aligned.
-	 * __u32 wq_handle1
-	 * __u32 wq_handle2
-	 */
-};
-
-struct ibv_destroy_rwq_ind_table {
-	struct ex_hdr hdr;
-	__u32 comp_mask;
-	__u32 ind_tbl_handle;
-};
-
-struct ibv_modify_cq {
-	struct ex_hdr hdr;
-	__u32 cq_handle;
-	__u32 attr_mask;
-	struct ib_uverbs_cq_moderation attr;
-	__u32 reserved;
 };
 
 #endif /* KERN_ABI_H */

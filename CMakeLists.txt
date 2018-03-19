@@ -405,6 +405,16 @@ if (NOT LIBC_HAS_LIBRT)
   set(RT_LIBRARIES "rt")
 endif()
 
+# Check for static_assert
+CHECK_C_SOURCE_COMPILES("
+#include <assert.h>
+static_assert(1, \"failed\");
+int main(int argc,const char *argv[]) {
+   static_assert(1, \"failed\");
+   return 0;
+};" HAVE_STATIC_ASSERT)
+RDMA_DoFixup("${HAVE_STATIC_ASSERT}" "assert.h")
+
 #-------------------------
 # Final warning flags
 
@@ -520,6 +530,9 @@ if (NOT HAVE_COHERENT_DMA)
 endif()
 if (NOT HAVE_STDATOMIC)
   message(STATUS " C11 stdatomic.h NOT available (old compiler)")
+endif()
+if (NOT HAVE_STATIC_ASSERT)
+  message(STATUS " C11 static_assert NOT available (old compiler)")
 endif()
 if (NOT HAVE_VALGRIND_MEMCHECK)
   message(STATUS " Valgrind memcheck.h NOT enabled")

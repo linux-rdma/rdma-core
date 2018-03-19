@@ -43,11 +43,6 @@ struct mmap_info {
 	__u32 pad;
 };
 
-struct rxe_get_context_resp {
-	struct ib_uverbs_get_context_resp ibv_resp;
-	__u32 version;
-};
-
 struct rxe_create_cq_resp {
 	struct ib_uverbs_create_cq_resp ibv_resp;
 	struct mmap_info mi;

@@ -81,9 +81,7 @@ struct verbs_ex_private {
 
 static inline uint32_t _cmd_ex(uint32_t cmd)
 {
-	return (IB_USER_VERBS_CMD_FLAG_EXTENDED
-		<< IB_USER_VERBS_CMD_FLAGS_SHIFT) |
-	       cmd;
+	return IB_USER_VERBS_CMD_FLAG_EXTENDED | cmd;
 }
 
 #define IBV_INIT_CMD_RESP_EX_V(cmd, cmd_size, size, opcode, out, resp_size,\

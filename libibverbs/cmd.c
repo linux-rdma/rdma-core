@@ -478,7 +478,6 @@ int ibv_cmd_dealloc_mw(struct ibv_mw *mw,
 {
 	IBV_INIT_CMD(cmd, cmd_size, DEALLOC_MW);
 	cmd->mw_handle = mw->handle;
-	cmd->reserved = 0;
 
 	if (write(mw->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
@@ -539,7 +538,7 @@ int ibv_cmd_req_notify_cq(struct ibv_cq *ibcq, int solicited_only)
 
 	IBV_INIT_CMD(&cmd, sizeof cmd, REQ_NOTIFY_CQ);
 	cmd.cq_handle = ibcq->handle;
-	cmd.solicited = !!solicited_only;
+	cmd.solicited_only = !!solicited_only;
 
 	if (write(ibcq->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
 		return errno;
@@ -782,7 +781,7 @@ int ibv_cmd_destroy_srq(struct ibv_srq *srq)
 static int create_qp_ex_common(struct verbs_qp *qp,
 			       struct ibv_qp_init_attr_ex *qp_attr,
 			       struct verbs_xrcd *vxrcd,
-			       struct ibv_create_qp_common *cmd)
+			       struct ib_uverbs_create_qp *cmd)
 {
 	cmd->user_handle = (uintptr_t)qp;
 
@@ -897,7 +896,8 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size, CREATE_QP, resp,
 			       resp_core_size, resp_size);
 
-	err = create_qp_ex_common(qp, qp_attr, vxrcd, &cmd->base);
+	err = create_qp_ex_common(qp, qp_attr, vxrcd,
+				  ibv_create_cq_ex_to_reg(cmd));
 	if (err)
 		return err;
 
@@ -914,10 +914,10 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 	}
 
 	if (qp_attr->comp_mask & IBV_QP_INIT_ATTR_IND_TABLE) {
-		if (cmd_core_size < offsetof(struct ibv_create_qp_ex, ind_tbl_handle) +
-				    sizeof(cmd->ind_tbl_handle))
+		if (cmd_core_size < offsetof(struct ibv_create_qp_ex, rwq_ind_tbl_handle) +
+				    sizeof(cmd->rwq_ind_tbl_handle))
 			return EINVAL;
-		cmd->ind_tbl_handle = qp_attr->rwq_ind_tbl->ind_tbl_handle;
+		cmd->rwq_ind_tbl_handle = qp_attr->rwq_ind_tbl->ind_tbl_handle;
 		cmd->comp_mask = IB_UVERBS_CREATE_QP_MASK_IND_TABLE;
 	}
 
@@ -948,7 +948,7 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 		return ENOSYS;
 
 	err = create_qp_ex_common(qp, attr_ex, vxrcd,
-				  (struct ibv_create_qp_common *)&cmd->user_handle);
+				  &cmd->core_payload);
 	if (err)
 		return err;
 
@@ -1272,7 +1272,7 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 	IBV_INIT_CMD(cmd, cmd_size, MODIFY_QP);
 
-	copy_modify_qp_fields(qp, attr, attr_mask, &cmd->base);
+	copy_modify_qp_fields(qp, attr, attr_mask, &cmd->core_payload);
 
 	if (write(qp->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
