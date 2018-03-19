@@ -129,6 +129,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.destroy_wq = mlx5_destroy_wq,
 	.get_srq_num = mlx5_get_srq_num,
 	.modify_cq = mlx5_modify_cq,
+	.modify_qp_rate_limit = mlx5_modify_qp_rate_limit,
 	.modify_wq = mlx5_modify_wq,
 	.open_xrcd = mlx5_open_xrcd,
 	.post_srq_ops = mlx5_post_srq_ops,

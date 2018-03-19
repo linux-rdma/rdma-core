@@ -298,6 +298,7 @@ struct mlx5_context {
 	struct mlx5dv_sw_parsing_caps	sw_parsing_caps;
 	struct mlx5dv_striding_rq_caps	striding_rq_caps;
 	uint32_t			tunnel_offloads_caps;
+	struct mlx5_packet_pacing_caps	packet_pacing_caps;
 	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
 	uint32_t			num_dyn_bfregs;
 	uint32_t			*count_dyn_bfregs;
@@ -751,6 +752,8 @@ int mlx5_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		  struct ibv_qp_init_attr *init_attr);
 int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask);
+int mlx5_modify_qp_rate_limit(struct ibv_qp *qp,
+			      struct ibv_qp_rate_limit_attr *attr);
 int mlx5_destroy_qp(struct ibv_qp *qp);
 void mlx5_init_qp_indices(struct mlx5_qp *qp);
 void mlx5_init_rwq_indices(struct mlx5_rwq *rwq);
