@@ -13,6 +13,7 @@ Build-Depends: cmake (>= 2.8.11),
                libsystemd-dev,
                libudev-dev,
                ninja-build,
+               pandoc,
                pkg-config,
                python,
                valgrind [!alpha !armel !hppa !ia64 !m68k !powerpcspe !sh4 !sparc64 !x32]

@@ -5,10 +5,10 @@ set -e
 # Echo all commands to Travis log
 set -x
 
-mkdir build-clang build32 build-sparse build-aarch64
+mkdir build-travis build32 build-sparse build-aarch64
 
 # Build with latest clang first
-cd build-clang
+cd build-travis
 CC=clang-5.0 CFLAGS=-Werror cmake -GNinja .. -DIOCTL_MODE=both
 ninja
 ../buildlib/check-build --src .. --cc clang-5.0
@@ -38,7 +38,7 @@ fi
 mv ../CMakeLists-orig.txt ../CMakeLists.txt
 
 # Test with coherent DMA mode disabled (ie as would be on ARM32, etc)
-cd ../build-clang
+cd ../build-travis
 cp ../util/udma_barrier.h ../util/udma_barrier.h.old
 echo "#error Fail" >> ../util/udma_barrier.h
 rm CMakeCache.txt

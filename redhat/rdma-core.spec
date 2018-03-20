@@ -45,6 +45,11 @@ BuildRequires: make
 %define cmake_install DESTDIR=%{buildroot} make install
 %endif
 
+%if 0%{?fedora} >= 25
+# pandoc was introduced in FC25
+BuildRequires: pandoc
+%endif
+
 %description
 RDMA core userspace infrastructure and documentation, including initialization
 scripts, kernel driver-specific modprobe override configs, IPoIB network

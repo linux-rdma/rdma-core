@@ -73,6 +73,7 @@ class DockerFile(object):
         self.lines = ["FROM %s"%(src)];
 
 class Environment(object):
+    pandoc = True;
     python_cmd = "python";
     aliases = set();
     use_make = False;
@@ -106,18 +107,21 @@ class centos6(YumEnvironment):
     };
     name = "centos6";
     use_make = True;
+    pandoc = False;
 
 class centos7(YumEnvironment):
     docker_parent = "centos:7";
     pkgs = centos6.pkgs | {'systemd-devel'};
     name = "centos7";
     use_make = True;
+    pandoc = False;
     specfile = "redhat/rdma-core.spec";
 
 class centos7_epel(centos7):
-    pkgs = (centos7.pkgs - {"cmake","make"}) | {"ninja-build","cmake3"};
+    pkgs = (centos7.pkgs - {"cmake","make"}) | {"ninja-build","cmake3","pandoc"};
     name = "centos7_epel";
     use_make = False;
+    pandoc = True;
     ninja_cmd = "ninja-build";
     # Our spec file does not know how to cope with cmake3
     is_rpm = False;
@@ -130,7 +134,7 @@ class centos7_epel(centos7):
 
 class fc27(Environment):
     docker_parent = "fedora:27";
-    pkgs = (centos7.pkgs - {"make"}) | {"ninja-build"};
+    pkgs = (centos7.pkgs - {"make"}) | {"ninja-build","pandoc"};
     name = "fc27";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
@@ -165,6 +169,7 @@ class trusty(APTEnvironment):
         'libudev-dev',
         'make',
         'ninja-build',
+        'pandoc',
         'pkg-config',
         'python',
         'valgrind',
@@ -300,6 +305,7 @@ class ZypperEnvironment(Environment):
         return res;
 
 class leap(ZypperEnvironment):
+    proxy = False;
     docker_parent = "opensuse:42.3";
     specfile = "suse/rdma-core.spec";
     pkgs = {
@@ -310,6 +316,7 @@ class leap(ZypperEnvironment):
         'udev',
         'make',
         'ninja',
+        'pandoc',
         'pkg-config',
         'python3',
         'rpm-build',
@@ -432,6 +439,36 @@ def get_image_id(args,image_name):
 
 # -------------------------------------------------------------------------
 
+def get_tar_file(args,tarfn,pandoc_prebuilt=False):
+    """Create a tar file that matches what buildlib/github-release would do if it
+    was a tagged release"""
+    prefix = "%s-%s/"%(project,get_version());
+    if not pandoc_prebuilt:
+        subprocess.check_call(["git","archive",
+                               # This must match the prefix generated buildlib/github-release
+                               "--prefix",prefix,
+                               "--output",tarfn,
+                               "HEAD"]);
+        return;
+
+    # When the OS does not support pandoc we got through the extra step to
+    # build pandoc output in the travis container and include it in the
+    # tar. This is similar to what buildlib/github-release does.
+    if not args.use_prebuilt_pandoc:
+        subprocess.check_call(["buildlib/cbuild","make","travis","docs"]);
+
+    tmp_tarfn = os.path.join(os.path.dirname(tarfn),"tmp.tar");
+    get_tar_file(args,tmp_tarfn,False);
+
+    subprocess.check_call([
+        "tar",
+        "-rf",tmp_tarfn,
+        "build-travis/pandoc-prebuilt/",
+        "--xform","s|build-travis/pandoc-prebuilt|%sbuildlib/pandoc-prebuilt|g"%(prefix)]);
+    with open(tarfn,"w") as F:
+        subprocess.check_call(["gzip","-9c",tmp_tarfn],stdout=F);
+    os.unlink(tmp_tarfn);
+
 def run_rpm_build(args,spec_file,env):
     with open(spec_file,"r") as F:
         for ln in F:
@@ -447,11 +484,8 @@ def run_rpm_build(args,spec_file,env):
         os.mkdir(os.path.join(tmpdir,"SOURCES"));
         os.mkdir(os.path.join(tmpdir,"tmp"));
 
-        subprocess.check_call(["git","archive",
-                               # This must match the prefix generated buildlib/github-release
-                               "--prefix","%s-%s/"%(project,get_version()),
-                               "--output",os.path.join(tmpdir,"SOURCES",tarfn),
-                               "HEAD"]);
+        get_tar_file(args,os.path.join(tmpdir,"SOURCES",tarfn),
+                     pandoc_prebuilt=not env.pandoc);
 
         with open(spec_file,"r") as inF:
             spec = list(inF);
@@ -665,6 +699,8 @@ def args_pkg(parser):
     parser.add_argument("ENV",action=ToEnvAction,choices=env_choices());
     parser.add_argument("--run-shell",default=False,action="store_true",
                         help="Instead of running the build, enter a shell");
+    parser.add_argument("--use-prebuilt-pandoc",default=False,action="store_true",
+                        help="Do not rebuild the pandoc cache in build-travis/pandoc-prebuilt/");
 def cmd_pkg(args):
     """Build a package in the given environment."""
     for env in args.ENV:

@@ -32,6 +32,7 @@ addons:
       - libudev-dev
       - make
       - ninja-build
+      - pandoc
       - pkg-config
       - python
       - valgrind
