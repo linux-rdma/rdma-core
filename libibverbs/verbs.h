@@ -1518,6 +1518,31 @@ struct ibv_flow {
 	uint32_t	   handle;
 };
 
+struct ibv_flow_action {
+	struct ibv_context *context;
+};
+
+enum ibv_flow_action_esp_mask {
+	IBV_FLOW_ACTION_ESP_MASK_ESN    = 1UL << 0,
+};
+
+struct ibv_flow_action_esp_attr {
+	struct ibv_flow_action_esp *esp_attr;
+
+	enum ibv_flow_action_esp_keymat	keymat_proto;
+	uint16_t		keymat_len;
+	void			*keymat_ptr;
+
+	enum ibv_flow_action_esp_replay replay_proto;
+	uint16_t                replay_len;
+	void                    *replay_ptr;
+
+	struct ibv_flow_action_esp_encap *esp_encap;
+
+	uint32_t		comp_mask; /* Use enum ibv_flow_action_esp_mask */
+	uint32_t		esn;
+};
+
 struct ibv_device;
 struct ibv_context;
 
@@ -1665,6 +1690,11 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*modify_flow_action_esp)(struct ibv_flow_action *action,
+				      struct ibv_flow_action_esp_attr *attr);
+	int (*destroy_flow_action)(struct ibv_flow_action *action);
+	struct ibv_flow_action *(*create_flow_action_esp)(struct ibv_context *context,
+							  struct ibv_flow_action_esp_attr *attr);
 	int (*modify_qp_rate_limit)(struct ibv_qp *qp,
 				    struct ibv_qp_rate_limit_attr *attr);
 	struct ibv_pd *(*alloc_parent_domain)(struct ibv_context *context,
@@ -1857,6 +1887,45 @@ static inline int ibv_destroy_flow(struct ibv_flow *flow_id)
 	if (!vctx)
 		return -ENOSYS;
 	return vctx->ibv_destroy_flow(flow_id);
+}
+
+static inline struct ibv_flow_action *
+ibv_create_flow_action_esp(struct ibv_context *ctx,
+			   struct ibv_flow_action_esp_attr *esp)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(ctx,
+						      create_flow_action_esp);
+
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+
+	return vctx->create_flow_action_esp(ctx, esp);
+}
+
+static inline int
+ibv_modify_flow_action_esp(struct ibv_flow_action *action,
+			   struct ibv_flow_action_esp_attr *esp)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(action->context,
+						      modify_flow_action_esp);
+
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->modify_flow_action_esp(action, esp);
+}
+
+static inline int ibv_destroy_flow_action(struct ibv_flow_action *action)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(action->context,
+						      destroy_flow_action);
+
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->destroy_flow_action(action);
 }
 
 /**

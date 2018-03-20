@@ -42,6 +42,7 @@
 #include <config.h>
 #include <stdbool.h>
 #include <rdma/rdma_user_ioctl_cmds.h>
+#include <infiniband/cmd_ioctl.h>
 
 struct verbs_device;
 
@@ -87,6 +88,17 @@ struct verbs_qp {
 	struct ibv_qp		qp;
 	uint32_t		comp_mask;
 	struct verbs_xrcd       *xrcd;
+};
+
+enum ibv_flow_action_type {
+	IBV_FLOW_ACTION_UNSPECIFIED,
+	IBV_FLOW_ACTION_ESP = 1,
+};
+
+struct verbs_flow_action {
+	struct ibv_flow_action		action;
+	uint32_t			handle;
+	enum ibv_flow_action_type	type;
 };
 
 enum {
@@ -202,6 +214,8 @@ struct verbs_context_ops {
 		struct ibv_cq_init_attr_ex *init_attr);
 	struct ibv_flow *(*create_flow)(struct ibv_qp *qp,
 					struct ibv_flow_attr *flow_attr);
+	struct ibv_flow_action *(*create_flow_action_esp)(struct ibv_context *context,
+							  struct ibv_flow_action_esp_attr *attr);
 	struct ibv_qp *(*create_qp)(struct ibv_pd *pd,
 				    struct ibv_qp_init_attr *attr);
 	struct ibv_qp *(*create_qp_ex)(
@@ -224,6 +238,7 @@ struct verbs_context_ops {
 	int (*destroy_ah)(struct ibv_ah *ah);
 	int (*destroy_cq)(struct ibv_cq *cq);
 	int (*destroy_flow)(struct ibv_flow *flow);
+	int (*destroy_flow_action)(struct ibv_flow_action *action);
 	int (*destroy_qp)(struct ibv_qp *qp);
 	int (*destroy_rwq_ind_table)(struct ibv_rwq_ind_table *rwq_ind_table);
 	int (*destroy_srq)(struct ibv_srq *srq);
@@ -232,6 +247,8 @@ struct verbs_context_ops {
 			    uint16_t lid);
 	int (*get_srq_num)(struct ibv_srq *srq, uint32_t *srq_num);
 	int (*modify_cq)(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
+	int (*modify_flow_action_esp)(struct ibv_flow_action *action,
+				      struct ibv_flow_action_esp_attr *attr);
 	int (*modify_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			 int attr_mask);
 	int (*modify_qp_rate_limit)(struct ibv_qp *qp,
@@ -330,6 +347,13 @@ int ibv_cmd_query_device(struct ibv_context *context,
 			 struct ibv_device_attr *device_attr,
 			 uint64_t *raw_fw_ver,
 			 struct ibv_query_device *cmd, size_t cmd_size);
+int ibv_cmd_create_flow_action_esp(struct ibv_context *ctx,
+				   struct ibv_flow_action_esp_attr *attr,
+				   struct verbs_flow_action *flow_action,
+				   struct ibv_command_buffer *driver);
+int ibv_cmd_modify_flow_action_esp(struct verbs_flow_action *flow_action,
+				   struct ibv_flow_action_esp_attr *attr,
+				   struct ibv_command_buffer *driver);
 int ibv_cmd_query_device_ex(struct ibv_context *context,
 			    const struct ibv_query_device_ex_input *input,
 			    struct ibv_device_attr_ex *attr, size_t attr_size,
@@ -475,6 +499,7 @@ int ibv_cmd_create_wq(struct ibv_context *context,
 		      size_t resp_core_size,
 		      size_t resp_size);
 
+int ibv_cmd_destroy_flow_action(struct verbs_flow_action *action);
 int ibv_cmd_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr,
 		      struct ibv_modify_wq *cmd, size_t cmd_core_size,
 		      size_t cmd_size);
