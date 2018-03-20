@@ -75,7 +75,7 @@ int iwch_query_port(struct ibv_context *context, uint8_t port,
 struct ibv_pd *iwch_alloc_pd(struct ibv_context *context)
 {
 	struct ibv_alloc_pd cmd;
-	struct iwch_alloc_pd_resp resp;
+	struct uiwch_alloc_pd_resp resp;
 	struct iwch_pd *pd;
 
 	pd = malloc(sizeof *pd);
@@ -109,7 +109,7 @@ static struct ibv_mr *__iwch_reg_mr(struct ibv_pd *pd, void *addr,
 {
 	struct iwch_mr *mhp;
 	struct ibv_reg_mr cmd;
-	struct iwch_reg_mr_resp resp;
+	struct uiwch_reg_mr_resp resp;
 	struct iwch_device *dev = to_iwch_dev(pd->context->device);
 
 	mhp = malloc(sizeof *mhp);
@@ -168,8 +168,8 @@ int iwch_dereg_mr(struct ibv_mr *mr)
 struct ibv_cq *iwch_create_cq(struct ibv_context *context, int cqe,
 			      struct ibv_comp_channel *channel, int comp_vector)
 {
-	struct iwch_create_cq cmd;
-	struct iwch_create_cq_resp_v1 resp;
+	struct uiwch_create_cq cmd;
+	struct uiwch_create_cq_resp_v1 resp;
 	struct iwch_cq *chp;
 	struct iwch_device *dev = to_iwch_dev(context->device);
 	int ret;
@@ -288,8 +288,8 @@ int iwch_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
 
 struct ibv_qp *iwch_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 {
-	struct iwch_create_qp cmd;
-	struct iwch_create_qp_resp resp;
+	struct uiwch_create_qp cmd;
+	struct uiwch_create_qp_resp resp;
 	struct iwch_qp *qhp;
 	struct iwch_device *dev = to_iwch_dev(pd->context->device);
 	int ret;

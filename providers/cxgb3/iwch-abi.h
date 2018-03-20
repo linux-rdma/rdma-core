@@ -34,34 +34,35 @@
 
 #include <stdint.h>
 #include <infiniband/kern-abi.h>
+#include <rdma/cxgb3-abi.h>
 
-struct iwch_alloc_ucontext_resp {
+struct uiwch_alloc_ucontext_resp {
 	struct ib_uverbs_get_context_resp ibv_resp;
 };
 
-struct iwch_alloc_pd_resp {
+struct uiwch_alloc_pd_resp {
 	struct ib_uverbs_alloc_pd_resp ibv_resp;
 	uint32_t pdid;
 };
 
-struct iwch_create_cq {
+struct uiwch_create_cq {
 	struct ibv_create_cq ibv_cmd;
 	uint64_t user_rptr_addr;
 };
 
-struct iwch_reg_mr_resp {
+struct uiwch_reg_mr_resp {
 	struct ib_uverbs_reg_mr_resp ibv_resp;
 	uint32_t pbl_addr;
 };
 
-struct iwch_create_cq_resp_v0 {
+struct uiwch_create_cq_resp_v0 {
 	struct ib_uverbs_create_cq_resp ibv_resp;
 	uint64_t physaddr;
 	uint32_t cqid;
 	uint32_t size_log2;
 };
 
-struct iwch_create_cq_resp_v1 {
+struct uiwch_create_cq_resp_v1 {
 	struct ib_uverbs_create_cq_resp ibv_resp;
 	uint64_t physaddr;
 	uint32_t cqid;
@@ -70,11 +71,11 @@ struct iwch_create_cq_resp_v1 {
 	uint32_t reserved; /* for proper alignment */
 };
 
-struct iwch_create_qp {
+struct uiwch_create_qp {
 	struct ibv_create_qp ibv_cmd;
 };
 
-struct iwch_create_qp_resp {
+struct uiwch_create_qp_resp {
 	struct ib_uverbs_create_qp_resp ibv_resp;
 	uint64_t physaddr;
 	uint64_t doorbell;
