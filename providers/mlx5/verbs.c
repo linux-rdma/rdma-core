@@ -2981,3 +2981,61 @@ int mlx5_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr)
 
 	return ibv_cmd_modify_cq(cq, attr, &cmd, sizeof(cmd));
 }
+
+static struct ibv_flow_action *_mlx5_create_flow_action_esp(struct ibv_context *ctx,
+							    struct ibv_flow_action_esp_attr *attr,
+							    struct ibv_command_buffer *driver_attr)
+{
+	struct verbs_flow_action *action;
+	int ret;
+
+	if (!check_comp_mask(attr->comp_mask, IBV_FLOW_ACTION_ESP_MASK_ESN)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	action = calloc(1, sizeof(*action));
+	if (!action) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	ret = ibv_cmd_create_flow_action_esp(ctx, attr, action, driver_attr);
+	if (ret) {
+		free(action);
+		return NULL;
+	}
+
+	return &action->action;
+}
+
+struct ibv_flow_action *mlx5_create_flow_action_esp(struct ibv_context *ctx,
+						    struct ibv_flow_action_esp_attr *attr)
+{
+	return _mlx5_create_flow_action_esp(ctx, attr, NULL);
+}
+
+int mlx5_modify_flow_action_esp(struct ibv_flow_action *action,
+				struct ibv_flow_action_esp_attr *attr)
+{
+	struct verbs_flow_action *vaction =
+		container_of(action, struct verbs_flow_action, action);
+
+	if (!check_comp_mask(attr->comp_mask, IBV_FLOW_ACTION_ESP_MASK_ESN))
+		return EOPNOTSUPP;
+
+	return ibv_cmd_modify_flow_action_esp(vaction, attr, NULL);
+}
+
+int mlx5_destroy_flow_action(struct ibv_flow_action *action)
+{
+	struct verbs_flow_action *vaction =
+		container_of(action, struct verbs_flow_action, action);
+	int ret = ibv_cmd_destroy_flow_action(vaction);
+
+	if (!ret)
+		free(action);
+
+	return ret;
+}
+

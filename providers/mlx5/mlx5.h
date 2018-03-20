@@ -801,6 +801,11 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 int mlx5_post_srq_ops(struct ibv_srq *srq,
 		      struct ibv_ops_wr *wr,
 		      struct ibv_ops_wr **bad_wr);
+struct ibv_flow_action *mlx5_create_flow_action_esp(struct ibv_context *ctx,
+						    struct ibv_flow_action_esp_attr *attr);
+int mlx5_destroy_flow_action(struct ibv_flow_action *action);
+int mlx5_modify_flow_action_esp(struct ibv_flow_action *action,
+				struct ibv_flow_action_esp_attr *attr);
 
 struct ibv_td *mlx5_alloc_td(struct ibv_context *context, struct ibv_td_init_attr *init_attr);
 int mlx5_dealloc_td(struct ibv_td *td);
