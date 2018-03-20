@@ -117,7 +117,8 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 	struct bnxt_re_dev *dev = to_bnxt_re_dev(vdev);
 	struct bnxt_re_context *cntx;
 
-	cntx = verbs_init_and_alloc_context(vdev, cmd_fd, cntx, ibvctx);
+	cntx = verbs_init_and_alloc_context(vdev, cmd_fd, cntx, ibvctx,
+					    RDMA_DRIVER_BNXT_RE);
 	if (!cntx)
 		return NULL;
 

@@ -62,6 +62,7 @@ struct verbs_ex_private {
 					  struct ibv_cq_init_attr_ex *init_attr);
 
 	uint64_t unsupported_ioctls;
+	uint32_t driver_id;
 };
 
 #define IBV_INIT_CMD(cmd, size, opcode)					\

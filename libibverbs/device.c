@@ -186,7 +186,8 @@ __lib_ibv_create_cq_ex(struct ibv_context *context,
  * failure path of this function.
  */
 int verbs_init_context(struct verbs_context *context_ex,
-		       struct ibv_device *device, int cmd_fd)
+		       struct ibv_device *device, int cmd_fd,
+		       uint32_t driver_id)
 {
 	struct ibv_context *context = &context_ex->context;
 
@@ -224,6 +225,7 @@ int verbs_init_context(struct verbs_context *context_ex,
 		return -1;
 	}
 
+	context_ex->priv->driver_id = driver_id;
 	verbs_set_ops(context_ex, &verbs_dummy_ops);
 
 	return 0;
@@ -236,7 +238,8 @@ int verbs_init_context(struct verbs_context *context_ex,
  */
 void *_verbs_init_and_alloc_context(struct ibv_device *device, int cmd_fd,
 				    size_t alloc_size,
-				    struct verbs_context *context_offset)
+				    struct verbs_context *context_offset,
+				    uint32_t driver_id)
 {
 	void *drv_context;
 	struct verbs_context *context;
@@ -250,7 +253,7 @@ void *_verbs_init_and_alloc_context(struct ibv_device *device, int cmd_fd,
 
 	context = drv_context + (uintptr_t)context_offset;
 
-	if (verbs_init_context(context, device, cmd_fd))
+	if (verbs_init_context(context, device, cmd_fd, driver_id))
 		goto err_free;
 
 	return drv_context;

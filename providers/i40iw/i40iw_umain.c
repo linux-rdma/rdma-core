@@ -134,7 +134,8 @@ static struct verbs_context *i40iw_ualloc_context(struct ibv_device *ibdev,
 	struct i40iw_get_context cmd;
 	struct i40iw_ualloc_ucontext_resp resp;
 
-	iwvctx = verbs_init_and_alloc_context(ibdev, cmd_fd, iwvctx, ibv_ctx);
+	iwvctx = verbs_init_and_alloc_context(ibdev, cmd_fd, iwvctx, ibv_ctx,
+					      RDMA_DRIVER_I40IW);
 	if (!iwvctx)
 		return NULL;
 

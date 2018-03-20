@@ -43,29 +43,29 @@ struct mmap_info {
 	__u32 pad;
 };
 
-struct rxe_create_cq_resp {
+struct urxe_create_cq_resp {
 	struct ib_uverbs_create_cq_resp ibv_resp;
 	struct mmap_info mi;
 };
 
-struct rxe_resize_cq_resp {
+struct urxe_resize_cq_resp {
 	struct ib_uverbs_resize_cq_resp ibv_resp;
 	struct mmap_info mi;
 };
 
-struct rxe_create_qp_resp {
+struct urxe_create_qp_resp {
 	struct ib_uverbs_create_qp_resp ibv_resp;
 	struct mmap_info rq_mi;
 	struct mmap_info sq_mi;
 };
 
-struct rxe_create_srq_resp {
+struct urxe_create_srq_resp {
 	struct ib_uverbs_create_srq_resp ibv_resp;
 	struct mmap_info mi;
 	__u32 srq_num;
 };
 
-struct rxe_modify_srq_cmd {
+struct urxe_modify_srq_cmd {
 	struct ibv_modify_srq ibv_cmd;
 	__u64 mmap_info_addr;
 };

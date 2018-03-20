@@ -35,6 +35,9 @@
 #include "ibverbs.h"
 
 #include <sys/ioctl.h>
+#include <infiniband/driver.h>
+
+#include <rdma/ib_user_ioctl_cmds.h>
 
 /* Number of attrs in this and all the link'd buffers */
 unsigned int __ioctl_final_num_attrs(unsigned int num_attrs,
@@ -83,7 +86,7 @@ static void prepare_attrs(struct ibv_command_buffer *cmd)
 	if (!VERBS_IOCTL_ONLY && cmd->uhw_in_idx != _UHW_NO_INDEX) {
 		struct ib_uverbs_attr *uhw = &cmd->hdr.attrs[cmd->uhw_in_idx];
 
-		assert(uhw->attr_id == UVERBS_UHW_IN);
+		assert(uhw->attr_id == UVERBS_ATTR_UHW_IN);
 
 		if (uhw->len <= sizeof(uhw->data))
 			memcpy(&uhw->data, (void *)(uintptr_t)uhw->data,
@@ -123,10 +126,14 @@ static void finalize_attrs(struct ibv_command_buffer *cmd)
 
 int execute_ioctl(struct ibv_context *context, struct ibv_command_buffer *cmd)
 {
+	struct verbs_context *vctx = verbs_get_ctx(context);
+
 	prepare_attrs(cmd);
 	cmd->hdr.length = sizeof(cmd->hdr) +
 		sizeof(cmd->hdr.attrs[0]) * cmd->hdr.num_attrs;
-	cmd->hdr.reserved = 0;
+	cmd->hdr.reserved1 = 0;
+	cmd->hdr.reserved2 = 0;
+	cmd->hdr.driver_id = vctx->priv->driver_id;
 
 	if (ioctl(context->cmd_fd, RDMA_VERBS_IOCTL, &cmd->hdr))
 		return errno;
@@ -166,13 +173,13 @@ void _write_set_uhw(struct ibv_command_buffer *cmdb, const void *req,
 	if (req && core_req_size < req_size) {
 		if (VERBS_IOCTL_ONLY)
 			cmdb->uhw_in_idx =
-				fill_attr_in(cmdb, UVERBS_UHW_IN,
+				fill_attr_in(cmdb, UVERBS_ATTR_UHW_IN,
 					     (uint8_t *)req + core_req_size,
 					     req_size - core_req_size) -
 				cmdb->hdr.attrs;
 		else
 			cmdb->uhw_in_idx =
-				_fill_attr_in_uhw(cmdb, UVERBS_UHW_IN,
+				_fill_attr_in_uhw(cmdb, UVERBS_ATTR_UHW_IN,
 						  (uint8_t *)req +
 							  core_req_size,
 						  req_size - core_req_size) -
@@ -183,7 +190,7 @@ void _write_set_uhw(struct ibv_command_buffer *cmdb, const void *req,
 
 	if (resp && core_resp_size < resp_size) {
 		cmdb->uhw_out_idx =
-			fill_attr_out(cmdb, UVERBS_UHW_OUT,
+			fill_attr_out(cmdb, UVERBS_ATTR_UHW_OUT,
 				      (uint8_t *)resp + core_resp_size,
 				      resp_size - core_resp_size) -
 			cmdb->hdr.attrs;

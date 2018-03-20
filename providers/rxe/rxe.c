@@ -162,7 +162,7 @@ static struct ibv_cq *rxe_create_cq(struct ibv_context *context, int cqe,
 				    int comp_vector)
 {
 	struct rxe_cq *cq;
-	struct rxe_create_cq_resp resp;
+	struct urxe_create_cq_resp resp;
 	int ret;
 
 	cq = malloc(sizeof *cq);
@@ -196,7 +196,7 @@ static int rxe_resize_cq(struct ibv_cq *ibcq, int cqe)
 {
 	struct rxe_cq *cq = to_rcq(ibcq);
 	struct ibv_resize_cq cmd;
-	struct rxe_resize_cq_resp resp;
+	struct urxe_resize_cq_resp resp;
 	int ret;
 
 	pthread_spin_lock(&cq->lock);
@@ -273,7 +273,7 @@ static struct ibv_srq *rxe_create_srq(struct ibv_pd *pd,
 {
 	struct rxe_srq *srq;
 	struct ibv_create_srq cmd;
-	struct rxe_create_srq_resp resp;
+	struct urxe_create_srq_resp resp;
 	int ret;
 
 	srq = malloc(sizeof *srq);
@@ -308,7 +308,7 @@ static int rxe_modify_srq(struct ibv_srq *ibsrq,
 		   struct ibv_srq_attr *attr, int attr_mask)
 {
 	struct rxe_srq *srq = to_rsrq(ibsrq);
-	struct rxe_modify_srq_cmd cmd;
+	struct urxe_modify_srq_cmd cmd;
 	int rc = 0;
 	struct mmap_info mi;
 
@@ -439,7 +439,7 @@ static struct ibv_qp *rxe_create_qp(struct ibv_pd *pd,
 				    struct ibv_qp_init_attr *attr)
 {
 	struct ibv_create_qp cmd;
-	struct rxe_create_qp_resp resp;
+	struct urxe_create_qp_resp resp;
 	struct rxe_qp *qp;
 	int ret;
 
@@ -862,7 +862,8 @@ static struct verbs_context *rxe_alloc_context(struct ibv_device *ibdev,
 	struct ibv_get_context cmd;
 	struct ib_uverbs_get_context_resp resp;
 
-	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
+					       RDMA_DRIVER_RXE);
 	if (!context)
 		return NULL;
 

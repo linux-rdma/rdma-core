@@ -36,6 +36,7 @@
 #include <infiniband/cmd_ioctl.h>
 #include <infiniband/driver.h>
 #include <rdma/ib_user_verbs.h>
+#include <rdma/ib_user_ioctl_cmds.h>
 
 #include <stdbool.h>
 
