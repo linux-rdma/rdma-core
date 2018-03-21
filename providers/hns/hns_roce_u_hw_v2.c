@@ -476,7 +476,11 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 	if (npolled) {
 		mmio_ordered_writes_hack();
 
-		hns_roce_v2_update_cq_cons_index(ctx, cq);
+		if (cq->flags & HNS_ROCE_SUPPORT_CQ_RECORD_DB)
+			*cq->set_ci_db = (unsigned int)(cq->cons_index &
+						((cq->cq_depth << 1) - 1));
+		else
+			hns_roce_v2_update_cq_cons_index(ctx, cq);
 	}
 
 	pthread_spin_unlock(&cq->lock);
@@ -830,7 +834,10 @@ out:
 	if (nreq) {
 		qp->rq.head += nreq;
 
-		hns_roce_update_rq_db(ctx, qp->ibv_qp.qp_num,
+		if (qp->flags & HNS_ROCE_SUPPORT_RQ_RECORD_DB)
+			*qp->rdb = qp->rq.head & 0xffff;
+		else
+			hns_roce_update_rq_db(ctx, qp->ibv_qp.qp_num,
 				     qp->rq.head & ((qp->rq.wqe_cnt << 1) - 1));
 	}
 
@@ -971,6 +978,10 @@ static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 
 	hns_roce_unlock_cqs(ibqp);
 	pthread_mutex_unlock(&to_hr_ctx(ibqp->context)->qp_table_mutex);
+
+	if (qp->rq.max_gs)
+		hns_roce_free_db(to_hr_ctx(ibqp->context), qp->rdb,
+				 HNS_ROCE_QP_TYPE_DB);
 
 	hns_roce_free_buf(&qp->buf);
 	if (qp->rq_rinl_buf.wqe_list) {

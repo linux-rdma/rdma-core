@@ -41,6 +41,7 @@
 #include <ccan/minmax.h>
 #include "hns_roce_u.h"
 #include "hns_roce_u_abi.h"
+#include "hns_roce_u_db.h"
 #include "hns_roce_u_hw_v1.h"
 #include "hns_roce_u_hw_v2.h"
 
@@ -262,8 +263,8 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 				    struct ibv_comp_channel *channel,
 				    int comp_vector)
 {
-	struct hns_roce_create_cq	cmd;
-	struct hns_roce_create_cq_resp	resp;
+	struct hns_roce_create_cq	cmd = {};
+	struct hns_roce_create_cq_resp	resp = {};
 	struct hns_roce_cq		*cq;
 	int				ret;
 
@@ -289,6 +290,15 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 
 	cmd.buf_addr = (uintptr_t) cq->buf.buf;
 
+	if (to_hr_dev(context->device)->hw_version != HNS_ROCE_HW_VER1) {
+		cq->set_ci_db = hns_roce_alloc_db(to_hr_ctx(context),
+						  HNS_ROCE_CQ_TYPE_DB);
+		if (!cq->set_ci_db)
+			goto err_buf;
+
+		cmd.db_addr  = (uintptr_t) cq->set_ci_db;
+	}
+
 	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
 				&cq->ibv_cq, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp));
@@ -297,12 +307,10 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 
 	cq->cqn = resp.cqn;
 	cq->cq_depth = cqe;
+	cq->flags = resp.cap_flags;
 
 	if (to_hr_dev(context->device)->hw_version == HNS_ROCE_HW_VER1)
 		cq->set_ci_db = to_hr_ctx(context)->cq_tptr_base + cq->cqn * 2;
-	else
-		cq->set_ci_db = to_hr_ctx(context)->uar +
-				ROCEE_VF_DB_CFG0_OFFSET;
 
 	cq->arm_db    = cq->set_ci_db;
 	cq->arm_sn    = 1;
@@ -312,6 +320,11 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 	return &cq->ibv_cq;
 
 err_db:
+	if (to_hr_dev(context->device)->hw_version != HNS_ROCE_HW_VER1)
+		hns_roce_free_db(to_hr_ctx(context), cq->set_ci_db,
+				 HNS_ROCE_CQ_TYPE_DB);
+
+err_buf:
 	hns_roce_free_buf(&cq->buf);
 
 err:
@@ -333,6 +346,9 @@ int hns_roce_u_destroy_cq(struct ibv_cq *cq)
 	if (ret)
 		return ret;
 
+	if (to_hr_dev(cq->context->device)->hw_version != HNS_ROCE_HW_VER1)
+		hns_roce_free_db(to_hr_ctx(cq->context),
+				 to_hr_cq(cq)->set_ci_db, HNS_ROCE_CQ_TYPE_DB);
 	hns_roce_free_buf(&to_hr_cq(cq)->buf);
 	free(to_hr_cq(cq));
 
@@ -514,8 +530,8 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 {
 	int ret;
 	struct hns_roce_qp *qp = NULL;
-	struct hns_roce_create_qp cmd;
-	struct ib_uverbs_create_qp_resp resp;
+	struct hns_roce_create_qp cmd = {};
+	struct hns_roce_create_qp_resp resp = {};
 	struct hns_roce_context *context = to_hr_ctx(pd->context);
 	unsigned int sge_ex_count;
 
@@ -567,6 +583,17 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 		goto err_free;
 	}
 
+	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
+	    attr->cap.max_recv_sge) {
+		qp->rdb = hns_roce_alloc_db(context, HNS_ROCE_QP_TYPE_DB);
+		if (!qp->rdb)
+			goto err_free;
+
+		*(qp->rdb) = 0;
+		cmd.db_addr = (uintptr_t) qp->rdb;
+	} else
+		cmd.db_addr = 0;
+
 	cmd.buf_addr = (uintptr_t) qp->buf.buf;
 	cmd.log_sq_stride = qp->sq.wqe_shift;
 	for (cmd.log_sq_bb_count = 0; qp->sq.wqe_cnt > 1 << cmd.log_sq_bb_count;
@@ -578,7 +605,7 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	pthread_mutex_lock(&to_hr_ctx(pd->context)->qp_table_mutex);
 
 	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd.ibv_cmd,
-				sizeof(cmd), &resp, sizeof(resp));
+				sizeof(cmd), &resp.base, sizeof(resp));
 	if (ret) {
 		fprintf(stderr, "ibv_cmd_create_qp failed!\n");
 		goto err_rq_db;
@@ -593,6 +620,7 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 
 	qp->rq.wqe_cnt = attr->cap.max_recv_wr;
 	qp->rq.max_gs	= attr->cap.max_recv_sge;
+	qp->flags	= resp.cap_flags;
 
 	/* adjust rq maxima to not exceed reported device maxima */
 	attr->cap.max_recv_wr = min(context->max_qp_wr, attr->cap.max_recv_wr);
@@ -610,6 +638,9 @@ err_destroy:
 
 err_rq_db:
 	pthread_mutex_unlock(&to_hr_ctx(pd->context)->qp_table_mutex);
+	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
+	    attr->cap.max_recv_sge)
+		hns_roce_free_db(context, qp->rdb, HNS_ROCE_QP_TYPE_DB);
 
 err_free:
 	free(qp->sq.wrid);
