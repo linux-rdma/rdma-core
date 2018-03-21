@@ -265,6 +265,8 @@ are used by the IB diagnostic and management tools, including OpenSM.
 Summary:        Userspace RDMA Connection Manager
 Group:          System/Libraries
 Requires:       %{name} = %{version}
+Provides:       librdmacm = %{version}
+Obsoletes:      librdmacm < %{version}
 
 %description -n %rdmacm_lname
 librdmacm provides a userspace RDMA Communication Management API.
