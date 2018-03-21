@@ -125,7 +125,7 @@ Requires:       %{name}%{?_isa} = %{version}-%{release}
 Requires:       %{rdmacm_lname} = %{version}-%{release}
 Requires:       %{umad_lname} = %{version}-%{release}
 Requires:       %{verbs_lname} = %{version}-%{release}
-%%if 0%{?dma_coherent}
+%if 0%{?dma_coherent}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
 %endif
