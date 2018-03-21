@@ -87,6 +87,7 @@ Obsoletes:      ofed < %{version}
 # outside of OBS. Thus we add a bcond to allow manual build.
 # To force build without the use of curl-mini, --without=curlmini
 # should be passed to rpmbuild
+%bcond_without curlmini
 %if 0%{?suse_version} >= 1330
 %if %{with curlmini}
 BuildRequires:  curl-mini
