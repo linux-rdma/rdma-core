@@ -87,6 +87,7 @@ Obsoletes:      ofed < %{version}
 # outside of OBS. Thus we add a bcond to allow manual build.
 # To force build without the use of curl-mini, --without=curlmini
 # should be passed to rpmbuild
+%bcond_without curlmini
 %if 0%{?suse_version} >= 1330
 %if %{with curlmini}
 BuildRequires:  curl-mini
@@ -125,7 +126,7 @@ Requires:       %{name}%{?_isa} = %{version}-%{release}
 Requires:       %{rdmacm_lname} = %{version}-%{release}
 Requires:       %{umad_lname} = %{version}-%{release}
 Requires:       %{verbs_lname} = %{version}-%{release}
-%%if 0%{?dma_coherent}
+%if 0%{?dma_coherent}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
 %endif
@@ -264,6 +265,8 @@ are used by the IB diagnostic and management tools, including OpenSM.
 Summary:        Userspace RDMA Connection Manager
 Group:          System/Libraries
 Requires:       %{name} = %{version}
+Provides:       librdmacm = %{version}
+Obsoletes:      librdmacm < %{version}
 
 %description -n %rdmacm_lname
 librdmacm provides a userspace RDMA Communication Management API.
