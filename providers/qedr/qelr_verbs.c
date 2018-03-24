@@ -54,7 +54,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <execinfo.h>
 
 #define QELR_SQE_ELEMENT_SIZE	(sizeof(struct rdma_sq_sge))
 #define QELR_RQE_ELEMENT_SIZE	(sizeof(struct rdma_rq_sge))

@@ -33,7 +33,7 @@
 
 #include <stdio.h>
 #include <pthread.h>
-#include <sys/errno.h>
+#include <errno.h>
 
 #include <infiniband/opcode.h>
 

@@ -1172,6 +1172,7 @@ ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count)
 	return ret;
 }
 
+int __fxstat(int ver, int socket, struct stat *buf);
 int __fxstat(int ver, int socket, struct stat *buf)
 {
 	int fd, ret;
@@ -1180,7 +1181,7 @@ int __fxstat(int ver, int socket, struct stat *buf)
 	if (fd_get(socket, &fd) == fd_rsocket) {
 		ret = real.fxstat(ver, socket, buf);
 		if (!ret)
-			buf->st_mode = (buf->st_mode & ~S_IFMT) | __S_IFSOCK;
+			buf->st_mode = (buf->st_mode & ~S_IFMT) | S_IFSOCK;
 	} else {
 		ret = real.fxstat(ver, fd, buf);
 	}
