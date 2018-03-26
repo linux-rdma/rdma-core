@@ -162,8 +162,6 @@ static struct ibv_cq_ex *
 __lib_ibv_create_cq_ex(struct ibv_context *context,
 		       struct ibv_cq_init_attr_ex *cq_attr)
 {
-	struct verbs_context *vctx =
-		container_of(context, struct verbs_context, context);
 	struct ibv_cq_ex *cq;
 
 	if (cq_attr->wc_flags & ~IBV_CREATE_CQ_SUP_WC_FLAGS) {
@@ -171,7 +169,7 @@ __lib_ibv_create_cq_ex(struct ibv_context *context,
 		return NULL;
 	}
 
-	cq = vctx->priv->create_cq_ex(context, cq_attr);
+	cq = get_ops(context)->create_cq_ex(context, cq_attr);
 
 	if (cq)
 		verbs_init_cq(ibv_cq_ex_to_cq(cq), context,
@@ -263,6 +261,11 @@ err_free:
 	return NULL;
 }
 
+static void set_lib_ops(struct verbs_context *vctx)
+{
+	vctx->create_cq_ex = __lib_ibv_create_cq_ex;
+}
+
 LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
 		   struct ibv_context *,
 		   struct ibv_device *device)
@@ -293,10 +296,7 @@ LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
 	if (!context_ex)
 		return NULL;
 
-	if (context_ex->create_cq_ex) {
-		context_ex->priv->create_cq_ex = context_ex->create_cq_ex;
-		context_ex->create_cq_ex = __lib_ibv_create_cq_ex;
-	}
+	set_lib_ops(context_ex);
 
 	return &context_ex->context;
 }
@@ -361,7 +361,7 @@ LATEST_SYMVER_FUNC(ibv_get_async_event, 1_1, "IBVERBS_1.1",
 		break;
 	}
 
-	context->ops.async_event(event);
+	get_ops(context)->async_event(event);
 
 	return 0;
 }

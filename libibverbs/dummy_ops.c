@@ -504,64 +504,89 @@ const struct verbs_context_ops verbs_dummy_ops = {
 void verbs_set_ops(struct verbs_context *vctx,
 		   const struct verbs_context_ops *ops)
 {
+	struct verbs_ex_private *priv = vctx->priv;
 	struct ibv_context_ops *ctx = &vctx->context.ops;
+
+	/*
+	 * We retain the function pointer for now, just as 'just-in-case' ABI
+	 * compatibility. If any ever get changed incompatibly they should be
+	 * set to NULL instead.
+	 */
+#define SET_PRIV_OP(ptr, name)                                                 \
+	do {                                                                   \
+		if (ops->name) {                                               \
+			priv->ops.name = ops->name;                            \
+			(ptr)->_compat_##name = (void *(*)(void))ops->name;    \
+		}                                                              \
+	} while (0)
+
+	/* Same as SET_PRIV_OP but without the compatibility pointer */
+#define SET_PRIV_OP_IC(ptr, name)                                              \
+	do {                                                                   \
+		if (ops->name)                                                 \
+			priv->ops.name = ops->name;                            \
+	} while (0)
 
 #define SET_OP(ptr, name)                                                      \
 	do {                                                                   \
-		if (ops->name)                                                 \
+		if (ops->name) {                                               \
+			priv->ops.name = ops->name;                            \
 			(ptr)->name = ops->name;                               \
+		}                                                              \
 	} while (0)
 
 #define SET_OP2(ptr, iname, name)                                              \
 	do {                                                                   \
-		if (ops->name)                                                 \
+		if (ops->name) {                                               \
+			priv->ops.name = ops->name;                            \
 			(ptr)->iname = ops->name;                              \
+		}                                                              \
 	} while (0)
 
 	SET_OP(vctx, alloc_dm);
 	SET_OP(ctx, alloc_mw);
-	SET_OP(ctx, alloc_pd);
+	SET_PRIV_OP(ctx, alloc_pd);
 	SET_OP(vctx, alloc_parent_domain);
 	SET_OP(vctx, alloc_td);
-	SET_OP(ctx, async_event);
 	SET_OP(vctx, attach_counters_point_flow);
-	SET_OP(ctx, attach_mcast);
+	SET_OP(vctx, create_counters);
+	SET_PRIV_OP(ctx, async_event);
+	SET_PRIV_OP(ctx, attach_mcast);
 	SET_OP(ctx, bind_mw);
 	SET_OP(vctx, close_xrcd);
-	SET_OP(ctx, cq_event);
-	SET_OP(ctx, create_ah);
-	SET_OP(vctx, create_counters);
-	SET_OP(ctx, create_cq);
-	SET_OP(vctx, create_cq_ex);
+	SET_PRIV_OP(ctx, cq_event);
+	SET_PRIV_OP(ctx, create_ah);
+	SET_PRIV_OP(ctx, create_cq);
+	SET_PRIV_OP_IC(vctx, create_cq_ex);
 	SET_OP2(vctx, ibv_create_flow, create_flow);
 	SET_OP(vctx, create_flow_action_esp);
-	SET_OP(ctx, create_qp);
+	SET_PRIV_OP(ctx, create_qp);
 	SET_OP(vctx, create_qp_ex);
 	SET_OP(vctx, create_rwq_ind_table);
-	SET_OP(ctx, create_srq);
+	SET_PRIV_OP(ctx, create_srq);
 	SET_OP(vctx, create_srq_ex);
 	SET_OP(vctx, create_wq);
 	SET_OP(ctx, dealloc_mw);
-	SET_OP(ctx, dealloc_pd);
+	SET_PRIV_OP(ctx, dealloc_pd);
 	SET_OP(vctx, dealloc_td);
-	SET_OP(ctx, dereg_mr);
-	SET_OP(ctx, destroy_ah);
 	SET_OP(vctx, destroy_counters);
-	SET_OP(ctx, destroy_cq);
+	SET_PRIV_OP(ctx, dereg_mr);
+	SET_PRIV_OP(ctx, destroy_ah);
+	SET_PRIV_OP(ctx, destroy_cq);
 	SET_OP2(vctx, ibv_destroy_flow, destroy_flow);
 	SET_OP(vctx, destroy_flow_action);
-	SET_OP(ctx, destroy_qp);
+	SET_PRIV_OP(ctx, destroy_qp);
 	SET_OP(vctx, destroy_rwq_ind_table);
-	SET_OP(ctx, destroy_srq);
+	SET_PRIV_OP(ctx, destroy_srq);
 	SET_OP(vctx, destroy_wq);
-	SET_OP(ctx, detach_mcast);
+	SET_PRIV_OP(ctx, detach_mcast);
 	SET_OP(vctx, free_dm);
 	SET_OP(vctx, get_srq_num);
 	SET_OP(vctx, modify_cq);
 	SET_OP(vctx, modify_flow_action_esp);
-	SET_OP(ctx, modify_qp);
+	SET_PRIV_OP(ctx, modify_qp);
 	SET_OP(vctx, modify_qp_rate_limit);
-	SET_OP(ctx, modify_srq);
+	SET_PRIV_OP(ctx, modify_srq);
 	SET_OP(vctx, modify_wq);
 	SET_OP(vctx, open_qp);
 	SET_OP(vctx, open_xrcd);
@@ -570,18 +595,18 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, post_send);
 	SET_OP(vctx, post_srq_ops);
 	SET_OP(ctx, post_srq_recv);
-	SET_OP(ctx, query_device);
+	SET_PRIV_OP(ctx, query_device);
 	SET_OP(vctx, query_device_ex);
-	SET_OP(ctx, query_port);
-	SET_OP(ctx, query_qp);
+	SET_PRIV_OP(ctx, query_port);
+	SET_PRIV_OP(ctx, query_qp);
 	SET_OP(vctx, query_rt_values);
-	SET_OP(ctx, query_srq);
 	SET_OP(vctx, read_counters);
+	SET_PRIV_OP(ctx, query_srq);
 	SET_OP(vctx, reg_dm_mr);
-	SET_OP(ctx, reg_mr);
+	SET_PRIV_OP(ctx, reg_mr);
 	SET_OP(ctx, req_notify_cq);
-	SET_OP(ctx, rereg_mr);
-	SET_OP(ctx, resize_cq);
+	SET_PRIV_OP(ctx, rereg_mr);
+	SET_PRIV_OP(ctx, resize_cq);
 
 #undef SET_OP
 #undef SET_OP2

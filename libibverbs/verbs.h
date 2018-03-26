@@ -1662,61 +1662,43 @@ struct ibv_device {
 };
 
 struct ibv_context_ops {
-	int			(*query_device)(struct ibv_context *context,
-					      struct ibv_device_attr *device_attr);
-	int			(*query_port)(struct ibv_context *context, uint8_t port_num,
-					      struct ibv_port_attr *port_attr);
-	struct ibv_pd *		(*alloc_pd)(struct ibv_context *context);
-	int			(*dealloc_pd)(struct ibv_pd *pd);
-	struct ibv_mr *		(*reg_mr)(struct ibv_pd *pd, void *addr, size_t length,
-					  int access);
-	int			(*rereg_mr)(struct ibv_mr *mr,
-					    int flags,
-					    struct ibv_pd *pd, void *addr,
-					    size_t length,
-					    int access);
-	int			(*dereg_mr)(struct ibv_mr *mr);
+	void *(*_compat_query_device)(void);
+	void *(*_compat_query_port)(void);
+	void *(*_compat_alloc_pd)(void);
+	void *(*_compat_dealloc_pd)(void);
+	void *(*_compat_reg_mr)(void);
+	void *(*_compat_rereg_mr)(void);
+	void *(*_compat_dereg_mr)(void);
 	struct ibv_mw *		(*alloc_mw)(struct ibv_pd *pd, enum ibv_mw_type type);
 	int			(*bind_mw)(struct ibv_qp *qp, struct ibv_mw *mw,
 					   struct ibv_mw_bind *mw_bind);
 	int			(*dealloc_mw)(struct ibv_mw *mw);
-	struct ibv_cq *		(*create_cq)(struct ibv_context *context, int cqe,
-					     struct ibv_comp_channel *channel,
-					     int comp_vector);
+	void *(*_compat_create_cq)(void);
 	int			(*poll_cq)(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc);
 	int			(*req_notify_cq)(struct ibv_cq *cq, int solicited_only);
-	void			(*cq_event)(struct ibv_cq *cq);
-	int			(*resize_cq)(struct ibv_cq *cq, int cqe);
-	int			(*destroy_cq)(struct ibv_cq *cq);
-	struct ibv_srq *	(*create_srq)(struct ibv_pd *pd,
-					      struct ibv_srq_init_attr *srq_init_attr);
-	int			(*modify_srq)(struct ibv_srq *srq,
-					      struct ibv_srq_attr *srq_attr,
-					      int srq_attr_mask);
-	int			(*query_srq)(struct ibv_srq *srq,
-					     struct ibv_srq_attr *srq_attr);
-	int			(*destroy_srq)(struct ibv_srq *srq);
+	void *(*_compat_cq_event)(void);
+	void *(*_compat_resize_cq)(void);
+	void *(*_compat_destroy_cq)(void);
+	void *(*_compat_create_srq)(void);
+	void *(*_compat_modify_srq)(void);
+	void *(*_compat_query_srq)(void);
+	void *(*_compat_destroy_srq)(void);
 	int			(*post_srq_recv)(struct ibv_srq *srq,
 						 struct ibv_recv_wr *recv_wr,
 						 struct ibv_recv_wr **bad_recv_wr);
-	struct ibv_qp *		(*create_qp)(struct ibv_pd *pd, struct ibv_qp_init_attr *attr);
-	int			(*query_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-					    int attr_mask,
-					    struct ibv_qp_init_attr *init_attr);
-	int			(*modify_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-					     int attr_mask);
-	int			(*destroy_qp)(struct ibv_qp *qp);
+	void *(*_compat_create_qp)(void);
+	void *(*_compat_query_qp)(void);
+	void *(*_compat_modify_qp)(void);
+	void *(*_compat_destroy_qp)(void);
 	int			(*post_send)(struct ibv_qp *qp, struct ibv_send_wr *wr,
 					     struct ibv_send_wr **bad_wr);
 	int			(*post_recv)(struct ibv_qp *qp, struct ibv_recv_wr *wr,
 					     struct ibv_recv_wr **bad_wr);
-	struct ibv_ah *		(*create_ah)(struct ibv_pd *pd, struct ibv_ah_attr *attr);
-	int			(*destroy_ah)(struct ibv_ah *ah);
-	int			(*attach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
-						uint16_t lid);
-	int			(*detach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
-						uint16_t lid);
-	void			(*async_event)(struct ibv_async_event *event);
+	void *(*_compat_create_ah)(void);
+	void *(*_compat_destroy_ah)(void);
+	void *(*_compat_attach_mcast)(void);
+	void *(*_compat_detach_mcast)(void);
+	void *(*_compat_async_event)(void);
 };
 
 struct ibv_context {

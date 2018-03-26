@@ -141,7 +141,7 @@ LATEST_SYMVER_FUNC(ibv_query_device, 1_1, "IBVERBS_1.1",
 		   struct ibv_context *context,
 		   struct ibv_device_attr *device_attr)
 {
-	return context->ops.query_device(context, device_attr);
+	return get_ops(context)->query_device(context, device_attr);
 }
 
 LATEST_SYMVER_FUNC(ibv_query_port, 1_1, "IBVERBS_1.1",
@@ -149,7 +149,7 @@ LATEST_SYMVER_FUNC(ibv_query_port, 1_1, "IBVERBS_1.1",
 		   struct ibv_context *context, uint8_t port_num,
 		   struct ibv_port_attr *port_attr)
 {
-	return context->ops.query_port(context, port_num, port_attr);
+	return get_ops(context)->query_port(context, port_num, port_attr);
 }
 
 LATEST_SYMVER_FUNC(ibv_query_gid, 1_1, "IBVERBS_1.1",
@@ -206,7 +206,7 @@ LATEST_SYMVER_FUNC(ibv_alloc_pd, 1_1, "IBVERBS_1.1",
 {
 	struct ibv_pd *pd;
 
-	pd = context->ops.alloc_pd(context);
+	pd = get_ops(context)->alloc_pd(context);
 	if (pd)
 		pd->context = context;
 
@@ -217,7 +217,7 @@ LATEST_SYMVER_FUNC(ibv_dealloc_pd, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_pd *pd)
 {
-	return pd->context->ops.dealloc_pd(pd);
+	return get_ops(pd->context)->dealloc_pd(pd);
 }
 
 LATEST_SYMVER_FUNC(ibv_reg_mr, 1_1, "IBVERBS_1.1",
@@ -230,7 +230,7 @@ LATEST_SYMVER_FUNC(ibv_reg_mr, 1_1, "IBVERBS_1.1",
 	if (ibv_dontfork_range(addr, length))
 		return NULL;
 
-	mr = pd->context->ops.reg_mr(pd, addr, length, access);
+	mr = get_ops(pd->context)->reg_mr(pd, addr, length, access);
 	if (mr) {
 		mr->context = pd->context;
 		mr->pd      = pd;
@@ -278,7 +278,8 @@ LATEST_SYMVER_FUNC(ibv_rereg_mr, 1_1, "IBVERBS_1.1",
 
 	old_addr = mr->addr;
 	old_len = mr->length;
-	err = mr->context->ops.rereg_mr(mr, flags, pd, addr, length, access);
+	err = get_ops(mr->context)
+		      ->rereg_mr(mr, flags, pd, addr, length, access);
 	if (!err) {
 		if (flags & IBV_REREG_MR_CHANGE_PD)
 			mr->pd = pd;
@@ -308,7 +309,7 @@ LATEST_SYMVER_FUNC(ibv_dereg_mr, 1_1, "IBVERBS_1.1",
 	void *addr	= mr->addr;
 	size_t length	= mr->length;
 
-	ret = mr->context->ops.dereg_mr(mr);
+	ret = get_ops(mr->context)->dereg_mr(mr);
 	if (!ret)
 		ibv_dofork_range(addr, length);
 
@@ -370,7 +371,7 @@ LATEST_SYMVER_FUNC(ibv_create_cq, 1_1, "IBVERBS_1.1",
 {
 	struct ibv_cq *cq;
 
-	cq = context->ops.create_cq(context, cqe, channel, comp_vector);
+	cq = get_ops(context)->create_cq(context, cqe, channel, comp_vector);
 
 	if (cq)
 		verbs_init_cq(cq, context, channel, cq_context);
@@ -382,7 +383,7 @@ LATEST_SYMVER_FUNC(ibv_resize_cq, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_cq *cq, int cqe)
 {
-	return cq->context->ops.resize_cq(cq, cqe);
+	return get_ops(cq->context)->resize_cq(cq, cqe);
 }
 
 LATEST_SYMVER_FUNC(ibv_destroy_cq, 1_1, "IBVERBS_1.1",
@@ -392,7 +393,7 @@ LATEST_SYMVER_FUNC(ibv_destroy_cq, 1_1, "IBVERBS_1.1",
 	struct ibv_comp_channel *channel = cq->channel;
 	int ret;
 
-	ret = cq->context->ops.destroy_cq(cq);
+	ret = get_ops(cq->context)->destroy_cq(cq);
 
 	if (channel) {
 		if (!ret) {
@@ -418,7 +419,7 @@ LATEST_SYMVER_FUNC(ibv_get_cq_event, 1_1, "IBVERBS_1.1",
 	*cq         = (struct ibv_cq *) (uintptr_t) ev.cq_handle;
 	*cq_context = (*cq)->cq_context;
 
-	(*cq)->context->ops.cq_event(*cq);
+	get_ops((*cq)->context)->cq_event(*cq);
 
 	return 0;
 }
@@ -440,7 +441,7 @@ LATEST_SYMVER_FUNC(ibv_create_srq, 1_1, "IBVERBS_1.1",
 {
 	struct ibv_srq *srq;
 
-	srq = pd->context->ops.create_srq(pd, srq_init_attr);
+	srq = get_ops(pd->context)->create_srq(pd, srq_init_attr);
 	if (srq) {
 		srq->context          = pd->context;
 		srq->srq_context      = srq_init_attr->srq_context;
@@ -459,21 +460,21 @@ LATEST_SYMVER_FUNC(ibv_modify_srq, 1_1, "IBVERBS_1.1",
 		   struct ibv_srq_attr *srq_attr,
 		   int srq_attr_mask)
 {
-	return srq->context->ops.modify_srq(srq, srq_attr, srq_attr_mask);
+	return get_ops(srq->context)->modify_srq(srq, srq_attr, srq_attr_mask);
 }
 
 LATEST_SYMVER_FUNC(ibv_query_srq, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
 {
-	return srq->context->ops.query_srq(srq, srq_attr);
+	return get_ops(srq->context)->query_srq(srq, srq_attr);
 }
 
 LATEST_SYMVER_FUNC(ibv_destroy_srq, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_srq *srq)
 {
-	return srq->context->ops.destroy_srq(srq);
+	return get_ops(srq->context)->destroy_srq(srq);
 }
 
 LATEST_SYMVER_FUNC(ibv_create_qp, 1_1, "IBVERBS_1.1",
@@ -481,7 +482,7 @@ LATEST_SYMVER_FUNC(ibv_create_qp, 1_1, "IBVERBS_1.1",
 		   struct ibv_pd *pd,
 		   struct ibv_qp_init_attr *qp_init_attr)
 {
-	struct ibv_qp *qp = pd->context->ops.create_qp(pd, qp_init_attr);
+	struct ibv_qp *qp = get_ops(pd->context)->create_qp(pd, qp_init_attr);
 
 	if (qp) {
 		qp->context    	     = pd->context;
@@ -508,7 +509,7 @@ LATEST_SYMVER_FUNC(ibv_query_qp, 1_1, "IBVERBS_1.1",
 {
 	int ret;
 
-	ret = qp->context->ops.query_qp(qp, attr, attr_mask, init_attr);
+	ret = get_ops(qp->context)->query_qp(qp, attr, attr_mask, init_attr);
 	if (ret)
 		return ret;
 
@@ -525,7 +526,7 @@ LATEST_SYMVER_FUNC(ibv_modify_qp, 1_1, "IBVERBS_1.1",
 {
 	int ret;
 
-	ret = qp->context->ops.modify_qp(qp, attr, attr_mask);
+	ret = get_ops(qp->context)->modify_qp(qp, attr, attr_mask);
 	if (ret)
 		return ret;
 
@@ -539,14 +540,14 @@ LATEST_SYMVER_FUNC(ibv_destroy_qp, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_qp *qp)
 {
-	return qp->context->ops.destroy_qp(qp);
+	return get_ops(qp->context)->destroy_qp(qp);
 }
 
 LATEST_SYMVER_FUNC(ibv_create_ah, 1_1, "IBVERBS_1.1",
 		   struct ibv_ah *,
 		   struct ibv_pd *pd, struct ibv_ah_attr *attr)
 {
-	struct ibv_ah *ah = pd->context->ops.create_ah(pd, attr);
+	struct ibv_ah *ah = get_ops(pd->context)->create_ah(pd, attr);
 
 	if (ah) {
 		ah->context = pd->context;
@@ -819,21 +820,21 @@ LATEST_SYMVER_FUNC(ibv_destroy_ah, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_ah *ah)
 {
-	return ah->context->ops.destroy_ah(ah);
+	return get_ops(ah->context)->destroy_ah(ah);
 }
 
 LATEST_SYMVER_FUNC(ibv_attach_mcast, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 {
-	return qp->context->ops.attach_mcast(qp, gid, lid);
+	return get_ops(qp->context)->attach_mcast(qp, gid, lid);
 }
 
 LATEST_SYMVER_FUNC(ibv_detach_mcast, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 {
-	return qp->context->ops.detach_mcast(qp, gid, lid);
+	return get_ops(qp->context)->detach_mcast(qp, gid, lid);
 }
 
 static inline int ipv6_addr_v4mapped(const struct in6_addr *a)

@@ -84,8 +84,7 @@ enum write_fallback _execute_ioctl_fallback(struct ibv_context *ctx,
 					    struct ibv_command_buffer *cmdb,
 					    int *ret)
 {
-	struct verbs_ex_private *priv =
-		container_of(ctx, struct verbs_context, context)->priv;
+	struct verbs_ex_private *priv = get_priv(ctx);
 
 	if (bitmap_test_bit(priv->unsupported_ioctls, cmd_bit))
 		return _check_legacy(cmdb, ret);
