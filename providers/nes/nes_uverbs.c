@@ -127,7 +127,7 @@ struct ibv_pd *nes_ualloc_pd(struct ibv_context *context)
 		return NULL;
 	}
 	nesupd->pd_id = resp.pd_id;
-	nesupd->db_index = resp.db_index;
+	nesupd->db_index = resp.mmap_db_index;
 
 	nesupd->udoorbell = mmap(NULL, page_size, PROT_WRITE | PROT_READ, MAP_SHARED,
 			context->cmd_fd, nesupd->db_index * page_size);
@@ -176,7 +176,7 @@ struct ibv_mr *nes_ureg_mr(struct ibv_pd *pd, void *addr,
 	if (!mr)
 		return NULL;
 
-	cmd.reg_type = NES_UMEMREG_TYPE_MEM;
+	cmd.reg_type = IWNES_MEMREG_TYPE_MEM;
 	if (ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr,
 			access, mr, &cmd.ibv_cmd, sizeof cmd,
 			&resp, sizeof resp)) {
@@ -239,7 +239,7 @@ struct ibv_cq *nes_ucreate_cq(struct ibv_context *context, int cqe,
 		goto err;
 
 	/* Register the memory for the CQ */
-	reg_mr_cmd.reg_type = NES_UMEMREG_TYPE_CQ;
+	reg_mr_cmd.reg_type = IWNES_MEMREG_TYPE_CQ;
 
 	ret = ibv_cmd_reg_mr(&nesvctx->nesupd->ibv_pd, (void *)nesucq->cqes,
 			(nesucq->size*sizeof(struct nes_hw_cqe)),
@@ -951,7 +951,7 @@ static int nes_vmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_
 	nesuqp->rq_vbase = (struct nes_hw_qp_wqe *) (((char *) nesuqp->sq_vbase) +
 			   (nesuqp->sq_size * sizeof(struct nes_hw_qp_wqe)));
 
-	reg_mr_cmd.reg_type = NES_UMEMREG_TYPE_QP;
+	reg_mr_cmd.reg_type = IWNES_MEMREG_TYPE_QP;
 
 	//fprintf(stderr, PFX "qp_rq_vbase = %p qp_sq_vbase=%p reg_mr = %p\n",
 	//		nesuqp->rq_vbase, nesuqp->sq_vbase, &nesuqp->mr);
@@ -967,7 +967,7 @@ static int nes_vmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_
         }
 	// So now the memory has been registered..
 	memset (&cmd, 0, sizeof(cmd) );
-	cmd.user_sq_buffer = (__u64) ((uintptr_t) nesuqp->sq_vbase);
+	cmd.user_wqe_buffers = (__u64) ((uintptr_t) nesuqp->sq_vbase);
 	cmd.user_qp_buffer = (__u64) ((uintptr_t) nesuqp);
 	ret = ibv_cmd_create_qp(pd, &nesuqp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd,
 				&resp->ibv_resp, sizeof (struct nes_ucreate_qp_resp) );

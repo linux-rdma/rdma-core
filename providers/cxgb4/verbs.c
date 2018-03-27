@@ -79,7 +79,7 @@ int c4iw_query_port(struct ibv_context *context, uint8_t port,
 struct ibv_pd *c4iw_alloc_pd(struct ibv_context *context)
 {
 	struct ibv_alloc_pd cmd;
-	struct c4iw_alloc_pd_resp resp;
+	struct uc4iw_alloc_pd_resp resp;
 	struct c4iw_pd *pd;
 
 	pd = malloc(sizeof *pd);
@@ -168,7 +168,7 @@ int c4iw_dereg_mr(struct ibv_mr *mr)
 struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 			      struct ibv_comp_channel *channel, int comp_vector)
 {
-	struct c4iw_create_cq_resp resp;
+	struct uc4iw_create_cq_resp resp;
 	struct c4iw_cq *chp;
 	struct c4iw_dev *dev = to_c4iw_dev(context->device);
 	int ret;
@@ -303,7 +303,7 @@ static struct ibv_qp *create_qp_v0(struct ibv_pd *pd,
 				   struct ibv_qp_init_attr *attr)
 {
 	struct ibv_create_qp cmd;
-	struct c4iw_create_qp_resp_v0 resp;
+	struct uc4iw_create_qp_v0_resp resp;
 	struct c4iw_qp *qhp;
 	struct c4iw_dev *dev = to_c4iw_dev(pd->context->device);
 	int ret;
@@ -406,7 +406,7 @@ static struct ibv_qp *create_qp(struct ibv_pd *pd,
 				struct ibv_qp_init_attr *attr)
 {
 	struct ibv_create_qp cmd;
-	struct c4iw_create_qp_resp resp;
+	struct uc4iw_create_qp_resp resp;
 	struct c4iw_qp *qhp;
 	struct c4iw_dev *dev = to_c4iw_dev(pd->context->device);
 	struct c4iw_context *ctx = to_c4iw_context(pd->context);

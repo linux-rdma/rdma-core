@@ -577,7 +577,7 @@ static int mlx5_cmd_get_context(struct mlx5_context *context,
 {
 	struct verbs_context *verbs_ctx = &context->ibv_ctx;
 
-	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_req,
+	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
 				 req_len, &resp->ibv_resp, resp_len))
 		return 0;
 
@@ -600,14 +600,14 @@ static int mlx5_cmd_get_context(struct mlx5_context *context,
 	 * to do so. If zero is a valid response, we will add a new
 	 * field that indicates whether the request was handled.
 	 */
-	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_req,
+	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
 				 offsetof(struct mlx5_alloc_ucontext, lib_caps),
 				 &resp->ibv_resp, resp_len))
 		return 0;
 
-	return ibv_cmd_get_context(verbs_ctx, &req->ibv_req,
+	return ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
 				   offsetof(struct mlx5_alloc_ucontext,
-					    cqe_version),
+					    max_cqe_version),
 				   &resp->ibv_resp, resp_len);
 }
 
@@ -917,7 +917,7 @@ int mlx5dv_get_clock_info(struct ibv_context *ctx_in,
 	if (!ci)
 		return EINVAL;
 
-	sig = (atomic_uint32_t *)&ci->sig;
+	sig = (atomic_uint32_t *)&ci->sign;
 
 	do {
 		retry = 10;
@@ -930,7 +930,7 @@ repeat:
 			return EBUSY;
 		}
 		clock_info->nsec   = ci->nsec;
-		clock_info->last_cycles = ci->last_cycles;
+		clock_info->last_cycles = ci->cycles;
 		clock_info->frac   = ci->frac;
 		clock_info->mult   = ci->mult;
 		clock_info->shift  = ci->shift;
@@ -1010,9 +1010,9 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
 
-	req.total_num_uuars = tot_uuars;
-	req.num_low_latency_uuars = low_lat_uuars;
-	req.cqe_version = MLX5_CQE_VERSION_V1;
+	req.total_num_bfregs = tot_uuars;
+	req.num_low_latency_bfregs = low_lat_uuars;
+	req.max_cqe_version = MLX5_CQE_VERSION_V1;
 	req.lib_caps |= MLX5_LIB_CAP_4K_UAR;
 
 	if (mlx5_cmd_get_context(context, &req, sizeof(req), &resp,
@@ -1021,7 +1021,7 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 
 	context->max_num_qps		= resp.qp_tab_size;
 	context->bf_reg_size		= resp.bf_reg_size;
-	context->tot_uuars		= resp.tot_uuars;
+	context->tot_uuars		= resp.tot_bfregs;
 	context->low_lat_uuars		= low_lat_uuars;
 	context->cache_line_size	= resp.cache_line_size;
 	context->max_sq_desc_sz = resp.max_sq_desc_sz;

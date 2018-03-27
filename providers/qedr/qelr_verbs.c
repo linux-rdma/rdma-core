@@ -114,7 +114,7 @@ int qelr_query_port(struct ibv_context *context, uint8_t port,
 
 struct ibv_pd *qelr_alloc_pd(struct ibv_context *context)
 {
-	struct qelr_alloc_pd_req cmd;
+	struct qelr_alloc_pd cmd;
 	struct qelr_alloc_pd_resp resp;
 	struct qelr_pd *pd;
 	struct qelr_devctx *cxt = get_qelr_ctx(context);
@@ -126,7 +126,7 @@ struct ibv_pd *qelr_alloc_pd(struct ibv_context *context)
 	bzero(pd, sizeof(*pd));
 	memset(&cmd, 0, sizeof(cmd));
 
-	if (ibv_cmd_alloc_pd(context, &pd->ibv_pd, &cmd.cmd, sizeof(cmd),
+	if (ibv_cmd_alloc_pd(context, &pd->ibv_pd, &cmd.ibv_cmd, sizeof(cmd),
 			     &resp.ibv_resp, sizeof(resp))) {
 		free(pd);
 		return NULL;
@@ -226,7 +226,7 @@ struct ibv_cq *qelr_create_cq(struct ibv_context *context, int cqe,
 {
 	struct qelr_devctx *cxt = get_qelr_ctx(context);
 	struct qelr_create_cq_resp resp;
-	struct qelr_create_cq_req cmd;
+	struct qelr_create_cq cmd;
 	struct qelr_cq *cq;
 	int chain_size;
 	int rc;
@@ -492,7 +492,7 @@ static inline void qelr_print_qp_init_attr(
 
 static inline void
 qelr_create_qp_configure_sq_req(struct qelr_qp *qp,
-				struct qelr_create_qp_req *req)
+				struct qelr_create_qp *req)
 {
 	req->sq_addr = (uintptr_t)qp->sq.chain.first_addr;
 	req->sq_len = qp->sq.chain.size;
@@ -500,7 +500,7 @@ qelr_create_qp_configure_sq_req(struct qelr_qp *qp,
 
 static inline void
 qelr_create_qp_configure_rq_req(struct qelr_qp *qp,
-				struct qelr_create_qp_req *req)
+				struct qelr_create_qp *req)
 {
 	req->rq_addr = (uintptr_t)qp->rq.chain.first_addr;
 	req->rq_len = qp->rq.chain.size;
@@ -508,7 +508,7 @@ qelr_create_qp_configure_rq_req(struct qelr_qp *qp,
 
 static inline void
 qelr_create_qp_configure_req(struct qelr_qp *qp,
-			     struct qelr_create_qp_req *req)
+			     struct qelr_create_qp *req)
 {
 	memset(req, 0, sizeof(*req));
 	req->qp_handle_hi = U64_HI(qp);
@@ -522,7 +522,7 @@ struct ibv_qp *qelr_create_qp(struct ibv_pd *pd,
 {
 	struct qelr_devctx *cxt = get_qelr_ctx(pd->context);
 	struct qelr_create_qp_resp resp;
-	struct qelr_create_qp_req req;
+	struct qelr_create_qp req;
 	struct qelr_qp *qp;
 	int rc;
 
@@ -538,8 +538,8 @@ struct ibv_qp *qelr_create_qp(struct ibv_pd *pd,
 
 	qelr_create_qp_configure_req(qp, &req);
 
-	rc = ibv_cmd_create_qp(pd, &qp->ibv_qp, attrs, &req.ibv_qp, sizeof(req),
-			       &resp.ibv_resp, sizeof(resp));
+	rc = ibv_cmd_create_qp(pd, &qp->ibv_qp, attrs, &req.ibv_cmd,
+			       sizeof(req), &resp.ibv_resp, sizeof(resp));
 	if (rc) {
 		DP_ERR(cxt->dbg_fp,
 		       "create qp: failed on ibv_cmd_create_qp with %d\n", rc);

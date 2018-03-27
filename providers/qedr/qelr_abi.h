@@ -34,87 +34,20 @@
 #define __QELR_ABI_H__
 
 #include <infiniband/kern-abi.h>
+#include <rdma/qedr-abi.h>
+#include <kernel-abi/qedr-abi.h>
 
 #define QELR_ABI_VERSION			(8)
 
-struct qelr_get_context {
-	struct ibv_get_context cmd;		/* must be first */
-};
-
-struct qelr_alloc_ucontext_resp {
-	struct ib_uverbs_get_context_resp ibv_resp;	/* must be first */
-	__u64 db_pa;
-	__u32 db_size;
-
-	__u32 max_send_wr;
-	__u32 max_recv_wr;
-	__u32 max_srq_wr;
-	__u32 sges_per_send_wr;
-	__u32 sges_per_recv_wr;
-	__u32 sges_per_srq_wr;
-	__u32 max_cqes;
-};
-
-struct qelr_alloc_pd_req {
-	struct ibv_alloc_pd cmd;		/* must be first */
-};
-
-struct qelr_alloc_pd_resp {
-	struct ib_uverbs_alloc_pd_resp ibv_resp;	/* must be first */
-	__u32 pd_id;
-};
-
-struct qelr_create_cq_req {
-	struct ibv_create_cq ibv_cmd;		/* must be first */
-
-	__u64 addr;	/* user space virtual address of CQ buffer */
-	__u64 len;	/* size of CQ buffer */
-};
-
-struct qelr_create_cq_resp {
-	struct ib_uverbs_create_cq_resp ibv_resp;	/* must be first */
-	__u32 db_offset;
-	__u16 icid;
-};
-
-struct qelr_reg_mr {
-	struct ibv_reg_mr ibv_cmd;		/* must be first */
-};
-
-struct qelr_reg_mr_resp {
-	struct ib_uverbs_reg_mr_resp ibv_resp;	/* must be first */
-};
-
-struct qelr_create_qp_req {
-	struct ibv_create_qp ibv_qp;	/* must be first */
-
-	__u32 qp_handle_hi;
-	__u32 qp_handle_lo;
-
-	/* SQ */
-	__u64 sq_addr;	/* user space virtual address of SQ buffer */
-	__u64 sq_len;		/* length of SQ buffer */
-
-	/* RQ */
-	__u64 rq_addr;	/* user space virtual address of RQ buffer */
-	__u64 rq_len;		/* length of RQ buffer */
-};
-
-struct qelr_create_qp_resp {
-	struct ib_uverbs_create_qp_resp ibv_resp;	/* must be first */
-
-	__u32 qp_id;
-	__u32 atomic_supported;
-
-	/* SQ */
-	__u32 sq_db_offset;
-	__u16 sq_icid;
-
-	/* RQ */
-	__u32 rq_db_offset;
-	__u16 rq_icid;
-
-	__u32 rq_db2_offset;
-};
+DECLARE_DRV_CMD(qelr_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
+		empty, qedr_alloc_pd_uresp);
+DECLARE_DRV_CMD(qelr_create_cq, IB_USER_VERBS_CMD_CREATE_CQ,
+		qedr_create_cq_ureq, qedr_create_cq_uresp);
+DECLARE_DRV_CMD(qelr_create_qp, IB_USER_VERBS_CMD_CREATE_QP,
+		qedr_create_qp_ureq, qedr_create_qp_uresp);
+DECLARE_DRV_CMD(qelr_get_context, IB_USER_VERBS_CMD_GET_CONTEXT,
+		empty, qedr_alloc_ucontext_resp);
+DECLARE_DRV_CMD(qelr_reg_mr, IB_USER_VERBS_CMD_REG_MR,
+		empty, empty);
 
 #endif /* __QELR_ABI_H__ */

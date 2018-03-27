@@ -149,7 +149,6 @@ enum {
 };
 
 enum {
-	MLX5_SRQ_FLAG_SIGNATURE		= (1 << 0),
 	MLX5_SRQ_FLAG_TM_SW_CNT		= (1 << 6),
 	MLX5_SRQ_FLAG_TM_CQE_REQ	= (1 << 7),
 };
@@ -184,11 +183,6 @@ enum mlx5_rsc_type {
 	MLX5_RSC_TYPE_SRQ,
 	MLX5_RSC_TYPE_RWQ,
 	MLX5_RSC_TYPE_INVAL,
-};
-
-enum {
-	MLX5_USER_CMDS_SUPP_UHW_QUERY_DEVICE = 1 << 0,
-	MLX5_USER_CMDS_SUPP_UHW_CREATE_AH    = 1 << 1,
 };
 
 enum mlx5_vendor_cap_flags {

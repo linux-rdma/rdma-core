@@ -160,7 +160,7 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 {
 	struct qelr_devctx *ctx;
 	struct qelr_get_context cmd;
-	struct qelr_alloc_ucontext_resp resp;
+	struct qelr_get_context_resp resp;
 
 	ctx = verbs_init_and_alloc_context(ibdev, cmd_fd, ctx, ibv_ctx,
 					   RDMA_DRIVER_QEDR);
@@ -172,8 +172,7 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 	qelr_open_debug_file(ctx);
 	qelr_set_debug_mask();
 
-	if (ibv_cmd_get_context(&ctx->ibv_ctx,
-				(struct ibv_get_context *)&cmd, sizeof(cmd),
+	if (ibv_cmd_get_context(&ctx->ibv_ctx, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
 		goto cmd_err;
 

@@ -134,7 +134,7 @@ static struct verbs_context *mthca_alloc_context(struct ibv_device *ibdev,
 {
 	struct mthca_context            *context;
 	struct ibv_get_context           cmd;
-	struct mthca_alloc_ucontext_resp resp;
+	struct umthca_alloc_ucontext_resp resp;
 	int                              i;
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,

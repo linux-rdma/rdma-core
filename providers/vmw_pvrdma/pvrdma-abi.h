@@ -48,40 +48,17 @@
 
 #include <infiniband/kern-abi.h>
 #include <rdma/vmw_pvrdma-abi.h>
+#include <kernel-abi/vmw_pvrdma-abi.h>
 
-struct user_pvrdma_alloc_ucontext_resp {
-	struct ib_uverbs_get_context_resp		ibv_resp;
-	struct pvrdma_alloc_ucontext_resp	udata;
-};
-
-struct user_pvrdma_alloc_pd_resp {
-	struct ib_uverbs_alloc_pd_resp	ibv_resp;
-	struct pvrdma_alloc_pd_resp	udata;
-};
-
-struct user_pvrdma_create_cq {
-	struct ibv_create_cq		ibv_cmd;
-	struct pvrdma_create_cq		udata;
-};
-
-struct user_pvrdma_create_cq_resp {
-	struct ib_uverbs_create_cq_resp	ibv_resp;
-	struct pvrdma_create_cq_resp	udata;
-};
-
-struct user_pvrdma_create_srq {
-	struct ibv_create_srq		ibv_cmd;
-	struct pvrdma_create_srq	udata;
-};
-
-struct user_pvrdma_create_srq_resp {
-	struct ib_uverbs_create_srq_resp	ibv_resp;
-	struct pvrdma_create_srq_resp	udata;
-};
-
-struct user_pvrdma_create_qp {
-	struct ibv_create_qp		ibv_cmd;
-	struct pvrdma_create_qp		udata;
-};
+DECLARE_DRV_CMD(user_pvrdma_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
+		empty, pvrdma_alloc_pd_resp);
+DECLARE_DRV_CMD(user_pvrdma_create_cq, IB_USER_VERBS_CMD_CREATE_CQ,
+		pvrdma_create_cq, pvrdma_create_cq_resp);
+DECLARE_DRV_CMD(user_pvrdma_create_qp, IB_USER_VERBS_CMD_CREATE_QP,
+		pvrdma_create_qp, empty);
+DECLARE_DRV_CMD(user_pvrdma_create_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
+		pvrdma_create_srq, pvrdma_create_srq_resp);
+DECLARE_DRV_CMD(user_pvrdma_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT,
+		empty, pvrdma_alloc_ucontext_resp);
 
 #endif /* __PVRDMA_ABI_FIX_H__ */

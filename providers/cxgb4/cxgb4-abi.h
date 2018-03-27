@@ -34,63 +34,36 @@
 
 #include <stdint.h>
 #include <infiniband/kern-abi.h>
+#include <rdma/cxgb4-abi.h>
+#include <kernel-abi/cxgb4-abi.h>
 
-struct c4iw_alloc_ucontext_resp {
-	struct ib_uverbs_get_context_resp ibv_resp;
-	__u64 status_page_key;
-	__u32 status_page_size;
-	__u32 reserved;
-};
+/* compat for ABI version 0 */
+#define _c4iw_create_qp_resp_v0                                                \
+	{                                                                      \
+		__u64 sq_key;                                                  \
+		__u64 rq_key;                                                  \
+		__u64 sq_db_gts_key;                                           \
+		__u64 rq_db_gts_key;                                           \
+		__u64 sq_memsize;                                              \
+		__u64 rq_memsize;                                              \
+		__u32 sqid;                                                    \
+		__u32 rqid;                                                    \
+		__u32 sq_size;                                                 \
+		__u32 rq_size;                                                 \
+		__u32 qid_mask;                                                \
+	};
+struct c4iw_create_qp_resp_v0 _c4iw_create_qp_resp_v0;
+#define _STRUCT_c4iw_create_qp_resp_v0 struct _c4iw_create_qp_resp_v0
 
-struct c4iw_alloc_pd_resp {
-	struct ib_uverbs_alloc_pd_resp ibv_resp;
-	uint32_t pdid;
-};
+DECLARE_DRV_CMD(uc4iw_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
+		empty, c4iw_alloc_pd_resp);
+DECLARE_DRV_CMD(uc4iw_create_cq, IB_USER_VERBS_CMD_CREATE_CQ,
+		empty, c4iw_create_cq_resp);
+DECLARE_DRV_CMD(uc4iw_create_qp, IB_USER_VERBS_CMD_CREATE_QP,
+		empty, c4iw_create_qp_resp);
+DECLARE_DRV_CMD(uc4iw_create_qp_v0, IB_USER_VERBS_CMD_CREATE_QP,
+		empty, c4iw_create_qp_resp_v0);
+DECLARE_DRV_CMD(uc4iw_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT,
+		empty, c4iw_alloc_ucontext_resp);
 
-struct c4iw_create_cq_resp {
-	struct ib_uverbs_create_cq_resp ibv_resp;
-	__u64 key;
-	__u64 gts_key;
-	__u64 memsize;
-	__u32 cqid;
-	__u32 size;
-	__u32 qid_mask;
-	__u32 reserved;
-};
-
-enum {
-	C4IW_QPF_ONCHIP = (1<<0),
-};
-
-struct c4iw_create_qp_resp_v0 {
-	struct ib_uverbs_create_qp_resp ibv_resp;
-	__u64 sq_key;
-	__u64 rq_key;
-	__u64 sq_db_gts_key;
-	__u64 rq_db_gts_key;
-	__u64 sq_memsize;
-	__u64 rq_memsize;
-	__u32 sqid;
-	__u32 rqid;
-	__u32 sq_size;
-	__u32 rq_size;
-	__u32 qid_mask;
-};
-
-struct c4iw_create_qp_resp {
-	struct ib_uverbs_create_qp_resp ibv_resp;
-	__u64 ma_sync_key;
-	__u64 sq_key;
-	__u64 rq_key;
-	__u64 sq_db_gts_key;
-	__u64 rq_db_gts_key;
-	__u64 sq_memsize;
-	__u64 rq_memsize;
-	__u32 sqid;
-	__u32 rqid;
-	__u32 sq_size;
-	__u32 rq_size;
-	__u32 qid_mask;
-	__u32 flags;
-};
 #endif				/* IWCH_ABI_H */

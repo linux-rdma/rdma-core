@@ -137,8 +137,8 @@ struct ibv_srq *pvrdma_create_srq(struct ibv_pd *pd,
 	pvrdma_init_srq_queue(srq);
 
 	memset(&cmd, 0, sizeof(cmd));
-	cmd.udata.buf_addr = (uintptr_t) srq->buf.buf;
-	cmd.udata.buf_size = srq->buf.length;
+	cmd.buf_addr = (uintptr_t) srq->buf.buf;
+	cmd.buf_size = srq->buf.length;
 
 	ret = ibv_cmd_create_srq(pd, &srq->ibv_srq, attr,
 				 &cmd.ibv_cmd, sizeof(cmd),
@@ -147,7 +147,7 @@ struct ibv_srq *pvrdma_create_srq(struct ibv_pd *pd,
 	if (ret)
 		goto err_free;
 
-	srq->srqn = resp.udata.srqn;
+	srq->srqn = resp.srqn;
 
 	return &srq->ibv_srq;
 
@@ -276,11 +276,11 @@ struct ibv_qp *pvrdma_create_qp(struct ibv_pd *pd,
 	pvrdma_init_qp_queue(qp);
 
 	memset(&cmd, 0, sizeof(cmd));
-	cmd.udata.sbuf_addr = (uintptr_t)qp->sbuf.buf;
-	cmd.udata.sbuf_size = qp->sbuf.length;
-	cmd.udata.rbuf_addr = (uintptr_t)qp->rbuf.buf;
-	cmd.udata.rbuf_size = qp->rbuf.length;
-	cmd.udata.qp_addr = (uintptr_t) qp;
+	cmd.sbuf_addr = (uintptr_t)qp->sbuf.buf;
+	cmd.sbuf_size = qp->sbuf.length;
+	cmd.rbuf_addr = (uintptr_t)qp->rbuf.buf;
+	cmd.rbuf_size = qp->rbuf.length;
+	cmd.qp_addr = (uintptr_t) qp;
 
 	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr,
 				&cmd.ibv_cmd, sizeof(cmd),

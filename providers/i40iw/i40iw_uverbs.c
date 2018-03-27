@@ -159,7 +159,7 @@ struct ibv_mr *i40iw_ureg_mr(struct ibv_pd *pd, void *addr, size_t length, int a
 	if (!mr)
 		return NULL;
 
-	cmd.reg_type = I40IW_UMEMREG_TYPE_MEM;
+	cmd.reg_type = IW_MEMREG_TYPE_MEM;
 
 	if (ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr,
 			   access, mr, &cmd.ibv_cmd, sizeof(cmd),
@@ -254,7 +254,7 @@ struct ibv_cq *i40iw_ucreate_cq(struct ibv_context *context, int cqe,
 
 	memset(info.cq_base, 0, totalsize);
 	info.shadow_area = (u64 *)((u8 *)info.cq_base + (cq_pages << 12));
-	reg_mr_cmd.reg_type = I40IW_UMEMREG_TYPE_CQ;
+	reg_mr_cmd.reg_type = IW_MEMREG_TYPE_CQ;
 
 	reg_mr_cmd.cq_pages = cq_pages;
 
@@ -526,7 +526,7 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 	info->rq = &info->sq[sqsize / I40IW_QP_WQE_MIN_SIZE];
 	info->shadow_area = info->rq[rqsize / I40IW_QP_WQE_MIN_SIZE].elem;
 
-	reg_mr_cmd.reg_type = I40IW_UMEMREG_TYPE_QP;
+	reg_mr_cmd.reg_type = IW_MEMREG_TYPE_QP;
 	reg_mr_cmd.sq_pages = sq_pages;
 	reg_mr_cmd.rq_pages = rq_pages;
 
