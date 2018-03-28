@@ -984,6 +984,19 @@ struct ib_uverbs_flow_spec_action_drop {
 	};
 };
 
+struct ib_uverbs_flow_spec_action_handle {
+	union {
+		struct ib_uverbs_flow_spec_hdr hdr;
+		struct {
+			__u32 type;
+			__u16 size;
+			__u16 reserved;
+		};
+	};
+	__u32			      handle;
+	__u32			      reserved1;
+};
+
 struct ib_uverbs_flow_tunnel_filter {
 	__be32 tunnel_id;
 };
@@ -999,6 +1012,24 @@ struct ib_uverbs_flow_spec_tunnel {
 	};
 	struct ib_uverbs_flow_tunnel_filter val;
 	struct ib_uverbs_flow_tunnel_filter mask;
+};
+
+struct ib_uverbs_flow_spec_esp_filter {
+	__u32 spi;
+	__u32 seq;
+};
+
+struct ib_uverbs_flow_spec_esp {
+	union {
+		struct ib_uverbs_flow_spec_hdr hdr;
+		struct {
+			__u32 type;
+			__u16 size;
+			__u16 reserved;
+		};
+	};
+	struct ib_uverbs_flow_spec_esp_filter val;
+	struct ib_uverbs_flow_spec_esp_filter mask;
 };
 
 struct ib_uverbs_flow_attr {
