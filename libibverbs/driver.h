@@ -218,6 +218,11 @@ struct verbs_counters {
  * Keep sorted.
  */
 struct verbs_context_ops {
+	int (*advise_mr)(struct ibv_pd *pd,
+			 enum ibv_advise_mr_advice advice,
+			 uint32_t flags,
+			 struct ibv_sge *sg_list,
+			 uint32_t num_sges);
 	struct ibv_dm *(*alloc_dm)(struct ibv_context *context,
 				   struct ibv_alloc_dm_attr *attr);
 	struct ibv_mw *(*alloc_mw)(struct ibv_pd *pd, enum ibv_mw_type type);
@@ -440,6 +445,11 @@ int ibv_cmd_rereg_mr(struct verbs_mr *vmr, uint32_t flags, void *addr,
 		     size_t cmd_sz, struct ib_uverbs_rereg_mr_resp *resp,
 		     size_t resp_sz);
 int ibv_cmd_dereg_mr(struct verbs_mr *vmr);
+int ibv_cmd_advise_mr(struct ibv_pd *pd,
+		      enum ibv_advise_mr_advice advice,
+		      uint32_t flags,
+		      struct ibv_sge *sg_list,
+		      uint32_t num_sge);
 int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
 		     struct ibv_mw *mw, struct ibv_alloc_mw *cmd,
 		     size_t cmd_size,

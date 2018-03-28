@@ -85,6 +85,12 @@
 #define ibv_flow_action_esp_encap                       ib_uverbs_flow_action_esp_encap
 #define ibv_flow_action_esp                             ib_uverbs_flow_action_esp
 
+#define ibv_advise_mr_advice                            ib_uverbs_advise_mr_advice
+#define IBV_ADVISE_MR_ADVICE_PREFETCH                   IB_UVERBS_ADVISE_MR_ADVICE_PREFETCH
+#define IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE             IB_UVERBS_ADVISE_MR_ADVICE_PREFETCH_WRITE
+
+#define IBV_ADVISE_MR_FLAG_FLUSH                        IB_UVERBS_ADVISE_MR_FLAG_FLUSH
+
 #define IBV_QPF_GRH_REQUIRED				IB_UVERBS_QPF_GRH_REQUIRED
 
 #endif

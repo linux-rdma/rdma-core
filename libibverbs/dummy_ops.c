@@ -33,6 +33,15 @@
 #include "ibverbs.h"
 #include <errno.h>
 
+static int advise_mr(struct ibv_pd *pd,
+		     enum ibv_advise_mr_advice advice,
+		     uint32_t flags,
+		     struct ibv_sge *sg_list,
+		     uint32_t num_sges)
+{
+	return ENOSYS;
+}
+
 static struct ibv_dm *alloc_dm(struct ibv_context *context,
 			       struct ibv_alloc_dm_attr *attr)
 {
@@ -436,6 +445,7 @@ static int resize_cq(struct ibv_cq *cq, int cqe)
  * Keep sorted.
  */
 const struct verbs_context_ops verbs_dummy_ops = {
+	advise_mr,
 	alloc_dm,
 	alloc_mw,
 	alloc_null_mr,
@@ -550,6 +560,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 		}                                                              \
 	} while (0)
 
+	SET_OP(vctx, advise_mr);
 	SET_OP(vctx, alloc_dm);
 	SET_OP(ctx, alloc_mw);
 	SET_OP(vctx, alloc_null_mr);

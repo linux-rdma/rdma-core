@@ -1786,6 +1786,11 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*advise_mr)(struct ibv_pd *pd,
+			 enum ibv_advise_mr_advice advice,
+			 uint32_t flags,
+			 struct ibv_sge *sg_list,
+			 uint32_t num_sges);
 	struct ibv_mr *(*alloc_null_mr)(struct ibv_pd *pd);
 	int (*read_counters)(struct ibv_counters *counters,
 			     uint64_t *counters_value,
@@ -2208,6 +2213,29 @@ struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context);
  * ibv_destroy_comp_channel - Destroy a completion event channel
  */
 int ibv_destroy_comp_channel(struct ibv_comp_channel *channel);
+
+/**
+ * ibv_advise_mr - Gives advice about an address range in MRs
+ * @pd - protection domain of all MRs for which the advice is for
+ * @advice - type of advice
+ * @flags - advice modifiers
+ * @sg_list - an array of memory ranges
+ * @num_sge - number of elements in the array
+ */
+static inline int ibv_advise_mr(struct ibv_pd *pd,
+				enum ibv_advise_mr_advice advice,
+				uint32_t flags,
+				struct ibv_sge *sg_list,
+				uint32_t num_sge)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(pd->context, advise_mr);
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->advise_mr(pd, advice, flags, sg_list, num_sge);
+}
 
 /**
  * ibv_alloc_dm - Allocate device memory
