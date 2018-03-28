@@ -1420,7 +1420,13 @@ struct ibv_wq *mlx4_create_wq(struct ibv_context *context,
 		}
 	}
 
-	if (attr->comp_mask) {
+	if (!check_comp_mask(attr->comp_mask, IBV_WQ_INIT_ATTR_FLAGS)) {
+		errno = ENOTSUP;
+		return NULL;
+	}
+
+	if ((attr->comp_mask & IBV_WQ_INIT_ATTR_FLAGS) &&
+	    (attr->create_flags & ~IBV_WQ_FLAGS_SCATTER_FCS)) {
 		errno = ENOTSUP;
 		return NULL;
 	}
