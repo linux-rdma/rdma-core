@@ -897,7 +897,7 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 			       resp_core_size, resp_size);
 
 	err = create_qp_ex_common(qp, qp_attr, vxrcd,
-				  ibv_create_cq_ex_to_reg(cmd));
+				  ibv_create_qp_ex_to_reg(cmd));
 	if (err)
 		return err;
 
