@@ -255,9 +255,11 @@ allowed_uapi_headers = {
 non_cxx_headers = {
     "infiniband/arch.h",
     "infiniband/ib.h",
+    "infiniband/ib_user_ioctl_verbs.h",
     "infiniband/opcode.h",
     "infiniband/sa-kern-abi.h",
     "infiniband/sa.h",
+    "infiniband/verbs_api.h",
     "rdma/rdma_cma_abi.h",
 }
 

@@ -68,3 +68,8 @@ rdma_kernel_provider_abi(
   rdma/rdma_user_rxe.h
   rdma/vmw_pvrdma-abi.h
   )
+
+publish_headers(infiniband
+  rdma/ib_user_ioctl_verbs.h
+  )
+

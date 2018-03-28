@@ -4,6 +4,7 @@ publish_headers(infiniband
   sa-kern-abi.h
   sa.h
   verbs.h
+  verbs_api.h
   tm_types.h
   )
 

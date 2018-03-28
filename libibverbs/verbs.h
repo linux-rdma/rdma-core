@@ -43,6 +43,7 @@
 #include <string.h>
 #include <linux/types.h>
 #include <stdint.h>
+#include <infiniband/verbs_api.h>
 
 #ifdef __cplusplus
 #include <limits>
