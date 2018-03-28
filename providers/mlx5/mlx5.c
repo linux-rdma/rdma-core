@@ -46,6 +46,7 @@
 
 #include "mlx5.h"
 #include "mlx5-abi.h"
+#include "wqe.h"
 
 #ifndef PCI_VENDOR_ID_MELLANOX
 #define PCI_VENDOR_ID_MELLANOX			0x15b3
@@ -1065,6 +1066,12 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	context->cmds_supp_uhw = resp.cmds_supp_uhw;
 	context->vendor_cap_flags = 0;
 	context->start_dyn_bfregs_index = gross_uuars;
+
+	if (resp.eth_min_inline)
+		context->eth_min_inline_size = (resp.eth_min_inline == MLX5_USER_INLINE_MODE_NONE) ?
+						0 : MLX5_ETH_L2_INLINE_HEADER_SIZE;
+	else
+		context->eth_min_inline_size = MLX5_ETH_L2_INLINE_HEADER_SIZE;
 
 	pthread_mutex_init(&context->qp_table_mutex, NULL);
 	pthread_mutex_init(&context->srq_table_mutex, NULL);

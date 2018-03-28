@@ -300,6 +300,7 @@ struct mlx5_context {
 	uint32_t			start_dyn_bfregs_index;
 	uint16_t			flow_action_flags;
 	uint64_t			max_dm_size;
+	uint32_t                        eth_min_inline_size;
 };
 
 struct mlx5_bitmap {
