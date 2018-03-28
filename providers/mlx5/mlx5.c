@@ -712,6 +712,11 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 		}
 	}
 
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS) {
+		attrs_out->flow_action_flags = mctx->flow_action_flags;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS;
+	}
+
 	attrs_out->comp_mask = comp_mask_out;
 
 	return 0;
@@ -1121,6 +1126,8 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	    (resp.clock_info_versions & (1 << MLX5_IB_CLOCK_INFO_V1))) {
 		mlx5_map_clock_info(mdev, &v_ctx->context);
 	}
+
+	context->flow_action_flags = resp.flow_action_flags;
 
 	mlx5_read_env(ibdev, context);
 

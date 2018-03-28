@@ -297,6 +297,7 @@ struct mlx5_context {
 	uint32_t			num_dyn_bfregs;
 	uint32_t			*count_dyn_bfregs;
 	uint32_t			start_dyn_bfregs_index;
+	uint16_t			flow_action_flags;
 };
 
 struct mlx5_bitmap {
