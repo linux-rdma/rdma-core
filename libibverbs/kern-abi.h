@@ -61,6 +61,8 @@ struct ex_hdr {
 #define IBV_KABI_REQ(_enum) _KABI_REQ_STRUCT_##_enum
 #define IBV_KABI_RESP(_enum) _KABI_RESP_STRUCT_##_enum
 
+#define IBV_ABI_ALIGN(_enum) _ABI_ALIGN_##_enum
+
 /*
  * Historically the code had copied the data in the kernel headers, modified
  * it and placed them in structs.  To avoid recoding eveything we continue to
@@ -82,6 +84,7 @@ struct ex_hdr {
 	typedef struct _name IBV_ABI_REQ(_enum);                               \
 	typedef struct _kabi IBV_KABI_REQ(_enum);                              \
 	typedef struct _kabi_resp IBV_KABI_RESP(_enum);                        \
+	enum { IBV_ABI_ALIGN(_enum) = 4 };                                     \
 	static_assert(sizeof(struct _kabi_resp) % 4 == 0,                      \
 		      "Bad resp alignment");                                   \
 	static_assert(_enum != -1, "Bad enum");                                \
@@ -104,6 +107,7 @@ struct ex_hdr {
 	typedef struct _name IBV_ABI_REQ(_enum);                               \
 	typedef struct _kabi IBV_KABI_REQ(_enum);                              \
 	typedef struct _kabi_resp IBV_KABI_RESP(_enum);                        \
+	enum { IBV_ABI_ALIGN(_enum) = 8 };                                     \
 	static_assert(_enum != -1, "Bad enum");                                \
 	static_assert(sizeof(struct _kabi) % 8 == 0, "Bad req alignment");     \
 	static_assert(sizeof(struct _kabi_resp) % 8 == 0,                      \
@@ -155,14 +159,18 @@ struct empty {};
 			      sizeof(IBV_ABI_REQ(_enum)) +                     \
 				      sizeof(struct _kabi_req),                \
 		      "Bad req size");                                         \
+	static_assert(sizeof(struct _name) % IBV_ABI_ALIGN(_enum) == 0,        \
+		      "Bad kabi req alignment");                               \
 	static_assert(sizeof(IBV_KABI_RESP(_enum)) %                           \
 				      __alignof__(struct _kabi_resp) ==        \
 			      0,                                               \
-		      "Bad kabi req struct length");                           \
+		      "Bad kabi resp struct length");                          \
 	static_assert(sizeof(struct _name##_resp) ==                           \
 			      sizeof(IBV_KABI_RESP(_enum)) +                   \
 				      sizeof(struct _kabi_resp),               \
-		      "Bad resp size")
+		      "Bad resp size");                                        \
+	static_assert(sizeof(struct _name##_resp) % IBV_ABI_ALIGN(_enum) == 0, \
+		      "Bad kabi resp alignment");
 
 DECLARE_CMD(IB_USER_VERBS_CMD_ALLOC_MW, ibv_alloc_mw, ib_uverbs_alloc_mw);
 DECLARE_CMD(IB_USER_VERBS_CMD_ALLOC_PD, ibv_alloc_pd, ib_uverbs_alloc_pd);
