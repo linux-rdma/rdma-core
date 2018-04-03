@@ -50,7 +50,11 @@ static const char *opts_file = ACM_OPTS_FILE;
 
 static char *dest_addr;
 static char *src_addr;
+#if IBACM_SERVER_MODE_DEFAULT == IBACM_SERVER_MODE_UNIX
+static const char *svc_arg = IBACM_SERVER_PATH;
+#else
 static const char *svc_arg = "localhost";
+#endif
 static char *dest_arg;
 static char *src_arg;
 static char addr_type = 'u';
@@ -191,6 +195,23 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# client applications.\n");
 	fprintf(f, "\n");
 	fprintf(f, "server_port 6125\n");
+	fprintf(f, "\n");
+	fprintf(f, "# server_mode:\n");
+	fprintf(f, "# Selects how clients can connect to this server:\n");
+	fprintf(f, "# unix - Use unix-domain sockets,");
+	fprintf(f, " hence limits service to the same machine.\n");
+	fprintf(f, "# loop - Limit incoming connections");
+	fprintf(f, " for server_port to 127.0.0.1.\n");
+	fprintf(f, "# open - Allow incoming connections");
+	fprintf(f, " from any TCP client (internal or external).\n");
+	fprintf(f, "\n");
+#if IBACM_SERVER_MODE_DEFAULT == IBACM_SERVER_MODE_OPEN
+	fprintf(f, "server_mode open\n");
+#elif IBACM_SERVER_MODE_DEFAULT == IBACM_SERVER_MODE_LOOP
+	fprintf(f, "server_mode loop\n");
+#else
+	fprintf(f, "server_mode unix\n");
+#endif
 	fprintf(f, "\n");
 	fprintf(f, "# timeout:\n");
 	fprintf(f, "# Additional time, in milliseconds, that the ACM service will wait for a\n");

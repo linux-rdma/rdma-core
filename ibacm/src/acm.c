@@ -52,6 +52,8 @@
 #include <search.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <net/if_arp.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
@@ -218,6 +220,7 @@ static char log_file[128] = IBACM_LOG_FILE;
 static int log_level = 0;
 static char lock_file[128] = IBACM_PID_FILE;
 static short server_port = 6125;
+static int server_mode = IBACM_SERVER_MODE_DEFAULT;
 static int support_ips_in_addr_cfg = 0;
 static char prov_lib_path[256] = IBACM_LIB_PATH;
 
@@ -566,33 +569,76 @@ static void acm_init_server(void)
 		atomic_init(&client_array[i].refcnt);
 	}
 
-	if (!(f = fopen(IBACM_PORT_FILE, "w"))) {
-		acm_log(0, "notice - cannot publish ibacm port number\n");
-		return;
-	}
-	fprintf(f, "%hu\n", server_port);
-	fclose(f);
+	if (server_mode != IBACM_SERVER_MODE_UNIX) {
+		f = fopen(IBACM_PORT_FILE, "w");
+		if (f) {
+			fprintf(f, "%hu\n", server_port);
+			fclose(f);
+		} else
+			acm_log(0,
+				"notice - cannot publish ibacm port number\n");
+	} else
+		unlink(IBACM_PORT_FILE);
 }
 
 static int acm_listen(void)
 {
-	struct sockaddr_in addr;
-	int ret;
+	union {
+		struct sockaddr any;
+		struct sockaddr_in inet;
+		struct sockaddr_un unx;
+	} addr;
+	mode_t saved_mask;
+	int ret, saved_errno;
 
 	acm_log(2, "\n");
-	listen_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (listen_socket == -1) {
-		acm_log(0, "ERROR - unable to allocate listen socket\n");
-		return errno;
-	}
 
-	memset(&addr, 0, sizeof addr);
-	addr.sin_family = AF_INET;
-	addr.sin_port = htobe16(server_port);
-	ret = bind(listen_socket, (struct sockaddr *) &addr, sizeof addr);
-	if (ret == -1) {
-		acm_log(0, "ERROR - unable to bind listen socket\n");
-		return errno;
+	memset(&addr, 0, sizeof(addr));
+
+	if (server_mode == IBACM_SERVER_MODE_UNIX) {
+		addr.any.sa_family = AF_UNIX;
+		BUILD_ASSERT(sizeof(IBACM_SERVER_PATH)
+			     <= sizeof(addr.unx.sun_path));
+		strcpy(addr.unx.sun_path, IBACM_SERVER_PATH);
+
+		listen_socket = socket(AF_UNIX, SOCK_STREAM, 0);
+		if (listen_socket < 0) {
+			acm_log(0,
+				"ERROR - unable to allocate unix socket\n");
+			return errno;
+		}
+
+		unlink(addr.unx.sun_path);
+		saved_mask = umask(0);
+		ret = bind(listen_socket, &addr.any, sizeof(addr.unx));
+		saved_errno = errno;
+		umask(saved_mask);
+
+		if (ret) {
+			acm_log(0,
+				"ERROR - unable to bind listen socket '%s'\n",
+				addr.unx.sun_path);
+			return saved_errno;
+		}
+	} else {
+		unlink(IBACM_SERVER_PATH);
+
+		listen_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		if (listen_socket == -1) {
+			acm_log(0,
+				"ERROR - unable to allocate TCP socket\n");
+			return errno;
+		}
+
+		addr.any.sa_family = AF_INET;
+		addr.inet.sin_port = htobe16(server_port);
+		if (server_mode == IBACM_SERVER_MODE_LOOP)
+			addr.inet.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+		ret = bind(listen_socket, &addr.any, sizeof(addr.inet));
+		if (ret == -1) {
+			acm_log(0, "ERROR - unable to bind listen socket\n");
+			return errno;
+		}
 	}
 
 	ret = listen(listen_socket, 0);
@@ -2975,7 +3021,14 @@ static void acm_set_options(void)
 			strcpy(lock_file, value);
 		else if (!strcasecmp("server_port", opt))
 			server_port = (short) atoi(value);
-		else if (!strcasecmp("provider_lib_path", opt))
+		else if (!strcasecmp("server_mode", opt)) {
+			if (!strcasecmp(value, "open"))
+				server_mode = IBACM_SERVER_MODE_OPEN;
+			else if (!strcasecmp(value, "loop"))
+				server_mode = IBACM_SERVER_MODE_LOOP;
+			else
+				server_mode = IBACM_SERVER_MODE_UNIX;
+		} else if (!strcasecmp("provider_lib_path", opt))
 			strcpy(prov_lib_path, value);
 		else if (!strcasecmp("support_ips_in_addr_cfg", opt))
 			support_ips_in_addr_cfg = atoi(value);
@@ -2992,10 +3045,17 @@ static void acm_set_options(void)
 
 static void acm_log_options(void)
 {
+	static const char * const server_mode_names[] = {
+		[IBACM_SERVER_MODE_UNIX] = "unix",
+		[IBACM_SERVER_MODE_LOOP] = "loop",
+		[IBACM_SERVER_MODE_OPEN] = "open",
+	};
+
 	acm_log(0, "log file %s\n", log_file);
 	acm_log(0, "log level %d\n", log_level);
 	acm_log(0, "lock file %s\n", lock_file);
 	acm_log(0, "server_port %d\n", server_port);
+	acm_log(0, "server_mode %s\n", server_mode_names[server_mode]);
 	acm_log(0, "timeout %d ms\n", sa.timeout);
 	acm_log(0, "retries %d\n", sa.retries);
 	acm_log(0, "sa depth %d\n", sa.depth);
@@ -3094,6 +3154,11 @@ int main(int argc, char **argv)
 	}
 
 	acm_set_options();
+
+	/* usage of systemd implies unix-domain communication */
+	if (systemd)
+		server_mode = IBACM_SERVER_MODE_UNIX;
+
 	if (acm_open_lock_file())
 		return -1;
 

@@ -7,8 +7,7 @@ Before=rdma-hw.target
 # ibacm.socket always starts
 
 [Socket]
-ListenStream=6125
-BindToDevice=lo
+ListenStream=/run/ibacm.sock
 
 # Bind to PF_NETLINK, NETLINK_RDMA, RDMA_NL_GROUP_LS
 # Supported in systemd > 234

@@ -37,6 +37,8 @@
 #include <errno.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 static pthread_mutex_t acm_lock = PTHREAD_MUTEX_INITIALIZER;
 static int sock = -1;
@@ -60,32 +62,66 @@ int ib_acm_connect(char *dest)
 
 	acm_set_server_port();
 	memset(&hint, 0, sizeof hint);
-	hint.ai_family = AF_INET;
-	hint.ai_protocol = IPPROTO_TCP;
-	ret = getaddrinfo(dest, NULL, &hint, &res);
-	if (ret)
-		return ret;
 
-	sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-	if (sock == -1) {
-		ret = errno;
-		goto err1;
-	}
+	if (dest && *dest != '/') {
+		hint.ai_family = AF_INET;
+		hint.ai_family = AF_UNSPEC;
 
-	((struct sockaddr_in *) res->ai_addr)->sin_port = htobe16(server_port);
-	ret = connect(sock, res->ai_addr, res->ai_addrlen);
-	if (ret)
-		goto err2;
+		ret = getaddrinfo(dest, NULL, &hint, &res);
+		if (ret)
+			return ret;
 
-	freeaddrinfo(res);
-	return 0;
+		sock = socket(res->ai_family, res->ai_socktype,
+			      res->ai_protocol);
+		if (sock == -1) {
+			ret = errno;
+			goto err1;
+		}
+
+		((struct sockaddr_in *) res->ai_addr)->sin_port =
+			htobe16(server_port);
+		ret = connect(sock, res->ai_addr, res->ai_addrlen);
+		if (ret)
+			goto err2;
+
+		freeaddrinfo(res);
 
 err2:
-	close(sock);
-	sock = -1;
+		close(sock);
+		sock = -1;
 err1:
-	freeaddrinfo(res);
-	return ret;
+		freeaddrinfo(res);
+	} else {
+		struct sockaddr_un addr;
+
+		addr.sun_family = AF_UNIX;
+		if (dest) {
+			if (snprintf(addr.sun_path, sizeof(addr.sun_path),
+				     "%s", dest) >= sizeof(addr.sun_path)) {
+				errno = ENAMETOOLONG;
+				return errno;
+			}
+		} else {
+			BUILD_ASSERT(sizeof(IBACM_SERVER_PATH) <=
+				     sizeof(addr.sun_path));
+			strcpy(addr.sun_path, IBACM_SERVER_PATH);
+		}
+
+		sock = socket(AF_UNIX, SOCK_STREAM, 0);
+		if (sock < 0)
+			return errno;
+
+		if (connect(sock,
+			    (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+			ret = errno;
+			close(sock);
+			sock = -1;
+			errno = ret;
+			return ret;
+		}
+	}
+
+	return 0;
 }
 
 void ib_acm_disconnect(void)
