@@ -203,6 +203,17 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "server_is_local no\n");
 #endif
 	fprintf(f, "\n");
+	fprintf(f, "# acme_plus_kernel_only:\n");
+	fprintf(f, "# If set to 'true', 'yes' or a non-zero number\n");
+	fprintf(f, "# ibacm will only serve requests originating\n");
+	fprintf(f, "# from the kernel or the ib_acme utility.\n");
+	fprintf(f, "\n");
+#if IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT
+	fprintf(f, "acme_plus_kernel_only yes\n");
+#else
+	fprintf(f, "acme_plus_kernel_only no\n");
+#endif
+	fprintf(f, "\n");
 	fprintf(f, "# timeout:\n");
 	fprintf(f, "# Additional time, in milliseconds, that the ACM service will wait for a\n");
 	fprintf(f, "# response from a remote ACM service or the IB SA.  The actual request\n");

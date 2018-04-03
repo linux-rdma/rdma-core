@@ -219,6 +219,7 @@ static int log_level = 0;
 static char lock_file[128] = IBACM_PID_FILE;
 static short server_port = 6125;
 static int server_is_local = IBACM_SERVER_IS_LOCAL_DEFAULT;
+static int acme_plus_kernel_only = IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT;
 static int support_ips_in_addr_cfg = 0;
 static char prov_lib_path[256] = IBACM_LIB_PATH;
 
@@ -567,12 +568,20 @@ static void acm_init_server(void)
 		atomic_init(&client_array[i].refcnt);
 	}
 
-	if (!(f = fopen(IBACM_PORT_FILE, "w"))) {
-		acm_log(0, "notice - cannot publish ibacm port number\n");
-		return;
-	}
-	fprintf(f, "%hu\n", server_port);
-	fclose(f);
+	if ((f = fopen(IBACM_ACME_PORT_FILE, "w"))) {
+		fprintf(f, "%hu\n", server_port);
+		fclose(f);
+	} else
+		acm_log(0, "notice - cannot publish ibacm port number for ib_acme\n");
+
+	if (!acme_plus_kernel_only) {
+		if ((f = fopen(IBACM_LIBRDMACM_PORT_FILE, "w"))) {
+			fprintf(f, "%hu\n", server_port);
+			fclose(f);
+		} else
+			acm_log(0, "notice - cannot publish ibacm port number for librdmacm\n");
+	} else
+		unlink(IBACM_LIBRDMACM_PORT_FILE);
 }
 
 static int acm_listen(void)
@@ -2983,6 +2992,11 @@ static void acm_set_options(void)
 				!strcasecmp(value, "true") ||
 				!strcasecmp(value, "yes") ||
 				strtol(value, NULL, 0);
+		else if (!strcasecmp("acme_plus_kernel_only", opt))
+			acme_plus_kernel_only =
+				!strcasecmp(value, "true") ||
+				!strcasecmp(value, "yes") ||
+				strtol(value, NULL, 0);
 		else if (!strcasecmp("provider_lib_path", opt))
 			strcpy(prov_lib_path, value);
 		else if (!strcasecmp("support_ips_in_addr_cfg", opt))
@@ -3005,6 +3019,7 @@ static void acm_log_options(void)
 	acm_log(0, "lock file %s\n", lock_file);
 	acm_log(0, "server_port %d\n", server_port);
 	acm_log(0, "server_is_local %s\n", server_is_local ? "yes" : "no");
+	acm_log(0, "acme_plus_kernel_only %s\n", acme_plus_kernel_only ? "yes" : "no");
 	acm_log(0, "timeout %d ms\n", sa.timeout);
 	acm_log(0, "retries %d\n", sa.retries);
 	acm_log(0, "sa depth %d\n", sa.depth);
