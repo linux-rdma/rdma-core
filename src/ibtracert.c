@@ -863,6 +863,8 @@ int main(int argc, char **argv)
 	char dstbuf[20];
 	char srcbuf[20];
 	char portsbuf[80];
+	char *p_first;
+	int len, i;
 	int line_count = 0;
 	int num_port_pairs = 0;
 	int mgmt_classes[3] =
@@ -921,15 +923,27 @@ int main(int argc, char **argv)
 
 		while (fgets(portsbuf, sizeof(portsbuf), ports_fd) != NULL) {
 			line_count++;
-			if (portsbuf[0] != '#') {
-				if (sscanf(portsbuf, "%20s %20s", srcbuf, dstbuf) != 2)
-					IBEXIT("ports-file, %s, at line %i contains bad data",
-						ports_file, line_count);
-				num_port_pairs++;
-				if (get_route(srcbuf, dstbuf) != 0)
-					IBEXIT("Failed to get route information at line %i",
-						line_count);
+			p_first = strtok(portsbuf, "\n");
+			if (!p_first)
+				continue;	/* ignore blank lines */
+
+			len = (int) strlen(p_first);
+			for (i = 0; i < len; i++) {
+				if (!isspace(p_first[i]))
+					break;
 			}
+			if (i == len)		/* ignore all spaces */
+				continue;
+			if (p_first[i] == '#')
+				continue;	/* ignore comment lines */
+
+			if (sscanf(portsbuf, "%20s %20s", srcbuf, dstbuf) != 2)
+				IBEXIT("ports-file, %s, at line %i contains bad data",
+					ports_file, line_count);
+			num_port_pairs++;
+			if (get_route(srcbuf, dstbuf) != 0)
+				IBEXIT("Failed to get route information at line %i",
+					line_count);
 		}
 		printf("%i lid/guid pairs processed from %s\n",
 		       num_port_pairs, ports_file);
