@@ -192,6 +192,17 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "\n");
 	fprintf(f, "server_port 6125\n");
 	fprintf(f, "\n");
+	fprintf(f, "# server_is_local:\n");
+	fprintf(f, "# If set to 'true', 'yes' or a non-zero number\n");
+	fprintf(f, "# ibacm will limit incoming connections to 127.0.0.1\n");
+	fprintf(f, "# (for the above mentioned 'server_port')\n");
+	fprintf(f, "\n");
+#if IBACM_SERVER_IS_LOCAL_DEFAULT
+	fprintf(f, "server_is_local yes\n");
+#else
+	fprintf(f, "server_is_local no\n");
+#endif
+	fprintf(f, "\n");
 	fprintf(f, "# timeout:\n");
 	fprintf(f, "# Additional time, in milliseconds, that the ACM service will wait for a\n");
 	fprintf(f, "# response from a remote ACM service or the IB SA.  The actual request\n");

@@ -218,6 +218,7 @@ static char log_file[128] = IBACM_LOG_FILE;
 static int log_level = 0;
 static char lock_file[128] = IBACM_PID_FILE;
 static short server_port = 6125;
+static int server_is_local = IBACM_SERVER_IS_LOCAL_DEFAULT;
 static int support_ips_in_addr_cfg = 0;
 static char prov_lib_path[256] = IBACM_LIB_PATH;
 
@@ -589,6 +590,8 @@ static int acm_listen(void)
 	memset(&addr, 0, sizeof addr);
 	addr.sin_family = AF_INET;
 	addr.sin_port = htobe16(server_port);
+	if (server_is_local)
+		addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 	ret = bind(listen_socket, (struct sockaddr *) &addr, sizeof addr);
 	if (ret == -1) {
 		acm_log(0, "ERROR - unable to bind listen socket\n");
@@ -2975,6 +2978,11 @@ static void acm_set_options(void)
 			strcpy(lock_file, value);
 		else if (!strcasecmp("server_port", opt))
 			server_port = (short) atoi(value);
+		else if (!strcasecmp("server_is_local", opt))
+			server_is_local =
+				!strcasecmp(value, "true") ||
+				!strcasecmp(value, "yes") ||
+				strtol(value, NULL, 0);
 		else if (!strcasecmp("provider_lib_path", opt))
 			strcpy(prov_lib_path, value);
 		else if (!strcasecmp("support_ips_in_addr_cfg", opt))
@@ -2996,6 +3004,7 @@ static void acm_log_options(void)
 	acm_log(0, "log level %d\n", log_level);
 	acm_log(0, "lock file %s\n", lock_file);
 	acm_log(0, "server_port %d\n", server_port);
+	acm_log(0, "server_is_local %s\n", server_is_local ? "yes" : "no");
 	acm_log(0, "timeout %d ms\n", sa.timeout);
 	acm_log(0, "retries %d\n", sa.retries);
 	acm_log(0, "sa depth %d\n", sa.depth);
