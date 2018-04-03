@@ -910,8 +910,13 @@ static struct verbs_device *rxe_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 
 static const struct verbs_device_ops rxe_dev_ops = {
 	.name = "rxe",
-	.match_min_abi_version = 0,
-	.match_max_abi_version = INT_MAX,
+	/*
+	 * For 64 bit machines ABI version 1 and 2 are the same. Otherwise 32
+	 * bit machines require ABI version 2 which guarentees the user and
+	 * kernel use the same ABI.
+	 */
+	.match_min_abi_version = sizeof(void *) == 8?1:2,
+	.match_max_abi_version = 2,
 	.match_table = hca_table,
 	.alloc_device = rxe_device_alloc,
 	.uninit_device = rxe_uninit_device,
