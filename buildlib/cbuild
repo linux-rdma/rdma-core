@@ -872,8 +872,7 @@ if __name__ == '__main__':
 
     # This script must always run from the top of the git tree, and a git
     # checkout is mandatory.
-    git_top = subprocess.check_output(["git","rev-parse","--git-dir"]).strip();
-    if git_top != ".git":
-        os.chdir(os.path.dirname(git_top));
+    git_top = subprocess.check_output(["git","rev-parse","--show-toplevel"]).strip();
+    os.chdir(git_top);
 
     args.func(args);

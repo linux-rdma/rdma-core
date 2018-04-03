@@ -2859,6 +2859,11 @@ static void acmc_recv_mad(struct acmc_port *port)
 	int ret, len, found;
 	struct umad_hdr *hdr;
 
+	if (!port->prov) {
+		acm_log(1, "no provider assigned to port\n");
+		return;
+	}
+
 	acm_log(2, "\n");
 	len = sizeof(resp.sa_mad);
 	ret = umad_recv(port->mad_portid, &resp.umad, &len, 0);

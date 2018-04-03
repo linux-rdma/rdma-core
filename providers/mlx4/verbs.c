@@ -831,7 +831,7 @@ static int mlx4_cmd_create_qp_ex(struct ibv_context *context,
 	int ret;
 
 	memset(&cmd_ex, 0, sizeof(cmd_ex));
-	*ibv_create_cq_ex_to_reg(&cmd_ex.ibv_cmd) = cmd->ibv_cmd.core_payload;
+	*ibv_create_qp_ex_to_reg(&cmd_ex.ibv_cmd) = cmd->ibv_cmd.core_payload;
 
 	cmd_ex.drv_payload = cmd->drv_payload;
 

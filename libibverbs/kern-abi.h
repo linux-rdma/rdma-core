@@ -218,7 +218,7 @@ DECLARE_CMD_EX(IB_USER_VERBS_EX_CMD_QUERY_DEVICE, ibv_query_device_ex, ib_uverbs
  * structure, this function converts the ex version into the normal version
  */
 static inline struct ib_uverbs_create_qp *
-ibv_create_cq_ex_to_reg(struct ibv_create_qp_ex *cmd_ex)
+ibv_create_qp_ex_to_reg(struct ibv_create_qp_ex *cmd_ex)
 {
 	/*
 	 * user_handle is the start in both places, note that the ex
