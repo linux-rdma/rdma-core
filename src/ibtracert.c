@@ -67,8 +67,10 @@ static char *node_type_str[] = {
 static int timeout = 0;		/* ms */
 static int force;
 static FILE *f;
+static FILE *ports_fd;
 
 static char *node_name_map_file = NULL;
+static char *ports_file = NULL;
 static nn_map_t *node_name_map = NULL;
 
 typedef struct Port Port;
@@ -762,6 +764,11 @@ static int process_opt(void *context, int ch, char *optarg)
 		if (node_name_map_file == NULL)
 			IBEXIT("out of memory, strdup for node_name_map_file name failed");
 		break;
+	case 2:
+		ports_file = strdup(optarg);
+		if (ports_file == NULL)
+			IBEXIT("out of memory, strdup for ports_file name failed");
+		break;
 	case 'm':
 		multicast++;
 		mlid = strtoul(optarg, 0, 0);
@@ -778,20 +785,95 @@ static int process_opt(void *context, int ch, char *optarg)
 	return 0;
 }
 
-int main(int argc, char **argv)
-{
-	int mgmt_classes[3] =
-	    { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS };
+static int get_route(char *srcid, char *dstid) {
 	ib_portid_t my_portid = { 0 };
 	ib_portid_t src_portid = { 0 };
 	ib_portid_t dest_portid = { 0 };
 	Node *endnode;
+
+	if (resolve_portid_str(ibd_ca, ibd_ca_port, &src_portid, srcid,
+			       ibd_dest_type, ibd_sm_id, srcport) < 0) {
+		IBWARN("can't resolve source port %s", srcid);
+		return -1;
+	}
+
+	if (resolve_portid_str(ibd_ca, ibd_ca_port, &dest_portid, dstid,
+			       ibd_dest_type, ibd_sm_id, srcport) < 0) {
+		IBWARN("can't resolve destination port %s", dstid);
+		return -1;
+	}
+
+	if (ibd_dest_type == IB_DEST_DRPATH) {
+		if (resolve_lid(&src_portid, NULL) < 0) {
+			IBWARN("cannot resolve lid for port \'%s\'",
+				portid2str(&src_portid));
+			return -1;
+		}
+		if (resolve_lid(&dest_portid, NULL) < 0) {
+			IBWARN("cannot resolve lid for port \'%s\'",
+				portid2str(&dest_portid));
+			return -1;
+		}
+	}
+
+	if (dest_portid.lid == 0 || src_portid.lid == 0) {
+		IBWARN("bad src/dest lid");
+		ibdiag_show_usage();
+	}
+
+	if (ibd_dest_type != IB_DEST_DRPATH) {
+		/* first find a direct path to the src port */
+		if (find_route(&my_portid, &src_portid, 0) < 0) {
+			IBWARN("can't find a route to the src port");
+			return -1;
+		}
+
+		src_portid = my_portid;
+	}
+
+	if (!multicast) {
+		if (find_route(&src_portid, &dest_portid, dumplevel) < 0) {
+			IBWARN("can't find a route from src to dest");
+			return -1;
+		}
+		return 0;
+	} else {
+		if (mlid < 0xc000)
+			IBWARN("invalid MLID; must be 0xc000 or larger");
+	}
+
+	if (!(target_portguid = find_target_portguid(&dest_portid))) {
+		IBWARN("can't reach target lid %d", dest_portid.lid);
+		return -1;
+	}
+
+	if (!(endnode = find_mcpath(&src_portid, mlid))) {
+		IBWARN("can't find a multicast route from src to dest");
+		return -1;
+	}
+
+	/* dump multicast path */
+	dump_mcpath(endnode, dumplevel);
+
+	return 0;
+}
+
+int main(int argc, char **argv)
+{
+	char dstbuf[20];
+	char srcbuf[20];
+	char portsbuf[80];
+	int line_count = 0;
+	int num_port_pairs = 0;
+	int mgmt_classes[3] =
+	    { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS };
 
 	const struct ibdiag_opt opts[] = {
 		{"force", 'f', 0, NULL, "force"},
 		{"no_info", 'n', 0, NULL, "simple format"},
 		{"mlid", 'm', 1, "<mlid>", "multicast trace of the mlid"},
 		{"node-name-map", 1, 1, "<file>", "node name map file"},
+		{"ports-file", 2, 1, "<file>", "port pairs file"},
 		{0}
 	};
 	char usage_args[] = "<src-addr> <dest-addr>";
@@ -813,7 +895,7 @@ int main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	if (argc < 2)
+	if (argc < 2 && ports_file == NULL)
 		ibdiag_show_usage();
 
 	if (ibd_timeout)
@@ -827,54 +909,31 @@ int main(int argc, char **argv)
 
 	node_name_map = open_node_name_map(node_name_map_file);
 
-	if (resolve_portid_str(ibd_ca, ibd_ca_port, &src_portid, argv[0],
-			       ibd_dest_type, ibd_sm_id, srcport) < 0)
-		IBEXIT("can't resolve source port %s", argv[0]);
-
-	if (resolve_portid_str(ibd_ca, ibd_ca_port, &dest_portid, argv[1],
-			       ibd_dest_type, ibd_sm_id, srcport) < 0)
-		IBEXIT("can't resolve destination port %s", argv[1]);
-
-	if (ibd_dest_type == IB_DEST_DRPATH) {
-		if (resolve_lid(&src_portid, NULL) < 0)
-			IBEXIT("cannot resolve lid for port \'%s\'",
-				portid2str(&src_portid));
-		if (resolve_lid(&dest_portid, NULL) < 0)
-			IBEXIT("cannot resolve lid for port \'%s\'",
-				portid2str(&dest_portid));
-	}
-
-	if (dest_portid.lid == 0 || src_portid.lid == 0) {
-		IBWARN("bad src/dest lid");
-		ibdiag_show_usage();
-	}
-
-	if (ibd_dest_type != IB_DEST_DRPATH) {
-		/* first find a direct path to the src port */
-		if (find_route(&my_portid, &src_portid, 0) < 0)
-			IBEXIT("can't find a route to the src port");
-
-		src_portid = my_portid;
-	}
-
-	if (!multicast) {
-		if (find_route(&src_portid, &dest_portid, dumplevel) < 0)
-			IBEXIT("can't find a route from src to dest");
-		exit(0);
+	if (ports_file == NULL) {
+		/* single get_route call when lids/guids on command line */
+		if (get_route(argv[0], argv[1]) != 0)
+			IBEXIT("Failed to get route information");
 	} else {
-		if (mlid < 0xc000)
-			IBWARN("invalid MLID; must be 0xc000 or larger");
-	}
+		/* multiple get_route calls when reading lids/guids from a file */
+		ports_fd = fopen(ports_file, "r");
+		if (!ports_fd)
+			IBEXIT("cannot open ports-file %s", ports_file);
 
-	if (!(target_portguid = find_target_portguid(&dest_portid)))
-		IBEXIT("can't reach target lid %d", dest_portid.lid);
-
-	if (!(endnode = find_mcpath(&src_portid, mlid)))
-		IBEXIT("can't find a multicast route from src to dest");
-
-	/* dump multicast path */
-	dump_mcpath(endnode, dumplevel);
-
+		while (fgets(portsbuf, sizeof(portsbuf), ports_fd) != NULL) {
+			line_count++;
+			if (portsbuf[0] != '#') {
+				if (sscanf(portsbuf, "%20s %20s", srcbuf, dstbuf) != 2)
+					IBEXIT("ports-file, %s, at line %i contains bad data",
+						ports_file, line_count);
+				num_port_pairs++;
+				if (get_route(srcbuf, dstbuf) != 0)
+					IBEXIT("Failed to get route information at line %i",
+						line_count);
+			}
+		}
+		printf("%i lid/guid pairs processed from %s\n",
+		       num_port_pairs, ports_file);
+        }
 	close_node_name_map(node_name_map);
 
 	mad_rpc_close_port(srcport);

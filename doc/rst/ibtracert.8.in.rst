@@ -44,6 +44,7 @@ Addressing Flags
 .. include:: common/opt_G.rst
 .. include:: common/opt_L.rst
 .. include:: common/opt_s.rst
+.. include:: common/opt_ports-file.rst
 
 
 Port Selection flags
@@ -78,6 +79,7 @@ FILES
 
 .. include:: common/sec_config-file.rst
 .. include:: common/sec_node-name-map.rst
+.. include:: common/sec_ports-file.rst
 
 
 EXAMPLES
