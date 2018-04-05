@@ -90,8 +90,30 @@ static int umaddebug = 0;
 static const char *def_ca_name = "mthca0";
 static int def_ca_port = 1;
 
-static unsigned abi_version;
 static unsigned new_user_mad_api;
+
+static unsigned int get_abi_version(void)
+{
+	static unsigned int abi_version;
+
+	if (abi_version != 0)
+		return abi_version & 0x7FFFFFFF;
+
+	if (sys_read_uint(IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE, &abi_version) <
+	    0) {
+		IBWARN("can't read ABI version from %s/%s (%m): is ib_umad module loaded?",
+		       IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE);
+		abi_version = 1 << 31;
+		return 0;
+	}
+
+	if (abi_version < IB_UMAD_ABI_VERSION) {
+		abi_version = 1 << 31;
+		return 0;
+	}
+
+	return abi_version;
+}
 
 /*************************************
  * Port
@@ -502,19 +524,6 @@ static int dev_to_umad_id(const char *dev, unsigned port)
 int umad_init(void)
 {
 	TRACE("umad_init");
-	if (sys_read_uint(IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE, &abi_version) < 0) {
-		IBWARN
-		    ("can't read ABI version from %s/%s (%m): is ib_umad module loaded?",
-		     IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE);
-		return -1;
-	}
-	if (abi_version < IB_UMAD_ABI_VERSION) {
-		IBWARN
-		    ("wrong ABI version: %s/%s is %d but library minimal ABI is %d",
-		     IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE, abi_version,
-		     IB_UMAD_ABI_VERSION);
-		return -1;
-	}
 	return 0;
 }
 
@@ -618,8 +627,12 @@ int umad_open_port(const char *ca_name, int portnum)
 {
 	char dev_file[UMAD_DEV_FILE_SZ];
 	int umad_id, fd;
+	unsigned int abi_version = get_abi_version();
 
 	TRACE("ca %s port %d", ca_name, portnum);
+
+	if (!abi_version)
+		return -EOPNOTSUPP;
 
 	if (!(ca_name = resolve_ca_name(ca_name, &portnum)))
 		return -ENODEV;

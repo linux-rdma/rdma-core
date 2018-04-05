@@ -1,3 +1,4 @@
+
 ---
 date: "May 21, 2007"
 footer: "OpenIB"
@@ -24,22 +25,22 @@ int umad_done(void);
 
 # DESCRIPTION
 
-**umad_init()** initializes the umad library for use. Must be called before
-any other call to this library.
-
-**umad_done()** finalizes the use of the umad library.
+**umad_init()** and **umad_done()** do nothing.
 
 # RETURN VALUE
 
-**umad_init()** and **umad_done()** return 0 on success, and -1 on error.
-Error is returned from **umad_init()** if infiniband umad can't be opened, or
-the abi version doesn't match. There are no errors currently returned by
-**umad_done().**
+Always 0.
 
-# NOTES
+# COMPATIBILITY
 
-If an error occurs during the library initialization, no further use of the
-umad library should be attempted.
+Versions prior to release 18 of the library require **umad_init()** to be
+called prior to using any other library functions. Old versions could return a
+failure code of -1 from **umad_init()**.
+
+For compatibility applications should continue to call **umad_init()**, and
+check the return code, prior to calling other **umad_** functions.  If
+**umad_init()** returns an error then, no further use of the umad library
+should be attempted.
 
 # AUTHORS
 
