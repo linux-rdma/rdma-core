@@ -33,6 +33,13 @@
 #include "ibverbs.h"
 #include <errno.h>
 
+static struct ibv_dm *alloc_dm(struct ibv_context *context,
+			       struct ibv_alloc_dm_attr *attr)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
 static struct ibv_mw *alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
 {
 	errno = ENOSYS;
@@ -230,6 +237,11 @@ static int detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 	return ENOSYS;
 }
 
+static int free_dm(struct ibv_dm *dm)
+{
+	return ENOSYS;
+}
+
 static int get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 {
 	return ENOSYS;
@@ -347,6 +359,14 @@ static int query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
 	return ENOSYS;
 }
 
+static struct ibv_mr *reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *dm,
+				uint64_t dm_offset, size_t length,
+				unsigned int access)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
 static struct ibv_mr *reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			     int access)
 {
@@ -383,6 +403,7 @@ static int resize_cq(struct ibv_cq *cq, int cqe)
  * Keep sorted.
  */
 const struct verbs_context_ops verbs_dummy_ops = {
+	alloc_dm,
 	alloc_mw,
 	alloc_parent_domain,
 	alloc_pd,
@@ -416,6 +437,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	destroy_srq,
 	destroy_wq,
 	detach_mcast,
+	free_dm,
 	get_srq_num,
 	modify_cq,
 	modify_flow_action_esp,
@@ -436,6 +458,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	query_qp,
 	query_rt_values,
 	query_srq,
+	reg_dm_mr,
 	reg_mr,
 	req_notify_cq,
 	rereg_mr,
@@ -464,6 +487,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 			(ptr)->iname = ops->name;                              \
 	} while (0)
 
+	SET_OP(vctx, alloc_dm);
 	SET_OP(ctx, alloc_mw);
 	SET_OP(ctx, alloc_pd);
 	SET_OP(vctx, alloc_parent_domain);
@@ -497,6 +521,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, destroy_srq);
 	SET_OP(vctx, destroy_wq);
 	SET_OP(ctx, detach_mcast);
+	SET_OP(vctx, free_dm);
 	SET_OP(vctx, get_srq_num);
 	SET_OP(vctx, modify_cq);
 	SET_OP(vctx, modify_flow_action_esp);
@@ -517,6 +542,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, query_qp);
 	SET_OP(vctx, query_rt_values);
 	SET_OP(ctx, query_srq);
+	SET_OP(vctx, reg_dm_mr);
 	SET_OP(ctx, reg_mr);
 	SET_OP(ctx, req_notify_cq);
 	SET_OP(ctx, rereg_mr);

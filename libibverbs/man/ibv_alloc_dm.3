@@ -1,0 +1,116 @@
+.\" -*- nroff -*-
+.\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+.\"
+.TH IBV_ALLOC_DM 3 2017-07-25 libibverbs "Libibverbs Programmer's Manual"
+.SH "NAME"
+ibv_alloc_dm, ibv_free_dm, ibv_memcpy_to/from_dm \- allocate or free a device memory buffer (DMs) and perform memory copy to or
+from it
+.SH "SYNOPSIS"
+.nf
+.B #include <infiniband/verbs.h>
+.sp
+.BI "struct ibv_dm *ibv_alloc_dm(struct ibv_context " "*context",
+.BI "                            struct ibv_alloc_dm_attr " "*attr");
+.sp
+.BI "int ibv_free_dm(struct ibv_dm " "*dm");
+.fi
+.SH "DESCRIPTION"
+.B ibv_alloc_dm()
+allocates a device memory buffer for the RDMA device context
+.I context\fR.
+The argument
+.I attr
+is a pointer to an ibv_alloc_dm_attr struct, as defined in <infiniband/verbs.h>.
+.PP
+.B ibv_free_dm()
+free the device memory buffer
+.I dm\fR.
+.PP
+.nf
+struct ibv_alloc_dm_attr {
+.in +8
+size_t length;			/* Length of desired device memory buffer */
+uint32_t log_align_req;		/* Log base 2 of address alignment requirement */
+uint32_t comp_mask;		/* Compatibility mask that defines which of the following variables are valid */
+.in -8
+};
+
+Address alignment may be required in cases where RDMA atomic operations will be performed using the device memory.
+.PP
+In such cases, the user may specify the device memory start address alignment using the log_align_req parameter
+.PP
+in the allocation attributes struct.
+.PP
+.SH "Accessing an allocated device memory"
+.nf
+In order to perform a write/read memory access to an allocated device memory, a user could use the ibv_memcpy_to_dm
+and ibv_memcpy_from_dm calls respectively.
+.sp
+.BI "int ibv_memcpy_to_dm(struct ibv_dm " "*dm" ", uint64_t " "dm_offset",
+.BI "                     void " "*host_addr" ", size_t " "length" ");
+.sp
+.BI "int ibv_memcpy_from_dm(void " "*host_addr" ", struct ibv_dm " "*dm" ",
+.BI "			    uint64_t " "dm_offset" ", size_t " "length" ");
+.sp
+.I dm_offest
+is the byte offset from the beginning of the allocated device memory buffer to access.
+.sp
+.I host_addr
+is the host memory buffer address to access.
+.sp
+.I length
+is the copy length in bytes.
+.sp
+.fi
+.SH "Device memory registration"
+.nf
+User may register the allocated device memory as a memory region and use the lkey/rkey inside sge when posting receive
+or sending work request. This type of MR is defined as zero based and therefore any reference to it (specifically in sge)
+is done with a byte offset from the beginning of the region.
+.sp
+This type of registration is done using ibv_reg_dm_mr.
+.sp
+.BI "int ibv_reg_dm_mr(struct ibv_pd " "*pd" ", struct ibv_dm " "*dm" ", uint64_t " "dm_offset",
+.BI "                  size_t " "length" ", uint32_t " "access");
+.sp
+.I pd
+the associated pd for this registration.
+.sp
+.I dm
+the associated dm for this registartion.
+.sp
+.I dm_offest
+is the byte offset from the beginning of the allocated device memory buffer to register.
+.sp
+.I length
+the memory length to register.
+.sp
+.I access
+mr access flags (Use enum ibv_access_flags). For this type of registration, user must set the IBV_ACCESS_ZERO_BASED
+flag.
+
+.SH "RETURN VALUE"
+.B ibv_alloc_dm()
+returns a pointer to an ibv_dm struct or NULL if the request fails.
+.PP
+.B ibv_free_dm()
+returns 0 on success, or the value of errno on failure (which indicates the failure reason).
+.PP
+.B ibv_reg_dm_mr()
+returns a pointer to an ibv_mr struct on success or NULL if request fails.
+.PP
+.B ibv_memcpy_to_dm()/ibv_memcpy_from_dm()
+returns 0 on success or the failure reason value on failure.
+.SH "NOTES"
+.B ibv_alloc_dm()
+may fail if device has no more free device memory left, where the maximum amount of allocated memory is provided by the
+.I max_dm_size\fR attribute in
+.I ibv_device_attr_ex\fR struct.
+.B ibv_free_dm()
+may fail if any other resources (such as an MR) is still associated with the DM being
+freed.
+.SH "SEE ALSO"
+.BR ibv_query_device_ex (3),
+.SH "AUTHORS"
+.TP
+Ariel Levkovich <lariel@mellanox.com>

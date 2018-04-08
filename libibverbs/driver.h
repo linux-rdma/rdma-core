@@ -38,6 +38,7 @@
 #include <stdatomic.h>
 #include <infiniband/verbs.h>
 #include <infiniband/kern-abi.h>
+#include <infiniband/cmd_ioctl.h>
 #include <ccan/list.h>
 #include <config.h>
 #include <stdbool.h>
@@ -99,6 +100,11 @@ struct verbs_flow_action {
 	struct ibv_flow_action		action;
 	uint32_t			handle;
 	enum ibv_flow_action_type	type;
+};
+
+struct verbs_dm {
+	struct ibv_dm		dm;
+	uint32_t		handle;
 };
 
 enum {
@@ -190,6 +196,8 @@ struct verbs_device {
  * Keep sorted.
  */
 struct verbs_context_ops {
+	struct ibv_dm *(*alloc_dm)(struct ibv_context *context,
+				   struct ibv_alloc_dm_attr *attr);
 	struct ibv_mw *(*alloc_mw)(struct ibv_pd *pd, enum ibv_mw_type type);
 	struct ibv_pd *(*alloc_parent_domain)(
 		struct ibv_context *context,
@@ -245,6 +253,7 @@ struct verbs_context_ops {
 	int (*destroy_wq)(struct ibv_wq *wq);
 	int (*detach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
 			    uint16_t lid);
+	int (*free_dm)(struct ibv_dm *dm);
 	int (*get_srq_num)(struct ibv_srq *srq, uint32_t *srq_num);
 	int (*modify_cq)(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 	int (*modify_flow_action_esp)(struct ibv_flow_action *action,
@@ -283,6 +292,9 @@ struct verbs_context_ops {
 	int (*query_rt_values)(struct ibv_context *context,
 			       struct ibv_values_ex *values);
 	int (*query_srq)(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
+	struct ibv_mr *(*reg_dm_mr)(struct ibv_pd *pd, struct ibv_dm *dm,
+				    uint64_t dm_offset, size_t length,
+				    unsigned int access);
 	struct ibv_mr *(*reg_mr)(struct ibv_pd *pd, void *addr, size_t length,
 				 int access);
 	int (*req_notify_cq)(struct ibv_cq *cq, int solicited_only);
@@ -516,6 +528,15 @@ int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 int ibv_cmd_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table);
 int ibv_dontfork_range(void *base, size_t size);
 int ibv_dofork_range(void *base, size_t size);
+int ibv_cmd_alloc_dm(struct ibv_context *ctx,
+		     const struct ibv_alloc_dm_attr *dm_attr,
+		     struct verbs_dm *dm,
+		     struct ibv_command_buffer *link);
+int ibv_cmd_free_dm(struct verbs_dm *dm);
+int ibv_cmd_reg_dm_mr(struct ibv_pd *pd, struct verbs_dm *dm,
+		      uint64_t offset, size_t length,
+		      unsigned int access, struct ibv_mr *mr,
+		      struct ibv_command_buffer *link);
 
 /*
  * sysfs helper functions
