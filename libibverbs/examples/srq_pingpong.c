@@ -759,6 +759,12 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	if (num_qp >= MAX_QP) {
+		fprintf(stderr, "num_qp %d must be less than %d\n", num_qp,
+			MAX_QP - 1);
+		return 1;
+	}
+
 	num_wc = num_qp + rx_depth;
 	wc     = alloca(num_wc * sizeof *wc);
 
