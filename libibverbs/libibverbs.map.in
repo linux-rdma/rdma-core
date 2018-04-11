@@ -123,6 +123,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_create_cq;
 		ibv_cmd_create_cq_ex;
 		ibv_cmd_create_flow;
+		ibv_cmd_create_flow_action_esp;
 		ibv_cmd_create_qp;
 		ibv_cmd_create_qp_ex2;
 		ibv_cmd_create_qp_ex;
@@ -136,12 +137,14 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_destroy_ah;
 		ibv_cmd_destroy_cq;
 		ibv_cmd_destroy_flow;
+		ibv_cmd_destroy_flow_action;
 		ibv_cmd_destroy_qp;
 		ibv_cmd_destroy_rwq_ind_table;
 		ibv_cmd_destroy_srq;
 		ibv_cmd_destroy_wq;
 		ibv_cmd_detach_mcast;
 		ibv_cmd_get_context;
+		ibv_cmd_modify_flow_action_esp;
 		ibv_cmd_modify_qp;
 		ibv_cmd_modify_qp_ex;
 		ibv_cmd_modify_srq;

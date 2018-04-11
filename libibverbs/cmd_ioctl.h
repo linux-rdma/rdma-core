@@ -39,6 +39,7 @@
 #include <assert.h>
 #include <rdma/rdma_user_ioctl_cmds.h>
 #include <infiniband/verbs.h>
+#include <ccan/container_of.h>
 
 static inline uint64_t ioctl_ptr_to_u64(const void *ptr)
 {
@@ -56,6 +57,20 @@ static inline uint64_t ioctl_ptr_to_u64(const void *ptr)
 	return (uintptr_t)ptr;
 #endif
 }
+
+static inline void _scrub_ptr_attr(void **ptr)
+{
+#if UINTPTR_MAX == UINT64_MAX
+	/* Do nothing */
+#else
+	RDMA_UAPI_PTR(void *, data) *scrub_data;
+
+	scrub_data = container_of(ptr, typeof(*scrub_data), data);
+	scrub_data->data_data_u64 = ioctl_ptr_to_u64(scrub_data->data);
+#endif
+}
+
+#define scrub_ptr_attr(ptr) _scrub_ptr_attr((void **)(&ptr))
 
 /*
  * The command buffer is organized as a linked list of blocks of attributes.
@@ -344,6 +359,18 @@ static inline size_t __check_divide(size_t val, unsigned int div)
 {
 	assert(val % div == 0);
 	return val / div;
+}
+
+static inline struct ib_uverbs_attr *
+fill_attr_in_enum(struct ibv_command_buffer *cmd, uint16_t attr_id,
+		  uint8_t elem_id, const void *data, size_t len)
+{
+	struct ib_uverbs_attr *attr;
+
+	attr = fill_attr_in(cmd, attr_id, data, len);
+	attr->attr_data.enum_data.elem_id = elem_id;
+
+	return attr;
 }
 
 #endif

@@ -113,6 +113,13 @@ static struct ibv_flow *create_flow(struct ibv_qp *qp,
 	return NULL;
 }
 
+static struct ibv_flow_action *create_flow_action_esp(struct ibv_context *context,
+						      struct ibv_flow_action_esp_attr *attr)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
 static struct ibv_qp *create_qp(struct ibv_pd *pd,
 				struct ibv_qp_init_attr *attr)
 {
@@ -192,6 +199,11 @@ static int destroy_flow(struct ibv_flow *flow)
 	return ENOSYS;
 }
 
+static int destroy_flow_action(struct ibv_flow_action *action)
+{
+	return ENOSYS;
+}
+
 static int destroy_qp(struct ibv_qp *qp)
 {
 	return ENOSYS;
@@ -224,6 +236,12 @@ static int get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 }
 
 static int modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr)
+{
+	return ENOSYS;
+}
+
+static int modify_flow_action_esp(struct ibv_flow_action *action,
+				  struct ibv_flow_action_esp_attr *attr)
 {
 	return ENOSYS;
 }
@@ -378,6 +396,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	create_cq,
 	create_cq_ex,
 	create_flow,
+	create_flow_action_esp,
 	create_qp,
 	create_qp_ex,
 	create_rwq_ind_table,
@@ -391,6 +410,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	destroy_ah,
 	destroy_cq,
 	destroy_flow,
+	destroy_flow_action,
 	destroy_qp,
 	destroy_rwq_ind_table,
 	destroy_srq,
@@ -398,6 +418,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	detach_mcast,
 	get_srq_num,
 	modify_cq,
+	modify_flow_action_esp,
 	modify_qp,
 	modify_qp_rate_limit,
 	modify_srq,
@@ -456,6 +477,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, create_cq);
 	SET_OP(vctx, create_cq_ex);
 	SET_OP2(vctx, ibv_create_flow, create_flow);
+	SET_OP(vctx, create_flow_action_esp);
 	SET_OP(ctx, create_qp);
 	SET_OP(vctx, create_qp_ex);
 	SET_OP(vctx, create_rwq_ind_table);
@@ -469,6 +491,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, destroy_ah);
 	SET_OP(ctx, destroy_cq);
 	SET_OP2(vctx, ibv_destroy_flow, destroy_flow);
+	SET_OP(vctx, destroy_flow_action);
 	SET_OP(ctx, destroy_qp);
 	SET_OP(vctx, destroy_rwq_ind_table);
 	SET_OP(ctx, destroy_srq);
@@ -476,6 +499,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, detach_mcast);
 	SET_OP(vctx, get_srq_num);
 	SET_OP(vctx, modify_cq);
+	SET_OP(vctx, modify_flow_action_esp);
 	SET_OP(ctx, modify_qp);
 	SET_OP(vctx, modify_qp_rate_limit);
 	SET_OP(ctx, modify_srq);

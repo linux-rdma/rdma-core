@@ -1739,6 +1739,14 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		memcpy(&kern_spec->ipv6.mask, (void *)&ib_spec->ipv6.val
 		       + ib_filter_size, kern_filter_size);
 		break;
+	case IBV_FLOW_SPEC_ESP:
+	case IBV_FLOW_SPEC_ESP | IBV_FLOW_SPEC_INNER:
+		kern_spec->esp.size = sizeof(struct ib_uverbs_flow_spec_esp);
+		memcpy(&kern_spec->esp.val, &ib_spec->esp.val,
+		       sizeof(struct ib_uverbs_flow_spec_esp_filter));
+		memcpy(&kern_spec->esp.mask, (void *)&ib_spec->esp.mask,
+		       sizeof(struct ib_uverbs_flow_spec_esp_filter));
+		break;
 	case IBV_FLOW_SPEC_TCP:
 	case IBV_FLOW_SPEC_UDP:
 	case IBV_FLOW_SPEC_TCP | IBV_FLOW_SPEC_INNER:
@@ -1770,6 +1778,14 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 	case IBV_FLOW_SPEC_ACTION_DROP:
 		kern_spec->drop.size = sizeof(struct ib_uverbs_flow_spec_action_drop);
 		break;
+	case IBV_FLOW_SPEC_ACTION_HANDLE: {
+		const struct verbs_flow_action *vaction =
+			container_of((const struct ibv_flow_action *)ib_spec->handle.action,
+				     const struct verbs_flow_action, action);
+		kern_spec->handle.size = sizeof(struct ib_uverbs_flow_spec_action_handle);
+		kern_spec->handle.handle = vaction->handle;
+		break;
+	}
 	default:
 		return EINVAL;
 	}

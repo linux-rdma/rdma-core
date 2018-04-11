@@ -13,6 +13,7 @@ rdma_man_pages(
   ibv_create_cq_ex.3
   ibv_modify_cq.3
   ibv_create_flow.3
+  ibv_create_flow_action.3.md
   ibv_create_qp.3
   ibv_create_qp_ex.3
   ibv_create_rwq_ind_table.3
@@ -72,6 +73,8 @@ rdma_alias_man_pages(
   ibv_create_comp_channel.3 ibv_destroy_comp_channel.3
   ibv_create_cq.3 ibv_destroy_cq.3
   ibv_create_flow.3 ibv_destroy_flow.3
+  ibv_create_flow_action.3 ibv_destroy_flow_action.3
+  ibv_create_flow_action.3 ibv_modify_flow_action.3
   ibv_create_qp.3 ibv_destroy_qp.3
   ibv_create_rwq_ind_table.3 ibv_destroy_rwq_ind_table.3
   ibv_create_srq.3 ibv_destroy_srq.3

@@ -46,6 +46,8 @@
 
 #include <util/compiler.h>
 #include <util/mmio.h>
+#include <rdma/ib_user_ioctl_cmds.h>
+#include <rdma/mlx5_user_ioctl_cmds.h>
 
 #include "mlx5.h"
 #include "mlx5-abi.h"
@@ -2981,3 +2983,88 @@ int mlx5_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr)
 
 	return ibv_cmd_modify_cq(cq, attr, &cmd, sizeof(cmd));
 }
+
+static struct ibv_flow_action *_mlx5_create_flow_action_esp(struct ibv_context *ctx,
+							    struct ibv_flow_action_esp_attr *attr,
+							    struct ibv_command_buffer *driver_attr)
+{
+	struct verbs_flow_action *action;
+	int ret;
+
+	if (!check_comp_mask(attr->comp_mask, IBV_FLOW_ACTION_ESP_MASK_ESN)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	action = calloc(1, sizeof(*action));
+	if (!action) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	ret = ibv_cmd_create_flow_action_esp(ctx, attr, action, driver_attr);
+	if (ret) {
+		free(action);
+		return NULL;
+	}
+
+	return &action->action;
+}
+
+struct ibv_flow_action *mlx5_create_flow_action_esp(struct ibv_context *ctx,
+						    struct ibv_flow_action_esp_attr *attr)
+{
+	return _mlx5_create_flow_action_esp(ctx, attr, NULL);
+}
+
+struct ibv_flow_action *mlx5dv_create_flow_action_esp(struct ibv_context *ctx,
+						      struct ibv_flow_action_esp_attr *esp,
+						      struct mlx5dv_flow_action_esp *mlx5_attr)
+{
+	DECLARE_COMMAND_BUFFER_LINK(driver_attr, UVERBS_OBJECT_FLOW_ACTION,
+				    UVERBS_METHOD_FLOW_ACTION_ESP_CREATE, 1,
+				    NULL);
+
+	if (!check_comp_mask(mlx5_attr->comp_mask,
+			     MLX5DV_FLOW_ACTION_ESP_MASK_FLAGS)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (mlx5_attr->comp_mask & MLX5DV_FLOW_ACTION_ESP_MASK_FLAGS) {
+		if (!check_comp_mask(mlx5_attr->action_flags,
+				     MLX5_IB_UAPI_FLOW_ACTION_FLAGS_REQUIRE_METADATA)) {
+			errno = EOPNOTSUPP;
+			return NULL;
+		}
+		fill_attr_in_uint64(driver_attr, MLX5_IB_ATTR_CREATE_FLOW_ACTION_FLAGS,
+				    mlx5_attr->action_flags);
+	}
+
+	return _mlx5_create_flow_action_esp(ctx, esp, driver_attr);
+}
+
+int mlx5_modify_flow_action_esp(struct ibv_flow_action *action,
+				struct ibv_flow_action_esp_attr *attr)
+{
+	struct verbs_flow_action *vaction =
+		container_of(action, struct verbs_flow_action, action);
+
+	if (!check_comp_mask(attr->comp_mask, IBV_FLOW_ACTION_ESP_MASK_ESN))
+		return EOPNOTSUPP;
+
+	return ibv_cmd_modify_flow_action_esp(vaction, attr, NULL);
+}
+
+int mlx5_destroy_flow_action(struct ibv_flow_action *action)
+{
+	struct verbs_flow_action *vaction =
+		container_of(action, struct verbs_flow_action, action);
+	int ret = ibv_cmd_destroy_flow_action(vaction);
+
+	if (!ret)
+		free(action);
+
+	return ret;
+}
+

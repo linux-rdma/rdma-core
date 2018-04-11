@@ -1,4 +1,7 @@
 usr/include/infiniband/arch.h
+usr/include/infiniband/ib_user_ioctl_verbs.h
+usr/include/infiniband/mlx5_api.h
+usr/include/infiniband/mlx5_user_ioctl_verbs.h
 usr/include/infiniband/mlx4dv.h
 usr/include/infiniband/mlx5dv.h
 usr/include/infiniband/opcode.h
@@ -6,6 +9,7 @@ usr/include/infiniband/sa-kern-abi.h
 usr/include/infiniband/sa.h
 usr/include/infiniband/tm_types.h
 usr/include/infiniband/verbs.h
+usr/include/infiniband/verbs_api.h
 usr/lib/*/libibverbs*.so
 usr/lib/*/libmlx4.so
 usr/lib/*/libmlx5.so

@@ -12,6 +12,7 @@ publish_internal_headers(rdma
   rdma/ib_user_verbs.h
   rdma/mlx4-abi.h
   rdma/mlx5-abi.h
+  rdma/mlx5_user_ioctl_cmds.h
   rdma/mthca-abi.h
   rdma/nes-abi.h
   rdma/ocrdma-abi.h
@@ -70,3 +71,9 @@ rdma_kernel_provider_abi(
   rdma/rdma_user_rxe.h
   rdma/vmw_pvrdma-abi.h
   )
+
+publish_headers(infiniband
+  rdma/ib_user_ioctl_verbs.h
+  rdma/mlx5_user_ioctl_verbs.h
+  )
+

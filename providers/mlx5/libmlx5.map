@@ -28,3 +28,8 @@ MLX5_1.4 {
 	global:
 		mlx5dv_get_clock_info;
 } MLX5_1.3;
+
+MLX5_1.5 {
+	global:
+		mlx5dv_create_flow_action_esp;
+} MLX5_1.4;

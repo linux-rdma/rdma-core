@@ -4,6 +4,7 @@ publish_headers(infiniband
   sa-kern-abi.h
   sa.h
   verbs.h
+  verbs_api.h
   tm_types.h
   )
 
@@ -30,6 +31,7 @@ rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   cmd.c
   cmd_cq.c
   cmd_fallback.c
+  cmd_flow_action.c
   cmd_ioctl.c
   compat-1_0.c
   device.c

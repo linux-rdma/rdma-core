@@ -52,6 +52,7 @@ enum ibv_flow_flags {
 .in +8
 IBV_FLOW_ATTR_FLAGS_ALLOW_LOOP_BACK = 1 << 0,	/* Apply the rules on packets that were sent from the attached QP through loopback */
 IBV_FLOW_ATTR_FLAGS_DONT_TRAP       = 1 << 1,	/* Rule doesn't trap received packets, allowing them to match lower prioritized rules */
+IBV_FLOW_ATTR_FLAGS_EGRESS          = 1 << 2,	/* Match sent packets against EGRESS rules and carry associated actions if required */
 .in -8
 };
 .fi
@@ -64,12 +65,14 @@ IBV_FLOW_SPEC_ETH                       = 0x20,   /* Flow specification of L2 he
 IBV_FLOW_SPEC_IPV4                      = 0x30,   /* Flow specification of IPv4 header */
 IBV_FLOW_SPEC_IPV6                      = 0x31,   /* Flow specification of IPv6 header */
 IBV_FLOW_SPEC_IPV4_EXT                  = 0x32,   /* Extended flow specification of IPv4 */
+IBV_FLOW_SPEC_ESP                       = 0x34,   /* Flow specification of ESP (IPSec) header */
 IBV_FLOW_SPEC_TCP                       = 0x40,   /* Flow specification of TCP header */
 IBV_FLOW_SPEC_UDP                       = 0x41,   /* Flow specification of UDP header */
 IBV_FLOW_SPEC_VXLAN_TUNNEL             	= 0x50,   /* Flow specification of VXLAN header */
 IBV_FLOW_SPEC_INNER                    	= 0x100,  /* Flag making L2/L3/L4 specifications to be applied on the inner header */
 IBV_FLOW_SPEC_ACTION_TAG                = 0x1000, /* Action tagging matched packet */
 IBV_FLOW_SPEC_ACTION_DROP               = 0x1001, /* Action dropping matched packet */
+IBV_FLOW_SPEC_ACTION_HANDLE             = 0x1002, /* Carry out an action created by ibv_create_flow_action_xxxx verb */
 .in -8
 };
 .br
@@ -86,6 +89,10 @@ struct ibv_flow_xxx_filter mask; /* Defines which bits from the filter value are
 };
 .PP
 Each spec struct holds the relevant network layer parameters for matching. To enforce the match, the user sets a mask for each parameter.
+.br
+Packets coming from the wire are matched against the flow specification. If a match is found, the associated flow actions are executed on the packet.
+.br
+In ingress flows, the QP parameter is treated as another action of scattering the packet to the respected QP.
 .br
 If the bit is set in the mask, the corresponding bit in the value should be matched.
 .br
@@ -141,6 +148,8 @@ or
 4. Only rule type IBV_FLOW_ATTR_NORMAL supports IBV_FLOW_ATTR_FLAGS_DONT_TRAP flag.
 .br
 5. No specifications are needed for IBV_FLOW_ATTR_SNIFFER rule type.
+.br
+6. When IBV_FLOW_ATTR_FLAGS_EGRESS flag is set, the qp parameter is used only as a mean to get the device.
 .br
 .PP
 .SH EXAMPLE

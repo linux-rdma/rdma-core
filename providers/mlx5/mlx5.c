@@ -119,16 +119,19 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.close_xrcd = mlx5_close_xrcd,
 	.create_cq_ex = mlx5_create_cq_ex,
 	.create_flow = mlx5_create_flow,
+	.create_flow_action_esp = mlx5_create_flow_action_esp,
 	.create_qp_ex = mlx5_create_qp_ex,
 	.create_rwq_ind_table = mlx5_create_rwq_ind_table,
 	.create_srq_ex = mlx5_create_srq_ex,
 	.create_wq = mlx5_create_wq,
 	.dealloc_td = mlx5_dealloc_td,
 	.destroy_flow = mlx5_destroy_flow,
+	.destroy_flow_action = mlx5_destroy_flow_action,
 	.destroy_rwq_ind_table = mlx5_destroy_rwq_ind_table,
 	.destroy_wq = mlx5_destroy_wq,
 	.get_srq_num = mlx5_get_srq_num,
 	.modify_cq = mlx5_modify_cq,
+	.modify_flow_action_esp = mlx5_modify_flow_action_esp,
 	.modify_qp_rate_limit = mlx5_modify_qp_rate_limit,
 	.modify_wq = mlx5_modify_wq,
 	.open_xrcd = mlx5_open_xrcd,
@@ -709,6 +712,11 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 		}
 	}
 
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS) {
+		attrs_out->flow_action_flags = mctx->flow_action_flags;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS;
+	}
+
 	attrs_out->comp_mask = comp_mask_out;
 
 	return 0;
@@ -1118,6 +1126,8 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	    (resp.clock_info_versions & (1 << MLX5_IB_CLOCK_INFO_V1))) {
 		mlx5_map_clock_info(mdev, &v_ctx->context);
 	}
+
+	context->flow_action_flags = resp.flow_action_flags;
 
 	mlx5_read_env(ibdev, context);
 
