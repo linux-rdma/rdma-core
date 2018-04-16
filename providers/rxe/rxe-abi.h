@@ -68,6 +68,7 @@ struct rxe_create_srq_resp {
 	struct ib_uverbs_create_srq_resp ibv_resp;
 	struct mmap_info mi;
 	__u32 srq_num;
+	__u32 reserved;
 };
 
 struct rxe_modify_srq_cmd {
