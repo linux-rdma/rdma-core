@@ -13,6 +13,7 @@ publish_internal_headers(rdma
   rdma/mlx4-abi.h
   rdma/mlx5-abi.h
   rdma/mlx5_user_ioctl_cmds.h
+  rdma/mlx5_user_ioctl_verbs.h
   rdma/mthca-abi.h
   rdma/nes-abi.h
   rdma/ocrdma-abi.h

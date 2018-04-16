@@ -54,6 +54,7 @@ enum uverbs_default_objects {
 	UVERBS_OBJECT_RWQ_IND_TBL,
 	UVERBS_OBJECT_WQ,
 	UVERBS_OBJECT_FLOW_ACTION,
+	UVERBS_OBJECT_DM,
 };
 
 enum {
@@ -98,6 +99,36 @@ enum uverbs_methods_actions_flow_action_ops {
 	UVERBS_METHOD_FLOW_ACTION_ESP_CREATE,
 	UVERBS_METHOD_FLOW_ACTION_DESTROY,
 	UVERBS_METHOD_FLOW_ACTION_ESP_MODIFY,
+};
+
+enum uverbs_attrs_alloc_dm_cmd_attr_ids {
+	UVERBS_ATTR_ALLOC_DM_HANDLE,
+	UVERBS_ATTR_ALLOC_DM_LENGTH,
+	UVERBS_ATTR_ALLOC_DM_ALIGNMENT,
+};
+
+enum uverbs_attrs_free_dm_cmd_attr_ids {
+	UVERBS_ATTR_FREE_DM_HANDLE,
+};
+
+enum uverbs_methods_dm {
+	UVERBS_METHOD_DM_ALLOC,
+	UVERBS_METHOD_DM_FREE,
+};
+
+enum uverbs_attrs_reg_dm_mr_cmd_attr_ids {
+	UVERBS_ATTR_REG_DM_MR_HANDLE,
+	UVERBS_ATTR_REG_DM_MR_OFFSET,
+	UVERBS_ATTR_REG_DM_MR_LENGTH,
+	UVERBS_ATTR_REG_DM_MR_PD_HANDLE,
+	UVERBS_ATTR_REG_DM_MR_ACCESS_FLAGS,
+	UVERBS_ATTR_REG_DM_MR_DM_HANDLE,
+	UVERBS_ATTR_REG_DM_MR_RESP_LKEY,
+	UVERBS_ATTR_REG_DM_MR_RESP_RKEY,
+};
+
+enum uverbs_methods_mr {
+	UVERBS_METHOD_DM_MR_REG,
 };
 
 #endif
