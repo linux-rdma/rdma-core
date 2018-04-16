@@ -625,7 +625,7 @@ static int mlx5_map_internal_clock(struct mlx5_device *mdev,
 	void *hca_clock_page;
 	off_t offset = 0;
 
-	set_command(MLX5_MMAP_GET_CORE_CLOCK_CMD, &offset);
+	set_command(MLX5_IB_MMAP_CORE_CLOCK, &offset);
 	hca_clock_page = mmap(NULL, mdev->page_size,
 			      PROT_READ, MAP_SHARED, ibv_ctx->cmd_fd,
 			      mdev->page_size * offset);
@@ -649,7 +649,7 @@ static void mlx5_map_clock_info(struct mlx5_device *mdev,
 	void *clock_info_page;
 	off_t offset = 0;
 
-	set_command(MLX5_MMAP_GET_CLOCK_INFO_CMD, &offset);
+	set_command(MLX5_IB_MMAP_CLOCK_INFO, &offset);
 	set_index(MLX5_IB_CLOCK_INFO_V1, &offset);
 	clock_info_page = mmap(NULL, mdev->page_size,
 			       PROT_READ, MAP_SHARED, ibv_ctx->cmd_fd,
@@ -867,7 +867,7 @@ static off_t get_uar_mmap_offset(int idx, int page_size, int command)
 
 	set_command(command, &offset);
 
-	if (command == MLX5_MMAP_ALLOC_WC &&
+	if (command == MLX5_IB_MMAP_ALLOC_WC &&
 	    idx >= (1 << MLX5_IB_MMAP_CMD_SHIFT))
 		set_extended_index(idx, &offset);
 	else
@@ -903,7 +903,7 @@ void *mlx5_mmap(struct mlx5_uar_info *uar, int index, int cmd_fd, int page_size,
 	 */
 	offset = get_uar_mmap_offset(index, page_size,
 				     (uar_type == MLX5_UAR_TYPE_REGULAR_DYN) ?
-				     MLX5_MMAP_ALLOC_WC :
+				     MLX5_IB_MMAP_ALLOC_WC :
 				     MLX5_MMAP_GET_REGULAR_PAGES_CMD);
 	uar->reg = mmap(NULL, page_size, PROT_WRITE, MAP_SHARED,
 			cmd_fd, offset);
