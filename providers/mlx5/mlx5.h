@@ -50,6 +50,7 @@
 
 #define PFX		"mlx5: "
 
+typedef _Atomic(uint32_t) atomic_uint32_t;
 
 enum {
 	MLX5_IB_MMAP_CMD_SHIFT	= 8,
@@ -298,6 +299,8 @@ struct mlx5_context {
 	uint32_t			*count_dyn_bfregs;
 	uint32_t			start_dyn_bfregs_index;
 	uint16_t			flow_action_flags;
+	uint64_t			max_dm_size;
+	uint32_t                        eth_min_inline_size;
 };
 
 struct mlx5_bitmap {
@@ -474,6 +477,13 @@ struct mlx5_bf {
 	uint32_t			bfreg_dyn_index;
 };
 
+struct mlx5_dm {
+	struct verbs_dm			verbs_dm;
+	size_t				length;
+	void			       *mmap_va;
+	void			       *start_va;
+};
+
 struct mlx5_mr {
 	struct ibv_mr			ibv_mr;
 	struct mlx5_buf			buf;
@@ -624,6 +634,11 @@ static inline struct mlx5_qp *to_mqp(struct ibv_qp *ibqp)
 static inline struct mlx5_rwq *to_mrwq(struct ibv_wq *ibwq)
 {
 	return container_of(ibwq, struct mlx5_rwq, wq);
+}
+
+static inline struct mlx5_dm *to_mdm(struct ibv_dm *ibdm)
+{
+	return container_of(ibdm, struct mlx5_dm, verbs_dm.dm);
 }
 
 static inline struct mlx5_mr *to_mmr(struct ibv_mr *ibmr)
@@ -807,6 +822,13 @@ struct ibv_flow_action *mlx5_create_flow_action_esp(struct ibv_context *ctx,
 int mlx5_destroy_flow_action(struct ibv_flow_action *action);
 int mlx5_modify_flow_action_esp(struct ibv_flow_action *action,
 				struct ibv_flow_action_esp_attr *attr);
+
+struct ibv_dm *mlx5_alloc_dm(struct ibv_context *context,
+			     struct ibv_alloc_dm_attr *dm_attr);
+int mlx5_free_dm(struct ibv_dm *ibdm);
+struct ibv_mr *mlx5_reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *ibdm,
+			      uint64_t dm_offset, size_t length,
+			      unsigned int acc);
 
 struct ibv_td *mlx5_alloc_td(struct ibv_context *context, struct ibv_td_init_attr *init_attr);
 int mlx5_dealloc_td(struct ibv_td *td);

@@ -134,6 +134,21 @@ enum ibv_atomic_cap {
 	IBV_ATOMIC_GLOB
 };
 
+struct ibv_alloc_dm_attr {
+	size_t length;
+	uint32_t log_align_req;
+	uint32_t comp_mask;
+};
+
+struct ibv_dm {
+	struct ibv_context *context;
+	int (*memcpy_to_dm)(struct ibv_dm *dm, uint64_t dm_offset,
+			    const void *host_addr, size_t length);
+	int (*memcpy_from_dm)(void *host_addr, struct ibv_dm *dm,
+			      uint64_t dm_offset, size_t length);
+	uint32_t comp_mask;
+};
+
 struct ibv_device_attr {
 	char			fw_ver[64];
 	__be64			node_guid;
@@ -292,6 +307,7 @@ struct ibv_device_attr_ex {
 	uint32_t		raw_packet_caps; /* Use ibv_raw_packet_caps */
 	struct ibv_tm_caps	tm_caps;
 	struct ibv_cq_moderation_caps  cq_mod_caps;
+	uint64_t max_dm_size;
 };
 
 enum ibv_mtu {
@@ -1714,6 +1730,12 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	struct ibv_mr *(*reg_dm_mr)(struct ibv_pd *pd, struct ibv_dm *dm,
+				    uint64_t dm_offset, size_t length,
+				    unsigned int access);
+	struct ibv_dm *(*alloc_dm)(struct ibv_context *context,
+				   struct ibv_alloc_dm_attr *attr);
+	int (*free_dm)(struct ibv_dm *dm);
 	int (*modify_flow_action_esp)(struct ibv_flow_action *action,
 				      struct ibv_flow_action_esp_attr *attr);
 	int (*destroy_flow_action)(struct ibv_flow_action *action);
@@ -2063,6 +2085,84 @@ struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context);
  * ibv_destroy_comp_channel - Destroy a completion event channel
  */
 int ibv_destroy_comp_channel(struct ibv_comp_channel *channel);
+
+/**
+ * ibv_alloc_dm - Allocate device memory
+ * @context - Context DM will be attached to
+ * @attr - Attributes to allocate the DM with
+ */
+static inline
+struct ibv_dm *ibv_alloc_dm(struct ibv_context *context,
+			    struct ibv_alloc_dm_attr *attr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(context, alloc_dm);
+
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+
+	return vctx->alloc_dm(context, attr);
+}
+
+/**
+ * ibv_free_dm - Free device allocated memory
+ * @dm - The DM to free
+ */
+static inline
+int ibv_free_dm(struct ibv_dm *dm)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(dm->context, free_dm);
+
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->free_dm(dm);
+}
+
+/**
+ * ibv_memcpy_to/from_dm - copy to/from device allocated memory
+ * @dm - The DM to copy to/from
+ * @dm_offset - Offset in bytes from beginning of DM to start copy to/form
+ * @host_addr - Host memory address to copy to/from
+ * @length - Number of bytes to copy
+ */
+static inline
+int ibv_memcpy_to_dm(struct ibv_dm *dm, uint64_t dm_offset,
+		     const void *host_addr, size_t length)
+{
+	return dm->memcpy_to_dm(dm, dm_offset, host_addr, length);
+}
+
+static inline
+int ibv_memcpy_from_dm(void *host_addr, struct ibv_dm *dm,
+		       uint64_t dm_offset, size_t length)
+{
+	return dm->memcpy_from_dm(host_addr, dm, dm_offset, length);
+}
+
+/**
+ * ibv_reg_dm_mr - Register device memory as a memory region
+ * @pd - The PD to associated this MR with
+ * @dm - The DM to register
+ * @dm_offset - Offset in bytes from beginning of DM to start registration from
+ * @length - Number of bytes to register
+ * @access - memory region access flags
+ */
+static inline
+struct ibv_mr *ibv_reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *dm,
+			     uint64_t dm_offset,
+			     size_t length, unsigned int access)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(pd->context, reg_dm_mr);
+
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+
+	return vctx->reg_dm_mr(pd, dm, dm_offset, length, access);
+}
 
 /**
  * ibv_create_cq - Create a completion queue

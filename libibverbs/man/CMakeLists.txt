@@ -1,4 +1,5 @@
 rdma_man_pages(
+  ibv_alloc_dm.3
   ibv_alloc_mw.3
   ibv_alloc_parent_domain.3
   ibv_alloc_pd.3
@@ -64,6 +65,10 @@ rdma_man_pages(
   ibv_xsrq_pingpong.1
   )
 rdma_alias_man_pages(
+  ibv_alloc_dm.3 ibv_free_dm.3
+  ibv_alloc_dm.3 ibv_reg_dm_mr.3
+  ibv_alloc_dm.3 ibv_memcpy_to_dm.3
+  ibv_alloc_dm.3 ibv_memcpy_from_dm.3
   ibv_alloc_mw.3 ibv_dealloc_mw.3
   ibv_alloc_pd.3 ibv_dealloc_pd.3
   ibv_alloc_td.3 ibv_dealloc_td.3

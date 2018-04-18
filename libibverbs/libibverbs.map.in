@@ -115,6 +115,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		/* These historical symbols are now private to libibverbs */
 		__ioctl_final_num_attrs;
 		_verbs_init_and_alloc_context;
+		ibv_cmd_alloc_dm;
 		ibv_cmd_alloc_mw;
 		ibv_cmd_alloc_pd;
 		ibv_cmd_attach_mcast;
@@ -143,6 +144,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_destroy_srq;
 		ibv_cmd_destroy_wq;
 		ibv_cmd_detach_mcast;
+		ibv_cmd_free_dm;
 		ibv_cmd_get_context;
 		ibv_cmd_modify_flow_action_esp;
 		ibv_cmd_modify_qp;
@@ -160,6 +162,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_query_port;
 		ibv_cmd_query_qp;
 		ibv_cmd_query_srq;
+		ibv_cmd_reg_dm_mr;
 		ibv_cmd_reg_mr;
 		ibv_cmd_req_notify_cq;
 		ibv_cmd_rereg_mr;

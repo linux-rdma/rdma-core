@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Mellanox Technologies inc.  All rights reserved.
+ * Copyright (c) 2018, Mellanox Technologies inc.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -40,5 +40,9 @@ enum mlx5_ib_create_flow_action_attrs {
 	MLX5_IB_ATTR_CREATE_FLOW_ACTION_FLAGS = (1U << UVERBS_ID_NS_SHIFT),
 };
 
-#endif
+enum mlx5_ib_alloc_dm_attrs {
+	MLX5_IB_ATTR_ALLOC_DM_RESP_START_OFFSET = (1U << UVERBS_ID_NS_SHIFT),
+	MLX5_IB_ATTR_ALLOC_DM_RESP_PAGE_INDEX,
+};
 
+#endif

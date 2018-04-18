@@ -383,7 +383,7 @@ static inline int copy_eth_inline_headers(struct ibv_qp *ibqp,
 					  struct mlx5_wqe_eth_seg *eseg,
 					  struct mlx5_sg_copy_ptr *sg_copy_ptr)
 {
-	uint32_t inl_hdr_size = MLX5_ETH_L2_INLINE_HEADER_SIZE;
+	uint32_t inl_hdr_size = to_mctx(ibqp->context)->eth_min_inline_size;
 	int inl_hdr_copy_size = 0;
 	int j = 0;
 	FILE *fp = to_mctx(ibqp->context)->dbg_fp;
@@ -395,29 +395,31 @@ static inline int copy_eth_inline_headers(struct ibv_qp *ibqp,
 	}
 
 	if (likely(wr->sg_list[0].length >= MLX5_ETH_L2_INLINE_HEADER_SIZE)) {
-		inl_hdr_copy_size = MLX5_ETH_L2_INLINE_HEADER_SIZE;
+		inl_hdr_copy_size = inl_hdr_size;
 		memcpy(eseg->inline_hdr_start,
 		       (void *)(uintptr_t)wr->sg_list[0].addr,
 		       inl_hdr_copy_size);
 	} else {
-		for (j = 0; j < wr->num_sge && inl_hdr_size > 0; ++j) {
+		uint32_t inl_hdr_size_left = inl_hdr_size;
+
+		for (j = 0; j < wr->num_sge && inl_hdr_size_left > 0; ++j) {
 			inl_hdr_copy_size = min(wr->sg_list[j].length,
-						inl_hdr_size);
+						inl_hdr_size_left);
 			memcpy(eseg->inline_hdr_start +
-			       (MLX5_ETH_L2_INLINE_HEADER_SIZE - inl_hdr_size),
+			       (MLX5_ETH_L2_INLINE_HEADER_SIZE - inl_hdr_size_left),
 			       (void *)(uintptr_t)wr->sg_list[j].addr,
 			       inl_hdr_copy_size);
-			inl_hdr_size -= inl_hdr_copy_size;
+			inl_hdr_size_left -= inl_hdr_copy_size;
 		}
-		if (unlikely(inl_hdr_size)) {
+		if (unlikely(inl_hdr_size_left)) {
 			mlx5_dbg(fp, MLX5_DBG_QP_SEND, "Ethernet headers < 16 bytes\n");
 			return EINVAL;
 		}
-		--j;
+		if (j)
+			--j;
 	}
 
-
-	eseg->inline_hdr_sz = htobe16(MLX5_ETH_L2_INLINE_HEADER_SIZE);
+	eseg->inline_hdr_sz = htobe16(inl_hdr_size);
 
 	/* If we copied all the sge into the inline-headers, then we need to
 	 * start copying from the next sge into the data-segment.
@@ -972,7 +974,19 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 					*bad_wr = wr;
 					goto out;
 				}
+
+				/* For TSO WR we always copy at least MLX5_ETH_L2_MIN_HEADER_SIZE
+				 * bytes of inline header which is included in struct mlx5_wqe_eth_seg.
+				 * If additional bytes are copied, 'seg' and 'size' are adjusted
+				 * inside set_tso_eth_seg().
+				 */
+
+				seg += sizeof(struct mlx5_wqe_eth_seg);
+				size += sizeof(struct mlx5_wqe_eth_seg) / 16;
 			} else {
+				uint32_t inl_hdr_size =
+					to_mctx(ibqp->context)->eth_min_inline_size;
+
 				err = copy_eth_inline_headers(ibqp, wr, seg, &sg_copy_ptr);
 				if (unlikely(err)) {
 					*bad_wr = wr;
@@ -981,10 +995,18 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 						 err);
 					goto out;
 				}
-			}
 
-			seg += sizeof(struct mlx5_wqe_eth_seg);
-			size += sizeof(struct mlx5_wqe_eth_seg) / 16;
+				/* The eth segment size depends on the device's min inline
+				 * header requirement which can be 0 or 18. The basic eth segment
+				 * always includes room for first 2 inline header bytes (even if
+				 * copy size is 0) so the additional seg size is adjusted accordingly.
+				 */
+
+				seg += (offsetof(struct mlx5_wqe_eth_seg, inline_hdr) +
+						inl_hdr_size) & ~0xf;
+				size += (offsetof(struct mlx5_wqe_eth_seg, inline_hdr) +
+						inl_hdr_size) >> 4;
+			}
 			break;
 
 		default:

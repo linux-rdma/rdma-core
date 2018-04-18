@@ -262,6 +262,15 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 		}
 	}
 
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, max_dm_size) +
+			sizeof(attr->max_dm_size)) {
+		if (resp->response_length >=
+		    offsetof(struct ib_uverbs_ex_query_device_resp, max_dm_size) +
+		    sizeof(resp->max_dm_size)) {
+			attr->max_dm_size = resp->max_dm_size;
+		}
+	}
+
 	return 0;
 }
 

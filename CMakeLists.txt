@@ -276,6 +276,26 @@ CHECK_C_SOURCE_COMPILES("
 RDMA_DoFixup("${HAVE_GLIBC_UAPI_COMPAT}" "linux/in.h")
 RDMA_DoFixup("${HAVE_GLIBC_UAPI_COMPAT}" "linux/in6.h")
 
+# Check if off_t is 64 bits, eg large file support is enabled
+CHECK_C_SOURCE_COMPILES("
+#include <sys/types.h>
+ #define BUILD_ASSERT_OR_ZERO(cond) (sizeof(char [1 - 2*!(cond)]) - 1)
+ int main(int argc,const char *argv[]) { return BUILD_ASSERT_OR_ZERO(sizeof(off_t) >= 8); }"
+  HAVE_LARGE_FILES)
+
+if (NOT HAVE_LARGE_FILES)
+  CHECK_C_SOURCE_COMPILES("
+#define _FILE_OFFSET_BITS 64
+#include <sys/types.h>
+ #define BUILD_ASSERT_OR_ZERO(cond) (sizeof(char [1 - 2*!(cond)]) - 1)
+ int main(int argc,const char *argv[]) { return BUILD_ASSERT_OR_ZERO(sizeof(off_t) >= 8); }"
+    HAVE_LARGE_FILES2)
+  if (NOT HAVE_LARGE_FILES2)
+    message(FATAL_ERROR "Could not enable large file support")
+  endif()
+  add_definitions("-D_FILE_OFFSET_BITS=64")
+endif()
+
 # Provide a shim if C11 stdatomic.h is not supported.
 if (NOT HAVE_SPARSE)
   CHECK_INCLUDE_FILE("stdatomic.h" HAVE_STDATOMIC)
