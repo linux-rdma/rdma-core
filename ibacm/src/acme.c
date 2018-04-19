@@ -51,7 +51,7 @@ static const char *opts_file = ACM_OPTS_FILE;
 static char *dest_addr;
 static char *src_addr;
 #if IBACM_SERVER_MODE_DEFAULT == IBACM_SERVER_MODE_UNIX
-static const char *svc_arg = IBACM_SERVER_PATH;
+static const char *svc_arg = IBACM_IBACME_SERVER_PATH;
 #else
 static const char *svc_arg = "localhost";
 #endif
@@ -211,6 +211,17 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "server_mode loop\n");
 #else
 	fprintf(f, "server_mode unix\n");
+#endif
+	fprintf(f, "\n");
+	fprintf(f, "# acme_plus_kernel_only:\n");
+	fprintf(f, "# If set to 'true', 'yes' or a non-zero number\n");
+	fprintf(f, "# ibacm will only serve requests originating\n");
+	fprintf(f, "# from the kernel or the ib_acme utility.\n");
+	fprintf(f, "\n");
+#if IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT
+	fprintf(f, "acme_plus_kernel_only yes\n");
+#else
+	fprintf(f, "acme_plus_kernel_only no\n");
 #endif
 	fprintf(f, "\n");
 	fprintf(f, "# timeout:\n");

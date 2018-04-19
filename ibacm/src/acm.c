@@ -221,6 +221,7 @@ static int log_level = 0;
 static char lock_file[128] = IBACM_PID_FILE;
 static short server_port = 6125;
 static int server_mode = IBACM_SERVER_MODE_DEFAULT;
+static int acme_plus_kernel_only = IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT;
 static int support_ips_in_addr_cfg = 0;
 static char prov_lib_path[256] = IBACM_LIB_PATH;
 
@@ -570,15 +571,24 @@ static void acm_init_server(void)
 	}
 
 	if (server_mode != IBACM_SERVER_MODE_UNIX) {
-		f = fopen(IBACM_PORT_FILE, "w");
+		f = fopen(IBACM_IBACME_PORT_FILE, "w");
 		if (f) {
 			fprintf(f, "%hu\n", server_port);
 			fclose(f);
 		} else
 			acm_log(0,
 				"notice - cannot publish ibacm port number\n");
-	} else
+
 		unlink(IBACM_PORT_FILE);
+		if (!acme_plus_kernel_only) {
+			if (symlink(IBACM_PORT_BASE, IBACM_PORT_FILE) != 0)
+				acm_log(0,
+					"notice - can't create port symlink\n");
+		}
+	} else {
+		unlink(IBACM_IBACME_PORT_FILE);
+		unlink(IBACM_PORT_FILE);
+	}
 }
 
 static int acm_listen(void)
@@ -597,9 +607,9 @@ static int acm_listen(void)
 
 	if (server_mode == IBACM_SERVER_MODE_UNIX) {
 		addr.any.sa_family = AF_UNIX;
-		BUILD_ASSERT(sizeof(IBACM_SERVER_PATH)
-			     <= sizeof(addr.unx.sun_path));
-		strcpy(addr.unx.sun_path, IBACM_SERVER_PATH);
+		BUILD_ASSERT(sizeof(IBACM_IBACME_SERVER_PATH) <=
+			     sizeof(addr.unx.sun_path));
+		strcpy(addr.unx.sun_path, IBACM_IBACME_SERVER_PATH);
 
 		listen_socket = socket(AF_UNIX, SOCK_STREAM, 0);
 		if (listen_socket < 0) {
@@ -620,7 +630,19 @@ static int acm_listen(void)
 				addr.unx.sun_path);
 			return saved_errno;
 		}
+
+		unlink(IBACM_SERVER_PATH);
+		if (!acme_plus_kernel_only) {
+			if (symlink(IBACM_SERVER_BASE,
+				    IBACM_SERVER_PATH) != 0) {
+				saved_errno = errno;
+				acm_log(0,
+					"notice - can't create symlink\n");
+				return saved_errno;
+			}
+		}
 	} else {
+		unlink(IBACM_IBACME_SERVER_PATH);
 		unlink(IBACM_SERVER_PATH);
 
 		listen_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -3028,7 +3050,12 @@ static void acm_set_options(void)
 				server_mode = IBACM_SERVER_MODE_LOOP;
 			else
 				server_mode = IBACM_SERVER_MODE_UNIX;
-		} else if (!strcasecmp("provider_lib_path", opt))
+		} else if (!strcasecmp("acme_plus_kernel_only", opt))
+			acme_plus_kernel_only =
+				!strcasecmp(value, "true") ||
+				!strcasecmp(value, "yes") ||
+				strtol(value, NULL, 0);
+		else if (!strcasecmp("provider_lib_path", opt))
 			strcpy(prov_lib_path, value);
 		else if (!strcasecmp("support_ips_in_addr_cfg", opt))
 			support_ips_in_addr_cfg = atoi(value);
@@ -3056,6 +3083,8 @@ static void acm_log_options(void)
 	acm_log(0, "lock file %s\n", lock_file);
 	acm_log(0, "server_port %d\n", server_port);
 	acm_log(0, "server_mode %s\n", server_mode_names[server_mode]);
+	acm_log(0, "acme_plus_kernel_only %s\n",
+		acme_plus_kernel_only ? "yes" : "no");
 	acm_log(0, "timeout %d ms\n", sa.timeout);
 	acm_log(0, "retries %d\n", sa.retries);
 	acm_log(0, "sa depth %d\n", sa.depth);

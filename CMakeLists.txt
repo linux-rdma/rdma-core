@@ -34,6 +34,9 @@
 #      open) Allow incoming connections from any TCP client (internal or external).
 #      loop) Limit incoming connections for server_port to 127.0.0.1.
 #      unix) Use unix-domain sockets, hence limits service to the same machine.
+#  -DIBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT (default 0)
+#      If non-zero, limit incoming requests to kernel or the ib_acme utility
+#      (i.e. do not serve librdmacm requests)
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(rdma-core C)
@@ -476,6 +479,12 @@ elseif ("${IBACM_SERVER_MODE_DEFAULT}" STREQUAL "loop")
   set(IBACM_SERVER_MODE_DEFAULT "IBACM_SERVER_MODE_LOOP")
 else()
   set(IBACM_SERVER_MODE_DEFAULT "IBACM_SERVER_MODE_UNIX")
+endif()
+
+if (IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT)
+  set(IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT 1)
+else()
+  set(IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT 0)
 endif()
 
 configure_file("${BUILDLIB}/config.h.in" "${BUILD_INCLUDE}/config.h" ESCAPE_QUOTES @ONLY)

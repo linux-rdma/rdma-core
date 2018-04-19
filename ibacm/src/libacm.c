@@ -48,7 +48,8 @@ static void acm_set_server_port(void)
 {
 	FILE *f;
 
-	if ((f = fopen(IBACM_PORT_FILE, "r"))) {
+	f = fopen(IBACM_IBACME_PORT_FILE, "r");
+	if (f) {
 		if (fscanf(f, "%hu", (unsigned short *) &server_port) != 1)
 			printf("Failed to read server port\n");
 		fclose(f);
@@ -102,9 +103,9 @@ err1:
 				return errno;
 			}
 		} else {
-			BUILD_ASSERT(sizeof(IBACM_SERVER_PATH) <=
+			BUILD_ASSERT(sizeof(IBACM_IBACME_SERVER_PATH) <=
 				     sizeof(addr.sun_path));
-			strcpy(addr.sun_path, IBACM_SERVER_PATH);
+			strcpy(addr.sun_path, IBACM_IBACME_SERVER_PATH);
 		}
 
 		sock = socket(AF_UNIX, SOCK_STREAM, 0);
