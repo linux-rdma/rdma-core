@@ -118,7 +118,7 @@ static int ucma_set_server_port(void)
 {
 	FILE *f;
 
-	if ((f = fopen(IBACM_PORT_FILE, "r" STREAM_CLOEXEC))) {
+	if ((f = fopen(IBACM_LIBRDMACM_PORT_FILE, "r" STREAM_CLOEXEC))) {
 		if (fscanf(f, "%" SCNu16, &server_port) != 1)
 			server_port = 0;
 		fclose(f);

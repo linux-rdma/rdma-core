@@ -29,6 +29,11 @@
 #  -DIOCTL_MODE=both (default write)
 #      Enable new kABI ioctl() support and support for the legacy write
 #      path. May also be 'ioctl' to disable fallback to write.
+#  -DIBACM_SERVER_IS_LOCAL_DEFAULT (default 0)
+#      If non-zero, limit incoming connections for server_port to 127.0.0.1.
+#  -DIBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT (default 0)
+#      If non-zero, limit incoming requests to kernel or the ib_acme utility
+#      (i.e. do not serve librdmacm requests)
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(rdma-core C)
@@ -481,6 +486,20 @@ elseif ("${IOCTL_MODE}" STREQUAL "")
   set(IOCTL_MODE_NUM 2)
 else()
   message(FATAL_ERROR "-DIOCTL_MODE=${IOCTL_MODE} is not a valid choice")
+endif()
+
+# Configuration defaults
+
+if (IBACM_SERVER_IS_LOCAL_DEFAULT)
+  set(IBACM_SERVER_IS_LOCAL_DEFAULT 1)
+else()
+  set(IBACM_SERVER_IS_LOCAL_DEFAULT 0)
+endif()
+
+if (IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT)
+  set(IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT 1)
+else()
+  set(IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT 0)
 endif()
 
 configure_file("${BUILDLIB}/config.h.in" "${BUILD_INCLUDE}/config.h" ESCAPE_QUOTES @ONLY)
