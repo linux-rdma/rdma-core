@@ -37,9 +37,9 @@ Versions prior to release 18 of the library require **umad_init()** to be
 called prior to using any other library functions. Old versions could return a
 failure code of -1 from **umad_init()**.
 
-For compatibility applications should continue to call **umad_init()**, and
+For compatibility, applications should continue to call **umad_init()**, and
 check the return code, prior to calling other **umad_** functions.  If
-**umad_init()** returns an error then, no further use of the umad library
+**umad_init()** returns an error, then no further use of the umad library
 should be attempted.
 
 # AUTHORS
