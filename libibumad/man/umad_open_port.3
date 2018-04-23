@@ -24,11 +24,12 @@ for details).
 .SH "RETURN VALUE"
 .B umad_open_port()
 returns 0 or an unique positive value of umad device descriptor on success, and a negative value on error as follows:
- -ENODEV IB device can\'t be resolved
- -EINVAL port is not valid (bad
+ -EOPNOTSUPP ABI version doesn\'t match
+ -ENODEV     IB device can\'t be resolved
+ -EINVAL     port is not valid (bad
 .I portnum\fR
 or no umad device)
- -EIO    umad device for this port can\'t be opened
+ -EIO        umad device for this port can\'t be opened
 .SH "SEE ALSO"
 .BR umad_close_port (3),
 .BR umad_get_cas_names (3),
