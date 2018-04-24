@@ -37,7 +37,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <syslog.h>
-#include <sys/errno.h>
+#include <errno.h>
 #include <sys/time.h>
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>

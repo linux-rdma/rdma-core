@@ -34,7 +34,7 @@
 #include <stdio.h>
 #include <syslog.h>
 #include <pthread.h>
-#include <sys/errno.h>
+#include <errno.h>
 #include <infiniband/opcode.h>
 #include <util/compiler.h>
 #include "libcxgb4.h"
