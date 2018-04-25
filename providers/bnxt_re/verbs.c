@@ -342,39 +342,56 @@ static uint8_t bnxt_re_poll_scqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 	return pcqe;
 }
 
+static void bnxt_re_release_srqe(struct bnxt_re_srq *srq, int tag)
+{
+	pthread_spin_lock(&srq->srqq->qlock);
+	srq->srwrid[srq->last_idx].next_idx = tag;
+	srq->last_idx = tag;
+	srq->srwrid[srq->last_idx].next_idx = -1;
+	pthread_spin_unlock(&srq->srqq->qlock);
+}
+
 static int bnxt_re_poll_err_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 				 struct bnxt_re_bcqe *hdr, void *cqe)
 {
-	struct bnxt_re_queue *rq = qp->rqq;
-	struct bnxt_re_wrid *rwrid;
+	struct bnxt_re_queue *rq;
 	struct bnxt_re_cq *rcq;
 	struct bnxt_re_context *cntx;
-	uint32_t head = rq->head;
 	uint8_t status;
 
 	rcq = to_bnxt_re_cq(qp->ibvqp.recv_cq);
 	cntx = to_bnxt_re_context(rcq->ibvcq.context);
 
-	rwrid = &qp->rwrid[head];
+	if (!qp->srq) {
+		rq = qp->rqq;
+		ibvwc->wr_id = qp->rwrid[rq->head].wrid;
+	} else {
+		struct bnxt_re_srq *srq;
+		int tag;
+
+		srq = qp->srq;
+		rq = srq->srqq;
+		tag = le32toh(hdr->qphi_rwrid) & BNXT_RE_BCQE_RWRID_MASK;
+		ibvwc->wr_id = srq->srwrid[tag].wrid;
+		bnxt_re_release_srqe(srq, tag);
+	}
+
 	status = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_STATUS_SHIFT) &
 		  BNXT_RE_BCQE_STATUS_MASK;
 	/* skip h/w flush errors */
 	if (status == BNXT_RE_RSP_ST_HW_FLUSH)
 		return 0;
-	ibvwc->status = bnxt_re_to_ibv_wc_status(status, false);
-	/* TODO: Add SRQ Processing here */
-	if (qp->rqq) {
-		ibvwc->wr_id = rwrid->wrid;
-		ibvwc->qp_num = qp->qpid;
-		ibvwc->opcode = IBV_WC_RECV;
-		ibvwc->byte_len = 0;
-		ibvwc->wc_flags = 0;
-		if (qp->qptyp == IBV_QPT_UD)
-			ibvwc->src_qp = 0;
 
-		bnxt_re_incr_head(qp->rqq);
-		if (qp->qpst != IBV_QPS_ERR)
-			qp->qpst = IBV_QPS_ERR;
+	ibvwc->status = bnxt_re_to_ibv_wc_status(status, false);
+	ibvwc->qp_num = qp->qpid;
+	ibvwc->opcode = IBV_WC_RECV;
+	ibvwc->byte_len = 0;
+	ibvwc->wc_flags = 0;
+	if (qp->qptyp == IBV_QPT_UD)
+		ibvwc->src_qp = 0;
+	bnxt_re_incr_head(rq);
+
+	if (!qp->srq) {
 		pthread_spin_lock(&cntx->fqlock);
 		bnxt_re_fque_add_node(&rcq->rfhead, &qp->rnode);
 		pthread_spin_unlock(&cntx->fqlock);
@@ -402,17 +419,26 @@ static void bnxt_re_poll_success_rcqe(struct bnxt_re_qp *qp,
 				      struct ibv_wc *ibvwc,
 				      struct bnxt_re_bcqe *hdr, void *cqe)
 {
-	struct bnxt_re_queue *rq = qp->rqq;
-	struct bnxt_re_wrid *rwrid;
+	struct bnxt_re_queue *rq;
 	struct bnxt_re_rc_cqe *rcqe;
-	uint32_t head = rq->head;
 	uint8_t flags, is_imm, is_rdma;
 
 	rcqe = cqe;
-	rwrid = &qp->rwrid[head];
+	if (!qp->srq) {
+		rq = qp->rqq;
+		ibvwc->wr_id = qp->rwrid[rq->head].wrid;
+	} else {
+		struct bnxt_re_srq *srq;
+		int tag;
+
+		srq = qp->srq;
+		rq = srq->srqq;
+		tag = le32toh(hdr->qphi_rwrid) & BNXT_RE_BCQE_RWRID_MASK;
+		ibvwc->wr_id = srq->srwrid[tag].wrid;
+		bnxt_re_release_srqe(srq, tag);
+	}
 
 	ibvwc->status = IBV_WC_SUCCESS;
-	ibvwc->wr_id = rwrid->wrid;
 	ibvwc->qp_num = qp->qpid;
 	ibvwc->byte_len = le32toh(rcqe->length);
 	ibvwc->opcode = IBV_WC_RECV;
@@ -420,7 +446,7 @@ static void bnxt_re_poll_success_rcqe(struct bnxt_re_qp *qp,
 	flags = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_FLAGS_SHIFT) &
 		 BNXT_RE_BCQE_FLAGS_MASK;
 	is_imm = (flags & BNXT_RE_RC_FLAGS_IMM_MASK) >>
-		  BNXT_RE_RC_FLAGS_IMM_SHIFT;
+		     BNXT_RE_RC_FLAGS_IMM_SHIFT;
 	is_rdma = (flags & BNXT_RE_RC_FLAGS_RDMA_MASK) >>
 		   BNXT_RE_RC_FLAGS_RDMA_SHIFT;
 	ibvwc->wc_flags = 0;
@@ -524,9 +550,6 @@ static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc)
 			     (uintptr_t)le64toh(rcqe->qp_handle);
 			if (!qp)
 				break; /*stale cqe. should be rung.*/
-			if (qp->srq)
-				goto bail; /*TODO: Add SRQ poll */
-
 			pcqe = bnxt_re_poll_rcqe(qp, wc, cqe, &cnt);
 			break;
 		case BNXT_RE_WC_TYPE_RECV_RAW:
@@ -567,7 +590,7 @@ skipp_real:
 
 	if (hw_polled)
 		bnxt_re_ring_cq_db(cq);
-bail:
+
 	return dqed;
 }
 
@@ -776,9 +799,7 @@ static int bnxt_re_alloc_queue_ptr(struct bnxt_re_qp *qp,
 	qp->sqq = calloc(1, sizeof(struct bnxt_re_queue));
 	if (!qp->sqq)
 		return -ENOMEM;
-	if (attr->srq)
-		qp->srq = NULL;/*TODO: to_bnxt_re_srq(attr->srq);*/
-	else {
+	if (!attr->srq) {
 		qp->rqq = calloc(1, sizeof(struct bnxt_re_queue));
 		if (!qp->rqq) {
 			free(qp->sqq);
@@ -791,10 +812,12 @@ static int bnxt_re_alloc_queue_ptr(struct bnxt_re_qp *qp,
 
 static void bnxt_re_free_queues(struct bnxt_re_qp *qp)
 {
-	if (qp->rwrid)
-		free(qp->rwrid);
-	pthread_spin_destroy(&qp->rqq->qlock);
-	bnxt_re_free_aligned(qp->rqq);
+	if (qp->rqq) {
+		if (qp->rwrid)
+			free(qp->rwrid);
+		pthread_spin_destroy(&qp->rqq->qlock);
+		bnxt_re_free_aligned(qp->rqq);
+	}
 
 	if (qp->swrid)
 		free(qp->swrid);
@@ -910,6 +933,8 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	qp->qpst = IBV_QPS_RESET;
 	qp->scq = to_bnxt_re_cq(attr->send_cq);
 	qp->rcq = to_bnxt_re_cq(attr->recv_cq);
+	if (attr->srq)
+		qp->srq = to_bnxt_re_srq(attr->srq);
 	qp->udpi = &cntx->udpi;
 	/* Save/return the altered Caps. */
 	cap->max_ssge = attr->cap.max_send_sge;
@@ -951,6 +976,7 @@ int bnxt_re_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 				}
 			}
 		}
+
 		if (attr_mask & IBV_QP_SQ_PSN)
 			qp->sq_psn = attr->sq_psn;
 		if (attr_mask & IBV_QP_PATH_MTU)
@@ -1373,32 +1399,219 @@ int bnxt_re_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	return 0;
 }
 
+static void bnxt_re_srq_free_queue_ptr(struct bnxt_re_srq *srq)
+{
+	free(srq->srqq);
+	free(srq);
+}
+
+static struct bnxt_re_srq *bnxt_re_srq_alloc_queue_ptr(void)
+{
+	struct bnxt_re_srq *srq;
+
+	srq = calloc(1, sizeof(struct bnxt_re_srq));
+	if (!srq)
+		return NULL;
+
+	srq->srqq = calloc(1, sizeof(struct bnxt_re_queue));
+	if (!srq->srqq) {
+		free(srq);
+		return NULL;
+	}
+
+	return srq;
+}
+
+static void bnxt_re_srq_free_queue(struct bnxt_re_srq *srq)
+{
+	free(srq->srwrid);
+	pthread_spin_destroy(&srq->srqq->qlock);
+	bnxt_re_free_aligned(srq->srqq);
+}
+
+static int bnxt_re_srq_alloc_queue(struct bnxt_re_srq *srq,
+				   struct ibv_srq_init_attr *attr,
+				   uint32_t pg_size)
+{
+	struct bnxt_re_queue *que;
+	int ret, idx;
+
+	que = srq->srqq;
+	que->depth = roundup_pow_of_two(attr->attr.max_wr + 1);
+	que->diff = que->depth - attr->attr.max_wr;
+	que->stride = bnxt_re_get_srqe_sz();
+	ret = bnxt_re_alloc_aligned(que, pg_size);
+	if (ret)
+		goto bail;
+	pthread_spin_init(&que->qlock, PTHREAD_PROCESS_PRIVATE);
+	/* For SRQ only bnxt_re_wrid.wrid is used. */
+	srq->srwrid = calloc(que->depth, sizeof(struct bnxt_re_wrid));
+	if (!srq->srwrid) {
+		ret = -ENOMEM;
+		goto bail;
+	}
+
+	srq->start_idx = 0;
+	srq->last_idx = que->depth - 1;
+	for (idx = 0; idx < que->depth; idx++)
+		srq->srwrid[idx].next_idx = idx + 1;
+	srq->srwrid[srq->last_idx].next_idx = -1;
+
+	/*TODO: update actual max depth. */
+	return 0;
+bail:
+	bnxt_re_srq_free_queue(srq);
+	return ret;
+}
+
 struct ibv_srq *bnxt_re_create_srq(struct ibv_pd *ibvpd,
 				   struct ibv_srq_init_attr *attr)
 {
+	struct bnxt_re_srq *srq;
+	struct ubnxt_re_srq req;
+	struct ubnxt_re_srq_resp resp;
+	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvpd->context);
+	struct bnxt_re_dev *dev = to_bnxt_re_dev(cntx->ibvctx.context.device);
+	int ret;
+
+	/*TODO: Check max limit on queue depth and sge.*/
+	srq = bnxt_re_srq_alloc_queue_ptr();
+	if (!srq)
+		goto fail;
+
+	if (bnxt_re_srq_alloc_queue(srq, attr, dev->pg_size))
+		goto fail;
+
+	req.srqva = (uintptr_t)srq->srqq->va;
+	req.srq_handle = (uintptr_t)srq;
+	ret = ibv_cmd_create_srq(ibvpd, &srq->ibvsrq, attr,
+				 &req.ibv_cmd, sizeof(req),
+				 &resp.ibv_resp, sizeof(resp));
+	if (ret)
+		goto fail;
+
+	srq->srqid = resp.srqid;
+	srq->udpi = &cntx->udpi;
+	srq->cap.max_wr = srq->srqq->depth;
+	srq->cap.max_sge = attr->attr.max_sge;
+	srq->cap.srq_limit = attr->attr.srq_limit;
+	srq->arm_req = false;
+
+	return &srq->ibvsrq;
+fail:
+	bnxt_re_srq_free_queue_ptr(srq);
 	return NULL;
 }
 
 int bnxt_re_modify_srq(struct ibv_srq *ibvsrq, struct ibv_srq_attr *attr,
-		       int init_attr)
+		       int attr_mask)
 {
-	return -ENOSYS;
+	struct bnxt_re_srq *srq = to_bnxt_re_srq(ibvsrq);
+	struct ibv_modify_srq cmd;
+	int status = 0;
+
+	status =  ibv_cmd_modify_srq(ibvsrq, attr, attr_mask,
+				     &cmd, sizeof(cmd));
+	if (!status && ((attr_mask & IBV_SRQ_LIMIT) &&
+			(srq->cap.srq_limit != attr->srq_limit))) {
+		srq->cap.srq_limit = attr->srq_limit;
+	}
+	srq->arm_req = true;
+	return status;
 }
 
 int bnxt_re_destroy_srq(struct ibv_srq *ibvsrq)
 {
-	return -ENOSYS;
+	struct bnxt_re_srq *srq = to_bnxt_re_srq(ibvsrq);
+	int ret;
+
+	ret = ibv_cmd_destroy_srq(ibvsrq);
+	if (ret)
+		return ret;
+	bnxt_re_srq_free_queue(srq);
+	bnxt_re_srq_free_queue_ptr(srq);
+
+	return 0;
 }
 
 int bnxt_re_query_srq(struct ibv_srq *ibvsrq, struct ibv_srq_attr *attr)
 {
-	return -ENOSYS;
+	struct ibv_query_srq cmd;
+
+	return ibv_cmd_query_srq(ibvsrq, attr, &cmd, sizeof(cmd));
+}
+
+static int bnxt_re_build_srqe(struct bnxt_re_srq *srq,
+			      struct ibv_recv_wr *wr, void *srqe)
+{
+	struct bnxt_re_brqe *hdr = srqe;
+	struct bnxt_re_rqe *rwr;
+	struct bnxt_re_sge *sge;
+	struct bnxt_re_wrid *wrid;
+	int wqe_sz, len, next;
+	uint32_t hdrval = 0;
+
+	rwr = (srqe + sizeof(struct bnxt_re_brqe));
+	sge = (srqe + bnxt_re_get_srqe_hdr_sz());
+	next = srq->start_idx;
+	wrid = &srq->srwrid[next];
+
+	len = bnxt_re_build_sge(sge, wr->sg_list, wr->num_sge, false);
+	hdrval = BNXT_RE_WR_OPCD_RECV;
+	wqe_sz = wr->num_sge + (bnxt_re_get_srqe_hdr_sz() >> 4); /* 16B align */
+	hdrval |= ((wqe_sz & BNXT_RE_HDR_WS_MASK) << BNXT_RE_HDR_WS_SHIFT);
+	hdr->rsv_ws_fl_wt = htole32(hdrval);
+	rwr->wrid = htole32((uint32_t)next);
+
+	/* Fill wrid */
+	wrid->wrid = wr->wr_id;
+	wrid->bytes = len; /* N.A. for RQE */
+	wrid->sig = 0; /* N.A. for RQE */
+
+	return len;
 }
 
 int bnxt_re_post_srq_recv(struct ibv_srq *ibvsrq, struct ibv_recv_wr *wr,
 			  struct ibv_recv_wr **bad)
 {
-	return -ENOSYS;
+	struct bnxt_re_srq *srq = to_bnxt_re_srq(ibvsrq);
+	struct bnxt_re_queue *rq = srq->srqq;
+	void *srqe;
+	int ret, count = 0;
+
+	pthread_spin_lock(&rq->qlock);
+	count = rq->tail > rq->head ? rq->tail - rq->head :
+			   rq->depth - rq->head + rq->tail;
+	while (wr) {
+		if (srq->start_idx == srq->last_idx ||
+		    wr->num_sge > srq->cap.max_sge) {
+			*bad = wr;
+			pthread_spin_unlock(&rq->qlock);
+			return ENOMEM;
+		}
+
+		srqe = (void *) (rq->va + (rq->tail * rq->stride));
+		memset(srqe, 0, bnxt_re_get_srqe_sz());
+		ret = bnxt_re_build_srqe(srq, wr, srqe);
+		if (ret < 0) {
+			pthread_spin_unlock(&rq->qlock);
+			*bad = wr;
+			return ENOMEM;
+		}
+
+		srq->start_idx = srq->srwrid[srq->start_idx].next_idx;
+		bnxt_re_incr_tail(rq);
+		wr = wr->next;
+		bnxt_re_ring_srq_db(srq);
+		count++;
+		if (srq->arm_req == true && count > srq->cap.srq_limit) {
+			srq->arm_req = false;
+			bnxt_re_ring_srq_arm(srq);
+		}
+	}
+	pthread_spin_unlock(&rq->qlock);
+
+	return 0;
 }
 
 struct ibv_ah *bnxt_re_create_ah(struct ibv_pd *ibvpd, struct ibv_ah_attr *attr)
