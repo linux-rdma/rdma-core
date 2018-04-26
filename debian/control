@@ -16,7 +16,7 @@ Build-Depends: cmake (>= 2.8.11),
                pandoc,
                pkg-config,
                python,
-               valgrind [!alpha !armel !hppa !ia64 !m68k !powerpcspe !sh4 !sparc64 !x32]
+               valgrind [!alpha !armel !hppa !ia64 !m68k !powerpcspe !riscv64 !sh4 !sparc64 !x32]
 Standards-Version: 4.1.3
 Vcs-Git: https://github.com/linux-rdma/rdma-core.git
 Vcs-Browser: https://github.com/linux-rdma/rdma-core

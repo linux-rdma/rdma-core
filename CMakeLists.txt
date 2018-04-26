@@ -276,6 +276,13 @@ CHECK_C_SOURCE_COMPILES("
 RDMA_DoFixup("${HAVE_GLIBC_UAPI_COMPAT}" "linux/in.h")
 RDMA_DoFixup("${HAVE_GLIBC_UAPI_COMPAT}" "linux/in6.h")
 
+# The compiler has working -fstrict-aliasing support, old gcc's do not. If
+# broken then globally disable strict aliasing.
+RDMA_Check_Aliasing(HAVE_WORKING_STRICT_ALIASING)
+if (NOT HAVE_WORKING_STRICT_ALIASING)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${NO_STRICT_ALIASING_FLAGS}")
+endif()
+
 # Check if off_t is 64 bits, eg large file support is enabled
 CHECK_C_SOURCE_COMPILES("
 #include <sys/types.h>
@@ -556,6 +563,9 @@ if (NOT HAVE_STDATOMIC)
 endif()
 if (NOT HAVE_STATIC_ASSERT)
   message(STATUS " C11 static_assert NOT available (old compiler)")
+endif()
+if (NOT HAVE_WORKING_STRICT_ALIASING)
+  message(STATUS " Compiler cannot do strict aliasing")
 endif()
 if (NOT HAVE_VALGRIND_MEMCHECK)
   message(STATUS " Valgrind memcheck.h NOT enabled")
