@@ -7,6 +7,6 @@ if [[ $TRAVIS_TAG == v* ]] && [ "$TRAVIS_OS_NAME" = "linux" ]; then
 	# Strip the v from the TRAVIS_TAG for our prefix and output items
 	REL_TAG=`echo $TRAVIS_TAG | sed -e 's/^v//'`
 	git archive --prefix rdma-core-$REL_TAG/ --output rdma-core-$REL_TAG.tar $TRAVIS_TAG
-	tar -rf rdma-core-$REL_TAG.tar build-clang/pandoc-prebuilt/ --xform "s|build-clang/pandoc-prebuilt|rdma-core-$REL_TAG/buildlib/pandoc-prebuilt|g"
+	tar -rf rdma-core-$REL_TAG.tar build/pandoc-prebuilt/ --xform "s|build/pandoc-prebuilt|rdma-core-$REL_TAG/buildlib/pandoc-prebuilt|g"
 	gzip -9 rdma-core-$REL_TAG.tar
 fi
