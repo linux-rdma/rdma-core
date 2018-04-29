@@ -36,6 +36,7 @@
 #include <inttypes.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <netdb.h>
 #include <unistd.h>
 
@@ -122,13 +123,19 @@ static int ucma_set_server_port(void)
 		if (fscanf(f, "%" SCNu16, &server_port) != 1)
 			server_port = 0;
 		fclose(f);
-	}
+	} else
+		server_port = 0;
+
 	return server_port;
 }
 
 void ucma_ib_init(void)
 {
-	struct sockaddr_in addr;
+	union {
+		struct sockaddr any;
+		struct sockaddr_in inet;
+		struct sockaddr_un unx;
+	} addr;
 	static int init;
 	int ret;
 
@@ -139,21 +146,35 @@ void ucma_ib_init(void)
 	if (init)
 		goto unlock;
 
-	if (!ucma_set_server_port())
-		goto out;
+	if (ucma_set_server_port()) {
+		sock = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
+		if (sock < 0)
+			goto out;
 
-	sock = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
-	if (sock < 0)
-		goto out;
+		memset(&addr, 0, sizeof(addr));
+		addr.any.sa_family = AF_INET;
+		addr.inet.sin_addr.s_addr = htobe32(INADDR_LOOPBACK);
+		addr.inet.sin_port = htobe16(server_port);
+		ret = connect(sock, &addr.any, sizeof(addr.inet));
+		if (ret) {
+			close(sock);
+			sock = -1;
+		}
+	} else {
+		sock = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+		if (sock < 0)
+			goto out;
 
-	memset(&addr, 0, sizeof addr);
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = htobe32(INADDR_LOOPBACK);
-	addr.sin_port = htobe16(server_port);
-	ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
-	if (ret) {
-		close(sock);
-		sock = -1;
+		memset(&addr, 0, sizeof(addr));
+		addr.any.sa_family = AF_UNIX;
+		BUILD_ASSERT(sizeof(IBACM_SERVER_PATH) <=
+			     sizeof(addr.unx.sun_path));
+		strcpy(addr.unx.sun_path, IBACM_SERVER_PATH);
+		ret = connect(sock, &addr.any, sizeof(addr.unx));
+		if (ret) {
+			close(sock);
+			sock = -1;
+		}
 	}
 out:
 	init = 1;
