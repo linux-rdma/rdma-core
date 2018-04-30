@@ -1,3 +1,12 @@
+rdma-core (17.1-2) unstable; urgency=medium
+
+  * Support for new architecture riscv64 (Closes: #894995) by
+    - Whitelist (instead of blacklist) architectures that support valgrind
+    - Whitelist (instead of blacklist) coherent DMA supporting architectures
+  * Bump Standards-Version to 4.1.4 (no changes needed)
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Mon, 30 Apr 2018 19:01:44 +0200
+
 rdma-core (17.1-1) unstable; urgency=medium
 
   * New upstream bugfix release.
