@@ -79,8 +79,8 @@ The version number is broken up into three fields:
    ```
 
    We do not expect this value to ever change for our libraries. It indicates
-   the overall ABI, changing it means the library will not dynamically to old
-   programs link anymore.
+   the overall ABI; changing it means the library will not dynamically link
+   to old programs anymore.
 
 - '1' is called the ABI level and is used within the ELF as the last component
    symbol version tag.  This version must be changed every time a new symbol
@@ -112,7 +112,7 @@ must be correctly encoded into the symbol version.
 First, increase the ABI level of the library. It is safe to re-use the ABI
 level for multiple new functions within a single release, but once a release
 is tagged the ABI level becomes *immutable*. The maintainer can provide
-guidence on what ABI level to use for each series.
+guidance on what ABI level to use for each series.
 
 ```diff
  rdma_library(ibumad libibumad.map
