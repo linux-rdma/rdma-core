@@ -207,6 +207,7 @@ struct mlx5_db_page;
 struct mlx5_spinlock {
 	pthread_spinlock_t		lock;
 	int				in_use;
+	int				need_lock;
 };
 
 enum mlx5_uar_type {
@@ -844,7 +845,7 @@ static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 
 static inline int mlx5_spin_lock(struct mlx5_spinlock *lock)
 {
-	if (!mlx5_single_threaded)
+	if (lock->need_lock)
 		return pthread_spin_lock(&lock->lock);
 
 	if (unlikely(lock->in_use)) {
@@ -866,7 +867,7 @@ static inline int mlx5_spin_lock(struct mlx5_spinlock *lock)
 
 static inline int mlx5_spin_unlock(struct mlx5_spinlock *lock)
 {
-	if (!mlx5_single_threaded)
+	if (lock->need_lock)
 		return pthread_spin_unlock(&lock->lock);
 
 	lock->in_use = 0;
@@ -874,9 +875,10 @@ static inline int mlx5_spin_unlock(struct mlx5_spinlock *lock)
 	return 0;
 }
 
-static inline int mlx5_spinlock_init(struct mlx5_spinlock *lock)
+static inline int mlx5_spinlock_init(struct mlx5_spinlock *lock, int need_lock)
 {
 	lock->in_use = 0;
+	lock->need_lock = need_lock;
 	return pthread_spin_init(&lock->lock, PTHREAD_PROCESS_PRIVATE);
 }
 
