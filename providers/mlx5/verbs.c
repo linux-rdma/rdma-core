@@ -907,7 +907,7 @@ struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 	ibsrq = &srq->vsrq.srq;
 
 	memset(&cmd, 0, sizeof cmd);
-	if (mlx5_spinlock_init(&srq->lock, !mlx5_single_threaded)) {
+	if (mlx5_spinlock_init_pd(&srq->lock, pd)) {
 		fprintf(stderr, "%s-%d:\n", __func__, __LINE__);
 		goto err;
 	}
@@ -1751,8 +1751,8 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 
 	mlx5_init_qp_indices(qp);
 
-	if (mlx5_spinlock_init(&qp->sq.lock, !mlx5_single_threaded) ||
-			mlx5_spinlock_init(&qp->rq.lock, !mlx5_single_threaded))
+	if (mlx5_spinlock_init_pd(&qp->sq.lock, attr->pd) ||
+			mlx5_spinlock_init_pd(&qp->rq.lock, attr->pd))
 		goto err_free_qp_buf;
 
 	qp->db = mlx5_alloc_dbrec(ctx);
@@ -2495,7 +2495,7 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 	memset(&cmd, 0, sizeof(cmd));
 	memset(&resp, 0, sizeof(resp));
 
-	if (mlx5_spinlock_init(&msrq->lock, !mlx5_single_threaded)) {
+	if (mlx5_spinlock_init_pd(&msrq->lock, attr->pd)) {
 		fprintf(stderr, "%s-%d:\n", __func__, __LINE__);
 		goto err;
 	}
@@ -2799,7 +2799,7 @@ static struct ibv_wq *create_wq(struct ibv_context *context,
 
 	mlx5_init_rwq_indices(rwq);
 
-	if (mlx5_spinlock_init(&rwq->rq.lock, !mlx5_single_threaded))
+	if (mlx5_spinlock_init_pd(&rwq->rq.lock, attr->pd))
 		goto err_free_rwq_buf;
 
 	rwq->db = mlx5_alloc_dbrec(ctx);

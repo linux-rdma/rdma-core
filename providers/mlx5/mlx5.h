@@ -882,6 +882,20 @@ static inline int mlx5_spinlock_init(struct mlx5_spinlock *lock, int need_lock)
 	return pthread_spin_init(&lock->lock, PTHREAD_PROCESS_PRIVATE);
 }
 
+static inline int mlx5_spinlock_init_pd(struct mlx5_spinlock *lock, struct ibv_pd *pd)
+{
+	struct mlx5_parent_domain *mparent_domain;
+	int thread_safe;
+
+	mparent_domain = to_mparent_domain(pd);
+	if (mparent_domain && mparent_domain->mtd)
+		thread_safe = 1;
+	else
+		thread_safe = mlx5_single_threaded;
+
+	return mlx5_spinlock_init(lock, !thread_safe);
+}
+
 static inline int mlx5_spinlock_destroy(struct mlx5_spinlock *lock)
 {
 	return pthread_spin_destroy(&lock->lock);
