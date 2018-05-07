@@ -1,13 +1,13 @@
 ---
 layout: page
-title: mlx5dv_flow_action_esp(3)
+title: mlx5dv_flow_action_esp
 section: 3
 tagline: Verbs
 ---
 
 # NAME
 
-mlx5dv_flow_action_esp(3) -- Flow action esp for mlx5 provider(3)
+mlx5dv_flow_action_esp - Flow action esp for mlx5 provider
 
 # SYNOPSIS
 

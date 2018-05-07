@@ -1,13 +1,13 @@
 ---
 layout: page
-title: ibv_flow_action_esp(3)
+title: ibv_flow_action_esp
 section: 3
 tagline: Verbs
 ---
 
 # NAME
 
-ibv_flow_action_esp(3) -- Flow action esp for verbs(3)
+ibv_flow_action_esp - Flow action esp for verbs
 
 # SYNOPSIS
 
