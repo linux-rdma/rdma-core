@@ -103,13 +103,14 @@ static struct verbs_context *nes_ualloc_context(struct ibv_device *ibdev,
 	struct ibv_pd *ibv_pd;
 	struct nes_uvcontext *nesvctx;
 	struct nes_get_context cmd;
-	struct nes_ualloc_ucontext_resp resp;
+	struct nes_get_context_resp resp;
 	char value[16];
 	uint32_t nes_drv_opt = 0;
 
 	page_size = sysconf(_SC_PAGESIZE);
 
-	nesvctx = verbs_init_and_alloc_context(ibdev, cmd_fd, nesvctx, ibv_ctx);
+	nesvctx = verbs_init_and_alloc_context(ibdev, cmd_fd, nesvctx, ibv_ctx,
+					       RDMA_DRIVER_NES);
 	if (!nesvctx)
 		return NULL;
 

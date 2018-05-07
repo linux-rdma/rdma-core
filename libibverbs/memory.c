@@ -596,7 +596,7 @@ static int ibv_madvise_range(void *base, size_t size, int advice)
 	int ret = 0;
 	unsigned long range_page_size;
 
-	if (!size)
+	if (!size || !base)
 		return 0;
 
 	if (huge_page_enabled)

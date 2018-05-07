@@ -159,7 +159,7 @@ struct ibv_mr *i40iw_ureg_mr(struct ibv_pd *pd, void *addr, size_t length, int a
 	if (!mr)
 		return NULL;
 
-	cmd.reg_type = I40IW_UMEMREG_TYPE_MEM;
+	cmd.reg_type = IW_MEMREG_TYPE_MEM;
 
 	if (ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr,
 			   access, mr, &cmd.ibv_cmd, sizeof(cmd),
@@ -254,7 +254,7 @@ struct ibv_cq *i40iw_ucreate_cq(struct ibv_context *context, int cqe,
 
 	memset(info.cq_base, 0, totalsize);
 	info.shadow_area = (u64 *)((u8 *)info.cq_base + (cq_pages << 12));
-	reg_mr_cmd.reg_type = I40IW_UMEMREG_TYPE_CQ;
+	reg_mr_cmd.reg_type = IW_MEMREG_TYPE_CQ;
 
 	reg_mr_cmd.cq_pages = cq_pages;
 
@@ -526,7 +526,7 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 	info->rq = &info->sq[sqsize / I40IW_QP_WQE_MIN_SIZE];
 	info->shadow_area = info->rq[rqsize / I40IW_QP_WQE_MIN_SIZE].elem;
 
-	reg_mr_cmd.reg_type = I40IW_UMEMREG_TYPE_QP;
+	reg_mr_cmd.reg_type = IW_MEMREG_TYPE_QP;
 	reg_mr_cmd.sq_pages = sq_pages;
 	reg_mr_cmd.rq_pages = rq_pages;
 
@@ -837,17 +837,15 @@ int i40iw_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr, struct ibv
 			info.op_type = I40IW_OP_TYPE_RDMA_WRITE;
 
 			if (ib_wr->send_flags & IBV_SEND_INLINE) {
-			  info.op.inline_rdma_write.data = (void *)(uintptr_t)ib_wr->sg_list[0].addr;
+				info.op.inline_rdma_write.data = (void *)(uintptr_t)ib_wr->sg_list[0].addr;
 				info.op.inline_rdma_write.len = ib_wr->sg_list[0].length;
 				info.op.inline_rdma_write.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
-				info.op.inline_rdma_write.rem_addr.len = ib_wr->sg_list->length;
 				info.op.inline_rdma_write.rem_addr.stag = ib_wr->wr.rdma.rkey;
 				ret = iwuqp->qp.ops.iw_inline_rdma_write(&iwuqp->qp, &info, false);
 			} else {
 				info.op.rdma_write.lo_sg_list = (void *)ib_wr->sg_list;
 				info.op.rdma_write.num_lo_sges = ib_wr->num_sge;
 				info.op.rdma_write.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
-				info.op.rdma_write.rem_addr.len = ib_wr->sg_list->length;
 				info.op.rdma_write.rem_addr.stag = ib_wr->wr.rdma.rkey;
 				ret = iwuqp->qp.ops.iw_rdma_write(&iwuqp->qp, &info, false);
 			}
@@ -868,7 +866,6 @@ int i40iw_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr, struct ibv
 			info.op_type = I40IW_OP_TYPE_RDMA_READ;
 			info.op.rdma_read.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
 			info.op.rdma_read.rem_addr.stag = ib_wr->wr.rdma.rkey;
-			info.op.rdma_read.rem_addr.len = ib_wr->sg_list->length;
 			info.op.rdma_read.lo_addr.tag_off = ib_wr->sg_list->addr;
 			info.op.rdma_read.lo_addr.stag = ib_wr->sg_list->lkey;
 			info.op.rdma_read.lo_addr.len = ib_wr->sg_list->length;

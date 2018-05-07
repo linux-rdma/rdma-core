@@ -552,7 +552,7 @@ int mlx5_alloc_buf_contig(struct mlx5_context *mctx,
 
 	do {
 		offset = 0;
-		set_command(MLX5_MMAP_GET_CONTIGUOUS_PAGES_CMD, &offset);
+		set_command(MLX5_IB_MMAP_GET_CONTIGUOUS_PAGES, &offset);
 		set_order(block_size_exp, &offset);
 		addr = mmap(NULL , size, PROT_WRITE | PROT_READ, MAP_SHARED,
 			    context->cmd_fd, page_size * offset);

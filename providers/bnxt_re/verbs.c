@@ -81,7 +81,7 @@ int bnxt_re_query_port(struct ibv_context *ibvctx, uint8_t port,
 struct ibv_pd *bnxt_re_alloc_pd(struct ibv_context *ibvctx)
 {
 	struct ibv_alloc_pd cmd;
-	struct bnxt_re_pd_resp resp;
+	struct ubnxt_re_pd_resp resp;
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
 	struct bnxt_re_dev *dev = to_bnxt_re_dev(ibvctx->device);
 	struct bnxt_re_pd *pd;
@@ -93,11 +93,13 @@ struct ibv_pd *bnxt_re_alloc_pd(struct ibv_context *ibvctx)
 
 	memset(&resp, 0, sizeof(resp));
 	if (ibv_cmd_alloc_pd(ibvctx, &pd->ibvpd, &cmd, sizeof(cmd),
-			     &resp.resp, sizeof(resp)))
+			     &resp.ibv_resp, sizeof(resp)))
 		goto out;
 
 	pd->pdid = resp.pdid;
-	dbr = *(uint64_t *)((uint32_t *)&resp + 3);
+	dbr = resp.dbr;
+	static_assert(offsetof(struct ubnxt_re_pd_resp, dbr) == 4 * 3,
+		      "Bad dbr placement");
 
 	/* Map DB page now. */
 	if (!cntx->udpi.dbpage) {
@@ -137,14 +139,14 @@ struct ibv_mr *bnxt_re_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
 {
 	struct bnxt_re_mr *mr;
 	struct ibv_reg_mr cmd;
-	struct bnxt_re_mr_resp resp;
+	struct ubnxt_re_mr_resp resp;
 
 	mr = calloc(1, sizeof(*mr));
 	if (!mr)
 		return NULL;
 
 	if (ibv_cmd_reg_mr(ibvpd, sva, len, (uintptr_t)sva, access, &mr->ibvmr,
-			   &cmd, sizeof(cmd), &resp.resp, sizeof(resp))) {
+			   &cmd, sizeof(cmd), &resp.ibv_resp, sizeof(resp))) {
 		free(mr);
 		return NULL;
 	}
@@ -169,8 +171,8 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 				 struct ibv_comp_channel *channel, int vec)
 {
 	struct bnxt_re_cq *cq;
-	struct bnxt_re_cq_req cmd;
-	struct bnxt_re_cq_resp resp;
+	struct ubnxt_re_cq cmd;
+	struct ubnxt_re_cq_resp resp;
 
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
 	struct bnxt_re_dev *dev = to_bnxt_re_dev(ibvctx->device);
@@ -196,8 +198,8 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 
 	memset(&resp, 0, sizeof(resp));
 	if (ibv_cmd_create_cq(ibvctx, ncqe, channel, vec,
-			      &cq->ibvcq, &cmd.cmd, sizeof(cmd),
-			      &resp.resp, sizeof(resp)))
+			      &cq->ibvcq, &cmd.ibv_cmd, sizeof(cmd),
+			      &resp.ibv_resp, sizeof(resp)))
 		goto cmdfail;
 
 	cq->cqid = resp.cqid;
@@ -873,8 +875,8 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 				 struct ibv_qp_init_attr *attr)
 {
 	struct bnxt_re_qp *qp;
-	struct bnxt_re_qp_req req;
-	struct bnxt_re_qp_resp resp;
+	struct ubnxt_re_qp req;
+	struct ubnxt_re_qp_resp resp;
 	struct bnxt_re_qpcap *cap;
 
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvpd->context);
@@ -898,8 +900,8 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	req.qprva = qp->rqq ? (uintptr_t)qp->rqq->va : 0;
 	req.qp_handle = (uintptr_t)qp;
 
-	if (ibv_cmd_create_qp(ibvpd, &qp->ibvqp, attr, &req.cmd, sizeof(req),
-			      &resp.resp, sizeof(resp))) {
+	if (ibv_cmd_create_qp(ibvpd, &qp->ibvqp, attr, &req.ibv_cmd, sizeof(req),
+			      &resp.ibv_resp, sizeof(resp))) {
 		goto failcmd;
 	}
 
@@ -1422,7 +1424,7 @@ struct ibv_ah *bnxt_re_create_ah(struct ibv_pd *ibvpd, struct ibv_ah_attr *attr)
 		goto failed;
 	}
 	/* read AV ID now. */
-	ah->avid = *(uint32_t *)(uctx->shpg + BNXT_RE_SHPG_AVID_OFFT);
+	ah->avid = *(uint32_t *)(uctx->shpg + BNXT_RE_AVID_OFFT);
 	pthread_mutex_unlock(&uctx->shlock);
 
 	return &ah->ibvah;

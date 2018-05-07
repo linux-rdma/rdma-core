@@ -38,9 +38,12 @@
 #include <stdatomic.h>
 #include <infiniband/verbs.h>
 #include <infiniband/kern-abi.h>
+#include <infiniband/cmd_ioctl.h>
 #include <ccan/list.h>
 #include <config.h>
 #include <stdbool.h>
+#include <rdma/rdma_user_ioctl_cmds.h>
+#include <infiniband/cmd_ioctl.h>
 
 struct verbs_device;
 
@@ -86,6 +89,22 @@ struct verbs_qp {
 	struct ibv_qp		qp;
 	uint32_t		comp_mask;
 	struct verbs_xrcd       *xrcd;
+};
+
+enum ibv_flow_action_type {
+	IBV_FLOW_ACTION_UNSPECIFIED,
+	IBV_FLOW_ACTION_ESP = 1,
+};
+
+struct verbs_flow_action {
+	struct ibv_flow_action		action;
+	uint32_t			handle;
+	enum ibv_flow_action_type	type;
+};
+
+struct verbs_dm {
+	struct ibv_dm		dm;
+	uint32_t		handle;
 };
 
 enum {
@@ -177,6 +196,8 @@ struct verbs_device {
  * Keep sorted.
  */
 struct verbs_context_ops {
+	struct ibv_dm *(*alloc_dm)(struct ibv_context *context,
+				   struct ibv_alloc_dm_attr *attr);
 	struct ibv_mw *(*alloc_mw)(struct ibv_pd *pd, enum ibv_mw_type type);
 	struct ibv_pd *(*alloc_parent_domain)(
 		struct ibv_context *context,
@@ -201,6 +222,8 @@ struct verbs_context_ops {
 		struct ibv_cq_init_attr_ex *init_attr);
 	struct ibv_flow *(*create_flow)(struct ibv_qp *qp,
 					struct ibv_flow_attr *flow_attr);
+	struct ibv_flow_action *(*create_flow_action_esp)(struct ibv_context *context,
+							  struct ibv_flow_action_esp_attr *attr);
 	struct ibv_qp *(*create_qp)(struct ibv_pd *pd,
 				    struct ibv_qp_init_attr *attr);
 	struct ibv_qp *(*create_qp_ex)(
@@ -223,16 +246,22 @@ struct verbs_context_ops {
 	int (*destroy_ah)(struct ibv_ah *ah);
 	int (*destroy_cq)(struct ibv_cq *cq);
 	int (*destroy_flow)(struct ibv_flow *flow);
+	int (*destroy_flow_action)(struct ibv_flow_action *action);
 	int (*destroy_qp)(struct ibv_qp *qp);
 	int (*destroy_rwq_ind_table)(struct ibv_rwq_ind_table *rwq_ind_table);
 	int (*destroy_srq)(struct ibv_srq *srq);
 	int (*destroy_wq)(struct ibv_wq *wq);
 	int (*detach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
 			    uint16_t lid);
+	int (*free_dm)(struct ibv_dm *dm);
 	int (*get_srq_num)(struct ibv_srq *srq, uint32_t *srq_num);
 	int (*modify_cq)(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
+	int (*modify_flow_action_esp)(struct ibv_flow_action *action,
+				      struct ibv_flow_action_esp_attr *attr);
 	int (*modify_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			 int attr_mask);
+	int (*modify_qp_rate_limit)(struct ibv_qp *qp,
+				    struct ibv_qp_rate_limit_attr *attr);
 	int (*modify_srq)(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
 			  int srq_attr_mask);
 	int (*modify_wq)(struct ibv_wq *wq, struct ibv_wq_attr *wq_attr);
@@ -263,6 +292,9 @@ struct verbs_context_ops {
 	int (*query_rt_values)(struct ibv_context *context,
 			       struct ibv_values_ex *values);
 	int (*query_srq)(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
+	struct ibv_mr *(*reg_dm_mr)(struct ibv_pd *pd, struct ibv_dm *dm,
+				    uint64_t dm_offset, size_t length,
+				    unsigned int access);
 	struct ibv_mr *(*reg_mr)(struct ibv_pd *pd, void *addr, size_t length,
 				 int access);
 	int (*req_notify_cq)(struct ibv_cq *cq, int solicited_only);
@@ -300,15 +332,18 @@ void verbs_register_driver(const struct verbs_device_ops *ops);
 
 void *_verbs_init_and_alloc_context(struct ibv_device *device, int cmd_fd,
 				    size_t alloc_size,
-				    struct verbs_context *context_offset);
+				    struct verbs_context *context_offset,
+				    uint32_t driver_id);
 
-#define verbs_init_and_alloc_context(ibdev, cmd_fd, drv_ctx_ptr, ctx_memb)     \
+#define verbs_init_and_alloc_context(ibdev, cmd_fd, drv_ctx_ptr, ctx_memb,     \
+				     driver_id)				       \
 	((typeof(drv_ctx_ptr))_verbs_init_and_alloc_context(                   \
 		ibdev, cmd_fd, sizeof(*drv_ctx_ptr),                           \
-		&((typeof(drv_ctx_ptr))NULL)->ctx_memb))
+		&((typeof(drv_ctx_ptr))NULL)->ctx_memb, (driver_id)))
 
 int verbs_init_context(struct verbs_context *context_ex,
-		       struct ibv_device *device, int cmd_fd);
+		       struct ibv_device *device, int cmd_fd,
+		       uint32_t driver_id);
 void verbs_uninit_context(struct verbs_context *context);
 void verbs_set_ops(struct verbs_context *vctx,
 		   const struct verbs_context_ops *ops);
@@ -324,6 +359,13 @@ int ibv_cmd_query_device(struct ibv_context *context,
 			 struct ibv_device_attr *device_attr,
 			 uint64_t *raw_fw_ver,
 			 struct ibv_query_device *cmd, size_t cmd_size);
+int ibv_cmd_create_flow_action_esp(struct ibv_context *ctx,
+				   struct ibv_flow_action_esp_attr *attr,
+				   struct verbs_flow_action *flow_action,
+				   struct ibv_command_buffer *driver);
+int ibv_cmd_modify_flow_action_esp(struct verbs_flow_action *flow_action,
+				   struct ibv_flow_action_esp_attr *attr,
+				   struct ibv_command_buffer *driver);
 int ibv_cmd_query_device_ex(struct ibv_context *context,
 			    const struct ibv_query_device_ex_input *input,
 			    struct ibv_device_attr_ex *attr, size_t attr_size,
@@ -373,10 +415,8 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 			 struct ibv_cq_init_attr_ex *cq_attr,
 			 struct ibv_cq_ex *cq,
 			 struct ibv_create_cq_ex *cmd,
-			 size_t cmd_core_size,
 			 size_t cmd_size,
 			 struct ib_uverbs_ex_create_cq_resp *resp,
-			 size_t resp_core_size,
 			 size_t resp_size);
 int ibv_cmd_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int ibv_cmd_req_notify_cq(struct ibv_cq *cq, int solicited_only);
@@ -471,6 +511,7 @@ int ibv_cmd_create_wq(struct ibv_context *context,
 		      size_t resp_core_size,
 		      size_t resp_size);
 
+int ibv_cmd_destroy_flow_action(struct verbs_flow_action *action);
 int ibv_cmd_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr,
 		      struct ibv_modify_wq *cmd, size_t cmd_core_size,
 		      size_t cmd_size);
@@ -487,6 +528,15 @@ int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 int ibv_cmd_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table);
 int ibv_dontfork_range(void *base, size_t size);
 int ibv_dofork_range(void *base, size_t size);
+int ibv_cmd_alloc_dm(struct ibv_context *ctx,
+		     const struct ibv_alloc_dm_attr *dm_attr,
+		     struct verbs_dm *dm,
+		     struct ibv_command_buffer *link);
+int ibv_cmd_free_dm(struct verbs_dm *dm);
+int ibv_cmd_reg_dm_mr(struct ibv_pd *pd, struct verbs_dm *dm,
+		      uint64_t offset, size_t length,
+		      unsigned int access, struct ibv_mr *mr,
+		      struct ibv_command_buffer *link);
 
 /*
  * sysfs helper functions
@@ -528,7 +578,7 @@ ibv_check_alloc_parent_domain(struct ibv_parent_domain_init_attr *attr)
 
 /*
  * Initialize the ibv_pd which is being used as a parent_domain. From the
- * perspective of the core code the new ibv_pd is completely interchangable
+ * perspective of the core code the new ibv_pd is completely interchangeable
  * with the passed contained_pd.
  */
 static inline void ibv_initialize_parent_domain(struct ibv_pd *parent_domain,

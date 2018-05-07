@@ -113,23 +113,24 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 						   int cmd_fd)
 {
 	struct ibv_get_context cmd;
-	struct bnxt_re_cntx_resp resp;
+	struct ubnxt_re_cntx_resp resp;
 	struct bnxt_re_dev *dev = to_bnxt_re_dev(vdev);
 	struct bnxt_re_context *cntx;
 
-	cntx = verbs_init_and_alloc_context(vdev, cmd_fd, cntx, ibvctx);
+	cntx = verbs_init_and_alloc_context(vdev, cmd_fd, cntx, ibvctx,
+					    RDMA_DRIVER_BNXT_RE);
 	if (!cntx)
 		return NULL;
 
 	memset(&resp, 0, sizeof(resp));
 	if (ibv_cmd_get_context(&cntx->ibvctx, &cmd, sizeof(cmd),
-				&resp.resp, sizeof(resp)))
+				&resp.ibv_resp, sizeof(resp)))
 		goto failed;
 
 	cntx->dev_id = resp.dev_id;
 	cntx->max_qp = resp.max_qp;
 	dev->pg_size = resp.pg_size;
-	dev->cqe_size = resp.cqe_size;
+	dev->cqe_size = resp.cqe_sz;
 	dev->max_cq_depth = resp.max_cqd;
 	pthread_spin_init(&cntx->fqlock, PTHREAD_PROCESS_PRIVATE);
 	/* mmap shared page. */

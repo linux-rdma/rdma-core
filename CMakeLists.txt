@@ -26,6 +26,17 @@
 #      Do not generate backwards compatibility symbols in the shared
 #      libraries. This may is necessary if using a dynmic linker that does
 #      not support symbol versions, such as uclibc.
+#  -DIOCTL_MODE=both (default write)
+#      Enable new kABI ioctl() support and support for the legacy write
+#      path. May also be 'ioctl' to disable fallback to write.
+#  -DIBACM_SERVER_MODE_DEFAULT (default unix)
+#      Selects how clients can connect to this server:
+#      open) Allow incoming connections from any TCP client (internal or external).
+#      loop) Limit incoming connections for server_port to 127.0.0.1.
+#      unix) Use unix-domain sockets, hence limits service to the same machine.
+#  -DIBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT (default 0)
+#      If non-zero, limit incoming requests to kernel or the ib_acme utility
+#      (i.e. do not serve librdmacm requests)
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(rdma-core C)
@@ -46,11 +57,10 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "17.1")
+set(PACKAGE_VERSION "18.0")
 # When this is changed the values in these files need changing too:
 #   debian/libibverbs1.symbols
-#   libibverbs/libibverbs.map
-set(IBVERBS_PABI_VERSION "17")
+set(IBVERBS_PABI_VERSION "18")
 set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 #-------------------------
@@ -133,6 +143,7 @@ include(RDMA_BuildType)
 include(RDMA_DoFixup)
 include(publish_headers)
 include(rdma_functions)
+include(rdma_man)
 
 if (NOT DEFINED ENABLE_STATIC)
   set(ENABLE_STATIC "OFF" CACHE BOOL "Produce static linking libraries as well as shared libraries.")
@@ -273,6 +284,33 @@ CHECK_C_SOURCE_COMPILES("
 RDMA_DoFixup("${HAVE_GLIBC_UAPI_COMPAT}" "linux/in.h")
 RDMA_DoFixup("${HAVE_GLIBC_UAPI_COMPAT}" "linux/in6.h")
 
+# The compiler has working -fstrict-aliasing support, old gcc's do not. If
+# broken then globally disable strict aliasing.
+RDMA_Check_Aliasing(HAVE_WORKING_STRICT_ALIASING)
+if (NOT HAVE_WORKING_STRICT_ALIASING)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${NO_STRICT_ALIASING_FLAGS}")
+endif()
+
+# Check if off_t is 64 bits, eg large file support is enabled
+CHECK_C_SOURCE_COMPILES("
+#include <sys/types.h>
+ #define BUILD_ASSERT_OR_ZERO(cond) (sizeof(char [1 - 2*!(cond)]) - 1)
+ int main(int argc,const char *argv[]) { return BUILD_ASSERT_OR_ZERO(sizeof(off_t) >= 8); }"
+  HAVE_LARGE_FILES)
+
+if (NOT HAVE_LARGE_FILES)
+  CHECK_C_SOURCE_COMPILES("
+#define _FILE_OFFSET_BITS 64
+#include <sys/types.h>
+ #define BUILD_ASSERT_OR_ZERO(cond) (sizeof(char [1 - 2*!(cond)]) - 1)
+ int main(int argc,const char *argv[]) { return BUILD_ASSERT_OR_ZERO(sizeof(off_t) >= 8); }"
+    HAVE_LARGE_FILES2)
+  if (NOT HAVE_LARGE_FILES2)
+    message(FATAL_ERROR "Could not enable large file support")
+  endif()
+  add_definitions("-D_FILE_OFFSET_BITS=64")
+endif()
+
 # Provide a shim if C11 stdatomic.h is not supported.
 if (NOT HAVE_SPARSE)
   CHECK_INCLUDE_FILE("stdatomic.h" HAVE_STDATOMIC)
@@ -303,7 +341,10 @@ else()
 endif()
 
 # Look for Python
-FIND_PACKAGE (PythonInterp)
+FIND_PACKAGE(PythonInterp REQUIRED)
+
+# Look for pandoc
+FIND_PACKAGE(pandoc)
 
 #-------------------------
 # Find libraries
@@ -402,6 +443,16 @@ if (NOT LIBC_HAS_LIBRT)
   set(RT_LIBRARIES "rt")
 endif()
 
+# Check for static_assert
+CHECK_C_SOURCE_COMPILES("
+#include <assert.h>
+static_assert(1, \"failed\");
+int main(int argc,const char *argv[]) {
+   static_assert(1, \"failed\");
+   return 0;
+};" HAVE_STATIC_ASSERT)
+RDMA_DoFixup("${HAVE_STATIC_ASSERT}" "assert.h")
+
 #-------------------------
 # Final warning flags
 
@@ -433,6 +484,34 @@ RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WREDUNDANT_DECLS "-Wredundant-decls")
 # directory. For developer convenience
 if (NOT ${CMAKE_CURRENT_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
   file(WRITE ${CMAKE_BINARY_DIR}/.gitignore "*")
+endif()
+
+if ("${IOCTL_MODE}" STREQUAL "both")
+  set(IOCTL_MODE_NUM 3)
+elseif ("${IOCTL_MODE}" STREQUAL "write")
+  set(IOCTL_MODE_NUM 2)
+elseif ("${IOCTL_MODE}" STREQUAL "ioctl")
+  set(IOCTL_MODE_NUM 1)
+elseif ("${IOCTL_MODE}" STREQUAL "")
+  set(IOCTL_MODE_NUM 2)
+else()
+  message(FATAL_ERROR "-DIOCTL_MODE=${IOCTL_MODE} is not a valid choice")
+endif()
+
+# Configuration defaults
+
+if ("${IBACM_SERVER_MODE_DEFAULT}" STREQUAL "open")
+  set(IBACM_SERVER_MODE_DEFAULT "IBACM_SERVER_MODE_OPEN")
+elseif ("${IBACM_SERVER_MODE_DEFAULT}" STREQUAL "loop")
+  set(IBACM_SERVER_MODE_DEFAULT "IBACM_SERVER_MODE_LOOP")
+else()
+  set(IBACM_SERVER_MODE_DEFAULT "IBACM_SERVER_MODE_UNIX")
+endif()
+
+if (IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT)
+  set(IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT 1)
+else()
+  set(IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT 0)
 endif()
 
 configure_file("${BUILDLIB}/config.h.in" "${BUILD_INCLUDE}/config.h" ESCAPE_QUOTES @ONLY)
@@ -506,6 +585,12 @@ endif()
 if (NOT HAVE_STDATOMIC)
   message(STATUS " C11 stdatomic.h NOT available (old compiler)")
 endif()
+if (NOT HAVE_STATIC_ASSERT)
+  message(STATUS " C11 static_assert NOT available (old compiler)")
+endif()
+if (NOT HAVE_WORKING_STRICT_ALIASING)
+  message(STATUS " Compiler cannot do strict aliasing")
+endif()
 if (NOT HAVE_VALGRIND_MEMCHECK)
   message(STATUS " Valgrind memcheck.h NOT enabled")
 endif()
@@ -520,6 +605,13 @@ if (NL_KIND EQUAL 0)
 else()
   if (NOT HAVE_WORKING_IF_H)
     message(STATUS " netlink/route/link.h and net/if.h NOT co-includable (old headers)")
+  endif()
+endif()
+if (NOT PANDOC_FOUND)
+  if (NOT EXISTS "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt")
+    message(STATUS " pandoc NOT found and NO prebuilt man pages. 'install' disabled")
+  else()
+    message(STATUS " pandoc NOT found (using prebuilt man pages)")
   endif()
 endif()
 if (NOT SYSTEMD_FOUND)

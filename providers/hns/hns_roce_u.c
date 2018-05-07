@@ -71,7 +71,8 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	struct hns_roce_alloc_ucontext_resp resp;
 	struct hns_roce_device *hr_dev = to_hr_dev(ibdev);
 
-	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
+					       RDMA_DRIVER_HNS);
 	if (!context)
 		return NULL;
 

@@ -399,7 +399,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			  struct ibv_recv_wr **bad_wr);
 void mlx4_calc_sq_wqe_size(struct ibv_qp_cap *cap, enum ibv_qp_type type,
-			   struct mlx4_qp *qp);
+			   struct mlx4_qp *qp, struct ibv_qp_init_attr_ex *attr);
 int mlx4_alloc_qp_buf(struct ibv_context *context, uint32_t max_recv_sge,
 		       enum ibv_qp_type type, struct mlx4_qp *qp,
 		       struct mlx4dv_qp_init_attr *mlx4qp_attr);

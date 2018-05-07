@@ -1,5 +1,5 @@
 Name: rdma-core
-Version: 17.1
+Version: 18.0
 Release: 1%{?dist}
 Summary: RDMA core userspace libraries and daemons
 
@@ -43,6 +43,11 @@ BuildRequires: ninja-build
 BuildRequires: make
 %define make_jobs make -v %{?_smp_mflags}
 %define cmake_install DESTDIR=%{buildroot} make install
+%endif
+
+%if 0%{?fedora} >= 25
+# pandoc was introduced in FC25
+BuildRequires: pandoc
 %endif
 
 %description

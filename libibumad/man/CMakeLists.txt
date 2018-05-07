@@ -15,7 +15,7 @@ rdma_man_pages(
   umad_get_mad_addr.3
   umad_get_pkey.3
   umad_get_port.3
-  umad_init.3
+  umad_init.3.md
   umad_open_port.3
   umad_poll.3
   umad_recv.3

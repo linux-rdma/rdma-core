@@ -58,7 +58,7 @@
 #include <ccan/minmax.h>
 #include <util/compiler.h>
 
-#include "pvrdma-abi-fix.h"
+#include "pvrdma-abi.h"
 #include "pvrdma_ring.h"
 
 #define PFX "pvrdma: "

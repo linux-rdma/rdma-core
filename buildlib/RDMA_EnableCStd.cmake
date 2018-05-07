@@ -57,3 +57,31 @@ function(RDMA_EnableCStd)
     set(CMAKE_C_STANDARD 11 PARENT_SCOPE)
   endif()
 endfunction()
+
+function(RDMA_Check_Aliasing TO_VAR)
+  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2")
+  CHECK_C_SOURCE_COMPILES("
+struct in6_addr {unsigned int u6_addr32[4];};
+struct iphdr {unsigned int daddr;};
+union ibv_gid {unsigned char raw[16];};
+
+static void map_ipv4_addr_to_ipv6(struct in6_addr *ipv6) {ipv6->u6_addr32[0] = 0;}
+static int set_ah_attr_by_ipv4(struct iphdr *ip4h)
+{
+	union ibv_gid sgid = {};
+	map_ipv4_addr_to_ipv6((struct in6_addr *)&sgid);
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	struct in6_addr a;
+	struct iphdr h = {};
+	map_ipv4_addr_to_ipv6(&a);
+	return set_ah_attr_by_ipv4(&h);
+}"
+    HAVE_WORKING_STRICT_ALIASING
+    FAIL_REGEX "warning")
+
+  set(${TO_VAR} "${HAVE_WORKING_STRICT_ALIASING}" PARENT_SCOPE)
+endfunction()

@@ -171,13 +171,14 @@ static struct verbs_context *mlx4_alloc_context(struct ibv_device *ibdev,
 	struct ibv_get_context		cmd;
 	struct mlx4_alloc_ucontext_resp resp;
 	int				i;
-	struct mlx4_alloc_ucontext_resp_v3 resp_v3;
+	struct mlx4_alloc_ucontext_v3_resp resp_v3;
 	__u16				bf_reg_size;
 	struct mlx4_device              *dev = to_mdev(ibdev);
 	struct verbs_context		*verbs_ctx;
 	struct ibv_device_attr_ex	dev_attrs;
 
-	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
+					       RDMA_DRIVER_MLX4);
 	if (!context)
 		return NULL;
 
@@ -199,7 +200,7 @@ static struct verbs_context *mlx4_alloc_context(struct ibv_device *ibdev,
 
 		context->num_qps  = resp.qp_tab_size;
 		bf_reg_size	  = resp.bf_reg_size;
-		if (resp.dev_caps & MLX4_USER_DEV_CAP_64B_CQE)
+		if (resp.dev_caps & MLX4_USER_DEV_CAP_LARGE_CQE)
 			context->cqe_size = resp.cqe_size;
 		else
 			context->cqe_size = sizeof (struct mlx4_cqe);

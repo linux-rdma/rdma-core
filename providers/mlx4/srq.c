@@ -234,7 +234,7 @@ struct ibv_srq *mlx4_create_xrc_srq(struct ibv_context *context,
 				    struct ibv_srq_init_attr_ex *attr_ex)
 {
 	struct mlx4_create_xsrq cmd;
-	struct mlx4_create_srq_resp resp;
+	struct mlx4_create_xsrq_resp resp;
 	struct mlx4_srq *srq;
 	int ret;
 

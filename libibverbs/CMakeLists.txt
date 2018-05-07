@@ -4,10 +4,13 @@ publish_headers(infiniband
   sa-kern-abi.h
   sa.h
   verbs.h
+  verbs_api.h
   tm_types.h
   )
 
 publish_internal_headers(infiniband
+  cmd_ioctl.h
+  cmd_write.h
   driver.h
   kern-abi.h
   marshall.h
@@ -26,6 +29,11 @@ rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   # See Documentation/versioning.md
   1 1.1.${PACKAGE_VERSION}
   cmd.c
+  cmd_cq.c
+  cmd_dm.c
+  cmd_fallback.c
+  cmd_flow_action.c
+  cmd_ioctl.c
   compat-1_0.c
   device.c
   dummy_ops.c
@@ -41,4 +49,5 @@ target_link_libraries(ibverbs LINK_PRIVATE
   ${NL_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
   ${CMAKE_DL_LIBS}
+  kern-abi
   )

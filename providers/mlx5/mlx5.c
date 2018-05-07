@@ -46,6 +46,7 @@
 
 #include "mlx5.h"
 #include "mlx5-abi.h"
+#include "wqe.h"
 
 #ifndef PCI_VENDOR_ID_MELLANOX
 #define PCI_VENDOR_ID_MELLANOX			0x15b3
@@ -114,26 +115,33 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.attach_mcast  = mlx5_attach_mcast,
 	.detach_mcast  = mlx5_detach_mcast,
 
+	.alloc_dm = mlx5_alloc_dm,
 	.alloc_parent_domain = mlx5_alloc_parent_domain,
 	.alloc_td = mlx5_alloc_td,
 	.close_xrcd = mlx5_close_xrcd,
 	.create_cq_ex = mlx5_create_cq_ex,
 	.create_flow = mlx5_create_flow,
+	.create_flow_action_esp = mlx5_create_flow_action_esp,
 	.create_qp_ex = mlx5_create_qp_ex,
 	.create_rwq_ind_table = mlx5_create_rwq_ind_table,
 	.create_srq_ex = mlx5_create_srq_ex,
 	.create_wq = mlx5_create_wq,
 	.dealloc_td = mlx5_dealloc_td,
 	.destroy_flow = mlx5_destroy_flow,
+	.destroy_flow_action = mlx5_destroy_flow_action,
 	.destroy_rwq_ind_table = mlx5_destroy_rwq_ind_table,
 	.destroy_wq = mlx5_destroy_wq,
+	.free_dm = mlx5_free_dm,
 	.get_srq_num = mlx5_get_srq_num,
 	.modify_cq = mlx5_modify_cq,
+	.modify_flow_action_esp = mlx5_modify_flow_action_esp,
+	.modify_qp_rate_limit = mlx5_modify_qp_rate_limit,
 	.modify_wq = mlx5_modify_wq,
 	.open_xrcd = mlx5_open_xrcd,
 	.post_srq_ops = mlx5_post_srq_ops,
 	.query_device_ex = mlx5_query_device_ex,
 	.query_rt_values = mlx5_query_rt_values,
+	.reg_dm_mr = mlx5_reg_dm_mr,
 };
 
 static const struct verbs_context_ops mlx5_ctx_cqev1_ops = {
@@ -576,7 +584,7 @@ static int mlx5_cmd_get_context(struct mlx5_context *context,
 {
 	struct verbs_context *verbs_ctx = &context->ibv_ctx;
 
-	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_req,
+	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
 				 req_len, &resp->ibv_resp, resp_len))
 		return 0;
 
@@ -599,14 +607,14 @@ static int mlx5_cmd_get_context(struct mlx5_context *context,
 	 * to do so. If zero is a valid response, we will add a new
 	 * field that indicates whether the request was handled.
 	 */
-	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_req,
+	if (!ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
 				 offsetof(struct mlx5_alloc_ucontext, lib_caps),
 				 &resp->ibv_resp, resp_len))
 		return 0;
 
-	return ibv_cmd_get_context(verbs_ctx, &req->ibv_req,
+	return ibv_cmd_get_context(verbs_ctx, &req->ibv_cmd,
 				   offsetof(struct mlx5_alloc_ucontext,
-					    cqe_version),
+					    max_cqe_version),
 				   &resp->ibv_resp, resp_len);
 }
 
@@ -617,7 +625,7 @@ static int mlx5_map_internal_clock(struct mlx5_device *mdev,
 	void *hca_clock_page;
 	off_t offset = 0;
 
-	set_command(MLX5_MMAP_GET_CORE_CLOCK_CMD, &offset);
+	set_command(MLX5_IB_MMAP_CORE_CLOCK, &offset);
 	hca_clock_page = mmap(NULL, mdev->page_size,
 			      PROT_READ, MAP_SHARED, ibv_ctx->cmd_fd,
 			      mdev->page_size * offset);
@@ -641,7 +649,7 @@ static void mlx5_map_clock_info(struct mlx5_device *mdev,
 	void *clock_info_page;
 	off_t offset = 0;
 
-	set_command(MLX5_MMAP_GET_CLOCK_INFO_CMD, &offset);
+	set_command(MLX5_IB_MMAP_CLOCK_INFO, &offset);
 	set_index(MLX5_IB_CLOCK_INFO_V1, &offset);
 	clock_info_page = mmap(NULL, mdev->page_size,
 			       PROT_READ, MAP_SHARED, ibv_ctx->cmd_fd,
@@ -706,6 +714,11 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 					mctx->clock_info_page->overflow_period;
 			comp_mask_out |= MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE;
 		}
+	}
+
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS) {
+		attrs_out->flow_action_flags = mctx->flow_action_flags;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS;
 	}
 
 	attrs_out->comp_mask = comp_mask_out;
@@ -800,6 +813,18 @@ static int mlx5dv_get_srq(struct ibv_srq *srq_in,
 	return 0;
 }
 
+static int mlx5dv_get_dm(struct ibv_dm *dm_in,
+			  struct mlx5dv_dm *dm_out)
+{
+	struct mlx5_dm *mdm = to_mdm(dm_in);
+
+	dm_out->comp_mask = 0;
+	dm_out->buf       = mdm->start_va;
+	dm_out->length    = mdm->length;
+
+	return 0;
+}
+
 LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
 		   int,
 		   struct mlx5dv_obj *obj, uint64_t obj_type)
@@ -814,6 +839,8 @@ LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
 		ret = mlx5dv_get_srq(obj->srq.in, obj->srq.out);
 	if (!ret && (obj_type & MLX5DV_OBJ_RWQ))
 		ret = mlx5dv_get_rwq(obj->rwq.in, obj->rwq.out);
+	if (!ret && (obj_type & MLX5DV_OBJ_DM))
+		ret = mlx5dv_get_dm(obj->dm.in, obj->dm.out);
 
 	return ret;
 }
@@ -840,7 +867,7 @@ static off_t get_uar_mmap_offset(int idx, int page_size, int command)
 
 	set_command(command, &offset);
 
-	if (command == MLX5_MMAP_ALLOC_WC &&
+	if (command == MLX5_IB_MMAP_ALLOC_WC &&
 	    idx >= (1 << MLX5_IB_MMAP_CMD_SHIFT))
 		set_extended_index(idx, &offset);
 	else
@@ -876,7 +903,7 @@ void *mlx5_mmap(struct mlx5_uar_info *uar, int index, int cmd_fd, int page_size,
 	 */
 	offset = get_uar_mmap_offset(index, page_size,
 				     (uar_type == MLX5_UAR_TYPE_REGULAR_DYN) ?
-				     MLX5_MMAP_ALLOC_WC :
+				     MLX5_IB_MMAP_ALLOC_WC :
 				     MLX5_MMAP_GET_REGULAR_PAGES_CMD);
 	uar->reg = mmap(NULL, page_size, PROT_WRITE, MAP_SHARED,
 			cmd_fd, offset);
@@ -903,8 +930,6 @@ int mlx5dv_set_context_attr(struct ibv_context *ibv_ctx,
 	return 0;
 }
 
-typedef _Atomic(uint32_t) atomic_uint32_t;
-
 int mlx5dv_get_clock_info(struct ibv_context *ctx_in,
 			  struct mlx5dv_clock_info *clock_info)
 {
@@ -916,7 +941,7 @@ int mlx5dv_get_clock_info(struct ibv_context *ctx_in,
 	if (!ci)
 		return EINVAL;
 
-	sig = (atomic_uint32_t *)&ci->sig;
+	sig = (atomic_uint32_t *)&ci->sign;
 
 	do {
 		retry = 10;
@@ -929,7 +954,7 @@ repeat:
 			return EBUSY;
 		}
 		clock_info->nsec   = ci->nsec;
-		clock_info->last_cycles = ci->last_cycles;
+		clock_info->last_cycles = ci->cycles;
 		clock_info->frac   = ci->frac;
 		clock_info->mult   = ci->mult;
 		clock_info->shift  = ci->shift;
@@ -974,7 +999,8 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	int				bfi;
 	int				num_sys_page_map;
 
-	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
+					       RDMA_DRIVER_MLX5);
 	if (!context)
 		return NULL;
 
@@ -1008,9 +1034,9 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
 
-	req.total_num_uuars = tot_uuars;
-	req.num_low_latency_uuars = low_lat_uuars;
-	req.cqe_version = MLX5_CQE_VERSION_V1;
+	req.total_num_bfregs = tot_uuars;
+	req.num_low_latency_bfregs = low_lat_uuars;
+	req.max_cqe_version = MLX5_CQE_VERSION_V1;
 	req.lib_caps |= MLX5_LIB_CAP_4K_UAR;
 
 	if (mlx5_cmd_get_context(context, &req, sizeof(req), &resp,
@@ -1019,7 +1045,7 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 
 	context->max_num_qps		= resp.qp_tab_size;
 	context->bf_reg_size		= resp.bf_reg_size;
-	context->tot_uuars		= resp.tot_uuars;
+	context->tot_uuars		= resp.tot_bfregs;
 	context->low_lat_uuars		= low_lat_uuars;
 	context->cache_line_size	= resp.cache_line_size;
 	context->max_sq_desc_sz = resp.max_sq_desc_sz;
@@ -1054,6 +1080,12 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	context->cmds_supp_uhw = resp.cmds_supp_uhw;
 	context->vendor_cap_flags = 0;
 	context->start_dyn_bfregs_index = gross_uuars;
+
+	if (resp.eth_min_inline)
+		context->eth_min_inline_size = (resp.eth_min_inline == MLX5_USER_INLINE_MODE_NONE) ?
+						0 : MLX5_ETH_L2_INLINE_HEADER_SIZE;
+	else
+		context->eth_min_inline_size = MLX5_ETH_L2_INLINE_HEADER_SIZE;
 
 	pthread_mutex_init(&context->qp_table_mutex, NULL);
 	pthread_mutex_init(&context->srq_table_mutex, NULL);
@@ -1117,6 +1149,8 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 		mlx5_map_clock_info(mdev, &v_ctx->context);
 	}
 
+	context->flow_action_flags = resp.flow_action_flags;
+
 	mlx5_read_env(ibdev, context);
 
 	mlx5_spinlock_init(&context->hugetlb_lock);
@@ -1137,6 +1171,7 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 			device_attr.orig_attr.device_cap_flags;
 		context->atomic_cap = device_attr.orig_attr.atomic_cap;
 		context->cached_tso_caps = device_attr.tso_caps;
+		context->max_dm_size = device_attr.max_dm_size;
 	}
 
 	for (j = 0; j < min(MLX5_MAX_PORTS_NUM, context->num_ports); ++j) {

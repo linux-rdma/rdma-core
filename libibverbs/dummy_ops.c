@@ -33,6 +33,13 @@
 #include "ibverbs.h"
 #include <errno.h>
 
+static struct ibv_dm *alloc_dm(struct ibv_context *context,
+			       struct ibv_alloc_dm_attr *attr)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
 static struct ibv_mw *alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
 {
 	errno = ENOSYS;
@@ -108,6 +115,13 @@ static struct ibv_cq_ex *create_cq_ex(struct ibv_context *context,
 
 static struct ibv_flow *create_flow(struct ibv_qp *qp,
 				    struct ibv_flow_attr *flow_attr)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
+static struct ibv_flow_action *create_flow_action_esp(struct ibv_context *context,
+						      struct ibv_flow_action_esp_attr *attr)
 {
 	errno = ENOSYS;
 	return NULL;
@@ -192,6 +206,11 @@ static int destroy_flow(struct ibv_flow *flow)
 	return ENOSYS;
 }
 
+static int destroy_flow_action(struct ibv_flow_action *action)
+{
+	return ENOSYS;
+}
+
 static int destroy_qp(struct ibv_qp *qp)
 {
 	return ENOSYS;
@@ -218,6 +237,11 @@ static int detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 	return ENOSYS;
 }
 
+static int free_dm(struct ibv_dm *dm)
+{
+	return ENOSYS;
+}
+
 static int get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 {
 	return ENOSYS;
@@ -228,7 +252,19 @@ static int modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr)
 	return ENOSYS;
 }
 
+static int modify_flow_action_esp(struct ibv_flow_action *action,
+				  struct ibv_flow_action_esp_attr *attr)
+{
+	return ENOSYS;
+}
+
 static int modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
+{
+	return ENOSYS;
+}
+
+static int modify_qp_rate_limit(struct ibv_qp *qp,
+				struct ibv_qp_rate_limit_attr *attr)
 {
 	return ENOSYS;
 }
@@ -323,6 +359,14 @@ static int query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
 	return ENOSYS;
 }
 
+static struct ibv_mr *reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *dm,
+				uint64_t dm_offset, size_t length,
+				unsigned int access)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
 static struct ibv_mr *reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			     int access)
 {
@@ -359,6 +403,7 @@ static int resize_cq(struct ibv_cq *cq, int cqe)
  * Keep sorted.
  */
 const struct verbs_context_ops verbs_dummy_ops = {
+	alloc_dm,
 	alloc_mw,
 	alloc_parent_domain,
 	alloc_pd,
@@ -372,6 +417,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	create_cq,
 	create_cq_ex,
 	create_flow,
+	create_flow_action_esp,
 	create_qp,
 	create_qp_ex,
 	create_rwq_ind_table,
@@ -385,14 +431,18 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	destroy_ah,
 	destroy_cq,
 	destroy_flow,
+	destroy_flow_action,
 	destroy_qp,
 	destroy_rwq_ind_table,
 	destroy_srq,
 	destroy_wq,
 	detach_mcast,
+	free_dm,
 	get_srq_num,
 	modify_cq,
+	modify_flow_action_esp,
 	modify_qp,
+	modify_qp_rate_limit,
 	modify_srq,
 	modify_wq,
 	open_qp,
@@ -408,6 +458,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	query_qp,
 	query_rt_values,
 	query_srq,
+	reg_dm_mr,
 	reg_mr,
 	req_notify_cq,
 	rereg_mr,
@@ -436,6 +487,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 			(ptr)->iname = ops->name;                              \
 	} while (0)
 
+	SET_OP(vctx, alloc_dm);
 	SET_OP(ctx, alloc_mw);
 	SET_OP(ctx, alloc_pd);
 	SET_OP(vctx, alloc_parent_domain);
@@ -449,6 +501,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, create_cq);
 	SET_OP(vctx, create_cq_ex);
 	SET_OP2(vctx, ibv_create_flow, create_flow);
+	SET_OP(vctx, create_flow_action_esp);
 	SET_OP(ctx, create_qp);
 	SET_OP(vctx, create_qp_ex);
 	SET_OP(vctx, create_rwq_ind_table);
@@ -462,14 +515,18 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, destroy_ah);
 	SET_OP(ctx, destroy_cq);
 	SET_OP2(vctx, ibv_destroy_flow, destroy_flow);
+	SET_OP(vctx, destroy_flow_action);
 	SET_OP(ctx, destroy_qp);
 	SET_OP(vctx, destroy_rwq_ind_table);
 	SET_OP(ctx, destroy_srq);
 	SET_OP(vctx, destroy_wq);
 	SET_OP(ctx, detach_mcast);
+	SET_OP(vctx, free_dm);
 	SET_OP(vctx, get_srq_num);
 	SET_OP(vctx, modify_cq);
+	SET_OP(vctx, modify_flow_action_esp);
 	SET_OP(ctx, modify_qp);
+	SET_OP(vctx, modify_qp_rate_limit);
 	SET_OP(ctx, modify_srq);
 	SET_OP(vctx, modify_wq);
 	SET_OP(vctx, open_qp);
@@ -485,6 +542,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, query_qp);
 	SET_OP(vctx, query_rt_values);
 	SET_OP(ctx, query_srq);
+	SET_OP(vctx, reg_dm_mr);
 	SET_OP(ctx, reg_mr);
 	SET_OP(ctx, req_notify_cq);
 	SET_OP(ctx, rereg_mr);

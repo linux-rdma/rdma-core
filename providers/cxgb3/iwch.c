@@ -122,10 +122,11 @@ static struct verbs_context *iwch_alloc_context(struct ibv_device *ibdev,
 {
 	struct iwch_context *context;
 	struct ibv_get_context cmd;
-	struct iwch_alloc_ucontext_resp resp;
+	struct uiwch_alloc_ucontext_resp resp;
 	struct iwch_device *rhp = to_iwch_dev(ibdev);
 
-	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
+					       RDMA_DRIVER_CXGB3);
 	if (!context)
 		return NULL;
 

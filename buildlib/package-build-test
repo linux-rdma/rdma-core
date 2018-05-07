@@ -11,11 +11,11 @@ if [ -e "/.dockerenv" ] || (grep -q docker /proc/self/cgroup &>/dev/null); then
        exit 0
 fi
 
-for OS in centos7 tumbleweed
+for OS in centos7
 do
 	echo
 	echo "Checking package build for ${OS} ...."
 	echo
 	buildlib/cbuild build-images ${OS}
-	buildlib/cbuild pkg ${OS}
+	buildlib/cbuild pkg --use-prebuilt-pandoc ${OS}
 done

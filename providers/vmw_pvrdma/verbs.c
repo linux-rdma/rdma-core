@@ -93,7 +93,7 @@ struct ibv_pd *pvrdma_alloc_pd(struct ibv_context *context)
 		return NULL;
 	}
 
-	pd->pdn = resp.udata.pdn;
+	pd->pdn = resp.pdn;
 
 	return &pd->ibv_pd;
 }
