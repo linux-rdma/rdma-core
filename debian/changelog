@@ -1,3 +1,15 @@
+rdma-core (18.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Update private libibverbs symbols and let libibverbs1 break
+    ibverbs-providers < 18~
+  * Fix bad whatis entries in man pages
+  * Fix spelling mistakes in ibv_create_flow_action.3 man page
+  * Use versioned Breaks & Replaces for ibverbs-providers to make it
+    multi-arch coinstallable (Closes: #898055)
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Mon, 07 May 2018 13:40:40 +0200
+
 rdma-core (17.1-2) unstable; urgency=medium
 
   * Support for new architecture riscv64 (Closes: #894995) by
