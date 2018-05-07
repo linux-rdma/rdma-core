@@ -1,0 +1,72 @@
+From dc11dbc565d304bda95548cc0bfd70dce8e41cd3 Mon Sep 17 00:00:00 2001
+From: Benjamin Drung <benjamin.drung@profitbricks.com>
+Date: Mon, 7 May 2018 11:42:56 +0200
+Subject: [PATCH rdma-core] Fix bad whatis entries in man pages
+
+Each manual page should start with a "NAME" section, which lists the
+name and a brief description of the page separated by "\-". The "NAME"
+section is parsed by lexgrog and used to generate a database that's
+queried by commands like apropos and whatis. This tag indicates that
+lexgrog was unable to parse the NAME section of this manual page.
+
+For manual pages that document multiple programs, functions, files, or
+other things, the part before "\-" should list each separated by a
+comma and a space. Each thing listed must not contain spaces; a man
+page for a two-part command like "fs listacl" must use something like
+"fs_listacl" in the "NAME" section so that it can be parsed by
+lexgrog.
+
+Refer to the lexgrog(1) manual page, the groff_man(7) manual page, and
+the groff_mdoc(7) manual page for details.
+
+This fixes the lintian warning manpage-has-bad-whatis-entry.
+
+Signed-off-by: Benjamin Drung <benjamin.drung@profitbricks.com>
+---
+ libibverbs/man/ibv_create_flow_action.3.md     | 4 ++--
+ providers/mlx5/man/mlx5dv_flow_action_esp.3.md | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/libibverbs/man/ibv_create_flow_action.3.md b/libibverbs/man/ibv_create_flow_action.3.md
+index 16881c36..20a7b906 100644
+--- a/libibverbs/man/ibv_create_flow_action.3.md
++++ b/libibverbs/man/ibv_create_flow_action.3.md
+@@ -1,13 +1,13 @@
+ ---
+ layout: page
+-title: ibv_flow_action_esp(3)
++title: ibv_flow_action_esp
+ section: 3
+ tagline: Verbs
+ ---
+ 
+ # NAME
+ 
+-ibv_flow_action_esp(3) -- Flow action esp for verbs(3)
++ibv_flow_action_esp - Flow action esp for verbs
+ 
+ # SYNOPSIS
+ 
+diff --git a/providers/mlx5/man/mlx5dv_flow_action_esp.3.md b/providers/mlx5/man/mlx5dv_flow_action_esp.3.md
+index e2e223b4..cd40a94e 100644
+--- a/providers/mlx5/man/mlx5dv_flow_action_esp.3.md
++++ b/providers/mlx5/man/mlx5dv_flow_action_esp.3.md
+@@ -1,13 +1,13 @@
+ ---
+ layout: page
+-title: mlx5dv_flow_action_esp(3)
++title: mlx5dv_flow_action_esp
+ section: 3
+ tagline: Verbs
+ ---
+ 
+ # NAME
+ 
+-mlx5dv_flow_action_esp(3) -- Flow action esp for mlx5 provider(3)
++mlx5dv_flow_action_esp - Flow action esp for mlx5 provider
+ 
+ # SYNOPSIS
+ 
+-- 
+2.17.0
+
