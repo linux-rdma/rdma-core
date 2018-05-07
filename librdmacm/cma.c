@@ -1684,6 +1684,9 @@ int rdma_notify(struct rdma_cm_id *id, enum ibv_event_type event)
 
 int ucma_shutdown(struct rdma_cm_id *id)
 {
+	if (!id->verbs || !id->verbs->device)
+		return ERR(EINVAL);
+
 	switch (id->verbs->device->transport_type) {
 	case IBV_TRANSPORT_IB:
 		return ucma_modify_qp_err(id);
