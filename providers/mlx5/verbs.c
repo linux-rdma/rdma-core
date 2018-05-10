@@ -634,6 +634,10 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		return NULL;
 	}
 
+	if (cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS &&
+	    cq_attr->flags & IBV_CREATE_CQ_ATTR_SINGLE_THREADED)
+		cq->flags |= MLX5_CQ_FLAGS_SINGLE_THREADED;
+
 	if (cq_alloc_flags & MLX5_CQ_FLAGS_EXTENDED) {
 		rc = mlx5_cq_fill_pfns(cq, cq_attr, mctx);
 		if (rc) {
@@ -679,9 +683,6 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	cq->cqe_sz			= cqe_sz;
 	cq->flags			= cq_alloc_flags;
 
-	if (cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS &&
-	    cq_attr->flags & IBV_CREATE_CQ_ATTR_SINGLE_THREADED)
-		cq->flags |= MLX5_CQ_FLAGS_SINGLE_THREADED;
 	cmd.buf_addr = (uintptr_t) cq->buf_a.buf;
 	cmd.db_addr  = (uintptr_t) cq->dbrec;
 	cmd.cqe_size = cqe_sz;
