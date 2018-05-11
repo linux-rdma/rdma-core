@@ -698,6 +698,13 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 				return ret;
 			}
 
+			if (wr->opcode == IBV_WR_RDMA_READ) {
+				ret = EINVAL;
+				*bad_wr = wr;
+				printf("Not supported inline data!\n");
+				goto out;
+			}
+
 			for (i = 0; i < wr->num_sge; i++) {
 				memcpy(wqe,
 				     ((void *) (uintptr_t) wr->sg_list[i].addr),
