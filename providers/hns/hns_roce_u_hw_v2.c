@@ -817,8 +817,8 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 		}
 
 		if (i < qp->rq.max_gs) {
-			dseg[i].lkey = htole32(0x100);
-			dseg[i].addr = 0;
+			dseg->lkey = htole32(0x100);
+			dseg->addr = 0;
 		}
 
 		/* QP support receive inline wqe */
