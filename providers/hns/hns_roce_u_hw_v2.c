@@ -695,7 +695,7 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 				*bad_wr = wr;
 				printf("data len=%d, send_flags = 0x%x!\r\n",
 					rc_sq_wqe->msg_len, wr->send_flags);
-				return ret;
+				goto out;
 			}
 
 			if (wr->opcode == IBV_WR_RDMA_READ) {
