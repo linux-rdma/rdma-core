@@ -841,6 +841,8 @@ out:
 	if (nreq) {
 		qp->rq.head += nreq;
 
+		udma_to_device_barrier();
+
 		if (qp->flags & HNS_ROCE_SUPPORT_RQ_RECORD_DB)
 			*qp->rdb = qp->rq.head & 0xffff;
 		else
