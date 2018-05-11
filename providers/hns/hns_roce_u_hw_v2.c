@@ -448,7 +448,7 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 
 			if (data_len) {
 				wc->status = IBV_WC_LOC_LEN_ERR;
-				return -1;
+				return V2_CQ_POLL_ERR;
 			}
 		}
 	}
@@ -550,13 +550,13 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (hns_roce_v2_wq_overflow(&qp->sq, nreq,
 					    to_hr_cq(qp->ibv_qp.send_cq))) {
-			ret = -1;
+			ret = ENOMEM;
 			*bad_wr = wr;
 			goto out;
 		}
 
 		if (wr->num_sge > qp->sq.max_gs) {
-			ret = -1;
+			ret = EINVAL;
 			*bad_wr = wr;
 			goto out;
 		}
@@ -691,7 +691,7 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		/* Inline */
 		if (wr->send_flags & IBV_SEND_INLINE && wr->num_sge) {
 			if (le32toh(rc_sq_wqe->msg_len) > qp->max_inline_data) {
-				ret = -1;
+				ret = EINVAL;
 				*bad_wr = wr;
 				printf("data len=%d, send_flags = 0x%x!\r\n",
 					rc_sq_wqe->msg_len, wr->send_flags);
