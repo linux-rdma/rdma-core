@@ -1,7 +1,5 @@
 language: c
-# We need at least cmake 2.12, this means we need to use trusty.
-# Precise's glibc, etc predates what we are willing to support.
-# sudo is required to get the trusty image, and at present to enable new llvm
+# We don't support any distro earlier than trusty
 sudo: required
 dist: trusty
 addons:
@@ -10,17 +8,11 @@ addons:
   # doing this APT setup pass.
   apt:
     sources:
-      # sourceline because travis won't white list trusty builds, and hasn't
-      # whitelisted 5.0
-      - sourceline: "deb http://apt.llvm.org/trusty/ llvm-toolchain-trusty-5.0 main"
-        key_url: "http://apt.llvm.org/llvm-snapshot.gpg.key"
       - ubuntu-toolchain-r-test
       # Multiverse is not on by default and we need it to get sparse
       - sourceline: "deb http://archive.ubuntu.com/ubuntu/ trusty multiverse"
     packages:
       - build-essential
-      - clang-5.0
-      - cmake
       - debhelper
       - dh-systemd
       - fakeroot
