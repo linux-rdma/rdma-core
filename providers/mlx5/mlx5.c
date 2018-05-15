@@ -555,10 +555,13 @@ static int get_num_low_lat_uuars(int tot_uuars)
  */
 static int need_uuar_lock(struct mlx5_context *ctx, int uuarn)
 {
+	int i;
+
 	if (uuarn == 0 || mlx5_single_threaded)
 		return 0;
 
-	if (uuarn >= (ctx->tot_uuars - ctx->low_lat_uuars) * 2)
+	i = (uuarn / 2) + (uuarn % 2);
+	if (i >= ctx->tot_uuars - ctx->low_lat_uuars)
 		return 0;
 
 	return 1;
@@ -1121,7 +1124,7 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 				context->bfs[bfi].reg = context->uar[i].reg + MLX5_ADAPTER_PAGE_SIZE * j +
 							MLX5_BF_OFFSET + k * context->bf_reg_size;
 				context->bfs[bfi].need_lock = need_uuar_lock(context, bfi);
-				mlx5_spinlock_init(&context->bfs[bfi].lock);
+				mlx5_spinlock_init(&context->bfs[bfi].lock, context->bfs[bfi].need_lock);
 				context->bfs[bfi].offset = 0;
 				if (bfi)
 					context->bfs[bfi].buf_size = context->bf_reg_size / 2;
@@ -1153,7 +1156,7 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 
 	mlx5_read_env(ibdev, context);
 
-	mlx5_spinlock_init(&context->hugetlb_lock);
+	mlx5_spinlock_init(&context->hugetlb_lock, !mlx5_single_threaded);
 	list_head_init(&context->hugetlb_list);
 
 	verbs_set_ops(v_ctx, &mlx5_ctx_common_ops);
