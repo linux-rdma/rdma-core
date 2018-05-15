@@ -22,6 +22,7 @@ rdma_shared_provider(mlx5 libmlx5.map
 )
 
 publish_headers(infiniband
-  mlx5dv.h
+  ../../kernel-headers/rdma/mlx5_user_ioctl_verbs.h
   mlx5_api.h
+  mlx5dv.h
 )
