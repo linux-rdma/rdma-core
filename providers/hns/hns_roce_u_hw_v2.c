@@ -448,7 +448,7 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 
 			if (data_len) {
 				wc->status = IBV_WC_LOC_LEN_ERR;
-				return -1;
+				return V2_CQ_POLL_ERR;
 			}
 		}
 	}
@@ -550,13 +550,13 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (hns_roce_v2_wq_overflow(&qp->sq, nreq,
 					    to_hr_cq(qp->ibv_qp.send_cq))) {
-			ret = -1;
+			ret = ENOMEM;
 			*bad_wr = wr;
 			goto out;
 		}
 
 		if (wr->num_sge > qp->sq.max_gs) {
-			ret = -1;
+			ret = EINVAL;
 			*bad_wr = wr;
 			goto out;
 		}
@@ -598,7 +598,7 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		for (sq_shift = 0; (1 << sq_shift) < qp->sq.wqe_cnt; ++sq_shift)
 			;
 		roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_OWNER_S,
-			     ~(qp->sq.head >> sq_shift) & 0x1);
+			     ~(((qp->sq.head + nreq) >> sq_shift) & 0x1));
 
 		wqe += sizeof(struct hns_roce_rc_sq_wqe);
 		/* set remote addr segment */
@@ -691,11 +691,18 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		/* Inline */
 		if (wr->send_flags & IBV_SEND_INLINE && wr->num_sge) {
 			if (le32toh(rc_sq_wqe->msg_len) > qp->max_inline_data) {
-				ret = -1;
+				ret = EINVAL;
 				*bad_wr = wr;
 				printf("data len=%d, send_flags = 0x%x!\r\n",
 					rc_sq_wqe->msg_len, wr->send_flags);
-				return ret;
+				goto out;
+			}
+
+			if (wr->opcode == IBV_WR_RDMA_READ) {
+				ret = EINVAL;
+				*bad_wr = wr;
+				printf("Not supported inline data!\n");
+				goto out;
 			}
 
 			for (i = 0; i < wr->num_sge; i++) {
@@ -810,8 +817,8 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 		}
 
 		if (i < qp->rq.max_gs) {
-			dseg[i].lkey = htole32(0x100);
-			dseg[i].addr = 0;
+			dseg->lkey = htole32(0x100);
+			dseg->addr = 0;
 		}
 
 		/* QP support receive inline wqe */
@@ -833,6 +840,8 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 out:
 	if (nreq) {
 		qp->rq.head += nreq;
+
+		udma_to_device_barrier();
 
 		if (qp->flags & HNS_ROCE_SUPPORT_RQ_RECORD_DB)
 			*qp->rdb = qp->rq.head & 0xffff;

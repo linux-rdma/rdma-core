@@ -1,8 +1,8 @@
 usr/include/infiniband/arch.h
 usr/include/infiniband/ib_user_ioctl_verbs.h
+usr/include/infiniband/mlx4dv.h
 usr/include/infiniband/mlx5_api.h
 usr/include/infiniband/mlx5_user_ioctl_verbs.h
-usr/include/infiniband/mlx4dv.h
 usr/include/infiniband/mlx5dv.h
 usr/include/infiniband/opcode.h
 usr/include/infiniband/sa-kern-abi.h
