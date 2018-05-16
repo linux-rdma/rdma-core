@@ -275,6 +275,17 @@ class travis(APTEnvironment):
                 "su -l -c %s"%(pipes.quote(" && ".join(self.yaml["before_script"]))) + " travis"];
         return cmds
 
+    def get_clang(self):
+        """We are using the clang that comes in travis, which is not part of our base
+        docker container, install something similar by hand."""
+        llvm_tar = "clang+llvm-5.0.2-x86_64-linux-gnu-ubuntu-14.04.tar.xz"
+        cmds = [
+            """RUN wget -q http://releases.llvm.org/5.0.2/{0} -O /tmp/{0} && \\
+            tar xf /tmp/{0} -C /usr/local/ && \\
+            rm /tmp/{0} && \\
+            (cd /usr/local/bin/ && ln -sf ../clang*/bin/clang-5.0 .)""".format(llvm_tar)];
+        return cmds;
+
     def get_docker_file(self):
         # First this to get apt-add-repository
         self.pkgs = {"software-properties-common"}
@@ -284,11 +295,15 @@ class travis(APTEnvironment):
         res.lines.extend(self.get_repos());
 
         # Package list from the travis.yml
+        # Travis uses the new cmake built into the image, we need to get an
+        # older version from ubuntu.
         res.lines.append("RUN apt-get update && apt-get install -y --no-install-recommends %s"%(
-            " ".join(sorted(self.yaml["addons"]["apt"]["packages"]))));
+            " ".join(sorted(["cmake"] + self.yaml["addons"]["apt"]["packages"]))));
 
         # Adding before_script commands
         res.lines.extend(self.get_before_script())
+
+        res.lines.extend(self.get_clang())
 
         return res;
 
