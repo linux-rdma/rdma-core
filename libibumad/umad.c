@@ -558,10 +558,10 @@ int umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max)
 	if (n > 0) {
 		for (i = 0; i < n; i++) {
 			if (strcmp(namelist[i]->d_name, ".") &&
-			    strcmp(namelist[i]->d_name, "..")) {
+			    strcmp(namelist[i]->d_name, "..") &&
+			    strlen(namelist[i]->d_name) < UMAD_CA_NAME_LEN) {
 				if (j < max && is_ib_type(namelist[i]->d_name))
-					strncpy(cas[j++], namelist[i]->d_name,
-						UMAD_CA_NAME_LEN);
+					strcpy(cas[j++], namelist[i]->d_name);
 			}
 			free(namelist[i]);
 		}
