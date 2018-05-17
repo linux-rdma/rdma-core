@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: ((GPL-2.0 WITH Linux-syscall-note) OR BSD-2-Clause) */
+/* SPDX-License-Identifier: ((GPL-2.0 WITH Linux-syscall-note) OR Linux-OpenIB) */
 /*
  * Copyright (c) 2013-2015, Mellanox Technologies. All rights reserved.
  *
@@ -233,7 +233,9 @@ enum mlx5_ib_query_dev_resp_flags {
 enum mlx5_ib_tunnel_offloads {
 	MLX5_IB_TUNNELED_OFFLOADS_VXLAN  = 1 << 0,
 	MLX5_IB_TUNNELED_OFFLOADS_GRE    = 1 << 1,
-	MLX5_IB_TUNNELED_OFFLOADS_GENEVE = 1 << 2
+	MLX5_IB_TUNNELED_OFFLOADS_GENEVE = 1 << 2,
+	MLX5_IB_TUNNELED_OFFLOADS_MPLS_GRE = 1 << 3,
+	MLX5_IB_TUNNELED_OFFLOADS_MPLS_UDP = 1 << 4,
 };
 
 struct mlx5_ib_query_device_resp {

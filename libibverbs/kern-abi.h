@@ -267,7 +267,9 @@ struct ibv_kern_spec {
 		struct ib_uverbs_flow_spec_esp esp;
 		struct ib_uverbs_flow_spec_tcp_udp tcp_udp;
 		struct ib_uverbs_flow_spec_ipv6 ipv6;
+		struct ib_uverbs_flow_spec_gre gre;
 		struct ib_uverbs_flow_spec_tunnel tunnel;
+		struct ib_uverbs_flow_spec_mpls mpls;
 		struct ib_uverbs_flow_spec_action_tag flow_tag;
 		struct ib_uverbs_flow_spec_action_drop drop;
 		struct ib_uverbs_flow_spec_action_handle handle;
