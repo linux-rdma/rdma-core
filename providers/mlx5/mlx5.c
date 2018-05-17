@@ -305,14 +305,14 @@ man cpuset
 */
 static void mlx5_local_cpu_set(struct ibv_device *ibdev, cpu_set_t *cpu_set)
 {
-	char *p, buf[1024];
+	char *p, buf[1024] = {};
 	char *env_value;
 	uint32_t word;
 	int i, k;
 
 	env_value = getenv("MLX5_LOCAL_CPUS");
 	if (env_value)
-		strncpy(buf, env_value, sizeof(buf));
+		strncpy(buf, env_value, sizeof(buf) - 1);
 	else {
 		char fname[MAXPATHLEN];
 		FILE *fp;
