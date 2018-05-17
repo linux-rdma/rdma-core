@@ -122,7 +122,7 @@ struct verbs_match_ent {
 };
 #define VERBS_PCI_MATCH(_vendor, _device, _data)                               \
 	{                                                                      \
-	    .driver_data = (_data),                                            \
+	    .driver_data = (void *)(_data),				       \
 	    .vendor = (_vendor),                                               \
 	    .device = (_device),                                               \
 	    .kind = VERBS_MATCH_PCI,                                           \
@@ -130,7 +130,7 @@ struct verbs_match_ent {
 
 #define VERBS_MODALIAS_MATCH(_mod_str, _data)                                  \
 	{                                                                      \
-	    .driver_data = (_data),                                            \
+	    .driver_data = (void *)(_data),			               \
 	    .modalias = (_mod_str),                                            \
 	    .kind = VERBS_MATCH_MODALIAS,                                      \
 	}
