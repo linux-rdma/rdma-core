@@ -305,14 +305,14 @@ man cpuset
 */
 static void mlx5_local_cpu_set(struct ibv_device *ibdev, cpu_set_t *cpu_set)
 {
-	char *p, buf[1024];
+	char *p, *buf = NULL;
 	char *env_value;
 	uint32_t word;
 	int i, k;
 
 	env_value = getenv("MLX5_LOCAL_CPUS");
 	if (env_value)
-		strncpy(buf, env_value, sizeof(buf));
+		buf = strdup(env_value);
 	else {
 		char fname[MAXPATHLEN];
 		FILE *fp;
@@ -359,6 +359,8 @@ static void mlx5_local_cpu_set(struct ibv_device *ibdev, cpu_set_t *cpu_set)
 
 		i += 32;
 	} while (i < CPU_SETSIZE);
+
+	free(buf);
 }
 
 static int mlx5_enable_sandy_bridge_fix(struct ibv_device *ibdev)
