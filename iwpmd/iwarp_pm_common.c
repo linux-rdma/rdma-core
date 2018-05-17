@@ -585,7 +585,7 @@ int is_wcard_ipaddr(struct sockaddr_storage *search_addr)
 	}
 	case AF_INET6: {
 		struct sockaddr_in6 wcard_addr;
-		struct sockaddr_in6 *in6addr = (struct sockaddr_in6 *)&search_addr;
+		struct sockaddr_in6 *in6addr = (struct sockaddr_in6 *)search_addr;
 		inet_pton(AF_INET6, "::", &wcard_addr.sin6_addr);
 
 		if (!memcmp(in6addr->sin6_addr.s6_addr,
