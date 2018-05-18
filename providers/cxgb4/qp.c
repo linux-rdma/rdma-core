@@ -488,44 +488,49 @@ static void update_qp_state(struct c4iw_qp *qhp)
 		qhp->ibv_qp.state = attr.qp_state;
 }
 
-/*
- * Assumes qhp lock is held.
- */
 void c4iw_flush_qp(struct c4iw_qp *qhp)
 {
 	struct c4iw_cq *rchp, *schp;
 	int count;
 
-	if (qhp->wq.flushed)
-		return;
-
-	update_qp_state(qhp);
-
 	rchp = to_c4iw_cq(qhp->ibv_qp.recv_cq);
 	schp = to_c4iw_cq(qhp->ibv_qp.send_cq);
 
 	PDBG("%s qhp %p rchp %p schp %p\n", __func__, qhp, rchp, schp);
-	qhp->wq.flushed = 1;
-	pthread_spin_unlock(&qhp->lock);
 
 	/* locking heirarchy: cq lock first, then qp lock. */
 	pthread_spin_lock(&rchp->lock);
+	if (schp != rchp)
+		pthread_spin_lock(&schp->lock);
 	pthread_spin_lock(&qhp->lock);
+
+	if (qhp->wq.flushed) {
+		pthread_spin_unlock(&qhp->lock);
+		if (rchp != schp)
+			pthread_spin_unlock(&schp->lock);
+		pthread_spin_unlock(&rchp->lock);
+		return;
+	}
+
+	qhp->wq.flushed = 1;
+	t4_set_wq_in_error(&qhp->wq);
+
+	update_qp_state(qhp);
+
 	c4iw_flush_hw_cq(rchp);
 	c4iw_count_rcqes(&rchp->cq, &qhp->wq, &count);
 	c4iw_flush_rq(&qhp->wq, &rchp->cq, count);
-	pthread_spin_unlock(&qhp->lock);
-	pthread_spin_unlock(&rchp->lock);
 
-	/* locking heirarchy: cq lock first, then qp lock. */
-	pthread_spin_lock(&schp->lock);
-	pthread_spin_lock(&qhp->lock);
 	if (schp != rchp)
 		c4iw_flush_hw_cq(schp);
+
 	c4iw_flush_sq(qhp);
+
 	pthread_spin_unlock(&qhp->lock);
-	pthread_spin_unlock(&schp->lock);
-	pthread_spin_lock(&qhp->lock);
+	if (schp != rchp)
+		pthread_spin_unlock(&schp->lock);
+	pthread_spin_unlock(&rchp->lock);
+
 }
 
 void c4iw_flush_qps(struct c4iw_dev *dev)
@@ -537,9 +542,7 @@ void c4iw_flush_qps(struct c4iw_dev *dev)
 		struct c4iw_qp *qhp = dev->qpid2ptr[i];
 		if (qhp) {
 			if (!qhp->wq.flushed && t4_wq_in_error(&qhp->wq)) {
-				pthread_spin_lock(&qhp->lock);
 				c4iw_flush_qp(qhp);
-				pthread_spin_unlock(&qhp->lock);
 			}
 		}
 	}
