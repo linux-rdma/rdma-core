@@ -517,12 +517,12 @@ void c4iw_flush_qp(struct c4iw_qp *qhp)
 
 	update_qp_state(qhp);
 
-	c4iw_flush_hw_cq(rchp);
+	c4iw_flush_hw_cq(rchp, qhp);
 	c4iw_count_rcqes(&rchp->cq, &qhp->wq, &count);
 	c4iw_flush_rq(&qhp->wq, &rchp->cq, count);
 
 	if (schp != rchp)
-		c4iw_flush_hw_cq(schp);
+		c4iw_flush_hw_cq(schp, qhp);
 
 	c4iw_flush_sq(qhp);
 
