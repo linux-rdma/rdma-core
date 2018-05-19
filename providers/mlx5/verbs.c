@@ -614,7 +614,9 @@ enum {
 };
 
 enum {
-	CREATE_CQ_SUPPORTED_FLAGS = IBV_CREATE_CQ_ATTR_SINGLE_THREADED
+	CREATE_CQ_SUPPORTED_FLAGS =
+		IBV_CREATE_CQ_ATTR_SINGLE_THREADED |
+		IBV_CREATE_CQ_ATTR_IGNORE_OVERRUN
 };
 
 static struct ibv_cq_ex *create_cq(struct ibv_context *context,
@@ -622,8 +624,12 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 				   int cq_alloc_flags,
 				   struct mlx5dv_cq_init_attr *mlx5cq_attr)
 {
-	struct mlx5_create_cq		cmd;
-	struct mlx5_create_cq_resp	resp;
+	struct mlx5_create_cq		cmd = {};
+	struct mlx5_create_cq_resp	resp = {};
+	struct mlx5_create_cq_ex	cmd_ex = {};
+	struct mlx5_create_cq_ex_resp	resp_ex = {};
+	struct mlx5_ib_create_cq       *cmd_drv;
+	struct mlx5_ib_create_cq_resp  *resp_drv;
 	struct mlx5_cq		       *cq;
 	int				cqe_sz;
 	int				ret;
@@ -631,6 +637,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	int				rc;
 	struct mlx5_context *mctx = to_mctx(context);
 	FILE *fp = to_mctx(context)->dbg_fp;
+	bool				use_ex = false;
 
 	if (!cq_attr->cqe) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "CQE invalid\n");
@@ -665,9 +672,15 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		return NULL;
 	}
 
-	if (cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS &&
-	    cq_attr->flags & IBV_CREATE_CQ_ATTR_SINGLE_THREADED)
-		cq->flags |= MLX5_CQ_FLAGS_SINGLE_THREADED;
+	if (cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS) {
+		if (cq_attr->flags & IBV_CREATE_CQ_ATTR_SINGLE_THREADED)
+			cq->flags |= MLX5_CQ_FLAGS_SINGLE_THREADED;
+		if (cq_attr->flags & IBV_CREATE_CQ_ATTR_IGNORE_OVERRUN)
+			use_ex = true;
+	}
+
+	cmd_drv = use_ex ? &cmd_ex.drv_payload : &cmd.drv_payload;
+	resp_drv = use_ex ? &resp_ex.drv_payload : &resp.drv_payload;
 
 	if (cq_alloc_flags & MLX5_CQ_FLAGS_EXTENDED) {
 		rc = mlx5_cq_fill_pfns(cq, cq_attr, mctx);
@@ -677,7 +690,6 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		}
 	}
 
-	memset(&cmd, 0, sizeof cmd);
 	cq->cons_index = 0;
 
 	if (mlx5_spinlock_init(&cq->lock, !mlx5_single_threaded))
@@ -714,9 +726,9 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	cq->cqe_sz			= cqe_sz;
 	cq->flags			= cq_alloc_flags;
 
-	cmd.buf_addr = (uintptr_t) cq->buf_a.buf;
-	cmd.db_addr  = (uintptr_t) cq->dbrec;
-	cmd.cqe_size = cqe_sz;
+	cmd_drv->buf_addr = (uintptr_t) cq->buf_a.buf;
+	cmd_drv->db_addr  = (uintptr_t) cq->dbrec;
+	cmd_drv->cqe_size = cqe_sz;
 
 	if (mlx5cq_attr) {
 		if (!check_comp_mask(mlx5cq_attr->comp_mask,
@@ -731,8 +743,8 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 			if (mctx->cqe_comp_caps.max_num &&
 			    (mlx5cq_attr->cqe_comp_res_format &
 			     mctx->cqe_comp_caps.supported_format)) {
-				cmd.cqe_comp_en = 1;
-				cmd.cqe_comp_res_format = mlx5cq_attr->cqe_comp_res_format;
+				cmd_drv->cqe_comp_en = 1;
+				cmd_drv->cqe_comp_res_format = mlx5cq_attr->cqe_comp_res_format;
 			} else {
 				mlx5_dbg(fp, MLX5_DBG_CQ, "CQE Compression is not supported\n");
 				errno = EINVAL;
@@ -759,15 +771,27 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 					goto err_db;
 				}
 
-				cmd.flags |= MLX5_IB_CREATE_CQ_FLAGS_CQE_128B_PAD;
+				cmd_drv->flags |= MLX5_IB_CREATE_CQ_FLAGS_CQE_128B_PAD;
 			}
 		}
 	}
 
-	ret = ibv_cmd_create_cq(context, ncqe - 1, cq_attr->channel,
-				cq_attr->comp_vector,
-				ibv_cq_ex_to_cq(&cq->ibv_cq), &cmd.ibv_cmd,
-				sizeof(cmd), &resp.ibv_resp, sizeof(resp));
+	if (use_ex) {
+		struct ibv_cq_init_attr_ex cq_attr_ex = *cq_attr;
+
+		cq_attr_ex.cqe = ncqe - 1;
+		ret = ibv_cmd_create_cq_ex(context, &cq_attr_ex, &cq->ibv_cq,
+					   &cmd_ex.ibv_cmd, sizeof(cmd_ex),
+					   &resp_ex.ibv_resp, sizeof(resp_ex));
+	} else {
+		ret = ibv_cmd_create_cq(context, ncqe - 1, cq_attr->channel,
+					cq_attr->comp_vector,
+					ibv_cq_ex_to_cq(&cq->ibv_cq),
+					&cmd.ibv_cmd, sizeof(cmd),
+					&resp.ibv_resp, sizeof(resp));
+	}
+
+
 	if (ret) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "ret %d\n", ret);
 		goto err_db;
@@ -775,7 +799,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 
 	cq->active_buf = &cq->buf_a;
 	cq->resize_buf = NULL;
-	cq->cqn = resp.cqn;
+	cq->cqn = resp_drv->cqn;
 	cq->stall_enable = to_mctx(context)->stall_enable;
 	cq->stall_adaptive_enable = to_mctx(context)->stall_adaptive_enable;
 	cq->stall_cycles = to_mctx(context)->stall_cycles;
