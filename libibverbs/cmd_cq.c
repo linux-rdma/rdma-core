@@ -142,6 +142,9 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP)
 		flags |= IB_UVERBS_CQ_FLAGS_TIMESTAMP_COMPLETION;
 
+	if (cq_attr->flags & IBV_CREATE_CQ_ATTR_IGNORE_OVERRUN)
+		flags |= IB_UVERBS_CQ_FLAGS_IGNORE_OVERRUN;
+
 	return ibv_icmd_create_cq(context, cq_attr->cqe, cq_attr->channel,
 				  cq_attr->comp_vector, flags,
 				  ibv_cq_ex_to_cq(cq), cmdb);
