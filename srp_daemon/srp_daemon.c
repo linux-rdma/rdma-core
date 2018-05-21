@@ -401,7 +401,7 @@ static int is_enabled_by_rules_file(struct target_details *target)
 
 static int add_non_exist_target(struct target_details *target)
 {
-	char scsi_host_dir[50];
+	char scsi_host_dir[256];
 	DIR *dir;
 	struct dirent *subdir;
 	char *subdir_name_ptr;
