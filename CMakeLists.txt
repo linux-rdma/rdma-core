@@ -133,7 +133,7 @@ set(DISTRO_FLAVOUR "None" CACHE
 set(BUILDLIB "${CMAKE_SOURCE_DIR}/buildlib")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${BUILDLIB}")
 
-include(FindPkgConfig)
+include(CMakeParseArguments)
 include(CheckCCompilerFlag)
 include(CheckIncludeFile)
 include(CheckTypeSize)
@@ -350,6 +350,8 @@ FIND_PACKAGE(pandoc)
 # Find libraries
 # pthread
 FIND_PACKAGE (Threads REQUIRED)
+
+FIND_PACKAGE(PkgConfig REQUIRED)
 
 # libnl
 if (NOT DEFINED ENABLE_RESOLVE_NEIGH)
