@@ -431,20 +431,18 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 # srp daemon
 #
 %pre -n srp_daemon
-%service_add_pre srp_daemon.service srp_daemon_port@.service
+%service_add_pre srp_daemon.service
 
 %post -n srp_daemon
-%service_add_post srp_daemon.service srp_daemon_port@.service
+%service_add_post srp_daemon.service
 # we ship udev rules, so trigger an update.
 /sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change
 
 %preun -n srp_daemon
 %service_del_preun srp_daemon.service
-%service_del_postun -n  srp_daemon_port@.service
 
 %postun -n srp_daemon
 %service_del_postun srp_daemon.service
-%service_del_postun -n  srp_daemon_port@.service
 
 #
 # iwpmd
