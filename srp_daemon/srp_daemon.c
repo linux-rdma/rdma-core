@@ -2103,8 +2103,12 @@ int main(int argc, char *argv[])
 	BUILD_ASSERT(sizeof(struct ib_path_rec) == 64);
 	BUILD_ASSERT(sizeof(struct ib_inform_info) == 36);
 	BUILD_ASSERT(sizeof(struct ib_mad_notice_attr) == 80);
+	BUILD_ASSERT(offsetof(struct ib_mad_notice_attr, generic.trap_num) ==
+		     4);
+	BUILD_ASSERT(offsetof(struct ib_mad_notice_attr, vend.dev_id) == 4);
+	BUILD_ASSERT(offsetof(struct ib_mad_notice_attr, ntc_64_67.gid) == 16);
 	BUILD_ASSERT(offsetof(struct ib_mad_notice_attr,
-			      data_details.ntc_64_67.gid) == 16);
+			      ntc_144.new_cap_mask) == 16);
 #endif
 	BUILD_ASSERT(sizeof(struct srp_sa_node_rec) == 108);
 	BUILD_ASSERT(sizeof(struct srp_sa_port_info_rec) == 58);
