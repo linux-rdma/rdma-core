@@ -179,53 +179,57 @@ struct ib_inform_info
 
 struct ib_mad_notice_attr		// Total Size calc  Accumulated
 {
-	uint8_t		generic_type;		// 1		1
-
-	union _notice_g_or_v
+	union
 	{
-		struct _notice_generic		// 5		6
+		uint8_t	generic_type;	// 1		1
+
+		struct _notice_generic
 		{
+			uint8_t		generic_type;
 			uint8_t		prod_type_msb;
 			__be16		prod_type_lsb;
 			__be16		trap_num;
-		} PACK_SUFFIX generic;
+		} generic;
 
 		struct _notice_vend
 		{
+			uint8_t		generic_type;
 			uint8_t		vend_id_msb;
 			__be16		vend_id_lsb;
 			__be16		dev_id;
-		} PACK_SUFFIX vend;
-	} g_or_v;
+		} vend;
+	};
 
-	__be16		issuer_lid;		// 2		8
-	__be16		toggle_count;		// 2		10
+	__be16 issuer_lid;		// 2		8
 
-	union _data_details			// 54		64
+	union				// 54		64
 	{
+		__be16		toggle_count;		// 2		10
 		struct _raw_data
 		{
+			__be16  toggle_count;
 			uint8_t	details[54];
 		} raw_data;
 
 		struct _ntc_64_67
 		{
+			__be16		toggle_count;
 			uint8_t		res[6];
 			union umad_gid	gid;	// the Node or Multicast Group that came in/out
-		} PACK_SUFFIX ntc_64_67;
+		} ntc_64_67;
 
 		struct _ntc_144 {
+			__be16		toggle_count;
 			__be16		pad1;
 			__be16		lid;		// lid where capability mask changed
 			__be16		pad2;
 			__be32		new_cap_mask;	// new capability mask
-		} PACK_SUFFIX ntc_144;
-
-	} data_details;
+		} ntc_144;
+	};
 
 	union umad_gid			issuer_gid;	// 16		80
 
-} PACK_SUFFIX4;
+};
 
 /****f* IBA Base: Types/ib_gid_get_guid
 * NAME
