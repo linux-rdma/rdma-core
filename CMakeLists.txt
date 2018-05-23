@@ -208,7 +208,8 @@ CHECK_C_SOURCE_COMPILES("
 
  static void do_entry(void) {}
  void entry(void) __attribute__((ifunc(\"resolve_entry\")));
- static void *resolve_entry(void) {return &do_entry;}
+ typedef void (*fn_t)(void);
+ static fn_t resolve_entry(void) {return &do_entry;}
 
  int main(int argc,const char *argv[]) { entry(); }"
   HAVE_FUNC_ATTRIBUTE_IFUNC
