@@ -584,9 +584,9 @@ int c4iw_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	int ret;
 
 	PDBG("%s enter qp %p new state %d\n", __func__, ibqp, attr_mask & IBV_QP_STATE ? attr->qp_state : -1);
-	pthread_spin_lock(&qhp->lock);
 	if (t4_wq_in_error(&qhp->wq))
 		c4iw_flush_qp(qhp);
+	pthread_spin_lock(&qhp->lock);
 	ret = ibv_cmd_modify_qp(ibqp, attr, attr_mask, &cmd, sizeof cmd);
 	if (!ret && (attr_mask & IBV_QP_STATE) && attr->qp_state == IBV_QPS_RESET)
 		reset_qp(qhp);
@@ -601,9 +601,7 @@ int c4iw_destroy_qp(struct ibv_qp *ibqp)
 	struct c4iw_dev *dev = to_c4iw_dev(ibqp->context->device);
 
 	PDBG("%s enter qp %p\n", __func__, ibqp);
-	pthread_spin_lock(&qhp->lock);
 	c4iw_flush_qp(qhp);
-	pthread_spin_unlock(&qhp->lock);
 
 	ret = ibv_cmd_destroy_qp(ibqp);
 	if (ret) {
@@ -635,9 +633,9 @@ int c4iw_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	struct c4iw_qp *qhp = to_c4iw_qp(ibqp);
 	int ret;
 
-	pthread_spin_lock(&qhp->lock);
 	if (t4_wq_in_error(&qhp->wq))
 		c4iw_flush_qp(qhp);
+	pthread_spin_lock(&qhp->lock);
 	ret = ibv_cmd_query_qp(ibqp, attr, attr_mask, init_attr, &cmd, sizeof cmd);
 	pthread_spin_unlock(&qhp->lock);
 	return ret;
@@ -659,9 +657,9 @@ int c4iw_attach_mcast(struct ibv_qp *ibqp, const union ibv_gid *gid,
 	struct c4iw_qp *qhp = to_c4iw_qp(ibqp);
 	int ret;
 
-	pthread_spin_lock(&qhp->lock);
 	if (t4_wq_in_error(&qhp->wq))
 		c4iw_flush_qp(qhp);
+	pthread_spin_lock(&qhp->lock);
 	ret = ibv_cmd_attach_mcast(ibqp, gid, lid);
 	pthread_spin_unlock(&qhp->lock);
 	return ret;
@@ -673,9 +671,9 @@ int c4iw_detach_mcast(struct ibv_qp *ibqp, const union ibv_gid *gid,
 	struct c4iw_qp *qhp = to_c4iw_qp(ibqp);
 	int ret;
 
-	pthread_spin_lock(&qhp->lock);
 	if (t4_wq_in_error(&qhp->wq))
 		c4iw_flush_qp(qhp);
+	pthread_spin_lock(&qhp->lock);
 	ret = ibv_cmd_detach_mcast(ibqp, gid, lid);
 	pthread_spin_unlock(&qhp->lock);
 	return ret;
@@ -694,9 +692,7 @@ void c4iw_async_event(struct ibv_async_event *event)
 	case IBV_EVENT_QP_ACCESS_ERR:
 	case IBV_EVENT_PATH_MIG_ERR: {
 		struct c4iw_qp *qhp = to_c4iw_qp(event->element.qp);
-		pthread_spin_lock(&qhp->lock);
 		c4iw_flush_qp(qhp);
-		pthread_spin_unlock(&qhp->lock);
 		break;
 	}
 	case IBV_EVENT_SQ_DRAINED:

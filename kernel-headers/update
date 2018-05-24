@@ -33,11 +33,20 @@ def in_directory(dir):
     """Context manager that chdirs into a directory and restores the original
     directory when closed."""
     cdir = os.getcwd();
+    old_env = {};
     try:
+        # git rebase invokes its exec with a bunch of git variables set that
+        # prevent us from invoking git in another tree, blow them away.
+        for k in list(os.environ.keys()):
+            if k.startswith("GIT"):
+                old_env[k] = os.environ[k];
+                del os.environ[k];
+
         os.chdir(dir);
         yield True;
     finally:
         os.chdir(cdir);
+        os.environ.update(old_env);
 
 def copy_objects(args):
     """Copy the uapi header objects from the kernel repo at the commit indicated

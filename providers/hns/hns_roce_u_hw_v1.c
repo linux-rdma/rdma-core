@@ -830,12 +830,14 @@ out:
 	return ret;
 }
 
-struct hns_roce_u_hw hns_roce_u_hw_v1 = {
+const struct hns_roce_u_hw hns_roce_u_hw_v1 = {
 	.hw_version = HNS_ROCE_HW_VER1,
-	.poll_cq = hns_roce_u_v1_poll_cq,
-	.arm_cq = hns_roce_u_v1_arm_cq,
-	.post_send = hns_roce_u_v1_post_send,
-	.post_recv = hns_roce_u_v1_post_recv,
-	.modify_qp = hns_roce_u_v1_modify_qp,
-	.destroy_qp = hns_roce_u_v1_destroy_qp,
+	.hw_ops = {
+		.poll_cq = hns_roce_u_v1_poll_cq,
+		.req_notify_cq = hns_roce_u_v1_arm_cq,
+		.post_send = hns_roce_u_v1_post_send,
+		.post_recv = hns_roce_u_v1_post_recv,
+		.modify_qp = hns_roce_u_v1_modify_qp,
+		.destroy_qp = hns_roce_u_v1_destroy_qp,
+	},
 };
