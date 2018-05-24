@@ -85,5 +85,7 @@
 #define ibv_flow_action_esp_encap                       ib_uverbs_flow_action_esp_encap
 #define ibv_flow_action_esp                             ib_uverbs_flow_action_esp
 
+#define IBV_QPF_GRH_REQUIRED				IB_UVERBS_QPF_GRH_REQUIRED
+
 #endif
 

@@ -172,6 +172,11 @@ Init \fB          IBV_QP_STATE, IBV_QP_PORT\fR
 RTR  \fB          IBV_QP_STATE\fR
 RTS  \fB          IBV_QP_STATE\fR
 .fi
+.PP
+If port flag IBV_QPF_GRH_REQUIRED is set then
+ah_attr and alt_ah_attr
+must be passed with definition of 'struct ibv_ah_attr { .is_global = 1; .grh = {...}; }'.
+.PP
 .SH "SEE ALSO"
 .BR ibv_create_qp (3),
 .BR ibv_destroy_qp (3),
