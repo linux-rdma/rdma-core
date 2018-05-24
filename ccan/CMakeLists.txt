@@ -1,4 +1,5 @@
 publish_internal_headers(ccan
+  array_size.h
   build_assert.h
   check_type.h
   container_of.h
