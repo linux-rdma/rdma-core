@@ -90,7 +90,7 @@ struct c4iw_pd {
 };
 
 struct c4iw_mr {
-	struct ibv_mr ibv_mr;
+	struct verbs_mr vmr;
 	uint64_t va_fbo;
 	uint32_t len;
 };
@@ -147,9 +147,9 @@ static inline struct c4iw_qp *to_c4iw_qp(struct ibv_qp *ibqp)
 	return to_c4iw_xxx(qp, qp);
 }
 
-static inline struct c4iw_mr *to_c4iw_mr(struct ibv_mr *ibmr)
+static inline struct c4iw_mr *to_c4iw_mr(struct verbs_mr *vmr)
 {
-	return to_c4iw_xxx(mr, mr);
+	return container_of(vmr, struct c4iw_mr, vmr);
 }
 
 static inline struct c4iw_qp *get_qhp(struct c4iw_dev *rhp, u32 qid)
@@ -180,7 +180,7 @@ int c4iw_free_pd(struct ibv_pd *pd);
 
 struct ibv_mr *c4iw_reg_mr(struct ibv_pd *pd, void *addr,
 				  size_t length, int access);
-int c4iw_dereg_mr(struct ibv_mr *mr);
+int c4iw_dereg_mr(struct verbs_mr *vmr);
 
 struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 			      struct ibv_comp_channel *channel,

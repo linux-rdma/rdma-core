@@ -390,7 +390,7 @@ int ibv_cmd_close_xrcd(struct verbs_xrcd *xrcd)
 
 int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 		   uint64_t hca_va, int access,
-		   struct ibv_mr *mr, struct ibv_reg_mr *cmd,
+		   struct verbs_mr *vmr, struct ibv_reg_mr *cmd,
 		   size_t cmd_size,
 		   struct ib_uverbs_reg_mr_resp *resp, size_t resp_size)
 {
@@ -408,15 +408,16 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 
 	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
-	mr->handle  = resp->mr_handle;
-	mr->lkey    = resp->lkey;
-	mr->rkey    = resp->rkey;
-	mr->context = pd->context;
+	vmr->ibv_mr.handle  = resp->mr_handle;
+	vmr->ibv_mr.lkey    = resp->lkey;
+	vmr->ibv_mr.rkey    = resp->rkey;
+	vmr->ibv_mr.context = pd->context;
+	vmr->mr_type        = IBV_MR_TYPE_MR;
 
 	return 0;
 }
 
-int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
+int ibv_cmd_rereg_mr(struct verbs_mr *vmr, uint32_t flags, void *addr,
 		     size_t length, uint64_t hca_va, int access,
 		     struct ibv_pd *pd, struct ibv_rereg_mr *cmd,
 		     size_t cmd_sz, struct ib_uverbs_rereg_mr_resp *resp,
@@ -424,7 +425,7 @@ int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
 {
 	IBV_INIT_CMD_RESP(cmd, cmd_sz, REREG_MR, resp, resp_sz);
 
-	cmd->mr_handle	  = mr->handle;
+	cmd->mr_handle	  = vmr->ibv_mr.handle;
 	cmd->flags	  = flags;
 	cmd->start	  = (uintptr_t)addr;
 	cmd->length	  = length;
@@ -432,27 +433,28 @@ int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
 	cmd->pd_handle	  = (flags & IBV_REREG_MR_CHANGE_PD) ? pd->handle : 0;
 	cmd->access_flags = access;
 
-	if (write(mr->context->cmd_fd, cmd, cmd_sz) != cmd_sz)
+	if (write(vmr->ibv_mr.context->cmd_fd, cmd, cmd_sz) != cmd_sz)
 		return errno;
 
 	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_sz);
 
-	mr->lkey    = resp->lkey;
-	mr->rkey    = resp->rkey;
+	vmr->ibv_mr.lkey    = resp->lkey;
+	vmr->ibv_mr.rkey    = resp->rkey;
 	if (flags & IBV_REREG_MR_CHANGE_PD)
-		mr->context = pd->context;
+		vmr->ibv_mr.context = pd->context;
 
 	return 0;
 }
 
-int ibv_cmd_dereg_mr(struct ibv_mr *mr)
+int ibv_cmd_dereg_mr(struct verbs_mr *vmr)
 {
 	struct ibv_dereg_mr cmd;
 
 	IBV_INIT_CMD(&cmd, sizeof cmd, DEREG_MR);
-	cmd.mr_handle = mr->handle;
+	cmd.mr_handle = vmr->ibv_mr.handle;
 
-	if (write(mr->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
+	if (write(vmr->ibv_mr.context->cmd_fd, &cmd, sizeof(cmd)) !=
+	    sizeof(cmd))
 		return errno;
 
 	return 0;

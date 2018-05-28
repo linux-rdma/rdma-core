@@ -479,7 +479,7 @@ struct mlx5_dm {
 };
 
 struct mlx5_mr {
-	struct ibv_mr			ibv_mr;
+	struct verbs_mr                 vmr;
 	struct mlx5_buf			buf;
 	uint32_t			alloc_flags;
 };
@@ -657,7 +657,7 @@ static inline struct mlx5_dm *to_mdm(struct ibv_dm *ibdm)
 
 static inline struct mlx5_mr *to_mmr(struct ibv_mr *ibmr)
 {
-	return to_mxxx(mr, mr);
+	return container_of(ibmr, struct mlx5_mr, vmr.ibv_mr);
 }
 
 static inline struct mlx5_ah *to_mah(struct ibv_ah *ibah)
@@ -737,9 +737,9 @@ int mlx5_free_pd(struct ibv_pd *pd);
 
 struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr,
 			   size_t length, int access);
-int mlx5_rereg_mr(struct ibv_mr *mr, int flags, struct ibv_pd *pd, void *addr,
+int mlx5_rereg_mr(struct verbs_mr *mr, int flags, struct ibv_pd *pd, void *addr,
 		  size_t length, int access);
-int mlx5_dereg_mr(struct ibv_mr *mr);
+int mlx5_dereg_mr(struct verbs_mr *mr);
 struct ibv_mw *mlx5_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type);
 int mlx5_dealloc_mw(struct ibv_mw *mw);
 int mlx5_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,

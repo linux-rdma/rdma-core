@@ -82,7 +82,7 @@ struct ocrdma_pd {
 };
 
 struct ocrdma_mr {
-	struct ibv_mr ibv_mr;
+	struct verbs_mr vmr;
 };
 
 struct ocrdma_cq {
@@ -271,7 +271,7 @@ struct ibv_pd *ocrdma_alloc_pd(struct ibv_context *);
 int ocrdma_free_pd(struct ibv_pd *);
 struct ibv_mr *ocrdma_reg_mr(struct ibv_pd *, void *, size_t,
 			     int ibv_access_flags);
-int ocrdma_dereg_mr(struct ibv_mr *);
+int ocrdma_dereg_mr(struct verbs_mr *vmr);
 
 struct ibv_cq *ocrdma_create_cq(struct ibv_context *, int,
 				struct ibv_comp_channel *, int);

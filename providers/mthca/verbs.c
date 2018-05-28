@@ -117,7 +117,7 @@ static struct ibv_mr *__mthca_reg_mr(struct ibv_pd *pd, void *addr,
 				     int access,
 				     int dma_sync)
 {
-	struct ibv_mr *mr;
+	struct verbs_mr *vmr;
 	struct umthca_reg_mr cmd;
 	struct ib_uverbs_reg_mr_resp resp;
 	int ret;
@@ -131,18 +131,18 @@ static struct ibv_mr *__mthca_reg_mr(struct ibv_pd *pd, void *addr,
 	cmd.mr_attrs = dma_sync ? MTHCA_MR_DMASYNC : 0;
 	cmd.reserved = 0;
 
-	mr = malloc(sizeof *mr);
-	if (!mr)
+	vmr = malloc(sizeof(*vmr));
+	if (!vmr)
 		return NULL;
 
-	ret = ibv_cmd_reg_mr(pd, addr, length, hca_va, access, mr, &cmd.ibv_cmd,
-			     sizeof cmd, &resp, sizeof resp);
+	ret = ibv_cmd_reg_mr(pd, addr, length, hca_va, access, vmr,
+			     &cmd.ibv_cmd, sizeof(cmd), &resp, sizeof(resp));
 	if (ret) {
-		free(mr);
+		free(vmr);
 		return NULL;
 	}
 
-	return mr;
+	return &vmr->ibv_mr;
 }
 
 struct ibv_mr *mthca_reg_mr(struct ibv_pd *pd, void *addr,
@@ -151,15 +151,15 @@ struct ibv_mr *mthca_reg_mr(struct ibv_pd *pd, void *addr,
 	return __mthca_reg_mr(pd, addr, length, (uintptr_t) addr, access, 0);
 }
 
-int mthca_dereg_mr(struct ibv_mr *mr)
+int mthca_dereg_mr(struct verbs_mr *vmr)
 {
 	int ret;
 
-	ret = ibv_cmd_dereg_mr(mr);
+	ret = ibv_cmd_dereg_mr(vmr);
 	if (ret)
 		return ret;
 
-	free(mr);
+	free(vmr);
 	return 0;
 }
 
@@ -258,7 +258,7 @@ err_set_db:
 			      cq->set_ci_db_index);
 
 err_unreg:
-	mthca_dereg_mr(cq->mr);
+	mthca_dereg_mr(verbs_get_mr(cq->mr));
 
 err_buf:
 	mthca_free_buf(&cq->buf);
@@ -312,14 +312,14 @@ int mthca_resize_cq(struct ibv_cq *ibcq, int cqe)
 	ret = ibv_cmd_resize_cq(ibcq, cqe - 1, &cmd.ibv_cmd, sizeof cmd, &resp,
 				sizeof resp);
 	if (ret) {
-		mthca_dereg_mr(mr);
+		mthca_dereg_mr(verbs_get_mr(mr));
 		mthca_free_buf(&buf);
 		goto out;
 	}
 
 	mthca_cq_resize_copy_cqes(cq, buf.buf, old_cqe);
 
-	mthca_dereg_mr(cq->mr);
+	mthca_dereg_mr(verbs_get_mr(cq->mr));
 	mthca_free_buf(&cq->buf);
 
 	cq->buf = buf;
@@ -345,7 +345,7 @@ int mthca_destroy_cq(struct ibv_cq *cq)
 			      to_mcq(cq)->arm_db_index);
 	}
 
-	mthca_dereg_mr(to_mcq(cq)->mr);
+	mthca_dereg_mr(verbs_get_mr(to_mcq(cq)->mr));
 	mthca_free_buf(&to_mcq(cq)->buf);
 	free(to_mcq(cq));
 
@@ -437,7 +437,7 @@ err_db:
 			      srq->db_index);
 
 err_unreg:
-	mthca_dereg_mr(srq->mr);
+	mthca_dereg_mr(verbs_get_mr(srq->mr));
 
 err_free:
 	free(srq->wrid);
@@ -478,7 +478,7 @@ int mthca_destroy_srq(struct ibv_srq *srq)
 		mthca_free_db(to_mctx(srq->context)->db_tab, MTHCA_DB_TYPE_SRQ,
 			      to_msrq(srq)->db_index);
 
-	mthca_dereg_mr(to_msrq(srq)->mr);
+	mthca_dereg_mr(verbs_get_mr(to_msrq(srq)->mr));
 
 	mthca_free_buf(&to_msrq(srq)->buf);
 	free(to_msrq(srq)->wrid);
@@ -588,7 +588,7 @@ err_sq_db:
 			      qp->sq.db_index);
 
 err_unreg:
-	mthca_dereg_mr(qp->mr);
+	mthca_dereg_mr(verbs_get_mr(qp->mr));
 
 err_free:
 	free(qp->wrid);
@@ -698,7 +698,7 @@ int mthca_destroy_qp(struct ibv_qp *qp)
 			      to_mqp(qp)->sq.db_index);
 	}
 
-	mthca_dereg_mr(to_mqp(qp)->mr);
+	mthca_dereg_mr(verbs_get_mr(to_mqp(qp)->mr));
 	mthca_free_buf(&to_mqp(qp)->buf);
 	free(to_mqp(qp)->wrid);
 	free(to_mqp(qp));

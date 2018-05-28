@@ -200,7 +200,7 @@ static int dealloc_td(struct ibv_td *td)
 	return ENOSYS;
 }
 
-static int dereg_mr(struct ibv_mr *mr)
+static int dereg_mr(struct verbs_mr *vmr)
 {
 	return ENOSYS;
 }
@@ -406,8 +406,8 @@ static int req_notify_cq(struct ibv_cq *cq, int solicited_only)
 	return ENOSYS;
 }
 
-static int rereg_mr(struct ibv_mr *mr, int flags, struct ibv_pd *pd, void *addr,
-		    size_t length, int access)
+static int rereg_mr(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
+		    void *addr, size_t length, int access)
 {
 	errno = ENOSYS;
 	return IBV_REREG_MR_ERR_INPUT;

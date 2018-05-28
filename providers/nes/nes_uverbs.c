@@ -168,39 +168,39 @@ int nes_ufree_pd(struct ibv_pd *pd)
 struct ibv_mr *nes_ureg_mr(struct ibv_pd *pd, void *addr,
 		size_t length, int access)
 {
-	struct ibv_mr *mr;
+	struct verbs_mr *vmr;
 	struct nes_ureg_mr cmd;
 	struct ib_uverbs_reg_mr_resp resp;
 
-	mr = malloc(sizeof *mr);
-	if (!mr)
+	vmr = malloc(sizeof(*vmr));
+	if (!vmr)
 		return NULL;
 
 	cmd.reg_type = IWNES_MEMREG_TYPE_MEM;
 	if (ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr,
-			access, mr, &cmd.ibv_cmd, sizeof cmd,
-			&resp, sizeof resp)) {
-		free(mr);
+			access, vmr, &cmd.ibv_cmd, sizeof(cmd),
+			&resp, sizeof(resp))) {
+		free(vmr);
 
 		return NULL;
 	}
 
-	return mr;
+	return &vmr->ibv_mr;
 }
 
 
 /**
  * nes_udereg_mr
  */
-int nes_udereg_mr(struct ibv_mr *mr)
+int nes_udereg_mr(struct verbs_mr *vmr)
 {
 	int ret;
 
-	ret = ibv_cmd_dereg_mr(mr);
+	ret = ibv_cmd_dereg_mr(vmr);
 	if (ret)
 		return ret;
 
-	free(mr);
+	free(vmr);
 	return 0;
 }
 
@@ -243,9 +243,9 @@ struct ibv_cq *nes_ucreate_cq(struct ibv_context *context, int cqe,
 
 	ret = ibv_cmd_reg_mr(&nesvctx->nesupd->ibv_pd, (void *)nesucq->cqes,
 			(nesucq->size*sizeof(struct nes_hw_cqe)),
-			(uintptr_t)nesucq->cqes, IBV_ACCESS_LOCAL_WRITE, &nesucq->mr,
-			&reg_mr_cmd.ibv_cmd, sizeof reg_mr_cmd,
-			&reg_mr_resp, sizeof reg_mr_resp);
+			(uintptr_t)nesucq->cqes, IBV_ACCESS_LOCAL_WRITE,
+			&nesucq->vmr, &reg_mr_cmd.ibv_cmd, sizeof(reg_mr_cmd),
+			&reg_mr_resp, sizeof(reg_mr_resp));
 	if (ret) {
 		/* fprintf(stderr, "ibv_cmd_reg_mr failed (ret = %d).\n", ret); */
 		free((struct nes_hw_cqe *)nesucq->cqes);
@@ -300,7 +300,7 @@ int nes_udestroy_cq(struct ibv_cq *cq)
 	if (ret)
 		return ret;
 
-	ret = ibv_cmd_dereg_mr(&nesucq->mr);
+	ret = ibv_cmd_dereg_mr(&nesucq->vmr);
 	if (ret)
 		fprintf(stderr, PFX "%s: Failed to deregister CQ Memory Region.\n", __FUNCTION__);
 
@@ -957,9 +957,10 @@ static int nes_vmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_
 	//		nesuqp->rq_vbase, nesuqp->sq_vbase, &nesuqp->mr);
 
         ret = ibv_cmd_reg_mr(pd, (void *)nesuqp->sq_vbase,totalqpsize,
-			     (uintptr_t) nesuqp->sq_vbase, IBV_ACCESS_LOCAL_WRITE,
-			     &nesuqp->mr, &reg_mr_cmd.ibv_cmd, sizeof reg_mr_cmd,
-			     &reg_mr_resp, sizeof reg_mr_resp);
+			     (uintptr_t)nesuqp->sq_vbase,
+			     IBV_ACCESS_LOCAL_WRITE, &nesuqp->vmr,
+			     &reg_mr_cmd.ibv_cmd, sizeof(reg_mr_cmd),
+			     &reg_mr_resp, sizeof(reg_mr_resp));
         if (ret) {
                 // fprintf(stderr, PFX "%s ibv_cmd_reg_mr failed (ret = %d).\n", __FUNCTION__, ret);
 		free((void *) nesuqp->sq_vbase);
@@ -972,7 +973,7 @@ static int nes_vmapped_qp(struct nes_uqp *nesuqp, struct ibv_pd *pd, struct ibv_
 	ret = ibv_cmd_create_qp(pd, &nesuqp->ibv_qp, attr, &cmd.ibv_cmd, sizeof cmd,
 				&resp->ibv_resp, sizeof (struct nes_ucreate_qp_resp) );
 	if (ret) {
-		ibv_cmd_dereg_mr(&nesuqp->mr);
+		ibv_cmd_dereg_mr(&nesuqp->vmr);
 		free((void *)nesuqp->sq_vbase);
 		return 0;
 	}
@@ -1155,7 +1156,7 @@ int nes_udestroy_qp(struct ibv_qp *qp)
 	// fprintf(stderr, PFX "%s addr&mr= %p  \n", __FUNCTION__, &nesuqp->mr );
 
 	if (nesuqp->mapping == NES_QP_VMAP) {
-		ret = ibv_cmd_dereg_mr(&nesuqp->mr);
+		ret = ibv_cmd_dereg_mr(&nesuqp->vmr);
 		if (ret)
 	 		fprintf(stderr, PFX "%s dereg_mr FAILED\n", __FUNCTION__);
 		free((void *)nesuqp->sq_vbase);

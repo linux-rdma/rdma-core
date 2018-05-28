@@ -123,7 +123,7 @@ struct ibv_mr *hns_roce_u_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 				 int access)
 {
 	int ret;
-	struct ibv_mr *mr;
+	struct verbs_mr *vmr;
 	struct ibv_reg_mr cmd;
 	struct ib_uverbs_reg_mr_resp resp;
 
@@ -137,40 +137,40 @@ struct ibv_mr *hns_roce_u_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 		return NULL;
 	}
 
-	mr = malloc(sizeof(*mr));
-	if (!mr)
+	vmr = malloc(sizeof(*vmr));
+	if (!vmr)
 		return NULL;
 
-	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr, access, mr,
+	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr, access, vmr,
 			     &cmd, sizeof(cmd), &resp, sizeof(resp));
 	if (ret) {
-		free(mr);
+		free(vmr);
 		return NULL;
 	}
 
-	return mr;
+	return &vmr->ibv_mr;
 }
 
-int hns_roce_u_rereg_mr(struct ibv_mr *mr, int flags, struct ibv_pd *pd,
+int hns_roce_u_rereg_mr(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 			void *addr, size_t length, int access)
 {
 	struct ibv_rereg_mr cmd;
 	struct ib_uverbs_rereg_mr_resp resp;
 
-	return ibv_cmd_rereg_mr(mr, flags, addr, length, (uintptr_t)addr,
+	return ibv_cmd_rereg_mr(vmr, flags, addr, length, (uintptr_t)addr,
 				access, pd, &cmd, sizeof(cmd), &resp,
 				sizeof(resp));
 }
 
-int hns_roce_u_dereg_mr(struct ibv_mr *mr)
+int hns_roce_u_dereg_mr(struct verbs_mr *vmr)
 {
 	int ret;
 
-	ret = ibv_cmd_dereg_mr(mr);
+	ret = ibv_cmd_dereg_mr(vmr);
 	if (ret)
 		return ret;
 
-	free(mr);
+	free(vmr);
 
 	return ret;
 }

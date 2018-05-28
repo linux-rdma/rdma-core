@@ -85,6 +85,20 @@ enum ibv_gid_type {
 	IBV_GID_TYPE_ROCE_V2,
 };
 
+enum ibv_mr_type {
+	IBV_MR_TYPE_MR,
+};
+
+struct verbs_mr {
+	struct ibv_mr		ibv_mr;
+	enum ibv_mr_type        mr_type;
+};
+
+static inline struct verbs_mr *verbs_get_mr(struct ibv_mr *mr)
+{
+	return container_of(mr, struct verbs_mr, ibv_mr);
+}
+
 struct verbs_qp {
 	struct ibv_qp		qp;
 	uint32_t		comp_mask;
@@ -252,7 +266,7 @@ struct verbs_context_ops {
 	int (*dealloc_mw)(struct ibv_mw *mw);
 	int (*dealloc_pd)(struct ibv_pd *pd);
 	int (*dealloc_td)(struct ibv_td *td);
-	int (*dereg_mr)(struct ibv_mr *mr);
+	int (*dereg_mr)(struct verbs_mr *vmr);
 	int (*destroy_ah)(struct ibv_ah *ah);
 	int (*destroy_counters)(struct ibv_counters *counters);
 	int (*destroy_cq)(struct ibv_cq *cq);
@@ -313,7 +327,7 @@ struct verbs_context_ops {
 	struct ibv_mr *(*reg_mr)(struct ibv_pd *pd, void *addr, size_t length,
 				 int access);
 	int (*req_notify_cq)(struct ibv_cq *cq, int solicited_only);
-	int (*rereg_mr)(struct ibv_mr *mr, int flags, struct ibv_pd *pd,
+	int (*rereg_mr)(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 			void *addr, size_t length, int access);
 	int (*resize_cq)(struct ibv_cq *cq, int cqe);
 };
@@ -406,15 +420,15 @@ int ibv_cmd_open_xrcd(struct ibv_context *context, struct verbs_xrcd *xrcd,
 int ibv_cmd_close_xrcd(struct verbs_xrcd *xrcd);
 int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 		   uint64_t hca_va, int access,
-		   struct ibv_mr *mr, struct ibv_reg_mr *cmd,
+		   struct verbs_mr *vmr, struct ibv_reg_mr *cmd,
 		   size_t cmd_size,
 		   struct ib_uverbs_reg_mr_resp *resp, size_t resp_size);
-int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
+int ibv_cmd_rereg_mr(struct verbs_mr *vmr, uint32_t flags, void *addr,
 		     size_t length, uint64_t hca_va, int access,
 		     struct ibv_pd *pd, struct ibv_rereg_mr *cmd,
 		     size_t cmd_sz, struct ib_uverbs_rereg_mr_resp *resp,
 		     size_t resp_sz);
-int ibv_cmd_dereg_mr(struct ibv_mr *mr);
+int ibv_cmd_dereg_mr(struct verbs_mr *vmr);
 int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
 		     struct ibv_mw *mw, struct ibv_alloc_mw *cmd,
 		     size_t cmd_size,
@@ -562,7 +576,7 @@ int ibv_cmd_alloc_dm(struct ibv_context *ctx,
 int ibv_cmd_free_dm(struct verbs_dm *dm);
 int ibv_cmd_reg_dm_mr(struct ibv_pd *pd, struct verbs_dm *dm,
 		      uint64_t offset, size_t length,
-		      unsigned int access, struct ibv_mr *mr,
+		      unsigned int access, struct verbs_mr *vmr,
 		      struct ibv_command_buffer *link);
 
 /*

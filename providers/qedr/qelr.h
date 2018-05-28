@@ -139,7 +139,7 @@ struct qelr_pd {
 };
 
 struct qelr_mr {
-	struct ibv_mr		ibv_mr;
+	struct verbs_mr		vmr;
 };
 
 union db_prod64 {

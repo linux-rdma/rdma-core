@@ -278,8 +278,9 @@ LATEST_SYMVER_FUNC(ibv_rereg_mr, 1_1, "IBVERBS_1.1",
 
 	old_addr = mr->addr;
 	old_len = mr->length;
-	err = get_ops(mr->context)
-		      ->rereg_mr(mr, flags, pd, addr, length, access);
+	err = get_ops(mr->context)->rereg_mr(verbs_get_mr(mr),
+					     flags, pd, addr,
+					     length, access);
 	if (!err) {
 		if (flags & IBV_REREG_MR_CHANGE_PD)
 			mr->pd = pd;
@@ -309,7 +310,7 @@ LATEST_SYMVER_FUNC(ibv_dereg_mr, 1_1, "IBVERBS_1.1",
 	void *addr	= mr->addr;
 	size_t length	= mr->length;
 
-	ret = get_ops(mr->context)->dereg_mr(mr);
+	ret = get_ops(mr->context)->dereg_mr(verbs_get_mr(mr));
 	if (!ret)
 		ibv_dofork_range(addr, length);
 

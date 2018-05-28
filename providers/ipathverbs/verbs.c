@@ -112,34 +112,34 @@ int ipath_free_pd(struct ibv_pd *pd)
 struct ibv_mr *ipath_reg_mr(struct ibv_pd *pd, void *addr,
 			    size_t length, int access)
 {
-	struct ibv_mr *mr;
+	struct verbs_mr *vmr;
 	struct ibv_reg_mr cmd;
 	struct ib_uverbs_reg_mr_resp resp;
 	int ret;
 
-	mr = malloc(sizeof *mr);
-	if (!mr)
+	vmr = malloc(sizeof(*vmr));
+	if (!vmr)
 		return NULL;
 
-	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr, access, mr,
+	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr, access, vmr,
 			     &cmd, sizeof cmd, &resp, sizeof resp);
 	if (ret) {
-		free(mr);
+		free(vmr);
 		return NULL;
 	}
 
-	return mr;
+	return &vmr->ibv_mr;
 }
 
-int ipath_dereg_mr(struct ibv_mr *mr)
+int ipath_dereg_mr(struct verbs_mr *vmr)
 {
 	int ret;
 
-	ret = ibv_cmd_dereg_mr(mr);
+	ret = ibv_cmd_dereg_mr(vmr);
 	if (ret)
 		return ret;
 
-	free(mr);
+	free(vmr);
 	return 0;
 }
 
