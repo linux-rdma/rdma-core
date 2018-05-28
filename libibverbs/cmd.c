@@ -1774,6 +1774,7 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		       sizeof(struct ibv_flow_gre_filter));
 		break;
 	case IBV_FLOW_SPEC_MPLS:
+	case IBV_FLOW_SPEC_MPLS | IBV_FLOW_SPEC_INNER:
 		kern_spec->mpls.size = sizeof(struct ib_uverbs_flow_spec_mpls);
 		memcpy(&kern_spec->mpls.val, &ib_spec->mpls.val,
 		       sizeof(struct ibv_flow_mpls_filter));
