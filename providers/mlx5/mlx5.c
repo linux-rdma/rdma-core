@@ -146,6 +146,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.query_rt_values = mlx5_query_rt_values,
 	.read_counters = mlx5_read_counters,
 	.reg_dm_mr = mlx5_reg_dm_mr,
+	.alloc_null_mr = mlx5_alloc_null_mr,
 };
 
 static const struct verbs_context_ops mlx5_ctx_cqev1_ops = {
@@ -1062,6 +1063,18 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	context->max_recv_wr	= resp.max_recv_wr;
 	context->max_srq_recv_wr = resp.max_srq_recv_wr;
 	context->num_dyn_bfregs = resp.num_dyn_bfregs;
+
+	if (resp.comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_DUMP_FILL_MKEY) {
+		context->dump_fill_mkey = resp.dump_fill_mkey;
+		/* Have the BE value ready to be used in data path */
+		context->dump_fill_mkey_be = htobe32(resp.dump_fill_mkey);
+	} else {
+		/* kernel driver will never return MLX5_INVALID_LKEY for
+		 * dump_fill_mkey
+		 */
+		context->dump_fill_mkey = MLX5_INVALID_LKEY;
+		context->dump_fill_mkey_be = htobe32(MLX5_INVALID_LKEY);
+	}
 
 	if (context->num_dyn_bfregs) {
 		context->count_dyn_bfregs = calloc(context->num_dyn_bfregs,

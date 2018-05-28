@@ -396,6 +396,33 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	return &mr->vmr.ibv_mr;
 }
 
+struct ibv_mr *mlx5_alloc_null_mr(struct ibv_pd *pd)
+{
+	struct mlx5_mr *mr;
+	struct mlx5_context *ctx = to_mctx(pd->context);
+
+	if (ctx->dump_fill_mkey == MLX5_INVALID_LKEY) {
+		errno = ENOTSUP;
+		return NULL;
+	}
+
+	mr = calloc(1, sizeof(*mr));
+	if (!mr) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	mr->vmr.ibv_mr.lkey = ctx->dump_fill_mkey;
+
+	mr->vmr.ibv_mr.context = pd->context;
+	mr->vmr.ibv_mr.pd      = pd;
+	mr->vmr.ibv_mr.addr    = NULL;
+	mr->vmr.ibv_mr.length  = SIZE_MAX;
+	mr->vmr.mr_type = IBV_MR_TYPE_NULL_MR;
+
+	return &mr->vmr.ibv_mr;
+}
+
 enum {
 	MLX5_DM_ALLOWED_ACCESS = IBV_ACCESS_LOCAL_WRITE		|
 				 IBV_ACCESS_REMOTE_WRITE	|
@@ -453,10 +480,14 @@ int mlx5_dereg_mr(struct verbs_mr *vmr)
 {
 	int ret;
 
+	if (vmr->mr_type == IBV_MR_TYPE_NULL_MR)
+		goto free;
+
 	ret = ibv_cmd_dereg_mr(vmr);
 	if (ret)
 		return ret;
 
+free:
 	free(vmr);
 	return 0;
 }

@@ -295,6 +295,8 @@ struct mlx5_context {
 	uint16_t			flow_action_flags;
 	uint64_t			max_dm_size;
 	uint32_t                        eth_min_inline_size;
+	uint32_t                        dump_fill_mkey;
+	__be32                          dump_fill_mkey_be;
 };
 
 struct mlx5_bitmap {
@@ -735,6 +737,7 @@ int mlx5_query_port(struct ibv_context *context, uint8_t port,
 struct ibv_pd *mlx5_alloc_pd(struct ibv_context *context);
 int mlx5_free_pd(struct ibv_pd *pd);
 
+struct ibv_mr *mlx5_alloc_null_mr(struct ibv_pd *pd);
 struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr,
 			   size_t length, int access);
 int mlx5_rereg_mr(struct verbs_mr *mr, int flags, struct ibv_pd *pd, void *addr,
