@@ -1,3 +1,21 @@
+# Please copy this file to /etc/systemd/system/ibacm.socket
+# before modification, if not done already.
+#
+# When using socket-based activation of the 'ibacm' service
+# ibacm's configuration option 'acme_plus_kernel_only' is ignored
+# (i.e. an implicit 'acme_plus_kernel_only no')
+#
+# In order to get the equivalent behavior of
+# configuration 'acme_plus_kernel_only yes'
+# Please add a comment (i.e. a '#' character) in front
+# of the line 'Symlinks' below, and ensure that file
+# file '/run/ibacm.sock' does not exist:
+# e.g. by using "rm -f /run/ibacm.sock" after modifying
+# the copy of this file that lives in /etc/systemd/system.
+#
+# Please also remember to reload the systemd configuration by running:
+# % systemctl --system daemon-reload
+
 [Unit]
 Description=Socket for InfiniBand Address Cache Manager Daemon
 Documentation=man:ibacm
@@ -7,7 +25,8 @@ Before=rdma-hw.target
 # ibacm.socket always starts
 
 [Socket]
-ListenStream=/run/ibacm.sock
+ListenStream=/run/ibacm-unix.sock
+Symlinks=/run/ibacm.sock
 
 # Bind to PF_NETLINK, NETLINK_RDMA, RDMA_NL_GROUP_LS
 # Supported in systemd > 234
