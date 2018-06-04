@@ -318,6 +318,8 @@ if (NOT HAVE_SPARSE)
   RDMA_DoFixup("${HAVE_STDATOMIC}" "stdatomic.h")
 endif()
 
+RDMA_Check_SSE(HAVE_TARGET_SSE)
+
 # Enable development support features
 # Prune unneeded shared libraries during linking
 RDMA_AddOptLDFlag(CMAKE_EXE_LINKER_FLAGS SUPPORTS_AS_NEEDED "-Wl,--as-needed")
@@ -640,4 +642,7 @@ if (NOT HAVE_C_WREDUNDANT_DECLS)
 endif()
 if (NOT HAVE_GLIBC_UAPI_COMPAT)
   message(STATUS " libc netinet/in.h and linux/in.h do NOT coexist")
+endif()
+if (NOT HAVE_TARGET_SSE)
+  message(STATUS " attribute(target(\"sse\")) does NOT work")
 endif()
