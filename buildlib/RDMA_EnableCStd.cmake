@@ -85,3 +85,46 @@ int main(int argc, char *argv[])
 
   set(${TO_VAR} "${HAVE_WORKING_STRICT_ALIASING}" PARENT_SCOPE)
 endfunction()
+
+function(RDMA_Check_SSE TO_VAR)
+  set(SSE_CHECK_PROGRAM "
+    #include <string.h>
+    #if defined(__i386__)
+      #include <xmmintrin.h>
+    #endif
+    int __attribute__((target(\"sse\"))) main(int argc, char *argv[])
+    {
+        int ret = 0;
+
+        #if defined(__i386__)
+	__m128 tmp = {};
+	tmp = _mm_loadl_pi(tmp, (__m64 *)&main);
+	_mm_storel_pi((__m64 *)&main, tmp);
+        ret = memchr(&tmp, 0, sizeof(tmp)) == &tmp;
+        #endif
+        return ret;
+    }")
+
+  CHECK_C_SOURCE_COMPILES(
+    "${SSE_CHECK_PROGRAM}"
+    HAVE_TARGET_SSE
+    FAIL_REGEX "warning")
+
+  if(NOT HAVE_TARGET_SSE)
+    # Older compiler, we can work around this by adding -msse instead of
+    # relying on the function attribute.
+    set(CMAKE_REQUIRED_FLAGS "-msse")
+    CHECK_C_SOURCE_COMPILES(
+      "${SSE_CHECK_PROGRAM}"
+      NEED_MSSE_FLAG
+      FAIL_REGEX "warning")
+    set(CMAKE_REQUIRED_FLAGS)
+
+    if(NEED_MSSE_FLAG)
+      set(SSE_FLAGS "-msse" PARENT_SCOPE)
+    else()
+      message(FATAL_ERROR "Can not figure out how to turn on sse instructions for i386")
+    endif()
+  endif()
+  set(${TO_VAR} "${HAVE_TARGET_SSE}" PARENT_SCOPE)
+endFunction()
