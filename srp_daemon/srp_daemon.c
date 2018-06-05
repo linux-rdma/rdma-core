@@ -1074,7 +1074,7 @@ static int get_port_info(struct umad_resources *umad_res, uint16_t dlid,
 int pkey_index_to_pkey(struct umad_resources *umad_res, int pkey_index,
 		       uint16_t *pkey)
 {
-	char pkey_file[16], pkey_str[16];
+	char pkey_file[18], pkey_str[16];
 
 	/* Read pkey */
 	snprintf(pkey_file, sizeof(pkey_file), "pkeys/%d", pkey_index);
