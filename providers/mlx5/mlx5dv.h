@@ -483,7 +483,7 @@ enum {
 enum mlx5dv_cqe_comp_res_format {
 	MLX5DV_CQE_RES_FORMAT_HASH		= 1 << 0,
 	MLX5DV_CQE_RES_FORMAT_CSUM		= 1 << 1,
-	MLX5DV_CQE_RES_FORMAT_RESERVED		= 1 << 2,
+	MLX5DV_CQE_RES_FORMAT_CSUM_STRIDX       = 1 << 2,
 };
 
 enum mlx5dv_sw_parsing_offloads {
