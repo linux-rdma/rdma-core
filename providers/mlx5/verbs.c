@@ -44,6 +44,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <ccan/array_size.h>
 
 #include <util/compiler.h>
 #include <util/mmio.h>
@@ -2201,6 +2202,39 @@ int mlx5_modify_qp_rate_limit(struct ibv_qp *qp,
 	return ret;
 }
 
+/*
+ * IB spec version 1.3. Table 224 Rate to mlx5 rate
+ * conversion table on best effort basis.
+ */
+static const uint8_t ib_to_mlx5_rate_table[] = {
+	0,	/* Invalid to unlimited */
+	0,	/* Invalid to unlimited */
+	7,	/* 2.5 Gbps */
+	8,	/* 10Gbps */
+	9,	/* 30Gbps */
+	10,	/* 5 Gbps */
+	11,	/* 20 Gbps */
+	12,	/* 40 Gbps */
+	13,	/* 60 Gbps */
+	14,	/* 80 Gbps */
+	15,	/* 120 Gbps */
+	11,	/* 14 Gbps to 20 Gbps */
+	13,	/* 56 Gbps to 60 Gbps */
+	15,	/* 112 Gbps to 120 Gbps */
+	0,	/* 168 Gbps to unlimited */
+	9,	/* 25 Gbps to 30 Gbps */
+	15,	/* 100 Gbps to 120 Gbps */
+	0,	/* 200 Gbps to unlimited */
+	0,	/* 300 Gbps to unlimited */
+};
+
+static uint8_t ah_attr_to_mlx5_rate(enum ibv_rate ah_static_rate)
+{
+	if (ah_static_rate >= ARRAY_SIZE(ib_to_mlx5_rate_table))
+		return 0;
+	return ib_to_mlx5_rate_table[ah_static_rate];
+}
+
 #define RROCE_UDP_SPORT_MIN 0xC000
 #define RROCE_UDP_SPORT_MAX 0xFFFF
 struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
@@ -2208,6 +2242,7 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	struct mlx5_context *ctx = to_mctx(pd->context);
 	struct ibv_port_attr port_attr;
 	struct mlx5_ah *ah;
+	uint8_t static_rate;
 	uint32_t gid_type;
 	__be32 tmp;
 	uint8_t grh;
@@ -2253,7 +2288,8 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		ah->av.rlid = htobe16(attr->dlid);
 		grh = 1;
 	}
-	ah->av.stat_rate_sl = (attr->static_rate << 4) | attr->sl;
+	static_rate = ah_attr_to_mlx5_rate(attr->static_rate);
+	ah->av.stat_rate_sl = (static_rate << 4) | attr->sl;
 	if (attr->is_global) {
 		ah->av.tclass = attr->grh.traffic_class;
 		ah->av.hop_limit = attr->grh.hop_limit;
