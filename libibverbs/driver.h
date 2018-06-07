@@ -188,6 +188,11 @@ struct verbs_device {
 	struct verbs_sysfs_dev *sysfs;
 };
 
+struct verbs_counters {
+	struct ibv_counters counters;
+	uint32_t handle;
+};
+
 /*
  * Must change the PRIVATE IBVERBS_PRIVATE_ symbol if this is changed. This is
  * the union of every op the driver can support. If new elements are added to
@@ -206,6 +211,9 @@ struct verbs_context_ops {
 	struct ibv_td *(*alloc_td)(struct ibv_context *context,
 				   struct ibv_td_init_attr *init_attr);
 	void (*async_event)(struct ibv_async_event *event);
+	int (*attach_counters_point_flow)(struct ibv_counters *counters,
+					  struct ibv_counter_attach_attr *attr,
+					  struct ibv_flow *flow);
 	int (*attach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
 			    uint16_t lid);
 	int (*bind_mw)(struct ibv_qp *qp, struct ibv_mw *mw,
@@ -214,6 +222,8 @@ struct verbs_context_ops {
 	void (*cq_event)(struct ibv_cq *cq);
 	struct ibv_ah *(*create_ah)(struct ibv_pd *pd,
 				    struct ibv_ah_attr *attr);
+	struct ibv_counters *(*create_counters)(struct ibv_context *context,
+						struct ibv_counters_init_attr *init_attr);
 	struct ibv_cq *(*create_cq)(struct ibv_context *context, int cqe,
 				    struct ibv_comp_channel *channel,
 				    int comp_vector);
@@ -244,6 +254,7 @@ struct verbs_context_ops {
 	int (*dealloc_td)(struct ibv_td *td);
 	int (*dereg_mr)(struct ibv_mr *mr);
 	int (*destroy_ah)(struct ibv_ah *ah);
+	int (*destroy_counters)(struct ibv_counters *counters);
 	int (*destroy_cq)(struct ibv_cq *cq);
 	int (*destroy_flow)(struct ibv_flow *flow);
 	int (*destroy_flow_action)(struct ibv_flow_action *action);
@@ -292,6 +303,10 @@ struct verbs_context_ops {
 	int (*query_rt_values)(struct ibv_context *context,
 			       struct ibv_values_ex *values);
 	int (*query_srq)(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
+	int (*read_counters)(struct ibv_counters *counters,
+			     uint64_t *counters_value,
+			     uint32_t ncounters,
+			     uint32_t flags);
 	struct ibv_mr *(*reg_dm_mr)(struct ibv_pd *pd, struct ibv_dm *dm,
 				    uint64_t dm_offset, size_t length,
 				    unsigned int access);
@@ -499,7 +514,9 @@ int ibv_cmd_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t l
 
 int ibv_cmd_create_flow(struct ibv_qp *qp,
 				     struct ibv_flow *flow_id,
-				     struct ibv_flow_attr *flow_attr);
+				     struct ibv_flow_attr *flow_attr,
+				     void *ucmd,
+				     size_t ucmd_size);
 int ibv_cmd_destroy_flow(struct ibv_flow *flow_id);
 int ibv_cmd_create_wq(struct ibv_context *context,
 		      struct ibv_wq_init_attr *wq_init_attr,
@@ -526,6 +543,16 @@ int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 				 size_t resp_core_size,
 				 size_t resp_size);
 int ibv_cmd_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table);
+int ibv_cmd_create_counters(struct ibv_context *context,
+			    struct ibv_counters_init_attr *init_attr,
+			    struct verbs_counters *vcounters,
+			    struct ibv_command_buffer *link);
+int ibv_cmd_destroy_counters(struct verbs_counters *vcounters);
+int ibv_cmd_read_counters(struct verbs_counters *vcounters,
+			  uint64_t *counters_value,
+			  uint32_t ncounters,
+			  uint32_t flags,
+			  struct ibv_command_buffer *link);
 int ibv_dontfork_range(void *base, size_t size);
 int ibv_dofork_range(void *base, size_t size);
 int ibv_cmd_alloc_dm(struct ibv_context *ctx,

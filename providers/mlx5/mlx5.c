@@ -118,7 +118,9 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.alloc_dm = mlx5_alloc_dm,
 	.alloc_parent_domain = mlx5_alloc_parent_domain,
 	.alloc_td = mlx5_alloc_td,
+	.attach_counters_point_flow = mlx5_attach_counters_point_flow,
 	.close_xrcd = mlx5_close_xrcd,
+	.create_counters = mlx5_create_counters,
 	.create_cq_ex = mlx5_create_cq_ex,
 	.create_flow = mlx5_create_flow,
 	.create_flow_action_esp = mlx5_create_flow_action_esp,
@@ -127,6 +129,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.create_srq_ex = mlx5_create_srq_ex,
 	.create_wq = mlx5_create_wq,
 	.dealloc_td = mlx5_dealloc_td,
+	.destroy_counters = mlx5_destroy_counters,
 	.destroy_flow = mlx5_destroy_flow,
 	.destroy_flow_action = mlx5_destroy_flow_action,
 	.destroy_rwq_ind_table = mlx5_destroy_rwq_ind_table,
@@ -141,6 +144,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.post_srq_ops = mlx5_post_srq_ops,
 	.query_device_ex = mlx5_query_device_ex,
 	.query_rt_values = mlx5_query_rt_values,
+	.read_counters = mlx5_read_counters,
 	.reg_dm_mr = mlx5_reg_dm_mr,
 };
 

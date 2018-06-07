@@ -5,11 +5,13 @@ rdma_man_pages(
   ibv_alloc_pd.3
   ibv_alloc_td.3
   ibv_asyncwatch.1
+  ibv_attach_counters_point_flow.3.md
   ibv_attach_mcast.3.md
   ibv_bind_mw.3
   ibv_create_ah.3
   ibv_create_ah_from_wc.3
   ibv_create_comp_channel.3
+  ibv_create_counters.3.md
   ibv_create_cq.3
   ibv_create_cq_ex.3
   ibv_modify_cq.3
@@ -55,6 +57,7 @@ rdma_man_pages(
   ibv_rate_to_mbps.3.md
   ibv_rate_to_mult.3.md
   ibv_rc_pingpong.1
+  ibv_read_counters.3.md
   ibv_reg_mr.3
   ibv_req_notify_cq.3.md
   ibv_rereg_mr.3.md
@@ -76,6 +79,7 @@ rdma_alias_man_pages(
   ibv_create_ah.3 ibv_destroy_ah.3
   ibv_create_ah_from_wc.3 ibv_init_ah_from_wc.3
   ibv_create_comp_channel.3 ibv_destroy_comp_channel.3
+  ibv_create_counters.3 ibv_destroy_counters.3
   ibv_create_cq.3 ibv_destroy_cq.3
   ibv_create_flow.3 ibv_destroy_flow.3
   ibv_create_flow_action.3 ibv_destroy_flow_action.3

@@ -121,6 +121,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_attach_mcast;
 		ibv_cmd_close_xrcd;
 		ibv_cmd_create_ah;
+		ibv_cmd_create_counters;
 		ibv_cmd_create_cq;
 		ibv_cmd_create_cq_ex;
 		ibv_cmd_create_flow;
@@ -136,6 +137,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_dealloc_pd;
 		ibv_cmd_dereg_mr;
 		ibv_cmd_destroy_ah;
+		ibv_cmd_destroy_counters;
 		ibv_cmd_destroy_cq;
 		ibv_cmd_destroy_flow;
 		ibv_cmd_destroy_flow_action;
@@ -162,6 +164,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_query_port;
 		ibv_cmd_query_qp;
 		ibv_cmd_query_srq;
+		ibv_cmd_read_counters;
 		ibv_cmd_reg_dm_mr;
 		ibv_cmd_reg_mr;
 		ibv_cmd_req_notify_cq;
