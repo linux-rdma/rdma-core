@@ -2,7 +2,6 @@
  */
 
 #include "config.h"
-#include <net/if_packet.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <endian.h>
