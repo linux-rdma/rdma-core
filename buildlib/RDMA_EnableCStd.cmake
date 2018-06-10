@@ -88,22 +88,24 @@ endfunction()
 
 function(RDMA_Check_SSE TO_VAR)
   set(SSE_CHECK_PROGRAM "
-    #include <string.h>
-    #if defined(__i386__)
-      #include <xmmintrin.h>
-    #endif
-    int __attribute__((target(\"sse\"))) main(int argc, char *argv[])
-    {
-        int ret = 0;
-
-        #if defined(__i386__)
+#if defined(__i386__)
+#include <string.h>
+#include <xmmintrin.h>
+int __attribute__((target(\"sse\"))) main(int argc, char *argv[])
+{
 	__m128 tmp = {};
+
 	tmp = _mm_loadl_pi(tmp, (__m64 *)&main);
 	_mm_storel_pi((__m64 *)&main, tmp);
-        ret = memchr(&tmp, 0, sizeof(tmp)) == &tmp;
-        #endif
-        return ret;
-    }")
+	return memchr(&tmp, 0, sizeof(tmp)) == &tmp;
+}
+#else
+int main(int argc, char *argv[])
+{
+	return 0;
+}
+#endif
+")
 
   CHECK_C_SOURCE_COMPILES(
     "${SSE_CHECK_PROGRAM}"
