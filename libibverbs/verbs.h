@@ -1785,6 +1785,7 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	struct ibv_mr *(*alloc_null_mr)(struct ibv_pd *pd);
 	int (*read_counters)(struct ibv_counters *counters,
 			     uint64_t *counters_value,
 			     uint32_t ncounters,
@@ -2204,6 +2205,24 @@ int ibv_memcpy_from_dm(void *host_addr, struct ibv_dm *dm,
 		       uint64_t dm_offset, size_t length)
 {
 	return dm->memcpy_from_dm(host_addr, dm, dm_offset, length);
+}
+
+/*
+ * ibv_alloc_null_mr - Allocate a null memory region.
+ * @pd - The protection domain associated with the MR.
+ */
+static inline
+struct ibv_mr *ibv_alloc_null_mr(struct ibv_pd *pd)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(pd->context, alloc_null_mr);
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+
+	return vctx->alloc_null_mr(pd);
 }
 
 /**

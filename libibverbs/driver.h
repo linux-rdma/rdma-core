@@ -87,6 +87,7 @@ enum ibv_gid_type {
 
 enum ibv_mr_type {
 	IBV_MR_TYPE_MR,
+	IBV_MR_TYPE_NULL_MR,
 };
 
 struct verbs_mr {
@@ -218,6 +219,7 @@ struct verbs_context_ops {
 	struct ibv_dm *(*alloc_dm)(struct ibv_context *context,
 				   struct ibv_alloc_dm_attr *attr);
 	struct ibv_mw *(*alloc_mw)(struct ibv_pd *pd, enum ibv_mw_type type);
+	struct ibv_mr *(*alloc_null_mr)(struct ibv_pd *pd);
 	struct ibv_pd *(*alloc_parent_domain)(
 		struct ibv_context *context,
 		struct ibv_parent_domain_init_attr *attr);

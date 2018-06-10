@@ -46,6 +46,12 @@ static struct ibv_mw *alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
 	return NULL;
 }
 
+static struct ibv_mr *alloc_null_mr(struct ibv_pd *pd)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
 static struct ibv_pd *
 alloc_parent_domain(struct ibv_context *context,
 		    struct ibv_parent_domain_init_attr *attr)
@@ -432,6 +438,7 @@ static int resize_cq(struct ibv_cq *cq, int cqe)
 const struct verbs_context_ops verbs_dummy_ops = {
 	alloc_dm,
 	alloc_mw,
+	alloc_null_mr,
 	alloc_parent_domain,
 	alloc_pd,
 	alloc_td,
@@ -545,6 +552,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 
 	SET_OP(vctx, alloc_dm);
 	SET_OP(ctx, alloc_mw);
+	SET_OP(vctx, alloc_null_mr);
 	SET_PRIV_OP(ctx, alloc_pd);
 	SET_OP(vctx, alloc_parent_domain);
 	SET_OP(vctx, alloc_td);
