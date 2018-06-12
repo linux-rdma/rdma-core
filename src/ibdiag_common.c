@@ -542,7 +542,9 @@ int is_mlnx_ext_port_info_supported(uint32_t vendorid,
 {
 	if (ibd_ibnetdisc_flags & IBND_CONFIG_MLX_EPI) {
 
-		if ((devid >= 0xc738 && devid <= 0xc73b) || devid == 0xcb20 || devid == 0xcf08 ||
+		if ((devid >= 0xc738 && devid <= 0xc73b) ||
+		    devid == 0xc839 || devid == 0xcb20 || devid == 0xcf08 ||
+		    devid == 0xcf09 || devid == 0xd2f0 ||
 		    ((vendorid == 0x119f) &&
 		     /* Bull SwitchX */
 		     (devid == 0x1b02 || devid == 0x1b50 ||
@@ -550,7 +552,7 @@ int is_mlnx_ext_port_info_supported(uint32_t vendorid,
 		      devid == 0x1ba0 ||
 		      (devid >= 0x1bd0 && devid <= 0x1bd5))))
 			return 1;
-		if ((devid >= 0x1003 && devid <= 0x1019) ||
+		if ((devid >= 0x1003 && devid <= 0x101b) ||
 		    ((vendorid == 0x119f) &&
 		     /* Bull ConnectX3 */
 		     (devid == 0x1b33 || devid == 0x1b73 ||
