@@ -1,3 +1,10 @@
+rdma-core (18.1-1) unstable; urgency=medium
+
+  * New upstream bugfix release.
+  * Drop all patches (applied upstream)
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Tue, 12 Jun 2018 11:53:44 +0200
+
 rdma-core (18.0-1) unstable; urgency=medium
 
   * New upstream release.
