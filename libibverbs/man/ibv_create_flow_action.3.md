@@ -1,13 +1,13 @@
 ---
 layout: page
-title: ibv_flow_action_esp(3)
+title: ibv_flow_action_esp
 section: 3
 tagline: Verbs
 ---
 
 # NAME
 
-ibv_flow_action_esp(3) -- Flow action esp for verbs(3)
+ibv_flow_action_esp - Flow action esp for verbs
 
 # SYNOPSIS
 
@@ -148,7 +148,7 @@ packets protected by the SA defined in this action.
 The following members of the esp_attr are used only in full offload mode:
 
 *spi*
-:	The value for the ESP Security Paremeters Index.
+:	The value for the ESP Security Parameters Index.
 	It is only used for *IB_UVERBS_FLOW_ACTION_ESP_FLAGS_FULL_OFFLAOD*.
 
 *seq*
@@ -229,7 +229,7 @@ if (!overlap) {
 }
 ```
 
-This mechanism is controled by the *esp_attr* flag:
+This mechanism is controlled by the *esp_attr* flag:
 
 *IB_UVERBS_FLOW_ACTION_ESP_FLAGS_ESN_NEW_WINDOW*
 : 	This flag is only used to provide stateless ESN support for inline crypto.
@@ -268,7 +268,7 @@ struct ibv_flow_action_esp_aes_keymat_aes_gcm {
 
 *iv_algo*
 :	The algorithm used to transform/generate new IVs with
-	*IB_UVERBS_FLOW_ACTION_ESP_FLAGS_FULL_OFFLOAD* encyption.
+	*IB_UVERBS_FLOW_ACTION_ESP_FLAGS_FULL_OFFLOAD* encryption.
 
 	The only supported value is *IB_UVERBS_FLOW_ACTION_IV_ALGO_SEQ* to
 	generate sequantial IVs.

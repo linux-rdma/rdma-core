@@ -555,10 +555,13 @@ static int get_num_low_lat_uuars(int tot_uuars)
  */
 static int need_uuar_lock(struct mlx5_context *ctx, int uuarn)
 {
+	int i;
+
 	if (uuarn == 0 || mlx5_single_threaded)
 		return 0;
 
-	if (uuarn >= (ctx->tot_uuars - ctx->low_lat_uuars) * 2)
+	i = (uuarn / 2) + (uuarn % 2);
+	if (i >= ctx->tot_uuars - ctx->low_lat_uuars)
 		return 0;
 
 	return 1;

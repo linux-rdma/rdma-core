@@ -57,7 +57,7 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "18.0")
+set(PACKAGE_VERSION "18.1")
 # When this is changed the values in these files need changing too:
 #   debian/libibverbs1.symbols
 set(IBVERBS_PABI_VERSION "18")
@@ -316,6 +316,8 @@ if (NOT HAVE_SPARSE)
   CHECK_INCLUDE_FILE("stdatomic.h" HAVE_STDATOMIC)
   RDMA_DoFixup("${HAVE_STDATOMIC}" "stdatomic.h")
 endif()
+
+RDMA_Check_SSE(HAVE_TARGET_SSE)
 
 # Enable development support features
 # Prune unneeded shared libraries during linking
@@ -637,4 +639,7 @@ if (NOT HAVE_C_WREDUNDANT_DECLS)
 endif()
 if (NOT HAVE_GLIBC_UAPI_COMPAT)
   message(STATUS " libc netinet/in.h and linux/in.h do NOT coexist")
+endif()
+if (NOT HAVE_TARGET_SSE)
+  message(STATUS " attribute(target(\"sse\")) does NOT work")
 endif()

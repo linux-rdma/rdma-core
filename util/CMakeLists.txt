@@ -16,6 +16,7 @@ if (HAVE_COHERENT_DMA)
   set(C_FILES ${C_FILES}
     mmio.c
     )
+  set_source_files_properties(mmio.c PROPERTIES COMPILE_FLAGS "${SSE_FLAGS}")
 endif()
 
 add_library(rdma_util STATIC ${C_FILES})
