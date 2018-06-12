@@ -65,7 +65,8 @@
 
 #include <infiniband/driver.h>
 #include <infiniband/verbs.h>
-
+#define RDMA_ATOMIC_UAPI(_type, _name)  _Atomic(_type) _name
+#include "rdma/rvt-abi.h"
 #define PFX		"hfi1: "
 
 struct hfi1_device {
@@ -77,39 +78,11 @@ struct hfi1_context {
 	struct verbs_context	ibv_ctx;
 };
 
-/*
- * This structure needs to have the same size and offsets as
- * the kernel's ib_wc structure since it is memory mapped.
- */
-struct hfi1_wc {
-	uint64_t		wr_id;
-	enum ibv_wc_status	status;
-	enum ibv_wc_opcode	opcode;
-	uint32_t		vendor_err;
-	uint32_t		byte_len;
-	uint32_t		imm_data;	/* in network byte order */
-	uint32_t		qp_num;
-	uint32_t		src_qp;
-	enum ibv_wc_flags	wc_flags;
-	uint16_t		pkey_index;
-	uint16_t		slid;
-	uint8_t			sl;
-	uint8_t			dlid_path_bits;
-	uint8_t			port_num;
-};
-
-struct hfi1_cq_wc {
-	_Atomic(uint32_t)	head;
-	_Atomic(uint32_t)	tail;
-	struct hfi1_wc		queue[1];
-};
-
 struct hfi1_cq {
-	struct ibv_cq		ibv_cq;
-	struct hfi1_cq_wc	*queue;
-	pthread_spinlock_t	lock;
+	struct ibv_cq           ibv_cq;
+	struct rvt_cq_wc       *queue;
+	pthread_spinlock_t      lock;
 };
-
 /*
  * Receive work request queue entry.
  * The size of the sg_list is determined when the QP is created and stored

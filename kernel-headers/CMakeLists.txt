@@ -25,6 +25,7 @@ publish_internal_headers(rdma
   rdma/rdma_user_rxe.h
   rdma/rvt-abi.h
   rdma/vmw_pvrdma-abi.h
+  rdma/rvt-abi.h
   )
 
 publish_internal_headers(rdma/hfi

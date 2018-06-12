@@ -63,9 +63,14 @@
 #include <pthread.h>
 #include <sys/mman.h>
 #include <errno.h>
-
 #include "hfiverbs.h"
 #include "hfi-abi.h"
+
+static size_t hfi1_cq_size(int cqe)
+{
+	return sizeof(struct rvt_cq_wc) +
+	       sizeof(struct ib_uverbs_wc) * (cqe + 1);
+}
 
 int hfi1_query_device(struct ibv_context *context,
 		       struct ibv_device_attr *attr)
@@ -186,7 +191,7 @@ struct ibv_cq *hfi1_create_cq(struct ibv_context *context, int cqe,
 		return NULL;
 	}
 
-	size = sizeof(struct hfi1_cq_wc) + sizeof(struct hfi1_wc) * cqe;
+	size = hfi1_cq_size(cqe);
 	cq->queue = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED,
 			 context->cmd_fd, resp.offset);
 	if ((void *) cq->queue == MAP_FAILED) {
@@ -231,8 +236,7 @@ int hfi1_resize_cq(struct ibv_cq *ibcq, int cqe)
 	memset(&resp, 0, sizeof(resp));
 	pthread_spin_lock(&cq->lock);
 	/* Save the old size so we can unmmap the queue. */
-	size = sizeof(struct hfi1_cq_wc) +
-		(sizeof(struct hfi1_wc) * cq->ibv_cq.cqe);
+	size = hfi1_cq_size(cq->ibv_cq.cqe);
 	ret = ibv_cmd_resize_cq(ibcq, cqe, &cmd, sizeof cmd,
 				&resp.ibv_resp, sizeof resp);
 	if (ret) {
@@ -240,8 +244,7 @@ int hfi1_resize_cq(struct ibv_cq *ibcq, int cqe)
 		return ret;
 	}
 	(void) munmap(cq->queue, size);
-	size = sizeof(struct hfi1_cq_wc) +
-		(sizeof(struct hfi1_wc) * cq->ibv_cq.cqe);
+	size = hfi1_cq_size(cqe);
 	cq->queue = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED,
 			 ibcq->context->cmd_fd, resp.offset);
 	ret = errno;
@@ -269,8 +272,8 @@ int hfi1_destroy_cq(struct ibv_cq *ibcq)
 	if (ret)
 		return ret;
 
-	(void) munmap(cq->queue, sizeof(struct hfi1_cq_wc) +
-				 (sizeof(struct hfi1_wc) * cq->ibv_cq.cqe));
+	(void) munmap(cq->queue, hfi1_cq_size(cq->ibv_cq.cqe));
+
 	free(cq);
 	return 0;
 }
@@ -288,7 +291,7 @@ int hfi1_destroy_cq_v1(struct ibv_cq *ibcq)
 int hfi1_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 {
 	struct hfi1_cq *cq = to_icq(ibcq);
-	struct hfi1_cq_wc *q;
+	struct rvt_cq_wc *q;
 	int npolled;
 	uint32_t tail;
 
@@ -300,7 +303,7 @@ int hfi1_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 			break;
 		/* Make sure entry is read after head index is read. */
 		atomic_thread_fence(memory_order_acquire);
-		memcpy(wc, &q->queue[tail], sizeof(*wc));
+		memcpy(wc, &q->uqueue[tail], sizeof(*wc));
 		if (tail == cq->ibv_cq.cqe)
 			tail = 0;
 		else
