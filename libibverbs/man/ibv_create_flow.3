@@ -119,6 +119,12 @@ An application can provide the ibv_flow_spec_xxx rules in an un-ordered scheme. 
 defined and match a specific network header layer.
 In some cases, when certain flow spec types are present in the spec list, it is required to provide the list in an
 ordered manner so that the position of that flow spec type in the protocol stack is strictly defined.
+When the certain spec type, which requires the ordering, resides in the inner network protocol stack (in tunnel
+protocols) the ordering should be applied to the inner network specs and should be combined with the inner spec indication using
+the IBV_FLOW_SPEC_INNER flag.
+For example: An MPLS spec which attempts to match an MPLS tag in the inner network should have the
+IBV_FLOW_SPEC_INNER flag set and so do the rest of the inner network specs. On top of that, all the inner network specs should be provided in
+an ordered manner.
 This is essential to represent many of the encapsulation tunnel protocols.
 .br
 
