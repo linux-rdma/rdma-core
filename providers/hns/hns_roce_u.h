@@ -34,6 +34,7 @@
 #define _HNS_ROCE_U_H
 
 #include <stddef.h>
+#include <endian.h>
 #include <util/compiler.h>
 
 #include <infiniband/driver.h>
