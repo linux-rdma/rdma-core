@@ -1,3 +1,9 @@
+rdma-core (18.1-2) unstable; urgency=medium
+
+  * Add ibacm-dev package
+
+ -- Roland Fehrenbacher <rf@q-leap.de>  Fri, 15 Jun 2018 08:36:17 +0000
+
 rdma-core (18.1-1) unstable; urgency=medium
 
   * New upstream bugfix release.

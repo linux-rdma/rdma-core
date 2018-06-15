@@ -42,6 +42,17 @@ Description: RDMA core userspace infrastructure and documentation
     service in userspace for iWARP drivers to claim TCP ports through the
     standard socket interface.
 
+Package: ibacm-dev
+Section: libdevel
+Architecture: linux-any
+Multi-Arch: same
+Depends: ${misc:Depends}
+Breaks: ibacm (<< 18.1-1)
+Replaces: ibacm (<< 18.1-1)
+Description: Development files for the ibacm library
+ This package is needed to compile ibacm providers. It contains just the ibacm
+ header files. The corresponding library is part of the ibacm package.
+
 Package: ibacm
 Architecture: linux-any
 Depends: lsb-base (>= 3.2-14~),
