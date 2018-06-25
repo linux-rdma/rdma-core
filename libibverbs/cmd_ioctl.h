@@ -394,4 +394,13 @@ fill_attr_in_enum(struct ibv_command_buffer *cmd, uint16_t attr_id,
 	return attr;
 }
 
+/* Send attributes of kernel type UVERBS_ATTR_TYPE_IDRS_ARRAY */
+static inline struct ib_uverbs_attr *
+fill_attr_in_objs_arr(struct ibv_command_buffer *cmd, uint16_t attr_id,
+		      const uint32_t *idrs_arr, size_t nelems)
+{
+	return fill_attr_in(cmd, attr_id, idrs_arr,
+			    _array_len(sizeof(*idrs_arr), nelems));
+}
+
 #endif
