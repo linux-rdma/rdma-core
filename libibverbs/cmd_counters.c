@@ -78,7 +78,7 @@ int ibv_cmd_read_counters(struct verbs_counters *vcounters,
 {
 	DECLARE_COMMAND_BUFFER_LINK(cmd, UVERBS_OBJECT_COUNTERS,
 				    UVERBS_METHOD_COUNTERS_READ,
-				    4,
+				    3,
 				    link);
 
 	if (!is_attr_size_valid(ncounters, sizeof(uint64_t)))
