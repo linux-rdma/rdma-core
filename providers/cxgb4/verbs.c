@@ -43,6 +43,8 @@
 #include "libcxgb4.h"
 #include "cxgb4-abi.h"
 
+bool is_64b_cqe;
+
 #define MASKED(x) (void *)((unsigned long)(x) & c4iw_page_mask)
 
 int c4iw_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
@@ -168,6 +170,7 @@ int c4iw_dereg_mr(struct verbs_mr *vmr)
 struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 			      struct ibv_comp_channel *channel, int comp_vector)
 {
+	struct uc4iw_create_cq cmd = {};
 	struct uc4iw_create_cq_resp resp;
 	struct c4iw_cq *chp;
 	struct c4iw_dev *dev = to_c4iw_dev(context->device);
@@ -178,16 +181,17 @@ struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 		return NULL;
 	}
 
-	resp.reserved = 0;
+	resp.flags = 0;
+	cmd.flags = C4IW_64B_CQE;
+
 	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
-				&chp->ibv_cq, NULL, 0,
+				&chp->ibv_cq, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof resp);
 	if (ret)
 		goto err1;
 
-	if (resp.reserved)
-		PDBG("%s c4iw_create_cq_resp reserved field modified by kernel\n",
-		     __FUNCTION__);
+	if (resp.flags & C4IW_64B_CQE)
+		is_64b_cqe = true;
 
 	pthread_spin_init(&chp->lock, PTHREAD_PROCESS_PRIVATE);
 #ifdef STALL_DETECTION
@@ -204,6 +208,10 @@ struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 	if (chp->cq.queue == MAP_FAILED)
 		goto err2;
 
+	chp->cq.qp_errp =
+	&((struct t4_status_page *)
+			Q_ENTRY(chp->cq.queue, chp->cq.size))->qp_err;
+
 	chp->cq.ugts = mmap(NULL, c4iw_page_size, PROT_WRITE, MAP_SHARED,
 			   context->cmd_fd, resp.gts_key);
 	if (chp->cq.ugts == MAP_FAILED)
@@ -213,7 +221,7 @@ struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 		chp->cq.ugts += 1;
 	else
 		chp->cq.ugts += 5;
-	chp->cq.sw_queue = calloc(chp->cq.size, sizeof *chp->cq.queue);
+	chp->cq.sw_queue = calloc(chp->cq.size, CQE_SIZE(chp->cq.queue));
 	if (!chp->cq.sw_queue)
 		goto err4;
 
