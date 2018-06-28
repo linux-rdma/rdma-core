@@ -56,8 +56,8 @@ INST_EXCLUDE := "etc/init.d/srpd" \
 		"usr/sbin/run_srp_daemon" \
 		"usr/sbin/srp_daemon.sh"
 INST_EXCLUDE := $(addprefix -X,$(INST_EXCLUDE))
-override_dh_install:
-	dh_install --fail-missing $(INST_EXCLUDE)
+override_dh_missing:
+	dh_missing --fail-missing $(INST_EXCLUDE)
 
 # cmake installs the correct init scripts in the correct place, just setup the
 # pre-postrms
