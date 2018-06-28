@@ -66,6 +66,21 @@ struct ibv_driver {
 static LIST_HEAD(driver_name_list);
 static LIST_HEAD(driver_list);
 
+static int try_access_device(const struct verbs_sysfs_dev *sysfs_dev)
+{
+	struct stat cdev_stat;
+	char *devpath;
+	int ret;
+
+	if (asprintf(&devpath, RDMA_CDEV_DIR"/%s",
+		     sysfs_dev->sysfs_name) < 0)
+		return ENOMEM;
+
+	ret = stat(devpath, &cdev_stat);
+	free(devpath);
+	return ret;
+}
+
 static int find_sysfs_devs(struct list_head *tmp_sysfs_dev_list)
 {
 	char class_path[IBV_SYSFS_PATH_MAX];
@@ -132,6 +147,9 @@ static int find_sysfs_devs(struct list_head *tmp_sysfs_dev_list)
 				sysfs_dev->ibdev_path);
 			continue;
 		}
+
+		if (try_access_device(sysfs_dev))
+			continue;
 
 		sysfs_dev->time_created = buf.st_mtim;
 

@@ -47,6 +47,8 @@
 #define PFX		"libibverbs: "
 #define VERBS_OPS_NUM (sizeof(struct verbs_context_ops) / sizeof(void *))
 
+#define RDMA_CDEV_DIR "/dev/infiniband"
+
 struct ibv_abi_compat_v2 {
 	struct ibv_comp_channel	channel;
 	pthread_mutex_t		in_use;

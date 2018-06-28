@@ -275,7 +275,7 @@ LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
 	int cmd_fd;
 	struct verbs_context *context_ex;
 
-	if (asprintf(&devpath, "/dev/infiniband/%s", device->dev_name) < 0)
+	if (asprintf(&devpath, RDMA_CDEV_DIR"/%s", device->dev_name) < 0)
 		return NULL;
 
 	/*
