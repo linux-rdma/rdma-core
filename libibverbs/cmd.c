@@ -1766,6 +1766,21 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		memcpy(&kern_spec->tcp_udp.mask, &ib_spec->tcp_udp.mask,
 		       sizeof(struct ibv_flow_tcp_udp_filter));
 		break;
+	case IBV_FLOW_SPEC_GRE:
+		kern_spec->gre.size = sizeof(struct ib_uverbs_flow_spec_gre);
+		memcpy(&kern_spec->gre.val, &ib_spec->gre.val,
+		       sizeof(struct ibv_flow_gre_filter));
+		memcpy(&kern_spec->gre.mask, &ib_spec->gre.mask,
+		       sizeof(struct ibv_flow_gre_filter));
+		break;
+	case IBV_FLOW_SPEC_MPLS:
+	case IBV_FLOW_SPEC_MPLS | IBV_FLOW_SPEC_INNER:
+		kern_spec->mpls.size = sizeof(struct ib_uverbs_flow_spec_mpls);
+		memcpy(&kern_spec->mpls.val, &ib_spec->mpls.val,
+		       sizeof(struct ibv_flow_mpls_filter));
+		memcpy(&kern_spec->mpls.mask, &ib_spec->mpls.mask,
+		       sizeof(struct ibv_flow_mpls_filter));
+		break;
 	case IBV_FLOW_SPEC_VXLAN_TUNNEL:
 		ret = get_filters_size(ib_spec, kern_spec,
 				       &ib_filter_size, &kern_filter_size,
@@ -1795,6 +1810,15 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		kern_spec->handle.handle = vaction->handle;
 		break;
 	}
+	case IBV_FLOW_SPEC_ACTION_COUNT: {
+		const struct verbs_counters *vcounters =
+			container_of(ib_spec->flow_count.counters,
+				     const struct verbs_counters, counters);
+		kern_spec->flow_count.size =
+			sizeof(struct ib_uverbs_flow_spec_action_count);
+		kern_spec->flow_count.handle = vcounters->handle;
+		break;
+	}
 	default:
 		return EINVAL;
 	}
@@ -1803,7 +1827,9 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 
 int ibv_cmd_create_flow(struct ibv_qp *qp,
 			struct ibv_flow *flow_id,
-			struct ibv_flow_attr *flow_attr)
+			struct ibv_flow_attr *flow_attr,
+			void *ucmd,
+			size_t ucmd_size)
 {
 	struct ibv_create_flow *cmd;
 	struct ib_uverbs_destroy_flow  resp;
@@ -1815,8 +1841,8 @@ int ibv_cmd_create_flow(struct ibv_qp *qp,
 
 	cmd_size = sizeof(*cmd) + (flow_attr->num_of_specs *
 				  sizeof(struct ibv_kern_spec));
-	cmd = alloca(cmd_size);
-	memset(cmd, 0, cmd_size);
+	cmd = alloca(cmd_size + ucmd_size);
+	memset(cmd, 0, cmd_size + ucmd_size);
 
 	cmd->qp_handle = qp->handle;
 
@@ -1841,7 +1867,13 @@ int ibv_cmd_create_flow(struct ibv_qp *qp,
 	}
 
 	written_size = sizeof(*cmd) + cmd->flow_attr.size;
-	IBV_INIT_CMD_RESP_EX_VCMD(cmd, written_size, written_size, CREATE_FLOW,
+	if (ucmd) {
+		memcpy((char *)cmd + written_size, ucmd, ucmd_size);
+		written_size += ucmd_size;
+	}
+
+	IBV_INIT_CMD_RESP_EX_VCMD(cmd, written_size - ucmd_size,
+				  written_size, CREATE_FLOW,
 				  &resp, sizeof(resp));
 	if (write(qp->context->cmd_fd, cmd, written_size) != written_size)
 		goto err;

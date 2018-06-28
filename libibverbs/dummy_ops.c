@@ -71,6 +71,13 @@ static void async_event(struct ibv_async_event *event)
 {
 }
 
+static int attach_counters_point_flow(struct ibv_counters *counters,
+				      struct ibv_counter_attach_attr *attr,
+				      struct ibv_flow *flow)
+{
+	return ENOSYS;
+}
+
 static int attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 			uint16_t lid)
 {
@@ -93,6 +100,13 @@ static void cq_event(struct ibv_cq *cq)
 }
 
 static struct ibv_ah *create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
+static struct ibv_counters *create_counters(struct ibv_context *context,
+					    struct ibv_counters_init_attr *init_attr)
 {
 	errno = ENOSYS;
 	return NULL;
@@ -192,6 +206,11 @@ static int dereg_mr(struct ibv_mr *mr)
 }
 
 static int destroy_ah(struct ibv_ah *ah)
+{
+	return ENOSYS;
+}
+
+static int destroy_counters(struct ibv_counters *counters)
 {
 	return ENOSYS;
 }
@@ -359,6 +378,14 @@ static int query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
 	return ENOSYS;
 }
 
+static int read_counters(struct ibv_counters *counters,
+			 uint64_t *counters_value,
+			 uint32_t ncounters,
+			 uint32_t flags)
+{
+	return ENOSYS;
+}
+
 static struct ibv_mr *reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *dm,
 				uint64_t dm_offset, size_t length,
 				unsigned int access)
@@ -409,11 +436,13 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	alloc_pd,
 	alloc_td,
 	async_event,
+	attach_counters_point_flow,
 	attach_mcast,
 	bind_mw,
 	close_xrcd,
 	cq_event,
 	create_ah,
+	create_counters,
 	create_cq,
 	create_cq_ex,
 	create_flow,
@@ -429,6 +458,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	dealloc_td,
 	dereg_mr,
 	destroy_ah,
+	destroy_counters,
 	destroy_cq,
 	destroy_flow,
 	destroy_flow_action,
@@ -458,6 +488,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	query_qp,
 	query_rt_values,
 	query_srq,
+	read_counters,
 	reg_dm_mr,
 	reg_mr,
 	req_notify_cq,
@@ -493,11 +524,13 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, alloc_parent_domain);
 	SET_OP(vctx, alloc_td);
 	SET_OP(ctx, async_event);
+	SET_OP(vctx, attach_counters_point_flow);
 	SET_OP(ctx, attach_mcast);
 	SET_OP(ctx, bind_mw);
 	SET_OP(vctx, close_xrcd);
 	SET_OP(ctx, cq_event);
 	SET_OP(ctx, create_ah);
+	SET_OP(vctx, create_counters);
 	SET_OP(ctx, create_cq);
 	SET_OP(vctx, create_cq_ex);
 	SET_OP2(vctx, ibv_create_flow, create_flow);
@@ -513,6 +546,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, dealloc_td);
 	SET_OP(ctx, dereg_mr);
 	SET_OP(ctx, destroy_ah);
+	SET_OP(vctx, destroy_counters);
 	SET_OP(ctx, destroy_cq);
 	SET_OP2(vctx, ibv_destroy_flow, destroy_flow);
 	SET_OP(vctx, destroy_flow_action);
@@ -542,6 +576,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, query_qp);
 	SET_OP(vctx, query_rt_values);
 	SET_OP(ctx, query_srq);
+	SET_OP(vctx, read_counters);
 	SET_OP(vctx, reg_dm_mr);
 	SET_OP(ctx, reg_mr);
 	SET_OP(ctx, req_notify_cq);

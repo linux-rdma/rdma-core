@@ -402,6 +402,7 @@ static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 				 enum ibv_qp_type type, struct hns_roce_qp *qp)
 {
 	int i;
+	int page_size = to_hr_dev(pd->context->device)->page_size;
 
 	qp->sq.wrid =
 		(unsigned long *)malloc(qp->sq.wqe_cnt * sizeof(uint64_t));
@@ -422,7 +423,7 @@ static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 			;
 
 		qp->buf_size = align((qp->sq.wqe_cnt << qp->sq.wqe_shift),
-				     0x1000) +
+				     page_size) +
 			       (qp->rq.wqe_cnt << qp->rq.wqe_shift);
 
 		if (qp->rq.wqe_shift > qp->sq.wqe_shift) {
@@ -430,7 +431,7 @@ static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 			qp->sq.offset = qp->rq.wqe_cnt << qp->rq.wqe_shift;
 		} else {
 			qp->rq.offset = align((qp->sq.wqe_cnt <<
-					      qp->sq.wqe_shift), 0x1000);
+					      qp->sq.wqe_shift), page_size);
 			qp->sq.offset = 0;
 		}
 	} else {
@@ -474,27 +475,27 @@ static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 		}
 
 		qp->buf_size = align((qp->sq.wqe_cnt << qp->sq.wqe_shift),
-				     0x1000) +
+				     page_size) +
 			       align((qp->sge.sge_cnt << qp->sge.sge_shift),
-				     0x1000) +
+				     page_size) +
 			       (qp->rq.wqe_cnt << qp->rq.wqe_shift);
 
 		if (qp->sge.sge_cnt) {
 			qp->sq.offset = 0;
 			qp->sge.offset = align((qp->sq.wqe_cnt <<
-						qp->sq.wqe_shift), 0x1000);
+						qp->sq.wqe_shift), page_size);
 			qp->rq.offset = qp->sge.offset +
 					align((qp->sge.sge_cnt <<
-					qp->sge.sge_shift), 0x1000);
+					qp->sge.sge_shift), page_size);
 		} else {
 			qp->sq.offset = 0;
 			qp->sge.offset = 0;
 			qp->rq.offset = align((qp->sq.wqe_cnt <<
-						qp->sq.wqe_shift), 0x1000);
+						qp->sq.wqe_shift), page_size);
 		}
 	}
 
-	if (hns_roce_alloc_buf(&qp->buf, align(qp->buf_size, 0x1000),
+	if (hns_roce_alloc_buf(&qp->buf, align(qp->buf_size, page_size),
 			       to_hr_dev(pd->context->device)->page_size)) {
 		if (qp->rq.wqe_cnt)
 			free(qp->sq.wrid);

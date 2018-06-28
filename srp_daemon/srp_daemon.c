@@ -401,7 +401,7 @@ static int is_enabled_by_rules_file(struct target_details *target)
 
 static int add_non_exist_target(struct target_details *target)
 {
-	char scsi_host_dir[50];
+	char scsi_host_dir[256];
 	DIR *dir;
 	struct dirent *subdir;
 	char *subdir_name_ptr;
@@ -1074,7 +1074,7 @@ static int get_port_info(struct umad_resources *umad_res, uint16_t dlid,
 int pkey_index_to_pkey(struct umad_resources *umad_res, int pkey_index,
 		       uint16_t *pkey)
 {
-	char pkey_file[16], pkey_str[16];
+	char pkey_file[18], pkey_str[16];
 
 	/* Read pkey */
 	snprintf(pkey_file, sizeof(pkey_file), "pkeys/%d", pkey_index);
@@ -2103,8 +2103,12 @@ int main(int argc, char *argv[])
 	BUILD_ASSERT(sizeof(struct ib_path_rec) == 64);
 	BUILD_ASSERT(sizeof(struct ib_inform_info) == 36);
 	BUILD_ASSERT(sizeof(struct ib_mad_notice_attr) == 80);
+	BUILD_ASSERT(offsetof(struct ib_mad_notice_attr, generic.trap_num) ==
+		     4);
+	BUILD_ASSERT(offsetof(struct ib_mad_notice_attr, vend.dev_id) == 4);
+	BUILD_ASSERT(offsetof(struct ib_mad_notice_attr, ntc_64_67.gid) == 16);
 	BUILD_ASSERT(offsetof(struct ib_mad_notice_attr,
-			      data_details.ntc_64_67.gid) == 16);
+			      ntc_144.new_cap_mask) == 16);
 #endif
 	BUILD_ASSERT(sizeof(struct srp_sa_node_rec) == 108);
 	BUILD_ASSERT(sizeof(struct srp_sa_port_info_rec) == 58);

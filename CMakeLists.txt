@@ -57,10 +57,10 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "18.1")
+set(PACKAGE_VERSION "19.0")
 # When this is changed the values in these files need changing too:
 #   debian/libibverbs1.symbols
-set(IBVERBS_PABI_VERSION "18")
+set(IBVERBS_PABI_VERSION "19")
 set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 #-------------------------
@@ -133,7 +133,7 @@ set(DISTRO_FLAVOUR "None" CACHE
 set(BUILDLIB "${CMAKE_SOURCE_DIR}/buildlib")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${BUILDLIB}")
 
-include(FindPkgConfig)
+include(CMakeParseArguments)
 include(CheckCCompilerFlag)
 include(CheckIncludeFile)
 include(CheckTypeSize)
@@ -208,7 +208,8 @@ CHECK_C_SOURCE_COMPILES("
 
  static void do_entry(void) {}
  void entry(void) __attribute__((ifunc(\"resolve_entry\")));
- static void *resolve_entry(void) {return &do_entry;}
+ typedef void (*fn_t)(void);
+ static fn_t resolve_entry(void) {return &do_entry;}
 
  int main(int argc,const char *argv[]) { entry(); }"
   HAVE_FUNC_ATTRIBUTE_IFUNC
@@ -352,6 +353,8 @@ FIND_PACKAGE(pandoc)
 # Find libraries
 # pthread
 FIND_PACKAGE (Threads REQUIRED)
+
+FIND_PACKAGE(PkgConfig REQUIRED)
 
 # libnl
 if (NOT DEFINED ENABLE_RESOLVE_NEIGH)

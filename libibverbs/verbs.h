@@ -1400,10 +1400,13 @@ enum ibv_flow_spec_type {
 	IBV_FLOW_SPEC_TCP		= 0x40,
 	IBV_FLOW_SPEC_UDP		= 0x41,
 	IBV_FLOW_SPEC_VXLAN_TUNNEL	= 0x50,
+	IBV_FLOW_SPEC_GRE		= 0x51,
+	IBV_FLOW_SPEC_MPLS		= 0x60,
 	IBV_FLOW_SPEC_INNER		= 0x100,
 	IBV_FLOW_SPEC_ACTION_TAG	= 0x1000,
 	IBV_FLOW_SPEC_ACTION_DROP	= 0x1001,
 	IBV_FLOW_SPEC_ACTION_HANDLE	= 0x1002,
+	IBV_FLOW_SPEC_ACTION_COUNT	= 0x1003,
 };
 
 struct ibv_flow_eth_filter {
@@ -1491,6 +1494,44 @@ struct ibv_flow_spec_tcp_udp {
 	struct ibv_flow_tcp_udp_filter mask;
 };
 
+struct ibv_flow_gre_filter {
+	/* c_ks_res0_ver field is bits 0-15 in offset 0 of a standard GRE header:
+	 * bit 0 - checksum present bit.
+	 * bit 1 - reserved. set to 0.
+	 * bit 2 - key present bit.
+	 * bit 3 - sequence number present bit.
+	 * bits 4:12 - reserved. set to 0.
+	 * bits 13:15 - GRE version.
+	 */
+	uint16_t c_ks_res0_ver;
+	uint16_t protocol;
+	uint32_t key;
+};
+
+struct ibv_flow_spec_gre {
+	enum ibv_flow_spec_type  type;
+	uint16_t  size;
+	struct ibv_flow_gre_filter val;
+	struct ibv_flow_gre_filter mask;
+};
+
+struct ibv_flow_mpls_filter {
+	/* The field includes the entire MPLS label:
+	 * bits 0:19 - label value field.
+	 * bits 20:22 - traffic class field.
+	 * bits 23 - bottom of stack bit.
+	 * bits 24:31 - ttl field.
+	 */
+	uint32_t label;
+};
+
+struct ibv_flow_spec_mpls {
+	enum ibv_flow_spec_type  type;
+	uint16_t  size;
+	struct ibv_flow_mpls_filter val;
+	struct ibv_flow_mpls_filter mask;
+};
+
 struct ibv_flow_tunnel_filter {
 	uint32_t tunnel_id;
 };
@@ -1519,6 +1560,12 @@ struct ibv_flow_spec_action_handle {
 	const struct ibv_flow_action *action;
 };
 
+struct ibv_flow_spec_counter_action {
+	enum ibv_flow_spec_type  type;
+	uint16_t  size;
+	struct ibv_counters *counters;
+};
+
 struct ibv_flow_spec {
 	union {
 		struct {
@@ -1532,9 +1579,12 @@ struct ibv_flow_spec {
 		struct ibv_flow_spec_ipv6 ipv6;
 		struct ibv_flow_spec_esp esp;
 		struct ibv_flow_spec_tunnel tunnel;
+		struct ibv_flow_spec_gre gre;
+		struct ibv_flow_spec_mpls mpls;
 		struct ibv_flow_spec_action_tag flow_tag;
 		struct ibv_flow_spec_action_drop drop;
 		struct ibv_flow_spec_action_handle handle;
+		struct ibv_flow_spec_counter_action flow_count;
 	};
 };
 
@@ -1718,6 +1768,29 @@ struct ibv_parent_domain_init_attr {
 	uint32_t comp_mask;
 };
 
+struct ibv_counters_init_attr {
+	uint32_t	comp_mask;
+};
+
+struct ibv_counters {
+	struct ibv_context	*context;
+};
+
+enum ibv_counter_description {
+	IBV_COUNTER_PACKETS,
+	IBV_COUNTER_BYTES,
+};
+
+struct ibv_counter_attach_attr {
+	enum ibv_counter_description counter_desc;
+	uint32_t index; /* Desired location index of the counter at the counters object */
+	uint32_t comp_mask;
+};
+
+enum ibv_read_counters_flags {
+	IBV_READ_COUNTERS_ATTR_PREFER_CACHED = 1 << 0,
+};
+
 enum ibv_values_mask {
 	IBV_VALUES_MASK_RAW_CLOCK	= 1 << 0,
 	IBV_VALUES_MASK_RESERVED	= 1 << 1
@@ -1730,6 +1803,16 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*read_counters)(struct ibv_counters *counters,
+			     uint64_t *counters_value,
+			     uint32_t ncounters,
+			     uint32_t flags);
+	int (*attach_counters_point_flow)(struct ibv_counters *counters,
+					  struct ibv_counter_attach_attr *attr,
+					  struct ibv_flow *flow);
+	struct ibv_counters *(*create_counters)(struct ibv_context *context,
+						struct ibv_counters_init_attr *init_attr);
+	int (*destroy_counters)(struct ibv_counters *counters);
 	struct ibv_mr *(*reg_dm_mr)(struct ibv_pd *pd, struct ibv_dm *dm,
 				    uint64_t dm_offset, size_t length,
 				    unsigned int access);
@@ -2795,6 +2878,58 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 static inline int ibv_is_qpt_supported(uint32_t caps, enum ibv_qp_type qpt)
 {
 	return !!(caps & (1 << qpt));
+}
+
+static inline struct ibv_counters *ibv_create_counters(struct ibv_context *context,
+						       struct ibv_counters_init_attr *init_attr)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(context, create_counters);
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+
+	return vctx->create_counters(context, init_attr);
+}
+
+static inline int ibv_destroy_counters(struct ibv_counters *counters)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(counters->context, destroy_counters);
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->destroy_counters(counters);
+}
+
+static inline int ibv_attach_counters_point_flow(struct ibv_counters *counters,
+						 struct ibv_counter_attach_attr *attr,
+						 struct ibv_flow *flow)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(counters->context, attach_counters_point_flow);
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->attach_counters_point_flow(counters, attr, flow);
+}
+
+static inline int ibv_read_counters(struct ibv_counters *counters,
+				    uint64_t *counters_value,
+				    uint32_t ncounters,
+				    uint32_t flags)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(counters->context, read_counters);
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->read_counters(counters, counters_value, ncounters, flags);
 }
 
 #ifdef __cplusplus

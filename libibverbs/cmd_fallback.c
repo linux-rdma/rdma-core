@@ -84,14 +84,10 @@ enum write_fallback _execute_ioctl_fallback(struct ibv_context *ctx,
 					    struct ibv_command_buffer *cmdb,
 					    int *ret)
 {
-	uint64_t cmd_val = 1ULL << cmd_bit;
-
-	BUILD_ASSERT(sizeof(struct verbs_context_ops) / sizeof(void *) < 64);
-
 	struct verbs_ex_private *priv =
 		container_of(ctx, struct verbs_context, context)->priv;
 
-	if (priv->unsupported_ioctls & cmd_val)
+	if (bitmap_test_bit(priv->unsupported_ioctls, cmd_bit))
 		return _check_legacy(cmdb, ret);
 
 	*ret = execute_ioctl(ctx, cmdb);
@@ -101,7 +97,7 @@ enum write_fallback _execute_ioctl_fallback(struct ibv_context *ctx,
 
 	if (*ret == ENOTTY) {
 		/* ENOTTY means the ioctl framework is entirely absent */
-		priv->unsupported_ioctls = UINT64_MAX;
+		bitmap_fill(priv->unsupported_ioctls, VERBS_OPS_NUM);
 		return _check_legacy(cmdb, ret);
 	}
 
@@ -110,7 +106,7 @@ enum write_fallback _execute_ioctl_fallback(struct ibv_context *ctx,
 		 * EPROTONOSUPPORT means we have the ioctl framework but this
 		 * specific method is not supported
 		 */
-		priv->unsupported_ioctls |= cmd_val;
+		bitmap_set_bit(priv->unsupported_ioctls, cmd_bit);
 		return _check_legacy(cmdb, ret);
 	}
 

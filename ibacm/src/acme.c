@@ -217,6 +217,10 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "# If set to 'true', 'yes' or a non-zero number\n");
 	fprintf(f, "# ibacm will only serve requests originating\n");
 	fprintf(f, "# from the kernel or the ib_acme utility.\n");
+	fprintf(f, "# Please note that this option is ignored if the ibacm\n");
+	fprintf(f, "# service is started on demand by systemd,\n");
+	fprintf(f, "# in which case this option is treated\n");
+	fprintf(f, "# as if it were set to 'no'\n");
 	fprintf(f, "\n");
 #if IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT
 	fprintf(f, "acme_plus_kernel_only yes\n");

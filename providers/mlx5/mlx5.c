@@ -118,7 +118,9 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.alloc_dm = mlx5_alloc_dm,
 	.alloc_parent_domain = mlx5_alloc_parent_domain,
 	.alloc_td = mlx5_alloc_td,
+	.attach_counters_point_flow = mlx5_attach_counters_point_flow,
 	.close_xrcd = mlx5_close_xrcd,
+	.create_counters = mlx5_create_counters,
 	.create_cq_ex = mlx5_create_cq_ex,
 	.create_flow = mlx5_create_flow,
 	.create_flow_action_esp = mlx5_create_flow_action_esp,
@@ -127,6 +129,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.create_srq_ex = mlx5_create_srq_ex,
 	.create_wq = mlx5_create_wq,
 	.dealloc_td = mlx5_dealloc_td,
+	.destroy_counters = mlx5_destroy_counters,
 	.destroy_flow = mlx5_destroy_flow,
 	.destroy_flow_action = mlx5_destroy_flow_action,
 	.destroy_rwq_ind_table = mlx5_destroy_rwq_ind_table,
@@ -141,6 +144,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.post_srq_ops = mlx5_post_srq_ops,
 	.query_device_ex = mlx5_query_device_ex,
 	.query_rt_values = mlx5_query_rt_values,
+	.read_counters = mlx5_read_counters,
 	.reg_dm_mr = mlx5_reg_dm_mr,
 };
 
@@ -305,14 +309,14 @@ man cpuset
 */
 static void mlx5_local_cpu_set(struct ibv_device *ibdev, cpu_set_t *cpu_set)
 {
-	char *p, buf[1024];
+	char *p, buf[1024] = {};
 	char *env_value;
 	uint32_t word;
 	int i, k;
 
 	env_value = getenv("MLX5_LOCAL_CPUS");
 	if (env_value)
-		strncpy(buf, env_value, sizeof(buf));
+		strncpy(buf, env_value, sizeof(buf) - 1);
 	else {
 		char fname[MAXPATHLEN];
 		FILE *fp;
@@ -1124,7 +1128,7 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 				context->bfs[bfi].reg = context->uar[i].reg + MLX5_ADAPTER_PAGE_SIZE * j +
 							MLX5_BF_OFFSET + k * context->bf_reg_size;
 				context->bfs[bfi].need_lock = need_uuar_lock(context, bfi);
-				mlx5_spinlock_init(&context->bfs[bfi].lock);
+				mlx5_spinlock_init(&context->bfs[bfi].lock, context->bfs[bfi].need_lock);
 				context->bfs[bfi].offset = 0;
 				if (bfi)
 					context->bfs[bfi].buf_size = context->bf_reg_size / 2;
@@ -1156,7 +1160,7 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 
 	mlx5_read_env(ibdev, context);
 
-	mlx5_spinlock_init(&context->hugetlb_lock);
+	mlx5_spinlock_init(&context->hugetlb_lock, !mlx5_single_threaded);
 	list_head_init(&context->hugetlb_list);
 
 	verbs_set_ops(v_ctx, &mlx5_ctx_common_ops);

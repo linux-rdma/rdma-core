@@ -1543,7 +1543,8 @@ struct ibv_flow *mlx4_create_flow(struct ibv_qp *qp, struct ibv_flow_attr *flow_
 	if (!flow_id)
 		return NULL;
 
-	ret = ibv_cmd_create_flow(qp, flow_id, flow_attr);
+	ret = ibv_cmd_create_flow(qp, flow_id, flow_attr,
+				  NULL, 0);
 	if (!ret)
 		return flow_id;
 

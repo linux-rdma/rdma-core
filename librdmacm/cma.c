@@ -538,8 +538,10 @@ static int rdma_create_id2(struct rdma_event_channel *channel,
 	cmd.qp_type = qp_type;
 
 	ret = write(id_priv->id.channel->fd, &cmd, sizeof cmd);
-	if (ret != sizeof cmd)
+	if (ret != sizeof(cmd)) {
+		ret = (ret >= 0) ? ERR(ENODATA) : -1;
 		goto err;
+	}
 
 	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
@@ -1684,6 +1686,9 @@ int rdma_notify(struct rdma_cm_id *id, enum ibv_event_type event)
 
 int ucma_shutdown(struct rdma_cm_id *id)
 {
+	if (!id->verbs || !id->verbs->device)
+		return ERR(EINVAL);
+
 	switch (id->verbs->device->transport_type) {
 	case IBV_TRANSPORT_IB:
 		return ucma_modify_qp_err(id);
