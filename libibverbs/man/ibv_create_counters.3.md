@@ -11,7 +11,7 @@ tagline: Verbs
 
 # NAME
 
-**ibv_create_counters**, **ibv_destroy_counters** -- Create or destroy a counters handle
+**ibv_create_counters**, **ibv_destroy_counters** - Create or destroy a counters handle
 
 # SYNOPSIS
 
