@@ -10,7 +10,7 @@ title: ibv_read_counters
 
 # NAME
 
-**ibv_read_counters** -- Read counter values
+**ibv_read_counters** - Read counter values
 
 # SYNOPSIS
 
