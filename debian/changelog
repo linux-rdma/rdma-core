@@ -1,3 +1,11 @@
+rdma-core (19.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Switch to debhelper 11
+  * Add patch to fix bad whatis entries in man pages
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Thu, 28 Jun 2018 15:01:27 +0200
+
 rdma-core (18.1-1) unstable; urgency=medium
 
   * New upstream bugfix release.
