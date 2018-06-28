@@ -83,4 +83,4 @@ override_dh_strip:
 # directory, allow that directory to be present and still allow dh to work.
 .PHONY: build
 build:
-	dh $@ --with systemd --builddirectory=build-deb
+	dh $@ --builddirectory=build-deb
