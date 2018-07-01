@@ -38,4 +38,5 @@ MLX5_1.6 {
         global:
 		mlx5dv_create_flow_matcher;
 		mlx5dv_destroy_flow_matcher;
+		mlx5dv_create_flow;
 } MLX5_1.5;

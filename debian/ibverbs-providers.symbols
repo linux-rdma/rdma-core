@@ -23,3 +23,4 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_create_flow_action_esp@MLX5_1.5 18
  mlx5dv_create_flow_matcher@MLX5_1.6 20
  mlx5dv_destroy_flow_matcher@MLX5_1.6 20
+ mlx5dv_create_flow@MLX5_1.6 20

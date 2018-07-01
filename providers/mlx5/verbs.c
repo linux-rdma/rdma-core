@@ -3614,3 +3614,57 @@ int mlx5dv_destroy_flow_matcher(struct mlx5dv_flow_matcher *flow_matcher)
 	free(flow_matcher);
 	return 0;
 }
+
+struct ibv_flow *
+mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
+		   struct mlx5dv_flow_match_parameters *match_value,
+		   size_t num_actions,
+		   struct mlx5dv_flow_action_attr actions_attr[])
+{
+	struct mlx5_flow *mflow;
+	int ret;
+	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_FLOW,
+			       MLX5_IB_METHOD_CREATE_FLOW,
+			       4);
+	struct ib_uverbs_attr *handle;
+	enum mlx5dv_flow_action_type type;
+
+	if (num_actions != 1) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	mflow = calloc(1, sizeof(*mflow));
+	if (!mflow) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	handle = fill_attr_out_obj(cmd, MLX5_IB_ATTR_CREATE_FLOW_HANDLE);
+	fill_attr_in(cmd, MLX5_IB_ATTR_CREATE_FLOW_MATCH_VALUE,
+		    match_value->match_buf,
+		    match_value->match_sz);
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_CREATE_FLOW_MATCHER, flow_matcher->handle);
+
+	type = actions_attr[0].type;
+	switch (type) {
+	case MLX5DV_FLOW_ACTION_DEST_IBV_QP:
+		fill_attr_in_obj(cmd, MLX5_IB_ATTR_CREATE_FLOW_DEST_QP,
+				actions_attr[0].qp->handle);
+		break;
+	default:
+		errno = EOPNOTSUPP;
+		goto err;
+	}
+
+	ret = execute_ioctl(flow_matcher->context, cmd);
+	if (ret)
+		goto err;
+
+	mflow->flow_id.handle = read_attr_obj(MLX5_IB_ATTR_CREATE_FLOW_HANDLE, handle);
+	mflow->flow_id.context = flow_matcher->context;
+	return &mflow->flow_id;
+err:
+	free(mflow);
+	return NULL;
+}
