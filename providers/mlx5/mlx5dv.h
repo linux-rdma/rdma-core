@@ -245,6 +245,26 @@ struct ibv_flow_action *mlx5dv_create_flow_action_esp(struct ibv_context *ctx,
 						      struct mlx5dv_flow_action_esp *mlx5_attr);
 
 /*
+ * mlx5dv_create_flow_action_modify_header - Create a flow action which mutates
+ * a packet. The flow action can be attached to steering rules via
+ * ibv_create_flow().
+ *
+ * @ctx: RDMA device context to create the action on.
+ * @actions_sz: The size of *actions* buffer in bytes.
+ * @actions: A buffer which contains modify actions provided in device spec
+ *	     format.
+ * @ft_type: Defines the flow table type to which the modify
+ *	     header action will be attached.
+ *
+ * Return a valid ibv_flow_action if successful, NULL otherwise.
+ */
+struct ibv_flow_action *
+mlx5dv_create_flow_action_modify_header(struct ibv_context *ctx,
+					size_t actions_sz,
+					uint64_t actions[],
+					enum mlx5dv_flow_table_type ft_type);
+
+/*
  * Most device capabilities are exported by ibv_query_device(...),
  * but there is HW device-specific information which is important
  * for data-path, but isn't provided.

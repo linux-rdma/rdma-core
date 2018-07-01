@@ -37,5 +37,8 @@
 
 #define mlx5dv_flow_action_flags			mlx5_ib_uapi_flow_action_flags
 #define MLX5DV_FLOW_ACTION_FLAGS_REQUIRE_METADATA	MLX5_IB_UAPI_FLOW_ACTION_FLAGS_REQUIRE_METADATA
+#define mlx5dv_flow_table_type				mlx5_ib_uapi_flow_table_type
+#define MLX5DV_FLOW_TABLE_TYPE_NIC_RX			MLX5_IB_UAPI_FLOW_TABLE_TYPE_NIC_RX
+#define MLX5DV_FLOW_TABLE_TYPE_NIC_TX			MLX5_IB_UAPI_FLOW_TABLE_TYPE_NIC_TX
 
 #endif

@@ -3317,6 +3317,44 @@ int mlx5_modify_flow_action_esp(struct ibv_flow_action *action,
 	return ibv_cmd_modify_flow_action_esp(vaction, attr, NULL);
 }
 
+struct ibv_flow_action *mlx5dv_create_flow_action_modify_header(struct ibv_context *ctx,
+								size_t actions_sz,
+								uint64_t actions[],
+								enum mlx5dv_flow_table_type ft_type)
+{
+	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_FLOW_ACTION,
+			       MLX5_IB_METHOD_FLOW_ACTION_CREATE_MODIFY_HEADER,
+			       3);
+	struct ib_uverbs_attr *handle = fill_attr_out_obj(cmd,
+							  MLX5_IB_ATTR_CREATE_MODIFY_HEADER_HANDLE);
+	struct verbs_flow_action *action;
+	int ret;
+
+	fill_attr_in(cmd, MLX5_IB_ATTR_CREATE_MODIFY_HEADER_ACTIONS_PRM,
+		     actions, actions_sz);
+	fill_attr_const_in(cmd, MLX5_IB_ATTR_CREATE_MODIFY_HEADER_FT_TYPE,
+			   ft_type);
+
+	action = calloc(1, sizeof(*action));
+	if (!action) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	ret = execute_ioctl(ctx, cmd);
+	if (ret) {
+		free(action);
+		return NULL;
+	}
+
+	action->action.context = ctx;
+	action->type = IBV_FLOW_ACTION_UNSPECIFIED;
+	action->handle = read_attr_obj(MLX5_IB_ATTR_CREATE_MODIFY_HEADER_HANDLE,
+				       handle);
+
+	return &action->action;
+}
+
 int mlx5_destroy_flow_action(struct ibv_flow_action *action)
 {
 	struct verbs_flow_action *vaction =
