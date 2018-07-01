@@ -558,6 +558,11 @@ struct mlx5_flow {
 	struct mlx5_counters *mcounters;
 };
 
+struct mlx5dv_flow_matcher {
+	struct ibv_context *context;
+	uint32_t handle;
+};
+
 static inline int mlx5_ilog2(int n)
 {
 	int t;

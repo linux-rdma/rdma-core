@@ -3546,3 +3546,71 @@ int mlx5_read_counters(struct ibv_counters *counters,
 				     NULL);
 
 }
+
+struct mlx5dv_flow_matcher *
+mlx5dv_create_flow_matcher(struct ibv_context *context,
+			   struct mlx5dv_flow_matcher_attr *attr)
+{
+	DECLARE_COMMAND_BUFFER(cmd, MLX5_IB_OBJECT_FLOW_MATCHER,
+			       MLX5_IB_METHOD_FLOW_MATCHER_CREATE,
+			       4);
+	struct mlx5dv_flow_matcher *flow_matcher;
+	struct ib_uverbs_attr *handle;
+	int ret;
+
+	if (!check_comp_mask(attr->comp_mask, 0)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	flow_matcher = calloc(1, sizeof(*flow_matcher));
+	if (!flow_matcher) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	if (attr->type !=  IBV_FLOW_ATTR_NORMAL) {
+		errno = EOPNOTSUPP;
+		goto err;
+	}
+
+	handle = fill_attr_out_obj(cmd, MLX5_IB_ATTR_FLOW_MATCHER_CREATE_HANDLE);
+	fill_attr_in(cmd, MLX5_IB_ATTR_FLOW_MATCHER_MATCH_MASK,
+		     attr->match_mask->match_buf,
+		     attr->match_mask->match_sz);
+	fill_attr_in(cmd, MLX5_IB_ATTR_FLOW_MATCHER_MATCH_CRITERIA,
+		     &attr->match_criteria_enable, sizeof(attr->match_criteria_enable));
+	fill_attr_in_enum(cmd, MLX5_IB_ATTR_FLOW_MATCHER_FLOW_TYPE,
+			  IBV_FLOW_ATTR_NORMAL, &attr->priority,
+			  sizeof(attr->priority));
+
+	ret = execute_ioctl(context, cmd);
+	if (ret)
+		goto err;
+
+	flow_matcher->context = context;
+	flow_matcher->handle = read_attr_obj(MLX5_IB_ATTR_FLOW_MATCHER_CREATE_HANDLE, handle);
+
+	return flow_matcher;
+
+err:
+	free(flow_matcher);
+	return NULL;
+}
+
+int mlx5dv_destroy_flow_matcher(struct mlx5dv_flow_matcher *flow_matcher)
+{
+	DECLARE_COMMAND_BUFFER(cmd, MLX5_IB_OBJECT_FLOW_MATCHER,
+			       MLX5_IB_METHOD_FLOW_MATCHER_DESTROY,
+			       1);
+	int ret;
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_FLOW_MATCHER_DESTROY_HANDLE, flow_matcher->handle);
+	ret = execute_ioctl(flow_matcher->context, cmd);
+
+	if (ret)
+		return ret;
+
+	free(flow_matcher);
+	return 0;
+}
