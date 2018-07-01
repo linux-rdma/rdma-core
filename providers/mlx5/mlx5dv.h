@@ -265,6 +265,16 @@ mlx5dv_create_flow_action_modify_header(struct ibv_context *ctx,
 					enum mlx5dv_flow_table_type ft_type);
 
 /*
+ * mlx5dv_create_flow_action_packet_reformat - Create flow action which can
+ * encap/decap packets.
+ */
+struct ibv_flow_action *
+mlx5dv_create_flow_action_packet_reformat(struct ibv_context *ctx,
+					  size_t data_sz,
+					  void *data,
+					  enum mlx5dv_flow_action_packet_reformat_type reformat_type,
+					  enum mlx5dv_flow_table_type ft_type);
+/*
  * Most device capabilities are exported by ibv_query_device(...),
  * but there is HW device-specific information which is important
  * for data-path, but isn't provided.

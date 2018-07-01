@@ -44,4 +44,5 @@ MLX5_1.6 {
 MLX5_1.7 {
 	global:
 		mlx5dv_create_flow_action_modify_header;
+		mlx5dv_create_flow_action_packet_reformat;
 } MLX5_1.6;

@@ -1,5 +1,6 @@
 rdma_man_pages(
   mlx5dv_create_flow_action_modify_header.3.md
+  mlx5dv_create_flow_action_packet_reformat.3.md
   mlx5dv_flow_action_esp.3.md
   mlx5dv_get_clock_info.3
   mlx5dv_init_obj.3
