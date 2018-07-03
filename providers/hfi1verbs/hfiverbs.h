@@ -83,34 +83,8 @@ struct hfi1_cq {
 	struct rvt_cq_wc       *queue;
 	pthread_spinlock_t      lock;
 };
-/*
- * Receive work request queue entry.
- * The size of the sg_list is determined when the QP is created and stored
- * in qp->r_max_sge.
- */
-struct hfi1_rwqe {
-	uint64_t		wr_id;
-	uint8_t			num_sge;
-	uint8_t			padding[7];
-	struct ibv_sge		sg_list[0];
-};
-
-/*
- * This struture is used to contain the head pointer, tail pointer,
- * and receive work queue entries as a single memory allocation so
- * it can be mmap'ed into user space.
- * Note that the wq array elements are variable size so you can't
- * just index into the array to get the N'th element;
- * use get_rwqe_ptr() instead.
- */
-struct hfi1_rwq {
-	_Atomic(uint32_t)	head;	/* new requests posted to the head. */
-	_Atomic(uint32_t)	tail;	/* receives pull requests from here. */
-	struct hfi1_rwqe	wq[0];
-};
-
 struct hfi1_rq {
-	struct hfi1_rwq       *rwq;
+	struct rvt_rwq		*rwq;
 	pthread_spinlock_t	lock;
 	uint32_t		size;
 	uint32_t		max_sge;
@@ -158,12 +132,12 @@ static inline struct hfi1_srq *to_isrq(struct ibv_srq *ibsrq)
  * Since struct hfi1_rwqe is not a fixed size, we can't simply index into
  * struct hfi1_rq.wq.  This function does the array index computation.
  */
-static inline struct hfi1_rwqe *get_rwqe_ptr(struct hfi1_rq *rq,
+static inline struct rvt_rwqe *get_rwqe_ptr(struct hfi1_rq *rq,
 					      unsigned n)
 {
-	return (struct hfi1_rwqe *)
+	return (struct rvt_rwqe *)
 		((char *) rq->rwq->wq +
-		 (sizeof(struct hfi1_rwqe) +
+		 (sizeof(struct rvt_rwqe) +
 		  rq->max_sge * sizeof(struct ibv_sge)) * n);
 }
 

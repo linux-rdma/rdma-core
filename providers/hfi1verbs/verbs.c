@@ -342,8 +342,8 @@ struct ibv_qp *hfi1_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 	} else {
 		qp->rq.size = attr->cap.max_recv_wr + 1;
 		qp->rq.max_sge = attr->cap.max_recv_sge;
-		size = sizeof(struct hfi1_rwq) +
-			(sizeof(struct hfi1_rwqe) +
+		size = sizeof(struct rvt_rwq) +
+			(sizeof(struct rvt_rwqe) +
 			 (sizeof(struct ibv_sge) * qp->rq.max_sge)) *
 			qp->rq.size;
 		qp->rq.rwq = mmap(NULL, size,
@@ -412,8 +412,8 @@ int hfi1_destroy_qp(struct ibv_qp *ibqp)
 	if (qp->rq.rwq) {
 		size_t size;
 
-		size = sizeof(struct hfi1_rwq) +
-			(sizeof(struct hfi1_rwqe) +
+		size = sizeof(struct rvt_rwq) +
+			(sizeof(struct rvt_rwqe) +
 			 (sizeof(struct ibv_sge) * qp->rq.max_sge)) *
 			qp->rq.size;
 		(void) munmap(qp->rq.rwq, size);
@@ -470,8 +470,8 @@ static int post_recv(struct hfi1_rq *rq, struct ibv_recv_wr *wr,
 		     struct ibv_recv_wr **bad_wr)
 {
 	struct ibv_recv_wr *i;
-	struct hfi1_rwq *rwq;
-	struct hfi1_rwqe *wqe;
+	struct rvt_rwq *rwq;
+	struct rvt_rwqe *wqe;
 	uint32_t head;
 	int n, ret;
 
@@ -541,8 +541,8 @@ struct ibv_srq *hfi1_create_srq(struct ibv_pd *pd,
 
 	srq->rq.size = attr->attr.max_wr + 1;
 	srq->rq.max_sge = attr->attr.max_sge;
-	size = sizeof(struct hfi1_rwq) +
-		(sizeof(struct hfi1_rwqe) +
+	size = sizeof(struct rvt_rwq) +
+		(sizeof(struct rvt_rwqe) +
 		 (sizeof(struct ibv_sge) * srq->rq.max_sge)) * srq->rq.size;
 	srq->rq.rwq = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED,
 			   pd->context->cmd_fd, resp.offset);
@@ -591,8 +591,8 @@ int hfi1_modify_srq(struct ibv_srq *ibsrq,
 	if (attr_mask & IBV_SRQ_MAX_WR) {
 		pthread_spin_lock(&srq->rq.lock);
 		/* Save the old size so we can unmmap the queue. */
-		size = sizeof(struct hfi1_rwq) +
-			(sizeof(struct hfi1_rwqe) +
+		size = sizeof(struct rvt_rwq) +
+			(sizeof(struct rvt_rwqe) +
 			 (sizeof(struct ibv_sge) * srq->rq.max_sge)) *
 			srq->rq.size;
 	}
@@ -607,8 +607,8 @@ int hfi1_modify_srq(struct ibv_srq *ibsrq,
 	if (attr_mask & IBV_SRQ_MAX_WR) {
 		(void) munmap(srq->rq.rwq, size);
 		srq->rq.size = attr->max_wr + 1;
-		size = sizeof(struct hfi1_rwq) +
-			(sizeof(struct hfi1_rwqe) +
+		size = sizeof(struct rvt_rwq) +
+			(sizeof(struct rvt_rwqe) +
 			 (sizeof(struct ibv_sge) * srq->rq.max_sge)) *
 			srq->rq.size;
 		srq->rq.rwq = mmap(NULL, size,
@@ -649,8 +649,8 @@ int hfi1_destroy_srq(struct ibv_srq *ibsrq)
 	if (ret)
 		return ret;
 
-	size = sizeof(struct hfi1_rwq) +
-		(sizeof(struct hfi1_rwqe) +
+	size = sizeof(struct rvt_rwq) +
+		(sizeof(struct rvt_rwqe) +
 		 (sizeof(struct ibv_sge) * srq->rq.max_sge)) * srq->rq.size;
 	(void) munmap(srq->rq.rwq, size);
 	free(srq);
