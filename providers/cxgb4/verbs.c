@@ -121,7 +121,7 @@ static struct ibv_mr *__c4iw_reg_mr(struct ibv_pd *pd, void *addr,
 		return NULL;
 
 	if (ibv_cmd_reg_mr(pd, addr, length, hca_va,
-			   access, &mhp->ibv_mr, &cmd, sizeof cmd,
+			   access, &mhp->vmr, &cmd, sizeof(cmd),
 			   &resp, sizeof resp)) {
 		free(mhp);
 		return NULL;
@@ -131,13 +131,13 @@ static struct ibv_mr *__c4iw_reg_mr(struct ibv_pd *pd, void *addr,
 	mhp->len = length;
 
 	PDBG("%s stag 0x%x va_fbo 0x%" PRIx64 " len %d\n",
-	     __func__, mhp->ibv_mr.rkey, mhp->va_fbo, mhp->len);
+	     __func__, mhp->vmr.ibv_mr.rkey, mhp->va_fbo, mhp->len);
 
 	pthread_spin_lock(&dev->lock);
-	dev->mmid2ptr[c4iw_mmid(mhp->ibv_mr.lkey)] = mhp;
+	dev->mmid2ptr[c4iw_mmid(mhp->vmr.ibv_mr.lkey)] = mhp;
 	pthread_spin_unlock(&dev->lock);
 	INC_STAT(mr);
-	return &mhp->ibv_mr;
+	return &mhp->vmr.ibv_mr;
 }
 
 struct ibv_mr *c4iw_reg_mr(struct ibv_pd *pd, void *addr,
@@ -147,20 +147,20 @@ struct ibv_mr *c4iw_reg_mr(struct ibv_pd *pd, void *addr,
 	return __c4iw_reg_mr(pd, addr, length, (uintptr_t) addr, access);
 }
 
-int c4iw_dereg_mr(struct ibv_mr *mr)
+int c4iw_dereg_mr(struct verbs_mr *vmr)
 {
 	int ret;
-	struct c4iw_dev *dev = to_c4iw_dev(mr->pd->context->device);
+	struct c4iw_dev *dev = to_c4iw_dev(vmr->ibv_mr.pd->context->device);
 
-	ret = ibv_cmd_dereg_mr(mr);
+	ret = ibv_cmd_dereg_mr(vmr);
 	if (ret)
 		return ret;
 
 	pthread_spin_lock(&dev->lock);
-	dev->mmid2ptr[c4iw_mmid(mr->lkey)] = NULL;
+	dev->mmid2ptr[c4iw_mmid(vmr->ibv_mr.lkey)] = NULL;
 	pthread_spin_unlock(&dev->lock);
 
-	free(to_c4iw_mr(mr));
+	free(to_c4iw_mr(vmr));
 
 	return 0;
 }

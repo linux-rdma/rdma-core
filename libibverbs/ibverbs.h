@@ -61,12 +61,20 @@ void ibverbs_device_put(struct ibv_device *dev);
 void ibverbs_device_hold(struct ibv_device *dev);
 
 struct verbs_ex_private {
-	struct ibv_cq_ex *(*create_cq_ex)(struct ibv_context *context,
-					  struct ibv_cq_init_attr_ex *init_attr);
-
 	BITMAP_DECLARE(unsupported_ioctls, VERBS_OPS_NUM);
 	uint32_t driver_id;
+	struct verbs_context_ops ops;
 };
+
+static inline struct verbs_ex_private *get_priv(struct ibv_context *ctx)
+{
+	return container_of(ctx, struct verbs_context, context)->priv;
+}
+
+static inline const struct verbs_context_ops *get_ops(struct ibv_context *ctx)
+{
+	return &get_priv(ctx)->ops;
+}
 
 #define IBV_INIT_CMD(cmd, size, opcode)					\
 	do {								\

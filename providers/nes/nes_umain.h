@@ -276,7 +276,7 @@ struct nes_uqp;
 struct nes_ucq {
 	struct ibv_cq ibv_cq;
 	struct nes_hw_cqe volatile *cqes;
-	struct ibv_mr mr;
+	struct verbs_mr vmr;
 	pthread_spinlock_t lock;
 	uint32_t cq_id;
 	uint16_t size;
@@ -297,7 +297,7 @@ struct nes_uqp {
 	uint32_t qp_id;
 	struct nes_ucq *send_cq;
 	struct nes_ucq *recv_cq;
-	struct	ibv_mr mr;
+	struct	verbs_mr vmr;
 	uint32_t nes_drv_opt;
 	pthread_spinlock_t lock;
 	uint16_t sq_db_index;
@@ -356,7 +356,7 @@ int nes_uquery_port(struct ibv_context *, uint8_t, struct ibv_port_attr *);
 struct ibv_pd *nes_ualloc_pd(struct ibv_context *);
 int nes_ufree_pd(struct ibv_pd *);
 struct ibv_mr *nes_ureg_mr(struct ibv_pd *, void *, size_t, int);
-int nes_udereg_mr(struct ibv_mr *);
+int nes_udereg_mr(struct verbs_mr *vmr);
 struct ibv_cq *nes_ucreate_cq(struct ibv_context *, int, struct ibv_comp_channel *, int);
 int nes_uresize_cq(struct ibv_cq *, int);
 int nes_udestroy_cq(struct ibv_cq *);

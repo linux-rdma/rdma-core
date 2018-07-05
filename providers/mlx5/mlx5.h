@@ -295,6 +295,8 @@ struct mlx5_context {
 	uint16_t			flow_action_flags;
 	uint64_t			max_dm_size;
 	uint32_t                        eth_min_inline_size;
+	uint32_t                        dump_fill_mkey;
+	__be32                          dump_fill_mkey_be;
 };
 
 struct mlx5_bitmap {
@@ -479,7 +481,7 @@ struct mlx5_dm {
 };
 
 struct mlx5_mr {
-	struct ibv_mr			ibv_mr;
+	struct verbs_mr                 vmr;
 	struct mlx5_buf			buf;
 	uint32_t			alloc_flags;
 };
@@ -657,7 +659,7 @@ static inline struct mlx5_dm *to_mdm(struct ibv_dm *ibdm)
 
 static inline struct mlx5_mr *to_mmr(struct ibv_mr *ibmr)
 {
-	return to_mxxx(mr, mr);
+	return container_of(ibmr, struct mlx5_mr, vmr.ibv_mr);
 }
 
 static inline struct mlx5_ah *to_mah(struct ibv_ah *ibah)
@@ -735,11 +737,12 @@ int mlx5_query_port(struct ibv_context *context, uint8_t port,
 struct ibv_pd *mlx5_alloc_pd(struct ibv_context *context);
 int mlx5_free_pd(struct ibv_pd *pd);
 
+struct ibv_mr *mlx5_alloc_null_mr(struct ibv_pd *pd);
 struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr,
 			   size_t length, int access);
-int mlx5_rereg_mr(struct ibv_mr *mr, int flags, struct ibv_pd *pd, void *addr,
+int mlx5_rereg_mr(struct verbs_mr *mr, int flags, struct ibv_pd *pd, void *addr,
 		  size_t length, int access);
-int mlx5_dereg_mr(struct ibv_mr *mr);
+int mlx5_dereg_mr(struct verbs_mr *mr);
 struct ibv_mw *mlx5_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type);
 int mlx5_dealloc_mw(struct ibv_mw *mw);
 int mlx5_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,

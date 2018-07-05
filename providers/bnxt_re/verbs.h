@@ -63,7 +63,7 @@ struct ibv_pd *bnxt_re_alloc_pd(struct ibv_context *uctx);
 int bnxt_re_free_pd(struct ibv_pd *ibvpd);
 struct ibv_mr *bnxt_re_reg_mr(struct ibv_pd *ibvpd, void *buf, size_t len,
 			      int ibv_access_flags);
-int bnxt_re_dereg_mr(struct ibv_mr *ibvmr);
+int bnxt_re_dereg_mr(struct verbs_mr *vmr);
 
 struct ibv_cq *bnxt_re_create_cq(struct ibv_context *uctx, int ncqe,
 				 struct ibv_comp_channel *ch, int vec);

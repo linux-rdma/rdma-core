@@ -126,7 +126,7 @@ struct bnxt_re_qp {
 };
 
 struct bnxt_re_mr {
-	struct ibv_mr ibvmr;
+	struct verbs_mr vmr;
 };
 
 struct bnxt_re_ah {

@@ -384,7 +384,7 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 		return NULL;
 
 	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr, access,
-			     &(mr->ibv_mr), &cmd, sizeof(cmd), &resp,
+			     &mr->vmr, &cmd, sizeof(cmd), &resp,
 			     sizeof resp);
 	if (ret) {
 		mlx5_free_buf(&(mr->buf));
@@ -393,7 +393,34 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	}
 	mr->alloc_flags = acc;
 
-	return &mr->ibv_mr;
+	return &mr->vmr.ibv_mr;
+}
+
+struct ibv_mr *mlx5_alloc_null_mr(struct ibv_pd *pd)
+{
+	struct mlx5_mr *mr;
+	struct mlx5_context *ctx = to_mctx(pd->context);
+
+	if (ctx->dump_fill_mkey == MLX5_INVALID_LKEY) {
+		errno = ENOTSUP;
+		return NULL;
+	}
+
+	mr = calloc(1, sizeof(*mr));
+	if (!mr) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	mr->vmr.ibv_mr.lkey = ctx->dump_fill_mkey;
+
+	mr->vmr.ibv_mr.context = pd->context;
+	mr->vmr.ibv_mr.pd      = pd;
+	mr->vmr.ibv_mr.addr    = NULL;
+	mr->vmr.ibv_mr.length  = SIZE_MAX;
+	mr->vmr.mr_type = IBV_MR_TYPE_NULL_MR;
+
+	return &mr->vmr.ibv_mr;
 }
 
 enum {
@@ -424,7 +451,7 @@ struct ibv_mr *mlx5_reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *ibdm,
 	}
 
 	ret = ibv_cmd_reg_dm_mr(pd, &dm->verbs_dm, dm_offset, length, acc,
-				&mr->ibv_mr, NULL);
+				&mr->vmr, NULL);
 	if (ret) {
 		free(mr);
 		return NULL;
@@ -432,11 +459,11 @@ struct ibv_mr *mlx5_reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *ibdm,
 
 	mr->alloc_flags = acc;
 
-	return &mr->ibv_mr;
+	return &mr->vmr.ibv_mr;
 }
 
-int mlx5_rereg_mr(struct ibv_mr *ibmr, int flags, struct ibv_pd *pd, void *addr,
-		  size_t length, int access)
+int mlx5_rereg_mr(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
+		  void *addr, size_t length, int access)
 {
 	struct ibv_rereg_mr cmd;
 	struct ib_uverbs_rereg_mr_resp resp;
@@ -444,21 +471,24 @@ int mlx5_rereg_mr(struct ibv_mr *ibmr, int flags, struct ibv_pd *pd, void *addr,
 	if (flags & IBV_REREG_MR_KEEP_VALID)
 		return ENOTSUP;
 
-	return ibv_cmd_rereg_mr(ibmr, flags, addr, length, (uintptr_t)addr,
+	return ibv_cmd_rereg_mr(vmr, flags, addr, length, (uintptr_t)addr,
 				access, pd, &cmd, sizeof(cmd), &resp,
 				sizeof(resp));
 }
 
-int mlx5_dereg_mr(struct ibv_mr *ibmr)
+int mlx5_dereg_mr(struct verbs_mr *vmr)
 {
 	int ret;
-	struct mlx5_mr *mr = to_mmr(ibmr);
 
-	ret = ibv_cmd_dereg_mr(ibmr);
+	if (vmr->mr_type == IBV_MR_TYPE_NULL_MR)
+		goto free;
+
+	ret = ibv_cmd_dereg_mr(vmr);
 	if (ret)
 		return ret;
 
-	free(mr);
+free:
+	free(vmr);
 	return 0;
 }
 

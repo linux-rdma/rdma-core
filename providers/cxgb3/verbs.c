@@ -117,7 +117,7 @@ static struct ibv_mr *__iwch_reg_mr(struct ibv_pd *pd, void *addr,
 		return NULL;
 
 	if (ibv_cmd_reg_mr(pd, addr, length, hca_va,
-			   access, &mhp->ibv_mr, &cmd, sizeof cmd,
+			   access, &mhp->vmr, &cmd, sizeof(cmd),
 			   &resp.ibv_resp, sizeof resp)) {
 		free(mhp);
 		return NULL;
@@ -128,16 +128,16 @@ static struct ibv_mr *__iwch_reg_mr(struct ibv_pd *pd, void *addr,
 	mhp->pbl_addr = resp.pbl_addr;
 	mhp->len = length;
 
-	PDBG("%s stag 0x%x va_fbo 0x%" PRIx64 
+	PDBG("%s stag 0x%x va_fbo 0x%" PRIx64
              " page_size %d pbl_addr 0x%x len %d\n",
-	     __FUNCTION__, mhp->ibv_mr.rkey, mhp->va_fbo, 
+	     __func__, mhp->vmr.ibv_mr.rkey, mhp->va_fbo,
 	     mhp->page_size, mhp->pbl_addr, mhp->len);
 
 	pthread_spin_lock(&dev->lock);
-	dev->mmid2ptr[t3_mmid(mhp->ibv_mr.lkey)] = mhp;
+	dev->mmid2ptr[t3_mmid(mhp->vmr.ibv_mr.lkey)] = mhp;
 	pthread_spin_unlock(&dev->lock);
 	
-	return &mhp->ibv_mr;
+	return &mhp->vmr.ibv_mr;
 }
 
 struct ibv_mr *iwch_reg_mr(struct ibv_pd *pd, void *addr,
@@ -147,20 +147,20 @@ struct ibv_mr *iwch_reg_mr(struct ibv_pd *pd, void *addr,
 	return __iwch_reg_mr(pd, addr, length, (uintptr_t) addr, access);
 }
 
-int iwch_dereg_mr(struct ibv_mr *mr)
+int iwch_dereg_mr(struct verbs_mr *vmr)
 {
 	int ret;
-	struct iwch_device *dev = to_iwch_dev(mr->pd->context->device);
+	struct iwch_device *dev = to_iwch_dev(vmr->ibv_mr.pd->context->device);
 
-	ret = ibv_cmd_dereg_mr(mr);
+	ret = ibv_cmd_dereg_mr(vmr);
 	if (ret)
 		return ret;
 
 	pthread_spin_lock(&dev->lock);
-	dev->mmid2ptr[t3_mmid(mr->lkey)] = NULL;
+	dev->mmid2ptr[t3_mmid(vmr->ibv_mr.lkey)] = NULL;
 	pthread_spin_unlock(&dev->lock);
 
-	free(to_iwch_mr(mr));
+	free(to_iwch_mr(vmr));
 	
 	return 0;
 }

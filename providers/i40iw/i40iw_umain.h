@@ -96,7 +96,7 @@ struct i40iw_uqp;
 
 struct i40iw_ucq {
 	struct ibv_cq ibv_cq;
-	struct ibv_mr mr;
+	struct verbs_mr vmr;
 	struct ibv_mr mr_shadow_area;
 	pthread_spinlock_t lock;
 	uint8_t is_armed;
@@ -112,7 +112,7 @@ struct i40iw_uqp {
 	struct ibv_qp ibv_qp;
 	struct i40iw_ucq *send_cq;
 	struct i40iw_ucq *recv_cq;
-	struct ibv_mr mr;
+	struct verbs_mr vmr;
 	uint32_t i40iw_drv_opt;
 	pthread_spinlock_t lock;
 	u32 *push_db;      /* mapped as uncached memory*/
@@ -161,7 +161,7 @@ int i40iw_uquery_port(struct ibv_context *, uint8_t, struct ibv_port_attr *);
 struct ibv_pd *i40iw_ualloc_pd(struct ibv_context *);
 int i40iw_ufree_pd(struct ibv_pd *);
 struct ibv_mr *i40iw_ureg_mr(struct ibv_pd *, void *, size_t, int);
-int i40iw_udereg_mr(struct ibv_mr *);
+int i40iw_udereg_mr(struct verbs_mr *vmr);
 struct ibv_cq *i40iw_ucreate_cq(struct ibv_context *, int, struct ibv_comp_channel *, int);
 int i40iw_uresize_cq(struct ibv_cq *, int);
 int i40iw_udestroy_cq(struct ibv_cq *);

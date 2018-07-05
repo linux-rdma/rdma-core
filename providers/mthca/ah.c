@@ -179,7 +179,7 @@ void mthca_free_av(struct mthca_ah *ah)
 			if (page->next)
 				page->next->prev = page->prev;
 
-			mthca_dereg_mr(page->mr);
+			mthca_dereg_mr(verbs_get_mr(page->mr));
 			mthca_free_buf(&page->buf);
 			free(page);
 		}

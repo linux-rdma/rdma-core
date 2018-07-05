@@ -70,7 +70,7 @@ static void *get_wq_recv_wqe(struct mlx5_rwq *rwq, int n)
 }
 
 static int copy_to_scat(struct mlx5_wqe_data_seg *scat, void *buf, int *size,
-			 int max)
+			 int max, struct mlx5_context *ctx)
 {
 	int copy;
 	int i;
@@ -80,7 +80,14 @@ static int copy_to_scat(struct mlx5_wqe_data_seg *scat, void *buf, int *size,
 
 	for (i = 0; i < max; ++i) {
 		copy = min_t(long, *size, be32toh(scat->byte_count));
-		memcpy((void *)(unsigned long)be64toh(scat->addr), buf, copy);
+
+		/* When NULL MR is used can't copy to target,
+		 * expected to be NULL.
+		 */
+		if (likely(scat->lkey != ctx->dump_fill_mkey_be))
+			memcpy((void *)(unsigned long)be64toh(scat->addr),
+			       buf, copy);
+
 		*size -= copy;
 		if (*size == 0)
 			return IBV_WC_SUCCESS;
@@ -93,6 +100,8 @@ static int copy_to_scat(struct mlx5_wqe_data_seg *scat, void *buf, int *size,
 
 int mlx5_copy_to_recv_wqe(struct mlx5_qp *qp, int idx, void *buf, int size)
 {
+	struct mlx5_context *ctx = to_mctx(qp->ibv_qp->pd->context);
+
 	struct mlx5_wqe_data_seg *scat;
 	int max = 1 << (qp->rq.wqe_shift - 4);
 
@@ -100,11 +109,12 @@ int mlx5_copy_to_recv_wqe(struct mlx5_qp *qp, int idx, void *buf, int size)
 	if (unlikely(qp->wq_sig))
 		++scat;
 
-	return copy_to_scat(scat, buf, &size, max);
+	return copy_to_scat(scat, buf, &size, max, ctx);
 }
 
 int mlx5_copy_to_send_wqe(struct mlx5_qp *qp, int idx, void *buf, int size)
 {
+	struct mlx5_context *ctx = to_mctx(qp->ibv_qp->pd->context);
 	struct mlx5_wqe_ctrl_seg *ctrl;
 	struct mlx5_wqe_data_seg *scat;
 	void *p;
@@ -141,14 +151,14 @@ int mlx5_copy_to_send_wqe(struct mlx5_qp *qp, int idx, void *buf, int size)
 		int tmp = ((void *)qp->sq.qend - (void *)scat) >> 4;
 		int orig_size = size;
 
-		if (copy_to_scat(scat, buf, &size, tmp) == IBV_WC_SUCCESS)
+		if (copy_to_scat(scat, buf, &size, tmp, ctx) == IBV_WC_SUCCESS)
 			return IBV_WC_SUCCESS;
 		max = max - tmp;
 		buf += orig_size - size;
 		scat = mlx5_get_send_wqe(qp, 0);
 	}
 
-	return copy_to_scat(scat, buf, &size, max);
+	return copy_to_scat(scat, buf, &size, max, ctx);
 }
 
 void *mlx5_get_send_wqe(struct mlx5_qp *qp, int n)
@@ -1124,6 +1134,11 @@ int mlx5_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 	}
 
 	if (bind_info->mr) {
+		if (verbs_get_mr(bind_info->mr)->mr_type != IBV_MR_TYPE_MR) {
+			errno = ENOTSUP;
+			return errno;
+		}
+
 		if (to_mmr(bind_info->mr)->alloc_flags & IBV_ACCESS_ZERO_BASED) {
 			errno = EINVAL;
 			return errno;

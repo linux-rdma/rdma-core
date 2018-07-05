@@ -175,7 +175,7 @@ struct ibv_mr *qelr_reg_mr(struct ibv_pd *ibpd, void *addr,
 	bzero(mr, sizeof(*mr));
 
 	if (ibv_cmd_reg_mr(ibpd, addr, len, hca_va,
-			   access, &mr->ibv_mr, &cmd, sizeof(cmd),
+			   access, &mr->vmr, &cmd, sizeof(cmd),
 			   &resp.ibv_resp, sizeof(resp))) {
 		free(mr);
 		return NULL;
@@ -183,25 +183,25 @@ struct ibv_mr *qelr_reg_mr(struct ibv_pd *ibpd, void *addr,
 
 	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_MR,
 		   "MR Register %p completed successfully pd_id=%d addr=%p len=%zu access=%d lkey=%x rkey=%x\n",
-		   mr, pd->pd_id, addr, len, access, mr->ibv_mr.lkey,
-		   mr->ibv_mr.rkey);
+		   mr, pd->pd_id, addr, len, access, mr->vmr.ibv_mr.lkey,
+		   mr->vmr.ibv_mr.rkey);
 
-	return &mr->ibv_mr;
+	return &mr->vmr.ibv_mr;
 }
 
-int qelr_dereg_mr(struct ibv_mr *mr)
+int qelr_dereg_mr(struct verbs_mr *vmr)
 {
-	struct qelr_devctx *cxt = get_qelr_ctx(mr->context);
+	struct qelr_devctx *cxt = get_qelr_ctx(vmr->ibv_mr.context);
 	int rc;
 
-	rc = ibv_cmd_dereg_mr(mr);
+	rc = ibv_cmd_dereg_mr(vmr);
 	if (rc)
 		return rc;
 
-	free(mr);
+	free(vmr);
 
 	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_MR,
-		   "MR DERegister %p completed successfully\n", mr);
+		   "MR DERegister %p completed successfully\n", vmr);
 	return 0;
 }
 

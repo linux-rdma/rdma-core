@@ -50,7 +50,7 @@ int qelr_dealloc_pd(struct ibv_pd *ibpd);
 
 struct ibv_mr *qelr_reg_mr(struct ibv_pd *ibpd, void *addr,
 			   size_t len, int access);
-int qelr_dereg_mr(struct ibv_mr *mr);
+int qelr_dereg_mr(struct verbs_mr *mr);
 
 struct ibv_cq *qelr_create_cq(struct ibv_context *context, int cqe,
 			      struct ibv_comp_channel *channel,

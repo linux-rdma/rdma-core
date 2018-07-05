@@ -145,21 +145,21 @@ struct ibv_mr *bnxt_re_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
 	if (!mr)
 		return NULL;
 
-	if (ibv_cmd_reg_mr(ibvpd, sva, len, (uintptr_t)sva, access, &mr->ibvmr,
+	if (ibv_cmd_reg_mr(ibvpd, sva, len, (uintptr_t)sva, access, &mr->vmr,
 			   &cmd, sizeof(cmd), &resp.ibv_resp, sizeof(resp))) {
 		free(mr);
 		return NULL;
 	}
 
-	return &mr->ibvmr;
+	return &mr->vmr.ibv_mr;
 }
 
-int bnxt_re_dereg_mr(struct ibv_mr *ibvmr)
+int bnxt_re_dereg_mr(struct verbs_mr *vmr)
 {
-	struct bnxt_re_mr *mr = (struct bnxt_re_mr *)ibvmr;
+	struct bnxt_re_mr *mr = (struct bnxt_re_mr *)vmr;
 	int status;
 
-	status = ibv_cmd_dereg_mr(ibvmr);
+	status = ibv_cmd_dereg_mr(vmr);
 	if (status)
 		return status;
 	free(mr);
