@@ -115,6 +115,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		/* These historical symbols are now private to libibverbs */
 		__ioctl_final_num_attrs;
 		_verbs_init_and_alloc_context;
+		execute_ioctl;
 		ibv_cmd_alloc_dm;
 		ibv_cmd_alloc_mw;
 		ibv_cmd_alloc_pd;
