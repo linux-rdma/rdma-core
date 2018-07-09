@@ -115,18 +115,15 @@ network or another cache.  A special diff output for ibnetdiscover
 output will be displayed showing differences between the old and current
 fabric.  By default, the following are compared for differences: switches,
 channel adapters, routers, and port connections.
-.\" Define the common option diffcheck
-.
 .sp
 \fB\-\-diffcheck <key(s)>\fP
-Specify what diff checks should be done in the \fB\-\-diff\fP option above.
-Comma separate multiple diff check key(s).  The available diff checks
-are: \fBsw = switches\fP, \fBca = channel adapters\fP, \fBrouter\fP = routers,
-\fBport\fP = port connections, \fBlid\fP = lids, \fBnodedesc\fP = node
-descriptions.  Note that \fBport\fP, \fBlid\fP, and \fBnodedesc\fP are
-checked only for the node types that are specified (e.g. \fBsw\fP,
-\fBca\fP, \fBrouter\fP).  If \fBport\fP is specified alongside \fBlid\fP
-or \fBnodedesc\fP, remote port lids and node descriptions will also be compared.
+Specify what diff checks should be done in the \fB\-\-diff\fP option above.  Comma
+separate multiple diff check key(s).  The available diff checks are: \fBport\fP =
+port connections, \fBstate\fP = port state, \fBlid\fP = lids, \fBnodedesc\fP = node
+descriptions.  Note that \fBport\fP, \fBlid\fP, and \fBnodedesc\fP are checked only
+for the node types that are specified (e.g.  \fBswitches\-only\fP, \fBcas\-only\fP).
+If \fBport\fP is specified alongside \fBlid\fP or \fBnodedesc\fP, remote port lids
+and node descriptions will also be compared.
 .sp
 \fB\-\-filterdownports <filename>\fP
 Filter downports indicated in a ibnetdiscover cache.  If a port was previously

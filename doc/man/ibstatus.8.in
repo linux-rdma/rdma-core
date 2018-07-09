@@ -2,7 +2,7 @@
 .
 .TH IBSTATUS 8 "@BUILD_DATE@" "" "Open IB Diagnostics"
 .SH NAME
-IBSTATUS \- 
+ibstatus \- query basic status of InfiniBand device(s)
 .
 .nr rst2man-indent-level 0
 .
@@ -30,16 +30,15 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.SH QUERY BASIC STATUS OF INFINIBAND DEVICE(S)
-.SS SYNOPSIS
+.SH SYNOPSIS
 .sp
 ibstatus [\-h] [devname[:port]]...
-.SS DESCRIPTION
+.SH DESCRIPTION
 .sp
 ibstatus is a script which displays basic information obtained from the local
 IB driver. Output includes LID, SMLID, port state, link width active, and port
 physical state.
-.SS OPTIONS
+.SH OPTIONS
 .\" Define the common option -h
 .
 .sp
@@ -52,7 +51,7 @@ InfiniBand device name
 .B \fBportnum\fP
 port number of InfiniBand device
 .UNINDENT
-.SS EXAMPLES
+.SH EXAMPLES
 .INDENT 0.0
 .TP
 .B ::
@@ -60,10 +59,10 @@ ibstatus                    # display status of all IB ports
 ibstatus mthca1             # status of mthca1 ports
 ibstatus mthca1:1 mthca0:2  # show status of specified ports
 .UNINDENT
-.SS SEE ALSO
+.SH SEE ALSO
 .sp
 \fBibstat (8)\fP
-.SS AUTHOR
+.SH AUTHOR
 .INDENT 0.0
 .TP
 .B Hal Rosenstock

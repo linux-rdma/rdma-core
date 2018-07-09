@@ -2,7 +2,7 @@
 .
 .TH INFINIBAND-DIAGS 8 "@BUILD_DATE@" "" "Open IB Diagnostics"
 .SH NAME
-INFINIBAND-DIAGS \- 
+infiniband-diags \- Diagnostics for InfiniBand Fabrics
 .
 .nr rst2man-indent-level 0
 .
@@ -30,8 +30,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.SH DIAGNOSTICS FOR INFINIBAND FABRICS
-.SS DESCRIPTION
+.SH DESCRIPTION
 .sp
 infiniband\-diags is a set of utilities designed to help configure, debug, and
 maintain infiniband fabrics.  Many tools and utilities are provided.  Some with
@@ -40,7 +39,7 @@ similar functionality.
 The base utilities use directed route MAD\(aqs to perform their operations.  They
 may therefore work even in unconfigured subnets.  Other, higher level
 utilities, require LID routed MAD\(aqs and to some extent SA/SM access.
-.SS THE USE OF SMPs (QP0)
+.SH THE USE OF SMPS (QP0)
 .sp
 Many of the tools in this package rely on the use of SMPs via QP0 to acquire
 data directly from the SMA.  While this mode of operation is not technically in
@@ -49,7 +48,7 @@ that this level of diagnostics is valuable when working with a fabric which is
 broken or only partially configured.  For this reason many of these tools may
 require the use of an MKey or operation from Virtual Machines may be restricted
 for security reasons.
-.SS COMMON OPTIONS
+.SH COMMON OPTIONS
 .sp
 Most OpenIB diagnostics take some of the following common flags. The exact list
 of supported flags per utility can be found in the documentation for those
@@ -221,7 +220,7 @@ This file maps GUIDs to more user friendly names.  See FILES section.
 Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
 .UNINDENT
 .UNINDENT
-.SS COMMON FILES
+.SH COMMON FILES
 .sp
 The following config files are common amongst many of the utilities.
 .\" Common text for the config file
@@ -377,7 +376,7 @@ When grouping is used, IB nodes are organized into chassis which are
 numbered. Nodes which cannot be determined to be in a chassis are
 displayed as "Non\-Chassis Nodes".  External ports are also shown on the
 connectivity lines.
-.SS Utilities list
+.SH UTILITIES LIST
 .SS Basic fabric conectivity
 .INDENT 0.0
 .INDENT 3.5
@@ -432,7 +431,7 @@ See: smpquery, smpdump, saquery, sminfo
 See: ibidsverify
 .UNINDENT
 .UNINDENT
-.SS Backwards compatibility scripts
+.SH BACKWARDS COMPATIBILITY SCRIPTS
 .sp
 The following scripts have been identified as redundant and/or lower performing
 as compared to the above scripts.  They are provided as legacy scripts when
@@ -442,7 +441,7 @@ ibcheckerrors, ibclearcounters, ibclearerrors, ibdatacounters
 ibchecknet, ibchecknode, ibcheckport, ibcheckportstate,
 ibcheckportwidth, ibcheckstate, ibcheckwidth, ibswportwatch,
 ibprintca, ibprintrt, ibprintswitch, set_nodedesc.sh
-.SS AUTHORS
+.SH AUTHORS
 .INDENT 0.0
 .TP
 .B Ira Weiny

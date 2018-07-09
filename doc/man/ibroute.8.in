@@ -2,7 +2,7 @@
 .
 .TH IBROUTE 8 "@BUILD_DATE@" "" "Open IB Diagnostics"
 .SH NAME
-IBROUTE \- 
+ibroute \- query InfiniBand switch forwarding tables
 .
 .nr rst2man-indent-level 0
 .
@@ -30,17 +30,16 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.SH QUERY INFINIBAND SWITCH FORWARDING TABLES
-.SS SYNOPSIS
+.SH SYNOPSIS
 .sp
 ibroute [options] [<dest dr_path|lid|guid> [<startlid> [<endlid>]]]
-.SS DESCRIPTION
+.SH DESCRIPTION
 .sp
 ibroute uses SMPs to display the forwarding tables (unicast
 (LinearForwardingTable or LFT) or multicast (MulticastForwardingTable or MFT))
 for the specified switch LID and the optional lid (mlid) range.
 The default range is all valid entries in the range 1...FDBTop.
-.SS OPTIONS
+.SH OPTIONS
 .INDENT 0.0
 .TP
 .B \fB\-a, \-\-all\fP
@@ -193,7 +192,7 @@ This file maps GUIDs to more user friendly names.  See FILES section.
 Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
 .UNINDENT
 .UNINDENT
-.SS FILES
+.SH FILES
 .\" Common text for the config file
 .
 .SS CONFIG FILE
@@ -255,7 +254,7 @@ for the file location for your installation.
 .fi
 .UNINDENT
 .UNINDENT
-.SS EXAMPLES
+.SH EXAMPLES
 .sp
 Unicast examples
 .INDENT 0.0
@@ -278,10 +277,10 @@ ibroute \-M 4                # dump all non empty mlids of switch with lid 4
 ibroute \-M 4 0xc010 0xc020  # same, but with range
 ibroute \-M \-n 4             # simple dump format
 .UNINDENT
-.SS SEE ALSO
+.SH SEE ALSO
 .sp
 ibtracert (8)
-.SS AUTHOR
+.SH AUTHOR
 .INDENT 0.0
 .TP
 .B Hal Rosenstock

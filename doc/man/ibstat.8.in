@@ -2,7 +2,7 @@
 .
 .TH IBSTAT 8 "@BUILD_DATE@" "" "Open IB Diagnostics"
 .SH NAME
-IBSTAT \- 
+ibstat \- query basic status of InfiniBand device(s)
 .
 .nr rst2man-indent-level 0
 .
@@ -30,11 +30,10 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.SH QUERY BASIC STATUS OF INFINIBAND DEVICE(S)
-.SS SYNOPSIS
+.SH SYNOPSIS
 .sp
 ibstat [options] <ca_name> [portnum]
-.SS DESCRIPTION
+.SH DESCRIPTION
 .sp
 ibstat is a binary which displays basic information obtained from the local
 IB driver. Output includes LID, SMLID, port state, link width active, and port
@@ -43,7 +42,7 @@ physical state.
 It is similar to the ibstatus utility but implemented as a binary rather
 than a script. It has options to list CAs and/or ports and displays more
 information than ibstatus.
-.SS OPTIONS
+.SH OPTIONS
 .INDENT 0.0
 .TP
 .B \fB\-l, \-\-list_of_cas\fP
@@ -96,7 +95,7 @@ May be used several times (\-vv or \-v \-v \-v)
 Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
 .UNINDENT
 .UNINDENT
-.SS EXAMPLES
+.SH EXAMPLES
 .INDENT 0.0
 .TP
 .B ::
@@ -105,10 +104,10 @@ ibstat \-l         # list all IB devices
 ibstat \-p         # show port guids
 ibstat mthca0 2   # show status of port 2 of \(aqmthca0\(aq
 .UNINDENT
-.SS SEE ALSO
+.SH SEE ALSO
 .sp
 ibstatus (8)
-.SS AUTHOR
+.SH AUTHOR
 .INDENT 0.0
 .TP
 .B Hal Rosenstock

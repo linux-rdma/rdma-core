@@ -2,7 +2,7 @@
 .
 .TH IBFINDNODESUSING 8 "@BUILD_DATE@" "" "Open IB Diagnostics"
 .SH NAME
-IBFINDNODESUSING \- 
+ibfindnodesusing \- find a list of end nodes which are routed through the specified switch and port
 .
 .nr rst2man-indent-level 0
 .
@@ -30,16 +30,15 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.SH FIND A LIST OF END NODES WHICH ARE ROUTED THROUGH THE SPECIFIED SWITCH AND PORT
-.SS SYNOPSIS
+.SH SYNOPSIS
 .sp
 ibfindnodesusing.pl [options] <switch_guid|switch_name> <port>
-.SS DESCRIPTION
+.SH DESCRIPTION
 .sp
 ibfindnodesusing.pl uses ibroute and detects the current nodes which are routed
 through both directions of the link specified.  The link is specified by one
 switch port end; the script finds the remote end automatically.
-.SS OPTIONS
+.SH OPTIONS
 .INDENT 0.0
 .TP
 .B \fB\-h\fP
@@ -55,7 +54,7 @@ believe that the fabric has changed.
 \fB\-C <ca_name>\fP    use the specified ca_name.
 .sp
 \fB\-P <ca_port>\fP    use the specified ca_port.
-.SS FILES
+.SH FILES
 .\" Common text for the config file
 .
 .SS CONFIG FILE
@@ -117,7 +116,7 @@ for the file location for your installation.
 .fi
 .UNINDENT
 .UNINDENT
-.SS AUTHOR
+.SH AUTHOR
 .INDENT 0.0
 .TP
 .B Ira Weiny
