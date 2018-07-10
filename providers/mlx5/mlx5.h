@@ -270,6 +270,7 @@ struct mlx5_context {
 	struct list_head                hugetlb_list;
 	int				cqe_version;
 	uint8_t				cached_link_layer[MLX5_MAX_PORTS_NUM];
+	uint8_t				cached_port_flags[MLX5_MAX_PORTS_NUM];
 	unsigned int			cached_device_cap_flags;
 	enum ibv_atomic_cap		atomic_cap;
 	struct {

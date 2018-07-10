@@ -53,6 +53,10 @@ destroys the AH
 .SH "RETURN VALUE"
 .B ibv_create_ah()
 returns a pointer to the created AH, or NULL if the request fails.
+.SH "NOTES"
+If port flag IBV_QPF_GRH_REQUIRED is set then
+.B ibv_create_ah()
+must be created with definition of 'struct ibv_ah_attr { .is_global = 1; .grh = {...}; }'.
 .PP
 .B ibv_destroy_ah()
 returns 0 on success, or the value of errno on failure (which indicates the failure reason).

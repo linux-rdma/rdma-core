@@ -380,7 +380,7 @@ struct ibv_port_attr {
 	uint8_t			active_speed;
 	uint8_t			phys_state;
 	uint8_t			link_layer;
-	uint8_t			reserved;
+	uint8_t			flags;
 };
 
 enum ibv_event_type {
@@ -1949,7 +1949,7 @@ static inline int ___ibv_query_port(struct ibv_context *context,
 {
 	/* For compatibility when running with old libibverbs */
 	port_attr->link_layer = IBV_LINK_LAYER_UNSPECIFIED;
-	port_attr->reserved   = 0;
+	port_attr->flags      = 0;
 
 	return ibv_query_port(context, port_num, port_attr);
 }

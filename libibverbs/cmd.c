@@ -283,6 +283,7 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_PORT, &resp, sizeof resp);
 	cmd->port_num = port_num;
 	memset(cmd->reserved, 0, sizeof cmd->reserved);
+	memset(&resp, 0, sizeof(resp));
 
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
@@ -309,6 +310,7 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 	port_attr->active_speed    = resp.active_speed;
 	port_attr->phys_state      = resp.phys_state;
 	port_attr->link_layer      = resp.link_layer;
+	port_attr->flags	   = resp.flags;
 
 	return 0;
 }

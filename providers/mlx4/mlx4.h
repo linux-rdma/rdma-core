@@ -126,6 +126,7 @@ struct mlx4_context {
 	struct {
 		uint8_t                 valid;
 		uint8_t                 link_layer;
+		uint8_t			flags;
 		enum ibv_port_cap_flags caps;
 	} port_query_cache[MLX4_PORTS_NUM];
 	struct {
