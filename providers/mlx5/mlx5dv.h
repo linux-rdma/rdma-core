@@ -786,7 +786,9 @@ void mlx5dv_x86_set_data_seg(struct mlx5_wqe_data_seg *seg,
 			     uint32_t length, uint32_t lkey,
 			     uintptr_t address)
 {
-	__m128i val  = _mm_set_epi32((uint32_t)address, (uint32_t)(address >> 32), lkey, length);
+
+	uint64_t address64 = address;
+	__m128i val  = _mm_set_epi32((uint32_t)address64, (uint32_t)(address64 >> 32), lkey, length);
 	__m128i mask = _mm_set_epi8(12, 13, 14, 15,	/* local address low */
 				     8, 9, 10, 11,	/* local address high */
 				     4, 5, 6, 7,	/* l_key */
