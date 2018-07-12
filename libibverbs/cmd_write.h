@@ -291,4 +291,21 @@ _execute_write_only(struct ibv_context *context, struct ibv_command_buffer *cmd,
 
 #endif
 
+extern bool verbs_allow_disassociate_destroy;
+
+/*
+ * Return true if 'ret' indicates that a destroy operation has failed
+ * and the function should exit. If the kernel destroy failure is being
+ * ignored then this will set ret to 0, so the calling function appears to succeed.
+ */
+static inline bool verbs_is_destroy_err(int *ret)
+{
+	if (*ret == EIO && verbs_allow_disassociate_destroy) {
+		*ret = 0;
+		return true;
+	}
+
+	return *ret != 0;
+}
+
 #endif

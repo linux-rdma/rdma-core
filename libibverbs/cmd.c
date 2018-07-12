@@ -45,6 +45,8 @@
 #include "ibverbs.h"
 #include <ccan/minmax.h>
 
+bool verbs_allow_disassociate_destroy;
+
 int ibv_cmd_get_context(struct verbs_context *context_ex,
 			struct ibv_get_context *cmd, size_t cmd_size,
 			struct ib_uverbs_get_context_resp *resp, size_t resp_size)

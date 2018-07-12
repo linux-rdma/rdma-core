@@ -50,6 +50,7 @@
 
 #include <util/util.h>
 #include "ibverbs.h"
+#include <infiniband/cmd_write.h>
 
 int abi_ver;
 
@@ -704,6 +705,9 @@ int ibverbs_init(void)
 		if (ibv_fork_init())
 			fprintf(stderr, PFX "Warning: fork()-safety requested "
 				"but init failed\n");
+
+	if (getenv("RDMAV_ALLOW_DISASSOC_DESTROY"))
+		verbs_allow_disassociate_destroy = true;
 
 	sysfs_path = ibv_get_sysfs_path();
 	if (!sysfs_path)
