@@ -60,7 +60,7 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 
 	switch (execute_ioctl_fallback(cq->context, create_cq, cmdb, &ret)) {
 	case TRY_WRITE: {
-		DECLARE_LEGACY_UHW_BUFS(link, create_cq);
+		DECLARE_LEGACY_UHW_BUFS(link, IB_USER_VERBS_CMD_CREATE_CQ);
 
 		*req = (struct ib_uverbs_create_cq){
 			.user_handle = (uintptr_t)cq,
@@ -69,8 +69,7 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 			.comp_channel = channel ? channel->fd : -1,
 		};
 
-		ret = execute_write_bufs(IB_USER_VERBS_CMD_CREATE_CQ,
-					 cq->context, req, resp);
+		ret = execute_write_bufs(cq->context, req, resp);
 		if (ret)
 			return ret;
 
@@ -80,7 +79,8 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 		return 0;
 	}
 	case TRY_WRITE_EX: {
-		DECLARE_LEGACY_UHW_BUFS_EX(link, create_cq);
+		DECLARE_LEGACY_UHW_BUFS_EX(link,
+					   IB_USER_VERBS_EX_CMD_CREATE_CQ);
 
 		*req = (struct ib_uverbs_ex_create_cq){
 			.user_handle = (uintptr_t)cq,
@@ -90,8 +90,7 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 			.flags = flags,
 		};
 
-		ret = execute_write_bufs_ex(IB_USER_VERBS_EX_CMD_CREATE_CQ,
-					    cq->context, req, resp);
+		ret = execute_write_bufs_ex(cq->context, req);
 		if (ret)
 			return ret;
 
@@ -152,7 +151,7 @@ int ibv_cmd_destroy_cq(struct ibv_cq *cq)
 {
 	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_CQ, UVERBS_METHOD_CQ_DESTROY, 2,
 			     NULL);
-	DECLARE_LEGACY_CORE_BUFS(destroy_cq);
+	DECLARE_LEGACY_CORE_BUFS(IB_USER_VERBS_CMD_DESTROY_CQ);
 	int ret;
 
 	fill_attr_out_ptr(cmdb, UVERBS_ATTR_DESTROY_CQ_RESP, &resp);
@@ -164,8 +163,7 @@ int ibv_cmd_destroy_cq(struct ibv_cq *cq)
 			.cq_handle = cq->handle,
 		};
 
-		ret = execute_write(IB_USER_VERBS_CMD_DESTROY_CQ, cq->context,
-				    req, &resp);
+		ret = execute_write(cq->context, req, &resp);
 		break;
 	}
 

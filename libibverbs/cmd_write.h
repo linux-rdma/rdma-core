@@ -45,66 +45,22 @@ static inline struct ib_uverbs_cmd_hdr *get_req_hdr(void *req)
 	return ((struct ib_uverbs_cmd_hdr *)req) - 1;
 }
 
-struct _ib_ex_hdr {
-	struct ib_uverbs_cmd_hdr hdr;
-	struct ib_uverbs_ex_cmd_hdr ex_hdr;
-};
-
-static inline struct _ib_ex_hdr *get_req_hdr_ex(void *req)
+static inline struct ex_hdr *get_req_hdr_ex(void *req)
 {
-	return ((struct _ib_ex_hdr *)req) - 1;
+	return ((struct ex_hdr *)req) - 1;
 }
 
-/*
- * When using these new interfaces the kernel UAPI structs 'ib_uverbs_*' are
- * used, not the structs from kern-abi.h. The only difference between the two
- * is the inclusion of the header in the kern-abi.h struct. This macro creates
- * memory on the stack that includes both the header and the struct.
- */
-#define DECLARE_LEGACY_REQ_BUF_CORE(_name, _pattern)                           \
-	struct {                                                               \
-		struct ib_uverbs_cmd_hdr hdr;                                  \
-		struct ib_uverbs_##_pattern core_payload;                      \
-	} _name
-
-#define DECLARE_LEGACY_REQ_BUF_CORE_EX(_name, _pattern)                        \
-	struct {                                                               \
-		struct ib_uverbs_cmd_hdr hdr;                                  \
-		struct ib_uverbs_ex_cmd_hdr ex_hdr;                            \
-		struct ib_uverbs_ex_##_pattern core_payload;                   \
-	} _name
-
-void *_write_get_req(struct ibv_command_buffer *link, void *onstack,
-		     size_t size);
-void *_write_get_req_ex(struct ibv_command_buffer *link, void *onstack,
-			size_t size);
+void *_write_get_req(struct ibv_command_buffer *link,
+		     struct ib_uverbs_cmd_hdr *onstack, size_t size,
+		     uint32_t cmdnum);
+void *_write_get_req_ex(struct ibv_command_buffer *link, struct ex_hdr *onstack,
+			size_t size, uint32_t cmdnum);
 void *_write_get_resp(struct ibv_command_buffer *link,
 		      struct ib_uverbs_cmd_hdr *hdr, void *onstack,
 		      size_t resp_size);
 void *_write_get_resp_ex(struct ibv_command_buffer *link,
-			 struct _ib_ex_hdr *hdr, void *onstack,
+			 struct ex_hdr *hdr, void *onstack,
 			 size_t resp_size);
-
-#define DECLARE_LEGACY_REQ_BUF(_name, _link, _pattern)                         \
-	DECLARE_LEGACY_REQ_BUF_CORE(__##_name##_onstack, _pattern);            \
-	struct ib_uverbs_##_pattern *_name =                                   \
-		_write_get_req(_link, &__##_name##_onstack, sizeof(*_name))
-
-#define DECLARE_LEGACY_REQ_BUF_EX(_name, _link, _pattern)                      \
-	DECLARE_LEGACY_REQ_BUF_CORE_EX(__##_name##_onstack, _pattern);         \
-	struct ib_uverbs_ex_##_pattern *_name =                                \
-		_write_get_req_ex(_link, &__##_name##_onstack, sizeof(*_name))
-
-#define DECLARE_LEGACY_RESP_BUF(_name, _link, _req, _pattern)                  \
-	struct ib_uverbs_##_pattern##_resp __##_name##_onstack,                \
-		*_name = _write_get_resp(_link, get_req_hdr(_req),             \
-					 &__##_name##_onstack, sizeof(*_name))
-
-#define DECLARE_LEGACY_RESP_BUF_EX(_name, _link, _req, _pattern)               \
-	struct ib_uverbs_ex_##_pattern##_resp __##_name##_onstack,             \
-		*_name = _write_get_resp_ex(_link, get_req_hdr_ex(_req),       \
-					    &__##_name##_onstack,              \
-					    sizeof(*_name))
 
 /*
  * This macro creates 'req' and 'resp' pointers in the local stack frame that
@@ -112,13 +68,26 @@ void *_write_get_resp_ex(struct ibv_command_buffer *link,
  *
  * This should be done before calling execute_write_bufs
  */
-#define DECLARE_LEGACY_UHW_BUFS(_link, _pattern)                               \
-	DECLARE_LEGACY_REQ_BUF(req, _link, _pattern);                          \
-	DECLARE_LEGACY_RESP_BUF(resp, _link, req, _pattern)
+#define DECLARE_LEGACY_UHW_BUFS(_link, _enum)                                  \
+	IBV_ABI_REQ(_enum) __req_onstack;                                      \
+	IBV_KABI_RESP(_enum) __resp_onstack;                                   \
+	static_assert(offsetof(IBV_KABI_REQ(_enum), response) == 0,            \
+		      "Bad response offset");                                  \
+	IBV_KABI_REQ(_enum) *req = _write_get_req(_link, &__req_onstack.hdr,   \
+						  sizeof(*req), _enum);        \
+	IBV_KABI_RESP(_enum) *resp = ({                                        \
+		void *_resp = _write_get_resp(_link, get_req_hdr(req),         \
+					      &__resp_onstack, sizeof(*resp)); \
+		_resp;                                                         \
+	})
 
-#define DECLARE_LEGACY_UHW_BUFS_EX(_link, _pattern)                            \
-	DECLARE_LEGACY_REQ_BUF_EX(req, _link, _pattern);                       \
-	DECLARE_LEGACY_RESP_BUF_EX(resp, _link, req, _pattern)
+#define DECLARE_LEGACY_UHW_BUFS_EX(_link, _enum)                               \
+	IBV_ABI_REQ(_enum) __req_onstack;                                      \
+	IBV_KABI_RESP(_enum) __resp_onstack;                                   \
+	IBV_KABI_REQ(_enum) *req = _write_get_req_ex(                          \
+		_link, &__req_onstack.hdr, sizeof(*req), _enum);               \
+	IBV_KABI_RESP(_enum) *resp = _write_get_resp_ex(                       \
+		_link, get_req_hdr_ex(req), &__resp_onstack, sizeof(*resp))
 
 /*
  * This macro is used to implement the compatibility command call wrappers.
@@ -174,51 +143,68 @@ enum write_fallback _execute_ioctl_fallback(struct ibv_context *ctx,
 	_execute_ioctl_fallback(ctx, _CMD_BIT(cmd_name), cmdb, ret)
 
 /* These helpers replace the raw write() and IBV_INIT_CMD macros */
-int _execute_write_raw(unsigned int cmdnum, struct ibv_context *ctx,
-		       struct ib_uverbs_cmd_hdr *req, void *resp);
+int _execute_write_raw(struct ibv_context *ctx, struct ib_uverbs_cmd_hdr *req,
+		       void *resp);
 
 /* For users of DECLARE_LEGACY_UHW_BUFS */
-#define execute_write_bufs(cmdnum, ctx, req, resp)                             \
-	({                                                                     \
-		(req)->response = ioctl_ptr_to_u64(resp);                      \
-		_execute_write_raw(cmdnum, ctx, get_req_hdr(req), resp);       \
-	})
+#define execute_write_bufs(ctx, req, resp)                             \
+		_execute_write_raw(ctx, get_req_hdr(req), resp)
 
-int _execute_write_raw_ex(uint32_t cmdnum, struct ibv_context *ctx,
-			  struct _ib_ex_hdr *req, void *resp);
+int _execute_write_raw_ex(struct ibv_context *ctx, struct ex_hdr *req);
 
 /* For users of DECLARE_LEGACY_UHW_BUFS_EX */
-#define execute_write_bufs_ex(cmdnum, ctx, req, resp)                          \
-	_execute_write_raw_ex(cmdnum, ctx, get_req_hdr_ex(req), resp)
-
-static inline int _execute_write(uint32_t cmdnum, struct ibv_context *ctx,
-				 void *req, size_t req_len, void *resp,
-				 size_t resp_len)
-{
-	struct ib_uverbs_cmd_hdr *hdr = get_req_hdr(req);
-
-	hdr->in_words = req_len / 4;
-	hdr->out_words = resp_len / 4;
-	return _execute_write_raw(cmdnum, ctx, hdr, resp);
-}
+#define execute_write_bufs_ex(ctx, req)                                        \
+	_execute_write_raw_ex(ctx, get_req_hdr_ex(req))
 
 /* For users with no possible UHW bufs. */
-#define DECLARE_LEGACY_CORE_BUFS(_pattern)                                     \
-	DECLARE_LEGACY_REQ_BUF_CORE(__req_onstack, _pattern);                  \
-	struct ib_uverbs_##_pattern *const req = &__req_onstack.core_payload;  \
-	struct ib_uverbs_##_pattern##_resp resp
+#define DECLARE_LEGACY_CORE_BUFS(_enum)                                        \
+	IBV_ABI_REQ(_enum) __req_onstack;                                      \
+	IBV_KABI_RESP(_enum) resp;                                             \
+	static_assert(offsetof(IBV_KABI_REQ(_enum), response) == 0,            \
+		      "Bad response offset");                                  \
+	IBV_KABI_REQ(_enum) *const req = ({                                    \
+		__req_onstack.hdr.command = _enum;                             \
+		__req_onstack.hdr.in_words = sizeof(__req_onstack) / 4;        \
+		__req_onstack.hdr.out_words = sizeof(resp) / 4;                \
+		&__req_onstack.core_payload;                                   \
+	})
+#define DECLARE_LEGACY_CORE_REQ(_enum)                                         \
+	IBV_ABI_REQ(_enum) __req_onstack;                                      \
+	static_assert(sizeof(IBV_KABI_RESP(_enum)) == 0,                       \
+		      "Method has a response!");                               \
+	IBV_KABI_REQ(_enum) *const req = ({                                    \
+		__req_onstack.hdr.command = _enum;                             \
+		__req_onstack.hdr.in_words = sizeof(__req_onstack) / 4;        \
+		__req_onstack.hdr.out_words = 0;                               \
+		&__req_onstack.core_payload;                                   \
+	})
+
+#define DECLARE_LEGACY_CORE_BUFS_EX(_enum)                                     \
+	IBV_ABI_REQ(_enum) __req_onstack;                                      \
+	IBV_KABI_RESP(_enum) resp;                                             \
+	IBV_KABI_REQ(_enum) *const req = ({                                    \
+		__req_onstack.hdr.hdr.command =                                \
+			IB_USER_VERBS_CMD_FLAG_EXTENDED | _enum;               \
+		__req_onstack.hdr.hdr.in_words =                               \
+			(sizeof(__req_onstack) - sizeof(struct ex_hdr)) / 8;   \
+		__req_onstack.hdr.hdr.out_words = sizeof(resp) / 8;            \
+		__req_onstack.hdr.ex_hdr.cmd_hdr_reserved = 0;                 \
+		__req_onstack.hdr.ex_hdr.provider_in_words = 0;                \
+		__req_onstack.hdr.ex_hdr.provider_out_words = 0;               \
+		__req_onstack.hdr.ex_hdr.response =                            \
+			(sizeof(resp) == 0) ? 0 : ioctl_ptr_to_u64(&resp);     \
+		&__req_onstack.core_payload;                                   \
+	})
 
 /*
  * For users with no UHW bufs. To be used in conjunction with
  * DECLARE_LEGACY_CORE_BUFS. req points to the core payload (with headroom for
  * the header).
  */
-#define execute_write(cmdnum, ctx, req, resp)                                  \
-	({                                                                     \
-		(req)->response = ioctl_ptr_to_u64(resp);                      \
-		_execute_write(cmdnum, ctx, req, sizeof(*req), resp,           \
-			       sizeof(*resp));                                 \
-	})
+#define execute_write(ctx, req, resp)                                          \
+	_execute_write_raw(ctx, get_req_hdr(req), resp)
+#define execute_write_ex(ctx, req)                                             \
+	_execute_write_raw_ex(ctx, get_req_hdr_ex(req))
 
 /*
  * These two macros are used only with execute_ioctl_fallback - they allow the
@@ -247,24 +233,20 @@ _execute_ioctl_only(struct ibv_context *context, struct ibv_command_buffer *cmd,
 	_execute_ioctl_only(ctx, cmdb, ret)
 
 #undef execute_write_bufs
-static inline int execute_write_bufs(uint32_t cmdnum,
-				     struct ibv_context *ctx, void *req,
+static inline int execute_write_bufs(struct ibv_context *ctx, void *req,
 				     void *resp)
 {
 	return ENOSYS;
 }
 
 #undef execute_write_bufs_ex
-static inline int execute_write_bufs_ex(uint32_t cmdnum,
-					struct ibv_context *ctx, void *req,
-					void *resp)
+static inline int execute_write_bufs_ex(struct ibv_context *ctx, void *req)
 {
 	return ENOSYS;
 }
 
 #undef execute_write
-static inline int execute_write(uint32_t cmdnum,
-				struct ibv_context *ctx, void *req,
+static inline int execute_write(struct ibv_context *ctx, void *req,
 				void *resp)
 {
 	return ENOSYS;

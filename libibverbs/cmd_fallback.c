@@ -118,8 +118,9 @@ enum write_fallback _execute_ioctl_fallback(struct ibv_context *ctx,
  * on the stack (if the driver didn't provide a UHW) or arranged to be
  * directly before the UHW memory (see _write_set_uhw)
  */
-void *_write_get_req(struct ibv_command_buffer *link, void *onstack,
-		     size_t size)
+void *_write_get_req(struct ibv_command_buffer *link,
+		     struct ib_uverbs_cmd_hdr *onstack, size_t size,
+		     uint32_t cmdnum)
 {
 	struct ib_uverbs_cmd_hdr *hdr;
 
@@ -137,13 +138,15 @@ void *_write_get_req(struct ibv_command_buffer *link, void *onstack,
 		hdr->in_words = __check_divide(size, 4);
 	}
 
+	hdr->command = cmdnum;
+
 	return hdr + 1;
 }
 
-void *_write_get_req_ex(struct ibv_command_buffer *link, void *onstack,
-			size_t size)
+void *_write_get_req_ex(struct ibv_command_buffer *link, struct ex_hdr *onstack,
+			size_t size, uint32_t cmdnum)
 {
-	struct _ib_ex_hdr *hdr;
+	struct ex_hdr *hdr;
 	size_t full_size = size + sizeof(*hdr);
 
 	if (link->uhw_in_idx != _UHW_NO_INDEX) {
@@ -159,6 +162,9 @@ void *_write_get_req_ex(struct ibv_command_buffer *link, void *onstack,
 		hdr->hdr.in_words = __check_divide(size, 8);
 		hdr->ex_hdr.provider_in_words = 0;
 	}
+
+	hdr->hdr.command = IB_USER_VERBS_CMD_FLAG_EXTENDED | cmdnum;
+	hdr->ex_hdr.cmd_hdr_reserved = 0;
 
 	return hdr + 1;
 }
@@ -186,7 +192,7 @@ void *_write_get_resp(struct ibv_command_buffer *link,
 }
 
 void *_write_get_resp_ex(struct ibv_command_buffer *link,
-			 struct _ib_ex_hdr *hdr, void *onstack,
+			 struct ex_hdr *hdr, void *onstack,
 			 size_t resp_size)
 {
 	void *resp_start;
@@ -206,51 +212,59 @@ void *_write_get_resp_ex(struct ibv_command_buffer *link,
 		hdr->ex_hdr.provider_out_words = 0;
 	}
 
+	hdr->ex_hdr.response = ioctl_ptr_to_u64(resp_start);
+
 	return resp_start;
 }
 
-int _execute_write_raw(unsigned int cmdnum, struct ibv_context *ctx,
-		       struct ib_uverbs_cmd_hdr *hdr, void *resp)
+int _execute_write_raw(struct ibv_context *ctx, struct ib_uverbs_cmd_hdr *hdr,
+		       void *resp)
 {
-	hdr->command = cmdnum;
-
 	/*
 	 * Users assumes the stack buffer is zeroed before passing to the
 	 * kernel for writing.
 	 */
-	memset(resp, 0, hdr->out_words * 4);
+	if (resp) {
+		/*
+		 * The helper macros prove the response is at offset 0 of the
+		 * request.
+		 */
+		uint64_t *response = (uint64_t *)(hdr + 1);
+
+		*response = ioctl_ptr_to_u64(resp);
+		memset(resp, 0, hdr->out_words * 4);
+	}
 
 	if (write(ctx->cmd_fd, hdr, hdr->in_words * 4) != hdr->in_words * 4)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(resp, hdr->out_words * 4);
+	if (resp)
+		VALGRIND_MAKE_MEM_DEFINED(resp, hdr->out_words * 4);
 
 	return 0;
 }
 
-int _execute_write_raw_ex(uint32_t cmdnum, struct ibv_context *ctx,
-			  struct _ib_ex_hdr *hdr, void *resp)
+int _execute_write_raw_ex(struct ibv_context *ctx, struct ex_hdr *hdr)
 {
 	size_t write_bytes =
 		sizeof(*hdr) +
 		(hdr->hdr.in_words + hdr->ex_hdr.provider_in_words) * 8;
 	size_t resp_bytes =
 		(hdr->hdr.out_words + hdr->ex_hdr.provider_out_words) * 8;
-
-	hdr->hdr.command = IB_USER_VERBS_CMD_FLAG_EXTENDED | cmdnum;
-	hdr->ex_hdr.cmd_hdr_reserved = 0;
-	hdr->ex_hdr.response =  ioctl_ptr_to_u64(resp);
+	void *resp = (void *)(uintptr_t)hdr->ex_hdr.response;
 
 	/*
 	 * Users assumes the stack buffer is zeroed before passing to the
 	 * kernel for writing.
 	 */
-	memset(resp, 0, resp_bytes);
+	if (resp)
+		memset(resp, 0, resp_bytes);
 
 	if (write(ctx->cmd_fd, hdr, write_bytes) != write_bytes)
 		return errno;
 
-	VALGRIND_MAKE_MEM_DEFINED(resp, resp_bytes);
+	if (resp)
+		VALGRIND_MAKE_MEM_DEFINED(resp, resp_bytes);
 
 	return 0;
 }
