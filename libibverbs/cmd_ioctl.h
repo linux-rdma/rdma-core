@@ -296,6 +296,9 @@ fill_attr_in_uint64(struct ibv_command_buffer *cmd, uint16_t attr_id,
 	return attr;
 }
 
+#define fill_attr_const_in(cmd, attr_id, _data) \
+	fill_attr_in_uint64(cmd, attr_id, _data)
+
 static inline struct ib_uverbs_attr *
 fill_attr_in_uint32(struct ibv_command_buffer *cmd, uint16_t attr_id,
 		    uint32_t data)
