@@ -87,12 +87,9 @@ int ibv_cmd_read_counters(struct verbs_counters *vcounters,
 				    3,
 				    link);
 
-	if (!is_attr_size_valid(ncounters, sizeof(uint64_t)))
-		return EINVAL;
-
 	fill_attr_in_obj(cmd, UVERBS_ATTR_READ_COUNTERS_HANDLE, vcounters->handle);
-	fill_attr_out(cmd, UVERBS_ATTR_READ_COUNTERS_BUFF, counters_value,
-		      ncounters * sizeof(uint64_t));
+	fill_attr_out_ptr_array(cmd, UVERBS_ATTR_READ_COUNTERS_BUFF, counters_value,
+				ncounters);
 	fill_attr_in_uint32(cmd, UVERBS_ATTR_READ_COUNTERS_FLAGS, flags);
 
 	return execute_ioctl(vcounters->counters.context, cmd);

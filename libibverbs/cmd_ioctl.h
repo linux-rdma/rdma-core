@@ -40,6 +40,7 @@
 #include <rdma/rdma_user_ioctl_cmds.h>
 #include <infiniband/verbs.h>
 #include <ccan/container_of.h>
+#include <util/compiler.h>
 
 static inline uint64_t ioctl_ptr_to_u64(const void *ptr)
 {
@@ -95,6 +96,8 @@ struct ibv_command_buffer {
 	uint8_t uhw_out_idx;
 	uint8_t uhw_in_headroom_dwords;
 	uint8_t uhw_out_headroom_dwords;
+
+	uint8_t buffer_error:1;
 	/*
 	 * These flags control what execute_ioctl_fallback does if the kernel
 	 * does not support ioctl
@@ -268,7 +271,8 @@ fill_attr_in(struct ibv_command_buffer *cmd, uint16_t attr_id, const void *data,
 {
 	struct ib_uverbs_attr *attr = _ioctl_next_attr(cmd, attr_id);
 
-	assert(len <= UINT16_MAX);
+	if (unlikely(len > UINT16_MAX))
+		cmd->buffer_error = 1;
 
 	attr->len = len;
 	if (len <= sizeof(uint64_t))
@@ -348,7 +352,9 @@ fill_attr_out(struct ibv_command_buffer *cmd, uint16_t attr_id, void *data,
 {
 	struct ib_uverbs_attr *attr = _ioctl_next_attr(cmd, attr_id);
 
-	assert(len <= UINT16_MAX);
+	if (unlikely(len > UINT16_MAX))
+		cmd->buffer_error = 1;
+
 	attr->len = len;
 	attr->data = ioctl_ptr_to_u64(data);
 
@@ -357,6 +363,18 @@ fill_attr_out(struct ibv_command_buffer *cmd, uint16_t attr_id, void *data,
 
 #define fill_attr_out_ptr(cmd, attr_id, ptr)                                 \
 	fill_attr_out(cmd, attr_id, ptr, sizeof(*(ptr)))
+
+/* If size*nelems overflows size_t this returns SIZE_MAX */
+static inline size_t _array_len(size_t size, size_t nelems)
+{
+	if (size != 0 &&
+	    SIZE_MAX / size <= nelems)
+		return SIZE_MAX;
+	return size * nelems;
+}
+
+#define fill_attr_out_ptr_array(cmd, attr_id, ptr, nelems)                     \
+	fill_attr_out(cmd, attr_id, ptr, _array_len(sizeof(*ptr), nelems))
 
 static inline size_t __check_divide(size_t val, unsigned int div)
 {
@@ -374,12 +392,6 @@ fill_attr_in_enum(struct ibv_command_buffer *cmd, uint16_t attr_id,
 	attr->attr_data.enum_data.elem_id = elem_id;
 
 	return attr;
-}
-
-static inline int is_attr_size_valid(size_t num, size_t ent_size)
-{
-	/* check multiplication overflow */
-	return (!ent_size || UINT16_MAX / ent_size >= num);
 }
 
 #endif
