@@ -354,9 +354,8 @@ struct ibv_mw *mlx4_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
 int mlx4_dealloc_mw(struct ibv_mw *mw)
 {
 	int ret;
-	struct ibv_dealloc_mw cmd;
 
-	ret = ibv_cmd_dealloc_mw(mw, &cmd, sizeof(cmd));
+	ret = ibv_cmd_dealloc_mw(mw);
 	if (ret && !cleanup_on_fatal(ret))
 		return ret;
 
