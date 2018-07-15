@@ -338,11 +338,16 @@ int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 int ibv_cmd_dealloc_pd(struct ibv_pd *pd)
 {
 	DECLARE_LEGACY_CORE_REQ(IB_USER_VERBS_CMD_DEALLOC_PD);
+	int ret;
 
 	*req = (struct ib_uverbs_dealloc_pd) {
 		.pd_handle = pd->handle,
 	};
-	return execute_write(pd->context, req, NULL);
+	ret = execute_write(pd->context, req, NULL);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
+
+	return 0;
 }
 
 int ibv_cmd_open_xrcd(struct ibv_context *context, struct verbs_xrcd *xrcd,
@@ -380,11 +385,16 @@ int ibv_cmd_open_xrcd(struct ibv_context *context, struct verbs_xrcd *xrcd,
 int ibv_cmd_close_xrcd(struct verbs_xrcd *xrcd)
 {
 	DECLARE_LEGACY_CORE_REQ(IB_USER_VERBS_CMD_CLOSE_XRCD);
+	int ret;
 
 	*req = (struct ib_uverbs_close_xrcd){
 		.xrcd_handle = xrcd->handle,
 	};
-	return execute_write(xrcd->xrcd.context, req, NULL);
+	ret = execute_write(xrcd->xrcd.context, req, NULL);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
+
+	return 0;
 }
 
 int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
@@ -448,11 +458,16 @@ int ibv_cmd_rereg_mr(struct verbs_mr *vmr, uint32_t flags, void *addr,
 int ibv_cmd_dereg_mr(struct verbs_mr *vmr)
 {
 	DECLARE_LEGACY_CORE_REQ(IB_USER_VERBS_CMD_DEREG_MR);
+	int ret;
 
 	*req = (struct ib_uverbs_dereg_mr){
 		.mr_handle = vmr->ibv_mr.handle,
 	};
-	return execute_write(vmr->ibv_mr.context, req, NULL);
+	ret = execute_write(vmr->ibv_mr.context, req, NULL);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
+
+	return 0;
 }
 
 int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
@@ -482,11 +497,16 @@ int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
 int ibv_cmd_dealloc_mw(struct ibv_mw *mw)
 {
 	DECLARE_LEGACY_CORE_REQ(IB_USER_VERBS_CMD_DEALLOC_MW);
+	int ret;
 
 	*req = (struct ib_uverbs_dealloc_mw) {
 		.mw_handle = mw->handle,
 	};
-	return execute_write(mw->context, req, NULL);
+	ret = execute_write(mw->context, req, NULL);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
+
+	return 0;
 }
 
 int ibv_cmd_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
@@ -767,7 +787,7 @@ int ibv_cmd_destroy_srq(struct ibv_srq *srq)
 	};
 
 	ret = execute_write(srq->context, req, &resp);
-	if (ret)
+	if (verbs_is_destroy_err(&ret))
 		return ret;
 
 	pthread_mutex_lock(&srq->mutex);
@@ -1559,11 +1579,16 @@ int ibv_cmd_create_ah(struct ibv_pd *pd, struct ibv_ah *ah,
 int ibv_cmd_destroy_ah(struct ibv_ah *ah)
 {
 	DECLARE_LEGACY_CORE_REQ(IB_USER_VERBS_CMD_DESTROY_AH);
+	int ret;
 
 	*req = (struct ib_uverbs_destroy_ah){
 		.ah_handle = ah->handle,
 	};
-	return execute_write(ah->context, req, NULL);
+	ret = execute_write(ah->context, req, NULL);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
+
+	return 0;
 }
 
 int ibv_cmd_destroy_qp(struct ibv_qp *qp)
@@ -1576,7 +1601,7 @@ int ibv_cmd_destroy_qp(struct ibv_qp *qp)
 	};
 
 	ret = execute_write(qp->context, req, &resp);
-	if (ret)
+	if (verbs_is_destroy_err(&ret))
 		return ret;
 
 	pthread_mutex_lock(&qp->mutex);
@@ -1602,13 +1627,18 @@ int ibv_cmd_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t l
 int ibv_cmd_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 {
 	DECLARE_LEGACY_CORE_REQ(IB_USER_VERBS_CMD_DETACH_MCAST);
+	int ret;
 
 	*req = (struct ib_uverbs_detach_mcast){
 		.qp_handle = qp->handle,
 		.mlid = lid,
 	};
 	memcpy(req->gid, gid->raw, sizeof(req->gid));
-	return execute_write(qp->context, req, NULL);
+	ret = execute_write(qp->context, req, NULL);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
+
+	return 0;
 }
 
 static int buffer_is_zero(char *addr, ssize_t size)
@@ -1869,11 +1899,16 @@ err:
 int ibv_cmd_destroy_flow(struct ibv_flow *flow_id)
 {
 	DECLARE_LEGACY_CORE_BUFS_EX(IB_USER_VERBS_EX_CMD_DESTROY_FLOW);
+	int ret;
 
 	*req = (struct ib_uverbs_destroy_flow){
 		.flow_handle = flow_id->handle,
 	};
-	return execute_write_ex(flow_id->context, req);
+	ret = execute_write_ex(flow_id->context, req);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
+
+	return 0;
 }
 
 int ibv_cmd_create_wq(struct ibv_context *context,
@@ -1976,7 +2011,7 @@ int ibv_cmd_destroy_wq(struct ibv_wq *wq)
 	};
 
 	ret = execute_write_ex(wq->context, req);
-	if (ret)
+	if (verbs_is_destroy_err(&ret))
 		return ret;
 
 	if (resp.response_length < sizeof(resp))
@@ -2046,11 +2081,16 @@ int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 int ibv_cmd_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table)
 {
 	DECLARE_LEGACY_CORE_BUFS_EX(IB_USER_VERBS_EX_CMD_DESTROY_RWQ_IND_TBL);
+	int ret;
 
 	*req = (struct ib_uverbs_ex_destroy_rwq_ind_table){
 		.ind_tbl_handle = rwq_ind_table->ind_tbl_handle,
 	};
-	return execute_write_ex(rwq_ind_table->context, req);
+	ret = execute_write_ex(rwq_ind_table->context, req);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
+
+	return 0;
 }
 
 

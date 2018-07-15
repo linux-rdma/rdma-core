@@ -171,7 +171,7 @@ int ibv_cmd_destroy_cq(struct ibv_cq *cq)
 		break;
 	}
 
-	if (ret)
+	if (verbs_is_destroy_err(&ret))
 		return ret;
 
 	pthread_mutex_lock(&cq->mutex);
