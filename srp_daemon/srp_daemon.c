@@ -793,6 +793,24 @@ static int check_sm_cap(struct umad_resources *umad_res, int *mask_match)
 	return 0;
 }
 
+int pkey_index_to_pkey(struct umad_resources *umad_res, int pkey_index,
+		       uint16_t *pkey)
+{
+	char pkey_file[18], pkey_str[16];
+
+	/* Read pkey */
+	snprintf(pkey_file, sizeof(pkey_file), "pkeys/%d", pkey_index);
+	if (srpd_sys_read_string(umad_res->port_sysfs_path, pkey_file,
+				 pkey_str, sizeof(pkey_str)) < 0)
+		return -1;
+
+	*pkey = strtoul(pkey_str, NULL, 0);
+	if (*pkey)
+		pr_debug("discover Targets for P_key %04x (index %d)\n",
+			 *pkey, pkey_index);
+	return 0;
+}
+
 static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 {
 	struct srp_ib_user_mad		in_mad, out_mad;
@@ -1068,24 +1086,6 @@ static int get_port_info(struct umad_resources *umad_res, uint16_t dlid,
 	*subnet_prefix = be64toh(port_info->subnet_prefix);
 	*isdm          = !!(be32toh(port_info->capability_mask) & SRP_IS_DM);
 
-	return 0;
-}
-
-int pkey_index_to_pkey(struct umad_resources *umad_res, int pkey_index,
-		       uint16_t *pkey)
-{
-	char pkey_file[18], pkey_str[16];
-
-	/* Read pkey */
-	snprintf(pkey_file, sizeof(pkey_file), "pkeys/%d", pkey_index);
-	if (srpd_sys_read_string(umad_res->port_sysfs_path, pkey_file,
-				 pkey_str, sizeof(pkey_str)) < 0)
-		return -1;
-
-	*pkey = strtoul(pkey_str, NULL, 0);
-	if (*pkey)
-		pr_debug("discover Targets for P_key %04x (index %d)\n",
-			 *pkey, pkey_index);
 	return 0;
 }
 
