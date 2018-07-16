@@ -805,7 +805,17 @@ int pkey_index_to_pkey(struct umad_resources *umad_res, int pkey_index,
 	return 0;
 }
 
-static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
+static int pkey_to_pkey_index(struct umad_resources *umad_res, uint16_t h_pkey,
+			      uint16_t *pkey_index)
+{
+	int res = ibv_get_pkey_index(umad_res->ib_ctx, config->port_num,
+				     htobe16(h_pkey));
+	if (res >= 0)
+		*pkey_index = res;
+	return res;
+}
+
+static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid, uint16_t h_pkey)
 {
 	struct srp_ib_user_mad		in_mad, out_mad;
 	struct umad_dm_packet	       *out_dm_mad, *in_dm_mad;
@@ -814,6 +824,12 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 	int i;
 
 	init_srp_dm_mad(&out_mad, umad_res->agent, dlid, UMAD_ATTR_CLASS_PORT_INFO, 0);
+
+	if (pkey_to_pkey_index(umad_res, h_pkey, &out_mad.hdr.addr.pkey_index)
+	    < 0) {
+		pr_err("set_class_port_info: Unable to find pkey_index for pkey %#x\n", h_pkey);
+		return -1;
+	}
 
 	out_dm_mad = get_data_ptr(out_mad);
 	out_dm_mad->mad_hdr.method = UMAD_METHOD_SET;
@@ -849,12 +865,17 @@ static int set_class_port_info(struct umad_resources *umad_res, uint16_t dlid)
 }
 
 static int get_iou_info(struct umad_resources *umad_res, uint16_t dlid,
-			struct srp_dm_iou_info *iou_info)
+			uint16_t h_pkey, struct srp_dm_iou_info *iou_info)
 {
 	struct srp_ib_user_mad		in_mad, out_mad;
 	struct umad_dm_packet	       *in_dm_mad;
 
 	init_srp_dm_mad(&out_mad, umad_res->agent, dlid, SRP_DM_ATTR_IO_UNIT_INFO, 0);
+	if (pkey_to_pkey_index(umad_res, h_pkey, &out_mad.hdr.addr.pkey_index)
+	    < 0) {
+		pr_err("get_iou_info: Unable to find pkey_index for pkey %#x\n", h_pkey);
+		return -1;
+	}
 
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
 		return -1;
@@ -873,13 +894,20 @@ static int get_iou_info(struct umad_resources *umad_res, uint16_t dlid,
 	return 0;
 }
 
-static int get_ioc_prof(struct umad_resources *umad_res, uint16_t h_dlid, int ioc,
+static int get_ioc_prof(struct umad_resources *umad_res, uint16_t h_dlid, uint16_t h_pkey, int ioc,
 			struct srp_dm_ioc_prof *ioc_prof)
 {
 	struct srp_ib_user_mad		in_mad, out_mad;
 	struct umad_dm_packet	       *in_dm_mad;
 
 	init_srp_dm_mad(&out_mad, umad_res->agent, h_dlid, SRP_DM_ATTR_IO_CONTROLLER_PROFILE, ioc);
+
+	if (pkey_to_pkey_index(umad_res, h_pkey, &out_mad.hdr.addr.pkey_index)
+	    < 0) {
+		pr_err("get_ioc_prof: Unable to find pkey_index for pkey %#x\n",
+		       h_pkey);
+		return -1;
+	}
 
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
 		return -1;
@@ -896,7 +924,7 @@ static int get_ioc_prof(struct umad_resources *umad_res, uint16_t h_dlid, int io
 	return 0;
 }
 
-static int get_svc_entries(struct umad_resources *umad_res, uint16_t dlid, int ioc,
+static int get_svc_entries(struct umad_resources *umad_res, uint16_t dlid, uint16_t h_pkey, int ioc,
 			   int start, int end, struct srp_dm_svc_entries *svc_entries)
 {
 	struct srp_ib_user_mad		in_mad, out_mad;
@@ -904,6 +932,13 @@ static int get_svc_entries(struct umad_resources *umad_res, uint16_t dlid, int i
 
 	init_srp_dm_mad(&out_mad, umad_res->agent, dlid, SRP_DM_ATTR_SERVICE_ENTRIES,
 			(ioc << 16) | (end << 8) | start);
+
+	if (pkey_to_pkey_index(umad_res, h_pkey, &out_mad.hdr.addr.pkey_index)
+	    < 0) {
+		pr_err("get_svc_entries: Unable to find pkey_index for pkey %#x\n",
+		       h_pkey);
+		return -1;
+	}
 
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
 		return -1;
@@ -940,10 +975,10 @@ static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 
  	pr_debug("enter do_port\n");
 	if ((target->h_guid & oui_mask) == topspin_oui &&
-	    set_class_port_info(umad_res, dlid))
+	    set_class_port_info(umad_res, dlid, pkey))
 		pr_err("Warning: set of ClassPortInfo failed\n");
 
-	ret = get_iou_info(umad_res, dlid, &iou_info);
+	ret = get_iou_info(umad_res, dlid, pkey, &iou_info);
 	if (ret < 0) {
 		pr_err("failed to get iou info for dlid %#x\n", dlid);
 		goto out;
@@ -974,7 +1009,7 @@ static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 		    SRP_DM_IOC_PRESENT) {
 			pr_human("\n");
 
-			if (get_ioc_prof(umad_res, dlid, i + 1, &target->ioc_prof))
+			if (get_ioc_prof(umad_res, dlid, pkey, i + 1, &target->ioc_prof))
 				continue;
 
 			pr_human("    controller[%3d]\n", i + 1);
@@ -994,7 +1029,7 @@ static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 				if (n >= target->ioc_prof.service_entries)
 					n = target->ioc_prof.service_entries - 1;
 
-				if (get_svc_entries(umad_res, dlid, i + 1,
+				if (get_svc_entries(umad_res, dlid, pkey, i + 1,
 						    j, n, &svc_entries))
 					continue;
 
