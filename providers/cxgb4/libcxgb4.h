@@ -63,6 +63,7 @@ struct c4iw_dev {
 	pthread_spinlock_t lock;
 	struct list_node list;
 	int abi_version;
+	bool write_cmpl_supported;
 };
 
 static inline int dev_is_t6(struct c4iw_dev *dev)
