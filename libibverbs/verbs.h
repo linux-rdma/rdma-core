@@ -1970,6 +1970,12 @@ int ibv_query_pkey(struct ibv_context *context, uint8_t port_num,
 		   int index, __be16 *pkey);
 
 /**
+ * ibv_get_pkey_index - Translate a P_Key into a P_Key index
+ */
+int ibv_get_pkey_index(struct ibv_context *context, uint8_t port_num,
+		       __be16 pkey);
+
+/**
  * ibv_alloc_pd - Allocate a protection domain
  */
 struct ibv_pd *ibv_alloc_pd(struct ibv_context *context);
