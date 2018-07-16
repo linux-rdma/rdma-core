@@ -232,7 +232,7 @@ int mlx4_free_pd(struct ibv_pd *pd)
 	int ret;
 
 	ret = ibv_cmd_dealloc_pd(pd);
-	if (ret && !cleanup_on_fatal(ret))
+	if (ret)
 		return ret;
 
 	free(to_mpd(pd));
@@ -269,7 +269,7 @@ int mlx4_close_xrcd(struct ibv_xrcd *ib_xrcd)
 	int ret;
 
 	ret = ibv_cmd_close_xrcd(xrcd);
-	if (ret && !cleanup_on_fatal(ret))
+	if (ret)
 		return ret;
 
 	free(xrcd);
@@ -322,7 +322,7 @@ int mlx4_dereg_mr(struct verbs_mr *vmr)
 	int ret;
 
 	ret = ibv_cmd_dereg_mr(vmr);
-	if (ret && !cleanup_on_fatal(ret))
+	if (ret)
 		return ret;
 
 	free(vmr);
@@ -356,7 +356,7 @@ int mlx4_dealloc_mw(struct ibv_mw *mw)
 	int ret;
 
 	ret = ibv_cmd_dealloc_mw(mw);
-	if (ret && !cleanup_on_fatal(ret))
+	if (ret)
 		return ret;
 
 	free(mw);
@@ -647,7 +647,7 @@ int mlx4_destroy_cq(struct ibv_cq *cq)
 	int ret;
 
 	ret = ibv_cmd_destroy_cq(cq);
-	if (ret && !cleanup_on_fatal(ret))
+	if (ret)
 		return ret;
 
 	mlx4_free_db(to_mctx(cq->context), MLX4_DB_TYPE_CQ, to_mcq(cq)->set_ci_db);
@@ -751,7 +751,7 @@ int mlx4_destroy_srq(struct ibv_srq *srq)
 		return mlx4_destroy_xrc_srq(srq);
 
 	ret = ibv_cmd_destroy_srq(srq);
-	if (ret && !cleanup_on_fatal(ret))
+	if (ret)
 		return ret;
 
 	mlx4_free_db(to_mctx(srq->context), MLX4_DB_TYPE_RQ, to_msrq(srq)->db);
@@ -1220,7 +1220,7 @@ static int _mlx4_destroy_qp_rss(struct ibv_qp *ibqp)
 	int ret;
 
 	ret = ibv_cmd_destroy_qp(ibqp);
-	if (ret && !cleanup_on_fatal(ret))
+	if (ret)
 		return ret;
 
 	free(qp);
@@ -1238,7 +1238,7 @@ int mlx4_destroy_qp(struct ibv_qp *ibqp)
 
 	pthread_mutex_lock(&to_mctx(ibqp->context)->qp_table_mutex);
 	ret = ibv_cmd_destroy_qp(ibqp);
-	if (ret && !cleanup_on_fatal(ret)) {
+	if (ret) {
 		pthread_mutex_unlock(&to_mctx(ibqp->context)->qp_table_mutex);
 		return ret;
 	}
@@ -1567,7 +1567,7 @@ int mlx4_destroy_flow(struct ibv_flow *flow_id)
 
 	ret = ibv_cmd_destroy_flow(flow_id);
 
-	if (ret && !cleanup_on_fatal(ret))
+	if (ret)
 		return ret;
 
 	free(flow_id);
@@ -1584,7 +1584,7 @@ int mlx4_destroy_wq(struct ibv_wq *ibwq)
 	pthread_mutex_lock(&mcontext->qp_table_mutex);
 
 	ret = ibv_cmd_destroy_wq(ibwq);
-	if (ret && !cleanup_on_fatal(ret)) {
+	if (ret) {
 		pthread_mutex_unlock(&mcontext->qp_table_mutex);
 		return ret;
 	}
@@ -1658,7 +1658,7 @@ int mlx4_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table)
 
 	ret = ibv_cmd_destroy_rwq_ind_table(rwq_ind_table);
 
-	if (ret && !cleanup_on_fatal(ret))
+	if (ret)
 		return ret;
 
 	free(rwq_ind_table);

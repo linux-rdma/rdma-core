@@ -699,12 +699,18 @@ out:
 int ibverbs_init(void)
 {
 	const char *sysfs_path;
+	char *env_value;
 	int ret;
 
 	if (getenv("RDMAV_FORK_SAFE") || getenv("IBV_FORK_SAFE"))
 		if (ibv_fork_init())
 			fprintf(stderr, PFX "Warning: fork()-safety requested "
 				"but init failed\n");
+
+	/* Backward compatibility for the mlx4 driver env */
+	env_value = getenv("MLX4_DEVICE_FATAL_CLEANUP");
+	if (env_value)
+		verbs_allow_disassociate_destroy = strcmp(env_value, "0") != 0;
 
 	if (getenv("RDMAV_ALLOW_DISASSOC_DESTROY"))
 		verbs_allow_disassociate_destroy = true;

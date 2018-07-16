@@ -43,8 +43,6 @@
 #include "mlx4.h"
 #include "mlx4-abi.h"
 
-int mlx4_cleanup_upon_device_fatal = 0;
-
 #ifndef PCI_VENDOR_ID_MELLANOX
 #define PCI_VENDOR_ID_MELLANOX			0x15b3
 #endif
@@ -133,15 +131,6 @@ static const struct verbs_context_ops mlx4_ctx_ops = {
 	.query_rt_values = mlx4_query_rt_values,
 };
 
-static void mlx4_read_env(void)
-{
-	char *env_value;
-
-	env_value = getenv("MLX4_DEVICE_FATAL_CLEANUP");
-	if (env_value)
-		mlx4_cleanup_upon_device_fatal = (strcmp(env_value, "0")) ? 1 : 0;
-}
-
 static int mlx4_map_internal_clock(struct mlx4_device *mdev,
 				   struct ibv_context *ibv_ctx)
 {
@@ -184,7 +173,6 @@ static struct verbs_context *mlx4_alloc_context(struct ibv_device *ibdev,
 
 	verbs_ctx = &context->ibv_ctx;
 
-	mlx4_read_env();
 	if (dev->abi_version <= MLX4_UVERBS_NO_DEV_CAPS_ABI_VERSION) {
 		if (ibv_cmd_get_context(verbs_ctx, &cmd, sizeof(cmd),
 					&resp_v3.ibv_resp, sizeof(resp_v3)))
