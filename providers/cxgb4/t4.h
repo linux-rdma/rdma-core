@@ -220,6 +220,10 @@ struct t4_cqe_common {
 			__be32 stag;
 			__be32 msn;
 		} srcqe;
+		struct {
+			__be32 mo;
+			__be32 msn;
+		} imm_data_rcqe;
 		u64 drain_cookie;
 	} u;
 };
@@ -237,6 +241,13 @@ struct t4_cqe_b64 {
 			__be32 reserved;
 			__be32 abs_rqe_idx;
 		} srcqe;
+		union {
+			struct {
+				__be32 imm_data32;
+				u32 reserved;
+			} ib_imm_data;
+			__be64 imm_data64;
+		} imm_data_rcqe;
 		__be64 flits[3];
 	} u;
 	__be64 reserved[2];
@@ -297,6 +308,7 @@ union t4_cqe {
 #define CQE_WRID_STAG(x)  (be32toh((x)->u.rcqe.stag))
 #define CQE_WRID_MSN(x)   (be32toh((x)->u.rcqe.msn))
 #define CQE_ABS_RQE_IDX(x) (be32toh((x)->u.srcqe.abs_rqe_idx))
+#define CQE_IMM_DATA(x)   ((x)->u.imm_data_rcqe.ib_imm_data.imm_data32)
 
 /* used for SQ completion processing */
 #define CQE_WRID_SQ_IDX(x)	(x)->u.scqe.cidx
@@ -345,7 +357,8 @@ struct t4_swsqe {
 };
 
 enum {
-	T4_SQ_ONCHIP = (1<<0),
+	T4_SQ_ONCHIP = (1 << 0),
+	T4_SQ_WRITE_W_IMM = (1 << 1)
 };
 
 struct t4_sq {
