@@ -1,3 +1,7 @@
+
+# Shadow kernel headers to avoid multiple symbol definitions with rxe.h
+RDMA_DoFixup("${RXE_COMPILES}" "rdma/rdma_user_rxe.h")
+
 rdma_provider(rxe
   rxe.c
   )
