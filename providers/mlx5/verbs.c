@@ -50,6 +50,7 @@
 #include <util/mmio.h>
 #include <rdma/ib_user_ioctl_cmds.h>
 #include <rdma/mlx5_user_ioctl_cmds.h>
+#include <infiniband/cmd_write.h>
 
 #include "mlx5.h"
 #include "mlx5-abi.h"
@@ -3606,6 +3607,7 @@ int mlx5dv_destroy_flow_matcher(struct mlx5dv_flow_matcher *flow_matcher)
 
 	fill_attr_in_obj(cmd, MLX5_IB_ATTR_FLOW_MATCHER_DESTROY_HANDLE, flow_matcher->handle);
 	ret = execute_ioctl(flow_matcher->context, cmd);
+	verbs_is_destroy_err(&ret);
 
 	if (ret)
 		return ret;

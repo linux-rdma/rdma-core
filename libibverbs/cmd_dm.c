@@ -62,10 +62,15 @@ int ibv_cmd_free_dm(struct verbs_dm *dm)
 {
 	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_DM, UVERBS_METHOD_DM_FREE,
 			       1);
+	int ret;
 
 	fill_attr_in_obj(cmdb, UVERBS_ATTR_FREE_DM_HANDLE, dm->handle);
 
-	return execute_ioctl(dm->dm.context, cmdb);
+	ret = execute_ioctl(dm->dm.context, cmdb);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
+
+	return 0;
 }
 
 int ibv_cmd_reg_dm_mr(struct ibv_pd *pd, struct verbs_dm *dm,
