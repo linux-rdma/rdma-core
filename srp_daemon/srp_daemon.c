@@ -2411,7 +2411,7 @@ static int get_lid(struct umad_resources *umad_res, union umad_gid *gid,
 
 	path_rec->sgid = *gid;
 	path_rec->dgid = *gid;
-	path_rec->num_path = 1;
+	path_rec->reversible_numpath = 1;
 	path_rec->hop_flow_raw = htobe32(1 << 31); /* rawtraffic=1 hoplimit = 0 */
 
 	if (send_and_get(umad_res->portid, umad_res->agent, &out_mad, &in_mad, 0) < 0)
