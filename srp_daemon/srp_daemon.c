@@ -794,17 +794,11 @@ static int check_sm_cap(struct umad_resources *umad_res, int *mask_match)
 }
 
 int pkey_index_to_pkey(struct umad_resources *umad_res, int pkey_index,
-		       uint16_t *pkey)
+		       __be16 *pkey)
 {
-	char pkey_file[18], pkey_str[16];
-
-	/* Read pkey */
-	snprintf(pkey_file, sizeof(pkey_file), "pkeys/%d", pkey_index);
-	if (srpd_sys_read_string(umad_res->port_sysfs_path, pkey_file,
-				 pkey_str, sizeof(pkey_str)) < 0)
+	if (ibv_query_pkey(umad_res->ib_ctx, config->port_num, pkey_index,
+			   pkey) < 0)
 		return -1;
-
-	*pkey = strtoul(pkey_str, NULL, 0);
 	if (*pkey)
 		pr_debug("discover Targets for P_key %04x (index %d)\n",
 			 *pkey, pkey_index);
@@ -1101,7 +1095,7 @@ static int get_shared_pkeys(struct resources *res,
 	struct ib_path_rec	       *path_rec;
 	ssize_t len;
 	int i, num_pkeys = 0;
-	uint16_t pkey;
+	__be16 pkey;
 	uint16_t local_port_lid = get_port_lid(res->ud_res->ib_ctx,
 					       config->port_num, NULL);
 
@@ -1135,7 +1129,7 @@ static int get_shared_pkeys(struct resources *res,
 		path_rec = (struct ib_path_rec *)out_sa_mad->data;
 		path_rec->slid = htobe16(local_port_lid);
 		path_rec->dlid = htobe16(dest_port_lid);
-		path_rec->pkey = htobe16(pkey);
+		path_rec->pkey = pkey;
 
 		len = send_and_get(umad_res->portid, umad_res->agent, &out_mad,
 				   (struct srp_ib_user_mad *)in_mad,
@@ -1934,6 +1928,7 @@ static struct resources *alloc_res(void)
 	if (ret)
 		goto err;
 	res->res.ud_res = &res->ud_res;
+	res->umad_res.ib_ctx = res->ud_res.ib_ctx;
 
 	ret = sync_resources_init(&res->sync_res);
 	if (ret)
