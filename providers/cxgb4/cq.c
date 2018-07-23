@@ -42,18 +42,18 @@
 
 static void insert_recv_cqe(struct t4_wq *wq, struct t4_cq *cq)
 {
-	struct t4_cqe cqe;
+	union t4_cqe cqe = {};
+	__be64 *gen = GEN_ADDR(&cqe);
 
 	PDBG("%s wq %p cq %p sw_cidx %u sw_pidx %u\n", __func__,
 	     wq, cq, cq->sw_cidx, cq->sw_pidx);
-	memset(&cqe, 0, sizeof(cqe));
-	cqe.header = htobe32(V_CQE_STATUS(T4_ERR_SWFLUSH) |
+	cqe.com.header = htobe32(V_CQE_STATUS(T4_ERR_SWFLUSH) |
 			         V_CQE_OPCODE(FW_RI_SEND) |
 				 V_CQE_TYPE(0) |
 				 V_CQE_SWCQE(1) |
 				 V_CQE_QPID(wq->sq.qid));
-	cqe.bits_type_ts = htobe64(V_CQE_GENBIT((u64)cq->gen));
-	cq->sw_queue[cq->sw_pidx] = cqe;
+	*gen = htobe64(V_CQE_GENBIT((u64)cq->gen));
+	memcpy(Q_ENTRY(cq->sw_queue, cq->sw_pidx), &cqe, CQE_SIZE(&cqe));
 	t4_swcq_produce(cq);
 }
 
@@ -75,19 +75,19 @@ int c4iw_flush_rq(struct t4_wq *wq, struct t4_cq *cq, int count)
 static void insert_sq_cqe(struct t4_wq *wq, struct t4_cq *cq,
 		          struct t4_swsqe *swcqe)
 {
-	struct t4_cqe cqe;
+	union t4_cqe cqe = {};
+	__be64 *gen = GEN_ADDR(&cqe);
 
 	PDBG("%s wq %p cq %p sw_cidx %u sw_pidx %u\n", __func__,
 	     wq, cq, cq->sw_cidx, cq->sw_pidx);
-	memset(&cqe, 0, sizeof(cqe));
-	cqe.header = htobe32(V_CQE_STATUS(T4_ERR_SWFLUSH) |
+	cqe.com.header = htobe32(V_CQE_STATUS(T4_ERR_SWFLUSH) |
 			         V_CQE_OPCODE(swcqe->opcode) |
 			         V_CQE_TYPE(1) |
 			         V_CQE_SWCQE(1) |
 			         V_CQE_QPID(wq->sq.qid));
-	CQE_WRID_SQ_IDX(&cqe) = swcqe->idx;
-	cqe.bits_type_ts = htobe64(V_CQE_GENBIT((u64)cq->gen));
-	cq->sw_queue[cq->sw_pidx] = cqe;
+	CQE_WRID_SQ_IDX(&cqe.com) = swcqe->idx;
+	*gen = htobe64(V_CQE_GENBIT((u64)cq->gen));
+	memcpy(Q_ENTRY(cq->sw_queue, cq->sw_pidx), &cqe, CQE_SIZE(&cqe));
 	t4_swcq_produce(cq);
 }
 
@@ -149,8 +149,9 @@ static void flush_completed_wrs(struct t4_wq *wq, struct t4_cq *cq)
 			PDBG("%s moving cqe into swcq sq idx %u cq idx %u\n",
 			     __func__, cidx, cq->sw_pidx);
 
-			swsqe->cqe.header |= htobe32(V_CQE_SWCQE(1));
-			cq->sw_queue[cq->sw_pidx] = swsqe->cqe;
+			swsqe->cqe.com.header |= htobe32(V_CQE_SWCQE(1));
+			memcpy(Q_ENTRY(cq->sw_queue, cq->sw_pidx),
+			       &swsqe->cqe, CQE_SIZE(&swsqe->cqe));
 			t4_swcq_produce(cq);
 			swsqe->flushed = 1;
 			if (++cidx == wq->sq.size)
@@ -161,16 +162,19 @@ static void flush_completed_wrs(struct t4_wq *wq, struct t4_cq *cq)
 	}
 }
 
-static void create_read_req_cqe(struct t4_wq *wq, struct t4_cqe *hw_cqe,
-				struct t4_cqe *read_cqe)
+static void create_read_req_cqe(struct t4_wq *wq, union t4_cqe *hw_cqe,
+				union t4_cqe *read_cqe)
 {
-	read_cqe->u.scqe.cidx = wq->sq.oldest_read->idx;
-	read_cqe->len = be32toh(wq->sq.oldest_read->read_len);
-	read_cqe->header = htobe32(V_CQE_QPID(CQE_QPID(hw_cqe)) |
-				 V_CQE_SWCQE(SW_CQE(hw_cqe)) |
+	__be64 *gen = GEN_ADDR(read_cqe);
+
+	memset(read_cqe, 0, sizeof(*read_cqe));
+	read_cqe->com.u.scqe.cidx = wq->sq.oldest_read->idx;
+	read_cqe->com.len = be32toh(wq->sq.oldest_read->read_len);
+	read_cqe->com.header = htobe32(V_CQE_QPID(CQE_QPID(&hw_cqe->com)) |
+				 V_CQE_SWCQE(SW_CQE(&hw_cqe->com)) |
 				 V_CQE_OPCODE(FW_RI_READ_REQ) |
 				 V_CQE_TYPE(1));
-	read_cqe->bits_type_ts = hw_cqe->bits_type_ts;
+	*gen = GEN_BIT(hw_cqe);
 }
 
 static void advance_oldest_read(struct t4_wq *wq)
@@ -198,13 +202,15 @@ static void advance_oldest_read(struct t4_wq *wq)
  */
 void c4iw_flush_hw_cq(struct c4iw_cq *chp, struct c4iw_qp *flush_qhp)
 {
-	struct t4_cqe *hw_cqe, *swcqe, read_cqe;
+	union t4_cqe *hw_cqe, *swcqe, read_cqe;
+	struct t4_cqe_common *com;
 	struct c4iw_qp *qhp;
 	struct t4_swsqe *swsqe;
 	int ret;
 
 	PDBG("%s  cqid 0x%x\n", __func__, chp->cq.cqid);
 	ret = t4_next_hw_cqe(&chp->cq, &hw_cqe);
+	com = &hw_cqe->com;
 
 	/*
 	 * This logic is similar to poll_cq(), but not quite the same
@@ -212,7 +218,7 @@ void c4iw_flush_hw_cq(struct c4iw_cq *chp, struct c4iw_qp *flush_qhp)
 	 * also do any translation magic that poll_cq() normally does.
 	 */
 	while (!ret) {
-		qhp = get_qhp(chp->rhp, CQE_QPID(hw_cqe));
+		qhp = get_qhp(chp->rhp, CQE_QPID(com));
 
 		/*
 		 * drop CQEs with no associated QP
@@ -228,17 +234,17 @@ void c4iw_flush_hw_cq(struct c4iw_cq *chp, struct c4iw_qp *flush_qhp)
 			}
 		}
 
-		if (CQE_OPCODE(hw_cqe) == FW_RI_TERMINATE)
+		if (CQE_OPCODE(com) == FW_RI_TERMINATE)
 			goto next_cqe;
 
-		if (CQE_OPCODE(hw_cqe) == FW_RI_READ_RESP) {
+		if (CQE_OPCODE(com) == FW_RI_READ_RESP) {
 
 			/*
 			 * If we have reached here because of async
 			 * event or other error, and have egress error
 			 * then drop
 			 */
-			if (CQE_TYPE(hw_cqe) == 1) {
+			if (CQE_TYPE(com) == 1) {
 				syslog(LOG_CRIT, "%s: got egress error in \
 					read-response, dropping!\n", __func__);
 				goto next_cqe;
@@ -247,7 +253,7 @@ void c4iw_flush_hw_cq(struct c4iw_cq *chp, struct c4iw_qp *flush_qhp)
 			/*
 			 * drop peer2peer RTR reads.
 			 */
-			if (CQE_WRID_STAG(hw_cqe) == 1)
+			if (CQE_WRID_STAG(com) == 1)
 				goto next_cqe;
 
 			/*
@@ -264,14 +270,15 @@ void c4iw_flush_hw_cq(struct c4iw_cq *chp, struct c4iw_qp *flush_qhp)
 			 */
 			create_read_req_cqe(&qhp->wq, hw_cqe, &read_cqe);
 			hw_cqe = &read_cqe;
+			com = &hw_cqe->com;
 			advance_oldest_read(&qhp->wq);
 		}
 
 		/* if its a SQ completion, then do the magic to move all the
 		 * unsignaled and now in-order completions into the swcq.
 		 */
-		if (SQ_TYPE(hw_cqe)) {
-			int idx = CQE_WRID_SQ_IDX(hw_cqe);
+		if (SQ_TYPE(com)) {
+			int idx = CQE_WRID_SQ_IDX(com);
 
 			BUG_ON(idx >= qhp->wq.sq.size);
 			swsqe = &qhp->wq.sq.sw_sq[idx];
@@ -279,9 +286,9 @@ void c4iw_flush_hw_cq(struct c4iw_cq *chp, struct c4iw_qp *flush_qhp)
 			swsqe->complete = 1;
 			flush_completed_wrs(&qhp->wq, &chp->cq);
 		} else {
-			swcqe = &chp->cq.sw_queue[chp->cq.sw_pidx];
-			*swcqe = *hw_cqe;
-			swcqe->header |= htobe32(V_CQE_SWCQE(1));
+			swcqe = Q_ENTRY(chp->cq.sw_queue, chp->cq.sw_pidx);
+			memcpy(swcqe, hw_cqe, CQE_SIZE(hw_cqe));
+			swcqe->com.header |= htobe32(V_CQE_SWCQE(1));
 			t4_swcq_produce(&chp->cq);
 		}
 next_cqe:
@@ -292,34 +299,38 @@ next_cqe:
 	}
 }
 
-static int cqe_completes_wr(struct t4_cqe *cqe, struct t4_wq *wq)
+static int cqe_completes_wr(union t4_cqe *cqe, struct t4_wq *wq)
 {
-	if (CQE_OPCODE(cqe) == FW_RI_TERMINATE)
+	struct t4_cqe_common *com = &cqe->com;
+
+	if (CQE_OPCODE(com) == FW_RI_TERMINATE)
 		return 0;
 
-	if ((CQE_OPCODE(cqe) == FW_RI_RDMA_WRITE) && RQ_TYPE(cqe))
+	if ((CQE_OPCODE(com) == FW_RI_RDMA_WRITE) && RQ_TYPE(com))
 		return 0;
 
-	if ((CQE_OPCODE(cqe) == FW_RI_READ_RESP) && SQ_TYPE(cqe))
+	if ((CQE_OPCODE(com) == FW_RI_READ_RESP) && SQ_TYPE(com))
 		return 0;
 
-	if (CQE_SEND_OPCODE(cqe) && RQ_TYPE(cqe) && t4_rq_empty(wq))
+	if (CQE_SEND_OPCODE(com) && RQ_TYPE(com) && t4_rq_empty(wq))
 		return 0;
 	return 1;
 }
 
 void c4iw_count_rcqes(struct t4_cq *cq, struct t4_wq *wq, int *count)
 {
-	struct t4_cqe *cqe;
+	struct t4_cqe_common *com;
+	union t4_cqe *cqe;
 	u32 ptr;
 
 	*count = 0;
 	ptr = cq->sw_cidx;
 	BUG_ON(ptr >= cq->size);
 	while (ptr != cq->sw_pidx) {
-		cqe = &cq->sw_queue[ptr];
-		if (RQ_TYPE(cqe) && (CQE_OPCODE(cqe) != FW_RI_READ_RESP) &&
-		    (CQE_QPID(cqe) == wq->sq.qid) && cqe_completes_wr(cqe, wq))
+		cqe = Q_ENTRY(cq->sw_queue, ptr);
+		com = &cqe->com;
+		if (RQ_TYPE(com) && (CQE_OPCODE(com) != FW_RI_READ_RESP) &&
+		    (CQE_QPID(com) == wq->sq.qid) && cqe_completes_wr(cqe, wq))
 			(*count)++;
 		if (++ptr == cq->size)
 			ptr = 0;
@@ -335,6 +346,14 @@ static void dump_cqe(void *arg)
 	       (long long)be64toh(p[1]),
 	       (long long)be64toh(p[2]),
 	       (long long)be64toh(p[3]));
+	if (is_64b_cqe)
+		syslog(LOG_NOTICE,
+		       "cxgb4 err cqe %016llx %016llx %016llx %016llx\n",
+		       (long long)be64toh(p[4]),
+		       (long long)be64toh(p[5]),
+		       (long long)be64toh(p[6]),
+		       (long long)be64toh(p[7]));
+
 }
 
 /*
@@ -353,11 +372,12 @@ static void dump_cqe(void *arg)
  *    -EAGAIN       CQE skipped, try again.
  *    -EOVERFLOW    CQ overflow detected.
  */
-static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, struct t4_cqe *cqe,
+static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, union t4_cqe *cqe,
 	           u8 *cqe_flushed, u64 *cookie, u32 *credit)
 {
 	int ret = 0;
-	struct t4_cqe *hw_cqe, read_cqe;
+	union t4_cqe *hw_cqe, read_cqe;
+	struct t4_cqe_common *com;
 
 	*cqe_flushed = 0;
 	*credit = 0;
@@ -366,12 +386,16 @@ static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, struct t4_cqe *cqe,
 	if (ret)
 		return ret;
 
+	com = &hw_cqe->com;
+
 	PDBG("%s CQE OVF %u qpid 0x%0x genbit %u type %u status 0x%0x"
 	     " opcode 0x%0x len 0x%0x wrid_hi_stag 0x%x wrid_low_msn 0x%x\n",
-	     __func__, CQE_OVFBIT(hw_cqe), CQE_QPID(hw_cqe),
-	     CQE_GENBIT(hw_cqe), CQE_TYPE(hw_cqe), CQE_STATUS(hw_cqe),
-	     CQE_OPCODE(hw_cqe), CQE_LEN(hw_cqe), CQE_WRID_HI(hw_cqe),
-	     CQE_WRID_LOW(hw_cqe));
+	     __func__,
+	     is_64b_cqe ? CQE_OVFBIT(&hw_cqe->b64) : CQE_OVFBIT(&hw_cqe->b32),
+	     CQE_QPID(com),
+	     is_64b_cqe ? CQE_GENBIT(&hw_cqe->b64) : CQE_GENBIT(&hw_cqe->b32),
+	     CQE_TYPE(com), CQE_STATUS(com), CQE_OPCODE(com), CQE_LEN(com),
+	     CQE_WRID_HI(com), CQE_WRID_LOW(com));
 
 	/*
 	 * skip cqe's not affiliated with a QP.
@@ -384,7 +408,7 @@ static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, struct t4_cqe *cqe,
 	/*
 	 * skip HW cqe's if wq is already flushed.
 	 */
-	if (wq->flushed && !SW_CQE(hw_cqe)) {
+	if (wq->flushed && !SW_CQE(com)) {
 		ret = -EAGAIN;
 		goto skip_cqe;
 	}
@@ -397,17 +421,17 @@ static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, struct t4_cqe *cqe,
 	 *	4) T4 HW (for now) inserts target read response failures which
 	 * 	   need to be skipped.
 	 */
-	if (CQE_OPCODE(hw_cqe) == FW_RI_READ_RESP) {
+	if (CQE_OPCODE(com) == FW_RI_READ_RESP) {
 
 		/*
 		 * If we have reached here because of async
 		 * event or other error, and have egress error
 		 * then drop
 		 */
-		if (CQE_TYPE(hw_cqe) == 1) {
+		if (CQE_TYPE(com) == 1) {
 			syslog(LOG_CRIT, "%s: got egress error in \
 				read-response, dropping!\n", __func__);
-			if (CQE_STATUS(hw_cqe))
+			if (CQE_STATUS(com))
 				t4_set_wq_in_error(wq);
 			ret = -EAGAIN;
 			goto skip_cqe;
@@ -419,8 +443,8 @@ static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, struct t4_cqe *cqe,
 		 * connection setup, or a target read response failure.
 		 * So skip the completion.
 		 */
-		if (CQE_WRID_STAG(hw_cqe) == 1) {
-			if (CQE_STATUS(hw_cqe))
+		if (CQE_WRID_STAG(com) == 1) {
+			if (CQE_STATUS(com))
 				t4_set_wq_in_error(wq);
 			ret = -EAGAIN;
 			goto skip_cqe;
@@ -441,29 +465,30 @@ static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, struct t4_cqe *cqe,
 		 */
 		create_read_req_cqe(wq, hw_cqe, &read_cqe);
 		hw_cqe = &read_cqe;
+		com = &hw_cqe->com;
 		advance_oldest_read(wq);
 	}
 
-	if (CQE_OPCODE(hw_cqe) == FW_RI_TERMINATE) {
+	if (CQE_OPCODE(com) == FW_RI_TERMINATE) {
 		ret = -EAGAIN;
 		goto skip_cqe;
 	}
 
-	if (CQE_STATUS(hw_cqe) || t4_wq_in_error(wq)) {
-		*cqe_flushed = (CQE_STATUS(hw_cqe) == T4_ERR_SWFLUSH);
+	if (CQE_STATUS(com) || t4_wq_in_error(wq)) {
+		*cqe_flushed = (CQE_STATUS(com) == T4_ERR_SWFLUSH);
 		wq->error = 1;
 
-		if (!*cqe_flushed && CQE_STATUS(hw_cqe))
+		if (!*cqe_flushed && CQE_STATUS(com))
 			dump_cqe(hw_cqe);
 
-		BUG_ON((*cqe_flushed == 0) && !SW_CQE(hw_cqe));
+		assert(!((*cqe_flushed == 0) && !SW_CQE(com)));
 		goto proc_cqe;
 	}
 
 	/*
 	 * RECV completion.
 	 */
-	if (RQ_TYPE(hw_cqe)) {
+	if (RQ_TYPE(com)) {
 
 		/*
 		 * HW only validates 4 bits of MSN.  So we must validate that
@@ -477,9 +502,9 @@ static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, struct t4_cqe *cqe,
 			ret = -EAGAIN;
 			goto skip_cqe;
 		}
-		if (unlikely((CQE_WRID_MSN(hw_cqe) != (wq->rq.msn)))) {
+		if (unlikely((CQE_WRID_MSN(com) != (wq->rq.msn)))) {
 			t4_set_wq_in_error(wq);
-			hw_cqe->header |= htobe32(V_CQE_STATUS(T4_ERR_MSN));
+			hw_cqe->com.header |= htobe32(V_CQE_STATUS(T4_ERR_MSN));
 			goto proc_cqe;
 		}
 		goto proc_cqe;
@@ -496,9 +521,9 @@ static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, struct t4_cqe *cqe,
 	 *	   signaled WR is completed.
 	 *	2) out of order read completions.
 	 */
-	if (!SW_CQE(hw_cqe) && (CQE_WRID_SQ_IDX(hw_cqe) != wq->sq.cidx)) {
+	if (!SW_CQE(com) && (CQE_WRID_SQ_IDX(com) != wq->sq.cidx)) {
 		struct t4_swsqe *swsqe;
-		int idx =  CQE_WRID_SQ_IDX(hw_cqe);
+		int idx =  CQE_WRID_SQ_IDX(com);
 
 		PDBG("%s out of order completion going in sw_sq at idx %u\n",
 		     __func__, idx);
@@ -517,8 +542,8 @@ proc_cqe:
 	 * Reap the associated WR(s) that are freed up with this
 	 * completion.
 	 */
-	if (SQ_TYPE(hw_cqe)) {
-		int idx = CQE_WRID_SQ_IDX(hw_cqe);
+	if (SQ_TYPE(com)) {
+		int idx = CQE_WRID_SQ_IDX(com);
 		BUG_ON(idx >= wq->sq.size);
 
 		/*
@@ -555,7 +580,7 @@ flush_wq:
 	flush_completed_wrs(wq, cq);
 
 skip_cqe:
-	if (SW_CQE(hw_cqe)) {
+	if (SW_CQE(com)) {
 		PDBG("%s cq %p cqid 0x%x skip sw cqe cidx %u\n",
 		     __func__, cq, cq->cqid, cq->sw_cidx);
 		t4_swcq_consume(cq);
@@ -579,7 +604,8 @@ skip_cqe:
 static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ibv_wc *wc)
 {
 	struct c4iw_qp *qhp = NULL;
-	struct t4_cqe uninitialized_var(cqe), *rd_cqe;
+	struct t4_cqe_common *com;
+	union t4_cqe uninitialized_var(cqe), *rd_cqe;
 	struct t4_wq *wq;
 	u32 credit = 0;
 	u8 cqe_flushed;
@@ -607,7 +633,7 @@ static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ibv_wc *wc)
 	gettimeofday(&chp->time, NULL);
 #endif
 
-	qhp = get_qhp(chp->rhp, CQE_QPID(rd_cqe));
+	qhp = get_qhp(chp->rhp, CQE_QPID(&rd_cqe->com));
 	if (!qhp)
 		wq = NULL;
 	else {
@@ -618,32 +644,33 @@ static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ibv_wc *wc)
 	if (ret)
 		goto out;
 
+	com = &cqe.com;
 	INC_STAT(cqe);
 	wc->wr_id = cookie;
 	wc->qp_num = qhp->wq.sq.qid;
-	wc->vendor_err = CQE_STATUS(&cqe);
+	wc->vendor_err = CQE_STATUS(com);
 	wc->wc_flags = 0;
 
 	PDBG("%s qpid 0x%x type %d opcode %d status 0x%x wrid hi 0x%x "
 	     "lo 0x%x cookie 0x%llx\n", __func__,
-	     CQE_QPID(&cqe), CQE_TYPE(&cqe),
-	     CQE_OPCODE(&cqe), CQE_STATUS(&cqe), CQE_WRID_HI(&cqe),
-	     CQE_WRID_LOW(&cqe), (unsigned long long)cookie);
+	     CQE_QPID(com), CQE_TYPE(com),
+	     CQE_OPCODE(com), CQE_STATUS(com), CQE_WRID_HI(com),
+	     CQE_WRID_LOW(com), (unsigned long long)cookie);
 
-	if (CQE_TYPE(&cqe) == 0) {
-		if (!CQE_STATUS(&cqe))
-			wc->byte_len = CQE_LEN(&cqe);
+	if (CQE_TYPE(com) == 0) {
+		if (!CQE_STATUS(com))
+			wc->byte_len = CQE_LEN(com);
 		else
 			wc->byte_len = 0;
 		wc->opcode = IBV_WC_RECV;
 	} else {
-		switch (CQE_OPCODE(&cqe)) {
+		switch (CQE_OPCODE(com)) {
 		case FW_RI_RDMA_WRITE:
 			wc->opcode = IBV_WC_RDMA_WRITE;
 			break;
 		case FW_RI_READ_REQ:
 			wc->opcode = IBV_WC_RDMA_READ;
-			wc->byte_len = CQE_LEN(&cqe);
+			wc->byte_len = CQE_LEN(com);
 			break;
 		case FW_RI_SEND:
 		case FW_RI_SEND_WITH_SE:
@@ -657,7 +684,7 @@ static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ibv_wc *wc)
 		default:
 			PDBG("Unexpected opcode %d "
 			     "in the CQE received for QPID=0x%0x\n",
-			     CQE_OPCODE(&cqe), CQE_QPID(&cqe));
+			     CQE_OPCODE(com), CQE_QPID(com));
 			ret = -EINVAL;
 			goto out;
 		}
@@ -667,7 +694,7 @@ static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ibv_wc *wc)
 		wc->status = IBV_WC_WR_FLUSH_ERR;
 	else {
 
-		switch (CQE_STATUS(&cqe)) {
+		switch (CQE_STATUS(com)) {
 		case T4_ERR_SUCCESS:
 			wc->status = IBV_WC_SUCCESS;
 			break;
@@ -712,15 +739,15 @@ static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ibv_wc *wc)
 			break;
 		default:
 			PDBG("Unexpected cqe_status 0x%x for QPID=0x%0x\n",
-			     CQE_STATUS(&cqe), CQE_QPID(&cqe));
+			     CQE_STATUS(com), CQE_QPID(com));
 			wc->status = IBV_WC_FATAL_ERR;
 		}
 	}
 	if (wc->status && wc->status != IBV_WC_WR_FLUSH_ERR)
 		syslog(LOG_NOTICE, "cxgb4 app err cqid %u qpid %u "
 			"type %u opcode %u status 0x%x\n",
-			chp->cq.cqid, CQE_QPID(&cqe), CQE_TYPE(&cqe),
-			CQE_OPCODE(&cqe), CQE_STATUS(&cqe));
+			chp->cq.cqid, CQE_QPID(com), CQE_TYPE(com),
+			CQE_OPCODE(com), CQE_STATUS(com));
 out:
 	if (wq)
 		pthread_spin_unlock(&qhp->lock);
