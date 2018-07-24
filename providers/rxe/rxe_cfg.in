@@ -135,12 +135,14 @@ sub get_dev_info {
 
     my @my_eth_list = ();
     foreach my $my_eth_dev (glob("/sys/class/net/*")) {
-	$my_eth_dev = basename($my_eth_dev);
-        my $my_dev_type = read_file("/sys/class/net/${my_eth_dev}/type");
-	chomp($my_dev_type);
-        if ($my_dev_type == "1") {
-            push(@my_eth_list, "$my_eth_dev");
-        }
+       $my_eth_dev = basename($my_eth_dev);
+          if ($my_eth_dev ne "bonding_masters"){
+             my $my_dev_type = read_file("/sys/class/net/${my_eth_dev}/type");
+             chomp($my_dev_type);
+             if ($my_dev_type == "1") {
+                push(@my_eth_list, "$my_eth_dev");
+             }
+          }
     }
 
     @list = @my_eth_list;
