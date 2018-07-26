@@ -84,6 +84,7 @@ static const struct verbs_context_ops  c4iw_ctx_common_ops = {
 	.create_srq = c4iw_create_srq,
 	.modify_srq = c4iw_modify_srq,
 	.destroy_srq = c4iw_destroy_srq,
+	.query_srq = c4iw_query_srq,
 	.create_qp = c4iw_create_qp,
 	.modify_qp = c4iw_modify_qp,
 	.destroy_qp = c4iw_destroy_qp,
@@ -456,6 +457,7 @@ static struct verbs_device *c4iw_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 	dev->abi_version = sysfs_dev->abi_ver;
 	list_node_init(&dev->list);
 
+	list_head_init(&dev->srq_list);
 	PDBG("%s device claimed\n", __FUNCTION__);
 	list_add_tail(&devices, &dev->list);
 #ifdef STALL_DETECTION

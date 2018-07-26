@@ -92,6 +92,23 @@ static void copy_wr_to_rq(struct t4_wq *wq, union t4_recv_wr *wqe, u8 len16)
 	}
 }
 
+void c4iw_copy_wr_to_srq(struct t4_srq *srq, union t4_recv_wr *wqe, u8 len16)
+{
+	u64 *src, *dst;
+
+	src = (u64 *)wqe;
+	dst = (u64 *)((u8 *)srq->queue + srq->wq_pidx * T4_EQ_ENTRY_SIZE);
+	while (len16) {
+		*dst++ = *src++;
+		if (dst >= (u64 *)&srq->queue[srq->size])
+			dst = (u64 *)srq->queue;
+		*dst++ = *src++;
+		if (dst >= (u64 *)&srq->queue[srq->size])
+			dst = (u64 *)srq->queue;
+		len16--;
+	}
+}
+
 static int build_immd(struct t4_sq *sq, struct fw_ri_immd *immdp,
 		      struct ibv_send_wr *wr, int max, u32 *plenp)
 {
@@ -277,6 +294,19 @@ static int build_rdma_recv(struct c4iw_qp *qhp, union t4_recv_wr *wqe,
 	return 0;
 }
 
+static int build_srq_recv(union t4_recv_wr *wqe, struct ibv_recv_wr *wr,
+		u8 *len16)
+{
+	int ret;
+
+	ret = build_isgl(&wqe->recv.isgl, wr->sg_list, wr->num_sge, NULL);
+	if (ret)
+		return ret;
+	*len16 = DIV_ROUND_UP(sizeof(wqe->recv) +
+			wr->num_sge * sizeof(struct fw_ri_sge), 16);
+	return 0;
+}
+
 static void ring_kernel_db(struct c4iw_qp *qhp, u32 qid, u16 idx)
 {
 	struct ibv_modify_qp cmd = {};
@@ -406,6 +436,90 @@ int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	return err;
 }
 
+static void defer_srq_wr(struct t4_srq *srq, union t4_recv_wr *wqe,
+			 uint64_t wr_id, u8 len16)
+{
+	struct t4_srq_pending_wr *pwr = &srq->pending_wrs[srq->pending_pidx];
+
+	PDBG("%s cidx %u pidx %u wq_pidx %u in_use %u ooo_count %u wr_id 0x%llx pending_cidx %u pending_pidx %u pending_in_use %u\n",
+	     __func__, srq->cidx, srq->pidx, srq->wq_pidx,
+	     srq->in_use, srq->ooo_count, (unsigned long long)wr_id,
+	     srq->pending_cidx, srq->pending_pidx, srq->pending_in_use);
+	pwr->wr_id = wr_id;
+	pwr->len16 = len16;
+	memcpy(&pwr->wqe, wqe, len16*16);
+	t4_srq_produce_pending_wr(srq);
+}
+
+int c4iw_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
+		struct ibv_recv_wr **bad_wr)
+{
+	int err = 0;
+	struct c4iw_srq *srq;
+	union t4_recv_wr *wqe, lwqe;
+	u32 num_wrs;
+	u8 len16 = 0;
+	u16 idx = 0;
+
+	srq = to_c4iw_srq(ibsrq);
+	pthread_spin_lock(&srq->lock);
+	INC_STAT(srq_recv);
+	num_wrs = t4_srq_avail(&srq->wq);
+	if (num_wrs == 0) {
+		pthread_spin_unlock(&srq->lock);
+		return -ENOMEM;
+	}
+	while (wr) {
+		if (wr->num_sge > T4_MAX_RECV_SGE) {
+			err = -EINVAL;
+			*bad_wr = wr;
+			break;
+		}
+		wqe = &lwqe;
+		if (num_wrs)
+			err = build_srq_recv(wqe, wr, &len16);
+		else
+			err = -ENOMEM;
+		if (err) {
+			*bad_wr = wr;
+			break;
+		}
+
+		wqe->recv.opcode = FW_RI_RECV_WR;
+		wqe->recv.r1 = 0;
+		wqe->recv.wrid = srq->wq.pidx;
+		wqe->recv.r2[0] = 0;
+		wqe->recv.r2[1] = 0;
+		wqe->recv.r2[2] = 0;
+		wqe->recv.len16 = len16;
+
+		if (srq->wq.ooo_count || srq->wq.pending_in_use ||
+		    srq->wq.sw_rq[srq->wq.pidx].valid)
+			defer_srq_wr(&srq->wq, wqe, wr->wr_id, len16);
+		else {
+			srq->wq.sw_rq[srq->wq.pidx].wr_id = wr->wr_id;
+			srq->wq.sw_rq[srq->wq.pidx].valid = 1;
+			c4iw_copy_wr_to_srq(&srq->wq, wqe, len16);
+			PDBG("%s cidx %u pidx %u wq_pidx %u in_use %u wr_id 0x%llx\n",
+			     __func__, srq->wq.cidx, srq->wq.pidx,
+			     srq->wq.wq_pidx, srq->wq.in_use,
+			     (unsigned long long)wr->wr_id);
+			t4_srq_produce(&srq->wq, len16);
+			idx += DIV_ROUND_UP(len16*16, T4_EQ_ENTRY_SIZE);
+		}
+		wr = wr->next;
+		num_wrs--;
+	}
+
+	if (idx) {
+		t4_ring_srq_db(&srq->wq, idx, len16, wqe);
+		srq->wq.queue[srq->wq.size].status.host_wq_pidx =
+			srq->wq.wq_pidx;
+	}
+	pthread_spin_unlock(&srq->lock);
+	return err;
+}
+
 int c4iw_post_receive(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			   struct ibv_recv_wr **bad_wr)
 {
@@ -491,8 +605,10 @@ static void update_qp_state(struct c4iw_qp *qhp)
 void c4iw_flush_qp(struct c4iw_qp *qhp)
 {
 	struct c4iw_cq *rchp, *schp;
+	u32 srqidx;
 	int count;
 
+	srqidx = t4_wq_srqidx(&qhp->wq);
 	rchp = to_c4iw_cq(qhp->ibv_qp.recv_cq);
 	schp = to_c4iw_cq(qhp->ibv_qp.send_cq);
 
@@ -515,16 +631,26 @@ void c4iw_flush_qp(struct c4iw_qp *qhp)
 	qhp->wq.flushed = 1;
 	t4_set_wq_in_error(&qhp->wq);
 
+	if (qhp->srq)
+		pthread_spin_lock(&qhp->srq->lock);
+
+	if (srqidx)
+		c4iw_flush_srqidx(qhp, srqidx);
+
 	update_qp_state(qhp);
 
 	c4iw_flush_hw_cq(rchp, qhp);
-	c4iw_count_rcqes(&rchp->cq, &qhp->wq, &count);
-	c4iw_flush_rq(&qhp->wq, &rchp->cq, count);
+	if (!qhp->srq) {
+		c4iw_count_rcqes(&rchp->cq, &qhp->wq, &count);
+		c4iw_flush_rq(&qhp->wq, &rchp->cq, count);
+	}
 
 	if (schp != rchp)
 		c4iw_flush_hw_cq(schp, qhp);
 
 	c4iw_flush_sq(qhp);
+	if (qhp->srq)
+		pthread_spin_unlock(&qhp->srq->lock);
 
 	pthread_spin_unlock(&qhp->lock);
 	if (schp != rchp)
