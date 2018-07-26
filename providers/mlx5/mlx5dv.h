@@ -194,6 +194,52 @@ struct mlx5dv_flow_action_esp {
 	uint32_t action_flags; /* Use enum mlx5dv_flow_action_flags */
 };
 
+struct mlx5dv_flow_match_parameters {
+	size_t match_sz;
+	uint64_t match_buf[]; /* Device spec format */
+};
+
+struct mlx5dv_flow_matcher_attr {
+	enum ibv_flow_attr_type type;
+	uint32_t flags; /* From enum ibv_flow_flags */
+	uint16_t priority;
+	uint8_t match_criteria_enable; /* Device spec format */
+	struct mlx5dv_flow_match_parameters *match_mask;
+	uint64_t comp_mask;
+};
+
+struct mlx5dv_flow_matcher;
+
+struct mlx5dv_flow_matcher *
+mlx5dv_create_flow_matcher(struct ibv_context *context,
+			   struct mlx5dv_flow_matcher_attr *matcher_attr);
+
+int mlx5dv_destroy_flow_matcher(struct mlx5dv_flow_matcher *matcher);
+
+enum mlx5dv_flow_action_type {
+	MLX5DV_FLOW_ACTION_DEST_IBV_QP,
+	MLX5DV_FLOW_ACTION_DROP,
+	MLX5DV_FLOW_ACTION_IBV_COUNTER,
+	MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION,
+	MLX5DV_FLOW_ACTION_TAG,
+};
+
+struct mlx5dv_flow_action_attr {
+	enum mlx5dv_flow_action_type type;
+	union {
+		struct ibv_qp *qp;
+		struct ibv_counters *counter;
+		struct ibv_flow_action *action;
+		uint32_t tag_value;
+	};
+};
+
+struct ibv_flow *
+mlx5dv_create_flow(struct mlx5dv_flow_matcher *matcher,
+		   struct mlx5dv_flow_match_parameters *match_value,
+		   size_t num_actions,
+		   struct mlx5dv_flow_action_attr actions_attr[]);
+
 struct ibv_flow_action *mlx5dv_create_flow_action_esp(struct ibv_context *ctx,
 						      struct ibv_flow_action_esp_attr *esp,
 						      struct mlx5dv_flow_action_esp *mlx5_attr);
