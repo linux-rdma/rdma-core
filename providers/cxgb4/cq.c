@@ -40,7 +40,7 @@
 #include "libcxgb4.h"
 #include "cxgb4-abi.h"
 
-static void insert_recv_cqe(struct t4_wq *wq, struct t4_cq *cq)
+static void insert_recv_cqe(struct t4_wq *wq, struct t4_cq *cq, u32 srqidx)
 {
 	union t4_cqe cqe = {};
 	__be64 *gen = GEN_ADDR(&cqe);
@@ -53,6 +53,9 @@ static void insert_recv_cqe(struct t4_wq *wq, struct t4_cq *cq)
 				 V_CQE_SWCQE(1) |
 				 V_CQE_QPID(wq->sq.qid));
 	*gen = htobe64(V_CQE_GENBIT((u64)cq->gen));
+	if (srqidx)
+		cqe.b64.u.srcqe.abs_rqe_idx = htobe32(srqidx);
+
 	memcpy(Q_ENTRY(cq->sw_queue, cq->sw_pidx), &cqe, CQE_SIZE(&cqe));
 	t4_swcq_produce(cq);
 }
@@ -66,7 +69,7 @@ int c4iw_flush_rq(struct t4_wq *wq, struct t4_cq *cq, int count)
 	PDBG("%s wq %p cq %p rq.in_use %u skip count %u\n", __func__,
 	     wq, cq, wq->rq.in_use, count);
 	while (in_use--) {
-		insert_recv_cqe(wq, cq);
+		insert_recv_cqe(wq, cq, 0);
 		flushed++;
 	}
 	return flushed;
@@ -356,6 +359,73 @@ static void dump_cqe(void *arg)
 
 }
 
+static void post_pending_srq_wrs(struct t4_srq *srq)
+{
+	struct t4_srq_pending_wr *pwr;
+	u16 idx = 0;
+
+	while (srq->pending_in_use) {
+
+		assert(!srq->sw_rq[srq->pidx].valid);
+
+		pwr = &srq->pending_wrs[srq->pending_cidx];
+		srq->sw_rq[srq->pidx].wr_id = pwr->wr_id;
+		srq->sw_rq[srq->pidx].valid = 1;
+
+		PDBG("%s posting pending cidx %u pidx %u wq_pidx %u in_use %u rq_size %u wr_id %llx\n",
+		      __func__,	srq->cidx, srq->pidx, srq->wq_pidx,
+		      srq->in_use, srq->size, (unsigned long long)pwr->wr_id);
+
+		c4iw_copy_wr_to_srq(srq, &pwr->wqe, pwr->len16);
+		t4_srq_consume_pending_wr(srq);
+		t4_srq_produce(srq, pwr->len16);
+		idx += DIV_ROUND_UP(pwr->len16*16, T4_EQ_ENTRY_SIZE);
+	}
+
+	if (idx) {
+		t4_ring_srq_db(srq, idx, pwr->len16, &pwr->wqe);
+		srq->queue[srq->size].status.host_wq_pidx =
+			srq->wq_pidx;
+	}
+}
+
+static u64 reap_srq_cqe(union t4_cqe *hw_cqe, struct t4_srq *srq)
+{
+	int rel_idx = CQE_ABS_RQE_IDX(&hw_cqe->b64) - srq->rqt_abs_idx;
+	u64 wr_id;
+
+	BUG_ON(rel_idx >= srq->size);
+
+	assert(srq->sw_rq[rel_idx].valid);
+	srq->sw_rq[rel_idx].valid = 0;
+	wr_id = srq->sw_rq[rel_idx].wr_id;
+
+	if (rel_idx == srq->cidx) {
+		PDBG("%s in order cqe rel_idx %u cidx %u pidx %u wq_pidx %u in_use %u rq_size %u wr_id %llx\n",
+		     __func__, rel_idx, srq->cidx, srq->pidx,
+		     srq->wq_pidx, srq->in_use, srq->size,
+		     (unsigned long long)srq->sw_rq[rel_idx].wr_id);
+		t4_srq_consume(srq);
+		while (srq->ooo_count && !srq->sw_rq[srq->cidx].valid) {
+			PDBG("%s eat ooo cidx %u pidx %u wq_pidx %u in_use %u rq_size %u ooo_count %u wr_id %llx\n",
+			     __func__, srq->cidx, srq->pidx, srq->wq_pidx,
+			     srq->in_use, srq->size, srq->ooo_count,
+			     (unsigned long long)srq->sw_rq[srq->cidx].wr_id);
+			t4_srq_consume_ooo(srq);
+		}
+		if (srq->ooo_count == 0 && srq->pending_in_use)
+			post_pending_srq_wrs(srq);
+	} else {
+		BUG_ON(srq->in_use == 0);
+		PDBG("%s ooo cqe rel_idx %u cidx %u pidx %u wq_pidx %u in_use %u rq_size %u ooo_count %u wr_id %llx\n",
+		     __func__, rel_idx, srq->cidx, srq->pidx,
+		     srq->wq_pidx, srq->in_use, srq->size, srq->ooo_count,
+		     (unsigned long long)srq->sw_rq[rel_idx].wr_id);
+		t4_srq_produce_ooo(srq);
+	}
+	return wr_id;
+}
+
 /*
  * poll_cq
  *
@@ -372,8 +442,9 @@ static void dump_cqe(void *arg)
  *    -EAGAIN       CQE skipped, try again.
  *    -EOVERFLOW    CQ overflow detected.
  */
-static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, union t4_cqe *cqe,
-	           u8 *cqe_flushed, u64 *cookie, u32 *credit)
+static int poll_cq(struct t4_wq *wq, struct t4_cq *cq,
+		   union t4_cqe *cqe, u8 *cqe_flushed,
+		   u64 *cookie, u32 *credit, struct t4_srq *srq)
 {
 	int ret = 0;
 	union t4_cqe *hw_cqe, read_cqe;
@@ -497,7 +568,7 @@ static int poll_cq(struct t4_wq *wq, struct t4_cq *cq, union t4_cqe *cqe,
 		 * error.
 		 */
 
-		if (t4_rq_empty(wq)) {
+		if (srq ? t4_srq_empty(srq) : t4_rq_empty(wq)) {
 			t4_set_wq_in_error(wq);
 			ret = -EAGAIN;
 			goto skip_cqe;
@@ -565,11 +636,16 @@ proc_cqe:
 		*cookie = wq->sq.sw_sq[wq->sq.cidx].wr_id;
 		t4_sq_consume(wq);
 	} else {
-		PDBG("%s completing rq idx %u\n", __func__, wq->rq.cidx);
-		BUG_ON(wq->rq.cidx >= wq->rq.size);
-		*cookie = wq->rq.sw_rq[wq->rq.cidx].wr_id;
-		BUG_ON(t4_rq_empty(wq));
-		t4_rq_consume(wq);
+		if (!srq) {
+			PDBG("%s completing rq idx %u\n",
+			     __func__, wq->rq.cidx);
+			BUG_ON(wq->rq.cidx >= wq->rq.size);
+			*cookie = wq->rq.sw_rq[wq->rq.cidx].wr_id;
+			BUG_ON(t4_rq_empty(wq));
+			t4_rq_consume(wq);
+		} else
+			*cookie = reap_srq_cqe(hw_cqe, srq);
+		wq->rq.msn++;
 		goto skip_cqe;
 	}
 
@@ -592,6 +668,20 @@ skip_cqe:
 	return ret;
 }
 
+static void generate_srq_limit_event(struct c4iw_srq *srq)
+{
+	struct ibv_modify_srq cmd;
+	struct ibv_srq_attr attr = {};
+	int ret;
+
+	srq->armed = 0;
+	ret = ibv_cmd_modify_srq(&srq->ibv_srq, &attr, 0, &cmd, sizeof(cmd));
+	if (ret)
+		fprintf(stderr,
+			"Failure to send srq_limit event - ret %d errno %d\n",
+			ret, errno);
+}
+
 /*
  * Get one cq entry from c4iw and map it to openib.
  *
@@ -604,6 +694,7 @@ skip_cqe:
 static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ibv_wc *wc)
 {
 	struct c4iw_qp *qhp = NULL;
+	struct c4iw_srq *srq = NULL;
 	struct t4_cqe_common *com;
 	union t4_cqe uninitialized_var(cqe), *rd_cqe;
 	struct t4_wq *wq;
@@ -639,8 +730,12 @@ static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ibv_wc *wc)
 	else {
 		pthread_spin_lock(&qhp->lock);
 		wq = &(qhp->wq);
+		srq = qhp->srq;
+		if (srq)
+			pthread_spin_lock(&srq->lock);
 	}
-	ret = poll_cq(wq, &(chp->cq), &cqe, &cqe_flushed, &cookie, &credit);
+	ret = poll_cq(wq, &(chp->cq), &cqe, &cqe_flushed, &cookie, &credit,
+		      srq ? &srq->wq : NULL);
 	if (ret)
 		goto out;
 
@@ -650,6 +745,13 @@ static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ibv_wc *wc)
 	wc->qp_num = qhp->wq.sq.qid;
 	wc->vendor_err = CQE_STATUS(com);
 	wc->wc_flags = 0;
+
+	/*
+	 * Simulate a SRQ_LIMIT_REACHED HW notification if required.
+	 */
+	if (srq && !(srq->flags & T4_SRQ_LIMIT_SUPPORT) && srq->armed &&
+			srq->wq.in_use < srq->srq_limit)
+		generate_srq_limit_event(srq);
 
 	PDBG("%s qpid 0x%x type %d opcode %d status 0x%x wrid hi 0x%x "
 	     "lo 0x%x cookie 0x%llx\n", __func__,
@@ -749,8 +851,11 @@ static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ibv_wc *wc)
 			chp->cq.cqid, CQE_QPID(com), CQE_TYPE(com),
 			CQE_OPCODE(com), CQE_STATUS(com));
 out:
-	if (wq)
+	if (wq) {
 		pthread_spin_unlock(&qhp->lock);
+		if (srq)
+			pthread_spin_unlock(&srq->lock);
+	}
 	return ret;
 }
 
@@ -793,4 +898,12 @@ int c4iw_arm_cq(struct ibv_cq *ibcq, int solicited)
 	ret = t4_arm_cq(&chp->cq, solicited);
 	pthread_spin_unlock(&chp->lock);
 	return ret;
+}
+
+void c4iw_flush_srqidx(struct c4iw_qp *qhp, u32 srqidx)
+{
+	struct c4iw_cq *rchp = to_c4iw_cq(qhp->ibv_qp.recv_cq);
+
+	/* create a SRQ RECV CQE for srqidx */
+	insert_recv_cqe(&qhp->wq, &rchp->cq, srqidx);
 }

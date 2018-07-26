@@ -372,6 +372,7 @@ struct t4_sq {
 
 struct t4_swrqe {
 	u64 wr_id;
+	int valid;
 };
 
 struct t4_rq {
@@ -439,7 +440,6 @@ static inline void t4_rq_produce(struct t4_wq *wq, u8 len16)
 static inline void t4_rq_consume(struct t4_wq *wq)
 {
 	wq->rq.in_use--;
-	wq->rq.msn++;
 	if (++wq->rq.cidx == wq->rq.size)
 		wq->rq.cidx = 0;
 	assert((wq->rq.cidx != wq->rq.pidx) || wq->rq.in_use == 0);
@@ -566,7 +566,7 @@ static inline void t4_srq_consume(struct t4_srq *srq)
 
 static inline int t4_wq_in_error(struct t4_wq *wq)
 {
-	return wq->error || wq->rq.queue[wq->rq.size].status.qp_err;
+	return wq->error || *wq->qp_errp;
 }
 
 static inline u32 t4_wq_srqidx(struct t4_wq *wq)
@@ -742,7 +742,7 @@ static inline void t4_ring_srq_db(struct t4_srq *srq, u16 inc, u8 len16,
 
 static inline void t4_set_wq_in_error(struct t4_wq *wq)
 {
-	wq->rq.queue[wq->rq.size].status.qp_err = 1;
+	*wq->qp_errp = 1;
 }
 
 extern int c4iw_abi_version;
