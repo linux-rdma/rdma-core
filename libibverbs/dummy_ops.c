@@ -523,7 +523,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	do {                                                                   \
 		if (ops->name) {                                               \
 			priv->ops.name = ops->name;                            \
-			(ptr)->_compat_##name = (void *(*)(void))ops->name;    \
+			(ptr)->_compat_##name = (void *)ops->name;             \
 		}                                                              \
 	} while (0)
 
