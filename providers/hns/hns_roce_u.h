@@ -211,6 +211,7 @@ struct hns_roce_qp {
 	struct hns_roce_wq		sq;
 	struct hns_roce_wq		rq;
 	uint32_t			*rdb;
+	uint32_t			*sdb;
 	struct hns_roce_sge_ex		sge;
 	unsigned int			next_sge;
 	int				port_num;

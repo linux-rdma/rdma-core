@@ -42,6 +42,7 @@
 
 enum {
 	HNS_ROCE_SUPPORT_RQ_RECORD_DB = 1 << 0,
+	HNS_ROCE_SUPPORT_SQ_RECORD_DB = 1 << 1,
 };
 
 enum {

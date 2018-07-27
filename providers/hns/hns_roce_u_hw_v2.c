@@ -237,6 +237,9 @@ static void hns_roce_v2_clear_qp(struct hns_roce_context *ctx, uint32_t qpn)
 		ctx->qp_table[tind].table[qpn & ctx->qp_table_mask] = NULL;
 }
 
+static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+				   int attr_mask);
+
 static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 				struct hns_roce_qp **cur_qp, struct ibv_wc *wc)
 {
@@ -248,6 +251,9 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 	struct hns_roce_v2_cqe *cqe = NULL;
 	struct hns_roce_rinl_sge *sge_list;
 	uint32_t opcode;
+	struct ibv_qp_attr attr;
+	int attr_mask;
+	int ret;
 
 	/* According to CI, find the relative cqe */
 	cqe = next_cqe_sw_v2(cq);
@@ -314,6 +320,17 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 	if (roce_get_field(cqe->byte_4, CQE_BYTE_4_STATUS_M,
 			   CQE_BYTE_4_STATUS_S) != HNS_ROCE_V2_CQE_SUCCESS) {
 		hns_roce_v2_handle_error_cqe(cqe, wc);
+
+		/* flush cqe */
+		if ((wc->status != IBV_WC_SUCCESS) &&
+		    (wc->status != IBV_WC_WR_FLUSH_ERR)) {
+			attr_mask = IBV_QP_STATE;
+			attr.qp_state = IBV_QPS_ERR;
+			ret = hns_roce_u_v2_modify_qp(&(*cur_qp)->ibv_qp,
+						      &attr, attr_mask);
+			if (ret)
+				return ret;
+		}
 		return V2_CQ_OK;
 	}
 
@@ -533,6 +550,8 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	struct hns_roce_context *ctx = to_hr_ctx(ibvqp->context);
 	struct hns_roce_rc_sq_wqe *rc_sq_wqe;
 	struct hns_roce_v2_wqe_data_seg *dseg;
+	struct ibv_qp_attr attr;
+	int attr_mask;
 
 	pthread_spin_lock(&qp->sq.lock);
 
@@ -760,7 +779,22 @@ out:
 		hns_roce_update_sq_db(ctx, qp->ibv_qp.qp_num, qp->sl,
 				     qp->sq.head & ((qp->sq.wqe_cnt << 1) - 1));
 
+		if (qp->flags & HNS_ROCE_SUPPORT_SQ_RECORD_DB)
+			*(qp->sdb) = qp->sq.head & 0xffff;
+
 		qp->next_sge = ind_sge;
+
+		if (ibvqp->state == IBV_QPS_ERR) {
+			attr_mask = IBV_QP_STATE;
+			attr.qp_state = IBV_QPS_ERR;
+
+			ret = hns_roce_u_v2_modify_qp(ibvqp, &attr, attr_mask);
+			if (ret) {
+				pthread_spin_unlock(&qp->sq.lock);
+				*bad_wr = wr;
+				return ret;
+			}
+		}
 	}
 
 	pthread_spin_unlock(&qp->sq.lock);
@@ -778,6 +812,8 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	struct hns_roce_context *ctx = to_hr_ctx(ibvqp->context);
 	struct hns_roce_v2_wqe_data_seg *dseg;
 	struct hns_roce_rinl_sge *sge_list;
+	struct ibv_qp_attr attr;
+	int attr_mask;
 	void *wqe;
 	int i;
 
@@ -848,6 +884,18 @@ out:
 		else
 			hns_roce_update_rq_db(ctx, qp->ibv_qp.qp_num,
 				     qp->rq.head & ((qp->rq.wqe_cnt << 1) - 1));
+
+		if (ibvqp->state == IBV_QPS_ERR) {
+			attr_mask = IBV_QP_STATE;
+			attr.qp_state = IBV_QPS_ERR;
+
+			ret = hns_roce_u_v2_modify_qp(ibvqp, &attr, attr_mask);
+			if (ret) {
+				pthread_spin_unlock(&qp->rq.lock);
+				*bad_wr = wr;
+				return ret;
+			}
+		}
 	}
 
 	pthread_spin_unlock(&qp->rq.lock);
@@ -990,6 +1038,9 @@ static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 
 	if (qp->rq.max_gs)
 		hns_roce_free_db(to_hr_ctx(ibqp->context), qp->rdb,
+				 HNS_ROCE_QP_TYPE_DB);
+	if (qp->sq.max_gs)
+		hns_roce_free_db(to_hr_ctx(ibqp->context), qp->sdb,
 				 HNS_ROCE_QP_TYPE_DB);
 
 	hns_roce_free_buf(&qp->buf);

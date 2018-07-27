@@ -573,7 +573,7 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 
 	if (hns_roce_alloc_qp_buf(pd, &attr->cap, attr->qp_type, qp)) {
 		fprintf(stderr, "hns_roce_alloc_qp_buf failed!\n");
-		goto err;
+		goto err_buf;
 	}
 
 	hns_roce_init_qp_indices(qp);
@@ -585,10 +585,21 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	}
 
 	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
+		attr->cap.max_send_sge) {
+		qp->sdb = hns_roce_alloc_db(context, HNS_ROCE_QP_TYPE_DB);
+		if (!qp->sdb)
+			goto err_free;
+
+		*(qp->sdb) = 0;
+		cmd.sdb_addr = (uintptr_t)qp->sdb;
+	} else
+		cmd.sdb_addr = 0;
+
+	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
 	    attr->cap.max_recv_sge) {
 		qp->rdb = hns_roce_alloc_db(context, HNS_ROCE_QP_TYPE_DB);
 		if (!qp->rdb)
-			goto err_free;
+			goto err_sq_db;
 
 		*(qp->rdb) = 0;
 		cmd.db_addr = (uintptr_t) qp->rdb;
@@ -643,13 +654,18 @@ err_rq_db:
 	    attr->cap.max_recv_sge)
 		hns_roce_free_db(context, qp->rdb, HNS_ROCE_QP_TYPE_DB);
 
+err_sq_db:
+	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
+	    attr->cap.max_send_sge)
+		hns_roce_free_db(context, qp->sdb, HNS_ROCE_QP_TYPE_DB);
+
 err_free:
 	free(qp->sq.wrid);
 	if (qp->rq.wqe_cnt)
 		free(qp->rq.wrid);
 	hns_roce_free_buf(&qp->buf);
 
-err:
+err_buf:
 	free(qp);
 
 	return NULL;
