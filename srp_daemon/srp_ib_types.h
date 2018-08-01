@@ -91,9 +91,12 @@ enum {
 *	route between two end-points on a subnet.
 *
 * SYNOPSIS
+*
+* NOTES
+*	The role of this data structure is identical to the role of struct
+*	ibv_path_record in libibverbs/sa.h.
 */
-struct ib_path_rec
-{
+struct ib_path_rec {
 	uint8_t		resv0[8];
 	union umad_gid	dgid;
 	union umad_gid	sgid;
@@ -101,7 +104,7 @@ struct ib_path_rec
 	__be16		slid;
 	__be32		hop_flow_raw;
 	uint8_t		tclass;
-	uint8_t		num_path;
+	uint8_t		reversible_numpath; /* reversible-7:7 num path-6:0 */
 	__be16		pkey;
 	__be16		sl;
 	uint8_t		mtu;
@@ -109,8 +112,7 @@ struct ib_path_rec
 	uint8_t		pkt_life;
 	uint8_t		preference;
 	uint8_t		resv2[6];
-
-}	PACK_SUFFIX4;
+};
 
 
 /****f* IBA Base: Types/umad_init_new

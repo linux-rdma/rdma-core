@@ -200,6 +200,22 @@ LATEST_SYMVER_FUNC(ibv_query_pkey, 1_1, "IBVERBS_1.1",
 	return 0;
 }
 
+LATEST_SYMVER_FUNC(ibv_get_pkey_index, 1_5, "IBVERBS_1.5",
+		   int,
+		   struct ibv_context *context, uint8_t port_num, __be16 pkey)
+{
+	__be16 pkey_i;
+	int i, ret;
+
+	for (i = 0; ; i++) {
+		ret = ibv_query_pkey(context, port_num, i, &pkey_i);
+		if (ret < 0)
+			return ret;
+		if (pkey == pkey_i)
+			return i;
+	}
+}
+
 LATEST_SYMVER_FUNC(ibv_alloc_pd, 1_1, "IBVERBS_1.1",
 		   struct ibv_pd *,
 		   struct ibv_context *context)

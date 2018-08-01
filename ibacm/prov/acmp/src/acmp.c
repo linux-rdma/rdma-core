@@ -2453,20 +2453,16 @@ acmp_get_ep(struct acmp_port *port, struct acm_endpoint *endpoint)
 static uint16_t acmp_get_pkey_index(struct acm_endpoint *endpoint)
 {
 	struct acmp_port *port;
-	int ret;
-	__be16 pkey;
-	uint16_t i;
+	int i;
 
 	port = acmp_get_port(endpoint);
 	if (!port)
 		return 0;
-
-	for (i = 0, ret = 0; !ret; i++) {
-		ret = ibv_query_pkey(port->dev->verbs, port->port_num, i, &pkey);
-		if (!ret && endpoint->pkey == be16toh(pkey))
-			return i;
-	}
-	return 0;
+	i = ibv_get_pkey_index(port->dev->verbs, port->port_num,
+			       htobe16(endpoint->pkey));
+	if (i < 0)
+		return 0;
+	return i;
 }
 
 static void acmp_close_endpoint(void *ep_context)
