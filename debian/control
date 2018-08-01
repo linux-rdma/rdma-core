@@ -29,7 +29,7 @@ Depends: lsb-base (>= 3.2-14~),
          ${misc:Depends},
          ${perl:Depends},
          ${shlibs:Depends}
-Recommends: dmidecode, ethtool, net-tools
+Recommends: dmidecode, ethtool, iproute2
 Breaks: infiniband-diags (<< 2.0.0)
 Replaces: infiniband-diags (<< 2.0.0)
 Description: RDMA core userspace infrastructure and documentation
