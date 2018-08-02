@@ -3665,7 +3665,7 @@ mlx5dv_create_flow_matcher(struct ibv_context *context,
 {
 	DECLARE_COMMAND_BUFFER(cmd, MLX5_IB_OBJECT_FLOW_MATCHER,
 			       MLX5_IB_METHOD_FLOW_MATCHER_CREATE,
-			       4);
+			       5);
 	struct mlx5dv_flow_matcher *flow_matcher;
 	struct ib_uverbs_attr *handle;
 	int ret;
@@ -3695,6 +3695,9 @@ mlx5dv_create_flow_matcher(struct ibv_context *context,
 	fill_attr_in_enum(cmd, MLX5_IB_ATTR_FLOW_MATCHER_FLOW_TYPE,
 			  IBV_FLOW_ATTR_NORMAL, &attr->priority,
 			  sizeof(attr->priority));
+	if (attr->flags)
+		fill_attr_const_in(cmd, MLX5_IB_ATTR_FLOW_MATCHER_FLOW_FLAGS,
+				   attr->flags);
 
 	ret = execute_ioctl(context, cmd);
 	if (ret)
