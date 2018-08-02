@@ -3731,24 +3731,25 @@ int mlx5dv_destroy_flow_matcher(struct mlx5dv_flow_matcher *flow_matcher)
 	return 0;
 }
 
+#define CREATE_FLOW_MAX_FLOW_ACTIONS_SUPPORTED 8
 struct ibv_flow *
 mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 		   struct mlx5dv_flow_match_parameters *match_value,
 		   size_t num_actions,
 		   struct mlx5dv_flow_action_attr actions_attr[])
 {
+	uint32_t flow_actions[CREATE_FLOW_MAX_FLOW_ACTIONS_SUPPORTED];
+	struct verbs_flow_action *vaction;
+	int num_flow_actions = 0;
 	struct mlx5_flow *mflow;
+	bool have_qp = false;
 	int ret;
+	int i;
 	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_FLOW,
 			       MLX5_IB_METHOD_CREATE_FLOW,
-			       4);
+			       5);
 	struct ib_uverbs_attr *handle;
 	enum mlx5dv_flow_action_type type;
-
-	if (num_actions != 1) {
-		errno = EOPNOTSUPP;
-		return NULL;
-	}
 
 	mflow = calloc(1, sizeof(*mflow));
 	if (!mflow) {
@@ -3762,17 +3763,42 @@ mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 		    match_value->match_sz);
 	fill_attr_in_obj(cmd, MLX5_IB_ATTR_CREATE_FLOW_MATCHER, flow_matcher->handle);
 
-	type = actions_attr[0].type;
-	switch (type) {
-	case MLX5DV_FLOW_ACTION_DEST_IBV_QP:
-		fill_attr_in_obj(cmd, MLX5_IB_ATTR_CREATE_FLOW_DEST_QP,
-				actions_attr[0].qp->handle);
-		break;
-	default:
-		errno = EOPNOTSUPP;
-		goto err;
+	for (i = 0; i < num_actions; i++) {
+		type = actions_attr[i].type;
+		switch (type) {
+		case MLX5DV_FLOW_ACTION_DEST_IBV_QP:
+			if (have_qp) {
+				errno = EOPNOTSUPP;
+				goto err;
+			}
+			fill_attr_in_obj(cmd, MLX5_IB_ATTR_CREATE_FLOW_DEST_QP,
+					 actions_attr[i].qp->handle);
+			have_qp = true;
+			break;
+		case MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION:
+			if (num_flow_actions ==
+			    CREATE_FLOW_MAX_FLOW_ACTIONS_SUPPORTED) {
+				errno = EOPNOTSUPP;
+				goto err;
+			}
+			vaction = container_of(actions_attr[i].action,
+					       struct verbs_flow_action,
+					       action);
+
+			flow_actions[num_flow_actions] = vaction->handle;
+			num_flow_actions++;
+			break;
+		default:
+			errno = EOPNOTSUPP;
+			goto err;
+		}
 	}
 
+	if (num_flow_actions)
+		fill_attr_in_objs_arr(cmd,
+				      MLX5_IB_ATTR_CREATE_FLOW_ARR_FLOW_ACTIONS,
+				      flow_actions,
+				      num_flow_actions);
 	ret = execute_ioctl(flow_matcher->context, cmd);
 	if (ret)
 		goto err;
