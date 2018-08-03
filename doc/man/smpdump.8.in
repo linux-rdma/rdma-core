@@ -2,7 +2,7 @@
 .
 .TH SMPDUMP 8 "@BUILD_DATE@" "" "Open IB Diagnostics"
 .SH NAME
-SMPDUMP \- 
+smpdump \- dump InfiniBand subnet management attributes
 .
 .nr rst2man-indent-level 0
 .
@@ -30,15 +30,14 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.SH DUMP INFINIBAND SUBNET MANAGEMENT ATTRIBUTES
-.SS SYNOPSIS
+.SH SYNOPSIS
 .sp
 smpdump [options] <dlid|dr_path> <attribute> [attribute_modifier]
-.SS DESCRIPTION
+.SH DESCRIPTION
 .sp
 smpdump is a general purpose SMP utility which gets SM attributes from a
 specified SMA. The result is dumped in hex by default.
-.SS OPTIONS
+.SH OPTIONS
 .INDENT 0.0
 .TP
 .B \fBdlid|drpath\fP
@@ -168,7 +167,7 @@ May be used several times (\-vv or \-v \-v \-v)
 Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
 .UNINDENT
 .UNINDENT
-.SS FILES
+.SH FILES
 .\" Common text for the config file
 .
 .SS CONFIG FILE
@@ -177,7 +176,7 @@ Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
 .sp
 A global config file is provided to set some of the common options for all
 tools.  See supplied config file for details.
-.SS EXAMPLES
+.SH EXAMPLES
 .sp
 Direct Routed Examples
 .INDENT 0.0
@@ -194,10 +193,10 @@ LID Routed Examples
 smpdump 3 0x15 2        # PORT INFO, lid 3 port 2
 smpdump 0xa0 0x11       # NODE INFO, lid 0xa0
 .UNINDENT
-.SS SEE ALSO
+.SH SEE ALSO
 .sp
 smpquery (8)
-.SS AUTHOR
+.SH AUTHOR
 .INDENT 0.0
 .TP
 .B Hal Rosenstock

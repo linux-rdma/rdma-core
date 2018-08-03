@@ -2,7 +2,7 @@
 .
 .TH IBCACHEEDIT 8 "@BUILD_DATE@" "" "Open IB Diagnostics"
 .SH NAME
-IBCACHEEDIT \- 
+ibcacheedit \- edit an ibnetdiscover cache
 .
 .nr rst2man-indent-level 0
 .
@@ -30,15 +30,14 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.SH EDIT AN IBNETDISCOVER CACHE
-.SS SYNOPSIS
+.SH SYNOPSIS
 .sp
 ibcacheedit [options] <orig.cache> <new.cache>
-.SS DESCRIPTION
+.SH DESCRIPTION
 .sp
 ibcacheedit allows users to edit an ibnetdiscover cache created through the
 \fB\-\-cache\fP option in \fBibnetdiscover(8)\fP .
-.SS OPTIONS
+.SH OPTIONS
 .INDENT 0.0
 .TP
 .B \fB\-\-switchguid BEFOREGUID:AFTERGUID\fP
@@ -70,7 +69,7 @@ guid will be adjusted as well on switches.
 .
 .sp
 \fB\-V, \-\-version\fP     show the version info.
-.SS AUTHORS
+.SH AUTHORS
 .INDENT 0.0
 .TP
 .B Albert Chu

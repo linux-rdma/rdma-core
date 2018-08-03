@@ -2,7 +2,7 @@
 .
 .TH IBTRACERT 8 "@BUILD_DATE@" "" "Open IB Diagnostics"
 .SH NAME
-IBTRACERT \- 
+ibtracert \- trace InfiniBand path
 .
 .nr rst2man-indent-level 0
 .
@@ -30,18 +30,17 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.SH TRACE INFINIBAND PATH
-.SS SYNOPSIS
+.SH SYNOPSIS
 .sp
 ibtracert [options] [<lid|guid> [<startlid> [<endlid>]]]
-.SS DESCRIPTION
+.SH DESCRIPTION
 .sp
 ibtracert uses SMPs to trace the path from a source GID/LID to a
 destination GID/LID. Each hop along the path is displayed until
 the destination is reached or a hop does not respond. By using
 the \-m option, multicast path tracing can be performed between source
 and destination nodes.
-.SS OPTIONS
+.SH OPTIONS
 .INDENT 0.0
 .TP
 .B \fB\-n, \-\-no_info\fP
@@ -66,6 +65,15 @@ force route to destination port
 .
 .sp
 \fB\-s, \-\-sm_port <smlid>\fP     use \(aqsmlid\(aq as the target lid for SA queries.
+.\" Define the common option --ports-file
+.
+.sp
+\fB\-\-ports\-file <ports\-file>\fP   Specify a ports file.
+.INDENT 0.0
+.INDENT 3.5
+This file contains multiple source and destination lid or guid pairs. See FILES section.
+.UNINDENT
+.UNINDENT
 .SS Port Selection flags
 .\" Define the common option -C
 .
@@ -173,7 +181,7 @@ is specified then a value will be prompted for.
 Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
 .UNINDENT
 .UNINDENT
-.SS FILES
+.SH FILES
 .\" Common text for the config file
 .
 .SS CONFIG FILE
@@ -235,7 +243,45 @@ for the file location for your installation.
 .fi
 .UNINDENT
 .UNINDENT
-.SS EXAMPLES
+.\" Common text to describe the port file.
+.
+.SS PORTS FILE FORMAT
+.sp
+The ports file can be used to specify multiple source and destination pairs.  They can be lids or guids.  If guids, use the \-G option to indicate that.
+.sp
+\fBGenerically:\fP
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+# comment
+<src> <dst>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+\fBExample:\fP
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+73 207
+203 657
+531 101
+
+> OR <
+
+0x0008f104003f125c 0x0008f104003f133d
+0x0008f1040011ab07 0x0008f104004265c0
+0x0008f104007c5510 0x0008f1040099bb08
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH EXAMPLES
 .sp
 Unicast examples
 .INDENT 0.0
@@ -252,10 +298,10 @@ Multicast example
 .B ::
 ibtracert \-m 0xc000 4 16    # show multicast path of mlid 0xc000 between lids 4 and 16
 .UNINDENT
-.SS SEE ALSO
+.SH SEE ALSO
 .sp
 ibroute (8)
-.SS AUTHOR
+.SH AUTHOR
 .INDENT 0.0
 .TP
 .B Hal Rosenstock

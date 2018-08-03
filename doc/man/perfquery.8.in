@@ -2,7 +2,7 @@
 .
 .TH PERFQUERY 8 "@BUILD_DATE@" "" "Open IB Diagnostics"
 .SH NAME
-PERFQUERY \- 
+perfquery \- query InfiniBand port counters on a single port
 .
 .nr rst2man-indent-level 0
 .
@@ -30,11 +30,10 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.SH QUERY INFINIBAND PORT COUNTERS ON A SINGLE PORT
-.SS SYNOPSIS
+.SH SYNOPSIS
 .sp
 perfquery [options] [<lid|guid> [[port(s)] [reset_mask]]]
-.SS DESCRIPTION
+.SH DESCRIPTION
 .sp
 perfquery uses PerfMgt GMPs to obtain the PortCounters (basic performance and
 error counters), PortExtendedCounters, PortXmitDataSL, PortRcvDataSL,
@@ -51,7 +50,7 @@ Note: Inputting a port of 255 indicates an operation be performed on all ports.
 .sp
 Note: For PortCounters, ExtendedCounters, and resets, multiple ports can be
 specified by either a comma separated list or a port range.  See examples below.
-.SS OPTIONS
+.SH OPTIONS
 .INDENT 0.0
 .TP
 .B \fB\-x, \-\-extended\fP
@@ -244,7 +243,7 @@ is specified then a value will be prompted for.
 Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
 .UNINDENT
 .UNINDENT
-.SS FILES
+.SH FILES
 .\" Common text for the config file
 .
 .SS CONFIG FILE
@@ -253,7 +252,7 @@ Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
 .sp
 A global config file is provided to set some of the common options for all
 tools.  See supplied config file for details.
-.SS EXAMPLES
+.SH EXAMPLES
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -278,7 +277,7 @@ perfquery \-l 32 1,4,8    # read performance counters from lid 32, port 1, 4, an
 .fi
 .UNINDENT
 .UNINDENT
-.SS AUTHOR
+.SH AUTHOR
 .INDENT 0.0
 .TP
 .B Hal Rosenstock

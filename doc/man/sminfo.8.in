@@ -2,7 +2,7 @@
 .
 .TH SMINFO 8 "@BUILD_DATE@" "" "Open IB Diagnostics"
 .SH NAME
-SMINFO \- 
+sminfo \- query InfiniBand SMInfo attribute
 .
 .nr rst2man-indent-level 0
 .
@@ -30,11 +30,10 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.SH QUERY INFINIBAND SMINFO ATTRIBUTE
-.SS SYNOPSIS
+.SH SYNOPSIS
 .sp
 sminfo [options] sm_lid | sm_dr_path [modifier]
-.SS DESCRIPTION
+.SH DESCRIPTION
 .sp
 Optionally set and display the output of a sminfo query in human readable
 format. The target SM is the one listed in the local port info, or the SM
@@ -42,7 +41,7 @@ specified by the optional SM lid or by the SM direct routed path.
 .sp
 Note: using sminfo for any purposes other then simple query may be very
 dangerous, and may result in a malfunction of the target SM.
-.SS OPTIONS
+.SH OPTIONS
 .INDENT 0.0
 .TP
 .B \fB\-s, \-\-state <state>\fP set SM state
@@ -185,7 +184,7 @@ is specified then a value will be prompted for.
 Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
 .UNINDENT
 .UNINDENT
-.SS FILES
+.SH FILES
 .\" Common text for the config file
 .
 .SS CONFIG FILE
@@ -194,7 +193,7 @@ Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
 .sp
 A global config file is provided to set some of the common options for all
 tools.  See supplied config file for details.
-.SS EXAMPLES
+.SH EXAMPLES
 .INDENT 0.0
 .TP
 .B ::
@@ -202,10 +201,10 @@ sminfo                  # local port\(aqs sminfo
 sminfo 32               # show sminfo of lid 32
 sminfo  \-G 0x8f1040023  # same but using guid address
 .UNINDENT
-.SS SEE ALSO
+.SH SEE ALSO
 .sp
 smpdump (8)
-.SS AUTHOR
+.SH AUTHOR
 .INDENT 0.0
 .TP
 .B Hal Rosenstock

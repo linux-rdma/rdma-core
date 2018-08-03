@@ -2,7 +2,7 @@
 .
 .TH VENDSTAT 8 "@BUILD_DATE@" "" "Open IB Diagnostics"
 .SH NAME
-VENDSTAT \- 
+vendstat \- query InfiniBand vendor specific functions
 .
 .nr rst2man-indent-level 0
 .
@@ -30,16 +30,15 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.SH QUERY INFINIBAND VENDOR SPECIFIC FUNCTIONS
-.SS SYNOPSIS
+.SH SYNOPSIS
 .sp
 vendstat [options] <lid|guid>
-.SS DESCRIPTION
+.SH DESCRIPTION
 .sp
 vendstat uses vendor specific MADs to access beyond the IB spec
 vendor specific functionality. Currently, there is support for
 Mellanox InfiniSwitch\-III (IS3) and InfiniSwitch\-IV (IS4).
-.SS OPTIONS
+.SH OPTIONS
 .INDENT 0.0
 .TP
 .B \fB\-N\fP
@@ -189,7 +188,7 @@ May be used several times (\-vv or \-v \-v \-v)
 Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
 .UNINDENT
 .UNINDENT
-.SS FILES
+.SH FILES
 .\" Common text for the config file
 .
 .SS CONFIG FILE
@@ -198,7 +197,7 @@ Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
 .sp
 A global config file is provided to set some of the common options for all
 tools.  See supplied config file for details.
-.SS EXAMPLES
+.SH EXAMPLES
 .INDENT 0.0
 .TP
 .B ::
@@ -208,7 +207,7 @@ vendstat \-i 6 12        # read IS4 port 12 counter group info
 vendstat \-c 0,1 6 12    # configure IS4 port 12 counter groups for PortXmitDataSL
 vendstat \-c 2,8 6 12    # configure IS4 port 12 counter groups for PortRcvDataSL
 .UNINDENT
-.SS AUTHOR
+.SH AUTHOR
 .INDENT 0.0
 .TP
 .B Hal Rosenstock

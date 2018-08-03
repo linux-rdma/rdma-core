@@ -74,7 +74,16 @@ Cache File flags
 
 .. include:: common/opt_load-cache.rst
 .. include:: common/opt_diff.rst
-.. include:: common/opt_diffcheck.rst
+
+**--diffcheck <key(s)>**
+Specify what diff checks should be done in the **--diff** option above.  Comma
+separate multiple diff check key(s).  The available diff checks are: **port** =
+port connections, **state** = port state, **lid** = lids, **nodedesc** = node
+descriptions.  Note that **port**, **lid**, and **nodedesc** are checked only
+for the node types that are specified (e.g.  **switches-only**, **cas-only**).
+If **port** is specified alongside **lid** or **nodedesc**, remote port lids
+and node descriptions will also be compared.
+
 
 **--filterdownports <filename>**
 Filter downports indicated in a ibnetdiscover cache.  If a port was previously

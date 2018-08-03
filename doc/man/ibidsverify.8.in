@@ -2,7 +2,7 @@
 .
 .TH IBIDSVERIFY 8 "@BUILD_DATE@" "" "Open IB Diagnostics"
 .SH NAME
-IBIDSVERIFY \- 
+ibidsverify \- validate IB identifiers in subnet and report errors
 .
 .nr rst2man-indent-level 0
 .
@@ -30,11 +30,10 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.SH VALIDATE IB IDENTIFIERS IN SUBNET AND REPORT ERRORS
-.SS SYNOPSIS
+.SH SYNOPSIS
 .sp
 ibidsverify.pl [\-h] [\-R]
-.SS DESCRIPTION
+.SH DESCRIPTION
 .sp
 ibidsverify.pl is a perl script which uses a full topology file that was
 created by ibnetdiscover, scans the network to validate the LIDs and GUIDs
@@ -44,7 +43,7 @@ or duplicate identifiers.
 Finally, ibidsverify.pl will also reuse the cached ibnetdiscover output from
 some of the other diag tools which makes it a bit faster than running
 ibnetdiscover from scratch.
-.SS OPTIONS
+.SH OPTIONS
 .sp
 \fB\-R\fP
 Recalculate the ibnetdiscover information, ie do not use the cached
@@ -55,10 +54,10 @@ fabric has changed.
 \fB\-C <ca_name>\fP    use the specified ca_name.
 .sp
 \fB\-P <ca_port>\fP    use the specified ca_port.
-.SS EXIT STATUS
+.SH EXIT STATUS
 .sp
 Exit status is 1 if errors are found, 0 otherwise.
-.SS FILES
+.SH FILES
 .\" Common text for the config file
 .
 .SS CONFIG FILE
@@ -67,10 +66,10 @@ Exit status is 1 if errors are found, 0 otherwise.
 .sp
 A global config file is provided to set some of the common options for all
 tools.  See supplied config file for details.
-.SS SEE ALSO
+.SH SEE ALSO
 .sp
 \fBibnetdiscover(8)\fP
-.SS AUTHOR
+.SH AUTHOR
 .INDENT 0.0
 .TP
 .B Hal Rosenstock

@@ -2,7 +2,7 @@
 .
 .TH CHECK_LFT_BALANCE 8 "@BUILD_DATE@" "" "Open IB Diagnostics"
 .SH NAME
-CHECK_LFT_BALANCE \- 
+check_lft_balance \- check InfiniBand unicast forwarding tables balance
 .
 .nr rst2man-indent-level 0
 .
@@ -30,16 +30,15 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.SH CHECK INFINIBAND UNICAST FORWARDING TABLES BALANCE
-.SS SYNOPSIS
+.SH SYNOPSIS
 .sp
 check_lft_balance.sh [\-hRv]
-.SS DESCRIPTION
+.SH DESCRIPTION
 .sp
 check_lft_balance.sh is a script which checks for balancing in Infiniband
 unicast forwarding tables.  It analyzes the output of
 \fBdump_lfts(8)\fP and \fBiblinkinfo(8)\fP
-.SS OPTIONS
+.SH OPTIONS
 .INDENT 0.0
 .TP
 .B \fB\-h\fP
@@ -54,11 +53,11 @@ believe that the fabric has changed.
 .B \fB\-v\fP
 verbose output
 .UNINDENT
-.SS SEE ALSO
+.SH SEE ALSO
 .sp
 \fBdump_lfts(8)\fP
 \fBiblinkinfo(8)\fP
-.SS AUTHORS
+.SH AUTHORS
 .INDENT 0.0
 .TP
 .B Albert Chu

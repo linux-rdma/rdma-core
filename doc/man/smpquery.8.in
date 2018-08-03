@@ -2,7 +2,7 @@
 .
 .TH SMPQUERY 8 "@BUILD_DATE@" "" "Open IB Diagnostics"
 .SH NAME
-SMPQUERY \- 
+smpquery \- query InfiniBand subnet management attributes
 .
 .nr rst2man-indent-level 0
 .
@@ -30,16 +30,15 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.SH QUERY INFINIBAND SUBNET MANAGEMENT ATTRIBUTES
-.SS SYNOPSIS
+.SH SYNOPSIS
 .sp
 smpquery [options] <op> <dest dr_path|lid|guid> [op params]
-.SS DESCRIPTION
+.SH DESCRIPTION
 .sp
 smpquery allows a basic subset of standard SMP queries including the following:
 node info, node description, switch info, port info. Fields are displayed in
 human readable format.
-.SS OPTIONS
+.SH OPTIONS
 .sp
 Current supported operations (case insensitive) and their parameters:
 .INDENT 0.0
@@ -226,7 +225,7 @@ is specified then a value will be prompted for.
 Default: @IBDIAG_CONFIG_PATH@/ibdiag.conf
 .UNINDENT
 .UNINDENT
-.SS FILES
+.SH FILES
 .\" Common text for the config file
 .
 .SS CONFIG FILE
@@ -288,7 +287,7 @@ for the file location for your installation.
 .fi
 .UNINDENT
 .UNINDENT
-.SS EXAMPLES
+.SH EXAMPLES
 .INDENT 0.0
 .TP
 .B ::
@@ -297,10 +296,10 @@ smpquery \-G switchinfo 0x2C9000100D051 1  # switchinfo by guid
 smpquery \-D nodeinfo 0                    # nodeinfo by direct route
 smpquery \-c nodeinfo 6 0,12               # nodeinfo by combined route
 .UNINDENT
-.SS SEE ALSO
+.SH SEE ALSO
 .sp
 smpdump (8)
-.SS AUTHOR
+.SH AUTHOR
 .INDENT 0.0
 .TP
 .B Hal Rosenstock
