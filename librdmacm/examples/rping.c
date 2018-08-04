@@ -44,6 +44,7 @@
 #include <pthread.h>
 #include <inttypes.h>
 #include <rdma/rdma_cma.h>
+#include "common.h"
 
 static int debug = 0;
 #define DEBUG_LOG if (debug) printf
@@ -1250,9 +1251,8 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	cb->cm_channel = rdma_create_event_channel();
+	cb->cm_channel = create_first_event_channel();
 	if (!cb->cm_channel) {
-		perror("rdma_create_event_channel");
 		ret = errno;
 		goto out;
 	}
