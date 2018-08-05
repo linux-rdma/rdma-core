@@ -346,6 +346,7 @@ enum ibv_port_cap_flags {
 	IBV_PORT_SYS_IMAGE_GUID_SUP		= 1 << 11,
 	IBV_PORT_PKEY_SW_EXT_PORT_TRAP_SUP	= 1 << 12,
 	IBV_PORT_EXTENDED_SPEEDS_SUP		= 1 << 14,
+	IBV_PORT_CAP_MASK2_SUP			= 1 << 15,
 	IBV_PORT_CM_SUP				= 1 << 16,
 	IBV_PORT_SNMP_TUNNEL_SUP		= 1 << 17,
 	IBV_PORT_REINIT_SUP			= 1 << 18,
@@ -357,6 +358,15 @@ enum ibv_port_cap_flags {
 	IBV_PORT_LINK_LATENCY_SUP		= 1 << 24,
 	IBV_PORT_CLIENT_REG_SUP			= 1 << 25,
 	IBV_PORT_IP_BASED_GIDS			= 1 << 26
+};
+
+enum ibv_port_cap_flags2 {
+	IBV_PORT_SET_NODE_DESC_SUP		= 1 << 0,
+	IBV_PORT_INFO_EXT_SUP			= 1 << 1,
+	IBV_PORT_VIRT_SUP			= 1 << 2,
+	IBV_PORT_SWITCH_PORT_STATE_TABLE_SUP	= 1 << 3,
+	IBV_PORT_LINK_WIDTH_2X_SUP		= 1 << 4,
+	IBV_PORT_LINK_SPEED_HDR_SUP		= 1 << 5,
 };
 
 struct ibv_port_attr {
@@ -381,6 +391,7 @@ struct ibv_port_attr {
 	uint8_t			phys_state;
 	uint8_t			link_layer;
 	uint8_t			flags;
+	uint16_t		port_cap_flags2;
 };
 
 enum ibv_event_type {
