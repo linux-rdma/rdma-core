@@ -50,6 +50,7 @@
 #include <util/mmio.h>
 #include <rdma/ib_user_ioctl_cmds.h>
 #include <rdma/mlx5_user_ioctl_cmds.h>
+#include <infiniband/cmd_write.h>
 
 #include "mlx5.h"
 #include "mlx5-abi.h"
@@ -518,9 +519,8 @@ struct ibv_mw *mlx5_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
 int mlx5_dealloc_mw(struct ibv_mw *mw)
 {
 	int ret;
-	struct ibv_dealloc_mw cmd;
 
-	ret = ibv_cmd_dealloc_mw(mw, &cmd, sizeof(cmd));
+	ret = ibv_cmd_dealloc_mw(mw);
 	if (ret)
 		return ret;
 
@@ -3607,6 +3607,7 @@ int mlx5dv_destroy_flow_matcher(struct mlx5dv_flow_matcher *flow_matcher)
 
 	fill_attr_in_obj(cmd, MLX5_IB_ATTR_FLOW_MATCHER_DESTROY_HANDLE, flow_matcher->handle);
 	ret = execute_ioctl(flow_matcher->context, cmd);
+	verbs_is_destroy_err(&ret);
 
 	if (ret)
 		return ret;

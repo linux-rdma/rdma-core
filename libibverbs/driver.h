@@ -435,8 +435,7 @@ int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
 		     struct ibv_mw *mw, struct ibv_alloc_mw *cmd,
 		     size_t cmd_size,
 		     struct ib_uverbs_alloc_mw_resp *resp, size_t resp_size);
-int ibv_cmd_dealloc_mw(struct ibv_mw *mw,
-		       struct ibv_dealloc_mw *cmd, size_t cmd_size);
+int ibv_cmd_dealloc_mw(struct ibv_mw *mw);
 int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      struct ibv_comp_channel *channel,
 		      int comp_vector, struct ibv_cq *cq,

@@ -33,6 +33,14 @@ does not release all the resources allocated using context
 .I context\fR.
 To avoid resource leaks, the user should release all associated
 resources before closing a context.
+
+Setting the environment variable **RDMAV_ALLOW_DISASSOC_DESTROY** tells the
+library to relate an EIO from destroy commands as a success as the kernel
+resources were already released. This comes to prevent memory leakage in the
+user space area upon device disassociation. Applications using this flag cannot
+call ibv_get_cq_event or ibv_get_async_event concurrently with any call to an
+object destruction function.
+
 .SH "SEE ALSO"
 .BR ibv_get_device_list (3),
 .BR ibv_query_device (3),
