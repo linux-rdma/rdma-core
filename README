@@ -16,71 +16,46 @@ Dependencies:
 	4) glib2
 
 
-Release notes 1.6.7 => 2.0.0
+Release notes 2.0.0 => 2.1.0
 
-   1) combine libibmad
-   2) Removed rdma-ndd
-   	2a) Removed need for systemd
-   	2b) Removed need for udev
-
-
-Authors since 1.6.7
-
-*Preserved full history from libibmad*
-
-Ana Guerrero López (4):
-  Update AM_INIT_AUTOMAKE to use subdir-objects
-  Replace INCLUDES with AM_CPPFLAGS
-  Update the shebang to point to /bin/bash
-  A few typo fixes in the manpages
-
-Dag Moxnes (1):
-  ibportstate: Fixed switch peer port probing when using DR routing
-
-Eitan Zahavi (1):
-  ibsendtrap.c: Add support for security traps
-
-Hal Rosenstock (13):
-  ibportstate.c: When not switch, port can be router port
-  ibaddr.c: Fix LID printfs to be unsigned rather than signed
-  libibnetdisc/internal.h: Remove duplicated declaration of
-    add_to_portlid_hash
-  ibtracert.c: Enable m_key option
-  Add Bull device ID support to device white lists
-  infiniband-diags: Add Connect-X5 device ID to device white
-  scripts: Add mkey support into ibhosts, ibswitches, and ibrouters
-  ibdiag_common.c: Disambiguate link speed when QDR and could be FDR10
-  saquery.c: Remove use of to be deprecated ib_gid_t
-  ibdiag_common.c: Fix endian conversion in resolve_self for umad_port
-    GID prefix and GUID
-  ibdiag_common.c: Fix cosmetic formatting issue
-  ibstat.c: Add include for __be64 type
-  perfquery.c: Output PerfMgt ClassPortInfo CapabilityMask2
-
-Ira Weiny (15):
-  doc/man/*.in: update pre-built *.in files
-  scripts: Add m_key to man pages
-  infiniband-diags: Use modern glibc htobe64/be64toh macros
-  infiniband-diags: Fix type passed to umad_get_ca_portguids
-  infiniband-diags/perfquery: Use universal zero init for perf_count
-  infiniband-diags: Update README files to reflect new merged repo
-  infiniband-diags: Bump version to 2.0.0
-  infiniband-diags: Update COPYING files to reflect the new repo
-  infiniband-diags: Remove redundant AUTHORS file
-  infiniband-diags: Move libibmad auto-configuration to main dir
-  infiniband-diags: Merge makefiles and build against internal libibmad
-  infiniband-diags: Combine libibmad spec into infiniband-diags
-  infiniband-diags: Remove outdated scripts for ChangeLog
-  infiniband-diags: set noreplace on config files
-  infiniband-diags: Remove rdma-ndd
+   1) New device IDs
+   2) Add file of ports pairs in ibtracert
+   3) ibqueryerrors additional counters
+   4) HDR support
+   5) Bug Fixes
 
 
-Oded Nissan (2):
-  ibstat.c: If port is 1x SDR, rate is 2.5 rather than 2 Gbps
-  perfquery.c: Add support for additional counters in
-    PortCountersExtended
+Authors since 2.0.0
 
-Vincent Ficet (1):
-  infiniband-diags: Add Bull device ID support to device white lists
 
+aecbb6f06888  :  Ira Weiny  :  infiniband-diags: Update default man pages
+28b29a03d094  :  Ira Weiny  :  infiniband-diags: Update iblinkinfo --diffcheck options
+9f44ab3daafa  :  Ira Weiny  :  infiniband-diags: Move deprecated tools to compat rpm
+
+7d5e0442c2a1  :  Hal Rosenstock  :  Add latest new device IDs to device white lists
+5f9a632e88aa  :  Hal Rosenstock  :  ibtracert.c: Better ports file parsing
+2d113986fd74  :  Hal Rosenstock  :  Fix some formatting
+5b5642437afe  :  Hal Rosenstock  :  smpdump.c: Print number of bytes returned by umad_recv
+de6c39715552  :  Hal Rosenstock  :  Add additional ConnectX-5 device ID to white lists
+70cf023a35fa  :  Hal Rosenstock  :  smpdump.c: Minor fix for when umad_recv fails
+26aad53c06d7  :  Hal Rosenstock  :  Add support for HDR RS-FEC
+2583fe9d93e2  :  Hal Rosenstock  :  ib[netdiscover portstate].c: Add HDR support
+f3940b2badad  :  Hal Rosenstock  :  libibmad: Add support for HDRFECMode fields in PortInfoExtended attribute
+93e24484e427  :  Hal Rosenstock  :  libibmad/dump.c: Add HDR support for PortInfo LinkSpeedExt* fields
+2e2f55709466  :  Hal Rosenstock  :  ibdiag_common.c: In is_port_info_extended_supported, query PortInfo for port, 0 when 
+1957468b572d  :  Hal Rosenstock  :  ibdiag_common.c: In is_port_info_extended_supported, query PortInfo for port 0 when n
+0a5b4970e0f9  :  Hal Rosenstock  :  Add support for QP1Dropped counter in PortCounters attribute
+93cd96c5c9cc  :  Hal Rosenstock  :  libibmad: Support the decode of PortInfo:CapabilityMask2
+5416bbb44e91  :  Hal Rosenstock  :  Support 2x link widths
+5aaf540fbde9  :  Hal Rosenstock  :  libibmad/fields.c: PortInfo:McastPkeyTrapSuppressionEnabled is 2 bits in IBA 1.3
+33e318120ed6  :  Hal Rosenstock  :  ibcc[config query].c: Make SwitchPortCongestionSetting IBA 1.3 compliant
+
+1dd7c112ac4c  :  Susan K. Coulter  :  ibtracert: Add ability to specify a file of port pairs
+9294833bd161  :  Susan K. Coulter  :  ibtracert.c: Moved the getting of routes into internal get_route function
+2ffe4ec09f0d  :  Susan K. Coulter  :  Added check for successful strdup of node_name_map_file
+
+65fac7cad9e4  :  Oded Nissan  :  ibqueryerrors.c: Add support for additional counters in PortCountersExtended
+
+91630fc4e298  :  Benjamin Drung  :  Fix undefined bi macro man page warning
+0edbdd74cd89  :  Benjamin Drung  :  Fix bad whatis entries in man pages
 
