@@ -764,10 +764,17 @@ static int c4iw_poll_cq_one(struct c4iw_cq *chp, struct ibv_wc *wc)
 			wc->byte_len = CQE_LEN(com);
 		else
 			wc->byte_len = 0;
-		wc->opcode = IBV_WC_RECV;
+		if (CQE_OPCODE(com) == FW_RI_WRITE_IMMEDIATE) {
+			wc->opcode = IBV_WC_RECV_RDMA_WITH_IMM;
+			wc->imm_data = CQE_IMM_DATA(&cqe.b64);
+			wc->wc_flags |= IBV_WC_WITH_IMM;
+		} else {
+			wc->opcode = IBV_WC_RECV;
+		}
 	} else {
 		switch (CQE_OPCODE(com)) {
 		case FW_RI_RDMA_WRITE:
+		case FW_RI_WRITE_IMMEDIATE:
 			wc->opcode = IBV_WC_RDMA_WRITE;
 			break;
 		case FW_RI_READ_REQ:

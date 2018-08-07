@@ -125,6 +125,9 @@ struct t4_status_page {
 #define T4_RQ_NUM_BYTES (T4_EQ_ENTRY_SIZE * T4_RQ_NUM_SLOTS)
 #define T4_MAX_RECV_SGE 4
 
+#define T4_WRITE_CMPL_MAX_SGL 4
+#define T4_WRITE_CMPL_MAX_CQE 16
+
 union t4_wr {
 	struct fw_ri_res_wr res;
 	struct fw_ri_wr init;
@@ -134,6 +137,7 @@ union t4_wr {
 	struct fw_ri_bind_mw_wr bind;
 	struct fw_ri_fr_nsmr_wr fr;
 	struct fw_ri_inv_lstag_wr inv;
+	struct fw_ri_rdma_write_cmpl_wr write_cmpl;
 	struct t4_status_page status;
 	__be64 flits[T4_EQ_ENTRY_SIZE / sizeof(__be64) * T4_SQ_NUM_SLOTS];
 };
@@ -220,6 +224,10 @@ struct t4_cqe_common {
 			__be32 stag;
 			__be32 msn;
 		} srcqe;
+		struct {
+			__be32 mo;
+			__be32 msn;
+		} imm_data_rcqe;
 		u64 drain_cookie;
 	} u;
 };
@@ -237,6 +245,13 @@ struct t4_cqe_b64 {
 			__be32 reserved;
 			__be32 abs_rqe_idx;
 		} srcqe;
+		union {
+			struct {
+				__be32 imm_data32;
+				u32 reserved;
+			} ib_imm_data;
+			__be64 imm_data64;
+		} imm_data_rcqe;
 		__be64 flits[3];
 	} u;
 	__be64 reserved[2];
@@ -297,6 +312,7 @@ union t4_cqe {
 #define CQE_WRID_STAG(x)  (be32toh((x)->u.rcqe.stag))
 #define CQE_WRID_MSN(x)   (be32toh((x)->u.rcqe.msn))
 #define CQE_ABS_RQE_IDX(x) (be32toh((x)->u.srcqe.abs_rqe_idx))
+#define CQE_IMM_DATA(x)   ((x)->u.imm_data_rcqe.ib_imm_data.imm_data32)
 
 /* used for SQ completion processing */
 #define CQE_WRID_SQ_IDX(x)	(x)->u.scqe.cidx
@@ -345,7 +361,8 @@ struct t4_swsqe {
 };
 
 enum {
-	T4_SQ_ONCHIP = (1<<0),
+	T4_SQ_ONCHIP = (1 << 0),
+	T4_SQ_WRITE_W_IMM = (1 << 1)
 };
 
 struct t4_sq {
@@ -915,7 +932,7 @@ static inline void t4_reset_cq_in_error(struct t4_cq *cq)
 struct t4_dev_status_page 
 {
 	u8 db_off;
-	u8 pad1;
+	u8 write_cmpl_supported;
 	u16 pad2;
 	u32 pad3;
 	u64 qp_start;

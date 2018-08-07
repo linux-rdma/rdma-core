@@ -190,6 +190,8 @@ static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
 		rhp->cqid2ptr = calloc(rhp->max_cq, sizeof(void *));
 		if (!rhp->cqid2ptr)
 			goto err_unmap;
+		rhp->write_cmpl_supported =
+				context->status_page->write_cmpl_supported;
 	}
 
 	return &context->ibv_ctx;

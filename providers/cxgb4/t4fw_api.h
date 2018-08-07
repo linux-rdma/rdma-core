@@ -102,6 +102,7 @@ enum fw_wr_opcodes {
 	FW_RI_RECV_WR                  = 0x17,
 	FW_RI_BIND_MW_WR               = 0x18,
 	FW_RI_FR_NSMR_WR               = 0x19,
+	FW_RI_RDMA_WRITE_CMPL_WR       = 0x21,
 	FW_RI_INV_LSTAG_WR             = 0x1a,
 	FW_ISCSI_TX_DATA_WR	       = 0x45,
 	FW_LASTC2E_WR                  = 0x70
