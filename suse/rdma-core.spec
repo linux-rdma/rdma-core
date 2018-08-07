@@ -166,6 +166,9 @@ Obsoletes:      librxe-rdmav2 < %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
 %endif
+# Recommended packages for rxe_cfg
+Recommends:     ethtool
+Recommends:     iproute2
 
 %description -n libibverbs
 libibverbs is a library that allows userspace processes to use RDMA

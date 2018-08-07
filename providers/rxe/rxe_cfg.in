@@ -191,22 +191,22 @@ sub get_dev_info {
 	$ipv4_addr{$eth} = "            ";
 	$eth_mtu{$eth} = "";
 
-	@lines = `ifconfig $eth`;
+	@lines = `ip addr show $eth`;
 	foreach $line (@lines) {
-	    # get IP address
-	    if ($line =~ /inet addr/) {
-		$line =~ s/^\s+inet addr://g;
-		@fields = split(/\s+/, $line);
-		$ipv4_addr{$eth} = $fields[0];
-	    }
+		# get IP address
+		if ($line =~ /inet /) {
+			$line =~ s/^\s+inet ([0-9.]+)\//$1 /g;
+			@fields = split(/\s+/, $line);
+			$ipv4_addr{$eth} = $fields[0];
+		}
 
-	    # get ethernet mtu
-	    if ($line =~ /MTU:/) {
-		$line =~ s/^.*MTU://g;
-		@fields = split(/\s+/, $line);
-		$eth_mtu{$eth} = $fields[0];
-	    }
-	}
+		# get ethernet mtu
+		if ($line =~ /mtu /) {
+			$line =~ s/^.*mtu //g;
+			@fields = split(/\s+/, $line);
+			$eth_mtu{$eth} = $fields[0];
+		}
+    }
     }
 
     # get rxe mtu
@@ -527,8 +527,8 @@ sub do_start {
     foreach my $rxe (@rxe_array) {
 	my $stat = get_devinfo($rxe);
 	if ($stat =~ "PORT_DOWN") {
-	    my $cmd = "ifconfig $eth_names{$rxe} up";
-	    system($cmd);
+		my $cmd = "ip link set $eth_names{$rxe} up";
+		system($cmd);
 	}
     }
 
