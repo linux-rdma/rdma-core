@@ -158,6 +158,8 @@ struct ibv_cq_ex *mlx5dv_create_cq(struct ibv_context *context,
 
 enum mlx5dv_qp_create_flags {
 	MLX5DV_QP_CREATE_TUNNEL_OFFLOADS = 1 << 0,
+	MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_UC = 1 << 1,
+	MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_MC = 1 << 2,
 };
 
 enum mlx5dv_qp_init_attr_mask {
