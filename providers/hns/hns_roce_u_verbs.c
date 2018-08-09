@@ -338,6 +338,13 @@ void hns_roce_u_cq_event(struct ibv_cq *cq)
 	to_hr_cq(cq)->arm_sn++;
 }
 
+int hns_roce_u_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr)
+{
+	struct ibv_modify_cq cmd = {};
+
+	return ibv_cmd_modify_cq(cq, attr, &cmd, sizeof(cmd));
+}
+
 int hns_roce_u_destroy_cq(struct ibv_cq *cq)
 {
 	int ret;
