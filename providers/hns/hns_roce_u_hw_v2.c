@@ -406,7 +406,7 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 		case HNS_ROCE_RECV_OP_RDMA_WRITE_IMM:
 			wc->opcode = IBV_WC_RECV_RDMA_WITH_IMM;
 			wc->wc_flags = IBV_WC_WITH_IMM;
-			wc->imm_data = cqe->immtdata;
+			wc->imm_data = htobe32(le32toh(cqe->immtdata));
 			break;
 
 		case HNS_ROCE_RECV_OP_SEND:
@@ -417,7 +417,7 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 		case HNS_ROCE_RECV_OP_SEND_WITH_IMM:
 			wc->opcode = IBV_WC_RECV;
 			wc->wc_flags = IBV_WC_WITH_IMM;
-			wc->imm_data = cqe->immtdata;
+			wc->imm_data = htobe32(le32toh(cqe->immtdata));
 			break;
 
 		case HNS_ROCE_RECV_OP_SEND_WITH_INV:
@@ -593,7 +593,7 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 
 		if (wr->opcode == IBV_WR_SEND_WITH_IMM ||
 		    wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM)
-			rc_sq_wqe->immtdata = wr->imm_data;
+			rc_sq_wqe->immtdata = htole32(be32toh(wr->imm_data));
 
 		roce_set_field(rc_sq_wqe->byte_16, RC_SQ_WQE_BYTE_16_SGE_NUM_M,
 			       RC_SQ_WQE_BYTE_16_SGE_NUM_S, wr->num_sge);
