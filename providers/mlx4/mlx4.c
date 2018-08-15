@@ -76,6 +76,7 @@ static const struct verbs_match_ent hca_table[] = {
 	HCA(MELLANOX, 0x100e),	/* MT27551 Family */
 	HCA(MELLANOX, 0x100f),	/* MT27560 Family */
 	HCA(MELLANOX, 0x1010),	/* MT27561 Family */
+	VERBS_MODALIAS_MATCH("vmbus:3daf2e8ca732094bab99bd1f1c86b501", NULL), /* Microsoft Azure Network Direct */
 	{}
 };
 
