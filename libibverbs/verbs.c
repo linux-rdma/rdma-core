@@ -328,11 +328,12 @@ LATEST_SYMVER_FUNC(ibv_dereg_mr, 1_1, "IBVERBS_1.1",
 		   struct ibv_mr *mr)
 {
 	int ret;
-	void *addr	= mr->addr;
-	size_t length	= mr->length;
+	void *addr		= mr->addr;
+	size_t length		= mr->length;
+	enum ibv_mr_type type	= verbs_get_mr(mr)->mr_type;
 
 	ret = get_ops(mr->context)->dereg_mr(verbs_get_mr(mr));
-	if (!ret && (verbs_get_mr(mr)->mr_type == IBV_MR_TYPE_MR))
+	if (!ret && type == IBV_MR_TYPE_MR)
 		ibv_dofork_range(addr, length);
 
 	return ret;
