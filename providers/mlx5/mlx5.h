@@ -188,7 +188,7 @@ enum mlx5_vendor_cap_flags {
 };
 
 enum {
-	MLX5_FLOW_TAG_MASK	= 0x000fffff,
+	MLX5_FLOW_TAG_MASK	= 0x00ffffff,
 };
 
 struct mlx5_resource {
