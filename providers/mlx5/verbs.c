@@ -1673,11 +1673,11 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	struct mlx5_context	       *ctx = to_mctx(context);
 	struct ibv_qp		       *ibqp;
 	int32_t				usr_idx = 0;
-	uint32_t			uuar_index;
 	uint32_t			mlx5_create_flags = 0;
 	struct mlx5_bf			*bf = NULL;
 	FILE *fp = ctx->dbg_fp;
 	struct mlx5_parent_domain *mparent_domain;
+	struct mlx5_ib_create_qp_resp  *resp_drv;
 
 	if (attr->comp_mask & ~MLX5_CREATE_QP_SUP_COMP_MASK)
 		return NULL;
@@ -1884,8 +1884,8 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		goto err_free_uidx;
 	}
 
-	uuar_index = (attr->comp_mask & MLX5_CREATE_QP_EX2_COMP_MASK) ?
-			resp_ex.bfreg_index : resp.bfreg_index;
+	resp_drv = attr->comp_mask & MLX5_CREATE_QP_EX2_COMP_MASK ?
+			&resp_ex.drv_payload : &resp.drv_payload;
 	if (!ctx->cqe_version) {
 		if (qp->sq.wqe_cnt || qp->rq.wqe_cnt) {
 			ret = mlx5_store_qp(ctx, ibqp->qp_num, qp);
@@ -1898,7 +1898,7 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		pthread_mutex_unlock(&ctx->qp_table_mutex);
 	}
 
-	map_uuar(context, qp, uuar_index, bf);
+	map_uuar(context, qp, resp_drv->bfreg_index, bf);
 
 	qp->rq.max_post = qp->rq.wqe_cnt;
 	if (attr->sq_sig_all)
@@ -1916,6 +1916,19 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 
 	if (mparent_domain)
 		atomic_fetch_add(&mparent_domain->mpd.refcount, 1);
+
+	if (resp_drv->comp_mask & MLX5_IB_CREATE_QP_RESP_MASK_TIRN)
+		qp->tirn = resp_drv->tirn;
+
+	if (resp_drv->comp_mask & MLX5_IB_CREATE_QP_RESP_MASK_TISN)
+		qp->tisn = resp_drv->tisn;
+
+	if (resp_drv->comp_mask & MLX5_IB_CREATE_QP_RESP_MASK_RQN)
+		qp->rqn = resp_drv->rqn;
+
+	if (resp_drv->comp_mask & MLX5_IB_CREATE_QP_RESP_MASK_SQN)
+		qp->sqn = resp_drv->sqn;
+
 	return ibqp;
 
 err_destroy:

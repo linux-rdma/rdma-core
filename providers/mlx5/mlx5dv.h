@@ -288,6 +288,7 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 
 enum mlx5dv_qp_comp_mask {
 	MLX5DV_QP_MASK_UAR_MMAP_OFFSET		= 1 << 0,
+	MLX5DV_QP_MASK_RAW_QP_HANDLES		= 1 << 1,
 };
 
 struct mlx5dv_qp {
@@ -308,6 +309,10 @@ struct mlx5dv_qp {
 	} bf;
 	uint64_t		comp_mask;
 	off_t			uar_mmap_offset;
+	uint32_t		tirn;
+	uint32_t		tisn;
+	uint32_t		rqn;
+	uint32_t		sqn;
 };
 
 struct mlx5dv_cq {
