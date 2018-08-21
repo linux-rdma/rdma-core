@@ -311,6 +311,13 @@ struct mlx5dv_dm {
 	uint64_t	comp_mask;
 };
 
+struct mlx5_wqe_av;
+
+struct mlx5dv_ah {
+	struct mlx5_wqe_av      *av;
+	uint64_t		comp_mask;
+};
+
 struct mlx5dv_obj {
 	struct {
 		struct ibv_qp		*in;
@@ -332,6 +339,10 @@ struct mlx5dv_obj {
 		struct ibv_dm		*in;
 		struct mlx5dv_dm	*out;
 	} dm;
+	struct {
+		struct ibv_ah		*in;
+		struct mlx5dv_ah	*out;
+	} ah;
 };
 
 enum mlx5dv_obj_type {
@@ -340,6 +351,7 @@ enum mlx5dv_obj_type {
 	MLX5DV_OBJ_SRQ	= 1 << 2,
 	MLX5DV_OBJ_RWQ	= 1 << 3,
 	MLX5DV_OBJ_DM	= 1 << 4,
+	MLX5DV_OBJ_AH	= 1 << 5,
 };
 
 enum mlx5dv_wq_init_attr_mask {
