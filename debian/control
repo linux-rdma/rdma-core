@@ -45,6 +45,24 @@ Description: RDMA core userspace infrastructure and documentation
     service in userspace for iWARP drivers to claim TCP ports through the
     standard socket interface.
 
+Package: ibacm-dev
+Section: libdevel
+Architecture: linux-any
+Multi-Arch: same
+Depends: ${misc:Depends}
+Breaks: ibacm (<< 18.1-1)
+Replaces: ibacm (<< 18.1-1)
+Description: Development files for the ibacm library
+ The IB ACM implements and provides a framework for name, address, and
+ route (path) resolution services over InfiniBand.
+ It is intended to address connection setup scalability issues running
+ MPI applications on large clusters.  The IB ACM provides information
+ needed to establish a connection, but does not implement the CM protocol.
+ A primary user of the ibacm service is the librdmacm library.
+ .
+ This package is needed to compile ibacm providers. It contains just the ibacm
+ header files. The corresponding library is part of the ibacm package.
+
 Package: ibacm
 Architecture: linux-any
 Depends: lsb-base (>= 3.2-14~),

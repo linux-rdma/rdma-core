@@ -1,0 +1,4 @@
+usr/include/infiniband/acm.h
+usr/include/infiniband/acm_prov.h
+usr/share/man/man7/ibacm.7
+usr/share/man/man7/ibacm_prov.7
