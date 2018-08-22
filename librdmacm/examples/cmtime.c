@@ -652,9 +652,8 @@ int main(int argc, char **argv)
 	init_qp_attr.cap.max_recv_sge = 1;
 	init_qp_attr.qp_type = IBV_QPT_RC;
 
-	channel = rdma_create_event_channel();
+	channel = create_first_event_channel();
 	if (!channel) {
-		printf("failed to create event channel\n");
 		exit(1);
 	}
 

@@ -46,6 +46,8 @@
 #include <rdma/rdma_cma.h>
 #include <infiniband/ib.h>
 
+#include "common.h"
+
 struct cmatest_node {
 	int			id;
 	struct rdma_cm_id	*cma_id;
@@ -622,9 +624,8 @@ int main(int argc, char **argv)
 	test.dst_addr = (struct sockaddr *) &test.dst_in;
 	test.connects_left = connections;
 
-	test.channel = rdma_create_event_channel();
+	test.channel = create_first_event_channel();
 	if (!test.channel) {
-		perror("failed to create event channel");
 		exit(1);
 	}
 

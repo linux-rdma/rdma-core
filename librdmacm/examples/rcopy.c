@@ -45,6 +45,8 @@
 
 #include <rdma/rsocket.h>
 
+#include "common.h"
+
 union rsocket_address {
 	struct sockaddr		sa;
 	struct sockaddr_in	sin;
@@ -190,9 +192,8 @@ static int server_listen(void)
 		return ret;
 	}
 
-	rs = rsocket(res->ai_family, res->ai_socktype, res->ai_protocol);
+	rs = rs_socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 	if (rs < 0) {
-		perror("rsocket failed\n");
 		ret = rs;
 		goto free;
 	}
@@ -400,9 +401,8 @@ static int client_connect(void)
 		return ret;
 	}
 
-	rs = rsocket(res->ai_family, res->ai_socktype, res->ai_protocol);
+	rs = rs_socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 	if (rs < 0) {
-		perror("rsocket failed\n");
 		goto free;
 	}
 
