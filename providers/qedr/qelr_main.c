@@ -96,6 +96,11 @@ static const struct verbs_context_ops qelr_ctx_ops = {
 	.query_qp = qelr_query_qp,
 	.modify_qp = qelr_modify_qp,
 	.destroy_qp = qelr_destroy_qp,
+	.create_srq = qelr_create_srq,
+	.destroy_srq = qelr_destroy_srq,
+	.modify_srq = qelr_modify_srq,
+	.query_srq = qelr_query_srq,
+	.post_srq_recv = qelr_post_srq_recv,
 	.post_send = qelr_post_send,
 	.post_recv = qelr_post_recv,
 	.async_event = qelr_async_event,
@@ -183,8 +188,10 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 	ctx->db_size = resp.db_size;
 	ctx->max_send_wr = resp.max_send_wr;
 	ctx->max_recv_wr = resp.max_recv_wr;
+	ctx->max_srq_wr = resp.max_srq_wr;
 	ctx->sges_per_send_wr = resp.sges_per_send_wr;
 	ctx->sges_per_recv_wr = resp.sges_per_recv_wr;
+	ctx->sges_per_srq_wr = resp.sges_per_recv_wr;
 	ctx->max_cqes = resp.max_cqes;
 
 	ctx->db_addr = mmap(NULL, ctx->db_size, PROT_WRITE, MAP_SHARED,

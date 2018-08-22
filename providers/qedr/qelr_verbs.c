@@ -313,6 +313,142 @@ int qelr_destroy_cq(struct ibv_cq *ibv_cq)
 	return 0;
 }
 
+int qelr_query_srq(struct ibv_srq *ibv_srq, struct ibv_srq_attr *attr)
+{
+	struct ibv_query_srq cmd;
+
+	return ibv_cmd_query_srq(ibv_srq, attr, &cmd, sizeof(cmd));
+}
+
+int qelr_modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr,
+		    int attr_mask)
+{
+	struct ibv_modify_srq cmd;
+
+	return ibv_cmd_modify_srq(srq, attr, attr_mask, &cmd, sizeof(cmd));
+
+}
+
+static void qelr_destroy_srq_buffers(struct ibv_srq *ibv_srq)
+{
+	struct qelr_srq *srq = get_qelr_srq(ibv_srq);
+	uint32_t *virt_prod_pair_addr;
+	uint32_t prod_size;
+
+	qelr_chain_free(&srq->hw_srq.chain);
+
+	virt_prod_pair_addr = srq->hw_srq.virt_prod_pair_addr;
+	prod_size = sizeof(struct rdma_srq_producers);
+
+	ibv_dofork_range(virt_prod_pair_addr, prod_size);
+	munmap(virt_prod_pair_addr, prod_size);
+}
+
+int qelr_destroy_srq(struct ibv_srq *ibv_srq)
+{
+	struct qelr_srq *srq = get_qelr_srq(ibv_srq);
+	int ret;
+
+	ret = ibv_cmd_destroy_srq(ibv_srq);
+	if (ret)
+		return ret;
+
+	qelr_destroy_srq_buffers(ibv_srq);
+	free(srq);
+
+	return 0;
+}
+
+static void qelr_create_srq_configure_req(struct qelr_srq *srq,
+					  struct qelr_create_srq *req)
+{
+	req->srq_addr = (uintptr_t)srq->hw_srq.chain.first_addr;
+	req->srq_len = srq->hw_srq.chain.size;
+	req->prod_pair_addr = (uintptr_t)srq->hw_srq.virt_prod_pair_addr;
+}
+
+static int qelr_create_srq_buffers(struct qelr_devctx *cxt,
+					  struct qelr_srq *srq,
+					  struct ibv_srq_init_attr *attrs)
+{
+	uint32_t max_wr, max_sges;
+	int chain_size, prod_size;
+	void *addr;
+	int rc;
+
+	max_wr = attrs->attr.max_wr;
+	if (!max_wr)
+		return -EINVAL;
+
+	max_wr = min_t(uint32_t, max_wr, cxt->max_srq_wr);
+	max_sges = max_wr * (cxt->sges_per_srq_wr + 1); /* +1 for header */
+	chain_size = max_sges * QELR_RQE_ELEMENT_SIZE;
+
+	rc = qelr_chain_alloc(&srq->hw_srq.chain, chain_size,
+			      cxt->kernel_page_size, QELR_RQE_ELEMENT_SIZE);
+	if (rc) {
+		DP_ERR(cxt->dbg_fp,
+		       "create srq: failed to map srq, got %d", rc);
+		return rc;
+	}
+
+	prod_size = sizeof(struct rdma_srq_producers);
+	addr = mmap(NULL, prod_size, PROT_READ | PROT_WRITE,
+		    MAP_PRIVATE | MAP_ANONYMOUS, -1,
+		    0);
+	if (addr == MAP_FAILED) {
+		DP_ERR(cxt->dbg_fp,
+		       "create srq: failed to map producer, got %d", errno);
+		qelr_chain_free(&srq->hw_srq.chain);
+		return errno;
+	}
+
+	rc = ibv_dontfork_range(addr, prod_size);
+	if (rc) {
+		munmap(addr, prod_size);
+		qelr_chain_free(&srq->hw_srq.chain);
+		return rc;
+	}
+
+	srq->hw_srq.virt_prod_pair_addr = addr;
+	srq->hw_srq.max_sges = cxt->sges_per_srq_wr;
+	srq->hw_srq.max_wr = max_wr;
+
+	return 0;
+}
+
+struct ibv_srq *qelr_create_srq(struct ibv_pd *pd,
+				struct ibv_srq_init_attr *init_attr)
+{
+	struct qelr_devctx *cxt = get_qelr_ctx(pd->context);
+	struct qelr_create_srq req;
+	struct qelr_create_srq_resp resp;
+	struct qelr_srq *srq;
+	int ret;
+
+	srq = calloc(1, sizeof(*srq));
+	if (!srq)
+		return NULL;
+
+	ret = qelr_create_srq_buffers(cxt, srq, init_attr);
+	if (ret) {
+		free(srq);
+		return NULL;
+	}
+
+	pthread_spin_init(&srq->lock, PTHREAD_PROCESS_PRIVATE);
+	qelr_create_srq_configure_req(srq, &req);
+	ret = ibv_cmd_create_srq(pd, &srq->ibv_srq, init_attr, &req.ibv_cmd,
+				    sizeof(req), &resp.ibv_resp, sizeof(resp));
+	if (ret) {
+		qelr_destroy_srq_buffers(&srq->ibv_srq);
+		free(srq);
+		return NULL;
+	}
+
+	return &srq->ibv_srq;
+}
+
 static void qelr_free_rq(struct qelr_qp *qp)
 {
 	free(qp->rqe_wr_id);
@@ -530,6 +666,9 @@ struct ibv_qp *qelr_create_qp(struct ibv_pd *pd,
 	qp = calloc(1, sizeof(*qp));
 	if (!qp)
 		return NULL;
+
+	if (attrs->srq)
+		qp->srq = get_qelr_srq(attrs->srq);
 
 	rc = qelr_create_qp_buffers(cxt, qp, attrs);
 	if (rc)
@@ -1485,6 +1624,98 @@ int qelr_post_send(struct ibv_qp *ib_qp, struct ibv_send_wr *wr,
 	return rc;
 }
 
+static uint32_t qelr_srq_elem_left(struct qelr_srq_hwq_info *hw_srq)
+{
+	uint32_t used;
+
+	/* Calculate number of elements used based on producer
+	 * count and consumer count and subtract it from max
+	 * work request supported so that we get elements left.
+	 */
+	used = (uint32_t)(((uint64_t)((uint64_t)~0U) + 1 +
+			  (uint64_t)(hw_srq->wr_prod_cnt)) -
+			  (uint64_t)hw_srq->wr_cons_cnt);
+
+	return hw_srq->max_wr - used;
+}
+
+int qelr_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
+		       struct ibv_recv_wr **bad_wr)
+{
+	struct qelr_devctx *cxt = get_qelr_ctx(ibsrq->context);
+	struct qelr_srq *srq = get_qelr_srq(ibsrq);
+	struct qelr_srq_hwq_info *hw_srq = &srq->hw_srq;
+	struct qelr_chain *chain;
+	int status = 0;
+
+	pthread_spin_lock(&srq->lock);
+
+	chain = &srq->hw_srq.chain;
+	while (wr) {
+		struct rdma_srq_wqe_header *hdr;
+		int i;
+
+		if (!qelr_srq_elem_left(hw_srq) ||
+		    wr->num_sge > srq->hw_srq.max_sges) {
+			DP_ERR(cxt->dbg_fp,
+			       "Can't post WR  (%d,%d) || (%d > %d)\n",
+			       hw_srq->wr_prod_cnt, hw_srq->wr_cons_cnt,
+			       wr->num_sge,
+			       srq->hw_srq.max_sges);
+			status = -ENOMEM;
+			*bad_wr = wr;
+			break;
+		}
+
+		hdr = qelr_chain_produce(chain);
+
+		SRQ_HDR_SET(hdr, wr->wr_id, wr->num_sge);
+
+		hw_srq->wr_prod_cnt++;
+		hw_srq->wqe_prod++;
+		hw_srq->sge_prod++;
+
+		DP_VERBOSE(cxt->dbg_fp, QELR_MSG_SRQ,
+			   "SRQ WR: SGEs: %d with wr_id[%d] = %" PRIx64 "\n",
+			    wr->num_sge, hw_srq->wqe_prod, wr->wr_id);
+
+		for (i = 0; i < wr->num_sge; i++) {
+			struct rdma_srq_sge *srq_sge;
+
+			srq_sge = qelr_chain_produce(chain);
+			SRQ_SGE_SET(srq_sge, wr->sg_list[i].addr,
+				    wr->sg_list[i].length, wr->sg_list[i].lkey);
+
+			DP_VERBOSE(cxt->dbg_fp, QELR_MSG_SRQ,
+				   "[%d]: len %d key %x addr %x:%x\n",
+				   i, srq_sge->length, srq_sge->l_key,
+				   srq_sge->addr.hi, srq_sge->addr.lo);
+			hw_srq->sge_prod++;
+		}
+
+		/* Make sure that descriptors are written before we update
+		 * producers.
+		 */
+
+		udma_ordering_write_barrier();
+
+		struct rdma_srq_producers *virt_prod;
+
+		virt_prod = srq->hw_srq.virt_prod_pair_addr;
+		virt_prod->sge_prod = htole32(hw_srq->sge_prod);
+		virt_prod->wqe_prod = htole32(hw_srq->wqe_prod);
+
+		wr = wr->next;
+	}
+
+	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_SRQ,
+		   "POST: Elements in SRQ: %d\n",
+		   qelr_chain_get_elem_left_u32(chain));
+	pthread_spin_unlock(&srq->lock);
+
+	return status;
+}
+
 int qelr_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		   struct ibv_recv_wr **bad_wr)
 {
@@ -1493,6 +1724,13 @@ int qelr_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	struct qelr_devctx *cxt = get_qelr_ctx(ibqp->context);
 	uint16_t db_val;
 	uint8_t iwarp = IS_IWARP(ibqp->context->device);
+
+	if (unlikely(qp->srq)) {
+		DP_ERR(cxt->dbg_fp,
+		       "QP is associated with SRQ, cannot post RQ buffers\n");
+		*bad_wr = wr;
+		return -EINVAL;
+	}
 
 	pthread_spin_lock(&qp->q_lock);
 
@@ -1826,6 +2064,30 @@ static void __process_resp_one(struct qelr_qp *qp, struct qelr_cq *cq,
 	wc->qp_num = qp->qp_id;
 }
 
+static int process_resp_one_srq(struct qelr_qp *qp, struct qelr_cq *cq,
+				struct ibv_wc *wc,
+				struct rdma_cqe_responder *resp)
+{
+	struct qelr_srq_hwq_info *hw_srq = &qp->srq->hw_srq;
+	uint64_t wr_id;
+
+	wr_id = (((uint64_t)(le32toh(resp->srq_wr_id.hi))) << 32) +
+		le32toh(resp->srq_wr_id.lo);
+
+	if (resp->status == RDMA_CQE_RESP_STS_WORK_REQUEST_FLUSHED_ERR) {
+		wc->byte_len = 0;
+		wc->status = IBV_WC_WR_FLUSH_ERR;
+		wc->qp_num = qp->qp_id;
+		wc->wr_id = wr_id;
+	} else {
+		__process_resp_one(qp, cq, wc, resp, wr_id);
+	}
+
+	hw_srq->wr_cons_cnt++;
+
+	return 1;
+}
+
 static int process_resp_one(struct qelr_qp *qp, struct qelr_cq *cq,
 			    struct ibv_wc *wc, struct rdma_cqe_responder *resp)
 {
@@ -1891,6 +2153,19 @@ static void try_consume_resp_cqe(struct qelr_cq *cq, struct qelr_qp *qp,
 	}
 }
 
+static int qelr_poll_cq_resp_srq(struct qelr_qp *qp, struct qelr_cq *cq,
+				 int num_entries, struct ibv_wc *wc,
+				 struct rdma_cqe_responder *resp, int *update)
+{
+	int cnt;
+
+	cnt = process_resp_one_srq(qp, cq, wc, resp);
+	consume_cqe(cq);
+	*update |= 1;
+
+	return cnt;
+}
+
 static int qelr_poll_cq_resp(struct qelr_qp *qp, struct qelr_cq *cq,
 			     int num_entries, struct ibv_wc *wc,
 			     struct rdma_cqe_responder *resp, int *update)
@@ -1951,6 +2226,10 @@ int qelr_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
 		case RDMA_CQE_TYPE_RESPONDER_RQ:
 			cnt = qelr_poll_cq_resp(qp, cq, num_entries, wc,
 						&cqe->resp, &update);
+			break;
+		case RDMA_CQE_TYPE_RESPONDER_SRQ:
+			cnt = qelr_poll_cq_resp_srq(qp, cq, num_entries, wc,
+						    &cqe->resp, &update);
 			break;
 		case RDMA_CQE_TYPE_INVALID:
 		default:
@@ -2018,6 +2297,9 @@ void qelr_async_event(struct ibv_async_event *event)
 	case IBV_EVENT_COMM_EST:
 	case IBV_EVENT_QP_LAST_WQE_REACHED:
 		break;
+	case IBV_EVENT_SRQ_LIMIT_REACHED:
+	case IBV_EVENT_SRQ_ERR:
+		return;
 	case IBV_EVENT_PORT_ACTIVE:
 	case IBV_EVENT_PORT_ERR:
 		break;
