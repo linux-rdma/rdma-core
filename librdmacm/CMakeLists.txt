@@ -41,3 +41,5 @@ install(TARGETS rspreload DESTINATION "${CMAKE_INSTALL_LIBDIR}/rsocket/")
 # FIXME: Maybe we can get rid of them?
 rdma_install_symlink("librspreload.so" "${CMAKE_INSTALL_LIBDIR}/rsocket/librspreload.so.1")
 rdma_install_symlink("librspreload.so" "${CMAKE_INSTALL_LIBDIR}/rsocket/librspreload.so.1.0.0")
+
+rdma_pkg_config("rdmacm" "" "" "libibverbs")

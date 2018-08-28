@@ -15,3 +15,5 @@ rdma_library(ibumad libibumad.map
   umad.c
   umad_str.c
   )
+
+rdma_pkg_config("ibumad" "" "" "libibverbs")
