@@ -1,0 +1,12 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: lib@PC_LIB_NAME@
+Description: RDMA Core Userspace Library
+Version: @PACKAGE_VERSION@
+Libs: -L${libdir} -l@PC_LIB_NAME@
+Libs.private: @PC_LIB_PRIVATE@
+Cflags: -I${includedir} @PC_INCLUDE_PRIVATE@
+Requires: @PC_REQUIRES@

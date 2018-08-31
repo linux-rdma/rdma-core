@@ -265,3 +265,13 @@ function(rdma_finalize_libs)
     endif()
   endforeach()
 endfunction()
+
+# Generate a pkg-config file
+function(rdma_pkg_config PC_LIB_NAME PC_LIB_PRIVATE PC_INCLUDE_PRIVATE PC_REQUIRES)
+  set(PC_LIB_NAME "${PC_LIB_NAME}")
+  set(PC_LIB_PRIVATE "${PC_LIB_PRIVATE}")
+  set(PC_INCLUDE_PRIVATE "${PC_INCLUDE_PRIVATE}")
+  set(PC_REQUIRES "${PC_REQUIRES}")
+  configure_file(${CMAKE_SOURCE_DIR}/buildlib/template.pc.in ${CMAKE_CURRENT_BINARY_DIR}/lib${PC_LIB_NAME}.pc @ONLY)
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lib${PC_LIB_NAME}.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+endfunction()

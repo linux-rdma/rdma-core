@@ -350,6 +350,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_includedir}/infiniband/*
 %{_includedir}/rdma/*
 %{_libdir}/lib*.so
+%{_libdir}/pkgconfig/*.pc
 %{_mandir}/man3/ibv_*
 %{_mandir}/man3/rdma*
 %{_mandir}/man3/umad*
