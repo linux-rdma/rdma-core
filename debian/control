@@ -127,8 +127,6 @@ Architecture: linux-any
 Multi-Arch: same
 Depends: ibverbs-providers (= ${binary:Version}),
          libibverbs1 (= ${binary:Version}),
-         libnl-3-dev,
-         libnl-route-3-dev,
          ${misc:Depends}
 Description: Development files for the libibverbs library
  libibverbs is a library that allows userspace processes to use RDMA
