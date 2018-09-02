@@ -14,3 +14,5 @@ publish_headers(infiniband
 )
 
 install(FILES "mlx4.conf" DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}/modprobe.d/")
+
+rdma_pkg_config("mlx4" "${CMAKE_THREAD_LIBS_INIT}" "" "")
