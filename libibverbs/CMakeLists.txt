@@ -53,4 +53,4 @@ target_link_libraries(ibverbs LINK_PRIVATE
   kern-abi
   )
 
-rdma_pkg_config("ibverbs" "${CMAKE_THREAD_LIBS_INIT}" "" "")
+rdma_pkg_config("ibverbs" "" "${CMAKE_THREAD_LIBS_INIT}")

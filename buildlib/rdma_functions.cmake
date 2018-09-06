@@ -267,11 +267,10 @@ function(rdma_finalize_libs)
 endfunction()
 
 # Generate a pkg-config file
-function(rdma_pkg_config PC_LIB_NAME PC_LIB_PRIVATE PC_INCLUDE_PRIVATE PC_REQUIRES)
+function(rdma_pkg_config PC_LIB_NAME PC_REQUIRES_PRIVATE PC_LIB_PRIVATE)
   set(PC_LIB_NAME "${PC_LIB_NAME}")
   set(PC_LIB_PRIVATE "${PC_LIB_PRIVATE}")
-  set(PC_INCLUDE_PRIVATE "${PC_INCLUDE_PRIVATE}")
-  set(PC_REQUIRES "${PC_REQUIRES}")
+  set(PC_REQUIRES_PRIVATE "${PC_REQUIRES_PRIVATE}")
   get_target_property(PC_VERSION ${PC_LIB_NAME} VERSION)
 
   # With IN_PLACE=1 the install step is not ran, so generate the file in the build dir

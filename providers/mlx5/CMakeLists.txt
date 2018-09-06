@@ -27,4 +27,4 @@ publish_headers(infiniband
   mlx5dv.h
 )
 
-rdma_pkg_config("mlx5" "${CMAKE_THREAD_LIBS_INIT}" "" "")
+rdma_pkg_config("mlx5" "libibverbs" "${CMAKE_THREAD_LIBS_INIT}")

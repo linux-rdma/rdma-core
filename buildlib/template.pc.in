@@ -7,7 +7,7 @@ Name: lib@PC_LIB_NAME@
 Description: RDMA Core Userspace Library
 URL: https://github.com/linux-rdma/rdma-core
 Version: @PC_VERSION@
-Libs: -L${libdir} -l@PC_LIB_NAME@ @PC_RPATH@
 Libs.private: @PC_LIB_PRIVATE@
-Cflags: -I${includedir} @PC_INCLUDE_PRIVATE@
-Requires: @PC_REQUIRES@
+Libs: -L${libdir} -l@PC_LIB_NAME@ @PC_RPATH@
+Requires.private: @PC_REQUIRES_PRIVATE@
+Cflags: -I${includedir}
