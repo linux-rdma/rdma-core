@@ -272,6 +272,7 @@ function(rdma_pkg_config PC_LIB_NAME PC_LIB_PRIVATE PC_INCLUDE_PRIVATE PC_REQUIR
   set(PC_LIB_PRIVATE "${PC_LIB_PRIVATE}")
   set(PC_INCLUDE_PRIVATE "${PC_INCLUDE_PRIVATE}")
   set(PC_REQUIRES "${PC_REQUIRES}")
+  get_target_property(PC_VERSION ${PC_LIB_NAME} VERSION)
 
   # With IN_PLACE=1 the install step is not ran, so generate the file in the build dir
   if (IN_PLACE)
