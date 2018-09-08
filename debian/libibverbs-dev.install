@@ -14,6 +14,8 @@ usr/lib/*/libibverbs*.so
 usr/lib/*/libmlx4.so
 usr/lib/*/libmlx5.so
 usr/lib/*/pkgconfig/libibverbs.pc
+usr/lib/*/pkgconfig/libmlx4.pc
+usr/lib/*/pkgconfig/libmlx5.pc
 usr/share/man/man3/ibv_*
 usr/share/man/man3/mbps_to_ibv_rate.3
 usr/share/man/man3/mlx4dv_*.3
