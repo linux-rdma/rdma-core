@@ -548,8 +548,8 @@ static int hns_roce_u_v2_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	return 0;
 }
 
-static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
-				   struct ibv_send_wr **bad_wr)
+int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
+			    struct ibv_send_wr **bad_wr)
 {
 	unsigned int sq_shift;
 	unsigned int ind_sge;
@@ -710,6 +710,41 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 				wqe += sizeof(struct hns_roce_v2_wqe_data_seg);
 				set_atomic_seg(wqe, wr);
 				break;
+
+			case IBV_WR_BIND_MW:
+				roce_set_field(rc_sq_wqe->byte_4,
+					RC_SQ_WQE_BYTE_4_OPCODE_M,
+					RC_SQ_WQE_BYTE_4_OPCODE_S,
+					HNS_ROCE_WQE_OP_BIND_MW_TYPE);
+				roce_set_bit(rc_sq_wqe->byte_4,
+					RC_SQ_WQE_BYTE_4_MW_TYPE_S,
+					wr->bind_mw.mw->type - 1);
+				roce_set_bit(rc_sq_wqe->byte_4,
+					RC_SQ_WQE_BYTE_4_ATOMIC_S,
+					wr->bind_mw.bind_info.mw_access_flags &
+					IBV_ACCESS_REMOTE_ATOMIC ? 1 : 0);
+				roce_set_bit(rc_sq_wqe->byte_4,
+					RC_SQ_WQE_BYTE_4_RDMA_READ_S,
+					wr->bind_mw.bind_info.mw_access_flags &
+					IBV_ACCESS_REMOTE_READ ? 1 : 0);
+				roce_set_bit(rc_sq_wqe->byte_4,
+					RC_SQ_WQE_BYTE_4_RDMA_WRITE_S,
+					wr->bind_mw.bind_info.mw_access_flags &
+					IBV_ACCESS_REMOTE_WRITE ? 1 : 0);
+
+				rc_sq_wqe->new_rkey = htole32(wr->bind_mw.rkey);
+				rc_sq_wqe->byte_16 =
+					  htole32(wr->bind_mw.bind_info.length &
+						  0xffffffff);
+				rc_sq_wqe->byte_20 =
+					 htole32(wr->bind_mw.bind_info.length >>
+						 32);
+				rc_sq_wqe->rkey =
+					htole32(wr->bind_mw.bind_info.mr->rkey);
+				rc_sq_wqe->va =
+					    htole64(wr->bind_mw.bind_info.addr);
+				break;
+
 			default:
 				roce_set_field(rc_sq_wqe->byte_4,
 					       RC_SQ_WQE_BYTE_4_OPCODE_M,

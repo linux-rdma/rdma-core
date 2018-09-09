@@ -175,6 +175,78 @@ int hns_roce_u_dereg_mr(struct verbs_mr *vmr)
 	return ret;
 }
 
+int hns_roce_u_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
+		       struct ibv_mw_bind *mw_bind)
+{
+	struct ibv_mw_bind_info *bind_info = &mw_bind->bind_info;
+	struct ibv_send_wr *bad_wr = NULL;
+	struct ibv_send_wr wr = {};
+	int ret;
+
+	if ((mw->pd != qp->pd) || (mw->pd != bind_info->mr->pd))
+		return EINVAL;
+
+	if (mw->type != IBV_MW_TYPE_1)
+		return EINVAL;
+
+	if (!bind_info->mr && bind_info->length)
+		return EINVAL;
+
+	if (bind_info->mw_access_flags & ~(IBV_ACCESS_REMOTE_WRITE |
+	    IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_ATOMIC))
+		return EINVAL;
+
+	wr.opcode = IBV_WR_BIND_MW;
+	wr.next = NULL;
+
+	wr.wr_id = mw_bind->wr_id;
+	wr.send_flags = mw_bind->send_flags;
+
+	wr.bind_mw.mw = mw;
+	wr.bind_mw.rkey = ibv_inc_rkey(mw->rkey);
+	wr.bind_mw.bind_info = mw_bind->bind_info;
+
+	ret = hns_roce_u_v2_post_send(qp, &wr, &bad_wr);
+	if (ret)
+		return ret;
+
+	mw->rkey = wr.bind_mw.rkey;
+
+	return 0;
+}
+
+struct ibv_mw *hns_roce_u_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
+{
+	struct ibv_mw *mw;
+	struct ibv_alloc_mw cmd = {};
+	struct ib_uverbs_alloc_mw_resp resp = {};
+
+	mw = malloc(sizeof(*mw));
+	if (!mw)
+		return NULL;
+
+	if (ibv_cmd_alloc_mw(pd, type, mw, &cmd, sizeof(cmd),
+			     &resp, sizeof(resp))) {
+		free(mw);
+		return NULL;
+	}
+
+	return mw;
+}
+
+int hns_roce_u_dealloc_mw(struct ibv_mw *mw)
+{
+	int ret;
+
+	ret = ibv_cmd_dealloc_mw(mw);
+	if (ret)
+		return ret;
+
+	free(mw);
+
+	return 0;
+}
+
 static int align_cq_size(int req)
 {
 	int nent;

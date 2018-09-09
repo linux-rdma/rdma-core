@@ -62,10 +62,13 @@ static const struct verbs_match_ent hca_table[] = {
 };
 
 static const struct verbs_context_ops hns_common_ops = {
+	.alloc_mw = hns_roce_u_alloc_mw,
 	.alloc_pd = hns_roce_u_alloc_pd,
+	.bind_mw = hns_roce_u_bind_mw,
 	.cq_event = hns_roce_u_cq_event,
 	.create_cq = hns_roce_u_create_cq,
 	.create_qp = hns_roce_u_create_qp,
+	.dealloc_mw = hns_roce_u_dealloc_mw,
 	.dealloc_pd = hns_roce_u_free_pd,
 	.dereg_mr = hns_roce_u_dereg_mr,
 	.destroy_cq = hns_roce_u_destroy_cq,
