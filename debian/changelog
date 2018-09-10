@@ -1,3 +1,14 @@
+rdma-core (20.0-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Switch from net-tools to iproute2 for rxe_cfg
+    - Install pkg-config files
+  * Update libibverbs symbols and let libibverbs1 break ibverbs-providers < 20~
+  * Drop all patches (accepted upstream)
+  * Bump Standards-Version to 4.2.1 (no changes needed)
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Mon, 10 Sep 2018 11:23:11 +0200
+
 rdma-core (19.0-1) unstable; urgency=medium
 
   * New upstream release.
