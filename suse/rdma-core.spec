@@ -19,7 +19,7 @@
 %bcond_without  systemd
 %define         git_ver %{nil}
 Name:           rdma-core
-Version:        19.0
+Version:        20.0
 Release:        0
 Summary:        RDMA core userspace libraries and daemons
 License:        GPL-2.0 or BSD-2-Clause
@@ -166,6 +166,9 @@ Obsoletes:      librxe-rdmav2 < %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
 %endif
+# Recommended packages for rxe_cfg
+Recommends:     ethtool
+Recommends:     iproute2
 
 %description -n libibverbs
 libibverbs is a library that allows userspace processes to use RDMA
@@ -524,6 +527,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_includedir}/infiniband/*
 %{_includedir}/rdma/*
 %{_libdir}/lib*.so
+%{_libdir}/pkgconfig/*.pc
 %{_mandir}/man3/ibv_*
 %{_mandir}/man3/rdma*
 %{_mandir}/man3/umad*

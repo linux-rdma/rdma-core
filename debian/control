@@ -26,7 +26,7 @@ Depends: lsb-base (>= 3.2-14~),
          ${misc:Depends},
          ${perl:Depends},
          ${shlibs:Depends}
-Recommends: dmidecode, ethtool, net-tools
+Recommends: dmidecode, ethtool, iproute2
 Breaks: infiniband-diags (<< 2.0.0)
 Replaces: infiniband-diags (<< 2.0.0)
 Description: RDMA core userspace infrastructure and documentation
@@ -146,7 +146,7 @@ Section: libs
 Pre-Depends: ${misc:Pre-Depends}
 Depends: adduser, ${misc:Depends}, ${shlibs:Depends}
 Recommends: ibverbs-providers
-Breaks: ibverbs-providers (<< 19~)
+Breaks: ibverbs-providers (<< 20~)
 Description: Library for direct userspace use of RDMA (InfiniBand/iWARP)
  libibverbs is a library that allows userspace processes to use RDMA
  "verbs" as described in the InfiniBand Architecture Specification and

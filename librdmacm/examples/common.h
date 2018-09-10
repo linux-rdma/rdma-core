@@ -41,9 +41,28 @@
 #include <rdma/rsocket.h>
 #include <infiniband/ib.h>
 
+/* Defined in common.c; used in all rsocket demos to determine whether to use
+ * rsocket calls or standard socket calls.
+ */
 extern int use_rs;
 
-#define rs_socket(f,t,p)  use_rs ? rsocket(f,t,p)  : socket(f,t,p)
+static inline int rs_socket(int f, int t, int p)
+{
+	int fd;
+
+	if (!use_rs)
+		return socket(f, t, p);
+
+	fd = rsocket(f, t, p);
+	if (fd < 0) {
+		if (t == SOCK_STREAM && errno == ENODEV)
+			fprintf(stderr, "No RDMA devices were detected\n");
+		else
+			perror("rsocket failed");
+	}
+	return fd;
+}
+
 #define rs_bind(s,a,l)    use_rs ? rbind(s,a,l)    : bind(s,a,l)
 #define rs_listen(s,b)    use_rs ? rlisten(s,b)    : listen(s,b)
 #define rs_connect(s,a,l) use_rs ? rconnect(s,a,l) : connect(s,a,l)
@@ -84,3 +103,4 @@ int size_to_count(int size);
 void format_buf(void *buf, int size);
 int verify_buf(void *buf, int size);
 int do_poll(struct pollfd *fds, int timeout);
+struct rdma_event_channel *create_first_event_channel(void);

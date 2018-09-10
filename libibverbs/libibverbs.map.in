@@ -106,15 +106,20 @@ IBVERBS_1.1 {
 		ibv_copy_ah_attr_from_kern;
 } IBVERBS_1.0;
 
-/* NOTE: The next stanza for public symbols should be IBVERBS_1.4 due to release 12 */
+IBVERBS_1.5 {
+	global:
+		ibv_get_pkey_index;
+} IBVERBS_1.1;
 
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. See the top level CMakeLists.txt for this setting. */
+
 IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 	global:
 		/* These historical symbols are now private to libibverbs */
 		__ioctl_final_num_attrs;
 		_verbs_init_and_alloc_context;
+		execute_ioctl;
 		ibv_cmd_alloc_dm;
 		ibv_cmd_alloc_mw;
 		ibv_cmd_alloc_pd;
@@ -172,6 +177,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_resize_cq;
 		ibv_query_gid_type;
 		ibv_register_driver;
+		verbs_allow_disassociate_destroy;
 		verbs_register_driver_@IBVERBS_PABI_VERSION@;
 		verbs_set_ops;
 		verbs_uninit_context;

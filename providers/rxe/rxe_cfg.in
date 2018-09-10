@@ -135,12 +135,14 @@ sub get_dev_info {
 
     my @my_eth_list = ();
     foreach my $my_eth_dev (glob("/sys/class/net/*")) {
-	$my_eth_dev = basename($my_eth_dev);
-        my $my_dev_type = read_file("/sys/class/net/${my_eth_dev}/type");
-	chomp($my_dev_type);
-        if ($my_dev_type == "1") {
-            push(@my_eth_list, "$my_eth_dev");
-        }
+       $my_eth_dev = basename($my_eth_dev);
+          if ($my_eth_dev ne "bonding_masters"){
+             my $my_dev_type = read_file("/sys/class/net/${my_eth_dev}/type");
+             chomp($my_dev_type);
+             if ($my_dev_type == "1") {
+                push(@my_eth_list, "$my_eth_dev");
+             }
+          }
     }
 
     @list = @my_eth_list;
@@ -189,22 +191,22 @@ sub get_dev_info {
 	$ipv4_addr{$eth} = "            ";
 	$eth_mtu{$eth} = "";
 
-	@lines = `ifconfig $eth`;
+	@lines = `ip addr show $eth`;
 	foreach $line (@lines) {
-	    # get IP address
-	    if ($line =~ /inet addr/) {
-		$line =~ s/^\s+inet addr://g;
-		@fields = split(/\s+/, $line);
-		$ipv4_addr{$eth} = $fields[0];
-	    }
+		# get IP address
+		if ($line =~ /inet /) {
+			$line =~ s/^\s+inet ([0-9.]+)\//$1 /g;
+			@fields = split(/\s+/, $line);
+			$ipv4_addr{$eth} = $fields[0];
+		}
 
-	    # get ethernet mtu
-	    if ($line =~ /MTU:/) {
-		$line =~ s/^.*MTU://g;
-		@fields = split(/\s+/, $line);
-		$eth_mtu{$eth} = $fields[0];
-	    }
-	}
+		# get ethernet mtu
+		if ($line =~ /mtu /) {
+			$line =~ s/^.*mtu //g;
+			@fields = split(/\s+/, $line);
+			$eth_mtu{$eth} = $fields[0];
+		}
+    }
     }
 
     # get rxe mtu
@@ -525,8 +527,8 @@ sub do_start {
     foreach my $rxe (@rxe_array) {
 	my $stat = get_devinfo($rxe);
 	if ($stat =~ "PORT_DOWN") {
-	    my $cmd = "ifconfig $eth_names{$rxe} up";
-	    system($cmd);
+		my $cmd = "ip link set $eth_names{$rxe} up";
+		system($cmd);
 	}
     }
 

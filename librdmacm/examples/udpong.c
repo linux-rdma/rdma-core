@@ -272,7 +272,6 @@ static int svr_bind(void)
 
 	rs = rs_socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 	if (rs < 0) {
-		perror("rsocket");
 		ret = rs;
 		goto out;
 	}
@@ -417,7 +416,6 @@ static int client_connect(void)
 
 	rs = rs_socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 	if (rs < 0) {
-		perror("rsocket");
 		ret = rs;
 		goto out;
 	}
@@ -425,7 +423,10 @@ static int client_connect(void)
 	set_options(rs);
 	ret = rs_connect(rs, res->ai_addr, res->ai_addrlen);
 	if (ret) {
-		perror("rconnect");
+		if (errno == ENODEV)
+			fprintf(stderr, "No RDMA devices were detected\n");
+		else
+			perror("rconnect");
 		rs_close(rs);
 		goto out;
 	}

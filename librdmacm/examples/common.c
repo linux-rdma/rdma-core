@@ -161,3 +161,17 @@ int do_poll(struct pollfd *fds, int timeout)
 
 	return ret == 1 ? (fds->revents & (POLLERR | POLLHUP)) : ret;
 }
+
+struct rdma_event_channel *create_first_event_channel(void)
+{
+	struct rdma_event_channel *channel;
+
+	channel = rdma_create_event_channel();
+	if (!channel) {
+		if (errno == ENODEV)
+			fprintf(stderr, "No RDMA devices were detected\n");
+		else
+			perror("failed to create RDMA CM event channel");
+	}
+	return channel;
+}

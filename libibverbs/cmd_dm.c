@@ -62,15 +62,20 @@ int ibv_cmd_free_dm(struct verbs_dm *dm)
 {
 	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_DM, UVERBS_METHOD_DM_FREE,
 			       1);
+	int ret;
 
 	fill_attr_in_obj(cmdb, UVERBS_ATTR_FREE_DM_HANDLE, dm->handle);
 
-	return execute_ioctl(dm->dm.context, cmdb);
+	ret = execute_ioctl(dm->dm.context, cmdb);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
+
+	return 0;
 }
 
 int ibv_cmd_reg_dm_mr(struct ibv_pd *pd, struct verbs_dm *dm,
 		      uint64_t offset, size_t length,
-		      unsigned int access, struct ibv_mr *mr,
+		      unsigned int access, struct verbs_mr *vmr,
 		      struct ibv_command_buffer *link)
 {
 	DECLARE_COMMAND_BUFFER_LINK(cmdb, UVERBS_OBJECT_MR, UVERBS_METHOD_DM_MR_REG,
@@ -102,13 +107,15 @@ int ibv_cmd_reg_dm_mr(struct ibv_pd *pd, struct verbs_dm *dm,
 	if (ret)
 		return errno;
 
-	mr->handle = read_attr_obj(UVERBS_ATTR_REG_DM_MR_HANDLE, handle);
-	mr->context = pd->context;
-	mr->lkey = lkey;
-	mr->rkey = rkey;
-	mr->length = length;
-	mr->pd = pd;
-	mr->addr = NULL;
+	vmr->ibv_mr.handle =
+		read_attr_obj(UVERBS_ATTR_REG_DM_MR_HANDLE, handle);
+	vmr->ibv_mr.context = pd->context;
+	vmr->ibv_mr.lkey = lkey;
+	vmr->ibv_mr.rkey = rkey;
+	vmr->ibv_mr.length = length;
+	vmr->ibv_mr.pd = pd;
+	vmr->ibv_mr.addr = NULL;
+	vmr->mr_type  = IBV_MR_TYPE_MR;
 
 	return 0;
 }

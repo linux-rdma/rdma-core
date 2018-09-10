@@ -59,6 +59,8 @@ DECLARE_DRV_CMD(mlx5_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
 		empty, mlx5_ib_alloc_pd_resp);
 DECLARE_DRV_CMD(mlx5_create_cq, IB_USER_VERBS_CMD_CREATE_CQ,
 		mlx5_ib_create_cq, mlx5_ib_create_cq_resp);
+DECLARE_DRV_CMD(mlx5_create_cq_ex, IB_USER_VERBS_EX_CMD_CREATE_CQ,
+		mlx5_ib_create_cq, mlx5_ib_create_cq_resp);
 DECLARE_DRV_CMD(mlx5_create_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
 		mlx5_ib_create_srq, mlx5_ib_create_srq_resp);
 DECLARE_DRV_CMD(mlx5_create_srq_ex, IB_USER_VERBS_CMD_CREATE_XSRQ,

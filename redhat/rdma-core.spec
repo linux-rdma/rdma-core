@@ -1,5 +1,5 @@
 Name: rdma-core
-Version: 19.0
+Version: 20.0
 Release: 1%{?dist}
 Summary: RDMA core userspace libraries and daemons
 
@@ -350,6 +350,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_includedir}/infiniband/*
 %{_includedir}/rdma/*
 %{_libdir}/lib*.so
+%{_libdir}/pkgconfig/*.pc
 %{_mandir}/man3/ibv_*
 %{_mandir}/man3/rdma*
 %{_mandir}/man3/umad*

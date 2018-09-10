@@ -200,24 +200,24 @@ struct ibv_mr *ocrdma_reg_mr(struct ibv_pd *pd, void *addr,
 	bzero(mr, sizeof *mr);
 
 	if (ibv_cmd_reg_mr(pd, addr, len, hca_va,
-			   access, &mr->ibv_mr, &cmd, sizeof cmd,
-			   &resp.ibv_resp, sizeof resp)) {
+			   access, &mr->vmr, &cmd, sizeof(cmd),
+			   &resp.ibv_resp, sizeof(resp))) {
 		free(mr);
 		return NULL;
 	}
-	return &mr->ibv_mr;
+	return &mr->vmr.ibv_mr;
 }
 
 /*
  * ocrdma_dereg_mr
  */
-int ocrdma_dereg_mr(struct ibv_mr *mr)
+int ocrdma_dereg_mr(struct verbs_mr *vmr)
 {
 	int status;
-	status = ibv_cmd_dereg_mr(mr);
+	status = ibv_cmd_dereg_mr(vmr);
 	if (status)
 		return status;
-	free(mr);
+	free(vmr);
 	return 0;
 }
 

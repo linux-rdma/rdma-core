@@ -52,6 +52,9 @@ enum ibv_cq_init_attr_mask {
 
 enum ibv_create_cq_attr_flags {
         IBV_CREATE_CQ_ATTR_SINGLE_THREADED      = 1 << 0, /* This CQ is used from a single threaded, thus no locking is required */
+        IBV_CREATE_CQ_ATTR_IGNORE_OVERRUN       = 1 << 1, /* This CQ will not pass to error state if overrun, CQE always will be written to next entry.
+                                                           * An application must be designed to avoid ever overflowing the CQ, otherwise CQEs might be lost.
+                                                           */
 };
 
 .SH "Polling an extended CQ"

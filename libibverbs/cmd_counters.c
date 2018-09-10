@@ -33,6 +33,7 @@
 #include <infiniband/cmd_ioctl.h>
 #include <rdma/ib_user_ioctl_cmds.h>
 #include <infiniband/driver.h>
+#include <infiniband/cmd_write.h>
 
 int ibv_cmd_create_counters(struct ibv_context *context,
 			    struct ibv_counters_init_attr *init_attr,
@@ -65,9 +66,14 @@ int ibv_cmd_destroy_counters(struct verbs_counters *vcounters)
 	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_COUNTERS,
 			       UVERBS_METHOD_COUNTERS_DESTROY,
 			       1);
+	int ret;
 
 	fill_attr_in_obj(cmd, UVERBS_ATTR_DESTROY_COUNTERS_HANDLE, vcounters->handle);
-	return execute_ioctl(vcounters->counters.context, cmd);
+	ret = execute_ioctl(vcounters->counters.context, cmd);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
+
+	return 0;
 }
 
 int ibv_cmd_read_counters(struct verbs_counters *vcounters,

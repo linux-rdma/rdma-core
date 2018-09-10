@@ -146,6 +146,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.query_rt_values = mlx5_query_rt_values,
 	.read_counters = mlx5_read_counters,
 	.reg_dm_mr = mlx5_reg_dm_mr,
+	.alloc_null_mr = mlx5_alloc_null_mr,
 };
 
 static const struct verbs_context_ops mlx5_ctx_cqev1_ops = {
@@ -832,6 +833,17 @@ static int mlx5dv_get_dm(struct ibv_dm *dm_in,
 	return 0;
 }
 
+static int mlx5dv_get_av(struct ibv_ah *ah_in,
+			 struct mlx5dv_ah *ah_out)
+{
+	struct mlx5_ah *mah = to_mah(ah_in);
+
+	ah_out->comp_mask = 0;
+	ah_out->av	  = &mah->av;
+
+	return 0;
+}
+
 LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
 		   int,
 		   struct mlx5dv_obj *obj, uint64_t obj_type)
@@ -848,6 +860,8 @@ LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
 		ret = mlx5dv_get_rwq(obj->rwq.in, obj->rwq.out);
 	if (!ret && (obj_type & MLX5DV_OBJ_DM))
 		ret = mlx5dv_get_dm(obj->dm.in, obj->dm.out);
+	if (!ret && (obj_type & MLX5DV_OBJ_AH))
+		ret = mlx5dv_get_av(obj->ah.in, obj->ah.out);
 
 	return ret;
 }
@@ -1063,6 +1077,18 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	context->max_srq_recv_wr = resp.max_srq_recv_wr;
 	context->num_dyn_bfregs = resp.num_dyn_bfregs;
 
+	if (resp.comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_DUMP_FILL_MKEY) {
+		context->dump_fill_mkey = resp.dump_fill_mkey;
+		/* Have the BE value ready to be used in data path */
+		context->dump_fill_mkey_be = htobe32(resp.dump_fill_mkey);
+	} else {
+		/* kernel driver will never return MLX5_INVALID_LKEY for
+		 * dump_fill_mkey
+		 */
+		context->dump_fill_mkey = MLX5_INVALID_LKEY;
+		context->dump_fill_mkey_be = htobe32(MLX5_INVALID_LKEY);
+	}
+
 	if (context->num_dyn_bfregs) {
 		context->count_dyn_bfregs = calloc(context->num_dyn_bfregs,
 						   sizeof(*context->count_dyn_bfregs));
@@ -1183,8 +1209,10 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 
 	for (j = 0; j < min(MLX5_MAX_PORTS_NUM, context->num_ports); ++j) {
 		memset(&port_attr, 0, sizeof(port_attr));
-		if (!mlx5_query_port(&v_ctx->context, j + 1, &port_attr))
+		if (!mlx5_query_port(&v_ctx->context, j + 1, &port_attr)) {
 			context->cached_link_layer[j] = port_attr.link_layer;
+			context->cached_port_flags[j] = port_attr.flags;
+		}
 	}
 
 	return v_ctx;

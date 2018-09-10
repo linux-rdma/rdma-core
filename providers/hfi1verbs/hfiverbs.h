@@ -207,7 +207,7 @@ int hfi1_free_pd(struct ibv_pd *pd);
 struct ibv_mr *hfi1_reg_mr(struct ibv_pd *pd, void *addr,
 			    size_t length, int access);
 
-int hfi1_dereg_mr(struct ibv_mr *mr);
+int hfi1_dereg_mr(struct verbs_mr *vmr);
 
 struct ibv_cq *hfi1_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,

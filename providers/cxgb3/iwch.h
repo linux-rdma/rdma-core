@@ -79,7 +79,7 @@ struct iwch_pd {
 };
 
 struct iwch_mr {
-	struct ibv_mr ibv_mr;
+	struct verbs_mr vmr;
 	uint64_t va_fbo;
 	uint32_t page_size;
 	uint32_t pbl_addr;
@@ -129,9 +129,9 @@ static inline struct iwch_qp *to_iwch_qp(struct ibv_qp *ibqp)
 	return to_iwch_xxx(qp, qp);
 }
 
-static inline struct iwch_mr *to_iwch_mr(struct ibv_mr *ibmr)
+static inline struct iwch_mr *to_iwch_mr(struct verbs_mr *vmr)
 {
-	return to_iwch_xxx(mr, mr);
+	return container_of(vmr, struct iwch_mr, vmr);
 }
 
 static inline unsigned long long_log2(unsigned long x)
@@ -152,7 +152,7 @@ extern int iwch_free_pd(struct ibv_pd *pd);
 
 extern struct ibv_mr *iwch_reg_mr(struct ibv_pd *pd, void *addr,
 				  size_t length, int access);
-extern int iwch_dereg_mr(struct ibv_mr *mr);
+extern int iwch_dereg_mr(struct verbs_mr *mr);
 
 struct ibv_cq *iwch_create_cq(struct ibv_context *context, int cqe,
 			      struct ibv_comp_channel *channel,

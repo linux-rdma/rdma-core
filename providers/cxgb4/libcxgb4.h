@@ -59,9 +59,11 @@ struct c4iw_dev {
 	struct c4iw_qp **qpid2ptr;
 	int max_cq;
 	struct c4iw_cq **cqid2ptr;
+	struct list_head srq_list;
 	pthread_spinlock_t lock;
 	struct list_node list;
 	int abi_version;
+	bool write_cmpl_supported;
 };
 
 static inline int dev_is_t6(struct c4iw_dev *dev)
@@ -90,7 +92,7 @@ struct c4iw_pd {
 };
 
 struct c4iw_mr {
-	struct ibv_mr ibv_mr;
+	struct verbs_mr vmr;
 	uint64_t va_fbo;
 	uint32_t len;
 };
@@ -117,10 +119,28 @@ struct c4iw_qp {
 	struct t4_wq wq;
 	pthread_spinlock_t lock;
 	int sq_sig_all;
+	struct c4iw_srq *srq;
 };
 
 #define to_c4iw_xxx(xxx, type)						\
 	container_of(ib##xxx, struct c4iw_##type, ibv_##xxx)
+
+struct c4iw_srq {
+	struct ibv_srq ibv_srq;
+	int type;                       /* must be 2nd in this struct */
+	struct c4iw_dev *rhp;
+	struct t4_srq wq;
+	struct list_node list;
+	pthread_spinlock_t lock;
+	uint32_t srq_limit;
+	int armed;
+	__u32 flags;
+};
+
+static inline struct c4iw_srq *to_c4iw_srq(struct ibv_srq *ibsrq)
+{
+	return to_c4iw_xxx(srq, srq);
+}
 
 static inline struct c4iw_dev *to_c4iw_dev(struct ibv_device *ibdev)
 {
@@ -147,9 +167,9 @@ static inline struct c4iw_qp *to_c4iw_qp(struct ibv_qp *ibqp)
 	return to_c4iw_xxx(qp, qp);
 }
 
-static inline struct c4iw_mr *to_c4iw_mr(struct ibv_mr *ibmr)
+static inline struct c4iw_mr *to_c4iw_mr(struct verbs_mr *vmr)
 {
-	return to_c4iw_xxx(mr, mr);
+	return container_of(vmr, struct c4iw_mr, vmr);
 }
 
 static inline struct c4iw_qp *get_qhp(struct c4iw_dev *rhp, u32 qid)
@@ -180,7 +200,7 @@ int c4iw_free_pd(struct ibv_pd *pd);
 
 struct ibv_mr *c4iw_reg_mr(struct ibv_pd *pd, void *addr,
 				  size_t length, int access);
-int c4iw_dereg_mr(struct ibv_mr *mr);
+int c4iw_dereg_mr(struct verbs_mr *vmr);
 
 struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 			      struct ibv_comp_channel *channel,
@@ -201,6 +221,7 @@ int c4iw_destroy_srq(struct ibv_srq *srq);
 int c4iw_post_srq_recv(struct ibv_srq *ibsrq,
 			      struct ibv_recv_wr *wr,
 			      struct ibv_recv_wr **bad_wr);
+int c4iw_query_srq(struct ibv_srq *ibsrq, struct ibv_srq_attr *attr);
 
 struct ibv_qp *c4iw_create_qp(struct ibv_pd *pd,
 				     struct ibv_qp_init_attr *attr);
@@ -229,6 +250,8 @@ void c4iw_flush_hw_cq(struct c4iw_cq *chp, struct c4iw_qp *flush_qhp);
 int c4iw_flush_rq(struct t4_wq *wq, struct t4_cq *cq, int count);
 void c4iw_flush_sq(struct c4iw_qp *qhp);
 void c4iw_count_rcqes(struct t4_cq *cq, struct t4_wq *wq, int *count);
+void c4iw_copy_wr_to_srq(struct t4_srq *srq, union t4_recv_wr *wqe, u8 len16);
+void c4iw_flush_srqidx(struct c4iw_qp *qhp, u32 srqidx);
 
 #define FW_MAJ 0
 #define FW_MIN 0

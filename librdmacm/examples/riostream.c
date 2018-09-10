@@ -367,10 +367,9 @@ static int server_listen(void)
 		return ret;
 	}
 
-	lrs = rai ? rsocket(rai->ai_family, SOCK_STREAM, 0) :
-		    rsocket(ai->ai_family, SOCK_STREAM, 0);
+	lrs = rai ? rs_socket(rai->ai_family, SOCK_STREAM, 0) :
+		    rs_socket(ai->ai_family, SOCK_STREAM, 0);
 	if (lrs < 0) {
-		perror("rsocket");
 		ret = lrs;
 		goto free;
 	}
@@ -448,10 +447,9 @@ static int client_connect(void)
 		return ret;
 	}
 
-	rs = rai ? rsocket(rai->ai_family, SOCK_STREAM, 0) :
-		   rsocket(ai->ai_family, SOCK_STREAM, 0);
+	rs = rai ? rs_socket(rai->ai_family, SOCK_STREAM, 0) :
+		   rs_socket(ai->ai_family, SOCK_STREAM, 0);
 	if (rs < 0) {
-		perror("rsocket");
 		ret = rs;
 		goto free;
 	}

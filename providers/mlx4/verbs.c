@@ -170,6 +170,8 @@ int mlx4_query_port(struct ibv_context *context, uint8_t port,
 				attr->link_layer;
 			mctx->port_query_cache[port - 1].caps =
 				attr->port_cap_flags;
+			mctx->port_query_cache[port - 1].flags =
+				attr->flags;
 			mctx->port_query_cache[port - 1].valid = 1;
 		}
 	}
@@ -193,6 +195,10 @@ static int query_port_cache(struct ibv_context *context, uint8_t port_num,
 			mctx->
 			port_query_cache[port_num - 1].
 			caps;
+		port_attr->flags =
+			mctx->
+			port_query_cache[port_num - 1].
+			flags;
 		return 0;
 	}
 	return mlx4_query_port(context, port_num,
@@ -226,7 +232,7 @@ int mlx4_free_pd(struct ibv_pd *pd)
 	int ret;
 
 	ret = ibv_cmd_dealloc_pd(pd);
-	if (ret && !cleanup_on_fatal(ret))
+	if (ret)
 		return ret;
 
 	free(to_mpd(pd));
@@ -263,7 +269,7 @@ int mlx4_close_xrcd(struct ibv_xrcd *ib_xrcd)
 	int ret;
 
 	ret = ibv_cmd_close_xrcd(xrcd);
-	if (ret && !cleanup_on_fatal(ret))
+	if (ret)
 		return ret;
 
 	free(xrcd);
@@ -273,27 +279,27 @@ int mlx4_close_xrcd(struct ibv_xrcd *ib_xrcd)
 struct ibv_mr *mlx4_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			   int access)
 {
-	struct ibv_mr *mr;
+	struct verbs_mr *vmr;
 	struct ibv_reg_mr cmd;
 	struct ib_uverbs_reg_mr_resp resp;
 	int ret;
 
-	mr = malloc(sizeof *mr);
-	if (!mr)
+	vmr = malloc(sizeof(*vmr));
+	if (!vmr)
 		return NULL;
 
 	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr,
-			     access, mr, &cmd, sizeof cmd,
-			     &resp, sizeof resp);
+			     access, vmr, &cmd, sizeof(cmd),
+			     &resp, sizeof(resp));
 	if (ret) {
-		free(mr);
+		free(vmr);
 		return NULL;
 	}
 
-	return mr;
+	return &vmr->ibv_mr;
 }
 
-int mlx4_rereg_mr(struct ibv_mr *mr,
+int mlx4_rereg_mr(struct verbs_mr *vmr,
 		  int flags,
 		  struct ibv_pd *pd, void *addr,
 		  size_t length, int access)
@@ -304,22 +310,22 @@ int mlx4_rereg_mr(struct ibv_mr *mr,
 	if (flags & IBV_REREG_MR_KEEP_VALID)
 		return ENOTSUP;
 
-	return ibv_cmd_rereg_mr(mr, flags, addr, length,
+	return ibv_cmd_rereg_mr(vmr, flags, addr, length,
 				(uintptr_t)addr,
 				access, pd,
 				&cmd, sizeof(cmd),
 				&resp, sizeof(resp));
 }
 
-int mlx4_dereg_mr(struct ibv_mr *mr)
+int mlx4_dereg_mr(struct verbs_mr *vmr)
 {
 	int ret;
 
-	ret = ibv_cmd_dereg_mr(mr);
-	if (ret && !cleanup_on_fatal(ret))
+	ret = ibv_cmd_dereg_mr(vmr);
+	if (ret)
 		return ret;
 
-	free(mr);
+	free(vmr);
 	return 0;
 }
 
@@ -348,10 +354,9 @@ struct ibv_mw *mlx4_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
 int mlx4_dealloc_mw(struct ibv_mw *mw)
 {
 	int ret;
-	struct ibv_dealloc_mw cmd;
 
-	ret = ibv_cmd_dealloc_mw(mw, &cmd, sizeof(cmd));
-	if (ret && !cleanup_on_fatal(ret))
+	ret = ibv_cmd_dealloc_mw(mw);
+	if (ret)
 		return ret;
 
 	free(mw);
@@ -642,7 +647,7 @@ int mlx4_destroy_cq(struct ibv_cq *cq)
 	int ret;
 
 	ret = ibv_cmd_destroy_cq(cq);
-	if (ret && !cleanup_on_fatal(ret))
+	if (ret)
 		return ret;
 
 	mlx4_free_db(to_mctx(cq->context), MLX4_DB_TYPE_CQ, to_mcq(cq)->set_ci_db);
@@ -746,7 +751,7 @@ int mlx4_destroy_srq(struct ibv_srq *srq)
 		return mlx4_destroy_xrc_srq(srq);
 
 	ret = ibv_cmd_destroy_srq(srq);
-	if (ret && !cleanup_on_fatal(ret))
+	if (ret)
 		return ret;
 
 	mlx4_free_db(to_mctx(srq->context), MLX4_DB_TYPE_RQ, to_msrq(srq)->db);
@@ -1215,7 +1220,7 @@ static int _mlx4_destroy_qp_rss(struct ibv_qp *ibqp)
 	int ret;
 
 	ret = ibv_cmd_destroy_qp(ibqp);
-	if (ret && !cleanup_on_fatal(ret))
+	if (ret)
 		return ret;
 
 	free(qp);
@@ -1233,7 +1238,7 @@ int mlx4_destroy_qp(struct ibv_qp *ibqp)
 
 	pthread_mutex_lock(&to_mctx(ibqp->context)->qp_table_mutex);
 	ret = ibv_cmd_destroy_qp(ibqp);
-	if (ret && !cleanup_on_fatal(ret)) {
+	if (ret) {
 		pthread_mutex_unlock(&to_mctx(ibqp->context)->qp_table_mutex);
 		return ret;
 	}
@@ -1326,6 +1331,10 @@ struct ibv_ah *mlx4_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	struct ibv_port_attr port_attr;
 
 	if (query_port_cache(pd->context, attr->port_num, &port_attr))
+		return NULL;
+
+	if (port_attr.flags & IBV_QPF_GRH_REQUIRED &&
+	    !attr->is_global)
 		return NULL;
 
 	ah = malloc(sizeof *ah);
@@ -1558,7 +1567,7 @@ int mlx4_destroy_flow(struct ibv_flow *flow_id)
 
 	ret = ibv_cmd_destroy_flow(flow_id);
 
-	if (ret && !cleanup_on_fatal(ret))
+	if (ret)
 		return ret;
 
 	free(flow_id);
@@ -1575,7 +1584,7 @@ int mlx4_destroy_wq(struct ibv_wq *ibwq)
 	pthread_mutex_lock(&mcontext->qp_table_mutex);
 
 	ret = ibv_cmd_destroy_wq(ibwq);
-	if (ret && !cleanup_on_fatal(ret)) {
+	if (ret) {
 		pthread_mutex_unlock(&mcontext->qp_table_mutex);
 		return ret;
 	}
@@ -1649,7 +1658,7 @@ int mlx4_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table)
 
 	ret = ibv_cmd_destroy_rwq_ind_table(rwq_ind_table);
 
-	if (ret && !cleanup_on_fatal(ret))
+	if (ret)
 		return ret;
 
 	free(rwq_ind_table);

@@ -69,6 +69,7 @@ static const struct verbs_context_ops hns_common_ops = {
 	.dealloc_pd = hns_roce_u_free_pd,
 	.dereg_mr = hns_roce_u_dereg_mr,
 	.destroy_cq = hns_roce_u_destroy_cq,
+	.modify_cq = hns_roce_u_modify_cq,
 	.query_device = hns_roce_u_query_device,
 	.query_port = hns_roce_u_query_port,
 	.query_qp = hns_roce_u_query_qp,

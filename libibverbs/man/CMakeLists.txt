@@ -1,6 +1,7 @@
 rdma_man_pages(
   ibv_alloc_dm.3
   ibv_alloc_mw.3
+  ibv_alloc_null_mr.3.md
   ibv_alloc_parent_domain.3
   ibv_alloc_pd.3
   ibv_alloc_td.3
@@ -32,6 +33,7 @@ rdma_man_pages(
   ibv_get_device_guid.3.md
   ibv_get_device_list.3
   ibv_get_device_name.3.md
+  ibv_get_pkey_index.3.md
   ibv_get_srq_num.3.md
   ibv_inc_rkey.3.md
   ibv_modify_qp.3

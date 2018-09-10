@@ -33,6 +33,7 @@
 #include <infiniband/cmd_ioctl.h>
 #include <rdma/ib_user_ioctl_cmds.h>
 #include <infiniband/driver.h>
+#include <infiniband/cmd_write.h>
 
 static void scrub_esp_encap(struct ibv_flow_action_esp_encap *esp_encap)
 {
@@ -77,8 +78,8 @@ int ibv_cmd_create_flow_action_esp(struct ibv_context *ctx,
 				     UVERBS_METHOD_FLOW_ACTION_ESP_CREATE,
 				     FLOW_ACTION_ESP_ATTRS_NUM,
 				     driver);
-	struct ib_uverbs_attr *handle =
-		fill_attr_out_obj(cmd, UVERBS_ATTR_FLOW_ACTION_ESP_HANDLE);
+	struct ib_uverbs_attr *handle = fill_attr_out_obj(
+		cmd, UVERBS_ATTR_CREATE_FLOW_ACTION_ESP_HANDLE);
 	int ret;
 
 	ret = copy_flow_action_esp(attr, cmd);
@@ -91,8 +92,8 @@ int ibv_cmd_create_flow_action_esp(struct ibv_context *ctx,
 
 	flow_action->action.context = ctx;
 	flow_action->type = IBV_FLOW_ACTION_ESP;
-	flow_action->handle = read_attr_obj(UVERBS_ATTR_FLOW_ACTION_ESP_HANDLE,
-					    handle);
+	flow_action->handle = read_attr_obj(
+		UVERBS_ATTR_CREATE_FLOW_ACTION_ESP_HANDLE, handle);
 
 	return 0;
 }
@@ -106,7 +107,7 @@ int ibv_cmd_modify_flow_action_esp(struct verbs_flow_action *flow_action,
 				     FLOW_ACTION_ESP_ATTRS_NUM, driver);
 	int ret;
 
-	fill_attr_in_obj(cmd, UVERBS_ATTR_FLOW_ACTION_ESP_HANDLE,
+	fill_attr_in_obj(cmd, UVERBS_ATTR_MODIFY_FLOW_ACTION_ESP_HANDLE,
 			 flow_action->handle);
 
 	ret = copy_flow_action_esp(attr, cmd);
@@ -120,9 +121,14 @@ int ibv_cmd_destroy_flow_action(struct verbs_flow_action *action)
 {
 	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_FLOW_ACTION,
 			       UVERBS_METHOD_FLOW_ACTION_DESTROY, 1);
+	int ret;
 
 	fill_attr_in_obj(cmd, UVERBS_ATTR_DESTROY_FLOW_ACTION_HANDLE,
 			 action->handle);
-	return execute_ioctl(action->action.context, cmd);
+	ret = execute_ioctl(action->action.context, cmd);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
+
+	return 0;
 }
 

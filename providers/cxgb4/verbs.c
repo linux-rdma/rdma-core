@@ -43,6 +43,8 @@
 #include "libcxgb4.h"
 #include "cxgb4-abi.h"
 
+bool is_64b_cqe;
+
 #define MASKED(x) (void *)((unsigned long)(x) & c4iw_page_mask)
 
 int c4iw_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
@@ -121,7 +123,7 @@ static struct ibv_mr *__c4iw_reg_mr(struct ibv_pd *pd, void *addr,
 		return NULL;
 
 	if (ibv_cmd_reg_mr(pd, addr, length, hca_va,
-			   access, &mhp->ibv_mr, &cmd, sizeof cmd,
+			   access, &mhp->vmr, &cmd, sizeof(cmd),
 			   &resp, sizeof resp)) {
 		free(mhp);
 		return NULL;
@@ -131,13 +133,13 @@ static struct ibv_mr *__c4iw_reg_mr(struct ibv_pd *pd, void *addr,
 	mhp->len = length;
 
 	PDBG("%s stag 0x%x va_fbo 0x%" PRIx64 " len %d\n",
-	     __func__, mhp->ibv_mr.rkey, mhp->va_fbo, mhp->len);
+	     __func__, mhp->vmr.ibv_mr.rkey, mhp->va_fbo, mhp->len);
 
 	pthread_spin_lock(&dev->lock);
-	dev->mmid2ptr[c4iw_mmid(mhp->ibv_mr.lkey)] = mhp;
+	dev->mmid2ptr[c4iw_mmid(mhp->vmr.ibv_mr.lkey)] = mhp;
 	pthread_spin_unlock(&dev->lock);
 	INC_STAT(mr);
-	return &mhp->ibv_mr;
+	return &mhp->vmr.ibv_mr;
 }
 
 struct ibv_mr *c4iw_reg_mr(struct ibv_pd *pd, void *addr,
@@ -147,20 +149,20 @@ struct ibv_mr *c4iw_reg_mr(struct ibv_pd *pd, void *addr,
 	return __c4iw_reg_mr(pd, addr, length, (uintptr_t) addr, access);
 }
 
-int c4iw_dereg_mr(struct ibv_mr *mr)
+int c4iw_dereg_mr(struct verbs_mr *vmr)
 {
 	int ret;
-	struct c4iw_dev *dev = to_c4iw_dev(mr->pd->context->device);
+	struct c4iw_dev *dev = to_c4iw_dev(vmr->ibv_mr.pd->context->device);
 
-	ret = ibv_cmd_dereg_mr(mr);
+	ret = ibv_cmd_dereg_mr(vmr);
 	if (ret)
 		return ret;
 
 	pthread_spin_lock(&dev->lock);
-	dev->mmid2ptr[c4iw_mmid(mr->lkey)] = NULL;
+	dev->mmid2ptr[c4iw_mmid(vmr->ibv_mr.lkey)] = NULL;
 	pthread_spin_unlock(&dev->lock);
 
-	free(to_c4iw_mr(mr));
+	free(to_c4iw_mr(vmr));
 
 	return 0;
 }
@@ -168,6 +170,7 @@ int c4iw_dereg_mr(struct ibv_mr *mr)
 struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 			      struct ibv_comp_channel *channel, int comp_vector)
 {
+	struct uc4iw_create_cq cmd = {};
 	struct uc4iw_create_cq_resp resp;
 	struct c4iw_cq *chp;
 	struct c4iw_dev *dev = to_c4iw_dev(context->device);
@@ -178,16 +181,17 @@ struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 		return NULL;
 	}
 
-	resp.reserved = 0;
+	resp.flags = 0;
+	cmd.flags = C4IW_64B_CQE;
+
 	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
-				&chp->ibv_cq, NULL, 0,
+				&chp->ibv_cq, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof resp);
 	if (ret)
 		goto err1;
 
-	if (resp.reserved)
-		PDBG("%s c4iw_create_cq_resp reserved field modified by kernel\n",
-		     __FUNCTION__);
+	if (resp.flags & C4IW_64B_CQE)
+		is_64b_cqe = true;
 
 	pthread_spin_init(&chp->lock, PTHREAD_PROCESS_PRIVATE);
 #ifdef STALL_DETECTION
@@ -204,6 +208,10 @@ struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 	if (chp->cq.queue == MAP_FAILED)
 		goto err2;
 
+	chp->cq.qp_errp =
+	&((struct t4_status_page *)
+			Q_ENTRY(chp->cq.queue, chp->cq.size))->qp_err;
+
 	chp->cq.ugts = mmap(NULL, c4iw_page_size, PROT_WRITE, MAP_SHARED,
 			   context->cmd_fd, resp.gts_key);
 	if (chp->cq.ugts == MAP_FAILED)
@@ -213,7 +221,7 @@ struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 		chp->cq.ugts += 1;
 	else
 		chp->cq.ugts += 5;
-	chp->cq.sw_queue = calloc(chp->cq.size, sizeof *chp->cq.queue);
+	chp->cq.sw_queue = calloc(chp->cq.size, CQE_SIZE(chp->cq.queue));
 	if (!chp->cq.sw_queue)
 		goto err4;
 
@@ -279,24 +287,141 @@ int c4iw_destroy_cq(struct ibv_cq *ibcq)
 struct ibv_srq *c4iw_create_srq(struct ibv_pd *pd,
 				struct ibv_srq_init_attr *attr)
 {
+	struct c4iw_dev *dev = to_c4iw_dev(pd->context->device);
+	struct uc4iw_create_srq_resp resp;
+	unsigned long segment_offset;
+	struct ibv_create_srq cmd;
+	struct c4iw_srq *srq;
+	void *dbva;
+	int ret;
+
+	PDBG("%s enter\n", __func__);
+	srq = calloc(1, sizeof(*srq));
+	if (!srq)
+		goto err;
+
+	ret = ibv_cmd_create_srq(pd, &srq->ibv_srq, attr, &cmd,
+			sizeof(cmd), &resp.ibv_resp, sizeof(resp));
+	if (ret)
+		goto err_free_srq_mem;
+
+	PDBG("%s srq id 0x%x srq key %" PRIx64 " srq db/gts key %" PRIx64
+			" qid_mask 0x%x\n", __func__,
+			resp.srqid, resp.srq_key, resp.srq_db_gts_key,
+			resp.qid_mask);
+
+	srq->rhp = dev;
+	srq->wq.qid = resp.srqid;
+	srq->wq.size = resp.srq_size;
+	srq->wq.memsize = resp.srq_memsize;
+	srq->wq.rqt_abs_idx = resp.rqt_abs_idx;
+	srq->flags = resp.flags;
+	pthread_spin_init(&srq->lock, PTHREAD_PROCESS_PRIVATE);
+
+	dbva = mmap(NULL, c4iw_page_size, PROT_WRITE, MAP_SHARED,
+			pd->context->cmd_fd, resp.srq_db_gts_key);
+	if (dbva == MAP_FAILED)
+		goto err_destroy_srq;
+	srq->wq.udb = dbva;
+
+	segment_offset = 128 * (srq->wq.qid & resp.qid_mask);
+	if (segment_offset < c4iw_page_size) {
+		srq->wq.udb += segment_offset / 4;
+		srq->wq.wc_reg_available = 1;
+	} else
+		srq->wq.bar2_qid = srq->wq.qid & resp.qid_mask;
+	srq->wq.udb += 2;
+
+	srq->wq.queue = mmap(NULL, srq->wq.memsize,
+			PROT_WRITE, MAP_SHARED,
+			pd->context->cmd_fd, resp.srq_key);
+	if (srq->wq.queue == MAP_FAILED)
+		goto err_unmap_udb;
+
+	srq->wq.sw_rq = calloc(srq->wq.size, sizeof(struct t4_swrqe));
+	if (!srq->wq.sw_rq)
+		goto err_unmap_queue;
+	srq->wq.pending_wrs =
+		calloc(srq->wq.size, sizeof(*srq->wq.pending_wrs));
+	if (!srq->wq.pending_wrs)
+		goto err_free_sw_rq;
+
+	pthread_spin_lock(&dev->lock);
+	list_add_tail(&dev->srq_list, &srq->list);
+	pthread_spin_unlock(&dev->lock);
+
+	PDBG("%s srq dbva %p srq qva %p srq depth %u srq memsize %lu\n",
+			__func__, srq->wq.udb, srq->wq.queue,
+			srq->wq.size, srq->wq.memsize);
+
+	INC_STAT(srq);
+	return &srq->ibv_srq;
+err_free_sw_rq:
+	free(srq->wq.sw_rq);
+err_unmap_queue:
+	munmap((void *)srq->wq.queue, srq->wq.memsize);
+err_unmap_udb:
+	munmap(MASKED(srq->wq.udb), c4iw_page_size);
+err_destroy_srq:
+	(void)ibv_cmd_destroy_srq(&srq->ibv_srq);
+err_free_srq_mem:
+	free(srq);
+err:
+
 	return NULL;
 }
 
-int c4iw_modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr,
+int c4iw_modify_srq(struct ibv_srq *ibsrq, struct ibv_srq_attr *attr,
 		    int attr_mask)
 {
-	return ENOSYS;
+	struct c4iw_srq *srq = to_c4iw_srq(ibsrq);
+	struct ibv_modify_srq cmd;
+	int ret;
+
+	/* XXX no support for this yet */
+	if (attr_mask & IBV_SRQ_MAX_WR)
+		return EINVAL;
+
+	ret = ibv_cmd_modify_srq(ibsrq, attr, attr_mask, &cmd, sizeof(cmd));
+	if (!ret) {
+		if (attr_mask & IBV_SRQ_LIMIT) {
+			srq->armed = 1;
+			srq->srq_limit = attr->srq_limit;
+		}
+	}
+	return ret;
 }
 
-int c4iw_destroy_srq(struct ibv_srq *srq)
+int c4iw_destroy_srq(struct ibv_srq *ibsrq)
 {
-	return ENOSYS;
+	int ret;
+	struct c4iw_srq *srq = to_c4iw_srq(ibsrq);
+
+	PDBG("%s enter qp %p\n", __func__, ibsrq);
+
+	ret = ibv_cmd_destroy_srq(ibsrq);
+	if (ret)
+		return ret;
+
+	pthread_spin_lock(&srq->rhp->lock);
+	list_del(&srq->list);
+	pthread_spin_unlock(&srq->rhp->lock);
+
+	munmap(MASKED(srq->wq.udb), c4iw_page_size);
+	munmap(srq->wq.queue, srq->wq.memsize);
+
+	free(srq->wq.pending_wrs);
+	free(srq->wq.sw_rq);
+	free(srq);
+	return 0;
+
 }
 
-int c4iw_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
-		       struct ibv_recv_wr **bad_wr)
+int c4iw_query_srq(struct ibv_srq *ibsrq, struct ibv_srq_attr *attr)
 {
-	return ENOSYS;
+	struct ibv_query_srq cmd;
+
+	return ibv_cmd_query_srq(ibsrq, attr, &cmd, sizeof(cmd));
 }
 
 static struct ibv_qp *create_qp_v0(struct ibv_pd *pd,
@@ -365,7 +490,7 @@ static struct ibv_qp *create_qp_v0(struct ibv_pd *pd,
 	if (!qhp->wq.sq.sw_sq)
 		goto err7;
 
-	qhp->wq.rq.sw_rq = calloc(qhp->wq.rq.size, sizeof (uint64_t));
+	qhp->wq.rq.sw_rq = calloc(qhp->wq.rq.size, sizeof(struct t4_swrqe));
 	if (!qhp->wq.rq.sw_rq)
 		goto err8;
 
@@ -436,11 +561,16 @@ static struct ibv_qp *create_qp(struct ibv_pd *pd,
 	qhp->wq.sq.size = resp.sq_size;
 	qhp->wq.sq.memsize = resp.sq_memsize;
 	qhp->wq.sq.flags = resp.flags & C4IW_QPF_ONCHIP ? T4_SQ_ONCHIP : 0;
+	if (resp.flags & C4IW_QPF_WRITE_W_IMM)
+		qhp->wq.sq.flags |= T4_SQ_WRITE_W_IMM;
 	qhp->wq.sq.flush_cidx = -1;
 	qhp->wq.rq.msn = 1;
-	qhp->wq.rq.qid = resp.rqid;
-	qhp->wq.rq.size = resp.rq_size;
-	qhp->wq.rq.memsize = resp.rq_memsize;
+	qhp->srq = to_c4iw_srq(attr->srq);
+	if (!attr->srq) {
+		qhp->wq.rq.qid = resp.rqid;
+		qhp->wq.rq.size = resp.rq_size;
+		qhp->wq.rq.memsize = resp.rq_memsize;
+	}
 	if (ma_wr && resp.sq_memsize < (resp.sq_size + 1) *
 	    sizeof *qhp->wq.sq.queue + 16*sizeof(__be64) ) {
 		ma_wr = 0;
@@ -472,35 +602,41 @@ static struct ibv_qp *create_qp(struct ibv_pd *pd,
 	if (qhp->wq.sq.queue == MAP_FAILED)
 		goto err4;
 
-	dbva = mmap(NULL, c4iw_page_size, PROT_WRITE, MAP_SHARED,
-		    pd->context->cmd_fd, resp.rq_db_gts_key);
-	if (dbva == MAP_FAILED)
-		goto err5;
-	qhp->wq.rq.udb = dbva;
-	if (!dev_is_t4(qhp->rhp)) {
-		unsigned long segment_offset = 128 * (qhp->wq.rq.qid &
-						      qhp->wq.qid_mask);
+	if (!attr->srq) {
+		dbva = mmap(NULL, c4iw_page_size, PROT_WRITE, MAP_SHARED,
+				pd->context->cmd_fd, resp.rq_db_gts_key);
+		if (dbva == MAP_FAILED)
+			goto err5;
+		qhp->wq.rq.udb = dbva;
+		if (!dev_is_t4(qhp->rhp)) {
+			unsigned long segment_offset = 128 * (qhp->wq.rq.qid &
+					qhp->wq.qid_mask);
 
-		if (segment_offset < c4iw_page_size) {
-			qhp->wq.rq.udb += segment_offset / 4;
-			qhp->wq.rq.wc_reg_available = 1;
-		} else
-			qhp->wq.rq.bar2_qid = qhp->wq.rq.qid & qhp->wq.qid_mask;
-		qhp->wq.rq.udb += 2;
+			if (segment_offset < c4iw_page_size) {
+				qhp->wq.rq.udb += segment_offset / 4;
+				qhp->wq.rq.wc_reg_available = 1;
+			} else
+				qhp->wq.rq.bar2_qid =
+					qhp->wq.rq.qid & qhp->wq.qid_mask;
+			qhp->wq.rq.udb += 2;
+		}
+		qhp->wq.rq.queue = mmap(NULL, qhp->wq.rq.memsize,
+				PROT_WRITE, MAP_SHARED,
+				pd->context->cmd_fd, resp.rq_key);
+		if (qhp->wq.rq.queue == MAP_FAILED)
+			goto err6;
 	}
-	qhp->wq.rq.queue = mmap(NULL, qhp->wq.rq.memsize,
-			    PROT_WRITE, MAP_SHARED,
-			    pd->context->cmd_fd, resp.rq_key);
-	if (qhp->wq.rq.queue == MAP_FAILED)
-		goto err6;
 
 	qhp->wq.sq.sw_sq = calloc(qhp->wq.sq.size, sizeof (struct t4_swsqe));
 	if (!qhp->wq.sq.sw_sq)
 		goto err7;
 
-	qhp->wq.rq.sw_rq = calloc(qhp->wq.rq.size, sizeof (uint64_t));
-	if (!qhp->wq.rq.sw_rq)
-		goto err8;
+	if (!attr->srq) {
+		qhp->wq.rq.sw_rq =
+			calloc(qhp->wq.rq.size, sizeof(struct t4_swrqe));
+		if (!qhp->wq.rq.sw_rq)
+			goto err8;
+	}
 
 	if (t4_sq_onchip(&qhp->wq)) {
 		qhp->wq.sq.ma_sync = mmap(NULL, c4iw_page_size, PROT_WRITE,
@@ -513,9 +649,19 @@ static struct ibv_qp *create_qp(struct ibv_pd *pd,
 
 	if (ctx->status_page_size) {
 		qhp->wq.db_offp = &ctx->status_page->db_off;
-	} else {
+	} else if (!attr->srq) {
 		qhp->wq.db_offp = 
 			&qhp->wq.rq.queue[qhp->wq.rq.size].status.db_off;
+	}
+
+	if (!attr->srq)
+		qhp->wq.qp_errp =
+			&qhp->wq.rq.queue[qhp->wq.rq.size].status.qp_err;
+	else {
+		qhp->wq.qp_errp =
+			&qhp->wq.sq.queue[qhp->wq.sq.size].status.qp_err;
+		qhp->wq.srqidxp =
+			&qhp->wq.sq.queue[qhp->wq.sq.size].status.srqidx;
 	}
 
 	PDBG("%s sq dbva %p sq qva %p sq depth %u sq memsize %lu "
@@ -534,13 +680,16 @@ static struct ibv_qp *create_qp(struct ibv_pd *pd,
 	INC_STAT(qp);
 	return &qhp->ibv_qp;
 err9:
-	free(qhp->wq.rq.sw_rq);
+	if (!attr->srq)
+		free(qhp->wq.rq.sw_rq);
 err8:
 	free(qhp->wq.sq.sw_sq);
 err7:
-	munmap((void *)qhp->wq.rq.queue, qhp->wq.rq.memsize);
+	if (!attr->srq)
+		munmap((void *)qhp->wq.rq.queue, qhp->wq.rq.memsize);
 err6:
-	munmap(MASKED(qhp->wq.rq.udb), c4iw_page_size);
+	if (!attr->srq)
+		munmap(MASKED(qhp->wq.rq.udb), c4iw_page_size);
 err5:
 	munmap((void *)qhp->wq.sq.queue, qhp->wq.sq.memsize);
 err4:
@@ -612,15 +761,18 @@ int c4iw_destroy_qp(struct ibv_qp *ibqp)
 		munmap((void *)qhp->wq.sq.ma_sync, c4iw_page_size);
 	}
 	munmap(MASKED(qhp->wq.sq.udb), c4iw_page_size);
-	munmap(MASKED(qhp->wq.rq.udb), c4iw_page_size);
 	munmap(qhp->wq.sq.queue, qhp->wq.sq.memsize);
-	munmap(qhp->wq.rq.queue, qhp->wq.rq.memsize);
+	if (!qhp->srq) {
+		munmap(MASKED(qhp->wq.rq.udb), c4iw_page_size);
+		munmap(qhp->wq.rq.queue, qhp->wq.rq.memsize);
+	}
 
 	pthread_spin_lock(&dev->lock);
 	dev->qpid2ptr[qhp->wq.sq.qid] = NULL;
 	pthread_spin_unlock(&dev->lock);
 
-	free(qhp->wq.rq.sw_rq);
+	if (!qhp->srq)
+		free(qhp->wq.rq.sw_rq);
 	free(qhp->wq.sq.sw_sq);
 	free(qhp);
 	return 0;

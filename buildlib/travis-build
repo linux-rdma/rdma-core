@@ -17,7 +17,7 @@ ninja
 cd ../build32
 # travis's trusty is not configured in a way that enables all 32 bit
 # packages. We could fix this with some sudo stuff.. For now turn off libnl
-CC=gcc-7 CFLAGS="-Werror -m32" cmake -GNinja .. -DENABLE_RESOLVE_NEIGH=0 -DIOCTL_MODE=both
+CC=gcc-7 CFLAGS="-Werror -m32 -msse3" cmake -GNinja .. -DENABLE_RESOLVE_NEIGH=0 -DIOCTL_MODE=both
 ninja
 
 # aarch64 build to check compilation on ARM 64bit platform

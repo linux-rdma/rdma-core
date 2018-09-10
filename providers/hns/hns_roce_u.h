@@ -211,6 +211,7 @@ struct hns_roce_qp {
 	struct hns_roce_wq		sq;
 	struct hns_roce_wq		rq;
 	uint32_t			*rdb;
+	uint32_t			*sdb;
 	struct hns_roce_sge_ex		sge;
 	unsigned int			next_sge;
 	int				port_num;
@@ -270,14 +271,15 @@ int hns_roce_u_free_pd(struct ibv_pd *pd);
 
 struct ibv_mr *hns_roce_u_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 				 int access);
-int hns_roce_u_rereg_mr(struct ibv_mr *mr, int flags, struct ibv_pd *pd,
+int hns_roce_u_rereg_mr(struct verbs_mr *mr, int flags, struct ibv_pd *pd,
 			void *addr, size_t length, int access);
-int hns_roce_u_dereg_mr(struct ibv_mr *mr);
+int hns_roce_u_dereg_mr(struct verbs_mr *mr);
 
 struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 				    struct ibv_comp_channel *channel,
 				    int comp_vector);
 
+int hns_roce_u_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 int hns_roce_u_destroy_cq(struct ibv_cq *cq);
 void hns_roce_u_cq_event(struct ibv_cq *cq);
 

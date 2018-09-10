@@ -58,7 +58,9 @@ struct c4iw_create_qp_resp_v0 _c4iw_create_qp_resp_v0;
 DECLARE_DRV_CMD(uc4iw_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
 		empty, c4iw_alloc_pd_resp);
 DECLARE_DRV_CMD(uc4iw_create_cq, IB_USER_VERBS_CMD_CREATE_CQ,
-		empty, c4iw_create_cq_resp);
+		c4iw_create_cq, c4iw_create_cq_resp);
+DECLARE_DRV_CMD(uc4iw_create_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
+		empty, c4iw_create_srq_resp);
 DECLARE_DRV_CMD(uc4iw_create_qp, IB_USER_VERBS_CMD_CREATE_QP,
 		empty, c4iw_create_qp_resp);
 DECLARE_DRV_CMD(uc4iw_create_qp_v0, IB_USER_VERBS_CMD_CREATE_QP,
