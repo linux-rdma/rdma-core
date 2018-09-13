@@ -38,6 +38,7 @@ rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   compat-1_0.c
   device.c
   dummy_ops.c
+  dynamic_driver.c
   enum_strs.c
   init.c
   marshall.c
