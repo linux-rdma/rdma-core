@@ -31,6 +31,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#ifndef _STATIC_LIBRARY_BUILD_
 #define _GNU_SOURCE
 
 #include <dlfcn.h>
@@ -237,3 +238,4 @@ void load_drivers(void)
 		free(name);
 	}
 }
+#endif

@@ -61,7 +61,14 @@ int ibverbs_get_device_list(struct list_head *list);
 int ibverbs_init(void);
 void ibverbs_device_put(struct ibv_device *dev);
 void ibverbs_device_hold(struct ibv_device *dev);
+
+#ifdef _STATIC_LIBRARY_BUILD_
+static inline void load_drivers(void)
+{
+}
+#else
 void load_drivers(void);
+#endif
 
 struct verbs_ex_private {
 	BITMAP_DECLARE(unsupported_ioctls, VERBS_OPS_NUM);
