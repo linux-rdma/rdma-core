@@ -150,6 +150,7 @@ static uint16_t ext_fw_info_device[][2] = {
 	{0xd2f0, 0xd2f0},	/* Quantum */
 	{0x01b3, 0x01b3},	/* IS-4 */
 	{0x1003, 0x101b},	/* Connect-X */
+	{0xa2d2, 0xa2d2},	/* BlueField */
 	{0x1b02, 0x1b02},	/* Bull SwitchX */
 	{0x1b50, 0x1b50},	/* Bull SwitchX */
 	{0x1ba0, 0x1ba0},	/* Bull SwitchIB */
