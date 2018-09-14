@@ -11,6 +11,8 @@ import subprocess
 import tempfile
 import sys
 import copy
+import shlex
+import pipes
 from contextlib import contextmanager;
 
 def get_src_dir():
@@ -307,6 +309,144 @@ def test_installed_headers(args):
                     raise ValueError("No extern C in %r"%(I));
 
         compile_test_headers(tmpd,incdir,includes,with_cxx=True);
+
+# -------------------------------------------------------------------------
+
+
+def get_symbol_names(fn):
+    """Return the defined, public, symbols from a ELF shlib"""
+    syms = subprocess.check_output(["readelf", "--wide", "-s", fn])
+    go = False
+    res = set()
+    for I in syms.splitlines():
+        if I.startswith("Symbol table '.dynsym'"):
+            go = True
+            continue
+
+        if I.startswith(" ") and go:
+            g = re.match(
+                r"\s+\d+:\s+[0-9a-f]+\s+\d+.*(?:FUNC|OBJECT)\s+GLOBAL\s+DEFAULT\s+\d+\s+(\S+)@@(\S+)$",
+                I)
+            if not g or "PRIVATE" in g.group(2):
+                continue
+            res.add(g.group(1))
+        else:
+            go = False
+
+    return res
+
+
+def get_cc_args_from_pkgconfig(args, name, static):
+    """Get the compile arguments from pkg-config for the named librarary"""
+    os.environ["PKG_CONFIG_PATH"] = os.path.join(args.BUILD, "lib",
+                                                 "pkgconfig")
+    flags = ["pkg-config", "--errors-to-stdout", "--cflags", "--libs"]
+    if static:
+        flags.append("--static")
+    opts = subprocess.check_output(flags + ["lib" + name])
+    opts = shlex.split(opts)
+
+    opts.insert(0, "-Wall")
+    opts.insert(0, "-Werror")
+    opts.insert(0, "-L%s" % (os.path.join(args.BUILD, "lib")))
+    opts.insert(1, "-I%s" % (os.path.join(args.BUILD, "include")))
+    if not static:
+        return opts
+
+    # The old pkg-config that travis uses incorrectly removes duplicated
+    # flags, which breaks linking.
+    if (name == "ibverbs" and
+        subprocess.check_output(["pkg-config", "--version"]).strip() == "0.26"):
+        opts.insert(0, "-libverbs")
+
+    # Only static link the pkg-config stuff, otherwise we get warnings about
+    # static linking portions of glibc that need NSS.
+    opts.insert(0, "-Wl,-Bstatic")
+    opts.append("-Wl,-Bdynamic")
+
+    # We need this extra libpthread/m because libnl's pkgconfig file is
+    # broken and doesn't include the private libraries it requires. :(
+    if "-lnl-3" in opts:
+        opts.append("-lm")
+        opts.append("-lpthread")
+
+    # Put glibc associated libraries out side the static link section,
+    if "-lpthread" in opts:
+        while "-lpthread" in opts:
+            opts.remove("-lpthread")
+        opts.append("-lpthread")
+    if "-lm" in opts:
+        while "-lm" in opts:
+            opts.remove("-lm")
+        opts.append("-lm")
+    return opts
+
+
+def compile_ninja(args, Fninja, name, cfn, opts):
+    print >> Fninja, """
+rule comp_{name}
+    command = {CC} -Wall -o $out $in {opts}
+    description = Compile and link $out
+build {name} : comp_{name} {cfn}
+default {name}""".format(
+        name=name,
+        CC=args.CC,
+        cfn=cfn,
+        opts=" ".join(pipes.quote(I) for I in opts))
+
+
+def check_static_lib(args, tmpd, Fninja, static_lib, shared_lib, name):
+    syms = get_symbol_names(shared_lib)
+    if not syms:
+        return
+
+    cfn = os.path.join(tmpd, "%s-test.c" % (name))
+    with open(cfn, "wt") as F:
+        F.write("#include <stdio.h>\n")
+        for I in syms:
+            F.write("extern void %s(void);\n" % (I))
+        F.write("int main(int argc,const char *argv[]) {\n")
+        for I in syms:
+            F.write('printf("%%p",&%s);\n' % (I))
+        F.write("return 0; }\n")
+
+    compile_ninja(args, Fninja, "%s-static-out" % (name), cfn,
+                  get_cc_args_from_pkgconfig(args, name, static=True))
+    compile_ninja(args, Fninja, "%s-shared-out" % (name), cfn,
+                  get_cc_args_from_pkgconfig(args, name, static=False))
+
+
+def test_static_libs(args):
+    """Compile then link statically and dynamically a dummy program that touches
+    every symbol in the libraries using pkgconfig output to guide the link
+    options. This tests that pkgconfig is setup properly and that all the
+    magic with incorporating the internal libraries for static linking has
+    done its job."""
+    libd = os.path.join(args.BUILD, "lib")
+    success = True
+    libs = []
+    with inDirectory(libd):
+        fns = set(fn for fn in os.listdir(".") if not os.path.islink(fn))
+        for static_lib in fns:
+            g = re.match(r"lib(.+)\.a", static_lib)
+            if g:
+                for shared_lib in fns:
+                    if re.match(r"lib%s.*\.so" % (g.group(1)), shared_lib):
+                        libs.append((os.path.join(libd, static_lib),
+                                     os.path.join(libd, shared_lib),
+                                     g.group(1)))
+                        break
+                else:
+                    raise ValueError(
+                        "Failed to find matching shared library for %r" %
+                        (static_lib))
+
+    with private_tmp() as tmpd:
+        with open(os.path.join(tmpd, "build.ninja"), "wt") as Fninja:
+            for I in libs:
+                check_static_lib(args, tmpd, Fninja, I[0], I[1], I[2])
+        subprocess.check_call(["ninja"], cwd=tmpd)
+
 
 # -------------------------------------------------------------------------
 

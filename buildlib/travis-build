@@ -9,7 +9,7 @@ mkdir build-travis build32 build-sparse build-aarch64
 
 # Build with latest clang first
 cd build-travis
-CC=clang-5.0 CFLAGS=-Werror cmake -GNinja .. -DIOCTL_MODE=both
+CC=clang-5.0 CFLAGS=-Werror cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_STATIC=1
 ninja
 ../buildlib/check-build --src .. --cc clang-5.0
 

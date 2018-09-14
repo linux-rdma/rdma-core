@@ -295,12 +295,13 @@ function(rdma_pkg_config PC_LIB_NAME PC_REQUIRES_PRIVATE PC_LIB_PRIVATE)
   set(PC_REQUIRES_PRIVATE "${PC_REQUIRES_PRIVATE}")
   get_target_property(PC_VERSION ${PC_LIB_NAME} VERSION)
 
-  # With IN_PLACE=1 the install step is not ran, so generate the file in the build dir
+  # With IN_PLACE=1 the install step is not run, so generate the file in the build dir
   if (IN_PLACE)
     set(PC_RPATH "-Wl,-rpath,\${libdir}")
-    configure_file(${CMAKE_SOURCE_DIR}/buildlib/template.pc.in ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/pkgconfig/lib${PC_LIB_NAME}.pc @ONLY)
-  else()
-    configure_file(${CMAKE_SOURCE_DIR}/buildlib/template.pc.in ${CMAKE_CURRENT_BINARY_DIR}/lib${PC_LIB_NAME}.pc @ONLY)
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lib${PC_LIB_NAME}.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+  endif()
+
+  configure_file(${BUILDLIB}/template.pc.in ${BUILD_LIB}/pkgconfig/lib${PC_LIB_NAME}.pc @ONLY)
+  if (NOT IN_PLACE)
+    install(FILES ${BUILD_LIB}/pkgconfig/lib${PC_LIB_NAME}.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
   endif()
 endfunction()
