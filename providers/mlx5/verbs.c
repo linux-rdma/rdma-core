@@ -1652,6 +1652,9 @@ static int mlx5_cmd_create_rss_qp(struct ibv_context *context,
 	if (resp_drv->comp_mask & MLX5_IB_CREATE_QP_RESP_MASK_TIRN)
 		qp->tirn = resp_drv->tirn;
 
+	if (resp_drv->comp_mask & MLX5_IB_CREATE_QP_RESP_MASK_TIR_ICM_ADDR)
+		qp->tir_icm_addr = resp_drv->tir_icm_addr;
+
 	qp->rss_qp = 1;
 	return 0;
 }
@@ -2101,6 +2104,9 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 
 	if (resp_drv->comp_mask & MLX5_IB_CREATE_QP_RESP_MASK_SQN)
 		qp->sqn = resp_drv->sqn;
+
+	if (resp_drv->comp_mask & MLX5_IB_CREATE_QP_RESP_MASK_TIR_ICM_ADDR)
+		qp->tir_icm_addr = resp_drv->tir_icm_addr;
 
 	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)
 		qp->verbs_qp.comp_mask |= VERBS_QP_EX;

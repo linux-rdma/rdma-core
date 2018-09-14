@@ -782,6 +782,11 @@ static int mlx5dv_get_qp(struct ibv_qp *qp_in,
 		mask_out |= MLX5DV_QP_MASK_RAW_QP_HANDLES;
 	}
 
+	if (qp_out->comp_mask & MLX5DV_QP_MASK_RAW_QP_TIR_ADDR) {
+		qp_out->tir_icm_addr = mqp->tir_icm_addr;
+		mask_out |= MLX5DV_QP_MASK_RAW_QP_TIR_ADDR;
+	}
+
 	if (mqp->bf->uuarn > 0)
 		qp_out->bf.size = mqp->bf->buf_size;
 	else

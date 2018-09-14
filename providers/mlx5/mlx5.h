@@ -546,6 +546,7 @@ struct mlx5_qp {
 	uint32_t			tisn;
 	uint32_t			rqn;
 	uint32_t			sqn;
+	uint64_t			tir_icm_addr;
 };
 
 struct mlx5_ah {
