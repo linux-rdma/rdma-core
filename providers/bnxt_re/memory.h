@@ -81,16 +81,6 @@ static inline unsigned long roundup_pow_of_two(unsigned long val)
 int bnxt_re_alloc_aligned(struct bnxt_re_queue *que, uint32_t pg_size);
 void bnxt_re_free_aligned(struct bnxt_re_queue *que);
 
-static inline void iowrite64(__u64 *dst, __le64 *src)
-{
-	*(volatile __le64 *)dst = *src;
-}
-
-static inline void iowrite32(__u32 *dst, __le32 *src)
-{
-	*(volatile __le32 *)dst = *src;
-}
-
 /* Basic queue operation */
 static inline uint32_t bnxt_re_is_que_full(struct bnxt_re_queue *que)
 {

@@ -110,8 +110,6 @@ struct ibv_pd *bnxt_re_alloc_pd(struct ibv_context *ibvctx)
 			(void)ibv_cmd_dealloc_pd(&pd->ibvpd);
 			goto out;
 		}
-		pthread_spin_init(&cntx->udpi.db_lock,
-				  PTHREAD_PROCESS_PRIVATE);
         }
 
 	return &pd->ibvpd;
