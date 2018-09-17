@@ -686,12 +686,13 @@ int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 		cq->deferred_arm_flags = 0;
 	}
 	pthread_spin_unlock(&cq->cqq.qlock);
-	/* Check if anything is there to flush. */
-	pthread_spin_lock(&cntx->fqlock);
 	left = nwc - dqed;
-	if (left)
+	if (left) {
+		/* Check if anything is there to flush. */
+		pthread_spin_lock(&cntx->fqlock);
 		dqed += bnxt_re_poll_flush_lists(cq, left, (wc + dqed));
-	pthread_spin_unlock(&cntx->fqlock);
+		pthread_spin_unlock(&cntx->fqlock);
+	}
 
 	return dqed;
 }
