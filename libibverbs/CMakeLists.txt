@@ -54,4 +54,11 @@ target_link_libraries(ibverbs LINK_PRIVATE
   kern-abi
   )
 
-rdma_pkg_config("ibverbs" "" "${CMAKE_THREAD_LIBS_INIT}")
+if (ENABLE_STATIC)
+  if (NOT NL_KIND EQUAL 0)
+    set(REQUIRES "libnl-3.0, libnl-route-3.0")
+  endif()
+  rdma_pkg_config("ibverbs" "${REQUIRES}" "${CMAKE_THREAD_LIBS_INIT}")
+else()
+  rdma_pkg_config("ibverbs" "" "${CMAKE_THREAD_LIBS_INIT}")
+endif()
