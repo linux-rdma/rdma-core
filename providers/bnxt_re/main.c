@@ -168,7 +168,6 @@ static void bnxt_re_free_context(struct ibv_context *ibvctx)
 	 * allocated in this context.
 	 */
 	if (cntx->udpi.dbpage && cntx->udpi.dbpage != MAP_FAILED) {
-		pthread_spin_destroy(&cntx->udpi.db_lock);
 		munmap(cntx->udpi.dbpage, dev->pg_size);
 		cntx->udpi.dbpage = NULL;
 	}
