@@ -1222,31 +1222,32 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	struct bnxt_re_bsqe *hdr;
 	struct bnxt_re_wrid *wrid;
 	struct bnxt_re_psns *psns;
-	void *sqe;
-	int ret = 0, bytes = 0;
 	uint8_t is_inline = false;
+	int ret = 0, bytes = 0;
+	bool ring_db = false;
+	void *sqe;
 
 	pthread_spin_lock(&sq->qlock);
 	while (wr) {
 		if ((qp->qpst != IBV_QPS_RTS) && (qp->qpst != IBV_QPS_SQD)) {
 			*bad = wr;
-			pthread_spin_unlock(&sq->qlock);
-			return EINVAL;
+			ret = EINVAL;
+			goto bad_wr;
 		}
 
 		if ((qp->qptyp == IBV_QPT_UD) &&
 		    (wr->opcode != IBV_WR_SEND &&
 		     wr->opcode != IBV_WR_SEND_WITH_IMM)) {
 			*bad = wr;
-			pthread_spin_unlock(&sq->qlock);
-			return EINVAL;
+			ret = EINVAL;
+			goto bad_wr;
 		}
 
 		if (bnxt_re_is_que_full(sq) ||
 		    wr->num_sge > qp->cap.max_ssge) {
 			*bad = wr;
-			pthread_spin_unlock(&sq->qlock);
-			return ENOMEM;
+			ret = ENOMEM;
+			goto bad_wr;
 		}
 
 		sqe = (void *)(sq->va + (sq->tail * sq->stride));
@@ -1305,9 +1306,10 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		bnxt_re_incr_tail(sq);
 		qp->wqe_cnt++;
 		wr = wr->next;
-		bnxt_re_ring_sq_db(qp);
-		if (qp->wqe_cnt == BNXT_RE_UD_QP_HW_STALL && qp->qptyp ==
-		    IBV_QPT_UD) {
+		ring_db = true;
+
+		if (qp->wqe_cnt == BNXT_RE_UD_QP_HW_STALL &&
+		    qp->qptyp == IBV_QPT_UD) {
 			/* Move RTS to RTS since it is time. */
 			struct ibv_qp_attr attr;
 			int attr_mask;
@@ -1318,6 +1320,10 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			qp->wqe_cnt = 0;
 		}
 	}
+
+bad_wr:
+	if (ring_db)
+		bnxt_re_ring_sq_db(qp);
 
 	pthread_spin_unlock(&sq->qlock);
 	return ret;
