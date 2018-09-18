@@ -272,7 +272,7 @@ def test_installed_headers(args):
     with private_tmp() as tmpd:
         env = copy.deepcopy(os.environ);
         env["DESTDIR"] = tmpd;
-        subprocess.check_output(["ninja","install"],env=env);
+        subprocess.check_output(["ninja","install"],env=env,cwd=args.BUILD);
 
         includes = get_headers(tmpd);
         incdir = os.path.commonprefix(includes);
