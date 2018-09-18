@@ -1324,4 +1324,4 @@ static const struct verbs_device_ops mlx5_dev_ops = {
 	.alloc_context = mlx5_alloc_context,
 	.free_context = mlx5_free_context,
 };
-PROVIDER_DRIVER(mlx5_dev_ops);
+PROVIDER_DRIVER(mlx5, mlx5_dev_ops);

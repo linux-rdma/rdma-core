@@ -267,4 +267,4 @@ static const struct verbs_device_ops iwch_dev_ops = {
 	.alloc_context = iwch_alloc_context,
 	.free_context = iwch_free_context,
 };
-PROVIDER_DRIVER(iwch_dev_ops);
+PROVIDER_DRIVER(cxgb3, iwch_dev_ops);

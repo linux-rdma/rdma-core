@@ -204,4 +204,4 @@ static const struct verbs_device_ops ipath_dev_ops = {
 	.alloc_context = ipath_alloc_context,
 	.free_context = ipath_free_context,
 };
-PROVIDER_DRIVER(ipath_dev_ops);
+PROVIDER_DRIVER(ipathverbs, ipath_dev_ops);

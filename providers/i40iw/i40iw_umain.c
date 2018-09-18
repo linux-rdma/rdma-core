@@ -226,4 +226,4 @@ static const struct verbs_device_ops i40iw_udev_ops = {
 	.alloc_context = i40iw_ualloc_context,
 	.free_context = i40iw_ufree_context,
 };
-PROVIDER_DRIVER(i40iw_udev_ops);
+PROVIDER_DRIVER(i40iw, i40iw_udev_ops);

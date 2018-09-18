@@ -1880,6 +1880,25 @@ static inline struct verbs_context *verbs_get_ctx(struct ibv_context *ctx)
  */
 struct ibv_device **ibv_get_device_list(int *num_devices);
 
+#ifdef RDMA_STATIC_PROVIDERS
+struct verbs_devices_ops;
+extern const struct verbs_device_ops verbs_provider_bnxt_re;
+extern const struct verbs_device_ops verbs_provider_cxgb3;
+extern const struct verbs_device_ops verbs_provider_cxgb4;
+extern const struct verbs_device_ops verbs_provider_hfi1verbs;
+extern const struct verbs_device_ops verbs_provider_hns;
+extern const struct verbs_device_ops verbs_provider_i40iw;
+extern const struct verbs_device_ops verbs_provider_ipathverbs;
+extern const struct verbs_device_ops verbs_provider_mlx4;
+extern const struct verbs_device_ops verbs_provider_mlx5;
+extern const struct verbs_device_ops verbs_provider_mthca;
+extern const struct verbs_device_ops verbs_provider_nes;
+extern const struct verbs_device_ops verbs_provider_ocrdma;
+extern const struct verbs_device_ops verbs_provider_qedr;
+extern const struct verbs_device_ops verbs_provider_rxe;
+extern const struct verbs_device_ops verbs_provider_vmw_pvrdma;
+#endif
+
 /**
  * ibv_free_device_list - Free list from ibv_get_device_list()
  *

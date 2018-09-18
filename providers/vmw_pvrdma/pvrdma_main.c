@@ -209,4 +209,4 @@ static const struct verbs_device_ops pvrdma_dev_ops = {
 	.alloc_context = pvrdma_alloc_context,
 	.free_context  = pvrdma_free_context,
 };
-PROVIDER_DRIVER(pvrdma_dev_ops);
+PROVIDER_DRIVER(vmw_pvrdma, pvrdma_dev_ops);
