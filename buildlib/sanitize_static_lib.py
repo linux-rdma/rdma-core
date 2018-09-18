@@ -163,7 +163,8 @@ class Lib(object):
             for ln in syms.decode().splitlines():
                 ln = ln.split()
                 if ln[0].isupper():
-                    self.needed_syms.add(ln[1])
+                    if not ln[1].startswith("verbs_provider_"):
+                        self.needed_syms.add(ln[1])
 
     def rename_syms(self, rename_fn):
         """Invoke objcopy on all the objects to rename their symbols"""
@@ -253,6 +254,14 @@ with TemporaryDirectory() as tmpdir:
     for I in all_libs:
         all_syms.update(I.syms)
     compute_graph(all_libs)
+
+    # To support the ibv_static_providers() machinery these are made global
+    # too, even though they are not in map files. We only want to expose them
+    # for the static linking case.
+    global_syms.add("ibv_static_providers")
+    for I in all_syms:
+        if I.startswith("verbs_provider_"):
+            global_syms.add(I)
 
     # Generate a redefine file for objcopy that will sanitize the internal names
     prefix = re.sub(r"\W", "_", args.version)

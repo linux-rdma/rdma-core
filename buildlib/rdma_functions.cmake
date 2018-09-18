@@ -7,6 +7,9 @@
 # Global list of tuples of (SHARED STATIC MAP) library target names
 set(RDMA_STATIC_LIBS "" CACHE INTERNAL "Doc" FORCE)
 
+# Global list of tuples of (PROVIDER_NAME LIB_NAME)
+set(RDMA_PROVIDER_LIST "" CACHE INTERNAL "Doc" FORCE)
+
 set(COMMON_LIBS_PIC ccan_pic rdma_util_pic)
 set(COMMON_LIBS ccan rdma_util)
 
@@ -130,6 +133,9 @@ function(rdma_shared_provider DEST VERSION_SCRIPT SOVERSION VERSION)
   file(MAKE_DIRECTORY "${BUILD_ETC}/libibverbs.d/")
   file(WRITE "${BUILD_ETC}/libibverbs.d/${DEST}.driver" "driver ${BUILD_LIB}/lib${DEST}\n")
 
+  list(APPEND RDMA_PROVIDER_LIST ${DEST} ${DEST})
+  set(RDMA_PROVIDER_LIST "${RDMA_PROVIDER_LIST}" CACHE INTERNAL "")
+
   # Create a static provider library
   if (ENABLE_STATIC)
     add_library(${DEST}-static STATIC ${ARGN})
@@ -173,14 +179,13 @@ function(rdma_provider DEST)
   file(MAKE_DIRECTORY "${BUILD_ETC}/libibverbs.d/")
   file(WRITE "${BUILD_ETC}/libibverbs.d/${DEST}.driver" "driver ${BUILD_LIB}/lib${DEST}\n")
 
+  list(APPEND RDMA_PROVIDER_LIST ${DEST} "${DEST}-rdmav${IBVERBS_PABI_VERSION}")
+  set(RDMA_PROVIDER_LIST "${RDMA_PROVIDER_LIST}" CACHE INTERNAL "")
+
   # Create a static provider library
-  # FIXME: This is probably pointless, the provider library has no symbols so
-  # what good is it? Presumably it should be used with -Wl,--whole-archive,
-  # but we don't have any directions on how to make static linking work..
   if (ENABLE_STATIC)
     add_library(${DEST} STATIC ${ARGN})
     rdma_public_static_lib("${DEST}-rdmav${IBVERBS_PABI_VERSION}" ${DEST} ${BUILDLIB}/provider.map)
-    set_target_properties(${DEST} PROPERTIES OUTPUT_NAME ${DEST})
   endif()
 
   # Create the plugin shared library

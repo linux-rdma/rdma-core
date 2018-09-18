@@ -562,6 +562,7 @@ if (UDEV_FOUND)
 endif()
 add_subdirectory(srp_daemon)
 
+ibverbs_finalize()
 rdma_finalize_libs()
 
 #-------------------------

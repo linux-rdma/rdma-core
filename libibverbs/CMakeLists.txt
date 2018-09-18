@@ -28,6 +28,7 @@ configure_file("libibverbs.map.in"
 rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   # See Documentation/versioning.md
   1 1.5.${PACKAGE_VERSION}
+  all_providers.c
   cmd.c
   cmd_counters.c
   cmd_cq.c
@@ -44,6 +45,7 @@ rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   marshall.c
   memory.c
   ${NEIGH}
+  static_driver.c
   sysfs.c
   verbs.c
   )
@@ -54,11 +56,30 @@ target_link_libraries(ibverbs LINK_PRIVATE
   kern-abi
   )
 
-if (ENABLE_STATIC)
-  if (NOT NL_KIND EQUAL 0)
-    set(REQUIRES "libnl-3.0, libnl-route-3.0")
+function(ibverbs_finalize)
+  if (ENABLE_STATIC)
+    # In static mode the .pc file lists all of the providers for static
+    # linking. The user should set RDMA_STATIC_PROVIDERS to select which ones
+    # to include.
+    list(LENGTH RDMA_PROVIDER_LIST LEN)
+    math(EXPR LEN ${LEN}-1)
+    foreach(I RANGE 0 ${LEN} 2)
+      list(GET RDMA_PROVIDER_LIST ${I} PROVIDER_NAME)
+      math(EXPR I ${I}+1)
+      list(GET RDMA_PROVIDER_LIST ${I} LIB_NAME)
+      math(EXPR I ${I}+1)
+
+      set(PROVIDER_LIBS "${PROVIDER_LIBS} -l${LIB_NAME}")
+      set(FOR_EACH_PROVIDER "${FOR_EACH_PROVIDER} FOR_PROVIDER(${PROVIDER_NAME})")
+    endforeach()
+
+    if (NOT NL_KIND EQUAL 0)
+      set(REQUIRES "libnl-3.0, libnl-route-3.0")
+    endif()
+    rdma_pkg_config("ibverbs" "${REQUIRES}" "${PROVIDER_LIBS} -libverbs ${CMAKE_THREAD_LIBS_INIT}")
+
+    file(WRITE ${BUILD_INCLUDE}/infiniband/all_providers.h "#define FOR_EACH_PROVIDER() ${FOR_EACH_PROVIDER}")
+  else()
+    rdma_pkg_config("ibverbs" "" "${CMAKE_THREAD_LIBS_INIT}")
   endif()
-  rdma_pkg_config("ibverbs" "${REQUIRES}" "${CMAKE_THREAD_LIBS_INIT}")
-else()
-  rdma_pkg_config("ibverbs" "" "${CMAKE_THREAD_LIBS_INIT}")
-endif()
+endfunction()

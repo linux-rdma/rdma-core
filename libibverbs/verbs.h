@@ -1880,7 +1880,27 @@ static inline struct verbs_context *verbs_get_ctx(struct ibv_context *ctx)
  */
 struct ibv_device **ibv_get_device_list(int *num_devices);
 
+/*
+ * When statically linking the user can set RDMA_STATIC_PROVIDERS to a comma
+ * separated list of provider names to include in the static link, and this
+ * machinery will cause those providers to be included statically.
+ *
+ * Linking will fail if this is set for dynamic linking.
+ */
 #ifdef RDMA_STATIC_PROVIDERS
+#define _RDMA_STATIC_PREFIX_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11,     \
+			     _12, _13, _14, _15, ...)                          \
+	&verbs_provider_##_1, &verbs_provider_##_2, &verbs_provider_##_3,      \
+		&verbs_provider_##_4, &verbs_provider_##_5,                    \
+		&verbs_provider_##_6, &verbs_provider_##_7,                    \
+		&verbs_provider_##_8, &verbs_provider_##_9,                    \
+		&verbs_provider_##_10, &verbs_provider_##_11,                  \
+		&verbs_provider_##_12, &verbs_provider_##_13,                  \
+		&verbs_provider_##_14, &verbs_provider_##_15
+#define _RDMA_STATIC_PREFIX(arg)                                               \
+	_RDMA_STATIC_PREFIX_(arg, none, none, none, none, none, none, none,    \
+			     none, none, none, none, none, none, none)
+
 struct verbs_devices_ops;
 extern const struct verbs_device_ops verbs_provider_bnxt_re;
 extern const struct verbs_device_ops verbs_provider_cxgb3;
@@ -1897,6 +1917,17 @@ extern const struct verbs_device_ops verbs_provider_ocrdma;
 extern const struct verbs_device_ops verbs_provider_qedr;
 extern const struct verbs_device_ops verbs_provider_rxe;
 extern const struct verbs_device_ops verbs_provider_vmw_pvrdma;
+extern const struct verbs_device_ops verbs_provider_all;
+extern const struct verbs_device_ops verbs_provider_none;
+void ibv_static_providers(void *unused, ...);
+
+static inline struct ibv_device **__ibv_get_device_list(int *num_devices)
+{
+	ibv_static_providers(NULL, _RDMA_STATIC_PREFIX(RDMA_STATIC_PROVIDERS),
+			     NULL);
+	return ibv_get_device_list(num_devices);
+}
+#define ibv_get_device_list(num_devices) __ibv_get_device_list(num_devices)
 #endif
 
 /**

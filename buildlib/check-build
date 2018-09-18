@@ -395,6 +395,13 @@ default {name}""".format(
         opts=" ".join(pipes.quote(I) for I in opts))
 
 
+def get_providers(args):
+    """Return a list of provider names"""
+    return set(
+        I for I in os.listdir(os.path.join(args.SRC, "providers"))
+        if not I.startswith("."))
+
+
 def check_static_lib(args, tmpd, Fninja, static_lib, shared_lib, name):
     syms = get_symbol_names(shared_lib)
     if not syms:
@@ -414,6 +421,32 @@ def check_static_lib(args, tmpd, Fninja, static_lib, shared_lib, name):
                   get_cc_args_from_pkgconfig(args, name, static=True))
     compile_ninja(args, Fninja, "%s-shared-out" % (name), cfn,
                   get_cc_args_from_pkgconfig(args, name, static=False))
+
+
+def check_static_providers(args, tmpd, Fninja):
+    """Test that expected values for RDMA_STATIC_PROVIDERS are accepted and the
+    link works"""
+    cfn = os.path.join(tmpd, "provider-test.c")
+    with open(cfn, "wt") as F:
+        F.write("#include <infiniband/verbs.h>\n")
+        F.write("int main(int argc,const char *argv[]) {\n")
+        F.write('ibv_get_device_list(NULL);\n')
+        F.write("return 0; }\n")
+
+    opts = get_cc_args_from_pkgconfig(
+        args, "ibverbs", static=True)
+
+    providers = get_providers(args)
+    for I in sorted(providers | {
+            "none",
+            "all",
+    }):
+        compile_ninja(args, Fninja, "providers-%s-static-out" % (I), cfn,
+                      ["-DRDMA_STATIC_PROVIDERS=%s" % (I)] + opts)
+
+    compile_ninja(
+        args, Fninja, "providers-static-out", cfn,
+        ["-DRDMA_STATIC_PROVIDERS=%s" % (",".join(providers))] + opts)
 
 
 def test_static_libs(args):
@@ -445,6 +478,7 @@ def test_static_libs(args):
         with open(os.path.join(tmpd, "build.ninja"), "wt") as Fninja:
             for I in libs:
                 check_static_lib(args, tmpd, Fninja, I[0], I[1], I[2])
+            check_static_providers(args, tmpd, Fninja)
         subprocess.check_call(["ninja"], cwd=tmpd)
 
 

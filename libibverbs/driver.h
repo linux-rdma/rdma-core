@@ -183,6 +183,7 @@ struct verbs_device_ops {
 	int match_min_abi_version;
 	int match_max_abi_version;
 	const struct verbs_match_ent *match_table;
+	const struct verbs_device_ops **static_providers;
 
 	bool (*match_device)(struct verbs_sysfs_dev *sysfs_dev);
 
