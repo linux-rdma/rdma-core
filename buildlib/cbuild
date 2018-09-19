@@ -321,7 +321,7 @@ class ZypperEnvironment(Environment):
 
 class leap(ZypperEnvironment):
     proxy = False;
-    docker_parent = "opensuse:42.3";
+    docker_parent = "opensuse/leap:15.0";
     specfile = "suse/rdma-core.spec";
     pkgs = {
         'cmake',
@@ -338,11 +338,11 @@ class leap(ZypperEnvironment):
         'systemd-devel',
         'valgrind-devel',
     };
-    name = "opensuse-42.3";
+    name = "opensuse-15.0";
     aliases = {"leap"};
 
 class tumbleweed(ZypperEnvironment):
-    docker_parent = "opensuse:tumbleweed";
+    docker_parent = "opensuse/tumbleweed:latest";
     pkgs = leap.pkgs;
     name = "tumbleweed";
     specfile = "suse/rdma-core.spec";
