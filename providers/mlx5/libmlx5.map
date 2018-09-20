@@ -45,4 +45,5 @@ MLX5_1.7 {
 	global:
 		mlx5dv_create_flow_action_modify_header;
 		mlx5dv_create_flow_action_packet_reformat;
+		mlx5dv_open_device;
 } MLX5_1.6;

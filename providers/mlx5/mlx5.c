@@ -1000,6 +1000,12 @@ static void adjust_uar_info(struct mlx5_device *mdev,
 	context->num_uars_per_page = resp.num_uars_per_page;
 }
 
+struct ibv_context *
+mlx5dv_open_device(struct ibv_device *device, struct mlx5dv_context_attr *attr)
+{
+	return verbs_open_device(device, attr);
+}
+
 static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 						int cmd_fd,
 						void *private_data)
@@ -1020,6 +1026,12 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	int				k;
 	int				bfi;
 	int				num_sys_page_map;
+	struct mlx5dv_context_attr      *ctx_attr = private_data;
+
+	if (ctx_attr && ctx_attr->comp_mask) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
 					       RDMA_DRIVER_MLX5);
@@ -1060,6 +1072,16 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	req.num_low_latency_bfregs = low_lat_uuars;
 	req.max_cqe_version = MLX5_CQE_VERSION_V1;
 	req.lib_caps |= MLX5_LIB_CAP_4K_UAR;
+	if (ctx_attr && ctx_attr->flags) {
+
+		if (!check_comp_mask(ctx_attr->flags,
+				     MLX5DV_CONTEXT_FLAGS_DEVX)) {
+			errno = EINVAL;
+			goto err_free;
+		}
+
+		req.flags = MLX5_IB_ALLOC_UCTX_DEVX;
+	}
 
 	if (mlx5_cmd_get_context(context, &req, sizeof(req), &resp,
 				 sizeof(resp)))
