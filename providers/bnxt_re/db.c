@@ -76,6 +76,24 @@ void bnxt_re_ring_sq_db(struct bnxt_re_qp *qp)
 	bnxt_re_ring_db(qp->udpi, &hdr);
 }
 
+void bnxt_re_ring_srq_db(struct bnxt_re_srq *srq)
+{
+	struct bnxt_re_db_hdr hdr;
+
+	bnxt_re_init_db_hdr(&hdr, srq->srqq->tail, srq->srqid,
+			    BNXT_RE_QUE_TYPE_SRQ);
+	bnxt_re_ring_db(srq->udpi, &hdr);
+}
+
+void bnxt_re_ring_srq_arm(struct bnxt_re_srq *srq)
+{
+	struct bnxt_re_db_hdr hdr;
+
+	bnxt_re_init_db_hdr(&hdr, srq->cap.srq_limit, srq->srqid,
+			    BNXT_RE_QUE_TYPE_SRQ_ARM);
+	bnxt_re_ring_db(srq->udpi, &hdr);
+}
+
 void bnxt_re_ring_cq_db(struct bnxt_re_cq *cq)
 {
 	struct bnxt_re_db_hdr hdr;
