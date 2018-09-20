@@ -161,7 +161,8 @@ static void qelr_set_debug_mask(void)
 }
 
 static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
-						int cmd_fd)
+						int cmd_fd,
+						void *private_data)
 {
 	struct qelr_devctx *ctx;
 	struct qelr_get_context cmd;

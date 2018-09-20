@@ -136,7 +136,8 @@ static const struct verbs_context_ops ipath_ctx_v1_ops = {
 };
 
 static struct verbs_context *ipath_alloc_context(struct ibv_device *ibdev,
-						 int cmd_fd)
+						 int cmd_fd,
+						 void *private_data)
 {
 	struct ipath_context	    *context;
 	struct ibv_get_context       cmd;

@@ -110,7 +110,8 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 
 /* Context Init functions */
 static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
-						   int cmd_fd)
+						   int cmd_fd,
+						   void *private_data)
 {
 	struct ibv_get_context cmd;
 	struct ubnxt_re_cntx_resp resp;

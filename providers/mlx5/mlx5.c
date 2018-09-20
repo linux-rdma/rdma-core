@@ -1001,7 +1001,8 @@ static void adjust_uar_info(struct mlx5_device *mdev,
 }
 
 static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
-						int cmd_fd)
+						int cmd_fd,
+						void *private_data)
 {
 	struct mlx5_context	       *context;
 	struct mlx5_alloc_ucontext	req;

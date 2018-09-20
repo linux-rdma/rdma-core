@@ -78,7 +78,8 @@ static const struct verbs_context_ops hns_common_ops = {
 };
 
 static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
-						    int cmd_fd)
+						    int cmd_fd,
+						    void *private_data)
 {
 	int i;
 	struct ibv_get_context cmd;

@@ -130,7 +130,8 @@ static const struct verbs_context_ops mthca_ctx_tavor_ops = {
 };
 
 static struct verbs_context *mthca_alloc_context(struct ibv_device *ibdev,
-						 int cmd_fd)
+						 int cmd_fd,
+						 void *private_data)
 {
 	struct mthca_context            *context;
 	struct ibv_get_context           cmd;
