@@ -996,6 +996,18 @@ static inline uint64_t mlx5dv_ts_to_ns(struct mlx5dv_clock_info *clock_info,
 	return nsec;
 }
 
+enum mlx5dv_context_attr_flags {
+	MLX5DV_CONTEXT_FLAGS_DEVX = 1 << 0,
+};
+
+struct mlx5dv_context_attr {
+	uint32_t flags; /* Use enum mlx5dv_context_attr_flags */
+	uint64_t comp_mask;
+};
+
+struct ibv_context *
+mlx5dv_open_device(struct ibv_device *device, struct mlx5dv_context_attr *attr);
+
 #ifdef __cplusplus
 }
 #endif

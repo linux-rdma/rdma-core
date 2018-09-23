@@ -187,7 +187,8 @@ struct verbs_device_ops {
 	bool (*match_device)(struct verbs_sysfs_dev *sysfs_dev);
 
 	struct verbs_context *(*alloc_context)(struct ibv_device *device,
-					       int cmd_fd);
+					       int cmd_fd,
+					       void *private_data);
 	void (*free_context)(struct ibv_context *context);
 
 	struct verbs_device *(*alloc_device)(struct verbs_sysfs_dev *sysfs_dev);
@@ -383,6 +384,8 @@ void verbs_init_cq(struct ibv_cq *cq, struct ibv_context *context,
 		       struct ibv_comp_channel *channel,
 		       void *cq_context);
 
+struct ibv_context *verbs_open_device(struct ibv_device *device,
+				      void *private_data);
 int ibv_cmd_get_context(struct verbs_context *context,
 			struct ibv_get_context *cmd, size_t cmd_size,
 			struct ib_uverbs_get_context_resp *resp, size_t resp_size);

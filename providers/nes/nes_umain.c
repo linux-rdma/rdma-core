@@ -98,7 +98,8 @@ static const struct verbs_context_ops nes_uctx_no_db_ops = {
  * nes_ualloc_context
  */
 static struct verbs_context *nes_ualloc_context(struct ibv_device *ibdev,
-						int cmd_fd)
+						int cmd_fd,
+						void *private_data)
 {
 	struct ibv_pd *ibv_pd;
 	struct nes_uvcontext *nesvctx;

@@ -106,7 +106,8 @@ static const struct verbs_context_ops c4iw_ctx_t4_ops = {
 };
 
 static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
-						int cmd_fd)
+						int cmd_fd,
+						void *private_data)
 {
 	struct c4iw_context *context;
 	struct ibv_get_context cmd;

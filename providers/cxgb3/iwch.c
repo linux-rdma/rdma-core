@@ -118,7 +118,8 @@ unsigned long iwch_page_shift;
 unsigned long iwch_page_mask;
 
 static struct verbs_context *iwch_alloc_context(struct ibv_device *ibdev,
-						int cmd_fd)
+						int cmd_fd,
+						void *private_data)
 {
 	struct iwch_context *context;
 	struct ibv_get_context cmd;

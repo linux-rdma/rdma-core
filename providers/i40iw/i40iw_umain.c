@@ -127,7 +127,8 @@ static const struct verbs_context_ops i40iw_uctx_ops = {
  */
 
 static struct verbs_context *i40iw_ualloc_context(struct ibv_device *ibdev,
-						  int cmd_fd)
+						  int cmd_fd,
+						  void *private_data)
 {
 	struct ibv_pd *ibv_pd;
 	struct i40iw_uvcontext *iwvctx;

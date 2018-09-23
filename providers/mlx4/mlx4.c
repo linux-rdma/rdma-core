@@ -155,7 +155,8 @@ static int mlx4_map_internal_clock(struct mlx4_device *mdev,
 }
 
 static struct verbs_context *mlx4_alloc_context(struct ibv_device *ibdev,
-						  int cmd_fd)
+						  int cmd_fd,
+						  void *private_data)
 {
 	struct mlx4_context	       *context;
 	struct ibv_get_context		cmd;
