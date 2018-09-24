@@ -46,11 +46,7 @@
 
 @SIZEOF_LONG_CODE@
 
-#if @NL_KIND@ == 3
-# define HAVE_LIBNL3 1
-#elif @NL_KIND@ == 1
-# define HAVE_LIBNL1 1
-#elif @NL_KIND@ == 0
+#if @NL_KIND@ == 0
 # define NRESOLVE_NEIGH 1
 #endif
 

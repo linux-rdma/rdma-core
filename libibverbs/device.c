@@ -64,7 +64,22 @@ LATEST_SYMVER_FUNC(ibv_get_device_list, 1_1, "IBVERBS_1.1",
 
 	pthread_mutex_lock(&dev_list_lock);
 	if (!initialized) {
-		int ret = ibverbs_init();
+		char value[8];
+		int ret;
+
+		/*
+		 * The uverbs module is not loaded, this is a ENOSYS return
+		 * but it is not a hard failure, we can try again to see if it
+		 * has become loaded since.
+		 */
+		if (ibv_read_sysfs_file(ibv_get_sysfs_path(),
+					"class/infiniband_verbs/abi_version",
+					value, sizeof(value)) < 0) {
+			errno = -ENOSYS;
+			goto out;
+		}
+
+		ret = ibverbs_init();
 		initialized = (ret < 0) ? ret : 1;
 	}
 
