@@ -134,7 +134,7 @@ class centos7_epel(centos7):
 
 class fc28(Environment):
     docker_parent = "fedora:28";
-    pkgs = (centos7.pkgs - {"make"}) | {"ninja-build","pandoc"};
+    pkgs = (centos7.pkgs - {"make"}) | {"ninja-build","pandoc","perl-generators"};
     name = "fc28";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
