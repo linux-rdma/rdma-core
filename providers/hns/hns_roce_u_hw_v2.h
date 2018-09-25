@@ -275,4 +275,9 @@ struct hns_roce_v2_wqe_raddr_seg {
 	__le64		raddr;
 };
 
+struct hns_roce_wqe_atomic_seg {
+	__le64		fetchadd_swap_data;
+	__le64		cmp_data;
+};
+
 #endif /* _HNS_ROCE_U_HW_V2_H */
