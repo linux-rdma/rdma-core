@@ -811,21 +811,30 @@ int i40iw_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr, struct ibv
 
 		switch (ib_wr->opcode) {
 		case IBV_WR_SEND:
-			if (ib_wr->send_flags & IBV_SEND_SOLICITED)
-				info.op_type = I40IW_OP_TYPE_SEND_SOL;
-			else
-				info.op_type = I40IW_OP_TYPE_SEND;
+		    /* fall-through */
+		case IBV_WR_SEND_WITH_INV:
+			if (ib_wr->opcode == IBV_WR_SEND) {
+				if (ib_wr->send_flags & IBV_SEND_SOLICITED)
+					info.op_type = I40IW_OP_TYPE_SEND_SOL;
+				else
+					info.op_type = I40IW_OP_TYPE_SEND;
+			} else {
+				if (ib_wr->send_flags & IBV_SEND_SOLICITED)
+					info.op_type = I40IW_OP_TYPE_SEND_SOL_INV;
+				else
+					info.op_type = I40IW_OP_TYPE_SEND_INV;
+			}
 
 			if (ib_wr->send_flags & IBV_SEND_INLINE) {
 			  info.op.inline_send.data = (void *)(uintptr_t)ib_wr->sg_list[0].addr;
 				info.op.inline_send.len = ib_wr->sg_list[0].length;
 				ret = iwuqp->qp.ops.iw_inline_send(&iwuqp->qp, &info,
-								   ib_wr->wr.rdma.rkey, false);
+								   ib_wr->invalidate_rkey, false);
 			} else {
 				info.op.send.num_sges = ib_wr->num_sge;
 				info.op.send.sg_list = (struct i40iw_sge *)ib_wr->sg_list;
 				ret = iwuqp->qp.ops.iw_send(&iwuqp->qp, &info,
-							    ib_wr->wr.rdma.rkey, false);
+							    ib_wr->invalidate_rkey, false);
 			}
 
 			if (ret) {
