@@ -22,6 +22,9 @@ BuildRequires: valgrind-devel
 BuildRequires: systemd
 BuildRequires: systemd-devel
 BuildRequires: python
+%if 0%{?fedora} >= 21
+BuildRequires: perl-generators
+%endif
 
 Requires: dracut, kmod, systemd
 # Red Hat/Fedora previously shipped redhat/ as a stand-alone
