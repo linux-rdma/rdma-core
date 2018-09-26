@@ -45,6 +45,18 @@ static void set_data_seg_v2(struct hns_roce_v2_wqe_data_seg *dseg,
 	dseg->len = htole32(sg->length);
 }
 
+static void set_atomic_seg(struct hns_roce_wqe_atomic_seg *aseg,
+			   struct ibv_send_wr *wr)
+{
+	if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
+		aseg->fetchadd_swap_data = htole64(wr->wr.atomic.swap);
+		aseg->cmp_data  = htole64(wr->wr.atomic.compare_add);
+	} else {
+		aseg->fetchadd_swap_data = htole64(wr->wr.atomic.compare_add);
+		aseg->cmp_data  = 0;
+	}
+}
+
 static void hns_roce_v2_handle_error_cqe(struct hns_roce_v2_cqe *cqe,
 					 struct ibv_wc *wc)
 {
@@ -680,6 +692,11 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 					RC_SQ_WQE_BYTE_4_OPCODE_M,
 					RC_SQ_WQE_BYTE_4_OPCODE_S,
 					HNS_ROCE_WQE_OP_ATOMIC_COM_AND_SWAP);
+				rc_sq_wqe->rkey = htole32(wr->wr.atomic.rkey);
+				rc_sq_wqe->va =
+					htole64(wr->wr.atomic.remote_addr);
+				wqe += sizeof(struct hns_roce_v2_wqe_data_seg);
+				set_atomic_seg(wqe, wr);
 				break;
 
 			case IBV_WR_ATOMIC_FETCH_AND_ADD:
@@ -687,6 +704,11 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 					RC_SQ_WQE_BYTE_4_OPCODE_M,
 					RC_SQ_WQE_BYTE_4_OPCODE_S,
 					HNS_ROCE_WQE_OP_ATOMIC_FETCH_AND_ADD);
+				rc_sq_wqe->rkey = htole32(wr->wr.atomic.rkey);
+				rc_sq_wqe->va =
+					htole64(wr->wr.atomic.remote_addr);
+				wqe += sizeof(struct hns_roce_v2_wqe_data_seg);
+				set_atomic_seg(wqe, wr);
 				break;
 			default:
 				roce_set_field(rc_sq_wqe->byte_4,
@@ -705,7 +727,11 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			break;
 		}
 
-		dseg = wqe;
+		if (wr->opcode == IBV_WR_ATOMIC_FETCH_AND_ADD ||
+		    wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP)
+			dseg = wqe - sizeof(struct hns_roce_v2_wqe_data_seg);
+		else
+			dseg = wqe;
 
 		/* Inline */
 		if (wr->send_flags & IBV_SEND_INLINE && wr->num_sge) {
