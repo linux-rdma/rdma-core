@@ -450,10 +450,15 @@ struct mlx5dv_alloc_dm_attr {
 	uint64_t comp_mask;
 };
 
+enum mlx5dv_dm_comp_mask {
+	MLX5DV_DM_MASK_REMOTE_VA	= 1 << 0,
+};
+
 struct mlx5dv_dm {
 	void		*buf;
 	uint64_t	length;
 	uint64_t	comp_mask;
+	uint64_t	remote_va;
 };
 
 struct ibv_dm *mlx5dv_alloc_dm(struct ibv_context *context,

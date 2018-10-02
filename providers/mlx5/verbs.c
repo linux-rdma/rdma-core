@@ -3761,6 +3761,25 @@ static int alloc_dm_memic(struct ibv_context *ctx,
 	return 0;
 }
 
+static int alloc_dm_steering_sw_icm(struct ibv_context *ctx,
+				    struct mlx5_dm *dm,
+				    struct ibv_alloc_dm_attr *dm_attr,
+				    struct ibv_command_buffer *cmdb)
+{
+	uint64_t start_offset;
+
+	fill_attr_out(cmdb, MLX5_IB_ATTR_ALLOC_DM_RESP_START_OFFSET,
+		      &start_offset, sizeof(start_offset));
+
+	if (ibv_cmd_alloc_dm(ctx, dm_attr, &dm->verbs_dm, cmdb))
+		return EINVAL;
+
+	/* For SW ICM we get address in the start_offset attribute */
+	dm->remote_va = start_offset;
+
+	return 0;
+}
+
 struct ibv_dm *
 mlx5dv_alloc_dm(struct ibv_context *context,
 		struct ibv_alloc_dm_attr *dm_attr,
@@ -3770,8 +3789,11 @@ mlx5dv_alloc_dm(struct ibv_context *context,
 			       3);
 	struct ib_uverbs_attr *type_attr;
 	struct mlx5_dm *dm;
+	int err;
 
-	if (mlx5_dm_attr->type != MLX5DV_DM_TYPE_MEMIC) {
+	if ((mlx5_dm_attr->type != MLX5DV_DM_TYPE_MEMIC) &&
+	    (mlx5_dm_attr->type != MLX5DV_DM_TYPE_STEERING_SW_ICM) &&
+	    (mlx5_dm_attr->type != MLX5DV_DM_TYPE_HEADER_MODIFY_SW_ICM)) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -3791,8 +3813,14 @@ mlx5dv_alloc_dm(struct ibv_context *context,
 	type_attr = fill_attr_const_in(cmdb,  MLX5_IB_ATTR_ALLOC_DM_REQ_TYPE,
 				       mlx5_dm_attr->type);
 
-	attr_optional(type_attr);
-	if (alloc_dm_memic(context, dm, dm_attr, cmdb))
+	if (mlx5_dm_attr->type == MLX5DV_DM_TYPE_MEMIC) {
+		attr_optional(type_attr);
+		err = alloc_dm_memic(context, dm, dm_attr, cmdb);
+	} else {
+		err = alloc_dm_steering_sw_icm(context, dm, dm_attr, cmdb);
+	}
+
+	if (err)
 		goto err_free_mem;
 
 	dm->length = dm_attr->length;
@@ -3817,7 +3845,8 @@ int mlx5_free_dm(struct ibv_dm *ibdm)
 	if (ret)
 		return ret;
 
-	munmap(dm->mmap_va, act_size);
+	if (dm->mmap_va)
+		munmap(dm->mmap_va, act_size);
 	free(dm);
 	return 0;
 }

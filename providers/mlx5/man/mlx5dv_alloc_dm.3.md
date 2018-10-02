@@ -49,6 +49,18 @@ struct mlx5dv_alloc_dm_attr {
 		transmitting/receiving packet directly from/to the
 		memory on the chip.
 
+	MLX5DV_DM_TYPE_STEERING_SW_ICM
+		Device memory of type STEERING SW ICM - This memory
+		is used by the device to store the packet steering
+		tables and rules. Can be used for direct table and steering
+		rules creation when allocated by a privileged user.
+
+	MLX5DV_DM_TYPE_HEADER_MODIFY_SW_ICM
+		Device memory of type HEADER MODIFY SW ICM - This memory
+		is used by the device to store the packet header modification
+		tables and rules. Can be used for direct table and header modification
+		rules creation when allocated by a privileged user.
+
 *comp_mask*
 :	Bitmask specifying what fields in the structure are valid:
 	Currently reserved and should be set to 0.

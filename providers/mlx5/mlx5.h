@@ -489,6 +489,7 @@ struct mlx5_dm {
 	size_t				length;
 	void			       *mmap_va;
 	void			       *start_va;
+	uint64_t			remote_va;
 };
 
 struct mlx5_mr {

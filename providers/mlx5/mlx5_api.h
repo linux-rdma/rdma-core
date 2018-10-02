@@ -48,5 +48,7 @@
 #define mlx5dv_devx_async_cmd_hdr mlx5_ib_uapi_devx_async_cmd_hdr
 #define mlx5dv_alloc_dm_type	mlx5_ib_uapi_dm_type
 #define MLX5DV_DM_TYPE_MEMIC	MLX5_IB_UAPI_DM_TYPE_MEMIC
+#define MLX5DV_DM_TYPE_STEERING_SW_ICM		MLX5_IB_UAPI_DM_TYPE_STEERING_SW_ICM
+#define MLX5DV_DM_TYPE_HEADER_MODIFY_SW_ICM	MLX5_IB_UAPI_DM_TYPE_HEADER_MODIFY_SW_ICM
 
 #endif
