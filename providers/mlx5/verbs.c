@@ -3717,25 +3717,67 @@ static inline int mlx5_memcpy_from_dm(void *host_addr, struct ibv_dm *ibdm,
 	return mlx5_access_dm(ibdm, dm_offset, host_addr, length, 1);
 }
 
-struct ibv_dm *mlx5_alloc_dm(struct ibv_context *context,
-			     struct ibv_alloc_dm_attr *dm_attr)
+static int alloc_dm_memic(struct ibv_context *ctx,
+			  struct mlx5_dm *dm,
+			  struct ibv_alloc_dm_attr *dm_attr,
+			  struct ibv_command_buffer *cmdb)
 {
-	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_DM, UVERBS_METHOD_DM_ALLOC,
-			       2);
-	int page_size = to_mdev(context->device)->page_size;
-	struct mlx5_context *mctx = to_mctx(context);
-	uint64_t act_size, start_offset;
-	struct mlx5_dm *dm;
+	int page_size = to_mdev(ctx->device)->page_size;
+	uint64_t act_size = align(dm_attr->length, page_size);
+	uint64_t start_offset;
 	uint16_t page_idx;
 	off_t offset = 0;
 	void *va;
 
-	if (!check_comp_mask(dm_attr->comp_mask, 0)) {
+	if (dm_attr->length > to_mctx(ctx)->max_dm_size) {
 		errno = EINVAL;
+		return errno;
+	}
+
+	fill_attr_out(cmdb, MLX5_IB_ATTR_ALLOC_DM_RESP_START_OFFSET,
+		      &start_offset, sizeof(start_offset));
+
+	fill_attr_out(cmdb, MLX5_IB_ATTR_ALLOC_DM_RESP_PAGE_INDEX,
+		      &page_idx, sizeof(page_idx));
+
+	if (ibv_cmd_alloc_dm(ctx, dm_attr, &dm->verbs_dm, cmdb))
+		return EINVAL;
+
+	set_command(MLX5_IB_MMAP_DEVICE_MEM, &offset);
+	set_extended_index(page_idx, &offset);
+	va = mmap(NULL, act_size, PROT_READ | PROT_WRITE,
+		  MAP_SHARED, ctx->cmd_fd,
+		  page_size * offset);
+	if (va == MAP_FAILED) {
+		ibv_cmd_free_dm(&dm->verbs_dm);
+		return ENOMEM;
+	}
+
+	dm->mmap_va = va;
+	dm->start_va = va + (start_offset & (page_size - 1));
+	dm->verbs_dm.dm.memcpy_to_dm = mlx5_memcpy_to_dm;
+	dm->verbs_dm.dm.memcpy_from_dm = mlx5_memcpy_from_dm;
+
+	return 0;
+}
+
+struct ibv_dm *
+mlx5dv_alloc_dm(struct ibv_context *context,
+		struct ibv_alloc_dm_attr *dm_attr,
+		struct mlx5dv_alloc_dm_attr *mlx5_dm_attr)
+{
+	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_DM, UVERBS_METHOD_DM_ALLOC,
+			       3);
+	struct ib_uverbs_attr *type_attr;
+	struct mlx5_dm *dm;
+
+	if (mlx5_dm_attr->type != MLX5DV_DM_TYPE_MEMIC) {
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
-	if (dm_attr->length > mctx->max_dm_size) {
+	if (!check_comp_mask(dm_attr->comp_mask, 0) ||
+	    !check_comp_mask(mlx5_dm_attr->comp_mask, 0)) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -3746,34 +3788,16 @@ struct ibv_dm *mlx5_alloc_dm(struct ibv_context *context,
 		return NULL;
 	}
 
+	type_attr = fill_attr_const_in(cmdb,  MLX5_IB_ATTR_ALLOC_DM_REQ_TYPE,
+				       mlx5_dm_attr->type);
 
-	fill_attr_out(cmdb, MLX5_IB_ATTR_ALLOC_DM_RESP_START_OFFSET,
-		      &start_offset, sizeof(start_offset));
-	fill_attr_out(cmdb, MLX5_IB_ATTR_ALLOC_DM_RESP_PAGE_INDEX,
-		      &page_idx, sizeof(page_idx));
-
-	if (ibv_cmd_alloc_dm(context, dm_attr, &dm->verbs_dm, cmdb))
+	attr_optional(type_attr);
+	if (alloc_dm_memic(context, dm, dm_attr, cmdb))
 		goto err_free_mem;
 
-	act_size = align(dm_attr->length, page_size);
-	set_command(MLX5_IB_MMAP_DEVICE_MEM, &offset);
-	set_extended_index(page_idx, &offset);
-	va = mmap(NULL, act_size, PROT_READ | PROT_WRITE,
-		  MAP_SHARED, context->cmd_fd,
-		  page_size * offset);
-	if (va == MAP_FAILED)
-		goto err_free_dm;
-
-	dm->mmap_va = va;
 	dm->length = dm_attr->length;
-	dm->start_va = va + (start_offset & (page_size - 1));
-	dm->verbs_dm.dm.memcpy_to_dm = mlx5_memcpy_to_dm;
-	dm->verbs_dm.dm.memcpy_from_dm = mlx5_memcpy_from_dm;
 
 	return &dm->verbs_dm.dm;
-
-err_free_dm:
-	ibv_cmd_free_dm(&dm->verbs_dm);
 
 err_free_mem:
 	free(dm);
@@ -3796,6 +3820,14 @@ int mlx5_free_dm(struct ibv_dm *ibdm)
 	munmap(dm->mmap_va, act_size);
 	free(dm);
 	return 0;
+}
+
+struct ibv_dm *mlx5_alloc_dm(struct ibv_context *context,
+			     struct ibv_alloc_dm_attr *dm_attr)
+{
+	struct mlx5dv_alloc_dm_attr mlx5_attr = { .type = MLX5DV_DM_TYPE_MEMIC };
+
+	return mlx5dv_alloc_dm(context, dm_attr, &mlx5_attr);
 }
 
 struct ibv_counters *mlx5_create_counters(struct ibv_context *context,

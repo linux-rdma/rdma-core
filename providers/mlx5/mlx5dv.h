@@ -445,11 +445,20 @@ struct mlx5dv_rwq {
 	uint64_t	comp_mask;
 };
 
+struct mlx5dv_alloc_dm_attr {
+	enum mlx5dv_alloc_dm_type type;
+	uint64_t comp_mask;
+};
+
 struct mlx5dv_dm {
 	void		*buf;
 	uint64_t	length;
 	uint64_t	comp_mask;
 };
+
+struct ibv_dm *mlx5dv_alloc_dm(struct ibv_context *context,
+			       struct ibv_alloc_dm_attr *dm_attr,
+			       struct mlx5dv_alloc_dm_attr *mlx5_dm_attr);
 
 struct mlx5_wqe_av;
 
