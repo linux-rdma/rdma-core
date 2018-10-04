@@ -125,6 +125,7 @@ enum mlx5_ib_flow_matcher_create_attrs {
 	MLX5_IB_ATTR_FLOW_MATCHER_MATCH_MASK,
 	MLX5_IB_ATTR_FLOW_MATCHER_FLOW_TYPE,
 	MLX5_IB_ATTR_FLOW_MATCHER_MATCH_CRITERIA,
+	MLX5_IB_ATTR_FLOW_MATCHER_FLOW_FLAGS,
 };
 
 enum mlx5_ib_flow_matcher_destroy_attrs {
@@ -155,6 +156,7 @@ enum mlx5_ib_create_flow_attrs {
 	MLX5_IB_ATTR_CREATE_FLOW_DEST_QP,
 	MLX5_IB_ATTR_CREATE_FLOW_DEST_DEVX,
 	MLX5_IB_ATTR_CREATE_FLOW_MATCHER,
+	MLX5_IB_ATTR_CREATE_FLOW_ARR_FLOW_ACTIONS,
 };
 
 enum mlx5_ib_destoy_flow_attrs {
