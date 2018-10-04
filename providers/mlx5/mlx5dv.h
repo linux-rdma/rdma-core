@@ -1015,6 +1015,18 @@ struct mlx5dv_context_attr {
 struct ibv_context *
 mlx5dv_open_device(struct ibv_device *device, struct mlx5dv_context_attr *attr);
 
+struct mlx5dv_devx_obj;
+
+struct mlx5dv_devx_obj *
+mlx5dv_devx_obj_create(struct ibv_context *context, const void *in, size_t inlen,
+		       void *out, size_t outlen);
+int mlx5dv_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
+			  void *out, size_t outlen);
+int mlx5dv_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
+			   void *out, size_t outlen);
+int mlx5dv_devx_obj_destroy(struct mlx5dv_devx_obj *obj);
+int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t inlen,
+			    void *out, size_t outlen);
 #ifdef __cplusplus
 }
 #endif
