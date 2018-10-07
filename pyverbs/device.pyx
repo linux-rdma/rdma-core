@@ -1,0 +1,273 @@
+# SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
+# Copyright (c) 2018, Mellanox Technologies. All rights reserved. See COPYING file
+
+"""
+Device module introduces the Context and DeviceAttr class.
+It allows user to open an IB device (using Context(name=<name>) and query it,
+which returns a DeviceAttr object.
+"""
+from .pyverbs_error import PyverbsRDMAError
+from .pyverbs_error import PyverbsUserError
+from pyverbs.base import PyverbsRDMAErrno
+cimport pyverbs.libibverbs as v
+
+cdef extern from 'errno.h':
+    int errno
+
+
+cdef class Context(PyverbsObject):
+    """
+    Context class represents the C ibv_context. It currently allows only
+    querying the underlying device.
+    """
+    def __cinit__(self, **kwargs):
+        """
+        Initializes a Context object. The function searches the IB devices list
+        for a device with the name provided by the user. If such a device is
+        found, it is opened.
+        :param kwargs: Currently supports 'name' argument only, the IB device's
+                       name.
+        :return: None
+        """
+        cdef int count
+        cdef v.ibv_device **dev_list
+        dev_name = kwargs.get('name')
+
+        if dev_name is not None:
+            self.name = dev_name
+        else:
+            raise PyverbsUserError('Device name must be provided')
+
+        dev_list = v.ibv_get_device_list(&count)
+        if dev_list == NULL:
+            raise PyverbsRDMAError('Failed to get devices list')
+        try:
+            for i in range(count):
+                if dev_list[i].name.decode() == self.name:
+                    self.context = v.ibv_open_device(dev_list[i])
+                    if self.context == NULL:
+                        raise PyverbsRDMAErrno('Failed to open device {dev}'.
+                                               format(dev=self.name))
+                    self.logger.debug('Context: opened device {dev}'.
+                                      format(dev=self.name))
+                    break
+            else:
+                raise PyverbsRDMAError('Failed to find device {dev}'.
+                                       format(dev=self.name))
+        finally:
+            v.ibv_free_device_list(dev_list)
+
+    def __dealloc__(self):
+        """
+        Closes the inner IB device.
+        :return: None
+        """
+        self._close()
+
+    def close(self):
+        """
+        Closes the inner IB device.
+        :return: None
+        """
+        self._close()
+
+    cdef _close(self):
+        self.logger.debug('Closing Context')
+        if self.context != NULL:
+            rc = v.ibv_close_device(self.context)
+            if rc != 0:
+                raise PyverbsRDMAErrno('Failed to close device {dev}'.
+                                       format(dev=self.device.name), errno)
+            self.context = NULL
+
+    def query_device(self):
+        """
+        Queries the device's attributes.
+        :return: A DeviceAttr object which holds the device's attributes as
+                 reported by the hardware.
+        """
+        dev_attr = DeviceAttr()
+        rc = v.ibv_query_device(self.context, &dev_attr.dev_attr)
+        if rc != 0:
+            raise PyverbsRDMAErrno('Failed to query device {name}'.
+                                   format(name=self.name), errno)
+        return dev_attr
+
+
+cdef class DeviceAttr(PyverbsObject):
+    """
+    DeviceAttr represents ibv_device_attr C class. It exposes the same
+    properties (read only) and also provides an __str__() function for
+    readability.
+    """
+    property fw_version:
+        def __get__(self):
+            return self.dev_attr.fw_ver.decode()
+    property node_guid:
+        def __get__(self):
+            return self.dev_attr.node_guid
+    property sys_image_guid:
+        def __get__(self):
+            return self.dev_attr.sys_image_guid
+    property max_mr_size:
+        def __get__(self):
+            return self.dev_attr.max_mr_size
+    property page_size_cap:
+        def __get__(self):
+            return self.dev_attr.page_size_cap
+    property vendor_id:
+        def __get__(self):
+            return self.dev_attr.vendor_id
+    property vendor_part_id:
+        def __get__(self):
+            return self.dev_attr.vendor_part_id
+    property hw_ver:
+        def __get__(self):
+            return self.dev_attr.hw_ver
+    property max_qp:
+        def __get__(self):
+            return self.dev_attr.max_qp
+    property max_qp_wr:
+        def __get__(self):
+            return self.dev_attr.max_qp_wr
+    property device_cap_flags:
+        def __get__(self):
+            return self.dev_attr.device_cap_flags
+    property max_sge:
+        def __get__(self):
+            return self.dev_attr.max_sge
+    property max_sge_rd:
+        def __get__(self):
+            return self.dev_attr.max_sge_rd
+    property max_cq:
+        def __get__(self):
+            return self.dev_attr.max_cq
+    property max_cqe:
+        def __get__(self):
+            return self.dev_attr.max_cqe
+    property max_mr:
+        def __get__(self):
+            return self.dev_attr.max_mr
+    property max_pd:
+        def __get__(self):
+            return self.dev_attr.max_pd
+    property max_qp_rd_atom:
+        def __get__(self):
+            return self.dev_attr.max_qp_rd_atom
+    property max_ee_rd_atom:
+        def __get__(self):
+            return self.dev_attr.max_ee_rd_atom
+    property max_res_rd_atom:
+        def __get__(self):
+            return self.dev_attr.max_res_rd_atom
+    property max_qp_init_rd_atom:
+        def __get__(self):
+            return self.dev_attr.max_qp_init_rd_atom
+    property max_ee_init_rd_atom:
+        def __get__(self):
+            return self.dev_attr.max_ee_init_rd_atom
+    property atomic_caps:
+        def __get__(self):
+            return self.dev_attr.atomic_cap
+    property max_ee:
+        def __get__(self):
+            return self.dev_attr.max_ee
+    property max_rdd:
+        def __get__(self):
+            return self.dev_attr.max_rdd
+    property max_mw:
+        def __get__(self):
+            return self.dev_attr.max_mw
+    property max_raw_ipv6_qps:
+        def __get__(self):
+            return self.dev_attr.max_raw_ipv6_qp
+    property max_raw_ethy_qp:
+        def __get__(self):
+            return self.dev_attr.max_raw_ethy_qp
+    property max_mcast_grp:
+        def __get__(self):
+            return self.dev_attr.max_mcast_grp
+    property max_mcast_qp_attach:
+        def __get__(self):
+            return self.dev_attr.max_mcast_qp_attach
+    property max_ah:
+        def __get__(self):
+            return self.dev_attr.max_ah
+    property max_fmr:
+        def __get__(self):
+            return self.dev_attr.max_fmr
+    property max_map_per_fmr:
+        def __get__(self):
+            return self.dev_attr.max_map_per_fmr
+    property max_srq:
+        def __get__(self):
+            return self.dev_attr.max_srq
+    property max_srq_wr:
+        def __get__(self):
+            return self.dev_attr.max_srq_wr
+    property max_srq_sge:
+        def __get__(self):
+            return self.dev_attr.max_srq_sge
+    property max_pkeys:
+        def __get__(self):
+            return self.dev_attr.max_pkeys
+    property local_ca_ack_delay:
+        def __get__(self):
+            return self.dev_attr.local_ca_ack_delay
+    property phys_port_cnt:
+        def __get__(self):
+            return self.dev_attr.phys_port_cnt
+
+    def __str__(self):
+        print_format = '{:<22}: {:<20}\n'
+        return print_format.format('FW version', self.fw_version) +\
+            print_format.format('Node guid', guid_format(self.node_guid)) +\
+            print_format.format('Sys image GUID', guid_format(self.sys_image_guid)) +\
+            print_format.format('Max MR size', hex(self.max_mr_size).replace('L', '')) +\
+            print_format.format('Page size cap', hex(self.page_size_cap).replace('L', '')) +\
+            print_format.format('Vendor ID', hex(self.vendor_id)) +\
+            print_format.format('Vender part ID', self.vendor_part_id) +\
+            print_format.format('HW version', self.hw_ver) +\
+            print_format.format('Max QP', self.max_qp) +\
+            print_format.format('Max QP WR', self.max_qp_wr) +\
+            print_format.format('Device cap flags', self.device_cap_flags) +\
+            print_format.format('Max SGE', self.max_sge) +\
+            print_format.format('Max SGE RD', self.max_sge_rd) +\
+            print_format.format('MAX CQ', self.max_cq) +\
+            print_format.format('Max CQE', self.max_cqe) +\
+            print_format.format('Max MR', self.max_mr) +\
+            print_format.format('Max PD', self.max_pd) +\
+            print_format.format('Max QP RD atom', self.max_qp_rd_atom) +\
+            print_format.format('Max EE RD atom', self.max_ee_rd_atom) +\
+            print_format.format('Max res RD atom', self.max_res_rd_atom) +\
+            print_format.format('Max QP init RD atom', self.max_qp_init_rd_atom) +\
+            print_format.format('Max EE init RD atom', self.max_ee_init_rd_atom) +\
+            print_format.format('Atomic caps', self.atomic_caps) +\
+            print_format.format('Max EE', self.max_ee) +\
+            print_format.format('Max RDD', self.max_rdd) +\
+            print_format.format('Max MW', self.max_mw) +\
+            print_format.format('Max raw IPv6 QPs', self.max_raw_ipv6_qps) +\
+            print_format.format('Max raw ethy QP', self.max_raw_ethy_qp) +\
+            print_format.format('Max mcast group', self.max_mcast_grp) +\
+            print_format.format('Max mcast QP attach', self.max_mcast_qp_attach) +\
+            print_format.format('Max AH', self.max_ah) +\
+            print_format.format('Max FMR', self.max_fmr) +\
+            print_format.format('Max map per FMR', self.max_map_per_fmr) +\
+            print_format.format('Max SRQ', self.max_srq) +\
+            print_format.format('Max SRQ WR', self.max_srq_wr) +\
+            print_format.format('Max SRQ SGE', self.max_srq_sge) +\
+            print_format.format('Max PKeys', self.max_pkeys) +\
+            print_format.format('local CA ack delay', self.local_ca_ack_delay) +\
+            print_format.format('Phys port count', self.phys_port_cnt)
+
+def guid_format(num):
+    """
+    Get GUID representation of the given number, including change of endianness.
+    :param num: Number to change to GUID format.
+    :return: GUID-formatted string.
+    """
+    num = be64toh(num)
+    hex_str = "%016x" % (num)
+    hex_array = [hex_str[i:i+2] for i in range(0, len(hex_str), 2)]
+    hex_array = [''.join(x) for x in zip(hex_array[0::2], hex_array[1::2])]
+    return ':'.join(hex_array)
