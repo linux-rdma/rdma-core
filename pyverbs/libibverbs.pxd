@@ -6,6 +6,14 @@ from libc.stdint cimport uint8_t, uint64_t
 
 cdef extern from 'infiniband/verbs.h':
 
+    cdef struct anon:
+        unsigned long subnet_prefix
+        unsigned long interface_id
+
+    cdef union ibv_gid:
+        anon _global "global"
+        uint8_t raw[16]
+
     cdef struct ibv_device:
         char *name
         int node_type
@@ -62,3 +70,5 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_close_device(ibv_context *context)
     int ibv_query_device(ibv_context *context, ibv_device_attr *device_attr)
     unsigned long ibv_get_device_guid(ibv_device *device)
+    int ibv_query_gid(ibv_context *context, unsigned int port_num,
+                      int index, ibv_gid *gid)

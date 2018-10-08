@@ -10,6 +10,7 @@ from .pyverbs_error import PyverbsRDMAError
 from .pyverbs_error import PyverbsUserError
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs as v
+from pyverbs.addr cimport Gid
 
 cdef extern from 'errno.h':
     int errno
@@ -131,6 +132,14 @@ cdef class Context(PyverbsObject):
             raise PyverbsRDMAErrno('Failed to query device {name}'.
                                    format(name=self.name), errno)
         return dev_attr
+
+    def query_gid(self, unsigned int port_num, int index):
+        gid = Gid()
+        rc = v.ibv_query_gid(self.context, port_num, index, &gid.gid)
+        if rc != 0:
+            raise PyverbsRDMAError('Failed to query gid {idx} of port {port}'.
+								   format(idx=index, port=port_num))
+        return gid
 
 
 cdef class DeviceAttr(PyverbsObject):
