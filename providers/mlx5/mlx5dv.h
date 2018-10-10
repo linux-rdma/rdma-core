@@ -224,6 +224,7 @@ enum mlx5dv_flow_action_type {
 	MLX5DV_FLOW_ACTION_IBV_COUNTER,
 	MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION,
 	MLX5DV_FLOW_ACTION_TAG,
+	MLX5DV_FLOW_ACTION_DEST_DEVX,
 };
 
 struct mlx5dv_flow_action_attr {
@@ -233,6 +234,7 @@ struct mlx5dv_flow_action_attr {
 		struct ibv_counters *counter;
 		struct ibv_flow_action *action;
 		uint32_t tag_value;
+		struct mlx5dv_devx_obj *obj;
 	};
 };
 

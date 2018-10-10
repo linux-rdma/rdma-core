@@ -3775,6 +3775,7 @@ mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 	int num_flow_actions = 0;
 	struct mlx5_flow *mflow;
 	bool have_qp = false;
+	bool have_dest_devx = false;
 	int ret;
 	int i;
 	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_FLOW,
@@ -3799,7 +3800,7 @@ mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 		type = actions_attr[i].type;
 		switch (type) {
 		case MLX5DV_FLOW_ACTION_DEST_IBV_QP:
-			if (have_qp) {
+			if (have_qp || have_dest_devx) {
 				errno = EOPNOTSUPP;
 				goto err;
 			}
@@ -3819,6 +3820,15 @@ mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 
 			flow_actions[num_flow_actions] = vaction->handle;
 			num_flow_actions++;
+			break;
+		case MLX5DV_FLOW_ACTION_DEST_DEVX:
+			if (have_dest_devx || have_qp) {
+				errno = EOPNOTSUPP;
+				goto err;
+			}
+			fill_attr_in_obj(cmd, MLX5_IB_ATTR_CREATE_FLOW_DEST_DEVX,
+					 actions_attr[i].obj->handle);
+			have_dest_devx = true;
 			break;
 		default:
 			errno = EOPNOTSUPP;
