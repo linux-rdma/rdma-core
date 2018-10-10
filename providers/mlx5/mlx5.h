@@ -518,6 +518,10 @@ struct mlx5_qp {
 	int                             rss_qp;
 	uint32_t			flags; /* Use enum mlx5_qp_flags */
 	enum mlx5dv_dc_type		dc_type;
+	uint32_t			tirn;
+	uint32_t			tisn;
+	uint32_t			rqn;
+	uint32_t			sqn;
 };
 
 struct mlx5_ah {
