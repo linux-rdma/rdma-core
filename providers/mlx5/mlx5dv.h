@@ -1027,6 +1027,15 @@ int mlx5dv_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in, size_t i
 int mlx5dv_devx_obj_destroy(struct mlx5dv_devx_obj *obj);
 int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t inlen,
 			    void *out, size_t outlen);
+
+struct mlx5dv_devx_umem {
+	uint32_t umem_id;
+};
+
+struct mlx5dv_devx_umem *
+mlx5dv_devx_umem_reg(struct ibv_context *ctx, void *addr, size_t size, uint32_t access);
+int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *umem);
+
 #ifdef __cplusplus
 }
 #endif

@@ -51,4 +51,6 @@ MLX5_1.7 {
 		mlx5dv_devx_obj_destroy;
 		mlx5dv_devx_obj_query;
 		mlx5dv_devx_obj_modify;
+		mlx5dv_devx_umem_dereg;
+		mlx5dv_devx_umem_reg;
 } MLX5_1.6;

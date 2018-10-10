@@ -5,6 +5,7 @@ rdma_man_pages(
   mlx5dv_create_flow_matcher.3.md
   mlx5dv_create_qp.3.md
   mlx5dv_devx_obj_create.3.md
+  mlx5dv_devx_umem_reg.3.md
   mlx5dv_flow_action_esp.3.md
   mlx5dv_get_clock_info.3
   mlx5dv_init_obj.3
@@ -18,4 +19,5 @@ rdma_alias_man_pages(
  mlx5dv_devx_obj_create.3 mlx5dv_devx_obj_destroy.3
  mlx5dv_devx_obj_create.3 mlx5dv_devx_obj_query.3
  mlx5dv_devx_obj_create.3 mlx5dv_devx_obj_modify.3
+ mlx5dv_devx_umem_reg.3 mlx5dv_devx_umem_dereg.3
 )

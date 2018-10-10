@@ -3843,6 +3843,63 @@ err:
 	return NULL;
 }
 
+struct mlx5dv_devx_umem *
+mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint32_t access)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_UMEM,
+			       MLX5_IB_METHOD_DEVX_UMEM_REG,
+			       5);
+	struct ib_uverbs_attr *handle;
+	struct mlx5_devx_umem *umem;
+	int ret;
+
+	umem = calloc(1, sizeof(*umem));
+	if (!umem) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ADDR, (intptr_t)addr);
+	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_LEN, size);
+	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ACCESS, access);
+	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_OUT_ID,
+		      &umem->dv_devx_umem.umem_id,
+		      sizeof(umem->dv_devx_umem.umem_id));
+	handle = fill_attr_out_obj(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_HANDLE);
+
+	ret = execute_ioctl(context, cmd);
+	if (ret)
+		goto err;
+
+	umem->handle = read_attr_obj(MLX5_IB_ATTR_DEVX_UMEM_REG_HANDLE, handle);
+	umem->context = context;
+
+	return &umem->dv_devx_umem;
+err:
+	free(umem);
+	return NULL;
+}
+
+int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *dv_devx_umem)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_UMEM,
+			       MLX5_IB_METHOD_DEVX_UMEM_DEREG,
+			       1);
+	int ret;
+	struct mlx5_devx_umem *umem = container_of(dv_devx_umem, struct mlx5_devx_umem,
+						    dv_devx_umem);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_UMEM_DEREG_HANDLE, umem->handle);
+	ret = execute_ioctl(umem->context, cmd);
+	if (ret)
+		return ret;
+
+	free(umem);
+	return 0;
+}
+
 struct mlx5dv_devx_obj *
 mlx5dv_devx_obj_create(struct ibv_context *context, const void *in, size_t inlen,
 				void *out, size_t outlen)

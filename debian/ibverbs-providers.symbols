@@ -33,3 +33,5 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_devx_obj_destroy@MLX5_1.7 21
  mlx5dv_devx_obj_query@MLX5_1.7 21
  mlx5dv_devx_obj_modify@MLX5_1.7 21
+ mlx5dv_devx_umem_dereg@MLX5_1.7 21
+ mlx5dv_devx_umem_reg@MLX5_1.7 21
