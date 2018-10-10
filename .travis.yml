@@ -34,6 +34,10 @@ addons:
       - gcc-8-multilib
       - lib32gcc-8-dev
 
+      # pyverbs
+      - python3-dev
+      - cython3
+
 service:
     - docker
 
