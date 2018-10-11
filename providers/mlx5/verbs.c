@@ -1621,7 +1621,8 @@ enum {
 		 MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_UC |
 		 MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_MC |
 		 MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE |
-		 MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE),
+		 MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE |
+		 MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE),
 };
 
 static int create_dct(struct ibv_context *context,
@@ -1786,6 +1787,10 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 					 MLX5_QP_FLAG_SCATTER_CQE);
 				scatter_to_cqe_configured = true;
 			}
+			if (mlx5_qp_attr->create_flags &
+			    MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE)
+				mlx5_create_flags |= MLX5_QP_FLAG_PACKET_BASED_CREDIT_MODE;
+
 		}
 
 		if (attr->qp_type == IBV_QPT_DRIVER) {
