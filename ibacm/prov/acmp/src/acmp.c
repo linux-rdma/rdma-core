@@ -2658,6 +2658,7 @@ static void acmp_port_up(struct acmp_port *port)
 	__be16 pkey_be;
 	__be16 sm_lid;
 	int i, ret;
+	int instance;
 
 	acm_log(1, "%s %d\n", port->dev->verbs->device->name, port->port_num);
 	ret = ibv_query_port(port->dev->verbs, port->port_num, &attr);
@@ -2683,7 +2684,7 @@ static void acmp_port_up(struct acmp_port *port)
 	acmp_set_dest_addr(&port->sa_dest, ACM_ADDRESS_LID,
 			   (uint8_t *) &sm_lid, sizeof(sm_lid));
 
-	atomic_set(&port->sa_dest.refcnt, 1);
+	instance = atomic_inc(&port->sa_dest.refcnt) - 1;
 	port->sa_dest.state = ACMP_READY;
 	for (i = 0; i < attr.pkey_tbl_len; i++) {
 		ret = ibv_query_pkey(port->dev->verbs, port->port_num, i, &pkey_be);
@@ -2703,11 +2704,13 @@ static void acmp_port_up(struct acmp_port *port)
 	}
 
 	port->state = IBV_PORT_ACTIVE;
-	acm_log(1, "%s %d is up\n", port->dev->verbs->device->name, port->port_num);
+	acm_log(1, "%s %d %d is up\n", port->dev->verbs->device->name, port->port_num, instance);
 }
 
 static void acmp_port_down(struct acmp_port *port)
 {
+	int instance;
+
 	acm_log(1, "%s %d\n", port->dev->verbs->device->name, port->port_num);
 	pthread_mutex_lock(&port->lock);
 	port->state = IBV_PORT_DOWN;
@@ -2718,13 +2721,13 @@ static void acmp_port_down(struct acmp_port *port)
 	 * event instead of a sleep loop, but it's not worth it given how
 	 * infrequently we should be processing a port down event in practice.
 	 */
-	atomic_dec(&port->sa_dest.refcnt);
-	while (atomic_get(&port->sa_dest.refcnt))
-		sleep(0);
-	pthread_mutex_lock(&port->sa_dest.lock);
-	port->sa_dest.state = ACMP_INIT;
-	pthread_mutex_unlock(&port->sa_dest.lock);
-	acm_log(1, "%s %d is down\n", port->dev->verbs->device->name, port->port_num);
+	instance = atomic_dec(&port->sa_dest.refcnt);
+	if (instance == 1) {
+		pthread_mutex_lock(&port->sa_dest.lock);
+		port->sa_dest.state = ACMP_INIT;
+		pthread_mutex_unlock(&port->sa_dest.lock);
+	}
+	acm_log(1, "%s %d %d is down\n", port->dev->verbs->device->name, port->port_num, instance);
 }
 
 static int acmp_open_port(const struct acm_port *cport, void *dev_context,
