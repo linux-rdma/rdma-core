@@ -53,6 +53,7 @@ endif
 
 # The following files are not used on Debian (we ship our own sysvinit script)
 INST_EXCLUDE := "etc/init.d/srpd" \
+		"etc/init.d/ibacm" \
 		"usr/sbin/run_srp_daemon" \
 		"usr/sbin/srp_daemon.sh"
 INST_EXCLUDE := $(addprefix -X,$(INST_EXCLUDE))
@@ -62,9 +63,13 @@ override_dh_install:
 # cmake installs the correct init scripts in the correct place, just setup the
 # pre-postrms
 override_dh_installinit:
-	dh_installinit -pibacm --onlyscripts
 	dh_installinit -prdma-core --onlyscripts --name=iwpmd
 	dh_installinit --remaining-packages
+
+override_dh_installsystemd:
+	dh_installsystemd -pibacm --no-start ibacm.service
+	dh_installsystemd -pibacm ibacm.socket
+	dh_installsystemd --remaining-packages
 
 # Provider plugin libaries are not shared libraries and do not belong in the
 # shlibs file.
