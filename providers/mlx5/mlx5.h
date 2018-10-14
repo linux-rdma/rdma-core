@@ -567,6 +567,17 @@ struct mlx5dv_flow_matcher {
 	uint32_t handle;
 };
 
+struct mlx5dv_devx_obj {
+	struct ibv_context *context;
+	uint32_t handle;
+};
+
+struct mlx5_devx_umem {
+	struct mlx5dv_devx_umem dv_devx_umem;
+	struct ibv_context *context;
+	uint32_t handle;
+};
+
 static inline int mlx5_ilog2(int n)
 {
 	int t;

@@ -224,6 +224,7 @@ enum mlx5dv_flow_action_type {
 	MLX5DV_FLOW_ACTION_IBV_COUNTER,
 	MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION,
 	MLX5DV_FLOW_ACTION_TAG,
+	MLX5DV_FLOW_ACTION_DEST_DEVX,
 };
 
 struct mlx5dv_flow_action_attr {
@@ -233,6 +234,7 @@ struct mlx5dv_flow_action_attr {
 		struct ibv_counters *counter;
 		struct ibv_flow_action *action;
 		uint32_t tag_value;
+		struct mlx5dv_devx_obj *obj;
 	};
 };
 
@@ -1014,6 +1016,27 @@ struct mlx5dv_context_attr {
 
 struct ibv_context *
 mlx5dv_open_device(struct ibv_device *device, struct mlx5dv_context_attr *attr);
+
+struct mlx5dv_devx_obj;
+
+struct mlx5dv_devx_obj *
+mlx5dv_devx_obj_create(struct ibv_context *context, const void *in, size_t inlen,
+		       void *out, size_t outlen);
+int mlx5dv_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
+			  void *out, size_t outlen);
+int mlx5dv_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
+			   void *out, size_t outlen);
+int mlx5dv_devx_obj_destroy(struct mlx5dv_devx_obj *obj);
+int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t inlen,
+			    void *out, size_t outlen);
+
+struct mlx5dv_devx_umem {
+	uint32_t umem_id;
+};
+
+struct mlx5dv_devx_umem *
+mlx5dv_devx_umem_reg(struct ibv_context *ctx, void *addr, size_t size, uint32_t access);
+int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *umem);
 
 #ifdef __cplusplus
 }

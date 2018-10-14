@@ -3775,6 +3775,7 @@ mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 	int num_flow_actions = 0;
 	struct mlx5_flow *mflow;
 	bool have_qp = false;
+	bool have_dest_devx = false;
 	int ret;
 	int i;
 	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_FLOW,
@@ -3799,7 +3800,7 @@ mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 		type = actions_attr[i].type;
 		switch (type) {
 		case MLX5DV_FLOW_ACTION_DEST_IBV_QP:
-			if (have_qp) {
+			if (have_qp || have_dest_devx) {
 				errno = EOPNOTSUPP;
 				goto err;
 			}
@@ -3819,6 +3820,15 @@ mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 
 			flow_actions[num_flow_actions] = vaction->handle;
 			num_flow_actions++;
+			break;
+		case MLX5DV_FLOW_ACTION_DEST_DEVX:
+			if (have_dest_devx || have_qp) {
+				errno = EOPNOTSUPP;
+				goto err;
+			}
+			fill_attr_in_obj(cmd, MLX5_IB_ATTR_CREATE_FLOW_DEST_DEVX,
+					 actions_attr[i].obj->handle);
+			have_dest_devx = true;
 			break;
 		default:
 			errno = EOPNOTSUPP;
@@ -3841,4 +3851,156 @@ mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 err:
 	free(mflow);
 	return NULL;
+}
+
+struct mlx5dv_devx_umem *
+mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint32_t access)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_UMEM,
+			       MLX5_IB_METHOD_DEVX_UMEM_REG,
+			       5);
+	struct ib_uverbs_attr *handle;
+	struct mlx5_devx_umem *umem;
+	int ret;
+
+	umem = calloc(1, sizeof(*umem));
+	if (!umem) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ADDR, (intptr_t)addr);
+	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_LEN, size);
+	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ACCESS, access);
+	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_OUT_ID,
+		      &umem->dv_devx_umem.umem_id,
+		      sizeof(umem->dv_devx_umem.umem_id));
+	handle = fill_attr_out_obj(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_HANDLE);
+
+	ret = execute_ioctl(context, cmd);
+	if (ret)
+		goto err;
+
+	umem->handle = read_attr_obj(MLX5_IB_ATTR_DEVX_UMEM_REG_HANDLE, handle);
+	umem->context = context;
+
+	return &umem->dv_devx_umem;
+err:
+	free(umem);
+	return NULL;
+}
+
+int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *dv_devx_umem)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_UMEM,
+			       MLX5_IB_METHOD_DEVX_UMEM_DEREG,
+			       1);
+	int ret;
+	struct mlx5_devx_umem *umem = container_of(dv_devx_umem, struct mlx5_devx_umem,
+						    dv_devx_umem);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_UMEM_DEREG_HANDLE, umem->handle);
+	ret = execute_ioctl(umem->context, cmd);
+	if (ret)
+		return ret;
+
+	free(umem);
+	return 0;
+}
+
+struct mlx5dv_devx_obj *
+mlx5dv_devx_obj_create(struct ibv_context *context, const void *in, size_t inlen,
+				void *out, size_t outlen)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_OBJ,
+			       MLX5_IB_METHOD_DEVX_OBJ_CREATE,
+			       3);
+	struct ib_uverbs_attr *handle;
+	struct mlx5dv_devx_obj *obj;
+	int ret;
+
+	obj = calloc(1, sizeof(*obj));
+	if (!obj) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	handle = fill_attr_out_obj(cmd, MLX5_IB_ATTR_DEVX_OBJ_CREATE_HANDLE);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OBJ_CREATE_CMD_IN, in, inlen);
+	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_OBJ_CREATE_CMD_OUT, out, outlen);
+
+	ret = execute_ioctl(context, cmd);
+	if (ret)
+		goto err;
+
+	obj->handle = read_attr_obj(MLX5_IB_ATTR_DEVX_OBJ_CREATE_HANDLE, handle);
+	obj->context = context;
+	return obj;
+err:
+	free(obj);
+	return NULL;
+}
+
+int mlx5dv_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
+				void *out, size_t outlen)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_OBJ,
+			       MLX5_IB_METHOD_DEVX_OBJ_QUERY,
+			       3);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_HANDLE, obj->handle);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_CMD_IN, in, inlen);
+	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_CMD_OUT, out, outlen);
+
+	return execute_ioctl(obj->context, cmd);
+}
+
+int mlx5dv_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
+				void *out, size_t outlen)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_OBJ,
+			       MLX5_IB_METHOD_DEVX_OBJ_MODIFY,
+			       3);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_HANDLE, obj->handle);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_CMD_IN, in, inlen);
+	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_CMD_OUT, out, outlen);
+
+	return execute_ioctl(obj->context, cmd);
+}
+
+int mlx5dv_devx_obj_destroy(struct mlx5dv_devx_obj *obj)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_OBJ,
+			       MLX5_IB_METHOD_DEVX_OBJ_DESTROY,
+			       1);
+	int ret;
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_OBJ_DESTROY_HANDLE, obj->handle);
+	ret = execute_ioctl(obj->context, cmd);
+
+	if (ret)
+		return ret;
+	free(obj);
+	return 0;
+}
+
+int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t inlen,
+			void *out, size_t outlen)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX,
+			       MLX5_IB_METHOD_DEVX_OTHER,
+			       2);
+
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OTHER_CMD_IN, in, inlen);
+	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_OTHER_CMD_OUT, out, outlen);
+
+	return execute_ioctl(context, cmd);
 }
