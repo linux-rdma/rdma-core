@@ -386,20 +386,43 @@ int acm_get_gid(struct acm_port *port, int index, union ibv_gid *gid)
 	}
 }
 
+static size_t acm_addr_len(uint8_t addr_type)
+{
+	switch (addr_type) {
+	case ACM_ADDRESS_NAME:
+		return ACM_MAX_ADDRESS;
+	case ACM_ADDRESS_IP:
+		return sizeof(struct in_addr);
+	case ACM_ADDRESS_IP6:
+		return sizeof(struct in6_addr);
+	case ACM_ADDRESS_GID:
+		return sizeof(union ibv_gid);
+	case ACM_ADDRESS_LID:
+		return sizeof(uint16_t);
+	default:
+		acm_log(2, "illegal address type %d\n", addr_type);
+	}
+	return 0;
+}
+
+static int acm_addr_cmp(struct acm_address *acm_addr, uint8_t *addr, uint8_t addr_type)
+{
+	if (acm_addr->type != addr_type)
+		return -2;
+
+	if (acm_addr->type == ACM_ADDRESS_NAME)
+		return strncasecmp((char *) acm_addr->info.name,
+				   (char *) addr, acm_addr_len(acm_addr->type));
+	return memcmp(acm_addr->info.addr, addr, acm_addr_len(acm_addr->type));
+}
+
 static void acm_mark_addr_invalid(struct acmc_ep *ep,
 				  struct acm_ep_addr_data *data)
 {
 	int i;
 
 	for (i = 0; i < MAX_EP_ADDR; i++) {
-		if (ep->addr_info[i].addr.type != data->type)
-			continue;
-
-		if ((data->type == ACM_ADDRESS_NAME &&
-		    !strncasecmp((char *) ep->addr_info[i].addr.info.name,
-			      (char *) data->info.addr, ACM_MAX_ADDRESS)) ||
-		     !memcmp(ep->addr_info[i].addr.info.addr, data->info.addr,
-			     ACM_MAX_ADDRESS)) {
+		if (!acm_addr_cmp(&ep->addr_info[i].addr, data->info.addr, data->type)) {
 			ep->addr_info[i].addr.type = ACM_ADDRESS_INVALID;
 			ep->port->prov->remove_address(ep->addr_info[i].prov_addr_context);
 			break;
@@ -414,16 +437,10 @@ acm_addr_lookup(const struct acm_endpoint *endpoint, uint8_t *addr, uint8_t addr
 	int i;
 
 	ep = container_of(endpoint, struct acmc_ep, endpoint);
-	for (i = 0; i < MAX_EP_ADDR; i++) {
-		if (ep->addr_info[i].addr.type != addr_type)
-			continue;
-
-		if ((addr_type == ACM_ADDRESS_NAME &&
-			!strncasecmp((char *) ep->addr_info[i].addr.info.name,
-				(char *) addr, ACM_MAX_ADDRESS)) ||
-			!memcmp(ep->addr_info[i].addr.info.addr, addr, ACM_MAX_ADDRESS))
+	for (i = 0; i < MAX_EP_ADDR; i++)
+		if (!acm_addr_cmp(&ep->addr_info[i].addr, addr, addr_type))
 			return &ep->addr_info[i].addr;
-	}
+
 	return NULL;
 }
 
