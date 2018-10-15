@@ -197,7 +197,7 @@ static struct acmc_device *
 acm_get_device_from_gid(union ibv_gid *sgid, uint8_t *port);
 static struct acmc_ep *acm_find_ep(struct acmc_port *port, uint16_t pkey);
 static int acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
-			      size_t addr_len, uint8_t addr_type);
+			      uint8_t addr_type);
 static void acm_event_handler(struct acmc_device *dev);
 static int acm_nl_send(int sock, struct acm_msg *msg);
 
@@ -1326,7 +1326,7 @@ static void acm_add_ep_ip(char *ifname, struct acm_ep_addr_data *data, char *ip_
 	ep = acm_find_ep(&dev->port[port_num - 1], pkey);
 	if (ep) {
 		if (acm_ep_insert_addr(ep, ip_str, data->info.addr,
-				       sizeof data->info.addr, data->type))
+				       data->type))
 			acm_log(0, "Failed to add '%s' to EP\n", ip_str);
 	} else {
 		acm_log(0, "Failed to add '%s' no EP for pkey\n", ip_str);
@@ -1370,7 +1370,7 @@ static int acm_ipnl_create(void)
 }
 
 static void acm_ip_iter_cb(char *ifname, union ibv_gid *gid, uint16_t pkey,
-		uint8_t addr_type, uint8_t *addr, size_t addr_len,
+		uint8_t addr_type, uint8_t *addr,
 		char *ip_str, void *ctx)
 {
 	int ret = EINVAL;
@@ -1383,7 +1383,7 @@ static void acm_ip_iter_cb(char *ifname, union ibv_gid *gid, uint16_t pkey,
 	if (dev) {
 		ep = acm_find_ep(&dev->port[port_num - 1], pkey);
 		if (ep)
-			ret = acm_ep_insert_addr(ep, ip_str, addr, addr_len, addr_type);
+			ret = acm_ep_insert_addr(ep, ip_str, addr, addr_type);
 	}
 
 	if (ret) {
@@ -2009,16 +2009,13 @@ static FILE *acm_open_addr_file(void)
 
 static int
 acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
-		   size_t addr_len, uint8_t addr_type)
+		   uint8_t addr_type)
 {
 	int i, ret = -1;
 	uint8_t tmp[ACM_MAX_ADDRESS];
 
-	if (addr_len > ACM_MAX_ADDRESS)
-		return EINVAL;
-
 	memset(tmp, 0, sizeof tmp);
-	memcpy(tmp, addr, addr_len);
+	memcpy(tmp, addr, acm_addr_len(addr_type));
 
 	if (!acm_addr_lookup(&ep->endpoint, addr, addr_type)) {
 		for (i = 0; (i < MAX_EP_ADDR) &&
@@ -2079,7 +2076,7 @@ acm_get_device_from_gid(union ibv_gid *sgid, uint8_t *port)
 }
 
 static void acm_ep_ip_iter_cb(char *ifname, union ibv_gid *gid, uint16_t pkey,
-		uint8_t addr_type, uint8_t *addr, size_t addr_len,
+		uint8_t addr_type, uint8_t *addr,
 		char *ip_str, void *ctx)
 {
 	uint8_t port_num;
@@ -2091,7 +2088,7 @@ static void acm_ep_ip_iter_cb(char *ifname, union ibv_gid *gid, uint16_t pkey,
 	    && ep->port->port.port_num == port_num &&
 		/* pkey retrieved from ipoib has always full mmbr bit set */
 		(ep->endpoint.pkey | IB_PKEY_FULL_MEMBER) == pkey) {
-		if (!acm_ep_insert_addr(ep, ip_str, addr, addr_len, addr_type)) {
+		if (!acm_ep_insert_addr(ep, ip_str, addr, addr_type)) {
 			acm_log(0, "Added %s %s %d 0x%x from %s\n", ip_str,
 				dev->device.verbs->device->name, port_num, pkey,
 				ifname);
@@ -2113,7 +2110,6 @@ static int acm_assign_ep_names(struct acmc_ep *ep)
 	uint16_t pkey;
 	uint8_t addr[ACM_MAX_ADDRESS], type;
 	int port;
-	size_t addr_len;
 
 	dev_name = ep->port->dev->device.verbs->device->name;
 	acm_log(1, "device %s, port %d, pkey 0x%x\n",
@@ -2140,18 +2136,15 @@ static int acm_assign_ep_names(struct acmc_ep *ep)
 				continue;
 			}
 			type = ACM_ADDRESS_IP;
-			addr_len = 4;
 		} else if (inet_pton(AF_INET6, name, addr) > 0) {
 			if (!support_ips_in_addr_cfg) {
 				acm_log(0, "ERROR - IP's are not configured to be read from ibacm_addr.cfg\n");
 				continue;
 			}
 			type = ACM_ADDRESS_IP6;
-			addr_len = 16;
 		} else {
 			type = ACM_ADDRESS_NAME;
-			addr_len = strlen(name);
-			memcpy(addr, name, addr_len);
+			memcpy(addr, name, strlen(name));
 		}
 
 		if (strcasecmp(pkey_str, "default")) {
@@ -2167,7 +2160,7 @@ static int acm_assign_ep_names(struct acmc_ep *ep)
 		    (ep->port->port.port_num == (uint8_t) port) &&
 		    (ep->endpoint.pkey == pkey)) {
 			acm_log(1, "assigning %s\n", name);
-			if (acm_ep_insert_addr(ep, name, addr, addr_len, type)) {
+			if (acm_ep_insert_addr(ep, name, addr, type)) {
 				acm_log(1, "maximum number of names assigned to EP\n");
 				break;
 			}

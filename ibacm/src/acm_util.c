@@ -133,7 +133,6 @@ int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx)
 	union ibv_gid sgid;
 	uint8_t addr_type;
 	uint8_t addr[ACM_MAX_ADDRESS];
-	size_t addr_len;
 	char *alias_sep;
 
 	s = socket(family, SOCK_DGRAM, 0);
@@ -180,7 +179,6 @@ retry_ioctl:
 			addr_type = ACM_ADDRESS_IP;
 			memcpy(&addr, &((struct sockaddr_in *) &ifr[i].ifr_addr)->sin_addr,
 				sizeof addr);
-			addr_len = 4;
 			inet_ntop(ifr[i].ifr_addr.sa_family,
 				&((struct sockaddr_in *) &ifr[i].ifr_addr)->sin_addr,
 				ip_str, sizeof ip_str);
@@ -189,7 +187,6 @@ retry_ioctl:
 			addr_type = ACM_ADDRESS_IP6;
 			memcpy(&addr, &((struct sockaddr_in6 *) &ifr[i].ifr_addr)->sin6_addr,
 				sizeof addr);
-			addr_len = ACM_MAX_ADDRESS;
 			inet_ntop(ifr[i].ifr_addr.sa_family,
 				&((struct sockaddr_in6 *) &ifr[i].ifr_addr)->sin6_addr,
 				ip_str, sizeof ip_str);
@@ -215,7 +212,7 @@ retry_ioctl:
 		if (ret)
 			continue;
 
-		cb(ifr[i].ifr_name, &sgid, pkey, addr_type, addr, addr_len, ip_str, ctx);
+		cb(ifr[i].ifr_name, &sgid, pkey, addr_type, addr, ip_str, ctx);
 	}
 	ret = 0;
 
