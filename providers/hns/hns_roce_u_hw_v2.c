@@ -687,6 +687,16 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 					HNS_ROCE_WQE_OP_SEND_WITH_IMM);
 				break;
 
+			case IBV_WR_LOCAL_INV:
+				roce_set_field(rc_sq_wqe->byte_4,
+					       RC_SQ_WQE_BYTE_4_OPCODE_M,
+					       RC_SQ_WQE_BYTE_4_OPCODE_S,
+					       HNS_ROCE_WQE_OP_LOCAL_INV);
+				roce_set_bit(rc_sq_wqe->byte_4,
+					     RC_SQ_WQE_BYTE_4_SO_S, 1);
+				rc_sq_wqe->inv_key =
+						htole32(wr->invalidate_rkey);
+				break;
 			case IBV_WR_ATOMIC_CMP_AND_SWP:
 				roce_set_field(rc_sq_wqe->byte_4,
 					RC_SQ_WQE_BYTE_4_OPCODE_M,
