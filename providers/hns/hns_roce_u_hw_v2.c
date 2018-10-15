@@ -705,8 +705,6 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 				rc_sq_wqe->rkey = htole32(wr->wr.atomic.rkey);
 				rc_sq_wqe->va =
 					htole64(wr->wr.atomic.remote_addr);
-				wqe += sizeof(struct hns_roce_v2_wqe_data_seg);
-				set_atomic_seg(wqe, wr);
 				break;
 
 			case IBV_WR_ATOMIC_FETCH_AND_ADD:
@@ -717,8 +715,6 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 				rc_sq_wqe->rkey = htole32(wr->wr.atomic.rkey);
 				rc_sq_wqe->va =
 					htole64(wr->wr.atomic.remote_addr);
-				wqe += sizeof(struct hns_roce_v2_wqe_data_seg);
-				set_atomic_seg(wqe, wr);
 				break;
 			default:
 				roce_set_field(rc_sq_wqe->byte_4,
@@ -737,14 +733,13 @@ static int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			break;
 		}
 
+		dseg = wqe;
 		if (wr->opcode == IBV_WR_ATOMIC_FETCH_AND_ADD ||
-		    wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP)
-			dseg = wqe - sizeof(struct hns_roce_v2_wqe_data_seg);
-		else
-			dseg = wqe;
-
-		/* Inline */
-		if (wr->send_flags & IBV_SEND_INLINE && wr->num_sge) {
+		    wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
+			set_data_seg_v2(dseg, wr->sg_list);
+			wqe += sizeof(struct hns_roce_v2_wqe_data_seg);
+			set_atomic_seg(wqe, wr);
+		} else if (wr->send_flags & IBV_SEND_INLINE && wr->num_sge) {
 			if (le32toh(rc_sq_wqe->msg_len) > qp->max_inline_data) {
 				ret = EINVAL;
 				*bad_wr = wr;
