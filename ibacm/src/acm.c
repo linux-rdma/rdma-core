@@ -2016,7 +2016,7 @@ acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
 		return EINVAL;
 
 	memset(tmp, 0, sizeof tmp);
-	memcpy(tmp, addr, addr_len);
+	memcpy(tmp, addr, acm_addr_len(addr_type));
 
 	if (!acm_addr_lookup(&ep->endpoint, addr, addr_type)) {
 		for (i = 0; (i < MAX_EP_ADDR) &&
