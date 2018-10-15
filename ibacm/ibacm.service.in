@@ -10,6 +10,8 @@ Wants=rdma-load-modules@rdma.service
 After=rdma-load-modules@rdma.service
 # Order ibacm startup after basic RDMA hw setup.
 After=rdma-hw.target
+# Do not start the service if ib_umad is not loaded or not working
+ConditionPathExists=/sys/class/infiniband_mad/abi_version
 
 # Implicitly after basic.target, note that ibacm writes to /var/log directly
 # and thus needs writable filesystems setup.
