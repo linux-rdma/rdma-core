@@ -23,7 +23,13 @@ BuildRequires: pkgconfig(libnl-route-3.0)
 BuildRequires: valgrind-devel
 BuildRequires: systemd
 BuildRequires: systemd-devel
+%define with_pyverbs %{?_with_pyverbs: 1} %{?!_with_pyverbs: 0}
+%if %{with_pyverbs}
+BuildRequires: python3-devel
+BuildRequires: python3-Cython
+%else
 BuildRequires: python
+%endif
 %if 0%{?fedora} >= 21
 BuildRequires: perl-generators
 %endif
@@ -211,6 +217,14 @@ Requires: %{name}%{?_isa} = %{version}-%{release}
 In conjunction with the kernel ib_srp driver, srp_daemon allows you to
 discover and use SCSI devices via the SCSI RDMA Protocol over InfiniBand.
 
+%package -n python3-pyverbs
+Summary: Python3 API over IB verbs
+%{?python_provide:%python_provide python3-pyverbs}
+
+%description -n python3-pyverbs
+Pyverbs is a Cython-based Python API over libibverbs, providing an
+easy, object-oriented access to IB verbs.
+
 %prep
 %setup
 
@@ -245,7 +259,16 @@ discover and use SCSI devices via the SCSI RDMA Protocol over InfiniBand.
 %if %{with_static}
          -DENABLE_STATIC=1 \
 %endif
-         %{EXTRA_CMAKE_FLAGS}
+         %{EXTRA_CMAKE_FLAGS} \
+%if %{defined __python3}
+         -DPYTHON_EXECUTABLE:PATH=%{__python3} \
+         -DCMAKE_INSTALL_PYTHON_ARCH_LIB:PATH=%{python3_sitearch} \
+%endif
+%if %{with_pyverbs}
+         -DNO_PYVERBS=0
+%else
+	 -DNO_PYVERBS=1
+%endif
 %make_jobs
 
 %install
@@ -469,3 +492,8 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_mandir}/man5/srp_daemon.service.5*
 %{_mandir}/man5/srp_daemon_port@.service.5*
 %doc %{_docdir}/%{name}-%{version}/ibsrpdm.md
+
+%if %{with_pyverbs}
+%files -n python3-pyverbs
+%{python3_sitearch}/pyverbs
+%endif

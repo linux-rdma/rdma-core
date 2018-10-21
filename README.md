@@ -58,7 +58,7 @@ $ apt-get install build-essential cmake gcc libudev-dev libnl-3-dev libnl-route-
 ### Fedora
 
 ```sh
-$ dnf install cmake gcc libnl3-devel libudev-devel pkgconfig valgrind-devel ninja-build
+$ dnf install cmake gcc libnl3-devel libudev-devel pkgconfig valgrind-devel ninja-build python3-devel python3-Cython
 ```
 
 NOTE: Fedora Core uses the name 'ninja-build' for the 'ninja' command.

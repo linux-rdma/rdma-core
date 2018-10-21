@@ -74,10 +74,11 @@ class DockerFile(object):
 
 class Environment(object):
     pandoc = True;
-    python_cmd = "python";
+    python_cmd = "python3";
     aliases = set();
     use_make = False;
     proxy = True;
+    build_pyverbs = True;
 
     def image_name(self):
         return "build-%s/%s"%(project,self.name);
@@ -110,6 +111,8 @@ class centos6(YumEnvironment):
     use_make = True;
     pandoc = False;
     is_rpm = False;
+    build_pyverbs = False;
+    python_cmd = "python";
 
 class centos7(YumEnvironment):
     docker_parent = "centos:7";
@@ -117,10 +120,12 @@ class centos7(YumEnvironment):
     name = "centos7";
     use_make = True;
     pandoc = False;
+    build_pyverbs = False;
     specfile = "redhat/rdma-core.spec";
+    python_cmd = "python";
 
 class centos7_epel(centos7):
-    pkgs = (centos7.pkgs - {"cmake","make"}) | {"ninja-build","cmake3","pandoc"};
+    pkgs = (centos7.pkgs - {"cmake","make"}) | {"ninja-build","cmake3","pandoc", 'python3-Cython', 'python3-devel'};
     name = "centos7_epel";
     use_make = False;
     pandoc = True;
@@ -136,7 +141,7 @@ class centos7_epel(centos7):
 
 class fc29(Environment):
     docker_parent = "fedora:29";
-    pkgs = (centos7.pkgs - {"make", "python-argparse" }) | {"ninja-build","pandoc","perl-generators"};
+    pkgs = (centos7.pkgs - {"make", "python-argparse" }) | {"ninja-build","pandoc","perl-generators","python3-Cython","python3-devel"};
     name = "fc29";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
@@ -153,6 +158,7 @@ class fc29(Environment):
 
 class APTEnvironment(Environment):
     is_deb = True;
+    build_python = False;
     def get_docker_file(self):
         res = DockerFile(self.docker_parent);
         res.lines.append("RUN apt-get update && apt-get install -y --no-install-recommends %s && apt-get clean"%(
@@ -202,6 +208,7 @@ class jessie(APTEnvironment):
     pkgs = xenial.pkgs;
     name = "debian-8";
     aliases = {"jessie"};
+    python_cmd = "python";
 
 class stretch(APTEnvironment):
     docker_parent = "debian:9"
@@ -314,6 +321,7 @@ class travis(APTEnvironment):
 
 class ZypperEnvironment(Environment):
     is_rpm = True;
+    build_pyverbs = False;
     def get_docker_file(self):
         res = DockerFile(self.docker_parent);
         res.lines.append("RUN zypper --non-interactive refresh");
@@ -583,6 +591,9 @@ os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
                 bopts.extend(["--with", arg]);
             for arg in args.without_flags:
                 bopts.extend(["--without", arg]);
+            if "pyverbs" not in args.with_flags + args.without_flags:
+                if env.build_pyverbs:
+                    bopts.extend(["--with", "pyverbs"]);
 
             print >> F,'os.execlp("rpmbuild","rpmbuild",%s)'%(
                 ",".join(repr(I) for I in bopts));
