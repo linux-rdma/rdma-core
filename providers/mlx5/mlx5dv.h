@@ -1040,6 +1040,18 @@ struct mlx5dv_devx_umem *
 mlx5dv_devx_umem_reg(struct ibv_context *ctx, void *addr, size_t size, uint32_t access);
 int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *umem);
 
+struct mlx5dv_devx_uar {
+	void *reg_addr;
+	void *base_addr;
+	uint32_t page_id;
+	off_t mmap_off;
+	uint64_t comp_mask;
+};
+
+struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
+					      uint32_t flags);
+void mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *devx_uar);
+
 #ifdef __cplusplus
 }
 #endif

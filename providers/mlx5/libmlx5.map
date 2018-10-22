@@ -45,12 +45,14 @@ MLX5_1.7 {
 	global:
 		mlx5dv_create_flow_action_modify_header;
 		mlx5dv_create_flow_action_packet_reformat;
-		mlx5dv_open_device;
+		mlx5dv_devx_alloc_uar;
+		mlx5dv_devx_free_uar;
 		mlx5dv_devx_general_cmd;
 		mlx5dv_devx_obj_create;
 		mlx5dv_devx_obj_destroy;
-		mlx5dv_devx_obj_query;
 		mlx5dv_devx_obj_modify;
+		mlx5dv_devx_obj_query;
 		mlx5dv_devx_umem_dereg;
 		mlx5dv_devx_umem_reg;
+		mlx5dv_open_device;
 } MLX5_1.6;
