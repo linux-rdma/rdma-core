@@ -59,7 +59,6 @@
 struct bnxt_re_dpi {
 	__u32 dpindx;
 	__u64 *dbpage;
-	pthread_spinlock_t db_lock;
 };
 
 struct bnxt_re_pd {

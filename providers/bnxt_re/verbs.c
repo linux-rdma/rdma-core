@@ -110,8 +110,6 @@ struct ibv_pd *bnxt_re_alloc_pd(struct ibv_context *ibvctx)
 			(void)ibv_cmd_dealloc_pd(&pd->ibvpd);
 			goto out;
 		}
-		pthread_spin_init(&cntx->udpi.db_lock,
-				  PTHREAD_PROCESS_PRIVATE);
         }
 
 	return &pd->ibvpd;
@@ -632,46 +630,64 @@ static int bnxt_re_poll_flush_wcs(struct bnxt_re_queue *que,
 	return cnt;
 }
 
+static int bnxt_re_poll_flush_wqes(struct bnxt_re_cq *cq,
+				   struct list_head *lhead,
+				   struct ibv_wc *ibvwc,
+				   int32_t nwc)
+{
+	struct bnxt_re_fque_node *cur, *tmp;
+	struct bnxt_re_wrid *wridp;
+	struct bnxt_re_queue *que;
+	struct bnxt_re_qp *qp;
+	bool sq_list = false;
+	uint32_t polled = 0;
+
+	sq_list = (lhead == &cq->sfhead) ? true : false;
+	if (!list_empty(lhead)) {
+		list_for_each_safe(lhead, cur, tmp, list) {
+			if (sq_list) {
+				qp = container_of(cur, struct bnxt_re_qp,
+						  snode);
+				que = qp->sqq;
+				wridp = qp->swrid;
+			} else {
+				qp = container_of(cur, struct bnxt_re_qp,
+						  rnode);
+				que = qp->rqq;
+				wridp = qp->rwrid;
+			}
+			if (bnxt_re_is_que_empty(que))
+				continue;
+			polled += bnxt_re_poll_flush_wcs(que, wridp,
+							 ibvwc + polled,
+							 qp->qpid,
+							 nwc - polled);
+			if (!(nwc - polled))
+				break;
+		}
+	}
+
+	return polled;
+}
+
 static int bnxt_re_poll_flush_lists(struct bnxt_re_cq *cq, uint32_t nwc,
 				    struct ibv_wc *ibvwc)
 {
-	struct bnxt_re_fque_node *cur, *tmp;
-	struct bnxt_re_qp *qp;
-	struct bnxt_re_queue *que;
-	int dqed = 0, left;
+	int left, polled = 0;
 
 	/* Check if flush Qs are empty */
 	if (list_empty(&cq->sfhead) && list_empty(&cq->rfhead))
 		return 0;
 
-	if (!list_empty(&cq->sfhead)) {
-		list_for_each_safe(&cq->sfhead, cur, tmp, list) {
-			qp = container_of(cur, struct bnxt_re_qp, snode);
-			que = qp->sqq;
-			if (bnxt_re_is_que_empty(que))
-				continue;
-			dqed = bnxt_re_poll_flush_wcs(que, qp->swrid, ibvwc,
-						      qp->qpid, nwc);
-		}
-	}
+	polled  = bnxt_re_poll_flush_wqes(cq, &cq->sfhead, ibvwc, nwc);
+	left = nwc - polled;
 
-	left = nwc - dqed;
 	if (!left)
-		return dqed;
+		return polled;
 
-	if (!list_empty(&cq->rfhead)) {
-		list_for_each_safe(&cq->rfhead, cur, tmp, list) {
-			qp = container_of(cur, struct bnxt_re_qp, rnode);
-			que = qp->rqq;
-			if (!que || bnxt_re_is_que_empty(que))
-				continue;
-			dqed += bnxt_re_poll_flush_wcs(que, qp->rwrid,
-						       ibvwc + dqed, qp->qpid,
-						       left);
-		}
-	}
-
-	return dqed;
+	polled  += bnxt_re_poll_flush_wqes(cq, &cq->rfhead,
+			ibvwc + polled, left);
+	return polled;
 }
 
 int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
@@ -688,12 +704,13 @@ int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 		cq->deferred_arm_flags = 0;
 	}
 	pthread_spin_unlock(&cq->cqq.qlock);
-	/* Check if anything is there to flush. */
-	pthread_spin_lock(&cntx->fqlock);
 	left = nwc - dqed;
-	if (left)
+	if (left) {
+		/* Check if anything is there to flush. */
+		pthread_spin_lock(&cntx->fqlock);
 		dqed += bnxt_re_poll_flush_lists(cq, left, (wc + dqed));
-	pthread_spin_unlock(&cntx->fqlock);
+		pthread_spin_unlock(&cntx->fqlock);
+	}
 
 	return dqed;
 }
@@ -1222,31 +1239,32 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	struct bnxt_re_bsqe *hdr;
 	struct bnxt_re_wrid *wrid;
 	struct bnxt_re_psns *psns;
-	void *sqe;
-	int ret = 0, bytes = 0;
 	uint8_t is_inline = false;
+	int ret = 0, bytes = 0;
+	bool ring_db = false;
+	void *sqe;
 
 	pthread_spin_lock(&sq->qlock);
 	while (wr) {
 		if ((qp->qpst != IBV_QPS_RTS) && (qp->qpst != IBV_QPS_SQD)) {
 			*bad = wr;
-			pthread_spin_unlock(&sq->qlock);
-			return EINVAL;
+			ret = EINVAL;
+			goto bad_wr;
 		}
 
 		if ((qp->qptyp == IBV_QPT_UD) &&
 		    (wr->opcode != IBV_WR_SEND &&
 		     wr->opcode != IBV_WR_SEND_WITH_IMM)) {
 			*bad = wr;
-			pthread_spin_unlock(&sq->qlock);
-			return EINVAL;
+			ret = EINVAL;
+			goto bad_wr;
 		}
 
 		if (bnxt_re_is_que_full(sq) ||
 		    wr->num_sge > qp->cap.max_ssge) {
 			*bad = wr;
-			pthread_spin_unlock(&sq->qlock);
-			return ENOMEM;
+			ret = ENOMEM;
+			goto bad_wr;
 		}
 
 		sqe = (void *)(sq->va + (sq->tail * sq->stride));
@@ -1305,9 +1323,10 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		bnxt_re_incr_tail(sq);
 		qp->wqe_cnt++;
 		wr = wr->next;
-		bnxt_re_ring_sq_db(qp);
-		if (qp->wqe_cnt == BNXT_RE_UD_QP_HW_STALL && qp->qptyp ==
-		    IBV_QPT_UD) {
+		ring_db = true;
+
+		if (qp->wqe_cnt == BNXT_RE_UD_QP_HW_STALL &&
+		    qp->qptyp == IBV_QPT_UD) {
 			/* Move RTS to RTS since it is time. */
 			struct ibv_qp_attr attr;
 			int attr_mask;
@@ -1318,6 +1337,10 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			qp->wqe_cnt = 0;
 		}
 	}
+
+bad_wr:
+	if (ring_db)
+		bnxt_re_ring_sq_db(qp);
 
 	pthread_spin_unlock(&sq->qlock);
 	return ret;

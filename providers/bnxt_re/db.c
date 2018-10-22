@@ -36,7 +36,7 @@
  * Description: Doorbell handling functions.
  */
 
-#include <util/udma_barrier.h>
+#include <util/mmio.h>
 #include "main.h"
 
 static void bnxt_re_ring_db(struct bnxt_re_dpi *dpi,
@@ -44,11 +44,10 @@ static void bnxt_re_ring_db(struct bnxt_re_dpi *dpi,
 {
 	__le64 *dbval;
 
-	pthread_spin_lock(&dpi->db_lock);
 	dbval = (__le64 *)&hdr->indx;
-	udma_to_device_barrier();
-	iowrite64(dpi->dbpage, dbval);
-	pthread_spin_unlock(&dpi->db_lock);
+	mmio_wc_start();
+	mmio_write64_le(dpi->dbpage, *dbval);
+	mmio_flush_writes();
 }
 
 static void bnxt_re_init_db_hdr(struct bnxt_re_db_hdr *hdr, uint32_t indx,
