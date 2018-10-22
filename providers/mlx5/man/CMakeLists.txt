@@ -6,6 +6,7 @@ rdma_man_pages(
   mlx5dv_create_qp.3.md
   mlx5dv_devx_alloc_uar.3.md
   mlx5dv_devx_obj_create.3.md
+  mlx5dv_devx_query_eqn.3.md
   mlx5dv_devx_umem_reg.3.md
   mlx5dv_flow_action_esp.3.md
   mlx5dv_get_clock_info.3
