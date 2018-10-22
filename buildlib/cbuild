@@ -321,7 +321,6 @@ class travis(APTEnvironment):
 
 class ZypperEnvironment(Environment):
     is_rpm = True;
-    build_pyverbs = False;
     def get_docker_file(self):
         res = DockerFile(self.docker_parent);
         res.lines.append("RUN zypper --non-interactive refresh");
@@ -348,6 +347,8 @@ class leap(ZypperEnvironment):
         'rpm-build',
         'systemd-devel',
         'valgrind-devel',
+        'python3-Cython',
+        'python3-devel',
     };
     rpmbuild_options = [ "--without=curlmini" ];
     name = "opensuse-15.0";
@@ -359,9 +360,6 @@ class tumbleweed(ZypperEnvironment):
     name = "tumbleweed";
     specfile = "suse/rdma-core.spec";
     rpmbuild_options = [ "--without=curlmini" ];
-    # tumbleweed no longer includes python2 in the base docker images, only python3,
-    # use that instead.
-    python_cmd = "python3";
 
 # -------------------------------------------------------------------------
 
