@@ -309,9 +309,10 @@ static void print_odp_trans_caps(uint32_t trans)
 	}
 }
 
-static void print_odp_caps(const struct ibv_odp_caps *caps)
+static void print_odp_caps(const struct ibv_device_attr_ex *device_attr)
 {
 	uint64_t unknown_general_caps = ~(IBV_ODP_SUPPORT);
+	const struct ibv_odp_caps *caps = &device_attr->odp_caps;
 
 	/* general odp caps */
 	printf("\tgeneral_odp_caps:\n");
@@ -328,6 +329,8 @@ static void print_odp_caps(const struct ibv_odp_caps *caps)
 	print_odp_trans_caps(caps->per_transport_caps.uc_odp_caps);
 	printf("\tud_odp_caps:\n");
 	print_odp_trans_caps(caps->per_transport_caps.ud_odp_caps);
+	printf("\txrc_odp_caps:\n");
+	print_odp_trans_caps(device_attr->xrc_odp_caps);
 }
 
 static void print_device_cap_flags_ex(uint64_t device_cap_flags_ex)
@@ -531,7 +534,7 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		printf("\tmax_pkeys:\t\t\t%d\n", device_attr.orig_attr.max_pkeys);
 		printf("\tlocal_ca_ack_delay:\t\t%d\n", device_attr.orig_attr.local_ca_ack_delay);
 
-		print_odp_caps(&device_attr.odp_caps);
+		print_odp_caps(&device_attr);
 		if (device_attr.completion_timestamp_mask)
 			printf("\tcompletion timestamp_mask:\t\t\t0x%016" PRIx64 "\n",
 			       device_attr.completion_timestamp_mask);
