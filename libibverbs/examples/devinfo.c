@@ -288,7 +288,8 @@ static void print_odp_trans_caps(uint32_t trans)
 					    IBV_ODP_SUPPORT_RECV |
 					    IBV_ODP_SUPPORT_WRITE |
 					    IBV_ODP_SUPPORT_READ |
-					    IBV_ODP_SUPPORT_ATOMIC);
+					    IBV_ODP_SUPPORT_ATOMIC |
+					    IBV_ODP_SUPPORT_SRQ_RECV);
 
 	if (!trans) {
 		printf("\t\t\t\t\tNO SUPPORT\n");
@@ -303,6 +304,8 @@ static void print_odp_trans_caps(uint32_t trans)
 			printf("\t\t\t\t\tSUPPORT_READ\n");
 		if (trans & IBV_ODP_SUPPORT_ATOMIC)
 			printf("\t\t\t\t\tSUPPORT_ATOMIC\n");
+		if (trans & IBV_ODP_SUPPORT_SRQ_RECV)
+			printf("\t\t\t\t\tSUPPORT_SRQ\n");
 		if (trans & unknown_transport_caps)
 			printf("\t\t\t\t\tUnknown flags: 0x%" PRIX32 "\n",
 			       trans & unknown_transport_caps);
