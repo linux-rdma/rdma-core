@@ -61,6 +61,13 @@ struct mlx5dv_qp_init_attr {
 	MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_MC:
 		Allow receiving loopback multicast traffic.
 
+	MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE:
+		Disable scatter to CQE feature which is enabled by default.
+
+	MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE:
+		Allow scatter to CQE for requester even if the qp was not
+		configured to signal all WRs.
+
 *dc_init_attr*
 :	DC init attributes.
 

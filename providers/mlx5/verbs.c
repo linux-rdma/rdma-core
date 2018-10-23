@@ -1602,7 +1602,9 @@ enum {
 	MLX5DV_QP_CREATE_SUP_FLAGS =
 		(MLX5DV_QP_CREATE_TUNNEL_OFFLOADS |
 		 MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_UC |
-		 MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_MC),
+		 MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_MC |
+		 MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE |
+		 MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE),
 };
 
 static int create_dct(struct ibv_context *context,
@@ -1675,6 +1677,7 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	int32_t				usr_idx = 0;
 	uint32_t			mlx5_create_flags = 0;
 	struct mlx5_bf			*bf = NULL;
+	bool scatter_to_cqe_configured = false;
 	FILE *fp = ctx->dbg_fp;
 	struct mlx5_parent_domain *mparent_domain;
 	struct mlx5_ib_create_qp_resp  *resp_drv;
@@ -1748,6 +1751,24 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 				mlx5_create_flags |=
 					MLX5_QP_FLAG_TIR_ALLOW_SELF_LB_MC;
 			}
+			if (mlx5_qp_attr->create_flags &
+			    MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE) {
+				if (mlx5_qp_attr->create_flags &
+				    MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE) {
+					mlx5_dbg(fp, MLX5_DBG_QP,
+						 "Wrong usage of creation flags requested for create_qp\n");
+					errno = EINVAL;
+					goto err;
+				}
+				scatter_to_cqe_configured = true;
+			}
+			if (mlx5_qp_attr->create_flags &
+			    MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE) {
+				mlx5_create_flags |=
+					(MLX5_QP_FLAG_ALLOW_SCATTER_CQE |
+					 MLX5_QP_FLAG_SCATTER_CQE);
+				scatter_to_cqe_configured = true;
+			}
 		}
 
 		if (attr->qp_type == IBV_QPT_DRIVER) {
@@ -1789,7 +1810,7 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	if (qp->wq_sig)
 		cmd.flags |= MLX5_QP_FLAG_SIGNATURE;
 
-	if (use_scatter_to_cqe())
+	if (!scatter_to_cqe_configured && use_scatter_to_cqe())
 		cmd.flags |= MLX5_QP_FLAG_SCATTER_CQE;
 
 	ret = mlx5_calc_wq_size(ctx, attr, qp);
