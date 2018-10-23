@@ -158,7 +158,7 @@ class fc29(Environment):
 
 class APTEnvironment(Environment):
     is_deb = True;
-    build_python = False;
+    build_python = True;
     def get_docker_file(self):
         res = DockerFile(self.docker_parent);
         res.lines.append("RUN apt-get update && apt-get install -y --no-install-recommends %s && apt-get clean"%(
@@ -180,7 +180,6 @@ class trusty(APTEnvironment):
         'ninja-build',
         'pandoc',
         'pkg-config',
-        'python',
         'valgrind',
         };
     pkgs = common_pkgs | {
@@ -190,10 +189,12 @@ class trusty(APTEnvironment):
         };
     name = "ubuntu-14.04";
     aliases = {"trusty"};
+    python_cmd = "python";
+    build_pyverbs = False;
 
 class xenial(APTEnvironment):
     docker_parent = "ubuntu:16.04"
-    pkgs = trusty.common_pkgs | {"libsystemd-dev"};
+    pkgs = trusty.common_pkgs | {"libsystemd-dev", "python3-dev", "cython3"};
     name = "ubuntu-16.04";
     aliases = {"xenial"};
 
@@ -208,7 +209,7 @@ class jessie(APTEnvironment):
     pkgs = xenial.pkgs;
     name = "debian-8";
     aliases = {"jessie"};
-    python_cmd = "python";
+    build_pyverbs = False;
 
 class stretch(APTEnvironment):
     docker_parent = "debian:9"
@@ -640,6 +641,10 @@ def run_deb_build(args,env):
             "-e","DEB_BUILD_OPTIONS=parallel=%u"%(multiprocessing.cpu_count()),
         ];
 
+        if not env.build_pyverbs:
+            opts.append("-e");
+            opts.append("EXTRA_CMAKE_FLAGS=%s"%(' '.join(["-DNO_PYVERBS=1"])));
+
         # Create a go.py that will let us run the compilation as the user and
         # then switch to root only for the packaging step.
         with open(os.path.join(tmpdir,"go.py"),"w") as F:
@@ -661,7 +666,7 @@ subprocess.check_call(["debian/rules","debian/rules","binary"]);
         if args.run_shell:
             opts.append("/bin/bash");
         else:
-            opts.extend(["python",os.path.join(home,"go.py")]);
+            opts.extend(["python3",os.path.join(home,"go.py")]);
 
         docker_cmd(args,*opts);
 
@@ -806,6 +811,9 @@ def cmd_make(args):
             dirs.append(BUILD_r);
 
         cmake_args = []
+        if not env.build_pyverbs:
+            cmake_args.extend(["-DNO_PYVERBS=1"]);
+
         cmake_envs = []
         ninja_args = []
         for I in args.ARGS:
@@ -815,7 +823,6 @@ def cmd_make(args):
                 cmake_envs.append(I);
             else:
                 ninja_args.append(I);
-
         if env.use_make:
             need_cmake = not os.path.exists(os.path.join(BUILD_r,"Makefile"));
         else:

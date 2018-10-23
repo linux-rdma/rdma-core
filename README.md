@@ -52,7 +52,7 @@ only load from the system path.
 ### Debian Derived
 
 ```sh
-$ apt-get install build-essential cmake gcc libudev-dev libnl-3-dev libnl-route-3-dev ninja-build pkg-config valgrind
+$ apt-get install build-essential cmake gcc libudev-dev libnl-3-dev libnl-route-3-dev ninja-build pkg-config valgrind python3-dev cython3
 ```
 
 ### Fedora
