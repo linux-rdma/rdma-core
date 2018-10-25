@@ -59,6 +59,7 @@
 #define TERMINATION_MSG_SIZE 4
 #define TERMINATION_MSG "END"
 static int page_size;
+static int use_odp;
 
 struct pingpong_dest {
 	union ibv_gid gid;
@@ -202,6 +203,7 @@ static int pp_init_ctx(char *ib_devname)
 	struct ibv_srq_init_attr_ex attr;
 	struct ibv_xrcd_init_attr xrcd_attr;
 	struct ibv_port_attr port_attr;
+	int access_flags = IBV_ACCESS_LOCAL_WRITE;
 
 	ctx.recv_qp = calloc(ctx.num_clients, sizeof *ctx.recv_qp);
 	ctx.send_qp = calloc(ctx.num_clients, sizeof *ctx.send_qp);
@@ -212,6 +214,24 @@ static int pp_init_ctx(char *ib_devname)
 	if (open_device(ib_devname)) {
 		fprintf(stderr, "Failed to open device\n");
 		return 1;
+	}
+
+	if (use_odp) {
+		struct ibv_device_attr_ex attrx;
+		const uint32_t xrc_caps_mask = IBV_ODP_SUPPORT_SEND |
+					       IBV_ODP_SUPPORT_RECV |
+					       IBV_ODP_SUPPORT_SRQ_RECV;
+
+		if (ibv_query_device_ex(ctx.context, NULL, &attrx)) {
+			fprintf(stderr, "Couldn't query device for its features\n");
+			return 1;
+		}
+		if (!(attrx.odp_caps.general_caps & IBV_ODP_SUPPORT) ||
+		    (attrx.xrc_odp_caps & xrc_caps_mask) != xrc_caps_mask) {
+			fprintf(stderr, "The device isn't ODP capable or does not support XRC send, receive and srq with ODP\n");
+			return 1;
+		}
+		access_flags |= IBV_ACCESS_ON_DEMAND;
 	}
 
 	if (pp_get_port_info(ctx.context, ctx.ib_port, &port_attr)) {
@@ -247,7 +267,7 @@ static int pp_init_ctx(char *ib_devname)
 		return 1;
 	}
 
-	ctx.mr = ibv_reg_mr(ctx.pd, ctx.buf, ctx.size, IBV_ACCESS_LOCAL_WRITE);
+	ctx.mr = ibv_reg_mr(ctx.pd, ctx.buf, ctx.size, access_flags);
 	if (!ctx.mr) {
 		fprintf(stderr, "Couldn't register MR\n");
 		return 1;
@@ -846,6 +866,7 @@ static void usage(const char *argv0)
 	printf("  -n, --num_tests=<n>    number of tests per client (default 5)\n");
 	printf("  -l, --sl=<sl>          service level value\n");
 	printf("  -e, --events           sleep on CQ events (default poll)\n");
+	printf("  -o, --odp		    use on demand paging\n");
 	printf("  -g, --gid-idx=<gid index> local port gid index\n");
 }
 
@@ -872,11 +893,12 @@ int main(int argc, char *argv[])
 			{ .name = "num_tests", .has_arg = 1, .val = 'n' },
 			{ .name = "sl",        .has_arg = 1, .val = 'l' },
 			{ .name = "events",    .has_arg = 0, .val = 'e' },
+			{ .name = "odp",       .has_arg = 0, .val = 'o' },
 			{ .name = "gid-idx",   .has_arg = 1, .val = 'g' },
 			{}
 		};
 
-		c = getopt_long(argc, argv, "p:d:i:s:m:n:l:eg:c", long_options,
+		c = getopt_long(argc, argv, "p:d:i:s:m:n:l:eog:c", long_options,
 				NULL);
 		if (c == -1)
 			break;
@@ -923,6 +945,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'e':
 			ctx.use_event = 1;
+			break;
+		case 'o':
+			use_odp = 1;
 			break;
 		default:
 			usage(argv[0]);
