@@ -306,6 +306,7 @@ struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
 int hns_roce_u_modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
 			  int srq_attr_mask);
 int hns_roce_u_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
+int hns_roce_u_destroy_srq(struct ibv_srq *srq);
 struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 				    struct ibv_qp_init_attr *attr);
 
