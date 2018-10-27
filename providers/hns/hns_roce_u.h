@@ -95,6 +95,9 @@ struct hns_roce_buf {
 	unsigned int			length;
 };
 
+#define BIT_CNT_PER_BYTE       8
+
+
 /* the sw doorbell type; */
 enum hns_roce_db_type {
 	HNS_ROCE_QP_TYPE_DB,
@@ -154,8 +157,16 @@ struct hns_roce_cq {
 	unsigned long			flags;
 };
 
+struct hns_roce_idx_que {
+	struct hns_roce_buf		buf;
+	int				buf_size;
+	int				entry_sz;
+	unsigned long			*bitmap;
+	unsigned long			use_cnt;
+};
+
 struct hns_roce_srq {
-	struct ibv_srq			ibv_srq;
+	struct verbs_srq		verbs_srq;
 	struct hns_roce_buf		buf;
 	pthread_spinlock_t		lock;
 	unsigned long			*wrid;
@@ -167,6 +178,7 @@ struct hns_roce_srq {
 	int				tail;
 	unsigned int			*db;
 	unsigned short			counter;
+	struct hns_roce_idx_que		idx_que;
 };
 
 struct hns_roce_wq {
@@ -253,7 +265,8 @@ static inline struct hns_roce_cq *to_hr_cq(struct ibv_cq *ibv_cq)
 
 static inline struct hns_roce_srq *to_hr_srq(struct ibv_srq *ibv_srq)
 {
-	return container_of(ibv_srq, struct hns_roce_srq, ibv_srq);
+	return container_of(container_of(ibv_srq, struct verbs_srq, srq),
+			    struct hns_roce_srq, verbs_srq);
 }
 
 static inline struct  hns_roce_qp *to_hr_qp(struct ibv_qp *ibv_qp)
@@ -288,6 +301,8 @@ int hns_roce_u_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 int hns_roce_u_destroy_cq(struct ibv_cq *cq);
 void hns_roce_u_cq_event(struct ibv_cq *cq);
 
+struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
+				      struct ibv_srq_init_attr *srq_init_attr);
 struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 				    struct ibv_qp_init_attr *attr);
 
