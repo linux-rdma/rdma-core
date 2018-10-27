@@ -54,6 +54,8 @@ struct mlx5dv_flow_action_attr {
 		The QP passed will receive the matched packets.
 	MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION
 		The flow action to be applied.
+	MLX5DV_FLOW_ACTION_TAG
+		Flow tag to be provided in work completion.
 
 *qp*
 :	QP passed, to be used with *type* *MLX5DV_FLOW_ACTION_DEST_IBV_QP*.
@@ -61,6 +63,10 @@ struct mlx5dv_flow_action_attr {
 *action*
 :	Flow action, to be used with *type* *MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION*
 	see *mlx5dv_create_flow_action_modify_header(3)* and *mlx5dv_create_flow_action_packet_reformat(3)*.
+
+*tag_value*
+:	tag value to be passed in the work completion, to be used with *type*
+	*MLX5DV_FLOW_ACTION_TAG* see *ibv_create_cq_ex(3)*.
 
 # RETURN VALUE
 
