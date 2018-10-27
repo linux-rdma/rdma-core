@@ -303,6 +303,8 @@ void hns_roce_u_cq_event(struct ibv_cq *cq);
 
 struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
 				      struct ibv_srq_init_attr *srq_init_attr);
+int hns_roce_u_modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
+			  int srq_attr_mask);
 struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 				    struct ibv_qp_init_attr *attr);
 
