@@ -4049,3 +4049,64 @@ int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t 
 
 	return execute_ioctl(context, cmd);
 }
+
+struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
+					      uint32_t flags)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX,
+			       MLX5_IB_METHOD_DEVX_QUERY_UAR,
+			       2);
+
+	int ret;
+	struct mlx5_bf *bf;
+
+	if (flags) {
+		errno = ENOTSUP;
+		return NULL;
+	}
+
+	bf = mlx5_attach_dedicated_bf(context);
+	if (!bf)
+		return NULL;
+
+	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_QUERY_UAR_USER_IDX,
+			    bf->bfreg_dyn_index);
+	fill_attr_out_ptr(cmd, MLX5_IB_ATTR_DEVX_QUERY_UAR_DEV_IDX,
+		      &bf->devx_uar.dv_devx_uar.page_id);
+
+	ret = execute_ioctl(context, cmd);
+	if (ret) {
+		mlx5_detach_dedicated_bf(context, bf);
+		return NULL;
+	}
+
+	bf->devx_uar.dv_devx_uar.reg_addr = bf->reg;
+	bf->devx_uar.dv_devx_uar.base_addr = bf->uar;
+	bf->devx_uar.dv_devx_uar.mmap_off = bf->uar_mmap_offset;
+	bf->devx_uar.dv_devx_uar.comp_mask = 0;
+	bf->devx_uar.context = context;
+	return &bf->devx_uar.dv_devx_uar;
+}
+
+void mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *dv_devx_uar)
+{
+	struct mlx5_bf *bf = container_of(dv_devx_uar, struct mlx5_bf,
+					  devx_uar.dv_devx_uar);
+
+	mlx5_detach_dedicated_bf(bf->devx_uar.context, bf);
+}
+
+int mlx5dv_devx_query_eqn(struct ibv_context *context, uint32_t vector,
+			  uint32_t *eqn)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX,
+			       MLX5_IB_METHOD_DEVX_QUERY_EQN,
+			       2);
+
+	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_QUERY_EQN_USER_VEC, vector);
+	fill_attr_out_ptr(cmd, MLX5_IB_ATTR_DEVX_QUERY_EQN_DEV_EQN, eqn);
+
+	return execute_ioctl(context, cmd);
+}

@@ -460,6 +460,11 @@ struct mlx5_wq {
 	uint32_t			*wr_data;
 };
 
+struct mlx5_devx_uar {
+	struct mlx5dv_devx_uar dv_devx_uar;
+	struct ibv_context *context;
+};
+
 struct mlx5_bf {
 	void			       *reg;
 	int				need_lock;
@@ -472,6 +477,7 @@ struct mlx5_bf {
 	void				*uar;
 	/* Index in the dynamic bfregs portion */
 	uint32_t			bfreg_dyn_index;
+	struct mlx5_devx_uar		devx_uar;
 };
 
 struct mlx5_dm {
