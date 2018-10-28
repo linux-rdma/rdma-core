@@ -1,4 +1,5 @@
 rdma_man_pages(
+  mlx5dv_create_cq.3.md
   mlx5dv_create_flow.3.md
   mlx5dv_create_flow_action_modify_header.3.md
   mlx5dv_create_flow_action_packet_reformat.3.md
