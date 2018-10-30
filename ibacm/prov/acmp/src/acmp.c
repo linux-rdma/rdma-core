@@ -361,8 +361,10 @@ static void
 acmp_remove_dest(struct acmp_ep *ep, struct acmp_dest *dest)
 {
 	acm_log(2, "%s\n", dest->name);
-	tdelete(dest->address, &ep->dest_map[dest->addr_type - 1],
-		acmp_compare_dest);
+	if (!tdelete(dest->address, &ep->dest_map[dest->addr_type - 1],
+		     acmp_compare_dest))
+		acm_log(0, "ERROR: %s not found!!\n", dest->name);
+
 	acmp_put_dest(dest);
 }
 
