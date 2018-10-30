@@ -244,6 +244,23 @@ int _execute_write_raw(struct ibv_context *ctx, struct ib_uverbs_cmd_hdr *hdr,
 	return 0;
 }
 
+int _execute_cmd_write(struct ibv_context *ctx, unsigned int write_method,
+		       struct ib_uverbs_cmd_hdr *req, size_t core_req_size,
+		       size_t req_size, void *resp, size_t core_resp_size,
+		       size_t resp_size)
+{
+	req->command = write_method;
+	req->in_words = __check_divide(req_size, 4);
+	req->out_words = __check_divide(resp_size, 4);
+
+	if (write(ctx->cmd_fd, req, req_size) != req_size)
+		return errno;
+
+	if (resp)
+		VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	return 0;
+}
+
 int _execute_write_raw_ex(struct ibv_context *ctx, struct ex_hdr *hdr)
 {
 	size_t write_bytes =

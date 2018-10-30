@@ -208,6 +208,44 @@ int _execute_write_raw_ex(struct ibv_context *ctx, struct ex_hdr *req);
 	_execute_write_raw_ex(ctx, get_req_hdr_ex(req))
 
 /*
+ * For write() only commands that have fixed core structures and may take uhw
+ * driver data. The last arguments are the same ones passed into the typical
+ * ibv_cmd_* function. execute_cmd_write deduces the length of the core
+ * structure based on the KABI struct linked to the enum op code.
+ */
+int _execute_cmd_write(struct ibv_context *ctx, unsigned int write_method,
+		       struct ib_uverbs_cmd_hdr *req, size_t core_req_size,
+		       size_t req_size, void *resp, size_t core_resp_size,
+		       size_t resp_size);
+#define execute_cmd_write(ctx, enum, cmd, cmd_size, resp, resp_size)           \
+	({                                                                     \
+		(cmd)->core_payload.response = ioctl_ptr_to_u64(resp);         \
+		_execute_cmd_write(                                            \
+			ctx, enum,                                             \
+			&(cmd)->hdr + check_type(cmd, IBV_ABI_REQ(enum) *),    \
+			sizeof(*(cmd)), cmd_size,                              \
+			resp + check_type(resp, IBV_KABI_RESP(enum) *),        \
+			sizeof(*(resp)), resp_size);                           \
+	})
+
+/*
+ * Execute a write command that does not have a uhw component. The cmd_size
+ * and resp_size are the lengths of the core structure. This version is only
+ * needed if the core structure ends in a flex array, as the internal sizeof()
+ * in execute_cmd_write() will give the wrong size.
+ */
+#define execute_cmd_write_no_uhw(ctx, enum, cmd, cmd_size, resp, resp_size)    \
+	({                                                                     \
+		(cmd)->core_payload.response = ioctl_ptr_to_u64(resp);         \
+		_execute_cmd_write(                                            \
+			ctx, enum,                                             \
+			&(cmd)->hdr + check_type(cmd, IBV_ABI_REQ(enum) *),    \
+			cmd_size, cmd_size,                                    \
+			resp + check_type(resp, IBV_KABI_RESP(enum) *),        \
+			resp_size, resp_size);                                 \
+	})
+
+/*
  * These two macros are used only with execute_ioctl_fallback - they allow the
  * IOCTL code to be elided by the compiler when disabled.
  */

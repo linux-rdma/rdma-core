@@ -93,14 +93,6 @@ static inline const struct verbs_context_ops *get_ops(struct ibv_context *ctx)
 		(cmd)->hdr.out_words = 0;				\
 	} while (0)
 
-#define IBV_INIT_CMD_RESP(cmd, size, opcode, out, outsize)		\
-	do {								\
-		(cmd)->hdr.command = IB_USER_VERBS_CMD_##opcode;	\
-		(cmd)->hdr.in_words  = (size) / 4;			\
-		(cmd)->hdr.out_words = (outsize) / 4;			\
-		(cmd)->response  = (uintptr_t) (out);			\
-	} while (0)
-
 static inline uint32_t _cmd_ex(uint32_t cmd)
 {
 	return IB_USER_VERBS_CMD_FLAG_EXTENDED | cmd;

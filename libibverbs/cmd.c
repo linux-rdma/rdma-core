@@ -51,12 +51,13 @@ int ibv_cmd_get_context(struct verbs_context *context_ex,
 			struct ibv_get_context *cmd, size_t cmd_size,
 			struct ib_uverbs_get_context_resp *resp, size_t resp_size)
 {
-	IBV_INIT_CMD_RESP(cmd, cmd_size, GET_CONTEXT, resp, resp_size);
+	int ret;
 
-	if (write(context_ex->context.cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	ret = execute_cmd_write(&context_ex->context,
+				IB_USER_VERBS_CMD_GET_CONTEXT, cmd, cmd_size,
+				resp, resp_size);
+	if (ret)
+		return ret;
 
 	context_ex->context.async_fd = resp->async_fd;
 	context_ex->context.num_comp_vectors = resp->num_comp_vectors;
@@ -116,13 +117,12 @@ int ibv_cmd_query_device(struct ibv_context *context,
 			 struct ibv_query_device *cmd, size_t cmd_size)
 {
 	struct ib_uverbs_query_device_resp resp;
+	int ret;
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_DEVICE, &resp, sizeof resp);
-
-	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	ret = execute_cmd_write(context, IB_USER_VERBS_CMD_QUERY_DEVICE, cmd,
+				cmd_size, &resp, sizeof(resp));
+	if (ret)
+		return ret;
 
 	memset(device_attr->fw_ver, 0, sizeof device_attr->fw_ver);
 	copy_query_dev_fields(device_attr, &resp, raw_fw_ver);
@@ -282,16 +282,16 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 		       struct ibv_query_port *cmd, size_t cmd_size)
 {
 	struct ib_uverbs_query_port_resp resp;
+	int ret;
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_PORT, &resp, sizeof resp);
 	cmd->port_num = port_num;
 	memset(cmd->reserved, 0, sizeof cmd->reserved);
 	memset(&resp, 0, sizeof(resp));
 
-	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	ret = execute_cmd_write(context, IB_USER_VERBS_CMD_QUERY_PORT, cmd,
+				cmd_size, &resp, sizeof(resp));
+	if (ret)
+		return ret;
 
 	port_attr->state      	   = resp.state;
 	port_attr->max_mtu         = resp.max_mtu;
@@ -322,12 +322,12 @@ int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 		     struct ibv_alloc_pd *cmd, size_t cmd_size,
 		     struct ib_uverbs_alloc_pd_resp *resp, size_t resp_size)
 {
-	IBV_INIT_CMD_RESP(cmd, cmd_size, ALLOC_PD, resp, resp_size);
+	int ret;
 
-	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	ret = execute_cmd_write(context, IB_USER_VERBS_CMD_ALLOC_PD, cmd,
+				cmd_size, resp, resp_size);
+	if (ret)
+		return ret;
 
 	pd->handle  = resp->pd_handle;
 	pd->context = context;
@@ -356,7 +356,7 @@ int ibv_cmd_open_xrcd(struct ibv_context *context, struct verbs_xrcd *xrcd,
 		      struct ibv_open_xrcd *cmd, size_t cmd_size,
 		      struct ib_uverbs_open_xrcd_resp *resp, size_t resp_size)
 {
-	IBV_INIT_CMD_RESP(cmd, cmd_size, OPEN_XRCD, resp, resp_size);
+	int ret;
 
 	if (attr->comp_mask >= IBV_XRCD_INIT_ATTR_RESERVED)
 		return ENOSYS;
@@ -367,10 +367,10 @@ int ibv_cmd_open_xrcd(struct ibv_context *context, struct verbs_xrcd *xrcd,
 
 	cmd->fd = attr->fd;
 	cmd->oflags = attr->oflags;
-	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	ret = execute_cmd_write(context, IB_USER_VERBS_CMD_OPEN_XRCD, cmd,
+				cmd_size, resp, resp_size);
+	if (ret)
+		return ret;
 
 	xrcd->xrcd.context = context;
 	xrcd->comp_mask = 0;
@@ -403,8 +403,7 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 		   size_t cmd_size,
 		   struct ib_uverbs_reg_mr_resp *resp, size_t resp_size)
 {
-
-	IBV_INIT_CMD_RESP(cmd, cmd_size, REG_MR, resp, resp_size);
+	int ret;
 
 	cmd->start 	  = (uintptr_t) addr;
 	cmd->length 	  = length;
@@ -412,10 +411,10 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	cmd->pd_handle 	  = pd->handle;
 	cmd->access_flags = access;
 
-	if (write(pd->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	ret = execute_cmd_write(pd->context, IB_USER_VERBS_CMD_REG_MR, cmd,
+				cmd_size, resp, resp_size);
+	if (ret)
+		return ret;
 
 	vmr->ibv_mr.handle  = resp->mr_handle;
 	vmr->ibv_mr.lkey    = resp->lkey;
@@ -432,7 +431,7 @@ int ibv_cmd_rereg_mr(struct verbs_mr *vmr, uint32_t flags, void *addr,
 		     size_t cmd_sz, struct ib_uverbs_rereg_mr_resp *resp,
 		     size_t resp_sz)
 {
-	IBV_INIT_CMD_RESP(cmd, cmd_sz, REREG_MR, resp, resp_sz);
+	int ret;
 
 	cmd->mr_handle	  = vmr->ibv_mr.handle;
 	cmd->flags	  = flags;
@@ -442,10 +441,10 @@ int ibv_cmd_rereg_mr(struct verbs_mr *vmr, uint32_t flags, void *addr,
 	cmd->pd_handle	  = (flags & IBV_REREG_MR_CHANGE_PD) ? pd->handle : 0;
 	cmd->access_flags = access;
 
-	if (write(vmr->ibv_mr.context->cmd_fd, cmd, cmd_sz) != cmd_sz)
-		return errno;
-
-	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_sz);
+	ret = execute_cmd_write(vmr->ibv_mr.context, IB_USER_VERBS_CMD_REREG_MR,
+				cmd, cmd_sz, resp, resp_sz);
+	if (ret)
+		return ret;
 
 	vmr->ibv_mr.lkey    = resp->lkey;
 	vmr->ibv_mr.rkey    = resp->rkey;
@@ -475,15 +474,16 @@ int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
 		     size_t cmd_size,
 		     struct ib_uverbs_alloc_mw_resp *resp, size_t resp_size)
 {
-	IBV_INIT_CMD_RESP(cmd, cmd_size, ALLOC_MW, resp, resp_size);
+	int ret;
+
 	cmd->pd_handle	= pd->handle;
 	cmd->mw_type	= type;
 	memset(cmd->reserved, 0, sizeof(cmd->reserved));
 
-	if (write(pd->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	ret = execute_cmd_write(pd->context, IB_USER_VERBS_CMD_ALLOC_MW, cmd,
+				cmd_size, resp, resp_size);
+	if (ret)
+		return ret;
 
 	mw->context = pd->context;
 	mw->pd      = pd;
@@ -522,16 +522,15 @@ int ibv_cmd_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 	if (!resp)
 		return -1;
 
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, POLL_CQ, resp, rsize);
 	cmd.cq_handle = ibcq->handle;
 	cmd.ne        = ne;
 
-	if (write(ibcq->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd) {
+	ret = execute_cmd_write_no_uhw(ibcq->context, IB_USER_VERBS_CMD_POLL_CQ,
+				       &cmd, sizeof(cmd), resp, rsize);
+	if (ret) {
 		ret = -1;
 		goto out;
 	}
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, rsize);
 
 	for (i = 0; i < resp->count; i++) {
 		wc[i].wr_id 	     = resp->wc[i].wr_id;
@@ -571,14 +570,15 @@ int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
 		      struct ibv_resize_cq *cmd, size_t cmd_size,
 		      struct ib_uverbs_resize_cq_resp *resp, size_t resp_size)
 {
-	IBV_INIT_CMD_RESP(cmd, cmd_size, RESIZE_CQ, resp, resp_size);
+	int ret;
+
 	cmd->cq_handle = cq->handle;
 	cmd->cqe       = cqe;
 
-	if (write(cq->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	ret = execute_cmd_write(cq->context, IB_USER_VERBS_CMD_RESIZE_CQ, cmd,
+				cmd_size, resp, resp_size);
+	if (ret)
+		return ret;
 
 	cq->cqe = resp->cqe;
 
@@ -590,17 +590,18 @@ int ibv_cmd_create_srq(struct ibv_pd *pd,
 		       struct ibv_create_srq *cmd, size_t cmd_size,
 		       struct ib_uverbs_create_srq_resp *resp, size_t resp_size)
 {
-	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_SRQ, resp, resp_size);
+	int ret;
+
 	cmd->user_handle = (uintptr_t) srq;
 	cmd->pd_handle 	 = pd->handle;
 	cmd->max_wr      = attr->attr.max_wr;
 	cmd->max_sge     = attr->attr.max_sge;
 	cmd->srq_limit   = attr->attr.srq_limit;
 
-	if (write(pd->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	ret = execute_cmd_write(pd->context, IB_USER_VERBS_CMD_CREATE_SRQ, cmd,
+				cmd_size, resp, resp_size);
+	if (ret)
+		return ret;
 
 	srq->handle  = resp->srq_handle;
 	srq->context = pd->context;
@@ -627,8 +628,7 @@ int ibv_cmd_create_srq_ex(struct ibv_context *context,
 			  struct ib_uverbs_create_srq_resp *resp, size_t resp_size)
 {
 	struct verbs_xrcd *vxrcd = NULL;
-
-	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_XSRQ, resp, resp_size);
+	int ret;
 
 	if (attr_ex->comp_mask >= IBV_SRQ_INIT_ATTR_RESERVED)
 		return ENOSYS;
@@ -664,10 +664,10 @@ int ibv_cmd_create_srq_ex(struct ibv_context *context,
 		return EINVAL;
 	}
 
-	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	ret = execute_cmd_write(context, IB_USER_VERBS_CMD_CREATE_XSRQ, cmd,
+				cmd_size, resp, resp_size);
+	if (ret)
+		return ret;
 
 	srq->srq.handle           = resp->srq_handle;
 	srq->srq.context          = context;
@@ -760,15 +760,15 @@ int ibv_cmd_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
 		      struct ibv_query_srq *cmd, size_t cmd_size)
 {
 	struct ib_uverbs_query_srq_resp resp;
+	int ret;
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_SRQ, &resp, sizeof resp);
 	cmd->srq_handle = srq->handle;
 	cmd->reserved   = 0;
 
-	if (write(srq->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	ret = execute_cmd_write(srq->context, IB_USER_VERBS_CMD_QUERY_SRQ, cmd,
+				cmd_size, &resp, sizeof(resp));
+	if (ret)
+		return ret;
 
 	srq_attr->max_wr    = resp.max_wr;
 	srq_attr->max_sge   = resp.max_sge;
@@ -962,8 +962,6 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 	struct verbs_xrcd *vxrcd = NULL;
 	int err;
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_QP, resp, resp_size);
-
 	if (attr_ex->comp_mask > (IBV_QP_INIT_ATTR_XRCD | IBV_QP_INIT_ATTR_PD))
 		return ENOSYS;
 
@@ -972,10 +970,10 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 	if (err)
 		return err;
 
-	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	err = execute_cmd_write(context, IB_USER_VERBS_CMD_CREATE_QP, cmd,
+				cmd_size, resp, resp_size);
+	if (err)
+		return err;
 
 	if (abi_ver == 4) {
 		struct ibv_create_qp_resp_v4 *resp_v4 =
@@ -1003,7 +1001,7 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 		      struct ibv_create_qp *cmd, size_t cmd_size,
 		      struct ib_uverbs_create_qp_resp *resp, size_t resp_size)
 {
-	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_QP, resp, resp_size);
+	int ret;
 
 	cmd->user_handle     = (uintptr_t) qp;
 	cmd->pd_handle       = pd->handle;
@@ -1020,10 +1018,10 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 	cmd->is_srq 	     = !!attr->srq;
 	cmd->reserved	     = 0;
 
-	if (write(pd->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	ret = execute_cmd_write(pd->context, IB_USER_VERBS_CMD_CREATE_QP, cmd,
+				cmd_size, resp, resp_size);
+	if (ret)
+		return ret;
 
 	qp->handle 		  = resp->qp_handle;
 	qp->qp_num 		  = resp->qpn;
@@ -1063,7 +1061,7 @@ int ibv_cmd_open_qp(struct ibv_context *context, struct verbs_qp *qp,
 		    struct ib_uverbs_create_qp_resp *resp, size_t resp_size)
 {
 	struct verbs_xrcd *xrcd;
-	IBV_INIT_CMD_RESP(cmd, cmd_size, OPEN_QP, resp, resp_size);
+	int ret;
 
 	if (attr->comp_mask >= IBV_QP_OPEN_ATTR_RESERVED)
 		return ENOSYS;
@@ -1079,10 +1077,10 @@ int ibv_cmd_open_qp(struct ibv_context *context, struct verbs_qp *qp,
 	cmd->qpn         = attr->qp_num;
 	cmd->qp_type     = attr->qp_type;
 
-	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	ret = execute_cmd_write(context, IB_USER_VERBS_CMD_OPEN_QP, cmd,
+				cmd_size, resp, resp_size);
+	if (ret)
+		return ret;
 
 	qp->qp.handle     = resp->qp_handle;
 	qp->qp.context    = context;
@@ -1112,6 +1110,7 @@ int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		     struct ibv_query_qp *cmd, size_t cmd_size)
 {
 	struct ib_uverbs_query_qp_resp resp;
+	int ret;
 
 	/*
 	 * Starting with IBV_QP_RATE_LIMIT the attribute must go through the
@@ -1120,14 +1119,13 @@ int ibv_cmd_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	if (attr_mask & ~(IBV_QP_RATE_LIMIT - 1))
 		return EOPNOTSUPP;
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_QP, &resp, sizeof resp);
 	cmd->qp_handle = qp->handle;
 	cmd->attr_mask = attr_mask;
 
-	if (write(qp->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	ret = execute_cmd_write(qp->context, IB_USER_VERBS_CMD_QUERY_QP, cmd,
+				cmd_size, &resp, sizeof(resp));
+	if (ret)
+		return ret;
 
 	attr->qkey                          = resp.qkey;
 	attr->rq_psn                        = resp.rq_psn;
@@ -1342,7 +1340,7 @@ int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	unsigned                  wr_count = 0;
 	unsigned                  sge_count = 0;
 	int                       cmd_size;
-	int                       ret = 0;
+	int                       ret;
 
 	for (i = wr; i; i = i->next) {
 		wr_count++;
@@ -1352,7 +1350,6 @@ int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	cmd_size = sizeof *cmd + wr_count * sizeof *n + sge_count * sizeof *s;
 	cmd  = alloca(cmd_size);
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, POST_SEND, &resp, sizeof resp);
 	cmd->qp_handle = ibqp->handle;
 	cmd->wr_count  = wr_count;
 	cmd->sge_count = sge_count;
@@ -1404,10 +1401,9 @@ int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	}
 
 	resp.bad_wr = 0;
-	if (write(ibqp->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		ret = errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	ret = execute_cmd_write_no_uhw(ibqp->context,
+				       IB_USER_VERBS_CMD_POST_SEND, cmd,
+				       cmd_size, &resp, sizeof(resp));
 
 	wr_count = resp.bad_wr;
 	if (wr_count) {
@@ -1432,7 +1428,7 @@ int ibv_cmd_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	unsigned                  wr_count = 0;
 	unsigned                  sge_count = 0;
 	int                       cmd_size;
-	int                       ret = 0;
+	int                       ret;
 
 	for (i = wr; i; i = i->next) {
 		wr_count++;
@@ -1442,7 +1438,6 @@ int ibv_cmd_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	cmd_size = sizeof *cmd + wr_count * sizeof *n + sge_count * sizeof *s;
 	cmd  = alloca(cmd_size);
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, POST_RECV, &resp, sizeof resp);
 	cmd->qp_handle = ibqp->handle;
 	cmd->wr_count  = wr_count;
 	cmd->sge_count = sge_count;
@@ -1465,10 +1460,9 @@ int ibv_cmd_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 	}
 
 	resp.bad_wr = 0;
-	if (write(ibqp->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		ret = errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	ret = execute_cmd_write_no_uhw(ibqp->context,
+				       IB_USER_VERBS_CMD_POST_RECV, cmd,
+				       cmd_size, &resp, sizeof(resp));
 
 	wr_count = resp.bad_wr;
 	if (wr_count) {
@@ -1493,7 +1487,7 @@ int ibv_cmd_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
 	unsigned                  wr_count = 0;
 	unsigned                  sge_count = 0;
 	int                       cmd_size;
-	int                       ret = 0;
+	int                       ret;
 
 	for (i = wr; i; i = i->next) {
 		wr_count++;
@@ -1503,7 +1497,6 @@ int ibv_cmd_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
 	cmd_size = sizeof *cmd + wr_count * sizeof *n + sge_count * sizeof *s;
 	cmd  = alloca(cmd_size);
 
-	IBV_INIT_CMD_RESP(cmd, cmd_size, POST_SRQ_RECV, &resp, sizeof resp);
 	cmd->srq_handle = srq->handle;
 	cmd->wr_count  = wr_count;
 	cmd->sge_count = sge_count;
@@ -1526,10 +1519,9 @@ int ibv_cmd_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
 	}
 
 	resp.bad_wr = 0;
-	if (write(srq->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		ret = errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	ret = execute_cmd_write_no_uhw(srq->context,
+				       IB_USER_VERBS_CMD_POST_SRQ_RECV, cmd,
+				       cmd_size, &resp, sizeof(resp));
 
 	wr_count = resp.bad_wr;
 	if (wr_count) {
@@ -1549,8 +1541,8 @@ int ibv_cmd_create_ah(struct ibv_pd *pd, struct ibv_ah *ah,
 		      size_t resp_size)
 {
 	struct ibv_create_ah      cmd;
+	int ret;
 
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, CREATE_AH, resp, resp_size);
 	cmd.user_handle            = (uintptr_t) ah;
 	cmd.pd_handle              = pd->handle;
 	cmd.attr.dlid              = attr->dlid;
@@ -1565,10 +1557,10 @@ int ibv_cmd_create_ah(struct ibv_pd *pd, struct ibv_ah *ah,
 	cmd.attr.grh.traffic_class = attr->grh.traffic_class;
 	memcpy(cmd.attr.grh.dgid, attr->grh.dgid.raw, 16);
 
-	if (write(pd->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	ret = execute_cmd_write(pd->context, IB_USER_VERBS_CMD_CREATE_AH, &cmd,
+				sizeof(cmd), resp, resp_size);
+	if (ret)
+		return ret;
 
 	ah->handle  = resp->ah_handle;
 	ah->context = pd->context;
