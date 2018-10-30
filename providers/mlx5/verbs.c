@@ -493,6 +493,15 @@ free:
 	return 0;
 }
 
+int mlx5_advise_mr(struct ibv_pd *pd,
+		   enum ibv_advise_mr_advice advice,
+		   uint32_t flags,
+		   struct ibv_sge *sg_list,
+		   uint32_t num_sge)
+{
+	return ibv_cmd_advise_mr(pd, advice, flags, sg_list, num_sge);
+}
+
 struct ibv_mw *mlx5_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
 {
 	struct ibv_mw *mw;

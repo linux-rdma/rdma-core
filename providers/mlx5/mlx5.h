@@ -905,7 +905,11 @@ int mlx5_read_counters(struct ibv_counters *counters,
 		       uint64_t *counters_value,
 		       uint32_t ncounters,
 		       uint32_t flags);
-
+int mlx5_advise_mr(struct ibv_pd *pd,
+		   enum ibv_advise_mr_advice advice,
+		   uint32_t flags,
+		   struct ibv_sge *sg_list,
+		   uint32_t num_sges);
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {
 	int tind = uidx >> MLX5_UIDX_TABLE_SHIFT;
