@@ -98,7 +98,8 @@ void *_write_get_resp_ex(struct ibv_command_buffer *link,
 void _write_set_uhw(struct ibv_command_buffer *cmdb, const void *req,
 		    size_t core_req_size, size_t req_size, void *resp,
 		    size_t core_resp_size, size_t resp_size);
-#define DECLARE_CMD_BUFFER_COMPAT(_name, _object_id, _method_id)               \
+#define DECLARE_CMD_BUFFER_COMPAT(_name, _object_id, _method_id, cmd,          \
+				  cmd_size, resp, resp_size)                   \
 	DECLARE_COMMAND_BUFFER(_name, _object_id, _method_id, 2);              \
 	_write_set_uhw(_name, cmd, sizeof(*cmd), cmd_size, resp,               \
 		       sizeof(*resp), resp_size)

@@ -119,7 +119,9 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      size_t cmd_size, struct ib_uverbs_create_cq_resp *resp,
 		      size_t resp_size)
 {
-	DECLARE_CMD_BUFFER_COMPAT(cmdb, UVERBS_OBJECT_CQ, UVERBS_METHOD_CQ_CREATE);
+	DECLARE_CMD_BUFFER_COMPAT(cmdb, UVERBS_OBJECT_CQ,
+				  UVERBS_METHOD_CQ_CREATE, cmd, cmd_size, resp,
+				  resp_size);
 
 	return ibv_icmd_create_cq(context, cqe, channel, comp_vector, 0, cq,
 				  cmdb);
@@ -133,7 +135,9 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 			 struct ib_uverbs_ex_create_cq_resp *resp,
 			 size_t resp_size)
 {
-	DECLARE_CMD_BUFFER_COMPAT(cmdb, UVERBS_OBJECT_CQ, UVERBS_METHOD_CQ_CREATE);
+	DECLARE_CMD_BUFFER_COMPAT(cmdb, UVERBS_OBJECT_CQ,
+				  UVERBS_METHOD_CQ_CREATE, cmd, cmd_size, resp,
+				  resp_size);
 	uint32_t flags = 0;
 
 	if (!check_comp_mask(cq_attr->comp_mask, IBV_CQ_INIT_ATTR_MASK_FLAGS))
