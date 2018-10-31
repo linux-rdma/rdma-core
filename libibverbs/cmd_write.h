@@ -228,6 +228,17 @@ int _execute_cmd_write(struct ibv_context *ctx, unsigned int write_method,
 			sizeof(*(resp)), resp_size);                           \
 	})
 
+/* For write() commands that have no response */
+#define execute_cmd_write_req(ctx, enum, cmd, cmd_size)                        \
+	({                                                                     \
+		static_assert(sizeof(IBV_KABI_RESP(enum)) == 0,                \
+			      "Method has a response!");                       \
+		_execute_cmd_write(                                            \
+			ctx, enum,                                             \
+			&(cmd)->hdr + check_type(cmd, IBV_ABI_REQ(enum) *),    \
+			sizeof(*(cmd)), cmd_size, NULL, 0, 0);                 \
+	})
+
 /*
  * Execute a write command that does not have a uhw component. The cmd_size
  * and resp_size are the lengths of the core structure. This version is only

@@ -719,19 +719,15 @@ static int ibv_cmd_modify_srq_v3(struct ibv_srq *srq,
 	cmd      = alloca(cmd_size);
 	memcpy(cmd + 1, new_cmd + 1, new_cmd_size - sizeof *new_cmd);
 
-	IBV_INIT_CMD(cmd, cmd_size, MODIFY_SRQ);
+	cmd->core_payload = (struct ib_uverbs_modify_srq_v3){
+		.srq_handle = srq->handle,
+		.attr_mask = srq_attr_mask,
+		.max_wr = srq_attr->max_wr,
+		.srq_limit = srq_attr->srq_limit,
+	};
 
-	cmd->srq_handle	= srq->handle;
-	cmd->attr_mask	= srq_attr_mask;
-	cmd->max_wr	= srq_attr->max_wr;
-	cmd->srq_limit	= srq_attr->srq_limit;
-	cmd->max_sge	= 0;
-	cmd->reserved	= 0;
-
-	if (write(srq->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	return 0;
+	return execute_cmd_write_req(
+		srq->context, IB_USER_VERBS_CMD_MODIFY_SRQ_V3, cmd, cmd_size);
 }
 
 int ibv_cmd_modify_srq(struct ibv_srq *srq,
@@ -743,17 +739,13 @@ int ibv_cmd_modify_srq(struct ibv_srq *srq,
 		return ibv_cmd_modify_srq_v3(srq, srq_attr, srq_attr_mask,
 					     cmd, cmd_size);
 
-	IBV_INIT_CMD(cmd, cmd_size, MODIFY_SRQ);
-
 	cmd->srq_handle	= srq->handle;
 	cmd->attr_mask	= srq_attr_mask;
 	cmd->max_wr	= srq_attr->max_wr;
 	cmd->srq_limit	= srq_attr->srq_limit;
 
-	if (write(srq->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	return 0;
+	return execute_cmd_write_req(srq->context, IB_USER_VERBS_CMD_MODIFY_SRQ,
+				     cmd, cmd_size);
 }
 
 int ibv_cmd_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
@@ -1288,14 +1280,10 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	if (attr_mask & ~(IBV_QP_RATE_LIMIT - 1))
 		return EOPNOTSUPP;
 
-	IBV_INIT_CMD(cmd, cmd_size, MODIFY_QP);
-
 	copy_modify_qp_fields(qp, attr, attr_mask, &cmd->core_payload);
 
-	if (write(qp->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	return 0;
+	return execute_cmd_write_req(qp->context, IB_USER_VERBS_CMD_MODIFY_QP,
+				     cmd, cmd_size);
 }
 
 int ibv_cmd_modify_qp_ex(struct ibv_qp *qp, struct ibv_qp_attr *attr,

@@ -277,8 +277,7 @@ struct ibv_kern_spec {
 	};
 };
 
-struct ibv_modify_srq_v3 {
-	struct ib_uverbs_cmd_hdr hdr;
+struct ib_uverbs_modify_srq_v3 {
 	__u32 srq_handle;
 	__u32 attr_mask;
 	__u32 max_wr;
@@ -286,6 +285,9 @@ struct ibv_modify_srq_v3 {
 	__u32 srq_limit;
 	__u32 reserved;
 };
+#define _STRUCT_ib_uverbs_modify_srq_v3
+enum { IB_USER_VERBS_CMD_MODIFY_SRQ_V3 = IB_USER_VERBS_CMD_MODIFY_SRQ };
+DECLARE_CMDX(IB_USER_VERBS_CMD_MODIFY_SRQ_V3, ibv_modify_srq_v3, ib_uverbs_modify_srq_v3, empty);
 
 struct ibv_create_qp_resp_v3 {
 	__u32 qp_handle;
