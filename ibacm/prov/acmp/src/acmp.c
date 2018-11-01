@@ -1380,15 +1380,15 @@ static void acmp_init_join(struct ib_sa_mad *mad, union ibv_gid *port_gid,
 		IB_COMP_MASK_MC_SCOPE | IB_COMP_MASK_MC_JOIN_STATE;
 
 	mc_rec = (struct ib_mc_member_rec *) mad->data;
-	acmp_format_mgid(&mc_rec->mgid, pkey | 0x8000, tos, rate, mtu);
+	acmp_format_mgid(&mc_rec->mgid, pkey | 0x8000, tos, rate, mtu); /* Full partition mmbr (0x8000) */
 	mc_rec->port_gid = *port_gid;
 	mc_rec->qkey = htobe32(ACM_QKEY);
-	mc_rec->mtu = 0x80 | mtu;
+	mc_rec->mtu = 0x80 | mtu; /* Exact mtu size as specified (0x80) */
 	mc_rec->tclass = tclass;
 	mc_rec->pkey = htobe16(pkey);
-	mc_rec->rate = 0x80 | rate;
+	mc_rec->rate = 0x80 | rate; /* Exact rate as specified (0x80) */
 	mc_rec->sl_flow_hop = htobe32(((uint32_t) sl) << 28);
-	mc_rec->scope_state = 0x51;
+	mc_rec->scope_state = 0x51; /* Scope: Site-local (5), JoinState: FullMmbr (1) */
 }
 
 static void acmp_join_group(struct acmp_ep *ep, union ibv_gid *port_gid,
