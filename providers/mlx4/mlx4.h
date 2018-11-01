@@ -126,6 +126,7 @@ struct mlx4_context {
 	struct {
 		uint8_t                 valid;
 		uint8_t                 link_layer;
+		uint8_t			flags;
 		enum ibv_port_cap_flags caps;
 	} port_query_cache[MLX4_PORTS_NUM];
 	struct {
@@ -298,12 +299,6 @@ static inline void mlx4_update_cons_index(struct mlx4_cq *cq)
 	*cq->set_ci_db = htobe32(cq->cons_index & 0xffffff);
 }
 
-extern int mlx4_cleanup_upon_device_fatal;
-static inline int cleanup_on_fatal(int ret)
-{
-	return (ret == EIO && mlx4_cleanup_upon_device_fatal);
-}
-
 int mlx4_alloc_buf(struct mlx4_buf *buf, size_t size, int page_size);
 void mlx4_free_buf(struct mlx4_buf *buf);
 
@@ -329,9 +324,9 @@ int mlx4_close_xrcd(struct ibv_xrcd *xrcd);
 
 struct ibv_mr *mlx4_reg_mr(struct ibv_pd *pd, void *addr,
 			    size_t length, int access);
-int mlx4_rereg_mr(struct ibv_mr *mr, int flags, struct ibv_pd *pd,
+int mlx4_rereg_mr(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 		  void *addr, size_t length, int access);
-int mlx4_dereg_mr(struct ibv_mr *mr);
+int mlx4_dereg_mr(struct verbs_mr *vmr);
 
 struct ibv_mw *mlx4_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type);
 int mlx4_dealloc_mw(struct ibv_mw *mw);
@@ -399,7 +394,7 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 int mlx4_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			  struct ibv_recv_wr **bad_wr);
 void mlx4_calc_sq_wqe_size(struct ibv_qp_cap *cap, enum ibv_qp_type type,
-			   struct mlx4_qp *qp);
+			   struct mlx4_qp *qp, struct ibv_qp_init_attr_ex *attr);
 int mlx4_alloc_qp_buf(struct ibv_context *context, uint32_t max_recv_sge,
 		       enum ibv_qp_type type, struct mlx4_qp *qp,
 		       struct mlx4dv_qp_init_attr *mlx4qp_attr);

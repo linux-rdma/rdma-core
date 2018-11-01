@@ -108,12 +108,12 @@ struct ibv_srq *pvrdma_create_srq(struct ibv_pd *pd,
 {
 	struct pvrdma_device *dev = to_vdev(pd->context->device);
 	struct user_pvrdma_create_srq cmd;
-	struct ib_uverbs_create_srq_resp resp;
+	struct user_pvrdma_create_srq_resp resp;
 	struct pvrdma_srq *srq;
 	int ret;
 
 	attr->attr.max_wr = align_next_power2(max_t(uint32_t, 1U, attr->attr.max_wr));
-	attr->attr.max_sge = align_next_power2(max_t(uint32_t, 1U, attr->attr.max_sge));
+	attr->attr.max_sge = max_t(uint32_t, 1U, attr->attr.max_sge);
 
 	srq = malloc(sizeof(*srq));
 	if (!srq)
@@ -137,12 +137,12 @@ struct ibv_srq *pvrdma_create_srq(struct ibv_pd *pd,
 	pvrdma_init_srq_queue(srq);
 
 	memset(&cmd, 0, sizeof(cmd));
-	cmd.udata.buf_addr = (uintptr_t) srq->buf.buf;
-	cmd.udata.buf_size = srq->buf.length;
+	cmd.buf_addr = (uintptr_t) srq->buf.buf;
+	cmd.buf_size = srq->buf.length;
 
 	ret = ibv_cmd_create_srq(pd, &srq->ibv_srq, attr,
 				 &cmd.ibv_cmd, sizeof(cmd),
-				 &resp, sizeof(resp));
+				 &resp.ibv_resp, sizeof(resp));
 
 	if (ret)
 		goto err_free;
@@ -216,14 +216,12 @@ struct ibv_qp *pvrdma_create_qp(struct ibv_pd *pd,
 	int ret;
 	int is_srq = !!(attr->srq);
 
-	attr->cap.max_send_sge =
-		align_next_power2(max_t(uint32_t, 1U, attr->cap.max_send_sge));
+	attr->cap.max_send_sge = max_t(uint32_t, 1U, attr->cap.max_send_sge);
 	attr->cap.max_send_wr =
 		align_next_power2(max_t(uint32_t, 1U, attr->cap.max_send_wr));
 
 	if (!is_srq) {
-		attr->cap.max_recv_sge =
-			align_next_power2(max_t(uint32_t, 1U, attr->cap.max_recv_sge));
+		attr->cap.max_recv_sge = max_t(uint32_t, 1U, attr->cap.max_recv_sge);
 		attr->cap.max_recv_wr =
 			align_next_power2(max_t(uint32_t, 1U, attr->cap.max_recv_wr));
 	} else {
@@ -278,11 +276,11 @@ struct ibv_qp *pvrdma_create_qp(struct ibv_pd *pd,
 	pvrdma_init_qp_queue(qp);
 
 	memset(&cmd, 0, sizeof(cmd));
-	cmd.udata.sbuf_addr = (uintptr_t)qp->sbuf.buf;
-	cmd.udata.sbuf_size = qp->sbuf.length;
-	cmd.udata.rbuf_addr = (uintptr_t)qp->rbuf.buf;
-	cmd.udata.rbuf_size = qp->rbuf.length;
-	cmd.udata.qp_addr = (uintptr_t) qp;
+	cmd.sbuf_addr = (uintptr_t)qp->sbuf.buf;
+	cmd.sbuf_size = qp->sbuf.length;
+	cmd.rbuf_addr = (uintptr_t)qp->rbuf.buf;
+	cmd.rbuf_size = qp->rbuf.length;
+	cmd.qp_addr = (uintptr_t) qp;
 
 	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr,
 				&cmd.ibv_cmd, sizeof(cmd),

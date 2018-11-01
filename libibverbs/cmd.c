@@ -41,8 +41,11 @@
 #include <alloca.h>
 #include <string.h>
 
+#include <infiniband/cmd_write.h>
 #include "ibverbs.h"
 #include <ccan/minmax.h>
+
+bool verbs_allow_disassociate_destroy;
 
 int ibv_cmd_get_context(struct verbs_context *context_ex,
 			struct ibv_get_context *cmd, size_t cmd_size,
@@ -262,6 +265,15 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 		}
 	}
 
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, max_dm_size) +
+			sizeof(attr->max_dm_size)) {
+		if (resp->response_length >=
+		    offsetof(struct ib_uverbs_ex_query_device_resp, max_dm_size) +
+		    sizeof(resp->max_dm_size)) {
+			attr->max_dm_size = resp->max_dm_size;
+		}
+	}
+
 	return 0;
 }
 
@@ -274,6 +286,7 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 	IBV_INIT_CMD_RESP(cmd, cmd_size, QUERY_PORT, &resp, sizeof resp);
 	cmd->port_num = port_num;
 	memset(cmd->reserved, 0, sizeof cmd->reserved);
+	memset(&resp, 0, sizeof(resp));
 
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
@@ -300,6 +313,7 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 	port_attr->active_speed    = resp.active_speed;
 	port_attr->phys_state      = resp.phys_state;
 	port_attr->link_layer      = resp.link_layer;
+	port_attr->flags	   = resp.flags;
 
 	return 0;
 }
@@ -323,13 +337,15 @@ int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 
 int ibv_cmd_dealloc_pd(struct ibv_pd *pd)
 {
-	struct ibv_dealloc_pd cmd;
+	DECLARE_LEGACY_CORE_REQ(IB_USER_VERBS_CMD_DEALLOC_PD);
+	int ret;
 
-	IBV_INIT_CMD(&cmd, sizeof cmd, DEALLOC_PD);
-	cmd.pd_handle = pd->handle;
-
-	if (write(pd->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
-		return errno;
+	*req = (struct ib_uverbs_dealloc_pd) {
+		.pd_handle = pd->handle,
+	};
+	ret = execute_write(pd->context, req, NULL);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
 
 	return 0;
 }
@@ -368,20 +384,22 @@ int ibv_cmd_open_xrcd(struct ibv_context *context, struct verbs_xrcd *xrcd,
 
 int ibv_cmd_close_xrcd(struct verbs_xrcd *xrcd)
 {
-	struct ibv_close_xrcd cmd;
+	DECLARE_LEGACY_CORE_REQ(IB_USER_VERBS_CMD_CLOSE_XRCD);
+	int ret;
 
-	IBV_INIT_CMD(&cmd, sizeof cmd, CLOSE_XRCD);
-	cmd.xrcd_handle = xrcd->handle;
-
-	if (write(xrcd->xrcd.context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
-		return errno;
+	*req = (struct ib_uverbs_close_xrcd){
+		.xrcd_handle = xrcd->handle,
+	};
+	ret = execute_write(xrcd->xrcd.context, req, NULL);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
 
 	return 0;
 }
 
 int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 		   uint64_t hca_va, int access,
-		   struct ibv_mr *mr, struct ibv_reg_mr *cmd,
+		   struct verbs_mr *vmr, struct ibv_reg_mr *cmd,
 		   size_t cmd_size,
 		   struct ib_uverbs_reg_mr_resp *resp, size_t resp_size)
 {
@@ -399,15 +417,16 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 
 	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
-	mr->handle  = resp->mr_handle;
-	mr->lkey    = resp->lkey;
-	mr->rkey    = resp->rkey;
-	mr->context = pd->context;
+	vmr->ibv_mr.handle  = resp->mr_handle;
+	vmr->ibv_mr.lkey    = resp->lkey;
+	vmr->ibv_mr.rkey    = resp->rkey;
+	vmr->ibv_mr.context = pd->context;
+	vmr->mr_type        = IBV_MR_TYPE_MR;
 
 	return 0;
 }
 
-int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
+int ibv_cmd_rereg_mr(struct verbs_mr *vmr, uint32_t flags, void *addr,
 		     size_t length, uint64_t hca_va, int access,
 		     struct ibv_pd *pd, struct ibv_rereg_mr *cmd,
 		     size_t cmd_sz, struct ib_uverbs_rereg_mr_resp *resp,
@@ -415,7 +434,7 @@ int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
 {
 	IBV_INIT_CMD_RESP(cmd, cmd_sz, REREG_MR, resp, resp_sz);
 
-	cmd->mr_handle	  = mr->handle;
+	cmd->mr_handle	  = vmr->ibv_mr.handle;
 	cmd->flags	  = flags;
 	cmd->start	  = (uintptr_t)addr;
 	cmd->length	  = length;
@@ -423,28 +442,30 @@ int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
 	cmd->pd_handle	  = (flags & IBV_REREG_MR_CHANGE_PD) ? pd->handle : 0;
 	cmd->access_flags = access;
 
-	if (write(mr->context->cmd_fd, cmd, cmd_sz) != cmd_sz)
+	if (write(vmr->ibv_mr.context->cmd_fd, cmd, cmd_sz) != cmd_sz)
 		return errno;
 
 	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_sz);
 
-	mr->lkey    = resp->lkey;
-	mr->rkey    = resp->rkey;
+	vmr->ibv_mr.lkey    = resp->lkey;
+	vmr->ibv_mr.rkey    = resp->rkey;
 	if (flags & IBV_REREG_MR_CHANGE_PD)
-		mr->context = pd->context;
+		vmr->ibv_mr.context = pd->context;
 
 	return 0;
 }
 
-int ibv_cmd_dereg_mr(struct ibv_mr *mr)
+int ibv_cmd_dereg_mr(struct verbs_mr *vmr)
 {
-	struct ibv_dereg_mr cmd;
+	DECLARE_LEGACY_CORE_REQ(IB_USER_VERBS_CMD_DEREG_MR);
+	int ret;
 
-	IBV_INIT_CMD(&cmd, sizeof cmd, DEREG_MR);
-	cmd.mr_handle = mr->handle;
-
-	if (write(mr->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
-		return errno;
+	*req = (struct ib_uverbs_dereg_mr){
+		.mr_handle = vmr->ibv_mr.handle,
+	};
+	ret = execute_write(vmr->ibv_mr.context, req, NULL);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
 
 	return 0;
 }
@@ -473,88 +494,17 @@ int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
 	return 0;
 }
 
-int ibv_cmd_dealloc_mw(struct ibv_mw *mw,
-		       struct ibv_dealloc_mw *cmd, size_t cmd_size)
+int ibv_cmd_dealloc_mw(struct ibv_mw *mw)
 {
-	IBV_INIT_CMD(cmd, cmd_size, DEALLOC_MW);
-	cmd->mw_handle = mw->handle;
-	cmd->reserved = 0;
+	DECLARE_LEGACY_CORE_REQ(IB_USER_VERBS_CMD_DEALLOC_MW);
+	int ret;
 
-	if (write(mw->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	return 0;
-}
-
-int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
-		      struct ibv_comp_channel *channel,
-		      int comp_vector, struct ibv_cq *cq,
-		      struct ibv_create_cq *cmd, size_t cmd_size,
-		      struct ib_uverbs_create_cq_resp *resp, size_t resp_size)
-{
-	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_CQ, resp, resp_size);
-	cmd->user_handle   = (uintptr_t) cq;
-	cmd->cqe           = cqe;
-	cmd->comp_vector   = comp_vector;
-	cmd->comp_channel  = channel ? channel->fd : -1;
-	cmd->reserved      = 0;
-
-	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
-
-	cq->handle  = resp->cq_handle;
-	cq->cqe     = resp->cqe;
-	cq->context = context;
-
-	return 0;
-}
-
-int ibv_cmd_create_cq_ex(struct ibv_context *context,
-			 struct ibv_cq_init_attr_ex *cq_attr,
-			 struct ibv_cq_ex *cq,
-			 struct ibv_create_cq_ex *cmd,
-			 size_t cmd_core_size,
-			 size_t cmd_size,
-			 struct ib_uverbs_ex_create_cq_resp *resp,
-			 size_t resp_core_size,
-			 size_t resp_size)
-{
-	int err;
-
-	memset(cmd, 0, cmd_core_size);
-	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size, CREATE_CQ, resp,
-			       resp_core_size, resp_size);
-
-	if (cq_attr->comp_mask & ~(IBV_CQ_INIT_ATTR_MASK_RESERVED - 1))
-		return EINVAL;
-
-	cmd->user_handle   = (uintptr_t)cq;
-	cmd->cqe           = cq_attr->cqe;
-	cmd->comp_vector   = cq_attr->comp_vector;
-	cmd->comp_channel  = cq_attr->channel ? cq_attr->channel->fd : -1;
-	cmd->comp_mask = 0;
-
-	if (cmd_core_size >= offsetof(struct ibv_create_cq_ex, flags) +
-	    sizeof(cmd->flags)) {
-		if ((cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS) &&
-		    (cq_attr->flags & ~(IBV_CREATE_CQ_ATTR_RESERVED - 1)))
-			return EOPNOTSUPP;
-
-		if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP)
-			cmd->flags |= IBV_CREATE_CQ_EX_KERNEL_FLAG_COMPLETION_TIMESTAMP;
-	}
-
-	err = write(context->cmd_fd, cmd, cmd_size);
-	if (err != cmd_size)
-		return errno;
-
-	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
-
-	cq->handle  = resp->base.cq_handle;
-	cq->cqe     = resp->base.cqe;
-	cq->context = context;
+	*req = (struct ib_uverbs_dealloc_mw) {
+		.mw_handle = mw->handle,
+	};
+	ret = execute_write(mw->context, req, NULL);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
 
 	return 0;
 }
@@ -608,16 +558,13 @@ out:
 
 int ibv_cmd_req_notify_cq(struct ibv_cq *ibcq, int solicited_only)
 {
-	struct ibv_req_notify_cq cmd;
+	DECLARE_LEGACY_CORE_REQ(IB_USER_VERBS_CMD_REQ_NOTIFY_CQ);
 
-	IBV_INIT_CMD(&cmd, sizeof cmd, REQ_NOTIFY_CQ);
-	cmd.cq_handle = ibcq->handle;
-	cmd.solicited = !!solicited_only;
-
-	if (write(ibcq->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
-		return errno;
-
-	return 0;
+	*req = (struct ib_uverbs_req_notify_cq){
+		.cq_handle = ibcq->handle,
+		.solicited_only = !!solicited_only,
+	};
+	return execute_write(ibcq->context, req, NULL);
 }
 
 int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
@@ -634,29 +581,6 @@ int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
 	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
 	cq->cqe = resp->cqe;
-
-	return 0;
-}
-
-int ibv_cmd_destroy_cq(struct ibv_cq *cq)
-{
-	struct ibv_destroy_cq      cmd;
-	struct ib_uverbs_destroy_cq_resp resp;
-
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, DESTROY_CQ, &resp, sizeof resp);
-	cmd.cq_handle = cq->handle;
-	cmd.reserved  = 0;
-
-	if (write(cq->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
-
-	pthread_mutex_lock(&cq->mutex);
-	while (cq->comp_events_completed  != resp.comp_events_reported ||
-	       cq->async_events_completed != resp.async_events_reported)
-		pthread_cond_wait(&cq->cond, &cq->mutex);
-	pthread_mutex_unlock(&cq->mutex);
 
 	return 0;
 }
@@ -855,17 +779,16 @@ int ibv_cmd_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
 
 int ibv_cmd_destroy_srq(struct ibv_srq *srq)
 {
-	struct ibv_destroy_srq      cmd;
-	struct ib_uverbs_destroy_qp_resp resp;
+	DECLARE_LEGACY_CORE_BUFS(IB_USER_VERBS_CMD_DESTROY_SRQ);
+	int ret;
 
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, DESTROY_SRQ, &resp, sizeof resp);
-	cmd.srq_handle = srq->handle;
-	cmd.reserved   = 0;
+	*req = (struct ib_uverbs_destroy_srq){
+		.srq_handle = srq->handle,
+	};
 
-	if (write(srq->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	ret = execute_write(srq->context, req, &resp);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
 
 	pthread_mutex_lock(&srq->mutex);
 	while (srq->events_completed != resp.events_reported)
@@ -878,7 +801,7 @@ int ibv_cmd_destroy_srq(struct ibv_srq *srq)
 static int create_qp_ex_common(struct verbs_qp *qp,
 			       struct ibv_qp_init_attr_ex *qp_attr,
 			       struct verbs_xrcd *vxrcd,
-			       struct ibv_create_qp_common *cmd)
+			       struct ib_uverbs_create_qp *cmd)
 {
 	cmd->user_handle = (uintptr_t)qp;
 
@@ -993,7 +916,8 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size, CREATE_QP, resp,
 			       resp_core_size, resp_size);
 
-	err = create_qp_ex_common(qp, qp_attr, vxrcd, &cmd->base);
+	err = create_qp_ex_common(qp, qp_attr, vxrcd,
+				  ibv_create_qp_ex_to_reg(cmd));
 	if (err)
 		return err;
 
@@ -1010,10 +934,10 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 	}
 
 	if (qp_attr->comp_mask & IBV_QP_INIT_ATTR_IND_TABLE) {
-		if (cmd_core_size < offsetof(struct ibv_create_qp_ex, ind_tbl_handle) +
-				    sizeof(cmd->ind_tbl_handle))
+		if (cmd_core_size < offsetof(struct ibv_create_qp_ex, rwq_ind_tbl_handle) +
+				    sizeof(cmd->rwq_ind_tbl_handle))
 			return EINVAL;
-		cmd->ind_tbl_handle = qp_attr->rwq_ind_tbl->ind_tbl_handle;
+		cmd->rwq_ind_tbl_handle = qp_attr->rwq_ind_tbl->ind_tbl_handle;
 		cmd->comp_mask = IB_UVERBS_CREATE_QP_MASK_IND_TABLE;
 	}
 
@@ -1044,7 +968,7 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 		return ENOSYS;
 
 	err = create_qp_ex_common(qp, attr_ex, vxrcd,
-				  (struct ibv_create_qp_common *)&cmd->user_handle);
+				  &cmd->core_payload);
 	if (err)
 		return err;
 
@@ -1368,7 +1292,7 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 	IBV_INIT_CMD(cmd, cmd_size, MODIFY_QP);
 
-	copy_modify_qp_fields(qp, attr, attr_mask, &cmd->base);
+	copy_modify_qp_fields(qp, attr, attr_mask, &cmd->core_payload);
 
 	if (write(qp->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
@@ -1654,30 +1578,31 @@ int ibv_cmd_create_ah(struct ibv_pd *pd, struct ibv_ah *ah,
 
 int ibv_cmd_destroy_ah(struct ibv_ah *ah)
 {
-	struct ibv_destroy_ah cmd;
+	DECLARE_LEGACY_CORE_REQ(IB_USER_VERBS_CMD_DESTROY_AH);
+	int ret;
 
-	IBV_INIT_CMD(&cmd, sizeof cmd, DESTROY_AH);
-	cmd.ah_handle = ah->handle;
-
-	if (write(ah->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
-		return errno;
+	*req = (struct ib_uverbs_destroy_ah){
+		.ah_handle = ah->handle,
+	};
+	ret = execute_write(ah->context, req, NULL);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
 
 	return 0;
 }
 
 int ibv_cmd_destroy_qp(struct ibv_qp *qp)
 {
-	struct ibv_destroy_qp      cmd;
-	struct ib_uverbs_destroy_qp_resp resp;
+	DECLARE_LEGACY_CORE_BUFS(IB_USER_VERBS_CMD_DESTROY_QP);
+	int ret;
 
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, DESTROY_QP, &resp, sizeof resp);
-	cmd.qp_handle = qp->handle;
-	cmd.reserved  = 0;
+	*req = (struct ib_uverbs_destroy_qp){
+		.qp_handle = qp->handle,
+	};
 
-	if (write(qp->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
+	ret = execute_write(qp->context, req, &resp);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
 
 	pthread_mutex_lock(&qp->mutex);
 	while (qp->events_completed != resp.events_reported)
@@ -1689,32 +1614,29 @@ int ibv_cmd_destroy_qp(struct ibv_qp *qp)
 
 int ibv_cmd_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 {
-	struct ibv_attach_mcast cmd;
+	DECLARE_LEGACY_CORE_REQ(IB_USER_VERBS_CMD_ATTACH_MCAST);
 
-	IBV_INIT_CMD(&cmd, sizeof cmd, ATTACH_MCAST);
-	memcpy(cmd.gid, gid->raw, sizeof cmd.gid);
-	cmd.qp_handle = qp->handle;
-	cmd.mlid      = lid;
-	cmd.reserved  = 0;
-
-	if (write(qp->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
-		return errno;
-
-	return 0;
+	*req = (struct ib_uverbs_attach_mcast){
+		.qp_handle = qp->handle,
+		.mlid = lid,
+	};
+	memcpy(req->gid, gid->raw, sizeof(req->gid));
+	return execute_write(qp->context, req, NULL);
 }
 
 int ibv_cmd_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 {
-	struct ibv_detach_mcast cmd;
+	DECLARE_LEGACY_CORE_REQ(IB_USER_VERBS_CMD_DETACH_MCAST);
+	int ret;
 
-	IBV_INIT_CMD(&cmd, sizeof cmd, DETACH_MCAST);
-	memcpy(cmd.gid, gid->raw, sizeof cmd.gid);
-	cmd.qp_handle = qp->handle;
-	cmd.mlid      = lid;
-	cmd.reserved  = 0;
-
-	if (write(qp->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
-		return errno;
+	*req = (struct ib_uverbs_detach_mcast){
+		.qp_handle = qp->handle,
+		.mlid = lid,
+	};
+	memcpy(req->gid, gid->raw, sizeof(req->gid));
+	ret = execute_write(qp->context, req, NULL);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
 
 	return 0;
 }
@@ -1835,6 +1757,14 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		memcpy(&kern_spec->ipv6.mask, (void *)&ib_spec->ipv6.val
 		       + ib_filter_size, kern_filter_size);
 		break;
+	case IBV_FLOW_SPEC_ESP:
+	case IBV_FLOW_SPEC_ESP | IBV_FLOW_SPEC_INNER:
+		kern_spec->esp.size = sizeof(struct ib_uverbs_flow_spec_esp);
+		memcpy(&kern_spec->esp.val, &ib_spec->esp.val,
+		       sizeof(struct ib_uverbs_flow_spec_esp_filter));
+		memcpy(&kern_spec->esp.mask, (void *)&ib_spec->esp.mask,
+		       sizeof(struct ib_uverbs_flow_spec_esp_filter));
+		break;
 	case IBV_FLOW_SPEC_TCP:
 	case IBV_FLOW_SPEC_UDP:
 	case IBV_FLOW_SPEC_TCP | IBV_FLOW_SPEC_INNER:
@@ -1844,6 +1774,21 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 		       sizeof(struct ibv_flow_tcp_udp_filter));
 		memcpy(&kern_spec->tcp_udp.mask, &ib_spec->tcp_udp.mask,
 		       sizeof(struct ibv_flow_tcp_udp_filter));
+		break;
+	case IBV_FLOW_SPEC_GRE:
+		kern_spec->gre.size = sizeof(struct ib_uverbs_flow_spec_gre);
+		memcpy(&kern_spec->gre.val, &ib_spec->gre.val,
+		       sizeof(struct ibv_flow_gre_filter));
+		memcpy(&kern_spec->gre.mask, &ib_spec->gre.mask,
+		       sizeof(struct ibv_flow_gre_filter));
+		break;
+	case IBV_FLOW_SPEC_MPLS:
+	case IBV_FLOW_SPEC_MPLS | IBV_FLOW_SPEC_INNER:
+		kern_spec->mpls.size = sizeof(struct ib_uverbs_flow_spec_mpls);
+		memcpy(&kern_spec->mpls.val, &ib_spec->mpls.val,
+		       sizeof(struct ibv_flow_mpls_filter));
+		memcpy(&kern_spec->mpls.mask, &ib_spec->mpls.mask,
+		       sizeof(struct ibv_flow_mpls_filter));
 		break;
 	case IBV_FLOW_SPEC_VXLAN_TUNNEL:
 		ret = get_filters_size(ib_spec, kern_spec,
@@ -1866,6 +1811,23 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 	case IBV_FLOW_SPEC_ACTION_DROP:
 		kern_spec->drop.size = sizeof(struct ib_uverbs_flow_spec_action_drop);
 		break;
+	case IBV_FLOW_SPEC_ACTION_HANDLE: {
+		const struct verbs_flow_action *vaction =
+			container_of((const struct ibv_flow_action *)ib_spec->handle.action,
+				     const struct verbs_flow_action, action);
+		kern_spec->handle.size = sizeof(struct ib_uverbs_flow_spec_action_handle);
+		kern_spec->handle.handle = vaction->handle;
+		break;
+	}
+	case IBV_FLOW_SPEC_ACTION_COUNT: {
+		const struct verbs_counters *vcounters =
+			container_of(ib_spec->flow_count.counters,
+				     const struct verbs_counters, counters);
+		kern_spec->flow_count.size =
+			sizeof(struct ib_uverbs_flow_spec_action_count);
+		kern_spec->flow_count.handle = vcounters->handle;
+		break;
+	}
 	default:
 		return EINVAL;
 	}
@@ -1874,7 +1836,9 @@ static int ib_spec_to_kern_spec(struct ibv_flow_spec *ib_spec,
 
 int ibv_cmd_create_flow(struct ibv_qp *qp,
 			struct ibv_flow *flow_id,
-			struct ibv_flow_attr *flow_attr)
+			struct ibv_flow_attr *flow_attr,
+			void *ucmd,
+			size_t ucmd_size)
 {
 	struct ibv_create_flow *cmd;
 	struct ib_uverbs_destroy_flow  resp;
@@ -1886,8 +1850,8 @@ int ibv_cmd_create_flow(struct ibv_qp *qp,
 
 	cmd_size = sizeof(*cmd) + (flow_attr->num_of_specs *
 				  sizeof(struct ibv_kern_spec));
-	cmd = alloca(cmd_size);
-	memset(cmd, 0, cmd_size);
+	cmd = alloca(cmd_size + ucmd_size);
+	memset(cmd, 0, cmd_size + ucmd_size);
 
 	cmd->qp_handle = qp->handle;
 
@@ -1912,7 +1876,13 @@ int ibv_cmd_create_flow(struct ibv_qp *qp,
 	}
 
 	written_size = sizeof(*cmd) + cmd->flow_attr.size;
-	IBV_INIT_CMD_RESP_EX_VCMD(cmd, written_size, written_size, CREATE_FLOW,
+	if (ucmd) {
+		memcpy((char *)cmd + written_size, ucmd, ucmd_size);
+		written_size += ucmd_size;
+	}
+
+	IBV_INIT_CMD_RESP_EX_VCMD(cmd, written_size - ucmd_size,
+				  written_size, CREATE_FLOW,
 				  &resp, sizeof(resp));
 	if (write(qp->context->cmd_fd, cmd, written_size) != written_size)
 		goto err;
@@ -1928,16 +1898,17 @@ err:
 
 int ibv_cmd_destroy_flow(struct ibv_flow *flow_id)
 {
-	struct ibv_destroy_flow cmd;
-	int ret = 0;
+	DECLARE_LEGACY_CORE_BUFS_EX(IB_USER_VERBS_EX_CMD_DESTROY_FLOW);
+	int ret;
 
-	memset(&cmd, 0, sizeof(cmd));
-	IBV_INIT_CMD_EX(&cmd, sizeof(cmd), DESTROY_FLOW);
-	cmd.flow_handle = flow_id->handle;
+	*req = (struct ib_uverbs_destroy_flow){
+		.flow_handle = flow_id->handle,
+	};
+	ret = execute_write_ex(flow_id->context, req);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
 
-	if (write(flow_id->context->cmd_fd, &cmd, sizeof(cmd)) != sizeof(cmd))
-		ret = errno;
-	return ret;
+	return 0;
 }
 
 int ibv_cmd_create_wq(struct ibv_context *context,
@@ -2032,18 +2003,16 @@ int ibv_cmd_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr,
 
 int ibv_cmd_destroy_wq(struct ibv_wq *wq)
 {
-	struct ibv_destroy_wq cmd;
-	struct ib_uverbs_ex_destroy_wq_resp resp;
-	int ret = 0;
+	DECLARE_LEGACY_CORE_BUFS_EX(IB_USER_VERBS_EX_CMD_DESTROY_WQ);
+	int ret;
 
-	memset(&cmd, 0, sizeof(cmd));
-	memset(&resp, 0, sizeof(resp));
+	*req = (struct ib_uverbs_ex_destroy_wq){
+		.wq_handle = wq->handle,
+	};
 
-	IBV_INIT_CMD_RESP_EX(&cmd, sizeof(cmd), DESTROY_WQ, &resp, sizeof(resp));
-	cmd.wq_handle = wq->handle;
-
-	if (write(wq->context->cmd_fd, &cmd, sizeof(cmd)) != sizeof(cmd))
-		return errno;
+	ret = execute_write_ex(wq->context, req);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
 
 	if (resp.response_length < sizeof(resp))
 		return EINVAL;
@@ -2053,7 +2022,7 @@ int ibv_cmd_destroy_wq(struct ibv_wq *wq)
 		pthread_cond_wait(&wq->cond, &wq->mutex);
 	pthread_mutex_unlock(&wq->mutex);
 
-	return ret;
+	return 0;
 }
 
 int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
@@ -2111,17 +2080,17 @@ int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 
 int ibv_cmd_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table)
 {
-	struct ibv_destroy_rwq_ind_table cmd;
-	int ret = 0;
+	DECLARE_LEGACY_CORE_BUFS_EX(IB_USER_VERBS_EX_CMD_DESTROY_RWQ_IND_TBL);
+	int ret;
 
-	memset(&cmd, 0, sizeof(cmd));
-	IBV_INIT_CMD_EX(&cmd, sizeof(cmd), DESTROY_RWQ_IND_TBL);
-	cmd.ind_tbl_handle = rwq_ind_table->ind_tbl_handle;
+	*req = (struct ib_uverbs_ex_destroy_rwq_ind_table){
+		.ind_tbl_handle = rwq_ind_table->ind_tbl_handle,
+	};
+	ret = execute_write_ex(rwq_ind_table->context, req);
+	if (verbs_is_destroy_err(&ret))
+		return ret;
 
-	if (write(rwq_ind_table->context->cmd_fd, &cmd, sizeof(cmd)) != sizeof(cmd))
-		ret = errno;
-
-	return ret;
+	return 0;
 }
 
 

@@ -137,14 +137,16 @@ static const struct verbs_context_ops hfi1_ctx_v1_ops = {
 };
 
 static struct verbs_context *hfi1_alloc_context(struct ibv_device *ibdev,
-						int cmd_fd)
+						int cmd_fd,
+						void *private_data)
 {
 	struct hfi1_context	    *context;
 	struct ibv_get_context       cmd;
 	struct ib_uverbs_get_context_resp  resp;
 	struct hfi1_device         *dev;
 
-	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
+					       RDMA_DRIVER_HFI1);
 	if (!context)
 		return NULL;
 

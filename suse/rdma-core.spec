@@ -19,7 +19,7 @@
 %bcond_without  systemd
 %define         git_ver %{nil}
 Name:           rdma-core
-Version:        17.0
+Version:        21.0
 Release:        0
 Summary:        RDMA core userspace libraries and daemons
 License:        GPL-2.0 or BSD-2-Clause
@@ -51,6 +51,7 @@ Source1:        baselibs.conf
 BuildRequires:  binutils
 BuildRequires:  cmake >= 2.8.11
 BuildRequires:  gcc
+BuildRequires:  pandoc
 BuildRequires:  pkgconfig
 BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(libudev)
@@ -86,6 +87,7 @@ Obsoletes:      ofed < %{version}
 # outside of OBS. Thus we add a bcond to allow manual build.
 # To force build without the use of curl-mini, --without=curlmini
 # should be passed to rpmbuild
+%bcond_without curlmini
 %if 0%{?suse_version} >= 1330
 %if %{with curlmini}
 BuildRequires:  curl-mini
@@ -124,7 +126,7 @@ Requires:       %{name}%{?_isa} = %{version}-%{release}
 Requires:       %{rdmacm_lname} = %{version}-%{release}
 Requires:       %{umad_lname} = %{version}-%{release}
 Requires:       %{verbs_lname} = %{version}-%{release}
-%%if 0%{?dma_coherent}
+%if 0%{?dma_coherent}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
 %endif
@@ -164,6 +166,9 @@ Obsoletes:      librxe-rdmav2 < %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
 %endif
+# Recommended packages for rxe_cfg
+Recommends:     ethtool
+Recommends:     iproute2
 
 %description -n libibverbs
 libibverbs is a library that allows userspace processes to use RDMA
@@ -263,6 +268,8 @@ are used by the IB diagnostic and management tools, including OpenSM.
 Summary:        Userspace RDMA Connection Manager
 Group:          System/Libraries
 Requires:       %{name} = %{version}
+Provides:       librdmacm = %{version}
+Obsoletes:      librdmacm < %{version}
 
 %description -n %rdmacm_lname
 librdmacm provides a userspace RDMA Communication Management API.
@@ -319,6 +326,8 @@ on those changes.
 %define _rundir /var/run
 %endif
 
+%{!?EXTRA_CMAKE_FLAGS: %define EXTRA_CMAKE_FLAGS %{nil}}
+
 # Pass all of the rpm paths directly to GNUInstallDirs and our other defines.
 %cmake %{CMAKE_FLAGS} \
 	 -DCMAKE_MODULE_LINKER_FLAGS="-Wl,--as-needed -Wl,-z,now" \
@@ -338,7 +347,8 @@ on those changes.
          -DCMAKE_INSTALL_INITDDIR:PATH=%{_initddir} \
          -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
          -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version} \
-         -DCMAKE_INSTALL_UDEV_RULESDIR:PATH=%{_udevrulesdir}
+         -DCMAKE_INSTALL_UDEV_RULESDIR:PATH=%{_udevrulesdir} \
+         %{EXTRA_CMAKE_FLAGS}
 %make_jobs
 
 %install
@@ -424,20 +434,18 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 # srp daemon
 #
 %pre -n srp_daemon
-%service_add_pre srp_daemon.service srp_daemon_port@.service
+%service_add_pre srp_daemon.service
 
 %post -n srp_daemon
-%service_add_post srp_daemon.service srp_daemon_port@.service
+%service_add_post srp_daemon.service
 # we ship udev rules, so trigger an update.
 /sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change
 
 %preun -n srp_daemon
 %service_del_preun srp_daemon.service
-%service_del_postun -n  srp_daemon_port@.service
 
 %postun -n srp_daemon
 %service_del_postun srp_daemon.service
-%service_del_postun -n  srp_daemon_port@.service
 
 #
 # iwpmd
@@ -519,6 +527,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_includedir}/infiniband/*
 %{_includedir}/rdma/*
 %{_libdir}/lib*.so
+%{_libdir}/pkgconfig/*.pc
 %{_mandir}/man3/ibv_*
 %{_mandir}/man3/rdma*
 %{_mandir}/man3/umad*

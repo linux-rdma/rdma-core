@@ -151,39 +151,39 @@ int i40iw_ufree_pd(struct ibv_pd *pd)
  */
 struct ibv_mr *i40iw_ureg_mr(struct ibv_pd *pd, void *addr, size_t length, int access)
 {
-	struct ibv_mr *mr;
+	struct verbs_mr *vmr;
 	struct i40iw_ureg_mr cmd;
 	struct ib_uverbs_reg_mr_resp resp;
 
-	mr = malloc(sizeof(*mr));
-	if (!mr)
+	vmr = malloc(sizeof(*vmr));
+	if (!vmr)
 		return NULL;
 
-	cmd.reg_type = I40IW_UMEMREG_TYPE_MEM;
+	cmd.reg_type = IW_MEMREG_TYPE_MEM;
 
 	if (ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr,
-			   access, mr, &cmd.ibv_cmd, sizeof(cmd),
+			   access, vmr, &cmd.ibv_cmd, sizeof(cmd),
 			   &resp, sizeof(resp))) {
 		fprintf(stderr, PFX "%s: Failed to register memory\n", __func__);
-		free(mr);
+		free(vmr);
 		return NULL;
 	}
-	return mr;
+	return &vmr->ibv_mr;
 }
 
 /**
  * i40iw_udereg_mr - re-register memory region
  * @mr: mr that was allocated
  */
-int i40iw_udereg_mr(struct ibv_mr *mr)
+int i40iw_udereg_mr(struct verbs_mr *vmr)
 {
 	int ret;
 
-	ret = ibv_cmd_dereg_mr(mr);
+	ret = ibv_cmd_dereg_mr(vmr);
 	if (ret)
 		return ret;
 
-	free(mr);
+	free(vmr);
 	return 0;
 }
 
@@ -254,14 +254,15 @@ struct ibv_cq *i40iw_ucreate_cq(struct ibv_context *context, int cqe,
 
 	memset(info.cq_base, 0, totalsize);
 	info.shadow_area = (u64 *)((u8 *)info.cq_base + (cq_pages << 12));
-	reg_mr_cmd.reg_type = I40IW_UMEMREG_TYPE_CQ;
+	reg_mr_cmd.reg_type = IW_MEMREG_TYPE_CQ;
 
 	reg_mr_cmd.cq_pages = cq_pages;
 
-	ret = ibv_cmd_reg_mr(&iwvctx->iwupd->ibv_pd, (void *)info.cq_base, totalsize,
-			     (uintptr_t)info.cq_base, IBV_ACCESS_LOCAL_WRITE,
-			     &iwucq->mr, &reg_mr_cmd.ibv_cmd, sizeof(reg_mr_cmd), &reg_mr_resp,
-			     sizeof(reg_mr_resp));
+	ret = ibv_cmd_reg_mr(&iwvctx->iwupd->ibv_pd, (void *)info.cq_base,
+			     totalsize, (uintptr_t)info.cq_base,
+			     IBV_ACCESS_LOCAL_WRITE, &iwucq->vmr,
+			     &reg_mr_cmd.ibv_cmd, sizeof(reg_mr_cmd),
+			     &reg_mr_resp, sizeof(reg_mr_resp));
 	if (ret) {
 		fprintf(stderr, PFX "%s: failed to pin memory for CQ\n", __func__);
 		goto err;
@@ -272,7 +273,7 @@ struct ibv_cq *i40iw_ucreate_cq(struct ibv_context *context, int cqe,
 				&iwucq->ibv_cq, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp));
 	if (ret) {
-		ibv_cmd_dereg_mr(&iwucq->mr);
+		ibv_cmd_dereg_mr(&iwucq->vmr);
 		fprintf(stderr, PFX "%s: failed to create CQ\n", __func__);
 		goto err;
 	}
@@ -312,7 +313,7 @@ int i40iw_udestroy_cq(struct ibv_cq *cq)
 	if (ret)
 		return ret;
 
-	ibv_cmd_dereg_mr(&iwucq->mr);
+	ibv_cmd_dereg_mr(&iwucq->vmr);
 
 	free(iwucq->cq.cq_base);
 	free(iwucq);
@@ -342,6 +343,8 @@ int i40iw_upoll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *entry)
 		ret = iwucq->cq.ops.iw_cq_poll_completion(&iwucq->cq, &cq_poll_info);
 		if (ret == I40IW_ERR_QUEUE_EMPTY) {
 			break;
+		} else if (ret == I40IW_ERR_QUEUE_DESTROYED) {
+			continue;
 		} else if (ret) {
 			fprintf(stderr, PFX "%s: Error polling CQ, status %d\n", __func__, ret);
 			if (!cqe_count)
@@ -476,7 +479,7 @@ static int i40iw_destroy_vmapped_qp(struct i40iw_uqp *iwuqp,
 	if (iwuqp->push_wqe)
 		munmap(iwuqp->push_wqe, I40IW_HW_PAGE_SIZE);
 
-	ibv_cmd_dereg_mr(&iwuqp->mr);
+	ibv_cmd_dereg_mr(&iwuqp->vmr);
 	free((void *)sq_base);
 
 	return 0;
@@ -524,13 +527,15 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 	info->rq = &info->sq[sqsize / I40IW_QP_WQE_MIN_SIZE];
 	info->shadow_area = info->rq[rqsize / I40IW_QP_WQE_MIN_SIZE].elem;
 
-	reg_mr_cmd.reg_type = I40IW_UMEMREG_TYPE_QP;
+	reg_mr_cmd.reg_type = IW_MEMREG_TYPE_QP;
 	reg_mr_cmd.sq_pages = sq_pages;
 	reg_mr_cmd.rq_pages = rq_pages;
 
-	ret = ibv_cmd_reg_mr(pd, (void *)info->sq, totalqpsize, (uintptr_t)info->sq,
-			     IBV_ACCESS_LOCAL_WRITE, &iwuqp->mr, &reg_mr_cmd.ibv_cmd,
-			     sizeof(reg_mr_cmd), &reg_mr_resp, sizeof(reg_mr_resp));
+	ret = ibv_cmd_reg_mr(pd, (void *)info->sq, totalqpsize,
+			     (uintptr_t)info->sq, IBV_ACCESS_LOCAL_WRITE,
+			     &iwuqp->vmr, &reg_mr_cmd.ibv_cmd,
+			     sizeof(reg_mr_cmd), &reg_mr_resp,
+			     sizeof(reg_mr_resp));
 	if (ret) {
 		fprintf(stderr, PFX "%s: failed to pin memory for SQ\n", __func__);
 		free(info->sq);
@@ -543,7 +548,7 @@ static int i40iw_vmapped_qp(struct i40iw_uqp *iwuqp, struct ibv_pd *pd,
 				&resp->ibv_resp, sizeof(struct i40iw_ucreate_qp_resp));
 	if (ret) {
 		fprintf(stderr, PFX "%s: failed to create QP, status %d\n", __func__, ret);
-		ibv_cmd_dereg_mr(&iwuqp->mr);
+		ibv_cmd_dereg_mr(&iwuqp->vmr);
 		free(info->sq);
 		return 0;
 	}
@@ -806,21 +811,30 @@ int i40iw_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr, struct ibv
 
 		switch (ib_wr->opcode) {
 		case IBV_WR_SEND:
-			if (ib_wr->send_flags & IBV_SEND_SOLICITED)
-				info.op_type = I40IW_OP_TYPE_SEND_SOL;
-			else
-				info.op_type = I40IW_OP_TYPE_SEND;
+		    /* fall-through */
+		case IBV_WR_SEND_WITH_INV:
+			if (ib_wr->opcode == IBV_WR_SEND) {
+				if (ib_wr->send_flags & IBV_SEND_SOLICITED)
+					info.op_type = I40IW_OP_TYPE_SEND_SOL;
+				else
+					info.op_type = I40IW_OP_TYPE_SEND;
+			} else {
+				if (ib_wr->send_flags & IBV_SEND_SOLICITED)
+					info.op_type = I40IW_OP_TYPE_SEND_SOL_INV;
+				else
+					info.op_type = I40IW_OP_TYPE_SEND_INV;
+			}
 
 			if (ib_wr->send_flags & IBV_SEND_INLINE) {
 			  info.op.inline_send.data = (void *)(uintptr_t)ib_wr->sg_list[0].addr;
 				info.op.inline_send.len = ib_wr->sg_list[0].length;
 				ret = iwuqp->qp.ops.iw_inline_send(&iwuqp->qp, &info,
-								   ib_wr->wr.rdma.rkey, false);
+								   ib_wr->invalidate_rkey, false);
 			} else {
 				info.op.send.num_sges = ib_wr->num_sge;
 				info.op.send.sg_list = (struct i40iw_sge *)ib_wr->sg_list;
 				ret = iwuqp->qp.ops.iw_send(&iwuqp->qp, &info,
-							    ib_wr->wr.rdma.rkey, false);
+							    ib_wr->invalidate_rkey, false);
 			}
 
 			if (ret) {
@@ -835,17 +849,15 @@ int i40iw_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr, struct ibv
 			info.op_type = I40IW_OP_TYPE_RDMA_WRITE;
 
 			if (ib_wr->send_flags & IBV_SEND_INLINE) {
-			  info.op.inline_rdma_write.data = (void *)(uintptr_t)ib_wr->sg_list[0].addr;
+				info.op.inline_rdma_write.data = (void *)(uintptr_t)ib_wr->sg_list[0].addr;
 				info.op.inline_rdma_write.len = ib_wr->sg_list[0].length;
 				info.op.inline_rdma_write.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
-				info.op.inline_rdma_write.rem_addr.len = ib_wr->sg_list->length;
 				info.op.inline_rdma_write.rem_addr.stag = ib_wr->wr.rdma.rkey;
 				ret = iwuqp->qp.ops.iw_inline_rdma_write(&iwuqp->qp, &info, false);
 			} else {
 				info.op.rdma_write.lo_sg_list = (void *)ib_wr->sg_list;
 				info.op.rdma_write.num_lo_sges = ib_wr->num_sge;
 				info.op.rdma_write.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
-				info.op.rdma_write.rem_addr.len = ib_wr->sg_list->length;
 				info.op.rdma_write.rem_addr.stag = ib_wr->wr.rdma.rkey;
 				ret = iwuqp->qp.ops.iw_rdma_write(&iwuqp->qp, &info, false);
 			}
@@ -866,7 +878,6 @@ int i40iw_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr, struct ibv
 			info.op_type = I40IW_OP_TYPE_RDMA_READ;
 			info.op.rdma_read.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
 			info.op.rdma_read.rem_addr.stag = ib_wr->wr.rdma.rkey;
-			info.op.rdma_read.rem_addr.len = ib_wr->sg_list->length;
 			info.op.rdma_read.lo_addr.tag_off = ib_wr->sg_list->addr;
 			info.op.rdma_read.lo_addr.stag = ib_wr->sg_list->lkey;
 			info.op.rdma_read.lo_addr.len = ib_wr->sg_list->length;

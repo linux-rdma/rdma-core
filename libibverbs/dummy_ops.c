@@ -33,7 +33,20 @@
 #include "ibverbs.h"
 #include <errno.h>
 
+static struct ibv_dm *alloc_dm(struct ibv_context *context,
+			       struct ibv_alloc_dm_attr *attr)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
 static struct ibv_mw *alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
+static struct ibv_mr *alloc_null_mr(struct ibv_pd *pd)
 {
 	errno = ENOSYS;
 	return NULL;
@@ -64,6 +77,13 @@ static void async_event(struct ibv_async_event *event)
 {
 }
 
+static int attach_counters_point_flow(struct ibv_counters *counters,
+				      struct ibv_counter_attach_attr *attr,
+				      struct ibv_flow *flow)
+{
+	return ENOSYS;
+}
+
 static int attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 			uint16_t lid)
 {
@@ -91,6 +111,13 @@ static struct ibv_ah *create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	return NULL;
 }
 
+static struct ibv_counters *create_counters(struct ibv_context *context,
+					    struct ibv_counters_init_attr *init_attr)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
 static struct ibv_cq *create_cq(struct ibv_context *context, int cqe,
 				struct ibv_comp_channel *channel,
 				int comp_vector)
@@ -108,6 +135,13 @@ static struct ibv_cq_ex *create_cq_ex(struct ibv_context *context,
 
 static struct ibv_flow *create_flow(struct ibv_qp *qp,
 				    struct ibv_flow_attr *flow_attr)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
+static struct ibv_flow_action *create_flow_action_esp(struct ibv_context *context,
+						      struct ibv_flow_action_esp_attr *attr)
 {
 	errno = ENOSYS;
 	return NULL;
@@ -172,12 +206,17 @@ static int dealloc_td(struct ibv_td *td)
 	return ENOSYS;
 }
 
-static int dereg_mr(struct ibv_mr *mr)
+static int dereg_mr(struct verbs_mr *vmr)
 {
 	return ENOSYS;
 }
 
 static int destroy_ah(struct ibv_ah *ah)
+{
+	return ENOSYS;
+}
+
+static int destroy_counters(struct ibv_counters *counters)
 {
 	return ENOSYS;
 }
@@ -188,6 +227,11 @@ static int destroy_cq(struct ibv_cq *cq)
 }
 
 static int destroy_flow(struct ibv_flow *flow)
+{
+	return ENOSYS;
+}
+
+static int destroy_flow_action(struct ibv_flow_action *action)
 {
 	return ENOSYS;
 }
@@ -218,6 +262,11 @@ static int detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 	return ENOSYS;
 }
 
+static int free_dm(struct ibv_dm *dm)
+{
+	return ENOSYS;
+}
+
 static int get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 {
 	return ENOSYS;
@@ -228,7 +277,19 @@ static int modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr)
 	return ENOSYS;
 }
 
+static int modify_flow_action_esp(struct ibv_flow_action *action,
+				  struct ibv_flow_action_esp_attr *attr)
+{
+	return ENOSYS;
+}
+
 static int modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
+{
+	return ENOSYS;
+}
+
+static int modify_qp_rate_limit(struct ibv_qp *qp,
+				struct ibv_qp_rate_limit_attr *attr)
 {
 	return ENOSYS;
 }
@@ -323,6 +384,22 @@ static int query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
 	return ENOSYS;
 }
 
+static int read_counters(struct ibv_counters *counters,
+			 uint64_t *counters_value,
+			 uint32_t ncounters,
+			 uint32_t flags)
+{
+	return ENOSYS;
+}
+
+static struct ibv_mr *reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *dm,
+				uint64_t dm_offset, size_t length,
+				unsigned int access)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
 static struct ibv_mr *reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			     int access)
 {
@@ -335,8 +412,8 @@ static int req_notify_cq(struct ibv_cq *cq, int solicited_only)
 	return ENOSYS;
 }
 
-static int rereg_mr(struct ibv_mr *mr, int flags, struct ibv_pd *pd, void *addr,
-		    size_t length, int access)
+static int rereg_mr(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
+		    void *addr, size_t length, int access)
 {
 	errno = ENOSYS;
 	return IBV_REREG_MR_ERR_INPUT;
@@ -359,19 +436,24 @@ static int resize_cq(struct ibv_cq *cq, int cqe)
  * Keep sorted.
  */
 const struct verbs_context_ops verbs_dummy_ops = {
+	alloc_dm,
 	alloc_mw,
+	alloc_null_mr,
 	alloc_parent_domain,
 	alloc_pd,
 	alloc_td,
 	async_event,
+	attach_counters_point_flow,
 	attach_mcast,
 	bind_mw,
 	close_xrcd,
 	cq_event,
 	create_ah,
+	create_counters,
 	create_cq,
 	create_cq_ex,
 	create_flow,
+	create_flow_action_esp,
 	create_qp,
 	create_qp_ex,
 	create_rwq_ind_table,
@@ -383,16 +465,21 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	dealloc_td,
 	dereg_mr,
 	destroy_ah,
+	destroy_counters,
 	destroy_cq,
 	destroy_flow,
+	destroy_flow_action,
 	destroy_qp,
 	destroy_rwq_ind_table,
 	destroy_srq,
 	destroy_wq,
 	detach_mcast,
+	free_dm,
 	get_srq_num,
 	modify_cq,
+	modify_flow_action_esp,
 	modify_qp,
+	modify_qp_rate_limit,
 	modify_srq,
 	modify_wq,
 	open_qp,
@@ -408,6 +495,8 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	query_qp,
 	query_rt_values,
 	query_srq,
+	read_counters,
+	reg_dm_mr,
 	reg_mr,
 	req_notify_cq,
 	rereg_mr,
@@ -422,55 +511,90 @@ const struct verbs_context_ops verbs_dummy_ops = {
 void verbs_set_ops(struct verbs_context *vctx,
 		   const struct verbs_context_ops *ops)
 {
+	struct verbs_ex_private *priv = vctx->priv;
 	struct ibv_context_ops *ctx = &vctx->context.ops;
+
+	/*
+	 * We retain the function pointer for now, just as 'just-in-case' ABI
+	 * compatibility. If any ever get changed incompatibly they should be
+	 * set to NULL instead.
+	 */
+#define SET_PRIV_OP(ptr, name)                                                 \
+	do {                                                                   \
+		if (ops->name) {                                               \
+			priv->ops.name = ops->name;                            \
+			(ptr)->_compat_##name = (void *)ops->name;             \
+		}                                                              \
+	} while (0)
+
+	/* Same as SET_PRIV_OP but without the compatibility pointer */
+#define SET_PRIV_OP_IC(ptr, name)                                              \
+	do {                                                                   \
+		if (ops->name)                                                 \
+			priv->ops.name = ops->name;                            \
+	} while (0)
 
 #define SET_OP(ptr, name)                                                      \
 	do {                                                                   \
-		if (ops->name)                                                 \
+		if (ops->name) {                                               \
+			priv->ops.name = ops->name;                            \
 			(ptr)->name = ops->name;                               \
+		}                                                              \
 	} while (0)
 
 #define SET_OP2(ptr, iname, name)                                              \
 	do {                                                                   \
-		if (ops->name)                                                 \
+		if (ops->name) {                                               \
+			priv->ops.name = ops->name;                            \
 			(ptr)->iname = ops->name;                              \
+		}                                                              \
 	} while (0)
 
+	SET_OP(vctx, alloc_dm);
 	SET_OP(ctx, alloc_mw);
-	SET_OP(ctx, alloc_pd);
+	SET_OP(vctx, alloc_null_mr);
+	SET_PRIV_OP(ctx, alloc_pd);
 	SET_OP(vctx, alloc_parent_domain);
 	SET_OP(vctx, alloc_td);
-	SET_OP(ctx, async_event);
-	SET_OP(ctx, attach_mcast);
+	SET_OP(vctx, attach_counters_point_flow);
+	SET_OP(vctx, create_counters);
+	SET_PRIV_OP(ctx, async_event);
+	SET_PRIV_OP(ctx, attach_mcast);
 	SET_OP(ctx, bind_mw);
 	SET_OP(vctx, close_xrcd);
-	SET_OP(ctx, cq_event);
-	SET_OP(ctx, create_ah);
-	SET_OP(ctx, create_cq);
-	SET_OP(vctx, create_cq_ex);
+	SET_PRIV_OP(ctx, cq_event);
+	SET_PRIV_OP(ctx, create_ah);
+	SET_PRIV_OP(ctx, create_cq);
+	SET_PRIV_OP_IC(vctx, create_cq_ex);
 	SET_OP2(vctx, ibv_create_flow, create_flow);
-	SET_OP(ctx, create_qp);
+	SET_OP(vctx, create_flow_action_esp);
+	SET_PRIV_OP(ctx, create_qp);
 	SET_OP(vctx, create_qp_ex);
 	SET_OP(vctx, create_rwq_ind_table);
-	SET_OP(ctx, create_srq);
+	SET_PRIV_OP(ctx, create_srq);
 	SET_OP(vctx, create_srq_ex);
 	SET_OP(vctx, create_wq);
 	SET_OP(ctx, dealloc_mw);
-	SET_OP(ctx, dealloc_pd);
+	SET_PRIV_OP(ctx, dealloc_pd);
 	SET_OP(vctx, dealloc_td);
-	SET_OP(ctx, dereg_mr);
-	SET_OP(ctx, destroy_ah);
-	SET_OP(ctx, destroy_cq);
+	SET_OP(vctx, destroy_counters);
+	SET_PRIV_OP(ctx, dereg_mr);
+	SET_PRIV_OP(ctx, destroy_ah);
+	SET_PRIV_OP(ctx, destroy_cq);
 	SET_OP2(vctx, ibv_destroy_flow, destroy_flow);
-	SET_OP(ctx, destroy_qp);
+	SET_OP(vctx, destroy_flow_action);
+	SET_PRIV_OP(ctx, destroy_qp);
 	SET_OP(vctx, destroy_rwq_ind_table);
-	SET_OP(ctx, destroy_srq);
+	SET_PRIV_OP(ctx, destroy_srq);
 	SET_OP(vctx, destroy_wq);
-	SET_OP(ctx, detach_mcast);
+	SET_PRIV_OP(ctx, detach_mcast);
+	SET_OP(vctx, free_dm);
 	SET_OP(vctx, get_srq_num);
 	SET_OP(vctx, modify_cq);
-	SET_OP(ctx, modify_qp);
-	SET_OP(ctx, modify_srq);
+	SET_OP(vctx, modify_flow_action_esp);
+	SET_PRIV_OP(ctx, modify_qp);
+	SET_OP(vctx, modify_qp_rate_limit);
+	SET_PRIV_OP(ctx, modify_srq);
 	SET_OP(vctx, modify_wq);
 	SET_OP(vctx, open_qp);
 	SET_OP(vctx, open_xrcd);
@@ -479,16 +603,18 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, post_send);
 	SET_OP(vctx, post_srq_ops);
 	SET_OP(ctx, post_srq_recv);
-	SET_OP(ctx, query_device);
+	SET_PRIV_OP(ctx, query_device);
 	SET_OP(vctx, query_device_ex);
-	SET_OP(ctx, query_port);
-	SET_OP(ctx, query_qp);
+	SET_PRIV_OP(ctx, query_port);
+	SET_PRIV_OP(ctx, query_qp);
 	SET_OP(vctx, query_rt_values);
-	SET_OP(ctx, query_srq);
-	SET_OP(ctx, reg_mr);
+	SET_OP(vctx, read_counters);
+	SET_PRIV_OP(ctx, query_srq);
+	SET_OP(vctx, reg_dm_mr);
+	SET_PRIV_OP(ctx, reg_mr);
 	SET_OP(ctx, req_notify_cq);
-	SET_OP(ctx, rereg_mr);
-	SET_OP(ctx, resize_cq);
+	SET_PRIV_OP(ctx, rereg_mr);
+	SET_PRIV_OP(ctx, resize_cq);
 
 #undef SET_OP
 #undef SET_OP2

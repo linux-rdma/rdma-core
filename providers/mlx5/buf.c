@@ -245,6 +245,9 @@ static int alloc_huge_buf(struct mlx5_context *mctx, struct mlx5_buf *buf,
 	buf->length = align(size, MLX5_Q_CHUNK_SIZE);
 	nchunk = buf->length / MLX5_Q_CHUNK_SIZE;
 
+	if (!nchunk)
+		return 0;
+
 	mlx5_spin_lock(&mctx->hugetlb_lock);
 	list_for_each(&mctx->hugetlb_list, hmem, entry) {
 		if (bitmap_avail(&hmem->bitmap)) {
@@ -310,6 +313,9 @@ static void free_huge_buf(struct mlx5_context *ctx, struct mlx5_buf *buf)
 	int nchunk;
 
 	nchunk = buf->length / MLX5_Q_CHUNK_SIZE;
+	if (!nchunk)
+		return;
+
 	mlx5_spin_lock(&ctx->hugetlb_lock);
 	bitmap_free_range(&buf->hmem->bitmap, buf->base, nchunk);
 	if (bitmap_empty(&buf->hmem->bitmap)) {
@@ -552,7 +558,7 @@ int mlx5_alloc_buf_contig(struct mlx5_context *mctx,
 
 	do {
 		offset = 0;
-		set_command(MLX5_MMAP_GET_CONTIGUOUS_PAGES_CMD, &offset);
+		set_command(MLX5_IB_MMAP_GET_CONTIGUOUS_PAGES, &offset);
 		set_order(block_size_exp, &offset);
 		addr = mmap(NULL , size, PROT_WRITE | PROT_READ, MAP_SHARED,
 			    context->cmd_fd, page_size * offset);

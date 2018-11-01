@@ -40,6 +40,15 @@
 
 #define HNS_ROCE_CMDSN_MASK			0x3
 
+enum {
+	HNS_ROCE_SUPPORT_RQ_RECORD_DB = 1 << 0,
+	HNS_ROCE_SUPPORT_SQ_RECORD_DB = 1 << 1,
+};
+
+enum {
+	HNS_ROCE_SUPPORT_CQ_RECORD_DB = 1 << 0,
+};
+
 /* V2 REG DEFINITION */
 #define ROCEE_VF_DB_CFG0_OFFSET			0x0230
 
@@ -164,7 +173,7 @@ struct hns_roce_v2_cqe {
 	__le32	byte_4;
 	union {
 		__le32	rkey;
-		__be32	immtdata;
+		__le32	immtdata;
 	};
 	__le32	byte_12;
 	__le32	byte_16;
@@ -218,7 +227,8 @@ struct hns_roce_rc_sq_wqe {
 	__le32	msg_len;
 	union {
 		__le32	inv_key;
-		__be32	immtdata;
+		__le32	immtdata;
+		__le32	new_rkey;
 	};
 	__le32	byte_16;
 	__le32	byte_20;
@@ -241,6 +251,14 @@ struct hns_roce_rc_sq_wqe {
 #define RC_SQ_WQE_BYTE_4_SE_S 11
 
 #define RC_SQ_WQE_BYTE_4_INLINE_S 12
+
+#define RC_SQ_WQE_BYTE_4_MW_TYPE_S 14
+
+#define RC_SQ_WQE_BYTE_4_ATOMIC_S 20
+
+#define RC_SQ_WQE_BYTE_4_RDMA_READ_S 21
+
+#define RC_SQ_WQE_BYTE_4_RDMA_WRITE_S 22
 
 #define RC_SQ_WQE_BYTE_16_XRC_SRQN_S 0
 #define RC_SQ_WQE_BYTE_16_XRC_SRQN_M \
@@ -265,5 +283,13 @@ struct hns_roce_v2_wqe_raddr_seg {
 	__le32		len;
 	__le64		raddr;
 };
+
+struct hns_roce_wqe_atomic_seg {
+	__le64		fetchadd_swap_data;
+	__le64		cmp_data;
+};
+
+int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
+			    struct ibv_send_wr **bad_wr);
 
 #endif /* _HNS_ROCE_U_HW_V2_H */

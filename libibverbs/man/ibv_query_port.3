@@ -46,11 +46,15 @@ uint8_t                 active_width;   /* Currently active link width */
 uint8_t                 active_speed;   /* Currently active link speed */
 uint8_t                 phys_state;     /* Physical port state */
 uint8_t                 link_layer;     /* link layer protocol of the port */
+uint8_t                 flags;          /* Port flags */
 .in -8
 };
 .sp
 possible values for the link layer field are IBV_LINK_LAYER_INFINIBAND,
 IBV_LINK_LAYER_ETHERNET, or IBV_LINK_LAYER_UNSPECIFIED.
+.sp
+supported port flags:
+IBV_QPF_GRH_REQUIRED - When this flag is set, the applications must create all AH with GRH configured.
 .sp
 .fi
 .SH "RETURN VALUE"

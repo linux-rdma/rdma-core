@@ -58,7 +58,7 @@
 #include <ccan/minmax.h>
 #include <util/compiler.h>
 
-#include "pvrdma-abi-fix.h"
+#include "pvrdma-abi.h"
 #include "pvrdma_ring.h"
 
 #define PFX "pvrdma: "
@@ -283,7 +283,7 @@ int pvrdma_free_pd(struct ibv_pd *pd);
 
 struct ibv_mr *pvrdma_reg_mr(struct ibv_pd *pd, void *addr,
 			     size_t length, int access);
-int pvrdma_dereg_mr(struct ibv_mr *mr);
+int pvrdma_dereg_mr(struct verbs_mr *mr);
 
 struct ibv_cq *pvrdma_create_cq(struct ibv_context *context, int cqe,
 				struct ibv_comp_channel *channel,

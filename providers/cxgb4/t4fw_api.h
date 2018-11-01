@@ -102,6 +102,7 @@ enum fw_wr_opcodes {
 	FW_RI_RECV_WR                  = 0x17,
 	FW_RI_BIND_MW_WR               = 0x18,
 	FW_RI_FR_NSMR_WR               = 0x19,
+	FW_RI_RDMA_WRITE_CMPL_WR       = 0x21,
 	FW_RI_INV_LSTAG_WR             = 0x1a,
 	FW_ISCSI_TX_DATA_WR	       = 0x45,
 	FW_LASTC2E_WR                  = 0x70
@@ -1152,6 +1153,8 @@ enum fw_params_param_pfvf {
 	FW_PARAMS_PARAM_PFVF_SQRQ_END	= 0x16,
 	FW_PARAMS_PARAM_PFVF_CQ_START	= 0x17,
 	FW_PARAMS_PARAM_PFVF_CQ_END	= 0x18,
+	FW_PARAMS_PARAM_PFVF_SRQ_START  = 0x19,
+	FW_PARAMS_PARAM_PFVF_SRQ_END    = 0x1A,
 	FW_PARAMS_PARAM_PFVF_SCHEDCLASS_ETH = 0x20,
 	FW_PARAMS_PARAM_PFVF_VIID       = 0x24,
 	FW_PARAMS_PARAM_PFVF_CPMASK     = 0x25,

@@ -59,7 +59,6 @@
 struct bnxt_re_dpi {
 	__u32 dpindx;
 	__u64 *dbpage;
-	pthread_spinlock_t db_lock;
 };
 
 struct bnxt_re_pd {
@@ -76,16 +75,16 @@ struct bnxt_re_cq {
 	struct list_head rfhead;
 	uint32_t cqe_size;
 	uint8_t  phase;
-};
-
-struct bnxt_re_srq {
-	struct ibv_srq ibvsrq;
+	int deferred_arm_flags;
+	bool first_arm;
+	bool deferred_arm;
 };
 
 struct bnxt_re_wrid {
 	struct bnxt_re_psns *psns;
 	uint64_t wrid;
 	uint32_t bytes;
+	int next_idx;
 	uint8_t sig;
 };
 
@@ -96,6 +95,18 @@ struct bnxt_re_qpcap {
 	uint32_t max_rsge;
 	uint32_t max_inline;
 	uint8_t	sqsig;
+};
+
+struct bnxt_re_srq {
+	struct ibv_srq ibvsrq;
+	struct ibv_srq_attr cap;
+	struct bnxt_re_queue *srqq;
+	struct bnxt_re_wrid *srwrid;
+	struct bnxt_re_dpi *udpi;
+	uint32_t srqid;
+	int start_idx;
+	int last_idx;
+	bool arm_req;
 };
 
 struct bnxt_re_qp {
@@ -123,7 +134,7 @@ struct bnxt_re_qp {
 };
 
 struct bnxt_re_mr {
-	struct ibv_mr ibvmr;
+	struct verbs_mr vmr;
 };
 
 struct bnxt_re_ah {
@@ -154,6 +165,7 @@ struct bnxt_re_context {
 /* DB ring functions used internally*/
 void bnxt_re_ring_rq_db(struct bnxt_re_qp *qp);
 void bnxt_re_ring_sq_db(struct bnxt_re_qp *qp);
+void bnxt_re_ring_srq_arm(struct bnxt_re_srq *srq);
 void bnxt_re_ring_srq_db(struct bnxt_re_srq *srq);
 void bnxt_re_ring_cq_db(struct bnxt_re_cq *cq);
 void bnxt_re_ring_cq_arm_db(struct bnxt_re_cq *cq, uint8_t aflag);
@@ -185,6 +197,11 @@ static inline struct bnxt_re_qp *to_bnxt_re_qp(struct ibv_qp *ibvqp)
 	return container_of(ibvqp, struct bnxt_re_qp, ibvqp);
 }
 
+static inline struct bnxt_re_srq *to_bnxt_re_srq(struct ibv_srq *ibvsrq)
+{
+	return container_of(ibvsrq, struct bnxt_re_srq, ibvsrq);
+}
+
 static inline struct bnxt_re_ah *to_bnxt_re_ah(struct ibv_ah *ibvah)
 {
         return container_of(ibvah, struct bnxt_re_ah, ibvah);
@@ -212,6 +229,18 @@ static inline uint32_t bnxt_re_get_rqe_sz(void)
 static inline uint32_t bnxt_re_get_rqe_hdr_sz(void)
 {
 	return sizeof(struct bnxt_re_brqe) + sizeof(struct bnxt_re_rqe);
+}
+
+static inline uint32_t bnxt_re_get_srqe_sz(void)
+{
+	return sizeof(struct bnxt_re_brqe) +
+	       sizeof(struct bnxt_re_srqe) +
+	       BNXT_RE_MAX_INLINE_SIZE;
+}
+
+static inline uint32_t bnxt_re_get_srqe_hdr_sz(void)
+{
+	return sizeof(struct bnxt_re_brqe) + sizeof(struct bnxt_re_srqe);
 }
 
 static inline uint32_t bnxt_re_get_cqe_sz(void)

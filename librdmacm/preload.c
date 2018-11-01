@@ -1180,7 +1180,7 @@ int __fxstat(int ver, int socket, struct stat *buf)
 	if (fd_get(socket, &fd) == fd_rsocket) {
 		ret = real.fxstat(ver, socket, buf);
 		if (!ret)
-			buf->st_mode = (buf->st_mode & ~S_IFMT) | __S_IFSOCK;
+			buf->st_mode = (buf->st_mode & ~S_IFMT) | S_IFSOCK;
 	} else {
 		ret = real.fxstat(ver, fd, buf);
 	}

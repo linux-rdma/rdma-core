@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+# Copyright 2018 Mellanox Technologies Inc.
+# Licensed under BSD (MIT variant) or GPLv2. See COPYING.
+# PYTHON_ARGCOMPLETE_OK
+"""This script takes a commitish from a kernel tree and synchronizes the RDMA
+headers we use with that tree.
+
+During development, before commits are accepted to the official kernel git
+tree, the --not-final option should be used. Once finalized the commit should
+be revised using --amend, eg using the exec feature of 'git rebase'"""
+import argparse
+import subprocess
+import tempfile
+import os
+import contextlib
+import textwrap
+import email.utils
+import collections
+
+def git_call(args):
+    """Run git and display the output to the terminal"""
+    return subprocess.check_call(['git',] + args);
+
+def git_output(args,mode=None,input=None):
+    """Run git and return the output"""
+    o = subprocess.check_output(['git',] + args,input=input);
+    if mode == "raw":
+        return o;
+    return o.strip();
+
+@contextlib.contextmanager
+def in_directory(dir):
+    """Context manager that chdirs into a directory and restores the original
+    directory when closed."""
+    cdir = os.getcwd();
+    old_env = {};
+    try:
+        # git rebase invokes its exec with a bunch of git variables set that
+        # prevent us from invoking git in another tree, blow them away.
+        for k in list(os.environ.keys()):
+            if k.startswith("GIT"):
+                old_env[k] = os.environ[k];
+                del os.environ[k];
+
+        os.chdir(dir);
+        yield True;
+    finally:
+        os.chdir(cdir);
+        os.environ.update(old_env);
+
+def copy_objects(args):
+    """Copy the uapi header objects from the kernel repo at the commit indicated
+    into our repo. This is done by having git copy the tree object and blobs from the
+    kernel tree into this tree and then revising our index. This is a simple way
+    to ensure they match exactly."""
+    with in_directory(args.KERNEL_GIT):
+        if args.not_final:
+            fmt = "--format=?? (\"%s\")";
+        else:
+            fmt = "--format=%h (\"%s\")";
+
+        kernel_desc = git_output(["log",
+                                  "--abbrev=12","-1",
+                                  fmt,
+                                  args.COMMIT]);
+        ntree = git_output(["rev-parse",
+                            "%s:include/uapi/rdma"%(args.COMMIT)]);
+        pack = git_output(["pack-objects",
+                           "-q","--revs","--stdout"],
+                          mode="raw",
+                          input=ntree);
+    git_output(["unpack-objects","-q"],input=pack);
+    return (ntree,kernel_desc);
+
+def update_cmake(args,ntree):
+    """Create a new CMakeLists.txt that lists all of the kernel headers
+    for installation."""
+    # We need to expand to a publish_internal_headers for each directory
+    fns = git_output(["ls-tree","--name-only","--full-tree","-r",ntree]).splitlines();
+    groups = collections.defaultdict(list);
+    for I in fns:
+        d,p = os.path.split(os.path.join("rdma",I.decode()));
+        groups[d].append(p);
+
+    data = subprocess.check_output(['git',"cat-file","blob",
+                                    ":kernel-headers/CMakeLists.txt"]);
+    data = data.decode();
+
+    # Build a new CMakeLists.txt in a temporary file
+    with tempfile.NamedTemporaryFile("wt") as F:
+        # Emit the headers lists
+        for I,vals in sorted(groups.items()):
+            F.write("publish_internal_headers(%s\n"%(I));
+            for J in sorted(vals):
+                F.write("  %s\n"%(os.path.join(I,J)));
+            F.write("  )\n");
+            F.write("\n");
+
+        # Throw away the old header lists
+        cur = iter(data.splitlines());
+        for ln in cur:
+            if not ln:
+                continue;
+            if ln.startswith("publish_internal_headers(rdma"):
+                while not next(cur).startswith("  )"):
+                    pass;
+                continue;
+            F.write(ln + '\n');
+            break;
+
+        # and copy the remaining lines
+        for ln in cur:
+            F.write(ln + '\n');
+
+        F.flush();
+        blob = git_output(["hash-object","-w",F.name]);
+
+    git_call(["update-index","--cacheinfo",
+              b"0644,%s,kernel-headers/CMakeLists.txt"%(blob)]);
+
+def make_commit(args,ntree,kernel_desc):
+    """Make the rdma-core commit that syncs the kernel header directory."""
+    head_id = git_output(["rev-parse","HEAD"]);
+    old_tree_id = git_output(["rev-parse",b"%s^{tree}"%(head_id)]);
+
+    if args.amend:
+        subject = git_output(["log","-1","--format=%s"]).decode();
+        if subject != "Update kernel headers":
+            raise ValueError("In amend mode, but current HEAD does not seem to be a kernel update with subject %r"%(
+                subject));
+        parent = git_output(["rev-parse",head_id + b"^"]);
+    else:
+        parent = head_id;
+
+    emaila = email.utils.formataddr((git_output(["config","user.name"]).decode(),
+                                     git_output(["config","user.email"]).decode()));
+
+    # Build a new tree object that replaces the kernel headers directory
+    with tempfile.NamedTemporaryFile() as F:
+        os.environ["GIT_INDEX_FILE"] = F.name;
+        git_call(["read-tree",head_id]);
+        git_call(["rm","-r","--quiet","--cached",
+                    "kernel-headers/rdma"]);
+        git_call(["read-tree","--prefix=kernel-headers/rdma",ntree]);
+        update_cmake(args,ntree);
+        all_tree = git_output(["write-tree"]);
+        del os.environ["GIT_INDEX_FILE"];
+
+    if not args.amend and old_tree_id == all_tree:
+        raise ValueError("Commit is empty, aborting");
+
+    # And now create the commit
+    msg="Update kernel headers\n\n";
+    p = textwrap.fill("To commit %s"%(kernel_desc.decode()),
+                      width=74)
+    msg = msg + p;
+    msg = msg + "\n\nSigned-off-by: %s\n"%(emaila);
+
+    commit = git_output(["commit-tree",all_tree,"-p",parent,
+                         "-F","-"],
+                        input=msg.encode());
+    return commit,head_id;
+
+parser = argparse.ArgumentParser(description='Update kernel headers from the kernel tree')
+parser.add_argument("--amend",
+                    action="store_true",
+                    default=False,
+                    help="Replace the top commit with the the kernel header commit");
+parser.add_argument("--not-final",
+                    action="store_true",
+                    default=False,
+                    help="Use if the git commit given is not part of the official kernel git tree. This option should be used during development.");
+parser.add_argument("KERNEL_GIT",
+                    action="store",
+                    help="Kernel git directory");
+parser.add_argument("COMMIT",
+                    action="store",
+                    help="Kernel commitish to synchronize headers with");
+
+try:
+    import argcomplete;
+    argcomplete.autocomplete(parser);
+except ImportError:
+    pass;
+
+args = parser.parse_args();
+
+ntree,kernel_desc = copy_objects(args);
+commit,head_id = make_commit(args,ntree,kernel_desc);
+
+# Finalize
+if args.amend:
+    print("Commit amended");
+    git_call(["--no-pager","diff","--stat",head_id,commit]);
+    git_call(["reset","--merge",commit]);
+else:
+    git_call(["merge","--ff","--ff-only",commit]);

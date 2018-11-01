@@ -64,7 +64,22 @@ LATEST_SYMVER_FUNC(ibv_get_device_list, 1_1, "IBVERBS_1.1",
 
 	pthread_mutex_lock(&dev_list_lock);
 	if (!initialized) {
-		int ret = ibverbs_init();
+		char value[8];
+		int ret;
+
+		/*
+		 * The uverbs module is not loaded, this is a ENOSYS return
+		 * but it is not a hard failure, we can try again to see if it
+		 * has become loaded since.
+		 */
+		if (ibv_read_sysfs_file(ibv_get_sysfs_path(),
+					"class/infiniband_verbs/abi_version",
+					value, sizeof(value)) < 0) {
+			errno = -ENOSYS;
+			goto out;
+		}
+
+		ret = ibverbs_init();
 		initialized = (ret < 0) ? ret : 1;
 	}
 
@@ -162,8 +177,6 @@ static struct ibv_cq_ex *
 __lib_ibv_create_cq_ex(struct ibv_context *context,
 		       struct ibv_cq_init_attr_ex *cq_attr)
 {
-	struct verbs_context *vctx =
-		container_of(context, struct verbs_context, context);
 	struct ibv_cq_ex *cq;
 
 	if (cq_attr->wc_flags & ~IBV_CREATE_CQ_SUP_WC_FLAGS) {
@@ -171,7 +184,7 @@ __lib_ibv_create_cq_ex(struct ibv_context *context,
 		return NULL;
 	}
 
-	cq = vctx->priv->create_cq_ex(context, cq_attr);
+	cq = get_ops(context)->create_cq_ex(context, cq_attr);
 
 	if (cq)
 		verbs_init_cq(ibv_cq_ex_to_cq(cq), context,
@@ -186,7 +199,8 @@ __lib_ibv_create_cq_ex(struct ibv_context *context,
  * failure path of this function.
  */
 int verbs_init_context(struct verbs_context *context_ex,
-		       struct ibv_device *device, int cmd_fd)
+		       struct ibv_device *device, int cmd_fd,
+		       uint32_t driver_id)
 {
 	struct ibv_context *context = &context_ex->context;
 
@@ -217,13 +231,14 @@ int verbs_init_context(struct verbs_context *context_ex,
 	context_ex->ABI_placeholder2 =
 		(void (*)(void))context_ex->ibv_destroy_flow;
 
-	context_ex->priv = calloc(1, sizeof(context_ex->priv));
+	context_ex->priv = calloc(1, sizeof(*context_ex->priv));
 	if (!context_ex->priv) {
 		errno = ENOMEM;
 		close(cmd_fd);
 		return -1;
 	}
 
+	context_ex->priv->driver_id = driver_id;
 	verbs_set_ops(context_ex, &verbs_dummy_ops);
 
 	return 0;
@@ -236,7 +251,8 @@ int verbs_init_context(struct verbs_context *context_ex,
  */
 void *_verbs_init_and_alloc_context(struct ibv_device *device, int cmd_fd,
 				    size_t alloc_size,
-				    struct verbs_context *context_offset)
+				    struct verbs_context *context_offset,
+				    uint32_t driver_id)
 {
 	void *drv_context;
 	struct verbs_context *context;
@@ -250,7 +266,7 @@ void *_verbs_init_and_alloc_context(struct ibv_device *device, int cmd_fd,
 
 	context = drv_context + (uintptr_t)context_offset;
 
-	if (verbs_init_context(context, device, cmd_fd))
+	if (verbs_init_context(context, device, cmd_fd, driver_id))
 		goto err_free;
 
 	return drv_context;
@@ -260,16 +276,19 @@ err_free:
 	return NULL;
 }
 
-LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
-		   struct ibv_context *,
-		   struct ibv_device *device)
+static void set_lib_ops(struct verbs_context *vctx)
+{
+	vctx->create_cq_ex = __lib_ibv_create_cq_ex;
+}
+
+struct ibv_context *verbs_open_device(struct ibv_device *device, void *private_data)
 {
 	struct verbs_device *verbs_device = verbs_get_device(device);
 	char *devpath;
 	int cmd_fd;
 	struct verbs_context *context_ex;
 
-	if (asprintf(&devpath, "/dev/infiniband/%s", device->dev_name) < 0)
+	if (asprintf(&devpath, RDMA_CDEV_DIR"/%s", device->dev_name) < 0)
 		return NULL;
 
 	/*
@@ -286,16 +305,20 @@ LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
 	 * cmd_fd ownership is transferred into alloc_context, if it fails
 	 * then it closes cmd_fd and returns NULL
 	 */
-	context_ex = verbs_device->ops->alloc_context(device, cmd_fd);
+	context_ex = verbs_device->ops->alloc_context(device, cmd_fd, private_data);
 	if (!context_ex)
 		return NULL;
 
-	if (context_ex->create_cq_ex) {
-		context_ex->priv->create_cq_ex = context_ex->create_cq_ex;
-		context_ex->create_cq_ex = __lib_ibv_create_cq_ex;
-	}
+	set_lib_ops(context_ex);
 
 	return &context_ex->context;
+}
+
+LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
+		   struct ibv_context *,
+		   struct ibv_device *device)
+{
+	return verbs_open_device(device, NULL);
 }
 
 void verbs_uninit_context(struct verbs_context *context_ex)
@@ -358,7 +381,7 @@ LATEST_SYMVER_FUNC(ibv_get_async_event, 1_1, "IBVERBS_1.1",
 		break;
 	}
 
-	context->ops.async_event(event);
+	get_ops(context)->async_event(event);
 
 	return 0;
 }

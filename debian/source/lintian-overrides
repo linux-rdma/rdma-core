@@ -1,0 +1,4 @@
+# The libibverbs examples are compiled and put in ibverbs-utils.
+rdma-core source: package-does-not-install-examples libibverbs/examples/
+# The librdmacm examples are compiled and put in rdmacm-utils.
+rdma-core source: package-does-not-install-examples librdmacm/examples/

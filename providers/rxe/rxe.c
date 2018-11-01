@@ -51,7 +51,6 @@
 
 #include <infiniband/driver.h>
 #include <infiniband/verbs.h>
-#include <rdma/rdma_user_rxe.h>
 
 #include "rxe_queue.h"
 #include "rxe-abi.h"
@@ -126,35 +125,34 @@ static int rxe_dealloc_pd(struct ibv_pd *pd)
 static struct ibv_mr *rxe_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 				 int access)
 {
-	struct ibv_mr *mr;
+	struct verbs_mr *vmr;
 	struct ibv_reg_mr cmd;
 	struct ib_uverbs_reg_mr_resp resp;
 	int ret;
 
-	mr = malloc(sizeof *mr);
-	if (!mr) {
+	vmr = malloc(sizeof(*vmr));
+	if (!vmr)
 		return NULL;
-	}
 
-	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr, access, mr,
+	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr, access, vmr,
 			     &cmd, sizeof cmd, &resp, sizeof resp);
 	if (ret) {
-		free(mr);
+		free(vmr);
 		return NULL;
 	}
 
-	return mr;
+	return &vmr->ibv_mr;
 }
 
-static int rxe_dereg_mr(struct ibv_mr *mr)
+static int rxe_dereg_mr(struct verbs_mr *vmr)
 {
 	int ret;
 
-	ret = ibv_cmd_dereg_mr(mr);
+	ret = ibv_cmd_dereg_mr(vmr);
 	if (ret)
 		return ret;
 
-	free(mr);
+	free(vmr);
 	return 0;
 }
 
@@ -163,8 +161,7 @@ static struct ibv_cq *rxe_create_cq(struct ibv_context *context, int cqe,
 				    int comp_vector)
 {
 	struct rxe_cq *cq;
-	struct ibv_create_cq cmd;
-	struct rxe_create_cq_resp resp;
+	struct urxe_create_cq_resp resp;
 	int ret;
 
 	cq = malloc(sizeof *cq);
@@ -173,7 +170,7 @@ static struct ibv_cq *rxe_create_cq(struct ibv_context *context, int cqe,
 	}
 
 	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
-				&cq->ibv_cq, &cmd, sizeof cmd,
+				&cq->ibv_cq, NULL, 0,
 				&resp.ibv_resp, sizeof resp);
 	if (ret) {
 		free(cq);
@@ -198,7 +195,7 @@ static int rxe_resize_cq(struct ibv_cq *ibcq, int cqe)
 {
 	struct rxe_cq *cq = to_rcq(ibcq);
 	struct ibv_resize_cq cmd;
-	struct rxe_resize_cq_resp resp;
+	struct urxe_resize_cq_resp resp;
 	int ret;
 
 	pthread_spin_lock(&cq->lock);
@@ -275,7 +272,7 @@ static struct ibv_srq *rxe_create_srq(struct ibv_pd *pd,
 {
 	struct rxe_srq *srq;
 	struct ibv_create_srq cmd;
-	struct rxe_create_srq_resp resp;
+	struct urxe_create_srq_resp resp;
 	int ret;
 
 	srq = malloc(sizeof *srq);
@@ -310,9 +307,9 @@ static int rxe_modify_srq(struct ibv_srq *ibsrq,
 		   struct ibv_srq_attr *attr, int attr_mask)
 {
 	struct rxe_srq *srq = to_rsrq(ibsrq);
-	struct rxe_modify_srq_cmd cmd;
+	struct urxe_modify_srq cmd;
 	int rc = 0;
-	struct mmap_info mi;
+	struct mminfo mi;
 
 	mi.offset = 0;
 	mi.size = 0;
@@ -441,7 +438,7 @@ static struct ibv_qp *rxe_create_qp(struct ibv_pd *pd,
 				    struct ibv_qp_init_attr *attr)
 {
 	struct ibv_create_qp cmd;
-	struct rxe_create_qp_resp resp;
+	struct urxe_create_qp_resp resp;
 	struct rxe_qp *qp;
 	int ret;
 
@@ -762,17 +759,17 @@ static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
 	return IN6_IS_ADDR_V4MAPPED(a);
 }
 
-static inline int rdma_gid2ip(struct sockaddr *out, union ibv_gid *gid)
+typedef typeof(((struct rxe_av *)0)->sgid_addr) sockaddr_union_t;
+
+static inline int rdma_gid2ip(sockaddr_union_t *out, union ibv_gid *gid)
 {
 	if (ipv6_addr_v4mapped((struct in6_addr *)gid)) {
-		struct sockaddr_in *out_in = (struct sockaddr_in *)out;
-		memset(out_in, 0, sizeof(*out_in));
-		memcpy(&out_in->sin_addr.s_addr, gid->raw + 12, 4);
+		memset(&out->_sockaddr_in, 0, sizeof(out->_sockaddr_in));
+		memcpy(&out->_sockaddr_in.sin_addr.s_addr, gid->raw + 12, 4);
 	} else {
-		struct sockaddr_in6 *out_in = (struct sockaddr_in6 *)out;
-		memset(out_in, 0, sizeof(*out_in));
-		out_in->sin6_family = AF_INET6;
-		memcpy(&out_in->sin6_addr.s6_addr, gid->raw, 16);
+		memset(&out->_sockaddr_in6, 0, sizeof(out->_sockaddr_in6));
+		out->_sockaddr_in6.sin6_family = AF_INET6;
+		memcpy(&out->_sockaddr_in6.sin6_addr.s6_addr, gid->raw, 16);
 	}
 	return 0;
 }
@@ -803,8 +800,8 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		ipv6_addr_v4mapped((struct in6_addr *)attr->grh.dgid.raw) ?
 		RDMA_NETWORK_IPV4 : RDMA_NETWORK_IPV6;
 
-	rdma_gid2ip(&av->sgid_addr._sockaddr, &sgid);
-	rdma_gid2ip(&av->dgid_addr._sockaddr, &attr->grh.dgid);
+	rdma_gid2ip(&av->sgid_addr, &sgid);
+	rdma_gid2ip(&av->dgid_addr, &attr->grh.dgid);
 
 	memset(&resp, 0, sizeof(resp));
 	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr, &resp, sizeof(resp))) {
@@ -858,13 +855,15 @@ static const struct verbs_context_ops rxe_ctx_ops = {
 };
 
 static struct verbs_context *rxe_alloc_context(struct ibv_device *ibdev,
-					       int cmd_fd)
+					       int cmd_fd,
+					       void *private_data)
 {
 	struct rxe_context *context;
 	struct ibv_get_context cmd;
 	struct ib_uverbs_get_context_resp resp;
 
-	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
+					       RDMA_DRIVER_RXE);
 	if (!context)
 		return NULL;
 
@@ -911,8 +910,13 @@ static struct verbs_device *rxe_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 
 static const struct verbs_device_ops rxe_dev_ops = {
 	.name = "rxe",
-	.match_min_abi_version = 0,
-	.match_max_abi_version = INT_MAX,
+	/*
+	 * For 64 bit machines ABI version 1 and 2 are the same. Otherwise 32
+	 * bit machines require ABI version 2 which guarentees the user and
+	 * kernel use the same ABI.
+	 */
+	.match_min_abi_version = sizeof(void *) == 8?1:2,
+	.match_max_abi_version = 2,
 	.match_table = hca_table,
 	.alloc_device = rxe_device_alloc,
 	.uninit_device = rxe_uninit_device,

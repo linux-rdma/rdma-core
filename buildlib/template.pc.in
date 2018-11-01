@@ -1,0 +1,13 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: lib@PC_LIB_NAME@
+Description: RDMA Core Userspace Library
+URL: https://github.com/linux-rdma/rdma-core
+Version: @PC_VERSION@
+Libs: -L${libdir} -l@PC_LIB_NAME@ @PC_RPATH@
+Libs.private: @PC_LIB_PRIVATE@
+Requires.private: @PC_REQUIRES_PRIVATE@
+Cflags: -I${includedir}

@@ -43,8 +43,6 @@
 #include "mlx4.h"
 #include "mlx4-abi.h"
 
-int mlx4_cleanup_upon_device_fatal = 0;
-
 #ifndef PCI_VENDOR_ID_MELLANOX
 #define PCI_VENDOR_ID_MELLANOX			0x15b3
 #endif
@@ -78,6 +76,7 @@ static const struct verbs_match_ent hca_table[] = {
 	HCA(MELLANOX, 0x100e),	/* MT27551 Family */
 	HCA(MELLANOX, 0x100f),	/* MT27560 Family */
 	HCA(MELLANOX, 0x1010),	/* MT27561 Family */
+	VERBS_MODALIAS_MATCH("vmbus:3daf2e8ca732094bab99bd1f1c86b501", NULL), /* Microsoft Azure Network Direct */
 	{}
 };
 
@@ -133,15 +132,6 @@ static const struct verbs_context_ops mlx4_ctx_ops = {
 	.query_rt_values = mlx4_query_rt_values,
 };
 
-static void mlx4_read_env(void)
-{
-	char *env_value;
-
-	env_value = getenv("MLX4_DEVICE_FATAL_CLEANUP");
-	if (env_value)
-		mlx4_cleanup_upon_device_fatal = (strcmp(env_value, "0")) ? 1 : 0;
-}
-
 static int mlx4_map_internal_clock(struct mlx4_device *mdev,
 				   struct ibv_context *ibv_ctx)
 {
@@ -165,25 +155,26 @@ static int mlx4_map_internal_clock(struct mlx4_device *mdev,
 }
 
 static struct verbs_context *mlx4_alloc_context(struct ibv_device *ibdev,
-						  int cmd_fd)
+						  int cmd_fd,
+						  void *private_data)
 {
 	struct mlx4_context	       *context;
 	struct ibv_get_context		cmd;
 	struct mlx4_alloc_ucontext_resp resp;
 	int				i;
-	struct mlx4_alloc_ucontext_resp_v3 resp_v3;
+	struct mlx4_alloc_ucontext_v3_resp resp_v3;
 	__u16				bf_reg_size;
 	struct mlx4_device              *dev = to_mdev(ibdev);
 	struct verbs_context		*verbs_ctx;
 	struct ibv_device_attr_ex	dev_attrs;
 
-	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
+					       RDMA_DRIVER_MLX4);
 	if (!context)
 		return NULL;
 
 	verbs_ctx = &context->ibv_ctx;
 
-	mlx4_read_env();
 	if (dev->abi_version <= MLX4_UVERBS_NO_DEV_CAPS_ABI_VERSION) {
 		if (ibv_cmd_get_context(verbs_ctx, &cmd, sizeof(cmd),
 					&resp_v3.ibv_resp, sizeof(resp_v3)))
@@ -199,7 +190,7 @@ static struct verbs_context *mlx4_alloc_context(struct ibv_device *ibdev,
 
 		context->num_qps  = resp.qp_tab_size;
 		bf_reg_size	  = resp.bf_reg_size;
-		if (resp.dev_caps & MLX4_USER_DEV_CAP_64B_CQE)
+		if (resp.dev_caps & MLX4_USER_DEV_CAP_LARGE_CQE)
 			context->cqe_size = resp.cqe_size;
 		else
 			context->cqe_size = sizeof (struct mlx4_cqe);

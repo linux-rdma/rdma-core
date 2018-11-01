@@ -10,6 +10,16 @@ set(RDMA_STATIC_LIBS "" CACHE INTERNAL "Doc" FORCE)
 set(COMMON_LIBS_PIC ccan_pic rdma_util_pic)
 set(COMMON_LIBS ccan rdma_util)
 
+function(rdma_make_dir DDIR)
+  if(NOT EXISTS "${DDIR}/")
+    execute_process(COMMAND "${CMAKE_COMMAND}" "-E" "make_directory"
+      "${DDIR}" RESULT_VARIABLE retcode)
+    if(NOT "${retcode}" STREQUAL "0")
+      message(FATAL_ERROR "Failed to create directory ${DDIR}")
+    endif()
+  endif()
+endfunction()
+
 # Create a symlink at filename DEST
 # If the directory containing DEST does not exist then it is created
 # automatically.
@@ -26,13 +36,7 @@ function(rdma_create_symlink LINK_CONTENT DEST)
     get_filename_component(DDIR "${DEST}" DIRECTORY)
   endif()
 
-  IF(NOT EXISTS "${DDIR}/")
-    execute_process(COMMAND "${CMAKE_COMMAND}" "-E" "make_directory"
-      "${BUILD_LIB}" RESULT_VARIABLE retcode)
-    if(NOT "${retcode}" STREQUAL "0")
-      message(FATAL_ERROR "Failed to create directory ${DDIR}")
-    endif()
-  endif()
+  rdma_make_dir("${DDIR}")
 
   # Newer versions of cmake can use "${CMAKE_COMMAND}" "-E" "create_symlink"
   # however it is broken weirdly on older versions.
@@ -229,39 +233,6 @@ function(rdma_test_executable EXEC)
   set_target_properties(${EXEC} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${BUILD_BIN}")
 endfunction()
 
-# Install man pages. This deduces the section from the trailing integer in the
-# filename
-function(rdma_man_pages)
-  foreach(I ${ARGN})
-    if ("${I}" MATCHES "\\.in$")
-      string(REGEX REPLACE "^.+[.](.+)\\.in$" "\\1" MAN_SECT "${I}")
-      string(REGEX REPLACE "^(.+)\\.in$" "\\1" BASE_NAME "${I}")
-      get_filename_component(BASE_NAME "${BASE_NAME}" NAME)
-      rdma_subst_install(FILES "${I}"
-	DESTINATION "${CMAKE_INSTALL_MANDIR}/man${MAN_SECT}/"
-	RENAME "${BASE_NAME}")
-    else()
-      string(REGEX REPLACE "^.+[.](.+)$" "\\1" MAN_SECT "${I}")
-      install(FILES "${I}" DESTINATION "${CMAKE_INSTALL_MANDIR}/man${MAN_SECT}/")
-    endif()
-  endforeach()
-endfunction()
-
-# Create an alias for a man page, using a symlink.
-# Input is a list of pairs of names (MAN_PAGE ALIAS)
-# NOTE: The section must currently be the same for both.
-function(rdma_alias_man_pages)
-  list(LENGTH ARGN LEN)
-  math(EXPR LEN ${LEN}-1)
-  foreach(I RANGE 0 ${LEN} 2)
-    list(GET ARGN ${I} FROM)
-    math(EXPR I ${I}+1)
-    list(GET ARGN ${I} TO)
-    string(REGEX REPLACE "^.+[.](.+)$" "\\1" MAN_SECT ${FROM})
-    rdma_install_symlink("${FROM}" "${CMAKE_INSTALL_MANDIR}/man${MAN_SECT}/${TO}")
-  endforeach()
-endfunction()
-
 # Finalize the setup of the static libraries by copying the meta information
 # from the shared and setting up the libtool .la files.
 function(rdma_finalize_libs)
@@ -293,4 +264,21 @@ function(rdma_finalize_libs)
       list(APPEND LIBS "${TMP}")
     endif()
   endforeach()
+endfunction()
+
+# Generate a pkg-config file
+function(rdma_pkg_config PC_LIB_NAME PC_REQUIRES_PRIVATE PC_LIB_PRIVATE)
+  set(PC_LIB_NAME "${PC_LIB_NAME}")
+  set(PC_LIB_PRIVATE "${PC_LIB_PRIVATE}")
+  set(PC_REQUIRES_PRIVATE "${PC_REQUIRES_PRIVATE}")
+  get_target_property(PC_VERSION ${PC_LIB_NAME} VERSION)
+
+  # With IN_PLACE=1 the install step is not ran, so generate the file in the build dir
+  if (IN_PLACE)
+    set(PC_RPATH "-Wl,-rpath,\${libdir}")
+    configure_file(${CMAKE_SOURCE_DIR}/buildlib/template.pc.in ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/pkgconfig/lib${PC_LIB_NAME}.pc @ONLY)
+  else()
+    configure_file(${CMAKE_SOURCE_DIR}/buildlib/template.pc.in ${CMAKE_CURRENT_BINARY_DIR}/lib${PC_LIB_NAME}.pc @ONLY)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lib${PC_LIB_NAME}.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+  endif()
 endfunction()

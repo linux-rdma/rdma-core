@@ -1,3 +1,4 @@
 usr/include/infiniband/umad*.h
 usr/lib/*/libibumad*.so
+usr/lib/*/pkgconfig/libibumad.pc
 usr/share/man/man3/umad_*

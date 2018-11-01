@@ -54,24 +54,29 @@
 
 #define CNA(v, d) VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, d, NULL)
 static const struct verbs_match_ent cna_table[] = {
+	CNA(BROADCOM, 0x1605),  /* BCM57454 NPAR */
+	CNA(BROADCOM, 0x1606),  /* BCM57454 VF */
+	CNA(BROADCOM, 0x1614),  /* BCM57454 */
 	CNA(BROADCOM, 0x16C0),  /* BCM57417 NPAR */
+	CNA(BROADCOM, 0x16C1),  /* BMC57414 VF */
 	CNA(BROADCOM, 0x16CE),  /* BMC57311 */
 	CNA(BROADCOM, 0x16CF),  /* BMC57312 */
-	CNA(BROADCOM, 0x16DF),  /* BMC57314 */
-	CNA(BROADCOM, 0x16E5),  /* BMC57314 VF */
-	CNA(BROADCOM, 0x16E2),  /* BMC57417 */
-	CNA(BROADCOM, 0x16E3),  /* BMC57416 */
 	CNA(BROADCOM, 0x16D6),  /* BMC57412*/
 	CNA(BROADCOM, 0x16D7),  /* BMC57414 */
 	CNA(BROADCOM, 0x16D8),  /* BMC57416 Cu */
 	CNA(BROADCOM, 0x16D9),  /* BMC57417 Cu */
-	CNA(BROADCOM, 0x16C1),  /* BMC57414 VF */
-	CNA(BROADCOM, 0x16EF),  /* BCM57416 NPAR */
+	CNA(BROADCOM, 0x16DF),  /* BMC57314 */
+	CNA(BROADCOM, 0x16E2),  /* BMC57417 */
+	CNA(BROADCOM, 0x16E3),  /* BMC57416 */
+	CNA(BROADCOM, 0x16E5),  /* BMC57314 VF */
 	CNA(BROADCOM, 0x16ED),  /* BCM57414 NPAR */
 	CNA(BROADCOM, 0x16EB),  /* BCM57412 NPAR */
+	CNA(BROADCOM, 0x16EF),  /* BCM57416 NPAR */
 	CNA(BROADCOM, 0x16F0),  /* BCM58730 */
 	CNA(BROADCOM, 0x16F1),  /* BCM57452 */
+	CNA(BROADCOM, 0xD800),  /* BCM880xx VF */
 	CNA(BROADCOM, 0xD802),  /* BCM58802 */
+	CNA(BROADCOM, 0xD804),   /* BCM8804 SR */
 	{}
 };
 
@@ -105,26 +110,28 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 
 /* Context Init functions */
 static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
-						   int cmd_fd)
+						   int cmd_fd,
+						   void *private_data)
 {
 	struct ibv_get_context cmd;
-	struct bnxt_re_cntx_resp resp;
+	struct ubnxt_re_cntx_resp resp;
 	struct bnxt_re_dev *dev = to_bnxt_re_dev(vdev);
 	struct bnxt_re_context *cntx;
 
-	cntx = verbs_init_and_alloc_context(vdev, cmd_fd, cntx, ibvctx);
+	cntx = verbs_init_and_alloc_context(vdev, cmd_fd, cntx, ibvctx,
+					    RDMA_DRIVER_BNXT_RE);
 	if (!cntx)
 		return NULL;
 
 	memset(&resp, 0, sizeof(resp));
 	if (ibv_cmd_get_context(&cntx->ibvctx, &cmd, sizeof(cmd),
-				&resp.resp, sizeof(resp)))
+				&resp.ibv_resp, sizeof(resp)))
 		goto failed;
 
 	cntx->dev_id = resp.dev_id;
 	cntx->max_qp = resp.max_qp;
 	dev->pg_size = resp.pg_size;
-	dev->cqe_size = resp.cqe_size;
+	dev->cqe_size = resp.cqe_sz;
 	dev->max_cq_depth = resp.max_cqd;
 	pthread_spin_init(&cntx->fqlock, PTHREAD_PROCESS_PRIVATE);
 	/* mmap shared page. */
@@ -161,7 +168,6 @@ static void bnxt_re_free_context(struct ibv_context *ibvctx)
 	 * allocated in this context.
 	 */
 	if (cntx->udpi.dbpage && cntx->udpi.dbpage != MAP_FAILED) {
-		pthread_spin_destroy(&cntx->udpi.db_lock);
 		munmap(cntx->udpi.dbpage, dev->pg_size);
 		cntx->udpi.dbpage = NULL;
 	}

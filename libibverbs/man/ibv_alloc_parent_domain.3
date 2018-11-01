@@ -8,7 +8,7 @@ ibv_alloc_parent_domain(), ibv_dealloc_pd() \- allocate and deallocate the paren
 .nf
 .B #include <infiniband/verbs.h>
 .sp
-.BI "struct ibv_pd *ibv_alloc_parent_domain(struct ibv_context "*context" ", struct ibv_domain_init_attr " "*attr");
+.BI "struct ibv_pd *ibv_alloc_parent_domain(struct ibv_context "*context" ", struct ibv_parent_domain_init_attr " "*attr");
 .sp
 .SH "DESCRIPTION"
 .B ibv_alloc_parent_domain()
@@ -18,7 +18,7 @@ allocates a parent domain object for the RDMA device context
 The parent domain object extends the normal protection domain with additional
 objects, such as a thread domain.
 .sp
-A parent domain is completely interchangable with the
+A parent domain is completely interchangeable with the
 .I
 struct ibv_pd
 used to create it, and can be used as an input argument to any function accepting a

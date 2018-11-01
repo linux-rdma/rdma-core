@@ -50,17 +50,11 @@
 
 #define PFX		"mlx5: "
 
+typedef _Atomic(uint32_t) atomic_uint32_t;
 
 enum {
 	MLX5_IB_MMAP_CMD_SHIFT	= 8,
 	MLX5_IB_MMAP_CMD_MASK	= 0xff,
-};
-
-enum {
-	MLX5_MMAP_GET_CONTIGUOUS_PAGES_CMD = 1,
-	MLX5_MMAP_GET_CORE_CLOCK_CMD    = 5,
-	MLX5_MMAP_ALLOC_WC		= 6,
-	MLX5_MMAP_GET_CLOCK_INFO_CMD    = 7,
 };
 
 enum {
@@ -149,7 +143,6 @@ enum {
 };
 
 enum {
-	MLX5_SRQ_FLAG_SIGNATURE		= (1 << 0),
 	MLX5_SRQ_FLAG_TM_SW_CNT		= (1 << 6),
 	MLX5_SRQ_FLAG_TM_CQE_REQ	= (1 << 7),
 };
@@ -186,11 +179,6 @@ enum mlx5_rsc_type {
 	MLX5_RSC_TYPE_INVAL,
 };
 
-enum {
-	MLX5_USER_CMDS_SUPP_UHW_QUERY_DEVICE = 1 << 0,
-	MLX5_USER_CMDS_SUPP_UHW_CREATE_AH    = 1 << 1,
-};
-
 enum mlx5_vendor_cap_flags {
 	MLX5_VENDOR_CAP_FLAGS_MPW		= 1 << 0, /* Obsoleted */
 	MLX5_VENDOR_CAP_FLAGS_MPW_ALLOWED	= 1 << 1,
@@ -200,7 +188,7 @@ enum mlx5_vendor_cap_flags {
 };
 
 enum {
-	MLX5_FLOW_TAG_MASK	= 0x000fffff,
+	MLX5_FLOW_TAG_MASK	= 0x00ffffff,
 };
 
 struct mlx5_resource {
@@ -219,6 +207,7 @@ struct mlx5_db_page;
 struct mlx5_spinlock {
 	pthread_spinlock_t		lock;
 	int				in_use;
+	int				need_lock;
 };
 
 enum mlx5_uar_type {
@@ -281,6 +270,7 @@ struct mlx5_context {
 	struct list_head                hugetlb_list;
 	int				cqe_version;
 	uint8_t				cached_link_layer[MLX5_MAX_PORTS_NUM];
+	uint8_t				cached_port_flags[MLX5_MAX_PORTS_NUM];
 	unsigned int			cached_device_cap_flags;
 	enum ibv_atomic_cap		atomic_cap;
 	struct {
@@ -298,10 +288,16 @@ struct mlx5_context {
 	struct mlx5dv_sw_parsing_caps	sw_parsing_caps;
 	struct mlx5dv_striding_rq_caps	striding_rq_caps;
 	uint32_t			tunnel_offloads_caps;
+	struct mlx5_packet_pacing_caps	packet_pacing_caps;
 	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
 	uint32_t			num_dyn_bfregs;
 	uint32_t			*count_dyn_bfregs;
 	uint32_t			start_dyn_bfregs_index;
+	uint16_t			flow_action_flags;
+	uint64_t			max_dm_size;
+	uint32_t                        eth_min_inline_size;
+	uint32_t                        dump_fill_mkey;
+	__be32                          dump_fill_mkey_be;
 };
 
 struct mlx5_bitmap {
@@ -464,6 +460,11 @@ struct mlx5_wq {
 	uint32_t			*wr_data;
 };
 
+struct mlx5_devx_uar {
+	struct mlx5dv_devx_uar dv_devx_uar;
+	struct ibv_context *context;
+};
+
 struct mlx5_bf {
 	void			       *reg;
 	int				need_lock;
@@ -476,10 +477,18 @@ struct mlx5_bf {
 	void				*uar;
 	/* Index in the dynamic bfregs portion */
 	uint32_t			bfreg_dyn_index;
+	struct mlx5_devx_uar		devx_uar;
+};
+
+struct mlx5_dm {
+	struct verbs_dm			verbs_dm;
+	size_t				length;
+	void			       *mmap_va;
+	void			       *start_va;
 };
 
 struct mlx5_mr {
-	struct ibv_mr			ibv_mr;
+	struct verbs_mr                 vmr;
 	struct mlx5_buf			buf;
 	uint32_t			alloc_flags;
 };
@@ -515,6 +524,10 @@ struct mlx5_qp {
 	int                             rss_qp;
 	uint32_t			flags; /* Use enum mlx5_qp_flags */
 	enum mlx5dv_dc_type		dc_type;
+	uint32_t			tirn;
+	uint32_t			tisn;
+	uint32_t			rqn;
+	uint32_t			sqn;
 };
 
 struct mlx5_ah {
@@ -533,6 +546,42 @@ struct mlx5_rwq {
 	void	*pbuff;
 	__be32	*recv_db;
 	int wq_sig;
+};
+
+struct mlx5_counter_node {
+	uint32_t index;
+	struct list_node entry;
+	enum ibv_counter_description desc;
+};
+
+struct mlx5_counters {
+	struct verbs_counters vcounters;
+	struct list_head counters_list;
+	pthread_mutex_t lock;
+	uint32_t ncounters;
+	/* number of bounded objects */
+	int refcount;
+};
+
+struct mlx5_flow {
+	struct ibv_flow flow_id;
+	struct mlx5_counters *mcounters;
+};
+
+struct mlx5dv_flow_matcher {
+	struct ibv_context *context;
+	uint32_t handle;
+};
+
+struct mlx5dv_devx_obj {
+	struct ibv_context *context;
+	uint32_t handle;
+};
+
+struct mlx5_devx_umem {
+	struct mlx5dv_devx_umem dv_devx_umem;
+	struct ibv_context *context;
+	uint32_t handle;
 };
 
 static inline int mlx5_ilog2(int n)
@@ -630,9 +679,14 @@ static inline struct mlx5_rwq *to_mrwq(struct ibv_wq *ibwq)
 	return container_of(ibwq, struct mlx5_rwq, wq);
 }
 
+static inline struct mlx5_dm *to_mdm(struct ibv_dm *ibdm)
+{
+	return container_of(ibdm, struct mlx5_dm, verbs_dm.dm);
+}
+
 static inline struct mlx5_mr *to_mmr(struct ibv_mr *ibmr)
 {
-	return to_mxxx(mr, mr);
+	return container_of(ibmr, struct mlx5_mr, vmr.ibv_mr);
 }
 
 static inline struct mlx5_ah *to_mah(struct ibv_ah *ibah)
@@ -658,6 +712,16 @@ static inline struct mlx5_srq *rsc_to_msrq(struct mlx5_resource *rsc)
 static inline struct mlx5_rwq *rsc_to_mrwq(struct mlx5_resource *rsc)
 {
 	return (struct mlx5_rwq *)rsc;
+}
+
+static inline struct mlx5_counters *to_mcounters(struct ibv_counters *ibcounters)
+{
+	return container_of(ibcounters, struct mlx5_counters, vcounters.counters);
+}
+
+static inline struct mlx5_flow *to_mflow(struct ibv_flow *flow_id)
+{
+	return container_of(flow_id, struct mlx5_flow, flow_id);
 }
 
 int mlx5_alloc_buf(struct mlx5_buf *buf, size_t size, int page_size);
@@ -700,11 +764,12 @@ int mlx5_query_port(struct ibv_context *context, uint8_t port,
 struct ibv_pd *mlx5_alloc_pd(struct ibv_context *context);
 int mlx5_free_pd(struct ibv_pd *pd);
 
+struct ibv_mr *mlx5_alloc_null_mr(struct ibv_pd *pd);
 struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr,
 			   size_t length, int access);
-int mlx5_rereg_mr(struct ibv_mr *mr, int flags, struct ibv_pd *pd, void *addr,
+int mlx5_rereg_mr(struct verbs_mr *mr, int flags, struct ibv_pd *pd, void *addr,
 		  size_t length, int access);
-int mlx5_dereg_mr(struct ibv_mr *mr);
+int mlx5_dereg_mr(struct verbs_mr *mr);
 struct ibv_mw *mlx5_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type);
 int mlx5_dealloc_mw(struct ibv_mw *mw);
 int mlx5_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
@@ -751,6 +816,8 @@ int mlx5_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		  struct ibv_qp_init_attr *init_attr);
 int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask);
+int mlx5_modify_qp_rate_limit(struct ibv_qp *qp,
+			      struct ibv_qp_rate_limit_attr *attr);
 int mlx5_destroy_qp(struct ibv_qp *qp);
 void mlx5_init_qp_indices(struct mlx5_qp *qp);
 void mlx5_init_rwq_indices(struct mlx5_rwq *rwq);
@@ -804,6 +871,18 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 int mlx5_post_srq_ops(struct ibv_srq *srq,
 		      struct ibv_ops_wr *wr,
 		      struct ibv_ops_wr **bad_wr);
+struct ibv_flow_action *mlx5_create_flow_action_esp(struct ibv_context *ctx,
+						    struct ibv_flow_action_esp_attr *attr);
+int mlx5_destroy_flow_action(struct ibv_flow_action *action);
+int mlx5_modify_flow_action_esp(struct ibv_flow_action *action,
+				struct ibv_flow_action_esp_attr *attr);
+
+struct ibv_dm *mlx5_alloc_dm(struct ibv_context *context,
+			     struct ibv_alloc_dm_attr *dm_attr);
+int mlx5_free_dm(struct ibv_dm *ibdm);
+struct ibv_mr *mlx5_reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *ibdm,
+			      uint64_t dm_offset, size_t length,
+			      unsigned int acc);
 
 struct ibv_td *mlx5_alloc_td(struct ibv_context *context, struct ibv_td_init_attr *init_attr);
 int mlx5_dealloc_td(struct ibv_td *td);
@@ -814,6 +893,18 @@ struct ibv_pd *mlx5_alloc_parent_domain(struct ibv_context *context,
 
 void *mlx5_mmap(struct mlx5_uar_info *uar, int index,
 		int cmd_fd, int page_size, int uar_type);
+
+struct ibv_counters *mlx5_create_counters(struct ibv_context *context,
+					  struct ibv_counters_init_attr *init_attr);
+int mlx5_destroy_counters(struct ibv_counters *counters);
+int mlx5_attach_counters_point_flow(struct ibv_counters *counters,
+				    struct ibv_counter_attach_attr *attr,
+				    struct ibv_flow *flow);
+int mlx5_read_counters(struct ibv_counters *counters,
+		       uint64_t *counters_value,
+		       uint32_t ncounters,
+		       uint32_t flags);
+
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {
 	int tind = uidx >> MLX5_UIDX_TABLE_SHIFT;
@@ -826,7 +917,7 @@ static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 
 static inline int mlx5_spin_lock(struct mlx5_spinlock *lock)
 {
-	if (!mlx5_single_threaded)
+	if (lock->need_lock)
 		return pthread_spin_lock(&lock->lock);
 
 	if (unlikely(lock->in_use)) {
@@ -848,7 +939,7 @@ static inline int mlx5_spin_lock(struct mlx5_spinlock *lock)
 
 static inline int mlx5_spin_unlock(struct mlx5_spinlock *lock)
 {
-	if (!mlx5_single_threaded)
+	if (lock->need_lock)
 		return pthread_spin_unlock(&lock->lock);
 
 	lock->in_use = 0;
@@ -856,10 +947,25 @@ static inline int mlx5_spin_unlock(struct mlx5_spinlock *lock)
 	return 0;
 }
 
-static inline int mlx5_spinlock_init(struct mlx5_spinlock *lock)
+static inline int mlx5_spinlock_init(struct mlx5_spinlock *lock, int need_lock)
 {
 	lock->in_use = 0;
+	lock->need_lock = need_lock;
 	return pthread_spin_init(&lock->lock, PTHREAD_PROCESS_PRIVATE);
+}
+
+static inline int mlx5_spinlock_init_pd(struct mlx5_spinlock *lock, struct ibv_pd *pd)
+{
+	struct mlx5_parent_domain *mparent_domain;
+	int thread_safe;
+
+	mparent_domain = to_mparent_domain(pd);
+	if (mparent_domain && mparent_domain->mtd)
+		thread_safe = 1;
+	else
+		thread_safe = mlx5_single_threaded;
+
+	return mlx5_spinlock_init(lock, !thread_safe);
 }
 
 static inline int mlx5_spinlock_destroy(struct mlx5_spinlock *lock)

@@ -32,77 +32,24 @@
 *
 *******************************************************************************/
 
-#ifndef I40IW_ABI_H
-#define I40IW_ABI_H
+#ifndef PROVIDER_I40IW_ABI_H
+#define PROVIDER_I40IW_ABI_H
 
 #include <infiniband/kern-abi.h>
+#include <rdma/i40iw-abi.h>
+#include <kernel-abi/i40iw-abi.h>
 
 #define I40IW_ABI_VER 5
 
-struct i40iw_get_context {
-	struct ibv_get_context cmd;
-	__u32 reserved32;
-	__u8 userspace_ver;
-	__u8 reserved8[3];
-};
-
-struct i40iw_ualloc_ucontext_resp {
-	struct ib_uverbs_get_context_resp ibv_resp;
-	__u32 max_pds;		/* maximum pds allowed for this user process */
-	__u32 max_qps;		/* maximum qps allowed for this user process */
-	__u32 wq_size;		/* defines the size of the WQs (sq+rq) allocated to the mmaped area */
-	__u8 kernel_ver;
-	__u8 reserved[3];
-};
-
-struct i40iw_ualloc_pd_resp {
-	struct ib_uverbs_alloc_pd_resp ibv_resp;
-	__u32 pd_id;
-	__u8 reserved[4];
-};
-
-struct i40iw_ucreate_cq {
-	struct ibv_create_cq ibv_cmd;
-	__u64 user_cq_buffer;
-};
-
-struct i40iw_ucreate_cq_resp {
-	struct ib_uverbs_create_cq_resp ibv_resp;
-	__u32 cq_id;
-	__u32 cq_size;
-	__u32 mmap_db_index;
-	__u32 reserved;
-};
-
-enum i40iw_umemreg_type {
-	I40IW_UMEMREG_TYPE_MEM = 0x0000,
-	I40IW_UMEMREG_TYPE_QP = 0x0001,
-	I40IW_UMEMREG_TYPE_CQ = 0x0002
-};
-
-struct i40iw_ureg_mr {
-	struct ibv_reg_mr ibv_cmd;
-	__u16 reg_type;
-	__u16 cq_pages;
-	__u16 rq_pages;
-	__u16 sq_pages;
-};
-
-struct i40iw_ucreate_qp {
-	struct ibv_create_qp ibv_cmd;
-	__u64 user_wqe_buffers;
-	__u64 user_compl_ctx;
-};
-
-struct i40iw_ucreate_qp_resp {
-	struct ib_uverbs_create_qp_resp ibv_resp;
-	__u32 qp_id;
-	__u32 actual_sq_size;
-	__u32 actual_rq_size;
-	__u32 i40iw_drv_opt;
-	__u16 push_idx;
-	__u8  rsvd1;
-	__u8  rsvd2;
-};
+DECLARE_DRV_CMD(i40iw_ualloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
+		empty, i40iw_alloc_pd_resp);
+DECLARE_DRV_CMD(i40iw_ucreate_cq, IB_USER_VERBS_CMD_CREATE_CQ,
+		i40iw_create_cq_req, i40iw_create_cq_resp);
+DECLARE_DRV_CMD(i40iw_ucreate_qp, IB_USER_VERBS_CMD_CREATE_QP,
+		i40iw_create_qp_req, i40iw_create_qp_resp);
+DECLARE_DRV_CMD(i40iw_get_context, IB_USER_VERBS_CMD_GET_CONTEXT,
+		i40iw_alloc_ucontext_req, i40iw_alloc_ucontext_resp);
+DECLARE_DRV_CMD(i40iw_ureg_mr, IB_USER_VERBS_CMD_REG_MR,
+		i40iw_mem_reg_req, empty);
 
 #endif /* I40IW_ABI_H */

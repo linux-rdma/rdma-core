@@ -50,6 +50,7 @@
 
 #include <util/util.h>
 #include "ibverbs.h"
+#include <infiniband/cmd_write.h>
 
 int abi_ver;
 
@@ -65,6 +66,21 @@ struct ibv_driver {
 
 static LIST_HEAD(driver_name_list);
 static LIST_HEAD(driver_list);
+
+static int try_access_device(const struct verbs_sysfs_dev *sysfs_dev)
+{
+	struct stat cdev_stat;
+	char *devpath;
+	int ret;
+
+	if (asprintf(&devpath, RDMA_CDEV_DIR"/%s",
+		     sysfs_dev->sysfs_name) < 0)
+		return ENOMEM;
+
+	ret = stat(devpath, &cdev_stat);
+	free(devpath);
+	return ret;
+}
 
 static int find_sysfs_devs(struct list_head *tmp_sysfs_dev_list)
 {
@@ -132,6 +148,9 @@ static int find_sysfs_devs(struct list_head *tmp_sysfs_dev_list)
 				sysfs_dev->ibdev_path);
 			continue;
 		}
+
+		if (try_access_device(sysfs_dev))
+			continue;
 
 		sysfs_dev->time_created = buf.st_mtim;
 
@@ -552,9 +571,9 @@ static void check_memlock_limit(void)
 	}
 
 	if (rlim.rlim_cur <= 32768)
-		fprintf(stderr, PFX "Warning: RLIMIT_MEMLOCK is %lu bytes.\n"
+		fprintf(stderr, PFX "Warning: RLIMIT_MEMLOCK is %llu bytes.\n"
 			"    This will severely limit memory registrations.\n",
-			rlim.rlim_cur);
+			(unsigned long long)rlim.rlim_cur);
 }
 
 static int same_sysfs_dev(struct verbs_sysfs_dev *sysfs1,
@@ -680,12 +699,21 @@ out:
 int ibverbs_init(void)
 {
 	const char *sysfs_path;
+	char *env_value;
 	int ret;
 
 	if (getenv("RDMAV_FORK_SAFE") || getenv("IBV_FORK_SAFE"))
 		if (ibv_fork_init())
 			fprintf(stderr, PFX "Warning: fork()-safety requested "
 				"but init failed\n");
+
+	/* Backward compatibility for the mlx4 driver env */
+	env_value = getenv("MLX4_DEVICE_FATAL_CLEANUP");
+	if (env_value)
+		verbs_allow_disassociate_destroy = strcmp(env_value, "0") != 0;
+
+	if (getenv("RDMAV_ALLOW_DISASSOC_DESTROY"))
+		verbs_allow_disassociate_destroy = true;
 
 	sysfs_path = ibv_get_sysfs_path();
 	if (!sysfs_path)

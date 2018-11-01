@@ -7,19 +7,10 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "config.h"
-#ifdef HAVE_LIBNL1
-#include <netlink/object.h>
-#include "nl1_compat.h"
-#else
 #include <netlink/object-api.h>
-#endif
 
 struct get_neigh_handler {
-#ifdef HAVE_LIBNL1
-	struct nl_handle *sock;
-#else
 	struct nl_sock *sock;
-#endif
 	struct nl_cache *link_cache;
 	struct nl_cache	*neigh_cache;
 	struct nl_cache *route_cache;

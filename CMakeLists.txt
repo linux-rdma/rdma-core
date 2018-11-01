@@ -22,12 +22,21 @@
 #      Produce static libraries along with the usual shared libraries.
 #  -DVERBS_PROVIDER_DIR='' (default /usr/lib.../libibverbs)
 #      Use the historical search path for providers, in the standard system library.
-#  -DKERNEL_DIR='.../linux' (default '')
-#      If set use the kernel UAPI headers from this kernel source tree.
 #  -DNO_COMPAT_SYMS=1 (default disabled)
 #      Do not generate backwards compatibility symbols in the shared
 #      libraries. This may is necessary if using a dynmic linker that does
 #      not support symbol versions, such as uclibc.
+#  -DIOCTL_MODE=both (default write)
+#      Enable new kABI ioctl() support and support for the legacy write
+#      path. May also be 'ioctl' to disable fallback to write.
+#  -DIBACM_SERVER_MODE_DEFAULT (default unix)
+#      Selects how clients can connect to this server:
+#      open) Allow incoming connections from any TCP client (internal or external).
+#      loop) Limit incoming connections for server_port to 127.0.0.1.
+#      unix) Use unix-domain sockets, hence limits service to the same machine.
+#  -DIBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT (default 0)
+#      If non-zero, limit incoming requests to kernel or the ib_acme utility
+#      (i.e. do not serve librdmacm requests)
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(rdma-core C)
@@ -48,11 +57,10 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "17.0")
+set(PACKAGE_VERSION "21.0")
 # When this is changed the values in these files need changing too:
 #   debian/libibverbs1.symbols
-#   libibverbs/libibverbs.map
-set(IBVERBS_PABI_VERSION "17")
+set(IBVERBS_PABI_VERSION "21")
 set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 #-------------------------
@@ -62,6 +70,9 @@ set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 if (IN_PLACE)
   set(CMAKE_INSTALL_SYSCONFDIR "${CMAKE_BINARY_DIR}/etc")
   set(CMAKE_INSTALL_BINDIR "${CMAKE_BINARY_DIR}/bin")
+  set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}")
+  set(CMAKE_INSTALL_LIBDIR "lib")
+  set(CMAKE_INSTALL_INCLUDEDIR "include")
 endif()
 
 include(GNUInstallDirs)
@@ -125,7 +136,7 @@ set(DISTRO_FLAVOUR "None" CACHE
 set(BUILDLIB "${CMAKE_SOURCE_DIR}/buildlib")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${BUILDLIB}")
 
-include(FindPkgConfig)
+include(CMakeParseArguments)
 include(CheckCCompilerFlag)
 include(CheckIncludeFile)
 include(CheckTypeSize)
@@ -135,6 +146,7 @@ include(RDMA_BuildType)
 include(RDMA_DoFixup)
 include(publish_headers)
 include(rdma_functions)
+include(rdma_man)
 
 if (NOT DEFINED ENABLE_STATIC)
   set(ENABLE_STATIC "OFF" CACHE BOOL "Produce static linking libraries as well as shared libraries.")
@@ -159,6 +171,7 @@ RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WMISSING_PROTOTYPES "-Wmissing-prototypes"
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WMISSING_DECLARATIONS "-Wmissing-declarations")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WWRITE_STRINGS "-Wwrite-strings")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WFORMAT_2 "-Wformat=2")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WCAST_FUNCTION "-Wcast-function-type")
 
 # At some point after 4.4 gcc fixed shadow to ignore function vs variable
 # conflicts
@@ -199,7 +212,8 @@ CHECK_C_SOURCE_COMPILES("
 
  static void do_entry(void) {}
  void entry(void) __attribute__((ifunc(\"resolve_entry\")));
- static void *resolve_entry(void) {return &do_entry;}
+ typedef void (*fn_t)(void);
+ static fn_t resolve_entry(void) {return &do_entry;}
 
  int main(int argc,const char *argv[]) { entry(); }"
   HAVE_FUNC_ATTRIBUTE_IFUNC
@@ -250,11 +264,65 @@ CHECK_C_SOURCE_COMPILES("
   HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE
   FAIL_REGEX "warning")
 
+# Linux __u64 is an unsigned long long
+CHECK_C_SOURCE_COMPILES("
+#include <linux/types.h>
+ int main(int argc,const char *argv[]) { __u64 tmp = 0; unsigned long long *tmp2 = &tmp; return *tmp2; }"
+  HAVE_LONG_LONG_U64
+  FAIL_REGEX "warning")
+
+if (NOT HAVE_LONG_LONG_U64)
+  # Modern Linux has switched to use ull in all cases, but to avoid disturbing
+  # userspace some platforms continued to use unsigned long by default. This
+  # define will cause kernel headers to consistently use unsigned long long
+  add_definitions("-D__SANE_USERSPACE_TYPES__")
+endif()
+
+# glibc and kernel uapi headers can co-exist
+CHECK_C_SOURCE_COMPILES("
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <linux/in.h>
+ #include <linux/in6.h>
+ int main(int argc,const char *argv[]) { return 0; }"
+  HAVE_GLIBC_UAPI_COMPAT)
+RDMA_DoFixup("${HAVE_GLIBC_UAPI_COMPAT}" "linux/in.h")
+RDMA_DoFixup("${HAVE_GLIBC_UAPI_COMPAT}" "linux/in6.h")
+
+# The compiler has working -fstrict-aliasing support, old gcc's do not. If
+# broken then globally disable strict aliasing.
+RDMA_Check_Aliasing(HAVE_WORKING_STRICT_ALIASING)
+if (NOT HAVE_WORKING_STRICT_ALIASING)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${NO_STRICT_ALIASING_FLAGS}")
+endif()
+
+# Check if off_t is 64 bits, eg large file support is enabled
+CHECK_C_SOURCE_COMPILES("
+#include <sys/types.h>
+ #define BUILD_ASSERT_OR_ZERO(cond) (sizeof(char [1 - 2*!(cond)]) - 1)
+ int main(int argc,const char *argv[]) { return BUILD_ASSERT_OR_ZERO(sizeof(off_t) >= 8); }"
+  HAVE_LARGE_FILES)
+
+if (NOT HAVE_LARGE_FILES)
+  CHECK_C_SOURCE_COMPILES("
+#define _FILE_OFFSET_BITS 64
+#include <sys/types.h>
+ #define BUILD_ASSERT_OR_ZERO(cond) (sizeof(char [1 - 2*!(cond)]) - 1)
+ int main(int argc,const char *argv[]) { return BUILD_ASSERT_OR_ZERO(sizeof(off_t) >= 8); }"
+    HAVE_LARGE_FILES2)
+  if (NOT HAVE_LARGE_FILES2)
+    message(FATAL_ERROR "Could not enable large file support")
+  endif()
+  add_definitions("-D_FILE_OFFSET_BITS=64")
+endif()
+
 # Provide a shim if C11 stdatomic.h is not supported.
 if (NOT HAVE_SPARSE)
   CHECK_INCLUDE_FILE("stdatomic.h" HAVE_STDATOMIC)
   RDMA_DoFixup("${HAVE_STDATOMIC}" "stdatomic.h")
 endif()
+
+RDMA_Check_SSE(HAVE_TARGET_SSE)
 
 # Enable development support features
 # Prune unneeded shared libraries during linking
@@ -280,12 +348,17 @@ else()
 endif()
 
 # Look for Python
-FIND_PACKAGE (PythonInterp)
+FIND_PACKAGE(PythonInterp REQUIRED)
+
+# Look for pandoc
+FIND_PACKAGE(pandoc)
 
 #-------------------------
 # Find libraries
 # pthread
 FIND_PACKAGE (Threads REQUIRED)
+
+FIND_PACKAGE(PkgConfig REQUIRED)
 
 # libnl
 if (NOT DEFINED ENABLE_RESOLVE_NEIGH)
@@ -293,25 +366,9 @@ if (NOT DEFINED ENABLE_RESOLVE_NEIGH)
 endif()
 if (ENABLE_RESOLVE_NEIGH)
   # FIXME use of pkgconfig is discouraged
-  pkg_check_modules(NL3 libnl-3.0 libnl-route-3.0)
-  if (NL3_FOUND)
-    set(NL_KIND 3)
-    set(NL_INCLUDE_DIRS ${NL3_INCLUDE_DIRS})
-    set(NL_LIBRARIES ${NL3_LIBRARIES})
-  else()
-    # FIXME: I don't know why we have this fallback, all supported distros
-    # have libnl3
-    pkg_check_modules(NL1 libnl-1)
-    if (NL1_FOUND)
-      set(NL_KIND 1)
-      set(NL_INCLUDE_DIRS ${NL1_INCLUDE_DIRS})
-      set(NL_LIBRARIES ${NL1_LIBRARIES})
-    else()
-      message(FATAL_ERROR "Cannot find libnl-3.0 or libnl-1")
-    endif()
-  endif()
-
+  pkg_check_modules(NL libnl-3.0 libnl-route-3.0 REQUIRED)
   include_directories(${NL_INCLUDE_DIRS})
+  set(NL_KIND 3)
 else()
   set(NL_KIND 0)
   set(NL_LIBRARIES "")
@@ -336,8 +393,6 @@ include_directories(${UDEV_INCLUDE_DIRS})
 # Statically determine sizeof(long), this is largely unnecessary, no new code
 # should rely on this.
 check_type_size("long" SIZEOF_LONG BUILTIN_TYPES_ONLY LANGUAGE C)
-
-include(RDMA_LinuxHeaders)
 
 # Determine if this arch supports cache coherent DMA. This isn't really an
 # arch specific property, but for our purposes arches that do not support it
@@ -381,6 +436,16 @@ if (NOT LIBC_HAS_LIBRT)
   set(RT_LIBRARIES "rt")
 endif()
 
+# Check for static_assert
+CHECK_C_SOURCE_COMPILES("
+#include <assert.h>
+static_assert(1, \"failed\");
+int main(int argc,const char *argv[]) {
+   static_assert(1, \"failed\");
+   return 0;
+};" HAVE_STATIC_ASSERT)
+RDMA_DoFixup("${HAVE_STATIC_ASSERT}" "assert.h")
+
 #-------------------------
 # Final warning flags
 
@@ -414,6 +479,34 @@ if (NOT ${CMAKE_CURRENT_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
   file(WRITE ${CMAKE_BINARY_DIR}/.gitignore "*")
 endif()
 
+if ("${IOCTL_MODE}" STREQUAL "both")
+  set(IOCTL_MODE_NUM 3)
+elseif ("${IOCTL_MODE}" STREQUAL "write")
+  set(IOCTL_MODE_NUM 2)
+elseif ("${IOCTL_MODE}" STREQUAL "ioctl")
+  set(IOCTL_MODE_NUM 1)
+elseif ("${IOCTL_MODE}" STREQUAL "")
+  set(IOCTL_MODE_NUM 2)
+else()
+  message(FATAL_ERROR "-DIOCTL_MODE=${IOCTL_MODE} is not a valid choice")
+endif()
+
+# Configuration defaults
+
+if ("${IBACM_SERVER_MODE_DEFAULT}" STREQUAL "open")
+  set(IBACM_SERVER_MODE_DEFAULT "IBACM_SERVER_MODE_OPEN")
+elseif ("${IBACM_SERVER_MODE_DEFAULT}" STREQUAL "loop")
+  set(IBACM_SERVER_MODE_DEFAULT "IBACM_SERVER_MODE_LOOP")
+else()
+  set(IBACM_SERVER_MODE_DEFAULT "IBACM_SERVER_MODE_UNIX")
+endif()
+
+if (IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT)
+  set(IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT 1)
+else()
+  set(IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT 0)
+endif()
+
 configure_file("${BUILDLIB}/config.h.in" "${BUILD_INCLUDE}/config.h" ESCAPE_QUOTES @ONLY)
 
 #-------------------------
@@ -422,6 +515,7 @@ add_subdirectory(ccan)
 add_subdirectory(util)
 add_subdirectory(Documentation)
 add_subdirectory(kernel-boot)
+add_subdirectory(kernel-headers)
 # Libraries
 add_subdirectory(libibumad)
 add_subdirectory(libibumad/man)
@@ -484,14 +578,17 @@ endif()
 if (NOT HAVE_STDATOMIC)
   message(STATUS " C11 stdatomic.h NOT available (old compiler)")
 endif()
+if (NOT HAVE_STATIC_ASSERT)
+  message(STATUS " C11 static_assert NOT available (old compiler)")
+endif()
+if (NOT HAVE_WORKING_STRICT_ALIASING)
+  message(STATUS " Compiler cannot do strict aliasing")
+endif()
 if (NOT HAVE_VALGRIND_MEMCHECK)
   message(STATUS " Valgrind memcheck.h NOT enabled")
 endif()
 if (NOT HAVE_VALGRIND_DRD)
   message(STATUS " Valgrind drd.h NOT enabled")
-endif()
-if (NL_KIND EQUAL 1)
-  message(STATUS " libnl 3 NOT found (using libnl 1 compat)")
 endif()
 if (NL_KIND EQUAL 0)
   message(STATUS " neighbour resolution NOT enabled")
@@ -500,13 +597,19 @@ else()
     message(STATUS " netlink/route/link.h and net/if.h NOT co-includable (old headers)")
   endif()
 endif()
+if (NOT PANDOC_FOUND)
+  if (NOT EXISTS "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt")
+    message(STATUS " pandoc NOT found and NO prebuilt man pages. 'install' disabled")
+  else()
+    message(STATUS " pandoc NOT found (using prebuilt man pages)")
+  endif()
+endif()
 if (NOT SYSTEMD_FOUND)
   message(STATUS " libsystemd NOT found (disabling features)")
 endif()
 if (NOT UDEV_FOUND)
   message(STATUS " libudev NOT found (disabling features)")
 endif()
-rdma_report_missing_kheaders()
 if (NOT HAVE_C_WARNINGS)
   message(STATUS " extended C warnings NOT supported")
 endif()
@@ -521,4 +624,10 @@ if (NOT HAVE_C_WORKING_SHADOW)
 endif()
 if (NOT HAVE_C_WREDUNDANT_DECLS)
   message(STATUS " -Wredundant-decls does NOT work")
+endif()
+if (NOT HAVE_GLIBC_UAPI_COMPAT)
+  message(STATUS " libc netinet/in.h and linux/in.h do NOT coexist")
+endif()
+if (NOT HAVE_TARGET_SSE)
+  message(STATUS " attribute(target(\"sse\")) does NOT work")
 endif()

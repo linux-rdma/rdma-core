@@ -7,10 +7,10 @@ rdma_executable(cmtime cmtime.c)
 target_link_libraries(cmtime LINK_PRIVATE rdmacm ${CMAKE_THREAD_LIBS_INIT} rdmacm_tools)
 
 rdma_executable(mckey mckey.c)
-target_link_libraries(mckey LINK_PRIVATE rdmacm ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(mckey LINK_PRIVATE rdmacm ${CMAKE_THREAD_LIBS_INIT} rdmacm_tools)
 
 rdma_executable(rcopy rcopy.c)
-target_link_libraries(rcopy LINK_PRIVATE rdmacm)
+target_link_libraries(rcopy LINK_PRIVATE rdmacm rdmacm_tools)
 
 rdma_executable(rdma_client rdma_client.c)
 target_link_libraries(rdma_client LINK_PRIVATE rdmacm)
@@ -28,7 +28,7 @@ rdma_executable(riostream riostream.c)
 target_link_libraries(riostream LINK_PRIVATE rdmacm rdmacm_tools)
 
 rdma_executable(rping rping.c)
-target_link_libraries(rping LINK_PRIVATE rdmacm ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(rping LINK_PRIVATE rdmacm ${CMAKE_THREAD_LIBS_INIT} rdmacm_tools)
 
 rdma_executable(rstream rstream.c)
 target_link_libraries(rstream LINK_PRIVATE rdmacm rdmacm_tools)

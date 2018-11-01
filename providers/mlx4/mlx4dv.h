@@ -37,6 +37,10 @@
 #include <endian.h>
 #include <infiniband/verbs.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Always inline the functions */
 #ifdef __GNUC__
 #define MLX4DV_ALWAYS_INLINE inline __attribute__((always_inline))
@@ -288,12 +292,12 @@ enum {
 };
 
 enum {
-	MLX4_WQE_BIND_TYPE_2		= (1<<31),
+	MLX4_WQE_BIND_TYPE_2		= (1UL<<31),
 	MLX4_WQE_BIND_ZERO_BASED	= (1<<30),
 };
 
 enum {
-	MLX4_INLINE_SEG		= 1 << 31,
+	MLX4_INLINE_SEG		= 1UL << 31,
 	MLX4_INLINE_ALIGN	= 64,
 };
 
@@ -304,7 +308,7 @@ enum {
 enum {
 	MLX4_WQE_MW_REMOTE_READ   = 1 << 29,
 	MLX4_WQE_MW_REMOTE_WRITE  = 1 << 30,
-	MLX4_WQE_MW_ATOMIC        = 1 << 31
+	MLX4_WQE_MW_ATOMIC        = 1UL << 31
 };
 
 struct mlx4_wqe_local_inval_seg {
@@ -391,6 +395,11 @@ struct mlx4_wqe_raddr_seg {
 	__be64			raddr;
 	__be32			rkey;
 	__be32			reserved;
+};
+
+struct mlx4_wqe_lso_seg {
+	__be32			mss_hdr_size;
+	__be32			header[0];
 };
 
 struct mlx4_wqe_atomic_seg {
@@ -529,4 +538,9 @@ enum mlx4dv_set_ctx_attr_type {
 int mlx4dv_set_context_attr(struct ibv_context *context,
 			    enum mlx4dv_set_ctx_attr_type attr_type,
 			    void *attr);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* _MLX4DV_H_ */

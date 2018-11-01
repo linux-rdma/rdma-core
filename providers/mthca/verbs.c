@@ -74,7 +74,7 @@ int mthca_query_port(struct ibv_context *context, uint8_t port,
 struct ibv_pd *mthca_alloc_pd(struct ibv_context *context)
 {
 	struct ibv_alloc_pd        cmd;
-	struct mthca_alloc_pd_resp resp;
+	struct umthca_alloc_pd_resp resp;
 	struct mthca_pd           *pd;
 
 	pd = malloc(sizeof *pd);
@@ -117,8 +117,8 @@ static struct ibv_mr *__mthca_reg_mr(struct ibv_pd *pd, void *addr,
 				     int access,
 				     int dma_sync)
 {
-	struct ibv_mr *mr;
-	struct mthca_reg_mr cmd;
+	struct verbs_mr *vmr;
+	struct umthca_reg_mr cmd;
 	struct ib_uverbs_reg_mr_resp resp;
 	int ret;
 
@@ -131,18 +131,18 @@ static struct ibv_mr *__mthca_reg_mr(struct ibv_pd *pd, void *addr,
 	cmd.mr_attrs = dma_sync ? MTHCA_MR_DMASYNC : 0;
 	cmd.reserved = 0;
 
-	mr = malloc(sizeof *mr);
-	if (!mr)
+	vmr = malloc(sizeof(*vmr));
+	if (!vmr)
 		return NULL;
 
-	ret = ibv_cmd_reg_mr(pd, addr, length, hca_va, access, mr, &cmd.ibv_cmd,
-			     sizeof cmd, &resp, sizeof resp);
+	ret = ibv_cmd_reg_mr(pd, addr, length, hca_va, access, vmr,
+			     &cmd.ibv_cmd, sizeof(cmd), &resp, sizeof(resp));
 	if (ret) {
-		free(mr);
+		free(vmr);
 		return NULL;
 	}
 
-	return mr;
+	return &vmr->ibv_mr;
 }
 
 struct ibv_mr *mthca_reg_mr(struct ibv_pd *pd, void *addr,
@@ -151,15 +151,15 @@ struct ibv_mr *mthca_reg_mr(struct ibv_pd *pd, void *addr,
 	return __mthca_reg_mr(pd, addr, length, (uintptr_t) addr, access, 0);
 }
 
-int mthca_dereg_mr(struct ibv_mr *mr)
+int mthca_dereg_mr(struct verbs_mr *vmr)
 {
 	int ret;
 
-	ret = ibv_cmd_dereg_mr(mr);
+	ret = ibv_cmd_dereg_mr(vmr);
 	if (ret)
 		return ret;
 
-	free(mr);
+	free(vmr);
 	return 0;
 }
 
@@ -177,8 +177,8 @@ struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,
 			       int comp_vector)
 {
-	struct mthca_create_cq      cmd;
-	struct mthca_create_cq_resp resp;
+	struct umthca_create_cq      cmd;
+	struct umthca_create_cq_resp resp;
 	struct mthca_cq      	   *cq;
 	int                  	    ret;
 
@@ -258,7 +258,7 @@ err_set_db:
 			      cq->set_ci_db_index);
 
 err_unreg:
-	mthca_dereg_mr(cq->mr);
+	mthca_dereg_mr(verbs_get_mr(cq->mr));
 
 err_buf:
 	mthca_free_buf(&cq->buf);
@@ -272,7 +272,7 @@ err:
 int mthca_resize_cq(struct ibv_cq *ibcq, int cqe)
 {
 	struct mthca_cq *cq = to_mcq(ibcq);
-	struct mthca_resize_cq cmd;
+	struct umthca_resize_cq cmd;
 	struct ibv_mr *mr;
 	struct mthca_buf buf;
 	struct ib_uverbs_resize_cq_resp resp;
@@ -312,14 +312,14 @@ int mthca_resize_cq(struct ibv_cq *ibcq, int cqe)
 	ret = ibv_cmd_resize_cq(ibcq, cqe - 1, &cmd.ibv_cmd, sizeof cmd, &resp,
 				sizeof resp);
 	if (ret) {
-		mthca_dereg_mr(mr);
+		mthca_dereg_mr(verbs_get_mr(mr));
 		mthca_free_buf(&buf);
 		goto out;
 	}
 
 	mthca_cq_resize_copy_cqes(cq, buf.buf, old_cqe);
 
-	mthca_dereg_mr(cq->mr);
+	mthca_dereg_mr(verbs_get_mr(cq->mr));
 	mthca_free_buf(&cq->buf);
 
 	cq->buf = buf;
@@ -345,7 +345,7 @@ int mthca_destroy_cq(struct ibv_cq *cq)
 			      to_mcq(cq)->arm_db_index);
 	}
 
-	mthca_dereg_mr(to_mcq(cq)->mr);
+	mthca_dereg_mr(verbs_get_mr(to_mcq(cq)->mr));
 	mthca_free_buf(&to_mcq(cq)->buf);
 	free(to_mcq(cq));
 
@@ -375,8 +375,8 @@ static int align_queue_size(struct ibv_context *context, int size, int spare)
 struct ibv_srq *mthca_create_srq(struct ibv_pd *pd,
 				 struct ibv_srq_init_attr *attr)
 {
-	struct mthca_create_srq      cmd;
-	struct mthca_create_srq_resp resp;
+	struct umthca_create_srq      cmd;
+	struct umthca_create_srq_resp resp;
 	struct mthca_srq            *srq;
 	int                          ret;
 
@@ -437,7 +437,7 @@ err_db:
 			      srq->db_index);
 
 err_unreg:
-	mthca_dereg_mr(srq->mr);
+	mthca_dereg_mr(verbs_get_mr(srq->mr));
 
 err_free:
 	free(srq->wrid);
@@ -478,7 +478,7 @@ int mthca_destroy_srq(struct ibv_srq *srq)
 		mthca_free_db(to_mctx(srq->context)->db_tab, MTHCA_DB_TYPE_SRQ,
 			      to_msrq(srq)->db_index);
 
-	mthca_dereg_mr(to_msrq(srq)->mr);
+	mthca_dereg_mr(verbs_get_mr(to_msrq(srq)->mr));
 
 	mthca_free_buf(&to_msrq(srq)->buf);
 	free(to_msrq(srq)->wrid);
@@ -489,7 +489,7 @@ int mthca_destroy_srq(struct ibv_srq *srq)
 
 struct ibv_qp *mthca_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
 {
-	struct mthca_create_qp    cmd;
+	struct umthca_create_qp    cmd;
 	struct ib_uverbs_create_qp_resp resp;
 	struct mthca_qp          *qp;
 	int                       ret;
@@ -588,7 +588,7 @@ err_sq_db:
 			      qp->sq.db_index);
 
 err_unreg:
-	mthca_dereg_mr(qp->mr);
+	mthca_dereg_mr(verbs_get_mr(qp->mr));
 
 err_free:
 	free(qp->wrid);
@@ -698,7 +698,7 @@ int mthca_destroy_qp(struct ibv_qp *qp)
 			      to_mqp(qp)->sq.db_index);
 	}
 
-	mthca_dereg_mr(to_mqp(qp)->mr);
+	mthca_dereg_mr(verbs_get_mr(to_mqp(qp)->mr));
 	mthca_free_buf(&to_mqp(qp)->buf);
 	free(to_mqp(qp)->wrid);
 	free(to_mqp(qp));

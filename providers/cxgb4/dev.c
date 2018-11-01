@@ -84,6 +84,7 @@ static const struct verbs_context_ops  c4iw_ctx_common_ops = {
 	.create_srq = c4iw_create_srq,
 	.modify_srq = c4iw_modify_srq,
 	.destroy_srq = c4iw_destroy_srq,
+	.query_srq = c4iw_query_srq,
 	.create_qp = c4iw_create_qp,
 	.modify_qp = c4iw_modify_qp,
 	.destroy_qp = c4iw_destroy_qp,
@@ -105,17 +106,19 @@ static const struct verbs_context_ops c4iw_ctx_t4_ops = {
 };
 
 static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
-						int cmd_fd)
+						int cmd_fd,
+						void *private_data)
 {
 	struct c4iw_context *context;
 	struct ibv_get_context cmd;
-	struct c4iw_alloc_ucontext_resp resp;
+	struct uc4iw_alloc_ucontext_resp resp;
 	struct c4iw_dev *rhp = to_c4iw_dev(ibdev);
 	struct ibv_query_device qcmd;
 	uint64_t raw_fw_ver;
 	struct ibv_device_attr attr;
 
-	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
+					       RDMA_DRIVER_CXGB4);
 	if (!context)
 		return NULL;
 
@@ -188,6 +191,8 @@ static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
 		rhp->cqid2ptr = calloc(rhp->max_cq, sizeof(void *));
 		if (!rhp->cqid2ptr)
 			goto err_unmap;
+		rhp->write_cmpl_supported =
+				context->status_page->write_cmpl_supported;
 	}
 
 	return &context->ibv_ctx;
@@ -455,6 +460,7 @@ static struct verbs_device *c4iw_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 	dev->abi_version = sysfs_dev->abi_ver;
 	list_node_init(&dev->list);
 
+	list_head_init(&dev->srq_list);
 	PDBG("%s device claimed\n", __FUNCTION__);
 	list_add_tail(&devices, &dev->list);
 #ifdef STALL_DETECTION

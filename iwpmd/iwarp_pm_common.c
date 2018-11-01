@@ -66,12 +66,12 @@ void parse_iwpm_config(FILE *fp)
 	char param_name[IWPM_PARAM_NAME_LEN];
 	int n, val, ret;
 	char *str;
-	
+
 	str = fgets(line_buf, 128, fp);
 	while (str) {
 		if (line_buf[0] == '#' || line_buf[0] == '\n')
 			goto parse_next_line;
-		n = sscanf(line_buf, "%64[^= ] %*[=]%d", param_name, &val);	 
+		n = sscanf(line_buf, "%64[^= ] %*[=]%d", param_name, &val);
 		if (n != 2) {
 			syslog(LOG_WARNING, "parse_iwpm_config: Couldn't parse a line (n = %d, name = %s, val = %d\n", n, param_name, val);
 			goto parse_next_line;
@@ -124,7 +124,7 @@ int create_iwpm_socket_v4(__u16 bind_port)
 	/* get the socket name (local port number) */
 	sockname_len = sizeof(struct sockaddr_in);
 	if (getsockname(pm_sock, &bind_addr.sock_addr, &sockname_len)) {
-		syslog(LOG_WARNING, "create_iwpm_socket_v4: Unable to get socket name. %s.\n", 
+		syslog(LOG_WARNING, "create_iwpm_socket_v4: Unable to get socket name. %s.\n",
 				strerror(errno));
 		close(pm_sock);
 		pm_sock = -errno;
@@ -146,7 +146,7 @@ create_socket_v4_exit:
  */
 int create_iwpm_socket_v6(__u16 bind_port)
 {
-	sockaddr_union bind_addr;	
+	sockaddr_union bind_addr;
 	struct sockaddr_in6 *bind_in6;
 	int pm_sock, ret_value, ipv6_only;
 	socklen_t sockname_len;
@@ -155,7 +155,7 @@ int create_iwpm_socket_v6(__u16 bind_port)
 	/* create a socket */
 	pm_sock = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
 	if (pm_sock < 0) {
-		syslog(LOG_WARNING, "create_iwpm_socket_v6: Unable to create socket. %s.\n", 
+		syslog(LOG_WARNING, "create_iwpm_socket_v6: Unable to create socket. %s.\n",
 				strerror(errno));
 		pm_sock = -errno;
 		goto create_socket_v6_exit;
@@ -179,7 +179,7 @@ int create_iwpm_socket_v6(__u16 bind_port)
 	bind_in6->sin6_port = htobe16(bind_port);
 
 	if (bind(pm_sock, &bind_addr.sock_addr, sizeof(struct sockaddr_in6))) {
-		syslog(LOG_WARNING, "create_iwpm_socket_v6: Unable to bind socket (port = %u). %s.\n", 
+		syslog(LOG_WARNING, "create_iwpm_socket_v6: Unable to bind socket (port = %u). %s.\n",
 				bind_port, strerror(errno));
 		close(pm_sock);
 		pm_sock = -errno;
@@ -271,18 +271,18 @@ void destroy_iwpm_socket(int pm_sock)
 
 /**
  * check_iwpm_nlattr - Check for NULL netlink attribute
- */ 
+ */
 static int check_iwpm_nlattr(struct nlattr *nltb[], int nla_count)
-{ 
-        int i, ret = 0;          
+{
+	int i, ret = 0;
         for (i = 1; i < nla_count; i++) {
-                if (!nltb[i]) { 
-			iwpm_debug(IWARP_PM_NETLINK_DBG, "check_iwpm_nlattr: NULL (attr idx = %d)\n", i); 
+		if (!nltb[i]) {
+			iwpm_debug(IWARP_PM_NETLINK_DBG, "check_iwpm_nlattr: NULL (attr idx = %d)\n", i);
 			ret = -EINVAL;
 		}
-	}    
+	}
 	return ret;
-}      
+}
 
 /**
  * parse_iwpm_nlmsg - Parse a netlink message
@@ -294,11 +294,11 @@ static int check_iwpm_nlattr(struct nlattr *nltb[], int nla_count)
  */
 int parse_iwpm_nlmsg(struct nlmsghdr *req_nlh, int policy_max,
 			struct nla_policy *nlmsg_policy, struct nlattr *nltb [],
-			const char *msg_type) 
+			const char *msg_type)
 {
 	const char *str_err;
 	int ret;
-	
+
 	if ((ret = nlmsg_validate(req_nlh, 0, policy_max-1, nlmsg_policy))) {
 		str_err = "nlmsg_validate error";
 		goto parse_nlmsg_error;
@@ -314,8 +314,8 @@ int parse_iwpm_nlmsg(struct nlmsghdr *req_nlh, int policy_max,
 	}
 	return 0;
 parse_nlmsg_error:
-	syslog(LOG_WARNING, "parse_iwpm_nlmsg: msg type = %s (%s ret = %d)\n", 
-			msg_type, str_err, ret);		
+	syslog(LOG_WARNING, "parse_iwpm_nlmsg: msg type = %s (%s ret = %d)\n",
+			msg_type, str_err, ret);
 	return ret;
 }
 
@@ -323,9 +323,9 @@ parse_nlmsg_error:
  * send_iwpm_nlmsg - Send a netlink message
  * @nl_sock:  netlink socket to use for sending the message
  * @nlmsg:    netlink message to send
- * @dest_pid: pid of the destination of the nlmsg 
+ * @dest_pid: pid of the destination of the nlmsg
  */
-int send_iwpm_nlmsg(int nl_sock, struct nl_msg *nlmsg, int dest_pid) 
+int send_iwpm_nlmsg(int nl_sock, struct nl_msg *nlmsg, int dest_pid)
 {
 	struct sockaddr_nl dest_addr;
 	struct nlmsghdr *nlh = nlmsg_hdr(nlmsg);
@@ -358,15 +358,15 @@ struct nl_msg *create_iwpm_nlmsg(__u16 nlmsg_type, int client_idx)
 	__u32 seq = 0;
 
 	nlmsg = nlmsg_alloc();
-	if (!nlmsg) 
-		return NULL;	
+	if (!nlmsg)
+		return NULL;
 	if (client_idx > 0)
 		seq = client_list[client_idx].nl_seq++;
-	
+
 	nlh = nlmsg_put(nlmsg, getpid(), seq, nlmsg_type, 0, NLM_F_REQUEST);
 	if (!nlh) {
 		nlmsg_free(nlmsg);
-		return NULL;	
+		return NULL;
 	}
 	return nlmsg;
 }
@@ -375,7 +375,7 @@ struct nl_msg *create_iwpm_nlmsg(__u16 nlmsg_type, int client_idx)
  * parse_iwpm_msg - Parse iwarp port mapper wire message
  * @pm_msg: iwpm message to be parsed
  * @msg_parms: contains the parameters of the iwpm message after parsing
- */ 
+ */
 int parse_iwpm_msg(iwpm_wire_msg *pm_msg, iwpm_msg_parms *msg_parms)
 {
 	int ret_value = 0;
@@ -391,7 +391,7 @@ int parse_iwpm_msg(iwpm_wire_msg *pm_msg, iwpm_msg_parms *msg_parms)
 		msg_parms->address_family = AF_INET6;
 		break;
 	default:
-		syslog(LOG_WARNING, "parse_iwpm_msg: Invalid IP version = %d.\n", 
+		syslog(LOG_WARNING, "parse_iwpm_msg: Invalid IP version = %d.\n",
 			msg_parms->ip_ver);
 		return -EINVAL;
 	}
@@ -416,7 +416,7 @@ int parse_iwpm_msg(iwpm_wire_msg *pm_msg, iwpm_msg_parms *msg_parms)
  * form_iwpm_msg - Form iwarp port mapper wire message
  * @pm_msg: iwpm message to be formed
  * @msg_parms: the parameters to be packed in a iwpm message
- */ 
+ */
 static void form_iwpm_msg(iwpm_wire_msg *pm_msg, iwpm_msg_parms *msg_parms)
 {
 	memset(pm_msg, 0, sizeof(struct iwpm_wire_msg));
@@ -446,7 +446,7 @@ void form_iwpm_request(struct iwpm_wire_msg *pm_msg,
 		      struct iwpm_msg_parms  *msg_parms)
 {
 	msg_parms->mt = IWARP_PM_MT_REQ;
-	msg_parms->msize = IWARP_PM_MESSAGE_SIZE + IWPM_IPADDR_SIZE; 
+	msg_parms->msize = IWARP_PM_MESSAGE_SIZE + IWPM_IPADDR_SIZE;
 	form_iwpm_msg(pm_msg, msg_parms);
 }
 
@@ -459,7 +459,7 @@ void form_iwpm_accept(struct iwpm_wire_msg *pm_msg,
 		     struct iwpm_msg_parms  *msg_parms)
 {
 	msg_parms->mt = IWARP_PM_MT_ACC;
-	msg_parms->msize = IWARP_PM_MESSAGE_SIZE; 
+	msg_parms->msize = IWARP_PM_MESSAGE_SIZE;
 	form_iwpm_msg(pm_msg, msg_parms);
 }
 
@@ -472,7 +472,7 @@ void form_iwpm_ack(struct iwpm_wire_msg *pm_msg,
 		  struct iwpm_msg_parms  *msg_parms)
 {
 	msg_parms->mt = IWARP_PM_MT_ACK;
-	msg_parms->msize = IWARP_PM_MESSAGE_SIZE; 
+	msg_parms->msize = IWARP_PM_MESSAGE_SIZE;
 	form_iwpm_msg(pm_msg, msg_parms);
 }
 
@@ -485,7 +485,7 @@ void form_iwpm_reject(struct iwpm_wire_msg *pm_msg,
 		     struct iwpm_msg_parms  *msg_parms)
 {
 	msg_parms->mt = IWARP_PM_MT_REJ;
-	msg_parms->msize = IWARP_PM_MESSAGE_SIZE; 
+	msg_parms->msize = IWARP_PM_MESSAGE_SIZE;
 	form_iwpm_msg(pm_msg, msg_parms);
 }
 
@@ -498,7 +498,7 @@ __be16 get_sockaddr_port(struct sockaddr_storage *sockaddr)
 	struct sockaddr_in *sockaddr_v4;
 	struct sockaddr_in6 *sockaddr_v6;
 	__be16 port = 0;
-	
+
 	switch (sockaddr->ss_family) {
 	case AF_INET:
 		sockaddr_v4 = (struct sockaddr_in *)sockaddr;
@@ -516,15 +516,15 @@ __be16 get_sockaddr_port(struct sockaddr_storage *sockaddr)
 }
 
 /**
- * copy_iwpm_sockaddr - Copy (IP address and Port) from src to dst 
+ * copy_iwpm_sockaddr - Copy (IP address and Port) from src to dst
  * @address_family: Internet address family
- * @src_sockaddr: socket address to copy (if NULL, use src_addr) 
+ * @src_sockaddr: socket address to copy (if NULL, use src_addr)
  * @dst_sockaddr: socket address to update (if NULL, use dst_addr)
  * @src_addr: IP address to copy (if NULL, use src_sockaddr)
- * @dst_addr: IP address to update (if NULL, use dst_sockaddr)  
+ * @dst_addr: IP address to update (if NULL, use dst_sockaddr)
  * @src_port: port to copy in dst_sockaddr, if src_sockaddr = NULL
- * 	      port to update, if src_sockaddr != NULL and dst_sockaddr = NULL	
- */ 
+ *            port to update, if src_sockaddr != NULL and dst_sockaddr = NULL
+ */
 void copy_iwpm_sockaddr(__u16 addr_family, struct sockaddr_storage *src_sockaddr,
 		      struct sockaddr_storage *dst_sockaddr,
 		      char *src_addr, char *dst_addr, __be16 *src_port)
@@ -585,10 +585,10 @@ int is_wcard_ipaddr(struct sockaddr_storage *search_addr)
 	}
 	case AF_INET6: {
 		struct sockaddr_in6 wcard_addr;
-		struct sockaddr_in6 *in6addr = (struct sockaddr_in6 *)&search_addr;
+		struct sockaddr_in6 *in6addr = (struct sockaddr_in6 *)search_addr;
 		inet_pton(AF_INET6, "::", &wcard_addr.sin6_addr);
 
-		if (!memcmp(in6addr->sin6_addr.s6_addr, 
+		if (!memcmp(in6addr->sin6_addr.s6_addr,
 			wcard_addr.sin6_addr.s6_addr, IWPM_IPADDR_SIZE))
 			ret = 1;
 		break;
@@ -598,7 +598,7 @@ int is_wcard_ipaddr(struct sockaddr_storage *search_addr)
 			search_addr->ss_family);
 		break;
 	}
-	return ret;	
+	return ret;
 }
 
 /**

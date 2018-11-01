@@ -35,6 +35,7 @@
 
 #include <stdio.h>
 #include <linux/types.h> /* For the __be64 type */
+#include <sys/types.h>
 #include <endian.h>
 #if defined(__SSE3__)
 #include <limits.h>
@@ -44,6 +45,11 @@
 
 #include <infiniband/verbs.h>
 #include <infiniband/tm_types.h>
+#include <infiniband/mlx5_api.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Always inline the functions */
 #ifdef __GNUC__
@@ -64,6 +70,7 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_TUNNEL_OFFLOADS	= 1 << 3,
 	MLX5DV_CONTEXT_MASK_DYN_BFREGS		= 1 << 4,
 	MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE	= 1 << 5,
+	MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS	= 1 << 6,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -88,6 +95,16 @@ enum mlx5dv_tunnel_offloads {
 	MLX5DV_RAW_PACKET_CAP_TUNNELED_OFFLOAD_VXLAN	= 1 << 0,
 	MLX5DV_RAW_PACKET_CAP_TUNNELED_OFFLOAD_GRE	= 1 << 1,
 	MLX5DV_RAW_PACKET_CAP_TUNNELED_OFFLOAD_GENEVE	= 1 << 2,
+	MLX5DV_RAW_PACKET_CAP_TUNNELED_OFFLOAD_CW_MPLS_OVER_GRE	= 1 << 3,
+	MLX5DV_RAW_PACKET_CAP_TUNNELED_OFFLOAD_CW_MPLS_OVER_UDP	= 1 << 4,
+};
+
+enum mlx5dv_flow_action_cap_flags {
+	MLX5DV_FLOW_ACTION_FLAGS_ESP_AES_GCM		  = 1 << 0,
+	MLX5DV_FLOW_ACTION_FLAGS_ESP_AES_GCM_REQ_METADATA = 1 << 1,
+	MLX5DV_FLOW_ACTION_FLAGS_ESP_AES_GCM_SPI_STEERING = 1 << 2,
+	MLX5DV_FLOW_ACTION_FLAGS_ESP_AES_GCM_FULL_OFFLOAD = 1 << 3,
+	MLX5DV_FLOW_ACTION_FLAGS_ESP_AES_GCM_TX_IV_IS_ESN = 1 << 4,
 };
 
 /*
@@ -103,6 +120,7 @@ struct mlx5dv_context {
 	uint32_t	tunnel_offloads_caps;
 	uint32_t	max_dynamic_bfregs;
 	uint64_t	max_clock_info_update_nsec;
+	uint32_t        flow_action_flags; /* use enum mlx5dv_flow_action_cap_flags */
 };
 
 enum mlx5dv_context_flags {
@@ -120,7 +138,7 @@ enum mlx5dv_context_flags {
 enum mlx5dv_cq_init_attr_mask {
 	MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE	= 1 << 0,
 	MLX5DV_CQ_INIT_ATTR_MASK_FLAGS		= 1 << 1,
-	MLX5DV_CQ_INIT_ATTR_MASK_RESERVED	= 1 << 2,
+	MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE = 1 << 2,
 };
 
 enum mlx5dv_cq_init_attr_flags {
@@ -132,6 +150,7 @@ struct mlx5dv_cq_init_attr {
 	uint64_t comp_mask; /* Use enum mlx5dv_cq_init_attr_mask */
 	uint8_t cqe_comp_res_format; /* Use enum mlx5dv_cqe_comp_res_format */
 	uint32_t flags; /* Use enum mlx5dv_cq_init_attr_flags */
+	uint16_t cqe_size; /* when MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE set */
 };
 
 struct ibv_cq_ex *mlx5dv_create_cq(struct ibv_context *context,
@@ -140,6 +159,10 @@ struct ibv_cq_ex *mlx5dv_create_cq(struct ibv_context *context,
 
 enum mlx5dv_qp_create_flags {
 	MLX5DV_QP_CREATE_TUNNEL_OFFLOADS = 1 << 0,
+	MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_UC = 1 << 1,
+	MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_MC = 1 << 2,
+	MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE = 1 << 3,
+	MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE = 1 << 4,
 };
 
 enum mlx5dv_qp_init_attr_mask {
@@ -166,6 +189,98 @@ struct mlx5dv_qp_init_attr {
 struct ibv_qp *mlx5dv_create_qp(struct ibv_context *context,
 				struct ibv_qp_init_attr_ex *qp_attr,
 				struct mlx5dv_qp_init_attr *mlx5_qp_attr);
+
+enum mlx5dv_flow_action_esp_mask {
+	MLX5DV_FLOW_ACTION_ESP_MASK_FLAGS	= 1 << 0,
+};
+
+struct mlx5dv_flow_action_esp {
+	uint64_t comp_mask;  /* Use enum mlx5dv_flow_action_esp_mask */
+	uint32_t action_flags; /* Use enum mlx5dv_flow_action_flags */
+};
+
+struct mlx5dv_flow_match_parameters {
+	size_t match_sz;
+	uint64_t match_buf[]; /* Device spec format */
+};
+
+struct mlx5dv_flow_matcher_attr {
+	enum ibv_flow_attr_type type;
+	uint32_t flags; /* From enum ibv_flow_flags */
+	uint16_t priority;
+	uint8_t match_criteria_enable; /* Device spec format */
+	struct mlx5dv_flow_match_parameters *match_mask;
+	uint64_t comp_mask;
+};
+
+struct mlx5dv_flow_matcher;
+
+struct mlx5dv_flow_matcher *
+mlx5dv_create_flow_matcher(struct ibv_context *context,
+			   struct mlx5dv_flow_matcher_attr *matcher_attr);
+
+int mlx5dv_destroy_flow_matcher(struct mlx5dv_flow_matcher *matcher);
+
+enum mlx5dv_flow_action_type {
+	MLX5DV_FLOW_ACTION_DEST_IBV_QP,
+	MLX5DV_FLOW_ACTION_DROP,
+	MLX5DV_FLOW_ACTION_IBV_COUNTER,
+	MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION,
+	MLX5DV_FLOW_ACTION_TAG,
+	MLX5DV_FLOW_ACTION_DEST_DEVX,
+};
+
+struct mlx5dv_flow_action_attr {
+	enum mlx5dv_flow_action_type type;
+	union {
+		struct ibv_qp *qp;
+		struct ibv_counters *counter;
+		struct ibv_flow_action *action;
+		uint32_t tag_value;
+		struct mlx5dv_devx_obj *obj;
+	};
+};
+
+struct ibv_flow *
+mlx5dv_create_flow(struct mlx5dv_flow_matcher *matcher,
+		   struct mlx5dv_flow_match_parameters *match_value,
+		   size_t num_actions,
+		   struct mlx5dv_flow_action_attr actions_attr[]);
+
+struct ibv_flow_action *mlx5dv_create_flow_action_esp(struct ibv_context *ctx,
+						      struct ibv_flow_action_esp_attr *esp,
+						      struct mlx5dv_flow_action_esp *mlx5_attr);
+
+/*
+ * mlx5dv_create_flow_action_modify_header - Create a flow action which mutates
+ * a packet. The flow action can be attached to steering rules via
+ * ibv_create_flow().
+ *
+ * @ctx: RDMA device context to create the action on.
+ * @actions_sz: The size of *actions* buffer in bytes.
+ * @actions: A buffer which contains modify actions provided in device spec
+ *	     format.
+ * @ft_type: Defines the flow table type to which the modify
+ *	     header action will be attached.
+ *
+ * Return a valid ibv_flow_action if successful, NULL otherwise.
+ */
+struct ibv_flow_action *
+mlx5dv_create_flow_action_modify_header(struct ibv_context *ctx,
+					size_t actions_sz,
+					uint64_t actions[],
+					enum mlx5dv_flow_table_type ft_type);
+
+/*
+ * mlx5dv_create_flow_action_packet_reformat - Create flow action which can
+ * encap/decap packets.
+ */
+struct ibv_flow_action *
+mlx5dv_create_flow_action_packet_reformat(struct ibv_context *ctx,
+					  size_t data_sz,
+					  void *data,
+					  enum mlx5dv_flow_action_packet_reformat_type reformat_type,
+					  enum mlx5dv_flow_table_type ft_type);
 /*
  * Most device capabilities are exported by ibv_query_device(...),
  * but there is HW device-specific information which is important
@@ -178,6 +293,7 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 
 enum mlx5dv_qp_comp_mask {
 	MLX5DV_QP_MASK_UAR_MMAP_OFFSET		= 1 << 0,
+	MLX5DV_QP_MASK_RAW_QP_HANDLES		= 1 << 1,
 };
 
 struct mlx5dv_qp {
@@ -198,6 +314,10 @@ struct mlx5dv_qp {
 	} bf;
 	uint64_t		comp_mask;
 	off_t			uar_mmap_offset;
+	uint32_t		tirn;
+	uint32_t		tisn;
+	uint32_t		rqn;
+	uint32_t		sqn;
 };
 
 struct mlx5dv_cq {
@@ -227,6 +347,19 @@ struct mlx5dv_rwq {
 	uint64_t	comp_mask;
 };
 
+struct mlx5dv_dm {
+	void		*buf;
+	uint64_t	length;
+	uint64_t	comp_mask;
+};
+
+struct mlx5_wqe_av;
+
+struct mlx5dv_ah {
+	struct mlx5_wqe_av      *av;
+	uint64_t		comp_mask;
+};
+
 struct mlx5dv_obj {
 	struct {
 		struct ibv_qp		*in;
@@ -244,6 +377,14 @@ struct mlx5dv_obj {
 		struct ibv_wq		*in;
 		struct mlx5dv_rwq	*out;
 	} rwq;
+	struct {
+		struct ibv_dm		*in;
+		struct mlx5dv_dm	*out;
+	} dm;
+	struct {
+		struct ibv_ah		*in;
+		struct mlx5dv_ah	*out;
+	} ah;
 };
 
 enum mlx5dv_obj_type {
@@ -251,6 +392,8 @@ enum mlx5dv_obj_type {
 	MLX5DV_OBJ_CQ	= 1 << 1,
 	MLX5DV_OBJ_SRQ	= 1 << 2,
 	MLX5DV_OBJ_RWQ	= 1 << 3,
+	MLX5DV_OBJ_DM	= 1 << 4,
+	MLX5DV_OBJ_AH	= 1 << 5,
 };
 
 enum mlx5dv_wq_init_attr_mask {
@@ -440,7 +583,7 @@ enum {
 enum mlx5dv_cqe_comp_res_format {
 	MLX5DV_CQE_RES_FORMAT_HASH		= 1 << 0,
 	MLX5DV_CQE_RES_FORMAT_CSUM		= 1 << 1,
-	MLX5DV_CQE_RES_FORMAT_RESERVED		= 1 << 2,
+	MLX5DV_CQE_RES_FORMAT_CSUM_STRIDX       = 1 << 2,
 };
 
 enum mlx5dv_sw_parsing_offloads {
@@ -743,7 +886,9 @@ void mlx5dv_x86_set_data_seg(struct mlx5_wqe_data_seg *seg,
 			     uint32_t length, uint32_t lkey,
 			     uintptr_t address)
 {
-	__m128i val  = _mm_set_epi32((uint32_t)address, (uint32_t)(address >> 32), lkey, length);
+
+	uint64_t address64 = address;
+	__m128i val  = _mm_set_epi32((uint32_t)address64, (uint32_t)(address64 >> 32), lkey, length);
 	__m128i mask = _mm_set_epi8(12, 13, 14, 15,	/* local address low */
 				     8, 9, 10, 11,	/* local address high */
 				     4, 5, 6, 7,	/* l_key */
@@ -862,5 +1007,56 @@ static inline uint64_t mlx5dv_ts_to_ns(struct mlx5dv_clock_info *clock_info,
 
 	return nsec;
 }
+
+enum mlx5dv_context_attr_flags {
+	MLX5DV_CONTEXT_FLAGS_DEVX = 1 << 0,
+};
+
+struct mlx5dv_context_attr {
+	uint32_t flags; /* Use enum mlx5dv_context_attr_flags */
+	uint64_t comp_mask;
+};
+
+struct ibv_context *
+mlx5dv_open_device(struct ibv_device *device, struct mlx5dv_context_attr *attr);
+
+struct mlx5dv_devx_obj;
+
+struct mlx5dv_devx_obj *
+mlx5dv_devx_obj_create(struct ibv_context *context, const void *in, size_t inlen,
+		       void *out, size_t outlen);
+int mlx5dv_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
+			  void *out, size_t outlen);
+int mlx5dv_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
+			   void *out, size_t outlen);
+int mlx5dv_devx_obj_destroy(struct mlx5dv_devx_obj *obj);
+int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t inlen,
+			    void *out, size_t outlen);
+
+struct mlx5dv_devx_umem {
+	uint32_t umem_id;
+};
+
+struct mlx5dv_devx_umem *
+mlx5dv_devx_umem_reg(struct ibv_context *ctx, void *addr, size_t size, uint32_t access);
+int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *umem);
+
+struct mlx5dv_devx_uar {
+	void *reg_addr;
+	void *base_addr;
+	uint32_t page_id;
+	off_t mmap_off;
+	uint64_t comp_mask;
+};
+
+struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
+					      uint32_t flags);
+void mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *devx_uar);
+int mlx5dv_devx_query_eqn(struct ibv_context *context, uint32_t vector,
+			  uint32_t *eqn);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _MLX5DV_H_ */

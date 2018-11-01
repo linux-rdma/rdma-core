@@ -79,6 +79,21 @@ uint64_t        comp_mask;
 .in -8
 };
 
+struct mlx5dv_dm {
+.in +8
+void		*buf;
+uint64_t	length;
+uint64_t	comp_mask;
+.in -8
+};
+
+struct mlx5dv_ah {
+.in +8
+struct mlx5_wqe_av    *av;
+uint64_t              comp_mask;
+.in -8
+};
+
 struct mlx5dv_obj {
 .in +8
 struct {
@@ -105,6 +120,18 @@ struct ibv_wq           *in;
 struct mlx5dv_rwq       *out;
 .in -8
 } rwq;
+struct {
+.in +8
+struct ibv_dm		*in;
+struct mlx5dv_dm	*out;
+.in -8
+} dm;
+struct {
+.in +8
+struct ibv_ah		*in;
+struct mlx5dv_ah	*out;
+.in -8
+} ah;
 .in -8
 };
 
@@ -114,6 +141,8 @@ MLX5DV_OBJ_QP   = 1 << 0,
 MLX5DV_OBJ_CQ   = 1 << 1,
 MLX5DV_OBJ_SRQ  = 1 << 2,
 MLX5DV_OBJ_RWQ  = 1 << 3,
+MLX5DV_OBJ_DM   = 1 << 4,
+MLX5DV_OBJ_AH   = 1 << 5,
 .in -8
 };
 .fi

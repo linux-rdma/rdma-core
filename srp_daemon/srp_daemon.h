@@ -234,6 +234,7 @@ struct ud_resources {
 };
 
 struct umad_resources {
+	struct ibv_context *ib_ctx;
 	int		portid;
 	int		agent;
 	char	       *port_sysfs_path;
@@ -287,7 +288,7 @@ void pr_debug(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 void pr_err(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
 int pkey_index_to_pkey(struct umad_resources *umad_res, int pkey_index,
-		       uint16_t *pkey);
+		       __be16 *pkey);
 void handle_port(struct resources *res, uint16_t pkey, uint16_t lid, uint64_t h_guid);
 void ud_resources_init(struct ud_resources *res);
 int ud_resources_create(struct ud_resources *res);

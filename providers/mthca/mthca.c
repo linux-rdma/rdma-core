@@ -130,14 +130,16 @@ static const struct verbs_context_ops mthca_ctx_tavor_ops = {
 };
 
 static struct verbs_context *mthca_alloc_context(struct ibv_device *ibdev,
-						 int cmd_fd)
+						 int cmd_fd,
+						 void *private_data)
 {
 	struct mthca_context            *context;
 	struct ibv_get_context           cmd;
-	struct mthca_alloc_ucontext_resp resp;
+	struct umthca_alloc_ucontext_resp resp;
 	int                              i;
 
-	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx);
+	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
+					       RDMA_DRIVER_MTHCA);
 	if (!context)
 		return NULL;
 

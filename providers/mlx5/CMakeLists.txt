@@ -11,7 +11,7 @@ if (MLX5_MW_DEBUG)
 endif()
 
 rdma_shared_provider(mlx5 libmlx5.map
-  1 1.4.${PACKAGE_VERSION}
+  1 1.7.${PACKAGE_VERSION}
   buf.c
   cq.c
   dbrec.c
@@ -22,5 +22,9 @@ rdma_shared_provider(mlx5 libmlx5.map
 )
 
 publish_headers(infiniband
+  ../../kernel-headers/rdma/mlx5_user_ioctl_verbs.h
+  mlx5_api.h
   mlx5dv.h
 )
+
+rdma_pkg_config("mlx5" "libibverbs" "${CMAKE_THREAD_LIBS_INIT}")

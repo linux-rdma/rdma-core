@@ -186,7 +186,7 @@ int ipath_free_pd(struct ibv_pd *pd);
 struct ibv_mr *ipath_reg_mr(struct ibv_pd *pd, void *addr,
 			    size_t length, int access);
 
-int ipath_dereg_mr(struct ibv_mr *mr);
+int ipath_dereg_mr(struct verbs_mr *vmr);
 
 struct ibv_cq *ipath_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,

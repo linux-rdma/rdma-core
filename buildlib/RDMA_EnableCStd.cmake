@@ -49,9 +49,84 @@ function(RDMA_EnableCStd)
     CHECK_C_COMPILER_FLAG("-std=gnu11" SUPPORTS_GNU11)
     if (SUPPORTS_GNU11)
       SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu11" PARENT_SCOPE)
+    else()
+      SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99" PARENT_SCOPE)
     endif()
   else()
     # Newer cmake can do this internally
     set(CMAKE_C_STANDARD 11 PARENT_SCOPE)
   endif()
 endfunction()
+
+function(RDMA_Check_Aliasing TO_VAR)
+  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2")
+  CHECK_C_SOURCE_COMPILES("
+struct in6_addr {unsigned int u6_addr32[4];};
+struct iphdr {unsigned int daddr;};
+union ibv_gid {unsigned char raw[16];};
+
+static void map_ipv4_addr_to_ipv6(struct in6_addr *ipv6) {ipv6->u6_addr32[0] = 0;}
+static int set_ah_attr_by_ipv4(struct iphdr *ip4h)
+{
+	union ibv_gid sgid = {};
+	map_ipv4_addr_to_ipv6((struct in6_addr *)&sgid);
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	struct in6_addr a;
+	struct iphdr h = {};
+	map_ipv4_addr_to_ipv6(&a);
+	return set_ah_attr_by_ipv4(&h);
+}"
+    HAVE_WORKING_STRICT_ALIASING
+    FAIL_REGEX "warning")
+
+  set(${TO_VAR} "${HAVE_WORKING_STRICT_ALIASING}" PARENT_SCOPE)
+endfunction()
+
+function(RDMA_Check_SSE TO_VAR)
+  set(SSE_CHECK_PROGRAM "
+#if defined(__i386__)
+#include <string.h>
+#include <xmmintrin.h>
+int __attribute__((target(\"sse\"))) main(int argc, char *argv[])
+{
+	__m128 tmp = {};
+
+	tmp = _mm_loadl_pi(tmp, (__m64 *)&main);
+	_mm_storel_pi((__m64 *)&main, tmp);
+	return memchr(&tmp, 0, sizeof(tmp)) == &tmp;
+}
+#else
+int main(int argc, char *argv[])
+{
+	return 0;
+}
+#endif
+")
+
+  CHECK_C_SOURCE_COMPILES(
+    "${SSE_CHECK_PROGRAM}"
+    HAVE_TARGET_SSE
+    FAIL_REGEX "warning")
+
+  if(NOT HAVE_TARGET_SSE)
+    # Older compiler, we can work around this by adding -msse instead of
+    # relying on the function attribute.
+    set(CMAKE_REQUIRED_FLAGS "-msse")
+    CHECK_C_SOURCE_COMPILES(
+      "${SSE_CHECK_PROGRAM}"
+      NEED_MSSE_FLAG
+      FAIL_REGEX "warning")
+    set(CMAKE_REQUIRED_FLAGS)
+
+    if(NEED_MSSE_FLAG)
+      set(SSE_FLAGS "-msse" PARENT_SCOPE)
+    else()
+      message(FATAL_ERROR "Can not figure out how to turn on sse instructions for i386")
+    endif()
+  endif()
+  set(${TO_VAR} "${HAVE_TARGET_SSE}" PARENT_SCOPE)
+endFunction()

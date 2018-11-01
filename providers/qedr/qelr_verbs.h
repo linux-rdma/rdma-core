@@ -50,7 +50,7 @@ int qelr_dealloc_pd(struct ibv_pd *ibpd);
 
 struct ibv_mr *qelr_reg_mr(struct ibv_pd *ibpd, void *addr,
 			   size_t len, int access);
-int qelr_dereg_mr(struct ibv_mr *mr);
+int qelr_dereg_mr(struct verbs_mr *mr);
 
 struct ibv_cq *qelr_create_cq(struct ibv_context *context, int cqe,
 			      struct ibv_comp_channel *channel,
@@ -72,6 +72,15 @@ int qelr_post_send(struct ibv_qp *ib_qp, struct ibv_send_wr *wr,
 		   struct ibv_send_wr **bad_wr);
 int qelr_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		   struct ibv_recv_wr **bad_wr);
+
+int qelr_query_srq(struct ibv_srq *ibv_srq, struct ibv_srq_attr *attr);
+int qelr_modify_srq(struct ibv_srq *ibv_srq, struct ibv_srq_attr *attr,
+		    int attr_mask);
+struct ibv_srq *qelr_create_srq(struct ibv_pd *pd,
+				struct ibv_srq_init_attr *init_attr);
+int qelr_destroy_srq(struct ibv_srq *ibv_srq);
+int qelr_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
+		       struct ibv_recv_wr **bad_wr);
 
 void qelr_async_event(struct ibv_async_event *event);
 #endif /* __QELR_VERBS_H__ */

@@ -59,7 +59,7 @@ struct rxe_context {
 
 struct rxe_cq {
 	struct ibv_cq		ibv_cq;
-	struct mmap_info	mmap_info;
+	struct mminfo		mmap_info;
 	struct rxe_queue		*queue;
 	pthread_spinlock_t	lock;
 };
@@ -78,9 +78,9 @@ struct rxe_wq {
 
 struct rxe_qp {
 	struct ibv_qp		ibv_qp;
-	struct mmap_info	rq_mmap_info;
+	struct mminfo		rq_mmap_info;
 	struct rxe_wq		rq;
-	struct mmap_info	sq_mmap_info;
+	struct mminfo		sq_mmap_info;
 	struct rxe_wq		sq;
 	unsigned int		ssn;
 };
@@ -89,7 +89,7 @@ struct rxe_qp {
 
 struct rxe_srq {
 	struct ibv_srq		ibv_srq;
-	struct mmap_info	mmap_info;
+	struct mminfo		mmap_info;
 	struct rxe_wq		rq;
 	uint32_t		srq_num;
 };

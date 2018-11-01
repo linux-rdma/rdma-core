@@ -729,7 +729,7 @@ static int get_trap_notices(struct resources *res)
 	int cur_receive = 0;
 	int ret = 0;
 	int pkey_index;
-	uint16_t pkey;
+	__be16 pkey;
 	char *buffer;
 	struct umad_sa_packet *mad_buffer;
 	struct ib_mad_notice_attr *notice_buffer;
@@ -768,17 +768,17 @@ static int get_trap_notices(struct resources *res)
 			}
 
 			notice_buffer = (struct ib_mad_notice_attr *) (mad_buffer->data);
-			trap_num = be16toh(notice_buffer->g_or_v.generic.trap_num);
+			trap_num = be16toh(notice_buffer->generic.trap_num);
 			response_to_trap(res->sync_res, res->ud_res, mad_buffer);
 			if (trap_num == UMAD_SM_GID_IN_SERVICE_TRAP)
 				push_gid_to_list(res->sync_res,
-						 &notice_buffer->data_details.ntc_64_67.gid,
-						 pkey);
+						 &notice_buffer->ntc_64_67.gid,
+						 be16toh(pkey));
 			else if (trap_num == UMAD_SM_LOCAL_CHANGES_TRAP) {
-				if (be32toh(notice_buffer->data_details.ntc_144.new_cap_mask) & SRP_IS_DM)
+				if (be32toh(notice_buffer->ntc_144.new_cap_mask) & SRP_IS_DM)
 					push_lid_to_list(res->sync_res,
-							 be16toh(notice_buffer->data_details.ntc_144.lid),
-							 pkey);
+							 be16toh(notice_buffer->ntc_144.lid),
+							 be16toh(pkey));
 			} else {
 				pr_err("Unhandled trap_num %d\n", trap_num);
 			}

@@ -282,7 +282,7 @@ int mthca_free_pd(struct ibv_pd *pd);
 
 struct ibv_mr *mthca_reg_mr(struct ibv_pd *pd, void *addr,
 			    size_t length, int access);
-int mthca_dereg_mr(struct ibv_mr *mr);
+int mthca_dereg_mr(struct verbs_mr *mr);
 
 struct ibv_cq *mthca_create_cq(struct ibv_context *context, int cqe,
 			       struct ibv_comp_channel *channel,

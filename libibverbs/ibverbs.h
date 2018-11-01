@@ -40,9 +40,14 @@
 
 #include <valgrind/memcheck.h>
 
+#include <ccan/bitmap.h>
+
 #define INIT		__attribute__((constructor))
 
 #define PFX		"libibverbs: "
+#define VERBS_OPS_NUM (sizeof(struct verbs_context_ops) / sizeof(void *))
+
+#define RDMA_CDEV_DIR "/dev/infiniband"
 
 struct ibv_abi_compat_v2 {
 	struct ibv_comp_channel	channel;
@@ -58,9 +63,20 @@ void ibverbs_device_put(struct ibv_device *dev);
 void ibverbs_device_hold(struct ibv_device *dev);
 
 struct verbs_ex_private {
-	struct ibv_cq_ex *(*create_cq_ex)(struct ibv_context *context,
-					  struct ibv_cq_init_attr_ex *init_attr);
+	BITMAP_DECLARE(unsupported_ioctls, VERBS_OPS_NUM);
+	uint32_t driver_id;
+	struct verbs_context_ops ops;
 };
+
+static inline struct verbs_ex_private *get_priv(struct ibv_context *ctx)
+{
+	return container_of(ctx, struct verbs_context, context)->priv;
+}
+
+static inline const struct verbs_context_ops *get_ops(struct ibv_context *ctx)
+{
+	return &get_priv(ctx)->ops;
+}
 
 #define IBV_INIT_CMD(cmd, size, opcode)					\
 	do {								\
@@ -79,9 +95,7 @@ struct verbs_ex_private {
 
 static inline uint32_t _cmd_ex(uint32_t cmd)
 {
-	return (IB_USER_VERBS_CMD_FLAG_EXTENDED
-		<< IB_USER_VERBS_CMD_FLAGS_SHIFT) |
-	       cmd;
+	return IB_USER_VERBS_CMD_FLAG_EXTENDED | cmd;
 }
 
 #define IBV_INIT_CMD_RESP_EX_V(cmd, cmd_size, size, opcode, out, resp_size,\

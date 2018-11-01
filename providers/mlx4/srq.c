@@ -234,7 +234,7 @@ struct ibv_srq *mlx4_create_xrc_srq(struct ibv_context *context,
 				    struct ibv_srq_init_attr_ex *attr_ex)
 {
 	struct mlx4_create_xsrq cmd;
-	struct mlx4_create_srq_resp resp;
+	struct mlx4_create_xsrq_resp resp;
 	struct mlx4_srq *srq;
 	int ret;
 
@@ -307,7 +307,7 @@ int mlx4_destroy_xrc_srq(struct ibv_srq *srq)
 	pthread_spin_unlock(&mcq->lock);
 
 	ret = ibv_cmd_destroy_srq(srq);
-	if (ret && !cleanup_on_fatal(ret)) {
+	if (ret) {
 		pthread_spin_lock(&mcq->lock);
 		mlx4_store_xsrq(&mctx->xsrq_table, msrq->verbs_srq.srq_num, msrq);
 		pthread_spin_unlock(&mcq->lock);
