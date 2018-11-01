@@ -4095,3 +4095,153 @@ int mlx5dv_devx_query_eqn(struct ibv_context *context, uint32_t vector,
 
 	return execute_ioctl(context, cmd);
 }
+
+int mlx5dv_devx_cq_query(struct ibv_cq *cq, const void *in, size_t inlen,
+				void *out, size_t outlen)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_OBJ,
+			       MLX5_IB_METHOD_DEVX_OBJ_QUERY,
+			       3);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_HANDLE, cq->handle);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_CMD_IN, in, inlen);
+	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_CMD_OUT, out, outlen);
+
+	return execute_ioctl(cq->context, cmd);
+}
+
+int mlx5dv_devx_cq_modify(struct ibv_cq *cq, const void *in, size_t inlen,
+				void *out, size_t outlen)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_OBJ,
+			       MLX5_IB_METHOD_DEVX_OBJ_MODIFY,
+			       3);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_HANDLE, cq->handle);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_CMD_IN, in, inlen);
+	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_CMD_OUT, out, outlen);
+
+	return execute_ioctl(cq->context, cmd);
+}
+
+int mlx5dv_devx_qp_query(struct ibv_qp *qp, const void *in, size_t inlen,
+				void *out, size_t outlen)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_OBJ,
+			       MLX5_IB_METHOD_DEVX_OBJ_QUERY,
+			       3);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_HANDLE, qp->handle);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_CMD_IN, in, inlen);
+	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_CMD_OUT, out, outlen);
+
+	return execute_ioctl(qp->context, cmd);
+}
+
+int mlx5dv_devx_qp_modify(struct ibv_qp *qp, const void *in, size_t inlen,
+				void *out, size_t outlen)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_OBJ,
+			       MLX5_IB_METHOD_DEVX_OBJ_MODIFY,
+			       3);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_HANDLE, qp->handle);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_CMD_IN, in, inlen);
+	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_CMD_OUT, out, outlen);
+
+	return execute_ioctl(qp->context, cmd);
+}
+
+int mlx5dv_devx_srq_query(struct ibv_srq *srq, const void *in, size_t inlen,
+				void *out, size_t outlen)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_OBJ,
+			       MLX5_IB_METHOD_DEVX_OBJ_QUERY,
+			       3);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_HANDLE, srq->handle);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_CMD_IN, in, inlen);
+	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_CMD_OUT, out, outlen);
+
+	return execute_ioctl(srq->context, cmd);
+}
+
+int mlx5dv_devx_srq_modify(struct ibv_srq *srq, const void *in, size_t inlen,
+				void *out, size_t outlen)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_OBJ,
+			       MLX5_IB_METHOD_DEVX_OBJ_MODIFY,
+			       3);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_HANDLE, srq->handle);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_CMD_IN, in, inlen);
+	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_CMD_OUT, out, outlen);
+
+	return execute_ioctl(srq->context, cmd);
+}
+
+int mlx5dv_devx_wq_query(struct ibv_wq *wq, const void *in, size_t inlen,
+				void *out, size_t outlen)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_OBJ,
+			       MLX5_IB_METHOD_DEVX_OBJ_QUERY,
+			       3);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_HANDLE, wq->handle);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_CMD_IN, in, inlen);
+	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_CMD_OUT, out, outlen);
+
+	return execute_ioctl(wq->context, cmd);
+}
+
+int mlx5dv_devx_wq_modify(struct ibv_wq *wq, const void *in, size_t inlen,
+				void *out, size_t outlen)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_OBJ,
+			       MLX5_IB_METHOD_DEVX_OBJ_MODIFY,
+			       3);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_HANDLE, wq->handle);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_CMD_IN, in, inlen);
+	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_CMD_OUT, out, outlen);
+
+	return execute_ioctl(wq->context, cmd);
+}
+
+int mlx5dv_devx_ind_tbl_query(struct ibv_rwq_ind_table *ind_tbl, const void *in, size_t inlen,
+				void *out, size_t outlen)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_OBJ,
+			       MLX5_IB_METHOD_DEVX_OBJ_QUERY,
+			       3);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_HANDLE, ind_tbl->ind_tbl_handle);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_CMD_IN, in, inlen);
+	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_CMD_OUT, out, outlen);
+
+	return execute_ioctl(ind_tbl->context, cmd);
+}
+
+int mlx5dv_devx_ind_tbl_modify(struct ibv_rwq_ind_table *ind_tbl, const void *in, size_t inlen,
+				void *out, size_t outlen)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_OBJ,
+			       MLX5_IB_METHOD_DEVX_OBJ_MODIFY,
+			       3);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_HANDLE, ind_tbl->ind_tbl_handle);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_CMD_IN, in, inlen);
+	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_OBJ_MODIFY_CMD_OUT, out, outlen);
+
+	return execute_ioctl(ind_tbl->context, cmd);
+}
