@@ -14,6 +14,7 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  MLX5_1.5@MLX5_1.5 18
  MLX5_1.6@MLX5_1.6 20
  MLX5_1.7@MLX5_1.7 21
+ MLX5_1.8@MLX5_1.8 22
  mlx5dv_init_obj@MLX5_1.0 13
  mlx5dv_init_obj@MLX5_1.2 15
  mlx5dv_query_device@MLX5_1.0 13
@@ -39,3 +40,13 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_devx_umem_dereg@MLX5_1.7 21
  mlx5dv_devx_umem_reg@MLX5_1.7 21
  mlx5dv_open_device@MLX5_1.7 21
+ mlx5dv_devx_cq_modify@MLX5_1.8 22
+ mlx5dv_devx_cq_query@MLX5_1.8 22
+ mlx5dv_devx_ind_tbl_modify@MLX5_1.8 22
+ mlx5dv_devx_ind_tbl_query@MLX5_1.8 22
+ mlx5dv_devx_qp_modify@MLX5_1.8 22
+ mlx5dv_devx_qp_query@MLX5_1.8 22
+ mlx5dv_devx_srq_modify@MLX5_1.8 22
+ mlx5dv_devx_srq_query@MLX5_1.8 22
+ mlx5dv_devx_wq_modify@MLX5_1.8 22
+ mlx5dv_devx_wq_query@MLX5_1.8 22

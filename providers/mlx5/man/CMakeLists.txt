@@ -7,6 +7,7 @@ rdma_man_pages(
   mlx5dv_create_qp.3.md
   mlx5dv_devx_alloc_uar.3.md
   mlx5dv_devx_obj_create.3.md
+  mlx5dv_devx_qp_modify.3.md
   mlx5dv_devx_query_eqn.3.md
   mlx5dv_devx_umem_reg.3.md
   mlx5dv_flow_action_esp.3.md
@@ -23,5 +24,14 @@ rdma_alias_man_pages(
  mlx5dv_devx_obj_create.3 mlx5dv_devx_obj_destroy.3
  mlx5dv_devx_obj_create.3 mlx5dv_devx_obj_query.3
  mlx5dv_devx_obj_create.3 mlx5dv_devx_obj_modify.3
+ mlx5dv_devx_qp_modify.3 mlx5dv_devx_qp_query.3
+ mlx5dv_devx_qp_modify.3 mlx5dv_devx_cq_modify.3
+ mlx5dv_devx_qp_modify.3 mlx5dv_devx_cq_query.3
+ mlx5dv_devx_qp_modify.3 mlx5dv_devx_wq_modify.3
+ mlx5dv_devx_qp_modify.3 mlx5dv_devx_wq_query.3
+ mlx5dv_devx_qp_modify.3 mlx5dv_devx_srq_modify.3
+ mlx5dv_devx_qp_modify.3 mlx5dv_devx_srq_query.3
+ mlx5dv_devx_qp_modify.3 mlx5dv_devx_ind_tbl_modify.3
+ mlx5dv_devx_qp_modify.3 mlx5dv_devx_ind_tbl_query.3
  mlx5dv_devx_umem_reg.3 mlx5dv_devx_umem_dereg.3
 )
