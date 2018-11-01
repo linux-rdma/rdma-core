@@ -80,10 +80,8 @@ int mlx4_query_device_ex(struct ibv_context *context,
 	int err;
 
 	err = ibv_cmd_query_device_ex(context, input, attr, attr_size,
-				      &raw_fw_ver,
-				      &cmd.ibv_cmd, sizeof(cmd.ibv_cmd), sizeof(cmd),
-				      &resp.ibv_resp, sizeof(resp.ibv_resp),
-				      sizeof(resp));
+				      &raw_fw_ver, &cmd.ibv_cmd, sizeof(cmd),
+				      &resp.ibv_resp, sizeof(resp));
 	if (err)
 		return err;
 
@@ -785,10 +783,9 @@ static int mlx4_cmd_create_qp_ex_rss(struct ibv_context *context,
 	       sizeof(cmd_ex.rx_hash_key));
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
-				    sizeof(qp->verbs_qp), attr,
-				    &cmd_ex.ibv_cmd, sizeof(cmd_ex.ibv_cmd),
+				    sizeof(qp->verbs_qp), attr, &cmd_ex.ibv_cmd,
 				    sizeof(cmd_ex), &resp.ibv_resp,
-				    sizeof(resp.ibv_resp), sizeof(resp));
+				    sizeof(resp));
 	return ret;
 }
 
@@ -841,10 +838,9 @@ static int mlx4_cmd_create_qp_ex(struct ibv_context *context,
 	cmd_ex.drv_payload = cmd->drv_payload;
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
-				    sizeof(qp->verbs_qp), attr,
-				    &cmd_ex.ibv_cmd, sizeof(cmd_ex.ibv_cmd),
+				    sizeof(qp->verbs_qp), attr, &cmd_ex.ibv_cmd,
 				    sizeof(cmd_ex), &resp.ibv_resp,
-				    sizeof(resp.ibv_resp), sizeof(resp));
+				    sizeof(resp));
 	return ret;
 }
 
@@ -1479,10 +1475,7 @@ struct ibv_wq *mlx4_create_wq(struct ibv_context *context,
 	pthread_mutex_lock(&to_mctx(context)->qp_table_mutex);
 
 	ret = ibv_cmd_create_wq(context, attr, &qp->wq, &cmd.ibv_cmd,
-				sizeof(cmd.ibv_cmd),
-				sizeof(cmd),
-				&resp, sizeof(resp),
-				sizeof(resp));
+				sizeof(cmd), &resp, sizeof(resp));
 	if (ret)
 		goto err_rq_db;
 
@@ -1529,8 +1522,7 @@ int mlx4_modify_wq(struct ibv_wq *ibwq, struct ibv_wq_attr *attr)
 	struct mlx4_modify_wq cmd = {};
 	int ret;
 
-	ret = ibv_cmd_modify_wq(ibwq, attr, &cmd.ibv_cmd,  sizeof(cmd.ibv_cmd),
-				sizeof(cmd));
+	ret = ibv_cmd_modify_wq(ibwq, attr, &cmd.ibv_cmd, sizeof(cmd));
 
 	if (!ret && (attr->attr_mask & IBV_WQ_ATTR_STATE) &&
 	    (ibwq->state == IBV_WQS_RESET)) {

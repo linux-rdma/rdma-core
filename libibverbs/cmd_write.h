@@ -257,6 +257,36 @@ int _execute_cmd_write(struct ibv_context *ctx, unsigned int write_method,
 	})
 
 /*
+ * For write() commands that use the _ex protocol. _full allows the caller to
+ * specify all 4 sizes directly. This version is used when the core structs
+ * end in a flex array. The normal and req versions are similar to write() and
+ * deduce the length of the core struct from the enum.
+ */
+int _execute_cmd_write_ex(struct ibv_context *ctx, unsigned int write_method,
+			  struct ex_hdr *req, size_t core_req_size,
+			  size_t req_size, void *resp, size_t core_resp_size,
+			  size_t resp_size);
+#define execute_cmd_write_ex_full(ctx, enum, cmd, core_cmd_size, cmd_size,     \
+				  resp, core_resp_size, resp_size)             \
+	_execute_cmd_write_ex(                                                 \
+		ctx, enum, &(cmd)->hdr + check_type(cmd, IBV_ABI_REQ(enum) *), \
+		core_cmd_size, cmd_size,                                       \
+		resp + check_type(resp, IBV_KABI_RESP(enum) *),                \
+		core_resp_size, resp_size)
+#define execute_cmd_write_ex(ctx, enum, cmd, cmd_size, resp, resp_size)        \
+	execute_cmd_write_ex_full(ctx, enum, cmd, sizeof(*(cmd)), cmd_size,    \
+				  resp, sizeof(*(resp)), resp_size)
+#define execute_cmd_write_ex_req(ctx, enum, cmd, cmd_size)                     \
+	({                                                                     \
+		static_assert(sizeof(IBV_KABI_RESP(enum)) == 0,                \
+			      "Method has a response!");                       \
+		_execute_cmd_write_ex(                                         \
+			ctx, enum,                                             \
+			&(cmd)->hdr + check_type(cmd, IBV_ABI_REQ(enum) *),    \
+			sizeof(*(cmd)), cmd_size, NULL, 0, 0);                 \
+	})
+
+/*
  * These two macros are used only with execute_ioctl_fallback - they allow the
  * IOCTL code to be elided by the compiler when disabled.
  */

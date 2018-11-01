@@ -38,6 +38,7 @@
 #include <infiniband/driver.h>
 
 #include <rdma/ib_user_ioctl_cmds.h>
+#include <valgrind/memcheck.h>
 
 /* Number of attrs in this and all the link'd buffers */
 unsigned int __ioctl_final_num_attrs(unsigned int num_attrs,

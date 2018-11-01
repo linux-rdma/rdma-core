@@ -38,6 +38,7 @@
 #include <ccan/build_assert.h>
 
 #include <unistd.h>
+#include <valgrind/memcheck.h>
 
 /*
  * Check if the command buffer provided by the driver includes anything that
@@ -283,5 +284,40 @@ int _execute_write_raw_ex(struct ibv_context *ctx, struct ex_hdr *hdr)
 	if (resp)
 		VALGRIND_MAKE_MEM_DEFINED(resp, resp_bytes);
 
+	return 0;
+}
+
+/*
+ * req_size is the total length of the ex_hdr, core payload and driver data.
+ * core_req_size is the total length of the ex_hdr and core_payload.
+ */
+int _execute_cmd_write_ex(struct ibv_context *ctx, unsigned int write_method,
+		       struct ex_hdr *req, size_t core_req_size,
+		       size_t req_size, void *resp, size_t core_resp_size,
+		       size_t resp_size)
+{
+	req->hdr.command = IB_USER_VERBS_CMD_FLAG_EXTENDED | write_method;
+	req->hdr.in_words =
+		__check_divide(core_req_size - sizeof(struct ex_hdr), 8);
+	req->hdr.out_words = __check_divide(core_resp_size, 8);
+	req->ex_hdr.provider_in_words =
+		__check_divide(req_size - core_req_size, 8);
+	req->ex_hdr.provider_out_words =
+		__check_divide(resp_size - core_resp_size, 8);
+	req->ex_hdr.response = ioctl_ptr_to_u64(resp);
+	req->ex_hdr.cmd_hdr_reserved = 0;
+
+	/*
+	 * Users assumes the stack buffer is zeroed before passing to the
+	 * kernel for writing.
+	 */
+	if (resp)
+		memset(resp, 0, resp_size);
+
+	if (write(ctx->cmd_fd, req, req_size) != req_size)
+		return errno;
+
+	if (resp)
+		VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 	return 0;
 }

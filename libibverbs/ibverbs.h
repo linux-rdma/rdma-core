@@ -37,9 +37,6 @@
 #include <pthread.h>
 
 #include <infiniband/driver.h>
-
-#include <valgrind/memcheck.h>
-
 #include <ccan/bitmap.h>
 
 #define INIT		__attribute__((constructor))
@@ -85,36 +82,5 @@ static inline const struct verbs_context_ops *get_ops(struct ibv_context *ctx)
 {
 	return &get_priv(ctx)->ops;
 }
-
-static inline uint32_t _cmd_ex(uint32_t cmd)
-{
-	return IB_USER_VERBS_CMD_FLAG_EXTENDED | cmd;
-}
-
-#define IBV_INIT_CMD_RESP_EX_V(cmd, cmd_size, size, opcode, out, resp_size,\
-		outsize)						   \
-	do {                                                               \
-		size_t c_size = cmd_size - sizeof(struct ex_hdr);	   \
-		(cmd)->hdr.hdr.command =				   \
-			_cmd_ex(IB_USER_VERBS_EX_CMD_##opcode);		   \
-		(cmd)->hdr.hdr.in_words  = ((c_size) / 8);                 \
-		(cmd)->hdr.hdr.out_words = ((resp_size) / 8);              \
-		(cmd)->hdr.ex_hdr.provider_in_words   = (((size) - (cmd_size))/8);\
-		(cmd)->hdr.ex_hdr.provider_out_words  =			   \
-			     (((outsize) - (resp_size)) / 8);              \
-		(cmd)->hdr.ex_hdr.response  = (uintptr_t) (out);           \
-		(cmd)->hdr.ex_hdr.cmd_hdr_reserved = 0;			   \
-	} while (0)
-
-#define IBV_INIT_CMD_RESP_EX_VCMD(cmd, cmd_size, size, opcode, out, outsize) \
-	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_size, size, opcode, out,	     \
-			sizeof(*(out)), outsize)
-
-#define IBV_INIT_CMD_RESP_EX(cmd, size, opcode, out, outsize)		     \
-	IBV_INIT_CMD_RESP_EX_V(cmd, sizeof(*(cmd)), size, opcode, out,    \
-			sizeof(*(out)), outsize)
-
-#define IBV_INIT_CMD_EX(cmd, size, opcode)				     \
-	IBV_INIT_CMD_RESP_EX_V(cmd, sizeof(*(cmd)), size, opcode, NULL, 0, 0)
 
 #endif /* IB_VERBS_H */

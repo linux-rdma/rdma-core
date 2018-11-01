@@ -1557,10 +1557,9 @@ static int mlx5_cmd_create_rss_qp(struct ibv_context *context,
 			attr->rx_hash_conf.rx_hash_key_len);
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
-					    sizeof(qp->verbs_qp), attr,
-					    &cmd_ex_rss.ibv_cmd, sizeof(cmd_ex_rss.ibv_cmd),
-					    sizeof(cmd_ex_rss), &resp.ibv_resp,
-					    sizeof(resp.ibv_resp), sizeof(resp));
+				    sizeof(qp->verbs_qp), attr,
+				    &cmd_ex_rss.ibv_cmd, sizeof(cmd_ex_rss),
+				    &resp.ibv_resp, sizeof(resp));
 	if (ret)
 		return ret;
 
@@ -1588,10 +1587,9 @@ static int mlx5_cmd_create_qp_ex(struct ibv_context *context,
 	cmd_ex.drv_payload = cmd->drv_payload;
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
-				    sizeof(qp->verbs_qp), attr,
-				    &cmd_ex.ibv_cmd, sizeof(cmd_ex.ibv_cmd),
+				    sizeof(qp->verbs_qp), attr, &cmd_ex.ibv_cmd,
 				    sizeof(cmd_ex), &resp->ibv_resp,
-				    sizeof(resp->ibv_resp), sizeof(*resp));
+				    sizeof(*resp));
 
 	return ret;
 }
@@ -2154,11 +2152,8 @@ static int modify_dct(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	bool dct_create;
 	int ret;
 
-	ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask,
-				   &cmd_ex,
-				   sizeof(cmd_ex), sizeof(cmd_ex),
-				   &resp.ibv_resp,
-				   sizeof(resp.ibv_resp), sizeof(resp));
+	ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask, &cmd_ex, sizeof(cmd_ex),
+				   &resp.ibv_resp, sizeof(resp));
 	if (ret)
 		return ret;
 
@@ -2249,11 +2244,8 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	}
 
 	if (attr_mask & MLX5_MODIFY_QP_EX_ATTR_MASK)
-		ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask,
-					   &cmd_ex,
-					   sizeof(cmd_ex), sizeof(cmd_ex),
-					   &resp,
-					   sizeof(resp), sizeof(resp));
+		ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask, &cmd_ex,
+					   sizeof(cmd_ex), &resp, sizeof(resp));
 	else
 		ret = ibv_cmd_modify_qp(qp, attr, attr_mask,
 					&cmd, sizeof(cmd));
@@ -2320,10 +2312,8 @@ int mlx5_modify_qp_rate_limit(struct ibv_qp *qp,
 	qp_attr.rate_limit = attr->rate_limit;
 
 	ret = ibv_cmd_modify_qp_ex(qp, &qp_attr, IBV_QP_RATE_LIMIT,
-				   &cmd.ibv_cmd,
-				   sizeof(cmd.ibv_cmd), sizeof(cmd),
-				   &resp,
-				   sizeof(resp), sizeof(resp));
+				   &cmd.ibv_cmd, sizeof(cmd), &resp,
+				   sizeof(resp));
 
 	return ret;
 }
@@ -2816,11 +2806,10 @@ int mlx5_query_device_ex(struct ibv_context *context,
 
 	memset(&cmd, 0, sizeof(cmd));
 	memset(&resp, 0, sizeof(resp));
-	err = ibv_cmd_query_device_ex(context, input, attr, attr_size,
-				      &raw_fw_ver,
-				      &cmd.ibv_cmd, sizeof(cmd.ibv_cmd), sizeof(cmd),
-				      &resp.ibv_resp, sizeof(resp.ibv_resp),
-				      cmd_supp_uhw ? sizeof(resp) : sizeof(resp.ibv_resp));
+	err = ibv_cmd_query_device_ex(
+		context, input, attr, attr_size, &raw_fw_ver, &cmd.ibv_cmd,
+		sizeof(cmd), &resp.ibv_resp,
+		cmd_supp_uhw ? sizeof(resp) : sizeof(resp.ibv_resp));
 	if (err)
 		return err;
 
@@ -3018,10 +3007,7 @@ static struct ibv_wq *create_wq(struct ibv_context *context,
 	}
 
 	err = ibv_cmd_create_wq(context, attr, &rwq->wq, &cmd.ibv_cmd,
-				sizeof(cmd.ibv_cmd),
-				sizeof(cmd),
-				&resp.ibv_resp, sizeof(resp.ibv_resp),
-				sizeof(resp));
+				sizeof(cmd), &resp.ibv_resp, sizeof(resp));
 	if (err)
 		goto err_create;
 
@@ -3077,7 +3063,7 @@ int mlx5_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr)
 		}
 	}
 
-	return ibv_cmd_modify_wq(wq, attr, &cmd.ibv_cmd,  sizeof(cmd.ibv_cmd), sizeof(cmd));
+	return ibv_cmd_modify_wq(wq, attr, &cmd.ibv_cmd, sizeof(cmd));
 }
 
 int mlx5_destroy_wq(struct ibv_wq *wq)

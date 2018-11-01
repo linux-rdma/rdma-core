@@ -135,10 +135,8 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 			    struct ibv_device_attr_ex *attr, size_t attr_size,
 			    uint64_t *raw_fw_ver,
 			    struct ibv_query_device_ex *cmd,
-			    size_t cmd_core_size,
 			    size_t cmd_size,
 			    struct ib_uverbs_ex_query_device_resp *resp,
-			    size_t resp_core_size,
 			    size_t resp_size)
 {
 	int err;
@@ -150,23 +148,16 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 			sizeof(attr->comp_mask))
 		return EINVAL;
 
-	if (resp_core_size < offsetof(struct ib_uverbs_ex_query_device_resp,
-				      response_length) +
-			     sizeof(resp->response_length))
-		return EINVAL;
-
-	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size,
-			       QUERY_DEVICE, resp, resp_core_size,
-			       resp_size);
 	cmd->comp_mask = 0;
 	cmd->reserved = 0;
 	memset(attr->orig_attr.fw_ver, 0, sizeof(attr->orig_attr.fw_ver));
 	memset(&attr->comp_mask, 0, attr_size - sizeof(attr->orig_attr));
-	err = write(context->cmd_fd, cmd, cmd_size);
-	if (err != cmd_size)
-		return errno;
 
-	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	err = execute_cmd_write_ex(context, IB_USER_VERBS_EX_CMD_QUERY_DEVICE,
+				   cmd, cmd_size, resp, resp_size);
+	if (err)
+		return err;
+
 	copy_query_dev_fields(&attr->orig_attr, &resp->base, raw_fw_ver);
 	/* Report back supported comp_mask bits. For now no comp_mask bit is
 	 * defined */
@@ -886,10 +877,8 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 			  struct verbs_qp *qp, int vqp_sz,
 			  struct ibv_qp_init_attr_ex *qp_attr,
 			  struct ibv_create_qp_ex *cmd,
-			  size_t cmd_core_size,
 			  size_t cmd_size,
 			  struct ib_uverbs_ex_create_qp_resp *resp,
-			  size_t resp_core_size,
 			  size_t resp_size)
 {
 	struct verbs_xrcd *vxrcd = NULL;
@@ -898,15 +887,7 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 	if (qp_attr->comp_mask >= IBV_QP_INIT_ATTR_RESERVED)
 		return EINVAL;
 
-	if (resp_core_size <
-	    offsetof(struct ib_uverbs_ex_create_qp_resp, response_length) +
-	    sizeof(resp->response_length))
-		return EINVAL;
-
-	memset(cmd, 0, cmd_core_size);
-
-	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size, CREATE_QP, resp,
-			       resp_core_size, resp_size);
+	memset(&cmd->core_payload, 0, sizeof(cmd->core_payload));
 
 	err = create_qp_ex_common(qp, qp_attr, vxrcd,
 				  ibv_create_qp_ex_to_reg(cmd));
@@ -916,9 +897,6 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 	if (qp_attr->comp_mask & IBV_QP_INIT_ATTR_CREATE_FLAGS) {
 		if (qp_attr->create_flags & ~CREATE_QP_EX2_SUP_CREATE_FLAGS)
 			return EINVAL;
-		if (cmd_core_size < offsetof(struct ibv_create_qp_ex, create_flags) +
-				    sizeof(qp_attr->create_flags))
-			return EINVAL;
 		cmd->create_flags = qp_attr->create_flags;
 
 		if (qp_attr->create_flags & IBV_QP_CREATE_SOURCE_QPN)
@@ -926,18 +904,14 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 	}
 
 	if (qp_attr->comp_mask & IBV_QP_INIT_ATTR_IND_TABLE) {
-		if (cmd_core_size < offsetof(struct ibv_create_qp_ex, rwq_ind_tbl_handle) +
-				    sizeof(cmd->rwq_ind_tbl_handle))
-			return EINVAL;
 		cmd->rwq_ind_tbl_handle = qp_attr->rwq_ind_tbl->ind_tbl_handle;
 		cmd->comp_mask = IB_UVERBS_CREATE_QP_MASK_IND_TABLE;
 	}
 
-	err = write(context->cmd_fd, cmd, cmd_size);
-	if (err != cmd_size)
-		return errno;
-
-	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	err = execute_cmd_write_ex(context, IB_USER_VERBS_EX_CMD_CREATE_QP,
+				   cmd, cmd_size, resp, resp_size);
+	if (err)
+		return err;
 
 	create_qp_handle_resp_common(context, qp, qp_attr, &resp->base, vxrcd,
 				     vqp_sz);
@@ -1288,17 +1262,10 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 int ibv_cmd_modify_qp_ex(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			 int attr_mask, struct ibv_modify_qp_ex *cmd,
-			 size_t cmd_core_size, size_t cmd_size,
+			 size_t cmd_size,
 			 struct ib_uverbs_ex_modify_qp_resp *resp,
-			 size_t resp_core_size, size_t resp_size)
+			 size_t resp_size)
 {
-	if (resp_core_size < offsetof(struct ib_uverbs_ex_modify_qp_resp,
-			     response_length) + sizeof(resp->response_length))
-		return EINVAL;
-
-	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size, MODIFY_QP,
-			       resp, resp_core_size, resp_size);
-
 	copy_modify_qp_fields(qp, attr, attr_mask, &cmd->base);
 
 	if (attr_mask & IBV_QP_RATE_LIMIT) {
@@ -1309,12 +1276,8 @@ int ibv_cmd_modify_qp_ex(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			return EINVAL;
 	}
 
-	if (write(qp->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
-
-	return 0;
+	return execute_cmd_write_ex(qp->context, IB_USER_VERBS_EX_CMD_MODIFY_QP,
+				    cmd, cmd_size, resp, resp_size);
 }
 
 int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
@@ -1847,7 +1810,7 @@ int ibv_cmd_create_flow(struct ibv_qp *qp,
 		err = ib_spec_to_kern_spec(ib_spec, kern_spec);
 		if (err) {
 			errno = err;
-			goto err;
+			return err;
 		}
 		cmd->flow_attr.size +=
 			((struct ibv_kern_spec *)kern_spec)->hdr.size;
@@ -1861,19 +1824,16 @@ int ibv_cmd_create_flow(struct ibv_qp *qp,
 		written_size += ucmd_size;
 	}
 
-	IBV_INIT_CMD_RESP_EX_VCMD(cmd, written_size - ucmd_size,
-				  written_size, CREATE_FLOW,
-				  &resp, sizeof(resp));
-	if (write(qp->context->cmd_fd, cmd, written_size) != written_size)
-		goto err;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof(resp));
+	err = execute_cmd_write_ex_full(qp->context,
+					IB_USER_VERBS_EX_CMD_CREATE_FLOW, cmd,
+					written_size - ucmd_size, written_size,
+					&resp, sizeof(resp), sizeof(resp));
+	if (err)
+		return err;
 
 	flow_id->context = qp->context;
 	flow_id->handle = resp.flow_handle;
 	return 0;
-err:
-	return errno;
 }
 
 int ibv_cmd_destroy_flow(struct ibv_flow *flow_id)
@@ -1895,20 +1855,14 @@ int ibv_cmd_create_wq(struct ibv_context *context,
 		      struct ibv_wq_init_attr *wq_init_attr,
 		      struct ibv_wq *wq,
 		      struct ibv_create_wq *cmd,
-		      size_t cmd_core_size,
 		      size_t cmd_size,
 		      struct ib_uverbs_ex_create_wq_resp *resp,
-		      size_t resp_core_size,
 		      size_t resp_size)
 {
 	int err;
 
 	if (wq_init_attr->comp_mask >= IBV_WQ_INIT_ATTR_RESERVED)
 		return EINVAL;
-
-	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size,
-			       CREATE_WQ, resp,
-			       resp_core_size, resp_size);
 
 	cmd->user_handle   = (uintptr_t)wq;
 	cmd->pd_handle           = wq_init_attr->pd->handle;
@@ -1918,22 +1872,18 @@ int ibv_cmd_create_wq(struct ibv_context *context,
 	cmd->max_wr = wq_init_attr->max_wr;
 	cmd->comp_mask = 0;
 
-	if (cmd_core_size >= offsetof(struct ibv_create_wq, create_flags) +
-	    sizeof(cmd->create_flags)) {
-		if (wq_init_attr->comp_mask & IBV_WQ_INIT_ATTR_FLAGS) {
-			if (wq_init_attr->create_flags & ~(IBV_WQ_FLAGS_RESERVED - 1))
-				return EOPNOTSUPP;
-			cmd->create_flags = wq_init_attr->create_flags;
-		}
+	if (wq_init_attr->comp_mask & IBV_WQ_INIT_ATTR_FLAGS) {
+		if (wq_init_attr->create_flags & ~(IBV_WQ_FLAGS_RESERVED - 1))
+			return EOPNOTSUPP;
+		cmd->create_flags = wq_init_attr->create_flags;
 	}
 
-	err = write(context->cmd_fd, cmd, cmd_size);
-	if (err != cmd_size)
-		return errno;
+	err = execute_cmd_write_ex(context, IB_USER_VERBS_EX_CMD_CREATE_WQ,
+				   cmd, cmd_size, resp, resp_size);
+	if (err)
+		return err;
 
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
-
-	if (resp->response_length < resp_core_size)
+	if (resp->response_length < sizeof(*resp))
 		return EINVAL;
 
 	wq->handle  = resp->wq_handle;
@@ -1949,31 +1899,30 @@ int ibv_cmd_create_wq(struct ibv_context *context,
 }
 
 int ibv_cmd_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr,
-		      struct ibv_modify_wq *cmd, size_t cmd_core_size,
-		      size_t cmd_size)
+		      struct ibv_modify_wq *cmd, size_t cmd_size)
 {
+	int err;
+
 	if (attr->attr_mask >= IBV_WQ_ATTR_RESERVED)
 		return EINVAL;
 
-	memset(cmd, 0, cmd_core_size);
-	IBV_INIT_CMD_EX(cmd, cmd_size, MODIFY_WQ);
+	memset(cmd, 0, sizeof(*cmd));
 
 	cmd->curr_wq_state = attr->curr_wq_state;
 	cmd->wq_state = attr->wq_state;
-	if (cmd_core_size >= offsetof(struct ibv_modify_wq, flags_mask) +
-	    sizeof(cmd->flags_mask)) {
-		if (attr->attr_mask & IBV_WQ_ATTR_FLAGS) {
-			if (attr->flags_mask & ~(IBV_WQ_FLAGS_RESERVED - 1))
-				return EOPNOTSUPP;
-			cmd->flags = attr->flags;
-			cmd->flags_mask = attr->flags_mask;
-		}
+	if (attr->attr_mask & IBV_WQ_ATTR_FLAGS) {
+		if (attr->flags_mask & ~(IBV_WQ_FLAGS_RESERVED - 1))
+			return EOPNOTSUPP;
+		cmd->flags = attr->flags;
+		cmd->flags_mask = attr->flags_mask;
 	}
 	cmd->wq_handle = wq->handle;
 	cmd->attr_mask = attr->attr_mask;
 
-	if (write(wq->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
+	err = execute_cmd_write_ex_req(
+		wq->context, IB_USER_VERBS_EX_CMD_MODIFY_WQ, cmd, cmd_size);
+	if (err)
+		return err;
 
 	if (attr->attr_mask & IBV_WQ_ATTR_STATE)
 		wq->state = attr->wq_state;
@@ -2030,17 +1979,15 @@ int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 	for (i = 0; i < num_tbl_entries; i++)
 		cmd->wq_handles[i] = init_attr->ind_tbl[i]->handle;
 
-	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_size, cmd_size,
-			       CREATE_RWQ_IND_TBL, resp,
-			       sizeof(*resp), resp_size);
 	cmd->log_ind_tbl_size = init_attr->log_ind_tbl_size;
 	cmd->comp_mask = 0;
 
-	err = write(context->cmd_fd, cmd, cmd_size);
-	if (err != cmd_size)
-		return errno;
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	err = execute_cmd_write_ex_full(context,
+					IB_USER_VERBS_EX_CMD_CREATE_RWQ_IND_TBL,
+					cmd, cmd_size, cmd_size, resp,
+					sizeof(*resp), resp_size);
+	if (err)
+		return err;
 
 	if (resp->response_length < sizeof(*resp))
 		return EINVAL;
@@ -2076,16 +2023,12 @@ int ibv_cmd_modify_cq(struct ibv_cq *cq,
 	if (attr->attr_mask >= IBV_CQ_ATTR_RESERVED)
 		return EINVAL;
 
-	IBV_INIT_CMD_EX(cmd, cmd_size, MODIFY_CQ);
-
 	cmd->cq_handle = cq->handle;
 	cmd->attr_mask = attr->attr_mask;
 	cmd->attr.cq_count =  attr->moderate.cq_count;
 	cmd->attr.cq_period = attr->moderate.cq_period;
 	cmd->reserved = 0;
 
-	if (write(cq->context->cmd_fd, cmd, cmd_size) != cmd_size)
-		return errno;
-
-	return 0;
+	return execute_cmd_write_ex_req(
+		cq->context, IB_USER_VERBS_EX_CMD_MODIFY_CQ, cmd, cmd_size);
 }
