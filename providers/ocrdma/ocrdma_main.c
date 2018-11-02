@@ -195,4 +195,4 @@ static const struct verbs_device_ops ocrdma_dev_ops = {
 	.alloc_context = ocrdma_alloc_context,
 	.free_context = ocrdma_free_context,
 };
-PROVIDER_DRIVER(ocrdma_dev_ops);
+PROVIDER_DRIVER(ocrdma, ocrdma_dev_ops);

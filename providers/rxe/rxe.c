@@ -923,4 +923,4 @@ static const struct verbs_device_ops rxe_dev_ops = {
 	.alloc_context = rxe_alloc_context,
 	.free_context = rxe_free_context,
 };
-PROVIDER_DRIVER(rxe_dev_ops);
+PROVIDER_DRIVER(rxe, rxe_dev_ops);

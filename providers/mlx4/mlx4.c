@@ -302,7 +302,7 @@ static const struct verbs_device_ops mlx4_dev_ops = {
 	.alloc_context = mlx4_alloc_context,
 	.free_context = mlx4_free_context,
 };
-PROVIDER_DRIVER(mlx4_dev_ops);
+PROVIDER_DRIVER(mlx4, mlx4_dev_ops);
 
 static int mlx4dv_get_qp(struct ibv_qp *qp_in,
 			 struct mlx4dv_qp *qp_out)

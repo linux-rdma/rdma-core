@@ -82,6 +82,8 @@ set(BUILD_INCLUDE ${CMAKE_BINARY_DIR}/include)
 set(BUILD_BIN ${CMAKE_BINARY_DIR}/bin)
 # Libraries
 set(BUILD_LIB ${CMAKE_BINARY_DIR}/lib)
+# Static library pre-processing
+set(BUILD_STATIC_LIB ${CMAKE_BINARY_DIR}/lib/statics)
 # Used for IN_PLACE configuration
 set(BUILD_ETC ${CMAKE_BINARY_DIR}/etc)
 
@@ -560,6 +562,7 @@ if (UDEV_FOUND)
 endif()
 add_subdirectory(srp_daemon)
 
+ibverbs_finalize()
 rdma_finalize_libs()
 
 #-------------------------

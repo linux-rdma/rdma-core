@@ -250,4 +250,4 @@ static const struct verbs_device_ops qelr_dev_ops = {
 	.alloc_context = qelr_alloc_context,
 	.free_context = qelr_free_context,
 };
-PROVIDER_DRIVER(qelr_dev_ops);
+PROVIDER_DRIVER(qedr, qelr_dev_ops);

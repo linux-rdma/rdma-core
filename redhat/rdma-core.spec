@@ -10,6 +10,8 @@ Summary: RDMA core userspace libraries and daemons
 License: GPLv2 or BSD
 Url: https://github.com/linux-rdma/rdma-core
 Source: rdma-core-%{version}.tgz
+# Do not build static libs by default.
+%define with_static %{?_with_static: 1} %{?!_with_static: 0}
 
 BuildRequires: binutils
 BuildRequires: cmake >= 2.8.11
@@ -73,6 +75,13 @@ Obsoletes: librdmacm-devel < %{version}-%{release}
 Requires: ibacm = %{version}-%{release}
 Provides: ibacm-devel = %{version}-%{release}
 Obsoletes: ibacm-devel < %{version}-%{release}
+%if %{with_static}
+# Since our pkg-config files include private references to these packages they
+# need to have their .pc files installed too, even for dynamic linking, or
+# pkg-config breaks.
+BuildRequires: pkgconfig(libnl-3.0)
+BuildRequires: pkgconfig(libnl-route-3.0)
+%endif
 
 %description devel
 RDMA core development libraries and headers.
@@ -233,6 +242,9 @@ discover and use SCSI devices via the SCSI RDMA Protocol over InfiniBand.
          -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
          -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version} \
          -DCMAKE_INSTALL_UDEV_RULESDIR:PATH=%{_udevrulesdir} \
+%if %{with_static}
+         -DENABLE_STATIC=1 \
+%endif
          %{EXTRA_CMAKE_FLAGS}
 %make_jobs
 
@@ -352,6 +364,9 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{_includedir}/rdma
 %{_includedir}/infiniband/*
 %{_includedir}/rdma/*
+%if %{with_static}
+%{_libdir}/lib*.a
+%endif
 %{_libdir}/lib*.so
 %{_libdir}/pkgconfig/*.pc
 %{_mandir}/man3/ibv_*
