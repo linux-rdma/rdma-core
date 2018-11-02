@@ -158,7 +158,7 @@ int ibv_cmd_destroy_cq(struct ibv_cq *cq)
 {
 	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_CQ, UVERBS_METHOD_CQ_DESTROY, 2,
 			     NULL);
-	DECLARE_LEGACY_CORE_BUFS(IB_USER_VERBS_CMD_DESTROY_CQ);
+	struct ib_uverbs_destroy_cq_resp resp;
 	int ret;
 
 	fill_attr_out_ptr(cmdb, UVERBS_ATTR_DESTROY_CQ_RESP, &resp);
@@ -166,11 +166,15 @@ int ibv_cmd_destroy_cq(struct ibv_cq *cq)
 
 	switch (execute_ioctl_fallback(cq->context, destroy_cq, cmdb, &ret)) {
 	case TRY_WRITE: {
-		*req = (struct ib_uverbs_destroy_cq){
+		struct ibv_destroy_cq req;
+
+		req.core_payload = (struct ib_uverbs_destroy_cq){
 			.cq_handle = cq->handle,
 		};
 
-		ret = execute_write(cq->context, req, &resp);
+		ret = execute_cmd_write(cq->context,
+					IB_USER_VERBS_CMD_DESTROY_CQ, &req,
+					sizeof(req), &resp, sizeof(resp));
 		break;
 	}
 

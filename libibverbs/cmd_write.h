@@ -158,28 +158,6 @@ int _execute_write_raw_ex(struct ibv_context *ctx, struct ex_hdr *req);
 	_execute_write_raw_ex(ctx, get_req_hdr_ex(req))
 
 /* For users with no possible UHW bufs. */
-#define DECLARE_LEGACY_CORE_BUFS(_enum)                                        \
-	IBV_ABI_REQ(_enum) __req_onstack;                                      \
-	IBV_KABI_RESP(_enum) resp;                                             \
-	static_assert(offsetof(IBV_KABI_REQ(_enum), response) == 0,            \
-		      "Bad response offset");                                  \
-	IBV_KABI_REQ(_enum) *const req = ({                                    \
-		__req_onstack.hdr.command = _enum;                             \
-		__req_onstack.hdr.in_words = sizeof(__req_onstack) / 4;        \
-		__req_onstack.hdr.out_words = sizeof(resp) / 4;                \
-		&__req_onstack.core_payload;                                   \
-	})
-#define DECLARE_LEGACY_CORE_REQ(_enum)                                         \
-	IBV_ABI_REQ(_enum) __req_onstack;                                      \
-	static_assert(sizeof(IBV_KABI_RESP(_enum)) == 0,                       \
-		      "Method has a response!");                               \
-	IBV_KABI_REQ(_enum) *const req = ({                                    \
-		__req_onstack.hdr.command = _enum;                             \
-		__req_onstack.hdr.in_words = sizeof(__req_onstack) / 4;        \
-		__req_onstack.hdr.out_words = 0;                               \
-		&__req_onstack.core_payload;                                   \
-	})
-
 #define DECLARE_LEGACY_CORE_BUFS_EX(_enum)                                     \
 	IBV_ABI_REQ(_enum) __req_onstack;                                      \
 	IBV_KABI_RESP(_enum) resp;                                             \
@@ -202,8 +180,6 @@ int _execute_write_raw_ex(struct ibv_context *ctx, struct ex_hdr *req);
  * DECLARE_LEGACY_CORE_BUFS. req points to the core payload (with headroom for
  * the header).
  */
-#define execute_write(ctx, req, resp)                                          \
-	_execute_write_raw(ctx, get_req_hdr(req), resp)
 #define execute_write_ex(ctx, req)                                             \
 	_execute_write_raw_ex(ctx, get_req_hdr_ex(req))
 
@@ -321,13 +297,6 @@ static inline int execute_write_bufs(struct ibv_context *ctx, void *req,
 
 #undef execute_write_bufs_ex
 static inline int execute_write_bufs_ex(struct ibv_context *ctx, void *req)
-{
-	return ENOSYS;
-}
-
-#undef execute_write
-static inline int execute_write(struct ibv_context *ctx, void *req,
-				void *resp)
 {
 	return ENOSYS;
 }

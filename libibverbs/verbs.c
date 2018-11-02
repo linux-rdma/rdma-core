@@ -342,14 +342,17 @@ LATEST_SYMVER_FUNC(ibv_dereg_mr, 1_1, "IBVERBS_1.1",
 
 struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 {
-	DECLARE_LEGACY_CORE_BUFS(IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL);
+	struct ibv_create_comp_channel req;
+	struct ib_uverbs_create_comp_channel_resp resp;
 	struct ibv_comp_channel            *channel;
 
 	channel = malloc(sizeof *channel);
 	if (!channel)
 		return NULL;
 
-	if (execute_write(context, req, &resp)) {
+	req.core_payload = (struct ib_uverbs_create_comp_channel){};
+	if (execute_cmd_write(context, IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL,
+			      &req, sizeof(req), &resp, sizeof(resp))) {
 		free(channel);
 		return NULL;
 	}
