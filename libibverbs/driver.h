@@ -562,11 +562,7 @@ int ibv_cmd_destroy_wq(struct ibv_wq *wq);
 int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 				 struct ibv_rwq_ind_table_init_attr *init_attr,
 				 struct ibv_rwq_ind_table *rwq_ind_table,
-				 struct ibv_create_rwq_ind_table *cmd,
-				 size_t cmd_core_size,
-				 size_t cmd_size,
 				 struct ib_uverbs_ex_create_rwq_ind_table_resp *resp,
-				 size_t resp_core_size,
 				 size_t resp_size);
 int ibv_cmd_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table);
 int ibv_cmd_create_counters(struct ibv_context *context,

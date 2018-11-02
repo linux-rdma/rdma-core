@@ -2028,38 +2028,31 @@ int ibv_cmd_destroy_wq(struct ibv_wq *wq)
 int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 				 struct ibv_rwq_ind_table_init_attr *init_attr,
 				 struct ibv_rwq_ind_table *rwq_ind_table,
-				 struct ibv_create_rwq_ind_table *cmd,
-				 size_t cmd_core_size,
-				 size_t cmd_size,
 				 struct ib_uverbs_ex_create_rwq_ind_table_resp *resp,
-				 size_t resp_core_size,
 				 size_t resp_size)
 {
-	int err, i;
-	uint32_t required_tbl_size, alloc_tbl_size;
-	uint32_t *tbl_start;
-	int num_tbl_entries;
+	struct ibv_create_rwq_ind_table *cmd;
+	int err;
+	unsigned int i;
+	unsigned int num_tbl_entries;
+	size_t cmd_size;
 
 	if (init_attr->comp_mask >= IBV_CREATE_IND_TABLE_RESERVED)
 		return EINVAL;
 
-	alloc_tbl_size = cmd_core_size - sizeof(*cmd);
 	num_tbl_entries = 1 << init_attr->log_ind_tbl_size;
 
-	/* Data must be u64 aligned */
-	required_tbl_size = (num_tbl_entries * sizeof(uint32_t)) < sizeof(uint64_t) ?
-			sizeof(uint64_t) : (num_tbl_entries * sizeof(uint32_t));
+	/* The entire message must be size aligned to 8 bytes. */
+	cmd_size = sizeof(*cmd) + num_tbl_entries * sizeof(cmd->wq_handles[0]);
+	cmd_size = (cmd_size + 7) / 8 * 8;
+	cmd = alloca(cmd_size);
 
-	if (alloc_tbl_size < required_tbl_size)
-		return EINVAL;
-
-	tbl_start = (uint32_t *)((uint8_t *)cmd + sizeof(*cmd));
 	for (i = 0; i < num_tbl_entries; i++)
-		tbl_start[i] = init_attr->ind_tbl[i]->handle;
+		cmd->wq_handles[i] = init_attr->ind_tbl[i]->handle;
 
-	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size,
+	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_size, cmd_size,
 			       CREATE_RWQ_IND_TBL, resp,
-			       resp_core_size, resp_size);
+			       sizeof(*resp), resp_size);
 	cmd->log_ind_tbl_size = init_attr->log_ind_tbl_size;
 	cmd->comp_mask = 0;
 
@@ -2069,7 +2062,7 @@ int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 
 	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
-	if (resp->response_length < resp_core_size)
+	if (resp->response_length < sizeof(*resp))
 		return EINVAL;
 
 	rwq_ind_table->ind_tbl_handle = resp->ind_tbl_handle;

@@ -59,8 +59,9 @@ set(PACKAGE_NAME "RDMA")
 # See Documentation/versioning.md
 set(PACKAGE_VERSION "22.0")
 # When this is changed the values in these files need changing too:
+#   debian/control
 #   debian/libibverbs1.symbols
-set(IBVERBS_PABI_VERSION "21")
+set(IBVERBS_PABI_VERSION "22")
 set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 #-------------------------

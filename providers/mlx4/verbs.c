@@ -1613,42 +1613,23 @@ int mlx4_destroy_wq(struct ibv_wq *ibwq)
 struct ibv_rwq_ind_table *mlx4_create_rwq_ind_table(struct ibv_context *context,
 						    struct ibv_rwq_ind_table_init_attr *init_attr)
 {
-	struct ibv_create_rwq_ind_table *cmd;
 	struct ib_uverbs_ex_create_rwq_ind_table_resp resp = {};
 	struct ibv_rwq_ind_table *ind_table;
-	uint32_t required_tbl_size;
-	unsigned int num_tbl_entries;
-	int cmd_size;
 	int err;
-
-	num_tbl_entries = 1 << init_attr->log_ind_tbl_size;
-	/* Data must be u64 aligned */
-	required_tbl_size =
-		(num_tbl_entries * sizeof(uint32_t)) < sizeof(uint64_t) ?
-			sizeof(uint64_t) : (num_tbl_entries * sizeof(uint32_t));
-
-	cmd_size = required_tbl_size + sizeof(*cmd);
-	cmd = calloc(1, cmd_size);
-	if (!cmd)
-		return NULL;
 
 	ind_table = calloc(1, sizeof(*ind_table));
 	if (!ind_table)
-		goto free_cmd;
+		return NULL;
 
-	err = ibv_cmd_create_rwq_ind_table(context, init_attr, ind_table, cmd,
-					   cmd_size, cmd_size, &resp,
-					   sizeof(resp), sizeof(resp));
+	err = ibv_cmd_create_rwq_ind_table(context, init_attr, ind_table, &resp,
+					   sizeof(resp));
 	if (err)
 		goto err;
 
-	free(cmd);
 	return ind_table;
 
 err:
 	free(ind_table);
-free_cmd:
-	free(cmd);
 	return NULL;
 }
 
