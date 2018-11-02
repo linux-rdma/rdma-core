@@ -69,7 +69,8 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 			.comp_channel = channel ? channel->fd : -1,
 		};
 
-		ret = execute_write_bufs(cq->context, req, resp);
+		ret = execute_write_bufs(
+			cq->context, IB_USER_VERBS_CMD_CREATE_CQ, req, resp);
 		if (ret)
 			return ret;
 
@@ -90,7 +91,8 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 			.flags = flags,
 		};
 
-		ret = execute_write_bufs_ex(cq->context, req);
+		ret = execute_write_bufs_ex(
+			cq->context, IB_USER_VERBS_EX_CMD_CREATE_CQ, req, resp);
 		if (ret)
 			return ret;
 
