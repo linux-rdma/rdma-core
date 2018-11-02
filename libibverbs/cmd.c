@@ -1425,7 +1425,7 @@ int ibv_cmd_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 		      struct ibv_recv_wr **bad_wr)
 {
 	struct ibv_post_recv     *cmd;
-	struct ib_uverbs_post_send_resp resp;
+	struct ib_uverbs_post_recv_resp resp;
 	struct ibv_recv_wr       *i;
 	struct ib_uverbs_recv_wr  *n, *tmp;
 	struct ibv_sge           *s;
@@ -1486,7 +1486,7 @@ int ibv_cmd_post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *wr,
 		      struct ibv_recv_wr **bad_wr)
 {
 	struct ibv_post_srq_recv *cmd;
-	struct ib_uverbs_post_recv_resp resp;
+	struct ib_uverbs_post_srq_recv_resp resp;
 	struct ibv_recv_wr       *i;
 	struct ib_uverbs_recv_wr  *n, *tmp;
 	struct ibv_sge           *s;
@@ -1841,7 +1841,7 @@ int ibv_cmd_create_flow(struct ibv_qp *qp,
 			size_t ucmd_size)
 {
 	struct ibv_create_flow *cmd;
-	struct ib_uverbs_destroy_flow  resp;
+	struct ib_uverbs_create_flow_resp resp;
 	size_t cmd_size;
 	size_t written_size;
 	int i, err;
