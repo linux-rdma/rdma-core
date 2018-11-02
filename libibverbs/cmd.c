@@ -1853,13 +1853,15 @@ int ibv_cmd_create_flow(struct ibv_qp *qp,
 
 int ibv_cmd_destroy_flow(struct ibv_flow *flow_id)
 {
-	DECLARE_LEGACY_CORE_BUFS_EX(IB_USER_VERBS_EX_CMD_DESTROY_FLOW);
+	struct ibv_destroy_flow req;
 	int ret;
 
-	*req = (struct ib_uverbs_destroy_flow){
+	req.core_payload = (struct ib_uverbs_destroy_flow){
 		.flow_handle = flow_id->handle,
 	};
-	ret = execute_write_ex(flow_id->context, req);
+	ret = execute_cmd_write_ex_req(flow_id->context,
+				       IB_USER_VERBS_EX_CMD_DESTROY_FLOW, &req,
+				       sizeof(req));
 	if (verbs_is_destroy_err(&ret))
 		return ret;
 
@@ -1947,14 +1949,16 @@ int ibv_cmd_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr,
 
 int ibv_cmd_destroy_wq(struct ibv_wq *wq)
 {
-	DECLARE_LEGACY_CORE_BUFS_EX(IB_USER_VERBS_EX_CMD_DESTROY_WQ);
+	struct ibv_destroy_wq req;
+	struct ib_uverbs_ex_destroy_wq_resp resp;
 	int ret;
 
-	*req = (struct ib_uverbs_ex_destroy_wq){
+	req.core_payload = (struct ib_uverbs_ex_destroy_wq){
 		.wq_handle = wq->handle,
 	};
 
-	ret = execute_write_ex(wq->context, req);
+	ret = execute_cmd_write_ex(wq->context, IB_USER_VERBS_EX_CMD_DESTROY_WQ,
+				   &req, sizeof(req), &resp, sizeof(resp));
 	if (verbs_is_destroy_err(&ret))
 		return ret;
 
@@ -2015,13 +2019,15 @@ int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 
 int ibv_cmd_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table)
 {
-	DECLARE_LEGACY_CORE_BUFS_EX(IB_USER_VERBS_EX_CMD_DESTROY_RWQ_IND_TBL);
+	struct ibv_destroy_rwq_ind_table req;
 	int ret;
 
-	*req = (struct ib_uverbs_ex_destroy_rwq_ind_table){
+	req.core_payload = (struct ib_uverbs_ex_destroy_rwq_ind_table){
 		.ind_tbl_handle = rwq_ind_table->ind_tbl_handle,
 	};
-	ret = execute_write_ex(rwq_ind_table->context, req);
+	ret = execute_cmd_write_ex_req(rwq_ind_table->context,
+				       IB_USER_VERBS_EX_CMD_DESTROY_RWQ_IND_TBL,
+				       &req, sizeof(req));
 	if (verbs_is_destroy_err(&ret))
 		return ret;
 

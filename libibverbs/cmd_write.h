@@ -157,32 +157,6 @@ int _execute_write_raw_ex(struct ibv_context *ctx, struct ex_hdr *req);
 #define execute_write_bufs_ex(ctx, req)                                        \
 	_execute_write_raw_ex(ctx, get_req_hdr_ex(req))
 
-/* For users with no possible UHW bufs. */
-#define DECLARE_LEGACY_CORE_BUFS_EX(_enum)                                     \
-	IBV_ABI_REQ(_enum) __req_onstack;                                      \
-	IBV_KABI_RESP(_enum) resp;                                             \
-	IBV_KABI_REQ(_enum) *const req = ({                                    \
-		__req_onstack.hdr.hdr.command =                                \
-			IB_USER_VERBS_CMD_FLAG_EXTENDED | _enum;               \
-		__req_onstack.hdr.hdr.in_words =                               \
-			(sizeof(__req_onstack) - sizeof(struct ex_hdr)) / 8;   \
-		__req_onstack.hdr.hdr.out_words = sizeof(resp) / 8;            \
-		__req_onstack.hdr.ex_hdr.cmd_hdr_reserved = 0;                 \
-		__req_onstack.hdr.ex_hdr.provider_in_words = 0;                \
-		__req_onstack.hdr.ex_hdr.provider_out_words = 0;               \
-		__req_onstack.hdr.ex_hdr.response =                            \
-			(sizeof(resp) == 0) ? 0 : ioctl_ptr_to_u64(&resp);     \
-		&__req_onstack.core_payload;                                   \
-	})
-
-/*
- * For users with no UHW bufs. To be used in conjunction with
- * DECLARE_LEGACY_CORE_BUFS. req points to the core payload (with headroom for
- * the header).
- */
-#define execute_write_ex(ctx, req)                                             \
-	_execute_write_raw_ex(ctx, get_req_hdr_ex(req))
-
 /*
  * For write() only commands that have fixed core structures and may take uhw
  * driver data. The last arguments are the same ones passed into the typical
