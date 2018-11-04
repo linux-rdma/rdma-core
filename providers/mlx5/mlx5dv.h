@@ -330,6 +330,10 @@ struct mlx5dv_cq {
 	uint64_t		comp_mask;
 };
 
+enum mlx5dv_srq_comp_mask {
+	MLX5DV_SRQ_MASK_SRQN	= 1 << 0,
+};
+
 struct mlx5dv_srq {
 	void			*buf;
 	__be32			*dbrec;
@@ -337,6 +341,7 @@ struct mlx5dv_srq {
 	uint32_t		head;
 	uint32_t		tail;
 	uint64_t		comp_mask;
+	uint32_t		srqn;
 };
 
 struct mlx5dv_rwq {

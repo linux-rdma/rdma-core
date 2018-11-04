@@ -816,16 +816,22 @@ static int mlx5dv_get_srq(struct ibv_srq *srq_in,
 			  struct mlx5dv_srq *srq_out)
 {
 	struct mlx5_srq *msrq;
+	uint64_t mask_out = 0;
 
 	msrq = container_of(srq_in, struct mlx5_srq, vsrq.srq);
 
-	srq_out->comp_mask = 0;
 	srq_out->buf       = msrq->buf.buf;
 	srq_out->dbrec     = msrq->db;
 	srq_out->stride    = 1 << msrq->wqe_shift;
 	srq_out->head      = msrq->head;
 	srq_out->tail      = msrq->tail;
 
+	if (srq_out->comp_mask & MLX5DV_SRQ_MASK_SRQN) {
+		srq_out->srqn = msrq->srqn;
+		mask_out |= MLX5DV_SRQ_MASK_SRQN;
+	}
+
+	srq_out->comp_mask = mask_out;
 	return 0;
 }
 
