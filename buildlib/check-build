@@ -142,7 +142,7 @@ def test_verbs_private(args):
     libd = os.path.join(args.BUILD,"lib");
     with inDirectory(libd):
         for fn in os.listdir("."):
-            if not os.path.islink(fn) and "rdmav" in fn:
+            if not os.path.islink(fn) and "rdmav" in fn and fn.endswith(".so"):
                 check_verbs_abi(args,fn);
 
 # -------------------------------------------------------------------------
