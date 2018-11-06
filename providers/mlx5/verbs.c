@@ -2395,6 +2395,7 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	if (!ah)
 		return NULL;
 
+	static_rate = ah_attr_to_mlx5_rate(attr->static_rate);
 	if (is_eth) {
 		if (ibv_query_gid_type(pd->context, attr->port_num,
 				       attr->grh.sgid_index, &gid_type))
@@ -2408,13 +2409,13 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		 * for RoCE and shouldn't be set.
 		 */
 		grh = 0;
+		ah->av.stat_rate_sl = (static_rate << 4) | ((attr->sl & 0x7) << 1);
 	} else {
 		ah->av.fl_mlid = attr->src_path_bits & 0x7f;
 		ah->av.rlid = htobe16(attr->dlid);
 		grh = 1;
+		ah->av.stat_rate_sl = (static_rate << 4) | (attr->sl & 0x7);
 	}
-	static_rate = ah_attr_to_mlx5_rate(attr->static_rate);
-	ah->av.stat_rate_sl = (static_rate << 4) | attr->sl;
 	if (attr->is_global) {
 		ah->av.tclass = attr->grh.traffic_class;
 		ah->av.hop_limit = attr->grh.hop_limit;
