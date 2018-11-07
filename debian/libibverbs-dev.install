@@ -10,7 +10,7 @@ usr/include/infiniband/sa.h
 usr/include/infiniband/tm_types.h
 usr/include/infiniband/verbs.h
 usr/include/infiniband/verbs_api.h
-usr/lib/*/lib*-rdmav20.a
+usr/lib/*/lib*-rdmav*.a
 usr/lib/*/libibverbs*.so
 usr/lib/*/libibverbs.a
 usr/lib/*/libmlx4.a
