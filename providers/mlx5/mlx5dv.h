@@ -138,7 +138,7 @@ enum mlx5dv_context_flags {
 enum mlx5dv_cq_init_attr_mask {
 	MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE	= 1 << 0,
 	MLX5DV_CQ_INIT_ATTR_MASK_FLAGS		= 1 << 1,
-	MLX5DV_CQ_INIT_ATTR_MASK_RESERVED	= 1 << 2,
+	MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE = 1 << 2,
 };
 
 enum mlx5dv_cq_init_attr_flags {
@@ -150,6 +150,7 @@ struct mlx5dv_cq_init_attr {
 	uint64_t comp_mask; /* Use enum mlx5dv_cq_init_attr_mask */
 	uint8_t cqe_comp_res_format; /* Use enum mlx5dv_cqe_comp_res_format */
 	uint32_t flags; /* Use enum mlx5dv_cq_init_attr_flags */
+	uint16_t cqe_size; /* when MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE set */
 };
 
 struct ibv_cq_ex *mlx5dv_create_cq(struct ibv_context *context,
@@ -1039,6 +1040,20 @@ struct mlx5dv_devx_umem {
 struct mlx5dv_devx_umem *
 mlx5dv_devx_umem_reg(struct ibv_context *ctx, void *addr, size_t size, uint32_t access);
 int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *umem);
+
+struct mlx5dv_devx_uar {
+	void *reg_addr;
+	void *base_addr;
+	uint32_t page_id;
+	off_t mmap_off;
+	uint64_t comp_mask;
+};
+
+struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
+					      uint32_t flags);
+void mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *devx_uar);
+int mlx5dv_devx_query_eqn(struct ibv_context *context, uint32_t vector,
+			  uint32_t *eqn);
 
 #ifdef __cplusplus
 }

@@ -548,14 +548,19 @@ static int align_queue_size(long long req)
 	return mlx5_round_up_power_of_two(req);
 }
 
-static int get_cqe_size(void)
+static int get_cqe_size(struct mlx5dv_cq_init_attr *mlx5cq_attr)
 {
 	char *env;
 	int size = 64;
 
-	env = getenv("MLX5_CQE_SIZE");
-	if (env)
-		size = atoi(env);
+	if (mlx5cq_attr &&
+	    (mlx5cq_attr->comp_mask & MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE)) {
+		size = mlx5cq_attr->cqe_size;
+	} else {
+		env = getenv("MLX5_CQE_SIZE");
+		if (env)
+			size = atoi(env);
+	}
 
 	switch (size) {
 	case 64:
@@ -619,6 +624,13 @@ enum {
 		IBV_CREATE_CQ_ATTR_IGNORE_OVERRUN
 };
 
+enum {
+	MLX5_DV_CREATE_CQ_SUP_COMP_MASK =
+		(MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE |
+		 MLX5DV_CQ_INIT_ATTR_MASK_FLAGS |
+		 MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE),
+};
+
 static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 				   const struct ibv_cq_init_attr_ex *cq_attr,
 				   int cq_alloc_flags,
@@ -666,6 +678,15 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		return NULL;
 	}
 
+	if (mlx5cq_attr &&
+	    !check_comp_mask(mlx5cq_attr->comp_mask,
+			     MLX5_DV_CREATE_CQ_SUP_COMP_MASK)) {
+		mlx5_dbg(fp, MLX5_DBG_CQ,
+			 "unsupported vendor comp_mask for %s\n", __func__);
+		errno = EINVAL;
+		return NULL;
+	}
+
 	cq =  calloc(1, sizeof *cq);
 	if (!cq) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "\n");
@@ -702,7 +723,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		goto err_spl;
 	}
 
-	cqe_sz = get_cqe_size();
+	cqe_sz = get_cqe_size(mlx5cq_attr);
 	if (cqe_sz < 0) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "\n");
 		errno = -cqe_sz;
@@ -731,14 +752,6 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	cmd_drv->cqe_size = cqe_sz;
 
 	if (mlx5cq_attr) {
-		if (!check_comp_mask(mlx5cq_attr->comp_mask,
-				     MLX5DV_CQ_INIT_ATTR_MASK_RESERVED - 1)) {
-			mlx5_dbg(fp, MLX5_DBG_CQ,
-				   "Unsupported vendor comp_mask for create_cq\n");
-			errno = EINVAL;
-			goto err_db;
-		}
-
 		if (mlx5cq_attr->comp_mask & MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE) {
 			if (mctx->cqe_comp_caps.max_num &&
 			    (mlx5cq_attr->cqe_comp_res_format &
@@ -4033,6 +4046,67 @@ int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t 
 
 	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OTHER_CMD_IN, in, inlen);
 	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_OTHER_CMD_OUT, out, outlen);
+
+	return execute_ioctl(context, cmd);
+}
+
+struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
+					      uint32_t flags)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX,
+			       MLX5_IB_METHOD_DEVX_QUERY_UAR,
+			       2);
+
+	int ret;
+	struct mlx5_bf *bf;
+
+	if (flags) {
+		errno = ENOTSUP;
+		return NULL;
+	}
+
+	bf = mlx5_attach_dedicated_bf(context);
+	if (!bf)
+		return NULL;
+
+	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_QUERY_UAR_USER_IDX,
+			    bf->bfreg_dyn_index);
+	fill_attr_out_ptr(cmd, MLX5_IB_ATTR_DEVX_QUERY_UAR_DEV_IDX,
+		      &bf->devx_uar.dv_devx_uar.page_id);
+
+	ret = execute_ioctl(context, cmd);
+	if (ret) {
+		mlx5_detach_dedicated_bf(context, bf);
+		return NULL;
+	}
+
+	bf->devx_uar.dv_devx_uar.reg_addr = bf->reg;
+	bf->devx_uar.dv_devx_uar.base_addr = bf->uar;
+	bf->devx_uar.dv_devx_uar.mmap_off = bf->uar_mmap_offset;
+	bf->devx_uar.dv_devx_uar.comp_mask = 0;
+	bf->devx_uar.context = context;
+	return &bf->devx_uar.dv_devx_uar;
+}
+
+void mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *dv_devx_uar)
+{
+	struct mlx5_bf *bf = container_of(dv_devx_uar, struct mlx5_bf,
+					  devx_uar.dv_devx_uar);
+
+	mlx5_detach_dedicated_bf(bf->devx_uar.context, bf);
+}
+
+int mlx5dv_devx_query_eqn(struct ibv_context *context, uint32_t vector,
+			  uint32_t *eqn)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX,
+			       MLX5_IB_METHOD_DEVX_QUERY_EQN,
+			       2);
+
+	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_QUERY_EQN_USER_VEC, vector);
+	fill_attr_out_ptr(cmd, MLX5_IB_ATTR_DEVX_QUERY_EQN_DEV_EQN, eqn);
 
 	return execute_ioctl(context, cmd);
 }
