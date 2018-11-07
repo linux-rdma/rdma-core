@@ -2414,8 +2414,43 @@ static int acmp_add_addr(const struct acm_address *addr, void *ep_context,
 static void acmp_remove_addr(void *addr_context)
 {
 	struct acmp_addr *address = addr_context;
+	struct acmp_device *dev;
+	struct acmp_dest *dest;
+	struct acmp_ep *ep;
+	int i;
 
 	acm_log(2, "\n");
+
+	/*
+	 * The address may be a local destination address. If so,
+	 * delete it from the cache.
+	 */
+
+	pthread_mutex_lock(&acmp_dev_lock);
+	list_for_each(&acmp_dev_list, dev, entry) {
+		pthread_mutex_unlock(&acmp_dev_lock);
+
+		for (i = 0; i < dev->port_cnt; i++) {
+			struct acmp_port *port = &dev->port[i];
+
+			pthread_mutex_lock(&port->lock);
+			list_for_each(&port->ep_list, ep, entry) {
+				pthread_mutex_unlock(&port->lock);
+				dest = acmp_get_dest(ep, address->type, address->addr->info.addr);
+				if (dest) {
+					acm_log(2, "Found a dest addr, deleting it\n");
+					pthread_mutex_lock(&ep->lock);
+					acmp_remove_dest(ep, dest);
+					pthread_mutex_unlock(&ep->lock);
+				}
+				pthread_mutex_lock(&port->lock);
+			}
+			pthread_mutex_unlock(&port->lock);
+		}
+		pthread_mutex_lock(&acmp_dev_lock);
+	}
+	pthread_mutex_unlock(&acmp_dev_lock);
+
 	memset(address, 0, sizeof(*address));
 }
 
