@@ -268,47 +268,6 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 	return 0;
 }
 
-int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
-		       struct ibv_port_attr *port_attr,
-		       struct ibv_query_port *cmd, size_t cmd_size)
-{
-	struct ib_uverbs_query_port_resp resp;
-	int ret;
-
-	cmd->port_num = port_num;
-	memset(cmd->reserved, 0, sizeof cmd->reserved);
-	memset(&resp, 0, sizeof(resp));
-
-	ret = execute_cmd_write(context, IB_USER_VERBS_CMD_QUERY_PORT, cmd,
-				cmd_size, &resp, sizeof(resp));
-	if (ret)
-		return ret;
-
-	port_attr->state      	   = resp.state;
-	port_attr->max_mtu         = resp.max_mtu;
-	port_attr->active_mtu      = resp.active_mtu;
-	port_attr->gid_tbl_len     = resp.gid_tbl_len;
-	port_attr->port_cap_flags  = resp.port_cap_flags;
-	port_attr->max_msg_sz      = resp.max_msg_sz;
-	port_attr->bad_pkey_cntr   = resp.bad_pkey_cntr;
-	port_attr->qkey_viol_cntr  = resp.qkey_viol_cntr;
-	port_attr->pkey_tbl_len    = resp.pkey_tbl_len;
-	port_attr->lid 	      	   = resp.lid;
-	port_attr->sm_lid 	   = resp.sm_lid;
-	port_attr->lmc 	      	   = resp.lmc;
-	port_attr->max_vl_num      = resp.max_vl_num;
-	port_attr->sm_sl      	   = resp.sm_sl;
-	port_attr->subnet_timeout  = resp.subnet_timeout;
-	port_attr->init_type_reply = resp.init_type_reply;
-	port_attr->active_width    = resp.active_width;
-	port_attr->active_speed    = resp.active_speed;
-	port_attr->phys_state      = resp.phys_state;
-	port_attr->link_layer      = resp.link_layer;
-	port_attr->flags	   = resp.flags;
-
-	return 0;
-}
-
 int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 		     struct ibv_alloc_pd *cmd, size_t cmd_size,
 		     struct ib_uverbs_alloc_pd_resp *resp, size_t resp_size)
