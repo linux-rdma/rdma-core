@@ -689,8 +689,11 @@ struct ibv_qp *i40iw_ucreate_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr
 	info.max_rq_frag_cnt = attr->cap.max_recv_sge;
 	info.max_inline_data = attr->cap.max_inline_data;
 
-	if (!iwvctx->dev.ops_uk.iwarp_qp_uk_init(&iwuqp->qp, &info))
+	if (!iwvctx->dev.ops_uk.iwarp_qp_uk_init(&iwuqp->qp, &info)) {
+		attr->cap.max_send_wr = (sqdepth - I40IW_SQ_RSVD) >> sqshift;
+		attr->cap.max_recv_wr = (rqdepth - I40IW_RQ_RSVD) >> rqshift;
 		return &iwuqp->ibv_qp;
+	}
 
 	i40iw_destroy_vmapped_qp(iwuqp, info.sq);
 err_free_rq_wrid:
