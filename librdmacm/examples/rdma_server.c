@@ -36,7 +36,7 @@
 #include <rdma/rdma_cma.h>
 #include <rdma/rdma_verbs.h>
 
-static const char *server = "127.0.0.1";
+static const char *server = "0.0.0.0";
 static const char *port = "7471";
 
 static struct rdma_cm_id *listen_id, *id;
@@ -174,6 +174,7 @@ int main(int argc, char **argv)
 			break;
 		default:
 			printf("usage: %s\n", argv[0]);
+			printf("\t[-s server_address]\n");
 			printf("\t[-p port_number]\n");
 			exit(1);
 		}
