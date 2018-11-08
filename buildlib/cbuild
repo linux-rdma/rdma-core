@@ -514,6 +514,10 @@ os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
 
             extra_opts = getattr(env,"rpmbuild_options", [])
             bopts = ["-bb",tspec_file] + extra_opts;
+            for arg in args.with_flags:
+                bopts.extend(["--with", arg]);
+            for arg in args.without_flags:
+                bopts.extend(["--without", arg]);
 
             print >> F,'os.execlp("rpmbuild","rpmbuild",%s)'%(
                 ",".join(repr(I) for I in bopts));
@@ -681,6 +685,10 @@ def args_pkg(parser):
     parser.add_argument("ENV",action=ToEnvAction,choices=env_choices());
     parser.add_argument("--run-shell",default=False,action="store_true",
                         help="Instead of running the build, enter a shell");
+    parser.add_argument("--with", default=[],action="append", dest="with_flags",
+                        help="Enable specified feature in RPM builds");
+    parser.add_argument("--without", default=[],action="append", dest="without_flags",
+                        help="Disable specified feature in RPM builds");
 def cmd_pkg(args):
     """Build a package in the given environment."""
     for env in args.ENV:
