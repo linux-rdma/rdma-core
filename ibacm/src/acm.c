@@ -67,6 +67,7 @@
 #include <util/util.h>
 #include "acm_mad.h"
 #include "acm_util.h"
+#include <linux/limits.h>
 
 #define src_out     data[0]
 #define src_index   data[1]
@@ -216,14 +217,14 @@ static struct sa_data {
 static const char *acme = IBACM_BIN_PATH "/ib_acme -A";
 static const char *opts_file = ACM_CONF_DIR "/" ACM_OPTS_FILE;
 static const char *addr_file = ACM_CONF_DIR "/" ACM_ADDR_FILE;
-static char log_file[128] = IBACM_LOG_FILE;
+static char log_file[NAME_MAX] = IBACM_LOG_FILE;
 static int log_level = 0;
-static char lock_file[128] = IBACM_PID_FILE;
+static char lock_file[NAME_MAX] = IBACM_PID_FILE;
 static short server_port = 6125;
 static int server_mode = IBACM_SERVER_MODE_DEFAULT;
 static int acme_plus_kernel_only = IBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT;
 static int support_ips_in_addr_cfg = 0;
-static char prov_lib_path[256] = IBACM_LIB_PATH;
+static char prov_lib_path[PATH_MAX] = IBACM_LIB_PATH;
 
 void acm_write(int level, const char *format, ...)
 {
