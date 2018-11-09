@@ -729,17 +729,17 @@ static char *get_dest(char *arg, char *format)
 	}
 }
 
-static void resolve(char *svc)
+static int resolve(char *svc)
 {
 	char **dest_list, **src_list;
 	struct ibv_path_record path;
-	int ret = 0, d = 0, s = 0, i;
+	int ret = -1, d = 0, s = 0, i;
 	char dest_type;
 
 	dest_list = parse(dest_arg, NULL);
 	if (!dest_list) {
 		printf("Unable to parse destination argument\n");
-		return;
+		return ret;
 	}
 
 	src_list = src_arg ? parse(src_arg, NULL) : NULL;
@@ -777,7 +777,7 @@ static void resolve(char *svc)
 			if (!ret)
 				show_path(&path);
 
-			if (verify)
+			if (!ret && verify)
 				ret = verify_resolve(&path);
 			printf("\n");
 
@@ -787,6 +787,8 @@ static void resolve(char *svc)
 	}
 
 	free(dest_list);
+
+	return ret;
 }
 
 static int query_perf_ip(uint64_t **counters, int *cnt)
@@ -976,7 +978,7 @@ static int query_svcs(void)
 		}
 
 		if (dest_arg)
-			resolve(svc_list[i]);
+			ret = resolve(svc_list[i]);
 
 		if (perf_query)
 			query_perf(svc_list[i]);
