@@ -926,7 +926,7 @@ static int enumerate_ep(char *svc, int index)
 	struct acm_ep_config_data *ep_data;
 
 	ret = ib_acm_enum_ep(index, &ep_data);
-	if (ret) 
+	if (ret)
 		return ret;
 
 	if (!labels) {
@@ -936,7 +936,7 @@ static int enumerate_ep(char *svc, int index)
 
 	printf("%s,0x%016" PRIx64 ",%d,0x%04x,%d,%s", svc, ep_data->dev_guid,
 	       ep_data->port_num, ep_data->pkey, index, ep_data->prov_name);
-	for (i = 0; i < ep_data->addr_cnt; i++) 
+	for (i = 0; i < ep_data->addr_cnt; i++)
 		printf(",%s", ep_data->addrs[i].name);
 	printf("\n");
 	ib_acm_free_ep_data(ep_data);
@@ -981,7 +981,7 @@ static int query_svcs(void)
 		if (perf_query)
 			query_perf(svc_list[i]);
 
-		if (enum_ep) 
+		if (enum_ep)
 			enumerate_eps(svc_list[i]);
 
 		ib_acm_disconnect();
@@ -1012,7 +1012,7 @@ static void parse_perf_arg(char *arg)
 		perf_query = PERF_QUERY_EP_ADDR;
 	} else {
 		ep_index = atoi(arg);
-		if (ep_index > 0) 
+		if (ep_index > 0)
 			perf_query = PERF_QUERY_EP_INDEX;
 		else
 			perf_query = PERF_QUERY_ROW;
@@ -1086,7 +1086,7 @@ int main(int argc, char **argv)
 	}
 
 	if ((src_arg && (!dest_arg && perf_query != PERF_QUERY_EP_ADDR)) ||
-	    (perf_query == PERF_QUERY_EP_ADDR && !src_arg) || 
+	    (perf_query == PERF_QUERY_EP_ADDR && !src_arg) ||
 	    (!src_arg && !dest_arg && !perf_query && !make_addr && !make_opts &&
 	     !enum_ep))
 		goto show_use;
