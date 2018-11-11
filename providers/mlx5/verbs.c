@@ -1541,6 +1541,7 @@ static int mlx5_cmd_create_rss_qp(struct ibv_context *context,
 {
 	struct mlx5_create_qp_ex_rss cmd_ex_rss = {};
 	struct mlx5_create_qp_ex_resp resp = {};
+	struct mlx5_ib_create_qp_resp *resp_drv;
 	int ret;
 
 	if (attr->rx_hash_conf.rx_hash_key_len > sizeof(cmd_ex_rss.rx_hash_key)) {
@@ -1562,6 +1563,11 @@ static int mlx5_cmd_create_rss_qp(struct ibv_context *context,
 					    sizeof(resp.ibv_resp), sizeof(resp));
 	if (ret)
 		return ret;
+
+	resp_drv = &resp.drv_payload;
+
+	if (resp_drv->comp_mask & MLX5_IB_CREATE_QP_RESP_MASK_TIRN)
+		qp->tirn = resp_drv->tirn;
 
 	qp->rss_qp = 1;
 	return 0;

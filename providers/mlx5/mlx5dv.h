@@ -330,6 +330,10 @@ struct mlx5dv_cq {
 	uint64_t		comp_mask;
 };
 
+enum mlx5dv_srq_comp_mask {
+	MLX5DV_SRQ_MASK_SRQN	= 1 << 0,
+};
+
 struct mlx5dv_srq {
 	void			*buf;
 	__be32			*dbrec;
@@ -337,6 +341,7 @@ struct mlx5dv_srq {
 	uint32_t		head;
 	uint32_t		tail;
 	uint64_t		comp_mask;
+	uint32_t		srqn;
 };
 
 struct mlx5dv_rwq {
@@ -357,6 +362,11 @@ struct mlx5_wqe_av;
 
 struct mlx5dv_ah {
 	struct mlx5_wqe_av      *av;
+	uint64_t		comp_mask;
+};
+
+struct mlx5dv_pd {
+	uint32_t		pdn;
 	uint64_t		comp_mask;
 };
 
@@ -385,6 +395,10 @@ struct mlx5dv_obj {
 		struct ibv_ah		*in;
 		struct mlx5dv_ah	*out;
 	} ah;
+	struct {
+		struct ibv_pd		*in;
+		struct mlx5dv_pd	*out;
+	} pd;
 };
 
 enum mlx5dv_obj_type {
@@ -394,6 +408,7 @@ enum mlx5dv_obj_type {
 	MLX5DV_OBJ_RWQ	= 1 << 3,
 	MLX5DV_OBJ_DM	= 1 << 4,
 	MLX5DV_OBJ_AH	= 1 << 5,
+	MLX5DV_OBJ_PD	= 1 << 6,
 };
 
 enum mlx5dv_wq_init_attr_mask {
