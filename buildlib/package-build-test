@@ -17,5 +17,5 @@ do
 	echo "Checking package build for ${OS} ...."
 	echo
 	buildlib/cbuild build-images ${OS}
-	buildlib/cbuild pkg --use-prebuilt-pandoc ${OS}
+	buildlib/cbuild pkg --use-prebuilt-pandoc --with static ${OS}
 done
