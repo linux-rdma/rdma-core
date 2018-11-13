@@ -117,6 +117,7 @@ struct acmc_port {
 	uint16_t            lid;
 	uint16_t            lid_mask;
 	int                 sa_pkey_index;
+	bool		    pending_rereg;
 	uint16_t            def_acm_pkey;
 };
 
@@ -2490,6 +2491,14 @@ static void acm_event_handler(struct acmc_device *dev)
 	case IBV_EVENT_PORT_ACTIVE:
 		if (dev->port[i].state != IBV_PORT_ACTIVE)
 			acm_port_up(&dev->port[i]);
+		if (dev->port[i].pending_rereg && dev->port[i].prov_port_context) {
+			dev->port[i].prov->handle_event(dev->port[i].prov_port_context,
+							IBV_EVENT_CLIENT_REREGISTER);
+			dev->port[i].pending_rereg = false;
+			acm_log(1, "%s %d delayed reregistration\n",
+				dev->device.verbs->device->name, i + 1);
+		}
+
 		break;
 	case IBV_EVENT_PORT_ERR:
 		if (dev->port[i].state == IBV_PORT_ACTIVE)
@@ -2502,7 +2511,12 @@ static void acm_event_handler(struct acmc_device *dev)
 							event.event_type);
 			acm_log(1, "%s %d has reregistered\n",
 				dev->device.verbs->device->name, i + 1);
+		} else {
+			acm_log(2, "%s %d rereg on inactive port, postpone handling\n",
+				dev->device.verbs->device->name, i + 1);
+			dev->port[i].pending_rereg = true;
 		}
+
 		break;
 	case IBV_EVENT_LID_CHANGE:
 	case IBV_EVENT_GID_CHANGE:
