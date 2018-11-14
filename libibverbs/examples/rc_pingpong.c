@@ -57,6 +57,7 @@ enum {
 
 static int page_size;
 static int use_odp;
+static int prefetch_mr;
 static int use_ts;
 static int validate_buf;
 static int use_dm;
@@ -430,6 +431,22 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 		goto clean_dm;
 	}
 
+	if (prefetch_mr) {
+		struct ibv_sge sg_list;
+		int ret;
+
+		sg_list.lkey = ctx->mr->lkey;
+		sg_list.addr = (uintptr_t)ctx->buf;
+		sg_list.length = size;
+
+		ret = ibv_advise_mr(ctx->pd, IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE,
+				    IB_UVERBS_ADVISE_MR_FLAG_FLUSH,
+				    &sg_list, 1);
+
+		if (ret)
+			fprintf(stderr, "Couldn't prefetch MR(%d). Continue anyway\n", ret);
+	}
+
 	if (use_ts) {
 		struct ibv_cq_init_attr_ex attr_ex = {
 			.cqe = rx_depth + 1,
@@ -717,6 +734,7 @@ static void usage(const char *argv0)
 	printf("  -e, --events           sleep on CQ events (default poll)\n");
 	printf("  -g, --gid-idx=<gid index> local port gid index\n");
 	printf("  -o, --odp		    use on demand paging\n");
+	printf("  -P, --prefetch	    prefetch an ODP MR\n");
 	printf("  -t, --ts	            get CQE with timestamp\n");
 	printf("  -c, --chk	            validate received buffer\n");
 	printf("  -j, --dm	            use device memory\n");
@@ -764,13 +782,14 @@ int main(int argc, char *argv[])
 			{ .name = "events",   .has_arg = 0, .val = 'e' },
 			{ .name = "gid-idx",  .has_arg = 1, .val = 'g' },
 			{ .name = "odp",      .has_arg = 0, .val = 'o' },
+			{ .name = "prefetch", .has_arg = 0, .val = 'P' },
 			{ .name = "ts",       .has_arg = 0, .val = 't' },
 			{ .name = "chk",      .has_arg = 0, .val = 'c' },
 			{ .name = "dm",       .has_arg = 0, .val = 'j' },
 			{}
 		};
 
-		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:l:eg:otcj",
+		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:l:eg:oPtcj",
 				long_options, NULL);
 
 		if (c == -1)
@@ -832,6 +851,9 @@ int main(int argc, char *argv[])
 		case 'o':
 			use_odp = 1;
 			break;
+		case 'P':
+			prefetch_mr = 1;
+			break;
 		case 't':
 			use_ts = 1;
 			break;
@@ -858,6 +880,11 @@ int main(int argc, char *argv[])
 
 	if (use_odp && use_dm) {
 		fprintf(stderr, "DM memory region can't be on demand\n");
+		return 1;
+	}
+
+	if (!use_odp && prefetch_mr) {
+		fprintf(stderr, "prefetch is valid only with on-demand memory region\n");
 		return 1;
 	}
 

@@ -8,12 +8,12 @@ ibv_rc_pingpong \- simple InfiniBand RC transport test
 .B ibv_rc_pingpong
 [\-p port] [\-d device] [\-i ib port] [\-s size] [\-m size]
 [\-r rx depth] [\-n iters] [\-l sl] [\-e] [\-g gid index]
-[\-o] [\-t] \fBHOSTNAME\fR
+[\-o] [\-P] [\-t] \fBHOSTNAME\fR
 
 .B ibv_rc_pingpong
 [\-p port] [\-d device] [\-i ib port] [\-s size] [\-m size]
 [\-r rx depth] [\-n iters] [\-l sl] [\-e] [\-g gid index]
-[\-o] [\-t]
+[\-o] [\-P] [\-t]
 
 .SH DESCRIPTION
 .PP
@@ -57,6 +57,9 @@ local port \fIGIDINDEX\fR
 .TP
 \fB\-o\fR, \fB\-\-odp\fR
 use on demand paging
+.TP
+\fB\-P\fR, \fB\-\-prefetch=\fR
+prefetch an ODP MR
 .TP
 \fB\-t\fR, \fB\-\-ts\fR
 get CQE with timestamp
