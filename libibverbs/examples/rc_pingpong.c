@@ -856,6 +856,11 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	if (use_odp && use_dm) {
+		fprintf(stderr, "DM memory region can't be on demand\n");
+		return 1;
+	}
+
 	if (use_ts) {
 		ts.comp_recv_max_time_delta = 0;
 		ts.comp_recv_min_time_delta = 0xffffffff;
