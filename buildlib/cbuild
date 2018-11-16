@@ -140,6 +140,7 @@ class fc28(Environment):
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
     is_rpm = True;
+    aliases = {"fedora"};
 
     def get_docker_file(self):
         res = DockerFile(self.docker_parent);
@@ -193,7 +194,7 @@ class bionic(APTEnvironment):
     docker_parent = "ubuntu:18.04"
     pkgs = xenial.pkgs
     name = "ubuntu-18.04";
-    aliases = {"bionic"};
+    aliases = {"bionic", "ubuntu"};
 
 class jessie(APTEnvironment):
     docker_parent = "debian:8"
