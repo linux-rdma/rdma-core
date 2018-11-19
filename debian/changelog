@@ -1,3 +1,14 @@
+rdma-core (21.0-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Drop ibacm sysV init script to avoid issues with the sysV to systemd
+      wrapper starting the service instead of the socket (LP: #1794825)
+    - Include static libraries in the build
+  * Update private libibverbs symbols
+  * Specify Build-Depends-Package in symbols
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Tue, 20 Nov 2018 11:49:25 +0100
+
 rdma-core (20.0-1) unstable; urgency=medium
 
   * New upstream release.
