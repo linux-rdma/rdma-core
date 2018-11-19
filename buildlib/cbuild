@@ -102,6 +102,7 @@ class centos6(YumEnvironment):
         'make',
         'pkgconfig',
         'python',
+        'python-argparse',
         'rpm-build',
         'valgrind-devel',
     };
@@ -134,7 +135,7 @@ class centos7_epel(centos7):
 
 class fc28(Environment):
     docker_parent = "fedora:28";
-    pkgs = (centos7.pkgs - {"make"}) | {"ninja-build","pandoc"};
+    pkgs = (centos7.pkgs - {"make", "python-argparse" }) | {"ninja-build","pandoc","perl-generators"};
     name = "fc28";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
@@ -188,11 +189,11 @@ class xenial(APTEnvironment):
     name = "ubuntu-16.04";
     aliases = {"xenial"};
 
-class artful(APTEnvironment):
-    docker_parent = "ubuntu:17.10"
+class bionic(APTEnvironment):
+    docker_parent = "ubuntu:18.04"
     pkgs = xenial.pkgs
-    name = "ubuntu-17.10";
-    aliases = {"artful"};
+    name = "ubuntu-18.04";
+    aliases = {"bionic"};
 
 class jessie(APTEnvironment):
     docker_parent = "debian:8"
@@ -321,7 +322,7 @@ class ZypperEnvironment(Environment):
 
 class leap(ZypperEnvironment):
     proxy = False;
-    docker_parent = "opensuse:42.3";
+    docker_parent = "opensuse/leap:15.0";
     specfile = "suse/rdma-core.spec";
     pkgs = {
         'cmake',
@@ -338,11 +339,11 @@ class leap(ZypperEnvironment):
         'systemd-devel',
         'valgrind-devel',
     };
-    name = "opensuse-42.3";
+    name = "opensuse-15.0";
     aliases = {"leap"};
 
 class tumbleweed(ZypperEnvironment):
-    docker_parent = "opensuse:tumbleweed";
+    docker_parent = "opensuse/tumbleweed:latest";
     pkgs = leap.pkgs;
     name = "tumbleweed";
     specfile = "suse/rdma-core.spec";
@@ -359,7 +360,7 @@ environments = [centos6(),
                 travis(),
                 trusty(),
                 xenial(),
-                artful(),
+                bionic(),
                 jessie(),
                 stretch(),
                 fc28(),
@@ -547,6 +548,10 @@ os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
 
             extra_opts = getattr(env,"rpmbuild_options", [])
             bopts = ["-bb",tspec_file] + extra_opts;
+            for arg in args.with_flags:
+                bopts.extend(["--with", arg]);
+            for arg in args.without_flags:
+                bopts.extend(["--without", arg]);
 
             print >> F,'os.execlp("rpmbuild","rpmbuild",%s)'%(
                 ",".join(repr(I) for I in bopts));
@@ -716,6 +721,10 @@ def args_pkg(parser):
                         help="Instead of running the build, enter a shell");
     parser.add_argument("--use-prebuilt-pandoc",default=False,action="store_true",
                         help="Do not rebuild the pandoc cache in build-travis/pandoc-prebuilt/");
+    parser.add_argument("--with", default=[],action="append", dest="with_flags",
+                        help="Enable specified feature in RPM builds");
+    parser.add_argument("--without", default=[],action="append", dest="without_flags",
+                        help="Disable specified feature in RPM builds");
 def cmd_pkg(args):
     """Build a package in the given environment."""
     for env in args.ENV:

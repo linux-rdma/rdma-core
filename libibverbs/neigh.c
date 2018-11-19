@@ -39,9 +39,7 @@ extern unsigned int if_nametoindex(__const char *__ifname) __THROW;
 
 #include "neigh.h"
 
-#ifndef HAVE_LIBNL1
 #include <netlink/route/link/vlan.h>
-#endif
 
 static pthread_once_t device_neigh_alloc = PTHREAD_ONCE_INIT;
 static struct nl_sock *zero_socket;

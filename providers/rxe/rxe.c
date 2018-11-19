@@ -855,7 +855,8 @@ static const struct verbs_context_ops rxe_ctx_ops = {
 };
 
 static struct verbs_context *rxe_alloc_context(struct ibv_device *ibdev,
-					       int cmd_fd)
+					       int cmd_fd,
+					       void *private_data)
 {
 	struct rxe_context *context;
 	struct ibv_get_context cmd;
@@ -922,4 +923,4 @@ static const struct verbs_device_ops rxe_dev_ops = {
 	.alloc_context = rxe_alloc_context,
 	.free_context = rxe_free_context,
 };
-PROVIDER_DRIVER(rxe_dev_ops);
+PROVIDER_DRIVER(rxe, rxe_dev_ops);

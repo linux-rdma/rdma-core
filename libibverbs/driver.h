@@ -183,11 +183,13 @@ struct verbs_device_ops {
 	int match_min_abi_version;
 	int match_max_abi_version;
 	const struct verbs_match_ent *match_table;
+	const struct verbs_device_ops **static_providers;
 
 	bool (*match_device)(struct verbs_sysfs_dev *sysfs_dev);
 
 	struct verbs_context *(*alloc_context)(struct ibv_device *device,
-					       int cmd_fd);
+					       int cmd_fd,
+					       void *private_data);
 	void (*free_context)(struct ibv_context *context);
 
 	struct verbs_device *(*alloc_device)(struct verbs_sysfs_dev *sysfs_dev);
@@ -354,11 +356,18 @@ typedef struct verbs_device *(*verbs_driver_init_func)(const char *uverbs_sys_pa
 
 void verbs_register_driver(const struct verbs_device_ops *ops);
 
-/* Macro for providers to use to supply verbs_device_ops to the core code */
-#define PROVIDER_DRIVER(drv)                                                   \
+/*
+ * Macro for providers to use to supply verbs_device_ops to the core code.
+ * This creates a global symbol for the provider structure to be used by the
+ * ibv_static_providers() machinery, and a global constructor for the dlopen
+ * machinery.
+ */
+#define PROVIDER_DRIVER(provider_name, drv_struct)                             \
+	extern const struct verbs_device_ops verbs_provider_##provider_name    \
+		__attribute__((alias(stringify(drv_struct))));                 \
 	static __attribute__((constructor)) void drv##__register_driver(void)  \
 	{                                                                      \
-		verbs_register_driver(&drv);                                   \
+		verbs_register_driver(&drv_struct);                            \
 	}
 
 void *_verbs_init_and_alloc_context(struct ibv_device *device, int cmd_fd,
@@ -383,6 +392,8 @@ void verbs_init_cq(struct ibv_cq *cq, struct ibv_context *context,
 		       struct ibv_comp_channel *channel,
 		       void *cq_context);
 
+struct ibv_context *verbs_open_device(struct ibv_device *device,
+				      void *private_data);
 int ibv_cmd_get_context(struct verbs_context *context,
 			struct ibv_get_context *cmd, size_t cmd_size,
 			struct ib_uverbs_get_context_resp *resp, size_t resp_size);

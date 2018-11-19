@@ -138,7 +138,7 @@ enum mlx5dv_context_flags {
 enum mlx5dv_cq_init_attr_mask {
 	MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE	= 1 << 0,
 	MLX5DV_CQ_INIT_ATTR_MASK_FLAGS		= 1 << 1,
-	MLX5DV_CQ_INIT_ATTR_MASK_RESERVED	= 1 << 2,
+	MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE = 1 << 2,
 };
 
 enum mlx5dv_cq_init_attr_flags {
@@ -150,6 +150,7 @@ struct mlx5dv_cq_init_attr {
 	uint64_t comp_mask; /* Use enum mlx5dv_cq_init_attr_mask */
 	uint8_t cqe_comp_res_format; /* Use enum mlx5dv_cqe_comp_res_format */
 	uint32_t flags; /* Use enum mlx5dv_cq_init_attr_flags */
+	uint16_t cqe_size; /* when MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE set */
 };
 
 struct ibv_cq_ex *mlx5dv_create_cq(struct ibv_context *context,
@@ -158,6 +159,10 @@ struct ibv_cq_ex *mlx5dv_create_cq(struct ibv_context *context,
 
 enum mlx5dv_qp_create_flags {
 	MLX5DV_QP_CREATE_TUNNEL_OFFLOADS = 1 << 0,
+	MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_UC = 1 << 1,
+	MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_MC = 1 << 2,
+	MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE = 1 << 3,
+	MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE = 1 << 4,
 };
 
 enum mlx5dv_qp_init_attr_mask {
@@ -222,6 +227,7 @@ enum mlx5dv_flow_action_type {
 	MLX5DV_FLOW_ACTION_IBV_COUNTER,
 	MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION,
 	MLX5DV_FLOW_ACTION_TAG,
+	MLX5DV_FLOW_ACTION_DEST_DEVX,
 };
 
 struct mlx5dv_flow_action_attr {
@@ -231,6 +237,7 @@ struct mlx5dv_flow_action_attr {
 		struct ibv_counters *counter;
 		struct ibv_flow_action *action;
 		uint32_t tag_value;
+		struct mlx5dv_devx_obj *obj;
 	};
 };
 
@@ -245,6 +252,36 @@ struct ibv_flow_action *mlx5dv_create_flow_action_esp(struct ibv_context *ctx,
 						      struct mlx5dv_flow_action_esp *mlx5_attr);
 
 /*
+ * mlx5dv_create_flow_action_modify_header - Create a flow action which mutates
+ * a packet. The flow action can be attached to steering rules via
+ * ibv_create_flow().
+ *
+ * @ctx: RDMA device context to create the action on.
+ * @actions_sz: The size of *actions* buffer in bytes.
+ * @actions: A buffer which contains modify actions provided in device spec
+ *	     format.
+ * @ft_type: Defines the flow table type to which the modify
+ *	     header action will be attached.
+ *
+ * Return a valid ibv_flow_action if successful, NULL otherwise.
+ */
+struct ibv_flow_action *
+mlx5dv_create_flow_action_modify_header(struct ibv_context *ctx,
+					size_t actions_sz,
+					uint64_t actions[],
+					enum mlx5dv_flow_table_type ft_type);
+
+/*
+ * mlx5dv_create_flow_action_packet_reformat - Create flow action which can
+ * encap/decap packets.
+ */
+struct ibv_flow_action *
+mlx5dv_create_flow_action_packet_reformat(struct ibv_context *ctx,
+					  size_t data_sz,
+					  void *data,
+					  enum mlx5dv_flow_action_packet_reformat_type reformat_type,
+					  enum mlx5dv_flow_table_type ft_type);
+/*
  * Most device capabilities are exported by ibv_query_device(...),
  * but there is HW device-specific information which is important
  * for data-path, but isn't provided.
@@ -256,6 +293,7 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 
 enum mlx5dv_qp_comp_mask {
 	MLX5DV_QP_MASK_UAR_MMAP_OFFSET		= 1 << 0,
+	MLX5DV_QP_MASK_RAW_QP_HANDLES		= 1 << 1,
 };
 
 struct mlx5dv_qp {
@@ -276,6 +314,10 @@ struct mlx5dv_qp {
 	} bf;
 	uint64_t		comp_mask;
 	off_t			uar_mmap_offset;
+	uint32_t		tirn;
+	uint32_t		tisn;
+	uint32_t		rqn;
+	uint32_t		sqn;
 };
 
 struct mlx5dv_cq {
@@ -288,6 +330,10 @@ struct mlx5dv_cq {
 	uint64_t		comp_mask;
 };
 
+enum mlx5dv_srq_comp_mask {
+	MLX5DV_SRQ_MASK_SRQN	= 1 << 0,
+};
+
 struct mlx5dv_srq {
 	void			*buf;
 	__be32			*dbrec;
@@ -295,6 +341,7 @@ struct mlx5dv_srq {
 	uint32_t		head;
 	uint32_t		tail;
 	uint64_t		comp_mask;
+	uint32_t		srqn;
 };
 
 struct mlx5dv_rwq {
@@ -315,6 +362,11 @@ struct mlx5_wqe_av;
 
 struct mlx5dv_ah {
 	struct mlx5_wqe_av      *av;
+	uint64_t		comp_mask;
+};
+
+struct mlx5dv_pd {
+	uint32_t		pdn;
 	uint64_t		comp_mask;
 };
 
@@ -343,6 +395,10 @@ struct mlx5dv_obj {
 		struct ibv_ah		*in;
 		struct mlx5dv_ah	*out;
 	} ah;
+	struct {
+		struct ibv_pd		*in;
+		struct mlx5dv_pd	*out;
+	} pd;
 };
 
 enum mlx5dv_obj_type {
@@ -352,6 +408,7 @@ enum mlx5dv_obj_type {
 	MLX5DV_OBJ_RWQ	= 1 << 3,
 	MLX5DV_OBJ_DM	= 1 << 4,
 	MLX5DV_OBJ_AH	= 1 << 5,
+	MLX5DV_OBJ_PD	= 1 << 6,
 };
 
 enum mlx5dv_wq_init_attr_mask {
@@ -965,6 +1022,53 @@ static inline uint64_t mlx5dv_ts_to_ns(struct mlx5dv_clock_info *clock_info,
 
 	return nsec;
 }
+
+enum mlx5dv_context_attr_flags {
+	MLX5DV_CONTEXT_FLAGS_DEVX = 1 << 0,
+};
+
+struct mlx5dv_context_attr {
+	uint32_t flags; /* Use enum mlx5dv_context_attr_flags */
+	uint64_t comp_mask;
+};
+
+struct ibv_context *
+mlx5dv_open_device(struct ibv_device *device, struct mlx5dv_context_attr *attr);
+
+struct mlx5dv_devx_obj;
+
+struct mlx5dv_devx_obj *
+mlx5dv_devx_obj_create(struct ibv_context *context, const void *in, size_t inlen,
+		       void *out, size_t outlen);
+int mlx5dv_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
+			  void *out, size_t outlen);
+int mlx5dv_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
+			   void *out, size_t outlen);
+int mlx5dv_devx_obj_destroy(struct mlx5dv_devx_obj *obj);
+int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t inlen,
+			    void *out, size_t outlen);
+
+struct mlx5dv_devx_umem {
+	uint32_t umem_id;
+};
+
+struct mlx5dv_devx_umem *
+mlx5dv_devx_umem_reg(struct ibv_context *ctx, void *addr, size_t size, uint32_t access);
+int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *umem);
+
+struct mlx5dv_devx_uar {
+	void *reg_addr;
+	void *base_addr;
+	uint32_t page_id;
+	off_t mmap_off;
+	uint64_t comp_mask;
+};
+
+struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
+					      uint32_t flags);
+void mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *devx_uar);
+int mlx5dv_devx_query_eqn(struct ibv_context *context, uint32_t vector,
+			  uint32_t *eqn);
 
 #ifdef __cplusplus
 }

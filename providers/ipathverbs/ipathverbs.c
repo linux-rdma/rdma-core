@@ -136,7 +136,8 @@ static const struct verbs_context_ops ipath_ctx_v1_ops = {
 };
 
 static struct verbs_context *ipath_alloc_context(struct ibv_device *ibdev,
-						 int cmd_fd)
+						 int cmd_fd,
+						 void *private_data)
 {
 	struct ipath_context	    *context;
 	struct ibv_get_context       cmd;
@@ -203,4 +204,4 @@ static const struct verbs_device_ops ipath_dev_ops = {
 	.alloc_context = ipath_alloc_context,
 	.free_context = ipath_free_context,
 };
-PROVIDER_DRIVER(ipath_dev_ops);
+PROVIDER_DRIVER(ipathverbs, ipath_dev_ops);

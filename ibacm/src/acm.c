@@ -400,6 +400,7 @@ static void acm_mark_addr_invalid(struct acmc_ep *ep,
 		     !memcmp(ep->addr_info[i].addr.info.addr, data->info.addr,
 			     ACM_MAX_ADDRESS)) {
 			ep->addr_info[i].addr.type = ACM_ADDRESS_INVALID;
+			ep->port->prov->remove_address(ep->addr_info[i].prov_addr_context);
 			break;
 		}
 	}

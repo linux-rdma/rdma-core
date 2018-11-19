@@ -110,7 +110,8 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 
 /* Context Init functions */
 static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
-						   int cmd_fd)
+						   int cmd_fd,
+						   void *private_data)
 {
 	struct ibv_get_context cmd;
 	struct ubnxt_re_cntx_resp resp;
@@ -167,7 +168,6 @@ static void bnxt_re_free_context(struct ibv_context *ibvctx)
 	 * allocated in this context.
 	 */
 	if (cntx->udpi.dbpage && cntx->udpi.dbpage != MAP_FAILED) {
-		pthread_spin_destroy(&cntx->udpi.db_lock);
 		munmap(cntx->udpi.dbpage, dev->pg_size);
 		cntx->udpi.dbpage = NULL;
 	}
@@ -197,4 +197,4 @@ static const struct verbs_device_ops bnxt_re_dev_ops = {
 	.alloc_context = bnxt_re_alloc_context,
 	.free_context = bnxt_re_free_context,
 };
-PROVIDER_DRIVER(bnxt_re_dev_ops);
+PROVIDER_DRIVER(bnxt_re, bnxt_re_dev_ops);

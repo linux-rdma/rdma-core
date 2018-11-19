@@ -127,7 +127,8 @@ static const struct verbs_context_ops i40iw_uctx_ops = {
  */
 
 static struct verbs_context *i40iw_ualloc_context(struct ibv_device *ibdev,
-						  int cmd_fd)
+						  int cmd_fd,
+						  void *private_data)
 {
 	struct ibv_pd *ibv_pd;
 	struct i40iw_uvcontext *iwvctx;
@@ -225,4 +226,4 @@ static const struct verbs_device_ops i40iw_udev_ops = {
 	.alloc_context = i40iw_ualloc_context,
 	.free_context = i40iw_ufree_context,
 };
-PROVIDER_DRIVER(i40iw_udev_ops);
+PROVIDER_DRIVER(i40iw, i40iw_udev_ops);

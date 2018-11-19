@@ -57,10 +57,10 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "20.0")
+set(PACKAGE_VERSION "21.0")
 # When this is changed the values in these files need changing too:
 #   debian/libibverbs1.symbols
-set(IBVERBS_PABI_VERSION "20")
+set(IBVERBS_PABI_VERSION "21")
 set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 #-------------------------
@@ -82,6 +82,8 @@ set(BUILD_INCLUDE ${CMAKE_BINARY_DIR}/include)
 set(BUILD_BIN ${CMAKE_BINARY_DIR}/bin)
 # Libraries
 set(BUILD_LIB ${CMAKE_BINARY_DIR}/lib)
+# Static library pre-processing
+set(BUILD_STATIC_LIB ${CMAKE_BINARY_DIR}/lib/statics)
 # Used for IN_PLACE configuration
 set(BUILD_ETC ${CMAKE_BINARY_DIR}/etc)
 
@@ -366,25 +368,9 @@ if (NOT DEFINED ENABLE_RESOLVE_NEIGH)
 endif()
 if (ENABLE_RESOLVE_NEIGH)
   # FIXME use of pkgconfig is discouraged
-  pkg_check_modules(NL3 libnl-3.0 libnl-route-3.0)
-  if (NL3_FOUND)
-    set(NL_KIND 3)
-    set(NL_INCLUDE_DIRS ${NL3_INCLUDE_DIRS})
-    set(NL_LIBRARIES ${NL3_LIBRARIES})
-  else()
-    # FIXME: I don't know why we have this fallback, all supported distros
-    # have libnl3
-    pkg_check_modules(NL1 libnl-1)
-    if (NL1_FOUND)
-      set(NL_KIND 1)
-      set(NL_INCLUDE_DIRS ${NL1_INCLUDE_DIRS})
-      set(NL_LIBRARIES ${NL1_LIBRARIES})
-    else()
-      message(FATAL_ERROR "Cannot find libnl-3.0 or libnl-1")
-    endif()
-  endif()
-
+  pkg_check_modules(NL libnl-3.0 libnl-route-3.0 REQUIRED)
   include_directories(${NL_INCLUDE_DIRS})
+  set(NL_KIND 3)
 else()
   set(NL_KIND 0)
   set(NL_LIBRARIES "")
@@ -576,6 +562,7 @@ if (UDEV_FOUND)
 endif()
 add_subdirectory(srp_daemon)
 
+ibverbs_finalize()
 rdma_finalize_libs()
 
 #-------------------------
@@ -605,9 +592,6 @@ if (NOT HAVE_VALGRIND_MEMCHECK)
 endif()
 if (NOT HAVE_VALGRIND_DRD)
   message(STATUS " Valgrind drd.h NOT enabled")
-endif()
-if (NL_KIND EQUAL 1)
-  message(STATUS " libnl 3 NOT found (using libnl 1 compat)")
 endif()
 if (NL_KIND EQUAL 0)
   message(STATUS " neighbour resolution NOT enabled")

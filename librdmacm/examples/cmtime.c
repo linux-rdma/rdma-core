@@ -221,17 +221,18 @@ static void __req_handler(struct rdma_cm_id *id)
 	ret = rdma_create_qp(id, NULL, &init_qp_attr);
 	if (ret) {
 		perror("failure creating qp");
-		goto err;
+		goto err1;
 	}
 
 	ret = rdma_accept(id, NULL);
 	if (ret) {
 		perror("failure accepting");
-		goto err;
+		goto err2;
 	}
 	return;
-
-err:
+err2:
+	rdma_destroy_qp(id);
+err1:
 	printf("failing connection request\n");
 	rdma_reject(id, NULL, 0);
 	rdma_destroy_id(id);
@@ -263,6 +264,7 @@ static void *disc_handler_thread(void *arg)
 		work = __list_remove_head(&disc_work);
 		pthread_mutex_unlock(&disc_work.lock);
 		rdma_disconnect(work->id);
+		rdma_destroy_qp(work->id);
 		rdma_destroy_id(work->id);
 		free(work);
 	} while (1);
@@ -330,6 +332,7 @@ static void cma_handler(struct rdma_cm_id *id, struct rdma_cm_event *event)
 			if (!request) {
 				perror("out of memory queueing disconnect request, handling synchronously");
 				rdma_disconnect(id);
+				rdma_destroy_qp(id);
 				rdma_destroy_id(id);
 			} else {
 				INIT_LIST(request);
@@ -600,6 +603,7 @@ static int run_client(void)
 			continue;
 		start_perf(&nodes[i], STEP_DISCONNECT);
 		rdma_disconnect(nodes[i].id);
+		rdma_destroy_qp(nodes[i].id);
 		started[STEP_DISCONNECT]++;
 	}
 	while (started[STEP_DISCONNECT] != completed[STEP_DISCONNECT]) sched_yield();

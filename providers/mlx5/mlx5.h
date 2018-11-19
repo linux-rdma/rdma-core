@@ -188,7 +188,7 @@ enum mlx5_vendor_cap_flags {
 };
 
 enum {
-	MLX5_FLOW_TAG_MASK	= 0x000fffff,
+	MLX5_FLOW_TAG_MASK	= 0x00ffffff,
 };
 
 struct mlx5_resource {
@@ -460,6 +460,11 @@ struct mlx5_wq {
 	uint32_t			*wr_data;
 };
 
+struct mlx5_devx_uar {
+	struct mlx5dv_devx_uar dv_devx_uar;
+	struct ibv_context *context;
+};
+
 struct mlx5_bf {
 	void			       *reg;
 	int				need_lock;
@@ -472,6 +477,7 @@ struct mlx5_bf {
 	void				*uar;
 	/* Index in the dynamic bfregs portion */
 	uint32_t			bfreg_dyn_index;
+	struct mlx5_devx_uar		devx_uar;
 };
 
 struct mlx5_dm {
@@ -518,6 +524,10 @@ struct mlx5_qp {
 	int                             rss_qp;
 	uint32_t			flags; /* Use enum mlx5_qp_flags */
 	enum mlx5dv_dc_type		dc_type;
+	uint32_t			tirn;
+	uint32_t			tisn;
+	uint32_t			rqn;
+	uint32_t			sqn;
 };
 
 struct mlx5_ah {
@@ -559,6 +569,17 @@ struct mlx5_flow {
 };
 
 struct mlx5dv_flow_matcher {
+	struct ibv_context *context;
+	uint32_t handle;
+};
+
+struct mlx5dv_devx_obj {
+	struct ibv_context *context;
+	uint32_t handle;
+};
+
+struct mlx5_devx_umem {
+	struct mlx5dv_devx_umem dv_devx_umem;
 	struct ibv_context *context;
 	uint32_t handle;
 };

@@ -36,7 +36,7 @@
  * Description: Doorbell handling functions.
  */
 
-#include <util/udma_barrier.h>
+#include <util/mmio.h>
 #include "main.h"
 
 static void bnxt_re_ring_db(struct bnxt_re_dpi *dpi,
@@ -44,11 +44,10 @@ static void bnxt_re_ring_db(struct bnxt_re_dpi *dpi,
 {
 	__le64 *dbval;
 
-	pthread_spin_lock(&dpi->db_lock);
 	dbval = (__le64 *)&hdr->indx;
-	udma_to_device_barrier();
-	iowrite64(dpi->dbpage, dbval);
-	pthread_spin_unlock(&dpi->db_lock);
+	mmio_wc_start();
+	mmio_write64_le(dpi->dbpage, *dbval);
+	mmio_flush_writes();
 }
 
 static void bnxt_re_init_db_hdr(struct bnxt_re_db_hdr *hdr, uint32_t indx,
@@ -74,6 +73,24 @@ void bnxt_re_ring_sq_db(struct bnxt_re_qp *qp)
 
 	bnxt_re_init_db_hdr(&hdr, qp->sqq->tail, qp->qpid, BNXT_RE_QUE_TYPE_SQ);
 	bnxt_re_ring_db(qp->udpi, &hdr);
+}
+
+void bnxt_re_ring_srq_db(struct bnxt_re_srq *srq)
+{
+	struct bnxt_re_db_hdr hdr;
+
+	bnxt_re_init_db_hdr(&hdr, srq->srqq->tail, srq->srqid,
+			    BNXT_RE_QUE_TYPE_SRQ);
+	bnxt_re_ring_db(srq->udpi, &hdr);
+}
+
+void bnxt_re_ring_srq_arm(struct bnxt_re_srq *srq)
+{
+	struct bnxt_re_db_hdr hdr;
+
+	bnxt_re_init_db_hdr(&hdr, srq->cap.srq_limit, srq->srqid,
+			    BNXT_RE_QUE_TYPE_SRQ_ARM);
+	bnxt_re_ring_db(srq->udpi, &hdr);
 }
 
 void bnxt_re_ring_cq_db(struct bnxt_re_cq *cq)

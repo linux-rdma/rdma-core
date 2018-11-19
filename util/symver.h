@@ -88,11 +88,13 @@
 #else
 
     // Static linking, or linker does not support symbol versions
-#   define COMPAT_SYMVER_FUNC(_public_sym, _uniq, _ver_str, _ret, ...)         \
-	static inline _ret __##_public_sym##_##_uniq(__VA_ARGS__)
-#   define LATEST_SYMVER_FUNC(_public_sym, _uniq, _ver_str, _ret, ...)         \
-	static _ret __##_public_sym##_##_uniq(__VA_ARGS__)                     \
-	    __attribute__((alias(stringify(_public_sym))));                    \
+#define COMPAT_SYMVER_FUNC(_public_sym, _uniq, _ver_str, _ret, ...)            \
+	static inline __attribute__((unused))                                  \
+		_ret __##_public_sym##_##_uniq(__VA_ARGS__)
+#define LATEST_SYMVER_FUNC(_public_sym, _uniq, _ver_str, _ret, ...)            \
+	static __attribute__((unused))                                         \
+		_ret __##_public_sym##_##_uniq(__VA_ARGS__)                    \
+			__attribute__((alias(stringify(_public_sym))));        \
 	extern _ret _public_sym(__VA_ARGS__)
 
 #endif

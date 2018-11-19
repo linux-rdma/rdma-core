@@ -64,7 +64,22 @@ LATEST_SYMVER_FUNC(ibv_get_device_list, 1_1, "IBVERBS_1.1",
 
 	pthread_mutex_lock(&dev_list_lock);
 	if (!initialized) {
-		int ret = ibverbs_init();
+		char value[8];
+		int ret;
+
+		/*
+		 * The uverbs module is not loaded, this is a ENOSYS return
+		 * but it is not a hard failure, we can try again to see if it
+		 * has become loaded since.
+		 */
+		if (ibv_read_sysfs_file(ibv_get_sysfs_path(),
+					"class/infiniband_verbs/abi_version",
+					value, sizeof(value)) < 0) {
+			errno = -ENOSYS;
+			goto out;
+		}
+
+		ret = ibverbs_init();
 		initialized = (ret < 0) ? ret : 1;
 	}
 
@@ -266,9 +281,7 @@ static void set_lib_ops(struct verbs_context *vctx)
 	vctx->create_cq_ex = __lib_ibv_create_cq_ex;
 }
 
-LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
-		   struct ibv_context *,
-		   struct ibv_device *device)
+struct ibv_context *verbs_open_device(struct ibv_device *device, void *private_data)
 {
 	struct verbs_device *verbs_device = verbs_get_device(device);
 	char *devpath;
@@ -292,13 +305,20 @@ LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
 	 * cmd_fd ownership is transferred into alloc_context, if it fails
 	 * then it closes cmd_fd and returns NULL
 	 */
-	context_ex = verbs_device->ops->alloc_context(device, cmd_fd);
+	context_ex = verbs_device->ops->alloc_context(device, cmd_fd, private_data);
 	if (!context_ex)
 		return NULL;
 
 	set_lib_ops(context_ex);
 
 	return &context_ex->context;
+}
+
+LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
+		   struct ibv_context *,
+		   struct ibv_device *device)
+{
+	return verbs_open_device(device, NULL);
 }
 
 void verbs_uninit_context(struct verbs_context *context_ex)

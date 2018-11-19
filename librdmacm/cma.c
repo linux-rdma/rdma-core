@@ -1023,7 +1023,7 @@ static int ucma_modify_qp_rtr(struct rdma_cm_id *id, uint8_t resp_res)
 	uint8_t link_layer;
 
 	if (!id->qp)
-		return ERR(EINVAL);
+		return 0;
 
 	/* Need to update QP attributes from default values. */
 	qp_attr.qp_state = IBV_QPS_INIT;
@@ -1059,6 +1059,9 @@ static int ucma_modify_qp_rts(struct rdma_cm_id *id, uint8_t init_depth)
 {
 	struct ibv_qp_attr qp_attr;
 	int qp_attr_mask, ret;
+
+	if (!id->qp)
+		return 0;
 
 	qp_attr.qp_state = IBV_QPS_RTS;
 	ret = rdma_init_qp_attr(id, &qp_attr, &qp_attr_mask);

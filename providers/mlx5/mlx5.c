@@ -761,6 +761,14 @@ static int mlx5dv_get_qp(struct ibv_qp *qp_in,
 		mask_out |= MLX5DV_QP_MASK_UAR_MMAP_OFFSET;
 	}
 
+	if (qp_out->comp_mask & MLX5DV_QP_MASK_RAW_QP_HANDLES) {
+		qp_out->tirn = mqp->tirn;
+		qp_out->tisn = mqp->tisn;
+		qp_out->rqn = mqp->rqn;
+		qp_out->sqn = mqp->sqn;
+		mask_out |= MLX5DV_QP_MASK_RAW_QP_HANDLES;
+	}
+
 	if (mqp->bf->uuarn > 0)
 		qp_out->bf.size = mqp->bf->buf_size;
 	else
@@ -808,16 +816,22 @@ static int mlx5dv_get_srq(struct ibv_srq *srq_in,
 			  struct mlx5dv_srq *srq_out)
 {
 	struct mlx5_srq *msrq;
+	uint64_t mask_out = 0;
 
 	msrq = container_of(srq_in, struct mlx5_srq, vsrq.srq);
 
-	srq_out->comp_mask = 0;
 	srq_out->buf       = msrq->buf.buf;
 	srq_out->dbrec     = msrq->db;
 	srq_out->stride    = 1 << msrq->wqe_shift;
 	srq_out->head      = msrq->head;
 	srq_out->tail      = msrq->tail;
 
+	if (srq_out->comp_mask & MLX5DV_SRQ_MASK_SRQN) {
+		srq_out->srqn = msrq->srqn;
+		mask_out |= MLX5DV_SRQ_MASK_SRQN;
+	}
+
+	srq_out->comp_mask = mask_out;
 	return 0;
 }
 
@@ -844,6 +858,17 @@ static int mlx5dv_get_av(struct ibv_ah *ah_in,
 	return 0;
 }
 
+static int mlx5dv_get_pd(struct ibv_pd *pd_in,
+			 struct mlx5dv_pd *pd_out)
+{
+	struct mlx5_pd *mpd = to_mpd(pd_in);
+
+	pd_out->comp_mask = 0;
+	pd_out->pdn = mpd->pdn;
+
+	return 0;
+}
+
 LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
 		   int,
 		   struct mlx5dv_obj *obj, uint64_t obj_type)
@@ -862,6 +887,8 @@ LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
 		ret = mlx5dv_get_dm(obj->dm.in, obj->dm.out);
 	if (!ret && (obj_type & MLX5DV_OBJ_AH))
 		ret = mlx5dv_get_av(obj->ah.in, obj->ah.out);
+	if (!ret && (obj_type & MLX5DV_OBJ_PD))
+		ret = mlx5dv_get_pd(obj->pd.in, obj->pd.out);
 
 	return ret;
 }
@@ -1000,8 +1027,15 @@ static void adjust_uar_info(struct mlx5_device *mdev,
 	context->num_uars_per_page = resp.num_uars_per_page;
 }
 
+struct ibv_context *
+mlx5dv_open_device(struct ibv_device *device, struct mlx5dv_context_attr *attr)
+{
+	return verbs_open_device(device, attr);
+}
+
 static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
-						int cmd_fd)
+						int cmd_fd,
+						void *private_data)
 {
 	struct mlx5_context	       *context;
 	struct mlx5_alloc_ucontext	req;
@@ -1019,6 +1053,12 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	int				k;
 	int				bfi;
 	int				num_sys_page_map;
+	struct mlx5dv_context_attr      *ctx_attr = private_data;
+
+	if (ctx_attr && ctx_attr->comp_mask) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
 					       RDMA_DRIVER_MLX5);
@@ -1059,6 +1099,16 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	req.num_low_latency_bfregs = low_lat_uuars;
 	req.max_cqe_version = MLX5_CQE_VERSION_V1;
 	req.lib_caps |= MLX5_LIB_CAP_4K_UAR;
+	if (ctx_attr && ctx_attr->flags) {
+
+		if (!check_comp_mask(ctx_attr->flags,
+				     MLX5DV_CONTEXT_FLAGS_DEVX)) {
+			errno = EINVAL;
+			goto err_free;
+		}
+
+		req.flags = MLX5_IB_ALLOC_UCTX_DEVX;
+	}
 
 	if (mlx5_cmd_get_context(context, &req, sizeof(req), &resp,
 				 sizeof(resp)))
@@ -1293,4 +1343,4 @@ static const struct verbs_device_ops mlx5_dev_ops = {
 	.alloc_context = mlx5_alloc_context,
 	.free_context = mlx5_free_context,
 };
-PROVIDER_DRIVER(mlx5_dev_ops);
+PROVIDER_DRIVER(mlx5, mlx5_dev_ops);

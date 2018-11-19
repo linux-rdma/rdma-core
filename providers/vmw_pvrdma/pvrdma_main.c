@@ -143,7 +143,8 @@ static void pvrdma_free_context_shared(struct pvrdma_context *context,
 }
 
 static struct verbs_context *pvrdma_alloc_context(struct ibv_device *ibdev,
-						  int cmd_fd)
+						  int cmd_fd,
+						  void *private_data)
 {
 	struct pvrdma_context *context;
 
@@ -208,4 +209,4 @@ static const struct verbs_device_ops pvrdma_dev_ops = {
 	.alloc_context = pvrdma_alloc_context,
 	.free_context  = pvrdma_free_context,
 };
-PROVIDER_DRIVER(pvrdma_dev_ops);
+PROVIDER_DRIVER(vmw_pvrdma, pvrdma_dev_ops);

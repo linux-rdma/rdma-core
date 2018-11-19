@@ -130,7 +130,8 @@ static const struct verbs_context_ops mthca_ctx_tavor_ops = {
 };
 
 static struct verbs_context *mthca_alloc_context(struct ibv_device *ibdev,
-						 int cmd_fd)
+						 int cmd_fd,
+						 void *private_data)
 {
 	struct mthca_context            *context;
 	struct ibv_get_context           cmd;
@@ -238,4 +239,4 @@ static const struct verbs_device_ops mthca_dev_ops = {
 	.alloc_context = mthca_alloc_context,
 	.free_context = mthca_free_context,
 };
-PROVIDER_DRIVER(mthca_dev_ops);
+PROVIDER_DRIVER(mthca, mthca_dev_ops);

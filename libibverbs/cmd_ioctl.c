@@ -128,6 +128,14 @@ int execute_ioctl(struct ibv_context *context, struct ibv_command_buffer *cmd)
 {
 	struct verbs_context *vctx = verbs_get_ctx(context);
 
+	/*
+	 * One of the fill functions was given input that cannot be marshaled
+	 */
+	if (unlikely(cmd->buffer_error)) {
+		errno = EINVAL;
+		return errno;
+	}
+
 	prepare_attrs(cmd);
 	cmd->hdr.length = sizeof(cmd->hdr) +
 		sizeof(cmd->hdr.attrs[0]) * cmd->hdr.num_attrs;
@@ -154,7 +162,8 @@ _fill_attr_in_uhw(struct ibv_command_buffer *cmd, uint16_t attr_id,
 {
 	struct ib_uverbs_attr *attr = _ioctl_next_attr(cmd, attr_id);
 
-	assert(len <= UINT16_MAX);
+	if (unlikely(len > UINT16_MAX))
+		cmd->buffer_error = 1;
 
 	attr->len = len;
 	attr->data = ioctl_ptr_to_u64(data);
