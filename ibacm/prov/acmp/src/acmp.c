@@ -45,6 +45,8 @@
 #include <infiniband/acm_prov.h>
 #include <infiniband/umad.h>
 #include <infiniband/verbs.h>
+#include <infiniband/umad_sa.h>
+#include <infiniband/umad_sa_mcm.h>
 #include <ifaddrs.h>
 #include <dlfcn.h>
 #include <search.h>
@@ -1380,15 +1382,16 @@ static void acmp_init_join(struct ib_sa_mad *mad, union ibv_gid *port_gid,
 		IB_COMP_MASK_MC_SCOPE | IB_COMP_MASK_MC_JOIN_STATE;
 
 	mc_rec = (struct ib_mc_member_rec *) mad->data;
-	acmp_format_mgid(&mc_rec->mgid, pkey | 0x8000, tos, rate, mtu);
+	acmp_format_mgid(&mc_rec->mgid, pkey | IB_PKEY_FULL_MEMBER, tos, rate, mtu);
 	mc_rec->port_gid = *port_gid;
 	mc_rec->qkey = htobe32(ACM_QKEY);
-	mc_rec->mtu = 0x80 | mtu;
+	mc_rec->mtu = umad_sa_set_rate_mtu_or_life(UMAD_SA_SELECTOR_EXACTLY, mtu);
 	mc_rec->tclass = tclass;
 	mc_rec->pkey = htobe16(pkey);
-	mc_rec->rate = 0x80 | rate;
-	mc_rec->sl_flow_hop = htobe32(((uint32_t) sl) << 28);
-	mc_rec->scope_state = 0x51;
+	mc_rec->rate = umad_sa_set_rate_mtu_or_life(UMAD_SA_SELECTOR_EXACTLY, rate);
+	mc_rec->sl_flow_hop = umad_sa_mcm_set_sl_flow_hop(sl, 0, 0);
+	mc_rec->scope_state = umad_sa_mcm_set_scope_state(UMAD_SA_MCM_ADDR_SCOPE_SITE_LOCAL,
+							  UMAD_SA_MCM_JOIN_STATE_FULL_MEMBER);
 }
 
 static void acmp_join_group(struct acmp_ep *ep, union ibv_gid *port_gid,

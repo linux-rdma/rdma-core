@@ -49,6 +49,8 @@
 #define ACM_CTRL_ACK     htobe16(0x8000)
 #define ACM_CTRL_RESOLVE htobe16(0x0001)
 
+#define IB_PKEY_FULL_MEMBER 0x8000
+
 struct acm_mad {
 	uint8_t  base_version;
 	uint8_t  mgmt_class;
