@@ -996,7 +996,7 @@ static void ocrdma_discard_cqes(struct ocrdma_qp *qp, struct ocrdma_cq *cq)
 	 * we don't complete out of order cqe.
 	 */
 	cur_getp = cq->getp;
-	/* find upto when do we reap the cq.*/
+	/* find up to when do we reap the cq.*/
 	stop_getp = cur_getp;
 	do {
 		if (is_hw_sq_empty(qp) && (!qp->srq && is_hw_rq_empty(qp)))
