@@ -1,4 +1,5 @@
 libibumad.so.3 libibumad3 #MINVER#
+* Build-Depends-Package: libibumad-dev
  IBUMAD_1.0@IBUMAD_1.0 1.3.9
  umad_addr_dump@IBUMAD_1.0 1.3.9
  umad_attribute_str@IBUMAD_1.0 1.3.10.2
