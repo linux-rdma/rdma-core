@@ -72,7 +72,6 @@
 #define src_index   data[1]
 #define dst_index   data[2]
 
-#define MAX_EP_ADDR 4
 #define NL_MSG_BUF_SIZE 4096
 #define ACM_PROV_NAME_SIZE 64
 #define NL_CLIENT_INDEX 0
@@ -139,7 +138,8 @@ struct acmc_ep {
 	struct acmc_port      *port;
 	struct acm_endpoint   endpoint;
 	void                  *prov_ep_context;
-	struct acmc_addr      addr_info[MAX_EP_ADDR];
+	int                   nmbr_eps;
+	struct acmc_addr      *addr_info;
 	struct list_node      entry;
 };
 
@@ -391,7 +391,7 @@ static void acm_mark_addr_invalid(struct acmc_ep *ep,
 {
 	int i;
 
-	for (i = 0; i < MAX_EP_ADDR; i++) {
+	for (i = 0; i < ep->nmbr_eps; i++) {
 		if (ep->addr_info[i].addr.type != data->type)
 			continue;
 
@@ -414,7 +414,7 @@ acm_addr_lookup(const struct acm_endpoint *endpoint, uint8_t *addr, uint8_t addr
 	int i;
 
 	ep = container_of(endpoint, struct acmc_ep, endpoint);
-	for (i = 0; i < MAX_EP_ADDR; i++) {
+	for (i = 0; i < ep->nmbr_eps; i++) {
 		if (ep->addr_info[i].addr.type != addr_type)
 			continue;
 
@@ -821,7 +821,7 @@ acm_get_port_ep_address(struct acmc_port *port, struct acm_ep_addr_data *data)
 		if ((data->type == ACM_EP_INFO_PATH) &&
 		    (!data->info.path.pkey ||
 		     (be16toh(data->info.path.pkey) == ep->endpoint.pkey))) {
-			for (i = 0; i < MAX_EP_ADDR; i++) {
+			for (i = 0; i < ep->nmbr_eps; i++) {
 				if (ep->addr_info[i].addr.type)
 					return &ep->addr_info[i];
 			}
@@ -1186,7 +1186,7 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 			ACM_MAX_PROV_NAME - 1);
 		msg->ep_data[0].prov_name[ACM_MAX_PROV_NAME - 1] = '\0';
 		len = ACM_MSG_HDR_LENGTH + sizeof(struct acm_ep_config_data);
-		for (i = 0; i < MAX_EP_ADDR; i++) {
+		for (i = 0; i < ep->nmbr_eps; i++) {
 			if (ep->addr_info[i].addr.type != ACM_ADDRESS_INVALID) {
 				memcpy(msg->ep_data[0].addrs[cnt++].name,
 				       ep->addr_info[i].string_buf,
@@ -1395,7 +1395,7 @@ static int resync_system_ips(void)
 			port = &dev->port[cnt];
 
 			list_for_each(&port->ep_list, ep, entry) {
-				for (i = 0; i < MAX_EP_ADDR; i++) {
+				for (i = 0; i < ep->nmbr_eps; i++) {
 					if (ep->addr_info[i].addr.type == ACM_ADDRESS_IP ||
 					    ep->addr_info[i].addr.type == ACM_ADDRESS_IP6)
 						ep->addr_info[i].addr.type = ACM_ADDRESS_INVALID;
@@ -2004,12 +2004,21 @@ acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
 	memcpy(tmp, addr, addr_len);
 
 	if (!acm_addr_lookup(&ep->endpoint, addr, addr_type)) {
-		for (i = 0; (i < MAX_EP_ADDR) &&
+		for (i = 0; (i < ep->nmbr_eps) &&
 			    (ep->addr_info[i].addr.type != ACM_ADDRESS_INVALID); i++)
 			;
-		if (i == MAX_EP_ADDR) {
-			ret = ENOMEM;
-			goto out;
+		if (i == ep->nmbr_eps) {
+			++ep->nmbr_eps;
+			ep->addr_info = realloc(ep->addr_info, ep->nmbr_eps * sizeof(*ep->addr_info));
+			if (!ep->addr_info) {
+				ret = ENOMEM;
+				--ep->nmbr_eps;
+				goto out;
+			}
+			/* Added memory is not initialized */
+			memset(ep->addr_info + i, 0, sizeof(*ep->addr_info));
+			ep->addr_info[i].addr.endpoint = &ep->endpoint;
+			ep->addr_info[i].addr.id_string = ep->addr_info[i].string_buf;
 		}
 
 		/* Open the provider endpoint only if at least a name or
@@ -2182,7 +2191,7 @@ static void acm_ep_down(struct acmc_ep *ep)
 	acm_log(1, "%s %d pkey 0x%04x\n",
 		ep->port->dev->device.verbs->device->name,
 		ep->port->port.port_num, ep->endpoint.pkey);
-	for (i = 0; i < MAX_EP_ADDR; i++) {
+	for (i = 0; i < ep->nmbr_eps; i++) {
 		if (ep->addr_info[i].addr.type &&
 		    ep->addr_info[i].prov_addr_context)
 			ep->port->prov->remove_address(ep->addr_info[i].
@@ -2199,7 +2208,6 @@ static struct acmc_ep *
 acm_alloc_ep(struct acmc_port *port, uint16_t pkey)
 {
 	struct acmc_ep *ep;
-	int i;
 
 	acm_log(1, "\n");
 	ep = calloc(1, sizeof *ep);
@@ -2209,11 +2217,7 @@ acm_alloc_ep(struct acmc_port *port, uint16_t pkey)
 	ep->port = port;
 	ep->endpoint.port = &port->port;
 	ep->endpoint.pkey = pkey;
-
-	for (i = 0; i < MAX_EP_ADDR; i++) {
-		ep->addr_info[i].addr.endpoint = &ep->endpoint;
-		ep->addr_info[i].addr.id_string = ep->addr_info[i].string_buf;
-	}
+	ep->nmbr_eps = 0;
 
 	return ep;
 }
