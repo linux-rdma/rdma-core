@@ -2,7 +2,81 @@ rdma-core (22.0-1) unstable; urgency=medium
 
   * New upstream release.
 
- -- Jason Gunthorpe <jgg@obsidianresearch.com>  Thu, 15 Feb 2018 12:06:48 +0100
+ -- Jason Gunthorpe <jgg@obsidianresearch.com>  Tue, 20 Nov 2018 12:00:59 +0100
+
+rdma-core (21.0-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Drop ibacm sysV init script to avoid issues with the sysV to systemd
+      wrapper starting the service instead of the socket (LP: #1794825)
+    - Include static libraries in the build
+  * Update private libibverbs symbols
+  * Specify Build-Depends-Package in symbols
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Tue, 20 Nov 2018 11:49:25 +0100
+
+rdma-core (20.0-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Switch from net-tools to iproute2 for rxe_cfg
+    - Install pkg-config files
+  * Update libibverbs symbols and let libibverbs1 break ibverbs-providers < 20~
+  * Drop all patches (accepted upstream)
+  * Bump Standards-Version to 4.2.1 (no changes needed)
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Mon, 10 Sep 2018 11:23:11 +0200
+
+rdma-core (19.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Switch to debhelper 11
+  * Add patch to fix bad whatis entries in man pages
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Thu, 28 Jun 2018 15:01:27 +0200
+
+rdma-core (18.1-1) unstable; urgency=medium
+
+  * New upstream bugfix release.
+  * Drop all patches (applied upstream)
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Tue, 12 Jun 2018 11:53:44 +0200
+
+rdma-core (18.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Update private libibverbs symbols and let libibverbs1 break
+    ibverbs-providers < 18~
+  * Fix bad whatis entries in man pages
+  * Fix spelling mistakes in ibv_create_flow_action.3 man page
+  * Use versioned Breaks & Replaces for ibverbs-providers to make it
+    multi-arch coinstallable (Closes: #898055)
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Mon, 07 May 2018 13:40:40 +0200
+
+rdma-core (17.1-2) unstable; urgency=medium
+
+  * Support for new architecture riscv64 (Closes: #894995) by
+    - Whitelist (instead of blacklist) architectures that support valgrind
+    - Whitelist (instead of blacklist) coherent DMA supporting architectures
+  * Bump Standards-Version to 4.1.4 (no changes needed)
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Mon, 30 Apr 2018 19:01:44 +0200
+
+rdma-core (17.1-1) unstable; urgency=medium
+
+  * New upstream bugfix release.
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Mon, 19 Mar 2018 13:32:31 +0100
+
+rdma-core (17.0-1) unstable; urgency=medium
+
+  * New upstream release
+    - Remove the obsolete libibcm library
+  * Update private libibverbs symbols and let libibverbs1 break
+    ibverbs-providers < 17~
+  * Update copyright for kernel-headers directory
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Mon, 19 Feb 2018 12:47:42 +0100
 
 rdma-core (16.2-1) unstable; urgency=medium
 
