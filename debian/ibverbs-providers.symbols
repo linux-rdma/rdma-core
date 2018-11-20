@@ -1,4 +1,5 @@
 libmlx4.so.1 ibverbs-providers #MINVER#
+* Build-Depends-Package: libibverbs-dev
  MLX4_1.0@MLX4_1.0 15
  mlx4dv_init_obj@MLX4_1.0 15
  mlx4dv_query_device@MLX4_1.0 15

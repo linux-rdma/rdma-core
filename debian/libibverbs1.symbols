@@ -1,4 +1,5 @@
 libibverbs.so.1 libibverbs1 #MINVER#
+* Build-Depends-Package: libibverbs-dev
  IBVERBS_1.0@IBVERBS_1.0 1.1.6
  IBVERBS_1.1@IBVERBS_1.1 1.1.6
  IBVERBS_1.5@IBVERBS_1.5 20

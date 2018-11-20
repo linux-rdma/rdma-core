@@ -1,4 +1,5 @@
 librdmacm.so.1 librdmacm1 #MINVER#
+* Build-Depends-Package: librdmacm-dev
  RDMACM_1.0@RDMACM_1.0 1.0.15
  RDMACM_1.1@RDMACM_1.1 16
  raccept@RDMACM_1.0 1.0.16
