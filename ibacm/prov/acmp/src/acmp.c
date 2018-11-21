@@ -190,8 +190,7 @@ struct acmp_ep {
 	struct list_head      active_queue;
 	struct list_head      wait_queue;
 	enum acmp_state       state;
-	int		      nmbr_eps;
-	struct acmp_addr      *addr_info;
+	struct acmp_addr      addr_info[MAX_EP_ADDR];
 	atomic_t              counters[ACM_MAX_COUNTER];
 };
 
@@ -1047,7 +1046,7 @@ acmp_addr_lookup(struct acmp_ep *ep, uint8_t *addr, uint16_t type)
 {
 	int i;
 
-	for (i = 0; i < ep->nmbr_eps; i++) {
+	for (i = 0; i < MAX_EP_ADDR; i++) {
 		if (ep->addr_info[i].type != type)
 			continue;
 
@@ -2370,20 +2369,13 @@ static int acmp_add_addr(const struct acm_address *addr, void *ep_context,
 
 	acm_log(2, "\n");
 
-	for (i = 0; (i < ep->nmbr_eps) &&
+	for (i = 0; (i < MAX_EP_ADDR) &&
 	     (ep->addr_info[i].type != ACM_ADDRESS_INVALID); i++)
 		;
 
-	if (i == ep->nmbr_eps) {
-		++ep->nmbr_eps;
-		ep->addr_info = realloc(ep->addr_info, ep->nmbr_eps * sizeof(*ep->addr_info));
-		if (!ep->addr_info) {
-			--ep->nmbr_eps;
-			acm_log(0, "ERROR - no more space for local address\n");
-			return -1;
-		}
-		/* Added memory is not initialized */
-		memset(ep->addr_info + i, 0, sizeof(*ep->addr_info));
+	if (i == MAX_EP_ADDR) {
+		acm_log(0, "ERROR - no more space for local address\n");
+		return -1;
 	}
 	ep->addr_info[i].type = addr->type;
 	memcpy(&ep->addr_info[i].info, &addr->info, sizeof(addr->info));
