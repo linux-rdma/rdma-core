@@ -197,7 +197,7 @@ static inline int _execute_write(uint32_t cmdnum, struct ibv_context *ctx,
 {
 	struct ib_uverbs_cmd_hdr *hdr = get_req_hdr(req);
 
-	hdr->in_words = req_len / 4;
+	hdr->in_words = (sizeof(*hdr) + req_len) / 4;
 	hdr->out_words = resp_len / 4;
 	return _execute_write_raw(cmdnum, ctx, hdr, resp);
 }
