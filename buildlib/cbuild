@@ -10,22 +10,22 @@ building for a wide range of distributions without having to install them.
 Each target distribution has a base docker image and a set of packages to
 install. The first step is to build the customized docker container:
 
- $ buildlib/cbuild build-images fc25
+ $ buildlib/cbuild build-images fedora
 
 This will download the base image and customize it with the required packages.
 
 Next, a build can be performed 'in place'. This is useful to do edit/compile
 cycles with an alternate distribution.
 
- $ buildlib/cbuild make fc25
+ $ buildlib/cbuild make fedora
 
-The build output will be placed in build-fc25
+The build output will be placed in build-fcXX, where XX is latest fedora release.
 
 Finally, a full package build can be performed inside the container. Note this
 mode actually creates a source tree inside the container based on the current
 git HEAD commit, so any uncommitted edits will be lost.
 
- $ buildlib/cbuild pkg fc25
+ $ buildlib/cbuild pkg fedora
 
 In this case only the final package results are copied outside the container
 (to ..) and everything else is discarded.
