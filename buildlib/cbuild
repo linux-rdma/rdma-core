@@ -133,10 +133,10 @@ class centos7_epel(centos7):
         res.lines.append("RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake");
         return res;
 
-class fc28(Environment):
-    docker_parent = "fedora:28";
+class fc29(Environment):
+    docker_parent = "fedora:29";
     pkgs = (centos7.pkgs - {"make", "python-argparse" }) | {"ninja-build","pandoc","perl-generators"};
-    name = "fc28";
+    name = "fc29";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
     is_rpm = True;
@@ -364,7 +364,7 @@ environments = [centos6(),
                 bionic(),
                 jessie(),
                 stretch(),
-                fc28(),
+                fc29(),
                 leap(),
                 tumbleweed(),
                 debian_experimental(),
