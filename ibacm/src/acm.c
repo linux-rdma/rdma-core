@@ -2080,7 +2080,9 @@ static void acm_ep_ip_iter_cb(char *ifname, union ibv_gid *gid, uint16_t pkey,
 
 	dev = acm_get_device_from_gid(gid, &port_num);
 	if (dev && ep->port->dev == dev
-	    && ep->port->port.port_num == port_num && ep->endpoint.pkey == pkey) {
+	    && ep->port->port.port_num == port_num &&
+		/* pkey retrieved from ipoib has always full mmbr bit set */
+		(ep->endpoint.pkey | IB_PKEY_FULL_MEMBER) == pkey) {
 		if (!acm_ep_insert_addr(ep, ip_str, addr, addr_len, addr_type)) {
 			acm_log(0, "Added %s %s %d 0x%x from %s\n", ip_str,
 				dev->device.verbs->device->name, port_num, pkey,
