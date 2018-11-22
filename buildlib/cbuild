@@ -224,7 +224,7 @@ class travis(APTEnvironment):
     basically creating a container that is similar to what travis would
     use. Note this does not use the base travis image, nor does it install the
     typical travis packages."""
-    docker_parent = "ubuntu:14.04";
+    docker_parent = "ubuntu:16.04";
     name = "travis";
     is_deb = True;
     _yaml = None;
@@ -280,12 +280,12 @@ class travis(APTEnvironment):
     def get_clang(self):
         """We are using the clang that comes in travis, which is not part of our base
         docker container, install something similar by hand."""
-        llvm_tar = "clang+llvm-5.0.2-x86_64-linux-gnu-ubuntu-14.04.tar.xz"
+        llvm_tar = "clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz"
         cmds = [
-            """RUN wget -q http://releases.llvm.org/5.0.2/{0} -O /tmp/{0} && \\
+            """RUN wget -q http://releases.llvm.org/7.0.0/{0} -O /tmp/{0} && \\
             tar xf /tmp/{0} -C /usr/local/ && \\
             rm /tmp/{0} && \\
-            (cd /usr/local/bin/ && ln -sf ../clang*/bin/clang-5.0 .)""".format(llvm_tar)];
+            (cd /usr/local/bin/ && ln -sf ../clang*/bin/clang-7 .)""".format(llvm_tar)];
         return cmds;
 
     def get_docker_file(self):

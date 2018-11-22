@@ -1,7 +1,5 @@
 language: c
-# We don't support any distro earlier than trusty
-sudo: required
-dist: trusty
+dist: xenial
 addons:
   # We run our builds sequentially in one VM rather than try and use the
   # matrix feature. This is because Travis is unreasonably inefficient
@@ -10,7 +8,7 @@ addons:
     sources:
       - ubuntu-toolchain-r-test
       # Multiverse is not on by default and we need it to get sparse
-      - sourceline: "deb http://archive.ubuntu.com/ubuntu/ trusty multiverse"
+      - sourceline: "deb http://archive.ubuntu.com/ubuntu/ xenial multiverse"
     packages:
       - build-essential
       - debhelper
