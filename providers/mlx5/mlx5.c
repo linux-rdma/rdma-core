@@ -674,6 +674,9 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 	struct mlx5_context *mctx = to_mctx(ctx_in);
 	uint64_t comp_mask_out = 0;
 
+	if (!is_mlx5_dev(ctx_in->device))
+		return EOPNOTSUPP;
+
 	attrs_out->version   = 0;
 	attrs_out->flags     = 0;
 
@@ -745,6 +748,9 @@ static int mlx5dv_get_qp(struct ibv_qp *qp_in,
 	struct mlx5_qp *mqp = to_mqp(qp_in);
 	uint64_t mask_out = 0;
 
+	if (!is_mlx5_dev(qp_in->context->device))
+		return EOPNOTSUPP;
+
 	qp_out->dbrec     = mqp->db;
 
 	if (mqp->sq_buf_size)
@@ -790,6 +796,9 @@ static int mlx5dv_get_cq(struct ibv_cq *cq_in,
 	struct mlx5_cq *mcq = to_mcq(cq_in);
 	struct mlx5_context *mctx = to_mctx(cq_in->context);
 
+	if (!is_mlx5_dev(cq_in->context->device))
+		return EOPNOTSUPP;
+
 	cq_out->comp_mask = 0;
 	cq_out->cqn       = mcq->cqn;
 	cq_out->cqe_cnt   = mcq->ibv_cq.cqe + 1;
@@ -808,6 +817,9 @@ static int mlx5dv_get_rwq(struct ibv_wq *wq_in,
 {
 	struct mlx5_rwq *mrwq = to_mrwq(wq_in);
 
+	if (!is_mlx5_dev(wq_in->context->device))
+		return EOPNOTSUPP;
+
 	rwq_out->comp_mask = 0;
 	rwq_out->buf       = mrwq->pbuff;
 	rwq_out->dbrec     = mrwq->recv_db;
@@ -822,6 +834,9 @@ static int mlx5dv_get_srq(struct ibv_srq *srq_in,
 {
 	struct mlx5_srq *msrq;
 	uint64_t mask_out = 0;
+
+	if (!is_mlx5_dev(srq_in->context->device))
+		return EOPNOTSUPP;
 
 	msrq = container_of(srq_in, struct mlx5_srq, vsrq.srq);
 
@@ -845,6 +860,9 @@ static int mlx5dv_get_dm(struct ibv_dm *dm_in,
 {
 	struct mlx5_dm *mdm = to_mdm(dm_in);
 
+	if (!is_mlx5_dev(dm_in->context->device))
+		return EOPNOTSUPP;
+
 	dm_out->comp_mask = 0;
 	dm_out->buf       = mdm->start_va;
 	dm_out->length    = mdm->length;
@@ -857,6 +875,9 @@ static int mlx5dv_get_av(struct ibv_ah *ah_in,
 {
 	struct mlx5_ah *mah = to_mah(ah_in);
 
+	if (!is_mlx5_dev(ah_in->context->device))
+		return EOPNOTSUPP;
+
 	ah_out->comp_mask = 0;
 	ah_out->av	  = &mah->av;
 
@@ -867,6 +888,9 @@ static int mlx5dv_get_pd(struct ibv_pd *pd_in,
 			 struct mlx5dv_pd *pd_out)
 {
 	struct mlx5_pd *mpd = to_mpd(pd_in);
+
+	if (!is_mlx5_dev(pd_in->context->device))
+		return EOPNOTSUPP;
 
 	pd_out->comp_mask = 0;
 	pd_out->pdn = mpd->pdn;
@@ -972,6 +996,9 @@ int mlx5dv_set_context_attr(struct ibv_context *ibv_ctx,
 {
 	struct mlx5_context *ctx = to_mctx(ibv_ctx);
 
+	if (!is_mlx5_dev(ibv_ctx->device))
+		return EOPNOTSUPP;
+
 	switch (type) {
 	case MLX5DV_CTX_ATTR_BUF_ALLOCATORS:
 		ctx->extern_alloc = *((struct mlx5dv_ctx_allocators *)attr);
@@ -1035,6 +1062,11 @@ static void adjust_uar_info(struct mlx5_device *mdev,
 struct ibv_context *
 mlx5dv_open_device(struct ibv_device *device, struct mlx5dv_context_attr *attr)
 {
+	if (!is_mlx5_dev(device)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
 	return verbs_open_device(device, attr);
 }
 
@@ -1348,4 +1380,11 @@ static const struct verbs_device_ops mlx5_dev_ops = {
 	.alloc_context = mlx5_alloc_context,
 	.free_context = mlx5_free_context,
 };
+
+bool is_mlx5_dev(struct ibv_device *device)
+{
+	struct verbs_device *verbs_device = verbs_get_device(device);
+
+	return verbs_device->ops == &mlx5_dev_ops;
+}
 PROVIDER_DRIVER(mlx5, mlx5_dev_ops);
