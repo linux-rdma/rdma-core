@@ -34,6 +34,7 @@
 #define _MLX5DV_H_
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <linux/types.h> /* For the __be64 type */
 #include <sys/types.h>
 #include <endian.h>
@@ -1034,6 +1035,8 @@ struct mlx5dv_context_attr {
 	uint32_t flags; /* Use enum mlx5dv_context_attr_flags */
 	uint64_t comp_mask;
 };
+
+bool mlx5dv_is_supported(struct ibv_device *device);
 
 struct ibv_context *
 mlx5dv_open_device(struct ibv_device *device, struct mlx5dv_context_attr *attr);

@@ -1059,6 +1059,11 @@ static void adjust_uar_info(struct mlx5_device *mdev,
 	context->num_uars_per_page = resp.num_uars_per_page;
 }
 
+bool mlx5dv_is_supported(struct ibv_device *device)
+{
+	return is_mlx5_dev(device);
+}
+
 struct ibv_context *
 mlx5dv_open_device(struct ibv_device *device, struct mlx5dv_context_attr *attr)
 {
