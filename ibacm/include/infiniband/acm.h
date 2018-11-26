@@ -130,7 +130,7 @@ struct acm_perf_msg {
 };
 
 /*
- * Endpoint query messages are sent/received in network byte order. 
+ * Endpoint query messages are sent/received in network byte order.
  */
 struct acm_ep_config_data {
 	uint64_t                dev_guid;
