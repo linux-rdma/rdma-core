@@ -872,7 +872,9 @@ static struct acmc_addr *acm_get_ep_address(struct acm_ep_addr_data *data)
 	return NULL;
 }
 
-static struct acmc_ep *acm_get_ep(int index)
+/* If port_num is zero, iterate through all ports, otherwise consider
+ * only the specific port_num */
+static struct acmc_ep *acm_get_ep(int index, uint8_t port_num)
 {
 	struct acmc_device *dev;
 	struct acmc_ep *ep;
@@ -881,6 +883,8 @@ static struct acmc_ep *acm_get_ep(int index)
 	acm_log(2, "ep index %d\n", index);
 	list_for_each(&dev_list, dev, entry) {
 		for (i = 0; i < dev->port_cnt; i++) {
+			if (port_num && port_num != (i + 1))
+				continue;
 			if (dev->port[i].state != IBV_PORT_ACTIVE)
 				continue;
 			list_for_each(&dev->port[i].ep_list, ep, entry) {
@@ -1152,7 +1156,7 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 		len = ACM_MSG_HDR_LENGTH + (ACM_MAX_COUNTER * sizeof(uint64_t));
 	} else {
 		if (index >= 1) {
-			ep = acm_get_ep(index - 1);
+			ep = acm_get_ep(index - 1, msg->hdr.src_index);
 		} else {
 			addr = acm_get_ep_address(&msg->resolve_data[0]);
 			if (addr)
@@ -1189,11 +1193,12 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 
 	acm_log(2, "client %d\n", client->index);
 	index = msg->hdr.src_out;
-	ep = acm_get_ep(index - 1, msg->hdr.port_num);
+	ep = acm_get_ep(index - 1, msg->hdr.src_index);
 	if (ep) {
 		msg->hdr.status = ACM_STATUS_SUCCESS;
 		msg->ep_data[0].dev_guid = ep->port->dev->device.dev_guid;
 		msg->ep_data[0].port_num = ep->port->port.port_num;
+		msg->ep_data[0].phys_port_cnt = ep->port->dev->port_cnt;
 		msg->ep_data[0].pkey = htobe16(ep->endpoint.pkey);
 		strncpy((char *)msg->ep_data[0].prov_name, ep->port->prov->name,
 			ACM_MAX_PROV_NAME - 1);
@@ -1213,8 +1218,8 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 		len = ACM_MSG_HDR_LENGTH;
 	}
 	msg->hdr.opcode |= ACM_OP_ACK;
-	msg->hdr.src_inx = 0;
-	msg->hdr.dst_inx = 0;
+	msg->hdr.src_index = 0;
+	msg->hdr.dst_index = 0;
 	msg->hdr.length = htobe16(len);
 
 	ret = send(client->sock, (char *) msg, len, 0);

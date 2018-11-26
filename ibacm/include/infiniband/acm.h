@@ -139,7 +139,8 @@ struct acm_perf_msg {
 struct acm_ep_config_data {
 	uint64_t                dev_guid;
 	uint8_t                 port_num;
-	uint8_t                 rsvd[3];
+	uint8_t			phys_port_cnt;
+	uint8_t                 rsvd[2];
 	uint16_t                pkey;
 	uint16_t                addr_cnt;
 	uint8_t                 prov_name[ACM_MAX_PROV_NAME];
