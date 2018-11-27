@@ -340,6 +340,7 @@ class leap(ZypperEnvironment):
         'systemd-devel',
         'valgrind-devel',
     };
+    rpmbuild_options = [ "--without=curlmini" ];
     name = "opensuse-15.0";
     aliases = {"leap"};
 
