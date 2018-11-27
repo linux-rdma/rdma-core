@@ -109,6 +109,7 @@ class centos6(YumEnvironment):
     name = "centos6";
     use_make = True;
     pandoc = False;
+    is_rpm = False;
 
 class centos7(YumEnvironment):
     docker_parent = "centos:7";
