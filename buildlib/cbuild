@@ -372,6 +372,25 @@ environments = [centos6(),
                 debian_experimental(),
 ];
 
+class ToEnvActionPkg(argparse.Action):
+    """argparse helper to parse environment lists into environment classes"""
+    def __call__(self, parser, namespace, values, option_string=None):
+        if not isinstance(values,list):
+            values = [values];
+
+        res = set();
+        for I in values:
+            if I == "all":
+                for env in environments:
+                    if env.name != "centos6" and env.name != "centos7_epel":
+                        res.add(env);
+            else:
+                for env in environments:
+                    if env.name == I or I in env.aliases:
+                        res.add(env);
+        setattr(namespace, self.dest, sorted(res,key=lambda x:x.name))
+
+
 class ToEnvAction(argparse.Action):
     """argparse helper to parse environment lists into environment classes"""
     def __call__(self, parser, namespace, values, option_string=None):
@@ -387,6 +406,15 @@ class ToEnvAction(argparse.Action):
                     if env.name == I or I in env.aliases:
                         res.add(env);
         setattr(namespace, self.dest, sorted(res,key=lambda x:x.name))
+
+def env_choices_pkg():
+    """All the names that can be used with ToEnvAction"""
+    envs = set(("all",));
+    for I in environments:
+        if I.name == "travis" or getattr(I,"is_deb",False) or getattr(I,"is_rpm",False):
+                envs.add(I.name);
+                envs.update(I.aliases);
+    return envs;
 
 def env_choices():
     """All the names that can be used with ToEnvAction"""
@@ -719,7 +747,7 @@ def run_travis_build(args,env):
         copy_abi_files(os.path.join(tmpdir, "src/ABI"));
 
 def args_pkg(parser):
-    parser.add_argument("ENV",action=ToEnvAction,choices=env_choices());
+    parser.add_argument("ENV",action=ToEnvActionPkg,choices=env_choices_pkg());
     parser.add_argument("--run-shell",default=False,action="store_true",
                         help="Instead of running the build, enter a shell");
     parser.add_argument("--use-prebuilt-pandoc",default=False,action="store_true",
