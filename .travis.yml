@@ -7,16 +7,12 @@ addons:
   apt:
     sources:
       - ubuntu-toolchain-r-test
-      # Multiverse is not on by default and we need it to get sparse
-      - sourceline: "deb http://archive.ubuntu.com/ubuntu/ xenial multiverse"
     packages:
-      - build-essential
       - debhelper
       - dh-systemd
       - fakeroot
-      - gcc
-      - gcc-7
-      - git
+      - gcc-8
+      - git-core
       - libnl-3-dev
       - libnl-route-3-dev
       - libudev-dev
@@ -33,7 +29,10 @@ addons:
 
       # 32 bit support packages
       - gcc-multilib
-      - lib32gcc-7-dev
+      # xenial craziness, need to give specific version of multilib,
+      # in addition to general multilib
+      - gcc-8-multilib
+      - lib32gcc-8-dev
 
 service:
     - docker
