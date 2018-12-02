@@ -3785,11 +3785,12 @@ mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 	bool have_qp = false;
 	bool have_dest_devx = false;
 	bool have_flow_tag = false;
+	bool have_counter = false;
 	int ret;
 	int i;
 	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_FLOW,
 			       MLX5_IB_METHOD_CREATE_FLOW,
-			       6);
+			       7);
 	struct ib_uverbs_attr *handle;
 	enum mlx5dv_flow_action_type type;
 
@@ -3848,6 +3849,16 @@ mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 					    MLX5_IB_ATTR_CREATE_FLOW_TAG,
 					    actions_attr[i].tag_value);
 			have_flow_tag = true;
+			break;
+		case MLX5DV_FLOW_ACTION_COUNTERS_DEVX:
+			if (have_counter) {
+				errno = EOPNOTSUPP;
+				goto err;
+			}
+			fill_attr_in_objs_arr(cmd,
+					      MLX5_IB_ATTR_CREATE_FLOW_ARR_COUNTERS_DEVX,
+					      &actions_attr[i].obj->handle, 1);
+			have_counter = true;
 			break;
 		default:
 			errno = EOPNOTSUPP;
