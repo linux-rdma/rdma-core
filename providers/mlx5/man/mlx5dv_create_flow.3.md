@@ -45,6 +45,7 @@ struct mlx5dv_flow_action_attr {
 		struct ibv_counters *counter;
 		struct ibv_flow_action *action;
 		uint32_t tag_value;
+		struct mlx5dv_devx_obj *obj;
 	};
 };
 ```
@@ -56,6 +57,10 @@ struct mlx5dv_flow_action_attr {
 		The flow action to be applied.
 	MLX5DV_FLOW_ACTION_TAG
 		Flow tag to be provided in work completion.
+	MLX5DV_FLOW_ACTION_DEST_DEVX
+		The DEVX destination object for the matched packets.
+	MLX5DV_FLOW_ACTION_COUNTERS_DEVX
+		The DEVX counter object for the matched packets.
 
 *qp*
 :	QP passed, to be used with *type* *MLX5DV_FLOW_ACTION_DEST_IBV_QP*.
@@ -67,6 +72,9 @@ struct mlx5dv_flow_action_attr {
 *tag_value*
 :	tag value to be passed in the work completion, to be used with *type*
 	*MLX5DV_FLOW_ACTION_TAG* see *ibv_create_cq_ex(3)*.
+
+*obj*
+:	DEVX object, to be used with *type* *MLX5DV_FLOW_ACTION_DEST_DEVX* or by *MLX5DV_FLOW_ACTION_COUNTERS_DEVX*.
 
 # RETURN VALUE
 
