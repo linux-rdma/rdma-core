@@ -206,11 +206,43 @@ void *_write_get_resp_ex(struct ibv_command_buffer *link,
 	return resp_start;
 }
 
+static int ioctl_write(struct ibv_context *ctx, unsigned int write_method,
+		       const void *req, size_t core_req_size, size_t req_size,
+		       void *resp, size_t core_resp_size, size_t resp_size)
+{
+	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_DEVICE,
+			       UVERBS_METHOD_INVOKE_WRITE, 5);
+
+	fill_attr_const_in(cmdb, UVERBS_ATTR_WRITE_CMD, write_method);
+
+	if (core_req_size)
+		fill_attr_in(cmdb, UVERBS_ATTR_CORE_IN, req, core_req_size);
+	if (core_resp_size)
+		fill_attr_out(cmdb, UVERBS_ATTR_CORE_OUT, resp, core_resp_size);
+
+	if (req_size - core_req_size)
+		fill_attr_in(cmdb, UVERBS_ATTR_UHW_IN, req + core_req_size,
+			     req_size - core_req_size);
+	if (resp_size - core_resp_size)
+		fill_attr_out(cmdb, UVERBS_ATTR_UHW_OUT, resp + core_resp_size,
+			     resp_size - core_resp_size);
+
+	return execute_ioctl(ctx, cmdb);
+}
+
 int _execute_cmd_write(struct ibv_context *ctx, unsigned int write_method,
 		       struct ib_uverbs_cmd_hdr *req, size_t core_req_size,
 		       size_t req_size, void *resp, size_t core_resp_size,
 		       size_t resp_size)
 {
+	struct verbs_ex_private *priv = get_priv(ctx);
+
+	if (!VERBS_WRITE_ONLY && (VERBS_IOCTL_ONLY || priv->use_ioctl_write))
+		return ioctl_write(ctx, write_method, req + 1,
+				   core_req_size - sizeof(*req),
+				   req_size - sizeof(*req), resp,
+				   core_resp_size, resp_size);
+
 	req->command = write_method;
 	req->in_words = __check_divide(req_size, 4);
 	req->out_words = __check_divide(resp_size, 4);
@@ -232,6 +264,15 @@ int _execute_cmd_write_ex(struct ibv_context *ctx, unsigned int write_method,
 		       size_t req_size, void *resp, size_t core_resp_size,
 		       size_t resp_size)
 {
+	struct verbs_ex_private *priv = get_priv(ctx);
+
+	if (!VERBS_WRITE_ONLY && (VERBS_IOCTL_ONLY || priv->use_ioctl_write))
+		return ioctl_write(
+			ctx, IB_USER_VERBS_CMD_FLAG_EXTENDED | write_method,
+			req + 1, core_req_size - sizeof(*req),
+			req_size - sizeof(*req), resp, core_resp_size,
+			resp_size);
+
 	req->hdr.command = IB_USER_VERBS_CMD_FLAG_EXTENDED | write_method;
 	req->hdr.in_words =
 		__check_divide(core_req_size - sizeof(struct ex_hdr), 8);
@@ -245,7 +286,8 @@ int _execute_cmd_write_ex(struct ibv_context *ctx, unsigned int write_method,
 
 	/*
 	 * Users assumes the stack buffer is zeroed before passing to the
-	 * kernel for writing.
+	 * kernel for writing. New kernels with the ioctl path do this
+	 * automatically for us.
 	 */
 	if (resp)
 		memset(resp, 0, resp_size);
