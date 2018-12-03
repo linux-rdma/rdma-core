@@ -721,6 +721,16 @@ int rdma_getaddrinfo(const char *node, const char *service,
 
 void rdma_freeaddrinfo(struct rdma_addrinfo *res);
 
+/**
+ * rdma_init_qp_attr - Returns QP attributes.
+ * @id: Communication identifier.
+ * @qp_attr: A reference to a QP attributes struct containing
+ * response information.
+ * @qp_attr_mask: A reference to a QP attributes mask containing
+ * response information.
+ */
+int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
+		      int *qp_attr_mask);
 #ifdef __cplusplus
 }
 #endif

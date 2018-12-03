@@ -991,8 +991,8 @@ static int ucma_is_ud_qp(enum ibv_qp_type qp_type)
 	return (qp_type == IBV_QPT_UD);
 }
 
-static int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
-			     int *qp_attr_mask)
+int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
+		      int *qp_attr_mask)
 {
 	struct ucma_abi_init_qp_attr cmd;
 	struct ib_uverbs_qp_attr resp;
