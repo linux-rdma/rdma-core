@@ -145,12 +145,61 @@ LATEST_SYMVER_FUNC(ibv_query_device, 1_1, "IBVERBS_1.1",
 	return get_ops(context)->query_device(context, device_attr);
 }
 
+int __lib_query_port(struct ibv_context *context, uint8_t port_num,
+		     struct ibv_port_attr *port_attr, size_t port_attr_len)
+{
+	/* Don't expose this mess to the provider, provide a large enough
+	 * temporary buffer if the user buffer is too small.
+	 */
+	if (port_attr_len < sizeof(struct ibv_port_attr)) {
+		struct ibv_port_attr tmp_attr = {};
+		int rc;
+
+		rc = get_ops(context)->query_port(context, port_num,
+						    &tmp_attr);
+		if (rc)
+			return rc;
+
+		memcpy(port_attr, &tmp_attr, port_attr_len);
+		return 0;
+	}
+
+	memset(port_attr, 0, port_attr_len);
+	return get_ops(context)->query_port(context, port_num, port_attr);
+}
+
+struct _compat_ibv_port_attr {
+	enum ibv_port_state state;
+	enum ibv_mtu max_mtu;
+	enum ibv_mtu active_mtu;
+	int gid_tbl_len;
+	uint32_t port_cap_flags;
+	uint32_t max_msg_sz;
+	uint32_t bad_pkey_cntr;
+	uint32_t qkey_viol_cntr;
+	uint16_t pkey_tbl_len;
+	uint16_t lid;
+	uint16_t sm_lid;
+	uint8_t lmc;
+	uint8_t max_vl_num;
+	uint8_t sm_sl;
+	uint8_t subnet_timeout;
+	uint8_t init_type_reply;
+	uint8_t active_width;
+	uint8_t active_speed;
+	uint8_t phys_state;
+	uint8_t link_layer;
+	uint8_t flags;
+};
+
 LATEST_SYMVER_FUNC(ibv_query_port, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_context *context, uint8_t port_num,
-		   struct ibv_port_attr *port_attr)
+		   struct _compat_ibv_port_attr *port_attr)
 {
-	return get_ops(context)->query_port(context, port_num, port_attr);
+	return __lib_query_port(context, port_num,
+				(struct ibv_port_attr *)port_attr,
+				sizeof(*port_attr));
 }
 
 LATEST_SYMVER_FUNC(ibv_query_gid, 1_1, "IBVERBS_1.1",

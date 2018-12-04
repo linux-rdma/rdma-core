@@ -58,6 +58,8 @@ int ibverbs_get_device_list(struct list_head *list);
 int ibverbs_init(void);
 void ibverbs_device_put(struct ibv_device *dev);
 void ibverbs_device_hold(struct ibv_device *dev);
+int __lib_query_port(struct ibv_context *context, uint8_t port_num,
+		     struct ibv_port_attr *port_attr, size_t port_attr_len);
 
 #ifdef _STATIC_LIBRARY_BUILD_
 static inline void load_drivers(void)

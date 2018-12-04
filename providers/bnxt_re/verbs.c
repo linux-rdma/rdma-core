@@ -74,7 +74,6 @@ int bnxt_re_query_port(struct ibv_context *ibvctx, uint8_t port,
 {
 	struct ibv_query_port cmd;
 
-	memset(port_attr, 0, sizeof(struct ibv_port_attr));
 	return ibv_cmd_query_port(ibvctx, port, port_attr, &cmd, sizeof(cmd));
 }
 

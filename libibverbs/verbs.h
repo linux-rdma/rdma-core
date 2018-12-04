@@ -1661,9 +1661,12 @@ struct ibv_device {
 	char			ibdev_path[IBV_SYSFS_PATH_MAX];
 };
 
+struct _compat_ibv_port_attr;
 struct ibv_context_ops {
 	void *(*_compat_query_device)(void);
-	void *(*_compat_query_port)(void);
+	int (*_compat_query_port)(struct ibv_context *context,
+				  uint8_t port_num,
+				  struct _compat_ibv_port_attr *port_attr);
 	void *(*_compat_alloc_pd)(void);
 	void *(*_compat_dealloc_pd)(void);
 	void *(*_compat_reg_mr)(void);
@@ -1786,6 +1789,9 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*query_port)(struct ibv_context *context, uint8_t port_num,
+			  struct ibv_port_attr *port_attr,
+			  size_t port_attr_len);
 	int (*advise_mr)(struct ibv_pd *pd,
 			 enum ibv_advise_mr_advice advice,
 			 uint32_t flags,
@@ -1997,17 +2003,26 @@ int ibv_query_device(struct ibv_context *context,
  * ibv_query_port - Get port properties
  */
 int ibv_query_port(struct ibv_context *context, uint8_t port_num,
-		   struct ibv_port_attr *port_attr);
+		   struct _compat_ibv_port_attr *port_attr);
 
 static inline int ___ibv_query_port(struct ibv_context *context,
 				    uint8_t port_num,
 				    struct ibv_port_attr *port_attr)
 {
-	/* For compatibility when running with old libibverbs */
-	port_attr->link_layer = IBV_LINK_LAYER_UNSPECIFIED;
-	port_attr->flags      = 0;
+	struct verbs_context *vctx = verbs_get_ctx_op(context, query_port);
 
-	return ibv_query_port(context, port_num, port_attr);
+	if (!vctx) {
+		int rc;
+
+		memset(port_attr, 0, sizeof(*port_attr));
+
+		rc = ibv_query_port(context, port_num,
+				    (struct _compat_ibv_port_attr *)port_attr);
+		return rc;
+	}
+
+	return vctx->query_port(context, port_num, port_attr,
+				sizeof(*port_attr));
 }
 
 #define ibv_query_port(context, port_num, port_attr) \
