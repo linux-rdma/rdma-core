@@ -46,6 +46,7 @@
 
 #include <util/compiler.h>
 #include <util/symver.h>
+#include <infiniband/cmd_write.h>
 
 #include "ibverbs.h"
 #ifndef NRESOLVE_NEIGH
@@ -341,21 +342,20 @@ LATEST_SYMVER_FUNC(ibv_dereg_mr, 1_1, "IBVERBS_1.1",
 
 struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 {
-	struct ibv_comp_channel            *channel;
-	struct ibv_create_comp_channel      cmd;
+	struct ibv_create_comp_channel req;
 	struct ib_uverbs_create_comp_channel_resp resp;
+	struct ibv_comp_channel            *channel;
 
 	channel = malloc(sizeof *channel);
 	if (!channel)
 		return NULL;
 
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, CREATE_COMP_CHANNEL, &resp, sizeof resp);
-	if (write(context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd) {
+	req.core_payload = (struct ib_uverbs_create_comp_channel){};
+	if (execute_cmd_write(context, IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL,
+			      &req, sizeof(req), &resp, sizeof(resp))) {
 		free(channel);
 		return NULL;
 	}
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	channel->context = context;
 	channel->fd      = resp.fd;
