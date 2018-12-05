@@ -57,3 +57,17 @@ MLX5_1.7 {
 		mlx5dv_devx_umem_reg;
 		mlx5dv_open_device;
 } MLX5_1.6;
+
+MLX5_1.8 {
+	global:
+		mlx5dv_devx_cq_modify;
+		mlx5dv_devx_cq_query;
+		mlx5dv_devx_ind_tbl_modify;
+		mlx5dv_devx_ind_tbl_query;
+		mlx5dv_devx_qp_modify;
+		mlx5dv_devx_qp_query;
+		mlx5dv_devx_srq_modify;
+		mlx5dv_devx_srq_query;
+		mlx5dv_devx_wq_modify;
+		mlx5dv_devx_wq_query;
+} MLX5_1.7;

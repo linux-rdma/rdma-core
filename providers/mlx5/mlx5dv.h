@@ -228,6 +228,7 @@ enum mlx5dv_flow_action_type {
 	MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION,
 	MLX5DV_FLOW_ACTION_TAG,
 	MLX5DV_FLOW_ACTION_DEST_DEVX,
+	MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
 };
 
 struct mlx5dv_flow_action_attr {
@@ -1069,6 +1070,29 @@ struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
 void mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *devx_uar);
 int mlx5dv_devx_query_eqn(struct ibv_context *context, uint32_t vector,
 			  uint32_t *eqn);
+
+int mlx5dv_devx_cq_query(struct ibv_cq *cq, const void *in, size_t inlen,
+			 void *out, size_t outlen);
+int mlx5dv_devx_cq_modify(struct ibv_cq *cq, const void *in, size_t inlen,
+			  void *out, size_t outlen);
+int mlx5dv_devx_qp_query(struct ibv_qp *qp, const void *in, size_t inlen,
+			 void *out, size_t outlen);
+int mlx5dv_devx_qp_modify(struct ibv_qp *qp, const void *in, size_t inlen,
+			  void *out, size_t outlen);
+int mlx5dv_devx_srq_query(struct ibv_srq *srq, const void *in, size_t inlen,
+			  void *out, size_t outlen);
+int mlx5dv_devx_srq_modify(struct ibv_srq *srq, const void *in, size_t inlen,
+			   void *out, size_t outlen);
+int mlx5dv_devx_wq_query(struct ibv_wq *wq, const void *in, size_t inlen,
+			 void *out, size_t outlen);
+int mlx5dv_devx_wq_modify(struct ibv_wq *wq, const void *in, size_t inlen,
+			  void *out, size_t outlen);
+int mlx5dv_devx_ind_tbl_query(struct ibv_rwq_ind_table *ind_tbl,
+			      const void *in, size_t inlen,
+			      void *out, size_t outlen);
+int mlx5dv_devx_ind_tbl_modify(struct ibv_rwq_ind_table *ind_tbl,
+			       const void *in, size_t inlen,
+			       void *out, size_t outlen);
 
 #ifdef __cplusplus
 }
