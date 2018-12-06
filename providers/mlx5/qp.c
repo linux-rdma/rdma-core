@@ -224,25 +224,47 @@ static void set_tm_seg(struct mlx5_wqe_tm_seg *tmseg, int op,
 	tmseg->append_mask = htobe64(wr->tm.add.mask);
 }
 
-static void set_atomic_seg(struct mlx5_wqe_atomic_seg *aseg,
-			   enum ibv_wr_opcode   opcode,
-			   uint64_t swap,
-			   uint64_t compare_add)
+static inline void _set_atomic_seg(struct mlx5_wqe_atomic_seg *aseg,
+				   enum ibv_wr_opcode opcode,
+				   uint64_t swap,
+				   uint64_t compare_add)
+				   ALWAYS_INLINE;
+static inline void _set_atomic_seg(struct mlx5_wqe_atomic_seg *aseg,
+				   enum ibv_wr_opcode opcode,
+				   uint64_t swap,
+				   uint64_t compare_add)
 {
 	if (opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
 		aseg->swap_add = htobe64(swap);
-		aseg->compare  = htobe64(compare_add);
+		aseg->compare = htobe64(compare_add);
 	} else {
 		aseg->swap_add = htobe64(compare_add);
 	}
 }
 
+static void set_atomic_seg(struct mlx5_wqe_atomic_seg *aseg,
+			   enum ibv_wr_opcode opcode,
+			   uint64_t swap,
+			   uint64_t compare_add)
+{
+	_set_atomic_seg(aseg, opcode, swap, compare_add);
+}
+
+static inline void _set_datagram_seg(struct mlx5_wqe_datagram_seg *dseg,
+				     struct mlx5_wqe_av *av,
+				     uint32_t remote_qpn,
+				     uint32_t remote_qkey)
+{
+	memcpy(&dseg->av, av, sizeof(dseg->av));
+	dseg->av.dqp_dct = htobe32(remote_qpn | MLX5_EXTENDED_UD_AV);
+	dseg->av.key.qkey.qkey = htobe32(remote_qkey);
+}
+
 static void set_datagram_seg(struct mlx5_wqe_datagram_seg *dseg,
 			     struct ibv_send_wr *wr)
 {
-	memcpy(&dseg->av, &to_mah(wr->wr.ud.ah)->av, sizeof dseg->av);
-	dseg->av.dqp_dct = htobe32(wr->wr.ud.remote_qpn | MLX5_EXTENDED_UD_AV);
-	dseg->av.key.qkey.qkey = htobe32(wr->wr.ud.remote_qkey);
+	_set_datagram_seg(dseg, &to_mah(wr->wr.ud.ah)->av, wr->wr.ud.remote_qpn,
+			  wr->wr.ud.remote_qkey);
 }
 
 static void set_data_ptr_seg(struct mlx5_wqe_data_seg *dseg, struct ibv_sge *sg,
@@ -453,7 +475,8 @@ static inline __be16 get_klm_octo(int nentries)
 }
 
 static void set_umr_data_seg(struct mlx5_qp *qp, enum ibv_mw_type type,
-			     int32_t rkey, struct ibv_mw_bind_info *bind_info,
+			     int32_t rkey,
+			     const struct ibv_mw_bind_info *bind_info,
 			     uint32_t qpn, void **seg, int *size)
 {
 	union {
@@ -473,7 +496,8 @@ static void set_umr_data_seg(struct mlx5_qp *qp, enum ibv_mw_type type,
 }
 
 static void set_umr_mkey_seg(struct mlx5_qp *qp, enum ibv_mw_type type,
-			     int32_t rkey, struct ibv_mw_bind_info *bind_info,
+			     int32_t rkey,
+			     const struct ibv_mw_bind_info *bind_info,
 			     uint32_t qpn, void **seg, int *size)
 {
 	struct mlx5_wqe_mkey_context_seg	*mkey = *seg;
@@ -511,7 +535,8 @@ static void set_umr_mkey_seg(struct mlx5_qp *qp, enum ibv_mw_type type,
 }
 
 static inline void set_umr_control_seg(struct mlx5_qp *qp, enum ibv_mw_type type,
-				       int32_t rkey, struct ibv_mw_bind_info *bind_info,
+				       int32_t rkey,
+				       const struct ibv_mw_bind_info *bind_info,
 				       uint32_t qpn, void **seg, int *size)
 {
 	struct mlx5_wqe_umr_ctrl_seg		*ctrl = *seg;
@@ -548,7 +573,8 @@ static inline void set_umr_control_seg(struct mlx5_qp *qp, enum ibv_mw_type type
 }
 
 static inline int set_bind_wr(struct mlx5_qp *qp, enum ibv_mw_type type,
-			      int32_t rkey, struct ibv_mw_bind_info *bind_info,
+			      int32_t rkey,
+			      const struct ibv_mw_bind_info *bind_info,
 			      uint32_t qpn, void **seg, int *size)
 {
 	void *qend = qp->sq.qend;
@@ -701,8 +727,7 @@ static inline int mlx5_post_send_underlay(struct mlx5_qp *qp, struct ibv_send_wr
 }
 
 static inline void post_send_db(struct mlx5_qp *qp, struct mlx5_bf *bf,
-				int nreq, int inl, int size,
-				uint8_t next_fence, void *ctrl)
+				int nreq, int inl, int size, void *ctrl)
 {
 	struct mlx5_context *ctx;
 
@@ -710,7 +735,6 @@ static inline void post_send_db(struct mlx5_qp *qp, struct mlx5_bf *bf,
 		return;
 
 	qp->sq.head += nreq;
-	qp->fm_cache = next_fence;
 
 	/*
 	 * Make sure that descriptors are written before
@@ -1087,7 +1111,8 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	}
 
 out:
-	post_send_db(qp, bf, nreq, inl, size, next_fence, ctrl);
+	qp->fm_cache = next_fence;
+	post_send_db(qp, bf, nreq, inl, size, ctrl);
 
 	mlx5_spin_unlock(&qp->sq.lock);
 
@@ -1113,6 +1138,599 @@ int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 #endif
 
 	return _mlx5_post_send(ibqp, wr, bad_wr);
+}
+
+enum {
+	WQE_REQ_SETTERS_UD_XRC = 2,
+};
+
+static void mlx5_send_wr_start(struct ibv_qp_ex *ibqp)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+
+	mlx5_spin_lock(&mqp->sq.lock);
+
+	mqp->cur_post_rb = mqp->sq.cur_post;
+	mqp->fm_cache_rb = mqp->fm_cache;
+	mqp->err = 0;
+	mqp->nreq = 0;
+}
+
+static int mlx5_send_wr_complete(struct ibv_qp_ex *ibqp)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+	int err = mqp->err;
+
+	if (unlikely(err)) {
+		/* Rolling back */
+		mqp->sq.cur_post = mqp->cur_post_rb;
+		mqp->fm_cache = mqp->fm_cache_rb;
+		goto out;
+	}
+
+	post_send_db(mqp, mqp->bf, mqp->nreq, 0, mqp->cur_size,
+		     mqp->cur_ctrl);
+
+out:
+	mlx5_spin_unlock(&mqp->sq.lock);
+
+	return err;
+}
+
+static void mlx5_send_wr_abort(struct ibv_qp_ex *ibqp)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+
+	/* Rolling back */
+	mqp->sq.cur_post = mqp->cur_post_rb;
+	mqp->fm_cache = mqp->fm_cache_rb;
+
+	mlx5_spin_unlock(&mqp->sq.lock);
+}
+
+static inline void _common_wqe_init(struct ibv_qp_ex *ibqp,
+				    enum ibv_wr_opcode ib_op)
+				    ALWAYS_INLINE;
+static inline void _common_wqe_init(struct ibv_qp_ex *ibqp,
+				    enum ibv_wr_opcode ib_op)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+	struct mlx5_wqe_ctrl_seg *ctrl;
+	uint8_t fence;
+	uint32_t idx;
+
+	if (unlikely(mlx5_wq_overflow(&mqp->sq, mqp->nreq, to_mcq(ibqp->qp_base.send_cq)))) {
+		FILE *fp = to_mctx(((struct ibv_qp *)ibqp)->context)->dbg_fp;
+
+		mlx5_dbg(fp, MLX5_DBG_QP_SEND, "Work queue overflow\n");
+
+		if (!mqp->err)
+			mqp->err = ENOMEM;
+
+		return;
+	}
+
+	idx = mqp->sq.cur_post & (mqp->sq.wqe_cnt - 1);
+	mqp->sq.wrid[idx] = ibqp->wr_id;
+	mqp->sq.wqe_head[idx] = mqp->sq.head + mqp->nreq;
+	if (ib_op == IBV_WR_BIND_MW)
+		mqp->sq.wr_data[idx] = IBV_WC_BIND_MW;
+	else if (ib_op == IBV_WR_LOCAL_INV)
+		mqp->sq.wr_data[idx] = IBV_WC_LOCAL_INV;
+
+	ctrl = mlx5_get_send_wqe(mqp, idx);
+	*(uint32_t *)((void *)ctrl + 8) = 0;
+
+	fence = (ibqp->wr_flags & IBV_SEND_FENCE) ? MLX5_WQE_CTRL_FENCE :
+						    mqp->fm_cache;
+	mqp->fm_cache = 0;
+
+	ctrl->fm_ce_se =
+		mqp->sq_signal_bits | fence |
+		(ibqp->wr_flags & IBV_SEND_SIGNALED ?
+		 MLX5_WQE_CTRL_CQ_UPDATE : 0) |
+		(ibqp->wr_flags & IBV_SEND_SOLICITED ?
+		 MLX5_WQE_CTRL_SOLICITED : 0);
+
+	ctrl->opmod_idx_opcode = htobe32(((mqp->sq.cur_post & 0xffff) << 8) |
+					 mlx5_ib_opcode[ib_op]);
+
+	mqp->cur_ctrl = ctrl;
+}
+
+static inline void _common_wqe_finilize(struct mlx5_qp *mqp)
+{
+	mqp->cur_ctrl->qpn_ds = htobe32(mqp->cur_size | (mqp->ibv_qp->qp_num << 8));
+
+	if (unlikely(mqp->wq_sig))
+		mqp->cur_ctrl->signature = wq_sig(mqp->cur_ctrl);
+
+#ifdef MLX5_DEBUG
+	if (mlx5_debug_mask & MLX5_DBG_QP_SEND) {
+		int idx = mqp->sq.cur_post & (mqp->sq.wqe_cnt - 1);
+		FILE *fp = to_mctx(mqp->ibv_qp->context)->dbg_fp;
+
+		dump_wqe(fp, idx, mqp->cur_size, mqp);
+	}
+#endif
+
+	mqp->sq.cur_post += DIV_ROUND_UP(mqp->cur_size, 4);
+}
+
+static inline void _mlx5_send_wr_send(struct ibv_qp_ex *ibqp,
+				      enum ibv_wr_opcode ib_op)
+				      ALWAYS_INLINE;
+static inline void _mlx5_send_wr_send(struct ibv_qp_ex *ibqp,
+				      enum ibv_wr_opcode ib_op)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+	size_t transport_seg_sz = 0;
+
+	_common_wqe_init(ibqp, ib_op);
+
+	if (ibqp->qp_base.qp_type == IBV_QPT_UD)
+		transport_seg_sz = sizeof(struct mlx5_wqe_datagram_seg);
+	else if (ibqp->qp_base.qp_type == IBV_QPT_XRC_SEND)
+		transport_seg_sz = sizeof(struct mlx5_wqe_xrc_seg);
+
+	mqp->cur_data = (void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg) +
+			transport_seg_sz;
+	/* In UD, cur_data may overrun the SQ */
+	if (unlikely(mqp->cur_data == mqp->sq.qend))
+		mqp->cur_data = mlx5_get_send_wqe(mqp, 0);
+
+	mqp->cur_size = (sizeof(struct mlx5_wqe_ctrl_seg) + transport_seg_sz) / 16;
+	mqp->nreq++;
+
+	/* Relevant just for WQE construction which requires more than 1 setter */
+	mqp->cur_setters_cnt = 0;
+}
+
+static void mlx5_send_wr_send_other(struct ibv_qp_ex *ibqp)
+{
+	_mlx5_send_wr_send(ibqp, IBV_WR_SEND);
+}
+
+static void mlx5_send_wr_send_imm(struct ibv_qp_ex *ibqp, __be32 imm_data)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+
+	_mlx5_send_wr_send(ibqp, IBV_WR_SEND_WITH_IMM);
+
+	mqp->cur_ctrl->imm = imm_data;
+}
+
+static void mlx5_send_wr_send_inv(struct ibv_qp_ex *ibqp,
+				  uint32_t invalidate_rkey)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+
+	_mlx5_send_wr_send(ibqp, IBV_WR_SEND_WITH_INV);
+
+	mqp->cur_ctrl->imm = htobe32(invalidate_rkey);
+}
+
+static inline void _mlx5_send_wr_rdma(struct ibv_qp_ex *ibqp,
+				      uint32_t rkey,
+				      uint64_t remote_addr,
+				      enum ibv_wr_opcode ib_op)
+				      ALWAYS_INLINE;
+static inline void _mlx5_send_wr_rdma(struct ibv_qp_ex *ibqp,
+				      uint32_t rkey,
+				      uint64_t remote_addr,
+				      enum ibv_wr_opcode ib_op)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+	size_t transport_seg_sz = 0;
+	void *raddr_seg;
+
+	_common_wqe_init(ibqp, ib_op);
+
+	if (ibqp->qp_base.qp_type == IBV_QPT_XRC_SEND)
+		transport_seg_sz = sizeof(struct mlx5_wqe_xrc_seg);
+
+	raddr_seg = (void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg) +
+		    transport_seg_sz;
+
+	set_raddr_seg(raddr_seg, remote_addr, rkey);
+
+	mqp->cur_data = raddr_seg + sizeof(struct mlx5_wqe_raddr_seg);
+	mqp->cur_size = (sizeof(struct mlx5_wqe_ctrl_seg) + transport_seg_sz +
+			 sizeof(struct mlx5_wqe_raddr_seg)) / 16;
+	mqp->nreq++;
+
+	/* Relevant just for WQE construction which requires more than 1 setter */
+	mqp->cur_setters_cnt = 0;
+}
+
+static void mlx5_send_wr_rdma_write(struct ibv_qp_ex *ibqp, uint32_t rkey,
+				    uint64_t remote_addr)
+{
+	_mlx5_send_wr_rdma(ibqp, rkey, remote_addr, IBV_WR_RDMA_WRITE);
+}
+
+static void mlx5_send_wr_rdma_write_imm(struct ibv_qp_ex *ibqp, uint32_t rkey,
+					uint64_t remote_addr, __be32 imm_data)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+
+	_mlx5_send_wr_rdma(ibqp, rkey, remote_addr, IBV_WR_RDMA_WRITE_WITH_IMM);
+
+	mqp->cur_ctrl->imm = imm_data;
+}
+
+static void mlx5_send_wr_rdma_read(struct ibv_qp_ex *ibqp, uint32_t rkey,
+				   uint64_t remote_addr)
+{
+	_mlx5_send_wr_rdma(ibqp, rkey, remote_addr, IBV_WR_RDMA_READ);
+}
+
+static inline void _mlx5_send_wr_atomic(struct ibv_qp_ex *ibqp, uint32_t rkey,
+					uint64_t remote_addr,
+					uint64_t compare_add,
+					uint64_t swap, enum ibv_wr_opcode ib_op)
+					ALWAYS_INLINE;
+static inline void _mlx5_send_wr_atomic(struct ibv_qp_ex *ibqp, uint32_t rkey,
+					uint64_t remote_addr,
+					uint64_t compare_add,
+					uint64_t swap, enum ibv_wr_opcode ib_op)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+	size_t transport_seg_sz = 0;
+	void *raddr_seg;
+
+	_common_wqe_init(ibqp, ib_op);
+
+	if (ibqp->qp_base.qp_type == IBV_QPT_XRC_SEND)
+		transport_seg_sz = sizeof(struct mlx5_wqe_xrc_seg);
+
+	raddr_seg = (void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg) +
+		    transport_seg_sz;
+
+	set_raddr_seg(raddr_seg, remote_addr, rkey);
+
+	_set_atomic_seg((struct mlx5_wqe_atomic_seg *)(raddr_seg + sizeof(struct mlx5_wqe_raddr_seg)),
+			ib_op, swap, compare_add);
+
+	mqp->cur_data = raddr_seg + sizeof(struct mlx5_wqe_raddr_seg) +
+			sizeof(struct mlx5_wqe_atomic_seg);
+	/* In XRC, cur_data may overrun the SQ */
+	if (unlikely(mqp->cur_data == mqp->sq.qend))
+		mqp->cur_data = mlx5_get_send_wqe(mqp, 0);
+
+	mqp->cur_size = (sizeof(struct mlx5_wqe_ctrl_seg) + transport_seg_sz +
+			 sizeof(struct mlx5_wqe_raddr_seg) +
+			 sizeof(struct mlx5_wqe_atomic_seg)) / 16;
+	mqp->nreq++;
+
+	/* Relevant just for WQE construction which requires more than 1 setter */
+	mqp->cur_setters_cnt = 0;
+}
+
+static void mlx5_send_wr_atomic_cmp_swp(struct ibv_qp_ex *ibqp, uint32_t rkey,
+					uint64_t remote_addr, uint64_t compare,
+					uint64_t swap)
+{
+	_mlx5_send_wr_atomic(ibqp, rkey, remote_addr, compare, swap,
+			     IBV_WR_ATOMIC_CMP_AND_SWP);
+}
+
+static void mlx5_send_wr_atomic_fetch_add(struct ibv_qp_ex *ibqp, uint32_t rkey,
+					  uint64_t remote_addr, uint64_t add)
+{
+	_mlx5_send_wr_atomic(ibqp, rkey, remote_addr, add, 0,
+			     IBV_WR_ATOMIC_FETCH_AND_ADD);
+}
+
+static inline void _build_umr_wqe(struct ibv_qp_ex *ibqp, uint32_t orig_rkey,
+				  uint32_t new_rkey,
+				  const struct ibv_mw_bind_info *bind_info,
+				  enum ibv_wr_opcode ib_op)
+				  ALWAYS_INLINE;
+static inline void _build_umr_wqe(struct ibv_qp_ex *ibqp, uint32_t orig_rkey,
+				  uint32_t new_rkey,
+				  const struct ibv_mw_bind_info *bind_info,
+				  enum ibv_wr_opcode ib_op)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+	void *umr_seg;
+	int err = 0;
+	int size = sizeof(struct mlx5_wqe_ctrl_seg) / 16;
+
+	_common_wqe_init(ibqp, ib_op);
+
+	mqp->cur_ctrl->imm = htobe32(orig_rkey);
+
+	umr_seg = (void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg);
+	err = set_bind_wr(mqp, IBV_MW_TYPE_2, new_rkey, bind_info,
+			  ((struct ibv_qp *)ibqp)->qp_num, &umr_seg, &size);
+	if (unlikely(err)) {
+		if (!mqp->err)
+			mqp->err = err;
+
+		return;
+	}
+
+	mqp->cur_size = size;
+	mqp->fm_cache = MLX5_WQE_CTRL_INITIATOR_SMALL_FENCE;
+	mqp->nreq++;
+	_common_wqe_finilize(mqp);
+}
+
+static void mlx5_send_wr_bind_mw(struct ibv_qp_ex *ibqp, struct ibv_mw *mw,
+				 uint32_t rkey,
+				 const struct ibv_mw_bind_info *bind_info)
+{
+	_build_umr_wqe(ibqp, mw->rkey, rkey, bind_info, IBV_WR_BIND_MW);
+}
+
+static void mlx5_send_wr_local_inv(struct ibv_qp_ex *ibqp,
+				   uint32_t invalidate_rkey)
+{
+	const struct ibv_mw_bind_info bind_info = {};
+
+	_build_umr_wqe(ibqp, invalidate_rkey, 0, &bind_info, IBV_WR_LOCAL_INV);
+}
+
+static inline void
+_mlx5_send_wr_set_sge(struct mlx5_qp *mqp, uint32_t lkey, uint64_t addr,
+		      uint32_t length)
+{
+	struct mlx5_wqe_data_seg *dseg;
+
+	if (unlikely(!length))
+		return;
+
+	dseg = mqp->cur_data;
+	dseg->byte_count = htobe32(length);
+	dseg->lkey = htobe32(lkey);
+	dseg->addr = htobe64(addr);
+	mqp->cur_size += sizeof(*dseg) / 16;
+}
+
+static void
+mlx5_send_wr_set_sge_rc_uc(struct ibv_qp_ex *ibqp, uint32_t lkey,
+			   uint64_t addr, uint32_t length)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+
+	_mlx5_send_wr_set_sge(mqp, lkey, addr, length);
+	_common_wqe_finilize(mqp);
+}
+
+static void
+mlx5_send_wr_set_sge_ud_xrc(struct ibv_qp_ex *ibqp, uint32_t lkey,
+			    uint64_t addr, uint32_t length)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+
+	_mlx5_send_wr_set_sge(mqp, lkey, addr, length);
+
+	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC - 1)
+		_common_wqe_finilize(mqp);
+	else
+		mqp->cur_setters_cnt++;
+}
+
+static inline void
+_mlx5_send_wr_set_sge_list(struct mlx5_qp *mqp, size_t num_sge,
+			   const struct ibv_sge *sg_list)
+{
+	struct mlx5_wqe_data_seg *dseg = mqp->cur_data;
+	size_t i;
+
+	if (unlikely(num_sge > mqp->sq.max_gs)) {
+		FILE *fp = to_mctx(mqp->ibv_qp->context)->dbg_fp;
+
+		mlx5_dbg(fp, MLX5_DBG_QP_SEND, "Num SGEs %zu exceeds the maximum (%d)\n",
+			 num_sge, mqp->sq.max_gs);
+
+		if (!mqp->err)
+			mqp->err = ENOMEM;
+
+		return;
+	}
+
+	for (i = 0; i < num_sge; i++) {
+		if (unlikely(dseg == mqp->sq.qend))
+			dseg = mlx5_get_send_wqe(mqp, 0);
+
+		if (unlikely(!sg_list[i].length))
+			continue;
+
+		dseg->byte_count = htobe32(sg_list[i].length);
+		dseg->lkey = htobe32(sg_list[i].lkey);
+		dseg->addr = htobe64(sg_list[i].addr);
+		dseg++;
+		mqp->cur_size += (sizeof(*dseg) / 16);
+	}
+}
+
+static void
+mlx5_send_wr_set_sge_list_rc_uc(struct ibv_qp_ex *ibqp, size_t num_sge,
+				const struct ibv_sge *sg_list)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+
+	_mlx5_send_wr_set_sge_list(mqp, num_sge, sg_list);
+	_common_wqe_finilize(mqp);
+}
+
+static void
+mlx5_send_wr_set_sge_list_ud_xrc(struct ibv_qp_ex *ibqp, size_t num_sge,
+				 const struct ibv_sge *sg_list)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+
+	_mlx5_send_wr_set_sge_list(mqp, num_sge, sg_list);
+
+	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC - 1)
+		_common_wqe_finilize(mqp);
+	else
+		mqp->cur_setters_cnt++;
+}
+
+static void
+mlx5_send_wr_set_ud_addr(struct ibv_qp_ex *ibqp, struct ibv_ah *ah,
+			 uint32_t remote_qpn, uint32_t remote_qkey)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+	struct mlx5_wqe_datagram_seg *dseg =
+		(void *)mqp->cur_ctrl +	sizeof(struct mlx5_wqe_ctrl_seg);
+	struct mlx5_ah *mah = to_mah(ah);
+
+	_set_datagram_seg(dseg, &mah->av, remote_qpn, remote_qkey);
+
+	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC - 1)
+		_common_wqe_finilize(mqp);
+	else
+		mqp->cur_setters_cnt++;
+}
+
+static void
+mlx5_send_wr_set_xrc_srqn(struct ibv_qp_ex *ibqp, uint32_t remote_srqn)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+	struct mlx5_wqe_xrc_seg *xrc_seg =
+		(void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg);
+
+	xrc_seg->xrc_srqn = htobe32(remote_srqn);
+
+	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC - 1)
+		_common_wqe_finilize(mqp);
+	else
+		mqp->cur_setters_cnt++;
+}
+
+enum {
+	MLX5_SUPPORTED_SEND_OPS_FLAGS_RC =
+		IBV_QP_EX_WITH_SEND |
+		IBV_QP_EX_WITH_SEND_WITH_INV |
+		IBV_QP_EX_WITH_SEND_WITH_IMM |
+		IBV_QP_EX_WITH_RDMA_WRITE |
+		IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM |
+		IBV_QP_EX_WITH_RDMA_READ |
+		IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP |
+		IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD |
+		IBV_QP_EX_WITH_LOCAL_INV |
+		IBV_QP_EX_WITH_BIND_MW,
+	MLX5_SUPPORTED_SEND_OPS_FLAGS_XRC =
+		MLX5_SUPPORTED_SEND_OPS_FLAGS_RC,
+	MLX5_SUPPORTED_SEND_OPS_FLAGS_UD =
+		IBV_QP_EX_WITH_SEND |
+		IBV_QP_EX_WITH_SEND_WITH_IMM,
+	MLX5_SUPPORTED_SEND_OPS_FLAGS_UC =
+		IBV_QP_EX_WITH_SEND |
+		IBV_QP_EX_WITH_SEND_WITH_INV |
+		IBV_QP_EX_WITH_SEND_WITH_IMM |
+		IBV_QP_EX_WITH_RDMA_WRITE |
+		IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM |
+		IBV_QP_EX_WITH_LOCAL_INV |
+		IBV_QP_EX_WITH_BIND_MW,
+};
+
+static void fill_wr_builders_rc_xrc(struct ibv_qp_ex *ibqp)
+{
+	ibqp->wr_send = mlx5_send_wr_send_other;
+	ibqp->wr_send_imm = mlx5_send_wr_send_imm;
+	ibqp->wr_send_inv = mlx5_send_wr_send_inv;
+	ibqp->wr_rdma_write = mlx5_send_wr_rdma_write;
+	ibqp->wr_rdma_write_imm = mlx5_send_wr_rdma_write_imm;
+	ibqp->wr_rdma_read = mlx5_send_wr_rdma_read;
+	ibqp->wr_atomic_cmp_swp = mlx5_send_wr_atomic_cmp_swp;
+	ibqp->wr_atomic_fetch_add = mlx5_send_wr_atomic_fetch_add;
+	ibqp->wr_bind_mw = mlx5_send_wr_bind_mw;
+	ibqp->wr_local_inv = mlx5_send_wr_local_inv;
+}
+
+static void fill_wr_builders_uc(struct ibv_qp_ex *ibqp)
+{
+	ibqp->wr_send = mlx5_send_wr_send_other;
+	ibqp->wr_send_imm = mlx5_send_wr_send_imm;
+	ibqp->wr_send_inv = mlx5_send_wr_send_inv;
+	ibqp->wr_rdma_write = mlx5_send_wr_rdma_write;
+	ibqp->wr_rdma_write_imm = mlx5_send_wr_rdma_write_imm;
+	ibqp->wr_bind_mw = mlx5_send_wr_bind_mw;
+	ibqp->wr_local_inv = mlx5_send_wr_local_inv;
+}
+
+static void fill_wr_builders_ud(struct ibv_qp_ex *ibqp)
+{
+	ibqp->wr_send = mlx5_send_wr_send_other;
+	ibqp->wr_send_imm = mlx5_send_wr_send_imm;
+}
+
+static void fill_wr_setters_rc_uc(struct ibv_qp_ex *ibqp)
+{
+	ibqp->wr_set_sge = mlx5_send_wr_set_sge_rc_uc;
+	ibqp->wr_set_sge_list = mlx5_send_wr_set_sge_list_rc_uc;
+}
+
+static void fill_wr_setters_ud_xrc(struct ibv_qp_ex *ibqp)
+{
+	ibqp->wr_set_sge = mlx5_send_wr_set_sge_ud_xrc;
+	ibqp->wr_set_sge_list = mlx5_send_wr_set_sge_list_ud_xrc;
+}
+
+int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
+			 const struct ibv_qp_init_attr_ex *attr)
+{
+	struct ibv_qp_ex *ibqp = &mqp->verbs_qp.qp_ex;
+	uint64_t ops = attr->send_ops_flags;
+
+	ibqp->wr_start = mlx5_send_wr_start;
+	ibqp->wr_complete = mlx5_send_wr_complete;
+	ibqp->wr_abort = mlx5_send_wr_abort;
+
+	if (!mqp->atomics_enabled &&
+	    (ops & IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP ||
+	     ops & IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD))
+		return EOPNOTSUPP;
+
+	/* Set all supported micro-functions regardless user request */
+	switch (attr->qp_type) {
+	case IBV_QPT_RC:
+		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_RC)
+			return EOPNOTSUPP;
+
+		fill_wr_builders_rc_xrc(ibqp);
+		fill_wr_setters_rc_uc(ibqp);
+		break;
+
+	case IBV_QPT_UC:
+		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_UC)
+			return EOPNOTSUPP;
+
+		fill_wr_builders_uc(ibqp);
+		fill_wr_setters_rc_uc(ibqp);
+		break;
+
+	case IBV_QPT_XRC_SEND:
+		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_XRC)
+			return EOPNOTSUPP;
+
+		fill_wr_builders_rc_xrc(ibqp);
+		fill_wr_setters_ud_xrc(ibqp);
+		ibqp->wr_set_xrc_srqn = mlx5_send_wr_set_xrc_srqn;
+		break;
+
+	case IBV_QPT_UD:
+		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_UD)
+			return EOPNOTSUPP;
+
+		if (mqp->flags & MLX5_QP_FLAGS_USE_UNDERLAY)
+			return EOPNOTSUPP;
+
+		fill_wr_builders_ud(ibqp);
+		fill_wr_setters_ud_xrc(ibqp);
+		ibqp->wr_set_ud_addr = mlx5_send_wr_set_ud_addr;
+		break;
+
+	default:
+		return EOPNOTSUPP;
+	}
+
+	return 0;
 }
 
 int mlx5_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
@@ -1522,7 +2140,8 @@ int mlx5_post_srq_ops(struct ibv_srq *ibsrq, struct ibv_ops_wr *wr,
 	}
 
 out:
-	post_send_db(qp, bf, nreq, 0, size, 0, ctrl);
+	qp->fm_cache = 0;
+	post_send_db(qp, bf, nreq, 0, size, ctrl);
 
 	mlx5_spin_unlock(&srq->lock);
 
