@@ -38,6 +38,9 @@ The expected optlen is size of int.
 .IP "RDMA_OPTION_IB_PATH" 12
 Set IB path record data.
 The expected optlen is size of struct ibv_path_data[].
+.IP "RDMA_OPTION_ID_ACK_TIMEOUT" 12
+Set QP ACK timeout.
+The value calculated according to the formula 4.096 * 2^(ack_timeout) usec.
 .SH "RETURN VALUE"
 Returns 0 on success, or -1 on error.  If an error occurs, errno will be
 set to indicate the failure reason.

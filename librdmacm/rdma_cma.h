@@ -709,6 +709,10 @@ enum {
 	RDMA_OPTION_ID_TOS	 = 0,	/* uint8_t: RFC 2474 */
 	RDMA_OPTION_ID_REUSEADDR = 1,   /* int: ~SO_REUSEADDR */
 	RDMA_OPTION_ID_AFONLY	 = 2,   /* int: ~IPV6_V6ONLY */
+	RDMA_OPTION_ID_ACK_TIMEOUT = 3	/* uint8_t */
+};
+
+enum {
 	RDMA_OPTION_IB_PATH	 = 1	/* struct ibv_path_data[] */
 };
 
