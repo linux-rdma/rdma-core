@@ -133,6 +133,7 @@ enum mlx5dv_context_flags {
 	MLX5DV_CONTEXT_FLAGS_ENHANCED_MPW = (1 << 3),
 	MLX5DV_CONTEXT_FLAGS_CQE_128B_COMP = (1 << 4), /* Support CQE 128B compression */
 	MLX5DV_CONTEXT_FLAGS_CQE_128B_PAD = (1 << 5), /* Support CQE 128B padding */
+	MLX5DV_CONTEXT_FLAGS_PACKET_BASED_CREDIT_MODE = (1 << 6),
 };
 
 enum mlx5dv_cq_init_attr_mask {
@@ -163,6 +164,7 @@ enum mlx5dv_qp_create_flags {
 	MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_MC = 1 << 2,
 	MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE = 1 << 3,
 	MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE = 1 << 4,
+	MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE = 1 << 5,
 };
 
 enum mlx5dv_qp_init_attr_mask {
