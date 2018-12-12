@@ -30,6 +30,7 @@
  * SOFTWARE.
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <malloc.h>
@@ -146,6 +147,11 @@ static void *get_send_wqe(struct hns_roce_qp *qp, int n)
 static void *get_send_sge_ex(struct hns_roce_qp *qp, int n)
 {
 	return qp->buf.buf + qp->sge.offset + (n << qp->sge.sge_shift);
+}
+
+static void *get_srq_wqe(struct hns_roce_srq *srq, int n)
+{
+	return srq->buf.buf + (n << srq->wqe_shift);
 }
 
 static int hns_roce_v2_wq_overflow(struct hns_roce_wq *wq, int nreq,
@@ -1129,6 +1135,106 @@ static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 	return ret;
 }
 
+static void fill_idx_que(struct hns_roce_idx_que *idx_que,
+			 int cur_idx, int wqe_idx)
+{
+	unsigned int *addr;
+
+	addr = idx_que->buf.buf + cur_idx * idx_que->entry_sz;
+	*addr = wqe_idx;
+}
+
+static int find_empty_entry(struct hns_roce_idx_que *idx_que)
+{
+	int bit_num;
+	int i;
+
+	/* bitmap[i] is set zero if all bits are allocated */
+	for (i = 0; idx_que->bitmap[i] == 0; ++i)
+		;
+	bit_num = ffsl(idx_que->bitmap[i]);
+	idx_que->bitmap[i] &= ~(1ULL << (bit_num - 1));
+
+	return i * sizeof(uint64_t) * BIT_CNT_PER_BYTE + (bit_num - 1);
+}
+
+static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
+				       struct ibv_recv_wr *wr,
+				       struct ibv_recv_wr **bad_wr)
+{
+	struct hns_roce_context *ctx = to_hr_ctx(ib_srq->context);
+	struct hns_roce_srq *srq = to_hr_srq(ib_srq);
+	struct hns_roce_v2_wqe_data_seg *dseg;
+	struct hns_roce_db srq_db;
+	int ret = 0;
+	int wqe_idx;
+	void *wqe;
+	int nreq;
+	int ind;
+	int i;
+
+	pthread_spin_lock(&srq->lock);
+
+	/* current idx of srqwq */
+	ind = srq->head & (srq->max - 1);
+
+	for (nreq = 0; wr; ++nreq, wr = wr->next) {
+		if (wr->num_sge > srq->max_gs) {
+			ret = -1;
+			*bad_wr = wr;
+			break;
+		}
+
+		if (srq->head == srq->tail) {
+			/* SRQ is full*/
+			ret = -1;
+			*bad_wr = wr;
+			break;
+		}
+
+		wqe_idx = find_empty_entry(&srq->idx_que);
+		fill_idx_que(&srq->idx_que, ind, wqe_idx);
+
+		wqe = get_srq_wqe(srq, wqe_idx);
+		dseg = (struct hns_roce_v2_wqe_data_seg *)wqe;
+
+		for (i = 0; i < wr->num_sge; ++i) {
+			dseg[i].len = htole32(wr->sg_list[i].length);
+			dseg[i].lkey = htole32(wr->sg_list[i].lkey);
+			dseg[i].addr = htole64(wr->sg_list[i].addr);
+		}
+
+		if (i < srq->max_gs) {
+			dseg->len = 0;
+			dseg->lkey = htole32(0x100);
+			dseg->addr = 0;
+		}
+
+		srq->wrid[wqe_idx] = wr->wr_id;
+		ind = (ind + 1) & (srq->max - 1);
+	}
+
+	if (nreq) {
+		srq->head += nreq;
+
+		/*
+		 * Make sure that descriptors are written before
+		 * we write doorbell record.
+		 */
+		udma_to_device_barrier();
+
+		srq_db.byte_4 = htole32(2 << 24 | srq->srqn);
+		srq_db.parameter = htole32(srq->head);
+
+		hns_roce_write64((uint32_t *)&srq_db, ctx,
+				 ROCEE_VF_DB_CFG0_OFFSET);
+	}
+
+	pthread_spin_unlock(&srq->lock);
+
+	return ret;
+}
+
 const struct hns_roce_u_hw hns_roce_u_hw_v2 = {
 	.hw_version = HNS_ROCE_HW_VER2,
 	.hw_ops = {
@@ -1138,5 +1244,6 @@ const struct hns_roce_u_hw hns_roce_u_hw_v2 = {
 		.post_recv = hns_roce_u_v2_post_recv,
 		.modify_qp = hns_roce_u_v2_modify_qp,
 		.destroy_qp = hns_roce_u_v2_destroy_qp,
+		.post_srq_recv = hns_roce_u_v2_post_srq_recv,
 	},
 };

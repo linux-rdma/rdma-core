@@ -161,7 +161,6 @@ struct hns_roce_idx_que {
 	int				buf_size;
 	int				entry_sz;
 	unsigned long			*bitmap;
-	unsigned long			use_cnt;
 };
 
 struct hns_roce_srq {
