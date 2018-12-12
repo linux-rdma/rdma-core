@@ -596,6 +596,25 @@ int hns_roce_u_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
 	return ibv_cmd_query_srq(srq, srq_attr, &cmd, sizeof(cmd));
 }
 
+int hns_roce_u_destroy_srq(struct ibv_srq *srq)
+{
+	int ret;
+
+	ret = ibv_cmd_destroy_srq(srq);
+	if (ret)
+		return ret;
+
+	hns_roce_free_db(to_hr_ctx(srq->context), to_hr_srq(srq)->db,
+			 HNS_ROCE_QP_TYPE_DB);
+	hns_roce_free_buf(&to_hr_srq(srq)->buf);
+	free(to_hr_srq(srq)->wrid);
+	hns_roce_free_buf(&to_hr_srq(srq)->idx_que.buf);
+	free(to_hr_srq(srq)->idx_que.bitmap);
+	free(to_hr_srq(srq));
+
+	return 0;
+}
+
 static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 			      struct hns_roce_context *context)
 {
