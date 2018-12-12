@@ -154,6 +154,21 @@ static void *get_srq_wqe(struct hns_roce_srq *srq, int n)
 	return srq->buf.buf + (n << srq->wqe_shift);
 }
 
+static void hns_roce_free_srq_wqe(struct hns_roce_srq *srq, int ind)
+{
+	uint32_t bitmap_num;
+	int bit_num;
+
+	pthread_spin_lock(&srq->lock);
+
+	bitmap_num = ind / (sizeof(uint64_t) * BIT_CNT_PER_BYTE);
+	bit_num = ind % (sizeof(uint64_t) * BIT_CNT_PER_BYTE);
+	srq->idx_que.bitmap[bitmap_num] |= (1ULL << bit_num);
+	srq->tail++;
+
+	pthread_spin_unlock(&srq->lock);
+}
+
 static int hns_roce_v2_wq_overflow(struct hns_roce_wq *wq, int nreq,
 				   struct hns_roce_cq *cq)
 {
@@ -268,6 +283,7 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 	struct hns_roce_wq *wq = NULL;
 	struct hns_roce_v2_cqe *cqe = NULL;
 	struct hns_roce_rinl_sge *sge_list;
+	struct hns_roce_srq *srq = NULL;
 	uint32_t opcode;
 	struct ibv_qp_attr attr;
 	int attr_mask;
@@ -305,6 +321,7 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 	}
 	wc->qp_num = qpn & 0xffffff;
 
+	srq = (*cur_qp)->ibv_qp.srq ? to_hr_srq((*cur_qp)->ibv_qp.srq) : NULL;
 	if (is_send) {
 		wq = &(*cur_qp)->sq;
 		/*
@@ -325,6 +342,12 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 		/* write the wr_id of wq into the wc */
 		wc->wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
 		++wq->tail;
+	} else if (srq) {
+		wqe_ctr = (uint16_t)(roce_get_field(cqe->byte_4,
+						    CQE_BYTE_4_WQE_IDX_M,
+						    CQE_BYTE_4_WQE_IDX_S));
+		wc->wr_id = srq->wrid[wqe_ctr];
+		hns_roce_free_srq_wqe(srq, wqe_ctr);
 	} else {
 		wq = &(*cur_qp)->rq;
 		wc->wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
