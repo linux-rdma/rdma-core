@@ -580,6 +580,15 @@ out:
 	return NULL;
 }
 
+int hns_roce_u_modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
+			  int srq_attr_mask)
+{
+	struct ibv_modify_srq cmd;
+
+	return ibv_cmd_modify_srq(srq, srq_attr, srq_attr_mask, &cmd,
+				  sizeof(cmd));
+}
+
 static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 			      struct hns_roce_context *context)
 {
