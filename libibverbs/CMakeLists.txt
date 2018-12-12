@@ -30,13 +30,19 @@ rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   1 1.5.${PACKAGE_VERSION}
   all_providers.c
   cmd.c
+  cmd_ah.c
   cmd_counters.c
   cmd_cq.c
   cmd_dm.c
   cmd_fallback.c
+  cmd_flow.c
   cmd_flow_action.c
   cmd_ioctl.c
   cmd_mr.c
+  cmd_mw.c
+  cmd_pd.c
+  cmd_rwq_ind.c
+  cmd_xrcd.c
   compat-1_0.c
   device.c
   dummy_ops.c

@@ -30,50 +30,28 @@
  * SOFTWARE.
  */
 
-#include <infiniband/cmd_ioctl.h>
-#include <rdma/ib_user_ioctl_cmds.h>
-#include <infiniband/driver.h>
 #include <infiniband/cmd_write.h>
 
-int ibv_cmd_advise_mr(struct ibv_pd *pd,
-		      enum ibv_advise_mr_advice advice,
-		      uint32_t flags,
-		      struct ibv_sge *sg_list,
-		      uint32_t num_sge)
+int ibv_cmd_destroy_flow(struct ibv_flow *flow_id)
 {
-	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_MR,
-			       UVERBS_METHOD_ADVISE_MR,
-			       4);
-
-	fill_attr_in_obj(cmd, UVERBS_ATTR_ADVISE_MR_PD_HANDLE, pd->handle);
-	fill_attr_const_in(cmd, UVERBS_ATTR_ADVISE_MR_ADVICE, advice);
-	fill_attr_in_uint32(cmd, UVERBS_ATTR_ADVISE_MR_FLAGS, flags);
-	fill_attr_in_ptr_array(cmd, UVERBS_ATTR_ADVISE_MR_SGE_LIST,
-			       sg_list, num_sge);
-
-	return execute_ioctl(pd->context, cmd);
-}
-
-int ibv_cmd_dereg_mr(struct verbs_mr *vmr)
-{
-	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_MR, UVERBS_METHOD_MR_DESTROY,
-			     1, NULL);
+	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_FLOW,
+			     UVERBS_METHOD_FLOW_DESTROY, 1, NULL);
 	int ret;
 
-	fill_attr_in_obj(cmdb, UVERBS_ATTR_DESTROY_MR_HANDLE,
-			 vmr->ibv_mr.handle);
+	fill_attr_in_obj(cmdb, UVERBS_ATTR_DESTROY_FLOW_HANDLE,
+			 flow_id->handle);
 
-	switch (execute_ioctl_fallback(vmr->ibv_mr.context, dereg_mr, cmdb,
+	switch (execute_ioctl_fallback(flow_id->context, destroy_ah, cmdb,
 				       &ret)) {
 	case TRY_WRITE: {
-		struct ibv_dereg_mr req;
+		struct ibv_destroy_flow req;
 
-		req.core_payload = (struct ib_uverbs_dereg_mr){
-			.mr_handle = vmr->ibv_mr.handle,
+		req.core_payload = (struct ib_uverbs_destroy_flow){
+			.flow_handle = flow_id->handle,
 		};
-		ret = execute_cmd_write_req(vmr->ibv_mr.context,
-					    IB_USER_VERBS_CMD_DEREG_MR, &req,
-					    sizeof(req));
+		ret = execute_cmd_write_ex_req(
+			flow_id->context, IB_USER_VERBS_EX_CMD_DESTROY_FLOW,
+			&req, sizeof(req));
 		break;
 	}
 
