@@ -589,6 +589,13 @@ int hns_roce_u_modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
 				  sizeof(cmd));
 }
 
+int hns_roce_u_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
+{
+	struct ibv_query_srq cmd;
+
+	return ibv_cmd_query_srq(srq, srq_attr, &cmd, sizeof(cmd));
+}
+
 static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 			      struct hns_roce_context *context)
 {
