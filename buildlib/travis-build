@@ -54,7 +54,7 @@ cp ../util/udma_barrier.h.old ../util/udma_barrier.h
 # instead force it on by changing the CMakeLists.txt
 cd ..
 echo 'set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")' >> buildlib/RDMA_EnableCStd.cmake
-sed -i -e 's/-DCMAKE_BUILD_TYPE=Release//g' debian/rules
+sed -i -e 's/-DCMAKE_BUILD_TYPE=Release/-DCMAKE_BUILD_TYPE=Debug/g' debian/rules
 sed -i -e 's/ninja \(.*\)-v/ninja \1/g' debian/rules
 
 CC=gcc-8 debian/rules build
