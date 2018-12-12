@@ -696,6 +696,10 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 	if (mctx->vendor_cap_flags & MLX5_VENDOR_CAP_FLAGS_ENHANCED_MPW)
 		attrs_out->flags |= MLX5DV_CONTEXT_FLAGS_ENHANCED_MPW;
 
+	if (mctx->vendor_cap_flags &
+		MLX5_VENDOR_CAP_FLAGS_PACKET_BASED_CREDIT_MODE)
+		attrs_out->flags |= MLX5DV_CONTEXT_FLAGS_PACKET_BASED_CREDIT_MODE;
+
 	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_SWP) {
 		attrs_out->sw_parsing_caps = mctx->sw_parsing_caps;
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_SWP;
@@ -816,16 +820,22 @@ static int mlx5dv_get_srq(struct ibv_srq *srq_in,
 			  struct mlx5dv_srq *srq_out)
 {
 	struct mlx5_srq *msrq;
+	uint64_t mask_out = 0;
 
 	msrq = container_of(srq_in, struct mlx5_srq, vsrq.srq);
 
-	srq_out->comp_mask = 0;
 	srq_out->buf       = msrq->buf.buf;
 	srq_out->dbrec     = msrq->db;
 	srq_out->stride    = 1 << msrq->wqe_shift;
 	srq_out->head      = msrq->head;
 	srq_out->tail      = msrq->tail;
 
+	if (srq_out->comp_mask & MLX5DV_SRQ_MASK_SRQN) {
+		srq_out->srqn = msrq->srqn;
+		mask_out |= MLX5DV_SRQ_MASK_SRQN;
+	}
+
+	srq_out->comp_mask = mask_out;
 	return 0;
 }
 
@@ -852,6 +862,17 @@ static int mlx5dv_get_av(struct ibv_ah *ah_in,
 	return 0;
 }
 
+static int mlx5dv_get_pd(struct ibv_pd *pd_in,
+			 struct mlx5dv_pd *pd_out)
+{
+	struct mlx5_pd *mpd = to_mpd(pd_in);
+
+	pd_out->comp_mask = 0;
+	pd_out->pdn = mpd->pdn;
+
+	return 0;
+}
+
 LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
 		   int,
 		   struct mlx5dv_obj *obj, uint64_t obj_type)
@@ -870,6 +891,8 @@ LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
 		ret = mlx5dv_get_dm(obj->dm.in, obj->dm.out);
 	if (!ret && (obj_type & MLX5DV_OBJ_AH))
 		ret = mlx5dv_get_av(obj->ah.in, obj->ah.out);
+	if (!ret && (obj_type & MLX5DV_OBJ_PD))
+		ret = mlx5dv_get_pd(obj->pd.in, obj->pd.out);
 
 	return ret;
 }
@@ -1324,4 +1347,4 @@ static const struct verbs_device_ops mlx5_dev_ops = {
 	.alloc_context = mlx5_alloc_context,
 	.free_context = mlx5_free_context,
 };
-PROVIDER_DRIVER(mlx5_dev_ops);
+PROVIDER_DRIVER(mlx5, mlx5_dev_ops);

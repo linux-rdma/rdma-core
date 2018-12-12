@@ -133,6 +133,7 @@ enum mlx5dv_context_flags {
 	MLX5DV_CONTEXT_FLAGS_ENHANCED_MPW = (1 << 3),
 	MLX5DV_CONTEXT_FLAGS_CQE_128B_COMP = (1 << 4), /* Support CQE 128B compression */
 	MLX5DV_CONTEXT_FLAGS_CQE_128B_PAD = (1 << 5), /* Support CQE 128B padding */
+	MLX5DV_CONTEXT_FLAGS_PACKET_BASED_CREDIT_MODE = (1 << 6),
 };
 
 enum mlx5dv_cq_init_attr_mask {
@@ -163,6 +164,7 @@ enum mlx5dv_qp_create_flags {
 	MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_MC = 1 << 2,
 	MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE = 1 << 3,
 	MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE = 1 << 4,
+	MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE = 1 << 5,
 };
 
 enum mlx5dv_qp_init_attr_mask {
@@ -228,6 +230,7 @@ enum mlx5dv_flow_action_type {
 	MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION,
 	MLX5DV_FLOW_ACTION_TAG,
 	MLX5DV_FLOW_ACTION_DEST_DEVX,
+	MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
 };
 
 struct mlx5dv_flow_action_attr {
@@ -330,6 +333,10 @@ struct mlx5dv_cq {
 	uint64_t		comp_mask;
 };
 
+enum mlx5dv_srq_comp_mask {
+	MLX5DV_SRQ_MASK_SRQN	= 1 << 0,
+};
+
 struct mlx5dv_srq {
 	void			*buf;
 	__be32			*dbrec;
@@ -337,6 +344,7 @@ struct mlx5dv_srq {
 	uint32_t		head;
 	uint32_t		tail;
 	uint64_t		comp_mask;
+	uint32_t		srqn;
 };
 
 struct mlx5dv_rwq {
@@ -357,6 +365,11 @@ struct mlx5_wqe_av;
 
 struct mlx5dv_ah {
 	struct mlx5_wqe_av      *av;
+	uint64_t		comp_mask;
+};
+
+struct mlx5dv_pd {
+	uint32_t		pdn;
 	uint64_t		comp_mask;
 };
 
@@ -385,6 +398,10 @@ struct mlx5dv_obj {
 		struct ibv_ah		*in;
 		struct mlx5dv_ah	*out;
 	} ah;
+	struct {
+		struct ibv_pd		*in;
+		struct mlx5dv_pd	*out;
+	} pd;
 };
 
 enum mlx5dv_obj_type {
@@ -394,6 +411,7 @@ enum mlx5dv_obj_type {
 	MLX5DV_OBJ_RWQ	= 1 << 3,
 	MLX5DV_OBJ_DM	= 1 << 4,
 	MLX5DV_OBJ_AH	= 1 << 5,
+	MLX5DV_OBJ_PD	= 1 << 6,
 };
 
 enum mlx5dv_wq_init_attr_mask {
@@ -1054,6 +1072,29 @@ struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
 void mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *devx_uar);
 int mlx5dv_devx_query_eqn(struct ibv_context *context, uint32_t vector,
 			  uint32_t *eqn);
+
+int mlx5dv_devx_cq_query(struct ibv_cq *cq, const void *in, size_t inlen,
+			 void *out, size_t outlen);
+int mlx5dv_devx_cq_modify(struct ibv_cq *cq, const void *in, size_t inlen,
+			  void *out, size_t outlen);
+int mlx5dv_devx_qp_query(struct ibv_qp *qp, const void *in, size_t inlen,
+			 void *out, size_t outlen);
+int mlx5dv_devx_qp_modify(struct ibv_qp *qp, const void *in, size_t inlen,
+			  void *out, size_t outlen);
+int mlx5dv_devx_srq_query(struct ibv_srq *srq, const void *in, size_t inlen,
+			  void *out, size_t outlen);
+int mlx5dv_devx_srq_modify(struct ibv_srq *srq, const void *in, size_t inlen,
+			   void *out, size_t outlen);
+int mlx5dv_devx_wq_query(struct ibv_wq *wq, const void *in, size_t inlen,
+			 void *out, size_t outlen);
+int mlx5dv_devx_wq_modify(struct ibv_wq *wq, const void *in, size_t inlen,
+			  void *out, size_t outlen);
+int mlx5dv_devx_ind_tbl_query(struct ibv_rwq_ind_table *ind_tbl,
+			      const void *in, size_t inlen,
+			      void *out, size_t outlen);
+int mlx5dv_devx_ind_tbl_modify(struct ibv_rwq_ind_table *ind_tbl,
+			       const void *in, size_t inlen,
+			       void *out, size_t outlen);
 
 #ifdef __cplusplus
 }

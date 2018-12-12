@@ -23,7 +23,7 @@ mlx5dv_create_flow_action_modify_header(struct ibv_context *ctx,
 
 # DESCRIPTION
 
-Create a modify header flow steering action, it allows to mutate a packet header.
+Create a modify header flow steering action, it allows mutating a packet header.
 
 # ARGUMENTS
 

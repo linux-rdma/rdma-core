@@ -205,4 +205,4 @@ static const struct verbs_device_ops hns_roce_dev_ops = {
 	.alloc_context = hns_roce_alloc_context,
 	.free_context = hns_roce_free_context,
 };
-PROVIDER_DRIVER(hns_roce_dev_ops);
+PROVIDER_DRIVER(hns, hns_roce_dev_ops);

@@ -138,6 +138,7 @@ enum {
 
 #define UMAD_SA_SELECTOR_SHIFT		6
 #define UMAD_SA_RATE_MTU_PKT_LIFE_MASK	0x3f
+#define UMAD_SA_SELECTOR_MASK		0x3
 
 /*
  *  sm_key is not aligned on an 8-byte boundary, so is defined as a byte array
@@ -155,13 +156,14 @@ struct umad_sa_packet {
 static inline uint8_t
 umad_sa_get_rate_mtu_or_life(uint8_t rate_mtu_or_life)
 {
-	return (rate_mtu_or_life & 0x3f);
+	return (rate_mtu_or_life & UMAD_SA_RATE_MTU_PKT_LIFE_MASK);
 }
 
 static inline uint8_t
 umad_sa_set_rate_mtu_or_life(uint8_t selector, uint8_t rate_mtu_or_life)
 {
-	return (((selector & 0x3) << 6) | (rate_mtu_or_life & 0x3f));
+	return (((selector & UMAD_SA_SELECTOR_MASK) << UMAD_SA_SELECTOR_SHIFT) |
+		(rate_mtu_or_life & UMAD_SA_RATE_MTU_PKT_LIFE_MASK));
 }
 
 #ifdef __cplusplus

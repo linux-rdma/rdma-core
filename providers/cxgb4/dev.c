@@ -504,7 +504,7 @@ static const struct verbs_device_ops c4iw_dev_ops = {
 	.alloc_context = c4iw_alloc_context,
 	.free_context = c4iw_free_context,
 };
-PROVIDER_DRIVER(c4iw_dev_ops);
+PROVIDER_DRIVER(cxgb4, c4iw_dev_ops);
 
 #ifdef STATS
 void __attribute__ ((destructor)) cs_fini(void);

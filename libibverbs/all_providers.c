@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
- * Copyright (c) 2007 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2018 Mellanox Technologies, Ltd.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -30,57 +29,25 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
-#ifndef IB_VERBS_H
-#define IB_VERBS_H
-
-#include <pthread.h>
-
-#include <infiniband/driver.h>
-#include <ccan/bitmap.h>
-
-#define INIT		__attribute__((constructor))
-
-#define PFX		"libibverbs: "
-#define VERBS_OPS_NUM (sizeof(struct verbs_context_ops) / sizeof(void *))
-
-#define RDMA_CDEV_DIR "/dev/infiniband"
-
-struct ibv_abi_compat_v2 {
-	struct ibv_comp_channel	channel;
-	pthread_mutex_t		in_use;
-};
-
-extern int abi_ver;
-extern const struct verbs_context_ops verbs_dummy_ops;
-
-int ibverbs_get_device_list(struct list_head *list);
-int ibverbs_init(void);
-void ibverbs_device_put(struct ibv_device *dev);
-void ibverbs_device_hold(struct ibv_device *dev);
-
 #ifdef _STATIC_LIBRARY_BUILD_
-static inline void load_drivers(void)
-{
-}
-#else
-void load_drivers(void);
-#endif
+#define RDMA_STATIC_PROVIDERS none
+#include <infiniband/verbs.h>
+#include <infiniband/driver.h>
+#include <infiniband/all_providers.h>
 
-struct verbs_ex_private {
-	BITMAP_DECLARE(unsupported_ioctls, VERBS_OPS_NUM);
-	uint32_t driver_id;
-	struct verbs_context_ops ops;
+/* When static linking this object will be included in the final link only if
+ * something refers to the 'verbs_provider_all' symbol. It in turn brings all
+ * the providers into the link as well. Otherwise the static linker will not
+ * include this. It is important this is the only thing in this file.
+ */
+#define FOR_PROVIDER(x) &verbs_provider_ ## x,
+static const struct verbs_device_ops *all_providers[] = {
+	FOR_EACH_PROVIDER()
+	NULL
 };
 
-static inline struct verbs_ex_private *get_priv(struct ibv_context *ctx)
-{
-	return container_of(ctx, struct verbs_context, context)->priv;
-}
+const struct verbs_device_ops verbs_provider_all = {
+	.static_providers = all_providers,
+};
 
-static inline const struct verbs_context_ops *get_ops(struct ibv_context *ctx)
-{
-	return &get_priv(ctx)->ops;
-}
-
-#endif /* IB_VERBS_H */
+#endif

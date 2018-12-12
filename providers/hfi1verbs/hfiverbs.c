@@ -206,4 +206,4 @@ static const struct verbs_device_ops hfi1_dev_ops = {
 	.alloc_context = hfi1_alloc_context,
 	.free_context = hfi1_free_context,
 };
-PROVIDER_DRIVER(hfi1_dev_ops);
+PROVIDER_DRIVER(hfi1verbs, hfi1_dev_ops);

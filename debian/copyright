@@ -12,7 +12,7 @@ Files: debian/*
 Copyright: 2008, Genome Research Ltd
            2014, Ana Beatriz Guerrero Lopez <ana@debian.org>
            2015-2016, Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-           2016-2017, Benjamin Drung <benjamin.drung@profitbricks.com>
+           2016-2018, Benjamin Drung <benjamin.drung@cloud.ionos.com>
            2016-2017, Talat Batheesh <talatb@mellanox.com>
 License: GPL-2+
  This program is free software; you can redistribute it and/or modify

@@ -38,6 +38,7 @@
 #include <ccan/build_assert.h>
 
 #include <unistd.h>
+#include <valgrind/memcheck.h>
 
 /*
  * Check if the command buffer provided by the driver includes anything that
@@ -119,8 +120,7 @@ enum write_fallback _execute_ioctl_fallback(struct ibv_context *ctx,
  * directly before the UHW memory (see _write_set_uhw)
  */
 void *_write_get_req(struct ibv_command_buffer *link,
-		     struct ib_uverbs_cmd_hdr *onstack, size_t size,
-		     uint32_t cmdnum)
+		     struct ib_uverbs_cmd_hdr *onstack, size_t size)
 {
 	struct ib_uverbs_cmd_hdr *hdr;
 
@@ -138,13 +138,11 @@ void *_write_get_req(struct ibv_command_buffer *link,
 		hdr->in_words = __check_divide(size, 4);
 	}
 
-	hdr->command = cmdnum;
-
 	return hdr + 1;
 }
 
 void *_write_get_req_ex(struct ibv_command_buffer *link, struct ex_hdr *onstack,
-			size_t size, uint32_t cmdnum)
+			size_t size)
 {
 	struct ex_hdr *hdr;
 	size_t full_size = size + sizeof(*hdr);
@@ -155,16 +153,11 @@ void *_write_get_req_ex(struct ibv_command_buffer *link, struct ex_hdr *onstack,
 		assert(uhw->attr_id == UVERBS_ATTR_UHW_IN);
 		assert(link->uhw_in_headroom_dwords * 4 >= full_size);
 		hdr = (void *)((uintptr_t)uhw->data - full_size);
-		hdr->hdr.in_words = __check_divide(size, 8);
 		hdr->ex_hdr.provider_in_words = __check_divide(uhw->len, 8);
 	} else {
 		hdr = onstack;
-		hdr->hdr.in_words = __check_divide(size, 8);
 		hdr->ex_hdr.provider_in_words = 0;
 	}
-
-	hdr->hdr.command = IB_USER_VERBS_CMD_FLAG_EXTENDED | cmdnum;
-	hdr->ex_hdr.cmd_hdr_reserved = 0;
 
 	return hdr + 1;
 }
@@ -204,67 +197,63 @@ void *_write_get_resp_ex(struct ibv_command_buffer *link,
 		assert(uhw->attr_id == UVERBS_ATTR_UHW_OUT);
 		assert(link->uhw_out_headroom_dwords * 4 >= resp_size);
 		resp_start = (void *)((uintptr_t)uhw->data - resp_size);
-		hdr->hdr.out_words = __check_divide(resp_size, 8);
 		hdr->ex_hdr.provider_out_words = __check_divide(uhw->len, 8);
 	} else {
 		resp_start = onstack;
-		hdr->hdr.out_words = __check_divide(resp_size, 8);
 		hdr->ex_hdr.provider_out_words = 0;
 	}
-
-	hdr->ex_hdr.response = ioctl_ptr_to_u64(resp_start);
 
 	return resp_start;
 }
 
-int _execute_write_raw(struct ibv_context *ctx, struct ib_uverbs_cmd_hdr *hdr,
-		       void *resp)
+int _execute_cmd_write(struct ibv_context *ctx, unsigned int write_method,
+		       struct ib_uverbs_cmd_hdr *req, size_t core_req_size,
+		       size_t req_size, void *resp, size_t core_resp_size,
+		       size_t resp_size)
 {
-	/*
-	 * Users assumes the stack buffer is zeroed before passing to the
-	 * kernel for writing.
-	 */
-	if (resp) {
-		/*
-		 * The helper macros prove the response is at offset 0 of the
-		 * request.
-		 */
-		uint64_t *response = (uint64_t *)(hdr + 1);
+	req->command = write_method;
+	req->in_words = __check_divide(req_size, 4);
+	req->out_words = __check_divide(resp_size, 4);
 
-		*response = ioctl_ptr_to_u64(resp);
-		memset(resp, 0, hdr->out_words * 4);
-	}
-
-	if (write(ctx->cmd_fd, hdr, hdr->in_words * 4) != hdr->in_words * 4)
+	if (write(ctx->cmd_fd, req, req_size) != req_size)
 		return errno;
 
 	if (resp)
-		VALGRIND_MAKE_MEM_DEFINED(resp, hdr->out_words * 4);
-
+		VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 	return 0;
 }
 
-int _execute_write_raw_ex(struct ibv_context *ctx, struct ex_hdr *hdr)
+/*
+ * req_size is the total length of the ex_hdr, core payload and driver data.
+ * core_req_size is the total length of the ex_hdr and core_payload.
+ */
+int _execute_cmd_write_ex(struct ibv_context *ctx, unsigned int write_method,
+		       struct ex_hdr *req, size_t core_req_size,
+		       size_t req_size, void *resp, size_t core_resp_size,
+		       size_t resp_size)
 {
-	size_t write_bytes =
-		sizeof(*hdr) +
-		(hdr->hdr.in_words + hdr->ex_hdr.provider_in_words) * 8;
-	size_t resp_bytes =
-		(hdr->hdr.out_words + hdr->ex_hdr.provider_out_words) * 8;
-	void *resp = (void *)(uintptr_t)hdr->ex_hdr.response;
+	req->hdr.command = IB_USER_VERBS_CMD_FLAG_EXTENDED | write_method;
+	req->hdr.in_words =
+		__check_divide(core_req_size - sizeof(struct ex_hdr), 8);
+	req->hdr.out_words = __check_divide(core_resp_size, 8);
+	req->ex_hdr.provider_in_words =
+		__check_divide(req_size - core_req_size, 8);
+	req->ex_hdr.provider_out_words =
+		__check_divide(resp_size - core_resp_size, 8);
+	req->ex_hdr.response = ioctl_ptr_to_u64(resp);
+	req->ex_hdr.cmd_hdr_reserved = 0;
 
 	/*
 	 * Users assumes the stack buffer is zeroed before passing to the
 	 * kernel for writing.
 	 */
 	if (resp)
-		memset(resp, 0, resp_bytes);
+		memset(resp, 0, resp_size);
 
-	if (write(ctx->cmd_fd, hdr, write_bytes) != write_bytes)
+	if (write(ctx->cmd_fd, req, req_size) != req_size)
 		return errno;
 
 	if (resp)
-		VALGRIND_MAKE_MEM_DEFINED(resp, resp_bytes);
-
+		VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 	return 0;
 }

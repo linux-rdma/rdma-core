@@ -197,4 +197,4 @@ static const struct verbs_device_ops bnxt_re_dev_ops = {
 	.alloc_context = bnxt_re_alloc_context,
 	.free_context = bnxt_re_free_context,
 };
-PROVIDER_DRIVER(bnxt_re_dev_ops);
+PROVIDER_DRIVER(bnxt_re, bnxt_re_dev_ops);

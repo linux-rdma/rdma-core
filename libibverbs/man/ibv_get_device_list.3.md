@@ -63,6 +63,26 @@ Setting the environment variable **IBV_SHOW_WARNINGS** will cause warnings to
 be emitted to stderr if a kernel verbs device is discovered, but no
 corresponding userspace driver can be found for it.
 
+# STATIC LINKING
+
+If **libibverbs** is statically linked to the application then all provider
+drivers must also be statically linked. The library will not load dynamic
+providers when static linking is used.
+
+To link the providers set the **RDMA_STATIC_PROVIDERS** define to the comma
+separated list of desired providers when compiling the application. The
+special keyword 'all' will statically link all supported **libibverbs**
+providers.
+
+This is intended to be used along with **pkg-config(1)** to setup the proper
+flags for **libibverbs** linking.
+
+If this is not done then **ibv_get_device_list** will always return an empty
+list.
+
+Using only dynamic linking for **libibverbs** applications is strongly
+recommended.
+
 # SEE ALSO
 
 **ibv_fork_init**(3),

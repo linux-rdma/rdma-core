@@ -69,7 +69,8 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 			.comp_channel = channel ? channel->fd : -1,
 		};
 
-		ret = execute_write_bufs(cq->context, req, resp);
+		ret = execute_write_bufs(
+			cq->context, IB_USER_VERBS_CMD_CREATE_CQ, req, resp);
 		if (ret)
 			return ret;
 
@@ -90,7 +91,8 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 			.flags = flags,
 		};
 
-		ret = execute_write_bufs_ex(cq->context, req);
+		ret = execute_write_bufs_ex(
+			cq->context, IB_USER_VERBS_EX_CMD_CREATE_CQ, req, resp);
 		if (ret)
 			return ret;
 
@@ -119,7 +121,9 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      size_t cmd_size, struct ib_uverbs_create_cq_resp *resp,
 		      size_t resp_size)
 {
-	DECLARE_CMD_BUFFER_COMPAT(cmdb, UVERBS_OBJECT_CQ, UVERBS_METHOD_CQ_CREATE);
+	DECLARE_CMD_BUFFER_COMPAT(cmdb, UVERBS_OBJECT_CQ,
+				  UVERBS_METHOD_CQ_CREATE, cmd, cmd_size, resp,
+				  resp_size);
 
 	return ibv_icmd_create_cq(context, cqe, channel, comp_vector, 0, cq,
 				  cmdb);
@@ -133,7 +137,9 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 			 struct ib_uverbs_ex_create_cq_resp *resp,
 			 size_t resp_size)
 {
-	DECLARE_CMD_BUFFER_COMPAT(cmdb, UVERBS_OBJECT_CQ, UVERBS_METHOD_CQ_CREATE);
+	DECLARE_CMD_BUFFER_COMPAT(cmdb, UVERBS_OBJECT_CQ,
+				  UVERBS_METHOD_CQ_CREATE, cmd, cmd_size, resp,
+				  resp_size);
 	uint32_t flags = 0;
 
 	if (!check_comp_mask(cq_attr->comp_mask, IBV_CQ_INIT_ATTR_MASK_FLAGS))
@@ -154,7 +160,7 @@ int ibv_cmd_destroy_cq(struct ibv_cq *cq)
 {
 	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_CQ, UVERBS_METHOD_CQ_DESTROY, 2,
 			     NULL);
-	DECLARE_LEGACY_CORE_BUFS(IB_USER_VERBS_CMD_DESTROY_CQ);
+	struct ib_uverbs_destroy_cq_resp resp;
 	int ret;
 
 	fill_attr_out_ptr(cmdb, UVERBS_ATTR_DESTROY_CQ_RESP, &resp);
@@ -162,11 +168,15 @@ int ibv_cmd_destroy_cq(struct ibv_cq *cq)
 
 	switch (execute_ioctl_fallback(cq->context, destroy_cq, cmdb, &ret)) {
 	case TRY_WRITE: {
-		*req = (struct ib_uverbs_destroy_cq){
+		struct ibv_destroy_cq req;
+
+		req.core_payload = (struct ib_uverbs_destroy_cq){
 			.cq_handle = cq->handle,
 		};
 
-		ret = execute_write(cq->context, req, &resp);
+		ret = execute_cmd_write(cq->context,
+					IB_USER_VERBS_CMD_DESTROY_CQ, &req,
+					sizeof(req), &resp, sizeof(resp));
 		break;
 	}
 

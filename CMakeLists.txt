@@ -57,10 +57,11 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "21.0")
+set(PACKAGE_VERSION "22.0")
 # When this is changed the values in these files need changing too:
+#   debian/control
 #   debian/libibverbs1.symbols
-set(IBVERBS_PABI_VERSION "21")
+set(IBVERBS_PABI_VERSION "22")
 set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 #-------------------------
@@ -82,6 +83,8 @@ set(BUILD_INCLUDE ${CMAKE_BINARY_DIR}/include)
 set(BUILD_BIN ${CMAKE_BINARY_DIR}/bin)
 # Libraries
 set(BUILD_LIB ${CMAKE_BINARY_DIR}/lib)
+# Static library pre-processing
+set(BUILD_STATIC_LIB ${CMAKE_BINARY_DIR}/lib/statics)
 # Used for IN_PLACE configuration
 set(BUILD_ETC ${CMAKE_BINARY_DIR}/etc)
 
@@ -560,6 +563,7 @@ if (UDEV_FOUND)
 endif()
 add_subdirectory(srp_daemon)
 
+ibverbs_finalize()
 rdma_finalize_libs()
 
 #-------------------------

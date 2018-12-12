@@ -1,6 +1,6 @@
 Source: rdma-core
 Maintainer: Linux RDMA Mailing List <linux-rdma@vger.kernel.org>
-Uploaders: Benjamin Drung <benjamin.drung@profitbricks.com>,
+Uploaders: Benjamin Drung <benjamin.drung@cloud.ionos.com>,
            Talat Batheesh <talatb@mellanox.com>
 Section: net
 Priority: optional
@@ -17,7 +17,7 @@ Build-Depends: cmake (>= 2.8.11),
                pkg-config,
                python,
                valgrind [amd64 arm64 armhf i386 mips mips64el mipsel powerpc ppc64 ppc64el s390x]
-Standards-Version: 4.1.4
+Standards-Version: 4.2.1
 Vcs-Git: https://github.com/linux-rdma/rdma-core.git
 Vcs-Browser: https://github.com/linux-rdma/rdma-core
 Homepage: https://github.com/linux-rdma/rdma-core
@@ -127,6 +127,8 @@ Architecture: linux-any
 Multi-Arch: same
 Depends: ibverbs-providers (= ${binary:Version}),
          libibverbs1 (= ${binary:Version}),
+         libnl-3-dev,
+         libnl-route-3-dev,
          ${misc:Depends}
 Description: Development files for the libibverbs library
  libibverbs is a library that allows userspace processes to use RDMA
@@ -149,7 +151,7 @@ Section: libs
 Pre-Depends: ${misc:Pre-Depends}
 Depends: adduser, ${misc:Depends}, ${shlibs:Depends}
 Recommends: ibverbs-providers
-Breaks: ibverbs-providers (<< 21~)
+Breaks: ibverbs-providers (<< 22~)
 Description: Library for direct userspace use of RDMA (InfiniBand/iWARP)
  libibverbs is a library that allows userspace processes to use RDMA
  "verbs" as described in the InfiniBand Architecture Specification and

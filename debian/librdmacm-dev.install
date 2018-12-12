@@ -4,6 +4,7 @@ usr/include/rdma/rdma_cma_abi.h
 usr/include/rdma/rdma_verbs.h
 usr/include/rdma/rsocket.h
 usr/lib/*/librdmacm*.so
+usr/lib/*/librdmacm.a
 usr/lib/*/pkgconfig/librdmacm.pc
 usr/share/man/man3/rdma_accept.3
 usr/share/man/man3/rdma_ack_cm_event.3

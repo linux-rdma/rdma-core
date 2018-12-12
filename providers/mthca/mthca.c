@@ -239,4 +239,4 @@ static const struct verbs_device_ops mthca_dev_ops = {
 	.alloc_context = mthca_alloc_context,
 	.free_context = mthca_free_context,
 };
-PROVIDER_DRIVER(mthca_dev_ops);
+PROVIDER_DRIVER(mthca, mthca_dev_ops);
