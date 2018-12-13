@@ -101,6 +101,8 @@ Provides: libcxgb3 = %{version}-%{release}
 Obsoletes: libcxgb3 < %{version}-%{release}
 Provides: libcxgb4 = %{version}-%{release}
 Obsoletes: libcxgb4 < %{version}-%{release}
+Provides: libefa = %{version}-%{release}
+Obsoletes: libefa < %{version}-%{release}
 Provides: libhfi1 = %{version}-%{release}
 Obsoletes: libhfi1 < %{version}-%{release}
 Provides: libi40iw = %{version}-%{release}
@@ -131,6 +133,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 
 - libcxgb3: Chelsio T3 iWARP HCA
 - libcxgb4: Chelsio T4 iWARP HCA
+- libefa: Amazon Elastic Fabric Adapter
 - libhfi1: Intel Omni-Path HFI
 - libhns: HiSilicon Hip06 SoC
 - libi40iw: Intel Ethernet Connection X722 RDMA

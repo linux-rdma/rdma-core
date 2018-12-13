@@ -168,6 +168,7 @@ Group:          System/Libraries
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 Obsoletes:      libcxgb3-rdmav2 < %{version}-%{release}
 Obsoletes:      libcxgb4-rdmav2 < %{version}-%{release}
+Obsoletes:      libefa-rdmav2 < %{version}-%{release}
 Obsoletes:      libhfi1verbs-rdmav2 < %{version}-%{release}
 Obsoletes:      libi40iw-rdmav2 < %{version}-%{release}
 Obsoletes:      libipathverbs-rdmav2 < %{version}-%{release}
@@ -196,6 +197,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 
 - libcxgb3: Chelsio T3 iWARP HCA
 - libcxgb4: Chelsio T4 iWARP HCA
+- libefa: Amazon Elastic Fabric Adapter
 - libhfi1: Intel Omni-Path HFI
 - libhns: HiSilicon Hip06 SoC
 - libi40iw: Intel Ethernet Connection X722 RDMA
