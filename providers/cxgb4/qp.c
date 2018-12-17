@@ -311,7 +311,10 @@ static void build_rdma_write_cmpl(struct t4_sq *sq,
 
 	wcwr->stag_sink = htobe32(wr->wr.rdma.rkey);
 	wcwr->to_sink = htobe64(wr->wr.rdma.remote_addr);
-	wcwr->stag_inv = 0;
+	if (wr->next->opcode == IBV_WR_SEND)
+		wcwr->stag_inv = 0;
+	else
+		wcwr->stag_inv = htobe32(wr->next->invalidate_rkey);
 	wcwr->r2 = 0;
 	wcwr->r3 = 0;
 
@@ -446,7 +449,10 @@ static void post_write_cmpl(struct c4iw_qp *qhp, struct ibv_send_wr *wr)
 
 	/* SEND swsqe */
 	swsqe = &qhp->wq.sq.sw_sq[qhp->wq.sq.pidx];
-	swsqe->opcode = FW_RI_SEND;
+	if (wr->next->opcode == IBV_WR_SEND)
+		swsqe->opcode = FW_RI_SEND;
+	else
+		swsqe->opcode = FW_RI_SEND_WITH_INV;
 	swsqe->idx = qhp->wq.sq.pidx;
 	swsqe->complete = 0;
 	swsqe->signaled = send_signaled;
@@ -495,9 +501,9 @@ int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	/*
 	 * Fastpath for NVMe-oF target WRITE + SEND_WITH_INV wr chain which is
 	 * the response for small NVMEe-oF READ requests.  If the chain is
-	 * exactly a WRITE->SEND_WITH_INV and the sgl depths and lengths
-	 * meet the requirements of the fw_ri_write_cmpl_wr work request,
-	 * then build and post the write_cmpl WR.  If any of the tests
+	 * exactly a WRITE->SEND_WITH_INV or a WRITE->SEND and the sgl depths
+	 * and lengths meet the requirements of the fw_ri_write_cmpl_wr work
+	 * request, then build and post the write_cmpl WR.  If any of the tests
 	 * below are not true, then we continue on with the tradtional WRITE
 	 * and SEND WRs.
 	 */
@@ -506,7 +512,8 @@ int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	    wr && wr->next && !wr->next->next &&
 	    wr->opcode == IBV_WR_RDMA_WRITE && wr->sg_list[0].length &&
 	    wr->num_sge <= T4_WRITE_CMPL_MAX_SGL &&
-	    wr->next->opcode == IBV_WR_SEND &&
+	    (wr->next->opcode == IBV_WR_SEND_WITH_INV ||
+	    wr->next->opcode == IBV_WR_SEND) &&
 	    wr->next->sg_list[0].length == T4_WRITE_CMPL_MAX_CQE &&
 	    wr->next->num_sge == 1 && num_wrs >= 2) {
 		post_write_cmpl(qhp, wr);
