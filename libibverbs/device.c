@@ -43,6 +43,7 @@
 #include <alloca.h>
 #include <errno.h>
 
+#include <rdma/ib_user_ioctl_cmds.h>
 #include <util/symver.h>
 #include "ibverbs.h"
 
@@ -193,6 +194,31 @@ __lib_ibv_create_cq_ex(struct ibv_context *context,
 	return cq;
 }
 
+static bool has_ioctl_write(struct ibv_context *ctx)
+{
+	int rc;
+	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_DEVICE,
+			       UVERBS_METHOD_INVOKE_WRITE, 1);
+
+	if (VERBS_IOCTL_ONLY)
+		return true;
+	if (VERBS_WRITE_ONLY)
+		return false;
+
+	/*
+	 * This command should return ENOSPC since the request length is too
+	 * small.
+	 */
+	fill_attr_const_in(cmdb, UVERBS_ATTR_WRITE_CMD,
+			   IB_USER_VERBS_CMD_QUERY_DEVICE);
+	rc = execute_ioctl(ctx, cmdb);
+	if (rc == EPROTONOSUPPORT)
+		return false;
+	if (rc == ENOTTY)
+		return false;
+	return true;
+}
+
 /*
  * Ownership of cmd_fd is transferred into this function, and it will either
  * be released during the matching call to verbs_uninit_contxt or during the
@@ -240,6 +266,7 @@ int verbs_init_context(struct verbs_context *context_ex,
 
 	context_ex->priv->driver_id = driver_id;
 	verbs_set_ops(context_ex, &verbs_dummy_ops);
+	context_ex->priv->use_ioctl_write = has_ioctl_write(context);
 
 	return 0;
 }
