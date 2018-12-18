@@ -26,8 +26,8 @@
 #      Do not generate backwards compatibility symbols in the shared
 #      libraries. This may is necessary if using a dynmic linker that does
 #      not support symbol versions, such as uclibc.
-#  -DIOCTL_MODE=both (default write)
-#      Enable new kABI ioctl() support and support for the legacy write
+#  -DIOCTL_MODE=write (default both)
+#      Disable new kABI ioctl() support and support only the legacy write
 #      path. May also be 'ioctl' to disable fallback to write.
 #  -DIBACM_SERVER_MODE_DEFAULT (default unix)
 #      Selects how clients can connect to this server:
@@ -489,7 +489,7 @@ elseif ("${IOCTL_MODE}" STREQUAL "write")
 elseif ("${IOCTL_MODE}" STREQUAL "ioctl")
   set(IOCTL_MODE_NUM 1)
 elseif ("${IOCTL_MODE}" STREQUAL "")
-  set(IOCTL_MODE_NUM 2)
+  set(IOCTL_MODE_NUM 3)
 else()
   message(FATAL_ERROR "-DIOCTL_MODE=${IOCTL_MODE} is not a valid choice")
 endif()
