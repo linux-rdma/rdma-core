@@ -227,9 +227,10 @@ free:
 	return ret;
 }
 
+static char *path = NULL;
+
 static int server_open(int rs, struct msg_hdr *msg)
 {
-	char *path = NULL;
 	int ret, len;
 
 	printf("opening: ");
@@ -264,8 +265,6 @@ static int server_open(int rs, struct msg_hdr *msg)
 
 	ret = 0;
 out:
-	if (path)
-		free(path);
 
 	msg_send_resp(rs, msg, ret);
 	return ret;
@@ -286,6 +285,10 @@ static void server_close(int rs, struct msg_hdr *msg)
 		close(fd);
 		fd = 0;
 	}
+
+	free(path);
+	path = NULL;
+
 	printf("done\n");
 }
 
@@ -312,9 +315,13 @@ static int server_write(int rs, struct msg_hdr *msg)
 	if (ret != sizeof bytes)
 		goto out;
 
-	ret = ftruncate(fd, bytes);
-	if (ret)
+	ret = posix_fallocate(fd, 0, bytes);
+	if (ret) {
+		printf("...error allocating file\n");
+		close(fd);
+		unlink(path);
 		goto out;
+	}
 
 	file_addr = mmap(NULL, bytes, PROT_WRITE, MAP_SHARED, fd, 0);
 	if (file_addr == (void *) -1) {
