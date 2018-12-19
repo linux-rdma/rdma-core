@@ -115,6 +115,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.attach_mcast  = mlx5_attach_mcast,
 	.detach_mcast  = mlx5_detach_mcast,
 
+	.advise_mr = mlx5_advise_mr,
 	.alloc_dm = mlx5_alloc_dm,
 	.alloc_parent_domain = mlx5_alloc_parent_domain,
 	.alloc_td = mlx5_alloc_td,
