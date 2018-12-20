@@ -7,7 +7,7 @@ export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 COHERENT_DMA_ARCHS = amd64 arm64 i386 ia64 powerpc powerpcspe ppc64 ppc64el s390x sparc64 x32
 
 %:
-	dh $@ --with systemd --builddirectory=build-deb
+	dh $@ --with python3,systemd --builddirectory=build-deb
 
 override_dh_auto_clean:
 	dh_auto_clean
@@ -22,19 +22,29 @@ override_dh_auto_clean:
 #
 # Upstream encourages the use of Ninja to build the source, convince dh to use
 # it until someone writes native support for dh+cmake+ninja.
+DH_AUTO_CONFIGURE := "--" \
+	             "-GNinja" \
+		     "-DDISTRO_FLAVOUR=Debian" \
+		     "-DCMAKE_BUILD_TYPE=Release" \
+		     "-DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc" \
+		     "-DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=/lib/systemd/system" \
+		     "-DCMAKE_INSTALL_INITDDIR:PATH=/etc/init.d" \
+		     "-DCMAKE_INSTALL_LIBEXECDIR:PATH=/usr/lib" \
+		     "-DCMAKE_INSTALL_SHAREDSTATEDIR:PATH=/var/lib" \
+		     "-DCMAKE_INSTALL_RUNDIR:PATH=/run" \
+		     "-DCMAKE_INSTALL_UDEV_RULESDIR:PATH=/lib/udev/rules.d" \
+		     "-DENABLE_STATIC=1" \
+		     $(EXTRA_CMAKE_FLAGS)
+
 override_dh_auto_configure:
-	dh_auto_configure -- -GNinja \
-			-DDISTRO_FLAVOUR=Debian \
-			-DCMAKE_BUILD_TYPE=Release \
-			-DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc \
-			-DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=/lib/systemd/system \
-			-DCMAKE_INSTALL_INITDDIR:PATH=/etc/init.d \
-			-DCMAKE_INSTALL_LIBEXECDIR:PATH=/usr/lib \
-			-DCMAKE_INSTALL_SHAREDSTATEDIR:PATH=/var/lib \
-			-DCMAKE_INSTALL_RUNDIR:PATH=/run \
-			-DCMAKE_INSTALL_UDEV_RULESDIR:PATH=/lib/udev/rules.d \
-			-DENABLE_STATIC=1 \
-			$(EXTRA_CMAKE_FLAGS)
+ifeq ($(EXTRA_CMAKE_FLAGS), -DNO_PYVERBS=1)
+	dh_auto_configure $(DH_AUTO_CONFIGURE)
+else
+	dh_auto_configure $(DH_AUTO_CONFIGURE) \
+		        -DNO_PYVERBS=0 \
+			-DPYTHON_EXECUTABLE:PATH=/usr/bin/python3 \
+			-DCMAKE_INSTALL_PYTHON_ARCH_LIB:PATH=/usr/lib/python3/dist-packages
+endif
 
 override_dh_auto_build:
 	ninja -C build-deb -v
@@ -57,6 +67,9 @@ INST_EXCLUDE := "etc/init.d/srpd" \
 		"etc/init.d/ibacm" \
 		"usr/sbin/run_srp_daemon" \
 		"usr/sbin/srp_daemon.sh"
+ifeq ($(EXTRA_CMAKE_FLAGS), -DNO_PYVERBS=1)
+	INST_EXCLUDE := $(INST_EXCLUDE) "usr/lib/python3/dist-packages/pyverbs"
+endif
 INST_EXCLUDE := $(addprefix -X,$(INST_EXCLUDE))
 override_dh_install:
 	dh_install --fail-missing $(INST_EXCLUDE)
@@ -85,6 +98,13 @@ override_dh_strip:
 	dh_strip -plibibverbs1 --dbg-package=libibverbs1-dbg
 	dh_strip -plibrdmacm1 --dbg-package=librdmacm1-dbg
 	dh_strip --remaining-packages
+
+override_dh_builddeb:
+ifeq ($(EXTRA_CMAKE_FLAGS), -DNO_PYVERBS=1)
+	dh_builddeb -Npython3-pyverbs --remaining-packages
+else
+	dh_builddeb --remaining-package
+endif
 
 # Upstream encourages the use of 'build' as the developer build output
 # directory, allow that directory to be present and still allow dh to work.

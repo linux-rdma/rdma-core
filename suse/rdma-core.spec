@@ -19,6 +19,7 @@
 %bcond_without  systemd
 # Do not build static libs by default.
 %define with_static %{?_with_static: 1} %{?!_with_static: 0}
+%define with_pyverbs %{?_with_pyverbs: 1} %{?!_with_pyverbs: 0}
 
 %define         git_ver %{nil}
 Name:           rdma-core
@@ -61,6 +62,10 @@ BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(systemd)
 BuildRequires:  pkgconfig(udev)
 BuildRequires:  python3-base
+%if %{with_pyverbs}
+BuildRequires:  python3-devel
+BuildRequires:  python3-Cython
+%endif
 %ifnarch s390 s390x
 BuildRequires:  valgrind-devel
 %endif
@@ -153,7 +158,7 @@ Obsoletes:      ibacm-devel < %{version}-%{release}
 BuildRequires: pkgconfig(libnl-3.0)
 BuildRequires: pkgconfig(libnl-route-3.0)
 %endif
- 
+
 %description devel
 RDMA core development libraries and headers.
 
@@ -325,6 +330,14 @@ rdma-ndd is a system daemon which watches for rdma device changes and/or
 hostname changes and updates the Node Description of the rdma devices based
 on those changes.
 
+%package -n python3-pyverbs
+Summary:        Python3 API over IB verbs
+Group:          Development/Languages/Python
+
+%description -n python3-pyverbs
+Pyverbs is a Cython-based Python API over libibverbs, providing an
+easy, object-oriented access to IB verbs.
+
 %prep
 %setup -q -n  %{name}-%{version}%{git_ver}
 
@@ -361,7 +374,16 @@ on those changes.
 %if %{with_static}
          -DENABLE_STATIC=1 \
 %endif
-         %{EXTRA_CMAKE_FLAGS}
+         %{EXTRA_CMAKE_FLAGS} \
+%if %{defined __python3}
+         -DPYTHON_EXECUTABLE:PATH=%{__python3} \
+         -DCMAKE_INSTALL_PYTHON_ARCH_LIB:PATH=%{python3_sitearch} \
+%endif
+%if %{with_pyverbs}
+         -DNO_PYVERBS=0
+%else
+	 -DNO_PYVERBS=1
+%endif
 %make_jobs
 
 %install
@@ -690,5 +712,10 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_unitdir}/rdma-ndd.service
 %{_mandir}/man8/rdma-ndd.8*
 %{_libexecdir}/udev/rules.d/60-rdma-ndd.rules
+
+%if %{with_pyverbs}
+%files -n python3-pyverbs
+%{python3_sitearch}/pyverbs
+%endif
 
 %changelog
