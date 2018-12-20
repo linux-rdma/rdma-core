@@ -64,7 +64,7 @@ enum write_fallback _check_legacy(struct ibv_command_buffer *cmdb, int *ret)
 	}
 
 	if (fallback_ioctl_only)
-		return ERROR;
+		goto not_supp;
 
 	if (fallback_require_ex)
 		return TRY_WRITE_EX;
