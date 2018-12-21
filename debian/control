@@ -5,6 +5,7 @@ Uploaders: Benjamin Drung <benjamin.drung@cloud.ionos.com>,
 Section: net
 Priority: optional
 Build-Depends: cmake (>= 2.8.11),
+               cython3,
                debhelper (>= 9),
                debhelper (>= 9.20160709) | dh-systemd,
                dpkg-dev (>= 1.17),
@@ -16,7 +17,6 @@ Build-Depends: cmake (>= 2.8.11),
                pandoc,
                pkg-config,
                python3-dev,
-               cython3,
                valgrind [amd64 arm64 armhf i386 mips mips64el mipsel powerpc ppc64 ppc64el s390x]
 Standards-Version: 4.2.1
 Vcs-Git: https://github.com/linux-rdma/rdma-core.git
@@ -328,7 +328,6 @@ Description: Tools for Infiniband attached storage (SRP)
 
 Package: python3-pyverbs
 Architecture: linux-any
-Depends: rdma-core (>= 21),
-         ${python3:Depends}
+Depends: rdma-core (>= 21), ${python3:Depends}
 Description: Pyverbs is a python bindings for rdma-core.
  It allows an easy development in python language of RDMA applications.
