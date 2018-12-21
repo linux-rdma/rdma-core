@@ -327,6 +327,7 @@ Description: Tools for Infiniband attached storage (SRP)
  SCSI RDMA Protocol (SRP).
 
 Package: python3-pyverbs
+Section: python
 Architecture: linux-any
 Depends: rdma-core (>= 21),
          ${misc:Depends},
