@@ -333,5 +333,5 @@ Depends: rdma-core (>= 21),
          ${python3:Depends},
          ${shlibs:Depends}
 Provides: ${python3:Provides}
-Description: Pyverbs is a python bindings for rdma-core.
- It allows an easy development in python language of RDMA applications.
+Description: Pyverbs is a Python bindings for rdma-core
+ It allows an easy development in Python language of RDMA applications.
