@@ -47,7 +47,7 @@ Sys image GUID        : 9803:9b03:0000:e4c6
 Max MR size           : 0xffffffffffffffff
 Page size cap         : 0xfffffffffffff000
 Vendor ID             : 0x2c9
-Vender part ID        : 4119
+Vendor part ID        : 4119
 HW version            : 0
 Max QP                : 262144
 Max QP WR             : 32768
