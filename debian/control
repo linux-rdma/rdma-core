@@ -328,6 +328,10 @@ Description: Tools for Infiniband attached storage (SRP)
 
 Package: python3-pyverbs
 Architecture: linux-any
-Depends: rdma-core (>= 21), ${python3:Depends}
+Depends: rdma-core (>= 21),
+         ${misc:Depends},
+         ${python3:Depends},
+         ${shlibs:Depends}
+Provides: ${python3:Provides}
 Description: Pyverbs is a python bindings for rdma-core.
  It allows an easy development in python language of RDMA applications.
