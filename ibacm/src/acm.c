@@ -2144,7 +2144,7 @@ static int acm_assign_ep_names(struct acmc_ep *ep)
 			type = ACM_ADDRESS_IP6;
 		} else {
 			type = ACM_ADDRESS_NAME;
-			memcpy(addr, name, strlen(name));
+			strncpy((char *)addr, name, sizeof(addr));
 		}
 
 		if (strcasecmp(pkey_str, "default")) {
