@@ -274,7 +274,7 @@ cdef class DeviceAttr(PyverbsObject):
             print_format.format('Max MR size', hex(self.max_mr_size).replace('L', '')) +\
             print_format.format('Page size cap', hex(self.page_size_cap).replace('L', '')) +\
             print_format.format('Vendor ID', hex(self.vendor_id)) +\
-            print_format.format('Vender part ID', self.vendor_part_id) +\
+            print_format.format('Vendor part ID', self.vendor_part_id) +\
             print_format.format('HW version', self.hw_ver) +\
             print_format.format('Max QP', self.max_qp) +\
             print_format.format('Max QP WR', self.max_qp_wr) +\
