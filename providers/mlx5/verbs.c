@@ -873,6 +873,11 @@ struct ibv_cq_ex *mlx5dv_create_cq(struct ibv_context *context,
 {
 	struct ibv_cq_ex *cq;
 
+	if (!is_mlx5_dev(context->device)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
 	cq = create_cq(context, cq_attr, MLX5_CQ_FLAGS_EXTENDED, mlx5_cq_attr);
 	if (!cq)
 		return NULL;
@@ -2494,6 +2499,11 @@ struct ibv_qp *mlx5dv_create_qp(struct ibv_context *context,
 				struct ibv_qp_init_attr_ex *qp_attr,
 				struct mlx5dv_qp_init_attr *mlx5_qp_attr)
 {
+	if (!is_mlx5_dev(context->device)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
 	return create_qp(context, qp_attr, mlx5_qp_attr);
 }
 
@@ -3056,6 +3066,11 @@ struct ibv_wq *mlx5dv_create_wq(struct ibv_context *context,
 				struct ibv_wq_init_attr *attr,
 				struct mlx5dv_wq_init_attr *mlx5_wq_attr)
 {
+	if (!is_mlx5_dev(context->device)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
 	return create_wq(context, attr, mlx5_wq_attr);
 }
 
@@ -4063,6 +4078,11 @@ struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
 
 	int ret;
 	struct mlx5_bf *bf;
+
+	if (!is_mlx5_dev(context->device)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	if (flags) {
 		errno = ENOTSUP;

@@ -70,4 +70,5 @@ MLX5_1.8 {
 		mlx5dv_devx_srq_query;
 		mlx5dv_devx_wq_modify;
 		mlx5dv_devx_wq_query;
+		mlx5dv_is_supported;
 } MLX5_1.7;
