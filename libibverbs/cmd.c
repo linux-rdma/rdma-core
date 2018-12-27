@@ -326,22 +326,6 @@ int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 	return 0;
 }
 
-int ibv_cmd_dealloc_pd(struct ibv_pd *pd)
-{
-	struct ibv_dealloc_pd req;
-	int ret;
-
-	req.core_payload = (struct ib_uverbs_dealloc_pd){
-		.pd_handle = pd->handle,
-	};
-	ret = execute_cmd_write_req(pd->context, IB_USER_VERBS_CMD_DEALLOC_PD,
-				    &req, sizeof(req));
-	if (verbs_is_destroy_err(&ret))
-		return ret;
-
-	return 0;
-}
-
 int ibv_cmd_open_xrcd(struct ibv_context *context, struct verbs_xrcd *xrcd,
 		      int vxrcd_size,
 		      struct ibv_xrcd_init_attr *attr,
@@ -370,23 +354,6 @@ int ibv_cmd_open_xrcd(struct ibv_context *context, struct verbs_xrcd *xrcd,
 		xrcd->comp_mask = VERBS_XRCD_HANDLE;
 		xrcd->handle  = resp->xrcd_handle;
 	}
-
-	return 0;
-}
-
-int ibv_cmd_close_xrcd(struct verbs_xrcd *xrcd)
-{
-	struct ibv_close_xrcd req;
-	int ret;
-
-	req.core_payload = (struct ib_uverbs_close_xrcd){
-		.xrcd_handle = xrcd->handle,
-	};
-	ret = execute_cmd_write_req(xrcd->xrcd.context,
-				    IB_USER_VERBS_CMD_CLOSE_XRCD, &req,
-				    sizeof(req));
-	if (verbs_is_destroy_err(&ret))
-		return ret;
 
 	return 0;
 }
@@ -448,23 +415,6 @@ int ibv_cmd_rereg_mr(struct verbs_mr *vmr, uint32_t flags, void *addr,
 	return 0;
 }
 
-int ibv_cmd_dereg_mr(struct verbs_mr *vmr)
-{
-	struct ibv_dereg_mr req;
-	int ret;
-
-	req.core_payload = (struct ib_uverbs_dereg_mr){
-		.mr_handle = vmr->ibv_mr.handle,
-	};
-	ret = execute_cmd_write_req(vmr->ibv_mr.context,
-				    IB_USER_VERBS_CMD_DEREG_MR, &req,
-				    sizeof(req));
-	if (verbs_is_destroy_err(&ret))
-		return ret;
-
-	return 0;
-}
-
 int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
 		     struct ibv_mw *mw, struct ibv_alloc_mw *cmd,
 		     size_t cmd_size,
@@ -486,22 +436,6 @@ int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
 	mw->rkey    = resp->rkey;
 	mw->handle  = resp->mw_handle;
 	mw->type    = type;
-
-	return 0;
-}
-
-int ibv_cmd_dealloc_mw(struct ibv_mw *mw)
-{
-	struct ibv_dealloc_mw req;
-	int ret;
-
-	req.core_payload = (struct ib_uverbs_dealloc_mw) {
-		.mw_handle = mw->handle,
-	};
-	ret = execute_cmd_write_req(mw->context, IB_USER_VERBS_CMD_DEALLOC_MW,
-				    &req, sizeof(req));
-	if (verbs_is_destroy_err(&ret))
-		return ret;
 
 	return 0;
 }
@@ -1529,22 +1463,6 @@ int ibv_cmd_create_ah(struct ibv_pd *pd, struct ibv_ah *ah,
 	return 0;
 }
 
-int ibv_cmd_destroy_ah(struct ibv_ah *ah)
-{
-	struct ibv_destroy_ah req;
-	int ret;
-
-	req.core_payload = (struct ib_uverbs_destroy_ah){
-		.ah_handle = ah->handle,
-	};
-	ret = execute_cmd_write_req(ah->context, IB_USER_VERBS_CMD_DESTROY_AH,
-				    &req, sizeof(req));
-	if (verbs_is_destroy_err(&ret))
-		return ret;
-
-	return 0;
-}
-
 int ibv_cmd_destroy_qp(struct ibv_qp *qp)
 {
 	struct ibv_destroy_qp req;
@@ -1851,23 +1769,6 @@ int ibv_cmd_create_flow(struct ibv_qp *qp,
 	return 0;
 }
 
-int ibv_cmd_destroy_flow(struct ibv_flow *flow_id)
-{
-	struct ibv_destroy_flow req;
-	int ret;
-
-	req.core_payload = (struct ib_uverbs_destroy_flow){
-		.flow_handle = flow_id->handle,
-	};
-	ret = execute_cmd_write_ex_req(flow_id->context,
-				       IB_USER_VERBS_EX_CMD_DESTROY_FLOW, &req,
-				       sizeof(req));
-	if (verbs_is_destroy_err(&ret))
-		return ret;
-
-	return 0;
-}
-
 int ibv_cmd_create_wq(struct ibv_context *context,
 		      struct ibv_wq_init_attr *wq_init_attr,
 		      struct ibv_wq *wq,
@@ -2016,24 +1917,6 @@ int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 	rwq_ind_table->context = context;
 	return 0;
 }
-
-int ibv_cmd_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table)
-{
-	struct ibv_destroy_rwq_ind_table req;
-	int ret;
-
-	req.core_payload = (struct ib_uverbs_ex_destroy_rwq_ind_table){
-		.ind_tbl_handle = rwq_ind_table->ind_tbl_handle,
-	};
-	ret = execute_cmd_write_ex_req(rwq_ind_table->context,
-				       IB_USER_VERBS_EX_CMD_DESTROY_RWQ_IND_TBL,
-				       &req, sizeof(req));
-	if (verbs_is_destroy_err(&ret))
-		return ret;
-
-	return 0;
-}
-
 
 int ibv_cmd_modify_cq(struct ibv_cq *cq,
 		      struct ibv_modify_cq_attr *attr,
