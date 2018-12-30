@@ -69,6 +69,10 @@ int __attribute__((const)) ibv_rate_to_mult(enum ibv_rate rate)
 	case IBV_RATE_60_GBPS:  return 24;
 	case IBV_RATE_80_GBPS:  return 32;
 	case IBV_RATE_120_GBPS: return 48;
+	case IBV_RATE_28_GBPS:  return 11;
+	case IBV_RATE_50_GBPS:  return 20;
+	case IBV_RATE_400_GBPS: return 160;
+	case IBV_RATE_600_GBPS: return 240;
 	default:           return -1;
 	}
 }
@@ -85,6 +89,10 @@ enum ibv_rate __attribute__((const)) mult_to_ibv_rate(int mult)
 	case 24: return IBV_RATE_60_GBPS;
 	case 32: return IBV_RATE_80_GBPS;
 	case 48: return IBV_RATE_120_GBPS;
+	case 11: return IBV_RATE_28_GBPS;
+	case 20: return IBV_RATE_50_GBPS;
+	case 160: return IBV_RATE_400_GBPS;
+	case 240: return IBV_RATE_600_GBPS;
 	default: return IBV_RATE_MAX;
 	}
 }
@@ -109,6 +117,10 @@ int  __attribute__((const)) ibv_rate_to_mbps(enum ibv_rate rate)
 	case IBV_RATE_100_GBPS: return 103125;
 	case IBV_RATE_200_GBPS: return 206250;
 	case IBV_RATE_300_GBPS: return 309375;
+	case IBV_RATE_28_GBPS:  return 28125;
+	case IBV_RATE_50_GBPS:  return 53125;
+	case IBV_RATE_400_GBPS: return 425000;
+	case IBV_RATE_600_GBPS: return 637500;
 	default:               return -1;
 	}
 }
@@ -133,6 +145,10 @@ enum ibv_rate __attribute__((const)) mbps_to_ibv_rate(int mbps)
 	case 103125: return IBV_RATE_100_GBPS;
 	case 206250: return IBV_RATE_200_GBPS;
 	case 309375: return IBV_RATE_300_GBPS;
+	case 28125:  return IBV_RATE_28_GBPS;
+	case 53125:  return IBV_RATE_50_GBPS;
+	case 425000: return IBV_RATE_400_GBPS;
+	case 637500: return IBV_RATE_600_GBPS;
 	default:     return IBV_RATE_MAX;
 	}
 }
@@ -145,12 +161,61 @@ LATEST_SYMVER_FUNC(ibv_query_device, 1_1, "IBVERBS_1.1",
 	return get_ops(context)->query_device(context, device_attr);
 }
 
+int __lib_query_port(struct ibv_context *context, uint8_t port_num,
+		     struct ibv_port_attr *port_attr, size_t port_attr_len)
+{
+	/* Don't expose this mess to the provider, provide a large enough
+	 * temporary buffer if the user buffer is too small.
+	 */
+	if (port_attr_len < sizeof(struct ibv_port_attr)) {
+		struct ibv_port_attr tmp_attr = {};
+		int rc;
+
+		rc = get_ops(context)->query_port(context, port_num,
+						    &tmp_attr);
+		if (rc)
+			return rc;
+
+		memcpy(port_attr, &tmp_attr, port_attr_len);
+		return 0;
+	}
+
+	memset(port_attr, 0, port_attr_len);
+	return get_ops(context)->query_port(context, port_num, port_attr);
+}
+
+struct _compat_ibv_port_attr {
+	enum ibv_port_state state;
+	enum ibv_mtu max_mtu;
+	enum ibv_mtu active_mtu;
+	int gid_tbl_len;
+	uint32_t port_cap_flags;
+	uint32_t max_msg_sz;
+	uint32_t bad_pkey_cntr;
+	uint32_t qkey_viol_cntr;
+	uint16_t pkey_tbl_len;
+	uint16_t lid;
+	uint16_t sm_lid;
+	uint8_t lmc;
+	uint8_t max_vl_num;
+	uint8_t sm_sl;
+	uint8_t subnet_timeout;
+	uint8_t init_type_reply;
+	uint8_t active_width;
+	uint8_t active_speed;
+	uint8_t phys_state;
+	uint8_t link_layer;
+	uint8_t flags;
+};
+
 LATEST_SYMVER_FUNC(ibv_query_port, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_context *context, uint8_t port_num,
-		   struct ibv_port_attr *port_attr)
+		   struct _compat_ibv_port_attr *port_attr)
 {
-	return get_ops(context)->query_port(context, port_num, port_attr);
+	return __lib_query_port(context, port_num,
+				(struct ibv_port_attr *)port_attr,
+				sizeof(*port_attr));
 }
 
 LATEST_SYMVER_FUNC(ibv_query_gid, 1_1, "IBVERBS_1.1",

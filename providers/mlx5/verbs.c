@@ -2361,6 +2361,10 @@ static const uint8_t ib_to_mlx5_rate_table[] = {
 	15,	/* 100 Gbps to 120 Gbps */
 	0,	/* 200 Gbps to unlimited */
 	0,	/* 300 Gbps to unlimited */
+	9,	/* 28 Gbps to 30 Gbps */
+	13,	/* 50 Gbps to 60 Gbps */
+	0,	/* 400 Gbps to unlimited */
+	0,	/* 600 Gbps to unlimited */
 };
 
 static uint8_t ah_attr_to_mlx5_rate(enum ibv_rate ah_static_rate)

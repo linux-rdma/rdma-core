@@ -616,7 +616,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, post_srq_recv);
 	SET_PRIV_OP(ctx, query_device);
 	SET_OP(vctx, query_device_ex);
-	SET_PRIV_OP(ctx, query_port);
+	SET_PRIV_OP_IC(ctx, query_port);
 	SET_PRIV_OP(ctx, query_qp);
 	SET_OP(vctx, query_rt_values);
 	SET_OP(vctx, read_counters);
