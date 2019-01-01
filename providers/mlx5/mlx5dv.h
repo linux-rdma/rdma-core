@@ -1176,6 +1176,10 @@ struct mlx5dv_devx_cmd_comp {
 struct mlx5dv_devx_cmd_comp *
 mlx5dv_devx_create_cmd_comp(struct ibv_context *context);
 void mlx5dv_devx_destroy_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp);
+int mlx5dv_devx_obj_query_async(struct mlx5dv_devx_obj *obj, const void *in,
+				size_t inlen, size_t outlen,
+				uint64_t wr_id,
+				struct mlx5dv_devx_cmd_comp *cmd_comp);
 
 #ifdef __cplusplus
 }

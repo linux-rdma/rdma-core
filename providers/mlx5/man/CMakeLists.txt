@@ -26,6 +26,7 @@ rdma_alias_man_pages(
  mlx5dv_devx_obj_create.3 mlx5dv_devx_general_cmd.3
  mlx5dv_devx_obj_create.3 mlx5dv_devx_obj_destroy.3
  mlx5dv_devx_obj_create.3 mlx5dv_devx_obj_query.3
+ mlx5dv_devx_obj_create.3 mlx5dv_devx_obj_query_async.3
  mlx5dv_devx_obj_create.3 mlx5dv_devx_obj_modify.3
  mlx5dv_devx_qp_modify.3 mlx5dv_devx_qp_query.3
  mlx5dv_devx_qp_modify.3 mlx5dv_devx_cq_modify.3
