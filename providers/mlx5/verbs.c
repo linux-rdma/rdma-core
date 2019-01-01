@@ -4287,3 +4287,44 @@ int mlx5dv_devx_ind_tbl_modify(struct ibv_rwq_ind_table *ind_tbl, const void *in
 
 	return execute_ioctl(ind_tbl->context, cmd);
 }
+
+struct mlx5dv_devx_cmd_comp *
+mlx5dv_devx_create_cmd_comp(struct ibv_context *context)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_ASYNC_CMD_FD,
+			       MLX5_IB_METHOD_DEVX_ASYNC_CMD_FD_ALLOC,
+			       1);
+	struct ib_uverbs_attr *handle;
+	struct mlx5dv_devx_cmd_comp *cmd_comp;
+	int ret;
+
+	cmd_comp = calloc(1, sizeof(*cmd_comp));
+	if (!cmd_comp) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	handle = fill_attr_out_fd(cmd,
+				  MLX5_IB_ATTR_DEVX_ASYNC_CMD_FD_ALLOC_HANDLE,
+				  0);
+
+	ret = execute_ioctl(context, cmd);
+	if (ret)
+		goto err;
+
+	cmd_comp->fd = read_attr_fd(
+		MLX5_IB_ATTR_DEVX_ASYNC_CMD_FD_ALLOC_HANDLE, handle);
+	return cmd_comp;
+err:
+	free(cmd_comp);
+	return NULL;
+}
+
+void mlx5dv_devx_destroy_cmd_comp(
+			struct mlx5dv_devx_cmd_comp *cmd_comp)
+{
+	close(cmd_comp->fd);
+	free(cmd_comp);
+}
+
