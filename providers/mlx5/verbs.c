@@ -4346,3 +4346,20 @@ int mlx5dv_devx_obj_query_async(struct mlx5dv_devx_obj *obj, const void *in,
 
 	return execute_ioctl(obj->context, cmd);
 }
+
+int mlx5dv_devx_get_async_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp,
+				   struct mlx5dv_devx_async_cmd_hdr *cmd_resp,
+				   size_t cmd_resp_len)
+{
+	ssize_t bytes;
+
+	bytes = read(cmd_comp->fd, cmd_resp, cmd_resp_len);
+	if (bytes < 0)
+		return errno;
+
+	if (bytes < sizeof(*cmd_resp))
+		return EINVAL;
+
+	return 0;
+}
+

@@ -1181,6 +1181,10 @@ int mlx5dv_devx_obj_query_async(struct mlx5dv_devx_obj *obj, const void *in,
 				uint64_t wr_id,
 				struct mlx5dv_devx_cmd_comp *cmd_comp);
 
+int mlx5dv_devx_get_async_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp,
+				   struct mlx5dv_devx_async_cmd_hdr *cmd_resp,
+				   size_t cmd_resp_len);
+
 #ifdef __cplusplus
 }
 #endif
