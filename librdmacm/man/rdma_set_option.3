@@ -25,6 +25,19 @@ The size of the %optval buffer.
 .SH "DESCRIPTION"
 Sets communication options for an rdma_cm_id.  This call is used to override
 the default system settings.
+.IP "optname can be one of" 12
+.IP "RDMA_OPTION_ID_TOS" 12
+Specify the quality of service provided by a connection.
+The expected optlen is size of uint8_t.
+.IP "RDMA_OPTION_ID_REUSEADDR" 12
+Bound the rdma_cm_id to a reuseable address. This will allow other users to bind to that same address.
+The expected optlen is size of int.
+.IP "RDMA_OPTION_ID_AFONLY" 12
+Set IPV6_V6ONLY socket.
+The expected optlen is size of int.
+.IP "RDMA_OPTION_IB_PATH" 12
+Set IB path record data.
+The expected optlen is size of struct ibv_path_data[].
 .SH "RETURN VALUE"
 Returns 0 on success, or -1 on error.  If an error occurs, errno will be
 set to indicate the failure reason.
