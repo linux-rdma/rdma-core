@@ -79,6 +79,7 @@ static void prepare_attrs(struct ibv_command_buffer *cmd)
 	}
 
 	cmd->hdr.num_attrs = end - cmd->hdr.attrs;
+	cmd->last_attr = end;
 
 	/*
 	 * We keep the in UHW uninlined until directly before sending to
