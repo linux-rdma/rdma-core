@@ -25,6 +25,7 @@ librdmacm.so.1 librdmacm1 #MINVER#
  rdma_destroy_srq@RDMACM_1.0 1.0.15
  rdma_disconnect@RDMACM_1.0 1.0.15
  rdma_event_str@RDMACM_1.0 1.0.15
+ rdma_establish@RDMACM_1.2 23
  rdma_free_devices@RDMACM_1.0 1.0.15
  rdma_freeaddrinfo@RDMACM_1.0 1.0.15
  rdma_get_cm_event@RDMACM_1.0 1.0.15

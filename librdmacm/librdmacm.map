@@ -79,5 +79,6 @@ RDMACM_1.1 {
 
 RDMACM_1.2 {
 	global:
+		rdma_establish;
 		rdma_init_qp_attr;
 } RDMACM_1.1;

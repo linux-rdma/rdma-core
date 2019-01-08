@@ -20,6 +20,7 @@ rdma_man_pages(
   rdma_destroy_qp.3
   rdma_destroy_srq.3
   rdma_disconnect.3
+  rdma_establish.3.md
   rdma_event_str.3
   rdma_free_devices.3
   rdma_get_cm_event.3

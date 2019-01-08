@@ -2077,6 +2077,18 @@ static void ucma_copy_ud_event(struct cma_event *event,
 	dst->qkey = src->qkey;
 }
 
+int rdma_establish(struct rdma_cm_id *id)
+{
+	if (id->qp)
+		return ERR(EINVAL);
+
+	/* id->qp is NULL, so ucma_process_conn_resp() will only send ACCEPT to
+	 * the passive side, and will not attempt to modify the QP.
+	 */
+	return ucma_process_conn_resp(container_of(id, struct cma_id_private,
+						   id));
+}
+
 int rdma_get_cm_event(struct rdma_event_channel *channel,
 		      struct rdma_cm_event **event)
 {
@@ -2153,12 +2165,17 @@ retry:
 		break;
 	case RDMA_CM_EVENT_CONNECT_RESPONSE:
 		ucma_copy_conn_event(evt, &resp.param.conn);
-		evt->event.status = ucma_process_conn_resp(evt->id_priv);
-		if (!evt->event.status)
-			evt->event.event = RDMA_CM_EVENT_ESTABLISHED;
-		else {
-			evt->event.event = RDMA_CM_EVENT_CONNECT_ERROR;
-			evt->id_priv->connect_error = 1;
+		if (!evt->id_priv->id.qp) {
+			evt->event.event = RDMA_CM_EVENT_CONNECT_RESPONSE;
+		} else {
+			evt->event.status =
+				ucma_process_conn_resp(evt->id_priv);
+			if (!evt->event.status)
+				evt->event.event = RDMA_CM_EVENT_ESTABLISHED;
+			else {
+				evt->event.event = RDMA_CM_EVENT_CONNECT_ERROR;
+				evt->id_priv->connect_error = 1;
+			}
 		}
 		break;
 	case RDMA_CM_EVENT_ESTABLISHED:
