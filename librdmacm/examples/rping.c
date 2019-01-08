@@ -145,6 +145,7 @@ struct rping_cb {
 	struct sockaddr_storage ssource;
 	__be16 port;			/* dst port in NBO */
 	int verbose;			/* verbose logging */
+	int self_create_qp;		/* Create QP not via cma */
 	int count;			/* ping count */
 	int size;			/* ping data size */
 	int validate;			/* validate ping data */
@@ -187,6 +188,12 @@ static int rping_cma_event_handler(struct rdma_cm_id *cma_id,
 		cb->state = CONNECT_REQUEST;
 		cb->child_cm_id = cma_id;
 		DEBUG_LOG("child cma %p\n", cb->child_cm_id);
+		sem_post(&cb->sem);
+		break;
+
+	case RDMA_CM_EVENT_CONNECT_RESPONSE:
+		DEBUG_LOG("CONNECT_RESPONSE\n");
+		cb->state = CONNECTED;
 		sem_post(&cb->sem);
 		break;
 
@@ -347,13 +354,67 @@ error:
 	return ret;
 }
 
+static void rping_init_conn_param(struct rping_cb *cb,
+				  struct rdma_conn_param *conn_param)
+{
+	memset(conn_param, 0, sizeof(*conn_param));
+	conn_param->responder_resources = 1;
+	conn_param->initiator_depth = 1;
+	conn_param->retry_count = 7;
+	conn_param->rnr_retry_count = 7;
+	if (cb->self_create_qp)
+		conn_param->qp_num = cb->qp->qp_num;
+}
+
+
+static int rping_self_modify_qp(struct rping_cb *cb, struct rdma_cm_id *id)
+{
+	struct ibv_qp_attr qp_attr;
+	int qp_attr_mask, ret;
+
+	qp_attr.qp_state = IBV_QPS_INIT;
+	ret = rdma_init_qp_attr(id, &qp_attr, &qp_attr_mask);
+	if (ret)
+		return ret;
+
+	ret = ibv_modify_qp(cb->qp, &qp_attr, qp_attr_mask);
+	if (ret)
+		return ret;
+
+	qp_attr.qp_state = IBV_QPS_RTR;
+	ret = rdma_init_qp_attr(id, &qp_attr, &qp_attr_mask);
+	if (ret)
+		return ret;
+
+	ret = ibv_modify_qp(cb->qp, &qp_attr, qp_attr_mask);
+	if (ret)
+		return ret;
+
+	qp_attr.qp_state = IBV_QPS_RTS;
+	ret = rdma_init_qp_attr(id, &qp_attr, &qp_attr_mask);
+	if (ret)
+		return ret;
+
+	return ibv_modify_qp(cb->qp, &qp_attr, qp_attr_mask);
+}
+
 static int rping_accept(struct rping_cb *cb)
 {
+	struct rdma_conn_param conn_param;
 	int ret;
 
 	DEBUG_LOG("accepting client connection request\n");
 
-	ret = rdma_accept(cb->child_cm_id, NULL);
+	if (cb->self_create_qp) {
+		ret = rping_self_modify_qp(cb, cb->child_cm_id);
+		if (ret)
+			return ret;
+
+		rping_init_conn_param(cb, &conn_param);
+		ret = rdma_accept(cb->child_cm_id, &conn_param);
+	} else {
+		ret = rdma_accept(cb->child_cm_id, NULL);
+	}
 	if (ret) {
 		perror("rdma_accept");
 		return ret;
@@ -480,6 +541,7 @@ static void rping_free_buffers(struct rping_cb *cb)
 static int rping_create_qp(struct rping_cb *cb)
 {
 	struct ibv_qp_init_attr init_attr;
+	struct rdma_cm_id *id;
 	int ret;
 
 	memset(&init_attr, 0, sizeof(init_attr));
@@ -491,16 +553,21 @@ static int rping_create_qp(struct rping_cb *cb)
 	init_attr.send_cq = cb->cq;
 	init_attr.recv_cq = cb->cq;
 
-	if (cb->server) {
-		ret = rdma_create_qp(cb->child_cm_id, cb->pd, &init_attr);
-		if (!ret)
-			cb->qp = cb->child_cm_id->qp;
-	} else {
-		ret = rdma_create_qp(cb->cm_id, cb->pd, &init_attr);
-		if (!ret)
-			cb->qp = cb->cm_id->qp;
+	if (cb->self_create_qp) {
+		cb->qp = ibv_create_qp(cb->pd, &init_attr);
+		if (!cb->qp) {
+			perror("ibv_create_qp");
+			return -1;
+		}
+		return 0;
 	}
 
+	id = cb->server ? cb->child_cm_id : cb->cm_id;
+	ret = rdma_create_qp(id, cb->pd, &init_attr);
+	if (!ret)
+		cb->qp = id->qp;
+	else
+		perror("rdma_create_qp");
 	return ret;
 }
 
@@ -549,7 +616,6 @@ static int rping_setup_qp(struct rping_cb *cb, struct rdma_cm_id *cm_id)
 
 	ret = rping_create_qp(cb);
 	if (ret) {
-		perror("rdma_create_qp");
 		goto err3;
 	}
 	DEBUG_LOG("created qp %p\n", cb->qp);
@@ -1011,11 +1077,7 @@ static int rping_connect_client(struct rping_cb *cb)
 	struct rdma_conn_param conn_param;
 	int ret;
 
-	memset(&conn_param, 0, sizeof conn_param);
-	conn_param.responder_resources = 1;
-	conn_param.initiator_depth = 1;
-	conn_param.retry_count = 7;
-
+	rping_init_conn_param(cb, &conn_param);
 	ret = rdma_connect(cb->cm_id, &conn_param);
 	if (ret) {
 		perror("rdma_connect");
@@ -1026,6 +1088,20 @@ static int rping_connect_client(struct rping_cb *cb)
 	if (cb->state != CONNECTED) {
 		fprintf(stderr, "wait for CONNECTED state %d\n", cb->state);
 		return -1;
+	}
+
+	if (cb->self_create_qp) {
+		ret = rping_self_modify_qp(cb, cb->cm_id);
+		if (ret) {
+			perror("rping_modify_qp");
+			return ret;
+		}
+
+		ret = rdma_establish(cb->cm_id);
+		if (ret) {
+			perror("rdma_establish");
+			return ret;
+		}
 	}
 
 	DEBUG_LOG("rmda_connect successful\n");
@@ -1160,6 +1236,7 @@ static void usage(const char *name)
 	printf("\t-a addr\t\taddress\n");
 	printf("\t-p port\t\tport\n");
 	printf("\t-P\t\tpersistent server mode allowing multiple connections\n");
+	printf("\t-q\t\tuse self-created, self-modified QP\n");
 }
 
 int main(int argc, char *argv[])
@@ -1182,7 +1259,7 @@ int main(int argc, char *argv[])
 	sem_init(&cb->sem, 0, 0);
 
 	opterr = 0;
-	while ((op=getopt(argc, argv, "a:I:Pp:C:S:t:scvVd")) != -1) {
+	while ((op = getopt(argc, argv, "a:I:Pp:C:S:t:scvVdq")) != -1) {
 		switch (op) {
 		case 'a':
 			ret = get_addr(optarg, (struct sockaddr *) &cb->sin);
@@ -1235,6 +1312,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'd':
 			debug++;
+			break;
+		case 'q':
+			cb->self_create_qp = 1;
 			break;
 		default:
 			usage("rping");
