@@ -74,6 +74,7 @@ static const struct verbs_match_ent cna_table[] = {
 	CNA(BROADCOM, 0x16EF),  /* BCM57416 NPAR */
 	CNA(BROADCOM, 0x16F0),  /* BCM58730 */
 	CNA(BROADCOM, 0x16F1),  /* BCM57452 */
+	CNA(BROADCOM, 0x1750),	/* BCM57500 */
 	CNA(BROADCOM, 0xD800),  /* BCM880xx VF */
 	CNA(BROADCOM, 0xD802),  /* BCM58802 */
 	CNA(BROADCOM, 0xD804),   /* BCM8804 SR */
@@ -108,6 +109,11 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 	.destroy_ah    = bnxt_re_destroy_ah
 };
 
+bool bnxt_re_is_chip_gen_p5(struct bnxt_re_chip_ctx *cctx)
+{
+	return cctx->chip_num == CHIP_NUM_57500;
+}
+
 /* Context Init functions */
 static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 						   int cmd_fd,
@@ -133,6 +139,14 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 	dev->pg_size = resp.pg_size;
 	dev->cqe_size = resp.cqe_sz;
 	dev->max_cq_depth = resp.max_cqd;
+	if (resp.comp_mask & BNXT_RE_UCNTX_CMASK_HAVE_CCTX) {
+		cntx->cctx.chip_num = resp.chip_id0 & 0xFFFF;
+		cntx->cctx.chip_rev = (resp.chip_id0 >>
+				       BNXT_RE_CHIP_ID0_CHIP_REV_SFT) & 0xFF;
+		cntx->cctx.chip_metal = (resp.chip_id0 >>
+					 BNXT_RE_CHIP_ID0_CHIP_MET_SFT) &
+					 0xFF;
+	}
 	pthread_spin_init(&cntx->fqlock, PTHREAD_PROCESS_PRIVATE);
 	/* mmap shared page. */
 	cntx->shpg = mmap(NULL, dev->pg_size, PROT_READ | PROT_WRITE,

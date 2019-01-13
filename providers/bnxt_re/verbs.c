@@ -844,9 +844,11 @@ static void bnxt_re_free_queues(struct bnxt_re_qp *qp)
 static int bnxt_re_alloc_queues(struct bnxt_re_qp *qp,
 				struct ibv_qp_init_attr *attr,
 				uint32_t pg_size) {
+	struct bnxt_re_psns_ext *psns_ext;
 	struct bnxt_re_queue *que;
 	struct bnxt_re_psns *psns;
 	uint32_t psn_depth;
+	uint32_t psn_size;
 	int ret, indx;
 
 	que = qp->sqq;
@@ -857,11 +859,12 @@ static int bnxt_re_alloc_queues(struct bnxt_re_qp *qp,
 	que->diff = que->depth - attr->cap.max_send_wr;
 
 	/* psn_depth extra entries of size que->stride */
-	psn_depth = (que->depth * sizeof(struct bnxt_re_psns)) /
-		     que->stride;
-	if ((que->depth * sizeof(struct bnxt_re_psns)) % que->stride)
+	psn_size = bnxt_re_is_chip_gen_p5(qp->cctx) ?
+					sizeof(struct bnxt_re_psns_ext) :
+					sizeof(struct bnxt_re_psns);
+	psn_depth = (que->depth * psn_size) / que->stride;
+	if ((que->depth * psn_size) % que->stride)
 		psn_depth++;
-
 	que->depth += psn_depth;
 	/* PSN-search memory is allocated without checking for
 	 * QP-Type. Kenrel driver do not map this memory if it
@@ -875,6 +878,7 @@ static int bnxt_re_alloc_queues(struct bnxt_re_qp *qp,
 	que->depth -= psn_depth;
 	/* start of spsn space sizeof(struct bnxt_re_psns) each. */
 	psns = (que->va + que->stride * que->depth);
+	psns_ext = (struct bnxt_re_psns_ext *)psns;
 	pthread_spin_init(&que->qlock, PTHREAD_PROCESS_PRIVATE);
 	qp->swrid = calloc(que->depth, sizeof(struct bnxt_re_wrid));
 	if (!qp->swrid) {
@@ -884,6 +888,13 @@ static int bnxt_re_alloc_queues(struct bnxt_re_qp *qp,
 
 	for (indx = 0 ; indx < que->depth; indx++, psns++)
 		qp->swrid[indx].psns = psns;
+	if (bnxt_re_is_chip_gen_p5(qp->cctx)) {
+		for (indx = 0 ; indx < que->depth; indx++, psns_ext++) {
+			qp->swrid[indx].psns_ext = psns_ext;
+			qp->swrid[indx].psns = (struct bnxt_re_psns *)psns_ext;
+		}
+	}
+
 	qp->cap.max_swr = que->depth;
 
 	if (qp->rqq) {
@@ -931,6 +942,7 @@ struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
 	if (bnxt_re_alloc_queue_ptr(qp, attr))
 		goto fail;
 	/* alloc queues */
+	qp->cctx = &cntx->cctx;
 	if (bnxt_re_alloc_queues(qp, attr, dev->pg_size))
 		goto failq;
 	/* Fill ibv_cmd */
@@ -1094,26 +1106,36 @@ static int bnxt_re_build_sge(struct bnxt_re_sge *sge, struct ibv_sge *sg_list,
 	return length;
 }
 
-static void bnxt_re_fill_psns(struct bnxt_re_qp *qp, struct bnxt_re_psns *psns,
+static void bnxt_re_fill_psns(struct bnxt_re_qp *qp, struct bnxt_re_wrid *wrid,
 			      uint8_t opcode, uint32_t len)
 {
-	uint32_t pkt_cnt = 0, nxt_psn;
+	uint32_t opc_spsn = 0, flg_npsn = 0;
+	struct bnxt_re_psns_ext *psns_ext;
+	uint32_t pkt_cnt = 0, nxt_psn = 0;
+	struct bnxt_re_psns *psns;
 
-	memset(psns, 0, sizeof(*psns));
+	psns = wrid->psns;
+	psns_ext = wrid->psns_ext;
+
 	if (qp->qptyp == IBV_QPT_RC) {
-		psns->opc_spsn = htole32(qp->sq_psn & BNXT_RE_PSNS_SPSN_MASK);
+		opc_spsn = qp->sq_psn & BNXT_RE_PSNS_SPSN_MASK;
 		pkt_cnt = (len / qp->mtu);
 		if (len % qp->mtu)
 			pkt_cnt++;
 		if (len == 0)
 			pkt_cnt = 1;
 		nxt_psn = ((qp->sq_psn + pkt_cnt) & BNXT_RE_PSNS_NPSN_MASK);
-		psns->flg_npsn = htole32(nxt_psn);
+		flg_npsn = nxt_psn;
 		qp->sq_psn = nxt_psn;
 	}
 	opcode = bnxt_re_ibv_wr_to_wc_opcd(opcode);
-	psns->opc_spsn |= htole32(((opcode & BNXT_RE_PSNS_OPCD_MASK) <<
-				    BNXT_RE_PSNS_OPCD_SHIFT));
+	opc_spsn |= (((uint32_t)opcode & BNXT_RE_PSNS_OPCD_MASK) <<
+		      BNXT_RE_PSNS_OPCD_SHIFT);
+	memset(psns, 0, sizeof(*psns));
+	psns->opc_spsn = htole32(opc_spsn);
+	psns->flg_npsn = htole32(flg_npsn);
+	if (bnxt_re_is_chip_gen_p5(qp->cctx))
+		psns_ext->st_slot_idx = 0;
 }
 
 static void bnxt_re_fill_wrid(struct bnxt_re_wrid *wrid, struct ibv_send_wr *wr,
@@ -1235,10 +1257,9 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 {
 	struct bnxt_re_qp *qp = to_bnxt_re_qp(ibvqp);
 	struct bnxt_re_queue *sq = qp->sqq;
-	struct bnxt_re_bsqe *hdr;
 	struct bnxt_re_wrid *wrid;
-	struct bnxt_re_psns *psns;
 	uint8_t is_inline = false;
+	struct bnxt_re_bsqe *hdr;
 	int ret = 0, bytes = 0;
 	bool ring_db = false;
 	void *sqe;
@@ -1268,7 +1289,6 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 
 		sqe = (void *)(sq->va + (sq->tail * sq->stride));
 		wrid = &qp->swrid[sq->tail];
-		psns = wrid->psns;
 
 		memset(sqe, 0, bnxt_re_get_sqe_sz());
 		hdr = sqe;
@@ -1318,7 +1338,7 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		}
 
 		bnxt_re_fill_wrid(wrid, wr, bytes, qp->cap.sqsig);
-		bnxt_re_fill_psns(qp, psns, wr->opcode, bytes);
+		bnxt_re_fill_psns(qp, wrid, wr->opcode, bytes);
 		bnxt_re_incr_tail(sq);
 		qp->wqe_cnt++;
 		wr = wr->next;
