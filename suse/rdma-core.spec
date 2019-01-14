@@ -330,6 +330,7 @@ rdma-ndd is a system daemon which watches for rdma device changes and/or
 hostname changes and updates the Node Description of the rdma devices based
 on those changes.
 
+%if %{with_pyverbs}
 %package -n python3-pyverbs
 Summary:        Python3 API over IB verbs
 Group:          Development/Languages/Python
@@ -337,6 +338,7 @@ Group:          Development/Languages/Python
 %description -n python3-pyverbs
 Pyverbs is a Cython-based Python API over libibverbs, providing an
 easy, object-oriented access to IB verbs.
+%endif
 
 %prep
 %setup -q -n  %{name}-%{version}%{git_ver}
