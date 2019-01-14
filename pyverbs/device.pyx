@@ -141,123 +141,123 @@ cdef class DeviceAttr(PyverbsObject):
     properties (read only) and also provides an __str__() function for
     readability.
     """
-    property fw_version:
-        def __get__(self):
-            return self.dev_attr.fw_ver.decode()
-    property node_guid:
-        def __get__(self):
-            return self.dev_attr.node_guid
-    property sys_image_guid:
-        def __get__(self):
-            return self.dev_attr.sys_image_guid
-    property max_mr_size:
-        def __get__(self):
-            return self.dev_attr.max_mr_size
-    property page_size_cap:
-        def __get__(self):
-            return self.dev_attr.page_size_cap
-    property vendor_id:
-        def __get__(self):
-            return self.dev_attr.vendor_id
-    property vendor_part_id:
-        def __get__(self):
-            return self.dev_attr.vendor_part_id
-    property hw_ver:
-        def __get__(self):
-            return self.dev_attr.hw_ver
-    property max_qp:
-        def __get__(self):
-            return self.dev_attr.max_qp
-    property max_qp_wr:
-        def __get__(self):
-            return self.dev_attr.max_qp_wr
-    property device_cap_flags:
-        def __get__(self):
-            return self.dev_attr.device_cap_flags
-    property max_sge:
-        def __get__(self):
-            return self.dev_attr.max_sge
-    property max_sge_rd:
-        def __get__(self):
-            return self.dev_attr.max_sge_rd
-    property max_cq:
-        def __get__(self):
-            return self.dev_attr.max_cq
-    property max_cqe:
-        def __get__(self):
-            return self.dev_attr.max_cqe
-    property max_mr:
-        def __get__(self):
-            return self.dev_attr.max_mr
-    property max_pd:
-        def __get__(self):
-            return self.dev_attr.max_pd
-    property max_qp_rd_atom:
-        def __get__(self):
-            return self.dev_attr.max_qp_rd_atom
-    property max_ee_rd_atom:
-        def __get__(self):
-            return self.dev_attr.max_ee_rd_atom
-    property max_res_rd_atom:
-        def __get__(self):
-            return self.dev_attr.max_res_rd_atom
-    property max_qp_init_rd_atom:
-        def __get__(self):
-            return self.dev_attr.max_qp_init_rd_atom
-    property max_ee_init_rd_atom:
-        def __get__(self):
-            return self.dev_attr.max_ee_init_rd_atom
-    property atomic_caps:
-        def __get__(self):
-            return self.dev_attr.atomic_cap
-    property max_ee:
-        def __get__(self):
-            return self.dev_attr.max_ee
-    property max_rdd:
-        def __get__(self):
-            return self.dev_attr.max_rdd
-    property max_mw:
-        def __get__(self):
-            return self.dev_attr.max_mw
-    property max_raw_ipv6_qps:
-        def __get__(self):
-            return self.dev_attr.max_raw_ipv6_qp
-    property max_raw_ethy_qp:
-        def __get__(self):
-            return self.dev_attr.max_raw_ethy_qp
-    property max_mcast_grp:
-        def __get__(self):
-            return self.dev_attr.max_mcast_grp
-    property max_mcast_qp_attach:
-        def __get__(self):
-            return self.dev_attr.max_mcast_qp_attach
-    property max_ah:
-        def __get__(self):
-            return self.dev_attr.max_ah
-    property max_fmr:
-        def __get__(self):
-            return self.dev_attr.max_fmr
-    property max_map_per_fmr:
-        def __get__(self):
-            return self.dev_attr.max_map_per_fmr
-    property max_srq:
-        def __get__(self):
-            return self.dev_attr.max_srq
-    property max_srq_wr:
-        def __get__(self):
-            return self.dev_attr.max_srq_wr
-    property max_srq_sge:
-        def __get__(self):
-            return self.dev_attr.max_srq_sge
-    property max_pkeys:
-        def __get__(self):
-            return self.dev_attr.max_pkeys
-    property local_ca_ack_delay:
-        def __get__(self):
-            return self.dev_attr.local_ca_ack_delay
-    property phys_port_cnt:
-        def __get__(self):
-            return self.dev_attr.phys_port_cnt
+    @property
+    def fw_version(self):
+        return self.dev_attr.fw_ver.decode()
+    @property
+    def node_guid(self):
+        return self.dev_attr.node_guid
+    @property
+    def sys_image_guid(self):
+        return self.dev_attr.sys_image_guid
+    @property
+    def max_mr_size(self):
+        return self.dev_attr.max_mr_size
+    @property
+    def page_size_cap(self):
+        return self.dev_attr.page_size_cap
+    @property
+    def vendor_id(self):
+        return self.dev_attr.vendor_id
+    @property
+    def vendor_part_id(self):
+        return self.dev_attr.vendor_part_id
+    @property
+    def hw_ver(self):
+        return self.dev_attr.hw_ver
+    @property
+    def max_qp(self):
+        return self.dev_attr.max_qp
+    @property
+    def max_qp_wr(self):
+        return self.dev_attr.max_qp_wr
+    @property
+    def device_cap_flags(self):
+        return self.dev_attr.device_cap_flags
+    @property
+    def max_sge(self):
+        return self.dev_attr.max_sge
+    @property
+    def max_sge_rd(self):
+        return self.dev_attr.max_sge_rd
+    @property
+    def max_cq(self):
+        return self.dev_attr.max_cq
+    @property
+    def max_cqe(self):
+        return self.dev_attr.max_cqe
+    @property
+    def max_mr(self):
+        return self.dev_attr.max_mr
+    @property
+    def max_pd(self):
+        return self.dev_attr.max_pd
+    @property
+    def max_qp_rd_atom(self):
+        return self.dev_attr.max_qp_rd_atom
+    @property
+    def max_ee_rd_atom(self):
+        return self.dev_attr.max_ee_rd_atom
+    @property
+    def max_res_rd_atom(self):
+        return self.dev_attr.max_res_rd_atom
+    @property
+    def max_qp_init_rd_atom(self):
+        return self.dev_attr.max_qp_init_rd_atom
+    @property
+    def max_ee_init_rd_atom(self):
+        return self.dev_attr.max_ee_init_rd_atom
+    @property
+    def atomic_caps(self):
+        return self.dev_attr.atomic_cap
+    @property
+    def max_ee(self):
+        return self.dev_attr.max_ee
+    @property
+    def max_rdd(self):
+        return self.dev_attr.max_rdd
+    @property
+    def max_mw(self):
+        return self.dev_attr.max_mw
+    @property
+    def max_raw_ipv6_qps(self):
+        return self.dev_attr.max_raw_ipv6_qp
+    @property
+    def max_raw_ethy_qp(self):
+        return self.dev_attr.max_raw_ethy_qp
+    @property
+    def max_mcast_grp(self):
+        return self.dev_attr.max_mcast_grp
+    @property
+    def max_mcast_qp_attach(self):
+        return self.dev_attr.max_mcast_qp_attach
+    @property
+    def max_ah(self):
+        return self.dev_attr.max_ah
+    @property
+    def max_fmr(self):
+        return self.dev_attr.max_fmr
+    @property
+    def max_map_per_fmr(self):
+        return self.dev_attr.max_map_per_fmr
+    @property
+    def max_srq(self):
+        return self.dev_attr.max_srq
+    @property
+    def max_srq_wr(self):
+        return self.dev_attr.max_srq_wr
+    @property
+    def max_srq_sge(self):
+        return self.dev_attr.max_srq_sge
+    @property
+    def max_pkeys(self):
+        return self.dev_attr.max_pkeys
+    @property
+    def local_ca_ack_delay(self):
+        return self.dev_attr.local_ca_ack_delay
+    @property
+    def phys_port_cnt(self):
+        return self.dev_attr.phys_port_cnt
 
     def __str__(self):
         print_format = '{:<22}: {:<20}\n'
