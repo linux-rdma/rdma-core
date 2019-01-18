@@ -217,6 +217,7 @@ Requires: %{name}%{?_isa} = %{version}-%{release}
 In conjunction with the kernel ib_srp driver, srp_daemon allows you to
 discover and use SCSI devices via the SCSI RDMA Protocol over InfiniBand.
 
+%if %{with_pyverbs}
 %package -n python3-pyverbs
 Summary: Python3 API over IB verbs
 %{?python_provide:%python_provide python3-pyverbs}
@@ -224,6 +225,7 @@ Summary: Python3 API over IB verbs
 %description -n python3-pyverbs
 Pyverbs is a Cython-based Python API over libibverbs, providing an
 easy, object-oriented access to IB verbs.
+%endif
 
 %prep
 %setup
