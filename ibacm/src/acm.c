@@ -3250,6 +3250,12 @@ int main(int argc, char **argv)
 		acm_log(0, "Error: failed to create sa resp rcving thread");
 		return -1;
 	}
+
+	if (acm_init_if_iter_sys()) {
+		acm_log(0, "Error: unable to initialize acm_if_iter_sys");
+		return -1;
+	}
+
 	acm_activate_devices();
 	acm_log(1, "starting server\n");
 	acm_server(systemd);
@@ -3260,6 +3266,7 @@ int main(int argc, char **argv)
 	acm_close_providers();
 	acm_stop_sa_handler();
 	umad_done();
+	acm_fini_if_iter_sys();
 	fclose(flog);
 	return 0;
 }
