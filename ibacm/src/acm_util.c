@@ -180,17 +180,11 @@ static void acm_if_iter(struct nl_object *obj, void *_ctx_and_cb)
 	union ibv_gid sgid;
 	uint16_t pkey;
 	char *label;
-	int flags;
-	int ret;
 	int af;
 
 	link = rtnl_link_get(link_cache, rtnl_addr_get_ifindex(addr));
-	flags = rtnl_link_get_flags(link);
 
 	if (rtnl_link_get_arptype(link) != ARPHRD_INFINIBAND)
-		return;
-
-	if (!(flags & IFF_RUNNING))
 		return;
 
 	if (!a)
@@ -206,20 +200,18 @@ static void acm_if_iter(struct nl_object *obj, void *_ctx_and_cb)
 		return;
 
 	label = rtnl_addr_get_label(addr);
-	if (!label)
-		return;
 
 	link_addr = rtnl_link_get_addr(link);
+	/* gid has a 4 byte offset into the link address */
 	memcpy(sgid.raw, nl_addr_get_binary_addr(link_addr) + 4, sizeof(sgid));
 
-	ret = acm_if_get_pkey(rtnl_link_get_name(link), &pkey);
-	if (ret)
+	if (acm_if_get_pkey(rtnl_link_get_name(link), &pkey))
 		return;
 
 	acm_log(2, "name: %5s label: %9s index: %2d flags: %s addr: %s pkey: 0x%04x guid: 0x%lx\n",
 		rtnl_link_get_name(link), label,
 		rtnl_addr_get_ifindex(addr),
-		rtnl_link_flags2str(flags, flags_str, sizeof(flags_str)),
+		rtnl_link_flags2str(rtnl_link_get_flags(link), flags_str, sizeof(flags_str)),
 		nl_addr2str(a, ip_str, sizeof(ip_str)),	pkey,
 		be64toh(sgid.global.interface_id));
 
