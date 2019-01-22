@@ -331,62 +331,96 @@ Exit:
 	return ret;
 }
 
-static const char *resolve_ca_name(const char *ca_name, int *best_port)
+static int resolve_ca_name(const char *ca_in, int *best_port,
+			   char **ca_name)
 {
-	static char names[UMAD_MAX_DEVICES][UMAD_CA_NAME_LEN];
-	int phys_found = -1, port_found = 0, port, port_type;
-	int caidx, n;
+	struct umad_device_node *device_list;
+	struct umad_device_node *node;
+	struct umad_device_node *phys_found = NULL;
+	const char *name_found;
+	int port_found = 0, port, port_type;
 
-	if (ca_name && (!best_port || *best_port))
-		return ca_name;
+	*ca_name = NULL;
+	if (ca_in && (!best_port || *best_port)) {
+		*ca_name = strdup(ca_in);
+		if (!(*ca_name))
+			return -1;
+		return 0;
+	}
 
-	if (ca_name) {
-		if (resolve_ca_port(ca_name, best_port) < 0)
-			return NULL;
-		return ca_name;
+	if (ca_in) {
+		if (resolve_ca_port(ca_in, best_port) < 0)
+			return -1;
+		*ca_name = strdup(ca_in);
+		if (!(*ca_name))
+			return -1;
+		return 0;
 	}
 
 	/* Get the list of CA names */
-	if ((n = umad_get_cas_names((void *)names, UMAD_MAX_DEVICES)) < 0)
-		return NULL;
+	device_list = umad_get_ca_device_list();
+	if (!device_list)
+		return -1;
 
 	/* Find the first existing CA with an active port */
-	for (caidx = 0; caidx < n; caidx++) {
-		TRACE("checking ca '%s'", names[caidx]);
+	for (node = device_list; node; node = node->next) {
+		name_found = node->ca_name;
+
+		TRACE("checking ca '%s'", name_found);
 
 		port = best_port ? *best_port : 0;
-		if ((port_type = resolve_ca_port(names[caidx], &port)) < 0)
+		port_type = resolve_ca_port(name_found, &port);
+		if (port_type < 0)
 			continue;
 
 		DEBUG("found ca %s with port %d type %d",
-		      names[caidx], port, port_type);
+		      name_found, port, port_type);
 
 		if (port_type > 0) {
 			if (best_port)
 				*best_port = port;
 			DEBUG("found ca %s with active port %d",
-			      names[caidx], port);
-			return (char *)(names + caidx);
+			      name_found, port);
+			*ca_name = strdup(name_found);
+			umad_free_ca_device_list(device_list);
+			if (!(*ca_name))
+				return -1;
+			return 0;
 		}
 
-		if (phys_found == -1) {
-			phys_found = caidx;
+		if (!phys_found) {
+			phys_found = node;
 			port_found = port;
 		}
 	}
 
-	DEBUG("phys found %d on %s port %d",
-	      phys_found, phys_found >= 0 ? names[phys_found] : NULL,
+	DEBUG("phys found on %s port %d",
+	      phys_found ? phys_found->ca_name : NULL,
 	      port_found);
-	if (phys_found >= 0) {
+
+	if (phys_found) {
+		name_found = phys_found->ca_name;
+		DEBUG("phys found on %s port %d",
+			phys_found ? name_found : NULL,
+			port_found);
 		if (best_port)
 			*best_port = port_found;
-		return names[phys_found];
+		*ca_name = strdup(name_found);
+		umad_free_ca_device_list(device_list);
+		if (!(*ca_name))
+			return -1;
+		return 0;
 	}
+
+	umad_free_ca_device_list(device_list);
 
 	if (best_port)
 		*best_port = def_ca_port;
-	return def_ca_name;
+
+	*ca_name = strdup(def_ca_name);
+	if (!(*ca_name))
+		return -1;
+	return 0;
 }
 
 static int get_ca(const char *ca_name, umad_ca_t * ca)
@@ -580,19 +614,24 @@ int umad_get_cas_names(char cas[][UMAD_CA_NAME_LEN], int max)
 int umad_get_ca_portguids(const char *ca_name, __be64 *portguids, int max)
 {
 	umad_ca_t ca;
-	int ports = 0, i;
+	int ports = 0, i, result;
+	char *found_ca_name;
 
 	TRACE("ca name %s max port guids %d", ca_name, max);
-	if (!(ca_name = resolve_ca_name(ca_name, NULL)))
-		return -ENODEV;
+	if (resolve_ca_name(ca_name, NULL, &found_ca_name) < 0) {
+		result = -ENODEV;
+		goto exit;
+	}
 
-	if (umad_get_ca(ca_name, &ca) < 0)
-		return -1;
+	if (umad_get_ca(found_ca_name, &ca) < 0) {
+		result = -1;
+		goto exit;
+	}
 
 	if (portguids) {
 		if (ca.numports + 1 > max) {
-			release_ca(&ca);
-			return -ENOMEM;
+			result = -ENOMEM;
+			goto clean;
 		}
 
 		for (i = 0; i <= ca.numports; i++)
@@ -600,54 +639,78 @@ int umad_get_ca_portguids(const char *ca_name, __be64 *portguids, int max)
 				ca.ports[i]->port_guid : htobe64(0);
 	}
 
-	release_ca(&ca);
-	DEBUG("%s: %d ports", ca_name, ports);
+	DEBUG("%s: %d ports", found_ca_name, ports);
 
-	return ports;
+	result = ports;
+clean:
+	release_ca(&ca);
+exit:
+	free(found_ca_name);
+
+	return result;
 }
 
 int umad_get_issm_path(const char *ca_name, int portnum, char path[], int max)
 {
-	int umad_id;
+	int umad_id, result;
+	char *found_ca_name;
 
 	TRACE("ca %s port %d", ca_name, portnum);
 
-	if (!(ca_name = resolve_ca_name(ca_name, &portnum)))
-		return -ENODEV;
+	if (resolve_ca_name(ca_name, &portnum, &found_ca_name) < 0) {
+		result = -ENODEV;
+		goto exit;
+	}
 
-	if ((umad_id = dev_to_umad_id(ca_name, portnum)) < 0)
-		return -EINVAL;
+	umad_id = dev_to_umad_id(found_ca_name, portnum);
+	if (umad_id < 0) {
+		result = -EINVAL;
+		goto exit;
+	}
 
 	snprintf(path, max, "%s/issm%u", RDMA_CDEV_DIR, umad_id);
 
-	return 0;
+	result = 0;
+exit:
+	free(found_ca_name);
+
+	return result;
 }
 
 int umad_open_port(const char *ca_name, int portnum)
 {
 	char dev_file[UMAD_DEV_FILE_SZ];
-	int umad_id, fd;
+	int umad_id, fd, result;
 	unsigned int abi_version = get_abi_version();
+	char *found_ca_name = NULL;
 
 	TRACE("ca %s port %d", ca_name, portnum);
 
-	if (!abi_version)
-		return -EOPNOTSUPP;
+	if (!abi_version) {
+		result = -EOPNOTSUPP;
+		goto exit;
+	}
 
-	if (!(ca_name = resolve_ca_name(ca_name, &portnum)))
-		return -ENODEV;
+	if (resolve_ca_name(ca_name, &portnum, &found_ca_name) < 0) {
+		result = -ENODEV;
+		goto exit;
+	}
 
-	DEBUG("opening %s port %d", ca_name, portnum);
+	DEBUG("opening %s port %d", found_ca_name, portnum);
 
-	if ((umad_id = dev_to_umad_id(ca_name, portnum)) < 0)
-		return -EINVAL;
+	umad_id = dev_to_umad_id(found_ca_name, portnum);
+	if (umad_id < 0) {
+		result = -EINVAL;
+		goto exit;
+	}
 
 	snprintf(dev_file, sizeof(dev_file), "%s/umad%d",
 		 RDMA_CDEV_DIR, umad_id);
 
 	if ((fd = open(dev_file, O_RDWR | O_NONBLOCK)) < 0) {
 		DEBUG("open %s failed: %s", dev_file, strerror(errno));
-		return -EIO;
+		result =  -EIO;
+		goto exit;
 	}
 
 	if (abi_version > 5 || !ioctl(fd, IB_USER_MAD_ENABLE_PKEY, NULL))
@@ -656,25 +719,37 @@ int umad_open_port(const char *ca_name, int portnum)
 		new_user_mad_api = 0;
 
 	DEBUG("opened %s fd %d portid %d", dev_file, fd, umad_id);
-	return fd;
+
+	result = fd;
+exit:
+	free(found_ca_name);
+
+	return result;
 }
 
-int umad_get_ca(const char *ca_name, umad_ca_t * ca)
+int umad_get_ca(const char *ca_name, umad_ca_t *ca)
 {
-	int r;
+	int r = 0;
+	char *found_ca_name;
 
 	TRACE("ca_name %s", ca_name);
-	if (!(ca_name = resolve_ca_name(ca_name, NULL)))
-		return -ENODEV;
+	if (resolve_ca_name(ca_name, NULL, &found_ca_name) < 0) {
+		r = -ENODEV;
+		goto exit;
+	}
 
-	if (find_cached_ca(ca_name, ca) > 0)
-		return 0;
+	if (find_cached_ca(found_ca_name, ca) > 0)
+		goto exit;
 
-	if ((r = get_ca(ca_name, ca)) < 0)
-		return r;
+	r = get_ca(found_ca_name, ca);
+	if (r < 0)
+		goto exit;
 
-	DEBUG("opened %s", ca_name);
-	return 0;
+	DEBUG("opened %s", found_ca_name);
+exit:
+	free(found_ca_name);
+
+	return r;
 }
 
 int umad_release_ca(umad_ca_t * ca)
@@ -692,19 +767,27 @@ int umad_release_ca(umad_ca_t * ca)
 	return 0;
 }
 
-int umad_get_port(const char *ca_name, int portnum, umad_port_t * port)
+int umad_get_port(const char *ca_name, int portnum, umad_port_t *port)
 {
 	char dir_name[256];
+	char *found_ca_name;
+	int result;
 
 	TRACE("ca_name %s portnum %d", ca_name, portnum);
 
-	if (!(ca_name = resolve_ca_name(ca_name, &portnum)))
-		return -ENODEV;
+	if (resolve_ca_name(ca_name, &portnum, &found_ca_name) < 0) {
+		result = -ENODEV;
+		goto exit;
+	}
 
 	snprintf(dir_name, sizeof(dir_name), "%s/%s/%s",
-		 SYS_INFINIBAND, ca_name, SYS_CA_PORTS_DIR);
+		 SYS_INFINIBAND, found_ca_name, SYS_CA_PORTS_DIR);
 
-	return get_port(ca_name, dir_name, portnum, port);
+	result = get_port(found_ca_name, dir_name, portnum, port);
+exit:
+	free(found_ca_name);
+
+	return result;
 }
 
 int umad_release_port(umad_port_t * port)
