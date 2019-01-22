@@ -1,8 +1,12 @@
 rdma-core (22.0-1) unstable; urgency=medium
 
   * New upstream release.
+    - mlx5: Add DEVX APIs for interop with verbs objects
+    - Add pyverbs Python binding
+  * Update private libibverbs symbols
+  * Bump Standards-Version to 4.3.0 (no changes required)
 
- -- Jason Gunthorpe <jgg@obsidianresearch.com>  Tue, 20 Nov 2018 12:00:59 +0100
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Tue, 22 Jan 2019 13:27:29 +0100
 
 rdma-core (21.0-1) unstable; urgency=medium
 
