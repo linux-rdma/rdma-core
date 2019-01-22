@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2018, Mellanox Technologies. All rights reserved. See COPYING file
 
