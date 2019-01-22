@@ -169,6 +169,11 @@ typedef struct umad_ca {
 	umad_port_t *ports[UMAD_CA_MAX_PORTS];
 } umad_ca_t;
 
+struct umad_device_node {
+	struct umad_device_node *next; /* next umad device node  */
+	const char *ca_name; /* ca name */
+};
+
 int umad_init(void);
 int umad_done(void);
 
@@ -208,6 +213,8 @@ int umad_register(int portid, int mgmt_class, int mgmt_version,
 int umad_register_oui(int portid, int mgmt_class, uint8_t rmpp_version,
 		      uint8_t oui[3], long method_mask[16 / sizeof(long)]);
 int umad_unregister(int portid, int agentid);
+struct umad_device_node *umad_get_ca_device_list(void);
+void umad_free_ca_device_list(struct umad_device_node *head);
 
 enum {
 	UMAD_USER_RMPP = (1 << 0)

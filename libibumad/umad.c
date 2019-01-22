@@ -1123,3 +1123,71 @@ void umad_dump(void *umad)
 	       mad->agent_id, mad->status, mad->timeout_ms);
 	umad_addr_dump(&mad->addr);
 }
+
+struct umad_device_node *umad_get_ca_device_list(void)
+{
+	DIR *dir;
+	struct dirent *entry;
+	struct umad_device_node *head = NULL;
+	struct umad_device_node *tail;
+	struct umad_device_node *node;
+	char *ca_name;
+	size_t cas_num = 0;
+	size_t d_name_size;
+	int errsv = 0;
+
+	dir = opendir(SYS_INFINIBAND);
+	if (!dir) {
+		if (errno == ENOENT)
+			errno = 0;
+		return NULL;
+	}
+
+	while ((entry = readdir(dir))) {
+		if ((strcmp(entry->d_name, ".") == 0) ||
+		    (strcmp(entry->d_name, "..") == 0))
+			continue;
+
+		if (!is_ib_type(entry->d_name))
+			continue;
+
+		d_name_size = strlen(entry->d_name) + 1;
+		node = calloc(1, sizeof(struct umad_device_node) + d_name_size);
+		if (!node) {
+			errsv = ENOMEM;
+			umad_free_ca_device_list(head);
+			head = NULL;
+			goto exit;
+		}
+
+		if (!head)
+			head = node;
+		else
+			tail->next = node;
+		tail = node;
+
+		ca_name = (char *)(node + 1);
+		strncpy(ca_name, entry->d_name, d_name_size);
+		node->ca_name = ca_name;
+
+		cas_num++;
+	}
+
+	DEBUG("return %zu cas", cas_num);
+exit:
+	closedir(dir);
+	errno = errsv;
+
+	return head;
+}
+
+void umad_free_ca_device_list(struct umad_device_node *head)
+{
+	struct umad_device_node *node;
+	struct umad_device_node *next;
+
+	for (node = head; node; node = next) {
+		next = node->next;
+		free(node);
+	}
+}
