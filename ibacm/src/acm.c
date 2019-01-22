@@ -2090,7 +2090,7 @@ static void acm_ep_ip_iter_cb(char *ifname, union ibv_gid *gid, uint16_t pkey,
 		(ep->endpoint.pkey | IB_PKEY_FULL_MEMBER) == pkey) {
 		if (!acm_ep_insert_addr(ep, ip_str, addr, addr_type)) {
 			acm_log(0, "Added %s %s %d 0x%x from %s\n", ip_str,
-				dev->device.verbs->device->name, port_num, pkey,
+				dev->device.verbs->device->name, port_num, ep->endpoint.pkey,
 				ifname);
 		}
 	}
