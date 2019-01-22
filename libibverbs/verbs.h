@@ -346,6 +346,7 @@ enum ibv_port_cap_flags {
 	IBV_PORT_SYS_IMAGE_GUID_SUP		= 1 << 11,
 	IBV_PORT_PKEY_SW_EXT_PORT_TRAP_SUP	= 1 << 12,
 	IBV_PORT_EXTENDED_SPEEDS_SUP		= 1 << 14,
+	IBV_PORT_CAP_MASK2_SUP			= 1 << 15,
 	IBV_PORT_CM_SUP				= 1 << 16,
 	IBV_PORT_SNMP_TUNNEL_SUP		= 1 << 17,
 	IBV_PORT_REINIT_SUP			= 1 << 18,
@@ -357,6 +358,15 @@ enum ibv_port_cap_flags {
 	IBV_PORT_LINK_LATENCY_SUP		= 1 << 24,
 	IBV_PORT_CLIENT_REG_SUP			= 1 << 25,
 	IBV_PORT_IP_BASED_GIDS			= 1 << 26
+};
+
+enum ibv_port_cap_flags2 {
+	IBV_PORT_SET_NODE_DESC_SUP		= 1 << 0,
+	IBV_PORT_INFO_EXT_SUP			= 1 << 1,
+	IBV_PORT_VIRT_SUP			= 1 << 2,
+	IBV_PORT_SWITCH_PORT_STATE_TABLE_SUP	= 1 << 3,
+	IBV_PORT_LINK_WIDTH_2X_SUP		= 1 << 4,
+	IBV_PORT_LINK_SPEED_HDR_SUP		= 1 << 5,
 };
 
 struct ibv_port_attr {
@@ -381,6 +391,7 @@ struct ibv_port_attr {
 	uint8_t			phys_state;
 	uint8_t			link_layer;
 	uint8_t			flags;
+	uint16_t		port_cap_flags2;
 };
 
 enum ibv_event_type {
@@ -650,7 +661,11 @@ enum ibv_rate {
 	IBV_RATE_25_GBPS  = 15,
 	IBV_RATE_100_GBPS = 16,
 	IBV_RATE_200_GBPS = 17,
-	IBV_RATE_300_GBPS = 18
+	IBV_RATE_300_GBPS = 18,
+	IBV_RATE_28_GBPS  = 19,
+	IBV_RATE_50_GBPS  = 20,
+	IBV_RATE_400_GBPS = 21,
+	IBV_RATE_600_GBPS = 22,
 };
 
 /**
@@ -795,7 +810,7 @@ struct ibv_wq_attr {
  * Receive Work Queue Indirection Table.
  * It's used in order to distribute incoming packets between different
  * Receive Work Queues. Associating Receive WQs with different CPU cores
- * allows to workload the traffic between different CPU cores.
+ * allows one to workload the traffic between different CPU cores.
  * The Indirection Table can contain only WQs of type IBV_WQT_RQ.
 */
 struct ibv_rwq_ind_table {
@@ -1661,9 +1676,12 @@ struct ibv_device {
 	char			ibdev_path[IBV_SYSFS_PATH_MAX];
 };
 
+struct _compat_ibv_port_attr;
 struct ibv_context_ops {
 	void *(*_compat_query_device)(void);
-	void *(*_compat_query_port)(void);
+	int (*_compat_query_port)(struct ibv_context *context,
+				  uint8_t port_num,
+				  struct _compat_ibv_port_attr *port_attr);
 	void *(*_compat_alloc_pd)(void);
 	void *(*_compat_dealloc_pd)(void);
 	void *(*_compat_reg_mr)(void);
@@ -1786,6 +1804,14 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*query_port)(struct ibv_context *context, uint8_t port_num,
+			  struct ibv_port_attr *port_attr,
+			  size_t port_attr_len);
+	int (*advise_mr)(struct ibv_pd *pd,
+			 enum ibv_advise_mr_advice advice,
+			 uint32_t flags,
+			 struct ibv_sge *sg_list,
+			 uint32_t num_sges);
 	struct ibv_mr *(*alloc_null_mr)(struct ibv_pd *pd);
 	int (*read_counters)(struct ibv_counters *counters,
 			     uint64_t *counters_value,
@@ -1992,17 +2018,26 @@ int ibv_query_device(struct ibv_context *context,
  * ibv_query_port - Get port properties
  */
 int ibv_query_port(struct ibv_context *context, uint8_t port_num,
-		   struct ibv_port_attr *port_attr);
+		   struct _compat_ibv_port_attr *port_attr);
 
 static inline int ___ibv_query_port(struct ibv_context *context,
 				    uint8_t port_num,
 				    struct ibv_port_attr *port_attr)
 {
-	/* For compatibility when running with old libibverbs */
-	port_attr->link_layer = IBV_LINK_LAYER_UNSPECIFIED;
-	port_attr->flags      = 0;
+	struct verbs_context *vctx = verbs_get_ctx_op(context, query_port);
 
-	return ibv_query_port(context, port_num, port_attr);
+	if (!vctx) {
+		int rc;
+
+		memset(port_attr, 0, sizeof(*port_attr));
+
+		rc = ibv_query_port(context, port_num,
+				    (struct _compat_ibv_port_attr *)port_attr);
+		return rc;
+	}
+
+	return vctx->query_port(context, port_num, port_attr,
+				sizeof(*port_attr));
 }
 
 #define ibv_query_port(context, port_num, port_attr) \
@@ -2208,6 +2243,29 @@ struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context);
  * ibv_destroy_comp_channel - Destroy a completion event channel
  */
 int ibv_destroy_comp_channel(struct ibv_comp_channel *channel);
+
+/**
+ * ibv_advise_mr - Gives advice about an address range in MRs
+ * @pd - protection domain of all MRs for which the advice is for
+ * @advice - type of advice
+ * @flags - advice modifiers
+ * @sg_list - an array of memory ranges
+ * @num_sge - number of elements in the array
+ */
+static inline int ibv_advise_mr(struct ibv_pd *pd,
+				enum ibv_advise_mr_advice advice,
+				uint32_t flags,
+				struct ibv_sge *sg_list,
+				uint32_t num_sge)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(pd->context, advise_mr);
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->advise_mr(pd, advice, flags, sg_list, num_sge);
+}
 
 /**
  * ibv_alloc_dm - Allocate device memory

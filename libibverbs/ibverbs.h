@@ -37,9 +37,6 @@
 #include <pthread.h>
 
 #include <infiniband/driver.h>
-
-#include <valgrind/memcheck.h>
-
 #include <ccan/bitmap.h>
 
 #define INIT		__attribute__((constructor))
@@ -61,6 +58,8 @@ int ibverbs_get_device_list(struct list_head *list);
 int ibverbs_init(void);
 void ibverbs_device_put(struct ibv_device *dev);
 void ibverbs_device_hold(struct ibv_device *dev);
+int __lib_query_port(struct ibv_context *context, uint8_t port_num,
+		     struct ibv_port_attr *port_attr, size_t port_attr_len);
 
 #ifdef _STATIC_LIBRARY_BUILD_
 static inline void load_drivers(void)
@@ -73,6 +72,7 @@ void load_drivers(void);
 struct verbs_ex_private {
 	BITMAP_DECLARE(unsupported_ioctls, VERBS_OPS_NUM);
 	uint32_t driver_id;
+	bool use_ioctl_write;
 	struct verbs_context_ops ops;
 };
 
@@ -85,51 +85,5 @@ static inline const struct verbs_context_ops *get_ops(struct ibv_context *ctx)
 {
 	return &get_priv(ctx)->ops;
 }
-
-#define IBV_INIT_CMD(cmd, size, opcode)					\
-	do {								\
-		(cmd)->hdr.command = IB_USER_VERBS_CMD_##opcode;	\
-		(cmd)->hdr.in_words  = (size) / 4;			\
-		(cmd)->hdr.out_words = 0;				\
-	} while (0)
-
-#define IBV_INIT_CMD_RESP(cmd, size, opcode, out, outsize)		\
-	do {								\
-		(cmd)->hdr.command = IB_USER_VERBS_CMD_##opcode;	\
-		(cmd)->hdr.in_words  = (size) / 4;			\
-		(cmd)->hdr.out_words = (outsize) / 4;			\
-		(cmd)->response  = (uintptr_t) (out);			\
-	} while (0)
-
-static inline uint32_t _cmd_ex(uint32_t cmd)
-{
-	return IB_USER_VERBS_CMD_FLAG_EXTENDED | cmd;
-}
-
-#define IBV_INIT_CMD_RESP_EX_V(cmd, cmd_size, size, opcode, out, resp_size,\
-		outsize)						   \
-	do {                                                               \
-		size_t c_size = cmd_size - sizeof(struct ex_hdr);	   \
-		(cmd)->hdr.hdr.command =				   \
-			_cmd_ex(IB_USER_VERBS_EX_CMD_##opcode);		   \
-		(cmd)->hdr.hdr.in_words  = ((c_size) / 8);                 \
-		(cmd)->hdr.hdr.out_words = ((resp_size) / 8);              \
-		(cmd)->hdr.ex_hdr.provider_in_words   = (((size) - (cmd_size))/8);\
-		(cmd)->hdr.ex_hdr.provider_out_words  =			   \
-			     (((outsize) - (resp_size)) / 8);              \
-		(cmd)->hdr.ex_hdr.response  = (uintptr_t) (out);           \
-		(cmd)->hdr.ex_hdr.cmd_hdr_reserved = 0;			   \
-	} while (0)
-
-#define IBV_INIT_CMD_RESP_EX_VCMD(cmd, cmd_size, size, opcode, out, outsize) \
-	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_size, size, opcode, out,	     \
-			sizeof(*(out)), outsize)
-
-#define IBV_INIT_CMD_RESP_EX(cmd, size, opcode, out, outsize)		     \
-	IBV_INIT_CMD_RESP_EX_V(cmd, sizeof(*(cmd)), size, opcode, out,    \
-			sizeof(*(out)), outsize)
-
-#define IBV_INIT_CMD_EX(cmd, size, opcode)				     \
-	IBV_INIT_CMD_RESP_EX_V(cmd, sizeof(*(cmd)), size, opcode, NULL, 0, 0)
 
 #endif /* IB_VERBS_H */

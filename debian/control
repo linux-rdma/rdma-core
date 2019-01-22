@@ -3,6 +3,7 @@ Maintainer: Benjamin Drung <benjamin.drung@cloud.ionos.com>
 Section: net
 Priority: optional
 Build-Depends: cmake (>= 2.8.11),
+               cython3,
                debhelper (>= 11),
                dpkg-dev (>= 1.17),
                libnl-3-dev,
@@ -12,7 +13,7 @@ Build-Depends: cmake (>= 2.8.11),
                ninja-build,
                pandoc,
                pkg-config,
-               python,
+               python3-dev,
                valgrind [amd64 arm64 armhf i386 mips mips64el mipsel powerpc ppc64 ppc64el s390x]
 Standards-Version: 4.2.1
 Vcs-Git: https://github.com/linux-rdma/rdma-core.git -b debian/master
@@ -148,7 +149,7 @@ Section: libs
 Pre-Depends: ${misc:Pre-Depends}
 Depends: adduser, ${misc:Depends}, ${shlibs:Depends}
 Recommends: ibverbs-providers
-Breaks: ibverbs-providers (<< 21~)
+Breaks: ibverbs-providers (<< 22~)
 Description: Library for direct userspace use of RDMA (InfiniBand/iWARP)
  libibverbs is a library that allows userspace processes to use RDMA
  "verbs" as described in the InfiniBand Architecture Specification and
@@ -267,3 +268,14 @@ Description: Tools for Infiniband attached storage (SRP)
  In conjunction with the kernel ib_srp driver, srptools allows you to
  discover and use Infiniband attached storage devices which use the
  SCSI RDMA Protocol (SRP).
+
+Package: python3-pyverbs
+Section: python
+Architecture: linux-any
+Depends: rdma-core (>= 21),
+         ${misc:Depends},
+         ${python3:Depends},
+         ${shlibs:Depends}
+Provides: ${python3:Provides}
+Description: Pyverbs is a Python bindings for rdma-core
+ It allows an easy development in Python language of RDMA applications.

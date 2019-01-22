@@ -26,8 +26,8 @@
 #      Do not generate backwards compatibility symbols in the shared
 #      libraries. This may is necessary if using a dynmic linker that does
 #      not support symbol versions, such as uclibc.
-#  -DIOCTL_MODE=both (default write)
-#      Enable new kABI ioctl() support and support for the legacy write
+#  -DIOCTL_MODE=write (default both)
+#      Disable new kABI ioctl() support and support only the legacy write
 #      path. May also be 'ioctl' to disable fallback to write.
 #  -DIBACM_SERVER_MODE_DEFAULT (default unix)
 #      Selects how clients can connect to this server:
@@ -37,6 +37,14 @@
 #  -DIBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT (default 0)
 #      If non-zero, limit incoming requests to kernel or the ib_acme utility
 #      (i.e. do not serve librdmacm requests)
+#  -DPYTHON_EXECUTABLE
+#      Override automatic detection of python to use a certain
+#      exectuable. This can be used to force the build to use python2 on a
+#      system that has python3 installed. Otherwise the build automatically
+#      prefers python3 if available.
+#   -DNO_PYVERBS=1 (default, build pyverbs)
+#      Invoke cython to build pyverbs. Usually you will run with this option
+#      is set, but it will be disabled for travis runs.
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(rdma-core C)
@@ -57,10 +65,11 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "21.0")
+set(PACKAGE_VERSION "22.0")
 # When this is changed the values in these files need changing too:
+#   debian/control
 #   debian/libibverbs1.symbols
-set(IBVERBS_PABI_VERSION "21")
+set(IBVERBS_PABI_VERSION "22")
 set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 #-------------------------
@@ -86,6 +95,7 @@ set(BUILD_LIB ${CMAKE_BINARY_DIR}/lib)
 set(BUILD_STATIC_LIB ${CMAKE_BINARY_DIR}/lib/statics)
 # Used for IN_PLACE configuration
 set(BUILD_ETC ${CMAKE_BINARY_DIR}/etc)
+set(BUILD_PYTHON ${CMAKE_BINARY_DIR}/python)
 
 set(CMAKE_INSTALL_INITDDIR "${CMAKE_INSTALL_SYSCONFDIR}/init.d"
   CACHE PATH "Location for init.d files")
@@ -148,6 +158,7 @@ include(RDMA_BuildType)
 include(RDMA_DoFixup)
 include(publish_headers)
 include(rdma_functions)
+include(pyverbs_functions)
 include(rdma_man)
 
 if (NOT DEFINED ENABLE_STATIC)
@@ -349,8 +360,45 @@ else()
   set(HAVE_FULL_SYMBOL_VERSIONS 1)
 endif()
 
-# Look for Python
-FIND_PACKAGE(PythonInterp REQUIRED)
+if (${NO_PYVERBS})
+  set(CYTHON_EXECUTABLE "")
+else ()
+  # Look for Python. We prefer some variant of python 3 if the system has it.
+  FIND_PACKAGE(PythonInterp 3 QUIET)
+  if (NOT ${PythonInterp_FOUND})
+    FIND_PACKAGE(PythonInterp REQUIRED)
+  endif()
+  FIND_PACKAGE(cython)
+endif()
+
+# Look for Python. We prefer some variant of python 3 if the system has it.
+FIND_PACKAGE(PythonInterp 3 QUIET)
+if (NOT ${PythonInterp_FOUND})
+  FIND_PACKAGE(PythonInterp REQUIRED)
+endif()
+# A cython & python-devel installation that matches our selected interpreter.
+if (CYTHON_EXECUTABLE)
+ # cmake has really bad logic here, if PythonIterp has been run it tries to
+ # find a matching -devel installation but will happily return a non-matching
+ # one too. We need them both to match exactly to guarantee cython does the
+ # right thing.
+  FIND_PACKAGE(PythonLibs ${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}
+    EXACT REQUIRED)
+
+ # Get a default installation path
+  execute_process(COMMAND "${PYTHON_EXECUTABLE}" -c
+    "from distutils.sysconfig import get_python_lib; print(get_python_lib(True, False, '${CMAKE_INSTALL_PREFIX}'))"
+  OUTPUT_VARIABLE py_path)
+  string(STRIP ${py_path} py_path)
+  set(CMAKE_INSTALL_PYTHON_ARCH_LIB "${py_path}"
+  CACHE PATH "Location for architecture specific python libraries")
+
+ # See PEP3149
+  execute_process(COMMAND "${PYTHON_EXECUTABLE}" -c
+    "import sysconfig; x = sysconfig.get_config_var(\"EXT_SUFFIX\"); print(x if x else '.so')"
+    OUTPUT_VARIABLE py_path)
+  string(STRIP ${py_path} CMAKE_PYTHON_SO_SUFFIX)
+endif()
 
 # Look for pandoc
 FIND_PACKAGE(pandoc)
@@ -488,7 +536,7 @@ elseif ("${IOCTL_MODE}" STREQUAL "write")
 elseif ("${IOCTL_MODE}" STREQUAL "ioctl")
   set(IOCTL_MODE_NUM 1)
 elseif ("${IOCTL_MODE}" STREQUAL "")
-  set(IOCTL_MODE_NUM 2)
+  set(IOCTL_MODE_NUM 3)
 else()
   message(FATAL_ERROR "-DIOCTL_MODE=${IOCTL_MODE} is not a valid choice")
 endif()
@@ -549,6 +597,10 @@ add_subdirectory(providers/ipathverbs)
 add_subdirectory(providers/rxe)
 add_subdirectory(providers/rxe/man)
 
+if (CYTHON_EXECUTABLE)
+  add_subdirectory(pyverbs)
+endif()
+
 # Binaries
 add_subdirectory(ibacm) # NO SPARSE
 if (NOT NL_KIND EQUAL 0)
@@ -606,6 +658,9 @@ if (NOT PANDOC_FOUND)
   else()
     message(STATUS " pandoc NOT found (using prebuilt man pages)")
   endif()
+endif()
+if (NOT CYTHON_EXECUTABLE)
+  message(STATUS " cython NOT found (disabling pyverbs)")
 endif()
 if (NOT SYSTEMD_FOUND)
   message(STATUS " libsystemd NOT found (disabling features)")

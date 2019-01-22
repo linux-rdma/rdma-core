@@ -1,3 +1,9 @@
+rdma-core (22.0-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Jason Gunthorpe <jgg@obsidianresearch.com>  Tue, 20 Nov 2018 12:00:59 +0100
+
 rdma-core (21.0-1) unstable; urgency=medium
 
   * New upstream release.

@@ -1911,7 +1911,7 @@ static int qelr_poll_cq_req(struct qelr_qp *qp, struct qelr_cq *cq,
 		       "Error: POLL CQ with ROCE_CQE_REQ_STS_WORK_REQUEST_FLUSHED_ERR. QP icid=0x%x\n",
 		       qp->sq.icid);
 		cnt = process_req(qp, cq, num_entries, wc, sq_cons,
-				  IBV_WC_WR_FLUSH_ERR, 0);
+				  IBV_WC_WR_FLUSH_ERR, 1);
 		break;
 	default: /* other errors case */
 		/* process all WQE before the consumer */

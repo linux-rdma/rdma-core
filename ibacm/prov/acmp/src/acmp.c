@@ -45,6 +45,8 @@
 #include <infiniband/acm_prov.h>
 #include <infiniband/umad.h>
 #include <infiniband/verbs.h>
+#include <infiniband/umad_sa.h>
+#include <infiniband/umad_sa_mcm.h>
 #include <ifaddrs.h>
 #include <dlfcn.h>
 #include <search.h>
@@ -1380,15 +1382,16 @@ static void acmp_init_join(struct ib_sa_mad *mad, union ibv_gid *port_gid,
 		IB_COMP_MASK_MC_SCOPE | IB_COMP_MASK_MC_JOIN_STATE;
 
 	mc_rec = (struct ib_mc_member_rec *) mad->data;
-	acmp_format_mgid(&mc_rec->mgid, pkey | 0x8000, tos, rate, mtu);
+	acmp_format_mgid(&mc_rec->mgid, pkey | IB_PKEY_FULL_MEMBER, tos, rate, mtu);
 	mc_rec->port_gid = *port_gid;
 	mc_rec->qkey = htobe32(ACM_QKEY);
-	mc_rec->mtu = 0x80 | mtu;
+	mc_rec->mtu = umad_sa_set_rate_mtu_or_life(UMAD_SA_SELECTOR_EXACTLY, mtu);
 	mc_rec->tclass = tclass;
 	mc_rec->pkey = htobe16(pkey);
-	mc_rec->rate = 0x80 | rate;
-	mc_rec->sl_flow_hop = htobe32(((uint32_t) sl) << 28);
-	mc_rec->scope_state = 0x51;
+	mc_rec->rate = umad_sa_set_rate_mtu_or_life(UMAD_SA_SELECTOR_EXACTLY, rate);
+	mc_rec->sl_flow_hop = umad_sa_mcm_set_sl_flow_hop(sl, 0, 0);
+	mc_rec->scope_state = umad_sa_mcm_set_scope_state(UMAD_SA_MCM_ADDR_SCOPE_SITE_LOCAL,
+							  UMAD_SA_MCM_JOIN_STATE_FULL_MEMBER);
 }
 
 static void acmp_join_group(struct acmp_ep *ep, union ibv_gid *port_gid,
@@ -2655,6 +2658,7 @@ static void acmp_port_up(struct acmp_port *port)
 	__be16 pkey_be;
 	__be16 sm_lid;
 	int i, ret;
+	int instance;
 
 	acm_log(1, "%s %d\n", port->dev->verbs->device->name, port->port_num);
 	ret = ibv_query_port(port->dev->verbs, port->port_num, &attr);
@@ -2680,7 +2684,7 @@ static void acmp_port_up(struct acmp_port *port)
 	acmp_set_dest_addr(&port->sa_dest, ACM_ADDRESS_LID,
 			   (uint8_t *) &sm_lid, sizeof(sm_lid));
 
-	atomic_set(&port->sa_dest.refcnt, 1);
+	instance = atomic_inc(&port->sa_dest.refcnt) - 1;
 	port->sa_dest.state = ACMP_READY;
 	for (i = 0; i < attr.pkey_tbl_len; i++) {
 		ret = ibv_query_pkey(port->dev->verbs, port->port_num, i, &pkey_be);
@@ -2700,11 +2704,13 @@ static void acmp_port_up(struct acmp_port *port)
 	}
 
 	port->state = IBV_PORT_ACTIVE;
-	acm_log(1, "%s %d is up\n", port->dev->verbs->device->name, port->port_num);
+	acm_log(1, "%s %d %d is up\n", port->dev->verbs->device->name, port->port_num, instance);
 }
 
 static void acmp_port_down(struct acmp_port *port)
 {
+	int instance;
+
 	acm_log(1, "%s %d\n", port->dev->verbs->device->name, port->port_num);
 	pthread_mutex_lock(&port->lock);
 	port->state = IBV_PORT_DOWN;
@@ -2715,13 +2721,13 @@ static void acmp_port_down(struct acmp_port *port)
 	 * event instead of a sleep loop, but it's not worth it given how
 	 * infrequently we should be processing a port down event in practice.
 	 */
-	atomic_dec(&port->sa_dest.refcnt);
-	while (atomic_get(&port->sa_dest.refcnt))
-		sleep(0);
-	pthread_mutex_lock(&port->sa_dest.lock);
-	port->sa_dest.state = ACMP_INIT;
-	pthread_mutex_unlock(&port->sa_dest.lock);
-	acm_log(1, "%s %d is down\n", port->dev->verbs->device->name, port->port_num);
+	instance = atomic_dec(&port->sa_dest.refcnt);
+	if (instance == 1) {
+		pthread_mutex_lock(&port->sa_dest.lock);
+		port->sa_dest.state = ACMP_INIT;
+		pthread_mutex_unlock(&port->sa_dest.lock);
+	}
+	acm_log(1, "%s %d %d is down\n", port->dev->verbs->device->name, port->port_num, instance);
 }
 
 static int acmp_open_port(const struct acm_port *cport, void *dev_context,

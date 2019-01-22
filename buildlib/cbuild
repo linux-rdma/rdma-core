@@ -10,22 +10,22 @@ building for a wide range of distributions without having to install them.
 Each target distribution has a base docker image and a set of packages to
 install. The first step is to build the customized docker container:
 
- $ buildlib/cbuild build-images fc25
+ $ buildlib/cbuild build-images fedora
 
 This will download the base image and customize it with the required packages.
 
 Next, a build can be performed 'in place'. This is useful to do edit/compile
 cycles with an alternate distribution.
 
- $ buildlib/cbuild make fc25
+ $ buildlib/cbuild make fedora
 
-The build output will be placed in build-fc25
+The build output will be placed in build-fcXX, where XX is latest fedora release.
 
 Finally, a full package build can be performed inside the container. Note this
 mode actually creates a source tree inside the container based on the current
 git HEAD commit, so any uncommitted edits will be lost.
 
- $ buildlib/cbuild pkg fc25
+ $ buildlib/cbuild pkg fedora
 
 In this case only the final package results are copied outside the container
 (to ..) and everything else is discarded.
@@ -74,10 +74,11 @@ class DockerFile(object):
 
 class Environment(object):
     pandoc = True;
-    python_cmd = "python";
+    python_cmd = "python3";
     aliases = set();
     use_make = False;
     proxy = True;
+    build_pyverbs = True;
 
     def image_name(self):
         return "build-%s/%s"%(project,self.name);
@@ -109,6 +110,9 @@ class centos6(YumEnvironment):
     name = "centos6";
     use_make = True;
     pandoc = False;
+    is_rpm = False;
+    build_pyverbs = False;
+    python_cmd = "python";
 
 class centos7(YumEnvironment):
     docker_parent = "centos:7";
@@ -116,10 +120,12 @@ class centos7(YumEnvironment):
     name = "centos7";
     use_make = True;
     pandoc = False;
+    build_pyverbs = False;
     specfile = "redhat/rdma-core.spec";
+    python_cmd = "python";
 
 class centos7_epel(centos7):
-    pkgs = (centos7.pkgs - {"cmake","make"}) | {"ninja-build","cmake3","pandoc"};
+    pkgs = (centos7.pkgs - {"cmake","make"}) | {"ninja-build","cmake3","pandoc", 'python3-Cython', 'python3-devel'};
     name = "centos7_epel";
     use_make = False;
     pandoc = True;
@@ -133,13 +139,14 @@ class centos7_epel(centos7):
         res.lines.append("RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake");
         return res;
 
-class fc28(Environment):
-    docker_parent = "fedora:28";
-    pkgs = (centos7.pkgs - {"make", "python-argparse" }) | {"ninja-build","pandoc","perl-generators"};
-    name = "fc28";
+class fc29(Environment):
+    docker_parent = "fedora:29";
+    pkgs = (centos7.pkgs - {"make", "python-argparse" }) | {"ninja-build","pandoc","perl-generators","python3-Cython","python3-devel"};
+    name = "fc29";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
     is_rpm = True;
+    aliases = {"fedora"};
 
     def get_docker_file(self):
         res = DockerFile(self.docker_parent);
@@ -151,6 +158,7 @@ class fc28(Environment):
 
 class APTEnvironment(Environment):
     is_deb = True;
+    build_python = True;
     def get_docker_file(self):
         res = DockerFile(self.docker_parent);
         res.lines.append("RUN apt-get update && apt-get install -y --no-install-recommends %s && apt-get clean"%(
@@ -172,7 +180,6 @@ class trusty(APTEnvironment):
         'ninja-build',
         'pandoc',
         'pkg-config',
-        'python',
         'valgrind',
         };
     pkgs = common_pkgs | {
@@ -182,10 +189,12 @@ class trusty(APTEnvironment):
         };
     name = "ubuntu-14.04";
     aliases = {"trusty"};
+    python_cmd = "python";
+    build_pyverbs = False;
 
 class xenial(APTEnvironment):
     docker_parent = "ubuntu:16.04"
-    pkgs = trusty.common_pkgs | {"libsystemd-dev"};
+    pkgs = trusty.common_pkgs | {"libsystemd-dev", "python3-dev", "cython3"};
     name = "ubuntu-16.04";
     aliases = {"xenial"};
 
@@ -193,13 +202,14 @@ class bionic(APTEnvironment):
     docker_parent = "ubuntu:18.04"
     pkgs = xenial.pkgs
     name = "ubuntu-18.04";
-    aliases = {"bionic"};
+    aliases = {"bionic", "ubuntu"};
 
 class jessie(APTEnvironment):
     docker_parent = "debian:8"
     pkgs = xenial.pkgs;
     name = "debian-8";
     aliases = {"jessie"};
+    build_pyverbs = False;
 
 class stretch(APTEnvironment):
     docker_parent = "debian:9"
@@ -223,7 +233,7 @@ class travis(APTEnvironment):
     basically creating a container that is similar to what travis would
     use. Note this does not use the base travis image, nor does it install the
     typical travis packages."""
-    docker_parent = "ubuntu:14.04";
+    docker_parent = "ubuntu:16.04";
     name = "travis";
     is_deb = True;
     _yaml = None;
@@ -279,12 +289,12 @@ class travis(APTEnvironment):
     def get_clang(self):
         """We are using the clang that comes in travis, which is not part of our base
         docker container, install something similar by hand."""
-        llvm_tar = "clang+llvm-5.0.2-x86_64-linux-gnu-ubuntu-14.04.tar.xz"
+        llvm_tar = "clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz"
         cmds = [
-            """RUN wget -q http://releases.llvm.org/5.0.2/{0} -O /tmp/{0} && \\
+            """RUN wget -q http://releases.llvm.org/7.0.0/{0} -O /tmp/{0} && \\
             tar xf /tmp/{0} -C /usr/local/ && \\
             rm /tmp/{0} && \\
-            (cd /usr/local/bin/ && ln -sf ../clang*/bin/clang-5.0 .)""".format(llvm_tar)];
+            (cd /usr/local/bin/ && ln -sf ../clang*/bin/clang-7 .)""".format(llvm_tar)];
         return cmds;
 
     def get_docker_file(self):
@@ -338,7 +348,10 @@ class leap(ZypperEnvironment):
         'rpm-build',
         'systemd-devel',
         'valgrind-devel',
+        'python3-Cython',
+        'python3-devel',
     };
+    rpmbuild_options = [ "--without=curlmini" ];
     name = "opensuse-15.0";
     aliases = {"leap"};
 
@@ -348,9 +361,6 @@ class tumbleweed(ZypperEnvironment):
     name = "tumbleweed";
     specfile = "suse/rdma-core.spec";
     rpmbuild_options = [ "--without=curlmini" ];
-    # tumbleweed no longer includes python2 in the base docker images, only python3,
-    # use that instead.
-    python_cmd = "python3";
 
 # -------------------------------------------------------------------------
 
@@ -363,11 +373,30 @@ environments = [centos6(),
                 bionic(),
                 jessie(),
                 stretch(),
-                fc28(),
+                fc29(),
                 leap(),
                 tumbleweed(),
                 debian_experimental(),
 ];
+
+class ToEnvActionPkg(argparse.Action):
+    """argparse helper to parse environment lists into environment classes"""
+    def __call__(self, parser, namespace, values, option_string=None):
+        if not isinstance(values,list):
+            values = [values];
+
+        res = set();
+        for I in values:
+            if I == "all":
+                for env in environments:
+                    if env.name != "centos6" and env.name != "centos7_epel":
+                        res.add(env);
+            else:
+                for env in environments:
+                    if env.name == I or I in env.aliases:
+                        res.add(env);
+        setattr(namespace, self.dest, sorted(res,key=lambda x:x.name))
+
 
 class ToEnvAction(argparse.Action):
     """argparse helper to parse environment lists into environment classes"""
@@ -384,6 +413,15 @@ class ToEnvAction(argparse.Action):
                     if env.name == I or I in env.aliases:
                         res.add(env);
         setattr(namespace, self.dest, sorted(res,key=lambda x:x.name))
+
+def env_choices_pkg():
+    """All the names that can be used with ToEnvAction"""
+    envs = set(("all",));
+    for I in environments:
+        if I.name == "travis" or getattr(I,"is_deb",False) or getattr(I,"is_rpm",False):
+                envs.add(I.name);
+                envs.update(I.aliases);
+    return envs;
 
 def env_choices():
     """All the names that can be used with ToEnvAction"""
@@ -552,6 +590,9 @@ os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
                 bopts.extend(["--with", arg]);
             for arg in args.without_flags:
                 bopts.extend(["--without", arg]);
+            if "pyverbs" not in args.with_flags + args.without_flags:
+                if env.build_pyverbs:
+                    bopts.extend(["--with", "pyverbs"]);
 
             print >> F,'os.execlp("rpmbuild","rpmbuild",%s)'%(
                 ",".join(repr(I) for I in bopts));
@@ -600,6 +641,10 @@ def run_deb_build(args,env):
             "-e","DEB_BUILD_OPTIONS=parallel=%u"%(multiprocessing.cpu_count()),
         ];
 
+        if not env.build_pyverbs:
+            opts.append("-e");
+            opts.append("EXTRA_CMAKE_FLAGS=%s"%(' '.join(["-DNO_PYVERBS=1"])));
+
         # Create a go.py that will let us run the compilation as the user and
         # then switch to root only for the packaging step.
         with open(os.path.join(tmpdir,"go.py"),"w") as F:
@@ -621,7 +666,7 @@ subprocess.check_call(["debian/rules","debian/rules","binary"]);
         if args.run_shell:
             opts.append("/bin/bash");
         else:
-            opts.extend(["python",os.path.join(home,"go.py")]);
+            opts.extend(["python3",os.path.join(home,"go.py")]);
 
         docker_cmd(args,*opts);
 
@@ -716,7 +761,7 @@ def run_travis_build(args,env):
         copy_abi_files(os.path.join(tmpdir, "src/ABI"));
 
 def args_pkg(parser):
-    parser.add_argument("ENV",action=ToEnvAction,choices=env_choices());
+    parser.add_argument("ENV",action=ToEnvActionPkg,choices=env_choices_pkg());
     parser.add_argument("--run-shell",default=False,action="store_true",
                         help="Instead of running the build, enter a shell");
     parser.add_argument("--use-prebuilt-pandoc",default=False,action="store_true",
@@ -766,6 +811,9 @@ def cmd_make(args):
             dirs.append(BUILD_r);
 
         cmake_args = []
+        if not env.build_pyverbs:
+            cmake_args.extend(["-DNO_PYVERBS=1"]);
+
         cmake_envs = []
         ninja_args = []
         for I in args.ARGS:
@@ -775,7 +823,6 @@ def cmd_make(args):
                 cmake_envs.append(I);
             else:
                 ninja_args.append(I);
-
         if env.use_make:
             need_cmake = not os.path.exists(os.path.join(BUILD_r,"Makefile"));
         else:

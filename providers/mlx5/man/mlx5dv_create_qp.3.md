@@ -68,6 +68,11 @@ struct mlx5dv_qp_init_attr {
 		Allow scatter to CQE for requester even if the qp was not
 		configured to signal all WRs.
 
+	MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE:
+		Set QP to work in end-to-end packet-based credit,
+		instead of the default message-based credits (IB spec. section 9.7.7.2). \
+		It is the applications responsibility to make sure that the peer QP is configured with same mode.
+
 *dc_init_attr*
 :	DC init attributes.
 

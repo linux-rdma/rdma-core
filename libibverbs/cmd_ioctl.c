@@ -38,6 +38,7 @@
 #include <infiniband/driver.h>
 
 #include <rdma/ib_user_ioctl_cmds.h>
+#include <valgrind/memcheck.h>
 
 /* Number of attrs in this and all the link'd buffers */
 unsigned int __ioctl_final_num_attrs(unsigned int num_attrs,
@@ -78,6 +79,7 @@ static void prepare_attrs(struct ibv_command_buffer *cmd)
 	}
 
 	cmd->hdr.num_attrs = end - cmd->hdr.attrs;
+	cmd->last_attr = end;
 
 	/*
 	 * We keep the in UHW uninlined until directly before sending to

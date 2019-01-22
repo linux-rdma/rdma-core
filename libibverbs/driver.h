@@ -218,6 +218,11 @@ struct verbs_counters {
  * Keep sorted.
  */
 struct verbs_context_ops {
+	int (*advise_mr)(struct ibv_pd *pd,
+			 enum ibv_advise_mr_advice advice,
+			 uint32_t flags,
+			 struct ibv_sge *sg_list,
+			 uint32_t num_sges);
 	struct ibv_dm *(*alloc_dm)(struct ibv_context *context,
 				   struct ibv_alloc_dm_attr *attr);
 	struct ibv_mw *(*alloc_mw)(struct ibv_pd *pd, enum ibv_mw_type type);
@@ -413,10 +418,8 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 			    struct ibv_device_attr_ex *attr, size_t attr_size,
 			    uint64_t *raw_fw_ver,
 			    struct ibv_query_device_ex *cmd,
-			    size_t cmd_core_size,
 			    size_t cmd_size,
 			    struct ib_uverbs_ex_query_device_resp *resp,
-			    size_t resp_core_size,
 			    size_t resp_size);
 int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 		       struct ibv_port_attr *port_attr,
@@ -442,6 +445,11 @@ int ibv_cmd_rereg_mr(struct verbs_mr *vmr, uint32_t flags, void *addr,
 		     size_t cmd_sz, struct ib_uverbs_rereg_mr_resp *resp,
 		     size_t resp_sz);
 int ibv_cmd_dereg_mr(struct verbs_mr *vmr);
+int ibv_cmd_advise_mr(struct ibv_pd *pd,
+		      enum ibv_advise_mr_advice advice,
+		      uint32_t flags,
+		      struct ibv_sge *sg_list,
+		      uint32_t num_sge);
 int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
 		     struct ibv_mw *mw, struct ibv_alloc_mw *cmd,
 		     size_t cmd_size,
@@ -501,10 +509,8 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 			  struct verbs_qp *qp, int vqp_sz,
 			  struct ibv_qp_init_attr_ex *qp_attr,
 			  struct ibv_create_qp_ex *cmd,
-			  size_t cmd_core_size,
 			  size_t cmd_size,
 			  struct ib_uverbs_ex_create_qp_resp *resp,
-			  size_t resp_core_size,
 			  size_t resp_size);
 int ibv_cmd_open_qp(struct ibv_context *context,
 		    struct verbs_qp *qp,  int vqp_sz,
@@ -520,9 +526,9 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		      struct ibv_modify_qp *cmd, size_t cmd_size);
 int ibv_cmd_modify_qp_ex(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			 int attr_mask, struct ibv_modify_qp_ex *cmd,
-			 size_t cmd_core_size, size_t cmd_size,
+			 size_t cmd_size,
 			 struct ib_uverbs_ex_modify_qp_resp *resp,
-			 size_t resp_core_size, size_t resp_size);
+			 size_t resp_size);
 int ibv_cmd_destroy_qp(struct ibv_qp *qp);
 int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		      struct ibv_send_wr **bad_wr);
@@ -548,25 +554,18 @@ int ibv_cmd_create_wq(struct ibv_context *context,
 		      struct ibv_wq_init_attr *wq_init_attr,
 		      struct ibv_wq *wq,
 		      struct ibv_create_wq *cmd,
-		      size_t cmd_core_size,
 		      size_t cmd_size,
 		      struct ib_uverbs_ex_create_wq_resp *resp,
-		      size_t resp_core_size,
 		      size_t resp_size);
 
 int ibv_cmd_destroy_flow_action(struct verbs_flow_action *action);
 int ibv_cmd_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr,
-		      struct ibv_modify_wq *cmd, size_t cmd_core_size,
-		      size_t cmd_size);
+		      struct ibv_modify_wq *cmd, size_t cmd_size);
 int ibv_cmd_destroy_wq(struct ibv_wq *wq);
 int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 				 struct ibv_rwq_ind_table_init_attr *init_attr,
 				 struct ibv_rwq_ind_table *rwq_ind_table,
-				 struct ibv_create_rwq_ind_table *cmd,
-				 size_t cmd_core_size,
-				 size_t cmd_size,
 				 struct ib_uverbs_ex_create_rwq_ind_table_resp *resp,
-				 size_t resp_core_size,
 				 size_t resp_size);
 int ibv_cmd_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table);
 int ibv_cmd_create_counters(struct ibv_context *context,

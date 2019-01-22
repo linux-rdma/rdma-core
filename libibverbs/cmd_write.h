@@ -40,21 +40,10 @@
 
 #include <stdbool.h>
 
-static inline struct ib_uverbs_cmd_hdr *get_req_hdr(void *req)
-{
-	return ((struct ib_uverbs_cmd_hdr *)req) - 1;
-}
-
-static inline struct ex_hdr *get_req_hdr_ex(void *req)
-{
-	return ((struct ex_hdr *)req) - 1;
-}
-
 void *_write_get_req(struct ibv_command_buffer *link,
-		     struct ib_uverbs_cmd_hdr *onstack, size_t size,
-		     uint32_t cmdnum);
+		     struct ib_uverbs_cmd_hdr *onstack, size_t size);
 void *_write_get_req_ex(struct ibv_command_buffer *link, struct ex_hdr *onstack,
-			size_t size, uint32_t cmdnum);
+			size_t size);
 void *_write_get_resp(struct ibv_command_buffer *link,
 		      struct ib_uverbs_cmd_hdr *hdr, void *onstack,
 		      size_t resp_size);
@@ -71,23 +60,26 @@ void *_write_get_resp_ex(struct ibv_command_buffer *link,
 #define DECLARE_LEGACY_UHW_BUFS(_link, _enum)                                  \
 	IBV_ABI_REQ(_enum) __req_onstack;                                      \
 	IBV_KABI_RESP(_enum) __resp_onstack;                                   \
-	static_assert(offsetof(IBV_KABI_REQ(_enum), response) == 0,            \
-		      "Bad response offset");                                  \
-	IBV_KABI_REQ(_enum) *req = _write_get_req(_link, &__req_onstack.hdr,   \
-						  sizeof(*req), _enum);        \
+	IBV_KABI_REQ(_enum) *req =                                             \
+		_write_get_req(_link, &__req_onstack.hdr, sizeof(*req));       \
 	IBV_KABI_RESP(_enum) *resp = ({                                        \
-		void *_resp = _write_get_resp(_link, get_req_hdr(req),         \
-					      &__resp_onstack, sizeof(*resp)); \
+		void *_resp = _write_get_resp(                                 \
+			_link,                                                 \
+			&container_of(req, IBV_ABI_REQ(_enum), core_payload)   \
+				 ->hdr,                                        \
+			&__resp_onstack, sizeof(*resp));                       \
 		_resp;                                                         \
 	})
 
 #define DECLARE_LEGACY_UHW_BUFS_EX(_link, _enum)                               \
 	IBV_ABI_REQ(_enum) __req_onstack;                                      \
 	IBV_KABI_RESP(_enum) __resp_onstack;                                   \
-	IBV_KABI_REQ(_enum) *req = _write_get_req_ex(                          \
-		_link, &__req_onstack.hdr, sizeof(*req), _enum);               \
+	IBV_KABI_REQ(_enum) *req =                                             \
+		_write_get_req_ex(_link, &__req_onstack.hdr, sizeof(*req));    \
 	IBV_KABI_RESP(_enum) *resp = _write_get_resp_ex(                       \
-		_link, get_req_hdr_ex(req), &__resp_onstack, sizeof(*resp))
+		_link,                                                         \
+		&container_of(req, IBV_ABI_REQ(_enum), core_payload)->hdr,     \
+		&__resp_onstack, sizeof(*resp))
 
 /*
  * This macro is used to implement the compatibility command call wrappers.
@@ -98,7 +90,8 @@ void *_write_get_resp_ex(struct ibv_command_buffer *link,
 void _write_set_uhw(struct ibv_command_buffer *cmdb, const void *req,
 		    size_t core_req_size, size_t req_size, void *resp,
 		    size_t core_resp_size, size_t resp_size);
-#define DECLARE_CMD_BUFFER_COMPAT(_name, _object_id, _method_id)               \
+#define DECLARE_CMD_BUFFER_COMPAT(_name, _object_id, _method_id, cmd,          \
+				  cmd_size, resp, resp_size)                   \
 	DECLARE_COMMAND_BUFFER(_name, _object_id, _method_id, 2);              \
 	_write_set_uhw(_name, cmd, sizeof(*cmd), cmd_size, resp,               \
 		       sizeof(*resp), resp_size)
@@ -142,69 +135,110 @@ enum write_fallback _execute_ioctl_fallback(struct ibv_context *ctx,
 #define execute_ioctl_fallback(ctx, cmd_name, cmdb, ret)                       \
 	_execute_ioctl_fallback(ctx, _CMD_BIT(cmd_name), cmdb, ret)
 
-/* These helpers replace the raw write() and IBV_INIT_CMD macros */
-int _execute_write_raw(struct ibv_context *ctx, struct ib_uverbs_cmd_hdr *req,
-		       void *resp);
-
-/* For users of DECLARE_LEGACY_UHW_BUFS */
-#define execute_write_bufs(ctx, req, resp)                             \
-		_execute_write_raw(ctx, get_req_hdr(req), resp)
-
-int _execute_write_raw_ex(struct ibv_context *ctx, struct ex_hdr *req);
-
-/* For users of DECLARE_LEGACY_UHW_BUFS_EX */
-#define execute_write_bufs_ex(ctx, req)                                        \
-	_execute_write_raw_ex(ctx, get_req_hdr_ex(req))
-
-/* For users with no possible UHW bufs. */
-#define DECLARE_LEGACY_CORE_BUFS(_enum)                                        \
-	IBV_ABI_REQ(_enum) __req_onstack;                                      \
-	IBV_KABI_RESP(_enum) resp;                                             \
-	static_assert(offsetof(IBV_KABI_REQ(_enum), response) == 0,            \
-		      "Bad response offset");                                  \
-	IBV_KABI_REQ(_enum) *const req = ({                                    \
-		__req_onstack.hdr.command = _enum;                             \
-		__req_onstack.hdr.in_words = sizeof(__req_onstack) / 4;        \
-		__req_onstack.hdr.out_words = sizeof(resp) / 4;                \
-		&__req_onstack.core_payload;                                   \
-	})
-#define DECLARE_LEGACY_CORE_REQ(_enum)                                         \
-	IBV_ABI_REQ(_enum) __req_onstack;                                      \
-	static_assert(sizeof(IBV_KABI_RESP(_enum)) == 0,                       \
-		      "Method has a response!");                               \
-	IBV_KABI_REQ(_enum) *const req = ({                                    \
-		__req_onstack.hdr.command = _enum;                             \
-		__req_onstack.hdr.in_words = sizeof(__req_onstack) / 4;        \
-		__req_onstack.hdr.out_words = 0;                               \
-		&__req_onstack.core_payload;                                   \
+/*
+ * For write() only commands that have fixed core structures and may take uhw
+ * driver data. The last arguments are the same ones passed into the typical
+ * ibv_cmd_* function. execute_cmd_write deduces the length of the core
+ * structure based on the KABI struct linked to the enum op code.
+ */
+int _execute_cmd_write(struct ibv_context *ctx, unsigned int write_method,
+		       struct ib_uverbs_cmd_hdr *req, size_t core_req_size,
+		       size_t req_size, void *resp, size_t core_resp_size,
+		       size_t resp_size);
+#define execute_cmd_write(ctx, enum, cmd, cmd_size, resp, resp_size)           \
+	({                                                                     \
+		(cmd)->core_payload.response = ioctl_ptr_to_u64(resp);         \
+		_execute_cmd_write(                                            \
+			ctx, enum,                                             \
+			&(cmd)->hdr + check_type(cmd, IBV_ABI_REQ(enum) *),    \
+			sizeof(*(cmd)), cmd_size,                              \
+			resp + check_type(resp, IBV_KABI_RESP(enum) *),        \
+			sizeof(*(resp)), resp_size);                           \
 	})
 
-#define DECLARE_LEGACY_CORE_BUFS_EX(_enum)                                     \
-	IBV_ABI_REQ(_enum) __req_onstack;                                      \
-	IBV_KABI_RESP(_enum) resp;                                             \
-	IBV_KABI_REQ(_enum) *const req = ({                                    \
-		__req_onstack.hdr.hdr.command =                                \
-			IB_USER_VERBS_CMD_FLAG_EXTENDED | _enum;               \
-		__req_onstack.hdr.hdr.in_words =                               \
-			(sizeof(__req_onstack) - sizeof(struct ex_hdr)) / 8;   \
-		__req_onstack.hdr.hdr.out_words = sizeof(resp) / 8;            \
-		__req_onstack.hdr.ex_hdr.cmd_hdr_reserved = 0;                 \
-		__req_onstack.hdr.ex_hdr.provider_in_words = 0;                \
-		__req_onstack.hdr.ex_hdr.provider_out_words = 0;               \
-		__req_onstack.hdr.ex_hdr.response =                            \
-			(sizeof(resp) == 0) ? 0 : ioctl_ptr_to_u64(&resp);     \
-		&__req_onstack.core_payload;                                   \
+/* For write() commands that have no response */
+#define execute_cmd_write_req(ctx, enum, cmd, cmd_size)                        \
+	({                                                                     \
+		static_assert(sizeof(IBV_KABI_RESP(enum)) == 0,                \
+			      "Method has a response!");                       \
+		_execute_cmd_write(                                            \
+			ctx, enum,                                             \
+			&(cmd)->hdr + check_type(cmd, IBV_ABI_REQ(enum) *),    \
+			sizeof(*(cmd)), cmd_size, NULL, 0, 0);                 \
 	})
 
 /*
- * For users with no UHW bufs. To be used in conjunction with
- * DECLARE_LEGACY_CORE_BUFS. req points to the core payload (with headroom for
- * the header).
+ * Execute a write command that does not have a uhw component. The cmd_size
+ * and resp_size are the lengths of the core structure. This version is only
+ * needed if the core structure ends in a flex array, as the internal sizeof()
+ * in execute_cmd_write() will give the wrong size.
  */
-#define execute_write(ctx, req, resp)                                          \
-	_execute_write_raw(ctx, get_req_hdr(req), resp)
-#define execute_write_ex(ctx, req)                                             \
-	_execute_write_raw_ex(ctx, get_req_hdr_ex(req))
+#define execute_cmd_write_no_uhw(ctx, enum, cmd, cmd_size, resp, resp_size)    \
+	({                                                                     \
+		(cmd)->core_payload.response = ioctl_ptr_to_u64(resp);         \
+		_execute_cmd_write(                                            \
+			ctx, enum,                                             \
+			&(cmd)->hdr + check_type(cmd, IBV_ABI_REQ(enum) *),    \
+			cmd_size, cmd_size,                                    \
+			resp + check_type(resp, IBV_KABI_RESP(enum) *),        \
+			resp_size, resp_size);                                 \
+	})
+
+/*
+ * For users of DECLARE_LEGACY_UHW_BUFS, in this case the machinery has
+ * already stored the full req/resp length in the hdr.
+ */
+#define execute_write_bufs(ctx, enum, req, resp)                               \
+	({                                                                     \
+		IBV_ABI_REQ(enum) *_hdr =                                      \
+			container_of(req, IBV_ABI_REQ(enum), core_payload);    \
+		execute_cmd_write(ctx, enum, _hdr, _hdr->hdr.in_words * 4,     \
+				  resp, _hdr->hdr.out_words * 4);              \
+	})
+
+/*
+ * For write() commands that use the _ex protocol. _full allows the caller to
+ * specify all 4 sizes directly. This version is used when the core structs
+ * end in a flex array. The normal and req versions are similar to write() and
+ * deduce the length of the core struct from the enum.
+ */
+int _execute_cmd_write_ex(struct ibv_context *ctx, unsigned int write_method,
+			  struct ex_hdr *req, size_t core_req_size,
+			  size_t req_size, void *resp, size_t core_resp_size,
+			  size_t resp_size);
+#define execute_cmd_write_ex_full(ctx, enum, cmd, core_cmd_size, cmd_size,     \
+				  resp, core_resp_size, resp_size)             \
+	_execute_cmd_write_ex(                                                 \
+		ctx, enum, &(cmd)->hdr + check_type(cmd, IBV_ABI_REQ(enum) *), \
+		core_cmd_size, cmd_size,                                       \
+		resp + check_type(resp, IBV_KABI_RESP(enum) *),                \
+		core_resp_size, resp_size)
+#define execute_cmd_write_ex(ctx, enum, cmd, cmd_size, resp, resp_size)        \
+	execute_cmd_write_ex_full(ctx, enum, cmd, sizeof(*(cmd)), cmd_size,    \
+				  resp, sizeof(*(resp)), resp_size)
+#define execute_cmd_write_ex_req(ctx, enum, cmd, cmd_size)                     \
+	({                                                                     \
+		static_assert(sizeof(IBV_KABI_RESP(enum)) == 0,                \
+			      "Method has a response!");                       \
+		_execute_cmd_write_ex(                                         \
+			ctx, enum,                                             \
+			&(cmd)->hdr + check_type(cmd, IBV_ABI_REQ(enum) *),    \
+			sizeof(*(cmd)), cmd_size, NULL, 0, 0);                 \
+	})
+
+/* For users of DECLARE_LEGACY_UHW_BUFS_EX */
+#define execute_write_bufs_ex(ctx, enum, req, resp)                            \
+	({                                                                     \
+		IBV_ABI_REQ(enum) *_hdr =                                      \
+			container_of(req, IBV_ABI_REQ(enum), core_payload);    \
+		execute_cmd_write_ex(                                          \
+			ctx, enum, _hdr,                                       \
+			sizeof(*_hdr) +                                        \
+				_hdr->hdr.ex_hdr.provider_in_words * 8,        \
+			resp,                                                  \
+			sizeof(*(resp)) +                                      \
+				_hdr->hdr.ex_hdr.provider_out_words * 8);      \
+	})
 
 /*
  * These two macros are used only with execute_ioctl_fallback - they allow the
@@ -233,21 +267,17 @@ _execute_ioctl_only(struct ibv_context *context, struct ibv_command_buffer *cmd,
 	_execute_ioctl_only(ctx, cmdb, ret)
 
 #undef execute_write_bufs
-static inline int execute_write_bufs(struct ibv_context *ctx, void *req,
+static inline int execute_write_bufs(struct ibv_context *ctx,
+				     unsigned int write_command, void *req,
 				     void *resp)
 {
 	return ENOSYS;
 }
 
 #undef execute_write_bufs_ex
-static inline int execute_write_bufs_ex(struct ibv_context *ctx, void *req)
-{
-	return ENOSYS;
-}
-
-#undef execute_write
-static inline int execute_write(struct ibv_context *ctx, void *req,
-				void *resp)
+static inline int execute_write_bufs_ex(struct ibv_context *ctx,
+					unsigned int write_command, void *req,
+					void *resp)
 {
 	return ENOSYS;
 }

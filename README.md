@@ -52,13 +52,13 @@ only load from the system path.
 ### Debian Derived
 
 ```sh
-$ apt-get install build-essential cmake gcc libudev-dev libnl-3-dev libnl-route-3-dev ninja-build pkg-config valgrind
+$ apt-get install build-essential cmake gcc libudev-dev libnl-3-dev libnl-route-3-dev ninja-build pkg-config valgrind python3-dev cython3
 ```
 
 ### Fedora
 
 ```sh
-$ dnf install cmake gcc libnl3-devel libudev-devel pkgconfig valgrind-devel ninja-build
+$ dnf install cmake gcc libnl3-devel libudev-devel pkgconfig valgrind-devel ninja-build python3-devel python3-Cython
 ```
 
 NOTE: Fedora Core uses the name 'ninja-build' for the 'ninja' command.
@@ -66,7 +66,7 @@ NOTE: Fedora Core uses the name 'ninja-build' for the 'ninja' command.
 ### OpenSuSE
 
 ```sh
-$ zypper install cmake gcc libnl3-devel libudev-devel ninja pkg-config valgrind-devel
+$ zypper install cmake gcc libnl3-devel libudev-devel ninja pkg-config valgrind-devel python3-deve python3-Cython
 ```
 
 ## Building on CentOS 6/7

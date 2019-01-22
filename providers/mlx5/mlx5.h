@@ -185,6 +185,7 @@ enum mlx5_vendor_cap_flags {
 	MLX5_VENDOR_CAP_FLAGS_ENHANCED_MPW	= 1 << 2,
 	MLX5_VENDOR_CAP_FLAGS_CQE_128B_COMP	= 1 << 3,
 	MLX5_VENDOR_CAP_FLAGS_CQE_128B_PAD	= 1 << 4,
+	MLX5_VENDOR_CAP_FLAGS_PACKET_BASED_CREDIT_MODE	= 1 << 5,
 };
 
 enum {
@@ -724,6 +725,8 @@ static inline struct mlx5_flow *to_mflow(struct ibv_flow *flow_id)
 	return container_of(flow_id, struct mlx5_flow, flow_id);
 }
 
+bool is_mlx5_dev(struct ibv_device *device);
+
 int mlx5_alloc_buf(struct mlx5_buf *buf, size_t size, int page_size);
 void mlx5_free_buf(struct mlx5_buf *buf);
 int mlx5_alloc_buf_contig(struct mlx5_context *mctx, struct mlx5_buf *buf,
@@ -904,7 +907,11 @@ int mlx5_read_counters(struct ibv_counters *counters,
 		       uint64_t *counters_value,
 		       uint32_t ncounters,
 		       uint32_t flags);
-
+int mlx5_advise_mr(struct ibv_pd *pd,
+		   enum ibv_advise_mr_advice advice,
+		   uint32_t flags,
+		   struct ibv_sge *sg_list,
+		   uint32_t num_sges);
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {
 	int tind = uidx >> MLX5_UIDX_TABLE_SHIFT;
