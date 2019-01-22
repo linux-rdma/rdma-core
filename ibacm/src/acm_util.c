@@ -216,7 +216,8 @@ static void acm_if_iter(struct nl_object *obj, void *_ctx_and_cb)
 		be64toh(sgid.global.interface_id));
 
 	memcpy(&bin_addr, nl_addr_get_binary_addr(a), addr_len);
-	ctx_cb->cb(rtnl_link_get_name(link), &sgid, pkey, af2acm_addr_type(af), bin_addr, ip_str, ctx_cb->ctx);
+	ctx_cb->cb(label ? label : rtnl_link_get_name(link),
+		   &sgid, pkey, af2acm_addr_type(af), bin_addr, ip_str, ctx_cb->ctx);
 }
 
 
