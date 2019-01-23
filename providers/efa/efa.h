@@ -153,4 +153,6 @@ static inline struct efa_ah *to_efa_ah(struct ibv_ah *ibvah)
 	return container_of(ibvah, struct efa_ah, ibvah);
 }
 
+bool is_efa_dev(struct ibv_device *device);
+
 #endif /* __EFA_H__ */

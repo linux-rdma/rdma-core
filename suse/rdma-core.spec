@@ -29,12 +29,14 @@ Summary:        RDMA core userspace libraries and daemons
 License:        GPL-2.0-only OR BSD-2-Clause
 Group:          Productivity/Networking/Other
 
+%define efa_so_major    1
 %define verbs_so_major  1
 %define rdmacm_so_major 1
 %define umad_so_major   3
 %define mlx4_so_major   1
 %define mlx5_so_major   1
 
+%define  efa_lname    libefa-%{efa_so_major}
 %define  verbs_lname  libibverbs%{verbs_so_major}
 %define  rdmacm_lname librdmacm%{rdmacm_so_major}
 %define  umad_lname   libibumad%{umad_so_major}
@@ -135,6 +137,7 @@ Requires:       %{rdmacm_lname} = %{version}-%{release}
 Requires:       %{umad_lname} = %{version}-%{release}
 Requires:       %{verbs_lname} = %{version}-%{release}
 %if 0%{?dma_coherent}
+Requires:       %{efa_lname} = %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
 %endif
@@ -179,6 +182,7 @@ Obsoletes:      libnes-rdmav2 < %{version}-%{release}
 Obsoletes:      libocrdma-rdmav2 < %{version}-%{release}
 Obsoletes:      librxe-rdmav2 < %{version}-%{release}
 %if 0%{?dma_coherent}
+Requires:       %{efa_lname} = %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
 %endif
@@ -218,6 +222,13 @@ Requires:       libibverbs = %{version}
 
 %description -n %verbs_lname
 This package contains the ibverbs runtime library.
+
+%package -n %efa_lname
+Summary:        EFA runtime library
+Group:          System/Libraries
+
+%description -n %efa_lname
+This package contains the efa runtime library.
 
 %package -n %mlx4_lname
 Summary:        MLX4 runtime library
@@ -432,6 +443,9 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %post -n %verbs_lname -p /sbin/ldconfig
 %postun -n %verbs_lname -p /sbin/ldconfig
 
+%post -n %efa_lname -p /sbin/ldconfig
+%postun -n %efa_lname -p /sbin/ldconfig
+
 %post -n %mlx4_lname -p /sbin/ldconfig
 %postun -n %mlx4_lname -p /sbin/ldconfig
 
@@ -597,6 +611,10 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_libdir}/libibverbs*.so.*
 
 %if 0%{?dma_coherent}
+%files -n %efa_lname
+%defattr(-,root,root)
+%{_libdir}/libefa*.so.*
+
 %files -n %mlx4_lname
 %defattr(-,root,root)
 %{_libdir}/libmlx4*.so.*

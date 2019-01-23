@@ -20,6 +20,7 @@
 #include <util/util.h>
 
 #include "efa.h"
+#include "efadv.h"
 #include "verbs.h"
 
 int efa_query_device(struct ibv_context *ibvctx,
@@ -748,6 +749,17 @@ struct ibv_qp *efa_create_qp(struct ibv_pd *ibvpd,
 		return NULL;
 
 	return create_qp(ibvpd, attr, 0);
+}
+
+struct ibv_qp *efadv_create_driver_qp(struct ibv_pd *ibvpd,
+				      struct ibv_qp_init_attr *attr,
+				      uint32_t driver_qp_type)
+{
+	if (!is_efa_dev(ibvpd->context->device) ||
+	    attr->qp_type != IBV_QPT_DRIVER)
+		return NULL;
+
+	return create_qp(ibvpd, attr, driver_qp_type);
 }
 
 int efa_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,

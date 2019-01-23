@@ -126,4 +126,11 @@ static const struct verbs_device_ops efa_dev_ops = {
 	.alloc_context = efa_alloc_context,
 	.free_context = efa_free_context,
 };
+
+bool is_efa_dev(struct ibv_device *device)
+{
+	struct verbs_device *verbs_device = verbs_get_device(device);
+
+	return verbs_device->ops == &efa_dev_ops;
+}
 PROVIDER_DRIVER(efa, efa_dev_ops);
