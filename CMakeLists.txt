@@ -584,6 +584,7 @@ add_subdirectory(providers/bnxt_re)
 add_subdirectory(providers/cxgb3) # NO SPARSE
 add_subdirectory(providers/cxgb4) # NO SPARSE
 add_subdirectory(providers/efa)
+add_subdirectory(providers/efa/man)
 add_subdirectory(providers/hns)
 add_subdirectory(providers/i40iw) # NO SPARSE
 add_subdirectory(providers/mlx4)

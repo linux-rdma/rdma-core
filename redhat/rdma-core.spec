@@ -399,6 +399,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %endif
 %{_libdir}/lib*.so
 %{_libdir}/pkgconfig/*.pc
+%{_mandir}/man3/efadv*
 %{_mandir}/man3/ibv_*
 %{_mandir}/man3/rdma*
 %{_mandir}/man3/umad*
@@ -406,6 +407,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_mandir}/man7/rdma_cm.*
 %{_mandir}/man3/mlx5dv*
 %{_mandir}/man3/mlx4dv*
+%{_mandir}/man7/efadv*
 %{_mandir}/man7/mlx5dv*
 %{_mandir}/man7/mlx4dv*
 
