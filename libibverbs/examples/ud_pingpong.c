@@ -593,7 +593,7 @@ int main(int argc, char *argv[])
 			{}
 		};
 
-		c = getopt_long(argc, argv, "p:d:i:s:r:n:l:eg:c:", long_options,
+		c = getopt_long(argc, argv, "p:d:i:s:r:n:l:eg:c", long_options,
 				NULL);
 		if (c == -1)
 			break;
@@ -747,7 +747,7 @@ int main(int argc, char *argv[])
 	if (servername) {
 		if (validate_buf)
 			for (int i = 0; i < size; i += page_size)
-				ctx->buf[i] = i / page_size % sizeof(char);
+				ctx->buf[i + 40] = i / page_size % sizeof(char);
 
 		if (pp_post_send(ctx, rem_dest->qpn)) {
 			fprintf(stderr, "Couldn't post send\n");
@@ -860,7 +860,8 @@ int main(int argc, char *argv[])
 
 		if ((!servername) && (validate_buf)) {
 			for (int i = 0; i < size; i += page_size)
-				if (ctx->buf[i] != i / page_size % sizeof(char))
+				if (ctx->buf[i + 40] !=
+				    i / page_size % sizeof(char))
 					printf("invalid data in page %d\n",
 					       i / page_size);
 		}
