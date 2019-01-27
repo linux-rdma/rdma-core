@@ -503,6 +503,7 @@ enum mlx5_qp_flags {
 struct mlx5_qp {
 	struct mlx5_resource            rsc; /* This struct must be first */
 	struct verbs_qp			verbs_qp;
+	struct mlx5dv_qp_ex		dv_qp;
 	struct ibv_qp		       *ibv_qp;
 	struct mlx5_buf                 buf;
 	int                             max_inline_data;
@@ -688,6 +689,11 @@ static inline struct mlx5_qp *to_mqp(struct ibv_qp *ibqp)
 	struct verbs_qp *vqp = (struct verbs_qp *)ibqp;
 
 	return container_of(vqp, struct mlx5_qp, verbs_qp);
+}
+
+static inline struct mlx5_qp *mqp_from_mlx5dv_qp_ex(struct mlx5dv_qp_ex *dv_qp)
+{
+	return container_of(dv_qp, struct mlx5_qp, dv_qp);
 }
 
 static inline struct mlx5_rwq *to_mrwq(struct ibv_wq *ibwq)
@@ -930,7 +936,8 @@ int mlx5_advise_mr(struct ibv_pd *pd,
 		   struct ibv_sge *sg_list,
 		   uint32_t num_sges);
 int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
-			 const struct ibv_qp_init_attr_ex *attr);
+			 const struct ibv_qp_init_attr_ex *attr,
+			 const struct mlx5dv_qp_init_attr *mlx5_attr);
 
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {

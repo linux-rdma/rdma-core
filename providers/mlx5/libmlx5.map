@@ -80,3 +80,8 @@ MLX5_1.9 {
 		mlx5dv_devx_get_async_cmd_comp;
 		mlx5dv_devx_obj_query_async;
 } MLX5_1.8;
+
+MLX5_1.10 {
+	global:
+		mlx5dv_qp_ex_from_ibv_qp_ex;
+} MLX5_1.9;

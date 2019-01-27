@@ -1168,7 +1168,7 @@ int mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 }
 
 enum {
-	WQE_REQ_SETTERS_UD_XRC = 2,
+	WQE_REQ_SETTERS_UD_XRC_DC = 2,
 };
 
 static void mlx5_send_wr_start(struct ibv_qp_ex *ibqp)
@@ -1296,14 +1296,15 @@ static inline void _mlx5_send_wr_send(struct ibv_qp_ex *ibqp,
 
 	_common_wqe_init(ibqp, ib_op);
 
-	if (ibqp->qp_base.qp_type == IBV_QPT_UD)
+	if (ibqp->qp_base.qp_type == IBV_QPT_UD ||
+	    ibqp->qp_base.qp_type == IBV_QPT_DRIVER)
 		transport_seg_sz = sizeof(struct mlx5_wqe_datagram_seg);
 	else if (ibqp->qp_base.qp_type == IBV_QPT_XRC_SEND)
 		transport_seg_sz = sizeof(struct mlx5_wqe_xrc_seg);
 
 	mqp->cur_data = (void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg) +
 			transport_seg_sz;
-	/* In UD, cur_data may overrun the SQ */
+	/* In UD/DC cur_data may overrun the SQ */
 	if (unlikely(mqp->cur_data == mqp->sq.qend))
 		mqp->cur_data = mlx5_get_send_wqe(mqp, 0);
 
@@ -1435,11 +1436,16 @@ static inline void _mlx5_send_wr_rdma(struct ibv_qp_ex *ibqp,
 
 	_common_wqe_init(ibqp, ib_op);
 
-	if (ibqp->qp_base.qp_type == IBV_QPT_XRC_SEND)
+	if (ibqp->qp_base.qp_type == IBV_QPT_DRIVER)
+		transport_seg_sz = sizeof(struct mlx5_wqe_datagram_seg);
+	else if (ibqp->qp_base.qp_type == IBV_QPT_XRC_SEND)
 		transport_seg_sz = sizeof(struct mlx5_wqe_xrc_seg);
 
 	raddr_seg = (void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg) +
 		    transport_seg_sz;
+	/* In DC raddr_seg may overrun the SQ */
+	if (unlikely(raddr_seg == mqp->sq.qend))
+		raddr_seg = mlx5_get_send_wqe(mqp, 0);
 
 	set_raddr_seg(raddr_seg, remote_addr, rkey);
 
@@ -1490,11 +1496,16 @@ static inline void _mlx5_send_wr_atomic(struct ibv_qp_ex *ibqp, uint32_t rkey,
 
 	_common_wqe_init(ibqp, ib_op);
 
-	if (ibqp->qp_base.qp_type == IBV_QPT_XRC_SEND)
+	if (ibqp->qp_base.qp_type == IBV_QPT_DRIVER)
+		transport_seg_sz = sizeof(struct mlx5_wqe_datagram_seg);
+	else if (ibqp->qp_base.qp_type == IBV_QPT_XRC_SEND)
 		transport_seg_sz = sizeof(struct mlx5_wqe_xrc_seg);
 
 	raddr_seg = (void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg) +
 		    transport_seg_sz;
+	/* In DC raddr_seg may overrun the SQ */
+	if (unlikely(raddr_seg == mqp->sq.qend))
+		raddr_seg = mlx5_get_send_wqe(mqp, 0);
 
 	set_raddr_seg(raddr_seg, remote_addr, rkey);
 
@@ -1608,14 +1619,14 @@ mlx5_send_wr_set_sge_rc_uc(struct ibv_qp_ex *ibqp, uint32_t lkey,
 }
 
 static void
-mlx5_send_wr_set_sge_ud_xrc(struct ibv_qp_ex *ibqp, uint32_t lkey,
-			    uint64_t addr, uint32_t length)
+mlx5_send_wr_set_sge_ud_xrc_dc(struct ibv_qp_ex *ibqp, uint32_t lkey,
+			       uint64_t addr, uint32_t length)
 {
 	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
 
 	_mlx5_send_wr_set_sge(mqp, lkey, addr, length);
 
-	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC - 1)
+	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC_DC - 1)
 		_common_wqe_finilize(mqp);
 	else
 		mqp->cur_setters_cnt++;
@@ -1696,14 +1707,14 @@ mlx5_send_wr_set_sge_list_rc_uc(struct ibv_qp_ex *ibqp, size_t num_sge,
 }
 
 static void
-mlx5_send_wr_set_sge_list_ud_xrc(struct ibv_qp_ex *ibqp, size_t num_sge,
-				 const struct ibv_sge *sg_list)
+mlx5_send_wr_set_sge_list_ud_xrc_dc(struct ibv_qp_ex *ibqp, size_t num_sge,
+				    const struct ibv_sge *sg_list)
 {
 	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
 
 	_mlx5_send_wr_set_sge_list(mqp, num_sge, sg_list);
 
-	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC - 1)
+	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC_DC - 1)
 		_common_wqe_finilize(mqp);
 	else
 		mqp->cur_setters_cnt++;
@@ -1833,14 +1844,14 @@ mlx5_send_wr_set_inline_data_rc_uc(struct ibv_qp_ex *ibqp, void *addr,
 }
 
 static void
-mlx5_send_wr_set_inline_data_ud_xrc(struct ibv_qp_ex *ibqp, void *addr,
-				    size_t length)
+mlx5_send_wr_set_inline_data_ud_xrc_dc(struct ibv_qp_ex *ibqp, void *addr,
+				       size_t length)
 {
 	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
 
 	_mlx5_send_wr_set_inline_data(mqp, addr, length);
 
-	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC - 1)
+	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC_DC - 1)
 		_common_wqe_finilize(mqp);
 	else
 		mqp->cur_setters_cnt++;
@@ -1927,15 +1938,15 @@ mlx5_send_wr_set_inline_data_list_rc_uc(struct ibv_qp_ex *ibqp,
 }
 
 static void
-mlx5_send_wr_set_inline_data_list_ud_xrc(struct ibv_qp_ex *ibqp,
-					 size_t num_buf,
-					 const struct ibv_data_buf *buf_list)
+mlx5_send_wr_set_inline_data_list_ud_xrc_dc(struct ibv_qp_ex *ibqp,
+					    size_t num_buf,
+					    const struct ibv_data_buf *buf_list)
 {
 	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
 
 	_mlx5_send_wr_set_inline_data_list(mqp, num_buf, buf_list);
 
-	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC - 1)
+	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC_DC - 1)
 		_common_wqe_finilize(mqp);
 	else
 		mqp->cur_setters_cnt++;
@@ -2012,7 +2023,7 @@ mlx5_send_wr_set_ud_addr(struct ibv_qp_ex *ibqp, struct ibv_ah *ah,
 
 	_set_datagram_seg(dseg, &mah->av, remote_qpn, remote_qkey);
 
-	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC - 1)
+	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC_DC - 1)
 		_common_wqe_finilize(mqp);
 	else
 		mqp->cur_setters_cnt++;
@@ -2027,7 +2038,27 @@ mlx5_send_wr_set_xrc_srqn(struct ibv_qp_ex *ibqp, uint32_t remote_srqn)
 
 	xrc_seg->xrc_srqn = htobe32(remote_srqn);
 
-	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC - 1)
+	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC_DC - 1)
+		_common_wqe_finilize(mqp);
+	else
+		mqp->cur_setters_cnt++;
+}
+
+static void mlx5_send_wr_set_dc_addr(struct mlx5dv_qp_ex *dv_qp,
+				     struct ibv_ah *ah,
+				     uint32_t remote_dctn,
+				     uint64_t remote_dc_key)
+{
+	struct mlx5_qp *mqp = mqp_from_mlx5dv_qp_ex(dv_qp);
+	struct mlx5_wqe_datagram_seg *dseg =
+		(void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg);
+	struct mlx5_ah *mah = to_mah(ah);
+
+	memcpy(&dseg->av, &mah->av, sizeof(dseg->av));
+	dseg->av.dqp_dct |= htobe32(remote_dctn | MLX5_EXTENDED_UD_AV);
+	dseg->av.key.dc_key = htobe64(remote_dc_key);
+
+	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC_DC - 1)
 		_common_wqe_finilize(mqp);
 	else
 		mqp->cur_setters_cnt++;
@@ -2047,6 +2078,8 @@ enum {
 		IBV_QP_EX_WITH_BIND_MW,
 	MLX5_SUPPORTED_SEND_OPS_FLAGS_XRC =
 		MLX5_SUPPORTED_SEND_OPS_FLAGS_RC,
+	MLX5_SUPPORTED_SEND_OPS_FLAGS_DCI =
+		MLX5_SUPPORTED_SEND_OPS_FLAGS_RC,
 	MLX5_SUPPORTED_SEND_OPS_FLAGS_UD =
 		IBV_QP_EX_WITH_SEND |
 		IBV_QP_EX_WITH_SEND_WITH_IMM,
@@ -2063,7 +2096,7 @@ enum {
 		IBV_QP_EX_WITH_TSO,
 };
 
-static void fill_wr_builders_rc_xrc(struct ibv_qp_ex *ibqp)
+static void fill_wr_builders_rc_xrc_dc(struct ibv_qp_ex *ibqp)
 {
 	ibqp->wr_send = mlx5_send_wr_send_other;
 	ibqp->wr_send_imm = mlx5_send_wr_send_imm;
@@ -2108,12 +2141,12 @@ static void fill_wr_setters_rc_uc(struct ibv_qp_ex *ibqp)
 	ibqp->wr_set_inline_data_list = mlx5_send_wr_set_inline_data_list_rc_uc;
 }
 
-static void fill_wr_setters_ud_xrc(struct ibv_qp_ex *ibqp)
+static void fill_wr_setters_ud_xrc_dc(struct ibv_qp_ex *ibqp)
 {
-	ibqp->wr_set_sge = mlx5_send_wr_set_sge_ud_xrc;
-	ibqp->wr_set_sge_list = mlx5_send_wr_set_sge_list_ud_xrc;
-	ibqp->wr_set_inline_data = mlx5_send_wr_set_inline_data_ud_xrc;
-	ibqp->wr_set_inline_data_list = mlx5_send_wr_set_inline_data_list_ud_xrc;
+	ibqp->wr_set_sge = mlx5_send_wr_set_sge_ud_xrc_dc;
+	ibqp->wr_set_sge_list = mlx5_send_wr_set_sge_list_ud_xrc_dc;
+	ibqp->wr_set_inline_data = mlx5_send_wr_set_inline_data_ud_xrc_dc;
+	ibqp->wr_set_inline_data_list = mlx5_send_wr_set_inline_data_list_ud_xrc_dc;
 }
 
 static void fill_wr_setters_eth(struct ibv_qp_ex *ibqp)
@@ -2125,10 +2158,12 @@ static void fill_wr_setters_eth(struct ibv_qp_ex *ibqp)
 }
 
 int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
-			 const struct ibv_qp_init_attr_ex *attr)
+			 const struct ibv_qp_init_attr_ex *attr,
+			 const struct mlx5dv_qp_init_attr *mlx5_attr)
 {
 	struct ibv_qp_ex *ibqp = &mqp->verbs_qp.qp_ex;
 	uint64_t ops = attr->send_ops_flags;
+	struct mlx5dv_qp_ex *dv_qp;
 
 	ibqp->wr_start = mlx5_send_wr_start;
 	ibqp->wr_complete = mlx5_send_wr_complete;
@@ -2145,7 +2180,7 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_RC)
 			return EOPNOTSUPP;
 
-		fill_wr_builders_rc_xrc(ibqp);
+		fill_wr_builders_rc_xrc_dc(ibqp);
 		fill_wr_setters_rc_uc(ibqp);
 		break;
 
@@ -2161,8 +2196,8 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_XRC)
 			return EOPNOTSUPP;
 
-		fill_wr_builders_rc_xrc(ibqp);
-		fill_wr_setters_ud_xrc(ibqp);
+		fill_wr_builders_rc_xrc_dc(ibqp);
+		fill_wr_setters_ud_xrc_dc(ibqp);
 		ibqp->wr_set_xrc_srqn = mlx5_send_wr_set_xrc_srqn;
 		break;
 
@@ -2174,7 +2209,7 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 			return EOPNOTSUPP;
 
 		fill_wr_builders_ud(ibqp);
-		fill_wr_setters_ud_xrc(ibqp);
+		fill_wr_setters_ud_xrc_dc(ibqp);
 		ibqp->wr_set_ud_addr = mlx5_send_wr_set_ud_addr;
 		break;
 
@@ -2184,6 +2219,21 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 
 		fill_wr_builders_eth(ibqp);
 		fill_wr_setters_eth(ibqp);
+		break;
+
+	case IBV_QPT_DRIVER:
+		dv_qp = &mqp->dv_qp;
+
+		if (!(mlx5_attr->comp_mask & MLX5DV_QP_INIT_ATTR_MASK_DC &&
+		      mlx5_attr->dc_init_attr.dc_type == MLX5DV_DCTYPE_DCI))
+			return EOPNOTSUPP;
+
+		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_DCI)
+			return EOPNOTSUPP;
+
+		fill_wr_builders_rc_xrc_dc(ibqp);
+		fill_wr_setters_ud_xrc_dc(ibqp);
+		dv_qp->wr_set_dc_addr = mlx5_send_wr_set_dc_addr;
 		break;
 
 	default:

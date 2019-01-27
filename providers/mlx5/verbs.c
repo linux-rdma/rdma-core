@@ -1913,7 +1913,17 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		qp->atomics_enabled = 1;
 
 	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS) {
-		ret = mlx5_qp_fill_wr_pfns(qp, attr);
+		/*
+		 * Scatter2cqe, which is a data-path optimization, is disabled
+		 * since driver DC data-path doesn't support it.
+		 */
+		if (mlx5_qp_attr &&
+		    mlx5_qp_attr->comp_mask & MLX5DV_QP_INIT_ATTR_MASK_DC) {
+			mlx5_create_flags &= ~MLX5_QP_FLAG_SCATTER_CQE;
+			scatter_to_cqe_configured = true;
+		}
+
+		ret = mlx5_qp_fill_wr_pfns(qp, attr, mlx5_qp_attr);
 		if (ret) {
 			errno = ret;
 			mlx5_dbg(fp, MLX5_DBG_QP, "Failed to handle operations flags (errno %d)\n", errno);
@@ -2587,6 +2597,11 @@ struct ibv_qp *mlx5dv_create_qp(struct ibv_context *context,
 	}
 
 	return create_qp(context, qp_attr, mlx5_qp_attr);
+}
+
+struct mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(struct ibv_qp_ex *qp)
+{
+	return &(container_of(qp, struct mlx5_qp, verbs_qp.qp_ex))->dv_qp;
 }
 
 int mlx5_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
