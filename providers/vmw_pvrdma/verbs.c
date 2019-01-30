@@ -190,7 +190,6 @@ struct ibv_ah *pvrdma_create_ah(struct ibv_pd *pd,
 	struct pvrdma_ah *ah;
 	struct pvrdma_av *av;
 	struct ibv_port_attr port_attr;
-	uint16_t vlan_id;
 
 	if (!attr->is_global)
 		return NULL;
@@ -224,7 +223,7 @@ struct ibv_ah *pvrdma_create_ah(struct ibv_pd *pd,
 
 	if (port_attr.port_cap_flags & IBV_PORT_IP_BASED_GIDS) {
 		if (!ibv_resolve_eth_l2_from_gid(pd->context, attr,
-						 av->dmac, &vlan_id))
+						 av->dmac, NULL))
 			return &ah->ibv_ah;
 	} else {
 		if (!set_mac_from_gid(&attr->grh.dgid, av->dmac))
