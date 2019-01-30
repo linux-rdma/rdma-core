@@ -15,6 +15,8 @@ mlx5dv_devx_obj_modify -   Modifies a devx object
 
 mlx5dv_devx_obj_query -    Queries a devx object
 
+mlx5dv_devx_obj_query_async - Queries a devx object in an asynchronous mode
+
 mlx5dv_devx_general_cmd  - Issues a general command over the devx interface
 
 # SYNOPSIS
@@ -27,6 +29,10 @@ mlx5dv_devx_obj_create(struct ibv_context *context, const void *in, size_t inlen
 		       void *out, size_t outlen);
 int mlx5dv_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
 			  void *out, size_t outlen);
+int mlx5dv_devx_obj_query_async(struct mlx5dv_devx_obj *obj, const void *in,
+				size_t inlen, size_t outlen,
+				uint64_t wr_id,
+				struct mlx5dv_devx_cmd_comp *cmd_comp);
 int mlx5dv_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
 			   void *out, size_t outlen);
 int mlx5dv_devx_obj_destroy(struct mlx5dv_devx_obj *obj);
@@ -55,6 +61,13 @@ need to match the device specification as well.
 
 The mlx5dv_devx_general_cmd() API enables issuing some general command which is
 not related to an object such as query device capabilities.
+
+The mlx5dv_devx_obj_query_async() API is similar to the query object API,
+however, it runs asynchronously without blocking. The input includes an
+mlx5dv_devx_cmd_comp object and an identifier named 'wr_id' for this command.
+The response should be read upon success with the mlx5dv_devx_get_async_cmd_comp() API.
+The 'wr_id' that was supplied as an input is returned as part of  the response
+to let application knows for which command the response is related to.
 
 An application can gradually migrate to use DEVX according to its needs, it is
 not all or nothing.  For example it can create an ibv_cq via ibv_create_cq()
@@ -92,6 +105,12 @@ created, this is done by the mlx5dv_open_device() API with the
 *obj*
 :	For query, modify, destroy: the devx object to work on.
 
+*wr_id*
+:	The command identifier when working in asynchronous mode.
+
+*cmd_comp*
+:	The command completion object to read the response from in asynchronous mode.
+
 # RETURN VALUE
 
 Upon success *mlx5dv_devx_create_obj* will return a new *struct
@@ -101,8 +120,8 @@ Upon success query, modify, destroy, general commands, 0 is returned or the valu
 
 # SEE ALSO
 
-**mlx5dv_open_device**
+**mlx5dv_open_device**, **mlx5dv_devx_create_cmd_comp**, **mlx5dv_devx_get_async_cmd_comp**
 
-AUTHOR
+#AUTHOR
 
 Yishai Hadas  <yishaih@mellanox.com>

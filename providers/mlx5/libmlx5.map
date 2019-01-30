@@ -72,3 +72,11 @@ MLX5_1.8 {
 		mlx5dv_devx_wq_query;
 		mlx5dv_is_supported;
 } MLX5_1.7;
+
+MLX5_1.9 {
+	global:
+		mlx5dv_devx_create_cmd_comp;
+		mlx5dv_devx_destroy_cmd_comp;
+		mlx5dv_devx_get_async_cmd_comp;
+		mlx5dv_devx_obj_query_async;
+} MLX5_1.8;

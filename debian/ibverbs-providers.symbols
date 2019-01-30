@@ -16,6 +16,7 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  MLX5_1.6@MLX5_1.6 20
  MLX5_1.7@MLX5_1.7 21
  MLX5_1.8@MLX5_1.8 22
+ MLX5_1.9@MLX5_1.9 23
  mlx5dv_init_obj@MLX5_1.0 13
  mlx5dv_init_obj@MLX5_1.2 15
  mlx5dv_query_device@MLX5_1.0 13
@@ -52,3 +53,7 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_devx_wq_modify@MLX5_1.8 22
  mlx5dv_devx_wq_query@MLX5_1.8 22
  mlx5dv_is_supported@MLX5_1.8 22
+ mlx5dv_devx_create_cmd_comp@MLX5_1.9 23
+ mlx5dv_devx_destroy_cmd_comp@MLX5_1.9 23
+ mlx5dv_devx_get_async_cmd_comp@MLX5_1.9 23
+ mlx5dv_devx_obj_query_async@MLX5_1.9 23

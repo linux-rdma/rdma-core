@@ -4287,3 +4287,79 @@ int mlx5dv_devx_ind_tbl_modify(struct ibv_rwq_ind_table *ind_tbl, const void *in
 
 	return execute_ioctl(ind_tbl->context, cmd);
 }
+
+struct mlx5dv_devx_cmd_comp *
+mlx5dv_devx_create_cmd_comp(struct ibv_context *context)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_ASYNC_CMD_FD,
+			       MLX5_IB_METHOD_DEVX_ASYNC_CMD_FD_ALLOC,
+			       1);
+	struct ib_uverbs_attr *handle;
+	struct mlx5dv_devx_cmd_comp *cmd_comp;
+	int ret;
+
+	cmd_comp = calloc(1, sizeof(*cmd_comp));
+	if (!cmd_comp) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	handle = fill_attr_out_fd(cmd,
+				  MLX5_IB_ATTR_DEVX_ASYNC_CMD_FD_ALLOC_HANDLE,
+				  0);
+
+	ret = execute_ioctl(context, cmd);
+	if (ret)
+		goto err;
+
+	cmd_comp->fd = read_attr_fd(
+		MLX5_IB_ATTR_DEVX_ASYNC_CMD_FD_ALLOC_HANDLE, handle);
+	return cmd_comp;
+err:
+	free(cmd_comp);
+	return NULL;
+}
+
+void mlx5dv_devx_destroy_cmd_comp(
+			struct mlx5dv_devx_cmd_comp *cmd_comp)
+{
+	close(cmd_comp->fd);
+	free(cmd_comp);
+}
+
+int mlx5dv_devx_obj_query_async(struct mlx5dv_devx_obj *obj, const void *in,
+				size_t inlen, size_t outlen,
+				uint64_t wr_id,
+				struct mlx5dv_devx_cmd_comp *cmd_comp)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_OBJ,
+			       MLX5_IB_METHOD_DEVX_OBJ_ASYNC_QUERY,
+			       5);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_ASYNC_HANDLE, obj->handle);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_ASYNC_CMD_IN, in, inlen);
+	fill_attr_const_in(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_ASYNC_OUT_LEN, outlen);
+	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_ASYNC_WR_ID, wr_id);
+	fill_attr_in_fd(cmd, MLX5_IB_ATTR_DEVX_OBJ_QUERY_ASYNC_FD, cmd_comp->fd);
+
+	return execute_ioctl(obj->context, cmd);
+}
+
+int mlx5dv_devx_get_async_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp,
+				   struct mlx5dv_devx_async_cmd_hdr *cmd_resp,
+				   size_t cmd_resp_len)
+{
+	ssize_t bytes;
+
+	bytes = read(cmd_comp->fd, cmd_resp, cmd_resp_len);
+	if (bytes < 0)
+		return errno;
+
+	if (bytes < sizeof(*cmd_resp))
+		return EINVAL;
+
+	return 0;
+}
+
