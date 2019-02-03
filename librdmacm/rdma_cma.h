@@ -442,6 +442,24 @@ void rdma_destroy_qp(struct rdma_cm_id *id);
 int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param);
 
 /**
+ * rdma_establish - Complete an active connection request.
+ * @id: RDMA identifier.
+ * Description:
+ *   Acknowledge an incoming connection response event and complete the
+ *   connection establishment.
+ * Notes:
+ *   If a QP has not been created on the rdma_cm_id, this function should be
+ *   called by the active side to complete the connection, after getting connect
+ *   response event. This will trigger a connection established event on the
+ *   passive side.
+ *   This function should not be used on an rdma_cm_id on which a QP has been
+ *   created.
+ * See also:
+ *   rdma_connect, rdma_disconnect, rdma_get_cm_event
+ */
+int rdma_establish(struct rdma_cm_id *id);
+
+/**
  * rdma_listen - Listen for incoming connection requests.
  * @id: RDMA identifier.
  * @backlog: backlog of incoming connection requests.
@@ -721,6 +739,16 @@ int rdma_getaddrinfo(const char *node, const char *service,
 
 void rdma_freeaddrinfo(struct rdma_addrinfo *res);
 
+/**
+ * rdma_init_qp_attr - Returns QP attributes.
+ * @id: Communication identifier.
+ * @qp_attr: A reference to a QP attributes struct containing
+ * response information.
+ * @qp_attr_mask: A reference to a QP attributes mask containing
+ * response information.
+ */
+int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
+		      int *qp_attr_mask);
 #ifdef __cplusplus
 }
 #endif

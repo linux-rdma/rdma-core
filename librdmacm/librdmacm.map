@@ -76,3 +76,9 @@ RDMACM_1.1 {
 	global:
 		rdma_join_multicast_ex;
 } RDMACM_1.0;
+
+RDMACM_1.2 {
+	global:
+		rdma_establish;
+		rdma_init_qp_attr;
+} RDMACM_1.1;

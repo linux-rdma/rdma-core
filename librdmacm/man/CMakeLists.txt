@@ -20,6 +20,7 @@ rdma_man_pages(
   rdma_destroy_qp.3
   rdma_destroy_srq.3
   rdma_disconnect.3
+  rdma_establish.3.md
   rdma_event_str.3
   rdma_free_devices.3
   rdma_get_cm_event.3
@@ -32,6 +33,7 @@ rdma_man_pages(
   rdma_get_send_comp.3
   rdma_get_src_port.3
   rdma_getaddrinfo.3
+  rdma_init_qp_attr.3.md
   rdma_join_multicast.3
   rdma_join_multicast_ex.3
   rdma_leave_multicast.3
