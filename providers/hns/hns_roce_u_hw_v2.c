@@ -1134,7 +1134,7 @@ static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 	if (qp->rq.max_gs)
 		hns_roce_free_db(to_hr_ctx(ibqp->context), qp->rdb,
 				 HNS_ROCE_QP_TYPE_DB);
-	if (qp->sq.max_gs)
+	if (qp->sq.wqe_cnt)
 		hns_roce_free_db(to_hr_ctx(ibqp->context), qp->sdb,
 				 HNS_ROCE_QP_TYPE_DB);
 
