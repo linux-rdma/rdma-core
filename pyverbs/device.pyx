@@ -102,16 +102,9 @@ cdef class Context(PyverbsObject):
         Closes the inner IB device.
         :return: None
         """
-        self._close()
+        self.close()
 
-    def close(self):
-        """
-        Closes the inner IB device.
-        :return: None
-        """
-        self._close()
-
-    cdef _close(self):
+    cpdef close(self):
         self.logger.debug('Closing Context')
         if self.context != NULL:
             rc = v.ibv_close_device(self.context)

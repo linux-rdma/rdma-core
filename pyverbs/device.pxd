@@ -8,7 +8,7 @@ cimport pyverbs.libibverbs as v
 cdef class Context(PyverbsObject):
     cdef v.ibv_context *context
     cdef object name
-    cdef _close(self)
+    cpdef close(self)
 
 cdef class DeviceAttr(PyverbsObject):
     cdef v.ibv_device_attr dev_attr
