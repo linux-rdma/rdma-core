@@ -297,6 +297,9 @@ class travis(APTEnvironment):
             (cd /usr/local/bin/ && ln -sf ../clang*/bin/clang-7 .)""".format(llvm_tar)];
         return cmds;
 
+    def get_cython(self):
+        return ["""RUN pip3 install cython"""]
+
     def get_docker_file(self):
         # First this to get apt-add-repository
         self.pkgs = {"software-properties-common"}
@@ -315,6 +318,7 @@ class travis(APTEnvironment):
         res.lines.extend(self.get_before_script())
 
         res.lines.extend(self.get_clang())
+        res.lines.extend(self.get_cython())
 
         return res;
 
