@@ -573,7 +573,7 @@ err_srq_buf:
 	hns_roce_free_buf(&srq->buf);
 
 err_idx_que:
-	free(&srq->idx_que.bitmap);
+	free(srq->idx_que.bitmap);
 	hns_roce_free_buf(&srq->idx_que.buf);
 out:
 	free(srq);
