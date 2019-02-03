@@ -573,7 +573,7 @@ err_srq_buf:
 	hns_roce_free_buf(&srq->buf);
 
 err_idx_que:
-	free(&srq->idx_que.bitmap);
+	free(srq->idx_que.bitmap);
 	hns_roce_free_buf(&srq->idx_que.buf);
 out:
 	free(srq);
@@ -845,7 +845,7 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	}
 
 	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
-		attr->cap.max_send_sge) {
+		attr->cap.max_send_wr) {
 		qp->sdb = hns_roce_alloc_db(context, HNS_ROCE_QP_TYPE_DB);
 		if (!qp->sdb)
 			goto err_free;
@@ -916,7 +916,7 @@ err_rq_db:
 
 err_sq_db:
 	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
-	    attr->cap.max_send_sge)
+	    attr->cap.max_send_wr)
 		hns_roce_free_db(context, qp->sdb, HNS_ROCE_QP_TYPE_DB);
 
 err_free:
