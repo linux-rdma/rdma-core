@@ -68,10 +68,6 @@
 #include "acm_mad.h"
 #include "acm_util.h"
 
-#define src_out     data[0]
-#define src_index   data[1]
-#define dst_index   data[2]
-
 #define MAX_EP_ADDR 4
 #define NL_MSG_BUF_SIZE 4096
 #define ACM_PROV_NAME_SIZE 64
@@ -876,7 +872,9 @@ static struct acmc_addr *acm_get_ep_address(struct acm_ep_addr_data *data)
 	return NULL;
 }
 
-static struct acmc_ep *acm_get_ep(int index)
+/* If port_num is zero, iterate through all ports, otherwise consider
+ * only the specific port_num */
+static struct acmc_ep *acm_get_ep(int index, uint8_t port_num)
 {
 	struct acmc_device *dev;
 	struct acmc_ep *ep;
@@ -885,6 +883,8 @@ static struct acmc_ep *acm_get_ep(int index)
 	acm_log(2, "ep index %d\n", index);
 	list_for_each(&dev_list, dev, entry) {
 		for (i = 0; i < dev->port_cnt; i++) {
+			if (port_num && port_num != (i + 1))
+				continue;
 			if (dev->port[i].state != IBV_PORT_ACTIVE)
 				continue;
 			list_for_each(&dev->port[i].ep_list, ep, entry) {
@@ -1140,10 +1140,10 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 	int index;
 
 	acm_log(2, "client %d\n", client->index);
-	index = msg->hdr.data[1];
+	index = msg->hdr.src_index;
 	msg->hdr.opcode |= ACM_OP_ACK;
 	msg->hdr.status = ACM_STATUS_SUCCESS;
-	msg->hdr.data[2] = 0;
+	msg->hdr.dst_index = 0;
 
 	if ((be16toh(msg->hdr.length) < (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)
 	    && index < 1) ||
@@ -1152,11 +1152,11 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 		for (i = 0; i < ACM_MAX_COUNTER; i++)
 			msg->perf_data[i] = htobe64((uint64_t) atomic_get(&counter[i]));
 
-		msg->hdr.data[0] = ACM_MAX_COUNTER;
+		msg->hdr.src_out = ACM_MAX_COUNTER;
 		len = ACM_MSG_HDR_LENGTH + (ACM_MAX_COUNTER * sizeof(uint64_t));
 	} else {
 		if (index >= 1) {
-			ep = acm_get_ep(index - 1);
+			ep = acm_get_ep(index - 1, msg->hdr.src_index);
 		} else {
 			addr = acm_get_ep_address(&msg->resolve_data[0]);
 			if (addr)
@@ -1166,8 +1166,8 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 
 		if (ep) {
 			ep->port->prov->query_perf(ep->prov_ep_context,
-						   msg->perf_data, &msg->hdr.data[0]);
-			len = ACM_MSG_HDR_LENGTH + (msg->hdr.data[0] * sizeof(uint64_t));
+						   msg->perf_data, &msg->hdr.src_out);
+			len = ACM_MSG_HDR_LENGTH + (msg->hdr.src_out * sizeof(uint64_t));
 		} else {
 			msg->hdr.status = ACM_STATUS_ESRCADDR;
 			len = ACM_MSG_HDR_LENGTH;
@@ -1192,12 +1192,13 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 	int index, cnt = 0;
 
 	acm_log(2, "client %d\n", client->index);
-	index = msg->hdr.data[0];
-	ep = acm_get_ep(index - 1);
+	index = msg->hdr.src_out;
+	ep = acm_get_ep(index - 1, msg->hdr.src_index);
 	if (ep) {
 		msg->hdr.status = ACM_STATUS_SUCCESS;
 		msg->ep_data[0].dev_guid = ep->port->dev->device.dev_guid;
 		msg->ep_data[0].port_num = ep->port->port.port_num;
+		msg->ep_data[0].phys_port_cnt = ep->port->dev->port_cnt;
 		msg->ep_data[0].pkey = htobe16(ep->endpoint.pkey);
 		strncpy((char *)msg->ep_data[0].prov_name, ep->port->prov->name,
 			ACM_MAX_PROV_NAME - 1);
@@ -1217,8 +1218,8 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 		len = ACM_MSG_HDR_LENGTH;
 	}
 	msg->hdr.opcode |= ACM_OP_ACK;
-	msg->hdr.data[1] = 0;
-	msg->hdr.data[2] = 0;
+	msg->hdr.src_index = 0;
+	msg->hdr.dst_index = 0;
 	msg->hdr.length = htobe16(len);
 
 	ret = send(client->sock, (char *) msg, len, 0);

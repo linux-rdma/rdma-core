@@ -926,24 +926,32 @@ static int enumerate_ep(char *svc, int index)
 	static int labels;
 	int ret, i;
 	struct acm_ep_config_data *ep_data;
+	int phys_port_cnt = 255;
+	int found = 0;
+	int port;
 
-	ret = ib_acm_enum_ep(index, &ep_data);
-	if (ret)
-		return ret;
+	for (port = 1; port <= phys_port_cnt; ++port)  {
+		ret = ib_acm_enum_ep(index, &ep_data, port);
+		if (ret)
+			continue;
 
-	if (!labels) {
-		printf("svc,guid,port,pkey,ep_index,prov,addr_0,addresses\n");
-		labels = 1;
+		found = 1;
+
+		if (!labels) {
+			printf("svc,guid,port,pkey,ep_index,prov,addr_0,addresses\n");
+			labels = 1;
+		}
+
+		printf("%s,0x%016" PRIx64 ",%d,0x%04x,%d,%s", svc, ep_data->dev_guid,
+			ep_data->port_num, ep_data->pkey, index, ep_data->prov_name);
+		for (i = 0; i < ep_data->addr_cnt; i++)
+			printf(",%s", ep_data->addrs[i].name);
+		printf("\n");
+		phys_port_cnt = ep_data->phys_port_cnt;
+		ib_acm_free_ep_data(ep_data);
 	}
 
-	printf("%s,0x%016" PRIx64 ",%d,0x%04x,%d,%s", svc, ep_data->dev_guid,
-	       ep_data->port_num, ep_data->pkey, index, ep_data->prov_name);
-	for (i = 0; i < ep_data->addr_cnt; i++)
-		printf(",%s", ep_data->addrs[i].name);
-	printf("\n");
-	ib_acm_free_ep_data(ep_data);
-
-	return 0;
+	return !found;
 }
 
 static void enumerate_eps(char *svc)
