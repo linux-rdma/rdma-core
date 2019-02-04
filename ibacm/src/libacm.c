@@ -349,7 +349,7 @@ int ib_acm_query_perf(int index, uint64_t **counters, int *count)
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_PERF_QUERY;
-	msg.hdr.data[1] = index;
+	msg.hdr.src_index = index;
 	msg.hdr.length = htobe16(ACM_MSG_HDR_LENGTH);
 
 	ret = send(sock, (char *) &msg, ACM_MSG_HDR_LENGTH, 0);
@@ -367,13 +367,13 @@ int ib_acm_query_perf(int index, uint64_t **counters, int *count)
 		goto out;
 	}
 
-	*counters = malloc(sizeof(uint64_t) * msg.hdr.data[0]);
+	*counters = malloc(sizeof(uint64_t) * msg.hdr.src_out);
 	if (!*counters) {
 		ret = ACM_STATUS_ENOMEM;
 		goto out;
 	}
 
-	*count = msg.hdr.data[0];
+	*count = msg.hdr.src_out;
 	for (i = 0; i < *count; i++)
 		(*counters)[i] = be64toh(msg.perf_data[i]);
 	ret = 0;
@@ -394,7 +394,7 @@ int ib_acm_enum_ep(int index, struct acm_ep_config_data **data)
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_EP_QUERY;
-	msg.hdr.data[0] = index;
+	msg.hdr.src_out = index;
 	msg.hdr.length = htobe16(ACM_MSG_HDR_LENGTH);
 
 	ret = send(sock, (char *) &msg, ACM_MSG_HDR_LENGTH, 0);
@@ -469,13 +469,13 @@ int ib_acm_query_perf_ep_addr(uint8_t *src, uint8_t type,
 		goto out;
 	}
 
-	*counters = malloc(sizeof(uint64_t) * msg.hdr.data[0]);
+	*counters = malloc(sizeof(uint64_t) * msg.hdr.src_out);
 	if (!*counters) {
 		ret = ACM_STATUS_ENOMEM;
 		goto out;
 	}
 
-	*count = msg.hdr.data[0];
+	*count = msg.hdr.src_out;
 	for (i = 0; i < *count; i++)
 		(*counters)[i] = be64toh(msg.perf_data[i]);
 

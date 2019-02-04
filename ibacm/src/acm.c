@@ -68,10 +68,6 @@
 #include "acm_mad.h"
 #include "acm_util.h"
 
-#define src_out     data[0]
-#define src_index   data[1]
-#define dst_index   data[2]
-
 #define MAX_EP_ADDR 4
 #define NL_MSG_BUF_SIZE 4096
 #define ACM_PROV_NAME_SIZE 64
@@ -1140,10 +1136,10 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 	int index;
 
 	acm_log(2, "client %d\n", client->index);
-	index = msg->hdr.data[1];
+	index = msg->hdr.src_index;
 	msg->hdr.opcode |= ACM_OP_ACK;
 	msg->hdr.status = ACM_STATUS_SUCCESS;
-	msg->hdr.data[2] = 0;
+	msg->hdr.dst_index = 0;
 
 	if ((be16toh(msg->hdr.length) < (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)
 	    && index < 1) ||
@@ -1152,7 +1148,7 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 		for (i = 0; i < ACM_MAX_COUNTER; i++)
 			msg->perf_data[i] = htobe64((uint64_t) atomic_get(&counter[i]));
 
-		msg->hdr.data[0] = ACM_MAX_COUNTER;
+		msg->hdr.src_out = ACM_MAX_COUNTER;
 		len = ACM_MSG_HDR_LENGTH + (ACM_MAX_COUNTER * sizeof(uint64_t));
 	} else {
 		if (index >= 1) {
@@ -1166,8 +1162,8 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 
 		if (ep) {
 			ep->port->prov->query_perf(ep->prov_ep_context,
-						   msg->perf_data, &msg->hdr.data[0]);
-			len = ACM_MSG_HDR_LENGTH + (msg->hdr.data[0] * sizeof(uint64_t));
+						   msg->perf_data, &msg->hdr.src_out);
+			len = ACM_MSG_HDR_LENGTH + (msg->hdr.src_out * sizeof(uint64_t));
 		} else {
 			msg->hdr.status = ACM_STATUS_ESRCADDR;
 			len = ACM_MSG_HDR_LENGTH;
@@ -1192,8 +1188,8 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 	int index, cnt = 0;
 
 	acm_log(2, "client %d\n", client->index);
-	index = msg->hdr.data[0];
-	ep = acm_get_ep(index - 1);
+	index = msg->hdr.src_out;
+	ep = acm_get_ep(index - 1, msg->hdr.port_num);
 	if (ep) {
 		msg->hdr.status = ACM_STATUS_SUCCESS;
 		msg->ep_data[0].dev_guid = ep->port->dev->device.dev_guid;
@@ -1217,8 +1213,8 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 		len = ACM_MSG_HDR_LENGTH;
 	}
 	msg->hdr.opcode |= ACM_OP_ACK;
-	msg->hdr.data[1] = 0;
-	msg->hdr.data[2] = 0;
+	msg->hdr.src_inx = 0;
+	msg->hdr.dst_inx = 0;
 	msg->hdr.length = htobe16(len);
 
 	ret = send(client->sock, (char *) msg, len, 0);

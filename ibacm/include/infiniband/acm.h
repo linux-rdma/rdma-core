@@ -69,6 +69,10 @@ extern "C" {
  */
 #define ACM_MSG_DATA_LENGTH     (ACM_MSG_EP_LENGTH * 8)
 
+#define src_out     data[0]
+#define src_index   data[1]
+#define dst_index   data[2]
+
 struct acm_hdr {
 	uint8_t                 version;
 	uint8_t                 opcode;
