@@ -33,6 +33,7 @@
 #include <infiniband/verbs.h>
 #include <infiniband/acm_prov.h>
 
+
 #ifdef ACME_PRINTS
 
 #undef acm_log
@@ -47,11 +48,13 @@
 int acm_if_is_ib(char *ifname);
 int acm_if_get_pkey(char *ifname, uint16_t *pkey);
 int acm_if_get_sgid(char *ifname, union ibv_gid *sgid);
-
+int acm_init_if_iter_sys(void);
+void acm_fini_if_iter_sys(void);
 typedef void (*acm_if_iter_cb)(char *ifname, union ibv_gid *gid, uint16_t pkey,
 				uint8_t addr_type, uint8_t *addr,
 				char *ip_str, void *ctx);
 int acm_if_iter_sys(acm_if_iter_cb cb, void *ctx);
+
 
 char **parse(const char *args, int *count);
 

@@ -2090,7 +2090,7 @@ static void acm_ep_ip_iter_cb(char *ifname, union ibv_gid *gid, uint16_t pkey,
 		(ep->endpoint.pkey | IB_PKEY_FULL_MEMBER) == pkey) {
 		if (!acm_ep_insert_addr(ep, ip_str, addr, addr_type)) {
 			acm_log(0, "Added %s %s %d 0x%x from %s\n", ip_str,
-				dev->device.verbs->device->name, port_num, pkey,
+				dev->device.verbs->device->name, port_num, ep->endpoint.pkey,
 				ifname);
 		}
 	}
@@ -3250,6 +3250,12 @@ int main(int argc, char **argv)
 		acm_log(0, "Error: failed to create sa resp rcving thread");
 		return -1;
 	}
+
+	if (acm_init_if_iter_sys()) {
+		acm_log(0, "Error: unable to initialize acm_if_iter_sys");
+		return -1;
+	}
+
 	acm_activate_devices();
 	acm_log(1, "starting server\n");
 	acm_server(systemd);
@@ -3260,6 +3266,7 @@ int main(int argc, char **argv)
 	acm_close_providers();
 	acm_stop_sa_handler();
 	umad_done();
+	acm_fini_if_iter_sys();
 	fclose(flog);
 	return 0;
 }
