@@ -39,10 +39,19 @@
 #undef acm_log
 #define acm_log(level, format, ...) \
 	printf(format, ## __VA_ARGS__)
+#define acm_log_once(level, format, ...) \
+	printf(format, ## __VA_ARGS__)
 
 #else /* !ACME_PRINTS */
 #define acm_log(level, format, ...) \
 	acm_write(level, "%s: "format, __func__, ## __VA_ARGS__)
+#define acm_log_once(level, format, ...) while (0) {                      \
+	static bool once;                                                 \
+	if (!once) {                                                      \
+		acm_write(level, "%s: "format, __func__, ## __VA_ARGS__); \
+		once = true;                                              \
+	}                                                                 \
+}
 #endif /* ACME_PRINTS */
 
 int acm_if_is_ib(char *ifname);
