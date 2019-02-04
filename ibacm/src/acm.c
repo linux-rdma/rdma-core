@@ -1766,8 +1766,10 @@ static void acm_nl_receive(struct acmc_client *client)
 	/* Currently we handle only request from the local service client */
 	client_inx = RDMA_NL_GET_CLIENT(acmnlmsg->nlmsg_header.nlmsg_type);
 	op = RDMA_NL_GET_OP(acmnlmsg->nlmsg_header.nlmsg_type);
-	if (client_inx != RDMA_NL_LS)
+	if (client_inx != RDMA_NL_LS) {
+		acm_log_once(0, "ERROR - Unknown NL client ID (%d)\n", client_inx);
 		goto rcv_cleanup;
+	}
 
 	switch (op) {
 	case RDMA_NL_LS_OP_RESOLVE:
@@ -1778,7 +1780,7 @@ static void acm_nl_receive(struct acmc_client *client)
 		break;
 	default:
 		/* Not supported*/
-		acm_log(1, "WARN - invalid opcode %x\n", op);
+		acm_log_once(0, "WARN - invalid opcode %x\n", op);
 		acm_nl_process_invalid_request(client, acmnlmsg);
 		break;
 	}
