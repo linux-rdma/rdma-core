@@ -45,13 +45,13 @@
 #else /* !ACME_PRINTS */
 #define acm_log(level, format, ...) \
 	acm_write(level, "%s: "format, __func__, ## __VA_ARGS__)
-#define acm_log_once(level, format, ...) while (0) {                      \
+#define acm_log_once(level, format, ...) do {                             \
 	static bool once;                                                 \
 	if (!once) {                                                      \
 		acm_write(level, "%s: "format, __func__, ## __VA_ARGS__); \
 		once = true;                                              \
 	}                                                                 \
-}
+} while (0)
 #endif /* ACME_PRINTS */
 
 int acm_if_is_ib(char *ifname);
