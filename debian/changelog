@@ -1,3 +1,9 @@
+rdma-core (22.1-1) unstable; urgency=medium
+
+  * New upstream bugfix release.
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Wed, 06 Feb 2019 15:58:48 +0100
+
 rdma-core (22.0-1) unstable; urgency=medium
 
   * New upstream release.
