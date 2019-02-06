@@ -1,3 +1,9 @@
+rdma-core (17.4-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Nicolas Morey-Chaisemartin <nmoreychaisemartin@suse.com>  Wed, 06 Feb 2019 08:17:14 +0100
+
 rdma-core (17.3-1) unstable; urgency=low
 
   * New upstream release.
