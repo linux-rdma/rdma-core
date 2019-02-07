@@ -55,6 +55,7 @@
 #include "mlx5.h"
 #include "mlx5-abi.h"
 #include "wqe.h"
+#include "mlx5_ifc.h"
 
 int mlx5_single_threaded = 0;
 
@@ -2816,6 +2817,32 @@ err:
 	return NULL;
 }
 
+static void get_pci_atomic_caps(struct ibv_context *context,
+				struct ibv_device_attr_ex *attr)
+{
+	uint32_t in[DEVX_ST_SZ_DW(query_hca_cap_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(query_hca_cap_out)] = {};
+	uint16_t opmod = (MLX5_CAP_ATOMIC << 1) | HCA_CAP_OPMOD_GET_CUR;
+	int ret;
+
+	DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
+	DEVX_SET(query_hca_cap_in, in, op_mod, opmod);
+
+	ret = mlx5dv_devx_general_cmd(context, in, sizeof(in), out,
+				      sizeof(out));
+	if (!ret) {
+		attr->pci_atomic_caps.fetch_add =
+			DEVX_GET(query_hca_cap_out, out,
+				 capability.atomic_caps.fetch_add_pci_atomic);
+		attr->pci_atomic_caps.swap =
+			DEVX_GET(query_hca_cap_out, out,
+				 capability.atomic_caps.swap_pci_atomic);
+		attr->pci_atomic_caps.compare_swap =
+			DEVX_GET(query_hca_cap_out, out,
+			capability.atomic_caps.compare_swap_pci_atomic);
+	}
+}
+
 int mlx5_query_device_ex(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
 			 struct ibv_device_attr_ex *attr,
@@ -2893,6 +2920,10 @@ int mlx5_query_device_ex(struct ibv_context *context,
 	a = &attr->orig_attr;
 	snprintf(a->fw_ver, sizeof(a->fw_ver), "%d.%d.%04d",
 		 major, minor, sub_minor);
+
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, pci_atomic_caps) +
+			sizeof(attr->pci_atomic_caps))
+		get_pci_atomic_caps(context, attr);
 
 	return 0;
 }
