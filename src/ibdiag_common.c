@@ -174,7 +174,7 @@ static void read_ibdiag_config(const char *file)
 }
 
 
-void ibdiag_show_usage()
+void ibdiag_show_usage(void)
 {
 	struct option *o = long_opts;
 	int n;
