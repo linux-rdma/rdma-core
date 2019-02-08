@@ -103,11 +103,6 @@ void mad_rpc_set_timeout(struct ibmad_port *port, int timeout)
 	port->timeout = timeout;
 }
 
-int madrpc_def_timeout(void)
-{
-	return madrpc_timeout;
-}
-
 int madrpc_portid(void)
 {
 	return ibmp->port_id;
