@@ -309,8 +309,8 @@ static int rereg_query_all(int port, int agent, ib_portid_t * dport,
 
 #define MAX_CLIENTS 50
 
-static int rereg_and_test_port(char *guid_file, int port, int agent,
-			       ib_portid_t * dport, int timeout)
+static int rereg_and_test_port(const char *guid_file, int port, int agent,
+			       ib_portid_t *dport, int timeout)
 {
 	char line[256];
 	FILE *f;
@@ -356,9 +356,9 @@ static int rereg_and_test_port(char *guid_file, int port, int agent,
 	return 0;
 }
 
-int main(int argc, char **argv)
+int main(int argc, const char **argv)
 {
-	char *guid_file = "port_guids.list";
+	const char *guid_file = "port_guids.list";
 	int mgmt_classes[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
 	ib_portid_t dport_id;
 	int port, agent;

@@ -515,8 +515,8 @@ static void link_ports(ibnd_node_t * node, ibnd_port_t * port,
 	remoteport->remoteport = port;
 }
 
-static void dump_endnode(ib_portid_t * path, char *prompt,
-			 ibnd_node_t * node, ibnd_port_t * port)
+static void dump_endnode(ib_portid_t *path, const char *prompt,
+			 ibnd_node_t *node, ibnd_port_t *port)
 {
 	char type[64];
 	mad_dump_node_type(type, sizeof(type), &node->type, sizeof(int));

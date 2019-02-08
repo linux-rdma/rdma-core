@@ -56,7 +56,7 @@ struct ibmad_port *srcport;
 
 #define MAXHOPS	63
 
-static char *node_type_str[] = {
+static const char * const node_type_str[] = {
 	"???",
 	"ca",
 	"switch",
@@ -214,7 +214,7 @@ static int extend_dpath(ib_dr_path_t * path, int nextport)
 	return path->cnt;
 }
 
-static void dump_endnode(int dump, char *prompt, Node * node, Port * port)
+static void dump_endnode(int dump, const char *prompt, Node *node, Port *port)
 {
 	char *nodename = NULL;
 

@@ -1728,7 +1728,7 @@ extern MAD_EXPORT int ibdebug;
 	exit(-1); \
 } while(0)
 
-MAD_EXPORT void xdump(FILE * file, char *msg, void *p, int size);
+MAD_EXPORT void xdump(FILE * file, const char *msg, void *p, int size);
 
 END_C_DECLS
 #endif				/* _MAD_H_ */

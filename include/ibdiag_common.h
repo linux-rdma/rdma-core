@@ -139,14 +139,14 @@ extern int ibdiag_process_opts(int argc, char *const argv[], void *context,
 			       const char *usage_args,
 			       const char *usage_examples[]);
 extern void ibdiag_show_usage();
-extern void ibexit(const char *fn, char *msg, ...);
+extern void ibexit(const char *fn, const char *msg, ...);
 
 /* convert counter values to a float with a unit specifier returned (using
  * binary prefix)
  * "data" is a flag indicating this counter is a byte counter multiplied by 4
  * as per PortCounters[Extended]
  */
-extern char *conv_cnt_human_readable(uint64_t val64, float *val, int data);
+const char *conv_cnt_human_readable(uint64_t val64, float *val, int data);
 
 int is_mlnx_ext_port_info_supported(uint32_t vendorid, uint16_t devid);
 
@@ -170,13 +170,13 @@ void dump_portinfo(void *pi, int tabs);
 /**
  * Some common command line parsing
  */
-typedef char *(op_fn_t) (ib_portid_t * dest, char **argv, int argc);
+typedef const char *(op_fn_t)(ib_portid_t *dest, char **argv, int argc);
 
 typedef struct match_rec {
 	const char *name, *alias;
 	op_fn_t *fn;
 	unsigned opt_portnum;
-	char *ops_extra;
+	const char *ops_extra;
 } match_rec_t;
 
 op_fn_t *match_op(const match_rec_t match_tbl[], char *name);

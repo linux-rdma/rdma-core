@@ -208,7 +208,7 @@ static int send_trap(void (*build) (ib_mad_notice_attr_t *, ib_portid_t *))
 }
 
 typedef struct _trap_def {
-	char *trap_name;
+	const char *trap_name;
 	void (*build_func) (ib_mad_notice_attr_t *, ib_portid_t *);
 } trap_def_t;
 
@@ -224,7 +224,7 @@ static const trap_def_t traps[] = {
 	{NULL, NULL}
 };
 
-int process_send_trap(char *trap_name)
+int process_send_trap(const char *trap_name)
 {
 	int i;
 
@@ -239,7 +239,7 @@ int main(int argc, char **argv)
 {
 	char usage_args[1024];
 	int mgmt_classes[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
-	char *trap_name = NULL;
+	const char *trap_name = NULL;
 	int i, n, rc;
 
 	n = sprintf(usage_args, "[<trap_name>] [<error_port>]\n"

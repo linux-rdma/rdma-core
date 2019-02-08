@@ -413,7 +413,7 @@ int ibdiag_process_opts(int argc, char *const argv[], void *cxt,
 	return 0;
 }
 
-void ibexit(const char *fn, char *msg, ...)
+void ibexit(const char *fn, const char *msg, ...)
 {
 	char buf[512];
 	va_list va;
@@ -434,8 +434,7 @@ void ibexit(const char *fn, char *msg, ...)
 	exit(-1);
 }
 
-char *
-conv_cnt_human_readable(uint64_t val64, float *val, int data)
+const char *conv_cnt_human_readable(uint64_t val64, float *val, int data)
 {
 	uint64_t tmp = val64;
 	int ui = 0;

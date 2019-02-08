@@ -243,7 +243,7 @@ IBND_EXPORT void ibnd_iter_ports(ibnd_fabric_t * fabric,
  */
 IBND_EXPORT uint64_t ibnd_get_chassis_guid(ibnd_fabric_t * fabric,
 					  unsigned char chassisnum);
-IBND_EXPORT char *ibnd_get_chassis_type(ibnd_node_t * node);
+IBND_EXPORT const char *ibnd_get_chassis_type(ibnd_node_t *node);
 IBND_EXPORT char *ibnd_get_chassis_slot_str(ibnd_node_t * node,
 					   char *str, size_t size);
 

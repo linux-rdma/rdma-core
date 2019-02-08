@@ -104,7 +104,7 @@ int filterdownport_check(ibnd_node_t * node, ibnd_port_t * port)
 	return (fistate == IB_LINK_DOWN) ? 1 : 0;
 }
 
-void print_port(ibnd_node_t * node, ibnd_port_t * port, char *out_prefix)
+void print_port(ibnd_node_t *node, ibnd_port_t *port, const char *out_prefix)
 {
 	char width[64], speed[64], state[64], physstate[64];
 	char remote_guid_str[256];
@@ -272,7 +272,7 @@ static inline const char *nodetype_str(ibnd_node_t * node)
 }
 
 void print_node_header(ibnd_node_t *node, int *out_header_flag,
-			char *out_prefix)
+		       const char *out_prefix)
 {
 	uint64_t guid = 0;
 	if ((!out_header_flag || !(*out_header_flag)) && !line_mode) {
@@ -321,8 +321,8 @@ struct iter_diff_data {
         uint32_t diff_flags;
         ibnd_fabric_t *fabric1;
         ibnd_fabric_t *fabric2;
-        char *fabric1_prefix;
-        char *fabric2_prefix;
+        const char *fabric1_prefix;
+        const char *fabric2_prefix;
 };
 
 void diff_node_ports(ibnd_node_t * fabric1_node, ibnd_node_t * fabric2_node,
@@ -417,7 +417,7 @@ void diff_node_iter(ibnd_node_t * fabric1_node, void *iter_user_data)
 
 	fabric2_node = ibnd_find_node_guid(data->fabric2, fabric1_node->guid);
 	if (!fabric2_node)
-		print_node(fabric1_node, data->fabric1_prefix);
+		print_node(fabric1_node, (void *)data->fabric1_prefix);
 	else if (data->diff_flags &
 		 (DIFF_FLAG_PORT_CONNECTION | DIFF_FLAG_PORT_STATE
 		  | DIFF_FLAG_LID | DIFF_FLAG_NODE_DESCRIPTION)) {

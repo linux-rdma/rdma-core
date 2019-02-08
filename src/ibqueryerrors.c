@@ -92,11 +92,11 @@ struct {
 } summary = { 0 };
 
 #define DEF_THRES_FILE IBDIAG_CONFIG_PATH"/error_thresholds"
-static char *threshold_file = DEF_THRES_FILE;
+static const char *threshold_file = DEF_THRES_FILE;
 
 /* define a "packet" with threshold values in it */
 uint8_t thresholds[1204] = { 0 };
-char * threshold_str = "";
+char *threshold_str = NULL;
 
 static unsigned valid_gid(ib_gid_t * gid)
 {
@@ -127,7 +127,7 @@ static void set_thres(char *name, uint64_t val)
 	}
 }
 
-static void set_thresholds(char *threshold_file)
+static void set_thresholds(const char *threshold_file)
 {
 	char buf[1024];
 	uint64_t val = 0;
@@ -399,7 +399,7 @@ static int check_threshold(uint8_t *pc, uint8_t *pce, uint32_t cap_mask2,
 	uint64_t val64 = 0;
 	int is_exceeds = 0;
 	float val = 0;
-	char *unit = "";
+	const char *unit = "";
 
 	if (htonl(cap_mask2) & IB_PM_IS_ADDL_PORT_CTRS_EXT_SUP) {
 		mad_decode_field(pce, ext_i, (void *)&val64);
@@ -488,7 +488,7 @@ static int print_results(ib_portid_t * portid, char *node_name,
 			for (i = start_field; i <= end_field; i++) {
 				uint64_t val64 = 0;
 				float val = 0;
-				char *unit = "";
+				const char *unit = "";
 				mad_decode_field(pkt, i, (void *)&val64);
 				if (val64) {
 					int data = 0;
@@ -614,7 +614,7 @@ static int print_data_cnts(ib_portid_t * portid, uint16_t cap_mask,
 	for (i = start_field; i <= end_field; i++) {
 		uint64_t val64 = 0;
 		float val = 0;
-		char *unit = "";
+		const char *unit = "";
 		int data = 0;
 		mad_decode_field(pc, i, (void *)&val64);
 		if (i == IB_PC_EXT_XMT_BYTES_F || i == IB_PC_EXT_RCV_BYTES_F ||

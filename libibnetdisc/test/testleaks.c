@@ -51,7 +51,7 @@
 #include <infiniband/complib/cl_nodenamemap.h>
 #include <infiniband/ibnetdisc.h>
 
-char *argv0 = "iblinkinfotest";
+const char *argv0 = "iblinkinfotest";
 static FILE *f;
 
 void usage(void)

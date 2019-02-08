@@ -84,7 +84,7 @@ static int full_info;
  * Define our own conversion functions to maintain compatibility with the old
  * ibnetdiscover which did not use the ibmad conversion functions.
  */
-char *dump_linkspeed_compat(uint32_t speed)
+const char *dump_linkspeed_compat(uint32_t speed)
 {
 	switch (speed) {
 	case 1:
@@ -100,7 +100,8 @@ char *dump_linkspeed_compat(uint32_t speed)
 	return ("???");
 }
 
-char *dump_linkspeedext_compat(uint32_t espeed, uint32_t speed, uint32_t fdr10)
+const char *dump_linkspeedext_compat(uint32_t espeed, uint32_t speed,
+				     uint32_t fdr10)
 {
 	switch (espeed) {
 	case 0:
@@ -122,7 +123,7 @@ char *dump_linkspeedext_compat(uint32_t espeed, uint32_t speed, uint32_t fdr10)
 	return ("???");
 }
 
-char *dump_linkwidth_compat(uint32_t width)
+const char *dump_linkwidth_compat(uint32_t width)
 {
 	switch (width) {
 	case 1:
@@ -220,7 +221,7 @@ void list_nodes(ibnd_fabric_t * fabric, int list)
 		ibnd_iter_nodes_type(fabric, list_node, IB_NODE_ROUTER, NULL);
 }
 
-void out_ids(ibnd_node_t * node, int group, char *chname, char *out_prefix)
+void out_ids(ibnd_node_t *node, int group, char *chname, const char *out_prefix)
 {
 	uint64_t sysimgguid =
 	    mad_get_field64(node->info, 0, IB_NODE_SYSTEM_GUID_F);
@@ -258,7 +259,7 @@ uint64_t out_chassis(ibnd_fabric_t * fabric, unsigned char chassisnum)
 	return guid;
 }
 
-void out_switch_detail(ibnd_node_t * node, char *sw_prefix)
+void out_switch_detail(ibnd_node_t * node, const char *sw_prefix)
 {
 	char *nodename = NULL;
 
@@ -272,10 +273,10 @@ void out_switch_detail(ibnd_node_t * node, char *sw_prefix)
 	free(nodename);
 }
 
-void out_switch(ibnd_node_t * node, int group, char *chname, char *id_prefix,
-		char *sw_prefix)
+void out_switch(ibnd_node_t *node, int group, char *chname,
+		const char *id_prefix, const char *sw_prefix)
 {
-	char *str;
+	const char *str;
 	char str2[256];
 
 	out_ids(node, group, chname, id_prefix);
@@ -298,9 +299,9 @@ void out_switch(ibnd_node_t * node, int group, char *chname, char *id_prefix,
 	fprintf(f, "\n");
 }
 
-void out_ca_detail(ibnd_node_t * node, char *ca_prefix)
+void out_ca_detail(ibnd_node_t *node, const char *ca_prefix)
 {
-	char *node_type;
+	const char *node_type;
 
 	switch (node->type) {
 	case IB_NODE_CA:
@@ -319,10 +320,10 @@ void out_ca_detail(ibnd_node_t * node, char *ca_prefix)
 		clean_nodedesc(node->nodedesc));
 }
 
-void out_ca(ibnd_node_t * node, int group, char *chname, char *id_prefix,
-	    char *ca_prefix)
+void out_ca(ibnd_node_t *node, int group, char *chname, const char *id_prefix,
+	    const char *ca_prefix)
 {
-	char *node_type;
+	const char *node_type;
 
 	out_ids(node, group, chname, id_prefix);
 	switch (node->type) {
@@ -359,7 +360,8 @@ static char *out_ext_port(ibnd_port_t * port, int group)
 	return (NULL);
 }
 
-void out_switch_port(ibnd_port_t * port, int group, char *out_prefix)
+static void out_switch_port(ibnd_port_t *port, int group,
+			    const char *out_prefix)
 {
 	char *ext_port_str = NULL;
 	char *rem_nodename = NULL;
@@ -427,7 +429,7 @@ void out_switch_port(ibnd_port_t * port, int group, char *out_prefix)
 	free(rem_nodename);
 }
 
-void out_ca_port(ibnd_port_t * port, int group, char *out_prefix)
+void out_ca_port(ibnd_port_t *port, int group, const char *out_prefix)
 {
 	char *str = NULL;
 	char *rem_nodename = NULL;
@@ -760,11 +762,12 @@ struct iter_diff_data {
 	uint32_t diff_flags;
 	ibnd_fabric_t *fabric1;
 	ibnd_fabric_t *fabric2;
-	char *fabric1_prefix;
-	char *fabric2_prefix;
-	void (*out_header) (ibnd_node_t *, int, char *, char *, char *);
-	void (*out_header_detail) (ibnd_node_t *, char *);
-	void (*out_port) (ibnd_port_t *, int, char *);
+	const char *fabric1_prefix;
+	const char *fabric2_prefix;
+	void (*out_header)(ibnd_node_t *, int, char *, const char *,
+			   const char *);
+	void (*out_header_detail)(ibnd_node_t *, const char *);
+	void (*out_port)(ibnd_port_t *, int, const char *);
 };
 
 static void diff_iter_out_header(ibnd_node_t * node,
@@ -921,12 +924,12 @@ static void diff_iter_func(ibnd_node_t * fabric1_node, void *iter_user_data)
 	}
 }
 
-static int diff_common(ibnd_fabric_t * orig_fabric, ibnd_fabric_t * new_fabric,
+static int diff_common(ibnd_fabric_t *orig_fabric, ibnd_fabric_t *new_fabric,
 		       int node_type, uint32_t diff_flags,
-		       void (*out_header) (ibnd_node_t *, int, char *, char *,
-					   char *),
-		       void (*out_header_detail) (ibnd_node_t *, char *),
-		       void (*out_port) (ibnd_port_t *, int, char *))
+		       void (*out_header)(ibnd_node_t *, int, char *,
+					  const char *, const char *),
+		       void (*out_header_detail)(ibnd_node_t *, const char *),
+		       void (*out_port)(ibnd_port_t *, int, const char *))
 {
 	struct iter_diff_data iter_diff_data;
 
