@@ -257,7 +257,7 @@ static char *ibsystat(ib_portid_t * portid, int attr)
 	return 0;
 }
 
-int build_cpuinfo(void)
+static int build_cpuinfo(void)
 {
 	char line[1024] = { 0 }, *s, *e;
 	FILE *f;

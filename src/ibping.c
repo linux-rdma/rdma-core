@@ -142,7 +142,7 @@ static uint64_t minrtt = ~0ull, maxrtt, total_rtt;
 static uint64_t start, total_time, replied, lost, ntrans;
 static ib_portid_t portid = { 0 };
 
-void report(int sig)
+static void report(int sig)
 {
 	total_time = cl_get_time_stamp() - start;
 

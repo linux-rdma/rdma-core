@@ -80,7 +80,7 @@ struct drsmp {
 	uint8_t return_path[64];
 };
 
-void drsmp_get_init(void *umad, DRPath * path, int attr, int mod)
+static void drsmp_get_init(void *umad, DRPath * path, int attr, int mod)
 {
 	struct drsmp *smp = (struct drsmp *)(umad_get_mad(umad));
 
@@ -105,7 +105,7 @@ void drsmp_get_init(void *umad, DRPath * path, int attr, int mod)
 	smp->hop_cnt = (uint8_t) path->hop_cnt;
 }
 
-void smp_get_init(void *umad, int lid, int attr, int mod)
+static void smp_get_init(void *umad, int lid, int attr, int mod)
 {
 	struct drsmp *smp = (struct drsmp *)(umad_get_mad(umad));
 
@@ -123,7 +123,7 @@ void smp_get_init(void *umad, int lid, int attr, int mod)
 	umad_set_addr(umad, lid, 0, 0, 0);
 }
 
-int str2DRPath(char *str, DRPath * path)
+static int str2DRPath(char *str, DRPath * path)
 {
 	char *s;
 

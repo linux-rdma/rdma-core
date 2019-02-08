@@ -54,7 +54,7 @@
 const char *argv0 = "iblinkinfotest";
 static FILE *f;
 
-void usage(void)
+static void usage(void)
 {
 	fprintf(stderr,
 		"Usage: %s [-hclp -D <direct route> -C <ca_name> -P <ca_port>]\n"

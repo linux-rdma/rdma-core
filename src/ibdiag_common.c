@@ -118,7 +118,7 @@ static inline int val_str_true(const char *val_str)
 		(strncmp(val_str, "true", strlen("true")) == 0));
 }
 
-void read_ibdiag_config(const char *file)
+static void read_ibdiag_config(const char *file)
 {
 	char buf[1024];
 	FILE *config_fd = NULL;
@@ -633,9 +633,9 @@ int resolve_self(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
 	return 0;
 }
 
-int resolve_gid(char *ca_name, uint8_t ca_port, ib_portid_t * portid,
-		ibmad_gid_t gid, ib_portid_t * sm_id,
-		const struct ibmad_port *srcport)
+static int resolve_gid(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
+		       ibmad_gid_t gid, ib_portid_t *sm_id,
+		       const struct ibmad_port *srcport)
 {
 	ib_portid_t sm_portid;
 	char buf[IB_SA_DATA_SIZE] = { 0 };
@@ -653,9 +653,9 @@ int resolve_gid(char *ca_name, uint8_t ca_port, ib_portid_t * portid,
 	return 0;
 }
 
-int resolve_guid(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
-		 uint64_t *guid, ib_portid_t *sm_id,
-		 const struct ibmad_port *srcport)
+static int resolve_guid(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
+			uint64_t *guid, ib_portid_t *sm_id,
+			const struct ibmad_port *srcport)
 {
 	ib_portid_t sm_portid;
 	uint8_t buf[IB_SA_DATA_SIZE] = { 0 };

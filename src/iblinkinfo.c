@@ -80,7 +80,7 @@ static int add_sw_settings = 0;
 static int only_flag = 0;
 static int only_type = 0;
 
-int filterdownport_check(ibnd_node_t * node, ibnd_port_t * port)
+static int filterdownport_check(ibnd_node_t *node, ibnd_port_t *port)
 {
 	ibnd_node_t *fsw;
 	ibnd_port_t *fport;
@@ -104,7 +104,8 @@ int filterdownport_check(ibnd_node_t * node, ibnd_port_t * port)
 	return (fistate == IB_LINK_DOWN) ? 1 : 0;
 }
 
-void print_port(ibnd_node_t *node, ibnd_port_t *port, const char *out_prefix)
+static void print_port(ibnd_node_t *node, ibnd_port_t *port,
+		       const char *out_prefix)
 {
 	char width[64], speed[64], state[64], physstate[64];
 	char remote_guid_str[256];
@@ -271,7 +272,7 @@ static inline const char *nodetype_str(ibnd_node_t * node)
 	return "??";
 }
 
-void print_node_header(ibnd_node_t *node, int *out_header_flag,
+static void print_node_header(ibnd_node_t *node, int *out_header_flag,
 		       const char *out_prefix)
 {
 	uint64_t guid = 0;
@@ -298,7 +299,7 @@ void print_node_header(ibnd_node_t *node, int *out_header_flag,
 	}
 }
 
-void print_node(ibnd_node_t * node, void *user_data)
+static void print_node(ibnd_node_t *node, void *user_data)
 {
 	int i = 0;
 	int head_print = 0;
@@ -325,8 +326,9 @@ struct iter_diff_data {
         const char *fabric2_prefix;
 };
 
-void diff_node_ports(ibnd_node_t * fabric1_node, ibnd_node_t * fabric2_node,
-		       int *head_print, struct iter_diff_data *data)
+static void diff_node_ports(ibnd_node_t *fabric1_node,
+			    ibnd_node_t *fabric2_node, int *head_print,
+			    struct iter_diff_data *data)
 {
 	int i = 0;
 
@@ -407,7 +409,7 @@ void diff_node_ports(ibnd_node_t * fabric1_node, ibnd_node_t * fabric2_node,
 	}
 }
 
-void diff_node_iter(ibnd_node_t * fabric1_node, void *iter_user_data)
+static void diff_node_iter(ibnd_node_t *fabric1_node, void *iter_user_data)
 {
 	struct iter_diff_data *data = iter_user_data;
 	ibnd_node_t *fabric2_node;
@@ -453,8 +455,8 @@ void diff_node_iter(ibnd_node_t * fabric1_node, void *iter_user_data)
 	}
 }
 
-int diff_node(ibnd_node_t * node, ibnd_fabric_t * orig_fabric,
-		ibnd_fabric_t * new_fabric)
+static int diff_node(ibnd_node_t *node, ibnd_fabric_t *orig_fabric,
+		     ibnd_fabric_t *new_fabric)
 {
 	struct iter_diff_data iter_diff_data;
 

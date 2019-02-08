@@ -65,8 +65,8 @@ static nn_map_t *node_name_map = NULL;
 
 #define IB_MLIDS_IN_BLOCK	(IB_SMP_DATA_SIZE/2)
 
-int dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
-	      uint16_t mft[16][IB_MLIDS_IN_BLOCK])
+static int dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
+		     uint16_t mft[16][IB_MLIDS_IN_BLOCK])
 {
 	uint16_t mask;
 	unsigned i, chunk, bit, nonzero = 0;
@@ -110,8 +110,8 @@ int dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
 
 uint16_t mft[16][IB_MLIDS_IN_BLOCK] = { { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0}, { 0 }, { 0 } };
 
-void dump_multicast_tables(ibnd_node_t * node, unsigned startlid,
-			    unsigned endlid, struct ibmad_port * mad_port)
+static void dump_multicast_tables(ibnd_node_t *node, unsigned startlid,
+				  unsigned endlid, struct ibmad_port *mad_port)
 {
 	ib_portid_t *portid = &node->path_portid;
 	char nd[IB_SMP_DATA_SIZE] = { 0 };
@@ -225,10 +225,9 @@ void dump_multicast_tables(ibnd_node_t * node, unsigned startlid,
 	free(mapnd);
 }
 
-int dump_lid(char *str, int str_len, int lid, int valid,
-		ibnd_fabric_t *fabric,
-		int * last_port_lid, int * base_port_lid,
-		uint64_t * portguid)
+static int dump_lid(char *str, int str_len, int lid, int valid,
+		    ibnd_fabric_t *fabric, int *last_port_lid,
+		    int *base_port_lid, uint64_t *portguid)
 {
 	char nd[IB_SMP_DATA_SIZE] = { 0 };
 
@@ -302,8 +301,9 @@ int dump_lid(char *str, int str_len, int lid, int valid,
 	return rc;
 }
 
-void dump_unicast_tables(ibnd_node_t * node, int startlid, int endlid,
-			struct ibmad_port *mad_port, ibnd_fabric_t *fabric)
+static void dump_unicast_tables(ibnd_node_t *node, int startlid, int endlid,
+				struct ibmad_port *mad_port,
+				ibnd_fabric_t *fabric)
 {
 	ib_portid_t * portid = &node->path_portid;
 	char lft[IB_SMP_DATA_SIZE] = { 0 };
@@ -379,8 +379,8 @@ void dump_unicast_tables(ibnd_node_t * node, int startlid, int endlid,
 	free(mapnd);
 }
 
-void dump_node(ibnd_node_t *node, struct ibmad_port *mad_port,
-		ibnd_fabric_t *fabric)
+static void dump_node(ibnd_node_t *node, struct ibmad_port *mad_port,
+		      ibnd_fabric_t *fabric)
 {
 	if (multicast)
 		dump_multicast_tables(node, startlid, endlid, mad_port);
@@ -389,7 +389,7 @@ void dump_node(ibnd_node_t *node, struct ibmad_port *mad_port,
 						mad_port, fabric);
 }
 
-void process_switch(ibnd_node_t * node, void *fabric)
+static void process_switch(ibnd_node_t *node, void *fabric)
 {
 	dump_node(node, srcport, (ibnd_fabric_t *)fabric);
 }

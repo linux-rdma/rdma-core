@@ -686,7 +686,7 @@ static void vlxmittimecc_query(ib_portid_t * portid, int port, int mask)
 		    mad_dump_perfcounters_vl_xmit_time_cong);
 }
 
-void dump_portsamples_control(ib_portid_t * portid, int port)
+static void dump_portsamples_control(ib_portid_t *portid, int port)
 {
 	char buf[1280];
 

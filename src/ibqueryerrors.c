@@ -673,9 +673,9 @@ static int print_errors(ib_portid_t * portid, uint16_t cap_mask, uint32_t cap_ma
 			      header_printed, pc_ext, cap_mask, cap_mask2));
 }
 
-uint8_t *reset_pc_ext(void *rcvbuf, ib_portid_t * dest,
-		      int port, unsigned mask, unsigned timeout,
-		      const struct ibmad_port * srcport)
+static uint8_t *reset_pc_ext(void *rcvbuf, ib_portid_t *dest, int port,
+			     unsigned mask, unsigned timeout,
+			     const struct ibmad_port *srcport)
 {
 	ib_rpc_t rpc = { 0 };
 	int lid = dest->lid;
@@ -770,7 +770,7 @@ static void clear_port(ib_portid_t * portid, uint16_t cap_mask, uint32_t cap_mas
 	}
 }
 
-void print_node(ibnd_node_t * node, void *user_data)
+static void print_node(ibnd_node_t *node, void *user_data)
 {
 	int header_printed = 0;
 	int p = 0;

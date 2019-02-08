@@ -224,7 +224,7 @@ static const trap_def_t traps[] = {
 	{NULL, NULL}
 };
 
-int process_send_trap(const char *trap_name)
+static int process_send_trap(const char *trap_name)
 {
 	int i;
 

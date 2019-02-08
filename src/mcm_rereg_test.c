@@ -63,7 +63,8 @@ static ibmad_gid_t mgid_ipoib = {
 
 struct ibmad_port *srcport;
 
-uint64_t build_mcm_rec(uint8_t * data, ibmad_gid_t mgid, ibmad_gid_t port_gid)
+static uint64_t build_mcm_rec(uint8_t *data, ibmad_gid_t mgid,
+			      ibmad_gid_t port_gid)
 {
 	memset(data, 0, IB_SA_DATA_SIZE);
 	mad_set_array(data, 0, IB_SA_MCM_MGID_F, mgid);

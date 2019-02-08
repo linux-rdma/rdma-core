@@ -59,8 +59,8 @@ static nn_map_t *node_name_map = NULL;
 
 /*******************************************/
 
-const char *check_switch(ib_portid_t *portid, unsigned int *nports,
-			 uint64_t *guid, uint8_t *sw, char *nd)
+static const char *check_switch(ib_portid_t *portid, unsigned int *nports,
+				uint64_t *guid, uint8_t *sw, char *nd)
 {
 	uint8_t ni[IB_SMP_DATA_SIZE] = { 0 };
 	int type;
@@ -90,8 +90,8 @@ const char *check_switch(ib_portid_t *portid, unsigned int *nports,
 
 #define IB_MLIDS_IN_BLOCK	(IB_SMP_DATA_SIZE/2)
 
-int dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
-	      uint16_t mft[16][IB_MLIDS_IN_BLOCK])
+static int dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
+		     uint16_t mft[16][IB_MLIDS_IN_BLOCK])
 {
 	uint16_t mask;
 	unsigned i, chunk, bit, nonzero = 0;
@@ -135,8 +135,8 @@ int dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
 
 uint16_t mft[16][IB_MLIDS_IN_BLOCK] = { { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0}, { 0 }, { 0 } };
 
-const char *dump_multicast_tables(ib_portid_t *portid, unsigned startlid,
-				  unsigned endlid)
+static const char *dump_multicast_tables(ib_portid_t *portid, unsigned startlid,
+					 unsigned endlid)
 {
 	char nd[IB_SMP_DATA_SIZE] = { 0 };
 	uint8_t sw[IB_SMP_DATA_SIZE] = { 0 };
@@ -247,7 +247,7 @@ const char *dump_multicast_tables(ib_portid_t *portid, unsigned startlid,
 	return 0;
 }
 
-int dump_lid(char *str, int strlen, int lid, int valid)
+static int dump_lid(char *str, int strlen, int lid, int valid)
 {
 	char nd[IB_SMP_DATA_SIZE] = { 0 };
 	uint8_t ni[IB_SMP_DATA_SIZE] = { 0 };
@@ -322,7 +322,8 @@ int dump_lid(char *str, int strlen, int lid, int valid)
 	return rc;
 }
 
-const char *dump_unicast_tables(ib_portid_t *portid, int startlid, int endlid)
+static const char *dump_unicast_tables(ib_portid_t *portid, int startlid,
+				       int endlid)
 {
 	char lft[IB_SMP_DATA_SIZE] = { 0 };
 	char nd[IB_SMP_DATA_SIZE] = { 0 };
