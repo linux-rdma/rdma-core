@@ -123,41 +123,6 @@ void smp_get_init(void *umad, int lid, int attr, int mod)
 	umad_set_addr(umad, lid, 0, 0, 0);
 }
 
-void drsmp_set_init(void *umad, DRPath * path, int attr, int mod, void *data)
-{
-	struct drsmp *smp = (struct drsmp *)(umad_get_mad(umad));
-
-	memset(smp, 0, sizeof(*smp));
-
-	smp->method = 2;	/* SET */
-	smp->attr_id = (uint16_t) htons((uint16_t) attr);
-	smp->attr_mod = htonl(mod);
-	smp->tid = htobe64(drmad_tid++);
-	smp->dr_slid = 0xffff;
-	smp->dr_dlid = 0xffff;
-
-	umad_set_addr(umad, 0xffff, 0, 0, 0);
-
-	if (path)
-		memcpy(smp->initial_path, path->path, path->hop_cnt + 1);
-
-	if (data)
-		memcpy(smp->data, data, sizeof smp->data);
-
-	smp->hop_cnt = (uint8_t) path->hop_cnt;
-}
-
-char *drmad_status_str(struct drsmp *drsmp)
-{
-	switch (drsmp->status) {
-	case 0:
-		return "success";
-	case ETIMEDOUT:
-		return "timeout";
-	}
-	return "unknown error";
-}
-
 int str2DRPath(char *str, DRPath * path)
 {
 	char *s;

@@ -354,11 +354,6 @@ static int is_line(ibnd_node_t * n)
 		is_line_2024(n) || is_line_4700(n));
 }
 
-int is_chassis_switch(ibnd_node_t * n)
-{
-	return (is_spine(n) || is_line(n));
-}
-
 /* these structs help find Line (Anafa) slot number while using spine portnum */
 char line_slot_2_sfb4[37] = {
 	0,
