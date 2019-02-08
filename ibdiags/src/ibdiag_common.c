@@ -58,7 +58,6 @@
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
 #include <ibdiag_common.h>
-#include <ibdiag_version.h>
 
 int ibverbose;
 enum MAD_DEST ibd_dest_type = IB_DEST_LID;
@@ -84,8 +83,8 @@ static const struct ibdiag_opt *opts_map[256];
 
 static const char *get_build_version(void)
 {
-	return "BUILD VERSION: " IBDIAG_VERSION " Build date: " __DATE__ " "
-	    __TIME__;
+	return "BUILD VERSION: " PACKAGE_VERSION " Build date: " __DATE__
+	       " " __TIME__;
 }
 
 static void pretty_print(int start, int width, const char *str)
