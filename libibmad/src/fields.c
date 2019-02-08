@@ -55,7 +55,7 @@
 #define BE_TO_BITSOFFS(o, w)	(((o) & ~31) | ((32 - ((o) & 31) - (w))))
 
 static const ib_field_t ib_mad_f[] = {
-	{0, 0},			/* IB_NO_FIELD - reserved as invalid */
+	{},			/* IB_NO_FIELD - reserved as invalid */
 
 	{0, 64, "GidPrefix", mad_dump_rhex},
 	{64, 64, "GidGuid", mad_dump_rhex},
@@ -108,7 +108,7 @@ static const ib_field_t ib_mad_f[] = {
 	{56 * 8, (256 - 56) * 8, "SaData", mad_dump_hex},
 
 	/* bytes 64 - 127 */
-	{0, 0},			/* IB_SM_DATA_F - reserved as invalid */
+	{},			/* IB_SM_DATA_F - reserved as invalid */
 
 	/* bytes 64 - 256 */
 	{64 * 8, (256 - 64) * 8, "GsData", mad_dump_hex},
@@ -169,7 +169,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(428, 4), "OverrunErr", mad_dump_uint},
 	{BITSOFFS(432, 16), "MaxCreditHint", mad_dump_uint},
 	{BITSOFFS(456, 24), "RoundTrip", mad_dump_uint},
-	{0, 0},			/* IB_PORT_LAST_F */
+	{},			/* IB_PORT_LAST_F */
 
 	/*
 	 * NodeInfo fields
@@ -186,7 +186,7 @@ static const ib_field_t ib_mad_f[] = {
 	{256, 32, "Revision", mad_dump_hex},
 	{BITSOFFS(288, 8), "LocalPort", mad_dump_uint},
 	{BITSOFFS(296, 24), "VendorId", mad_dump_hex},
-	{0, 0},			/* IB_NODE_LAST_F */
+	{},			/* IB_NODE_LAST_F */
 
 	/*
 	 * SwitchInfo fields
@@ -209,7 +209,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(131, 1), "FilterRawOutbound", mad_dump_uint},
 	{BITSOFFS(132, 1), "EnhancedPort0", mad_dump_uint},
 	{BITSOFFS(144, 16), "MulticastFDBTop", mad_dump_hex},
-	{0, 0},			/* IB_SW_LAST_F */
+	{},			/* IB_SW_LAST_F */
 
 	/*
 	 * SwitchLinearForwardingTable fields
@@ -264,7 +264,7 @@ static const ib_field_t ib_mad_f[] = {
 	{256, 32, "PortXmitPkts", mad_dump_uint},
 	{288, 32, "PortRcvPkts", mad_dump_uint},
 	{320, 32, "PortXmitWait", mad_dump_uint},
-	{0, 0},			/* IB_PC_LAST_F */
+	{},			/* IB_PC_LAST_F */
 
 	/*
 	 * SMInfo
@@ -374,7 +374,7 @@ static const ib_field_t ib_mad_f[] = {
 	{384, 64, "PortUnicastRcvPkts", mad_dump_uint},
 	{448, 64, "PortMulticastXmitPkts", mad_dump_uint},
 	{512, 64, "PortMulticastRcvPkts", mad_dump_uint},
-	{0, 0},			/* IB_PC_EXT_LAST_F */
+	{},			/* IB_PC_EXT_LAST_F */
 
 	/*
 	 * GUIDInfo fields
@@ -426,7 +426,7 @@ static const ib_field_t ib_mad_f[] = {
 	{448, 32, "XmtDataSL13", mad_dump_uint},
 	{480, 32, "XmtDataSL14", mad_dump_uint},
 	{512, 32, "XmtDataSL15", mad_dump_uint},
-	{0, 0},			/* IB_PC_XMT_DATA_SL_LAST_F */
+	{},			/* IB_PC_XMT_DATA_SL_LAST_F */
 
 	/*
 	 * PortRcvDataSL fields
@@ -447,7 +447,7 @@ static const ib_field_t ib_mad_f[] = {
 	{448, 32, "RcvDataSL13", mad_dump_uint},
 	{480, 32, "RcvDataSL14", mad_dump_uint},
 	{512, 32, "RcvDataSL15", mad_dump_uint},
-	{0, 0},			/* IB_PC_RCV_DATA_SL_LAST_F */
+	{},			/* IB_PC_RCV_DATA_SL_LAST_F */
 
 	/*
 	 * PortXmitDiscardDetails fields
@@ -456,7 +456,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(48, 16), "PortNeighborMTUDiscards", mad_dump_uint},
 	{BITSOFFS(64, 16), "PortSwLifetimeLimitDiscards", mad_dump_uint},
 	{BITSOFFS(80, 16), "PortSwHOQLifetimeLimitDiscards", mad_dump_uint},
-	{0, 0},			/* IB_PC_XMT_DISC_LAST_F */
+	{},			/* IB_PC_XMT_DISC_LAST_F */
 
 	/*
 	 * PortRcvErrorDetails fields
@@ -467,7 +467,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(80, 16), "PortDLIDMappingErrors", mad_dump_uint},
 	{BITSOFFS(96, 16), "PortVLMappingErrors", mad_dump_uint},
 	{BITSOFFS(112, 16), "PortLoopingErrors", mad_dump_uint},
-	{0, 0},                 /* IB_PC_RCV_ERR_LAST_F */
+	{},                 /* IB_PC_RCV_ERR_LAST_F */
 
 	/*
 	 * PortSamplesControl fields
@@ -502,7 +502,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(512, 16), "CounterSelect13", mad_dump_hex},
 	{BITSOFFS(528, 16), "CounterSelect14", mad_dump_hex},
 	{576, 64, "SamplesOnlyOptionMask", mad_dump_hex},
-	{0, 0},			/* IB_PSC_LAST_F */
+	{},			/* IB_PSC_LAST_F */
 
 	/* GUIDInfo fields */
 	{0, 64, "GUID0", mad_dump_hex},
@@ -533,7 +533,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(496, 4), "LinkSpeedExtActive", mad_dump_linkspeedext},
 	{BITSOFFS(500, 4), "LinkSpeedExtSupported", mad_dump_linkspeedextsup},
 	{BITSOFFS(507, 5), "LinkSpeedExtEnabled", mad_dump_linkspeedexten},
-	{0, 0},			/* IB_PORT_LINK_SPEED_EXT_LAST_F */
+	{},			/* IB_PORT_LINK_SPEED_EXT_LAST_F */
 
 	/*
 	 * PortExtendedSpeedsCounters fields
@@ -578,21 +578,21 @@ static const ib_field_t ib_mad_f[] = {
 	{1024, 32, "FECUncorrectableBlockCtrLane9", mad_dump_uint},
 	{1056, 32, "FECUncorrectableBlockCtrLane10", mad_dump_uint},
 	{1088, 32, "FECUncorrectableBlockCtrLane11", mad_dump_uint},
-	{0, 0},			/* IB_PESC_LAST_F */
+	{},			/* IB_PESC_LAST_F */
 
 	/*
 	 * PortOpRcvCounters fields
 	 */
 	{32, 32, "PortOpRcvPkts", mad_dump_uint},
 	{64, 32, "PortOpRcvData", mad_dump_uint},
-	{0, 0},			/* IB_PC_PORT_OP_RCV_COUNTERS_LAST_F */
+	{},			/* IB_PC_PORT_OP_RCV_COUNTERS_LAST_F */
 
 	/*
 	 * PortFlowCtlCounters fields
 	 */
 	{32, 32, "PortXmitFlowPkts", mad_dump_uint},
 	{64, 32, "PortRcvFlowPkts", mad_dump_uint},
-	{0, 0},			/* IB_PC_PORT_FLOW_CTL_COUNTERS_LAST_F */
+	{},			/* IB_PC_PORT_FLOW_CTL_COUNTERS_LAST_F */
 
 	/*
 	 * PortVLOpPackets fields
@@ -613,7 +613,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(240, 16), "PortVLOpPackets13", mad_dump_uint},
 	{BITSOFFS(256, 16), "PortVLOpPackets14", mad_dump_uint},
 	{BITSOFFS(272, 16), "PortVLOpPackets15", mad_dump_uint},
-	{0, 0},			/* IB_PC_PORT_VL_OP_PACKETS_LAST_F */
+	{},			/* IB_PC_PORT_VL_OP_PACKETS_LAST_F */
 
 	/*
 	 * PortVLOpData fields
@@ -634,7 +634,7 @@ static const ib_field_t ib_mad_f[] = {
 	{448, 32, "PortVLOpData13", mad_dump_uint},
 	{480, 32, "PortVLOpData14", mad_dump_uint},
 	{512, 32, "PortVLOpData15", mad_dump_uint},
-	{0, 0},			/* IB_PC_PORT_VL_OP_DATA_LAST_F */
+	{},			/* IB_PC_PORT_VL_OP_DATA_LAST_F */
 
 	/*
 	 * PortVLXmitFlowCtlUpdateErrors fields
@@ -655,7 +655,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(58, 2), "PortVLXmitFlowCtlUpdateErrors13", mad_dump_uint},
 	{BITSOFFS(60, 2), "PortVLXmitFlowCtlUpdateErrors14", mad_dump_uint},
 	{BITSOFFS(62, 2), "PortVLXmitFlowCtlUpdateErrors15", mad_dump_uint},
-	{0, 0},			/* IB_PC_PORT_VL_XMIT_FLOW_CTL_UPDATE_ERRORS_LAST_F */
+	{},			/* IB_PC_PORT_VL_XMIT_FLOW_CTL_UPDATE_ERRORS_LAST_F */
 
 	/*
 	 * PortVLXmitWaitCounters fields
@@ -676,7 +676,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(240, 16), "PortVLXmitWait13", mad_dump_uint},
 	{BITSOFFS(256, 16), "PortVLXmitWait14", mad_dump_uint},
 	{BITSOFFS(272, 16), "PortVLXmitWait15", mad_dump_uint},
-	{0, 0},			/* IB_PC_PORT_VL_XMIT_WAIT_COUNTERS_LAST_F */
+	{},			/* IB_PC_PORT_VL_XMIT_WAIT_COUNTERS_LAST_F */
 
 	/*
 	 * SwPortVLCongestion fields
@@ -697,14 +697,14 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(240, 16), "SWPortVLCongestion13", mad_dump_uint},
 	{BITSOFFS(256, 16), "SWPortVLCongestion14", mad_dump_uint},
 	{BITSOFFS(272, 16), "SWPortVLCongestion15", mad_dump_uint},
-	{0, 0},			/* IB_PC_SW_PORT_VL_CONGESTION_LAST_F */
+	{},			/* IB_PC_SW_PORT_VL_CONGESTION_LAST_F */
 
 	/*
 	 * PortRcvConCtrl fields
 	 */
 	{32, 32, "PortPktRcvFECN", mad_dump_uint},
 	{64, 32, "PortPktRcvBECN", mad_dump_uint},
-	{0, 0},			/* IB_PC_RCV_CON_CTRL_LAST_F */
+	{},			/* IB_PC_RCV_CON_CTRL_LAST_F */
 
 	/*
 	 * PortSLRcvFECN fields
@@ -725,7 +725,7 @@ static const ib_field_t ib_mad_f[] = {
 	{448, 32, "PortSLRcvFECN13", mad_dump_uint},
 	{480, 32, "PortSLRcvFECN14", mad_dump_uint},
 	{512, 32, "PortSLRcvFECN15", mad_dump_uint},
-	{0, 0},			/* IB_PC_SL_RCV_FECN_LAST_F */
+	{},			/* IB_PC_SL_RCV_FECN_LAST_F */
 
 	/*
 	 * PortSLRcvBECN fields
@@ -746,13 +746,13 @@ static const ib_field_t ib_mad_f[] = {
 	{448, 32, "PortSLRcvBECN13", mad_dump_uint},
 	{480, 32, "PortSLRcvBECN14", mad_dump_uint},
 	{512, 32, "PortSLRcvBECN15", mad_dump_uint},
-	{0, 0},			/* IB_PC_SL_RCV_BECN_LAST_F */
+	{},			/* IB_PC_SL_RCV_BECN_LAST_F */
 
 	/*
 	 * PortXmitConCtrl fields
 	 */
 	{32, 32, "PortXmitTimeCong", mad_dump_uint},
-	{0, 0},			/* IB_PC_XMIT_CON_CTRL_LAST_F */
+	{},			/* IB_PC_XMIT_CON_CTRL_LAST_F */
 
 	/*
 	 * PortVLXmitTimeCong fields
@@ -772,7 +772,7 @@ static const ib_field_t ib_mad_f[] = {
 	{416, 32, "PortVLXmitTimeCong12", mad_dump_uint},
 	{448, 32, "PortVLXmitTimeCong13", mad_dump_uint},
 	{480, 32, "PortVLXmitTimeCong14", mad_dump_uint},
-	{0, 0},			/* IB_PC_VL_XMIT_TIME_CONG_LAST_F */
+	{},			/* IB_PC_VL_XMIT_TIME_CONG_LAST_F */
 
 	/*
 	 * Mellanox ExtendedPortInfo fields
@@ -781,7 +781,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(56, 8), "LinkSpeedSupported", mad_dump_hex},
 	{BITSOFFS(88, 8), "LinkSpeedEnabled", mad_dump_hex},
 	{BITSOFFS(120, 8), "LinkSpeedActive", mad_dump_hex},
-	{0, 0},			/* IB_MLNX_EXT_PORT_LAST_F */
+	{},			/* IB_MLNX_EXT_PORT_LAST_F */
 
 	/*
 	 * Congestion Control Mad fields
@@ -794,7 +794,7 @@ static const ib_field_t ib_mad_f[] = {
 	 */
 	{BITSOFFS(0, 16), "CongestionInfo", mad_dump_hex},
 	{BITSOFFS(16, 8), "ControlTableCap", mad_dump_uint},
-	{0, 0},			/* IB_CC_CONGESTION_INFO_LAST_F */
+	{},			/* IB_CC_CONGESTION_INFO_LAST_F */
 
 	/*
 	 * CongestionKeyInfo fields
@@ -803,14 +803,14 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(64, 1), "CC_KeyProtectBit", mad_dump_uint},
 	{BITSOFFS(80, 16), "CC_KeyLeasePeriod", mad_dump_uint},
 	{BITSOFFS(96, 16), "CC_KeyViolations", mad_dump_uint},
-	{0, 0},			/* IB_CC_CONGESTION_KEY_INFO_LAST_F */
+	{},			/* IB_CC_CONGESTION_KEY_INFO_LAST_F */
 
 	/*
 	 * CongestionLog (common) fields
 	 */
 	{BITSOFFS(0, 8), "LogType", mad_dump_uint},
 	{BITSOFFS(8, 8), "CongestionFlags", mad_dump_hex},
-	{0, 0},			/* IB_CC_CONGESTION_LOG_LAST_F */
+	{},			/* IB_CC_CONGESTION_LOG_LAST_F */
 
 	/*
 	 * CongestionLog (Switch) fields
@@ -818,7 +818,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(16, 16), "LogEventsCounter", mad_dump_uint},
 	{32, 32, "CurrentTimeStamp", mad_dump_uint},
 	{64, 256, "PortMap", mad_dump_array},
-	{0, 0},			/* IB_CC_CONGESTION_LOG_SWITCH_LAST_F */
+	{},			/* IB_CC_CONGESTION_LOG_SWITCH_LAST_F */
 
 	/*
 	 * CongestionLogEvent (Switch) fields
@@ -827,7 +827,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(16, 16), "DLID", mad_dump_uint},
 	{BITSOFFS(32, 4), "SL", mad_dump_uint},
 	{64, 32, "Timestamp", mad_dump_uint},
-	{0, 0},			/* IB_CC_CONGESTION_LOG_ENTRY_SWITCH_LAST_F */
+	{},			/* IB_CC_CONGESTION_LOG_ENTRY_SWITCH_LAST_F */
 
 	/*
 	 * CongestionLog (CA) fields
@@ -838,7 +838,7 @@ static const ib_field_t ib_mad_f[] = {
 	 * word aligned.  Assume will be aligned to offset 64 later.
 	 */
 	{BITSOFFS(64, 32), "CurrentTimeStamp", mad_dump_uint},
-	{0, 0},			/* IB_CC_CONGESTION_LOG_CA_LAST_F */
+	{},			/* IB_CC_CONGESTION_LOG_CA_LAST_F */
 
 	/*
 	 * CongestionLogEvent (CA) fields
@@ -850,7 +850,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(64, 16), "Local_LID_CN", mad_dump_uint},
 	{BITSOFFS(80, 16), "Remote_LID_CN_Entry", mad_dump_uint},
 	{BITSOFFS(96, 32), "Timestamp_CN_Entry", mad_dump_uint},
-	{0, 0},			/* IB_CC_CONGESTION_LOG_ENTRY_CA_LAST_F */
+	{},			/* IB_CC_CONGESTION_LOG_ENTRY_CA_LAST_F */
 
 	/*
 	 * SwitchCongestionSetting fields
@@ -863,7 +863,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(560, 4), "CS_Threshold", mad_dump_hex},
 	{BITSOFFS(576, 16), "CS_ReturnDelay", mad_dump_hex}, /* TODO: CCT dump */
 	{BITSOFFS(592, 16), "Marking_Rate", mad_dump_uint},
-	{0, 0},			/* IB_CC_SWITCH_CONGESTION_SETTING_LAST_F */
+	{},			/* IB_CC_SWITCH_CONGESTION_SETTING_LAST_F */
 
 	/*
 	 * SwitchPortCongestionSettingElement fields
@@ -873,14 +873,14 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(4, 4), "Threshold", mad_dump_hex},
 	{BITSOFFS(8, 8), "Packet_Size", mad_dump_uint},
 	{BITSOFFS(16, 16), "Cong_Parm_Marking_Rate", mad_dump_uint},
-	{0, 0},			/* IB_CC_SWITCH_PORT_CONGESTION_SETTING_ELEMENT_LAST_F */
+	{},			/* IB_CC_SWITCH_PORT_CONGESTION_SETTING_ELEMENT_LAST_F */
 
 	/*
 	 * CACongestionSetting fields
 	 */
 	{BITSOFFS(0, 16), "Port_Control", mad_dump_hex},
 	{BITSOFFS(16, 16), "Control_Map", mad_dump_hex},
-	{0, 0},			/* IB_CC_CA_CONGESTION_SETTING_LAST_F */
+	{},			/* IB_CC_CA_CONGESTION_SETTING_LAST_F */
 
 	/*
 	 * CACongestionEntry fields
@@ -889,26 +889,26 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(16, 8), "CCTI_Increase", mad_dump_uint},
 	{BITSOFFS(24, 8), "Trigger_Threshold", mad_dump_uint},
 	{BITSOFFS(32, 8), "CCTI_Min", mad_dump_uint},
-	{0, 0},			/* IB_CC_CA_CONGESTION_SETTING_ENTRY_LAST_F */
+	{},			/* IB_CC_CA_CONGESTION_SETTING_ENTRY_LAST_F */
 
 	/*
 	 * CongestionControlTable fields
 	 */
 	{BITSOFFS(0, 16), "CCTI_Limit", mad_dump_uint},
-	{0, 0},			/* IB_CC_CONGESTION_CONTROL_TABLE_LAST_F */
+	{},			/* IB_CC_CONGESTION_CONTROL_TABLE_LAST_F */
 
 	/*
 	 * CongestionControlTableEntry fields
 	 */
 	{BITSOFFS(0, 2), "CCT_Shift", mad_dump_uint},
 	{BITSOFFS(2, 14), "CCT_Multiplier", mad_dump_uint},
-	{0, 0},			/* IB_CC_CONGESTION_CONTROL_TABLE_ENTRY_LAST_F */
+	{},			/* IB_CC_CONGESTION_CONTROL_TABLE_ENTRY_LAST_F */
 
 	/*
 	 * Timestamp fields
 	 */
 	{0, 32, "Timestamp", mad_dump_uint},
-	{0, 0}, /* IB_CC_TIMESTAMP_LAST_F */
+	{}, /* IB_CC_TIMESTAMP_LAST_F */
 
 	/* Node Record */
 	{BITSOFFS(0, 16), "Lid", mad_dump_uint},
@@ -925,7 +925,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(320, 8), "LocalPort", mad_dump_uint},
 	{BITSOFFS(328, 24), "VendorId", mad_dump_hex},
 	{352, 64 * 8, "NodeDesc", mad_dump_string},
-	{0, 0}, /* IB_SA_NR_LAST_F */
+	{}, /* IB_SA_NR_LAST_F */
 
 	/*
 	 * PortSamplesResult fields
@@ -947,7 +947,7 @@ static const ib_field_t ib_mad_f[] = {
 	{416, 32, "Counter12", mad_dump_uint},
 	{448, 32, "Counter13", mad_dump_uint},
 	{480, 32, "Counter14", mad_dump_uint},
-	{0, 0},			/* IB_PSR_LAST_F */
+	{},			/* IB_PSR_LAST_F */
 
 	/*
 	 * PortInfoExtended fields
@@ -958,7 +958,7 @@ static const ib_field_t ib_mad_f[] = {
 	{BITSOFFS(64, 16), "FDRFECModeEnabled", mad_dump_hex},
 	{BITSOFFS(80, 16), "EDRFECModeSupported", mad_dump_hex},
 	{BITSOFFS(96, 16), "EDRFECModeEnabled", mad_dump_hex},
-	{0, 0},			/* IB_PORT_EXT_LAST_F */
+	{},			/* IB_PORT_EXT_LAST_F */
 
 	/*
 	 * PortExtendedSpeedsCounters RSFEC Active fields
@@ -982,7 +982,7 @@ static const ib_field_t ib_mad_f[] = {
 	{1120, 32, "PortFECCorrectableBlockCtr", mad_dump_uint},
 	{1152, 32, "PortFECUncorrectableBlockCtr", mad_dump_uint},
 	{1184, 32, "PortFECCorrectedSymbolCtr", mad_dump_uint},
-	{0, 0},			/* IB_PESC_RSFEC_LAST_F */
+	{},			/* IB_PESC_RSFEC_LAST_F */
 
 	/*
 	 * More PortCountersExtended fields
@@ -1002,7 +1002,7 @@ static const ib_field_t ib_mad_f[] = {
 	{1280, 64, "VL15Dropped", mad_dump_uint},
 	{1344, 64, "PortXmitWait", mad_dump_uint},
 	{1408, 64, "QP1Dropped", mad_dump_uint},
-	{0, 0},			/* IB_PC_EXT_ERR_LAST_F */
+	{},			/* IB_PC_EXT_ERR_LAST_F */
 
 	/*
 	 * Another PortCounters field
@@ -1014,9 +1014,9 @@ static const ib_field_t ib_mad_f[] = {
 	 */
 	{112, 16, "HDRFECModeSupported", mad_dump_hex},
 	{128, 16, "HDRFECModeEnabled", mad_dump_hex},
-	{0, 0},			/* IB_PORT_EXT_HDR_FEC_MODE_LAST_F */
+	{},			/* IB_PORT_EXT_HDR_FEC_MODE_LAST_F */
 
-	{0, 0}			/* IB_FIELD_LAST_ */
+	{}			/* IB_FIELD_LAST_ */
 };
 
 static void _set_field64(void *buf, int base_offs, const ib_field_t * f,
