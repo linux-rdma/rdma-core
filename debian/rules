@@ -36,6 +36,7 @@ DH_AUTO_CONFIGURE := "--" \
 		     "-DCMAKE_INSTALL_RUNDIR:PATH=/run" \
 		     "-DCMAKE_INSTALL_UDEV_RULESDIR:PATH=/lib/udev/rules.d" \
 		     "-DENABLE_STATIC=1" \
+		     "-DWITH_IBDIAGS:BOOL=False" \
 		     $(EXTRA_CMAKE_FLAGS)
 
 override_dh_auto_configure:

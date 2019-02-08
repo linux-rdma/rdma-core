@@ -85,8 +85,12 @@ def check_lib_symver(args,fn):
         raise ValueError("Shared Library filename %r does not have the package version %r (%r)%"(
             fn,args.PACKAGE_VERSION,g.groups()));
 
-    # umad used the wrong symbol version name when they moved to soname 3.0
+    # umad/etc used the wrong symbol version name when they moved to soname 3.0
     if g.group(1) == "ibumad":
+        newest_symver = "%s_%s.%s"%(g.group(1).upper(),'1',g.group(3));
+    elif g.group(1) == "ibmad":
+        newest_symver = "%s_%s.%s"%(g.group(1).upper(),'1',g.group(3));
+    elif g.group(1) == "ibnetdisc":
         newest_symver = "%s_%s.%s"%(g.group(1).upper(),'1',g.group(3));
     else:
         newest_symver = "%s_%s.%s"%(g.group(1).upper(),g.group(2),g.group(3));

@@ -372,6 +372,7 @@ easy, object-oriented access to IB verbs.
          -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
          -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version} \
          -DCMAKE_INSTALL_UDEV_RULESDIR:PATH=%{_udevrulesdir} \
+         -DWITH_IBDIAGS:BOOL=False \
 %if %{with_static}
          -DENABLE_STATIC=1 \
 %endif

@@ -45,6 +45,11 @@
 #   -DNO_PYVERBS=1 (default, build pyverbs)
 #      Invoke cython to build pyverbs. Usually you will run with this option
 #      is set, but it will be disabled for travis runs.
+#   -DWITH_IBDIAGS=False (default True)
+#      Do not build infiniband-diags components
+#   -DENABLE_IBDIAGS_COMPAT=True (default False)
+#      Include obsolete scripts. These scripts are replaced by C programs with
+#      a different interface now.
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(rdma-core C)
@@ -79,6 +84,7 @@ set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 if (IN_PLACE)
   set(CMAKE_INSTALL_SYSCONFDIR "${CMAKE_BINARY_DIR}/etc")
   set(CMAKE_INSTALL_BINDIR "${CMAKE_BINARY_DIR}/bin")
+  set(CMAKE_INSTALL_SBINDIR "${CMAKE_BINARY_DIR}/bin")
   set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}")
   set(CMAKE_INSTALL_LIBDIR "lib")
   set(CMAKE_INSTALL_INCLUDEDIR "include")
@@ -108,7 +114,6 @@ set(CMAKE_INSTALL_SYSTEMD_BINDIR "/lib/systemd"
 
 set(ACM_PROVIDER_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/ibacm"
   CACHE PATH "Location for ibacm provider plugin shared library files.")
-
 # Location to find the provider plugin shared library files
 set(VERBS_PROVIDER_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/libibverbs"
   CACHE PATH "Location for provider plugin shared library files. If set to empty the system search path is used.")
@@ -133,6 +138,15 @@ else()
   set(CMAKE_INSTALL_FULL_UDEV_RULESDIR "${CMAKE_INSTALL_UDEV_RULESDIR}")
 endif()
 
+# Allow the perl library dir to be configurable
+set(CMAKE_INSTALL_PERLDIR "share/perl5"
+  CACHE PATH "Location for system perl library, typically /usr/share/perl5")
+if(NOT IS_ABSOLUTE ${CMAKE_INSTALL_PERLDIR})
+  set(CMAKE_INSTALL_FULL_PERLDIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_PERLDIR}")
+else()
+  set(CMAKE_INSTALL_FULL_PERLDIR "${CMAKE_INSTALL_PERLDIR}")
+endif()
+
 # Location to place provider .driver files
 if (IN_PLACE)
   set(CONFIG_DIR "${BUILD_ETC}/libibverbs.d")
@@ -144,6 +158,8 @@ endif()
 
 set(DISTRO_FLAVOUR "None" CACHE
   STRING "Flavour of distribution to install for. This primarily impacts the init.d scripts installed.")
+
+set(WITH_IBDIAGS "True" CACHE BOOL "Build infiniband-diags stuff too")
 
 #-------------------------
 # Load CMake components
@@ -603,6 +619,16 @@ add_subdirectory(providers/hfi1verbs)
 add_subdirectory(providers/ipathverbs)
 add_subdirectory(providers/rxe)
 add_subdirectory(providers/rxe/man)
+
+if (WITH_IBDIAGS)
+add_subdirectory(ibdiags/libibmad/src)
+add_subdirectory(ibdiags/libibnetdisc/src)
+add_subdirectory(ibdiags/libibnetdisc/man)
+add_subdirectory(ibdiags/src)
+add_subdirectory(ibdiags/scripts)
+add_subdirectory(ibdiags/man)
+add_subdirectory(ibdiags/doc/rst)
+endif()
 
 if (CYTHON_EXECUTABLE)
   add_subdirectory(pyverbs)
