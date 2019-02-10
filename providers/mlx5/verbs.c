@@ -553,11 +553,6 @@ int mlx5_round_up_power_of_two(long long sz)
 	return (int)ret;
 }
 
-static int align_queue_size(long long req)
-{
-	return mlx5_round_up_power_of_two(req);
-}
-
 static int get_cqe_size(struct mlx5dv_cq_init_attr *mlx5cq_attr)
 {
 	char *env;
@@ -1016,11 +1011,10 @@ struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 		goto err;
 	}
 
-	srq->max     = align_queue_size(attr->attr.max_wr + 1);
 	srq->max_gs  = attr->attr.max_sge;
 	srq->counter = 0;
 
-	if (mlx5_alloc_srq_buf(pd->context, srq)) {
+	if (mlx5_alloc_srq_buf(pd->context, srq, attr->attr.max_wr)) {
 		fprintf(stderr, "%s-%d:\n", __func__, __LINE__);
 		goto err;
 	}
@@ -1041,10 +1035,21 @@ struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 
 	attr->attr.max_sge = srq->max_gs;
 	pthread_mutex_lock(&ctx->srq_table_mutex);
+
+	/* Override max_wr to let kernel know about extra WQEs for the
+	 * wait queue.
+	 */
+	attr->attr.max_wr = srq->max - 1;
+
 	ret = ibv_cmd_create_srq(pd, ibsrq, attr, &cmd.ibv_cmd, sizeof(cmd),
 				 &resp.ibv_resp, sizeof(resp));
 	if (ret)
 		goto err_db;
+
+	/* Override kernel response that includes the wait queue with the real
+	 * number of WQEs that are applicable for the application.
+	 */
+	attr->attr.max_wr = srq->tail;
 
 	ret = mlx5_store_srq(ctx, resp.srqn, srq);
 	if (ret)
@@ -2707,11 +2712,10 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 		goto err;
 	}
 
-	msrq->max     = align_queue_size(attr->attr.max_wr + 1);
 	msrq->max_gs  = attr->attr.max_sge;
 	msrq->counter = 0;
 
-	if (mlx5_alloc_srq_buf(context, msrq)) {
+	if (mlx5_alloc_srq_buf(context, msrq, attr->attr.max_wr)) {
 		fprintf(stderr, "%s-%d:\n", __func__, __LINE__);
 		goto err;
 	}
@@ -2743,9 +2747,20 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 		pthread_mutex_lock(&ctx->srq_table_mutex);
 	}
 
+	/* Override max_wr to let kernel know about extra WQEs for the
+	 * wait queue.
+	 */
+	attr->attr.max_wr = msrq->max - 1;
+
 	err = ibv_cmd_create_srq_ex(context, &msrq->vsrq, sizeof(msrq->vsrq),
 				    attr, &cmd.ibv_cmd, sizeof(cmd),
 				    &resp.ibv_resp, sizeof(resp));
+
+	/* Override kernel response that includes the wait queue with the real
+	 * number of WQEs that are applicable for the application.
+	 */
+	attr->attr.max_wr = msrq->tail;
+
 	if (err)
 		goto err_free_uidx;
 
