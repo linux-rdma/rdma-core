@@ -7,10 +7,10 @@ ucmatose \- RDMA CM connection and simple ping-pong test.
 .nf
 \fIucmatose\fR [-s server_address] [-b bind_address]
 		[-f address_format] [-P port_space]
-		[-c connections] [-C message_count] [-S message_size]
+		[-c connections] [-C message_count] [-S message_size] [-a ack_timeout]
 \fIucmatose\fR -s server_address [-b bind_address]
 		[-f address_format] [-P port_space]
-		[-c connections] [-C message_count] [-S message_size] [-t tos]
+		[-c connections] [-C message_count] [-S message_size] [-t tos] [-a ack_timeout]
 .fi
 .SH "DESCRIPTION"
 Establishes a set of reliable RDMA connections between two nodes using the
@@ -51,6 +51,10 @@ The size of each message transferred, in bytes.  (default 100)
 \-t tos
 Indicates the type of service used for the communication.  Type of service
 is implementation dependent based on subnet configuration.
+.TP
+\-a ack_timeout
+Indicates the QP ACK timeout value that should be used.
+The value calculated according to the formula 4.096 * 2^(ack_timeout) usec.
 .TP
 \-m
 Tests event channel migration.  Migrates all communication identifiers to

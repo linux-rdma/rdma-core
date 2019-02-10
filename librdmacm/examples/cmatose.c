@@ -80,6 +80,8 @@ static uint8_t migrate = 0;
 static char *dst_addr;
 static char *src_addr;
 static struct rdma_addrinfo hints;
+static uint8_t set_timeout;
+static uint8_t timeout;
 
 static int create_message(struct cmatest_node *node)
 {
@@ -223,7 +225,13 @@ static int addr_handler(struct cmatest_node *node)
 		if (ret)
 			perror("cmatose: set TOS option failed");
 	}
-
+	if (set_timeout) {
+		ret = rdma_set_option(node->cma_id, RDMA_OPTION_ID,
+				      RDMA_OPTION_ID_ACK_TIMEOUT,
+				      &timeout, sizeof(timeout));
+		if (ret)
+			perror("cmatose: set ack timeout option failed");
+	}
 	ret = rdma_resolve_route(node->cma_id, 2000);
 	if (ret) {
 		perror("cmatose: resolve route failed");
@@ -280,6 +288,13 @@ static int connect_handler(struct rdma_cm_id *cma_id)
 	if (ret)
 		goto err2;
 
+	if (set_timeout) {
+		ret = rdma_set_option(node->cma_id, RDMA_OPTION_ID,
+				      RDMA_OPTION_ID_ACK_TIMEOUT,
+				      &timeout, sizeof(timeout));
+		if (ret)
+			perror("cmatose: set ack timeout option failed");
+	}
 	ret = post_recvs(node);
 	if (ret)
 		goto err2;
@@ -635,7 +650,7 @@ int main(int argc, char **argv)
 	int op, ret;
 
 	hints.ai_port_space = RDMA_PS_TCP;
-	while ((op = getopt(argc, argv, "s:b:f:P:c:C:S:t:p:m")) != -1) {
+	while ((op = getopt(argc, argv, "s:b:f:P:c:C:S:t:p:a:m")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
@@ -679,6 +694,10 @@ int main(int argc, char **argv)
 		case 'm':
 			migrate = 1;
 			break;
+		case 'a':
+			set_timeout = 1;
+			timeout = (uint8_t) strtoul(optarg, NULL, 0);
+			break;
 		default:
 			printf("usage: %s\n", argv[0]);
 			printf("\t[-s server_address]\n");
@@ -693,6 +712,7 @@ int main(int argc, char **argv)
 			printf("\t[-t type_of_service]\n");
 			printf("\t[-p port_number]\n");
 			printf("\t[-m(igrate)]\n");
+			printf("\t[-a ack_timeout]\n");
 			exit(1);
 		}
 	}
