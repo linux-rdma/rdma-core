@@ -33,6 +33,7 @@
 #ifndef _MLX4DV_H_
 #define _MLX4DV_H_
 
+#include <stdio.h>
 #include <linux/types.h>
 #include <endian.h>
 #include <infiniband/verbs.h>
@@ -149,6 +150,10 @@ struct mlx4_cqe {
 	uint8_t		owner_sr_opcode;
 };
 
+enum mlx4dv_qp_comp_mask {
+	MLX4DV_QP_MASK_UAR_MMAP_OFFSET		= 1 << 0,
+};
+
 struct mlx4dv_qp {
 	__be32		       *rdb;
 	uint32_t		*sdb;
@@ -168,6 +173,7 @@ struct mlx4dv_qp {
 		size_t			length;
 	} buf;
 	uint64_t		comp_mask;
+	off_t			uar_mmap_offset;
 };
 
 enum mlx4dv_cq_comp_mask {

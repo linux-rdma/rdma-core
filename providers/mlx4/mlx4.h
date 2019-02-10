@@ -102,6 +102,7 @@ struct mlx4_context {
 	struct verbs_context		ibv_ctx;
 
 	void			       *uar;
+	off_t				uar_mmap_offset;
 
 	void			       *bf_page;
 	int				bf_buf_size;

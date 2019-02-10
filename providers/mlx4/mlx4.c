@@ -211,8 +211,9 @@ static struct verbs_context *mlx4_alloc_context(struct ibv_device *ibdev,
 	mlx4_init_xsrq_table(&context->xsrq_table, context->num_qps);
 	pthread_mutex_init(&context->db_list_mutex, NULL);
 
+	context->uar_mmap_offset = 0;
 	context->uar = mmap(NULL, dev->page_size, PROT_WRITE,
-			    MAP_SHARED, cmd_fd, 0);
+			    MAP_SHARED, cmd_fd, context->uar_mmap_offset);
 	if (context->uar == MAP_FAILED)
 		goto failed;
 
@@ -309,8 +310,7 @@ static int mlx4dv_get_qp(struct ibv_qp *qp_in,
 {
 	struct mlx4_qp *mqp = to_mqp(qp_in);
 	struct mlx4_context *ctx = to_mctx(qp_in->context);
-
-	qp_out->comp_mask = 0;
+	uint64_t mask_out = 0;
 
 	qp_out->buf.buf = mqp->buf.buf;
 	qp_out->buf.length = mqp->buf.length;
@@ -326,6 +326,13 @@ static int mlx4dv_get_qp(struct ibv_qp *qp_in,
 	qp_out->rq.wqe_cnt = mqp->rq.wqe_cnt;
 	qp_out->rq.wqe_shift = mqp->rq.wqe_shift;
 	qp_out->rq.offset = mqp->rq.offset;
+
+	if (qp_out->comp_mask & MLX4DV_QP_MASK_UAR_MMAP_OFFSET) {
+		qp_out->uar_mmap_offset = ctx->uar_mmap_offset;
+		mask_out |= MLX4DV_QP_MASK_UAR_MMAP_OFFSET;
+	}
+
+	qp_out->comp_mask = mask_out;
 
 	return 0;
 }
