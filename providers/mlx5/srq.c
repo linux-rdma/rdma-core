@@ -82,6 +82,95 @@ void mlx5_free_srq_wqe(struct mlx5_srq *srq, int ind)
 	mlx5_spin_unlock(&srq->lock);
 }
 
+/* Take an index and put it last in wait queue */
+static void srq_put_in_waitq(struct mlx5_srq *srq, int ind)
+{
+	struct mlx5_wqe_srq_next_seg *waitq_tail;
+
+	waitq_tail = get_wqe(srq, srq->waitq_tail);
+	waitq_tail->next_wqe_index = htobe16(ind);
+	srq->waitq_tail = ind;
+}
+
+/* Take first in wait queue and put in tail of SRQ */
+static void srq_get_from_waitq(struct mlx5_srq *srq)
+{
+	struct mlx5_wqe_srq_next_seg *tail;
+	struct mlx5_wqe_srq_next_seg *waitq_head;
+
+	tail = get_wqe(srq, srq->tail);
+	waitq_head = get_wqe(srq, srq->waitq_head);
+
+	tail->next_wqe_index = htobe16(srq->waitq_head);
+	srq->tail = srq->waitq_head;
+	srq->waitq_head = be16toh(waitq_head->next_wqe_index);
+}
+
+/* Put the given WQE that is in SW ownership at the end of the wait queue.
+ * Take a WQE from the wait queue and add it to WQEs in SW ownership instead.
+ */
+bool srq_cooldown_wqe(struct mlx5_srq *srq, int ind)
+{
+	if (!srq_has_waitq(srq))
+		return false;
+
+	srq_put_in_waitq(srq, ind);
+	srq_get_from_waitq(srq);
+	return true;
+}
+
+/* Post a WQE internally, based on a previous application post.
+ * Copy a given WQE's data segments to the SRQ head, advance the head
+ * and ring the HW doorbell.
+ */
+static void srq_repost(struct mlx5_srq *srq, int ind)
+{
+	struct mlx5_wqe_srq_next_seg *src, *dst;
+	struct mlx5_wqe_data_seg *src_scat, *dst_scat;
+	int i;
+
+	srq->wrid[srq->head] = srq->wrid[ind];
+
+	src = get_wqe(srq, ind);
+	dst = get_wqe(srq, srq->head);
+	src_scat = (struct mlx5_wqe_data_seg *)(src + 1);
+	dst_scat = (struct mlx5_wqe_data_seg *)(dst + 1);
+
+	for (i = 0; i < srq->max_gs; ++i) {
+		dst_scat[i] = src_scat[i];
+
+		if (dst_scat[i].lkey == htobe32(MLX5_INVALID_LKEY))
+			break;
+	}
+
+	srq->head = be16toh(dst->next_wqe_index);
+	srq->counter++;
+	/* Flush descriptors */
+	udma_to_device_barrier();
+	*srq->db = htobe32(srq->counter);
+}
+
+void mlx5_complete_odp_fault(struct mlx5_srq *srq, int ind)
+{
+	mlx5_spin_lock(&srq->lock);
+
+	if (!srq_cooldown_wqe(srq, ind)) {
+		struct mlx5_wqe_srq_next_seg *tail = get_wqe(srq, srq->tail);
+
+		/* Without a wait queue put the page-faulted wqe
+		 * back in SRQ tail. The repost is still possible but
+		 * the risk of overriding the page-faulted WQE with a future
+		 * post_srq_recv() is now higher.
+		 */
+		tail->next_wqe_index = htobe16(ind);
+		srq->tail = ind;
+	}
+
+	srq_repost(srq, ind);
+
+	mlx5_spin_unlock(&srq->lock);
+}
+
 int mlx5_post_srq_recv(struct ibv_srq *ibsrq,
 		       struct ibv_recv_wr *wr,
 		       struct ibv_recv_wr **bad_wr)

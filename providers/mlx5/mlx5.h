@@ -811,6 +811,7 @@ int mlx5_query_srq(struct ibv_srq *srq,
 int mlx5_destroy_srq(struct ibv_srq *srq);
 int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq,
 		       uint32_t nwr);
+void mlx5_complete_odp_fault(struct mlx5_srq *srq, int ind);
 void mlx5_free_srq_wqe(struct mlx5_srq *srq, int ind);
 int mlx5_post_srq_recv(struct ibv_srq *ibsrq,
 		       struct ibv_recv_wr *wr,
@@ -1029,5 +1030,7 @@ static inline bool srq_has_waitq(struct mlx5_srq *srq)
 {
 	return srq->waitq_head >= 0;
 }
+
+bool srq_cooldown_wqe(struct mlx5_srq *srq, int ind);
 
 #endif /* MLX5_H */
