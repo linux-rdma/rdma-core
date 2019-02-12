@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
-# Copyright (c) 2018, Mellanox Technologies. All rights reserved. See COPYING file
+# Copyright (c) 2019, Mellanox Technologies. All rights reserved. See COPYING file
 
 rdma_cython_module(pyverbs
-  enums.pyx
+  addr.pyx
   base.pyx
   device.pyx
-  addr.pyx
+  enums.pyx
+  pd.pyx
   )
 
 rdma_python_module(pyverbs

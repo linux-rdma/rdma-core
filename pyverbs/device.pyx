@@ -6,11 +6,14 @@ Device module introduces the Context and DeviceAttr class.
 It allows user to open an IB device (using Context(name=<name>) and query it,
 which returns a DeviceAttr object.
 """
-from .pyverbs_error import PyverbsRDMAError
+import weakref
+
+from .pyverbs_error import PyverbsRDMAError, PyverbsError
 from .pyverbs_error import PyverbsUserError
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs as v
 from pyverbs.addr cimport GID
+from pyverbs.pd cimport PD
 
 cdef extern from 'errno.h':
     int errno
@@ -55,10 +58,9 @@ class Device(PyverbsObject):
                 guid=guid_to_hex(self.guid))
 
 
-cdef class Context(PyverbsObject):
+cdef class Context(PyverbsCM):
     """
-    Context class represents the C ibv_context. It currently allows only
-    querying the underlying device.
+    Context class represents the C ibv_context.
     """
     def __cinit__(self, **kwargs):
         """
@@ -71,6 +73,8 @@ cdef class Context(PyverbsObject):
         """
         cdef int count
         cdef v.ibv_device **dev_list
+
+        self.pds = weakref.WeakSet()
         dev_name = kwargs.get('name')
 
         if dev_name is not None:
@@ -106,6 +110,7 @@ cdef class Context(PyverbsObject):
 
     cpdef close(self):
         self.logger.debug('Closing Context')
+        self.close_weakrefs([self.pds])
         if self.context != NULL:
             rc = v.ibv_close_device(self.context)
             if rc != 0:
@@ -131,8 +136,14 @@ cdef class Context(PyverbsObject):
         rc = v.ibv_query_gid(self.context, port_num, index, &gid.gid)
         if rc != 0:
             raise PyverbsRDMAError('Failed to query gid {idx} of port {port}'.
-								   format(idx=index, port=port_num))
+                                                                   format(idx=index, port=port_num))
         return gid
+
+    cdef add_ref(self, obj):
+        if isinstance(obj, PD):
+            self.pds.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
 
 
 cdef class DeviceAttr(PyverbsObject):
