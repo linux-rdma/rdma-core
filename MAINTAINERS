@@ -80,8 +80,8 @@ S:	Supported
 F:	providers/i40iw/
 
 RDMA Communication Manager Assistant (for librdmacm.so)
-M:	Sean Hefty <sean.hefty@intel.com>
-M:	Hal Rosenstock <hal@dev.mellanox.co.il>
+M:	Haakon Bugge <haakon.bugge@oracle.com>
+M:	Mark Haywood <mark.haywood@oracle.com>
 S:	Supported
 F:	ibacm/*
 
