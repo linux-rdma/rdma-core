@@ -802,6 +802,10 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 
 	rdma_gid2ip(&av->sgid_addr, &sgid);
 	rdma_gid2ip(&av->dgid_addr, &attr->grh.dgid);
+	if (ibv_resolve_eth_l2_from_gid(pd->context, attr, av->dmac, NULL)) {
+		free(ah);
+		return NULL;
+	}
 
 	memset(&resp, 0, sizeof(resp));
 	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr, &resp, sizeof(resp))) {

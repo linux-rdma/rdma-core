@@ -2455,10 +2455,8 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 			ah->kern_ah = true;
 			memcpy(ah->av.rmac, resp.dmac, ETHERNET_LL_SIZE);
 		} else {
-			uint16_t vid;
-
 			if (ibv_resolve_eth_l2_from_gid(pd->context, attr,
-							ah->av.rmac, &vid))
+							ah->av.rmac, NULL))
 				goto err;
 		}
 	}

@@ -1021,10 +1021,12 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 	if (process_get_neigh(&neigh_handler))
 		goto free_resources;
 
-	ret_vid = neigh_get_vlan_id_from_dev(&neigh_handler);
+	if (vid) {
+		ret_vid = neigh_get_vlan_id_from_dev(&neigh_handler);
 
-	if (ret_vid <= 0xfff)
-		neigh_set_vlan_id(&neigh_handler, ret_vid);
+		if (ret_vid <= 0xfff)
+			neigh_set_vlan_id(&neigh_handler, ret_vid);
+	}
 
 	/* We are using only Ethernet here */
 	ether_len = neigh_get_ll(&neigh_handler,
@@ -1034,7 +1036,8 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 	if (ether_len <= 0)
 		goto free_resources;
 
-	*vid = ret_vid;
+	if (vid)
+		*vid = ret_vid;
 
 	ret = 0;
 
