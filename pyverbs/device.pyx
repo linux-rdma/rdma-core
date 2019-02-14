@@ -11,6 +11,7 @@ import weakref
 from .pyverbs_error import PyverbsRDMAError, PyverbsError
 from .pyverbs_error import PyverbsUserError
 from pyverbs.base import PyverbsRDMAErrno
+cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.libibverbs as v
 from pyverbs.addr cimport GID
 from pyverbs.mr import DMMR
@@ -164,6 +165,18 @@ cdef class Context(PyverbsCM):
             raise PyverbsRDMAError('Failed to query gid {idx} of port {port}'.
                                                                    format(idx=index, port=port_num))
         return gid
+
+    def query_port(self, unsigned int port_num):
+        """
+        Query port <port_num> of the device and returns its attributes.
+        :param port_num: Port number to query
+        :return: PortAttr object on success
+        """
+        port_attrs = PortAttr()
+        rc = v.ibv_query_port(self.context, port_num, &port_attrs.attr)
+        if rc != 0:
+            raise PyverbsRDMAErrno('Failed to query port {p}'.format(p=port_num))
+        return port_attrs
 
     cdef add_ref(self, obj):
         if isinstance(obj, PD):
@@ -585,6 +598,99 @@ cdef class DM(PyverbsCM):
         return res
 
 
+cdef class PortAttr(PyverbsObject):
+    @property
+    def state(self):
+        return self.attr.state
+    @property
+    def max_mtu(self):
+        return self.attr.max_mtu
+    @property
+    def active_mtu(self):
+        return self.attr.active_mtu
+    @property
+    def gid_tbl_len(self):
+        return self.attr.gid_tbl_len
+    @property
+    def port_cap_flags(self):
+        return self.attr.port_cap_flags
+    @property
+    def max_msg_sz(self):
+        return self.attr.max_msg_sz
+    @property
+    def bad_pkey_cntr(self):
+        return self.attr.bad_pkey_cntr
+    @property
+    def qkey_viol_cntr(self):
+        return self.attr.qkey_viol_cntr
+    @property
+    def pkey_tbl_len(self):
+        return self.attr.pkey_tbl_len
+    @property
+    def lid(self):
+        return self.attr.lid
+    @property
+    def sm_lid(self):
+        return self.attr.sm_lid
+    @property
+    def lmc(self):
+        return self.attr.lmc
+    @property
+    def max_vl_num(self):
+        return self.attr.max_vl_num
+    @property
+    def sm_sl(self):
+        return self.attr.sm_sl
+    @property
+    def subnet_timeout(self):
+        return self.attr.subnet_timeout
+    @property
+    def init_type_reply(self):
+        return self.attr.init_type_reply
+    @property
+    def active_width(self):
+        return self.attr.active_width
+    @property
+    def active_speed(self):
+        return self.attr.active_speed
+    @property
+    def phys_state(self):
+        return self.attr.phys_state
+    @property
+    def link_layer(self):
+        return self.attr.link_layer
+    @property
+    def flags(self):
+        return self.attr.flags
+    @property
+    def port_cap_flags2(self):
+        return self.attr.port_cap_flags2
+
+    def __str__(self):
+        print_format = '{:<24}: {:<20}\n'
+        return print_format.format('Port state', port_state_to_str(self.attr.state)) +\
+            print_format.format('Max MTU', translate_mtu(self.attr.max_mtu)) +\
+            print_format.format('Active MTU', translate_mtu(self.attr.active_mtu)) +\
+            print_format.format('SM lid', self.attr.sm_lid) +\
+            print_format.format('Port lid', self.attr.lid) +\
+            print_format.format('lmc', hex(self.attr.lmc)) +\
+            print_format.format('Link layer', translate_link_layer(self.attr.link_layer)) +\
+            print_format.format('Max message size', hex(self.attr.max_msg_sz)) +\
+            print_format.format('Port cap flags', translate_port_cap_flags(self.attr.port_cap_flags)) +\
+            print_format.format('Port cap flags 2', translate_port_cap_flags2(self.attr.port_cap_flags2)) +\
+            print_format.format('max VL num', self.attr.max_vl_num) +\
+            print_format.format('Bad Pkey counter', self.attr.bad_pkey_cntr) +\
+            print_format.format('Qkey violations counter', self.attr.qkey_viol_cntr) +\
+            print_format.format('GID table len', self.attr.gid_tbl_len) +\
+            print_format.format('Pkey table len', self.attr.pkey_tbl_len) +\
+            print_format.format('SM sl', self.attr.sm_sl) +\
+            print_format.format('Subnet timeout', self.attr.subnet_timeout) +\
+            print_format.format('Init type reply', self.attr.init_type_reply) +\
+            print_format.format('Active width', width_to_str(self.attr.active_width)) +\
+            print_format.format('Active speed', speed_to_str(self.attr.active_speed)) +\
+            print_format.format('Phys state', phys_state_to_str(self.attr.phys_state)) +\
+            print_format.format('Flags', self.attr.flags)
+
 def guid_format(num):
     """
     Get GUID representation of the given number, including change of endianness.
@@ -607,6 +713,96 @@ def translate_node_type(node_type):
 
 def guid_to_hex(node_guid):
     return hex(node_guid).replace('L', '').replace('0x', '')
+
+def port_state_to_str(port_state):
+    l = {0: 'NOP', 1: 'Down', 2: 'Init', 3: 'Armed',4: 'Active',
+         5: 'Active defer'}
+    try:
+        return '{s} ({n})'.format(s=l[port_state], n=port_state)
+    except:
+        return 'Invalid state'
+
+def translate_mtu(mtu):
+    l = {1: 256, 2: 512, 3: 1024, 4: 2048, 5: 4096}
+    try:
+        return '{s} ({n})'.format(s=l[mtu], n=mtu)
+    except:
+        return 'Invalid MTU'
+
+def translate_link_layer(ll):
+    l = {0: 'Unspecified', 1:'InfiniBand', 2:'Ethernet'}
+    try:
+        return l[ll]
+    except:
+        return 'Invalid link layer {ll}'.format(ll=ll)
+
+def translate_port_cap_flags(flags):
+    l = {e.IBV_PORT_SM: 'IBV_PORT_SM',
+         e.IBV_PORT_NOTICE_SUP: 'IBV_PORT_NOTICE_SUP',
+         e.IBV_PORT_TRAP_SUP: 'IBV_PORT_TRAP_SUP',
+         e.IBV_PORT_OPT_IPD_SUP: 'IBV_PORT_OPT_IPD_SUP',
+         e.IBV_PORT_AUTO_MIGR_SUP: 'IBV_PORT_AUTO_MIGR_SUP',
+         e.IBV_PORT_SL_MAP_SUP: 'IBV_PORT_SL_MAP_SUP',
+         e.IBV_PORT_MKEY_NVRAM: 'IBV_PORT_MKEY_NVRAM',
+         e.IBV_PORT_PKEY_NVRAM: 'IBV_PORT_PKEY_NVRAM',
+         e.IBV_PORT_LED_INFO_SUP: 'IBV_PORT_LED_INFO_SUP',
+         e.IBV_PORT_SYS_IMAGE_GUID_SUP: 'IBV_PORT_SYS_IMAGE_GUID_SUP',
+         e.IBV_PORT_PKEY_SW_EXT_PORT_TRAP_SUP: 'IBV_PORT_PKEY_SW_EXT_PORT_TRAP_SUP',
+         e.IBV_PORT_EXTENDED_SPEEDS_SUP: 'IBV_PORT_EXTENDED_SPEEDS_SUP',
+         e.IBV_PORT_CAP_MASK2_SUP: 'IBV_PORT_CAP_MASK2_SUP',
+         e.IBV_PORT_CM_SUP: 'IBV_PORT_CM_SUP',
+         e.IBV_PORT_SNMP_TUNNEL_SUP: 'IBV_PORT_SNMP_TUNNEL_SUP',
+         e.IBV_PORT_REINIT_SUP: 'IBV_PORT_REINIT_SUP',
+         e.IBV_PORT_DEVICE_MGMT_SUP: 'IBV_PORT_DEVICE_MGMT_SUP',
+         e.IBV_PORT_VENDOR_CLASS_SUP: 'IBV_PORT_VENDOR_CLASS_SUP',
+         e.IBV_PORT_DR_NOTICE_SUP: 'IBV_PORT_DR_NOTICE_SUP',
+         e.IBV_PORT_CAP_MASK_NOTICE_SUP: 'IBV_PORT_CAP_MASK_NOTICE_SUP',
+         e.IBV_PORT_BOOT_MGMT_SUP: 'IBV_PORT_BOOT_MGMT_SUP',
+         e.IBV_PORT_LINK_LATENCY_SUP: 'IBV_PORT_LINK_LATENCY_SUP',
+         e.IBV_PORT_CLIENT_REG_SUP: 'IBV_PORT_CLIENT_REG_SUP',
+         e.IBV_PORT_IP_BASED_GIDS: 'IBV_PORT_IP_BASED_GIDS'}
+    return str_from_flags(flags, l)
+
+def translate_port_cap_flags2(flags):
+    l = {e.IBV_PORT_SET_NODE_DESC_SUP: 'IBV_PORT_SET_NODE_DESC_SUP',
+         e.IBV_PORT_INFO_EXT_SUP: 'IBV_PORT_INFO_EXT_SUP',
+         e.IBV_PORT_VIRT_SUP: 'IBV_PORT_VIRT_SUP',
+         e.IBV_PORT_SWITCH_PORT_STATE_TABLE_SUP: 'IBV_PORT_SWITCH_PORT_STATE_TABLE_SUP',
+         e.IBV_PORT_LINK_WIDTH_2X_SUP: 'IBV_PORT_LINK_WIDTH_2X_SUP',
+         e.IBV_PORT_LINK_SPEED_HDR_SUP: 'IBV_PORT_LINK_SPEED_HDR_SUP'}
+    return str_from_flags(flags, l)
+
+def str_from_flags(flags, dictionary):
+    str_flags = ""
+    for bit in dictionary:
+        if flags & bit:
+            str_flags += dictionary[bit]
+            str_flags += ' '
+    return str_flags
+
+def phys_state_to_str(phys):
+    l =  {1: 'Sleep', 2: 'Polling', 3: 'Disabled',
+          4: 'Port configuration training', 5: 'Link up',
+          6: 'Link error recovery', 7: 'Phy test'}
+    try:
+        return '{s} ({n})'.format(s=l[phys], n=phys)
+    except:
+        return 'Invalid physical state'
+
+def width_to_str(width):
+    l = {1: '1X', 2: '4X', 4: '8X', 16: '2X'}
+    try:
+        return '{s} ({n})'.format(s=l[width], n=width)
+    except:
+        return 'Invalid width'
+
+def speed_to_str(speed):
+    l = {1: '2.5 Gbps', 2: '5.0 Gbps', 4: '5.0 Gbps', 8: '10.0 Gbps',
+         16: '14.0 Gbps', 32: '25.0 Gbps', 64: '50.0 Gbps'}
+    try:
+        return '{s} ({n})'.format(s=l[speed], n=speed)
+    except:
+        return 'Invalid speed'
 
 def get_device_list():
     """

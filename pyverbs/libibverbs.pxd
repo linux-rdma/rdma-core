@@ -148,6 +148,30 @@ cdef extern from 'infiniband/verbs.h':
         ibv_context     *context
         unsigned int    comp_mask
 
+    cdef struct ibv_port_attr:
+        ibv_port_state     state
+        ibv_mtu            max_mtu
+        ibv_mtu            active_mtu
+        int                     gid_tbl_len
+        unsigned int            port_cap_flags
+        unsigned int            max_msg_sz
+        unsigned int            bad_pkey_cntr
+        unsigned int            qkey_viol_cntr
+        unsigned short          pkey_tbl_len
+        unsigned short          lid
+        unsigned short          sm_lid
+        unsigned char           lmc
+        unsigned char           max_vl_num
+        unsigned char           sm_sl
+        unsigned char           subnet_timeout
+        unsigned char           init_type_reply
+        unsigned char           active_width
+        unsigned char           active_speed
+        unsigned char           phys_state
+        unsigned char           link_layer
+        unsigned char           flags
+        unsigned short          port_cap_flags2
+
     ibv_device **ibv_get_device_list(int *n)
     void ibv_free_device_list(ibv_device **list)
     ibv_context *ibv_open_device(ibv_device *device)
@@ -173,3 +197,5 @@ cdef extern from 'infiniband/verbs.h':
                          size_t length)
     int ibv_memcpy_from_dm(void *host_addr,  ibv_dm *dm, unsigned long dm_offset,
                            size_t length)
+    int ibv_query_port(ibv_context *context, uint8_t port_num,
+                       ibv_port_attr *port_attr)
