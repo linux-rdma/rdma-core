@@ -2,9 +2,19 @@
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.  See COPYING file
 from string import ascii_lowercase as al
 import random
+
+import pyverbs.device as d
 import pyverbs.enums as e
 
 MAX_MR_SIZE = 4194304
+# Some HWs limit DM address and length alignment to 4 for read and write
+# operations. Use a minimal length and alignment that respect that.
+# For creation purposes use random alignments. As this is log2 of address
+# alignment, no need for large numbers.
+MIN_DM_SIZE = 4
+DM_ALIGNMENT = 4
+MIN_DM_LOG_ALIGN = 0
+MAX_DM_LOG_ALIGN = 6
 
 def get_mr_length():
     # Allocating large buffers typically fails
@@ -26,3 +36,9 @@ def get_access_flags():
 
 def get_data(length):
     return ''.join(random.choice(al) for i in range(length))
+
+
+def get_dm_attrs(dm_len):
+    align = random.randint(MIN_DM_LOG_ALIGN, MAX_DM_LOG_ALIGN)
+    # Comp mask != 0 is not supported
+    return d.AllocDmAttr(dm_len, align, 0)

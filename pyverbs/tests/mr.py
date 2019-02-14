@@ -5,8 +5,8 @@ import random
 
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.mr import MR, MW, DMMR
 import pyverbs.tests.utils as u
-from pyverbs.mr import MR, MW
 import pyverbs.device as d
 from pyverbs.pd import PD
 import pyverbs.enums as e
@@ -181,3 +181,49 @@ class mw_test(unittest.TestCase):
                     else:
                         raise PyverbsError('Created a MW with type {t}'.\
                                            format(t=mw_type))
+
+
+class dm_mr_test(unittest.TestCase):
+    """
+    Test various functionalities of the DMMR class.
+    """
+    def test_create_dm_mr(self):
+        """
+        Test ibv_reg_dm_mr
+        """
+        lst = d.get_device_list()
+        for dev in lst:
+            with d.Context(name=dev.name.decode()) as ctx:
+                attr = ctx.query_device_ex()
+                if attr.max_dm_size == 0:
+                    return
+                with PD(ctx) as pd:
+                    dm_len = random.randrange(u.MIN_DM_SIZE, attr.max_dm_size,
+                                              u.DM_ALIGNMENT)
+                    dm_attrs = u.get_dm_attrs(dm_len)
+                    with d.DM(ctx, dm_attrs) as dm:
+                        dm_mr_len = random.randint(1, dm_len)
+                        dm_mr_offset = random.randint(0, (dm_len - dm_mr_len))
+                        dm_mr = DMMR(pd, dm_mr_len, e.IBV_ACCESS_ZERO_BASED, dm=dm,
+                                     offset=dm_mr_offset)
+
+    def test_destroy_dm_mr(self):
+        """
+        Test freeing of dm_mr
+        """
+        lst = d.get_device_list()
+        for dev in lst:
+            with d.Context(name=dev.name.decode()) as ctx:
+                attr = ctx.query_device_ex()
+                if attr.max_dm_size == 0:
+                    return
+                with PD(ctx) as pd:
+                    dm_len = random.randrange(u.MIN_DM_SIZE, attr.max_dm_size,
+                                                             u.DM_ALIGNMENT)
+                    dm_attrs = u.get_dm_attrs(dm_len)
+                    with d.DM(ctx, dm_attrs) as dm:
+                        dm_mr_len = random.randint(1, dm_len)
+                        dm_mr_offset = random.randint(0, (dm_len - dm_mr_len))
+                        dm_mr = DMMR(pd, dm_mr_len, e.IBV_ACCESS_ZERO_BASED, dm=dm,
+                                     offset=dm_mr_offset)
+                        dm_mr.close()
