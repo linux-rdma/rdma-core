@@ -76,6 +76,43 @@ class device_test(unittest.TestCase):
                 attr_ex = ctx.query_device_ex()
                 self.verify_device_attr(attr_ex.orig_attr)
 
+    @staticmethod
+    def verify_port_attr(attr):
+        assert 'Invalid' not in d.phys_state_to_str(attr.state)
+        assert 'Invalid' not in d.translate_mtu(attr.max_mtu)
+        assert 'Invalid' not in d.translate_mtu(attr.active_mtu)
+        assert 'Invalid' not in d.width_to_str(attr.active_width)
+        assert 'Invalid' not in d.speed_to_str(attr.active_speed)
+        assert 'Invalid' not in d.translate_link_layer(attr.link_layer)
+        assert attr.max_msg_sz > 0x1000
+
+    def test_query_port(self):
+        """
+        Test ibv_query_port
+        """
+        lst = d.get_device_list()
+        for dev in lst:
+            with d.Context(name=dev.name.decode()) as ctx:
+                num_ports = ctx.query_device().phys_port_cnt
+                for p in range(num_ports):
+                    port_attr = ctx.query_port(p + 1)
+                    self.verify_port_attr(port_attr)
+
+    def test_query_port_bad_flow(self):
+        """ Verify that querying non-existing ports fails as expected """
+        lst = d.get_device_list()
+        for dev in lst:
+            with d.Context(name=dev.name.decode()) as ctx:
+                num_ports = ctx.query_device().phys_port_cnt
+                try:
+                    port = num_ports + random.randint(1, 10)
+                    ctx.query_port(port)
+                except PyverbsRDMAError as e:
+                    assert 'Failed to query port' in e.args[0]
+                    assert 'Invalid argument' in e.args[0]
+                else:
+                    raise PyverbsRDMAError('Successfully queried non-existing port {p}'.\
+                                           format(p=port))
 
 class dm_test(unittest.TestCase):
     """
