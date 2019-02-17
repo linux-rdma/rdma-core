@@ -3,11 +3,11 @@
 import unittest
 import random
 
-from pyverbs.pyverbs_error import PyverbsRDMAError
+from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
 import pyverbs.tests.utils as u
+from pyverbs.mr import MR, MW
 import pyverbs.device as d
-from pyverbs.mr import MR
 from pyverbs.pd import PD
 import pyverbs.enums as e
 
@@ -144,3 +144,40 @@ class mr_test(unittest.TestCase):
                     with MR(pd, length, u.get_access_flags()) as mr:
                         buf = mr.buf
 
+
+class mw_test(unittest.TestCase):
+    """
+    Test various functionalities of the MW class.
+    """
+    def test_reg_mw(self):
+        """ Test ibv_alloc_mw() """
+        lst = d.get_device_list()
+        for dev in lst:
+            with d.Context(name=dev.name.decode()) as ctx:
+                with PD(ctx) as pd:
+                    with MW(pd, random.choice([e.IBV_MW_TYPE_1, e.IBV_MW_TYPE_2])) as mw:
+                        pass
+
+    def test_dereg_mw(self):
+        """ Test ibv_dealloc_mw() """
+        lst = d.get_device_list()
+        for dev in lst:
+            with d.Context(name=dev.name.decode()) as ctx:
+                with PD(ctx) as pd:
+                    with MW(pd, random.choice([e.IBV_MW_TYPE_1, e.IBV_MW_TYPE_2])) as mw:
+                        mw.close()
+
+    def test_reg_mw_wrong_type(self):
+        """ Test ibv_alloc_mw() """
+        lst = d.get_device_list()
+        for dev in lst:
+            with d.Context(name=dev.name.decode()) as ctx:
+                with PD(ctx) as pd:
+                    try:
+                        mw_type =random.randint(3, 100)
+                        mw = MW(pd, mw_type)
+                    except PyverbsRDMAError as e:
+                        pass
+                    else:
+                        raise PyverbsError('Created a MW with type {t}'.\
+                                           format(t=mw_type))
