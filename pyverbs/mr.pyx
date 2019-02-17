@@ -107,3 +107,48 @@ cdef class MR(PyverbsCM):
     @property
     def rkey(self):
         return self.mr.rkey
+
+
+cdef class MW(PyverbsCM):
+    def __cinit__(self, PD pd not None, v.ibv_mw_type mw_type):
+        """
+        Initializes a memory window object of the given type
+        :param pd: A PD object
+        :param mw_type: Type of of the memory window, see ibv_mw_type enum
+        :return:
+        """
+        self.mw = NULL
+        self.mw = v.ibv_alloc_mw(pd.pd, mw_type)
+        if self.mw == NULL:
+            raise PyverbsRDMAErrno('Failed to allocate MW')
+        self.pd = pd
+        pd.add_ref(self)
+        self.logger.debug('Allocated memory window of type {t}'.
+                          format(t=mwtype2str(mw_type)))
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        """
+        Closes the underlaying C MW object.
+        MW may be deleted directly or by deleting its PD, which leaves the
+        Python object without the underlaying MW.
+        Need to check that the underlaying MW wasn't dealloced before.
+        :return: None
+        """
+        self.logger.debug('Closing MW')
+        if self.mw is not NULL:
+            rc = v.ibv_dealloc_mw(self.mw)
+            if rc != 0:
+               raise PyverbsRDMAErrno('Failed to dealloc MW')
+            self.mw = NULL
+            self.pd = None
+
+
+def mwtype2str(mw_type):
+    mw_types = {1:'IBV_MW_TYPE_1', 2:'IBV_MW_TYPE_2'}
+    try:
+        return mw_types[mw_type]
+    except KeyError:
+        return 'Unknown MW type ({t})'.format(t=mw_type)

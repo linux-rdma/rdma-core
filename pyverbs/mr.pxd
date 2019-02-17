@@ -10,3 +10,7 @@ cdef class MR(PyverbsCM):
     cdef v.ibv_mr *mr
     cdef void *buf
     cpdef read(self, length, offset)
+
+cdef class MW(PyverbsCM):
+    cdef object pd
+    cdef v.ibv_mw *mw

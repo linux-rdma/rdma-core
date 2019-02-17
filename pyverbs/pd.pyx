@@ -4,7 +4,7 @@ import weakref
 
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
-from .mr cimport MR
+from .mr cimport MR, MW
 
 cdef extern from 'errno.h':
     int errno
@@ -25,6 +25,7 @@ cdef class PD(PyverbsCM):
         context.add_ref(self)
         self.logger.debug('PD: Allocated ibv_pd')
         self.mrs = weakref.WeakSet()
+        self.mws = weakref.WeakSet()
 
     def __dealloc__(self):
         """
@@ -42,7 +43,7 @@ cdef class PD(PyverbsCM):
         :return: None
         """
         self.logger.debug('Closing PD')
-        self.close_weakrefs([self.mrs])
+        self.close_weakrefs([self.mws, self.mrs])
         if self.pd != NULL:
             rc = v.ibv_dealloc_pd(self.pd)
             if rc != 0:
@@ -53,5 +54,7 @@ cdef class PD(PyverbsCM):
     cdef add_ref(self, obj):
         if isinstance(obj, MR):
             self.mrs.add(obj)
+        elif isinstance(obj, MW):
+            self.mws.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')

@@ -132,6 +132,13 @@ cdef extern from 'infiniband/verbs.h':
         ibv_cq_moderation_caps  cq_mod_caps
         unsigned long           max_dm_size
 
+    cdef struct ibv_mw:
+        ibv_context     *context
+        ibv_pd          *pd
+        unsigned int    rkey
+        unsigned int    handle
+        ibv_mw_type     mw_type
+
     ibv_device **ibv_get_device_list(int *n)
     void ibv_free_device_list(ibv_device **list)
     ibv_context *ibv_open_device(ibv_device *device)
@@ -147,3 +154,5 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_dealloc_pd(ibv_pd *pd)
     ibv_mr *ibv_reg_mr(ibv_pd *pd, void *addr, size_t length, int access)
     int ibv_dereg_mr(ibv_mr *mr)
+    ibv_mw *ibv_alloc_mw(ibv_pd *pd, ibv_mw_type type)
+    int ibv_dealloc_mw(ibv_mw *mw)

@@ -10,3 +10,4 @@ cdef class PD(PyverbsCM):
     cdef Context ctx
     cdef add_ref(self, obj)
     cdef object mrs
+    cdef object mws
