@@ -131,6 +131,22 @@ cdef class Context(PyverbsCM):
                                    format(name=self.name), errno)
         return dev_attr
 
+    def query_device_ex(self, QueryDeviceExInput ex_input = None):
+        """
+        Queries the device's extended attributes.
+        :param ex_input: An extensible input struct for possible future
+                         extensions
+        :return: DeviceAttrEx object
+        """
+        dev_attr_ex = DeviceAttrEx()
+        rc = v.ibv_query_device_ex(self.context,
+                                   &ex_input.input if ex_input is not None else NULL,
+                                   &dev_attr_ex.dev_attr)
+        if rc != 0:
+            raise PyverbsRDMAErrno('Failed to query EX device {name}'.
+                                   format(name=self.name))
+        return dev_attr_ex
+
     def query_gid(self, unsigned int port_num, int index):
         gid = GID()
         rc = v.ibv_query_gid(self.context, port_num, index, &gid.gid)
@@ -311,6 +327,155 @@ cdef class DeviceAttr(PyverbsObject):
             print_format.format('Max PKeys', self.max_pkeys) +\
             print_format.format('local CA ack delay', self.local_ca_ack_delay) +\
             print_format.format('Phys port count', self.phys_port_cnt)
+
+
+cdef class QueryDeviceExInput(PyverbsObject):
+    def __cinit__(self, comp_mask):
+        self.ex_input.comp_mask = comp_mask
+
+
+cdef class ODPCaps(PyverbsObject):
+    @property
+    def general_caps(self):
+        return self.odp_caps.general_caps
+    @property
+    def rc_odp_caps(self):
+        return self.odp_caps.per_transport_caps.rc_odp_caps
+    @property
+    def uc_odp_caps(self):
+        return self.odp_caps.per_transport_caps.uc_odp_caps
+    @property
+    def ud_odp_caps(self):
+        return self.odp_caps.per_transport_caps.ud_odp_caps
+
+
+cdef class TSOCaps(PyverbsObject):
+    @property
+    def max_tso(self):
+        return self.tso_caps.max_tso
+    @property
+    def supported_qpts(self):
+        return self.tso_caps.supported_qpts
+
+
+cdef class RSSCaps(PyverbsObject):
+    @property
+    def supported_qpts(self):
+        return self.rss_caps.supported_qpts
+    @property
+    def max_rwq_indirection_tables(self):
+        return self.rss_caps.max_rwq_indirection_tables
+    @property
+    def rx_hash_fields_mask(self):
+        return self.rss_caps.rx_hash_fields_mask
+    @property
+    def rx_hash_function(self):
+        return self.rss_caps.rx_hash_function
+    @property
+    def max_rwq_indirection_table_size(self):
+        return self.rss_caps.max_rwq_indirection_table_size
+
+
+cdef class PacketPacingCaps(PyverbsObject):
+    @property
+    def qp_rate_limit_min(self):
+        return self.packet_pacing_caps.qp_rate_limit_min
+    @property
+    def qp_rate_limit_max(self):
+        return self.packet_pacing_caps.qp_rate_limit_max
+    @property
+    def supported_qpts(self):
+        return self.packet_pacing_caps.supported_qpts
+
+
+cdef class TMCaps(PyverbsObject):
+    @property
+    def max_rndv_hdr_size(self):
+        return self.tm_caps.max_rndv_hdr_size
+    @property
+    def max_num_tags(self):
+        return self.tm_caps.max_num_tags
+    @property
+    def flags(self):
+        return self.tm_caps.flags
+    @property
+    def max_ops(self):
+        return self.tm_caps.max_ops
+    @property
+    def max_sge(self):
+        return self.tm_caps.max_sge
+
+
+cdef class CQModerationCaps(PyverbsObject):
+    @property
+    def max_cq_count(self):
+        return self.cq_mod_caps.max_cq_count
+    @property
+    def max_cq_period(self):
+        return self.cq_mod_caps.max_cq_period
+
+
+cdef class DeviceAttrEx(PyverbsObject):
+    @property
+    def orig_attr(self):
+        attr = DeviceAttr()
+        attr.dev_attr = self.dev_attr.orig_attr
+        return attr
+    @property
+    def comp_mask(self):
+        return self.dev_attr.comp_mask
+    @comp_mask.setter
+    def comp_mask(self, val):
+        self.dev_attr.comp_mask = val
+    @property
+    def odp_caps(self):
+        caps = ODPCaps()
+        caps.odp_caps = self.dev_attr.odp_caps
+        return caps
+    @property
+    def completion_timestamp_mask(self):
+        return self.dev_attr.completion_timestamp_mask
+    @property
+    def hca_core_clock(self):
+        return self.dev_attr.hca_core_clock
+    @property
+    def device_cap_flags_ex(self):
+        return self.dev_attr.device_cap_flags_ex
+    @property
+    def tso_caps(self):
+        caps = TSOCaps()
+        caps.tso_caps = self.dev_attr.tso_caps
+        return caps
+    @property
+    def rss_caps(self):
+        caps = RSSCaps()
+        caps.rss_caps = self.dev_attr.rss_caps
+        return caps
+    @property
+    def max_wq_type_rq(self):
+        return self.dev_attr.max_wq_type_rq
+    @property
+    def packet_pacing_caps(self):
+        caps = PacketPacingCaps()
+        caps.packet_pacing_caps = self.dev_attr.packet_pacing_caps
+        return caps
+    @property
+    def raw_packet_caps(self):
+        return self.dev_attr.raw_packet_caps
+    @property
+    def tm_caps(self):
+        caps = TMCaps()
+        caps.tm_caps = self.dev_attr.tm_caps
+        return caps
+    @property
+    def cq_mod_caps(self):
+        caps = CQModerationCaps()
+        caps.cq_mod_caps = self.dev_attr.cq_mod_caps
+        return caps
+    @property
+    def max_dm_size(self):
+        return self.dev_attr.max_dm_size
+
 
 def guid_format(num):
     """
