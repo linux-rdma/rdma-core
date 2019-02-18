@@ -18,6 +18,7 @@ rdma_python_module(pyverbs
 rdma_python_test(pyverbs/tests
   tests/__init__.py
   tests/device.py
+  tests/pd.py
   )
 
 rdma_internal_binary(
