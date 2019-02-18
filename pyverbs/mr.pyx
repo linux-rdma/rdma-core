@@ -3,6 +3,7 @@
 
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.device cimport DM
 from .pd cimport PD
 import resource
 
@@ -22,7 +23,7 @@ cdef class MR(PyverbsCM):
     MR class represents ibv_mr. Buffer allocation in done in the c'tor. Freeing
     it is done in close().
     """
-    def __cinit__(self, PD pd not None, length, access):
+    def __cinit__(self, PD pd not None, length, access, **kwargs):
         """
         Allocate a user-level buffer of length <length> and register a Memory
         Region of the given length and access flags.
@@ -31,6 +32,8 @@ cdef class MR(PyverbsCM):
         :param access: Access flags, see ibv_access_flags enum
         :return: The newly created MR on success
         """
+        if len(kwargs) != 0:
+            return
         #We want to enable registering an MR of size 0 but this fails with a
         #buffer of size 0, so in this case lets increase the buffer
         if length == 0:
@@ -144,6 +147,44 @@ cdef class MW(PyverbsCM):
                raise PyverbsRDMAErrno('Failed to dealloc MW')
             self.mw = NULL
             self.pd = None
+
+
+cdef class DMMR(MR):
+    def __cinit__(self, PD pd not None, length, access, **kwargs):
+        """
+        Initializes a DMMR (Device Memory Memory Region) of the given length
+        and access flags using the given PD and DM objects.
+        :param pd: A PD object
+        :param length: Length in bytes
+        :param access: Access flags, see ibv_access_flags enum
+        :param kwargs: see below
+        :return: The newly create DMMR
+
+        :keyword Arguments:
+            * *dm* (DM)
+               A DM (device memory) object to be used for this DMMR
+            * *offset*
+               Byte offset from the beginning of the allocated device memory
+               buffer
+        """
+        dm = <DM>kwargs['dm']
+        offset = kwargs['offset']
+        self.mr = v.ibv_reg_dm_mr(pd.pd, (<DM>dm).dm, offset, length, access)
+        if self.mr == NULL:
+            raise PyverbsRDMAErrno('Failed to register a device MR. length: {len}, access flags: {flags}'.
+                                   format(len=length, flags=access,))
+        self.pd = pd
+        self.dm = dm
+        pd.add_ref(self)
+        dm.add_ref(self)
+        self.logger.debug('Registered device ibv_mr. Length: {len}, access flags {flags}'.
+                          format(len=length, flags=access))
+
+    def write(self, data, length):
+        return self.dm.copy_to_dm(0, data, length)
+
+    cpdef read(self, length, offset):
+        return self.dm.copy_from_dm(offset, length)
 
 
 def mwtype2str(mw_type):

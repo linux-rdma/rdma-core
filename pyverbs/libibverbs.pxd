@@ -139,6 +139,15 @@ cdef extern from 'infiniband/verbs.h':
         unsigned int    handle
         ibv_mw_type     mw_type
 
+    cdef struct ibv_alloc_dm_attr:
+        size_t          length
+        unsigned int    log_align_req
+        unsigned int    comp_mask
+
+    cdef struct ibv_dm:
+        ibv_context     *context
+        unsigned int    comp_mask
+
     ibv_device **ibv_get_device_list(int *n)
     void ibv_free_device_list(ibv_device **list)
     ibv_context *ibv_open_device(ibv_device *device)
@@ -156,3 +165,11 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_dereg_mr(ibv_mr *mr)
     ibv_mw *ibv_alloc_mw(ibv_pd *pd, ibv_mw_type type)
     int ibv_dealloc_mw(ibv_mw *mw)
+    ibv_dm *ibv_alloc_dm(ibv_context *context, ibv_alloc_dm_attr *attr)
+    int ibv_free_dm(ibv_dm *dm)
+    ibv_mr *ibv_reg_dm_mr(ibv_pd *pd, ibv_dm *dm, unsigned long dm_offset,
+                          size_t length, unsigned int access)
+    int ibv_memcpy_to_dm(ibv_dm *dm, unsigned long dm_offset, void *host_addr,
+                         size_t length)
+    int ibv_memcpy_from_dm(void *host_addr,  ibv_dm *dm, unsigned long dm_offset,
+                           size_t length)

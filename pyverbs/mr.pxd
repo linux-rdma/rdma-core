@@ -14,3 +14,6 @@ cdef class MR(PyverbsCM):
 cdef class MW(PyverbsCM):
     cdef object pd
     cdef v.ibv_mw *mw
+
+cdef class DMMR(MR):
+    cdef object dm

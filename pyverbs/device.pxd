@@ -10,6 +10,7 @@ cdef class Context(PyverbsCM):
     cdef object name
     cdef add_ref(self, obj)
     cdef object pds
+    cdef object dms
 
 cdef class DeviceAttr(PyverbsObject):
     cdef v.ibv_device_attr dev_attr
@@ -37,3 +38,12 @@ cdef class TSOCaps(PyverbsObject):
 
 cdef class DeviceAttrEx(PyverbsObject):
     cdef v.ibv_device_attr_ex dev_attr
+
+cdef class AllocDmAttr(PyverbsObject):
+    cdef v.ibv_alloc_dm_attr alloc_dm_attr
+
+cdef class DM(PyverbsCM):
+    cdef v.ibv_dm *dm
+    cdef object dm_mrs
+    cdef object context
+    cdef add_ref(self, obj)

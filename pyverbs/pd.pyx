@@ -4,7 +4,8 @@ import weakref
 
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
-from .mr cimport MR, MW
+from pyverbs.device cimport Context, DM
+from .mr cimport MR, MW, DMMR
 
 cdef extern from 'errno.h':
     int errno
@@ -52,7 +53,7 @@ cdef class PD(PyverbsCM):
             self.ctx = None
 
     cdef add_ref(self, obj):
-        if isinstance(obj, MR):
+        if isinstance(obj, MR) or isinstance(obj, DMMR):
             self.mrs.add(obj)
         elif isinstance(obj, MW):
             self.mws.add(obj)

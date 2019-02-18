@@ -13,13 +13,21 @@ from .pyverbs_error import PyverbsUserError
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs as v
 from pyverbs.addr cimport GID
+from pyverbs.mr import DMMR
 from pyverbs.pd cimport PD
 
 cdef extern from 'errno.h':
     int errno
-
 cdef extern from 'endian.h':
     unsigned long be64toh(unsigned long host_64bits);
+cdef extern from 'stdlib.h':
+    void free(void *ptr)
+cdef extern from 'string.h':
+    void *memset(void *s, int c, size_t n)
+cdef extern from 'malloc.h':
+    void *malloc(size_t size)
+cdef extern from 'stdint.h':
+    ctypedef int uint64_t
 
 
 class Device(PyverbsObject):
@@ -75,6 +83,8 @@ cdef class Context(PyverbsCM):
         cdef v.ibv_device **dev_list
 
         self.pds = weakref.WeakSet()
+        self.dms = weakref.WeakSet()
+
         dev_name = kwargs.get('name')
 
         if dev_name is not None:
@@ -110,7 +120,7 @@ cdef class Context(PyverbsCM):
 
     cpdef close(self):
         self.logger.debug('Closing Context')
-        self.close_weakrefs([self.pds])
+        self.close_weakrefs([self.dms, self.pds])
         if self.context != NULL:
             rc = v.ibv_close_device(self.context)
             if rc != 0:
@@ -158,6 +168,8 @@ cdef class Context(PyverbsCM):
     cdef add_ref(self, obj):
         if isinstance(obj, PD):
             self.pds.add(obj)
+        elif isinstance(obj, DM):
+            self.dms.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 
@@ -475,6 +487,102 @@ cdef class DeviceAttrEx(PyverbsObject):
     @property
     def max_dm_size(self):
         return self.dev_attr.max_dm_size
+
+
+cdef class AllocDmAttr(PyverbsObject):
+    def __cinit__(self, length, log_align_req = 0, comp_mask = 0):
+        """
+        Creates an AllocDmAttr object with the given parameters. This object
+        can than be used to create a DM object.
+        :param length: Length of the future device memory
+        :param log_align_req: log2 of address alignment requirement
+        :param comp_mask: compatibility mask
+        :return: An AllocDmAttr object
+        """
+        self.alloc_dm_attr.length = length
+        self.alloc_dm_attr.log_align_req = log_align_req
+        self.alloc_dm_attr.comp_mask = comp_mask
+
+    @property
+    def length(self):
+        return self.alloc_dm_attr.length
+
+    @length.setter
+    def length(self, val):
+        self.alloc_dm_attr.length = val
+
+    @property
+    def log_align_req(self):
+        return self.alloc_dm_attr.log_align_req
+
+    @log_align_req.setter
+    def log_align_req(self, val):
+        self.alloc_dm_attr.log_align_req = val
+
+    @property
+    def comp_mask(self):
+        return self.alloc_dm_attr.comp_mask
+
+    @comp_mask.setter
+    def comp_mask(self, val):
+        self.alloc_dm_attr.comp_mask = val
+
+
+cdef class DM(PyverbsCM):
+    def __cinit__(self, Context context, AllocDmAttr dm_attr not None):
+        """
+        Allocate a device (direct) memory.
+        :param context: The context of the device on which to allocate memory
+        :param dm_attr: Attributes that define the DM
+        :return: A DM object on success
+        """
+        self.dm_mrs = weakref.WeakSet()
+        device_attr = context.query_device_ex()
+        if device_attr.max_dm_size <= 0:
+            raise PyverbsUserError('Device doesn\'t support dm allocation')
+        self.dm = v.ibv_alloc_dm(<v.ibv_context*>context.context,
+                                 &dm_attr.alloc_dm_attr)
+        if self.dm == NULL:
+            raise PyverbsRDMAErrno('Failed to allocate device memory of size '
+                                   '{size}. Max available size {max}.'
+                                   .format(size=dm_attr.length,
+                                           max=device_attr.max_dm_size))
+        self.context = context
+        context.add_ref(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        self.logger.debug('Closing DM')
+        self.close_weakrefs([self.dm_mrs])
+        if self.dm != NULL:
+            rc = v.ibv_free_dm(self.dm)
+            if rc != 0:
+                raise PyverbsRDMAErrno('Failed to free dm')
+            self.dm = NULL
+        self.context = None
+
+    cdef add_ref(self, obj):
+        if isinstance(obj, DMMR):
+            self.dm_mrs.add(obj)
+
+    def copy_to_dm(self, dm_offset, data, length):
+        rc = v.ibv_memcpy_to_dm(<v.ibv_dm *>self.dm, <uint64_t>dm_offset,
+                                <char *>data, <size_t>length)
+        if rc != 0:
+            raise PyverbsRDMAErrno('Failed to copy to dm')
+
+    def copy_from_dm(self, dm_offset, length):
+        cdef char *data =<char*>malloc(length)
+        memset(data, 0, length)
+        rc = v.ibv_memcpy_from_dm(<void *>data, <v.ibv_dm *>self.dm,
+                                  <uint64_t>dm_offset, <size_t>length)
+        if rc != 0:
+            raise PyverbsRDMAErrno('Failed to copy from dm')
+        res = data[:length]
+        free(data)
+        return res
 
 
 def guid_format(num):
