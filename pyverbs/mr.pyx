@@ -1,0 +1,109 @@
+# SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
+# Copyright (c) 2019, Mellanox Technologies. All rights reserved. See COPYING file
+
+from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
+from pyverbs.base import PyverbsRDMAErrno
+from .pd cimport PD
+import resource
+
+cdef extern from 'stdlib.h':
+    int posix_memalign(void **memptr, size_t alignment, size_t size)
+cdef extern from 'stdlib.h':
+    void free(void *ptr)
+cdef extern from 'string.h':
+    void *memcpy(void *dest, const void *src, size_t n)
+    void *memset(void *s, int c, size_t n)
+cdef extern from 'stdint.h':
+    ctypedef int uintptr_t
+
+
+cdef class MR(PyverbsCM):
+    """
+    MR class represents ibv_mr. Buffer allocation in done in the c'tor. Freeing
+    it is done in close().
+    """
+    def __cinit__(self, PD pd not None, length, access):
+        """
+        Allocate a user-level buffer of length <length> and register a Memory
+        Region of the given length and access flags.
+        :param pd: A PD object
+        :param length: Length in bytes
+        :param access: Access flags, see ibv_access_flags enum
+        :return: The newly created MR on success
+        """
+        #We want to enable registering an MR of size 0 but this fails with a
+        #buffer of size 0, so in this case lets increase the buffer
+        if length == 0:
+            length = 10
+        rc = posix_memalign(&self.buf, resource.getpagesize(), length)
+        if rc:
+            raise PyverbsRDMAError('Failed to allocate MR buffer of size {l}'.
+                                   format(l=length))
+        memset(self.buf, 0, length)
+        self.mr = v.ibv_reg_mr(<v.ibv_pd*>pd.pd, self.buf, length, access)
+        if self.mr == NULL:
+            raise PyverbsRDMAErrno('Failed to register a MR. length: {l}, access flags: {a}'.
+                                   format(l=length, a=access))
+        self.pd = pd
+        pd.add_ref(self)
+        self.logger.debug('Registered ibv_mr. Length: {l}, access flags {a}'.
+                          format(l=length, a=access))
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        """
+        Closes the underlying C object of the MR and frees the memory allocated.
+        MR may be deleted directly or indirectly by closing its context, which
+        leaves the Python PD object without the underlying C object, so during
+        destruction, need to check whether or not the C object exists.
+        :return: None
+        """
+        self.logger.debug('Closing MR')
+        if self.mr != NULL:
+            rc = v.ibv_dereg_mr(self.mr)
+            if rc != 0:
+                raise PyverbsRDMAErrno('Failed to dereg MR')
+            self.mr = NULL
+            self.pd = None
+        free(self.buf)
+        self.buf = NULL
+
+    def write(self, data, length):
+        """
+        Write user data to the MR's buffer using memcpy
+        :param data: User data to write
+        :param length: Length of the data to write
+        :return: None
+        """
+        # If data is a string, cast it to bytes as Python3 doesn't
+        # automatically convert it.
+        if isinstance(data, str):
+            data = data.encode()
+        memcpy(self.buf, <char *>data, length)
+
+    cpdef read(self, length, offset):
+        """
+        Reads data from the MR's buffer
+        :param length: Length of data to read
+        :param offset: Reading offset
+        :return: The data on the buffer in the requested offset
+        """
+        cdef char *data
+        cdef int off = offset # we can't use offset in the next line, as it is
+                              # a Python object and not C
+        data = <char*>(self.buf + off)
+        return data[:length]
+
+    @property
+    def buf(self):
+        return <uintptr_t>self.buf
+
+    @property
+    def lkey(self):
+        return self.mr.lkey
+
+    @property
+    def rkey(self):
+        return self.mr.rkey

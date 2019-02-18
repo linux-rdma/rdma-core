@@ -8,3 +8,5 @@ from .base cimport PyverbsCM
 cdef class PD(PyverbsCM):
     cdef v.ibv_pd *pd
     cdef Context ctx
+    cdef add_ref(self, obj)
+    cdef object mrs

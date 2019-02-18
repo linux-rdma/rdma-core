@@ -6,6 +6,7 @@ rdma_cython_module(pyverbs
   base.pyx
   device.pyx
   enums.pyx
+  mr.pyx
   pd.pyx
   )
 

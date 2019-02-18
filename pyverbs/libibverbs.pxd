@@ -68,6 +68,15 @@ cdef extern from 'infiniband/verbs.h':
         ibv_context     *context
         unsigned int    handle
 
+    cdef struct ibv_mr:
+        ibv_context     *context
+        ibv_pd          *pd
+        void            *addr
+        size_t          length
+        unsigned int    handle
+        unsigned int    lkey
+        unsigned int    rkey
+
     ibv_device **ibv_get_device_list(int *n)
     void ibv_free_device_list(ibv_device **list)
     ibv_context *ibv_open_device(ibv_device *device)
@@ -78,3 +87,5 @@ cdef extern from 'infiniband/verbs.h':
                       int index, ibv_gid *gid)
     ibv_pd *ibv_alloc_pd(ibv_context *context)
     int ibv_dealloc_pd(ibv_pd *pd)
+    ibv_mr *ibv_reg_mr(ibv_pd *pd, void *addr, size_t length, int access)
+    int ibv_dereg_mr(ibv_mr *mr)

@@ -1,7 +1,10 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.
-from pyverbs.pyverbs_error import PyverbsRDMAError
+import weakref
+
+from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
+from .mr cimport MR
 
 cdef extern from 'errno.h':
     int errno
@@ -21,6 +24,7 @@ cdef class PD(PyverbsCM):
         self.ctx = context
         context.add_ref(self)
         self.logger.debug('PD: Allocated ibv_pd')
+        self.mrs = weakref.WeakSet()
 
     def __dealloc__(self):
         """
@@ -38,9 +42,16 @@ cdef class PD(PyverbsCM):
         :return: None
         """
         self.logger.debug('Closing PD')
+        self.close_weakrefs([self.mrs])
         if self.pd != NULL:
             rc = v.ibv_dealloc_pd(self.pd)
             if rc != 0:
                 raise PyverbsRDMAErrno('Failed to dealloc PD')
             self.pd = NULL
             self.ctx = None
+
+    cdef add_ref(self, obj):
+        if isinstance(obj, MR):
+            self.mrs.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
