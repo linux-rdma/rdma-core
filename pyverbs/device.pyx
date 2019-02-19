@@ -11,6 +11,7 @@ import weakref
 from .pyverbs_error import PyverbsRDMAError, PyverbsError
 from .pyverbs_error import PyverbsUserError
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.cq cimport CQ, CompChannel
 cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.libibverbs as v
 from pyverbs.addr cimport GID
@@ -85,6 +86,8 @@ cdef class Context(PyverbsCM):
 
         self.pds = weakref.WeakSet()
         self.dms = weakref.WeakSet()
+        self.ccs = weakref.WeakSet()
+        self.cqs = weakref.WeakSet()
 
         dev_name = kwargs.get('name')
 
@@ -121,13 +124,17 @@ cdef class Context(PyverbsCM):
 
     cpdef close(self):
         self.logger.debug('Closing Context')
-        self.close_weakrefs([self.dms, self.pds])
+        self.close_weakrefs([self.ccs, self.cqs, self.dms, self.pds])
         if self.context != NULL:
             rc = v.ibv_close_device(self.context)
             if rc != 0:
                 raise PyverbsRDMAErrno('Failed to close device {dev}'.
                                        format(dev=self.device.name), errno)
             self.context = NULL
+
+    @property
+    def num_comp_vectors(self):
+        return self.context.num_comp_vectors
 
     def query_device(self):
         """
@@ -183,6 +190,10 @@ cdef class Context(PyverbsCM):
             self.pds.add(obj)
         elif isinstance(obj, DM):
             self.dms.add(obj)
+        elif isinstance(obj, CompChannel):
+            self.ccs.add(obj)
+        elif isinstance(obj, CQ):
+            self.cqs.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 

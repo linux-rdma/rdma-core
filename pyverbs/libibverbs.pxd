@@ -21,6 +21,7 @@ cdef extern from 'infiniband/verbs.h':
 
     cdef struct ibv_context:
         ibv_device *device
+        int num_comp_vectors
 
     cdef struct ibv_device_attr:
         char            *fw_ver
@@ -172,6 +173,33 @@ cdef extern from 'infiniband/verbs.h':
         unsigned char           flags
         unsigned short          port_cap_flags2
 
+    cdef struct ibv_comp_channel:
+        ibv_context     *context
+        unsigned int    fd
+        unsigned int    refcnt
+
+    cdef struct ibv_cq:
+        ibv_context         *context
+        ibv_comp_channel    *channel
+        void                *cq_context
+        int                 handle
+        int                 cqe
+
+    cdef struct ibv_wc:
+        unsigned long   wr_id
+        ibv_wc_status   status
+        ibv_wc_opcode   opcode
+        unsigned int    vendor_err
+        unsigned int    byte_len
+        unsigned int    qp_num
+        unsigned int    imm_data
+        unsigned int    src_qp
+        int             wc_flags
+        unsigned int    pkey_index
+        unsigned int    slid
+        unsigned int    sl
+        unsigned int    dlid_path_bits
+
     ibv_device **ibv_get_device_list(int *n)
     void ibv_free_device_list(ibv_device **list)
     ibv_context *ibv_open_device(ibv_device *device)
@@ -199,3 +227,11 @@ cdef extern from 'infiniband/verbs.h':
                            size_t length)
     int ibv_query_port(ibv_context *context, uint8_t port_num,
                        ibv_port_attr *port_attr)
+    ibv_comp_channel *ibv_create_comp_channel(ibv_context *context)
+    int ibv_destroy_comp_channel(ibv_comp_channel *channel)
+    int ibv_get_cq_event(ibv_comp_channel *channel, ibv_cq **cq,
+                         void **cq_context)
+    ibv_cq *ibv_create_cq(ibv_context *context, int cqe, void *cq_context,
+                          ibv_comp_channel *channel, int comp_vector)
+    int ibv_destroy_cq(ibv_cq *cq)
+    int ibv_poll_cq(ibv_cq *cq, int num_entries, ibv_wc *wc)

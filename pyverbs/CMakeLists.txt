@@ -4,6 +4,7 @@
 rdma_cython_module(pyverbs
   addr.pyx
   base.pyx
+  cq.pyx
   device.pyx
   enums.pyx
   mr.pyx
