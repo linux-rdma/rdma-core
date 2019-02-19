@@ -1453,13 +1453,13 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 			err = -1;
 			goto ex_wrid;
 		}
-	}
 
-	qp->sq.wqe_head = malloc(qp->sq.wqe_cnt * sizeof(*qp->sq.wqe_head));
-	if (!qp->sq.wqe_head) {
-		errno = ENOMEM;
-		err = -1;
+		qp->sq.wqe_head = malloc(qp->sq.wqe_cnt * sizeof(*qp->sq.wqe_head));
+		if (!qp->sq.wqe_head) {
+			errno = ENOMEM;
+			err = -1;
 			goto ex_wrid;
+		}
 	}
 
 	if (qp->rq.wqe_cnt) {
