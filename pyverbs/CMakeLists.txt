@@ -12,9 +12,10 @@ rdma_cython_module(pyverbs
   )
 
 rdma_python_module(pyverbs
-  pyverbs_error.py
   __init__.py
+  pyverbs_error.py
   run_tests.py
+  utils.py
   )
 
 rdma_python_test(pyverbs/tests

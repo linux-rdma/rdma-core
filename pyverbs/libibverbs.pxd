@@ -228,6 +228,35 @@ cdef extern from 'infiniband/verbs.h':
         unsigned long   tag
         unsigned int    priv
 
+    cdef struct ibv_grh:
+        unsigned int    version_tclass_flow
+        unsigned short    paylen
+        unsigned char    next_hdr
+        unsigned char    hop_limit
+        ibv_gid         sgid
+        ibv_gid         dgid
+
+    cdef struct ibv_global_route:
+        ibv_gid         dgid
+        unsigned int    flow_label
+        unsigned char    sgid_index
+        unsigned char    hop_limit
+        unsigned char    traffic_class
+
+    cdef struct ibv_ah_attr:
+        ibv_global_route    grh
+        unsigned short        dlid
+        unsigned char        sl
+        unsigned char        src_path_bits
+        unsigned char        static_rate
+        unsigned char        is_global
+        unsigned char        port_num
+
+    cdef struct ibv_ah:
+        ibv_context         *context
+        ibv_pd              *pd
+        unsigned int        handle
+
     ibv_device **ibv_get_device_list(int *n)
     void ibv_free_device_list(ibv_device **list)
     ibv_context *ibv_open_device(ibv_device *device)
@@ -287,3 +316,9 @@ cdef extern from 'infiniband/verbs.h':
     unsigned int ibv_wc_read_flow_tag(ibv_cq_ex *cq)
     void ibv_wc_read_tm_info(ibv_cq_ex *cq, ibv_wc_tm_info *tm_info)
     unsigned long ibv_wc_read_completion_wallclock_ns(ibv_cq_ex *cq)
+    ibv_ah *ibv_create_ah(ibv_pd *pd, ibv_ah_attr *attr)
+    int ibv_init_ah_from_wc(ibv_context *context, uint8_t port_num,
+                            ibv_wc *wc, ibv_grh *grh, ibv_ah_attr *ah_attr)
+    ibv_ah *ibv_create_ah_from_wc(ibv_pd *pd, ibv_wc *wc, ibv_grh *grh,
+                                  uint8_t port_num)
+    int ibv_destroy_ah(ibv_ah *ah)
