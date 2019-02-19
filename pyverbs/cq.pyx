@@ -126,6 +126,199 @@ cdef class CQ(PyverbsCM):
                print_format.format('CQEs', self.cq.cqe)
 
 
+cdef class CqInitAttrEx(PyverbsObject):
+    def __cinit__(self, cqe = 100, CompChannel channel = None, comp_vector = 0,
+                  wc_flags = 0, comp_mask = 0, flags = 0):
+        """
+        Initializes a CqInitAttrEx object with the given parameters.
+        :param cqe: CQ's capacity
+        :param channel: If set, will be used to return completion events
+        :param comp_vector: Will be used for signaling completion events.
+                            Must be larger than 0 and smaller than the
+                            context's num_comp_vectors
+        :param wc_flags: The wc_flags that should be returned in ibv_poll_cq_ex.
+                         Or'ed bit of enum ibv_wc_flags_ex.
+        :param comp_mask: compatibility mask (extended verb)
+        :param flags: create cq attr flags - one or more flags from
+                      ibv_create_cq_attr_flags enum
+        :return:
+        """
+        self.attr.cqe = cqe
+        self.attr.cq_context = NULL
+        self.attr.channel = NULL if channel is None else channel.cc
+        self.attr.comp_vector = comp_vector
+        self.attr.wc_flags = wc_flags
+        self.attr.comp_mask = comp_mask
+        self.attr.flags = flags
+
+    @property
+    def cqe(self):
+        return self.attr.cqe
+    @cqe.setter
+    def cqe(self, val):
+        self.attr.cqe = val
+
+    # Setter-only properties require the older syntax
+    property cq_context:
+        def __set__(self, val):
+            self.attr.cq_context = <void*>val
+
+    property channel:
+        def __set__(self, val):
+            self.attr.channel = <v.ibv_comp_channel*>val
+
+    @property
+    def comp_vector(self):
+        return self.attr.comp_vector
+    @comp_vector.setter
+    def comp_vector(self, val):
+        self.attr.comp_vector = val
+
+    @property
+    def wc_flags(self):
+        return self.attr.wc_flags
+    @wc_flags.setter
+    def wc_flags(self, val):
+        self.attr.wc_flags = val
+
+    @property
+    def comp_mask(self):
+        return self.attr.comp_mask
+    @comp_mask.setter
+    def comp_mask(self, val):
+        self.attr.comp_mask = val
+
+    @property
+    def flags(self):
+        return self.attr.flags
+    @flags.setter
+    def flags(self, val):
+        self.attr.flags = val
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        return print_format.format('Number of CQEs', self.cqe) +\
+            print_format.format('WC flags', create_wc_flags_to_str(self.wc_flags)) +\
+            print_format.format('comp mask', self.comp_mask) +\
+            print_format.format('flags', self.flags)
+
+
+cdef class CQEX(PyverbsCM):
+    def __cinit__(self, Context context not None, CqInitAttrEx init_attr):
+        """
+        Initializes a CQEX object on the given device's context with the given
+        attributes.
+        :param context: The device's context on which to open the CQ
+        :param init_attr: Initial attributes that describe the CQ
+        :return: The newly created CQEX on success
+        """
+        if init_attr is None:
+            init_attr = CqInitAttrEx()
+        self.cq = v.ibv_create_cq_ex(context.context, &init_attr.attr)
+        if self.cq == NULL:
+            raise PyverbsRDMAErrno('Failed to create extended CQ')
+        self.ibv_cq = v.ibv_cq_ex_to_cq(self.cq)
+        self.context = context
+        context.add_ref(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        self.logger.debug('Closing CQEx')
+        if self.cq != NULL:
+            rc = v.ibv_destroy_cq(<v.ibv_cq*>self.cq)
+            if rc != 0:
+                raise PyverbsRDMAErrno('Failed to destroy CQEX')
+            self.cq = NULL
+            self.context = None
+
+    def start_poll(self, PollCqAttr attr):
+        """
+        Start polling a batch of work completions.
+        :param attr: For easy future extensions
+        :return: 0 on success, ENOENT when no completions are available
+        """
+        if attr is None:
+            attr = PollCqAttr()
+        return v.ibv_start_poll(self.cq, &attr.attr)
+
+    def poll_next(self):
+        """
+        Get the next work completion.
+        :return: 0 on success, ENOENT when no completions are available
+        """
+        return v.ibv_next_poll(self.cq)
+
+    def end_poll(self):
+        """
+        Indicates the end of polling batch of work completions
+        :return: None
+        """
+        return v.ibv_end_poll(self.cq)
+
+    def read_opcode(self):
+        return v.ibv_wc_read_opcode(self.cq)
+    def read_vendor_err(self):
+        return v.ibv_wc_read_vendor_err(self.cq)
+    def read_byte_len(self):
+        return v.ibv_wc_read_byte_len(self.cq)
+    def read_imm_data(self):
+        return v.ibv_wc_read_imm_data(self.cq)
+    def read_qp_num(self):
+        return v.ibv_wc_read_qp_num(self.cq)
+    def read_src_qp(self):
+        return v.ibv_wc_read_src_qp(self.cq)
+    def read_wc_flags(self):
+        return v.ibv_wc_read_wc_flags(self.cq)
+    def read_slid(self):
+        return v.ibv_wc_read_slid(self.cq)
+    def read_sl(self):
+        return v.ibv_wc_read_sl(self.cq)
+    def read_dlid_path_bits(self):
+        return v.ibv_wc_read_dlid_path_bits(self.cq)
+    def read_timestamp(self):
+        return v.ibv_wc_read_completion_ts(self.cq)
+    def read_cvlan(self):
+        return v.ibv_wc_read_cvlan(self.cq)
+    def read_flow_tag(self):
+        return v.ibv_wc_read_flow_tag(self.cq)
+    def read_tm_info(self):
+        info = WcTmInfo()
+        v.ibv_wc_read_tm_info(self.cq, &info.info)
+        return info
+    def read_completion_wallclock_ns(self):
+        return v.ibv_wc_read_completion_wallclock_ns(self.cq)
+
+    @property
+    def status(self):
+        return self.cq.status
+    @status.setter
+    def status(self, val):
+        self.cq.status = val
+
+    @property
+    def wr_id(self):
+        return self.cq.wr_id
+    @wr_id.setter
+    def wr_id(self, val):
+        self.cq.wr_id = val
+
+    @property
+    def _cq(self):
+        return <object>self.cq
+
+    @property
+    def _ibv_cq(self):
+        return <object>self.ibv_cq
+
+    def __str__(self):
+        print_format = '{:<22}: {:<20}\n'
+        return 'Extended CQ:\n' +\
+               print_format.format('Handle', self.cq.handle) +\
+               print_format.format('CQEs', self.cq.cqe)
+
+
 cdef class WC(PyverbsObject):
     def __cinit__(self, wr_id=0, status=0, opcode=0, vendor_err=0, byte_len=0,
                   qp_num=0, src_qp=0, imm_data=0, wc_flags=0, pkey_index=0,
@@ -243,6 +436,31 @@ cdef class WC(PyverbsObject):
             print_format.format('dlid path bits', self.dlid_path_bits)
 
 
+cdef class PollCqAttr(PyverbsObject):
+    @property
+    def comp_mask(self):
+        return self.attr.comp_mask
+    @comp_mask.setter
+    def comp_mask(self, val):
+        self.attr.comp_mask = val
+
+
+cdef class WcTmInfo(PyverbsObject):
+    @property
+    def tag(self):
+        return self.info.tag
+    @tag.setter
+    def tag(self, val):
+        self.info.tag = val
+
+    @property
+    def priv(self):
+        return self.info.priv
+    @priv.setter
+    def priv(self, val):
+        self.info.priv = val
+
+
 def cqe_status_to_str(status):
     try:
         return {e.IBV_WC_SUCCESS: "success",
@@ -283,13 +501,32 @@ def cqe_opcode_to_str(opcode):
     except KeyError:
         return "Unknown CQE opcode {op}".format(op=opcode)
 
+def flags_to_str(flags, dictionary):
+    flags_str = ""
+    for f in dictionary:
+        if flags & f:
+            flags_str += dictionary[f]
+            flags_str += " "
+    return flags_str
+
+
 def cqe_flags_to_str(flags):
     cqe_flags = {1: "GRH", 2: "With immediate", 4: "IP csum OK",
                  8: "With invalidate", 16: "TM sync request", 32: "TM match",
                  64: "TM data valid"}
-    flags_str = ""
-    for f in cqe_flags:
-        if flags & f:
-            flags_str += cqe_flags[f]
-            flags_str += " "
-    return flags_str
+    return flags_to_str(flags, cqe_flags)
+
+def create_wc_flags_to_str(flags):
+    cqe_flags = {e.IBV_WC_EX_WITH_BYTE_LEN: 'IBV_WC_EX_WITH_BYTE_LEN',
+                 e.IBV_WC_EX_WITH_IMM: 'IBV_WC_EX_WITH_IMM',
+                 e.IBV_WC_EX_WITH_QP_NUM: 'IBV_WC_EX_WITH_QP_NUM',
+                 e.IBV_WC_EX_WITH_SRC_QP: 'IBV_WC_EX_WITH_SRC_QP',
+                 e.IBV_WC_EX_WITH_SLID: 'IBV_WC_EX_WITH_SLID',
+                 e.IBV_WC_EX_WITH_SL: 'IBV_WC_EX_WITH_SL',
+                 e.IBV_WC_EX_WITH_DLID_PATH_BITS: 'IBV_WC_EX_WITH_DLID_PATH_BITS',
+                 e.IBV_WC_EX_WITH_COMPLETION_TIMESTAMP: 'IBV_WC_EX_WITH_COMPLETION_TIMESTAMP',
+                 e.IBV_WC_EX_WITH_CVLAN: 'IBV_WC_EX_WITH_CVLAN',
+                 e.IBV_WC_EX_WITH_FLOW_TAG: 'IBV_WC_EX_WITH_FLOW_TAG',
+                 e.IBV_WC_EX_WITH_TM_INFO: 'IBV_WC_EX_WITH_TM_INFO',
+                 e.IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK: 'IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK'}
+    return flags_to_str(flags, cqe_flags)

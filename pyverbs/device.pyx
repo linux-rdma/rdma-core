@@ -9,9 +9,9 @@ which returns a DeviceAttr object.
 import weakref
 
 from .pyverbs_error import PyverbsRDMAError, PyverbsError
+from pyverbs.cq cimport CQEX, CQ, CompChannel
 from .pyverbs_error import PyverbsUserError
 from pyverbs.base import PyverbsRDMAErrno
-from pyverbs.cq cimport CQ, CompChannel
 cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.libibverbs as v
 from pyverbs.addr cimport GID
@@ -192,7 +192,7 @@ cdef class Context(PyverbsCM):
             self.dms.add(obj)
         elif isinstance(obj, CompChannel):
             self.ccs.add(obj)
-        elif isinstance(obj, CQ):
+        elif isinstance(obj, CQ) or isinstance(obj, CQEX):
             self.cqs.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
