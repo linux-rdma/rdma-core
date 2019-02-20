@@ -9,7 +9,7 @@ cdef extern from 'endian.h':
     unsigned long be64toh(unsigned long host_64bits)
 
 
-cdef class Gid(PyverbsObject):
+cdef class GID(PyverbsObject):
     """
     GID class represents ibv_gid. It enables user to query for GIDs values.
     """

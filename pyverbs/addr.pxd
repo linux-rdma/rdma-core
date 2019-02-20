@@ -5,5 +5,5 @@ from .base cimport PyverbsObject
 from pyverbs cimport libibverbs as v
 
 
-cdef class Gid(PyverbsObject):
+cdef class GID(PyverbsObject):
     cdef v.ibv_gid gid
