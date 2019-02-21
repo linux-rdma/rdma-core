@@ -658,24 +658,40 @@ static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 	return 0;
 }
 
-static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
-				 enum ibv_qp_type type, struct hns_roce_qp *qp)
+static int hns_roce_alloc_recv_inl_buf(struct ibv_qp_cap *cap,
+				       struct hns_roce_qp *qp)
 {
 	int i;
-	int page_size = to_hr_dev(pd->context->device)->page_size;
 
-	qp->sq.wrid =
-		(unsigned long *)malloc(qp->sq.wqe_cnt * sizeof(uint64_t));
-	if (!qp->sq.wrid)
+	qp->rq_rinl_buf.wqe_list = calloc(1, qp->rq.wqe_cnt *
+					  sizeof(struct hns_roce_rinl_wqe));
+	if (!qp->rq_rinl_buf.wqe_list)
 		return -1;
 
-	if (qp->rq.wqe_cnt) {
-		qp->rq.wrid = malloc(qp->rq.wqe_cnt * sizeof(uint64_t));
-		if (!qp->rq.wrid) {
-			free(qp->sq.wrid);
-			return -1;
-		}
+	qp->rq_rinl_buf.wqe_cnt = qp->rq.wqe_cnt;
+
+	qp->rq_rinl_buf.wqe_list[0].sg_list = calloc(1, qp->rq.wqe_cnt *
+			  cap->max_recv_sge * sizeof(struct hns_roce_rinl_sge));
+	if (!qp->rq_rinl_buf.wqe_list[0].sg_list) {
+		free(qp->rq_rinl_buf.wqe_list);
+		return -1;
 	}
+
+	for (i = 0; i < qp->rq_rinl_buf.wqe_cnt; i++) {
+		int wqe_size = i * cap->max_recv_sge;
+
+		qp->rq_rinl_buf.wqe_list[i].sg_list =
+			  &(qp->rq_rinl_buf.wqe_list[0].sg_list[wqe_size]);
+	}
+
+	return 0;
+}
+
+static int hns_roce_calc_qp_buff_size(struct ibv_pd *pd, struct ibv_qp_cap *cap,
+				      enum ibv_qp_type type,
+				      struct hns_roce_qp *qp)
+{
+	int page_size = to_hr_dev(pd->context->device)->page_size;
 
 	if (to_hr_dev(pd->context->device)->hw_version == HNS_ROCE_HW_VER1) {
 		for (qp->rq.wqe_shift = 4; 1 << qp->rq.wqe_shift <
@@ -704,35 +720,9 @@ static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 		else
 			qp->sge.sge_shift = 0;
 
-		/* alloc recv inline buf*/
-		qp->rq_rinl_buf.wqe_list =
-			(struct hns_roce_rinl_wqe *)calloc(1, qp->rq.wqe_cnt *
-					      sizeof(struct hns_roce_rinl_wqe));
-		if (!qp->rq_rinl_buf.wqe_list) {
-			if (qp->rq.wqe_cnt)
-				free(qp->rq.wrid);
-			free(qp->sq.wrid);
+		/* alloc recv inline buf */
+		if (hns_roce_alloc_recv_inl_buf(cap, qp))
 			return -1;
-		}
-
-		qp->rq_rinl_buf.wqe_cnt = qp->rq.wqe_cnt;
-
-		qp->rq_rinl_buf.wqe_list[0].sg_list =
-			(struct hns_roce_rinl_sge *)calloc(1, qp->rq.wqe_cnt *
-			  cap->max_recv_sge * sizeof(struct hns_roce_rinl_sge));
-		if (!qp->rq_rinl_buf.wqe_list[0].sg_list) {
-			if (qp->rq.wqe_cnt)
-				free(qp->rq.wrid);
-			free(qp->sq.wrid);
-			free(qp->rq_rinl_buf.wqe_list);
-			return -1;
-		}
-		for (i = 0; i < qp->rq_rinl_buf.wqe_cnt; i++) {
-			int wqe_size = i * cap->max_recv_sge;
-
-			qp->rq_rinl_buf.wqe_list[i].sg_list =
-			  &(qp->rq_rinl_buf.wqe_list[0].sg_list[wqe_size]);
-		}
 
 		qp->buf_size = align((qp->sq.wqe_cnt << qp->sq.wqe_shift),
 				     page_size) +
@@ -753,6 +743,33 @@ static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 			qp->rq.offset = align((qp->sq.wqe_cnt <<
 						qp->sq.wqe_shift), page_size);
 		}
+	}
+
+	return 0;
+}
+
+static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
+				 enum ibv_qp_type type, struct hns_roce_qp *qp)
+{
+	int page_size = to_hr_dev(pd->context->device)->page_size;
+
+	qp->sq.wrid = malloc(qp->sq.wqe_cnt * sizeof(uint64_t));
+	if (!qp->sq.wrid)
+		return -1;
+
+	if (qp->rq.wqe_cnt) {
+		qp->rq.wrid = malloc(qp->rq.wqe_cnt * sizeof(uint64_t));
+		if (!qp->rq.wrid) {
+			free(qp->sq.wrid);
+			return -1;
+		}
+	}
+
+	if (hns_roce_calc_qp_buff_size(pd, cap, type, qp)) {
+		if (qp->rq.wqe_cnt)
+			free(qp->rq.wrid);
+		free(qp->sq.wrid);
+		return -1;
 	}
 
 	if (hns_roce_alloc_buf(&qp->buf, align(qp->buf_size, page_size),
