@@ -50,6 +50,8 @@ must be set too.
 .PP
 Local read access is always enabled for the MR.
 .PP
+To create an implicit ODP MR, IBV_ACCESS_ON_DEMAND should be set, addr should be 0 and length should be SIZE_MAX.
+.PP
 .B ibv_dereg_mr()
 deregisters the MR
 .I mr\fR.

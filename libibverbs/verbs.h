@@ -218,6 +218,7 @@ struct ibv_odp_caps {
 
 enum ibv_odp_general_caps {
 	IBV_ODP_SUPPORT = 1 << 0,
+	IBV_ODP_SUPPORT_IMPLICIT = 1 << 1,
 };
 
 struct ibv_tso_caps {
