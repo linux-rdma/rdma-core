@@ -46,7 +46,7 @@ int hns_roce_alloc_buf(struct hns_roce_buf *buf, unsigned int size,
 	if (buf->buf == MAP_FAILED)
 		return errno;
 
-	ret = ibv_dontfork_range(buf->buf, size);
+	ret = ibv_dontfork_range(buf->buf, buf->length);
 	if (ret)
 		munmap(buf->buf, buf->length);
 
