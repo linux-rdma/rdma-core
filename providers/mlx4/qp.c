@@ -726,7 +726,7 @@ int mlx4_alloc_qp_buf(struct ibv_context *context, uint32_t max_recv_sge,
 	}
 
 	if (qp->buf_size) {
-		if (mlx4_alloc_buf(&qp->buf,
+		if (mlx4_alloc_buf(to_mctx(context), &qp->buf,
 				   align(qp->buf_size, to_mdev(context->device)->page_size),
 				   to_mdev(context->device)->page_size)) {
 			free(qp->sq.wrid);

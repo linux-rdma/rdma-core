@@ -141,7 +141,7 @@ int mlx4_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 
 	buf_size = srq->max << srq->wqe_shift;
 
-	if (mlx4_alloc_buf(&srq->buf, buf_size,
+	if (mlx4_alloc_buf(to_mctx(pd->context), &srq->buf, buf_size,
 			   to_mdev(pd->context->device)->page_size)) {
 		free(srq->wrid);
 		return -1;
@@ -287,7 +287,7 @@ err_db:
 	mlx4_free_db(to_mctx(context), MLX4_DB_TYPE_RQ, srq->db);
 err_free:
 	free(srq->wrid);
-	mlx4_free_buf(&srq->buf);
+	mlx4_free_buf(to_mctx(context), &srq->buf);
 err:
 	free(srq);
 	return NULL;
@@ -315,7 +315,7 @@ int mlx4_destroy_xrc_srq(struct ibv_srq *srq)
 	}
 
 	mlx4_free_db(mctx, MLX4_DB_TYPE_RQ, msrq->db);
-	mlx4_free_buf(&msrq->buf);
+	mlx4_free_buf(mctx, &msrq->buf);
 	free(msrq->wrid);
 	free(msrq);
 

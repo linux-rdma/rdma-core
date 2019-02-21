@@ -65,7 +65,7 @@ static struct mlx4_db_page *__add_page(struct mlx4_context *context,
 	if (!page)
 		return NULL;
 
-	if (mlx4_alloc_buf(&page->buf, ps, ps)) {
+	if (mlx4_alloc_buf(context, &page->buf, ps, ps)) {
 		free(page);
 		return NULL;
 	}
@@ -143,7 +143,7 @@ void mlx4_free_db(struct mlx4_context *context, enum mlx4_db_type type,
 		if (page->next)
 			page->next->prev = page->prev;
 
-		mlx4_free_buf(&page->buf);
+		mlx4_free_buf(context, &page->buf);
 		free(page);
 	}
 

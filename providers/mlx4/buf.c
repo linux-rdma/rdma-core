@@ -38,9 +38,44 @@
 
 #include "mlx4.h"
 
-int mlx4_alloc_buf(struct mlx4_buf *buf, size_t size, int page_size)
+static void mlx4_free_buf_extern(struct mlx4_context *ctx, struct mlx4_buf *buf)
+{
+	ibv_dofork_range(buf->buf, buf->length);
+	ctx->extern_alloc.free(buf->buf, ctx->extern_alloc.data);
+}
+
+static int mlx4_alloc_buf_extern(struct mlx4_context *ctx, struct mlx4_buf *buf,
+				 size_t size)
+{
+	void *addr;
+
+	addr = ctx->extern_alloc.alloc(size, ctx->extern_alloc.data);
+	if (addr || size == 0) {
+		if (ibv_dontfork_range(addr, size)) {
+			ctx->extern_alloc.free(addr,
+				ctx->extern_alloc.data);
+			return -1;
+		}
+		buf->buf = addr;
+		buf->length = size;
+		return 0;
+	}
+
+	return -1;
+}
+
+static bool mlx4_is_extern_alloc(struct mlx4_context *context)
+{
+	return context->extern_alloc.alloc && context->extern_alloc.free;
+}
+
+int mlx4_alloc_buf(struct mlx4_context *ctx, struct mlx4_buf *buf,
+		   size_t size, int page_size)
 {
 	int ret;
+
+	if (mlx4_is_extern_alloc(ctx))
+		return mlx4_alloc_buf_extern(ctx, buf, size);
 
 	buf->length = align(size, page_size);
 	buf->buf = mmap(NULL, buf->length, PROT_READ | PROT_WRITE,
@@ -55,8 +90,11 @@ int mlx4_alloc_buf(struct mlx4_buf *buf, size_t size, int page_size)
 	return ret;
 }
 
-void mlx4_free_buf(struct mlx4_buf *buf)
+void mlx4_free_buf(struct mlx4_context *context, struct mlx4_buf *buf)
 {
+	if (mlx4_is_extern_alloc(context))
+		return mlx4_free_buf_extern(context, buf);
+
 	if (buf->length) {
 		ibv_dofork_range(buf->buf, buf->length);
 		munmap(buf->buf, buf->length);

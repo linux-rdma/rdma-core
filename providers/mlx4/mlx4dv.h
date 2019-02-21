@@ -533,8 +533,14 @@ int mlx4dv_query_device(struct ibv_context *ctx_in,
 enum mlx4dv_set_ctx_attr_type {
 	/* Attribute type uint8_t */
 	MLX4DV_SET_CTX_ATTR_LOG_WQS_RANGE_SZ	= 0,
+	MLX4DV_SET_CTX_ATTR_BUF_ALLOCATORS	= 1,
 };
 
+struct mlx4dv_ctx_allocators {
+	void *(*alloc)(size_t size, void *priv_data);
+	void (*free)(void *ptr, void *priv_data);
+	void *data;
+};
 /*
  * Returns 0 on success, or the value of errno on failure
  * (which indicates the failure reason).

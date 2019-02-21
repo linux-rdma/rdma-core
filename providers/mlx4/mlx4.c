@@ -430,6 +430,9 @@ int mlx4dv_set_context_attr(struct ibv_context *context,
 	case MLX4DV_SET_CTX_ATTR_LOG_WQS_RANGE_SZ:
 		ctx->log_wqs_range_sz = *((uint8_t *)attr);
 		break;
+	case MLX4DV_SET_CTX_ATTR_BUF_ALLOCATORS:
+		ctx->extern_alloc = *((struct mlx4dv_ctx_allocators *)attr);
+		break;
 	default:
 		return ENOTSUP;
 	}
