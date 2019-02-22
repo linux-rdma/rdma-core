@@ -1,0 +1,164 @@
+# See https://aka.ms/yaml
+
+trigger:
+  - master
+pr:
+  - master
+
+resources:
+  containers:
+    - container: azp
+      image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:latest
+      endpoint: ucfconsort_registry
+    - container: centos7
+      image: ucfconsort.azurecr.io/rdma-core/centos7:latest
+      endpoint: ucfconsort_registry
+    - container: leap
+      image: ucfconsort.azurecr.io/rdma-core/opensuse-15.0:latest
+      endpoint: ucfconsort_registry
+
+stages:
+  - stage: Build
+    jobs:
+      - job: Compile
+        displayName: Compile Tests
+        pool:
+          vmImage: 'Ubuntu-16.04'
+        container: azp
+        steps:
+          - task: PythonScript@0
+            displayName: checkpatch
+            condition: eq(variables['Build.Reason'], 'PullRequest')
+            inputs:
+              scriptPath: buildlib/azp-checkpatch
+              pythonInterpreter: /usr/bin/python3
+
+          - bash: |
+              set -e
+              mkdir build-gcc8
+              cd build-gcc8
+              CC=gcc-8 CFLAGS="-Werror" cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_STATIC=1
+              ninja
+            displayName: gcc 8.3 Compile
+
+          - bash: |
+              set -e
+              cd build-gcc8
+              python2.7 ../buildlib/check-build --src .. --cc gcc-8
+            displayName: Check Build Script
+
+          # Run sparse on the subdirectories which are sparse clean
+          - bash: |
+              set -e
+              mkdir build-sparse
+              mv CMakeLists.txt CMakeLists-orig.txt
+              grep -v "# NO SPARSE" CMakeLists-orig.txt > CMakeLists.txt
+              cd build-sparse
+              CC=cgcc CFLAGS="-Werror" cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1
+              ninja | grep -v '^\[' | tee out
+              # sparse does not fail gcc on messages
+              if [ -s out ]; then
+                 false
+              fi
+              mv ../CMakeLists-orig.txt ../CMakeLists.txt
+            displayName: sparse Analysis
+
+          - bash: |
+              set -e
+              mkdir build-clang
+              cd build-clang
+              CC=clang-7 CFLAGS="-Werror -m32 -msse3" cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1
+              ninja
+            displayName: clang 7.0 32-bit Compile
+
+          - bash: |
+              set -e
+              mv util/udma_barrier.h util/udma_barrier.h.old
+              echo "#error Fail" >> util/udma_barrier.h
+              cd build-gcc8
+              rm CMakeCache.txt
+              CC=gcc-8 CFLAGS="-Werror" cmake -GNinja .. -DIOCTL_MODE=both
+              ninja
+              mv ../util/udma_barrier.h.old ../util/udma_barrier.h
+            displayName: Simulate non-coherent DMA Platform Compile
+
+          - bash: |
+              set -e
+              mkdir build-arm64
+              cd build-arm64
+              CC=aarch64-linux-gnu-gcc-8 CFLAGS="-Werror" cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1
+              ninja
+            displayName: gcc 8.3 ARM64 Compile
+
+          # When running cmake through debian/rules it is hard to set -Werror,
+          # instead force it on by changing the CMakeLists.txt
+          - bash: |
+              set -e
+              echo 'set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")' >> buildlib/RDMA_EnableCStd.cmake
+              sed -i -e 's/-DCMAKE_BUILD_TYPE=Release/-DCMAKE_BUILD_TYPE=Debug/g' debian/rules
+              sed -i -e 's/ninja \(.*\)-v/ninja \1/g' debian/rules
+              debian/rules CC=clang-7 build
+            displayName: clang 7.0 Bionic Build
+          - bash: |
+              set -e
+              fakeroot debian/rules binary
+            displayName: clang 7.0 Bionic .deb Build
+
+      - job: SrcPrep
+        displayName: Build Source Tar
+        pool:
+          vmImage: 'Ubuntu-16.04'
+        container: azp
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - bash: |
+              set -e
+              mkdir build-pandoc artifacts
+              cd build-pandoc
+              CC=gcc-8 cmake -GNinja ..
+              ninja docs
+              cd ../artifacts
+              # FIXME: Check Build.SourceBranch for tag consistency
+              python2.7 ../buildlib/cbuild make-dist-tar ../build-pandoc
+            displayName: Prebuild Documentation
+
+          - task: PublishPipelineArtifact@0
+            inputs:
+              # Contains a rdma-core-XX.tar.gz file
+              artifactName: source_tar
+              targetPath: artifacts
+
+      - job: Distros
+        displayName: Test Build RPMs for
+        dependsOn: SrcPrep
+        pool:
+          vmImage: 'Ubuntu-16.04'
+        strategy:
+          matrix:
+            centos7:
+              CONTAINER: centos7
+              SPEC: redhat/rdma-core.spec
+              RPMBUILD_OPTS:
+            leap:
+              CONTAINER: leap
+              SPEC: suse/rdma-core.spec
+              RPMBUILD_OPTS: --without=curlmini
+        container: $[ variables['CONTAINER'] ]
+        steps:
+          - checkout: none
+
+          - task: DownloadPipelineArtifact@0
+            inputs:
+              artifactName: source_tar
+              targetPath: .
+
+          - bash: |
+              set -e
+              mkdir SOURCES tmp
+              tar --wildcards -xzf rdma-core*.tar.gz  */$(SPEC) --strip-components=2
+              RPM_SRC=$(rpmspec -P rdma-core.spec | awk '/^Source:/{split($0,a,"[ \t]+");print(a[2])}')
+              (cd SOURCES && ln -sf ../rdma-core*.tar.gz "$RPM_SRC")
+              rpmbuild --define '_tmppath '$(pwd)'/tmp' --define '_topdir '$(pwd) -bb rdma-core.spec $(RPMBUILD_OPTS)
+            displayName: Perform Package Build
