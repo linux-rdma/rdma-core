@@ -8,12 +8,12 @@ ibv_rc_pingpong \- simple InfiniBand RC transport test
 .B ibv_rc_pingpong
 [\-p port] [\-d device] [\-i ib port] [\-s size] [\-m size]
 [\-r rx depth] [\-n iters] [\-l sl] [\-e] [\-g gid index]
-[\-o] [\-P] [\-t] \fBHOSTNAME\fR
+[\-o] [\-P] [\-t] [\-j] [\-N] \fBHOSTNAME\fR
 
 .B ibv_rc_pingpong
 [\-p port] [\-d device] [\-i ib port] [\-s size] [\-m size]
 [\-r rx depth] [\-n iters] [\-l sl] [\-e] [\-g gid index]
-[\-o] [\-P] [\-t]
+[\-o] [\-P] [\-t] [\-j] [\-N]
 
 .SH DESCRIPTION
 .PP
@@ -66,6 +66,12 @@ get CQE with timestamp
 .TP
 \fB\-c\fR, \fB\-\-chk\fR
 validate received buffer
+.TP
+\fB\-j\fR, \fB\-\-dm\fR
+use device memory
+.TP
+\fB\-N\fR, \fB\-\-new_send\fR
+use new post send WR API
 
 .SH SEE ALSO
 .BR ibv_uc_pingpong (1),
