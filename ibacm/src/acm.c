@@ -816,6 +816,14 @@ acm_is_path_from_port(struct acmc_port *port, struct ibv_path_record *path)
 	return 0;
 }
 
+static bool acm_same_partition(uint16_t pkey_a, uint16_t pkey_b)
+{
+
+	acm_log(2, "pkey_a: 0x%04x pkey_b: 0x%04x\n", pkey_a, pkey_b);
+
+	return ((pkey_a | IB_PKEY_FULL_MEMBER) == (pkey_b | IB_PKEY_FULL_MEMBER));
+}
+
 static struct acmc_addr *
 acm_get_port_ep_address(struct acmc_port *port, struct acm_ep_addr_data *data)
 {
@@ -833,7 +841,7 @@ acm_get_port_ep_address(struct acmc_port *port, struct acm_ep_addr_data *data)
 	list_for_each(&port->ep_list, ep, entry) {
 		if ((data->type == ACM_EP_INFO_PATH) &&
 		    (!data->info.path.pkey ||
-		     (be16toh(data->info.path.pkey) == ep->endpoint.pkey))) {
+		     acm_same_partition(be16toh(data->info.path.pkey), ep->endpoint.pkey))) {
 			for (i = 0; i < MAX_EP_ADDR; i++) {
 				if (ep->addr_info[i].addr.type)
 					return &ep->addr_info[i];
@@ -2161,7 +2169,7 @@ static int acm_assign_ep_names(struct acmc_ep *ep)
 
 		if (!strcasecmp(dev_name, dev) &&
 		    (ep->port->port.port_num == (uint8_t) port) &&
-		    (ep->endpoint.pkey == pkey)) {
+		    acm_same_partition(ep->endpoint.pkey, pkey)) {
 			acm_log(1, "assigning %s\n", name);
 			if (acm_ep_insert_addr(ep, name, addr, type)) {
 				acm_log(1, "maximum number of names assigned to EP\n");
@@ -2182,7 +2190,7 @@ static struct acmc_ep *acm_find_ep(struct acmc_port *port, uint16_t pkey)
 	acm_log(2, "pkey 0x%x\n", pkey);
 
 	list_for_each(&port->ep_list, ep, entry) {
-		if (ep->endpoint.pkey == pkey) {
+		if (acm_same_partition(ep->endpoint.pkey, pkey)) {
 			res = ep;
 			break;
 		}
