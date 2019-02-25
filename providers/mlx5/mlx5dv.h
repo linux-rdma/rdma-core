@@ -512,6 +512,10 @@ enum {
 };
 
 enum {
+	MLX5_CQE_VENDOR_SYNDROME_ODP_PFAULT		= 0x93,
+};
+
+enum {
 	MLX5_CQE_L2_OK = 1 << 0,
 	MLX5_CQE_L3_OK = 1 << 1,
 	MLX5_CQE_L4_OK = 1 << 2,

@@ -265,6 +265,15 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 		}
 	}
 
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, xrc_odp_caps) +
+			sizeof(attr->xrc_odp_caps)) {
+		if (resp->response_length >=
+		    offsetof(struct ib_uverbs_ex_query_device_resp, xrc_odp_caps) +
+		    sizeof(resp->xrc_odp_caps)) {
+			attr->xrc_odp_caps = resp->xrc_odp_caps;
+		}
+	}
+
 	return 0;
 }
 
