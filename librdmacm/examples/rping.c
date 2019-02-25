@@ -428,6 +428,21 @@ static int rping_accept(struct rping_cb *cb)
 	return 0;
 }
 
+static int rping_disconnect(struct rping_cb *cb, struct rdma_cm_id *id)
+{
+	struct ibv_qp_attr qp_attr = {};
+	int err = 0;
+
+	if (cb->self_create_qp) {
+		qp_attr.qp_state = IBV_QPS_ERR;
+		err = ibv_modify_qp(cb->qp, &qp_attr, IBV_QP_STATE);
+		if (err)
+			return err;
+	}
+
+	return rdma_disconnect(id);
+}
+
 static void rping_setup_wr(struct rping_cb *cb)
 {
 	cb->recv_sgl.addr = (uint64_t) (unsigned long) &cb->recv_buf;
@@ -873,7 +888,7 @@ static void *rping_persistent_server_thread(void *arg)
 	}
 
 	rping_test_server(cb);
-	rdma_disconnect(cb->child_cm_id);
+	rping_disconnect(cb, cb->child_cm_id);
 	pthread_join(cb->cqthread, NULL);
 	rping_free_buffers(cb);
 	rping_free_qp(cb);
@@ -992,7 +1007,7 @@ static int rping_run_server(struct rping_cb *cb)
 
 	ret = 0;
 err3:
-	rdma_disconnect(cb->child_cm_id);
+	rping_disconnect(cb, cb->child_cm_id);
 	pthread_join(cb->cqthread, NULL);
 	rdma_destroy_id(cb->child_cm_id);
 err2:
@@ -1186,7 +1201,7 @@ static int rping_run_client(struct rping_cb *cb)
 
 	ret = 0;
 err4:
-	rdma_disconnect(cb->cm_id);
+	rping_disconnect(cb, cb->cm_id);
 err3:
 	pthread_join(cb->cqthread, NULL);
 err2:
