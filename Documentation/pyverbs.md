@@ -225,3 +225,59 @@ with d.Context(name='mlx5_0') as ctx:
                 dm_mr = DmMr(pd, dm_mr_len, e.IBV_ACCESS_ZERO_BASED, dm=dm,
                              offset=0)
 ```
+
+##### CQ
+The following snippets show how to create CQs using pyverbs. Pyverbs supports
+both CQ and extended CQ (CQEX).
+As in C, a completion queue can be created with or without a completion
+channel, the snippets show that.
+CQ's 3rd parameter is cq_context, a user-defined context. We're using None in
+our snippets.
+```python
+import random
+
+from pyverbs.cq import CompChannel, CQ
+import pyverbs.device as d
+
+with d.Context(name='mlx5_0') as ctx:
+    num_cqes = random.randint(0, 200) # Just arbitrary values. Max value can be
+                                      # found in device attributes
+    comp_vector = 0 # An arbitrary value. comp_vector is limited by the
+                    # context's num_comp_vectors
+    if random.choice([True, False]):
+        with CompChannel(ctx) as cc:
+            cq = CQ(ctx, num_cqes, None, cc, comp_vector)
+    else:
+        cq = CQ(ctx, num_cqes, None, None, comp_vector)
+    print(cq)
+CQ
+Handle                : 0
+CQEs                  : 63
+```
+
+```python
+import random
+
+from pyverbs.cq import CqInitAttrEx, CQEX
+import pyverbs.device as d
+import pyverbs.enums as e
+
+with d.Context(name='mlx5_0') as ctx:
+    num_cqe = random.randint(0, 200)
+    wc_flags = e.IBV_WC_EX_WITH_CVLAN
+    comp_mask = 0 # Not using flags in this example
+    # completion channel is not used in this example
+    attrs = CqInitAttrEx(cqe=num_cqe, wc_flags=wc_flags, comp_mask=comp_mask,
+                         flags=0)
+    print(attrs)
+    cq_ex = CQEX(ctx, attrs)
+    print(cq_ex)
+    Number of CQEs        : 10
+WC flags              : IBV_WC_EX_WITH_CVLAN
+comp mask             : 0
+flags                 : 0
+
+Extended CQ:
+Handle                : 0
+CQEs                  : 15
+```
