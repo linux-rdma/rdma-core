@@ -1863,6 +1863,7 @@ int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 	cmd_size = sizeof(*cmd) + num_tbl_entries * sizeof(cmd->wq_handles[0]);
 	cmd_size = (cmd_size + 7) / 8 * 8;
 	cmd = alloca(cmd_size);
+	memset(cmd, 0, cmd_size);
 
 	for (i = 0; i < num_tbl_entries; i++)
 		cmd->wq_handles[i] = init_attr->ind_tbl[i]->handle;
