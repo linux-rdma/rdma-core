@@ -520,6 +520,7 @@ struct mlx5_qp {
 	int				nreq;
 	uint32_t			cur_size;
 	uint32_t			cur_post_rb;
+	void				*cur_eth;
 	void				*cur_data;
 	struct mlx5_wqe_ctrl_seg	*cur_ctrl;
 	/* End of new post send API specific fields */

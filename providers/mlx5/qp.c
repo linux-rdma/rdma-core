@@ -411,36 +411,59 @@ void *mlx5_get_atomic_laddr(struct mlx5_qp *qp, uint16_t idx, int *byte_count)
 }
 
 static inline int copy_eth_inline_headers(struct ibv_qp *ibqp,
-					  struct ibv_send_wr *wr,
+					  const void *list,
+					  size_t nelem,
 					  struct mlx5_wqe_eth_seg *eseg,
-					  struct mlx5_sg_copy_ptr *sg_copy_ptr)
+					  struct mlx5_sg_copy_ptr *sg_copy_ptr,
+					  bool is_sge)
+					  ALWAYS_INLINE;
+static inline int copy_eth_inline_headers(struct ibv_qp *ibqp,
+					  const void *list,
+					  size_t nelem,
+					  struct mlx5_wqe_eth_seg *eseg,
+					  struct mlx5_sg_copy_ptr *sg_copy_ptr,
+					  bool is_sge)
 {
 	uint32_t inl_hdr_size = to_mctx(ibqp->context)->eth_min_inline_size;
-	int inl_hdr_copy_size = 0;
+	size_t inl_hdr_copy_size = 0;
 	int j = 0;
 	FILE *fp = to_mctx(ibqp->context)->dbg_fp;
+	size_t length;
+	void *addr;
 
-	if (unlikely(wr->num_sge < 1)) {
-		mlx5_dbg(fp, MLX5_DBG_QP_SEND, "illegal num_sge: %d, minimum is 1\n",
-			 wr->num_sge);
+	if (unlikely(nelem < 1)) {
+		mlx5_dbg(fp, MLX5_DBG_QP_SEND,
+			 "illegal num_sge: %zu, minimum is 1\n", nelem);
 		return EINVAL;
 	}
 
-	if (likely(wr->sg_list[0].length >= MLX5_ETH_L2_INLINE_HEADER_SIZE)) {
+	if (is_sge) {
+		addr = (void *)(uintptr_t)((struct ibv_sge *)list)[0].addr;
+		length = (size_t)((struct ibv_sge *)list)[0].length;
+	} else {
+		addr = ((struct ibv_data_buf *)list)[0].addr;
+		length = ((struct ibv_data_buf *)list)[0].length;
+	}
+
+	if (likely(length >= MLX5_ETH_L2_INLINE_HEADER_SIZE)) {
 		inl_hdr_copy_size = inl_hdr_size;
-		memcpy(eseg->inline_hdr_start,
-		       (void *)(uintptr_t)wr->sg_list[0].addr,
-		       inl_hdr_copy_size);
+		memcpy(eseg->inline_hdr_start, addr, inl_hdr_copy_size);
 	} else {
 		uint32_t inl_hdr_size_left = inl_hdr_size;
 
-		for (j = 0; j < wr->num_sge && inl_hdr_size_left > 0; ++j) {
-			inl_hdr_copy_size = min(wr->sg_list[j].length,
-						inl_hdr_size_left);
+		for (j = 0; j < nelem && inl_hdr_size_left > 0; ++j) {
+			if (is_sge) {
+				addr = (void *)(uintptr_t)((struct ibv_sge *)list)[j].addr;
+				length = (size_t)((struct ibv_sge *)list)[j].length;
+			} else {
+				addr = ((struct ibv_data_buf *)list)[j].addr;
+				length = ((struct ibv_data_buf *)list)[j].length;
+			}
+
+			inl_hdr_copy_size = min_t(size_t, length, inl_hdr_size_left);
 			memcpy(eseg->inline_hdr_start +
 			       (MLX5_ETH_L2_INLINE_HEADER_SIZE - inl_hdr_size_left),
-			       (void *)(uintptr_t)wr->sg_list[j].addr,
-			       inl_hdr_copy_size);
+			       addr, inl_hdr_copy_size);
 			inl_hdr_size_left -= inl_hdr_copy_size;
 		}
 		if (unlikely(inl_hdr_size_left)) {
@@ -456,7 +479,7 @@ static inline int copy_eth_inline_headers(struct ibv_qp *ibqp,
 	/* If we copied all the sge into the inline-headers, then we need to
 	 * start copying from the next sge into the data-segment.
 	 */
-	if (unlikely(wr->sg_list[j].length == inl_hdr_copy_size)) {
+	if (unlikely(length == inl_hdr_copy_size)) {
 		++j;
 		inl_hdr_copy_size = 0;
 	}
@@ -619,17 +642,17 @@ static inline int set_bind_wr(struct mlx5_qp *qp, enum ibv_mw_type type,
 /* Copy tso header to eth segment with considering padding and WQE
  * wrap around in WQ buffer.
  */
-static inline int set_tso_eth_seg(void **seg, struct ibv_send_wr *wr,
-				   void *qend, struct mlx5_qp *qp, int *size)
+static inline int set_tso_eth_seg(void **seg, void *hdr, uint16_t hdr_sz,
+				  uint16_t mss,
+				  struct mlx5_qp *qp, int *size)
 {
 	struct mlx5_wqe_eth_seg *eseg = *seg;
 	int size_of_inl_hdr_start = sizeof(eseg->inline_hdr_start);
 	uint64_t left, left_len, copy_sz;
-	void *pdata = wr->tso.hdr;
 	FILE *fp = to_mctx(qp->ibv_qp->context)->dbg_fp;
 
-	if (unlikely(wr->tso.hdr_sz < MLX5_ETH_L2_MIN_HEADER_SIZE ||
-		     wr->tso.hdr_sz > qp->max_tso_header)) {
+	if (unlikely(hdr_sz < MLX5_ETH_L2_MIN_HEADER_SIZE ||
+		     hdr_sz > qp->max_tso_header)) {
 		mlx5_dbg(fp, MLX5_DBG_QP_SEND,
 			 "TSO header size should be at least %d and at most %d\n",
 			 MLX5_ETH_L2_MIN_HEADER_SIZE,
@@ -637,18 +660,18 @@ static inline int set_tso_eth_seg(void **seg, struct ibv_send_wr *wr,
 		return EINVAL;
 	}
 
-	left = wr->tso.hdr_sz;
-	eseg->mss = htobe16(wr->tso.mss);
-	eseg->inline_hdr_sz = htobe16(wr->tso.hdr_sz);
+	left = hdr_sz;
+	eseg->mss = htobe16(mss);
+	eseg->inline_hdr_sz = htobe16(hdr_sz);
 
 	/* Check if there is space till the end of queue, if yes,
 	 * copy all in one shot, otherwise copy till the end of queue,
 	 * rollback and then copy the left
 	 */
-	left_len = qend - (void *)eseg->inline_hdr_start;
+	left_len = qp->sq.qend - (void *)eseg->inline_hdr_start;
 	copy_sz = min(left_len, left);
 
-	memcpy(eseg->inline_hdr_start, pdata, copy_sz);
+	memcpy(eseg->inline_hdr_start, hdr, copy_sz);
 
 	/* The -1 is because there are already 16 bytes included in
 	 * eseg->inline_hdr[16]
@@ -660,8 +683,8 @@ static inline int set_tso_eth_seg(void **seg, struct ibv_send_wr *wr,
 	if (unlikely(copy_sz < left)) {
 		*seg = mlx5_get_send_wqe(qp, 0);
 		left -= copy_sz;
-		pdata += copy_sz;
-		memcpy(*seg, pdata, left);
+		hdr += copy_sz;
+		memcpy(*seg, hdr, left);
 		*seg += align(left, 16);
 		*size += align(left, 16) / 16;
 	}
@@ -1003,7 +1026,9 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 			if (wr->opcode == IBV_WR_TSO) {
 				max_tso = qp->max_tso;
-				err = set_tso_eth_seg(&seg, wr, qend, qp, &size);
+				err = set_tso_eth_seg(&seg, wr->tso.hdr,
+						      wr->tso.hdr_sz,
+						      wr->tso.mss, qp, &size);
 				if (unlikely(err)) {
 					*bad_wr = wr;
 					goto out;
@@ -1021,7 +1046,9 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				uint32_t inl_hdr_size =
 					to_mctx(ibqp->context)->eth_min_inline_size;
 
-				err = copy_eth_inline_headers(ibqp, wr, seg, &sg_copy_ptr);
+				err = copy_eth_inline_headers(ibqp, wr->sg_list,
+							      wr->num_sge, seg,
+							      &sg_copy_ptr, 1);
 				if (unlikely(err)) {
 					*bad_wr = wr;
 					mlx5_dbg(fp, MLX5_DBG_QP_SEND,
@@ -1292,6 +1319,45 @@ static void mlx5_send_wr_send_other(struct ibv_qp_ex *ibqp)
 	_mlx5_send_wr_send(ibqp, IBV_WR_SEND);
 }
 
+static void mlx5_send_wr_send_eth(struct ibv_qp_ex *ibqp)
+{
+	uint32_t inl_hdr_size =
+		to_mctx(((struct ibv_qp *)ibqp)->context)->eth_min_inline_size;
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+	struct mlx5_wqe_eth_seg *eseg;
+	size_t eseg_sz;
+
+	_common_wqe_init(ibqp, IBV_WR_SEND);
+
+	eseg = (void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg);
+	memset(eseg, 0, sizeof(struct mlx5_wqe_eth_seg));
+	if (inl_hdr_size)
+		mqp->cur_eth = eseg;
+
+	if (ibqp->wr_flags & IBV_SEND_IP_CSUM) {
+		if (unlikely(!(mqp->qp_cap_cache &
+			       MLX5_CSUM_SUPPORT_RAW_OVER_ETH))) {
+			if (!mqp->err)
+				mqp->err = EINVAL;
+
+			return;
+		}
+
+		eseg->cs_flags |= MLX5_ETH_WQE_L3_CSUM | MLX5_ETH_WQE_L4_CSUM;
+	}
+
+	/* The eth segment size depends on the device's min inline
+	 * header requirement which can be 0 or 18. The basic eth segment
+	 * always includes room for first 2 inline header bytes (even if
+	 * copy size is 0) so the additional seg size is adjusted accordingly.
+	 */
+	eseg_sz = (offsetof(struct mlx5_wqe_eth_seg, inline_hdr) +
+		   inl_hdr_size) & ~0xf;
+	mqp->cur_data = (void *)eseg + eseg_sz;
+	mqp->cur_size = (sizeof(struct mlx5_wqe_ctrl_seg) + eseg_sz) >> 4;
+	mqp->nreq++;
+}
+
 static void mlx5_send_wr_send_imm(struct ibv_qp_ex *ibqp, __be32 imm_data)
 {
 	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
@@ -1309,6 +1375,48 @@ static void mlx5_send_wr_send_inv(struct ibv_qp_ex *ibqp,
 	_mlx5_send_wr_send(ibqp, IBV_WR_SEND_WITH_INV);
 
 	mqp->cur_ctrl->imm = htobe32(invalidate_rkey);
+}
+
+static void mlx5_send_wr_send_tso(struct ibv_qp_ex *ibqp, void *hdr,
+				  uint16_t hdr_sz, uint16_t mss)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+	struct mlx5_wqe_eth_seg *eseg;
+	int size = 0;
+	int err;
+
+	_common_wqe_init(ibqp, IBV_WR_TSO);
+
+	eseg = (void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg);
+	memset(eseg, 0, sizeof(struct mlx5_wqe_eth_seg));
+
+	if (ibqp->wr_flags & IBV_SEND_IP_CSUM) {
+		if (unlikely(!(mqp->qp_cap_cache & MLX5_CSUM_SUPPORT_RAW_OVER_ETH))) {
+			if (!mqp->err)
+				mqp->err = EINVAL;
+
+			return;
+		}
+
+		eseg->cs_flags |= MLX5_ETH_WQE_L3_CSUM | MLX5_ETH_WQE_L4_CSUM;
+	}
+
+	err = set_tso_eth_seg((void *)&eseg, hdr, hdr_sz, mss, mqp, &size);
+	if (unlikely(err)) {
+		if (!mqp->err)
+			mqp->err = err;
+
+		return;
+	}
+
+	/* eseg and cur_size was updated with hdr size inside set_tso_eth_seg */
+	mqp->cur_data = (void *)eseg + sizeof(struct mlx5_wqe_eth_seg);
+	mqp->cur_size = size +
+			((sizeof(struct mlx5_wqe_ctrl_seg) +
+			  sizeof(struct mlx5_wqe_eth_seg)) >> 4);
+
+	mqp->cur_eth = NULL;
+	mqp->nreq++;
 }
 
 static inline void _mlx5_send_wr_rdma(struct ibv_qp_ex *ibqp,
@@ -1513,6 +1621,36 @@ mlx5_send_wr_set_sge_ud_xrc(struct ibv_qp_ex *ibqp, uint32_t lkey,
 		mqp->cur_setters_cnt++;
 }
 
+static void
+mlx5_send_wr_set_sge_eth(struct ibv_qp_ex *ibqp, uint32_t lkey,
+			 uint64_t addr, uint32_t length)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+	struct mlx5_wqe_eth_seg *eseg = mqp->cur_eth;
+	int err;
+
+	if (eseg) { /* Inline-headers was set */
+		struct mlx5_sg_copy_ptr sg_copy_ptr = {.index = 0, .offset = 0};
+		struct ibv_sge sge = {.addr = addr, .length = length};
+
+		err = copy_eth_inline_headers((struct ibv_qp *)ibqp, &sge, 1,
+					      eseg, &sg_copy_ptr, 1);
+		if (unlikely(err)) {
+			if (!mqp->err)
+				mqp->err = err;
+
+			return;
+		}
+
+		addr += sg_copy_ptr.offset;
+		length -= sg_copy_ptr.offset;
+	}
+
+	_mlx5_send_wr_set_sge(mqp, lkey, addr, length);
+
+	_common_wqe_finilize(mqp);
+}
+
 static inline void
 _mlx5_send_wr_set_sge_list(struct mlx5_qp *mqp, size_t num_sge,
 			   const struct ibv_sge *sg_list)
@@ -1569,6 +1707,61 @@ mlx5_send_wr_set_sge_list_ud_xrc(struct ibv_qp_ex *ibqp, size_t num_sge,
 		_common_wqe_finilize(mqp);
 	else
 		mqp->cur_setters_cnt++;
+}
+
+static void
+mlx5_send_wr_set_sge_list_eth(struct ibv_qp_ex *ibqp, size_t num_sge,
+			      const struct ibv_sge *sg_list)
+{
+	struct mlx5_sg_copy_ptr sg_copy_ptr = {.index = 0, .offset = 0};
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+	struct mlx5_wqe_data_seg *dseg = mqp->cur_data;
+	struct mlx5_wqe_eth_seg *eseg = mqp->cur_eth;
+	size_t i;
+
+	if (unlikely(num_sge > mqp->sq.max_gs)) {
+		FILE *fp = to_mctx(mqp->ibv_qp->context)->dbg_fp;
+
+		mlx5_dbg(fp, MLX5_DBG_QP_SEND, "Num SGEs %zu exceeds the maximum (%d)\n",
+			 num_sge, mqp->sq.max_gs);
+
+		if (!mqp->err)
+			mqp->err = ENOMEM;
+
+		return;
+	}
+
+	if (eseg) { /* Inline-headers was set */
+		int err;
+
+		err = copy_eth_inline_headers((struct ibv_qp *)ibqp, sg_list,
+					      num_sge, eseg, &sg_copy_ptr, 1);
+		if (unlikely(err)) {
+			if (!mqp->err)
+				mqp->err = err;
+
+			return;
+		}
+	}
+
+	for (i = sg_copy_ptr.index; i < num_sge; i++) {
+		uint32_t length = sg_list[i].length - sg_copy_ptr.offset;
+
+		if (unlikely(!length))
+			continue;
+
+		if (unlikely(dseg == mqp->sq.qend))
+			dseg = mlx5_get_send_wqe(mqp, 0);
+
+		dseg->addr = htobe64(sg_list[i].addr + sg_copy_ptr.offset);
+		dseg->byte_count = htobe32(length);
+		dseg->lkey = htobe32(sg_list[i].lkey);
+		dseg++;
+		mqp->cur_size += (sizeof(*dseg) / 16);
+		sg_copy_ptr.offset = 0;
+	}
+
+	_common_wqe_finilize(mqp);
 }
 
 static inline void memcpy_to_wqe(struct mlx5_qp *mqp, void *dest, void *src,
@@ -1653,6 +1846,35 @@ mlx5_send_wr_set_inline_data_ud_xrc(struct ibv_qp_ex *ibqp, void *addr,
 		mqp->cur_setters_cnt++;
 }
 
+static void
+mlx5_send_wr_set_inline_data_eth(struct ibv_qp_ex *ibqp, void *addr,
+				 size_t length)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+	struct mlx5_wqe_eth_seg *eseg = mqp->cur_eth;
+
+	if (eseg) { /* Inline-headers was set */
+		struct mlx5_sg_copy_ptr sg_copy_ptr = {.index = 0, .offset = 0};
+		struct ibv_data_buf buf = {.addr = addr, .length = length};
+		int err;
+
+		err = copy_eth_inline_headers((struct ibv_qp *)ibqp, &buf, 1,
+					      eseg, &sg_copy_ptr, 0);
+		if (unlikely(err)) {
+			if (!mqp->err)
+				mqp->err = err;
+
+			return;
+		}
+
+		addr += sg_copy_ptr.offset;
+		length -= sg_copy_ptr.offset;
+	}
+
+	_mlx5_send_wr_set_inline_data(mqp, addr, length);
+	_common_wqe_finilize(mqp);
+}
+
 static inline void
 _mlx5_send_wr_set_inline_data_list(struct mlx5_qp *mqp,
 				   size_t num_buf,
@@ -1720,6 +1942,66 @@ mlx5_send_wr_set_inline_data_list_ud_xrc(struct ibv_qp_ex *ibqp,
 }
 
 static void
+mlx5_send_wr_set_inline_data_list_eth(struct ibv_qp_ex *ibqp,
+				      size_t num_buf,
+				      const struct ibv_data_buf *buf_list)
+{
+	struct mlx5_sg_copy_ptr sg_copy_ptr = {.index = 0, .offset = 0};
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+	struct mlx5_wqe_inline_seg *dseg = mqp->cur_data;
+	struct mlx5_wqe_eth_seg *eseg = mqp->cur_eth;
+	void *wqe = (void *)dseg + sizeof(*dseg);
+	size_t inl_size = 0;
+	size_t i;
+
+	if (eseg) { /* Inline-headers was set */
+		int err;
+
+		err = copy_eth_inline_headers((struct ibv_qp *)ibqp, buf_list,
+					      num_buf, eseg, &sg_copy_ptr, 0);
+		if (unlikely(err)) {
+			if (!mqp->err)
+				mqp->err = err;
+
+			return;
+		}
+	}
+
+	for (i = sg_copy_ptr.index; i < num_buf; i++) {
+		size_t length = buf_list[i].length - sg_copy_ptr.offset;
+
+		inl_size += length;
+
+		if (unlikely(inl_size > mqp->max_inline_data)) {
+			FILE *fp = to_mctx(mqp->ibv_qp->context)->dbg_fp;
+
+			mlx5_dbg(fp, MLX5_DBG_QP_SEND,
+				 "Inline data %zu exceeds the maximum (%d)\n",
+				 inl_size, mqp->max_inline_data);
+
+			if (!mqp->err)
+				mqp->err = EINVAL;
+
+			return;
+		}
+
+		memcpy_to_wqe_and_update(mqp, &wqe,
+					 buf_list[i].addr + sg_copy_ptr.offset,
+					 length);
+
+		sg_copy_ptr.offset = 0;
+	}
+
+	if (likely(inl_size)) {
+		dseg->byte_count = htobe32(inl_size | MLX5_INLINE_SEG);
+		mqp->cur_size += DIV_ROUND_UP(inl_size + sizeof(*dseg), 16);
+	}
+
+	mqp->inl_wqe = 1; /* Encourage a BlueFlame usage */
+	_common_wqe_finilize(mqp);
+}
+
+static void
 mlx5_send_wr_set_ud_addr(struct ibv_qp_ex *ibqp, struct ibv_ah *ah,
 			 uint32_t remote_qpn, uint32_t remote_qkey)
 {
@@ -1776,6 +2058,9 @@ enum {
 		IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM |
 		IBV_QP_EX_WITH_LOCAL_INV |
 		IBV_QP_EX_WITH_BIND_MW,
+	MLX5_SUPPORTED_SEND_OPS_FLAGS_RAW_PACKET =
+		IBV_QP_EX_WITH_SEND |
+		IBV_QP_EX_WITH_TSO,
 };
 
 static void fill_wr_builders_rc_xrc(struct ibv_qp_ex *ibqp)
@@ -1809,6 +2094,12 @@ static void fill_wr_builders_ud(struct ibv_qp_ex *ibqp)
 	ibqp->wr_send_imm = mlx5_send_wr_send_imm;
 }
 
+static void fill_wr_builders_eth(struct ibv_qp_ex *ibqp)
+{
+	ibqp->wr_send = mlx5_send_wr_send_eth;
+	ibqp->wr_send_tso = mlx5_send_wr_send_tso;
+}
+
 static void fill_wr_setters_rc_uc(struct ibv_qp_ex *ibqp)
 {
 	ibqp->wr_set_sge = mlx5_send_wr_set_sge_rc_uc;
@@ -1823,6 +2114,14 @@ static void fill_wr_setters_ud_xrc(struct ibv_qp_ex *ibqp)
 	ibqp->wr_set_sge_list = mlx5_send_wr_set_sge_list_ud_xrc;
 	ibqp->wr_set_inline_data = mlx5_send_wr_set_inline_data_ud_xrc;
 	ibqp->wr_set_inline_data_list = mlx5_send_wr_set_inline_data_list_ud_xrc;
+}
+
+static void fill_wr_setters_eth(struct ibv_qp_ex *ibqp)
+{
+	ibqp->wr_set_sge = mlx5_send_wr_set_sge_eth;
+	ibqp->wr_set_sge_list = mlx5_send_wr_set_sge_list_eth;
+	ibqp->wr_set_inline_data = mlx5_send_wr_set_inline_data_eth;
+	ibqp->wr_set_inline_data_list = mlx5_send_wr_set_inline_data_list_eth;
 }
 
 int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
@@ -1877,6 +2176,14 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 		fill_wr_builders_ud(ibqp);
 		fill_wr_setters_ud_xrc(ibqp);
 		ibqp->wr_set_ud_addr = mlx5_send_wr_set_ud_addr;
+		break;
+
+	case IBV_QPT_RAW_PACKET:
+		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_RAW_PACKET)
+			return EOPNOTSUPP;
+
+		fill_wr_builders_eth(ibqp);
+		fill_wr_setters_eth(ibqp);
 		break;
 
 	default:
