@@ -1154,6 +1154,7 @@ static void mlx5_send_wr_start(struct ibv_qp_ex *ibqp)
 	mqp->fm_cache_rb = mqp->fm_cache;
 	mqp->err = 0;
 	mqp->nreq = 0;
+	mqp->inl_wqe = 0;
 }
 
 static int mlx5_send_wr_complete(struct ibv_qp_ex *ibqp)
@@ -1168,7 +1169,7 @@ static int mlx5_send_wr_complete(struct ibv_qp_ex *ibqp)
 		goto out;
 	}
 
-	post_send_db(mqp, mqp->bf, mqp->nreq, 0, mqp->cur_size,
+	post_send_db(mqp, mqp->bf, mqp->nreq, mqp->inl_wqe, mqp->cur_size,
 		     mqp->cur_ctrl);
 
 out:
@@ -1570,6 +1571,154 @@ mlx5_send_wr_set_sge_list_ud_xrc(struct ibv_qp_ex *ibqp, size_t num_sge,
 		mqp->cur_setters_cnt++;
 }
 
+static inline void memcpy_to_wqe(struct mlx5_qp *mqp, void *dest, void *src,
+				 size_t n)
+{
+	if (unlikely(dest + n > mqp->sq.qend)) {
+		size_t copy = mqp->sq.qend - dest;
+
+		memcpy(dest, src, copy);
+		src += copy;
+		n -= copy;
+		dest = mlx5_get_send_wqe(mqp, 0);
+	}
+	memcpy(dest, src, n);
+}
+
+static inline void memcpy_to_wqe_and_update(struct mlx5_qp *mqp, void **dest,
+					    void *src, size_t n)
+{
+	if (unlikely(*dest + n > mqp->sq.qend)) {
+		size_t copy = mqp->sq.qend - *dest;
+
+		memcpy(*dest, src, copy);
+		src += copy;
+		n -= copy;
+		*dest = mlx5_get_send_wqe(mqp, 0);
+	}
+	memcpy(*dest, src, n);
+
+	*dest += n;
+}
+
+static inline void
+_mlx5_send_wr_set_inline_data(struct mlx5_qp *mqp, void *addr, size_t length)
+{
+	struct mlx5_wqe_inline_seg *dseg = mqp->cur_data;
+
+	if (unlikely(length > mqp->max_inline_data)) {
+		FILE *fp = to_mctx(mqp->ibv_qp->context)->dbg_fp;
+
+		mlx5_dbg(fp, MLX5_DBG_QP_SEND,
+			 "Inline data %zu exceeds the maximum (%d)\n",
+			 length, mqp->max_inline_data);
+
+		if (!mqp->err)
+			mqp->err = ENOMEM;
+
+		return;
+	}
+
+	mqp->inl_wqe = 1; /* Encourage a BlueFlame usage */
+
+	if (unlikely(!length))
+		return;
+
+	memcpy_to_wqe(mqp, (void *)dseg + sizeof(*dseg), addr, length);
+	dseg->byte_count = htobe32(length | MLX5_INLINE_SEG);
+	mqp->cur_size += DIV_ROUND_UP(length + sizeof(*dseg), 16);
+}
+
+static void
+mlx5_send_wr_set_inline_data_rc_uc(struct ibv_qp_ex *ibqp, void *addr,
+				   size_t length)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+
+	_mlx5_send_wr_set_inline_data(mqp, addr, length);
+	_common_wqe_finilize(mqp);
+}
+
+static void
+mlx5_send_wr_set_inline_data_ud_xrc(struct ibv_qp_ex *ibqp, void *addr,
+				    size_t length)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+
+	_mlx5_send_wr_set_inline_data(mqp, addr, length);
+
+	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC - 1)
+		_common_wqe_finilize(mqp);
+	else
+		mqp->cur_setters_cnt++;
+}
+
+static inline void
+_mlx5_send_wr_set_inline_data_list(struct mlx5_qp *mqp,
+				   size_t num_buf,
+				   const struct ibv_data_buf *buf_list)
+{
+	struct mlx5_wqe_inline_seg *dseg = mqp->cur_data;
+	void *wqe = (void *)dseg + sizeof(*dseg);
+	size_t inl_size = 0;
+	int i;
+
+	for (i = 0; i < num_buf; i++) {
+		size_t length = buf_list[i].length;
+
+		inl_size += length;
+
+		if (unlikely(inl_size > mqp->max_inline_data)) {
+			FILE *fp = to_mctx(mqp->ibv_qp->context)->dbg_fp;
+
+			mlx5_dbg(fp, MLX5_DBG_QP_SEND,
+				 "Inline data %zu exceeds the maximum (%d)\n",
+				 inl_size, mqp->max_inline_data);
+
+			if (!mqp->err)
+				mqp->err = ENOMEM;
+
+			return;
+		}
+
+		memcpy_to_wqe_and_update(mqp, &wqe, buf_list[i].addr, length);
+	}
+
+	mqp->inl_wqe = 1; /* Encourage a BlueFlame usage */
+
+	if (unlikely(!inl_size))
+		return;
+
+	dseg->byte_count = htobe32(inl_size | MLX5_INLINE_SEG);
+	mqp->cur_size += DIV_ROUND_UP(inl_size + sizeof(*dseg), 16);
+}
+
+static void
+mlx5_send_wr_set_inline_data_list_rc_uc(struct ibv_qp_ex *ibqp,
+					size_t num_buf,
+					const struct ibv_data_buf *buf_list)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+
+	_mlx5_send_wr_set_inline_data_list(mqp, num_buf, buf_list);
+	_common_wqe_finilize(mqp);
+}
+
+static void
+mlx5_send_wr_set_inline_data_list_ud_xrc(struct ibv_qp_ex *ibqp,
+					 size_t num_buf,
+					 const struct ibv_data_buf *buf_list)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+
+	_mlx5_send_wr_set_inline_data_list(mqp, num_buf, buf_list);
+
+	if (mqp->cur_setters_cnt == WQE_REQ_SETTERS_UD_XRC - 1)
+		_common_wqe_finilize(mqp);
+	else
+		mqp->cur_setters_cnt++;
+}
+
 static void
 mlx5_send_wr_set_ud_addr(struct ibv_qp_ex *ibqp, struct ibv_ah *ah,
 			 uint32_t remote_qpn, uint32_t remote_qkey)
@@ -1664,12 +1813,16 @@ static void fill_wr_setters_rc_uc(struct ibv_qp_ex *ibqp)
 {
 	ibqp->wr_set_sge = mlx5_send_wr_set_sge_rc_uc;
 	ibqp->wr_set_sge_list = mlx5_send_wr_set_sge_list_rc_uc;
+	ibqp->wr_set_inline_data = mlx5_send_wr_set_inline_data_rc_uc;
+	ibqp->wr_set_inline_data_list = mlx5_send_wr_set_inline_data_list_rc_uc;
 }
 
 static void fill_wr_setters_ud_xrc(struct ibv_qp_ex *ibqp)
 {
 	ibqp->wr_set_sge = mlx5_send_wr_set_sge_ud_xrc;
 	ibqp->wr_set_sge_list = mlx5_send_wr_set_sge_list_ud_xrc;
+	ibqp->wr_set_inline_data = mlx5_send_wr_set_inline_data_ud_xrc;
+	ibqp->wr_set_inline_data_list = mlx5_send_wr_set_inline_data_list_ud_xrc;
 }
 
 int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,

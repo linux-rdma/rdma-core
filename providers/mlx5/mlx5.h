@@ -513,6 +513,7 @@ struct mlx5_qp {
 	struct mlx5_bf		       *bf;
 
 	/* Start of new post send API specific fields */
+	bool				inl_wqe;
 	uint8_t				cur_setters_cnt;
 	uint8_t				fm_cache_rb;
 	int				err;
