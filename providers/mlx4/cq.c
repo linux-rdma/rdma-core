@@ -773,10 +773,10 @@ void mlx4_cq_resize_copy_cqes(struct mlx4_cq *cq, void *buf, int old_cqe)
 	++cq->cons_index;
 }
 
-int mlx4_alloc_cq_buf(struct mlx4_device *dev, struct mlx4_buf *buf, int nent,
-		      int entry_size)
+int mlx4_alloc_cq_buf(struct mlx4_device *dev, struct mlx4_context *ctx,
+		      struct mlx4_buf *buf, int nent, int entry_size)
 {
-	if (mlx4_alloc_buf(buf, align(nent * entry_size, dev->page_size),
+	if (mlx4_alloc_buf(ctx, buf, align(nent * entry_size, dev->page_size),
 			   dev->page_size))
 		return -1;
 	memset(buf->buf, 0, nent * entry_size);

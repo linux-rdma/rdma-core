@@ -33,6 +33,7 @@
 #ifndef _MLX4DV_H_
 #define _MLX4DV_H_
 
+#include <stdio.h>
 #include <linux/types.h>
 #include <endian.h>
 #include <infiniband/verbs.h>
@@ -149,6 +150,10 @@ struct mlx4_cqe {
 	uint8_t		owner_sr_opcode;
 };
 
+enum mlx4dv_qp_comp_mask {
+	MLX4DV_QP_MASK_UAR_MMAP_OFFSET		= 1 << 0,
+};
+
 struct mlx4dv_qp {
 	__be32		       *rdb;
 	uint32_t		*sdb;
@@ -168,6 +173,7 @@ struct mlx4dv_qp {
 		size_t			length;
 	} buf;
 	uint64_t		comp_mask;
+	off_t			uar_mmap_offset;
 };
 
 enum mlx4dv_cq_comp_mask {
@@ -533,8 +539,14 @@ int mlx4dv_query_device(struct ibv_context *ctx_in,
 enum mlx4dv_set_ctx_attr_type {
 	/* Attribute type uint8_t */
 	MLX4DV_SET_CTX_ATTR_LOG_WQS_RANGE_SZ	= 0,
+	MLX4DV_SET_CTX_ATTR_BUF_ALLOCATORS	= 1,
 };
 
+struct mlx4dv_ctx_allocators {
+	void *(*alloc)(size_t size, void *priv_data);
+	void (*free)(void *ptr, void *priv_data);
+	void *data;
+};
 /*
  * Returns 0 on success, or the value of errno on failure
  * (which indicates the failure reason).

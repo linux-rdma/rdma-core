@@ -507,7 +507,8 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 
 	cq_attr->cqe = align_queue_size(cq_attr->cqe + 1);
 
-	if (mlx4_alloc_cq_buf(to_mdev(context->device), &cq->buf, cq_attr->cqe, mctx->cqe_size))
+	if (mlx4_alloc_cq_buf(to_mdev(context->device), mctx, &cq->buf,
+			      cq_attr->cqe, mctx->cqe_size))
 		goto err;
 
 	cq->cqe_size = mctx->cqe_size;
@@ -544,7 +545,7 @@ err_db:
 	mlx4_free_db(to_mctx(context), MLX4_DB_TYPE_CQ, cq->set_ci_db);
 
 err_buf:
-	mlx4_free_buf(&cq->buf);
+	mlx4_free_buf(to_mctx(context), &cq->buf);
 
 err:
 	free(cq);
@@ -615,7 +616,9 @@ int mlx4_resize_cq(struct ibv_cq *ibcq, int cqe)
 		goto out;
 	}
 
-	ret = mlx4_alloc_cq_buf(to_mdev(ibcq->context->device), &buf, cqe, cq->cqe_size);
+	ret = mlx4_alloc_cq_buf(to_mdev(ibcq->context->device),
+				to_mctx(ibcq->context), &buf, cqe,
+				cq->cqe_size);
 	if (ret)
 		goto out;
 
@@ -625,13 +628,13 @@ int mlx4_resize_cq(struct ibv_cq *ibcq, int cqe)
 	ret = ibv_cmd_resize_cq(ibcq, cqe - 1, &cmd.ibv_cmd, sizeof cmd,
 				&resp, sizeof resp);
 	if (ret) {
-		mlx4_free_buf(&buf);
+		mlx4_free_buf(to_mctx(ibcq->context), &buf);
 		goto out;
 	}
 
 	mlx4_cq_resize_copy_cqes(cq, buf.buf, old_cqe);
 
-	mlx4_free_buf(&cq->buf);
+	mlx4_free_buf(to_mctx(ibcq->context), &cq->buf);
 	cq->buf = buf;
 	mlx4_update_cons_index(cq);
 
@@ -649,7 +652,7 @@ int mlx4_destroy_cq(struct ibv_cq *cq)
 		return ret;
 
 	mlx4_free_db(to_mctx(cq->context), MLX4_DB_TYPE_CQ, to_mcq(cq)->set_ci_db);
-	mlx4_free_buf(&to_mcq(cq)->buf);
+	mlx4_free_buf(to_mctx(cq->context), &to_mcq(cq)->buf);
 	free(to_mcq(cq));
 
 	return 0;
@@ -704,7 +707,7 @@ err_db:
 
 err_free:
 	free(srq->wrid);
-	mlx4_free_buf(&srq->buf);
+	mlx4_free_buf(to_mctx(pd->context), &srq->buf);
 
 err:
 	free(srq);
@@ -753,7 +756,7 @@ int mlx4_destroy_srq(struct ibv_srq *srq)
 		return ret;
 
 	mlx4_free_db(to_mctx(srq->context), MLX4_DB_TYPE_RQ, to_msrq(srq)->db);
-	mlx4_free_buf(&to_msrq(srq)->buf);
+	mlx4_free_buf(to_mctx(srq->context), &to_msrq(srq)->buf);
 	free(to_msrq(srq)->wrid);
 	free(to_msrq(srq));
 
@@ -1003,7 +1006,7 @@ err_free:
 	free(qp->sq.wrid);
 	if (qp->rq.wqe_cnt)
 		free(qp->rq.wrid);
-	mlx4_free_buf(&qp->buf);
+	mlx4_free_buf(ctx, &qp->buf);
 
 err:
 	free(qp);
@@ -1259,7 +1262,7 @@ int mlx4_destroy_qp(struct ibv_qp *ibqp)
 	}
 	if (qp->sq.wqe_cnt)
 		free(qp->sq.wrid);
-	mlx4_free_buf(&qp->buf);
+	mlx4_free_buf(to_mctx(ibqp->context), &qp->buf);
 	free(qp);
 
 	return 0;
@@ -1508,7 +1511,7 @@ err_rq_db:
 
 err_free:
 	free(qp->rq.wrid);
-	mlx4_free_buf(&qp->buf);
+	mlx4_free_buf(to_mctx(context), &qp->buf);
 
 err:
 	free(qp);
@@ -1595,7 +1598,7 @@ int mlx4_destroy_wq(struct ibv_wq *ibwq)
 	free(qp->rq.wrid);
 	free(qp->sq.wrid);
 
-	mlx4_free_buf(&qp->buf);
+	mlx4_free_buf(mcontext, &qp->buf);
 
 	free(qp);
 
