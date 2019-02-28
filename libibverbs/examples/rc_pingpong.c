@@ -57,6 +57,7 @@ enum {
 
 static int page_size;
 static int use_odp;
+static int implicit_odp;
 static int prefetch_mr;
 static int use_ts;
 static int validate_buf;
@@ -388,6 +389,11 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 				fprintf(stderr, "The device isn't ODP capable or does not support RC send and receive with ODP\n");
 				goto clean_pd;
 			}
+			if (implicit_odp &&
+			    !(attrx.odp_caps.general_caps & IBV_ODP_SUPPORT_IMPLICIT)) {
+				fprintf(stderr, "The device doesn't support implicit ODP\n");
+				goto clean_pd;
+			}
 			access_flags |= IBV_ACCESS_ON_DEMAND;
 		}
 
@@ -423,8 +429,13 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 		}
 	}
 
-	ctx->mr = use_dm ? ibv_reg_dm_mr(ctx->pd, ctx->dm, 0, size, access_flags) :
-			   ibv_reg_mr(ctx->pd, ctx->buf, size, access_flags);
+	if (implicit_odp) {
+		ctx->mr = ibv_reg_mr(ctx->pd, NULL, SIZE_MAX, access_flags);
+	} else {
+		ctx->mr = use_dm ? ibv_reg_dm_mr(ctx->pd, ctx->dm, 0,
+						 size, access_flags) :
+			ibv_reg_mr(ctx->pd, ctx->buf, size, access_flags);
+	}
 
 	if (!ctx->mr) {
 		fprintf(stderr, "Couldn't register MR\n");
@@ -734,6 +745,7 @@ static void usage(const char *argv0)
 	printf("  -e, --events           sleep on CQ events (default poll)\n");
 	printf("  -g, --gid-idx=<gid index> local port gid index\n");
 	printf("  -o, --odp		    use on demand paging\n");
+	printf("  -O, --iodp		    use implicit on demand paging\n");
 	printf("  -P, --prefetch	    prefetch an ODP MR\n");
 	printf("  -t, --ts	            get CQE with timestamp\n");
 	printf("  -c, --chk	            validate received buffer\n");
@@ -782,6 +794,7 @@ int main(int argc, char *argv[])
 			{ .name = "events",   .has_arg = 0, .val = 'e' },
 			{ .name = "gid-idx",  .has_arg = 1, .val = 'g' },
 			{ .name = "odp",      .has_arg = 0, .val = 'o' },
+			{ .name = "iodp",     .has_arg = 0, .val = 'O' },
 			{ .name = "prefetch", .has_arg = 0, .val = 'P' },
 			{ .name = "ts",       .has_arg = 0, .val = 't' },
 			{ .name = "chk",      .has_arg = 0, .val = 'c' },
@@ -789,7 +802,7 @@ int main(int argc, char *argv[])
 			{}
 		};
 
-		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:l:eg:oPtcj",
+		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:l:eg:oOPtcj",
 				long_options, NULL);
 
 		if (c == -1)
@@ -853,6 +866,10 @@ int main(int argc, char *argv[])
 			break;
 		case 'P':
 			prefetch_mr = 1;
+			break;
+		case 'O':
+			use_odp = 1;
+			implicit_odp = 1;
 			break;
 		case 't':
 			use_ts = 1;

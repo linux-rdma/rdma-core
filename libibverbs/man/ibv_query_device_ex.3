@@ -52,6 +52,7 @@ struct ibv_odp_caps {
 
 enum ibv_odp_general_cap_bits {
         IBV_ODP_SUPPORT = 1 << 0, /* On demand paging is supported */
+        IBV_ODP_SUPPORT_IMPLICIT = 1 << 1, /* Implicit on demand paging is supported */
 };
 
 enum ibv_odp_transport_cap_bits {

@@ -314,13 +314,16 @@ static void print_odp_trans_caps(uint32_t trans)
 
 static void print_odp_caps(const struct ibv_device_attr_ex *device_attr)
 {
-	uint64_t unknown_general_caps = ~(IBV_ODP_SUPPORT);
+	uint64_t unknown_general_caps = ~(IBV_ODP_SUPPORT |
+					  IBV_ODP_SUPPORT_IMPLICIT);
 	const struct ibv_odp_caps *caps = &device_attr->odp_caps;
 
 	/* general odp caps */
 	printf("\tgeneral_odp_caps:\n");
 	if (caps->general_caps & IBV_ODP_SUPPORT)
 		printf("\t\t\t\t\tODP_SUPPORT\n");
+	if (caps->general_caps & IBV_ODP_SUPPORT_IMPLICIT)
+		printf("\t\t\t\t\tODP_SUPPORT_IMPLICIT\n");
 	if (caps->general_caps & unknown_general_caps)
 		printf("\t\t\t\t\tUnknown flags: 0x%" PRIX64 "\n",
 		       caps->general_caps & unknown_general_caps);
