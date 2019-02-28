@@ -37,14 +37,15 @@ DH_AUTO_CONFIGURE := "--" \
 		     $(EXTRA_CMAKE_FLAGS)
 
 override_dh_auto_configure:
-ifeq ($(EXTRA_CMAKE_FLAGS), -DNO_PYVERBS=1)
-	dh_auto_configure $(DH_AUTO_CONFIGURE)
-else
-	dh_auto_configure $(DH_AUTO_CONFIGURE) \
-		        -DNO_PYVERBS=0 \
-			-DPYTHON_EXECUTABLE:PATH=/usr/bin/python3 \
-			-DCMAKE_INSTALL_PYTHON_ARCH_LIB:PATH=/usr/lib/python3/dist-packages
-endif
+	if [ -e /usr/bin/python3 ]; then \
+		dh_auto_configure $(DH_AUTO_CONFIGURE) \
+				-DPYTHON_EXECUTABLE:PATH=/usr/bin/python3 \
+				-DCMAKE_INSTALL_PYTHON_ARCH_LIB:PATH=/usr/lib/python3/dist-packages; \
+	else \
+		dh_auto_configure $(DH_AUTO_CONFIGURE) \
+			        -DNO_PYVERBS=1; \
+	fi
+
 
 override_dh_auto_build:
 	ninja -C build-deb -v
@@ -69,11 +70,11 @@ INST_EXCLUDE := "etc/init.d/srpd" \
 		"usr/sbin/srp_daemon.sh"
 INST_EXCLUDE := $(addprefix -X,$(INST_EXCLUDE))
 override_dh_install:
-ifeq ($(EXTRA_CMAKE_FLAGS), -DNO_PYVERBS=1)
-	dh_install -Npython3-pyverbs --fail-missing $(INST_EXCLUDE) --remaining-packages
-else
-	dh_install --fail-missing $(INST_EXCLUDE)
-endif
+	if [ -e build-deb/python/pyverbs/__init__.py ]; then \
+		dh_install --fail-missing $(INST_EXCLUDE); \
+	else \
+		dh_install -Npython3-pyverbs --fail-missing $(INST_EXCLUDE) --remaining-packages; \
+	fi
 
 # cmake installs the correct init scripts in the correct place, just setup the
 # pre-postrms
@@ -101,11 +102,12 @@ override_dh_strip:
 	dh_strip --remaining-packages
 
 override_dh_builddeb:
-ifeq ($(EXTRA_CMAKE_FLAGS), -DNO_PYVERBS=1)
-	dh_builddeb -Npython3-pyverbs --remaining-packages
-else
-	dh_builddeb --remaining-package
-endif
+	if [ -e build-deb/python/pyverbs/__init__.py ]; then \
+		dh_builddeb --remaining-package; \
+	else \
+		dh_builddeb -Npython3-pyverbs --remaining-packages; \
+	fi
+
 
 # Upstream encourages the use of 'build' as the developer build output
 # directory, allow that directory to be present and still allow dh to work.
