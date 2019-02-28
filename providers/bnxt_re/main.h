@@ -54,7 +54,14 @@
 
 #define DEV	"bnxt_re : "
 
-#define BNXT_RE_UD_QP_HW_STALL 0x400000
+#define BNXT_RE_UD_QP_HW_STALL	0x400000
+
+#define CHIP_NUM_57500		0x1750
+struct bnxt_re_chip_ctx {
+	__u16 chip_num;
+	__u8 chip_rev;
+	__u8 chip_metal;
+};
 
 struct bnxt_re_dpi {
 	__u32 dpindx;
@@ -81,6 +88,7 @@ struct bnxt_re_cq {
 };
 
 struct bnxt_re_wrid {
+	struct bnxt_re_psns_ext *psns_ext;
 	struct bnxt_re_psns *psns;
 	uint64_t wrid;
 	uint32_t bytes;
@@ -111,6 +119,7 @@ struct bnxt_re_srq {
 
 struct bnxt_re_qp {
 	struct ibv_qp ibvqp;
+	struct bnxt_re_chip_ctx *cctx;
 	struct bnxt_re_queue *sqq;
 	struct bnxt_re_wrid *swrid;
 	struct bnxt_re_queue *rqq;
@@ -155,12 +164,16 @@ struct bnxt_re_context {
 	struct verbs_context ibvctx;
 	uint32_t dev_id;
 	uint32_t max_qp;
+	struct bnxt_re_chip_ctx cctx;
 	uint32_t max_srq;
 	struct bnxt_re_dpi udpi;
 	void *shpg;
 	pthread_mutex_t shlock;
 	pthread_spinlock_t fqlock;
 };
+
+/* Chip context related functions */
+bool bnxt_re_is_chip_gen_p5(struct bnxt_re_chip_ctx *cctx);
 
 /* DB ring functions used internally*/
 void bnxt_re_ring_rq_db(struct bnxt_re_qp *qp);
