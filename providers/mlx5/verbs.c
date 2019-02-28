@@ -3538,13 +3538,14 @@ int mlx5_destroy_flow_action(struct ibv_flow_action *action)
 	return ret;
 }
 
-static inline int mlx5_memcpy_to_dm(struct ibv_dm *ibdm, uint64_t dm_offset,
-				    const void *host_addr, size_t length)
+static inline int mlx5_access_dm(struct ibv_dm *ibdm, uint64_t dm_offset,
+				 void *host_addr, size_t length,
+				 uint32_t read)
 {
 	struct mlx5_dm *dm = to_mdm(ibdm);
 	atomic_uint32_t *dm_ptr =
 		(atomic_uint32_t *)dm->start_va + dm_offset / 4;
-	const uint32_t *host_ptr = host_addr;
+	uint32_t *host_ptr = host_addr;
 	const uint32_t *host_end = host_ptr + length / 4;
 
 	if (dm_offset + length > dm->length)
@@ -3559,31 +3560,34 @@ static inline int mlx5_memcpy_to_dm(struct ibv_dm *ibdm, uint64_t dm_offset,
 	/* Copy granularity should be 4 Bytes since we enforce copy size to be
 	 * a multiple of 4 bytes.
 	 */
-	while (host_ptr != host_end) {
-		atomic_store_explicit(dm_ptr, *host_ptr, memory_order_relaxed);
-		host_ptr++;
-		dm_ptr++;
+	if (read) {
+		while (host_ptr != host_end) {
+			*host_ptr = atomic_load_explicit(dm_ptr,
+							 memory_order_relaxed);
+			host_ptr++;
+			dm_ptr++;
+		}
+	} else {
+		while (host_ptr != host_end) {
+			atomic_store_explicit(dm_ptr, *host_ptr,
+					      memory_order_relaxed);
+			host_ptr++;
+			dm_ptr++;
+		}
 	}
 
 	return 0;
+}
+static inline int mlx5_memcpy_to_dm(struct ibv_dm *ibdm, uint64_t dm_offset,
+				    const void *host_addr, size_t length)
+{
+	return mlx5_access_dm(ibdm, dm_offset, (void *)host_addr, length, 0);
 }
 
 static inline int mlx5_memcpy_from_dm(void *host_addr, struct ibv_dm *ibdm,
 				      uint64_t dm_offset, size_t length)
 {
-	struct mlx5_dm *dm = to_mdm(ibdm);
-	void *dm_va = dm->start_va + dm_offset;
-
-	if (dm_offset + length > dm->length)
-		return EFAULT;
-
-	/* DM access address must be aligned to 4 bytes */
-	if (dm_offset & 3)
-		return EINVAL;
-
-	memcpy(host_addr, dm_va, length);
-
-	return 0;
+	return mlx5_access_dm(ibdm, dm_offset, host_addr, length, 1);
 }
 
 struct ibv_dm *mlx5_alloc_dm(struct ibv_context *context,
