@@ -335,7 +335,7 @@ class leap(ZypperEnvironment):
     aliases = {"leap"};
 
 class tumbleweed(ZypperEnvironment):
-    docker_parent = "opensuse:tumbleweed";
+    docker_parent = "opensuse/tumbleweed:latest";
     pkgs = leap.pkgs;
     name = "tumbleweed";
     specfile = "suse/rdma-core.spec";
