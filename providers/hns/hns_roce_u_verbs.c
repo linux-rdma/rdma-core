@@ -301,19 +301,11 @@ static void hns_roce_set_sq_sizes(struct hns_roce_qp *qp,
 
 static int hns_roce_verify_cq(int *cqe, struct hns_roce_context *context)
 {
-	struct hns_roce_device *hr_dev =
-		to_hr_dev(context->ibv_ctx.context.device);
-
 	if (*cqe < 1 || *cqe > context->max_cqe)
 		return -1;
 
-	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
-		if (*cqe < HNS_ROCE_MIN_CQE_NUM) {
-			fprintf(stderr,
-				"cqe = %d, less than minimum CQE number.\n",
-				*cqe);
-			*cqe = HNS_ROCE_MIN_CQE_NUM;
-		}
+	if (*cqe < HNS_ROCE_MIN_CQE_NUM)
+		*cqe = HNS_ROCE_MIN_CQE_NUM;
 
 	return 0;
 }
