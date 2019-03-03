@@ -23,6 +23,7 @@ when needed (e.g. user buffer for memory region). The memory will be accessible
 to the users, but not allocated or freed by them.
 
 ## Usage Examples
+Note that all examples use a hard-coded device name ('mlx5_0').
 ##### Open an IB device
 
 Import the device module and open a device by name:
@@ -96,3 +97,131 @@ print(gid)
 ```
 
 'gid' is Pyverbs' equivalent to ibv_gid, provided to the user by Pyverbs.
+
+##### Query port
+The following code snippet provides an example of pyverbs' equivalent of
+querying a port. Context's query_port() command wraps ibv_query_port().
+The example below queries the first port of the device.
+```python
+import pyverbs.device as d
+ctx=d.Context(name='mlx5_0')
+port_attr = ctx.query_port(1)
+print(port_attr)
+Port state              : Active (4)
+Max MTU                 : 4096 (5)
+Active MTU              : 1024 (3)
+SM lid                  : 0
+Port lid                : 0
+lmc                     : 0x0
+Link layer              : Ethernet
+Max message size        : 0x40000000
+Port cap flags          : IBV_PORT_CM_SUP IBV_PORT_IP_BASED_GIDS
+Port cap flags 2        :
+max VL num              : 0
+Bad Pkey counter        : 0
+Qkey violations counter : 0
+Gid table len           : 256
+Pkey table len          : 1
+SM sl                   : 0
+Subnet timeout          : 0
+Init type reply         : 0
+Active width            : 4X (2)
+Ative speed             : 25.0 Gbps (32)
+Phys state              : Link up (5)
+Flags                   : 1
+```
+
+##### Extended query device
+The example below shows how to open a device using pyverbs and query the
+extended device's attributes.
+Context's query_device_ex() command wraps ibv_query_device_ex().
+```python
+import pyverbs.device as d
+
+ctx = d.Context(name='mlx5_0')
+attr = ctx.query_device_ex()
+attr.max_dm_size
+131072
+attr.rss_caps.max_rwq_indirection_table_size
+2048
+```
+
+#### Create RDMA objects
+##### PD
+The following example shows how to open a device and use its context to create
+a PD.
+```python
+import pyverbs.device as d
+from pyverbs.pd import PD
+
+with d.Context(name='mlx5_0') as ctx:
+    pd = PD(ctx)
+```
+##### MR
+The example below shows how to create a MR using pyverbs. Similar to C, a
+device must be opened prior to creation and a PD has to be allocated.
+```python
+import pyverbs.device as d
+from pyverbs.pd import PD
+from pyverbs.mr import MR
+import pyverbs.enums as e
+
+with d.Context(name='mlx5_0') as ctx:
+    with PD(ctx) as pd:
+        mr_len = 1000
+        flags = e.IBV_ACCESS_LOCAL_WRITE
+        mr = MR(pd, mr_len, flags)
+```
+##### Memory window
+The following example shows the equivalent of creating a type 1 memory window.
+It includes opening a device and allocating the necessary PD.
+```python
+import pyverbs.device as d
+from pyverbs.pd import PD
+from pyverbs.mr import MW
+import pyverbs.enums as e
+
+with d.Context(name='mlx5_0') as ctx:
+    with PD(ctx) as pd:
+        mw = MW(pd, e.IBV_MW_TYPE_1)
+```
+##### Device memory
+The following snippet shows how to allocate a DM - a direct memory object,
+using the device's memory.
+```python
+import random
+
+from pyverbs.device import DM, AllocDmAttr
+import pyverbs.device as d
+
+with d.Context(name='mlx5_0') as ctx:
+    attr = ctx.query_device_ex()
+    if attr.max_dm_size != 0:
+        dm_len = random.randint(4, attr.max_dm_size)
+        dm_attrs = AllocDmAttr(dm_len)
+        dm = DM(ctx, dm_attrs)
+```
+
+##### DM MR
+The example below shows how to open a DMMR - device memory MR, using the
+device's own memory rather than a user-allocated buffer.
+```python
+import random
+
+from pyverbs.device import DM, AllocDmAttr
+from pyverbs.mr import DmMr
+import pyverbs.device as d
+from pyverbs.pd import PD
+import pyverbs.enums as e
+
+with d.Context(name='mlx5_0') as ctx:
+    attr = ctx.query_device_ex()
+    if attr.max_dm_size != 0:
+        dm_len = random.randint(4, attr.max_dm_size)
+        dm_attrs = AllocDmAttr(dm_len)
+        dm_mr_len = random.randint(4, dm_len)
+        with DM(ctx, dm_attrs) as dm:
+            with PD(ctx) as pd:
+                dm_mr = DmMr(pd, dm_mr_len, e.IBV_ACCESS_ZERO_BASED, dm=dm,
+                             offset=0)
+```

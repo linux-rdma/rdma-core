@@ -67,12 +67,13 @@ INST_EXCLUDE := "etc/init.d/srpd" \
 		"etc/init.d/ibacm" \
 		"usr/sbin/run_srp_daemon" \
 		"usr/sbin/srp_daemon.sh"
-ifeq ($(EXTRA_CMAKE_FLAGS), -DNO_PYVERBS=1)
-	INST_EXCLUDE := $(INST_EXCLUDE) "usr/lib/python3/dist-packages/pyverbs"
-endif
 INST_EXCLUDE := $(addprefix -X,$(INST_EXCLUDE))
 override_dh_install:
+ifeq ($(EXTRA_CMAKE_FLAGS), -DNO_PYVERBS=1)
+	dh_install -Npython3-pyverbs --fail-missing $(INST_EXCLUDE) --remaining-packages
+else
 	dh_install --fail-missing $(INST_EXCLUDE)
+endif
 
 # cmake installs the correct init scripts in the correct place, just setup the
 # pre-postrms

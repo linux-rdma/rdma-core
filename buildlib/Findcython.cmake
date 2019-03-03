@@ -18,6 +18,14 @@ if(NOT _VERSION_RESULT)
 from Cython.Compiler.Main import main
 main(command_line = 1)")
   execute_process(COMMAND "chmod" "a+x" "${CYTHON_EXECUTABLE}")
+
+  # Dockers with older Cython versions fail to build pyverbs. Until we get to
+  # the bottom of this, disable pyverbs for older Cython versions.
+  if (CYTHON_VERSION_STRING VERSION_LESS "0.25")
+	message("Cython version < 0.25, disabling")
+	unset(CYTHON_EXECUTABLE)
+  endif()
+
 endif()
 unset(_VERSION_RESULT)
 unset(_VERSION)

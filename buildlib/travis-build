@@ -1,5 +1,7 @@
 #!/bin/bash
 
+PATH=/home/`whoami`/.local/bin:$PATH
+
 # Stop on error
 set -e
 # Echo all commands to Travis log
