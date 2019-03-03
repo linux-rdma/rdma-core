@@ -37,6 +37,7 @@
 #include <stdio.h>
 #include <stdatomic.h>
 #include <util/compiler.h>
+#include <util/util.h>
 
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>
