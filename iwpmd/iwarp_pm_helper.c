@@ -579,7 +579,7 @@ void form_iwpm_send_msg(int pm_sock, struct sockaddr_storage *dest,
  */
 int add_iwpm_pending_msg(iwpm_send_msg *send_msg)
 {
-	iwpm_pending_msg *pending_msg = (iwpm_pending_msg *)malloc(sizeof(iwpm_pending_msg));
+	iwpm_pending_msg *pending_msg = malloc(sizeof(iwpm_pending_msg));
 	if (!pending_msg) {
 		syslog(LOG_WARNING, "add_iwpm_pending_msg: Unable to allocate message.\n");
 		return -ENOMEM;

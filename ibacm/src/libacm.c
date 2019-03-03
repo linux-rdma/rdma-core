@@ -416,8 +416,8 @@ int ib_acm_enum_ep(int index, struct acm_ep_config_data **data, uint8_t port)
 	}
 
 	len = be16toh(hdr.length) - sizeof(hdr);
-	netw_edata = (struct acm_ep_config_data *)malloc(len);
-	host_edata = (struct acm_ep_config_data *)malloc(len);
+	netw_edata = malloc(len);
+	host_edata = malloc(len);
 	if (!netw_edata || !host_edata) {
 		ret = ACM_STATUS_ENOMEM;
 		goto out;
