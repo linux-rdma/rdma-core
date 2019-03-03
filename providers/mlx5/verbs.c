@@ -553,21 +553,6 @@ int mlx5_dealloc_mw(struct ibv_mw *mw)
 	return 0;
 }
 
-int mlx5_round_up_power_of_two(long long sz)
-{
-	long long ret;
-
-	for (ret = 1; ret < sz; ret <<= 1)
-		; /* nothing */
-
-	if (ret > INT_MAX) {
-		fprintf(stderr, "%s: roundup overflow\n", __func__);
-		return -ENOMEM;
-	}
-
-	return (int)ret;
-}
-
 static int get_cqe_size(struct mlx5dv_cq_init_attr *mlx5cq_attr)
 {
 	char *env;
@@ -1320,7 +1305,7 @@ static int mlx5_calc_rcv_wqe(struct mlx5_context *ctx,
 	if (size > ctx->max_rq_desc_sz)
 		return -EINVAL;
 
-	size = mlx5_round_up_power_of_two(size);
+	size = roundup_pow_of_two(size);
 
 	return size;
 }
@@ -1361,7 +1346,7 @@ static int mlx5_calc_sq_size(struct mlx5_context *ctx,
 		return -EINVAL;
 	}
 
-	wq_size = mlx5_round_up_power_of_two(attr->cap.max_send_wr * wqe_size);
+	wq_size = roundup_pow_of_two(attr->cap.max_send_wr * wqe_size);
 	qp->sq.wqe_cnt = wq_size / MLX5_SEND_WQE_BB;
 	if (qp->sq.wqe_cnt > ctx->max_send_wqebb) {
 		mlx5_dbg(fp, MLX5_DBG_QP, "\n");
@@ -1412,8 +1397,8 @@ static int mlx5_calc_rwq_size(struct mlx5_context *ctx,
 	if (wqe_size <= 0 || wqe_size > ctx->max_rq_desc_sz)
 		return -EINVAL;
 
-	wqe_size = mlx5_round_up_power_of_two(wqe_size);
-	wq_size = mlx5_round_up_power_of_two(attr->max_wr) * wqe_size;
+	wqe_size = roundup_pow_of_two(wqe_size);
+	wq_size = roundup_pow_of_two(attr->max_wr) * wqe_size;
 	wq_size = max(wq_size, MLX5_SEND_WQE_BB);
 	rwq->rq.wqe_cnt = wq_size / wqe_size;
 	rwq->rq.wqe_shift = mlx5_ilog2(wqe_size);
@@ -1448,7 +1433,7 @@ static int mlx5_calc_rq_size(struct mlx5_context *ctx,
 		return -EINVAL;
 	}
 
-	wq_size = mlx5_round_up_power_of_two(attr->cap.max_recv_wr) * wqe_size;
+	wq_size = roundup_pow_of_two(attr->cap.max_recv_wr) * wqe_size;
 	if (wqe_size) {
 		wq_size = max(wq_size, MLX5_SEND_WQE_BB);
 		qp->rq.wqe_cnt = wq_size / wqe_size;

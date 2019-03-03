@@ -178,7 +178,7 @@ static int dr_calc_sq_size(struct dr_qp *dr_qp,
 		 sizeof(struct mlx5_wqe_raddr_seg)) -
 		sizeof(struct mlx5_wqe_inl_data_seg);
 
-	wq_size = mlx5_round_up_power_of_two(attr->cap.max_send_wr * wqe_size);
+	wq_size = roundup_pow_of_two(attr->cap.max_send_wr * wqe_size);
 	dr_qp->sq.wqe_cnt = wq_size / MLX5_SEND_WQE_BB;
 	dr_qp->sq.wqe_shift = mlx5_ilog2(MLX5_SEND_WQE_BB);
 	dr_qp->sq.max_gs = attr->cap.max_send_sge;
@@ -195,7 +195,7 @@ static int dr_qp_calc_recv_wqe(struct dr_qp_init_attr *attr)
 	num_scatter = max_t(uint32_t, attr->cap.max_recv_sge, 1);
 	size = sizeof(struct mlx5_wqe_data_seg) * num_scatter;
 
-	size = mlx5_round_up_power_of_two(size);
+	size = roundup_pow_of_two(size);
 
 	return size;
 }
@@ -208,7 +208,7 @@ static int dr_calc_rq_size(struct dr_qp *dr_qp,
 
 	wqe_size = dr_qp_calc_recv_wqe(attr);
 
-	wq_size = mlx5_round_up_power_of_two(attr->cap.max_recv_wr) * wqe_size;
+	wq_size = roundup_pow_of_two(attr->cap.max_recv_wr) * wqe_size;
 	wq_size = max(wq_size, MLX5_SEND_WQE_BB);
 	dr_qp->rq.wqe_cnt = wq_size / wqe_size;
 	dr_qp->rq.wqe_shift = mlx5_ilog2(wqe_size);
