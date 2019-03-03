@@ -91,7 +91,7 @@ struct ibv_pd *hns_roce_u_alloc_pd(struct ibv_context *context)
 	struct hns_roce_pd *pd;
 	struct hns_roce_alloc_pd_resp resp = {};
 
-	pd = (struct hns_roce_pd *)malloc(sizeof(*pd));
+	pd = malloc(sizeof(*pd));
 	if (!pd)
 		return NULL;
 

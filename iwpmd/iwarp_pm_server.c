@@ -493,7 +493,7 @@ static int process_iwpm_query_mapping(struct nlmsghdr *req_nlh, int client_idx, 
 			"remote port = 0x%04X\n",
 			be16toh(msg_parms.cpport), be16toh(msg_parms.apport));
 	ret = -ENOMEM;
-        send_msg = (iwpm_send_msg *)malloc(sizeof(iwpm_send_msg));
+	send_msg = malloc(sizeof(iwpm_send_msg));
 	if (!send_msg) {
 		str_err = "Unable to allocate send msg buffer";
 		goto query_mapping_free_error;
@@ -683,7 +683,7 @@ static int process_iwpm_wire_request(iwpm_msg_parms *msg_parms, int nl_sock,
 		return 0;
 	}
 	/* allocate response message */
-        send_msg = (iwpm_send_msg *)malloc(sizeof(iwpm_send_msg));
+	send_msg = malloc(sizeof(iwpm_send_msg));
 	if (!send_msg) {
 		syslog(LOG_WARNING, "process_wire_request: Unable to allocate send msg.\n");
 		return -ENOMEM;
@@ -1138,7 +1138,7 @@ static int process_iwpm_netlink_msg(int nl_sock)
 	const char *str_err = "";
 	int ret = 0;
 
-	recv_buffer = (char *)malloc(NLMSG_SPACE(IWARP_PM_RECV_PAYLOAD));
+	recv_buffer = malloc(NLMSG_SPACE(IWARP_PM_RECV_PAYLOAD));
 	if (!recv_buffer) {
 		ret = -ENOMEM;
 		str_err = "Unable to allocate receive socket buffer";
