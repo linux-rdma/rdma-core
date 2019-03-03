@@ -2,6 +2,7 @@
 #ifndef UTIL_UTIL_H
 #define UTIL_UTIL_H
 
+#include <ccan/ilog.h>
 #include <stdbool.h>
 #include <sys/types.h>
 
@@ -22,6 +23,16 @@ static inline bool __good_snprintf(size_t len, int rc)
 	 ((a)->tv_sec CMP (b)->tv_sec))
 
 #define BIT(nr) (1UL << (nr))
+
+static inline unsigned long align(unsigned long val, unsigned long align)
+{
+	return (val + align - 1) & ~(align - 1);
+}
+
+static inline uint64_t roundup_pow_of_two(uint64_t n)
+{
+	return n == 1 ? 1 : 1ULL << ilog64(n - 1);
+}
 
 int set_fd_nonblock(int fd, bool nonblock);
 
