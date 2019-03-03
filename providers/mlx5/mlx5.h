@@ -37,6 +37,7 @@
 #include <stdio.h>
 #include <stdatomic.h>
 #include <util/compiler.h>
+#include <util/util.h>
 
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>
@@ -579,11 +580,6 @@ extern int mlx5_single_threaded;
 static inline unsigned DIV_ROUND_UP(unsigned n, unsigned d)
 {
 	return (n + d - 1u) / d;
-}
-
-static inline unsigned long align(unsigned long val, unsigned long align)
-{
-	return (val + align - 1) & ~(align - 1);
 }
 
 #define to_mxxx(xxx, type) container_of(ib##xxx, struct mlx5_##type, ibv_##xxx)
