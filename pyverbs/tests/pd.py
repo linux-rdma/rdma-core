@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.  See COPYING file
-
+"""
+Test module for pyverbs' pd module.
+"""
 import unittest
 import random
 
@@ -9,11 +11,12 @@ import pyverbs.device as d
 from pyverbs.pd import PD
 
 
-class pd_test(unittest.TestCase):
+class PDTest(unittest.TestCase):
     """
     Test various functionalities of the PD class.
     """
-    def test_alloc_pd(self):
+    @staticmethod
+    def test_alloc_pd():
         """
         Test ibv_alloc_pd()
         """
@@ -23,7 +26,8 @@ class pd_test(unittest.TestCase):
                 with PD(ctx):
                     pass
 
-    def test_dealloc_pd(self):
+    @staticmethod
+    def test_dealloc_pd():
         """
         Test ibv_dealloc_pd()
         """
@@ -33,7 +37,8 @@ class pd_test(unittest.TestCase):
                 with PD(ctx) as pd:
                     pd.close()
 
-    def test_multiple_pd_creation(self):
+    @staticmethod
+    def test_multiple_pd_creation():
         """
         Test multiple creations and destructions of a PD object
         """
@@ -44,19 +49,21 @@ class pd_test(unittest.TestCase):
                     with PD(ctx) as pd:
                         pd.close()
 
-    def test_create_pd_none_ctx(self):
+    @staticmethod
+    def test_create_pd_none_ctx():
         """
         Verify that PD can't be created with a None context
         """
         try:
-            pd = PD(None)
+            PD(None)
         except TypeError as te:
             assert 'expected pyverbs.device.Context' in te.args[0]
             assert 'got NoneType' in te.args[0]
         else:
             raise PyverbsRDMAErrno('Created a PD with None context')
 
-    def test_destroy_pd_twice(self):
+    @staticmethod
+    def test_destroy_pd_twice():
         """
         Test bad flow cases in destruction of a PD object
         """
