@@ -63,7 +63,7 @@ $ dnf install cmake gcc libnl3-devel libudev-devel pkgconfig valgrind-devel ninj
 
 NOTE: Fedora Core uses the name 'ninja-build' for the 'ninja' command.
 
-### OpenSuSE
+### openSUSE
 
 ```sh
 $ zypper install cmake gcc libnl3-devel libudev-devel ninja pkg-config valgrind-devel python3-deve python3-Cython
