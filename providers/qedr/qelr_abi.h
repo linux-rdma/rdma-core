@@ -45,8 +45,8 @@ DECLARE_DRV_CMD(qelr_create_cq, IB_USER_VERBS_CMD_CREATE_CQ,
 		qedr_create_cq_ureq, qedr_create_cq_uresp);
 DECLARE_DRV_CMD(qelr_create_qp, IB_USER_VERBS_CMD_CREATE_QP,
 		qedr_create_qp_ureq, qedr_create_qp_uresp);
-DECLARE_DRV_CMD(qelr_get_context, IB_USER_VERBS_CMD_GET_CONTEXT,
-		empty, qedr_alloc_ucontext_resp);
+DECLARE_DRV_CMD(qelr_alloc_context, IB_USER_VERBS_CMD_GET_CONTEXT,
+		qedr_alloc_ucontext_req, qedr_alloc_ucontext_resp);
 DECLARE_DRV_CMD(qelr_reg_mr, IB_USER_VERBS_CMD_REG_MR,
 		empty, empty);
 DECLARE_DRV_CMD(qelr_create_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
