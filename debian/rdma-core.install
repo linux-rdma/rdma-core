@@ -13,7 +13,9 @@ lib/systemd/system/iwpmd.service
 lib/systemd/system/rdma-hw.target
 lib/systemd/system/rdma-load-modules@.service
 lib/systemd/system/rdma-ndd.service
+lib/udev/rdma_rename
 lib/udev/rules.d/60-rdma-ndd.rules
+lib/udev/rules.d/60-rdma-persistent-naming.rules
 lib/udev/rules.d/75-rdma-description.rules
 lib/udev/rules.d/90-iwpmd.rules
 lib/udev/rules.d/90-rdma-hw-modules.rules
