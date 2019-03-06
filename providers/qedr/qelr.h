@@ -46,6 +46,7 @@
 #define writel(b, p) (*(uint32_t *)(p) = (b))
 #define writeq(b, p) (*(uint64_t *)(p) = (b))
 
+#include "qelr_abi.h"
 #include "qelr_hsi.h"
 #include "qelr_chain.h"
 
@@ -123,6 +124,7 @@ struct qelr_devctx {
 	FILE			*dbg_fp;
 	void			*db_addr;
 	uint64_t		db_pa;
+	struct qedr_user_db_rec	db_rec_addr_dummy;
 	uint32_t		db_size;
 	uint8_t			disable_edpm;
 	uint32_t		kernel_page_size;
@@ -157,6 +159,9 @@ struct qelr_cq {
 
 	void			*db_addr;
 	union db_prod64		db;
+	/* Doorbell recovery entry address */
+	void			*db_rec_map;
+	struct qedr_user_db_rec *db_rec_addr;
 
 	uint8_t			chain_toggle;
 	union rdma_cqe		*latest_cqe;
@@ -195,6 +200,9 @@ struct qelr_qp_hwq_info {
 	void					*db;      /* Doorbell address */
 	void					*edpm_db;
 	union db_prod32				db_data;  /* Doorbell data */
+	/* Doorbell recovery entry address */
+	void					*db_rec_map;
+	struct qedr_user_db_rec			*db_rec_addr;
 	void					*iwarp_db2;
 	union db_prod32				iwarp_db2_data;
 

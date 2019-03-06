@@ -42,7 +42,6 @@
 
 #include "qelr.h"
 #include "qelr_main.h"
-#include "qelr_abi.h"
 #include "qelr_chain.h"
 
 #include <sys/types.h>
@@ -165,8 +164,8 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 						void *private_data)
 {
 	struct qelr_devctx *ctx;
-	struct qelr_get_context cmd;
-	struct qelr_get_context_resp resp;
+	struct qelr_alloc_context cmd;
+	struct qelr_alloc_context_resp resp;
 
 	ctx = verbs_init_and_alloc_context(ibdev, cmd_fd, ctx, ibv_ctx,
 					   RDMA_DRIVER_QEDR);
@@ -178,6 +177,7 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 	qelr_open_debug_file(ctx);
 	qelr_set_debug_mask();
 
+	cmd.context_flags |= QEDR_ALLOC_UCTX_DB_REC;
 	if (ibv_cmd_get_context(&ctx->ibv_ctx, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
 		goto cmd_err;
