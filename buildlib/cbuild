@@ -645,10 +645,6 @@ def run_deb_build(args,env):
             "-e","DEB_BUILD_OPTIONS=parallel=%u"%(multiprocessing.cpu_count()),
         ];
 
-        if not env.build_pyverbs:
-            opts.append("-e");
-            opts.append("EXTRA_CMAKE_FLAGS=%s"%(' '.join(["-DNO_PYVERBS=1"])));
-
         # Create a go.py that will let us run the compilation as the user and
         # then switch to root only for the packaging step.
         with open(os.path.join(tmpdir,"go.py"),"w") as F:

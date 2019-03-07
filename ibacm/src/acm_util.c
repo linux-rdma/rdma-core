@@ -33,7 +33,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <net/if.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <errno.h>
