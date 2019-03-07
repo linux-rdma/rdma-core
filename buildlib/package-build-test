@@ -11,7 +11,7 @@ if [ -e "/.dockerenv" ] || (grep -q docker /proc/self/cgroup &>/dev/null); then
        exit 0
 fi
 
-for OS in centos7 tumbleweed
+for OS in centos7 leap
 do
 	echo
 	echo "Checking package build for ${OS} ...."
