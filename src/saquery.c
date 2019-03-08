@@ -1058,7 +1058,7 @@ static int query_path_records(const struct query_cmd *q, struct sa_handle * h,
 	CHECK_AND_SET_VAL(p->dlid, 16, 0, pr.dlid, PR, DLID);
 	CHECK_AND_SET_VAL(p->hop_limit, 32, -1, pr.hop_flow_raw, PR, HOPLIMIT);
 	CHECK_AND_SET_VAL(p->flow_label, 8, 0, flow, PR, FLOWLABEL);
-	pr.hop_flow_raw |= cl_hton32(flow << 8);
+	pr.hop_flow_raw |= htobe32(flow << 8);
 	CHECK_AND_SET_VAL(p->tclass, 8, 0, pr.tclass, PR, TCLASS);
 	CHECK_AND_SET_VAL(p->reversible, 8, -1, reversible, PR, REVERSIBLE);
 	CHECK_AND_SET_VAL(p->numb_path, 8, -1, pr.num_path, PR, NUMBPATH);
@@ -1066,7 +1066,7 @@ static int query_path_records(const struct query_cmd *q, struct sa_handle * h,
 	CHECK_AND_SET_VAL(p->pkey, 16, 0, pr.pkey, PR, PKEY);
 	CHECK_AND_SET_VAL(p->sl, 16, -1, pr.qos_class_sl, PR, SL);
 	CHECK_AND_SET_VAL((p->qos_class << 4), 16, -1, qos_class, PR, QOS_CLASS);
-	pr.qos_class_sl = (pr.qos_class_sl & CL_HTON16(IB_PATH_REC_SL_MASK)) |
+	pr.qos_class_sl = (pr.qos_class_sl & htobe16(IB_PATH_REC_SL_MASK)) |
 			  qos_class;
 	CHECK_AND_SET_VAL_AND_SEL(p->mtu, pr.mtu, PR, MTU, SELEC);
 	CHECK_AND_SET_VAL_AND_SEL(p->rate, pr.rate, PR, RATE, SELEC);
@@ -1418,9 +1418,9 @@ static int query_mft_records(const struct query_cmd *q, struct sa_handle * h,
 	memset(&mftr, 0, sizeof(mftr));
 	CHECK_AND_SET_VAL(lid, 16, 0, mftr.lid, MFTR, LID);
 	CHECK_AND_SET_VAL(block, 16, -1, mftr.position_block_num, MFTR, BLOCK);
-	mftr.position_block_num &= cl_hton16(IB_MCAST_BLOCK_ID_MASK_HO);
+	mftr.position_block_num &= htobe16(IB_MCAST_BLOCK_ID_MASK_HO);
 	CHECK_AND_SET_VAL(position, 8, -1, pos, MFTR, POSITION);
-	mftr.position_block_num |= cl_hton16(pos << 12);
+	mftr.position_block_num |= htobe16(pos << 12);
 
 	return get_and_dump_any_records(h, IB_SA_ATTR_MFTRECORD, 0, comp_mask,
 					&mftr, sizeof(mftr), dump_one_mft_record, p);

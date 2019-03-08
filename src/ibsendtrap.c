@@ -77,20 +77,20 @@ static uint32_t get_cap_mask(ib_portid_t * port)
 static void build_trap145(ib_mad_notice_attr_t * n, ib_portid_t * port)
 {
 	n->generic_type = 0x80 | IB_NOTICE_TYPE_INFO;
-	n->g_or_v.generic.prod_type_lsb = cl_hton16(get_node_type(port));
-	n->g_or_v.generic.trap_num = cl_hton16(145);
-	n->issuer_lid = cl_hton16((uint16_t) port->lid);
-	n->data_details.ntc_145.new_sys_guid = cl_hton64(0x1234567812345678);
+	n->g_or_v.generic.prod_type_lsb = htobe16(get_node_type(port));
+	n->g_or_v.generic.trap_num = htobe16(145);
+	n->issuer_lid = htobe16((uint16_t) port->lid);
+	n->data_details.ntc_145.new_sys_guid = htobe64(0x1234567812345678);
 }
 
 static void build_trap144_local(ib_mad_notice_attr_t * n, ib_portid_t * port)
 {
 	n->generic_type = 0x80 | IB_NOTICE_TYPE_INFO;
-	n->g_or_v.generic.prod_type_lsb = cl_hton16(get_node_type(port));
-	n->g_or_v.generic.trap_num = cl_hton16(144);
-	n->issuer_lid = cl_hton16((uint16_t) port->lid);
+	n->g_or_v.generic.prod_type_lsb = htobe16(get_node_type(port));
+	n->g_or_v.generic.trap_num = htobe16(144);
+	n->issuer_lid = htobe16((uint16_t) port->lid);
 	n->data_details.ntc_144.lid = n->issuer_lid;
-	n->data_details.ntc_144.new_cap_mask = cl_hton32(get_cap_mask(port));
+	n->data_details.ntc_144.new_cap_mask = htobe32(get_cap_mask(port));
 	n->data_details.ntc_144.local_changes =
 	    TRAP_144_MASK_OTHER_LOCAL_CHANGES;
 }
@@ -113,9 +113,9 @@ static void build_trap144_linkspeed(ib_mad_notice_attr_t * n,
 static void build_trap129(ib_mad_notice_attr_t * n, ib_portid_t * port)
 {
 	n->generic_type = 0x80 | IB_NOTICE_TYPE_URGENT;
-	n->g_or_v.generic.prod_type_lsb = cl_hton16(get_node_type(port));
-	n->g_or_v.generic.trap_num = cl_hton16(129);
-	n->issuer_lid = cl_hton16((uint16_t) port->lid);
+	n->g_or_v.generic.prod_type_lsb = htobe16(get_node_type(port));
+	n->g_or_v.generic.trap_num = htobe16(129);
+	n->issuer_lid = htobe16((uint16_t) port->lid);
 	n->data_details.ntc_129_131.lid = n->issuer_lid;
 	n->data_details.ntc_129_131.pad = 0;
 	n->data_details.ntc_129_131.port_num = (uint8_t) error_port;
@@ -124,9 +124,9 @@ static void build_trap129(ib_mad_notice_attr_t * n, ib_portid_t * port)
 static void build_trap256_local(ib_mad_notice_attr_t * n, ib_portid_t * port)
 {
 	n->generic_type = 0x80 | IB_NOTICE_TYPE_SECURITY;
-	n->g_or_v.generic.prod_type_lsb = cl_hton16(get_node_type(port));
-	n->g_or_v.generic.trap_num = cl_hton16(256);
-	n->issuer_lid = cl_hton16((uint16_t) port->lid);
+	n->g_or_v.generic.prod_type_lsb = htobe16(get_node_type(port));
+	n->g_or_v.generic.trap_num = htobe16(256);
+	n->issuer_lid = htobe16((uint16_t) port->lid);
 	n->data_details.ntc_256.lid = n->issuer_lid;
 	n->data_details.ntc_256.dr_slid = 0xffff;
 	n->data_details.ntc_256.method = 1;
@@ -155,14 +155,14 @@ static void build_trap257_258(ib_mad_notice_attr_t * n, ib_portid_t * port,
 			      uint16_t trap_num)
 {
 	n->generic_type = 0x80 | IB_NOTICE_TYPE_SECURITY;
-	n->g_or_v.generic.prod_type_lsb = cl_hton16(get_node_type(port));
-	n->g_or_v.generic.trap_num = cl_hton16(trap_num);
-	n->issuer_lid = cl_hton16((uint16_t) port->lid);
-	n->data_details.ntc_257_258.lid1 = cl_hton16(1);
-	n->data_details.ntc_257_258.lid2 = cl_hton16(2);
-	n->data_details.ntc_257_258.key = cl_hton32(0x12345678);
-	n->data_details.ntc_257_258.qp1 = cl_hton32(0x010101);
-	n->data_details.ntc_257_258.qp2 = cl_hton32(0x020202);
+	n->g_or_v.generic.prod_type_lsb = htobe16(get_node_type(port));
+	n->g_or_v.generic.trap_num = htobe16(trap_num);
+	n->issuer_lid = htobe16((uint16_t) port->lid);
+	n->data_details.ntc_257_258.lid1 = htobe16(1);
+	n->data_details.ntc_257_258.lid2 = htobe16(2);
+	n->data_details.ntc_257_258.key = htobe32(0x12345678);
+	n->data_details.ntc_257_258.qp1 = htobe32(0x010101);
+	n->data_details.ntc_257_258.qp2 = htobe32(0x020202);
 	n->data_details.ntc_257_258.gid1.unicast.prefix = be64toh(0xf8c0000000000001);
 	n->data_details.ntc_257_258.gid1.unicast.interface_id = be64toh(0x1111222233334444);
 	n->data_details.ntc_257_258.gid2.unicast.prefix = be64toh(0xf8c0000000000001);

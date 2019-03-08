@@ -70,10 +70,13 @@ void *sa_get_query_rec(void *mad, unsigned i);
 void sa_report_err(int status);
 
 /* Macros for setting query values and ComponentMasks */
-#define cl_hton8(x) (x)
+static inline uint8_t htobe8(uint8_t val)
+{
+	return val;
+}
 #define CHECK_AND_SET_VAL(val, size, comp_with, target, name, mask) \
 	if ((int##size##_t) val != (int##size##_t) comp_with) { \
-		target = cl_hton##size((uint##size##_t) val); \
+		target = htobe##size((uint##size##_t) val); \
 		comp_mask |= IB_##name##_COMPMASK_##mask; \
 	}
 
