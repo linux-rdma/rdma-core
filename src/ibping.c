@@ -41,14 +41,22 @@
 #include <string.h>
 #include <signal.h>
 #include <getopt.h>
+#include <time.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
-#include <complib/cl_timer.h>
 
 #include "ibdiag_common.h"
 
 struct ibmad_port *srcport;
+
+static uint64_t time_stamp(void)
+{
+	struct timespec ts;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return ((uint64_t)ts.tv_sec * 1000000ULL) + ts.tv_nsec / 10000ULL;
+}
 
 static char host_and_domain[IB_VENDOR_RANGE2_DATA_SIZE];
 static char last_host[IB_VENDOR_RANGE2_DATA_SIZE];
@@ -113,7 +121,7 @@ static uint64_t ibping(ib_portid_t * portid, int quiet)
 
 	DEBUG("Ping..");
 
-	start = cl_get_time_stamp();
+	start = time_stamp();
 
 	call.method = IB_MAD_METHOD_GET;
 	call.mgmt_class = IB_VENDOR_OPENIB_PING_CLASS;
@@ -126,7 +134,7 @@ static uint64_t ibping(ib_portid_t * portid, int quiet)
 	if (!ib_vendor_call_via(data, portid, &call, srcport))
 		return ~0ull;
 
-	rtt = cl_get_time_stamp() - start;
+	rtt = time_stamp() - start;
 
 	if (!last_host[0])
 		memcpy(last_host, data, sizeof last_host);
@@ -144,7 +152,7 @@ static ib_portid_t portid = { 0 };
 
 static void report(int sig)
 {
-	total_time = cl_get_time_stamp() - start;
+	total_time = time_stamp() - start;
 
 	DEBUG("out due signal %d", sig);
 
@@ -240,7 +248,7 @@ int main(int argc, char **argv)
 	signal(SIGINT, report);
 	signal(SIGTERM, report);
 
-	start = cl_get_time_stamp();
+	start = time_stamp();
 
 	while (count-- > 0) {
 		ntrans++;
