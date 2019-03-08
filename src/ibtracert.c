@@ -740,12 +740,12 @@ free_name:
 	free(nodename);
 }
 
-static int resolve_lid(ib_portid_t * portid, const void *srcport)
+static int resolve_lid(ib_portid_t *portid)
 {
 	uint8_t portinfo[64] = { 0 };
 	uint16_t lid;
 
-	if (!smp_query_via(portinfo, portid, IB_ATTR_PORT_INFO, 0, 0, srcport))
+	if (!smp_query_via(portinfo, portid, IB_ATTR_PORT_INFO, 0, 0, NULL))
 		return -1;
 	mad_decode_field(portinfo, IB_PORT_LID_F, &lid);
 
@@ -804,12 +804,12 @@ static int get_route(char *srcid, char *dstid) {
 	}
 
 	if (ibd_dest_type == IB_DEST_DRPATH) {
-		if (resolve_lid(&src_portid, NULL) < 0) {
+		if (resolve_lid(&src_portid) < 0) {
 			IBWARN("cannot resolve lid for port \'%s\'",
 				portid2str(&src_portid));
 			return -1;
 		}
-		if (resolve_lid(&dest_portid, NULL) < 0) {
+		if (resolve_lid(&dest_portid) < 0) {
 			IBWARN("cannot resolve lid for port \'%s\'",
 				portid2str(&dest_portid));
 			return -1;
