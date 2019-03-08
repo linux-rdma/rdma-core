@@ -520,10 +520,10 @@ int is_port_info_extended_supported(ib_portid_t * dest, int port,
 		IBEXIT("port info query failed");
 
 	mad_decode_field(data, IB_PORT_CAPMASK_F, &cap_mask);
-	if (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_CAP_MASK2)) {
+	if (cap_mask & be32toh(IB_PORT_CAP_HAS_CAP_MASK2)) {
 		mad_decode_field(data, IB_PORT_CAPMASK2_F, &cap_mask2);
 		if (!(cap_mask2 &
-		      CL_NTOH16(IB_PORT_CAP2_IS_PORT_INFO_EXT_SUPPORTED))) {
+		      be16toh(IB_PORT_CAP2_IS_PORT_INFO_EXT_SUPPORTED))) {
 			IBWARN("port info capability mask2 = 0x%x doesn't"
 			       " indicate PortInfoExtended support", cap_mask2);
 			return 0;
@@ -622,8 +622,8 @@ int resolve_self(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
 		*portnum = port.portnum;
 	if (gid) {
 		memset(gid, 0, sizeof(*gid));
-		prefix = cl_ntoh64(port.gid_prefix);
-		guid = cl_ntoh64(port.port_guid);
+		prefix = be64toh(port.gid_prefix);
+		guid = be64toh(port.port_guid);
 		mad_encode_field(*gid, IB_GID_PREFIX_F, &prefix);
 		mad_encode_field(*gid, IB_GID_GUID_F, &guid);
 	}
@@ -821,8 +821,8 @@ void get_max_msg(char *width_msg, char *speed_msg, int msg_size, ibnd_port_t * p
 		rem_cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
 	else
 		rem_cap_mask = 0;
-	if (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS) &&
-	    rem_cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS))
+	if (cap_mask & be32toh(IB_PORT_CAP_HAS_EXT_SPEEDS) &&
+	    rem_cap_mask & be32toh(IB_PORT_CAP_HAS_EXT_SPEEDS))
 		goto check_ext_speed;
 check_fdr10_supp:
 	fdr10 = (mad_get_field(port->ext_info, 0,

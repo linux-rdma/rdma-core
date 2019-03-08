@@ -200,7 +200,7 @@ static void print_port_config(ibnd_node_t * node, int portnum)
 	else
 		info = (uint8_t *)&port->info;
 	cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
-	if (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS))
+	if (cap_mask & be32toh(IB_PORT_CAP_HAS_EXT_SPEEDS))
 		espeed = mad_get_field(port->info, 0,
 				       IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
 	else
@@ -318,7 +318,7 @@ static void insert_lid2sl_table(struct sa_query_result *r)
     unsigned int i;
     for (i = 0; i < r->result_cnt; i++) {
 	    ib_path_rec_t *p_pr = (ib_path_rec_t *)sa_get_query_rec(r->p_result_madw, i);
-	    lid2sl_table[cl_ntoh16(p_pr->dlid)] = ib_path_rec_sl(p_pr);
+	    lid2sl_table[be16toh(p_pr->dlid)] = ib_path_rec_sl(p_pr);
     }
 }
 
@@ -346,7 +346,7 @@ static int path_record_query(ib_gid_t sgid,uint64_t dguid)
      pr.num_path |= reversible << 7;
      struct sa_query_result result;
      int ret = sa_query(h, IB_MAD_METHOD_GET_TABLE,
-                        (uint16_t)IB_SA_ATTR_PATHRECORD,0,cl_ntoh64(comp_mask),ibd_sakey,
+                        (uint16_t)IB_SA_ATTR_PATHRECORD,0,be64toh(comp_mask),ibd_sakey,
                         &pr, sizeof(pr), &result);
      if (ret) {
              sa_free_handle(h);

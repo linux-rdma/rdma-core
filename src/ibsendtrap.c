@@ -130,9 +130,9 @@ static void build_trap256_local(ib_mad_notice_attr_t * n, ib_portid_t * port)
 	n->data_details.ntc_256.lid = n->issuer_lid;
 	n->data_details.ntc_256.dr_slid = 0xffff;
 	n->data_details.ntc_256.method = 1;
-	n->data_details.ntc_256.attr_id = cl_ntoh16(0x15);
-	n->data_details.ntc_256.attr_mod = cl_ntoh32(0x12);
-	n->data_details.ntc_256.mkey = cl_ntoh64(0x1234567812345678);
+	n->data_details.ntc_256.attr_id = be16toh(0x15);
+	n->data_details.ntc_256.attr_mod = be32toh(0x12);
+	n->data_details.ntc_256.mkey = be64toh(0x1234567812345678);
 }
 
 static void build_trap256_lid(ib_mad_notice_attr_t * n, ib_portid_t * port)
@@ -163,10 +163,10 @@ static void build_trap257_258(ib_mad_notice_attr_t * n, ib_portid_t * port,
 	n->data_details.ntc_257_258.key = cl_hton32(0x12345678);
 	n->data_details.ntc_257_258.qp1 = cl_hton32(0x010101);
 	n->data_details.ntc_257_258.qp2 = cl_hton32(0x020202);
-	n->data_details.ntc_257_258.gid1.unicast.prefix = cl_ntoh64(0xf8c0000000000001);
-	n->data_details.ntc_257_258.gid1.unicast.interface_id = cl_ntoh64(0x1111222233334444);
-	n->data_details.ntc_257_258.gid2.unicast.prefix = cl_ntoh64(0xf8c0000000000001);
-	n->data_details.ntc_257_258.gid2.unicast.interface_id = cl_ntoh64(0x5678567812341234);
+	n->data_details.ntc_257_258.gid1.unicast.prefix = be64toh(0xf8c0000000000001);
+	n->data_details.ntc_257_258.gid1.unicast.interface_id = be64toh(0x1111222233334444);
+	n->data_details.ntc_257_258.gid2.unicast.prefix = be64toh(0xf8c0000000000001);
+	n->data_details.ntc_257_258.gid2.unicast.interface_id = be64toh(0x5678567812341234);
 }
 
 static void build_trap257(ib_mad_notice_attr_t * n, ib_portid_t * port)

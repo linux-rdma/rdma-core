@@ -153,7 +153,7 @@ static int get_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
 	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, srcport))
 		IBEXIT("smp query portinfo failed");
 	cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
-	return (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS));
+	return (cap_mask & be32toh(IB_PORT_CAP_HAS_EXT_SPEEDS));
 }
 
 static void show_port_info(ib_portid_t * dest, uint8_t * data, int portnum,

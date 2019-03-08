@@ -135,7 +135,7 @@ static void print_node_desc(ib_node_record_t * node_record)
 		name = remap_node_name(node_name_map,
 					node_record->node_info.node_guid,
 					(char *)p_nd->description);
-		printf("%6d  \"%s\"\n", cl_ntoh16(node_record->lid), name);
+		printf("%6d  \"%s\"\n", be16toh(node_record->lid), name);
 		free(name);
 	}
 }
@@ -145,7 +145,7 @@ static void dump_node_record(void *data, struct query_params *p)
 	ib_node_record_t *nr = data;
 	ib_node_info_t *ni = &nr->node_info;
 	char *name = remap_node_name(node_name_map,
-				       cl_ntoh64(ni->node_guid),
+				       be64toh(ni->node_guid),
 				       (char *)nr->node_desc.description);
 
 	printf("NodeRecord dump:\n"
@@ -164,14 +164,14 @@ static void dump_node_record(void *data, struct query_params *p)
 	       "\t\tport_num................%u\n"
 	       "\t\tvendor_id...............0x%X\n"
 	       "\t\tNodeDescription.........%s\n",
-	       cl_ntoh16(nr->lid), cl_ntoh16(nr->resv),
+	       be16toh(nr->lid), be16toh(nr->resv),
 	       ni->base_version, ni->class_version,
 	       ib_get_node_type_str(ni->node_type), ni->num_ports,
-	       cl_ntoh64(ni->sys_guid), cl_ntoh64(ni->node_guid),
-	       cl_ntoh64(ni->port_guid), cl_ntoh16(ni->partition_cap),
-	       cl_ntoh16(ni->device_id), cl_ntoh32(ni->revision),
+	       be64toh(ni->sys_guid), be64toh(ni->node_guid),
+	       be64toh(ni->port_guid), be16toh(ni->partition_cap),
+	       be16toh(ni->device_id), be32toh(ni->revision),
 	       ib_node_info_get_local_port_num(ni),
-	       cl_ntoh32(ib_node_info_get_vendor_id(ni)),
+	       be32toh(ib_node_info_get_vendor_id(ni)),
 	       name);
 
 	free(name);
@@ -186,15 +186,15 @@ static void print_node_record(ib_node_record_t * node_record)
 	switch (node_print_desc) {
 	case LID_ONLY:
 	case UNIQUE_LID_ONLY:
-		printf("%u\n", cl_ntoh16(node_record->lid));
+		printf("%u\n", be16toh(node_record->lid));
 		return;
 	case GUID_ONLY:
-		printf("0x%016" PRIx64 "\n", cl_ntoh64(p_ni->port_guid));
+		printf("0x%016" PRIx64 "\n", be64toh(p_ni->port_guid));
 		return;
 	case NAME_OF_LID:
 	case NAME_OF_GUID:
 		name = remap_node_name(node_name_map,
-				       cl_ntoh64(p_ni->node_guid),
+				       be64toh(p_ni->node_guid),
 				       (char *)p_nd->description);
 		printf("%s\n", name);
 		free(name);
@@ -229,12 +229,12 @@ static void dump_path_record(void *data, struct query_params *p)
 	       "\t\tpkt_life................0x%X\n"
 	       "\t\tpreference..............0x%X\n"
 	       "\t\tresv2...................0x%02X%02X%02X%02X%02X%02X\n",
-	       cl_ntoh64(p_pr->service_id),
+	       be64toh(p_pr->service_id),
 	       inet_ntop(AF_INET6, p_pr->dgid.raw, gid_str, sizeof gid_str),
 	       inet_ntop(AF_INET6, p_pr->sgid.raw, gid_str2, sizeof gid_str2),
-	       cl_ntoh16(p_pr->dlid), cl_ntoh16(p_pr->slid),
-	       cl_ntoh32(p_pr->hop_flow_raw), p_pr->tclass, p_pr->num_path,
-	       cl_ntoh16(p_pr->pkey), ib_path_rec_qos_class(p_pr),
+	       be16toh(p_pr->dlid), be16toh(p_pr->slid),
+	       be32toh(p_pr->hop_flow_raw), p_pr->tclass, p_pr->num_path,
+	       be16toh(p_pr->pkey), ib_path_rec_qos_class(p_pr),
 	       ib_path_rec_sl(p_pr), p_pr->mtu, p_pr->rate, p_pr->pkt_life,
 	       p_pr->preference,
 	       p_pr->resv2[0], p_pr->resv2[1], p_pr->resv2[2],
@@ -264,16 +264,16 @@ static void dump_class_port_info(ib_class_port_info_t *cpi)
 	       "\t\tTrap PKey................0x%04X\n"
 	       "\t\tTrap HL/QP...............0x%08X\n"
 	       "\t\tTrap QKey................0x%08X\n",
-	       cpi->base_ver, cpi->class_ver, cl_ntoh16(cpi->cap_mask),
+	       cpi->base_ver, cpi->class_ver, be16toh(cpi->cap_mask),
 	       ib_class_cap_mask2(cpi), ib_class_resp_time_val(cpi),
 	       inet_ntop(AF_INET6, &(cpi->redir_gid), gid_str, sizeof gid_str),
-	       cl_ntoh32(cpi->redir_tc_sl_fl), cl_ntoh16(cpi->redir_lid),
-	       cl_ntoh16(cpi->redir_pkey), cl_ntoh32(cpi->redir_qp),
-	       cl_ntoh32(cpi->redir_qkey),
+	       be32toh(cpi->redir_tc_sl_fl), be16toh(cpi->redir_lid),
+	       be16toh(cpi->redir_pkey), be32toh(cpi->redir_qp),
+	       be32toh(cpi->redir_qkey),
 	       inet_ntop(AF_INET6, &(cpi->trap_gid), gid_str2, sizeof gid_str2),
-	       cl_ntoh32(cpi->trap_tc_sl_fl), cl_ntoh16(cpi->trap_lid),
-	       cl_ntoh16(cpi->trap_pkey), cl_ntoh32(cpi->trap_hop_qp),
-	       cl_ntoh32(cpi->trap_qkey));
+	       be32toh(cpi->trap_tc_sl_fl), be16toh(cpi->trap_lid),
+	       be16toh(cpi->trap_pkey), be32toh(cpi->trap_hop_qp),
+	       be32toh(cpi->trap_qkey));
 }
 
 static void dump_portinfo_record(void *data, struct query_params *p)
@@ -287,9 +287,9 @@ static void dump_portinfo_record(void *data, struct query_params *p)
 	       "\t\tbase_lid................%u\n"
 	       "\t\tmaster_sm_base_lid......%u\n"
 	       "\t\tcapability_mask.........0x%X\n",
-	       cl_ntoh16(p_pir->lid), p_pir->port_num,
-	       cl_ntoh16(p_pi->base_lid), cl_ntoh16(p_pi->master_sm_base_lid),
-	       cl_ntoh32(p_pi->capability_mask));
+	       be16toh(p_pir->lid), p_pir->port_num,
+	       be16toh(p_pi->base_lid), be16toh(p_pi->master_sm_base_lid),
+	       be32toh(p_pi->capability_mask));
 }
 
 static void dump_one_portinfo_record(void *data, struct query_params *p)
@@ -303,7 +303,7 @@ static void dump_one_portinfo_record(void *data, struct query_params *p)
 	       "\t\tPortNum.................%u\n"
 	       "\t\tOptions.................0x%x\n"
 	       "\tPortInfo dump:\n",
-	       cl_ntoh16(pir->lid), pir->port_num, pir->options);
+	       be16toh(pir->lid), pir->port_num, pir->options);
 	dump_portinfo(pi, 2);
 }
 
@@ -333,8 +333,8 @@ static void dump_one_mcmember_record(void *data, struct query_params *p)
 	       "\t\tProxyJoin...............0x%x\n",
 	       inet_ntop(AF_INET6, mr->mgid.raw, mgid, sizeof(mgid)),
 	       inet_ntop(AF_INET6, mr->port_gid.raw, gid, sizeof(gid)),
-	       cl_ntoh32(mr->qkey), cl_ntoh16(mr->mlid), mr->mtu, mr->tclass,
-	       cl_ntoh16(mr->pkey), mr->rate, mr->pkt_life, sl,
+	       be32toh(mr->qkey), be16toh(mr->mlid), mr->mtu, mr->tclass,
+	       be16toh(mr->pkey), mr->rate, mr->pkt_life, sl,
 	       flow, hop, scope, join, mr->proxy_join);
 }
 
@@ -352,8 +352,8 @@ static void dump_multicast_group_record(void *data, struct query_params *p)
 	       "\t\tRate....................0x%X\n"
 	       "\t\tSL......................0x%X\n",
 	       inet_ntop(AF_INET6, p_mcmr->mgid.raw, gid_str, sizeof gid_str),
-	       cl_ntoh16(p_mcmr->mlid),
-	       p_mcmr->mtu, cl_ntoh16(p_mcmr->pkey), p_mcmr->rate, sl);
+	       be16toh(p_mcmr->mlid),
+	       p_mcmr->mtu, be16toh(p_mcmr->pkey), p_mcmr->rate, sl);
 }
 
 static void dump_multicast_member_record(ib_member_rec_t *p_mcmr,
@@ -362,7 +362,7 @@ static void dump_multicast_member_record(ib_member_rec_t *p_mcmr,
 {
 	char gid_str[INET6_ADDRSTRLEN];
 	char gid_str2[INET6_ADDRSTRLEN];
-	uint16_t mlid = cl_ntoh16(p_mcmr->mlid);
+	uint16_t mlid = be16toh(p_mcmr->mlid);
 	unsigned i = 0;
 	char *node_name = strdup("<unknown>");
 
@@ -398,7 +398,7 @@ static void dump_multicast_member_record(ib_member_rec_t *p_mcmr,
 		       "\t\tNodeDescription.........%s\n",
 		       inet_ntop(AF_INET6, p_mcmr->mgid.raw, gid_str,
 				 sizeof gid_str),
-		       cl_ntoh16(p_mcmr->mlid),
+		       be16toh(p_mcmr->mlid),
 		       inet_ntop(AF_INET6, p_mcmr->port_gid.raw,
 				 gid_str2, sizeof gid_str2),
 		       p_mcmr->scope_state, p_mcmr->proxy_join, node_name);
@@ -463,9 +463,9 @@ static void dump_service_record(void *data, struct query_params *p)
 	       "\t\tServiceData32.4.........0x%X\n"
 	       "\t\tServiceData64.1.........0x%016" PRIx64 "\n"
 	       "\t\tServiceData64.2.........0x%016" PRIx64 "\n",
-	       cl_ntoh64(p_sr->service_id),
+	       be64toh(p_sr->service_id),
 	       inet_ntop(AF_INET6, p_sr->service_gid.raw, gid, sizeof gid),
-	       cl_ntoh16(p_sr->service_pkey), cl_ntoh32(p_sr->service_lease),
+	       be16toh(p_sr->service_pkey), be32toh(p_sr->service_lease),
 	       (show_keys ? buf_service_key : NOT_DISPLAYED_STR),
                buf_service_name,
 	       p_sr->service_data8[0], p_sr->service_data8[1],
@@ -476,20 +476,20 @@ static void dump_service_record(void *data, struct query_params *p)
 	       p_sr->service_data8[10], p_sr->service_data8[11],
 	       p_sr->service_data8[12], p_sr->service_data8[13],
 	       p_sr->service_data8[14], p_sr->service_data8[15],
-	       cl_ntoh16(p_sr->service_data16[0]),
-	       cl_ntoh16(p_sr->service_data16[1]),
-	       cl_ntoh16(p_sr->service_data16[2]),
-	       cl_ntoh16(p_sr->service_data16[3]),
-	       cl_ntoh16(p_sr->service_data16[4]),
-	       cl_ntoh16(p_sr->service_data16[5]),
-	       cl_ntoh16(p_sr->service_data16[6]),
-	       cl_ntoh16(p_sr->service_data16[7]),
-	       cl_ntoh32(p_sr->service_data32[0]),
-	       cl_ntoh32(p_sr->service_data32[1]),
-	       cl_ntoh32(p_sr->service_data32[2]),
-	       cl_ntoh32(p_sr->service_data32[3]),
-	       cl_ntoh64(p_sr->service_data64[0]),
-	       cl_ntoh64(p_sr->service_data64[1]));
+	       be16toh(p_sr->service_data16[0]),
+	       be16toh(p_sr->service_data16[1]),
+	       be16toh(p_sr->service_data16[2]),
+	       be16toh(p_sr->service_data16[3]),
+	       be16toh(p_sr->service_data16[4]),
+	       be16toh(p_sr->service_data16[5]),
+	       be16toh(p_sr->service_data16[6]),
+	       be16toh(p_sr->service_data16[7]),
+	       be32toh(p_sr->service_data32[0]),
+	       be32toh(p_sr->service_data32[1]),
+	       be32toh(p_sr->service_data32[2]),
+	       be32toh(p_sr->service_data32[3]),
+	       be64toh(p_sr->service_data64[0]),
+	       be64toh(p_sr->service_data64[1]));
 }
 
 static void dump_sm_info_record(void *data, struct query_params *p)
@@ -509,10 +509,10 @@ static void dump_sm_info_record(void *data, struct query_params *p)
 	       "\t\tActCount..............%u\n"
 	       "\t\tPriority..............%u\n"
 	       "\t\tSMState...............%u\n",
-	       cl_ntoh16(p_smr->lid),
-	       cl_ntoh64(p_smr->sm_info.guid),
-	       cl_ntoh64(p_smr->sm_info.sm_key),
-	       cl_ntoh32(p_smr->sm_info.act_count),
+	       be16toh(p_smr->lid),
+	       be64toh(p_smr->sm_info.guid),
+	       be64toh(p_smr->sm_info.sm_key),
+	       be32toh(p_smr->sm_info.act_count),
 	       priority, state);
 }
 
@@ -536,21 +536,21 @@ static void dump_switch_info_record(void *data, struct query_params *p)
 		"\t\tLIDsPerPort.............................0x%X\n"
 		"\t\tPartitionEnforcementCap.................0x%X\n"
 		"\t\tflags...................................0x%X\n",
-		cl_ntoh16(p_sir->lid),
-		cl_ntoh16(p_sir->switch_info.lin_cap),
-		cl_ntoh16(p_sir->switch_info.rand_cap),
-		cl_ntoh16(p_sir->switch_info.mcast_cap),
-		cl_ntoh16(p_sir->switch_info.lin_top),
+		be16toh(p_sir->lid),
+		be16toh(p_sir->switch_info.lin_cap),
+		be16toh(p_sir->switch_info.rand_cap),
+		be16toh(p_sir->switch_info.mcast_cap),
+		be16toh(p_sir->switch_info.lin_top),
 		p_sir->switch_info.def_port,
 		p_sir->switch_info.def_mcast_pri_port,
 		p_sir->switch_info.def_mcast_not_port,
 		p_sir->switch_info.life_state,
-		cl_ntoh16(p_sir->switch_info.lids_per_port),
-		cl_ntoh16(p_sir->switch_info.enforce_cap),
+		be16toh(p_sir->switch_info.lids_per_port),
+		be16toh(p_sir->switch_info.enforce_cap),
 		p_sir->switch_info.flags);
 	if (sa_cap_mask2 & UMAD_SA_CAP_MASK2_IS_MCAST_TOP_SUP)
 		printf("\t\tMulticastFDBTop.........................0x%X\n",
-		       cl_ntoh16(p_sir->switch_info.mcast_top));
+		       be16toh(p_sir->switch_info.mcast_top));
 }
 
 static void dump_inform_info_record(void *data, struct query_params *p)
@@ -579,18 +579,18 @@ static void dump_inform_info_record(void *data, struct query_params *p)
 		       "\t\ttrap_num................%u\n",
 		       inet_ntop(AF_INET6, p_iir->subscriber_gid.raw, gid_str,
 				 sizeof gid_str),
-		       cl_ntoh16(p_iir->subscriber_enum),
+		       be16toh(p_iir->subscriber_enum),
 		       inet_ntop(AF_INET6, p_iir->inform_info.gid.raw, gid_str2,
 				 sizeof gid_str2),
-		       cl_ntoh16(p_iir->inform_info.lid_range_begin),
-		       cl_ntoh16(p_iir->inform_info.lid_range_end),
+		       be16toh(p_iir->inform_info.lid_range_begin),
+		       be16toh(p_iir->inform_info.lid_range_end),
 		       p_iir->inform_info.is_generic,
 		       p_iir->inform_info.subscribe,
-		       cl_ntoh16(p_iir->inform_info.trap_type),
-		       cl_ntoh16(p_iir->inform_info.g_or_v.generic.trap_num));
+		       be16toh(p_iir->inform_info.trap_type),
+		       be16toh(p_iir->inform_info.g_or_v.generic.trap_num));
 		if (show_keys) {
 			printf("\t\tqpn.....................0x%06X\n",
-			       cl_ntoh32(qpn));
+			       be32toh(qpn));
 		} else {
 			printf("\t\tqpn....................."
 			       NOT_DISPLAYED_STR "\n");
@@ -598,7 +598,7 @@ static void dump_inform_info_record(void *data, struct query_params *p)
 		printf("\t\tresp_time_val...........0x%X\n"
 		       "\t\tnode_type...............0x%06X\n",
 		       resp_time_val,
-		       cl_ntoh32(ib_inform_info_get_prod_type
+		       be32toh(ib_inform_info_get_prod_type
 				 (&p_iir->inform_info)));
 	} else {
 		printf("InformInfoRecord dump:\n"
@@ -615,18 +615,18 @@ static void dump_inform_info_record(void *data, struct query_params *p)
 		       "\t\tdev_id..................0x%X\n",
 		       inet_ntop(AF_INET6, p_iir->subscriber_gid.raw, gid_str,
 				 sizeof gid_str),
-		       cl_ntoh16(p_iir->subscriber_enum),
+		       be16toh(p_iir->subscriber_enum),
 		       inet_ntop(AF_INET6, p_iir->inform_info.gid.raw,
 				 gid_str2, sizeof gid_str2),
-		       cl_ntoh16(p_iir->inform_info.lid_range_begin),
-		       cl_ntoh16(p_iir->inform_info.lid_range_end),
+		       be16toh(p_iir->inform_info.lid_range_begin),
+		       be16toh(p_iir->inform_info.lid_range_end),
 		       p_iir->inform_info.is_generic,
 		       p_iir->inform_info.subscribe,
-		       cl_ntoh16(p_iir->inform_info.trap_type),
-		       cl_ntoh16(p_iir->inform_info.g_or_v.vend.dev_id));
+		       be16toh(p_iir->inform_info.trap_type),
+		       be16toh(p_iir->inform_info.g_or_v.vend.dev_id));
 		if (show_keys) {
 			printf("\t\tqpn.....................0x%06X\n",
-			       cl_ntoh32(qpn));
+			       be32toh(qpn));
 		} else {
 			printf("\t\tqpn....................."
 			       NOT_DISPLAYED_STR "\n");
@@ -634,7 +634,7 @@ static void dump_inform_info_record(void *data, struct query_params *p)
 		printf("\t\tresp_time_val...........0x%X\n"
 		       "\t\tvendor_id...............0x%06X\n",
 		       resp_time_val,
-		       cl_ntoh32(ib_inform_info_get_prod_type
+		       be32toh(ib_inform_info_get_prod_type
 				 (&p_iir->inform_info)));
 	}
 }
@@ -647,8 +647,8 @@ static void dump_one_link_record(void *data, struct query_params *p)
 	       "\t\tFromPort...................%u\n"
 	       "\t\tToPort.....................%u\n"
 	       "\t\tToLID......................%u\n",
-	       cl_ntoh16(lr->from_lid), lr->from_port_num,
-	       lr->to_port_num, cl_ntoh16(lr->to_lid));
+	       be16toh(lr->from_lid), lr->from_port_num,
+	       lr->to_port_num, be16toh(lr->to_lid));
 }
 
 static void dump_one_slvl_record(void *data, struct query_params *p)
@@ -662,7 +662,7 @@ static void dump_one_slvl_record(void *data, struct query_params *p)
 	       "\t\tSL: 0| 1| 2| 3| 4| 5| 6| 7| 8| 9|10|11|12|13|14|15|\n"
 	       "\t\tVL:%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u"
 	       "|%2u|%2u|%2u|\n",
-	       cl_ntoh16(slvl->lid), slvl->in_port_num, slvl->out_port_num,
+	       be16toh(slvl->lid), slvl->in_port_num, slvl->out_port_num,
 	       ib_slvl_table_get(t, 0), ib_slvl_table_get(t, 1),
 	       ib_slvl_table_get(t, 2), ib_slvl_table_get(t, 3),
 	       ib_slvl_table_get(t, 4), ib_slvl_table_get(t, 5),
@@ -682,7 +682,7 @@ static void dump_one_vlarb_record(void *data, struct query_params *p)
 	       "\t\tLID........................%u\n"
 	       "\t\tPort.......................%u\n"
 	       "\t\tBlock......................%u\n",
-	       cl_ntoh16(vlarb->lid), vlarb->port_num, vlarb->block_num);
+	       be16toh(vlarb->lid), vlarb->port_num, vlarb->block_num);
 	for (i = 0; i < 32; i += 16)
 		printf("\t\tVL    :%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|"
 		       "%2u|%2u|%2u|%2u|%2u|%2u|%2u|%2u|\n"
@@ -710,26 +710,26 @@ static void dump_one_pkey_tbl_record(void *data, struct query_params *params)
 	       "\t\tPort.......................%u\n"
 	       "\t\tBlock......................%u\n"
 	       "\t\tPKey Table:\n",
-	       cl_ntoh16(pktr->lid), pktr->port_num, pktr->block_num);
+	       be16toh(pktr->lid), pktr->port_num, pktr->block_num);
 	for (i = 0; i < 32; i += 8)
 		printf("\t\t0x%04x 0x%04x 0x%04x 0x%04x"
 		       " 0x%04x 0x%04x 0x%04x 0x%04x\n",
-		       cl_ntoh16(p[i + 0]), cl_ntoh16(p[i + 1]),
-		       cl_ntoh16(p[i + 2]), cl_ntoh16(p[i + 3]),
-		       cl_ntoh16(p[i + 4]), cl_ntoh16(p[i + 5]),
-		       cl_ntoh16(p[i + 6]), cl_ntoh16(p[i + 7]));
+		       be16toh(p[i + 0]), be16toh(p[i + 1]),
+		       be16toh(p[i + 2]), be16toh(p[i + 3]),
+		       be16toh(p[i + 4]), be16toh(p[i + 5]),
+		       be16toh(p[i + 6]), be16toh(p[i + 7]));
 	printf("\n");
 }
 
 static void dump_one_lft_record(void *data, struct query_params *p)
 {
 	ib_lft_record_t *lftr = data;
-	unsigned block = cl_ntoh16(lftr->block_num);
+	unsigned block = be16toh(lftr->block_num);
 	int i;
 	printf("LFT Record dump:\n"
 	       "\t\tLID........................%u\n"
 	       "\t\tBlock......................%u\n"
-	       "\t\tLFT:\n\t\tLID\tPort Number\n", cl_ntoh16(lftr->lid), block);
+	       "\t\tLFT:\n\t\tLID\tPort Number\n", be16toh(lftr->lid), block);
 	for (i = 0; i < 64; i++)
 		printf("\t\t%u\t%u\n", block * 64 + i, lftr->lft[i]);
 	printf("\n");
@@ -749,22 +749,22 @@ static void dump_one_guidinfo_record(void *data, struct query_params *p)
 	       "\t\tGUID 5.....................0x%016" PRIx64 "\n"
 	       "\t\tGUID 6.....................0x%016" PRIx64 "\n"
 	       "\t\tGUID 7.....................0x%016" PRIx64 "\n",
-	       cl_ntoh16(gir->lid), gir->block_num,
-	       cl_ntoh64(gir->guid_info.guid[0]),
-	       cl_ntoh64(gir->guid_info.guid[1]),
-	       cl_ntoh64(gir->guid_info.guid[2]),
-	       cl_ntoh64(gir->guid_info.guid[3]),
-	       cl_ntoh64(gir->guid_info.guid[4]),
-	       cl_ntoh64(gir->guid_info.guid[5]),
-	       cl_ntoh64(gir->guid_info.guid[6]),
-	       cl_ntoh64(gir->guid_info.guid[7]));
+	       be16toh(gir->lid), gir->block_num,
+	       be64toh(gir->guid_info.guid[0]),
+	       be64toh(gir->guid_info.guid[1]),
+	       be64toh(gir->guid_info.guid[2]),
+	       be64toh(gir->guid_info.guid[3]),
+	       be64toh(gir->guid_info.guid[4]),
+	       be64toh(gir->guid_info.guid[5]),
+	       be64toh(gir->guid_info.guid[6]),
+	       be64toh(gir->guid_info.guid[7]));
 }
 
 static void dump_one_mft_record(void *data, struct query_params *p)
 {
 	ib_mft_record_t *mftr = data;
-	unsigned position = cl_ntoh16(mftr->position_block_num) >> 12;
-	unsigned block = cl_ntoh16(mftr->position_block_num) &
+	unsigned position = be16toh(mftr->position_block_num) >> 12;
+	unsigned block = be16toh(mftr->position_block_num) &
 	    IB_MCAST_BLOCK_ID_MASK_HO;
 	int i;
 	unsigned offset;
@@ -774,11 +774,11 @@ static void dump_one_mft_record(void *data, struct query_params *p)
 	       "\t\tPosition...................%u\n"
 	       "\t\tBlock......................%u\n"
 	       "\t\tMFT:\n\t\tMLID\tPort Mask\n",
-	       cl_ntoh16(mftr->lid), position, block);
+	       be16toh(mftr->lid), position, block);
 	offset = IB_LID_MCAST_START_HO + block * 32;
 	for (i = 0; i < IB_MCAST_BLOCK_SIZE; i++)
 		printf("\t\t0x%04x\t0x%04x\n",
-		       offset + i, cl_ntoh16(mftr->mft[i]));
+		       offset + i, be16toh(mftr->mft[i]));
 	printf("\n");
 }
 
@@ -803,7 +803,7 @@ static int get_any_records(struct sa_handle * h,
 			   struct sa_query_result *result)
 {
 	int ret = sa_query(h, IB_MAD_METHOD_GET_TABLE, attr_id, attr_mod,
-			   cl_ntoh64(comp_mask), ibd_sakey, attr, attr_size, result);
+			   be64toh(comp_mask), ibd_sakey, attr, attr_size, result);
 	if (ret) {
 		fprintf(stderr, "Query SA failed: %s\n", strerror(ret));
 		return ret;
@@ -881,7 +881,7 @@ static int get_lid_from_name(struct sa_handle * h, const char *name, uint16_t * 
 		    && strncmp(name, (char *)node_record->node_desc.description,
 			       sizeof(node_record->node_desc.description)) ==
 		    0) {
-			*lid = cl_ntoh16(node_record->lid);
+			*lid = be16toh(node_record->lid);
 			ret = 0;
 			break;
 		}
@@ -1002,12 +1002,12 @@ static int print_node_records(struct sa_handle * h, struct query_params *p)
 		if (node_print_desc == ALL_DESC) {
 			print_node_desc(node_record);
 		} else if (node_print_desc == NAME_OF_LID) {
-			if (requested_lid == cl_ntoh16(node_record->lid))
+			if (requested_lid == be16toh(node_record->lid))
 				print_node_record(node_record);
 		} else if (node_print_desc == NAME_OF_GUID) {
 			ib_node_info_t *p_ni = &(node_record->node_info);
 
-			if (requested_guid == cl_ntoh64(p_ni->port_guid))
+			if (requested_guid == be64toh(p_ni->port_guid))
 				print_node_record(node_record);
 		} else {
 			ib_node_info_t *p_ni = &(node_record->node_info);
@@ -1015,7 +1015,7 @@ static int print_node_records(struct sa_handle * h, struct query_params *p)
 			char *name;
 
 			name = remap_node_name (node_name_map,
-						cl_ntoh64(p_ni->node_guid),
+						be64toh(p_ni->node_guid),
 						(char *)p_nd->description);
 
 			if (!requested_name ||

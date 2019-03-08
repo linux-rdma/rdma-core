@@ -397,7 +397,7 @@ static void out_switch_port(ibnd_port_t *port, int group,
 	} else {
 		cap_mask = mad_get_field(port->node->ports[0]->info, 0,
 					 IB_PORT_CAPMASK_F);
-		if (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS))
+		if (cap_mask & be32toh(IB_PORT_CAP_HAS_EXT_SPEEDS))
 			espeed = mad_get_field(port->info, 0,
 					       IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
 		else
@@ -460,7 +460,7 @@ static void out_ca_port(ibnd_port_t *port, int group, const char *out_prefix)
 				       port->remoteport->node->nodedesc);
 
 	cap_mask = mad_get_field(port->info, 0, IB_PORT_CAPMASK_F);
-	if (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS))
+	if (cap_mask & be32toh(IB_PORT_CAP_HAS_EXT_SPEEDS))
 		espeed = mad_get_field(port->info, 0,
 				       IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
 	else
@@ -714,7 +714,7 @@ static void dump_ports_report(ibnd_node_t *node, void *user_data)
 			info = (uint8_t *)&port->info;
 		if (info) {
 			cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
-			if (cap_mask & CL_NTOH32(IB_PORT_CAP_HAS_EXT_SPEEDS))
+			if (cap_mask & be32toh(IB_PORT_CAP_HAS_EXT_SPEEDS))
 				espeed = mad_get_field(port->info, 0,
 						       IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
 			else
