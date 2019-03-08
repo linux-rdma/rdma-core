@@ -69,8 +69,10 @@ static unsigned diffcheck_flags = DIFF_FLAG_DEFAULT;
 static char *filterdownports_cache_file = NULL;
 static ibnd_fabric_t *filterdownports_fabric = NULL;
 
-static uint64_t guid = 0;
-static char *guid_str = NULL;
+static struct {
+	uint64_t guid;
+	char *guid_str;
+} node_label;
 static char *dr_path = NULL;
 static int all = 0;
 
@@ -556,8 +558,8 @@ static int process_opt(void *context, int ch, char *optarg)
 		break;
 	case 'S':
 	case 'G':
-		guid_str = optarg;
-		guid = (uint64_t) strtoull(guid_str, 0, 0);
+		node_label.guid_str = optarg;
+		node_label.guid = (uint64_t)strtoull(node_label.guid_str, 0, 0);
 		break;
 	case 'D':
 		dr_path = strdup(optarg);
@@ -676,13 +678,12 @@ int main(int argc, char **argv)
 					IB_DEST_DRPATH, NULL, ibmad_port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan",
 			       dr_path);
-	} else if (guid_str) {
-		if ((resolved =
-		     resolve_portid_str(ibd_ca, ibd_ca_port, &port_id,
-				        guid_str, IB_DEST_GUID, NULL,
-					ibmad_port)) < 0)
+	} else if (node_label.guid_str) {
+		if ((resolved = resolve_portid_str(
+			     ibd_ca, ibd_ca_port, &port_id, node_label.guid_str,
+			     IB_DEST_GUID, NULL, ibmad_port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan\n",
-			       guid_str);
+			       node_label.guid_str);
 	}
 
 	if (!all && dr_path) {
@@ -726,8 +727,8 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (!all && guid_str) {
-		ibnd_port_t *p = ibnd_find_port_guid(fabric, guid);
+	if (!all && node_label.guid_str) {
+		ibnd_port_t *p = ibnd_find_port_guid(fabric, node_label.guid);
 		if (p && (!only_flag || p->node->type == only_type)) {
 			ibnd_node_t *n = p->node;
 			if (diff_fabric)
@@ -736,12 +737,12 @@ int main(int argc, char **argv)
 				print_node(n, NULL);
 		}
 		else
-			fprintf(stderr, "Failed to find port: %s\n", guid_str);
+			fprintf(stderr, "Failed to find port: %s\n", node_label.guid_str);
 	} else if (!all && dr_path) {
 		ibnd_port_t *p = NULL;
-		mad_decode_field(ni, IB_NODE_PORT_GUID_F, &(guid));
+		mad_decode_field(ni, IB_NODE_PORT_GUID_F, &node_label.guid);
 
-		p = ibnd_find_port_guid(fabric, guid);
+		p = ibnd_find_port_guid(fabric, node_label.guid);
 		if (p && (!only_flag || p->node->type == only_type)) {
 			ibnd_node_t *n = p->node;
 			if (diff_fabric)
