@@ -114,4 +114,7 @@ void add_to_type_list(ibnd_node_t * node, f_internal_t * fabric);
 
 void destroy_node(ibnd_node_t * node);
 
+int mlnx_ext_port_info_err(smp_engine_t *engine, ibnd_smp_t *smp, uint8_t *mad,
+			   void *cb_data);
+
 #endif				/* _INTERNAL_H_ */
