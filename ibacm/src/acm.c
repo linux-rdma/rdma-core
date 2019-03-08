@@ -2259,7 +2259,7 @@ static void acm_ep_up(struct acmc_port *port, uint16_t pkey)
 
 	ret = acm_assign_ep_names(ep);
 	if (ret) {
-		acm_log(0, "ERROR - unable to assign EP name for pkey 0x%x\n", pkey);
+		acm_log(1, "unable to assign EP name for pkey 0x%x\n", pkey);
 		goto ep_close;
 	}
 
