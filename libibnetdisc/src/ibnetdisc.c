@@ -65,7 +65,6 @@ static int query_node_info(smp_engine_t * engine, ib_portid_t * portid,
 			   struct ni_cbdata * cbdata);
 static int query_port_info(smp_engine_t * engine, ib_portid_t * portid,
 			   ibnd_node_t * node, int portnum);
-ibnd_port_t *ibnd_find_port_dr(ibnd_fabric_t * fabric, char *dr_str);
 
 static int recv_switch_info(smp_engine_t * engine, ibnd_smp_t * smp,
 			    uint8_t * mad, void *cb_data)
