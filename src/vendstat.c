@@ -175,9 +175,8 @@ static int is_ext_fw_info_supported(uint16_t device_id) {
 	return 0;
 }
 
-static int do_vendor(ib_portid_t *portid, struct ibmad_port *srcport,
-		     uint8_t class, uint8_t method, uint16_t attr_id,
-		     uint32_t attr_mod, void *data)
+static int do_vendor(ib_portid_t *portid, uint8_t class, uint8_t method,
+		     uint16_t attr_id, uint32_t attr_mod, void *data)
 {
 	ib_vendor_call_t call;
 
@@ -208,7 +207,7 @@ static int do_config_space_records(ib_portid_t *portid, unsigned set,
 		cs->record[i].mask = htonl(cs->record[i].mask);
 	}
 
-	if (do_vendor(portid, srcport, IB_MLX_VENDOR_CLASS,
+	if (do_vendor(portid, IB_MLX_VENDOR_CLASS,
 		      set ? IB_MAD_METHOD_SET : IB_MAD_METHOD_GET,
 		      IB_MLX_IS3_CONFIG_SPACE_ACCESS, 2 << 22 | records << 16,
 		      cs)) {
@@ -231,7 +230,7 @@ static int counter_groups_info(ib_portid_t * portid, int port)
 
 	/* Counter Group Info */
 	memset(&buf, 0, sizeof(buf));
-	if (do_vendor(portid, srcport, IB_MLX_VENDOR_CLASS, IB_MAD_METHOD_GET,
+	if (do_vendor(portid, IB_MLX_VENDOR_CLASS, IB_MAD_METHOD_GET,
 		      IB_MLX_IS4_COUNTER_GROUP_INFO, port, buf)) {
 		fprintf(stderr,"counter group info query failure\n");
 		return -1;
@@ -271,7 +270,7 @@ static int config_counter_groups(ib_portid_t * portid, int port)
 	cg_config->group_selects[0].group_select = (uint8_t) cg0;
 	cg_config->group_selects[1].group_select = (uint8_t) cg1;
 
-	if (do_vendor(portid, srcport, IB_MLX_VENDOR_CLASS, IB_MAD_METHOD_SET,
+	if (do_vendor(portid, IB_MLX_VENDOR_CLASS, IB_MAD_METHOD_SET,
 		      IB_MLX_IS4_CONFIG_COUNTER_GROUP, port, buf)) {
 		fprintf(stderr, "config counter group set failure\n");
 		return -1;
@@ -279,7 +278,7 @@ static int config_counter_groups(ib_portid_t * portid, int port)
 	/* get config counter groups */
 	memset(&buf, 0, sizeof(buf));
 
-	if (do_vendor(portid, srcport, IB_MLX_VENDOR_CLASS, IB_MAD_METHOD_GET,
+	if (do_vendor(portid, IB_MLX_VENDOR_CLASS, IB_MAD_METHOD_GET,
 		      IB_MLX_IS4_CONFIG_COUNTER_GROUP, port, buf)) {
 		fprintf(stderr, "config counter group query failure\n");
 		return -1;
@@ -436,14 +435,14 @@ int main(int argc, char **argv)
 
 	/* vendor ClassPortInfo is required attribute if class supported */
 	memset(&buf, 0, sizeof(buf));
-	if (do_vendor(&portid, srcport, IB_MLX_VENDOR_CLASS, IB_MAD_METHOD_GET,
+	if (do_vendor(&portid, IB_MLX_VENDOR_CLASS, IB_MAD_METHOD_GET,
 		      CLASS_PORT_INFO, 0, buf)) {
 		mad_rpc_close_port(srcport);
 		IBEXIT("classportinfo query");
 	}
 	memset(&buf, 0, sizeof(buf));
 	gi_is3 = (is3_general_info_t *) &buf;
-	if (do_vendor(&portid, srcport, IB_MLX_VENDOR_CLASS, IB_MAD_METHOD_GET,
+	if (do_vendor(&portid, IB_MLX_VENDOR_CLASS, IB_MAD_METHOD_GET,
 		      IB_MLX_IS3_GENERAL_INFO, 0, gi_is3)) {
 		mad_rpc_close_port(srcport);
 		IBEXIT("generalinfo query");
@@ -499,7 +498,7 @@ int main(int argc, char **argv)
 		for (i = 0; i < 16; i++)
 			cs->record[i].address =
 			    htonl(IB_MLX_IS3_PORT_XMIT_WAIT + ((i + 1) << 12));
-		if (do_vendor(&portid, srcport, IB_MLX_VENDOR_CLASS,
+		if (do_vendor(&portid, IB_MLX_VENDOR_CLASS,
 			      IB_MAD_METHOD_GET, IB_MLX_IS3_CONFIG_SPACE_ACCESS,
 			      2 << 22 | 16 << 16, cs)) {
 			mad_rpc_close_port(srcport);
@@ -516,7 +515,7 @@ int main(int argc, char **argv)
 		for (i = 0; i < 8; i++)
 			cs->record[i].address =
 			    htonl(IB_MLX_IS3_PORT_XMIT_WAIT + ((i + 17) << 12));
-		if (do_vendor(&portid, srcport, IB_MLX_VENDOR_CLASS,
+		if (do_vendor(&portid, IB_MLX_VENDOR_CLASS,
 			      IB_MAD_METHOD_GET, IB_MLX_IS3_CONFIG_SPACE_ACCESS,
 			      2 << 22 | 8 << 16, cs)) {
 			mad_rpc_close_port(srcport);

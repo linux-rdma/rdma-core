@@ -304,7 +304,7 @@ static int get_link_speed_ext(int lsee, int lses)
 		return lsee;
 }
 
-static void validate_width(int width, int peerwidth, int lwa)
+static void validate_width(int peerwidth, int lwa)
 {
 	if ((width & peerwidth & 0x8)) {
 		if (lwa != 8)
@@ -334,7 +334,7 @@ static void validate_width(int width, int peerwidth, int lwa)
 	}
 }
 
-static void validate_speed(int speed, int peerspeed, int lsa)
+static void validate_speed(int peerspeed, int lsa)
 {
 	if ((speed & peerspeed & 0x4)) {
 		if (lsa != 4)
@@ -354,7 +354,7 @@ static void validate_speed(int speed, int peerspeed, int lsa)
 	}
 }
 
-static void validate_extended_speed(int espeed, int peerespeed, int lsea)
+static void validate_extended_speed(int peerespeed, int lsea)
 {
 	if ((espeed & peerespeed & 0x4)) {
 		if (lsea != 4)
@@ -744,19 +744,18 @@ int main(int argc, char **argv)
 			/* Examine Link Width */
 			width = get_link_width(lwe, lws);
 			peerwidth = get_link_width(peerlwe, peerlws);
-			validate_width(width, peerwidth, lwa);
+			validate_width(peerwidth, lwa);
 
 			/* Examine Link Speeds */
 			speed = get_link_speed(lse, lss);
 			peerspeed = get_link_speed(peerlse, peerlss);
-			validate_speed(speed, peerspeed, lsa);
+			validate_speed(peerspeed, lsa);
 
 			if (espeed_cap && peer_espeed_cap) {
 				espeed = get_link_speed_ext(lsee, lses);
 				peerespeed = get_link_speed_ext(peerlsee,
 								peerlses);
-				validate_extended_speed(espeed, peerespeed,
-							lsea);
+				validate_extended_speed(peerespeed, lsea);
 			} else {
 				if (fdr10e & FDR10 && peerfdr10e & FDR10) {
 					if (!(fdr10a & FDR10))

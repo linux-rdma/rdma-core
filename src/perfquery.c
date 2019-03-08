@@ -514,8 +514,7 @@ static void rcv_err_query(ib_portid_t * portid, int port, int mask)
 }
 
 static uint8_t *ext_speeds_reset_via(void *rcvbuf, ib_portid_t * dest,
-				     int port, uint64_t mask, unsigned timeout,
-				     const struct ibmad_port * srcport)
+				     int port, uint64_t mask, unsigned timeout)
 {
 	ib_rpc_t rpc = { 0 };
 	int lid = dest->lid;
@@ -598,7 +597,7 @@ static void extended_speeds_query(ib_portid_t * portid, int port,
 	}
 
 	if ((reset_only || reset) &&
-	    !ext_speeds_reset_via(pc, portid, port, ext_mask, ibd_timeout, srcport))
+	    !ext_speeds_reset_via(pc, portid, port, ext_mask, ibd_timeout))
 		IBEXIT("cannot reset PortExtendedSpeedsCounters");
 }
 

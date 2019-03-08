@@ -127,7 +127,7 @@ static void set_thres(char *name, uint64_t val)
 	}
 }
 
-static void set_thresholds(const char *threshold_file)
+static void set_thresholds(void)
 {
 	char buf[1024];
 	uint64_t val = 0;
@@ -1104,7 +1104,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	set_thresholds(threshold_file);
+	set_thresholds();
 
 	/* reopen the global ibmad_port */
 	ibmad_port = mad_rpc_open_port(ibd_ca, ibd_ca_port,
