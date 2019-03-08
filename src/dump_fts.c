@@ -110,8 +110,8 @@ static int dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
 
 uint16_t mft[16][IB_MLIDS_IN_BLOCK] = { { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0}, { 0 }, { 0 } };
 
-static void dump_multicast_tables(ibnd_node_t *node, unsigned startlid,
-				  unsigned endlid, struct ibmad_port *mad_port)
+static void dump_multicast_tables(ibnd_node_t *node, unsigned startl,
+				  unsigned endl, struct ibmad_port *mad_port)
 {
 	ib_portid_t *portid = &node->path_portid;
 	char nd[IB_SMP_DATA_SIZE] = { 0 };
@@ -131,33 +131,33 @@ static void dump_multicast_tables(ibnd_node_t *node, unsigned startlid,
 	mad_decode_field(node->switchinfo, IB_SW_MCAST_FDB_CAP_F, &cap);
 	mad_decode_field(node->switchinfo, IB_SW_MCAST_FDB_TOP_F, &top);
 
-	if (!endlid || endlid > IB_MIN_MCAST_LID + cap - 1)
-		endlid = IB_MIN_MCAST_LID + cap - 1;
-	if (!dump_all && top && top < endlid) {
+	if (!endl || endl > IB_MIN_MCAST_LID + cap - 1)
+		endl = IB_MIN_MCAST_LID + cap - 1;
+	if (!dump_all && top && top < endl) {
 		if (top < IB_MIN_MCAST_LID - 1)
 			IBWARN("illegal top mlid %x", top);
 		else
-			endlid = top;
+			endl = top;
 	}
 
-	if (!startlid)
-		startlid = IB_MIN_MCAST_LID;
-	else if (startlid < IB_MIN_MCAST_LID) {
-		IBWARN("illegal start mlid %x, set to %x", startlid,
+	if (!startl)
+		startl = IB_MIN_MCAST_LID;
+	else if (startl < IB_MIN_MCAST_LID) {
+		IBWARN("illegal start mlid %x, set to %x", startl,
 		       IB_MIN_MCAST_LID);
-		startlid = IB_MIN_MCAST_LID;
+		startl = IB_MIN_MCAST_LID;
 	}
 
-	if (endlid > IB_MAX_MCAST_LID) {
-		IBWARN("illegal end mlid %x, truncate to %x", endlid,
+	if (endl > IB_MAX_MCAST_LID) {
+		IBWARN("illegal end mlid %x, truncate to %x", endl,
 		       IB_MAX_MCAST_LID);
-		endlid = IB_MAX_MCAST_LID;
+		endl = IB_MAX_MCAST_LID;
 	}
 
 	mapnd = remap_node_name(node_name_map, nodeguid, nd);
 
 	printf("Multicast mlids [0x%x-0x%x] of switch %s guid 0x%016" PRIx64
-	       " (%s):\n", startlid, endlid, portid2str(portid), nodeguid,
+	       " (%s):\n", startl, endl, portid2str(portid), nodeguid,
 	       mapnd);
 
 	if (brief)
@@ -182,8 +182,8 @@ static void dump_multicast_tables(ibnd_node_t *node, unsigned startlid,
 
 	chunks = ALIGN(nports + 1, 16) / 16;
 
-	startblock = startlid / IB_MLIDS_IN_BLOCK;
-	lastblock = endlid / IB_MLIDS_IN_BLOCK;
+	startblock = startl / IB_MLIDS_IN_BLOCK;
+	lastblock = endl / IB_MLIDS_IN_BLOCK;
 	for (block = startblock; block <= lastblock; block++) {
 		for (j = 0; j < chunks; j++) {
 			int status;
@@ -207,10 +207,10 @@ static void dump_multicast_tables(ibnd_node_t *node, unsigned startlid,
 
 		i = block * IB_MLIDS_IN_BLOCK;
 		e = i + IB_MLIDS_IN_BLOCK;
-		if (i < startlid)
-			i = startlid;
-		if (e > endlid + 1)
-			e = endlid + 1;
+		if (i < startl)
+			i = startl;
+		if (e > endl + 1)
+			e = endl + 1;
 
 		for (; i < e; i++) {
 			if (dump_mlid(str, sizeof str, i, nports, mft) == 0)
@@ -301,7 +301,7 @@ static int dump_lid(char *str, int str_len, int lid, int valid,
 	return rc;
 }
 
-static void dump_unicast_tables(ibnd_node_t *node, int startlid, int endlid,
+static void dump_unicast_tables(ibnd_node_t *node, int startl, int endl,
 				struct ibmad_port *mad_port,
 				ibnd_fabric_t *fabric)
 {
@@ -322,27 +322,27 @@ static void dump_unicast_tables(ibnd_node_t *node, int startlid, int endlid,
 	nports = node->numports;
 	memcpy(nd, node->nodedesc, strlen(node->nodedesc));
 
-	if (!endlid || endlid > top)
-		endlid = top;
+	if (!endl || endl > top)
+		endl = top;
 
-	if (endlid > IB_MAX_UCAST_LID) {
-		IBWARN("illegal lft top %d, truncate to %d", endlid,
+	if (endl > IB_MAX_UCAST_LID) {
+		IBWARN("illegal lft top %d, truncate to %d", endl,
 		       IB_MAX_UCAST_LID);
-		endlid = IB_MAX_UCAST_LID;
+		endl = IB_MAX_UCAST_LID;
 	}
 
 	mapnd = remap_node_name(node_name_map, nodeguid, nd);
 
 	printf("Unicast lids [0x%x-0x%x] of switch %s guid 0x%016" PRIx64
-	       " (%s):\n", startlid, endlid, portid2str(portid), nodeguid,
+	       " (%s):\n", startl, endl, portid2str(portid), nodeguid,
 	       mapnd);
 
 	DEBUG("Switch top is 0x%x\n", top);
 
 	printf("  Lid  Out   Destination\n");
 	printf("       Port     Info \n");
-	startblock = startlid / IB_SMP_DATA_SIZE;
-	endblock = ALIGN(endlid, IB_SMP_DATA_SIZE) / IB_SMP_DATA_SIZE;
+	startblock = startl / IB_SMP_DATA_SIZE;
+	endblock = ALIGN(endl, IB_SMP_DATA_SIZE) / IB_SMP_DATA_SIZE;
 	for (block = startblock; block < endblock; block++) {
 		int status;
 		DEBUG("reading block %d", block);
@@ -357,10 +357,10 @@ static void dump_unicast_tables(ibnd_node_t *node, int startlid, int endlid,
 		}
 		i = block * IB_SMP_DATA_SIZE;
 		e = i + IB_SMP_DATA_SIZE;
-		if (i < startlid)
-			i = startlid;
-		if (e > endlid + 1)
-			e = endlid + 1;
+		if (i < startl)
+			i = startl;
+		if (e > endl + 1)
+			e = endl + 1;
 
 		for (; i < e; i++) {
 			unsigned outport = lft[i % IB_SMP_DATA_SIZE];

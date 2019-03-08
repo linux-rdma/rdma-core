@@ -1122,14 +1122,15 @@ int main(int argc, char **argv)
 		mad_rpc_set_timeout(ibmad_port, ibd_timeout);
 
 	if (port_guid_str) {
-		ibnd_port_t *port = ibnd_find_port_guid(fabric, port_guid);
-		if (port)
-			print_node(port->node, NULL);
+		ibnd_port_t *ndport = ibnd_find_port_guid(fabric, port_guid);
+		if (ndport)
+			print_node(ndport->node, NULL);
 		else
 			fprintf(stderr, "Failed to find node: %s\n",
 				port_guid_str);
 	} else if (dr_path) {
-		ibnd_port_t *port;
+		ibnd_port_t *ndport;
+
 		uint8_t ni[IB_SMP_DATA_SIZE] = { 0 };
 		if (!smp_query_via(ni, &portid, IB_ATTR_NODE_INFO, 0,
 			   ibd_timeout, ibmad_port)) {
@@ -1139,12 +1140,12 @@ int main(int argc, char **argv)
 
 		mad_decode_field(ni, IB_NODE_PORT_GUID_F, &(port_guid));
 
-		port = ibnd_find_port_guid(fabric, port_guid);
-		if (port) {
+		ndport = ibnd_find_port_guid(fabric, port_guid);
+		if (ndport) {
 			if(obtain_sl)
-				if(path_record_query(self_gid,port->guid))
+				if(path_record_query(self_gid,ndport->guid))
 					goto close_port;
-			print_node(port->node, NULL);
+			print_node(ndport->node, NULL);
 		} else
 			fprintf(stderr, "Failed to find node: %s\n", dr_path);
 	} else {
