@@ -51,7 +51,10 @@
 #ifdef NOISY_DEBUG
 #define dbg(fmt, ...) fprintf(stderr, "DBG: " fmt, ## __VA_ARGS__ )
 #else
-#define dbg(fmt, ...)
+__attribute__((format(printf, 1, 2))) static inline void dbg(const char *fmt,
+							     ...)
+{
+}
 #endif
 
 #define TMO 100
