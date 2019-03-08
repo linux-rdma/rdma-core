@@ -48,6 +48,8 @@
 
 #include "ibdiag_common.h"
 
+#include <util/compiler.h>
+
 enum port_ops {
 	QUERY,
 	ENABLE,
@@ -578,6 +580,7 @@ int main(int argc, char **argv)
 				printf("Port is already in enable state\n");
 				goto close_port;
 			}
+			SWITCH_FALLTHROUGH;
 		case ENABLE:
 		case RESET:
 			/* Polling */
