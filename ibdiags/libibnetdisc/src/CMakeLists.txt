@@ -14,7 +14,6 @@ rdma_library(ibnetdisc libibnetdisc.map
 target_link_libraries(ibnetdisc LINK_PRIVATE
   ibmad
   ibumad
-  osmcomp
   )
 # FIXME for osmcomp
 target_include_directories(ibnetdisc PRIVATE "/usr/include/infiniband")

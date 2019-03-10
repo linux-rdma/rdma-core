@@ -44,7 +44,6 @@
 #include <errno.h>
 #include <inttypes.h>
 
-#include <infiniband/complib/cl_nodenamemap.h>
 #include <infiniband/ibnetdisc.h>
 
 static const char *argv0 = "iblinkinfotest";

@@ -1,10 +1,12 @@
 publish_internal_headers(util
+  cl_qmap.h
   compiler.h
   symver.h
   util.h
   )
 
 set(C_FILES
+  cl_map.c
   util.c)
 
 if (HAVE_COHERENT_DMA)

@@ -46,7 +46,6 @@
 #include <infiniband/mad.h>
 
 #include <infiniband/ibnetdisc.h>
-#include <complib/cl_nodenamemap.h>
 
 #include "internal.h"
 #include "chassis.h"

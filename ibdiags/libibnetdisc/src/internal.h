@@ -39,7 +39,7 @@
 #define _INTERNAL_H_
 
 #include <infiniband/ibnetdisc.h>
-#include <complib/cl_qmap.h>
+#include <util/cl_qmap.h>
 
 #define	IBND_DEBUG(fmt, ...) \
 	if (ibdebug) { \
