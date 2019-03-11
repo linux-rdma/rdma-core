@@ -119,6 +119,7 @@ static void print_port(ibnd_node_t *node, ibnd_port_t *port,
 	int iwidth, ispeed, fdr10, espeed, istate, iphystate, cap_mask;
 	int n = 0;
 	uint8_t *info = NULL;
+	int rc;
 
 	if (!port)
 		return;
@@ -219,12 +220,16 @@ static void print_port(ibnd_node_t *node, ibnd_port_t *port,
 				 port->remoteport->guid);
 		}
 
-		snprintf(remote_str, 256, "%s%6d %4d[%2s] \"%s\" (%s %s)\n",
-			 remote_guid_str, port->remoteport->base_lid ?
-			 port->remoteport->base_lid :
-			 port->remoteport->node->smalid,
-			 port->remoteport->portnum, ext_port_str, remap,
-			 width_msg, speed_msg);
+		rc = snprintf(remote_str, sizeof(remote_str),
+			      "%s%6d %4d[%2s] \"%s\" (%s %s)\n",
+			      remote_guid_str, port->remoteport->base_lid ?
+			      port->remoteport->base_lid :
+			      port->remoteport->node->smalid,
+			      port->remoteport->portnum, ext_port_str, remap,
+			      width_msg, speed_msg);
+		if (rc > sizeof(remote_str))
+			fprintf(stderr, "WARN: string buffer overflow\n");
+
 		free(remap);
 	} else {
 		if (istate == IB_LINK_DOWN)

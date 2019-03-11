@@ -116,7 +116,9 @@ static int sys_read_string(const char *dir_name, const char *file_name,
 	char path[256], *s;
 	int fd, r;
 
-	snprintf(path, sizeof(path), "%s/%s", dir_name, file_name);
+	r = snprintf(path, sizeof(path), "%s/%s", dir_name, file_name);
+	if (r > sizeof(path))
+		return -ENOENT;
 
 	if ((fd = open(path, O_RDONLY)) < 0)
 		return ret_code();

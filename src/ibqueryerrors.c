@@ -183,6 +183,7 @@ static void print_port_config(ibnd_node_t * node, int portnum)
 	char ext_port_str[256];
 	int iwidth, ispeed, fdr10, espeed, istate, iphystate, cap_mask;
 	uint8_t *info;
+	int rc;
 
 	ibnd_port_t *port = node->ports[portnum];
 
@@ -253,13 +254,15 @@ static void print_port_config(ibnd_node_t * node, int portnum)
 						port->remoteport->node->
 						nodedesc);
 
-		snprintf(remote_str, 256,
+		rc = snprintf(remote_str, sizeof(remote_str),
 			 "0x%016" PRIx64 " %6d %4d[%2s] \"%s\" (%s %s)\n",
 			 port->remoteport->guid,
 			 port->remoteport->base_lid ? port->remoteport->
 			 base_lid : port->remoteport->node->smalid,
 			 port->remoteport->portnum, ext_port_str, rem_node_name,
 			 width_msg, speed_msg);
+		if (rc > sizeof(remote_str))
+			fprintf(stderr, "WARN: string buffer overflow\n");
 
 		free(rem_node_name);
 	} else
