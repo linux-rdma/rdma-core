@@ -50,9 +50,9 @@
 #include "internal.h"
 #include "chassis.h"
 
-static char *ChassisTypeStr[] =
+static const char * const ChassisTypeStr[] =
 { "", "ISR9288", "ISR9096", "ISR2012", "ISR2004", "ISR4700", "ISR4200" };
-static char *ChassisSlotTypeStr[] = { "", "Line", "Spine", "SRBD" };
+static const char * const ChassisSlotTypeStr[] = { "", "Line", "Spine", "SRBD" };
 
 typedef struct chassis_scan {
 	ibnd_chassis_t *first_chassis;
@@ -60,7 +60,7 @@ typedef struct chassis_scan {
 	ibnd_chassis_t *last_chassis;
 } chassis_scan_t;
 
-char *ibnd_get_chassis_type(ibnd_node_t * node)
+const char *ibnd_get_chassis_type(ibnd_node_t * node)
 {
 	int chassis_type;
 
@@ -352,11 +352,6 @@ static int is_line(ibnd_node_t * n)
 {
 	return (is_line_24(n) || is_line_8(n) ||
 		is_line_2024(n) || is_line_4700(n));
-}
-
-int is_chassis_switch(ibnd_node_t * n)
-{
-	return (is_spine(n) || is_line(n));
 }
 
 /* these structs help find Line (Anafa) slot number while using spine portnum */

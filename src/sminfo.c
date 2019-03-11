@@ -62,7 +62,7 @@ enum {
 	SMINFO_STATE_LAST,
 };
 
-char *statestr[] = {
+const char *const statestr[] = {
 	"SMINFO_NOTACT",
 	"SMINFO_DISCOVER",
 	"SMINFO_STANDBY",

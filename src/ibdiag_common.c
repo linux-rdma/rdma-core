@@ -118,7 +118,7 @@ static inline int val_str_true(const char *val_str)
 		(strncmp(val_str, "true", strlen("true")) == 0));
 }
 
-void read_ibdiag_config(const char *file)
+static void read_ibdiag_config(const char *file)
 {
 	char buf[1024];
 	FILE *config_fd = NULL;
@@ -174,7 +174,7 @@ void read_ibdiag_config(const char *file)
 }
 
 
-void ibdiag_show_usage()
+void ibdiag_show_usage(void)
 {
 	struct option *o = long_opts;
 	int n;
@@ -328,7 +328,7 @@ static struct option *make_long_opts(const char *exclude_str,
 				     const struct ibdiag_opt *custom_opts,
 				     const struct ibdiag_opt *map[])
 {
-	struct option *long_opts, *l;
+	struct option *res, *l;
 	const struct ibdiag_opt *o;
 	unsigned n = 0;
 
@@ -336,12 +336,12 @@ static struct option *make_long_opts(const char *exclude_str,
 		for (o = custom_opts; o->name; o++)
 			n++;
 
-	long_opts = malloc((sizeof(common_opts) / sizeof(common_opts[0]) + n) *
-			   sizeof(*long_opts));
-	if (!long_opts)
+	res = malloc((sizeof(common_opts) / sizeof(common_opts[0]) + n) *
+		     sizeof(*res));
+	if (!res)
 		return NULL;
 
-	l = long_opts;
+	l = res;
 
 	if (custom_opts)
 		for (o = custom_opts; o->name; o++)
@@ -355,7 +355,7 @@ static struct option *make_long_opts(const char *exclude_str,
 
 	memset(l, 0, sizeof(*l));
 
-	return long_opts;
+	return res;
 }
 
 static void make_str_opts(const struct option *o, char *p, unsigned size)
@@ -413,7 +413,7 @@ int ibdiag_process_opts(int argc, char *const argv[], void *cxt,
 	return 0;
 }
 
-void ibexit(const char *fn, char *msg, ...)
+void ibexit(const char *fn, const char *msg, ...)
 {
 	char buf[512];
 	va_list va;
@@ -434,8 +434,7 @@ void ibexit(const char *fn, char *msg, ...)
 	exit(-1);
 }
 
-char *
-conv_cnt_human_readable(uint64_t val64, float *val, int data)
+const char *conv_cnt_human_readable(uint64_t val64, float *val, int data)
 {
 	uint64_t tmp = val64;
 	int ui = 0;
@@ -634,15 +633,15 @@ int resolve_self(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
 	return 0;
 }
 
-int resolve_gid(char *ca_name, uint8_t ca_port, ib_portid_t * portid,
-		ibmad_gid_t gid, ib_portid_t * sm_id,
-		const struct ibmad_port *srcport)
+static int resolve_gid(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
+		       ibmad_gid_t gid, ib_portid_t *sm_id,
+		       const struct ibmad_port *srcport)
 {
-	ib_portid_t sm_portid;
+	ib_portid_t tmp;
 	char buf[IB_SA_DATA_SIZE] = { 0 };
 
 	if (!sm_id) {
-		sm_id = &sm_portid;
+		sm_id = &tmp;
 		if (resolve_sm_portid(ca_name, ca_port, sm_id) < 0)
 			return -1;
 	}
@@ -654,17 +653,17 @@ int resolve_gid(char *ca_name, uint8_t ca_port, ib_portid_t * portid,
 	return 0;
 }
 
-int resolve_guid(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
-		 uint64_t *guid, ib_portid_t *sm_id,
-		 const struct ibmad_port *srcport)
+static int resolve_guid(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
+			uint64_t *guid, ib_portid_t *sm_id,
+			const struct ibmad_port *srcport)
 {
-	ib_portid_t sm_portid;
+	ib_portid_t tmp;
 	uint8_t buf[IB_SA_DATA_SIZE] = { 0 };
 	uint64_t prefix;
 	ibmad_gid_t selfgid;
 
 	if (!sm_id) {
-		sm_id = &sm_portid;
+		sm_id = &tmp;
 		if (resolve_sm_portid(ca_name, ca_port, sm_id) < 0)
 			return -1;
 	}

@@ -267,7 +267,7 @@ int main(int argc, char **argv)
 		 "Specify before and after port guid to edit"},
 		{0}
 	};
-	char *usage_args = "<orig.cache> <new.cache>";
+	const char *usage_args = "<orig.cache> <new.cache>";
 
 	ibdiag_process_opts(argc, argv, NULL, "CDdeGKLPstvy",
 			    opts, process_opt, usage_args,

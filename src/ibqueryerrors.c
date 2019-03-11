@@ -92,11 +92,11 @@ struct {
 } summary = { 0 };
 
 #define DEF_THRES_FILE IBDIAG_CONFIG_PATH"/error_thresholds"
-static char *threshold_file = DEF_THRES_FILE;
+static const char *threshold_file = DEF_THRES_FILE;
 
 /* define a "packet" with threshold values in it */
 uint8_t thresholds[1204] = { 0 };
-char * threshold_str = "";
+char *threshold_str = NULL;
 
 static unsigned valid_gid(ib_gid_t * gid)
 {
@@ -127,7 +127,7 @@ static void set_thres(char *name, uint64_t val)
 	}
 }
 
-static void set_thresholds(char *threshold_file)
+static void set_thresholds(void)
 {
 	char buf[1024];
 	uint64_t val = 0;
@@ -399,7 +399,7 @@ static int check_threshold(uint8_t *pc, uint8_t *pce, uint32_t cap_mask2,
 	uint64_t val64 = 0;
 	int is_exceeds = 0;
 	float val = 0;
-	char *unit = "";
+	const char *unit = "";
 
 	if (htonl(cap_mask2) & IB_PM_IS_ADDL_PORT_CTRS_EXT_SUP) {
 		mad_decode_field(pce, ext_i, (void *)&val64);
@@ -488,7 +488,7 @@ static int print_results(ib_portid_t * portid, char *node_name,
 			for (i = start_field; i <= end_field; i++) {
 				uint64_t val64 = 0;
 				float val = 0;
-				char *unit = "";
+				const char *unit = "";
 				mad_decode_field(pkt, i, (void *)&val64);
 				if (val64) {
 					int data = 0;
@@ -614,7 +614,7 @@ static int print_data_cnts(ib_portid_t * portid, uint16_t cap_mask,
 	for (i = start_field; i <= end_field; i++) {
 		uint64_t val64 = 0;
 		float val = 0;
-		char *unit = "";
+		const char *unit = "";
 		int data = 0;
 		mad_decode_field(pc, i, (void *)&val64);
 		if (i == IB_PC_EXT_XMT_BYTES_F || i == IB_PC_EXT_RCV_BYTES_F ||
@@ -673,9 +673,9 @@ static int print_errors(ib_portid_t * portid, uint16_t cap_mask, uint32_t cap_ma
 			      header_printed, pc_ext, cap_mask, cap_mask2));
 }
 
-uint8_t *reset_pc_ext(void *rcvbuf, ib_portid_t * dest,
-		      int port, unsigned mask, unsigned timeout,
-		      const struct ibmad_port * srcport)
+static uint8_t *reset_pc_ext(void *rcvbuf, ib_portid_t *dest, int port,
+			     unsigned mask, unsigned timeout,
+			     const struct ibmad_port *srcport)
 {
 	ib_rpc_t rpc = { 0 };
 	int lid = dest->lid;
@@ -770,7 +770,7 @@ static void clear_port(ib_portid_t * portid, uint16_t cap_mask, uint32_t cap_mas
 	}
 }
 
-void print_node(ibnd_node_t * node, void *user_data)
+static void print_node(ibnd_node_t *node, void *user_data)
 {
 	int header_printed = 0;
 	int p = 0;
@@ -1104,7 +1104,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	set_thresholds(threshold_file);
+	set_thresholds();
 
 	/* reopen the global ibmad_port */
 	ibmad_port = mad_rpc_open_port(ibd_ca, ibd_ca_port,
@@ -1122,14 +1122,15 @@ int main(int argc, char **argv)
 		mad_rpc_set_timeout(ibmad_port, ibd_timeout);
 
 	if (port_guid_str) {
-		ibnd_port_t *port = ibnd_find_port_guid(fabric, port_guid);
-		if (port)
-			print_node(port->node, NULL);
+		ibnd_port_t *ndport = ibnd_find_port_guid(fabric, port_guid);
+		if (ndport)
+			print_node(ndport->node, NULL);
 		else
 			fprintf(stderr, "Failed to find node: %s\n",
 				port_guid_str);
 	} else if (dr_path) {
-		ibnd_port_t *port;
+		ibnd_port_t *ndport;
+
 		uint8_t ni[IB_SMP_DATA_SIZE] = { 0 };
 		if (!smp_query_via(ni, &portid, IB_ATTR_NODE_INFO, 0,
 			   ibd_timeout, ibmad_port)) {
@@ -1139,12 +1140,12 @@ int main(int argc, char **argv)
 
 		mad_decode_field(ni, IB_NODE_PORT_GUID_F, &(port_guid));
 
-		port = ibnd_find_port_guid(fabric, port_guid);
-		if (port) {
+		ndport = ibnd_find_port_guid(fabric, port_guid);
+		if (ndport) {
 			if(obtain_sl)
-				if(path_record_query(self_gid,port->guid))
+				if(path_record_query(self_gid,ndport->guid))
 					goto close_port;
-			print_node(port->node, NULL);
+			print_node(ndport->node, NULL);
 		} else
 			fprintf(stderr, "Failed to find node: %s\n", dr_path);
 	} else {

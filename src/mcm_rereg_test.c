@@ -51,7 +51,10 @@
 #ifdef NOISY_DEBUG
 #define dbg(fmt, ...) fprintf(stderr, "DBG: " fmt, ## __VA_ARGS__ )
 #else
-#define dbg(fmt, ...)
+__attribute__((format(printf, 1, 2))) static inline void dbg(const char *fmt,
+							     ...)
+{
+}
 #endif
 
 #define TMO 100
@@ -63,7 +66,8 @@ static ibmad_gid_t mgid_ipoib = {
 
 struct ibmad_port *srcport;
 
-uint64_t build_mcm_rec(uint8_t * data, ibmad_gid_t mgid, ibmad_gid_t port_gid)
+static uint64_t build_mcm_rec(uint8_t *data, ibmad_gid_t mgid,
+			      ibmad_gid_t port_gid)
 {
 	memset(data, 0, IB_SA_DATA_SIZE);
 	mad_set_array(data, 0, IB_SA_MCM_MGID_F, mgid);
@@ -309,8 +313,8 @@ static int rereg_query_all(int port, int agent, ib_portid_t * dport,
 
 #define MAX_CLIENTS 50
 
-static int rereg_and_test_port(char *guid_file, int port, int agent,
-			       ib_portid_t * dport, int timeout)
+static int rereg_and_test_port(const char *guid_file, int port, int agent,
+			       ib_portid_t *dport, int timeout)
 {
 	char line[256];
 	FILE *f;
@@ -356,9 +360,9 @@ static int rereg_and_test_port(char *guid_file, int port, int agent,
 	return 0;
 }
 
-int main(int argc, char **argv)
+int main(int argc, const char **argv)
 {
-	char *guid_file = "port_guids.list";
+	const char *guid_file = "port_guids.list";
 	int mgmt_classes[2] = { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS };
 	ib_portid_t dport_id;
 	int port, agent;

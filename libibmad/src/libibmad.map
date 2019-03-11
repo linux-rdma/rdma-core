@@ -111,7 +111,6 @@ IBMAD_1.3 {
 		mad_get_timeout;
 		mad_get_retries;
 		madrpc;
-		madrpc_def_timeout;
 		madrpc_init;
 		madrpc_portid;
 		madrpc_rmpp;

@@ -76,7 +76,7 @@ static nn_map_t *node_name_map = NULL;
 static int extended_speeds = 0;
 
 /*******************************************/
-static char *node_desc(ib_portid_t * dest, char **argv, int argc)
+static const char *node_desc(ib_portid_t *dest, char **argv, int argc)
 {
 	int node_type, l;
 	uint64_t node_guid;
@@ -110,7 +110,7 @@ static char *node_desc(ib_portid_t * dest, char **argv, int argc)
 	return 0;
 }
 
-static char *node_info(ib_portid_t * dest, char **argv, int argc)
+static const char *node_info(ib_portid_t * dest, char **argv, int argc)
 {
 	char buf[2048];
 	char data[IB_SMP_DATA_SIZE] = { 0 };
@@ -124,7 +124,7 @@ static char *node_info(ib_portid_t * dest, char **argv, int argc)
 	return 0;
 }
 
-static char *port_info_extended(ib_portid_t * dest, char **argv, int argc)
+static const char *port_info_extended(ib_portid_t *dest, char **argv, int argc)
 {
 	char buf[2048];
 	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
@@ -146,7 +146,7 @@ static char *port_info_extended(ib_portid_t * dest, char **argv, int argc)
 	return 0;
 }
 
-static char *port_info(ib_portid_t * dest, char **argv, int argc)
+static const char *port_info(ib_portid_t *dest, char **argv, int argc)
 {
 	char data[IB_SMP_DATA_SIZE] = { 0 };
 	int portnum = 0, orig_portnum;
@@ -165,7 +165,7 @@ static char *port_info(ib_portid_t * dest, char **argv, int argc)
 	return 0;
 }
 
-static char *mlnx_ext_port_info(ib_portid_t * dest, char **argv, int argc)
+static const char *mlnx_ext_port_info(ib_portid_t *dest, char **argv, int argc)
 {
 	char buf[2300];
 	char data[IB_SMP_DATA_SIZE];
@@ -183,7 +183,7 @@ static char *mlnx_ext_port_info(ib_portid_t * dest, char **argv, int argc)
 	return 0;
 }
 
-static char *switch_info(ib_portid_t * dest, char **argv, int argc)
+static const char *switch_info(ib_portid_t *dest, char **argv, int argc)
 {
 	char buf[2048];
 	char data[IB_SMP_DATA_SIZE] = { 0 };
@@ -197,7 +197,7 @@ static char *switch_info(ib_portid_t * dest, char **argv, int argc)
 	return 0;
 }
 
-static char *pkey_table(ib_portid_t * dest, char **argv, int argc)
+static const char *pkey_table(ib_portid_t *dest, char **argv, int argc)
 {
 	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	int i, j, k;
@@ -249,7 +249,7 @@ static char *pkey_table(ib_portid_t * dest, char **argv, int argc)
 	return 0;
 }
 
-static char *sl2vl_dump_table_entry(ib_portid_t * dest, int in, int out)
+static const char *sl2vl_dump_table_entry(ib_portid_t *dest, int in, int out)
 {
 	char buf[2048];
 	char data[IB_SMP_DATA_SIZE] = { 0 };
@@ -264,12 +264,12 @@ static char *sl2vl_dump_table_entry(ib_portid_t * dest, int in, int out)
 	return 0;
 }
 
-static char *sl2vl_table(ib_portid_t * dest, char **argv, int argc)
+static const char *sl2vl_table(ib_portid_t *dest, char **argv, int argc)
 {
 	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	int type, num_ports, portnum = 0;
 	int i;
-	char *ret;
+	const char *ret;
 
 	if (argc > 0)
 		portnum = strtol(argv[0], 0, 0);
@@ -299,8 +299,8 @@ static char *sl2vl_table(ib_portid_t * dest, char **argv, int argc)
 	return 0;
 }
 
-static char *vlarb_dump_table_entry(ib_portid_t * dest, int portnum, int offset,
-				    unsigned cap)
+static const char *vlarb_dump_table_entry(ib_portid_t *dest, int portnum,
+					  int offset, unsigned cap)
 {
 	char buf[2048];
 	char data[IB_SMP_DATA_SIZE] = { 0 };
@@ -313,10 +313,10 @@ static char *vlarb_dump_table_entry(ib_portid_t * dest, int portnum, int offset,
 	return 0;
 }
 
-static char *vlarb_dump_table(ib_portid_t * dest, int portnum,
-			      char *name, int offset, int cap)
+static const char *vlarb_dump_table(ib_portid_t *dest, int portnum,
+				    const char *name, int offset, int cap)
 {
-	char *ret;
+	const char *ret;
 
 	printf("# %s priority VL Arbitration Table:", name);
 	ret = vlarb_dump_table_entry(dest, portnum, offset,
@@ -327,12 +327,12 @@ static char *vlarb_dump_table(ib_portid_t * dest, int portnum,
 	return ret;
 }
 
-static char *vlarb_table(ib_portid_t * dest, char **argv, int argc)
+static const char *vlarb_table(ib_portid_t *dest, char **argv, int argc)
 {
 	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	int portnum = 0;
 	int type, enhsp0, lowcap, highcap;
-	char *ret = 0;
+	const char *ret = NULL;
 
 	if (argc > 0)
 		portnum = strtol(argv[0], 0, 0);
@@ -378,7 +378,7 @@ static char *vlarb_table(ib_portid_t * dest, char **argv, int argc)
 	return ret;
 }
 
-static char *guid_info(ib_portid_t * dest, char **argv, int argc)
+static const char *guid_info(ib_portid_t *dest, char **argv, int argc)
 {
 	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	int i, j, k;
@@ -437,7 +437,7 @@ int main(int argc, char **argv)
 	int mgmt_classes[3] =
 	    { IB_SMI_CLASS, IB_SMI_DIRECT_CLASS, IB_SA_CLASS };
 	ib_portid_t portid = { 0 };
-	char *err;
+	const char *err;
 	op_fn_t *fn;
 	const match_rec_t *r;
 	int n;

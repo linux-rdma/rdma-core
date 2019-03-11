@@ -69,8 +69,10 @@ static unsigned diffcheck_flags = DIFF_FLAG_DEFAULT;
 static char *filterdownports_cache_file = NULL;
 static ibnd_fabric_t *filterdownports_fabric = NULL;
 
-static uint64_t guid = 0;
-static char *guid_str = NULL;
+static struct {
+	uint64_t guid;
+	char *guid_str;
+} node_label;
 static char *dr_path = NULL;
 static int all = 0;
 
@@ -80,7 +82,7 @@ static int add_sw_settings = 0;
 static int only_flag = 0;
 static int only_type = 0;
 
-int filterdownport_check(ibnd_node_t * node, ibnd_port_t * port)
+static int filterdownport_check(ibnd_node_t *node, ibnd_port_t *port)
 {
 	ibnd_node_t *fsw;
 	ibnd_port_t *fport;
@@ -104,7 +106,8 @@ int filterdownport_check(ibnd_node_t * node, ibnd_port_t * port)
 	return (fistate == IB_LINK_DOWN) ? 1 : 0;
 }
 
-void print_port(ibnd_node_t * node, ibnd_port_t * port, char *out_prefix)
+static void print_port(ibnd_node_t *node, ibnd_port_t *port,
+		       const char *out_prefix)
 {
 	char width[64], speed[64], state[64], physstate[64];
 	char remote_guid_str[256];
@@ -271,8 +274,8 @@ static inline const char *nodetype_str(ibnd_node_t * node)
 	return "??";
 }
 
-void print_node_header(ibnd_node_t *node, int *out_header_flag,
-			char *out_prefix)
+static void print_node_header(ibnd_node_t *node, int *out_header_flag,
+		       const char *out_prefix)
 {
 	uint64_t guid = 0;
 	if ((!out_header_flag || !(*out_header_flag)) && !line_mode) {
@@ -298,7 +301,7 @@ void print_node_header(ibnd_node_t *node, int *out_header_flag,
 	}
 }
 
-void print_node(ibnd_node_t * node, void *user_data)
+static void print_node(ibnd_node_t *node, void *user_data)
 {
 	int i = 0;
 	int head_print = 0;
@@ -321,12 +324,13 @@ struct iter_diff_data {
         uint32_t diff_flags;
         ibnd_fabric_t *fabric1;
         ibnd_fabric_t *fabric2;
-        char *fabric1_prefix;
-        char *fabric2_prefix;
+        const char *fabric1_prefix;
+        const char *fabric2_prefix;
 };
 
-void diff_node_ports(ibnd_node_t * fabric1_node, ibnd_node_t * fabric2_node,
-		       int *head_print, struct iter_diff_data *data)
+static void diff_node_ports(ibnd_node_t *fabric1_node,
+			    ibnd_node_t *fabric2_node, int *head_print,
+			    struct iter_diff_data *data)
 {
 	int i = 0;
 
@@ -407,7 +411,7 @@ void diff_node_ports(ibnd_node_t * fabric1_node, ibnd_node_t * fabric2_node,
 	}
 }
 
-void diff_node_iter(ibnd_node_t * fabric1_node, void *iter_user_data)
+static void diff_node_iter(ibnd_node_t *fabric1_node, void *iter_user_data)
 {
 	struct iter_diff_data *data = iter_user_data;
 	ibnd_node_t *fabric2_node;
@@ -417,7 +421,7 @@ void diff_node_iter(ibnd_node_t * fabric1_node, void *iter_user_data)
 
 	fabric2_node = ibnd_find_node_guid(data->fabric2, fabric1_node->guid);
 	if (!fabric2_node)
-		print_node(fabric1_node, data->fabric1_prefix);
+		print_node(fabric1_node, (void *)data->fabric1_prefix);
 	else if (data->diff_flags &
 		 (DIFF_FLAG_PORT_CONNECTION | DIFF_FLAG_PORT_STATE
 		  | DIFF_FLAG_LID | DIFF_FLAG_NODE_DESCRIPTION)) {
@@ -453,8 +457,8 @@ void diff_node_iter(ibnd_node_t * fabric1_node, void *iter_user_data)
 	}
 }
 
-int diff_node(ibnd_node_t * node, ibnd_fabric_t * orig_fabric,
-		ibnd_fabric_t * new_fabric)
+static int diff_node(ibnd_node_t *node, ibnd_fabric_t *orig_fabric,
+		     ibnd_fabric_t *new_fabric)
 {
 	struct iter_diff_data iter_diff_data;
 
@@ -554,8 +558,8 @@ static int process_opt(void *context, int ch, char *optarg)
 		break;
 	case 'S':
 	case 'G':
-		guid_str = optarg;
-		guid = (uint64_t) strtoull(guid_str, 0, 0);
+		node_label.guid_str = optarg;
+		node_label.guid = (uint64_t)strtoull(node_label.guid_str, 0, 0);
 		break;
 	case 'D':
 		dr_path = strdup(optarg);
@@ -674,13 +678,12 @@ int main(int argc, char **argv)
 					IB_DEST_DRPATH, NULL, ibmad_port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan",
 			       dr_path);
-	} else if (guid_str) {
-		if ((resolved =
-		     resolve_portid_str(ibd_ca, ibd_ca_port, &port_id,
-				        guid_str, IB_DEST_GUID, NULL,
-					ibmad_port)) < 0)
+	} else if (node_label.guid_str) {
+		if ((resolved = resolve_portid_str(
+			     ibd_ca, ibd_ca_port, &port_id, node_label.guid_str,
+			     IB_DEST_GUID, NULL, ibmad_port)) < 0)
 			IBWARN("Failed to resolve %s; attempting full scan\n",
-			       guid_str);
+			       node_label.guid_str);
 	}
 
 	if (!all && dr_path) {
@@ -724,8 +727,8 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (!all && guid_str) {
-		ibnd_port_t *p = ibnd_find_port_guid(fabric, guid);
+	if (!all && node_label.guid_str) {
+		ibnd_port_t *p = ibnd_find_port_guid(fabric, node_label.guid);
 		if (p && (!only_flag || p->node->type == only_type)) {
 			ibnd_node_t *n = p->node;
 			if (diff_fabric)
@@ -734,12 +737,12 @@ int main(int argc, char **argv)
 				print_node(n, NULL);
 		}
 		else
-			fprintf(stderr, "Failed to find port: %s\n", guid_str);
+			fprintf(stderr, "Failed to find port: %s\n", node_label.guid_str);
 	} else if (!all && dr_path) {
 		ibnd_port_t *p = NULL;
-		mad_decode_field(ni, IB_NODE_PORT_GUID_F, &(guid));
+		mad_decode_field(ni, IB_NODE_PORT_GUID_F, &node_label.guid);
 
-		p = ibnd_find_port_guid(fabric, guid);
+		p = ibnd_find_port_guid(fabric, node_label.guid);
 		if (p && (!only_flag || p->node->type == only_type)) {
 			ibnd_node_t *n = p->node;
 			if (diff_fabric)

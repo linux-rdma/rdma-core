@@ -1195,7 +1195,7 @@ void mad_dump_portinfo_ext(char *buf, int bufsz, void *val, int valsz)
 		     IB_PORT_EXT_HDR_FEC_MODE_LAST_F);
 }
 
-void xdump(FILE * file, char *msg, void *p, int size)
+void xdump(FILE * file, const char *msg, void *p, int size)
 {
 #define HEX(x)  ((x) < 10 ? '0' + (x) : 'a' + ((x) -10))
 	uint8_t *cp = p;

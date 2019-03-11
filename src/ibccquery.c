@@ -79,7 +79,7 @@ static const match_rec_t match_tbl[] = {
 uint64_t cckey = 0;
 
 /*******************************************/
-static char *class_port_info(ib_portid_t * dest, char **argv, int argc)
+static const char *class_port_info(ib_portid_t *dest, char **argv, int argc)
 {
 	char buf[2048];
 	char data[IB_CC_DATA_SZ] = { 0 };
@@ -94,7 +94,7 @@ static char *class_port_info(ib_portid_t * dest, char **argv, int argc)
 	return NULL;
 }
 
-static char *congestion_info(ib_portid_t * dest, char **argv, int argc)
+static const char *congestion_info(ib_portid_t *dest, char **argv, int argc)
 {
 	char buf[2048];
 	char data[IB_CC_DATA_SZ] = { 0 };
@@ -109,7 +109,7 @@ static char *congestion_info(ib_portid_t * dest, char **argv, int argc)
 	return NULL;
 }
 
-static char *congestion_key_info(ib_portid_t * dest, char **argv, int argc)
+static const char *congestion_key_info(ib_portid_t *dest, char **argv, int argc)
 {
 	char buf[2048];
 	char data[IB_CC_DATA_SZ] = { 0 };
@@ -124,7 +124,7 @@ static char *congestion_key_info(ib_portid_t * dest, char **argv, int argc)
 	return NULL;
 }
 
-static char *congestion_log(ib_portid_t * dest, char **argv, int argc)
+static const char *congestion_log(ib_portid_t *dest, char **argv, int argc)
 {
 	char buf[2048];
 	char data[IB_CC_LOG_DATA_SZ] = { 0 };
@@ -180,7 +180,8 @@ static char *congestion_log(ib_portid_t * dest, char **argv, int argc)
 	return NULL;
 }
 
-static char *switch_congestion_setting(ib_portid_t * dest, char **argv, int argc)
+static const char *switch_congestion_setting(ib_portid_t *dest, char **argv,
+					     int argc)
 {
 	char buf[2048];
 	char data[IB_CC_DATA_SZ] = { 0 };
@@ -195,7 +196,8 @@ static char *switch_congestion_setting(ib_portid_t * dest, char **argv, int argc
 	return NULL;
 }
 
-static char *switch_port_congestion_setting(ib_portid_t * dest, char **argv, int argc)
+static const char *switch_port_congestion_setting(ib_portid_t *dest,
+						  char **argv, int argc)
 {
 	char buf[2048];
 	char data[IB_CC_DATA_SZ] = { 0 };
@@ -257,7 +259,8 @@ static char *switch_port_congestion_setting(ib_portid_t * dest, char **argv, int
 	return NULL;
 }
 
-static char *ca_congestion_setting(ib_portid_t * dest, char **argv, int argc)
+static const char *ca_congestion_setting(ib_portid_t *dest, char **argv,
+					 int argc)
 {
 	char buf[2048];
 	char data[IB_CC_DATA_SZ] = { 0 };
@@ -281,7 +284,8 @@ static char *ca_congestion_setting(ib_portid_t * dest, char **argv, int argc)
 	return NULL;
 }
 
-static char *congestion_control_table(ib_portid_t * dest, char **argv, int argc)
+static const char *congestion_control_table(ib_portid_t *dest, char **argv,
+					    int argc)
 {
 	char buf[2048];
 	char data[IB_CC_DATA_SZ] = { 0 };
@@ -321,7 +325,7 @@ static char *congestion_control_table(ib_portid_t * dest, char **argv, int argc)
 	return NULL;
 }
 
-static char *timestamp_dump(ib_portid_t * dest, char **argv, int argc)
+static const char *timestamp_dump(ib_portid_t *dest, char **argv, int argc)
 {
 	char buf[2048];
 	char data[IB_CC_DATA_SZ] = { 0 };
@@ -353,7 +357,7 @@ int main(int argc, char **argv)
 	char usage_args[1024];
 	int mgmt_classes[3] = { IB_SMI_CLASS, IB_SA_CLASS, IB_CC_CLASS };
 	ib_portid_t portid = { 0 };
-	char *err;
+	const char *err;
 	op_fn_t *fn;
 	const match_rec_t *r;
 	int n;

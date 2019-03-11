@@ -41,9 +41,6 @@
 #include <infiniband/umad.h>
 #include "internal.h"
 
-extern int mlnx_ext_port_info_err(smp_engine_t * engine, ibnd_smp_t * smp,
-				  uint8_t * mad, void *cb_data);
-
 static void queue_smp(smp_engine_t * engine, ibnd_smp_t * smp)
 {
 	smp->qnext = NULL;

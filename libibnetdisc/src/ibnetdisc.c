@@ -65,7 +65,6 @@ static int query_node_info(smp_engine_t * engine, ib_portid_t * portid,
 			   struct ni_cbdata * cbdata);
 static int query_port_info(smp_engine_t * engine, ib_portid_t * portid,
 			   ibnd_node_t * node, int portnum);
-ibnd_port_t *ibnd_find_port_dr(ibnd_fabric_t * fabric, char *dr_str);
 
 static int recv_switch_info(smp_engine_t * engine, ibnd_smp_t * smp,
 			    uint8_t * mad, void *cb_data)
@@ -515,8 +514,8 @@ static void link_ports(ibnd_node_t * node, ibnd_port_t * port,
 	remoteport->remoteport = port;
 }
 
-static void dump_endnode(ib_portid_t * path, char *prompt,
-			 ibnd_node_t * node, ibnd_port_t * port)
+static void dump_endnode(ib_portid_t *path, const char *prompt,
+			 ibnd_node_t *node, ibnd_port_t *port)
 {
 	char type[64];
 	mad_dump_node_type(type, sizeof(type), &node->type, sizeof(int));

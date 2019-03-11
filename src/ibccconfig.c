@@ -81,7 +81,7 @@ static const match_rec_t match_tbl[] = {
 uint64_t cckey = 0;
 
 /*******************************************/
-static char *parselonglongint(char *arg, uint64_t *val)
+static const char *parselonglongint(char *arg, uint64_t *val)
 {
 	char *endptr = NULL;
 
@@ -97,7 +97,7 @@ static char *parselonglongint(char *arg, uint64_t *val)
 	return NULL;
 }
 
-static char *parseint(char *arg, uint32_t *val, int hexonly)
+static const char *parseint(char *arg, uint32_t *val, int hexonly)
 {
 	char *endptr = NULL;
 
@@ -113,7 +113,7 @@ static char *parseint(char *arg, uint32_t *val, int hexonly)
 	return NULL;
 }
 
-static char *congestion_key_info(ib_portid_t * dest, char **argv, int argc)
+static const char *congestion_key_info(ib_portid_t *dest, char **argv, int argc)
 {
 	uint8_t rcv[IB_CC_DATA_SZ] = { 0 };
 	uint8_t payload[IB_CC_DATA_SZ] = { 0 };
@@ -121,7 +121,7 @@ static char *congestion_key_info(ib_portid_t * dest, char **argv, int argc)
 	uint32_t cc_keyprotectbit;
 	uint32_t cc_keyleaseperiod;
 	uint32_t cc_keyviolations;
-	char *errstr;
+	const char *errstr;
 
 	if (argc != 4)
 		return "invalid number of parameters for CongestionKeyInfo";
@@ -174,7 +174,7 @@ static char *congestion_key_info(ib_portid_t * dest, char **argv, int argc)
 
 
 /* parse like it's a hypothetical 256 bit hex code */
-static char *parse256(char *arg, uint8_t *buf)
+static const char *parse256(char *arg, uint8_t *buf)
 {
 	int numdigits = 0;
 	int startindex;
@@ -202,7 +202,7 @@ static char *parse256(char *arg, uint8_t *buf)
 	for (i = startindex; i <= 31; i++) {
 		char tmp[3] = { 0 };
 		uint32_t tmpint;
-		char *errstr;
+		const char *errstr;
 
 		/* I can't help but think there is a strtoX that
 		 * will do this for me, but I can't find it.
@@ -224,10 +224,10 @@ static char *parse256(char *arg, uint8_t *buf)
 	return NULL;
 }
 
-static char *parsecct(char *arg, uint32_t *shift, uint32_t *multiplier)
+static const char *parsecct(char *arg, uint32_t *shift, uint32_t *multiplier)
 {
 	char buf[1024] = { 0 };
-	char *errstr;
+	const char *errstr;
 	char *ptr;
 
 	strcpy(buf, arg);
@@ -247,7 +247,8 @@ static char *parsecct(char *arg, uint32_t *shift, uint32_t *multiplier)
 	return NULL;	
 }
 
-static char *switch_congestion_setting(ib_portid_t * dest, char **argv, int argc)
+static const char *switch_congestion_setting(ib_portid_t *dest, char **argv,
+					     int argc)
 {
 	uint8_t rcv[IB_CC_DATA_SZ] = { 0 };
 	uint8_t payload[IB_CC_DATA_SZ] = { 0 };
@@ -261,7 +262,7 @@ static char *switch_congestion_setting(ib_portid_t * dest, char **argv, int argc
 	uint32_t cs_returndelay_m;
 	uint32_t cs_returndelay;
 	uint32_t marking_rate;
-	char *errstr;
+	const char *errstr;
 
 	if (argc != 8)
 		return "invalid number of parameters for SwitchCongestionSetting";
@@ -334,7 +335,8 @@ static char *switch_congestion_setting(ib_portid_t * dest, char **argv, int argc
 	return NULL;
 }
 
-static char *switch_port_congestion_setting(ib_portid_t * dest, char **argv, int argc)
+static const char *switch_port_congestion_setting(ib_portid_t *dest,
+						  char **argv, int argc)
 {
 	uint8_t rcv[IB_CC_DATA_SZ] = { 0 };
 	uint8_t payload[IB_CC_DATA_SZ] = { 0 };
@@ -348,7 +350,7 @@ static char *switch_port_congestion_setting(ib_portid_t * dest, char **argv, int
 	uint32_t type;
 	uint32_t numports;
 	uint8_t *ptr;
-	char *errstr;
+	const char *errstr;
 
 	if (argc != 6)
 		return "invalid number of parameters for SwitchPortCongestion";
@@ -418,7 +420,8 @@ static char *switch_port_congestion_setting(ib_portid_t * dest, char **argv, int
 	return NULL;
 }
 
-static char *ca_congestion_setting(ib_portid_t * dest, char **argv, int argc)
+static const char *ca_congestion_setting(ib_portid_t *dest, char **argv,
+					 int argc)
 {
 	uint8_t rcv[IB_CC_DATA_SZ] = { 0 };
 	uint8_t payload[IB_CC_DATA_SZ] = { 0 };
@@ -428,7 +431,7 @@ static char *ca_congestion_setting(ib_portid_t * dest, char **argv, int argc)
 	uint32_t ccti_increase;
 	uint32_t trigger_threshold;
 	uint32_t ccti_min;
-	char *errstr;
+	const char *errstr;
 	int i;
 
 	if (argc != 6)
@@ -492,7 +495,8 @@ static char *ca_congestion_setting(ib_portid_t * dest, char **argv, int argc)
 	return NULL;
 }
 
-static char *congestion_control_table(ib_portid_t * dest, char **argv, int argc)
+static const char *congestion_control_table(ib_portid_t *dest, char **argv,
+					    int argc)
 {
 	uint8_t rcv[IB_CC_DATA_SZ] = { 0 };
 	uint8_t payload[IB_CC_DATA_SZ] = { 0 };
@@ -500,7 +504,7 @@ static char *congestion_control_table(ib_portid_t * dest, char **argv, int argc)
 	uint32_t index;
 	uint32_t cctshifts[64];
 	uint32_t cctmults[64];
-	char *errstr;
+	const char *errstr;
 	int i;
 
 	if (argc < 2 || argc > 66)
@@ -558,7 +562,7 @@ int main(int argc, char **argv)
 	char usage_args[1024];
 	int mgmt_classes[3] = { IB_SMI_CLASS, IB_SA_CLASS, IB_CC_CLASS };
 	ib_portid_t portid = { 0 };
-	char *err;
+	const char *err;
 	op_fn_t *fn;
 	const match_rec_t *r;
 	int n;

@@ -54,7 +54,7 @@
 
 #include <ibdiag_common.h>
 
-static char *node_type_str[] = {
+static const char * const node_type_str[] = {
 	"???",
 	"CA",
 	"Switch",
@@ -82,7 +82,7 @@ static void ca_dump(umad_ca_t * ca)
 	       be64toh(ca->system_guid));
 }
 
-static char *port_state_str[] = {
+static const char * const port_state_str[] = {
 	"???",
 	"Down",
 	"Initializing",
@@ -90,7 +90,7 @@ static char *port_state_str[] = {
 	"Active"
 };
 
-static char *port_phy_state_str[] = {
+static const char * const port_phy_state_str[] = {
 	"No state change",
 	"Sleep",
 	"Polling",
@@ -110,8 +110,8 @@ static int ret_code(void)
 	return e;
 }
 
-static int sys_read_string(char *dir_name, char *file_name, char *str,
-			   int max_len)
+static int sys_read_string(const char *dir_name, const char *file_name,
+			   char *str, int max_len)
 {
 	char path[256], *s;
 	int fd, r;
@@ -163,8 +163,8 @@ done:
 
 static int port_dump(umad_port_t * port, int alone)
 {
-	char *pre = "";
-	char *hdrpre = "";
+	const char *pre = "";
+	const char *hdrpre = "";
 
 	if (!port)
 		return -1;
