@@ -151,9 +151,8 @@ S:	Supported
 F:	providers/ocrdma/
 
 QEDR USERSPACE PROVIDER (for qedr.ko)
-M:	Yuval Bason <yuval.bason@cavium.com>
-M:	Michal Kalderon <michal.kalderon@cavium.com>
-M:	Ariel Elior <ariel.elior@cavium.com>
+M:	Michal Kalderon <michal.kalderon@marvell.com>
+M:	Ariel Elior <ariel.elior@marvell.com>
 S:	Supported
 F:	providers/qedr/
 
