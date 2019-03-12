@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Library Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Library Public License for more details.
+#
+set -xe
+
+if [ ! -d .git ]; then
+    echo "no .git present.  run this from the base dir of the git checkout."
+    exit 1
+fi
+
+version=$1
+[ -z "$version" ] && version=`git describe --match 'v*' | sed 's/^v//'`
+outfile="rdma-core-$version"
+
+# update submodules
+echo "update submodules"
+force=$(if git submodule usage 2>&1 | grep --quiet 'update.*--force'; then echo --force ; fi)
+if ! git submodule sync || ! git submodule update $force --init --recursive; then
+    echo "Error: can't initialize submodule project"
+    exit 1
+fi
+
+# clean out old outfile...
+echo "cleanup..."
+rm -f $outfile*
+
+# build new tarball
+echo "building tarball..."
+tools/git-archive-all.sh --prefix rdma-core-$version/ \
+		       --verbose \
+		       $outfile.tar
+
+# populate files with version strings
+(git rev-parse HEAD ; git describe) 2> /dev/null > .git_version
+
+ln -s . $outfile
+tar cvf $outfile.version.tar $outfile/.git_version
+# NOTE: If you change this version number make sure the package is available
+# at the three URLs referenced below (may involve uploading to download.ceph.com)
+tar --concatenate -f $outfile.all.tar $outfile.version.tar
+tar --concatenate -f $outfile.all.tar $outfile.tar
+mv $outfile.all.tar $outfile.tar
+rm $outfile
+rm -f $outfile.version.tar
+rm -f .git_version
+
+echo "compressing..."
+bzip2 -9 $outfile.tar
+
+echo "finished"
