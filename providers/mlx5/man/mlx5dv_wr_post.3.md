@@ -36,6 +36,12 @@ static inline void mlx5dv_wr_mr_interleaved(struct mlx5dv_qp_ex *mqp,
 					    uint32_t repeat_count,
 					    uint16_t num_interleaved,
 					    struct mlx5dv_mr_interleaved *data);
+
+static inline void mlx5dv_wr_mr_list(struct mlx5dv_qp_ex *mqp,
+				      struct mlx5dv_mkey *mkey,
+				      uint32_t access_flags, /* use enum ibv_access_flags */
+				      uint16_t num_sges,
+				      struct ibv_sge *sge);
 ```
 
 # DESCRIPTION
@@ -79,6 +85,20 @@ man for ibv_wr_post and mlx5dv_qp with its available builders and setters.
 
     In case *ibv_qp_ex->wr_flags* turns on IBV_SEND_SIGNALED, the reported WC opcode will be MLX5DV_WC_UMR.
     Unregister the *mkey* to enable another pattern registration should be done via ibv_post_send with IBV_WR_LOCAL_INV opcode.
+
+:   *mlx5dv_wr_mr_list()*
+
+    registers a memory layout based on list of ibv_sge.
+    The layout of the memory pointed by the *mkey* after its registration will be based on the list of *sge* counted by *num_sges*.
+    Post a successful registration RDMA operations can use this *mkey*, the hardware will scatter the data according to the pattern.
+    The *mkey* should be used in a zero-based mode, the *addr* field in its *ibv_sge* is an offset in the total data.
+
+    Current implementation requires the IBV_SEND_INLINE option to be on in *ibv_qp_ex->wr_flags* field.
+    To be able to have more than 4 *num_sge* entries, the QP should be created with a larger WQE size that may fit it.
+    This should be done using the *max_inline_data* attribute of *struct ibv_qp_cap* upon its creation.
+
+    In case *ibv_qp_ex->wr_flags* turns on IBV_SEND_SIGNALED, the reported WC opcode will be MLX5DV_WC_UMR.
+    Unregister the *mkey* to enable other pattern registration should be done via ibv_post_send with IBV_WR_LOCAL_INV opcode.
 
 ## QP Specific setters
 

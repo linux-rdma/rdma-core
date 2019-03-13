@@ -204,6 +204,7 @@ struct mlx5dv_dc_init_attr {
 
 enum mlx5dv_qp_create_send_ops_flags {
 	MLX5DV_QP_EX_WITH_MR_INTERLEAVED	= 1 << 0,
+	MLX5DV_QP_EX_WITH_MR_LIST		= 1 << 1,
 };
 
 struct mlx5dv_qp_init_attr {
@@ -242,6 +243,11 @@ struct mlx5dv_qp_ex {
 				  uint32_t repeat_count,
 				  uint16_t num_interleaved,
 				  struct mlx5dv_mr_interleaved *data);
+	void (*wr_mr_list)(struct mlx5dv_qp_ex *mqp,
+			   struct mlx5dv_mkey *mkey,
+			   uint32_t access_flags, /* use enum ibv_access_flags */
+			   uint16_t num_sges,
+			   struct ibv_sge *sge);
 };
 
 struct mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(struct ibv_qp_ex *qp);
@@ -263,6 +269,15 @@ static inline void mlx5dv_wr_mr_interleaved(struct mlx5dv_qp_ex *mqp,
 {
 	mqp->wr_mr_interleaved(mqp, mkey, access_flags, repeat_count,
 			       num_interleaved, data);
+}
+
+static inline void mlx5dv_wr_mr_list(struct mlx5dv_qp_ex *mqp,
+				      struct mlx5dv_mkey *mkey,
+				      uint32_t access_flags,
+				      uint16_t num_sges,
+				      struct ibv_sge *sge)
+{
+	mqp->wr_mr_list(mqp, mkey, access_flags, num_sges, sge);
 }
 
 enum mlx5dv_flow_action_esp_mask {

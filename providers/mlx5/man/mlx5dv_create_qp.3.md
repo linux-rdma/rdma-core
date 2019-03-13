@@ -104,6 +104,9 @@ struct mlx5dv_dc_init_attr {
 	MLX5DV_QP_EX_WITH_MR_INTERLEAVED:
 		Enables the mlx5dv_wr_mr_interleaved() work requset on this QP.
 
+	MLX5DV_QP_EX_WITH_MR_LIST:
+		Enables the mlx5dv_wr_mr_list() work requset on this QP.
+
 # NOTES
 
 **mlx5dv_qp_ex_from_ibv_qp_ex()** is used to get *struct mlx5dv_qp_ex* for
