@@ -28,6 +28,7 @@ rdma_python_module(pyverbs/tests
   tests/device.py
   tests/mr.py
   tests/pd.py
+  tests/qp.py
   tests/utils.py
   )
 
