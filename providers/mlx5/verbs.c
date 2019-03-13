@@ -1131,7 +1131,8 @@ int mlx5_destroy_srq(struct ibv_srq *srq)
 
 static int _sq_overhead(struct mlx5_qp *qp,
 			enum ibv_qp_type qp_type,
-			uint64_t ops)
+			uint64_t ops,
+			uint64_t mlx5_ops)
 {
 	size_t size = sizeof(struct mlx5_wqe_ctrl_seg);
 	size_t rdma_size = 0;
@@ -1151,7 +1152,8 @@ static int _sq_overhead(struct mlx5_qp *qp,
 			      sizeof(struct mlx5_wqe_raddr_seg) +
 			      sizeof(struct mlx5_wqe_atomic_seg);
 
-	if (ops & (IBV_QP_EX_WITH_BIND_MW | IBV_QP_EX_WITH_LOCAL_INV))
+	if (ops & (IBV_QP_EX_WITH_BIND_MW | IBV_QP_EX_WITH_LOCAL_INV) ||
+	    (mlx5_ops & MLX5DV_QP_EX_WITH_MR_INTERLEAVED))
 		mw_size = sizeof(struct mlx5_wqe_ctrl_seg) +
 			  sizeof(struct mlx5_wqe_umr_ctrl_seg) +
 			  sizeof(struct mlx5_wqe_mkey_context_seg) +
@@ -1195,9 +1197,11 @@ static int _sq_overhead(struct mlx5_qp *qp,
 	return size;
 }
 
-static int sq_overhead(struct mlx5_qp *qp, struct ibv_qp_init_attr_ex *attr)
+static int sq_overhead(struct mlx5_qp *qp, struct ibv_qp_init_attr_ex *attr,
+		       struct mlx5dv_qp_init_attr *mlx5_qp_attr)
 {
 	uint64_t ops;
+	uint64_t mlx5_ops = 0;
 
 	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS) {
 		ops = attr->send_ops_flags;
@@ -1236,11 +1240,17 @@ static int sq_overhead(struct mlx5_qp *qp, struct ibv_qp_init_attr_ex *attr)
 		}
 	}
 
-	return _sq_overhead(qp, attr->qp_type, ops);
+
+	if (mlx5_qp_attr &&
+	    mlx5_qp_attr->comp_mask & MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS)
+		mlx5_ops = mlx5_qp_attr->send_ops_flags;
+
+	return _sq_overhead(qp, attr->qp_type, ops, mlx5_ops);
 }
 
 static int mlx5_calc_send_wqe(struct mlx5_context *ctx,
 			      struct ibv_qp_init_attr_ex *attr,
+			      struct mlx5dv_qp_init_attr *mlx5_qp_attr,
 			      struct mlx5_qp *qp)
 {
 	int size;
@@ -1248,7 +1258,7 @@ static int mlx5_calc_send_wqe(struct mlx5_context *ctx,
 	int max_gather;
 	int tot_size;
 
-	size = sq_overhead(qp, attr);
+	size = sq_overhead(qp, attr, mlx5_qp_attr);
 	if (size < 0)
 		return size;
 
@@ -1301,6 +1311,7 @@ static int mlx5_calc_rcv_wqe(struct mlx5_context *ctx,
 
 static int mlx5_calc_sq_size(struct mlx5_context *ctx,
 			     struct ibv_qp_init_attr_ex *attr,
+			     struct mlx5dv_qp_init_attr *mlx5_qp_attr,
 			     struct mlx5_qp *qp)
 {
 	int wqe_size;
@@ -1310,7 +1321,7 @@ static int mlx5_calc_sq_size(struct mlx5_context *ctx,
 	if (!attr->cap.max_send_wr)
 		return 0;
 
-	wqe_size = mlx5_calc_send_wqe(ctx, attr, qp);
+	wqe_size = mlx5_calc_send_wqe(ctx, attr, mlx5_qp_attr, qp);
 	if (wqe_size < 0) {
 		mlx5_dbg(fp, MLX5_DBG_QP, "\n");
 		return wqe_size;
@@ -1321,7 +1332,7 @@ static int mlx5_calc_sq_size(struct mlx5_context *ctx,
 		return -EINVAL;
 	}
 
-	qp->max_inline_data = wqe_size - sq_overhead(qp, attr) -
+	qp->max_inline_data = wqe_size - sq_overhead(qp, attr, mlx5_qp_attr) -
 		sizeof(struct mlx5_wqe_inl_data_seg);
 	attr->cap.max_inline_data = qp->max_inline_data;
 
@@ -1441,12 +1452,13 @@ static int mlx5_calc_rq_size(struct mlx5_context *ctx,
 
 static int mlx5_calc_wq_size(struct mlx5_context *ctx,
 			     struct ibv_qp_init_attr_ex *attr,
+			     struct mlx5dv_qp_init_attr *mlx5_qp_attr,
 			     struct mlx5_qp *qp)
 {
 	int ret;
 	int result;
 
-	ret = mlx5_calc_sq_size(ctx, attr, qp);
+	ret = mlx5_calc_sq_size(ctx, attr, mlx5_qp_attr, qp);
 	if (ret < 0)
 		return ret;
 
@@ -1677,7 +1689,8 @@ enum {
 
 enum {
 	MLX5_DV_CREATE_QP_SUP_COMP_MASK = MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS |
-					  MLX5DV_QP_INIT_ATTR_MASK_DC
+					  MLX5DV_QP_INIT_ATTR_MASK_DC |
+					  MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS
 };
 
 enum {
@@ -1912,7 +1925,9 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	if (ctx->atomic_cap == IBV_ATOMIC_HCA)
 		qp->atomics_enabled = 1;
 
-	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS) {
+	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS ||
+	    (mlx5_qp_attr &&
+	     mlx5_qp_attr->comp_mask & MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS)) {
 		/*
 		 * Scatter2cqe, which is a data-path optimization, is disabled
 		 * since driver DC data-path doesn't support it.
@@ -1939,7 +1954,7 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	if (!scatter_to_cqe_configured && use_scatter_to_cqe())
 		cmd.flags |= MLX5_QP_FLAG_SCATTER_CQE;
 
-	ret = mlx5_calc_wq_size(ctx, attr, qp);
+	ret = mlx5_calc_wq_size(ctx, attr, mlx5_qp_attr, qp);
 	if (ret < 0) {
 		errno = -ret;
 		goto err;
