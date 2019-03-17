@@ -6,8 +6,10 @@ export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 
 COHERENT_DMA_ARCHS = amd64 arm64 i386 ia64 powerpc powerpcspe ppc64 ppc64el s390x sparc64 x32
 
+dh_params = --with python3,systemd --builddirectory=build-deb
+
 %:
-	dh $@ --with python3,systemd --builddirectory=build-deb
+	dh $@ $(dh_params)
 
 override_dh_auto_clean:
 	dh_auto_clean
@@ -101,16 +103,8 @@ override_dh_strip:
 	dh_strip -plibrdmacm1 --dbg-package=librdmacm1-dbg
 	dh_strip --remaining-packages
 
-override_dh_builddeb:
-	if [ -e build-deb/python/pyverbs/__init__.py ]; then \
-		dh_builddeb --remaining-package; \
-	else \
-		dh_builddeb -Npython3-pyverbs --remaining-packages; \
-	fi
-
-
 # Upstream encourages the use of 'build' as the developer build output
 # directory, allow that directory to be present and still allow dh to work.
 .PHONY: build
 build:
-	dh $@ --with systemd --builddirectory=build-deb
+	dh $@ $(dh_params)
