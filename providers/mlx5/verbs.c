@@ -3978,12 +3978,13 @@ mlx5dv_create_flow_matcher(struct ibv_context *context,
 {
 	DECLARE_COMMAND_BUFFER(cmd, MLX5_IB_OBJECT_FLOW_MATCHER,
 			       MLX5_IB_METHOD_FLOW_MATCHER_CREATE,
-			       5);
+			       6);
 	struct mlx5dv_flow_matcher *flow_matcher;
 	struct ib_uverbs_attr *handle;
 	int ret;
 
-	if (!check_comp_mask(attr->comp_mask, 0)) {
+	if (!check_comp_mask(attr->comp_mask,
+			     MLX5DV_FLOW_MATCHER_MASK_FT_TYPE)) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -4008,6 +4009,10 @@ mlx5dv_create_flow_matcher(struct ibv_context *context,
 	fill_attr_in_enum(cmd, MLX5_IB_ATTR_FLOW_MATCHER_FLOW_TYPE,
 			  IBV_FLOW_ATTR_NORMAL, &attr->priority,
 			  sizeof(attr->priority));
+
+	if (attr->comp_mask & MLX5DV_FLOW_MATCHER_MASK_FT_TYPE)
+		fill_attr_const_in(cmd, MLX5_IB_ATTR_FLOW_MATCHER_FT_TYPE,
+				   attr->ft_type);
 	if (attr->flags)
 		fill_attr_const_in(cmd, MLX5_IB_ATTR_FLOW_MATCHER_FLOW_FLAGS,
 				   attr->flags);

@@ -294,13 +294,18 @@ struct mlx5dv_flow_match_parameters {
 	uint64_t match_buf[]; /* Device spec format */
 };
 
+enum mlx5dv_flow_matcher_attr_mask {
+	MLX5DV_FLOW_MATCHER_MASK_FT_TYPE = 1 << 0,
+};
+
 struct mlx5dv_flow_matcher_attr {
 	enum ibv_flow_attr_type type;
 	uint32_t flags; /* From enum ibv_flow_flags */
 	uint16_t priority;
 	uint8_t match_criteria_enable; /* Device spec format */
 	struct mlx5dv_flow_match_parameters *match_mask;
-	uint64_t comp_mask;
+	uint64_t comp_mask; /* use mlx5dv_flow_matcher_attr_mask */
+	enum mlx5dv_flow_table_type ft_type;
 };
 
 struct mlx5dv_flow_matcher;

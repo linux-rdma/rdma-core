@@ -40,6 +40,7 @@ struct mlx5dv_flow_matcher_attr {
 	uint8_t match_criteria_enable; /* Device spec format */
 	struct mlx5dv_flow_match_parameters *match_mask;
 	uint64_t comp_mask;
+	enum mlx5dv_flow_table_type ft_type;
 };
 ```
 
@@ -76,6 +77,15 @@ struct mlx5dv_flow_match_parameters {
 *match_buf*
 :	Set which mask to be used, passed in
 	device spec format.
+
+*comp_mask*
+:	MLX5DV_FLOW_MATCHER_MASK_FT_TYPE for *ft_type*
+
+## *ft_type*
+Specified in which flow table type, the matcher will store the flow rules:
+	MLX5DV_FLOW_TABLE_TYPE_NIC_RX: Specified this matcher will store ingress flow rules.
+	MLX5DV_FLOW_TABLE_TYPE_NIC_TX Specified this matcher will store egress flow rules.
+	MLX5DV_FLOW_TABLE_TYPE_FDB : Specified this matcher will store FDB rules.
 
 # RETURN VALUE
 
