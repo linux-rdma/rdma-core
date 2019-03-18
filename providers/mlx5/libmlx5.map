@@ -83,5 +83,7 @@ MLX5_1.9 {
 
 MLX5_1.10 {
 	global:
+		mlx5dv_create_mkey;
+		mlx5dv_destroy_mkey;
 		mlx5dv_qp_ex_from_ibv_qp_ex;
 } MLX5_1.9;

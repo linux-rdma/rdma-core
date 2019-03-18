@@ -168,6 +168,24 @@ enum mlx5dv_qp_create_flags {
 	MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE = 1 << 5,
 };
 
+enum mlx5dv_mkey_init_attr_flags {
+	MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT = 1 << 0,
+};
+
+struct mlx5dv_mkey_init_attr {
+	struct ibv_pd	*pd;
+	uint32_t	create_flags; /* Use enum mlx5dv_mkey_init_attr_flags */
+	uint16_t	max_entries; /* Requested max number of pointed entries by this indirect mkey */
+};
+
+struct mlx5dv_mkey {
+	uint32_t	lkey;
+	uint32_t	rkey;
+};
+
+struct mlx5dv_mkey *mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr);
+int mlx5dv_destroy_mkey(struct mlx5dv_mkey *mkey);
+
 enum mlx5dv_qp_init_attr_mask {
 	MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS	= 1 << 0,
 	MLX5DV_QP_INIT_ATTR_MASK_DC			= 1 << 1,

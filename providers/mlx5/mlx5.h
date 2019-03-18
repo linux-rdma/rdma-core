@@ -601,6 +601,12 @@ struct mlx5_devx_umem {
 	uint32_t handle;
 };
 
+struct mlx5_mkey {
+	struct mlx5dv_mkey dv_mkey;
+	struct mlx5dv_devx_obj *devx_obj;
+	uint16_t num_desc;
+};
+
 static inline int mlx5_ilog2(int n)
 {
 	int t;

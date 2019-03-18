@@ -4500,3 +4500,64 @@ int mlx5dv_devx_get_async_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp,
 	return 0;
 }
 
+struct mlx5dv_mkey *mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
+{
+	uint32_t out[DEVX_ST_SZ_DW(create_mkey_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_mkey_in)] = {};
+	struct mlx5_mkey *mkey;
+	void *mkc;
+
+	if (!mkey_init_attr->create_flags ||
+	    !check_comp_mask(mkey_init_attr->create_flags,
+			     MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	mkey = calloc(1, sizeof(*mkey));
+	if (!mkey) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	mkey->num_desc = align(mkey_init_attr->max_entries, 4);
+	DEVX_SET(create_mkey_in, in, opcode, MLX5_CMD_OP_CREATE_MKEY);
+	mkc = DEVX_ADDR_OF(create_mkey_in, in, memory_key_mkey_entry);
+	DEVX_SET(mkc, mkc, access_mode_1_0, MLX5_MKC_ACCESS_MODE_KLMS);
+	DEVX_SET(mkc, mkc, free, 1);
+	DEVX_SET(mkc, mkc, umr_en, 1);
+	DEVX_SET(mkc, mkc, pd, to_mpd(mkey_init_attr->pd)->pdn);
+	DEVX_SET(mkc, mkc, translations_octword_size, mkey->num_desc);
+	DEVX_SET(mkc, mkc, lr, 1);
+	DEVX_SET(mkc, mkc, qpn, 0xffffff);
+	DEVX_SET(mkc, mkc, mkey_7_0, 0);
+
+	mkey->devx_obj = mlx5dv_devx_obj_create(mkey_init_attr->pd->context,
+						in, sizeof(in), out, sizeof(out));
+	if (!mkey->devx_obj)
+		goto end;
+
+	mkey_init_attr->max_entries = mkey->num_desc;
+	mkey->dv_mkey.lkey = (DEVX_GET(create_mkey_out, out, mkey_index) << 8) | 0;
+	mkey->dv_mkey.rkey = mkey->dv_mkey.lkey;
+
+	return &mkey->dv_mkey;
+end:
+	free(mkey);
+	return NULL;
+}
+
+int mlx5dv_destroy_mkey(struct mlx5dv_mkey *dv_mkey)
+{
+	struct mlx5_mkey *mkey = container_of(dv_mkey, struct mlx5_mkey,
+					  dv_mkey);
+	int ret;
+
+	ret = mlx5dv_devx_obj_destroy(mkey->devx_obj);
+	if (ret)
+		return ret;
+
+	free(mkey);
+	return 0;
+}
+

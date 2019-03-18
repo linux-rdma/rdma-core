@@ -38,6 +38,7 @@ enum mlx5_cap_mode {
 
 enum {
 	MLX5_CMD_OP_QUERY_HCA_CAP = 0x100,
+	MLX5_CMD_OP_CREATE_MKEY = 0x200,
 };
 
 struct mlx5_ifc_atomic_caps_bits {
@@ -97,4 +98,92 @@ struct mlx5_ifc_query_hca_cap_in_bits {
 
 enum mlx5_cap_type {
 	MLX5_CAP_ATOMIC = 3,
+};
+
+enum {
+	MLX5_MKC_ACCESS_MODE_KLMS  = 0x2,
+};
+
+struct mlx5_ifc_mkc_bits {
+	u8         reserved_at_0[0x1];
+	u8         free[0x1];
+	u8         reserved_at_2[0x1];
+	u8         access_mode_4_2[0x3];
+	u8         reserved_at_6[0x7];
+	u8         relaxed_ordering_write[0x1];
+	u8         reserved_at_e[0x1];
+	u8         small_fence_on_rdma_read_response[0x1];
+	u8         umr_en[0x1];
+	u8         a[0x1];
+	u8         rw[0x1];
+	u8         rr[0x1];
+	u8         lw[0x1];
+	u8         lr[0x1];
+	u8         access_mode_1_0[0x2];
+	u8         reserved_at_18[0x8];
+
+	u8         qpn[0x18];
+	u8         mkey_7_0[0x8];
+
+	u8         reserved_at_40[0x20];
+
+	u8         length64[0x1];
+	u8         bsf_en[0x1];
+	u8         sync_umr[0x1];
+	u8         reserved_at_63[0x2];
+	u8         expected_sigerr_count[0x1];
+	u8         reserved_at_66[0x1];
+	u8         en_rinval[0x1];
+	u8         pd[0x18];
+
+	u8         start_addr[0x40];
+
+	u8         len[0x40];
+
+	u8         bsf_octword_size[0x20];
+
+	u8         reserved_at_120[0x80];
+
+	u8         translations_octword_size[0x20];
+
+	u8         reserved_at_1c0[0x1b];
+	u8         log_page_size[0x5];
+
+	u8         reserved_at_1e0[0x20];
+};
+
+struct mlx5_ifc_create_mkey_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x8];
+	u8         mkey_index[0x18];
+
+	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_create_mkey_in_bits {
+	u8         opcode[0x10];
+	u8         reserved_at_10[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         reserved_at_40[0x20];
+
+	u8         pg_access[0x1];
+	u8         mkey_umem_valid[0x1];
+	u8         reserved_at_62[0x1e];
+
+	struct mlx5_ifc_mkc_bits memory_key_mkey_entry;
+
+	u8         reserved_at_280[0x80];
+
+	u8         translations_octword_actual_size[0x20];
+
+	u8         reserved_at_320[0x560];
+
+	u8         klm_pas_mtt[0][0x20];
 };
