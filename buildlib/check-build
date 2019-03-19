@@ -14,6 +14,7 @@ import copy
 import shlex
 import pipes
 from contextlib import contextmanager;
+from distutils.version import LooseVersion;
 
 def get_src_dir():
     """Get the source directory using git"""
@@ -106,7 +107,7 @@ def check_lib_symver(args,fn):
                 private,args.PACKAGE_VERSION));
 
     syms = list(syms - private);
-    syms.sort(key=lambda x:re.split('[._]',x));
+    syms.sort(key=LooseVersion)
     if newest_symver != syms[-1]:
         raise ValueError("Symbol version %r implied by filename %r not the newest in ELF (%r)"%(
             newest_symver,fn,syms));
