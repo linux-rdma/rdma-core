@@ -333,6 +333,7 @@ class leap(ZypperEnvironment):
     };
     name = "opensuse-15.0";
     aliases = {"leap"};
+    python_cmd = "python3";
 
 class tumbleweed(ZypperEnvironment):
     docker_parent = "opensuse/tumbleweed:latest";
