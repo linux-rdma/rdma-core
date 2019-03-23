@@ -555,7 +555,6 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	unsigned int ind_sge;
 	unsigned int ind;
 	int nreq;
-	int i;
 	void *wqe;
 	int ret = 0;
 	struct hns_roce_qp *qp = to_hr_qp(ibvqp);
@@ -563,7 +562,10 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	struct hns_roce_rc_sq_wqe *rc_sq_wqe;
 	struct hns_roce_v2_wqe_data_seg *dseg;
 	struct ibv_qp_attr attr;
+	int valid_num_sge;
 	int attr_mask;
+	int j;
+	int i;
 
 	pthread_spin_lock(&qp->sq.lock);
 
@@ -598,17 +600,25 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		memset(rc_sq_wqe, 0, sizeof(struct hns_roce_rc_sq_wqe));
 
 		qp->sq.wrid[ind & (qp->sq.wqe_cnt - 1)] = wr->wr_id;
-		for (i = 0; i < wr->num_sge; i++)
+
+		valid_num_sge = wr->num_sge;
+		j = 0;
+
+		for (i = 0; i < wr->num_sge; i++) {
+			if (unlikely(!wr->sg_list[i].length))
+				valid_num_sge--;
+
 			rc_sq_wqe->msg_len =
 					htole32(le32toh(rc_sq_wqe->msg_len) +
 							wr->sg_list[i].length);
+		}
 
 		if (wr->opcode == IBV_WR_SEND_WITH_IMM ||
 		    wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM)
 			rc_sq_wqe->immtdata = htole32(be32toh(wr->imm_data));
 
 		roce_set_field(rc_sq_wqe->byte_16, RC_SQ_WQE_BYTE_16_SGE_NUM_M,
-			       RC_SQ_WQE_BYTE_16_SGE_NUM_S, wr->num_sge);
+			       RC_SQ_WQE_BYTE_16_SGE_NUM_S, valid_num_sge);
 
 		roce_set_field(rc_sq_wqe->byte_20,
 			       RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_S,
@@ -774,7 +784,7 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			set_data_seg_v2(dseg, wr->sg_list);
 			wqe += sizeof(struct hns_roce_v2_wqe_data_seg);
 			set_atomic_seg(wqe, wr);
-		} else if (wr->send_flags & IBV_SEND_INLINE && wr->num_sge) {
+		} else if (wr->send_flags & IBV_SEND_INLINE && valid_num_sge) {
 			if (le32toh(rc_sq_wqe->msg_len) > qp->max_inline_data) {
 				ret = EINVAL;
 				*bad_wr = wr;
@@ -801,7 +811,7 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 				     RC_SQ_WQE_BYTE_4_INLINE_S, 1);
 		} else {
 			/* set sge */
-			if (wr->num_sge <= 2) {
+			if (valid_num_sge <= 2) {
 				for (i = 0; i < wr->num_sge; i++)
 					if (likely(wr->sg_list[i].length)) {
 						set_data_seg_v2(dseg,
@@ -814,7 +824,7 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 					RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_S,
 					ind_sge & (qp->sge.sge_cnt - 1));
 
-				for (i = 0; i < 2; i++)
+				for (i = 0; i < wr->num_sge && j < 2; i++)
 					if (likely(wr->sg_list[i].length)) {
 						set_data_seg_v2(dseg,
 							       wr->sg_list + i);
@@ -824,10 +834,10 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 				dseg = get_send_sge_ex(qp, ind_sge &
 						    (qp->sge.sge_cnt - 1));
 
-				for (i = 0; i < wr->num_sge - 2; i++) {
-					if (likely(wr->sg_list[i + 2].length)) {
+				for (; i < wr->num_sge; i++) {
+					if (likely(wr->sg_list[i].length)) {
 						set_data_seg_v2(dseg,
-							   wr->sg_list + 2 + i);
+							   wr->sg_list + i);
 						dseg++;
 						ind_sge++;
 					}
