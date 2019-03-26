@@ -63,3 +63,7 @@ cdef class PD(PyverbsCM):
             self.ahs.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
+
+    @property
+    def _pd(self):
+        return <object>self.pd

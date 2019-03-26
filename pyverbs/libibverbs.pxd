@@ -325,6 +325,84 @@ cdef extern from 'infiniband/verbs.h':
         qp_type         qp_type
         unnamed         unnamed
 
+    cdef struct ibv_qp_cap:
+        unsigned int    max_send_wr
+        unsigned int    max_recv_wr
+        unsigned int    max_send_sge
+        unsigned int    max_recv_sge
+        unsigned int    max_inline_data
+
+    cdef struct ibv_qp_init_attr:
+        void            *qp_context
+        ibv_cq          *send_cq
+        ibv_cq          *recv_cq
+        ibv_srq         *srq
+        ibv_qp_cap      cap
+        ibv_qp_type     qp_type
+        int             sq_sig_all
+
+    cdef struct ibv_xrcd:
+        pass
+
+    cdef struct ibv_rwq_ind_table:
+        pass
+
+    cdef struct ibv_rx_hash_conf:
+        pass
+
+    cdef struct ibv_qp_init_attr_ex:
+        void                *qp_context
+        ibv_cq              *send_cq
+        ibv_cq              *recv_cq
+        ibv_srq             *srq
+        ibv_qp_cap          cap
+        ibv_qp_type         qp_type
+        int                 sq_sig_all
+        unsigned int        comp_mask
+        ibv_pd              *pd
+        ibv_xrcd            *xrcd
+        unsigned int        create_flags
+        unsigned short      max_tso_header
+        ibv_rwq_ind_table   *rwq_ind_tbl
+        ibv_rx_hash_conf    rx_hash_conf
+        unsigned int        source_qpn
+        unsigned long       send_ops_flags
+
+    cdef struct ibv_qp_attr:
+        ibv_qp_state    qp_state
+        ibv_qp_state    cur_qp_state
+        ibv_mtu         path_mtu
+        ibv_mig_state   path_mig_state
+        unsigned int    qkey
+        unsigned int    rq_psn
+        unsigned int    sq_psn
+        unsigned int    dest_qp_num
+        unsigned int    qp_access_flags
+        ibv_qp_cap      cap
+        ibv_ah_attr     ah_attr
+        ibv_ah_attr     alt_ah_attr
+        unsigned short  pkey_index
+        unsigned short  alt_pkey_index
+        unsigned char   en_sqd_async_notify
+        unsigned char   sq_draining
+        unsigned char   max_rd_atomic
+        unsigned char   max_dest_rd_atomic
+        unsigned char   min_rnr_timer
+        unsigned char   port_num
+        unsigned char   timeout
+        unsigned char   retry_cnt
+        unsigned char   rnr_retry
+        unsigned char   alt_port_num
+        unsigned char   alt_timeout
+        unsigned int    rate_limit
+
+    cdef struct ibv_srq:
+        ibv_context     *context
+        void            *srq_context
+        ibv_pd          *pd
+        unsigned int    handle
+        unsigned int    events_completed
+
     ibv_device **ibv_get_device_list(int *n)
     void ibv_free_device_list(ibv_device **list)
     ibv_context *ibv_open_device(ibv_device *device)
