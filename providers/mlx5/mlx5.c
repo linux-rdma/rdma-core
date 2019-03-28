@@ -88,6 +88,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.query_device  = mlx5_query_device,
 	.query_port    = mlx5_query_port,
 	.alloc_pd      = mlx5_alloc_pd,
+	.async_event   = mlx5_async_event,
 	.dealloc_pd    = mlx5_free_pd,
 	.reg_mr	       = mlx5_reg_mr,
 	.rereg_mr      = mlx5_rereg_mr,

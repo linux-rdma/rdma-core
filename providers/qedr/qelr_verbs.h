@@ -82,5 +82,6 @@ int qelr_destroy_srq(struct ibv_srq *ibv_srq);
 int qelr_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
 		       struct ibv_recv_wr **bad_wr);
 
-void qelr_async_event(struct ibv_async_event *event);
+void qelr_async_event(struct ibv_context *context,
+		      struct ibv_async_event *event);
 #endif /* __QELR_VERBS_H__ */

@@ -379,7 +379,8 @@ struct ibv_ah *nes_ucreate_ah(struct ibv_pd *, struct ibv_ah_attr *);
 int nes_udestroy_ah(struct ibv_ah *);
 int nes_uattach_mcast(struct ibv_qp *, const union ibv_gid *, uint16_t);
 int nes_udetach_mcast(struct ibv_qp *, const union ibv_gid *, uint16_t);
-void nes_async_event(struct ibv_async_event *event);
+void nes_async_event(struct ibv_context *context,
+		     struct ibv_async_event *event);
 
 extern long int page_size;
 

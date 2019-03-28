@@ -223,6 +223,10 @@ struct mlx5_uar_info {
 	enum mlx5_uar_type		type;
 };
 
+enum mlx5_ctx_flags {
+	MLX5_CTX_FLAGS_FATAL_STATE = 1 << 0,
+};
+
 struct mlx5_context {
 	struct verbs_context		ibv_ctx;
 	int				max_num_qps;
@@ -300,6 +304,7 @@ struct mlx5_context {
 	uint32_t                        eth_min_inline_size;
 	uint32_t                        dump_fill_mkey;
 	__be32                          dump_fill_mkey_be;
+	uint32_t			flags;
 };
 
 struct mlx5_bitmap {
@@ -796,6 +801,9 @@ int mlx5_query_port(struct ibv_context *context, uint8_t port,
 
 struct ibv_pd *mlx5_alloc_pd(struct ibv_context *context);
 int mlx5_free_pd(struct ibv_pd *pd);
+
+void mlx5_async_event(struct ibv_context *context,
+		      struct ibv_async_event *event);
 
 struct ibv_mr *mlx5_alloc_null_mr(struct ibv_pd *pd);
 struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr,

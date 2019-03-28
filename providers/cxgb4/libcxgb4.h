@@ -245,7 +245,8 @@ int c4iw_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 			     uint16_t lid);
 int c4iw_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 			     uint16_t lid);
-void c4iw_async_event(struct ibv_async_event *event);
+void c4iw_async_event(struct ibv_context *context,
+		      struct ibv_async_event *event);
 void c4iw_flush_hw_cq(struct c4iw_cq *chp, struct c4iw_qp *flush_qhp);
 int c4iw_flush_rq(struct t4_wq *wq, struct t4_cq *cq, int count);
 void c4iw_flush_sq(struct c4iw_qp *qhp);

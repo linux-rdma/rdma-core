@@ -82,7 +82,8 @@ static struct ibv_td *alloc_td(struct ibv_context *context,
 	return NULL;
 }
 
-static void async_event(struct ibv_async_event *event)
+static void async_event(struct ibv_context *context,
+			struct ibv_async_event *event)
 {
 }
 

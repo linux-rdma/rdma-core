@@ -141,6 +141,21 @@ int mlx5_query_port(struct ibv_context *context, uint8_t port,
 	return ibv_cmd_query_port(context, port, attr, &cmd, sizeof cmd);
 }
 
+void mlx5_async_event(struct ibv_context *context,
+		      struct ibv_async_event *event)
+{
+	struct mlx5_context *ctx;
+
+	switch (event->event_type) {
+	case IBV_EVENT_DEVICE_FATAL:
+		ctx = to_mctx(context);
+		ctx->flags |= MLX5_CTX_FLAGS_FATAL_STATE;
+		break;
+	default:
+		break;
+	}
+}
+
 struct ibv_pd *mlx5_alloc_pd(struct ibv_context *context)
 {
 	struct ibv_alloc_pd       cmd;

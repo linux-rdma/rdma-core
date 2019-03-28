@@ -452,7 +452,8 @@ int iwch_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 	return -ENOSYS;
 }
 
-void t3b_async_event(struct ibv_async_event *event)
+void t3b_async_event(struct ibv_context *context,
+		     struct ibv_async_event *event)
 {
 	PDBG("%s type %d obj %p\n", __FUNCTION__, event->event_type, 
 	     event->element.cq);
