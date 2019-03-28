@@ -307,3 +307,35 @@ sgid index            : 0
 hop limit             : 1
 traffic class         : 0
 ```
+
+##### QP
+The following snippets will demonstrate creation of a QP and a simple post_send
+operation. For more complex examples, please see pyverbs/examples section.
+```python
+from pyverbs.qp import QPCap, QPInitAttr, QPAttr, QP
+from pyverbs.addr import GlobalRoute
+from pyverbs.addr import AH, AHAttr
+import pyverbs.device as d
+import pyverbs.enums as e
+from pyverbs.pd import PD
+from pyverbs.cq import CQ
+import pyverbs.wr as pwr
+
+
+ctx = d.Context(name='mlx5_0')
+pd = PD(ctx)
+cq = CQ(ctx, 100, None, None, 0)
+cap = QPCap(100, 10, 1, 1, 0)
+qia = QPInitAttr(cap=cap, qp_type = e.IBV_QPT_UD, scq=cq, rcq=cq)
+# A UD QP will be in RTS if a QPAttr object is provided
+udqp = QP(pd, qia, QPAttr())
+port_num = 1
+gid_index = 3 # Hard-coded for RoCE v2 interface
+gid = ctx.query_gid(port_num, gid_index)
+gr = GlobalRoute(dgid=gid, sgid_index=gid_index)
+ah_attr = AHAttr(gr=gr, is_global=1, port_num=port_num)
+ah=AH(pd, ah_attr)
+wr = pwr.SendWR()
+wr.set_wr_ud(ah, 0x1101, 0) # in real life, use real values
+udqp.post_send(wr)
+```
