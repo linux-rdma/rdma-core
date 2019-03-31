@@ -21,6 +21,7 @@ cdef extern from 'infiniband/verbs.h':
 
     cdef struct ibv_context:
         ibv_device *device
+        int num_comp_vectors
 
     cdef struct ibv_device_attr:
         char            *fw_ver
@@ -172,6 +173,61 @@ cdef extern from 'infiniband/verbs.h':
         unsigned char           flags
         unsigned short          port_cap_flags2
 
+    cdef struct ibv_comp_channel:
+        ibv_context     *context
+        unsigned int    fd
+        unsigned int    refcnt
+
+    cdef struct ibv_cq:
+        ibv_context         *context
+        ibv_comp_channel    *channel
+        void                *cq_context
+        int                 handle
+        int                 cqe
+
+    cdef struct ibv_wc:
+        unsigned long   wr_id
+        ibv_wc_status   status
+        ibv_wc_opcode   opcode
+        unsigned int    vendor_err
+        unsigned int    byte_len
+        unsigned int    qp_num
+        unsigned int    imm_data
+        unsigned int    src_qp
+        int             wc_flags
+        unsigned int    pkey_index
+        unsigned int    slid
+        unsigned int    sl
+        unsigned int    dlid_path_bits
+
+    cdef struct ibv_cq_init_attr_ex:
+        unsigned int        cqe
+        void                *cq_context
+        ibv_comp_channel    *channel
+        unsigned int        comp_vector
+        unsigned long       wc_flags
+        unsigned int        comp_mask
+        unsigned int        flags
+
+    cdef struct ibv_cq_ex:
+        ibv_context         *context
+        ibv_comp_channel    *channel
+        void                *cq_context
+        unsigned int        handle
+        int                 cqe
+        unsigned int        comp_events_completed
+        unsigned int        async_events_completed
+        unsigned int        comp_mask
+        ibv_wc_status       status
+        unsigned long       wr_id
+
+    cdef struct ibv_poll_cq_attr:
+        unsigned int    comp_mask
+
+    cdef struct ibv_wc_tm_info:
+        unsigned long   tag
+        unsigned int    priv
+
     ibv_device **ibv_get_device_list(int *n)
     void ibv_free_device_list(ibv_device **list)
     ibv_context *ibv_open_device(ibv_device *device)
@@ -199,3 +255,33 @@ cdef extern from 'infiniband/verbs.h':
                            size_t length)
     int ibv_query_port(ibv_context *context, uint8_t port_num,
                        ibv_port_attr *port_attr)
+    ibv_comp_channel *ibv_create_comp_channel(ibv_context *context)
+    int ibv_destroy_comp_channel(ibv_comp_channel *channel)
+    int ibv_get_cq_event(ibv_comp_channel *channel, ibv_cq **cq,
+                         void **cq_context)
+    ibv_cq *ibv_create_cq(ibv_context *context, int cqe, void *cq_context,
+                          ibv_comp_channel *channel, int comp_vector)
+    int ibv_destroy_cq(ibv_cq *cq)
+    int ibv_poll_cq(ibv_cq *cq, int num_entries, ibv_wc *wc)
+    ibv_cq_ex *ibv_create_cq_ex(ibv_context *context,
+                                ibv_cq_init_attr_ex *cq_attr)
+    ibv_cq *ibv_cq_ex_to_cq(ibv_cq_ex *cq)
+    int ibv_start_poll(ibv_cq_ex *cq, ibv_poll_cq_attr *attr)
+    int ibv_next_poll(ibv_cq_ex *cq)
+    void ibv_end_poll(ibv_cq_ex *cq)
+    ibv_wc_opcode ibv_wc_read_opcode(ibv_cq_ex *cq)
+    unsigned int ibv_wc_read_vendor_err(ibv_cq_ex *cq)
+    unsigned int ibv_wc_read_byte_len(ibv_cq_ex *cq)
+    unsigned int ibv_wc_read_imm_data(ibv_cq_ex *cq)
+    unsigned int ibv_wc_read_invalidated_rkey(ibv_cq_ex *cq)
+    unsigned int ibv_wc_read_qp_num(ibv_cq_ex *cq)
+    unsigned int ibv_wc_read_src_qp(ibv_cq_ex *cq)
+    unsigned int ibv_wc_read_wc_flags(ibv_cq_ex *cq)
+    unsigned int ibv_wc_read_slid(ibv_cq_ex *cq)
+    unsigned char ibv_wc_read_sl(ibv_cq_ex *cq)
+    unsigned char ibv_wc_read_dlid_path_bits(ibv_cq_ex *cq)
+    unsigned long ibv_wc_read_completion_ts(ibv_cq_ex *cq)
+    unsigned short ibv_wc_read_cvlan(ibv_cq_ex *cq)
+    unsigned int ibv_wc_read_flow_tag(ibv_cq_ex *cq)
+    void ibv_wc_read_tm_info(ibv_cq_ex *cq, ibv_wc_tm_info *tm_info)
+    unsigned long ibv_wc_read_completion_wallclock_ns(ibv_cq_ex *cq)

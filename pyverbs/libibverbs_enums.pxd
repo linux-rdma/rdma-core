@@ -173,17 +173,18 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_WC_RECV_RDMA_WITH_IMM
 
     cpdef enum ibv_create_cq_wc_flags:
-        IBV_WC_EX_WITH_BYTE_LEN                 = 1 << 0
-        IBV_WC_EX_WITH_IMM                      = 1 << 1
-        IBV_WC_EX_WITH_QP_NUM                   = 1 << 2
-        IBV_WC_EX_WITH_SRC_QP                   = 1 << 3
-        IBV_WC_EX_WITH_SLID                     = 1 << 4
-        IBV_WC_EX_WITH_SL                       = 1 << 5
-        IBV_WC_EX_WITH_DLID_PATH_BITS           = 1 << 6
-        IBV_WC_EX_WITH_COMPLETION_TIMESTAMP     = 1 << 7
-        IBV_WC_EX_WITH_CVLAN                    = 1 << 8
-        IBV_WC_EX_WITH_FLOW_TAG                 = 1 << 9
-        IBV_WC_EX_WITH_TM_INFO                  = 1 << 10
+        IBV_WC_EX_WITH_BYTE_LEN                         = 1 << 0
+        IBV_WC_EX_WITH_IMM                              = 1 << 1
+        IBV_WC_EX_WITH_QP_NUM                           = 1 << 2
+        IBV_WC_EX_WITH_SRC_QP                           = 1 << 3
+        IBV_WC_EX_WITH_SLID                             = 1 << 4
+        IBV_WC_EX_WITH_SL                               = 1 << 5
+        IBV_WC_EX_WITH_DLID_PATH_BITS                   = 1 << 6
+        IBV_WC_EX_WITH_COMPLETION_TIMESTAMP             = 1 << 7
+        IBV_WC_EX_WITH_CVLAN                            = 1 << 8
+        IBV_WC_EX_WITH_FLOW_TAG                         = 1 << 9
+        IBV_WC_EX_WITH_TM_INFO                          = 1 << 10
+        IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK   = 1 << 11
 
     cpdef enum ibv_wc_flags:
         IBV_WC_GRH              = 1 << 0
@@ -339,6 +340,14 @@ cdef extern from '<infiniband/verbs.h>':
 
     cpdef enum ibv_read_counters_flags:
         IBV_READ_COUNTERS_ATTR_PREFER_CACHED = 1 << 0
+
+    cpdef enum ibv_cq_init_attr_mask:
+        IBV_CQ_INIT_ATTR_MASK_FLAGS = 1 << 0
+
+    cpdef enum ibv_create_cq_attr_flags:
+        IBV_CREATE_CQ_ATTR_SINGLE_THREADED = 1 << 0
+        IBV_CREATE_CQ_ATTR_IGNORE_OVERRUN  = 1 << 1
+
 
 cdef extern from "<infiniband/tm_types.h>":
     cpdef enum ibv_tmh_op:

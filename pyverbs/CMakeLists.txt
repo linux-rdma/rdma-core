@@ -4,6 +4,7 @@
 rdma_cython_module(pyverbs
   addr.pyx
   base.pyx
+  cq.pyx
   device.pyx
   enums.pyx
   mr.pyx
@@ -18,6 +19,7 @@ rdma_python_module(pyverbs
 
 rdma_python_test(pyverbs/tests
   tests/__init__.py
+  tests/cq.py
   tests/device.py
   tests/mr.py
   tests/pd.py
