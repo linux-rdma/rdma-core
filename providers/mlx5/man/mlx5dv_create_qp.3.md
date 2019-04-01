@@ -95,6 +95,11 @@ struct mlx5dv_dc_init_attr {
 :	used to create a DCT QP.
 
 
+# NOTES
+
+**mlx5dv_qp_ex_from_ibv_qp_ex()** is used to get *struct mlx5dv_qp_ex* for
+accessing the send ops interfaces when IBV_QP_INIT_ATTR_SEND_OPS_FLAGS is used.
+
 # RETURN VALUE
 
 **mlx5dv_create_qp()**

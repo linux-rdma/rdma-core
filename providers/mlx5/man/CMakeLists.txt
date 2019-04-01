@@ -18,6 +18,7 @@ rdma_man_pages(
   mlx5dv_open_device.3.md
   mlx5dv_query_device.3
   mlx5dv_ts_to_ns.3
+  mlx5dv_wr_post.3.md
   mlx5dv.7
 )
 rdma_alias_man_pages(
@@ -39,4 +40,6 @@ rdma_alias_man_pages(
  mlx5dv_devx_qp_modify.3 mlx5dv_devx_ind_tbl_modify.3
  mlx5dv_devx_qp_modify.3 mlx5dv_devx_ind_tbl_query.3
  mlx5dv_devx_umem_reg.3 mlx5dv_devx_umem_dereg.3
+ mlx5dv_wr_post.3 mlx5dv_wr_set_dc_addr.3
+ mlx5dv_wr_post.3 mlx5dv_qp_ex_from_ibv_qp_ex.3
 )

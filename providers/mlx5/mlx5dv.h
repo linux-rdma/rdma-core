@@ -193,6 +193,26 @@ struct ibv_qp *mlx5dv_create_qp(struct ibv_context *context,
 				struct ibv_qp_init_attr_ex *qp_attr,
 				struct mlx5dv_qp_init_attr *mlx5_qp_attr);
 
+struct mlx5dv_qp_ex {
+	uint64_t comp_mask;
+	/*
+	 * Available just for the MLX5 DC QP type with send opcodes of type:
+	 * rdma, atomic and send.
+	 */
+	void (*wr_set_dc_addr)(struct mlx5dv_qp_ex *mqp, struct ibv_ah *ah,
+			       uint32_t remote_dctn, uint64_t remote_dc_key);
+};
+
+struct mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(struct ibv_qp_ex *qp);
+
+static inline void mlx5dv_wr_set_dc_addr(struct mlx5dv_qp_ex *mqp,
+					 struct ibv_ah *ah,
+					 uint32_t remote_dctn,
+					 uint64_t remote_dc_key)
+{
+	mqp->wr_set_dc_addr(mqp, ah, remote_dctn, remote_dc_key);
+}
+
 enum mlx5dv_flow_action_esp_mask {
 	MLX5DV_FLOW_ACTION_ESP_MASK_FLAGS	= 1 << 0,
 };

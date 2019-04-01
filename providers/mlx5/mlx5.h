@@ -503,9 +503,9 @@ enum mlx5_qp_flags {
 struct mlx5_qp {
 	struct mlx5_resource            rsc; /* This struct must be first */
 	struct verbs_qp			verbs_qp;
+	struct mlx5dv_qp_ex		dv_qp;
 	struct ibv_qp		       *ibv_qp;
 	struct mlx5_buf                 buf;
-	void				*sq_start;
 	int                             max_inline_data;
 	int                             buf_size;
 	/* For Raw Packet QP, use different buffers for the SQ and RQ */
@@ -513,8 +513,22 @@ struct mlx5_qp {
 	int				sq_buf_size;
 	struct mlx5_bf		       *bf;
 
+	/* Start of new post send API specific fields */
+	bool				inl_wqe;
+	uint8_t				cur_setters_cnt;
+	uint8_t				fm_cache_rb;
+	int				err;
+	int				nreq;
+	uint32_t			cur_size;
+	uint32_t			cur_post_rb;
+	void				*cur_eth;
+	void				*cur_data;
+	struct mlx5_wqe_ctrl_seg	*cur_ctrl;
+	/* End of new post send API specific fields */
+
 	uint8_t				fm_cache;
 	uint8_t	                        sq_signal_bits;
+	void				*sq_start;
 	struct mlx5_wq                  sq;
 
 	__be32                         *db;
@@ -675,6 +689,11 @@ static inline struct mlx5_qp *to_mqp(struct ibv_qp *ibqp)
 	struct verbs_qp *vqp = (struct verbs_qp *)ibqp;
 
 	return container_of(vqp, struct mlx5_qp, verbs_qp);
+}
+
+static inline struct mlx5_qp *mqp_from_mlx5dv_qp_ex(struct mlx5dv_qp_ex *dv_qp)
+{
+	return container_of(dv_qp, struct mlx5_qp, dv_qp);
 }
 
 static inline struct mlx5_rwq *to_mrwq(struct ibv_wq *ibwq)
@@ -916,6 +935,10 @@ int mlx5_advise_mr(struct ibv_pd *pd,
 		   uint32_t flags,
 		   struct ibv_sge *sg_list,
 		   uint32_t num_sges);
+int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
+			 const struct ibv_qp_init_attr_ex *attr,
+			 const struct mlx5dv_qp_init_attr *mlx5_attr);
+
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {
 	int tind = uidx >> MLX5_UIDX_TABLE_SHIFT;
