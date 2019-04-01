@@ -9,6 +9,7 @@ rdma_cython_module(pyverbs
   enums.pyx
   mr.pyx
   pd.pyx
+  wr.pyx
   )
 
 rdma_python_module(pyverbs

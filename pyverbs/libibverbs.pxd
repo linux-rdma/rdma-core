@@ -257,6 +257,74 @@ cdef extern from 'infiniband/verbs.h':
         ibv_pd              *pd
         unsigned int        handle
 
+    cdef struct ibv_sge:
+        unsigned long   addr
+        unsigned int    length
+        unsigned int    lkey
+
+    cdef struct ibv_recv_wr:
+        unsigned long   wr_id
+        ibv_recv_wr     *next
+        ibv_sge         *sg_list
+        int             num_sge
+
+    cdef struct rdma:
+        unsigned long   remote_addr
+        unsigned int    rkey
+
+    cdef struct atomic:
+        unsigned long   remote_addr
+        unsigned long   compare_add
+        unsigned long   swap
+        unsigned int    rkey
+
+    cdef struct ud:
+        ibv_ah          *ah
+        unsigned int    remote_qpn
+        unsigned int    remote_qkey
+
+    cdef union wr:
+        rdma            rdma
+        atomic          atomic
+        ud              ud
+
+    cdef struct ibv_mw_bind_info:
+        ibv_mr          *mr
+        unsigned long   addr
+        unsigned long   length
+        unsigned int    mw_access_flags
+
+    cdef struct bind_mw:
+        ibv_mw              *mw
+        unsigned int        rkey
+        ibv_mw_bind_info    bind_info
+
+    cdef struct tso:
+        void            *hdr
+        unsigned short  hdr_sz
+        unsigned short  mss
+
+    cdef union unnamed:
+        bind_mw         bind_mw
+        tso             tso
+
+    cdef struct xrc:
+        unsigned int    remote_srqn
+
+    cdef union qp_type:
+        xrc             xrc
+
+    cdef struct ibv_send_wr:
+        unsigned long   wr_id
+        ibv_send_wr     *next
+        ibv_sge         *sg_list
+        int             num_sge
+        ibv_wr_opcode   opcode
+        unsigned int    send_flags
+        wr              wr
+        qp_type         qp_type
+        unnamed         unnamed
+
     ibv_device **ibv_get_device_list(int *n)
     void ibv_free_device_list(ibv_device **list)
     ibv_context *ibv_open_device(ibv_device *device)
