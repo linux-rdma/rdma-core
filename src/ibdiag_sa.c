@@ -214,7 +214,7 @@ static const char *ib_mad_inv_field_str[] = {
 	"MAD Reserved",
 	"MAD Reserved",
 	"MAD Reserved",
-	"MAD Invalid value in Attribute field(s) or Attribute Modifier"
+	"MAD Invalid value in Attribute field(s) or Attribute Modifier",
 	"MAD UNKNOWN ERROR"
 };
 #define MAD_ERR_UNKNOWN (ARR_SIZE(ib_mad_inv_field_str) - 1)
@@ -229,19 +229,26 @@ static inline const char *ib_mad_inv_field_err_str(IN uint8_t f)
 void sa_report_err(int status)
 {
 	int st = status & 0xff;
-	char mad_err_str[64] = { 0 };
+	char mad_err_str[128] = { 0 };
 	char sa_err_str[64] = { 0 };
+	int rc;
 
-	if (st)
-		sprintf(mad_err_str, " (%s; %s; %s)",
+	if (st) {
+		rc = snprintf(mad_err_str, sizeof(mad_err_str), " (%s; %s; %s)",
 			(st & 0x1) ? "BUSY" : "",
 			(st & 0x2) ? "Redirection Required" : "",
 			ib_mad_inv_field_err_str(st>>2));
-
+		if (rc > sizeof(mad_err_str))
+			fprintf(stderr, "WARN: string buffer overflow\n");
+	}
 
 	st = status >> 8;
-	if (st)
-		sprintf(sa_err_str, " SA(%s)", ib_sa_err_str((uint8_t) st));
+	if (st) {
+		rc = snprintf(sa_err_str, sizeof(sa_err_str), " SA(%s)",
+			ib_sa_err_str((uint8_t) st));
+		if (rc > sizeof(sa_err_str))
+			fprintf(stderr, "WARN: string buffer overflow\n");
+	}
 
 	fprintf(stderr, "ERROR: Query result returned 0x%04x, %s%s\n",
 		status, mad_err_str, sa_err_str);
