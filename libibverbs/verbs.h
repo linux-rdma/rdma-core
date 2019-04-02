@@ -497,6 +497,7 @@ enum ibv_wc_opcode {
 	IBV_WC_TM_SYNC,
 	IBV_WC_TM_RECV,
 	IBV_WC_TM_NO_TAG,
+	IBV_WC_DRIVER1,
 };
 
 enum {
@@ -1057,6 +1058,7 @@ enum ibv_wr_opcode {
 	IBV_WR_BIND_MW,
 	IBV_WR_SEND_WITH_INV,
 	IBV_WR_TSO,
+	IBV_WR_DRIVER1,
 };
 
 enum ibv_send_flags {

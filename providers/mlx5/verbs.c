@@ -1131,7 +1131,8 @@ int mlx5_destroy_srq(struct ibv_srq *srq)
 
 static int _sq_overhead(struct mlx5_qp *qp,
 			enum ibv_qp_type qp_type,
-			uint64_t ops)
+			uint64_t ops,
+			uint64_t mlx5_ops)
 {
 	size_t size = sizeof(struct mlx5_wqe_ctrl_seg);
 	size_t rdma_size = 0;
@@ -1151,7 +1152,9 @@ static int _sq_overhead(struct mlx5_qp *qp,
 			      sizeof(struct mlx5_wqe_raddr_seg) +
 			      sizeof(struct mlx5_wqe_atomic_seg);
 
-	if (ops & (IBV_QP_EX_WITH_BIND_MW | IBV_QP_EX_WITH_LOCAL_INV))
+	if (ops & (IBV_QP_EX_WITH_BIND_MW | IBV_QP_EX_WITH_LOCAL_INV) ||
+	    (mlx5_ops & (MLX5DV_QP_EX_WITH_MR_INTERLEAVED |
+			 MLX5DV_QP_EX_WITH_MR_LIST)))
 		mw_size = sizeof(struct mlx5_wqe_ctrl_seg) +
 			  sizeof(struct mlx5_wqe_umr_ctrl_seg) +
 			  sizeof(struct mlx5_wqe_mkey_context_seg) +
@@ -1195,9 +1198,11 @@ static int _sq_overhead(struct mlx5_qp *qp,
 	return size;
 }
 
-static int sq_overhead(struct mlx5_qp *qp, struct ibv_qp_init_attr_ex *attr)
+static int sq_overhead(struct mlx5_qp *qp, struct ibv_qp_init_attr_ex *attr,
+		       struct mlx5dv_qp_init_attr *mlx5_qp_attr)
 {
 	uint64_t ops;
+	uint64_t mlx5_ops = 0;
 
 	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS) {
 		ops = attr->send_ops_flags;
@@ -1236,11 +1241,17 @@ static int sq_overhead(struct mlx5_qp *qp, struct ibv_qp_init_attr_ex *attr)
 		}
 	}
 
-	return _sq_overhead(qp, attr->qp_type, ops);
+
+	if (mlx5_qp_attr &&
+	    mlx5_qp_attr->comp_mask & MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS)
+		mlx5_ops = mlx5_qp_attr->send_ops_flags;
+
+	return _sq_overhead(qp, attr->qp_type, ops, mlx5_ops);
 }
 
 static int mlx5_calc_send_wqe(struct mlx5_context *ctx,
 			      struct ibv_qp_init_attr_ex *attr,
+			      struct mlx5dv_qp_init_attr *mlx5_qp_attr,
 			      struct mlx5_qp *qp)
 {
 	int size;
@@ -1248,7 +1259,7 @@ static int mlx5_calc_send_wqe(struct mlx5_context *ctx,
 	int max_gather;
 	int tot_size;
 
-	size = sq_overhead(qp, attr);
+	size = sq_overhead(qp, attr, mlx5_qp_attr);
 	if (size < 0)
 		return size;
 
@@ -1301,6 +1312,7 @@ static int mlx5_calc_rcv_wqe(struct mlx5_context *ctx,
 
 static int mlx5_calc_sq_size(struct mlx5_context *ctx,
 			     struct ibv_qp_init_attr_ex *attr,
+			     struct mlx5dv_qp_init_attr *mlx5_qp_attr,
 			     struct mlx5_qp *qp)
 {
 	int wqe_size;
@@ -1310,7 +1322,7 @@ static int mlx5_calc_sq_size(struct mlx5_context *ctx,
 	if (!attr->cap.max_send_wr)
 		return 0;
 
-	wqe_size = mlx5_calc_send_wqe(ctx, attr, qp);
+	wqe_size = mlx5_calc_send_wqe(ctx, attr, mlx5_qp_attr, qp);
 	if (wqe_size < 0) {
 		mlx5_dbg(fp, MLX5_DBG_QP, "\n");
 		return wqe_size;
@@ -1321,7 +1333,7 @@ static int mlx5_calc_sq_size(struct mlx5_context *ctx,
 		return -EINVAL;
 	}
 
-	qp->max_inline_data = wqe_size - sq_overhead(qp, attr) -
+	qp->max_inline_data = wqe_size - sq_overhead(qp, attr, mlx5_qp_attr) -
 		sizeof(struct mlx5_wqe_inl_data_seg);
 	attr->cap.max_inline_data = qp->max_inline_data;
 
@@ -1441,12 +1453,13 @@ static int mlx5_calc_rq_size(struct mlx5_context *ctx,
 
 static int mlx5_calc_wq_size(struct mlx5_context *ctx,
 			     struct ibv_qp_init_attr_ex *attr,
+			     struct mlx5dv_qp_init_attr *mlx5_qp_attr,
 			     struct mlx5_qp *qp)
 {
 	int ret;
 	int result;
 
-	ret = mlx5_calc_sq_size(ctx, attr, qp);
+	ret = mlx5_calc_sq_size(ctx, attr, mlx5_qp_attr, qp);
 	if (ret < 0)
 		return ret;
 
@@ -1677,7 +1690,8 @@ enum {
 
 enum {
 	MLX5_DV_CREATE_QP_SUP_COMP_MASK = MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS |
-					  MLX5DV_QP_INIT_ATTR_MASK_DC
+					  MLX5DV_QP_INIT_ATTR_MASK_DC |
+					  MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS
 };
 
 enum {
@@ -1912,7 +1926,9 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	if (ctx->atomic_cap == IBV_ATOMIC_HCA)
 		qp->atomics_enabled = 1;
 
-	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS) {
+	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS ||
+	    (mlx5_qp_attr &&
+	     mlx5_qp_attr->comp_mask & MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS)) {
 		/*
 		 * Scatter2cqe, which is a data-path optimization, is disabled
 		 * since driver DC data-path doesn't support it.
@@ -1939,7 +1955,7 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	if (!scatter_to_cqe_configured && use_scatter_to_cqe())
 		cmd.flags |= MLX5_QP_FLAG_SCATTER_CQE;
 
-	ret = mlx5_calc_wq_size(ctx, attr, qp);
+	ret = mlx5_calc_wq_size(ctx, attr, mlx5_qp_attr, qp);
 	if (ret < 0) {
 		errno = -ret;
 		goto err;
@@ -4497,6 +4513,67 @@ int mlx5dv_devx_get_async_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp,
 	if (bytes < sizeof(*cmd_resp))
 		return EINVAL;
 
+	return 0;
+}
+
+struct mlx5dv_mkey *mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
+{
+	uint32_t out[DEVX_ST_SZ_DW(create_mkey_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_mkey_in)] = {};
+	struct mlx5_mkey *mkey;
+	void *mkc;
+
+	if (!mkey_init_attr->create_flags ||
+	    !check_comp_mask(mkey_init_attr->create_flags,
+			     MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	mkey = calloc(1, sizeof(*mkey));
+	if (!mkey) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	mkey->num_desc = align(mkey_init_attr->max_entries, 4);
+	DEVX_SET(create_mkey_in, in, opcode, MLX5_CMD_OP_CREATE_MKEY);
+	mkc = DEVX_ADDR_OF(create_mkey_in, in, memory_key_mkey_entry);
+	DEVX_SET(mkc, mkc, access_mode_1_0, MLX5_MKC_ACCESS_MODE_KLMS);
+	DEVX_SET(mkc, mkc, free, 1);
+	DEVX_SET(mkc, mkc, umr_en, 1);
+	DEVX_SET(mkc, mkc, pd, to_mpd(mkey_init_attr->pd)->pdn);
+	DEVX_SET(mkc, mkc, translations_octword_size, mkey->num_desc);
+	DEVX_SET(mkc, mkc, lr, 1);
+	DEVX_SET(mkc, mkc, qpn, 0xffffff);
+	DEVX_SET(mkc, mkc, mkey_7_0, 0);
+
+	mkey->devx_obj = mlx5dv_devx_obj_create(mkey_init_attr->pd->context,
+						in, sizeof(in), out, sizeof(out));
+	if (!mkey->devx_obj)
+		goto end;
+
+	mkey_init_attr->max_entries = mkey->num_desc;
+	mkey->dv_mkey.lkey = (DEVX_GET(create_mkey_out, out, mkey_index) << 8) | 0;
+	mkey->dv_mkey.rkey = mkey->dv_mkey.lkey;
+
+	return &mkey->dv_mkey;
+end:
+	free(mkey);
+	return NULL;
+}
+
+int mlx5dv_destroy_mkey(struct mlx5dv_mkey *dv_mkey)
+{
+	struct mlx5_mkey *mkey = container_of(dv_mkey, struct mlx5_mkey,
+					  dv_mkey);
+	int ret;
+
+	ret = mlx5dv_devx_obj_destroy(mkey->devx_obj);
+	if (ret)
+		return ret;
+
+	free(mkey);
 	return 0;
 }
 

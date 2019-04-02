@@ -168,9 +168,28 @@ enum mlx5dv_qp_create_flags {
 	MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE = 1 << 5,
 };
 
+enum mlx5dv_mkey_init_attr_flags {
+	MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT = 1 << 0,
+};
+
+struct mlx5dv_mkey_init_attr {
+	struct ibv_pd	*pd;
+	uint32_t	create_flags; /* Use enum mlx5dv_mkey_init_attr_flags */
+	uint16_t	max_entries; /* Requested max number of pointed entries by this indirect mkey */
+};
+
+struct mlx5dv_mkey {
+	uint32_t	lkey;
+	uint32_t	rkey;
+};
+
+struct mlx5dv_mkey *mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr);
+int mlx5dv_destroy_mkey(struct mlx5dv_mkey *mkey);
+
 enum mlx5dv_qp_init_attr_mask {
 	MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS	= 1 << 0,
 	MLX5DV_QP_INIT_ATTR_MASK_DC			= 1 << 1,
+	MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS		= 1 << 2,
 };
 
 enum mlx5dv_dc_type {
@@ -183,15 +202,32 @@ struct mlx5dv_dc_init_attr {
 	uint64_t dct_access_key;
 };
 
+enum mlx5dv_qp_create_send_ops_flags {
+	MLX5DV_QP_EX_WITH_MR_INTERLEAVED	= 1 << 0,
+	MLX5DV_QP_EX_WITH_MR_LIST		= 1 << 1,
+};
+
 struct mlx5dv_qp_init_attr {
 	uint64_t comp_mask;	/* Use enum mlx5dv_qp_init_attr_mask */
 	uint32_t create_flags;	/* Use enum mlx5dv_qp_create_flags */
 	struct mlx5dv_dc_init_attr  dc_init_attr;
+	uint64_t send_ops_flags; /* Use enum mlx5dv_qp_create_send_ops_flags */
 };
 
 struct ibv_qp *mlx5dv_create_qp(struct ibv_context *context,
 				struct ibv_qp_init_attr_ex *qp_attr,
 				struct mlx5dv_qp_init_attr *mlx5_qp_attr);
+
+struct mlx5dv_mr_interleaved {
+	uint64_t        addr;
+	uint32_t        bytes_count;
+	uint32_t        bytes_skip;
+	uint32_t        lkey;
+};
+
+enum mlx5dv_wc_opcode {
+	MLX5DV_WC_UMR = IBV_WC_DRIVER1,
+};
 
 struct mlx5dv_qp_ex {
 	uint64_t comp_mask;
@@ -201,6 +237,17 @@ struct mlx5dv_qp_ex {
 	 */
 	void (*wr_set_dc_addr)(struct mlx5dv_qp_ex *mqp, struct ibv_ah *ah,
 			       uint32_t remote_dctn, uint64_t remote_dc_key);
+	void (*wr_mr_interleaved)(struct mlx5dv_qp_ex *mqp,
+				  struct mlx5dv_mkey *mkey,
+				  uint32_t access_flags, /* use enum ibv_access_flags */
+				  uint32_t repeat_count,
+				  uint16_t num_interleaved,
+				  struct mlx5dv_mr_interleaved *data);
+	void (*wr_mr_list)(struct mlx5dv_qp_ex *mqp,
+			   struct mlx5dv_mkey *mkey,
+			   uint32_t access_flags, /* use enum ibv_access_flags */
+			   uint16_t num_sges,
+			   struct ibv_sge *sge);
 };
 
 struct mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(struct ibv_qp_ex *qp);
@@ -211,6 +258,26 @@ static inline void mlx5dv_wr_set_dc_addr(struct mlx5dv_qp_ex *mqp,
 					 uint64_t remote_dc_key)
 {
 	mqp->wr_set_dc_addr(mqp, ah, remote_dctn, remote_dc_key);
+}
+
+static inline void mlx5dv_wr_mr_interleaved(struct mlx5dv_qp_ex *mqp,
+					    struct mlx5dv_mkey *mkey,
+					    uint32_t access_flags,
+					    uint32_t repeat_count,
+					    uint16_t num_interleaved,
+					    struct mlx5dv_mr_interleaved *data)
+{
+	mqp->wr_mr_interleaved(mqp, mkey, access_flags, repeat_count,
+			       num_interleaved, data);
+}
+
+static inline void mlx5dv_wr_mr_list(struct mlx5dv_qp_ex *mqp,
+				      struct mlx5dv_mkey *mkey,
+				      uint32_t access_flags,
+				      uint16_t num_sges,
+				      struct ibv_sge *sge)
+{
+	mqp->wr_mr_list(mqp, mkey, access_flags, num_sges, sge);
 }
 
 enum mlx5dv_flow_action_esp_mask {
@@ -823,6 +890,22 @@ struct mlx5_wqe_umr_klm_seg {
 
 union mlx5_wqe_umr_inline_seg {
 	struct mlx5_wqe_umr_klm_seg	klm;
+};
+
+struct mlx5_wqe_umr_repeat_ent_seg {
+	__be16		stride;
+	__be16		byte_count;
+	__be32		memkey;
+	__be64		va;
+};
+
+struct mlx5_wqe_umr_repeat_block_seg {
+	__be32		byte_count;
+	__be32		op;
+	__be32		repeat_count;
+	__be16		reserved;
+	__be16		num_ent;
+	struct mlx5_wqe_umr_repeat_ent_seg entries[0];
 };
 
 enum {
