@@ -1329,7 +1329,7 @@ static inline void _devx_set(void *p, uint32_t value, size_t bit_off,
 
 static inline uint32_t _devx_get(const void *p, size_t bit_off, size_t bit_sz)
 {
-	return ((be32toh(*((__be32 *)(p) + __devx_dw_off(bit_off))) >>
+	return ((be32toh(*((const __be32 *)(p) + __devx_dw_off(bit_off))) >>
 		 __devx_dw_bit_off(bit_sz, bit_off)) &
 		__devx_mask(bit_sz));
 }
@@ -1344,9 +1344,9 @@ static inline void _devx_set64(void *p, uint64_t v, size_t bit_off)
 
 #define DEVX_SET64(typ, p, fld, v) _devx_set64(p, v, __devx_bit_off(typ, fld))
 
-static inline uint64_t _devx_get64(void *p, size_t bit_off)
+static inline uint64_t _devx_get64(const void *p, size_t bit_off)
 {
-	return be64toh(*((__be64 *)(p) + __devx_64_off(bit_off)));
+	return be64toh(*((const __be64 *)(p) + __devx_64_off(bit_off)));
 }
 
 #define DEVX_GET64(typ, p, fld) _devx_get64(p, __devx_bit_off(typ, fld))
