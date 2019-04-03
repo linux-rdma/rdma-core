@@ -777,46 +777,11 @@ static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 	return 0;
 }
 
-static int hns_roce_store_qp(struct hns_roce_context *ctx, uint32_t qpn,
-			     struct hns_roce_qp *qp)
+static void hns_roce_set_qp_params(struct ibv_pd *pd,
+				   struct ibv_qp_init_attr *attr,
+				   struct hns_roce_qp *qp)
 {
-	int tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
-
-	if (!ctx->qp_table[tind].refcnt) {
-		ctx->qp_table[tind].table = calloc(ctx->qp_table_mask + 1,
-						  sizeof(struct hns_roce_qp *));
-		if (!ctx->qp_table[tind].table)
-			return -1;
-	}
-
-	++ctx->qp_table[tind].refcnt;
-	ctx->qp_table[tind].table[qpn & ctx->qp_table_mask] = qp;
-
-	return 0;
-}
-
-struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
-				    struct ibv_qp_init_attr *attr)
-{
-	int ret;
-	struct hns_roce_qp *qp = NULL;
-	struct hns_roce_create_qp cmd = {};
-	struct hns_roce_create_qp_resp resp = {};
-	struct hns_roce_context *context = to_hr_ctx(pd->context);
 	unsigned int sge_ex_count;
-
-	if (hns_roce_verify_qp(attr, context)) {
-		fprintf(stderr, "hns_roce_verify_sizes failed!\n");
-		return NULL;
-	}
-
-	qp = malloc(sizeof(*qp));
-	if (!qp) {
-		fprintf(stderr, "malloc failed!\n");
-		return NULL;
-	}
-
-	hns_roce_calc_sq_wqe_size(&attr->cap, attr->qp_type, qp);
 
 	if (to_hr_dev(pd->context->device)->hw_version == HNS_ROCE_HW_VER1) {
 		qp->sq.wqe_cnt = align_qp_size(attr->cap.max_send_wr);
@@ -839,6 +804,87 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 			qp->sge.sge_cnt = 0;
 		}
 	}
+}
+
+static int get_sq_db_addr(struct ibv_pd *pd, struct ibv_qp_init_attr *attr,
+			  struct hns_roce_qp *qp,
+			  struct hns_roce_context *context,
+			  struct hns_roce_create_qp *cmd)
+{
+	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
+		attr->cap.max_send_wr) {
+		qp->sdb = hns_roce_alloc_db(context, HNS_ROCE_QP_TYPE_DB);
+		if (!qp->sdb)
+			return -ENOMEM;
+
+		*(qp->sdb) = 0;
+		cmd->sdb_addr = (uintptr_t)qp->sdb;
+	} else
+		cmd->sdb_addr = 0;
+
+	return 0;
+}
+
+static int get_rq_db_addr(struct ibv_pd *pd, struct ibv_qp_init_attr *attr,
+			  struct hns_roce_qp *qp,
+			  struct hns_roce_context *context,
+			  struct hns_roce_create_qp *cmd)
+{
+	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
+	    attr->cap.max_recv_sge) {
+		qp->rdb = hns_roce_alloc_db(context, HNS_ROCE_QP_TYPE_DB);
+		if (!qp->rdb)
+			return -ENOMEM;
+
+		*(qp->rdb) = 0;
+		cmd->db_addr = (uintptr_t) qp->rdb;
+	} else
+		cmd->db_addr = 0;
+
+	return 0;
+}
+
+static int hns_roce_store_qp(struct hns_roce_context *ctx, uint32_t qpn,
+			     struct hns_roce_qp *qp)
+{
+	int tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
+
+	if (!ctx->qp_table[tind].refcnt) {
+		ctx->qp_table[tind].table = calloc(ctx->qp_table_mask + 1,
+						  sizeof(struct hns_roce_qp *));
+		if (!ctx->qp_table[tind].table)
+			return -1;
+	}
+
+	++ctx->qp_table[tind].refcnt;
+	ctx->qp_table[tind].table[qpn & ctx->qp_table_mask] = qp;
+
+	return 0;
+}
+
+struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
+				    struct ibv_qp_init_attr *attr)
+{
+	int ret;
+	struct hns_roce_qp *qp;
+	struct hns_roce_create_qp cmd = {};
+	struct hns_roce_create_qp_resp resp = {};
+	struct hns_roce_context *context = to_hr_ctx(pd->context);
+
+	if (hns_roce_verify_qp(attr, context)) {
+		fprintf(stderr, "hns_roce_verify_sizes failed!\n");
+		return NULL;
+	}
+
+	qp = malloc(sizeof(*qp));
+	if (!qp) {
+		fprintf(stderr, "malloc failed!\n");
+		return NULL;
+	}
+
+	hns_roce_calc_sq_wqe_size(&attr->cap, attr->qp_type, qp);
+
+	hns_roce_set_qp_params(pd, attr, qp);
 
 	if (hns_roce_alloc_qp_buf(pd, &attr->cap, attr->qp_type, qp)) {
 		fprintf(stderr, "hns_roce_alloc_qp_buf failed!\n");
@@ -853,27 +899,13 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 		goto err_free;
 	}
 
-	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
-		attr->cap.max_send_wr) {
-		qp->sdb = hns_roce_alloc_db(context, HNS_ROCE_QP_TYPE_DB);
-		if (!qp->sdb)
-			goto err_free;
+	ret = get_sq_db_addr(pd, attr, qp, context, &cmd);
+	if (ret)
+		goto err_free;
 
-		*(qp->sdb) = 0;
-		cmd.sdb_addr = (uintptr_t)qp->sdb;
-	} else
-		cmd.sdb_addr = 0;
-
-	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
-	    attr->cap.max_recv_sge) {
-		qp->rdb = hns_roce_alloc_db(context, HNS_ROCE_QP_TYPE_DB);
-		if (!qp->rdb)
-			goto err_sq_db;
-
-		*(qp->rdb) = 0;
-		cmd.db_addr = (uintptr_t) qp->rdb;
-	} else
-		cmd.db_addr = 0;
+	ret = get_rq_db_addr(pd, attr, qp, context, &cmd);
+	if (ret)
+		goto err_sq_db;
 
 	cmd.buf_addr = (uintptr_t) qp->buf.buf;
 	cmd.log_sq_stride = qp->sq.wqe_shift;
