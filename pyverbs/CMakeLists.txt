@@ -18,8 +18,9 @@ rdma_python_module(pyverbs
   utils.py
   )
 
-rdma_python_test(pyverbs/tests
+rdma_python_module(pyverbs/tests
   tests/__init__.py
+  tests/addr.py
   tests/base.py
   tests/cq.py
   tests/device.py
