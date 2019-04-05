@@ -13,8 +13,7 @@ Dependencies:
 	1) libibumad >= 1.3.7
 	2) opensm-libs >= 3.3.10
 	3) ib_umad kernel module
-	4) glib2
-	
+
 Python dependencies:
 	1) docutils
 

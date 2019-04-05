@@ -40,7 +40,6 @@
 
 #include <infiniband/ibnetdisc.h>
 #include <complib/cl_qmap.h>
-#include <glib.h>
 
 #define	IBND_DEBUG(fmt, ...) \
 	if (ibdebug) { \
@@ -60,12 +59,12 @@
 
 typedef struct f_internal {
 	ibnd_fabric_t fabric;
-	GHashTable *lid2guid;
+	cl_qmap_t lid2guid;
 } f_internal_t;
 f_internal_t *allocate_fabric_internal(void);
 void create_lid2guid(f_internal_t *f_int);
 void destroy_lid2guid(f_internal_t *f_int);
-void add_to_portlid_hash(ibnd_port_t * port, GHashTable *htable);
+void add_to_portlid_hash(ibnd_port_t * port, f_internal_t *f_int);
 
 typedef struct ibnd_scan {
 	ib_portid_t selfportid;
