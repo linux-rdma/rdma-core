@@ -185,6 +185,10 @@ RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WMISSING_DECLARATIONS "-Wmissing-declarati
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WWRITE_STRINGS "-Wwrite-strings")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WFORMAT_2 "-Wformat=2")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WCAST_FUNCTION "-Wcast-function-type")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WFORMAT_NONLITERAL "-Wformat-nonliteral")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WREDUNDANT_DECLS "-Wredundant-decls")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WDATE_TIME "-Wdate-time")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WNESTED_EXTERNS "-Wnested-externs")
 
 # At some point after 4.4 gcc fixed shadow to ignore function vs variable
 # conflicts
