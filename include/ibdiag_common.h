@@ -139,7 +139,8 @@ extern int ibdiag_process_opts(int argc, char *const argv[], void *context,
 			       const char *usage_args,
 			       const char *usage_examples[]);
 extern void ibdiag_show_usage(void);
-extern void ibexit(const char *fn, const char *msg, ...);
+extern void ibexit(const char *fn, const char *msg, ...)
+	__attribute__((format(printf, 2, 3)));
 
 /* convert counter values to a float with a unit specifier returned (using
  * binary prefix)
@@ -162,9 +163,11 @@ int resolve_portid_str(char *ca_name, uint8_t ca_port, ib_portid_t * portid,
 		       char *addr_str, enum MAD_DEST dest_type,
 		       ib_portid_t *sm_id, const struct ibmad_port *srcport);
 int vsnprint_field(char *buf, size_t n, enum MAD_FIELDS f, int spacing,
-		   const char *format, va_list va_args);
+		   const char *format, va_list va_args)
+	__attribute__((format(printf, 5, 0)));
 int snprint_field(char *buf, size_t n, enum MAD_FIELDS f, int spacing,
-		  const char *format, ...);
+		  const char *format, ...)
+	__attribute__((format(printf, 5, 6)));
 void dump_portinfo(void *pi, int tabs);
 
 /**

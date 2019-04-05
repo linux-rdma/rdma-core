@@ -444,7 +444,7 @@ int main(int argc, char **argv)
 			port_args[j].set = 1;
 			if (!port_args[j].val) {
 				if (port_op >= 0)
-					IBEXIT("%s only one of: ",
+					IBEXIT("%s only one of: "
 						"query, enable, disable, "
 						"reset, down, arm, active, "
 						"can be specified",
