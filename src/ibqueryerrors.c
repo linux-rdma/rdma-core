@@ -325,7 +325,7 @@ static void insert_lid2sl_table(struct sa_query_result *r)
 static int path_record_query(ib_gid_t sgid,uint64_t dguid)
 {
      ib_path_rec_t pr;
-     ib_net64_t comp_mask = 0;
+     __be64 comp_mask = 0;
      uint8_t reversible = 0;
      struct sa_handle * h;
 

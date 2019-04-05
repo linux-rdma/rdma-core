@@ -703,7 +703,7 @@ static void dump_one_vlarb_record(void *data, struct query_params *p)
 static void dump_one_pkey_tbl_record(void *data, struct query_params *params)
 {
 	ib_pkey_table_record_t *pktr = data;
-	ib_net16_t *p = pktr->pkey_tbl.pkey_entry;
+	__be16 *p = pktr->pkey_tbl.pkey_entry;
 	int i;
 	printf("PKeyTableRecord dump:\n"
 	       "\t\tLID........................%u\n"
@@ -798,7 +798,7 @@ static void dump_results(struct sa_query_result *r,
  */
 static int get_any_records(struct sa_handle * h,
 			   uint16_t attr_id, uint32_t attr_mod,
-			   ib_net64_t comp_mask, void *attr,
+			   __be64 comp_mask, void *attr,
 			   size_t attr_size,
 			   struct sa_query_result *result)
 {
@@ -818,7 +818,7 @@ static int get_any_records(struct sa_handle * h,
 }
 
 static int get_and_dump_any_records(struct sa_handle * h, uint16_t attr_id,
-				    uint32_t attr_mod, ib_net64_t comp_mask,
+				    uint32_t attr_mod, __be64 comp_mask,
 				    void *attr,
 				    size_t attr_size,
 				    void (*dump_func) (void *,
@@ -970,7 +970,7 @@ static int parse_lid_and_ports(struct sa_handle * h,
 /*
  * Get the portinfo records available with IsSM or IsSMdisabled CapabilityMask bit on.
  */
-static int get_issm_records(struct sa_handle * h, ib_net32_t capability_mask,
+static int get_issm_records(struct sa_handle * h, __be32 capability_mask,
 			    struct sa_query_result *result)
 {
 	ib_portinfo_record_t attr;
@@ -1045,7 +1045,7 @@ static int query_path_records(const struct query_cmd *q, struct sa_handle * h,
 			      struct query_params *p, int argc, char *argv[])
 {
 	ib_path_rec_t pr;
-	ib_net64_t comp_mask = 0;
+	__be64 comp_mask = 0;
 	uint32_t flow = 0;
 	uint16_t qos_class = 0;
 	uint8_t reversible = 0;
@@ -1152,7 +1152,7 @@ static int query_node_records(const struct query_cmd *q, struct sa_handle * h,
 			      struct query_params *p, int argc, char *argv[])
 {
 	ib_node_record_t nr;
-	ib_net64_t comp_mask = 0;
+	__be64 comp_mask = 0;
 	int lid = 0;
 
 	if (argc > 0)
@@ -1170,7 +1170,7 @@ static int query_portinfo_records(const struct query_cmd *q,
 				  int argc, char *argv[])
 {
 	ib_portinfo_record_t pir;
-	ib_net64_t comp_mask = 0;
+	__be64 comp_mask = 0;
 	int lid = 0, port = -1, options = -1;
 
 	if (argc > 0)
@@ -1191,7 +1191,7 @@ static int query_mcmember_records(const struct query_cmd *q,
 				  int argc, char *argv[])
 {
 	ib_member_rec_t mr;
-	ib_net64_t comp_mask = 0;
+	__be64 comp_mask = 0;
 	uint32_t flow = 0;
 	uint8_t sl = 0, hop = 0, scope = 0;
 
@@ -1230,7 +1230,7 @@ static int query_sm_info_records(const struct query_cmd *q,
 				 int argc, char *argv[])
 {
 	ib_sminfo_record_t smir;
-	ib_net64_t comp_mask = 0;
+	__be64 comp_mask = 0;
 	int lid = 0;
 
 	if (argc > 0)
@@ -1249,7 +1249,7 @@ static int query_switchinfo_records(const struct query_cmd *q,
 				int argc, char *argv[])
 {
 	ib_switch_info_record_t swir;
-	ib_net64_t comp_mask = 0;
+	__be64 comp_mask = 0;
 	int lid = 0;
 
 	if (argc > 0)
@@ -1269,7 +1269,7 @@ static int query_inform_info_records(const struct query_cmd *q,
 {
        int rc = 0;
        ib_inform_info_record_t ir;
-       ib_net64_t comp_mask = 0;
+       __be64 comp_mask = 0;
        memset(&ir, 0, sizeof(ir));
 
        if (argc > 0) {
@@ -1287,7 +1287,7 @@ static int query_link_records(const struct query_cmd *q, struct sa_handle * h,
 			      struct query_params *p, int argc, char *argv[])
 {
 	ib_link_record_t lr;
-	ib_net64_t comp_mask = 0;
+	__be64 comp_mask = 0;
 	int from_lid = 0, to_lid = 0, from_port = -1, to_port = -1;
 
 	if (argc > 0)
@@ -1310,7 +1310,7 @@ static int query_sl2vl_records(const struct query_cmd *q, struct sa_handle * h,
 			       struct query_params *p, int argc, char *argv[])
 {
 	ib_slvl_table_record_t slvl;
-	ib_net64_t comp_mask = 0;
+	__be64 comp_mask = 0;
 	int lid = 0, in_port = -1, out_port = -1;
 
 	if (argc > 0)
@@ -1330,7 +1330,7 @@ static int query_vlarb_records(const struct query_cmd *q, struct sa_handle * h,
 			       struct query_params *p, int argc, char *argv[])
 {
 	ib_vl_arb_table_record_t vlarb;
-	ib_net64_t comp_mask = 0;
+	__be64 comp_mask = 0;
 	int lid = 0, port = -1, block = -1;
 
 	if (argc > 0)
@@ -1351,7 +1351,7 @@ static int query_pkey_tbl_records(const struct query_cmd *q,
 				  int argc, char *argv[])
 {
 	ib_pkey_table_record_t pktr;
-	ib_net64_t comp_mask = 0;
+	__be64 comp_mask = 0;
 	int lid = 0, port = -1, block = -1;
 
 	if (argc > 0)
@@ -1371,7 +1371,7 @@ static int query_lft_records(const struct query_cmd *q, struct sa_handle * h,
 			     struct query_params *p, int argc, char *argv[])
 {
 	ib_lft_record_t lftr;
-	ib_net64_t comp_mask = 0;
+	__be64 comp_mask = 0;
 	int lid = 0, block = -1;
 
 	if (argc > 0)
@@ -1389,7 +1389,7 @@ static int query_guidinfo_records(const struct query_cmd *q, struct sa_handle * 
 				  struct query_params *p, int argc, char *argv[])
 {
 	ib_guidinfo_record_t gir;
-	ib_net64_t comp_mask = 0;
+	__be64 comp_mask = 0;
 	int lid = 0, block = -1;
 
 	if (argc > 0)
@@ -1408,7 +1408,7 @@ static int query_mft_records(const struct query_cmd *q, struct sa_handle * h,
 			     struct query_params *p, int argc, char *argv[])
 {
 	ib_mft_record_t mftr;
-	ib_net64_t comp_mask = 0;
+	__be64 comp_mask = 0;
 	int lid = 0, block = -1, position = -1;
 	uint16_t pos = 0;
 
