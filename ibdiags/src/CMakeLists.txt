@@ -7,7 +7,6 @@ add_library(ibdiags_tools STATIC
   ibdiag_common.c
   ibdiag_sa.c
   )
-target_include_directories(ibdiags_tools PRIVATE "/usr/include/infiniband")
 
 function(ibdiag_programs)
   foreach(I ${ARGN})
@@ -42,7 +41,5 @@ ibdiag_programs(
 
 rdma_test_executable(ibsendtrap "ibsendtrap.c")
 target_link_libraries(ibsendtrap PRIVATE ibumad ibmad ibdiags_tools)
-target_include_directories(ibsendtrap PRIVATE "/usr/include/infiniband")
 rdma_test_executable(mcm_rereg_test "mcm_rereg_test.c")
 target_link_libraries(mcm_rereg_test PRIVATE ibumad ibmad ibdiags_tools)
-target_include_directories(mcm_rereg_test PRIVATE "/usr/include/infiniband")

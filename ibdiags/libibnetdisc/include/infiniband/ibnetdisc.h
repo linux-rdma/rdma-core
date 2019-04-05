@@ -38,7 +38,6 @@
 
 #include <stdio.h>
 #include <infiniband/mad.h>
-#include <iba/ib_types.h>
 
 #include <infiniband/ibnetdisc_osd.h>
 

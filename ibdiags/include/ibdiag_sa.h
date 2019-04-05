@@ -40,7 +40,7 @@
 #define _IBDIAG_SA_H_
 
 #include <infiniband/mad.h>
-#include <infiniband/iba/ib_types.h>
+#include <util/iba_types.h>
 
 /* define an SA query structure to be common
  * This is by no means optimal but it moves the saquery functionality out of

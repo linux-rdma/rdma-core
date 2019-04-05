@@ -15,8 +15,6 @@ target_link_libraries(ibnetdisc LINK_PRIVATE
   ibmad
   ibumad
   )
-# FIXME for osmcomp
-target_include_directories(ibnetdisc PRIVATE "/usr/include/infiniband")
 rdma_pkg_config("ibnetdisc" "libibumad libibmad" "")
 
 rdma_test_executable(testleaks ../test/testleaks.c)
@@ -24,4 +22,3 @@ target_link_libraries(testleaks LINK_PRIVATE
   ibmad
   ibnetdisc
 )
-target_include_directories(testleaks PRIVATE "/usr/include/infiniband")

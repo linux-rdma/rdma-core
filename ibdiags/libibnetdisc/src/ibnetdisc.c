@@ -37,6 +37,7 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
@@ -44,6 +45,7 @@
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
+#include <util/iba_types.h>
 
 #include <infiniband/ibnetdisc.h>
 

@@ -49,7 +49,6 @@
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
-#include <iba/ib_types.h>
 #include <complib/cl_nodenamemap.h>
 
 #include "ibdiag_common.h"

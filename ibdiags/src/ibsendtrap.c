@@ -45,7 +45,6 @@
 #define _GNU_SOURCE
 
 #include <infiniband/mad.h>
-#include <iba/ib_types.h>
 
 #include "ibdiag_common.h"
 

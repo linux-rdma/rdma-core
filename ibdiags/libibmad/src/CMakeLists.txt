@@ -3,6 +3,10 @@ publish_headers(infiniband
   ../include/infiniband/mad_osd.h
   )
 
+publish_internal_headers(util
+  iba_types.h
+  )
+
 rdma_library(ibmad libibmad.map
   # See Documentation/versioning.md
   5 5.3.${PACKAGE_VERSION}
