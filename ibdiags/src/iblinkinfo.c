@@ -44,7 +44,7 @@
 #include <errno.h>
 #include <inttypes.h>
 
-#include <complib/cl_nodenamemap.h>
+#include <util/node_name_map.h>
 #include <infiniband/ibnetdisc.h>
 
 #include "ibdiag_common.h"

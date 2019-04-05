@@ -41,7 +41,7 @@
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
-#include <complib/cl_nodenamemap.h>
+#include <util/node_name_map.h>
 
 #include "ibdiag_common.h"
 

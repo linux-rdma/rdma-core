@@ -11,8 +11,7 @@ add_library(ibdiags_tools STATIC
 function(ibdiag_programs)
   foreach(I ${ARGN})
     rdma_sbin_executable(${I} "${I}.c")
-    target_link_libraries(${I} PRIVATE ${RT_LIBRARIES} ibumad ibmad ibdiags_tools ibnetdisc osmcomp)
-    target_include_directories(${I} PRIVATE "/usr/include/infiniband")
+    target_link_libraries(${I} PRIVATE ${RT_LIBRARIES} ibumad ibmad ibdiags_tools ibnetdisc)
   endforeach()
 endfunction()
 

@@ -1,12 +1,14 @@
 publish_internal_headers(util
   cl_qmap.h
   compiler.h
+  node_name_map.h
   symver.h
   util.h
   )
 
 set(C_FILES
   cl_map.c
+  node_name_map.c
   util.c)
 
 if (HAVE_COHERENT_DMA)
