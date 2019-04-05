@@ -39,8 +39,6 @@
 #include <stdio.h>
 #include <infiniband/mad.h>
 
-#include <infiniband/ibnetdisc_osd.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -187,10 +185,9 @@ typedef struct ibnd_fabric {
  * Initialization (fabric operations)
  */
 
-IBND_EXPORT ibnd_fabric_t *ibnd_discover_fabric(char * ca_name,
-					       int ca_port,
-					       ib_portid_t * from,
-					       struct ibnd_config *config);
+ibnd_fabric_t *ibnd_discover_fabric(char *ca_name, int ca_port,
+				    ib_portid_t *from,
+				    struct ibnd_config *config);
 	/**
 	 * ca_name: (optional) name of the CA to use
 	 * ca_port: (optional) CA port to use
@@ -198,13 +195,12 @@ IBND_EXPORT ibnd_fabric_t *ibnd_discover_fabric(char * ca_name,
 	 *       If NULL start from the CA/CA port specified
 	 * config: (optional) additional config options for the scan
 	 */
-IBND_EXPORT void ibnd_destroy_fabric(ibnd_fabric_t * fabric);
+void ibnd_destroy_fabric(ibnd_fabric_t *fabric);
 
-IBND_EXPORT ibnd_fabric_t *ibnd_load_fabric(const char *file,
-					   unsigned int flags);
+ibnd_fabric_t *ibnd_load_fabric(const char *file, unsigned int flags);
 
-IBND_EXPORT int ibnd_cache_fabric(ibnd_fabric_t * fabric, const char *file,
-				 unsigned int flags);
+int ibnd_cache_fabric(ibnd_fabric_t *fabric, const char *file,
+		      unsigned int flags);
 
 #define IBND_CACHE_FABRIC_FLAG_DEFAULT      0x0000
 #define IBND_CACHE_FABRIC_FLAG_NO_OVERWRITE 0x0001
@@ -212,43 +208,36 @@ IBND_EXPORT int ibnd_cache_fabric(ibnd_fabric_t * fabric, const char *file,
 /** =========================================================================
  * Node operations
  */
-IBND_EXPORT ibnd_node_t *ibnd_find_node_guid(ibnd_fabric_t * fabric,
-					    uint64_t guid);
-IBND_EXPORT ibnd_node_t *ibnd_find_node_dr(ibnd_fabric_t * fabric, char *dr_str);
+ibnd_node_t *ibnd_find_node_guid(ibnd_fabric_t *fabric, uint64_t guid);
+ibnd_node_t *ibnd_find_node_dr(ibnd_fabric_t *fabric, char *dr_str);
 
 typedef void (*ibnd_iter_node_func_t) (ibnd_node_t * node, void *user_data);
-IBND_EXPORT void ibnd_iter_nodes(ibnd_fabric_t * fabric,
-				ibnd_iter_node_func_t func, void *user_data);
-IBND_EXPORT void ibnd_iter_nodes_type(ibnd_fabric_t * fabric,
-				     ibnd_iter_node_func_t func,
-				     int node_type, void *user_data);
+void ibnd_iter_nodes(ibnd_fabric_t *fabric, ibnd_iter_node_func_t func,
+		     void *user_data);
+void ibnd_iter_nodes_type(ibnd_fabric_t *fabric, ibnd_iter_node_func_t func,
+			  int node_type, void *user_data);
 
 /** =========================================================================
  * Port operations
  */
-IBND_EXPORT ibnd_port_t *ibnd_find_port_guid(ibnd_fabric_t * fabric,
-					uint64_t guid);
-IBND_EXPORT ibnd_port_t *ibnd_find_port_dr(ibnd_fabric_t * fabric,
-					char *dr_str);
-IBND_EXPORT ibnd_port_t *ibnd_find_port_lid(ibnd_fabric_t * fabric,
-					    uint16_t lid);
+ibnd_port_t *ibnd_find_port_guid(ibnd_fabric_t *fabric, uint64_t guid);
+ibnd_port_t *ibnd_find_port_dr(ibnd_fabric_t *fabric, char *dr_str);
+ibnd_port_t *ibnd_find_port_lid(ibnd_fabric_t *fabric, uint16_t lid);
 
 typedef void (*ibnd_iter_port_func_t) (ibnd_port_t * port, void *user_data);
-IBND_EXPORT void ibnd_iter_ports(ibnd_fabric_t * fabric,
-				ibnd_iter_port_func_t func, void *user_data);
+void ibnd_iter_ports(ibnd_fabric_t *fabric, ibnd_iter_port_func_t func,
+		     void *user_data);
 
 /** =========================================================================
  * Chassis queries
  */
-IBND_EXPORT uint64_t ibnd_get_chassis_guid(ibnd_fabric_t * fabric,
-					  unsigned char chassisnum);
-IBND_EXPORT const char *ibnd_get_chassis_type(ibnd_node_t *node);
-IBND_EXPORT char *ibnd_get_chassis_slot_str(ibnd_node_t * node,
-					   char *str, size_t size);
+uint64_t ibnd_get_chassis_guid(ibnd_fabric_t *fabric, unsigned char chassisnum);
+const char *ibnd_get_chassis_type(ibnd_node_t *node);
+char *ibnd_get_chassis_slot_str(ibnd_node_t *node, char *str, size_t size);
 
-IBND_EXPORT int ibnd_is_xsigo_guid(uint64_t guid);
-IBND_EXPORT int ibnd_is_xsigo_tca(uint64_t guid);
-IBND_EXPORT int ibnd_is_xsigo_hca(uint64_t guid);
+int ibnd_is_xsigo_guid(uint64_t guid);
+int ibnd_is_xsigo_tca(uint64_t guid);
+int ibnd_is_xsigo_hca(uint64_t guid);
 
 #ifdef __cplusplus
 }
