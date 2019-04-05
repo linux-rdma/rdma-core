@@ -199,7 +199,7 @@ static const char *ib_sa_error_str[] = {
 #define ARR_SIZE(a) (sizeof(a)/sizeof((a)[0]))
 #define SA_ERR_UNKNOWN (ARR_SIZE(ib_sa_error_str) - 1)
 
-static inline const char *ib_sa_err_str(IN uint8_t status)
+static inline const char *ib_sa_err_str(uint8_t status)
 {
 	if (status > SA_ERR_UNKNOWN)
 		status = SA_ERR_UNKNOWN;
@@ -219,7 +219,7 @@ static const char *ib_mad_inv_field_str[] = {
 };
 #define MAD_ERR_UNKNOWN (ARR_SIZE(ib_mad_inv_field_str) - 1)
 
-static inline const char *ib_mad_inv_field_err_str(IN uint8_t f)
+static inline const char *ib_mad_inv_field_err_str(uint8_t f)
 {
 	if (f > MAD_ERR_UNKNOWN)
 		f = MAD_ERR_UNKNOWN;
