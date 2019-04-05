@@ -42,7 +42,6 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 #include <netinet/in.h>
 #include <endian.h>
 
@@ -152,7 +151,7 @@ static int str2DRPath(char *str, DRPath * path)
 
 static int dump_char, mgmt_class = IB_SMI_CLASS;
 
-static int process_opt(void *context, int ch, char *optarg)
+static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 's':

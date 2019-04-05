@@ -39,7 +39,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <getopt.h>
 #include <arpa/inet.h>
 
 #include <infiniband/umad.h>
@@ -91,7 +90,7 @@ static int ib_resolve_addr(ib_portid_t * portid, int portnum, int show_lid,
 
 static int show_lid, show_gid;
 
-static int process_opt(void *context, int ch, char *optarg)
+static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 'g':

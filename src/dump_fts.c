@@ -42,7 +42,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <inttypes.h>
-#include <getopt.h>
 #include <netinet/in.h>
 #include <assert.h>
 
@@ -394,7 +393,7 @@ static void process_switch(ibnd_node_t *node, void *fabric)
 	dump_node(node, srcport, (ibnd_fabric_t *)fabric);
 }
 
-static int process_opt(void *context, int ch, char *optarg)
+static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 'a':

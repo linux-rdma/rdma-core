@@ -40,7 +40,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
-#include <getopt.h>
 #include <time.h>
 
 #include <infiniband/umad.h>
@@ -175,7 +174,7 @@ static void report(int sig)
 static int server = 0, flood = 0;
 static unsigned count = ~0;
 
-static int process_opt(void *context, int ch, char *optarg)
+static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 'c':

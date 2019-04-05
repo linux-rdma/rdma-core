@@ -42,7 +42,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -260,7 +259,7 @@ static int ports_list(char names[][UMAD_CA_NAME_LEN], int n)
 
 static int list_only, short_format, list_ports;
 
-static int process_opt(void *context, int ch, char *optarg)
+static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 'l':

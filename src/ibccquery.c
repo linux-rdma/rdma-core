@@ -41,7 +41,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <getopt.h>
 #include <netinet/in.h>
 
 #define __STDC_FORMAT_MACROS
@@ -340,7 +339,7 @@ static const char *timestamp_dump(ib_portid_t *dest, char **argv, int argc)
 	return NULL;
 }
 
-static int process_opt(void *context, int ch, char *optarg)
+static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 'c':

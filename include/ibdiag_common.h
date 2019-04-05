@@ -135,8 +135,7 @@ struct ibdiag_opt {
 extern int ibdiag_process_opts(int argc, char *const argv[], void *context,
 			       const char *exclude_common_str,
 			       const struct ibdiag_opt custom_opts[],
-			       int (*custom_handler) (void *cxt, int val,
-						      char *optarg),
+			       int (*custom_handler) (void *cxt, int val),
 			       const char *usage_args,
 			       const char *usage_examples[]);
 extern void ibdiag_show_usage(void);

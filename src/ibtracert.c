@@ -42,7 +42,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <ctype.h>
-#include <getopt.h>
 #include <netinet/in.h>
 #include <inttypes.h>
 
@@ -756,7 +755,7 @@ static int resolve_lid(ib_portid_t *portid)
 
 static int dumplevel = 2, multicast, mlid;
 
-static int process_opt(void *context, int ch, char *optarg)
+static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 1:

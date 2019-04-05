@@ -41,7 +41,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <getopt.h>
 #include <netinet/in.h>
 
 #include <infiniband/umad.h>
@@ -716,7 +715,7 @@ static void dump_portsamples_control(ib_portid_t *portid, int port)
 	       port, buf);
 }
 
-static int process_opt(void *context, int ch, char *optarg)
+static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 'x':

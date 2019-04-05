@@ -50,7 +50,6 @@
 #include <errno.h>
 
 #define _GNU_SOURCE
-#include <getopt.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
@@ -1521,7 +1520,7 @@ static enum saquery_command command = SAQUERY_CMD_QUERY;
 static uint16_t query_type;
 static char *src_lid, *dst_lid;
 
-static int process_opt(void *context, int ch, char *optarg)
+static int process_opt(void *context, int ch)
 {
 	struct query_params *p = context;
 

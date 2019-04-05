@@ -39,7 +39,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <getopt.h>
 #include <netinet/in.h>
 
 #include <infiniband/umad.h>
@@ -291,7 +290,7 @@ static is3_config_space_t write_cs, read_cs;
 static unsigned write_cs_records, read_cs_records;
 
 
-static int process_opt(void *context, int ch, char *optarg)
+static int process_opt(void *context, int ch)
 {
 	int ret;
 	switch (ch) {

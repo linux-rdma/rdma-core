@@ -44,7 +44,6 @@
 #include <unistd.h>
 #include <time.h>
 #include <string.h>
-#include <getopt.h>
 #include <inttypes.h>
 
 #include <infiniband/umad.h>
@@ -991,7 +990,7 @@ static int diff(ibnd_fabric_t *orig_fabric, ibnd_fabric_t *new_fabric)
 
 static int list, group, ports_report;
 
-static int process_opt(void *context, int ch, char *optarg)
+static int process_opt(void *context, int ch)
 {
 	struct ibnd_config *cfg = context;
 	char *p;

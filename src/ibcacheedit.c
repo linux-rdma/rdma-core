@@ -39,7 +39,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <getopt.h>
 #include <inttypes.h>
 
 #include <infiniband/mad.h>
@@ -126,7 +125,7 @@ static int parse_guidbeforeafter(char *arg,
 	return 0;
 }
 
-static int process_opt(void *context, int ch, char *optarg)
+static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 1:

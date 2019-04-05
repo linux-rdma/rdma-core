@@ -40,7 +40,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <inttypes.h>
-#include <getopt.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
@@ -74,7 +73,7 @@ const char *const statestr[] = {
 static unsigned act;
 static int prio, state = SMINFO_STANDBY;
 
-static int process_opt(void *context, int ch, char *optarg)
+static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 'a':

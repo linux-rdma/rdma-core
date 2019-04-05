@@ -212,7 +212,7 @@ void ibdiag_show_usage(void)
 	exit(2);
 }
 
-static int process_opt(int ch, char *optarg)
+static int process_opt(int ch)
 {
 	char *endp;
 	long val;
@@ -373,8 +373,7 @@ static void make_str_opts(const struct option *o, char *p, unsigned size)
 int ibdiag_process_opts(int argc, char *const argv[], void *cxt,
 			const char *exclude_common_str,
 			const struct ibdiag_opt custom_opts[],
-			int (*custom_handler) (void *cxt, int val,
-					       char *optarg),
+			int (*custom_handler) (void *cxt, int val),
 			const char *usage_args, const char *usage_examples[])
 {
 	char str_opts[1024];
@@ -403,10 +402,10 @@ int ibdiag_process_opts(int argc, char *const argv[], void *cxt,
 		if (!o)
 			ibdiag_show_usage();
 		if (custom_handler) {
-			if (custom_handler(cxt, ch, optarg) &&
-			    process_opt(ch, optarg))
+			if (custom_handler(cxt, ch) &&
+			    process_opt(ch))
 				ibdiag_show_usage();
-		} else if (process_opt(ch, optarg))
+		} else if (process_opt(ch))
 			ibdiag_show_usage();
 	}
 

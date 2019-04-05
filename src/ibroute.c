@@ -41,7 +41,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <inttypes.h>
-#include <getopt.h>
 #include <netinet/in.h>
 
 #include <infiniband/umad.h>
@@ -396,7 +395,7 @@ static const char *dump_unicast_tables(ib_portid_t *portid, int startlid,
 	return 0;
 }
 
-static int process_opt(void *context, int ch, char *optarg)
+static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 'a':

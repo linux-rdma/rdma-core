@@ -43,7 +43,6 @@
 #include <string.h>
 
 #define _GNU_SOURCE
-#include <getopt.h>
 
 #include <infiniband/mad.h>
 #include <iba/ib_types.h>

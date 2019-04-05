@@ -45,7 +45,6 @@
 #include <stdarg.h>
 #include <time.h>
 #include <string.h>
-#include <getopt.h>
 #include <errno.h>
 #include <inttypes.h>
 
@@ -513,7 +512,7 @@ static int diff_node(ibnd_node_t *node, ibnd_fabric_t *orig_fabric,
 	return 0;
 }
 
-static int process_opt(void *context, int ch, char *optarg)
+static int process_opt(void *context, int ch)
 {
 	struct ibnd_config *cfg = context;
 	char *p;

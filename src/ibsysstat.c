@@ -39,7 +39,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <getopt.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
@@ -296,7 +295,7 @@ static int build_cpuinfo(void)
 	return ncpu;
 }
 
-static int process_opt(void *context, int ch, char *optarg)
+static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 'o':
