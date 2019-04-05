@@ -288,7 +288,7 @@ static void print_node_header(ibnd_node_t *node, int *out_header_flag,
 		if (node->type == IB_NODE_SWITCH) {
 			if (node->ports[0])
 				guid = node->ports[0]->guid;
-			else if (node->info)
+			else
 				guid = mad_get_field64(node->info, 0, IB_NODE_PORT_GUID_F);
 
 			printf("%s%s: 0x%016" PRIx64 " %s:\n",
