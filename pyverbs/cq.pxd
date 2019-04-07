@@ -7,6 +7,8 @@ cdef class CompChannel(PyverbsCM):
     cdef v.ibv_comp_channel *cc
     cpdef close(self)
     cdef object context
+    cdef add_ref(self, obj)
+    cdef object cqs
 
 cdef class CQ(PyverbsCM):
     cdef v.ibv_cq *cq
@@ -15,6 +17,7 @@ cdef class CQ(PyverbsCM):
 
 cdef class CqInitAttrEx(PyverbsObject):
     cdef v.ibv_cq_init_attr_ex attr
+    cdef object channel
 
 cdef class CQEX(PyverbsCM):
     cdef v.ibv_cq_ex *cq
