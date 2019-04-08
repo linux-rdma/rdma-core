@@ -79,7 +79,7 @@ static void build_trap145(ib_mad_notice_attr_t * n, ib_portid_t * port)
 	n->g_or_v.generic.prod_type_lsb = htobe16(get_node_type(port));
 	n->g_or_v.generic.trap_num = htobe16(145);
 	n->issuer_lid = htobe16((uint16_t) port->lid);
-	n->data_details.ntc_145.new_sys_guid = htobe64(0x1234567812345678);
+	n->data_details.ntc_145.new_sys_guid = htobe64(0x1234567812345678ULL);
 }
 
 static void build_trap144_local(ib_mad_notice_attr_t * n, ib_portid_t * port)
@@ -131,7 +131,7 @@ static void build_trap256_local(ib_mad_notice_attr_t * n, ib_portid_t * port)
 	n->data_details.ntc_256.method = 1;
 	n->data_details.ntc_256.attr_id = htobe16(0x15);
 	n->data_details.ntc_256.attr_mod = htobe32(0x12);
-	n->data_details.ntc_256.mkey = htobe64(0x1234567812345678);
+	n->data_details.ntc_256.mkey = htobe64(0x1234567812345678ULL);
 }
 
 static void build_trap256_lid(ib_mad_notice_attr_t * n, ib_portid_t * port)
@@ -162,10 +162,10 @@ static void build_trap257_258(ib_mad_notice_attr_t * n, ib_portid_t * port,
 	n->data_details.ntc_257_258.key = htobe32(0x12345678);
 	n->data_details.ntc_257_258.qp1 = htobe32(0x010101);
 	n->data_details.ntc_257_258.qp2 = htobe32(0x020202);
-	n->data_details.ntc_257_258.gid1.unicast.prefix = htobe64(0xf8c0000000000001);
-	n->data_details.ntc_257_258.gid1.unicast.interface_id = htobe64(0x1111222233334444);
-	n->data_details.ntc_257_258.gid2.unicast.prefix = htobe64(0xf8c0000000000001);
-	n->data_details.ntc_257_258.gid2.unicast.interface_id = htobe64(0x5678567812341234);
+	n->data_details.ntc_257_258.gid1.unicast.prefix = htobe64(0xf8c0000000000001ULL);
+	n->data_details.ntc_257_258.gid1.unicast.interface_id = htobe64(0x1111222233334444ULL);
+	n->data_details.ntc_257_258.gid2.unicast.prefix = htobe64(0xf8c0000000000001ULL);
+	n->data_details.ntc_257_258.gid2.unicast.interface_id = htobe64(0x5678567812341234ULL);
 }
 
 static void build_trap257(ib_mad_notice_attr_t * n, ib_portid_t * port)
