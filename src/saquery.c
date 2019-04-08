@@ -101,7 +101,7 @@ static nn_map_t *node_name_map = NULL;
 #define MAX_PORTS (8)
 #define DEFAULT_SA_TIMEOUT_MS (1000)
 
-enum {
+static enum {
 	ALL,
 	LID_ONLY,
 	UNIQUE_LID_ONLY,
@@ -111,11 +111,11 @@ enum {
 	NAME_OF_GUID,
 } node_print_desc = ALL;
 
-char *requested_name = NULL;
-uint16_t requested_lid = 0;
-int requested_lid_flag = 0;
-uint64_t requested_guid = 0;
-int requested_guid_flag = 0;
+static char *requested_name;
+static uint16_t requested_lid;
+static int requested_lid_flag;
+static uint64_t requested_guid;
+static int requested_guid_flag;
 
 static unsigned valid_gid(ibmad_gid_t * gid)
 {

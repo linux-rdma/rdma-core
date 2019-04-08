@@ -53,7 +53,7 @@
 
 #include "ibdiag_common.h"
 
-struct ibmad_port *srcport;
+static struct ibmad_port *srcport;
 
 static op_fn_t congestion_key_info;
 static op_fn_t switch_congestion_setting;
@@ -77,7 +77,7 @@ static const match_rec_t match_tbl[] = {
 	{0}
 };
 
-uint64_t cckey = 0;
+static uint64_t cckey;
 
 /*******************************************/
 static const char *parselonglongint(char *arg, uint64_t *val)

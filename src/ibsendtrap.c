@@ -49,9 +49,9 @@
 
 #include "ibdiag_common.h"
 
-struct ibmad_port *srcport;
+static struct ibmad_port *srcport;
 /* for local link integrity */
-int error_port = 1;
+static int error_port = 1;
 
 static uint16_t get_node_type(ib_portid_t * port)
 {

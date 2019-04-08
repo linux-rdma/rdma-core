@@ -50,7 +50,7 @@
 
 #include "ibdiag_common.h"
 
-struct ibmad_port *srcport;
+static struct ibmad_port *srcport;
 
 static op_fn_t class_port_info;
 static op_fn_t congestion_info;
@@ -75,7 +75,7 @@ static const match_rec_t match_tbl[] = {
 	{0}
 };
 
-uint64_t cckey = 0;
+static uint64_t cckey = 0;
 
 /*******************************************/
 static const char *class_port_info(ib_portid_t *dest, char **argv, int argc)

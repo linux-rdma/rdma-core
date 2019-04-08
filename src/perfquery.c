@@ -49,7 +49,7 @@
 
 #include "ibdiag_common.h"
 
-struct ibmad_port *srcport;
+static struct ibmad_port *srcport;
 
 struct perf_count {
 	uint32_t portselect;
@@ -105,8 +105,8 @@ struct perf_count_ext {
 
 static uint8_t pc[1024];
 
-struct perf_count perf_count = {0};
-struct perf_count_ext perf_count_ext = {0};
+static struct perf_count perf_count = {};
+static struct perf_count_ext perf_count_ext = {};
 
 #define ALL_PORTS 0xFF
 #define MAX_PORTS 255

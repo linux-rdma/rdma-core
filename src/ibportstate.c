@@ -72,21 +72,21 @@ enum port_ops {
 	OFF
 };
 
-struct ibmad_port *srcport;
-uint64_t speed = 0; /* no state change */
-uint64_t espeed = 0; /* no state change */
-uint64_t fdr10 = 0; /* no state change */
-uint64_t width = 0; /* no state change */
-uint64_t lid;
-uint64_t smlid;
-uint64_t lmc;
-uint64_t mtu;
-uint64_t vls = 0; /* no state change */
-uint64_t mkey;
-uint64_t mkeylease;
-uint64_t mkeyprot;
+static struct ibmad_port *srcport;
+static uint64_t speed; /* no state change */
+static uint64_t espeed; /* no state change */
+static uint64_t fdr10; /* no state change */
+static uint64_t width; /* no state change */
+static uint64_t lid;
+static uint64_t smlid;
+static uint64_t lmc;
+static uint64_t mtu;
+static uint64_t vls; /* no state change */
+static uint64_t mkey;
+static uint64_t mkeylease;
+static uint64_t mkeyprot;
 
-struct {
+static struct {
 	const char *name;
 	uint64_t *val;
 	int set;

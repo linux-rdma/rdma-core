@@ -51,7 +51,7 @@
 
 #include "ibdiag_common.h"
 
-struct ibmad_port *srcport;
+static struct ibmad_port *srcport;
 
 #define MAXHOPS	63
 
@@ -113,8 +113,8 @@ struct Node {
 	char nodeinfo[64];
 };
 
-Node *nodesdist[MAXHOPS];
-uint64_t target_portguid;
+static Node *nodesdist[MAXHOPS];
+static uint64_t target_portguid;
 
 /*
  * is_port_inactive

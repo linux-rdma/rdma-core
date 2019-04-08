@@ -49,7 +49,7 @@
 
 #include "ibdiag_common.h"
 
-struct ibmad_port *srcport;
+static struct ibmad_port *srcport;
 
 static int brief, dump_all, multicast;
 
@@ -132,7 +132,7 @@ static int dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
 	return i * 2;
 }
 
-uint16_t mft[16][IB_MLIDS_IN_BLOCK] = { { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0}, { 0 }, { 0 } };
+static uint16_t mft[16][IB_MLIDS_IN_BLOCK];
 
 static const char *dump_multicast_tables(ib_portid_t *portid, unsigned startlid,
 					 unsigned endlid)

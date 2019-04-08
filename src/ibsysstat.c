@@ -47,7 +47,7 @@
 
 #define MAX_CPUS 8
 
-struct ibmad_port *srcport;
+static struct ibmad_port *srcport;
 
 enum ib_sysstat_attr_t {
 	IB_PING_ATTR = 0x10,

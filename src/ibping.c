@@ -47,7 +47,7 @@
 
 #include "ibdiag_common.h"
 
-struct ibmad_port *srcport;
+static struct ibmad_port *srcport;
 
 static uint64_t time_stamp(void)
 {

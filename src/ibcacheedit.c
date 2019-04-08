@@ -46,22 +46,22 @@
 
 #include "ibdiag_common.h"
 
-uint64_t switchguid_before = 0;
-uint64_t switchguid_after = 0;
-int switchguid_flag = 0;
+static uint64_t switchguid_before;
+static uint64_t switchguid_after;
+static int switchguid_flag;
 
-uint64_t caguid_before = 0;
-uint64_t caguid_after = 0;
-int caguid_flag = 0;
+static uint64_t caguid_before;
+static uint64_t caguid_after;
+static int caguid_flag;
 
-uint64_t sysimgguid_before = 0;
-uint64_t sysimgguid_after = 0;
-int sysimgguid_flag = 0;
+static uint64_t sysimgguid_before;
+static uint64_t sysimgguid_after;
+static int sysimgguid_flag;
 
-uint64_t portguid_nodeguid = 0;
-uint64_t portguid_before = 0;
-uint64_t portguid_after = 0;
-int portguid_flag = 0;
+static uint64_t portguid_nodeguid;
+static uint64_t portguid_before;
+static uint64_t portguid_after;
+static int portguid_flag;
 
 struct guids {
 	uint64_t searchguid;

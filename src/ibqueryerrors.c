@@ -56,24 +56,24 @@
 #include "ibdiag_common.h"
 #include "ibdiag_sa.h"
 
-struct ibmad_port *ibmad_port;
+static struct ibmad_port *ibmad_port;
 static char *node_name_map_file = NULL;
 static nn_map_t *node_name_map = NULL;
 static char *load_cache_file = NULL;
 static uint16_t lid2sl_table[sizeof(uint8_t) * 1024 * 48] = { 0 };
 static int obtain_sl = 1;
 
-int data_counters = 0;
-int data_counters_only = 0;
-int port_config = 0;
-uint64_t port_guid = 0;
-char *port_guid_str = NULL;
+static int data_counters;
+static int data_counters_only;
+static int port_config;
+static uint64_t port_guid;
+static char *port_guid_str;
 #define SUP_MAX 64
-int sup_total = 0;
-enum MAD_FIELDS suppressed_fields[SUP_MAX];
-char *dr_path = NULL;
-uint8_t node_type_to_print = 0;
-unsigned clear_errors = 0, clear_counts = 0, details = 0;
+static int sup_total;
+static enum MAD_FIELDS suppressed_fields[SUP_MAX];
+static char *dr_path;
+static uint8_t node_type_to_print;
+static unsigned clear_errors, clear_counts, details;
 
 #define PRINT_SWITCH 0x1
 #define PRINT_CA     0x2
@@ -82,20 +82,20 @@ unsigned clear_errors = 0, clear_counts = 0, details = 0;
 
 #define DEFAULT_HALF_WORLD_PR_TIMEOUT (3000)
 
-struct {
+static struct {
 	int nodes_checked;
 	int bad_nodes;
 	int ports_checked;
 	int bad_ports;
 	int pma_query_failures;
-} summary = { 0 };
+} summary;
 
 #define DEF_THRES_FILE IBDIAG_CONFIG_PATH"/error_thresholds"
 static const char *threshold_file = DEF_THRES_FILE;
 
 /* define a "packet" with threshold values in it */
-uint8_t thresholds[1204] = { 0 };
-char *threshold_str = NULL;
+static uint8_t thresholds[1204];
+static char *threshold_str;
 
 static unsigned valid_gid(ib_gid_t * gid)
 {

@@ -48,9 +48,7 @@
 
 static uint8_t sminfo[1024] = { 0 };
 
-struct ibmad_port *srcport;
-
-int strdata, xdata = 1, bindata;
+static struct ibmad_port *srcport;
 
 enum {
 	SMINFO_NOTACT,
@@ -61,7 +59,7 @@ enum {
 	SMINFO_STATE_LAST,
 };
 
-const char *const statestr[] = {
+static const char *const statestr[] = {
 	"SMINFO_NOTACT",
 	"SMINFO_DISCOVER",
 	"SMINFO_STANDBY",

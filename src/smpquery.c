@@ -51,7 +51,7 @@
 
 #include "ibdiag_common.h"
 
-struct ibmad_port *srcport;
+static struct ibmad_port *srcport;
 
 static op_fn_t node_desc, node_info, port_info, switch_info, pkey_table,
     sl2vl_table, vlarb_table, guid_info, mlnx_ext_port_info, port_info_extended;

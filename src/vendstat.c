@@ -58,7 +58,7 @@
 #define IB_MLX_IS3_PORT_XMIT_WAIT	0x10013C
 
 
-struct ibmad_port *srcport;
+static struct ibmad_port *srcport;
 
 typedef struct {
 	uint16_t hw_revision;

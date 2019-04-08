@@ -46,7 +46,7 @@
 
 #include "ibdiag_common.h"
 
-struct ibmad_port *srcport;
+static struct ibmad_port *srcport;
 
 static int ib_resolve_addr(ib_portid_t * portid, int portnum, int show_lid,
 			   int show_gid)
