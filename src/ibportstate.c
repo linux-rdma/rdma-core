@@ -459,40 +459,48 @@ int main(int argc, char **argv)
 			switch (j) {
 			case SPEED:
 				if (val > 15)
-					IBEXIT("invalid speed value %ld", val);
+					IBEXIT("invalid speed value %" PRIu64,
+					       val);
 				break;
 			case ESPEED:
 				if (val > 31)
-					IBEXIT("invalid extended speed value %ld", val);
+					IBEXIT("invalid extended speed value %" PRIu64,
+					       val);
 				break;
 			case FDR10SPEED:
 				if (val > 1)
-					IBEXIT("invalid fdr10 speed value %ld", val);
+					IBEXIT("invalid fdr10 speed value %" PRIu64,
+					       val);
 				break;
 			case WIDTH:
 				if ((val > 31 && val != 255))
-					IBEXIT("invalid width value %ld", val);
+					IBEXIT("invalid width value %" PRIu64,
+					       val);
 				break;
 			case VLS:
 				if (val == 0 || val > 5)
-					IBEXIT("invalid vls value %ld", val);
+					IBEXIT("invalid vls value %" PRIu64,
+					       val);
 				break;
 			case MTU:
 				if (val == 0 || val > 5)
-					IBEXIT("invalid mtu value %ld", val);
+					IBEXIT("invalid mtu value %" PRIu64,
+					       val);
 				break;
 			case LID:
 				if (val == 0 || val >= 0xC000)
-					IBEXIT("invalid lid value 0x%lx", val);
+					IBEXIT("invalid lid value 0x%" PRIx64,
+					       val);
 				break;
 			case SMLID:
 				if (val == 0 || val >= 0xC000)
-					IBEXIT("invalid smlid value 0x%lx",
-						val);
+					IBEXIT("invalid smlid value 0x%" PRIx64,
+					       val);
 				break;
 			case LMC:
 				if (val > 7)
-					IBEXIT("invalid lmc value %ld", val);
+					IBEXIT("invalid lmc value %" PRIu64,
+					       val);
 				break;
 			case MKEY:
 				errno = 0;
@@ -509,11 +517,13 @@ int main(int argc, char **argv)
 				break;
 			case MKEYLEASE:
 				if (val > 0xFFFF)
-					IBEXIT("invalid mkey lease time %ld", val);
+					IBEXIT("invalid mkey lease time %" PRIu64,
+					       val);
 				break;
 			case MKEYPROT:
 				if (val > 3)
-					IBEXIT("invalid mkey protection bit setting %ld", val);
+					IBEXIT("invalid mkey protection bit setting %" PRIu64,
+					       val);
 			}
 			*port_args[j].val = val;
 			changed = 1;

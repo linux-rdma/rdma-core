@@ -112,7 +112,7 @@ static void set_thres(char *name, uint64_t val)
 	for (f = IB_PC_EXT_ERR_SYM_F; f <= IB_PC_EXT_XMT_WAIT_F; f++) {
 		if (strcmp(name, mad_field_name(f)) == 0) {
 			mad_encode_field(thresholds, f, &val);
-			snprintf(tmp, 255, "[%s = %lu]", name, val);
+			snprintf(tmp, 255, "[%s = %" PRIu64 "]", name, val);
 			threshold_str = realloc(threshold_str,
 					strlen(threshold_str)+strlen(tmp)+1);
 			if (!threshold_str) {
@@ -407,8 +407,9 @@ static int check_threshold(uint8_t *pc, uint8_t *pce, uint32_t cap_mask2,
 		mad_decode_field(pce, ext_i, (void *)&val64);
 		if (exceeds_threshold(ext_i, val64)) {
 			unit = conv_cnt_human_readable(val64, &val, 0);
-			*n += snprintf(str + *n, size - *n, " [%s == %lu (%5.3f%s)]",
-					  mad_field_name(ext_i), val64, val, unit);
+			*n += snprintf(str + *n, size - *n,
+				       " [%s == %" PRIu64 " (%5.3f%s)]",
+				       mad_field_name(ext_i), val64, val, unit);
 			is_exceeds = 1;
 		}
 
