@@ -74,8 +74,8 @@ static uint64_t build_mcm_rec(uint8_t *data, ibmad_gid_t mgid,
 	mad_set_array(data, 0, IB_SA_MCM_PORTGID_F, port_gid);
 	mad_set_field(data, 0, IB_SA_MCM_JOIN_STATE_F, 1);
 
-	return IB_MCR_COMPMASK_MGID | IB_MCR_COMPMASK_PORT_GID |
-	    IB_MCR_COMPMASK_JOIN_STATE;
+	return be64toh(IB_MCR_COMPMASK_MGID | IB_MCR_COMPMASK_PORT_GID |
+		       IB_MCR_COMPMASK_JOIN_STATE);
 }
 
 static void build_mcm_rec_umad(void *umad, ib_portid_t * dport, int method,
