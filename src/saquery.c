@@ -1901,8 +1901,7 @@ int main(int argc, char **argv)
 	default:
 		if ((!q && !(q = find_query_by_type(query_type)))
 		    || !q->handler) {
-			fprintf(stderr, "Unknown query type %d\n",
-				ntohs(query_type));
+			fprintf(stderr, "Unknown query type %d\n", query_type);
 			status = EINVAL;
 		} else
 			status = q->handler(q, h, &params, argc, argv);
