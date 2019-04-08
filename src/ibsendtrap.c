@@ -127,7 +127,7 @@ static void build_trap256_local(ib_mad_notice_attr_t * n, ib_portid_t * port)
 	n->g_or_v.generic.trap_num = htobe16(256);
 	n->issuer_lid = htobe16((uint16_t) port->lid);
 	n->data_details.ntc_256.lid = n->issuer_lid;
-	n->data_details.ntc_256.dr_slid = 0xffff;
+	n->data_details.ntc_256.dr_slid = htobe16(0xffff);
 	n->data_details.ntc_256.method = 1;
 	n->data_details.ntc_256.attr_id = htobe16(0x15);
 	n->data_details.ntc_256.attr_mod = htobe32(0x12);
