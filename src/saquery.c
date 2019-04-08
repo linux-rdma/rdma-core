@@ -132,7 +132,7 @@ static void print_node_desc(ib_node_record_t * node_record)
 
 	if (p_ni->node_type == IB_NODE_TYPE_CA) {
 		name = remap_node_name(node_name_map,
-					node_record->node_info.node_guid,
+					be64toh(node_record->node_info.node_guid),
 					(char *)p_nd->description);
 		printf("%6d  \"%s\"\n", be16toh(node_record->lid), name);
 		free(name);
@@ -376,7 +376,7 @@ static void dump_multicast_member_record(ib_member_rec_t *p_mcmr,
 			if(node_name != NULL)
 				free(node_name);
 			node_name = remap_node_name(node_name_map,
-						nr->node_info.node_guid,
+						be64toh(nr->node_info.node_guid),
 						(char *)nr->node_desc.description);
 			break;
 		}
