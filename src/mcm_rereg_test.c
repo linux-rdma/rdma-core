@@ -338,8 +338,7 @@ static int rereg_and_test_port(const char *guid_file, int port, int agent,
 	}
 
 	while (fgets(line, sizeof(line), f)) {
-		guid = strtoull(line, NULL, 0);
-		guid = htobe64(guid);
+		guid = htobe64(strtoull(line, NULL, 0));
 		memcpy(&port_gid[0], &prefix, 8);
 		memcpy(&port_gid[8], &guid, 8);
 
