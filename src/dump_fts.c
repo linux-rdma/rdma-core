@@ -431,7 +431,7 @@ int main(int argc, char **argv)
 		 "do not try to resolve destinations"},
 		{"Multicast", 'M', 0, NULL, "show multicast forwarding tables"},
 		{"node-name-map", 1, 1, "<file>", "node name map file"},
-		{0}
+		{}
 	};
 	char usage_args[] = "[<dest dr_path|lid|guid> [<startlid> [<endlid>]]]";
 	const char *usage_examples[] = {
@@ -454,9 +454,9 @@ int main(int argc, char **argv)
 	argv += optind;
 
 	if (argc > 0)
-		startlid = strtoul(argv[0], 0, 0);
+		startlid = strtoul(argv[0], NULL, 0);
 	if (argc > 1)
-		endlid = strtoul(argv[1], 0, 0);
+		endlid = strtoul(argv[1], NULL, 0);
 
 	node_name_map = open_node_name_map(node_name_map_file);
 

@@ -102,10 +102,10 @@ uint8_t *ib_vendor_call_via(void *data, ib_portid_t * portid,
 		portid->qkey = IB_DEFAULT_QP1_QKEY;
 
 	if (resp_expected) {
-		p_ret = mad_rpc_rmpp(srcport, rpcold, portid, 0, data);	/* FIXME: no RMPP for now */
+		p_ret = mad_rpc_rmpp(srcport, rpcold, portid, NULL, data);	/* FIXME: no RMPP for now */
 		errno = rpc.error;
 		return p_ret;
 	}
 
-	return mad_send_via(rpcold, portid, 0, data, srcport) < 0 ? 0 : data;	/* FIXME: no RMPP for now */
+	return mad_send_via(rpcold, portid, NULL, data, srcport) < 0 ? NULL : data;	/* FIXME: no RMPP for now */
 }

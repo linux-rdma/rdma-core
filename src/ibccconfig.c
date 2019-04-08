@@ -74,7 +74,7 @@ static const match_rec_t match_tbl[] = {
 	 "<trigger_threshold> <ccti_min>"},
 	{"CongestionControlTable", "CT", congestion_control_table, 0,
 	 "<cctilimit> <index> <cctentry> <cctentry> ..."},
-	{0}
+	{}
 };
 
 static uint64_t cckey;
@@ -548,7 +548,7 @@ static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 'c':
-		cckey = (uint64_t) strtoull(optarg, 0, 0);
+		cckey = (uint64_t) strtoull(optarg, NULL, 0);
 		break;
 	default:
 		return -1;
@@ -568,7 +568,7 @@ int main(int argc, char **argv)
 
 	const struct ibdiag_opt opts[] = {
 		{"cckey", 'c', 1, "<key>", "CC key"},
-		{0}
+		{}
 	};
 	const char *usage_examples[] = {
 		"SwitchCongestionSetting 2 0x1F 0x1FFFFFFFFF 0x0 0xF 8 0 0:0 1\t# Configure Switch Congestion Settings",

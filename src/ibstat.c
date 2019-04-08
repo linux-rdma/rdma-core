@@ -287,7 +287,7 @@ int main(int argc, char *argv[])
 		{"list_of_cas", 'l', 0, NULL, "list all IB devices"},
 		{"short", 's', 0, NULL, "short output"},
 		{"port_list", 'p', 0, NULL, "show port list"},
-		{0}
+		{}
 	};
 	char usage_args[] = "<ca_name> [portnum]";
 	const char *usage_examples[] = {
@@ -303,7 +303,7 @@ int main(int argc, char *argv[])
 	argv += optind;
 
 	if (argc > 1)
-		dev_port = strtol(argv[1], 0, 0);
+		dev_port = strtol(argv[1], NULL, 0);
 
 	if (umad_init() < 0)
 		IBPANIC("can't init UMAD library");

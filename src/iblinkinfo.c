@@ -563,7 +563,7 @@ static int process_opt(void *context, int ch)
 	case 'S':
 	case 'G':
 		node_label.guid_str = optarg;
-		node_label.guid = (uint64_t)strtoull(node_label.guid_str, 0, 0);
+		node_label.guid = (uint64_t)strtoull(node_label.guid_str, NULL, 0);
 		break;
 	case 'D':
 		dr_path = strdup(optarg);
@@ -640,7 +640,7 @@ int main(int argc, char **argv)
 		 "Output only switches"},
 		{"cas-only", 7, 0, NULL,
 		 "Output only CAs"},
-		{0}
+		{}
 	};
 	char usage_args[] = "";
 

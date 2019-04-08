@@ -554,18 +554,18 @@ static Node *find_mcpath(ib_portid_t * from, int mlid)
 
 	if (get_node(node, port, from) < 0) {
 		IBWARN("can't reach node %s", portid2str(from));
-		return 0;
+		return NULL;
 	}
 
-	node->upnode = 0;	/* root */
+	node->upnode = NULL;	/* root */
 	if ((r = new_node(node, port, from, 0)) > 0) {
 		if (node->type != IB_NODE_SWITCH) {
 			IBWARN("ibtracert from CA to CA is unsupported");
-			return 0;	/* ibtracert from host to itself is unsupported */
+			return NULL;	/* ibtracert from host to itself is unsupported */
 		}
 
 		if (switch_mclookup(node, from, mlid, map) < 0 || !map[0])
-			return 0;
+			return NULL;
 		return node;
 	}
 
@@ -620,7 +620,7 @@ static Node *find_mcpath(ib_portid_t * from, int mlid)
 						    ("can't reach node %s port %d",
 						     portid2str(path), i);
 						free(port);
-						return 0;
+						return NULL;
 					}
 
 					if (port->physstate != 5) {	/* LinkUP */
@@ -633,7 +633,7 @@ static Node *find_mcpath(ib_portid_t * from, int mlid)
 
 					if (extend_dpath(&path->drpath, i) < 0) {
 						free(port);
-						return 0;
+						return NULL;
 					}
 				}
 
@@ -674,7 +674,7 @@ static Node *find_mcpath(ib_portid_t * from, int mlid)
 		}
 	}
 
-	return 0;		/* not found */
+	return NULL;		/* not found */
 }
 
 static uint64_t find_target_portguid(ib_portid_t * to)
@@ -770,7 +770,7 @@ static int process_opt(void *context, int ch)
 		break;
 	case 'm':
 		multicast++;
-		mlid = strtoul(optarg, 0, 0);
+		mlid = strtoul(optarg, NULL, 0);
 		break;
 	case 'f':
 		force++;
@@ -875,7 +875,7 @@ int main(int argc, char **argv)
 		{"mlid", 'm', 1, "<mlid>", "multicast trace of the mlid"},
 		{"node-name-map", 1, 1, "<file>", "node name map file"},
 		{"ports-file", 2, 1, "<file>", "port pairs file"},
-		{0}
+		{}
 	};
 	char usage_args[] = "<src-addr> <dest-addr>";
 	const char *usage_examples[] = {

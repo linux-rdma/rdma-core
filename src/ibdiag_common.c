@@ -160,10 +160,10 @@ static void read_ibdiag_config(const char *file)
 				ibd_ibnetdisc_flags &= ~IBND_CONFIG_MLX_EPI;
 			}
 		} else if (strncmp(name, "m_key", strlen("m_key")) == 0) {
-			ibd_mkey = strtoull(val_str, 0, 0);
+			ibd_mkey = strtoull(val_str, NULL, 0);
 		} else if (strncmp(name, "sa_key",
 				   strlen("sa_key")) == 0) {
-			ibd_sakey = strtoull(val_str, 0, 0);
+			ibd_sakey = strtoull(val_str, NULL, 0);
 		} else if (strncmp(name, "nd_format",
 				   strlen("nd_format")) == 0) {
 			ibd_nd_format = strdup(val_str);
@@ -242,7 +242,7 @@ static int process_opt(int ch)
 		ibd_ca = optarg;
 		break;
 	case 'P':
-		ibd_ca_port = strtoul(optarg, 0, 0);
+		ibd_ca_port = strtoul(optarg, NULL, 0);
 		break;
 	case 'D':
 		ibd_dest_type = IB_DEST_DRPATH;
@@ -268,7 +268,7 @@ static int process_opt(int ch)
 	case 's':
 		/* srcport is not required when resolving via IB_DEST_LID */
 		if (resolve_portid_str(ibd_ca, ibd_ca_port, &sm_portid, optarg,
-				IB_DEST_LID, 0, NULL) < 0)
+				IB_DEST_LID, NULL, NULL) < 0)
 			IBEXIT("cannot resolve SM destination port %s",
 				optarg);
 		ibd_sm_id = &sm_portid;
@@ -310,7 +310,7 @@ static const struct ibdiag_opt common_opts[] = {
 	{"debug", 'd', 0, NULL, "raise debug level"},
 	{"help", 'h', 0, NULL, "help message"},
 	{"version", 'V', 0, NULL, "show version"},
-	{0}
+	{}
 };
 
 static void make_opt(struct option *l, const struct ibdiag_opt *o,
@@ -704,7 +704,7 @@ int resolve_portid_str(char *ca_name, uint8_t ca_port, ib_portid_t * portid,
 
 	switch (dest_type) {
 	case IB_DEST_LID:
-		lid = strtol(addr_str, 0, 0);
+		lid = strtol(addr_str, NULL, 0);
 		if (!IB_LID_VALID(lid))
 			return -1;
 		return ib_portid_set(portid, lid, 0, 0);
@@ -715,7 +715,7 @@ int resolve_portid_str(char *ca_name, uint8_t ca_port, ib_portid_t * portid,
 		return 0;
 
 	case IB_DEST_GUID:
-		if (!(guid = strtoull(addr_str, 0, 0)))
+		if (!(guid = strtoull(addr_str, NULL, 0)))
 			return -1;
 
 		/* keep guid in portid? */

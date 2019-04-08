@@ -98,7 +98,7 @@ uint8_t *bm_call_via(void *data, ib_portid_t * portid, ib_bm_call_t * call,
 		return NULL;
 	}
 
-	if (mad_send_via(&rpc, portid, 0, &bm_data, srcport) < 0)
+	if (mad_send_via(&rpc, portid, NULL, &bm_data, srcport) < 0)
 		return NULL;
 
 return_ok:

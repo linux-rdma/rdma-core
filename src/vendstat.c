@@ -359,7 +359,7 @@ int main(int argc, char **argv)
 		{"c", 'c', 1, "<num,num>", "configure IS4 counter groups"},
 		{"Read", 'R', 1, "<addr,mask>", "Read configuration space record at addr"},
 		{"Write", 'W', 1, "<addr,val,mask>", "Write configuration space record at addr"},
-		{0}
+		{}
 	};
 
 	char usage_args[] = "<lid|guid> [port]";
@@ -379,7 +379,7 @@ int main(int argc, char **argv)
 	argv += optind;
 
 	if (argc > 1)
-		port = strtoul(argv[1], 0, 0);
+		port = strtoul(argv[1], NULL, 0);
 
 	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, 2);
 	if (!srcport)
@@ -392,7 +392,7 @@ int main(int argc, char **argv)
 			IBEXIT("can't resolve destination port %s", argv[0]);
 		}
 	} else {
-		if (resolve_self(ibd_ca, ibd_ca_port, &portid, &port, 0) < 0) {
+		if (resolve_self(ibd_ca, ibd_ca_port, &portid, &port, NULL) < 0) {
 			mad_rpc_close_port(srcport);
 			IBEXIT("can't resolve self port %s", argv[0]);
 		}

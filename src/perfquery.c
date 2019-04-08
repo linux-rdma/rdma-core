@@ -834,7 +834,7 @@ int main(int argc, char **argv)
 		{"loop_ports", 'l', 0, NULL, "iterate through each port"},
 		{"reset_after_read", 'r', 0, NULL, "reset counters after read"},
 		{"Reset_only", 'R', 0, NULL, "only reset counters"},
-		{0}
+		{}
 	};
 	char usage_args[] = " [<lid|guid> [[port(s)] [reset_mask]]]";
 	const char *usage_examples[] = {
@@ -867,7 +867,7 @@ int main(int argc, char **argv)
 			tmpstr = strtok(argv[1], ",");
 			while (tmpstr) {
 				info.ports[info.ports_count++] =
-					strtoul(tmpstr, 0, 0);
+					strtoul(tmpstr, NULL, 0);
 				tmpstr = strtok(NULL, ",");
 			}
 			info.port = info.ports[0];
@@ -878,8 +878,8 @@ int main(int argc, char **argv)
 			*tmpstr = '\0';
 			tmpstr++;
 
-			pmin = strtoul(argv[1], 0, 0);
-			pmax = strtoul(tmpstr, 0, 0);
+			pmin = strtoul(argv[1], NULL, 0);
+			pmax = strtoul(tmpstr, NULL, 0);
 
 			if (pmin >= pmax)
 				IBEXIT("max port must be greater than min port in range");
@@ -890,10 +890,10 @@ int main(int argc, char **argv)
 			info.port = info.ports[0];
 		}
 		else
-			info.port = strtoul(argv[1], 0, 0);
+			info.port = strtoul(argv[1], NULL, 0);
 	}
 	if (argc > 2) {
-		ext_mask = strtoull(argv[2], 0, 0);
+		ext_mask = strtoull(argv[2], NULL, 0);
 		mask = ext_mask;
 	}
 
@@ -908,7 +908,7 @@ int main(int argc, char **argv)
 				       ibd_dest_type, ibd_sm_id, srcport) < 0)
 			IBEXIT("can't resolve destination port %s", argv[0]);
 	} else {
-		if (resolve_self(ibd_ca, ibd_ca_port, &portid, &info.port, 0) <
+		if (resolve_self(ibd_ca, ibd_ca_port, &portid, &info.port, NULL) <
 		    0)
 			IBEXIT("can't resolve self port %s", argv[0]);
 	}

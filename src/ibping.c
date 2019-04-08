@@ -89,7 +89,7 @@ static char *ibping_serv(void)
 
 	DEBUG("starting to serve...");
 
-	while ((umad = mad_receive_via(0, -1, srcport))) {
+	while ((umad = mad_receive_via(NULL, -1, srcport))) {
 
 		if (umad_status(umad) == 0) {
 			mad = umad_get_mad(umad);
@@ -99,7 +99,7 @@ static char *ibping_serv(void)
 
 			DEBUG("Pong: %s", data);
 
-			if (mad_respond_via(umad, 0, 0, srcport) < 0)
+			if (mad_respond_via(umad, NULL, 0, srcport) < 0)
 				DEBUG("respond failed");
 
 		}
@@ -107,7 +107,7 @@ static char *ibping_serv(void)
 	}
 
 	DEBUG("server out");
-	return 0;
+	return NULL;
 }
 
 static int oui = IB_OPENIB_OUI;
@@ -178,13 +178,13 @@ static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 'c':
-		count = strtoul(optarg, 0, 0);
+		count = strtoul(optarg, NULL, 0);
 		break;
 	case 'f':
 		flood++;
 		break;
 	case 'o':
-		oui = strtoul(optarg, 0, 0);
+		oui = strtoul(optarg, NULL, 0);
 		break;
 	case 'S':
 		server++;
@@ -207,7 +207,7 @@ int main(int argc, char **argv)
 		{"flood", 'f', 0, NULL, "flood destination"},
 		{"oui", 'o', 1, NULL, "use specified OUI number"},
 		{"Server", 'S', 0, NULL, "start in server mode"},
-		{0}
+		{}
 	};
 	char usage_args[] = "<dest lid|guid>";
 
@@ -225,7 +225,7 @@ int main(int argc, char **argv)
 		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	if (server) {
-		if (mad_register_server_via(ping_class, 0, 0, oui, srcport) < 0)
+		if (mad_register_server_via(ping_class, 0, NULL, oui, srcport) < 0)
 			IBEXIT("can't serve class %d on this port",
 				ping_class);
 

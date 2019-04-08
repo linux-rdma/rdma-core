@@ -225,14 +225,14 @@ int smp_engine_init(smp_engine_t * engine, char * ca_name, int ca_port,
 	}
 
 	if ((engine->smi_agent = umad_register(engine->umad_fd,
-	     IB_SMI_CLASS, 1, 0, 0)) < 0) {
+	     IB_SMI_CLASS, 1, 0, NULL)) < 0) {
 		IBND_ERROR("Failed to register SMI agent on (%s:%d)\n",
 			   ca_name, ca_port);
 		goto eio_close;
 	}
 
 	if ((engine->smi_dir_agent = umad_register(engine->umad_fd,
-	     IB_SMI_DIRECT_CLASS, 1, 0, 0)) < 0) {
+	     IB_SMI_DIRECT_CLASS, 1, 0, NULL)) < 0) {
 		IBND_ERROR("Failed to register SMI_DIRECT agent on (%s:%d)\n",
 			   ca_name, ca_port);
 		goto eio_close;

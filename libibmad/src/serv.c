@@ -151,7 +151,7 @@ int mad_respond_via(void *umad, ib_portid_t * portid, uint32_t rstatus,
 	     portid->qp, rpc.mgtclass, rpc.method, rpc.attr.id, rpc.attr.mod,
 	     rpc.datasz, rpc.dataoffs, portid->qkey);
 
-	if (mad_build_pkt(umad, &rpc, portid, 0, 0) < 0)
+	if (mad_build_pkt(umad, &rpc, portid, NULL, NULL) < 0)
 		return -1;
 
 	if (ibdebug > 1)
@@ -183,7 +183,7 @@ void *mad_receive_via(void *umad, int timeout, struct ibmad_port *srcport)
 		if (!umad)
 			umad_free(mad);
 		DEBUG("recv failed: %s", strerror(errno));
-		return 0;
+		return NULL;
 	}
 
 	return mad;

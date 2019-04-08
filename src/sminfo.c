@@ -75,13 +75,13 @@ static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 'a':
-		act = strtoul(optarg, 0, 0);
+		act = strtoul(optarg, NULL, 0);
 		break;
 	case 's':
-		state = strtoul(optarg, 0, 0);
+		state = strtoul(optarg, NULL, 0);
 		break;
 	case 'p':
-		prio = strtoul(optarg, 0, 0);
+		prio = strtoul(optarg, NULL, 0);
 		break;
 	default:
 		return -1;
@@ -102,7 +102,7 @@ int main(int argc, char **argv)
 		{"state", 's', 1, "<0-3>", "set SM state"},
 		{"priority", 'p', 1, "<0-15>", "set SM priority"},
 		{"activity", 'a', 1, NULL, "set activity count"},
-		{0}
+		{}
 	};
 	char usage_args[] = "<sm_lid|sm_dr_path> [modifier]";
 
@@ -123,7 +123,7 @@ int main(int argc, char **argv)
 
 	if (argc) {
 		if (resolve_portid_str(ibd_ca, ibd_ca_port, &portid, argv[0],
-				       ibd_dest_type, 0, srcport) < 0)
+				       ibd_dest_type, NULL, srcport) < 0)
 			IBEXIT("can't resolve destination port %s", argv[0]);
 	} else {
 		if (resolve_sm_portid(ibd_ca, ibd_ca_port, &portid) < 0)

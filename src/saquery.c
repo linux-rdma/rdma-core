@@ -203,7 +203,7 @@ static void print_node_record(ib_node_record_t * node_record)
 		break;
 	}
 
-	dump_node_record(node_record, 0);
+	dump_node_record(node_record, NULL);
 }
 
 static void dump_path_record(void *data, struct query_params *p)
@@ -1481,7 +1481,7 @@ static const struct query_cmd query_cmds[] = {
 	 "[lid]", query_switchinfo_records},
 	{"SMInfoRecord", "SMIR", IB_SA_ATTR_SMINFORECORD,
 	 "[lid]", query_sm_info_records},
-	{0}
+	{}
 };
 
 static const struct query_cmd *find_query(const char *name)
@@ -1780,7 +1780,7 @@ int main(int argc, char **argv)
 		{"join_state", 'J', 1, NULL, "Join state (MCMemberRecord)"},
 		{"proxy_join", 'X', 1, NULL, "Proxy join (MCMemberRecord)"},
 		{"service_id", 22, 1, NULL, "ServiceID (PathRecord)"},
-		{0}
+		{}
 	};
 
 	memset(&params, 0, sizeof params);

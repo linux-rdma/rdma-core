@@ -84,7 +84,7 @@ static const char *check_switch(ib_portid_t *portid, unsigned int *nports,
 	if (!smp_query_via(sw, portid, IB_ATTR_SWITCH_INFO, 0, 0, srcport))
 		return "switch info failed: is a switch node?";
 
-	return 0;
+	return NULL;
 }
 
 #define IB_MLIDS_IN_BLOCK	(IB_SMP_DATA_SIZE/2)
@@ -243,7 +243,7 @@ static const char *dump_multicast_tables(ib_portid_t *portid, unsigned startlid,
 	printf("%d %smlids dumped \n", n, dump_all ? "" : "valid ");
 
 	free(mapnd);
-	return 0;
+	return NULL;
 }
 
 static int dump_lid(char *str, int strlen, int lid, int valid)
@@ -392,7 +392,7 @@ static const char *dump_unicast_tables(ib_portid_t *portid, int startlid,
 
 	printf("%d %slids dumped \n", n, dump_all ? "" : "valid ");
 	free(mapnd);
-	return 0;
+	return NULL;
 }
 
 static int process_opt(void *context, int ch)
@@ -432,7 +432,7 @@ int main(int argc, char **argv)
 		 "do not try to resolve destinations"},
 		{"Multicast", 'M', 0, NULL, "show multicast forwarding tables"},
 		{"node-name-map", 1, 1, "<file>", "node name map file"},
-		{0}
+		{}
 	};
 	char usage_args[] = "[<dest dr_path|lid|guid> [<startlid> [<endlid>]]]";
 	const char *usage_examples[] = {
@@ -461,9 +461,9 @@ int main(int argc, char **argv)
 		ibdiag_show_usage();
 
 	if (argc > 1)
-		startlid = strtoul(argv[1], 0, 0);
+		startlid = strtoul(argv[1], NULL, 0);
 	if (argc > 2)
-		endlid = strtoul(argv[2], 0, 0);
+		endlid = strtoul(argv[2], NULL, 0);
 
 	node_name_map = open_node_name_map(node_name_map_file);
 

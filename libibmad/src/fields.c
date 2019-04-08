@@ -1256,7 +1256,7 @@ char *mad_dump_field(enum MAD_FIELDS field, char *buf, int bufsz, void *val)
 {
 	if (field <= IB_NO_FIELD || field >= IB_FIELD_LAST_)
 		return NULL;
-	return _mad_dump_field(ib_mad_f + field, 0, buf, bufsz, val);
+	return _mad_dump_field(ib_mad_f + field, NULL, buf, bufsz, val);
 }
 
 char *mad_dump_val(enum MAD_FIELDS field, char *buf, int bufsz, void *val)

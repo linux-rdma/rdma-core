@@ -75,7 +75,7 @@ int main(int argc, char **argv)
 {
 	struct ibnd_config config = { 0 };
 	int rc = 0;
-	char *ca = 0;
+	char *ca = NULL;
 	int ca_port = 0;
 	ibnd_fabric_t *fabric = NULL;
 	char *from = NULL;
@@ -84,18 +84,18 @@ int main(int argc, char **argv)
 
 	static char const str_opts[] = "S:D:n:C:P:t:shuf:i:";
 	static const struct option long_opts[] = {
-		{"S", 1, 0, 'S'},
-		{"D", 1, 0, 'D'},
-		{"num-hops", 1, 0, 'n'},
-		{"ca-name", 1, 0, 'C'},
-		{"ca-port", 1, 0, 'P'},
-		{"timeout", 1, 0, 't'},
-		{"show", 0, 0, 's'},
-		{"help", 0, 0, 'h'},
-		{"usage", 0, 0, 'u'},
-		{"debug", 0, 0, 2},
-		{"from", 1, 0, 'f'},
-		{"iters", 1, 0, 'i'},
+		{"S", 1, NULL, 'S'},
+		{"D", 1, NULL, 'D'},
+		{"num-hops", 1, NULL, 'n'},
+		{"ca-name", 1, NULL, 'C'},
+		{"ca-port", 1, NULL, 'P'},
+		{"timeout", 1, NULL, 't'},
+		{"show", 0, NULL, 's'},
+		{"help", 0, NULL, 'h'},
+		{"usage", 0, NULL, 'u'},
+		{"debug", 0, NULL, 2},
+		{"from", 1, NULL, 'f'},
+		{"iters", 1, NULL, 'i'},
 		{}
 	};
 
@@ -118,7 +118,7 @@ int main(int argc, char **argv)
 			ca = strdup(optarg);
 			break;
 		case 'P':
-			ca_port = strtoul(optarg, 0, 0);
+			ca_port = strtoul(optarg, NULL, 0);
 			break;
 		case 'n':
 			config.max_hops = strtoul(optarg, NULL, 0);
@@ -127,7 +127,7 @@ int main(int argc, char **argv)
 			iters = (int)strtol(optarg, NULL, 0);
 			break;
 		case 't':
-			config.timeout_ms = strtoul(optarg, 0, 0);
+			config.timeout_ms = strtoul(optarg, NULL, 0);
 			break;
 		default:
 			usage();

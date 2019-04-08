@@ -136,7 +136,7 @@ _do_madrpc(int port_id, void *sndbuf, void *rcvbuf, int agentid, int len,
 	if (save_mad) {
 		memcpy(save_mad, umad_get_mad(sndbuf),
 		       save_mad_len < len ? save_mad_len : len);
-		save_mad = 0;
+		save_mad = NULL;
 	}
 
 	if (max_retries <= 0) {
@@ -227,7 +227,7 @@ void *mad_rpc(const struct ibmad_port *port, ib_rpc_t * rpc,
 		len = 0;
 		memset(sndbuf, 0, umad_size() + IB_MAD_SIZE);
 
-		if ((len = mad_build_pkt(sndbuf, rpc, dport, 0, payload)) < 0)
+		if ((len = mad_build_pkt(sndbuf, rpc, dport, NULL, payload)) < 0)
 			return NULL;
 
 		if ((len = _do_madrpc(port->port_id, sndbuf, rcvbuf,

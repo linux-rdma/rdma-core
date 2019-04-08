@@ -64,7 +64,7 @@ uint64_t mad_trid(void)
 	uint64_t next;
 
 	if (!trid) {
-		srandom((int)time(0) * getpid());
+		srandom((int)time(NULL) * getpid());
 		trid = random();
 	}
 	next = ++trid;
@@ -189,11 +189,11 @@ int mad_build_pkt(void *umad, ib_rpc_t * rpc, ib_portid_t * dport,
 		addr.flow_label = 0;
 		umad_set_grh(umad, &addr);
 	} else
-		umad_set_grh(umad, 0);
+		umad_set_grh(umad, NULL);
 	umad_set_pkey(umad, is_smi ? 0 : dport->pkey_idx);
 
 	mad = umad_get_mad(umad);
-	p = mad_encode(mad, rpc, lid_routed ? 0 : &dport->drpath, data);
+	p = mad_encode(mad, rpc, lid_routed ? NULL : &dport->drpath, data);
 	if (!p)
 		return -1;
 

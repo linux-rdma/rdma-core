@@ -433,7 +433,7 @@ int main(int argc, char **argv)
 		IBEXIT("can't resolve destination port %s", argv[0]);
 
 	if (argc > 1)
-		portnum = strtol(argv[1], 0, 0);
+		portnum = strtol(argv[1], NULL, 0);
 
 	for (i = 2; i < argc; i++) {
 		int j;
@@ -455,7 +455,7 @@ int main(int argc, char **argv)
 			if (++i >= argc)
 				IBEXIT("%s requires an additional parameter",
 					port_args[j].name);
-			val = strtoull(argv[i], 0, 0);
+			val = strtoull(argv[i], NULL, 0);
 			switch (j) {
 			case SPEED:
 				if (val > 15)
@@ -687,7 +687,7 @@ int main(int argc, char **argv)
 
 				/* Set DrSLID to local lid */
 				if (resolve_self(ibd_ca, ibd_ca_port, &selfportid,
-						         &selfport, 0) < 0)
+						         &selfport, NULL) < 0)
 					IBEXIT("could not resolve self");
 				peerportid.drpath.drslid = (uint16_t) selfportid.lid;
 				peerportid.drpath.drdlid = 0xffff;

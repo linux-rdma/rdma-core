@@ -550,7 +550,7 @@ static int dump_topology(int group, ibnd_fabric_t *fabric)
 	ibnd_node_t *node;
 	ibnd_port_t *port;
 	int i = 0, p = 0;
-	time_t t = time(0);
+	time_t t = time(NULL);
 	uint64_t chguid;
 	char *chname = NULL;
 	struct iter_user_data iter_user_data;
@@ -1100,7 +1100,7 @@ int main(int argc, char **argv)
 		{"outstanding_smps", 'o', 1, NULL,
 		 "specify the number of outstanding SMP's which should be "
 		 "issued during the scan"},
-		{0}
+		{}
 	};
 	char usage_args[] = "[topology-file]";
 

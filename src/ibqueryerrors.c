@@ -945,7 +945,7 @@ static int process_opt(void *context, int ch)
 	case 'G':
 	case 'S':
 		port_guid_str = optarg;
-		port_guid = strtoull(optarg, 0, 0);
+		port_guid = strtoull(optarg, NULL, 0);
 		break;
 	case 'D':
 		dr_path = strdup(optarg);
@@ -1020,7 +1020,7 @@ int main(int argc, char **argv)
 		{"outstanding_smps", 'o', 1, NULL,
 		 "specify the number of outstanding SMP's which should be "
 		 "issued during the scan"},
-		{0}
+		{}
 	};
 	char usage_args[] = "";
 

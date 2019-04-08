@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
 
 	const struct ibdiag_opt opts[] = {
 		{"string", 's', 0, NULL, ""},
-		{0}
+		{}
 	};
 	char usage_args[] = "<dlid|dr_path> <attr> [mod]";
 	const char *usage_examples[] = {
@@ -210,11 +210,11 @@ int main(int argc, char *argv[])
 		IBPANIC("bad path str '%s'", argv[0]);
 
 	if (mgmt_class == IB_SMI_CLASS)
-		dlid = strtoul(argv[0], 0, 0);
+		dlid = strtoul(argv[0], NULL, 0);
 
-	attr = strtoul(argv[1], 0, 0);
+	attr = strtoul(argv[1], NULL, 0);
 	if (argc > 2)
-		mod = strtoul(argv[2], 0, 0);
+		mod = strtoul(argv[2], NULL, 0);
 
 	if (umad_init() < 0)
 		IBPANIC("can't init UMAD library");
@@ -222,7 +222,7 @@ int main(int argc, char *argv[])
 	if ((portid = umad_open_port(ibd_ca, ibd_ca_port)) < 0)
 		IBPANIC("can't open UMAD port (%s:%d)", ibd_ca, ibd_ca_port);
 
-	if ((mad_agent = umad_register(portid, mgmt_class, 1, 0, 0)) < 0)
+	if ((mad_agent = umad_register(portid, mgmt_class, 1, 0, NULL)) < 0)
 		IBPANIC("Couldn't register agent for SMPs");
 
 	if (!(umad = umad_alloc(1, umad_size() + IB_MAD_SIZE)))
@@ -249,7 +249,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "%d bytes received\n", length);
 
 	if (!dump_char) {
-		xdump(stdout, 0, smp->data, 64);
+		xdump(stdout, NULL, smp->data, 64);
 		if (smp->status)
 			fprintf(stdout, "SMP status: 0x%x\n",
 				ntohs(smp->status));

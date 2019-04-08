@@ -86,8 +86,8 @@ static int parse_beforeafter(char *arg, uint64_t *before, uint64_t *after)
 	before_str = arg;
 	after_str = ptr + 1;
 
-	(*before) = strtoull(before_str, 0, 0);
-	(*after) = strtoull(after_str, 0, 0);
+	(*before) = strtoull(before_str, NULL, 0);
+	(*after) = strtoull(after_str, NULL, 0);
 	return 0;
 }
 
@@ -119,9 +119,9 @@ static int parse_guidbeforeafter(char *arg,
 	(*ptr2) = '\0';
 	after_str = ptr2 + 1;
 
-	(*guid) = strtoull(guid_str, 0, 0);
-	(*before) = strtoull(before_str, 0, 0);
-	(*after) = strtoull(after_str, 0, 0);
+	(*guid) = strtoull(guid_str, NULL, 0);
+	(*before) = strtoull(before_str, NULL, 0);
+	(*after) = strtoull(after_str, NULL, 0);
 	return 0;
 }
 
@@ -264,7 +264,7 @@ int main(int argc, char **argv)
 		 "Specify before and after sysimgguid to edit"},
 		{"portguid", 4, 1, "NODEGUID:BEFOREGUID:AFTERGUID",
 		 "Specify before and after port guid to edit"},
-		{0}
+		{}
 	};
 	const char *usage_args = "<orig.cache> <new.cache>";
 

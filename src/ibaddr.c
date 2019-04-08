@@ -119,7 +119,7 @@ int main(int argc, char **argv)
 		{"gid_show", 'g', 0, NULL, "show gid address only"},
 		{"lid_show", 'l', 0, NULL, "show lid range only"},
 		{"Lid_show", 'L', 0, NULL, "show lid range (in decimal) only"},
-		{0}
+		{}
 	};
 	char usage_args[] = "[<lid|dr_path|guid>]";
 	const char *usage_examples[] = {
@@ -139,7 +139,7 @@ int main(int argc, char **argv)
 	argv += optind;
 
 	if (argc > 1)
-		port = strtoul(argv[1], 0, 0);
+		port = strtoul(argv[1], NULL, 0);
 
 	if (!show_lid && !show_gid)
 		show_lid = show_gid = 1;

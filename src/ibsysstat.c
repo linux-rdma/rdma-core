@@ -97,7 +97,7 @@ static int server_respond(void *umad, int size)
 	DEBUG("responding %d bytes to %s, attr 0x%x mod 0x%x qkey %x",
 	      size, portid2str(&rport), rpc.attr.id, rpc.attr.mod, rport.qkey);
 
-	if (mad_build_pkt(umad, &rpc, &rport, &rmpp, 0) < 0)
+	if (mad_build_pkt(umad, &rpc, &rport, &rmpp, NULL) < 0)
 		return -1;
 
 	if (ibdebug > 1)
@@ -196,7 +196,7 @@ static char *ibsystat_serv(void)
 	}
 
 	DEBUG("server out");
-	return 0;
+	return NULL;
 }
 
 static int match_attr(char *str)
@@ -253,7 +253,7 @@ static char *ibsystat(ib_portid_t * portid, int attr)
 		puts(data);
 	else
 		printf("sysstat ping succeeded\n");
-	return 0;
+	return NULL;
 }
 
 static int build_cpuinfo(void)
@@ -299,7 +299,7 @@ static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 'o':
-		oui = strtoul(optarg, 0, 0);
+		oui = strtoul(optarg, NULL, 0);
 		break;
 	case 'S':
 		server++;
@@ -322,7 +322,7 @@ int main(int argc, char **argv)
 	const struct ibdiag_opt opts[] = {
 		{"oui", 'o', 1, NULL, "use specified OUI number"},
 		{"Server", 'S', 0, NULL, "start in server mode"},
-		{0}
+		{}
 	};
 	char usage_args[] = "<dest lid|guid> [<op>]";
 
@@ -343,7 +343,7 @@ int main(int argc, char **argv)
 		IBEXIT("Failed to open '%s' port '%d'", ibd_ca, ibd_ca_port);
 
 	if (server) {
-		if (mad_register_server_via(sysstat_class, 1, 0, oui, srcport) <
+		if (mad_register_server_via(sysstat_class, 1, NULL, oui, srcport) <
 		    0)
 			IBEXIT("can't serve class %d", sysstat_class);
 

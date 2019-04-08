@@ -763,7 +763,7 @@ static int fill_voltaire_chassis_record(ibnd_node_t * node)
 {
 	int p = 0;
 	ibnd_port_t *port;
-	ibnd_node_t *remnode = 0;
+	ibnd_node_t *remnode = NULL;
 
 	if (node->ch_found)	/* somehow this node has already been passed */
 		return 0;
@@ -1005,8 +1005,8 @@ static void pass_on_spines_interpolate_chguid(ibnd_chassis_t * chassis)
 static int build_chassis(ibnd_node_t * node, ibnd_chassis_t * chassis)
 {
 	int p = 0;
-	ibnd_node_t *remnode = 0;
-	ibnd_port_t *port = 0;
+	ibnd_node_t *remnode = NULL;
+	ibnd_port_t *port = NULL;
 
 	/* we get here with node = chassis_spine */
 	if (insert_spine(node, chassis))

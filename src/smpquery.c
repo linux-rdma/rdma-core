@@ -67,7 +67,7 @@ static const match_rec_t match_tbl[] = {
 	{"VLArbitration", "VLArb", vlarb_table, 1, ""},
 	{"GUIDInfo", "GI", guid_info, 0, ""},
 	{"MlnxExtPortInfo", "MEPI", mlnx_ext_port_info, 1, ""},
-	{0}
+	{}
 };
 
 static char *node_name_map_file = NULL;
@@ -106,7 +106,7 @@ static const char *node_desc(ib_portid_t *dest, char **argv, int argc)
 
 	printf("Node Description:%s%s\n", dots, nodename);
 	free(nodename);
-	return 0;
+	return NULL;
 }
 
 static const char *node_info(ib_portid_t * dest, char **argv, int argc)
@@ -120,7 +120,7 @@ static const char *node_info(ib_portid_t * dest, char **argv, int argc)
 	mad_dump_nodeinfo(buf, sizeof buf, data, sizeof data);
 
 	printf("# Node info: %s\n%s", portid2str(dest), buf);
-	return 0;
+	return NULL;
 }
 
 static const char *port_info_extended(ib_portid_t *dest, char **argv, int argc)
@@ -130,7 +130,7 @@ static const char *port_info_extended(ib_portid_t *dest, char **argv, int argc)
 	int portnum = 0;
 
 	if (argc > 0)
-		portnum = strtol(argv[0], 0, 0);
+		portnum = strtol(argv[0], NULL, 0);
 
 	if (!is_port_info_extended_supported(dest, portnum, srcport))
 		return "port info extended not supported";
@@ -142,7 +142,7 @@ static const char *port_info_extended(ib_portid_t *dest, char **argv, int argc)
 	mad_dump_portinfo_ext(buf, sizeof buf, data, sizeof data);
 	printf("# Port info Extended: %s port %d\n%s", portid2str(dest),
 	       portnum, buf);
-	return 0;
+	return NULL;
 }
 
 static const char *port_info(ib_portid_t *dest, char **argv, int argc)
@@ -151,7 +151,7 @@ static const char *port_info(ib_portid_t *dest, char **argv, int argc)
 	int portnum = 0, orig_portnum;
 
 	if (argc > 0)
-		portnum = strtol(argv[0], 0, 0);
+		portnum = strtol(argv[0], NULL, 0);
 	orig_portnum = portnum;
 	if (extended_speeds)
 		portnum |= 1 << 31;
@@ -161,7 +161,7 @@ static const char *port_info(ib_portid_t *dest, char **argv, int argc)
 
 	printf("# Port info: %s port %d\n", portid2str(dest), orig_portnum);
 	dump_portinfo(data, 0);
-	return 0;
+	return NULL;
 }
 
 static const char *mlnx_ext_port_info(ib_portid_t *dest, char **argv, int argc)
@@ -171,7 +171,7 @@ static const char *mlnx_ext_port_info(ib_portid_t *dest, char **argv, int argc)
 	int portnum = 0;
 
 	if (argc > 0)
-		portnum = strtol(argv[0], 0, 0);
+		portnum = strtol(argv[0], NULL, 0);
 
 	if (!smp_query_via(data, dest, IB_ATTR_MLNX_EXT_PORT_INFO, portnum, 0, srcport))
 		return "Mellanox ext port info query failed";
@@ -179,7 +179,7 @@ static const char *mlnx_ext_port_info(ib_portid_t *dest, char **argv, int argc)
 	mad_dump_mlnx_ext_port_info(buf, sizeof buf, data, sizeof data);
 
 	printf("# MLNX ext Port info: %s port %d\n%s", portid2str(dest), portnum, buf);
-	return 0;
+	return NULL;
 }
 
 static const char *switch_info(ib_portid_t *dest, char **argv, int argc)
@@ -193,7 +193,7 @@ static const char *switch_info(ib_portid_t *dest, char **argv, int argc)
 	mad_dump_switchinfo(buf, sizeof buf, data, sizeof data);
 
 	printf("# Switch info: %s\n%s", portid2str(dest), buf);
-	return 0;
+	return NULL;
 }
 
 static const char *pkey_table(ib_portid_t *dest, char **argv, int argc)
@@ -206,7 +206,7 @@ static const char *pkey_table(ib_portid_t *dest, char **argv, int argc)
 	int portnum = 0;
 
 	if (argc > 0)
-		portnum = strtol(argv[0], 0, 0);
+		portnum = strtol(argv[0], NULL, 0);
 
 	/* Get the partition capacity */
 	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
@@ -245,7 +245,7 @@ static const char *pkey_table(ib_portid_t *dest, char **argv, int argc)
 	}
 	printf("%d pkeys capacity for this port\n", n);
 
-	return 0;
+	return NULL;
 }
 
 static const char *sl2vl_dump_table_entry(ib_portid_t *dest, int in, int out)
@@ -260,7 +260,7 @@ static const char *sl2vl_dump_table_entry(ib_portid_t *dest, int in, int out)
 	mad_dump_sltovl(buf, sizeof buf, data, sizeof data);
 	printf("ports: in %2d, out %2d: ", in, out);
 	printf("%s", buf);
-	return 0;
+	return NULL;
 }
 
 static const char *sl2vl_table(ib_portid_t *dest, char **argv, int argc)
@@ -271,7 +271,7 @@ static const char *sl2vl_table(ib_portid_t *dest, char **argv, int argc)
 	const char *ret;
 
 	if (argc > 0)
-		portnum = strtol(argv[0], 0, 0);
+		portnum = strtol(argv[0], NULL, 0);
 
 	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
 		return "node info query failed";
@@ -295,7 +295,7 @@ static const char *sl2vl_table(ib_portid_t *dest, char **argv, int argc)
 		if (ret)
 			return ret;
 	}
-	return 0;
+	return NULL;
 }
 
 static const char *vlarb_dump_table_entry(ib_portid_t *dest, int portnum,
@@ -309,7 +309,7 @@ static const char *vlarb_dump_table_entry(ib_portid_t *dest, int portnum,
 		return "vl arb query failed";
 	mad_dump_vlarbitration(buf, sizeof(buf), data, cap * 2);
 	printf("%s", buf);
-	return 0;
+	return NULL;
 }
 
 static const char *vlarb_dump_table(ib_portid_t *dest, int portnum,
@@ -334,7 +334,7 @@ static const char *vlarb_table(ib_portid_t *dest, char **argv, int argc)
 	const char *ret = NULL;
 
 	if (argc > 0)
-		portnum = strtol(argv[0], 0, 0);
+		portnum = strtol(argv[0], NULL, 0);
 
 	/* port number of 0 could mean SP0 or port MAD arrives on */
 	if (portnum == 0) {
@@ -353,7 +353,7 @@ static const char *vlarb_table(ib_portid_t *dest, char **argv, int argc)
 				printf
 				    ("# No VLArbitration tables (BSP0): %s port %d\n",
 				     portid2str(dest), 0);
-				return 0;
+				return NULL;
 			}
 			memset(data, 0, sizeof(data));
 		}
@@ -407,7 +407,7 @@ static const char *guid_info(ib_portid_t *dest, char **argv, int argc)
 	}
 	printf("%d guids capacity for this port\n", n);
 
-	return 0;
+	return NULL;
 }
 
 static int process_opt(void *context, int ch)
@@ -446,7 +446,7 @@ int main(int argc, char **argv)
 		 "use Combined route address argument"},
 		{"node-name-map", 1, 1, "<file>", "node name map file"},
 		{"extended", 'x', 0, NULL, "use extended speeds"},
-		{0}
+		{}
 	};
 	const char *usage_examples[] = {
 		"portinfo 3 1\t\t\t\t# portinfo by lid, with port modifier",

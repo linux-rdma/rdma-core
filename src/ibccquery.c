@@ -72,7 +72,7 @@ static const match_rec_t match_tbl[] = {
 	{"CACongestionSetting", "CS", ca_congestion_setting, 0, ""},
 	{"CongestionControlTable", "CT", congestion_control_table, 0, ""},
 	{"Timestamp", "TI", timestamp_dump, 0, ""},
-	{0}
+	{}
 };
 
 static uint64_t cckey = 0;
@@ -205,7 +205,7 @@ static const char *switch_port_congestion_setting(ib_portid_t *dest,
 	int outputcount = 0;
 
 	if (argc > 0)
-		portnum = strtol(argv[0], 0, 0);
+		portnum = strtol(argv[0], NULL, 0);
 
 	/* Figure out number of ports first */
 	if (!smp_query_via(data, dest, IB_ATTR_NODE_INFO, 0, 0, srcport))
@@ -343,7 +343,7 @@ static int process_opt(void *context, int ch)
 {
 	switch (ch) {
 	case 'c':
-		cckey = (uint64_t) strtoull(optarg, 0, 0);
+		cckey = (uint64_t) strtoull(optarg, NULL, 0);
 		break;
 	default:
 		return -1;
@@ -363,7 +363,7 @@ int main(int argc, char **argv)
 
 	const struct ibdiag_opt opts[] = {
 		{"cckey", 'c', 1, "<key>", "CC key"},
-		{0}
+		{}
 	};
 	const char *usage_examples[] = {
 		"CongestionInfo 3\t\t\t# Congestion Info by lid",

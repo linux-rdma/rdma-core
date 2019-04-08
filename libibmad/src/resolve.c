@@ -153,7 +153,7 @@ int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
 
 	switch (dest_type) {
 	case IB_DEST_LID:
-		lid = strtol(addr_str, 0, 0);
+		lid = strtol(addr_str, NULL, 0);
 		if (!IB_LID_VALID(lid)) {
 			errno = EINVAL;
 			return -1;
@@ -168,7 +168,7 @@ int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
 		return 0;
 
 	case IB_DEST_GUID:
-		if (!(guid = strtoull(addr_str, 0, 0))) {
+		if (!(guid = strtoull(addr_str, NULL, 0))) {
 			errno = EINVAL;
 			return -1;
 		}
@@ -186,7 +186,7 @@ int ib_resolve_portid_str_via(ib_portid_t * portid, char *addr_str,
 		ib_portid_set(portid, lid, 0, 0);
 
 		/* handle DR parsing and set DrSLID to local lid */
-		if (ib_resolve_self_via(&selfportid, &selfport, 0, srcport) < 0)
+		if (ib_resolve_self_via(&selfportid, &selfport, NULL, srcport) < 0)
 			return -1;
 		if (str2drpath(&portid->drpath, routepath, selfportid.lid, 0) <
 		    0) {
