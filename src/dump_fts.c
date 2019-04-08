@@ -65,7 +65,7 @@ static nn_map_t *node_name_map = NULL;
 #define IB_MLIDS_IN_BLOCK	(IB_SMP_DATA_SIZE/2)
 
 static int dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
-		     uint16_t mft[16][IB_MLIDS_IN_BLOCK])
+		     __be16 mft[16][IB_MLIDS_IN_BLOCK])
 {
 	uint16_t mask;
 	unsigned i, chunk, bit, nonzero = 0;
@@ -107,7 +107,7 @@ static int dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
 	return i * 2;
 }
 
-static uint16_t mft[16][IB_MLIDS_IN_BLOCK];
+static __be16 mft[16][IB_MLIDS_IN_BLOCK];
 
 static void dump_multicast_tables(ibnd_node_t *node, unsigned startl,
 				  unsigned endl, struct ibmad_port *mad_port)

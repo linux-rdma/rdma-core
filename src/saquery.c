@@ -557,7 +557,7 @@ static void dump_inform_info_record(void *data, struct query_params *p)
 	char gid_str[INET6_ADDRSTRLEN];
 	char gid_str2[INET6_ADDRSTRLEN];
 	ib_inform_info_record_t *p_iir = data;
-	uint32_t qpn;
+	__be32 qpn;
 	uint8_t resp_time_val;
 
 	ib_inform_info_get_qpn_resp_time(p_iir->inform_info.g_or_v.
@@ -1046,7 +1046,7 @@ static int query_path_records(const struct query_cmd *q, struct sa_handle * h,
 	ib_path_rec_t pr;
 	__be64 comp_mask = 0;
 	uint32_t flow = 0;
-	uint16_t qos_class = 0;
+	__be16 qos_class = 0;
 	uint8_t reversible = 0;
 
 	memset(&pr, 0, sizeof(pr));

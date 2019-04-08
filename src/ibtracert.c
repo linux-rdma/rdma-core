@@ -491,7 +491,7 @@ static int switch_mclookup(Node * node, ib_portid_t * portid, int mlid,
 	Switch sw;
 	char mdb[64];
 	void *si = sw.switchinfo;
-	uint16_t *msets = (uint16_t *) mdb;
+	__be16 *msets = (__be16 *) mdb;
 	int maxsets, block, i, set;
 
 	memset(map, 0, 256);

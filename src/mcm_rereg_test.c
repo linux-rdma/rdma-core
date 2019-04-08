@@ -145,7 +145,7 @@ static int rereg_port_gid(int port, int agent, ib_portid_t * dport,
 
 struct guid_trid {
 	ibmad_gid_t gid;
-	uint64_t guid;
+	__be64 guid;
 	uint64_t trid;
 };
 
@@ -319,8 +319,8 @@ static int rereg_and_test_port(const char *guid_file, int port, int agent,
 	char line[256];
 	FILE *f;
 	ibmad_gid_t port_gid;
-	uint64_t prefix = htobe64(0xfe80000000000000ull);
-	uint64_t guid = htobe64(0x0002c90200223825ull);
+	__be64 prefix = htobe64(0xfe80000000000000ull);
+	__be64 guid = htobe64(0x0002c90200223825ull);
 	struct guid_trid *list;
 	int i = 0;
 

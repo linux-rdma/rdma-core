@@ -61,10 +61,10 @@
 static struct ibmad_port *srcport;
 
 typedef struct {
-	uint16_t hw_revision;
-	uint16_t device_id;
+	__be16 hw_revision;
+	__be16 device_id;
 	uint8_t reserved[24];
-	uint32_t uptime;
+	__be32 uptime;
 } is3_hw_info_t;
 
 typedef struct {
@@ -72,21 +72,21 @@ typedef struct {
 	uint8_t major;
 	uint8_t minor;
 	uint8_t sub_minor;
-	uint32_t build_id;
+	__be32 build_id;
 	uint8_t month;
 	uint8_t day;
-	uint16_t year;
-	uint16_t resv2;
-	uint16_t hour;
+	__be16 year;
+	__be16 resv2;
+	__be16 hour;
 	uint8_t psid[16];
-	uint32_t ini_file_version;
+	__be32 ini_file_version;
 } is3_fw_info_t;
 
 typedef struct {
-	uint32_t ext_major;
-	uint32_t ext_minor;
-	uint32_t ext_sub_minor;
-	uint32_t reserved[4];
+	__be32 ext_major;
+	__be32 ext_minor;
+	__be32 ext_sub_minor;
+	__be32 reserved[4];
 } is4_fw_ext_info_t;
 
 typedef struct {
@@ -127,7 +127,7 @@ typedef struct {
 	uint8_t reserved1[8];
 	uint8_t reserved[3];
 	uint8_t num_of_counter_groups;
-	uint32_t group_masks[COUNTER_GROUPS_NUM];
+	__be32 group_masks[COUNTER_GROUPS_NUM];
 } is4_counter_group_info_t;
 
 typedef struct {

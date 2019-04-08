@@ -90,7 +90,7 @@ static const char *check_switch(ib_portid_t *portid, unsigned int *nports,
 #define IB_MLIDS_IN_BLOCK	(IB_SMP_DATA_SIZE/2)
 
 static int dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
-		     uint16_t mft[16][IB_MLIDS_IN_BLOCK])
+		     __be16 mft[16][IB_MLIDS_IN_BLOCK])
 {
 	uint16_t mask;
 	unsigned i, chunk, bit, nonzero = 0;
@@ -132,7 +132,7 @@ static int dump_mlid(char *str, int strlen, unsigned mlid, unsigned nports,
 	return i * 2;
 }
 
-static uint16_t mft[16][IB_MLIDS_IN_BLOCK];
+static __be16 mft[16][IB_MLIDS_IN_BLOCK];
 
 static const char *dump_multicast_tables(ib_portid_t *portid, unsigned startlid,
 					 unsigned endlid)

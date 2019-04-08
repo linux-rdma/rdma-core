@@ -427,7 +427,7 @@ static int check_threshold(uint8_t *pc, uint8_t *pce, uint32_t cap_mask2,
 
 static int print_results(ib_portid_t * portid, char *node_name,
 			 ibnd_node_t * node, uint8_t * pc, int portnum,
-			 int *header_printed, uint8_t *pce, uint16_t cap_mask,
+			 int *header_printed, uint8_t *pce, __be16 cap_mask,
 			 uint32_t cap_mask2)
 {
 	char buf[2048];
@@ -537,11 +537,11 @@ static int print_results(ib_portid_t * portid, char *node_name,
 }
 
 static int query_cap_mask(ib_portid_t * portid, char *node_name, int portnum,
-			  uint16_t * cap_mask, uint32_t * cap_mask2)
+			  __be16 * cap_mask, uint32_t * cap_mask2)
 {
 	uint8_t pc[1024] = { 0 };
-	uint16_t rc_cap_mask;
-	uint32_t rc_cap_mask2;
+	__be16 rc_cap_mask;
+	__be32 rc_cap_mask2;
 
 	portid->sl = lid2sl_table[portid->lid];
 
@@ -564,7 +564,7 @@ static int query_cap_mask(ib_portid_t * portid, char *node_name, int portnum,
 	return 0;
 }
 
-static int print_data_cnts(ib_portid_t * portid, uint16_t cap_mask,
+static int print_data_cnts(ib_portid_t * portid, __be16 cap_mask,
 			   char *node_name, ibnd_node_t * node, int portnum,
 			   int *header_printed)
 {
@@ -635,7 +635,7 @@ static int print_data_cnts(ib_portid_t * portid, uint16_t cap_mask,
 	return (0);
 }
 
-static int print_errors(ib_portid_t * portid, uint16_t cap_mask, uint32_t cap_mask2,
+static int print_errors(ib_portid_t * portid, __be16 cap_mask, uint32_t cap_mask2,
 			char *node_name, ibnd_node_t * node, int portnum,
 			int *header_printed)
 {
@@ -716,7 +716,7 @@ static uint8_t *reset_pc_ext(void *rcvbuf, ib_portid_t *dest, int port,
 	return mad_rpc(srcport, &rpc, dest, rcvbuf, rcvbuf);
 }
 
-static void clear_port(ib_portid_t * portid, uint16_t cap_mask, uint32_t cap_mask2,
+static void clear_port(ib_portid_t * portid, __be16 cap_mask, uint32_t cap_mask2,
 		       char *node_name, int port)
 {
 	uint8_t pc[1024] = { 0 };
@@ -781,7 +781,7 @@ static void print_node(ibnd_node_t *node, void *user_data)
 	int type = 0;
 	int all_port_sup = 0;
 	ib_portid_t portid = { 0 };
-	uint16_t cap_mask = 0;
+	__be16 cap_mask = 0;
 	uint32_t cap_mask2 = 0;
 	char *node_name = NULL;
 

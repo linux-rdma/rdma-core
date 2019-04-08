@@ -200,7 +200,7 @@ static const char *pkey_table(ib_portid_t *dest, char **argv, int argc)
 {
 	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	int i, j, k;
-	uint16_t *p;
+	__be16 *p;
 	unsigned mod;
 	int n, t, phy_ports;
 	int portnum = 0;
@@ -234,7 +234,7 @@ static const char *pkey_table(ib_portid_t *dest, char **argv, int argc)
 			k = ((n + 7 - i * 32) / 8) * 8;
 		else
 			k = 32;
-		p = (uint16_t *) data;
+		p = (__be16 *) data;
 		for (j = 0; j < k; j += 8, p += 8) {
 			printf
 			    ("%4u: 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x\n",
@@ -381,7 +381,7 @@ static const char *guid_info(ib_portid_t *dest, char **argv, int argc)
 {
 	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	int i, j, k;
-	uint64_t *p;
+	__be64 *p;
 	unsigned mod;
 	int n;
 
@@ -399,7 +399,7 @@ static const char *guid_info(ib_portid_t *dest, char **argv, int argc)
 			k = ((n + 1 - i * 8) / 2) * 2;
 		else
 			k = 8;
-		p = (uint64_t *) data;
+		p = (__be64 *) data;
 		for (j = 0; j < k; j += 2, p += 2) {
 			printf("%4u: 0x%016" PRIx64 " 0x%016" PRIx64 "\n",
 			       (i * 8) + j, be64toh(p[0]), be64toh(p[1]));

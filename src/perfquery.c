@@ -207,7 +207,7 @@ static void aggregate_perfcounters(void)
 }
 
 static void output_aggregate_perfcounters(ib_portid_t * portid,
-					  uint16_t cap_mask)
+					  __be16 cap_mask)
 {
 	char buf[1024];
 	uint32_t val = ALL_PORTS;
@@ -246,7 +246,7 @@ static void output_aggregate_perfcounters(ib_portid_t * portid,
 	       portid2str(portid), ALL_PORTS, ntohs(cap_mask), buf);
 }
 
-static void aggregate_perfcounters_ext(uint16_t cap_mask, uint32_t cap_mask2)
+static void aggregate_perfcounters_ext(__be16 cap_mask, uint32_t cap_mask2)
 {
 	uint32_t val;
 	uint64_t val64;
@@ -310,7 +310,7 @@ static void aggregate_perfcounters_ext(uint16_t cap_mask, uint32_t cap_mask2)
 }
 
 static void output_aggregate_perfcounters_ext(ib_portid_t * portid,
-					      uint16_t cap_mask, uint32_t cap_mask2)
+					      __be16 cap_mask, uint32_t cap_mask2)
 {
 	char buf[1536];
 	uint32_t val = ALL_PORTS;
@@ -379,7 +379,7 @@ static void output_aggregate_perfcounters_ext(ib_portid_t * portid,
 	       portid2str(portid), ALL_PORTS, ntohs(cap_mask), cap_mask2, buf);
 }
 
-static void dump_perfcounters(int extended, int timeout, uint16_t cap_mask,
+static void dump_perfcounters(int extended, int timeout, __be16 cap_mask,
 			      uint32_t cap_mask2, ib_portid_t * portid,
 			      int port, int aggregate)
 {
@@ -555,7 +555,7 @@ static uint8_t *ext_speeds_reset_via(void *rcvbuf, ib_portid_t * dest,
 }
 
 static uint8_t is_rsfec_mode_active(ib_portid_t * portid, int port,
-				  uint16_t cap_mask)
+				  __be16 cap_mask)
 {
 	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	uint32_t fec_mode_active = 0;
@@ -584,7 +584,7 @@ static uint8_t is_rsfec_mode_active(ib_portid_t * portid, int port,
 }
 
 static void extended_speeds_query(ib_portid_t * portid, int port,
-				  uint64_t ext_mask, uint16_t cap_mask)
+				  uint64_t ext_mask, __be16 cap_mask)
 {
 	int mask = ext_mask;
 
@@ -801,7 +801,7 @@ int main(int argc, char **argv)
 	int mask = 0xffff;
 	uint64_t ext_mask = 0xffffffffffffffffULL;
 	uint32_t cap_mask2;
-	uint16_t cap_mask;
+	__be16 cap_mask;
 	int all_ports_loop = 0;
 	int node_type, num_ports = 0;
 	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
