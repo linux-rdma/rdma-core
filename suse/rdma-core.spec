@@ -397,7 +397,6 @@ mkdir -p %{buildroot}/%{_sysconfdir}/rdma
 %global dracutlibdir %%{_sysconfdir}/dracut.conf.d
 %global sysmodprobedir %%{_sysconfdir}/modprobe.d
 
-mkdir -p %{buildroot}%{_libexecdir}/udev/rules.d
 mkdir -p %{buildroot}%{_udevrulesdir}
 mkdir -p %{buildroot}%{dracutlibdir}/modules.d/05rdma
 mkdir -p %{buildroot}%{sysmodprobedir}
@@ -519,8 +518,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{_sysconfdir}/rdma
 %dir %{_sysconfdir}/rdma/modules
 %dir %{_docdir}/%{name}-%{version}
-%dir %{_libexecdir}/udev
-%dir %{_libexecdir}/udev/rules.d
+%dir %{_udevrulesdir}
 %dir %{_sysconfdir}/udev
 %dir %{_sysconfdir}/udev/rules.d
 %dir %{_sysconfdir}/modprobe.d
@@ -693,7 +691,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{_sysconfdir}/rdma/modules
 %config(noreplace) %{_sysconfdir}/srp_daemon.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/srp_daemon.conf
-%{_libexecdir}/udev/rules.d/60-srp_daemon.rules
+%{_udevrulesdir}/60-srp_daemon.rules
 %{_libexecdir}/srp_daemon/start_on_all_ports
 %{_unitdir}/srp_daemon.service
 %{_unitdir}/srp_daemon_port@.service
@@ -713,7 +711,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_sbindir}/rcrdma-ndd
 %{_unitdir}/rdma-ndd.service
 %{_mandir}/man8/rdma-ndd.8*
-%{_libexecdir}/udev/rules.d/60-rdma-ndd.rules
+%{_udevrulesdir}/60-rdma-ndd.rules
 
 %if %{with_pyverbs}
 %files -n python3-pyverbs
