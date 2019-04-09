@@ -1,7 +1,7 @@
 #
 # spec file for package rdma-core
 #
-# Copyright (c) 2017 SUSE LINUX GmbH, Nuernberg, Germany.
+# Copyright (c) 2019 SUSE LINUX GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -12,7 +12,7 @@
 # license that conforms to the Open Source Definition (Version 1.9)
 # published by the Open Source Initiative.
 
-# Please submit bugfixes or comments via http://bugs.opensuse.org/
+# Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
 
@@ -26,7 +26,7 @@ Name:           rdma-core
 Version:        24.0
 Release:        0
 Summary:        RDMA core userspace libraries and daemons
-License:        GPL-2.0 or BSD-2-Clause
+License:        GPL-2.0-only OR BSD-2-Clause
 Group:          Productivity/Networking/Other
 
 %define verbs_so_major  1
@@ -57,14 +57,14 @@ BuildRequires:  cmake >= 2.8.11
 BuildRequires:  gcc
 BuildRequires:  pandoc
 BuildRequires:  pkgconfig
+BuildRequires:  python3-base
 BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(systemd)
 BuildRequires:  pkgconfig(udev)
-BuildRequires:  python3-base
 %if %{with_pyverbs}
-BuildRequires:  python3-devel
 BuildRequires:  python3-Cython
+BuildRequires:  python3-devel
 %endif
 %ifnarch s390 s390x
 BuildRequires:  valgrind-devel
@@ -155,8 +155,8 @@ Obsoletes:      ibacm-devel < %{version}-%{release}
 # Since our pkg-config files include private references to these packages they
 # need to have their .pc files installed too, even for dynamic linking, or
 # pkg-config breaks.
-BuildRequires: pkgconfig(libnl-3.0)
-BuildRequires: pkgconfig(libnl-route-3.0)
+BuildRequires:  pkgconfig(libnl-3.0)
+BuildRequires:  pkgconfig(libnl-route-3.0)
 %endif
 
 %description devel
