@@ -219,7 +219,6 @@ static int pp_init_ctx(char *ib_devname)
 	if (use_odp) {
 		struct ibv_device_attr_ex attrx;
 		const uint32_t xrc_caps_mask = IBV_ODP_SUPPORT_SEND |
-					       IBV_ODP_SUPPORT_RECV |
 					       IBV_ODP_SUPPORT_SRQ_RECV;
 
 		if (ibv_query_device_ex(ctx.context, NULL, &attrx)) {
