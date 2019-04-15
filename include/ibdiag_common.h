@@ -75,26 +75,26 @@ extern char *ibd_nd_format;
 
 /* not all versions of ib_types.h will have this define */
 #ifndef IB_PM_PC_XMIT_WAIT_SUP
-#define IB_PM_PC_XMIT_WAIT_SUP (CL_HTON16(((uint16_t)1)<<12))
+#define IB_PM_PC_XMIT_WAIT_SUP (htobe16(((uint16_t)1)<<12))
 #endif
 
 /* PM ClassPortInfo CapabilityMask Bits */
 #ifndef IS_PM_RSFEC_COUNTERS_SUP
-#define IS_PM_RSFEC_COUNTERS_SUP (CL_HTON16(((uint16_t)1)<<14))
+#define IS_PM_RSFEC_COUNTERS_SUP (htobe16(((uint16_t)1)<<14))
 #endif
 
 #ifndef IB_PM_IS_QP1_DROP_SUP
-#define IB_PM_IS_QP1_DROP_SUP (CL_HTON16(((uint16_t)1)<<15))
+#define IB_PM_IS_QP1_DROP_SUP (htobe16(((uint16_t)1)<<15))
 #endif
 
 /* PM ClassPortInfo CapabilityMask2 Bits */
 #ifndef IB_PM_IS_ADDL_PORT_CTRS_EXT_SUP
-#define IB_PM_IS_ADDL_PORT_CTRS_EXT_SUP (CL_HTON32(((uint32_t)1)<<1))
+#define IB_PM_IS_ADDL_PORT_CTRS_EXT_SUP (htobe32(((uint32_t)1)<<1))
 #endif
 
 /* SM PortInfo CapabilityMask2 Bits */
 #ifndef IB_PORT_CAP2_IS_PORT_INFO_EXT_SUPPORTED
-#define IB_PORT_CAP2_IS_PORT_INFO_EXT_SUPPORTED (CL_HTON16(0x0002))
+#define IB_PORT_CAP2_IS_PORT_INFO_EXT_SUPPORTED (htobe16(0x0002))
 #endif
 
 /* SM PortInfoExtended Fec Mode Bits */
@@ -103,24 +103,24 @@ extern char *ibd_nd_format;
 #endif
 
 #ifndef IB_PORT_EXT_FIRE_CODE_FEC_MODE_ACTIVE
-#define IB_PORT_EXT_FIRE_CODE_FEC_MODE_ACTIVE (CL_HTON16(0x0001))
+#define IB_PORT_EXT_FIRE_CODE_FEC_MODE_ACTIVE (htobe16(0x0001))
 #endif
 
 #ifndef IB_PORT_EXT_RS_FEC_MODE_ACTIVE
-#define IB_PORT_EXT_RS_FEC_MODE_ACTIVE (CL_HTON16(0x0002))
+#define IB_PORT_EXT_RS_FEC_MODE_ACTIVE (htobe16(0x0002))
 #endif
 
 #ifndef IB_PORT_EXT_LOW_LATENCY_RS_FEC_MODE_ACTIVE
-#define IB_PORT_EXT_LOW_LATENCY_RS_FEC_MODE_ACTIVE (CL_HTON16(0x0003))
+#define IB_PORT_EXT_LOW_LATENCY_RS_FEC_MODE_ACTIVE (htobe16(0x0003))
 #endif
 
 #ifndef IB_PORT_EXT_RS_FEC2_MODE_ACTIVE
-#define IB_PORT_EXT_RS_FEC2_MODE_ACTIVE (CL_HTON16(0x0004))
+#define IB_PORT_EXT_RS_FEC2_MODE_ACTIVE (htobe16(0x0004))
 #endif
 
 /* SM PortInfoExtended CapabilityMask Bits */
 #ifndef IB_PORT_EXT_CAP_IS_FEC_MODE_SUPPORTED
-#define IB_PORT_EXT_CAP_IS_FEC_MODE_SUPPORTED (CL_HTON32(0x00000001))
+#define IB_PORT_EXT_CAP_IS_FEC_MODE_SUPPORTED (htobe32(0x00000001))
 #endif
 
 struct ibdiag_opt {
