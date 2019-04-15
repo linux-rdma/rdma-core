@@ -1829,7 +1829,7 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		ah->av.fl_mlid = attr->src_path_bits & 0x7f;
 		ah->av.rlid = htobe16(attr->dlid);
 		grh = 1;
-		ah->av.stat_rate_sl = (static_rate << 4) | (attr->sl & 0x7);
+		ah->av.stat_rate_sl = (static_rate << 4) | (attr->sl & 0xf);
 	}
 	if (attr->is_global) {
 		ah->av.tclass = attr->grh.traffic_class;
