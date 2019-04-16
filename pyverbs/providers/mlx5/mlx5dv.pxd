@@ -12,3 +12,6 @@ cdef class Mlx5Context(Context):
 
 cdef class Mlx5DVContextAttr(PyverbsObject):
     cdef dv.mlx5dv_context_attr attr
+
+cdef class Mlx5DVContext(PyverbsObject):
+    cdef dv.mlx5dv_context dv
