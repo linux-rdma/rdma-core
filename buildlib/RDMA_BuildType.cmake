@@ -8,7 +8,7 @@ function(RDMA_BuildType)
   # in performance contexts it doesn't make much sense to have the default build
   # turn off the optimizer.
   if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE String
+	  set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING
       "Options are ${build_types}"
       FORCE
       )
