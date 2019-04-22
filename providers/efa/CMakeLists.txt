@@ -1,5 +1,5 @@
 rdma_shared_provider(efa libefa.map
-	1 1.0.${PACKAGE_VERSION}
+	1 1.1.${PACKAGE_VERSION}
 	efa.c
 	verbs.c
 )

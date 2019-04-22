@@ -24,6 +24,20 @@ struct ibv_qp *efadv_create_driver_qp(struct ibv_pd *ibvpd,
 				      struct ibv_qp_init_attr *attr,
 				      uint32_t driver_qp_type);
 
+struct efadv_device_attr {
+	uint64_t comp_mask;
+	uint32_t max_sq_wr;
+	uint32_t max_rq_wr;
+	uint16_t max_sq_sge;
+	uint16_t max_rq_sge;
+	uint16_t inline_buf_size;
+	uint8_t reserved[2];
+};
+
+int efadv_query_device(struct ibv_context *ibvctx,
+		       struct efadv_device_attr *attr,
+		       uint32_t inlen);
+
 #ifdef __cplusplus
 }
 #endif

@@ -22,6 +22,9 @@
 #include "efadv.h"
 #include "verbs.h"
 
+#define field_avail(ptr, fld, sz) (offsetof(typeof(*ptr), fld) + \
+				   sizeof(((typeof(ptr))0)->fld) <= (sz))
+
 int efa_query_device(struct ibv_context *ibvctx,
 		     struct ibv_device_attr *dev_attr)
 {
@@ -84,6 +87,32 @@ int efa_query_device_ex(struct ibv_context *context,
 			     ctx->max_llq_size / sizeof(struct efa_io_tx_wqe));
 	snprintf(a->fw_ver, sizeof(a->fw_ver), "%u.%u.%u.%u",
 		 fw_ver[0], fw_ver[1], fw_ver[2], fw_ver[3]);
+
+	return 0;
+}
+
+int efadv_query_device(struct ibv_context *ibvctx,
+		       struct efadv_device_attr *attr,
+		       uint32_t inlen)
+{
+	struct efa_context *ctx = to_efa_context(ibvctx);
+	struct efa_dev *dev = to_efa_dev(ibvctx->device);
+	uint64_t comp_mask_out = 0;
+
+	if (!is_efa_dev(ibvctx->device))
+		return EOPNOTSUPP;
+
+	if (!field_avail(attr, inline_buf_size, inlen))
+		return EINVAL;
+
+	memset(attr, 0, sizeof(*attr));
+	attr->max_sq_wr = dev->max_sq_wr;
+	attr->max_rq_wr = dev->max_rq_wr;
+	attr->max_sq_sge = dev->max_sq_sge;
+	attr->max_rq_sge = dev->max_rq_sge;
+	attr->inline_buf_size = ctx->inline_buf_size;
+
+	attr->comp_mask = comp_mask_out;
 
 	return 0;
 }
