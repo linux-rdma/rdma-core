@@ -1,7 +1,7 @@
 #
 # spec file for package rdma-core
 #
-# Copyright (c) 2017 SUSE LINUX GmbH, Nuernberg, Germany.
+# Copyright (c) 2019 SUSE LINUX GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -12,7 +12,7 @@
 # license that conforms to the Open Source Definition (Version 1.9)
 # published by the Open Source Initiative.
 
-# Please submit bugfixes or comments via http://bugs.opensuse.org/
+# Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
 
@@ -26,7 +26,7 @@ Name:           rdma-core
 Version:        24.0
 Release:        0
 Summary:        RDMA core userspace libraries and daemons
-License:        GPL-2.0 or BSD-2-Clause
+License:        GPL-2.0-only OR BSD-2-Clause
 Group:          Productivity/Networking/Other
 
 %define verbs_so_major  1
@@ -57,14 +57,14 @@ BuildRequires:  cmake >= 2.8.11
 BuildRequires:  gcc
 BuildRequires:  pandoc
 BuildRequires:  pkgconfig
+BuildRequires:  python3-base
 BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(systemd)
 BuildRequires:  pkgconfig(udev)
-BuildRequires:  python3-base
 %if %{with_pyverbs}
-BuildRequires:  python3-devel
 BuildRequires:  python3-Cython
+BuildRequires:  python3-devel
 %endif
 %ifnarch s390 s390x
 BuildRequires:  valgrind-devel
@@ -155,8 +155,8 @@ Obsoletes:      ibacm-devel < %{version}-%{release}
 # Since our pkg-config files include private references to these packages they
 # need to have their .pc files installed too, even for dynamic linking, or
 # pkg-config breaks.
-BuildRequires: pkgconfig(libnl-3.0)
-BuildRequires: pkgconfig(libnl-route-3.0)
+BuildRequires:  pkgconfig(libnl-3.0)
+BuildRequires:  pkgconfig(libnl-route-3.0)
 %endif
 
 %description devel
@@ -217,7 +217,6 @@ Requires:       libibverbs = %{version}
 %description -n %verbs_lname
 This package contains the ibverbs runtime library.
 
-%if 0%{?dma_coherent}
 %package -n %mlx4_lname
 Summary:        MLX4 runtime library
 Group:          System/Libraries
@@ -231,7 +230,6 @@ Group:          System/Libraries
 
 %description -n %mlx5_lname
 This package contains the mlx5 runtime library.
-%endif
 
 %package -n     libibverbs-utils
 Summary:        Examples for the libibverbs library
@@ -330,7 +328,6 @@ rdma-ndd is a system daemon which watches for rdma device changes and/or
 hostname changes and updates the Node Description of the rdma devices based
 on those changes.
 
-%if %{with_pyverbs}
 %package -n python3-pyverbs
 Summary:        Python3 API over IB verbs
 Group:          Development/Languages/Python
@@ -338,9 +335,10 @@ Group:          Development/Languages/Python
 %description -n python3-pyverbs
 Pyverbs is a Cython-based Python API over libibverbs, providing an
 easy, object-oriented access to IB verbs.
-%endif
 
 %prep
+# Make sure LTO is disable as rdma-core fails to compile with LTO enabled
+%define _lto_cflags %{nil}
 %setup -q -n  %{name}-%{version}%{git_ver}
 
 %build
@@ -397,7 +395,6 @@ mkdir -p %{buildroot}/%{_sysconfdir}/rdma
 %global dracutlibdir %%{_sysconfdir}/dracut.conf.d
 %global sysmodprobedir %%{_sysconfdir}/modprobe.d
 
-mkdir -p %{buildroot}%{_libexecdir}/udev/rules.d
 mkdir -p %{buildroot}%{_udevrulesdir}
 mkdir -p %{buildroot}%{dracutlibdir}/modules.d/05rdma
 mkdir -p %{buildroot}%{sysmodprobedir}
@@ -433,13 +430,11 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %post -n %verbs_lname -p /sbin/ldconfig
 %postun -n %verbs_lname -p /sbin/ldconfig
 
-%if 0%{?dma_coherent}
 %post -n %mlx4_lname -p /sbin/ldconfig
 %postun -n %mlx4_lname -p /sbin/ldconfig
 
 %post -n %mlx5_lname -p /sbin/ldconfig
 %postun -n %mlx5_lname -p /sbin/ldconfig
-%endif
 
 %post -n %umad_lname -p /sbin/ldconfig
 %postun -n %umad_lname -p /sbin/ldconfig
@@ -519,12 +514,12 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{_sysconfdir}/rdma
 %dir %{_sysconfdir}/rdma/modules
 %dir %{_docdir}/%{name}-%{version}
-%dir %{_libexecdir}/udev
-%dir %{_libexecdir}/udev/rules.d
+%dir %{_udevrulesdir}
 %dir %{_sysconfdir}/udev
 %dir %{_sysconfdir}/udev/rules.d
 %dir %{_sysconfdir}/modprobe.d
 %doc %{_docdir}/%{name}-%{version}/README.md
+%doc %{_docdir}/%{name}-%{version}/udev.md
 %config(noreplace) %{_sysconfdir}/rdma/mlx4.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/infiniband.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/iwarp.conf
@@ -588,7 +583,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %config(noreplace) %{_sysconfdir}/libibverbs.d/*.driver
 %doc %{_docdir}/%{name}-%{version}/libibverbs.md
 %doc %{_docdir}/%{name}-%{version}/rxe.md
-%doc %{_docdir}/%{name}-%{version}/udev.md
 %doc %{_docdir}/%{name}-%{version}/tag_matching.md
 %{_bindir}/rxe_cfg
 %{_mandir}/man7/rxe*
@@ -693,7 +687,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{_sysconfdir}/rdma/modules
 %config(noreplace) %{_sysconfdir}/srp_daemon.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/srp_daemon.conf
-%{_libexecdir}/udev/rules.d/60-srp_daemon.rules
+%{_udevrulesdir}/60-srp_daemon.rules
 %{_libexecdir}/srp_daemon/start_on_all_ports
 %{_unitdir}/srp_daemon.service
 %{_unitdir}/srp_daemon_port@.service
@@ -713,7 +707,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_sbindir}/rcrdma-ndd
 %{_unitdir}/rdma-ndd.service
 %{_mandir}/man8/rdma-ndd.8*
-%{_libexecdir}/udev/rules.d/60-rdma-ndd.rules
+%{_udevrulesdir}/60-rdma-ndd.rules
 
 %if %{with_pyverbs}
 %files -n python3-pyverbs
