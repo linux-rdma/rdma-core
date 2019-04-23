@@ -341,6 +341,8 @@ easy, object-oriented access to IB verbs.
 %endif
 
 %prep
+# Make sure LTO is disable as rdma-core fails to compile with LTO enabled
+%define _lto_cflags %{nil}
 %setup -q -n  %{name}-%{version}%{git_ver}
 
 %build
