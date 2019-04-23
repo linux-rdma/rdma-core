@@ -217,7 +217,6 @@ Requires:       libibverbs = %{version}
 %description -n %verbs_lname
 This package contains the ibverbs runtime library.
 
-%if 0%{?dma_coherent}
 %package -n %mlx4_lname
 Summary:        MLX4 runtime library
 Group:          System/Libraries
@@ -231,7 +230,6 @@ Group:          System/Libraries
 
 %description -n %mlx5_lname
 This package contains the mlx5 runtime library.
-%endif
 
 %package -n     libibverbs-utils
 Summary:        Examples for the libibverbs library
@@ -330,7 +328,6 @@ rdma-ndd is a system daemon which watches for rdma device changes and/or
 hostname changes and updates the Node Description of the rdma devices based
 on those changes.
 
-%if %{with_pyverbs}
 %package -n python3-pyverbs
 Summary:        Python3 API over IB verbs
 Group:          Development/Languages/Python
@@ -338,7 +335,6 @@ Group:          Development/Languages/Python
 %description -n python3-pyverbs
 Pyverbs is a Cython-based Python API over libibverbs, providing an
 easy, object-oriented access to IB verbs.
-%endif
 
 %prep
 # Make sure LTO is disable as rdma-core fails to compile with LTO enabled
@@ -434,13 +430,11 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %post -n %verbs_lname -p /sbin/ldconfig
 %postun -n %verbs_lname -p /sbin/ldconfig
 
-%if 0%{?dma_coherent}
 %post -n %mlx4_lname -p /sbin/ldconfig
 %postun -n %mlx4_lname -p /sbin/ldconfig
 
 %post -n %mlx5_lname -p /sbin/ldconfig
 %postun -n %mlx5_lname -p /sbin/ldconfig
-%endif
 
 %post -n %umad_lname -p /sbin/ldconfig
 %postun -n %umad_lname -p /sbin/ldconfig
