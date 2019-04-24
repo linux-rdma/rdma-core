@@ -7,6 +7,7 @@ from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.device cimport Context, DM
 from .mr cimport MR, MW, DMMR
 from pyverbs.addr cimport AH
+from pyverbs.qp cimport QP
 
 cdef extern from 'errno.h':
     int errno
@@ -29,6 +30,7 @@ cdef class PD(PyverbsCM):
         self.mrs = weakref.WeakSet()
         self.mws = weakref.WeakSet()
         self.ahs = weakref.WeakSet()
+        self.qps = weakref.WeakSet()
 
     def __dealloc__(self):
         """
@@ -46,7 +48,7 @@ cdef class PD(PyverbsCM):
         :return: None
         """
         self.logger.debug('Closing PD')
-        self.close_weakrefs([self.ahs, self.mws, self.mrs])
+        self.close_weakrefs([self.qps, self.ahs, self.mws, self.mrs])
         if self.pd != NULL:
             rc = v.ibv_dealloc_pd(self.pd)
             if rc != 0:
@@ -61,6 +63,8 @@ cdef class PD(PyverbsCM):
             self.mws.add(obj)
         elif isinstance(obj, AH):
             self.ahs.add(obj)
+        elif isinstance(obj, QP):
+            self.qps.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 

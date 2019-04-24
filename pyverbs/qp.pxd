@@ -19,3 +19,14 @@ cdef class QPInitAttrEx(PyverbsObject):
 
 cdef class QPAttr(PyverbsObject):
     cdef v.ibv_qp_attr attr
+
+cdef class QP(PyverbsCM):
+    cdef v.ibv_qp *qp
+    cdef int type
+    cdef int state
+    cdef object pd
+    cdef object context
+    cpdef close(self)
+    cdef update_cqs(self, init_attr)
+    cdef object scq
+    cdef object rcq

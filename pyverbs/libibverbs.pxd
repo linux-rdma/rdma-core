@@ -403,6 +403,19 @@ cdef extern from 'infiniband/verbs.h':
         unsigned int    handle
         unsigned int    events_completed
 
+    cdef struct ibv_qp:
+        ibv_context     *context;
+        void            *qp_context;
+        ibv_pd          *pd;
+        ibv_cq          *send_cq;
+        ibv_cq          *recv_cq;
+        ibv_srq         *srq;
+        unsigned int    handle;
+        unsigned int    qp_num;
+        ibv_qp_state    state;
+        ibv_qp_type     qp_type;
+        unsigned int    events_completed;
+
     ibv_device **ibv_get_device_list(int *n)
     void ibv_free_device_list(ibv_device **list)
     ibv_context *ibv_open_device(ibv_device *device)
@@ -468,3 +481,12 @@ cdef extern from 'infiniband/verbs.h':
     ibv_ah *ibv_create_ah_from_wc(ibv_pd *pd, ibv_wc *wc, ibv_grh *grh,
                                   uint8_t port_num)
     int ibv_destroy_ah(ibv_ah *ah)
+    ibv_qp *ibv_create_qp(ibv_pd *pd, ibv_qp_init_attr *qp_init_attr)
+    ibv_qp *ibv_create_qp_ex(ibv_context *context,
+                             ibv_qp_init_attr_ex *qp_init_attr_ex)
+    int ibv_modify_qp(ibv_qp *qp, ibv_qp_attr *qp_attr, int comp_mask)
+    int ibv_query_qp(ibv_qp *qp, ibv_qp_attr *attr, int attr_mask,
+                     ibv_qp_init_attr *init_attr)
+    int ibv_destroy_qp(ibv_qp *qp)
+    int ibv_post_recv(ibv_qp *qp, ibv_recv_wr *wr, ibv_recv_wr **bad_wr)
+    int ibv_post_send(ibv_qp *qp, ibv_send_wr *wr, ibv_send_wr **bad_wr)

@@ -12,3 +12,4 @@ cdef class PD(PyverbsCM):
     cdef object mrs
     cdef object mws
     cdef object ahs
+    cdef object qps

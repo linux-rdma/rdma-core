@@ -17,6 +17,7 @@ cimport pyverbs.libibverbs as v
 from pyverbs.addr cimport GID
 from pyverbs.mr import DMMR
 from pyverbs.pd cimport PD
+from pyverbs.qp cimport QP
 
 cdef extern from 'errno.h':
     int errno
@@ -88,6 +89,7 @@ cdef class Context(PyverbsCM):
         self.dms = weakref.WeakSet()
         self.ccs = weakref.WeakSet()
         self.cqs = weakref.WeakSet()
+        self.qps = weakref.WeakSet()
 
         dev_name = kwargs.get('name')
 
@@ -124,7 +126,7 @@ cdef class Context(PyverbsCM):
 
     cpdef close(self):
         self.logger.debug('Closing Context')
-        self.close_weakrefs([self.ccs, self.cqs, self.dms, self.pds])
+        self.close_weakrefs([self.qps, self.ccs, self.cqs, self.dms, self.pds])
         if self.context != NULL:
             rc = v.ibv_close_device(self.context)
             if rc != 0:
@@ -194,6 +196,8 @@ cdef class Context(PyverbsCM):
             self.ccs.add(obj)
         elif isinstance(obj, CQ) or isinstance(obj, CQEX):
             self.cqs.add(obj)
+        elif isinstance(obj, QP):
+            self.qps.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 

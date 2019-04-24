@@ -3,9 +3,12 @@
 from pyverbs.utils import gid_str, qp_type_to_str, qp_state_to_str, mtu_to_str
 from pyverbs.utils import access_flags_to_str, mig_state_to_str
 from pyverbs.pyverbs_error import PyverbsUserError
+from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.wr cimport RecvWR, SendWR
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.addr cimport AHAttr, GID
 from pyverbs.addr cimport GlobalRoute
+from pyverbs.device cimport Context
 from pyverbs.cq cimport CQ, CQEX
 cimport pyverbs.libibverbs as v
 from pyverbs.pd cimport PD
@@ -748,6 +751,259 @@ cdef class QPAttr(PyverbsObject):
                                    self.attr.alt_port_num) +\
                print_format.format('Alt. timeout', self.attr.alt_timeout) +\
                print_format.format('Rate limit', self.attr.rate_limit)
+
+
+cdef class QP(PyverbsCM):
+    def __cinit__(self, object creator not None, object init_attr not None,
+                  QPAttr qp_attr=None):
+        """
+        Initializes a QP object and performs state transitions according to
+        user request.
+        A C ibv_qp object will be created using the provided init_attr.
+        If a qp_attr object is provided, pyverbs will consider this a hint to
+        transit the QP's state as far as possible towards RTS:
+        - In case of UD and Raw Packet QP types, if a qp_attr is provided the
+          QP will be returned in RTS state.
+        - In case of connected QPs (RC, UC), remote QPN is needed for INIT2RTR
+          transition, so if a qp_attr is provided, the QP will be returned in
+          INIT state.
+        :param creator: The object creating the QP. Can be of type PD so
+                        ibv_create_qp will be used or of type Context, so
+                        ibv_create_qp_ex will be used.
+        :param init_attr: QP initial attributes of type QPInitAttr (when
+                          created using PD) or QPInitAttrEx (when created
+                          using Context).
+        :param qp_attr: Optional QPAttr object. Will be used for QP state
+                        transitions after creation.
+        :return: An initialized QP object
+        """
+        cdef PD pd
+        cdef Context ctx
+        self.update_cqs(init_attr)
+        # In order to use cdef'd methods, a proper casting must be done, let's
+        # infer the type.
+        if type(creator) == Context:
+            self._create_qp_ex(creator, init_attr)
+            ctx = <Context>creator
+            self.context = ctx
+            ctx.add_ref(self)
+            if init_attr.pd is not None:
+                pd = <PD>init_attr.pd
+                pd.add_ref(self)
+                self.pd = pd
+        else:
+            self._create_qp(creator, init_attr)
+            pd = <PD>creator
+            self.pd = pd
+            pd.add_ref(self)
+            self.context = None
+        if self.qp == NULL:
+            raise PyverbsRDMAErrno('Failed to create QP')
+        if qp_attr is not None:
+            funcs = {e.IBV_QPT_RC: self.to_init, e.IBV_QPT_UC: self.to_init,
+                     e.IBV_QPT_UD: self.to_rts,
+                     e.IBV_QPT_RAW_PACKET: self.to_rts}
+            funcs[self.qp.qp_type](qp_attr)
+
+    cdef update_cqs(self, init_attr):
+        cdef CQ cq
+        cdef CQEX cqex
+        if init_attr.send_cq is not None:
+            if type(init_attr.send_cq) == CQ:
+                cq = <CQ>init_attr.send_cq
+                cq.add_ref(self)
+            else:
+                cqex = <CQEX>init_attr.send_cq
+                cqex.add_ref(self)
+            self.scq = cq
+        if init_attr.send_cq != init_attr.recv_cq and init_attr.recv_cq is not None:
+            if type(init_attr.recv_cq) == CQ:
+                cq = <CQ>init_attr.recv_cq
+                cq.add_ref(self)
+            else:
+                cqex = <CQEX>init_attr.recv_cq
+                cqex.add_ref(self)
+            self.rcq = cq
+
+    def _create_qp(self, PD pd, QPInitAttr attr):
+        self.qp = v.ibv_create_qp(pd.pd, &attr.attr)
+
+    def _create_qp_ex(self, Context ctx, QPInitAttrEx attr):
+        self.qp = v.ibv_create_qp_ex(ctx.context, &attr.attr)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        self.logger.debug('Closing QP')
+        if self.qp != NULL:
+            if v.ibv_destroy_qp(self.qp):
+                raise PyverbsRDMAErrno('Failed to destroy QP')
+            self.qp = NULL
+            self.pd = None
+            self.context = None
+            self.scq = None
+            self.rcq = None
+
+    def _get_comp_mask(self, dst):
+        masks = {e.IBV_QPT_RC: {'INIT': e.IBV_QP_PKEY_INDEX | e.IBV_QP_PORT |\
+                                e.IBV_QP_ACCESS_FLAGS, 'RTR': e.IBV_QP_AV |\
+                                e.IBV_QP_PATH_MTU | e.IBV_QP_DEST_QPN |\
+                                e.IBV_QP_RQ_PSN |\
+                                e.IBV_QP_MAX_DEST_RD_ATOMIC |\
+                                e.IBV_QP_MIN_RNR_TIMER,
+                                'RTS': e.IBV_QP_TIMEOUT |\
+                                e.IBV_QP_RETRY_CNT | e.IBV_QP_RNR_RETRY |\
+                                e.IBV_QP_SQ_PSN | e.IBV_QP_MAX_QP_RD_ATOMIC},
+                e.IBV_QPT_UC: {'INIT': e.IBV_QP_PKEY_INDEX | e.IBV_QP_PORT |\
+                               e.IBV_QP_ACCESS_FLAGS, 'RTR': e.IBV_QP_AV |\
+                               e.IBV_QP_PATH_MTU | e.IBV_QP_DEST_QPN |\
+                               e.IBV_QP_RQ_PSN, 'RTS': e.IBV_QP_SQ_PSN},
+                e.IBV_QPT_UD: {'INIT': e.IBV_QP_PKEY_INDEX | e.IBV_QP_PORT |\
+                               e.IBV_QP_QKEY, 'RTR': 0,
+                               'RTS': e.IBV_QP_SQ_PSN},
+                e.IBV_QPT_RAW_PACKET: {'INIT': e.IBV_QP_PORT, 'RTR': 0,
+                                       'RTS': 0}}
+        return masks[self.qp.qp_type][dst] | e.IBV_QP_STATE
+
+    def to_init(self, QPAttr qp_attr):
+        """
+        Modify the current QP's state to INIT. If the current state doesn't
+        support transition to INIT, an exception will be raised.
+        The comp mask provided to the kernel includes the needed bits for 2INIT
+        transition for this QP type.
+        :param qp_attr: QPAttr object containing the needed attributes for
+                        2INIT transition
+        :return: None
+        """
+        mask = self._get_comp_mask('INIT')
+        qp_attr.qp_state = e.IBV_QPS_INIT
+        rc =  v.ibv_modify_qp(self.qp, &qp_attr.attr, mask)
+        if rc != 0:
+            raise PyverbsRDMAErrno('Failed to modify QP state to init (returned {rc})'.
+                                   format(rc=rc))
+
+    def to_rtr(self, QPAttr qp_attr):
+        """
+        Modify the current QP's state to RTR. It assumes that its current
+        state is INIT or RESET, in which case it will attempt a transition to
+        INIT prior to transition to RTR. As a result, if current state doesn't
+        support transition to INIT, an exception will be raised.
+        The comp mask provided to the kernel includes the needed bits for 2RTR
+        transition for this QP type.
+        :param qp_attr: QPAttr object containing the needed attributes for
+                        2RTR transition.
+        :return: None
+        """
+        if self.qp_state != e.IBV_QPS_INIT: #assume reset
+            self.to_init(qp_attr)
+        mask = self._get_comp_mask('RTR')
+        qp_attr.qp_state = e.IBV_QPS_RTR
+        rc = v.ibv_modify_qp(self.qp, &qp_attr.attr, mask)
+        if rc != 0:
+            raise PyverbsRDMAErrno('Failed to modify QP state to RTR (returned {rc})'.
+                                   format(rc=rc))
+
+    def to_rts(self, QPAttr qp_attr):
+        """
+        Modify the current QP's state to RTS. It assumes that its current
+        state is either RTR, INIT or RESET. If current state is not RTR, to_rtr()
+        will be called.
+        The comp mask provided to the kernel includes the needed bits for 2RTS
+        transition for this QP type.
+        :param qp_attr: QPAttr object containing the needed attributes for
+                        2RTS transition.
+        :return: None
+        """
+        if self.qp_state != e.IBV_QPS_RTR: #assume reset/init
+            self.to_rtr(qp_attr)
+        mask = self._get_comp_mask('RTS')
+        qp_attr.qp_state = e.IBV_QPS_RTS
+        rc = v.ibv_modify_qp(self.qp, &qp_attr.attr, mask)
+        if rc != 0:
+            raise PyverbsRDMAErrno('Failed to modify QP state to RTS (returned {rc})'.
+                                   format(rc=rc))
+
+    def query(self, attr_mask):
+        """
+        Query the QP
+        :param attr_mask: The minimum list of attributes to retrieve. Some
+                          devices may return additional attributes as well
+                          (see enum ibv_qp_attr_mask)
+        :return: (QPAttr, QPInitAttr) tuple containing the QP requested
+                 attributes
+        """
+        attr = QPAttr()
+        init_attr = QPInitAttr()
+        rc = v.ibv_query_qp(self.qp, &attr.attr, attr_mask, &init_attr.attr)
+        if rc != 0:
+            raise PyverbsRDMAErrno('Failed to query QP (returned {rc})'.
+                                   format(rc=rc))
+        return attr, init_attr
+
+    def modify(self, QPAttr qp_attr not None, comp_mask):
+        """
+        Modify the QP
+        :param qp_attr: A QPAttr object with updated values to be applied to
+                        the QP
+        :param comp_mask: A bitmask specifying which QP attributes should be
+                          modified (see enum ibv_qp_attr_mask)
+        :return: None
+        """
+        rc = v.ibv_modify_qp(self.qp, &qp_attr.attr, comp_mask)
+        if rc != 0:
+            raise PyverbsRDMAErrno('Failed to modify QP (returned {rc})'.
+                                   format(rc=rc))
+
+    def post_recv(self, RecvWR wr not None, RecvWR bad_wr=None):
+        """
+        Post a receive WR on the QP.
+        :param wr: The work request to post
+        :param bad_wr: A RecvWR object to hold the bad WR if it is available in
+                       case of a failure
+        :return: None
+        """
+        cdef v.ibv_recv_wr *my_bad_wr
+        rc = v.ibv_post_recv(self.qp, &wr.recv_wr, &my_bad_wr)
+        if rc != 0:
+            if bad_wr is not None:
+                bad_wr.wr = <object>my_bad_wr
+            raise PyverbsRDMAErrno('Failed to post recv (returned {rc})'.
+                                   format(rc=rc))
+
+    def post_send(self, SendWR wr not None, SendWR bad_wr=None):
+        """
+        Post a send WR on the QP.
+        :param wr: The work request to post
+        :param bad_wr: A SendWR object to hold the bad WR if it is available in
+                       case of a failure
+        :return: None
+        """
+        cdef v.ibv_send_wr *my_bad_wr
+        rc = v.ibv_post_send(self.qp, &wr.send_wr, &my_bad_wr)
+        if rc != 0:
+            if bad_wr is not None:
+                bad_wr.wr = <object>my_bad_wr
+            raise PyverbsRDMAErrno('Failed to post send (returned {rc})'.
+                                   format(rc=rc))
+
+    @property
+    def qp_type(self):
+        return self.qp.qp_type
+
+    @property
+    def qp_state(self):
+        return self.qp.state
+
+    @property
+    def qp_num(self):
+        return self.qp.qp_num
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        return print_format.format('QP type', qp_type_to_str(self.qp_type)) +\
+               print_format.format('  number', self.qp_num) +\
+               print_format.format('  state', qp_state_to_str(self.qp_state))
 
 
 def _copy_caps(QPCap src, dst):
