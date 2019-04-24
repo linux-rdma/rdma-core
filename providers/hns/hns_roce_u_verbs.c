@@ -186,7 +186,10 @@ int hns_roce_u_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 	if (!bind_info->mr && bind_info->length)
 		return EINVAL;
 
-	if ((mw->pd != qp->pd) || (mw->pd != bind_info->mr->pd))
+	if (mw->pd != qp->pd)
+		return EINVAL;
+
+	if (bind_info->mr && (mw->pd != bind_info->mr->pd))
 		return EINVAL;
 
 	if (mw->type != IBV_MW_TYPE_1)
