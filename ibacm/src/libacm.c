@@ -74,20 +74,17 @@ static int ib_acm_connect_open(char *dest)
 	sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 	if (sock == -1) {
 		ret = errno;
-		goto err1;
+		goto freeaddr;
 	}
 
 	((struct sockaddr_in *) res->ai_addr)->sin_port = htobe16(server_port);
 	ret = connect(sock, res->ai_addr, res->ai_addrlen);
-	if (ret)
-		goto err2;
+	if (ret) {
+		close(sock);
+		sock = -1;
+	}
 
-	freeaddrinfo(res);
-
-err2:
-	close(sock);
-	sock = -1;
-err1:
+freeaddr:
 	freeaddrinfo(res);
 	return ret;
 }
