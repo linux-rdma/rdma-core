@@ -66,7 +66,7 @@ NOTE: Fedora Core uses the name 'ninja-build' for the 'ninja' command.
 ### openSUSE
 
 ```sh
-$ zypper install cmake gcc libnl3-devel libudev-devel ninja pkg-config valgrind-devel python3-deve python3-Cython
+$ zypper install cmake gcc libnl3-devel libudev-devel ninja pkg-config valgrind-devel python3-devel python3-Cython
 ```
 
 ## Building on CentOS 6/7
