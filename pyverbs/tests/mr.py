@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
-# Copyright (c) 2019, Mellanox Technologies. All rights reserved.  See COPYING file
+# Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 """
 Test module for pyverbs' mr module.
 """
-import unittest
+from itertools import combinations as com
 import random
 
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
+from pyverbs.tests.base import PyverbsTestCase
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.mr import MR, MW, DMMR
 import pyverbs.tests.utils as u
@@ -17,61 +18,57 @@ import pyverbs.enums as e
 MAX_IO_LEN = 1048576
 
 
-class MRTest(unittest.TestCase):
+class MRTest(PyverbsTestCase):
     """
     Test various functionalities of the MR class.
     """
-    @staticmethod
-    def test_reg_mr():
+    def test_reg_mr(self):
         """ Test ibv_reg_mr() """
-        lst = d.get_device_list()
-        for dev in lst:
-            with d.Context(name=dev.name.decode()) as ctx:
-                with PD(ctx) as pd:
-                    with MR(pd, u.get_mr_length(), u.get_access_flags()) as mr:
+        for ctx, attr, attr_ex in self.devices:
+            with PD(ctx) as pd:
+                flags = u.get_access_flags(ctx)
+                for f in flags:
+                    with MR(pd, u.get_mr_length(), f) as mr:
                         pass
 
-    @staticmethod
-    def test_dereg_mr():
+    def test_dereg_mr(self):
         """ Test ibv_dereg_mr() """
-        lst = d.get_device_list()
-        for dev in lst:
-            with d.Context(name=dev.name.decode()) as ctx:
-                with PD(ctx) as pd:
-                    with MR(pd, u.get_mr_length(), u.get_access_flags()) as mr:
+        for ctx, attr, attr_ex in self.devices:
+            with PD(ctx) as pd:
+                flags = u.get_access_flags(ctx)
+                for f in flags:
+                    with MR(pd, u.get_mr_length(), f) as mr:
                         mr.close()
 
     @staticmethod
     def test_reg_mr_bad_flow():
         """ Verify that trying to register a MR with None PD fails """
         try:
-            MR(None, random.randint(0, 10000), u.get_access_flags())
+            # Use the simplest access flags necessary
+            MR(None, random.randint(0, 10000), e.IBV_ACCESS_LOCAL_WRITE)
         except TypeError as te:
             assert 'expected pyverbs.pd.PD' in te.args[0]
             assert 'got NoneType' in te.args[0]
         else:
             raise PyverbsRDMAErrno('Created a MR with None PD')
 
-    @staticmethod
-    def test_dereg_mr_twice():
+    def test_dereg_mr_twice(self):
         """ Verify that explicit call to MR's close() doesn't fails """
-        lst = d.get_device_list()
-        for dev in lst:
-            with d.Context(name=dev.name.decode()) as ctx:
-                with PD(ctx) as pd:
-                    with MR(pd, u.get_mr_length(), u.get_access_flags()) as mr:
+        for ctx, attr, attr_ex in self.devices:
+            with PD(ctx) as pd:
+                flags = u.get_access_flags(ctx)
+                for f in flags:
+                    with MR(pd, u.get_mr_length(), f) as mr:
                         # Pyverbs supports multiple destruction of objects,
                         # we are not expecting an exception here.
                         mr.close()
                         mr.close()
 
-    @staticmethod
-    def test_reg_mr_bad_flags():
+    def test_reg_mr_bad_flags(self):
         """ Verify that illegal flags combination fails as expected """
-        lst = d.get_device_list()
-        for dev in lst:
-            with d.Context(name=dev.name.decode()) as ctx:
-                with PD(ctx) as pd:
+        for ctx, attr, attr_ex in self.devices:
+            with PD(ctx) as pd:
+                for i in range(5):
                     flags = random.sample([e.IBV_ACCESS_REMOTE_WRITE,
                                            e.IBV_ACCESS_REMOTE_ATOMIC],
                                           random.randint(1, 2))
@@ -85,139 +82,138 @@ class MRTest(unittest.TestCase):
                     else:
                         raise PyverbsRDMAError('Registered a MR with illegal falgs')
 
-    @staticmethod
-    def test_write():
+    def test_write(self):
         """
         Test writing to MR's buffer
         """
-        lst = d.get_device_list()
-        for dev in lst:
-            with d.Context(name=dev.name.decode()) as ctx:
-                with PD(ctx) as pd:
+        for ctx, attr, attr_ex in self.devices:
+            with PD(ctx) as pd:
+                for i in range(10):
                     mr_len = u.get_mr_length()
-                    with MR(pd, mr_len, u.get_access_flags()) as mr:
-                        write_len = min(random.randint(1, MAX_IO_LEN), mr_len)
-                        mr.write(u.get_data(write_len), write_len)
+                    flags = u.get_access_flags(ctx)
+                    for f in flags:
+                        with MR(pd, mr_len, f) as mr:
+                            write_len = min(random.randint(1, MAX_IO_LEN),
+                                            mr_len)
+                            mr.write('a' * write_len, write_len)
 
-    @staticmethod
-    def test_read():
+    def test_read(self):
         """
         Test reading from MR's buffer
         """
-        lst = d.get_device_list()
-        for dev in lst:
-            with d.Context(name=dev.name.decode()) as ctx:
-                with PD(ctx) as pd:
+        for ctx, attr, attr_ex in self.devices:
+            with PD(ctx) as pd:
+                for i in range(10):
                     mr_len = u.get_mr_length()
-                    with MR(pd, mr_len, u.get_access_flags()) as mr:
-                        write_len = min(random.randint(1, MAX_IO_LEN), mr_len)
-                        write_str = u.get_data(write_len)
-                        mr.write(write_str, write_len)
-                        read_len = random.randint(1, write_len)
-                        offset = random.randint(0, write_len-read_len)
-                        read_str = mr.read(read_len, offset).decode()
-                        assert read_str in write_str
+                    flags = u.get_access_flags(ctx)
+                    for f in flags:
+                        with MR(pd, mr_len, f) as mr:
+                            write_len = min(random.randint(1, MAX_IO_LEN),
+                                            mr_len)
+                            write_str = 'a' * write_len
+                            mr.write(write_str, write_len)
+                            read_len = random.randint(1, write_len)
+                            offset = random.randint(0, write_len-read_len)
+                            read_str = mr.read(read_len, offset).decode()
+                            assert read_str in write_str
 
-    @staticmethod
-    def test_lkey():
+    def test_lkey(self):
         """
         Test reading lkey property
         """
-        lst = d.get_device_list()
-        for dev in lst:
-            with d.Context(name=dev.name.decode()) as ctx:
-                with PD(ctx) as pd:
-                    length = u.get_mr_length()
-                    with MR(pd, length, u.get_access_flags()) as mr:
+        for ctx, attr, attr_ex in self.devices:
+            with PD(ctx) as pd:
+                length = u.get_mr_length()
+                flags = u.get_access_flags(ctx)
+                for f in flags:
+                    with MR(pd, length, f) as mr:
                         mr.lkey
 
-    @staticmethod
-    def test_rkey():
+    def test_rkey(self):
         """
         Test reading rkey property
         """
-        lst = d.get_device_list()
-        for dev in lst:
-            with d.Context(name=dev.name.decode()) as ctx:
-                with PD(ctx) as pd:
-                    length = u.get_mr_length()
-                    with MR(pd, length, u.get_access_flags()) as mr:
+        for ctx, attr, attr_ex in self.devices:
+            with PD(ctx) as pd:
+                length = u.get_mr_length()
+                flags = u.get_access_flags(ctx)
+                for f in flags:
+                    with MR(pd, length, f) as mr:
                         mr.rkey
 
-    @staticmethod
-    def test_buffer():
+    def test_buffer(self):
         """
         Test reading buf property
         """
-        lst = d.get_device_list()
-        for dev in lst:
-            with d.Context(name=dev.name.decode()) as ctx:
-                with PD(ctx) as pd:
-                    length = u.get_mr_length()
-                    with MR(pd, length, u.get_access_flags()) as mr:
+        for ctx, attr, attr_ex in self.devices:
+            with PD(ctx) as pd:
+                length = u.get_mr_length()
+                flags = u.get_access_flags(ctx)
+                for f in flags:
+                    with MR(pd, length, f) as mr:
                         mr.buf
 
 
-class MWTest(unittest.TestCase):
+class MWTest(PyverbsTestCase):
     """
     Test various functionalities of the MW class.
     """
-    @staticmethod
-    def test_reg_mw():
+    def test_reg_mw_type1(self):
         """ Test ibv_alloc_mw() """
-        lst = d.get_device_list()
-        for dev in lst:
-            with d.Context(name=dev.name.decode()) as ctx:
-                with PD(ctx) as pd:
-                    with MW(pd, random.choice([e.IBV_MW_TYPE_1,
-                                               e.IBV_MW_TYPE_2])):
-                        pass
+        for ctx, attr, attr_ex in self.devices:
+            with PD(ctx) as pd:
+                with MW(pd, e.IBV_MW_TYPE_1):
+                    pass
 
-    @staticmethod
-    def test_dereg_mw():
+    def test_reg_mw_type2(self):
+        """ Test ibv_alloc_mw() """
+        for ctx, attr, attr_ex in self.devices:
+            with PD(ctx) as pd:
+                with MW(pd, e.IBV_MW_TYPE_2):
+                    pass
+
+    def test_dereg_mw_type1(self):
         """ Test ibv_dealloc_mw() """
-        lst = d.get_device_list()
-        for dev in lst:
-            with d.Context(name=dev.name.decode()) as ctx:
-                with PD(ctx) as pd:
-                    with MW(pd, random.choice([e.IBV_MW_TYPE_1,
-                                               e.IBV_MW_TYPE_2])) as mw:
-                        mw.close()
+        for ctx, attr, attr_ex in self.devices:
+            with PD(ctx) as pd:
+                with MW(pd, e.IBV_MW_TYPE_1) as mw:
+                    mw.close()
 
-    @staticmethod
-    def test_reg_mw_wrong_type():
+    def test_dereg_mw_type2(self):
+        """ Test ibv_dealloc_mw() """
+        for ctx, attr, attr_ex in self.devices:
+            with PD(ctx) as pd:
+                with MW(pd, e.IBV_MW_TYPE_2) as mw:
+                    mw.close()
+
+    def test_reg_mw_wrong_type(self):
         """ Test ibv_alloc_mw() """
-        lst = d.get_device_list()
-        for dev in lst:
-            with d.Context(name=dev.name.decode()) as ctx:
-                with PD(ctx) as pd:
-                    try:
-                        mw_type = random.randint(3, 100)
-                        MW(pd, mw_type)
-                    except PyverbsRDMAError:
-                        pass
-                    else:
-                        raise PyverbsError('Created a MW with type {t}'.\
-                                           format(t=mw_type))
+        for ctx, attr, attr_ex in self.devices:
+            with PD(ctx) as pd:
+                try:
+                    mw_type = random.randint(3, 100)
+                    MW(pd, mw_type)
+                except PyverbsRDMAError:
+                    pass
+                else:
+                    raise PyverbsError('Created a MW with type {t}'.\
+                                       format(t=mw_type))
 
 
-class DMMRTest(unittest.TestCase):
+class DMMRTest(PyverbsTestCase):
     """
     Test various functionalities of the DMMR class.
     """
-    @staticmethod
-    def test_create_dm_mr():
+    def test_create_dm_mr(self):
         """
         Test ibv_reg_dm_mr
         """
-        lst = d.get_device_list()
-        for dev in lst:
-            with d.Context(name=dev.name.decode()) as ctx:
-                attr = ctx.query_device_ex()
-                if attr.max_dm_size == 0:
-                    return
-                with PD(ctx) as pd:
-                    dm_len = random.randrange(u.MIN_DM_SIZE, attr.max_dm_size,
+        for ctx, attr, attr_ex in self.devices:
+            if attr_ex.max_dm_size == 0:
+                return
+            with PD(ctx) as pd:
+                for i in range(10):
+                    dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size,
                                               u.DM_ALIGNMENT)
                     dm_attrs = u.get_dm_attrs(dm_len)
                     with d.DM(ctx, dm_attrs) as dm:
@@ -226,19 +222,16 @@ class DMMRTest(unittest.TestCase):
                         DMMR(pd, dm_mr_len, e.IBV_ACCESS_ZERO_BASED, dm=dm,
                              offset=dm_mr_offset)
 
-    @staticmethod
-    def test_destroy_dm_mr():
+    def test_destroy_dm_mr(self):
         """
         Test freeing of dm_mr
         """
-        lst = d.get_device_list()
-        for dev in lst:
-            with d.Context(name=dev.name.decode()) as ctx:
-                attr = ctx.query_device_ex()
-                if attr.max_dm_size == 0:
-                    return
-                with PD(ctx) as pd:
-                    dm_len = random.randrange(u.MIN_DM_SIZE, attr.max_dm_size,
+        for ctx, attr, attr_ex in self.devices:
+            if attr_ex.max_dm_size == 0:
+                return
+            with PD(ctx) as pd:
+                for i in range(10):
+                    dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size,
                                               u.DM_ALIGNMENT)
                     dm_attrs = u.get_dm_attrs(dm_len)
                     with d.DM(ctx, dm_attrs) as dm:

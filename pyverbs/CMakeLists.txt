@@ -19,6 +19,7 @@ rdma_python_module(pyverbs
 
 rdma_python_test(pyverbs/tests
   tests/__init__.py
+  tests/base.py
   tests/cq.py
   tests/device.py
   tests/mr.py
