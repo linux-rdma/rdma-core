@@ -601,9 +601,19 @@ struct mlx5dv_flow_matcher {
 	uint32_t handle;
 };
 
+enum mlx5_devx_obj_type {
+	MLX5_DEVX_FLOW_TABLE		= 1,
+	MLX5_DEVX_FLOW_COUNTER		= 2,
+	MLX5_DEVX_FLOW_METER		= 3,
+	MLX5_DEVX_QP			= 4,
+	MLX5_DEVX_PKT_REFORMAT_CTX	= 5,
+};
+
 struct mlx5dv_devx_obj {
 	struct ibv_context *context;
 	uint32_t handle;
+	enum mlx5_devx_obj_type type;
+	uint32_t object_id;
 };
 
 struct mlx5_devx_umem {

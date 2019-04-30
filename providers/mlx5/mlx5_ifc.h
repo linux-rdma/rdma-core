@@ -30,6 +30,9 @@
  * SOFTWARE.
  */
 
+#ifndef MLX5_IFC_H
+#define MLX5_IFC_H
+
 #define u8 uint8_t
 
 enum mlx5_cap_mode {
@@ -39,6 +42,11 @@ enum mlx5_cap_mode {
 enum {
 	MLX5_CMD_OP_QUERY_HCA_CAP = 0x100,
 	MLX5_CMD_OP_CREATE_MKEY = 0x200,
+	MLX5_CMD_OP_CREATE_QP = 0x500,
+	MLX5_CMD_OP_CREATE_FLOW_TABLE = 0x930,
+	MLX5_CMD_OP_CREATE_FLOW_COUNTER = 0x939,
+	MLX5_CMD_OP_ALLOC_PACKET_REFORMAT_CONTEXT = 0x93d,
+	MLX5_CMD_OP_CREATE_GENERAL_OBJECT = 0xa00,
 };
 
 struct mlx5_ifc_atomic_caps_bits {
@@ -68,6 +76,18 @@ struct mlx5_ifc_atomic_caps_bits {
 	u8         compare_swap_pci_atomic[0x10];
 
 	u8         reserved_at_2b0[0x550];
+};
+
+struct mlx5_ifc_create_flow_table_out_bits {
+	u8         status[0x8];
+	u8         icm_address_63_40[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         icm_address_39_32[0x8];
+	u8         table_id[0x18];
+
+	u8         icm_address_31_0[0x20];
 };
 
 union mlx5_ifc_hca_cap_union_bits {
@@ -187,3 +207,65 @@ struct mlx5_ifc_create_mkey_in_bits {
 
 	u8         klm_pas_mtt[0][0x20];
 };
+
+struct mlx5_ifc_alloc_packet_reformat_context_out_bits {
+	u8	status[0x8];
+	u8	reserved_at_8[0x18];
+
+	u8	syndrome[0x20];
+
+	u8	packet_reformat_id[0x20];
+
+	u8	reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_alloc_flow_counter_out_bits {
+	u8	status[0x8];
+	u8	reserved_at_8[0x18];
+
+	u8	syndrome[0x20];
+
+	u8	flow_counter_id[0x20];
+
+	u8	reserved_at_60[0x20];
+};
+
+enum {
+	MLX5_OBJ_TYPE_FLOW_METER = 0x000a,
+};
+
+struct mlx5_ifc_general_obj_in_cmd_hdr_bits {
+	u8         opcode[0x10];
+	u8         uid[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         obj_type[0x10];
+
+	u8         obj_id[0x20];
+
+	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_general_obj_out_cmd_hdr_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         obj_id[0x20];
+
+	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_create_qp_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x8];
+	u8         qpn[0x18];
+
+	u8         reserved_at_60[0x20];
+};
+#endif /* MLX5_IFC_H */

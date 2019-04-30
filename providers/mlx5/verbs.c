@@ -4233,6 +4233,44 @@ int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *dv_devx_umem)
 	return 0;
 }
 
+static void set_devx_obj_info(const void *in, const void *out,
+			      struct mlx5dv_devx_obj *obj)
+{
+	uint16_t opcode;
+	uint16_t obj_type;
+
+	opcode = DEVX_GET(general_obj_in_cmd_hdr, in, opcode);
+
+	switch (opcode) {
+	case MLX5_CMD_OP_CREATE_FLOW_TABLE:
+		obj->type = MLX5_DEVX_FLOW_TABLE;
+		obj->object_id = DEVX_GET(create_flow_table_out, out, table_id);
+		break;
+	case MLX5_CMD_OP_CREATE_FLOW_COUNTER:
+		obj->type = MLX5_DEVX_FLOW_COUNTER;
+		obj->object_id = DEVX_GET(alloc_flow_counter_out, out, flow_counter_id);
+		break;
+	case MLX5_CMD_OP_CREATE_GENERAL_OBJECT:
+		obj_type = DEVX_GET(general_obj_in_cmd_hdr, in, obj_type);
+		if (obj_type == MLX5_OBJ_TYPE_FLOW_METER)
+			obj->type = MLX5_DEVX_FLOW_METER;
+
+		obj->object_id = DEVX_GET(general_obj_out_cmd_hdr, out, obj_id);
+		break;
+	case MLX5_CMD_OP_CREATE_QP:
+		obj->type = MLX5_DEVX_QP;
+		obj->object_id = DEVX_GET(create_qp_out, out, qpn);
+		break;
+	case MLX5_CMD_OP_ALLOC_PACKET_REFORMAT_CONTEXT:
+		obj->type = MLX5_DEVX_PKT_REFORMAT_CTX;
+		obj->object_id = DEVX_GET(alloc_packet_reformat_context_out,
+					  out, packet_reformat_id);
+		break;
+	default:
+		break;
+	}
+}
+
 struct mlx5dv_devx_obj *
 mlx5dv_devx_obj_create(struct ibv_context *context, const void *in, size_t inlen,
 				void *out, size_t outlen)
@@ -4261,6 +4299,7 @@ mlx5dv_devx_obj_create(struct ibv_context *context, const void *in, size_t inlen
 
 	obj->handle = read_attr_obj(MLX5_IB_ATTR_DEVX_OBJ_CREATE_HANDLE, handle);
 	obj->context = context;
+	set_devx_obj_info(in, out, obj);
 	return obj;
 err:
 	free(obj);
