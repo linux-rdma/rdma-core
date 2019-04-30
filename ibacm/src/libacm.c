@@ -56,7 +56,7 @@ static void acm_set_server_port(void)
 	}
 }
 
-int ib_acm_connect(char *dest)
+static int ib_acm_connect_open(char *dest)
 {
 	struct addrinfo hint, *res;
 	int ret;
@@ -64,65 +64,70 @@ int ib_acm_connect(char *dest)
 	acm_set_server_port();
 	memset(&hint, 0, sizeof hint);
 
-	if (dest && *dest != '/') {
-		hint.ai_family = AF_INET;
-		hint.ai_family = AF_UNSPEC;
+	hint.ai_family = AF_UNSPEC;
+	hint.ai_protocol = IPPROTO_TCP;
 
-		ret = getaddrinfo(dest, NULL, &hint, &res);
-		if (ret)
-			return ret;
+	ret = getaddrinfo(dest, NULL, &hint, &res);
+	if (ret)
+		return ret;
 
-		sock = socket(res->ai_family, res->ai_socktype,
-			      res->ai_protocol);
-		if (sock == -1) {
-			ret = errno;
-			goto err1;
-		}
+	sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+	if (sock == -1) {
+		ret = errno;
+		goto freeaddr;
+	}
 
-		((struct sockaddr_in *) res->ai_addr)->sin_port =
-			htobe16(server_port);
-		ret = connect(sock, res->ai_addr, res->ai_addrlen);
-		if (ret)
-			goto err2;
-
-		freeaddrinfo(res);
-
-err2:
+	((struct sockaddr_in *) res->ai_addr)->sin_port = htobe16(server_port);
+	ret = connect(sock, res->ai_addr, res->ai_addrlen);
+	if (ret) {
 		close(sock);
 		sock = -1;
-err1:
-		freeaddrinfo(res);
-	} else {
-		struct sockaddr_un addr;
+	}
 
-		addr.sun_family = AF_UNIX;
-		if (dest) {
-			if (snprintf(addr.sun_path, sizeof(addr.sun_path),
-				     "%s", dest) >= sizeof(addr.sun_path)) {
-				errno = ENAMETOOLONG;
-				return errno;
-			}
-		} else {
-			BUILD_ASSERT(sizeof(IBACM_IBACME_SERVER_PATH) <=
-				     sizeof(addr.sun_path));
-			strcpy(addr.sun_path, IBACM_IBACME_SERVER_PATH);
-		}
+freeaddr:
+	freeaddrinfo(res);
+	return ret;
+}
 
-		sock = socket(AF_UNIX, SOCK_STREAM, 0);
-		if (sock < 0)
+static int ib_acm_connect_unix(char *dest)
+{
+	struct sockaddr_un addr;
+	int ret;
+
+	addr.sun_family = AF_UNIX;
+	if (dest) {
+		if (snprintf(addr.sun_path, sizeof(addr.sun_path),
+			     "%s", dest) >= sizeof(addr.sun_path)) {
+			errno = ENAMETOOLONG;
 			return errno;
-
-		if (connect(sock,
-			    (struct sockaddr *)&addr, sizeof(addr)) != 0) {
-			ret = errno;
-			close(sock);
-			sock = -1;
-			errno = ret;
-			return ret;
 		}
+	} else {
+		BUILD_ASSERT(sizeof(IBACM_IBACME_SERVER_PATH) <=
+			     sizeof(addr.sun_path));
+		strcpy(addr.sun_path, IBACM_IBACME_SERVER_PATH);
+	}
+
+	sock = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (sock < 0)
+		return errno;
+
+	if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+		ret = errno;
+		close(sock);
+		sock = -1;
+		errno = ret;
+		return ret;
 	}
 
 	return 0;
+}
+
+int ib_acm_connect(char *dest)
+{
+	if (dest && *dest == '/')
+		return ib_acm_connect_unix(dest);
+
+	return ib_acm_connect_open(dest);
 }
 
 void ib_acm_disconnect(void)
