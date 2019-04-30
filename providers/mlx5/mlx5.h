@@ -80,6 +80,7 @@ enum {
 	MLX5_DBG_QP_SEND_ERR	= 1 << 3,
 	MLX5_DBG_CQ_CQE		= 1 << 4,
 	MLX5_DBG_CONTIG		= 1 << 5,
+	MLX5_DBG_DR		= 1 << 6,
 };
 
 extern uint32_t mlx5_debug_mask;
