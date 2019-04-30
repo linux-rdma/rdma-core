@@ -2099,4 +2099,59 @@ struct mlx5_ifc_query_roce_address_in_bits {
 
 	u8         reserved_at_60[0x20];
 };
+
+/* Both HW set and HW add share the same HW format with different opcodes */
+struct mlx5_ifc_dr_action_hw_set_bits {
+	u8         opcode[0x8];
+	u8         destination_field_code[0x8];
+	u8         reserved_at_10[0x2];
+	u8         destination_left_shifter[0x6];
+	u8         reserved_at_18[0x3];
+	u8         destination_length[0x5];
+	u8         inline_data[0x20];
+};
+
+enum {
+	MLX5_DR_ACTION_MDFY_HW_FLD_L2_0		= 0,
+	MLX5_DR_ACTION_MDFY_HW_FLD_L2_1		= 1,
+	MLX5_DR_ACTION_MDFY_HW_FLD_L2_2		= 2,
+	MLX5_DR_ACTION_MDFY_HW_FLD_L3_0		= 3,
+	MLX5_DR_ACTION_MDFY_HW_FLD_L3_1		= 4,
+	MLX5_DR_ACTION_MDFY_HW_FLD_L3_2		= 5,
+	MLX5_DR_ACTION_MDFY_HW_FLD_L3_3		= 6,
+	MLX5_DR_ACTION_MDFY_HW_FLD_L3_4		= 7,
+	MLX5_DR_ACTION_MDFY_HW_FLD_L4_0		= 8,
+	MLX5_DR_ACTION_MDFY_HW_FLD_L4_1		= 9,
+	MLX5_DR_ACTION_MDFY_HW_FLD_MPLS		= 10,
+	MLX5_DR_ACTION_MDFY_HW_FLD_L2_TNL_0	= 11,
+	MLX5_DR_ACTION_MDFY_HW_FLD_REG_0	= 12,
+	MLX5_DR_ACTION_MDFY_HW_FLD_REG_1	= 13,
+	MLX5_DR_ACTION_MDFY_HW_FLD_REG_2	= 14,
+	MLX5_DR_ACTION_MDFY_HW_FLD_REG_3	= 15,
+	MLX5_DR_ACTION_MDFY_HW_FLD_L4_2		= 16,
+	MLX5_DR_ACTION_MDFY_HW_FLD_FLEX_0	= 17,
+	MLX5_DR_ACTION_MDFY_HW_FLD_FLEX_1	= 18,
+	MLX5_DR_ACTION_MDFY_HW_FLD_FLEX_2	= 19,
+	MLX5_DR_ACTION_MDFY_HW_FLD_FLEX_3	= 20,
+	MLX5_DR_ACTION_MDFY_HW_FLD_L2_TNL_1	= 21,
+	MLX5_DR_ACTION_MDFY_HW_FLD_METADATA	= 22,
+	MLX5_DR_ACTION_MDFY_HW_FLD_RESERVED	= 23,
+};
+
+enum {
+	MLX5_DR_ACTION_MDFY_HW_OP_SET		= 0x2,
+	MLX5_DR_ACTION_MDFY_HW_OP_ADD		= 0x3,
+};
+
+enum {
+	MLX5_DR_ACTION_MDFY_HW_HDR_L3_NONE	= 0x0,
+	MLX5_DR_ACTION_MDFY_HW_HDR_L3_IPV4	= 0x1,
+	MLX5_DR_ACTION_MDFY_HW_HDR_L3_IPV6	= 0x2,
+};
+
+enum {
+	MLX5_DR_ACTION_MDFY_HW_HDR_L4_NONE	= 0x0,
+	MLX5_DR_ACTION_MDFY_HW_HDR_L4_TCP	= 0x1,
+	MLX5_DR_ACTION_MDFY_HW_HDR_L4_UDP	= 0x2,
+};
 #endif /* MLX5_IFC_H */
