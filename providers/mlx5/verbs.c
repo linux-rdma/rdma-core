@@ -1714,7 +1714,7 @@ enum {
 static int create_dct(struct ibv_context *context,
 		      struct ibv_qp_init_attr_ex *attr,
 		      struct mlx5dv_qp_init_attr *mlx5_qp_attr,
-		      struct mlx5_qp		       *qp)
+		      struct mlx5_qp *qp, uint32_t mlx5_create_flags)
 {
 	struct mlx5_create_qp		cmd = {};
 	struct mlx5_create_qp_resp	resp = {};
@@ -1730,14 +1730,26 @@ static int create_dct(struct ibv_context *context,
 		return errno;
 	}
 
-	if (!check_comp_mask(mlx5_qp_attr->comp_mask, MLX5DV_QP_INIT_ATTR_MASK_DC)) {
+	if (!check_comp_mask(mlx5_qp_attr->comp_mask,
+			     MLX5DV_QP_INIT_ATTR_MASK_DC |
+			     MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS)) {
 		mlx5_dbg(fp, MLX5_DBG_QP,
 			 "Unsupported vendor comp_mask for %s\n", __func__);
 		errno = EINVAL;
 		return errno;
 	}
 
-	cmd.flags = MLX5_QP_FLAG_TYPE_DCT;
+	if (!check_comp_mask(mlx5_create_flags, MLX5_QP_FLAG_SCATTER_CQE)) {
+		mlx5_dbg(fp, MLX5_DBG_QP,
+			 "Unsupported creation flags requested for DCT QP\n");
+		errno = EINVAL;
+		return errno;
+	}
+
+	if (!(ctx->vendor_cap_flags & MLX5_VENDOR_CAP_FLAGS_SCAT2CQE_DCT))
+		mlx5_create_flags &= ~MLX5_QP_FLAG_SCATTER_CQE;
+
+	cmd.flags = MLX5_QP_FLAG_TYPE_DCT | mlx5_create_flags;
 	cmd.access_key = mlx5_qp_attr->dc_init_attr.dct_access_key;
 
 	if (ctx->cqe_version) {
@@ -1781,7 +1793,6 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	int32_t				usr_idx = 0;
 	uint32_t			mlx5_create_flags = 0;
 	struct mlx5_bf			*bf = NULL;
-	bool scatter_to_cqe_configured = false;
 	FILE *fp = ctx->dbg_fp;
 	struct mlx5_parent_domain *mparent_domain;
 	struct mlx5_ib_create_qp_resp  *resp_drv;
@@ -1826,6 +1837,9 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	memset(&cmd, 0, sizeof(cmd));
 	memset(&resp, 0, sizeof(resp));
 	memset(&resp_ex, 0, sizeof(resp_ex));
+
+	if (use_scatter_to_cqe())
+		mlx5_create_flags |= MLX5_QP_FLAG_SCATTER_CQE;
 
 	if (mlx5_qp_attr) {
 		if (!check_comp_mask(mlx5_qp_attr->comp_mask,
@@ -1874,14 +1888,13 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 					errno = EINVAL;
 					goto err;
 				}
-				scatter_to_cqe_configured = true;
+				mlx5_create_flags &= ~MLX5_QP_FLAG_SCATTER_CQE;
 			}
 			if (mlx5_qp_attr->create_flags &
 			    MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE) {
 				mlx5_create_flags |=
 					(MLX5_QP_FLAG_ALLOW_SCATTER_CQE |
 					 MLX5_QP_FLAG_SCATTER_CQE);
-				scatter_to_cqe_configured = true;
 			}
 			if (mlx5_qp_attr->create_flags &
 			    MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE)
@@ -1892,7 +1905,8 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		if (attr->qp_type == IBV_QPT_DRIVER) {
 			if (mlx5_qp_attr->comp_mask & MLX5DV_QP_INIT_ATTR_MASK_DC) {
 				if (mlx5_qp_attr->dc_init_attr.dc_type == MLX5DV_DCTYPE_DCT) {
-					ret = create_dct(context, attr, mlx5_qp_attr, qp);
+					ret = create_dct(context, attr, mlx5_qp_attr,
+							 qp, mlx5_create_flags);
 					if (ret)
 						goto err;
 					return ibqp;
@@ -1915,6 +1929,9 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	}
 
 	if (attr->comp_mask & IBV_QP_INIT_ATTR_RX_HASH) {
+		/* Scatter2CQE is unsupported for RSS QP */
+		mlx5_create_flags &= ~MLX5_QP_FLAG_SCATTER_CQE;
+
 		ret = mlx5_cmd_create_rss_qp(context, attr, qp,
 					     mlx5_create_flags);
 		if (ret)
@@ -1936,7 +1953,6 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		if (mlx5_qp_attr &&
 		    mlx5_qp_attr->comp_mask & MLX5DV_QP_INIT_ATTR_MASK_DC) {
 			mlx5_create_flags &= ~MLX5_QP_FLAG_SCATTER_CQE;
-			scatter_to_cqe_configured = true;
 		}
 
 		ret = mlx5_qp_fill_wr_pfns(qp, attr, mlx5_qp_attr);
@@ -1951,9 +1967,6 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	qp->wq_sig = qp_sig_enabled();
 	if (qp->wq_sig)
 		cmd.flags |= MLX5_QP_FLAG_SIGNATURE;
-
-	if (!scatter_to_cqe_configured && use_scatter_to_cqe())
-		cmd.flags |= MLX5_QP_FLAG_SCATTER_CQE;
 
 	ret = mlx5_calc_wq_size(ctx, attr, mlx5_qp_attr, qp);
 	if (ret < 0) {
@@ -3031,6 +3044,9 @@ int mlx5_query_device_ex(struct ibv_context *context,
 
 	if (resp.flags & MLX5_IB_QUERY_DEV_RESP_PACKET_BASED_CREDIT_MODE)
 		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_PACKET_BASED_CREDIT_MODE;
+
+	if (resp.flags & MLX5_IB_QUERY_DEV_RESP_FLAGS_SCAT2CQE_DCT)
+		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_SCAT2CQE_DCT;
 
 	major     = (raw_fw_ver >> 32) & 0xffff;
 	minor     = (raw_fw_ver >> 16) & 0xffff;
