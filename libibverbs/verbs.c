@@ -967,7 +967,6 @@ static inline int create_peer_from_gid(int family, void *raw_gid,
 	return 0;
 }
 
-#define NEIGH_GET_DEFAULT_TIMEOUT_MS 3000
 int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 				struct ibv_ah_attr *attr,
 				uint8_t eth_mac[ETHERNET_LL_SIZE],

@@ -45,6 +45,8 @@
 #   -DNO_PYVERBS=1 (default, build pyverbs)
 #      Invoke cython to build pyverbs. Usually you will run with this option
 #      is set, but it will be disabled for travis runs.
+#   -DNEIGH_GET_DEFAULT_TIMEOUT_MS=3000 (default)
+#      Set the default timeout for lookup of neighbor for mac address.
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(rdma-core C)
@@ -82,6 +84,10 @@ if (IN_PLACE)
   set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}")
   set(CMAKE_INSTALL_LIBDIR "lib")
   set(CMAKE_INSTALL_INCLUDEDIR "include")
+endif()
+
+if ("${NEIGH_GET_DEFAULT_TIMEOUT_MS}" STREQUAL "")
+  set(NEIGH_GET_DEFAULT_TIMEOUT_MS 3000)
 endif()
 
 include(GNUInstallDirs)
