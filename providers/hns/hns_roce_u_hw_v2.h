@@ -124,6 +124,14 @@ enum {
 	HNS_ROCE_V2_CQE_REMOTE_ABORTED_ERR		= 0x22,
 };
 
+enum {
+	HNS_ROCE_V2_SQ_DB,
+	HNS_ROCE_V2_RQ_DB,
+	HNS_ROCE_V2_SRQ_DB,
+	HNS_ROCE_V2_CQ_DB_PTR,
+	HNS_ROCE_V2_CQ_DB_NTR,
+};
+
 struct hns_roce_db {
 	__le32	byte_4;
 	__le32	parameter;
@@ -150,26 +158,15 @@ struct hns_roce_db {
 #define DB_PARAM_SL_M \
 	(((1UL << 3) - 1) << DB_PARAM_SL_S)
 
-struct hns_roce_v2_cq_db {
-	__le32	byte_4;
-	__le32	parameter;
-};
+#define DB_PARAM_CQ_CONSUMER_IDX_S 0
+#define DB_PARAM_CQ_CONSUMER_IDX_M \
+	(((1UL << 24) - 1) << DB_PARAM_CQ_CONSUMER_IDX_S)
 
-#define CQ_DB_BYTE_4_TAG_S 0
-#define CQ_DB_BYTE_4_TAG_M   (((1UL << 23) - 1) << CQ_DB_BYTE_4_TAG_S)
+#define DB_PARAM_CQ_NOTIFY_S 24
 
-#define CQ_DB_BYTE_4_CMD_S 24
-#define CQ_DB_BYTE_4_CMD_M   (((1UL << 4) - 1) << CQ_DB_BYTE_4_CMD_S)
-
-#define CQ_DB_PARAMETER_CQ_CONSUMER_IDX_S 0
-#define CQ_DB_PARAMETER_CQ_CONSUMER_IDX_M \
-	(((1UL << 24) - 1) << CQ_DB_PARAMETER_CQ_CONSUMER_IDX_S)
-
-#define CQ_DB_PARAMETER_NOTIFY_S 24
-
-#define CQ_DB_PARAMETER_CMD_SN_S 25
-#define CQ_DB_PARAMETER_CMD_SN_M \
-	(((1UL << 2) - 1) << CQ_DB_PARAMETER_CMD_SN_S)
+#define DB_PARAM_CQ_CMD_SN_S 25
+#define DB_PARAM_CQ_CMD_SN_M \
+	(((1UL << 2) - 1) << DB_PARAM_CQ_CMD_SN_S)
 
 struct hns_roce_v2_cqe {
 	__le32	byte_4;

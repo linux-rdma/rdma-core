@@ -41,7 +41,6 @@
 
 #define HNS_ROCE_CQE_IS_SQ			0
 
-#define HNS_ROCE_RC_WQE_INLINE_DATA_MAX_LEN	32
 #define HNS_ROCE_RC_RQ_WQE_MAX_SGE_NUM		2
 
 enum {
