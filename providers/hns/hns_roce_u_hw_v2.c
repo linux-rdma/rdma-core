@@ -63,9 +63,9 @@ static void hns_roce_v2_handle_error_cqe(struct hns_roce_v2_cqe *cqe,
 {
 	unsigned int status = roce_get_field(cqe->byte_4, CQE_BYTE_4_STATUS_M,
 					     CQE_BYTE_4_STATUS_S);
+	unsigned int cqe_status = status & HNS_ROCE_V2_CQE_STATUS_MASK;
 
-	fprintf(stderr, PFX "error cqe!\n");
-	switch (status & HNS_ROCE_V2_CQE_STATUS_MASK) {
+	switch (cqe_status) {
 	case HNS_ROCE_V2_CQE_LOCAL_LENGTH_ERR:
 		wc->status = IBV_WC_LOC_LEN_ERR;
 		break;
@@ -1105,10 +1105,8 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		hns_roce_init_qp_indices(to_hr_qp(qp));
 	}
 
-	if (!ret && (attr_mask & IBV_QP_PORT)) {
+	if (!ret && (attr_mask & IBV_QP_PORT))
 		hr_qp->port_num = attr->port_num;
-		printf("hr_qp->port_num= 0x%x\n", hr_qp->port_num);
-	}
 
 	hr_qp->sl = attr->ah_attr.sl;
 
