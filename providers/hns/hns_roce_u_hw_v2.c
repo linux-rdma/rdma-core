@@ -914,21 +914,18 @@ out:
 			*(qp->sdb) = qp->sq.head & 0xffff;
 
 		qp->next_sge = ind_sge;
-
-		if (ibvqp->state == IBV_QPS_ERR) {
-			attr_mask = IBV_QP_STATE;
-			attr.qp_state = IBV_QPS_ERR;
-
-			ret = hns_roce_u_v2_modify_qp(ibvqp, &attr, attr_mask);
-			if (ret) {
-				pthread_spin_unlock(&qp->sq.lock);
-				*bad_wr = wr;
-				return ret;
-			}
-		}
 	}
 
 	pthread_spin_unlock(&qp->sq.lock);
+
+	if (ibvqp->state == IBV_QPS_ERR) {
+		attr_mask = IBV_QP_STATE;
+		attr.qp_state = IBV_QPS_ERR;
+
+		ret = hns_roce_u_v2_modify_qp(ibvqp, &attr, attr_mask);
+		if (ret)
+			*bad_wr = wr;
+	}
 
 	return ret;
 }
@@ -1015,21 +1012,18 @@ out:
 		else
 			hns_roce_update_rq_db(ctx, qp->ibv_qp.qp_num,
 				     qp->rq.head & ((qp->rq.wqe_cnt << 1) - 1));
-
-		if (ibvqp->state == IBV_QPS_ERR) {
-			attr_mask = IBV_QP_STATE;
-			attr.qp_state = IBV_QPS_ERR;
-
-			ret = hns_roce_u_v2_modify_qp(ibvqp, &attr, attr_mask);
-			if (ret) {
-				pthread_spin_unlock(&qp->rq.lock);
-				*bad_wr = wr;
-				return ret;
-			}
-		}
 	}
 
 	pthread_spin_unlock(&qp->rq.lock);
+
+	if (ibvqp->state == IBV_QPS_ERR) {
+		attr_mask = IBV_QP_STATE;
+		attr.qp_state = IBV_QPS_ERR;
+
+		ret = hns_roce_u_v2_modify_qp(ibvqp, &attr, attr_mask);
+		if (ret)
+			*bad_wr = wr;
+	}
 
 	return ret;
 }
@@ -1085,8 +1079,20 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	int ret;
 	struct ibv_modify_qp cmd;
 	struct hns_roce_qp *hr_qp = to_hr_qp(qp);
+	bool flag = false; /* modify qp to error */
+
+	if ((attr_mask & IBV_QP_STATE) && (attr->qp_state == IBV_QPS_ERR)) {
+		pthread_spin_lock(&hr_qp->sq.lock);
+		pthread_spin_lock(&hr_qp->rq.lock);
+		flag = true;
+	}
 
 	ret = ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof(cmd));
+
+	if (flag) {
+		pthread_spin_unlock(&hr_qp->rq.lock);
+		pthread_spin_unlock(&hr_qp->sq.lock);
+	}
 
 	if (!ret && (attr_mask & IBV_QP_STATE) &&
 	    attr->qp_state == IBV_QPS_RESET) {
