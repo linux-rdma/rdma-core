@@ -259,6 +259,8 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_destroy_comp_channel(ibv_comp_channel *channel)
     int ibv_get_cq_event(ibv_comp_channel *channel, ibv_cq **cq,
                          void **cq_context)
+    int ibv_req_notify_cq(ibv_cq *cq, int solicited_only)
+    void ibv_ack_cq_events(ibv_cq *cq, int nevents)
     ibv_cq *ibv_create_cq(ibv_context *context, int cqe, void *cq_context,
                           ibv_comp_channel *channel, int comp_vector)
     int ibv_destroy_cq(ibv_cq *cq)

@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.
+import weakref
+
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.device cimport Context
@@ -22,6 +24,7 @@ cdef class CompChannel(PyverbsCM):
             raise PyverbsRDMAErrno('Failed to create a completion channel')
         self.context = context
         context.add_ref(self)
+        self.cqs = weakref.WeakSet()
         self.logger.debug('Created a Completion Channel')
 
     def __dealloc__(self):
@@ -29,6 +32,7 @@ cdef class CompChannel(PyverbsCM):
 
     cpdef close(self):
         self.logger.debug('Closing completion channel')
+        self.close_weakrefs([self.cqs])
         if self.cc != NULL:
             rc = v.ibv_destroy_comp_channel(self.cc)
             if rc != 0:
@@ -50,6 +54,14 @@ cdef class CompChannel(PyverbsCM):
         if cq != expected_cq.cq:
             raise PyverbsRDMAErrno('Received event on an unexpected CQ')
 
+    cdef add_ref(self, obj):
+        if isinstance(obj, CQ) or isinstance(obj, CQEX):
+            self.cqs.add(obj)
+
+    @property
+    def channel(self):
+        return <object>self.cc
+
 
 cdef class CQ(PyverbsCM):
     """
@@ -69,8 +81,14 @@ cdef class CQ(PyverbsCM):
                             context's num_comp_vectors
         :return: The newly created CQ
         """
-        self.cq = v.ibv_create_cq(context.context, cqe, <void*>cq_context,
-                                  NULL, comp_vector)
+        if channel is not None:
+            self.cq = v.ibv_create_cq(context.context, cqe, <void*>cq_context,
+                                      <v.ibv_comp_channel*>channel.channel,
+                                      comp_vector)
+            channel.add_ref(self)
+        else:
+            self.cq = v.ibv_create_cq(context.context, cqe, <void*>cq_context,
+                                      NULL, comp_vector)
         if self.cq == NULL:
             raise PyverbsRDMAErrno('Failed to create a CQ')
         self.context = context
@@ -115,6 +133,28 @@ cdef class CQ(PyverbsCM):
                           dlid_path_bits=wc.dlid_path_bits))
         return npolled, wcs
 
+    def req_notify(self, solicited_only = False):
+        """
+        Request completion notification on the completion queue.
+        :param solicited_only: If non-zero, notifications will be created only
+                               for incoming send / RDMA write WRs with
+                               immediate data that have the solicited bit set in
+                               their send flags.
+        :return: None
+        """
+        rc = v.ibv_req_notify_cq(self.cq, solicited_only)
+        if rc != 0:
+            raise PyverbsRDMAErrno('Request notify CQ returned {rc}'.
+                                   format(rc=rc))
+
+    def ack_events(self, num_events):
+        """
+        Get and acknowledge CQ events
+        :param num_events: Number of events to acknowledge
+        :return: None
+        """
+        v.ibv_ack_cq_events(self.cq, num_events)
+
     @property
     def _cq(self):
         return <object>self.cq
@@ -150,6 +190,7 @@ cdef class CqInitAttrEx(PyverbsObject):
         self.attr.wc_flags = wc_flags
         self.attr.comp_mask = comp_mask
         self.attr.flags = flags
+        self.channel = channel
 
     @property
     def cqe(self):
@@ -163,9 +204,13 @@ cdef class CqInitAttrEx(PyverbsObject):
         def __set__(self, val):
             self.attr.cq_context = <void*>val
 
-    property channel:
-        def __set__(self, val):
-            self.attr.channel = <v.ibv_comp_channel*>val
+    @property
+    def comp_channel(self):
+        return self.channel
+    @comp_channel.setter
+    def comp_channel(self, val):
+        self.channel = val
+        self.attr.channel = <v.ibv_comp_channel*>val
 
     @property
     def comp_vector(self):
@@ -215,6 +260,8 @@ cdef class CQEX(PyverbsCM):
         if init_attr is None:
             init_attr = CqInitAttrEx()
         self.cq = v.ibv_create_cq_ex(context.context, &init_attr.attr)
+        if init_attr.comp_channel:
+            init_attr.comp_channel.add_ref(self)
         if self.cq == NULL:
             raise PyverbsRDMAErrno('Failed to create extended CQ')
         self.ibv_cq = v.ibv_cq_ex_to_cq(self.cq)

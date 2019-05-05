@@ -3,6 +3,7 @@
 """
 Provide some useful helper function for pyverbs' tests.
 """
+from itertools import combinations as com
 from string import ascii_lowercase as al
 import random
 
@@ -25,37 +26,56 @@ def get_mr_length():
     """
     Provide a random value for MR length. We avoid large buffers as these
     allocations typically fails.
+    We use random.random() instead of randrange() or randint() due to
+    performance issues when generating very large pseudo random numbers.
     :return: A random MR length
     """
-    return random.randint(0, MAX_MR_SIZE)
+    return int(MAX_MR_SIZE * random.random())
 
 
-def get_access_flags():
+def filter_illegal_access_flags(element):
     """
-    Provide random legal access flags for an MR.
+    Helper function to filter illegal access flags combinations
+    :param element: A list of access flags to check
+    :return: True if this list is legal, else False
+    """
+    if e.IBV_ACCESS_REMOTE_ATOMIC in element or e.IBV_ACCESS_REMOTE_WRITE:
+        if e.IBV_ACCESS_LOCAL_WRITE:
+            return False
+    return True
+
+
+def get_access_flags(ctx):
+    """
+    Provide an array of random legal access flags for an MR.
     Since remote write and remote atomic require local write permission, if
     one of them is randomly selected without local write, local write will be
     added as well.
+    After verifying that the flags selection is legal, it is appended to an
+    array, assuming it wasn't previously appended.
+    :param ctx: Device Context to check capabilities
+    :param num: Size of initial collection
     :return: A random legal value for MR flags
     """
+    attr = ctx.query_device()
+    attr_ex = ctx.query_device_ex()
     vals = list(e.ibv_access_flags)
-    selected = random.sample(vals, random.randint(1, 7))
-    if e.IBV_ACCESS_REMOTE_WRITE in selected or e.IBV_ACCESS_REMOTE_ATOMIC in selected:
-        if not e.IBV_ACCESS_LOCAL_WRITE in selected:
-            selected.append(e.IBV_ACCESS_LOCAL_WRITE)
-    flags = 0
-    for i in selected:
-        flags += i.value
-    return flags
-
-
-def get_data(length):
-    """
-    Randomizes data of a given length.
-    :param length: Length of the data
-    :return: A random data of the given length
-    """
-    return ''.join(random.choice(al) for i in range(length))
+    if not attr_ex.odp_caps.general_caps & e.IBV_ODP_SUPPORT:
+        vals.remove(e.IBV_ACCESS_ON_DEMAND)
+    if not attr.device_cap_flags & e.IBV_DEVICE_MEM_WINDOW:
+        vals.remove(e.IBV_ACCESS_MW_BIND)
+    if not attr.atomic_caps & e.IBV_ATOMIC_HCA:
+        vals.remove(e.IBV_ACCESS_REMOTE_ATOMIC)
+    arr = []
+    for i in range(1, len(vals)):
+        tmp = list(com(vals, i))
+        tmp = filter(filter_illegal_access_flags, tmp)
+        for t in tmp:  # Iterate legal combinations and bitwise OR them
+            val = 0
+            for flag in t:
+                val += flag.value
+            arr.append(val)
+    return arr
 
 
 def get_dm_attrs(dm_len):
@@ -68,3 +88,12 @@ def get_dm_attrs(dm_len):
     """
     align = random.randint(MIN_DM_LOG_ALIGN, MAX_DM_LOG_ALIGN)
     return d.AllocDmAttr(dm_len, align, 0)
+
+
+def sample(coll):
+    """
+    Returns a random-length subset of the given collection.
+    :param coll: The collection to sample
+    :return: A subset of <collection>
+    """
+    return random.sample(coll, int((len(coll) + 1) * random.random()))
