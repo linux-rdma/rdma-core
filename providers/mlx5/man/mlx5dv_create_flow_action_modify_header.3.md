@@ -34,7 +34,7 @@ Create a modify header flow steering action, it allows mutating a packet header.
 :	The size of *actions* buffer in bytes.
 
 *actions*
-:	A buffer which contains modify actions provided in device spec format.
+:	A buffer which contains modify actions provided in device spec format (i.e. be64).
 
 *ft_type*
 :	Defines the flow table type to which the modify header action will be attached.
