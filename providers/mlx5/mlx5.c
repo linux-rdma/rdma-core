@@ -782,6 +782,11 @@ static int mlx5dv_get_qp(struct ibv_qp *qp_in,
 		mask_out |= MLX5DV_QP_MASK_RAW_QP_HANDLES;
 	}
 
+	if (qp_out->comp_mask & MLX5DV_QP_MASK_RAW_QP_TIR_ADDR) {
+		qp_out->tir_icm_addr = mqp->tir_icm_addr;
+		mask_out |= MLX5DV_QP_MASK_RAW_QP_TIR_ADDR;
+	}
+
 	if (mqp->bf->uuarn > 0)
 		qp_out->bf.size = mqp->bf->buf_size;
 	else
@@ -858,16 +863,23 @@ static int mlx5dv_get_srq(struct ibv_srq *srq_in,
 }
 
 static int mlx5dv_get_dm(struct ibv_dm *dm_in,
-			  struct mlx5dv_dm *dm_out)
+			 struct mlx5dv_dm *dm_out)
 {
 	struct mlx5_dm *mdm = to_mdm(dm_in);
+	uint64_t mask_out = 0;
 
 	if (!is_mlx5_dev(dm_in->context->device))
 		return EOPNOTSUPP;
 
-	dm_out->comp_mask = 0;
 	dm_out->buf       = mdm->start_va;
 	dm_out->length    = mdm->length;
+
+	if (dm_out->comp_mask & MLX5DV_DM_MASK_REMOTE_VA) {
+		dm_out->remote_va = mdm->remote_va;
+		mask_out |= MLX5DV_DM_MASK_REMOTE_VA;
+	}
+
+	dm_out->comp_mask = mask_out;
 
 	return 0;
 }

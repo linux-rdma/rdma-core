@@ -43,6 +43,12 @@ uint32_t        size;
 .in -8
 } bf;
 uint64_t                comp_mask;
+off_t			uar_mmap_offset;
+uint32_t		tirn;
+uint32_t		tisn;
+uint32_t		rqn;
+uint32_t		sqn;
+uint64_t 		tir_icm_address;
 .in -8
 };
 
@@ -85,6 +91,7 @@ struct mlx5dv_dm {
 void		*buf;
 uint64_t	length;
 uint64_t	comp_mask;
+uint64_t	remote_va;
 .in -8
 };
 

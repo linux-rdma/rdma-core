@@ -294,13 +294,18 @@ struct mlx5dv_flow_match_parameters {
 	uint64_t match_buf[]; /* Device spec format */
 };
 
+enum mlx5dv_flow_matcher_attr_mask {
+	MLX5DV_FLOW_MATCHER_MASK_FT_TYPE = 1 << 0,
+};
+
 struct mlx5dv_flow_matcher_attr {
 	enum ibv_flow_attr_type type;
 	uint32_t flags; /* From enum ibv_flow_flags */
 	uint16_t priority;
 	uint8_t match_criteria_enable; /* Device spec format */
 	struct mlx5dv_flow_match_parameters *match_mask;
-	uint64_t comp_mask;
+	uint64_t comp_mask; /* use mlx5dv_flow_matcher_attr_mask */
+	enum mlx5dv_flow_table_type ft_type;
 };
 
 struct mlx5dv_flow_matcher;
@@ -385,6 +390,7 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 enum mlx5dv_qp_comp_mask {
 	MLX5DV_QP_MASK_UAR_MMAP_OFFSET		= 1 << 0,
 	MLX5DV_QP_MASK_RAW_QP_HANDLES		= 1 << 1,
+	MLX5DV_QP_MASK_RAW_QP_TIR_ADDR		= 1 << 2,
 };
 
 struct mlx5dv_qp {
@@ -409,6 +415,7 @@ struct mlx5dv_qp {
 	uint32_t		tisn;
 	uint32_t		rqn;
 	uint32_t		sqn;
+	uint64_t		tir_icm_addr;
 };
 
 struct mlx5dv_cq {
@@ -443,11 +450,25 @@ struct mlx5dv_rwq {
 	uint64_t	comp_mask;
 };
 
+struct mlx5dv_alloc_dm_attr {
+	enum mlx5dv_alloc_dm_type type;
+	uint64_t comp_mask;
+};
+
+enum mlx5dv_dm_comp_mask {
+	MLX5DV_DM_MASK_REMOTE_VA	= 1 << 0,
+};
+
 struct mlx5dv_dm {
 	void		*buf;
 	uint64_t	length;
 	uint64_t	comp_mask;
+	uint64_t	remote_va;
 };
+
+struct ibv_dm *mlx5dv_alloc_dm(struct ibv_context *context,
+			       struct ibv_alloc_dm_attr *dm_attr,
+			       struct mlx5dv_alloc_dm_attr *mlx5_dm_attr);
 
 struct mlx5_wqe_av;
 
