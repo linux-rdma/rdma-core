@@ -679,8 +679,7 @@ static int translate_umad_to_ibdev_and_port(char *umad_dev, char **ibdev,
 
 	umad_dev_name = rindex(umad_dev, '/');
 	if (!umad_dev_name) {
-		pr_err("Couldn't find device name in '%s'\n",
-			umad_dev_name);
+		pr_err("Couldn't find device name in '%s'\n", umad_dev);
 		return -1;
 	}
 
