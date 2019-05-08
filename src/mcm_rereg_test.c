@@ -74,8 +74,8 @@ static uint64_t build_mcm_rec(uint8_t *data, ibmad_gid_t mgid,
 	mad_set_array(data, 0, IB_SA_MCM_PORTGID_F, port_gid);
 	mad_set_field(data, 0, IB_SA_MCM_JOIN_STATE_F, 1);
 
-	return IB_MCR_COMPMASK_MGID | IB_MCR_COMPMASK_PORT_GID |
-	    IB_MCR_COMPMASK_JOIN_STATE;
+	return be64toh(IB_MCR_COMPMASK_MGID | IB_MCR_COMPMASK_PORT_GID |
+		       IB_MCR_COMPMASK_JOIN_STATE);
 }
 
 static void build_mcm_rec_umad(void *umad, ib_portid_t * dport, int method,
@@ -338,8 +338,7 @@ static int rereg_and_test_port(const char *guid_file, int port, int agent,
 	}
 
 	while (fgets(line, sizeof(line), f)) {
-		guid = strtoull(line, NULL, 0);
-		guid = htobe64(guid);
+		guid = htobe64(strtoull(line, NULL, 0));
 		memcpy(&port_gid[0], &prefix, 8);
 		memcpy(&port_gid[8], &guid, 8);
 

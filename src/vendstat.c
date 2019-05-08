@@ -115,9 +115,9 @@ typedef struct {
 typedef struct {
 	uint8_t reserved[8];
 	struct is3_record {
-		uint32_t address;
-		uint32_t data;
-		uint32_t mask;
+		__be32 address;
+		__be32 data;
+		__be32 mask;
 	} record[18];
 } is3_config_space_t;
 
@@ -200,11 +200,6 @@ static int do_config_space_records(ib_portid_t *portid, unsigned set,
 
 	if (records > 18)
 		records = 18;
-	for (i = 0; i < records; i++) {
-		cs->record[i].address = htonl(cs->record[i].address);
-		cs->record[i].data = htonl(cs->record[i].data);
-		cs->record[i].mask = htonl(cs->record[i].mask);
-	}
 
 	if (do_vendor(portid, IB_MLX_VENDOR_CLASS,
 		      set ? IB_MAD_METHOD_SET : IB_MAD_METHOD_GET,
@@ -293,6 +288,8 @@ static unsigned write_cs_records, read_cs_records;
 static int process_opt(void *context, int ch)
 {
 	int ret;
+	unsigned int address, data, mask;
+
 	switch (ch) {
 	case 'N':
 		general_info = 1;
@@ -312,26 +309,26 @@ static int process_opt(void *context, int ch)
 	case 'R':
 		if (read_cs_records >= 18)
 			break;
-		ret = sscanf(optarg, "%x,%x",
-			     &read_cs.record[read_cs_records].address,
-			     &read_cs.record[read_cs_records].mask);
+		ret = sscanf(optarg, "%x,%x", &address, &mask);
 		if (ret < 1)
 			return -1;
 		else if (ret == 1)
-			read_cs.record[read_cs_records].mask = 0xffffffff;
+			mask = 0xffffffff;
+		read_cs.record[read_cs_records].address = htobe32(address);
+		read_cs.record[read_cs_records].mask = htobe32(mask);
 		read_cs_records++;
 		break;
 	case 'W':
 		if (write_cs_records >= 18)
 			break;
-		ret = sscanf(optarg, "%x,%x,%x",
-			     &write_cs.record[write_cs_records].address,
-			     &write_cs.record[write_cs_records].data,
-			     &write_cs.record[write_cs_records].mask);
+		ret = sscanf(optarg, "%x,%x,%x", &address, &data, &mask);
 		if (ret < 2)
 			return -1;
 		else if (ret == 2)
-			write_cs.record[write_cs_records].mask = 0xffffffff;
+			mask = 0xffffffff;
+		write_cs.record[write_cs_records].address = htobe32(address);
+		write_cs.record[write_cs_records].data = htobe32(data);
+		write_cs.record[write_cs_records].mask = htobe32(mask);
 		write_cs_records++;
 		break;
 	default:

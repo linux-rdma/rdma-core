@@ -55,6 +55,9 @@
 #include "internal.h"
 #include "chassis.h"
 
+#define container_of(ptr, type, member)                                        \
+	((type *)((uint8_t *)(ptr)-offsetof(type, member)))
+
 /* forward declarations */
 struct ni_cbdata
 {
@@ -380,7 +383,7 @@ static int recv_port_info(smp_engine_t * engine, ibnd_smp_t * smp,
 			   " to insert new port guid 0x%016" PRIx64 " to DB\n",
 			   port->guid);
 
-	add_to_portlid_hash(port, f_int->lid2guid);
+	add_to_portlid_hash(port, f_int);
 
 	if ((scan->cfg->flags & IBND_CONFIG_MLX_EPI)
 	    && is_mlnx_ext_port_info_supported(port)) {
@@ -675,20 +678,28 @@ int add_to_portguid_hash(ibnd_port_t * port, ibnd_port_t * hash[])
 	return rc;
 }
 
+struct lid2guid_item {
+	cl_map_item_t cl_map;
+	ibnd_port_t *port;
+};
+
 void create_lid2guid(f_internal_t *f_int)
 {
-	f_int->lid2guid = g_hash_table_new_full(g_direct_hash, g_direct_equal,
-				NULL, NULL);
+	cl_qmap_init(&f_int->lid2guid);
 }
 
 void destroy_lid2guid(f_internal_t *f_int)
 {
-	if (f_int->lid2guid) {
-		g_hash_table_destroy(f_int->lid2guid);
+	cl_map_item_t *item;
+
+	for (item = cl_qmap_head(&f_int->lid2guid); item != cl_qmap_end(&f_int->lid2guid);
+	     item = cl_qmap_head(&f_int->lid2guid)) {
+		cl_qmap_remove_item(&f_int->lid2guid, item);
+		free(container_of(item, struct lid2guid_item, cl_map));
 	}
 }
 
-void add_to_portlid_hash(ibnd_port_t * port, GHashTable *htable)
+void add_to_portlid_hash(ibnd_port_t * port, f_internal_t *f_int)
 {
 	uint16_t base_lid = port->base_lid;
 	uint16_t lid_mask = ((1 << port->lmc) -1);
@@ -698,7 +709,14 @@ void add_to_portlid_hash(ibnd_port_t * port, GHashTable *htable)
 		/* We add the port for all lids
 		 * so it is easier to find any "random" lid specified */
 		for (lid = base_lid; lid <= (base_lid + lid_mask); lid++) {
-			g_hash_table_insert(htable, GINT_TO_POINTER(lid), port);
+			struct lid2guid_item *item;
+
+			item = malloc(sizeof(*item));
+			if (item) {
+				item->port = port;
+				cl_qmap_insert(&f_int->lid2guid, lid,
+					       &item->cl_map);
+			}
 		}
 	}
 }
@@ -918,13 +936,11 @@ void ibnd_iter_nodes_type(ibnd_fabric_t * fabric, ibnd_iter_node_func_t func,
 ibnd_port_t *ibnd_find_port_lid(ibnd_fabric_t * fabric,
 				uint16_t lid)
 {
-	ibnd_port_t *port;
 	f_internal_t *f = (f_internal_t *)fabric;
 
-	port = (ibnd_port_t *)g_hash_table_lookup(f->lid2guid,
-					GINT_TO_POINTER(lid));
-
-	return port;
+	return container_of(cl_qmap_get(&f->lid2guid, lid),
+			    struct lid2guid_item, cl_map)
+		->port;
 }
 
 ibnd_port_t *ibnd_find_port_guid(ibnd_fabric_t * fabric, uint64_t guid)

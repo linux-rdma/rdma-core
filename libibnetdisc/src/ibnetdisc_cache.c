@@ -614,7 +614,7 @@ static int _rebuild_ports(ibnd_fabric_cache_t * fabric_cache)
 		} else
 			port->remoteport = NULL;
 
-		add_to_portlid_hash(port, fabric_cache->f_int->lid2guid);
+		add_to_portlid_hash(port, fabric_cache->f_int);
 		port_cache = port_cache_next;
 	}
 

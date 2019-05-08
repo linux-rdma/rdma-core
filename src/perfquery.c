@@ -800,6 +800,7 @@ int main(int argc, char **argv)
 	ib_portid_t portid = { 0 };
 	int mask = 0xffff;
 	uint64_t ext_mask = 0xffffffffffffffffULL;
+	__be32 cap_mask2_be;
 	uint32_t cap_mask2;
 	__be16 cap_mask;
 	int all_ports_loop = 0;
@@ -920,8 +921,8 @@ int main(int argc, char **argv)
 		IBEXIT("classportinfo query");
 	/* ClassPortInfo should be supported as part of libibmad */
 	memcpy(&cap_mask, pc + 2, sizeof(cap_mask));	/* CapabilityMask */
-	memcpy(&cap_mask2, pc + 4, sizeof(cap_mask2));	/* CapabilityMask2 */
-	cap_mask2 = ntohl(cap_mask2) >> 5;
+	memcpy(&cap_mask2_be, pc + 4, sizeof(cap_mask2_be));	/* CapabilityMask2 */
+	cap_mask2 = ntohl(cap_mask2_be) >> 5;
 
 	if (!(cap_mask & IB_PM_ALL_PORT_SELECT)) {	/* bit 8 is AllPortSelect */
 		if (!info.all_ports && info.port == ALL_PORTS)

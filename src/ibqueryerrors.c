@@ -557,10 +557,9 @@ static int query_cap_mask(ib_portid_t * portid, char *node_name, int portnum,
 	/* ClassPortInfo should be supported as part of libibmad */
 	memcpy(&rc_cap_mask, pc + 2, sizeof(rc_cap_mask));	/* CapabilityMask */
 	memcpy(&rc_cap_mask2, pc + 4, sizeof(rc_cap_mask2));	/* CapabilityMask2 */
-	rc_cap_mask2 = ntohl(rc_cap_mask2) >> 5;
 
 	*cap_mask = rc_cap_mask;
-	*cap_mask2 = rc_cap_mask2;
+	*cap_mask2 = ntohl(rc_cap_mask2) >> 5;
 	return 0;
 }
 
