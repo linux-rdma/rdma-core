@@ -6,7 +6,7 @@ IBPORTSTATE
 handle port (physical) state and link speed of an InfiniBand port
 -----------------------------------------------------------------
 
-:Date: @BUILD_DATE@
+:Date: 2013-03-26
 :Manual section: 8
 :Manual group: Open IB Diagnostics
 

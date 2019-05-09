@@ -6,7 +6,7 @@ IBPING
 ping an InfiniBand address
 --------------------------
 
-:Date: @BUILD_DATE@
+:Date: 2012-05-14
 :Manual section: 8
 :Manual group: Open IB Diagnostics
 

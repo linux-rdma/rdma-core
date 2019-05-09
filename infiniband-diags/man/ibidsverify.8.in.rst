@@ -6,7 +6,7 @@ ibidsverify
 validate IB identifiers in subnet and report errors
 ---------------------------------------------------
 
-:Date: @BUILD_DATE@
+:Date: 2017-08-21
 :Manual section: 8
 :Manual group: Open IB Diagnostics
 

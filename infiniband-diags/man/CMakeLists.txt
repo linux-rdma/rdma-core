@@ -1,5 +1,3 @@
-set(BUILD_DATE "2019")
-
 # rst2man has no way to set the include search path
 rdma_create_symlink("${CMAKE_CURRENT_SOURCE_DIR}/common" "${CMAKE_CURRENT_BINARY_DIR}/common")
 

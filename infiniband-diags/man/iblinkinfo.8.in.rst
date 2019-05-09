@@ -6,7 +6,7 @@ IBLINKINFO
 report link info for all links in the fabric
 --------------------------------------------
 
-:Date: @BUILD_DATE@
+:Date: 2018-07-09
 :Manual section: 8
 :Manual group: OpenIB Diagnostics
 

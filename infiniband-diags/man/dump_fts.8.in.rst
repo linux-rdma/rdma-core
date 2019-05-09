@@ -6,7 +6,7 @@ DUMP_FTS
 dump InfiniBand forwarding tables
 ---------------------------------
 
-:Date: @BUILD_DATE@
+:Date: 2013-03-26
 :Manual section: 8
 :Manual group: OpenIB Diagnostics
 

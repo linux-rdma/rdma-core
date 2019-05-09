@@ -6,7 +6,7 @@ check_lft_balance
 check InfiniBand unicast forwarding tables balance
 --------------------------------------------------
 
-:Date: @BUILD_DATE@
+:Date: 2017-08-21
 :Manual section: 8
 :Manual group: Open IB Diagnostics
 

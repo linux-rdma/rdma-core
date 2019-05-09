@@ -6,7 +6,7 @@ IBNODES
 show InfiniBand nodes in topology
 ---------------------------------
 
-:Date: @BUILD_DATE@
+:Date: 2012-05-14
 :Manual section: 8
 :Manual group: OpenIB Diagnostics
 

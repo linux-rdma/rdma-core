@@ -6,7 +6,7 @@ IBQUERYERRORS
 query and report IB port counters
 ---------------------------------
 
-:Date: @BUILD_DATE@
+:Date: 2016-09-26
 :Manual section: 8
 :Manual group: OpenIB Diagnostics
 

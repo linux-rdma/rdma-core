@@ -6,7 +6,7 @@ IBADDR
 query InfiniBand address(es)
 ----------------------------
 
-:Date: @BUILD_DATE@
+:Date: 2013-10-11
 :Manual section: 8
 :Manual group: OpenIB Diagnostics
 

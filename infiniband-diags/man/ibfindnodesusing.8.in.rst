@@ -6,7 +6,7 @@ ibfindnodesusing
 find a list of end nodes which are routed through the specified switch and port
 -------------------------------------------------------------------------------
 
-:Date: @BUILD_DATE@
+:Date: 2017-08-21
 :Manual section: 8
 :Manual group: Open IB Diagnostics
 

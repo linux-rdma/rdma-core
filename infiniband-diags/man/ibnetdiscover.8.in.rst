@@ -6,7 +6,7 @@ IBNETDISCOVER
 discover InfiniBand topology
 ----------------------------
 
-:Date: @BUILD_DATE@
+:Date: 2013-06-22
 :Manual section: 8
 :Manual group: Open IB Diagnostics
 

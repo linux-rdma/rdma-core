@@ -6,7 +6,7 @@ IBCCCONFIG
 configure congestion control settings
 -------------------------------------
 
-:Date: @BUILD_DATE@
+:Date: 2012-05-31
 :Manual section: 8
 :Manual group: OpenIB Diagnostics
 

@@ -6,7 +6,7 @@ IBCCQUERY
 query congestion control settings/info
 --------------------------------------
 
-:Date: @BUILD_DATE@
+:Date: 2012-05-31
 :Manual section: 8
 :Manual group: OpenIB Diagnostics
 

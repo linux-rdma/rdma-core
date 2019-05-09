@@ -6,7 +6,7 @@ IBSWITCHES
 show InfiniBand switch nodes in topology
 ----------------------------------------
 
-:Date: @BUILD_DATE@
+:Date: 2016-12-20
 :Manual section: 8
 :Manual group: OpenIB Diagnostics
 

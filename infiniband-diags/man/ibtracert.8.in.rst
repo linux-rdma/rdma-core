@@ -6,7 +6,7 @@ ibtracert
 trace InfiniBand path
 ---------------------
 
-:Date: @BUILD_DATE@
+:Date: 2018-04-02
 :Manual section: 8
 :Manual group: Open IB Diagnostics
 
