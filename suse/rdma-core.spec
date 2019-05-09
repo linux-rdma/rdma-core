@@ -62,6 +62,7 @@ BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(systemd)
 BuildRequires:  pkgconfig(udev)
+BuildRequires:  python-docutils
 %if %{with_pyverbs}
 BuildRequires:  python3-Cython
 BuildRequires:  python3-devel

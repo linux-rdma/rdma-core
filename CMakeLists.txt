@@ -406,8 +406,9 @@ if (CYTHON_EXECUTABLE)
   string(STRIP ${py_path} CMAKE_PYTHON_SO_SUFFIX)
 endif()
 
-# Look for pandoc
+# Look for pandoc and rst2man for making manual pages
 FIND_PACKAGE(pandoc)
+FIND_PACKAGE(rst2man)
 
 #-------------------------
 # Find libraries
@@ -666,6 +667,13 @@ if (NOT PANDOC_FOUND)
     message(STATUS " pandoc NOT found and NO prebuilt man pages. 'install' disabled")
   else()
     message(STATUS " pandoc NOT found (using prebuilt man pages)")
+  endif()
+endif()
+if (NOT RST2MAN_FOUND)
+  if (NOT EXISTS "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt")
+    message(STATUS " rst2man NOT found and NO prebuilt man pages. 'install' disabled")
+  else()
+    message(STATUS " rst2man NOT found (using prebuilt man pages)")
   endif()
 endif()
 if (NOT CYTHON_EXECUTABLE)

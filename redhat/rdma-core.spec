@@ -20,6 +20,7 @@ BuildRequires: libudev-devel
 BuildRequires: pkgconfig
 BuildRequires: pkgconfig(libnl-3.0)
 BuildRequires: pkgconfig(libnl-route-3.0)
+BuildRequires: python-docutils
 BuildRequires: valgrind-devel
 BuildRequires: systemd
 BuildRequires: systemd-devel
