@@ -1,6 +1,6 @@
 publish_headers(infiniband
-  ../include/infiniband/mad.h
-  ../include/infiniband/mad_osd.h
+  mad.h
+  mad_osd.h
   )
 
 publish_internal_headers(util

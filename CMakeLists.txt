@@ -617,7 +617,7 @@ add_subdirectory(providers/ipathverbs)
 add_subdirectory(providers/rxe)
 add_subdirectory(providers/rxe/man)
 
-add_subdirectory(ibdiags/libibmad/src)
+add_subdirectory(libibmad)
 add_subdirectory(ibdiags/libibnetdisc/src)
 add_subdirectory(ibdiags/libibnetdisc/man)
 add_subdirectory(ibdiags/src)
