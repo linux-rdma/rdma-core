@@ -1,5 +1,49 @@
-# rst2man has no way to set the include search path
-rdma_create_symlink("${CMAKE_CURRENT_SOURCE_DIR}/common" "${CMAKE_CURRENT_BINARY_DIR}/common")
+# rst2man has no way to set the include search path and we need to substitute
+# into the common files, so subst/link them all into the build directory
+function(rdma_rst_common)
+  foreach(I ${ARGN})
+    if ("${I}" MATCHES "\\.in.rst$")
+      string(REGEX REPLACE "^(.+)\\.in.rst$" "\\1" BASE_NAME "${I}")
+      configure_file("common/${I}" "${CMAKE_CURRENT_BINARY_DIR}/common/${BASE_NAME}.rst" @ONLY)
+    else()
+      if (NOT CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_CURRENT_BINARY_DIR)
+	rdma_create_symlink("${CMAKE_CURRENT_SOURCE_DIR}/common/${I}" "${CMAKE_CURRENT_BINARY_DIR}/common/${I}")
+      endif()
+    endif()
+  endforeach()
+endfunction()
+
+rdma_rst_common(
+  opt_cache.rst
+  opt_C.rst
+  opt_diffcheck.rst
+  opt_diff.rst
+  opt_d.rst
+  opt_D.rst
+  opt_D_with_param.rst
+  opt_e.rst
+  opt_G.rst
+  opt_G_with_param.rst
+  opt_h.rst
+  opt_K.rst
+  opt_load-cache.rst
+  opt_L.rst
+  opt_node_name_map.rst
+  opt_o-outstanding_smps.rst
+  opt_ports-file.rst
+  opt_P.rst
+  opt_s.rst
+  opt_t.rst
+  opt_v.rst
+  opt_V.rst
+  opt_y.rst
+  opt_z-config.in.rst
+  sec_config-file.in.rst
+  sec_node-name-map.rst
+  sec_portselection.rst
+  sec_ports-file.rst
+  sec_topology-file.rst
+)
 
 rdma_man_pages(
   check_lft_balance.8.in.rst
