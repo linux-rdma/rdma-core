@@ -45,8 +45,6 @@
 #   -DNO_PYVERBS=1 (default, build pyverbs)
 #      Invoke cython to build pyverbs. Usually you will run with this option
 #      is set, but it will be disabled for travis runs.
-#   -DWITH_IBDIAGS=False (default True)
-#      Do not build infiniband-diags components
 #   -DENABLE_IBDIAGS_COMPAT=True (default False)
 #      Include obsolete scripts. These scripts are replaced by C programs with
 #      a different interface now.
@@ -159,8 +157,6 @@ endif()
 
 set(DISTRO_FLAVOUR "None" CACHE
   STRING "Flavour of distribution to install for. This primarily impacts the init.d scripts installed.")
-
-set(WITH_IBDIAGS "True" CACHE BOOL "Build infiniband-diags stuff too")
 
 #-------------------------
 # Load CMake components
@@ -621,7 +617,6 @@ add_subdirectory(providers/ipathverbs)
 add_subdirectory(providers/rxe)
 add_subdirectory(providers/rxe/man)
 
-if (WITH_IBDIAGS)
 add_subdirectory(ibdiags/libibmad/src)
 add_subdirectory(ibdiags/libibnetdisc/src)
 add_subdirectory(ibdiags/libibnetdisc/man)
@@ -629,7 +624,6 @@ add_subdirectory(ibdiags/src)
 add_subdirectory(ibdiags/scripts)
 add_subdirectory(ibdiags/man)
 add_subdirectory(ibdiags/doc/rst)
-endif()
 
 if (CYTHON_EXECUTABLE)
   add_subdirectory(pyverbs)
