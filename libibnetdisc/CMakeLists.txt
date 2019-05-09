@@ -1,6 +1,6 @@
 publish_headers(infiniband
-  ../include/infiniband/ibnetdisc.h
-  ../include/infiniband/ibnetdisc_osd.h
+  ibnetdisc.h
+  ibnetdisc_osd.h
   )
 
 rdma_library(ibnetdisc libibnetdisc.map
@@ -17,7 +17,7 @@ target_link_libraries(ibnetdisc LINK_PRIVATE
   )
 rdma_pkg_config("ibnetdisc" "libibumad libibmad" "")
 
-rdma_test_executable(testleaks ../test/testleaks.c)
+rdma_test_executable(testleaks tests/testleaks.c)
 target_link_libraries(testleaks LINK_PRIVATE
   ibmad
   ibnetdisc
