@@ -84,11 +84,6 @@ rdma_sbin_perl_program(
 install(FILES "IBswcountlimits.pm"
   DESTINATION "${CMAKE_INSTALL_PERLDIR}")
 
-install(FILES
-  "../etc/error_thresholds"
-  "../etc/ibdiag.conf"
-  DESTINATION "${IBDIAG_CONFIG_PATH}")
-
 if (ENABLE_IBDIAGS_COMPAT)
   rdma_sbin_shell_program(
     ibcheckerrors.in

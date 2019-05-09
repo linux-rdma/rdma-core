@@ -1,7 +1,12 @@
 publish_internal_headers(""
-  ../include/ibdiag_common.h
-  ../include/ibdiag_sa.h
+  ibdiag_common.h
+  ibdiag_sa.h
   )
+
+install(FILES
+  etc/error_thresholds
+  etc/ibdiag.conf
+  DESTINATION "${IBDIAG_CONFIG_PATH}")
 
 add_library(ibdiags_tools STATIC
   ibdiag_common.c
