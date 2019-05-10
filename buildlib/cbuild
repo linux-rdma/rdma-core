@@ -219,7 +219,7 @@ class stretch(APTEnvironment):
 
 class debian_experimental(APTEnvironment):
     docker_parent = "debian:experimental"
-    pkgs = (stretch.pkgs ^ {"gcc"}) | {"gcc-7"};
+    pkgs = (stretch.pkgs ^ {"gcc"}) | {"gcc-9"};
     name = "debian-experimental";
 
     def get_docker_file(self):
