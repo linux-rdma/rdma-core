@@ -125,8 +125,16 @@ class centos7(YumEnvironment):
     python_cmd = "python";
 
 class centos7_epel(centos7):
-    pkgs = (centos7.pkgs - {"cmake","make"}) | {"ninja-build","cmake3","pandoc", 'python3-Cython', 'python3-devel'};
+    pkgs = (centos7.pkgs - {"cmake","make"}) | {
+        "cmake3",
+        "ninja-build",
+        "pandoc",
+        "python34-setuptools",
+        'python34-Cython',
+        'python34-devel',
+    };
     name = "centos7_epel";
+    build_pyverbs = True;
     use_make = False;
     pandoc = True;
     ninja_cmd = "ninja-build";
@@ -136,7 +144,7 @@ class centos7_epel(centos7):
     def get_docker_file(self):
         res = YumEnvironment.get_docker_file(self);
         res.lines.insert(1,"RUN yum install -y epel-release");
-        res.lines.append("RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake");
+        res.lines.append("RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake && ln -sf /usr/bin/python3.4 /usr/bin/python3");
         return res;
 
 class fc30(Environment):
