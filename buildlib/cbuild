@@ -173,9 +173,9 @@ class APTEnvironment(Environment):
             " ".join(sorted(self.pkgs))));
         return res;
 
-class trusty(APTEnvironment):
-    docker_parent = "ubuntu:14.04";
-    common_pkgs = {
+class xenial(APTEnvironment):
+    docker_parent = "ubuntu:16.04"
+    pkgs = {
         'build-essential',
         'cmake',
         'debhelper',
@@ -183,32 +183,24 @@ class trusty(APTEnvironment):
         'gcc',
         'libnl-3-dev',
         'libnl-route-3-dev',
+        'libsystemd-dev',
         'libudev-dev',
         'make',
         'ninja-build',
         'pandoc',
         'pkg-config',
+        'python3',
         'valgrind',
-        };
-    pkgs = common_pkgs | {
-        'libsystemd-daemon-dev',
-        'libsystemd-id128-dev',
-        'libsystemd-journal-dev',
-        };
-    name = "ubuntu-14.04";
-    aliases = {"trusty"};
-    python_cmd = "python";
-    build_pyverbs = False;
-
-class xenial(APTEnvironment):
-    docker_parent = "ubuntu:16.04"
-    pkgs = trusty.common_pkgs | {"libsystemd-dev", "python3-dev", "cython3"};
+    };
     name = "ubuntu-16.04";
     aliases = {"xenial"};
 
 class bionic(APTEnvironment):
     docker_parent = "ubuntu:18.04"
-    pkgs = xenial.pkgs
+    pkgs = xenial.pkgs | {
+        'cython3',
+        'python3-dev',
+    };
     name = "ubuntu-18.04";
     aliases = {"bionic", "ubuntu"};
 
@@ -221,7 +213,7 @@ class jessie(APTEnvironment):
 
 class stretch(APTEnvironment):
     docker_parent = "debian:9"
-    pkgs = jessie.pkgs;
+    pkgs = bionic.pkgs;
     name = "debian-9";
     aliases = {"stretch"};
 
@@ -380,7 +372,6 @@ environments = [centos6(),
                 centos7(),
                 centos7_epel(),
                 travis(),
-                trusty(),
                 xenial(),
                 bionic(),
                 jessie(),
