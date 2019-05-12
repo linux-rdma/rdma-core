@@ -52,6 +52,12 @@ cdef extern from 'infiniband/mlx5dv.h':
         mlx5dv_dc_init_attr dc_init_attr
         unsigned long       send_ops_flags
 
+    cdef struct mlx5dv_cq_init_attr:
+        unsigned long   comp_mask
+        unsigned char   cqe_comp_res_format
+        unsigned int    flags
+        unsigned short  cqe_size
+
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
@@ -59,3 +65,6 @@ cdef extern from 'infiniband/mlx5dv.h':
     v.ibv_qp *mlx5dv_create_qp(v.ibv_context *context,
                                v.ibv_qp_init_attr_ex *qp_attr,
                                mlx5dv_qp_init_attr *mlx5_qp_attr)
+    v.ibv_cq_ex *mlx5dv_create_cq(v.ibv_context *context,
+                                  v.ibv_cq_init_attr_ex *cq_attr,
+                                  mlx5dv_cq_init_attr *mlx5_cq_attr)

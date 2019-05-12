@@ -67,6 +67,15 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_QP_EX_WITH_MR_INTERLEAVED    = 1 << 0
         MLX5DV_QP_EX_WITH_MR_LIST           = 1 << 1
 
+    cpdef enum mlx5dv_cq_init_attr_mask:
+        MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE = 1 << 0
+        MLX5DV_CQ_INIT_ATTR_MASK_FLAGS          = 1 << 1
+        MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE       = 1 << 2
+
+    cpdef enum mlx5dv_cq_init_attr_flags:
+        MLX5DV_CQ_INIT_ATTR_FLAGS_CQE_PAD   = 1 << 0
+        MLX5DV_CQ_INIT_ATTR_FLAGS_RESERVED  = 1 << 1
+
     cpdef unsigned long long MLX5DV_RES_TYPE_QP
     cpdef unsigned long long MLX5DV_RES_TYPE_RWQ
     cpdef unsigned long long MLX5DV_RES_TYPE_DBR

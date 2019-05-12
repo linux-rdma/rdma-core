@@ -7,6 +7,8 @@ cimport pyverbs.providers.mlx5.libmlx5 as dv
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.qp cimport QPInitAttrEx
+from pyverbs.cq cimport CqInitAttrEx
+cimport pyverbs.libibverbs as v
 from pyverbs.pd cimport PD
 
 cdef class Mlx5DVContextAttr(PyverbsObject):
@@ -329,6 +331,107 @@ cdef class Mlx5QP(QP):
         if self.dc_type == 0:
             return super()._get_comp_mask(dst)
         return masks[self.dc_type][dst] | e.IBV_QP_STATE
+
+
+cdef class Mlx5DVCQInitAttr(PyverbsObject):
+    """
+    Represents mlx5dv_cq_init_attr struct, initial attributes used for mlx5 CQ
+    creation.
+    """
+    def __cinit__(self, comp_mask=0, cqe_comp_res_format=0, flags=0, cqe_size=0):
+        """
+        Initializes an Mlx5CQInitAttr object with zeroes as default values.
+        :param comp_mask: Marks which of the following fields should be
+                          considered. Use mlx5dv_cq_init_attr_mask enum.
+        :param cqe_comp_res_format: The various CQE response formats of the
+                                    responder side. Use
+                                    mlx5dv_cqe_comp_res_format enum.
+        :param flags: A bitwise OR of the various values described in
+                      mlx5dv_cq_init_attr_flags.
+        :param cqe_size: Configure the CQE size to be 64 or 128 bytes, other
+                         values will cause the CQ creation process to fail.
+                         Valid when MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE is set.
+        :return: None
+        """
+        self.attr.comp_mask = comp_mask
+        self.attr.cqe_comp_res_format = cqe_comp_res_format
+        self.attr.flags = flags
+        self.attr.cqe_size = cqe_size
+
+    @property
+    def comp_mask(self):
+        return self.attr.comp_mask
+    @comp_mask.setter
+    def comp_mask(self, val):
+        self.attr.comp_mask = val
+
+    @property
+    def cqe_comp_res_format(self):
+        return self.attr.cqe_comp_res_format
+    @cqe_comp_res_format.setter
+    def cqe_comp_res_format(self, val):
+        self.attr.cqe_comp_res_format = val
+
+    @property
+    def flags(self):
+        return self.attr.flags
+    @flags.setter
+    def flags(self, val):
+        self.attr.flags = val
+
+    @property
+    def cqe_size(self):
+        return self.attr.cqe_size
+    @cqe_size.setter
+    def cqe_size(self, val):
+        self.attr.cqe_size = val
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        flags = {dve.MLX5DV_CQ_INIT_ATTR_FLAGS_CQE_PAD:
+                     "MLX5DV_CQ_INIT_ATTR_FLAGS_CQE_PAD}"}
+        mask = {dve.MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE:
+                    "MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE",
+                dve.MLX5DV_CQ_INIT_ATTR_MASK_FLAGS:
+                    "MLX5DV_CQ_INIT_ATTR_MASK_FLAGS",
+                dve.MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE:
+                    "MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE"}
+        fmt = {dve.MLX5DV_CQE_RES_FORMAT_HASH: "MLX5DV_CQE_RES_FORMAT_HASH",
+               dve.MLX5DV_CQE_RES_FORMAT_CSUM: "MLX5DV_CQE_RES_FORMAT_CSUM",
+               dve.MLX5DV_CQE_RES_FORMAT_CSUM_STRIDX:
+                   "MLX5DV_CQE_RES_FORMAT_CSUM_STRIDX"}
+
+        return 'Mlx5DVCQInitAttr:\n' +\
+               print_format.format('comp_mask', bitmask_to_str(self.comp_mask,
+                                                               mask)) +\
+               print_format.format('CQE compression format',
+                                   bitmask_to_str(self.cqe_comp_res_format,
+                                                  fmt)) +\
+               print_format.format('flags', bitmask_to_str(self.flags,
+                                                           flags)) + \
+               print_format.format('CQE size', self.cqe_size)
+
+
+cdef class Mlx5CQ(CQEX):
+    def __cinit__(self, Mlx5Context context, CqInitAttrEx init_attr,
+                  Mlx5DVCQInitAttr dv_init_attr):
+        self.cq = \
+            dv.mlx5dv_create_cq(context.context, &init_attr.attr,
+                                &dv_init_attr.attr if dv_init_attr is not None
+                                else NULL)
+        if self.cq == NULL:
+            raise PyverbsRDMAErrno('Failed to create MLX5 CQ.\nCQInitAttrEx:\n'
+                                   '{}\nMLX5DVCQInitAttr:\n{}'.
+                                   format(init_attr, dv_init_attr))
+        self.ibv_cq = v.ibv_cq_ex_to_cq(self.cq)
+        self.context = context
+        context.add_ref(self)
+
+    def __str__(self):
+        print_format = '{:<22}: {:<20}\n'
+        return 'Mlx5 CQ:\n' +\
+               print_format.format('Handle', self.cq.handle) +\
+               print_format.format('CQEs', self.cq.cqe)
 
 
 def qpts_to_str(qp_types):
