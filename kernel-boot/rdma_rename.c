@@ -47,9 +47,11 @@
 
 static struct nla_policy policy[RDMA_NLDEV_ATTR_MAX] = {
 	[RDMA_NLDEV_ATTR_DEV_INDEX] = { .type = NLA_U32 },
-	[RDMA_NLDEV_ATTR_DEV_NAME] = { .type = NLA_NUL_STRING },
 	[RDMA_NLDEV_ATTR_NODE_GUID] = { .type = NLA_U64 },
+#ifdef NLA_NUL_STRING
+	[RDMA_NLDEV_ATTR_DEV_NAME] = { .type = NLA_NUL_STRING },
 	[RDMA_NLDEV_ATTR_DEV_PROTOCOL] = { .type = NLA_NUL_STRING },
+#endif /* NLA_NUL_STRING */
 };
 
 struct data {
