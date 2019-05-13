@@ -1339,6 +1339,7 @@ static int rs_do_connect(struct rsocket *rs)
 	struct rs_conn_data *creq, *cresp;
 	int to, ret;
 
+	fastlock_acquire(&rs->slock);
 	switch (rs->state) {
 	case rs_init:
 	case rs_bound:
@@ -1449,6 +1450,7 @@ connected:
 			rs->err = errno;
 		}
 	}
+	fastlock_release(&rs->slock);
 	return ret;
 }
 
