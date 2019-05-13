@@ -106,7 +106,7 @@ static struct rs_svc udp_svc = {
 	.context_size = sizeof(*udp_svc_fds),
 	.run = udp_svc_run
 };
-static uint32_t *tcp_svc_timeouts;
+static uint64_t *tcp_svc_timeouts;
 static void *tcp_svc_run(void *arg);
 static struct rs_svc tcp_svc = {
 	.context_size = sizeof(*tcp_svc_timeouts),
@@ -2109,7 +2109,7 @@ static int rs_process_cq(struct rsocket *rs, int nonblock, int (*test)(struct rs
 
 static int rs_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsocket *rs))
 {
-	struct timeval s, e;
+	uint64_t start_time;
 	uint32_t poll_time = 0;
 	int ret;
 
@@ -2119,11 +2119,9 @@ static int rs_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsoc
 			return ret;
 
 		if (!poll_time)
-			gettimeofday(&s, NULL);
+			start_time = rs_time_us();
 
-		gettimeofday(&e, NULL);
-		poll_time = (e.tv_sec - s.tv_sec) * 1000000 +
-			    (e.tv_usec - s.tv_usec) + 1;
+		poll_time = (uint32_t) (rs_time_us() - start_time);
 	} while (poll_time <= polling_time);
 
 	ret = rs_process_cq(rs, 0, test);
@@ -2270,7 +2268,7 @@ static int ds_process_cqs(struct rsocket *rs, int nonblock, int (*test)(struct r
 
 static int ds_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsocket *rs))
 {
-	struct timeval s, e;
+	uint64_t start_time;
 	uint32_t poll_time = 0;
 	int ret;
 
@@ -2280,11 +2278,9 @@ static int ds_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsoc
 			return ret;
 
 		if (!poll_time)
-			gettimeofday(&s, NULL);
+			start_time = rs_time_us();
 
-		gettimeofday(&e, NULL);
-		poll_time = (e.tv_sec - s.tv_sec) * 1000000 +
-			    (e.tv_usec - s.tv_usec) + 1;
+		poll_time = (uint32_t) (rs_time_us() - start_time);
 	} while (poll_time <= polling_time);
 
 	ret = ds_process_cqs(rs, 0, test);
@@ -4311,13 +4307,9 @@ static void *udp_svc_run(void *arg)
 	return NULL;
 }
 
-static uint32_t rs_get_time(void)
+static uint64_t rs_get_time(void)
 {
-	struct timeval now;
-
-	memset(&now, 0, sizeof now);
-	gettimeofday(&now, NULL);
-	return (uint32_t) now.tv_sec;
+	return rs_time_us() / 1000000;
 }
 
 static void tcp_svc_process_sock(struct rs_svc *svc)
@@ -4379,7 +4371,7 @@ static void *tcp_svc_run(void *arg)
 	struct rs_svc *svc = arg;
 	struct rs_svc_msg msg;
 	struct pollfd fds;
-	uint32_t now, next_timeout;
+	uint64_t now, next_timeout;
 	int i, ret, timeout;
 
 	ret = rs_svc_grow_sets(svc, 16);
