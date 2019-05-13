@@ -130,6 +130,7 @@ static uint16_t def_rqsize = 384;
 static uint32_t def_mem = (1 << 17);
 static uint32_t def_wmem = (1 << 17);
 static uint32_t polling_time = 10;
+static int wake_up_interval = 5000;
 
 /*
  * Immediate data format is determined by the upper bits
@@ -554,6 +555,11 @@ static void rs_configure(void)
 		fclose(f);
 	}
 
+	f = fopen(RS_CONF_DIR "/wake_up_interval", "r");
+	if (f) {
+		failable_fscanf(f, "%d", &wake_up_interval);
+		fclose(f);
+	}
 	if ((f = fopen(RS_CONF_DIR "/inline_default", "r"))) {
 		failable_fscanf(f, "%hu", &def_inline);
 		fclose(f);
@@ -3272,7 +3278,7 @@ int rpoll(struct pollfd *fds, nfds_t nfds, int timeout)
 	struct pollfd *rfds;
 	uint64_t start_time;
 	uint32_t poll_time = 0;
-	int ret;
+	int pollsleep, ret;
 
 	do {
 		ret = rs_poll_check(fds, nfds);
@@ -3301,10 +3307,13 @@ int rpoll(struct pollfd *fds, nfds_t nfds, int timeout)
 			timeout -= (int) ((rs_time_us() - start_time) / 1000);
 			if (timeout <= 0)
 				return 0;
+			pollsleep = min(timeout, wake_up_interval);
+		} else {
+			pollsleep = wake_up_interval;
 		}
 
-		ret = poll(rfds, nfds + 1, timeout);
-		if (ret <= 0) {
+		ret = poll(rfds, nfds + 1, pollsleep);
+		if (ret < 0) {
 			rs_poll_exit();
 			break;
 		}
