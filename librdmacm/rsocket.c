@@ -47,6 +47,7 @@
 #include <netinet/tcp.h>
 #include <sys/epoll.h>
 #include <search.h>
+#include <time.h>
 #include <byteswap.h>
 #include <util/compiler.h>
 #include <util/util.h>
@@ -428,6 +429,14 @@ static void read_all(int fd, void *msg, size_t len)
 	// FIXME: if fd is a socket this really needs to handle EINTR and other conditions.
 	ssize_t __attribute__((unused)) rc = read(fd, msg, len);
 	assert(rc == len);
+}
+
+static uint64_t rs_time_us(void)
+{
+	struct timespec now;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	return now.tv_sec * 1000000 + now.tv_nsec / 1000;
 }
 
 static void ds_insert_qp(struct rsocket *rs, struct ds_qp *qp)
@@ -3142,8 +3151,8 @@ static int rs_poll_events(struct pollfd *rfds, struct pollfd *fds, nfds_t nfds)
  */
 int rpoll(struct pollfd *fds, nfds_t nfds, int timeout)
 {
-	struct timeval s, e;
 	struct pollfd *rfds;
+	uint64_t start_time;
 	uint32_t poll_time = 0;
 	int ret;
 
@@ -3153,11 +3162,9 @@ int rpoll(struct pollfd *fds, nfds_t nfds, int timeout)
 			return ret;
 
 		if (!poll_time)
-			gettimeofday(&s, NULL);
+			start_time = rs_time_us();
 
-		gettimeofday(&e, NULL);
-		poll_time = (e.tv_sec - s.tv_sec) * 1000000 +
-			    (e.tv_usec - s.tv_usec) + 1;
+		poll_time = (uint32_t) (rs_time_us() - start_time);
 	} while (poll_time <= polling_time);
 
 	rfds = rs_fds_alloc(nfds);
@@ -3168,6 +3175,12 @@ int rpoll(struct pollfd *fds, nfds_t nfds, int timeout)
 		ret = rs_poll_arm(rfds, fds, nfds);
 		if (ret)
 			break;
+
+		if (timeout >= 0) {
+			timeout -= (int) ((rs_time_us() - start_time) / 1000);
+			if (timeout <= 0)
+				return 0;
+		}
 
 		ret = poll(rfds, nfds, timeout);
 		if (ret <= 0)
