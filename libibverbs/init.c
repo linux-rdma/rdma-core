@@ -537,6 +537,7 @@ void ibverbs_device_put(struct ibv_device *dev)
 	struct verbs_device *verbs_device = verbs_get_device(dev);
 
 	if (atomic_fetch_sub(&verbs_device->refcount, 1) == 1) {
+		list_del(&verbs_device->entry);
 		free(verbs_device->sysfs);
 		if (verbs_device->ops->uninit_device)
 			verbs_device->ops->uninit_device(verbs_device);
