@@ -486,6 +486,7 @@ out:
 				"Warning: no userspace device-specific driver found for %s\n",
 				sysfs_dev->sysfs_path);
 		}
+		list_del(&sysfs_dev->entry);
 		free(sysfs_dev);
 	}
 
