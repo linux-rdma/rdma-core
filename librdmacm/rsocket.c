@@ -250,7 +250,8 @@ enum rs_state {
  * transfer rsocket messages as inline sends.
  */
 #define RS_OPT_MSG_SEND   (1 << 1)
-#define RS_OPT_SVC_ACTIVE (1 << 2)
+#define RS_OPT_UDP_SVC    (1 << 2)
+#define RS_OPT_KEEPALIVE  (1 << 3)
 
 union socket_addr {
 	struct sockaddr		sa;
@@ -3241,7 +3242,7 @@ int rshutdown(int socket, int how)
 	rs = idm_lookup(&idm, socket);
 	if (!rs)
 		return ERR(EBADF);
-	if (rs->opts & RS_OPT_SVC_ACTIVE)
+	if (rs->opts & RS_OPT_KEEPALIVE)
 		rs_notify_svc(&tcp_svc, rs, RS_SVC_REM_KEEPALIVE);
 
 	if (rs->fd_flags & O_NONBLOCK)
@@ -3291,7 +3292,7 @@ out:
 
 static void ds_shutdown(struct rsocket *rs)
 {
-	if (rs->opts & RS_OPT_SVC_ACTIVE)
+	if (rs->opts & RS_OPT_UDP_SVC)
 		rs_notify_svc(&udp_svc, rs, RS_SVC_REM_DGRAM);
 
 	if (rs->fd_flags & O_NONBLOCK)
@@ -3314,7 +3315,7 @@ int rclose(int socket)
 	if (rs->type == SOCK_STREAM) {
 		if (rs->state & rs_connected)
 			rshutdown(socket, SHUT_RDWR);
-		else if (rs->opts & RS_OPT_SVC_ACTIVE)
+		else if (rs->opts & RS_OPT_KEEPALIVE)
 			rs_notify_svc(&tcp_svc, rs, RS_SVC_REM_KEEPALIVE);
 	} else {
 		ds_shutdown(rs);
@@ -3373,8 +3374,8 @@ static int rs_set_keepalive(struct rsocket *rs, int on)
 	FILE *f;
 	int ret;
 
-	if ((on && (rs->opts & RS_OPT_SVC_ACTIVE)) ||
-	    (!on && !(rs->opts & RS_OPT_SVC_ACTIVE)))
+	if ((on && (rs->opts & RS_OPT_KEEPALIVE)) ||
+	    (!on && !(rs->opts & RS_OPT_KEEPALIVE)))
 		return 0;
 
 	if (on) {
@@ -3448,7 +3449,7 @@ int rsetsockopt(int socket, int level, int optname,
 			break;
 		case SO_KEEPALIVE:
 			ret = rs_set_keepalive(rs, *(int *) optval);
-			opt_on = rs->opts & RS_OPT_SVC_ACTIVE;
+			opt_on = rs->opts & RS_OPT_KEEPALIVE;
 			break;
 		case SO_OOBINLINE:
 			opt_on = *(int *) optval;
@@ -3471,7 +3472,7 @@ int rsetsockopt(int socket, int level, int optname,
 				break;
 			}
 			rs->keepalive_time = *(int *) optval;
-			ret = (rs->opts & RS_OPT_SVC_ACTIVE) ?
+			ret = (rs->opts & RS_OPT_KEEPALIVE) ?
 			      rs_notify_svc(&tcp_svc, rs, RS_SVC_MOD_KEEPALIVE) : 0;
 			break;
 		case TCP_NODELAY:
@@ -4034,7 +4035,7 @@ static void udp_svc_process_sock(struct rs_svc *svc)
 	case RS_SVC_ADD_DGRAM:
 		msg.status = rs_svc_add_rs(svc, msg.rs);
 		if (!msg.status) {
-			msg.rs->opts |= RS_OPT_SVC_ACTIVE;
+			msg.rs->opts |= RS_OPT_UDP_SVC;
 			udp_svc_fds = svc->contexts;
 			udp_svc_fds[svc->cnt].fd = msg.rs->udp_sock;
 			udp_svc_fds[svc->cnt].events = POLLIN;
@@ -4044,7 +4045,7 @@ static void udp_svc_process_sock(struct rs_svc *svc)
 	case RS_SVC_REM_DGRAM:
 		msg.status = rs_svc_rm_rs(svc, msg.rs);
 		if (!msg.status)
-			msg.rs->opts &= ~RS_OPT_SVC_ACTIVE;
+			msg.rs->opts &= ~RS_OPT_UDP_SVC;
 		break;
 	case RS_SVC_NOOP:
 		msg.status = 0;
@@ -4275,7 +4276,7 @@ static void tcp_svc_process_sock(struct rs_svc *svc)
 	case RS_SVC_ADD_KEEPALIVE:
 		msg.status = rs_svc_add_rs(svc, msg.rs);
 		if (!msg.status) {
-			msg.rs->opts |= RS_OPT_SVC_ACTIVE;
+			msg.rs->opts |= RS_OPT_KEEPALIVE;
 			tcp_svc_timeouts = svc->contexts;
 			tcp_svc_timeouts[svc->cnt] = rs_get_time() +
 						     msg.rs->keepalive_time;
@@ -4284,7 +4285,7 @@ static void tcp_svc_process_sock(struct rs_svc *svc)
 	case RS_SVC_REM_KEEPALIVE:
 		msg.status = rs_svc_rm_rs(svc, msg.rs);
 		if (!msg.status)
-			msg.rs->opts &= ~RS_OPT_SVC_ACTIVE;
+			msg.rs->opts &= ~RS_OPT_KEEPALIVE;
 		break;
 	case RS_SVC_MOD_KEEPALIVE:
 		i = rs_svc_index(svc, msg.rs);
