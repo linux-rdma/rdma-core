@@ -70,6 +70,7 @@
 #define RS_SGL_SIZE 2
 static struct index_map idm;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t svc_mut = PTHREAD_MUTEX_INITIALIZER;
 
 struct rsocket;
 
@@ -115,6 +116,10 @@ static struct rs_svc tcp_svc = {
 };
 static void *cm_svc_run(void *arg);
 static struct rs_svc listen_svc = {
+	.context_size = sizeof(struct pollfd),
+	.run = cm_svc_run
+};
+static struct rs_svc connect_svc = {
 	.context_size = sizeof(struct pollfd),
 	.run = cm_svc_run
 };
@@ -469,7 +474,7 @@ static int rs_notify_svc(struct rs_svc *svc, struct rsocket *rs, int cmd)
 	struct rs_svc_msg msg;
 	int ret;
 
-	pthread_mutex_lock(&mut);
+	pthread_mutex_lock(&svc_mut);
 	if (!svc->cnt) {
 		ret = socketpair(AF_UNIX, SOCK_STREAM, 0, svc->sock);
 		if (ret)
@@ -496,7 +501,7 @@ closepair:
 	close(svc->sock[0]);
 	close(svc->sock[1]);
 unlock:
-	pthread_mutex_unlock(&mut);
+	pthread_mutex_unlock(&svc_mut);
 	return ret;
 }
 
@@ -1680,7 +1685,7 @@ out:
 int rconnect(int socket, const struct sockaddr *addr, socklen_t addrlen)
 {
 	struct rsocket *rs;
-	int ret;
+	int ret, save_errno;
 
 	rs = idm_lookup(&idm, socket);
 	if (!rs)
@@ -1688,6 +1693,12 @@ int rconnect(int socket, const struct sockaddr *addr, socklen_t addrlen)
 	if (rs->type == SOCK_STREAM) {
 		memcpy(&rs->cm_id->route.addr.dst_addr, addr, addrlen);
 		ret = rs_do_connect(rs);
+		if (ret == -1 && errno == EINPROGRESS) {
+			save_errno = errno;
+			/* The app can still drive the CM state on failure */
+			rs_notify_svc(&connect_svc, rs, RS_SVC_ADD_CM);
+			errno = save_errno;
+		}
 	} else {
 		if (rs->state == rs_init) {
 			ret = ds_init_ep(rs);
@@ -3101,6 +3112,25 @@ static void rs_poll_stop(void)
 		errno = save_errno;
 }
 
+static int rs_poll_signal(void)
+{
+	uint64_t c;
+	ssize_t ret;
+
+	pthread_mutex_lock(&mut);
+	if (pollcnt && !suspendpoll) {
+		suspendpoll = 1;
+		c = 1;
+		ret = write(pollsignal, &c, sizeof(c));
+		if (ret == sizeof(c))
+			ret = 0;
+	} else {
+		ret = 0;
+	}
+	pthread_mutex_unlock(&mut);
+	return ret;
+}
+
 /* We always add the pollsignal read fd to the poll fd set, so
  * that we can signal any blocked threads.
  */
@@ -3502,8 +3532,10 @@ int rclose(int socket)
 			rshutdown(socket, SHUT_RDWR);
 		if (rs->opts & RS_OPT_KEEPALIVE)
 			rs_notify_svc(&tcp_svc, rs, RS_SVC_REM_KEEPALIVE);
-		if (rs->opts & RS_OPT_CM_SVC)
+		if (rs->opts & RS_OPT_CM_SVC && rs->state == rs_listening)
 			rs_notify_svc(&listen_svc, rs, RS_SVC_REM_CM);
+		if (rs->opts & RS_OPT_CM_SVC)
+			rs_notify_svc(&connect_svc, rs, RS_SVC_REM_CM);
 	} else {
 		ds_shutdown(rs);
 	}
@@ -4544,6 +4576,23 @@ static void *tcp_svc_run(void *arg)
 	return NULL;
 }
 
+static void rs_handle_cm_event(struct rsocket *rs)
+{
+	int ret;
+
+	if (rs->state & rs_opening) {
+		rs_do_connect(rs);
+	} else {
+		ret = ucma_complete(rs->cm_id);
+		if (!ret && rs->cm_id->event && (rs->state & rs_connected) &&
+		    (rs->cm_id->event->event == RDMA_CM_EVENT_DISCONNECTED))
+			rs->state = rs_disconnected;
+	}
+
+	if (!(rs->state & rs_opening))
+		rs_poll_signal();
+}
+
 static void cm_svc_process_sock(struct rs_svc *svc)
 {
 	struct rs_svc_msg msg;
@@ -4601,8 +4650,13 @@ static void *cm_svc_run(void *arg)
 			cm_svc_process_sock(svc);
 
 		for (i = 1; i <= svc->cnt; i++) {
-			if (fds[i].revents)
+			if (!fds[i].revents)
+				continue;
+
+			if (svc == &listen_svc)
 				rs_accept(svc->rss[i]);
+			else
+				rs_handle_cm_event(svc->rss[i]);
 		}
 	} while (svc->cnt >= 1);
 
