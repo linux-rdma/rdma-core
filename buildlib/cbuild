@@ -125,8 +125,16 @@ class centos7(YumEnvironment):
     python_cmd = "python";
 
 class centos7_epel(centos7):
-    pkgs = (centos7.pkgs - {"cmake","make"}) | {"ninja-build","cmake3","pandoc", 'python3-Cython', 'python3-devel'};
+    pkgs = (centos7.pkgs - {"cmake","make"}) | {
+        "cmake3",
+        "ninja-build",
+        "pandoc",
+        "python34-setuptools",
+        'python34-Cython',
+        'python34-devel',
+    };
     name = "centos7_epel";
+    build_pyverbs = True;
     use_make = False;
     pandoc = True;
     ninja_cmd = "ninja-build";
@@ -136,7 +144,7 @@ class centos7_epel(centos7):
     def get_docker_file(self):
         res = YumEnvironment.get_docker_file(self);
         res.lines.insert(1,"RUN yum install -y epel-release");
-        res.lines.append("RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake");
+        res.lines.append("RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake && ln -sf /usr/bin/python3.4 /usr/bin/python3");
         return res;
 
 class fc30(Environment):
@@ -165,9 +173,9 @@ class APTEnvironment(Environment):
             " ".join(sorted(self.pkgs))));
         return res;
 
-class trusty(APTEnvironment):
-    docker_parent = "ubuntu:14.04";
-    common_pkgs = {
+class xenial(APTEnvironment):
+    docker_parent = "ubuntu:16.04"
+    pkgs = {
         'build-essential',
         'cmake',
         'debhelper',
@@ -175,32 +183,24 @@ class trusty(APTEnvironment):
         'gcc',
         'libnl-3-dev',
         'libnl-route-3-dev',
+        'libsystemd-dev',
         'libudev-dev',
         'make',
         'ninja-build',
         'pandoc',
         'pkg-config',
+        'python3',
         'valgrind',
-        };
-    pkgs = common_pkgs | {
-        'libsystemd-daemon-dev',
-        'libsystemd-id128-dev',
-        'libsystemd-journal-dev',
-        };
-    name = "ubuntu-14.04";
-    aliases = {"trusty"};
-    python_cmd = "python";
-    build_pyverbs = False;
-
-class xenial(APTEnvironment):
-    docker_parent = "ubuntu:16.04"
-    pkgs = trusty.common_pkgs | {"libsystemd-dev", "python3-dev", "cython3"};
+    };
     name = "ubuntu-16.04";
     aliases = {"xenial"};
 
 class bionic(APTEnvironment):
     docker_parent = "ubuntu:18.04"
-    pkgs = xenial.pkgs
+    pkgs = xenial.pkgs | {
+        'cython3',
+        'python3-dev',
+    };
     name = "ubuntu-18.04";
     aliases = {"bionic", "ubuntu"};
 
@@ -213,13 +213,13 @@ class jessie(APTEnvironment):
 
 class stretch(APTEnvironment):
     docker_parent = "debian:9"
-    pkgs = jessie.pkgs;
+    pkgs = bionic.pkgs;
     name = "debian-9";
     aliases = {"stretch"};
 
 class debian_experimental(APTEnvironment):
     docker_parent = "debian:experimental"
-    pkgs = (stretch.pkgs ^ {"gcc"}) | {"gcc-7"};
+    pkgs = (stretch.pkgs ^ {"gcc"}) | {"gcc-9"};
     name = "debian-experimental";
 
     def get_docker_file(self):
@@ -325,6 +325,7 @@ class travis(APTEnvironment):
 # -------------------------------------------------------------------------
 
 class ZypperEnvironment(Environment):
+    proxy = False;
     is_rpm = True;
     def get_docker_file(self):
         res = DockerFile(self.docker_parent);
@@ -335,7 +336,6 @@ class ZypperEnvironment(Environment):
         return res;
 
 class leap(ZypperEnvironment):
-    proxy = False;
     docker_parent = "opensuse/leap:15.0";
     specfile = "suse/rdma-core.spec";
     pkgs = {
@@ -372,7 +372,6 @@ environments = [centos6(),
                 centos7(),
                 centos7_epel(),
                 travis(),
-                trusty(),
                 xenial(),
                 bionic(),
                 jessie(),
