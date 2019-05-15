@@ -1,0 +1,7 @@
+libibmad is a convenience library to encode, decode, and dump IB MAD packets.  It
+is implemented on top of libibumad.
+
+The main consumer of this library is the infiniband-diags package and it is
+therefore provided as part of that package.  The last independent release of
+libibmad was version 1.3.13.
+

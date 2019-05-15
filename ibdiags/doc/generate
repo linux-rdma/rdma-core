@@ -1,0 +1,45 @@
+#!/bin/bash
+
+docdir=`dirname $0`
+mode=$1
+
+cd $docdir
+
+rst2man=""
+
+rc=`which rst2man &> /dev/null`
+if [ "$?" == "0" ]; then
+	rst2man="rst2man"
+fi
+rc=`which rst2man.py &> /dev/null`
+if [ "$?" == "0" ]; then
+	rst2man="rst2man.py"
+fi
+
+if [ "$mode" == "" ]; then
+	if [ ! -d man ]; then
+		mkdir man
+	fi
+	if [ "$rst2man" == "" ]; then
+		echo "could not generate man pages; 'rst2man not found'"
+		exit 1
+	fi
+	for file in rst/*.rst; do
+		file=`basename $file`
+		target=`echo $file | sed -e 's/\(.*\).rst/\1/'`
+		echo "   creating man/$target ..."
+		$rst2man rst/$file > man/$target
+	done
+elif [ "$mode" == "clean" ]; then
+	rm -f man/*
+elif [ "$mode" == "-h" ] || [ "$mode" == "--help" ]; then
+	echo "./generate [clean]"
+	echo "   Generate the <file>.in 'man' files from rst documentation"
+	echo "   clean -- remove all files in 'man' and regenerate \"clean\""
+else
+	echo "ERROR: invalid option '$mode'"
+	exit 1
+fi
+
+exit 0
+
