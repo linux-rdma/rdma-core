@@ -170,6 +170,21 @@ endif()
 RDMA_BuildType()
 include_directories(${BUILD_INCLUDE})
 
+# Look for Python. We prefer some variant of python 3 if the system has it.
+FIND_PACKAGE(PythonInterp 3 QUIET)
+if (PythonInterp_FOUND)
+  # pyverbs can only use python3:
+  if (NO_PYVERBS)
+    set(CYTHON_EXECUTABLE "")
+  else()
+    FIND_PACKAGE(cython)
+  endif()
+else()
+  # But we still must have python (be it 2) for the build process:
+  FIND_PACKAGE(PythonInterp REQUIRED)
+  set(CYTHON_EXECUTABLE "")
+endif()
+
 RDMA_CheckSparse()
 
 # Require GNU99 mode
@@ -362,21 +377,6 @@ if (NO_COMPAT_SYMS)
   set(HAVE_LIMITED_SYMBOL_VERSIONS 1)
 else()
   set(HAVE_FULL_SYMBOL_VERSIONS 1)
-endif()
-
-# Look for Python. We prefer some variant of python 3 if the system has it.
-FIND_PACKAGE(PythonInterp 3 QUIET)
-if (PythonInterp_FOUND)
-  # pyverbs can only use python3:
-  if (NO_PYVERBS)
-    set(CYTHON_EXECUTABLE "")
-  else()
-    FIND_PACKAGE(cython)
-  endif()
-else()
-  # But we still must have python (be it 2) for the build process:
-  FIND_PACKAGE(PythonInterp REQUIRED)
-  set(CYTHON_EXECUTABLE "")
 endif()
 
 # A cython & python-devel installation that matches our selected interpreter.

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright 2015-2017 Obsidian Research Corp.
 # Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 import argparse
@@ -66,10 +66,10 @@ def apply_patch(src,patch,dest):
         subprocess.check_output(["patch","-f","--follow-symlinks","-V","never","-i",patch,"-o",dest,src]);
 
         if os.path.exists(dest + ".rej"):
-            print "Patch from %r failed"%(patch);
+            print("Patch from %r failed"%(patch));
             return False;
     except subprocess.CalledProcessError:
-        print "Patch from %r failed"%(patch);
+        print("Patch from %r failed"%(patch));
         return False;
     return True;
 
@@ -81,7 +81,7 @@ def replace_header(fn):
             return;
         tries = tries + 1;
 
-    print "Unable to apply any patch to %r, tries %u"%(fn,tries);
+    print("Unable to apply any patch to %r, tries %u"%(fn,tries));
     global failed;
     failed = True;
 
@@ -119,7 +119,8 @@ args = parser.parse_args();
 
 if args.save:
     # Get the glibc version string
-    ver = subprocess.check_output(["ldd","--version"]).splitlines()[0].split(' ')[-1];
+    ver = subprocess.check_output(["ldd","--version"]).decode()
+    ver = ver.splitlines()[0].split(' ')[-1];
     ver = ver.partition(".")[-1];
     outdir = os.path.join(args.SRC,"buildlib","sparse-include",ver);
     if not os.path.isdir(outdir):
