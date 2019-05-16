@@ -7,11 +7,13 @@ import os
 import collections
 
 headers = {
+    "bits/sysmacros.h",
     "endian.h",
     "netinet/in.h",
     "pthread.h",
-    "sys/socket.h",
     "stdatomic.h",
+    "stdlib.h",
+    "sys/socket.h",
     };
 
 def norm_header(fn):
