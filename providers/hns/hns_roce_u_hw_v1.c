@@ -32,7 +32,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <malloc.h>
 #include "hns_roce_u_db.h"
 #include "hns_roce_u_hw_v1.h"
 #include "hns_roce_u.h"
