@@ -211,9 +211,9 @@ struct ibv_qp *pvrdma_create_qp(struct ibv_pd *pd,
 {
 	struct pvrdma_device *dev = to_vdev(pd->context->device);
 	struct user_pvrdma_create_qp cmd;
-	struct ib_uverbs_create_qp_resp resp;
+	struct user_pvrdma_create_qp_resp resp;
+	struct user_pvrdma_create_qp_v3_resp resp_v3;
 	struct pvrdma_qp *qp;
-	int ret;
 	int is_srq = !!(attr->srq);
 
 	attr->cap.max_send_sge = max_t(uint32_t, 1U, attr->cap.max_send_sge);
@@ -282,14 +282,23 @@ struct ibv_qp *pvrdma_create_qp(struct ibv_pd *pd,
 	cmd.rbuf_size = qp->rbuf.length;
 	cmd.qp_addr = (uintptr_t) qp;
 
-	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr,
-				&cmd.ibv_cmd, sizeof(cmd),
-				&resp, sizeof(resp));
+	if (dev->abi_version <= PVRDMA_UVERBS_NO_QP_HANDLE_ABI_VERSION) {
+		if (ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd.ibv_cmd,
+				      sizeof(cmd), &resp_v3.ibv_resp,
+				      sizeof(resp_v3.ibv_resp)))
+			goto err_free;
 
-	if (ret)
-		goto err_free;
+		qp->qp_handle = qp->ibv_qp.qp_num;
+	} else {
+		if (ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd.ibv_cmd,
+				      sizeof(cmd), &resp.ibv_resp,
+				      sizeof(resp)))
+			goto err_free;
 
-	to_vctx(pd->context)->qp_tbl[qp->ibv_qp.qp_num & 0xFFFF] = qp;
+		qp->qp_handle = resp.drv_payload.qp_handle;
+	}
+
+	to_vctx(pd->context)->qp_tbl[qp->qp_handle & 0xFFFF] = qp;
 
 	/* If set, each WR submitted to the SQ generate a completion entry */
 	if (attr->sq_sig_all)
@@ -414,7 +423,7 @@ int pvrdma_destroy_qp(struct ibv_qp *ibqp)
 	free(qp->rq.wrid);
 	pvrdma_free_buf(&qp->rbuf);
 	pvrdma_free_buf(&qp->sbuf);
-	ctx->qp_tbl[ibqp->qp_num & 0xFFFF] = NULL;
+	ctx->qp_tbl[qp->qp_handle & 0xFFFF] = NULL;
 	free(qp);
 
 	return 0;
@@ -547,7 +556,7 @@ out:
 	if (nreq) {
 		udma_to_device_barrier();
 		pvrdma_write_uar_qp(ctx->uar,
-				    PVRDMA_UAR_QP_SEND | ibqp->qp_num);
+				    PVRDMA_UAR_QP_SEND | qp->qp_handle);
 	}
 
 	pthread_spin_unlock(&qp->sq.lock);
@@ -630,7 +639,7 @@ int pvrdma_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 out:
 	if (nreq)
 		pvrdma_write_uar_qp(ctx->uar,
-				    PVRDMA_UAR_QP_RECV | ibqp->qp_num);
+				    PVRDMA_UAR_QP_RECV | qp->qp_handle);
 
 	pthread_spin_unlock(&qp->rq.lock);
 	return ret;

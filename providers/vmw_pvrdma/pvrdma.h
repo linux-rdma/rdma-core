@@ -170,6 +170,7 @@ struct pvrdma_qp {
 	struct pvrdma_wq		sq;
 	struct pvrdma_wq		rq;
 	int				is_srq;
+	uint32_t			qp_handle;
 };
 
 struct pvrdma_ah {

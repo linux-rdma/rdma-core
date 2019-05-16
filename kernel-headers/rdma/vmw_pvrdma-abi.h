@@ -49,7 +49,11 @@
 
 #include <linux/types.h>
 
-#define PVRDMA_UVERBS_ABI_VERSION	3		/* ABI Version. */
+#define PVRDMA_UVERBS_MIN_ABI_VERSION		3
+#define PVRDMA_UVERBS_MAX_ABI_VERSION		4
+
+#define PVRDMA_UVERBS_NO_QP_HANDLE_ABI_VERSION	3
+
 #define PVRDMA_UAR_HANDLE_MASK		0x00FFFFFF	/* Bottom 24 bits. */
 #define PVRDMA_UAR_QP_OFFSET		0		/* QP doorbell. */
 #define PVRDMA_UAR_QP_SEND		(1 << 30)	/* Send bit. */
@@ -177,6 +181,11 @@ struct pvrdma_create_qp {
 	__u32 rbuf_size;
 	__u32 sbuf_size;
 	__aligned_u64 qp_addr;
+};
+
+struct pvrdma_create_qp_resp {
+	__u32 qpn;
+	__u32 qp_handle;
 };
 
 /* PVRDMA masked atomic compare and swap */

@@ -54,8 +54,10 @@ DECLARE_DRV_CMD(user_pvrdma_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
 		empty, pvrdma_alloc_pd_resp);
 DECLARE_DRV_CMD(user_pvrdma_create_cq, IB_USER_VERBS_CMD_CREATE_CQ,
 		pvrdma_create_cq, pvrdma_create_cq_resp);
-DECLARE_DRV_CMD(user_pvrdma_create_qp, IB_USER_VERBS_CMD_CREATE_QP,
+DECLARE_DRV_CMD(user_pvrdma_create_qp_v3, IB_USER_VERBS_CMD_CREATE_QP,
 		pvrdma_create_qp, empty);
+DECLARE_DRV_CMD(user_pvrdma_create_qp, IB_USER_VERBS_CMD_CREATE_QP,
+		pvrdma_create_qp, pvrdma_create_qp_resp);
 DECLARE_DRV_CMD(user_pvrdma_create_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
 		pvrdma_create_srq, pvrdma_create_srq_resp);
 DECLARE_DRV_CMD(user_pvrdma_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT,

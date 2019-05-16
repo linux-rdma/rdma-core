@@ -201,8 +201,8 @@ static const struct verbs_match_ent hca_table[] = {
 
 static const struct verbs_device_ops pvrdma_dev_ops = {
 	.name = "pvrdma",
-	.match_min_abi_version = PVRDMA_UVERBS_ABI_VERSION,
-	.match_max_abi_version = PVRDMA_UVERBS_ABI_VERSION,
+	.match_min_abi_version = PVRDMA_UVERBS_MIN_ABI_VERSION,
+	.match_max_abi_version = PVRDMA_UVERBS_MAX_ABI_VERSION,
 	.match_table = hca_table,
 	.alloc_device = pvrdma_device_alloc,
 	.uninit_device = pvrdma_uninit_device,
