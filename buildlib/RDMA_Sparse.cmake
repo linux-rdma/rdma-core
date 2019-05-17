@@ -22,6 +22,7 @@ int main(int argc,const char *argv[]) {return 0;}
     execute_process(COMMAND "${PYTHON_EXECUTABLE}" "${BUILDLIB}/gen-sparse.py"
       "--out" "${BUILD_INCLUDE}/"
       "--src" "${CMAKE_SOURCE_DIR}/"
+      "--cc" "${CMAKE_C_COMPILER}"
       RESULT_VARIABLE retcode)
     if(NOT "${retcode}" STREQUAL "0")
       message(FATAL_ERROR "glibc header file patching for sparse failed. Review include/*.rej and fix the rejects, then do "
