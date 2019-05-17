@@ -52,7 +52,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import yaml
 from contextlib import contextmanager;
 
 project = "rdma-core";
@@ -239,6 +238,7 @@ class travis(APTEnvironment):
     _yaml = None;
 
     def get_yaml(self):
+        import yaml
         if self._yaml:
             return self._yaml;
 
@@ -696,6 +696,7 @@ def copy_abi_files(src):
             shutil.copy(cur_fn, ref_fn);
 
 def run_travis_build(args,env):
+    import yaml
     with private_tmp(args) as tmpdir:
         os.mkdir(os.path.join(tmpdir,"src"));
         os.mkdir(os.path.join(tmpdir,"tmp"));
