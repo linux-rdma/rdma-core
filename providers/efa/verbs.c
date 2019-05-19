@@ -384,7 +384,7 @@ static int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 		wc->opcode = IBV_WC_RECV;
 		wc->src_qp = rcqe->src_qp_num;
 		wc->sl = 0;
-		wc->slid = 0;
+		wc->slid = rcqe->ah;
 	}
 
 	wc->wc_flags = 0;
@@ -1105,6 +1105,25 @@ ring_db:
 
 	pthread_spin_unlock(&qp->rq.wq.wqlock);
 	return err;
+}
+
+int efadv_query_ah(struct ibv_ah *ibvah, struct efadv_ah_attr *attr,
+		   uint32_t inlen)
+{
+	uint64_t comp_mask_out = 0;
+
+	if (!is_efa_dev(ibvah->context->device))
+		return EOPNOTSUPP;
+
+	if (!field_avail(attr, ahn, inlen))
+		return EINVAL;
+
+	memset(attr, 0, sizeof(*attr));
+	attr->ahn = to_efa_ah(ibvah)->efa_ah;
+
+	attr->comp_mask = comp_mask_out;
+
+	return 0;
 }
 
 struct ibv_ah *efa_create_ah(struct ibv_pd *ibvpd, struct ibv_ah_attr *attr)

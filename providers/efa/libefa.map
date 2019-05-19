@@ -8,5 +8,6 @@ EFA_1.0 {
 
 EFA_1.1 {
 	global:
+		efadv_query_ah;
 		efadv_query_device;
 } EFA_1.0;

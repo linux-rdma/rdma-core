@@ -38,6 +38,15 @@ int efadv_query_device(struct ibv_context *ibvctx,
 		       struct efadv_device_attr *attr,
 		       uint32_t inlen);
 
+struct efadv_ah_attr {
+	uint64_t comp_mask;
+	uint16_t ahn;
+	uint8_t reserved[6];
+};
+
+int efadv_query_ah(struct ibv_ah *ibvah, struct efadv_ah_attr *attr,
+		   uint32_t inlen);
+
 #ifdef __cplusplus
 }
 #endif
