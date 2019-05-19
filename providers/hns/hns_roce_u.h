@@ -43,18 +43,30 @@
 #include <ccan/bitmap.h>
 #include <ccan/container_of.h>
 
-#define HNS_ROCE_CQE_ENTRY_SIZE		0x20
-
-#define HNS_ROCE_MAX_CQ_NUM		0x10000
-#define HNS_ROCE_MIN_CQE_NUM		0x40
-#define HNS_ROCE_MIN_WQE_NUM		0x20
-#define HNS_ROCE_CQ_DB_BUF_SIZE		((HNS_ROCE_MAX_CQ_NUM >> 11) << 12)
-#define HNS_ROCE_TPTR_OFFSET		0x1000
 #define HNS_ROCE_HW_VER1		('h' << 24 | 'i' << 16 | '0' << 8 | '6')
 
 #define HNS_ROCE_HW_VER2		('h' << 24 | 'i' << 16 | '0' << 8 | '8')
 
 #define PFX				"hns: "
+
+#define HNS_ROCE_MAX_INLINE_DATA_LEN	32
+#define HNS_ROCE_MAX_CQ_NUM		0x10000
+#define HNS_ROCE_MAX_SRQWQE_NUM		0x8000
+#define HNS_ROCE_MAX_SRQSGE_NUM		0x100
+#define HNS_ROCE_MIN_CQE_NUM		0x40
+#define HNS_ROCE_MIN_WQE_NUM		0x20
+
+#define HNS_ROCE_CQE_ENTRY_SIZE		0x20
+#define HNS_ROCE_SQWQE_SHIFT		6
+#define HNS_ROCE_SGE_IN_WQE		2
+#define HNS_ROCE_SGE_SIZE		16
+#define HNS_ROCE_SGE_SHIFT		4
+
+#define HNS_ROCE_GID_SIZE		16
+
+#define HNS_ROCE_CQ_DB_BUF_SIZE		((HNS_ROCE_MAX_CQ_NUM >> 11) << 12)
+#define HNS_ROCE_TPTR_OFFSET		0x1000
+#define HNS_ROCE_STATIC_RATE		3 /* Gbps */
 
 #define roce_get_field(origin, mask, shift) \
 	(((le32toh(origin)) & (mask)) >> (shift))
