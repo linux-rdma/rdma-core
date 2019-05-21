@@ -88,8 +88,11 @@ extern int mlx5_freeze_on_error_cqe;
 #ifdef MLX5_DEBUG
 #define mlx5_dbg(fp, mask, format, arg...)				\
 do {									\
-	if (mask & mlx5_debug_mask)					\
+	if (mask & mlx5_debug_mask) {					\
+		int tmp = errno;					\
 		fprintf(fp, "%s:%d: " format, __func__, __LINE__, ##arg);	\
+		errno = tmp;						\
+	}								\
 } while (0)
 
 #else
