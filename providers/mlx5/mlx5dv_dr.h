@@ -46,7 +46,7 @@
 #define DR_STE_SVLAN		0x1
 #define DR_STE_CVLAN		0x2
 
-#define dr_dbg(dmn, arg...) dr_dbg_ctx(dmn->ctx, ##arg)
+#define dr_dbg(dmn, arg...) dr_dbg_ctx((dmn)->ctx, ##arg)
 
 #define dr_dbg_ctx(ctx, arg...)					\
 	mlx5_dbg(to_mctx(ctx)->dbg_fp, MLX5_DBG_DR, ##arg);
