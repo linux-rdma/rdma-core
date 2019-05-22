@@ -237,7 +237,7 @@ struct verbs_context_ops {
 	struct ibv_pd *(*alloc_pd)(struct ibv_context *context);
 	struct ibv_td *(*alloc_td)(struct ibv_context *context,
 				   struct ibv_td_init_attr *init_attr);
-	void (*async_event)(struct ibv_async_event *event);
+	void (*async_event)(struct ibv_context *context, struct ibv_async_event *event);
 	int (*attach_counters_point_flow)(struct ibv_counters *counters,
 					  struct ibv_counter_attach_attr *attr,
 					  struct ibv_flow *flow);

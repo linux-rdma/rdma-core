@@ -201,7 +201,8 @@ extern int iwch_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 			     uint16_t lid);
 extern int iwch_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 			     uint16_t lid);
-extern void t3b_async_event(struct ibv_async_event *event);
+extern void t3b_async_event(struct ibv_context *context,
+			    struct ibv_async_event *event);
 #ifdef DEBUG
 #include <syslog.h>
 #define DBGLOG(s) openlog(s, LOG_NDELAY|LOG_PID, LOG_LOCAL7)

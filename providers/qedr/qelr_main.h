@@ -77,5 +77,6 @@ int qelr_post_send(struct ibv_qp *, struct ibv_send_wr *,
 int qelr_post_recv(struct ibv_qp *, struct ibv_recv_wr *,
 		   struct ibv_recv_wr **);
 
-void qelr_async_event(struct ibv_async_event *event);
+void qelr_async_event(struct ibv_context *contex,
+		      struct ibv_async_event *event);
 #endif /* __QELR_MAIN_H__ */

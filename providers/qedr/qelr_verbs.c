@@ -2276,7 +2276,8 @@ int qelr_arm_cq(struct ibv_cq *ibcq, int solicited)
 	return 0;
 }
 
-void qelr_async_event(struct ibv_async_event *event)
+void qelr_async_event(struct ibv_context *context,
+		      struct ibv_async_event *event)
 {
 	struct qelr_cq *cq = NULL;
 	struct qelr_qp *qp = NULL;

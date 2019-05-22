@@ -80,6 +80,7 @@ enum {
 	MLX5_DBG_QP_SEND_ERR	= 1 << 3,
 	MLX5_DBG_CQ_CQE		= 1 << 4,
 	MLX5_DBG_CONTIG		= 1 << 5,
+	MLX5_DBG_DR		= 1 << 6,
 };
 
 extern uint32_t mlx5_debug_mask;
@@ -88,8 +89,11 @@ extern int mlx5_freeze_on_error_cqe;
 #ifdef MLX5_DEBUG
 #define mlx5_dbg(fp, mask, format, arg...)				\
 do {									\
-	if (mask & mlx5_debug_mask)					\
+	if (mask & mlx5_debug_mask) {					\
+		int tmp = errno;					\
 		fprintf(fp, "%s:%d: " format, __func__, __LINE__, ##arg);	\
+		errno = tmp;						\
+	}								\
 } while (0)
 
 #else
@@ -223,6 +227,10 @@ struct mlx5_uar_info {
 	enum mlx5_uar_type		type;
 };
 
+enum mlx5_ctx_flags {
+	MLX5_CTX_FLAGS_FATAL_STATE = 1 << 0,
+};
+
 struct mlx5_context {
 	struct verbs_context		ibv_ctx;
 	int				max_num_qps;
@@ -300,6 +308,7 @@ struct mlx5_context {
 	uint32_t                        eth_min_inline_size;
 	uint32_t                        dump_fill_mkey;
 	__be32                          dump_fill_mkey_be;
+	uint32_t			flags;
 };
 
 struct mlx5_bitmap {
@@ -593,9 +602,19 @@ struct mlx5dv_flow_matcher {
 	uint32_t handle;
 };
 
+enum mlx5_devx_obj_type {
+	MLX5_DEVX_FLOW_TABLE		= 1,
+	MLX5_DEVX_FLOW_COUNTER		= 2,
+	MLX5_DEVX_FLOW_METER		= 3,
+	MLX5_DEVX_QP			= 4,
+	MLX5_DEVX_PKT_REFORMAT_CTX	= 5,
+};
+
 struct mlx5dv_devx_obj {
 	struct ibv_context *context;
 	uint32_t handle;
+	enum mlx5_devx_obj_type type;
+	uint32_t object_id;
 };
 
 struct mlx5_devx_umem {
@@ -796,6 +815,9 @@ int mlx5_query_port(struct ibv_context *context, uint8_t port,
 
 struct ibv_pd *mlx5_alloc_pd(struct ibv_context *context);
 int mlx5_free_pd(struct ibv_pd *pd);
+
+void mlx5_async_event(struct ibv_context *context,
+		      struct ibv_async_event *event);
 
 struct ibv_mr *mlx5_alloc_null_mr(struct ibv_pd *pd);
 struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr,

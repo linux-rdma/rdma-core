@@ -1372,6 +1372,87 @@ static inline uint64_t _devx_get64(const void *p, size_t bit_off)
 
 #define DEVX_GET64(typ, p, fld) _devx_get64(p, __devx_bit_off(typ, fld))
 
+struct mlx5dv_dr_domain;
+struct mlx5dv_dr_table;
+struct mlx5dv_dr_matcher;
+struct mlx5dv_dr_rule;
+struct mlx5dv_dr_action;
+
+enum mlx5dv_dr_domain_type {
+	MLX5DV_DR_DOMAIN_TYPE_NIC_RX,
+	MLX5DV_DR_DOMAIN_TYPE_NIC_TX,
+	MLX5DV_DR_DOMAIN_TYPE_FDB,
+};
+
+enum mlx5dv_dr_domain_sync_flags {
+	MLX5DV_DR_DOMAIN_SYNC_FLAGS_SW		= 1 << 0,
+	MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW		= 1 << 1,
+};
+
+struct mlx5dv_dr_domain *
+mlx5dv_dr_domain_create(struct ibv_context *ctx,
+			enum mlx5dv_dr_domain_type type);
+
+int mlx5dv_dr_domain_destroy(struct mlx5dv_dr_domain *domain);
+
+int mlx5dv_dr_domain_sync(struct mlx5dv_dr_domain *domain, uint32_t flags);
+
+struct mlx5dv_dr_table *
+mlx5dv_dr_table_create(struct mlx5dv_dr_domain *domain, uint32_t level);
+
+int mlx5dv_dr_table_destroy(struct mlx5dv_dr_table *table);
+
+struct mlx5dv_dr_matcher *
+mlx5dv_dr_matcher_create(struct mlx5dv_dr_table *table,
+			 uint16_t priority,
+			 uint8_t match_criteria_enable,
+			 struct mlx5dv_flow_match_parameters *mask);
+
+int mlx5dv_dr_matcher_destroy(struct mlx5dv_dr_matcher *matcher);
+
+struct mlx5dv_dr_rule *
+mlx5dv_dr_rule_create(struct mlx5dv_dr_matcher *matcher,
+		      struct mlx5dv_flow_match_parameters *value,
+		      size_t num_actions,
+		      struct mlx5dv_dr_action *actions[]);
+
+int mlx5dv_dr_rule_destroy(struct mlx5dv_dr_rule *rule);
+
+enum mlx5dv_dr_action_flags {
+	MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL	= 1 << 0,
+};
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_ibv_qp(struct ibv_qp *ibqp);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_table(struct mlx5dv_dr_table *table);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_vport(struct mlx5dv_dr_domain *domain,
+				   uint32_t vport);
+
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_drop(void);
+
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_tag(uint32_t tag_value);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_flow_counter(struct mlx5dv_devx_obj *devx_obj,
+				     uint32_t offeset);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_packet_reformat(struct mlx5dv_dr_domain *domain,
+					uint32_t flags,
+					enum mlx5dv_flow_action_packet_reformat_type reformat_type,
+					size_t data_sz, void *data);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_modify_header(struct mlx5dv_dr_domain *domain,
+				      uint32_t flags,
+				      size_t actions_sz,
+				      __be64 actions[]);
+
+int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
 #ifdef __cplusplus
 }
 #endif

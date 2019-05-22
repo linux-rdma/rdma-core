@@ -61,4 +61,23 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_alloc_dm@MLX5_1.10 24
  mlx5dv_create_mkey@MLX5_1.10 24
  mlx5dv_destroy_mkey@MLX5_1.10 24
+ mlx5dv_dr_action_create_dest_table@MLX5_1.10 24
+ mlx5dv_dr_action_create_dest_ibv_qp@MLX5_1.10 24
+ mlx5dv_dr_action_create_dest_vport@MLX5_1.10 24
+ mlx5dv_dr_action_create_flow_counter@MLX5_1.10 24
+ mlx5dv_dr_action_create_drop@MLX5_1.10 24
+ mlx5dv_dr_action_create_modify_header@MLX5_1.10 24
+ mlx5dv_dr_action_create_packet_reformat@MLX5_1.10 24
+ mlx5dv_dr_action_create_tag@MLX5_1.10 24
+ mlx5dv_dr_action_destroy@MLX5_1.10 24
+ mlx5dv_dr_domain_create@MLX5_1.10 24
+ mlx5dv_dr_domain_destroy@MLX5_1.10 24
+ mlx5dv_dr_domain_sync@MLX5_1.10 24
+ mlx5dv_dr_matcher_create@MLX5_1.10 24
+ mlx5dv_dr_matcher_destroy@MLX5_1.10 24
+ mlx5dv_dr_rule_create@MLX5_1.10 24
+ mlx5dv_dr_rule_destroy@MLX5_1.10 24
+ mlx5dv_dr_table_create@MLX5_1.10 24
+ mlx5dv_dr_table_destroy@MLX5_1.10 24
  mlx5dv_qp_ex_from_ibv_qp_ex@MLX5_1.10 24
+

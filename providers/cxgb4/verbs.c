@@ -831,7 +831,8 @@ int c4iw_detach_mcast(struct ibv_qp *ibqp, const union ibv_gid *gid,
 	return ret;
 }
 
-void c4iw_async_event(struct ibv_async_event *event)
+void c4iw_async_event(struct ibv_context *context,
+		      struct ibv_async_event *event)
 {
 	PDBG("%s type %d obj %p\n", __func__, event->event_type,
 	event->element.cq);
