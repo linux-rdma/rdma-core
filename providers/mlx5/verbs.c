@@ -4608,6 +4608,54 @@ void mlx5dv_devx_destroy_cmd_comp(
 	free(cmd_comp);
 }
 
+struct mlx5dv_devx_event_channel *
+mlx5dv_devx_create_event_channel(struct ibv_context *context,
+				 enum mlx5dv_devx_create_event_channel_flags flags)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_ASYNC_EVENT_FD,
+			       MLX5_IB_METHOD_DEVX_ASYNC_EVENT_FD_ALLOC,
+			       2);
+	struct ib_uverbs_attr *handle;
+	struct mlx5_devx_event_channel *event_channel;
+	int ret;
+
+	event_channel = calloc(1, sizeof(*event_channel));
+	if (!event_channel) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	handle = fill_attr_out_fd(cmd,
+				  MLX5_IB_ATTR_DEVX_ASYNC_EVENT_FD_ALLOC_HANDLE,
+				  0);
+	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_ASYNC_EVENT_FD_ALLOC_FLAGS,
+			    flags);
+
+	ret = execute_ioctl(context, cmd);
+	if (ret)
+		goto err;
+
+	event_channel->dv_event_channel.fd = read_attr_fd(
+		MLX5_IB_ATTR_DEVX_ASYNC_EVENT_FD_ALLOC_HANDLE, handle);
+	event_channel->context = context;
+	return &event_channel->dv_event_channel;
+err:
+	free(event_channel);
+	return NULL;
+}
+
+void mlx5dv_devx_destroy_event_channel(
+			struct mlx5dv_devx_event_channel *dv_event_channel)
+{
+	struct mlx5_devx_event_channel *event_channel =
+			container_of(dv_event_channel, struct mlx5_devx_event_channel,
+				     dv_event_channel);
+
+	close(dv_event_channel->fd);
+	free(event_channel);
+}
+
 int mlx5dv_devx_obj_query_async(struct mlx5dv_devx_obj *obj, const void *in,
 				size_t inlen, size_t outlen,
 				uint64_t wr_id,

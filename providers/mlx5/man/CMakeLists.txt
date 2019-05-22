@@ -9,6 +9,7 @@ rdma_man_pages(
   mlx5dv_create_qp.3.md
   mlx5dv_devx_alloc_uar.3.md
   mlx5dv_devx_create_cmd_comp.3.md
+  mlx5dv_devx_create_event_channel.3.md
   mlx5dv_devx_obj_create.3.md
   mlx5dv_devx_qp_modify.3.md
   mlx5dv_devx_query_eqn.3.md
@@ -28,6 +29,7 @@ rdma_alias_man_pages(
  mlx5dv_create_mkey.3 mlx5dv_destroy_mkey.3
  mlx5dv_devx_alloc_uar.3 mlx5dv_devx_free_uar.3
  mlx5dv_devx_create_cmd_comp.3 mlx5dv_devx_destroy_cmd_comp.3
+ mlx5dv_devx_create_event_channel.3 mlx5dv_devx_destroy_event_channel.3
  mlx5dv_devx_create_cmd_comp.3 mlx5dv_devx_get_async_cmd_comp.3
  mlx5dv_devx_obj_create.3 mlx5dv_devx_general_cmd.3
  mlx5dv_devx_obj_create.3 mlx5dv_devx_obj_destroy.3

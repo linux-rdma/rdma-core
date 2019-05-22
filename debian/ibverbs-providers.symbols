@@ -18,6 +18,7 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  MLX5_1.8@MLX5_1.8 22
  MLX5_1.9@MLX5_1.9 23
  MLX5_1.10@MLX5_1.10 24
+ MLX5_1.11@MLX5_1.11 25
  mlx5dv_init_obj@MLX5_1.0 13
  mlx5dv_init_obj@MLX5_1.2 15
  mlx5dv_query_device@MLX5_1.0 13
@@ -80,6 +81,8 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_dr_table_create@MLX5_1.10 24
  mlx5dv_dr_table_destroy@MLX5_1.10 24
  mlx5dv_qp_ex_from_ibv_qp_ex@MLX5_1.10 24
+ mlx5dv_devx_create_event_channel@MLX5_1.11 25
+ mlx5dv_devx_destroy_event_channel@MLX5_1.11 25
 libefa.so.1 ibverbs-providers #MINVER#
 * Build-Depends-Package: libibverbs-dev
  EFA_1.0@EFA_1.0 24

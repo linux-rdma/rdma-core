@@ -1313,6 +1313,15 @@ int mlx5dv_devx_get_async_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp,
 				   struct mlx5dv_devx_async_cmd_hdr *cmd_resp,
 				   size_t cmd_resp_len);
 
+struct mlx5dv_devx_event_channel {
+	int fd;
+};
+
+struct mlx5dv_devx_event_channel *
+mlx5dv_devx_create_event_channel(struct ibv_context *context,
+				 enum mlx5dv_devx_create_event_channel_flags flags);
+void mlx5dv_devx_destroy_event_channel(struct mlx5dv_devx_event_channel *event_channel);
+
 #define __devx_nullp(typ) ((struct mlx5_ifc_##typ##_bits *)NULL)
 #define __devx_st_sz_bits(typ) sizeof(struct mlx5_ifc_##typ##_bits)
 #define __devx_bit_sz(typ, fld) sizeof(__devx_nullp(typ)->fld)
