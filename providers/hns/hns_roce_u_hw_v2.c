@@ -890,6 +890,7 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 						set_data_seg_v2(dseg,
 							       wr->sg_list + i);
 						dseg++;
+						j++;
 					}
 
 				dseg = get_send_sge_ex(qp, ind_sge &
