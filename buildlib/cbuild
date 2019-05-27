@@ -52,7 +52,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import yaml
 from contextlib import contextmanager;
 
 project = "rdma-core";
@@ -239,6 +238,7 @@ class travis(APTEnvironment):
     _yaml = None;
 
     def get_yaml(self):
+        import yaml
         if self._yaml:
             return self._yaml;
 
@@ -510,21 +510,12 @@ def get_tar_file(args,tarfn,pandoc_prebuilt=False):
 
     # When the OS does not support pandoc we got through the extra step to
     # build pandoc output in the travis container and include it in the
-    # tar. This is similar to what buildlib/github-release does.
+    # tar.
     if not args.use_prebuilt_pandoc:
         subprocess.check_call(["buildlib/cbuild","make","travis","docs"]);
 
-    tmp_tarfn = os.path.join(os.path.dirname(tarfn),"tmp.tar");
-    get_tar_file(args,tmp_tarfn,False);
-
-    subprocess.check_call([
-        "tar",
-        "-rf",tmp_tarfn,
-        "build-travis/pandoc-prebuilt/",
-        "--xform","s|build-travis/pandoc-prebuilt|%sbuildlib/pandoc-prebuilt|g"%(prefix)]);
-    with open(tarfn,"w") as F:
-        subprocess.check_call(["gzip","-9c",tmp_tarfn],stdout=F);
-    os.unlink(tmp_tarfn);
+    cmd_make_dist_tar(argparse.Namespace(BUILD="build-travis",tarfn=tarfn,
+                                         script_pwd="",tag=None));
 
 def run_rpm_build(args,spec_file,env):
     with open(spec_file,"r") as F:
@@ -696,6 +687,7 @@ def copy_abi_files(src):
             shutil.copy(cur_fn, ref_fn);
 
 def run_travis_build(args,env):
+    import yaml
     with private_tmp(args) as tmpdir:
         os.mkdir(os.path.join(tmpdir,"src"));
         os.mkdir(os.path.join(tmpdir,"tmp"));
@@ -904,6 +896,45 @@ def cmd_build_images(args):
             docker_cmd(args,*opts);
 
 # -------------------------------------------------------------------------
+def args_make_dist_tar(parser):
+    parser.add_argument("BUILD",help="Path to the build directory")
+    parser.add_argument("--tarfn",help="Output TAR filename")
+    parser.add_argument("--tag",help="git tag to sanity check against")
+def cmd_make_dist_tar(args):
+    """Make the standard distribution tar. The BUILD argument must point to a build
+    output directory that has pandoc-prebuilt"""
+    ver = get_version();
+
+    if not args.tarfn:
+        args.tarfn = "%s-%s.tar.gz"%(project,ver)
+
+    # The tag name and the cmake file must match.
+    if args.tag:
+        assert args.tag == "v" + ver;
+
+    with private_tmp(args) as tmpdir:
+        tmp_tarfn = os.path.join(tmpdir,"tmp.tar");
+
+        prefix = "%s-%s/"%(project,get_version());
+        subprocess.check_call(["git","archive",
+                               "--prefix",prefix,
+                               "--output",tmp_tarfn,
+                               "HEAD"]);
+
+        # Mangle the paths and append the prebuilt stuff to the tar file
+        if args.BUILD:
+            subprocess.check_call([
+                "tar",
+                "-C",os.path.join(args.script_pwd,args.BUILD,"pandoc-prebuilt"),
+                "-rf",tmp_tarfn,
+                "./",
+                "--xform",r"s|^\.|%sbuildlib/pandoc-prebuilt|g"%(prefix)]);
+
+        assert args.tarfn.endswith(".gz") or args.tarfn.endswith(".tgz");
+        with open(os.path.join(args.script_pwd,args.tarfn),"w") as F:
+            subprocess.check_call(["gzip","-9c",tmp_tarfn],stdout=F);
+
+# -------------------------------------------------------------------------
 def args_docker_gc(parser):
     pass;
 def cmd_docker_gc(args):
@@ -943,6 +974,7 @@ if __name__ == '__main__':
     # This script must always run from the top of the git tree, and a git
     # checkout is mandatory.
     git_top = subprocess.check_output(["git","rev-parse","--show-toplevel"]).strip();
+    args.script_pwd = os.getcwd();
     os.chdir(git_top);
 
     args.func(args);

@@ -1,17 +1,20 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright 2015-2017 Obsidian Research Corp.
 # Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 import argparse
 import subprocess
 import os
 import collections
+import re
 
 headers = {
+    "bits/sysmacros.h",
     "endian.h",
     "netinet/in.h",
     "pthread.h",
-    "sys/socket.h",
     "stdatomic.h",
+    "stdlib.h",
+    "sys/socket.h",
     };
 
 def norm_header(fn):
@@ -22,6 +25,27 @@ def norm_header(fn):
         if fn.endswith(flat + ".diff"):
             return I;
     return None;
+
+def find_system_header(args,hdr):
+    """/usr/include is not always where the include files are, particularly if we
+    are running full multi-arch as the azure_pipeline container does. Get gcc
+    to tell us where /usr/include is"""
+    if "incpath" not in args:
+        cpp = subprocess.check_output([args.cc, "-print-prog-name=cpp"],universal_newlines=True).strip()
+        data = subprocess.check_output([cpp, "-v"],universal_newlines=True,stdin=subprocess.DEVNULL,
+                                       stderr=subprocess.STDOUT)
+        args.incpath = [];
+        for incdir in re.finditer(r"^ (/\S+)$", data, re.MULTILINE):
+            incdir = incdir.group(1)
+            if "fixed" in incdir:
+                continue;
+            args.incpath.append(incdir)
+
+    for incdir in args.incpath:
+        fn = os.path.join(incdir,hdr)
+        if os.path.exists(fn):
+            return fn
+    raise ValueError("Could not find system include directory.");
 
 def get_buildlib_patches(dfn):
     """Within the buildlib directory we store patches for the glibc headers. Each
@@ -66,22 +90,22 @@ def apply_patch(src,patch,dest):
         subprocess.check_output(["patch","-f","--follow-symlinks","-V","never","-i",patch,"-o",dest,src]);
 
         if os.path.exists(dest + ".rej"):
-            print "Patch from %r failed"%(patch);
+            print("Patch from %r failed"%(patch));
             return False;
     except subprocess.CalledProcessError:
-        print "Patch from %r failed"%(patch);
+        print("Patch from %r failed"%(patch));
         return False;
     return True;
 
 def replace_header(fn):
     tries = 0;
     for pfn in patches[fn]:
-        if apply_patch(os.path.join(args.REF,fn),
+        if apply_patch(find_system_header(args,fn),
                        pfn,os.path.join(args.INCLUDE,fn)):
             return;
         tries = tries + 1;
 
-    print "Unable to apply any patch to %r, tries %u"%(fn,tries);
+    print("Unable to apply any patch to %r, tries %u"%(fn,tries));
     global failed;
     failed = True;
 
@@ -98,7 +122,7 @@ def save(fn,outdir):
     with open(flatfn,"wt") as F:
         try:
             subprocess.check_call(["diff","-u",
-                                   os.path.join(args.REF,fn),
+                                   find_system_header(args,fn),
                                    os.path.join(args.INCLUDE,fn)],
                                   stdout=F);
         except subprocess.CalledProcessError as ex:
@@ -111,15 +135,16 @@ parser.add_argument("--out",dest="INCLUDE",required=True,
                     help="Directory to write header files to");
 parser.add_argument("--src",dest="SRC",required=True,
                     help="Top of the source tree");
-parser.add_argument("--ref",dest="REF",default="/usr/include/",
-                    help="System headers to manipulate");
+parser.add_argument("--cc",default="gcc",
+                    help="System compiler to use to locate the default system headers");
 parser.add_argument("--save",action="store_true",default=False,
                     help="Save mode will write the current content of the headers to buildlib as a diff.");
 args = parser.parse_args();
 
 if args.save:
     # Get the glibc version string
-    ver = subprocess.check_output(["ldd","--version"]).splitlines()[0].split(' ')[-1];
+    ver = subprocess.check_output(["ldd","--version"]).decode()
+    ver = ver.splitlines()[0].split(' ')[-1];
     ver = ver.partition(".")[-1];
     outdir = os.path.join(args.SRC,"buildlib","sparse-include",ver);
     if not os.path.isdir(outdir):

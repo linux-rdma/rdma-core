@@ -1,0 +1,23 @@
+--- /usr/include/stdlib.h	2018-04-16 20:14:20.000000000 +0000
++++ include/stdlib.h	2019-05-16 19:38:38.071615242 +0000
+@@ -130,6 +130,20 @@
+ 
+ /* Likewise for '_FloatN' and '_FloatNx'.  */
+ 
++/* For whatever reason our sparse does not understand these new compiler types */
++#undef __GLIBC_USE_IEC_60559_TYPES_EXT
++#define __GLIBC_USE_IEC_60559_TYPES_EXT 0
++#undef __HAVE_FLOAT32
++#define __HAVE_FLOAT32 0
++#undef __HAVE_FLOAT32X
++#define __HAVE_FLOAT32X 0
++#undef __HAVE_FLOAT64
++#define __HAVE_FLOAT64 0
++#undef __HAVE_FLOAT64X
++#define __HAVE_FLOAT64X 0
++#undef __HAVE_FLOAT128
++#define __HAVE_FLOAT128 0
++
+ #if __HAVE_FLOAT16 && __GLIBC_USE (IEC_60559_TYPES_EXT)
+ extern _Float16 strtof16 (const char *__restrict __nptr,
+ 			  char **__restrict __endptr)

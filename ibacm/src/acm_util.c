@@ -29,6 +29,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include <net/if_arp.h>
 #include <string.h>
 #include <unistd.h>
@@ -207,7 +208,7 @@ static void acm_if_iter(struct nl_object *obj, void *_ctx_and_cb)
 	if (acm_if_get_pkey(rtnl_link_get_name(link), &pkey))
 		return;
 
-	acm_log(2, "name: %5s label: %9s index: %2d flags: %s addr: %s pkey: 0x%04x guid: 0x%lx\n",
+	acm_log(2, "name: %5s label: %9s index: %2d flags: %s addr: %s pkey: 0x%04x guid: 0x%" PRIx64 "\n",
 		rtnl_link_get_name(link), label,
 		rtnl_addr_get_ifindex(addr),
 		rtnl_link_flags2str(rtnl_link_get_flags(link), flags_str, sizeof(flags_str)),

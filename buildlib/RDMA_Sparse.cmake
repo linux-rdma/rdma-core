@@ -19,9 +19,10 @@ int main(int argc,const char *argv[]) {return 0;}
     set(HAVE_SPARSE TRUE PARENT_SCOPE)
 
     # Replace various glibc headers with our own versions that have embedded sparse annotations.
-    execute_process(COMMAND "${BUILDLIB}/gen-sparse.py"
+    execute_process(COMMAND "${PYTHON_EXECUTABLE}" "${BUILDLIB}/gen-sparse.py"
       "--out" "${BUILD_INCLUDE}/"
       "--src" "${CMAKE_SOURCE_DIR}/"
+      "--cc" "${CMAKE_C_COMPILER}"
       RESULT_VARIABLE retcode)
     if(NOT "${retcode}" STREQUAL "0")
       message(FATAL_ERROR "glibc header file patching for sparse failed. Review include/*.rej and fix the rejects, then do "
