@@ -40,6 +40,7 @@
 
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>
+#include <util/util.h>
 #include "mlx5-abi.h"
 #include <ccan/list.h>
 #include "bitmap.h"
@@ -655,11 +656,6 @@ static inline unsigned DIV_ROUND_UP(unsigned n, unsigned d)
 	return (n + d - 1u) / d;
 }
 
-static inline unsigned long align(unsigned long val, unsigned long align)
-{
-	return (val + align - 1) & ~(align - 1);
-}
-
 #define to_mxxx(xxx, type) container_of(ib##xxx, struct mlx5_##type, ibv_##xxx)
 
 static inline struct mlx5_device *to_mdev(struct ibv_device *ibdev)
@@ -904,7 +900,6 @@ int mlx5_alloc_av(struct mlx5_pd *pd, struct ibv_ah_attr *attr,
 void mlx5_free_av(struct mlx5_ah *ah);
 int mlx5_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid);
 int mlx5_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid);
-int mlx5_round_up_power_of_two(long long sz);
 void *mlx5_get_atomic_laddr(struct mlx5_qp *qp, uint16_t idx, int *byte_count);
 void *mlx5_get_send_wqe(struct mlx5_qp *qp, int n);
 int mlx5_copy_to_recv_wqe(struct mlx5_qp *qp, int idx, void *buf, int size);
@@ -1077,7 +1072,7 @@ static inline uint8_t calc_sig(void *wqe, int size)
 
 static inline int align_queue_size(long long req)
 {
-	return mlx5_round_up_power_of_two(req);
+	return roundup_pow_of_two(req);
 }
 
 static inline bool srq_has_waitq(struct mlx5_srq *srq)

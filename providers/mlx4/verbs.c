@@ -390,16 +390,6 @@ int mlx4_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 	return 0;
 }
 
-int align_queue_size(int req)
-{
-	int nent;
-
-	for (nent = 1; nent < req; nent <<= 1)
-		; /* nothing */
-
-	return nent;
-}
-
 enum {
 	CREATE_CQ_SUPPORTED_WC_FLAGS = IBV_WC_STANDARD_FLAGS	|
 				       IBV_WC_EX_WITH_COMPLETION_TIMESTAMP
@@ -505,7 +495,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	if (pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto err;
 
-	cq_attr->cqe = align_queue_size(cq_attr->cqe + 1);
+	cq_attr->cqe = roundup_pow_of_two(cq_attr->cqe + 1);
 
 	if (mlx4_alloc_cq_buf(to_mdev(context->device), mctx, &cq->buf,
 			      cq_attr->cqe, mctx->cqe_size))
@@ -603,7 +593,7 @@ int mlx4_resize_cq(struct ibv_cq *ibcq, int cqe)
 
 	pthread_spin_lock(&cq->lock);
 
-	cqe = align_queue_size(cqe + 1);
+	cqe = roundup_pow_of_two(cqe + 1);
 	if (cqe == ibcq->cqe + 1) {
 		ret = 0;
 		goto out;
@@ -677,7 +667,7 @@ struct ibv_srq *mlx4_create_srq(struct ibv_pd *pd,
 	if (pthread_spin_init(&srq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto err;
 
-	srq->max     = align_queue_size(attr->attr.max_wr + 1);
+	srq->max     = roundup_pow_of_two(attr->attr.max_wr + 1);
 	srq->max_gs  = attr->attr.max_sge;
 	srq->counter = 0;
 	srq->ext_srq = 0;
@@ -907,14 +897,14 @@ static struct ibv_qp *create_qp_ex(struct ibv_context *context,
 		 * allow HW to prefetch.
 		 */
 		qp->sq_spare_wqes = (2048 >> qp->sq.wqe_shift) + 1;
-		qp->sq.wqe_cnt = align_queue_size(attr->cap.max_send_wr + qp->sq_spare_wqes);
+		qp->sq.wqe_cnt = roundup_pow_of_two(attr->cap.max_send_wr + qp->sq_spare_wqes);
 	}
 
 	if (attr->srq || attr->qp_type == IBV_QPT_XRC_SEND ||
 	    attr->qp_type == IBV_QPT_XRC_RECV) {
 		attr->cap.max_recv_wr = qp->rq.wqe_cnt = attr->cap.max_recv_sge = 0;
 	} else {
-		qp->rq.wqe_cnt = align_queue_size(attr->cap.max_recv_wr);
+		qp->rq.wqe_cnt = roundup_pow_of_two(attr->cap.max_recv_wr);
 		if (attr->cap.max_recv_sge < 1)
 			attr->cap.max_recv_sge = 1;
 		if (attr->cap.max_recv_wr < 1)
@@ -1453,7 +1443,7 @@ struct ibv_wq *mlx4_create_wq(struct ibv_context *context,
 	qp->sq.wqe_shift = 6;
 	qp->sq.wqe_cnt = 1;
 
-	qp->rq.wqe_cnt = align_queue_size(attr->max_wr);
+	qp->rq.wqe_cnt = roundup_pow_of_two(attr->max_wr);
 
 	if (mlx4_alloc_qp_buf(context, attr->max_sge, IBV_QPT_RAW_PACKET, qp, NULL))
 		goto err;

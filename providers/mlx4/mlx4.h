@@ -40,6 +40,7 @@
 
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>
+#include <util/util.h>
 #include <infiniband/verbs.h>
 
 #include "mlx4dv.h"
@@ -243,12 +244,6 @@ enum {
 	/* Only report rx checksum when the validation is valid */
 	MLX4_RX_CSUM_VALID		= (1 <<  16),
 };
-
-static inline unsigned long align(unsigned long val, unsigned long align)
-{
-	return (val + align - 1) & ~(align - 1);
-}
-int align_queue_size(int req);
 
 #define to_mxxx(xxx, type)                                                     \
 	container_of(ib##xxx, struct mlx4_##type, ibv_##xxx)

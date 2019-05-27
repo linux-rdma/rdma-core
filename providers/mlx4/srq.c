@@ -249,7 +249,7 @@ struct ibv_srq *mlx4_create_xrc_srq(struct ibv_context *context,
 	if (pthread_spin_init(&srq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto err;
 
-	srq->max     = align_queue_size(attr_ex->attr.max_wr + 1);
+	srq->max     = roundup_pow_of_two(attr_ex->attr.max_wr + 1);
 	srq->max_gs  = attr_ex->attr.max_sge;
 	srq->counter = 0;
 	srq->ext_srq = 1;

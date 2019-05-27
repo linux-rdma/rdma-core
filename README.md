@@ -14,6 +14,7 @@ The userspace component of the libibverbs RDMA kernel drivers are included
 under the providers/ directory. Support for the following Kernel RDMA drivers
 is included:
 
+ - efa.ko
  - iw_cxgb3.ko
  - iw_cxgb4.ko
  - hfi1.ko

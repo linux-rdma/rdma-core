@@ -61,6 +61,11 @@ M:	Steve Wise <swise@opengridcomputing.com>
 S:	Supported
 F:	providers/cxgb4/
 
+EFA USERSPACE PROVIDER (for efa.ko)
+M:	Gal Pressman <galpress@amazon.com>
+S:	Supported
+F:	providers/efa/
+
 HF1 USERSPACE PROVIDER (for hf1.ko)
 M:	Mike Marciniszyn <mike.marciniszyn@intel.com>
 M:	Dennis Dalessandro <dennis.dalessandro@intel.com>

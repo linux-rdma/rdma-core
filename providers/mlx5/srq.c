@@ -282,7 +282,7 @@ int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq,
 		srq->max_gs * sizeof(struct mlx5_wqe_data_seg);
 	size = max(32, size);
 
-	size = mlx5_round_up_power_of_two(size);
+	size = roundup_pow_of_two(size);
 
 	if (size > ctx->max_recv_wr) {
 		errno = EINVAL;
