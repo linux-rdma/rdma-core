@@ -405,7 +405,7 @@ cd build
 cd ..
 mkdir -p %{buildroot}/%{_sysconfdir}/rdma
 
-%global dracutlibdir %%{_sysconfdir}/dracut.conf.d
+%global dracutlibdir %%{_libexecdir}/dracut/
 %global sysmodprobedir %%{_sysconfdir}/modprobe.d
 
 mkdir -p %{buildroot}%{_udevrulesdir}
@@ -426,8 +426,7 @@ chmod 0644 %{buildroot}%{sysmodprobedir}/50-libmlx4.conf
 install -D -m0755 redhat/rdma.mlx4-setup.sh %{buildroot}%{_libexecdir}/mlx4-setup.sh
 
 # Dracut file for IB support during boot
-sed 's%/usr/libexec%/usr/lib%g' redhat/rdma.modules-setup.sh > %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
-chmod 0755 %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
+install -D -m0644 suse/module-setup.sh %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
 
 # ibacm
 cd build
