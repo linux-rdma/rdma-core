@@ -32,7 +32,6 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <malloc.h>
 #include <unistd.h>
 #include <util/mmio.h>
 #include "mlx5dv_dr.h"

@@ -47,7 +47,6 @@
 #include <signal.h>
 #include <errno.h>
 #include <pthread.h>
-#include <malloc.h>
 #include <sys/mman.h>
 #include <netinet/in.h>
 #include <unistd.h>

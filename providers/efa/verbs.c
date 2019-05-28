@@ -5,7 +5,6 @@
 
 #include <assert.h>
 #include <errno.h>
-#include <malloc.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>

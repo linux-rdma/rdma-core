@@ -43,7 +43,6 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <malloc.h>
 #include <sys/time.h>
 
 #include <ccan/minmax.h>

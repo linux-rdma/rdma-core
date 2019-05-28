@@ -27,7 +27,7 @@ cdef extern from 'stdlib.h':
     void free(void *ptr)
 cdef extern from 'string.h':
     void *memset(void *s, int c, size_t n)
-cdef extern from 'malloc.h':
+cdef extern from 'stdlib.h':
     void *malloc(size_t size)
 cdef extern from 'stdint.h':
     ctypedef int uint64_t

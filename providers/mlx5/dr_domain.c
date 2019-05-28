@@ -31,7 +31,6 @@
  */
 
 #include <unistd.h>
-#include <malloc.h>
 #include <stdlib.h>
 #include "mlx5dv_dr.h"
 
