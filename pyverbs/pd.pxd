@@ -11,3 +11,5 @@ cdef class PD(PyverbsCM):
     cdef add_ref(self, obj)
     cdef object mrs
     cdef object mws
+    cdef object ahs
+    cdef object qps

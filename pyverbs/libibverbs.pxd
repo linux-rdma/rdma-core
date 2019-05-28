@@ -228,6 +228,194 @@ cdef extern from 'infiniband/verbs.h':
         unsigned long   tag
         unsigned int    priv
 
+    cdef struct ibv_grh:
+        unsigned int    version_tclass_flow
+        unsigned short    paylen
+        unsigned char    next_hdr
+        unsigned char    hop_limit
+        ibv_gid         sgid
+        ibv_gid         dgid
+
+    cdef struct ibv_global_route:
+        ibv_gid         dgid
+        unsigned int    flow_label
+        unsigned char    sgid_index
+        unsigned char    hop_limit
+        unsigned char    traffic_class
+
+    cdef struct ibv_ah_attr:
+        ibv_global_route    grh
+        unsigned short        dlid
+        unsigned char        sl
+        unsigned char        src_path_bits
+        unsigned char        static_rate
+        unsigned char        is_global
+        unsigned char        port_num
+
+    cdef struct ibv_ah:
+        ibv_context         *context
+        ibv_pd              *pd
+        unsigned int        handle
+
+    cdef struct ibv_sge:
+        unsigned long   addr
+        unsigned int    length
+        unsigned int    lkey
+
+    cdef struct ibv_recv_wr:
+        unsigned long   wr_id
+        ibv_recv_wr     *next
+        ibv_sge         *sg_list
+        int             num_sge
+
+    cdef struct rdma:
+        unsigned long   remote_addr
+        unsigned int    rkey
+
+    cdef struct atomic:
+        unsigned long   remote_addr
+        unsigned long   compare_add
+        unsigned long   swap
+        unsigned int    rkey
+
+    cdef struct ud:
+        ibv_ah          *ah
+        unsigned int    remote_qpn
+        unsigned int    remote_qkey
+
+    cdef union wr:
+        rdma            rdma
+        atomic          atomic
+        ud              ud
+
+    cdef struct ibv_mw_bind_info:
+        ibv_mr          *mr
+        unsigned long   addr
+        unsigned long   length
+        unsigned int    mw_access_flags
+
+    cdef struct bind_mw:
+        ibv_mw              *mw
+        unsigned int        rkey
+        ibv_mw_bind_info    bind_info
+
+    cdef struct tso:
+        void            *hdr
+        unsigned short  hdr_sz
+        unsigned short  mss
+
+    cdef union unnamed:
+        bind_mw         bind_mw
+        tso             tso
+
+    cdef struct xrc:
+        unsigned int    remote_srqn
+
+    cdef union qp_type:
+        xrc             xrc
+
+    cdef struct ibv_send_wr:
+        unsigned long   wr_id
+        ibv_send_wr     *next
+        ibv_sge         *sg_list
+        int             num_sge
+        ibv_wr_opcode   opcode
+        unsigned int    send_flags
+        wr              wr
+        qp_type         qp_type
+        unnamed         unnamed
+
+    cdef struct ibv_qp_cap:
+        unsigned int    max_send_wr
+        unsigned int    max_recv_wr
+        unsigned int    max_send_sge
+        unsigned int    max_recv_sge
+        unsigned int    max_inline_data
+
+    cdef struct ibv_qp_init_attr:
+        void            *qp_context
+        ibv_cq          *send_cq
+        ibv_cq          *recv_cq
+        ibv_srq         *srq
+        ibv_qp_cap      cap
+        ibv_qp_type     qp_type
+        int             sq_sig_all
+
+    cdef struct ibv_xrcd:
+        pass
+
+    cdef struct ibv_rwq_ind_table:
+        pass
+
+    cdef struct ibv_rx_hash_conf:
+        pass
+
+    cdef struct ibv_qp_init_attr_ex:
+        void                *qp_context
+        ibv_cq              *send_cq
+        ibv_cq              *recv_cq
+        ibv_srq             *srq
+        ibv_qp_cap          cap
+        ibv_qp_type         qp_type
+        int                 sq_sig_all
+        unsigned int        comp_mask
+        ibv_pd              *pd
+        ibv_xrcd            *xrcd
+        unsigned int        create_flags
+        unsigned short      max_tso_header
+        ibv_rwq_ind_table   *rwq_ind_tbl
+        ibv_rx_hash_conf    rx_hash_conf
+        unsigned int        source_qpn
+        unsigned long       send_ops_flags
+
+    cdef struct ibv_qp_attr:
+        ibv_qp_state    qp_state
+        ibv_qp_state    cur_qp_state
+        ibv_mtu         path_mtu
+        ibv_mig_state   path_mig_state
+        unsigned int    qkey
+        unsigned int    rq_psn
+        unsigned int    sq_psn
+        unsigned int    dest_qp_num
+        unsigned int    qp_access_flags
+        ibv_qp_cap      cap
+        ibv_ah_attr     ah_attr
+        ibv_ah_attr     alt_ah_attr
+        unsigned short  pkey_index
+        unsigned short  alt_pkey_index
+        unsigned char   en_sqd_async_notify
+        unsigned char   sq_draining
+        unsigned char   max_rd_atomic
+        unsigned char   max_dest_rd_atomic
+        unsigned char   min_rnr_timer
+        unsigned char   port_num
+        unsigned char   timeout
+        unsigned char   retry_cnt
+        unsigned char   rnr_retry
+        unsigned char   alt_port_num
+        unsigned char   alt_timeout
+        unsigned int    rate_limit
+
+    cdef struct ibv_srq:
+        ibv_context     *context
+        void            *srq_context
+        ibv_pd          *pd
+        unsigned int    handle
+        unsigned int    events_completed
+
+    cdef struct ibv_qp:
+        ibv_context     *context;
+        void            *qp_context;
+        ibv_pd          *pd;
+        ibv_cq          *send_cq;
+        ibv_cq          *recv_cq;
+        ibv_srq         *srq;
+        unsigned int    handle;
+        unsigned int    qp_num;
+        ibv_qp_state    state;
+        ibv_qp_type     qp_type;
+        unsigned int    events_completed;
+
     ibv_device **ibv_get_device_list(int *n)
     void ibv_free_device_list(ibv_device **list)
     ibv_context *ibv_open_device(ibv_device *device)
@@ -287,3 +475,18 @@ cdef extern from 'infiniband/verbs.h':
     unsigned int ibv_wc_read_flow_tag(ibv_cq_ex *cq)
     void ibv_wc_read_tm_info(ibv_cq_ex *cq, ibv_wc_tm_info *tm_info)
     unsigned long ibv_wc_read_completion_wallclock_ns(ibv_cq_ex *cq)
+    ibv_ah *ibv_create_ah(ibv_pd *pd, ibv_ah_attr *attr)
+    int ibv_init_ah_from_wc(ibv_context *context, uint8_t port_num,
+                            ibv_wc *wc, ibv_grh *grh, ibv_ah_attr *ah_attr)
+    ibv_ah *ibv_create_ah_from_wc(ibv_pd *pd, ibv_wc *wc, ibv_grh *grh,
+                                  uint8_t port_num)
+    int ibv_destroy_ah(ibv_ah *ah)
+    ibv_qp *ibv_create_qp(ibv_pd *pd, ibv_qp_init_attr *qp_init_attr)
+    ibv_qp *ibv_create_qp_ex(ibv_context *context,
+                             ibv_qp_init_attr_ex *qp_init_attr_ex)
+    int ibv_modify_qp(ibv_qp *qp, ibv_qp_attr *qp_attr, int comp_mask)
+    int ibv_query_qp(ibv_qp *qp, ibv_qp_attr *attr, int attr_mask,
+                     ibv_qp_init_attr *init_attr)
+    int ibv_destroy_qp(ibv_qp *qp)
+    int ibv_post_recv(ibv_qp *qp, ibv_recv_wr *wr, ibv_recv_wr **bad_wr)
+    int ibv_post_send(ibv_qp *qp, ibv_send_wr *wr, ibv_send_wr **bad_wr)

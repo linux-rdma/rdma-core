@@ -13,6 +13,7 @@ cdef class Context(PyverbsCM):
     cdef object dms
     cdef object ccs
     cdef object cqs
+    cdef object qps
 
 cdef class DeviceAttr(PyverbsObject):
     cdef v.ibv_device_attr dev_attr

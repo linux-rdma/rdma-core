@@ -408,6 +408,9 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_RAW_PACKET_CAP_IP_CSUM          = 1 << 2
         IBV_RAW_PACKET_CAP_DELAY_DROP       = 1 << 3
 
+    cdef unsigned long long IBV_DEVICE_RAW_SCATTER_FCS
+    cdef unsigned long long IBV_DEVICE_PCI_WRITE_END_PADDING
+
 
 cdef extern from "<infiniband/tm_types.h>":
     cpdef enum ibv_tmh_op:
@@ -415,3 +418,6 @@ cdef extern from "<infiniband/tm_types.h>":
         IBV_TMH_RNDV          = 1
         IBV_TMH_FIN           = 2
         IBV_TMH_EAGER         = 3
+
+_IBV_DEVICE_RAW_SCATTER_FCS = IBV_DEVICE_RAW_SCATTER_FCS
+_IBV_DEVICE_PCI_WRITE_END_PADDING = IBV_DEVICE_PCI_WRITE_END_PADDING

@@ -5,6 +5,7 @@ import weakref
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.device cimport Context
+from pyverbs.qp cimport QP
 
 cdef class CompChannel(PyverbsCM):
     """
@@ -93,13 +94,19 @@ cdef class CQ(PyverbsCM):
             raise PyverbsRDMAErrno('Failed to create a CQ')
         self.context = context
         context.add_ref(self)
+        self.qps = weakref.WeakSet()
         self.logger.debug('Created a CQ')
+
+    cdef add_ref(self, obj):
+        if isinstance(obj, QP):
+            self.qps.add(obj)
 
     def __dealloc__(self):
         self.close()
 
     cpdef close(self):
         self.logger.debug('Closing CQ')
+        self.close_weakrefs([self.qps])
         if self.cq != NULL:
             rc = v.ibv_destroy_cq(self.cq)
             if rc != 0:
@@ -267,12 +274,18 @@ cdef class CQEX(PyverbsCM):
         self.ibv_cq = v.ibv_cq_ex_to_cq(self.cq)
         self.context = context
         context.add_ref(self)
+        self.qps = weakref.WeakSet()
+
+    cdef add_ref(self, obj):
+        if isinstance(obj, QP):
+            self.qps.add(obj)
 
     def __dealloc__(self):
         self.close()
 
     cpdef close(self):
         self.logger.debug('Closing CQEx')
+        self.close_weakrefs([self.qps])
         if self.cq != NULL:
             rc = v.ibv_destroy_cq(<v.ibv_cq*>self.cq)
             if rc != 0:

@@ -35,15 +35,6 @@ function(rdma_python_module PY_MODULE)
   endforeach()
 endfunction()
 
-function(rdma_python_test PY_MODULE)
-  foreach(PY_FILE ${ARGN})
-    get_filename_component(LINK "${CMAKE_CURRENT_SOURCE_DIR}/${PY_FILE}" ABSOLUTE)
-    rdma_create_symlink("${LINK}" "${BUILD_PYTHON}/${PY_MODULE}/${PY_FILE}")
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${PY_FILE}
-      DESTINATION ${CMAKE_INSTALL_PYTHON_ARCH_LIB}/${PY_MODULE})
-  endforeach()
-endfunction()
-
 # Make a python script runnable from the build/bin directory with all the
 # correct paths filled in
 function(rdma_internal_binary)

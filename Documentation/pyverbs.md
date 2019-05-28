@@ -209,7 +209,7 @@ device's own memory rather than a user-allocated buffer.
 import random
 
 from pyverbs.device import DM, AllocDmAttr
-from pyverbs.mr import DmMr
+from pyverbs.mr import DMMR
 import pyverbs.device as d
 from pyverbs.pd import PD
 import pyverbs.enums as e
@@ -222,7 +222,7 @@ with d.Context(name='mlx5_0') as ctx:
         dm_mr_len = random.randint(4, dm_len)
         with DM(ctx, dm_attrs) as dm:
             with PD(ctx) as pd:
-                dm_mr = DmMr(pd, dm_mr_len, e.IBV_ACCESS_ZERO_BASED, dm=dm,
+                dm_mr = DMMR(pd, dm_mr_len, e.IBV_ACCESS_ZERO_BASED, dm=dm,
                              offset=0)
 ```
 
@@ -280,4 +280,62 @@ flags                 : 0
 Extended CQ:
 Handle                : 0
 CQEs                  : 15
+```
+
+##### Addressing related objects
+The following code demonstrates creation of GlobalRoute, AHAttr and AH objects.
+The example creates a global AH so it can also run on RoCE without
+modifications.
+```python
+
+from pyverbs.addr import GlobalRoute, AHAttr, AH
+import pyverbs.device as d
+from pyverbs.pd import PD
+
+with d.Context(name='mlx5_0') as ctx:
+    port_number = 1
+    gid_index = 0  # GID index 0 always exists and valid
+    gid = ctx.query_gid(port_number, gid_index)
+    gr = GlobalRoute(dgid=gid, sgid_index=gid_index)
+    ah_attr = AHAttr(gr=gr, is_global=1, port_num=port_number)
+    print(ah_attr)
+    with PD(ctx) as pd:
+        ah = AH(pd, attr=ah_attr)
+DGID                  : fe80:0000:0000:0000:9a03:9bff:fe00:e4bf
+flow label            : 0
+sgid index            : 0
+hop limit             : 1
+traffic class         : 0
+```
+
+##### QP
+The following snippets will demonstrate creation of a QP and a simple post_send
+operation. For more complex examples, please see pyverbs/examples section.
+```python
+from pyverbs.qp import QPCap, QPInitAttr, QPAttr, QP
+from pyverbs.addr import GlobalRoute
+from pyverbs.addr import AH, AHAttr
+import pyverbs.device as d
+import pyverbs.enums as e
+from pyverbs.pd import PD
+from pyverbs.cq import CQ
+import pyverbs.wr as pwr
+
+
+ctx = d.Context(name='mlx5_0')
+pd = PD(ctx)
+cq = CQ(ctx, 100, None, None, 0)
+cap = QPCap(100, 10, 1, 1, 0)
+qia = QPInitAttr(cap=cap, qp_type = e.IBV_QPT_UD, scq=cq, rcq=cq)
+# A UD QP will be in RTS if a QPAttr object is provided
+udqp = QP(pd, qia, QPAttr())
+port_num = 1
+gid_index = 3 # Hard-coded for RoCE v2 interface
+gid = ctx.query_gid(port_num, gid_index)
+gr = GlobalRoute(dgid=gid, sgid_index=gid_index)
+ah_attr = AHAttr(gr=gr, is_global=1, port_num=port_num)
+ah=AH(pd, ah_attr)
+wr = pwr.SendWR()
+wr.set_wr_ud(ah, 0x1101, 0) # in real life, use real values
+udqp.post_send(wr)
 ```
