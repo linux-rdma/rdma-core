@@ -269,8 +269,8 @@ int ocrdma_query_device(struct ibv_context *, struct ibv_device_attr *);
 int ocrdma_query_port(struct ibv_context *, uint8_t, struct ibv_port_attr *);
 struct ibv_pd *ocrdma_alloc_pd(struct ibv_context *);
 int ocrdma_free_pd(struct ibv_pd *);
-struct ibv_mr *ocrdma_reg_mr(struct ibv_pd *, void *, size_t,
-			     int ibv_access_flags);
+struct ibv_mr *ocrdma_reg_mr(struct ibv_pd *pd, void *addr, size_t len,
+			     uint64_t hca_va, int access);
 int ocrdma_dereg_mr(struct verbs_mr *vmr);
 
 struct ibv_cq *ocrdma_create_cq(struct ibv_context *, int,

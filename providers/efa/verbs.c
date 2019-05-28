@@ -126,7 +126,7 @@ int efa_dealloc_pd(struct ibv_pd *ibvpd)
 }
 
 struct ibv_mr *efa_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
-			  int access)
+			  uint64_t hca_va, int access)
 {
 	struct ib_uverbs_reg_mr_resp resp;
 	struct ibv_reg_mr cmd;
@@ -136,7 +136,7 @@ struct ibv_mr *efa_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
 	if (!mr)
 		return NULL;
 
-	if (ibv_cmd_reg_mr(ibvpd, sva, len, (uintptr_t)sva, access, &mr->vmr,
+	if (ibv_cmd_reg_mr(ibvpd, sva, len, hca_va, access, &mr->vmr,
 			   &cmd, sizeof(cmd), &resp, sizeof(resp))) {
 		free(mr);
 		return NULL;

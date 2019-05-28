@@ -150,8 +150,8 @@ extern int iwch_query_port(struct ibv_context *context, uint8_t port,
 extern struct ibv_pd *iwch_alloc_pd(struct ibv_context *context);
 extern int iwch_free_pd(struct ibv_pd *pd);
 
-extern struct ibv_mr *iwch_reg_mr(struct ibv_pd *pd, void *addr,
-				  size_t length, int access);
+extern struct ibv_mr *iwch_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+				  uint64_t hca_va, int access);
 extern int iwch_dereg_mr(struct verbs_mr *mr);
 
 struct ibv_cq *iwch_create_cq(struct ibv_context *context, int cqe,

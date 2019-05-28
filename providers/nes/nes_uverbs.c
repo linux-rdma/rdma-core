@@ -165,8 +165,8 @@ int nes_ufree_pd(struct ibv_pd *pd)
 /**
  * nes_ureg_mr
  */
-struct ibv_mr *nes_ureg_mr(struct ibv_pd *pd, void *addr,
-		size_t length, int access)
+struct ibv_mr *nes_ureg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			   uint64_t hca_va, int access)
 {
 	struct verbs_mr *vmr;
 	struct nes_ureg_mr cmd;
@@ -177,9 +177,8 @@ struct ibv_mr *nes_ureg_mr(struct ibv_pd *pd, void *addr,
 		return NULL;
 
 	cmd.reg_type = IWNES_MEMREG_TYPE_MEM;
-	if (ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr,
-			access, vmr, &cmd.ibv_cmd, sizeof(cmd),
-			&resp, sizeof(resp))) {
+	if (ibv_cmd_reg_mr(pd, addr, length, hca_va, access, vmr, &cmd.ibv_cmd,
+			   sizeof(cmd), &resp, sizeof(resp))) {
 		free(vmr);
 
 		return NULL;

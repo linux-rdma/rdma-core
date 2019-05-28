@@ -131,7 +131,7 @@ int bnxt_re_free_pd(struct ibv_pd *ibvpd)
 }
 
 struct ibv_mr *bnxt_re_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
-			      int access)
+			      uint64_t hca_va, int access)
 {
 	struct bnxt_re_mr *mr;
 	struct ibv_reg_mr cmd;
@@ -141,8 +141,8 @@ struct ibv_mr *bnxt_re_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
 	if (!mr)
 		return NULL;
 
-	if (ibv_cmd_reg_mr(ibvpd, sva, len, (uintptr_t)sva, access, &mr->vmr,
-			   &cmd, sizeof(cmd), &resp.ibv_resp, sizeof(resp))) {
+	if (ibv_cmd_reg_mr(ibvpd, sva, len, hca_va, access, &mr->vmr, &cmd,
+			   sizeof(cmd), &resp.ibv_resp, sizeof(resp))) {
 		free(mr);
 		return NULL;
 	}

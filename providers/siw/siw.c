@@ -96,7 +96,7 @@ static int siw_free_pd(struct ibv_pd *pd)
 }
 
 static struct ibv_mr *siw_reg_mr(struct ibv_pd *pd, void *addr, size_t len,
-				 int access)
+				 uint64_t hca_va, int access)
 {
 	struct siw_cmd_reg_mr cmd = {};
 	struct siw_cmd_reg_mr_resp resp = {};
@@ -107,7 +107,7 @@ static struct ibv_mr *siw_reg_mr(struct ibv_pd *pd, void *addr, size_t len,
 	if (!mr)
 		return NULL;
 
-	rv = ibv_cmd_reg_mr(pd, addr, len, (uintptr_t)addr, access,
+	rv = ibv_cmd_reg_mr(pd, addr, len, hca_va, access,
 			    &mr->base_mr, &cmd.ibv_cmd, sizeof(cmd),
 			    &resp.ibv_resp, sizeof(resp));
 	if (rv) {
