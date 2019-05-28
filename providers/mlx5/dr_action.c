@@ -31,7 +31,6 @@
  */
 
 #include <unistd.h>
-#include <malloc.h>
 #include <arpa/inet.h>
 #include <ccan/array_size.h>
 #include "mlx5dv_dr.h"

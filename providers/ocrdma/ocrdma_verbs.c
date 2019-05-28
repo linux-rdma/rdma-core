@@ -43,7 +43,6 @@
 #include <signal.h>
 #include <errno.h>
 #include <pthread.h>
-#include <malloc.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <endian.h>
