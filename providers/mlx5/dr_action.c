@@ -338,6 +338,9 @@ static const struct dr_action_modify_field_conv dr_action_conv_arr[] = {
 	[MLX5_ACTION_IN_FIELD_OUT_TCP_ACK_NUM] = {
 		.hw_field = MLX5_DR_ACTION_MDFY_HW_FLD_L4_1, .start = 0, .end = 31,
 	},
+	[MLX5_ACTION_IN_FIELD_OUT_FIRST_VID] = {
+		.hw_field = MLX5_DR_ACTION_MDFY_HW_FLD_L2_2, .start = 0, .end = 15,
+	},
 };
 
 struct dr_action_apply_attr {
