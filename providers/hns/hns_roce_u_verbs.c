@@ -774,7 +774,7 @@ static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 		return -1;
 	}
 
-	memset(qp->buf.buf, 0, qp->buf_size);
+	memset(qp->buf.buf, 0, qp->buf.length);
 
 	return 0;
 }
