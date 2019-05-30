@@ -35,6 +35,8 @@ Group:          Productivity/Networking/Other
 %define umad_so_major   3
 %define mlx4_so_major   1
 %define mlx5_so_major   1
+%define ibnetdisc_major 5
+%define mad_major       5
 
 %define  efa_lname    libefa-%{efa_so_major}
 %define  verbs_lname  libibverbs%{verbs_so_major}
@@ -64,6 +66,7 @@ BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(systemd)
 BuildRequires:  pkgconfig(udev)
+BuildRequires:  /usr/bin/rst2man
 %if %{with_pyverbs}
 BuildRequires:  python3-Cython
 BuildRequires:  python3-devel
@@ -162,6 +165,10 @@ BuildRequires:  pkgconfig(libnl-3.0)
 BuildRequires:  pkgconfig(libnl-route-3.0)
 %endif
 
+Requires: infiniband-diags = %{version}-%{release}
+Provides: infiniband-diags-devel = %{version}-%{release}
+Obsoletes: infiniband-diags-devel < %{version}-%{release}
+
 %description devel
 RDMA core development libraries and headers.
 
@@ -244,6 +251,14 @@ Group:          System/Libraries
 %description -n %mlx5_lname
 This package contains the mlx5 runtime library.
 
+%package    -n libibnetdisc%{ibnetdisc_major}
+Summary:        Infiniband Net Discovery runtime library
+Group:          System/Libraries
+
+%description -n libibnetdisc%{ibnetdisc_major}
+This package contains the Infiniband Net Discovery runtime library needed
+mainly by infiniband-diags.
+
 %package -n     libibverbs-utils
 Summary:        Examples for the libibverbs library
 Group:          Productivity/Networking/Other
@@ -270,6 +285,23 @@ to O(n).  The ibacm daemon is started and normally runs in the background,
 user applications need not know about this daemon as long as their app
 uses librdmacm to handle connection bring up/tear down.  The librdmacm
 library knows how to talk directly to the ibacm daemon to retrieve data.
+
+%package -n infiniband-diags
+Summary:        InfiniBand Diagnostic Tools
+Group:          Productivity/Networking/Diagnostic
+
+%description -n infiniband-diags
+diags provides IB diagnostic programs and scripts needed to diagnose an
+IB subnet.
+
+%package -n     libibmad%{mad_major}
+Summary:        Libibmad runtime library
+Group:          System/Libraries
+
+%description -n libibmad%{mad_major}
+Libibmad provides low layer IB functions for use by the IB diagnostic
+and management programs. These include MAD, SA, SMP, and other basic IB
+functions. This package contains the runtime library.
 
 %package -n iwpmd
 Summary:        Userspace iWarp Port Mapper daemon
@@ -384,6 +416,7 @@ easy, object-oriented access to IB verbs.
          -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
          -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version} \
          -DCMAKE_INSTALL_UDEV_RULESDIR:PATH=%{_udevrulesdir} \
+         -DCMAKE_INSTALL_PERLDIR:PATH=%{perl_vendorlib} \
 %if %{with_static}
          -DENABLE_STATIC=1 \
 %endif
@@ -457,6 +490,12 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %post -n %rdmacm_lname -p /sbin/ldconfig
 %postun -n %rdmacm_lname -p /sbin/ldconfig
+
+%post -n libibnetdisc%{ibnetdisc_major} -p /sbin/ldconfig
+%postun -n libibnetdisc%{ibnetdisc_major} -p /sbin/ldconfig
+
+%post -n libibmad%{mad_major} -p /sbin/ldconfig
+%postun -n libibmad%{mad_major} -p /sbin/ldconfig
 
 %post
 # we ship udev rules, so trigger an update.
@@ -581,6 +620,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %endif
 %{_libdir}/lib*.so
 %{_libdir}/pkgconfig/*.pc
+%{_mandir}/man3/ibnd_*
 %{_mandir}/man3/ibv_*
 %{_mandir}/man3/rdma*
 %{_mandir}/man3/umad*
@@ -607,6 +647,14 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_bindir}/rxe_cfg
 %{_mandir}/man7/rxe*
 %{_mandir}/man8/rxe*
+
+%files -n libibnetdisc%{ibnetdisc_major}
+%defattr(-, root, root)
+%{_libdir}/libibnetdisc.so.*
+
+%files -n libibmad%{mad_major}
+%defattr(-, root, root)
+%{_libdir}/libibmad.so.*
 
 %files -n %verbs_lname
 %defattr(-,root,root)
@@ -646,6 +694,74 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_libdir}/ibacm/*
 %{_sbindir}/rcibacm
 %doc %{_docdir}/%{name}-%{version}/ibacm.md
+
+%files -n infiniband-diags
+%defattr(-, root, root)
+%config %{_sysconfdir}/infiniband-diags/error_thresholds
+%dir %{_sysconfdir}/infiniband-diags
+%config(noreplace) %{_sysconfdir}/infiniband-diags/*
+%{_sbindir}/ibaddr
+%{_mandir}/man8/ibaddr*
+%{_sbindir}/ibnetdiscover
+%{_mandir}/man8/ibnetdiscover*
+%{_sbindir}/ibping
+%{_mandir}/man8/ibping*
+%{_sbindir}/ibportstate
+%{_mandir}/man8/ibportstate*
+%{_sbindir}/ibroute
+%{_mandir}/man8/ibroute.*
+%{_sbindir}/ibstat
+%{_mandir}/man8/ibstat.*
+%{_sbindir}/ibsysstat
+%{_mandir}/man8/ibsysstat*
+%{_sbindir}/ibtracert
+%{_mandir}/man8/ibtracert*
+%{_sbindir}/perfquery
+%{_mandir}/man8/perfquery*
+%{_sbindir}/sminfo
+%{_mandir}/man8/sminfo*
+%{_sbindir}/smpdump
+%{_mandir}/man8/smpdump*
+%{_sbindir}/smpquery
+%{_mandir}/man8/smpquery*
+%{_sbindir}/saquery
+%{_mandir}/man8/saquery*
+%{_sbindir}/vendstat
+%{_mandir}/man8/vendstat*
+%{_sbindir}/iblinkinfo
+%{_mandir}/man8/iblinkinfo*
+%{_sbindir}/ibqueryerrors
+%{_mandir}/man8/ibqueryerrors*
+%{_sbindir}/ibcacheedit
+%{_mandir}/man8/ibcacheedit*
+%{_sbindir}/ibccquery
+%{_mandir}/man8/ibccquery*
+%{_sbindir}/ibccconfig
+%{_mandir}/man8/ibccconfig*
+%{_sbindir}/dump_fts
+%{_mandir}/man8/dump_fts*
+%{_sbindir}/ibhosts
+%{_mandir}/man8/ibhosts*
+%{_sbindir}/ibswitches
+%{_mandir}/man8/ibswitches*
+%{_sbindir}/ibnodes
+%{_mandir}/man8/ibnodes*
+%{_sbindir}/ibrouters
+%{_mandir}/man8/ibrouters*
+%{_sbindir}/ibfindnodesusing.pl
+%{_mandir}/man8/ibfindnodesusing*
+%{_sbindir}/ibidsverify.pl
+%{_mandir}/man8/ibidsverify*
+%{_sbindir}/check_lft_balance.pl
+%{_mandir}/man8/check_lft_balance*
+%{_sbindir}/dump_lfts.sh
+%{_mandir}/man8/dump_lfts*
+%{_sbindir}/dump_mfts.sh
+%{_mandir}/man8/dump_mfts*
+%{_sbindir}/ibstatus
+%{_mandir}/man8/ibstatus*
+%{_mandir}/man8/infiniband-diags*
+%{perl_vendorlib}/IBswcountlimits.pm
 
 %files -n iwpmd
 %defattr(-,root,root)

@@ -103,6 +103,7 @@ class centos6(YumEnvironment):
         'pkgconfig',
         'python',
         'python-argparse',
+        'python-docutils',
         'rpm-build',
         'valgrind-devel',
     };
@@ -148,7 +149,14 @@ class centos7_epel(centos7):
 
 class fc30(Environment):
     docker_parent = "fedora:30";
-    pkgs = (centos7.pkgs - {"make", "python-argparse" }) | {"ninja-build","pandoc","perl-generators","python3-Cython","python3-devel"};
+    pkgs = (centos7.pkgs - {"make", "python-argparse" }) | {
+        "ninja-build",
+        "pandoc",
+        "perl-generators",
+        "python3-docutils",
+        "python3-Cython",
+        "python3-devel",
+    };
     name = "fc30";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
@@ -189,6 +197,7 @@ class xenial(APTEnvironment):
         'pandoc',
         'pkg-config',
         'python3',
+        "python3-docutils",
         'valgrind',
     };
     name = "ubuntu-16.04";
@@ -354,6 +363,7 @@ class leap(ZypperEnvironment):
         'valgrind-devel',
         'python3-Cython',
         'python3-devel',
+        'python3-docutils',
     };
     rpmbuild_options = [ "--without=curlmini" ];
     name = "opensuse-15.0";

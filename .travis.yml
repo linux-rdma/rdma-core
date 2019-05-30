@@ -19,6 +19,7 @@ addons:
       - make
       - ninja-build
       - pandoc
+      - python-docutils
       - pkg-config
       - python
       - valgrind

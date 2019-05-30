@@ -1,0 +1,13 @@
+usr/include/infiniband/ibnetdisc*
+usr/lib/*/libibnetdisc*.a
+usr/lib/*/libibnetdisc*.so
+usr/lib/*/pkgconfig/libibnetdisc.pc
+usr/share/man/man3/ibnd_debug.3
+usr/share/man/man3/ibnd_destroy_fabric.3
+usr/share/man/man3/ibnd_discover_fabric.3
+usr/share/man/man3/ibnd_find_node_dr.3
+usr/share/man/man3/ibnd_find_node_guid.3
+usr/share/man/man3/ibnd_iter_nodes.3
+usr/share/man/man3/ibnd_iter_nodes_type.3
+usr/share/man/man3/ibnd_set_max_smps_on_wire.3
+usr/share/man/man3/ibnd_show_progress.3

@@ -35,6 +35,7 @@ DH_AUTO_CONFIGURE := "--" \
 		     "-DCMAKE_INSTALL_SHAREDSTATEDIR:PATH=/var/lib" \
 		     "-DCMAKE_INSTALL_RUNDIR:PATH=/run" \
 		     "-DCMAKE_INSTALL_UDEV_RULESDIR:PATH=/lib/udev/rules.d" \
+		     "-DCMAKE_INSTALL_PERLDIR:PATH=/usr/share/perl5" \
 		     "-DENABLE_STATIC=1" \
 		     $(EXTRA_CMAKE_FLAGS)
 
@@ -98,6 +99,8 @@ override_dh_makeshlibs:
 	dh_makeshlibs $(SHLIBS_EXCLUDE)
 
 override_dh_strip:
+	dh_strip -plibibmad5 --dbg-package=libibmad5-dbg
+	dh_strip -plibibnetdisc5 --dbg-package=libibnetdisc5-dbg
 	dh_strip -plibibumad3 --dbg-package=libibumad3-dbg
 	dh_strip -plibibverbs1 --dbg-package=libibverbs1-dbg
 	dh_strip -plibrdmacm1 --dbg-package=librdmacm1-dbg
