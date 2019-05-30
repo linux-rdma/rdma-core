@@ -893,14 +893,13 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 						j++;
 					}
 
-				dseg = get_send_sge_ex(qp, ind_sge &
-						    (qp->sge.sge_cnt - 1));
-
 				for (; i < wr->num_sge; i++) {
 					if (likely(wr->sg_list[i].length)) {
+						dseg = get_send_sge_ex(qp,
+							ind_sge &
+							(qp->sge.sge_cnt - 1));
 						set_data_seg_v2(dseg,
 							   wr->sg_list + i);
-						dseg++;
 						ind_sge++;
 					}
 				}
