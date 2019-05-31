@@ -166,11 +166,16 @@ struct verbs_match_ent {
 	    .kind = VERBS_MATCH_MODALIAS,                                      \
 	}
 
+enum {
+	VSYSFS_READ_MODALIAS = 1 << 0,
+};
+
 /* A rdma device detected in sysfs */
 struct verbs_sysfs_dev {
 	struct list_node entry;
 	void *provider_data;
 	const struct verbs_match_ent *match;
+	unsigned int flags;
 	char sysfs_name[IBV_SYSFS_NAME_MAX];
 	char ibdev_name[IBV_SYSFS_NAME_MAX];
 	char sysfs_path[IBV_SYSFS_PATH_MAX];

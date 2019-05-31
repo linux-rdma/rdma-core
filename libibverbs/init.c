@@ -151,11 +151,6 @@ static int find_sysfs_devs(struct list_head *tmp_sysfs_dev_list)
 					value, sizeof value) > 0)
 			sysfs_dev->abi_ver = strtol(value, NULL, 10);
 
-		if (ibv_read_sysfs_file(sysfs_dev->sysfs_path,
-					"device/modalias", sysfs_dev->modalias,
-					sizeof(sysfs_dev->modalias)) <= 0)
-			sysfs_dev->modalias[0] = 0;
-
 		list_add(tmp_sysfs_dev_list, &sysfs_dev->entry);
 		sysfs_dev      = NULL;
 	}
@@ -210,6 +205,16 @@ match_modalias_device(const struct verbs_device_ops *ops,
 		      struct verbs_sysfs_dev *sysfs_dev)
 {
 	const struct verbs_match_ent *i;
+
+	if (!(sysfs_dev->flags & VSYSFS_READ_MODALIAS)) {
+		sysfs_dev->flags |= VSYSFS_READ_MODALIAS;
+		if (ibv_read_sysfs_file(sysfs_dev->ibdev_path,
+					"device/modalias", sysfs_dev->modalias,
+					sizeof(sysfs_dev->modalias)) <= 0) {
+			sysfs_dev->modalias[0] = 0;
+			return NULL;
+		}
+	}
 
 	for (i = ops->match_table; i->kind != VERBS_MATCH_SENTINEL; i++)
 		if (match_modalias(i, sysfs_dev->modalias))
