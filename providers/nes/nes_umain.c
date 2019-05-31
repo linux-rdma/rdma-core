@@ -57,6 +57,7 @@ long int page_size;
 
 #define HCA(v, d) VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, d, NULL)
 static const struct verbs_match_ent hca_table[] = {
+	VERBS_DRIVER_ID(RDMA_DRIVER_NES),
 	HCA(NETEFFECT, 0x0100),
 	HCA(NETEFFECT, 0x0110),
 	{},

@@ -200,7 +200,7 @@ static bool match_modalias(const struct verbs_match_ent *ent, const char *value)
 
 	switch (ent->kind) {
 	case VERBS_MATCH_MODALIAS:
-		return fnmatch(ent->modalias, value, 0) == 0;
+		return fnmatch(ent->u.modalias, value, 0) == 0;
 	case VERBS_MATCH_PCI:
 		snprintf(pci_ma, sizeof(pci_ma), "pci:v%08Xd%08Xsv*",
 			 ent->vendor, ent->device);
@@ -255,16 +255,31 @@ match_name(const struct verbs_device_ops *ops,
 	return NULL;
 }
 
+/* Match the driver id we get from netlink */
+static const struct verbs_match_ent *
+match_driver_id(const struct verbs_device_ops *ops,
+		struct verbs_sysfs_dev *sysfs_dev)
+{
+	const struct verbs_match_ent *i;
+
+	if (sysfs_dev->driver_id == RDMA_DRIVER_UNKNOWN)
+		return NULL;
+
+	for (i = ops->match_table; i->kind != VERBS_MATCH_SENTINEL; i++)
+		if (i->kind == VERBS_MATCH_DRIVER_ID &&
+		    i->u.driver_id == sysfs_dev->driver_id)
+			return i;
+	return NULL;
+}
+
 /* True if the provider matches the selected rdma sysfs device */
 static bool match_device(const struct verbs_device_ops *ops,
 			 struct verbs_sysfs_dev *sysfs_dev)
 {
 	if (ops->match_table) {
-		/* The internally generated alias is checked first, since some
-		 * devices like rxe can attach to a random modalias, including
-		 * ones that match other providers.
-		 */
-		sysfs_dev->match = match_name(ops, sysfs_dev);
+		sysfs_dev->match = match_driver_id(ops, sysfs_dev);
+		if (!sysfs_dev->match)
+			sysfs_dev->match = match_name(ops, sysfs_dev);
 		if (!sysfs_dev->match)
 			sysfs_dev->match =
 			    match_modalias_device(ops, sysfs_dev);
@@ -372,6 +387,20 @@ static struct verbs_device *try_drivers(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct ibv_driver *driver;
 	struct verbs_device *dev;
+
+	/*
+	 * Matching by driver_id takes priority over other match types, do it
+	 * first.
+	 */
+	if (sysfs_dev->driver_id != RDMA_DRIVER_UNKNOWN) {
+		list_for_each (&driver_list, driver, entry) {
+			if (match_driver_id(driver->ops, sysfs_dev)) {
+				dev = try_driver(driver->ops, sysfs_dev);
+				if (dev)
+					return dev;
+			}
+		}
+	}
 
 	list_for_each(&driver_list, driver, entry) {
 		dev = try_driver(driver->ops, sysfs_dev);

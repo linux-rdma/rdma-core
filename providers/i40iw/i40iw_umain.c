@@ -52,6 +52,7 @@
 
 #define INTEL_HCA(v, d) VERBS_PCI_MATCH(v, d, NULL)
 static const struct verbs_match_ent hca_table[] = {
+	VERBS_DRIVER_ID(RDMA_DRIVER_I40IW),
 #ifdef I40E_DEV_ID_X722_A0
 	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_X722_A0),
 #endif

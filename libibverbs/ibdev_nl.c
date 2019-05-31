@@ -97,6 +97,12 @@ static int find_uverbs_nl_cb(struct nl_msg *msg, void *data)
 	 * current kernels set them to 0
 	 */
 	sysfs_dev->abi_ver = nla_get_u64(tb[RDMA_NLDEV_ATTR_CHARDEV_ABI]);
+	if (tb[RDMA_NLDEV_ATTR_UVERBS_DRIVER_ID])
+		sysfs_dev->driver_id =
+			nla_get_u32(tb[RDMA_NLDEV_ATTR_UVERBS_DRIVER_ID]);
+	else
+		sysfs_dev->driver_id = RDMA_DRIVER_UNKNOWN;
+
 	if (!check_snprintf(sysfs_dev->sysfs_name,
 			    sizeof(sysfs_dev->sysfs_name), "%s",
 			    nla_get_string(tb[RDMA_NLDEV_ATTR_CHARDEV_NAME])))

@@ -49,7 +49,8 @@
  * Macros needed to support the PCI Device ID Table ...
  */
 #define CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN                                    \
-	static const struct verbs_match_ent hca_table[] = {
+	static const struct verbs_match_ent hca_table[] = {                    \
+		VERBS_DRIVER_ID(RDMA_DRIVER_CXGB4),
 
 #define CH_PCI_DEVICE_ID_FUNCTION \
 		0x4

@@ -49,6 +49,7 @@
 
 #define HCA(v, d) VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, d, NULL)
 static const struct verbs_match_ent hca_table[] = {
+	VERBS_DRIVER_ID(RDMA_DRIVER_MLX4),
 	HCA(MELLANOX, 0x6340),	/* MT25408 "Hermon" SDR */
 	HCA(MELLANOX, 0x634a),	/* MT25408 "Hermon" DDR */
 	HCA(MELLANOX, 0x6354),	/* MT25408 "Hermon" QDR */

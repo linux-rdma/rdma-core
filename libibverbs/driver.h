@@ -130,16 +130,27 @@ enum {
 	VERBS_MATCH_SENTINEL = 0,
 	VERBS_MATCH_PCI = 1,
 	VERBS_MATCH_MODALIAS = 2,
+	VERBS_MATCH_DRIVER_ID = 3,
 };
 
 struct verbs_match_ent {
 	void *driver_data;
-	const char *modalias;
+	union {
+		const char *modalias;
+		uint64_t driver_id;
+	} u;
 	uint16_t vendor;
 	uint16_t device;
 	uint8_t kind;
 };
-#define VERBS_PCI_MATCH(_vendor, _device, _data)                               \
+#define VERBS_DRIVER_ID(_id)                                                   \
+	{                                                                      \
+		.u.driver_id = (_id), .kind = VERBS_MATCH_DRIVER_ID,           \
+	}
+/* Note: New drivers should only use VERBS_DRIVER_ID, the below are for legacy
+ * drivers
+ */
+#define VERBS_PCI_MATCH(_vendor, _device, _data)			\
 	{                                                                      \
 	    .driver_data = (void *)(_data),				       \
 	    .vendor = (_vendor),                                               \
@@ -150,7 +161,7 @@ struct verbs_match_ent {
 #define VERBS_MODALIAS_MATCH(_mod_str, _data)                                  \
 	{                                                                      \
 	    .driver_data = (void *)(_data),			               \
-	    .modalias = (_mod_str),                                            \
+	    .u.modalias = (_mod_str),                                          \
 	    .kind = VERBS_MATCH_MODALIAS,                                      \
 	}
 
@@ -162,7 +173,7 @@ struct verbs_match_ent {
 #define VERBS_NAME_MATCH(_name_prefix, _data)                                  \
 	{                                                                      \
 	    .driver_data = (_data),                                            \
-	    .modalias = "rdma_device:*N" _name_prefix "*",                     \
+	    .u.modalias = "rdma_device:*N" _name_prefix "*",                   \
 	    .kind = VERBS_MATCH_MODALIAS,                                      \
 	}
 
@@ -180,6 +191,7 @@ struct verbs_sysfs_dev {
 	char ibdev_name[IBV_SYSFS_NAME_MAX];
 	char ibdev_path[IBV_SYSFS_PATH_MAX];
 	char modalias[512];
+	uint32_t driver_id;
 	int ibdev_idx;
 	uint32_t abi_ver;
 	struct timespec time_created;

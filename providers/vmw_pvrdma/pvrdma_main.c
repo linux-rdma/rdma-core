@@ -194,6 +194,7 @@ pvrdma_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 }
 
 static const struct verbs_match_ent hca_table[] = {
+	VERBS_DRIVER_ID(RDMA_DRIVER_VMW_PVRDMA),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_VMWARE, PCI_DEVICE_ID_VMWARE_PVRDMA,
 			NULL),
 	{}

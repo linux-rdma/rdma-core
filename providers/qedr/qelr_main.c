@@ -67,6 +67,7 @@ uint32_t qelr_dp_module;
 #define QHCA(d)                                                                \
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_QLOGIC, PCI_DEVICE_ID_QLOGIC_##d, NULL)
 static const struct verbs_match_ent hca_table[] = {
+	VERBS_DRIVER_ID(RDMA_DRIVER_QEDR),
 	QHCA(57980S),
 	QHCA(57980S_40),
 	QHCA(57980S_10),
