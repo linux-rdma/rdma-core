@@ -74,26 +74,18 @@ const char *ibv_get_sysfs_path(void)
 	return sysfs_path;
 }
 
-int ibv_read_sysfs_file(const char *dir, const char *file,
-			char *buf, size_t size)
+int ibv_read_sysfs_file_at(int dirfd, const char *file, char *buf, size_t size)
 {
-	char *path;
+	ssize_t len;
 	int fd;
-	int len;
 
-	if (asprintf(&path, "%s/%s", dir, file) < 0)
+	fd = openat(dirfd, file, O_RDONLY | O_CLOEXEC);
+	if (fd < 0)
 		return -1;
-
-	fd = open(path, O_RDONLY | O_CLOEXEC);
-	if (fd < 0) {
-		free(path);
-		return -1;
-	}
 
 	len = read(fd, buf, size);
 
 	close(fd);
-	free(path);
 
 	if (len > 0) {
 		if (buf[len - 1] == '\n')
@@ -110,4 +102,18 @@ int ibv_read_sysfs_file(const char *dir, const char *file,
 	}
 
 	return len;
+}
+
+int ibv_read_sysfs_file(const char *dir, const char *file,
+			char *buf, size_t size)
+{
+	char *path;
+	int res;
+
+	if (asprintf(&path, "%s/%s", dir, file) < 0)
+		return -1;
+
+	res = ibv_read_sysfs_file_at(AT_FDCWD, path, buf, size);
+	free(path);
+	return res;
 }

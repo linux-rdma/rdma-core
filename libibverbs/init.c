@@ -42,6 +42,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <fcntl.h>
 #include <dirent.h>
 #include <errno.h>
 #include <assert.h>
@@ -75,13 +76,64 @@ static int try_access_device(const struct verbs_sysfs_dev *sysfs_dev)
 	return ret;
 }
 
+static int setup_sysfs_dev(int dirfd, const char *uverbs,
+			   struct list_head *tmp_sysfs_dev_list)
+{
+	struct verbs_sysfs_dev *sysfs_dev = NULL;
+	struct stat buf;
+	char value[32];
+	int uv_dirfd;
+
+	sysfs_dev = calloc(1, sizeof(*sysfs_dev));
+	if (!sysfs_dev)
+		return ENOMEM;
+
+	uv_dirfd = openat(dirfd, uverbs, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+	if (uv_dirfd == -1)
+		goto err_alloc;
+
+	if (ibv_read_sysfs_file_at(uv_dirfd, "ibdev", sysfs_dev->ibdev_name,
+				   sizeof(sysfs_dev->ibdev_name)) < 0)
+		goto err_fd;
+
+	if (!check_snprintf(
+		    sysfs_dev->ibdev_path, sizeof(sysfs_dev->ibdev_path),
+		    "%s/class/infiniband/%s", ibv_get_sysfs_path(),
+		    sysfs_dev->ibdev_name))
+		goto err_fd;
+
+	if (!check_snprintf(sysfs_dev->sysfs_name,
+			    sizeof(sysfs_dev->sysfs_name), "%s", uverbs))
+		goto err_fd;
+
+	if (stat(sysfs_dev->ibdev_path, &buf))
+		goto err_fd;
+	sysfs_dev->time_created = buf.st_mtim;
+
+	if (ibv_read_sysfs_file_at(uv_dirfd, "abi_version", value,
+				   sizeof(value)) > 0)
+		sysfs_dev->abi_ver = strtol(value, NULL, 10);
+
+	if (try_access_device(sysfs_dev))
+		goto err_fd;
+
+	close(uv_dirfd);
+	list_add(tmp_sysfs_dev_list, &sysfs_dev->entry);
+	return 0;
+
+err_fd:
+	close(uv_dirfd);
+err_alloc:
+	free(sysfs_dev);
+	return 0;
+}
+
 static int find_sysfs_devs(struct list_head *tmp_sysfs_dev_list)
 {
+	struct verbs_sysfs_dev *dev, *dev_tmp;
 	char class_path[IBV_SYSFS_PATH_MAX];
 	DIR *class_dir;
 	struct dirent *dent;
-	struct verbs_sysfs_dev *sysfs_dev = NULL;
-	char value[8];
 	int ret = 0;
 
 	if (!check_snprintf(class_path, sizeof(class_path),
@@ -93,73 +145,22 @@ static int find_sysfs_devs(struct list_head *tmp_sysfs_dev_list)
 		return ENOSYS;
 
 	while ((dent = readdir(class_dir))) {
-		struct stat buf;
-
 		if (dent->d_name[0] == '.')
 			continue;
 
-		if (!sysfs_dev)
-			sysfs_dev = calloc(1, sizeof(*sysfs_dev));
-		if (!sysfs_dev) {
-			ret = ENOMEM;
-			goto out;
-		}
-
-		if (!check_snprintf(sysfs_dev->sysfs_path, sizeof sysfs_dev->sysfs_path,
-				    "%s/%s", class_path, dent->d_name))
-			continue;
-
-		if (stat(sysfs_dev->sysfs_path, &buf)) {
-			fprintf(stderr, PFX "Warning: couldn't stat '%s'.\n",
-				sysfs_dev->sysfs_path);
-			continue;
-		}
-
-		if (!S_ISDIR(buf.st_mode))
-			continue;
-
-		if (!check_snprintf(sysfs_dev->sysfs_name, sizeof sysfs_dev->sysfs_name,
-				    "%s", dent->d_name))
-			continue;
-
-		if (ibv_read_sysfs_file(sysfs_dev->sysfs_path, "ibdev",
-					sysfs_dev->ibdev_name,
-					sizeof sysfs_dev->ibdev_name) < 0) {
-			fprintf(stderr, PFX "Warning: no ibdev class attr for '%s'.\n",
-				dent->d_name);
-			continue;
-		}
-
-		if (!check_snprintf(
-			sysfs_dev->ibdev_path, sizeof(sysfs_dev->ibdev_path),
-			"%s/class/infiniband/%s", ibv_get_sysfs_path(),
-			sysfs_dev->ibdev_name))
-			continue;
-
-		if (stat(sysfs_dev->ibdev_path, &buf)) {
-			fprintf(stderr, PFX "Warning: couldn't stat '%s'.\n",
-				sysfs_dev->ibdev_path);
-			continue;
-		}
-
-		if (try_access_device(sysfs_dev))
-			continue;
-
-		sysfs_dev->time_created = buf.st_mtim;
-
-		if (ibv_read_sysfs_file(sysfs_dev->sysfs_path, "abi_version",
-					value, sizeof value) > 0)
-			sysfs_dev->abi_ver = strtol(value, NULL, 10);
-
-		list_add(tmp_sysfs_dev_list, &sysfs_dev->entry);
-		sysfs_dev      = NULL;
+		ret = setup_sysfs_dev(dirfd(class_dir), dent->d_name,
+				      tmp_sysfs_dev_list);
+		if (ret)
+			break;
 	}
-
- out:
-	if (sysfs_dev)
-		free(sysfs_dev);
-
 	closedir(class_dir);
+
+	if (ret) {
+		list_for_each_safe (tmp_sysfs_dev_list, dev, dev_tmp, entry) {
+			list_del(&dev->entry);
+			free(dev);
+		}
+	}
 	return ret;
 }
 
@@ -339,12 +340,19 @@ static struct verbs_device *try_driver(const struct verbs_device_ops *ops,
 	}
 
 	strcpy(dev->dev_name,   sysfs_dev->sysfs_name);
-	strcpy(dev->dev_path,   sysfs_dev->sysfs_path);
+	if (!check_snprintf(dev->dev_path, sizeof(dev->dev_path),
+			    "%s/class/infiniband_verbs/%s",
+			    ibv_get_sysfs_path(), sysfs_dev->sysfs_name))
+		goto err;
 	strcpy(dev->name,       sysfs_dev->ibdev_name);
 	strcpy(dev->ibdev_path, sysfs_dev->ibdev_path);
 	vdev->sysfs = sysfs_dev;
 
 	return vdev;
+
+err:
+	ops->uninit_device(vdev);
+	return NULL;
 }
 
 static struct verbs_device *try_drivers(struct verbs_sysfs_dev *sysfs_dev)
@@ -489,7 +497,7 @@ out:
 		if (getenv("IBV_SHOW_WARNINGS")) {
 			fprintf(stderr, PFX
 				"Warning: no userspace device-specific driver found for %s\n",
-				sysfs_dev->sysfs_path);
+				sysfs_dev->ibdev_name);
 		}
 		free(sysfs_dev);
 	}
