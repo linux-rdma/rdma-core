@@ -76,17 +76,38 @@ static int try_access_device(const struct verbs_sysfs_dev *sysfs_dev)
 	return ret;
 }
 
+int setup_sysfs_uverbs(int uv_dirfd, const char *uverbs,
+		       struct verbs_sysfs_dev *sysfs_dev)
+{
+	struct stat buf;
+	char value[32];
+
+	if (!check_snprintf(sysfs_dev->sysfs_name,
+			    sizeof(sysfs_dev->sysfs_name), "%s", uverbs))
+		return -1;
+
+	if (stat(sysfs_dev->ibdev_path, &buf))
+		return -1;
+	sysfs_dev->time_created = buf.st_mtim;
+
+	if (ibv_read_sysfs_file_at(uv_dirfd, "abi_version", value,
+				   sizeof(value)) > 0)
+		sysfs_dev->abi_ver = strtol(value, NULL, 10);
+
+	return 0;
+}
+
 static int setup_sysfs_dev(int dirfd, const char *uverbs,
 			   struct list_head *tmp_sysfs_dev_list)
 {
 	struct verbs_sysfs_dev *sysfs_dev = NULL;
-	struct stat buf;
-	char value[32];
 	int uv_dirfd;
 
 	sysfs_dev = calloc(1, sizeof(*sysfs_dev));
 	if (!sysfs_dev)
 		return ENOMEM;
+
+	sysfs_dev->ibdev_idx = -1;
 
 	uv_dirfd = openat(dirfd, uverbs, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
 	if (uv_dirfd == -1)
@@ -102,17 +123,8 @@ static int setup_sysfs_dev(int dirfd, const char *uverbs,
 		    sysfs_dev->ibdev_name))
 		goto err_fd;
 
-	if (!check_snprintf(sysfs_dev->sysfs_name,
-			    sizeof(sysfs_dev->sysfs_name), "%s", uverbs))
+	if (setup_sysfs_uverbs(uv_dirfd, uverbs, sysfs_dev))
 		goto err_fd;
-
-	if (stat(sysfs_dev->ibdev_path, &buf))
-		goto err_fd;
-	sysfs_dev->time_created = buf.st_mtim;
-
-	if (ibv_read_sysfs_file_at(uv_dirfd, "abi_version", value,
-				   sizeof(value)) > 0)
-		sysfs_dev->abi_ver = strtol(value, NULL, 10);
 
 	if (try_access_device(sysfs_dev))
 		goto err_fd;
@@ -413,11 +425,18 @@ static void check_memlock_limit(void)
 static int same_sysfs_dev(struct verbs_sysfs_dev *sysfs1,
 			  struct verbs_sysfs_dev *sysfs2)
 {
-	if (!strcmp(sysfs1->sysfs_name, sysfs2->sysfs_name) &&
-	    ts_cmp(&sysfs1->time_created,
-		   &sysfs2->time_created, ==))
-		return 1;
-	return 0;
+	if (strcmp(sysfs1->sysfs_name, sysfs2->sysfs_name) != 0)
+		return 0;
+
+	/* In netlink mode the idx is a globally unique ID */
+	if (sysfs1->ibdev_idx != sysfs2->ibdev_idx)
+		return 0;
+
+	if (sysfs1->ibdev_idx == -1 &&
+	    ts_cmp(&sysfs1->time_created, &sysfs2->time_created, !=))
+		return 0;
+
+	return 1;
 }
 
 /* Match every ibv_sysfs_dev in the sysfs_list to a driver and add a new entry
@@ -452,9 +471,12 @@ int ibverbs_get_device_list(struct list_head *device_list)
 	unsigned int num_devices = 0;
 	int ret;
 
-	ret = find_sysfs_devs(&sysfs_list);
-	if (ret)
-		return -ret;
+	ret = find_sysfs_devs_nl(&sysfs_list);
+	if (ret) {
+		ret = find_sysfs_devs(&sysfs_list);
+		if (ret)
+			return -ret;
+	}
 
 	/* Remove entries from the sysfs_list that are already preset in the
 	 * device_list, and remove entries from the device_list that are not

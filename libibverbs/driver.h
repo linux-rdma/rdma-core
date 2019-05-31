@@ -180,6 +180,7 @@ struct verbs_sysfs_dev {
 	char ibdev_name[IBV_SYSFS_NAME_MAX];
 	char ibdev_path[IBV_SYSFS_PATH_MAX];
 	char modalias[512];
+	int ibdev_idx;
 	int abi_ver;
 	struct timespec time_created;
 };
