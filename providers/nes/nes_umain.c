@@ -55,11 +55,10 @@ long int page_size;
 #define PCI_VENDOR_ID_NETEFFECT		0x1678
 #endif
 
-#define HCA(v, d, t)                                                           \
-	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, d, (void *)(NETEFFECT_##t))
+#define HCA(v, d) VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, d, NULL)
 static const struct verbs_match_ent hca_table[] = {
-	HCA(NETEFFECT, 0x0100, nes),
-	HCA(NETEFFECT, 0x0110, nes),
+	HCA(NETEFFECT, 0x0100),
+	HCA(NETEFFECT, 0x0110),
 	{},
 };
 
@@ -200,7 +199,6 @@ nes_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 	if (!dev)
 		return NULL;
 
-	dev->hca_type = (uintptr_t)sysfs_dev->match->driver_data;
 	dev->page_size = sysconf(_SC_PAGESIZE);
 
 	nes_debug(NES_DBG_INIT, "libnes initialized\n");
