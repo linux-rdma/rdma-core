@@ -36,9 +36,11 @@
 #include <sys/sysmacros.h>
 
 struct nla_policy rdmanl_policy[RDMA_NLDEV_ATTR_MAX] = {
+	[RDMA_NLDEV_ATTR_CHARDEV_ABI] = { .type = NLA_U64 },
 	[RDMA_NLDEV_ATTR_DEV_INDEX] = { .type = NLA_U32 },
 	[RDMA_NLDEV_ATTR_NODE_GUID] = { .type = NLA_U64 },
 #ifdef NLA_NUL_STRING
+	[RDMA_NLDEV_ATTR_CHARDEV_NAME] = { .type = NLA_NUL_STRING },
 	[RDMA_NLDEV_ATTR_DEV_NAME] = { .type = NLA_NUL_STRING },
 	[RDMA_NLDEV_ATTR_DEV_PROTOCOL] = { .type = NLA_NUL_STRING },
 #endif /* NLA_NUL_STRING */
@@ -94,4 +96,43 @@ int rdmanl_get_devices(struct nl_sock *nl, nl_recvmsg_msg_cb_t cb_func,
 	if (ret || failed)
 		return -1;
 	return 0;
+}
+
+int rdmanl_get_chardev(struct nl_sock *nl, int ibidx, const char *name,
+		       nl_recvmsg_msg_cb_t cb_func, void *data)
+
+{
+	bool failed = false;
+	struct nl_msg *msg;
+	int ret;
+
+	msg = nlmsg_alloc_simple(
+		RDMA_NL_GET_TYPE(RDMA_NL_NLDEV, RDMA_NLDEV_CMD_GET_CHARDEV), 0);
+	if (!msg)
+		return -1;
+	if (ibidx != -1)
+		NLA_PUT_U32(msg, RDMA_NLDEV_ATTR_DEV_INDEX, ibidx);
+	NLA_PUT_STRING(msg, RDMA_NLDEV_ATTR_CHARDEV_TYPE, name);
+	ret = nl_send_auto(nl, msg);
+	nlmsg_free(msg);
+	if (ret < 0)
+		return -1;
+
+	if (nl_socket_modify_err_cb(nl, NL_CB_CUSTOM, rdmanl_saw_err_cb,
+				    &failed))
+		return -1;
+	if (nl_socket_modify_cb(nl, NL_CB_VALID, NL_CB_CUSTOM, cb_func, data))
+		return -1;
+	do {
+		ret = nl_recvmsgs_default(nl);
+	} while (ret > 0);
+	nl_socket_modify_err_cb(nl, NL_CB_CUSTOM, NULL, NULL);
+
+	if (ret || failed)
+		return -1;
+	return 0;
+
+nla_put_failure:
+	nlmsg_free(msg);
+	return -1;
 }

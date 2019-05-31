@@ -41,5 +41,7 @@ extern struct nla_policy rdmanl_policy[RDMA_NLDEV_ATTR_MAX];
 struct nl_sock *rdmanl_socket_alloc(void);
 int rdmanl_get_devices(struct nl_sock *nl, nl_recvmsg_msg_cb_t cb_func,
 		       void *data);
+int rdmanl_get_chardev(struct nl_sock *nl, int ibidx, const char *name,
+		       nl_recvmsg_msg_cb_t cb_func, void *data);
 
 #endif

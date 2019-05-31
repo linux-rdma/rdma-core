@@ -78,6 +78,43 @@ static int find_uverbs_sysfs(struct verbs_sysfs_dev *sysfs_dev)
 	return ret;
 }
 
+static int find_uverbs_nl_cb(struct nl_msg *msg, void *data)
+{
+	struct verbs_sysfs_dev *sysfs_dev = data;
+	struct nlattr *tb[RDMA_NLDEV_ATTR_MAX];
+	int ret;
+
+	ret = nlmsg_parse(nlmsg_hdr(msg), 0, tb, RDMA_NLDEV_ATTR_MAX - 1,
+			  rdmanl_policy);
+	if (ret < 0)
+		return ret;
+	if (!tb[RDMA_NLDEV_ATTR_CHARDEV_ABI] ||
+	    !tb[RDMA_NLDEV_ATTR_CHARDEV_NAME])
+		return NLE_PARSE_ERR;
+
+	/*
+	 * The top 32 bits of CHARDEV_ABI are reserved for a future use,
+	 * current kernels set them to 0
+	 */
+	sysfs_dev->abi_ver = nla_get_u64(tb[RDMA_NLDEV_ATTR_CHARDEV_ABI]);
+	if (!check_snprintf(sysfs_dev->sysfs_name,
+			    sizeof(sysfs_dev->sysfs_name), "%s",
+			    nla_get_string(tb[RDMA_NLDEV_ATTR_CHARDEV_NAME])))
+		return NLE_PARSE_ERR;
+	return 0;
+}
+
+/* Ask the kernel for the uverbs char device information */
+static int find_uverbs_nl(struct nl_sock *nl, struct verbs_sysfs_dev *sysfs_dev)
+{
+	if (rdmanl_get_chardev(nl, sysfs_dev->ibdev_idx, "uverbs",
+				  find_uverbs_nl_cb, sysfs_dev))
+		return -1;
+	if (!sysfs_dev->sysfs_name[0])
+		return -1;
+	return 0;
+}
+
 static int find_sysfs_devs_nl_cb(struct nl_msg *msg, void *data)
 {
 	struct nlattr *tb[RDMA_NLDEV_ATTR_MAX];
@@ -107,8 +144,6 @@ static int find_sysfs_devs_nl_cb(struct nl_msg *msg, void *data)
 		    sysfs_dev->ibdev_name))
 		goto err;
 
-	if (find_uverbs_sysfs(sysfs_dev))
-		goto err;
 
 	/*
 	 * We don't need to check the cdev as netlink only shows us devices in
@@ -135,6 +170,13 @@ int find_sysfs_devs_nl(struct list_head *tmp_sysfs_dev_list)
 
 	if (rdmanl_get_devices(nl, find_sysfs_devs_nl_cb, tmp_sysfs_dev_list))
 		goto err;
+
+	list_for_each_safe (tmp_sysfs_dev_list, dev, dev_tmp, entry) {
+		if (find_uverbs_nl(nl, dev) && find_uverbs_sysfs(dev)) {
+			list_del(&dev->entry);
+			free(dev);
+		}
+	}
 
 	nl_socket_free(nl);
 	return 0;

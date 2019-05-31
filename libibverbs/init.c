@@ -92,7 +92,7 @@ int setup_sysfs_uverbs(int uv_dirfd, const char *uverbs,
 
 	if (ibv_read_sysfs_file_at(uv_dirfd, "abi_version", value,
 				   sizeof(value)) > 0)
-		sysfs_dev->abi_ver = strtol(value, NULL, 10);
+		sysfs_dev->abi_ver = strtoul(value, NULL, 10);
 
 	return 0;
 }

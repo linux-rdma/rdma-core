@@ -181,7 +181,7 @@ struct verbs_sysfs_dev {
 	char ibdev_path[IBV_SYSFS_PATH_MAX];
 	char modalias[512];
 	int ibdev_idx;
-	int abi_ver;
+	uint32_t abi_ver;
 	struct timespec time_created;
 };
 
@@ -189,8 +189,8 @@ struct verbs_sysfs_dev {
 struct verbs_device_ops {
 	const char *name;
 
-	int match_min_abi_version;
-	int match_max_abi_version;
+	uint32_t match_min_abi_version;
+	uint32_t match_max_abi_version;
 	const struct verbs_match_ent *match_table;
 	const struct verbs_device_ops **static_providers;
 
