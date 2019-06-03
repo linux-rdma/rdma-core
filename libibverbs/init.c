@@ -431,12 +431,16 @@ static struct verbs_device *try_drivers(struct verbs_sysfs_dev *sysfs_dev)
 	return NULL;
 }
 
-static int check_abi_version(const char *path)
+static int check_abi_version(void)
 {
 	char value[8];
 
-	if (ibv_read_sysfs_file(path, "class/infiniband_verbs/abi_version",
-				value, sizeof value) < 0) {
+	if (abi_ver)
+		return 0;
+
+	if (ibv_read_sysfs_file(ibv_get_sysfs_path(),
+				"class/infiniband_verbs/abi_version", value,
+				sizeof(value)) < 0) {
 		return ENOSYS;
 	}
 
@@ -527,6 +531,12 @@ int ibverbs_get_device_list(struct list_head *device_list)
 			return -ret;
 	}
 
+	if (!list_empty(&sysfs_list)) {
+		ret = check_abi_version();
+		if (ret)
+			return -ret;
+	}
+
 	/* Remove entries from the sysfs_list that are already preset in the
 	 * device_list, and remove entries from the device_list that are not
 	 * present in the sysfs_list.
@@ -579,9 +589,7 @@ out:
 
 int ibverbs_init(void)
 {
-	const char *sysfs_path;
 	char *env_value;
-	int ret;
 
 	if (getenv("RDMAV_FORK_SAFE") || getenv("IBV_FORK_SAFE"))
 		if (ibv_fork_init())
@@ -596,13 +604,8 @@ int ibverbs_init(void)
 	if (getenv("RDMAV_ALLOW_DISASSOC_DESTROY"))
 		verbs_allow_disassociate_destroy = true;
 
-	sysfs_path = ibv_get_sysfs_path();
-	if (!sysfs_path)
-		return -ENOSYS;
-
-	ret = check_abi_version(sysfs_path);
-	if (ret)
-		return -ret;
+	if (!ibv_get_sysfs_path())
+		return -errno;
 
 	check_memlock_limit();
 

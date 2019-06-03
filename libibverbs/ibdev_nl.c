@@ -93,6 +93,13 @@ static int find_uverbs_nl_cb(struct nl_msg *msg, void *data)
 		return NLE_PARSE_ERR;
 
 	/*
+	 * The global uverbs abi is 6 for the request string 'uverbs'. We
+	 * don't expect to ever have to change the ABI version for uverbs
+	 * again.
+	 */
+	abi_ver = 6;
+
+	/*
 	 * The top 32 bits of CHARDEV_ABI are reserved for a future use,
 	 * current kernels set them to 0
 	 */

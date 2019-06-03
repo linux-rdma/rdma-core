@@ -48,7 +48,6 @@
 #include "ibverbs.h"
 
 static pthread_mutex_t dev_list_lock = PTHREAD_MUTEX_INITIALIZER;
-static int initialized;
 static struct list_head device_list = LIST_HEAD_INIT(device_list);
 
 LATEST_SYMVER_FUNC(ibv_get_device_list, 1_1, "IBVERBS_1.1",
@@ -57,6 +56,7 @@ LATEST_SYMVER_FUNC(ibv_get_device_list, 1_1, "IBVERBS_1.1",
 {
 	struct ibv_device **l = NULL;
 	struct verbs_device *device;
+	static bool initialized;
 	int num_devices;
 	int i = 0;
 
@@ -65,28 +65,9 @@ LATEST_SYMVER_FUNC(ibv_get_device_list, 1_1, "IBVERBS_1.1",
 
 	pthread_mutex_lock(&dev_list_lock);
 	if (!initialized) {
-		char value[8];
-		int ret;
-
-		/*
-		 * The uverbs module is not loaded, this is a ENOSYS return
-		 * but it is not a hard failure, we can try again to see if it
-		 * has become loaded since.
-		 */
-		if (ibv_read_sysfs_file(ibv_get_sysfs_path(),
-					"class/infiniband_verbs/abi_version",
-					value, sizeof(value)) < 0) {
-			errno = -ENOSYS;
+		if (ibverbs_init())
 			goto out;
-		}
-
-		ret = ibverbs_init();
-		initialized = (ret < 0) ? ret : 1;
-	}
-
-	if (initialized < 0) {
-		errno = -initialized;
-		goto out;
+		initialized = true;
 	}
 
 	num_devices = ibverbs_get_device_list(&device_list);
