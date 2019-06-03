@@ -10,6 +10,7 @@ publish_internal_headers(util
 set(C_FILES
   cl_map.c
   node_name_map.c
+  open_cdev.c
   rdma_nl.c
   util.c
   )

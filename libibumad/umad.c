@@ -618,7 +618,7 @@ int umad_get_issm_path(const char *ca_name, int portnum, char path[], int max)
 	if ((umad_id = dev_to_umad_id(ca_name, portnum)) < 0)
 		return -EINVAL;
 
-	snprintf(path, max, "%s/issm%u", UMAD_DEV_DIR, umad_id);
+	snprintf(path, max, "%s/issm%u", RDMA_CDEV_DIR, umad_id);
 
 	return 0;
 }
@@ -643,7 +643,7 @@ int umad_open_port(const char *ca_name, int portnum)
 		return -EINVAL;
 
 	snprintf(dev_file, sizeof(dev_file), "%s/umad%d",
-		 UMAD_DEV_DIR, umad_id);
+		 RDMA_CDEV_DIR, umad_id);
 
 	if ((fd = open(dev_file, O_RDWR | O_NONBLOCK)) < 0) {
 		DEBUG("open %s failed: %s", dev_file, strerror(errno));

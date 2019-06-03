@@ -369,7 +369,7 @@ struct rdma_event_channel *rdma_create_event_channel(void)
 	if (!channel)
 		return NULL;
 
-	channel->fd = open("/dev/infiniband/rdma_cm", O_RDWR | O_CLOEXEC);
+	channel->fd = open(RDMA_CDEV_DIR "/rdma_cm", O_RDWR | O_CLOEXEC);
 	if (channel->fd < 0) {
 		goto err;
 	}

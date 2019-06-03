@@ -12,6 +12,8 @@
 // FIXME: Remove this, The cmake version hard-requires new style CLOEXEC support
 #define STREAM_CLOEXEC "e"
 
+#define RDMA_CDEV_DIR "/dev/infiniband"
+
 #define IBV_CONFIG_DIR "@CONFIG_DIR@"
 #define RS_CONF_DIR "@CMAKE_INSTALL_FULL_SYSCONFDIR@/rdma/rsocket"
 #define IWPM_CONFIG_FILE "@CMAKE_INSTALL_FULL_SYSCONFDIR@/iwpmd.conf"
