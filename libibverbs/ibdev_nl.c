@@ -132,7 +132,9 @@ static int find_sysfs_devs_nl_cb(struct nl_msg *msg, void *data)
 			  rdmanl_policy);
 	if (ret < 0)
 		return ret;
-	if (!tb[RDMA_NLDEV_ATTR_DEV_NAME] || !tb[RDMA_NLDEV_ATTR_DEV_INDEX])
+	if (!tb[RDMA_NLDEV_ATTR_DEV_NAME] ||
+	    !tb[RDMA_NLDEV_ATTR_DEV_NODE_TYPE] ||
+	    !tb[RDMA_NLDEV_ATTR_DEV_INDEX])
 		return NLE_PARSE_ERR;
 
 	sysfs_dev = calloc(1, sizeof(*sysfs_dev));
@@ -150,6 +152,8 @@ static int find_sysfs_devs_nl_cb(struct nl_msg *msg, void *data)
 		    sysfs_dev->ibdev_name))
 		goto err;
 
+	sysfs_dev->node_type = decode_knode_type(
+		nla_get_u8(tb[RDMA_NLDEV_ATTR_DEV_NODE_TYPE]));
 
 	/*
 	 * We don't need to check the cdev as netlink only shows us devices in

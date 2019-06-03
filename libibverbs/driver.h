@@ -192,6 +192,7 @@ struct verbs_sysfs_dev {
 	char ibdev_path[IBV_SYSFS_PATH_MAX];
 	char modalias[512];
 	uint32_t driver_id;
+	enum ibv_node_type node_type;
 	int ibdev_idx;
 	uint32_t abi_ver;
 	struct timespec time_created;

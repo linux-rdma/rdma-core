@@ -48,6 +48,8 @@
 #include <assert.h>
 #include <fnmatch.h>
 
+#include <rdma/rdma_netlink.h>
+
 #include <util/util.h>
 #include "ibverbs.h"
 #include <infiniband/cmd_write.h>
@@ -76,6 +78,27 @@ static int try_access_device(const struct verbs_sysfs_dev *sysfs_dev)
 	return ret;
 }
 
+enum ibv_node_type decode_knode_type(unsigned int knode_type)
+{
+	switch (knode_type) {
+	case RDMA_NODE_IB_CA:
+		return IBV_NODE_CA;
+	case RDMA_NODE_IB_SWITCH:
+		return IBV_NODE_SWITCH;
+	case RDMA_NODE_IB_ROUTER:
+		return IBV_NODE_ROUTER;
+	case RDMA_NODE_RNIC:
+		return IBV_NODE_RNIC;
+	case RDMA_NODE_USNIC:
+		return IBV_NODE_USNIC;
+	case RDMA_NODE_USNIC_UDP:
+		return IBV_NODE_USNIC_UDP;
+	case RDMA_NODE_UNSPECIFIED:
+		return IBV_NODE_UNKNOWN;
+	}
+	return IBV_NODE_UNKNOWN;
+}
+
 int setup_sysfs_uverbs(int uv_dirfd, const char *uverbs,
 		       struct verbs_sysfs_dev *sysfs_dev)
 {
@@ -101,6 +124,7 @@ static int setup_sysfs_dev(int dirfd, const char *uverbs,
 			   struct list_head *tmp_sysfs_dev_list)
 {
 	struct verbs_sysfs_dev *sysfs_dev = NULL;
+	char value[32];
 	int uv_dirfd;
 
 	sysfs_dev = calloc(1, sizeof(*sysfs_dev));
@@ -125,6 +149,13 @@ static int setup_sysfs_dev(int dirfd, const char *uverbs,
 
 	if (setup_sysfs_uverbs(uv_dirfd, uverbs, sysfs_dev))
 		goto err_fd;
+
+	if (ibv_read_ibdev_sysfs_file(value, sizeof(value), sysfs_dev,
+				      "node_type") <= 0)
+		sysfs_dev->node_type = IBV_NODE_UNKNOWN;
+	else
+		sysfs_dev->node_type =
+			decode_knode_type(strtoul(value, NULL, 10));
 
 	if (try_access_device(sysfs_dev))
 		goto err_fd;
@@ -317,7 +348,6 @@ static struct verbs_device *try_driver(const struct verbs_device_ops *ops,
 {
 	struct verbs_device *vdev;
 	struct ibv_device *dev;
-	char value[16];
 
 	if (!match_device(ops, sysfs_dev))
 		return NULL;
@@ -336,18 +366,8 @@ static struct verbs_device *try_driver(const struct verbs_device_ops *ops,
 	assert(dev->_ops._dummy1 == NULL);
 	assert(dev->_ops._dummy2 == NULL);
 
-	if (ibv_read_ibdev_sysfs_file(value, sizeof(value), sysfs_dev,
-				      "node_type") <= 0) {
-		fprintf(stderr, PFX "Warning: no node_type attr under %s.\n",
-			sysfs_dev->ibdev_path);
-			dev->node_type = IBV_NODE_UNKNOWN;
-	} else {
-		dev->node_type = strtol(value, NULL, 10);
-		if (dev->node_type < IBV_NODE_CA || dev->node_type > IBV_NODE_USNIC_UDP)
-			dev->node_type = IBV_NODE_UNKNOWN;
-	}
-
-	switch (dev->node_type) {
+	dev->node_type = sysfs_dev->node_type;
+	switch (sysfs_dev->node_type) {
 	case IBV_NODE_CA:
 	case IBV_NODE_SWITCH:
 	case IBV_NODE_ROUTER:
