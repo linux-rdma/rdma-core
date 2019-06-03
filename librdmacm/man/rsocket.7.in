@@ -1,5 +1,5 @@
 .\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
-.TH "RSOCKET" 7 "2013-01-21" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
+.TH "RSOCKET" 7 "2019-04-16" "librdmacm" "Librdmacm Programmer's Manual" librdmacm
 .SH NAME
 rsocket \- RDMA socket API
 .SH SYNOPSIS
@@ -146,6 +146,10 @@ inline_default - default size of inline data
 iomap_size - default size of remote iomapping table
 .P
 polling_time - default number of microseconds to poll for data before waiting
+.P
+wake_up_interval - maximum number of milliseconds to block in poll.
+This value is used to safe guard against potential application hangs
+in rpoll().
 .P
 All configuration files should contain a single integer value.  Values may
 be set by issuing a command similar to the following example.
