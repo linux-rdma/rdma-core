@@ -44,6 +44,7 @@
 #include <stdbool.h>
 #include <rdma/rdma_user_ioctl_cmds.h>
 #include <infiniband/cmd_ioctl.h>
+#include <sys/types.h>
 
 struct verbs_device;
 
@@ -188,6 +189,7 @@ struct verbs_sysfs_dev {
 	const struct verbs_match_ent *match;
 	unsigned int flags;
 	char sysfs_name[IBV_SYSFS_NAME_MAX];
+	dev_t sysfs_cdev;
 	char ibdev_name[IBV_SYSFS_NAME_MAX];
 	char ibdev_path[IBV_SYSFS_PATH_MAX];
 	char modalias[512];

@@ -47,6 +47,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <fnmatch.h>
+#include <sys/sysmacros.h>
 
 #include <rdma/rdma_netlink.h>
 
@@ -102,6 +103,8 @@ enum ibv_node_type decode_knode_type(unsigned int knode_type)
 int setup_sysfs_uverbs(int uv_dirfd, const char *uverbs,
 		       struct verbs_sysfs_dev *sysfs_dev)
 {
+	unsigned int major;
+	unsigned int minor;
 	struct stat buf;
 	char value[32];
 
@@ -112,6 +115,13 @@ int setup_sysfs_uverbs(int uv_dirfd, const char *uverbs,
 	if (stat(sysfs_dev->ibdev_path, &buf))
 		return -1;
 	sysfs_dev->time_created = buf.st_mtim;
+
+	if (ibv_read_sysfs_file_at(uv_dirfd, "dev", value,
+				   sizeof(value)) < 0)
+		return -1;
+	if (sscanf(value, "%u:%u", &major, &minor) != 2)
+		return -1;
+	sysfs_dev->sysfs_cdev = makedev(major, minor);
 
 	if (ibv_read_sysfs_file_at(uv_dirfd, "abi_version", value,
 				   sizeof(value)) > 0)

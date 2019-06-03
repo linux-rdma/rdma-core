@@ -45,6 +45,7 @@
 
 #include <rdma/ib_user_ioctl_cmds.h>
 #include <util/symver.h>
+#include <util/util.h>
 #include "ibverbs.h"
 
 static pthread_mutex_t dev_list_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -301,20 +302,15 @@ static void set_lib_ops(struct verbs_context *vctx)
 struct ibv_context *verbs_open_device(struct ibv_device *device, void *private_data)
 {
 	struct verbs_device *verbs_device = verbs_get_device(device);
-	char *devpath;
 	int cmd_fd;
 	struct verbs_context *context_ex;
-
-	if (asprintf(&devpath, RDMA_CDEV_DIR"/%s", device->dev_name) < 0)
-		return NULL;
 
 	/*
 	 * We'll only be doing writes, but we need O_RDWR in case the
 	 * provider needs to mmap() the file.
 	 */
-	cmd_fd = open(devpath, O_RDWR | O_CLOEXEC);
-	free(devpath);
-
+	cmd_fd = open_cdev(verbs_device->sysfs->sysfs_name,
+			   verbs_device->sysfs->sysfs_cdev);
 	if (cmd_fd < 0)
 		return NULL;
 

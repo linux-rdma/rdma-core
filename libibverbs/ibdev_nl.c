@@ -34,6 +34,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/sysmacros.h>
 
 #include <ccan/list.h>
 #include <util/util.h>
@@ -82,13 +83,14 @@ static int find_uverbs_nl_cb(struct nl_msg *msg, void *data)
 {
 	struct verbs_sysfs_dev *sysfs_dev = data;
 	struct nlattr *tb[RDMA_NLDEV_ATTR_MAX];
+	uint64_t cdev64;
 	int ret;
 
 	ret = nlmsg_parse(nlmsg_hdr(msg), 0, tb, RDMA_NLDEV_ATTR_MAX - 1,
 			  rdmanl_policy);
 	if (ret < 0)
 		return ret;
-	if (!tb[RDMA_NLDEV_ATTR_CHARDEV_ABI] ||
+	if (!tb[RDMA_NLDEV_ATTR_CHARDEV] || !tb[RDMA_NLDEV_ATTR_CHARDEV_ABI] ||
 	    !tb[RDMA_NLDEV_ATTR_CHARDEV_NAME])
 		return NLE_PARSE_ERR;
 
@@ -109,6 +111,12 @@ static int find_uverbs_nl_cb(struct nl_msg *msg, void *data)
 			nla_get_u32(tb[RDMA_NLDEV_ATTR_UVERBS_DRIVER_ID]);
 	else
 		sysfs_dev->driver_id = RDMA_DRIVER_UNKNOWN;
+
+	/* Convert from huge_encode_dev to whatever glibc uses */
+	cdev64 = nla_get_u64(tb[RDMA_NLDEV_ATTR_CHARDEV]);
+	sysfs_dev->sysfs_cdev =
+		makedev((cdev64 & 0xfff00) >> 8,
+			(cdev64 & 0xff) | ((cdev64 >> 12) & 0xfff00));
 
 	if (!check_snprintf(sysfs_dev->sysfs_name,
 			    sizeof(sysfs_dev->sysfs_name), "%s",

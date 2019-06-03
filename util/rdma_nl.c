@@ -36,6 +36,7 @@
 #include <sys/sysmacros.h>
 
 struct nla_policy rdmanl_policy[RDMA_NLDEV_ATTR_MAX] = {
+	[RDMA_NLDEV_ATTR_CHARDEV] = { .type = NLA_U64 },
 	[RDMA_NLDEV_ATTR_CHARDEV_ABI] = { .type = NLA_U64 },
 	[RDMA_NLDEV_ATTR_DEV_INDEX] = { .type = NLA_U32 },
 	[RDMA_NLDEV_ATTR_DEV_NODE_TYPE] = { .type = NLA_U8 },
