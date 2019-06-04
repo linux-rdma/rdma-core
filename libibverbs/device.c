@@ -117,13 +117,21 @@ LATEST_SYMVER_FUNC(ibv_get_device_guid, 1_1, "IBVERBS_1.1",
 		   __be64,
 		   struct ibv_device *device)
 {
-	struct verbs_device *verbs_device = verbs_get_device(device);
+	struct verbs_sysfs_dev *sysfs_dev = verbs_get_device(device)->sysfs;
 	char attr[24];
 	uint64_t guid = 0;
 	uint16_t parts[4];
 	int i;
 
-	if (ibv_read_ibdev_sysfs_file(attr, sizeof(attr), verbs_device->sysfs,
+	pthread_mutex_lock(&dev_list_lock);
+	if (sysfs_dev->flags & VSYSFS_READ_NODE_GUID) {
+		guid = sysfs_dev->node_guid;
+		pthread_mutex_unlock(&dev_list_lock);
+		return htobe64(guid);
+	}
+	pthread_mutex_unlock(&dev_list_lock);
+
+	if (ibv_read_ibdev_sysfs_file(attr, sizeof(attr), sysfs_dev,
 				      "node_guid") < 0)
 		return 0;
 
@@ -133,6 +141,11 @@ LATEST_SYMVER_FUNC(ibv_get_device_guid, 1_1, "IBVERBS_1.1",
 
 	for (i = 0; i < 4; ++i)
 		guid = (guid << 16) | parts[i];
+
+	pthread_mutex_lock(&dev_list_lock);
+	sysfs_dev->node_guid = guid;
+	sysfs_dev->flags |= VSYSFS_READ_NODE_GUID;
+	pthread_mutex_unlock(&dev_list_lock);
 
 	return htobe64(guid);
 }

@@ -149,7 +149,8 @@ static int find_sysfs_devs_nl_cb(struct nl_msg *msg, void *data)
 		return ret;
 	if (!tb[RDMA_NLDEV_ATTR_DEV_NAME] ||
 	    !tb[RDMA_NLDEV_ATTR_DEV_NODE_TYPE] ||
-	    !tb[RDMA_NLDEV_ATTR_DEV_INDEX])
+	    !tb[RDMA_NLDEV_ATTR_DEV_INDEX] ||
+	    !tb[RDMA_NLDEV_ATTR_NODE_GUID])
 		return NLE_PARSE_ERR;
 
 	sysfs_dev = calloc(1, sizeof(*sysfs_dev));
@@ -157,6 +158,8 @@ static int find_sysfs_devs_nl_cb(struct nl_msg *msg, void *data)
 		return NLE_NOMEM;
 
 	sysfs_dev->ibdev_idx = nla_get_u32(tb[RDMA_NLDEV_ATTR_DEV_INDEX]);
+	sysfs_dev->node_guid = nla_get_u64(tb[RDMA_NLDEV_ATTR_NODE_GUID]);
+	sysfs_dev->flags |= VSYSFS_READ_NODE_GUID;
 	if (!check_snprintf(sysfs_dev->ibdev_name,
 			    sizeof(sysfs_dev->ibdev_name), "%s",
 			    nla_get_string(tb[RDMA_NLDEV_ATTR_DEV_NAME])))
