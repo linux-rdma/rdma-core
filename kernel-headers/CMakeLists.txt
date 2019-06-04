@@ -24,6 +24,7 @@ publish_internal_headers(rdma
   rdma/rdma_user_ioctl.h
   rdma/rdma_user_ioctl_cmds.h
   rdma/rdma_user_rxe.h
+  rdma/siw-abi.h
   rdma/vmw_pvrdma-abi.h
   )
 
