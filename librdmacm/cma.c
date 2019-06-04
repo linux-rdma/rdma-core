@@ -47,6 +47,7 @@
 #include <netdb.h>
 #include <syslog.h>
 #include <limits.h>
+#include <sys/sysmacros.h>
 
 #include "cma.h"
 #include "indexer.h"
@@ -56,6 +57,8 @@
 #include <rdma/rdma_cma_abi.h>
 #include <rdma/rdma_verbs.h>
 #include <infiniband/ib.h>
+#include <util/util.h>
+#include <util/rdma_nl.h>
 
 #define CMA_INIT_CMD(req, req_size, op)		\
 do {						\
@@ -129,12 +132,67 @@ static struct cma_device *cma_dev_array;
 static int cma_dev_cnt;
 static int cma_init_cnt;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
-static int abi_ver = RDMA_USER_CM_MAX_ABI_VERSION;
+static int abi_ver = -1;
+static char dev_name[64] = "rdma_cm";
+static dev_t dev_cdev;
 int af_ib_support;
 static struct index_map ucma_idm;
 static fastlock_t idm_lock;
 
-static int check_abi_version(void)
+static int check_abi_version_nl_cb(struct nl_msg *msg, void *data)
+{
+	struct nlattr *tb[RDMA_NLDEV_ATTR_MAX];
+	uint64_t cdev64;
+	int ret;
+
+	ret = nlmsg_parse(nlmsg_hdr(msg), 0, tb, RDMA_NLDEV_ATTR_MAX - 1,
+			  rdmanl_policy);
+	if (ret < 0)
+		return ret;
+	if (!tb[RDMA_NLDEV_ATTR_CHARDEV] || !tb[RDMA_NLDEV_ATTR_CHARDEV_ABI] ||
+	    !tb[RDMA_NLDEV_ATTR_CHARDEV_NAME])
+		return NLE_PARSE_ERR;
+
+	/* Convert from huge_encode_dev to whatever glibc uses */
+	cdev64 = nla_get_u64(tb[RDMA_NLDEV_ATTR_CHARDEV]);
+	dev_cdev = makedev((cdev64 & 0xfff00) >> 8,
+			   (cdev64 & 0xff) | ((cdev64 >> 12) & 0xfff00));
+
+	if (!check_snprintf(dev_name, sizeof(dev_name), "%s",
+			    nla_get_string(tb[RDMA_NLDEV_ATTR_CHARDEV_NAME])))
+		return NLE_PARSE_ERR;
+
+	/*
+	 * The top 32 bits of CHARDEV_ABI are reserved for a future use,
+	 * current kernels set them to 0
+	 */
+	abi_ver = (uint32_t)nla_get_u64(tb[RDMA_NLDEV_ATTR_CHARDEV_ABI]);
+
+	return 0;
+}
+
+/* Ask the kernel for the uverbs char device information */
+static int check_abi_version_nl(void)
+{
+	struct nl_sock *nl;
+
+	nl = rdmanl_socket_alloc();
+	if (!nl)
+		return -1;
+	if (rdmanl_get_chardev(nl, -1, "rdma_cm", check_abi_version_nl_cb,
+			       NULL))
+		goto err_socket;
+	if (abi_ver == -1)
+		goto err_socket;
+	nl_socket_free(nl);
+	return 0;
+
+err_socket:
+	nl_socket_free(nl);
+	return -1;
+}
+
+static void check_abi_version_sysfs(void)
 {
 	char value[8];
 
@@ -149,14 +207,23 @@ static int check_abi_version(void)
 		 * backports, assume the most recent version of the ABI.  If
 		 * we're wrong, we'll simply fail later when calling the ABI.
 		 */
-		return 0;
+		abi_ver = RDMA_USER_CM_MAX_ABI_VERSION;
+		return;
+	}
+	abi_ver = strtol(value, NULL, 10);
+	dev_cdev = 0;
+}
+
+static int check_abi_version(void)
+{
+	if (abi_ver == -1) {
+		if (check_abi_version_nl())
+			check_abi_version_sysfs();
 	}
 
-	abi_ver = strtol(value, NULL, 10);
 	if (abi_ver < RDMA_USER_CM_MIN_ABI_VERSION ||
-	    abi_ver > RDMA_USER_CM_MAX_ABI_VERSION) {
+	    abi_ver > RDMA_USER_CM_MAX_ABI_VERSION)
 		return -1;
-	}
 	return 0;
 }
 
@@ -369,7 +436,7 @@ struct rdma_event_channel *rdma_create_event_channel(void)
 	if (!channel)
 		return NULL;
 
-	channel->fd = open(RDMA_CDEV_DIR "/rdma_cm", O_RDWR | O_CLOEXEC);
+	channel->fd = open_cdev(dev_name, dev_cdev);
 	if (channel->fd < 0) {
 		goto err;
 	}
