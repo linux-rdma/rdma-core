@@ -169,7 +169,13 @@ static int find_sysfs_devs_nl_cb(struct nl_msg *msg, void *data)
 		    "%s/class/infiniband/%s", ibv_get_sysfs_path(),
 		    sysfs_dev->ibdev_name))
 		goto err;
-
+	if (tb[RDMA_NLDEV_ATTR_FW_VERSION]) {
+		if (!check_snprintf(
+			    sysfs_dev->fw_ver, sizeof(sysfs_dev->fw_ver), "%s",
+			    nla_get_string(tb[RDMA_NLDEV_ATTR_FW_VERSION])))
+			goto err;
+		sysfs_dev->flags |= VSYSFS_READ_FW_VER;
+	}
 	sysfs_dev->node_type = decode_knode_type(
 		nla_get_u8(tb[RDMA_NLDEV_ATTR_DEV_NODE_TYPE]));
 

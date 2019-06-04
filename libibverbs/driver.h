@@ -181,6 +181,7 @@ struct verbs_match_ent {
 enum {
 	VSYSFS_READ_MODALIAS = 1 << 0,
 	VSYSFS_READ_NODE_GUID = 1 << 1,
+	VSYSFS_READ_FW_VER = 1 << 2,
 };
 
 /* A rdma device detected in sysfs */
@@ -194,6 +195,7 @@ struct verbs_sysfs_dev {
 	char ibdev_name[IBV_SYSFS_NAME_MAX];
 	char ibdev_path[IBV_SYSFS_PATH_MAX];
 	char modalias[512];
+	char fw_ver[64];
 	uint64_t node_guid;
 	uint32_t driver_id;
 	enum ibv_node_type node_type;
@@ -628,6 +630,7 @@ int ibv_read_ibdev_sysfs_file(char *buf, size_t size,
 			      struct verbs_sysfs_dev *sysfs_dev,
 			      const char *fnfmt, ...)
 	__attribute__((format(printf, 4, 5)));
+int ibv_get_fw_ver(char *value, size_t len, struct verbs_sysfs_dev *sysfs_dev);
 
 static inline int verbs_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 {

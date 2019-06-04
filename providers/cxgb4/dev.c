@@ -415,8 +415,7 @@ static bool c4iw_device_match(struct verbs_sysfs_dev *sysfs_dev)
 	 * Verify that the firmware major number matches.  Major number
 	 * mismatches are fatal.  Minor number mismatches are tolerated.
 	 */
-	if (ibv_read_ibdev_sysfs_file(value, sizeof(value), sysfs_dev,
-				      "fw_ver") <= 0)
+	if (ibv_get_fw_ver(value, sizeof(value), sysfs_dev))
 		return false;
 
 	cp = strtok(value+1, ".");

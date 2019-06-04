@@ -150,6 +150,26 @@ LATEST_SYMVER_FUNC(ibv_get_device_guid, 1_1, "IBVERBS_1.1",
 	return htobe64(guid);
 }
 
+int ibv_get_fw_ver(char *value, size_t len, struct verbs_sysfs_dev *sysfs_dev)
+{
+	/*
+	 * NOTE: This can only be called by a driver inside the dev_list_lock,
+	 * ie during context setup or otherwise.
+	 */
+	assert(pthread_mutex_trylock(&dev_list_lock) != 0);
+
+	if (!(sysfs_dev->flags & VSYSFS_READ_FW_VER)) {
+		if (ibv_read_ibdev_sysfs_file(sysfs_dev->fw_ver,
+					      sizeof(sysfs_dev->fw_ver),
+					      sysfs_dev, "fw_ver") <= 0)
+			return -1;
+		sysfs_dev->flags |= VSYSFS_READ_FW_VER;
+	}
+	if (!check_snprintf(value, len, "%s", sysfs_dev->fw_ver))
+		return -1;
+	return 0;
+}
+
 void verbs_init_cq(struct ibv_cq *cq, struct ibv_context *context,
 		       struct ibv_comp_channel *channel,
 		       void *cq_context)

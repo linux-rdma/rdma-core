@@ -181,6 +181,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_req_notify_cq;
 		ibv_cmd_rereg_mr;
 		ibv_cmd_resize_cq;
+		ibv_get_fw_ver;
 		ibv_query_gid_type;
 		ibv_read_ibdev_sysfs_file;
 		verbs_allow_disassociate_destroy;
