@@ -112,6 +112,7 @@ Description: User space provider drivers for libibverbs
   - ocrdma: Emulex OneConnect RDMA/RoCE device
   - qedr: QLogic QL4xxx RoCE HCAs
   - rxe: A software implementation of the RoCE protocol
+  - siw: A software implementation of the iWarp protocol
   - vmw_pvrdma: VMware paravirtual RDMA device
 
 Package: ibverbs-utils

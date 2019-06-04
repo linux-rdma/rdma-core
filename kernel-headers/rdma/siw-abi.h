@@ -9,6 +9,7 @@
 #include <linux/types.h>
 
 #define SIW_NODE_DESC_COMMON "Software iWARP stack"
+#define SIW_ABI_VERSION 1
 #define SIW_MAX_SGE 6
 #define SIW_UOBJ_MAX_KEY 0x08FFFF
 #define SIW_INVAL_UOBJ_KEY (SIW_UOBJ_MAX_KEY + 1)
@@ -51,27 +52,27 @@ struct siw_uresp_alloc_ctx {
 };
 
 enum siw_opcode {
-	SIW_OP_WRITE = 0,
-	SIW_OP_READ = 1,
-	SIW_OP_READ_LOCAL_INV = 2,
-	SIW_OP_SEND = 3,
-	SIW_OP_SEND_WITH_IMM = 4,
-	SIW_OP_SEND_REMOTE_INV = 5,
+	SIW_OP_WRITE,
+	SIW_OP_READ,
+	SIW_OP_READ_LOCAL_INV,
+	SIW_OP_SEND,
+	SIW_OP_SEND_WITH_IMM,
+	SIW_OP_SEND_REMOTE_INV,
 
 	/* Unsupported */
-	SIW_OP_FETCH_AND_ADD = 6,
-	SIW_OP_COMP_AND_SWAP = 7,
+	SIW_OP_FETCH_AND_ADD,
+	SIW_OP_COMP_AND_SWAP,
 
-	SIW_OP_RECEIVE = 8,
+	SIW_OP_RECEIVE,
 	/* provider internal SQE */
-	SIW_OP_READ_RESPONSE = 9,
+	SIW_OP_READ_RESPONSE,
 	/*
 	 * below opcodes valid for
 	 * in-kernel clients only
 	 */
-	SIW_OP_INVAL_STAG = 10,
-	SIW_OP_REG_MR = 11,
-	SIW_NUM_OPCODES = 12
+	SIW_OP_INVAL_STAG,
+	SIW_OP_REG_MR,
+	SIW_NUM_OPCODES
 };
 
 /* Keep it same as ibv_sge to allow for memcpy */
@@ -144,20 +145,18 @@ enum siw_notify_flags {
 };
 
 enum siw_wc_status {
-	SIW_WC_SUCCESS = 0,
-	SIW_WC_LOC_LEN_ERR = 1,
-	SIW_WC_LOC_PROT_ERR = 2,
-	SIW_WC_LOC_QP_OP_ERR = 3,
-	SIW_WC_WR_FLUSH_ERR = 4,
-	SIW_WC_BAD_RESP_ERR = 5,
-	SIW_WC_LOC_ACCESS_ERR = 6,
-	SIW_WC_REM_ACCESS_ERR = 7,
-	SIW_WC_REM_INV_REQ_ERR = 8,
-	SIW_WC_GENERAL_ERR = 9,
-	SIW_NUM_WC_STATUS = 10
+	SIW_WC_SUCCESS,
+	SIW_WC_LOC_LEN_ERR,
+	SIW_WC_LOC_PROT_ERR,
+	SIW_WC_LOC_QP_OP_ERR,
+	SIW_WC_WR_FLUSH_ERR,
+	SIW_WC_BAD_RESP_ERR,
+	SIW_WC_LOC_ACCESS_ERR,
+	SIW_WC_REM_ACCESS_ERR,
+	SIW_WC_REM_INV_REQ_ERR,
+	SIW_WC_GENERAL_ERR,
+	SIW_NUM_WC_STATUS
 };
-
-struct ib_qp;
 
 struct siw_cqe {
 	__aligned_u64 id;

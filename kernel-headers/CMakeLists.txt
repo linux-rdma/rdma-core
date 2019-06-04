@@ -73,6 +73,7 @@ rdma_kernel_provider_abi(
   rdma/ocrdma-abi.h
   rdma/qedr-abi.h
   rdma/rdma_user_rxe.h
+  rdma/siw-abi.h
   rdma/vmw_pvrdma-abi.h
   )
 

@@ -2126,7 +2126,7 @@ struct ibv_device **ibv_get_device_list(int *num_devices);
  */
 #ifdef RDMA_STATIC_PROVIDERS
 #define _RDMA_STATIC_PREFIX_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11,     \
-			     _12, _13, _14, _15, _16, ...)                     \
+			     _12, _13, _14, _15, _16, _17, ...)                \
 	&verbs_provider_##_1, &verbs_provider_##_2, &verbs_provider_##_3,      \
 		&verbs_provider_##_4, &verbs_provider_##_5,                    \
 		&verbs_provider_##_6, &verbs_provider_##_7,                    \
@@ -2134,10 +2134,11 @@ struct ibv_device **ibv_get_device_list(int *num_devices);
 		&verbs_provider_##_10, &verbs_provider_##_11,                  \
 		&verbs_provider_##_12, &verbs_provider_##_13,                  \
 		&verbs_provider_##_14, &verbs_provider_##_15,                  \
-		&verbs_provider_##_16
+		&verbs_provider_##_16, &verbs_provider_##_17
 #define _RDMA_STATIC_PREFIX(arg)                                               \
 	_RDMA_STATIC_PREFIX_(arg, none, none, none, none, none, none, none,    \
-			     none, none, none, none, none, none, none, none)
+			     none, none, none, none, none, none, none, none,   \
+			     none)
 
 struct verbs_devices_ops;
 extern const struct verbs_device_ops verbs_provider_bnxt_re;
@@ -2155,6 +2156,7 @@ extern const struct verbs_device_ops verbs_provider_nes;
 extern const struct verbs_device_ops verbs_provider_ocrdma;
 extern const struct verbs_device_ops verbs_provider_qedr;
 extern const struct verbs_device_ops verbs_provider_rxe;
+extern const struct verbs_device_ops verbs_provider_siw;
 extern const struct verbs_device_ops verbs_provider_vmw_pvrdma;
 extern const struct verbs_device_ops verbs_provider_all;
 extern const struct verbs_device_ops verbs_provider_none;
