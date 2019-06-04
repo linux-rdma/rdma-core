@@ -223,15 +223,13 @@ LATEST_SYMVER_FUNC(ibv_query_gid, 1_1, "IBVERBS_1.1",
 		   struct ibv_context *context, uint8_t port_num,
 		   int index, union ibv_gid *gid)
 {
-	char name[24];
+	struct verbs_device *verbs_device = verbs_get_device(context->device);
 	char attr[41];
 	uint16_t val;
 	int i;
 
-	snprintf(name, sizeof name, "ports/%d/gids/%d", port_num, index);
-
-	if (ibv_read_sysfs_file(context->device->ibdev_path, name,
-				attr, sizeof attr) < 0)
+	if (ibv_read_ibdev_sysfs_file(attr, sizeof(attr), verbs_device->sysfs,
+				      "ports/%d/gids/%d", port_num, index) < 0)
 		return -1;
 
 	for (i = 0; i < 8; ++i) {
@@ -249,14 +247,12 @@ LATEST_SYMVER_FUNC(ibv_query_pkey, 1_1, "IBVERBS_1.1",
 		   struct ibv_context *context, uint8_t port_num,
 		   int index, __be16 *pkey)
 {
-	char name[24];
+	struct verbs_device *verbs_device = verbs_get_device(context->device);
 	char attr[8];
 	uint16_t val;
 
-	snprintf(name, sizeof name, "ports/%d/pkeys/%d", port_num, index);
-
-	if (ibv_read_sysfs_file(context->device->ibdev_path, name,
-				attr, sizeof attr) < 0)
+	if (ibv_read_ibdev_sysfs_file(attr, sizeof(attr), verbs_device->sysfs,
+				      "ports/%d/pkeys/%d", port_num, index) < 0)
 		return -1;
 
 	if (sscanf(attr, "%hx", &val) != 1)
@@ -662,18 +658,16 @@ LATEST_SYMVER_FUNC(ibv_create_ah, 1_1, "IBVERBS_1.1",
 int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
 		       unsigned int index, enum ibv_gid_type *type)
 {
-	char name[32];
+	struct verbs_device *verbs_device = verbs_get_device(context->device);
 	char buff[11];
-
-	snprintf(name, sizeof(name), "ports/%d/gid_attrs/types/%d", port_num,
-		 index);
 
 	/* Reset errno so that we can rely on its value upon any error flow in
 	 * ibv_read_sysfs_file.
 	 */
 	errno = 0;
-	if (ibv_read_sysfs_file(context->device->ibdev_path, name, buff,
-				sizeof(buff)) <= 0) {
+	if (ibv_read_ibdev_sysfs_file(buff, sizeof(buff), verbs_device->sysfs,
+				      "ports/%d/gid_attrs/types/%d", port_num,
+				      index) <= 0) {
 		char *dir_path;
 		DIR *dir;
 
@@ -685,7 +679,7 @@ int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
 			return 0;
 		}
 		if (asprintf(&dir_path, "%s/%s/%d/%s/",
-			     context->device->ibdev_path, "ports", port_num,
+			     verbs_device->sysfs->ibdev_path, "ports", port_num,
 			     "gid_attrs") < 0)
 			return -1;
 		dir = opendir(dir_path);

@@ -135,13 +135,14 @@ LATEST_SYMVER_FUNC(ibv_get_device_guid, 1_1, "IBVERBS_1.1",
 		   __be64,
 		   struct ibv_device *device)
 {
+	struct verbs_device *verbs_device = verbs_get_device(device);
 	char attr[24];
 	uint64_t guid = 0;
 	uint16_t parts[4];
 	int i;
 
-	if (ibv_read_sysfs_file(device->ibdev_path, "node_guid",
-				attr, sizeof attr) < 0)
+	if (ibv_read_ibdev_sysfs_file(attr, sizeof(attr), verbs_device->sysfs,
+				      "node_guid") < 0)
 		return 0;
 
 	if (sscanf(attr, "%hx:%hx:%hx:%hx",

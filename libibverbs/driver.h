@@ -606,6 +606,10 @@ const char *ibv_get_sysfs_path(void);
 int ibv_read_sysfs_file(const char *dir, const char *file,
 			char *buf, size_t size);
 int ibv_read_sysfs_file_at(int dirfd, const char *file, char *buf, size_t size);
+int ibv_read_ibdev_sysfs_file(char *buf, size_t size,
+			      struct verbs_sysfs_dev *sysfs_dev,
+			      const char *fnfmt, ...)
+	__attribute__((format(printf, 4, 5)));
 
 static inline int verbs_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 {

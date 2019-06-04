@@ -39,6 +39,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
+#include <stdarg.h>
 
 #include "ibverbs.h"
 
@@ -114,6 +115,26 @@ int ibv_read_sysfs_file(const char *dir, const char *file,
 		return -1;
 
 	res = ibv_read_sysfs_file_at(AT_FDCWD, path, buf, size);
+	free(path);
+	return res;
+}
+
+int ibv_read_ibdev_sysfs_file(char *buf, size_t size,
+			      struct verbs_sysfs_dev *sysfs_dev,
+			      const char *fnfmt, ...)
+{
+	char *path;
+	va_list va;
+	int res;
+
+	va_start(va, fnfmt);
+	if (vasprintf(&path, fnfmt, va) < 0) {
+		va_end(va);
+		return -1;
+	}
+	va_end(va);
+
+	res = ibv_read_sysfs_file(sysfs_dev->ibdev_path, path, buf, size);
 	free(path);
 	return res;
 }

@@ -209,9 +209,9 @@ match_modalias_device(const struct verbs_device_ops *ops,
 
 	if (!(sysfs_dev->flags & VSYSFS_READ_MODALIAS)) {
 		sysfs_dev->flags |= VSYSFS_READ_MODALIAS;
-		if (ibv_read_sysfs_file(sysfs_dev->ibdev_path,
-					"device/modalias", sysfs_dev->modalias,
-					sizeof(sysfs_dev->modalias)) <= 0) {
+		if (ibv_read_ibdev_sysfs_file(
+			    sysfs_dev->modalias, sizeof(sysfs_dev->modalias),
+			    sysfs_dev, "device/modalias") <= 0) {
 			sysfs_dev->modalias[0] = 0;
 			return NULL;
 		}
@@ -309,7 +309,8 @@ static struct verbs_device *try_driver(const struct verbs_device_ops *ops,
 	assert(dev->_ops._dummy1 == NULL);
 	assert(dev->_ops._dummy2 == NULL);
 
-	if (ibv_read_sysfs_file(sysfs_dev->ibdev_path, "node_type", value, sizeof value) < 0) {
+	if (ibv_read_ibdev_sysfs_file(value, sizeof(value), sysfs_dev,
+				      "node_type") <= 0) {
 		fprintf(stderr, PFX "Warning: no node_type attr under %s.\n",
 			sysfs_dev->ibdev_path);
 			dev->node_type = IBV_NODE_UNKNOWN;
