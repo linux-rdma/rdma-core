@@ -240,10 +240,11 @@ static int by_pci(struct data *d)
 		return -ENOMEM;
 
 	ret = readlink(subsystem, buf, sizeof(buf)-1);
-	if (ret == -1) {
+	if (ret == -1 || ret == sizeof(buf)) {
 		ret = -EINVAL;
 		goto out;
 	}
+	buf[ret] = 0;
 
 	subs = basename(buf);
 	if (strcmp(subs, "pci")) {
@@ -251,7 +252,6 @@ static int by_pci(struct data *d)
 		ret = -EINVAL;
 		goto out;
 	}
-
 	/* Real devices */
 	ret = asprintf(&devpath, "/sys/class/infiniband/%s/device", d->curr);
 	if (ret < 0) {
@@ -261,10 +261,12 @@ static int by_pci(struct data *d)
 	}
 
 	ret = readlink(devpath, buf, sizeof(buf)-1);
-	if (ret == -1) {
+	if (ret == -1 || ret == sizeof(buf)) {
 		ret = -EINVAL;
 		goto out;
 	}
+	buf[ret] = 0;
+
 	pci = basename(buf);
 	/*
 	 * pci = 0000:00:0c.0
