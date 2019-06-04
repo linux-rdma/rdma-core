@@ -2,6 +2,7 @@ publish_internal_headers(util
   cl_qmap.h
   compiler.h
   node_name_map.h
+  rdma_nl.h
   symver.h
   util.h
   )
@@ -9,7 +10,9 @@ publish_internal_headers(util
 set(C_FILES
   cl_map.c
   node_name_map.c
-  util.c)
+  rdma_nl.c
+  util.c
+  )
 
 if (HAVE_COHERENT_DMA)
   publish_internal_headers(util

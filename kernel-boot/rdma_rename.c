@@ -14,6 +14,7 @@
 #include <netlink/msg.h>
 #include <netlink/attr.h>
 #include <linux/pci_regs.h>
+#include <util/rdma_nl.h>
 
 /*
  * Rename modes:
@@ -44,15 +45,6 @@
  *  Device type = OPA
  *  hfi1_1 -> opao3
  */
-
-static struct nla_policy policy[RDMA_NLDEV_ATTR_MAX] = {
-	[RDMA_NLDEV_ATTR_DEV_INDEX] = { .type = NLA_U32 },
-	[RDMA_NLDEV_ATTR_NODE_GUID] = { .type = NLA_U64 },
-#ifdef NLA_NUL_STRING
-	[RDMA_NLDEV_ATTR_DEV_NAME] = { .type = NLA_NUL_STRING },
-	[RDMA_NLDEV_ATTR_DEV_PROTOCOL] = { .type = NLA_NUL_STRING },
-#endif /* NLA_NUL_STRING */
-};
 
 struct data {
 	const char *curr;
@@ -396,7 +388,7 @@ static int get_nldata_cb(struct nl_msg *msg, void *data)
 	struct data *d = data;
 	int ret;
 
-	ret = nlmsg_parse(hdr, 0, tb, RDMA_NLDEV_ATTR_MAX - 1, policy);
+	ret = nlmsg_parse(hdr, 0, tb, RDMA_NLDEV_ATTR_MAX - 1, rdmanl_policy);
 	if (ret < 0)
 		return NL_STOP;
 
@@ -414,28 +406,6 @@ static int get_nldata_cb(struct nl_msg *msg, void *data)
 	d->sys_image_guid = nla_get_u64(tb[RDMA_NLDEV_ATTR_SYS_IMAGE_GUID]);
 	return NL_STOP;
 }
-
-static int get_nldata(struct nl_sock *nl, struct data *data)
-{
-	struct nl_cb *cb;
-	int ret;
-
-	ret = nl_send_simple(
-		nl, RDMA_NL_GET_TYPE(RDMA_NL_NLDEV, RDMA_NLDEV_CMD_GET),
-		NLM_F_REQUEST | NLM_F_ACK | NLM_F_DUMP, NULL, 0);
-	if (ret < 0)
-		return ret;
-
-	cb = nl_cb_alloc(NL_CB_DEFAULT);
-	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, get_nldata_cb, (void *)data);
-
-	do {
-		ret = nl_recvmsgs(nl, cb);
-	} while (ret > 0);
-
-	return ret;
-}
-
 
 enum name_policy {
 	NAME_KERNEL = 1 << 0,
@@ -478,16 +448,13 @@ int main(int argc, const char *argv[])
 		/* Do nothing */
 		exit(0);
 
-	nl = nl_socket_alloc();
+	nl = rdmanl_socket_alloc();
 	if (!nl)
 		goto err;
 
-	if (nl_connect(nl, NETLINK_RDMA))
-		goto out;
-
 	d.curr = argv[1];
-	ret = get_nldata(nl, &d);
-	if (ret || d.idx == -1 || !d.prefix)
+	if (rdmanl_get_devices(nl, get_nldata_cb, &d) || d.idx == -1 ||
+	    !d.prefix)
 		goto out;
 
 	ret = -1;
