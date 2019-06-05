@@ -629,8 +629,8 @@ int neigh_init_resources(struct get_neigh_handler *neigh_handler, int timeout)
 
 	neigh_handler->sock = nl_socket_alloc();
 	if (neigh_handler->sock == NULL) {
-		errno = ENOMEM;
-		return -1;
+		errno = ENOSYS;
+		return -ENOSYS;
 	}
 
 	err = nl_connect(neigh_handler->sock, NETLINK_ROUTE);

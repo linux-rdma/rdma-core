@@ -16,12 +16,6 @@ publish_internal_headers(infiniband
   marshall.h
   )
 
-if (NOT NL_KIND EQUAL 0)
-  set(NEIGH "neigh.c")
-else()
-  set(NEIGH "")
-endif()
-
 configure_file("libibverbs.map.in"
   "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map" @ONLY)
 
@@ -52,7 +46,7 @@ rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   init.c
   marshall.c
   memory.c
-  ${NEIGH}
+  neigh.c
   static_driver.c
   sysfs.c
   verbs.c

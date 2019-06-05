@@ -51,10 +51,6 @@
 
 @SIZEOF_LONG_CODE@
 
-#if @NL_KIND@ == 0
-# define NRESOLVE_NEIGH 1
-#endif
-
 #if @IOCTL_MODE_NUM@ == 1
 # define VERBS_IOCTL_ONLY 1
 # define VERBS_WRITE_ONLY 0

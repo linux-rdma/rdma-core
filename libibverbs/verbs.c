@@ -49,11 +49,9 @@
 #include <infiniband/cmd_write.h>
 
 #include "ibverbs.h"
-#ifndef NRESOLVE_NEIGH
 #include <net/if.h>
 #include <net/if_arp.h>
 #include "neigh.h"
-#endif
 
 #undef ibv_query_port
 
@@ -967,7 +965,6 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 				uint8_t eth_mac[ETHERNET_LL_SIZE],
 				uint16_t *vid)
 {
-#ifndef NRESOLVE_NEIGH
 	int dst_family;
 	int src_family;
 	int oif;
@@ -1048,7 +1045,4 @@ free_resources:
 	neigh_free_resources(&neigh_handler);
 
 	return ret;
-#else
-	return -ENOSYS;
-#endif
 }
