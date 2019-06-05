@@ -365,7 +365,7 @@ static int device_rename(struct nl_sock *nl, struct data *d)
 {
 	struct nlmsghdr *hdr;
 	struct nl_msg *msg;
-	int ret;
+	int ret = -1;
 
 	msg = nlmsg_alloc();
 	if (!msg)
@@ -376,19 +376,15 @@ static int device_rename(struct nl_sock *nl, struct data *d)
 			0, 0);
 	if (!hdr) {
 		ret = -ENOMEM;
-		goto out;
+		goto nla_put_failure;
 	}
 
-	ret = nla_put_u32(msg, RDMA_NLDEV_ATTR_DEV_INDEX, d->idx);
-	if (ret)
-		goto out;
-	ret = nla_put_string(msg, RDMA_NLDEV_ATTR_DEV_NAME, d->name);
-	if (ret)
-		goto out;
+	NLA_PUT_U32(msg, RDMA_NLDEV_ATTR_DEV_INDEX, d->idx);
+	NLA_PUT_STRING(msg, RDMA_NLDEV_ATTR_DEV_NAME, d->name);
 	ret = nl_send_auto(nl, msg);
 	if (ret < 0)
 		return ret;
-out:
+nla_put_failure:
 	nlmsg_free(msg);
 	return (ret < 0) ? ret : 0;
 }
