@@ -41,9 +41,6 @@ extern unsigned int if_nametoindex(__const char *__ifname) __THROW;
 
 #include <netlink/route/link/vlan.h>
 
-static pthread_once_t device_neigh_alloc = PTHREAD_ONCE_INIT;
-static struct nl_sock *zero_socket;
-
 union sktaddr {
 	struct sockaddr s;
 	struct sockaddr_in s4;
@@ -626,16 +623,10 @@ free:
 	return oif;
 }
 
-static void alloc_zero_based_socket(void)
-{
-	zero_socket = nl_socket_alloc();
-}
-
 int neigh_init_resources(struct get_neigh_handler *neigh_handler, int timeout)
 {
 	int err;
 
-	pthread_once(&device_neigh_alloc, &alloc_zero_based_socket);
 	neigh_handler->sock = nl_socket_alloc();
 	if (neigh_handler->sock == NULL) {
 		errno = ENOMEM;
