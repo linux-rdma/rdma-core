@@ -5,6 +5,7 @@
 #include <ccan/ilog.h>
 #include <stdbool.h>
 #include <sys/types.h>
+#include <stdio.h>
 
 /* Return true if the snprintf succeeded, false if there was truncation or
  * error */
