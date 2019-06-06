@@ -4738,6 +4738,26 @@ int mlx5dv_devx_get_async_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp,
 	return 0;
 }
 
+ssize_t mlx5dv_devx_get_event(struct mlx5dv_devx_event_channel *event_channel,
+				   struct mlx5dv_devx_async_event_hdr *event_data,
+				   size_t event_resp_len)
+{
+	ssize_t bytes;
+
+	bytes = read(event_channel->fd, event_data, event_resp_len);
+	if (bytes < 0)
+		return -1;
+
+	/* cookie should be always exist */
+	if (bytes < sizeof(*event_data)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	/* event data may be omitted in case no EQE data exists (e.g. completion event on a CQ) */
+	return bytes;
+}
+
 struct mlx5dv_mkey *mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 {
 	uint32_t out[DEVX_ST_SZ_DW(create_mkey_out)] = {};

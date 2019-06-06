@@ -10,6 +10,7 @@ rdma_man_pages(
   mlx5dv_devx_alloc_uar.3.md
   mlx5dv_devx_create_cmd_comp.3.md
   mlx5dv_devx_create_event_channel.3.md
+  mlx5dv_devx_get_event.3.md
   mlx5dv_devx_obj_create.3.md
   mlx5dv_devx_qp_modify.3.md
   mlx5dv_devx_query_eqn.3.md

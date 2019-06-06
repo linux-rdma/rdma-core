@@ -83,6 +83,7 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_qp_ex_from_ibv_qp_ex@MLX5_1.10 24
  mlx5dv_devx_create_event_channel@MLX5_1.11 25
  mlx5dv_devx_destroy_event_channel@MLX5_1.11 25
+ mlx5dv_devx_get_event@MLX5_1.11 25
  mlx5dv_devx_subscribe_devx_event@MLX5_1.11 25
  mlx5dv_devx_subscribe_devx_event_fd@MLX5_1.11 25
 libefa.so.1 ibverbs-providers #MINVER#
