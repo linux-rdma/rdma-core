@@ -4656,6 +4656,53 @@ void mlx5dv_devx_destroy_event_channel(
 	free(event_channel);
 }
 
+int mlx5dv_devx_subscribe_devx_event(struct mlx5dv_devx_event_channel *dv_event_channel,
+				     struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+				     uint16_t events_sz,
+				     uint16_t events_num[],
+				     uint64_t cookie)
+{
+	struct mlx5_devx_event_channel *event_channel =
+			container_of(dv_event_channel, struct mlx5_devx_event_channel,
+				     dv_event_channel);
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX,
+			       MLX5_IB_METHOD_DEVX_SUBSCRIBE_EVENT,
+			       4);
+
+	fill_attr_in_fd(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_FD_HANDLE, dv_event_channel->fd);
+	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_COOKIE, cookie);
+	if (obj)
+		fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_OBJ_HANDLE, obj->handle);
+
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_TYPE_NUM_LIST, events_num, events_sz);
+
+	return execute_ioctl(event_channel->context, cmd);
+}
+
+int mlx5dv_devx_subscribe_devx_event_fd(struct mlx5dv_devx_event_channel *dv_event_channel,
+					int fd,
+					struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+					uint16_t event_num)
+{
+	struct mlx5_devx_event_channel *event_channel =
+			container_of(dv_event_channel, struct mlx5_devx_event_channel,
+				     dv_event_channel);
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX,
+			       MLX5_IB_METHOD_DEVX_SUBSCRIBE_EVENT,
+			       4);
+
+	fill_attr_in_fd(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_FD_HANDLE, dv_event_channel->fd);
+	if (obj)
+		fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_OBJ_HANDLE, obj->handle);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_TYPE_NUM_LIST,
+		     &event_num, sizeof(event_num));
+	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_FD_NUM, fd);
+
+	return execute_ioctl(event_channel->context, cmd);
+}
+
 int mlx5dv_devx_obj_query_async(struct mlx5dv_devx_obj *obj, const void *in,
 				size_t inlen, size_t outlen,
 				uint64_t wr_id,

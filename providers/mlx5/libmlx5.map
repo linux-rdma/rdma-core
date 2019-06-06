@@ -111,4 +111,6 @@ MLX5_1.11 {
         global:
 		mlx5dv_devx_create_event_channel;
 		mlx5dv_devx_destroy_event_channel;
+		mlx5dv_devx_subscribe_devx_event;
+		mlx5dv_devx_subscribe_devx_event_fd;
 } MLX5_1.10;

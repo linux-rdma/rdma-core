@@ -1322,6 +1322,19 @@ mlx5dv_devx_create_event_channel(struct ibv_context *context,
 				 enum mlx5dv_devx_create_event_channel_flags flags);
 void mlx5dv_devx_destroy_event_channel(struct mlx5dv_devx_event_channel *event_channel);
 
+
+int mlx5dv_devx_subscribe_devx_event(struct mlx5dv_devx_event_channel *event_channel,
+				     struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+				     uint16_t events_sz,
+				     uint16_t events_num[],
+				     uint64_t cookie);
+
+int mlx5dv_devx_subscribe_devx_event_fd(struct mlx5dv_devx_event_channel *event_channel,
+					int fd,
+					struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+					uint16_t event_num);
+
+
 #define __devx_nullp(typ) ((struct mlx5_ifc_##typ##_bits *)NULL)
 #define __devx_st_sz_bits(typ) sizeof(struct mlx5_ifc_##typ##_bits)
 #define __devx_bit_sz(typ, fld) sizeof(__devx_nullp(typ)->fld)
