@@ -2600,9 +2600,11 @@ static void acm_open_dev(struct ibv_device *ibdev)
 {
 	struct acmc_device *dev;
 	struct ibv_device_attr attr;
+	struct ibv_port_attr port_attr;
 	struct ibv_context *verbs;
 	size_t size;
 	int i, ret;
+	unsigned int opened_ib_port_cnt = 0;
 
 	acm_log(1, "%s\n", ibdev->name);
 	verbs = ibv_open_device(ibdev);
@@ -2628,13 +2630,29 @@ static void acm_open_dev(struct ibv_device *ibdev)
 	list_head_init(&dev->prov_dev_context_list);
 
 	for (i = 0; i < dev->port_cnt; i++) {
+		acm_log(1, "%s port %d\n", ibdev->name, i + 1);
+		ret = ibv_query_port(dev->device.verbs, i + 1, &port_attr);
+		if (ret) {
+			acm_log(0, "ERROR - ibv_query_port (%d)\n", ret);
+			continue;
+		}
+		if (port_attr.link_layer != IBV_LINK_LAYER_INFINIBAND) {
+			acm_log(1, "not an InfiniBand port\n");
+			continue;
+		}
+
 		acm_open_port(&dev->port[i], dev, i + 1);
+		opened_ib_port_cnt++;
 	}
 
-	list_add(&dev_list, &dev->entry);
-
-	acm_log(1, "%s opened\n", ibdev->name);
-	return;
+	if (opened_ib_port_cnt) {
+		list_add(&dev_list, &dev->entry);
+		acm_log(1, "%d InfiniBand %s opened for %s\n",
+				opened_ib_port_cnt,
+				opened_ib_port_cnt == 1 ? "port" : "ports",
+				ibdev->name);
+		return;
+	}
 
 err1:
 	ibv_close_device(verbs);
