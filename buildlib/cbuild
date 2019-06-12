@@ -79,7 +79,11 @@ class Environment(object):
     proxy = True;
     build_pyverbs = True;
 
+    to_azp = False;
+
     def image_name(self):
+        if self.to_azp:
+            return "ucfconsort.azurecr.io/%s/%s"%(project, self.name);
         return "build-%s/%s"%(project,self.name);
 
 # -------------------------------------------------------------------------
@@ -123,6 +127,7 @@ class centos7(YumEnvironment):
     build_pyverbs = False;
     specfile = "redhat/rdma-core.spec";
     python_cmd = "python";
+    to_azp = True;
 
 class centos7_epel(centos7):
     pkgs = (centos7.pkgs - {"cmake","make"}) | {
@@ -176,7 +181,7 @@ class APTEnvironment(Environment):
     build_python = True;
     def get_docker_file(self):
         res = DockerFile(self.docker_parent);
-        res.lines.append("RUN apt-get update && apt-get install -y --no-install-recommends %s && apt-get clean"%(
+        res.lines.append("RUN apt-get update && apt-get install -y --no-install-recommends %s && apt-get clean && rm -rf /usr/share/doc/ /usr/lib/debug"%(
             " ".join(sorted(self.pkgs))));
         return res;
 
@@ -366,6 +371,7 @@ class leap(ZypperEnvironment):
         'python3-docutils',
     };
     rpmbuild_options = [ "--without=curlmini" ];
+    to_azp = True;
     name = "opensuse-15.0";
     aliases = {"leap"};
 
@@ -375,6 +381,52 @@ class tumbleweed(ZypperEnvironment):
     name = "tumbleweed";
     specfile = "suse/rdma-core.spec";
     rpmbuild_options = [ "--without=curlmini" ];
+
+# -------------------------------------------------------------------------
+
+class azure_pipelines(bionic):
+    pkgs = bionic.pkgs | {
+        "abi-compliance-checker",
+        "abi-dumper",
+        "ca-certificates",
+        "clang-7",
+        "fakeroot",
+        "gcc-8",
+        "git",
+        "python2.7",
+        "sparse",
+        'python-docutils',
+    } | {
+        # 32 bit build support
+        "libgcc-8-dev:i386",
+        "libc6-dev:i386",
+        "libnl-3-dev:i386",
+        "libnl-route-3-dev:i386",
+        "libsystemd-dev:i386",
+        "libudev-dev:i386",
+    } | {
+        # ARM 64 cross compiler
+        "gcc-8-aarch64-linux-gnu",
+        "libgcc-8-dev:arm64",
+        "libc6-dev:arm64",
+        "libnl-3-dev:arm64",
+        "libnl-route-3-dev:arm64",
+        "libsystemd-dev:arm64",
+        "libudev-dev:arm64",
+    }
+    to_azp = True;
+    name = "azure_pipelines";
+    aliases = {"azp"}
+
+    def get_docker_file(self):
+        res = bionic.get_docker_file(self);
+        res.lines.insert(1,"RUN dpkg --add-architecture i386 &&"
+                         "dpkg --add-architecture arm64 &&"
+                         "sed -i -e 's/^deb /deb [arch=amd64,i386] /g' /etc/apt/sources.list &&"
+                         "echo 'deb [arch=arm64] http://ports.ubuntu.com/ bionic main universe\\n"
+                               "deb [arch=arm64] http://ports.ubuntu.com/ bionic-security main universe\\n"
+                               "deb [arch=arm64] http://ports.ubuntu.com/ bionic-updates main universe' > /etc/apt/sources.list.d/arm64.list");
+        return res;
 
 # -------------------------------------------------------------------------
 
@@ -390,6 +442,7 @@ environments = [centos6(),
                 leap(),
                 tumbleweed(),
                 debian_experimental(),
+                azure_pipelines(),
 ];
 
 class ToEnvActionPkg(argparse.Action):
@@ -761,6 +814,91 @@ def run_travis_build(args,env):
             raise;
         copy_abi_files(os.path.join(tmpdir, "src/ABI"));
 
+def run_azp_build(args,env):
+    import yaml
+    # Load the commands from the pipelines file
+    with open("buildlib/azure-pipelines.yml") as F:
+        azp = yaml.load(F);
+    for bst in azp["stages"]:
+        if bst["stage"] == "Build":
+            break;
+    else:
+        raise ValueError("No Build stage found");
+    for job in bst["jobs"]:
+        if job["job"] == "Compile":
+            break;
+    else:
+        raise ValueError("No Compile job found");
+
+    script = ["#!/bin/bash"]
+    workdir = "/__w/1"
+    srcdir = os.path.join(workdir,"s");
+    for I in job["steps"]:
+        script.append("echo ===================================");
+        script.append("echo %s"%(I["displayName"]));
+        script.append("cd %s"%(srcdir));
+        if "bash" in I:
+            script.append(I["bash"]);
+        elif I.get("task") == "PythonScript@0":
+            script.append("set -e");
+            script.append("%s %s"%(I["inputs"]["pythonInterpreter"],
+                                   I["inputs"]["scriptPath"]));
+        else:
+            raise ValueError("Unknown stanza %r"%(I));
+
+    with private_tmp(args) as tmpdir:
+        os.mkdir(os.path.join(tmpdir,"s"));
+        os.mkdir(os.path.join(tmpdir,"tmp"));
+
+        opwd = os.getcwd();
+        with inDirectory(os.path.join(tmpdir,"s")):
+            subprocess.check_call(["git",
+                                   "--git-dir",os.path.join(opwd,".git"),
+                                   "reset","--hard","HEAD"]);
+            subprocess.check_call(["git",
+                                   "--git-dir",os.path.join(opwd,".git"),
+                                   "fetch",
+                                   "--no-tags",
+                                   "https://github.com/linux-rdma/rdma-core.git","HEAD",
+                                   "master"]);
+            base = subprocess.check_output(["git",
+                                            "--git-dir",os.path.join(opwd,".git"),
+                                            "merge-base",
+                                            "HEAD","FETCH_HEAD"]).strip();
+
+        opts = [
+            "run",
+            "--read-only",
+            "--rm=true",
+            "-v","%s:%s"%(tmpdir, workdir),
+            "-w",srcdir,
+            "-u",str(os.getuid()),
+            "-e","SYSTEM_PULLREQUEST_SOURCECOMMITID=HEAD",
+            # azp puts the branch name 'master' here, we need to put a commit ID..
+            "-e","SYSTEM_PULLREQUEST_TARGETBRANCH=%s"%(base),
+            "-e","HOME=%s"%(workdir),
+            "-e","TMPDIR=%s"%(os.path.join(workdir,"tmp")),
+        ] + map_git_args(opwd,srcdir);
+
+        if args.run_shell:
+            opts.append("-ti");
+        opts.append(env.image_name());
+
+        with open(os.path.join(tmpdir,"go.sh"),"w") as F:
+            F.write("\n".join(script))
+
+        if args.run_shell:
+            opts.append("/bin/bash");
+        else:
+            opts.extend(["/bin/bash",os.path.join(workdir,"go.sh")]);
+
+        try:
+            docker_cmd(args,*opts);
+        except subprocess.CalledProcessError, e:
+            copy_abi_files(os.path.join(tmpdir, "s/ABI"));
+            raise;
+        copy_abi_files(os.path.join(tmpdir, "s/ABI"));
+
 def args_pkg(parser):
     parser.add_argument("ENV",action=ToEnvActionPkg,choices=env_choices_pkg());
     parser.add_argument("--run-shell",default=False,action="store_true",
@@ -776,6 +914,8 @@ def cmd_pkg(args):
     for env in args.ENV:
         if env.name == "travis":
             run_travis_build(args,env);
+        elif env.name == "azure_pipelines":
+            run_azp_build(args,env);
         elif getattr(env,"is_deb",False):
             run_deb_build(args,env);
         elif getattr(env,"is_rpm",False):

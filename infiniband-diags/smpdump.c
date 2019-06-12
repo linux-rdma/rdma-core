@@ -88,7 +88,8 @@ static void drsmp_get_init(void *umad, DRPath * path, int attr, int mod)
 	smp->method = 1;
 	smp->attr_id = htons(attr);
 	smp->attr_mod = htonl(mod);
-	smp->tid = htobe64(drmad_tid++);
+	smp->tid = htobe64(drmad_tid);
+	drmad_tid++;
 	smp->dr_slid = htobe16(0xffff);
 	smp->dr_dlid = htobe16(0xffff);
 
@@ -113,7 +114,8 @@ static void smp_get_init(void *umad, int lid, int attr, int mod)
 	smp->method = 1;
 	smp->attr_id = htons(attr);
 	smp->attr_mod = htonl(mod);
-	smp->tid = htobe64(drmad_tid++);
+	smp->tid = htobe64(drmad_tid);
+	drmad_tid++;
 
 	umad_set_addr(umad, lid, 0, 0, 0);
 }
