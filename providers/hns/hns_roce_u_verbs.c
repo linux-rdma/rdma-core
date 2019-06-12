@@ -183,13 +183,13 @@ int hns_roce_u_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 	struct ibv_send_wr wr = {};
 	int ret;
 
+	if (!bind_info->mr && bind_info->length)
+		return EINVAL;
+
 	if ((mw->pd != qp->pd) || (mw->pd != bind_info->mr->pd))
 		return EINVAL;
 
 	if (mw->type != IBV_MW_TYPE_1)
-		return EINVAL;
-
-	if (!bind_info->mr && bind_info->length)
 		return EINVAL;
 
 	if (bind_info->mw_access_flags & ~(IBV_ACCESS_REMOTE_WRITE |
@@ -774,7 +774,7 @@ static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 		return -1;
 	}
 
-	memset(qp->buf.buf, 0, qp->buf_size);
+	memset(qp->buf.buf, 0, qp->buf.length);
 
 	return 0;
 }

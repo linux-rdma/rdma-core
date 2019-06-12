@@ -501,7 +501,7 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 		wqe_ctr = (uint16_t)(roce_get_field(cqe->byte_4,
 						    CQE_BYTE_4_WQE_IDX_M,
 						    CQE_BYTE_4_WQE_IDX_S));
-		wc->wr_id = srq->wrid[wqe_ctr];
+		wc->wr_id = srq->wrid[wqe_ctr & (srq->max - 1)];
 		hns_roce_free_srq_wqe(srq, wqe_ctr);
 	} else {
 		wq = &(*cur_qp)->rq;
@@ -890,16 +890,16 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 						set_data_seg_v2(dseg,
 							       wr->sg_list + i);
 						dseg++;
+						j++;
 					}
-
-				dseg = get_send_sge_ex(qp, ind_sge &
-						    (qp->sge.sge_cnt - 1));
 
 				for (; i < wr->num_sge; i++) {
 					if (likely(wr->sg_list[i].length)) {
+						dseg = get_send_sge_ex(qp,
+							ind_sge &
+							(qp->sge.sge_cnt - 1));
 						set_data_seg_v2(dseg,
 							   wr->sg_list + i);
-						dseg++;
 						ind_sge++;
 					}
 				}
