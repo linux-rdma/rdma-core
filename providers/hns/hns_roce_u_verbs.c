@@ -644,9 +644,6 @@ static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 	    (attr->cap.max_inline_data > HNS_ROCE_MAX_INLINE_DATA_LEN))
 		return -1;
 
-	if (attr->qp_type == IBV_QPT_UC)
-		return -1;
-
 	return 0;
 }
 
