@@ -1,3 +1,5 @@
+rdma_component()
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${NO_STRICT_ALIASING_FLAGS}")
 
 rdma_man_pages(
@@ -27,7 +29,7 @@ rdma_subst_install(FILES "srp_daemon.sh.in"
   RENAME "srp_daemon.sh"
   PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE)
 
-install(FILES start_on_all_ports
+rdma_install(FILES start_on_all_ports
   DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/srp_daemon"
   PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE)
 
@@ -41,13 +43,13 @@ rdma_subst_install(FILES srp_daemon_port@.service.in
   RENAME srp_daemon_port@.service
   PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
 
-install(FILES srp_daemon.conf DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}")
+rdma_install(FILES srp_daemon.conf DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}")
 
-install(FILES "srp_daemon.rules"
+rdma_install(FILES "srp_daemon.rules"
   RENAME "60-srp_daemon.rules"
   DESTINATION "${CMAKE_INSTALL_UDEV_RULESDIR}")
 
-install(FILES modules-srp_daemon.conf
+rdma_install(FILES modules-srp_daemon.conf
   RENAME "srp_daemon.conf"
   DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}/rdma/modules")
 
@@ -57,6 +59,6 @@ set(RDMA_SERVICE "openibd" CACHE STRING "init.d file service name to order srpd 
 set(SRP_DEFAULT_START "2 3 4 5" CACHE STRING "Default-Start service data for srpd")
 set(SRP_DEFAULT_STOP "0 1 6" CACHE STRING "Default-Stop service data for srpd")
 configure_file(srpd.in "${CMAKE_CURRENT_BINARY_DIR}/srpd")
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/srpd"
+rdma_install(FILES "${CMAKE_CURRENT_BINARY_DIR}/srpd"
   DESTINATION "${CMAKE_INSTALL_INITDDIR}"
   PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE)

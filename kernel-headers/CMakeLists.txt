@@ -1,3 +1,5 @@
+rdma_component()
+
 publish_internal_headers(rdma
   rdma/bnxt_re-abi.h
   rdma/cxgb3-abi.h

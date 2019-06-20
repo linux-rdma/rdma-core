@@ -1,3 +1,5 @@
+rdma_component()
+
 publish_headers(infiniband
   mad.h
   mad_osd.h

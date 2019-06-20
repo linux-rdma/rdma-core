@@ -1,3 +1,5 @@
+rdma_component()
+
 rdma_man_pages(
   ibnd_discover_fabric.3
   ibnd_find_node_guid.3

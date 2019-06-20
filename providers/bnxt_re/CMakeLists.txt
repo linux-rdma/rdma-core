@@ -1,3 +1,5 @@
+rdma_component()
+
 rdma_provider(bnxt_re
 	db.c
 	main.c

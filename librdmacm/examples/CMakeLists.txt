@@ -1,3 +1,5 @@
+rdma_component()
+
 # Shared example files
 add_library(rdmacm_tools STATIC
   common.c

@@ -1,3 +1,5 @@
+rdma_component()
+
 rdma_man_pages(
   umad_addr_dump.3
   umad_alloc.3

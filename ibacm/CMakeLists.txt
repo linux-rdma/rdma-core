@@ -1,3 +1,5 @@
+rdma_component()
+
 publish_headers(infiniband
   include/infiniband/acm.h
   include/infiniband/acm_prov.h
@@ -38,7 +40,7 @@ target_link_libraries(ibacmp LINK_PRIVATE
   )
 set_target_properties(ibacmp PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
-install(TARGETS ibacmp DESTINATION "${ACM_PROVIDER_DIR}")
+rdma_install(TARGETS ibacmp DESTINATION "${ACM_PROVIDER_DIR}")
 # ACM providers are linked into a subdir so that IN_PLACE can work.
 file(MAKE_DIRECTORY "${BUILD_LIB}/ibacm/")
 rdma_create_symlink("../libibacmp.so" "${BUILD_LIB}/ibacm/libibacmp.so")
@@ -71,7 +73,7 @@ rdma_subst_install(FILES "ibacm.service.in"
   RENAME ibacm.service
   PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
 
-install(FILES "ibacm.socket"
+rdma_install(FILES "ibacm.socket"
   DESTINATION "${CMAKE_INSTALL_SYSTEMD_SERVICEDIR}"
   RENAME ibacm.socket
   PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)

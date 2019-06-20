@@ -1,3 +1,5 @@
+rdma_component()
+
 publish_headers(infiniband
   ibnetdisc.h
   ibnetdisc_osd.h

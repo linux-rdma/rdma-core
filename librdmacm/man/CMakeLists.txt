@@ -1,3 +1,5 @@
+rdma_component()
+
 rdma_man_pages(
   cmtime.1
   mckey.1

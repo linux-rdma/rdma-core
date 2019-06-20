@@ -1,3 +1,5 @@
+rdma_component()
+
 rdma_sbin_executable(iwpmd
   iwarp_pm_common.c
   iwarp_pm_helper.c
@@ -21,12 +23,12 @@ rdma_subst_install(FILES "iwpmd_init.in"
   DESTINATION "${CMAKE_INSTALL_INITDDIR}"
   RENAME "iwpmd"
   PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE)
-install(FILES "iwpmd.conf" DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}")
+rdma_install(FILES "iwpmd.conf" DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}")
 
-install(FILES "iwpmd.rules"
+rdma_install(FILES "iwpmd.rules"
   RENAME "90-iwpmd.rules"
   DESTINATION "${CMAKE_INSTALL_UDEV_RULESDIR}")
 
-install(FILES modules-iwpmd.conf
+rdma_install(FILES modules-iwpmd.conf
   RENAME "iwpmd.conf"
   DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}/rdma/modules")

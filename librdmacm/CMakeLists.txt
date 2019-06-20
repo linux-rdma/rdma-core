@@ -1,3 +1,5 @@
+rdma_component()
+
 publish_headers(rdma
   rdma_cma.h
   rdma_cma_abi.h
@@ -35,7 +37,7 @@ target_link_libraries(rspreload LINK_PRIVATE
   ${CMAKE_THREAD_LIBS_INIT}
   ${CMAKE_DL_LIBS}
 )
-install(TARGETS rspreload DESTINATION "${CMAKE_INSTALL_LIBDIR}/rsocket/")
+rdma_install(TARGETS rspreload DESTINATION "${CMAKE_INSTALL_LIBDIR}/rsocket/")
 
 # These are for compat with old packaging, these name should not be used.
 # FIXME: Maybe we can get rid of them?

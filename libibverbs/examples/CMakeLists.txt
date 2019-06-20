@@ -1,3 +1,5 @@
+rdma_component()
+
 # Shared example files
 add_library(ibverbs_tools STATIC
   pingpong.c

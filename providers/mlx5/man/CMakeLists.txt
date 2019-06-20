@@ -1,3 +1,5 @@
+rdma_component()
+
 rdma_man_pages(
   mlx5dv_alloc_dm.3.md
   mlx5dv_create_cq.3.md

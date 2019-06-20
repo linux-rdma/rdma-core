@@ -1,3 +1,5 @@
+rdma_component()
+
 rdma_provider(qedr
   qelr_main.c
   qelr_verbs.c

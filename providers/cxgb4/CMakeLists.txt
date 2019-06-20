@@ -1,3 +1,5 @@
+rdma_component()
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${NO_STRICT_ALIASING_FLAGS}")
 
 rdma_provider(cxgb4

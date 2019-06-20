@@ -1,3 +1,5 @@
+rdma_component()
+
 rdma_man_pages(
   ibv_advise_mr.3.md
   ibv_alloc_dm.3

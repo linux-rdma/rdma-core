@@ -1,3 +1,5 @@
+rdma_component()
+
 rdma_provider(rxe
   rxe.c
   )

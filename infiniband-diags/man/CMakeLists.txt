@@ -1,3 +1,5 @@
+rdma_component()
+
 # rst2man has no way to set the include search path and we need to substitute
 # into the common files, so subst/link them all into the build directory
 function(rdma_rst_common)

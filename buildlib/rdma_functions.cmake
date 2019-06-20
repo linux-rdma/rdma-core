@@ -10,6 +10,9 @@ set(RDMA_STATIC_LIBS "" CACHE INTERNAL "Doc" FORCE)
 # Global list of tuples of (PROVIDER_NAME LIB_NAME)
 set(RDMA_PROVIDER_LIST "" CACHE INTERNAL "Doc" FORCE)
 
+# Current component
+set(RDMA_CUR_INSTALL_COMP "${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME}")
+
 set(COMMON_LIBS_PIC ccan_pic rdma_util_pic)
 set(COMMON_LIBS ccan rdma_util)
 
@@ -73,8 +76,41 @@ function(rdma_install_symlink LINK_CONTENT DEST)
   # Have cmake install it. Doing it this way lets cpack work if we ever wish
   # to use that.
   get_filename_component(DIR "${DEST}" PATH)
-  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${FN}"
+  rdma_install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${FN}"
     DESTINATION "${DIR}")
+endfunction()
+
+# Set the component name that is being processed in the current list file.
+# Uses the current source dir (relative to the project root) if omitted.
+# Slashes are replaced by dashes.
+function(rdma_component)
+  if (ARGV0)
+    set(COMPNAME "${ARGV0}")
+  else()
+    file(RELATIVE_PATH COMPNAME "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
+  endif()
+
+  string(REPLACE "/" "-" COMPNAME "${COMPNAME}")
+
+  set(RDMA_CUR_INSTALL_COMP "${COMPNAME}" PARENT_SCOPE)
+endfunction()
+
+# Wrapper for install() that automatically assigns the insall component.
+function(rdma_install)
+  set(INST_TGT "install-${RDMA_CUR_INSTALL_COMP}")
+  if (NOT TARGET "${INST_TGT}")
+    add_custom_target("${INST_TGT}"
+      "${CMAKE_COMMAND}"
+      -D "CMAKE_INSTALL_COMPONENT=${RDMA_CUR_INSTALL_COMP}"
+      -P "${CMAKE_BINARY_DIR}/cmake_install.cmake")
+  endif()
+
+  cmake_parse_arguments(RDMA_INSTALL "" "DESTINATION" "TARGETS" ${ARGN})
+  if (RDMA_INSTALL_TARGETS)
+    add_dependencies("${INST_TGT}" ${RDMA_INSTALL_TARGETS})
+  endif()
+
+  install(${ARGN} COMPONENT "${RDMA_CUR_INSTALL_COMP}")
 endfunction()
 
 # Wrapper for install() that runs the single file through configure_file first.
@@ -84,7 +120,7 @@ function(rdma_subst_install ARG1 file)
     message(FATAL_ERROR "Bad use of rdma_subst_install")
   endif()
   configure_file("${file}" "${CMAKE_CURRENT_BINARY_DIR}/${file}" @ONLY)
-  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${file}" ${ARGN})
+  rdma_install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${file}" ${ARGN})
 endfunction()
 
 # Modify shared library target DEST to use VERSION_SCRIPT as the linker map file
@@ -117,7 +153,7 @@ function(rdma_library DEST VERSION_SCRIPT SOVERSION VERSION)
     SOVERSION ${SOVERSION}
     VERSION ${VERSION}
     LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
-  install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+  rdma_install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 endfunction()
 
 # Create a special provider with exported symbols in it The shared provider
@@ -127,7 +163,7 @@ endfunction()
 function(rdma_shared_provider DEST VERSION_SCRIPT SOVERSION VERSION)
   # Installed driver file
   file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${DEST}.driver" "driver ${DEST}\n")
-  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${DEST}.driver" DESTINATION "${CONFIG_DIR}")
+  rdma_install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${DEST}.driver" DESTINATION "${CONFIG_DIR}")
 
   # Uninstalled driver file
   file(MAKE_DIRECTORY "${BUILD_ETC}/libibverbs.d/")
@@ -153,7 +189,7 @@ function(rdma_shared_provider DEST VERSION_SCRIPT SOVERSION VERSION)
     SOVERSION ${SOVERSION}
     VERSION ${VERSION}
     LIBRARY_OUTPUT_DIRECTORY "${BUILD_LIB}")
-  install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+  rdma_install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
   # Compute a relative symlink from VERBS_PROVIDER_DIR to LIBDIR
   execute_process(COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/buildlib/relpath
@@ -173,7 +209,7 @@ endfunction()
 function(rdma_provider DEST)
   # Installed driver file
   file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${DEST}.driver" "driver ${DEST}\n")
-  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${DEST}.driver" DESTINATION "${CONFIG_DIR}")
+  rdma_install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${DEST}.driver" DESTINATION "${CONFIG_DIR}")
 
   # Uninstalled driver file
   file(MAKE_DIRECTORY "${BUILD_ETC}/libibverbs.d/")
@@ -202,9 +238,9 @@ function(rdma_provider DEST)
   # create the usual symlinks.
 
   if (VERBS_PROVIDER_DIR)
-    install(TARGETS ${DEST} DESTINATION "${VERBS_PROVIDER_DIR}")
+    rdma_install(TARGETS ${DEST} DESTINATION "${VERBS_PROVIDER_DIR}")
   else()
-    install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+    rdma_install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
     # FIXME: This symlink is provided for compat with the old build, but it
     # never should have existed in the first place, nothing should use this
@@ -218,7 +254,7 @@ function(rdma_executable EXEC)
   add_executable(${EXEC} ${ARGN})
   target_link_libraries(${EXEC} LINK_PRIVATE ${COMMON_LIBS})
   set_target_properties(${EXEC} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${BUILD_BIN}")
-  install(TARGETS ${EXEC} DESTINATION "${CMAKE_INSTALL_BINDIR}")
+  rdma_install(TARGETS ${EXEC} DESTINATION "${CMAKE_INSTALL_BINDIR}")
 endfunction()
 
  # Create an installed executable (under sbin)
@@ -226,7 +262,7 @@ function(rdma_sbin_executable EXEC)
   add_executable(${EXEC} ${ARGN})
   target_link_libraries(${EXEC} LINK_PRIVATE ${COMMON_LIBS})
   set_target_properties(${EXEC} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${BUILD_BIN}")
-  install(TARGETS ${EXEC} DESTINATION "${CMAKE_INSTALL_SBINDIR}")
+  rdma_install(TARGETS ${EXEC} DESTINATION "${CMAKE_INSTALL_SBINDIR}")
 endfunction()
 
 # Create an test executable (not-installed)
@@ -243,6 +279,8 @@ function(rdma_finalize_libs)
   if (LEN LESS 3)
     return()
   endif()
+
+  set(STATIC_INSTALL_TGTS "")
 
   math(EXPR LEN ${LEN}-1)
   foreach(I RANGE 0 ${LEN} 3)
@@ -272,9 +310,18 @@ function(rdma_finalize_libs)
     set(ARGS ${ARGS} --map "${MAP}" --lib "$<TARGET_FILE:${STATIC}>")
     set(DEPENDS ${DEPENDS} ${STATIC} ${MAP})
 
+    get_target_property(TMP ${STATIC} SOURCE_DIR)
+    if (TMP)
+      file(RELATIVE_PATH TMP "${PROJECT_SOURCE_DIR}" "${TMP}")
+      rdma_component("${TMP}")
+    endif()
+
     get_target_property(TMP ${STATIC} OUTPUT_NAME)
-    set(OUTPUTS ${OUTPUTS} "${BUILD_LIB}/lib${TMP}.a")
-    install(FILES "${BUILD_LIB}/lib${TMP}.a" DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+    set(TMP "${BUILD_LIB}/lib${TMP}.a")
+    set(OUTPUTS ${OUTPUTS} "${TMP}")
+    rdma_install(FILES "${TMP}" DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+
+    list(APPEND STATIC_INSTALL_TGTS "install-${RDMA_CUR_INSTALL_COMP}")
   endforeach()
 
   foreach(STATIC ${COMMON_LIBS})
@@ -291,6 +338,10 @@ function(rdma_finalize_libs)
     COMMENT "Building distributable static libraries"
     VERBATIM)
   add_custom_target("make_static" ALL DEPENDS ${OUTPUTS})
+
+  foreach(TGT ${STATIC_INSTALL_TGTS})
+    add_dependencies("${TGT}" "make_static")
+  endforeach()
 endfunction()
 
 # Generate a pkg-config file
@@ -307,6 +358,6 @@ function(rdma_pkg_config PC_LIB_NAME PC_REQUIRES_PRIVATE PC_LIB_PRIVATE)
 
   configure_file(${BUILDLIB}/template.pc.in ${BUILD_LIB}/pkgconfig/lib${PC_LIB_NAME}.pc @ONLY)
   if (NOT IN_PLACE)
-    install(FILES ${BUILD_LIB}/pkgconfig/lib${PC_LIB_NAME}.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+    rdma_install(FILES ${BUILD_LIB}/pkgconfig/lib${PC_LIB_NAME}.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
   endif()
 endfunction()

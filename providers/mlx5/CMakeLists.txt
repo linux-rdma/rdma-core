@@ -1,3 +1,5 @@
+rdma_component()
+
 set(MLX5_DEBUG "FALSE" CACHE BOOL
   "Enable expensive runtime logging options for the mlx5 verbs provider")
 if (MLX5_DEBUG)

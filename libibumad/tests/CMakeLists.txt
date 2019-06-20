@@ -1,3 +1,5 @@
+rdma_component()
+
 rdma_test_executable(umad_reg2 umad_reg2_compat.c)
 target_link_libraries(umad_reg2 LINK_PRIVATE ibumad)
 

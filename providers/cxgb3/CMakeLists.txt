@@ -1,3 +1,5 @@
+rdma_component()
+
 rdma_provider(cxgb3
   cq.c
   iwch.c

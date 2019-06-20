@@ -37,7 +37,7 @@ function(rdma_md_man_page SRC MAN_SECT MANFN)
     rdma_man_get_prebuilt(${SRC} OBJ)
   endif()
 
-  install(FILES "${OBJ}"
+  rdma_install(FILES "${OBJ}"
     RENAME "${MANFN}"
     DESTINATION "${CMAKE_INSTALL_MANDIR}/man${MAN_SECT}/")
 endfunction()
@@ -59,7 +59,7 @@ function(rdma_rst_man_page SRC MAN_SECT MANFN)
     rdma_man_get_prebuilt(${SRC} OBJ)
   endif()
 
-  install(FILES "${OBJ}"
+  rdma_install(FILES "${OBJ}"
     RENAME "${MANFN}"
     DESTINATION "${CMAKE_INSTALL_MANDIR}/man${MAN_SECT}/")
 endfunction()
@@ -97,7 +97,7 @@ function(rdma_man_pages)
 	RENAME "${BASE_NAME}")
     else()
       string(REGEX REPLACE "^.+[.](.+)$" "\\1" MAN_SECT "${I}")
-      install(FILES "${I}" DESTINATION "${CMAKE_INSTALL_MANDIR}/man${MAN_SECT}/")
+      rdma_install(FILES "${I}" DESTINATION "${CMAKE_INSTALL_MANDIR}/man${MAN_SECT}/")
     endif()
   endforeach()
 endfunction()

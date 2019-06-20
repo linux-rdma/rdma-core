@@ -1,3 +1,5 @@
+rdma_component()
+
 publish_headers(infiniband
   arch.h
   opcode.h
@@ -65,6 +67,8 @@ target_link_libraries(ibverbs LINK_PRIVATE
   )
 
 function(ibverbs_finalize)
+  rdma_component(libibverbs)
+
   if (ENABLE_STATIC)
     # In static mode the .pc file lists all of the providers for static
     # linking. The user should set RDMA_STATIC_PROVIDERS to select which ones

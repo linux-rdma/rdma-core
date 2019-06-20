@@ -1,4 +1,6 @@
-install(FILES
+rdma_component()
+
+rdma_install(FILES
   ibacm.md
   ibsrpdm.md
   libibverbs.md

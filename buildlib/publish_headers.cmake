@@ -25,6 +25,6 @@ function(publish_headers DEST)
 
   foreach(SFIL ${ARGN})
     get_filename_component(FIL ${SFIL} NAME)
-    install(FILES "${SFIL}" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${DEST}/" RENAME "${FIL}")
+    rdma_install(FILES "${SFIL}" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${DEST}/" RENAME "${FIL}")
   endforeach()
 endfunction()

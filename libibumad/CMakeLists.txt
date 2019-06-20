@@ -1,3 +1,5 @@
+rdma_component()
+
 publish_headers(infiniband
   umad.h
   umad_cm.h

@@ -1,9 +1,11 @@
+rdma_component()
+
 publish_internal_headers(""
   ibdiag_common.h
   ibdiag_sa.h
   )
 
-install(FILES
+rdma_install(FILES
   etc/error_thresholds
   etc/ibdiag.conf
   DESTINATION "${IBDIAG_CONFIG_PATH}")

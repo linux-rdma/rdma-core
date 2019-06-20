@@ -1,3 +1,5 @@
+rdma_component()
+
 publish_internal_headers(util
   cl_qmap.h
   compiler.h

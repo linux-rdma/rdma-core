@@ -1,6 +1,8 @@
 # COPYRIGHT (c) 2016 Intel Corporation.
 # Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 
+rdma_component()
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 
 rdma_sbin_executable(rdma-ndd
@@ -17,7 +19,7 @@ rdma_man_pages(
   rdma-ndd.8.in
   )
 
-install(FILES "rdma-ndd.rules"
+rdma_install(FILES "rdma-ndd.rules"
   RENAME "60-rdma-ndd.rules"
   DESTINATION "${CMAKE_INSTALL_UDEV_RULESDIR}")
 

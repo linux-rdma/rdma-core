@@ -1,3 +1,5 @@
+rdma_component()
+
 rdma_provider(vmw_pvrdma
   cq.c
   pvrdma_main.c

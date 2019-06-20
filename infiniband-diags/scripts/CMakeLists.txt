@@ -1,9 +1,11 @@
+rdma_component()
+
 function(_rdma_sbin_interp INTERP IFN OFN)
   configure_file("${IFN}" "${CMAKE_CURRENT_BINARY_DIR}/${OFN}" @ONLY)
   file(WRITE "${BUILD_BIN}/${OFN}" "#!${INTERP}\nexec ${INTERP} ${CMAKE_CURRENT_BINARY_DIR}/${OFN} \"$@\"\n")
   execute_process(COMMAND "chmod" "a+x" "${BUILD_BIN}/${OFN}")
 
-  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${OFN}"
+  rdma_install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${OFN}"
     DESTINATION "${CMAKE_INSTALL_SBINDIR}"
     PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE)
 endfunction()
@@ -12,7 +14,7 @@ function(_rdma_sbin_interp_link INTERP IFN OFN)
   file(WRITE "${BUILD_BIN}/${OFN}" "#!${INTERP}\nexec ${INTERP} ${CMAKE_CURRENT_SOURCE_DIR}/${IFN} \"$@\"\n")
   execute_process(COMMAND "chmod" "a+x" "${BUILD_BIN}/${OFN}")
 
-  install(FILES "${IFN}"
+  rdma_install(FILES "${IFN}"
     DESTINATION "${CMAKE_INSTALL_SBINDIR}"
     RENAME "${OFN}"
     PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE)
@@ -81,7 +83,7 @@ rdma_sbin_perl_program(
   ibidsverify.pl
   )
 
-install(FILES "IBswcountlimits.pm"
+rdma_install(FILES "IBswcountlimits.pm"
   DESTINATION "${CMAKE_INSTALL_PERLDIR}")
 
 if (ENABLE_IBDIAGS_COMPAT)
