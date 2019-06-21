@@ -172,6 +172,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 - libocrdma: Emulex OneConnect RDMA/RoCE Device
 - libqedr: QLogic QL4xxx RoCE HCA
 - librxe: A software implementation of the RoCE protocol
+- libsiw: A software implementation of the iWarp protocol
 - libvmw_pvrdma: VMware paravirtual RDMA device
 
 %package -n libibverbs-utils

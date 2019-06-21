@@ -167,6 +167,11 @@ M:	Moni Shoua <monis@mellanox.com>
 S:	Supported
 F:	providers/rxe/
 
+SIW SOFT IWARP USERSPACE PROVIDER (for siw.ko)
+M:	Bernard Metzler <bmt@zurich.ibm.com>
+S:	Supported
+F:	providers/siw/
+
 SRP DAEMON (for ib_srp.ko)
 M:	Bart Van Assche <bvanassche@acm.org>
 S:	Supported
