@@ -128,12 +128,12 @@ struct ibv_mr *hns_roce_u_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	struct ib_uverbs_reg_mr_resp resp;
 
 	if (!addr) {
-		fprintf(stderr, "2nd parm addr is NULL!\n");
+		HR_LOG("Invalid addr to register mr!\n");
 		return NULL;
 	}
 
 	if (!length) {
-		fprintf(stderr, "3st parm length is 0!\n");
+		HR_LOG("Invalid length to register mr!\n");
 		return NULL;
 	}
 
@@ -491,12 +491,12 @@ struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
 
 	ret = hns_roce_create_idx_que(pd, srq);
 	if (ret) {
-		fprintf(stderr, "hns_roce_create_idx_que failed!\n");
+		HR_LOG("Failed to create index queue!\n");
 		goto out;
 	}
 
 	if (hns_roce_alloc_srq_buf(pd, &srq_init_attr->attr, srq)) {
-		fprintf(stderr, "hns_roce_alloc_srq_buf failed!\n");
+		HR_LOG("Failed to allocate srq buffer!\n");
 		goto err_idx_que;
 	}
 
@@ -577,17 +577,17 @@ static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 
 	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
 		if (attr->cap.max_send_wr < HNS_ROCE_MIN_WQE_NUM) {
-			fprintf(stderr,
-				"max_send_wr = %d, less than minimum WQE number.\n",
-				attr->cap.max_send_wr);
-				attr->cap.max_send_wr = HNS_ROCE_MIN_WQE_NUM;
+			HR_LOG_DBG(LOG_WARNING,
+				   "max_send_wr = %d, less than minimum WQE.\n",
+				   attr->cap.max_send_wr);
+			attr->cap.max_send_wr = HNS_ROCE_MIN_WQE_NUM;
 		}
 
 		if (attr->cap.max_recv_wr < HNS_ROCE_MIN_WQE_NUM) {
-			fprintf(stderr,
-				"max_recv_wr = %d, less than minimum WQE number.\n",
-				attr->cap.max_recv_wr);
-				attr->cap.max_recv_wr = HNS_ROCE_MIN_WQE_NUM;
+			HR_LOG_DBG(LOG_WARNING,
+				   "max_recv_wr = %d, less than minimum WQE.\n",
+				   attr->cap.max_recv_wr);
+			attr->cap.max_recv_wr = HNS_ROCE_MIN_WQE_NUM;
 		}
 	}
 
@@ -849,20 +849,20 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	struct hns_roce_context *context = to_hr_ctx(pd->context);
 
 	if (hns_roce_verify_qp(attr, context)) {
-		fprintf(stderr, "hns_roce_verify_sizes failed!\n");
+		HR_LOG("Failed to verify qp!\n");
 		return NULL;
 	}
 
 	qp = malloc(sizeof(*qp));
 	if (!qp) {
-		fprintf(stderr, "malloc failed!\n");
+		HR_LOG("Failed to allocate qp!\n");
 		return NULL;
 	}
 
 	hns_roce_set_qp_params(pd, attr, qp, context);
 
 	if (hns_roce_alloc_qp_buf(pd, &attr->cap, attr->qp_type, qp)) {
-		fprintf(stderr, "hns_roce_alloc_qp_buf failed!\n");
+		HR_LOG("Failed to allocate qp buffer!\n");
 		goto err_buf;
 	}
 
@@ -870,7 +870,7 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 
 	if (pthread_spin_init(&qp->sq.lock, PTHREAD_PROCESS_PRIVATE) ||
 	    pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE)) {
-		fprintf(stderr, "pthread_spin_init failed!\n");
+		HR_LOG("Failed to pthread_spin_init()!\n");
 		goto err_free;
 	}
 
@@ -891,13 +891,13 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd.ibv_cmd,
 				sizeof(cmd), &resp.ibv_resp, sizeof(resp));
 	if (ret) {
-		fprintf(stderr, "ibv_cmd_create_qp failed!\n");
+		HR_LOG("Failed to create qp!\n");
 		goto err_rq_db;
 	}
 
 	ret = hns_roce_store_qp(context, qp->ibv_qp.qp_num, qp);
 	if (ret) {
-		fprintf(stderr, "hns_roce_store_qp failed!\n");
+		HR_LOG("Failed to store qp!\n");
 		goto err_destroy;
 	}
 	pthread_mutex_unlock(&context->qp_table_mutex);

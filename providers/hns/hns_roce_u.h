@@ -47,14 +47,23 @@
 
 #define HNS_ROCE_HW_VER2		('h' << 24 | 'i' << 16 | '0' << 8 | '8')
 
-#define PFX				"hns: "
-
 #define HNS_ROCE_MAX_INLINE_DATA_LEN	32
 #define HNS_ROCE_MAX_CQ_NUM		0x10000
 #define HNS_ROCE_MAX_SRQWQE_NUM		0x8000
 #define HNS_ROCE_MAX_SRQSGE_NUM		0x100
 #define HNS_ROCE_MIN_CQE_NUM		0x40
 #define HNS_ROCE_MIN_WQE_NUM		0x20
+
+#ifdef HNS_ROCE_DEBUG
+#include <syslog.h>
+#define OPEN_LOG(s)			openlog(s, LOG_NDELAY|LOG_PID, LOG_USER)
+#define HR_LOG_DBG(level, fmt, args...)	syslog(level, fmt, ##args)
+#define HR_LOG(fmt, args...)		syslog(LOG_ERR, fmt, ##args)
+#else
+#define OPEN_LOG(s)
+#define HR_LOG_DBG(level, fmt, args...)
+#define HR_LOG(fmt, args...)
+#endif
 
 #define HNS_ROCE_CQE_ENTRY_SIZE		0x20
 #define HNS_ROCE_SQWQE_SHIFT		6

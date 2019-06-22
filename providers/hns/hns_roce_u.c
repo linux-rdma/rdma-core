@@ -115,7 +115,7 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	context->uar = mmap(NULL, to_hr_dev(ibdev)->page_size,
 			    PROT_READ | PROT_WRITE, MAP_SHARED, cmd_fd, 0);
 	if (context->uar == MAP_FAILED) {
-		fprintf(stderr, PFX "Warning: failed to mmap() uar page.\n");
+		HR_LOG("Failed to mmap() uar page!\n");
 		goto err_free;
 	}
 
@@ -128,8 +128,7 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 					     PROT_READ | PROT_WRITE, MAP_SHARED,
 					     cmd_fd, HNS_ROCE_TPTR_OFFSET);
 		if (context->cq_tptr_base == MAP_FAILED) {
-			fprintf(stderr,
-				PFX "Warning: Failed to mmap cq_tptr page.\n");
+			HR_LOG("Failed to mmap() cq_tptr page!\n");
 			goto db_free;
 		}
 	}
@@ -150,8 +149,9 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 
 tptr_free:
 	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
-		if (munmap(context->cq_tptr_base, HNS_ROCE_CQ_DB_BUF_SIZE))
-			fprintf(stderr, PFX "Warning: Munmap tptr failed.\n");
+		if (munmap(context->cq_tptr_base, HNS_ROCE_CQ_DB_BUF_SIZE)) {
+			HR_LOG("Failed to munmap() cq_tptr page!\n");
+		}
 		context->cq_tptr_base = NULL;
 	}
 
@@ -191,6 +191,8 @@ static struct verbs_device *hns_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 	dev = calloc(1, sizeof(*dev));
 	if (!dev)
 		return NULL;
+
+	OPEN_LOG("hns");
 
 	dev->u_hw = sysfs_dev->match->driver_data;
 	dev->hw_version = dev->u_hw->hw_version;
