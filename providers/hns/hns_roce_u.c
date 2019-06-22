@@ -83,6 +83,31 @@ static const struct verbs_context_ops hns_common_ops = {
 	.destroy_srq = hns_roce_u_destroy_srq,
 };
 
+static void open_debug_file(struct hns_roce_context *ctx)
+{
+	char *env;
+
+	env = getenv("HR_DEBUG_FILE");
+	if (!env) {
+		ctx->dbg_fp = stderr;
+		return;
+	}
+
+	ctx->dbg_fp = fopen(env, "aw+");
+	if (!ctx->dbg_fp) {
+		fprintf(stderr, "Failed to open debug file %s, using stderr\n",
+			env);
+		ctx->dbg_fp = stderr;
+		return;
+	}
+}
+
+static void close_debug_file(struct hns_roce_context *ctx)
+{
+	if (ctx->dbg_fp && ctx->dbg_fp != stderr)
+		fclose(ctx->dbg_fp);
+}
+
 static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 						    int cmd_fd,
 						    void *private_data)
@@ -103,6 +128,7 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 				&resp.ibv_resp, sizeof(resp)))
 		goto err_free;
 
+	open_debug_file(context);
 	context->num_qps = resp.qp_tab_size;
 	context->qp_table_shift = ffs(context->num_qps) - 1 -
 				  HNS_ROCE_QP_TABLE_BITS;
@@ -115,7 +141,7 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	context->uar = mmap(NULL, to_hr_dev(ibdev)->page_size,
 			    PROT_READ | PROT_WRITE, MAP_SHARED, cmd_fd, 0);
 	if (context->uar == MAP_FAILED) {
-		fprintf(stderr, PFX "Warning: failed to mmap() uar page.\n");
+		HR_LOG(context->dbg_fp, "Failed to mmap() uar page!\n");
 		goto err_free;
 	}
 
@@ -128,8 +154,8 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 					     PROT_READ | PROT_WRITE, MAP_SHARED,
 					     cmd_fd, HNS_ROCE_TPTR_OFFSET);
 		if (context->cq_tptr_base == MAP_FAILED) {
-			fprintf(stderr,
-				PFX "Warning: Failed to mmap cq_tptr page.\n");
+			HR_LOG(context->dbg_fp,
+			       "Failed to mmap() cq_tptr page!\n");
 			goto db_free;
 		}
 	}
@@ -151,7 +177,8 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 tptr_free:
 	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
 		if (munmap(context->cq_tptr_base, HNS_ROCE_CQ_DB_BUF_SIZE))
-			fprintf(stderr, PFX "Warning: Munmap tptr failed.\n");
+			HR_LOG(context->dbg_fp,
+			       "Failed to munmap() cq_tptr page!\n");
 		context->cq_tptr_base = NULL;
 	}
 
@@ -160,6 +187,7 @@ db_free:
 	context->uar = NULL;
 
 err_free:
+	close_debug_file(context);
 	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
@@ -173,6 +201,7 @@ static void hns_roce_free_context(struct ibv_context *ibctx)
 	if (to_hr_dev(ibctx->device)->hw_version == HNS_ROCE_HW_VER1)
 		munmap(context->cq_tptr_base, HNS_ROCE_CQ_DB_BUF_SIZE);
 
+	close_debug_file(context);
 	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }

@@ -117,7 +117,6 @@ static void hns_roce_update_cq_cons_index(struct hns_roce_context *ctx,
 static void hns_roce_handle_error_cqe(struct hns_roce_cqe *cqe,
 				      struct ibv_wc *wc)
 {
-	fprintf(stderr, PFX "error cqe!\n");
 	switch (roce_get_field(cqe->cqe_byte_4,
 			       CQE_BYTE_4_STATUS_OF_THE_OPERATION_M,
 			       CQE_BYTE_4_STATUS_OF_THE_OPERATION_S) &
@@ -184,8 +183,11 @@ static struct hns_roce_cqe *next_cqe_sw(struct hns_roce_cq *cq)
 
 static void *get_recv_wqe(struct hns_roce_qp *qp, int n)
 {
+	struct hns_roce_context *ctx = to_hr_ctx(qp->ibv_qp.context);
+
 	if ((n < 0) || (n > qp->rq.wqe_cnt)) {
-		printf("rq wqe index:%d,rq wqe cnt:%d\r\n", n, qp->rq.wqe_cnt);
+		HR_LOG(ctx->dbg_fp, "rq wqe index = %d, rq wqe cnt = %d\n", n,
+		       qp->rq.wqe_cnt);
 		return NULL;
 	}
 
@@ -194,8 +196,11 @@ static void *get_recv_wqe(struct hns_roce_qp *qp, int n)
 
 static void *get_send_wqe(struct hns_roce_qp *qp, int n)
 {
+	struct hns_roce_context *ctx = to_hr_ctx(qp->ibv_qp.context);
+
 	if ((n < 0) || (n > qp->sq.wqe_cnt)) {
-		printf("sq wqe index:%d,sq wqe cnt:%d\r\n", n, qp->sq.wqe_cnt);
+		HR_LOG(ctx->dbg_fp, "sq wqe index = %d, sq wqe cnt = %d\n", n,
+		       qp->sq.wqe_cnt);
 		return NULL;
 	}
 
@@ -205,6 +210,7 @@ static void *get_send_wqe(struct hns_roce_qp *qp, int n)
 static int hns_roce_wq_overflow(struct hns_roce_wq *wq, int nreq,
 				struct hns_roce_cq *cq)
 {
+	struct hns_roce_context *ctx = to_hr_ctx(cq->ibv_cq.context);
 	unsigned int cur;
 
 	cur = wq->head - wq->tail;
@@ -216,8 +222,9 @@ static int hns_roce_wq_overflow(struct hns_roce_wq *wq, int nreq,
 	cur = wq->head - wq->tail;
 	pthread_spin_unlock(&cq->lock);
 
-	printf("wq:(head = %d, tail = %d, max_post = %d), nreq = 0x%x\n",
-		wq->head, wq->tail, wq->max_post, nreq);
+	HR_LOG(ctx->dbg_fp,
+	       "wq: (head = %d, tail = %d, max_post = %d), nreq = 0x%x\n",
+	       wq->head, wq->tail, wq->max_post, nreq);
 
 	return cur + nreq >= wq->max_post;
 }
@@ -227,12 +234,10 @@ static struct hns_roce_qp *hns_roce_find_qp(struct hns_roce_context *ctx,
 {
 	int tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
 
-	if (ctx->qp_table[tind].refcnt) {
+	if (ctx->qp_table[tind].refcnt)
 		return ctx->qp_table[tind].table[qpn & ctx->qp_table_mask];
-	} else {
-		printf("hns_roce_find_qp fail!\n");
+	else
 		return NULL;
-	}
 }
 
 static void hns_roce_clear_qp(struct hns_roce_context *ctx, uint32_t qpn)
@@ -248,6 +253,7 @@ static void hns_roce_clear_qp(struct hns_roce_context *ctx, uint32_t qpn)
 static int hns_roce_v1_poll_one(struct hns_roce_cq *cq,
 				struct hns_roce_qp **cur_qp, struct ibv_wc *wc)
 {
+	struct hns_roce_context *ctx = to_hr_ctx(cq->ibv_cq.context);
 	uint32_t qpn;
 	int is_send;
 	uint16_t wqe_ctr;
@@ -282,7 +288,7 @@ static int hns_roce_v1_poll_one(struct hns_roce_cq *cq,
 		*cur_qp = hns_roce_find_qp(to_hr_ctx(cq->ibv_cq.context),
 					   qpn & 0xffffff);
 		if (!*cur_qp) {
-			fprintf(stderr, PFX "can't find qp!\n");
+			HR_LOG(ctx->dbg_fp, "Failed to find qp!\n");
 			return CQ_POLL_ERR;
 		}
 	}
@@ -321,6 +327,7 @@ static int hns_roce_v1_poll_one(struct hns_roce_cq *cq,
 	if (roce_get_field(cqe->cqe_byte_4,
 	    CQE_BYTE_4_STATUS_OF_THE_OPERATION_M,
 	    CQE_BYTE_4_STATUS_OF_THE_OPERATION_S) != HNS_ROCE_CQE_SUCCESS) {
+		HR_LOG(ctx->dbg_fp, "Error cqe!\n");
 		hns_roce_handle_error_cqe(cqe, wc);
 		return CQ_OK;
 	}
@@ -487,8 +494,9 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		if (wr->num_sge > qp->sq.max_gs) {
 			ret = -1;
 			*bad_wr = wr;
-			printf("wr->num_sge(<=%d) = %d, check failed!\r\n",
-				qp->sq.max_gs, wr->num_sge);
+			HR_LOG(ctx->dbg_fp,
+			       "sge_num(<=%d) = %d, check failed!\n",
+			       qp->sq.max_gs, wr->num_sge);
 			goto out;
 		}
 
@@ -557,8 +565,9 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			if (le32toh(ctrl->msg_length) > qp->max_inline_data) {
 				ret = -1;
 				*bad_wr = wr;
-				printf("inline data len(1-32)=%d, send_flags = 0x%x, check failed!\r\n",
-					wr->send_flags, ctrl->msg_length);
+				HR_LOG(ctx->dbg_fp,
+				       "inline data len(1-32) = %d, send_flags = 0x%x, check failed!\n",
+				       wr->send_flags, ctrl->msg_length);
 				return ret;
 			}
 
@@ -645,6 +654,7 @@ static void hns_roce_v1_cq_clean(struct hns_roce_cq *cq, unsigned int qpn,
 static int hns_roce_u_v1_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 				   int attr_mask)
 {
+	struct hns_roce_context *ctx = to_hr_ctx(qp->context);
 	int ret;
 	struct ibv_modify_qp cmd = {};
 	struct hns_roce_qp *hr_qp = to_hr_qp(qp);
@@ -664,7 +674,7 @@ static int hns_roce_u_v1_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 	if (!ret && (attr_mask & IBV_QP_PORT)) {
 		hr_qp->port_num = attr->port_num;
-		printf("hr_qp->port_num= 0x%x\n", hr_qp->port_num);
+		HR_LOG(ctx->dbg_fp, "port num = 0x%x\n", hr_qp->port_num);
 	}
 
 	hr_qp->sl = attr->ah_attr.sl;

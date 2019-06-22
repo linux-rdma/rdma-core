@@ -130,8 +130,11 @@ static struct hns_roce_v2_cqe *next_cqe_sw_v2(struct hns_roce_cq *cq)
 
 static void *get_recv_wqe_v2(struct hns_roce_qp *qp, int n)
 {
+	struct hns_roce_context *ctx = to_hr_ctx(qp->ibv_qp.context);
+
 	if ((n < 0) || (n > qp->rq.wqe_cnt)) {
-		printf("rq wqe index:%d,rq wqe cnt:%d\r\n", n, qp->rq.wqe_cnt);
+		HR_LOG(ctx->dbg_fp, "rq wqe index = %d, rq wqe cnt = %d\n", n,
+		       qp->rq.wqe_cnt);
 		return NULL;
 	}
 
@@ -277,6 +280,7 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 static int hns_roce_flush_cqe(struct hns_roce_qp **cur_qp, struct ibv_wc *wc)
 {
+	struct hns_roce_context *ctx;
 	struct ibv_qp_attr attr;
 	int attr_mask;
 	int ret;
@@ -285,10 +289,11 @@ static int hns_roce_flush_cqe(struct hns_roce_qp **cur_qp, struct ibv_wc *wc)
 	    (wc->status != IBV_WC_WR_FLUSH_ERR)) {
 		attr_mask = IBV_QP_STATE;
 		attr.qp_state = IBV_QPS_ERR;
+		ctx = to_hr_ctx((*cur_qp)->ibv_qp.context);
 		ret = hns_roce_u_v2_modify_qp(&(*cur_qp)->ibv_qp,
 						      &attr, attr_mask);
 		if (ret) {
-			fprintf(stderr, PFX "failed to modify qp!\n");
+			HR_LOG(ctx->dbg_fp, "Failed to modify qp!\n");
 			return ret;
 		}
 		(*cur_qp)->ibv_qp.state = IBV_QPS_ERR;
@@ -434,6 +439,7 @@ static int hns_roce_handle_recv_inl_wqe(struct hns_roce_v2_cqe *cqe,
 static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 				struct hns_roce_qp **cur_qp, struct ibv_wc *wc)
 {
+	struct hns_roce_context *ctx = to_hr_ctx(cq->ibv_cq.context);
 	uint32_t qpn;
 	int is_send;
 	uint16_t wqe_ctr;
@@ -467,10 +473,9 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 	if (!*cur_qp ||
 	   (local_qpn & HNS_ROCE_V2_CQE_QPN_MASK) != (*cur_qp)->ibv_qp.qp_num) {
 
-		*cur_qp = hns_roce_v2_find_qp(to_hr_ctx(cq->ibv_cq.context),
-					      qpn & 0xffffff);
+		*cur_qp = hns_roce_v2_find_qp(ctx, qpn & 0xffffff);
 		if (!*cur_qp) {
-			fprintf(stderr, PFX "can't find qp!\n");
+			HR_LOG(ctx->dbg_fp, "Failed to find qp!\n");
 			return V2_CQ_POLL_ERR;
 		}
 	}
@@ -536,8 +541,8 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 
 		ret = hns_roce_handle_recv_inl_wqe(cqe, cur_qp, wc, opcode);
 		if (ret) {
-			fprintf(stderr,
-				PFX "failed to handle recv inline wqe!\n");
+			HR_LOG(ctx->dbg_fp,
+			       "Failed to handle recv inline wqe!\n");
 			return ret;
 		}
 	}
@@ -824,7 +829,8 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 					       RC_SQ_WQE_BYTE_4_OPCODE_M,
 					       RC_SQ_WQE_BYTE_4_OPCODE_S,
 					       HNS_ROCE_WQE_OP_MASK);
-				printf("Not supported transport opcode %d\n",
+				HR_LOG(ctx->dbg_fp,
+				       "Not supported transport opcode %d\n",
 				       wr->opcode);
 				break;
 			}
@@ -846,15 +852,17 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			if (le32toh(rc_sq_wqe->msg_len) > qp->max_inline_data) {
 				ret = EINVAL;
 				*bad_wr = wr;
-				printf("data len=%d, send_flags = 0x%x!\r\n",
-					rc_sq_wqe->msg_len, wr->send_flags);
+				HR_LOG(ctx->dbg_fp,
+				       "data len = %d, send_flags = 0x%x!\n",
+				       rc_sq_wqe->msg_len, wr->send_flags);
 				goto out;
 			}
 
 			if (wr->opcode == IBV_WR_RDMA_READ) {
 				ret = EINVAL;
 				*bad_wr = wr;
-				printf("Not supported inline data!\n");
+				HR_LOG(ctx->dbg_fp,
+				       "Not supported inline data!\n");
 				goto out;
 			}
 
