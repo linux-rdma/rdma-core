@@ -141,3 +141,8 @@ MLX5_1.14 {
 		mlx5dv_modify_qp_lag_port;
 		mlx5dv_query_qp_lag_port;
 } MLX5_1.13;
+
+MLX5_1.15 {
+	global:
+		mlx5dv_dr_action_create_dest_devx_tir;
+} MLX5_1.14;

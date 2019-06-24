@@ -598,14 +598,14 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				action->dest_tbl->tx.s_anchor->chunk->icm_addr;
 			break;
 		case DR_ACTION_TYP_QP:
-			{
-				struct mlx5_qp *mlx5_qp = to_mqp(action->qp);
+			if (action->dest_qp.is_qp)
+				attr.final_icm_addr = to_mqp(action->dest_qp.qp)->tir_icm_addr;
+			else
+				attr.final_icm_addr = action->dest_qp.devx_tir->rx_icm_addr;
 
-				if (!mlx5_qp->tir_icm_addr) {
-					dr_dbg(dmn, "Unsupported QP for action\n");
-					goto out_invalid_arg;
-				}
-				attr.final_icm_addr = mlx5_qp->tir_icm_addr;
+			if (!attr.final_icm_addr) {
+				dr_dbg(dmn, "Unsupported TIR/QP for action\n");
+				goto out_invalid_arg;
 			}
 			break;
 		case DR_ACTION_TYP_CTR:
@@ -742,8 +742,13 @@ int dr_actions_build_attr(struct mlx5dv_dr_matcher *matcher,
 			attr[i].action = actions[i]->rewrite.flow_action;
 			break;
 		case DR_ACTION_TYP_QP:
-			attr[i].type = MLX5DV_FLOW_ACTION_DEST_IBV_QP;
-			attr[i].qp = actions[i]->qp;
+			if (actions[i]->dest_qp.is_qp) {
+				attr[i].type = MLX5DV_FLOW_ACTION_DEST_IBV_QP;
+				attr[i].qp = actions[i]->dest_qp.qp;
+			} else {
+				attr[i].type = MLX5DV_FLOW_ACTION_DEST_DEVX;
+				attr[i].obj = actions[i]->dest_qp.devx_tir;
+			}
 			break;
 		case DR_ACTION_TYP_CTR:
 			attr[i].type = MLX5DV_FLOW_ACTION_COUNTERS_DEVX;
@@ -913,8 +918,27 @@ mlx5dv_dr_action_create_dest_ibv_qp(struct ibv_qp *ibqp)
 	if (!action)
 		return NULL;
 
-	action->qp = ibqp;
+	action->dest_qp.is_qp = true;
+	action->dest_qp.qp = ibqp;
 
+	return action;
+}
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_devx_tir(struct mlx5dv_devx_obj *devx_obj)
+{
+	struct mlx5dv_dr_action *action;
+
+	if (devx_obj->type != MLX5_DEVX_TIR) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	action = dr_action_create_generic(DR_ACTION_TYP_QP);
+	if (!action)
+		return NULL;
+
+	action->dest_qp.devx_tir = devx_obj;
 	return action;
 }
 
