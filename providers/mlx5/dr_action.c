@@ -582,7 +582,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			break;
 		case DR_ACTION_TYP_CTR:
 			attr.ctr_id = action->ctr.devx_obj->object_id +
-				action->ctr.offeset;
+				action->ctr.offset;
 			break;
 		case DR_ACTION_TYP_TAG:
 			attr.flow_tag = action->flow_tag;
@@ -886,7 +886,7 @@ dec_ref:
 
 struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_flow_counter(struct mlx5dv_devx_obj *devx_obj,
-				     uint32_t offeset)
+				     uint32_t offset)
 {
 	struct mlx5dv_dr_action *action;
 
@@ -900,7 +900,7 @@ mlx5dv_dr_action_create_flow_counter(struct mlx5dv_devx_obj *devx_obj,
 		return NULL;
 
 	action->ctr.devx_obj = devx_obj;
-	action->ctr.offeset = offeset;
+	action->ctr.offset = offset;
 
 	return action;
 }

@@ -711,7 +711,7 @@ struct mlx5dv_dr_action {
 		struct mlx5dv_dr_table	*dest_tbl;
 		struct {
 			struct mlx5dv_devx_obj	*devx_obj;
-			uint32_t		offeset;
+			uint32_t		offset;
 		} ctr;
 		struct {
 			struct mlx5dv_dr_domain		*dmn;
