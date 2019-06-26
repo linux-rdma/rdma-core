@@ -65,7 +65,7 @@ int efa_query_device_ex(struct ibv_context *context,
 	int cmd_supp_uhw = ctx->cmds_supp_udata_mask &
 			   EFA_USER_CMDS_SUPP_UDATA_QUERY_DEVICE;
 	struct efa_query_device_ex_resp resp = {};
-	struct ibv_query_device_ex cmd;
+	struct ibv_query_device_ex cmd = {};
 	struct ibv_device_attr *a;
 	uint8_t fw_ver[8];
 	int err;
@@ -794,7 +794,7 @@ int efa_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 		  int attr_mask)
 {
 	struct efa_qp *qp = to_efa_qp(ibvqp);
-	struct ibv_modify_qp cmd;
+	struct ibv_modify_qp cmd = {};
 	int err;
 
 	err = ibv_cmd_modify_qp(ibvqp, attr, attr_mask, &cmd, sizeof(cmd));
