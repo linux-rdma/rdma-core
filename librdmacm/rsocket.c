@@ -2133,8 +2133,8 @@ static int rs_process_cq(struct rsocket *rs, int nonblock, int (*test)(struct rs
 
 static int rs_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsocket *rs))
 {
-	uint64_t start_time;
-	uint32_t poll_time = 0;
+	uint64_t start_time = 0;
+	uint32_t poll_time;
 	int ret;
 
 	do {
@@ -2142,7 +2142,7 @@ static int rs_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsoc
 		if (!ret || nonblock || errno != EWOULDBLOCK)
 			return ret;
 
-		if (!poll_time)
+		if (!start_time)
 			start_time = rs_time_us();
 
 		poll_time = (uint32_t) (rs_time_us() - start_time);
@@ -2292,8 +2292,8 @@ static int ds_process_cqs(struct rsocket *rs, int nonblock, int (*test)(struct r
 
 static int ds_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsocket *rs))
 {
-	uint64_t start_time;
-	uint32_t poll_time = 0;
+	uint64_t start_time = 0;
+	uint32_t poll_time;
 	int ret;
 
 	do {
@@ -2301,7 +2301,7 @@ static int ds_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsoc
 		if (!ret || nonblock || errno != EWOULDBLOCK)
 			return ret;
 
-		if (!poll_time)
+		if (!start_time)
 			start_time = rs_time_us();
 
 		poll_time = (uint32_t) (rs_time_us() - start_time);
@@ -3306,8 +3306,8 @@ static int rs_poll_events(struct pollfd *rfds, struct pollfd *fds, nfds_t nfds)
 int rpoll(struct pollfd *fds, nfds_t nfds, int timeout)
 {
 	struct pollfd *rfds;
-	uint64_t start_time;
-	uint32_t poll_time = 0;
+	uint64_t start_time = 0;
+	uint32_t poll_time;
 	int pollsleep, ret;
 
 	do {
@@ -3315,7 +3315,7 @@ int rpoll(struct pollfd *fds, nfds_t nfds, int timeout)
 		if (ret || !timeout)
 			return ret;
 
-		if (!poll_time)
+		if (!start_time)
 			start_time = rs_time_us();
 
 		poll_time = (uint32_t) (rs_time_us() - start_time);
