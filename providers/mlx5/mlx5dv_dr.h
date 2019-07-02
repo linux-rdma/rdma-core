@@ -430,7 +430,8 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 int dr_actions_build_attr(struct mlx5dv_dr_matcher *matcher,
 			  struct mlx5dv_dr_action *actions[],
 			  size_t num_actions,
-			  struct mlx5dv_flow_action_attr *attr);
+			  struct mlx5dv_flow_action_attr *attr,
+			  struct mlx5_flow_action_attr_aux *attr_aux);
 
 struct dr_match_spec {
 	uint32_t smac_47_16;	/* Source MAC address of incoming packet */

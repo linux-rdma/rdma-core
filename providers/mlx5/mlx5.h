@@ -648,6 +648,22 @@ struct mlx5_devx_event_channel {
 	struct mlx5dv_devx_event_channel dv_event_channel;
 };
 
+enum mlx5_flow_action_type {
+	MLX5_FLOW_ACTION_COUNTER_OFFSET = 1,
+};
+
+struct mlx5_flow_action_attr_aux {
+	enum mlx5_flow_action_type type;
+	uint32_t offset;
+};
+
+struct ibv_flow *
+__mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
+		     struct mlx5dv_flow_match_parameters *match_value,
+		     size_t num_actions,
+		     struct mlx5dv_flow_action_attr actions_attr[],
+		     struct mlx5_flow_action_attr_aux actions_attr_aux[]);
+
 extern int mlx5_stall_num_loop;
 extern int mlx5_stall_cq_poll_min;
 extern int mlx5_stall_cq_poll_max;
