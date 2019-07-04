@@ -630,6 +630,11 @@ struct mlx5_mkey {
 	uint16_t num_desc;
 };
 
+struct mlx5_devx_event_channel {
+	struct ibv_context *context;
+	struct mlx5dv_devx_event_channel dv_event_channel;
+};
+
 static inline int mlx5_ilog2(int n)
 {
 	int t;

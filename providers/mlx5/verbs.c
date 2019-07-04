@@ -4608,6 +4608,101 @@ void mlx5dv_devx_destroy_cmd_comp(
 	free(cmd_comp);
 }
 
+struct mlx5dv_devx_event_channel *
+mlx5dv_devx_create_event_channel(struct ibv_context *context,
+				 enum mlx5dv_devx_create_event_channel_flags flags)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_ASYNC_EVENT_FD,
+			       MLX5_IB_METHOD_DEVX_ASYNC_EVENT_FD_ALLOC,
+			       2);
+	struct ib_uverbs_attr *handle;
+	struct mlx5_devx_event_channel *event_channel;
+	int ret;
+
+	event_channel = calloc(1, sizeof(*event_channel));
+	if (!event_channel) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	handle = fill_attr_out_fd(cmd,
+				  MLX5_IB_ATTR_DEVX_ASYNC_EVENT_FD_ALLOC_HANDLE,
+				  0);
+	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_ASYNC_EVENT_FD_ALLOC_FLAGS,
+			    flags);
+
+	ret = execute_ioctl(context, cmd);
+	if (ret)
+		goto err;
+
+	event_channel->dv_event_channel.fd = read_attr_fd(
+		MLX5_IB_ATTR_DEVX_ASYNC_EVENT_FD_ALLOC_HANDLE, handle);
+	event_channel->context = context;
+	return &event_channel->dv_event_channel;
+err:
+	free(event_channel);
+	return NULL;
+}
+
+void mlx5dv_devx_destroy_event_channel(
+			struct mlx5dv_devx_event_channel *dv_event_channel)
+{
+	struct mlx5_devx_event_channel *event_channel =
+			container_of(dv_event_channel, struct mlx5_devx_event_channel,
+				     dv_event_channel);
+
+	close(dv_event_channel->fd);
+	free(event_channel);
+}
+
+int mlx5dv_devx_subscribe_devx_event(struct mlx5dv_devx_event_channel *dv_event_channel,
+				     struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+				     uint16_t events_sz,
+				     uint16_t events_num[],
+				     uint64_t cookie)
+{
+	struct mlx5_devx_event_channel *event_channel =
+			container_of(dv_event_channel, struct mlx5_devx_event_channel,
+				     dv_event_channel);
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX,
+			       MLX5_IB_METHOD_DEVX_SUBSCRIBE_EVENT,
+			       4);
+
+	fill_attr_in_fd(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_FD_HANDLE, dv_event_channel->fd);
+	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_COOKIE, cookie);
+	if (obj)
+		fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_OBJ_HANDLE, obj->handle);
+
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_TYPE_NUM_LIST, events_num, events_sz);
+
+	return execute_ioctl(event_channel->context, cmd);
+}
+
+int mlx5dv_devx_subscribe_devx_event_fd(struct mlx5dv_devx_event_channel *dv_event_channel,
+					int fd,
+					struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+					uint16_t event_num)
+{
+	struct mlx5_devx_event_channel *event_channel =
+			container_of(dv_event_channel, struct mlx5_devx_event_channel,
+				     dv_event_channel);
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX,
+			       MLX5_IB_METHOD_DEVX_SUBSCRIBE_EVENT,
+			       4);
+
+	fill_attr_in_fd(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_FD_HANDLE, dv_event_channel->fd);
+	if (obj)
+		fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_OBJ_HANDLE, obj->handle);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_TYPE_NUM_LIST,
+		     &event_num, sizeof(event_num));
+	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_FD_NUM, fd);
+
+	return execute_ioctl(event_channel->context, cmd);
+}
+
 int mlx5dv_devx_obj_query_async(struct mlx5dv_devx_obj *obj, const void *in,
 				size_t inlen, size_t outlen,
 				uint64_t wr_id,
@@ -4641,6 +4736,26 @@ int mlx5dv_devx_get_async_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp,
 		return EINVAL;
 
 	return 0;
+}
+
+ssize_t mlx5dv_devx_get_event(struct mlx5dv_devx_event_channel *event_channel,
+				   struct mlx5dv_devx_async_event_hdr *event_data,
+				   size_t event_resp_len)
+{
+	ssize_t bytes;
+
+	bytes = read(event_channel->fd, event_data, event_resp_len);
+	if (bytes < 0)
+		return -1;
+
+	/* cookie should be always exist */
+	if (bytes < sizeof(*event_data)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	/* event data may be omitted in case no EQE data exists (e.g. completion event on a CQ) */
+	return bytes;
 }
 
 struct mlx5dv_mkey *mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)

@@ -1313,6 +1313,33 @@ int mlx5dv_devx_get_async_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp,
 				   struct mlx5dv_devx_async_cmd_hdr *cmd_resp,
 				   size_t cmd_resp_len);
 
+struct mlx5dv_devx_event_channel {
+	int fd;
+};
+
+struct mlx5dv_devx_event_channel *
+mlx5dv_devx_create_event_channel(struct ibv_context *context,
+				 enum mlx5dv_devx_create_event_channel_flags flags);
+void mlx5dv_devx_destroy_event_channel(struct mlx5dv_devx_event_channel *event_channel);
+
+
+int mlx5dv_devx_subscribe_devx_event(struct mlx5dv_devx_event_channel *event_channel,
+				     struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+				     uint16_t events_sz,
+				     uint16_t events_num[],
+				     uint64_t cookie);
+
+int mlx5dv_devx_subscribe_devx_event_fd(struct mlx5dv_devx_event_channel *event_channel,
+					int fd,
+					struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+					uint16_t event_num);
+
+/* return code: upon success number of bytes read, otherwise -1 and errno was set */
+ssize_t mlx5dv_devx_get_event(struct mlx5dv_devx_event_channel *event_channel,
+				   struct mlx5dv_devx_async_event_hdr *event_data,
+				   size_t event_resp_len);
+
+
 #define __devx_nullp(typ) ((struct mlx5_ifc_##typ##_bits *)NULL)
 #define __devx_st_sz_bits(typ) sizeof(struct mlx5_ifc_##typ##_bits)
 #define __devx_bit_sz(typ, fld) sizeof(__devx_nullp(typ)->fld)
