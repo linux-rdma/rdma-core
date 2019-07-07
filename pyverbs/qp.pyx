@@ -14,6 +14,9 @@ cimport pyverbs.libibverbs as v
 from pyverbs.pd cimport PD
 
 
+cdef extern from 'string.h':
+    void *memcpy(void *dest, const void *src, size_t n);
+
 cdef class QPCap(PyverbsObject):
     def __cinit__(self, max_send_wr=1, max_recv_wr=10, max_send_sge=1,
                       max_recv_sge=1, max_inline_data=0):
@@ -963,10 +966,12 @@ cdef class QP(PyverbsCM):
         :return: None
         """
         cdef v.ibv_recv_wr *my_bad_wr
+        # In order to provide a pointer to a pointer, use a temporary cdef'ed
+        # variable.
         rc = v.ibv_post_recv(self.qp, &wr.recv_wr, &my_bad_wr)
         if rc != 0:
-            if bad_wr is not None:
-                bad_wr.wr = <object>my_bad_wr
+            if (bad_wr):
+                memcpy(&bad_wr.recv_wr, my_bad_wr, sizeof(bad_wr.recv_wr))
             raise PyverbsRDMAErrno('Failed to post recv (returned {rc})'.
                                    format(rc=rc))
 
@@ -978,11 +983,13 @@ cdef class QP(PyverbsCM):
                        case of a failure
         :return: None
         """
+        # In order to provide a pointer to a pointer, use a temporary cdef'ed
+        # variable.
         cdef v.ibv_send_wr *my_bad_wr
         rc = v.ibv_post_send(self.qp, &wr.send_wr, &my_bad_wr)
         if rc != 0:
-            if bad_wr is not None:
-                bad_wr.wr = <object>my_bad_wr
+            if (bad_wr):
+                memcpy(&bad_wr.send_wr, my_bad_wr, sizeof(bad_wr.send_wr))
             raise PyverbsRDMAErrno('Failed to post send (returned {rc})'.
                                    format(rc=rc))
 
