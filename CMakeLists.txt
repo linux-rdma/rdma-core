@@ -182,6 +182,16 @@ endif()
 
 #-------------------------
 # Setup the basic C compiler
+# Check if the current compiler supports -fvar-tracking-assignments.
+# For that, we need to try and compile some code with it. Save the current
+# CMAKE_REQUIRED_FLAGS so we can restore it later.
+set(TMP_FLAGS ${CMAKE_REQUIRED_FLAGS})
+set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fvar-tracking-assignments")
+CHECK_C_SOURCE_COMPILES("
+ int main(int argc,const char *argv[]) {return 0;}"
+ HAVE_FVAR_TRACKING_ASSIGNMENTS)
+set(CMAKE_REQUIRED_FLAGS ${TMP_FLAGS})
+
 RDMA_BuildType()
 include_directories(${BUILD_INCLUDE})
 
