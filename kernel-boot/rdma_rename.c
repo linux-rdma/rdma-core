@@ -5,10 +5,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <errno.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <syslog.h>
 #include <rdma/rdma_netlink.h>
 #include <netlink/netlink.h>
 #include <netlink/msg.h>
@@ -54,6 +57,14 @@ struct data {
 	int idx;
 };
 
+static bool debug_mode;
+#define pr_err(args...) syslog(LOG_ERR, ##args)
+#define pr_dbg(args...)                                                        \
+	do {                                                                   \
+		if (debug_mode)                                                \
+			syslog(LOG_ERR, ##args);                               \
+	} while (0)
+
 #define ONBOARD_INDEX_MAX (16*1024-1)
 static int by_onboard(struct data *d)
 {
@@ -84,6 +95,7 @@ static int by_onboard(struct data *d)
 	if (!fp)
 		fp = fopen(index, "r");
 	if (!fp) {
+		pr_dbg("%s: Device is not embedded onboard\n", d->curr);
 		ret = -ENOENT;
 		goto out;
 	}
@@ -92,12 +104,15 @@ static int by_onboard(struct data *d)
 	fclose(fp);
 	/* https://github.com/systemd/systemd/blob/master/src/udev/udev-builtin-net_id.c#L263 */
 	if (!ret || o > ONBOARD_INDEX_MAX) {
+		pr_err("%s: Onboard index %d and ret %d\n", d->curr, o, ret);
 		ret = -ENOENT;
 		goto out;
 	}
 
 	ret = asprintf(&d->name, "%so%u", d->prefix, o);
 	if (ret < 0) {
+		pr_err("%s: Failed to allocate name with prefix %s and onboard index %d\n",
+		       d->curr, d->prefix, o);
 		ret = -ENOENT;
 		d->name = NULL;
 	}
@@ -241,6 +256,7 @@ static int by_pci(struct data *d)
 	subs = basename(buf);
 	if (strcmp(subs, "pci")) {
 		/* Ball out virtual devices */
+		pr_dbg("%s: Non-PCI device (%s) was detected\n", d->curr, subs);
 		ret = -EINVAL;
 		goto out;
 	}
@@ -264,11 +280,14 @@ static int by_pci(struct data *d)
 	 * pci = 0000:00:0c.0
 	 */
 	if (sscanf(pci, "%lx:%lx:%lx.%lu", &domain, &bus, &slot, &func) != 4) {
+		pr_err("%s: Failed to read PCI BOF\n", d->curr);
 		ret = -ENOENT;
 		goto out;
 	}
+	pr_dbg("%s: Got %04lx:%02lx:%02lx.%lu PCI BOF\n", d->curr, domain, bus,
+	       slot, func);
 
-	if (is_pci_ari_enabled(devpath))
+	if (is_pci_ari_enabled(devpath)) {
 		/*
 		 * ARI devices support up to 256 functions on a single device
 		 * ("slot"), and interpret the traditional 5-bit slot and 3-bit
@@ -278,6 +297,9 @@ static int by_pci(struct data *d)
 		 * https://github.com/systemd/systemd/blob/master/src/udev/udev-builtin-net_id.c#L344
 		 */
 		func += slot * 8;
+		pr_dbg("%s: This is ARI device, new PCI BOF is %04lx:%02lx:%02lx.%lu\n",
+		       d->curr, domain, bus, slot, func);
+	}
 
 	d->name = calloc(256, sizeof(char));
 	if (!d->name) {
@@ -430,32 +452,61 @@ static int str2policy(const char *np)
 	return NAME_ERROR;
 };
 
-int main(int argc, const char *argv[])
+int main(int argc, char **argv)
 {
 	struct data d = { .idx = -1 };
 	struct nl_sock *nl;
 	int ret = -1;
-	int np;
+	int np, opt;
 
-	if (argc != 3)
+	if (argc < 3)
 		goto err;
 
-	np = str2policy(argv[2]);
-	if (np & NAME_ERROR)
-		goto err;
+	while ((opt = getopt(argc, argv, "v")) >= 0) {
+		switch (opt) {
+		case 'v':
+			debug_mode = true;
+			break;
+		default:
+			goto err;
+		}
+	}
 
-	if (np & NAME_KERNEL)
+	argc -= optind;
+	argv += optind;
+
+	d.curr = argv[0];
+
+	np = str2policy(argv[1]);
+	if (np & NAME_ERROR) {
+		pr_err("%s: Unknown policy %s\n", d.curr, argv[1]);
+		goto err;
+	}
+
+	pr_dbg("%s: Requested policy is %s\n", d.curr, argv[1]);
+
+	if (np & NAME_KERNEL) {
+		pr_dbg("%s: Leave kernel names, do nothing\n", d.curr);
 		/* Do nothing */
 		exit(0);
+	}
 
 	nl = rdmanl_socket_alloc();
-	if (!nl)
+	if (!nl) {
+		pr_err("%s: Failed to allocate netlink socket\n", d.curr);
 		goto err;
+	}
 
-	d.curr = argv[1];
-	if (rdmanl_get_devices(nl, get_nldata_cb, &d) || d.idx == -1 ||
-	    !d.prefix)
+	if (rdmanl_get_devices(nl, get_nldata_cb, &d)) {
+		pr_err("%s: Failed to connect to NETLINK_RDMA\n", d.curr);
 		goto out;
+	}
+
+	if (d.idx == -1 || !d.prefix) {
+		pr_err("%s: Failed to get current device name and index\n",
+		       d.curr);
+		goto out;
+	}
 
 	ret = -1;
 	if (np & NAME_ONBOARD)
@@ -468,8 +519,12 @@ int main(int argc, const char *argv[])
 		goto out;
 
 	ret = device_rename(nl, &d);
-	if (ret)
+	if (ret) {
+		pr_err("%s: Device rename to %s failed with error %d\n", d.curr,
+		       d.name, ret);
 		goto out;
+	}
+	pr_dbg("%s: Successfully renamed device to be %s\n", d.curr, d.name);
 
 	printf("%s\n", d.name);
 	free(d.name);
