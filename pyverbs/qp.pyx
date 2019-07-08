@@ -101,9 +101,9 @@ cdef class QPInitAttr(PyverbsObject):
         self.attr.qp_context = <void*>qp_context
         if scq is not None:
             if type(scq) is CQ:
-                self.attr.send_cq = <v.ibv_cq*>scq._cq
+                self.attr.send_cq = (<CQ>rcq).cq
             elif type(scq) is CQEX:
-                self.attr.send_cq = <v.ibv_cq*>scq._ibv_cq
+                self.attr.send_cq = (<CQEX>rcq).ibv_cq
             else:
                 raise PyverbsUserError('Expected CQ/CQEX, got {t}'.\
                                        format(t=type(scq)))
@@ -111,9 +111,9 @@ cdef class QPInitAttr(PyverbsObject):
 
         if rcq is not None:
             if type(rcq) is CQ:
-                self.attr.recv_cq = <v.ibv_cq*>rcq._cq
+                self.attr.recv_cq = (<CQ>rcq).cq
             elif type(rcq) is CQEX:
-                self.attr.recv_cq = <v.ibv_cq*>rcq._ibv_cq
+                self.attr.recv_cq = (<CQEX>rcq).ibv_cq
             else:
                 raise PyverbsUserError('Expected CQ/CQEX, got {t}'.\
                                        format(t=type(rcq)))
@@ -129,9 +129,9 @@ cdef class QPInitAttr(PyverbsObject):
     @send_cq.setter
     def send_cq(self, val):
         if type(val) is CQ:
-            self.attr.send_cq = <v.ibv_cq*>val._cq
+            self.attr.send_cq = (<CQ>val).cq
         elif type(val) is CQEX:
-            self.attr.send_cq = <v.ibv_cq*>val._ibv_cq
+            self.attr.send_cq = (<CQEX>val).ibv_cq
         self.scq = val
 
     @property
@@ -140,9 +140,9 @@ cdef class QPInitAttr(PyverbsObject):
     @recv_cq.setter
     def recv_cq(self, val):
         if type(val) is CQ:
-            self.attr.recv_cq = <v.ibv_cq*>val._cq
+            self.attr.recv_cq = (<CQ>val).cq
         elif type(val) is CQEX:
-            self.attr.recv_cq = <v.ibv_cq*>val._ibv_cq
+            self.attr.recv_cq = (<CQEX>val).ibv_cq
         self.rcq = val
 
     @property
@@ -218,9 +218,9 @@ cdef class QPInitAttrEx(PyverbsObject):
         _copy_caps(cap, self)
         if scq is not None:
             if type(scq) is CQ:
-                self.attr.send_cq = <v.ibv_cq*>scq._cq
+                self.attr.send_cq = (<CQ>rcq).cq
             elif type(scq) is CQEX:
-                self.attr.send_cq = <v.ibv_cq*>scq._ibv_cq
+                self.attr.send_cq = (<CQEX>rcq).ibv_cq
             else:
                 raise PyverbsUserError('Expected CQ/CQEX, got {t}'.\
                                        format(t=type(scq)))
@@ -228,12 +228,12 @@ cdef class QPInitAttrEx(PyverbsObject):
 
         if rcq is not None:
             if type(rcq) is CQ:
-                self.attr.recv_cq = <v.ibv_cq*>rcq._cq
+                self.attr.recv_cq = (<CQ>rcq).cq
             elif type(rcq) is CQEX:
-                self.attr.recv_cq = <v.ibv_cq*>rcq._ibv_cq
+                self.attr.recv_cq = (<CQEX>rcq).ibv_cq
             else:
                 raise PyverbsUserError('Expected CQ/CQEX, got {t}'.\
-                                       format(type(rcq)))
+                                       format(t=type(rcq)))
         self.rcq = rcq
 
         self.attr.srq = NULL  # Until SRQ support is added
@@ -247,7 +247,6 @@ cdef class QPInitAttrEx(PyverbsObject):
             raise PyverbsUserError('XRCD and RSS are not yet supported in pyverbs')
         self.attr.comp_mask = comp_mask
         if pd is not None:
-            self.attr.pd = <v.ibv_pd*>pd._pd
             self.pd = pd
         self.attr.create_flags = create_flags
         self.attr.max_tso_header = max_tso_header
@@ -259,9 +258,9 @@ cdef class QPInitAttrEx(PyverbsObject):
     @send_cq.setter
     def send_cq(self, val):
         if type(val) is CQ:
-            self.attr.send_cq = <v.ibv_cq*>val._cq
+            self.attr.send_cq = (<CQ>val).cq
         elif type(val) is CQEX:
-            self.attr.send_cq = <v.ibv_cq*>val._ibv_cq
+            self.attr.send_cq = (<CQEX>val).ibv_cq
         self.scq = val
 
     @property
@@ -270,9 +269,9 @@ cdef class QPInitAttrEx(PyverbsObject):
     @recv_cq.setter
     def recv_cq(self, val):
         if type(val) is CQ:
-            self.attr.recv_cq = <v.ibv_cq*>val._cq
+            self.attr.recv_cq = (<CQ>val).cq
         elif type(val) is CQEX:
-            self.attr.recv_cq = <v.ibv_cq*>val._ibv_cq
+            self.attr.recv_cq = (<CQEX>val).ibv_cq
         self.rcq = val
 
     @property
@@ -311,8 +310,8 @@ cdef class QPInitAttrEx(PyverbsObject):
     def pd(self):
         return self.pd
     @pd.setter
-    def pd(self, val):
-        self.attr.pd = <v.ibv_pd*>val._pd
+    def pd(self, PD val):
+        self.attr.pd = <v.ibv_pd*>val.pd
         self.pd = val
 
     @property

@@ -67,7 +67,3 @@ cdef class PD(PyverbsCM):
             self.qps.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
-
-    @property
-    def _pd(self):
-        return <object>self.pd
