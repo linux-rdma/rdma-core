@@ -670,10 +670,10 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				dr_dbg(dmn, "Destination table belongs to a different domain\n");
 				goto out_invalid_arg;
 			}
-			if (dest_tbl->level <= matcher->tbl->level) {
-				dr_dbg(dmn, "Destination table level should be higher than source table\n");
-				goto out_invalid_arg;
-			}
+
+			if (dest_tbl->level <= matcher->tbl->level)
+				dr_dbg(dmn, "Destination table level not higher than source\n");
+
 			attr.final_icm_addr = rx_rule ?
 				dr_icm_pool_get_chunk_icm_addr(dest_tbl->rx.s_anchor->chunk) :
 				dr_icm_pool_get_chunk_icm_addr(dest_tbl->tx.s_anchor->chunk);
