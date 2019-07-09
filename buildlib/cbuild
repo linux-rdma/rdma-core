@@ -258,7 +258,7 @@ class travis(APTEnvironment):
 
         # Load the commands from the travis file
         with open(".travis.yml") as F:
-            self._yaml = yaml.load(F);
+            self._yaml = yaml.safe_load(F);
         return self._yaml;
     yaml = property(get_yaml);
 
@@ -790,7 +790,7 @@ def run_travis_build(args,env):
 
         # Load the commands from the travis file
         with open(os.path.join(opwd,".travis.yml")) as F:
-            cmds = yaml.load(F)["script"];
+            cmds = yaml.safe_load(F)["script"];
 
         with open(os.path.join(tmpdir,"go.sh"),"w") as F:
             print >> F,"#!/bin/bash";
@@ -818,7 +818,7 @@ def run_azp_build(args,env):
     import yaml
     # Load the commands from the pipelines file
     with open("buildlib/azure-pipelines.yml") as F:
-        azp = yaml.load(F);
+        azp = yaml.safe_load(F);
     for bst in azp["stages"]:
         if bst["stage"] == "Build":
             break;
