@@ -100,11 +100,6 @@ SHLIBS_EXCLUDE := $(addprefix --exclude=,$(SHLIBS_EXCLUDE))
 override_dh_makeshlibs:
 	dh_makeshlibs $(SHLIBS_EXCLUDE)
 
-override_dh_strip:
-	dh_strip -plibibverbs1 --dbgsym-migration='libibverbs1-dbg (<< 15)'
-	dh_strip -plibrdmacm1 --dbgsym-migration='librdmacm1-dbg (<< 15)'
-	dh_strip --remaining-packages
-
 # Upstream encourages the use of 'build' as the developer build output
 # directory, allow that directory to be present and still allow dh to work.
 .PHONY: build
