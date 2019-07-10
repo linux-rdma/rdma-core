@@ -281,7 +281,7 @@ The provider will provide locking to ensure that *ibv_wr_start()* and
 *ibv_wr_complete()/abort()* form a per-QP critical section where no other
 threads can enter.
 
-If an *ibv_td* is provided during QP creation then no locking will be perfomed
+If an *ibv_td* is provided during QP creation then no locking will be performed
 and it is up to the caller to ensure that only one thread can be within the
 critical region at a time.
 
