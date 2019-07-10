@@ -41,7 +41,6 @@
 #include <signal.h>
 #include <errno.h>
 #include <pthread.h>
-#include <malloc.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <stdbool.h>
@@ -2276,7 +2275,8 @@ int qelr_arm_cq(struct ibv_cq *ibcq, int solicited)
 	return 0;
 }
 
-void qelr_async_event(struct ibv_async_event *event)
+void qelr_async_event(struct ibv_context *context,
+		      struct ibv_async_event *event)
 {
 	struct qelr_cq *cq = NULL;
 	struct qelr_qp *qp = NULL;

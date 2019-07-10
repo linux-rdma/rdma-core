@@ -68,6 +68,7 @@ rdma_man_pages(
   ibv_srq_pingpong.1
   ibv_uc_pingpong.1
   ibv_ud_pingpong.1
+  ibv_wr_post.3.md
   ibv_xsrq_pingpong.1
   )
 rdma_alias_man_pages(
@@ -101,4 +102,24 @@ rdma_alias_man_pages(
   ibv_rate_to_mbps.3 mbps_to_ibv_rate.3
   ibv_rate_to_mult.3 mult_to_ibv_rate.3
   ibv_reg_mr.3 ibv_dereg_mr.3
+  ibv_wr_post.3 ibv_wr_abort.3
+  ibv_wr_post.3 ibv_wr_complete.3
+  ibv_wr_post.3 ibv_wr_start.3
+  ibv_wr_post.3 ibv_wr_atomic_cmp_swp.3
+  ibv_wr_post.3 ibv_wr_atomic_fetch_add.3
+  ibv_wr_post.3 ibv_wr_bind_mw.3
+  ibv_wr_post.3 ibv_wr_local_inv.3
+  ibv_wr_post.3 ibv_wr_rdma_read.3
+  ibv_wr_post.3 ibv_wr_rdma_write.3
+  ibv_wr_post.3 ibv_wr_rdma_write_imm.3
+  ibv_wr_post.3 ibv_wr_send.3
+  ibv_wr_post.3 ibv_wr_send_imm.3
+  ibv_wr_post.3 ibv_wr_send_inv.3
+  ibv_wr_post.3 ibv_wr_send_tso.3
+  ibv_wr_post.3 ibv_wr_set_inline_data.3
+  ibv_wr_post.3 ibv_wr_set_inline_data_list.3
+  ibv_wr_post.3 ibv_wr_set_sge.3
+  ibv_wr_post.3 ibv_wr_set_sge_list.3
+  ibv_wr_post.3 ibv_wr_set_ud_addr.3
+  ibv_wr_post.3 ibv_wr_set_xrc_srqn.3
   )

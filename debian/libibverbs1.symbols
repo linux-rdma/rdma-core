@@ -3,6 +3,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  IBVERBS_1.0@IBVERBS_1.0 1.1.6
  IBVERBS_1.1@IBVERBS_1.1 1.1.6
  IBVERBS_1.5@IBVERBS_1.5 20
+ IBVERBS_1.6@IBVERBS_1.6 24
  ibv_ack_async_event@IBVERBS_1.0 1.1.6
  ibv_ack_async_event@IBVERBS_1.1 1.1.6
  ibv_ack_cq_events@IBVERBS_1.0 1.1.6
@@ -69,6 +70,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_open_device@IBVERBS_1.0 1.1.6
  ibv_open_device@IBVERBS_1.1 1.1.6
  ibv_port_state_str@IBVERBS_1.1 1.1.6
+ ibv_qp_to_qp_ex@IBVERBS_1.6 24
  ibv_query_device@IBVERBS_1.0 1.1.6
  ibv_query_device@IBVERBS_1.1 1.1.6
  ibv_query_gid@IBVERBS_1.0 1.1.6

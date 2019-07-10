@@ -52,7 +52,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import yaml
 from contextlib import contextmanager;
 
 project = "rdma-core";
@@ -125,8 +124,16 @@ class centos7(YumEnvironment):
     python_cmd = "python";
 
 class centos7_epel(centos7):
-    pkgs = (centos7.pkgs - {"cmake","make"}) | {"ninja-build","cmake3","pandoc", 'python3-Cython', 'python3-devel'};
+    pkgs = (centos7.pkgs - {"cmake","make"}) | {
+        "cmake3",
+        "ninja-build",
+        "pandoc",
+        "python34-setuptools",
+        'python34-Cython',
+        'python34-devel',
+    };
     name = "centos7_epel";
+    build_pyverbs = True;
     use_make = False;
     pandoc = True;
     ninja_cmd = "ninja-build";
@@ -136,13 +143,13 @@ class centos7_epel(centos7):
     def get_docker_file(self):
         res = YumEnvironment.get_docker_file(self);
         res.lines.insert(1,"RUN yum install -y epel-release");
-        res.lines.append("RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake");
+        res.lines.append("RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake && ln -sf /usr/bin/python3.4 /usr/bin/python3");
         return res;
 
-class fc29(Environment):
-    docker_parent = "fedora:29";
+class fc30(Environment):
+    docker_parent = "fedora:30";
     pkgs = (centos7.pkgs - {"make", "python-argparse" }) | {"ninja-build","pandoc","perl-generators","python3-Cython","python3-devel"};
-    name = "fc29";
+    name = "fc30";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
     is_rpm = True;
@@ -165,9 +172,9 @@ class APTEnvironment(Environment):
             " ".join(sorted(self.pkgs))));
         return res;
 
-class trusty(APTEnvironment):
-    docker_parent = "ubuntu:14.04";
-    common_pkgs = {
+class xenial(APTEnvironment):
+    docker_parent = "ubuntu:16.04"
+    pkgs = {
         'build-essential',
         'cmake',
         'debhelper',
@@ -175,32 +182,24 @@ class trusty(APTEnvironment):
         'gcc',
         'libnl-3-dev',
         'libnl-route-3-dev',
+        'libsystemd-dev',
         'libudev-dev',
         'make',
         'ninja-build',
         'pandoc',
         'pkg-config',
+        'python3',
         'valgrind',
-        };
-    pkgs = common_pkgs | {
-        'libsystemd-daemon-dev',
-        'libsystemd-id128-dev',
-        'libsystemd-journal-dev',
-        };
-    name = "ubuntu-14.04";
-    aliases = {"trusty"};
-    python_cmd = "python";
-    build_pyverbs = False;
-
-class xenial(APTEnvironment):
-    docker_parent = "ubuntu:16.04"
-    pkgs = trusty.common_pkgs | {"libsystemd-dev", "python3-dev", "cython3"};
+    };
     name = "ubuntu-16.04";
     aliases = {"xenial"};
 
 class bionic(APTEnvironment):
     docker_parent = "ubuntu:18.04"
-    pkgs = xenial.pkgs
+    pkgs = xenial.pkgs | {
+        'cython3',
+        'python3-dev',
+    };
     name = "ubuntu-18.04";
     aliases = {"bionic", "ubuntu"};
 
@@ -213,13 +212,13 @@ class jessie(APTEnvironment):
 
 class stretch(APTEnvironment):
     docker_parent = "debian:9"
-    pkgs = jessie.pkgs;
+    pkgs = bionic.pkgs;
     name = "debian-9";
     aliases = {"stretch"};
 
 class debian_experimental(APTEnvironment):
     docker_parent = "debian:experimental"
-    pkgs = (stretch.pkgs ^ {"gcc"}) | {"gcc-7"};
+    pkgs = (stretch.pkgs ^ {"gcc"}) | {"gcc-9"};
     name = "debian-experimental";
 
     def get_docker_file(self):
@@ -239,6 +238,7 @@ class travis(APTEnvironment):
     _yaml = None;
 
     def get_yaml(self):
+        import yaml
         if self._yaml:
             return self._yaml;
 
@@ -297,6 +297,9 @@ class travis(APTEnvironment):
             (cd /usr/local/bin/ && ln -sf ../clang*/bin/clang-7 .)""".format(llvm_tar)];
         return cmds;
 
+    def get_cython(self):
+        return ["""RUN pip3 install cython"""]
+
     def get_docker_file(self):
         # First this to get apt-add-repository
         self.pkgs = {"software-properties-common"}
@@ -315,12 +318,14 @@ class travis(APTEnvironment):
         res.lines.extend(self.get_before_script())
 
         res.lines.extend(self.get_clang())
+        res.lines.extend(self.get_cython())
 
         return res;
 
 # -------------------------------------------------------------------------
 
 class ZypperEnvironment(Environment):
+    proxy = False;
     is_rpm = True;
     def get_docker_file(self):
         res = DockerFile(self.docker_parent);
@@ -331,7 +336,6 @@ class ZypperEnvironment(Environment):
         return res;
 
 class leap(ZypperEnvironment):
-    proxy = False;
     docker_parent = "opensuse/leap:15.0";
     specfile = "suse/rdma-core.spec";
     pkgs = {
@@ -368,12 +372,11 @@ environments = [centos6(),
                 centos7(),
                 centos7_epel(),
                 travis(),
-                trusty(),
                 xenial(),
                 bionic(),
                 jessie(),
                 stretch(),
-                fc29(),
+                fc30(),
                 leap(),
                 tumbleweed(),
                 debian_experimental(),
@@ -507,21 +510,12 @@ def get_tar_file(args,tarfn,pandoc_prebuilt=False):
 
     # When the OS does not support pandoc we got through the extra step to
     # build pandoc output in the travis container and include it in the
-    # tar. This is similar to what buildlib/github-release does.
+    # tar.
     if not args.use_prebuilt_pandoc:
         subprocess.check_call(["buildlib/cbuild","make","travis","docs"]);
 
-    tmp_tarfn = os.path.join(os.path.dirname(tarfn),"tmp.tar");
-    get_tar_file(args,tmp_tarfn,False);
-
-    subprocess.check_call([
-        "tar",
-        "-rf",tmp_tarfn,
-        "build-travis/pandoc-prebuilt/",
-        "--xform","s|build-travis/pandoc-prebuilt|%sbuildlib/pandoc-prebuilt|g"%(prefix)]);
-    with open(tarfn,"w") as F:
-        subprocess.check_call(["gzip","-9c",tmp_tarfn],stdout=F);
-    os.unlink(tmp_tarfn);
+    cmd_make_dist_tar(argparse.Namespace(BUILD="build-travis",tarfn=tarfn,
+                                         script_pwd="",tag=None));
 
 def run_rpm_build(args,spec_file,env):
     with open(spec_file,"r") as F:
@@ -641,10 +635,6 @@ def run_deb_build(args,env):
             "-e","DEB_BUILD_OPTIONS=parallel=%u"%(multiprocessing.cpu_count()),
         ];
 
-        if not env.build_pyverbs:
-            opts.append("-e");
-            opts.append("EXTRA_CMAKE_FLAGS=%s"%(' '.join(["-DNO_PYVERBS=1"])));
-
         # Create a go.py that will let us run the compilation as the user and
         # then switch to root only for the packaging step.
         with open(os.path.join(tmpdir,"go.py"),"w") as F:
@@ -697,6 +687,7 @@ def copy_abi_files(src):
             shutil.copy(cur_fn, ref_fn);
 
 def run_travis_build(args,env):
+    import yaml
     with private_tmp(args) as tmpdir:
         os.mkdir(os.path.join(tmpdir,"src"));
         os.mkdir(os.path.join(tmpdir,"tmp"));
@@ -905,6 +896,45 @@ def cmd_build_images(args):
             docker_cmd(args,*opts);
 
 # -------------------------------------------------------------------------
+def args_make_dist_tar(parser):
+    parser.add_argument("BUILD",help="Path to the build directory")
+    parser.add_argument("--tarfn",help="Output TAR filename")
+    parser.add_argument("--tag",help="git tag to sanity check against")
+def cmd_make_dist_tar(args):
+    """Make the standard distribution tar. The BUILD argument must point to a build
+    output directory that has pandoc-prebuilt"""
+    ver = get_version();
+
+    if not args.tarfn:
+        args.tarfn = "%s-%s.tar.gz"%(project,ver)
+
+    # The tag name and the cmake file must match.
+    if args.tag:
+        assert args.tag == "v" + ver;
+
+    with private_tmp(args) as tmpdir:
+        tmp_tarfn = os.path.join(tmpdir,"tmp.tar");
+
+        prefix = "%s-%s/"%(project,get_version());
+        subprocess.check_call(["git","archive",
+                               "--prefix",prefix,
+                               "--output",tmp_tarfn,
+                               "HEAD"]);
+
+        # Mangle the paths and append the prebuilt stuff to the tar file
+        if args.BUILD:
+            subprocess.check_call([
+                "tar",
+                "-C",os.path.join(args.script_pwd,args.BUILD,"pandoc-prebuilt"),
+                "-rf",tmp_tarfn,
+                "./",
+                "--xform",r"s|^\.|%sbuildlib/pandoc-prebuilt|g"%(prefix)]);
+
+        assert args.tarfn.endswith(".gz") or args.tarfn.endswith(".tgz");
+        with open(os.path.join(args.script_pwd,args.tarfn),"w") as F:
+            subprocess.check_call(["gzip","-9c",tmp_tarfn],stdout=F);
+
+# -------------------------------------------------------------------------
 def args_docker_gc(parser):
     pass;
 def cmd_docker_gc(args):
@@ -944,6 +974,7 @@ if __name__ == '__main__':
     # This script must always run from the top of the git tree, and a git
     # checkout is mandatory.
     git_top = subprocess.check_output(["git","rev-parse","--show-toplevel"]).strip();
+    args.script_pwd = os.getcwd();
     os.chdir(git_top);
 
     args.func(args);

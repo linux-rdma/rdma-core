@@ -54,7 +54,7 @@ int ib_acm_query_perf_ep_addr(uint8_t *src, uint8_t type,
 
 const char *ib_acm_cntr_name(int index);
 
-int ib_acm_enum_ep(int index, struct acm_ep_config_data **data);
+int ib_acm_enum_ep(int index, struct acm_ep_config_data **data, uint8_t port);
 #define ib_acm_free_ep_data(data) free(data)
 
 #endif /* LIBACM_H */

@@ -108,7 +108,8 @@ enum {
         IWPM_UNKNOWN_MAPPING_ERR,
         IWPM_CLIENT_DEV_INFO_ERR,
         IWPM_USER_LIB_INFO_ERR,
-        IWPM_REMOTE_QUERY_REJECT
+        IWPM_REMOTE_QUERY_REJECT,
+        IWPM_VERSION_MISMATCH_ERR,
 };
 
 /* iwpm param indexes */
@@ -236,9 +237,10 @@ int is_wcard_ipaddr(struct sockaddr_storage *);
 
 /* iwarp_pm_helper.c */
 
-iwpm_mapped_port *create_iwpm_mapped_port(struct sockaddr_storage *, int);
+iwpm_mapped_port *create_iwpm_mapped_port(struct sockaddr_storage *, int, __u32 flags);
 
-iwpm_mapped_port *reopen_iwpm_mapped_port(struct sockaddr_storage *, struct sockaddr_storage *, int);
+iwpm_mapped_port *reopen_iwpm_mapped_port(struct sockaddr_storage *, struct sockaddr_storage *, int,
+				__u32 flags);
 
 void add_iwpm_mapped_port(iwpm_mapped_port *);
 

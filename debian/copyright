@@ -154,6 +154,10 @@ Files: providers/cxgb3/*
 Copyright: 2003-2016, Chelsio Communications, Inc.
 License: BSD-MIT or GPL-2
 
+Files: providers/efa/*
+Copyright: 2019 Amazon.com, Inc. or its affiliates.
+License: BSD-2-clause or GPL-2
+
 Files: providers/hfi1verbs/*
 Copyright: 2005 PathScale, Inc.
            2006-2009 QLogic Corporation

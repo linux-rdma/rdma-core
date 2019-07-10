@@ -36,6 +36,8 @@ uint32_t               raw_packet_caps;            /* Raw packet capabilities, u
 struct ibv_tm_caps     tm_caps;                    /* Tag matching capabilities */
 struct ibv_cq_moderation_caps  cq_mod_caps;        /* CQ moderation max capabilities */
 uint64_t     	       max_dm_size;		   /* Max Device Memory size (in bytes) available for allocation */
+struct ibv_pci_atomic_caps atomic_caps;            /* PCI atomic operations capabilities, use enum ibv_pci_atomic_op_size */
+uint32_t               xrc_odp_caps;               /* Mask with enum ibv_odp_transport_cap_bits to know which operations are supported. */
 .in -8
 };
 
@@ -50,6 +52,7 @@ struct ibv_odp_caps {
 
 enum ibv_odp_general_cap_bits {
         IBV_ODP_SUPPORT = 1 << 0, /* On demand paging is supported */
+        IBV_ODP_SUPPORT_IMPLICIT = 1 << 1, /* Implicit on demand paging is supported */
 };
 
 enum ibv_odp_transport_cap_bits {
@@ -58,6 +61,7 @@ enum ibv_odp_transport_cap_bits {
         IBV_ODP_SUPPORT_WRITE    = 1 << 2, /* RDMA-Write operations support on-demand paging */
         IBV_ODP_SUPPORT_READ     = 1 << 3, /* RDMA-Read operations support on-demand paging */
         IBV_ODP_SUPPORT_ATOMIC   = 1 << 4, /* RDMA-Atomic operations support on-demand paging */
+        IBV_ODP_SUPPORT_SRQ_RECV = 1 << 5, /* SRQ receive operations support on-demand paging */
 };
 
 struct ibv_tso_caps {
@@ -106,6 +110,22 @@ uint32_t        max_sge;             /* Max number of SGEs in a tagged buffer */
 struct ibv_cq_moderation_caps {
 	uint16_t max_cq_count;
 	uint16_t max_cq_period;
+};
+
+enum ibv_pci_atomic_op_size {
+.in +8
+IBV_PCI_ATOMIC_OPERATION_4_BYTE_SIZE_SUP = 1 << 0,
+IBV_PCI_ATOMIC_OPERATION_8_BYTE_SIZE_SUP = 1 << 1,
+IBV_PCI_ATOMIC_OPERATION_16_BYTE_SIZE_SUP = 1 << 2,
+.in -8
+};
+
+struct ibv_pci_atomic_caps {
+.in +8
+uint16_t fetch_add;	/* Supported sizes for an atomic fetch and add operation, use enum ibv_pci_atomic_op_size */
+uint16_t swap;		/* Supported sizes for an atomic unconditional swap operation, use enum ibv_pci_atomic_op_size */
+uint16_t compare_swap;	/* Supported sizes for an atomic compare and swap operation, use enum ibv_pci_atomic_op_size */
+.in -8
 };
 .fi
 

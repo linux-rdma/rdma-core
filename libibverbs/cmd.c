@@ -265,6 +265,15 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 		}
 	}
 
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, xrc_odp_caps) +
+			sizeof(attr->xrc_odp_caps)) {
+		if (resp->response_length >=
+		    offsetof(struct ib_uverbs_ex_query_device_resp, xrc_odp_caps) +
+		    sizeof(resp->xrc_odp_caps)) {
+			attr->xrc_odp_caps = resp->xrc_odp_caps;
+		}
+	}
+
 	return 0;
 }
 
@@ -327,6 +336,16 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 
 	cmd->start 	  = (uintptr_t) addr;
 	cmd->length 	  = length;
+	/* On demand access and entire address space means implicit.
+	 * In that case set the value in the command to what kernel expects.
+	 */
+	if (access & IBV_ACCESS_ON_DEMAND) {
+		if (length == SIZE_MAX && addr)
+			return EINVAL;
+		if (length == SIZE_MAX)
+			cmd->length = UINT64_MAX;
+	}
+
 	cmd->hca_va 	  = hca_va;
 	cmd->pd_handle 	  = pd->handle;
 	cmd->access_flags = access;
@@ -787,7 +806,14 @@ int ibv_cmd_create_qp_ex2(struct ibv_context *context,
 	struct verbs_xrcd *vxrcd = NULL;
 	int err;
 
-	if (qp_attr->comp_mask >= IBV_QP_INIT_ATTR_RESERVED)
+	if (!check_comp_mask(qp_attr->comp_mask,
+			     IBV_QP_INIT_ATTR_PD |
+			     IBV_QP_INIT_ATTR_XRCD |
+			     IBV_QP_INIT_ATTR_CREATE_FLAGS |
+			     IBV_QP_INIT_ATTR_MAX_TSO_HEADER |
+			     IBV_QP_INIT_ATTR_IND_TABLE |
+			     IBV_QP_INIT_ATTR_RX_HASH |
+			     IBV_QP_INIT_ATTR_SEND_OPS_FLAGS))
 		return EINVAL;
 
 	memset(&cmd->core_payload, 0, sizeof(cmd->core_payload));
@@ -831,7 +857,10 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 	struct verbs_xrcd *vxrcd = NULL;
 	int err;
 
-	if (attr_ex->comp_mask > (IBV_QP_INIT_ATTR_XRCD | IBV_QP_INIT_ATTR_PD))
+	if (!check_comp_mask(attr_ex->comp_mask,
+			     IBV_QP_INIT_ATTR_PD |
+			     IBV_QP_INIT_ATTR_XRCD |
+			     IBV_QP_INIT_ATTR_SEND_OPS_FLAGS))
 		return ENOSYS;
 
 	err = create_qp_ex_common(qp, attr_ex, vxrcd,
@@ -1854,6 +1883,7 @@ int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 	cmd_size = sizeof(*cmd) + num_tbl_entries * sizeof(cmd->wq_handles[0]);
 	cmd_size = (cmd_size + 7) / 8 * 8;
 	cmd = alloca(cmd_size);
+	memset(cmd, 0, cmd_size);
 
 	for (i = 0; i < num_tbl_entries; i++)
 		cmd->wq_handles[i] = init_attr->ind_tbl[i]->handle;

@@ -390,16 +390,6 @@ int mlx4_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 	return 0;
 }
 
-int align_queue_size(int req)
-{
-	int nent;
-
-	for (nent = 1; nent < req; nent <<= 1)
-		; /* nothing */
-
-	return nent;
-}
-
 enum {
 	CREATE_CQ_SUPPORTED_WC_FLAGS = IBV_WC_STANDARD_FLAGS	|
 				       IBV_WC_EX_WITH_COMPLETION_TIMESTAMP
@@ -505,9 +495,10 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	if (pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto err;
 
-	cq_attr->cqe = align_queue_size(cq_attr->cqe + 1);
+	cq_attr->cqe = roundup_pow_of_two(cq_attr->cqe + 1);
 
-	if (mlx4_alloc_cq_buf(to_mdev(context->device), &cq->buf, cq_attr->cqe, mctx->cqe_size))
+	if (mlx4_alloc_cq_buf(to_mdev(context->device), mctx, &cq->buf,
+			      cq_attr->cqe, mctx->cqe_size))
 		goto err;
 
 	cq->cqe_size = mctx->cqe_size;
@@ -544,7 +535,7 @@ err_db:
 	mlx4_free_db(to_mctx(context), MLX4_DB_TYPE_CQ, cq->set_ci_db);
 
 err_buf:
-	mlx4_free_buf(&cq->buf);
+	mlx4_free_buf(to_mctx(context), &cq->buf);
 
 err:
 	free(cq);
@@ -602,7 +593,7 @@ int mlx4_resize_cq(struct ibv_cq *ibcq, int cqe)
 
 	pthread_spin_lock(&cq->lock);
 
-	cqe = align_queue_size(cqe + 1);
+	cqe = roundup_pow_of_two(cqe + 1);
 	if (cqe == ibcq->cqe + 1) {
 		ret = 0;
 		goto out;
@@ -615,7 +606,9 @@ int mlx4_resize_cq(struct ibv_cq *ibcq, int cqe)
 		goto out;
 	}
 
-	ret = mlx4_alloc_cq_buf(to_mdev(ibcq->context->device), &buf, cqe, cq->cqe_size);
+	ret = mlx4_alloc_cq_buf(to_mdev(ibcq->context->device),
+				to_mctx(ibcq->context), &buf, cqe,
+				cq->cqe_size);
 	if (ret)
 		goto out;
 
@@ -625,13 +618,13 @@ int mlx4_resize_cq(struct ibv_cq *ibcq, int cqe)
 	ret = ibv_cmd_resize_cq(ibcq, cqe - 1, &cmd.ibv_cmd, sizeof cmd,
 				&resp, sizeof resp);
 	if (ret) {
-		mlx4_free_buf(&buf);
+		mlx4_free_buf(to_mctx(ibcq->context), &buf);
 		goto out;
 	}
 
 	mlx4_cq_resize_copy_cqes(cq, buf.buf, old_cqe);
 
-	mlx4_free_buf(&cq->buf);
+	mlx4_free_buf(to_mctx(ibcq->context), &cq->buf);
 	cq->buf = buf;
 	mlx4_update_cons_index(cq);
 
@@ -649,7 +642,7 @@ int mlx4_destroy_cq(struct ibv_cq *cq)
 		return ret;
 
 	mlx4_free_db(to_mctx(cq->context), MLX4_DB_TYPE_CQ, to_mcq(cq)->set_ci_db);
-	mlx4_free_buf(&to_mcq(cq)->buf);
+	mlx4_free_buf(to_mctx(cq->context), &to_mcq(cq)->buf);
 	free(to_mcq(cq));
 
 	return 0;
@@ -674,7 +667,7 @@ struct ibv_srq *mlx4_create_srq(struct ibv_pd *pd,
 	if (pthread_spin_init(&srq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto err;
 
-	srq->max     = align_queue_size(attr->attr.max_wr + 1);
+	srq->max     = roundup_pow_of_two(attr->attr.max_wr + 1);
 	srq->max_gs  = attr->attr.max_sge;
 	srq->counter = 0;
 	srq->ext_srq = 0;
@@ -704,7 +697,7 @@ err_db:
 
 err_free:
 	free(srq->wrid);
-	mlx4_free_buf(&srq->buf);
+	mlx4_free_buf(to_mctx(pd->context), &srq->buf);
 
 err:
 	free(srq);
@@ -753,7 +746,7 @@ int mlx4_destroy_srq(struct ibv_srq *srq)
 		return ret;
 
 	mlx4_free_db(to_mctx(srq->context), MLX4_DB_TYPE_RQ, to_msrq(srq)->db);
-	mlx4_free_buf(&to_msrq(srq)->buf);
+	mlx4_free_buf(to_mctx(srq->context), &to_msrq(srq)->buf);
 	free(to_msrq(srq)->wrid);
 	free(to_msrq(srq));
 
@@ -904,14 +897,14 @@ static struct ibv_qp *create_qp_ex(struct ibv_context *context,
 		 * allow HW to prefetch.
 		 */
 		qp->sq_spare_wqes = (2048 >> qp->sq.wqe_shift) + 1;
-		qp->sq.wqe_cnt = align_queue_size(attr->cap.max_send_wr + qp->sq_spare_wqes);
+		qp->sq.wqe_cnt = roundup_pow_of_two(attr->cap.max_send_wr + qp->sq_spare_wqes);
 	}
 
 	if (attr->srq || attr->qp_type == IBV_QPT_XRC_SEND ||
 	    attr->qp_type == IBV_QPT_XRC_RECV) {
 		attr->cap.max_recv_wr = qp->rq.wqe_cnt = attr->cap.max_recv_sge = 0;
 	} else {
-		qp->rq.wqe_cnt = align_queue_size(attr->cap.max_recv_wr);
+		qp->rq.wqe_cnt = roundup_pow_of_two(attr->cap.max_recv_wr);
 		if (attr->cap.max_recv_sge < 1)
 			attr->cap.max_recv_sge = 1;
 		if (attr->cap.max_recv_wr < 1)
@@ -1003,7 +996,7 @@ err_free:
 	free(qp->sq.wrid);
 	if (qp->rq.wqe_cnt)
 		free(qp->rq.wrid);
-	mlx4_free_buf(&qp->buf);
+	mlx4_free_buf(ctx, &qp->buf);
 
 err:
 	free(qp);
@@ -1259,7 +1252,7 @@ int mlx4_destroy_qp(struct ibv_qp *ibqp)
 	}
 	if (qp->sq.wqe_cnt)
 		free(qp->sq.wrid);
-	mlx4_free_buf(&qp->buf);
+	mlx4_free_buf(to_mctx(ibqp->context), &qp->buf);
 	free(qp);
 
 	return 0;
@@ -1450,7 +1443,7 @@ struct ibv_wq *mlx4_create_wq(struct ibv_context *context,
 	qp->sq.wqe_shift = 6;
 	qp->sq.wqe_cnt = 1;
 
-	qp->rq.wqe_cnt = align_queue_size(attr->max_wr);
+	qp->rq.wqe_cnt = roundup_pow_of_two(attr->max_wr);
 
 	if (mlx4_alloc_qp_buf(context, attr->max_sge, IBV_QPT_RAW_PACKET, qp, NULL))
 		goto err;
@@ -1508,7 +1501,7 @@ err_rq_db:
 
 err_free:
 	free(qp->rq.wrid);
-	mlx4_free_buf(&qp->buf);
+	mlx4_free_buf(to_mctx(context), &qp->buf);
 
 err:
 	free(qp);
@@ -1595,7 +1588,7 @@ int mlx4_destroy_wq(struct ibv_wq *ibwq)
 	free(qp->rq.wrid);
 	free(qp->sq.wrid);
 
-	mlx4_free_buf(&qp->buf);
+	mlx4_free_buf(mcontext, &qp->buf);
 
 	free(qp);
 

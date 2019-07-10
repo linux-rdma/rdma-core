@@ -958,9 +958,11 @@ error:
 
 /**
  * i40iw_async_event - handle async events from driver
+ * @context: ibv_context
  * @event: event received
  */
-void i40iw_async_event(struct ibv_async_event *event)
+void i40iw_async_event(struct ibv_context *context,
+		       struct ibv_async_event *event)
 {
 	struct i40iw_uqp *iwuqp;
 

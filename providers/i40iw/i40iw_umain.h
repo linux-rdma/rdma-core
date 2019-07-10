@@ -182,6 +182,7 @@ struct ibv_ah *i40iw_ucreate_ah(struct ibv_pd *, struct ibv_ah_attr *);
 int i40iw_udestroy_ah(struct ibv_ah *);
 int i40iw_uattach_mcast(struct ibv_qp *, const union ibv_gid *, uint16_t);
 int i40iw_udetach_mcast(struct ibv_qp *, const union ibv_gid *, uint16_t);
-void i40iw_async_event(struct ibv_async_event *event);
+void i40iw_async_event(struct ibv_context *context,
+		       struct ibv_async_event *event);
 
 #endif /* i40iw_umain_H */

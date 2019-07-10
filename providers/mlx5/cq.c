@@ -49,7 +49,8 @@
 enum {
 	CQ_OK					=  0,
 	CQ_EMPTY				= -1,
-	CQ_POLL_ERR				= -2
+	CQ_POLL_ERR				= -2,
+	CQ_POLL_NODATA				= ENOENT
 };
 
 enum {
@@ -659,6 +660,12 @@ static int handle_tag_matching(struct mlx5_cq *cq,
 	return CQ_OK;
 }
 
+static inline int is_odp_pfault_err(struct mlx5_err_cqe *ecqe)
+{
+	return ecqe->syndrome == MLX5_CQE_SYNDROME_REMOTE_ABORTED_ERR &&
+	       ecqe->vendor_err_synd == MLX5_CQE_VENDOR_SYNDROME_ODP_PFAULT;
+}
+
 static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 				 struct mlx5_cqe64 *cqe64,
 				 void *cqe,
@@ -682,10 +689,14 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 	int idx;
 	uint8_t opcode;
 	struct mlx5_err_cqe *ecqe;
-	int err = 0;
+	int err;
 	struct mlx5_qp *mqp;
 	struct mlx5_context *mctx;
-	uint8_t is_srq = 0;
+	uint8_t is_srq;
+
+again:
+	is_srq = 0;
+	err = 0;
 
 	mctx = to_mctx(ibv_cq_ex_to_cq(&cq->ibv_cq)->context);
 	qpn = be32toh(cqe64->sop_drop_qpn) & 0xffffff;
@@ -811,7 +822,8 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 			wc->vendor_err = ecqe->vendor_err_synd;
 
 		if (unlikely(ecqe->syndrome != MLX5_CQE_SYNDROME_WR_FLUSH_ERR &&
-			     ecqe->syndrome != MLX5_CQE_SYNDROME_TRANSPORT_RETRY_EXC_ERR)) {
+			     ecqe->syndrome != MLX5_CQE_SYNDROME_TRANSPORT_RETRY_EXC_ERR &&
+			     !is_odp_pfault_err(ecqe))) {
 			FILE *fp = mctx->dbg_fp;
 			fprintf(fp, PFX "%s: got completion with error:\n",
 				mctx->hostname);
@@ -844,6 +856,17 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 
 			if (is_srq) {
 				wqe_ctr = be16toh(cqe64->wqe_counter);
+				if (is_odp_pfault_err(ecqe)) {
+					mlx5_complete_odp_fault(*cur_srq, wqe_ctr);
+					err = mlx5_get_next_cqe(cq, &cqe64, &cqe);
+					/* CQ_POLL_NODATA indicates that CQ was not empty but the polled CQE
+					 * was handled internally and should not processed by the caller.
+					 */
+					if (err == CQ_EMPTY)
+						return CQ_POLL_NODATA;
+					goto again;
+				}
+
 				if (lazy)
 					cq->ibv_cq.wr_id = (*cur_srq)->wrid[wqe_ctr];
 				else
@@ -1060,7 +1083,7 @@ static inline int mlx5_start_poll(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_att
 	if (lock && err)
 		mlx5_spin_unlock(&cq->lock);
 
-	if (stall && err) {
+	if (stall && err == CQ_POLL_ERR) {
 		if (stall == POLLING_MODE_STALL_ADAPTIVE) {
 			cq->stall_cycles = max(cq->stall_cycles - mlx5_stall_cq_dec_step,
 						mlx5_stall_cq_poll_min);

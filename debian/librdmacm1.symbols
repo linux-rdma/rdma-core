@@ -2,6 +2,7 @@ librdmacm.so.1 librdmacm1 #MINVER#
 * Build-Depends-Package: librdmacm-dev
  RDMACM_1.0@RDMACM_1.0 1.0.15
  RDMACM_1.1@RDMACM_1.1 16
+ RDMACM_1.2@RDMACM_1.2 23
  raccept@RDMACM_1.0 1.0.16
  rbind@RDMACM_1.0 1.0.16
  rclose@RDMACM_1.0 1.0.16
@@ -24,6 +25,7 @@ librdmacm.so.1 librdmacm1 #MINVER#
  rdma_destroy_srq@RDMACM_1.0 1.0.15
  rdma_disconnect@RDMACM_1.0 1.0.15
  rdma_event_str@RDMACM_1.0 1.0.15
+ rdma_establish@RDMACM_1.2 23
  rdma_free_devices@RDMACM_1.0 1.0.15
  rdma_freeaddrinfo@RDMACM_1.0 1.0.15
  rdma_get_cm_event@RDMACM_1.0 1.0.15
@@ -32,6 +34,7 @@ librdmacm.so.1 librdmacm1 #MINVER#
  rdma_get_request@RDMACM_1.0 1.0.15
  rdma_get_src_port@RDMACM_1.0 1.0.19
  rdma_getaddrinfo@RDMACM_1.0 1.0.15
+ rdma_init_qp_attr@RDMACM_1.2 23
  rdma_join_multicast@RDMACM_1.0 1.0.15
  rdma_join_multicast_ex@RDMACM_1.1 16
  rdma_leave_multicast@RDMACM_1.0 1.0.15

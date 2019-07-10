@@ -1517,7 +1517,8 @@ int nes_udetach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 /**
  * nes_async_event
  */
-void nes_async_event(struct ibv_async_event *event)
+void nes_async_event(struct ibv_context *context,
+		     struct ibv_async_event *event)
 {
 	struct nes_uqp *nesuqp;
 

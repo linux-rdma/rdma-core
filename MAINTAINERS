@@ -61,6 +61,11 @@ M:	Steve Wise <swise@opengridcomputing.com>
 S:	Supported
 F:	providers/cxgb4/
 
+EFA USERSPACE PROVIDER (for efa.ko)
+M:	Gal Pressman <galpress@amazon.com>
+S:	Supported
+F:	providers/efa/
+
 HF1 USERSPACE PROVIDER (for hf1.ko)
 M:	Mike Marciniszyn <mike.marciniszyn@intel.com>
 M:	Dennis Dalessandro <dennis.dalessandro@intel.com>
@@ -80,8 +85,8 @@ S:	Supported
 F:	providers/i40iw/
 
 RDMA Communication Manager Assistant (for librdmacm.so)
-M:	Sean Hefty <sean.hefty@intel.com>
-M:	Hal Rosenstock <hal@dev.mellanox.co.il>
+M:	Haakon Bugge <haakon.bugge@oracle.com>
+M:	Mark Haywood <mark.haywood@oracle.com>
 S:	Supported
 F:	ibacm/*
 
@@ -100,7 +105,8 @@ S:	Supported
 F:	iwpmd/
 
 LIBIBUMAD USERSPACE LIBRARY FOR SMP AND GMP MAD PROCESSING (/dev/infiniband/umadX)
-M:	Hal Rosenstock <hal@dev.mellanox.co.il>
+M:	Daniel Klein <danielk@mellanox.com>
+H:	Hal Rosenstock <hal@dev.mellanox.co.il>
 H:	Sasha Khapyorsky <sashak@voltaire.com>
 H:	Shahar Frank <shahar@voltaire.com>
 S:	Supported
@@ -151,9 +157,8 @@ S:	Supported
 F:	providers/ocrdma/
 
 QEDR USERSPACE PROVIDER (for qedr.ko)
-M:	Yuval Bason <yuval.bason@cavium.com>
-M:	Michal Kalderon <michal.kalderon@cavium.com>
-M:	Ariel Elior <ariel.elior@cavium.com>
+M:	Michal Kalderon <michal.kalderon@marvell.com>
+M:	Ariel Elior <ariel.elior@marvell.com>
 S:	Supported
 F:	providers/qedr/
 
@@ -177,3 +182,8 @@ M:	Adit Ranadive <aditr@vmware.com>
 L:	pv-drivers@vmware.com
 S:	Supported
 F:	providers/vmw_pvrdma/
+
+PYVERBS
+M:	Noa Osherovich <noaos@mellanox.com>
+S:	Supported
+F:	pyverbs/

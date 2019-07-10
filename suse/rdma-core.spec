@@ -1,7 +1,7 @@
 #
 # spec file for package rdma-core
 #
-# Copyright (c) 2017 SUSE LINUX GmbH, Nuernberg, Germany.
+# Copyright (c) 2019 SUSE LINUX GmbH, Nuernberg, Germany.
 #
 # All modifications and additions to the file contributed by third parties
 # remain the property of their copyright owners, unless otherwise agreed
@@ -12,7 +12,7 @@
 # license that conforms to the Open Source Definition (Version 1.9)
 # published by the Open Source Initiative.
 
-# Please submit bugfixes or comments via http://bugs.opensuse.org/
+# Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
 
@@ -23,18 +23,20 @@
 
 %define         git_ver %{nil}
 Name:           rdma-core
-Version:        22.1
+Version:        24.0
 Release:        0
 Summary:        RDMA core userspace libraries and daemons
-License:        GPL-2.0 or BSD-2-Clause
+License:        GPL-2.0-only OR BSD-2-Clause
 Group:          Productivity/Networking/Other
 
+%define efa_so_major    1
 %define verbs_so_major  1
 %define rdmacm_so_major 1
 %define umad_so_major   3
 %define mlx4_so_major   1
 %define mlx5_so_major   1
 
+%define  efa_lname    libefa-%{efa_so_major}
 %define  verbs_lname  libibverbs%{verbs_so_major}
 %define  rdmacm_lname librdmacm%{rdmacm_so_major}
 %define  umad_lname   libibumad%{umad_so_major}
@@ -57,14 +59,14 @@ BuildRequires:  cmake >= 2.8.11
 BuildRequires:  gcc
 BuildRequires:  pandoc
 BuildRequires:  pkgconfig
+BuildRequires:  python3-base
 BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(systemd)
 BuildRequires:  pkgconfig(udev)
-BuildRequires:  python3-base
 %if %{with_pyverbs}
-BuildRequires:  python3-devel
 BuildRequires:  python3-Cython
+BuildRequires:  python3-devel
 %endif
 %ifnarch s390 s390x
 BuildRequires:  valgrind-devel
@@ -135,6 +137,7 @@ Requires:       %{rdmacm_lname} = %{version}-%{release}
 Requires:       %{umad_lname} = %{version}-%{release}
 Requires:       %{verbs_lname} = %{version}-%{release}
 %if 0%{?dma_coherent}
+Requires:       %{efa_lname} = %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
 %endif
@@ -155,8 +158,8 @@ Obsoletes:      ibacm-devel < %{version}-%{release}
 # Since our pkg-config files include private references to these packages they
 # need to have their .pc files installed too, even for dynamic linking, or
 # pkg-config breaks.
-BuildRequires: pkgconfig(libnl-3.0)
-BuildRequires: pkgconfig(libnl-route-3.0)
+BuildRequires:  pkgconfig(libnl-3.0)
+BuildRequires:  pkgconfig(libnl-route-3.0)
 %endif
 
 %description devel
@@ -168,6 +171,7 @@ Group:          System/Libraries
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 Obsoletes:      libcxgb3-rdmav2 < %{version}-%{release}
 Obsoletes:      libcxgb4-rdmav2 < %{version}-%{release}
+Obsoletes:      libefa-rdmav2 < %{version}-%{release}
 Obsoletes:      libhfi1verbs-rdmav2 < %{version}-%{release}
 Obsoletes:      libi40iw-rdmav2 < %{version}-%{release}
 Obsoletes:      libipathverbs-rdmav2 < %{version}-%{release}
@@ -178,6 +182,7 @@ Obsoletes:      libnes-rdmav2 < %{version}-%{release}
 Obsoletes:      libocrdma-rdmav2 < %{version}-%{release}
 Obsoletes:      librxe-rdmav2 < %{version}-%{release}
 %if 0%{?dma_coherent}
+Requires:       %{efa_lname} = %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
 %endif
@@ -196,6 +201,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 
 - libcxgb3: Chelsio T3 iWARP HCA
 - libcxgb4: Chelsio T4 iWARP HCA
+- libefa: Amazon Elastic Fabric Adapter
 - libhfi1: Intel Omni-Path HFI
 - libhns: HiSilicon Hip06 SoC
 - libi40iw: Intel Ethernet Connection X722 RDMA
@@ -217,7 +223,13 @@ Requires:       libibverbs = %{version}
 %description -n %verbs_lname
 This package contains the ibverbs runtime library.
 
-%if 0%{?dma_coherent}
+%package -n %efa_lname
+Summary:        EFA runtime library
+Group:          System/Libraries
+
+%description -n %efa_lname
+This package contains the efa runtime library.
+
 %package -n %mlx4_lname
 Summary:        MLX4 runtime library
 Group:          System/Libraries
@@ -231,7 +243,6 @@ Group:          System/Libraries
 
 %description -n %mlx5_lname
 This package contains the mlx5 runtime library.
-%endif
 
 %package -n     libibverbs-utils
 Summary:        Examples for the libibverbs library
@@ -339,6 +350,8 @@ Pyverbs is a Cython-based Python API over libibverbs, providing an
 easy, object-oriented access to IB verbs.
 
 %prep
+# Make sure LTO is disable as rdma-core fails to compile with LTO enabled
+%define _lto_cflags %{nil}
 %setup -q -n  %{name}-%{version}%{git_ver}
 
 %build
@@ -395,7 +408,6 @@ mkdir -p %{buildroot}/%{_sysconfdir}/rdma
 %global dracutlibdir %%{_sysconfdir}/dracut.conf.d
 %global sysmodprobedir %%{_sysconfdir}/modprobe.d
 
-mkdir -p %{buildroot}%{_libexecdir}/udev/rules.d
 mkdir -p %{buildroot}%{_udevrulesdir}
 mkdir -p %{buildroot}%{dracutlibdir}/modules.d/05rdma
 mkdir -p %{buildroot}%{sysmodprobedir}
@@ -431,13 +443,14 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %post -n %verbs_lname -p /sbin/ldconfig
 %postun -n %verbs_lname -p /sbin/ldconfig
 
-%if 0%{?dma_coherent}
+%post -n %efa_lname -p /sbin/ldconfig
+%postun -n %efa_lname -p /sbin/ldconfig
+
 %post -n %mlx4_lname -p /sbin/ldconfig
 %postun -n %mlx4_lname -p /sbin/ldconfig
 
 %post -n %mlx5_lname -p /sbin/ldconfig
 %postun -n %mlx5_lname -p /sbin/ldconfig
-%endif
 
 %post -n %umad_lname -p /sbin/ldconfig
 %postun -n %umad_lname -p /sbin/ldconfig
@@ -517,12 +530,12 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{_sysconfdir}/rdma
 %dir %{_sysconfdir}/rdma/modules
 %dir %{_docdir}/%{name}-%{version}
-%dir %{_libexecdir}/udev
-%dir %{_libexecdir}/udev/rules.d
+%dir %{_udevrulesdir}
 %dir %{_sysconfdir}/udev
 %dir %{_sysconfdir}/udev/rules.d
 %dir %{_sysconfdir}/modprobe.d
 %doc %{_docdir}/%{name}-%{version}/README.md
+%doc %{_docdir}/%{name}-%{version}/udev.md
 %config(noreplace) %{_sysconfdir}/rdma/mlx4.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/infiniband.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/iwarp.conf
@@ -542,6 +555,8 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{dracutlibdir}/modules.d
 %dir %{dracutlibdir}/modules.d/05rdma
 %{dracutlibdir}/modules.d/05rdma/module-setup.sh
+%{_udevrulesdir}/../rdma_rename
+%{_udevrulesdir}/60-rdma-persistent-naming.rules
 %{_udevrulesdir}/75-rdma-description.rules
 %{_udevrulesdir}/90-rdma-hw-modules.rules
 %{_udevrulesdir}/90-rdma-ulp-modules.rules
@@ -572,8 +587,10 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_mandir}/man3/*_to_ibv_rate.*
 %{_mandir}/man7/rdma_cm.*
 %if 0%{?dma_coherent}
+%{_mandir}/man3/efadv*
 %{_mandir}/man3/mlx5dv*
 %{_mandir}/man3/mlx4dv*
+%{_mandir}/man7/efadv*
 %{_mandir}/man7/mlx5dv*
 %{_mandir}/man7/mlx4dv*
 %endif
@@ -586,7 +603,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %config(noreplace) %{_sysconfdir}/libibverbs.d/*.driver
 %doc %{_docdir}/%{name}-%{version}/libibverbs.md
 %doc %{_docdir}/%{name}-%{version}/rxe.md
-%doc %{_docdir}/%{name}-%{version}/udev.md
 %doc %{_docdir}/%{name}-%{version}/tag_matching.md
 %{_bindir}/rxe_cfg
 %{_mandir}/man7/rxe*
@@ -597,6 +613,10 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_libdir}/libibverbs*.so.*
 
 %if 0%{?dma_coherent}
+%files -n %efa_lname
+%defattr(-,root,root)
+%{_libdir}/libefa*.so.*
+
 %files -n %mlx4_lname
 %defattr(-,root,root)
 %{_libdir}/libmlx4*.so.*
@@ -691,7 +711,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{_sysconfdir}/rdma/modules
 %config(noreplace) %{_sysconfdir}/srp_daemon.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/srp_daemon.conf
-%{_libexecdir}/udev/rules.d/60-srp_daemon.rules
+%{_udevrulesdir}/60-srp_daemon.rules
 %{_libexecdir}/srp_daemon/start_on_all_ports
 %{_unitdir}/srp_daemon.service
 %{_unitdir}/srp_daemon_port@.service
@@ -711,7 +731,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_sbindir}/rcrdma-ndd
 %{_unitdir}/rdma-ndd.service
 %{_mandir}/man8/rdma-ndd.8*
-%{_libexecdir}/udev/rules.d/60-rdma-ndd.rules
+%{_udevrulesdir}/60-rdma-ndd.rules
 
 %if %{with_pyverbs}
 %files -n python3-pyverbs

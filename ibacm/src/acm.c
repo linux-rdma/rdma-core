@@ -68,10 +68,6 @@
 #include "acm_mad.h"
 #include "acm_util.h"
 
-#define src_out     data[0]
-#define src_index   data[1]
-#define dst_index   data[2]
-
 #define MAX_EP_ADDR 4
 #define NL_MSG_BUF_SIZE 4096
 #define ACM_PROV_NAME_SIZE 64
@@ -820,6 +816,14 @@ acm_is_path_from_port(struct acmc_port *port, struct ibv_path_record *path)
 	return 0;
 }
 
+static bool acm_same_partition(uint16_t pkey_a, uint16_t pkey_b)
+{
+
+	acm_log(2, "pkey_a: 0x%04x pkey_b: 0x%04x\n", pkey_a, pkey_b);
+
+	return ((pkey_a | IB_PKEY_FULL_MEMBER) == (pkey_b | IB_PKEY_FULL_MEMBER));
+}
+
 static struct acmc_addr *
 acm_get_port_ep_address(struct acmc_port *port, struct acm_ep_addr_data *data)
 {
@@ -837,7 +841,7 @@ acm_get_port_ep_address(struct acmc_port *port, struct acm_ep_addr_data *data)
 	list_for_each(&port->ep_list, ep, entry) {
 		if ((data->type == ACM_EP_INFO_PATH) &&
 		    (!data->info.path.pkey ||
-		     (be16toh(data->info.path.pkey) == ep->endpoint.pkey))) {
+		     acm_same_partition(be16toh(data->info.path.pkey), ep->endpoint.pkey))) {
 			for (i = 0; i < MAX_EP_ADDR; i++) {
 				if (ep->addr_info[i].addr.type)
 					return &ep->addr_info[i];
@@ -876,7 +880,9 @@ static struct acmc_addr *acm_get_ep_address(struct acm_ep_addr_data *data)
 	return NULL;
 }
 
-static struct acmc_ep *acm_get_ep(int index)
+/* If port_num is zero, iterate through all ports, otherwise consider
+ * only the specific port_num */
+static struct acmc_ep *acm_get_ep(int index, uint8_t port_num)
 {
 	struct acmc_device *dev;
 	struct acmc_ep *ep;
@@ -885,6 +891,8 @@ static struct acmc_ep *acm_get_ep(int index)
 	acm_log(2, "ep index %d\n", index);
 	list_for_each(&dev_list, dev, entry) {
 		for (i = 0; i < dev->port_cnt; i++) {
+			if (port_num && port_num != (i + 1))
+				continue;
 			if (dev->port[i].state != IBV_PORT_ACTIVE)
 				continue;
 			list_for_each(&dev->port[i].ep_list, ep, entry) {
@@ -1140,10 +1148,10 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 	int index;
 
 	acm_log(2, "client %d\n", client->index);
-	index = msg->hdr.data[1];
+	index = msg->hdr.src_index;
 	msg->hdr.opcode |= ACM_OP_ACK;
 	msg->hdr.status = ACM_STATUS_SUCCESS;
-	msg->hdr.data[2] = 0;
+	msg->hdr.dst_index = 0;
 
 	if ((be16toh(msg->hdr.length) < (ACM_MSG_HDR_LENGTH + ACM_MSG_EP_LENGTH)
 	    && index < 1) ||
@@ -1152,11 +1160,11 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 		for (i = 0; i < ACM_MAX_COUNTER; i++)
 			msg->perf_data[i] = htobe64((uint64_t) atomic_get(&counter[i]));
 
-		msg->hdr.data[0] = ACM_MAX_COUNTER;
+		msg->hdr.src_out = ACM_MAX_COUNTER;
 		len = ACM_MSG_HDR_LENGTH + (ACM_MAX_COUNTER * sizeof(uint64_t));
 	} else {
 		if (index >= 1) {
-			ep = acm_get_ep(index - 1);
+			ep = acm_get_ep(index - 1, msg->hdr.src_index);
 		} else {
 			addr = acm_get_ep_address(&msg->resolve_data[0]);
 			if (addr)
@@ -1166,8 +1174,8 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 
 		if (ep) {
 			ep->port->prov->query_perf(ep->prov_ep_context,
-						   msg->perf_data, &msg->hdr.data[0]);
-			len = ACM_MSG_HDR_LENGTH + (msg->hdr.data[0] * sizeof(uint64_t));
+						   msg->perf_data, &msg->hdr.src_out);
+			len = ACM_MSG_HDR_LENGTH + (msg->hdr.src_out * sizeof(uint64_t));
 		} else {
 			msg->hdr.status = ACM_STATUS_ESRCADDR;
 			len = ACM_MSG_HDR_LENGTH;
@@ -1192,12 +1200,13 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 	int index, cnt = 0;
 
 	acm_log(2, "client %d\n", client->index);
-	index = msg->hdr.data[0];
-	ep = acm_get_ep(index - 1);
+	index = msg->hdr.src_out;
+	ep = acm_get_ep(index - 1, msg->hdr.src_index);
 	if (ep) {
 		msg->hdr.status = ACM_STATUS_SUCCESS;
 		msg->ep_data[0].dev_guid = ep->port->dev->device.dev_guid;
 		msg->ep_data[0].port_num = ep->port->port.port_num;
+		msg->ep_data[0].phys_port_cnt = ep->port->dev->port_cnt;
 		msg->ep_data[0].pkey = htobe16(ep->endpoint.pkey);
 		strncpy((char *)msg->ep_data[0].prov_name, ep->port->prov->name,
 			ACM_MAX_PROV_NAME - 1);
@@ -1217,8 +1226,8 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 		len = ACM_MSG_HDR_LENGTH;
 	}
 	msg->hdr.opcode |= ACM_OP_ACK;
-	msg->hdr.data[1] = 0;
-	msg->hdr.data[2] = 0;
+	msg->hdr.src_index = 0;
+	msg->hdr.dst_index = 0;
 	msg->hdr.length = htobe16(len);
 
 	ret = send(client->sock, (char *) msg, len, 0);
@@ -1766,8 +1775,10 @@ static void acm_nl_receive(struct acmc_client *client)
 	/* Currently we handle only request from the local service client */
 	client_inx = RDMA_NL_GET_CLIENT(acmnlmsg->nlmsg_header.nlmsg_type);
 	op = RDMA_NL_GET_OP(acmnlmsg->nlmsg_header.nlmsg_type);
-	if (client_inx != RDMA_NL_LS)
+	if (client_inx != RDMA_NL_LS) {
+		acm_log_once(0, "ERROR - Unknown NL client ID (%d)\n", client_inx);
 		goto rcv_cleanup;
+	}
 
 	switch (op) {
 	case RDMA_NL_LS_OP_RESOLVE:
@@ -1778,7 +1789,7 @@ static void acm_nl_receive(struct acmc_client *client)
 		break;
 	default:
 		/* Not supported*/
-		acm_log(1, "WARN - invalid opcode %x\n", op);
+		acm_log_once(0, "WARN - invalid opcode %x\n", op);
 		acm_nl_process_invalid_request(client, acmnlmsg);
 		break;
 	}
@@ -2158,7 +2169,7 @@ static int acm_assign_ep_names(struct acmc_ep *ep)
 
 		if (!strcasecmp(dev_name, dev) &&
 		    (ep->port->port.port_num == (uint8_t) port) &&
-		    (ep->endpoint.pkey == pkey)) {
+		    acm_same_partition(ep->endpoint.pkey, pkey)) {
 			acm_log(1, "assigning %s\n", name);
 			if (acm_ep_insert_addr(ep, name, addr, type)) {
 				acm_log(1, "maximum number of names assigned to EP\n");
@@ -2179,7 +2190,7 @@ static struct acmc_ep *acm_find_ep(struct acmc_port *port, uint16_t pkey)
 	acm_log(2, "pkey 0x%x\n", pkey);
 
 	list_for_each(&port->ep_list, ep, entry) {
-		if (ep->endpoint.pkey == pkey) {
+		if (acm_same_partition(ep->endpoint.pkey, pkey)) {
 			res = ep;
 			break;
 		}
@@ -2248,7 +2259,7 @@ static void acm_ep_up(struct acmc_port *port, uint16_t pkey)
 
 	ret = acm_assign_ep_names(ep);
 	if (ret) {
-		acm_log(0, "ERROR - unable to assign EP name for pkey 0x%x\n", pkey);
+		acm_log(1, "unable to assign EP name for pkey 0x%x\n", pkey);
 		goto ep_close;
 	}
 
@@ -3250,6 +3261,12 @@ int main(int argc, char **argv)
 		acm_log(0, "Error: failed to create sa resp rcving thread");
 		return -1;
 	}
+
+	if (acm_init_if_iter_sys()) {
+		acm_log(0, "Error: unable to initialize acm_if_iter_sys");
+		return -1;
+	}
+
 	acm_activate_devices();
 	acm_log(1, "starting server\n");
 	acm_server(systemd);
@@ -3260,6 +3277,7 @@ int main(int argc, char **argv)
 	acm_close_providers();
 	acm_stop_sa_handler();
 	umad_done();
+	acm_fini_if_iter_sys();
 	fclose(flog);
 	return 0;
 }

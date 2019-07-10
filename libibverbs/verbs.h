@@ -204,6 +204,7 @@ enum ibv_odp_transport_cap_bits {
 	IBV_ODP_SUPPORT_WRITE    = 1 << 2,
 	IBV_ODP_SUPPORT_READ     = 1 << 3,
 	IBV_ODP_SUPPORT_ATOMIC   = 1 << 4,
+	IBV_ODP_SUPPORT_SRQ_RECV = 1 << 5,
 };
 
 struct ibv_odp_caps {
@@ -217,6 +218,7 @@ struct ibv_odp_caps {
 
 enum ibv_odp_general_caps {
 	IBV_ODP_SUPPORT = 1 << 0,
+	IBV_ODP_SUPPORT_IMPLICIT = 1 << 1,
 };
 
 struct ibv_tso_caps {
@@ -293,6 +295,22 @@ struct ibv_cq_moderation_caps {
 	uint16_t max_cq_period; /* in micro seconds */
 };
 
+enum ibv_pci_atomic_op_size {
+	IBV_PCI_ATOMIC_OPERATION_4_BYTE_SIZE_SUP = 1 << 0,
+	IBV_PCI_ATOMIC_OPERATION_8_BYTE_SIZE_SUP = 1 << 1,
+	IBV_PCI_ATOMIC_OPERATION_16_BYTE_SIZE_SUP = 1 << 2,
+};
+
+/*
+ * Bitmask for supported operation sizes
+ * Use enum ibv_pci_atomic_op_size
+ */
+struct ibv_pci_atomic_caps {
+	uint16_t fetch_add;
+	uint16_t swap;
+	uint16_t compare_swap;
+};
+
 struct ibv_device_attr_ex {
 	struct ibv_device_attr	orig_attr;
 	uint32_t		comp_mask;
@@ -308,6 +326,8 @@ struct ibv_device_attr_ex {
 	struct ibv_tm_caps	tm_caps;
 	struct ibv_cq_moderation_caps  cq_mod_caps;
 	uint64_t max_dm_size;
+	struct ibv_pci_atomic_caps pci_atomic_caps;
+	uint32_t xrc_odp_caps;
 };
 
 enum ibv_mtu {
@@ -477,6 +497,7 @@ enum ibv_wc_opcode {
 	IBV_WC_TM_SYNC,
 	IBV_WC_TM_RECV,
 	IBV_WC_TM_NO_TAG,
+	IBV_WC_DRIVER1,
 };
 
 enum {
@@ -869,7 +890,7 @@ enum ibv_qp_init_attr_mask {
 	IBV_QP_INIT_ATTR_MAX_TSO_HEADER = 1 << 3,
 	IBV_QP_INIT_ATTR_IND_TABLE	= 1 << 4,
 	IBV_QP_INIT_ATTR_RX_HASH	= 1 << 5,
-	IBV_QP_INIT_ATTR_RESERVED	= 1 << 6
+	IBV_QP_INIT_ATTR_SEND_OPS_FLAGS = 1 << 6,
 };
 
 enum ibv_qp_create_flags {
@@ -878,6 +899,20 @@ enum ibv_qp_create_flags {
 	IBV_QP_CREATE_CVLAN_STRIPPING		= 1 << 9,
 	IBV_QP_CREATE_SOURCE_QPN		= 1 << 10,
 	IBV_QP_CREATE_PCI_WRITE_END_PADDING	= 1 << 11,
+};
+
+enum ibv_qp_create_send_ops_flags {
+	IBV_QP_EX_WITH_RDMA_WRITE		= 1 << 0,
+	IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM	= 1 << 1,
+	IBV_QP_EX_WITH_SEND			= 1 << 2,
+	IBV_QP_EX_WITH_SEND_WITH_IMM		= 1 << 3,
+	IBV_QP_EX_WITH_RDMA_READ		= 1 << 4,
+	IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP	= 1 << 5,
+	IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD	= 1 << 6,
+	IBV_QP_EX_WITH_LOCAL_INV		= 1 << 7,
+	IBV_QP_EX_WITH_BIND_MW			= 1 << 8,
+	IBV_QP_EX_WITH_SEND_WITH_INV		= 1 << 9,
+	IBV_QP_EX_WITH_TSO			= 1 << 10,
 };
 
 struct ibv_rx_hash_conf {
@@ -906,6 +941,8 @@ struct ibv_qp_init_attr_ex {
 	struct ibv_rwq_ind_table       *rwq_ind_tbl;
 	struct ibv_rx_hash_conf	rx_hash_conf;
 	uint32_t		source_qpn;
+	/* See enum ibv_qp_create_send_ops_flags */
+	uint64_t send_ops_flags;
 };
 
 enum ibv_qp_open_attr_mask {
@@ -1021,6 +1058,7 @@ enum ibv_wr_opcode {
 	IBV_WR_BIND_MW,
 	IBV_WR_SEND_WITH_INV,
 	IBV_WR_TSO,
+	IBV_WR_DRIVER1,
 };
 
 enum ibv_send_flags {
@@ -1029,6 +1067,11 @@ enum ibv_send_flags {
 	IBV_SEND_SOLICITED	= 1 << 2,
 	IBV_SEND_INLINE		= 1 << 3,
 	IBV_SEND_IP_CSUM	= 1 << 4
+};
+
+struct ibv_data_buf {
+	void *addr;
+	size_t length;
 };
 
 struct ibv_sge {
@@ -1185,6 +1228,174 @@ struct ibv_qp {
 	pthread_cond_t		cond;
 	uint32_t		events_completed;
 };
+
+struct ibv_qp_ex {
+	struct ibv_qp qp_base;
+	uint64_t comp_mask;
+
+	uint64_t wr_id;
+	/* bitmask from enum ibv_send_flags */
+	unsigned int wr_flags;
+
+	void (*wr_atomic_cmp_swp)(struct ibv_qp_ex *qp, uint32_t rkey,
+				  uint64_t remote_addr, uint64_t compare,
+				  uint64_t swap);
+	void (*wr_atomic_fetch_add)(struct ibv_qp_ex *qp, uint32_t rkey,
+				    uint64_t remote_addr, uint64_t add);
+	void (*wr_bind_mw)(struct ibv_qp_ex *qp, struct ibv_mw *mw,
+			   uint32_t rkey,
+			   const struct ibv_mw_bind_info *bind_info);
+	void (*wr_local_inv)(struct ibv_qp_ex *qp, uint32_t invalidate_rkey);
+	void (*wr_rdma_read)(struct ibv_qp_ex *qp, uint32_t rkey,
+			     uint64_t remote_addr);
+	void (*wr_rdma_write)(struct ibv_qp_ex *qp, uint32_t rkey,
+			      uint64_t remote_addr);
+	void (*wr_rdma_write_imm)(struct ibv_qp_ex *qp, uint32_t rkey,
+				  uint64_t remote_addr, __be32 imm_data);
+
+	void (*wr_send)(struct ibv_qp_ex *qp);
+	void (*wr_send_imm)(struct ibv_qp_ex *qp, __be32 imm_data);
+	void (*wr_send_inv)(struct ibv_qp_ex *qp, uint32_t invalidate_rkey);
+	void (*wr_send_tso)(struct ibv_qp_ex *qp, void *hdr, uint16_t hdr_sz,
+			    uint16_t mss);
+
+	void (*wr_set_ud_addr)(struct ibv_qp_ex *qp, struct ibv_ah *ah,
+			       uint32_t remote_qpn, uint32_t remote_qkey);
+	void (*wr_set_xrc_srqn)(struct ibv_qp_ex *qp, uint32_t remote_srqn);
+
+	void (*wr_set_inline_data)(struct ibv_qp_ex *qp, void *addr,
+				   size_t length);
+	void (*wr_set_inline_data_list)(struct ibv_qp_ex *qp, size_t num_buf,
+					const struct ibv_data_buf *buf_list);
+	void (*wr_set_sge)(struct ibv_qp_ex *qp, uint32_t lkey, uint64_t addr,
+			   uint32_t length);
+	void (*wr_set_sge_list)(struct ibv_qp_ex *qp, size_t num_sge,
+				const struct ibv_sge *sg_list);
+
+	void (*wr_start)(struct ibv_qp_ex *qp);
+	int (*wr_complete)(struct ibv_qp_ex *qp);
+	void (*wr_abort)(struct ibv_qp_ex *qp);
+};
+
+struct ibv_qp_ex *ibv_qp_to_qp_ex(struct ibv_qp *qp);
+
+static inline void ibv_wr_atomic_cmp_swp(struct ibv_qp_ex *qp, uint32_t rkey,
+					 uint64_t remote_addr, uint64_t compare,
+					 uint64_t swap)
+{
+	qp->wr_atomic_cmp_swp(qp, rkey, remote_addr, compare, swap);
+}
+
+static inline void ibv_wr_atomic_fetch_add(struct ibv_qp_ex *qp, uint32_t rkey,
+					   uint64_t remote_addr, uint64_t add)
+{
+	qp->wr_atomic_fetch_add(qp, rkey, remote_addr, add);
+}
+
+static inline void ibv_wr_bind_mw(struct ibv_qp_ex *qp, struct ibv_mw *mw,
+				  uint32_t rkey,
+				  const struct ibv_mw_bind_info *bind_info)
+{
+	qp->wr_bind_mw(qp, mw, rkey, bind_info);
+}
+
+static inline void ibv_wr_local_inv(struct ibv_qp_ex *qp,
+				    uint32_t invalidate_rkey)
+{
+	qp->wr_local_inv(qp, invalidate_rkey);
+}
+
+static inline void ibv_wr_rdma_read(struct ibv_qp_ex *qp, uint32_t rkey,
+				    uint64_t remote_addr)
+{
+	qp->wr_rdma_read(qp, rkey, remote_addr);
+}
+
+static inline void ibv_wr_rdma_write(struct ibv_qp_ex *qp, uint32_t rkey,
+				     uint64_t remote_addr)
+{
+	qp->wr_rdma_write(qp, rkey, remote_addr);
+}
+
+static inline void ibv_wr_rdma_write_imm(struct ibv_qp_ex *qp, uint32_t rkey,
+					 uint64_t remote_addr, __be32 imm_data)
+{
+	qp->wr_rdma_write_imm(qp, rkey, remote_addr, imm_data);
+}
+
+static inline void ibv_wr_send(struct ibv_qp_ex *qp)
+{
+	qp->wr_send(qp);
+}
+
+static inline void ibv_wr_send_imm(struct ibv_qp_ex *qp, __be32 imm_data)
+{
+	qp->wr_send_imm(qp, imm_data);
+}
+
+static inline void ibv_wr_send_inv(struct ibv_qp_ex *qp,
+				   uint32_t invalidate_rkey)
+{
+	qp->wr_send_inv(qp, invalidate_rkey);
+}
+
+static inline void ibv_wr_send_tso(struct ibv_qp_ex *qp, void *hdr,
+				   uint16_t hdr_sz, uint16_t mss)
+{
+	qp->wr_send_tso(qp, hdr, hdr_sz, mss);
+}
+
+static inline void ibv_wr_set_ud_addr(struct ibv_qp_ex *qp, struct ibv_ah *ah,
+				      uint32_t remote_qpn, uint32_t remote_qkey)
+{
+	qp->wr_set_ud_addr(qp, ah, remote_qpn, remote_qkey);
+}
+
+static inline void ibv_wr_set_xrc_srqn(struct ibv_qp_ex *qp,
+				       uint32_t remote_srqn)
+{
+	qp->wr_set_xrc_srqn(qp, remote_srqn);
+}
+
+static inline void ibv_wr_set_inline_data(struct ibv_qp_ex *qp, void *addr,
+					  size_t length)
+{
+	qp->wr_set_inline_data(qp, addr, length);
+}
+
+static inline void ibv_wr_set_inline_data_list(struct ibv_qp_ex *qp,
+					       size_t num_buf,
+					       const struct ibv_data_buf *buf_list)
+{
+	qp->wr_set_inline_data_list(qp, num_buf, buf_list);
+}
+
+static inline void ibv_wr_set_sge(struct ibv_qp_ex *qp, uint32_t lkey,
+				  uint64_t addr, uint32_t length)
+{
+	qp->wr_set_sge(qp, lkey, addr, length);
+}
+
+static inline void ibv_wr_set_sge_list(struct ibv_qp_ex *qp, size_t num_sge,
+				       const struct ibv_sge *sg_list)
+{
+	qp->wr_set_sge_list(qp, num_sge, sg_list);
+}
+
+static inline void ibv_wr_start(struct ibv_qp_ex *qp)
+{
+	qp->wr_start(qp);
+}
+
+static inline int ibv_wr_complete(struct ibv_qp_ex *qp)
+{
+	return qp->wr_complete(qp);
+}
+
+static inline void ibv_wr_abort(struct ibv_qp_ex *qp)
+{
+	qp->wr_abort(qp);
+}
 
 struct ibv_comp_channel {
 	struct ibv_context     *context;
@@ -1915,22 +2126,24 @@ struct ibv_device **ibv_get_device_list(int *num_devices);
  */
 #ifdef RDMA_STATIC_PROVIDERS
 #define _RDMA_STATIC_PREFIX_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11,     \
-			     _12, _13, _14, _15, ...)                          \
+			     _12, _13, _14, _15, _16, ...)                     \
 	&verbs_provider_##_1, &verbs_provider_##_2, &verbs_provider_##_3,      \
 		&verbs_provider_##_4, &verbs_provider_##_5,                    \
 		&verbs_provider_##_6, &verbs_provider_##_7,                    \
 		&verbs_provider_##_8, &verbs_provider_##_9,                    \
 		&verbs_provider_##_10, &verbs_provider_##_11,                  \
 		&verbs_provider_##_12, &verbs_provider_##_13,                  \
-		&verbs_provider_##_14, &verbs_provider_##_15
+		&verbs_provider_##_14, &verbs_provider_##_15,                  \
+		&verbs_provider_##_16
 #define _RDMA_STATIC_PREFIX(arg)                                               \
 	_RDMA_STATIC_PREFIX_(arg, none, none, none, none, none, none, none,    \
-			     none, none, none, none, none, none, none)
+			     none, none, none, none, none, none, none, none)
 
 struct verbs_devices_ops;
 extern const struct verbs_device_ops verbs_provider_bnxt_re;
 extern const struct verbs_device_ops verbs_provider_cxgb3;
 extern const struct verbs_device_ops verbs_provider_cxgb4;
+extern const struct verbs_device_ops verbs_provider_efa;
 extern const struct verbs_device_ops verbs_provider_hfi1verbs;
 extern const struct verbs_device_ops verbs_provider_hns;
 extern const struct verbs_device_ops verbs_provider_i40iw;

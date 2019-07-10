@@ -57,10 +57,12 @@ enum {
 
 static int page_size;
 static int use_odp;
+static int implicit_odp;
 static int prefetch_mr;
 static int use_ts;
 static int validate_buf;
 static int use_dm;
+static int use_new_send;
 
 struct pingpong_context {
 	struct ibv_context	*context;
@@ -73,6 +75,7 @@ struct pingpong_context {
 		struct ibv_cq_ex	*cq_ex;
 	} cq_s;
 	struct ibv_qp		*qp;
+	struct ibv_qp_ex	*qpx;
 	char			*buf;
 	int			 size;
 	int			 send_flags;
@@ -388,6 +391,11 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 				fprintf(stderr, "The device isn't ODP capable or does not support RC send and receive with ODP\n");
 				goto clean_pd;
 			}
+			if (implicit_odp &&
+			    !(attrx.odp_caps.general_caps & IBV_ODP_SUPPORT_IMPLICIT)) {
+				fprintf(stderr, "The device doesn't support implicit ODP\n");
+				goto clean_pd;
+			}
 			access_flags |= IBV_ACCESS_ON_DEMAND;
 		}
 
@@ -423,8 +431,13 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 		}
 	}
 
-	ctx->mr = use_dm ? ibv_reg_dm_mr(ctx->pd, ctx->dm, 0, size, access_flags) :
-			   ibv_reg_mr(ctx->pd, ctx->buf, size, access_flags);
+	if (implicit_odp) {
+		ctx->mr = ibv_reg_mr(ctx->pd, NULL, SIZE_MAX, access_flags);
+	} else {
+		ctx->mr = use_dm ? ibv_reg_dm_mr(ctx->pd, ctx->dm, 0,
+						 size, access_flags) :
+			ibv_reg_mr(ctx->pd, ctx->buf, size, access_flags);
+	}
 
 	if (!ctx->mr) {
 		fprintf(stderr, "Couldn't register MR\n");
@@ -481,16 +494,38 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 			.qp_type = IBV_QPT_RC
 		};
 
-		ctx->qp = ibv_create_qp(ctx->pd, &init_attr);
+		if (use_new_send) {
+			struct ibv_qp_init_attr_ex init_attr_ex = {};
+
+			init_attr_ex.send_cq = pp_cq(ctx);
+			init_attr_ex.recv_cq = pp_cq(ctx);
+			init_attr_ex.cap.max_send_wr = 1;
+			init_attr_ex.cap.max_recv_wr = rx_depth;
+			init_attr_ex.cap.max_send_sge = 1;
+			init_attr_ex.cap.max_recv_sge = 1;
+			init_attr_ex.qp_type = IBV_QPT_RC;
+
+			init_attr_ex.comp_mask |= IBV_QP_INIT_ATTR_PD |
+						  IBV_QP_INIT_ATTR_SEND_OPS_FLAGS;
+			init_attr_ex.pd = ctx->pd;
+			init_attr_ex.send_ops_flags = IBV_QP_EX_WITH_SEND;
+
+			ctx->qp = ibv_create_qp_ex(ctx->context, &init_attr_ex);
+		} else {
+			ctx->qp = ibv_create_qp(ctx->pd, &init_attr);
+		}
+
 		if (!ctx->qp)  {
 			fprintf(stderr, "Couldn't create QP\n");
 			goto clean_cq;
 		}
 
+		if (use_new_send)
+			ctx->qpx = ibv_qp_to_qp_ex(ctx->qp);
+
 		ibv_query_qp(ctx->qp, &attr, IBV_QP_CAP, &init_attr);
-		if (init_attr.cap.max_inline_data >= size) {
+		if (init_attr.cap.max_inline_data >= size && !use_dm)
 			ctx->send_flags |= IBV_SEND_INLINE;
-		}
 	}
 
 	{
@@ -630,7 +665,19 @@ static int pp_post_send(struct pingpong_context *ctx)
 	};
 	struct ibv_send_wr *bad_wr;
 
-	return ibv_post_send(ctx->qp, &wr, &bad_wr);
+	if (use_new_send) {
+		ibv_wr_start(ctx->qpx);
+
+		ctx->qpx->wr_id = PINGPONG_SEND_WRID;
+		ctx->qpx->wr_flags = ctx->send_flags;
+
+		ibv_wr_send(ctx->qpx);
+		ibv_wr_set_sge(ctx->qpx, list.lkey, list.addr, list.length);
+
+		return ibv_wr_complete(ctx->qpx);
+	} else {
+		return ibv_post_send(ctx->qp, &wr, &bad_wr);
+	}
 }
 
 struct ts_params {
@@ -734,10 +781,12 @@ static void usage(const char *argv0)
 	printf("  -e, --events           sleep on CQ events (default poll)\n");
 	printf("  -g, --gid-idx=<gid index> local port gid index\n");
 	printf("  -o, --odp		    use on demand paging\n");
+	printf("  -O, --iodp		    use implicit on demand paging\n");
 	printf("  -P, --prefetch	    prefetch an ODP MR\n");
 	printf("  -t, --ts	            get CQE with timestamp\n");
 	printf("  -c, --chk	            validate received buffer\n");
 	printf("  -j, --dm	            use device memory\n");
+	printf("  -N, --new_send            use new post send WR API\n");
 }
 
 int main(int argc, char *argv[])
@@ -782,14 +831,16 @@ int main(int argc, char *argv[])
 			{ .name = "events",   .has_arg = 0, .val = 'e' },
 			{ .name = "gid-idx",  .has_arg = 1, .val = 'g' },
 			{ .name = "odp",      .has_arg = 0, .val = 'o' },
+			{ .name = "iodp",     .has_arg = 0, .val = 'O' },
 			{ .name = "prefetch", .has_arg = 0, .val = 'P' },
 			{ .name = "ts",       .has_arg = 0, .val = 't' },
 			{ .name = "chk",      .has_arg = 0, .val = 'c' },
 			{ .name = "dm",       .has_arg = 0, .val = 'j' },
+			{ .name = "new_send", .has_arg = 0, .val = 'N' },
 			{}
 		};
 
-		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:l:eg:oPtcj",
+		c = getopt_long(argc, argv, "p:d:i:s:m:r:n:l:eg:oOPtcjN",
 				long_options, NULL);
 
 		if (c == -1)
@@ -854,6 +905,10 @@ int main(int argc, char *argv[])
 		case 'P':
 			prefetch_mr = 1;
 			break;
+		case 'O':
+			use_odp = 1;
+			implicit_odp = 1;
+			break;
 		case 't':
 			use_ts = 1;
 			break;
@@ -863,6 +918,10 @@ int main(int argc, char *argv[])
 
 		case 'j':
 			use_dm = 1;
+			break;
+
+		case 'N':
+			use_new_send = 1;
 			break;
 
 		default:

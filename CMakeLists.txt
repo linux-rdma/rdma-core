@@ -65,7 +65,7 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "22.1")
+set(PACKAGE_VERSION "24.0")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
@@ -170,6 +170,21 @@ endif()
 RDMA_BuildType()
 include_directories(${BUILD_INCLUDE})
 
+# Look for Python. We prefer some variant of python 3 if the system has it.
+FIND_PACKAGE(PythonInterp 3 QUIET)
+if (PythonInterp_FOUND)
+  # pyverbs can only use python3:
+  if (NO_PYVERBS)
+    set(CYTHON_EXECUTABLE "")
+  else()
+    FIND_PACKAGE(cython)
+  endif()
+else()
+  # But we still must have python (be it 2) for the build process:
+  FIND_PACKAGE(PythonInterp REQUIRED)
+  set(CYTHON_EXECUTABLE "")
+endif()
+
 RDMA_CheckSparse()
 
 # Require GNU99 mode
@@ -185,6 +200,10 @@ RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WMISSING_DECLARATIONS "-Wmissing-declarati
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WWRITE_STRINGS "-Wwrite-strings")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WFORMAT_2 "-Wformat=2")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WCAST_FUNCTION "-Wcast-function-type")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WFORMAT_NONLITERAL "-Wformat-nonliteral")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WREDUNDANT_DECLS "-Wredundant-decls")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WDATE_TIME "-Wdate-time")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WNESTED_EXTERNS "-Wnested-externs")
 
 # At some point after 4.4 gcc fixed shadow to ignore function vs variable
 # conflicts
@@ -360,23 +379,8 @@ else()
   set(HAVE_FULL_SYMBOL_VERSIONS 1)
 endif()
 
-if (${NO_PYVERBS})
-  set(CYTHON_EXECUTABLE "")
-else ()
-  # Look for Python. We prefer some variant of python 3 if the system has it.
-  FIND_PACKAGE(PythonInterp 3 QUIET)
-  if (NOT ${PythonInterp_FOUND})
-    FIND_PACKAGE(PythonInterp REQUIRED)
-  endif()
-  FIND_PACKAGE(cython)
-endif()
-
-# Look for Python. We prefer some variant of python 3 if the system has it.
-FIND_PACKAGE(PythonInterp 3 QUIET)
-if (NOT ${PythonInterp_FOUND})
-  FIND_PACKAGE(PythonInterp REQUIRED)
-endif()
 # A cython & python-devel installation that matches our selected interpreter.
+
 if (CYTHON_EXECUTABLE)
  # cmake has really bad logic here, if PythonIterp has been run it tries to
  # find a matching -devel installation but will happily return a non-matching
@@ -579,6 +583,8 @@ if (HAVE_COHERENT_DMA)
 add_subdirectory(providers/bnxt_re)
 add_subdirectory(providers/cxgb3) # NO SPARSE
 add_subdirectory(providers/cxgb4) # NO SPARSE
+add_subdirectory(providers/efa)
+add_subdirectory(providers/efa/man)
 add_subdirectory(providers/hns)
 add_subdirectory(providers/i40iw) # NO SPARSE
 add_subdirectory(providers/mlx4)
@@ -602,7 +608,10 @@ if (CYTHON_EXECUTABLE)
 endif()
 
 # Binaries
-add_subdirectory(ibacm) # NO SPARSE
+if (NOT NL_KIND EQUAL 0)
+  add_subdirectory(ibacm) # NO SPARSE
+endif()
+
 if (NOT NL_KIND EQUAL 0)
   add_subdirectory(iwpmd)
 endif()

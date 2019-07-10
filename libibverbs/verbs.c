@@ -589,6 +589,15 @@ LATEST_SYMVER_FUNC(ibv_create_qp, 1_1, "IBVERBS_1.1",
 	return qp;
 }
 
+struct ibv_qp_ex *ibv_qp_to_qp_ex(struct ibv_qp *qp)
+{
+	struct verbs_qp *vqp = (struct verbs_qp *)qp;
+
+	if (vqp->comp_mask & VERBS_QP_EX)
+		return &vqp->qp_ex;
+	return NULL;
+}
+
 LATEST_SYMVER_FUNC(ibv_query_qp, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_qp *qp, struct ibv_qp_attr *attr,
@@ -1021,10 +1030,12 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 	if (process_get_neigh(&neigh_handler))
 		goto free_resources;
 
-	ret_vid = neigh_get_vlan_id_from_dev(&neigh_handler);
+	if (vid) {
+		ret_vid = neigh_get_vlan_id_from_dev(&neigh_handler);
 
-	if (ret_vid <= 0xfff)
-		neigh_set_vlan_id(&neigh_handler, ret_vid);
+		if (ret_vid <= 0xfff)
+			neigh_set_vlan_id(&neigh_handler, ret_vid);
+	}
 
 	/* We are using only Ethernet here */
 	ether_len = neigh_get_ll(&neigh_handler,
@@ -1034,7 +1045,8 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 	if (ether_len <= 0)
 		goto free_resources;
 
-	*vid = ret_vid;
+	if (vid)
+		*vid = ret_vid;
 
 	ret = 0;
 

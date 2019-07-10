@@ -38,6 +38,7 @@ struct mlx5dv_qp_init_attr {
 	uint64_t comp_mask;
 	uint32_t create_flags;
 	struct mlx5dv_dc_init_attr  dc_init_attr;
+	uint64_t send_ops_flags;
 };
 ```
 
@@ -47,6 +48,8 @@ struct mlx5dv_qp_init_attr {
 		valid values in *create_flags*
 	MLX5DV_QP_INIT_ATTR_MASK_DC:
 		valid values in *dc_init_attr*
+	MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS:
+		valid values in *send_ops_flags*
 
 *create_flags*
 :	A bitwise OR of the various values described below.
@@ -94,6 +97,20 @@ struct mlx5dv_dc_init_attr {
 *dct_access_key*
 :	used to create a DCT QP.
 
+
+*send_ops_flags*
+:	A bitwise OR of the various values described below.
+
+	MLX5DV_QP_EX_WITH_MR_INTERLEAVED:
+		Enables the mlx5dv_wr_mr_interleaved() work requset on this QP.
+
+	MLX5DV_QP_EX_WITH_MR_LIST:
+		Enables the mlx5dv_wr_mr_list() work requset on this QP.
+
+# NOTES
+
+**mlx5dv_qp_ex_from_ibv_qp_ex()** is used to get *struct mlx5dv_qp_ex* for
+accessing the send ops interfaces when IBV_QP_INIT_ATTR_SEND_OPS_FLAGS is used.
 
 # RETURN VALUE
 

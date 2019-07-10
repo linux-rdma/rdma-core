@@ -82,6 +82,95 @@ void mlx5_free_srq_wqe(struct mlx5_srq *srq, int ind)
 	mlx5_spin_unlock(&srq->lock);
 }
 
+/* Take an index and put it last in wait queue */
+static void srq_put_in_waitq(struct mlx5_srq *srq, int ind)
+{
+	struct mlx5_wqe_srq_next_seg *waitq_tail;
+
+	waitq_tail = get_wqe(srq, srq->waitq_tail);
+	waitq_tail->next_wqe_index = htobe16(ind);
+	srq->waitq_tail = ind;
+}
+
+/* Take first in wait queue and put in tail of SRQ */
+static void srq_get_from_waitq(struct mlx5_srq *srq)
+{
+	struct mlx5_wqe_srq_next_seg *tail;
+	struct mlx5_wqe_srq_next_seg *waitq_head;
+
+	tail = get_wqe(srq, srq->tail);
+	waitq_head = get_wqe(srq, srq->waitq_head);
+
+	tail->next_wqe_index = htobe16(srq->waitq_head);
+	srq->tail = srq->waitq_head;
+	srq->waitq_head = be16toh(waitq_head->next_wqe_index);
+}
+
+/* Put the given WQE that is in SW ownership at the end of the wait queue.
+ * Take a WQE from the wait queue and add it to WQEs in SW ownership instead.
+ */
+bool srq_cooldown_wqe(struct mlx5_srq *srq, int ind)
+{
+	if (!srq_has_waitq(srq))
+		return false;
+
+	srq_put_in_waitq(srq, ind);
+	srq_get_from_waitq(srq);
+	return true;
+}
+
+/* Post a WQE internally, based on a previous application post.
+ * Copy a given WQE's data segments to the SRQ head, advance the head
+ * and ring the HW doorbell.
+ */
+static void srq_repost(struct mlx5_srq *srq, int ind)
+{
+	struct mlx5_wqe_srq_next_seg *src, *dst;
+	struct mlx5_wqe_data_seg *src_scat, *dst_scat;
+	int i;
+
+	srq->wrid[srq->head] = srq->wrid[ind];
+
+	src = get_wqe(srq, ind);
+	dst = get_wqe(srq, srq->head);
+	src_scat = (struct mlx5_wqe_data_seg *)(src + 1);
+	dst_scat = (struct mlx5_wqe_data_seg *)(dst + 1);
+
+	for (i = 0; i < srq->max_gs; ++i) {
+		dst_scat[i] = src_scat[i];
+
+		if (dst_scat[i].lkey == htobe32(MLX5_INVALID_LKEY))
+			break;
+	}
+
+	srq->head = be16toh(dst->next_wqe_index);
+	srq->counter++;
+	/* Flush descriptors */
+	udma_to_device_barrier();
+	*srq->db = htobe32(srq->counter);
+}
+
+void mlx5_complete_odp_fault(struct mlx5_srq *srq, int ind)
+{
+	mlx5_spin_lock(&srq->lock);
+
+	if (!srq_cooldown_wqe(srq, ind)) {
+		struct mlx5_wqe_srq_next_seg *tail = get_wqe(srq, srq->tail);
+
+		/* Without a wait queue put the page-faulted wqe
+		 * back in SRQ tail. The repost is still possible but
+		 * the risk of overriding the page-faulted WQE with a future
+		 * post_srq_recv() is now higher.
+		 */
+		tail->next_wqe_index = htobe16(ind);
+		srq->tail = ind;
+	}
+
+	srq_repost(srq, ind);
+
+	mlx5_spin_unlock(&srq->lock);
+}
+
 int mlx5_post_srq_recv(struct ibv_srq *ibsrq,
 		       struct ibv_recv_wr *wr,
 		       struct ibv_recv_wr **bad_wr)
@@ -145,13 +234,29 @@ int mlx5_post_srq_recv(struct ibv_srq *ibsrq,
 	return err;
 }
 
-int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq)
+/* Build a linked list on an array of SRQ WQEs.
+ * Since WQEs are always added to the tail and taken from the head
+ * it doesn't matter where the last WQE points to.
+ */
+static void set_srq_buf_ll(struct mlx5_srq *srq, int start, int end)
 {
 	struct mlx5_wqe_srq_next_seg *next;
+	int i;
+
+	for (i = start; i < end; ++i) {
+		next = get_wqe(srq, i);
+		next->next_wqe_index = htobe16(i + 1);
+	}
+}
+
+int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq,
+		       uint32_t max_wr)
+{
 	int size;
 	int buf_size;
-	int i;
 	struct mlx5_context	   *ctx;
+	uint32_t orig_max_wr = max_wr;
+	bool have_wq = true;
 
 	ctx = to_mctx(context);
 
@@ -160,15 +265,24 @@ int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq)
 		return -1;
 	}
 
-	srq->wrid = malloc(srq->max * sizeof *srq->wrid);
-	if (!srq->wrid)
-		return -1;
+	/* At first, try to allocate more WQEs than requested so the extra will
+	 * be used for the wait queue.
+	 */
+	max_wr = orig_max_wr * 2 + 1;
+
+	if (max_wr > ctx->max_srq_recv_wr) {
+		/* Device limits are smaller than required
+		 * to provide a wait queue, continue without.
+		 */
+		max_wr = orig_max_wr + 1;
+		have_wq = false;
+	}
 
 	size = sizeof(struct mlx5_wqe_srq_next_seg) +
 		srq->max_gs * sizeof(struct mlx5_wqe_data_seg);
 	size = max(32, size);
 
-	size = mlx5_round_up_power_of_two(size);
+	size = roundup_pow_of_two(size);
 
 	if (size > ctx->max_recv_wr) {
 		errno = EINVAL;
@@ -179,28 +293,38 @@ int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq)
 
 	srq->wqe_shift = mlx5_ilog2(size);
 
+	srq->max = align_queue_size(max_wr);
 	buf_size = srq->max * size;
 
 	if (mlx5_alloc_buf(&srq->buf, buf_size,
-			   to_mdev(context->device)->page_size)) {
-		free(srq->wrid);
+			   to_mdev(context->device)->page_size))
 		return -1;
-	}
 
 	memset(srq->buf.buf, 0, buf_size);
+	srq->head = 0;
+	srq->tail = align_queue_size(orig_max_wr + 1) - 1;
+	if (have_wq)  {
+		srq->waitq_head = srq->tail + 1;
+		srq->waitq_tail = srq->max - 1;
+	} else {
+		srq->waitq_head = -1;
+		srq->waitq_tail = -1;
+	}
+
+	srq->wrid = malloc(srq->max * sizeof(*srq->wrid));
+	if (!srq->wrid) {
+		mlx5_free_buf(&srq->buf);
+		return -1;
+	}
 
 	/*
 	 * Now initialize the SRQ buffer so that all of the WQEs are
 	 * linked into the list of free WQEs.
 	 */
 
-	for (i = 0; i < srq->max; ++i) {
-		next = get_wqe(srq, i);
-		next->next_wqe_index = htobe16((i + 1) & (srq->max - 1));
-	}
-
-	srq->head = 0;
-	srq->tail = srq->max - 1;
+	set_srq_buf_ll(srq, srq->head, srq->tail);
+	if (have_wq)
+		set_srq_buf_ll(srq, srq->waitq_head, srq->waitq_tail);
 
 	return 0;
 }
@@ -221,20 +345,20 @@ int mlx5_store_srq(struct mlx5_context *ctx, uint32_t srqn,
 	int tind = srqn >> MLX5_SRQ_TABLE_SHIFT;
 
 	if (!ctx->srq_table[tind].refcnt) {
-		ctx->srq_table[tind].table = calloc(MLX5_QP_TABLE_MASK + 1,
-						   sizeof(struct mlx5_qp *));
+		ctx->srq_table[tind].table = calloc(MLX5_SRQ_TABLE_MASK + 1,
+						   sizeof(struct mlx5_srq *));
 		if (!ctx->srq_table[tind].table)
 			return -1;
 	}
 
 	++ctx->srq_table[tind].refcnt;
-	ctx->srq_table[tind].table[srqn & MLX5_QP_TABLE_MASK] = srq;
+	ctx->srq_table[tind].table[srqn & MLX5_SRQ_TABLE_MASK] = srq;
 	return 0;
 }
 
 void mlx5_clear_srq(struct mlx5_context *ctx, uint32_t srqn)
 {
-	int tind = srqn >> MLX5_QP_TABLE_SHIFT;
+	int tind = srqn >> MLX5_SRQ_TABLE_SHIFT;
 
 	if (!--ctx->srq_table[tind].refcnt)
 		free(ctx->srq_table[tind].table);

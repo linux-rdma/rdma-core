@@ -3,6 +3,27 @@
 
 cdef extern from '<infiniband/verbs.h>':
 
+    cpdef enum ibv_transport_type:
+        IBV_TRANSPORT_UNKNOWN   = -1
+        IBV_TRANSPORT_IB        = 0
+        IBV_TRANSPORT_IWARP     = 1
+        IBV_TRANSPORT_USNIC     = 2
+        IBV_TRANSPORT_USNIC_UDP = 3
+
+    cpdef enum ibv_node_type:
+        IBV_NODE_UNKNOWN    = -1
+        IBV_NODE_CA         = 1
+        IBV_NODE_SWITCH     = 2
+        IBV_NODE_ROUTER     = 3
+        IBV_NODE_RNIC       = 4
+        IBV_NODE_USNIC      = 5
+        IBV_NODE_USNIC_UDP  = 6
+
+    cpdef enum:
+        IBV_LINK_LAYER_UNSPECIFIED
+        IBV_LINK_LAYER_INFINIBAND
+        IBV_LINK_LAYER_ETHERNET
+
     cpdef enum ibv_atomic_cap:
         IBV_ATOMIC_NONE
         IBV_ATOMIC_HCA
@@ -29,6 +50,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_PORT_SYS_IMAGE_GUID_SUP         = 1 << 11
         IBV_PORT_PKEY_SW_EXT_PORT_TRAP_SUP  = 1 << 12
         IBV_PORT_EXTENDED_SPEEDS_SUP        = 1 << 14
+        IBV_PORT_CAP_MASK2_SUP              = 1 << 15,
         IBV_PORT_CM_SUP                     = 1 << 16
         IBV_PORT_SNMP_TUNNEL_SUP            = 1 << 17
         IBV_PORT_REINIT_SUP                 = 1 << 18
@@ -40,6 +62,14 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_PORT_LINK_LATENCY_SUP           = 1 << 24
         IBV_PORT_CLIENT_REG_SUP             = 1 << 25
         IBV_PORT_IP_BASED_GIDS              = 1 << 26
+
+    cpdef enum ibv_port_cap_flags2:
+        IBV_PORT_SET_NODE_DESC_SUP              = 1 << 0
+        IBV_PORT_INFO_EXT_SUP                   = 1 << 1
+        IBV_PORT_VIRT_SUP                       = 1 << 2
+        IBV_PORT_SWITCH_PORT_STATE_TABLE_SUP    = 1 << 3
+        IBV_PORT_LINK_WIDTH_2X_SUP              = 1 << 4
+        IBV_PORT_LINK_SPEED_HDR_SUP             = 1 << 5
 
     cpdef enum ibv_mtu:
         IBV_MTU_256     = 1
@@ -159,17 +189,18 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_WC_RECV_RDMA_WITH_IMM
 
     cpdef enum ibv_create_cq_wc_flags:
-        IBV_WC_EX_WITH_BYTE_LEN                 = 1 << 0
-        IBV_WC_EX_WITH_IMM                      = 1 << 1
-        IBV_WC_EX_WITH_QP_NUM                   = 1 << 2
-        IBV_WC_EX_WITH_SRC_QP                   = 1 << 3
-        IBV_WC_EX_WITH_SLID                     = 1 << 4
-        IBV_WC_EX_WITH_SL                       = 1 << 5
-        IBV_WC_EX_WITH_DLID_PATH_BITS           = 1 << 6
-        IBV_WC_EX_WITH_COMPLETION_TIMESTAMP     = 1 << 7
-        IBV_WC_EX_WITH_CVLAN                    = 1 << 8
-        IBV_WC_EX_WITH_FLOW_TAG                 = 1 << 9
-        IBV_WC_EX_WITH_TM_INFO                  = 1 << 10
+        IBV_WC_EX_WITH_BYTE_LEN                         = 1 << 0
+        IBV_WC_EX_WITH_IMM                              = 1 << 1
+        IBV_WC_EX_WITH_QP_NUM                           = 1 << 2
+        IBV_WC_EX_WITH_SRC_QP                           = 1 << 3
+        IBV_WC_EX_WITH_SLID                             = 1 << 4
+        IBV_WC_EX_WITH_SL                               = 1 << 5
+        IBV_WC_EX_WITH_DLID_PATH_BITS                   = 1 << 6
+        IBV_WC_EX_WITH_COMPLETION_TIMESTAMP             = 1 << 7
+        IBV_WC_EX_WITH_CVLAN                            = 1 << 8
+        IBV_WC_EX_WITH_FLOW_TAG                         = 1 << 9
+        IBV_WC_EX_WITH_TM_INFO                          = 1 << 10
+        IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK   = 1 << 11
 
     cpdef enum ibv_wc_flags:
         IBV_WC_GRH              = 1 << 0
@@ -198,7 +229,6 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_SRQ_INIT_ATTR_XRCD      = 1 << 2
         IBV_SRQ_INIT_ATTR_CQ        = 1 << 3
         IBV_SRQ_INIT_ATTR_TM        = 1 << 4
-        IBV_SRQ_INIT_ATTR_RESERVED  = 1 << 5
 
     cpdef enum ibv_mig_state:
         IBV_MIG_MIGRATED
@@ -212,7 +242,6 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_QP_INIT_ATTR_MAX_TSO_HEADER = 1 << 3
         IBV_QP_INIT_ATTR_IND_TABLE      = 1 << 4
         IBV_QP_INIT_ATTR_RX_HASH        = 1 << 5
-        IBV_QP_INIT_ATTR_RESERVED       = 1 << 6
 
     cpdef enum ibv_qp_create_flags:
         IBV_QP_CREATE_BLOCK_SELF_MCAST_LB   = 1 << 1
@@ -250,14 +279,12 @@ cdef extern from '<infiniband/verbs.h>':
 
     cpdef enum ibv_wq_init_attr_mask:
         IBV_WQ_INIT_ATTR_FLAGS      = 1 << 0
-        IBV_WQ_INIT_ATTR_RESERVED   = 1 << 1
 
     cpdef enum ibv_wq_flags:
         IBV_WQ_FLAGS_CVLAN_STRIPPING        = 1 << 0
         IBV_WQ_FLAGS_SCATTER_FCS            = 1 << 1
         IBV_WQ_FLAGS_DELAY_DROP             = 1 << 2
         IBV_WQ_FLAGS_PCI_WRITE_END_PADDING  = 1 << 3
-        IBV_WQ_FLAGS_RESERVED               = 1 << 4
 
     cpdef enum ibv_wq_state:
         IBV_WQS_RESET
@@ -269,7 +296,6 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_WQ_ATTR_STATE       = 1 << 0
         IBV_WQ_ATTR_CURR_STATE  = 1 << 1
         IBV_WQ_ATTR_FLAGS       = 1 << 2
-        IBV_WQ_ATTR_RESERVED    = 1 << 3
 
     cpdef enum ibv_rx_hash_function_flags:
         IBV_RX_HASH_FUNC_TOEPLITZ   = 1 << 0
@@ -331,9 +357,67 @@ cdef extern from '<infiniband/verbs.h>':
     cpdef enum ibv_read_counters_flags:
         IBV_READ_COUNTERS_ATTR_PREFER_CACHED = 1 << 0
 
+    cpdef enum ibv_cq_init_attr_mask:
+        IBV_CQ_INIT_ATTR_MASK_FLAGS = 1 << 0
+
+    cpdef enum ibv_create_cq_attr_flags:
+        IBV_CREATE_CQ_ATTR_SINGLE_THREADED = 1 << 0
+        IBV_CREATE_CQ_ATTR_IGNORE_OVERRUN  = 1 << 1
+
+    cpdef enum ibv_odp_general_caps:
+        IBV_ODP_SUPPORT             = 1
+        IBV_ODP_SUPPORT_IMPLICIT    = 1 << 1
+
+    cpdef enum ibv_odp_transport_cap_bits:
+        IBV_ODP_SUPPORT_SEND        = 1 << 0
+        IBV_ODP_SUPPORT_RECV        = 1 << 1
+        IBV_ODP_SUPPORT_WRITE       = 1 << 2
+        IBV_ODP_SUPPORT_READ        = 1 << 3
+        IBV_ODP_SUPPORT_ATOMIC      = 1 << 4
+        IBV_ODP_SUPPORT_SRQ_RECV    = 1 << 5
+
+    cpdef enum ibv_device_cap_flags:
+        IBV_DEVICE_RESIZE_MAX_WR            = 1 <<  0
+        IBV_DEVICE_BAD_PKEY_CNTR            = 1 <<  1
+        IBV_DEVICE_BAD_QKEY_CNTR            = 1 <<  2
+        IBV_DEVICE_RAW_MULTI                = 1 <<  3
+        IBV_DEVICE_AUTO_PATH_MIG            = 1 <<  4
+        IBV_DEVICE_CHANGE_PHY_PORT          = 1 <<  5
+        IBV_DEVICE_UD_AV_PORT_ENFORCE       = 1 <<  6
+        IBV_DEVICE_CURR_QP_STATE_MOD        = 1 <<  7
+        IBV_DEVICE_SHUTDOWN_PORT            = 1 <<  8
+        IBV_DEVICE_INIT_TYPE                = 1 <<  9
+        IBV_DEVICE_PORT_ACTIVE_EVENT        = 1 << 10
+        IBV_DEVICE_SYS_IMAGE_GUID           = 1 << 11
+        IBV_DEVICE_RC_RNR_NAK_GEN           = 1 << 12
+        IBV_DEVICE_SRQ_RESIZE               = 1 << 13
+        IBV_DEVICE_N_NOTIFY_CQ              = 1 << 14
+        IBV_DEVICE_MEM_WINDOW               = 1 << 17
+        IBV_DEVICE_UD_IP_CSUM               = 1 << 18
+        IBV_DEVICE_XRC                      = 1 << 20
+        IBV_DEVICE_MEM_MGT_EXTENSIONS       = 1 << 21
+        IBV_DEVICE_MEM_WINDOW_TYPE_2A       = 1 << 23
+        IBV_DEVICE_MEM_WINDOW_TYPE_2B       = 1 << 24
+        IBV_DEVICE_RC_IP_CSUM               = 1 << 25
+        IBV_DEVICE_RAW_IP_CSUM              = 1 << 26
+        IBV_DEVICE_MANAGED_FLOW_STEERING    = 1 << 29
+
+    cpdef enum ibv_raw_packet_caps:
+        IBV_RAW_PACKET_CAP_CVLAN_STRIPPING  = 1 << 0
+        IBV_RAW_PACKET_CAP_SCATTER_FCS      = 1 << 1
+        IBV_RAW_PACKET_CAP_IP_CSUM          = 1 << 2
+        IBV_RAW_PACKET_CAP_DELAY_DROP       = 1 << 3
+
+    cdef unsigned long long IBV_DEVICE_RAW_SCATTER_FCS
+    cdef unsigned long long IBV_DEVICE_PCI_WRITE_END_PADDING
+
+
 cdef extern from "<infiniband/tm_types.h>":
     cpdef enum ibv_tmh_op:
         IBV_TMH_NO_TAG        = 0
         IBV_TMH_RNDV          = 1
         IBV_TMH_FIN           = 2
         IBV_TMH_EAGER         = 3
+
+_IBV_DEVICE_RAW_SCATTER_FCS = IBV_DEVICE_RAW_SCATTER_FCS
+_IBV_DEVICE_PCI_WRITE_END_PADDING = IBV_DEVICE_PCI_WRITE_END_PADDING

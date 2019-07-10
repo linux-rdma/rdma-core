@@ -11,10 +11,20 @@ if (MLX5_MW_DEBUG)
 endif()
 
 rdma_shared_provider(mlx5 libmlx5.map
-  1 1.8.${PACKAGE_VERSION}
+  1 1.10.${PACKAGE_VERSION}
   buf.c
   cq.c
   dbrec.c
+  dr_action.c
+  dr_crc32.c
+  dr_devx.c
+  dr_icm_pool.c
+  dr_matcher.c
+  dr_domain.c
+  dr_rule.c
+  dr_ste.c
+  dr_table.c
+  dr_send.c
   mlx5.c
   qp.c
   srq.c

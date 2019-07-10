@@ -166,6 +166,8 @@ request is fully executed and a work completion has been retrieved
 from the corresponding completion queue (CQ). However, if the
 IBV_SEND_INLINE flag was set, the buffer can be reused immediately
 after the call returns.
+.PP
+IBV_WR_DRIVER1 is an opcode that should be used to issue a specific driver operation.
 .SH "SEE ALSO"
 .BR ibv_create_qp (3),
 .BR ibv_create_ah (3),

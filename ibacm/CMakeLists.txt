@@ -7,6 +7,7 @@ publish_headers(infiniband
 include_directories("include")
 include_directories("src")
 include_directories("linux")
+include_directories(${NL_INCLUDE_DIRS})
 
 # NOTE: ibacm exports symbols from its own binary for use by ibacm
 rdma_sbin_executable(ibacm
@@ -16,6 +17,7 @@ rdma_sbin_executable(ibacm
 target_link_libraries(ibacm LINK_PRIVATE
   ibverbs
   ibumad
+  ${NL_LIBRARIES}
   ${SYSTEMD_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
   ${CMAKE_DL_LIBS}

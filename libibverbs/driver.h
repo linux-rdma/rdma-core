@@ -77,7 +77,7 @@ struct verbs_srq {
 
 enum verbs_qp_mask {
 	VERBS_QP_XRCD		= 1 << 0,
-	VERBS_QP_RESERVED	= 1 << 1
+	VERBS_QP_EX		= 1 << 1,
 };
 
 enum ibv_gid_type {
@@ -101,10 +101,14 @@ static inline struct verbs_mr *verbs_get_mr(struct ibv_mr *mr)
 }
 
 struct verbs_qp {
-	struct ibv_qp		qp;
+	union {
+		struct ibv_qp qp;
+		struct ibv_qp_ex qp_ex;
+	};
 	uint32_t		comp_mask;
 	struct verbs_xrcd       *xrcd;
 };
+static_assert(offsetof(struct ibv_qp_ex, qp_base) == 0, "Invalid qp layout");
 
 enum ibv_flow_action_type {
 	IBV_FLOW_ACTION_UNSPECIFIED,
@@ -233,7 +237,7 @@ struct verbs_context_ops {
 	struct ibv_pd *(*alloc_pd)(struct ibv_context *context);
 	struct ibv_td *(*alloc_td)(struct ibv_context *context,
 				   struct ibv_td_init_attr *init_attr);
-	void (*async_event)(struct ibv_async_event *event);
+	void (*async_event)(struct ibv_context *context, struct ibv_async_event *event);
 	int (*attach_counters_point_flow)(struct ibv_counters *counters,
 					  struct ibv_counter_attach_attr *attr,
 					  struct ibv_flow *flow);

@@ -517,6 +517,7 @@ sub do_start {
     modprobe("rdma_rxe");
 
     populate_persistence();
+    system("udevadm control --reload");
 
     foreach my $eth (@persistence_array) {
 	rxe_add($eth);

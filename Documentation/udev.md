@@ -147,3 +147,52 @@ In their unit files.
 
 `rdma-hw.target` is also a synchronization point that orders after the low level,
 pre `sysinit.target` RDMA related units have been started.
+
+# Stable names
+
+The library provides general utility and udev rule to automatically perform
+stable IB device name assignments, so users will always see names based on
+topology/GUID information. Such naming scheme has big advantage that the
+names are fully automatic, fully predictable and they stay fixed even if
+hardware is added or removed (i.e. no reenumeration takes place) and that
+broken hardware can be replaced seamlessly.
+
+The name is combination of link type (Infiniband, RoCE, iWARP, OPA or USNIC)
+and the chosen naming policy, like NAME_KERNEL, NAME_PCI, NAME_GUID, NAME_ONBOARD
+or NAME_FALLBACK. Those naming policies are controlled by udev rule and can be
+overwritten by placing own rename policy udev rules into /etc/udev/rules.d/
+directory.
+
+ * NAME_KERNEL - don't change names and rely on kernel assignment. This
+ will keep RDMA names as before. Example: "mlx5_0".
+ * NAME_PCI - read PCI location and topology as a source for stable names,
+ which won't change in any software event (reset, PCI probe e.t.c.).
+ Example: "ibp0s12f4".
+ * NAME_GUID - read system image GUID information in similar manner to
+ net MAC naming policy. Example "rocex525400c0fe123455".
+ * NAME_ONBOARD - read Firmware/BIOS provided index numbers for on-board devices.
+ Example: "ibo3".
+ * NAME_FALLBACK - automatic fallback: NAME_ONBOARD->NAME_PCI->NAME_KERNEL
+
+No doubts that new names are harder to read than the "mlx5_0" everybody,
+is used to, but being consistent in scripts is much more important.
+
+There is a distinction between real devices and virtual ones like RXE or SIW.
+For real devices, the naming policy is NAME_FALLBACK, while virtual devices keep
+their kernel name.
+
+In similar way to netdev, NAME_GUID scheme is not participating in fallback mechanism
+and needs to be enabled explicitly by the users.
+
+Type of names:
+
+ * o<index> - on-board device index number
+ * s<slot>[f<function>] - hotplug slot index number
+ * x<GUID> - System image GUID
+ * [P<domain>]p<bus>s<slot>[f<function>] - PCI geographical location
+
+Notes:
+
+ * All multi-function PCI devices will carry the [f<function>] number in the
+ device name, including the function 0 device.
+ * When using PCI geography, The PCI domain is only prepended when it is not 0.

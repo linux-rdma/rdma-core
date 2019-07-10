@@ -79,7 +79,6 @@ static void prepare_attrs(struct ibv_command_buffer *cmd)
 	}
 
 	cmd->hdr.num_attrs = end - cmd->hdr.attrs;
-	cmd->last_attr = end;
 
 	/*
 	 * We keep the in UHW uninlined until directly before sending to
@@ -113,7 +112,7 @@ static void finalize_attrs(struct ibv_command_buffer *cmd)
 	struct ibv_command_buffer *link;
 	struct ib_uverbs_attr *end;
 
-	for (end = cmd->hdr.attrs; end != cmd->last_attr; end++)
+	for (end = cmd->hdr.attrs; end != cmd->next_attr; end++)
 		finalize_attr(end);
 
 	for (link = cmd->next; link; link = link->next) {

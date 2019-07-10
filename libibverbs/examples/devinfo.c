@@ -288,7 +288,8 @@ static void print_odp_trans_caps(uint32_t trans)
 					    IBV_ODP_SUPPORT_RECV |
 					    IBV_ODP_SUPPORT_WRITE |
 					    IBV_ODP_SUPPORT_READ |
-					    IBV_ODP_SUPPORT_ATOMIC);
+					    IBV_ODP_SUPPORT_ATOMIC |
+					    IBV_ODP_SUPPORT_SRQ_RECV);
 
 	if (!trans) {
 		printf("\t\t\t\t\tNO SUPPORT\n");
@@ -303,20 +304,26 @@ static void print_odp_trans_caps(uint32_t trans)
 			printf("\t\t\t\t\tSUPPORT_READ\n");
 		if (trans & IBV_ODP_SUPPORT_ATOMIC)
 			printf("\t\t\t\t\tSUPPORT_ATOMIC\n");
+		if (trans & IBV_ODP_SUPPORT_SRQ_RECV)
+			printf("\t\t\t\t\tSUPPORT_SRQ\n");
 		if (trans & unknown_transport_caps)
 			printf("\t\t\t\t\tUnknown flags: 0x%" PRIX32 "\n",
 			       trans & unknown_transport_caps);
 	}
 }
 
-static void print_odp_caps(const struct ibv_odp_caps *caps)
+static void print_odp_caps(const struct ibv_device_attr_ex *device_attr)
 {
-	uint64_t unknown_general_caps = ~(IBV_ODP_SUPPORT);
+	uint64_t unknown_general_caps = ~(IBV_ODP_SUPPORT |
+					  IBV_ODP_SUPPORT_IMPLICIT);
+	const struct ibv_odp_caps *caps = &device_attr->odp_caps;
 
 	/* general odp caps */
 	printf("\tgeneral_odp_caps:\n");
 	if (caps->general_caps & IBV_ODP_SUPPORT)
 		printf("\t\t\t\t\tODP_SUPPORT\n");
+	if (caps->general_caps & IBV_ODP_SUPPORT_IMPLICIT)
+		printf("\t\t\t\t\tODP_SUPPORT_IMPLICIT\n");
 	if (caps->general_caps & unknown_general_caps)
 		printf("\t\t\t\t\tUnknown flags: 0x%" PRIX64 "\n",
 		       caps->general_caps & unknown_general_caps);
@@ -328,6 +335,8 @@ static void print_odp_caps(const struct ibv_odp_caps *caps)
 	print_odp_trans_caps(caps->per_transport_caps.uc_odp_caps);
 	printf("\tud_odp_caps:\n");
 	print_odp_trans_caps(caps->per_transport_caps.ud_odp_caps);
+	printf("\txrc_odp_caps:\n");
+	print_odp_trans_caps(device_attr->xrc_odp_caps);
 }
 
 static void print_device_cap_flags_ex(uint64_t device_cap_flags_ex)
@@ -531,7 +540,7 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		printf("\tmax_pkeys:\t\t\t%d\n", device_attr.orig_attr.max_pkeys);
 		printf("\tlocal_ca_ack_delay:\t\t%d\n", device_attr.orig_attr.local_ca_ack_delay);
 
-		print_odp_caps(&device_attr.odp_caps);
+		print_odp_caps(&device_attr);
 		if (device_attr.completion_timestamp_mask)
 			printf("\tcompletion timestamp_mask:\t\t\t0x%016" PRIx64 "\n",
 			       device_attr.completion_timestamp_mask);

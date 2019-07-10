@@ -74,6 +74,8 @@ static const struct verbs_match_ent hca_table[] = {
 	HCA(MELLANOX, 0x101a),	/* ConnectX-5 Ex VF */
 	HCA(MELLANOX, 0x101b),    /* ConnectX-6 */
 	HCA(MELLANOX, 0x101c),	/* ConnectX-6 VF */
+	HCA(MELLANOX, 0x101d),	/* ConnectX-6 DX */
+	HCA(MELLANOX, 0x101e),	/* ConnectX family mlx5Gen Virtual Function */
 	HCA(MELLANOX, 0xa2d2),	/* BlueField integrated ConnectX-5 network controller */
 	HCA(MELLANOX, 0xa2d3),	/* BlueField integrated ConnectX-5 network controller VF */
 	{}
@@ -86,6 +88,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.query_device  = mlx5_query_device,
 	.query_port    = mlx5_query_port,
 	.alloc_pd      = mlx5_alloc_pd,
+	.async_event   = mlx5_async_event,
 	.dealloc_pd    = mlx5_free_pd,
 	.reg_mr	       = mlx5_reg_mr,
 	.rereg_mr      = mlx5_rereg_mr,
@@ -780,6 +783,11 @@ static int mlx5dv_get_qp(struct ibv_qp *qp_in,
 		mask_out |= MLX5DV_QP_MASK_RAW_QP_HANDLES;
 	}
 
+	if (qp_out->comp_mask & MLX5DV_QP_MASK_RAW_QP_TIR_ADDR) {
+		qp_out->tir_icm_addr = mqp->tir_icm_addr;
+		mask_out |= MLX5DV_QP_MASK_RAW_QP_TIR_ADDR;
+	}
+
 	if (mqp->bf->uuarn > 0)
 		qp_out->bf.size = mqp->bf->buf_size;
 	else
@@ -856,16 +864,23 @@ static int mlx5dv_get_srq(struct ibv_srq *srq_in,
 }
 
 static int mlx5dv_get_dm(struct ibv_dm *dm_in,
-			  struct mlx5dv_dm *dm_out)
+			 struct mlx5dv_dm *dm_out)
 {
 	struct mlx5_dm *mdm = to_mdm(dm_in);
+	uint64_t mask_out = 0;
 
 	if (!is_mlx5_dev(dm_in->context->device))
 		return EOPNOTSUPP;
 
-	dm_out->comp_mask = 0;
 	dm_out->buf       = mdm->start_va;
 	dm_out->length    = mdm->length;
+
+	if (dm_out->comp_mask & MLX5DV_DM_MASK_REMOTE_VA) {
+		dm_out->remote_va = mdm->remote_va;
+		mask_out |= MLX5DV_DM_MASK_REMOTE_VA;
+	}
+
+	dm_out->comp_mask = mask_out;
 
 	return 0;
 }

@@ -72,3 +72,37 @@ MLX5_1.8 {
 		mlx5dv_devx_wq_query;
 		mlx5dv_is_supported;
 } MLX5_1.7;
+
+MLX5_1.9 {
+	global:
+		mlx5dv_devx_create_cmd_comp;
+		mlx5dv_devx_destroy_cmd_comp;
+		mlx5dv_devx_get_async_cmd_comp;
+		mlx5dv_devx_obj_query_async;
+} MLX5_1.8;
+
+MLX5_1.10 {
+	global:
+		mlx5dv_alloc_dm;
+		mlx5dv_create_mkey;
+		mlx5dv_destroy_mkey;
+		mlx5dv_dr_action_create_dest_table;
+		mlx5dv_dr_action_create_dest_ibv_qp;
+		mlx5dv_dr_action_create_dest_vport;
+		mlx5dv_dr_action_create_flow_counter;
+		mlx5dv_dr_action_create_drop;
+		mlx5dv_dr_action_create_modify_header;
+		mlx5dv_dr_action_create_packet_reformat;
+		mlx5dv_dr_action_create_tag;
+		mlx5dv_dr_action_destroy;
+		mlx5dv_dr_domain_create;
+		mlx5dv_dr_domain_destroy;
+		mlx5dv_dr_domain_sync;
+		mlx5dv_dr_matcher_create;
+		mlx5dv_dr_matcher_destroy;
+		mlx5dv_dr_rule_create;
+		mlx5dv_dr_rule_destroy;
+		mlx5dv_dr_table_create;
+		mlx5dv_dr_table_destroy;
+		mlx5dv_qp_ex_from_ibv_qp_ex;
+} MLX5_1.9;

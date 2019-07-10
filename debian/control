@@ -61,7 +61,13 @@ Package: ibverbs-providers
 Architecture: linux-any
 Multi-Arch: same
 Depends: ${misc:Depends}, ${shlibs:Depends}
-Provides: libcxgb3-1, libipathverbs1, libmlx4-1, libmlx5-1, libmthca1, libnes1
+Provides: libcxgb3-1,
+          libefa-1,
+          libipathverbs1,
+          libmlx4-1,
+          libmlx5-1,
+          libmthca1,
+          libnes1
 Replaces: libcxgb3-1 (<< 15),
           libipathverbs1 (<< 15),
           libmlx4-1 (<< 15),
@@ -90,6 +96,7 @@ Description: User space provider drivers for libibverbs
   - bnxt_re: Broadcom NetXtreme-E RoCE HCAs
   - cxgb3: Chelsio T3 iWARP HCAs
   - cxgb4: Chelsio T4 iWARP HCAs
+  - efa: Amazon Elastic Fabric Adapter
   - hfi1verbs: Intel Omni-Path HFI
   - hns: HiSilicon Hip06 SoC
   - i40iw: Intel Ethernet Connection X722 RDMA

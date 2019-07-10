@@ -43,18 +43,30 @@
 #include <ccan/bitmap.h>
 #include <ccan/container_of.h>
 
-#define HNS_ROCE_CQE_ENTRY_SIZE		0x20
-
-#define HNS_ROCE_MAX_CQ_NUM		0x10000
-#define HNS_ROCE_MIN_CQE_NUM		0x40
-#define HNS_ROCE_MIN_WQE_NUM		0x20
-#define HNS_ROCE_CQ_DB_BUF_SIZE		((HNS_ROCE_MAX_CQ_NUM >> 11) << 12)
-#define HNS_ROCE_TPTR_OFFSET		0x1000
 #define HNS_ROCE_HW_VER1		('h' << 24 | 'i' << 16 | '0' << 8 | '6')
 
 #define HNS_ROCE_HW_VER2		('h' << 24 | 'i' << 16 | '0' << 8 | '8')
 
 #define PFX				"hns: "
+
+#define HNS_ROCE_MAX_INLINE_DATA_LEN	32
+#define HNS_ROCE_MAX_CQ_NUM		0x10000
+#define HNS_ROCE_MAX_SRQWQE_NUM		0x8000
+#define HNS_ROCE_MAX_SRQSGE_NUM		0x100
+#define HNS_ROCE_MIN_CQE_NUM		0x40
+#define HNS_ROCE_MIN_WQE_NUM		0x20
+
+#define HNS_ROCE_CQE_ENTRY_SIZE		0x20
+#define HNS_ROCE_SQWQE_SHIFT		6
+#define HNS_ROCE_SGE_IN_WQE		2
+#define HNS_ROCE_SGE_SIZE		16
+#define HNS_ROCE_SGE_SHIFT		4
+
+#define HNS_ROCE_GID_SIZE		16
+
+#define HNS_ROCE_CQ_DB_BUF_SIZE		((HNS_ROCE_MAX_CQ_NUM >> 11) << 12)
+#define HNS_ROCE_TPTR_OFFSET		0x1000
+#define HNS_ROCE_STATIC_RATE		3 /* Gbps */
 
 #define roce_get_field(origin, mask, shift) \
 	(((le32toh(origin)) & (mask)) >> (shift))
@@ -94,6 +106,8 @@ struct hns_roce_buf {
 	void				*buf;
 	unsigned int			length;
 };
+
+#define BIT_CNT_PER_BYTE       8
 
 /* the sw doorbell type; */
 enum hns_roce_db_type {
@@ -154,8 +168,15 @@ struct hns_roce_cq {
 	unsigned long			flags;
 };
 
+struct hns_roce_idx_que {
+	struct hns_roce_buf		buf;
+	int				buf_size;
+	int				entry_sz;
+	unsigned long			*bitmap;
+};
+
 struct hns_roce_srq {
-	struct ibv_srq			ibv_srq;
+	struct verbs_srq		verbs_srq;
 	struct hns_roce_buf		buf;
 	pthread_spinlock_t		lock;
 	unsigned long			*wrid;
@@ -167,6 +188,7 @@ struct hns_roce_srq {
 	int				tail;
 	unsigned int			*db;
 	unsigned short			counter;
+	struct hns_roce_idx_que		idx_que;
 };
 
 struct hns_roce_wq {
@@ -253,7 +275,8 @@ static inline struct hns_roce_cq *to_hr_cq(struct ibv_cq *ibv_cq)
 
 static inline struct hns_roce_srq *to_hr_srq(struct ibv_srq *ibv_srq)
 {
-	return container_of(ibv_srq, struct hns_roce_srq, ibv_srq);
+	return container_of(container_of(ibv_srq, struct verbs_srq, srq),
+			    struct hns_roce_srq, verbs_srq);
 }
 
 static inline struct  hns_roce_qp *to_hr_qp(struct ibv_qp *ibv_qp)
@@ -288,6 +311,12 @@ int hns_roce_u_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 int hns_roce_u_destroy_cq(struct ibv_cq *cq);
 void hns_roce_u_cq_event(struct ibv_cq *cq);
 
+struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
+				      struct ibv_srq_init_attr *srq_init_attr);
+int hns_roce_u_modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
+			  int srq_attr_mask);
+int hns_roce_u_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
+int hns_roce_u_destroy_srq(struct ibv_srq *srq);
 struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 				    struct ibv_qp_init_attr *attr);
 

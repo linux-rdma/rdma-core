@@ -78,6 +78,10 @@ static const struct verbs_context_ops hns_common_ops = {
 	.query_qp = hns_roce_u_query_qp,
 	.reg_mr = hns_roce_u_reg_mr,
 	.rereg_mr = hns_roce_u_rereg_mr,
+	.create_srq = hns_roce_u_create_srq,
+	.modify_srq = hns_roce_u_modify_srq,
+	.query_srq = hns_roce_u_query_srq,
+	.destroy_srq = hns_roce_u_destroy_srq,
 };
 
 static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
@@ -88,7 +92,7 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	struct ibv_get_context cmd;
 	struct ibv_device_attr dev_attrs;
 	struct hns_roce_context *context;
-	struct hns_roce_alloc_ucontext_resp resp;
+	struct hns_roce_alloc_ucontext_resp resp = {};
 	struct hns_roce_device *hr_dev = to_hr_dev(ibdev);
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,

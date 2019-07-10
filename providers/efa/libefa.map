@@ -1,0 +1,7 @@
+/* Export symbols should be added below according to
+   Documentation/versioning.md document. */
+EFA_1.0 {
+	global:
+		efadv_create_driver_qp;
+	local: *;
+};

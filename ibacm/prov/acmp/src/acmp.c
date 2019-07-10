@@ -62,10 +62,6 @@
 #include "acm_util.h"
 #include "acm_mad.h"
 
-#define src_out     data[0]
-#define src_index   data[1]
-#define dst_index   data[2]
-
 #define IB_LID_MCAST_START 0xc000
 
 #define MAX_EP_ADDR 4
