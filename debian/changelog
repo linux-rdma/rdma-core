@@ -1,3 +1,14 @@
+rdma-core (24.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Drop pyverbs-Add-shebang-to-ib_devices.py-example.patch (applied upstream)
+  * Bump Standards-Version to 4.4.0 (no changes needed)
+  * Switch to debhelper 12
+  * Add Pre-Depends on ${misc:Pre-Depends}
+  * Drop debug symbol migration
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Wed, 10 Jul 2019 12:39:27 +0200
+
 rdma-core (22.1-1) unstable; urgency=medium
 
   * New upstream bugfix release.
