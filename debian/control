@@ -31,6 +31,7 @@ Depends: lsb-base (>= 3.2-14~),
          ${misc:Depends},
          ${perl:Depends},
          ${shlibs:Depends}
+Pre-Depends: ${misc:Pre-Depends}
 Recommends: dmidecode, ethtool, iproute2
 Breaks: infiniband-diags (<< 2.0.0)
 Replaces: infiniband-diags (<< 2.0.0)
@@ -330,6 +331,7 @@ Depends: lsb-base (>= 3.2-14~),
          udev,
          ${misc:Depends},
          ${shlibs:Depends}
+Pre-Depends: ${misc:Pre-Depends}
 Description: Tools for Infiniband attached storage (SRP)
  In conjunction with the kernel ib_srp driver, srptools allows you to
  discover and use Infiniband attached storage devices which use the
