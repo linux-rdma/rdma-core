@@ -232,13 +232,133 @@ static int is_pci_ari_enabled(char *devname)
 	return (ret) ? a == 1 : 0;
 }
 
+struct pci_info {
+	char *pcidev;
+
+	unsigned int domain;
+	unsigned int bus;
+	unsigned int slot;
+	unsigned int func;
+	unsigned int sun;
+	unsigned int vf;
+	bool valid_vf;
+};
+
+static int fill_pci_info(struct data *d, struct pci_info *p)
+{
+	char buf[256] = {};
+	char *pci;
+	int ret;
+
+	ret = readlink(p->pcidev, buf, sizeof(buf)-1);
+	if (ret == -1 || ret == sizeof(buf))
+		return -EINVAL;
+
+	buf[ret] = 0;
+
+	pci = basename(buf);
+	/*
+	 * pci = 0000:00:0c.0
+	 */
+	ret = sscanf(pci, "%x:%x:%x.%u", &p->domain, &p->bus, &p->slot,
+		     &p->func);
+	if (ret != 4) {
+		pr_err("%s: Failed to read PCI BOF\n", d->curr);
+		return -ENOENT;
+	}
+
+	if (is_pci_ari_enabled(p->pcidev)) {
+		/*
+		 * ARI devices support up to 256 functions on a single device
+		 * ("slot"), and interpret the traditional 5-bit slot and 3-bit
+		 * function number as a single 8-bit function number, where the
+		 * slot makes up the upper 5 bits.
+		 *
+		 * https://github.com/systemd/systemd/blob/master/src/udev/udev-builtin-net_id.c#L344
+		 */
+		p->func += p->slot * 8;
+		pr_dbg("%s: This is ARI device, new PCI BOF is %04x:%02x:%02x.%u\n",
+		       d->curr, p->domain, p->bus, p->slot, p->func);
+	}
+
+	p->sun = find_sun(p->pcidev, pci);
+
+	return 0;
+}
+
+static int get_virtfn_info(struct data *d, struct pci_info *p)
+{
+	struct pci_info vf = {};
+	char *physfn_pcidev;
+	struct dirent *dent;
+	DIR *dir;
+	int ret;
+
+	/* Check if this is a virtual function. */
+	ret = asprintf(&physfn_pcidev, "%s/physfn", p->pcidev);
+	if (ret < 0)
+		return -ENOMEM;
+
+	/* We are VF, get VF number and replace pcidev to point to PF */
+	dir = opendir(physfn_pcidev);
+	if (!dir) {
+		/*
+		 * -ENOENT means that we are already in PF
+		 *  and pcidev points to right PCI.
+		 */
+		ret = (errno == ENOENT) ? 0 : -ENOMEM;
+		goto err_free;
+	}
+
+	p->valid_vf = true;
+	vf.pcidev = p->pcidev;
+	ret = fill_pci_info(d, &vf);
+	if (ret)
+		goto err_dir;
+
+	while ((dent = readdir(dir))) {
+		const char *s = "virtfn";
+		struct pci_info v = {};
+
+		if (strncmp(dent->d_name, s, strlen(s)) ||
+		    strlen(dent->d_name) == strlen(s))
+			continue;
+
+		ret = asprintf(&v.pcidev, "%s/%s", physfn_pcidev, dent->d_name);
+		if (ret < 0) {
+			ret = -ENOMEM;
+			goto err_dir;
+		}
+		ret = fill_pci_info(d, &v);
+		free(v.pcidev);
+		if (ret) {
+			ret = -ENOMEM;
+			goto err_dir;
+		}
+		if (vf.func == v.func) {
+			p->vf = atoi(&dent->d_name[6]);
+			break;
+		}
+	}
+
+	p->pcidev = physfn_pcidev;
+	closedir(dir);
+
+	return 0;
+
+err_dir:
+	closedir(dir);
+err_free:
+	free(physfn_pcidev);
+	return ret;
+}
+
 static int by_pci(struct data *d)
 {
-	long domain, bus, slot, func, sun;
-	char *devpath = NULL;
+	struct pci_info p = {};
 	char *subsystem;
 	char buf[256] = {};
-	char *pci, *subs;
+	char *subs;
 	int ret;
 
 	ret = asprintf(&subsystem, "/sys/class/infiniband/%s/device/subsystem",
@@ -260,45 +380,23 @@ static int by_pci(struct data *d)
 		ret = -EINVAL;
 		goto out;
 	}
+
 	/* Real devices */
-	ret = asprintf(&devpath, "/sys/class/infiniband/%s/device", d->curr);
+	ret = asprintf(&p.pcidev, "/sys/class/infiniband/%s/device", d->curr);
 	if (ret < 0) {
 		ret = -ENOMEM;
-		devpath = NULL;
+		p.pcidev = NULL;
 		goto out;
 	}
 
-	ret = readlink(devpath, buf, sizeof(buf)-1);
-	if (ret == -1 || ret == sizeof(buf)) {
-		ret = -EINVAL;
+	ret = get_virtfn_info(d, &p);
+	if (ret)
 		goto out;
-	}
-	buf[ret] = 0;
 
-	pci = basename(buf);
-	/*
-	 * pci = 0000:00:0c.0
-	 */
-	if (sscanf(pci, "%lx:%lx:%lx.%lu", &domain, &bus, &slot, &func) != 4) {
-		pr_err("%s: Failed to read PCI BOF\n", d->curr);
-		ret = -ENOENT;
+	ret = fill_pci_info(d, &p);
+	if (ret) {
+		pr_err("%s: Failed to fill PCI device information\n", d->curr);
 		goto out;
-	}
-	pr_dbg("%s: Got %04lx:%02lx:%02lx.%lu PCI BOF\n", d->curr, domain, bus,
-	       slot, func);
-
-	if (is_pci_ari_enabled(devpath)) {
-		/*
-		 * ARI devices support up to 256 functions on a single device
-		 * ("slot"), and interpret the traditional 5-bit slot and 3-bit
-		 * function number as a single 8-bit function number, where the
-		 * slot makes up the upper 5 bits.
-		 *
-		 * https://github.com/systemd/systemd/blob/master/src/udev/udev-builtin-net_id.c#L344
-		 */
-		func += slot * 8;
-		pr_dbg("%s: This is ARI device, new PCI BOF is %04lx:%02lx:%02lx.%lu\n",
-		       d->curr, domain, bus, slot, func);
 	}
 
 	d->name = calloc(256, sizeof(char));
@@ -313,8 +411,8 @@ static int by_pci(struct data *d)
 		goto out;
 	}
 
-	if (domain > 0) {
-		ret = sprintf(buf, "P%ld", domain);
+	if (p.domain > 0) {
+		ret = sprintf(buf, "P%u", p.domain);
 		if (ret == -1) {
 			ret = -ENOMEM;
 			goto out;
@@ -322,11 +420,10 @@ static int by_pci(struct data *d)
 		strcat(d->name, buf);
 	}
 
-	sun = find_sun(devpath, pci);
-	if (sun > 0)
-		ret = sprintf(buf, "s%ld", sun);
+	if (p.sun > 0)
+		ret = sprintf(buf, "s%u", p.sun);
 	else
-		ret = sprintf(buf, "p%lds%ld", bus, slot);
+		ret = sprintf(buf, "p%us%u", p.bus, p.slot);
 	if (ret == -1) {
 		ret = -ENOMEM;
 		goto out;
@@ -334,17 +431,26 @@ static int by_pci(struct data *d)
 
 	strcat(d->name, buf);
 
-	if (func > 0 || is_pci_multifunction(devpath)) {
-		ret = sprintf(buf, "f%ld", func);
+	if (p.func > 0 || is_pci_multifunction(p.pcidev)) {
+		ret = sprintf(buf, "f%u", p.func);
 		if (ret == -1) {
 			ret = -ENOMEM;
 			goto out;
 		}
 		strcat(d->name, buf);
+
+		if (p.valid_vf) {
+			ret = sprintf(buf, "v%u", p.vf);
+			if (ret == -1) {
+				ret = -ENOMEM;
+				goto out;
+			}
+			strcat(d->name, buf);
+		}
 	}
 	ret = 0;
 out:
-	free(devpath);
+	free(p.pcidev);
 	free(subsystem);
 	if (ret) {
 		free(d->name);
