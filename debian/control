@@ -4,7 +4,7 @@ Section: net
 Priority: optional
 Build-Depends: cmake (>= 2.8.11),
                cython3,
-               debhelper (>= 11),
+               debhelper-compat (= 12),
                dpkg-dev (>= 1.17),
                libnl-3-dev,
                libnl-route-3-dev,

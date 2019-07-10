@@ -73,10 +73,13 @@ INST_EXCLUDE := "etc/init.d/srpd" \
 INST_EXCLUDE := $(addprefix -X,$(INST_EXCLUDE))
 override_dh_install:
 	if [ -e build-deb/python/pyverbs/__init__.py ]; then \
-		dh_install --fail-missing $(INST_EXCLUDE); \
+		dh_install $(INST_EXCLUDE); \
 	else \
-		dh_install -Npython3-pyverbs --fail-missing $(INST_EXCLUDE) --remaining-packages; \
+		dh_install -Npython3-pyverbs $(INST_EXCLUDE) --remaining-packages; \
 	fi
+
+override_dh_missing:
+	dh_missing --fail-missing $(INST_EXCLUDE)
 
 # cmake installs the correct init scripts in the correct place, just setup the
 # pre-postrms
