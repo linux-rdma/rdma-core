@@ -741,6 +741,11 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS;
 	}
 
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_DC_ODP_CAPS) {
+		attrs_out->dc_odp_caps = mctx->dc_odp_caps;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_DC_ODP_CAPS;
+	}
+
 	attrs_out->comp_mask = comp_mask_out;
 
 	return 0;
@@ -1196,6 +1201,9 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 		context->dump_fill_mkey = MLX5_INVALID_LKEY;
 		context->dump_fill_mkey_be = htobe32(MLX5_INVALID_LKEY);
 	}
+
+	if (resp.comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_DC_ODP_CAPS)
+		context->dc_odp_caps = resp.dc_odp_caps;
 
 	if (context->num_dyn_bfregs) {
 		context->count_dyn_bfregs = calloc(context->num_dyn_bfregs,

@@ -310,6 +310,7 @@ struct mlx5_context {
 	uint32_t                        dump_fill_mkey;
 	__be32                          dump_fill_mkey_be;
 	uint32_t			flags;
+	uint32_t			dc_odp_caps;
 };
 
 struct mlx5_bitmap {
