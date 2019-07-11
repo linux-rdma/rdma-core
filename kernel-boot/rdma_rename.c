@@ -56,7 +56,7 @@ static struct nla_policy policy[RDMA_NLDEV_ATTR_MAX] = {
 
 struct data {
 	const char *curr;
-	const char *prefix;
+	char *prefix;
 	uint64_t sys_image_guid;
 	char *name;
 	int idx;
@@ -413,7 +413,7 @@ static int get_nldata_cb(struct nl_msg *msg, void *data)
 	if (ret)
 		return NL_OK;
 
-	d->prefix = nla_get_string(tb[RDMA_NLDEV_ATTR_DEV_PROTOCOL]);
+	d->prefix = strdup(nla_get_string(tb[RDMA_NLDEV_ATTR_DEV_PROTOCOL]));
 	d->idx = nla_get_u32(tb[RDMA_NLDEV_ATTR_DEV_INDEX]);
 	d->sys_image_guid = nla_get_u64(tb[RDMA_NLDEV_ATTR_SYS_IMAGE_GUID]);
 	return NL_STOP;
@@ -491,7 +491,7 @@ int main(int argc, const char *argv[])
 
 	d.curr = argv[1];
 	ret = get_nldata(nl, &d);
-	if (ret || d.idx == -1)
+	if (ret || d.idx == -1 || !d.prefix)
 		goto out;
 
 	ret = -1;
@@ -512,6 +512,7 @@ int main(int argc, const char *argv[])
 	free(d.name);
 
 out:
+	free(d.prefix);
 	nl_socket_free(nl);
 err:
 	ret = (ret) ? 1 : 0;
