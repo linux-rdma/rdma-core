@@ -612,6 +612,8 @@ static void dr_fill_data_segs(struct dr_send_ring *send_ring,
 
 	if (send_ring->pending_wqe % send_ring->signal_th == 0)
 		send_info->read.send_flags = IBV_SEND_SIGNALED;
+	else
+		send_info->read.send_flags = 0;
 }
 
 static int dr_postsend_icm_data(struct mlx5dv_dr_domain *dmn,

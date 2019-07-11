@@ -291,28 +291,28 @@ static const struct dr_action_modify_field_conv dr_action_conv_arr[] = {
 		.hw_field = MLX5_DR_ACTION_MDFY_HW_FLD_L3_0, .start = 32, .end = 63,
 		.l3_type = MLX5_DR_ACTION_MDFY_HW_HDR_L3_IPV4,
 	},
-	[MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGA] = {
+	[MLX5_ACTION_IN_FIELD_OUT_METADATA_REGA] = {
 		.hw_field = MLX5_DR_ACTION_MDFY_HW_FLD_METADATA, .start = 0, .end = 31,
 	},
-	[MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGB] = {
+	[MLX5_ACTION_IN_FIELD_OUT_METADATA_REGB] = {
 		.hw_field = MLX5_DR_ACTION_MDFY_HW_FLD_METADATA, .start = 32, .end = 63,
 	},
-	[MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGC_0] = {
+	[MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_0] = {
 		.hw_field = MLX5_DR_ACTION_MDFY_HW_FLD_REG_0, .start = 32, .end = 63,
 	},
-	[MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGC_1] = {
+	[MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_1] = {
 		.hw_field = MLX5_DR_ACTION_MDFY_HW_FLD_REG_0, .start = 0, .end = 31,
 	},
-	[MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGC_2] = {
+	[MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_2] = {
 		.hw_field = MLX5_DR_ACTION_MDFY_HW_FLD_REG_1, .start = 32, .end = 63,
 	},
-	[MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGC_3] = {
+	[MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_3] = {
 		.hw_field = MLX5_DR_ACTION_MDFY_HW_FLD_REG_1, .start = 0, .end = 31,
 	},
-	[MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGC_4] = {
+	[MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_4] = {
 		.hw_field = MLX5_DR_ACTION_MDFY_HW_FLD_REG_2, .start = 32, .end = 63,
 	},
-	[MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGC_5] = {
+	[MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_5] = {
 		.hw_field = MLX5_DR_ACTION_MDFY_HW_FLD_REG_2, .start = 0, .end = 31,
 	},
 	[MLX5_ACTION_IN_FIELD_OUT_TCP_SEQ_NUM] = {
@@ -1219,7 +1219,7 @@ dr_action_modify_check_field_limitation(struct mlx5dv_dr_domain *dmn,
 
 	/* Check if SW field is supported in current domain (RX/TX) */
 	if (action == MLX5_ACTION_TYPE_SET) {
-		if (sw_field == MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGA) {
+		if (sw_field == MLX5_ACTION_IN_FIELD_OUT_METADATA_REGA) {
 			if (dmn->type != MLX5DV_DR_DOMAIN_TYPE_NIC_TX) {
 				dr_dbg(dmn, "Unsupported field %d for RX/FDB set action\n",
 				       sw_field);
@@ -1228,7 +1228,7 @@ dr_action_modify_check_field_limitation(struct mlx5dv_dr_domain *dmn,
 			}
 		}
 
-		if (sw_field == MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGB) {
+		if (sw_field == MLX5_ACTION_IN_FIELD_OUT_METADATA_REGB) {
 			if (dmn->type != MLX5DV_DR_DOMAIN_TYPE_NIC_RX) {
 				dr_dbg(dmn, "Unsupported field %d for TX/FDB set action\n",
 				       sw_field);

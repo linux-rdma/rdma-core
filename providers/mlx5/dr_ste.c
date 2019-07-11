@@ -2282,7 +2282,7 @@ static int dr_ste_build_src_gvmi_qpn_bit_mask(struct dr_match_param *value,
 {
 	struct dr_match_misc *misc_mask = &value->misc;
 
-	if (misc_mask->source_port != 0xffff) {
+	if (misc_mask->source_port && misc_mask->source_port != 0xffff) {
 		errno = EINVAL;
 		return errno;
 	}
