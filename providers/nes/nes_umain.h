@@ -237,10 +237,6 @@ struct nes_hw_cqe {
 	uint32_t cqe_words[8];
 };
 
-enum nes_uhca_type {
-	NETEFFECT_nes
-};
-
 struct nes_user_doorbell {
 	uint32_t wqe_alloc;
 	uint32_t reserved[3];
@@ -249,7 +245,6 @@ struct nes_user_doorbell {
 
 struct nes_udevice {
 	struct verbs_device ibv_dev;
-	enum nes_uhca_type hca_type;
 	int page_size;
 };
 

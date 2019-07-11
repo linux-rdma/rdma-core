@@ -45,10 +45,10 @@
 
 #include <rdma/ib_user_ioctl_cmds.h>
 #include <util/symver.h>
+#include <util/util.h>
 #include "ibverbs.h"
 
 static pthread_mutex_t dev_list_lock = PTHREAD_MUTEX_INITIALIZER;
-static int initialized;
 static struct list_head device_list = LIST_HEAD_INIT(device_list);
 
 LATEST_SYMVER_FUNC(ibv_get_device_list, 1_1, "IBVERBS_1.1",
@@ -57,6 +57,7 @@ LATEST_SYMVER_FUNC(ibv_get_device_list, 1_1, "IBVERBS_1.1",
 {
 	struct ibv_device **l = NULL;
 	struct verbs_device *device;
+	static bool initialized;
 	int num_devices;
 	int i = 0;
 
@@ -65,28 +66,9 @@ LATEST_SYMVER_FUNC(ibv_get_device_list, 1_1, "IBVERBS_1.1",
 
 	pthread_mutex_lock(&dev_list_lock);
 	if (!initialized) {
-		char value[8];
-		int ret;
-
-		/*
-		 * The uverbs module is not loaded, this is a ENOSYS return
-		 * but it is not a hard failure, we can try again to see if it
-		 * has become loaded since.
-		 */
-		if (ibv_read_sysfs_file(ibv_get_sysfs_path(),
-					"class/infiniband_verbs/abi_version",
-					value, sizeof(value)) < 0) {
-			errno = -ENOSYS;
+		if (ibverbs_init())
 			goto out;
-		}
-
-		ret = ibverbs_init();
-		initialized = (ret < 0) ? ret : 1;
-	}
-
-	if (initialized < 0) {
-		errno = -initialized;
-		goto out;
+		initialized = true;
 	}
 
 	num_devices = ibverbs_get_device_list(&device_list);
@@ -135,13 +117,22 @@ LATEST_SYMVER_FUNC(ibv_get_device_guid, 1_1, "IBVERBS_1.1",
 		   __be64,
 		   struct ibv_device *device)
 {
+	struct verbs_sysfs_dev *sysfs_dev = verbs_get_device(device)->sysfs;
 	char attr[24];
 	uint64_t guid = 0;
 	uint16_t parts[4];
 	int i;
 
-	if (ibv_read_sysfs_file(device->ibdev_path, "node_guid",
-				attr, sizeof attr) < 0)
+	pthread_mutex_lock(&dev_list_lock);
+	if (sysfs_dev->flags & VSYSFS_READ_NODE_GUID) {
+		guid = sysfs_dev->node_guid;
+		pthread_mutex_unlock(&dev_list_lock);
+		return htobe64(guid);
+	}
+	pthread_mutex_unlock(&dev_list_lock);
+
+	if (ibv_read_ibdev_sysfs_file(attr, sizeof(attr), sysfs_dev,
+				      "node_guid") < 0)
 		return 0;
 
 	if (sscanf(attr, "%hx:%hx:%hx:%hx",
@@ -151,7 +142,32 @@ LATEST_SYMVER_FUNC(ibv_get_device_guid, 1_1, "IBVERBS_1.1",
 	for (i = 0; i < 4; ++i)
 		guid = (guid << 16) | parts[i];
 
+	pthread_mutex_lock(&dev_list_lock);
+	sysfs_dev->node_guid = guid;
+	sysfs_dev->flags |= VSYSFS_READ_NODE_GUID;
+	pthread_mutex_unlock(&dev_list_lock);
+
 	return htobe64(guid);
+}
+
+int ibv_get_fw_ver(char *value, size_t len, struct verbs_sysfs_dev *sysfs_dev)
+{
+	/*
+	 * NOTE: This can only be called by a driver inside the dev_list_lock,
+	 * ie during context setup or otherwise.
+	 */
+	assert(pthread_mutex_trylock(&dev_list_lock) != 0);
+
+	if (!(sysfs_dev->flags & VSYSFS_READ_FW_VER)) {
+		if (ibv_read_ibdev_sysfs_file(sysfs_dev->fw_ver,
+					      sizeof(sysfs_dev->fw_ver),
+					      sysfs_dev, "fw_ver") <= 0)
+			return -1;
+		sysfs_dev->flags |= VSYSFS_READ_FW_VER;
+	}
+	if (!check_snprintf(value, len, "%s", sysfs_dev->fw_ver))
+		return -1;
+	return 0;
 }
 
 void verbs_init_cq(struct ibv_cq *cq, struct ibv_context *context,
@@ -319,20 +335,15 @@ static void set_lib_ops(struct verbs_context *vctx)
 struct ibv_context *verbs_open_device(struct ibv_device *device, void *private_data)
 {
 	struct verbs_device *verbs_device = verbs_get_device(device);
-	char *devpath;
 	int cmd_fd;
 	struct verbs_context *context_ex;
-
-	if (asprintf(&devpath, RDMA_CDEV_DIR"/%s", device->dev_name) < 0)
-		return NULL;
 
 	/*
 	 * We'll only be doing writes, but we need O_RDWR in case the
 	 * provider needs to mmap() the file.
 	 */
-	cmd_fd = open(devpath, O_RDWR | O_CLOEXEC);
-	free(devpath);
-
+	cmd_fd = open_cdev(verbs_device->sysfs->sysfs_name,
+			   verbs_device->sysfs->sysfs_cdev);
 	if (cmd_fd < 0)
 		return NULL;
 

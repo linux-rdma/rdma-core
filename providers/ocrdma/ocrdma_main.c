@@ -58,6 +58,7 @@
 #define UCNA(v, d)                                                             \
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, PCI_DEVICE_ID_EMULEX_##d, NULL)
 static const struct verbs_match_ent ucna_table[] = {
+	VERBS_DRIVER_ID(RDMA_DRIVER_OCRDMA),
 	UCNA(EMULEX, GEN1),
 	UCNA(EMULEX, GEN2),
 	UCNA(EMULEX, GEN2_VF),

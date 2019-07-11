@@ -41,9 +41,6 @@ extern unsigned int if_nametoindex(__const char *__ifname) __THROW;
 
 #include <netlink/route/link/vlan.h>
 
-static pthread_once_t device_neigh_alloc = PTHREAD_ONCE_INIT;
-static struct nl_sock *zero_socket;
-
 union sktaddr {
 	struct sockaddr s;
 	struct sockaddr_in s4;
@@ -626,20 +623,14 @@ free:
 	return oif;
 }
 
-static void alloc_zero_based_socket(void)
-{
-	zero_socket = nl_socket_alloc();
-}
-
 int neigh_init_resources(struct get_neigh_handler *neigh_handler, int timeout)
 {
 	int err;
 
-	pthread_once(&device_neigh_alloc, &alloc_zero_based_socket);
 	neigh_handler->sock = nl_socket_alloc();
 	if (neigh_handler->sock == NULL) {
-		errno = ENOMEM;
-		return -1;
+		errno = ENOSYS;
+		return -ENOSYS;
 	}
 
 	err = nl_connect(neigh_handler->sock, NETLINK_ROUTE);
@@ -651,7 +642,7 @@ int neigh_init_resources(struct get_neigh_handler *neigh_handler, int timeout)
 	if (err) {
 		err = -1;
 		errno = ENOMEM;
-		goto close_connection;
+		goto free_socket;
 	}
 
 	nl_cache_mngt_provide(neigh_handler->link_cache);
@@ -694,8 +685,6 @@ free_link_cache:
 	nl_cache_mngt_unprovide(neigh_handler->link_cache);
 	nl_cache_free(neigh_handler->link_cache);
 	neigh_handler->link_cache = NULL;
-close_connection:
-	nl_close(neigh_handler->sock);
 free_socket:
 	nl_socket_free(neigh_handler->sock);
 	neigh_handler->sock = NULL;
@@ -804,7 +793,6 @@ void neigh_free_resources(struct get_neigh_handler *neigh_handler)
 	}
 
 	if (neigh_handler->sock != NULL) {
-		nl_close(neigh_handler->sock);
 		nl_socket_free(neigh_handler->sock);
 		neigh_handler->sock = NULL;
 	}
@@ -826,12 +814,12 @@ int process_get_neigh(struct get_neigh_handler *neigh_handler)
 
 	nlmsg_append(m, &rmsg, sizeof(rmsg), NLMSG_ALIGNTO);
 
-	nla_put_addr(m, RTA_DST, neigh_handler->dst);
+	NLA_PUT_ADDR(m, RTA_DST, neigh_handler->dst);
 
 	if (neigh_handler->oif > 0)
-		nla_put_u32(m, RTA_OIF, neigh_handler->oif);
+		NLA_PUT_U32(m, RTA_OIF, neigh_handler->oif);
 
-	err = nl_send_auto_complete(neigh_handler->sock, m);
+	err = nl_send_auto(neigh_handler->sock, m);
 	nlmsg_free(m);
 	if (err < 0)
 		return err;
@@ -842,4 +830,8 @@ int process_get_neigh(struct get_neigh_handler *neigh_handler)
 	err = nl_recvmsgs_default(neigh_handler->sock);
 
 	return err;
+
+nla_put_failure:
+	nlmsg_free(m);
+	return -ENOMEM;
 }

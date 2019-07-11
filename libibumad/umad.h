@@ -118,8 +118,6 @@ typedef struct ib_user_mad {
 
 #define UMAD_MAX_PORTS		64
 
-#define UMAD_DEV_DIR		"/dev/infiniband"
-
 #define SYS_CA_PORTS_DIR	"ports"
 
 #define SYS_NODE_TYPE		"node_type"

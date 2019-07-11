@@ -49,7 +49,8 @@
  * Macros needed to support the PCI Device ID Table ...
  */
 #define CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN                                    \
-	static const struct verbs_match_ent hca_table[] = {
+	static const struct verbs_match_ent hca_table[] = {                    \
+		VERBS_DRIVER_ID(RDMA_DRIVER_CXGB4),
 
 #define CH_PCI_DEVICE_ID_FUNCTION \
 		0x4
@@ -414,8 +415,7 @@ static bool c4iw_device_match(struct verbs_sysfs_dev *sysfs_dev)
 	 * Verify that the firmware major number matches.  Major number
 	 * mismatches are fatal.  Minor number mismatches are tolerated.
 	 */
-	if (ibv_read_sysfs_file(sysfs_dev->ibdev_path, "fw_ver", value,
-				sizeof(value)) < 0)
+	if (ibv_get_fw_ver(value, sizeof(value), sysfs_dev))
 		return false;
 
 	cp = strtok(value+1, ".");

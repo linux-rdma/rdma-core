@@ -57,7 +57,7 @@
 #include "rxe.h"
 
 static const struct verbs_match_ent hca_table[] = {
-	/* FIXME: rxe needs a more reliable way to detect the rxe device */
+	VERBS_DRIVER_ID(RDMA_DRIVER_RXE),
 	VERBS_NAME_MATCH("rxe", NULL),
 	{},
 };

@@ -221,12 +221,14 @@ def get_headers(incdir):
     return includes;
 
 def compile_test_headers(tmpd,incdir,includes,with_cxx=False):
+    cppflags = subprocess.check_output(["pkg-config","libnl-3.0","--cflags-only-I"]).strip();
+    cppflags = "-I %s %s"%(incdir,cppflags)
     with open(os.path.join(tmpd,"build.ninja"),"wt") as F:
         print >> F,"rule comp";
-        print >> F," command = %s -Werror -c -I %s $in -o $out"%(args.CC,incdir);
+        print >> F," command = %s -Werror -c %s $in -o $out"%(args.CC,cppflags);
         print >> F," description=Header check for $in";
         print >> F,"rule comp_cxx";
-        print >> F," command = %s -Werror -c -I %s $in -o $out"%(args.CXX,incdir);
+        print >> F," command = %s -Werror -c %s $in -o $out"%(args.CXX,cppflags);
         print >> F," description=Header C++ check for $in";
         count = 0;
         for I in sorted(includes):

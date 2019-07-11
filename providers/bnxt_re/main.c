@@ -54,6 +54,7 @@
 
 #define CNA(v, d) VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, d, NULL)
 static const struct verbs_match_ent cna_table[] = {
+	VERBS_DRIVER_ID(RDMA_DRIVER_BNXT_RE),
 	CNA(BROADCOM, 0x1605),  /* BCM57454 NPAR */
 	CNA(BROADCOM, 0x1606),  /* BCM57454 VF */
 	CNA(BROADCOM, 0x1614),  /* BCM57454 */

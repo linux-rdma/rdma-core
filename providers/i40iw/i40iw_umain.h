@@ -64,13 +64,8 @@
 #define I40E_DB_SHADOW_AREA_SIZE 64
 #define I40E_DB_CQ_OFFSET 0x40
 
-enum i40iw_uhca_type {
-	INTEL_i40iw
-};
-
 struct i40iw_udevice {
 	struct verbs_device ibv_dev;
-	enum i40iw_uhca_type hca_type;
 	int page_size;
 };
 
