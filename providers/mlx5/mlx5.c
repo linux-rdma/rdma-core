@@ -47,6 +47,7 @@
 #include "mlx5.h"
 #include "mlx5-abi.h"
 #include "wqe.h"
+#include "mlx5_ifc.h"
 
 #ifndef PCI_VENDOR_ID_MELLANOX
 #define PCI_VENDOR_ID_MELLANOX			0x15b3
@@ -672,6 +673,42 @@ static void mlx5_map_clock_info(struct mlx5_device *mdev,
 		context->clock_info_page = clock_info_page;
 }
 
+static uint32_t get_dc_odp_caps(struct ibv_context *ctx)
+{
+	uint32_t in[DEVX_ST_SZ_DW(query_hca_cap_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(query_hca_cap_out)] = {};
+	uint16_t opmod = (MLX5_CAP_ODP << 1) | HCA_CAP_OPMOD_GET_CUR;
+	uint32_t ret;
+
+	DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
+	DEVX_SET(query_hca_cap_in, in, op_mod, opmod);
+
+	ret = mlx5dv_devx_general_cmd(ctx, in, sizeof(in), out, sizeof(out));
+	if (ret)
+		return 0;
+
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.odp_cap.dc_odp_caps.send))
+		ret |= IBV_ODP_SUPPORT_SEND;
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.odp_cap.dc_odp_caps.receive))
+		ret |= IBV_ODP_SUPPORT_RECV;
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.odp_cap.dc_odp_caps.write))
+		ret |= IBV_ODP_SUPPORT_WRITE;
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.odp_cap.dc_odp_caps.read))
+		ret |= IBV_ODP_SUPPORT_READ;
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.odp_cap.dc_odp_caps.atomic))
+		ret |= IBV_ODP_SUPPORT_ATOMIC;
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.odp_cap.dc_odp_caps.srq_receive))
+		ret |= IBV_ODP_SUPPORT_SRQ_RECV;
+
+	return ret;
+}
+
 int mlx5dv_query_device(struct ibv_context *ctx_in,
 			 struct mlx5dv_context *attrs_out)
 {
@@ -739,6 +776,11 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS) {
 		attrs_out->flow_action_flags = mctx->flow_action_flags;
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS;
+	}
+
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_DC_ODP_CAPS) {
+		attrs_out->dc_odp_caps = get_dc_odp_caps(ctx_in);
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_DC_ODP_CAPS;
 	}
 
 	attrs_out->comp_mask = comp_mask_out;
