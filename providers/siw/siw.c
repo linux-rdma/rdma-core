@@ -907,7 +907,7 @@ static void siw_device_free(struct verbs_device *vdev)
 }
 
 static const struct verbs_match_ent rnic_table[] = {
-	VERBS_NAME_MATCH("siw", NULL),
+	VERBS_DRIVER_ID(RDMA_DRIVER_SIW),
 	{},
 };
 
