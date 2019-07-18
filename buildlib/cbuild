@@ -1085,20 +1085,6 @@ def cmd_make_dist_tar(args):
             subprocess.check_call(["gzip","-9c",tmp_tarfn],stdout=F);
 
 # -------------------------------------------------------------------------
-def args_docker_gc(parser):
-    pass;
-def cmd_docker_gc(args):
-    """Run garbage collection on docker images and containers."""
-
-    containers = set(docker_cmd_str(args,"ps","-a","-q","--filter","status=exited").split());
-    images = set(docker_cmd_str(args,"images","-q","--filter","dangling=true").split());
-
-    if containers:
-        docker_cmd(args,"rm",*sorted(containers));
-    if images:
-        docker_cmd(args,"rmi",*sorted(images));
-
-# -------------------------------------------------------------------------
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Operate docker for building this package')
