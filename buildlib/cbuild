@@ -52,6 +52,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import yaml
 from contextlib import contextmanager;
 
 project = "rdma-core";
@@ -72,6 +73,7 @@ class DockerFile(object):
         self.lines = ["FROM %s"%(src)];
 
 class Environment(object):
+    azp_images = None;
     pandoc = True;
     python_cmd = "python3";
     aliases = set();
@@ -81,9 +83,23 @@ class Environment(object):
 
     to_azp = False;
 
+    def _get_azp_names(self):
+        if Environment.azp_images:
+            return Environment.azp_images;
+
+        with open("buildlib/azure-pipelines.yml") as F:
+            azp = yaml.safe_load(F)
+        Environment.azp_images = set(I["image"] for I in azp["resources"]["containers"])
+        return Environment.azp_images;
+
     def image_name(self):
         if self.to_azp:
-            return "ucfconsort.azurecr.io/%s/%s"%(project, self.name);
+            # Get the version number of the container out of the azp file.
+            prefix = "ucfconsort.azurecr.io/%s/%s:"%(project, self.name);
+            for I in self._get_azp_names():
+                if I.startswith(prefix):
+                    return I;
+            raise ValueError("Image is not used in buildlib/azure-pipelines.yml")
         return "build-%s/%s"%(project,self.name);
 
 # -------------------------------------------------------------------------
@@ -252,7 +268,6 @@ class travis(APTEnvironment):
     _yaml = None;
 
     def get_yaml(self):
-        import yaml
         if self._yaml:
             return self._yaml;
 
@@ -394,6 +409,7 @@ class azure_pipelines(bionic):
         "gcc-8",
         "git",
         "python2.7",
+        "python3-yaml",
         "sparse",
         'python-docutils',
     } | {
@@ -750,7 +766,6 @@ def copy_abi_files(src):
             shutil.copy(cur_fn, ref_fn);
 
 def run_travis_build(args,env):
-    import yaml
     with private_tmp(args) as tmpdir:
         os.mkdir(os.path.join(tmpdir,"src"));
         os.mkdir(os.path.join(tmpdir,"tmp"));
@@ -815,7 +830,6 @@ def run_travis_build(args,env):
         copy_abi_files(os.path.join(tmpdir, "src/ABI"));
 
 def run_azp_build(args,env):
-    import yaml
     # Load the commands from the pipelines file
     with open("buildlib/azure-pipelines.yml") as F:
         azp = yaml.safe_load(F);
