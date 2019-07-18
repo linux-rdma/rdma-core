@@ -90,6 +90,14 @@ stages:
               ninja
             displayName: gcc 8.3 ARM64 Compile
 
+          - bash: |
+              set -e
+              mkdir build-ppc64el
+              cd build-ppc64el
+              CC=powerpc64le-linux-gnu-gcc-8 CFLAGS="-Werror" cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1
+              ninja
+            displayName: gcc 8.3 PPC64EL Compile
+
           # When running cmake through debian/rules it is hard to set -Werror,
           # instead force it on by changing the CMakeLists.txt
           - bash: |

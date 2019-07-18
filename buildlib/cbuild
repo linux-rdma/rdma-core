@@ -457,6 +457,15 @@ class azure_pipelines(bionic):
         "libnl-route-3-dev:arm64",
         "libsystemd-dev:arm64",
         "libudev-dev:arm64",
+    } | {
+        # PPC 64 cross compiler
+        "gcc-8-powerpc64le-linux-gnu",
+        "libgcc-8-dev:ppc64el",
+        "libc6-dev:ppc64el",
+        "libnl-3-dev:ppc64el",
+        "libnl-route-3-dev:ppc64el",
+        "libsystemd-dev:ppc64el",
+        "libudev-dev:ppc64el",
     }
     to_azp = True;
     name = "azure_pipelines";
@@ -471,12 +480,13 @@ class azure_pipelines(bionic):
                      "deb [arch=amd64] http://apt.llvm.org/bionic/ llvm-toolchain-bionic-8 main",
                      "15CF4D18AF4F7421");
         self.add_source_list(tmpdir,"arm64.list",
-                             """deb [arch=arm64] http://ports.ubuntu.com/ bionic main universe
-deb [arch=arm64] http://ports.ubuntu.com/ bionic-security main universe
-deb [arch=arm64] http://ports.ubuntu.com/ bionic-updates main universe""");
+                             """deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ bionic main universe
+deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ bionic-security main universe
+deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ bionic-updates main universe""");
 
         res.lines.insert(1,"ADD etc/ /etc/");
         res.lines.insert(1,"RUN dpkg --add-architecture i386 &&"
+                         "dpkg --add-architecture ppc64el &&"
                          "dpkg --add-architecture arm64 &&"
                          "sed -i -e 's/^deb /deb [arch=amd64,i386] /g' /etc/apt/sources.list");
         return res;
