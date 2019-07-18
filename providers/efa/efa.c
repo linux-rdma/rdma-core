@@ -45,7 +45,7 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 					       int cmd_fd,
 					       void *private_data)
 {
-	struct efa_alloc_ucontext_resp resp;
+	struct efa_alloc_ucontext_resp resp = {};
 	struct ibv_device_attr_ex attr;
 	struct ibv_get_context cmd;
 	struct efa_context *ctx;
@@ -56,7 +56,6 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 	if (!ctx)
 		return NULL;
 
-	memset(&resp, 0, sizeof(resp));
 	if (ibv_cmd_get_context(&ctx->ibvctx, &cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
 		goto err_free_ctx;
