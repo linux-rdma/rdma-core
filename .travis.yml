@@ -39,9 +39,6 @@ addons:
       - python3-dev
       - python3-pip
 
-service:
-    - docker
-
 before_script:
   - export LATEST_GCC_LINARO_URL=`wget -qO - https://releases.linaro.org/components/toolchain/binaries/latest-7/aarch64-linux-gnu/ | grep -o '<a href=['"'"'"].*gcc-linaro-.*x86_64_aarch64-linux-gnu.tar.xz['"'"'"]'  |  sed -e 's/^<a href=["'"'"']//' -e 's/["'"'"']$//'`
   - export LATEST_GCC_LINARO_TAR=`basename $LATEST_GCC_LINARO_URL`
@@ -52,7 +49,6 @@ before_script:
 script:
   - buildlib/travis-build
   - buildlib/travis-checkpatch
-  - buildlib/package-build-test
   - buildlib/github-release
 deploy:
   # Deploy assets to Github releases
