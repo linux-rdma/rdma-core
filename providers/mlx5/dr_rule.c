@@ -263,6 +263,7 @@ static struct dr_ste *dr_rule_rehash_copy_ste(struct mlx5dv_dr_matcher *matcher,
 
 	/* Copy STE control and tag */
 	memcpy(hw_ste, cur_ste->hw_ste, DR_STE_SIZE_REDUCED);
+	dr_ste_set_miss_addr(hw_ste, nic_matcher->e_anchor->chunk->icm_addr);
 
 	new_idx = dr_ste_calc_hash_index(hw_ste, new_htbl);
 	new_ste = &new_htbl->ste_arr[new_idx];
