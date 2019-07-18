@@ -67,9 +67,9 @@ stages:
               set -e
               mkdir build-clang
               cd build-clang
-              CC=clang-7 CFLAGS="-Werror -m32 -msse3" cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1
+              CC=clang-8 CFLAGS="-Werror -m32 -msse3" cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1
               ninja
-            displayName: clang 7.0 32-bit Compile
+            displayName: clang 8.0 32-bit Compile
 
           - bash: |
               set -e
@@ -97,12 +97,12 @@ stages:
               echo 'set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")' >> buildlib/RDMA_EnableCStd.cmake
               sed -i -e 's/-DCMAKE_BUILD_TYPE=Release/-DCMAKE_BUILD_TYPE=Debug/g' debian/rules
               sed -i -e 's/ninja \(.*\)-v/ninja \1/g' debian/rules
-              debian/rules CC=clang-7 build
-            displayName: clang 7.0 Bionic Build
+              debian/rules CC=clang-8 build
+            displayName: clang 8.0 Bionic Build
           - bash: |
               set -e
               fakeroot debian/rules binary
-            displayName: clang 7.0 Bionic .deb Build
+            displayName: clang 8.0 Bionic .deb Build
 
       - job: SrcPrep
         displayName: Build Source Tar
