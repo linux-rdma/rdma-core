@@ -35,16 +35,16 @@ stages:
 
           - bash: |
               set -e
-              mkdir build-gcc8
-              cd build-gcc8
-              CC=gcc-8 CFLAGS="-Werror" cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_STATIC=1
+              mkdir build-gcc9
+              cd build-gcc9
+              CC=gcc-9 CFLAGS="-Werror" cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_STATIC=1
               ninja
-            displayName: gcc 8.3 Compile
+            displayName: gcc 9.1 Compile
 
           - bash: |
               set -e
-              cd build-gcc8
-              python2.7 ../buildlib/check-build --src .. --cc gcc-8
+              cd build-gcc9
+              python2.7 ../buildlib/check-build --src .. --cc gcc-9
             displayName: Check Build Script
 
           # Run sparse on the subdirectories which are sparse clean
@@ -75,9 +75,9 @@ stages:
               set -e
               mv util/udma_barrier.h util/udma_barrier.h.old
               echo "#error Fail" >> util/udma_barrier.h
-              cd build-gcc8
+              cd build-gcc9
               rm CMakeCache.txt
-              CC=gcc-8 CFLAGS="-Werror" cmake -GNinja .. -DIOCTL_MODE=both
+              CC=gcc-9 CFLAGS="-Werror" cmake -GNinja .. -DIOCTL_MODE=both
               ninja
               mv ../util/udma_barrier.h.old ../util/udma_barrier.h
             displayName: Simulate non-coherent DMA Platform Compile
@@ -117,7 +117,7 @@ stages:
               set -e
               mkdir build-pandoc artifacts
               cd build-pandoc
-              CC=gcc-8 cmake -GNinja ..
+              CC=gcc-9 cmake -GNinja ..
               ninja docs
               cd ../artifacts
               # FIXME: Check Build.SourceBranch for tag consistency

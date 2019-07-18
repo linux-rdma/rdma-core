@@ -106,7 +106,7 @@ class Environment(object):
 
 class YumEnvironment(Environment):
     is_rpm = True;
-    def get_docker_file(self):
+    def get_docker_file(self,tmpdir):
         res = DockerFile(self.docker_parent);
         res.lines.append("RUN yum install -y %s && yum clean all"%(
             " ".join(sorted(self.pkgs))));
@@ -163,8 +163,8 @@ class centos7_epel(centos7):
     is_rpm = False;
     to_azp = False;
 
-    def get_docker_file(self):
-        res = YumEnvironment.get_docker_file(self);
+    def get_docker_file(self,tmpdir):
+        res = YumEnvironment.get_docker_file(self,tmpdir);
         res.lines.insert(1,"RUN yum install -y epel-release");
         res.lines.append("RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake && ln -sf /usr/bin/python3.4 /usr/bin/python3");
         return res;
@@ -185,7 +185,7 @@ class fc30(Environment):
     is_rpm = True;
     aliases = {"fedora"};
 
-    def get_docker_file(self):
+    def get_docker_file(self,tmpdir):
         res = DockerFile(self.docker_parent);
         res.lines.append("RUN dnf install -y %s && dnf clean all"%(
             " ".join(sorted(self.pkgs))));
@@ -196,11 +196,38 @@ class fc30(Environment):
 class APTEnvironment(Environment):
     is_deb = True;
     build_python = True;
-    def get_docker_file(self):
+    def get_docker_file(self,tmpdir):
         res = DockerFile(self.docker_parent);
         res.lines.append("RUN apt-get update && apt-get install -y --no-install-recommends %s && apt-get clean && rm -rf /usr/share/doc/ /usr/lib/debug"%(
             " ".join(sorted(self.pkgs))));
         return res;
+
+    def add_source_list(self,tmpdir,name,content):
+        sld = os.path.join(tmpdir,"etc","apt","sources.list.d");
+        if not os.path.isdir(sld):
+            os.makedirs(sld);
+        with open(os.path.join(sld,name),"w") as F:
+            F.write(content + "\n");
+
+    def add_ppa(self,tmpdir,srcline,keyid):
+        gpgd = os.path.join(tmpdir,"etc","apt","trusted.gpg.d");
+        if not os.path.isdir(gpgd):
+            os.makedirs(gpgd);
+
+        # The container does not have gpg or other stuff to get the signing
+        # key for the toolchain ppa.  Fetch it in the host and just import the
+        # gpg data directly into the trusted keyring.
+        kb = os.path.join(tmpdir,"%s.kb.gpg"%(keyid));
+        subprocess.check_call(["gpg","--no-default-keyring","--keyring",kb,"--always-trust",
+                               "--recv-key",keyid]);
+        kr = os.path.join(gpgd,"%s.gpg"%(keyid));
+        with open(kr,"wb") as F:
+            F.write(subprocess.check_output(["gpg","--no-default-keyring",
+                                             "--keyring",kb,
+                                             "--export",keyid]));
+        os.unlink(kb);
+
+        self.add_source_list(tmpdir,keyid + ".list",srcline);
 
 class xenial(APTEnvironment):
     docker_parent = "ubuntu:16.04"
@@ -252,7 +279,7 @@ class debian_experimental(APTEnvironment):
     pkgs = (stretch.pkgs ^ {"gcc"}) | {"gcc-9"};
     name = "debian-experimental";
 
-    def get_docker_file(self):
+    def get_docker_file(self,tmpdir):
         res = DockerFile(self.docker_parent);
         res.lines.append("RUN apt-get update && apt-get -t experimental install -y --no-install-recommends %s && apt-get clean"%(
             " ".join(sorted(self.pkgs))));
@@ -330,10 +357,10 @@ class travis(APTEnvironment):
     def get_cython(self):
         return ["""RUN pip3 install cython"""]
 
-    def get_docker_file(self):
+    def get_docker_file(self,tmpdir):
         # First this to get apt-add-repository
         self.pkgs = {"software-properties-common"}
-        res = APTEnvironment.get_docker_file(self);
+        res = APTEnvironment.get_docker_file(self,tmpdir);
 
         # Sources list from the travis.yml
         res.lines.extend(self.get_repos());
@@ -357,7 +384,7 @@ class travis(APTEnvironment):
 class ZypperEnvironment(Environment):
     proxy = False;
     is_rpm = True;
-    def get_docker_file(self):
+    def get_docker_file(self,tmpdir):
         res = DockerFile(self.docker_parent);
         res.lines.append("RUN zypper --non-interactive refresh");
         res.lines.append("RUN zypper --non-interactive dist-upgrade");
@@ -407,7 +434,7 @@ class azure_pipelines(bionic):
         "ca-certificates",
         "clang-7",
         "fakeroot",
-        "gcc-8",
+        "gcc-9",
         "git",
         "python2.7",
         "python3-yaml",
@@ -415,7 +442,7 @@ class azure_pipelines(bionic):
         'python-docutils',
     } | {
         # 32 bit build support
-        "libgcc-8-dev:i386",
+        "libgcc-9-dev:i386",
         "libc6-dev:i386",
         "libnl-3-dev:i386",
         "libnl-route-3-dev:i386",
@@ -435,14 +462,20 @@ class azure_pipelines(bionic):
     name = "azure_pipelines";
     aliases = {"azp"}
 
-    def get_docker_file(self):
-        res = bionic.get_docker_file(self);
+    def get_docker_file(self,tmpdir):
+        res = bionic.get_docker_file(self,tmpdir);
+        self.add_ppa(tmpdir,
+                     "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu bionic main",
+                     "60C317803A41BA51845E371A1E9377A2BA9EF27F");
+        self.add_source_list(tmpdir,"arm64.list",
+                             """deb [arch=arm64] http://ports.ubuntu.com/ bionic main universe
+deb [arch=arm64] http://ports.ubuntu.com/ bionic-security main universe
+deb [arch=arm64] http://ports.ubuntu.com/ bionic-updates main universe""");
+
+        res.lines.insert(1,"ADD etc/ /etc/");
         res.lines.insert(1,"RUN dpkg --add-architecture i386 &&"
                          "dpkg --add-architecture arm64 &&"
-                         "sed -i -e 's/^deb /deb [arch=amd64,i386] /g' /etc/apt/sources.list &&"
-                         "echo 'deb [arch=arm64] http://ports.ubuntu.com/ bionic main universe\\n"
-                               "deb [arch=arm64] http://ports.ubuntu.com/ bionic-security main universe\\n"
-                               "deb [arch=arm64] http://ports.ubuntu.com/ bionic-updates main universe' > /etc/apt/sources.list.d/arm64.list");
+                         "sed -i -e 's/^deb /deb [arch=amd64,i386] /g' /etc/apt/sources.list");
         return res;
 
 # -------------------------------------------------------------------------
@@ -1047,8 +1080,8 @@ def cmd_build_images(args):
     """Run from the top level source directory to make the docker images that are
     needed for building. This only needs to be run once."""
     for env in args.ENV:
-        df = env.get_docker_file();
         with private_tmp(args) as tmpdir:
+            df = env.get_docker_file(tmpdir);
             fn = os.path.join(tmpdir,"Dockerfile");
             with open(fn,"wt") as F:
                 for ln in df.lines:
