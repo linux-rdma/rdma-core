@@ -118,13 +118,15 @@ struct ibv_pd *efa_alloc_pd(struct ibv_context *ibvctx)
 	struct efa_alloc_pd_resp resp = {};
 	struct ibv_alloc_pd cmd;
 	struct efa_pd *pd;
+	int err;
 
 	pd = calloc(1, sizeof(*pd));
 	if (!pd)
 		return NULL;
 
-	if (ibv_cmd_alloc_pd(ibvctx, &pd->ibvpd, &cmd, sizeof(cmd),
-			     &resp.ibv_resp, sizeof(resp)))
+	err = ibv_cmd_alloc_pd(ibvctx, &pd->ibvpd, &cmd, sizeof(cmd),
+			       &resp.ibv_resp, sizeof(resp));
+	if (err)
 		goto out;
 
 	pd->pdn = resp.pdn;
@@ -133,6 +135,7 @@ struct ibv_pd *efa_alloc_pd(struct ibv_context *ibvctx)
 
 out:
 	free(pd);
+	errno = err;
 	return NULL;
 }
 
@@ -155,14 +158,17 @@ struct ibv_mr *efa_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
 	struct ib_uverbs_reg_mr_resp resp;
 	struct ibv_reg_mr cmd;
 	struct efa_mr *mr;
+	int err;
 
 	mr = calloc(1, sizeof(*mr));
 	if (!mr)
 		return NULL;
 
-	if (ibv_cmd_reg_mr(ibvpd, sva, len, hca_va, access, &mr->vmr,
-			   &cmd, sizeof(cmd), &resp, sizeof(resp))) {
+	err = ibv_cmd_reg_mr(ibvpd, sva, len, hca_va, access, &mr->vmr,
+			     &cmd, sizeof(cmd), &resp, sizeof(resp));
+	if (err) {
 		free(mr);
+		errno = err;
 		return NULL;
 	}
 
@@ -222,6 +228,7 @@ struct ibv_cq *efa_create_cq(struct ibv_context *ibvctx, int ncqe,
 	int sub_buf_size;
 	int sub_cq_size;
 	uint8_t *buf;
+	int err;
 	int i;
 
 	cq = calloc(1, sizeof(*cq) +
@@ -234,10 +241,13 @@ struct ibv_cq *efa_create_cq(struct ibv_context *ibvctx, int ncqe,
 	cmd.cq_entry_size = ctx->cqe_size;
 
 	ncqe = roundup_pow_of_two(ncqe);
-	if (ibv_cmd_create_cq(ibvctx, ncqe, channel, vec,
-			      &cq->ibvcq, &cmd.ibv_cmd, sizeof(cmd),
-			      &resp.ibv_resp, sizeof(resp)))
+	err = ibv_cmd_create_cq(ibvctx, ncqe, channel, vec,
+				&cq->ibvcq, &cmd.ibv_cmd, sizeof(cmd),
+				&resp.ibv_resp, sizeof(resp));
+	if (err) {
+		errno = err;
 		goto err_free_cq;
+	}
 
 	sub_cq_size = cq->ibvcq.cqe;
 	cq->cqn = resp.cq_idx;
@@ -520,15 +530,19 @@ static int efa_sq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 	qp->sq.desc = mmap(NULL, qp->sq.desc_ring_mmap_size, PROT_WRITE,
 			   MAP_SHARED, qp->ibvqp.context->cmd_fd,
 			   resp->llq_desc_mmap_key);
-	if (qp->sq.desc == MAP_FAILED)
+	if (qp->sq.desc == MAP_FAILED) {
+		err = errno;
 		goto err_terminate_wq;
+	}
 
 	qp->sq.desc += qp->sq.desc_offset;
 
 	db_base = mmap(NULL, qp->page_size, PROT_WRITE, MAP_SHARED,
 		       qp->ibvqp.context->cmd_fd, resp->sq_db_mmap_key);
-	if (db_base == MAP_FAILED)
+	if (db_base == MAP_FAILED) {
+		err = errno;
 		goto err_unmap_desc_ring;
+	}
 
 	qp->sq.db = (uint32_t *)(db_base + resp->sq_db_offset);
 	qp->sq.sub_cq_idx = resp->send_sub_cq_idx;
@@ -539,7 +553,7 @@ err_unmap_desc_ring:
 	munmap(qp->sq.desc - qp->sq.desc_offset, qp->sq.desc_ring_mmap_size);
 err_terminate_wq:
 	efa_wq_terminate(&qp->sq.wq);
-	return EINVAL;
+	return err;
 }
 
 static void efa_rq_terminate(struct efa_qp *qp)
@@ -571,13 +585,17 @@ static int efa_rq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 	qp->rq.buf_size = resp->rq_mmap_size;
 	qp->rq.buf = mmap(NULL, qp->rq.buf_size, PROT_WRITE, MAP_SHARED,
 			  qp->ibvqp.context->cmd_fd, resp->rq_mmap_key);
-	if (qp->rq.buf == MAP_FAILED)
+	if (qp->rq.buf == MAP_FAILED) {
+		err = errno;
 		goto err_terminate_wq;
+	}
 
 	db_base = mmap(NULL, qp->page_size, PROT_WRITE, MAP_SHARED,
 		       qp->ibvqp.context->cmd_fd, resp->rq_db_mmap_key);
-	if (db_base == MAP_FAILED)
+	if (db_base == MAP_FAILED) {
+		err = errno;
 		goto err_unmap_rq_buf;
+	}
 
 	qp->rq.db = (uint32_t *)(db_base + resp->rq_db_offset);
 	qp->rq.sub_cq_idx = resp->recv_sub_cq_idx;
@@ -588,7 +606,7 @@ err_unmap_rq_buf:
 	munmap(qp->rq.buf, qp->rq.buf_size);
 err_terminate_wq:
 	efa_wq_terminate(&qp->rq.wq);
-	return EINVAL;
+	return err;
 }
 
 static void efa_qp_init_indices(struct efa_qp *qp)
@@ -699,15 +717,17 @@ static struct ibv_qp *create_qp(struct ibv_pd *ibvpd,
 
 	err = efa_check_qp_attr(dev, attr);
 	if (err)
-		return NULL;
+		goto err_out;
 
 	err = efa_check_qp_limits(dev, attr);
 	if (err)
-		return NULL;
+		goto err_out;
 
 	qp = calloc(1, sizeof(*qp));
-	if (!qp)
-		return NULL;
+	if (!qp) {
+		err = ENOMEM;
+		goto err_out;
+	}
 
 	efa_setup_qp(qp, &attr->cap, dev->pg_sz);
 
@@ -721,8 +741,9 @@ static struct ibv_qp *create_qp(struct ibv_pd *ibvpd,
 	if (attr->qp_type == IBV_QPT_DRIVER)
 		req.driver_qp_type = driver_qp_type;
 
-	if (ibv_cmd_create_qp(ibvpd, &qp->ibvqp, attr, &req.ibv_cmd,
-			      sizeof(req), &resp.ibv_resp, sizeof(resp)))
+	err = ibv_cmd_create_qp(ibvpd, &qp->ibvqp, attr, &req.ibv_cmd,
+				sizeof(req), &resp.ibv_resp, sizeof(resp));
+	if (err)
 		goto err_free_qp;
 
 	qp->ibvqp.state = IBV_QPS_RESET;
@@ -764,14 +785,18 @@ err_destroy_qp:
 	ibv_cmd_destroy_qp(&qp->ibvqp);
 err_free_qp:
 	free(qp);
+err_out:
+	errno = err;
 	return NULL;
 }
 
 struct ibv_qp *efa_create_qp(struct ibv_pd *ibvpd,
 			     struct ibv_qp_init_attr *attr)
 {
-	if (attr->qp_type != IBV_QPT_UD)
+	if (attr->qp_type != IBV_QPT_UD) {
+		errno = EOPNOTSUPP;
 		return NULL;
+	}
 
 	return create_qp(ibvpd, attr, 0);
 }
@@ -780,9 +805,15 @@ struct ibv_qp *efadv_create_driver_qp(struct ibv_pd *ibvpd,
 				      struct ibv_qp_init_attr *attr,
 				      uint32_t driver_qp_type)
 {
-	if (!is_efa_dev(ibvpd->context->device) ||
-	    attr->qp_type != IBV_QPT_DRIVER)
+	if (!is_efa_dev(ibvpd->context->device)) {
+		errno = EOPNOTSUPP;
 		return NULL;
+	}
+
+	if (attr->qp_type != IBV_QPT_DRIVER) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	return create_qp(ibvpd, attr, driver_qp_type);
 }
@@ -1138,6 +1169,7 @@ struct ibv_ah *efa_create_ah(struct ibv_pd *ibvpd, struct ibv_ah_attr *attr)
 				&resp.ibv_resp, sizeof(resp));
 	if (err) {
 		free(ah);
+		errno = err;
 		return NULL;
 	}
 
