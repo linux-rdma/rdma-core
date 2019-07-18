@@ -161,6 +161,7 @@ class centos7_epel(centos7):
     ninja_cmd = "ninja-build";
     # Our spec file does not know how to cope with cmake3
     is_rpm = False;
+    to_azp = False;
 
     def get_docker_file(self):
         res = YumEnvironment.get_docker_file(self);
@@ -1058,6 +1059,29 @@ def cmd_build_images(args):
                      "-t",env.image_name(),
                      tmpdir]);
             docker_cmd(args,*opts);
+
+# -------------------------------------------------------------------------
+
+def args_push_azp_images(args):
+    pass
+def cmd_push_azp_images(args):
+    """Push the images required for Azure Pipelines to the container
+    registry. Must have done 'az login' first"""
+    subprocess.check_call(["sudo","az","acr","login","--name","ucfconsort"]);
+    with private_tmp(args) as tmpdir:
+        nfn = os.path.join(tmpdir,"build.ninja");
+        with open(nfn,"w") as F:
+            F.write("""rule push
+            command = docker push $img
+            description=Push $img\n""");
+
+            for env in environments:
+                name = env.image_name()
+                if "ucfconsort.azurecr.io" not in name:
+                    continue
+                F.write("build push_%s : push\n   img = %s\n"%(env.name,env.image_name()));
+                F.write("default push_%s\n"%(env.name));
+        subprocess.check_call(["sudo","ninja"],cwd=tmpdir);
 
 # -------------------------------------------------------------------------
 def args_make_dist_tar(parser):
