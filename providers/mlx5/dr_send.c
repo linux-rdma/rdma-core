@@ -716,7 +716,7 @@ int dr_send_postsend_htbl(struct mlx5dv_dr_domain *dmn, struct dr_ste_htbl *htbl
 
 	/* Send the data iteration times */
 	for (i = 0; i < iterations; i++) {
-		uint32_t ste_index = (i > 0) ? (i * (byte_size / DR_STE_SIZE)) - 1 : 0;
+		uint32_t ste_index = i * (byte_size / DR_STE_SIZE);
 		struct postsend_info send_info = {};
 
 		/* Copy all ste's on the data buffer, need to add the bit_mask */
@@ -781,7 +781,7 @@ int dr_send_postsend_formated_htbl(struct mlx5dv_dr_domain *dmn,
 
 	/* Send the data iteration times */
 	for (i = 0; i < iterations; i++) {
-		uint32_t ste_index = (i > 0) ? (i * (byte_size / DR_STE_SIZE)) - 1 : 0;
+		uint32_t ste_index = i * (byte_size / DR_STE_SIZE);
 		struct postsend_info send_info = {};
 
 		send_info.write.addr	= (uintptr_t) data;
