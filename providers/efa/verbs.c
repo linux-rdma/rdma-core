@@ -823,6 +823,17 @@ struct ibv_qp *efa_create_qp(struct ibv_pd *ibvpd,
 	return ibvqp;
 }
 
+struct ibv_qp *efa_create_qp_ex(struct ibv_context *ibvctx,
+				struct ibv_qp_init_attr_ex *attr_ex)
+{
+	if (attr_ex->qp_type != IBV_QPT_UD) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	return create_qp(ibvctx, attr_ex, 0);
+}
+
 struct ibv_qp *efadv_create_driver_qp(struct ibv_pd *ibvpd,
 				      struct ibv_qp_init_attr *attr,
 				      uint32_t driver_qp_type)
