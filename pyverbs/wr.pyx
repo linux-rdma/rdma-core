@@ -53,10 +53,7 @@ cdef class SGE(PyverbsCM):
         cdef char *sg_data
         cdef int off = offset
         sg_data = <char*>(self.sge.addr + off)
-        return <object>sg_data[:length]
-
-    def _get_sge(self):
-        return <object>self.sge
+        return sg_data[:length]
 
     def __str__(self):
         print_format = '{:22}: {:<20}\n'
@@ -104,7 +101,7 @@ cdef class RecvWR(PyverbsCM):
         if self.recv_wr.sg_list == NULL:
             raise PyverbsRDMAErrno('Failed to malloc SG buffer')
         dst = self.recv_wr.sg_list
-        copy_sg_array(<object>dst, sg, num_sge)
+        copy_sg_array(dst, sg, num_sge)
         self.recv_wr.num_sge = num_sge
         self.recv_wr.wr_id = wr_id
         if next_wr is not None:
@@ -166,7 +163,7 @@ cdef class SendWR(PyverbsCM):
         if self.send_wr.sg_list == NULL:
             raise PyverbsRDMAErrno('Failed to malloc SG buffer')
         dst = self.send_wr.sg_list
-        copy_sg_array(<object>dst, sg, num_sge)
+        copy_sg_array(dst, sg, num_sge)
         self.send_wr.num_sge = num_sge
         self.send_wr.wr_id = wr_id
         if next_wr is not None:
@@ -298,13 +295,9 @@ def send_flags_to_str(flags):
     return flags_str
 
 
-cdef copy_sg_array(dst_obj, sg, num_sge):
-    cdef v.ibv_sge *dst = <v.ibv_sge*>dst_obj
+cdef copy_sg_array(v.ibv_sge *dst, sg, num_sge):
     cdef v.ibv_sge *src
     for i in range(num_sge):
-        # Avoid 'storing unsafe C derivative of temporary Python' errors
-        # that will occur if we merge the two following lines.
-        tmp = sg[i]._get_sge()
-        src = <v.ibv_sge*>tmp
+        src = (<SGE>sg[i]).sge
         memcpy(dst, src, sizeof(v.ibv_sge))
         dst += 1

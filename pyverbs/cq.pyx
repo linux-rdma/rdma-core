@@ -59,10 +59,6 @@ cdef class CompChannel(PyverbsCM):
         if isinstance(obj, CQ) or isinstance(obj, CQEX):
             self.cqs.add(obj)
 
-    @property
-    def channel(self):
-        return <object>self.cc
-
 
 cdef class CQ(PyverbsCM):
     """
@@ -84,8 +80,7 @@ cdef class CQ(PyverbsCM):
         """
         if channel is not None:
             self.cq = v.ibv_create_cq(context.context, cqe, <void*>cq_context,
-                                      <v.ibv_comp_channel*>channel.channel,
-                                      comp_vector)
+                                      channel.cc, comp_vector)
             channel.add_ref(self)
         else:
             self.cq = v.ibv_create_cq(context.context, cqe, <void*>cq_context,
@@ -162,10 +157,6 @@ cdef class CQ(PyverbsCM):
         """
         v.ibv_ack_cq_events(self.cq, num_events)
 
-    @property
-    def _cq(self):
-        return <object>self.cq
-
     def __str__(self):
         print_format = '{:22}: {:<20}\n'
         return 'CQ\n' +\
@@ -215,9 +206,9 @@ cdef class CqInitAttrEx(PyverbsObject):
     def comp_channel(self):
         return self.channel
     @comp_channel.setter
-    def comp_channel(self, val):
+    def comp_channel(self, CompChannel val):
         self.channel = val
-        self.attr.channel = <v.ibv_comp_channel*>val
+        self.attr.channel = val.cc
 
     @property
     def comp_vector(self):
@@ -363,14 +354,6 @@ cdef class CQEX(PyverbsCM):
     @wr_id.setter
     def wr_id(self, val):
         self.cq.wr_id = val
-
-    @property
-    def _cq(self):
-        return <object>self.cq
-
-    @property
-    def _ibv_cq(self):
-        return <object>self.ibv_cq
 
     def __str__(self):
         print_format = '{:<22}: {:<20}\n'

@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
+#cython: language_level=3
+
 from .base cimport PyverbsCM
 from pyverbs cimport libibverbs as v
 
