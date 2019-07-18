@@ -16,13 +16,8 @@ function(rdma_cython_module PY_MODULE)
 
     string(REGEX REPLACE "\\.so$" "" SONAME "${FILENAME}${CMAKE_PYTHON_SO_SUFFIX}")
     add_library(${SONAME} SHARED ${CFILE})
-    # We need to disable -fvar-tracking-assignments if it's supported as it
-	# complains about some pyverbs.
-    if (HAVE_FVAR_TRACKING_ASSIGNMENTS)
-      set(PYVERBS_DEBUG_FLAGS "-fno-var-tracking-assignments")
-    endif()
     set_target_properties(${SONAME} PROPERTIES
-        COMPILE_FLAGS "${CMAKE_C_FLAGS} -fPIC -fno-strict-aliasing -Wno-unused-function -Wno-redundant-decls -Wno-shadow -Wno-cast-function-type -Wno-implicit-fallthrough -Wno-unknown-warning -Wno-unknown-warning-option ${PYVERBS_DEBUG_FLAGS}"
+      COMPILE_FLAGS "${CMAKE_C_FLAGS} -fPIC -fno-strict-aliasing -Wno-unused-function -Wno-redundant-decls -Wno-shadow -Wno-cast-function-type -Wno-implicit-fallthrough -Wno-unknown-warning -Wno-unknown-warning-option ${NO_VAR_TRACKING_FLAGS}"
       LIBRARY_OUTPUT_DIRECTORY "${BUILD_PYTHON}/${PY_MODULE}"
       PREFIX "")
     target_link_libraries(${SONAME} LINK_PRIVATE ${PYTHON_LIBRARIES} ibverbs)
