@@ -363,7 +363,7 @@ static int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 		return ENOMEM;
 
 	qpn = cqe->qp_num;
-	if (!*cur_qp || qpn != (*cur_qp)->ibvqp.qp_num) {
+	if (!*cur_qp || qpn != (*cur_qp)->verbs_qp.qp.qp_num) {
 		/* We do not have to take the QP table lock here,
 		 * because CQs will be locked while QPs are removed
 		 * from the table.
@@ -528,7 +528,7 @@ static int efa_sq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 	qp->sq.max_inline_data = resp->ibv_resp.max_inline_data;
 
 	qp->sq.desc = mmap(NULL, qp->sq.desc_ring_mmap_size, PROT_WRITE,
-			   MAP_SHARED, qp->ibvqp.context->cmd_fd,
+			   MAP_SHARED, qp->verbs_qp.qp.context->cmd_fd,
 			   resp->llq_desc_mmap_key);
 	if (qp->sq.desc == MAP_FAILED) {
 		err = errno;
@@ -538,7 +538,7 @@ static int efa_sq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 	qp->sq.desc += qp->sq.desc_offset;
 
 	db_base = mmap(NULL, qp->page_size, PROT_WRITE, MAP_SHARED,
-		       qp->ibvqp.context->cmd_fd, resp->sq_db_mmap_key);
+		       qp->verbs_qp.qp.context->cmd_fd, resp->sq_db_mmap_key);
 	if (db_base == MAP_FAILED) {
 		err = errno;
 		goto err_unmap_desc_ring;
@@ -584,14 +584,14 @@ static int efa_rq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 
 	qp->rq.buf_size = resp->rq_mmap_size;
 	qp->rq.buf = mmap(NULL, qp->rq.buf_size, PROT_WRITE, MAP_SHARED,
-			  qp->ibvqp.context->cmd_fd, resp->rq_mmap_key);
+			  qp->verbs_qp.qp.context->cmd_fd, resp->rq_mmap_key);
 	if (qp->rq.buf == MAP_FAILED) {
 		err = errno;
 		goto err_terminate_wq;
 	}
 
 	db_base = mmap(NULL, qp->page_size, PROT_WRITE, MAP_SHARED,
-		       qp->ibvqp.context->cmd_fd, resp->rq_db_mmap_key);
+		       qp->verbs_qp.qp.context->cmd_fd, resp->rq_db_mmap_key);
 	if (db_base == MAP_FAILED) {
 		err = errno;
 		goto err_unmap_rq_buf;
@@ -673,8 +673,16 @@ static void efa_unlock_cqs(struct ibv_qp *ibvqp)
 }
 
 static int efa_check_qp_attr(struct efa_dev *dev,
-			     struct ibv_qp_init_attr *attr)
+			     struct ibv_qp_init_attr_ex *attr)
 {
+#define EFA_CREATE_QP_SUPP_ATTR_MASK IBV_QP_INIT_ATTR_PD
+
+	if (!check_comp_mask(attr->comp_mask, EFA_CREATE_QP_SUPP_ATTR_MASK))
+		return EOPNOTSUPP;
+
+	if (!(attr->comp_mask & IBV_QP_INIT_ATTR_PD))
+		return EINVAL;
+
 	if (!attr->recv_cq || !attr->send_cq)
 		return EINVAL;
 
@@ -685,7 +693,7 @@ static int efa_check_qp_attr(struct efa_dev *dev,
 }
 
 static int efa_check_qp_limits(struct efa_dev *dev,
-			       struct ibv_qp_init_attr *attr)
+			       struct ibv_qp_init_attr_ex *attr)
 {
 	if (attr->cap.max_send_sge > dev->max_sq_sge)
 		return EINVAL;
@@ -702,16 +710,17 @@ static int efa_check_qp_limits(struct efa_dev *dev,
 	return 0;
 }
 
-static struct ibv_qp *create_qp(struct ibv_pd *ibvpd,
-				struct ibv_qp_init_attr *attr,
+static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
+				struct ibv_qp_init_attr_ex *attr,
 				uint32_t driver_qp_type)
 {
-	struct efa_context *ctx = to_efa_context(ibvpd->context);
-	struct efa_dev *dev = to_efa_dev(ibvpd->context->device);
+	struct efa_context *ctx = to_efa_context(ibvctx);
+	struct efa_dev *dev = to_efa_dev(ibvctx->device);
 	struct efa_create_qp_resp resp = {};
 	struct efa_create_qp req = {};
 	struct efa_cq *send_cq;
 	struct efa_cq *recv_cq;
+	struct ibv_qp *ibvqp;
 	struct efa_qp *qp;
 	int err;
 
@@ -741,12 +750,14 @@ static struct ibv_qp *create_qp(struct ibv_pd *ibvpd,
 	if (attr->qp_type == IBV_QPT_DRIVER)
 		req.driver_qp_type = driver_qp_type;
 
-	err = ibv_cmd_create_qp(ibvpd, &qp->ibvqp, attr, &req.ibv_cmd,
-				sizeof(req), &resp.ibv_resp, sizeof(resp));
+	err = ibv_cmd_create_qp_ex(ibvctx, &qp->verbs_qp, sizeof(qp->verbs_qp),
+				   attr, &req.ibv_cmd, sizeof(req),
+				   &resp.ibv_resp, sizeof(resp));
 	if (err)
 		goto err_free_qp;
 
-	qp->ibvqp.state = IBV_QPS_RESET;
+	ibvqp = &qp->verbs_qp.qp;
+	ibvqp->state = IBV_QPS_RESET;
 	qp->sq_sig_all = attr->sq_sig_all;
 
 	err = efa_rq_initialize(qp, &resp);
@@ -758,7 +769,7 @@ static struct ibv_qp *create_qp(struct ibv_pd *ibvpd,
 		goto err_terminate_rq;
 
 	pthread_spin_lock(&ctx->qp_table_lock);
-	ctx->qp_table[qp->ibvqp.qp_num] = qp;
+	ctx->qp_table[ibvqp->qp_num] = qp;
 	pthread_spin_unlock(&ctx->qp_table_lock);
 
 	if (attr->send_cq) {
@@ -777,12 +788,12 @@ static struct ibv_qp *create_qp(struct ibv_pd *ibvpd,
 		pthread_spin_unlock(&recv_cq->lock);
 	}
 
-	return &qp->ibvqp;
+	return ibvqp;
 
 err_terminate_rq:
 	efa_rq_terminate(qp);
 err_destroy_qp:
-	ibv_cmd_destroy_qp(&qp->ibvqp);
+	ibv_cmd_destroy_qp(ibvqp);
 err_free_qp:
 	free(qp);
 err_out:
@@ -793,18 +804,32 @@ err_out:
 struct ibv_qp *efa_create_qp(struct ibv_pd *ibvpd,
 			     struct ibv_qp_init_attr *attr)
 {
+	struct ibv_qp_init_attr_ex attr_ex = {};
+	struct ibv_qp *ibvqp;
+
 	if (attr->qp_type != IBV_QPT_UD) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
-	return create_qp(ibvpd, attr, 0);
+	memcpy(&attr_ex, attr, sizeof(*attr));
+	attr_ex.comp_mask = IBV_QP_INIT_ATTR_PD;
+	attr_ex.pd = ibvpd;
+
+	ibvqp = create_qp(ibvpd->context, &attr_ex, 0);
+	if (ibvqp)
+		memcpy(attr, &attr_ex, sizeof(*attr));
+
+	return ibvqp;
 }
 
 struct ibv_qp *efadv_create_driver_qp(struct ibv_pd *ibvpd,
 				      struct ibv_qp_init_attr *attr,
 				      uint32_t driver_qp_type)
 {
+	struct ibv_qp_init_attr_ex attr_ex = {};
+	struct ibv_qp *ibvqp;
+
 	if (!is_efa_dev(ibvpd->context->device)) {
 		errno = EOPNOTSUPP;
 		return NULL;
@@ -815,7 +840,15 @@ struct ibv_qp *efadv_create_driver_qp(struct ibv_pd *ibvpd,
 		return NULL;
 	}
 
-	return create_qp(ibvpd, attr, driver_qp_type);
+	memcpy(&attr_ex, attr, sizeof(*attr));
+	attr_ex.comp_mask = IBV_QP_INIT_ATTR_PD;
+	attr_ex.pd = ibvpd;
+
+	ibvqp = create_qp(ibvpd->context, &attr_ex, driver_qp_type);
+	if (ibvqp)
+		memcpy(attr, &attr_ex, sizeof(*attr));
+
+	return ibvqp;
 }
 
 int efa_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
@@ -830,9 +863,9 @@ int efa_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 		return err;
 
 	if (attr_mask & IBV_QP_STATE) {
-		qp->ibvqp.state = attr->qp_state;
+		qp->verbs_qp.qp.state = attr->qp_state;
 		/* transition to reset */
-		if (qp->ibvqp.state == IBV_QPS_RESET)
+		if (qp->verbs_qp.qp.state == IBV_QPS_RESET)
 			efa_qp_init_indices(qp);
 	}
 
@@ -983,8 +1016,8 @@ static void efa_set_common_ctrl_flags(struct efa_io_tx_meta_desc *desc,
 static ssize_t efa_post_send_validate(struct efa_qp *qp,
 				      unsigned int wr_flags)
 {
-	if (unlikely(qp->ibvqp.state != IBV_QPS_RTS &&
-		     qp->ibvqp.state != IBV_QPS_SQD))
+	if (unlikely(qp->verbs_qp.qp.state != IBV_QPS_RTS &&
+		     qp->verbs_qp.qp.state != IBV_QPS_SQD))
 		return EINVAL;
 
 	if (unlikely(!qp->scq))
@@ -1088,8 +1121,8 @@ ring_db:
 
 static ssize_t efa_post_recv_validate(struct efa_qp *qp, struct ibv_recv_wr *wr)
 {
-	if (unlikely(qp->ibvqp.state == IBV_QPS_RESET ||
-		     qp->ibvqp.state == IBV_QPS_ERR))
+	if (unlikely(qp->verbs_qp.qp.state == IBV_QPS_RESET ||
+		     qp->verbs_qp.qp.state == IBV_QPS_ERR))
 		return EINVAL;
 
 	if (unlikely(!qp->rcq))
