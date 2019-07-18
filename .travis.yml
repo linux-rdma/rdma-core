@@ -48,7 +48,6 @@ before_script:
   - http_proxy= pip3 install cython
 script:
   - buildlib/travis-build
-  - buildlib/travis-checkpatch
   - buildlib/github-release
 deploy:
   # Deploy assets to Github releases
