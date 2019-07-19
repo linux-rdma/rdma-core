@@ -451,6 +451,7 @@ class azure_pipelines(APTEnvironment):
         "libnl-route-3-dev",
         "libsystemd-dev",
         "libudev-dev",
+        "lintian",
         "make",
         "ninja-build",
         "pandoc",

@@ -119,6 +119,10 @@ stages:
               set -e
               fakeroot debian/rules binary
             displayName: clang 8.0 Bionic .deb Build
+          - bash: |
+              set -e
+              lintian ../*.deb
+            displayName: Debian Lintian for .deb packages
 
       - job: SrcPrep
         displayName: Build Source Tar
