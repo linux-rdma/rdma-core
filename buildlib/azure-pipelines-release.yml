@@ -1,0 +1,48 @@
+# See https://aka.ms/yaml
+# This pipeline runs to produce GitHub releases when tags are pushed. The
+# pipeline is never run from a PR and has access to all the build secrets,
+# including write permission to GitHub.
+
+trigger:
+  tags:
+    include:
+      - v*
+
+resources:
+  containers:
+    - container: azp
+      image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:25.0
+      endpoint: ucfconsort_registry
+
+stages:
+  - stage: Release
+    jobs:
+      - job: SrcPrep
+        displayName: Build Source Tar
+        pool:
+          vmImage: 'Ubuntu-16.04'
+        container: azp
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - bash: |
+              set -e
+              mkdir build-pandoc artifacts
+              cd build-pandoc
+              CC=gcc-9 cmake -GNinja ..
+              ninja docs
+
+              cd ..
+              python3 buildlib/cbuild make-dist-tar build-pandoc
+            displayName: Prebuild Documentation
+
+          - task: GithubRelease@0
+            displayName: 'Create GitHub Release'
+            inputs:
+              githubConnection: github_release
+              repositoryName: linux-rdma/rdma-core
+              assets: ./*.tar.gz
+              action: create
+              isDraft: true
+              addChangeLog: true
