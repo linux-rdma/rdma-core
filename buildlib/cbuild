@@ -184,6 +184,7 @@ class fc30(Environment):
     ninja_cmd = "ninja-build";
     is_rpm = True;
     aliases = {"fedora"};
+    to_azp = True;
 
     def get_docker_file(self,tmpdir):
         res = DockerFile(self.docker_parent);
