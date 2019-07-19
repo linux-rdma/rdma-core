@@ -131,9 +131,10 @@ class centos6(YumEnvironment):
     name = "centos6";
     use_make = True;
     pandoc = False;
-    is_rpm = False;
     build_pyverbs = False;
+    specfile = "buildlib/centos6.spec";
     python_cmd = "python";
+    to_azp = True;
 
 class centos7(YumEnvironment):
     docker_parent = "centos:7";
@@ -713,11 +714,13 @@ with open("/etc/group","a") as F:
 os.setgid({gid:d});
 os.setuid({uid:d});
 
-# Get RPM to tell us the expected tar filename.
-for ln in subprocess.check_output(["rpmspec","-P",{tspec_file!r}]).splitlines():
-   if ln.startswith(b"Source:"):
-      tarfn = ln.strip().partition(b' ')[2].strip();
-os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
+# For Centos6
+if "check_output" in dir(subprocess):
+    # Get RPM to tell us the expected tar filename.
+    for ln in subprocess.check_output(["rpmspec","-P",{tspec_file!r}]).splitlines():
+       if ln.startswith(b"Source:"):
+          tarfn = ln.strip().partition(b' ')[2].strip();
+    os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
 """.format(passwd=":".join(str(I) for I in pwd.getpwuid(os.getuid())),
            group=":".join(str(I) for I in grp.getgrgid(os.getgid())),
            uid=os.getuid(),

@@ -10,6 +10,9 @@ resources:
     - container: azp
       image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:25.0
       endpoint: ucfconsort_registry
+    - container: centos6
+      image: ucfconsort.azurecr.io/rdma-core/centos6:25.0
+      endpoint: ucfconsort_registry
     - container: centos7
       image: ucfconsort.azurecr.io/rdma-core/centos7:25.0
       endpoint: ucfconsort_registry
@@ -150,6 +153,10 @@ stages:
           vmImage: 'Ubuntu-16.04'
         strategy:
           matrix:
+            centos6:
+              CONTAINER: centos6
+              SPEC: buildlib/centos6.spec
+              RPMBUILD_OPTS:
             centos7:
               CONTAINER: centos7
               SPEC: redhat/rdma-core.spec
@@ -175,7 +182,7 @@ stages:
               set -e
               mkdir SOURCES tmp
               tar --wildcards -xzf rdma-core*.tar.gz  */$(SPEC) --strip-components=2
-              RPM_SRC=$(rpmspec -P rdma-core.spec | awk '/^Source:/{split($0,a,"[ \t]+");print(a[2])}')
+              RPM_SRC=$((rpmspec -P *.spec || grep ^Source: *.spec) | awk '/^Source:/{split($0,a,"[ \t]+");print(a[2])}')
               (cd SOURCES && ln -sf ../rdma-core*.tar.gz "$RPM_SRC")
-              rpmbuild --define '_tmppath '$(pwd)'/tmp' --define '_topdir '$(pwd) -bb rdma-core.spec $(RPMBUILD_OPTS)
+              rpmbuild --define '_tmppath '$(pwd)'/tmp' --define '_topdir '$(pwd) -bb *.spec $(RPMBUILD_OPTS)
             displayName: Perform Package Build
