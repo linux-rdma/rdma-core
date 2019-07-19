@@ -134,7 +134,7 @@ stages:
               ninja docs
               cd ../artifacts
               # FIXME: Check Build.SourceBranch for tag consistency
-              python2.7 ../buildlib/cbuild make-dist-tar ../build-pandoc
+              python3 ../buildlib/cbuild make-dist-tar ../build-pandoc
             displayName: Prebuild Documentation
 
           - task: PublishPipelineArtifact@0

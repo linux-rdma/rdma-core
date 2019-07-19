@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright 2015-2016 Obsidian Research Corp.
 # Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 # PYTHON_ARGCOMPLETE_OK
@@ -36,6 +36,7 @@ finished, only the base container created during 'build-images' is kept. The
 running the build command and instead run an interactive bash shell. This is
 useful for debugging certain kinds of build problems."""
 
+from __future__ import print_function
 import argparse
 import collections
 import filecmp
@@ -572,8 +573,8 @@ def docker_cmd_str(env,*cmd):
     """Invoke docker"""
     cmd = list(cmd);
     if env.sudo:
-        return subprocess.check_output(["sudo","docker"] + cmd);
-    return subprocess.check_output(["docker"] + cmd);
+        return subprocess.check_output(["sudo","docker"] + cmd).decode();
+    return subprocess.check_output(["docker"] + cmd).decode();
 
 @contextmanager
 def private_tmp(args):
@@ -684,7 +685,7 @@ def run_rpm_build(args,spec_file,env):
         # rpmbuild complains if we do not have an entry in passwd and group
         # for the user we are going to use to do the build.
         with open(os.path.join(tmpdir,"go.py"),"w") as F:
-            print >> F,"""
+            print("""
 import os,subprocess;
 with open("/etc/passwd","a") as F:
    F.write({passwd!r} + "\\n");
@@ -703,7 +704,7 @@ os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
            uid=os.getuid(),
            gid=os.getgid(),
            tarfn=tarfn,
-           tspec_file=tspec_file);
+           tspec_file=tspec_file), file=F);
 
             extra_opts = getattr(env,"rpmbuild_options", [])
             bopts = ["-bb",tspec_file] + extra_opts;
@@ -715,8 +716,8 @@ os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
                 if env.build_pyverbs:
                     bopts.extend(["--with", "pyverbs"]);
 
-            print >> F,'os.execlp("rpmbuild","rpmbuild",%s)'%(
-                ",".join(repr(I) for I in bopts));
+            print('os.execlp("rpmbuild","rpmbuild",%s)'%(
+                ",".join(repr(I) for I in bopts)), file=F);
 
         if args.run_shell:
             opts.append("-ti");
@@ -729,10 +730,10 @@ os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
 
         docker_cmd(args,*opts)
 
-        print
+        print()
         for path,jnk,files in os.walk(os.path.join(tmpdir,"RPMS")):
             for I in files:
-                print "Final RPM: ",os.path.join("..",I);
+                print("Final RPM: ",os.path.join("..",I));
                 shutil.move(os.path.join(path,I),
                             os.path.join("..",I));
 
@@ -765,7 +766,7 @@ def run_deb_build(args,env):
         # Create a go.py that will let us run the compilation as the user and
         # then switch to root only for the packaging step.
         with open(os.path.join(tmpdir,"go.py"),"w") as F:
-            print >> F,"""
+            print("""
 import subprocess,os;
 def to_user():
    os.setgid({gid:d});
@@ -774,7 +775,7 @@ subprocess.check_call(["debian/rules","debian/rules","build"],
             preexec_fn=to_user);
 subprocess.check_call(["debian/rules","debian/rules","binary"]);
 """.format(uid=os.getuid(),
-           gid=os.getgid());
+           gid=os.getgid()), file=F);
 
         if args.run_shell:
             opts.append("-ti");
@@ -787,10 +788,10 @@ subprocess.check_call(["debian/rules","debian/rules","binary"]);
 
         docker_cmd(args,*opts);
 
-        print
+        print()
         for I in os.listdir(tmpdir):
             if I.endswith(".deb"):
-                print "Final DEB: ",os.path.join("..",I);
+                print("Final DEB: ",os.path.join("..",I));
                 shutil.move(os.path.join(tmpdir,I),
                             os.path.join("..",I));
 
@@ -810,7 +811,7 @@ def copy_abi_files(src):
             if os.path.isfile(ref_fn) and filecmp.cmp(ref_fn,cur_fn,False):
                 continue;
 
-            print "Changed ABI File: ", ref_fn;
+            print("Changed ABI File: ", ref_fn);
             shutil.copy(cur_fn, ref_fn);
 
 def run_travis_build(args,env):
@@ -832,7 +833,7 @@ def run_travis_build(args,env):
             base = subprocess.check_output(["git",
                                             "--git-dir",os.path.join(opwd,".git"),
                                             "merge-base",
-                                            "HEAD","FETCH_HEAD"]).strip();
+                                            "HEAD","FETCH_HEAD"]).decode().strip();
 
         home = os.path.join(os.path.sep,"home","travis");
         home_build = os.path.join(os.path.sep,home,"build");
@@ -856,10 +857,10 @@ def run_travis_build(args,env):
             cmds = yaml.safe_load(F)["script"];
 
         with open(os.path.join(tmpdir,"go.sh"),"w") as F:
-            print >> F,"#!/bin/bash";
-            print >> F,"set -e";
+            print("#!/bin/bash", file=F);
+            print("set -e", file=F);
             for I in cmds:
-                print >> F,I;
+                print(I, file=F);
 
         if args.run_shell:
             opts.append("-ti");
@@ -872,7 +873,7 @@ def run_travis_build(args,env):
 
         try:
             docker_cmd(args,*opts);
-        except subprocess.CalledProcessError, e:
+        except subprocess.CalledProcessError as e:
             copy_abi_files(os.path.join(tmpdir, "src/ABI"));
             raise;
         copy_abi_files(os.path.join(tmpdir, "src/ABI"));
@@ -929,7 +930,7 @@ def run_azp_build(args,env):
             base = subprocess.check_output(["git",
                                             "--git-dir",os.path.join(opwd,".git"),
                                             "merge-base",
-                                            "HEAD","FETCH_HEAD"]).strip();
+                                            "HEAD","FETCH_HEAD"]).decode().strip();
 
         opts = [
             "run",
@@ -959,7 +960,7 @@ def run_azp_build(args,env):
 
         try:
             docker_cmd(args,*opts);
-        except subprocess.CalledProcessError, e:
+        except subprocess.CalledProcessError as e:
             copy_abi_files(os.path.join(tmpdir, "s/ABI"));
             raise;
         copy_abi_files(os.path.join(tmpdir, "s/ABI"));
@@ -988,7 +989,7 @@ def cmd_pkg(args):
                           getattr(env,"specfile","%s.spec"%(project)),
                           env);
         else:
-            print "%s does not support packaging"%(env.name);
+            print("%s does not support packaging"%(env.name));
 
 # -------------------------------------------------------------------------
 
@@ -1102,7 +1103,7 @@ def cmd_build_images(args):
             fn = os.path.join(tmpdir,"Dockerfile");
             with open(fn,"wt") as F:
                 for ln in df.lines:
-                    print >> F,ln;
+                    print(ln, file=F);
             opts = (["build"] +
                     get_build_args(args,env) +
                     ["-f",fn,
@@ -1176,13 +1177,15 @@ def cmd_make_dist_tar(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Operate docker for building this package')
-    subparsers = parser.add_subparsers(title="Sub Commands");
+    subparsers = parser.add_subparsers(title="Sub Commands",dest="command");
+    subparsers.required = True;
 
     funcs = globals();
-    for k,v in funcs.items():
+    for k,v in list(funcs.items()):
         if k.startswith("cmd_") and inspect.isfunction(v):
             sparser = subparsers.add_parser(k[4:].replace('_','-'),
                                             help=v.__doc__);
+            sparser.required = True;
             funcs["args_" + k[4:]](sparser);
             sparser.set_defaults(func=v);
 
