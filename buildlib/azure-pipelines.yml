@@ -44,11 +44,13 @@ stages:
               ninja
             displayName: gcc 9.1 Compile
 
-          - bash: |
-              set -e
-              cd build-gcc9
-              python2.7 ../buildlib/check-build --src .. --cc gcc-9
+          - task: PythonScript@0
             displayName: Check Build Script
+            inputs:
+              scriptPath: buildlib/check-build
+              arguments: --src .. --cc gcc-9
+              workingDirectory: build-gcc9
+              pythonInterpreter: /usr/bin/python3
 
           # Run sparse on the subdirectories which are sparse clean
           - bash: |

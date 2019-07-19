@@ -903,8 +903,11 @@ def run_azp_build(args,env):
             script.append(I["bash"]);
         elif I.get("task") == "PythonScript@0":
             script.append("set -e");
-            script.append("%s %s"%(I["inputs"]["pythonInterpreter"],
-                                   I["inputs"]["scriptPath"]));
+            if "workingDirectory" in I["inputs"]:
+                script.append("cd %s"%(os.path.join(srcdir,I["inputs"]["workingDirectory"])));
+            script.append("%s %s %s"%(I["inputs"]["pythonInterpreter"],
+                                      os.path.join(srcdir,I["inputs"]["scriptPath"]),
+                                      I["inputs"].get("arguments","")));
         else:
             raise ValueError("Unknown stanza %r"%(I));
 
