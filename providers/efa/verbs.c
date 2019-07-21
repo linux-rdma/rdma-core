@@ -969,7 +969,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		meta_desc = &tx_wqe.common;
 		ah = to_efa_ah(wr->wr.ud.ah);
 
-		if (efa_sge_total_bytes(wr) <= qp->ctx->inline_buf_size) {
+		if (wr->send_flags & IBV_SEND_INLINE) {
 			efa_post_send_inline_data(wr, &tx_wqe, &desc_size);
 		} else {
 			meta_desc->length = wr->num_sge;
