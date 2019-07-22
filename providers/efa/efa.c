@@ -92,6 +92,7 @@ static void efa_free_context(struct ibv_context *ibvctx)
 {
 	struct efa_context *ctx = to_efa_context(ibvctx);
 
+	free(ctx->qp_table);
 	pthread_spin_destroy(&ctx->qp_table_lock);
 	verbs_uninit_context(&ctx->ibvctx);
 	free(ctx);
