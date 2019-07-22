@@ -881,28 +881,33 @@ int efa_destroy_qp(struct ibv_qp *ibvqp)
 	return 0;
 }
 
-static void efa_post_send_sgl(struct ibv_send_wr *wr,
-			      struct efa_io_tx_wqe *tx_wqe,
+static void efa_set_tx_buf(struct efa_io_tx_buf_desc *tx_buf,
+			   uint64_t addr, uint32_t lkey,
+			   uint32_t length)
+{
+	tx_buf->length = length;
+	tx_buf->lkey = lkey;
+	tx_buf->buf_addr_lo = addr & 0xffffffff;
+	tx_buf->buf_addr_hi = addr >> 32;
+}
+
+static void efa_post_send_sgl(struct efa_io_tx_wqe *tx_wqe,
+			      const struct ibv_sge *sg_list,
+			      int num_sge,
 			      int *desc_size)
 {
 	struct efa_io_tx_buf_desc *tx_buf;
-	struct ibv_sge *sge;
-	uintptr_t addr;
+	const struct ibv_sge *sge;
 	size_t i;
 
-	for (i = 0; i < wr->num_sge; i++) {
-		sge = &wr->sg_list[i];
+	for (i = 0; i < num_sge; i++) {
+		sge = &sg_list[i];
 		tx_buf = &tx_wqe->data.sgl[i];
-		addr = sge->addr;
-
-		/* Set TX buffer desc from SGE */
-		tx_buf->length = sge->length;
-		tx_buf->lkey = sge->lkey;
-		tx_buf->buf_addr_lo = addr & 0xffffffff;
-		tx_buf->buf_addr_hi = (uint64_t)addr >> 32;
+		efa_set_tx_buf(tx_buf, sge->addr, sge->lkey, sge->length);
 	}
 
-	*desc_size += sizeof(*tx_buf) * wr->num_sge;
+	if (desc_size)
+		*desc_size += sizeof(*tx_buf) * num_sge;
 }
 
 static void efa_post_send_inline_data(const struct ibv_send_wr *wr,
@@ -928,13 +933,13 @@ static void efa_post_send_inline_data(const struct ibv_send_wr *wr,
 	tx_wqe->common.length = total_length;
 }
 
-static size_t efa_sge_total_bytes(const struct ibv_send_wr *wr)
+static size_t efa_sge_total_bytes(const struct ibv_sge *sg_list, int num_sge)
 {
 	size_t bytes = 0;
 	size_t i;
 
-	for (i = 0; i < wr->num_sge; i++)
-		bytes += wr->sg_list[i].length;
+	for (i = 0; i < num_sge; i++)
+		bytes += sg_list[i].length;
 
 	return bytes;
 }
@@ -962,7 +967,8 @@ static ssize_t efa_post_send_validate(struct efa_qp *qp,
 		return EINVAL;
 
 	if (unlikely(wr->send_flags & IBV_SEND_INLINE &&
-		     efa_sge_total_bytes(wr) > qp->sq.max_inline_data))
+		     efa_sge_total_bytes(wr->sg_list, wr->num_sge) >
+		     qp->sq.max_inline_data))
 		return EINVAL;
 
 	if (unlikely(qp->sq.wq.wqe_posted - qp->sq.wq.wqe_completed ==
@@ -1001,7 +1007,8 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			efa_post_send_inline_data(wr, &tx_wqe, &desc_size);
 		} else {
 			meta_desc->length = wr->num_sge;
-			efa_post_send_sgl(wr, &tx_wqe, &desc_size);
+			efa_post_send_sgl(&tx_wqe, wr->sg_list, wr->num_sge,
+					  &desc_size);
 		}
 
 		/* Get the next wrid to be used from the index pool */
