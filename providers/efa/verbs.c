@@ -944,6 +944,42 @@ static size_t efa_sge_total_bytes(const struct ibv_sge *sg_list, int num_sge)
 	return bytes;
 }
 
+static void efa_sq_advance_post_idx(struct efa_qp *qp)
+{
+	qp->sq.wq.wqe_posted++;
+	qp->sq.wq.desc_idx++;
+
+	if (!(qp->sq.wq.desc_idx & qp->sq.wq.desc_mask))
+		qp->sq.wq.phase++;
+}
+
+static uint32_t efa_wq_get_next_wrid_idx(struct efa_wq *wq, uint64_t wr_id)
+{
+	uint32_t wrid_idx;
+
+	/* Get the next wrid to be used from the index pool */
+	wrid_idx = wq->wrid_idx_pool[wq->wrid_idx_pool_next];
+	wq->wrid[wrid_idx] = wr_id;
+
+	/* Will never overlap, as validate function succeeded */
+	wq->wrid_idx_pool_next++;
+	assert(wq->wrid_idx_pool_next <= wq->wqe_cnt);
+
+	return wrid_idx;
+}
+
+static void efa_set_common_ctrl_flags(struct efa_io_tx_meta_desc *desc,
+				      struct efa_qp *qp,
+				      enum efa_io_send_op_type op_type)
+{
+	set_efa_io_tx_meta_desc_meta_desc(desc, 1);
+	set_efa_io_tx_meta_desc_op_type(desc, op_type);
+	set_efa_io_tx_meta_desc_phase(desc, qp->sq.wq.phase);
+	set_efa_io_tx_meta_desc_first(desc, 1);
+	set_efa_io_tx_meta_desc_last(desc, 1);
+	set_efa_io_tx_meta_desc_comp_req(desc, 1);
+}
+
 static ssize_t efa_post_send_validate(struct efa_qp *qp,
 				      const struct ibv_send_wr *wr)
 {
@@ -983,8 +1019,8 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 {
 	struct efa_io_tx_meta_desc *meta_desc;
 	struct efa_qp *qp = to_efa_qp(ibvqp);
-	uint32_t sq_desc_offset, wrid_idx;
 	struct efa_io_tx_wqe tx_wqe;
+	uint32_t sq_desc_offset;
 	struct efa_ah *ah;
 	int desc_size;
 	int err = 0;
@@ -1011,24 +1047,10 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 					  &desc_size);
 		}
 
-		/* Get the next wrid to be used from the index pool */
-		wrid_idx = qp->sq.wq.wrid_idx_pool[qp->sq.wq.wrid_idx_pool_next];
-		qp->sq.wq.wrid[wrid_idx] = wr->wr_id;
-		meta_desc->req_id = wrid_idx;
-		qp->sq.wq.wqe_posted++;
-
-		/* Will never overlap, as efa_post_send_validate() succeeded */
-		qp->sq.wq.wrid_idx_pool_next++;
-		assert(qp->sq.wq.wrid_idx_pool_next <= qp->sq.wq.wqe_cnt);
-
 		/* Set rest of the descriptor fields */
-		set_efa_io_tx_meta_desc_meta_desc(meta_desc, 1);
-		set_efa_io_tx_meta_desc_op_type(meta_desc, EFA_IO_SEND);
-		set_efa_io_tx_meta_desc_phase(meta_desc, qp->sq.wq.phase);
-		set_efa_io_tx_meta_desc_first(meta_desc, 1);
-		set_efa_io_tx_meta_desc_last(meta_desc, 1);
+		efa_set_common_ctrl_flags(meta_desc, qp, EFA_IO_SEND);
+		meta_desc->req_id = efa_wq_get_next_wrid_idx(&qp->sq.wq, wr->wr_id);
 		meta_desc->dest_qp_num = wr->wr.ud.remote_qpn;
-		set_efa_io_tx_meta_desc_comp_req(meta_desc, 1);
 		meta_desc->ah = ah->efa_ah;
 		tx_wqe.u.ud.qkey = wr->wr.ud.remote_qkey;
 
@@ -1038,9 +1060,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		memcpy(qp->sq.desc + sq_desc_offset, &tx_wqe, desc_size);
 
 		/* advance index and change phase */
-		qp->sq.wq.desc_idx++;
-		if (!(qp->sq.wq.desc_idx & qp->sq.wq.desc_mask))
-			qp->sq.wq.phase++;
+		efa_sq_advance_post_idx(qp);
 
 		wr = wr->next;
 	}
@@ -1076,8 +1096,8 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 		  struct ibv_recv_wr **bad)
 {
 	struct efa_qp *qp = to_efa_qp(ibvqp);
-	uint32_t wqe_index, rq_desc_offset;
 	struct efa_io_rx_desc rx_buf;
+	uint32_t rq_desc_offset;
 	uintptr_t addr;
 	int err = 0;
 	size_t i;
@@ -1092,16 +1112,8 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 
 		memset(&rx_buf, 0, sizeof(rx_buf));
 
-		/* Save wrid */
-		/* Get the next wrid to be used from the index pool */
-		wqe_index = qp->rq.wq.wrid_idx_pool[qp->rq.wq.wrid_idx_pool_next];
-		qp->rq.wq.wrid[wqe_index] = wr->wr_id;
-		rx_buf.req_id = wqe_index;
+		rx_buf.req_id = efa_wq_get_next_wrid_idx(&qp->rq.wq, wr->wr_id);
 		qp->rq.wq.wqe_posted++;
-
-		/* Will never overlap, as efa_post_recv_validate() succeeded */
-		qp->rq.wq.wrid_idx_pool_next++;
-		assert(qp->rq.wq.wrid_idx_pool_next <= qp->rq.wq.wqe_cnt);
 
 		/* Default init of the rx buffer */
 		set_efa_io_rx_desc_first(&rx_buf, 1);
