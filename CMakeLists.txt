@@ -182,16 +182,6 @@ endif()
 
 #-------------------------
 # Setup the basic C compiler
-# Check if the current compiler supports -fvar-tracking-assignments.
-# For that, we need to try and compile some code with it. Save the current
-# CMAKE_REQUIRED_FLAGS so we can restore it later.
-set(TMP_FLAGS ${CMAKE_REQUIRED_FLAGS})
-set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fvar-tracking-assignments")
-CHECK_C_SOURCE_COMPILES("
- int main(int argc,const char *argv[]) {return 0;}"
- HAVE_FVAR_TRACKING_ASSIGNMENTS)
-set(CMAKE_REQUIRED_FLAGS ${TMP_FLAGS})
-
 RDMA_BuildType()
 include_directories(${BUILD_INCLUDE})
 
@@ -261,6 +251,11 @@ endif()
 set(NO_STRICT_ALIASING_FLAGS "")
 RDMA_AddOptCFlag(NO_STRICT_ALIASING_FLAGS HAVE_NO_STRICT_ALIASING
   "-fno-strict-aliasing")
+
+# pyverbs has a problem with var-tracking warnings, turn it off if we can.
+set(NO_VAR_TRACKING_FLAGS "")
+RDMA_AddOptCFlag(NO_VAR_TRACKING_FLAGS HAVE_NO_VAR_TRACKING_ASSIGNMENTS
+  "-fno-var-tracking-assignments")
 
 CHECK_C_SOURCE_COMPILES("
  #include <unistd.h>
