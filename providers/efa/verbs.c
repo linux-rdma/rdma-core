@@ -981,35 +981,48 @@ static void efa_set_common_ctrl_flags(struct efa_io_tx_meta_desc *desc,
 }
 
 static ssize_t efa_post_send_validate(struct efa_qp *qp,
-				      const struct ibv_send_wr *wr)
+				      unsigned int wr_flags)
 {
 	if (unlikely(qp->ibvqp.state != IBV_QPS_RTS &&
 		     qp->ibvqp.state != IBV_QPS_SQD))
 		return EINVAL;
 
-	if (unlikely(wr->opcode != IBV_WR_SEND))
-		return EINVAL;
-
 	if (unlikely(!qp->scq))
 		return EINVAL;
 
-	if (unlikely(wr->num_sge > qp->sq.wq.max_sge))
+	if (unlikely(!(wr_flags & IBV_SEND_SIGNALED) && !qp->sq_sig_all))
 		return EINVAL;
 
-	if (unlikely(!(wr->send_flags & IBV_SEND_SIGNALED) && !qp->sq_sig_all))
-		return EINVAL;
-
-	if (unlikely(wr->send_flags & ~(IBV_SEND_SIGNALED | IBV_SEND_INLINE)))
-		return EINVAL;
-
-	if (unlikely(wr->send_flags & IBV_SEND_INLINE &&
-		     efa_sge_total_bytes(wr->sg_list, wr->num_sge) >
-		     qp->sq.max_inline_data))
+	if (unlikely(wr_flags & ~(IBV_SEND_SIGNALED | IBV_SEND_INLINE)))
 		return EINVAL;
 
 	if (unlikely(qp->sq.wq.wqe_posted - qp->sq.wq.wqe_completed ==
 		     qp->sq.wq.wqe_cnt))
 		return ENOMEM;
+
+	return 0;
+}
+
+static ssize_t efa_post_send_validate_wr(struct efa_qp *qp,
+					 const struct ibv_send_wr *wr)
+{
+	ssize_t err;
+
+	err = efa_post_send_validate(qp, wr->send_flags);
+	if (unlikely(err))
+		return err;
+
+	if (unlikely(wr->opcode != IBV_WR_SEND))
+		return EINVAL;
+
+	if (wr->send_flags & IBV_SEND_INLINE) {
+		if (unlikely(efa_sge_total_bytes(wr->sg_list, wr->num_sge) >
+			     qp->sq.max_inline_data))
+			return EINVAL;
+	} else {
+		if (unlikely(wr->num_sge > qp->sq.wq.max_sge))
+			return EINVAL;
+	}
 
 	return 0;
 }
@@ -1029,7 +1042,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	while (wr) {
 		desc_size = sizeof(tx_wqe.common) + sizeof(tx_wqe.u);
 
-		err = efa_post_send_validate(qp, wr);
+		err = efa_post_send_validate_wr(qp, wr);
 		if (err) {
 			*bad = wr;
 			goto ring_db;
