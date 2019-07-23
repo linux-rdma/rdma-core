@@ -13,6 +13,7 @@
 # RoCE - roce*
 # iWARP - iw*
 # OPA - opa*
+# Default (unknown protocol) - rdma*
 #
 # Example:
 # * NAME_PCI
