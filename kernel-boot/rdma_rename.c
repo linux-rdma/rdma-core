@@ -30,6 +30,7 @@
  * RoCE - roce*
  * iWARP - iw*
  * OPA - opa*
+ * Default (unknown protocol) - rdma*
  *
  * Example:
  * NAME_PCI
@@ -393,15 +394,21 @@ static int get_nldata_cb(struct nl_msg *msg, void *data)
 		return NL_STOP;
 
 	if (!tb[RDMA_NLDEV_ATTR_DEV_NAME] || !tb[RDMA_NLDEV_ATTR_DEV_INDEX] ||
-	    !tb[RDMA_NLDEV_ATTR_SYS_IMAGE_GUID] ||
-	    !tb[RDMA_NLDEV_ATTR_DEV_PROTOCOL])
+	    !tb[RDMA_NLDEV_ATTR_SYS_IMAGE_GUID])
 		return NL_STOP;
 
 	ret = strcmp(d->curr, nla_get_string(tb[RDMA_NLDEV_ATTR_DEV_NAME]));
 	if (ret)
 		return NL_OK;
 
-	d->prefix = strdup(nla_get_string(tb[RDMA_NLDEV_ATTR_DEV_PROTOCOL]));
+	if (tb[RDMA_NLDEV_ATTR_DEV_PROTOCOL])
+		d->prefix = strdup(
+			nla_get_string(tb[RDMA_NLDEV_ATTR_DEV_PROTOCOL]));
+	if (!d->prefix)
+		ret = asprintf(&d->prefix, "rdma");
+	if (ret < 0)
+		return NL_STOP;
+
 	d->idx = nla_get_u32(tb[RDMA_NLDEV_ATTR_DEV_INDEX]);
 	d->sys_image_guid = nla_get_u64(tb[RDMA_NLDEV_ATTR_SYS_IMAGE_GUID]);
 	return NL_STOP;
