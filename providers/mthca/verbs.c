@@ -145,10 +145,10 @@ static struct ibv_mr *__mthca_reg_mr(struct ibv_pd *pd, void *addr,
 	return &vmr->ibv_mr;
 }
 
-struct ibv_mr *mthca_reg_mr(struct ibv_pd *pd, void *addr,
-			    size_t length, int access)
+struct ibv_mr *mthca_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			    uint64_t hca_va, int access)
 {
-	return __mthca_reg_mr(pd, addr, length, (uintptr_t) addr, access, 0);
+	return __mthca_reg_mr(pd, addr, length, hca_va, access, 0);
 }
 
 int mthca_dereg_mr(struct verbs_mr *vmr)

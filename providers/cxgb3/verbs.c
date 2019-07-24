@@ -103,14 +103,16 @@ int iwch_free_pd(struct ibv_pd *pd)
 	return 0;
 }
 
-static struct ibv_mr *__iwch_reg_mr(struct ibv_pd *pd, void *addr,
-				    size_t length, uint64_t hca_va,
-				    int access)
+struct ibv_mr *iwch_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			   uint64_t hca_va, int access)
 {
 	struct iwch_mr *mhp;
 	struct ibv_reg_mr cmd;
 	struct uiwch_reg_mr_resp resp;
 	struct iwch_device *dev = to_iwch_dev(pd->context->device);
+
+	PDBG("%s addr %p length %ld hca_va %p\n", __func__, addr, length,
+	     hca_va);
 
 	mhp = malloc(sizeof *mhp);
 	if (!mhp)
@@ -138,13 +140,6 @@ static struct ibv_mr *__iwch_reg_mr(struct ibv_pd *pd, void *addr,
 	pthread_spin_unlock(&dev->lock);
 	
 	return &mhp->vmr.ibv_mr;
-}
-
-struct ibv_mr *iwch_reg_mr(struct ibv_pd *pd, void *addr,
-			   size_t length, int access)
-{
-	PDBG("%s addr %p length %ld\n", __FUNCTION__, addr, length);
-	return __iwch_reg_mr(pd, addr, length, (uintptr_t) addr, access);
 }
 
 int iwch_dereg_mr(struct verbs_mr *vmr)

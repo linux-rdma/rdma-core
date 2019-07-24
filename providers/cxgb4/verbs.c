@@ -109,14 +109,16 @@ int c4iw_free_pd(struct ibv_pd *pd)
 	return 0;
 }
 
-static struct ibv_mr *__c4iw_reg_mr(struct ibv_pd *pd, void *addr,
-				    size_t length, uint64_t hca_va,
-				    int access)
+struct ibv_mr *c4iw_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			   uint64_t hca_va, int access)
 {
 	struct c4iw_mr *mhp;
 	struct ibv_reg_mr cmd;
 	struct ib_uverbs_reg_mr_resp resp;
 	struct c4iw_dev *dev = to_c4iw_dev(pd->context->device);
+
+	PDBG("%s addr %p length %ld hca_va %p\n", __func__, addr, length,
+	     hca_va);
 
 	mhp = malloc(sizeof *mhp);
 	if (!mhp)
@@ -140,13 +142,6 @@ static struct ibv_mr *__c4iw_reg_mr(struct ibv_pd *pd, void *addr,
 	pthread_spin_unlock(&dev->lock);
 	INC_STAT(mr);
 	return &mhp->vmr.ibv_mr;
-}
-
-struct ibv_mr *c4iw_reg_mr(struct ibv_pd *pd, void *addr,
-			   size_t length, int access)
-{
-	PDBG("%s addr %p length %ld\n", __func__, addr, length);
-	return __c4iw_reg_mr(pd, addr, length, (uintptr_t) addr, access);
 }
 
 int c4iw_dereg_mr(struct verbs_mr *vmr)

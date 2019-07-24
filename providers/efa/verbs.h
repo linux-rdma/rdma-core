@@ -18,7 +18,7 @@ int efa_query_device_ex(struct ibv_context *context,
 struct ibv_pd *efa_alloc_pd(struct ibv_context *uctx);
 int efa_dealloc_pd(struct ibv_pd *ibvpd);
 struct ibv_mr *efa_reg_mr(struct ibv_pd *ibvpd, void *buf, size_t len,
-			  int ibv_access_flags);
+			  uint64_t hca_va, int ibv_access_flags);
 int efa_dereg_mr(struct verbs_mr *vmr);
 
 struct ibv_cq *efa_create_cq(struct ibv_context *uctx, int ncqe,

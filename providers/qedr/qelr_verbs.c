@@ -156,8 +156,8 @@ int qelr_dealloc_pd(struct ibv_pd *ibpd)
 	return rc;
 }
 
-struct ibv_mr *qelr_reg_mr(struct ibv_pd *ibpd, void *addr,
-			   size_t len, int access)
+struct ibv_mr *qelr_reg_mr(struct ibv_pd *ibpd, void *addr, size_t len,
+			   uint64_t hca_va, int access)
 {
 	struct qelr_mr *mr;
 	struct ibv_reg_mr cmd;
@@ -165,17 +165,14 @@ struct ibv_mr *qelr_reg_mr(struct ibv_pd *ibpd, void *addr,
 	struct qelr_pd *pd = get_qelr_pd(ibpd);
 	struct qelr_devctx *cxt = get_qelr_ctx(ibpd->context);
 
-	uint64_t hca_va = (uintptr_t) addr;
-
 	mr = malloc(sizeof(*mr));
 	if (!mr)
 		return NULL;
 
 	bzero(mr, sizeof(*mr));
 
-	if (ibv_cmd_reg_mr(ibpd, addr, len, hca_va,
-			   access, &mr->vmr, &cmd, sizeof(cmd),
-			   &resp.ibv_resp, sizeof(resp))) {
+	if (ibv_cmd_reg_mr(ibpd, addr, len, hca_va, access, &mr->vmr, &cmd,
+			   sizeof(cmd), &resp.ibv_resp, sizeof(resp))) {
 		free(mr);
 		return NULL;
 	}

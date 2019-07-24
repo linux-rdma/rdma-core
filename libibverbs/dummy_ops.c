@@ -411,7 +411,7 @@ static struct ibv_mr *reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *dm,
 }
 
 static struct ibv_mr *reg_mr(struct ibv_pd *pd, void *addr, size_t length,
-			     int access)
+			     uint64_t hca_va,  int access)
 {
 	errno = ENOSYS;
 	return NULL;
