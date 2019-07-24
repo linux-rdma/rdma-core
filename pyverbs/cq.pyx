@@ -254,7 +254,8 @@ cdef class CqInitAttrEx(PyverbsObject):
 
 
 cdef class CQEX(PyverbsCM):
-    def __cinit__(self, Context context not None, CqInitAttrEx init_attr):
+    def __cinit__(self, Context context not None, CqInitAttrEx init_attr,
+                  **kwargs):
         """
         Initializes a CQEX object on the given device's context with the given
         attributes.
@@ -262,6 +263,11 @@ cdef class CQEX(PyverbsCM):
         :param init_attr: Initial attributes that describe the CQ
         :return: The newly created CQEX on success
         """
+        self.qps = weakref.WeakSet()
+        self.srqs = weakref.WeakSet()
+        if len(kwargs) > 0:
+            # Leave CQ initialization to the provider
+            return
         if init_attr is None:
             init_attr = CqInitAttrEx()
         self.cq = v.ibv_create_cq_ex(context.context, &init_attr.attr)
@@ -272,8 +278,6 @@ cdef class CQEX(PyverbsCM):
         self.ibv_cq = v.ibv_cq_ex_to_cq(self.cq)
         self.context = context
         context.add_ref(self)
-        self.qps = weakref.WeakSet()
-        self.srqs = weakref.WeakSet()
 
     cdef add_ref(self, obj):
         if isinstance(obj, QP):
