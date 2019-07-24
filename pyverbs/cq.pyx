@@ -67,8 +67,8 @@ cdef class CQ(PyverbsCM):
     A Completion Queue is the notification mechanism for work request
     completions. A CQ can have 0 or more associated QPs.
     """
-    def __cinit__(self, Context context not None, cqe, cq_context,
-                  CompChannel channel, comp_vector):
+    def __cinit__(self, Context context not None, cqe, cq_context=None,
+                  CompChannel channel=None, comp_vector=0):
         """
         Initializes a CQ object with the given parameters.
         :param context: The device's context on which to open the CQ
