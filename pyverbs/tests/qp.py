@@ -5,7 +5,7 @@ Test module for pyverbs' qp module.
 """
 import random
 
-from pyverbs.tests.base import PyverbsTestCase
+from pyverbs.tests.base import PyverbsAPITestCase
 from pyverbs.qp import QPInitAttr, QPAttr, QP
 import pyverbs.tests.utils as u
 import pyverbs.enums as e
@@ -13,7 +13,7 @@ from pyverbs.pd import PD
 from pyverbs.cq import CQ
 
 
-class QPTest(PyverbsTestCase):
+class QPTest(PyverbsAPITestCase):
     """
     Test various functionalities of the QP class.
     """

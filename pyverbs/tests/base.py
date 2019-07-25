@@ -5,7 +5,7 @@ import unittest
 
 import pyverbs.device as d
 
-class PyverbsTestCase(unittest.TestCase):
+class PyverbsAPITestCase(unittest.TestCase):
     def setUp(self):
         """
         Opens the devices and queries them

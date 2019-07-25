@@ -8,7 +8,7 @@ import resource
 import random
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
-from pyverbs.tests.base import PyverbsTestCase
+from pyverbs.tests.base import PyverbsAPITestCase
 import pyverbs.tests.utils as u
 import pyverbs.device as d
 
@@ -137,7 +137,7 @@ class DeviceTest(unittest.TestCase):
                         format(p=port))
 
 
-class DMTest(PyverbsTestCase):
+class DMTest(PyverbsAPITestCase):
     """
     Test various functionalities of the DM class.
     """

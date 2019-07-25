@@ -7,7 +7,7 @@ from itertools import combinations as com
 import random
 
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
-from pyverbs.tests.base import PyverbsTestCase
+from pyverbs.tests.base import PyverbsAPITestCase
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.mr import MR, MW, DMMR
 import pyverbs.tests.utils as u
@@ -18,7 +18,7 @@ import pyverbs.enums as e
 MAX_IO_LEN = 1048576
 
 
-class MRTest(PyverbsTestCase):
+class MRTest(PyverbsAPITestCase):
     """
     Test various functionalities of the MR class.
     """
@@ -154,7 +154,7 @@ class MRTest(PyverbsTestCase):
                         mr.buf
 
 
-class MWTest(PyverbsTestCase):
+class MWTest(PyverbsAPITestCase):
     """
     Test various functionalities of the MW class.
     """
@@ -200,7 +200,7 @@ class MWTest(PyverbsTestCase):
                                        format(t=mw_type))
 
 
-class DMMRTest(PyverbsTestCase):
+class DMMRTest(PyverbsAPITestCase):
     """
     Test various functionalities of the DMMR class.
     """

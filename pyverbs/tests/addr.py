@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved.  See COPYING file
 
+from pyverbs.tests.base import PyverbsAPITestCase
 from pyverbs.addr import GlobalRoute, AHAttr, AH
 from pyverbs.pyverbs_error import PyverbsError
-from pyverbs.tests.base import PyverbsTestCase
 import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.pd import PD
 from pyverbs.cq import WC
 
-class AHTest(PyverbsTestCase):
+class AHTest(PyverbsAPITestCase):
     """
     Test various functionalities of the AH class.
     """
