@@ -1428,16 +1428,19 @@ int ibv_cmd_create_ah(struct ibv_pd *pd, struct ibv_ah *ah,
 
 	cmd.user_handle            = (uintptr_t) ah;
 	cmd.pd_handle              = pd->handle;
+	cmd.reserved               = 0;
 	cmd.attr.dlid              = attr->dlid;
 	cmd.attr.sl                = attr->sl;
 	cmd.attr.src_path_bits     = attr->src_path_bits;
 	cmd.attr.static_rate       = attr->static_rate;
 	cmd.attr.is_global         = attr->is_global;
 	cmd.attr.port_num          = attr->port_num;
+	cmd.attr.reserved          = 0;
 	cmd.attr.grh.flow_label    = attr->grh.flow_label;
 	cmd.attr.grh.sgid_index    = attr->grh.sgid_index;
 	cmd.attr.grh.hop_limit     = attr->grh.hop_limit;
 	cmd.attr.grh.traffic_class = attr->grh.traffic_class;
+	cmd.attr.grh.reserved      = 0;
 	memcpy(cmd.attr.grh.dgid, attr->grh.dgid.raw, 16);
 
 	ret = execute_cmd_write(pd->context, IB_USER_VERBS_CMD_CREATE_AH, &cmd,
