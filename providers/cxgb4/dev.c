@@ -402,46 +402,6 @@ void dump_state(void)
  */
 int c4iw_abi_version = 1;
 
-static bool c4iw_device_match(struct verbs_sysfs_dev *sysfs_dev)
-{
-	char value[32], *cp;
-	unsigned int fw_maj, fw_min;
-
-	/* Rely on the core code to match PCI devices */
-	if (!sysfs_dev->match)
-		return false;
-
-	/*
-	 * Verify that the firmware major number matches.  Major number
-	 * mismatches are fatal.  Minor number mismatches are tolerated.
-	 */
-	if (ibv_get_fw_ver(value, sizeof(value), sysfs_dev))
-		return false;
-
-	cp = strtok(value+1, ".");
-	sscanf(cp, "%i", &fw_maj);
-	cp = strtok(NULL, ".");
-	sscanf(cp, "%i", &fw_min);
-
-	if ((signed int)fw_maj < FW_MAJ) {
-		fprintf(stderr, "libcxgb4: Fatal firmware version mismatch.  "
-			"Firmware major number is %u and libcxgb4 needs %u.\n",
-			fw_maj, FW_MAJ);
-		fflush(stderr);
-		return false;
-	}
-
-	DBGLOG("libcxgb4");
-
-	if ((signed int)fw_min < FW_MIN) {
-		PDBG("libcxgb4: non-fatal firmware version mismatch.  "
-			"Firmware minor number is %u and libcxgb4 needs %u.\n",
-			fw_min, FW_MIN);
-		fflush(stderr);
-	}
-	return true;
-}
-
 static struct verbs_device *c4iw_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct c4iw_dev *dev;
@@ -498,7 +458,6 @@ static const struct verbs_device_ops c4iw_dev_ops = {
 	.match_min_abi_version = 0,
 	.match_max_abi_version = INT_MAX,
 	.match_table = hca_table,
-	.match_device = c4iw_device_match,
 	.alloc_device = c4iw_device_alloc,
 	.uninit_device = c4iw_uninit_device,
 	.alloc_context = c4iw_alloc_context,
