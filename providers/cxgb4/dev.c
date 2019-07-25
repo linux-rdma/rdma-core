@@ -144,22 +144,6 @@ static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
 
 	verbs_set_ops(&context->ibv_ctx, &c4iw_ctx_common_ops);
 
-	switch (rhp->chip_version) {
-	case CHELSIO_T6:
-		PDBG("%s T6/T5/T4 device\n", __FUNCTION__);
-	case CHELSIO_T5:
-		PDBG("%s T5/T4 device\n", __FUNCTION__);
-	case CHELSIO_T4:
-		PDBG("%s T4 device\n", __FUNCTION__);
-		verbs_set_ops(&context->ibv_ctx, &c4iw_ctx_t4_ops);
-		break;
-	default:
-		PDBG("%s unknown hca type %d\n", __FUNCTION__,
-		     rhp->chip_version);
-		goto err_unmap;
-		break;
-	}
-
 	if (!rhp->mmid2ptr) {
 		int ret;
 
@@ -194,6 +178,21 @@ static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
 			goto err_unmap;
 		rhp->write_cmpl_supported =
 				context->status_page->write_cmpl_supported;
+	}
+
+	rhp->chip_version = CHELSIO_CHIP_VERSION(attr.vendor_part_id >> 8);
+	switch (rhp->chip_version) {
+	case CHELSIO_T6:
+		PDBG("%s T6/T5/T4 device\n", __func__);
+	case CHELSIO_T5:
+		PDBG("%s T5/T4 device\n", __func__);
+	case CHELSIO_T4:
+		PDBG("%s T4 device\n", __func__);
+		verbs_set_ops(&context->ibv_ctx, &c4iw_ctx_t4_ops);
+		break;
+	default:
+		PDBG("%s unknown hca type %d\n", __func__, rhp->chip_version);
+		goto err_unmap;
 	}
 
 	return &context->ibv_ctx;
@@ -456,7 +455,6 @@ static struct verbs_device *c4iw_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
 	c4iw_abi_version = sysfs_dev->abi_ver;
-	dev->chip_version = CHELSIO_CHIP_VERSION(sysfs_dev->match->device >> 8);
 	dev->abi_version = sysfs_dev->abi_ver;
 	list_node_init(&dev->list);
 
