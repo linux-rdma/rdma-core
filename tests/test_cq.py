@@ -7,9 +7,9 @@ import random
 
 from pyverbs.cq import CompChannel, CQ, CqInitAttrEx, CQEX
 from pyverbs.pyverbs_error import PyverbsError
-from pyverbs.tests.base import PyverbsAPITestCase
-import pyverbs.tests.utils as u
+from tests.base import PyverbsAPITestCase
 import pyverbs.enums as e
+import tests.utils as u
 
 
 class CQTest(PyverbsAPITestCase):

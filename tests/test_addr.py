@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved.  See COPYING file
 
-from pyverbs.tests.base import PyverbsAPITestCase
 from pyverbs.addr import GlobalRoute, AHAttr, AH
 from pyverbs.pyverbs_error import PyverbsError
+from tests.base import PyverbsAPITestCase
 import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.pd import PD

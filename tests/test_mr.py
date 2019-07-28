@@ -7,13 +7,13 @@ from itertools import combinations as com
 import random
 
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
-from pyverbs.tests.base import PyverbsAPITestCase
+from tests.base import PyverbsAPITestCase
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.mr import MR, MW, DMMR
-import pyverbs.tests.utils as u
 import pyverbs.device as d
 from pyverbs.pd import PD
 import pyverbs.enums as e
+import tests.utils as u
 
 MAX_IO_LEN = 1048576
 

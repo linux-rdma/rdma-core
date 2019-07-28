@@ -5,12 +5,12 @@ Test module for pyverbs' qp module.
 """
 import random
 
-from pyverbs.tests.base import PyverbsAPITestCase
 from pyverbs.qp import QPInitAttr, QPAttr, QP
-import pyverbs.tests.utils as u
+from tests.base import PyverbsAPITestCase
 import pyverbs.enums as e
 from pyverbs.pd import PD
 from pyverbs.cq import CQ
+import tests.utils as u
 
 
 class QPTest(PyverbsAPITestCase):
