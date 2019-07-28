@@ -90,6 +90,15 @@ struct efa_sq {
 	size_t desc_ring_mmap_size;
 	size_t max_inline_data;
 	uint16_t sub_cq_idx;
+
+	/* Buffer for pending WR entries in the current session */
+	uint8_t *local_queue;
+	/* Number of WR entries posted in the current session */
+	uint32_t num_wqe_pending;
+	/* Phase before current session */
+	int phase_rb;
+	/* Current wqe being built */
+	struct efa_io_tx_wqe *curr_tx_wqe;
 };
 
 struct efa_qp {
@@ -100,6 +109,7 @@ struct efa_qp {
 	struct efa_cq *rcq;
 	struct efa_cq *scq;
 	int sq_sig_all;
+	int wr_session_err;
 };
 
 struct efa_mr {
