@@ -12,3 +12,11 @@ rdma_python_test(tests
   test_qp.py
   utils.py
   )
+
+rdma_python_test(tests
+  run_tests.py
+  )
+
+rdma_internal_binary(
+  run_tests.py
+  )

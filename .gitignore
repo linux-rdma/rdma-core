@@ -69,3 +69,6 @@ tramp
 Session.vim
 .netrwhist
 *~
+
+# python
+*.pyc
