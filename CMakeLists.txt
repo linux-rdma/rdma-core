@@ -538,6 +538,11 @@ RDMA_DoFixup("${HAVE_STATIC_ASSERT}" "assert.h")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WSTRICT_PROTOTYPES "-Wstrict-prototypes")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WOLD_STYLE_DEFINITION "-Wold-style-definition")
 
+if (ENABLE_WERROR)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
+  message(STATUS "Enabled -Werror")
+endif()
+
 # Old versions of libnl have a duplicated rtnl_route_put, disbale the warning on those
 # systems
 if (NOT NL_KIND EQUAL 0)
