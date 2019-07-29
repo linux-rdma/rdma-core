@@ -59,7 +59,7 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 	memset(&resp, 0, sizeof(resp));
 	if (ibv_cmd_get_context(&ctx->ibvctx, &cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
-		goto failed;
+		goto err_free_ctx;
 
 	ctx->sub_cqs_per_cq = resp.sub_cqs_per_cq;
 	ctx->cmds_supp_udata_mask = resp.cmds_supp_udata_mask;
@@ -73,16 +73,17 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 	err = efa_query_device_ex(&ctx->ibvctx.context, NULL, &attr,
 				  sizeof(attr));
 	if (err)
-		goto failed;
+		goto err_free_spinlock;
 
 	ctx->qp_table = calloc(attr.orig_attr.max_qp, sizeof(*ctx->qp_table));
 	if (!ctx->qp_table)
-		goto failed;
+		goto err_free_spinlock;
 
 	return &ctx->ibvctx;
 
-failed:
+err_free_spinlock:
 	pthread_spin_destroy(&ctx->qp_table_lock);
+err_free_ctx:
 	verbs_uninit_context(&ctx->ibvctx);
 	free(ctx);
 	return NULL;
