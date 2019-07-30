@@ -2228,8 +2228,9 @@ catas_start:
 			pr_debug("Starting a recalculation\n");
 			port_lid = get_port_lid(res->ud_res->ib_ctx,
 						config->port_num, &sm_lid);
-			if (port_lid != res->ud_res->port_attr.lid ||
-				sm_lid != res->ud_res->port_attr.sm_lid) {
+			if (port_lid > 0 && port_lid < 0xc000 &&
+			    (port_lid != res->ud_res->port_attr.lid ||
+			     sm_lid != res->ud_res->port_attr.sm_lid)) {
 
 				if (res->ud_res->ah) {
 					ibv_destroy_ah(res->ud_res->ah);
