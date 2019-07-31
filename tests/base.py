@@ -3,7 +3,10 @@
 
 import unittest
 
+from pyverbs.device import Context
 import pyverbs.device as d
+from pyverbs.pd import PD
+
 
 class PyverbsAPITestCase(unittest.TestCase):
     def setUp(self):
@@ -21,3 +24,22 @@ class PyverbsAPITestCase(unittest.TestCase):
     def tearDown(self):
         for tup in self.devices:
             tup[0].close()
+
+
+class BaseResources(object):
+    """
+    BaseResources class is a base aggregator object which contains basic
+    resources like Context and PD. It opens a context over the given device
+    and port and allocates a PD.
+    """
+    def __init__(self, dev_name, ib_port, gid_index):
+        """
+        Initializes a BaseResources object.
+        :param dev_name: Device name to be used (default: 'ibp0s8f0')
+        :param ib_port: IB port of the device to use (default: 1)
+        :param gid_index: Which GID index to use (default: 0)
+        """
+        self.ctx = Context(name=dev_name)
+        self.gid_index = gid_index
+        self.pd = PD(self.ctx)
+        self.ib_port = ib_port
