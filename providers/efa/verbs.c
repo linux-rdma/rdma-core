@@ -384,10 +384,13 @@ static int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 
 	wc->wc_flags = 0;
 	wc->qp_num = qpn;
+
+	pthread_spin_lock(&wq->wqlock);
 	wq->wrid_idx_pool_next--;
 	wq->wrid_idx_pool[wq->wrid_idx_pool_next] = wrid_idx;
 	wc->wr_id = wq->wrid[wrid_idx];
 	wq->wqe_completed++;
+	pthread_spin_unlock(&wq->wqlock);
 
 	return 0;
 }
