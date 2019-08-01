@@ -5,3 +5,9 @@ EFA_1.0 {
 		efadv_create_driver_qp;
 	local: *;
 };
+
+EFA_1.1 {
+	global:
+		efadv_query_ah;
+		efadv_query_device;
+} EFA_1.0;
