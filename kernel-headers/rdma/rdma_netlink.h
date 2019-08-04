@@ -281,6 +281,12 @@ enum rdma_nldev_command {
 
 	RDMA_NLDEV_CMD_GET_CHARDEV,
 
+	RDMA_NLDEV_CMD_STAT_SET,
+
+	RDMA_NLDEV_CMD_STAT_GET, /* can dump */
+
+	RDMA_NLDEV_CMD_STAT_DEL,
+
 	RDMA_NLDEV_NUM_OPS
 };
 
@@ -488,7 +494,6 @@ enum rdma_nldev_attr {
 	 * File descriptor handle of the net namespace object
 	 */
 	RDMA_NLDEV_NET_NS_FD,			/* u32 */
-
 	/*
 	 * Information about a chardev.
 	 * CHARDEV_TYPE is the name of the chardev ABI (ie uverbs, umad, etc)
@@ -501,10 +506,60 @@ enum rdma_nldev_attr {
 	RDMA_NLDEV_ATTR_CHARDEV_ABI,		/* u64 */
 	RDMA_NLDEV_ATTR_CHARDEV,		/* u64 */
 	RDMA_NLDEV_ATTR_UVERBS_DRIVER_ID,       /* u64 */
+	/*
+	 * Counter-specific attributes.
+	 */
+	RDMA_NLDEV_ATTR_STAT_MODE,		/* u32 */
+	RDMA_NLDEV_ATTR_STAT_RES,		/* u32 */
+	RDMA_NLDEV_ATTR_STAT_AUTO_MODE_MASK,	/* u32 */
+	RDMA_NLDEV_ATTR_STAT_COUNTER,		/* nested table */
+	RDMA_NLDEV_ATTR_STAT_COUNTER_ENTRY,	/* nested table */
+	RDMA_NLDEV_ATTR_STAT_COUNTER_ID,	/* u32 */
+	RDMA_NLDEV_ATTR_STAT_HWCOUNTERS,	/* nested table */
+	RDMA_NLDEV_ATTR_STAT_HWCOUNTER_ENTRY,	/* nested table */
+	RDMA_NLDEV_ATTR_STAT_HWCOUNTER_ENTRY_NAME,	/* string */
+	RDMA_NLDEV_ATTR_STAT_HWCOUNTER_ENTRY_VALUE,	/* u64 */
+
+	/*
+	 * CQ adaptive moderatio (DIM)
+	 */
+	RDMA_NLDEV_ATTR_DEV_DIM,                /* u8 */
 
 	/*
 	 * Always the end
 	 */
 	RDMA_NLDEV_ATTR_MAX
+};
+
+/*
+ * Supported counter bind modes. All modes are mutual-exclusive.
+ */
+enum rdma_nl_counter_mode {
+	RDMA_COUNTER_MODE_NONE,
+
+	/*
+	 * A qp is bound with a counter automatically during initialization
+	 * based on the auto mode (e.g., qp type, ...)
+	 */
+	RDMA_COUNTER_MODE_AUTO,
+
+	/*
+	 * Which qp are bound with which counter is explicitly specified
+	 * by the user
+	 */
+	RDMA_COUNTER_MODE_MANUAL,
+
+	/*
+	 * Always the end
+	 */
+	RDMA_COUNTER_MODE_MAX,
+};
+
+/*
+ * Supported criteria in counter auto mode.
+ * Currently only "qp type" is supported
+ */
+enum rdma_nl_counter_mask {
+	RDMA_COUNTER_MASK_QP_TYPE = 1,
 };
 #endif /* _UAPI_RDMA_NETLINK_H */
