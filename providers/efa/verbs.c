@@ -127,7 +127,6 @@ struct ibv_pd *efa_alloc_pd(struct ibv_context *ibvctx)
 			     &resp.ibv_resp, sizeof(resp)))
 		goto out;
 
-	pd->context = to_efa_context(ibvctx);
 	pd->pdn = resp.pdn;
 
 	return &pd->ibvpd;
@@ -725,7 +724,6 @@ static struct ibv_qp *create_qp(struct ibv_pd *ibvpd,
 
 	qp->ibvqp.state = IBV_QPS_RESET;
 	qp->sq_sig_all = attr->sq_sig_all;
-	qp->ctx = ctx;
 
 	err = efa_rq_initialize(qp, &resp);
 	if (err)
