@@ -22,9 +22,6 @@
 #include "efadv.h"
 #include "verbs.h"
 
-#define field_avail(ptr, fld, sz) (offsetof(typeof(*ptr), fld) + \
-				   sizeof(((typeof(ptr))0)->fld) <= (sz))
-
 int efa_query_device(struct ibv_context *ibvctx,
 		     struct ibv_device_attr *dev_attr)
 {
@@ -102,7 +99,7 @@ int efadv_query_device(struct ibv_context *ibvctx,
 	if (!is_efa_dev(ibvctx->device))
 		return EOPNOTSUPP;
 
-	if (!field_avail(attr, inline_buf_size, inlen))
+	if (!vext_field_avail(typeof(*attr), inline_buf_size, inlen))
 		return EINVAL;
 
 	memset(attr, 0, sizeof(*attr));
@@ -1115,7 +1112,7 @@ int efadv_query_ah(struct ibv_ah *ibvah, struct efadv_ah_attr *attr,
 	if (!is_efa_dev(ibvah->context->device))
 		return EOPNOTSUPP;
 
-	if (!field_avail(attr, ahn, inlen))
+	if (!vext_field_avail(typeof(*attr), ahn, inlen))
 		return EINVAL;
 
 	memset(attr, 0, sizeof(*attr));
