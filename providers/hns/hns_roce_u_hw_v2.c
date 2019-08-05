@@ -801,9 +801,7 @@ out:
 		attr_mask = IBV_QP_STATE;
 		attr.qp_state = IBV_QPS_ERR;
 
-		ret = hns_roce_u_v2_modify_qp(ibvqp, &attr, attr_mask);
-		if (ret)
-			*bad_wr = wr;
+		hns_roce_u_v2_modify_qp(ibvqp, &attr, attr_mask);
 	}
 
 	return ret;
@@ -899,9 +897,7 @@ out:
 		attr_mask = IBV_QP_STATE;
 		attr.qp_state = IBV_QPS_ERR;
 
-		ret = hns_roce_u_v2_modify_qp(ibvqp, &attr, attr_mask);
-		if (ret)
-			*bad_wr = wr;
+		hns_roce_u_v2_modify_qp(ibvqp, &attr, attr_mask);
 	}
 
 	return ret;
