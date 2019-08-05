@@ -1,23 +1,19 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2018, Mellanox Technologies. All rights reserved.  See COPYING file
-import unittest,os,os.path,fnmatch
-import tests
+
+import unittest
+import os
+from importlib.machinery import SourceFileLoader
 
 
 def test_all():
-    # FIXME: This implementation is for older Python versions, will
-    # be replaced with discover()
-    return test_suite
+    module_path = os.path.dirname(__file__) + '/__init__.py'
+    module = SourceFileLoader('tests', module_path).load_module()
+    loader = unittest.TestLoader()
+    suite = loader.loadTestsFromModule(module)
+    return suite
 
-module = __import__("tests")
-fns = [os.path.splitext(I)[0] for I in fnmatch.filter(os.listdir(module.__path__[0]),"*.py")]
-fns.remove("__init__")
-for I in fns:
-    __import__("tests." + I)
-test_suite = unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromNames(fns,module))
 
 if __name__ == '__main__':
     unittest.main(defaultTest="test_all")
-
-
