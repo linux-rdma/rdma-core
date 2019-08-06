@@ -673,9 +673,14 @@ static void efa_unlock_cqs(struct ibv_qp *ibvqp)
 }
 
 static int efa_check_qp_attr(struct efa_dev *dev,
-			     struct ibv_qp_init_attr_ex *attr)
+			     struct ibv_qp_init_attr_ex *attr,
+			     struct efadv_qp_init_attr *efa_attr)
 {
 #define EFA_CREATE_QP_SUPP_ATTR_MASK IBV_QP_INIT_ATTR_PD
+
+	if (attr->qp_type == IBV_QPT_DRIVER &&
+	    efa_attr->driver_qp_type != EFADV_QP_DRIVER_TYPE_SRD)
+		return EOPNOTSUPP;
 
 	if (!check_comp_mask(attr->comp_mask, EFA_CREATE_QP_SUPP_ATTR_MASK))
 		return EOPNOTSUPP;
@@ -712,7 +717,7 @@ static int efa_check_qp_limits(struct efa_dev *dev,
 
 static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 				struct ibv_qp_init_attr_ex *attr,
-				uint32_t driver_qp_type)
+				struct efadv_qp_init_attr *efa_attr)
 {
 	struct efa_context *ctx = to_efa_context(ibvctx);
 	struct efa_dev *dev = to_efa_dev(ibvctx->device);
@@ -724,7 +729,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 	struct efa_qp *qp;
 	int err;
 
-	err = efa_check_qp_attr(dev, attr);
+	err = efa_check_qp_attr(dev, attr, efa_attr);
 	if (err)
 		goto err_out;
 
@@ -748,7 +753,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 	req.sq_ring_size = (attr->cap.max_send_wr) *
 		sizeof(struct efa_io_tx_wqe);
 	if (attr->qp_type == IBV_QPT_DRIVER)
-		req.driver_qp_type = driver_qp_type;
+		req.driver_qp_type = efa_attr->driver_qp_type;
 
 	err = ibv_cmd_create_qp_ex(ibvctx, &qp->verbs_qp, sizeof(qp->verbs_qp),
 				   attr, &req.ibv_cmd, sizeof(req),
@@ -816,7 +821,7 @@ struct ibv_qp *efa_create_qp(struct ibv_pd *ibvpd,
 	attr_ex.comp_mask = IBV_QP_INIT_ATTR_PD;
 	attr_ex.pd = ibvpd;
 
-	ibvqp = create_qp(ibvpd->context, &attr_ex, 0);
+	ibvqp = create_qp(ibvpd->context, &attr_ex, NULL);
 	if (ibvqp)
 		memcpy(attr, &attr_ex, sizeof(*attr));
 
@@ -831,7 +836,7 @@ struct ibv_qp *efa_create_qp_ex(struct ibv_context *ibvctx,
 		return NULL;
 	}
 
-	return create_qp(ibvctx, attr_ex, 0);
+	return create_qp(ibvctx, attr_ex, NULL);
 }
 
 struct ibv_qp *efadv_create_driver_qp(struct ibv_pd *ibvpd,
@@ -839,6 +844,7 @@ struct ibv_qp *efadv_create_driver_qp(struct ibv_pd *ibvpd,
 				      uint32_t driver_qp_type)
 {
 	struct ibv_qp_init_attr_ex attr_ex = {};
+	struct efadv_qp_init_attr efa_attr = {};
 	struct ibv_qp *ibvqp;
 
 	if (!is_efa_dev(ibvpd->context->device)) {
@@ -854,12 +860,33 @@ struct ibv_qp *efadv_create_driver_qp(struct ibv_pd *ibvpd,
 	memcpy(&attr_ex, attr, sizeof(*attr));
 	attr_ex.comp_mask = IBV_QP_INIT_ATTR_PD;
 	attr_ex.pd = ibvpd;
+	efa_attr.driver_qp_type = driver_qp_type;
 
-	ibvqp = create_qp(ibvpd->context, &attr_ex, driver_qp_type);
+	ibvqp = create_qp(ibvpd->context, &attr_ex, &efa_attr);
 	if (ibvqp)
 		memcpy(attr, &attr_ex, sizeof(*attr));
 
 	return ibvqp;
+}
+
+struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
+				  struct ibv_qp_init_attr_ex *attr_ex,
+				  struct efadv_qp_init_attr *efa_attr,
+				  uint32_t inlen)
+{
+	if (!is_efa_dev(ibvctx->device)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (attr_ex->qp_type != IBV_QPT_DRIVER ||
+	    !vext_field_avail(struct efadv_qp_init_attr,
+			      driver_qp_type, inlen)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	return create_qp(ibvctx, attr_ex, efa_attr);
 }
 
 int efa_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
