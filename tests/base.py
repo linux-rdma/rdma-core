@@ -4,10 +4,15 @@
 import unittest
 import random
 
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
+from pyverbs.qp import QPCap, QPInitAttr, QPAttr, QP
+from tests.utils import wc_status_to_str
 from pyverbs.device import Context
 import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.pd import PD
+from pyverbs.cq import CQ
+from pyverbs.mr import MR
 
 
 class PyverbsAPITestCase(unittest.TestCase):
@@ -142,3 +147,83 @@ class BaseResources(object):
         self.gid_index = gid_index
         self.pd = PD(self.ctx)
         self.ib_port = ib_port
+
+
+class TrafficResources(BaseResources):
+    """
+    Basic traffic class. It provides the basic RDMA resources and operations
+    needed for traffic.
+    """
+    def __init__(self, dev_name, ib_port, gid_index):
+        """
+        Initializes a TrafficResources object with the given values and creates
+        basic RDMA resources.
+        :param dev_name: Device name to be used
+        :param ib_port: IB port of the device to use
+        :param gid_index: Which GID index to use
+        """
+        super(TrafficResources, self).__init__(dev_name=dev_name,
+                                               ib_port=ib_port,
+                                               gid_index=gid_index)
+        self.psn = random.getrandbits(24)
+        self.msg_size = 1024
+        self.num_msgs = 1000
+        self.port_attr = None
+        self.mr = None
+        self.cq = None
+        self.qp = None
+        self.rqpn = 0
+        self.rpsn = 0
+        self.init_resources()
+
+    @property
+    def qpn(self):
+        return self.qp.qp_num
+
+    def init_resources(self):
+        """
+        Initializes a CQ, MR and an RC QP.
+        :return: None
+        """
+        self.port_attr = self.ctx.query_port(self.ib_port)
+        self.create_cq()
+        self.create_mr()
+        self.create_qp()
+
+    def create_cq(self):
+        """
+        Initializes self.cq with a CQ of depth <num_msgs> - defined by each
+        test.
+        :return: None
+        """
+        self.cq = CQ(self.ctx, self.num_msgs, None, None, 0)
+
+    def create_mr(self):
+        """
+        Initializes self.mr with an MR of length <msg_size> - defined by each
+        test.
+        :return: None
+        """
+        self.mr = MR(self.pd, self.msg_size, e.IBV_ACCESS_LOCAL_WRITE)
+
+    def create_qp(self):
+        """
+        Initializes self.qp with an RC QP.
+        :return: None
+        """
+        qp_caps = QPCap(max_recv_wr=self.num_msgs)
+        qp_init_attr = QPInitAttr(qp_type=e.IBV_QPT_RC, scq=self.cq,
+                                  rcq=self.cq, cap=qp_caps)
+        qp_attr = QPAttr(port_num=self.ib_port)
+        self.qp = QP(self.pd, qp_init_attr, qp_attr)
+
+    def pre_run(self, rpsn, rqpn):
+        """
+        Modify the QP's state to RTS and fill receive queue with <num_msgs> work
+        requests.
+        This method is not implemented in this class.
+        :param rpsn: Remote PSN
+        :param rqpn: Remote QPN
+        :return: None
+        """
+        raise NotImplementedError()

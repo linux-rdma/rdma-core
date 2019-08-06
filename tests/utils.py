@@ -221,3 +221,23 @@ def random_qp_init_attr_ex(attr_ex, attr, qpt=None):
     qia = QPInitAttrEx(qp_type=qpt, cap=qp_cap, sq_sig_all=sig, comp_mask=mask,
                        create_flags=cflags, max_tso_header=max_tso)
     return qia
+
+
+def wc_status_to_str(status):
+    try:
+        return \
+            {0: 'Success', 1: 'Local length error',
+             2: 'local QP operation error', 3: 'Local EEC operation error',
+             4: 'Local protection error', 5: 'WR flush error',
+             6: 'Memory window bind error', 7: 'Bad response error',
+             8: 'Local access error', 9: 'Remote invalidate request error',
+             10: 'Remote access error', 11: 'Remote operation error',
+             12: 'Retry exceeded', 13: 'RNR retry exceeded',
+             14: 'Local RDD violation error',
+             15: 'Remote invalidate RD request error',
+             16: 'Remote aort error', 17: 'Invalidate EECN error',
+             18: 'Invalidate EEC state error', 19: 'Fatal error',
+             20: 'Response timeout error', 21: 'General error'}[status]
+    except KeyError:
+        return 'Unknown WC status ({s})'.format(s=status)
+
