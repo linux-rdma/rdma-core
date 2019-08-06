@@ -178,9 +178,9 @@ static int hns_roce_v2_wq_overflow(struct hns_roce_wq *wq, int nreq,
 		return 0;
 
 	/* While the num of wqe exceeds cap of the device, cq will be locked */
-	pthread_spin_lock(&cq->lock);
+	hns_roce_spin_lock(cq_lock, &cq->hr_lock);
 	cur = wq->head - wq->tail;
-	pthread_spin_unlock(&cq->lock);
+	hns_roce_spin_unlock(cq_lock, &cq->hr_lock);
 
 	return cur + nreq >= wq->max_post;
 }
@@ -553,7 +553,7 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 	struct hns_roce_cq *cq = to_hr_cq(ibvcq);
 	struct hns_roce_context *ctx = to_hr_ctx(ibvcq->context);
 
-	pthread_spin_lock(&cq->lock);
+	hns_roce_spin_lock(cq_lock, &cq->hr_lock);
 
 	for (npolled = 0; npolled < ne; ++npolled) {
 		err = hns_roce_v2_poll_one(cq, &qp, wc + npolled);
@@ -571,7 +571,7 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 			hns_roce_v2_update_cq_cons_index(ctx, cq);
 	}
 
-	pthread_spin_unlock(&cq->lock);
+	hns_roce_spin_unlock(cq_lock, &cq->hr_lock);
 
 	return err == V2_CQ_POLL_ERR ? err : npolled;
 }
@@ -788,12 +788,12 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	void *wqe;
 	int nreq;
 
-	pthread_spin_lock(&qp->sq.lock);
+	hns_roce_spin_lock(sq_lock, &qp->sq.hr_lock);
 
 	/* check that state is OK to post send */
 	if (ibvqp->state == IBV_QPS_RESET || ibvqp->state == IBV_QPS_INIT ||
 	    ibvqp->state == IBV_QPS_RTR) {
-		pthread_spin_unlock(&qp->sq.lock);
+		hns_roce_spin_unlock(sq_lock, &qp->sq.hr_lock);
 		*bad_wr = wr;
 		return EINVAL;
 	}
@@ -847,7 +847,7 @@ out:
 			*(qp->sdb) = qp->sq.head & 0xffff;
 	}
 
-	pthread_spin_unlock(&qp->sq.lock);
+	hns_roce_spin_unlock(sq_lock, &qp->sq.hr_lock);
 
 	if (ibvqp->state == IBV_QPS_ERR) {
 		attr_mask = IBV_QP_STATE;
@@ -876,11 +876,11 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	int nreq;
 	int i;
 
-	pthread_spin_lock(&qp->rq.lock);
+	hns_roce_spin_lock(rq_lock, &qp->rq.hr_lock);
 
 	/* check that state is OK to post receive */
 	if (ibvqp->state == IBV_QPS_RESET) {
-		pthread_spin_unlock(&qp->rq.lock);
+		hns_roce_spin_unlock(rq_lock, &qp->rq.hr_lock);
 		*bad_wr = wr;
 		return -1;
 	}
@@ -949,7 +949,7 @@ out:
 				     qp->rq.head & ((qp->rq.wqe_cnt << 1) - 1));
 	}
 
-	pthread_spin_unlock(&qp->rq.lock);
+	hns_roce_spin_unlock(rq_lock, &qp->rq.hr_lock);
 
 	if (ibvqp->state == IBV_QPS_ERR) {
 		attr_mask = IBV_QP_STATE;
@@ -1014,9 +1014,9 @@ static void __hns_roce_v2_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 static void hns_roce_v2_cq_clean(struct hns_roce_cq *cq, unsigned int qpn,
 				 struct hns_roce_srq *srq)
 {
-	pthread_spin_lock(&cq->lock);
+	hns_roce_spin_lock(cq_lock, &cq->hr_lock);
 	__hns_roce_v2_cq_clean(cq, qpn, srq);
-	pthread_spin_unlock(&cq->lock);
+	hns_roce_spin_unlock(cq_lock, &cq->hr_lock);
 }
 
 static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
@@ -1028,16 +1028,16 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	bool flag = false; /* modify qp to error */
 
 	if ((attr_mask & IBV_QP_STATE) && (attr->qp_state == IBV_QPS_ERR)) {
-		pthread_spin_lock(&hr_qp->sq.lock);
-		pthread_spin_lock(&hr_qp->rq.lock);
+		hns_roce_spin_lock(sq_lock, &hr_qp->sq.hr_lock);
+		hns_roce_spin_lock(rq_lock, &hr_qp->rq.hr_lock);
 		flag = true;
 	}
 
 	ret = ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof(cmd));
 
 	if (flag) {
-		pthread_spin_unlock(&hr_qp->rq.lock);
-		pthread_spin_unlock(&hr_qp->sq.lock);
+		hns_roce_spin_unlock(rq_lock, &hr_qp->rq.hr_lock);
+		hns_roce_spin_unlock(sq_lock, &hr_qp->sq.hr_lock);
 	}
 
 	if (ret)
@@ -1062,38 +1062,6 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	return ret;
 }
 
-static void hns_roce_lock_cqs(struct ibv_qp *qp)
-{
-	struct hns_roce_cq *send_cq = to_hr_cq(qp->send_cq);
-	struct hns_roce_cq *recv_cq = to_hr_cq(qp->recv_cq);
-
-	if (send_cq == recv_cq) {
-		pthread_spin_lock(&send_cq->lock);
-	} else if (send_cq->cqn < recv_cq->cqn) {
-		pthread_spin_lock(&send_cq->lock);
-		pthread_spin_lock(&recv_cq->lock);
-	} else {
-		pthread_spin_lock(&recv_cq->lock);
-		pthread_spin_lock(&send_cq->lock);
-	}
-}
-
-static void hns_roce_unlock_cqs(struct ibv_qp *qp)
-{
-	struct hns_roce_cq *send_cq = to_hr_cq(qp->send_cq);
-	struct hns_roce_cq *recv_cq = to_hr_cq(qp->recv_cq);
-
-	if (send_cq == recv_cq) {
-		pthread_spin_unlock(&send_cq->lock);
-	} else if (send_cq->cqn < recv_cq->cqn) {
-		pthread_spin_unlock(&recv_cq->lock);
-		pthread_spin_unlock(&send_cq->lock);
-	} else {
-		pthread_spin_unlock(&send_cq->lock);
-		pthread_spin_unlock(&recv_cq->lock);
-	}
-}
-
 static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 {
 	int ret;
@@ -1106,7 +1074,9 @@ static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 		return ret;
 	}
 
-	hns_roce_lock_cqs(ibqp);
+	if (cq_lock)
+		hns_roce_lock_cqs(to_hr_cq(ibqp->send_cq),
+				  to_hr_cq(ibqp->recv_cq));
 
 	if (ibqp->recv_cq)
 		__hns_roce_v2_cq_clean(to_hr_cq(ibqp->recv_cq), ibqp->qp_num,
@@ -1118,7 +1088,10 @@ static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 
 	hns_roce_v2_clear_qp(to_hr_ctx(ibqp->context), ibqp->qp_num);
 
-	hns_roce_unlock_cqs(ibqp);
+	if (cq_lock)
+		hns_roce_unlock_cqs(to_hr_cq(ibqp->send_cq),
+				    to_hr_cq(ibqp->recv_cq));
+
 	pthread_mutex_unlock(&to_hr_ctx(ibqp->context)->qp_table_mutex);
 
 	if (qp->rq.max_gs)

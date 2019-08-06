@@ -40,6 +40,10 @@
 #include "hns_roce_u.h"
 #include "hns_roce_u_abi.h"
 
+bool sq_lock = true;
+bool rq_lock = true;
+bool cq_lock = true;
+
 #define HID_LEN			15
 #define DEV_MATCH_LEN		128
 
@@ -59,6 +63,21 @@ static const struct verbs_match_ent hca_table[] = {
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA227, &hns_roce_u_hw_v2),
 	{}
 };
+
+static bool get_lock_config(const char *var)
+{
+	char *env;
+
+	/* Users could set environment variable HNS_ROCE_NO_XX_LOCK with
+	 * true or false, "true" means lock is not used and "false" means
+	 * lock is used.
+	 */
+	env = getenv(var);
+	if (env)
+		return strcmp(env, "true") ? true : false;
+
+	return true;
+}
 
 static const struct verbs_context_ops hns_common_ops = {
 	.alloc_mw = hns_roce_u_alloc_mw,
@@ -102,6 +121,10 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
 		goto err_free;
+
+	sq_lock = get_lock_config("HNS_ROCE_NO_SQ_LOCK");
+	rq_lock = get_lock_config("HNS_ROCE_NO_RQ_LOCK");
+	cq_lock = get_lock_config("HNS_ROCE_NO_CQ_LOCK");
 
 	context->num_qps = resp.qp_tab_size;
 	context->qp_table_shift = ffs(context->num_qps) - 1 -

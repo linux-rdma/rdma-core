@@ -320,7 +320,7 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 
 	cq->cons_index = 0;
 
-	if (pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE))
+	if (hns_roce_spinlock_init(&cq->hr_lock))
 		goto err;
 
 	if (to_hr_dev(context->device)->hw_version == HNS_ROCE_HW_VER1)
@@ -570,6 +570,43 @@ int hns_roce_u_destroy_srq(struct ibv_srq *srq)
 	free(to_hr_srq(srq));
 
 	return 0;
+}
+
+void hns_roce_lock_cqs(struct hns_roce_cq *send_cq, struct hns_roce_cq *recv_cq)
+{
+	if (send_cq && recv_cq) {
+		if (send_cq == recv_cq)
+			pthread_spin_lock(&send_cq->hr_lock.lock);
+		else if (send_cq->cqn < recv_cq->cqn) {
+			pthread_spin_lock(&send_cq->hr_lock.lock);
+			pthread_spin_lock(&recv_cq->hr_lock.lock);
+		} else {
+			pthread_spin_lock(&recv_cq->hr_lock.lock);
+			pthread_spin_lock(&send_cq->hr_lock.lock);
+		}
+	} else if (send_cq)
+		pthread_spin_lock(&send_cq->hr_lock.lock);
+	else if (recv_cq)
+		pthread_spin_lock(&recv_cq->hr_lock.lock);
+}
+
+void hns_roce_unlock_cqs(struct hns_roce_cq *send_cq,
+			 struct hns_roce_cq *recv_cq)
+{
+	if (send_cq && recv_cq) {
+		if (send_cq == recv_cq)
+			pthread_spin_unlock(&send_cq->hr_lock.lock);
+		else if (send_cq->cqn < recv_cq->cqn) {
+			pthread_spin_unlock(&recv_cq->hr_lock.lock);
+			pthread_spin_unlock(&send_cq->hr_lock.lock);
+		} else {
+			pthread_spin_unlock(&send_cq->hr_lock.lock);
+			pthread_spin_unlock(&recv_cq->hr_lock.lock);
+		}
+	} else if (send_cq)
+		pthread_spin_unlock(&send_cq->hr_lock.lock);
+	else if (recv_cq)
+		pthread_spin_unlock(&recv_cq->hr_lock.lock);
 }
 
 static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
@@ -840,11 +877,12 @@ static int hns_roce_store_qp(struct hns_roce_context *ctx, uint32_t qpn,
 struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 				    struct ibv_qp_init_attr *attr)
 {
-	int ret;
-	struct hns_roce_qp *qp;
-	struct hns_roce_create_qp cmd = {};
-	struct hns_roce_create_qp_resp resp = {};
+	struct hns_roce_device *hr_dev = to_hr_dev(pd->context->device);
 	struct hns_roce_context *context = to_hr_ctx(pd->context);
+	struct hns_roce_create_qp_resp resp = {};
+	struct hns_roce_create_qp cmd = {};
+	struct hns_roce_qp *qp;
+	int ret;
 
 	if (hns_roce_verify_qp(attr, context)) {
 		fprintf(stderr, "hns_roce_verify_sizes failed!\n");
@@ -866,8 +904,8 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 
 	hns_roce_init_qp_indices(qp);
 
-	if (pthread_spin_init(&qp->sq.lock, PTHREAD_PROCESS_PRIVATE) ||
-	    pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE)) {
+	if (hns_roce_spinlock_init(&qp->sq.hr_lock) ||
+	    hns_roce_spinlock_init(&qp->rq.hr_lock)) {
 		fprintf(stderr, "pthread_spin_init failed!\n");
 		goto err_free;
 	}
@@ -916,12 +954,12 @@ err_destroy:
 
 err_rq_db:
 	pthread_mutex_unlock(&context->qp_table_mutex);
-	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
+	if ((hr_dev->hw_version != HNS_ROCE_HW_VER1) &&
 	    attr->cap.max_recv_sge)
 		hns_roce_free_db(context, qp->rdb, HNS_ROCE_QP_TYPE_DB);
 
 err_sq_db:
-	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
+	if ((hr_dev->hw_version != HNS_ROCE_HW_VER1) &&
 	    attr->cap.max_send_wr)
 		hns_roce_free_db(context, qp->sdb, HNS_ROCE_QP_TYPE_DB);
 

@@ -34,6 +34,7 @@
 #define _HNS_ROCE_U_H
 
 #include <stddef.h>
+#include <stdlib.h>
 #include <endian.h>
 #include <util/compiler.h>
 
@@ -42,6 +43,10 @@
 #include <infiniband/verbs.h>
 #include <ccan/bitmap.h>
 #include <ccan/container_of.h>
+
+extern bool sq_lock;
+extern bool rq_lock;
+extern bool cq_lock;
 
 #define HNS_ROCE_HW_VER1		('h' << 24 | 'i' << 16 | '0' << 8 | '6')
 
@@ -129,6 +134,11 @@ struct hns_roce_db_page {
 	bitmap			*bitmap;
 };
 
+struct hns_roce_pthread_lock {
+	pthread_spinlock_t lock;
+	bool in_use;
+};
+
 struct hns_roce_context {
 	struct verbs_context		ibv_ctx;
 	void				*uar;
@@ -163,7 +173,7 @@ struct hns_roce_pd {
 struct hns_roce_cq {
 	struct ibv_cq			ibv_cq;
 	struct hns_roce_buf		buf;
-	pthread_spinlock_t		lock;
+	struct hns_roce_pthread_lock	hr_lock;
 	unsigned int			cqn;
 	unsigned int			cq_depth;
 	unsigned int			cons_index;
@@ -198,7 +208,7 @@ struct hns_roce_srq {
 
 struct hns_roce_wq {
 	unsigned long			*wrid;
-	pthread_spinlock_t		lock;
+	struct hns_roce_pthread_lock	hr_lock;
 	unsigned int			wqe_cnt;
 	int				max_post;
 	unsigned int			head;
@@ -292,6 +302,44 @@ static inline struct  hns_roce_qp *to_hr_qp(struct ibv_qp *ibv_qp)
 	return container_of(ibv_qp, struct hns_roce_qp, ibv_qp);
 }
 
+static inline int hns_roce_spinlock_init(struct hns_roce_pthread_lock *hr_lock)
+{
+	hr_lock->in_use = false;
+	return pthread_spin_init(&hr_lock->lock, PTHREAD_PROCESS_PRIVATE);
+}
+
+static inline int hns_roce_spin_lock(bool has_lock,
+				     struct hns_roce_pthread_lock *hr_lock)
+{
+	if (likely(has_lock))
+		return pthread_spin_lock(&hr_lock->lock);
+
+	if (unlikely(hr_lock->in_use))
+		abort();
+	else {
+		hr_lock->in_use = true;
+		/*
+		 * This fence is not at all correct, but it increases the
+		 * chance that in_use is detected by another thread without
+		 * much runtime cost.
+		 */
+		atomic_thread_fence(memory_order_acq_rel);
+	}
+
+	return 0;
+}
+
+static inline int hns_roce_spin_unlock(bool has_lock,
+				       struct hns_roce_pthread_lock *hr_lock)
+{
+	if (likely(has_lock))
+		return pthread_spin_unlock(&hr_lock->lock);
+
+	hr_lock->in_use = false;
+
+	return 0;
+}
+
 int hns_roce_u_query_device(struct ibv_context *context,
 			    struct ibv_device_attr *attr);
 int hns_roce_u_query_port(struct ibv_context *context, uint8_t port,
@@ -325,6 +373,10 @@ int hns_roce_u_modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
 			  int srq_attr_mask);
 int hns_roce_u_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
 int hns_roce_u_destroy_srq(struct ibv_srq *srq);
+void hns_roce_lock_cqs(struct hns_roce_cq *send_cq,
+		       struct hns_roce_cq *recv_cq);
+void hns_roce_unlock_cqs(struct hns_roce_cq *send_cq,
+			 struct hns_roce_cq *recv_cq);
 struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 				    struct ibv_qp_init_attr *attr);
 
