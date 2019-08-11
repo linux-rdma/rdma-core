@@ -21,14 +21,8 @@ enum efa_io_queue_type {
 };
 
 enum efa_io_send_op_type {
-	/* invalid op */
-	EFA_IO_INVALID_OP                           = 0,
 	/* send message */
-	EFA_IO_SEND                                 = 1,
-	/* RDMA read, future, not supported yet */
-	EFA_IO_RDMA_READ                            = 2,
-	/* RDMA write, future, not supported yet */
-	EFA_IO_RDMA_WRITE                           = 3,
+	EFA_IO_SEND                                 = 0,
 };
 
 enum efa_io_comp_status {

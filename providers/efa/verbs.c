@@ -985,6 +985,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 
 		/* Set rest of the descriptor fields */
 		set_efa_io_tx_meta_desc_meta_desc(meta_desc, 1);
+		set_efa_io_tx_meta_desc_op_type(meta_desc, EFA_IO_SEND);
 		set_efa_io_tx_meta_desc_phase(meta_desc, qp->sq.wq.phase);
 		set_efa_io_tx_meta_desc_first(meta_desc, 1);
 		set_efa_io_tx_meta_desc_last(meta_desc, 1);
