@@ -4,9 +4,8 @@
 import unittest
 import random
 
-from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.qp import QPCap, QPInitAttr, QPAttr, QP
-from tests.utils import wc_status_to_str
+from pyverbs.addr import AHAttr, GlobalRoute
 from pyverbs.device import Context
 import pyverbs.device as d
 import pyverbs.enums as e
@@ -227,3 +226,66 @@ class TrafficResources(BaseResources):
         :return: None
         """
         raise NotImplementedError()
+
+
+class RCResources(TrafficResources):
+    PATH_MTU = e.IBV_MTU_1024
+    MAX_DEST_RD_ATOMIC = 1
+    MAX_RD_ATOMIC = 1
+    MIN_RNR_TIMER =12
+    RETRY_CNT = 7
+    RNR_RETRY = 7
+    TIMEOUT = 14
+
+    def to_rts(self, rpsn, rqpn):
+        """
+        Set the QP attributes' values to arbitrary values (same values used in
+        ibv_rc_pingpong).
+        :param rpsn: Remote PSN (packet serial number)
+        :param rqpn: Remote QP number
+        :return: None
+        """
+        attr = QPAttr(port_num=self.ib_port)
+        attr.dest_qp_num = rqpn
+        attr.path_mtu = self.PATH_MTU
+        attr.max_dest_rd_atomic = self.MAX_DEST_RD_ATOMIC
+        attr.min_rnr_timer = self.MIN_RNR_TIMER
+        attr.rq_psn = rpsn
+        attr.sq_psn = self.psn
+        attr.timeout = self.TIMEOUT
+        attr.retry_cnt = self.RETRY_CNT
+        attr.rnr_retry = self.RNR_RETRY
+        attr.max_rd_atomic = self.MAX_RD_ATOMIC
+        gr = GlobalRoute(dgid=self.ctx.query_gid(self.ib_port, self.gid_index),
+                         sgid_index=self.gid_index)
+        ah_attr = AHAttr(port_num=self.ib_port, is_global=1, gr=gr,
+                         dlid=self.port_attr.lid)
+        attr.ah_attr = ah_attr
+        self.qp.to_rts(attr)
+
+    def pre_run(self, rpsn, rqpn):
+        self.rqpn = rqpn
+        self.rpsn = rpsn
+        self.to_rts(rpsn, rqpn)
+
+
+class UDResources(TrafficResources):
+    UD_QKEY = 0x11111111
+    UD_PKEY_INDEX = 0
+
+    def create_mr(self):
+        self.mr = MR(self.pd, self.msg_size + self.GRH_SIZE,
+                     e.IBV_ACCESS_LOCAL_WRITE)
+
+    def create_qp(self):
+        qp_caps = QPCap(max_recv_wr=self.num_msgs)
+        qp_init_attr = QPInitAttr(qp_type=e.IBV_QPT_UD, cap=qp_caps,
+                                  scq=self.cq, rcq=self.cq)
+        qp_attr = QPAttr(port_num=self.ib_port)
+        qp_attr.qkey = self.UD_QKEY
+        qp_attr.pkey_index = self.UD_PKEY_INDEX
+        self.qp = QP(self.pd, qp_init_attr, qp_attr)
+
+    def pre_run(self, rpsn, rqpn):
+        self.rqpn = rqpn
+        self.rpsn = rpsn
