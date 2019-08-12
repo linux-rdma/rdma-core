@@ -48,7 +48,6 @@ int efa_query_port(struct ibv_context *ibvctx, uint8_t port,
 {
 	struct ibv_query_port cmd;
 
-	memset(port_attr, 0, sizeof(struct ibv_port_attr));
 	return ibv_cmd_query_port(ibvctx, port, port_attr, &cmd, sizeof(cmd));
 }
 
@@ -62,7 +61,7 @@ int efa_query_device_ex(struct ibv_context *context,
 	int cmd_supp_uhw = ctx->cmds_supp_udata_mask &
 			   EFA_USER_CMDS_SUPP_UDATA_QUERY_DEVICE;
 	struct efa_query_device_ex_resp resp = {};
-	struct ibv_query_device_ex cmd;
+	struct ibv_query_device_ex cmd = {};
 	struct ibv_device_attr *a;
 	uint8_t fw_ver[8];
 	int err;
@@ -791,7 +790,7 @@ int efa_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 		  int attr_mask)
 {
 	struct efa_qp *qp = to_efa_qp(ibvqp);
-	struct ibv_modify_qp cmd;
+	struct ibv_modify_qp cmd = {};
 	int err;
 
 	err = ibv_cmd_modify_qp(ibvqp, attr, attr_mask, &cmd, sizeof(cmd));
@@ -966,7 +965,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		meta_desc = &tx_wqe.common;
 		ah = to_efa_ah(wr->wr.ud.ah);
 
-		if (efa_sge_total_bytes(wr) <= qp->ctx->inline_buf_size) {
+		if (wr->send_flags & IBV_SEND_INLINE) {
 			efa_post_send_inline_data(wr, &tx_wqe, &desc_size);
 		} else {
 			meta_desc->length = wr->num_sge;
