@@ -10,6 +10,7 @@ rdma_python_test(tests
   test_mr.py
   test_pd.py
   test_qp.py
+  test_odp.py
   utils.py
   )
 
