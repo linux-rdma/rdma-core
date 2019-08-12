@@ -5,6 +5,7 @@ Provide some useful helper function for pyverbs' tests.
 """
 from itertools import combinations as com
 from string import ascii_lowercase as al
+import unittest
 import random
 
 from pyverbs.qp import QPCap, QPInitAttrEx
@@ -241,3 +242,32 @@ def wc_status_to_str(status):
     except KeyError:
         return 'Unknown WC status ({s})'.format(s=status)
 
+
+# Decorators
+
+def requires_odp(qp_type):
+    def outer(func):
+        def inner(instance):
+            odp_supported(instance.ctx, qp_type)
+            return func(instance)
+        return inner
+    return outer
+
+
+def odp_supported(ctx, qp_type):
+    """
+    Check device ODP capabilities, support only send/recv so far.
+    :param ctx: Device Context
+    :param qp_type: QP type ('rc', 'ud' or 'uc')
+    :return: None
+    """
+    odp_caps = ctx.query_device_ex().odp_caps
+    if odp_caps.general_caps == 0:
+        raise unittest.SkipTest('ODP is not supported - No ODP caps')
+    qp_odp_caps = getattr(odp_caps, '{}_odp_caps'.format(qp_type))
+    has_odp_send = qp_odp_caps & e.IBV_ODP_SUPPORT_SEND
+    has_odp_recv = qp_odp_caps & e.IBV_ODP_SUPPORT_RECV
+    if has_odp_send == 0:
+        raise unittest.SkipTest('ODP is not supported - ODP send not supported')
+    if has_odp_recv == 0:
+        raise unittest.SkipTest('ODP is not supported - ODP recv not supported')
