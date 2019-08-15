@@ -41,9 +41,10 @@ const char *ibv_node_type_str(enum ibv_node_type node_type)
 		[IBV_NODE_RNIC]		= "iWARP NIC",
 		[IBV_NODE_USNIC]	= "usNIC",
 		[IBV_NODE_USNIC_UDP]	= "usNIC UDP",
+		[IBV_NODE_UNSPECIFIED]	= "unspecified",
 	};
 
-	if (node_type < IBV_NODE_CA || node_type > IBV_NODE_USNIC_UDP)
+	if (node_type < IBV_NODE_CA || node_type > IBV_NODE_UNSPECIFIED)
 		return "unknown";
 
 	return node_type_str[node_type];
