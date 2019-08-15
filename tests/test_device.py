@@ -120,7 +120,9 @@ class DeviceTest(unittest.TestCase):
 
     @staticmethod
     def test_query_port_bad_flow():
-        """ Verify that querying non-existing ports fails as expected """
+        """
+        Verify that querying non-existing ports fails as expected
+        """
         lst = d.get_device_list()
         for dev in lst:
             with d.Context(name=dev.name.decode()) as ctx:
@@ -199,7 +201,7 @@ class DMTest(PyverbsAPITestCase):
 
     def test_destroy_dm_bad_flow(self):
         """
-        test calling ibv_free_dm() twice
+        Test calling ibv_free_dm() twice
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:

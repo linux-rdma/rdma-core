@@ -23,7 +23,9 @@ class MRTest(PyverbsAPITestCase):
     Test various functionalities of the MR class.
     """
     def test_reg_mr(self):
-        """ Test ibv_reg_mr() """
+        """
+        Test ibv_reg_mr()
+        """
         for ctx, attr, attr_ex in self.devices:
             with PD(ctx) as pd:
                 flags = u.get_access_flags(ctx)
@@ -32,7 +34,9 @@ class MRTest(PyverbsAPITestCase):
                         pass
 
     def test_dereg_mr(self):
-        """ Test ibv_dereg_mr() """
+        """
+        Test ibv_dereg_mr()
+        """
         for ctx, attr, attr_ex in self.devices:
             with PD(ctx) as pd:
                 flags = u.get_access_flags(ctx)
@@ -42,7 +46,9 @@ class MRTest(PyverbsAPITestCase):
 
     @staticmethod
     def test_reg_mr_bad_flow():
-        """ Verify that trying to register a MR with None PD fails """
+        """
+        Verify that trying to register a MR with None PD fails
+        """
         try:
             # Use the simplest access flags necessary
             MR(None, random.randint(0, 10000), e.IBV_ACCESS_LOCAL_WRITE)
@@ -53,7 +59,9 @@ class MRTest(PyverbsAPITestCase):
             raise PyverbsRDMAErrno('Created a MR with None PD')
 
     def test_dereg_mr_twice(self):
-        """ Verify that explicit call to MR's close() doesn't fails """
+        """
+        Verify that explicit call to MR's close() doesn't fail
+        """
         for ctx, attr, attr_ex in self.devices:
             with PD(ctx) as pd:
                 flags = u.get_access_flags(ctx)
@@ -65,7 +73,9 @@ class MRTest(PyverbsAPITestCase):
                         mr.close()
 
     def test_reg_mr_bad_flags(self):
-        """ Verify that illegal flags combination fails as expected """
+        """
+        Verify that illegal flags combination fails as expected
+        """
         for ctx, attr, attr_ex in self.devices:
             with PD(ctx) as pd:
                 for i in range(5):
@@ -159,35 +169,45 @@ class MWTest(PyverbsAPITestCase):
     Test various functionalities of the MW class.
     """
     def test_reg_mw_type1(self):
-        """ Test ibv_alloc_mw() """
+        """
+        Test ibv_alloc_mw() for type 1 MW
+        """
         for ctx, attr, attr_ex in self.devices:
             with PD(ctx) as pd:
                 with MW(pd, e.IBV_MW_TYPE_1):
                     pass
 
     def test_reg_mw_type2(self):
-        """ Test ibv_alloc_mw() """
+        """
+        Test ibv_alloc_mw() for type 2 MW
+        """
         for ctx, attr, attr_ex in self.devices:
             with PD(ctx) as pd:
                 with MW(pd, e.IBV_MW_TYPE_2):
                     pass
 
     def test_dereg_mw_type1(self):
-        """ Test ibv_dealloc_mw() """
+        """
+        Test ibv_dealloc_mw() for type 1 MW
+        """
         for ctx, attr, attr_ex in self.devices:
             with PD(ctx) as pd:
                 with MW(pd, e.IBV_MW_TYPE_1) as mw:
                     mw.close()
 
     def test_dereg_mw_type2(self):
-        """ Test ibv_dealloc_mw() """
+        """
+        Test ibv_dealloc_mw() for type 2 MW
+        """
         for ctx, attr, attr_ex in self.devices:
             with PD(ctx) as pd:
                 with MW(pd, e.IBV_MW_TYPE_2) as mw:
                     mw.close()
 
     def test_reg_mw_wrong_type(self):
-        """ Test ibv_alloc_mw() """
+        """
+        Verify that trying to create a MW of a wrong type fails
+        """
         for ctx, attr, attr_ex in self.devices:
             with PD(ctx) as pd:
                 try:
