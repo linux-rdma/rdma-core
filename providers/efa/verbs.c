@@ -440,7 +440,7 @@ static int efa_poll_sub_cqs(struct efa_cq *cq, struct ibv_wc *wc)
 int efa_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 {
 	struct efa_cq *cq = to_efa_cq(ibvcq);
-	ssize_t ret = 0;
+	int ret = 0;
 	int i;
 
 	pthread_spin_lock(&cq->lock);
@@ -1113,8 +1113,8 @@ static void efa_set_common_ctrl_flags(struct efa_io_tx_meta_desc *desc,
 	set_efa_io_tx_meta_desc_comp_req(desc, 1);
 }
 
-static ssize_t efa_post_send_validate(struct efa_qp *qp,
-				      unsigned int wr_flags)
+static int efa_post_send_validate(struct efa_qp *qp,
+				  unsigned int wr_flags)
 {
 	if (unlikely(qp->verbs_qp.qp.state != IBV_QPS_RTS &&
 		     qp->verbs_qp.qp.state != IBV_QPS_SQD))
@@ -1136,10 +1136,10 @@ static ssize_t efa_post_send_validate(struct efa_qp *qp,
 	return 0;
 }
 
-static ssize_t efa_post_send_validate_wr(struct efa_qp *qp,
-					 const struct ibv_send_wr *wr)
+static int efa_post_send_validate_wr(struct efa_qp *qp,
+				     const struct ibv_send_wr *wr)
 {
-	ssize_t err;
+	int err;
 
 	err = efa_post_send_validate(qp, wr->send_flags);
 	if (unlikely(err))
@@ -1495,7 +1495,7 @@ static void efa_qp_fill_wr_pfns(struct ibv_qp_ex *ibvqpx,
 	ibvqpx->wr_set_ud_addr = efa_send_wr_set_addr;
 }
 
-static ssize_t efa_post_recv_validate(struct efa_qp *qp, struct ibv_recv_wr *wr)
+static int efa_post_recv_validate(struct efa_qp *qp, struct ibv_recv_wr *wr)
 {
 	if (unlikely(qp->verbs_qp.qp.state == IBV_QPS_RESET ||
 		     qp->verbs_qp.qp.state == IBV_QPS_ERR))
