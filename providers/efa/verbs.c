@@ -127,7 +127,6 @@ struct ibv_pd *efa_alloc_pd(struct ibv_context *ibvctx)
 			     &resp.ibv_resp, sizeof(resp)))
 		goto out;
 
-	pd->context = to_efa_context(ibvctx);
 	pd->pdn = resp.pdn;
 
 	return &pd->ibvpd;
@@ -385,10 +384,13 @@ static int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 
 	wc->wc_flags = 0;
 	wc->qp_num = qpn;
+
+	pthread_spin_lock(&wq->wqlock);
 	wq->wrid_idx_pool_next--;
 	wq->wrid_idx_pool[wq->wrid_idx_pool_next] = wrid_idx;
 	wc->wr_id = wq->wrid[wrid_idx];
 	wq->wqe_completed++;
+	pthread_spin_unlock(&wq->wqlock);
 
 	return 0;
 }
@@ -725,7 +727,6 @@ static struct ibv_qp *create_qp(struct ibv_pd *ibvpd,
 
 	qp->ibvqp.state = IBV_QPS_RESET;
 	qp->sq_sig_all = attr->sq_sig_all;
-	qp->ctx = ctx;
 
 	err = efa_rq_initialize(qp, &resp);
 	if (err)
@@ -984,6 +985,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 
 		/* Set rest of the descriptor fields */
 		set_efa_io_tx_meta_desc_meta_desc(meta_desc, 1);
+		set_efa_io_tx_meta_desc_op_type(meta_desc, EFA_IO_SEND);
 		set_efa_io_tx_meta_desc_phase(meta_desc, qp->sq.wq.phase);
 		set_efa_io_tx_meta_desc_first(meta_desc, 1);
 		set_efa_io_tx_meta_desc_last(meta_desc, 1);

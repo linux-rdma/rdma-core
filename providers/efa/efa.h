@@ -29,7 +29,6 @@ struct efa_context {
 
 struct efa_pd {
 	struct ibv_pd ibvpd;
-	struct efa_context *context;
 	uint16_t pdn;
 };
 
@@ -95,7 +94,6 @@ struct efa_sq {
 
 struct efa_qp {
 	struct ibv_qp ibvqp;
-	struct efa_context *ctx;
 	struct efa_sq sq;
 	struct efa_rq rq;
 	int page_size;
@@ -115,7 +113,6 @@ struct efa_ah {
 
 struct efa_dev {
 	struct verbs_device vdev;
-	uint8_t abi_version;
 	uint32_t pg_sz;
 	uint32_t max_sq_wr;
 	uint32_t max_rq_wr;
