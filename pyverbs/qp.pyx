@@ -104,9 +104,9 @@ cdef class QPInitAttr(PyverbsObject):
         self.attr.qp_context = <void*>qp_context
         if scq is not None:
             if type(scq) is CQ:
-                self.attr.send_cq = (<CQ>rcq).cq
+                self.attr.send_cq = (<CQ>scq).cq
             elif type(scq) is CQEX:
-                self.attr.send_cq = (<CQEX>rcq).ibv_cq
+                self.attr.send_cq = (<CQEX>scq).ibv_cq
             else:
                 raise PyverbsUserError('Expected CQ/CQEX, got {t}'.\
                                        format(t=type(scq)))
@@ -221,9 +221,9 @@ cdef class QPInitAttrEx(PyverbsObject):
         _copy_caps(cap, self)
         if scq is not None:
             if type(scq) is CQ:
-                self.attr.send_cq = (<CQ>rcq).cq
+                self.attr.send_cq = (<CQ>scq).cq
             elif type(scq) is CQEX:
-                self.attr.send_cq = (<CQEX>rcq).ibv_cq
+                self.attr.send_cq = (<CQEX>scq).ibv_cq
             else:
                 raise PyverbsUserError('Expected CQ/CQEX, got {t}'.\
                                        format(t=type(scq)))
@@ -251,7 +251,7 @@ cdef class QPInitAttrEx(PyverbsObject):
         self.attr.comp_mask = comp_mask
         if pd is not None:
             self._pd = pd
-            self.attr.pd = <v.ibv_pd*>pd.pd
+            self.attr.pd = pd.pd
         self.attr.create_flags = create_flags
         self.attr.max_tso_header = max_tso_header
         self.attr.source_qpn = source_qpn
@@ -815,18 +815,20 @@ cdef class QP(PyverbsCM):
             if type(init_attr.send_cq) == CQ:
                 cq = <CQ>init_attr.send_cq
                 cq.add_ref(self)
+                self.scq = cq
             else:
                 cqex = <CQEX>init_attr.send_cq
                 cqex.add_ref(self)
-            self.scq = cq
+                self.scq = cqex
         if init_attr.send_cq != init_attr.recv_cq and init_attr.recv_cq is not None:
             if type(init_attr.recv_cq) == CQ:
                 cq = <CQ>init_attr.recv_cq
                 cq.add_ref(self)
+                self.rcq = cq
             else:
                 cqex = <CQEX>init_attr.recv_cq
                 cqex.add_ref(self)
-            self.rcq = cq
+                self.rcq = cqex
 
     def _create_qp(self, PD pd, QPInitAttr attr):
         self.qp = v.ibv_create_qp(pd.pd, &attr.attr)
