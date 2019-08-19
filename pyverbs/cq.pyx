@@ -366,18 +366,19 @@ cdef class WC(PyverbsObject):
     def __cinit__(self, wr_id=0, status=0, opcode=0, vendor_err=0, byte_len=0,
                   qp_num=0, src_qp=0, imm_data=0, wc_flags=0, pkey_index=0,
                   slid=0, sl=0, dlid_path_bits=0):
-        self.wr_id = wr_id
-        self.status = status
-        self.opcode = opcode
-        self.vendor_err = vendor_err
-        self.byte_len = byte_len
-        self.qp_num = qp_num
-        self.src_qp = src_qp
-        self.wc_flags = wc_flags
-        self.pkey_index = pkey_index
-        self.slid = slid
-        self.sl = sl
-        self.dlid_path_bits = dlid_path_bits
+        self.wc.wr_id = wr_id
+        self.wc.status = status
+        self.wc.opcode = opcode
+        self.wc.vendor_err = vendor_err
+        self.wc.byte_len = byte_len
+        self.wc.qp_num = qp_num
+        self.wc.src_qp = src_qp
+        self.wc.wc_flags = wc_flags
+        self.wc.pkey_index = pkey_index
+        self.wc.slid = slid
+        self.wc.imm_data = imm_data
+        self.wc.sl = sl
+        self.wc.dlid_path_bits = dlid_path_bits
 
     @property
     def wr_id(self):
@@ -457,6 +458,13 @@ cdef class WC(PyverbsObject):
         self.wc.sl = val
 
     @property
+    def imm_data(self):
+        return self.wc.imm_data
+    @imm_data.setter
+    def imm_data(self, val):
+        self.wc.imm_data = val
+
+    @property
     def dlid_path_bits(self):
         return self.wc.dlid_path_bits
     @dlid_path_bits.setter
@@ -476,6 +484,7 @@ cdef class WC(PyverbsObject):
             print_format.format('pkey index', self.pkey_index) +\
             print_format.format('slid', self.slid) +\
             print_format.format('sl', self.sl) +\
+            print_format.format('imm_data', self.imm_data) +\
             print_format.format('dlid path bits', self.dlid_path_bits)
 
 
