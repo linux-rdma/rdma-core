@@ -836,6 +836,8 @@ cdef class QP(PyverbsCM):
         if qp_attr is not None:
             funcs = {e.IBV_QPT_RC: self.to_init, e.IBV_QPT_UC: self.to_init,
                      e.IBV_QPT_UD: self.to_rts,
+                     e.IBV_QPT_XRC_RECV: self.to_init,
+                     e.IBV_QPT_XRC_SEND: self.to_init,
                      e.IBV_QPT_RAW_PACKET: self.to_rts}
             funcs[self.qp.qp_type](qp_attr)
 
@@ -899,7 +901,22 @@ cdef class QP(PyverbsCM):
                                e.IBV_QP_QKEY, 'RTR': 0,
                                'RTS': e.IBV_QP_SQ_PSN},
                 e.IBV_QPT_RAW_PACKET: {'INIT': e.IBV_QP_PORT, 'RTR': 0,
-                                       'RTS': 0}}
+                                       'RTS': 0},
+                e.IBV_QPT_XRC_RECV: {'INIT': e.IBV_QP_PKEY_INDEX |\
+                                e.IBV_QP_PORT | e.IBV_QP_ACCESS_FLAGS,
+                                'RTR': e.IBV_QP_AV | e.IBV_QP_PATH_MTU |\
+                                e.IBV_QP_DEST_QPN | e.IBV_QP_RQ_PSN |   \
+                                e.IBV_QP_MAX_DEST_RD_ATOMIC |\
+                                e.IBV_QP_MIN_RNR_TIMER,
+                                'RTS': e.IBV_QP_TIMEOUT | e.IBV_QP_SQ_PSN },
+                e.IBV_QPT_XRC_SEND: {'INIT': e.IBV_QP_PKEY_INDEX |\
+                                e.IBV_QP_PORT | e.IBV_QP_ACCESS_FLAGS,
+                                'RTR': e.IBV_QP_AV | e.IBV_QP_PATH_MTU |\
+                                e.IBV_QP_DEST_QPN | e.IBV_QP_RQ_PSN,
+                                'RTS': e.IBV_QP_TIMEOUT |\
+                                e.IBV_QP_RETRY_CNT | e.IBV_QP_RNR_RETRY |\
+                                e.IBV_QP_SQ_PSN | e.IBV_QP_MAX_QP_RD_ATOMIC}}
+
         return masks[self.qp.qp_type][dst] | e.IBV_QP_STATE
 
     def to_init(self, QPAttr qp_attr):
