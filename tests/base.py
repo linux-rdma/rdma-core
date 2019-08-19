@@ -274,6 +274,7 @@ class RCResources(TrafficResources):
 class UDResources(TrafficResources):
     UD_QKEY = 0x11111111
     UD_PKEY_INDEX = 0
+    GRH_SIZE = 40
 
     def create_mr(self):
         self.mr = MR(self.pd, self.msg_size + self.GRH_SIZE,
