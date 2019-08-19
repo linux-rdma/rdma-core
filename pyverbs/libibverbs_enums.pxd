@@ -202,7 +202,6 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_WC_EX_WITH_COMPLETION_TIMESTAMP             = 1 << 7
         IBV_WC_EX_WITH_CVLAN                            = 1 << 8
         IBV_WC_EX_WITH_FLOW_TAG                         = 1 << 9
-        IBV_WC_EX_WITH_TM_INFO                          = 1 << 10
         IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK   = 1 << 11
 
     cpdef enum ibv_wc_flags:
@@ -210,12 +209,6 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_WC_WITH_IMM         = 1 << 1
         IBV_WC_IP_CSUM_OK       = 1 << 2
         IBV_WC_WITH_INV         = 1 << 3
-        IBV_WC_TM_SYNC_REQ      = 1 << 4
-        IBV_WC_TM_MATCH         = 1 << 5
-        IBV_WC_TM_DATA_VALID    = 1 << 6
-
-    cpdef enum ibv_tm_cap_flags:
-        IBV_TM_CAP_RC       = 1 << 0,
 
     cpdef enum ibv_srq_attr_mask:
         IBV_SRQ_MAX_WR      = 1 << 0,
@@ -224,14 +217,12 @@ cdef extern from '<infiniband/verbs.h>':
     cpdef enum ibv_srq_type:
         IBV_SRQT_BASIC
         IBV_SRQT_XRC
-        IBV_SRQT_TM
 
     cpdef enum ibv_srq_init_attr_mask:
         IBV_SRQ_INIT_ATTR_TYPE      = 1 << 0
         IBV_SRQ_INIT_ATTR_PD        = 1 << 1
         IBV_SRQ_INIT_ATTR_XRCD      = 1 << 2
         IBV_SRQ_INIT_ATTR_CQ        = 1 << 3
-        IBV_SRQ_INIT_ATTR_TM        = 1 << 4
 
     cpdef enum ibv_mig_state:
         IBV_MIG_MIGRATED
@@ -312,15 +303,6 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_RX_HASH_DST_PORT_TCP    = 1 << 5
         IBV_RX_HASH_SRC_PORT_UDP    = 1 << 6
         IBV_RX_HASH_DST_PORT_UDP    = 1 << 7
-
-    cpdef enum ibv_ops_wr_opcode:
-        IBV_WR_TAG_ADD
-        IBV_WR_TAG_DEL
-        IBV_WR_TAG_SYNC
-
-    cpdef enum ibv_ops_flags:
-        IBV_OPS_SIGNALED            = 1 << 0
-        IBV_OPS_TM_SYNC             = 1 << 1
 
     cpdef enum ibv_flow_flags:
         IBV_FLOW_ATTR_FLAGS_ALLOW_LOOP_BACK = 1 << 0
@@ -414,13 +396,6 @@ cdef extern from '<infiniband/verbs.h>':
     cdef unsigned long long IBV_DEVICE_RAW_SCATTER_FCS
     cdef unsigned long long IBV_DEVICE_PCI_WRITE_END_PADDING
 
-
-cdef extern from "<infiniband/tm_types.h>":
-    cpdef enum ibv_tmh_op:
-        IBV_TMH_NO_TAG        = 0
-        IBV_TMH_RNDV          = 1
-        IBV_TMH_FIN           = 2
-        IBV_TMH_EAGER         = 3
 
 _IBV_DEVICE_RAW_SCATTER_FCS = IBV_DEVICE_RAW_SCATTER_FCS
 _IBV_DEVICE_PCI_WRITE_END_PADDING = IBV_DEVICE_PCI_WRITE_END_PADDING
