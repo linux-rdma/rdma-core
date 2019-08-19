@@ -579,6 +579,5 @@ def create_wc_flags_to_str(flags):
                  e.IBV_WC_EX_WITH_COMPLETION_TIMESTAMP: 'IBV_WC_EX_WITH_COMPLETION_TIMESTAMP',
                  e.IBV_WC_EX_WITH_CVLAN: 'IBV_WC_EX_WITH_CVLAN',
                  e.IBV_WC_EX_WITH_FLOW_TAG: 'IBV_WC_EX_WITH_FLOW_TAG',
-                 e.IBV_WC_EX_WITH_TM_INFO: 'IBV_WC_EX_WITH_TM_INFO',
                  e.IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK: 'IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK'}
     return flags_to_str(flags, cqe_flags)
