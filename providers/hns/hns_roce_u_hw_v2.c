@@ -612,7 +612,6 @@ static int hns_roce_u_v2_arm_cq(struct ibv_cq *ibvcq, int solicited)
 int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			    struct ibv_send_wr **bad_wr)
 {
-	unsigned int sq_shift;
 	unsigned int ind_sge;
 	unsigned int ind;
 	int nreq;
@@ -697,10 +696,8 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_SE_S,
 			     (wr->send_flags & IBV_SEND_SOLICITED) ? 1 : 0);
 
-		for (sq_shift = 0; (1 << sq_shift) < qp->sq.wqe_cnt; ++sq_shift)
-			;
 		roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_OWNER_S,
-			     ~(((qp->sq.head + nreq) >> sq_shift) & 0x1));
+			     ~(((qp->sq.head + nreq) >> qp->sq.shift) & 0x1));
 
 		wqe += sizeof(struct hns_roce_rc_sq_wqe);
 		/* set remote addr segment */
