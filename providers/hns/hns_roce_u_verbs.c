@@ -726,8 +726,8 @@ static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 	if (hns_roce_alloc_buf(&qp->buf, align(qp->buf_size, page_size),
 			       to_hr_dev(pd->context->device)->page_size)) {
 		if (qp->rq.wqe_cnt)
-			free(qp->sq.wrid);
-		free(qp->rq.wrid);
+			free(qp->rq.wrid);
+		free(qp->sq.wrid);
 		return -1;
 	}
 
