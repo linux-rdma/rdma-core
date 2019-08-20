@@ -183,7 +183,7 @@ struct hns_roce_srq {
 	unsigned int			srqn;
 	int				max;
 	unsigned int			max_gs;
-	int				wqe_shift;
+	unsigned int			wqe_shift;
 	int				head;
 	int				tail;
 	unsigned int			*db;
@@ -199,7 +199,7 @@ struct hns_roce_wq {
 	unsigned int			head;
 	unsigned int			tail;
 	unsigned int			max_gs;
-	int				wqe_shift;
+	unsigned int			wqe_shift;
 	int				offset;
 };
 
