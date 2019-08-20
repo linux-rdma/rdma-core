@@ -1048,7 +1048,7 @@ static void __hns_roce_v2_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 
 	for (prod_index = cq->cons_index; get_sw_cqe_v2(cq, prod_index);
 	     ++prod_index)
-		if (prod_index == cq->cons_index + cq->ibv_cq.cqe)
+		if (prod_index > cq->cons_index + cq->ibv_cq.cqe)
 			break;
 
 	while ((int) --prod_index - (int) cq->cons_index >= 0) {
