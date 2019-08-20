@@ -317,7 +317,6 @@ static int hns_roce_alloc_cq_buf(struct hns_roce_device *dev,
 			align(nent * HNS_ROCE_CQE_ENTRY_SIZE, dev->page_size),
 			dev->page_size))
 		return -1;
-	memset(buf->buf, 0, nent * HNS_ROCE_CQE_ENTRY_SIZE);
 
 	return 0;
 }
@@ -462,8 +461,6 @@ static int hns_roce_create_idx_que(struct ibv_pd *pd, struct hns_roce_srq *srq)
 		return -1;
 	}
 
-	memset(idx_que->buf.buf, 0, idx_que->buf_size);
-
 	/* init the idx_que bitmap */
 	for (i = 0; i < bitmap_num; ++i)
 		idx_que->bitmap[i] = ~(0UL);
@@ -496,8 +493,6 @@ static int hns_roce_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 		free(srq->wrid);
 		return -1;
 	}
-
-	memset(srq->buf.buf, 0, srq_buf_size);
 
 	srq->head = 0;
 	srq->tail = srq->max - 1;
@@ -771,8 +766,6 @@ static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 		return -1;
 	}
 
-	memset(qp->buf.buf, 0, qp->buf.length);
-
 	return 0;
 }
 
@@ -912,8 +905,6 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	for (cmd.log_sq_bb_count = 0; qp->sq.wqe_cnt > 1 << cmd.log_sq_bb_count;
 	     ++cmd.log_sq_bb_count)
 		;
-
-	memset(cmd.reserved, 0, sizeof(cmd.reserved));
 
 	pthread_mutex_lock(&to_hr_ctx(pd->context)->qp_table_mutex);
 
