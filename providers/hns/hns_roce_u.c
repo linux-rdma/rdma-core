@@ -35,7 +35,6 @@
 #include <string.h>
 #include <pthread.h>
 #include <sys/mman.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 #include "hns_roce_u.h"

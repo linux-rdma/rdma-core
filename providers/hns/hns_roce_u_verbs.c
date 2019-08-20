@@ -37,8 +37,6 @@
 #include <pthread.h>
 #include <sys/mman.h>
 #include <ccan/ilog.h>
-#include <fcntl.h>
-#include <unistd.h>
 #include <ccan/minmax.h>
 #include <util/util.h>
 #include "hns_roce_u.h"
