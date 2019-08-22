@@ -379,7 +379,10 @@ class XRCResources(TrafficResources):
         self.srq = SRQ(self.ctx, srq_attr)
 
     def to_rts(self):
-        ah_attr = AHAttr(dlid=self.port_attr.lid)
+        gid = self.ctx.query_gid(self.ib_port, self.gid_index)
+        gr = GlobalRoute(dgid=gid, sgid_index=self.gid_index)
+        ah_attr = AHAttr(port_num=self.ib_port, is_global=True,
+                         gr=gr, dlid=self.port_attr.lid)
         qp_attr = QPAttr()
         qp_attr.path_mtu = PATH_MTU
         qp_attr.timeout = TIMEOUT
