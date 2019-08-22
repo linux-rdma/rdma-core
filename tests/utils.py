@@ -12,6 +12,7 @@ from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.addr import AHAttr, AH, GlobalRoute
 from pyverbs.wr import SGE, SendWR, RecvWR
 from pyverbs.qp import QPCap, QPInitAttrEx
+from tests.base import XRCResources
 import pyverbs.device as d
 import pyverbs.enums as e
 
@@ -256,7 +257,8 @@ def get_send_wr(agr_obj, is_server):
     :param is_server: Indicates whether this is server or client side
     :return: send wr
     """
-    qp_type = agr_obj.qp.qp_type
+    qp_type = agr_obj.sqp_lst[0].qp_type if isinstance(agr_obj, XRCResources) \
+                else agr_obj.qp.qp_type
     mr = agr_obj.mr
     if qp_type == e.IBV_QPT_UD:
         send_sge = SGE(mr.buf + GRH_SIZE, agr_obj.msg_size, mr.lkey)
@@ -273,7 +275,8 @@ def get_recv_wr(agr_obj):
     :param agr_obj: Aggregation object which contains all resources necessary
     :return: recv wr
     """
-    qp_type = agr_obj.qp.qp_type
+    qp_type = agr_obj.rqp_lst[0].qp_type if isinstance(agr_obj, XRCResources) \
+                else agr_obj.qp.qp_type
     mr = agr_obj.mr
     if qp_type == e.IBV_QPT_UD:
         recv_sge = SGE(mr.buf, agr_obj.msg_size + GRH_SIZE, mr.lkey)
@@ -393,6 +396,44 @@ def traffic(client, server, iters, gid_idx, port):
         msg_received = client.mr.read(client.msg_size, 0)
         validate(msg_received, False, client.msg_size)
 
+
+def xrc_traffic(client, server):
+    """
+    Runs basic xrc traffic, this function assumes that number of QPs, which
+    server and client have are equal, server.send_qp[i] is connected to
+    client.recv_qp[i], each time server.send_qp[i] sends a message, it is
+    redirected to client.srq because client.recv_qp[i] and client.srq are
+    under the same xrcd. The traffic flow in the opposite direction is the same.
+    :param client: Aggregation object of the active side, should be an instance
+    of XRCResources class
+    :param server: Aggregation object of the passive side, should be an instance
+    of XRCResources class
+    :return: None
+    """
+    client_srqn = client.srq.get_srq_num()
+    server_srqn = server.srq.get_srq_num()
+    s_recv_wr = get_recv_wr(server)
+    c_recv_wr = get_recv_wr(client)
+    post_recv(client.srq, c_recv_wr, client.qp_count*client.num_msgs)
+    post_recv(server.srq, s_recv_wr, server.qp_count*server.num_msgs)
+    for _ in range(client.num_msgs):
+        for i in range(server.qp_count):
+            c_send_wr = get_send_wr(client, False)
+            c_send_wr.set_qp_type_xrc(server_srqn)
+            client.sqp_lst[i].post_send(c_send_wr)
+            poll_cq(client.cq)
+            poll_cq(server.cq)
+            msg_received = server.mr.read(server.msg_size, 0)
+            validate(msg_received, True, server.msg_size)
+            s_send_wr = get_send_wr(server, True)
+            s_send_wr.set_qp_type_xrc(client_srqn)
+            server.sqp_lst[i].post_send(s_send_wr)
+            poll_cq(server.cq)
+            poll_cq(client.cq)
+            msg_received = client.mr.read(client.msg_size, 0)
+            validate(msg_received, False, client.msg_size)
+
+
 # Decorators
 def requires_odp(qp_type):
     def outer(func):
@@ -415,7 +456,8 @@ def odp_supported(ctx, qp_type):
         raise unittest.SkipTest('ODP is not supported - No ODP caps')
     qp_odp_caps = getattr(odp_caps, '{}_odp_caps'.format(qp_type))
     has_odp_send = qp_odp_caps & e.IBV_ODP_SUPPORT_SEND
-    has_odp_recv = qp_odp_caps & e.IBV_ODP_SUPPORT_RECV
+    has_odp_recv = qp_odp_caps & e.IBV_ODP_SUPPORT_SRQ_RECV if qp_type == 'xrc'\
+                else qp_odp_caps & e.IBV_ODP_SUPPORT_RECV
     if has_odp_send == 0:
         raise unittest.SkipTest('ODP is not supported - ODP send not supported')
     if has_odp_recv == 0:
