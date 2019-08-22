@@ -13,6 +13,14 @@ from pyverbs.pd import PD
 from pyverbs.cq import CQ
 from pyverbs.mr import MR
 
+PATH_MTU = e.IBV_MTU_1024
+MAX_DEST_RD_ATOMIC = 1
+MAX_RD_ATOMIC = 1
+MIN_RNR_TIMER =12
+RETRY_CNT = 7
+RNR_RETRY = 7
+TIMEOUT = 14
+
 
 class PyverbsAPITestCase(unittest.TestCase):
     def setUp(self):
@@ -231,33 +239,24 @@ class TrafficResources(BaseResources):
 
 
 class RCResources(TrafficResources):
-    PATH_MTU = e.IBV_MTU_1024
-    MAX_DEST_RD_ATOMIC = 1
-    MAX_RD_ATOMIC = 1
-    MIN_RNR_TIMER =12
-    RETRY_CNT = 7
-    RNR_RETRY = 7
-    TIMEOUT = 14
 
-    def to_rts(self, rpsn, rqpn):
+    def to_rts(self):
         """
         Set the QP attributes' values to arbitrary values (same values used in
         ibv_rc_pingpong).
-        :param rpsn: Remote PSN (packet serial number)
-        :param rqpn: Remote QP number
         :return: None
         """
         attr = QPAttr(port_num=self.ib_port)
-        attr.dest_qp_num = rqpn
-        attr.path_mtu = self.PATH_MTU
-        attr.max_dest_rd_atomic = self.MAX_DEST_RD_ATOMIC
-        attr.min_rnr_timer = self.MIN_RNR_TIMER
-        attr.rq_psn = rpsn
-        attr.sq_psn = self.psn
-        attr.timeout = self.TIMEOUT
-        attr.retry_cnt = self.RETRY_CNT
-        attr.rnr_retry = self.RNR_RETRY
-        attr.max_rd_atomic = self.MAX_RD_ATOMIC
+        attr.dest_qp_num = self.rqpn
+        attr.path_mtu = PATH_MTU
+        attr.max_dest_rd_atomic = MAX_DEST_RD_ATOMIC
+        attr.min_rnr_timer = MIN_RNR_TIMER
+        attr.rq_psn = self.psn
+        attr.sq_psn = self.rpsn
+        attr.timeout = TIMEOUT
+        attr.retry_cnt = RETRY_CNT
+        attr.rnr_retry = RNR_RETRY
+        attr.max_rd_atomic = MAX_RD_ATOMIC
         gr = GlobalRoute(dgid=self.ctx.query_gid(self.ib_port, self.gid_index),
                          sgid_index=self.gid_index)
         ah_attr = AHAttr(port_num=self.ib_port, is_global=1, gr=gr,
@@ -266,9 +265,15 @@ class RCResources(TrafficResources):
         self.qp.to_rts(attr)
 
     def pre_run(self, rpsn, rqpn):
+        """
+        Configure Resources before running traffic
+        :param rpsn: Remote PSN (packet serial number)
+        :param rqpn: Remote QP number
+        :return: None
+        """
         self.rqpn = rqpn
         self.rpsn = rpsn
-        self.to_rts(rpsn, rqpn)
+        self.to_rts()
 
 
 class UDResources(TrafficResources):
