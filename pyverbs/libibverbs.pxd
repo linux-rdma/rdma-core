@@ -2,7 +2,7 @@
 # Copyright (c) 2018, Mellanox Technologies. All rights reserved. See COPYING file
 
 include 'libibverbs_enums.pxd'
-from libc.stdint cimport uint8_t, uint32_t, uint64_t
+from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
 
 cdef extern from 'infiniband/verbs.h':
 
@@ -117,6 +117,11 @@ cdef extern from 'infiniband/verbs.h':
         unsigned int    max_cq_count
         unsigned int    max_cq_period
 
+    cdef struct ibv_pci_atomic_caps:
+        uint16_t fetch_add
+        uint16_t swap
+        uint16_t compare_swap
+
     cdef struct ibv_device_attr_ex:
         ibv_device_attr         orig_attr
         unsigned int            comp_mask
@@ -132,6 +137,8 @@ cdef extern from 'infiniband/verbs.h':
         ibv_tm_caps             tm_caps
         ibv_cq_moderation_caps  cq_mod_caps
         unsigned long           max_dm_size
+        ibv_pci_atomic_caps     pci_atomic_caps
+        uint32_t                xrc_odp_caps
 
     cdef struct ibv_mw:
         ibv_context     *context

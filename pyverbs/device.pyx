@@ -393,6 +393,42 @@ cdef class ODPCaps(PyverbsObject):
     @property
     def ud_odp_caps(self):
         return self.odp_caps.per_transport_caps.ud_odp_caps
+    @property
+    def xrc_odp_caps(self):
+        return self.xrc_odp_caps
+    @xrc_odp_caps.setter
+    def xrc_odp_caps(self, val):
+       self.xrc_odp_caps = val
+
+    def __str__(self):
+        general_caps = {e.IBV_ODP_SUPPORT: 'IBV_ODP_SUPPORT',
+              e.IBV_ODP_SUPPORT_IMPLICIT: 'IBV_ODP_SUPPORT_IMPLICIT'}
+
+        l = {e.IBV_ODP_SUPPORT_SEND: 'IBV_ODP_SUPPORT_SEND',
+             e.IBV_ODP_SUPPORT_RECV: 'IBV_ODP_SUPPORT_RECV',
+             e.IBV_ODP_SUPPORT_WRITE: 'IBV_ODP_SUPPORT_WRITE',
+             e.IBV_ODP_SUPPORT_READ: 'IBV_ODP_SUPPORT_READ',
+             e.IBV_ODP_SUPPORT_ATOMIC: 'IBV_ODP_SUPPORT_ATOMIC',
+             e.IBV_ODP_SUPPORT_SRQ_RECV: 'IBV_ODP_SUPPORT_SRQ_RECV'}
+
+        print_format = '{}: {}\n'
+        return print_format.format('ODP General caps', str_from_flags(self.general_caps, general_caps)) +\
+            print_format.format('RC ODP caps', str_from_flags(self.rc_odp_caps, l)) +\
+            print_format.format('UD ODP caps', str_from_flags(self.ud_odp_caps, l)) +\
+            print_format.format('UC ODP caps', str_from_flags(self.uc_odp_caps, l)) +\
+            print_format.format('XRC ODP caps', str_from_flags(self.xrc_odp_caps, l))
+
+
+cdef class PCIAtomicCaps(PyverbsObject):
+    @property
+    def fetch_add(self):
+        return self.caps.fetch_add
+    @property
+    def swap(self):
+        return self.caps.swap
+    @property
+    def compare_swap(self):
+        return self.caps.compare_swap
 
 
 cdef class TSOCaps(PyverbsObject):
@@ -477,6 +513,7 @@ cdef class DeviceAttrEx(PyverbsObject):
     def odp_caps(self):
         caps = ODPCaps()
         caps.odp_caps = self.dev_attr.odp_caps
+        caps.xrc_odp_caps = self.dev_attr.xrc_odp_caps
         return caps
     @property
     def completion_timestamp_mask(self):
@@ -491,6 +528,11 @@ cdef class DeviceAttrEx(PyverbsObject):
     def tso_caps(self):
         caps = TSOCaps()
         caps.tso_caps = self.dev_attr.tso_caps
+        return caps
+    @property
+    def pci_atomic_caps(self):
+        caps = PCIAtomicCaps()
+        caps.caps = self.dev_attr.pci_atomic_caps
         return caps
     @property
     def rss_caps(self):
