@@ -173,7 +173,7 @@ static struct ibv_cq *siw_create_cq(struct ibv_context *ctx, int num_cqe,
 		goto fail;
 	}
 	cq->ctrl = (struct siw_cq_ctrl *)&cq->queue[cq->num_cqe];
-	cq->ctrl->notify = SIW_NOTIFY_NOT;
+	cq->ctrl->flags = SIW_NOTIFY_NOT;
 
 	return &cq->base_cq;
 fail:
@@ -482,13 +482,13 @@ static void siw_async_event(struct ibv_context *ctx,
 static int siw_notify_cq(struct ibv_cq *ibcq, int solicited)
 {
 	struct siw_cq *cq = cq_base2siw(ibcq);
-	atomic_ulong *notifyp = (atomic_ulong *)&cq->ctrl->notify;
 	int rv = 0;
 
 	if (solicited)
-		atomic_store(notifyp, SIW_NOTIFY_SOLICITED);
+		atomic_store((_Atomic(uint32_t) *)&cq->ctrl->flags,
+			SIW_NOTIFY_SOLICITED);
 	else
-		atomic_store(notifyp,
+		atomic_store((_Atomic(uint32_t) *)&cq->ctrl->flags,
 			SIW_NOTIFY_SOLICITED | SIW_NOTIFY_NEXT_COMPLETION);
 	return rv;
 }
