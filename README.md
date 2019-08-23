@@ -90,6 +90,25 @@ $ yum install cmake3 ninja-build pandoc
 NOTE: EPEL uses the name 'ninja-build' for the 'ninja' command, and 'cmake3'
 for the 'cmake' command.
 
+# Usage
+
+To set up software RDMA on an existing interface with either of the available
+driver, use the following commands, substituting `<DRIVER>` with the name of the
+driver of your choice (`rxe` or `siw`)
+
+```
+# modprobe <DRIVER>
+# rdma link add <NAME> type <DRIVER> netdev <DEVICE>
+```
+
+Please note that you need version of `iproute2` recent enough is required for the
+command above to work.
+
+You can use either `ibv_devices` or `rdma link` to verify that the device was
+successfully added.
+
+Use of `rxe_cfg` is deprecated, please use the `rdma` command instead.
+
 # Reporting bugs
 
 Bugs should be reported to the <linux-rdma@vger.kernel.org> mailing list
