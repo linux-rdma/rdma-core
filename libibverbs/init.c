@@ -95,7 +95,7 @@ enum ibv_node_type decode_knode_type(unsigned int knode_type)
 	case RDMA_NODE_USNIC_UDP:
 		return IBV_NODE_USNIC_UDP;
 	case RDMA_NODE_UNSPECIFIED:
-		return IBV_NODE_UNKNOWN;
+		return IBV_NODE_UNSPECIFIED;
 	}
 	return IBV_NODE_UNKNOWN;
 }
@@ -391,6 +391,9 @@ static struct verbs_device *try_driver(const struct verbs_device_ops *ops,
 		break;
 	case IBV_NODE_USNIC_UDP:
 		dev->transport_type = IBV_TRANSPORT_USNIC_UDP;
+		break;
+	case IBV_NODE_UNSPECIFIED:
+		dev->transport_type = IBV_TRANSPORT_UNSPECIFIED;
 		break;
 	default:
 		dev->transport_type = IBV_TRANSPORT_UNKNOWN;

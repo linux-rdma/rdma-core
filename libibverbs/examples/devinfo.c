@@ -70,6 +70,7 @@ static const char *transport_str(enum ibv_transport_type transport)
 	case IBV_TRANSPORT_IWARP:	return "iWARP";
 	case IBV_TRANSPORT_USNIC:	return "usNIC";
 	case IBV_TRANSPORT_USNIC_UDP:	return "usNIC UDP";
+	case IBV_TRANSPORT_UNSPECIFIED:	return "unspecified";
 	default:			return "invalid transport";
 	}
 }

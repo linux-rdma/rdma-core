@@ -84,6 +84,7 @@ enum ibv_node_type {
 	IBV_NODE_RNIC,
 	IBV_NODE_USNIC,
 	IBV_NODE_USNIC_UDP,
+	IBV_NODE_UNSPECIFIED,
 };
 
 enum ibv_transport_type {
@@ -92,6 +93,7 @@ enum ibv_transport_type {
 	IBV_TRANSPORT_IWARP,
 	IBV_TRANSPORT_USNIC,
 	IBV_TRANSPORT_USNIC_UDP,
+	IBV_TRANSPORT_UNSPECIFIED,
 };
 
 enum ibv_device_cap_flags {
