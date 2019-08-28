@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2020 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFA_H__
@@ -73,11 +73,12 @@ struct efa_wq {
 	int max_sge;
 	int phase;
 	pthread_spinlock_t wqlock;
+
+	uint32_t *db;
 };
 
 struct efa_rq {
 	struct efa_wq wq;
-	uint32_t *db;
 	uint8_t *buf;
 	size_t buf_size;
 	uint16_t sub_cq_idx;
@@ -85,7 +86,6 @@ struct efa_rq {
 
 struct efa_sq {
 	struct efa_wq wq;
-	uint32_t *db;
 	uint8_t *desc;
 	uint32_t desc_offset;
 	size_t desc_ring_mmap_size;

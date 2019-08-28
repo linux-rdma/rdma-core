@@ -39,6 +39,13 @@ static bool is_buf_cleared(void *buf, size_t len)
 
 #define is_reserved_cleared(reserved) is_buf_cleared(reserved, sizeof(reserved))
 
+struct efa_wq_init_attr {
+	uint64_t db_mmap_key;
+	uint32_t db_off;
+	int cmd_fd;
+	int pgsz;
+};
+
 int efa_query_device(struct ibv_context *ibvctx,
 		     struct ibv_device_attr *dev_attr)
 {
@@ -490,15 +497,22 @@ static void efa_cq_dec_ref_cnt(struct efa_cq *cq, uint8_t sub_cq_idx)
 	cq->sub_cq_arr[sub_cq_idx].ref_cnt--;
 }
 
-static void efa_wq_terminate(struct efa_wq *wq)
+static void efa_wq_terminate(struct efa_wq *wq, int pgsz)
 {
+	void *db_aligned;
+
 	pthread_spin_destroy(&wq->wqlock);
+
+	db_aligned = (void *)((uintptr_t)wq->db & ~(pgsz - 1));
+	munmap(db_aligned, pgsz);
+
 	free(wq->wrid_idx_pool);
 	free(wq->wrid);
 }
 
-static int efa_wq_initialize(struct efa_wq *wq)
+static int efa_wq_initialize(struct efa_wq *wq, struct efa_wq_init_attr *attr)
 {
+	uint8_t *db_base;
 	int err;
 	int i;
 
@@ -512,6 +526,15 @@ static int efa_wq_initialize(struct efa_wq *wq)
 		goto err_free_wrid;
 	}
 
+	db_base = mmap(NULL, attr->pgsz, PROT_WRITE, MAP_SHARED, attr->cmd_fd,
+		       attr->db_mmap_key);
+	if (db_base == MAP_FAILED) {
+		err = errno;
+		goto err_free_wrid_idx_pool;
+	}
+
+	wq->db = (uint32_t *)(db_base + attr->db_off);
+
 	/* Initialize the wrid free indexes pool. */
 	for (i = 0; i < wq->wqe_cnt; i++)
 		wq->wrid_idx_pool[i] = i;
@@ -520,25 +543,22 @@ static int efa_wq_initialize(struct efa_wq *wq)
 
 	return 0;
 
+err_free_wrid_idx_pool:
+	free(wq->wrid_idx_pool);
 err_free_wrid:
 	free(wq->wrid);
-
 	return err;
 }
 
 static void efa_sq_terminate(struct efa_qp *qp)
 {
-	void *db_aligned;
-
 	if (!qp->sq.wq.wrid)
 		return;
 
-	db_aligned = (void *)((uintptr_t)qp->sq.db & ~(qp->page_size - 1));
-	munmap(db_aligned, qp->page_size);
 	munmap(qp->sq.desc - qp->sq.desc_offset, qp->sq.desc_ring_mmap_size);
 	free(qp->sq.local_queue);
 
-	efa_wq_terminate(&qp->sq.wq);
+	efa_wq_terminate(&qp->sq.wq, qp->page_size);
 }
 
 static int efa_sq_initialize(struct efa_qp *qp,
@@ -546,14 +566,20 @@ static int efa_sq_initialize(struct efa_qp *qp,
 			     struct efa_create_qp_resp *resp)
 {
 	struct efa_dev *dev = to_efa_dev(qp->verbs_qp.qp.context->device);
+	struct efa_wq_init_attr wq_attr;
 	size_t desc_ring_size;
-	uint8_t *db_base;
 	int err;
 
 	if (!qp->sq.wq.wqe_cnt)
 		return 0;
 
-	err = efa_wq_initialize(&qp->sq.wq);
+	wq_attr = (struct efa_wq_init_attr) {
+		.db_mmap_key = resp->sq_db_mmap_key,
+		.db_off = resp->sq_db_offset,
+		.cmd_fd = qp->verbs_qp.qp.context->cmd_fd,
+		.pgsz = qp->page_size,
+	};
+	err = efa_wq_initialize(&qp->sq.wq, &wq_attr);
 	if (err)
 		return err;
 
@@ -578,53 +604,45 @@ static int efa_sq_initialize(struct efa_qp *qp,
 	}
 
 	qp->sq.desc += qp->sq.desc_offset;
-
-	db_base = mmap(NULL, qp->page_size, PROT_WRITE, MAP_SHARED,
-		       qp->verbs_qp.qp.context->cmd_fd, resp->sq_db_mmap_key);
-	if (db_base == MAP_FAILED) {
-		err = errno;
-		goto err_unmap_desc_ring;
-	}
-
-	qp->sq.db = (uint32_t *)(db_base + resp->sq_db_offset);
 	qp->sq.sub_cq_idx = resp->send_sub_cq_idx;
 	qp->sq.max_wr_rdma_sge = min_t(uint16_t, dev->max_wr_rdma_sge,
 				       EFA_IO_TX_DESC_NUM_RDMA_BUFS);
 
 	return 0;
 
-err_unmap_desc_ring:
-	munmap(qp->sq.desc - qp->sq.desc_offset, qp->sq.desc_ring_mmap_size);
 err_free_local_queue:
 	free(qp->sq.local_queue);
 err_terminate_wq:
-	efa_wq_terminate(&qp->sq.wq);
+	efa_wq_terminate(&qp->sq.wq, qp->page_size);
 	return err;
 }
 
 static void efa_rq_terminate(struct efa_qp *qp)
 {
-	void *db_aligned;
-
 	if (!qp->rq.wq.wrid)
 		return;
 
-	db_aligned = (void *)((uintptr_t)qp->rq.db & ~(qp->page_size - 1));
-	munmap(db_aligned, qp->page_size);
 	munmap(qp->rq.buf, qp->rq.buf_size);
 
-	efa_wq_terminate(&qp->rq.wq);
+	efa_wq_terminate(&qp->rq.wq, qp->page_size);
 }
 
 static int efa_rq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 {
-	uint8_t *db_base;
+	struct efa_wq_init_attr wq_attr;
 	int err;
 
 	if (!qp->rq.wq.wqe_cnt)
 		return 0;
 
-	err = efa_wq_initialize(&qp->rq.wq);
+	wq_attr = (struct efa_wq_init_attr) {
+		.db_mmap_key = resp->rq_db_mmap_key,
+		.db_off = resp->rq_db_offset,
+		.cmd_fd = qp->verbs_qp.qp.context->cmd_fd,
+		.pgsz = qp->page_size,
+	};
+
+	err = efa_wq_initialize(&qp->rq.wq, &wq_attr);
 	if (err)
 		return err;
 
@@ -636,22 +654,12 @@ static int efa_rq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 		goto err_terminate_wq;
 	}
 
-	db_base = mmap(NULL, qp->page_size, PROT_WRITE, MAP_SHARED,
-		       qp->verbs_qp.qp.context->cmd_fd, resp->rq_db_mmap_key);
-	if (db_base == MAP_FAILED) {
-		err = errno;
-		goto err_unmap_rq_buf;
-	}
-
-	qp->rq.db = (uint32_t *)(db_base + resp->rq_db_offset);
 	qp->rq.sub_cq_idx = resp->recv_sub_cq_idx;
 
 	return 0;
 
-err_unmap_rq_buf:
-	munmap(qp->rq.buf, qp->rq.buf_size);
 err_terminate_wq:
-	efa_wq_terminate(&qp->rq.wq);
+	efa_wq_terminate(&qp->rq.wq, qp->page_size);
 	return err;
 }
 
@@ -1239,7 +1247,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 
 ring_db:
 	mmio_flush_writes();
-	mmio_write32(qp->sq.db, qp->sq.wq.desc_idx);
+	mmio_write32(qp->sq.wq.db, qp->sq.wq.desc_idx);
 
 	/*
 	 * Not using mmio_wc_spinunlock as the doorbell write should be done
@@ -1505,7 +1513,7 @@ static int efa_send_wr_complete(struct ibv_qp_ex *ibvqpx)
 	}
 
 	mmio_flush_writes();
-	mmio_write32(qp->sq.db, qp->sq.wq.desc_idx);
+	mmio_write32(qp->sq.wq.db, qp->sq.wq.desc_idx);
 out:
 	/*
 	 * Not using mmio_wc_spinunlock as the doorbell write should be done
@@ -1625,7 +1633,7 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 
 ring_db:
 	udma_to_device_barrier();
-	mmio_write32(qp->rq.db, qp->rq.wq.desc_idx);
+	mmio_write32(qp->rq.wq.db, qp->rq.wq.desc_idx);
 
 	pthread_spin_unlock(&qp->rq.wq.wqlock);
 	return err;
