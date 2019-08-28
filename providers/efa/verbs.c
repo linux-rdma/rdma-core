@@ -44,6 +44,7 @@ struct efa_wq_init_attr {
 	uint32_t db_off;
 	int cmd_fd;
 	int pgsz;
+	uint16_t sub_cq_idx;
 };
 
 int efa_query_device(struct ibv_context *ibvctx,
@@ -541,6 +542,8 @@ static int efa_wq_initialize(struct efa_wq *wq, struct efa_wq_init_attr *attr)
 
 	pthread_spin_init(&wq->wqlock, PTHREAD_PROCESS_PRIVATE);
 
+	wq->sub_cq_idx = attr->sub_cq_idx;
+
 	return 0;
 
 err_free_wrid_idx_pool:
@@ -578,6 +581,7 @@ static int efa_sq_initialize(struct efa_qp *qp,
 		.db_off = resp->sq_db_offset,
 		.cmd_fd = qp->verbs_qp.qp.context->cmd_fd,
 		.pgsz = qp->page_size,
+		.sub_cq_idx = resp->send_sub_cq_idx,
 	};
 	err = efa_wq_initialize(&qp->sq.wq, &wq_attr);
 	if (err)
@@ -604,7 +608,6 @@ static int efa_sq_initialize(struct efa_qp *qp,
 	}
 
 	qp->sq.desc += qp->sq.desc_offset;
-	qp->sq.sub_cq_idx = resp->send_sub_cq_idx;
 	qp->sq.max_wr_rdma_sge = min_t(uint16_t, dev->max_wr_rdma_sge,
 				       EFA_IO_TX_DESC_NUM_RDMA_BUFS);
 
@@ -640,6 +643,7 @@ static int efa_rq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 		.db_off = resp->rq_db_offset,
 		.cmd_fd = qp->verbs_qp.qp.context->cmd_fd,
 		.pgsz = qp->page_size,
+		.sub_cq_idx = resp->recv_sub_cq_idx,
 	};
 
 	err = efa_wq_initialize(&qp->rq.wq, &wq_attr);
@@ -653,8 +657,6 @@ static int efa_rq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 		err = errno;
 		goto err_terminate_wq;
 	}
-
-	qp->rq.sub_cq_idx = resp->recv_sub_cq_idx;
 
 	return 0;
 
@@ -1019,11 +1021,11 @@ int efa_destroy_qp(struct ibv_qp *ibvqp)
 
 	if (ibvqp->send_cq)
 		efa_cq_dec_ref_cnt(to_efa_cq(ibvqp->send_cq),
-				   qp->sq.sub_cq_idx);
+				   qp->sq.wq.sub_cq_idx);
 
 	if (ibvqp->recv_cq)
 		efa_cq_dec_ref_cnt(to_efa_cq(ibvqp->recv_cq),
-				   qp->rq.sub_cq_idx);
+				   qp->rq.wq.sub_cq_idx);
 
 	ctx->qp_table[ibvqp->qp_num & ctx->qp_table_sz_m1] = NULL;
 

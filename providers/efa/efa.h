@@ -75,13 +75,13 @@ struct efa_wq {
 	pthread_spinlock_t wqlock;
 
 	uint32_t *db;
+	uint16_t sub_cq_idx;
 };
 
 struct efa_rq {
 	struct efa_wq wq;
 	uint8_t *buf;
 	size_t buf_size;
-	uint16_t sub_cq_idx;
 };
 
 struct efa_sq {
@@ -91,7 +91,6 @@ struct efa_sq {
 	size_t desc_ring_mmap_size;
 	size_t max_inline_data;
 	size_t max_wr_rdma_sge;
-	uint16_t sub_cq_idx;
 
 	/* Buffer for pending WR entries in the current session */
 	uint8_t *local_queue;
