@@ -72,6 +72,7 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_DYN_BFREGS		= 1 << 4,
 	MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE	= 1 << 5,
 	MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS	= 1 << 6,
+	MLX5DV_CONTEXT_MASK_DC_ODP_CAPS		= 1 << 7,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -122,6 +123,7 @@ struct mlx5dv_context {
 	uint32_t	max_dynamic_bfregs;
 	uint64_t	max_clock_info_update_nsec;
 	uint32_t        flow_action_flags; /* use enum mlx5dv_flow_action_cap_flags */
+	uint32_t	dc_odp_caps; /* use enum ibv_odp_transport_cap_bits */
 };
 
 enum mlx5dv_context_flags {
