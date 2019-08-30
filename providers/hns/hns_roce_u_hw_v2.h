@@ -291,4 +291,95 @@ struct hns_roce_wqe_atomic_seg {
 int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			    struct ibv_send_wr **bad_wr);
 
+struct hns_roce_ud_sq_wqe {
+	__le32		rsv_opcode;
+	__le32		msg_len;
+	__le32		immtdata;
+	__le32		sge_num_pd;
+	__le32		rsv_msg_start_sge_idx;
+	__le32		udpspn_rsv;
+	__le32		qkey;
+	__le32		rsv_dqpn;
+	__le32		tclass_vlan;
+	__le32		lbi_flow_label;
+	__le32		dmac;
+	__le32		smac_index_dmac;
+	uint8_t		dgid[HNS_ROCE_GID_SIZE];
+};
+
+#define UD_SQ_WQE_OPCODE_S 0
+#define UD_SQ_WQE_OPCODE_M  (((1UL << 5) - 1) << UD_SQ_WQE_OPCODE_S)
+
+#define UD_SQ_WQE_OWNER_S 7
+
+#define UD_SQ_WQE_CQE_S 8
+
+#define UD_SQ_WQE_SE_S 11
+
+#define UD_SQ_WQE_PD_S 0
+#define UD_SQ_WQE_PD_M  (((1UL << 24) - 1) << UD_SQ_WQE_PD_S)
+
+#define UD_SQ_WQE_SGE_NUM_S 24
+#define UD_SQ_WQE_SGE_NUM_M  (((1UL << 8) - 1) << UD_SQ_WQE_SGE_NUM_S)
+
+#define UD_SQ_WQE_MSG_START_SGE_IDX_S 0
+#define UD_SQ_WQE_MSG_START_SGE_IDX_M \
+	(((1UL << 24) - 1) << UD_SQ_WQE_MSG_START_SGE_IDX_S)
+
+#define UD_SQ_WQE_UDP_SPN_S 16
+#define UD_SQ_WQE_UDP_SPN_M \
+	(((1UL << 16) - 1) << UD_SQ_WQE_UDP_SPN_S)
+
+#define UD_SQ_WQE_DQPN_S 0
+#define UD_SQ_WQE_DQPN_M (((1UL << 24) - 1) << UD_SQ_WQE_DQPN_S)
+
+#define UD_SQ_WQE_VLAN_S 0
+#define UD_SQ_WQE_VLAN_M (((1UL << 16) - 1) << UD_SQ_WQE_VLAN_S)
+
+#define UD_SQ_WQE_HOPLIMIT_S 16
+#define UD_SQ_WQE_HOPLIMIT_M (((1UL << 8) - 1) << UD_SQ_WQE_HOPLIMIT_S)
+
+#define UD_SQ_WQE_TCLASS_S 24
+#define UD_SQ_WQE_TCLASS_M (((1UL << 8) - 1) << UD_SQ_WQE_TCLASS_S)
+
+#define UD_SQ_WQE_FLOW_LABEL_S 0
+#define UD_SQ_WQE_FLOW_LABEL_M (((1UL << 20) - 1) << UD_SQ_WQE_FLOW_LABEL_S)
+
+#define UD_SQ_WQE_SL_S 20
+#define UD_SQ_WQE_SL_M (((1UL << 4) - 1) << UD_SQ_WQE_SL_S)
+
+#define UD_SQ_WQE_PORTN_S 24
+#define UD_SQ_WQE_PORTN_M (((1UL << 3) - 1) << UD_SQ_WQE_PORTN_S)
+
+#define UD_SQ_WQE_VLAN_EN_S 30
+
+#define UD_SQ_WQE_LBI_S 31
+
+#define UD_SQ_WQE_PORTN_S 24
+#define UD_SQ_WQE_PORTN_M (((1UL << 3) - 1) << UD_SQ_WQE_PORTN_S)
+
+#define UD_SQ_WQE_DMAC_0_S 0
+#define UD_SQ_WQE_DMAC_0_M (((1UL << 8) - 1) << UD_SQ_WQE_DMAC_0_S)
+
+#define UD_SQ_WQE_DMAC_1_S 8
+#define UD_SQ_WQE_DMAC_1_M (((1UL << 8) - 1) << UD_SQ_WQE_DMAC_1_S)
+
+#define UD_SQ_WQE_DMAC_2_S 16
+#define UD_SQ_WQE_DMAC_2_M (((1UL << 8) - 1) << UD_SQ_WQE_DMAC_2_S)
+
+#define UD_SQ_WQE_DMAC_3_S 24
+#define UD_SQ_WQE_DMAC_3_M (((1UL << 8) - 1) << UD_SQ_WQE_DMAC_3_S)
+
+#define UD_SQ_WQE_DMAC_4_S 0
+#define UD_SQ_WQE_DMAC_4_M (((1UL << 8) - 1) << UD_SQ_WQE_DMAC_4_S)
+
+#define UD_SQ_WQE_DMAC_5_S 8
+#define UD_SQ_WQE_DMAC_5_M (((1UL << 8) - 1) << UD_SQ_WQE_DMAC_5_S)
+
+#define UD_SQ_WQE_SGID_IDX_S 16
+#define UD_SQ_WQE_SGID_IDX_M (((1UL << 8) - 1) << UD_SQ_WQE_SGID_IDX_S)
+
+#define UD_SQ_WQE_SMAC_IDX_S 24
+#define UD_SQ_WQE_SMAC_IDX_M (((1UL << 8) - 1) << UD_SQ_WQE_SMAC_IDX_S)
+
 #endif /* _HNS_ROCE_U_HW_V2_H */
