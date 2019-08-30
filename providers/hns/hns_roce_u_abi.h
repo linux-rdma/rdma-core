@@ -48,5 +48,6 @@ DECLARE_DRV_CMD(hns_roce_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT,
 
 DECLARE_DRV_CMD(hns_roce_create_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
 		hns_roce_ib_create_srq, hns_roce_ib_create_srq_resp);
-
+DECLARE_DRV_CMD(hns_roce_create_ah, IB_USER_VERBS_CMD_CREATE_AH, empty,
+		hns_roce_ib_create_ah_resp);
 #endif /* _HNS_ROCE_U_ABI_H */

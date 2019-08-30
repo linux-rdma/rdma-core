@@ -68,6 +68,8 @@
 #define HNS_ROCE_TPTR_OFFSET		0x1000
 #define HNS_ROCE_STATIC_RATE		3 /* Gbps */
 
+#define	ETH_ALEN			6
+
 #define roce_get_field(origin, mask, shift) \
 	(((le32toh(origin)) & (mask)) >> (shift))
 
@@ -244,6 +246,25 @@ struct hns_roce_qp {
 	unsigned long			flags;
 };
 
+struct hns_roce_av {
+	uint8_t				port;
+	uint8_t				gid_index;
+	uint8_t				static_rate;
+	uint8_t				hop_limit;
+	uint32_t			flowlabel;
+	uint8_t				sl;
+	uint8_t				tclass;
+	uint8_t				dgid[HNS_ROCE_GID_SIZE];
+	uint8_t				mac[ETH_ALEN];
+	uint16_t			vlan_id;
+	uint8_t				vlan_en;
+};
+
+struct hns_roce_ah {
+	struct ibv_ah			ibv_ah;
+	struct hns_roce_av		av;
+};
+
 struct hns_roce_u_hw {
 	uint32_t hw_version;
 	struct verbs_context_ops hw_ops;
@@ -278,6 +299,11 @@ static inline struct hns_roce_srq *to_hr_srq(struct ibv_srq *ibv_srq)
 static inline struct  hns_roce_qp *to_hr_qp(struct ibv_qp *ibv_qp)
 {
 	return container_of(ibv_qp, struct hns_roce_qp, ibv_qp);
+}
+
+static inline struct hns_roce_ah *to_hr_ah(struct ibv_ah *ibv_ah)
+{
+	return container_of(ibv_ah, struct hns_roce_ah, ibv_ah);
 }
 
 int hns_roce_u_query_device(struct ibv_context *context,
@@ -318,6 +344,10 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 
 int hns_roce_u_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 			int attr_mask, struct ibv_qp_init_attr *init_attr);
+
+struct ibv_ah *hns_roce_u_create_ah(struct ibv_pd *pd,
+				    struct ibv_ah_attr *attr);
+int hns_roce_u_destroy_ah(struct ibv_ah *ah);
 
 int hns_roce_alloc_buf(struct hns_roce_buf *buf, unsigned int size,
 		       int page_size);

@@ -38,6 +38,7 @@
 #include <sys/mman.h>
 #include <ccan/ilog.h>
 #include <ccan/minmax.h>
+#include <ccan/array_size.h>
 #include <util/util.h>
 #include "hns_roce_u.h"
 #include "hns_roce_u_abi.h"
@@ -951,4 +952,56 @@ int hns_roce_u_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	attr->cap = init_attr->cap;
 
 	return ret;
+}
+
+struct ibv_ah *hns_roce_u_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
+{
+	struct hns_roce_create_ah_resp resp = {};
+	struct hns_roce_ah *ah;
+	int status;
+
+	ah = calloc(1, sizeof(*ah));
+	if (!ah)
+		return NULL;
+
+	ah->av.port = attr->port_num;
+	ah->av.sl = attr->sl;
+
+	if (attr->static_rate)
+		ah->av.static_rate = IBV_RATE_10_GBPS;
+
+	if (attr->is_global) {
+		ah->av.gid_index = attr->grh.sgid_index;
+		ah->av.hop_limit = attr->grh.hop_limit;
+		ah->av.tclass = attr->grh.traffic_class;
+		ah->av.flowlabel = attr->grh.flow_label;
+
+		memcpy(ah->av.dgid, attr->grh.dgid.raw,
+		       ARRAY_SIZE(ah->av.dgid));
+	}
+
+	status = ibv_cmd_create_ah(pd, &ah->ibv_ah, attr, &resp.ibv_resp,
+				   sizeof(resp));
+	if (status) {
+		free(ah);
+		return NULL;
+	}
+
+	memcpy(ah->av.mac, resp.dmac, ETH_ALEN);
+	ah->av.vlan_id = resp.vlan_id;
+	ah->av.vlan_en = resp.vlan_en;
+	return &ah->ibv_ah;
+}
+
+int hns_roce_u_destroy_ah(struct ibv_ah *ah)
+{
+	int ret;
+
+	ret = ibv_cmd_destroy_ah(ah);
+	if (ret)
+		return ret;
+
+	free(to_hr_ah(ah));
+
+	return 0;
 }
