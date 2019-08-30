@@ -81,6 +81,8 @@ static const struct verbs_context_ops hns_common_ops = {
 	.modify_srq = hns_roce_u_modify_srq,
 	.query_srq = hns_roce_u_query_srq,
 	.destroy_srq = hns_roce_u_destroy_srq,
+	.create_ah = hns_roce_u_create_ah,
+	.destroy_ah = hns_roce_u_destroy_ah,
 };
 
 static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
