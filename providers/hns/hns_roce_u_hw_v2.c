@@ -637,6 +637,107 @@ static void set_sge(struct hns_roce_v2_wqe_data_seg *dseg,
 		}
 }
 
+static void set_ud_wqe(void *wqe, struct hns_roce_qp *qp,
+		       struct ibv_send_wr *wr, int nreq,
+		       struct hns_roce_sge_info *sge_info)
+{
+	struct hns_roce_ah *ah = to_hr_ah(wr->wr.ud.ah);
+	struct hns_roce_ud_sq_wqe *ud_sq_wqe = wqe;
+	unsigned int hr_op;
+
+	memset(ud_sq_wqe, 0, sizeof(*ud_sq_wqe));
+
+	roce_set_bit(ud_sq_wqe->rsv_opcode, UD_SQ_WQE_CQE_S,
+		     (wr->send_flags & IBV_SEND_SIGNALED) ? 1 : 0);
+	roce_set_bit(ud_sq_wqe->rsv_opcode, UD_SQ_WQE_SE_S,
+		     (wr->send_flags & IBV_SEND_SOLICITED) ? 1 : 0);
+	roce_set_bit(ud_sq_wqe->rsv_opcode, UD_SQ_WQE_OWNER_S,
+		     ~(((qp->sq.head + nreq) >> qp->sq.shift) & 0x1));
+
+	switch (wr->opcode) {
+	case IBV_WR_SEND:
+		hr_op = HNS_ROCE_WQE_OP_SEND;
+		ud_sq_wqe->immtdata = 0;
+		break;
+	case IBV_WR_SEND_WITH_IMM:
+		hr_op = HNS_ROCE_WQE_OP_SEND_WITH_IMM;
+		ud_sq_wqe->immtdata =
+				htole32(be32toh(wr->imm_data));
+		break;
+	default:
+		hr_op = HNS_ROCE_WQE_OP_MASK;
+		break;
+	}
+
+	roce_set_field(ud_sq_wqe->rsv_opcode, UD_SQ_WQE_OPCODE_M,
+		       UD_SQ_WQE_OPCODE_S, hr_op);
+
+	roce_set_field(ud_sq_wqe->sge_num_pd, UD_SQ_WQE_PD_M,
+		       UD_SQ_WQE_PD_S, to_hr_pd(qp->ibv_qp.pd)->pdn);
+
+	roce_set_field(ud_sq_wqe->rsv_msg_start_sge_idx,
+		       UD_SQ_WQE_MSG_START_SGE_IDX_M,
+		       UD_SQ_WQE_MSG_START_SGE_IDX_S,
+		       sge_info->start_idx & (qp->sge.sge_cnt - 1));
+
+	roce_set_field(ud_sq_wqe->udpspn_rsv, UD_SQ_WQE_UDP_SPN_M,
+		       UD_SQ_WQE_UDP_SPN_S, 0);
+
+	ud_sq_wqe->qkey = htole32(wr->wr.ud.remote_qkey);
+
+	roce_set_field(ud_sq_wqe->rsv_dqpn, UD_SQ_WQE_DQPN_M,
+		       UD_SQ_WQE_DQPN_S, wr->wr.ud.remote_qpn);
+
+	roce_set_field(ud_sq_wqe->tclass_vlan, UD_SQ_WQE_VLAN_M,
+		       UD_SQ_WQE_VLAN_S, ah->av.vlan_id);
+
+	roce_set_field(ud_sq_wqe->tclass_vlan, UD_SQ_WQE_TCLASS_M,
+		       UD_SQ_WQE_TCLASS_S, ah->av.tclass);
+
+	roce_set_field(ud_sq_wqe->tclass_vlan, UD_SQ_WQE_HOPLIMIT_M,
+		       UD_SQ_WQE_HOPLIMIT_S, ah->av.hop_limit);
+
+	roce_set_field(ud_sq_wqe->lbi_flow_label, UD_SQ_WQE_FLOW_LABEL_M,
+		       UD_SQ_WQE_FLOW_LABEL_S, ah->av.flowlabel);
+
+	roce_set_bit(ud_sq_wqe->lbi_flow_label, UD_SQ_WQE_VLAN_EN_S,
+		     ah->av.vlan_en ? 1 : 0);
+
+	roce_set_bit(ud_sq_wqe->lbi_flow_label, UD_SQ_WQE_LBI_S, 0);
+
+	roce_set_field(ud_sq_wqe->lbi_flow_label, UD_SQ_WQE_SL_M,
+		       UD_SQ_WQE_SL_S, ah->av.sl);
+
+	roce_set_field(ud_sq_wqe->lbi_flow_label, UD_SQ_WQE_PORTN_M,
+		       UD_SQ_WQE_PORTN_S, qp->ibv_qp.qp_num);
+
+	roce_set_field(ud_sq_wqe->dmac, UD_SQ_WQE_DMAC_0_M,
+		       UD_SQ_WQE_DMAC_0_S, ah->av.mac[0]);
+	roce_set_field(ud_sq_wqe->dmac, UD_SQ_WQE_DMAC_1_M,
+		       UD_SQ_WQE_DMAC_1_S, ah->av.mac[1]);
+	roce_set_field(ud_sq_wqe->dmac, UD_SQ_WQE_DMAC_2_M,
+		       UD_SQ_WQE_DMAC_2_S, ah->av.mac[2]);
+	roce_set_field(ud_sq_wqe->dmac, UD_SQ_WQE_DMAC_3_M,
+		       UD_SQ_WQE_DMAC_3_S, ah->av.mac[3]);
+	roce_set_field(ud_sq_wqe->smac_index_dmac,
+		       UD_SQ_WQE_DMAC_4_M, UD_SQ_WQE_DMAC_4_S,
+		       to_hr_ah(wr->wr.ud.ah)->av.mac[4]);
+	roce_set_field(ud_sq_wqe->smac_index_dmac,
+		       UD_SQ_WQE_DMAC_5_M, UD_SQ_WQE_DMAC_5_S,
+		       to_hr_ah(wr->wr.ud.ah)->av.mac[5]);
+	roce_set_field(ud_sq_wqe->smac_index_dmac, UD_SQ_WQE_SGID_IDX_M,
+		       UD_SQ_WQE_SGID_IDX_S, ah->av.gid_index);
+
+	memcpy(ud_sq_wqe->dgid, ah->av.dgid, HNS_ROCE_GID_SIZE);
+
+	set_sge(NULL, qp, wr, sge_info);
+
+	ud_sq_wqe->msg_len = htole32(sge_info->total_len);
+
+	roce_set_field(ud_sq_wqe->sge_num_pd, UD_SQ_WQE_SGE_NUM_M,
+		       UD_SQ_WQE_SGE_NUM_S, sge_info->valid_num);
+}
+
 static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 		      int nreq, struct hns_roce_sge_info *sge_info)
 {
@@ -833,8 +934,9 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 				goto out;
 			}
 			break;
-		case IBV_QPT_UC:
 		case IBV_QPT_UD:
+			set_ud_wqe(wqe, qp, wr, nreq, &sge_info);
+			break;
 		default:
 			ret = -EINVAL;
 			*bad_wr = wr;

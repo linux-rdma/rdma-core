@@ -767,6 +767,12 @@ static void hns_roce_set_qp_params(struct ibv_pd *pd,
 		}
 	}
 
+	if (attr->qp_type == IBV_QPT_UD)
+		qp->sge.sge_cnt = roundup_pow_of_two(qp->sq.wqe_cnt *
+						     qp->sq.max_gs);
+
+	qp->ibv_qp.qp_type = attr->qp_type;
+
 	/* limit by the context queried during alloc context */
 	qp->rq.max_post = min(ctx->max_qp_wr, qp->rq.wqe_cnt);
 	qp->sq.max_post = min(ctx->max_qp_wr, qp->sq.wqe_cnt);
