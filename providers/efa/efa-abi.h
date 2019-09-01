@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2020 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFA_ABI_H__
@@ -12,8 +12,8 @@
 
 #define EFA_ABI_VERSION 1
 
-DECLARE_DRV_CMD(efa_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT, empty,
-		efa_ibv_alloc_ucontext_resp);
+DECLARE_DRV_CMD(efa_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT,
+		efa_ibv_alloc_ucontext_cmd, efa_ibv_alloc_ucontext_resp);
 DECLARE_DRV_CMD(efa_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD, empty,
 		efa_ibv_alloc_pd_resp);
 DECLARE_DRV_CMD(efa_create_cq, IB_USER_VERBS_CMD_CREATE_CQ, efa_ibv_create_cq,

@@ -29,6 +29,7 @@ struct efa_context {
 	uint16_t max_rq_sge;
 	uint32_t max_rdma_size;
 	uint16_t max_wr_rdma_sge;
+	uint16_t max_tx_batch;
 	size_t cqe_size;
 	struct efa_qp **qp_table;
 	unsigned int qp_table_sz_m1;
@@ -98,6 +99,7 @@ struct efa_sq {
 	size_t desc_ring_mmap_size;
 	size_t max_inline_data;
 	size_t max_wr_rdma_sge;
+	uint16_t max_batch_wr;
 
 	/* Buffer for pending WR entries in the current session */
 	uint8_t *local_queue;

@@ -34,6 +34,12 @@ static bool is_buf_cleared(void *buf, size_t len)
 	return true;
 }
 
+#define min3(a, b, c) \
+	({ \
+		typeof(a) _tmpmin = min(a, b); \
+		min(_tmpmin, c); \
+	})
+
 #define is_ext_cleared(ptr, inlen) \
 	is_buf_cleared(ptr + sizeof(*ptr), inlen - sizeof(*ptr))
 
@@ -612,6 +618,9 @@ static int efa_sq_initialize(struct efa_qp *qp,
 	sq->desc += sq->desc_offset;
 	sq->max_wr_rdma_sge = min_t(uint16_t, ctx->max_wr_rdma_sge,
 				    EFA_IO_TX_DESC_NUM_RDMA_BUFS);
+	sq->max_batch_wr = ctx->max_tx_batch ?
+		(ctx->max_tx_batch * 64) / sizeof(struct efa_io_tx_wqe) :
+		UINT16_MAX;
 
 	return 0;
 
@@ -1217,6 +1226,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	struct efa_qp *qp = to_efa_qp(ibvqp);
 	struct efa_io_tx_wqe tx_wqe;
 	uint32_t sq_desc_offset;
+	uint32_t curbatch = 0;
 	struct efa_ah *ah;
 	int err = 0;
 
@@ -1261,12 +1271,19 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 
 		/* advance index and change phase */
 		efa_sq_advance_post_idx(qp);
+		curbatch++;
+
+		if (curbatch == qp->sq.max_batch_wr) {
+			curbatch = 0;
+			efa_sq_ring_doorbell(&qp->sq, qp->sq.wq.pc);
+		}
 
 		wr = wr->next;
 	}
 
 ring_db:
-	efa_sq_ring_doorbell(&qp->sq, qp->sq.wq.pc);
+	if (curbatch)
+		efa_sq_ring_doorbell(&qp->sq, qp->sq.wq.pc);
 
 	/*
 	 * Not using mmio_wc_spinunlock as the doorbell write should be done
@@ -1502,9 +1519,12 @@ static inline void efa_sq_roll_back(struct efa_qp *qp)
 static int efa_send_wr_complete(struct ibv_qp_ex *ibvqpx)
 {
 	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
+	uint32_t max_txbatch = qp->sq.max_batch_wr;
 	uint32_t num_wqe_to_copy;
 	uint16_t local_idx = 0;
+	uint16_t curbatch = 0;
 	uint16_t sq_desc_idx;
+	uint16_t pc;
 
 	if (unlikely(qp->wr_session_err)) {
 		efa_sq_roll_back(qp);
@@ -1512,15 +1532,16 @@ static int efa_send_wr_complete(struct ibv_qp_ex *ibvqpx)
 	}
 
 	/*
-	 * Copy local queue to device in chunks, as the descriptor index
-	 * might have wrapped around the submission queue.
+	 * Copy local queue to device in chunks, handling wraparound and max
+	 * doorbell batch.
 	 */
-	sq_desc_idx = (qp->sq.wq.pc - qp->sq.num_wqe_pending) &
-		       qp->sq.wq.desc_mask;
+	pc = qp->sq.wq.pc - qp->sq.num_wqe_pending;
+	sq_desc_idx = pc & qp->sq.wq.desc_mask;
 
 	while (qp->sq.num_wqe_pending) {
-		num_wqe_to_copy = min(qp->sq.num_wqe_pending,
-				      qp->sq.wq.wqe_cnt - sq_desc_idx);
+		num_wqe_to_copy = min3(qp->sq.num_wqe_pending,
+				       qp->sq.wq.wqe_cnt - sq_desc_idx,
+				       max_txbatch - curbatch);
 		mmio_memcpy_x64((struct efa_io_tx_wqe *)qp->sq.desc +
 							sq_desc_idx,
 				(struct efa_io_tx_wqe *)qp->sq.local_queue +
@@ -1529,11 +1550,19 @@ static int efa_send_wr_complete(struct ibv_qp_ex *ibvqpx)
 
 		qp->sq.num_wqe_pending -= num_wqe_to_copy;
 		local_idx += num_wqe_to_copy;
+		curbatch += num_wqe_to_copy;
+		pc += num_wqe_to_copy;
 		sq_desc_idx = (sq_desc_idx + num_wqe_to_copy) &
 			      qp->sq.wq.desc_mask;
+
+		if (curbatch == max_txbatch) {
+			efa_sq_ring_doorbell(&qp->sq, pc);
+			curbatch = 0;
+		}
 	}
 
-	efa_sq_ring_doorbell(&qp->sq, qp->sq.wq.pc);
+	if (curbatch)
+		efa_sq_ring_doorbell(&qp->sq, qp->sq.wq.pc);
 out:
 	/*
 	 * Not using mmio_wc_spinunlock as the doorbell write should be done
