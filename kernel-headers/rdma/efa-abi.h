@@ -96,6 +96,9 @@ struct efa_ibv_ex_query_device_resp {
 	__u32 max_rq_wr;
 	__u16 max_sq_sge;
 	__u16 max_rq_sge;
+	__u32 max_rdma_size;
+	__u16 max_wr_rdma_sge;
+	__u8 reserved_b0[2];
 };
 
 #endif /* EFA_ABI_USER_H */
