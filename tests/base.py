@@ -11,12 +11,15 @@ from pyverbs.qp import QPCap, QPInitAttrEx, QPInitAttr, QPAttr, QP
 from pyverbs.addr import AHAttr, GlobalRoute
 from pyverbs.xrcd import XRCD, XRCDInitAttr
 from pyverbs.srq import SRQ, SrqInitAttrEx
+from pyverbs.cmid import CMID, AddrInfo
 from pyverbs.device import Context
+import pyverbs.cm_enums as ce
 import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.pd import PD
 from pyverbs.cq import CQ
 from pyverbs.mr import MR
+
 
 PATH_MTU = e.IBV_MTU_1024
 MAX_DEST_RD_ATOMIC = 1
@@ -142,6 +145,49 @@ class RDMATestCase(unittest.TestCase):
         port_count = ctx.query_device().phys_port_cnt
         for port in range(port_count):
             self._add_gids_per_port(ctx, dev, port+1)
+
+
+class CMResources:
+    """
+    CMResources class is a base aggregator object which contains basic
+    resources for RDMA CM communication.
+    """
+    def __init__(self, **kwargs):
+        """
+        :param kwargs: Arguments:
+            * *src* (str)
+               Local address to bind to (for passive side)
+            * *dst* (str)
+               Destination address to connect (for active side)
+            * *port* (str)
+                Port number of the address
+        """
+        src = kwargs.get('src')
+        dst = kwargs.get('dst')
+        self.is_server = True if dst is None else False
+        self.qp_init_attr = None
+        self.msg_size = 1024
+        self.num_msgs = 100
+        self.port = kwargs.get('port') if kwargs.get('port') else '7471'
+        self.mr = None
+        if self.is_server:
+            self.ai = AddrInfo(src, self.port, ce.RDMA_PS_TCP, ce.RAI_PASSIVE)
+        else:
+            self.ai = AddrInfo(dst, self.port, ce.RDMA_PS_TCP)
+        self.create_qp_init_attr()
+        self.cmid = CMID(creator=self.ai, qp_init_attr=self.qp_init_attr)
+
+    def create_mr(self, cmid):
+        self.mr = cmid.reg_msgs(self.msg_size)
+
+    def create_qp_init_attr(self):
+        self.qp_init_attr = QPInitAttr(cap=QPCap(max_recv_wr=1))
+
+    def pre_run(self):
+        if self.is_server:
+            self.cmid.listen()
+        else:
+            self.cmid.connect()
 
 
 class BaseResources(object):
