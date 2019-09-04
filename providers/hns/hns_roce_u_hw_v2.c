@@ -1106,8 +1106,10 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		pthread_spin_unlock(&hr_qp->sq.lock);
 	}
 
-	if (!ret && (attr_mask & IBV_QP_STATE) &&
-	    attr->qp_state == IBV_QPS_RESET) {
+	if (ret)
+		return ret;
+
+	if ((attr_mask & IBV_QP_STATE) && attr->qp_state == IBV_QPS_RESET) {
 		hns_roce_v2_cq_clean(to_hr_cq(qp->recv_cq), qp->qp_num,
 				     qp->srq ? to_hr_srq(qp->srq) : NULL);
 		if (qp->send_cq != qp->recv_cq)
@@ -1117,10 +1119,11 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		hns_roce_init_qp_indices(to_hr_qp(qp));
 	}
 
-	if (!ret && (attr_mask & IBV_QP_PORT))
+	if (attr_mask & IBV_QP_PORT)
 		hr_qp->port_num = attr->port_num;
 
-	hr_qp->sl = attr->ah_attr.sl;
+	if (attr_mask & IBV_QP_AV)
+		hr_qp->sl = attr->ah_attr.sl;
 
 	return ret;
 }
