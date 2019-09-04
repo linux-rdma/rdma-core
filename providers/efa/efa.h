@@ -89,6 +89,7 @@ struct efa_sq {
 	uint32_t desc_offset;
 	size_t desc_ring_mmap_size;
 	size_t max_inline_data;
+	size_t max_wr_rdma_sge;
 	uint16_t sub_cq_idx;
 
 	/* Buffer for pending WR entries in the current session */
@@ -124,6 +125,7 @@ struct efa_ah {
 struct efa_dev {
 	struct verbs_device vdev;
 	uint32_t pg_sz;
+	uint32_t device_caps;
 	uint32_t max_sq_wr;
 	uint32_t max_rq_wr;
 	uint16_t max_sq_sge;
@@ -131,6 +133,11 @@ struct efa_dev {
 	uint32_t max_rdma_size;
 	uint16_t max_wr_rdma_sge;
 };
+
+static inline bool is_rdma_read_cap(struct efa_dev *dev)
+{
+	return dev->device_caps & EFA_QUERY_DEVICE_CAPS_RDMA_READ;
+}
 
 static inline struct efa_dev *to_efa_dev(struct ibv_device *ibvdev)
 {
