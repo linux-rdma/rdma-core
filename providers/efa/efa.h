@@ -89,6 +89,7 @@ struct efa_sq {
 	uint32_t desc_offset;
 	size_t desc_ring_mmap_size;
 	size_t max_inline_data;
+	size_t max_wr_rdma_sge;
 	uint16_t sub_cq_idx;
 
 	/* Buffer for pending WR entries in the current session */
