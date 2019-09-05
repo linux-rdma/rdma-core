@@ -14,6 +14,7 @@ from .pyverbs_error import PyverbsUserError
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.libibverbs as v
+from pyverbs.xrcd cimport XRCD
 from pyverbs.addr cimport GID
 from pyverbs.mr import DMMR
 from pyverbs.pd cimport PD
@@ -90,6 +91,7 @@ cdef class Context(PyverbsCM):
         self.ccs = weakref.WeakSet()
         self.cqs = weakref.WeakSet()
         self.qps = weakref.WeakSet()
+        self.xrcds = weakref.WeakSet()
 
         dev_name = kwargs.get('name')
 
@@ -126,7 +128,8 @@ cdef class Context(PyverbsCM):
 
     cpdef close(self):
         self.logger.debug('Closing Context')
-        self.close_weakrefs([self.qps, self.ccs, self.cqs, self.dms, self.pds])
+        self.close_weakrefs([self.qps, self.ccs, self.cqs, self.dms, self.pds,
+                             self.xrcds])
         if self.context != NULL:
             rc = v.ibv_close_device(self.context)
             if rc != 0:
@@ -198,6 +201,8 @@ cdef class Context(PyverbsCM):
             self.cqs.add(obj)
         elif isinstance(obj, QP):
             self.qps.add(obj)
+        elif isinstance(obj, XRCD):
+            self.xrcds.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 

@@ -393,6 +393,11 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_RAW_PACKET_CAP_IP_CSUM          = 1 << 2
         IBV_RAW_PACKET_CAP_DELAY_DROP       = 1 << 3
 
+    cpdef enum ibv_xrcd_init_attr_mask:
+        IBV_XRCD_INIT_ATTR_FD       = 1 << 0
+        IBV_XRCD_INIT_ATTR_OFLAGS   = 1 << 1
+        IBV_XRCD_INIT_ATTR_RESERVED = 1 << 2
+
     cdef unsigned long long IBV_DEVICE_RAW_SCATTER_FCS
     cdef unsigned long long IBV_DEVICE_PCI_WRITE_END_PADDING
 

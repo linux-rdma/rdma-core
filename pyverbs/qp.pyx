@@ -11,6 +11,7 @@ from pyverbs.addr cimport GlobalRoute
 from pyverbs.device cimport Context
 from pyverbs.cq cimport CQ, CQEX
 cimport pyverbs.libibverbs as v
+from pyverbs.xrcd cimport XRCD
 from pyverbs.pd cimport PD
 
 
@@ -193,7 +194,7 @@ cdef class QPInitAttrEx(PyverbsObject):
     def __cinit__(self, qp_type=e.IBV_QPT_UD, qp_context=None,
                   PyverbsObject scq=None, PyverbsObject rcq=None,
                   object srq=None, QPCap cap=None, sq_sig_all=0, comp_mask=0,
-                  PD pd=None, object xrcd=None, create_flags=0,
+                  PD pd=None, XRCD xrcd=None, create_flags=0,
                   max_tso_header=0, source_qpn=0, object hash_conf=None,
                   object ind_table=None):
         """
@@ -209,7 +210,7 @@ cdef class QPInitAttrEx(PyverbsObject):
         :param comp_mask: bit mask to determine which of the following fields
                           are valid
         :param pd: A PD object to be associated with this QP
-        :param xrcd: Not yet supported
+        :param xrcd: XRC domain to be used for XRC QPs
         :param create_flags: Creation flags for this QP
         :param max_tso_header: Maximum TSO header size
         :param source_qpn: Source QP number (requires IBV_QP_CREATE_SOURCE_QPN
@@ -240,14 +241,14 @@ cdef class QPInitAttrEx(PyverbsObject):
         self.rcq = rcq
 
         self.attr.srq = NULL  # Until SRQ support is added
-        self.attr.xrcd = NULL  # Until XRCD support is added
+        self.xrcd = xrcd
+        self.attr.xrcd = xrcd.xrcd if xrcd else NULL
         self.attr.rwq_ind_tbl = NULL  # Until RSS support is added
         self.attr.qp_type = qp_type
         self.attr.sq_sig_all = sq_sig_all
-        unsupp_flags = e.IBV_QP_INIT_ATTR_XRCD | e.IBV_QP_INIT_ATTR_IND_TABLE |\
-                       e.IBV_QP_INIT_ATTR_RX_HASH
+        unsupp_flags = e.IBV_QP_INIT_ATTR_IND_TABLE | e.IBV_QP_INIT_ATTR_RX_HASH
         if comp_mask & unsupp_flags:
-            raise PyverbsUserError('XRCD and RSS are not yet supported in pyverbs')
+            raise PyverbsUserError('RSS is not yet supported in pyverbs')
         self.attr.comp_mask = comp_mask
         if pd is not None:
             self._pd = pd
@@ -317,6 +318,14 @@ cdef class QPInitAttrEx(PyverbsObject):
     def pd(self, PD val):
         self.attr.pd = <v.ibv_pd*>val.pd
         self._pd = val
+
+    @property
+    def xrcd(self):
+        return self.xrcd
+    @xrcd.setter
+    def xrcd(self, XRCD val):
+        self.attr.xrcd = <v.ibv_xrcd*>val.xrcd
+        self.xrcd = val
 
     @property
     def create_flags(self):
@@ -794,6 +803,10 @@ cdef class QP(PyverbsCM):
                 pd = <PD>init_attr.pd
                 pd.add_ref(self)
                 self.pd = pd
+            if init_attr.xrcd is not None:
+                xrcd = <XRCD>init_attr.xrcd
+                xrcd.add_ref(self)
+                self.xrcd = xrcd
         else:
             self._create_qp(creator, init_attr)
             pd = <PD>creator
