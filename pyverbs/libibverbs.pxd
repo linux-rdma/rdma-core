@@ -349,6 +349,32 @@ cdef extern from 'infiniband/verbs.h':
     cdef struct ibv_xrcd:
         pass
 
+    cdef struct ibv_srq_attr:
+        unsigned int    max_wr
+        unsigned int    max_sge
+        unsigned int    srq_limit
+
+    cdef struct ibv_srq_init_attr:
+        void            *srq_context
+        ibv_srq_attr    attr
+
+    cdef struct ibv_srq_init_attr_ex:
+        void            *srq_context
+        ibv_srq_attr    attr
+        unsigned int    comp_mask
+        ibv_srq_type    srq_type
+        ibv_pd          *pd
+        ibv_xrcd        *xrcd
+        ibv_cq          *cq
+        ibv_tm_caps      tm_cap
+
+    cdef struct ibv_srq:
+        ibv_context     *context
+        void            *srq_context
+        ibv_pd          *pd
+        unsigned int    handle
+        unsigned int    events_completed
+
     cdef struct ibv_rwq_ind_table:
         pass
 
@@ -498,3 +524,12 @@ cdef extern from 'infiniband/verbs.h':
     ibv_xrcd *ibv_open_xrcd(ibv_context *context,
                             ibv_xrcd_init_attr *xrcd_init_attr)
     int ibv_close_xrcd(ibv_xrcd *xrcd)
+    ibv_srq *ibv_create_srq(ibv_pd *pd, ibv_srq_init_attr *srq_init_attr)
+    ibv_srq *ibv_create_srq_ex(ibv_context *context,
+                               ibv_srq_init_attr_ex *srq_init_attr)
+    int ibv_modify_srq(ibv_srq *srq, ibv_srq_attr *srq_attr, int srq_attr_mask)
+    int ibv_query_srq(ibv_srq *srq, ibv_srq_attr *srq_attr)
+    int ibv_get_srq_num(ibv_srq *srq, unsigned int *srq_num)
+    int ibv_destroy_srq(ibv_srq *srq)
+    int ibv_post_srq_recv(ibv_srq *srq, ibv_recv_wr *recv_wr,
+                          ibv_recv_wr **bad_recv_wr)

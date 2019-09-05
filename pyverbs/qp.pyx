@@ -12,6 +12,7 @@ from pyverbs.device cimport Context
 from pyverbs.cq cimport CQ, CQEX
 cimport pyverbs.libibverbs as v
 from pyverbs.xrcd cimport XRCD
+from pyverbs.srq cimport SRQ
 from pyverbs.pd cimport PD
 
 
@@ -86,7 +87,7 @@ cdef class QPCap(PyverbsObject):
 cdef class QPInitAttr(PyverbsObject):
     def __cinit__(self, qp_type=e.IBV_QPT_UD, qp_context=None,
                   PyverbsObject scq=None, PyverbsObject rcq=None,
-                  object srq=None, QPCap cap=None, sq_sig_all=1):
+                  SRQ srq=None, QPCap cap=None, sq_sig_all=1):
         """
         Initializes a QpInitAttr object representing ibv_qp_init_attr struct.
         Note that SRQ object is not yet supported in pyverbs so can't be passed
@@ -95,7 +96,7 @@ cdef class QPInitAttr(PyverbsObject):
         :param qp_context: Associated QP context
         :param scq: Send CQ to be used for this QP
         :param rcq: Receive CQ to be used for this QP
-        :param srq: Not yet supported
+        :param srq: Shared receive queue to be used as RQ in QP
         :param cap: A QPCap object
         :param sq_sig_all: If set, each send WR will generate a completion
                            entry
@@ -122,10 +123,10 @@ cdef class QPInitAttr(PyverbsObject):
                 raise PyverbsUserError('Expected CQ/CQEX, got {t}'.\
                                        format(t=type(rcq)))
         self.rcq = rcq
-
-        self.attr.srq = NULL  # Until SRQ support is added
         self.attr.qp_type = qp_type
         self.attr.sq_sig_all = sq_sig_all
+        self.srq = srq
+        self.attr.srq = srq.srq if srq else NULL
 
     @property
     def send_cq(self):
@@ -137,6 +138,14 @@ cdef class QPInitAttr(PyverbsObject):
         elif type(val) is CQEX:
             self.attr.send_cq = (<CQEX>val).ibv_cq
         self.scq = val
+
+    @property
+    def srq(self):
+        return self.srq
+    @srq.setter
+    def srq(self, SRQ val):
+        self.attr.srq = <v.ibv_srq*>val.srq
+        self.srq = val
 
     @property
     def recv_cq(self):
@@ -193,7 +202,7 @@ cdef class QPInitAttr(PyverbsObject):
 cdef class QPInitAttrEx(PyverbsObject):
     def __cinit__(self, qp_type=e.IBV_QPT_UD, qp_context=None,
                   PyverbsObject scq=None, PyverbsObject rcq=None,
-                  object srq=None, QPCap cap=None, sq_sig_all=0, comp_mask=0,
+                  SRQ srq=None, QPCap cap=None, sq_sig_all=0, comp_mask=0,
                   PD pd=None, XRCD xrcd=None, create_flags=0,
                   max_tso_header=0, source_qpn=0, object hash_conf=None,
                   object ind_table=None):
@@ -203,7 +212,7 @@ cdef class QPInitAttrEx(PyverbsObject):
         :param qp_context: Associated user context
         :param scq: Send CQ to be used for this QP
         :param rcq: Recv CQ to be used for this QP
-        :param srq: Not yet supported
+        :param srq: Shared receive queue to be used as RQ in QP
         :param cap: A QPCap object
         :param sq_sig_all: If set, each send WR will generate a completion
                            entry
@@ -240,7 +249,8 @@ cdef class QPInitAttrEx(PyverbsObject):
                                        format(t=type(rcq)))
         self.rcq = rcq
 
-        self.attr.srq = NULL  # Until SRQ support is added
+        self.srq = srq
+        self.attr.srq = srq.srq if srq else NULL
         self.xrcd = xrcd
         self.attr.xrcd = xrcd.xrcd if xrcd else NULL
         self.attr.rwq_ind_tbl = NULL  # Until RSS support is added
@@ -326,6 +336,14 @@ cdef class QPInitAttrEx(PyverbsObject):
     def xrcd(self, XRCD val):
         self.attr.xrcd = <v.ibv_xrcd*>val.xrcd
         self.xrcd = val
+
+    @property
+    def srq(self):
+        return self.srq
+    @srq.setter
+    def srq(self, SRQ val):
+        self.attr.srq = <v.ibv_srq*>val.srq
+        self.srq = val
 
     @property
     def create_flags(self):

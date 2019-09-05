@@ -5,6 +5,7 @@ import weakref
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.device cimport Context
+from pyverbs.srq cimport SRQ
 from pyverbs.qp cimport QP
 
 cdef extern from 'errno.h':
@@ -53,6 +54,7 @@ cdef class XRCD(PyverbsCM):
         self.ctx = context
         context.add_ref(self)
         self.logger.debug('XRCD: Allocated ibv_xrcd')
+        self.srqs = weakref.WeakSet()
         self.qps = weakref.WeakSet()
 
     def __dealloc__(self):
@@ -68,7 +70,7 @@ cdef class XRCD(PyverbsCM):
         :return: None
         """
         self.logger.debug('Closing XRCD')
-        self.close_weakrefs([self.qps])
+        self.close_weakrefs([self.qps, self.srqs])
         # XRCD may be deleted directly or indirectly by closing its context,
         # which leaves the Python XRCD object without the underlying C object,
         # so during destruction, need to check whether or not the C object
@@ -83,5 +85,7 @@ cdef class XRCD(PyverbsCM):
     cdef add_ref(self, obj):
         if isinstance(obj, QP):
             self.qps.add(obj)
+        elif isinstance(obj, SRQ):
+            self.srqs.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
