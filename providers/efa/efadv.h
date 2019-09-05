@@ -42,7 +42,9 @@ struct efadv_device_attr {
 	uint16_t max_sq_sge;
 	uint16_t max_rq_sge;
 	uint16_t inline_buf_size;
-	uint8_t reserved[2];
+	uint16_t max_wr_rdma_sge;
+	uint32_t max_rdma_size;
+	uint8_t reserved[4];
 };
 
 int efadv_query_device(struct ibv_context *ibvctx,

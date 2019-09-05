@@ -77,6 +77,8 @@ int efa_query_device_ex(struct ibv_context *context,
 	dev->max_rq_wr = resp.max_rq_wr;
 	dev->max_sq_sge = resp.max_sq_sge;
 	dev->max_rq_sge = resp.max_rq_sge;
+	dev->max_rdma_size = resp.max_rdma_size;
+	dev->max_wr_rdma_sge = resp.max_wr_rdma_sge;
 
 	a = &attr->orig_attr;
 	a->max_qp_wr = min_t(int, a->max_qp_wr,
@@ -107,6 +109,11 @@ int efadv_query_device(struct ibv_context *ibvctx,
 	attr->max_sq_sge = dev->max_sq_sge;
 	attr->max_rq_sge = dev->max_rq_sge;
 	attr->inline_buf_size = ctx->inline_buf_size;
+
+	if (vext_field_avail(typeof(*attr), max_rdma_size, inlen)) {
+		attr->max_wr_rdma_sge = dev->max_wr_rdma_sge;
+		attr->max_rdma_size = dev->max_rdma_size;
+	}
 
 	attr->comp_mask = comp_mask_out;
 

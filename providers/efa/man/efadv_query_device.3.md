@@ -36,7 +36,9 @@ struct efadv_device_attr {
 	uint16_t max_sq_sge;
 	uint16_t max_rq_sge;
 	uint16_t inline_buf_size;
-	uint8_t reserved[2];
+	uint16_t max_wr_rdma_sge;
+	uint32_t max_rdma_size;
+	uint8_t reserved[4];
 };
 ```
 
@@ -60,6 +62,13 @@ struct efadv_device_attr {
 
 *inline_buf_size*
 :	Maximum inline buffer size.
+
+*max_wr_rdma_sge*
+:	Maximum Scatter Gather Elements (SGEs) for a single RDMA Work Request
+	(WR).
+
+*max_rdma_size*
+:	Maximum RDMA transfer size in bytes.
 
 # RETURN VALUE
 
