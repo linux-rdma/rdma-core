@@ -16,4 +16,5 @@ cdef class XRCD(PyverbsCM):
     cdef v.ibv_xrcd *xrcd
     cdef Context ctx
     cdef add_ref(self, obj)
+    cdef object srqs
     cdef object qps

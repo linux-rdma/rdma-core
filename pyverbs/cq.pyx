@@ -2,9 +2,11 @@
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.
 import weakref
 
+from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.device cimport Context
+from pyverbs.srq cimport SRQ
 from pyverbs.qp cimport QP
 
 cdef class CompChannel(PyverbsCM):
@@ -90,18 +92,23 @@ cdef class CQ(PyverbsCM):
         self.context = context
         context.add_ref(self)
         self.qps = weakref.WeakSet()
+        self.srqs = weakref.WeakSet()
         self.logger.debug('Created a CQ')
 
     cdef add_ref(self, obj):
         if isinstance(obj, QP):
             self.qps.add(obj)
+        elif isinstance(obj, SRQ):
+            self.srqs.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
 
     def __dealloc__(self):
         self.close()
 
     cpdef close(self):
         self.logger.debug('Closing CQ')
-        self.close_weakrefs([self.qps])
+        self.close_weakrefs([self.qps, self.srqs])
         if self.cq != NULL:
             rc = v.ibv_destroy_cq(self.cq)
             if rc != 0:
@@ -266,17 +273,22 @@ cdef class CQEX(PyverbsCM):
         self.context = context
         context.add_ref(self)
         self.qps = weakref.WeakSet()
+        self.srqs = weakref.WeakSet()
 
     cdef add_ref(self, obj):
         if isinstance(obj, QP):
             self.qps.add(obj)
+        elif isinstance(obj, SRQ):
+            self.srqs.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
 
     def __dealloc__(self):
         self.close()
 
     cpdef close(self):
         self.logger.debug('Closing CQEx')
-        self.close_weakrefs([self.qps])
+        self.close_weakrefs([self.srqs, self.qps])
         if self.cq != NULL:
             rc = v.ibv_destroy_cq(<v.ibv_cq*>self.cq)
             if rc != 0:

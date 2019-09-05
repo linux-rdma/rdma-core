@@ -13,6 +13,7 @@ cdef class QPInitAttr(PyverbsObject):
     cdef v.ibv_qp_init_attr attr
     cdef object scq
     cdef object rcq
+    cdef object srq
 
 cdef class QPInitAttrEx(PyverbsObject):
     cdef v.ibv_qp_init_attr_ex attr
@@ -20,6 +21,7 @@ cdef class QPInitAttrEx(PyverbsObject):
     cdef object rcq
     cdef object _pd
     cdef object xrcd
+    cdef object srq
 
 cdef class QPAttr(PyverbsObject):
     cdef v.ibv_qp_attr attr
