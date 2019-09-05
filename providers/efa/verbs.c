@@ -60,9 +60,9 @@ int efa_query_device_ex(struct ibv_context *context,
 	struct efa_dev *dev = to_efa_dev(context->device);
 	int cmd_supp_uhw = ctx->cmds_supp_udata_mask &
 			   EFA_USER_CMDS_SUPP_UDATA_QUERY_DEVICE;
+	struct ibv_device_attr *a = &attr->orig_attr;
 	struct efa_query_device_ex_resp resp = {};
 	struct ibv_query_device_ex cmd = {};
-	struct ibv_device_attr *a;
 	uint8_t fw_ver[8];
 	int err;
 
@@ -77,8 +77,9 @@ int efa_query_device_ex(struct ibv_context *context,
 	dev->max_rq_wr = resp.max_rq_wr;
 	dev->max_sq_sge = resp.max_sq_sge;
 	dev->max_rq_sge = resp.max_rq_sge;
+	dev->max_rdma_size = resp.max_rdma_size;
+	dev->max_wr_rdma_sge = a->max_sge_rd;
 
-	a = &attr->orig_attr;
 	a->max_qp_wr = min_t(int, a->max_qp_wr,
 			     ctx->max_llq_size / sizeof(struct efa_io_tx_wqe));
 	snprintf(a->fw_ver, sizeof(a->fw_ver), "%u.%u.%u.%u",
@@ -107,6 +108,13 @@ int efadv_query_device(struct ibv_context *ibvctx,
 	attr->max_sq_sge = dev->max_sq_sge;
 	attr->max_rq_sge = dev->max_rq_sge;
 	attr->inline_buf_size = ctx->inline_buf_size;
+
+	if (vext_field_avail(typeof(*attr), max_rdma_size, inlen)) {
+		attr->max_rdma_size = dev->max_rdma_size;
+
+		if (is_rdma_read_cap(dev))
+			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_RDMA_READ;
+	}
 
 	attr->comp_mask = comp_mask_out;
 

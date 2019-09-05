@@ -128,6 +128,8 @@ struct efa_dev {
 	uint32_t max_rq_wr;
 	uint16_t max_sq_sge;
 	uint16_t max_rq_sge;
+	uint32_t max_rdma_size;
+	uint16_t max_wr_rdma_sge;
 };
 
 static inline struct efa_dev *to_efa_dev(struct ibv_device *ibvdev)

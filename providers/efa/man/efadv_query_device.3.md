@@ -37,6 +37,8 @@ struct efadv_device_attr {
 	uint16_t max_rq_sge;
 	uint16_t inline_buf_size;
 	uint8_t reserved[2];
+	uint32_t device_caps;
+	uint32_t max_rdma_size;
 };
 ```
 
@@ -60,6 +62,15 @@ struct efadv_device_attr {
 
 *inline_buf_size*
 :	Maximum inline buffer size.
+
+*device_caps*
+:	Bitmask of device capabilities:
+
+	EFADV_DEVICE_ATTR_CAPS_RDMA_READ:
+		RDMA read is supported.
+
+*max_rdma_size*
+:	Maximum RDMA transfer size in bytes.
 
 # RETURN VALUE
 
