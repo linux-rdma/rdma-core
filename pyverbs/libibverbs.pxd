@@ -341,6 +341,11 @@ cdef extern from 'infiniband/verbs.h':
         ibv_qp_type     qp_type
         int             sq_sig_all
 
+    cdef struct ibv_xrcd_init_attr:
+        uint32_t comp_mask
+        int      fd
+        int      oflags
+
     cdef struct ibv_xrcd:
         pass
 
@@ -490,3 +495,6 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_destroy_qp(ibv_qp *qp)
     int ibv_post_recv(ibv_qp *qp, ibv_recv_wr *wr, ibv_recv_wr **bad_wr)
     int ibv_post_send(ibv_qp *qp, ibv_send_wr *wr, ibv_send_wr **bad_wr)
+    ibv_xrcd *ibv_open_xrcd(ibv_context *context,
+                            ibv_xrcd_init_attr *xrcd_init_attr)
+    int ibv_close_xrcd(ibv_xrcd *xrcd)
