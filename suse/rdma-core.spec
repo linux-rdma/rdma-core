@@ -290,6 +290,7 @@ library knows how to talk directly to the ibacm daemon to retrieve data.
 %package -n infiniband-diags
 Summary:        InfiniBand Diagnostic Tools
 Group:          Productivity/Networking/Diagnostic
+Requires:       perl = %{perl_version}
 
 %description -n infiniband-diags
 diags provides IB diagnostic programs and scripts needed to diagnose an
