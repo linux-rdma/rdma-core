@@ -36,7 +36,7 @@ Group:          Productivity/Networking/Other
 %define mlx4_so_major   1
 %define mlx5_so_major   1
 
-%define  efa_lname    libefa-%{efa_so_major}
+%define  efa_lname    libefa%{efa_so_major}
 %define  verbs_lname  libibverbs%{verbs_so_major}
 %define  rdmacm_lname librdmacm%{rdmacm_so_major}
 %define  umad_lname   libibumad%{umad_so_major}
