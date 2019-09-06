@@ -62,11 +62,11 @@ BuildRequires:  gcc
 BuildRequires:  pandoc
 BuildRequires:  pkgconfig
 BuildRequires:  python3-base
+BuildRequires:  python3-docutils
 BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(systemd)
 BuildRequires:  pkgconfig(udev)
-BuildRequires:  /usr/bin/rst2man
 %if %{with_pyverbs}
 BuildRequires:  python3-Cython
 BuildRequires:  python3-devel
