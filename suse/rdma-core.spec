@@ -698,7 +698,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %files -n infiniband-diags
 %defattr(-, root, root)
-%config %{_sysconfdir}/infiniband-diags/error_thresholds
 %dir %{_sysconfdir}/infiniband-diags
 %config(noreplace) %{_sysconfdir}/infiniband-diags/*
 %{_sbindir}/ibaddr
