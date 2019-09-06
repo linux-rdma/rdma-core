@@ -165,9 +165,11 @@ BuildRequires:  pkgconfig(libnl-3.0)
 BuildRequires:  pkgconfig(libnl-route-3.0)
 %endif
 
-Requires: infiniband-diags = %{version}-%{release}
-Provides: infiniband-diags-devel = %{version}-%{release}
-Obsoletes: infiniband-diags-devel < %{version}-%{release}
+Requires:       infiniband-diags = %{version}-%{release}
+Provides:       infiniband-diags-devel = %{version}-%{release}
+Obsoletes:      infiniband-diags-devel < %{version}-%{release}
+Provides:       libibmad-devel = %{version}-%{release}
+Obsoletes:      libibmad-devel < %{version}
 
 %description devel
 RDMA core development libraries and headers.
