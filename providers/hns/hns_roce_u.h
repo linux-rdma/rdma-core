@@ -69,6 +69,9 @@
 #define HNS_ROCE_TPTR_OFFSET		0x1000
 #define HNS_ROCE_STATIC_RATE		3 /* Gbps */
 
+#define HNS_ROCE_ADDRESS_MASK		0xFFFFFFFF
+#define HNS_ROCE_ADDRESS_SHIFT		32
+
 #define roce_get_field(origin, mask, shift) \
 	(((le32toh(origin)) & (mask)) >> (shift))
 
@@ -203,6 +206,13 @@ struct hns_roce_wq {
 	unsigned int			wqe_shift;
 	unsigned int			shift; /* wq size is 2^shift */
 	int				offset;
+};
+
+/* record the result of sge process */
+struct hns_roce_sge_info {
+	unsigned int		valid_num; /* sge length is not 0 */
+	unsigned int		start_idx; /* start position of extend sge */
+	unsigned int		total_len; /* total length of valid sges */
 };
 
 struct hns_roce_sge_ex {
