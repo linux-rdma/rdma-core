@@ -118,13 +118,15 @@ struct ibv_pd *efa_alloc_pd(struct ibv_context *ibvctx)
 	struct efa_alloc_pd_resp resp = {};
 	struct ibv_alloc_pd cmd;
 	struct efa_pd *pd;
+	int err;
 
 	pd = calloc(1, sizeof(*pd));
 	if (!pd)
 		return NULL;
 
-	if (ibv_cmd_alloc_pd(ibvctx, &pd->ibvpd, &cmd, sizeof(cmd),
-			     &resp.ibv_resp, sizeof(resp)))
+	err = ibv_cmd_alloc_pd(ibvctx, &pd->ibvpd, &cmd, sizeof(cmd),
+			       &resp.ibv_resp, sizeof(resp));
+	if (err)
 		goto out;
 
 	pd->pdn = resp.pdn;
@@ -133,6 +135,7 @@ struct ibv_pd *efa_alloc_pd(struct ibv_context *ibvctx)
 
 out:
 	free(pd);
+	errno = err;
 	return NULL;
 }
 
@@ -155,14 +158,17 @@ struct ibv_mr *efa_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
 	struct ib_uverbs_reg_mr_resp resp;
 	struct ibv_reg_mr cmd;
 	struct efa_mr *mr;
+	int err;
 
 	mr = calloc(1, sizeof(*mr));
 	if (!mr)
 		return NULL;
 
-	if (ibv_cmd_reg_mr(ibvpd, sva, len, hca_va, access, &mr->vmr,
-			   &cmd, sizeof(cmd), &resp, sizeof(resp))) {
+	err = ibv_cmd_reg_mr(ibvpd, sva, len, hca_va, access, &mr->vmr,
+			     &cmd, sizeof(cmd), &resp, sizeof(resp));
+	if (err) {
 		free(mr);
+		errno = err;
 		return NULL;
 	}
 
@@ -222,6 +228,7 @@ struct ibv_cq *efa_create_cq(struct ibv_context *ibvctx, int ncqe,
 	int sub_buf_size;
 	int sub_cq_size;
 	uint8_t *buf;
+	int err;
 	int i;
 
 	cq = calloc(1, sizeof(*cq) +
@@ -234,10 +241,13 @@ struct ibv_cq *efa_create_cq(struct ibv_context *ibvctx, int ncqe,
 	cmd.cq_entry_size = ctx->cqe_size;
 
 	ncqe = roundup_pow_of_two(ncqe);
-	if (ibv_cmd_create_cq(ibvctx, ncqe, channel, vec,
-			      &cq->ibvcq, &cmd.ibv_cmd, sizeof(cmd),
-			      &resp.ibv_resp, sizeof(resp)))
+	err = ibv_cmd_create_cq(ibvctx, ncqe, channel, vec,
+				&cq->ibvcq, &cmd.ibv_cmd, sizeof(cmd),
+				&resp.ibv_resp, sizeof(resp));
+	if (err) {
+		errno = err;
 		goto err_free_cq;
+	}
 
 	sub_cq_size = cq->ibvcq.cqe;
 	cq->cqn = resp.cq_idx;
@@ -353,7 +363,7 @@ static int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 		return ENOMEM;
 
 	qpn = cqe->qp_num;
-	if (!*cur_qp || qpn != (*cur_qp)->ibvqp.qp_num) {
+	if (!*cur_qp || qpn != (*cur_qp)->verbs_qp.qp.qp_num) {
 		/* We do not have to take the QP table lock here,
 		 * because CQs will be locked while QPs are removed
 		 * from the table.
@@ -494,6 +504,7 @@ static void efa_sq_terminate(struct efa_qp *qp)
 	db_aligned = (void *)((uintptr_t)qp->sq.db & ~(qp->page_size - 1));
 	munmap(db_aligned, qp->page_size);
 	munmap(qp->sq.desc - qp->sq.desc_offset, qp->sq.desc_ring_mmap_size);
+	free(qp->sq.local_queue);
 
 	efa_wq_terminate(&qp->sq.wq);
 }
@@ -517,18 +528,28 @@ static int efa_sq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 					   qp->page_size);
 	qp->sq.max_inline_data = resp->ibv_resp.max_inline_data;
 
-	qp->sq.desc = mmap(NULL, qp->sq.desc_ring_mmap_size, PROT_WRITE,
-			   MAP_SHARED, qp->ibvqp.context->cmd_fd,
-			   resp->llq_desc_mmap_key);
-	if (qp->sq.desc == MAP_FAILED)
+	qp->sq.local_queue = malloc(desc_ring_size);
+	if (!qp->sq.local_queue) {
+		err = ENOMEM;
 		goto err_terminate_wq;
+	}
+
+	qp->sq.desc = mmap(NULL, qp->sq.desc_ring_mmap_size, PROT_WRITE,
+			   MAP_SHARED, qp->verbs_qp.qp.context->cmd_fd,
+			   resp->llq_desc_mmap_key);
+	if (qp->sq.desc == MAP_FAILED) {
+		err = errno;
+		goto err_free_local_queue;
+	}
 
 	qp->sq.desc += qp->sq.desc_offset;
 
 	db_base = mmap(NULL, qp->page_size, PROT_WRITE, MAP_SHARED,
-		       qp->ibvqp.context->cmd_fd, resp->sq_db_mmap_key);
-	if (db_base == MAP_FAILED)
+		       qp->verbs_qp.qp.context->cmd_fd, resp->sq_db_mmap_key);
+	if (db_base == MAP_FAILED) {
+		err = errno;
 		goto err_unmap_desc_ring;
+	}
 
 	qp->sq.db = (uint32_t *)(db_base + resp->sq_db_offset);
 	qp->sq.sub_cq_idx = resp->send_sub_cq_idx;
@@ -537,9 +558,11 @@ static int efa_sq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 
 err_unmap_desc_ring:
 	munmap(qp->sq.desc - qp->sq.desc_offset, qp->sq.desc_ring_mmap_size);
+err_free_local_queue:
+	free(qp->sq.local_queue);
 err_terminate_wq:
 	efa_wq_terminate(&qp->sq.wq);
-	return EINVAL;
+	return err;
 }
 
 static void efa_rq_terminate(struct efa_qp *qp)
@@ -570,14 +593,18 @@ static int efa_rq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 
 	qp->rq.buf_size = resp->rq_mmap_size;
 	qp->rq.buf = mmap(NULL, qp->rq.buf_size, PROT_WRITE, MAP_SHARED,
-			  qp->ibvqp.context->cmd_fd, resp->rq_mmap_key);
-	if (qp->rq.buf == MAP_FAILED)
+			  qp->verbs_qp.qp.context->cmd_fd, resp->rq_mmap_key);
+	if (qp->rq.buf == MAP_FAILED) {
+		err = errno;
 		goto err_terminate_wq;
+	}
 
 	db_base = mmap(NULL, qp->page_size, PROT_WRITE, MAP_SHARED,
-		       qp->ibvqp.context->cmd_fd, resp->rq_db_mmap_key);
-	if (db_base == MAP_FAILED)
+		       qp->verbs_qp.qp.context->cmd_fd, resp->rq_db_mmap_key);
+	if (db_base == MAP_FAILED) {
+		err = errno;
 		goto err_unmap_rq_buf;
+	}
 
 	qp->rq.db = (uint32_t *)(db_base + resp->rq_db_offset);
 	qp->rq.sub_cq_idx = resp->recv_sub_cq_idx;
@@ -588,7 +615,7 @@ err_unmap_rq_buf:
 	munmap(qp->rq.buf, qp->rq.buf_size);
 err_terminate_wq:
 	efa_wq_terminate(&qp->rq.wq);
-	return EINVAL;
+	return err;
 }
 
 static void efa_qp_init_indices(struct efa_qp *qp)
@@ -654,9 +681,32 @@ static void efa_unlock_cqs(struct ibv_qp *ibvqp)
 	}
 }
 
+static void efa_qp_fill_wr_pfns(struct ibv_qp_ex *ibvqpx,
+				struct ibv_qp_init_attr_ex *attr_ex);
+
 static int efa_check_qp_attr(struct efa_dev *dev,
-			     struct ibv_qp_init_attr *attr)
+			     struct ibv_qp_init_attr_ex *attr,
+			     struct efadv_qp_init_attr *efa_attr)
 {
+#define EFA_CREATE_QP_SUPP_ATTR_MASK \
+	(IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)
+
+#define EFA_SUPP_SEND_OPS_MASK IBV_QP_EX_WITH_SEND
+
+	if (attr->qp_type == IBV_QPT_DRIVER &&
+	    efa_attr->driver_qp_type != EFADV_QP_DRIVER_TYPE_SRD)
+		return EOPNOTSUPP;
+
+	if (!check_comp_mask(attr->comp_mask, EFA_CREATE_QP_SUPP_ATTR_MASK))
+		return EOPNOTSUPP;
+
+	if (!(attr->comp_mask & IBV_QP_INIT_ATTR_PD))
+		return EINVAL;
+
+	if ((attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS) &&
+	    !check_comp_mask(attr->send_ops_flags, EFA_SUPP_SEND_OPS_MASK))
+		return EOPNOTSUPP;
+
 	if (!attr->recv_cq || !attr->send_cq)
 		return EINVAL;
 
@@ -667,7 +717,7 @@ static int efa_check_qp_attr(struct efa_dev *dev,
 }
 
 static int efa_check_qp_limits(struct efa_dev *dev,
-			       struct ibv_qp_init_attr *attr)
+			       struct ibv_qp_init_attr_ex *attr)
 {
 	if (attr->cap.max_send_sge > dev->max_sq_sge)
 		return EINVAL;
@@ -684,30 +734,33 @@ static int efa_check_qp_limits(struct efa_dev *dev,
 	return 0;
 }
 
-static struct ibv_qp *create_qp(struct ibv_pd *ibvpd,
-				struct ibv_qp_init_attr *attr,
-				uint32_t driver_qp_type)
+static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
+				struct ibv_qp_init_attr_ex *attr,
+				struct efadv_qp_init_attr *efa_attr)
 {
-	struct efa_context *ctx = to_efa_context(ibvpd->context);
-	struct efa_dev *dev = to_efa_dev(ibvpd->context->device);
+	struct efa_context *ctx = to_efa_context(ibvctx);
+	struct efa_dev *dev = to_efa_dev(ibvctx->device);
 	struct efa_create_qp_resp resp = {};
 	struct efa_create_qp req = {};
 	struct efa_cq *send_cq;
 	struct efa_cq *recv_cq;
+	struct ibv_qp *ibvqp;
 	struct efa_qp *qp;
 	int err;
 
-	err = efa_check_qp_attr(dev, attr);
+	err = efa_check_qp_attr(dev, attr, efa_attr);
 	if (err)
-		return NULL;
+		goto err_out;
 
 	err = efa_check_qp_limits(dev, attr);
 	if (err)
-		return NULL;
+		goto err_out;
 
 	qp = calloc(1, sizeof(*qp));
-	if (!qp)
-		return NULL;
+	if (!qp) {
+		err = ENOMEM;
+		goto err_out;
+	}
 
 	efa_setup_qp(qp, &attr->cap, dev->pg_sz);
 
@@ -719,13 +772,16 @@ static struct ibv_qp *create_qp(struct ibv_pd *ibvpd,
 	req.sq_ring_size = (attr->cap.max_send_wr) *
 		sizeof(struct efa_io_tx_wqe);
 	if (attr->qp_type == IBV_QPT_DRIVER)
-		req.driver_qp_type = driver_qp_type;
+		req.driver_qp_type = efa_attr->driver_qp_type;
 
-	if (ibv_cmd_create_qp(ibvpd, &qp->ibvqp, attr, &req.ibv_cmd,
-			      sizeof(req), &resp.ibv_resp, sizeof(resp)))
+	err = ibv_cmd_create_qp_ex(ibvctx, &qp->verbs_qp, sizeof(qp->verbs_qp),
+				   attr, &req.ibv_cmd, sizeof(req),
+				   &resp.ibv_resp, sizeof(resp));
+	if (err)
 		goto err_free_qp;
 
-	qp->ibvqp.state = IBV_QPS_RESET;
+	ibvqp = &qp->verbs_qp.qp;
+	ibvqp->state = IBV_QPS_RESET;
 	qp->sq_sig_all = attr->sq_sig_all;
 
 	err = efa_rq_initialize(qp, &resp);
@@ -737,7 +793,7 @@ static struct ibv_qp *create_qp(struct ibv_pd *ibvpd,
 		goto err_terminate_rq;
 
 	pthread_spin_lock(&ctx->qp_table_lock);
-	ctx->qp_table[qp->ibvqp.qp_num] = qp;
+	ctx->qp_table[ibvqp->qp_num] = qp;
 	pthread_spin_unlock(&ctx->qp_table_lock);
 
 	if (attr->send_cq) {
@@ -756,35 +812,105 @@ static struct ibv_qp *create_qp(struct ibv_pd *ibvpd,
 		pthread_spin_unlock(&recv_cq->lock);
 	}
 
-	return &qp->ibvqp;
+	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS) {
+		efa_qp_fill_wr_pfns(&qp->verbs_qp.qp_ex, attr);
+		qp->verbs_qp.comp_mask |= VERBS_QP_EX;
+	}
+
+	return ibvqp;
 
 err_terminate_rq:
 	efa_rq_terminate(qp);
 err_destroy_qp:
-	ibv_cmd_destroy_qp(&qp->ibvqp);
+	ibv_cmd_destroy_qp(ibvqp);
 err_free_qp:
 	free(qp);
+err_out:
+	errno = err;
 	return NULL;
 }
 
 struct ibv_qp *efa_create_qp(struct ibv_pd *ibvpd,
 			     struct ibv_qp_init_attr *attr)
 {
-	if (attr->qp_type != IBV_QPT_UD)
-		return NULL;
+	struct ibv_qp_init_attr_ex attr_ex = {};
+	struct ibv_qp *ibvqp;
 
-	return create_qp(ibvpd, attr, 0);
+	if (attr->qp_type != IBV_QPT_UD) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	memcpy(&attr_ex, attr, sizeof(*attr));
+	attr_ex.comp_mask = IBV_QP_INIT_ATTR_PD;
+	attr_ex.pd = ibvpd;
+
+	ibvqp = create_qp(ibvpd->context, &attr_ex, NULL);
+	if (ibvqp)
+		memcpy(attr, &attr_ex, sizeof(*attr));
+
+	return ibvqp;
+}
+
+struct ibv_qp *efa_create_qp_ex(struct ibv_context *ibvctx,
+				struct ibv_qp_init_attr_ex *attr_ex)
+{
+	if (attr_ex->qp_type != IBV_QPT_UD) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	return create_qp(ibvctx, attr_ex, NULL);
 }
 
 struct ibv_qp *efadv_create_driver_qp(struct ibv_pd *ibvpd,
 				      struct ibv_qp_init_attr *attr,
 				      uint32_t driver_qp_type)
 {
-	if (!is_efa_dev(ibvpd->context->device) ||
-	    attr->qp_type != IBV_QPT_DRIVER)
-		return NULL;
+	struct ibv_qp_init_attr_ex attr_ex = {};
+	struct efadv_qp_init_attr efa_attr = {};
+	struct ibv_qp *ibvqp;
 
-	return create_qp(ibvpd, attr, driver_qp_type);
+	if (!is_efa_dev(ibvpd->context->device)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (attr->qp_type != IBV_QPT_DRIVER) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	memcpy(&attr_ex, attr, sizeof(*attr));
+	attr_ex.comp_mask = IBV_QP_INIT_ATTR_PD;
+	attr_ex.pd = ibvpd;
+	efa_attr.driver_qp_type = driver_qp_type;
+
+	ibvqp = create_qp(ibvpd->context, &attr_ex, &efa_attr);
+	if (ibvqp)
+		memcpy(attr, &attr_ex, sizeof(*attr));
+
+	return ibvqp;
+}
+
+struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
+				  struct ibv_qp_init_attr_ex *attr_ex,
+				  struct efadv_qp_init_attr *efa_attr,
+				  uint32_t inlen)
+{
+	if (!is_efa_dev(ibvctx->device)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (attr_ex->qp_type != IBV_QPT_DRIVER ||
+	    !vext_field_avail(struct efadv_qp_init_attr,
+			      driver_qp_type, inlen)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	return create_qp(ibvctx, attr_ex, efa_attr);
 }
 
 int efa_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
@@ -799,9 +925,9 @@ int efa_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 		return err;
 
 	if (attr_mask & IBV_QP_STATE) {
-		qp->ibvqp.state = attr->qp_state;
+		qp->verbs_qp.qp.state = attr->qp_state;
 		/* transition to reset */
-		if (qp->ibvqp.state == IBV_QPS_RESET)
+		if (qp->verbs_qp.qp.state == IBV_QPS_RESET)
 			efa_qp_init_indices(qp);
 	}
 
@@ -850,28 +976,33 @@ int efa_destroy_qp(struct ibv_qp *ibvqp)
 	return 0;
 }
 
-static void efa_post_send_sgl(struct ibv_send_wr *wr,
-			      struct efa_io_tx_wqe *tx_wqe,
+static void efa_set_tx_buf(struct efa_io_tx_buf_desc *tx_buf,
+			   uint64_t addr, uint32_t lkey,
+			   uint32_t length)
+{
+	tx_buf->length = length;
+	tx_buf->lkey = lkey;
+	tx_buf->buf_addr_lo = addr & 0xffffffff;
+	tx_buf->buf_addr_hi = addr >> 32;
+}
+
+static void efa_post_send_sgl(struct efa_io_tx_wqe *tx_wqe,
+			      const struct ibv_sge *sg_list,
+			      int num_sge,
 			      int *desc_size)
 {
 	struct efa_io_tx_buf_desc *tx_buf;
-	struct ibv_sge *sge;
-	uintptr_t addr;
+	const struct ibv_sge *sge;
 	size_t i;
 
-	for (i = 0; i < wr->num_sge; i++) {
-		sge = &wr->sg_list[i];
+	for (i = 0; i < num_sge; i++) {
+		sge = &sg_list[i];
 		tx_buf = &tx_wqe->data.sgl[i];
-		addr = sge->addr;
-
-		/* Set TX buffer desc from SGE */
-		tx_buf->length = sge->length;
-		tx_buf->lkey = sge->lkey;
-		tx_buf->buf_addr_lo = addr & 0xffffffff;
-		tx_buf->buf_addr_hi = (uint64_t)addr >> 32;
+		efa_set_tx_buf(tx_buf, sge->addr, sge->lkey, sge->length);
 	}
 
-	*desc_size += sizeof(*tx_buf) * wr->num_sge;
+	if (desc_size)
+		*desc_size += sizeof(*tx_buf) * num_sge;
 }
 
 static void efa_post_send_inline_data(const struct ibv_send_wr *wr,
@@ -897,41 +1028,79 @@ static void efa_post_send_inline_data(const struct ibv_send_wr *wr,
 	tx_wqe->common.length = total_length;
 }
 
-static size_t efa_sge_total_bytes(const struct ibv_send_wr *wr)
+static size_t efa_sge_total_bytes(const struct ibv_sge *sg_list, int num_sge)
 {
 	size_t bytes = 0;
 	size_t i;
 
-	for (i = 0; i < wr->num_sge; i++)
-		bytes += wr->sg_list[i].length;
+	for (i = 0; i < num_sge; i++)
+		bytes += sg_list[i].length;
 
 	return bytes;
 }
 
-static ssize_t efa_post_send_validate(struct efa_qp *qp,
-				      const struct ibv_send_wr *wr)
+static size_t efa_buf_list_total_bytes(const struct ibv_data_buf *buf_list,
+				       size_t num_buf)
 {
-	if (unlikely(qp->ibvqp.state != IBV_QPS_RTS &&
-		     qp->ibvqp.state != IBV_QPS_SQD))
-		return EINVAL;
+	size_t bytes = 0;
+	size_t i;
 
-	if (unlikely(wr->opcode != IBV_WR_SEND))
+	for (i = 0; i < num_buf; i++)
+		bytes += buf_list[i].length;
+
+	return bytes;
+}
+
+static void efa_sq_advance_post_idx(struct efa_qp *qp)
+{
+	qp->sq.wq.wqe_posted++;
+	qp->sq.wq.desc_idx++;
+
+	if (!(qp->sq.wq.desc_idx & qp->sq.wq.desc_mask))
+		qp->sq.wq.phase++;
+}
+
+static uint32_t efa_wq_get_next_wrid_idx(struct efa_wq *wq, uint64_t wr_id)
+{
+	uint32_t wrid_idx;
+
+	/* Get the next wrid to be used from the index pool */
+	wrid_idx = wq->wrid_idx_pool[wq->wrid_idx_pool_next];
+	wq->wrid[wrid_idx] = wr_id;
+
+	/* Will never overlap, as validate function succeeded */
+	wq->wrid_idx_pool_next++;
+	assert(wq->wrid_idx_pool_next <= wq->wqe_cnt);
+
+	return wrid_idx;
+}
+
+static void efa_set_common_ctrl_flags(struct efa_io_tx_meta_desc *desc,
+				      struct efa_qp *qp,
+				      enum efa_io_send_op_type op_type)
+{
+	set_efa_io_tx_meta_desc_meta_desc(desc, 1);
+	set_efa_io_tx_meta_desc_op_type(desc, op_type);
+	set_efa_io_tx_meta_desc_phase(desc, qp->sq.wq.phase);
+	set_efa_io_tx_meta_desc_first(desc, 1);
+	set_efa_io_tx_meta_desc_last(desc, 1);
+	set_efa_io_tx_meta_desc_comp_req(desc, 1);
+}
+
+static ssize_t efa_post_send_validate(struct efa_qp *qp,
+				      unsigned int wr_flags)
+{
+	if (unlikely(qp->verbs_qp.qp.state != IBV_QPS_RTS &&
+		     qp->verbs_qp.qp.state != IBV_QPS_SQD))
 		return EINVAL;
 
 	if (unlikely(!qp->scq))
 		return EINVAL;
 
-	if (unlikely(wr->num_sge > qp->sq.wq.max_sge))
+	if (unlikely(!(wr_flags & IBV_SEND_SIGNALED) && !qp->sq_sig_all))
 		return EINVAL;
 
-	if (unlikely(!(wr->send_flags & IBV_SEND_SIGNALED) && !qp->sq_sig_all))
-		return EINVAL;
-
-	if (unlikely(wr->send_flags & ~(IBV_SEND_SIGNALED | IBV_SEND_INLINE)))
-		return EINVAL;
-
-	if (unlikely(wr->send_flags & IBV_SEND_INLINE &&
-		     efa_sge_total_bytes(wr) > qp->sq.max_inline_data))
+	if (unlikely(wr_flags & ~(IBV_SEND_SIGNALED | IBV_SEND_INLINE)))
 		return EINVAL;
 
 	if (unlikely(qp->sq.wq.wqe_posted - qp->sq.wq.wqe_completed ==
@@ -941,13 +1110,37 @@ static ssize_t efa_post_send_validate(struct efa_qp *qp,
 	return 0;
 }
 
+static ssize_t efa_post_send_validate_wr(struct efa_qp *qp,
+					 const struct ibv_send_wr *wr)
+{
+	ssize_t err;
+
+	err = efa_post_send_validate(qp, wr->send_flags);
+	if (unlikely(err))
+		return err;
+
+	if (unlikely(wr->opcode != IBV_WR_SEND))
+		return EINVAL;
+
+	if (wr->send_flags & IBV_SEND_INLINE) {
+		if (unlikely(efa_sge_total_bytes(wr->sg_list, wr->num_sge) >
+			     qp->sq.max_inline_data))
+			return EINVAL;
+	} else {
+		if (unlikely(wr->num_sge > qp->sq.wq.max_sge))
+			return EINVAL;
+	}
+
+	return 0;
+}
+
 int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		  struct ibv_send_wr **bad)
 {
 	struct efa_io_tx_meta_desc *meta_desc;
 	struct efa_qp *qp = to_efa_qp(ibvqp);
-	uint32_t sq_desc_offset, wrid_idx;
 	struct efa_io_tx_wqe tx_wqe;
+	uint32_t sq_desc_offset;
 	struct efa_ah *ah;
 	int desc_size;
 	int err = 0;
@@ -956,7 +1149,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	while (wr) {
 		desc_size = sizeof(tx_wqe.common) + sizeof(tx_wqe.u);
 
-		err = efa_post_send_validate(qp, wr);
+		err = efa_post_send_validate_wr(qp, wr);
 		if (err) {
 			*bad = wr;
 			goto ring_db;
@@ -970,27 +1163,14 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			efa_post_send_inline_data(wr, &tx_wqe, &desc_size);
 		} else {
 			meta_desc->length = wr->num_sge;
-			efa_post_send_sgl(wr, &tx_wqe, &desc_size);
+			efa_post_send_sgl(&tx_wqe, wr->sg_list, wr->num_sge,
+					  &desc_size);
 		}
 
-		/* Get the next wrid to be used from the index pool */
-		wrid_idx = qp->sq.wq.wrid_idx_pool[qp->sq.wq.wrid_idx_pool_next];
-		qp->sq.wq.wrid[wrid_idx] = wr->wr_id;
-		meta_desc->req_id = wrid_idx;
-		qp->sq.wq.wqe_posted++;
-
-		/* Will never overlap, as efa_post_send_validate() succeeded */
-		qp->sq.wq.wrid_idx_pool_next++;
-		assert(qp->sq.wq.wrid_idx_pool_next <= qp->sq.wq.wqe_cnt);
-
 		/* Set rest of the descriptor fields */
-		set_efa_io_tx_meta_desc_meta_desc(meta_desc, 1);
-		set_efa_io_tx_meta_desc_op_type(meta_desc, EFA_IO_SEND);
-		set_efa_io_tx_meta_desc_phase(meta_desc, qp->sq.wq.phase);
-		set_efa_io_tx_meta_desc_first(meta_desc, 1);
-		set_efa_io_tx_meta_desc_last(meta_desc, 1);
+		efa_set_common_ctrl_flags(meta_desc, qp, EFA_IO_SEND);
+		meta_desc->req_id = efa_wq_get_next_wrid_idx(&qp->sq.wq, wr->wr_id);
 		meta_desc->dest_qp_num = wr->wr.ud.remote_qpn;
-		set_efa_io_tx_meta_desc_comp_req(meta_desc, 1);
 		meta_desc->ah = ah->efa_ah;
 		tx_wqe.u.ud.qkey = wr->wr.ud.remote_qkey;
 
@@ -1000,9 +1180,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		memcpy(qp->sq.desc + sq_desc_offset, &tx_wqe, desc_size);
 
 		/* advance index and change phase */
-		qp->sq.wq.desc_idx++;
-		if (!(qp->sq.wq.desc_idx & qp->sq.wq.desc_mask))
-			qp->sq.wq.phase++;
+		efa_sq_advance_post_idx(qp);
 
 		wr = wr->next;
 	}
@@ -1015,10 +1193,231 @@ ring_db:
 	return err;
 }
 
+static int efa_send_wr_common(struct ibv_qp_ex *ibvqpx,
+			      enum efa_io_send_op_type op_type)
+{
+	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
+	struct efa_io_tx_meta_desc *meta_desc;
+	int err;
+
+	if (unlikely(qp->wr_session_err))
+		return qp->wr_session_err;
+
+	err = efa_post_send_validate(qp, ibvqpx->wr_flags);
+	if (unlikely(err)) {
+		qp->wr_session_err = err;
+		return err;
+	}
+
+	qp->sq.curr_tx_wqe = (struct efa_io_tx_wqe *)qp->sq.local_queue +
+			     qp->sq.num_wqe_pending;
+	memset(qp->sq.curr_tx_wqe, 0, sizeof(*qp->sq.curr_tx_wqe));
+
+	meta_desc = &qp->sq.curr_tx_wqe->common;
+	efa_set_common_ctrl_flags(meta_desc, qp, op_type);
+	meta_desc->req_id = efa_wq_get_next_wrid_idx(&qp->sq.wq, ibvqpx->wr_id);
+
+	/* advance index and change phase */
+	efa_sq_advance_post_idx(qp);
+	qp->sq.num_wqe_pending++;
+
+	return 0;
+}
+
+static void efa_send_wr_send(struct ibv_qp_ex *ibvqpx)
+{
+	efa_send_wr_common(ibvqpx, EFA_IO_SEND);
+}
+
+static void efa_send_wr_set_sge(struct ibv_qp_ex *ibvqpx, uint32_t lkey,
+				uint64_t addr, uint32_t length)
+{
+	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
+	struct efa_io_tx_buf_desc *buf;
+	struct efa_io_tx_wqe *tx_wqe;
+
+	if (unlikely(qp->wr_session_err))
+		return;
+
+	tx_wqe = qp->sq.curr_tx_wqe;
+	tx_wqe->common.length = 1;
+	buf = &tx_wqe->data.sgl[0];
+	efa_set_tx_buf(buf, addr, lkey, length);
+}
+
+static void efa_send_wr_set_sge_list(struct ibv_qp_ex *ibvqpx, size_t num_sge,
+				     const struct ibv_sge *sg_list)
+{
+	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
+	struct efa_io_tx_wqe *tx_wqe;
+
+	if (unlikely(qp->wr_session_err))
+		return;
+
+	if (unlikely(num_sge > qp->sq.wq.max_sge)) {
+		qp->wr_session_err = EINVAL;
+		return;
+	}
+
+	tx_wqe = qp->sq.curr_tx_wqe;
+	tx_wqe->common.length = num_sge;
+	efa_post_send_sgl(tx_wqe, sg_list, num_sge, NULL);
+}
+
+static void efa_send_wr_set_inline_data(struct ibv_qp_ex *ibvqpx, void *addr,
+					size_t length)
+{
+	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
+	struct efa_io_tx_wqe *tx_wqe = qp->sq.curr_tx_wqe;
+
+	if (unlikely(qp->wr_session_err))
+		return;
+
+	if (unlikely(length > qp->sq.max_inline_data)) {
+		qp->wr_session_err = EINVAL;
+		return;
+	}
+
+	set_efa_io_tx_meta_desc_inline_msg(&tx_wqe->common, 1);
+	memcpy(tx_wqe->data.inline_data, addr, length);
+	tx_wqe->common.length = length;
+}
+
+static void
+efa_send_wr_set_inline_data_list(struct ibv_qp_ex *ibvqpx,
+				 size_t num_buf,
+				 const struct ibv_data_buf *buf_list)
+{
+	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
+	struct efa_io_tx_wqe *tx_wqe = qp->sq.curr_tx_wqe;
+	uint32_t total_length = 0;
+	uint32_t length;
+	size_t i;
+
+	if (unlikely(qp->wr_session_err))
+		return;
+
+	if (unlikely(efa_buf_list_total_bytes(buf_list, num_buf) >
+		     qp->sq.max_inline_data)) {
+		qp->wr_session_err = EINVAL;
+		return;
+	}
+
+	for (i = 0; i < num_buf; i++) {
+		length = buf_list[i].length;
+
+		memcpy(tx_wqe->data.inline_data + total_length,
+		       buf_list[i].addr, length);
+		total_length += length;
+	}
+
+	set_efa_io_tx_meta_desc_inline_msg(&tx_wqe->common, 1);
+	tx_wqe->common.length = total_length;
+}
+
+static void efa_send_wr_set_addr(struct ibv_qp_ex *ibvqpx,
+				 struct ibv_ah *ibvah,
+				 uint32_t remote_qpn, uint32_t remote_qkey)
+{
+	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
+	struct efa_ah *ah = to_efa_ah(ibvah);
+	struct efa_io_tx_wqe *tx_wqe = qp->sq.curr_tx_wqe;
+
+	if (unlikely(qp->wr_session_err))
+		return;
+
+	tx_wqe->common.dest_qp_num = remote_qpn;
+	tx_wqe->common.ah = ah->efa_ah;
+	tx_wqe->u.ud.qkey = remote_qkey;
+}
+
+static void efa_send_wr_start(struct ibv_qp_ex *ibvqpx)
+{
+	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
+
+	pthread_spin_lock(&qp->sq.wq.wqlock);
+	qp->wr_session_err = 0;
+	qp->sq.num_wqe_pending = 0;
+	qp->sq.phase_rb = qp->sq.wq.phase;
+}
+
+static inline void efa_sq_roll_back(struct efa_qp *qp)
+{
+	qp->sq.wq.wqe_posted -= qp->sq.num_wqe_pending;
+	qp->sq.wq.desc_idx -= qp->sq.num_wqe_pending;
+	qp->sq.wq.wrid_idx_pool_next -= qp->sq.num_wqe_pending;
+	qp->sq.wq.phase = qp->sq.phase_rb;
+}
+
+static int efa_send_wr_complete(struct ibv_qp_ex *ibvqpx)
+{
+	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
+	uint32_t num_wqe_to_copy;
+	uint16_t local_idx = 0;
+	uint16_t sq_desc_idx;
+
+	if (unlikely(qp->wr_session_err)) {
+		efa_sq_roll_back(qp);
+		goto out;
+	}
+
+	/*
+	 * Copy local queue to device in chunks, as the descriptor index
+	 * might have wrapped around the submission queue.
+	 */
+	sq_desc_idx = (qp->sq.wq.desc_idx - qp->sq.num_wqe_pending) &
+		       qp->sq.wq.desc_mask;
+
+	while (qp->sq.num_wqe_pending) {
+		num_wqe_to_copy = min(qp->sq.num_wqe_pending,
+				      qp->sq.wq.wqe_cnt - sq_desc_idx);
+		memcpy((struct efa_io_tx_wqe *)qp->sq.desc + sq_desc_idx,
+		       (struct efa_io_tx_wqe *)qp->sq.local_queue + local_idx,
+		       num_wqe_to_copy * sizeof(struct efa_io_tx_wqe));
+
+		qp->sq.num_wqe_pending -= num_wqe_to_copy;
+		local_idx += num_wqe_to_copy;
+		sq_desc_idx = (sq_desc_idx + num_wqe_to_copy) &
+			      qp->sq.wq.desc_mask;
+	}
+
+	udma_to_device_barrier();
+	mmio_write32(qp->sq.db, qp->sq.wq.desc_idx);
+out:
+	pthread_spin_unlock(&qp->sq.wq.wqlock);
+
+	return qp->wr_session_err;
+}
+
+static void efa_send_wr_abort(struct ibv_qp_ex *ibvqpx)
+{
+	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
+
+	efa_sq_roll_back(qp);
+	pthread_spin_unlock(&qp->sq.wq.wqlock);
+}
+
+static void efa_qp_fill_wr_pfns(struct ibv_qp_ex *ibvqpx,
+				struct ibv_qp_init_attr_ex *attr_ex)
+{
+	ibvqpx->wr_start = efa_send_wr_start;
+	ibvqpx->wr_complete = efa_send_wr_complete;
+	ibvqpx->wr_abort = efa_send_wr_abort;
+
+	if (attr_ex->send_ops_flags & IBV_QP_EX_WITH_SEND)
+		ibvqpx->wr_send = efa_send_wr_send;
+
+	ibvqpx->wr_set_inline_data = efa_send_wr_set_inline_data;
+	ibvqpx->wr_set_inline_data_list = efa_send_wr_set_inline_data_list;
+	ibvqpx->wr_set_sge = efa_send_wr_set_sge;
+	ibvqpx->wr_set_sge_list = efa_send_wr_set_sge_list;
+	ibvqpx->wr_set_ud_addr = efa_send_wr_set_addr;
+}
+
 static ssize_t efa_post_recv_validate(struct efa_qp *qp, struct ibv_recv_wr *wr)
 {
-	if (unlikely(qp->ibvqp.state == IBV_QPS_RESET ||
-		     qp->ibvqp.state == IBV_QPS_ERR))
+	if (unlikely(qp->verbs_qp.qp.state == IBV_QPS_RESET ||
+		     qp->verbs_qp.qp.state == IBV_QPS_ERR))
 		return EINVAL;
 
 	if (unlikely(!qp->rcq))
@@ -1038,8 +1437,8 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 		  struct ibv_recv_wr **bad)
 {
 	struct efa_qp *qp = to_efa_qp(ibvqp);
-	uint32_t wqe_index, rq_desc_offset;
 	struct efa_io_rx_desc rx_buf;
+	uint32_t rq_desc_offset;
 	uintptr_t addr;
 	int err = 0;
 	size_t i;
@@ -1054,16 +1453,8 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 
 		memset(&rx_buf, 0, sizeof(rx_buf));
 
-		/* Save wrid */
-		/* Get the next wrid to be used from the index pool */
-		wqe_index = qp->rq.wq.wrid_idx_pool[qp->rq.wq.wrid_idx_pool_next];
-		qp->rq.wq.wrid[wqe_index] = wr->wr_id;
-		rx_buf.req_id = wqe_index;
+		rx_buf.req_id = efa_wq_get_next_wrid_idx(&qp->rq.wq, wr->wr_id);
 		qp->rq.wq.wqe_posted++;
-
-		/* Will never overlap, as efa_post_recv_validate() succeeded */
-		qp->rq.wq.wrid_idx_pool_next++;
-		assert(qp->rq.wq.wrid_idx_pool_next <= qp->rq.wq.wqe_cnt);
 
 		/* Default init of the rx buffer */
 		set_efa_io_rx_desc_first(&rx_buf, 1);
@@ -1138,6 +1529,7 @@ struct ibv_ah *efa_create_ah(struct ibv_pd *ibvpd, struct ibv_ah_attr *attr)
 				&resp.ibv_resp, sizeof(resp));
 	if (err) {
 		free(ah);
+		errno = err;
 		return NULL;
 	}
 

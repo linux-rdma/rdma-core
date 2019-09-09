@@ -28,6 +28,8 @@ int efa_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc);
 
 struct ibv_qp *efa_create_qp(struct ibv_pd *ibvpd,
 			     struct ibv_qp_init_attr *attr);
+struct ibv_qp *efa_create_qp_ex(struct ibv_context *ibvctx,
+				struct ibv_qp_init_attr_ex *attr_ex);
 int efa_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 		  int ibv_qp_attr_mask);
 int efa_query_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr, int attr_mask,
