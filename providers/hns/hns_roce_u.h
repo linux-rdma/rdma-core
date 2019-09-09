@@ -183,7 +183,7 @@ struct hns_roce_srq {
 	unsigned int			srqn;
 	int				max;
 	unsigned int			max_gs;
-	int				wqe_shift;
+	unsigned int			wqe_shift;
 	int				head;
 	int				tail;
 	unsigned int			*db;
@@ -199,7 +199,8 @@ struct hns_roce_wq {
 	unsigned int			head;
 	unsigned int			tail;
 	unsigned int			max_gs;
-	int				wqe_shift;
+	unsigned int			wqe_shift;
+	unsigned int			shift; /* wq size is 2^shift */
 	int				offset;
 };
 
@@ -247,11 +248,6 @@ struct hns_roce_u_hw {
 	uint32_t hw_version;
 	struct verbs_context_ops hw_ops;
 };
-
-static inline unsigned long align(unsigned long val, unsigned long align)
-{
-	return (val + align - 1) & ~(align - 1);
-}
 
 static inline struct hns_roce_device *to_hr_dev(struct ibv_device *ibv_dev)
 {
