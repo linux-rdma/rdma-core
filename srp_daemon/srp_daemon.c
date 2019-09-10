@@ -217,7 +217,7 @@ static int srpd_sys_read_uint64(const char *dir_name, const char *file_name,
 
 static void usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-vVcaeon] [-d <umad device> | -i <infiniband device> [-p <port_num>]] [-t <timeout (ms)>] [-r <retries>] [-R <rescan time>] [-f <rules file>\n", argv0);
+	fprintf(stderr, "Usage: %s [-vVcaeonm] [-d <umad device> | -i <infiniband device> [-p <port_num>]] [-t <timeout (ms)>] [-r <retries>] [-R <rescan time>] [-f <rules file>\n", argv0);
 	fprintf(stderr, "-v 			Verbose\n");
 	fprintf(stderr, "-V 			debug Verbose\n");
 	fprintf(stderr, "-c 			prints connection Commands\n");
@@ -235,6 +235,7 @@ static void usage(const char *argv0)
 	fprintf(stderr, "-t <timeout>		Timeout for mad response in milliseconds\n");
 	fprintf(stderr, "-r <retries>		number of send Retries for each mad\n");
 	fprintf(stderr, "-n 			New connection command format - use also initiator extension\n");
+	fprintf(stderr, "-m 			New connection command format - use also maximum initiator to target IU size\n");
 	fprintf(stderr, "--systemd		Enable systemd integration.\n");
 	fprintf(stderr, "\nExample: srp_daemon -e -n -i mthca0 -p 1 -R 60\n");
 }
@@ -548,6 +549,19 @@ static int add_non_exist_target(struct target_details *target)
 				sizeof(target_config_str) - len,
 				",initiator_ext=%016llx",
 				(unsigned long long) target->h_guid);
+
+		if (len >= sizeof(target_config_str)) {
+			pr_err("Target config string is too long, ignoring target\n");
+			closedir(dir);
+			return -1;
+		}
+	}
+
+	if (config->print_max_it_iu_size) {
+		len += snprintf(target_config_str+len,
+				sizeof(target_config_str) - len,
+				",max_it_iu_size=%d",
+				be32toh(target->ioc_prof.send_size));
 
 		if (len >= sizeof(target_config_str)) {
 			pr_err("Target config string is too long, ignoring target\n");
@@ -1360,6 +1374,10 @@ static void print_config(struct config_t *conf)
 		printf(" Print initiator_ext\n");
 	else
 		printf(" Do not print initiator_ext\n");
+	if (conf->print_max_it_iu_size)
+		printf(" Print maximum initiator to target IU size\n");
+	else
+		printf(" Do not print maximum initiator to target IU size\n");
 	if (conf->recalc_time)
 		printf(" Performs full target rescan every %d seconds\n", conf->recalc_time);
 	else
@@ -1629,7 +1647,7 @@ static const struct option long_opts[] = {
 	{ "systemd",        0, NULL, 'S' },
 	{}
 };
-static const char short_opts[] = "caveod:i:j:p:t:r:R:T:l:Vhnf:";
+static const char short_opts[] = "caveod:i:j:p:t:r:R:T:l:Vhnmf:";
 
 /* Check if the --systemd options was passed in very early so we can setup
  * logging properly.
@@ -1670,6 +1688,7 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	conf->retry_timeout 		= 20;
 	conf->add_target_file  		= NULL;
 	conf->print_initiator_ext	= 0;
+	conf->print_max_it_iu_size	= 0;
 	conf->rules_file		= SRP_DEAMON_CONFIG_FILE;
 	conf->rules			= NULL;
 	conf->tl_retry_count		= 0;
@@ -1733,6 +1752,9 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 			break;
 		case 'n':
 			++conf->print_initiator_ext;
+			break;
+		case 'm':
+			++conf->print_max_it_iu_size;
 			break;
 		case 't':
 			conf->timeout = atoi(optarg);

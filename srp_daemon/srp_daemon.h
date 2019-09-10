@@ -206,6 +206,7 @@ struct config_t {
 	int		timeout;
 	int		recalc_time;
 	int		print_initiator_ext;
+	int		print_max_it_iu_size;
 	const char     *rules_file;
 	struct rule    *rules;
 	int 		retry_timeout;
