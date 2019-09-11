@@ -193,7 +193,7 @@ static int port_dump(umad_port_t * port, int alone)
 	return 0;
 }
 
-static int ca_stat(char *ca_name, int portnum, int no_ports)
+static int ca_stat(const char *ca_name, int portnum, int no_ports)
 {
 	umad_ca_t ca;
 	int r;
@@ -232,23 +232,23 @@ static int ca_stat(char *ca_name, int portnum, int no_ports)
 	return 0;
 }
 
-static int ports_list(char names[][UMAD_CA_NAME_LEN], int n)
+static int ports_list(struct umad_device_node *first_node,
+		      struct umad_device_node *last_node)
 {
 	__be64 guids[64];
-	int found, ports, i;
+	struct umad_device_node *node;
+	int ports, j;
 
-	for (i = 0, found = 0; i < n && found < 64; i++) {
+	for (node = first_node; node && node != last_node; node = node->next) {
 		if ((ports =
-		     umad_get_ca_portguids(names[i], guids + found,
-					   64 - found)) < 0)
+		     umad_get_ca_portguids(node->ca_name, &guids[0], 64)) < 0)
 			return -1;
-		found += ports;
-	}
 
-	for (i = 0; i < found; i++)
-		if (guids[i])
-			printf("0x%016" PRIx64 "\n", be64toh(guids[i]));
-	return found;
+		for (j = 0; j < ports; j++)
+			if (guids[j])
+				printf("0x%016" PRIx64 "\n", be64toh(guids[j]));
+	}
+	return 0;
 }
 
 static int list_only, short_format, list_ports;
@@ -273,9 +273,12 @@ static int process_opt(void *context, int ch)
 
 int main(int argc, char *argv[])
 {
-	char names[UMAD_MAX_DEVICES][UMAD_CA_NAME_LEN];
+	struct umad_device_node *device_list;
+	struct umad_device_node *node;
+	struct umad_device_node *first_node;
+	struct umad_device_node *last_node;
 	int dev_port = -1;
-	int n, i;
+	const char *ca_name;
 
 	const struct ibdiag_opt opts[] = {
 		{"list_of_cas", 'l', 0, NULL, "list all IB devices"},
@@ -302,33 +305,39 @@ int main(int argc, char *argv[])
 	if (umad_init() < 0)
 		IBPANIC("can't init UMAD library");
 
-	if ((n = umad_get_cas_names(names, UMAD_MAX_DEVICES)) < 0)
+	device_list = umad_get_ca_device_list();
+	if (!device_list && errno)
 		IBPANIC("can't list IB device names");
 
 	if (argc) {
-		for (i = 0; i < n; i++)
-			if (!strncmp(names[i], argv[0], sizeof names[i]))
+		for (node = device_list; node; node = node->next)
+			if (!strncmp(node->ca_name, argv[0],
+				     strlen(node->ca_name)))
 				break;
-		if (i >= n)
+		if (!node)
 			IBPANIC("'%s' IB device can't be found", argv[0]);
 
-		strncpy(names[0], argv[0], sizeof(names[0])-1);
-		names[0][sizeof(names[0])-1] = '\0';
-		n = 1;
+		first_node = node;
+		last_node = node->next;
+	} else {
+		first_node = device_list;
+		last_node = NULL;
 	}
 
 	if (list_ports) {
-		if (ports_list(names, n) < 0)
+		if (ports_list(first_node, last_node) < 0)
 			IBPANIC("can't list ports");
+		umad_free_ca_device_list(device_list);
 		return 0;
 	}
 
-	for (i = 0; i < n; i++) {
+	for (node = first_node; node != last_node; node = node->next) {
+		ca_name = node->ca_name;
 		if (list_only)
-			printf("%s\n", names[i]);
-		else if (ca_stat(names[i], dev_port, short_format) < 0)
-			IBPANIC("stat of IB device '%s' failed", names[i]);
+			printf("%s\n", ca_name);
+		else if (ca_stat(ca_name, dev_port, short_format) < 0)
+			IBPANIC("stat of IB device '%s' failed", ca_name);
 	}
-
+	umad_free_ca_device_list(device_list);
 	return 0;
 }

@@ -10,7 +10,7 @@ publish_headers(infiniband
 
 rdma_library(ibumad libibumad.map
   # See Documentation/versioning.md
-  3 3.0.${PACKAGE_VERSION}
+  3 3.1.${PACKAGE_VERSION}
   sysfs.c
   umad.c
   umad_str.c
