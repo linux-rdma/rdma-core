@@ -635,6 +635,20 @@ struct mlx5_devx_event_channel {
 	struct mlx5dv_devx_event_channel dv_event_channel;
 };
 
+static inline int mlx5_ilog2(int n)
+{
+	int t;
+
+	if (n <= 0)
+		return -1;
+
+	t = 0;
+	while ((1 << t) < n)
+		++t;
+
+	return t;
+}
+
 extern int mlx5_stall_num_loop;
 extern int mlx5_stall_cq_poll_min;
 extern int mlx5_stall_cq_poll_max;
