@@ -1036,9 +1036,11 @@ static inline void qelr_init_dpm_info(struct qelr_devctx *cxt,
 #define QELR_IB_OPCODE_SEND_ONLY_WITH_IMMEDIATE          0x05
 #define QELR_IB_OPCODE_RDMA_WRITE_ONLY                   0x0a
 #define QELR_IB_OPCODE_RDMA_WRITE_ONLY_WITH_IMMEDIATE    0x0b
-#define QELR_IS_IMM(opcode) \
-	((opcode == QELR_IB_OPCODE_SEND_ONLY_WITH_IMMEDIATE) || \
-	 (opcode == QELR_IB_OPCODE_RDMA_WRITE_ONLY_WITH_IMMEDIATE))
+#define QELR_IB_OPCODE_SEND_WITH_INV			 0x17
+#define QELR_IS_IMM_OR_INV(opcode) \
+	(((opcode) == QELR_IB_OPCODE_SEND_ONLY_WITH_IMMEDIATE) || \
+	 ((opcode) == QELR_IB_OPCODE_RDMA_WRITE_ONLY_WITH_IMMEDIATE) || \
+	 ((opcode) == QELR_IB_OPCODE_SEND_WITH_INV))
 
 static inline void qelr_edpm_set_msg_data(struct qelr_qp *qp,
 					  struct qelr_dpm *dpm,
@@ -1050,7 +1052,7 @@ static inline void qelr_edpm_set_msg_data(struct qelr_qp *qp,
 	uint32_t wqe_size, dpm_size, params;
 
 	params = 0;
-	wqe_size = length + (QELR_IS_IMM(opcode)? sizeof(uint32_t) : 0);
+	wqe_size = length + (QELR_IS_IMM_OR_INV(opcode) ? sizeof(uint32_t) : 0);
 	dpm_size = wqe_size + sizeof(struct db_roce_dpm_data);
 
 	SET_FIELD(params, DB_ROCE_DPM_PARAMS_DPM_TYPE, DPM_ROCE);
@@ -1258,6 +1260,7 @@ static enum ibv_wc_opcode qelr_ibv_to_wc_opcode(enum ibv_wr_opcode opcode)
 		return IBV_WC_RDMA_WRITE;
 	case IBV_WR_SEND_WITH_IMM:
 	case IBV_WR_SEND:
+	case IBV_WR_SEND_WITH_INV:
 		return IBV_WC_SEND;
 	case IBV_WR_RDMA_READ:
 		return IBV_WC_RDMA_READ;
@@ -1451,6 +1454,34 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 		qp->wqe_wr_id[qp->sq.prod].wqe_size = wqe_size;
 		qp->prev_wqe_size = wqe_size;
 		qp->wqe_wr_id[qp->sq.prod].bytes_len = wqe_length;
+		break;
+
+	case IBV_WR_SEND_WITH_INV:
+		wqe->req_type = RDMA_SQ_REQ_TYPE_SEND_WITH_INVALIDATE;
+		swqe = (struct rdma_sq_send_wqe_1st *)wqe;
+
+		wqe_size = sizeof(struct rdma_sq_send_wqe) / RDMA_WQE_BYTES;
+		swqe2 = qelr_chain_produce(&qp->sq.chain);
+
+		if (dpm.is_edpm)
+			qelr_edpm_set_inv_imm(qp, &dpm,
+					      htobe32(wr->invalidate_rkey));
+
+		swqe->inv_key_or_imm_data = htole32(wr->invalidate_rkey);
+
+		wqe_length = qelr_prepare_sq_send_data(qp, &dpm, data_size,
+						       &wqe_size, swqe, swqe2,
+						       wr, 0);
+
+		if (dpm.is_edpm)
+			qelr_edpm_set_msg_data(qp, &dpm,
+					       QELR_IB_OPCODE_SEND_WITH_INV,
+					       wqe_length, se, comp);
+
+		qp->wqe_wr_id[qp->sq.prod].wqe_size = wqe_size;
+		qp->prev_wqe_size = wqe_size;
+		qp->wqe_wr_id[qp->sq.prod].bytes_len = wqe_length;
+
 		break;
 
 	case IBV_WR_RDMA_WRITE_WITH_IMM:
@@ -2006,7 +2037,6 @@ static void __process_resp_one(struct qelr_qp *qp, struct qelr_cq *cq,
 	wc->opcode = IBV_WC_RECV;
 	wc->wr_id = wr_id;
 	wc->wc_flags = 0;
-
 	switch (resp->status) {
 	case RDMA_CQE_RESP_STS_LOCAL_ACCESS_ERR:
 		wc_status = IBV_WC_LOC_ACCESS_ERR;
@@ -2040,6 +2070,10 @@ static void __process_resp_one(struct qelr_qp *qp, struct qelr_cq *cq,
 		case QELR_RESP_IMM:
 			wc->imm_data = htobe32(le32toh(resp->imm_data_or_inv_r_Key));
 			wc->wc_flags |= IBV_WC_WITH_IMM;
+			break;
+		case QELR_RESP_INV:
+			wc->invalidated_rkey = le32toh(resp->imm_data_or_inv_r_Key);
+			wc->wc_flags |= IBV_WC_WITH_INV;
 			break;
 		case QELR_RESP_RDMA:
 			DP_ERR(cxt->dbg_fp, "Invalid flags detected\n");
