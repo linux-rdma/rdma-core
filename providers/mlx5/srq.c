@@ -291,7 +291,7 @@ int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq,
 	srq->max_gs = (size - sizeof(struct mlx5_wqe_srq_next_seg)) /
 		sizeof(struct mlx5_wqe_data_seg);
 
-	srq->wqe_shift = ilog32(size);
+	srq->wqe_shift = ilog32(size) - 1;
 
 	srq->max = align_queue_size(max_wr);
 	buf_size = srq->max * size;

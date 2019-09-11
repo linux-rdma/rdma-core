@@ -179,7 +179,7 @@ static int dr_calc_sq_size(struct dr_qp *dr_qp,
 
 	wq_size = roundup_pow_of_two(attr->cap.max_send_wr * wqe_size);
 	dr_qp->sq.wqe_cnt = wq_size / MLX5_SEND_WQE_BB;
-	dr_qp->sq.wqe_shift = ilog32(MLX5_SEND_WQE_BB);
+	dr_qp->sq.wqe_shift = STATIC_ILOG_32(MLX5_SEND_WQE_BB) - 1;
 	dr_qp->sq.max_gs = attr->cap.max_send_sge;
 	dr_qp->sq.max_post = wq_size / wqe_size;
 
@@ -210,8 +210,8 @@ static int dr_calc_rq_size(struct dr_qp *dr_qp,
 	wq_size = roundup_pow_of_two(attr->cap.max_recv_wr) * wqe_size;
 	wq_size = max(wq_size, MLX5_SEND_WQE_BB);
 	dr_qp->rq.wqe_cnt = wq_size / wqe_size;
-	dr_qp->rq.wqe_shift = ilog32(wqe_size);
-	dr_qp->rq.max_post = 1 << ilog32(wq_size / wqe_size);
+	dr_qp->rq.wqe_shift = ilog32(wqe_size) - 1;
+	dr_qp->rq.max_post = 1 << (ilog32(wq_size / wqe_size) - 1);
 	dr_qp->rq.max_gs = wqe_size / sizeof(struct mlx5_wqe_data_seg);
 
 	return wq_size;
