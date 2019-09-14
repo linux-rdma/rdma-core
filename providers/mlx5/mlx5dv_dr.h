@@ -399,9 +399,9 @@ int dr_ste_build_flex_parser_1(struct dr_ste_build *sb,
 			       struct dr_match_param *mask,
 			       struct dr_devx_caps *caps,
 			       bool inner, bool rx);
-void dr_ste_build_flex_parser_tnl(struct dr_ste_build *sb,
-				  struct dr_match_param *mask,
-				  bool inner, bool rx);
+void dr_ste_build_flex_parser_tnl_vxlan_gpe(struct dr_ste_build *sb,
+					    struct dr_match_param *mask,
+					    bool inner, bool rx);
 void dr_ste_build_general_purpose(struct dr_ste_build *sb,
 				  struct dr_match_param *mask,
 				  bool inner, bool rx);

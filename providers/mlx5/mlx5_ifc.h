@@ -1597,10 +1597,13 @@ struct mlx5_ifc_ste_flex_parser_1_bits {
 	u8         flex_parser_4[0x20];
 };
 
-struct mlx5_ifc_ste_flex_parser_tnl_bits {
-	u8         flex_parser_tunneling_header_63_32[0x20];
+struct mlx5_ifc_ste_flex_parser_tnl_vxlan_gpe_bits {
+	u8         outer_vxlan_gpe_flags[0x8];
+	u8         reserved_at_8[0x10];
+	u8         outer_vxlan_gpe_next_protocol[0x8];
 
-	u8         flex_parser_tunneling_header_31_0[0x20];
+	u8         outer_vxlan_gpe_vni[0x18];
+	u8         reserved_at_38[0x8];
 
 	u8         reserved_at_40[0x40];
 };
