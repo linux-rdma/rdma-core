@@ -1016,8 +1016,7 @@ static void efa_set_tx_buf(struct efa_io_tx_buf_desc *tx_buf,
 
 static void efa_post_send_sgl(struct efa_io_tx_buf_desc *tx_bufs,
 			      const struct ibv_sge *sg_list,
-			      int num_sge,
-			      int *desc_size)
+			      int num_sge)
 {
 	const struct ibv_sge *sge;
 	size_t i;
@@ -1026,14 +1025,10 @@ static void efa_post_send_sgl(struct efa_io_tx_buf_desc *tx_bufs,
 		sge = &sg_list[i];
 		efa_set_tx_buf(&tx_bufs[i], sge->addr, sge->lkey, sge->length);
 	}
-
-	if (desc_size)
-		*desc_size += sizeof(*tx_bufs) * num_sge;
 }
 
 static void efa_post_send_inline_data(const struct ibv_send_wr *wr,
-				      struct efa_io_tx_wqe *tx_wqe,
-				      int *desc_size)
+				      struct efa_io_tx_wqe *tx_wqe)
 {
 	const struct ibv_sge *sgl = wr->sg_list;
 	uint32_t total_length = 0;
@@ -1047,8 +1042,6 @@ static void efa_post_send_inline_data(const struct ibv_send_wr *wr,
 		       (void *)(uintptr_t)sgl[i].addr, length);
 		total_length += length;
 	}
-
-	*desc_size += total_length;
 
 	set_efa_io_tx_meta_desc_inline_msg(&tx_wqe->meta, 1);
 	tx_wqe->meta.length = total_length;
@@ -1168,13 +1161,10 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	struct efa_io_tx_wqe tx_wqe;
 	uint32_t sq_desc_offset;
 	struct efa_ah *ah;
-	int desc_size;
 	int err = 0;
 
 	pthread_spin_lock(&qp->sq.wq.wqlock);
 	while (wr) {
-		desc_size = sizeof(tx_wqe.meta);
-
 		err = efa_post_send_validate_wr(qp, wr);
 		if (err) {
 			*bad = wr;
@@ -1186,11 +1176,11 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		ah = to_efa_ah(wr->wr.ud.ah);
 
 		if (wr->send_flags & IBV_SEND_INLINE) {
-			efa_post_send_inline_data(wr, &tx_wqe, &desc_size);
+			efa_post_send_inline_data(wr, &tx_wqe);
 		} else {
 			meta_desc->length = wr->num_sge;
 			efa_post_send_sgl(tx_wqe.data.sgl, wr->sg_list,
-					  wr->num_sge, &desc_size);
+					  wr->num_sge);
 		}
 
 		/* Set rest of the descriptor fields */
@@ -1203,7 +1193,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		/* Copy descriptor */
 		sq_desc_offset = (qp->sq.wq.desc_idx & qp->sq.wq.desc_mask) *
 				 sizeof(tx_wqe);
-		memcpy(qp->sq.desc + sq_desc_offset, &tx_wqe, desc_size);
+		memcpy(qp->sq.desc + sq_desc_offset, &tx_wqe, sizeof(tx_wqe));
 
 		/* advance index and change phase */
 		efa_sq_advance_post_idx(qp);
@@ -1323,7 +1313,7 @@ static void efa_send_wr_set_sge_list(struct ibv_qp_ex *ibvqpx, size_t num_sge,
 			qp->wr_session_err = EINVAL;
 			return;
 		}
-		efa_post_send_sgl(tx_wqe->data.sgl, sg_list, num_sge, NULL);
+		efa_post_send_sgl(tx_wqe->data.sgl, sg_list, num_sge);
 		break;
 	case EFA_IO_RDMA_READ:
 		if (unlikely(num_sge > qp->sq.max_wr_rdma_sge)) {
@@ -1333,7 +1323,7 @@ static void efa_send_wr_set_sge_list(struct ibv_qp_ex *ibvqpx, size_t num_sge,
 		rdma_req = &tx_wqe->data.rdma_req;
 		rdma_req->remote_mem.length = efa_sge_total_bytes(sg_list,
 								  num_sge);
-		efa_post_send_sgl(rdma_req->local_mem, sg_list, num_sge, NULL);
+		efa_post_send_sgl(rdma_req->local_mem, sg_list, num_sge);
 		break;
 	default:
 		return;
