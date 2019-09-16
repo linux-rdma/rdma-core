@@ -29,7 +29,11 @@ BuildRequires: systemd-devel
 BuildRequires: python3-devel
 BuildRequires: python3-Cython
 %else
+%if 0%{?rhel} == 8 || 0%{?fedora} >= 30
+BuildRequires: python3
+%else
 BuildRequires: python
+%endif
 %endif
 %if 0%{?fedora} >= 21
 BuildRequires: perl-generators
