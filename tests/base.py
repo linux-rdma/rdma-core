@@ -21,6 +21,8 @@ class PyverbsAPITestCase(unittest.TestCase):
         """
         lst = d.get_device_list()
         self.devices = []
+        if len(lst) == 0:
+            raise unittest.SkipTest('No IB devices found')
         for dev in lst:
             c = d.Context(name=dev.name.decode())
             attr = c.query_device()

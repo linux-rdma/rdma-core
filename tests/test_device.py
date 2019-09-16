@@ -33,6 +33,8 @@ class DeviceTest(unittest.TestCase):
         Test ibv_open_device()
         """
         lst = d.get_device_list()
+        if len(lst) == 0:
+            raise unittest.SkipTest('No IB devices found')
         for dev in lst:
             d.Context(name=dev.name.decode())
 
@@ -41,6 +43,8 @@ class DeviceTest(unittest.TestCase):
         Test ibv_query_device()
         """
         lst = d.get_device_list()
+        if len(lst) == 0:
+            raise unittest.SkipTest('No IB devices found')
         for dev in lst:
             with d.Context(name=dev.name.decode()) as ctx:
                 attr = ctx.query_device()
@@ -52,6 +56,8 @@ class DeviceTest(unittest.TestCase):
         Test ibv_query_gid()
         """
         lst = d.get_device_list()
+        if len(lst) == 0:
+            raise unittest.SkipTest('No IB devices found')
         for dev in lst:
             with d.Context(name=dev.name.decode()) as ctx:
                 ctx.query_gid(port_num=1, index=0)
@@ -85,6 +91,8 @@ class DeviceTest(unittest.TestCase):
         Test ibv_query_device_ex()
         """
         lst = d.get_device_list()
+        if len(lst) == 0:
+            raise unittest.SkipTest('No IB devices found')
         for dev in lst:
             with d.Context(name=dev.name.decode()) as ctx:
                 attr_ex = ctx.query_device_ex()
@@ -111,6 +119,8 @@ class DeviceTest(unittest.TestCase):
         Test ibv_query_port
         """
         lst = d.get_device_list()
+        if len(lst) == 0:
+            raise unittest.SkipTest('No IB devices found')
         for dev in lst:
             with d.Context(name=dev.name.decode()) as ctx:
                 num_ports = ctx.query_device().phys_port_cnt
@@ -124,6 +134,8 @@ class DeviceTest(unittest.TestCase):
         Verify that querying non-existing ports fails as expected
         """
         lst = d.get_device_list()
+        if len(lst) == 0:
+            raise unittest.SkipTest('No IB devices found')
         for dev in lst:
             with d.Context(name=dev.name.decode()) as ctx:
                 num_ports = ctx.query_device().phys_port_cnt
