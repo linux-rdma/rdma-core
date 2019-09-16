@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <util/util.h>
 
 #include "efa.h"
 #include "verbs.h"
@@ -49,6 +50,7 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 	struct efa_alloc_ucontext_resp resp = {};
 	struct ibv_device_attr_ex attr;
 	struct ibv_get_context cmd;
+	unsigned int qp_table_sz;
 	struct efa_context *ctx;
 	int err;
 
@@ -75,7 +77,9 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 	if (err)
 		goto err_free_spinlock;
 
-	ctx->qp_table = calloc(attr.orig_attr.max_qp, sizeof(*ctx->qp_table));
+	qp_table_sz = roundup_pow_of_two(attr.orig_attr.max_qp);
+	ctx->qp_table_sz_m1 = qp_table_sz - 1;
+	ctx->qp_table = calloc(qp_table_sz, sizeof(*ctx->qp_table));
 	if (!ctx->qp_table)
 		goto err_free_spinlock;
 

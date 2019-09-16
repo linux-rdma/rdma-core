@@ -377,7 +377,7 @@ static int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 		 * because CQs will be locked while QPs are removed
 		 * from the table.
 		 */
-		*cur_qp = ctx->qp_table[qpn];
+		*cur_qp = ctx->qp_table[qpn & ctx->qp_table_sz_m1];
 		if (!*cur_qp)
 			return EINVAL;
 	}
@@ -828,7 +828,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 		goto err_terminate_rq;
 
 	pthread_spin_lock(&ctx->qp_table_lock);
-	ctx->qp_table[ibvqp->qp_num] = qp;
+	ctx->qp_table[ibvqp->qp_num & ctx->qp_table_sz_m1] = qp;
 	pthread_spin_unlock(&ctx->qp_table_lock);
 
 	if (attr->send_cq) {
@@ -995,7 +995,7 @@ int efa_destroy_qp(struct ibv_qp *ibvqp)
 		efa_cq_dec_ref_cnt(to_efa_cq(ibvqp->recv_cq),
 				   qp->rq.sub_cq_idx);
 
-	ctx->qp_table[ibvqp->qp_num] = NULL;
+	ctx->qp_table[ibvqp->qp_num & ctx->qp_table_sz_m1] = NULL;
 
 	efa_unlock_cqs(ibvqp);
 	pthread_spin_unlock(&ctx->qp_table_lock);
