@@ -152,10 +152,10 @@ class QPTest(PyverbsAPITestCase):
                             qia = get_qp_init_attr(cq, qpts, attr)
                         caps = qia.cap  # Save them to verify values later
                         qp = QP(ctx, qia) if is_ex else QP(pd, qia)
-                        attr, init_attr = qp.query(e.IBV_QP_CUR_STATE |
-                                                   e.IBV_QP_CAP)
-                        verify_qp_attrs(caps, e.IBV_QPS_RESET, init_attr,
-                                        attr)
+                        qp_attr, qp_init_attr = qp.query(e.IBV_QP_CUR_STATE |
+                                                         e.IBV_QP_CAP)
+                        verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr,
+                                        qp_attr)
 
     def test_modify_qp(self):
         """
