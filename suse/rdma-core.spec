@@ -38,7 +38,7 @@ Group:          Productivity/Networking/Other
 %define ibnetdisc_major 5
 %define mad_major       5
 
-%define  efa_lname    libefa-%{efa_so_major}
+%define  efa_lname    libefa%{efa_so_major}
 %define  verbs_lname  libibverbs%{verbs_so_major}
 %define  rdmacm_lname librdmacm%{rdmacm_so_major}
 %define  umad_lname   libibumad%{umad_so_major}
@@ -62,11 +62,11 @@ BuildRequires:  gcc
 BuildRequires:  pandoc
 BuildRequires:  pkgconfig
 BuildRequires:  python3-base
+BuildRequires:  python3-docutils
 BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(systemd)
 BuildRequires:  pkgconfig(udev)
-BuildRequires:  /usr/bin/rst2man
 %if %{with_pyverbs}
 BuildRequires:  python3-Cython
 BuildRequires:  python3-devel
@@ -165,9 +165,11 @@ BuildRequires:  pkgconfig(libnl-3.0)
 BuildRequires:  pkgconfig(libnl-route-3.0)
 %endif
 
-Requires: infiniband-diags = %{version}-%{release}
-Provides: infiniband-diags-devel = %{version}-%{release}
-Obsoletes: infiniband-diags-devel < %{version}-%{release}
+Requires:       infiniband-diags = %{version}-%{release}
+Provides:       infiniband-diags-devel = %{version}-%{release}
+Obsoletes:      infiniband-diags-devel < %{version}-%{release}
+Provides:       libibmad-devel = %{version}-%{release}
+Obsoletes:      libibmad-devel < %{version}
 
 %description devel
 RDMA core development libraries and headers.
@@ -290,6 +292,7 @@ library knows how to talk directly to the ibacm daemon to retrieve data.
 %package -n infiniband-diags
 Summary:        InfiniBand Diagnostic Tools
 Group:          Productivity/Networking/Diagnostic
+Requires:       perl = %{perl_version}
 
 %description -n infiniband-diags
 diags provides IB diagnostic programs and scripts needed to diagnose an
@@ -697,7 +700,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %files -n infiniband-diags
 %defattr(-, root, root)
-%config %{_sysconfdir}/infiniband-diags/error_thresholds
 %dir %{_sysconfdir}/infiniband-diags
 %config(noreplace) %{_sysconfdir}/infiniband-diags/*
 %{_sbindir}/ibaddr
