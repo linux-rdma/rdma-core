@@ -630,7 +630,7 @@ static int hns_roce_u_v2_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	struct hns_roce_db cq_db = {};
 	struct hns_roce_cq *cq = to_hr_cq(ibvcq);
 
-	ci  = cq->cons_index & ((cq->cq_depth << 1) - 1);
+	ci = cq->cons_index & ((cq->cq_depth << 1) - 1);
 	cmd_sn = cq->arm_sn & HNS_ROCE_CMDSN_MASK;
 	solicited_flag = solicited ? HNS_ROCE_V2_CQ_DB_REQ_SOL :
 				     HNS_ROCE_V2_CQ_DB_REQ_NEXT;
