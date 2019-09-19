@@ -306,6 +306,7 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 				    struct ibv_comp_channel *channel,
 				    int comp_vector)
 {
+	struct hns_roce_device *hr_dev = to_hr_dev(context->device);
 	struct hns_roce_create_cq	cmd = {};
 	struct hns_roce_create_cq_resp	resp = {};
 	struct hns_roce_cq		*cq;
@@ -323,17 +324,17 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 	if (pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto err;
 
-	if (to_hr_dev(context->device)->hw_version == HNS_ROCE_HW_VER1)
+	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
 		cqe = align_cq_size(cqe);
 	else
 		cqe = roundup_pow_of_two(cqe);
 
-	if (hns_roce_alloc_cq_buf(to_hr_dev(context->device), &cq->buf, cqe))
+	if (hns_roce_alloc_cq_buf(hr_dev, &cq->buf, cqe))
 		goto err;
 
 	cmd.buf_addr = (uintptr_t) cq->buf.buf;
 
-	if (to_hr_dev(context->device)->hw_version != HNS_ROCE_HW_VER1) {
+	if (hr_dev->hw_version != HNS_ROCE_HW_VER1) {
 		cq->set_ci_db = hns_roce_alloc_db(to_hr_ctx(context),
 						  HNS_ROCE_CQ_TYPE_DB);
 		if (!cq->set_ci_db)
@@ -352,7 +353,7 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 	cq->cq_depth = cqe;
 	cq->flags = resp.cap_flags;
 
-	if (to_hr_dev(context->device)->hw_version == HNS_ROCE_HW_VER1)
+	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
 		cq->set_ci_db = to_hr_ctx(context)->cq_tptr_base + cq->cqn * 2;
 
 	cq->arm_db    = cq->set_ci_db;
@@ -363,7 +364,7 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 	return &cq->ibv_cq;
 
 err_db:
-	if (to_hr_dev(context->device)->hw_version != HNS_ROCE_HW_VER1)
+	if (hr_dev->hw_version != HNS_ROCE_HW_VER1)
 		hns_roce_free_db(to_hr_ctx(context), cq->set_ci_db,
 				 HNS_ROCE_CQ_TYPE_DB);
 

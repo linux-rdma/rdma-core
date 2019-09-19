@@ -112,7 +112,7 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	for (i = 0; i < HNS_ROCE_QP_TABLE_SIZE; ++i)
 		context->qp_table[i].refcnt = 0;
 
-	context->uar = mmap(NULL, to_hr_dev(ibdev)->page_size,
+	context->uar = mmap(NULL, hr_dev->page_size,
 			    PROT_READ | PROT_WRITE, MAP_SHARED, cmd_fd, 0);
 	if (context->uar == MAP_FAILED) {
 		fprintf(stderr, PFX "Warning: failed to mmap() uar page.\n");
@@ -156,7 +156,7 @@ tptr_free:
 	}
 
 db_free:
-	munmap(context->uar, to_hr_dev(ibdev)->page_size);
+	munmap(context->uar, hr_dev->page_size);
 	context->uar = NULL;
 
 err_free:
@@ -167,10 +167,11 @@ err_free:
 
 static void hns_roce_free_context(struct ibv_context *ibctx)
 {
+	struct hns_roce_device *hr_dev = to_hr_dev(ibctx->device);
 	struct hns_roce_context *context = to_hr_ctx(ibctx);
 
-	munmap(context->uar, to_hr_dev(ibctx->device)->page_size);
-	if (to_hr_dev(ibctx->device)->hw_version == HNS_ROCE_HW_VER1)
+	munmap(context->uar, hr_dev->page_size);
+	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
 		munmap(context->cq_tptr_base, HNS_ROCE_CQ_DB_BUF_SIZE);
 
 	verbs_uninit_context(&context->ibv_ctx);
