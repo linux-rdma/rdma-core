@@ -723,6 +723,7 @@ end:
 	if (ret) {
 		free(*ibport);
 		free(*ibdev);
+		*ibdev = NULL;
 	}
 	free(class_dev_path);
 
