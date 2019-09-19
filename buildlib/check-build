@@ -472,7 +472,7 @@ def test_static_libs(args):
     with inDirectory(libd):
         fns = set(fn for fn in os.listdir(".") if not os.path.islink(fn))
         for static_lib in fns:
-            g = re.match(r"lib(.+)\.a", static_lib)
+            g = re.match(r"lib(.+)\.a$", static_lib)
             if g:
                 for shared_lib in fns:
                     if re.match(r"lib%s.*\.so" % (g.group(1)), shared_lib):
