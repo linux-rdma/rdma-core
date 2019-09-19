@@ -444,7 +444,7 @@ static int hns_roce_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 	int srq_buf_size;
 	int srq_size;
 
-	srq->wrid = calloc(1, srq->max_wqe * sizeof(unsigned long));
+	srq->wrid = calloc(srq->max_wqe, sizeof(unsigned long));
 	if (!srq->wrid)
 		return -1;
 
@@ -617,15 +617,16 @@ static int hns_roce_alloc_recv_inl_buf(struct ibv_qp_cap *cap,
 {
 	int i;
 
-	qp->rq_rinl_buf.wqe_list = calloc(1, qp->rq.wqe_cnt *
+	qp->rq_rinl_buf.wqe_list = calloc(qp->rq.wqe_cnt,
 					  sizeof(struct hns_roce_rinl_wqe));
 	if (!qp->rq_rinl_buf.wqe_list)
 		return -1;
 
 	qp->rq_rinl_buf.wqe_cnt = qp->rq.wqe_cnt;
 
-	qp->rq_rinl_buf.wqe_list[0].sg_list = calloc(1, qp->rq.wqe_cnt *
-			  cap->max_recv_sge * sizeof(struct hns_roce_rinl_sge));
+	qp->rq_rinl_buf.wqe_list[0].sg_list =
+				calloc(qp->rq.wqe_cnt * cap->max_recv_sge,
+				       sizeof(struct hns_roce_rinl_sge));
 	if (!qp->rq_rinl_buf.wqe_list[0].sg_list) {
 		free(qp->rq_rinl_buf.wqe_list);
 		return -1;
