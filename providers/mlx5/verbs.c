@@ -2647,6 +2647,30 @@ int mlx5_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 	return 0;
 }
 
+struct ibv_qp *mlx5_open_qp(struct ibv_context *context,
+			    struct ibv_qp_open_attr *attr)
+{
+	struct ibv_open_qp cmd;
+	struct ib_uverbs_create_qp_resp resp;
+	struct mlx5_qp *qp;
+	int ret;
+
+	qp = calloc(1, sizeof(*qp));
+	if (!qp)
+		return NULL;
+
+	ret = ibv_cmd_open_qp(context, &qp->verbs_qp, sizeof(qp->verbs_qp),
+			      attr, &cmd, sizeof(cmd), &resp, sizeof(resp));
+	if (ret)
+		goto err;
+
+	return &qp->verbs_qp.qp;
+
+err:
+	free(qp);
+	return NULL;
+}
+
 struct ibv_xrcd *
 mlx5_open_xrcd(struct ibv_context *context,
 	       struct ibv_xrcd_init_attr *xrcd_init_attr)
