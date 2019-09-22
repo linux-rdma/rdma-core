@@ -402,6 +402,9 @@ int dr_ste_build_flex_parser_1(struct dr_ste_build *sb,
 void dr_ste_build_flex_parser_tnl_vxlan_gpe(struct dr_ste_build *sb,
 					    struct dr_match_param *mask,
 					    bool inner, bool rx);
+void dr_ste_build_flex_parser_tnl_geneve(struct dr_ste_build *sb,
+					 struct dr_match_param *mask,
+					 bool inner, bool rx);
 void dr_ste_build_general_purpose(struct dr_ste_build *sb,
 				  struct dr_match_param *mask,
 				  bool inner, bool rx);
