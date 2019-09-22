@@ -324,9 +324,9 @@ struct mlx5dv_devx_obj *dr_devx_create_qp(struct ibv_context *ctx,
 	DEVX_SET(qpc, qpc, uar_page, attr->page_id);
 	DEVX_SET(qpc, qpc, cqn_snd, attr->cqn);
 	DEVX_SET(qpc, qpc, cqn_rcv, attr->cqn);
-	DEVX_SET(qpc, qpc, log_sq_size, ilog32(attr->sq_wqe_cnt) - 1);
+	DEVX_SET(qpc, qpc, log_sq_size, ilog32(attr->sq_wqe_cnt - 1));
 	DEVX_SET(qpc, qpc, log_rq_stride, attr->rq_wqe_shift - 4);
-	DEVX_SET(qpc, qpc, log_rq_size, ilog32(attr->rq_wqe_cnt) - 1);
+	DEVX_SET(qpc, qpc, log_rq_size, ilog32(attr->rq_wqe_cnt - 1));
 	DEVX_SET(qpc, qpc, dbr_umem_id, attr->db_umem_id);
 
 	DEVX_SET(create_qp_in, in, wq_umem_id, attr->buff_umem_id);

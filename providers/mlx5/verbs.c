@@ -1400,8 +1400,8 @@ static int mlx5_calc_rwq_size(struct mlx5_context *ctx,
 	wq_size = roundup_pow_of_two(attr->max_wr) * wqe_size;
 	wq_size = max(wq_size, MLX5_SEND_WQE_BB);
 	rwq->rq.wqe_cnt = wq_size / wqe_size;
-	rwq->rq.wqe_shift = ilog32(wqe_size) - 1;
-	rwq->rq.max_post = 1 << (ilog32(wq_size / wqe_size) - 1);
+	rwq->rq.wqe_shift = ilog32(wqe_size - 1);
+	rwq->rq.max_post = 1 << ilog32(wq_size / wqe_size - 1);
 	scat_spc = wqe_size -
 		((rwq->wq_sig) ? sizeof(struct mlx5_rwqe_sig) : 0) -
 		is_mprq * sizeof(struct mlx5_wqe_srq_next_seg);
@@ -1436,8 +1436,8 @@ static int mlx5_calc_rq_size(struct mlx5_context *ctx,
 	if (wqe_size) {
 		wq_size = max(wq_size, MLX5_SEND_WQE_BB);
 		qp->rq.wqe_cnt = wq_size / wqe_size;
-		qp->rq.wqe_shift = ilog32(wqe_size) - 1;
-		qp->rq.max_post = 1 << (ilog32(wq_size / wqe_size) - 1);
+		qp->rq.wqe_shift = ilog32(wqe_size - 1);
+		qp->rq.max_post = 1 << ilog32(wq_size / wqe_size - 1);
 		scat_spc = wqe_size -
 			(qp->wq_sig ? sizeof(struct mlx5_rwqe_sig) : 0);
 		qp->rq.max_gs = scat_spc / sizeof(struct mlx5_wqe_data_seg);
