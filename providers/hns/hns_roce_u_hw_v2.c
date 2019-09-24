@@ -232,7 +232,6 @@ static int hns_roce_v2_wq_overflow(struct hns_roce_wq *wq, int nreq,
 	if (cur + nreq < wq->max_post)
 		return 0;
 
-	/* While the num of wqe exceeds cap of the device, cq will be locked */
 	pthread_spin_lock(&cq->lock);
 	cur = wq->head - wq->tail;
 	pthread_spin_unlock(&cq->lock);
@@ -972,6 +971,7 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 			dseg++;
 		}
 
+		/* hw stop reading when identify the last one */
 		if (i < qp->rq.max_gs) {
 			dseg->lkey = htole32(0x100);
 			dseg->addr = 0;
@@ -1272,6 +1272,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 			dseg[i].addr = htole64(wr->sg_list[i].addr);
 		}
 
+		/* hw stop reading when identify the last one */
 		if (i < srq->max_gs) {
 			dseg[i].len = 0;
 			dseg[i].lkey = htole32(0x100);
