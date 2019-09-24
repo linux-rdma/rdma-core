@@ -1197,8 +1197,8 @@ static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 	return ret;
 }
 
-static void fill_idx_que(struct hns_roce_idx_que *idx_que,
-			 int cur_idx, int wqe_idx)
+static void fill_idx_queue(struct hns_roce_idx_que *idx_que,
+			   int cur_idx, int wqe_idx)
 {
 	unsigned int *addr;
 
@@ -1255,7 +1255,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 		}
 
 		wqe_idx = find_empty_entry(&srq->idx_que);
-		fill_idx_que(&srq->idx_que, ind, wqe_idx);
+		fill_idx_queue(&srq->idx_que, ind, wqe_idx);
 
 		wqe = get_srq_wqe(srq, wqe_idx);
 		dseg = (struct hns_roce_v2_wqe_data_seg *)wqe;
