@@ -187,7 +187,7 @@ struct hns_roce_srq {
 	pthread_spinlock_t		lock;
 	unsigned long			*wrid;
 	unsigned int			srqn;
-	int				max;
+	unsigned int			max_wqe;
 	unsigned int			max_gs;
 	unsigned int			wqe_shift;
 	int				head;

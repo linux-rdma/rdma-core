@@ -555,7 +555,7 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 		wqe_ctr = (uint16_t)(roce_get_field(cqe->byte_4,
 						    CQE_BYTE_4_WQE_IDX_M,
 						    CQE_BYTE_4_WQE_IDX_S));
-		wc->wr_id = srq->wrid[wqe_ctr & (srq->max - 1)];
+		wc->wr_id = srq->wrid[wqe_ctr & (srq->max_wqe - 1)];
 		hns_roce_free_srq_wqe(srq, wqe_ctr);
 	} else {
 		wq = &(*cur_qp)->rq;
@@ -1250,7 +1250,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 	pthread_spin_lock(&srq->lock);
 
 	/* current idx of srqwq */
-	ind = srq->head & (srq->max - 1);
+	ind = srq->head & (srq->max_wqe - 1);
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (wr->num_sge > srq->max_gs) {
@@ -1285,7 +1285,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 		}
 
 		srq->wrid[wqe_idx] = wr->wr_id;
-		ind = (ind + 1) & (srq->max - 1);
+		ind = (ind + 1) & (srq->max_wqe - 1);
 	}
 
 	if (nreq) {

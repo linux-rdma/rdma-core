@@ -414,7 +414,7 @@ static int hns_roce_create_idx_que(struct ibv_pd *pd, struct hns_roce_srq *srq)
 	idx_que->entry_sz = HNS_ROCE_IDX_QUE_ENTRY_SZ;
 
 	/* bits needed in bitmap */
-	bitmap_num = align(srq->max, BIT_CNT_PER_U64);
+	bitmap_num = align(srq->max_wqe, BIT_CNT_PER_U64);
 
 	idx_que->bitmap = calloc(1, bitmap_num / BIT_CNT_PER_BYTE);
 	if (!idx_que->bitmap)
@@ -423,7 +423,7 @@ static int hns_roce_create_idx_que(struct ibv_pd *pd, struct hns_roce_srq *srq)
 	/* bitmap_num indicates amount of u64 */
 	bitmap_num = bitmap_num / BIT_CNT_PER_U64;
 
-	idx_que->buf_size = srq->max * idx_que->entry_sz;
+	idx_que->buf_size = srq->max_wqe * idx_que->entry_sz;
 	if (hns_roce_alloc_buf(&idx_que->buf, align(idx_que->buf_size, 0x1000),
 			       to_hr_dev(pd->context->device)->page_size)) {
 		free(idx_que->bitmap);
@@ -444,7 +444,7 @@ static int hns_roce_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 	int srq_buf_size;
 	int srq_size;
 
-	srq->wrid = calloc(1, srq->max * sizeof(unsigned long));
+	srq->wrid = calloc(1, srq->max_wqe * sizeof(unsigned long));
 	if (!srq->wrid)
 		return -1;
 
@@ -455,7 +455,7 @@ static int hns_roce_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 	     1 << srq->wqe_shift < srq_size; ++srq->wqe_shift)
 		; /* nothing */
 
-	srq_buf_size = srq->max << srq->wqe_shift;
+	srq_buf_size = srq->max_wqe << srq->wqe_shift;
 
 	/* allocate srq wqe buf */
 	if (hns_roce_alloc_buf(&srq->buf, srq_buf_size,
@@ -465,21 +465,21 @@ static int hns_roce_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 	}
 
 	srq->head = 0;
-	srq->tail = srq->max - 1;
+	srq->tail = srq->max_wqe - 1;
 
 	return 0;
 }
 
 struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
-				      struct ibv_srq_init_attr *srq_init_attr)
+				      struct ibv_srq_init_attr *init_attr)
 {
 	struct hns_roce_create_srq	cmd;
 	struct hns_roce_create_srq_resp resp;
 	struct hns_roce_srq		*srq;
 	int ret;
 
-	if (srq_init_attr->attr.max_wr > HNS_ROCE_MAX_SRQWQE_NUM ||
-	    srq_init_attr->attr.max_sge > HNS_ROCE_MAX_SRQSGE_NUM)
+	if (init_attr->attr.max_wr > HNS_ROCE_MAX_SRQWQE_NUM ||
+	    init_attr->attr.max_sge > HNS_ROCE_MAX_SRQSGE_NUM)
 		return NULL;
 
 	srq = calloc(1, sizeof(*srq));
@@ -489,8 +489,8 @@ struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
 	if (pthread_spin_init(&srq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto out;
 
-	srq->max = align_srq_size(srq_init_attr->attr.max_wr + 1);
-	srq->max_gs = srq_init_attr->attr.max_sge;
+	srq->max_wqe = align_srq_size(init_attr->attr.max_wr + 1);
+	srq->max_gs = init_attr->attr.max_sge;
 
 	ret = hns_roce_create_idx_que(pd, srq);
 	if (ret) {
@@ -498,7 +498,7 @@ struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
 		goto out;
 	}
 
-	if (hns_roce_alloc_srq_buf(pd, &srq_init_attr->attr, srq)) {
+	if (hns_roce_alloc_srq_buf(pd, &init_attr->attr, srq)) {
 		fprintf(stderr, "hns_roce_alloc_srq_buf failed!\n");
 		goto err_idx_que;
 	}
@@ -513,7 +513,7 @@ struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
 	cmd.que_addr = (uintptr_t)srq->idx_que.buf.buf;
 	cmd.db_addr = (uintptr_t)srq->db;
 
-	ret = ibv_cmd_create_srq(pd, &srq->verbs_srq.srq, srq_init_attr,
+	ret = ibv_cmd_create_srq(pd, &srq->verbs_srq.srq, init_attr,
 				&cmd.ibv_cmd, sizeof(cmd), &resp.ibv_resp,
 				sizeof(resp));
 	if (ret)
