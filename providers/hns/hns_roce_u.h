@@ -113,6 +113,7 @@ struct hns_roce_buf {
 };
 
 #define BIT_CNT_PER_BYTE       8
+#define BIT_CNT_PER_U64		64
 
 /* the sw doorbell type; */
 enum hns_roce_db_type {

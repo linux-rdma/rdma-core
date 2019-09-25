@@ -414,14 +414,14 @@ static int hns_roce_create_idx_que(struct ibv_pd *pd, struct hns_roce_srq *srq)
 	idx_que->entry_sz = HNS_ROCE_IDX_QUE_ENTRY_SZ;
 
 	/* bits needed in bitmap */
-	bitmap_num = align(srq->max, BIT_CNT_PER_BYTE * sizeof(uint64_t));
+	bitmap_num = align(srq->max, BIT_CNT_PER_U64);
 
 	idx_que->bitmap = calloc(1, bitmap_num / BIT_CNT_PER_BYTE);
 	if (!idx_que->bitmap)
 		return -1;
 
 	/* bitmap_num indicates amount of u64 */
-	bitmap_num = bitmap_num / (BIT_CNT_PER_BYTE * sizeof(uint64_t));
+	bitmap_num = bitmap_num / BIT_CNT_PER_U64;
 
 	idx_que->buf_size = srq->max * idx_que->entry_sz;
 	if (hns_roce_alloc_buf(&idx_que->buf, align(idx_que->buf_size, 0x1000),

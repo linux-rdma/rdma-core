@@ -215,8 +215,8 @@ static void hns_roce_free_srq_wqe(struct hns_roce_srq *srq, uint16_t ind)
 
 	pthread_spin_lock(&srq->lock);
 
-	bitmap_num = ind / (sizeof(uint64_t) * BIT_CNT_PER_BYTE);
-	bit_num = ind % (sizeof(uint64_t) * BIT_CNT_PER_BYTE);
+	bitmap_num = ind / BIT_CNT_PER_U64;
+	bit_num = ind % BIT_CNT_PER_U64;
 	srq->idx_que.bitmap[bitmap_num] |= (1ULL << bit_num);
 	srq->tail++;
 
@@ -1229,7 +1229,7 @@ static int find_empty_entry(struct hns_roce_idx_que *idx_que)
 	bit_num = ffsl(idx_que->bitmap[i]);
 	idx_que->bitmap[i] &= ~(1ULL << (bit_num - 1));
 
-	return i * sizeof(uint64_t) * BIT_CNT_PER_BYTE + (bit_num - 1);
+	return i * BIT_CNT_PER_U64 + (bit_num - 1);
 }
 
 static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
