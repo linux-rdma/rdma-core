@@ -1023,6 +1023,8 @@ static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 			pr_human("        vendor ID: %06x\n", be32toh(target->ioc_prof.vendor_id) >> 8);
 			pr_human("        device ID: %06x\n", be32toh(target->ioc_prof.device_id));
 			pr_human("        IO class : %04hx\n", be16toh(target->ioc_prof.io_class));
+			pr_human("        Maximum size of Send Messages in bytes: %d\n",
+				 be32toh(target->ioc_prof.send_size));
 			pr_human("        ID:        %s\n", target->ioc_prof.id);
 			pr_human("        service entries: %d\n", target->ioc_prof.service_entries);
 
