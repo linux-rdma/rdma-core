@@ -221,13 +221,15 @@ class APTEnvironment(Environment):
         # key for the toolchain ppa.  Fetch it in the host and just import the
         # gpg data directly into the trusted keyring.
         kb = os.path.join(tmpdir,"%s.kb.gpg"%(keyid));
-        subprocess.check_call(["gpg","--no-default-keyring","--keyring",kb,"--always-trust",
-                               "--recv-key",keyid]);
+        env = {k:v for k,v in os.environ.items()};
+        env["HOME"] = tmpdir;
+        subprocess.check_call(["gpg","--keyserver", "keyserver.ubuntu.com", "--no-default-keyring","--keyring",kb,"--always-trust",
+                               "--recv-key",keyid],env=env);
         kr = os.path.join(gpgd,"%s.gpg"%(keyid));
         with open(kr,"wb") as F:
             F.write(subprocess.check_output(["gpg","--no-default-keyring",
                                              "--keyring",kb,
-                                             "--export",keyid]));
+                                             "--export",keyid],env=env));
         os.unlink(kb);
 
         self.add_source_list(tmpdir,keyid + ".list",srcline);
