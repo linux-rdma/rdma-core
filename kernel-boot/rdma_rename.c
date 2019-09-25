@@ -356,9 +356,12 @@ err_free:
 
 static int by_pci(struct data *d)
 {
+	bool is_virtual = false;
 	struct pci_info p = {};
 	char *subsystem;
 	char buf[256] = {};
+	FILE *fw_ver_p;
+	char *fw_ver;
 	char *subs;
 	int ret;
 
@@ -373,9 +376,46 @@ static int by_pci(struct data *d)
 		goto out;
 	}
 	buf[ret] = 0;
-
 	subs = basename(buf);
-	if (strcmp(subs, "pci")) {
+
+	ret =  asprintf(&fw_ver, "/sys/class/infiniband/%s/fw_ver", d->curr);
+	if (ret < 0) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	ret = 0;
+	fw_ver_p = fopen(fw_ver, "r");
+	free(fw_ver);
+	if (fw_ver_p) {
+		/* Let's read more than one symbol and '\n' */
+		char *s = fgets(buf, 3, fw_ver_p);
+
+		fclose(fw_ver_p);
+
+		if (!s) {
+			/* Signal that we can't read fw_ver file */
+			ret = -EINVAL;
+		} else {
+			/*
+			 * Virtual devices like SIW and RXE
+			 * don't set their FW versions, so here we check
+			 * that "s" has "\n" only or less.
+			 */
+			if (strlen(s) < 2)
+				is_virtual = true;
+		}
+	} else {
+		ret = -EINVAL;
+	}
+
+	if (ret) {
+		/* Something very wrong, all IB devices have fw_ver file */
+		pr_err("%s: Can't open/read fw_ver file\n", d->curr);
+		goto out;
+	}
+
+	if (strcmp(subs, "pci") || is_virtual) {
 		/* Ball out virtual devices */
 		pr_dbg("%s: Non-PCI device (%s) was detected\n", d->curr, subs);
 		ret = -EINVAL;
