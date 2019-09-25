@@ -899,6 +899,8 @@ int mlx5_copy_to_recv_srq(struct mlx5_srq *srq, int idx, void *buf, int size);
 struct ibv_xrcd *mlx5_open_xrcd(struct ibv_context *context,
 				struct ibv_xrcd_init_attr *xrcd_init_attr);
 int mlx5_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num);
+struct ibv_qp *mlx5_open_qp(struct ibv_context *context,
+			    struct ibv_qp_open_attr *attr);
 int mlx5_close_xrcd(struct ibv_xrcd *ib_xrcd);
 struct ibv_wq *mlx5_create_wq(struct ibv_context *context,
 			      struct ibv_wq_init_attr *attr);

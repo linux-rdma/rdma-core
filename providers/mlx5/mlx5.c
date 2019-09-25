@@ -146,6 +146,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.modify_flow_action_esp = mlx5_modify_flow_action_esp,
 	.modify_qp_rate_limit = mlx5_modify_qp_rate_limit,
 	.modify_wq = mlx5_modify_wq,
+	.open_qp = mlx5_open_qp,
 	.open_xrcd = mlx5_open_xrcd,
 	.post_srq_ops = mlx5_post_srq_ops,
 	.query_device_ex = mlx5_query_device_ex,
