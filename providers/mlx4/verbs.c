@@ -473,8 +473,10 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		return NULL;
 	}
 
-	if (cq_attr->wc_flags & ~CREATE_CQ_SUPPORTED_WC_FLAGS)
+	if (cq_attr->wc_flags & ~CREATE_CQ_SUPPORTED_WC_FLAGS) {
+		errno = ENOTSUP;
 		return NULL;
+	}
 
 	/* mlx4 devices don't support slid and sl in cqe when completion
 	 * timestamp is enabled in the CQ
@@ -656,8 +658,10 @@ struct ibv_srq *mlx4_create_srq(struct ibv_pd *pd,
 	int			    ret;
 
 	/* Sanity check SRQ size before proceeding */
-	if (attr->attr.max_wr > 1 << 16 || attr->attr.max_sge > 64)
+	if (attr->attr.max_wr > 1 << 16 || attr->attr.max_sge > 64) {
+		errno = EINVAL;
 		return NULL;
+	}
 
 	srq = malloc(sizeof *srq);
 	if (!srq)
@@ -789,11 +793,15 @@ static struct ibv_qp *_mlx4_create_qp_ex_rss(struct ibv_context *context,
 	int ret;
 
 	if (!(attr->comp_mask & IBV_QP_INIT_ATTR_RX_HASH) ||
-	    !(attr->comp_mask & IBV_QP_INIT_ATTR_IND_TABLE))
+	    !(attr->comp_mask & IBV_QP_INIT_ATTR_IND_TABLE)) {
+		errno = EINVAL;
 		return NULL;
+	}
 
-	if (attr->qp_type != IBV_QPT_RAW_PACKET)
+	if (attr->qp_type != IBV_QPT_RAW_PACKET) {
+		errno = EINVAL;
 		return NULL;
+	}
 
 	qp = calloc(1, sizeof(*qp));
 	if (!qp)
@@ -868,20 +876,28 @@ static struct ibv_qp *create_qp_ex(struct ibv_context *context,
 		if (attr->cap.max_send_wr  > ctx->max_qp_wr ||
 		    attr->cap.max_recv_wr  > ctx->max_qp_wr ||
 		    attr->cap.max_send_sge > ctx->max_sge   ||
-		    attr->cap.max_recv_sge > ctx->max_sge)
+		    attr->cap.max_recv_sge > ctx->max_sge) {
+			errno = EINVAL;
 			return NULL;
+		}
 	} else {
 		if (attr->cap.max_send_wr  > 65536 ||
 		    attr->cap.max_recv_wr  > 65536 ||
 		    attr->cap.max_send_sge > 64    ||
-		    attr->cap.max_recv_sge > 64)
+		    attr->cap.max_recv_sge > 64) {
+			errno = EINVAL;
 			return NULL;
+		}
 	}
-	if (attr->cap.max_inline_data > 1024)
+	if (attr->cap.max_inline_data > 1024) {
+		errno = EINVAL;
 		return NULL;
+	}
 
-	if (attr->comp_mask & ~MLX4_CREATE_QP_SUP_COMP_MASK)
+	if (attr->comp_mask & ~MLX4_CREATE_QP_SUP_COMP_MASK) {
+		errno = ENOTSUP;
 		return NULL;
+	}
 
 	qp = calloc(1, sizeof *qp);
 	if (!qp)
@@ -1322,8 +1338,10 @@ struct ibv_ah *mlx4_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		return NULL;
 
 	if (port_attr.flags & IBV_QPF_GRH_REQUIRED &&
-	    !attr->is_global)
+	    !attr->is_global) {
+		errno = EINVAL;
 		return NULL;
+	}
 
 	ah = malloc(sizeof *ah);
 	if (!ah)
