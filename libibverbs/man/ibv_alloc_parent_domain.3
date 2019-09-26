@@ -41,11 +41,23 @@ The
 argument specifies the following:
 .PP
 .nf
+enum ibv_parent_domain_init_attr_mask {
+.in +8
+IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS = 1 << 0,
+IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT = 1 << 1,
+.in -8
+};
+
 struct ibv_parent_domain_init_attr {
 .in +8
 struct ibv_pd *pd; /* referance to a protection domain, can't be NULL */
 struct ibv_td *td; /* referance to a thread domain, or NULL */
 uint32_t comp_mask;
+void *(*alloc)(struct ibv_pd *pd, void *pd_context, size_t size,
+               size_t alignment, uint64_t resource_type);
+void (*free)(struct ibv_pd *pd, void *pd_context, void *ptr,
+             uint64_t resource_type);
+void *pd_context;
 .in -8
 };
 .fi
@@ -56,6 +68,48 @@ will deallocate the parent domain as its exposed as an ibv_pd
 .I pd\fR.
 All resources created with the parent domain
 should be destroyed prior to deallocating the parent domain\fR.
+.SH "ARGUMENTS"
+.B pd
+Reference to the protection domain that this parent domain uses.
+.PP
+.B td
+An optional thread domain that the parent domain uses.
+.PP
+.B comp_mask
+Bit-mask of optional fields in the ibv_parent_domain_init_attr struct.
+.PP
+.B alloc
+Custom memory allocation function for this parent domain. Provider
+memory allocations will use this function to allocate the needed memory.
+The allocation function is passed the parent domain
+.B pd
+and the user-specified context
+.B pd_context.
+In addition, the callback receives the
+.B size
+and the
+.B alignment
+of the requested buffer, as well a vendor-specific
+.B resource_type
+, which is derived from the rdma_driver_id enum (upper 32 bits) and a vendor
+specific resource code.
+The function returns the pointer to the allocated buffer, or NULL to
+designate an error.  It may also return
+.B IBV_ALLOCATOR_USE_DEFAULT
+asking the callee to allocate the buffer using the default allocator.
+
+The callback makes sure the allocated buffer is initialized with zeros. It is
+also the responsibility of the callback to make sure the memory cannot be
+COWed, e.g. by using madvise(MADV_DONTFORK) or by allocating anonymous shared
+memory.
+.PP
+.B free
+Callback to free memory buffers that were allocated using a successful
+alloc().
+.PP
+.B pd_context
+A pointer for additional user-specific data to be associated with this
+parent domain. The pointer is passed back to the custom allocator functions.
 .SH "RETURN VALUE"
 .B ibv_alloc_parent_domain()
 returns a pointer to the allocated struct
