@@ -1182,10 +1182,11 @@ static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 
 	hns_roce_lock_cqs(ibqp);
 
-	__hns_roce_v2_cq_clean(to_hr_cq(ibqp->recv_cq), ibqp->qp_num,
-			       ibqp->srq ? to_hr_srq(ibqp->srq) : NULL);
+	if (ibqp->recv_cq)
+		__hns_roce_v2_cq_clean(to_hr_cq(ibqp->recv_cq), ibqp->qp_num,
+				       ibqp->srq ? to_hr_srq(ibqp->srq) : NULL);
 
-	if (ibqp->send_cq != ibqp->recv_cq)
+	if (ibqp->send_cq && ibqp->send_cq != ibqp->recv_cq)
 		__hns_roce_v2_cq_clean(to_hr_cq(ibqp->send_cq), ibqp->qp_num,
 				       NULL);
 
