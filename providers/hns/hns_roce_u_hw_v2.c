@@ -936,7 +936,7 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	if (ibvqp->state == IBV_QPS_RESET) {
 		pthread_spin_unlock(&qp->rq.lock);
 		*bad_wr = wr;
-		return -1;
+		return -EINVAL;
 	}
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
@@ -1248,14 +1248,14 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (wr->num_sge > srq->max_gs) {
-			ret = -1;
+			ret = -EINVAL;
 			*bad_wr = wr;
 			break;
 		}
 
 		if (srq->head == srq->tail) {
 			/* SRQ is full */
-			ret = -1;
+			ret = -ENOMEM;
 			*bad_wr = wr;
 			break;
 		}

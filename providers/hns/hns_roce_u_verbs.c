@@ -278,7 +278,7 @@ static uint64_t align_queue_size(uint64_t req)
 static int hns_roce_verify_cq(int *cqe, struct hns_roce_context *context)
 {
 	if (*cqe < 1 || *cqe > context->max_cqe)
-		return -1;
+		return -EINVAL;
 
 	if (*cqe < HNS_ROCE_MIN_CQE_NUM)
 		*cqe = HNS_ROCE_MIN_CQE_NUM;
@@ -292,7 +292,7 @@ static int hns_roce_alloc_cq_buf(struct hns_roce_device *dev,
 	if (hns_roce_alloc_buf(buf,
 			align(nent * HNS_ROCE_CQE_ENTRY_SIZE, dev->page_size),
 			dev->page_size))
-		return -1;
+		return -ENOMEM;
 
 	return 0;
 }
@@ -414,7 +414,7 @@ static int hns_roce_create_idx_que(struct ibv_pd *pd, struct hns_roce_srq *srq)
 
 	idx_que->bitmap = calloc(1, bitmap_num / BIT_CNT_PER_BYTE);
 	if (!idx_que->bitmap)
-		return -1;
+		return -ENOMEM;
 
 	/* bitmap_num indicates amount of u64 */
 	bitmap_num = bitmap_num / BIT_CNT_PER_U64;
@@ -424,7 +424,7 @@ static int hns_roce_create_idx_que(struct ibv_pd *pd, struct hns_roce_srq *srq)
 			       to_hr_dev(pd->context->device)->page_size)) {
 		free(idx_que->bitmap);
 		idx_que->bitmap = NULL;
-		return -1;
+		return -ENOMEM;
 	}
 
 	/* init the idx_que bitmap */
@@ -442,7 +442,7 @@ static int hns_roce_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 
 	srq->wrid = calloc(srq->max_wqe, sizeof(unsigned long));
 	if (!srq->wrid)
-		return -1;
+		return -ENOMEM;
 
 	/* srq size */
 	srq_size = srq->max_gs * sizeof(struct hns_roce_v2_wqe_data_seg);
@@ -457,7 +457,7 @@ static int hns_roce_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 	if (hns_roce_alloc_buf(&srq->buf, srq_buf_size,
 			       to_hr_dev(pd->context->device)->page_size)) {
 		free(srq->wrid);
-		return -1;
+		return -ENOMEM;
 	}
 
 	srq->head = 0;
@@ -596,14 +596,14 @@ static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 	    attr->cap.max_recv_wr > context->max_qp_wr ||
 	    attr->cap.max_send_sge > context->max_sge  ||
 	    attr->cap.max_recv_sge > context->max_sge)
-		return -1;
+		return -EINVAL;
 
 	if ((attr->qp_type != IBV_QPT_RC) && (attr->qp_type != IBV_QPT_UD))
-		return -1;
+		return -EINVAL;
 
 	if ((attr->qp_type == IBV_QPT_RC) &&
 	    (attr->cap.max_inline_data > HNS_ROCE_MAX_INLINE_DATA_LEN))
-		return -1;
+		return -EINVAL;
 
 	return 0;
 }
@@ -616,7 +616,7 @@ static int hns_roce_alloc_recv_inl_buf(struct ibv_qp_cap *cap,
 	qp->rq_rinl_buf.wqe_list = calloc(qp->rq.wqe_cnt,
 					  sizeof(struct hns_roce_rinl_wqe));
 	if (!qp->rq_rinl_buf.wqe_list)
-		return -1;
+		return -ENOMEM;
 
 	qp->rq_rinl_buf.wqe_cnt = qp->rq.wqe_cnt;
 
@@ -625,7 +625,7 @@ static int hns_roce_alloc_recv_inl_buf(struct ibv_qp_cap *cap,
 				       sizeof(struct hns_roce_rinl_sge));
 	if (!qp->rq_rinl_buf.wqe_list[0].sg_list) {
 		free(qp->rq_rinl_buf.wqe_list);
-		return -1;
+		return -ENOMEM;
 	}
 
 	for (i = 0; i < qp->rq_rinl_buf.wqe_cnt; i++) {
@@ -671,7 +671,7 @@ static int hns_roce_calc_qp_buff_size(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 
 		/* alloc recv inline buf */
 		if (hns_roce_alloc_recv_inl_buf(cap, qp))
-			return -1;
+			return -ENOMEM;
 
 		qp->buf_size = align((qp->sq.wqe_cnt << qp->sq.wqe_shift),
 				     page_size) +
@@ -707,13 +707,13 @@ static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 
 	qp->sq.wrid = malloc(qp->sq.wqe_cnt * sizeof(uint64_t));
 	if (!qp->sq.wrid)
-		return -1;
+		return -ENOMEM;
 
 	if (qp->rq.wqe_cnt) {
 		qp->rq.wrid = malloc(qp->rq.wqe_cnt * sizeof(uint64_t));
 		if (!qp->rq.wrid) {
 			free(qp->sq.wrid);
-			return -1;
+			return -ENOMEM;
 		}
 	}
 
@@ -721,7 +721,7 @@ static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 		if (qp->rq.wqe_cnt)
 			free(qp->rq.wrid);
 		free(qp->sq.wrid);
-		return -1;
+		return -ENOMEM;
 	}
 
 	if (hns_roce_alloc_buf(&qp->buf, align(qp->buf_size, page_size),
@@ -729,7 +729,7 @@ static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 		if (qp->rq.wqe_cnt)
 			free(qp->rq.wrid);
 		free(qp->sq.wrid);
-		return -1;
+		return -ENOMEM;
 	}
 
 	return 0;
@@ -826,7 +826,7 @@ static int hns_roce_store_qp(struct hns_roce_context *ctx, uint32_t qpn,
 		ctx->qp_table[tind].table = calloc(ctx->qp_table_mask + 1,
 						  sizeof(struct hns_roce_qp *));
 		if (!ctx->qp_table[tind].table)
-			return -1;
+			return -ENOMEM;
 	}
 
 	++ctx->qp_table[tind].refcnt;

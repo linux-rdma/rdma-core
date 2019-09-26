@@ -477,7 +477,7 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (hns_roce_wq_overflow(&qp->sq, nreq,
 					 to_hr_cq(qp->ibv_qp.send_cq))) {
-			ret = -1;
+			ret = -ENOMEM;
 			*bad_wr = wr;
 			goto out;
 		}
@@ -485,7 +485,7 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		wqe_idx = (qp->sq.head + nreq) & (qp->rq.wqe_cnt - 1);
 
 		if (wr->num_sge > qp->sq.max_gs) {
-			ret = -1;
+			ret = -EINVAL;
 			*bad_wr = wr;
 			printf("wr->num_sge(<=%d) = %d, check failed!\r\n",
 				qp->sq.max_gs, wr->num_sge);
@@ -555,7 +555,7 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		/* Inline */
 		if (wr->send_flags & IBV_SEND_INLINE && wr->num_sge) {
 			if (le32toh(ctrl->msg_length) > qp->max_inline_data) {
-				ret = -1;
+				ret = -EINVAL;
 				*bad_wr = wr;
 				printf("inline data len(1-32)=%d, send_flags = 0x%x, check failed!\r\n",
 					wr->send_flags, ctrl->msg_length);
@@ -754,7 +754,7 @@ static int hns_roce_u_v1_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (hns_roce_wq_overflow(&qp->rq, nreq,
 					 to_hr_cq(qp->ibv_qp.recv_cq))) {
-			ret = -1;
+			ret = -ENOMEM;
 			*bad_wr = wr;
 			goto out;
 		}
@@ -762,14 +762,14 @@ static int hns_roce_u_v1_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 		wqe_idx = (qp->rq.head + nreq) & (qp->rq.wqe_cnt - 1);
 
 		if (wr->num_sge > qp->rq.max_gs) {
-			ret = -1;
+			ret = -EINVAL;
 			*bad_wr = wr;
 			goto out;
 		}
 
 		rq_wqe = get_recv_wqe(qp, wqe_idx);
 		if (wr->num_sge > HNS_ROCE_RC_RQ_WQE_MAX_SGE_NUM) {
-			ret = -1;
+			ret = -EINVAL;
 			*bad_wr = wr;
 			goto out;
 		}
