@@ -154,7 +154,7 @@ static void *get_srq_wqe(struct hns_roce_srq *srq, int n)
 	return srq->buf.buf + (n << srq->wqe_shift);
 }
 
-static void hns_roce_free_srq_wqe(struct hns_roce_srq *srq, int ind)
+static void hns_roce_free_srq_wqe(struct hns_roce_srq *srq, uint16_t ind)
 {
 	uint32_t bitmap_num;
 	int bit_num;
@@ -1032,6 +1032,8 @@ static void __hns_roce_v2_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 				   struct hns_roce_srq *srq)
 {
 	int nfreed = 0;
+	bool is_recv_cqe;
+	uint16_t wqe_index;
 	uint32_t prod_index;
 	uint8_t owner_bit = 0;
 	struct hns_roce_v2_cqe *cqe, *dest;
@@ -1046,6 +1048,15 @@ static void __hns_roce_v2_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 		cqe = get_cqe_v2(cq, prod_index & cq->ibv_cq.cqe);
 		if ((roce_get_field(cqe->byte_16, CQE_BYTE_16_LCL_QPN_M,
 			      CQE_BYTE_16_LCL_QPN_S) & 0xffffff) == qpn) {
+			is_recv_cqe = roce_get_bit(cqe->byte_4,
+						   CQE_BYTE_4_S_R_S);
+
+			if (srq && is_recv_cqe) {
+				wqe_index = roce_get_field(cqe->byte_4,
+						CQE_BYTE_4_WQE_IDX_M,
+						CQE_BYTE_4_WQE_IDX_S);
+				hns_roce_free_srq_wqe(srq, wqe_index);
+			}
 			++nfreed;
 		} else if (nfreed) {
 			dest = get_cqe_v2(cq,
