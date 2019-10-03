@@ -6,7 +6,7 @@ import logging
 
 from posix.mman cimport mmap, munmap, MAP_PRIVATE, PROT_READ, PROT_WRITE, \
     MAP_ANONYMOUS, MAP_HUGETLB
-from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
+from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
 from posix.stdlib cimport posix_memalign
 from libc.string cimport memcpy, memset
@@ -139,6 +139,16 @@ cdef class MR(PyverbsCM):
     @property
     def rkey(self):
         return self.mr.rkey
+
+
+cdef class MWBindInfo(PyverbsCM):
+    def __init__(self, MR mr not None, addr, length, mw_access_flags):
+        super().__init__()
+        self.mr = mr
+        self.info.mr = mr.mr
+        self.info.addr = addr
+        self.info.length = length
+        self.info.mw_access_flags = mw_access_flags
 
 
 cdef class MW(PyverbsCM):

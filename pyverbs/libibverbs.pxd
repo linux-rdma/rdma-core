@@ -552,3 +552,4 @@ cdef extern from 'infiniband/verbs.h':
                           ibv_recv_wr **bad_recv_wr)
     ibv_pd *ibv_alloc_parent_domain(ibv_context *context,
                                     ibv_parent_domain_init_attr *attr)
+    uint32_t ibv_inc_rkey(uint32_t rkey)
