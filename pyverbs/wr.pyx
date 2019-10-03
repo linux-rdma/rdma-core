@@ -1,12 +1,16 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies Inc. All rights reserved. See COPYING file
 
+import resource
+
+from cpython.pycapsule cimport PyCapsule_New
+from libc.stdlib cimport free, malloc
+from libc.string cimport memcpy
+
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.addr cimport AH
-from libc.stdlib cimport free, malloc
-from libc.string cimport memcpy
 
 
 cdef class SGE(PyverbsCM):
@@ -280,6 +284,58 @@ cdef class SendWR(PyverbsCM):
         :return: None
         """
         self.send_wr.qp_type.xrc.remote_srqn = remote_srqn
+
+    def set_tso(self, TSO tso not None):
+        """
+        Set the members of the tso struct in the send_wr's anonymous union.
+        :param tso: A TSO object to copy to the work request
+        :return: None
+        """
+        self.send_wr.tso.hdr = tso.buf
+        self.send_wr.tso.hdr_sz = tso.length
+        self.send_wr.tso.mss = tso.mss
+
+
+cdef class TSO(PyverbsCM):
+    """ Represents the 'tso' anonymous struct inside a send WR """
+    def __init__(self, data, length, mss):
+        super().__init__()
+        self.alloc_buf(data, length)
+        self.length = length
+        self.mss = mss
+
+    cpdef alloc_buf(self, data, length):
+        if self.buf != NULL:
+            free(self.buf)
+        self.buf = malloc(length)
+        if self.buf == NULL:
+            raise PyverbsError('Failed to allocate TSO buffer of length {l}'.\
+                                format(l=length))
+        if isinstance(data, str):
+            data = data.encode()
+        memcpy(self.buf, <char*>data, length)
+        self.length = length
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.buf != NULL:
+            free(self.buf)
+            self.buf = NULL
+
+    @property
+    def buf(self):
+        return PyCapsule_New(self.buf, NULL, NULL)
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        data = <char*>(self.buf)
+        data = data[:self.length].decode()
+        return print_format.format('MSS', self.mss) +\
+               print_format.format('Length', self.length) +\
+               print_format.format('Data', data)
+
 
 def send_flags_to_str(flags):
     send_flags = {e.IBV_SEND_FENCE: 'IBV_SEND_FENCE',

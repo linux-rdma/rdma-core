@@ -311,10 +311,6 @@ cdef extern from 'infiniband/verbs.h':
         unsigned short  hdr_sz
         unsigned short  mss
 
-    cdef union unnamed:
-        bind_mw         bind_mw
-        tso             tso
-
     cdef struct xrc:
         unsigned int    remote_srqn
 
@@ -330,7 +326,8 @@ cdef extern from 'infiniband/verbs.h':
         unsigned int    send_flags
         wr              wr
         qp_type         qp_type
-        unnamed         unnamed
+        bind_mw         bind_mw
+        tso             tso
 
     cdef struct ibv_qp_cap:
         unsigned int    max_send_wr

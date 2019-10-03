@@ -16,3 +16,9 @@ cdef class RecvWR(PyverbsCM):
 
 cdef class SendWR(PyverbsCM):
     cdef v.ibv_send_wr send_wr
+
+cdef class TSO(PyverbsCM):
+    cdef void* buf
+    cdef int length
+    cdef int mss
+    cpdef alloc_buf(self, content, length)
