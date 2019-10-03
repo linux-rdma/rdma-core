@@ -37,3 +37,9 @@ cdef class QP(PyverbsCM):
     cdef update_cqs(self, init_attr)
     cdef object scq
     cdef object rcq
+
+cdef class DataBuffer(PyverbsCM):
+    cdef v.ibv_data_buf data
+
+cdef class QPEx(QP):
+    cdef v.ibv_qp_ex *qp_ex
