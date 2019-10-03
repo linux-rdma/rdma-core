@@ -3,10 +3,12 @@
 
 import resource
 import logging
+import weakref
 
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
 from posix.stdlib cimport posix_memalign
+from pyverbs.base cimport close_weakrefs
 from libc.string cimport memcpy, memset
 from libc.stdint cimport uintptr_t
 from pyverbs.device cimport DM
@@ -29,6 +31,7 @@ cdef class MR(PyverbsCM):
         :return: The newly created MR on success
         """
         super().__init__()
+        self.bind_infos = weakref.WeakSet()
         if self.mr != NULL:
             return
         #We want to enable registering an MR of size 0 but this fails with a
@@ -61,6 +64,7 @@ cdef class MR(PyverbsCM):
         :return: None
         """
         self.logger.debug('Closing MR')
+        close_weakrefs([self.bind_infos])
         if self.mr != NULL:
             rc = v.ibv_dereg_mr(self.mr)
             if rc != 0:
@@ -96,6 +100,10 @@ cdef class MR(PyverbsCM):
         data = <char*>(self.buf + off)
         return data[:length]
 
+    cdef add_ref(self, obj):
+        if isinstance(obj, MWBindInfo):
+            self.bind_infos.add(obj)
+
     @property
     def buf(self):
         return <uintptr_t>self.buf
@@ -107,6 +115,17 @@ cdef class MR(PyverbsCM):
     @property
     def rkey(self):
         return self.mr.rkey
+
+
+cdef class MWBindInfo(PyverbsCM):
+    def __init__(self, MR mr not None, addr, length, mw_access_flags):
+        super().__init__()
+        self.mr = mr
+        self.info.mr = mr.mr
+        self.info.addr = addr
+        self.info.length = length
+        self.info.mw_access_flags = mw_access_flags
+        mr.add_ref(self)
 
 
 cdef class MW(PyverbsCM):
