@@ -438,6 +438,7 @@ struct mlx5_srq {
 	int				waitq_head;
 	int				waitq_tail;
 	__be32			       *db;
+	bool				custom_db;
 	uint16_t			counter;
 	int				wq_sig;
 	struct ibv_qp		       *cmd_qp;
@@ -553,6 +554,7 @@ struct mlx5_qp {
 	struct mlx5_wq                  sq;
 
 	__be32                         *db;
+	bool				custom_db;
 	struct mlx5_wq                  rq;
 	int                             wq_sig;
 	uint32_t			qp_cap_cache;
@@ -582,6 +584,7 @@ struct mlx5_rwq {
 	int buf_size;
 	struct mlx5_wq rq;
 	__be32  *db;
+	bool	custom_db;
 	void	*pbuff;
 	__be32	*recv_db;
 	int wq_sig;
@@ -795,8 +798,10 @@ int mlx5_alloc_buf_extern(struct mlx5_context *ctx, struct mlx5_buf *buf,
 			  size_t size);
 void mlx5_free_buf_extern(struct mlx5_context *ctx, struct mlx5_buf *buf);
 
-__be32 *mlx5_alloc_dbrec(struct mlx5_context *context);
-void mlx5_free_db(struct mlx5_context *context, __be32 *db);
+__be32 *mlx5_alloc_dbrec(struct mlx5_context *context, struct ibv_pd *pd,
+			 bool *custom_alloc);
+void mlx5_free_db(struct mlx5_context *context, __be32 *db, struct ibv_pd *pd,
+		  bool custom_alloc);
 
 int mlx5_query_device(struct ibv_context *context,
 		       struct ibv_device_attr *attr);

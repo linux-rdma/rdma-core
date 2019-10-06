@@ -85,12 +85,31 @@ static struct mlx5_db_page *__add_page(struct mlx5_context *context)
 	return page;
 }
 
-__be32 *mlx5_alloc_dbrec(struct mlx5_context *context)
+__be32 *mlx5_alloc_dbrec(struct mlx5_context *context, struct ibv_pd *pd,
+			 bool *custom_alloc)
 {
 	struct mlx5_db_page *page;
 	__be32 *db = NULL;
 	int i, j;
 
+	if (mlx5_is_custom_alloc(pd)) {
+		struct mlx5_parent_domain *mparent_domain = to_mparent_domain(pd);
+
+		db = mparent_domain->alloc(&mparent_domain->mpd.ibv_pd,
+				   mparent_domain->pd_context, 8, 8,
+				   MLX5DV_RES_TYPE_DBR);
+
+		if (db == IBV_ALLOCATOR_USE_DEFAULT)
+			goto default_alloc;
+
+		if (!db)
+			return NULL;
+
+		*custom_alloc = true;
+		return db;
+	}
+
+default_alloc:
 	pthread_mutex_lock(&context->db_list_mutex);
 
 	for (page = context->db_list; page; page = page->next)
@@ -118,11 +137,22 @@ out:
 	return db;
 }
 
-void mlx5_free_db(struct mlx5_context *context, __be32 *db)
+void mlx5_free_db(struct mlx5_context *context, __be32 *db, struct ibv_pd *pd,
+		  bool custom_alloc)
 {
 	struct mlx5_db_page *page;
 	uintptr_t ps = to_mdev(context->ibv_ctx.context.device)->page_size;
 	int i;
+
+	if (custom_alloc) {
+		struct mlx5_parent_domain *mparent_domain = to_mparent_domain(pd);
+
+		mparent_domain->free(&mparent_domain->mpd.ibv_pd,
+				     mparent_domain->pd_context,
+				     db,
+				     MLX5DV_RES_TYPE_DBR);
+		return;
+	}
 
 	pthread_mutex_lock(&context->db_list_mutex);
 

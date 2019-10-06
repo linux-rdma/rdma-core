@@ -749,7 +749,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		goto err_spl;
 	}
 
-	cq->dbrec  = mlx5_alloc_dbrec(to_mctx(context));
+	cq->dbrec  = mlx5_alloc_dbrec(to_mctx(context), NULL, NULL);
 	if (!cq->dbrec) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "\n");
 		goto err_buf;
@@ -834,7 +834,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	return &cq->ibv_cq;
 
 err_db:
-	mlx5_free_db(to_mctx(context), cq->dbrec);
+	mlx5_free_db(to_mctx(context), cq->dbrec, NULL, 0);
 
 err_buf:
 	mlx5_free_cq_buf(to_mctx(context), &cq->buf_a);
@@ -968,7 +968,7 @@ int mlx5_destroy_cq(struct ibv_cq *cq)
 	if (ret)
 		return ret;
 
-	mlx5_free_db(to_mctx(cq->context), to_mcq(cq)->dbrec);
+	mlx5_free_db(to_mctx(cq->context), to_mcq(cq)->dbrec, NULL, 0);
 	mlx5_free_cq_buf(to_mctx(cq->context), to_mcq(cq)->active_buf);
 	free(to_mcq(cq));
 
@@ -1028,13 +1028,14 @@ struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 		goto err;
 	}
 
-	srq->db = mlx5_alloc_dbrec(to_mctx(pd->context));
+	srq->db = mlx5_alloc_dbrec(to_mctx(pd->context), pd, &srq->custom_db);
 	if (!srq->db) {
 		fprintf(stderr, "%s-%d:\n", __func__, __LINE__);
 		goto err_free;
 	}
 
-	*srq->db = 0;
+	if (!srq->custom_db)
+		*srq->db = 0;
 
 	cmd.buf_addr = (uintptr_t) srq->buf.buf;
 	cmd.db_addr  = (uintptr_t) srq->db;
@@ -1077,7 +1078,7 @@ err_destroy:
 
 err_db:
 	pthread_mutex_unlock(&ctx->srq_table_mutex);
-	mlx5_free_db(to_mctx(pd->context), srq->db);
+	mlx5_free_db(to_mctx(pd->context), srq->db, pd, srq->custom_db);
 
 err_free:
 	free(srq->wrid);
@@ -1128,7 +1129,7 @@ int mlx5_destroy_srq(struct ibv_srq *srq)
 	else
 		mlx5_clear_srq(ctx, msrq->srqn);
 
-	mlx5_free_db(ctx, msrq->db);
+	mlx5_free_db(ctx, msrq->db, srq->pd, msrq->custom_db);
 	mlx5_free_buf(&msrq->buf);
 	free(msrq->tm_list);
 	free(msrq->wrid);
@@ -2033,14 +2034,16 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 			mlx5_spinlock_init_pd(&qp->rq.lock, attr->pd))
 		goto err_free_qp_buf;
 
-	qp->db = mlx5_alloc_dbrec(ctx);
+	qp->db = mlx5_alloc_dbrec(ctx, attr->pd, &qp->custom_db);
 	if (!qp->db) {
 		mlx5_dbg(fp, MLX5_DBG_QP, "\n");
 		goto err_free_qp_buf;
 	}
 
-	qp->db[MLX5_RCV_DBR] = 0;
-	qp->db[MLX5_SND_DBR] = 0;
+	if (!qp->custom_db) {
+		qp->db[MLX5_RCV_DBR] = 0;
+		qp->db[MLX5_SND_DBR] = 0;
+	}
 
 	cmd.buf_addr = (uintptr_t) qp->buf.buf;
 	cmd.sq_buf_addr = (attr->qp_type == IBV_QPT_RAW_PACKET ||
@@ -2147,7 +2150,7 @@ err_free_uidx:
 		mlx5_clear_uidx(ctx, usr_idx);
 
 err_rq_db:
-	mlx5_free_db(to_mctx(context), qp->db);
+	mlx5_free_db(to_mctx(context), qp->db, attr->pd, qp->custom_db);
 
 err_free_qp_buf:
 	mlx5_free_qp_buf(ctx, qp);
@@ -2270,7 +2273,7 @@ int mlx5_destroy_qp(struct ibv_qp *ibqp)
 		mlx5_clear_uidx(ctx, qp->rsc.rsn);
 
 	if (qp->dc_type != MLX5DV_DCTYPE_DCT) {
-		mlx5_free_db(ctx, qp->db);
+		mlx5_free_db(ctx, qp->db, ibqp->pd, qp->custom_db);
 		mlx5_free_qp_buf(ctx, qp);
 	}
 free:
@@ -2892,13 +2895,14 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 		goto err;
 	}
 
-	msrq->db = mlx5_alloc_dbrec(ctx);
+	msrq->db = mlx5_alloc_dbrec(ctx, attr->pd, &msrq->custom_db);
 	if (!msrq->db) {
 		fprintf(stderr, "%s-%d:\n", __func__, __LINE__);
 		goto err_free;
 	}
 
-	*msrq->db = 0;
+	if (!msrq->custom_db)
+		*msrq->db = 0;
 
 	cmd.buf_addr = (uintptr_t)msrq->buf.buf;
 	cmd.db_addr  = (uintptr_t)msrq->db;
@@ -2990,7 +2994,7 @@ err_free_uidx:
 		pthread_mutex_unlock(&ctx->srq_table_mutex);
 
 err_free_db:
-	mlx5_free_db(ctx, msrq->db);
+	mlx5_free_db(ctx, msrq->db, attr->pd, msrq->custom_db);
 
 err_free:
 	free(msrq->wrid);
@@ -3216,12 +3220,15 @@ static struct ibv_wq *create_wq(struct ibv_context *context,
 	if (mlx5_spinlock_init_pd(&rwq->rq.lock, attr->pd))
 		goto err_free_rwq_buf;
 
-	rwq->db = mlx5_alloc_dbrec(ctx);
+	rwq->db = mlx5_alloc_dbrec(ctx, attr->pd, &rwq->custom_db);
 	if (!rwq->db)
 		goto err_free_rwq_buf;
 
-	rwq->db[MLX5_RCV_DBR] = 0;
-	rwq->db[MLX5_SND_DBR] = 0;
+	if (!rwq->custom_db) {
+		rwq->db[MLX5_RCV_DBR] = 0;
+		rwq->db[MLX5_SND_DBR] = 0;
+	}
+
 	rwq->pbuff = rwq->buf.buf + rwq->rq.offset;
 	rwq->recv_db =  &rwq->db[MLX5_RCV_DBR];
 	cmd.buf_addr = (uintptr_t)rwq->buf.buf;
@@ -3278,7 +3285,7 @@ static struct ibv_wq *create_wq(struct ibv_context *context,
 err_create:
 	mlx5_clear_uidx(ctx, cmd.user_index);
 err_free_db_rec:
-	mlx5_free_db(to_mctx(context), rwq->db);
+	mlx5_free_db(to_mctx(context), rwq->db, attr->pd, rwq->custom_db);
 err_free_rwq_buf:
 	mlx5_free_rwq_buf(rwq, context);
 err:
@@ -3342,7 +3349,7 @@ int mlx5_destroy_wq(struct ibv_wq *wq)
 	__mlx5_cq_clean(to_mcq(wq->cq), rwq->rsc.rsn, NULL);
 	mlx5_spin_unlock(&to_mcq(wq->cq)->lock);
 	mlx5_clear_uidx(to_mctx(wq->context), rwq->rsc.rsn);
-	mlx5_free_db(to_mctx(wq->context), rwq->db);
+	mlx5_free_db(to_mctx(wq->context), rwq->db, wq->pd, rwq->custom_db);
 	mlx5_free_rwq_buf(rwq, wq->context);
 	free(rwq);
 
