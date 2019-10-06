@@ -352,6 +352,11 @@ struct mlx5_pd {
 struct mlx5_parent_domain {
 	struct mlx5_pd mpd;
 	struct mlx5_td *mtd;
+	void *(*alloc)(struct ibv_pd *pd, void *pd_context, size_t size,
+		       size_t alignment, uint64_t resource_type);
+	void (*free)(struct ibv_pd *pd, void *pd_context, void *ptr,
+		     uint64_t resource_type);
+	void *pd_context;
 };
 
 enum {

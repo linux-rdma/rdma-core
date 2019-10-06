@@ -326,7 +326,9 @@ mlx5_alloc_parent_domain(struct ibv_context *context,
 	if (ibv_check_alloc_parent_domain(attr))
 		return NULL;
 
-	if (attr->comp_mask) {
+	if (!check_comp_mask(attr->comp_mask,
+			     IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS |
+			     IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT)) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -349,6 +351,14 @@ mlx5_alloc_parent_domain(struct ibv_context *context,
 	ibv_initialize_parent_domain(
 	    &mparent_domain->mpd.ibv_pd,
 	    &mparent_domain->mpd.mprotection_domain->ibv_pd);
+
+	if (attr->comp_mask & IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS) {
+		mparent_domain->alloc = attr->alloc;
+		mparent_domain->free = attr->free;
+	}
+
+	if (attr->comp_mask & IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT)
+		mparent_domain->pd_context = attr->pd_context;
 
 	return &mparent_domain->mpd.ibv_pd;
 }
