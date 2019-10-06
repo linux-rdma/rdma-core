@@ -173,6 +173,7 @@ enum mlx5_alloc_type {
 	MLX5_ALLOC_TYPE_PREFER_HUGE,
 	MLX5_ALLOC_TYPE_PREFER_CONTIG,
 	MLX5_ALLOC_TYPE_EXTERNAL,
+	MLX5_ALLOC_TYPE_CUSTOM,
 	MLX5_ALLOC_TYPE_ALL
 };
 
@@ -334,6 +335,9 @@ struct mlx5_buf {
 	int                             base;
 	struct mlx5_hugetlb_mem	       *hmem;
 	enum mlx5_alloc_type		type;
+	uint64_t			resource_type;
+	size_t				req_alignment;
+	struct mlx5_parent_domain	*mparent_domain;
 };
 
 struct mlx5_td {
@@ -780,10 +784,12 @@ int mlx5_alloc_prefered_buf(struct mlx5_context *mctx,
 			    const char *component);
 int mlx5_free_actual_buf(struct mlx5_context *ctx, struct mlx5_buf *buf);
 void mlx5_get_alloc_type(struct mlx5_context *context,
+			 struct ibv_pd *pd,
 			 const char *component,
 			 enum mlx5_alloc_type *alloc_type,
 			 enum mlx5_alloc_type default_alloc_type);
 int mlx5_use_huge(const char *key);
+bool mlx5_is_custom_alloc(struct ibv_pd *pd);
 bool mlx5_is_extern_alloc(struct mlx5_context *context);
 int mlx5_alloc_buf_extern(struct mlx5_context *ctx, struct mlx5_buf *buf,
 			  size_t size);

@@ -1554,8 +1554,14 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 	if (mlx5_use_huge(qp_huge_key))
 		default_alloc_type = MLX5_ALLOC_TYPE_HUGE;
 
-	mlx5_get_alloc_type(to_mctx(context), MLX5_QP_PREFIX, &alloc_type,
-			    default_alloc_type);
+	mlx5_get_alloc_type(to_mctx(context), attr->pd, MLX5_QP_PREFIX,
+			    &alloc_type, default_alloc_type);
+
+	if (alloc_type == MLX5_ALLOC_TYPE_CUSTOM) {
+		qp->buf.mparent_domain = to_mparent_domain(attr->pd);
+		qp->buf.req_alignment = to_mdev(context->device)->page_size;
+		qp->buf.resource_type = MLX5DV_RES_TYPE_QP;
+	}
 
 	err = mlx5_alloc_prefered_buf(to_mctx(context), &qp->buf,
 				      align(qp->buf_size, to_mdev
@@ -1569,12 +1575,20 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 		goto ex_wrid;
 	}
 
-	memset(qp->buf.buf, 0, qp->buf_size);
+	if (qp->buf.type != MLX5_ALLOC_TYPE_CUSTOM)
+		memset(qp->buf.buf, 0, qp->buf_size);
 
 	if (attr->qp_type == IBV_QPT_RAW_PACKET ||
 	    qp->flags & MLX5_QP_FLAGS_USE_UNDERLAY) {
 		size_t aligned_sq_buf_size = align(qp->sq_buf_size,
 						   to_mdev(context->device)->page_size);
+
+		if (alloc_type == MLX5_ALLOC_TYPE_CUSTOM) {
+			qp->sq_buf.mparent_domain = to_mparent_domain(attr->pd);
+			qp->sq_buf.req_alignment = to_mdev(context->device)->page_size;
+			qp->sq_buf.resource_type = MLX5DV_RES_TYPE_QP;
+		}
+
 		/* For Raw Packet QP, allocate a separate buffer for the SQ */
 		err = mlx5_alloc_prefered_buf(to_mctx(context), &qp->sq_buf,
 					      aligned_sq_buf_size,
@@ -1586,7 +1600,8 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 			goto rq_buf;
 		}
 
-		memset(qp->sq_buf.buf, 0, aligned_sq_buf_size);
+		if (qp->sq_buf.type != MLX5_ALLOC_TYPE_CUSTOM)
+			memset(qp->sq_buf.buf, 0, aligned_sq_buf_size);
 	}
 
 	return 0;
@@ -3121,19 +3136,26 @@ static void mlx5_free_rwq_buf(struct mlx5_rwq *rwq, struct ibv_context *context)
 }
 
 static int mlx5_alloc_rwq_buf(struct ibv_context *context,
+			      struct ibv_pd *pd,
 			      struct mlx5_rwq *rwq,
 			      int size)
 {
 	int err;
 	enum mlx5_alloc_type alloc_type;
 
-	mlx5_get_alloc_type(to_mctx(context), MLX5_RWQ_PREFIX,
+	mlx5_get_alloc_type(to_mctx(context), pd, MLX5_RWQ_PREFIX,
 			    &alloc_type, MLX5_ALLOC_TYPE_ANON);
 
 	rwq->rq.wrid = malloc(rwq->rq.wqe_cnt * sizeof(uint64_t));
 	if (!rwq->rq.wrid) {
 		errno = ENOMEM;
 		return -1;
+	}
+
+	if (alloc_type == MLX5_ALLOC_TYPE_CUSTOM) {
+		rwq->buf.mparent_domain = to_mparent_domain(pd);
+		rwq->buf.req_alignment = to_mdev(context->device)->page_size;
+		rwq->buf.resource_type = MLX5DV_RES_TYPE_RWQ;
 	}
 
 	err = mlx5_alloc_prefered_buf(to_mctx(context), &rwq->buf,
@@ -3186,7 +3208,7 @@ static struct ibv_wq *create_wq(struct ibv_context *context,
 	}
 
 	rwq->buf_size = ret;
-	if (mlx5_alloc_rwq_buf(context, rwq, ret))
+	if (mlx5_alloc_rwq_buf(context, attr->pd, rwq, ret))
 		goto err;
 
 	mlx5_init_rwq_indices(rwq);
