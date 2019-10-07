@@ -398,6 +398,9 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_XRCD_INIT_ATTR_OFLAGS
         IBV_XRCD_INIT_ATTR_RESERVED
 
+    cpdef enum:
+        IBV_WC_STANDARD_FLAGS
+
     cdef unsigned long long IBV_DEVICE_RAW_SCATTER_FCS
     cdef unsigned long long IBV_DEVICE_PCI_WRITE_END_PADDING
 
