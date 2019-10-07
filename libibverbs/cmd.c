@@ -340,8 +340,10 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	 * In that case set the value in the command to what kernel expects.
 	 */
 	if (access & IBV_ACCESS_ON_DEMAND) {
-		if (length == SIZE_MAX && addr)
+		if (length == SIZE_MAX && addr) {
+			errno = EINVAL;
 			return EINVAL;
+		}
 		if (length == SIZE_MAX)
 			cmd->length = UINT64_MAX;
 	}
