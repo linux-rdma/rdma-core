@@ -1023,7 +1023,7 @@ struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 	srq->max_gs  = attr->attr.max_sge;
 	srq->counter = 0;
 
-	if (mlx5_alloc_srq_buf(pd->context, srq, attr->attr.max_wr)) {
+	if (mlx5_alloc_srq_buf(pd->context, srq, attr->attr.max_wr, pd)) {
 		fprintf(stderr, "%s-%d:\n", __func__, __LINE__);
 		goto err;
 	}
@@ -1082,7 +1082,7 @@ err_db:
 
 err_free:
 	free(srq->wrid);
-	mlx5_free_buf(&srq->buf);
+	mlx5_free_actual_buf(ctx, &srq->buf);
 
 err:
 	free(srq);
@@ -1130,7 +1130,7 @@ int mlx5_destroy_srq(struct ibv_srq *srq)
 		mlx5_clear_srq(ctx, msrq->srqn);
 
 	mlx5_free_db(ctx, msrq->db, srq->pd, msrq->custom_db);
-	mlx5_free_buf(&msrq->buf);
+	mlx5_free_actual_buf(ctx, &msrq->buf);
 	free(msrq->tm_list);
 	free(msrq->wrid);
 	free(msrq->op);
@@ -2890,7 +2890,7 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 	msrq->max_gs  = attr->attr.max_sge;
 	msrq->counter = 0;
 
-	if (mlx5_alloc_srq_buf(context, msrq, attr->attr.max_wr)) {
+	if (mlx5_alloc_srq_buf(context, msrq, attr->attr.max_wr, attr->pd)) {
 		fprintf(stderr, "%s-%d:\n", __func__, __LINE__);
 		goto err;
 	}
@@ -2998,7 +2998,7 @@ err_free_db:
 
 err_free:
 	free(msrq->wrid);
-	mlx5_free_buf(&msrq->buf);
+	mlx5_free_actual_buf(ctx, &msrq->buf);
 
 err:
 	free(msrq);

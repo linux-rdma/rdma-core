@@ -71,6 +71,7 @@ enum {
 #define MLX5_QP_PREFIX "MLX_QP"
 #define MLX5_MR_PREFIX "MLX_MR"
 #define MLX5_RWQ_PREFIX "MLX_RWQ"
+#define MLX5_SRQ_PREFIX "MLX_SRQ"
 #define MLX5_MAX_LOG2_CONTIG_BLOCK_SIZE 23
 #define MLX5_MIN_LOG2_CONTIG_BLOCK_SIZE 12
 
@@ -863,7 +864,7 @@ int mlx5_query_srq(struct ibv_srq *srq,
 			   struct ibv_srq_attr *attr);
 int mlx5_destroy_srq(struct ibv_srq *srq);
 int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq,
-		       uint32_t nwr);
+		       uint32_t nwr, struct ibv_pd *pd);
 void mlx5_complete_odp_fault(struct mlx5_srq *srq, int ind);
 void mlx5_free_srq_wqe(struct mlx5_srq *srq, int ind);
 int mlx5_post_srq_recv(struct ibv_srq *ibsrq,
