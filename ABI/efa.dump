@@ -1,0 +1,2632 @@
+$VAR1 = {
+          'ABI_DUMPER_VERSION' => '0.99.12',
+          'ABI_DUMP_VERSION' => '3.2',
+          'Arch' => 'x86_64',
+          'Compiler' => 'clang version 7.0.0 (tags/RELEASE_700/final)',
+          'Headers' => {
+                         'efadv.h' => 1,
+                         'int-ll64.h' => 1,
+                         'pthreadtypes.h' => 1,
+                         'stddef.h' => 1,
+                         'stdint.h' => 1,
+                         'types.h' => 1,
+                         'verbs.h' => 1
+                       },
+          'Language' => 'C',
+          'LibraryName' => 'libefa.so.1.1.26.0',
+          'LibraryVersion' => 'efa',
+          'NameSpaces' => {},
+          'Needed' => {
+                        'libc.so.6' => 1,
+                        'libibverbs.so.1' => 1,
+                        'libpthread.so.0' => 1
+                      },
+          'Sources' => {
+                         'verbs.c' => 1
+                       },
+          'SymbolInfo' => {
+                            '33452' => {
+                                         'Line' => '90',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'ibvctx',
+                                                               'type' => '1493'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'attr',
+                                                               'type' => '44328'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'inlen',
+                                                               'type' => '214'
+                                                             }
+                                                    },
+                                         'Reg' => {
+                                                    '0' => 'rdi',
+                                                    '1' => 'rsi',
+                                                    '2' => 'rdx'
+                                                  },
+                                         'Return' => '809',
+                                         'ShortName' => 'efadv_query_device',
+                                         'Source' => 'verbs.c'
+                                       },
+                            '37465' => {
+                                         'Line' => '866',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'ibvpd',
+                                                               'type' => '2405'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'attr',
+                                                               'type' => '12847'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'driver_qp_type',
+                                                               'type' => '214'
+                                                             }
+                                                    },
+                                         'Reg' => {
+                                                    '0' => 'rdi',
+                                                    '1' => 'rsi',
+                                                    '2' => 'rdx'
+                                                  },
+                                         'Return' => '2498',
+                                         'ShortName' => 'efadv_create_driver_qp',
+                                         'Source' => 'verbs.c'
+                                       },
+                            '37588' => {
+                                         'Line' => '896',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'ibvctx',
+                                                               'type' => '1493'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'attr_ex',
+                                                               'type' => '10376'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'efa_attr',
+                                                               'type' => '35457'
+                                                             },
+                                                      '3' => {
+                                                               'name' => 'inlen',
+                                                               'type' => '214'
+                                                             }
+                                                    },
+                                         'Reg' => {
+                                                    '0' => 'rdi',
+                                                    '1' => 'rsi',
+                                                    '2' => 'rdx',
+                                                    '3' => 'rcx'
+                                                  },
+                                         'Return' => '2498',
+                                         'ShortName' => 'efadv_create_qp_ex',
+                                         'Source' => 'verbs.c'
+                                       },
+                            '40506' => {
+                                         'Line' => '1499',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'ibvah',
+                                                               'type' => '5076'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'attr',
+                                                               'type' => '48245'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'inlen',
+                                                               'type' => '214'
+                                                             }
+                                                    },
+                                         'Reg' => {
+                                                    '0' => 'rdi',
+                                                    '1' => 'rsi',
+                                                    '2' => 'rdx'
+                                                  },
+                                         'Return' => '809',
+                                         'ShortName' => 'efadv_query_ah',
+                                         'Source' => 'verbs.c'
+                                       }
+                          },
+          'SymbolVersion' => {
+                               '_ITM_deregisterTMCloneTable' => 'verbs_uninit_context@@IBVERBS_PRIVATE_25',
+                               '_ITM_registerTMCloneTable' => 'verbs_uninit_context@@IBVERBS_PRIVATE_25',
+                               '__gmon_start__' => 'verbs_uninit_context@@IBVERBS_PRIVATE_25',
+                               'efadv_create_driver_qp' => 'efadv_create_driver_qp@@EFA_1.0',
+                               'efadv_create_qp_ex' => 'efadv_create_qp_ex@@EFA_1.1',
+                               'efadv_query_ah' => 'efadv_query_ah@@EFA_1.1',
+                               'efadv_query_device' => 'efadv_query_device@@EFA_1.1'
+                             },
+          'Symbols' => {
+                         'libefa.so.1.1.26.0' => {
+                                                   'efadv_create_driver_qp@@EFA_1.0' => 1,
+                                                   'efadv_create_qp_ex@@EFA_1.1' => 1,
+                                                   'efadv_query_ah@@EFA_1.1' => 1,
+                                                   'efadv_query_device@@EFA_1.1' => 1
+                                                 }
+                       },
+          'Target' => 'unix',
+          'TypeInfo' => {
+                          '1' => {
+                                   'Name' => 'void',
+                                   'Type' => 'Intrinsic'
+                                 },
+                          '10327' => {
+                                       'BaseType' => '10332',
+                                       'Name' => 'struct ibv_xrcd*',
+                                       'Size' => '8',
+                                       'Type' => 'Pointer'
+                                     },
+                          '10332' => {
+                                       'Header' => 'verbs.h',
+                                       'Line' => '617',
+                                       'Memb' => {
+                                                   '0' => {
+                                                            'name' => 'context',
+                                                            'offset' => '0',
+                                                            'type' => '1493'
+                                                          }
+                                                 },
+                                       'Name' => 'struct ibv_xrcd',
+                                       'Size' => '8',
+                                       'Type' => 'Struct'
+                                     },
+                          '10376' => {
+                                       'BaseType' => '10381',
+                                       'Name' => 'struct ibv_qp_init_attr_ex*',
+                                       'Size' => '136',
+                                       'Type' => 'Pointer'
+                                     },
+                          '10381' => {
+                                       'Header' => 'verbs.h',
+                                       'Line' => '929',
+                                       'Memb' => {
+                                                   '0' => {
+                                                            'name' => 'qp_context',
+                                                            'offset' => '0',
+                                                            'type' => '340'
+                                                          },
+                                                   '1' => {
+                                                            'name' => 'send_cq',
+                                                            'offset' => '8',
+                                                            'type' => '2682'
+                                                          },
+                                                   '10' => {
+                                                             'name' => 'create_flags',
+                                                             'offset' => '80',
+                                                             'type' => '214'
+                                                           },
+                                                   '11' => {
+                                                             'name' => 'max_tso_header',
+                                                             'offset' => '84',
+                                                             'type' => '359'
+                                                           },
+                                                   '12' => {
+                                                             'name' => 'rwq_ind_tbl',
+                                                             'offset' => '88',
+                                                             'type' => '7290'
+                                                           },
+                                                   '13' => {
+                                                             'name' => 'rx_hash_conf',
+                                                             'offset' => '96',
+                                                             'type' => '10674'
+                                                           },
+                                                   '14' => {
+                                                             'name' => 'source_qpn',
+                                                             'offset' => '120',
+                                                             'type' => '214'
+                                                           },
+                                                   '15' => {
+                                                             'name' => 'send_ops_flags',
+                                                             'offset' => '128',
+                                                             'type' => '341'
+                                                           },
+                                                   '2' => {
+                                                            'name' => 'recv_cq',
+                                                            'offset' => '16',
+                                                            'type' => '2682'
+                                                          },
+                                                   '3' => {
+                                                            'name' => 'srq',
+                                                            'offset' => '24',
+                                                            'type' => '3272'
+                                                          },
+                                                   '4' => {
+                                                            'name' => 'cap',
+                                                            'offset' => '32',
+                                                            'type' => '10599'
+                                                          },
+                                                   '5' => {
+                                                            'name' => 'qp_type',
+                                                            'offset' => '52',
+                                                            'type' => '3440'
+                                                          },
+                                                   '6' => {
+                                                            'name' => 'sq_sig_all',
+                                                            'offset' => '56',
+                                                            'type' => '809'
+                                                          },
+                                                   '7' => {
+                                                            'name' => 'comp_mask',
+                                                            'offset' => '60',
+                                                            'type' => '214'
+                                                          },
+                                                   '8' => {
+                                                            'name' => 'pd',
+                                                            'offset' => '64',
+                                                            'type' => '2405'
+                                                          },
+                                                   '9' => {
+                                                            'name' => 'xrcd',
+                                                            'offset' => '72',
+                                                            'type' => '10327'
+                                                          }
+                                                 },
+                                       'Name' => 'struct ibv_qp_init_attr_ex',
+                                       'Size' => '136',
+                                       'Type' => 'Struct'
+                                     },
+                          '10599' => {
+                                       'Header' => 'verbs.h',
+                                       'Line' => '870',
+                                       'Memb' => {
+                                                   '0' => {
+                                                            'name' => 'max_send_wr',
+                                                            'offset' => '0',
+                                                            'type' => '214'
+                                                          },
+                                                   '1' => {
+                                                            'name' => 'max_recv_wr',
+                                                            'offset' => '4',
+                                                            'type' => '214'
+                                                          },
+                                                   '2' => {
+                                                            'name' => 'max_send_sge',
+                                                            'offset' => '8',
+                                                            'type' => '214'
+                                                          },
+                                                   '3' => {
+                                                            'name' => 'max_recv_sge',
+                                                            'offset' => '12',
+                                                            'type' => '214'
+                                                          },
+                                                   '4' => {
+                                                            'name' => 'max_inline_data',
+                                                            'offset' => '16',
+                                                            'type' => '214'
+                                                          }
+                                                 },
+                                       'Name' => 'struct ibv_qp_cap',
+                                       'Size' => '20',
+                                       'Type' => 'Struct'
+                                     },
+                          '10674' => {
+                                       'Header' => 'verbs.h',
+                                       'Line' => '920',
+                                       'Memb' => {
+                                                   '0' => {
+                                                            'name' => 'rx_hash_function',
+                                                            'offset' => '0',
+                                                            'type' => '377'
+                                                          },
+                                                   '1' => {
+                                                            'name' => 'rx_hash_key_len',
+                                                            'offset' => '1',
+                                                            'type' => '377'
+                                                          },
+                                                   '2' => {
+                                                            'name' => 'rx_hash_key',
+                                                            'offset' => '8',
+                                                            'type' => '10736'
+                                                          },
+                                                   '3' => {
+                                                            'name' => 'rx_hash_fields_mask',
+                                                            'offset' => '16',
+                                                            'type' => '341'
+                                                          }
+                                                 },
+                                       'Name' => 'struct ibv_rx_hash_conf',
+                                       'Size' => '24',
+                                       'Type' => 'Struct'
+                                     },
+                          '10736' => {
+                                       'BaseType' => '377',
+                                       'Name' => 'uint8_t*',
+                                       'Size' => '1',
+                                       'Type' => 'Pointer'
+                                     },
+                          '12569' => {
+                                       'BaseType' => '377',
+                                       'Name' => 'uint8_t[]',
+                                       'Size' => '8',
+                                       'Type' => 'Array'
+                                     },
+                          '12847' => {
+                                       'BaseType' => '12852',
+                                       'Name' => 'struct ibv_qp_init_attr*',
+                                       'Size' => '64',
+                                       'Type' => 'Pointer'
+                                     },
+                          '12852' => {
+                                       'Header' => 'verbs.h',
+                                       'Line' => '878',
+                                       'Memb' => {
+                                                   '0' => {
+                                                            'name' => 'qp_context',
+                                                            'offset' => '0',
+                                                            'type' => '340'
+                                                          },
+                                                   '1' => {
+                                                            'name' => 'send_cq',
+                                                            'offset' => '8',
+                                                            'type' => '2682'
+                                                          },
+                                                   '2' => {
+                                                            'name' => 'recv_cq',
+                                                            'offset' => '16',
+                                                            'type' => '2682'
+                                                          },
+                                                   '3' => {
+                                                            'name' => 'srq',
+                                                            'offset' => '24',
+                                                            'type' => '3272'
+                                                          },
+                                                   '4' => {
+                                                            'name' => 'cap',
+                                                            'offset' => '32',
+                                                            'type' => '10599'
+                                                          },
+                                                   '5' => {
+                                                            'name' => 'qp_type',
+                                                            'offset' => '52',
+                                                            'type' => '3440'
+                                                          },
+                                                   '6' => {
+                                                            'name' => 'sq_sig_all',
+                                                            'offset' => '56',
+                                                            'type' => '809'
+                                                          }
+                                                 },
+                                       'Name' => 'struct ibv_qp_init_attr',
+                                       'Size' => '64',
+                                       'Type' => 'Struct'
+                                     },
+                          '1493' => {
+                                      'BaseType' => '1498',
+                                      'Name' => 'struct ibv_context*',
+                                      'Size' => '328',
+                                      'Type' => 'Pointer'
+                                    },
+                          '1498' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1935',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'device',
+                                                           'offset' => '0',
+                                                           'type' => '1605'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'ops',
+                                                           'offset' => '8',
+                                                           'type' => '1831'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'cmd_fd',
+                                                           'offset' => '264',
+                                                           'type' => '809'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'async_fd',
+                                                           'offset' => '268',
+                                                           'type' => '809'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'num_comp_vectors',
+                                                           'offset' => '272',
+                                                           'type' => '809'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'mutex',
+                                                           'offset' => '280',
+                                                           'type' => '2868'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'abi_compat',
+                                                           'offset' => '320',
+                                                           'type' => '340'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_context',
+                                      'Size' => '328',
+                                      'Type' => 'Struct'
+                                    },
+                          '1605' => {
+                                      'BaseType' => '1610',
+                                      'Name' => 'struct ibv_device*',
+                                      'Size' => '664',
+                                      'Type' => 'Pointer'
+                                    },
+                          '1610' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1878',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => '_ops',
+                                                           'offset' => '0',
+                                                           'type' => '1713'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'node_type',
+                                                           'offset' => '16',
+                                                           'type' => '748'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'transport_type',
+                                                           'offset' => '20',
+                                                           'type' => '1782'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'name',
+                                                           'offset' => '24',
+                                                           'type' => '681'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'dev_name',
+                                                           'offset' => '88',
+                                                           'type' => '681'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'dev_path',
+                                                           'offset' => '152',
+                                                           'type' => '681'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'ibdev_path',
+                                                           'offset' => '408',
+                                                           'type' => '681'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_device',
+                                      'Size' => '664',
+                                      'Type' => 'Struct'
+                                    },
+                          '1713' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1868',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => '_dummy1',
+                                                           'offset' => '0',
+                                                           'type' => '1749'
+                                                         },
+                                                  '1' => {
+                                                           'name' => '_dummy2',
+                                                           'offset' => '8',
+                                                           'type' => '1770'
+                                                         }
+                                                },
+                                      'Name' => 'struct _ibv_device_ops',
+                                      'Size' => '16',
+                                      'Type' => 'Struct'
+                                    },
+                          '1749' => {
+                                      'Name' => 'struct ibv_context*(*)(struct ibv_device*, int)',
+                                      'Param' => {
+                                                   '0' => {
+                                                            'type' => '1605'
+                                                          },
+                                                   '1' => {
+                                                            'type' => '809'
+                                                          }
+                                                 },
+                                      'Return' => '1493',
+                                      'Type' => 'FuncPtr'
+                                    },
+                          '1770' => {
+                                      'Name' => 'void(*)(struct ibv_context*)',
+                                      'Param' => {
+                                                   '0' => {
+                                                            'type' => '1493'
+                                                          }
+                                                 },
+                                      'Return' => '1',
+                                      'Type' => 'FuncPtr'
+                                    },
+                          '1782' => {
+                                      'BaseType' => '809',
+                                      'Header' => 'verbs.h',
+                                      'Line' => '90',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'IBV_TRANSPORT_UNKNOWN',
+                                                           'value' => '-1'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'IBV_TRANSPORT_IB',
+                                                           'value' => '0'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'IBV_TRANSPORT_IWARP',
+                                                           'value' => '1'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'IBV_TRANSPORT_USNIC',
+                                                           'value' => '2'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'IBV_TRANSPORT_USNIC_UDP',
+                                                           'value' => '3'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'IBV_TRANSPORT_UNSPECIFIED',
+                                                           'value' => '4'
+                                                         }
+                                                },
+                                      'Name' => 'enum ibv_transport_type',
+                                      'Size' => '4',
+                                      'Type' => 'Enum'
+                                    },
+                          '1831' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1893',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => '_compat_query_device',
+                                                           'offset' => '0',
+                                                           'type' => '2258'
+                                                         },
+                                                  '1' => {
+                                                           'name' => '_compat_query_port',
+                                                           'offset' => '8',
+                                                           'type' => '2268'
+                                                         },
+                                                  '10' => {
+                                                            'name' => '_compat_create_cq',
+                                                            'offset' => '80',
+                                                            'type' => '2258'
+                                                          },
+                                                  '11' => {
+                                                            'name' => 'poll_cq',
+                                                            'offset' => '88',
+                                                            'type' => '3746'
+                                                          },
+                                                  '12' => {
+                                                            'name' => 'req_notify_cq',
+                                                            'offset' => '96',
+                                                            'type' => '4282'
+                                                          },
+                                                  '13' => {
+                                                            'name' => '_compat_cq_event',
+                                                            'offset' => '104',
+                                                            'type' => '2258'
+                                                          },
+                                                  '14' => {
+                                                            'name' => '_compat_resize_cq',
+                                                            'offset' => '112',
+                                                            'type' => '2258'
+                                                          },
+                                                  '15' => {
+                                                            'name' => '_compat_destroy_cq',
+                                                            'offset' => '120',
+                                                            'type' => '2258'
+                                                          },
+                                                  '16' => {
+                                                            'name' => '_compat_create_srq',
+                                                            'offset' => '128',
+                                                            'type' => '2258'
+                                                          },
+                                                  '17' => {
+                                                            'name' => '_compat_modify_srq',
+                                                            'offset' => '136',
+                                                            'type' => '2258'
+                                                          },
+                                                  '18' => {
+                                                            'name' => '_compat_query_srq',
+                                                            'offset' => '144',
+                                                            'type' => '2258'
+                                                          },
+                                                  '19' => {
+                                                            'name' => '_compat_destroy_srq',
+                                                            'offset' => '152',
+                                                            'type' => '2258'
+                                                          },
+                                                  '2' => {
+                                                           'name' => '_compat_alloc_pd',
+                                                           'offset' => '16',
+                                                           'type' => '2258'
+                                                         },
+                                                  '20' => {
+                                                            'name' => 'post_srq_recv',
+                                                            'offset' => '160',
+                                                            'type' => '4303'
+                                                          },
+                                                  '21' => {
+                                                            'name' => '_compat_create_qp',
+                                                            'offset' => '168',
+                                                            'type' => '2258'
+                                                          },
+                                                  '22' => {
+                                                            'name' => '_compat_query_qp',
+                                                            'offset' => '176',
+                                                            'type' => '2258'
+                                                          },
+                                                  '23' => {
+                                                            'name' => '_compat_modify_qp',
+                                                            'offset' => '184',
+                                                            'type' => '2258'
+                                                          },
+                                                  '24' => {
+                                                            'name' => '_compat_destroy_qp',
+                                                            'offset' => '192',
+                                                            'type' => '2258'
+                                                          },
+                                                  '25' => {
+                                                            'name' => 'post_send',
+                                                            'offset' => '200',
+                                                            'type' => '4455'
+                                                          },
+                                                  '26' => {
+                                                            'name' => 'post_recv',
+                                                            'offset' => '208',
+                                                            'type' => '5135'
+                                                          },
+                                                  '27' => {
+                                                            'name' => '_compat_create_ah',
+                                                            'offset' => '216',
+                                                            'type' => '2258'
+                                                          },
+                                                  '28' => {
+                                                            'name' => '_compat_destroy_ah',
+                                                            'offset' => '224',
+                                                            'type' => '2258'
+                                                          },
+                                                  '29' => {
+                                                            'name' => '_compat_attach_mcast',
+                                                            'offset' => '232',
+                                                            'type' => '2258'
+                                                          },
+                                                  '3' => {
+                                                           'name' => '_compat_dealloc_pd',
+                                                           'offset' => '24',
+                                                           'type' => '2258'
+                                                         },
+                                                  '30' => {
+                                                            'name' => '_compat_detach_mcast',
+                                                            'offset' => '240',
+                                                            'type' => '2258'
+                                                          },
+                                                  '31' => {
+                                                            'name' => '_compat_async_event',
+                                                            'offset' => '248',
+                                                            'type' => '2258'
+                                                          },
+                                                  '4' => {
+                                                           'name' => '_compat_reg_mr',
+                                                           'offset' => '32',
+                                                           'type' => '2258'
+                                                         },
+                                                  '5' => {
+                                                           'name' => '_compat_rereg_mr',
+                                                           'offset' => '40',
+                                                           'type' => '2258'
+                                                         },
+                                                  '6' => {
+                                                           'name' => '_compat_dereg_mr',
+                                                           'offset' => '48',
+                                                           'type' => '2258'
+                                                         },
+                                                  '7' => {
+                                                           'name' => 'alloc_mw',
+                                                           'offset' => '56',
+                                                           'type' => '2304'
+                                                         },
+                                                  '8' => {
+                                                           'name' => 'bind_mw',
+                                                           'offset' => '64',
+                                                           'type' => '2472'
+                                                         },
+                                                  '9' => {
+                                                           'name' => 'dealloc_mw',
+                                                           'offset' => '72',
+                                                           'type' => '3730'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_context_ops',
+                                      'Size' => '256',
+                                      'Type' => 'Struct'
+                                    },
+                          '207' => {
+                                     'Name' => 'char',
+                                     'Size' => '1',
+                                     'Type' => 'Intrinsic'
+                                   },
+                          '214' => {
+                                     'BaseType' => '225',
+                                     'Header' => 'stdint.h',
+                                     'Line' => '51',
+                                     'Name' => 'uint32_t',
+                                     'Size' => '4',
+                                     'Type' => 'Typedef'
+                                   },
+                          '225' => {
+                                     'Name' => 'unsigned int',
+                                     'Size' => '4',
+                                     'Type' => 'Intrinsic'
+                                   },
+                          '2258' => {
+                                      'Name' => 'void*(*)()',
+                                      'Return' => '340',
+                                      'Type' => 'FuncPtr'
+                                    },
+                          '2268' => {
+                                      'Name' => 'int(*)(struct ibv_context*, uint8_t, struct _compat_ibv_port_attr*)',
+                                      'Param' => {
+                                                   '0' => {
+                                                            'type' => '1493'
+                                                          },
+                                                   '1' => {
+                                                            'type' => '377'
+                                                          },
+                                                   '2' => {
+                                                            'type' => '2294'
+                                                          }
+                                                 },
+                                      'Return' => '809',
+                                      'Type' => 'FuncPtr'
+                                    },
+                          '2294' => {
+                                      'BaseType' => '2299',
+                                      'Name' => 'struct _compat_ibv_port_attr*',
+                                      'Type' => 'Pointer'
+                                    },
+                          '2299' => {
+                                      'Name' => 'struct _compat_ibv_port_attr',
+                                      'Type' => 'Struct'
+                                    },
+                          '2304' => {
+                                      'Name' => 'struct ibv_mw*(*)(struct ibv_pd*, enum ibv_mw_type)',
+                                      'Param' => {
+                                                   '0' => {
+                                                            'type' => '2405'
+                                                          },
+                                                   '1' => {
+                                                            'type' => '2446'
+                                                          }
+                                                 },
+                                      'Return' => '2325',
+                                      'Type' => 'FuncPtr'
+                                    },
+                          '2325' => {
+                                      'BaseType' => '2330',
+                                      'Name' => 'struct ibv_mw*',
+                                      'Size' => '32',
+                                      'Type' => 'Pointer'
+                                    },
+                          '2330' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '644',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'context',
+                                                           'offset' => '0',
+                                                           'type' => '1493'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'pd',
+                                                           'offset' => '8',
+                                                           'type' => '2405'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'rkey',
+                                                           'offset' => '16',
+                                                           'type' => '214'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'handle',
+                                                           'offset' => '20',
+                                                           'type' => '214'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'type',
+                                                           'offset' => '24',
+                                                           'type' => '2446'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_mw',
+                                      'Size' => '32',
+                                      'Type' => 'Struct'
+                                    },
+                          '2405' => {
+                                      'BaseType' => '2410',
+                                      'Name' => 'struct ibv_pd*',
+                                      'Size' => '16',
+                                      'Type' => 'Pointer'
+                                    },
+                          '2410' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '592',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'context',
+                                                           'offset' => '0',
+                                                           'type' => '1493'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'handle',
+                                                           'offset' => '8',
+                                                           'type' => '214'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_pd',
+                                      'Size' => '16',
+                                      'Type' => 'Struct'
+                                    },
+                          '2446' => {
+                                      'BaseType' => '225',
+                                      'Header' => 'verbs.h',
+                                      'Line' => '639',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'IBV_MW_TYPE_1',
+                                                           'value' => '1'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'IBV_MW_TYPE_2',
+                                                           'value' => '2'
+                                                         }
+                                                },
+                                      'Name' => 'enum ibv_mw_type',
+                                      'Size' => '4',
+                                      'Type' => 'Enum'
+                                    },
+                          '2472' => {
+                                      'Name' => 'int(*)(struct ibv_qp*, struct ibv_mw*, struct ibv_mw_bind*)',
+                                      'Param' => {
+                                                   '0' => {
+                                                            'type' => '2498'
+                                                          },
+                                                   '1' => {
+                                                            'type' => '2325'
+                                                          },
+                                                   '2' => {
+                                                            'type' => '3497'
+                                                          }
+                                                 },
+                                      'Return' => '809',
+                                      'Type' => 'FuncPtr'
+                                    },
+                          '2498' => {
+                                      'BaseType' => '2503',
+                                      'Name' => 'struct ibv_qp*',
+                                      'Size' => '160',
+                                      'Type' => 'Pointer'
+                                    },
+                          '2503' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1217',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'context',
+                                                           'offset' => '0',
+                                                           'type' => '1493'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'qp_context',
+                                                           'offset' => '8',
+                                                           'type' => '340'
+                                                         },
+                                                  '10' => {
+                                                            'name' => 'mutex',
+                                                            'offset' => '64',
+                                                            'type' => '2868'
+                                                          },
+                                                  '11' => {
+                                                            'name' => 'cond',
+                                                            'offset' => '104',
+                                                            'type' => '3093'
+                                                          },
+                                                  '12' => {
+                                                            'name' => 'events_completed',
+                                                            'offset' => '152',
+                                                            'type' => '214'
+                                                          },
+                                                  '2' => {
+                                                           'name' => 'pd',
+                                                           'offset' => '16',
+                                                           'type' => '2405'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'send_cq',
+                                                           'offset' => '24',
+                                                           'type' => '2682'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'recv_cq',
+                                                           'offset' => '32',
+                                                           'type' => '2682'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'srq',
+                                                           'offset' => '40',
+                                                           'type' => '3272'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'handle',
+                                                           'offset' => '48',
+                                                           'type' => '214'
+                                                         },
+                                                  '7' => {
+                                                           'name' => 'qp_num',
+                                                           'offset' => '52',
+                                                           'type' => '214'
+                                                         },
+                                                  '8' => {
+                                                           'name' => 'state',
+                                                           'offset' => '56',
+                                                           'type' => '3378'
+                                                         },
+                                                  '9' => {
+                                                           'name' => 'qp_type',
+                                                           'offset' => '60',
+                                                           'type' => '3440'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_qp',
+                                      'Size' => '160',
+                                      'Type' => 'Struct'
+                                    },
+                          '2682' => {
+                                      'BaseType' => '2687',
+                                      'Name' => 'struct ibv_cq*',
+                                      'Size' => '128',
+                                      'Type' => 'Pointer'
+                                    },
+                          '2687' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1408',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'context',
+                                                           'offset' => '0',
+                                                           'type' => '1493'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'channel',
+                                                           'offset' => '8',
+                                                           'type' => '2814'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'cq_context',
+                                                           'offset' => '16',
+                                                           'type' => '340'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'handle',
+                                                           'offset' => '24',
+                                                           'type' => '214'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'cqe',
+                                                           'offset' => '28',
+                                                           'type' => '809'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'mutex',
+                                                           'offset' => '32',
+                                                           'type' => '2868'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'cond',
+                                                           'offset' => '72',
+                                                           'type' => '3093'
+                                                         },
+                                                  '7' => {
+                                                           'name' => 'comp_events_completed',
+                                                           'offset' => '120',
+                                                           'type' => '214'
+                                                         },
+                                                  '8' => {
+                                                           'name' => 'async_events_completed',
+                                                           'offset' => '124',
+                                                           'type' => '214'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_cq',
+                                      'Size' => '128',
+                                      'Type' => 'Struct'
+                                    },
+                          '2814' => {
+                                      'BaseType' => '2819',
+                                      'Name' => 'struct ibv_comp_channel*',
+                                      'Size' => '16',
+                                      'Type' => 'Pointer'
+                                    },
+                          '2819' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1402',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'context',
+                                                           'offset' => '0',
+                                                           'type' => '1493'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'fd',
+                                                           'offset' => '8',
+                                                           'type' => '809'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'refcnt',
+                                                           'offset' => '12',
+                                                           'type' => '809'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_comp_channel',
+                                      'Size' => '16',
+                                      'Type' => 'Struct'
+                                    },
+                          '2868' => {
+                                      'Header' => 'pthreadtypes.h',
+                                      'Line' => '128',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => '__data',
+                                                           'offset' => '0',
+                                                           'type' => '2920'
+                                                         },
+                                                  '1' => {
+                                                           'name' => '__size',
+                                                           'offset' => '0',
+                                                           'type' => '681'
+                                                         },
+                                                  '2' => {
+                                                           'name' => '__align',
+                                                           'offset' => '0',
+                                                           'type' => '860'
+                                                         }
+                                                },
+                                      'Name' => 'union pthread_mutex_t',
+                                      'Size' => '40',
+                                      'Type' => 'Union'
+                                    },
+                          '2920' => {
+                                      'Header' => 'pthreadtypes.h',
+                                      'Line' => '92',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => '__lock',
+                                                           'offset' => '0',
+                                                           'type' => '809'
+                                                         },
+                                                  '1' => {
+                                                           'name' => '__count',
+                                                           'offset' => '4',
+                                                           'type' => '225'
+                                                         },
+                                                  '2' => {
+                                                           'name' => '__owner',
+                                                           'offset' => '8',
+                                                           'type' => '809'
+                                                         },
+                                                  '3' => {
+                                                           'name' => '__nusers',
+                                                           'offset' => '12',
+                                                           'type' => '225'
+                                                         },
+                                                  '4' => {
+                                                           'name' => '__kind',
+                                                           'offset' => '16',
+                                                           'type' => '809'
+                                                         },
+                                                  '5' => {
+                                                           'name' => '__spins',
+                                                           'offset' => '20',
+                                                           'type' => '3025'
+                                                         },
+                                                  '6' => {
+                                                           'name' => '__elision',
+                                                           'offset' => '22',
+                                                           'type' => '3025'
+                                                         },
+                                                  '7' => {
+                                                           'name' => '__list',
+                                                           'offset' => '24',
+                                                           'type' => '3032'
+                                                         }
+                                                },
+                                      'Name' => 'struct __pthread_mutex_s',
+                                      'Size' => '40',
+                                      'Type' => 'Struct'
+                                    },
+                          '3025' => {
+                                      'Name' => 'short',
+                                      'Size' => '2',
+                                      'Type' => 'Intrinsic'
+                                    },
+                          '3032' => {
+                                      'BaseType' => '3043',
+                                      'Header' => 'pthreadtypes.h',
+                                      'Line' => '79',
+                                      'Name' => '__pthread_list_t',
+                                      'Size' => '16',
+                                      'Type' => 'Typedef'
+                                    },
+                          '3043' => {
+                                      'Header' => 'pthreadtypes.h',
+                                      'Line' => '75',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => '__prev',
+                                                           'offset' => '0',
+                                                           'type' => '3076'
+                                                         },
+                                                  '1' => {
+                                                           'name' => '__next',
+                                                           'offset' => '8',
+                                                           'type' => '3076'
+                                                         }
+                                                },
+                                      'Name' => 'struct __pthread_internal_list',
+                                      'Size' => '16',
+                                      'Type' => 'Struct'
+                                    },
+                          '3076' => {
+                                      'BaseType' => '3043',
+                                      'Name' => 'struct __pthread_internal_list*',
+                                      'Size' => '16',
+                                      'Type' => 'Pointer'
+                                    },
+                          '3093' => {
+                                      'Header' => 'pthreadtypes.h',
+                                      'Line' => '154',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => '__data',
+                                                           'offset' => '0',
+                                                           'type' => '3120'
+                                                         },
+                                                  '1' => {
+                                                           'name' => '__size',
+                                                           'offset' => '0',
+                                                           'type' => '681'
+                                                         },
+                                                  '2' => {
+                                                           'name' => '__align',
+                                                           'offset' => '0',
+                                                           'type' => '3265'
+                                                         }
+                                                },
+                                      'Name' => 'union pthread_cond_t',
+                                      'Size' => '48',
+                                      'Type' => 'Union'
+                                    },
+                          '3120' => {
+                                      'Header' => 'pthreadtypes.h',
+                                      'Line' => '141',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => '__lock',
+                                                           'offset' => '0',
+                                                           'type' => '809'
+                                                         },
+                                                  '1' => {
+                                                           'name' => '__futex',
+                                                           'offset' => '4',
+                                                           'type' => '225'
+                                                         },
+                                                  '2' => {
+                                                           'name' => '__total_seq',
+                                                           'offset' => '8',
+                                                           'type' => '3246'
+                                                         },
+                                                  '3' => {
+                                                           'name' => '__wakeup_seq',
+                                                           'offset' => '16',
+                                                           'type' => '3246'
+                                                         },
+                                                  '4' => {
+                                                           'name' => '__woken_seq',
+                                                           'offset' => '24',
+                                                           'type' => '3246'
+                                                         },
+                                                  '5' => {
+                                                           'name' => '__mutex',
+                                                           'offset' => '32',
+                                                           'type' => '340'
+                                                         },
+                                                  '6' => {
+                                                           'name' => '__nwaiters',
+                                                           'offset' => '40',
+                                                           'type' => '225'
+                                                         },
+                                                  '7' => {
+                                                           'name' => '__broadcast_seq',
+                                                           'offset' => '44',
+                                                           'type' => '225'
+                                                         }
+                                                },
+                                      'Name' => 'anon-struct-pthreadtypes.h-141',
+                                      'Size' => '48',
+                                      'Type' => 'Struct'
+                                    },
+                          '3246' => {
+                                      'Name' => 'unsigned long long',
+                                      'Size' => '8',
+                                      'Type' => 'Intrinsic'
+                                    },
+                          '3265' => {
+                                      'Name' => 'long long',
+                                      'Size' => '8',
+                                      'Type' => 'Intrinsic'
+                                    },
+                          '3272' => {
+                                      'BaseType' => '3277',
+                                      'Name' => 'struct ibv_srq*',
+                                      'Size' => '128',
+                                      'Type' => 'Pointer'
+                                    },
+                          '3277' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1177',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'context',
+                                                           'offset' => '0',
+                                                           'type' => '1493'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'srq_context',
+                                                           'offset' => '8',
+                                                           'type' => '340'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'pd',
+                                                           'offset' => '16',
+                                                           'type' => '2405'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'handle',
+                                                           'offset' => '24',
+                                                           'type' => '214'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'mutex',
+                                                           'offset' => '32',
+                                                           'type' => '2868'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'cond',
+                                                           'offset' => '72',
+                                                           'type' => '3093'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'events_completed',
+                                                           'offset' => '120',
+                                                           'type' => '214'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_srq',
+                                      'Size' => '128',
+                                      'Type' => 'Struct'
+                                    },
+                          '3378' => {
+                                      'BaseType' => '225',
+                                      'Header' => 'verbs.h',
+                                      'Line' => '998',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'IBV_QPS_RESET',
+                                                           'value' => '0'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'IBV_QPS_INIT',
+                                                           'value' => '1'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'IBV_QPS_RTR',
+                                                           'value' => '2'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'IBV_QPS_RTS',
+                                                           'value' => '3'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'IBV_QPS_SQD',
+                                                           'value' => '4'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'IBV_QPS_SQE',
+                                                           'value' => '5'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'IBV_QPS_ERR',
+                                                           'value' => '6'
+                                                         },
+                                                  '7' => {
+                                                           'name' => 'IBV_QPS_UNKNOWN',
+                                                           'value' => '7'
+                                                         }
+                                                },
+                                      'Name' => 'enum ibv_qp_state',
+                                      'Size' => '4',
+                                      'Type' => 'Enum'
+                                    },
+                          '340' => {
+                                     'BaseType' => '1',
+                                     'Name' => 'void*',
+                                     'Type' => 'Pointer'
+                                   },
+                          '341' => {
+                                     'BaseType' => '352',
+                                     'Header' => 'stdint.h',
+                                     'Line' => '55',
+                                     'Name' => 'uint64_t',
+                                     'Size' => '8',
+                                     'Type' => 'Typedef'
+                                   },
+                          '3440' => {
+                                      'BaseType' => '225',
+                                      'Header' => 'verbs.h',
+                                      'Line' => '860',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'IBV_QPT_RC',
+                                                           'value' => '2'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'IBV_QPT_UC',
+                                                           'value' => '3'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'IBV_QPT_UD',
+                                                           'value' => '4'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'IBV_QPT_RAW_PACKET',
+                                                           'value' => '8'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'IBV_QPT_XRC_SEND',
+                                                           'value' => '9'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'IBV_QPT_XRC_RECV',
+                                                           'value' => '10'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'IBV_QPT_DRIVER',
+                                                           'value' => '255'
+                                                         }
+                                                },
+                                      'Name' => 'enum ibv_qp_type',
+                                      'Size' => '4',
+                                      'Type' => 'Enum'
+                                    },
+                          '3497' => {
+                                      'BaseType' => '3502',
+                                      'Name' => 'struct ibv_mw_bind*',
+                                      'Size' => '48',
+                                      'Type' => 'Pointer'
+                                    },
+                          '3502' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1171',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'wr_id',
+                                                           'offset' => '0',
+                                                           'type' => '341'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'send_flags',
+                                                           'offset' => '8',
+                                                           'type' => '225'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'bind_info',
+                                                           'offset' => '16',
+                                                           'type' => '3551'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_mw_bind',
+                                      'Size' => '48',
+                                      'Type' => 'Struct'
+                                    },
+                          '352' => {
+                                     'Name' => 'unsigned long',
+                                     'Size' => '8',
+                                     'Type' => 'Intrinsic'
+                                   },
+                          '35457' => {
+                                       'BaseType' => '35462',
+                                       'Name' => 'struct efadv_qp_init_attr*',
+                                       'Size' => '16',
+                                       'Type' => 'Pointer'
+                                     },
+                          '35462' => {
+                                       'Header' => 'efadv.h',
+                                       'Line' => '27',
+                                       'Memb' => {
+                                                   '0' => {
+                                                            'name' => 'comp_mask',
+                                                            'offset' => '0',
+                                                            'type' => '341'
+                                                          },
+                                                   '1' => {
+                                                            'name' => 'driver_qp_type',
+                                                            'offset' => '8',
+                                                            'type' => '214'
+                                                          },
+                                                   '2' => {
+                                                            'name' => 'reserved',
+                                                            'offset' => '12',
+                                                            'type' => '12569'
+                                                          }
+                                                 },
+                                       'Name' => 'struct efadv_qp_init_attr',
+                                       'Size' => '16',
+                                       'Type' => 'Struct'
+                                     },
+                          '3551' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '585',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'mr',
+                                                           'offset' => '0',
+                                                           'type' => '3613'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'addr',
+                                                           'offset' => '8',
+                                                           'type' => '341'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'length',
+                                                           'offset' => '16',
+                                                           'type' => '341'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'mw_access_flags',
+                                                           'offset' => '24',
+                                                           'type' => '225'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_mw_bind_info',
+                                      'Size' => '32',
+                                      'Type' => 'Struct'
+                                    },
+                          '359' => {
+                                     'BaseType' => '370',
+                                     'Header' => 'stdint.h',
+                                     'Line' => '49',
+                                     'Name' => 'uint16_t',
+                                     'Size' => '2',
+                                     'Type' => 'Typedef'
+                                   },
+                          '3613' => {
+                                      'BaseType' => '3618',
+                                      'Name' => 'struct ibv_mr*',
+                                      'Size' => '48',
+                                      'Type' => 'Pointer'
+                                    },
+                          '3618' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '629',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'context',
+                                                           'offset' => '0',
+                                                           'type' => '1493'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'pd',
+                                                           'offset' => '8',
+                                                           'type' => '2405'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'addr',
+                                                           'offset' => '16',
+                                                           'type' => '340'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'length',
+                                                           'offset' => '24',
+                                                           'type' => '3719'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'handle',
+                                                           'offset' => '32',
+                                                           'type' => '214'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'lkey',
+                                                           'offset' => '36',
+                                                           'type' => '214'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'rkey',
+                                                           'offset' => '40',
+                                                           'type' => '214'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_mr',
+                                      'Size' => '48',
+                                      'Type' => 'Struct'
+                                    },
+                          '370' => {
+                                     'Name' => 'unsigned short',
+                                     'Size' => '2',
+                                     'Type' => 'Intrinsic'
+                                   },
+                          '3719' => {
+                                      'BaseType' => '352',
+                                      'Header' => 'stddef.h',
+                                      'Line' => '62',
+                                      'Name' => 'size_t',
+                                      'Size' => '8',
+                                      'Type' => 'Typedef'
+                                    },
+                          '3730' => {
+                                      'Name' => 'int(*)(struct ibv_mw*)',
+                                      'Param' => {
+                                                   '0' => {
+                                                            'type' => '2325'
+                                                          }
+                                                 },
+                                      'Return' => '809',
+                                      'Type' => 'FuncPtr'
+                                    },
+                          '3746' => {
+                                      'Name' => 'int(*)(struct ibv_cq*, int, struct ibv_wc*)',
+                                      'Param' => {
+                                                   '0' => {
+                                                            'type' => '2682'
+                                                          },
+                                                   '1' => {
+                                                            'type' => '809'
+                                                          },
+                                                   '2' => {
+                                                            'type' => '3772'
+                                                          }
+                                                 },
+                                      'Return' => '809',
+                                      'Type' => 'FuncPtr'
+                                    },
+                          '377' => {
+                                     'BaseType' => '388',
+                                     'Header' => 'stdint.h',
+                                     'Line' => '48',
+                                     'Name' => 'uint8_t',
+                                     'Size' => '1',
+                                     'Type' => 'Typedef'
+                                   },
+                          '3772' => {
+                                      'BaseType' => '3777',
+                                      'Name' => 'struct ibv_wc*',
+                                      'Size' => '48',
+                                      'Type' => 'Pointer'
+                                    },
+                          '3777' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '553',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'wr_id',
+                                                           'offset' => '0',
+                                                           'type' => '341'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'status',
+                                                           'offset' => '8',
+                                                           'type' => '3984'
+                                                         },
+                                                  '10' => {
+                                                            'name' => 'slid',
+                                                            'offset' => '42',
+                                                            'type' => '359'
+                                                          },
+                                                  '11' => {
+                                                            'name' => 'sl',
+                                                            'offset' => '44',
+                                                            'type' => '377'
+                                                          },
+                                                  '12' => {
+                                                            'name' => 'dlid_path_bits',
+                                                            'offset' => '45',
+                                                            'type' => '377'
+                                                          },
+                                                  '2' => {
+                                                           'name' => 'opcode',
+                                                           'offset' => '12',
+                                                           'type' => '4142'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'vendor_err',
+                                                           'offset' => '16',
+                                                           'type' => '214'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'byte_len',
+                                                           'offset' => '20',
+                                                           'type' => '214'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'unnamed0',
+                                                           'offset' => '24',
+                                                           'type' => '3860'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'qp_num',
+                                                           'offset' => '28',
+                                                           'type' => '214'
+                                                         },
+                                                  '7' => {
+                                                           'name' => 'src_qp',
+                                                           'offset' => '32',
+                                                           'type' => '214'
+                                                         },
+                                                  '8' => {
+                                                           'name' => 'wc_flags',
+                                                           'offset' => '36',
+                                                           'type' => '225'
+                                                         },
+                                                  '9' => {
+                                                           'name' => 'pkey_index',
+                                                           'offset' => '40',
+                                                           'type' => '359'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_wc',
+                                      'Size' => '48',
+                                      'Type' => 'Struct'
+                                    },
+                          '3860' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '562',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'imm_data',
+                                                           'offset' => '0',
+                                                           'type' => '4260'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'invalidated_rkey',
+                                                           'offset' => '0',
+                                                           'type' => '214'
+                                                         }
+                                                },
+                                      'Name' => 'ibv_wc::anon-union-verbs.h-562',
+                                      'NameSpace' => 'ibv_wc',
+                                      'Size' => '4',
+                                      'Type' => 'Union'
+                                    },
+                          '388' => {
+                                     'Name' => 'unsigned char',
+                                     'Size' => '1',
+                                     'Type' => 'Intrinsic'
+                                   },
+                          '3984' => {
+                                      'BaseType' => '225',
+                                      'Header' => 'verbs.h',
+                                      'Line' => '453',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'IBV_WC_SUCCESS',
+                                                           'value' => '0'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'IBV_WC_LOC_LEN_ERR',
+                                                           'value' => '1'
+                                                         },
+                                                  '10' => {
+                                                            'name' => 'IBV_WC_REM_ACCESS_ERR',
+                                                            'value' => '10'
+                                                          },
+                                                  '11' => {
+                                                            'name' => 'IBV_WC_REM_OP_ERR',
+                                                            'value' => '11'
+                                                          },
+                                                  '12' => {
+                                                            'name' => 'IBV_WC_RETRY_EXC_ERR',
+                                                            'value' => '12'
+                                                          },
+                                                  '13' => {
+                                                            'name' => 'IBV_WC_RNR_RETRY_EXC_ERR',
+                                                            'value' => '13'
+                                                          },
+                                                  '14' => {
+                                                            'name' => 'IBV_WC_LOC_RDD_VIOL_ERR',
+                                                            'value' => '14'
+                                                          },
+                                                  '15' => {
+                                                            'name' => 'IBV_WC_REM_INV_RD_REQ_ERR',
+                                                            'value' => '15'
+                                                          },
+                                                  '16' => {
+                                                            'name' => 'IBV_WC_REM_ABORT_ERR',
+                                                            'value' => '16'
+                                                          },
+                                                  '17' => {
+                                                            'name' => 'IBV_WC_INV_EECN_ERR',
+                                                            'value' => '17'
+                                                          },
+                                                  '18' => {
+                                                            'name' => 'IBV_WC_INV_EEC_STATE_ERR',
+                                                            'value' => '18'
+                                                          },
+                                                  '19' => {
+                                                            'name' => 'IBV_WC_FATAL_ERR',
+                                                            'value' => '19'
+                                                          },
+                                                  '2' => {
+                                                           'name' => 'IBV_WC_LOC_QP_OP_ERR',
+                                                           'value' => '2'
+                                                         },
+                                                  '20' => {
+                                                            'name' => 'IBV_WC_RESP_TIMEOUT_ERR',
+                                                            'value' => '20'
+                                                          },
+                                                  '21' => {
+                                                            'name' => 'IBV_WC_GENERAL_ERR',
+                                                            'value' => '21'
+                                                          },
+                                                  '22' => {
+                                                            'name' => 'IBV_WC_TM_ERR',
+                                                            'value' => '22'
+                                                          },
+                                                  '23' => {
+                                                            'name' => 'IBV_WC_TM_RNDV_INCOMPLETE',
+                                                            'value' => '23'
+                                                          },
+                                                  '3' => {
+                                                           'name' => 'IBV_WC_LOC_EEC_OP_ERR',
+                                                           'value' => '3'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'IBV_WC_LOC_PROT_ERR',
+                                                           'value' => '4'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'IBV_WC_WR_FLUSH_ERR',
+                                                           'value' => '5'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'IBV_WC_MW_BIND_ERR',
+                                                           'value' => '6'
+                                                         },
+                                                  '7' => {
+                                                           'name' => 'IBV_WC_BAD_RESP_ERR',
+                                                           'value' => '7'
+                                                         },
+                                                  '8' => {
+                                                           'name' => 'IBV_WC_LOC_ACCESS_ERR',
+                                                           'value' => '8'
+                                                         },
+                                                  '9' => {
+                                                           'name' => 'IBV_WC_REM_INV_REQ_ERR',
+                                                           'value' => '9'
+                                                         }
+                                                },
+                                      'Name' => 'enum ibv_wc_status',
+                                      'Size' => '4',
+                                      'Type' => 'Enum'
+                                    },
+                          '4142' => {
+                                      'BaseType' => '225',
+                                      'Header' => 'verbs.h',
+                                      'Line' => '481',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'IBV_WC_SEND',
+                                                           'value' => '0'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'IBV_WC_RDMA_WRITE',
+                                                           'value' => '1'
+                                                         },
+                                                  '10' => {
+                                                            'name' => 'IBV_WC_TM_ADD',
+                                                            'value' => '130'
+                                                          },
+                                                  '11' => {
+                                                            'name' => 'IBV_WC_TM_DEL',
+                                                            'value' => '131'
+                                                          },
+                                                  '12' => {
+                                                            'name' => 'IBV_WC_TM_SYNC',
+                                                            'value' => '132'
+                                                          },
+                                                  '13' => {
+                                                            'name' => 'IBV_WC_TM_RECV',
+                                                            'value' => '133'
+                                                          },
+                                                  '14' => {
+                                                            'name' => 'IBV_WC_TM_NO_TAG',
+                                                            'value' => '134'
+                                                          },
+                                                  '15' => {
+                                                            'name' => 'IBV_WC_DRIVER1',
+                                                            'value' => '135'
+                                                          },
+                                                  '2' => {
+                                                           'name' => 'IBV_WC_RDMA_READ',
+                                                           'value' => '2'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'IBV_WC_COMP_SWAP',
+                                                           'value' => '3'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'IBV_WC_FETCH_ADD',
+                                                           'value' => '4'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'IBV_WC_BIND_MW',
+                                                           'value' => '5'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'IBV_WC_LOCAL_INV',
+                                                           'value' => '6'
+                                                         },
+                                                  '7' => {
+                                                           'name' => 'IBV_WC_TSO',
+                                                           'value' => '7'
+                                                         },
+                                                  '8' => {
+                                                           'name' => 'IBV_WC_RECV',
+                                                           'value' => '128'
+                                                         },
+                                                  '9' => {
+                                                           'name' => 'IBV_WC_RECV_RDMA_WITH_IMM',
+                                                           'value' => '129'
+                                                         }
+                                                },
+                                      'Name' => 'enum ibv_wc_opcode',
+                                      'Size' => '4',
+                                      'Type' => 'Enum'
+                                    },
+                          '4260' => {
+                                      'BaseType' => '4271',
+                                      'Header' => 'types.h',
+                                      'Line' => '30',
+                                      'Name' => '__be32',
+                                      'Size' => '4',
+                                      'Type' => 'Typedef'
+                                    },
+                          '4271' => {
+                                      'BaseType' => '225',
+                                      'Header' => 'int-ll64.h',
+                                      'Line' => '26',
+                                      'Name' => '__u32',
+                                      'Size' => '4',
+                                      'Type' => 'Typedef'
+                                    },
+                          '4282' => {
+                                      'Name' => 'int(*)(struct ibv_cq*, int)',
+                                      'Param' => {
+                                                   '0' => {
+                                                            'type' => '2682'
+                                                          },
+                                                   '1' => {
+                                                            'type' => '809'
+                                                          }
+                                                 },
+                                      'Return' => '809',
+                                      'Type' => 'FuncPtr'
+                                    },
+                          '4303' => {
+                                      'Name' => 'int(*)(struct ibv_srq*, struct ibv_recv_wr*, struct ibv_recv_wr**)',
+                                      'Param' => {
+                                                   '0' => {
+                                                            'type' => '3272'
+                                                          },
+                                                   '1' => {
+                                                            'type' => '4329'
+                                                          },
+                                                   '2' => {
+                                                            'type' => '4450'
+                                                          }
+                                                 },
+                                      'Return' => '809',
+                                      'Type' => 'FuncPtr'
+                                    },
+                          '4329' => {
+                                      'BaseType' => '4334',
+                                      'Name' => 'struct ibv_recv_wr*',
+                                      'Size' => '32',
+                                      'Type' => 'Pointer'
+                                    },
+                          '4334' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1135',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'wr_id',
+                                                           'offset' => '0',
+                                                           'type' => '341'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'next',
+                                                           'offset' => '8',
+                                                           'type' => '4329'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'sg_list',
+                                                           'offset' => '16',
+                                                           'type' => '4396'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'num_sge',
+                                                           'offset' => '24',
+                                                           'type' => '809'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_recv_wr',
+                                      'Size' => '32',
+                                      'Type' => 'Struct'
+                                    },
+                          '4396' => {
+                                      'BaseType' => '4401',
+                                      'Name' => 'struct ibv_sge*',
+                                      'Size' => '16',
+                                      'Type' => 'Pointer'
+                                    },
+                          '4401' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1079',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'addr',
+                                                           'offset' => '0',
+                                                           'type' => '341'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'length',
+                                                           'offset' => '8',
+                                                           'type' => '214'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'lkey',
+                                                           'offset' => '12',
+                                                           'type' => '214'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_sge',
+                                      'Size' => '16',
+                                      'Type' => 'Struct'
+                                    },
+                          '44328' => {
+                                       'BaseType' => '44333',
+                                       'Name' => 'struct efadv_device_attr*',
+                                       'Size' => '24',
+                                       'Type' => 'Pointer'
+                                     },
+                          '44333' => {
+                                       'Header' => 'efadv.h',
+                                       'Line' => '38',
+                                       'Memb' => {
+                                                   '0' => {
+                                                            'name' => 'comp_mask',
+                                                            'offset' => '0',
+                                                            'type' => '341'
+                                                          },
+                                                   '1' => {
+                                                            'name' => 'max_sq_wr',
+                                                            'offset' => '8',
+                                                            'type' => '214'
+                                                          },
+                                                   '2' => {
+                                                            'name' => 'max_rq_wr',
+                                                            'offset' => '12',
+                                                            'type' => '214'
+                                                          },
+                                                   '3' => {
+                                                            'name' => 'max_sq_sge',
+                                                            'offset' => '16',
+                                                            'type' => '359'
+                                                          },
+                                                   '4' => {
+                                                            'name' => 'max_rq_sge',
+                                                            'offset' => '18',
+                                                            'type' => '359'
+                                                          },
+                                                   '5' => {
+                                                            'name' => 'inline_buf_size',
+                                                            'offset' => '20',
+                                                            'type' => '359'
+                                                          },
+                                                   '6' => {
+                                                            'name' => 'reserved',
+                                                            'offset' => '22',
+                                                            'type' => '12569'
+                                                          }
+                                                 },
+                                       'Name' => 'struct efadv_device_attr',
+                                       'Size' => '24',
+                                       'Type' => 'Struct'
+                                     },
+                          '4450' => {
+                                      'BaseType' => '4329',
+                                      'Name' => 'struct ibv_recv_wr**',
+                                      'Size' => '32',
+                                      'Type' => 'Pointer'
+                                    },
+                          '4455' => {
+                                      'Name' => 'int(*)(struct ibv_qp*, struct ibv_send_wr*, struct ibv_send_wr**)',
+                                      'Param' => {
+                                                   '0' => {
+                                                            'type' => '2498'
+                                                          },
+                                                   '1' => {
+                                                            'type' => '4481'
+                                                          },
+                                                   '2' => {
+                                                            'type' => '5130'
+                                                          }
+                                                 },
+                                      'Return' => '809',
+                                      'Type' => 'FuncPtr'
+                                    },
+                          '4481' => {
+                                      'BaseType' => '4486',
+                                      'Name' => 'struct ibv_send_wr*',
+                                      'Size' => '128',
+                                      'Type' => 'Pointer'
+                                    },
+                          '4486' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1085',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'wr_id',
+                                                           'offset' => '0',
+                                                           'type' => '341'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'next',
+                                                           'offset' => '8',
+                                                           'type' => '4481'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'sg_list',
+                                                           'offset' => '16',
+                                                           'type' => '4396'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'num_sge',
+                                                           'offset' => '24',
+                                                           'type' => '809'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'opcode',
+                                                           'offset' => '28',
+                                                           'type' => '4990'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'send_flags',
+                                                           'offset' => '32',
+                                                           'type' => '225'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'unnamed0',
+                                                           'offset' => '36',
+                                                           'type' => '4582'
+                                                         },
+                                                  '7' => {
+                                                           'name' => 'wr',
+                                                           'offset' => '40',
+                                                           'type' => '4627'
+                                                         },
+                                                  '8' => {
+                                                           'name' => 'qp_type',
+                                                           'offset' => '72',
+                                                           'type' => '4820'
+                                                         },
+                                                  '9' => {
+                                                           'name' => 'unnamed1',
+                                                           'offset' => '80',
+                                                           'type' => '4867'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_send_wr',
+                                      'Size' => '128',
+                                      'Type' => 'Struct'
+                                    },
+                          '4582' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1095',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'imm_data',
+                                                           'offset' => '0',
+                                                           'type' => '4260'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'invalidate_rkey',
+                                                           'offset' => '0',
+                                                           'type' => '214'
+                                                         }
+                                                },
+                                      'Name' => 'ibv_send_wr::anon-union-verbs.h-1095',
+                                      'NameSpace' => 'ibv_send_wr',
+                                      'Size' => '4',
+                                      'Type' => 'Union'
+                                    },
+                          '4627' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1099',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'rdma',
+                                                           'offset' => '0',
+                                                           'type' => '4645'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'atomic',
+                                                           'offset' => '0',
+                                                           'type' => '4690'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'ud',
+                                                           'offset' => '0',
+                                                           'type' => '4761'
+                                                         }
+                                                },
+                                      'Name' => 'ibv_send_wr::anon-union-verbs.h-1099',
+                                      'NameSpace' => 'ibv_send_wr',
+                                      'Size' => '32',
+                                      'Type' => 'Union'
+                                    },
+                          '4645' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1100',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'remote_addr',
+                                                           'offset' => '0',
+                                                           'type' => '341'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'rkey',
+                                                           'offset' => '8',
+                                                           'type' => '214'
+                                                         }
+                                                },
+                                      'Name' => 'anon-struct-verbs.h-1100',
+                                      'Size' => '16',
+                                      'Type' => 'Struct'
+                                    },
+                          '4690' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1104',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'remote_addr',
+                                                           'offset' => '0',
+                                                           'type' => '341'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'compare_add',
+                                                           'offset' => '8',
+                                                           'type' => '341'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'swap',
+                                                           'offset' => '16',
+                                                           'type' => '341'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'rkey',
+                                                           'offset' => '24',
+                                                           'type' => '214'
+                                                         }
+                                                },
+                                      'Name' => 'anon-struct-verbs.h-1104',
+                                      'Size' => '32',
+                                      'Type' => 'Struct'
+                                    },
+                          '4761' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1110',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'ah',
+                                                           'offset' => '0',
+                                                           'type' => '5076'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'remote_qpn',
+                                                           'offset' => '8',
+                                                           'type' => '214'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'remote_qkey',
+                                                           'offset' => '12',
+                                                           'type' => '214'
+                                                         }
+                                                },
+                                      'Name' => 'anon-struct-verbs.h-1110',
+                                      'Size' => '16',
+                                      'Type' => 'Struct'
+                                    },
+                          '4820' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1116',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'xrc',
+                                                           'offset' => '0',
+                                                           'type' => '4838'
+                                                         }
+                                                },
+                                      'Name' => 'ibv_send_wr::anon-union-verbs.h-1116',
+                                      'NameSpace' => 'ibv_send_wr',
+                                      'Size' => '4',
+                                      'Type' => 'Union'
+                                    },
+                          '48245' => {
+                                       'BaseType' => '48250',
+                                       'Name' => 'struct efadv_ah_attr*',
+                                       'Size' => '16',
+                                       'Type' => 'Pointer'
+                                     },
+                          '48250' => {
+                                       'Header' => 'efadv.h',
+                                       'Line' => '52',
+                                       'Memb' => {
+                                                   '0' => {
+                                                            'name' => 'comp_mask',
+                                                            'offset' => '0',
+                                                            'type' => '341'
+                                                          },
+                                                   '1' => {
+                                                            'name' => 'ahn',
+                                                            'offset' => '8',
+                                                            'type' => '359'
+                                                          },
+                                                   '2' => {
+                                                            'name' => 'reserved',
+                                                            'offset' => '10',
+                                                            'type' => '12569'
+                                                          }
+                                                 },
+                                       'Name' => 'struct efadv_ah_attr',
+                                       'Size' => '16',
+                                       'Type' => 'Struct'
+                                     },
+                          '4838' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1117',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'remote_srqn',
+                                                           'offset' => '0',
+                                                           'type' => '214'
+                                                         }
+                                                },
+                                      'Name' => 'anon-struct-verbs.h-1117',
+                                      'Size' => '4',
+                                      'Type' => 'Struct'
+                                    },
+                          '4867' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1121',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'bind_mw',
+                                                           'offset' => '0',
+                                                           'type' => '4885'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'tso',
+                                                           'offset' => '0',
+                                                           'type' => '4943'
+                                                         }
+                                                },
+                                      'Name' => 'ibv_send_wr::anon-union-verbs.h-1121',
+                                      'NameSpace' => 'ibv_send_wr',
+                                      'Size' => '48',
+                                      'Type' => 'Union'
+                                    },
+                          '4885' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1122',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'mw',
+                                                           'offset' => '0',
+                                                           'type' => '2325'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'rkey',
+                                                           'offset' => '8',
+                                                           'type' => '214'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'bind_info',
+                                                           'offset' => '16',
+                                                           'type' => '3551'
+                                                         }
+                                                },
+                                      'Name' => 'anon-struct-verbs.h-1122',
+                                      'Size' => '48',
+                                      'Type' => 'Struct'
+                                    },
+                          '4943' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1127',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'hdr',
+                                                           'offset' => '0',
+                                                           'type' => '340'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'hdr_sz',
+                                                           'offset' => '8',
+                                                           'type' => '359'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'mss',
+                                                           'offset' => '10',
+                                                           'type' => '359'
+                                                         }
+                                                },
+                                      'Name' => 'anon-struct-verbs.h-1127',
+                                      'Size' => '16',
+                                      'Type' => 'Struct'
+                                    },
+                          '4990' => {
+                                      'BaseType' => '225',
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1051',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'IBV_WR_RDMA_WRITE',
+                                                           'value' => '0'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'IBV_WR_RDMA_WRITE_WITH_IMM',
+                                                           'value' => '1'
+                                                         },
+                                                  '10' => {
+                                                            'name' => 'IBV_WR_TSO',
+                                                            'value' => '10'
+                                                          },
+                                                  '11' => {
+                                                            'name' => 'IBV_WR_DRIVER1',
+                                                            'value' => '11'
+                                                          },
+                                                  '2' => {
+                                                           'name' => 'IBV_WR_SEND',
+                                                           'value' => '2'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'IBV_WR_SEND_WITH_IMM',
+                                                           'value' => '3'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'IBV_WR_RDMA_READ',
+                                                           'value' => '4'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'IBV_WR_ATOMIC_CMP_AND_SWP',
+                                                           'value' => '5'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'IBV_WR_ATOMIC_FETCH_AND_ADD',
+                                                           'value' => '6'
+                                                         },
+                                                  '7' => {
+                                                           'name' => 'IBV_WR_LOCAL_INV',
+                                                           'value' => '7'
+                                                         },
+                                                  '8' => {
+                                                           'name' => 'IBV_WR_BIND_MW',
+                                                           'value' => '8'
+                                                         },
+                                                  '9' => {
+                                                           'name' => 'IBV_WR_SEND_WITH_INV',
+                                                           'value' => '9'
+                                                         }
+                                                },
+                                      'Name' => 'enum ibv_wr_opcode',
+                                      'Size' => '4',
+                                      'Type' => 'Enum'
+                                    },
+                          '5076' => {
+                                      'BaseType' => '5081',
+                                      'Name' => 'struct ibv_ah*',
+                                      'Size' => '24',
+                                      'Type' => 'Pointer'
+                                    },
+                          '5081' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '1595',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'context',
+                                                           'offset' => '0',
+                                                           'type' => '1493'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'pd',
+                                                           'offset' => '8',
+                                                           'type' => '2405'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'handle',
+                                                           'offset' => '16',
+                                                           'type' => '214'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_ah',
+                                      'Size' => '24',
+                                      'Type' => 'Struct'
+                                    },
+                          '5130' => {
+                                      'BaseType' => '4481',
+                                      'Name' => 'struct ibv_send_wr**',
+                                      'Size' => '128',
+                                      'Type' => 'Pointer'
+                                    },
+                          '5135' => {
+                                      'Name' => 'int(*)(struct ibv_qp*, struct ibv_recv_wr*, struct ibv_recv_wr**)',
+                                      'Param' => {
+                                                   '0' => {
+                                                            'type' => '2498'
+                                                          },
+                                                   '1' => {
+                                                            'type' => '4329'
+                                                          },
+                                                   '2' => {
+                                                            'type' => '4450'
+                                                          }
+                                                 },
+                                      'Return' => '809',
+                                      'Type' => 'FuncPtr'
+                                    },
+                          '681' => {
+                                     'BaseType' => '207',
+                                     'Name' => 'char[]',
+                                     'Size' => '8',
+                                     'Type' => 'Array'
+                                   },
+                          '7290' => {
+                                      'BaseType' => '7295',
+                                      'Name' => 'struct ibv_rwq_ind_table*',
+                                      'Size' => '24',
+                                      'Type' => 'Pointer'
+                                    },
+                          '7295' => {
+                                      'Header' => 'verbs.h',
+                                      'Line' => '839',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'context',
+                                                           'offset' => '0',
+                                                           'type' => '1493'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'ind_tbl_handle',
+                                                           'offset' => '8',
+                                                           'type' => '809'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'ind_tbl_num',
+                                                           'offset' => '12',
+                                                           'type' => '809'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'comp_mask',
+                                                           'offset' => '16',
+                                                           'type' => '214'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibv_rwq_ind_table',
+                                      'Size' => '24',
+                                      'Type' => 'Struct'
+                                    },
+                          '748' => {
+                                     'BaseType' => '809',
+                                     'Header' => 'verbs.h',
+                                     'Line' => '79',
+                                     'Memb' => {
+                                                 '0' => {
+                                                          'name' => 'IBV_NODE_UNKNOWN',
+                                                          'value' => '-1'
+                                                        },
+                                                 '1' => {
+                                                          'name' => 'IBV_NODE_CA',
+                                                          'value' => '1'
+                                                        },
+                                                 '2' => {
+                                                          'name' => 'IBV_NODE_SWITCH',
+                                                          'value' => '2'
+                                                        },
+                                                 '3' => {
+                                                          'name' => 'IBV_NODE_ROUTER',
+                                                          'value' => '3'
+                                                        },
+                                                 '4' => {
+                                                          'name' => 'IBV_NODE_RNIC',
+                                                          'value' => '4'
+                                                        },
+                                                 '5' => {
+                                                          'name' => 'IBV_NODE_USNIC',
+                                                          'value' => '5'
+                                                        },
+                                                 '6' => {
+                                                          'name' => 'IBV_NODE_USNIC_UDP',
+                                                          'value' => '6'
+                                                        },
+                                                 '7' => {
+                                                          'name' => 'IBV_NODE_UNSPECIFIED',
+                                                          'value' => '7'
+                                                        }
+                                               },
+                                     'Name' => 'enum ibv_node_type',
+                                     'Size' => '4',
+                                     'Type' => 'Enum'
+                                   },
+                          '809' => {
+                                     'Name' => 'int',
+                                     'Size' => '4',
+                                     'Type' => 'Intrinsic'
+                                   },
+                          '860' => {
+                                     'Name' => 'long',
+                                     'Size' => '8',
+                                     'Type' => 'Intrinsic'
+                                   }
+                        },
+          'UndefinedSymbols' => {
+                                  'libefa.so.1.1.26.0' => {
+                                                            '_ITM_deregisterTMCloneTable' => 0,
+                                                            '_ITM_registerTMCloneTable' => 0,
+                                                            '__assert_fail@GLIBC_2.2.5' => 0,
+                                                            '__cxa_finalize@GLIBC_2.2.5' => 0,
+                                                            '__errno_location@GLIBC_2.2.5' => 0,
+                                                            '__gmon_start__' => 0,
+                                                            '_verbs_init_and_alloc_context@IBVERBS_PRIVATE_25' => 0,
+                                                            'calloc@GLIBC_2.2.5' => 0,
+                                                            'free@GLIBC_2.2.5' => 0,
+                                                            'ibv_cmd_alloc_pd@IBVERBS_PRIVATE_25' => 0,
+                                                            'ibv_cmd_create_ah@IBVERBS_PRIVATE_25' => 0,
+                                                            'ibv_cmd_create_cq@IBVERBS_PRIVATE_25' => 0,
+                                                            'ibv_cmd_create_qp_ex@IBVERBS_PRIVATE_25' => 0,
+                                                            'ibv_cmd_dealloc_pd@IBVERBS_PRIVATE_25' => 0,
+                                                            'ibv_cmd_dereg_mr@IBVERBS_PRIVATE_25' => 0,
+                                                            'ibv_cmd_destroy_ah@IBVERBS_PRIVATE_25' => 0,
+                                                            'ibv_cmd_destroy_cq@IBVERBS_PRIVATE_25' => 0,
+                                                            'ibv_cmd_destroy_qp@IBVERBS_PRIVATE_25' => 0,
+                                                            'ibv_cmd_get_context@IBVERBS_PRIVATE_25' => 0,
+                                                            'ibv_cmd_modify_qp@IBVERBS_PRIVATE_25' => 0,
+                                                            'ibv_cmd_query_device@IBVERBS_PRIVATE_25' => 0,
+                                                            'ibv_cmd_query_device_ex@IBVERBS_PRIVATE_25' => 0,
+                                                            'ibv_cmd_query_port@IBVERBS_PRIVATE_25' => 0,
+                                                            'ibv_cmd_query_qp@IBVERBS_PRIVATE_25' => 0,
+                                                            'ibv_cmd_reg_mr@IBVERBS_PRIVATE_25' => 0,
+                                                            'malloc@GLIBC_2.2.5' => 0,
+                                                            'memcpy@GLIBC_2.14' => 0,
+                                                            'memset@GLIBC_2.2.5' => 0,
+                                                            'mmap@GLIBC_2.2.5' => 0,
+                                                            'munmap@GLIBC_2.2.5' => 0,
+                                                            'pthread_spin_destroy@GLIBC_2.2.5' => 0,
+                                                            'pthread_spin_init@GLIBC_2.2.5' => 0,
+                                                            'pthread_spin_lock@GLIBC_2.2.5' => 0,
+                                                            'pthread_spin_unlock@GLIBC_2.2.5' => 0,
+                                                            'snprintf@GLIBC_2.2.5' => 0,
+                                                            'sysconf@GLIBC_2.2.5' => 0,
+                                                            'verbs_register_driver_25@IBVERBS_PRIVATE_25' => 0,
+                                                            'verbs_set_ops@IBVERBS_PRIVATE_25' => 0,
+                                                            'verbs_uninit_context@IBVERBS_PRIVATE_25' => 0
+                                                          }
+                                },
+          'WordSize' => '8'
+        };
