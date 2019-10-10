@@ -52,7 +52,7 @@ static void set_extend_atomic_seg(struct hns_roce_qp *qp,
 				  struct hns_roce_sge_info *sge_info,
 				  void *buf)
 {
-	unsigned int sge_mask = qp->sge.sge_cnt - 1;
+	unsigned int sge_mask = qp->ex_sge.sge_cnt - 1;
 	int i;
 
 	for (i = 0; i < atomic_buf; i++, sge_info->start_idx++)
@@ -200,7 +200,7 @@ static void *get_send_wqe(struct hns_roce_qp *qp, int n)
 
 static void *get_send_sge_ex(struct hns_roce_qp *qp, int n)
 {
-	return qp->buf.buf + qp->sge.offset + (n << qp->sge.sge_shift);
+	return qp->buf.buf + qp->ex_sge.offset + (n << qp->ex_sge.sge_shift);
 }
 
 static void *get_srq_wqe(struct hns_roce_srq *srq, int n)
@@ -686,7 +686,7 @@ static void set_sge(struct hns_roce_v2_wqe_data_seg *dseg,
 			dseg++;
 		} else {
 			dseg = get_send_sge_ex(qp, sge_info->start_idx &
-					       (qp->sge.sge_cnt - 1));
+					       (qp->ex_sge.sge_cnt - 1));
 			set_data_seg_v2(dseg, wr->sg_list + i);
 			sge_info->start_idx++;
 		}
@@ -796,7 +796,7 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	roce_set_field(rc_sq_wqe->byte_20,
 		       RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_M,
 		       RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_S,
-		       sge_info->start_idx & (qp->sge.sge_cnt - 1));
+		       sge_info->start_idx & (qp->ex_sge.sge_cnt - 1));
 
 	if (wr->opcode == IBV_WR_BIND_MW)
 		return 0;

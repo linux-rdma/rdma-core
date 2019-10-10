@@ -665,9 +665,9 @@ static int hns_roce_calc_qp_buff_size(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 		qp->rq.wqe_shift = hr_ilog32(rqwqe_size);
 
 		if (qp->sq.max_gs > HNS_ROCE_SGE_IN_WQE || type == IBV_QPT_UD)
-			qp->sge.sge_shift = HNS_ROCE_SGE_SHIFT;
+			qp->ex_sge.sge_shift = HNS_ROCE_SGE_SHIFT;
 		else
-			qp->sge.sge_shift = 0;
+			qp->ex_sge.sge_shift = 0;
 
 		/* alloc recv inline buf */
 		if (hns_roce_alloc_recv_inl_buf(cap, qp))
@@ -675,22 +675,25 @@ static int hns_roce_calc_qp_buff_size(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 
 		qp->buf_size = align((qp->sq.wqe_cnt << qp->sq.wqe_shift),
 				     page_size) +
-			       align((qp->sge.sge_cnt << qp->sge.sge_shift),
+			       align((qp->ex_sge.sge_cnt <<
+				      qp->ex_sge.sge_shift),
 				     page_size) +
 			       (qp->rq.wqe_cnt << qp->rq.wqe_shift);
 
-		if (qp->sge.sge_cnt) {
+		if (qp->ex_sge.sge_cnt) {
 			qp->sq.offset = 0;
-			qp->sge.offset = align((qp->sq.wqe_cnt <<
-						qp->sq.wqe_shift), page_size);
-			qp->rq.offset = qp->sge.offset +
-					align((qp->sge.sge_cnt <<
-					qp->sge.sge_shift), page_size);
+			qp->ex_sge.offset = align((qp->sq.wqe_cnt <<
+						   qp->sq.wqe_shift),
+						  page_size);
+			qp->rq.offset = qp->ex_sge.offset +
+					align((qp->ex_sge.sge_cnt <<
+					       qp->ex_sge.sge_shift),
+					      page_size);
 		} else {
 			qp->sq.offset = 0;
-			qp->sge.offset = 0;
+			qp->ex_sge.offset = 0;
 			qp->rq.offset = align((qp->sq.wqe_cnt <<
-						qp->sq.wqe_shift), page_size);
+					       qp->sq.wqe_shift), page_size);
 		}
 	}
 
@@ -758,9 +761,9 @@ static void hns_roce_set_qp_params(struct ibv_pd *pd,
 		if (qp->sq.max_gs > HNS_ROCE_SGE_IN_WQE) {
 			sge_ex_count = qp->sq.wqe_cnt *
 				       (qp->sq.max_gs - HNS_ROCE_SGE_IN_WQE);
-			qp->sge.sge_cnt = align_queue_size(sge_ex_count);
+			qp->ex_sge.sge_cnt = align_queue_size(sge_ex_count);
 		} else {
-			qp->sge.sge_cnt = 0;
+			qp->ex_sge.sge_cnt = 0;
 		}
 	}
 

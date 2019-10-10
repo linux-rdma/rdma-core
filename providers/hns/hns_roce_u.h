@@ -248,7 +248,7 @@ struct hns_roce_qp {
 	struct hns_roce_wq		rq;
 	unsigned int			*rdb;
 	unsigned int			*sdb;
-	struct hns_roce_sge_ex		sge;
+	struct hns_roce_sge_ex		ex_sge;
 	unsigned int			next_sge;
 	int				port_num;
 	int				sl;
