@@ -270,14 +270,9 @@ static int align_qp_size(int req)
 	return nent;
 }
 
-static int align_srq_size(int req)
+static uint64_t align_queue_size(uint64_t req)
 {
-	int nent;
-
-	for (nent = 1; nent < req; nent <<= 1)
-		;
-
-	return nent;
+	return roundup_pow_of_two(req);
 }
 
 static int hns_roce_verify_cq(int *cqe, struct hns_roce_context *context)
@@ -327,7 +322,7 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
 		cqe = align_cq_size(cqe);
 	else
-		cqe = roundup_pow_of_two(cqe);
+		cqe = align_queue_size(cqe);
 
 	if (hns_roce_alloc_cq_buf(hr_dev, &cq->buf, cqe))
 		goto err;
@@ -490,7 +485,7 @@ struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
 	if (pthread_spin_init(&srq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto out;
 
-	srq->max_wqe = align_srq_size(init_attr->attr.max_wr + 1);
+	srq->max_wqe = align_queue_size(init_attr->attr.max_wr + 1);
 	srq->max_gs = init_attr->attr.max_sge;
 
 	ret = hns_roce_create_idx_que(pd, srq);
@@ -748,8 +743,8 @@ static void hns_roce_set_qp_params(struct ibv_pd *pd,
 		qp->sq.wqe_cnt = align_qp_size(attr->cap.max_send_wr);
 		qp->rq.wqe_cnt = align_qp_size(attr->cap.max_recv_wr);
 	} else {
-		qp->sq.wqe_cnt = roundup_pow_of_two(attr->cap.max_send_wr);
-		qp->rq.wqe_cnt = roundup_pow_of_two(attr->cap.max_recv_wr);
+		qp->sq.wqe_cnt = align_queue_size(attr->cap.max_send_wr);
+		qp->rq.wqe_cnt = align_queue_size(attr->cap.max_recv_wr);
 	}
 
 	qp->sq.wqe_shift = hr_ilog32(sizeof(struct hns_roce_rc_send_wqe));
@@ -763,9 +758,7 @@ static void hns_roce_set_qp_params(struct ibv_pd *pd,
 		if (qp->sq.max_gs > HNS_ROCE_SGE_IN_WQE) {
 			sge_ex_count = qp->sq.wqe_cnt *
 				       (qp->sq.max_gs - HNS_ROCE_SGE_IN_WQE);
-			for (qp->sge.sge_cnt = 1; qp->sge.sge_cnt <
-			     sge_ex_count; qp->sge.sge_cnt <<= 1)
-				;
+			qp->sge.sge_cnt = align_queue_size(sge_ex_count);
 		} else {
 			qp->sge.sge_cnt = 0;
 		}
