@@ -770,19 +770,14 @@ static void hns_roce_set_qp_params(struct ibv_pd *pd,
 	}
 
 	/* limit by the context queried during alloc context */
-	qp->rq.max_post = min(ctx->max_qp_wr, qp->rq.wqe_cnt);
 	qp->sq.max_post = min(ctx->max_qp_wr, qp->sq.wqe_cnt);
 	qp->sq.max_gs = min(ctx->max_sge, qp->sq.max_gs);
-	qp->rq.max_gs = min(ctx->max_sge, qp->rq.max_gs);
 
 	qp->sq_signal_bits = attr->sq_sig_all ? 0 : 1;
-	qp->max_inline_data  = HNS_ROCE_MAX_INLINE_DATA_LEN;
+	qp->max_inline_data = HNS_ROCE_MAX_INLINE_DATA_LEN;
 
 	/* update attr for creating qp */
 	attr->cap.max_send_wr = qp->sq.max_post;
-	attr->cap.max_recv_wr = qp->rq.max_post;
-	attr->cap.max_send_sge = qp->sq.max_gs;
-	attr->cap.max_recv_sge = qp->rq.max_gs;
 	attr->cap.max_inline_data = qp->max_inline_data;
 }
 
@@ -905,7 +900,14 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	}
 	pthread_mutex_unlock(&context->qp_table_mutex);
 
-	qp->flags	= resp.cap_flags;
+	/* adjust rq maxima to not exceed reported device maxima */
+	attr->cap.max_recv_wr = min(context->max_qp_wr, attr->cap.max_recv_wr);
+	attr->cap.max_recv_sge = min(context->max_sge, attr->cap.max_recv_sge);
+	qp->rq.wqe_cnt = attr->cap.max_recv_wr;
+	qp->rq.max_gs = attr->cap.max_recv_sge;
+	qp->rq.max_post = attr->cap.max_recv_wr;
+
+	qp->flags = resp.cap_flags;
 
 	return &qp->ibv_qp;
 
