@@ -424,7 +424,7 @@ static int hns_roce_create_idx_que(struct ibv_pd *pd, struct hns_roce_srq *srq)
 	bitmap_num = bitmap_num / BIT_CNT_PER_U64;
 
 	idx_que->buf_size = srq->max_wqe * idx_que->entry_sz;
-	if (hns_roce_alloc_buf(&idx_que->buf, align(idx_que->buf_size, 0x1000),
+	if (hns_roce_alloc_buf(&idx_que->buf, idx_que->buf_size,
 			       to_hr_dev(pd->context->device)->page_size)) {
 		free(idx_que->bitmap);
 		idx_que->bitmap = NULL;
