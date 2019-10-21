@@ -15,7 +15,6 @@ under the providers/ directory. Support for the following Kernel RDMA drivers
 is included:
 
  - efa.ko
- - iw_cxgb3.ko
  - iw_cxgb4.ko
  - hfi1.ko
  - hns-roce.ko

@@ -51,11 +51,6 @@ M:	Devesh Sharma  <Devesh.sharma@broadcom.com>
 S:	Supported
 F:	providers/bnxt_re/
 
-CXGB3 USERSPACE PROVIDER (for iw_cxgb3.ko)
-M:	Steve Wise <swise@opengridcomputing.com>
-S:	Supported
-F:	providers/cxgb3/
-
 CXGB4 USERSPACE PROVIDER (for iw_cxgb4.ko)
 M:	Steve Wise <swise@opengridcomputing.com>
 S:	Supported

@@ -2144,7 +2144,6 @@ struct ibv_device **ibv_get_device_list(int *num_devices);
 
 struct verbs_devices_ops;
 extern const struct verbs_device_ops verbs_provider_bnxt_re;
-extern const struct verbs_device_ops verbs_provider_cxgb3;
 extern const struct verbs_device_ops verbs_provider_cxgb4;
 extern const struct verbs_device_ops verbs_provider_efa;
 extern const struct verbs_device_ops verbs_provider_hfi1verbs;
