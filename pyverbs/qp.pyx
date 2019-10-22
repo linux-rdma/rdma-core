@@ -247,8 +247,8 @@ cdef class QPInitAttrEx(PyverbsObject):
             raise PyverbsUserError('XRCD and RSS are not yet supported in pyverbs')
         self.attr.comp_mask = comp_mask
         if pd is not None:
-            self.attr.pd = <v.ibv_pd*>pd._pd
-            self.pd = pd
+            self._pd = pd
+            self.attr.pd = <v.ibv_pd*>pd.pd
         self.attr.create_flags = create_flags
         self.attr.max_tso_header = max_tso_header
         self.attr.source_qpn = source_qpn
@@ -309,11 +309,11 @@ cdef class QPInitAttrEx(PyverbsObject):
 
     @property
     def pd(self):
-        return self.pd
+        return self._pd
     @pd.setter
-    def pd(self, val):
-        self.attr.pd = <v.ibv_pd*>val._pd
-        self.pd = val
+    def pd(self, PD val):
+        self.attr.pd = <v.ibv_pd*>val.pd
+        self._pd = val
 
     @property
     def create_flags(self):
