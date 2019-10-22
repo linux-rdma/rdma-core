@@ -260,12 +260,10 @@ def get_send_wr(agr_obj, is_server):
     qp_type = agr_obj.sqp_lst[0].qp_type if isinstance(agr_obj, XRCResources) \
                 else agr_obj.qp.qp_type
     mr = agr_obj.mr
-    if qp_type == e.IBV_QPT_UD:
-        send_sge = SGE(mr.buf + GRH_SIZE, agr_obj.msg_size, mr.lkey)
-    else:
-        send_sge = SGE(mr.buf, agr_obj.msg_size, mr.lkey)
-    msg = agr_obj.msg_size * ('s' if is_server else 'c')
-    mr.write(msg, agr_obj.msg_size)
+    offset = GRH_SIZE if qp_type == e.IBV_QPT_UD else 0
+    send_sge = SGE(mr.buf + offset, agr_obj.msg_size, mr.lkey)
+    msg = (agr_obj.msg_size + offset) * ('s' if is_server else 'c')
+    mr.write(msg, agr_obj.msg_size + offset)
     return SendWR(num_sge=1, sg=[send_sge])
 
 
@@ -278,10 +276,9 @@ def get_recv_wr(agr_obj):
     qp_type = agr_obj.rqp_lst[0].qp_type if isinstance(agr_obj, XRCResources) \
                 else agr_obj.qp.qp_type
     mr = agr_obj.mr
-    if qp_type == e.IBV_QPT_UD:
-        recv_sge = SGE(mr.buf, agr_obj.msg_size + GRH_SIZE, mr.lkey)
-    else:
-        recv_sge = SGE(mr.buf, agr_obj.msg_size, mr.lkey)
+    length = agr_obj.msg_size + GRH_SIZE if qp_type == e.IBV_QPT_UD \
+             else agr_obj.msg_size
+    recv_sge = SGE(mr.buf, length, mr.lkey)
     return RecvWR(sg=[recv_sge], num_sge=1)
 
 
@@ -380,20 +377,21 @@ def traffic(client, server, iters, gid_idx, port):
     c_recv_wr = get_recv_wr(client)
     post_recv(client.qp, c_recv_wr, client.num_msgs)
     post_recv(server.qp, s_recv_wr, server.num_msgs)
+    read_offset = GRH_SIZE if client.qp.qp_type == e.IBV_QPT_UD else 0
     for _ in range(iters):
         c_send_wr = get_send_wr(client, False)
         post_send(client, c_send_wr, gid_idx, port)
         poll_cq(client.cq)
         poll_cq(server.cq)
         post_recv(client.qp, c_recv_wr)
-        msg_received = server.mr.read(server.msg_size, 0)
+        msg_received = server.mr.read(server.msg_size, read_offset)
         validate(msg_received, True, server.msg_size)
         s_send_wr = get_send_wr(server, True)
         post_send(server, s_send_wr, gid_idx, port)
         poll_cq(server.cq)
         poll_cq(client.cq)
         post_recv(server.qp, s_recv_wr)
-        msg_received = client.mr.read(client.msg_size, 0)
+        msg_received = client.mr.read(client.msg_size, read_offset)
         validate(msg_received, False, client.msg_size)
 
 
