@@ -7,12 +7,12 @@ import random
 
 from pyverbs.cq import CompChannel, CQ, CqInitAttrEx, CQEX
 from pyverbs.pyverbs_error import PyverbsError
-from pyverbs.tests.base import PyverbsTestCase
-import pyverbs.tests.utils as u
+from tests.base import PyverbsAPITestCase
 import pyverbs.enums as e
+import tests.utils as u
 
 
-class CQTest(PyverbsTestCase):
+class CQTest(PyverbsAPITestCase):
     """
     Test various functionalities of the CQ class.
     """
@@ -48,9 +48,9 @@ class CQTest(PyverbsTestCase):
                 try:
                     with CQ(ctx, cqes, None, cc, comp_vector):
                         pass
-                except PyverbsError as e:
-                    assert 'Failed to create a CQ' in e.args[0]
-                    assert 'Invalid argument' in e.args[0]
+                except PyverbsError as ex:
+                    assert 'Failed to create a CQ' in ex.args[0]
+                    assert 'Invalid argument' in ex.args[0]
                 else:
                     raise PyverbsError(
                         'Created a CQ with comp_vector={n} while device\'s num_comp_vectors={nc}'.
@@ -60,9 +60,9 @@ class CQTest(PyverbsTestCase):
                 try:
                     with CQ(ctx, cqes, None, cc, 0):
                         pass
-                except PyverbsError as err:
-                    assert 'Failed to create a CQ' in err.args[0]
-                    assert 'Invalid argument' in err.args[0]
+                except PyverbsError as ex:
+                    assert 'Failed to create a CQ' in ex.args[0]
+                    assert 'Invalid argument' in ex.args[0]
                 else:
                     raise PyverbsError(
                         'Created a CQ with cqe={n} while device\'s max_cqe={nc}'.
@@ -84,7 +84,7 @@ class CQTest(PyverbsTestCase):
                 cq.close()
 
 
-class CCTest(PyverbsTestCase):
+class CCTest(PyverbsAPITestCase):
     """
     Test various functionalities of the Completion Channel class.
     """
@@ -105,7 +105,7 @@ class CCTest(PyverbsTestCase):
             cc.close()
 
 
-class CQEXTest(PyverbsTestCase):
+class CQEXTest(PyverbsAPITestCase):
     """
     Test various functionalities of the CQEX class.
     """
@@ -114,9 +114,39 @@ class CQEXTest(PyverbsTestCase):
         Test ibv_create_cq_ex()
         """
         for ctx, attr, attr_ex in self.devices:
-            for i in range(10):
-                with CQEX(ctx, get_attrs_ex(attr, attr_ex)):
+            cqe = get_num_cqes(attr)
+            cq_init_attrs_ex = CqInitAttrEx(cqe=cqe, wc_flags=0, comp_mask=0, flags=0)
+            wc_flags = get_cq_flags_with_caps()
+            if attr_ex.tm_caps.max_ops == 0:
+                wc_flags.remove(e.IBV_WC_EX_WITH_TM_INFO)
+            if attr_ex.raw_packet_caps & e.IBV_RAW_PACKET_CAP_CVLAN_STRIPPING == 0:
+                wc_flags.remove(e.IBV_WC_EX_WITH_CVLAN)
+            for f in wc_flags:
+                cq_init_attrs_ex.wc_flags = f
+                with CQEX(ctx, cq_init_attrs_ex):
                     pass
+            # For the wc_flags that have no capability bit, we're not raising
+            # an exception for EOPNOTSUPPORT
+            wc_flags = get_cq_flags_with_no_caps()
+            for f in wc_flags:
+                cq_init_attrs_ex.wc_flags = f
+                try:
+                    with CQEX(ctx, cq_init_attrs_ex):
+                        pass
+                except PyverbsError as ex:
+                    assert 'Failed to create extended CQ' in ex.args[0]
+                    assert ' Errno: 95' in ex.args[0]
+            cq_init_attrs_ex.wc_flags = 0
+            cq_init_attrs_ex.comp_mask = e.IBV_CQ_INIT_ATTR_MASK_FLAGS
+            attr_flags = list(e.ibv_create_cq_attr_flags)
+            for f in attr_flags:
+                cq_init_attrs_ex.flags = f
+                try:
+                    with CQEX(ctx, cq_init_attrs_ex):
+                        pass
+                except PyverbsError as ex:
+                    assert 'Failed to create extended CQ' in ex.args[0]
+                    assert ' Errno: 95' in ex.args[0]
 
     def test_create_cq_ex_bad_flow(self):
         """
@@ -124,14 +154,14 @@ class CQEXTest(PyverbsTestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             for i in range(10):
-                cq_attrs_ex = get_attrs_ex(attr, attr_ex)
+                cq_attrs_ex = CqInitAttrEx(cqe=0, wc_flags=0, comp_mask=0, flags=0)
                 max_cqe = attr.max_cqe
                 cq_attrs_ex.cqe = max_cqe + 1 + int(100 * random.random())
                 try:
                     CQEX(ctx, cq_attrs_ex)
-                except PyverbsError as e:
-                    assert 'Failed to create extended CQ' in e.args[0]
-                    assert ' Errno: 22' in e.args[0]
+                except PyverbsError as ex:
+                    assert 'Failed to create extended CQ' in ex.args[0]
+                    assert ' Errno: 22' in ex.args[0]
                 else:
                     raise PyverbsError(
                         'Created a CQEX with {c} CQEs while device\'s max CQE={dc}'.
@@ -141,9 +171,9 @@ class CQEXTest(PyverbsTestCase):
                 cq_attrs_ex.cqe = get_num_cqes(attr)
                 try:
                     CQEX(ctx, cq_attrs_ex)
-                except PyverbsError as e:
-                    assert 'Failed to create extended CQ' in e.args[0]
-                    assert ' Errno: 22' in e.args[0]
+                except PyverbsError as ex:
+                    assert 'Failed to create extended CQ' in ex.args[0]
+                    assert ' Errno: 22' in ex.args[0]
                 else:
                     raise PyverbsError(
                         'Created a CQEX with comp_vector={c} while device\'s num_comp_vectors={dc}'.
@@ -154,34 +184,51 @@ class CQEXTest(PyverbsTestCase):
         Test ibv_destroy_cq() for extended CQs
         """
         for ctx, attr, attr_ex in self.devices:
-            for i in range(10):
-                with CQEX(ctx, get_attrs_ex(attr, attr_ex)) as cq:
+            cqe = get_num_cqes(attr)
+            cq_init_attrs_ex = CqInitAttrEx(cqe=cqe, wc_flags=0, comp_mask=0, flags=0)
+            wc_flags = get_cq_flags_with_caps()
+            if attr_ex.tm_caps.max_ops == 0:
+                wc_flags.remove(e.IBV_WC_EX_WITH_TM_INFO)
+            if attr_ex.raw_packet_caps & e.IBV_RAW_PACKET_CAP_CVLAN_STRIPPING == 0:
+                wc_flags.remove(e.IBV_WC_EX_WITH_CVLAN)
+            for f in wc_flags:
+                cq_init_attrs_ex.wc_flags = f
+                with CQEX(ctx, cq_init_attrs_ex) as cq:
                     cq.close()
+            # For the wc_flags that have no capability bit, we're not raising
+            # an exception for EOPNOTSUPPORT
+            wc_flags = get_cq_flags_with_no_caps()
+            for f in wc_flags:
+                cq_init_attrs_ex.wc_flags = f
+                try:
+                    with CQEX(ctx, cq_init_attrs_ex) as cq:
+                        cq.close()
+                except PyverbsError as ex:
+                    assert 'Failed to create extended CQ' in ex.args[0]
+                    assert ' Errno: 95' in ex.args[0]
+            cq_init_attrs_ex.wc_flags = 0
+            cq_init_attrs_ex.comp_mask = e.IBV_CQ_INIT_ATTR_MASK_FLAGS
+            attr_flags = list(e.ibv_create_cq_attr_flags)
+            for f in attr_flags:
+                cq_init_attrs_ex.flags = f
+                try:
+                    with CQEX(ctx, cq_init_attrs_ex) as cq:
+                        cq.close()
+                except PyverbsError as ex:
+                    assert 'Failed to create extended CQ' in ex.args[0]
+                    assert ' Errno: 95' in ex.args[0]
 
 def get_num_cqes(attr):
     max_cqe = attr.max_cqe
     return int((max_cqe + 1) * random.random())
 
 
-def get_attrs_ex(attr, attr_ex):
-    cqe = get_num_cqes(attr)
+def get_cq_flags_with_no_caps():
     wc_flags = list(e.ibv_create_cq_wc_flags)
-    # Flow tag is not always supported, doesn't have a capability bit to check
-    wc_flags.remove(e.IBV_WC_EX_WITH_FLOW_TAG)
-    if attr_ex.tm_caps.max_ops == 0:
-        wc_flags.remove(e.IBV_WC_EX_WITH_TM_INFO)
-    if attr_ex.raw_packet_caps & e.IBV_RAW_PACKET_CAP_CVLAN_STRIPPING == 0:
-        wc_flags.remove(e.IBV_WC_EX_WITH_CVLAN)
-    sample = u.sample(wc_flags)
-    wc_flags = 0
-    for flag in sample:
-        wc_flags |= flag
-    comp_mask = random.choice([0, e.IBV_CQ_INIT_ATTR_MASK_FLAGS])
-    flags = 0
-    if comp_mask is not 0:
-        attr_flags = list(e.ibv_create_cq_attr_flags)
-        sample = u.sample(attr_flags)
-        for flag in sample:
-            flags |= flag
-    return CqInitAttrEx(cqe=cqe, wc_flags=wc_flags, comp_mask=comp_mask,
-                        flags=flags)
+    wc_flags.remove(e.IBV_WC_EX_WITH_TM_INFO)
+    wc_flags.remove(e.IBV_WC_EX_WITH_CVLAN)
+    return wc_flags
+
+
+def get_cq_flags_with_caps():
+    return [e.IBV_WC_EX_WITH_TM_INFO, e.IBV_WC_EX_WITH_CVLAN]

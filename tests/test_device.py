@@ -8,8 +8,8 @@ import resource
 import random
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
-from pyverbs.tests.base import PyverbsTestCase
-import pyverbs.tests.utils as u
+from tests.base import PyverbsAPITestCase
+import tests.utils as u
 import pyverbs.device as d
 
 PAGE_SIZE = resource.getpagesize()
@@ -33,6 +33,8 @@ class DeviceTest(unittest.TestCase):
         Test ibv_open_device()
         """
         lst = d.get_device_list()
+        if len(lst) == 0:
+            raise unittest.SkipTest('No IB devices found')
         for dev in lst:
             d.Context(name=dev.name.decode())
 
@@ -41,6 +43,8 @@ class DeviceTest(unittest.TestCase):
         Test ibv_query_device()
         """
         lst = d.get_device_list()
+        if len(lst) == 0:
+            raise unittest.SkipTest('No IB devices found')
         for dev in lst:
             with d.Context(name=dev.name.decode()) as ctx:
                 attr = ctx.query_device()
@@ -52,6 +56,8 @@ class DeviceTest(unittest.TestCase):
         Test ibv_query_gid()
         """
         lst = d.get_device_list()
+        if len(lst) == 0:
+            raise unittest.SkipTest('No IB devices found')
         for dev in lst:
             with d.Context(name=dev.name.decode()) as ctx:
                 ctx.query_gid(port_num=1, index=0)
@@ -85,6 +91,8 @@ class DeviceTest(unittest.TestCase):
         Test ibv_query_device_ex()
         """
         lst = d.get_device_list()
+        if len(lst) == 0:
+            raise unittest.SkipTest('No IB devices found')
         for dev in lst:
             with d.Context(name=dev.name.decode()) as ctx:
                 attr_ex = ctx.query_device_ex()
@@ -111,6 +119,8 @@ class DeviceTest(unittest.TestCase):
         Test ibv_query_port
         """
         lst = d.get_device_list()
+        if len(lst) == 0:
+            raise unittest.SkipTest('No IB devices found')
         for dev in lst:
             with d.Context(name=dev.name.decode()) as ctx:
                 num_ports = ctx.query_device().phys_port_cnt
@@ -120,8 +130,12 @@ class DeviceTest(unittest.TestCase):
 
     @staticmethod
     def test_query_port_bad_flow():
-        """ Verify that querying non-existing ports fails as expected """
+        """
+        Verify that querying non-existing ports fails as expected
+        """
         lst = d.get_device_list()
+        if len(lst) == 0:
+            raise unittest.SkipTest('No IB devices found')
         for dev in lst:
             with d.Context(name=dev.name.decode()) as ctx:
                 num_ports = ctx.query_device().phys_port_cnt
@@ -137,7 +151,7 @@ class DeviceTest(unittest.TestCase):
                         format(p=port))
 
 
-class DMTest(PyverbsTestCase):
+class DMTest(PyverbsAPITestCase):
     """
     Test various functionalities of the DM class.
     """
@@ -149,7 +163,7 @@ class DMTest(PyverbsTestCase):
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
                 return
-            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size,
+            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
             with d.DM(ctx, dm_attrs):
@@ -162,7 +176,7 @@ class DMTest(PyverbsTestCase):
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
                 return
-            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size,
+            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
             dm = d.DM(ctx, dm_attrs)
@@ -199,12 +213,12 @@ class DMTest(PyverbsTestCase):
 
     def test_destroy_dm_bad_flow(self):
         """
-        test calling ibv_free_dm() twice
+        Test calling ibv_free_dm() twice
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
                 return
-            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size,
+            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
             dm = d.DM(ctx, dm_attrs)
@@ -218,7 +232,7 @@ class DMTest(PyverbsTestCase):
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
                 return
-            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size,
+            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
             with d.DM(ctx, dm_attrs) as dm:
@@ -235,7 +249,7 @@ class DMTest(PyverbsTestCase):
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
                 return
-            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size,
+            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
             with d.DM(ctx, dm_attrs) as dm:
@@ -259,7 +273,7 @@ class DMTest(PyverbsTestCase):
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
                 return
-            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size,
+            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
             with d.DM(ctx, dm_attrs) as dm:

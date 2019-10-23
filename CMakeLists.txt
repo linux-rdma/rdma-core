@@ -648,6 +648,7 @@ add_subdirectory(infiniband-diags/man)
 
 if (CYTHON_EXECUTABLE)
   add_subdirectory(pyverbs)
+  add_subdirectory(tests)
 endif()
 
 # Binaries

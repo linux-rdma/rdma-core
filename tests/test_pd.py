@@ -5,13 +5,13 @@ Test module for pyverbs' pd module.
 """
 import random
 
-from pyverbs.tests.base import PyverbsTestCase
+from tests.base import PyverbsAPITestCase
 from pyverbs.base import PyverbsRDMAErrno
 import pyverbs.device as d
 from pyverbs.pd import PD
 
 
-class PDTest(PyverbsTestCase):
+class PDTest(PyverbsAPITestCase):
     """
     Test various functionalities of the PD class.
     """
