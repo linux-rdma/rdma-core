@@ -39,3 +39,9 @@ IBUMAD_1.0 {
 		umad_attribute_str;
 	local: *;
 };
+
+IBUMAD_1.1 {
+	global:
+		umad_free_ca_device_list;
+		umad_get_ca_device_list;
+} IBUMAD_1.0;

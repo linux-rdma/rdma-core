@@ -3,13 +3,17 @@
 .\"
 .TH IBV_REG_MR 3 2006-10-31 libibverbs "Libibverbs Programmer's Manual"
 .SH "NAME"
-ibv_reg_mr, ibv_dereg_mr \- register or deregister a memory region (MR)
+ibv_reg_mr, ibv_reg_mr_iova, ibv_dereg_mr \- register or deregister a memory region (MR)
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/verbs.h>
 .sp
 .BI "struct ibv_mr *ibv_reg_mr(struct ibv_pd " "*pd" ", void " "*addr" ,
 .BI "                          size_t " "length" ", int " "access" );
+.sp
+.BI "struct ibv_mr *ibv_reg_mr_iova(struct ibv_pd " "*pd" ", void " "*addr" ,
+.BI "                               size_t " "length" ", uint64_t " "hca_va" ,
+.BI "                               int " "access" );
 .sp
 .BI "int ibv_dereg_mr(struct ibv_mr " "*mr" );
 .fi
@@ -52,11 +56,18 @@ Local read access is always enabled for the MR.
 .PP
 To create an implicit ODP MR, IBV_ACCESS_ON_DEMAND should be set, addr should be 0 and length should be SIZE_MAX.
 .PP
+.B ibv_reg_mr_iova()
+ibv_reg_mr_iova is the same as the normal reg_mr, except that the user is
+allowed to specify the virtual base address of the MR when accessed through
+a lkey or rkey. The offset in the memory region is computed as 'addr +
+(iova - hca_va)'. Specifying 0 for hca_va has the same effect as
+IBV_ACCESS_ZERO_BASED.
+.PP
 .B ibv_dereg_mr()
 deregisters the MR
 .I mr\fR.
 .SH "RETURN VALUE"
-.B ibv_reg_mr()
+.B ibv_reg_mr() / ibv_reg_mr_iova()
 returns a pointer to the registered MR, or NULL if the request fails.
 The local key (\fBL_Key\fR) field
 .B lkey

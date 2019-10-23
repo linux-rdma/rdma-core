@@ -1,0 +1,188 @@
+# See https://aka.ms/yaml
+
+trigger:
+  - master
+pr:
+  - master
+
+resources:
+  containers:
+    - container: azp
+      image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:25.0
+      endpoint: ucfconsort_registry
+    - container: centos6
+      image: ucfconsort.azurecr.io/rdma-core/centos6:25.0
+      endpoint: ucfconsort_registry
+    - container: centos7
+      image: ucfconsort.azurecr.io/rdma-core/centos7:25.0
+      endpoint: ucfconsort_registry
+    - container: fedora
+      image: ucfconsort.azurecr.io/rdma-core/fc30:25.0
+      endpoint: ucfconsort_registry
+    - container: leap
+      image: ucfconsort.azurecr.io/rdma-core/opensuse-15.0:25.0
+      endpoint: ucfconsort_registry
+
+stages:
+  - stage: Build
+    jobs:
+      - job: Compile
+        displayName: Compile Tests
+        pool:
+          vmImage: 'Ubuntu-16.04'
+        container: azp
+        steps:
+          - task: PythonScript@0
+            displayName: checkpatch
+            condition: eq(variables['Build.Reason'], 'PullRequest')
+            inputs:
+              scriptPath: buildlib/azp-checkpatch
+              pythonInterpreter: /usr/bin/python3
+
+          - bash: |
+              set -e
+              mkdir build-gcc9
+              cd build-gcc9
+              CC=gcc-9 cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_STATIC=1 -DENABLE_WERROR=1
+              ninja
+            displayName: gcc 9.1 Compile
+
+          - task: PythonScript@0
+            displayName: Check Build Script
+            inputs:
+              scriptPath: buildlib/check-build
+              arguments: --src .. --cc gcc-9
+              workingDirectory: build-gcc9
+              pythonInterpreter: /usr/bin/python3
+
+          # Run sparse on the subdirectories which are sparse clean
+          - bash: |
+              set -e
+              mkdir build-sparse
+              mv CMakeLists.txt CMakeLists-orig.txt
+              grep -v "# NO SPARSE" CMakeLists-orig.txt > CMakeLists.txt
+              cd build-sparse
+              CC=cgcc cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
+              ninja | grep -v '^\[' | tee out
+              # sparse does not fail gcc on messages
+              if [ -s out ]; then
+                 false
+              fi
+              mv ../CMakeLists-orig.txt ../CMakeLists.txt
+            displayName: sparse Analysis
+
+          - bash: |
+              set -e
+              mkdir build-clang
+              cd build-clang
+              CC=clang-8 CFLAGS="-m32" cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
+              ninja
+            displayName: clang 8.0 32-bit Compile
+
+          - bash: |
+              set -e
+              mv util/udma_barrier.h util/udma_barrier.h.old
+              echo "#error Fail" >> util/udma_barrier.h
+              cd build-gcc9
+              rm CMakeCache.txt
+              CC=gcc-9 cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_WERROR=1
+              ninja
+              mv ../util/udma_barrier.h.old ../util/udma_barrier.h
+            displayName: Simulate non-coherent DMA Platform Compile
+
+          - bash: |
+              set -e
+              mkdir build-arm64
+              cd build-arm64
+              CC=aarch64-linux-gnu-gcc-8 cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
+              ninja
+            displayName: gcc 8.3 ARM64 Compile
+
+          - bash: |
+              set -e
+              mkdir build-ppc64el
+              cd build-ppc64el
+              CC=powerpc64le-linux-gnu-gcc-8 cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
+              ninja
+            displayName: gcc 8.3 PPC64EL Compile
+
+          - bash: |
+              set -e
+              sed -i -e 's/ninja \(.*\)-v/ninja \1/g' debian/rules
+              debian/rules CC=clang-8 EXTRA_CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1" build
+            displayName: clang 8.0 Bionic Build
+          - bash: |
+              set -e
+              fakeroot debian/rules binary
+            displayName: clang 8.0 Bionic .deb Build
+          - bash: |
+              set -e
+              lintian ../*.deb
+            displayName: Debian Lintian for .deb packages
+
+      - job: SrcPrep
+        displayName: Build Source Tar
+        pool:
+          vmImage: 'Ubuntu-16.04'
+        container: azp
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - bash: |
+              set -e
+              mkdir build-pandoc artifacts
+              cd build-pandoc
+              CC=gcc-9 cmake -GNinja ..
+              ninja docs
+              cd ../artifacts
+              # FIXME: Check Build.SourceBranch for tag consistency
+              python3 ../buildlib/cbuild make-dist-tar ../build-pandoc
+            displayName: Prebuild Documentation
+
+          - task: PublishPipelineArtifact@0
+            inputs:
+              # Contains a rdma-core-XX.tar.gz file
+              artifactName: source_tar
+              targetPath: artifacts
+
+      - job: Distros
+        displayName: Test Build RPMs for
+        dependsOn: SrcPrep
+        pool:
+          vmImage: 'Ubuntu-16.04'
+        strategy:
+          matrix:
+            centos6:
+              CONTAINER: centos6
+              SPEC: buildlib/centos6.spec
+              RPMBUILD_OPTS:
+            centos7:
+              CONTAINER: centos7
+              SPEC: redhat/rdma-core.spec
+              RPMBUILD_OPTS:  --define 'EXTRA_CMAKE_FLAGS -DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1'
+            fedora30:
+              CONTAINER: fedora
+              SPEC: redhat/rdma-core.spec
+              RPMBUILD_OPTS:  --define 'EXTRA_CMAKE_FLAGS -DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1'
+            leap:
+              CONTAINER: leap
+              SPEC: suse/rdma-core.spec
+              RPMBUILD_OPTS:  --define 'EXTRA_CMAKE_FLAGS -DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1' --without=curlmini
+        container: $[ variables['CONTAINER'] ]
+        steps:
+          - checkout: none
+
+          - task: DownloadPipelineArtifact@0
+            inputs:
+              artifactName: source_tar
+              targetPath: .
+
+          - bash: |
+              set -e
+              mkdir SOURCES tmp
+              tar --wildcards -xzf rdma-core*.tar.gz  */$(SPEC) --strip-components=2
+              RPM_SRC=$((rpmspec -P *.spec || grep ^Source: *.spec) | awk '/^Source:/{split($0,a,"[ \t]+");print(a[2])}')
+              (cd SOURCES && ln -sf ../rdma-core*.tar.gz "$RPM_SRC")
+              rpmbuild --define '_tmppath '$(pwd)'/tmp' --define '_topdir '$(pwd) -bb *.spec $(RPMBUILD_OPTS)
+            displayName: Perform Package Build

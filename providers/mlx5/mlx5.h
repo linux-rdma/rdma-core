@@ -630,19 +630,10 @@ struct mlx5_mkey {
 	uint16_t num_desc;
 };
 
-static inline int mlx5_ilog2(int n)
-{
-	int t;
-
-	if (n <= 0)
-		return -1;
-
-	t = 0;
-	while ((1 << t) < n)
-		++t;
-
-	return t;
-}
+struct mlx5_devx_event_channel {
+	struct ibv_context *context;
+	struct mlx5dv_devx_event_channel dv_event_channel;
+};
 
 extern int mlx5_stall_num_loop;
 extern int mlx5_stall_cq_poll_min;
@@ -816,8 +807,8 @@ void mlx5_async_event(struct ibv_context *context,
 		      struct ibv_async_event *event);
 
 struct ibv_mr *mlx5_alloc_null_mr(struct ibv_pd *pd);
-struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr,
-			   size_t length, int access);
+struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			   uint64_t hca_va, int access);
 int mlx5_rereg_mr(struct verbs_mr *mr, int flags, struct ibv_pd *pd, void *addr,
 		  size_t length, int access);
 int mlx5_dereg_mr(struct verbs_mr *mr);
@@ -908,6 +899,8 @@ int mlx5_copy_to_recv_srq(struct mlx5_srq *srq, int idx, void *buf, int size);
 struct ibv_xrcd *mlx5_open_xrcd(struct ibv_context *context,
 				struct ibv_xrcd_init_attr *xrcd_init_attr);
 int mlx5_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num);
+struct ibv_qp *mlx5_open_qp(struct ibv_context *context,
+			    struct ibv_qp_open_attr *attr);
 int mlx5_close_xrcd(struct ibv_xrcd *ib_xrcd);
 struct ibv_wq *mlx5_create_wq(struct ibv_context *context,
 			      struct ibv_wq_init_attr *attr);

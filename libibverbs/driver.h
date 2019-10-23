@@ -44,6 +44,7 @@
 #include <stdbool.h>
 #include <rdma/rdma_user_ioctl_cmds.h>
 #include <infiniband/cmd_ioctl.h>
+#include <sys/types.h>
 
 struct verbs_device;
 
@@ -130,16 +131,27 @@ enum {
 	VERBS_MATCH_SENTINEL = 0,
 	VERBS_MATCH_PCI = 1,
 	VERBS_MATCH_MODALIAS = 2,
+	VERBS_MATCH_DRIVER_ID = 3,
 };
 
 struct verbs_match_ent {
 	void *driver_data;
-	const char *modalias;
+	union {
+		const char *modalias;
+		uint64_t driver_id;
+	} u;
 	uint16_t vendor;
 	uint16_t device;
 	uint8_t kind;
 };
-#define VERBS_PCI_MATCH(_vendor, _device, _data)                               \
+#define VERBS_DRIVER_ID(_id)                                                   \
+	{                                                                      \
+		.u.driver_id = (_id), .kind = VERBS_MATCH_DRIVER_ID,           \
+	}
+/* Note: New drivers should only use VERBS_DRIVER_ID, the below are for legacy
+ * drivers
+ */
+#define VERBS_PCI_MATCH(_vendor, _device, _data)			\
 	{                                                                      \
 	    .driver_data = (void *)(_data),				       \
 	    .vendor = (_vendor),                                               \
@@ -150,7 +162,7 @@ struct verbs_match_ent {
 #define VERBS_MODALIAS_MATCH(_mod_str, _data)                                  \
 	{                                                                      \
 	    .driver_data = (void *)(_data),			               \
-	    .modalias = (_mod_str),                                            \
+	    .u.modalias = (_mod_str),                                          \
 	    .kind = VERBS_MATCH_MODALIAS,                                      \
 	}
 
@@ -162,21 +174,33 @@ struct verbs_match_ent {
 #define VERBS_NAME_MATCH(_name_prefix, _data)                                  \
 	{                                                                      \
 	    .driver_data = (_data),                                            \
-	    .modalias = "rdma_device:*N" _name_prefix "*",                     \
+	    .u.modalias = "rdma_device:*N" _name_prefix "*",                   \
 	    .kind = VERBS_MATCH_MODALIAS,                                      \
 	}
+
+enum {
+	VSYSFS_READ_MODALIAS = 1 << 0,
+	VSYSFS_READ_NODE_GUID = 1 << 1,
+	VSYSFS_READ_FW_VER = 1 << 2,
+};
 
 /* A rdma device detected in sysfs */
 struct verbs_sysfs_dev {
 	struct list_node entry;
 	void *provider_data;
 	const struct verbs_match_ent *match;
+	unsigned int flags;
 	char sysfs_name[IBV_SYSFS_NAME_MAX];
+	dev_t sysfs_cdev;
 	char ibdev_name[IBV_SYSFS_NAME_MAX];
-	char sysfs_path[IBV_SYSFS_PATH_MAX];
 	char ibdev_path[IBV_SYSFS_PATH_MAX];
 	char modalias[512];
-	int abi_ver;
+	char fw_ver[64];
+	uint64_t node_guid;
+	uint32_t driver_id;
+	enum ibv_node_type node_type;
+	int ibdev_idx;
+	uint32_t abi_ver;
 	struct timespec time_created;
 };
 
@@ -184,8 +208,8 @@ struct verbs_sysfs_dev {
 struct verbs_device_ops {
 	const char *name;
 
-	int match_min_abi_version;
-	int match_max_abi_version;
+	uint32_t match_min_abi_version;
+	uint32_t match_max_abi_version;
 	const struct verbs_match_ent *match_table;
 	const struct verbs_device_ops **static_providers;
 
@@ -338,7 +362,7 @@ struct verbs_context_ops {
 				    uint64_t dm_offset, size_t length,
 				    unsigned int access);
 	struct ibv_mr *(*reg_mr)(struct ibv_pd *pd, void *addr, size_t length,
-				 int access);
+				 uint64_t hca_va, int access);
 	int (*req_notify_cq)(struct ibv_cq *cq, int solicited_only);
 	int (*rereg_mr)(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 			void *addr, size_t length, int access);
@@ -601,6 +625,12 @@ const char *ibv_get_sysfs_path(void);
 
 int ibv_read_sysfs_file(const char *dir, const char *file,
 			char *buf, size_t size);
+int ibv_read_sysfs_file_at(int dirfd, const char *file, char *buf, size_t size);
+int ibv_read_ibdev_sysfs_file(char *buf, size_t size,
+			      struct verbs_sysfs_dev *sysfs_dev,
+			      const char *fnfmt, ...)
+	__attribute__((format(printf, 4, 5)));
+int ibv_get_fw_ver(char *value, size_t len, struct verbs_sysfs_dev *sysfs_dev);
 
 static inline int verbs_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 {

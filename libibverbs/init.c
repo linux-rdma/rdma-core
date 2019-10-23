@@ -42,10 +42,14 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <fcntl.h>
 #include <dirent.h>
 #include <errno.h>
 #include <assert.h>
 #include <fnmatch.h>
+#include <sys/sysmacros.h>
+
+#include <rdma/rdma_netlink.h>
 
 #include <util/util.h>
 #include "ibverbs.h"
@@ -75,13 +79,114 @@ static int try_access_device(const struct verbs_sysfs_dev *sysfs_dev)
 	return ret;
 }
 
+enum ibv_node_type decode_knode_type(unsigned int knode_type)
+{
+	switch (knode_type) {
+	case RDMA_NODE_IB_CA:
+		return IBV_NODE_CA;
+	case RDMA_NODE_IB_SWITCH:
+		return IBV_NODE_SWITCH;
+	case RDMA_NODE_IB_ROUTER:
+		return IBV_NODE_ROUTER;
+	case RDMA_NODE_RNIC:
+		return IBV_NODE_RNIC;
+	case RDMA_NODE_USNIC:
+		return IBV_NODE_USNIC;
+	case RDMA_NODE_USNIC_UDP:
+		return IBV_NODE_USNIC_UDP;
+	case RDMA_NODE_UNSPECIFIED:
+		return IBV_NODE_UNSPECIFIED;
+	}
+	return IBV_NODE_UNKNOWN;
+}
+
+int setup_sysfs_uverbs(int uv_dirfd, const char *uverbs,
+		       struct verbs_sysfs_dev *sysfs_dev)
+{
+	unsigned int major;
+	unsigned int minor;
+	struct stat buf;
+	char value[32];
+
+	if (!check_snprintf(sysfs_dev->sysfs_name,
+			    sizeof(sysfs_dev->sysfs_name), "%s", uverbs))
+		return -1;
+
+	if (stat(sysfs_dev->ibdev_path, &buf))
+		return -1;
+	sysfs_dev->time_created = buf.st_mtim;
+
+	if (ibv_read_sysfs_file_at(uv_dirfd, "dev", value,
+				   sizeof(value)) < 0)
+		return -1;
+	if (sscanf(value, "%u:%u", &major, &minor) != 2)
+		return -1;
+	sysfs_dev->sysfs_cdev = makedev(major, minor);
+
+	if (ibv_read_sysfs_file_at(uv_dirfd, "abi_version", value,
+				   sizeof(value)) > 0)
+		sysfs_dev->abi_ver = strtoul(value, NULL, 10);
+
+	return 0;
+}
+
+static int setup_sysfs_dev(int dirfd, const char *uverbs,
+			   struct list_head *tmp_sysfs_dev_list)
+{
+	struct verbs_sysfs_dev *sysfs_dev = NULL;
+	char value[32];
+	int uv_dirfd;
+
+	sysfs_dev = calloc(1, sizeof(*sysfs_dev));
+	if (!sysfs_dev)
+		return ENOMEM;
+
+	sysfs_dev->ibdev_idx = -1;
+
+	uv_dirfd = openat(dirfd, uverbs, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+	if (uv_dirfd == -1)
+		goto err_alloc;
+
+	if (ibv_read_sysfs_file_at(uv_dirfd, "ibdev", sysfs_dev->ibdev_name,
+				   sizeof(sysfs_dev->ibdev_name)) < 0)
+		goto err_fd;
+
+	if (!check_snprintf(
+		    sysfs_dev->ibdev_path, sizeof(sysfs_dev->ibdev_path),
+		    "%s/class/infiniband/%s", ibv_get_sysfs_path(),
+		    sysfs_dev->ibdev_name))
+		goto err_fd;
+
+	if (setup_sysfs_uverbs(uv_dirfd, uverbs, sysfs_dev))
+		goto err_fd;
+
+	if (ibv_read_ibdev_sysfs_file(value, sizeof(value), sysfs_dev,
+				      "node_type") <= 0)
+		sysfs_dev->node_type = IBV_NODE_UNKNOWN;
+	else
+		sysfs_dev->node_type =
+			decode_knode_type(strtoul(value, NULL, 10));
+
+	if (try_access_device(sysfs_dev))
+		goto err_fd;
+
+	close(uv_dirfd);
+	list_add(tmp_sysfs_dev_list, &sysfs_dev->entry);
+	return 0;
+
+err_fd:
+	close(uv_dirfd);
+err_alloc:
+	free(sysfs_dev);
+	return 0;
+}
+
 static int find_sysfs_devs(struct list_head *tmp_sysfs_dev_list)
 {
+	struct verbs_sysfs_dev *dev, *dev_tmp;
 	char class_path[IBV_SYSFS_PATH_MAX];
 	DIR *class_dir;
 	struct dirent *dent;
-	struct verbs_sysfs_dev *sysfs_dev = NULL;
-	char value[8];
 	int ret = 0;
 
 	if (!check_snprintf(class_path, sizeof(class_path),
@@ -93,78 +198,22 @@ static int find_sysfs_devs(struct list_head *tmp_sysfs_dev_list)
 		return ENOSYS;
 
 	while ((dent = readdir(class_dir))) {
-		struct stat buf;
-
 		if (dent->d_name[0] == '.')
 			continue;
 
-		if (!sysfs_dev)
-			sysfs_dev = calloc(1, sizeof(*sysfs_dev));
-		if (!sysfs_dev) {
-			ret = ENOMEM;
-			goto out;
-		}
-
-		if (!check_snprintf(sysfs_dev->sysfs_path, sizeof sysfs_dev->sysfs_path,
-				    "%s/%s", class_path, dent->d_name))
-			continue;
-
-		if (stat(sysfs_dev->sysfs_path, &buf)) {
-			fprintf(stderr, PFX "Warning: couldn't stat '%s'.\n",
-				sysfs_dev->sysfs_path);
-			continue;
-		}
-
-		if (!S_ISDIR(buf.st_mode))
-			continue;
-
-		if (!check_snprintf(sysfs_dev->sysfs_name, sizeof sysfs_dev->sysfs_name,
-				    "%s", dent->d_name))
-			continue;
-
-		if (ibv_read_sysfs_file(sysfs_dev->sysfs_path, "ibdev",
-					sysfs_dev->ibdev_name,
-					sizeof sysfs_dev->ibdev_name) < 0) {
-			fprintf(stderr, PFX "Warning: no ibdev class attr for '%s'.\n",
-				dent->d_name);
-			continue;
-		}
-
-		if (!check_snprintf(
-			sysfs_dev->ibdev_path, sizeof(sysfs_dev->ibdev_path),
-			"%s/class/infiniband/%s", ibv_get_sysfs_path(),
-			sysfs_dev->ibdev_name))
-			continue;
-
-		if (stat(sysfs_dev->ibdev_path, &buf)) {
-			fprintf(stderr, PFX "Warning: couldn't stat '%s'.\n",
-				sysfs_dev->ibdev_path);
-			continue;
-		}
-
-		if (try_access_device(sysfs_dev))
-			continue;
-
-		sysfs_dev->time_created = buf.st_mtim;
-
-		if (ibv_read_sysfs_file(sysfs_dev->sysfs_path, "abi_version",
-					value, sizeof value) > 0)
-			sysfs_dev->abi_ver = strtol(value, NULL, 10);
-
-		if (ibv_read_sysfs_file(sysfs_dev->sysfs_path,
-					"device/modalias", sysfs_dev->modalias,
-					sizeof(sysfs_dev->modalias)) <= 0)
-			sysfs_dev->modalias[0] = 0;
-
-		list_add(tmp_sysfs_dev_list, &sysfs_dev->entry);
-		sysfs_dev      = NULL;
+		ret = setup_sysfs_dev(dirfd(class_dir), dent->d_name,
+				      tmp_sysfs_dev_list);
+		if (ret)
+			break;
 	}
-
- out:
-	if (sysfs_dev)
-		free(sysfs_dev);
-
 	closedir(class_dir);
+
+	if (ret) {
+		list_for_each_safe (tmp_sysfs_dev_list, dev, dev_tmp, entry) {
+			list_del(&dev->entry);
+			free(dev);
+		}
+	}
 	return ret;
 }
 
@@ -192,7 +241,7 @@ static bool match_modalias(const struct verbs_match_ent *ent, const char *value)
 
 	switch (ent->kind) {
 	case VERBS_MATCH_MODALIAS:
-		return fnmatch(ent->modalias, value, 0) == 0;
+		return fnmatch(ent->u.modalias, value, 0) == 0;
 	case VERBS_MATCH_PCI:
 		snprintf(pci_ma, sizeof(pci_ma), "pci:v%08Xd%08Xsv*",
 			 ent->vendor, ent->device);
@@ -210,6 +259,16 @@ match_modalias_device(const struct verbs_device_ops *ops,
 		      struct verbs_sysfs_dev *sysfs_dev)
 {
 	const struct verbs_match_ent *i;
+
+	if (!(sysfs_dev->flags & VSYSFS_READ_MODALIAS)) {
+		sysfs_dev->flags |= VSYSFS_READ_MODALIAS;
+		if (ibv_read_ibdev_sysfs_file(
+			    sysfs_dev->modalias, sizeof(sysfs_dev->modalias),
+			    sysfs_dev, "device/modalias") <= 0) {
+			sysfs_dev->modalias[0] = 0;
+			return NULL;
+		}
+	}
 
 	for (i = ops->match_table; i->kind != VERBS_MATCH_SENTINEL; i++)
 		if (match_modalias(i, sysfs_dev->modalias))
@@ -237,16 +296,31 @@ match_name(const struct verbs_device_ops *ops,
 	return NULL;
 }
 
+/* Match the driver id we get from netlink */
+static const struct verbs_match_ent *
+match_driver_id(const struct verbs_device_ops *ops,
+		struct verbs_sysfs_dev *sysfs_dev)
+{
+	const struct verbs_match_ent *i;
+
+	if (sysfs_dev->driver_id == RDMA_DRIVER_UNKNOWN)
+		return NULL;
+
+	for (i = ops->match_table; i->kind != VERBS_MATCH_SENTINEL; i++)
+		if (i->kind == VERBS_MATCH_DRIVER_ID &&
+		    i->u.driver_id == sysfs_dev->driver_id)
+			return i;
+	return NULL;
+}
+
 /* True if the provider matches the selected rdma sysfs device */
 static bool match_device(const struct verbs_device_ops *ops,
 			 struct verbs_sysfs_dev *sysfs_dev)
 {
 	if (ops->match_table) {
-		/* The internally generated alias is checked first, since some
-		 * devices like rxe can attach to a random modalias, including
-		 * ones that match other providers.
-		 */
-		sysfs_dev->match = match_name(ops, sysfs_dev);
+		sysfs_dev->match = match_driver_id(ops, sysfs_dev);
+		if (!sysfs_dev->match)
+			sysfs_dev->match = match_name(ops, sysfs_dev);
 		if (!sysfs_dev->match)
 			sysfs_dev->match =
 			    match_modalias_device(ops, sysfs_dev);
@@ -284,7 +358,6 @@ static struct verbs_device *try_driver(const struct verbs_device_ops *ops,
 {
 	struct verbs_device *vdev;
 	struct ibv_device *dev;
-	char value[16];
 
 	if (!match_device(ops, sysfs_dev))
 		return NULL;
@@ -303,17 +376,8 @@ static struct verbs_device *try_driver(const struct verbs_device_ops *ops,
 	assert(dev->_ops._dummy1 == NULL);
 	assert(dev->_ops._dummy2 == NULL);
 
-	if (ibv_read_sysfs_file(sysfs_dev->ibdev_path, "node_type", value, sizeof value) < 0) {
-		fprintf(stderr, PFX "Warning: no node_type attr under %s.\n",
-			sysfs_dev->ibdev_path);
-			dev->node_type = IBV_NODE_UNKNOWN;
-	} else {
-		dev->node_type = strtol(value, NULL, 10);
-		if (dev->node_type < IBV_NODE_CA || dev->node_type > IBV_NODE_USNIC_UDP)
-			dev->node_type = IBV_NODE_UNKNOWN;
-	}
-
-	switch (dev->node_type) {
+	dev->node_type = sysfs_dev->node_type;
+	switch (sysfs_dev->node_type) {
 	case IBV_NODE_CA:
 	case IBV_NODE_SWITCH:
 	case IBV_NODE_ROUTER:
@@ -328,24 +392,48 @@ static struct verbs_device *try_driver(const struct verbs_device_ops *ops,
 	case IBV_NODE_USNIC_UDP:
 		dev->transport_type = IBV_TRANSPORT_USNIC_UDP;
 		break;
+	case IBV_NODE_UNSPECIFIED:
+		dev->transport_type = IBV_TRANSPORT_UNSPECIFIED;
+		break;
 	default:
 		dev->transport_type = IBV_TRANSPORT_UNKNOWN;
 		break;
 	}
 
 	strcpy(dev->dev_name,   sysfs_dev->sysfs_name);
-	strcpy(dev->dev_path,   sysfs_dev->sysfs_path);
+	if (!check_snprintf(dev->dev_path, sizeof(dev->dev_path),
+			    "%s/class/infiniband_verbs/%s",
+			    ibv_get_sysfs_path(), sysfs_dev->sysfs_name))
+		goto err;
 	strcpy(dev->name,       sysfs_dev->ibdev_name);
 	strcpy(dev->ibdev_path, sysfs_dev->ibdev_path);
 	vdev->sysfs = sysfs_dev;
 
 	return vdev;
+
+err:
+	ops->uninit_device(vdev);
+	return NULL;
 }
 
 static struct verbs_device *try_drivers(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct ibv_driver *driver;
 	struct verbs_device *dev;
+
+	/*
+	 * Matching by driver_id takes priority over other match types, do it
+	 * first.
+	 */
+	if (sysfs_dev->driver_id != RDMA_DRIVER_UNKNOWN) {
+		list_for_each (&driver_list, driver, entry) {
+			if (match_driver_id(driver->ops, sysfs_dev)) {
+				dev = try_driver(driver->ops, sysfs_dev);
+				if (dev)
+					return dev;
+			}
+		}
+	}
 
 	list_for_each(&driver_list, driver, entry) {
 		dev = try_driver(driver->ops, sysfs_dev);
@@ -356,12 +444,16 @@ static struct verbs_device *try_drivers(struct verbs_sysfs_dev *sysfs_dev)
 	return NULL;
 }
 
-static int check_abi_version(const char *path)
+static int check_abi_version(void)
 {
 	char value[8];
 
-	if (ibv_read_sysfs_file(path, "class/infiniband_verbs/abi_version",
-				value, sizeof value) < 0) {
+	if (abi_ver)
+		return 0;
+
+	if (ibv_read_sysfs_file(ibv_get_sysfs_path(),
+				"class/infiniband_verbs/abi_version", value,
+				sizeof(value)) < 0) {
 		return ENOSYS;
 	}
 
@@ -399,11 +491,18 @@ static void check_memlock_limit(void)
 static int same_sysfs_dev(struct verbs_sysfs_dev *sysfs1,
 			  struct verbs_sysfs_dev *sysfs2)
 {
-	if (!strcmp(sysfs1->sysfs_name, sysfs2->sysfs_name) &&
-	    ts_cmp(&sysfs1->time_created,
-		   &sysfs2->time_created, ==))
-		return 1;
-	return 0;
+	if (strcmp(sysfs1->sysfs_name, sysfs2->sysfs_name) != 0)
+		return 0;
+
+	/* In netlink mode the idx is a globally unique ID */
+	if (sysfs1->ibdev_idx != sysfs2->ibdev_idx)
+		return 0;
+
+	if (sysfs1->ibdev_idx == -1 &&
+	    ts_cmp(&sysfs1->time_created, &sysfs2->time_created, !=))
+		return 0;
+
+	return 1;
 }
 
 /* Match every ibv_sysfs_dev in the sysfs_list to a driver and add a new entry
@@ -438,9 +537,18 @@ int ibverbs_get_device_list(struct list_head *device_list)
 	unsigned int num_devices = 0;
 	int ret;
 
-	ret = find_sysfs_devs(&sysfs_list);
-	if (ret)
-		return -ret;
+	ret = find_sysfs_devs_nl(&sysfs_list);
+	if (ret) {
+		ret = find_sysfs_devs(&sysfs_list);
+		if (ret)
+			return -ret;
+	}
+
+	if (!list_empty(&sysfs_list)) {
+		ret = check_abi_version();
+		if (ret)
+			return -ret;
+	}
 
 	/* Remove entries from the sysfs_list that are already preset in the
 	 * device_list, and remove entries from the device_list that are not
@@ -484,7 +592,7 @@ out:
 		if (getenv("IBV_SHOW_WARNINGS")) {
 			fprintf(stderr, PFX
 				"Warning: no userspace device-specific driver found for %s\n",
-				sysfs_dev->sysfs_path);
+				sysfs_dev->ibdev_name);
 		}
 		free(sysfs_dev);
 	}
@@ -494,9 +602,7 @@ out:
 
 int ibverbs_init(void)
 {
-	const char *sysfs_path;
 	char *env_value;
-	int ret;
 
 	if (getenv("RDMAV_FORK_SAFE") || getenv("IBV_FORK_SAFE"))
 		if (ibv_fork_init())
@@ -511,13 +617,8 @@ int ibverbs_init(void)
 	if (getenv("RDMAV_ALLOW_DISASSOC_DESTROY"))
 		verbs_allow_disassociate_destroy = true;
 
-	sysfs_path = ibv_get_sysfs_path();
-	if (!sysfs_path)
-		return -ENOSYS;
-
-	ret = check_abi_version(sysfs_path);
-	if (ret)
-		return -ret;
+	if (!ibv_get_sysfs_path())
+		return -errno;
 
 	check_memlock_limit();
 

@@ -388,7 +388,7 @@ int mlx5_free_pd(struct ibv_pd *pd)
 }
 
 struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
-			   int acc)
+			   uint64_t hca_va, int acc)
 {
 	struct mlx5_mr *mr;
 	struct ibv_reg_mr cmd;
@@ -400,9 +400,8 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	if (!mr)
 		return NULL;
 
-	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr, access,
-			     &mr->vmr, &cmd, sizeof(cmd), &resp,
-			     sizeof resp);
+	ret = ibv_cmd_reg_mr(pd, addr, length, hca_va, access, &mr->vmr, &cmd,
+			     sizeof(cmd), &resp, sizeof(resp));
 	if (ret) {
 		mlx5_free_buf(&(mr->buf));
 		free(mr);
@@ -1353,7 +1352,7 @@ static int mlx5_calc_sq_size(struct mlx5_context *ctx,
 		return -EINVAL;
 	}
 
-	qp->sq.wqe_shift = mlx5_ilog2(MLX5_SEND_WQE_BB);
+	qp->sq.wqe_shift = STATIC_ILOG_32(MLX5_SEND_WQE_BB) - 1;
 	qp->sq.max_gs = attr->cap.max_send_sge;
 	qp->sq.max_post = wq_size / wqe_size;
 
@@ -1401,8 +1400,8 @@ static int mlx5_calc_rwq_size(struct mlx5_context *ctx,
 	wq_size = roundup_pow_of_two(attr->max_wr) * wqe_size;
 	wq_size = max(wq_size, MLX5_SEND_WQE_BB);
 	rwq->rq.wqe_cnt = wq_size / wqe_size;
-	rwq->rq.wqe_shift = mlx5_ilog2(wqe_size);
-	rwq->rq.max_post = 1 << mlx5_ilog2(wq_size / wqe_size);
+	rwq->rq.wqe_shift = ilog32(wqe_size - 1);
+	rwq->rq.max_post = 1 << ilog32(wq_size / wqe_size - 1);
 	scat_spc = wqe_size -
 		((rwq->wq_sig) ? sizeof(struct mlx5_rwqe_sig) : 0) -
 		is_mprq * sizeof(struct mlx5_wqe_srq_next_seg);
@@ -1437,8 +1436,8 @@ static int mlx5_calc_rq_size(struct mlx5_context *ctx,
 	if (wqe_size) {
 		wq_size = max(wq_size, MLX5_SEND_WQE_BB);
 		qp->rq.wqe_cnt = wq_size / wqe_size;
-		qp->rq.wqe_shift = mlx5_ilog2(wqe_size);
-		qp->rq.max_post = 1 << mlx5_ilog2(wq_size / wqe_size);
+		qp->rq.wqe_shift = ilog32(wqe_size - 1);
+		qp->rq.max_post = 1 << ilog32(wq_size / wqe_size - 1);
 		scat_spc = wqe_size -
 			(qp->wq_sig ? sizeof(struct mlx5_rwqe_sig) : 0);
 		qp->rq.max_gs = scat_spc / sizeof(struct mlx5_wqe_data_seg);
@@ -2646,6 +2645,30 @@ int mlx5_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 	*srq_num = msrq->srqn;
 
 	return 0;
+}
+
+struct ibv_qp *mlx5_open_qp(struct ibv_context *context,
+			    struct ibv_qp_open_attr *attr)
+{
+	struct ibv_open_qp cmd;
+	struct ib_uverbs_create_qp_resp resp;
+	struct mlx5_qp *qp;
+	int ret;
+
+	qp = calloc(1, sizeof(*qp));
+	if (!qp)
+		return NULL;
+
+	ret = ibv_cmd_open_qp(context, &qp->verbs_qp, sizeof(qp->verbs_qp),
+			      attr, &cmd, sizeof(cmd), &resp, sizeof(resp));
+	if (ret)
+		goto err;
+
+	return &qp->verbs_qp.qp;
+
+err:
+	free(qp);
+	return NULL;
 }
 
 struct ibv_xrcd *
@@ -4608,6 +4631,101 @@ void mlx5dv_devx_destroy_cmd_comp(
 	free(cmd_comp);
 }
 
+struct mlx5dv_devx_event_channel *
+mlx5dv_devx_create_event_channel(struct ibv_context *context,
+				 enum mlx5dv_devx_create_event_channel_flags flags)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX_ASYNC_EVENT_FD,
+			       MLX5_IB_METHOD_DEVX_ASYNC_EVENT_FD_ALLOC,
+			       2);
+	struct ib_uverbs_attr *handle;
+	struct mlx5_devx_event_channel *event_channel;
+	int ret;
+
+	event_channel = calloc(1, sizeof(*event_channel));
+	if (!event_channel) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	handle = fill_attr_out_fd(cmd,
+				  MLX5_IB_ATTR_DEVX_ASYNC_EVENT_FD_ALLOC_HANDLE,
+				  0);
+	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_ASYNC_EVENT_FD_ALLOC_FLAGS,
+			    flags);
+
+	ret = execute_ioctl(context, cmd);
+	if (ret)
+		goto err;
+
+	event_channel->dv_event_channel.fd = read_attr_fd(
+		MLX5_IB_ATTR_DEVX_ASYNC_EVENT_FD_ALLOC_HANDLE, handle);
+	event_channel->context = context;
+	return &event_channel->dv_event_channel;
+err:
+	free(event_channel);
+	return NULL;
+}
+
+void mlx5dv_devx_destroy_event_channel(
+			struct mlx5dv_devx_event_channel *dv_event_channel)
+{
+	struct mlx5_devx_event_channel *event_channel =
+			container_of(dv_event_channel, struct mlx5_devx_event_channel,
+				     dv_event_channel);
+
+	close(dv_event_channel->fd);
+	free(event_channel);
+}
+
+int mlx5dv_devx_subscribe_devx_event(struct mlx5dv_devx_event_channel *dv_event_channel,
+				     struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+				     uint16_t events_sz,
+				     uint16_t events_num[],
+				     uint64_t cookie)
+{
+	struct mlx5_devx_event_channel *event_channel =
+			container_of(dv_event_channel, struct mlx5_devx_event_channel,
+				     dv_event_channel);
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX,
+			       MLX5_IB_METHOD_DEVX_SUBSCRIBE_EVENT,
+			       4);
+
+	fill_attr_in_fd(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_FD_HANDLE, dv_event_channel->fd);
+	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_COOKIE, cookie);
+	if (obj)
+		fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_OBJ_HANDLE, obj->handle);
+
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_TYPE_NUM_LIST, events_num, events_sz);
+
+	return execute_ioctl(event_channel->context, cmd);
+}
+
+int mlx5dv_devx_subscribe_devx_event_fd(struct mlx5dv_devx_event_channel *dv_event_channel,
+					int fd,
+					struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+					uint16_t event_num)
+{
+	struct mlx5_devx_event_channel *event_channel =
+			container_of(dv_event_channel, struct mlx5_devx_event_channel,
+				     dv_event_channel);
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_DEVX,
+			       MLX5_IB_METHOD_DEVX_SUBSCRIBE_EVENT,
+			       4);
+
+	fill_attr_in_fd(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_FD_HANDLE, dv_event_channel->fd);
+	if (obj)
+		fill_attr_in_obj(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_OBJ_HANDLE, obj->handle);
+	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_TYPE_NUM_LIST,
+		     &event_num, sizeof(event_num));
+	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_SUBSCRIBE_EVENT_FD_NUM, fd);
+
+	return execute_ioctl(event_channel->context, cmd);
+}
+
 int mlx5dv_devx_obj_query_async(struct mlx5dv_devx_obj *obj, const void *in,
 				size_t inlen, size_t outlen,
 				uint64_t wr_id,
@@ -4641,6 +4759,26 @@ int mlx5dv_devx_get_async_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp,
 		return EINVAL;
 
 	return 0;
+}
+
+ssize_t mlx5dv_devx_get_event(struct mlx5dv_devx_event_channel *event_channel,
+				   struct mlx5dv_devx_async_event_hdr *event_data,
+				   size_t event_resp_len)
+{
+	ssize_t bytes;
+
+	bytes = read(event_channel->fd, event_data, event_resp_len);
+	if (bytes < 0)
+		return -1;
+
+	/* cookie should be always exist */
+	if (bytes < sizeof(*event_data)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	/* event data may be omitted in case no EQE data exists (e.g. completion event on a CQ) */
+	return bytes;
 }
 
 struct mlx5dv_mkey *mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)

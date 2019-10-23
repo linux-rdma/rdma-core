@@ -61,7 +61,8 @@ static struct mthca_ah_page *__add_page(struct mthca_pd *pd, int page_size, int 
 		return NULL;
 	}
 
-	page->mr = mthca_reg_mr(&pd->ibv_pd, page->buf.buf, page_size, 0);
+	page->mr = mthca_reg_mr(&pd->ibv_pd, page->buf.buf, page_size,
+				(uintptr_t) page->buf.buf, 0);
 	if (!page->mr) {
 		mthca_free_buf(&page->buf);
 		free(page);

@@ -149,7 +149,8 @@ int i40iw_ufree_pd(struct ibv_pd *pd)
  * @length: length of the memory
  * @access: access allowed on this mr
  */
-struct ibv_mr *i40iw_ureg_mr(struct ibv_pd *pd, void *addr, size_t length, int access)
+struct ibv_mr *i40iw_ureg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			     uint64_t hca_va, int access)
 {
 	struct verbs_mr *vmr;
 	struct i40iw_ureg_mr cmd;
@@ -161,9 +162,8 @@ struct ibv_mr *i40iw_ureg_mr(struct ibv_pd *pd, void *addr, size_t length, int a
 
 	cmd.reg_type = IW_MEMREG_TYPE_MEM;
 
-	if (ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr,
-			   access, vmr, &cmd.ibv_cmd, sizeof(cmd),
-			   &resp, sizeof(resp))) {
+	if (ibv_cmd_reg_mr(pd, addr, length, hca_va, access, vmr, &cmd.ibv_cmd,
+			   sizeof(cmd), &resp, sizeof(resp))) {
 		fprintf(stderr, PFX "%s: Failed to register memory\n", __func__);
 		free(vmr);
 		return NULL;

@@ -1,6 +1,7 @@
 libibumad.so.3 libibumad3 #MINVER#
 * Build-Depends-Package: libibumad-dev
  IBUMAD_1.0@IBUMAD_1.0 1.3.9
+ IBUMAD_1.1@IBUMAD_1.1 3.1.26
  umad_addr_dump@IBUMAD_1.0 1.3.9
  umad_attribute_str@IBUMAD_1.0 1.3.10.2
  umad_class_str@IBUMAD_1.0 1.3.10.2
@@ -9,7 +10,9 @@ libibumad.so.3 libibumad3 #MINVER#
  umad_debug@IBUMAD_1.0 1.3.9
  umad_done@IBUMAD_1.0 1.3.9
  umad_dump@IBUMAD_1.0 1.3.9
+ umad_free_ca_device_list@IBUMAD_1.1 3.1.26
  umad_get_ca@IBUMAD_1.0 1.3.9
+ umad_get_ca_device_list@IBUMAD_1.1 3.1.26
  umad_get_ca_portguids@IBUMAD_1.0 1.3.9
  umad_get_cas_names@IBUMAD_1.0 1.3.9
  umad_get_fd@IBUMAD_1.0 1.3.9

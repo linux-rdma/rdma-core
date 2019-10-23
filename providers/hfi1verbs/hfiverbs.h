@@ -204,8 +204,8 @@ struct ibv_pd *hfi1_alloc_pd(struct ibv_context *pd);
 
 int hfi1_free_pd(struct ibv_pd *pd);
 
-struct ibv_mr *hfi1_reg_mr(struct ibv_pd *pd, void *addr,
-			    size_t length, int access);
+struct ibv_mr *hfi1_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			   uint64_t hca_va, int access);
 
 int hfi1_dereg_mr(struct verbs_mr *vmr);
 

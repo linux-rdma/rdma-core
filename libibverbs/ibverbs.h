@@ -44,8 +44,6 @@
 #define PFX		"libibverbs: "
 #define VERBS_OPS_NUM (sizeof(struct verbs_context_ops) / sizeof(void *))
 
-#define RDMA_CDEV_DIR "/dev/infiniband"
-
 struct ibv_abi_compat_v2 {
 	struct ibv_comp_channel	channel;
 	pthread_mutex_t		in_use;
@@ -60,6 +58,8 @@ void ibverbs_device_put(struct ibv_device *dev);
 void ibverbs_device_hold(struct ibv_device *dev);
 int __lib_query_port(struct ibv_context *context, uint8_t port_num,
 		     struct ibv_port_attr *port_attr, size_t port_attr_len);
+int setup_sysfs_uverbs(int uv_dirfd, const char *uverbs,
+		       struct verbs_sysfs_dev *sysfs_dev);
 
 #ifdef _STATIC_LIBRARY_BUILD_
 static inline void load_drivers(void)
@@ -85,5 +85,9 @@ static inline const struct verbs_context_ops *get_ops(struct ibv_context *ctx)
 {
 	return &get_priv(ctx)->ops;
 }
+
+enum ibv_node_type decode_knode_type(unsigned int knode_type);
+
+int find_sysfs_devs_nl(struct list_head *tmp_sysfs_dev_list);
 
 #endif /* IB_VERBS_H */

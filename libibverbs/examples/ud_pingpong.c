@@ -563,7 +563,7 @@ int main(int argc, char *argv[])
 	char                    *servername = NULL;
 	unsigned int             port = 18515;
 	int                      ib_port = 1;
-	unsigned int             size = 2048;
+	unsigned int             size = 1024;
 	unsigned int             rx_depth = 500;
 	unsigned int             iters = 1000;
 	int                      use_event = 0;

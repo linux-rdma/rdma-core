@@ -521,7 +521,7 @@ struct dr_icm_pool *dr_icm_pool_create(struct mlx5dv_dr_domain *dmn,
 	}
 
 	pool->buckets = calloc(max_log_chunk_sz + 1, sizeof(struct dr_icm_bucket));
-	if (!pool) {
+	if (!pool->buckets) {
 		errno = ENOMEM;
 		goto free_pool;
 	}

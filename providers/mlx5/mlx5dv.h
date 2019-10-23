@@ -72,6 +72,7 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_DYN_BFREGS		= 1 << 4,
 	MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE	= 1 << 5,
 	MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS	= 1 << 6,
+	MLX5DV_CONTEXT_MASK_DC_ODP_CAPS		= 1 << 7,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -122,6 +123,7 @@ struct mlx5dv_context {
 	uint32_t	max_dynamic_bfregs;
 	uint64_t	max_clock_info_update_nsec;
 	uint32_t        flow_action_flags; /* use enum mlx5dv_flow_action_cap_flags */
+	uint32_t	dc_odp_caps; /* use enum ibv_odp_transport_cap_bits */
 };
 
 enum mlx5dv_context_flags {
@@ -1312,6 +1314,33 @@ int mlx5dv_devx_obj_query_async(struct mlx5dv_devx_obj *obj, const void *in,
 int mlx5dv_devx_get_async_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp,
 				   struct mlx5dv_devx_async_cmd_hdr *cmd_resp,
 				   size_t cmd_resp_len);
+
+struct mlx5dv_devx_event_channel {
+	int fd;
+};
+
+struct mlx5dv_devx_event_channel *
+mlx5dv_devx_create_event_channel(struct ibv_context *context,
+				 enum mlx5dv_devx_create_event_channel_flags flags);
+void mlx5dv_devx_destroy_event_channel(struct mlx5dv_devx_event_channel *event_channel);
+
+
+int mlx5dv_devx_subscribe_devx_event(struct mlx5dv_devx_event_channel *event_channel,
+				     struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+				     uint16_t events_sz,
+				     uint16_t events_num[],
+				     uint64_t cookie);
+
+int mlx5dv_devx_subscribe_devx_event_fd(struct mlx5dv_devx_event_channel *event_channel,
+					int fd,
+					struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+					uint16_t event_num);
+
+/* return code: upon success number of bytes read, otherwise -1 and errno was set */
+ssize_t mlx5dv_devx_get_event(struct mlx5dv_devx_event_channel *event_channel,
+				   struct mlx5dv_devx_async_event_hdr *event_data,
+				   size_t event_resp_len);
+
 
 #define __devx_nullp(typ) ((struct mlx5_ifc_##typ##_bits *)NULL)
 #define __devx_st_sz_bits(typ) sizeof(struct mlx5_ifc_##typ##_bits)

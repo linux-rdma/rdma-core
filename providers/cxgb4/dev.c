@@ -49,7 +49,8 @@
  * Macros needed to support the PCI Device ID Table ...
  */
 #define CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN                                    \
-	static const struct verbs_match_ent hca_table[] = {
+	static const struct verbs_match_ent hca_table[] = {                    \
+		VERBS_DRIVER_ID(RDMA_DRIVER_CXGB4),
 
 #define CH_PCI_DEVICE_ID_FUNCTION \
 		0x4
@@ -143,22 +144,6 @@ static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
 
 	verbs_set_ops(&context->ibv_ctx, &c4iw_ctx_common_ops);
 
-	switch (rhp->chip_version) {
-	case CHELSIO_T6:
-		PDBG("%s T6/T5/T4 device\n", __FUNCTION__);
-	case CHELSIO_T5:
-		PDBG("%s T5/T4 device\n", __FUNCTION__);
-	case CHELSIO_T4:
-		PDBG("%s T4 device\n", __FUNCTION__);
-		verbs_set_ops(&context->ibv_ctx, &c4iw_ctx_t4_ops);
-		break;
-	default:
-		PDBG("%s unknown hca type %d\n", __FUNCTION__,
-		     rhp->chip_version);
-		goto err_unmap;
-		break;
-	}
-
 	if (!rhp->mmid2ptr) {
 		int ret;
 
@@ -193,6 +178,21 @@ static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
 			goto err_unmap;
 		rhp->write_cmpl_supported =
 				context->status_page->write_cmpl_supported;
+	}
+
+	rhp->chip_version = CHELSIO_CHIP_VERSION(attr.vendor_part_id >> 8);
+	switch (rhp->chip_version) {
+	case CHELSIO_T6:
+		PDBG("%s T6/T5/T4 device\n", __func__);
+	case CHELSIO_T5:
+		PDBG("%s T5/T4 device\n", __func__);
+	case CHELSIO_T4:
+		PDBG("%s T4 device\n", __func__);
+		verbs_set_ops(&context->ibv_ctx, &c4iw_ctx_t4_ops);
+		break;
+	default:
+		PDBG("%s unknown hca type %d\n", __func__, rhp->chip_version);
+		goto err_unmap;
 	}
 
 	return &context->ibv_ctx;
@@ -401,47 +401,6 @@ void dump_state(void)
  */
 int c4iw_abi_version = 1;
 
-static bool c4iw_device_match(struct verbs_sysfs_dev *sysfs_dev)
-{
-	char value[32], *cp;
-	unsigned int fw_maj, fw_min;
-
-	/* Rely on the core code to match PCI devices */
-	if (!sysfs_dev->match)
-		return false;
-
-	/*
-	 * Verify that the firmware major number matches.  Major number
-	 * mismatches are fatal.  Minor number mismatches are tolerated.
-	 */
-	if (ibv_read_sysfs_file(sysfs_dev->ibdev_path, "fw_ver", value,
-				sizeof(value)) < 0)
-		return false;
-
-	cp = strtok(value+1, ".");
-	sscanf(cp, "%i", &fw_maj);
-	cp = strtok(NULL, ".");
-	sscanf(cp, "%i", &fw_min);
-
-	if ((signed int)fw_maj < FW_MAJ) {
-		fprintf(stderr, "libcxgb4: Fatal firmware version mismatch.  "
-			"Firmware major number is %u and libcxgb4 needs %u.\n",
-			fw_maj, FW_MAJ);
-		fflush(stderr);
-		return false;
-	}
-
-	DBGLOG("libcxgb4");
-
-	if ((signed int)fw_min < FW_MIN) {
-		PDBG("libcxgb4: non-fatal firmware version mismatch.  "
-			"Firmware minor number is %u and libcxgb4 needs %u.\n",
-			fw_min, FW_MIN);
-		fflush(stderr);
-	}
-	return true;
-}
-
 static struct verbs_device *c4iw_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct c4iw_dev *dev;
@@ -456,7 +415,6 @@ static struct verbs_device *c4iw_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
 	c4iw_abi_version = sysfs_dev->abi_ver;
-	dev->chip_version = CHELSIO_CHIP_VERSION(sysfs_dev->match->device >> 8);
 	dev->abi_version = sysfs_dev->abi_ver;
 	list_node_init(&dev->list);
 
@@ -498,7 +456,6 @@ static const struct verbs_device_ops c4iw_dev_ops = {
 	.match_min_abi_version = 0,
 	.match_max_abi_version = INT_MAX,
 	.match_table = hca_table,
-	.match_device = c4iw_device_match,
 	.alloc_device = c4iw_device_alloc,
 	.uninit_device = c4iw_uninit_device,
 	.alloc_context = c4iw_alloc_context,

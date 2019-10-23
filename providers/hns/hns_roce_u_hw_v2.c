@@ -501,7 +501,7 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 		wqe_ctr = (uint16_t)(roce_get_field(cqe->byte_4,
 						    CQE_BYTE_4_WQE_IDX_M,
 						    CQE_BYTE_4_WQE_IDX_S));
-		wc->wr_id = srq->wrid[wqe_ctr];
+		wc->wr_id = srq->wrid[wqe_ctr & (srq->max - 1)];
 		hns_roce_free_srq_wqe(srq, wqe_ctr);
 	} else {
 		wq = &(*cur_qp)->rq;
@@ -612,7 +612,6 @@ static int hns_roce_u_v2_arm_cq(struct ibv_cq *ibvcq, int solicited)
 int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			    struct ibv_send_wr **bad_wr)
 {
-	unsigned int sq_shift;
 	unsigned int ind_sge;
 	unsigned int ind;
 	int nreq;
@@ -697,10 +696,8 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_SE_S,
 			     (wr->send_flags & IBV_SEND_SOLICITED) ? 1 : 0);
 
-		for (sq_shift = 0; (1 << sq_shift) < qp->sq.wqe_cnt; ++sq_shift)
-			;
 		roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_OWNER_S,
-			     ~(((qp->sq.head + nreq) >> sq_shift) & 0x1));
+			     ~(((qp->sq.head + nreq) >> qp->sq.shift) & 0x1));
 
 		wqe += sizeof(struct hns_roce_rc_sq_wqe);
 		/* set remote addr segment */
@@ -890,16 +887,16 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 						set_data_seg_v2(dseg,
 							       wr->sg_list + i);
 						dseg++;
+						j++;
 					}
-
-				dseg = get_send_sge_ex(qp, ind_sge &
-						    (qp->sge.sge_cnt - 1));
 
 				for (; i < wr->num_sge; i++) {
 					if (likely(wr->sg_list[i].length)) {
+						dseg = get_send_sge_ex(qp,
+							ind_sge &
+							(qp->sge.sge_cnt - 1));
 						set_data_seg_v2(dseg,
 							   wr->sg_list + i);
-						dseg++;
 						ind_sge++;
 					}
 				}
@@ -1051,7 +1048,7 @@ static void __hns_roce_v2_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 
 	for (prod_index = cq->cons_index; get_sw_cqe_v2(cq, prod_index);
 	     ++prod_index)
-		if (prod_index == cq->cons_index + cq->ibv_cq.cqe)
+		if (prod_index > cq->cons_index + cq->ibv_cq.cqe)
 			break;
 
 	while ((int) --prod_index - (int) cq->cons_index >= 0) {
@@ -1280,9 +1277,9 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 		}
 
 		if (i < srq->max_gs) {
-			dseg->len = 0;
-			dseg->lkey = htole32(0x100);
-			dseg->addr = 0;
+			dseg[i].len = 0;
+			dseg[i].lkey = htole32(0x100);
+			dseg[i].addr = 0;
 		}
 
 		srq->wrid[wqe_idx] = wr->wr_id;

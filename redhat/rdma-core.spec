@@ -1,5 +1,5 @@
 Name: rdma-core
-Version: 24.0
+Version: 26.0
 Release: 1%{?dist}
 Summary: RDMA core userspace libraries and daemons
 
@@ -20,6 +20,7 @@ BuildRequires: libudev-devel
 BuildRequires: pkgconfig
 BuildRequires: pkgconfig(libnl-3.0)
 BuildRequires: pkgconfig(libnl-route-3.0)
+BuildRequires: /usr/bin/rst2man
 BuildRequires: valgrind-devel
 BuildRequires: systemd
 BuildRequires: systemd-devel
@@ -28,7 +29,11 @@ BuildRequires: systemd-devel
 BuildRequires: python3-devel
 BuildRequires: python3-Cython
 %else
+%if 0%{?rhel} == 8 || 0%{?fedora} >= 30
+BuildRequires: python3
+%else
 BuildRequires: python
+%endif
 %endif
 %if 0%{?fedora} >= 21
 BuildRequires: perl-generators
@@ -81,6 +86,11 @@ Obsoletes: librdmacm-devel < %{version}-%{release}
 Requires: ibacm = %{version}-%{release}
 Provides: ibacm-devel = %{version}-%{release}
 Obsoletes: ibacm-devel < %{version}-%{release}
+Requires: infiniband-diags = %{version}-%{release}
+Provides: infiniband-diags-devel = %{version}-%{release}
+Obsoletes: infiniband-diags-devel < %{version}-%{release}
+Provides: libibmad-devel = %{version}-%{release}
+Obsoletes: libibmad-devel < %{version}-%{release}
 %if %{with_static}
 # Since our pkg-config files include private references to these packages they
 # need to have their .pc files installed too, even for dynamic linking, or
@@ -91,6 +101,27 @@ BuildRequires: pkgconfig(libnl-route-3.0)
 
 %description devel
 RDMA core development libraries and headers.
+
+%package -n infiniband-diags
+Summary: InfiniBand Diagnostic Tools
+Provides: perl(IBswcountlimits)
+Provides: libibmad = %{version}-%{release}
+Obsoletes: libibmad < %{version}-%{release}
+Obsoletes: openib-diags < 1.3
+
+%description -n infiniband-diags
+This package provides IB diagnostic programs and scripts needed to diagnose an
+IB subnet.  infiniband-diags now also provides libibmad.  libibmad provides
+low layer IB functions for use by the IB diagnostic and management
+programs. These include MAD, SA, SMP, and other basic IB functions.
+
+%package -n infiniband-diags-compat
+Summary: OpenFabrics Alliance InfiniBand Diagnostic Tools
+
+%description -n infiniband-diags-compat
+Deprecated scripts and utilities which provide duplicated functionality, most
+often at a reduced performance. These are maintained for the time being for
+compatibility reasons.
 
 %package -n libibverbs
 Summary: A library and drivers for direct userspace use of RDMA (InfiniBand/iWARP/RoCE) hardware
@@ -145,6 +176,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 - libocrdma: Emulex OneConnect RDMA/RoCE Device
 - libqedr: QLogic QL4xxx RoCE HCA
 - librxe: A software implementation of the RoCE protocol
+- libsiw: A software implementation of the iWarp protocol
 - libvmw_pvrdma: VMware paravirtual RDMA device
 
 %package -n libibverbs-utils
@@ -261,6 +293,8 @@ easy, object-oriented access to IB verbs.
          -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
          -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version} \
          -DCMAKE_INSTALL_UDEV_RULESDIR:PATH=%{_udevrulesdir} \
+         -DCMAKE_INSTALL_PERLDIR:PATH=%{perl_vendorlib} \
+         -DENABLE_IBDIAGS_COMPAT:BOOL=True \
 %if %{with_static}
          -DENABLE_STATIC=1 \
 %endif
@@ -307,6 +341,10 @@ install -D -m0644 ibacm_opts.cfg %{buildroot}%{_sysconfdir}/rdma/
 # Delete the package's init.d scripts
 rm -rf %{buildroot}/%{_initrddir}/
 rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
+
+# infiniband-diags
+%post -n infiniband-diags -p /sbin/ldconfig
+%postun -n infiniband-diags -p /sbin/ldconfig
 
 # libibverbs
 %post -n libibverbs -p /sbin/ldconfig
@@ -410,6 +448,116 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_mandir}/man7/efadv*
 %{_mandir}/man7/mlx5dv*
 %{_mandir}/man7/mlx4dv*
+%{_mandir}/man3/ibnd_*
+
+%files -n infiniband-diags-compat
+%{_sbindir}/ibcheckerrs
+%{_mandir}/man8/ibcheckerrs*
+%{_sbindir}/ibchecknet
+%{_mandir}/man8/ibchecknet*
+%{_sbindir}/ibchecknode
+%{_mandir}/man8/ibchecknode*
+%{_sbindir}/ibcheckport
+%{_mandir}/man8/ibcheckport.*
+%{_sbindir}/ibcheckportwidth
+%{_mandir}/man8/ibcheckportwidth*
+%{_sbindir}/ibcheckportstate
+%{_mandir}/man8/ibcheckportstate*
+%{_sbindir}/ibcheckwidth
+%{_mandir}/man8/ibcheckwidth*
+%{_sbindir}/ibcheckstate
+%{_mandir}/man8/ibcheckstate*
+%{_sbindir}/ibcheckerrors
+%{_mandir}/man8/ibcheckerrors*
+%{_sbindir}/ibdatacounts
+%{_mandir}/man8/ibdatacounts*
+%{_sbindir}/ibdatacounters
+%{_mandir}/man8/ibdatacounters*
+%{_sbindir}/ibdiscover.pl
+%{_mandir}/man8/ibdiscover*
+%{_sbindir}/ibswportwatch.pl
+%{_mandir}/man8/ibswportwatch*
+%{_sbindir}/ibqueryerrors.pl
+%{_sbindir}/iblinkinfo.pl
+%{_sbindir}/ibprintca.pl
+%{_mandir}/man8/ibprintca*
+%{_sbindir}/ibprintswitch.pl
+%{_mandir}/man8/ibprintswitch*
+%{_sbindir}/ibprintrt.pl
+%{_mandir}/man8/ibprintrt*
+%{_sbindir}/set_nodedesc.sh
+
+%files -n infiniband-diags
+%{_sbindir}/ibaddr
+%{_mandir}/man8/ibaddr*
+%{_sbindir}/ibnetdiscover
+%{_mandir}/man8/ibnetdiscover*
+%{_sbindir}/ibping
+%{_mandir}/man8/ibping*
+%{_sbindir}/ibportstate
+%{_mandir}/man8/ibportstate*
+%{_sbindir}/ibroute
+%{_mandir}/man8/ibroute.*
+%{_sbindir}/ibstat
+%{_mandir}/man8/ibstat.*
+%{_sbindir}/ibsysstat
+%{_mandir}/man8/ibsysstat*
+%{_sbindir}/ibtracert
+%{_mandir}/man8/ibtracert*
+%{_sbindir}/perfquery
+%{_mandir}/man8/perfquery*
+%{_sbindir}/sminfo
+%{_mandir}/man8/sminfo*
+%{_sbindir}/smpdump
+%{_mandir}/man8/smpdump*
+%{_sbindir}/smpquery
+%{_mandir}/man8/smpquery*
+%{_sbindir}/saquery
+%{_mandir}/man8/saquery*
+%{_sbindir}/vendstat
+%{_mandir}/man8/vendstat*
+%{_sbindir}/iblinkinfo
+%{_mandir}/man8/iblinkinfo*
+%{_sbindir}/ibqueryerrors
+%{_mandir}/man8/ibqueryerrors*
+%{_sbindir}/ibcacheedit
+%{_mandir}/man8/ibcacheedit*
+%{_sbindir}/ibccquery
+%{_mandir}/man8/ibccquery*
+%{_sbindir}/ibccconfig
+%{_mandir}/man8/ibccconfig*
+%{_sbindir}/dump_fts
+%{_mandir}/man8/dump_fts*
+%{_sbindir}/ibhosts
+%{_mandir}/man8/ibhosts*
+%{_sbindir}/ibswitches
+%{_mandir}/man8/ibswitches*
+%{_sbindir}/ibnodes
+%{_mandir}/man8/ibnodes*
+%{_sbindir}/ibrouters
+%{_mandir}/man8/ibrouters*
+%{_sbindir}/ibfindnodesusing.pl
+%{_mandir}/man8/ibfindnodesusing*
+%{_sbindir}/ibidsverify.pl
+%{_mandir}/man8/ibidsverify*
+%{_sbindir}/check_lft_balance.pl
+%{_mandir}/man8/check_lft_balance*
+%{_sbindir}/dump_lfts.sh
+%{_mandir}/man8/dump_lfts*
+%{_sbindir}/dump_mfts.sh
+%{_mandir}/man8/dump_mfts*
+%{_sbindir}/ibclearerrors
+%{_mandir}/man8/ibclearerrors*
+%{_sbindir}/ibclearcounters
+%{_mandir}/man8/ibclearcounters*
+%{_sbindir}/ibstatus
+%{_mandir}/man8/ibstatus*
+%{_mandir}/man8/infiniband-diags*
+%{_libdir}/libibmad*.so.*
+%{_libdir}/libibnetdisc*.so.*
+%{perl_vendorlib}/IBswcountlimits.pm
+%config(noreplace) %{_sysconfdir}/infiniband-diags/error_thresholds
+%config(noreplace) %{_sysconfdir}/infiniband-diags/ibdiag.conf
 
 %files -n libibverbs
 %dir %{_sysconfdir}/libibverbs.d

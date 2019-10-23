@@ -198,8 +198,8 @@ int c4iw_query_port(struct ibv_context *context, uint8_t port,
 struct ibv_pd *c4iw_alloc_pd(struct ibv_context *context);
 int c4iw_free_pd(struct ibv_pd *pd);
 
-struct ibv_mr *c4iw_reg_mr(struct ibv_pd *pd, void *addr,
-				  size_t length, int access);
+struct ibv_mr *c4iw_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			   uint64_t hca_va, int access);
 int c4iw_dereg_mr(struct verbs_mr *vmr);
 
 struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,

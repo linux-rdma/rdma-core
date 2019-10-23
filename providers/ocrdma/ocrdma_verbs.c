@@ -185,22 +185,20 @@ int ocrdma_free_pd(struct ibv_pd *ibpd)
 /*
  * ocrdma_reg_mr
  */
-struct ibv_mr *ocrdma_reg_mr(struct ibv_pd *pd, void *addr,
-			     size_t len, int access)
+struct ibv_mr *ocrdma_reg_mr(struct ibv_pd *pd, void *addr, size_t len,
+			     uint64_t hca_va, int access)
 {
 	struct ocrdma_mr *mr;
 	struct ibv_reg_mr cmd;
 	struct uocrdma_reg_mr_resp resp;
-	uint64_t hca_va = (uintptr_t) addr;
 
 	mr = malloc(sizeof *mr);
 	if (!mr)
 		return NULL;
 	bzero(mr, sizeof *mr);
 
-	if (ibv_cmd_reg_mr(pd, addr, len, hca_va,
-			   access, &mr->vmr, &cmd, sizeof(cmd),
-			   &resp.ibv_resp, sizeof(resp))) {
+	if (ibv_cmd_reg_mr(pd, addr, len, hca_va, access, &mr->vmr, &cmd,
+			   sizeof(cmd), &resp.ibv_resp, sizeof(resp))) {
 		free(mr);
 		return NULL;
 	}

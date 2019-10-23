@@ -80,6 +80,7 @@
 #define HFI(v, d)                                                              \
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, PCI_DEVICE_ID_HFI_##d, NULL)
 static const struct verbs_match_ent hca_table[] = {
+	VERBS_DRIVER_ID(RDMA_DRIVER_HFI1),
 	HFI(INTEL, INTEL0),
 	HFI(INTEL, INTEL1),
 	{}

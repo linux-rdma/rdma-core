@@ -18,7 +18,7 @@ int efa_query_device_ex(struct ibv_context *context,
 struct ibv_pd *efa_alloc_pd(struct ibv_context *uctx);
 int efa_dealloc_pd(struct ibv_pd *ibvpd);
 struct ibv_mr *efa_reg_mr(struct ibv_pd *ibvpd, void *buf, size_t len,
-			  int ibv_access_flags);
+			  uint64_t hca_va, int ibv_access_flags);
 int efa_dereg_mr(struct verbs_mr *vmr);
 
 struct ibv_cq *efa_create_cq(struct ibv_context *uctx, int ncqe,
@@ -28,6 +28,8 @@ int efa_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc);
 
 struct ibv_qp *efa_create_qp(struct ibv_pd *ibvpd,
 			     struct ibv_qp_init_attr *attr);
+struct ibv_qp *efa_create_qp_ex(struct ibv_context *ibvctx,
+				struct ibv_qp_init_attr_ex *attr_ex);
 int efa_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 		  int ibv_qp_attr_mask);
 int efa_query_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr, int attr_mask,

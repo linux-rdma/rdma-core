@@ -972,12 +972,44 @@ struct mlx5_ifc_flow_table_eswitch_cap_bits {
 	u8      reserved_at_1900[0x6700];
 };
 
+struct mlx5_ifc_odp_per_transport_service_cap_bits {
+	u8         send[0x1];
+	u8         receive[0x1];
+	u8         write[0x1];
+	u8         read[0x1];
+	u8         atomic[0x1];
+	u8         srq_receive[0x1];
+	u8         reserved_at_6[0x1a];
+};
+
+struct mlx5_ifc_odp_cap_bits {
+	u8         reserved_at_0[0x40];
+
+	u8         sig[0x1];
+	u8         reserved_at_41[0x1f];
+
+	u8         reserved_at_60[0x20];
+
+	struct mlx5_ifc_odp_per_transport_service_cap_bits rc_odp_caps;
+
+	struct mlx5_ifc_odp_per_transport_service_cap_bits uc_odp_caps;
+
+	struct mlx5_ifc_odp_per_transport_service_cap_bits ud_odp_caps;
+
+	struct mlx5_ifc_odp_per_transport_service_cap_bits xrc_odp_caps;
+
+	struct mlx5_ifc_odp_per_transport_service_cap_bits dc_odp_caps;
+
+	u8         reserved_at_120[0x6e0];
+};
+
 union mlx5_ifc_hca_cap_union_bits {
 	struct mlx5_ifc_atomic_caps_bits atomic_caps;
 	struct mlx5_ifc_cmd_hca_cap_bits cmd_hca_cap;
 	struct mlx5_ifc_flow_table_nic_cap_bits flow_table_nic_cap;
 	struct mlx5_ifc_flow_table_eswitch_cap_bits flow_table_eswitch_cap;
 	struct mlx5_ifc_device_mem_cap_bits device_mem_cap;
+	struct mlx5_ifc_odp_cap_bits odp_cap;
 	u8         reserved_at_0[0x8000];
 };
 
@@ -1007,6 +1039,7 @@ struct mlx5_ifc_query_hca_cap_in_bits {
 };
 
 enum mlx5_cap_type {
+	MLX5_CAP_ODP = 2,
 	MLX5_CAP_ATOMIC = 3,
 };
 
@@ -1569,14 +1602,14 @@ enum {
 	MLX5_ACTION_IN_FIELD_OUT_SIPV4         = 0x15,
 	MLX5_ACTION_IN_FIELD_OUT_DIPV4         = 0x16,
 	MLX5_ACTION_IN_FIELD_OUT_IPV6_HOPLIMIT = 0x47,
-	MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGA = 0x49,
-	MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGB = 0x50,
-	MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGC_0 = 0x51,
-	MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGC_1 = 0x52,
-	MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGC_2 = 0x53,
-	MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGC_3 = 0x54,
-	MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGC_4 = 0x55,
-	MLX5_ACTION_IN_FIELD_OUT_MEGADATA_REGC_5 = 0x56,
+	MLX5_ACTION_IN_FIELD_OUT_METADATA_REGA = 0x49,
+	MLX5_ACTION_IN_FIELD_OUT_METADATA_REGB = 0x50,
+	MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_0 = 0x51,
+	MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_1 = 0x52,
+	MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_2 = 0x53,
+	MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_3 = 0x54,
+	MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_4 = 0x55,
+	MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_5 = 0x56,
 	MLX5_ACTION_IN_FIELD_OUT_TCP_SEQ_NUM   = 0x59,
 	MLX5_ACTION_IN_FIELD_OUT_TCP_ACK_NUM   = 0x5B,
 };

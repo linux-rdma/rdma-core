@@ -32,6 +32,7 @@
 
 #include <errno.h>
 #include <sys/mman.h>
+#include <util/util.h>
 
 #include "hns_roce_u.h"
 

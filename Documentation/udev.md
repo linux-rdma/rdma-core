@@ -196,3 +196,5 @@ Notes:
  * All multi-function PCI devices will carry the [f<function>] number in the
  device name, including the function 0 device.
  * When using PCI geography, The PCI domain is only prepended when it is not 0.
+ * SR-IOV virtual devices are named based on the name of the parent interface,
+ with a suffix of "v<N>", where <N> is the virtual device number.

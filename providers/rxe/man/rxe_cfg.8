@@ -21,7 +21,15 @@ rxe_cfg \- rxe configuration tool for RXE (Soft RoCE)
 \fBrxe_cfg\fR \fBmtu\fR [\fB\-f\fR] [\fIrxeN\fR] \fImtu_size\fR
 .br
 .SH "DESCRIPTION"
-rxe_cfg is the configuration tool for the RXE software implementation of the RoCE protocol.  
+
+.I
+Note
+This command is deprecated. Please use
+.B
+rdma-link(8)
+instead.
+
+rxe_cfg is the configuration tool for the RXE software implementation of the RoCE protocol.
 
 The RXE kernel modules are loaded, configured, reconfigured and unloaded via the various rxe_cfg command options, documented below.
 

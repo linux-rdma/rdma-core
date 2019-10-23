@@ -349,10 +349,11 @@ static int is_enabled_by_rules_file(struct target_details *target)
 	int rule;
 	struct config_t *conf = config;
 
-	if (NULL == conf->rules)
+	if (NULL == conf->rules) {
+		pr_debug("Allowing SRP target with id_ext %s because not using a rules file\n", target->id_ext);
 		return 1;
+	}
 
-	pr_debug("Found an SRP target with id_ext %s - check if it allowed by rules file\n", target->id_ext);
 	rule = -1;
 	do {
 		rule++;
@@ -392,6 +393,9 @@ static int is_enabled_by_rules_file(struct target_details *target)
 
 		target->options = conf->rules[rule].options;
 
+		pr_debug("SRP target with id_ext %s %s by rules file\n",
+				target->id_ext,
+				conf->rules[rule].allow ? "allowed" : "disallowed");
 		return conf->rules[rule].allow;
 
 	} while (1);
@@ -723,6 +727,7 @@ end:
 	if (ret) {
 		free(*ibport);
 		free(*ibdev);
+		*ibdev = NULL;
 	}
 	free(class_dev_path);
 
@@ -2224,8 +2229,9 @@ catas_start:
 			pr_debug("Starting a recalculation\n");
 			port_lid = get_port_lid(res->ud_res->ib_ctx,
 						config->port_num, &sm_lid);
-			if (port_lid != res->ud_res->port_attr.lid ||
-				sm_lid != res->ud_res->port_attr.sm_lid) {
+			if (port_lid > 0 && port_lid < 0xc000 &&
+			    (port_lid != res->ud_res->port_attr.lid ||
+			     sm_lid != res->ud_res->port_attr.sm_lid)) {
 
 				if (res->ud_res->ah) {
 					ibv_destroy_ah(res->ud_res->ah);

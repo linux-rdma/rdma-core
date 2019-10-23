@@ -871,7 +871,7 @@ struct dr_gid_attr {
 struct dr_devx_qp_rtr_attr {
 	struct dr_gid_attr	dgid_attr;
 	enum ibv_mtu		mtu;
-	uint16_t		qp_num;
+	uint32_t		qp_num;
 	uint16_t		port_num;
 	uint8_t			min_rnr_timer;
 	uint8_t			sgid_index;

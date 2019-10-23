@@ -45,6 +45,9 @@
 #   -DNO_PYVERBS=1 (default, build pyverbs)
 #      Invoke cython to build pyverbs. Usually you will run with this option
 #      is set, but it will be disabled for travis runs.
+#   -DENABLE_IBDIAGS_COMPAT=True (default False)
+#      Include obsolete scripts. These scripts are replaced by C programs with
+#      a different interface now.
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(rdma-core C)
@@ -65,11 +68,11 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "24.0")
+set(PACKAGE_VERSION "26.0")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
-set(IBVERBS_PABI_VERSION "22")
+set(IBVERBS_PABI_VERSION "25")
 set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 #-------------------------
@@ -79,6 +82,7 @@ set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 if (IN_PLACE)
   set(CMAKE_INSTALL_SYSCONFDIR "${CMAKE_BINARY_DIR}/etc")
   set(CMAKE_INSTALL_BINDIR "${CMAKE_BINARY_DIR}/bin")
+  set(CMAKE_INSTALL_SBINDIR "${CMAKE_BINARY_DIR}/bin")
   set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}")
   set(CMAKE_INSTALL_LIBDIR "lib")
   set(CMAKE_INSTALL_INCLUDEDIR "include")
@@ -97,6 +101,9 @@ set(BUILD_STATIC_LIB ${CMAKE_BINARY_DIR}/lib/statics)
 set(BUILD_ETC ${CMAKE_BINARY_DIR}/etc)
 set(BUILD_PYTHON ${CMAKE_BINARY_DIR}/python)
 
+set(IBDIAG_CONFIG_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/infiniband-diags")
+set(IBDIAG_NODENAME_MAP_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/rdma/ib-node-name-map")
+
 set(CMAKE_INSTALL_INITDDIR "${CMAKE_INSTALL_SYSCONFDIR}/init.d"
   CACHE PATH "Location for init.d files")
 set(CMAKE_INSTALL_SYSTEMD_SERVICEDIR "${CMAKE_INSTALL_PREFIX}/lib/systemd/system"
@@ -106,7 +113,6 @@ set(CMAKE_INSTALL_SYSTEMD_BINDIR "/lib/systemd"
 
 set(ACM_PROVIDER_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/ibacm"
   CACHE PATH "Location for ibacm provider plugin shared library files.")
-
 # Location to find the provider plugin shared library files
 set(VERBS_PROVIDER_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/libibverbs"
   CACHE PATH "Location for provider plugin shared library files. If set to empty the system search path is used.")
@@ -129,6 +135,15 @@ if(NOT IS_ABSOLUTE ${CMAKE_INSTALL_UDEV_RULESDIR})
   set(CMAKE_INSTALL_FULL_UDEV_RULESDIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_UDEV_RULESDIR}")
 else()
   set(CMAKE_INSTALL_FULL_UDEV_RULESDIR "${CMAKE_INSTALL_UDEV_RULESDIR}")
+endif()
+
+# Allow the perl library dir to be configurable
+set(CMAKE_INSTALL_PERLDIR "share/perl5"
+  CACHE PATH "Location for system perl library, typically /usr/share/perl5")
+if(NOT IS_ABSOLUTE ${CMAKE_INSTALL_PERLDIR})
+  set(CMAKE_INSTALL_FULL_PERLDIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_PERLDIR}")
+else()
+  set(CMAKE_INSTALL_FULL_PERLDIR "${CMAKE_INSTALL_PERLDIR}")
 endif()
 
 # Location to place provider .driver files
@@ -236,6 +251,11 @@ endif()
 set(NO_STRICT_ALIASING_FLAGS "")
 RDMA_AddOptCFlag(NO_STRICT_ALIASING_FLAGS HAVE_NO_STRICT_ALIASING
   "-fno-strict-aliasing")
+
+# pyverbs has a problem with var-tracking warnings, turn it off if we can.
+set(NO_VAR_TRACKING_FLAGS "")
+RDMA_AddOptCFlag(NO_VAR_TRACKING_FLAGS HAVE_NO_VAR_TRACKING_ASSIGNMENTS
+  "-fno-var-tracking-assignments")
 
 CHECK_C_SOURCE_COMPILES("
  #include <unistd.h>
@@ -404,8 +424,9 @@ if (CYTHON_EXECUTABLE)
   string(STRIP ${py_path} CMAKE_PYTHON_SO_SUFFIX)
 endif()
 
-# Look for pandoc
+# Look for pandoc and rst2man for making manual pages
 FIND_PACKAGE(pandoc)
+FIND_PACKAGE(rst2man)
 
 #-------------------------
 # Find libraries
@@ -426,6 +447,15 @@ if (ENABLE_RESOLVE_NEIGH)
 else()
   set(NL_KIND 0)
   set(NL_LIBRARIES "")
+  RDMA_DoFixup(0 "netlink/attr.h")
+  RDMA_DoFixup(0 "netlink/msg.h")
+  RDMA_DoFixup(0 "netlink/netlink.h")
+  RDMA_DoFixup(0 "netlink/object-api.h")
+  RDMA_DoFixup(0 "netlink/route/link.h")
+  RDMA_DoFixup(0 "netlink/route/link/vlan.h")
+  RDMA_DoFixup(0 "netlink/route/neighbour.h")
+  RDMA_DoFixup(0 "netlink/route/route.h")
+  RDMA_DoFixup(0 "netlink/route/rtnl.h")
 endif()
 
 # Older stuff blows up if these headers are included together
@@ -507,6 +537,11 @@ RDMA_DoFixup("${HAVE_STATIC_ASSERT}" "assert.h")
 # So set this flag last.
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WSTRICT_PROTOTYPES "-Wstrict-prototypes")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WOLD_STYLE_DEFINITION "-Wold-style-definition")
+
+if (ENABLE_WERROR)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
+  message(STATUS "Enabled -Werror")
+endif()
 
 # Old versions of libnl have a duplicated rtnl_route_put, disbale the warning on those
 # systems
@@ -602,6 +637,14 @@ add_subdirectory(providers/hfi1verbs)
 add_subdirectory(providers/ipathverbs)
 add_subdirectory(providers/rxe)
 add_subdirectory(providers/rxe/man)
+add_subdirectory(providers/siw)
+
+add_subdirectory(libibmad)
+add_subdirectory(libibnetdisc)
+add_subdirectory(libibnetdisc/man)
+add_subdirectory(infiniband-diags)
+add_subdirectory(infiniband-diags/scripts)
+add_subdirectory(infiniband-diags/man)
 
 if (CYTHON_EXECUTABLE)
   add_subdirectory(pyverbs)
@@ -666,6 +709,13 @@ if (NOT PANDOC_FOUND)
     message(STATUS " pandoc NOT found and NO prebuilt man pages. 'install' disabled")
   else()
     message(STATUS " pandoc NOT found (using prebuilt man pages)")
+  endif()
+endif()
+if (NOT RST2MAN_FOUND)
+  if (NOT EXISTS "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt")
+    message(STATUS " rst2man NOT found and NO prebuilt man pages. 'install' disabled")
+  else()
+    message(STATUS " rst2man NOT found (using prebuilt man pages)")
   endif()
 endif()
 if (NOT CYTHON_EXECUTABLE)

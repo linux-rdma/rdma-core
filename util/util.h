@@ -5,6 +5,7 @@
 #include <ccan/ilog.h>
 #include <stdbool.h>
 #include <sys/types.h>
+#include <stdio.h>
 
 /* Return true if the snprintf succeeded, false if there was truncation or
  * error */
@@ -33,5 +34,7 @@ static inline uint64_t roundup_pow_of_two(uint64_t n)
 }
 
 int set_fd_nonblock(int fd, bool nonblock);
+
+int open_cdev(const char *devname_hint, dev_t cdev);
 
 #endif

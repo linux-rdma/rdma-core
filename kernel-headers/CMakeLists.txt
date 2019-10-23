@@ -5,7 +5,6 @@ publish_internal_headers(rdma
   rdma/efa-abi.h
   rdma/hns-abi.h
   rdma/i40iw-abi.h
-  rdma/ib_user_cm.h
   rdma/ib_user_ioctl_cmds.h
   rdma/ib_user_ioctl_verbs.h
   rdma/ib_user_mad.h
@@ -24,6 +23,7 @@ publish_internal_headers(rdma
   rdma/rdma_user_ioctl.h
   rdma/rdma_user_ioctl_cmds.h
   rdma/rdma_user_rxe.h
+  rdma/siw-abi.h
   rdma/vmw_pvrdma-abi.h
   )
 
@@ -72,6 +72,7 @@ rdma_kernel_provider_abi(
   rdma/ocrdma-abi.h
   rdma/qedr-abi.h
   rdma/rdma_user_rxe.h
+  rdma/siw-abi.h
   rdma/vmw_pvrdma-abi.h
   )
 

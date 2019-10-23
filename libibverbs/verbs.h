@@ -84,6 +84,7 @@ enum ibv_node_type {
 	IBV_NODE_RNIC,
 	IBV_NODE_USNIC,
 	IBV_NODE_USNIC_UDP,
+	IBV_NODE_UNSPECIFIED,
 };
 
 enum ibv_transport_type {
@@ -92,6 +93,7 @@ enum ibv_transport_type {
 	IBV_TRANSPORT_IWARP,
 	IBV_TRANSPORT_USNIC,
 	IBV_TRANSPORT_USNIC_UDP,
+	IBV_TRANSPORT_UNSPECIFIED,
 };
 
 enum ibv_device_cap_flags {
@@ -2126,7 +2128,7 @@ struct ibv_device **ibv_get_device_list(int *num_devices);
  */
 #ifdef RDMA_STATIC_PROVIDERS
 #define _RDMA_STATIC_PREFIX_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11,     \
-			     _12, _13, _14, _15, _16, ...)                     \
+			     _12, _13, _14, _15, _16, _17, ...)                \
 	&verbs_provider_##_1, &verbs_provider_##_2, &verbs_provider_##_3,      \
 		&verbs_provider_##_4, &verbs_provider_##_5,                    \
 		&verbs_provider_##_6, &verbs_provider_##_7,                    \
@@ -2134,10 +2136,11 @@ struct ibv_device **ibv_get_device_list(int *num_devices);
 		&verbs_provider_##_10, &verbs_provider_##_11,                  \
 		&verbs_provider_##_12, &verbs_provider_##_13,                  \
 		&verbs_provider_##_14, &verbs_provider_##_15,                  \
-		&verbs_provider_##_16
+		&verbs_provider_##_16, &verbs_provider_##_17
 #define _RDMA_STATIC_PREFIX(arg)                                               \
 	_RDMA_STATIC_PREFIX_(arg, none, none, none, none, none, none, none,    \
-			     none, none, none, none, none, none, none, none)
+			     none, none, none, none, none, none, none, none,   \
+			     none)
 
 struct verbs_devices_ops;
 extern const struct verbs_device_ops verbs_provider_bnxt_re;
@@ -2155,6 +2158,7 @@ extern const struct verbs_device_ops verbs_provider_nes;
 extern const struct verbs_device_ops verbs_provider_ocrdma;
 extern const struct verbs_device_ops verbs_provider_qedr;
 extern const struct verbs_device_ops verbs_provider_rxe;
+extern const struct verbs_device_ops verbs_provider_siw;
 extern const struct verbs_device_ops verbs_provider_vmw_pvrdma;
 extern const struct verbs_device_ops verbs_provider_all;
 extern const struct verbs_device_ops verbs_provider_none;
@@ -2373,6 +2377,13 @@ static inline int ibv_close_xrcd(struct ibv_xrcd *xrcd)
  */
 struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
 			  size_t length, int access);
+
+/**
+ * ibv_reg_mr_iova - Register a memory region with a virtual offset
+ * address
+ */
+struct ibv_mr *ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length,
+			       uint64_t iova, int access);
 
 
 enum ibv_rereg_mr_err_code {

@@ -15,6 +15,7 @@
 #define PCI_VENDOR_ID_AMAZON 0x1d0f
 
 static const struct verbs_match_ent efa_table[] = {
+	VERBS_DRIVER_ID(RDMA_DRIVER_EFA),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa0, NULL),
 	{}
 };
@@ -24,6 +25,7 @@ static const struct verbs_context_ops efa_ctx_ops = {
 	.create_ah = efa_create_ah,
 	.create_cq = efa_create_cq,
 	.create_qp = efa_create_qp,
+	.create_qp_ex = efa_create_qp_ex,
 	.dealloc_pd = efa_dealloc_pd,
 	.dereg_mr = efa_dereg_mr,
 	.destroy_ah = efa_destroy_ah,
@@ -44,7 +46,7 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 					       int cmd_fd,
 					       void *private_data)
 {
-	struct efa_alloc_ucontext_resp resp;
+	struct efa_alloc_ucontext_resp resp = {};
 	struct ibv_device_attr_ex attr;
 	struct ibv_get_context cmd;
 	struct efa_context *ctx;
@@ -55,10 +57,9 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 	if (!ctx)
 		return NULL;
 
-	memset(&resp, 0, sizeof(resp));
 	if (ibv_cmd_get_context(&ctx->ibvctx, &cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
-		goto failed;
+		goto err_free_ctx;
 
 	ctx->sub_cqs_per_cq = resp.sub_cqs_per_cq;
 	ctx->cmds_supp_udata_mask = resp.cmds_supp_udata_mask;
@@ -72,16 +73,17 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 	err = efa_query_device_ex(&ctx->ibvctx.context, NULL, &attr,
 				  sizeof(attr));
 	if (err)
-		goto failed;
+		goto err_free_spinlock;
 
 	ctx->qp_table = calloc(attr.orig_attr.max_qp, sizeof(*ctx->qp_table));
 	if (!ctx->qp_table)
-		goto failed;
+		goto err_free_spinlock;
 
 	return &ctx->ibvctx;
 
-failed:
+err_free_spinlock:
 	pthread_spin_destroy(&ctx->qp_table_lock);
+err_free_ctx:
 	verbs_uninit_context(&ctx->ibvctx);
 	free(ctx);
 	return NULL;
@@ -91,6 +93,7 @@ static void efa_free_context(struct ibv_context *ibvctx)
 {
 	struct efa_context *ctx = to_efa_context(ibvctx);
 
+	free(ctx->qp_table);
 	pthread_spin_destroy(&ctx->qp_table_lock);
 	verbs_uninit_context(&ctx->ibvctx);
 	free(ctx);

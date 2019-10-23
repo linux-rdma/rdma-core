@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved.
+
+#cython: language_level=3
+
 from pyverbs.base cimport PyverbsObject, PyverbsCM
 cimport pyverbs.libibverbs as v
 
@@ -15,7 +18,7 @@ cdef class QPInitAttrEx(PyverbsObject):
     cdef v.ibv_qp_init_attr_ex attr
     cdef object scq
     cdef object rcq
-    cdef object pd
+    cdef object _pd
 
 cdef class QPAttr(PyverbsObject):
     cdef v.ibv_qp_attr attr

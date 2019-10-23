@@ -29,7 +29,6 @@ struct efa_context {
 
 struct efa_pd {
 	struct ibv_pd ibvpd;
-	struct efa_context *context;
 	uint16_t pdn;
 };
 
@@ -91,17 +90,26 @@ struct efa_sq {
 	size_t desc_ring_mmap_size;
 	size_t max_inline_data;
 	uint16_t sub_cq_idx;
+
+	/* Buffer for pending WR entries in the current session */
+	uint8_t *local_queue;
+	/* Number of WR entries posted in the current session */
+	uint32_t num_wqe_pending;
+	/* Phase before current session */
+	int phase_rb;
+	/* Current wqe being built */
+	struct efa_io_tx_wqe *curr_tx_wqe;
 };
 
 struct efa_qp {
-	struct ibv_qp ibvqp;
-	struct efa_context *ctx;
+	struct verbs_qp verbs_qp;
 	struct efa_sq sq;
 	struct efa_rq rq;
 	int page_size;
 	struct efa_cq *rcq;
 	struct efa_cq *scq;
 	int sq_sig_all;
+	int wr_session_err;
 };
 
 struct efa_mr {
@@ -115,7 +123,6 @@ struct efa_ah {
 
 struct efa_dev {
 	struct verbs_device vdev;
-	uint8_t abi_version;
 	uint32_t pg_sz;
 	uint32_t max_sq_wr;
 	uint32_t max_rq_wr;
@@ -145,7 +152,12 @@ static inline struct efa_cq *to_efa_cq(struct ibv_cq *ibvcq)
 
 static inline struct efa_qp *to_efa_qp(struct ibv_qp *ibvqp)
 {
-	return container_of(ibvqp, struct efa_qp, ibvqp);
+	return container_of(ibvqp, struct efa_qp, verbs_qp.qp);
+}
+
+static inline struct efa_qp *to_efa_qp_ex(struct ibv_qp_ex *ibvqpx)
+{
+	return container_of(ibvqpx, struct efa_qp, verbs_qp.qp_ex);
 }
 
 static inline struct efa_ah *to_efa_ah(struct ibv_ah *ibvah)
