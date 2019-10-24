@@ -33,6 +33,5 @@ ENV{ID_NET_DRIVER}=="enic", RUN{builtin}+="kmod load usnic_verbs"
 # ipathverbs
 # mthca
 # vmw_pvrdma
-# nes
 
 LABEL="rdma_hw_modules_end"

@@ -23,7 +23,6 @@ is included:
  - mlx4_ib.ko
  - mlx5_ib.ko
  - ib_mthca.ko
- - iw_nes.ko
  - ocrdma.ko
  - qedr.ko
  - rdma_rxe.ko
