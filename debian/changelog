@@ -1,3 +1,13 @@
+rdma-core (26.0-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Include infiniband-diags source package producing infiniband-diags,
+      libibmad5, libibmad-dev, libibnetdisc5, and libibnetdisc-dev.
+  * Update private libibverbs symbols
+  * Specify Build-Depends-Package for libibmad5 and libibnetdisc5
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Thu, 24 Oct 2019 11:27:45 +0200
+
 rdma-core (24.0-2) unstable; urgency=medium
 
   * Skip installing efa if the architecture lacks coherent DMA support
