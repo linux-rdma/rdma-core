@@ -140,6 +140,10 @@ cdef class MR(PyverbsCM):
     def rkey(self):
         return self.mr.rkey
 
+    @property
+    def length(self):
+        return self.mr.length
+
 
 cdef class MWBindInfo(PyverbsCM):
     def __init__(self, MR mr not None, addr, length, mw_access_flags):
