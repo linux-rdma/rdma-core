@@ -125,10 +125,6 @@ load_hardware_modules()
 	load_modules mlx5_ib
 	RC+=$?
     fi
-    if is_loaded cxgb3 -a ! is_loaded iw_cxgb3; then
-	load_modules iw_cxgb3
-	RC+=$?
-    fi
     if is_loaded cxgb4 -a ! is_loaded iw_cxgb4; then
 	load_modules iw_cxgb4
 	RC+=$?
