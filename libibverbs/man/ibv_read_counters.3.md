@@ -88,7 +88,7 @@ void example_create_flow_with_counters_on_raw_qp(struct ibv_qp *qp) {
 	struct ibv_counters_init_attr init_attr = {0};
 	struct ibv_counter_attach_attr attach_attr = {0};
 
-	/* create single coutners handle */
+	/* create single counters handle */
 	counters = ibv_create_counters(qp->context, &init_attr);
 
 	/* define counters points */

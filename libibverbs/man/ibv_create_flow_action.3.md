@@ -328,7 +328,7 @@ Upon success *ibv_create_flow_action_esp* will return a new *struct
 ibv_flow_action* object, on error NULL will be returned and errno will be set.
 
 Upon success *ibv_modify_action_esp* will return 0. On error the value of
-errno will be returned. If ibv_modify_flow_action fails, it is guarnteed that
+errno will be returned. If ibv_modify_flow_action fails, it is guaranteed that
 the last action still holds. If it succeeds, there is a point in the future
 where the old action is applied on all packets until this point and the new
 one is applied on all packets from this point and on.
