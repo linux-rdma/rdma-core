@@ -111,7 +111,6 @@ License: BSD-MIT or GPL-2
 
 Files: libibverbs/man/*
        libibverbs/neigh.h
-       libibverbs/nl1_compat.h
        libibverbs/neigh.c
 Copyright: disclaimed
 License: BSD-2-clause
