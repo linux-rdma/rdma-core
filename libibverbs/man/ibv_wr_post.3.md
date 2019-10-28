@@ -315,7 +315,7 @@ ibv_wr_set_sge(qpx, lkey, local_addr_1, length_1);
 
 /* create 2nd WRITE_WITH_IMM WR entry */
 qpx->wr_id = my_wr_id_2;
-qpx->send_flags = IBV_SEND_SIGNALED;
+qpx->wr_flags = IBV_SEND_SIGNALED;
 ibv_wr_rdma_write_imm(qpx, rkey, remote_addr_2, htonl(0x1234));
 ibv_set_wr_sge(qpx, lkey, local_addr_2, length_2);
 
