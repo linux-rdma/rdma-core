@@ -197,11 +197,6 @@ Copyright: 2004-2005, Topspin Communications.
            2005, Mellanox Technologies Ltd.
 License: BSD-MIT or GPL-2
 
-Files: providers/nes/*
-Copyright: 2006-2010, Intel Corporation.
-           2006, Open Grid Computing, Inc.
-License: BSD-MIT or GPL-2
-
 Files: providers/ocrdma/*
 Copyright: 2008-2013, Emulex.
 License: BSD-2-clause or GPL-2
