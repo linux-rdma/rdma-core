@@ -402,6 +402,49 @@ static int is_enabled_by_rules_file(struct target_details *target)
 }
 
 
+static bool use_imm_data(void)
+{
+	bool ret = false;
+	char flag = 0;
+	int cnt;
+	int fd = open("/sys/module/ib_srp/parameters/use_imm_data", O_RDONLY);
+
+	if (fd < 0)
+		return false;
+	cnt = read(fd, &flag, 1);
+	if (cnt != 1) {
+		close(fd);
+		return false;
+	}
+
+	if (!strncmp(&flag, "Y", 1))
+		ret = true;
+	close(fd);
+	return ret;
+}
+
+static bool imm_data_size_gt_send_size(unsigned int send_size)
+{
+	bool ret = false;
+	unsigned int srp_max_imm_data = 0;
+	FILE *fp = fopen("/sys/module/ib_srp/parameters/max_imm_data", "r");
+	int cnt;
+
+	if (fp == NULL)
+		return ret;
+
+	cnt = fscanf(fp, "%d", &srp_max_imm_data);
+	if (cnt <= 0) {
+		fclose(fp);
+		return ret;
+	}
+
+	if (srp_max_imm_data > send_size)
+		ret = true;
+
+	fclose(fp);
+	return ret;
+}
 
 static int add_non_exist_target(struct target_details *target)
 {
@@ -414,6 +457,7 @@ static int add_non_exist_target(struct target_details *target)
 	char target_config_str[255];
 	int len;
 	int not_connected = 1;
+	unsigned int send_size;
 
 	pr_debug("Found an SRP target with id_ext %s - check if it is already connected\n", target->id_ext);
 
@@ -573,6 +617,25 @@ static int add_non_exist_target(struct target_details *target)
 				sizeof(target_config_str) - len,
 				"%s",
 				target->options);
+
+		if (len >= sizeof(target_config_str)) {
+			pr_err("Target config string is too long, ignoring target\n");
+			closedir(dir);
+			return -1;
+		}
+	}
+
+	/*
+	 * The SRP initiator stops parsing parameters if it encounters
+	 * an unrecognized parameter. Rest parameters will be ignored.
+	 * Append 'max_it_iu_size' in the very end of login string to
+	 * avoid breaking SRP login.
+	 */
+	send_size = be32toh(target->ioc_prof.send_size);
+	if (use_imm_data() && imm_data_size_gt_send_size(send_size)) {
+		len += snprintf(target_config_str+len,
+			sizeof(target_config_str) - len,
+			",max_it_iu_size=%d", send_size);
 
 		if (len >= sizeof(target_config_str)) {
 			pr_err("Target config string is too long, ignoring target\n");
