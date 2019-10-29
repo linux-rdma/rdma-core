@@ -337,8 +337,14 @@ Depends: rdma-core (>= 21),
          ${python3:Depends},
          ${shlibs:Depends}
 Provides: ${python3:Provides}
-Description: Pyverbs is a Python bindings for rdma-core
- It allows an easy development in Python language of RDMA applications.
+Description: Python bindings for rdma-core
+ Pyverbs provides a Python API over rdma-core, the Linux userspace C API for
+ the remote direct memory access (RDMA) stack.
+ .
+ One goal is to provide easier access to RDMA: RDMA has a steep learning curve
+ as is and the C interface requires the user to initialize multiple structs
+ before having usable objects. Pyverbs attempts to remove much of this overhead
+ and provide a smoother user experience.
 
 Package: infiniband-diags
 Architecture: linux-any
