@@ -61,7 +61,7 @@ BuildRequires: make
 %define cmake_install DESTDIR=%{buildroot} make install
 %endif
 
-%if 0%{?fedora} >= 25
+%if 0%{?fedora} >= 25 || 0%{?rhel} >= 7
 # pandoc was introduced in FC25
 BuildRequires: pandoc
 %endif
