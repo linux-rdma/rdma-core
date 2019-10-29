@@ -1,3 +1,11 @@
+rdma-core (26.0-2) unstable; urgency=medium
+
+  * Improve/extent description of python3-pyverbs
+  * Bump Standards-Version to 4.4.1 (no changes required)
+  * Add Rules-Requires-Root: no
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Tue, 29 Oct 2019 13:22:15 +0100
+
 rdma-core (26.0-1) unstable; urgency=medium
 
   * New upstream release.
