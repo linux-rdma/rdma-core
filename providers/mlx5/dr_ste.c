@@ -566,7 +566,7 @@ bool dr_ste_not_used_ste(struct dr_ste *ste)
 	return !atomic_load(&ste->refcount);
 }
 
-static inline uint16_t get_bits_per_mask(uint16_t byte_mask)
+static uint16_t get_bits_per_mask(uint16_t byte_mask)
 {
 	uint16_t bits = 0;
 

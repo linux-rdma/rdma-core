@@ -54,12 +54,12 @@ struct dr_qp_init_attr {
 	struct ibv_qp_cap	cap;
 };
 
-static inline void *dr_cq_get_cqe(struct dr_cq *dr_cq, int n)
+static void *dr_cq_get_cqe(struct dr_cq *dr_cq, int n)
 {
 	return dr_cq->buf + n * dr_cq->cqe_sz;
 }
 
-static inline void *dr_cq_get_sw_cqe(struct dr_cq *dr_cq, int n)
+static void *dr_cq_get_sw_cqe(struct dr_cq *dr_cq, int n)
 {
 	void *cqe = dr_cq_get_cqe(dr_cq, n & (dr_cq->ncqe - 1));
 	struct mlx5_cqe64 *cqe64;
@@ -74,8 +74,8 @@ static inline void *dr_cq_get_sw_cqe(struct dr_cq *dr_cq, int n)
 		return NULL;
 }
 
-static inline int dr_get_next_cqe(struct dr_cq *dr_cq,
-				  struct mlx5_cqe64 **pcqe64)
+static int dr_get_next_cqe(struct dr_cq *dr_cq,
+			   struct mlx5_cqe64 **pcqe64)
 {
 	struct mlx5_cqe64 *cqe64;
 
@@ -95,7 +95,7 @@ static inline int dr_get_next_cqe(struct dr_cq *dr_cq,
 	return CQ_OK;
 }
 
-static inline int dr_parse_cqe(struct dr_cq *dr_cq, struct mlx5_cqe64 *cqe64)
+static int dr_parse_cqe(struct dr_cq *dr_cq, struct mlx5_cqe64 *cqe64)
 {
 	uint16_t wqe_ctr;
 	uint8_t opcode;
@@ -118,7 +118,7 @@ static inline int dr_parse_cqe(struct dr_cq *dr_cq, struct mlx5_cqe64 *cqe64)
 	return CQ_POLL_ERR;
 }
 
-static inline int dr_cq_poll_one(struct dr_cq *dr_cq)
+static int dr_cq_poll_one(struct dr_cq *dr_cq)
 {
 	struct mlx5_cqe64 *cqe64;
 	int err;
@@ -371,15 +371,15 @@ static int dr_destroy_qp(struct dr_qp *dr_qp)
 	return 0;
 }
 
-static inline void dr_set_raddr_seg(struct mlx5_wqe_raddr_seg *rseg,
-				    uint64_t remote_addr, uint32_t rkey)
+static void dr_set_raddr_seg(struct mlx5_wqe_raddr_seg *rseg,
+			     uint64_t remote_addr, uint32_t rkey)
 {
 	rseg->raddr    = htobe64(remote_addr);
 	rseg->rkey     = htobe32(rkey);
 	rseg->reserved = 0;
 }
 
-static inline void dr_post_send_db(struct dr_qp *dr_qp, int size, void *ctrl)
+static void dr_post_send_db(struct dr_qp *dr_qp, int size, void *ctrl)
 {
 	dr_qp->sq.head += 2; /* RDMA_WRITE + RDMA_READ */
 
@@ -406,9 +406,9 @@ static void dr_set_data_ptr_seg(struct mlx5_wqe_data_seg *dseg,
 	dseg->addr       = htobe64(data_seg->addr);
 }
 
-static inline int dr_set_data_inl_seg(struct dr_qp *dr_qp,
-				      struct dr_data_seg *data_seg,
-				      void *wqe, uint32_t opcode, int *sz)
+static int dr_set_data_inl_seg(struct dr_qp *dr_qp,
+			       struct dr_data_seg *data_seg,
+			       void *wqe, uint32_t opcode, int *sz)
 {
 	struct mlx5_wqe_inline_seg *seg;
 	void *qend = dr_qp->sq.qend;

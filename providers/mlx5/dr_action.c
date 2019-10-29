@@ -373,10 +373,10 @@ dr_action_reformat_to_action_type(enum mlx5dv_flow_action_packet_reformat_type t
 	}
 }
 
-static inline void dr_actions_init_next_ste(uint8_t **last_ste,
-					    uint32_t *added_stes,
-					    enum dr_ste_entry_type entry_type,
-					    uint16_t gvmi)
+static void dr_actions_init_next_ste(uint8_t **last_ste,
+				     uint32_t *added_stes,
+				     enum dr_ste_entry_type entry_type,
+				     uint16_t gvmi)
 {
 	(*added_stes)++;
 	*last_ste += DR_STE_SIZE;
@@ -504,10 +504,10 @@ dr_action_get_action_domain(enum mlx5dv_dr_domain_type domain,
 	}
 }
 
-static inline
-int dr_action_validate_and_get_next_state(enum dr_action_domain action_domain,
-					  uint32_t action_type,
-					  uint32_t *state)
+static int
+dr_action_validate_and_get_next_state(enum dr_action_domain action_domain,
+				      uint32_t action_type,
+				      uint32_t *state)
 {
 	uint32_t cur_state = *state;
 
