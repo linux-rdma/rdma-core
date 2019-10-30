@@ -373,10 +373,10 @@ dr_action_reformat_to_action_type(enum mlx5dv_flow_action_packet_reformat_type t
 	}
 }
 
-static inline void dr_actions_init_next_ste(uint8_t **last_ste,
-					    uint32_t *added_stes,
-					    enum dr_ste_entry_type entry_type,
-					    uint16_t gvmi)
+static void dr_actions_init_next_ste(uint8_t **last_ste,
+				     uint32_t *added_stes,
+				     enum dr_ste_entry_type entry_type,
+				     uint16_t gvmi)
 {
 	(*added_stes)++;
 	*last_ste += DR_STE_SIZE;
@@ -504,10 +504,10 @@ dr_action_get_action_domain(enum mlx5dv_dr_domain_type domain,
 	}
 }
 
-static inline
-int dr_action_validate_and_get_next_state(enum dr_action_domain action_domain,
-					  uint32_t action_type,
-					  uint32_t *state)
+static int
+dr_action_validate_and_get_next_state(enum dr_action_domain action_domain,
+				      uint32_t action_type,
+				      uint32_t *state)
 {
 	uint32_t cur_state = *state;
 
@@ -582,7 +582,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			break;
 		case DR_ACTION_TYP_CTR:
 			attr.ctr_id = action->ctr.devx_obj->object_id +
-				action->ctr.offeset;
+				action->ctr.offset;
 			break;
 		case DR_ACTION_TYP_TAG:
 			attr.flow_tag = action->flow_tag;
@@ -886,7 +886,7 @@ dec_ref:
 
 struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_flow_counter(struct mlx5dv_devx_obj *devx_obj,
-				     uint32_t offeset)
+				     uint32_t offset)
 {
 	struct mlx5dv_dr_action *action;
 
@@ -900,7 +900,7 @@ mlx5dv_dr_action_create_flow_counter(struct mlx5dv_devx_obj *devx_obj,
 		return NULL;
 
 	action->ctr.devx_obj = devx_obj;
-	action->ctr.offeset = offeset;
+	action->ctr.offset = offset;
 
 	return action;
 }

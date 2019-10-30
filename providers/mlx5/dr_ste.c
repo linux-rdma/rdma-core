@@ -566,7 +566,7 @@ bool dr_ste_not_used_ste(struct dr_ste *ste)
 	return !atomic_load(&ste->refcount);
 }
 
-static inline uint16_t get_bits_per_mask(uint16_t byte_mask)
+static uint16_t get_bits_per_mask(uint16_t byte_mask)
 {
 	uint16_t bits = 0;
 
@@ -2125,68 +2125,109 @@ void dr_ste_build_eth_l4_misc(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_build_eth_l4_misc_tag;
 }
 
-static void dr_ste_build_flex_parser_tnl_bit_mask(struct dr_match_param *value,
-						  bool inner, uint8_t *bit_mask)
+static void
+dr_ste_build_flex_parser_tnl_vxlan_gpe_bit_mask(struct dr_match_param *value,
+						bool inner, uint8_t *bit_mask)
 {
 	struct dr_match_misc3 *misc_3_mask = &value->misc3;
 
-	if (misc_3_mask->outer_vxlan_gpe_flags ||
-	    misc_3_mask->outer_vxlan_gpe_next_protocol) {
-		DR_STE_SET(flex_parser_tnl, bit_mask,
-			   flex_parser_tunneling_header_63_32,
-			   (misc_3_mask->outer_vxlan_gpe_flags << 24) |
-			   (misc_3_mask->outer_vxlan_gpe_next_protocol));
-		misc_3_mask->outer_vxlan_gpe_flags = 0;
-		misc_3_mask->outer_vxlan_gpe_next_protocol = 0;
-	}
-
-	if (misc_3_mask->outer_vxlan_gpe_vni) {
-		DR_STE_SET(flex_parser_tnl, bit_mask,
-			   flex_parser_tunneling_header_31_0,
-			   misc_3_mask->outer_vxlan_gpe_vni << 8);
-		misc_3_mask->outer_vxlan_gpe_vni = 0;
-	}
+	DR_STE_SET_MASK_V(flex_parser_tnl_vxlan_gpe, bit_mask,
+			  outer_vxlan_gpe_flags,
+			  misc_3_mask, outer_vxlan_gpe_flags);
+	DR_STE_SET_MASK_V(flex_parser_tnl_vxlan_gpe, bit_mask,
+			  outer_vxlan_gpe_next_protocol,
+			  misc_3_mask, outer_vxlan_gpe_next_protocol);
+	DR_STE_SET_MASK_V(flex_parser_tnl_vxlan_gpe, bit_mask,
+			  outer_vxlan_gpe_vni,
+			  misc_3_mask, outer_vxlan_gpe_vni);
 }
 
-static int dr_ste_build_flex_parser_tnl_tag(struct dr_match_param *value,
-					    struct dr_ste_build *sb,
-					    uint8_t *hw_ste_p)
+static int
+dr_ste_build_flex_parser_tnl_vxlan_gpe_tag(struct dr_match_param *value,
+					   struct dr_ste_build *sb,
+					   uint8_t *hw_ste_p)
 {
 	struct dr_hw_ste_format *hw_ste = (struct dr_hw_ste_format *)hw_ste_p;
 	struct dr_match_misc3 *misc3 = &value->misc3;
 	uint8_t *tag = hw_ste->tag;
 
-	if (misc3->outer_vxlan_gpe_flags ||
-	    misc3->outer_vxlan_gpe_next_protocol) {
-		DR_STE_SET(flex_parser_tnl, tag,
-			   flex_parser_tunneling_header_63_32,
-			   (misc3->outer_vxlan_gpe_flags << 24) |
-			   (misc3->outer_vxlan_gpe_next_protocol));
-		misc3->outer_vxlan_gpe_flags = 0;
-		misc3->outer_vxlan_gpe_next_protocol = 0;
-	}
-
-	if (misc3->outer_vxlan_gpe_vni) {
-		DR_STE_SET(flex_parser_tnl, tag,
-			   flex_parser_tunneling_header_31_0,
-			   misc3->outer_vxlan_gpe_vni << 8);
-		misc3->outer_vxlan_gpe_vni = 0;
-	}
+	DR_STE_SET_TAG(flex_parser_tnl_vxlan_gpe, tag,
+		       outer_vxlan_gpe_flags, misc3,
+		       outer_vxlan_gpe_flags);
+	DR_STE_SET_TAG(flex_parser_tnl_vxlan_gpe, tag,
+		       outer_vxlan_gpe_next_protocol, misc3,
+		       outer_vxlan_gpe_next_protocol);
+	DR_STE_SET_TAG(flex_parser_tnl_vxlan_gpe, tag,
+		       outer_vxlan_gpe_vni, misc3,
+		       outer_vxlan_gpe_vni);
 
 	return 0;
 }
 
-void dr_ste_build_flex_parser_tnl(struct dr_ste_build *sb,
-				  struct dr_match_param *mask,
-				  bool inner, bool rx)
+void dr_ste_build_flex_parser_tnl_vxlan_gpe(struct dr_ste_build *sb,
+					    struct dr_match_param *mask,
+					    bool inner, bool rx)
 {
-	dr_ste_build_flex_parser_tnl_bit_mask(mask, inner, sb->bit_mask);
-
+	dr_ste_build_flex_parser_tnl_vxlan_gpe_bit_mask(mask, inner,
+							sb->bit_mask);
 	sb->rx = rx;
 	sb->inner = inner;
 	sb->lu_type = DR_STE_LU_TYPE_FLEX_PARSER_TNL_HEADER;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
-	sb->ste_build_tag_func = &dr_ste_build_flex_parser_tnl_tag;
+	sb->ste_build_tag_func = &dr_ste_build_flex_parser_tnl_vxlan_gpe_tag;
+}
+
+static void
+dr_ste_build_flex_parser_tnl_geneve_bit_mask(struct dr_match_param *value,
+					     uint8_t *bit_mask)
+{
+	struct dr_match_misc *misc_mask = &value->misc;
+
+	DR_STE_SET_MASK_V(flex_parser_tnl_geneve, bit_mask,
+			  geneve_protocol_type,
+			  misc_mask, geneve_protocol_type);
+	DR_STE_SET_MASK_V(flex_parser_tnl_geneve, bit_mask,
+			  geneve_oam,
+			  misc_mask, geneve_oam);
+	DR_STE_SET_MASK_V(flex_parser_tnl_geneve, bit_mask,
+			  geneve_opt_len,
+			  misc_mask, geneve_opt_len);
+	DR_STE_SET_MASK_V(flex_parser_tnl_geneve, bit_mask,
+			  geneve_vni,
+			  misc_mask, geneve_vni);
+}
+
+static int
+dr_ste_build_flex_parser_tnl_geneve_tag(struct dr_match_param *value,
+					struct dr_ste_build *sb,
+					uint8_t *hw_ste_p)
+{
+	struct dr_hw_ste_format *hw_ste = (struct dr_hw_ste_format *)hw_ste_p;
+	struct dr_match_misc *misc = &value->misc;
+	uint8_t *tag = hw_ste->tag;
+
+	DR_STE_SET_TAG(flex_parser_tnl_geneve, tag,
+		       geneve_protocol_type, misc, geneve_protocol_type);
+	DR_STE_SET_TAG(flex_parser_tnl_geneve, tag,
+		       geneve_oam, misc, geneve_oam);
+	DR_STE_SET_TAG(flex_parser_tnl_geneve, tag,
+		       geneve_opt_len, misc, geneve_opt_len);
+	DR_STE_SET_TAG(flex_parser_tnl_geneve, tag,
+		       geneve_vni, misc, geneve_vni);
+
+	return 0;
+}
+
+void dr_ste_build_flex_parser_tnl_geneve(struct dr_ste_build *sb,
+					 struct dr_match_param *mask,
+					 bool inner, bool rx)
+{
+	dr_ste_build_flex_parser_tnl_geneve_bit_mask(mask, sb->bit_mask);
+	sb->rx = rx;
+	sb->inner = inner;
+	sb->lu_type = DR_STE_LU_TYPE_FLEX_PARSER_TNL_HEADER;
+	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
+	sb->ste_build_tag_func = &dr_ste_build_flex_parser_tnl_geneve_tag;
 }
 
 static void dr_ste_build_register_0_bit_mask(struct dr_match_param *value,

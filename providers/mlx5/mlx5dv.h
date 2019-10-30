@@ -1467,7 +1467,7 @@ struct mlx5dv_dr_action *mlx5dv_dr_action_create_tag(uint32_t tag_value);
 
 struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_flow_counter(struct mlx5dv_devx_obj *devx_obj,
-				     uint32_t offeset);
+				     uint32_t offset);
 
 struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_packet_reformat(struct mlx5dv_dr_domain *domain,

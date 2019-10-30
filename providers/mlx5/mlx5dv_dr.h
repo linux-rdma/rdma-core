@@ -399,9 +399,12 @@ int dr_ste_build_flex_parser_1(struct dr_ste_build *sb,
 			       struct dr_match_param *mask,
 			       struct dr_devx_caps *caps,
 			       bool inner, bool rx);
-void dr_ste_build_flex_parser_tnl(struct dr_ste_build *sb,
-				  struct dr_match_param *mask,
-				  bool inner, bool rx);
+void dr_ste_build_flex_parser_tnl_vxlan_gpe(struct dr_ste_build *sb,
+					    struct dr_match_param *mask,
+					    bool inner, bool rx);
+void dr_ste_build_flex_parser_tnl_geneve(struct dr_ste_build *sb,
+					 struct dr_match_param *mask,
+					 bool inner, bool rx);
 void dr_ste_build_general_purpose(struct dr_ste_build *sb,
 				  struct dr_match_param *mask,
 				  bool inner, bool rx);
@@ -708,7 +711,7 @@ struct mlx5dv_dr_action {
 		struct mlx5dv_dr_table	*dest_tbl;
 		struct {
 			struct mlx5dv_devx_obj	*devx_obj;
-			uint32_t		offeset;
+			uint32_t		offset;
 		} ctr;
 		struct {
 			struct mlx5dv_dr_domain		*dmn;

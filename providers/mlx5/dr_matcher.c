@@ -38,58 +38,58 @@
 #define DR_MASK_IP_VERSION_IPV4       0x4
 #define DR_MASK_IP_VERSION_IPV6       0x6
 
-static inline bool dr_mask_is_smac_set(struct dr_match_spec *spec)
+static bool dr_mask_is_smac_set(struct dr_match_spec *spec)
 {
 	return (spec->smac_47_16 || spec->smac_15_0);
 }
 
-static inline bool dr_mask_is_dmac_set(struct dr_match_spec *spec)
+static bool dr_mask_is_dmac_set(struct dr_match_spec *spec)
 {
 	return (spec->dmac_47_16 || spec->dmac_15_0);
 }
 
-static inline bool dr_mask_is_src_addr_set(struct dr_match_spec *spec)
+static bool dr_mask_is_src_addr_set(struct dr_match_spec *spec)
 {
 	return (spec->src_ip_127_96 || spec->src_ip_95_64 ||
 		spec->src_ip_63_32 || spec->src_ip_31_0);
 }
 
-static inline bool dr_mask_is_dst_addr_set(struct dr_match_spec *spec)
+static bool dr_mask_is_dst_addr_set(struct dr_match_spec *spec)
 {
 	return (spec->dst_ip_127_96 || spec->dst_ip_95_64 ||
 		spec->dst_ip_63_32 || spec->dst_ip_31_0);
 }
 
-static inline bool dr_mask_is_l3_base_set(struct dr_match_spec *spec)
+static bool dr_mask_is_l3_base_set(struct dr_match_spec *spec)
 {
 	return (spec->ip_protocol || spec->frag || spec->tcp_flags ||
 		spec->ip_ecn || spec->ip_dscp);
 }
 
-static inline bool dr_mask_is_tcp_udp_base_set(struct dr_match_spec *spec)
+static bool dr_mask_is_tcp_udp_base_set(struct dr_match_spec *spec)
 {
 	return (spec->tcp_sport || spec->tcp_dport ||
 		spec->udp_sport || spec->udp_dport);
 }
 
-static inline bool dr_mask_is_ipv4_set(struct dr_match_spec *spec)
+static bool dr_mask_is_ipv4_set(struct dr_match_spec *spec)
 {
 	return (spec->dst_ip_31_0 || spec->src_ip_31_0);
 }
 
-static inline bool dr_mask_is_ipv4_5_tuple_set(struct dr_match_spec *spec)
+static bool dr_mask_is_ipv4_5_tuple_set(struct dr_match_spec *spec)
 {
 	return (dr_mask_is_l3_base_set(spec) ||
 		dr_mask_is_tcp_udp_base_set(spec) ||
 		dr_mask_is_ipv4_set(spec));
 }
 
-static inline bool dr_mask_is_eth_l2_tnl_set(struct dr_match_misc *misc)
+static bool dr_mask_is_eth_l2_tnl_set(struct dr_match_misc *misc)
 {
 	return misc->vxlan_vni;
 }
 
-static inline bool dr_mask_is_ttl_set(struct dr_match_spec *spec)
+static bool dr_mask_is_ttl_set(struct dr_match_spec *spec)
 {
 	return spec->ip_ttl_hoplimit;
 }
@@ -120,7 +120,7 @@ static inline bool dr_mask_is_ttl_set(struct dr_match_spec *spec)
 	(_misc2)._inner_outer##_first_mpls_s_bos || \
 	(_misc2)._inner_outer##_first_mpls_ttl)
 
-static inline bool dr_mask_is_gre_set(struct dr_match_misc *misc)
+static bool dr_mask_is_gre_set(struct dr_match_misc *misc)
 {
 	return (misc->gre_key_h || misc->gre_key_l ||
 		misc->gre_protocol || misc->gre_c_present ||
@@ -137,46 +137,78 @@ static inline bool dr_mask_is_gre_set(struct dr_match_misc *misc)
 	DR_MASK_IS_OUTER_MPLS_OVER_GRE_UDP_SET(_misc2, gre) || \
 	DR_MASK_IS_OUTER_MPLS_OVER_GRE_UDP_SET(_misc2, udp))
 
-static inline bool dr_mask_is_flex_parser_tnl_set(struct dr_match_misc3 *misc3)
+static bool
+dr_mask_is_misc3_vxlan_gpe_set(struct dr_match_misc3 *misc3)
 {
-	return 	(misc3->outer_vxlan_gpe_vni ||
-		 misc3->outer_vxlan_gpe_next_protocol ||
-		 misc3->outer_vxlan_gpe_flags);
+	return misc3->outer_vxlan_gpe_vni ||
+	       misc3->outer_vxlan_gpe_next_protocol ||
+	       misc3->outer_vxlan_gpe_flags;
 }
 
-static inline bool dr_mask_is_flex_parser_icmpv6_set(struct dr_match_misc3 *misc3)
+static bool
+dr_matcher_supp_flex_parser_vxlan_gpe(struct dr_devx_caps *caps)
+{
+	return caps->flex_protocols &
+	       MLX5_FLEX_PARSER_VXLAN_GPE_ENABLED;
+}
+
+static bool
+dr_mask_is_flex_parser_tnl_vxlan_gpe_set(struct dr_match_param *mask,
+					 struct mlx5dv_dr_domain *dmn)
+{
+	return dr_mask_is_misc3_vxlan_gpe_set(&mask->misc3) &&
+	       dr_matcher_supp_flex_parser_vxlan_gpe(&dmn->info.caps);
+}
+
+static bool dr_mask_is_misc_geneve_set(struct dr_match_misc *misc)
+{
+	return misc->geneve_vni ||
+	       misc->geneve_oam ||
+	       misc->geneve_protocol_type ||
+	       misc->geneve_opt_len;
+}
+
+static bool
+dr_matcher_supp_flex_parser_geneve(struct dr_devx_caps *caps)
+{
+	return caps->flex_protocols &
+	       MLX5_FLEX_PARSER_GENEVE_ENABLED;
+}
+
+static bool
+dr_mask_is_flex_parser_tnl_geneve_set(struct dr_match_param *mask,
+				      struct mlx5dv_dr_domain *dmn)
+{
+	return dr_mask_is_misc_geneve_set(&mask->misc) &&
+	       dr_matcher_supp_flex_parser_geneve(&dmn->info.caps);
+}
+
+static bool dr_mask_is_flex_parser_icmpv6_set(struct dr_match_misc3 *misc3)
 {
 	return (misc3->icmpv6_type || misc3->icmpv6_code ||
 		misc3->icmpv6_header_data);
 }
 
-static inline bool dr_mask_is_wqe_metadata_set(struct dr_match_misc2 *misc2)
+static bool dr_mask_is_wqe_metadata_set(struct dr_match_misc2 *misc2)
 {
 	return misc2->metadata_reg_a;
 }
 
-static inline bool dr_mask_is_reg_c_0_3_set(struct dr_match_misc2 *misc2)
+static bool dr_mask_is_reg_c_0_3_set(struct dr_match_misc2 *misc2)
 {
 	return (misc2->metadata_reg_c_0 || misc2->metadata_reg_c_1 ||
 		misc2->metadata_reg_c_2 || misc2->metadata_reg_c_3);
 }
 
-static inline bool dr_mask_is_reg_c_4_7_set(struct dr_match_misc2 *misc2)
+static bool dr_mask_is_reg_c_4_7_set(struct dr_match_misc2 *misc2)
 {
 	return (misc2->metadata_reg_c_4 || misc2->metadata_reg_c_5 ||
 		misc2->metadata_reg_c_6 || misc2->metadata_reg_c_7);
 }
 
-static inline bool dr_mask_is_gvmi_or_qpn_set(struct dr_match_misc *misc)
+static bool dr_mask_is_gvmi_or_qpn_set(struct dr_match_misc *misc)
 {
 	return (misc->source_sqn || misc->source_port);
-}
-
-static inline bool
-dr_matcher_supp_flex_parser_vxlan_gpe(struct mlx5dv_dr_domain *dmn)
-{
-	return dmn->info.caps.flex_protocols &
-	       MLX5_FLEX_PARSER_VXLAN_GPE_ENABLED;
 }
 
 static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
@@ -278,9 +310,12 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 							inner, rx);
 		}
 
-		if (dr_mask_is_flex_parser_tnl_set(&mask.misc3) &&
-		    dr_matcher_supp_flex_parser_vxlan_gpe(dmn))
-			dr_ste_build_flex_parser_tnl(&sb[idx++], &mask, inner, rx);
+		if (dr_mask_is_flex_parser_tnl_vxlan_gpe_set(&mask, dmn))
+			dr_ste_build_flex_parser_tnl_vxlan_gpe(&sb[idx++], &mask,
+							       inner, rx);
+		else if (dr_mask_is_flex_parser_tnl_geneve_set(&mask, dmn))
+			dr_ste_build_flex_parser_tnl_geneve(&sb[idx++], &mask,
+							    inner, rx);
 
 		if (DR_MASK_IS_ETH_L4_MISC_SET(mask.misc3, outer))
 			dr_ste_build_eth_l4_misc(&sb[idx++], &mask, inner, rx);
