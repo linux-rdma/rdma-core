@@ -6,16 +6,10 @@ from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.device cimport DM
 from .pd cimport PD
 import resource
-
-cdef extern from 'stdlib.h':
-    int posix_memalign(void **memptr, size_t alignment, size_t size)
-cdef extern from 'stdlib.h':
-    void free(void *ptr)
-cdef extern from 'string.h':
-    void *memcpy(void *dest, const void *src, size_t n)
-    void *memset(void *s, int c, size_t n)
-cdef extern from 'stdint.h':
-    ctypedef int uintptr_t
+from posix.stdlib cimport posix_memalign
+from libc.stdlib cimport free
+from libc.string cimport memcpy, memset
+from libc.stdint cimport uintptr_t
 
 
 cdef class MR(PyverbsCM):

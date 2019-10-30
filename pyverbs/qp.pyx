@@ -14,10 +14,8 @@ cimport pyverbs.libibverbs as v
 from pyverbs.xrcd cimport XRCD
 from pyverbs.srq cimport SRQ
 from pyverbs.pd cimport PD
+from libc.string cimport memcpy
 
-
-cdef extern from 'string.h':
-    void *memcpy(void *dest, const void *src, size_t n);
 
 cdef class QPCap(PyverbsObject):
     def __cinit__(self, max_send_wr=1, max_recv_wr=10, max_send_sge=1,

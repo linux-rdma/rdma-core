@@ -19,19 +19,13 @@ from pyverbs.addr cimport GID
 from pyverbs.mr import DMMR
 from pyverbs.pd cimport PD
 from pyverbs.qp cimport QP
+from libc.errno cimport errno
+from libc.stdlib cimport free, malloc
+from libc.string cimport memset
+from libc.stdint cimport uint64_t
 
-cdef extern from 'errno.h':
-    int errno
 cdef extern from 'endian.h':
     unsigned long be64toh(unsigned long host_64bits);
-cdef extern from 'stdlib.h':
-    void free(void *ptr)
-cdef extern from 'string.h':
-    void *memset(void *s, int c, size_t n)
-cdef extern from 'stdlib.h':
-    void *malloc(size_t size)
-cdef extern from 'stdint.h':
-    ctypedef int uint64_t
 
 
 class Device(PyverbsObject):
