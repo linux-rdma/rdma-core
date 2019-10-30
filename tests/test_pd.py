@@ -48,8 +48,7 @@ class PDTest(PyverbsAPITestCase):
         try:
             PD(None)
         except TypeError as te:
-            assert 'expected pyverbs.device.Context' in te.args[0]
-            assert 'got NoneType' in te.args[0]
+            assert 'must not be None' in te.args[0]
         else:
             raise PyverbsRDMAErrno('Created a PD with None context')
 
