@@ -491,7 +491,6 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 	uint32_t qpn;
 	int is_send;
 	uint16_t wqe_ctr;
-	uint32_t local_qpn;
 	struct hns_roce_wq *wq = NULL;
 	struct hns_roce_v2_cqe *cqe;
 	struct hns_roce_srq *srq;
@@ -514,12 +513,9 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 	is_send = (roce_get_bit(cqe->byte_4, CQE_BYTE_4_S_R_S) ==
 		   HNS_ROCE_V2_CQE_IS_SQ);
 
-	local_qpn = roce_get_field(cqe->byte_16, CQE_BYTE_16_LCL_QPN_M,
-				   CQE_BYTE_16_LCL_QPN_S);
-
 	/* if qp is zero, it will not get the correct qpn */
 	if (!*cur_qp ||
-	   (local_qpn & HNS_ROCE_V2_CQE_QPN_MASK) != (*cur_qp)->ibv_qp.qp_num) {
+	   (qpn & HNS_ROCE_V2_CQE_QPN_MASK) != (*cur_qp)->ibv_qp.qp_num) {
 
 		*cur_qp = hns_roce_v2_find_qp(to_hr_ctx(cq->ibv_cq.context),
 					      qpn & 0xffffff);
