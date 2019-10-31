@@ -10,7 +10,7 @@ Branched stable releases, off a mainline release, are on as-needed basis and lim
 
 All bug fixes are to be backported from mainline and applied by stable branch maintainer.
 
-Branched stable releases will append an additional release number (e.g. 15.1) and will ensure that Travis CI reports a successful build.
+Branched stable releases will append an additional release number (e.g. 15.1) and will ensure that Azure Pipelines CI reports a successful build.
 
 Regular stable releases will be generated at the same time as mainline releases.
 Additional stable releases can be generated if the need arise (Needed by distributions or OFED).
@@ -73,17 +73,17 @@ so that latters patches/fixes can be checked against this reference.
 
 To do that, the creator of the branch should run
 ```
-./buildlib/cbuild build-images travis
+./buildlib/cbuild build-images azp
 mkdir ABI
 touch ABI/.gitignore
 git add ABI/.gitignore
 git commit -m "ABI Files"
-./buildlib/cbuild pkg travis
+./buildlib/cbuild pkg azp
 git add ABI/*
 git commit --amend
 ```
 
-'cbuild pkg travis' will fail as the ABI verification step files, but it will
+'cbuild pkg azp' will fail as the ABI verification step files, but it will
 produce the ABI reference files.
 
 Note that the ABI directory must NOT be committed at any point in the master branch.
