@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/linux-rdma/rdma-core.svg?branch=master)](https://travis-ci.org/linux-rdma/rdma-core)
+[![Build Status](https://dev.azure.com/ucfconsort/rdma-core/_apis/build/status/linux-rdma.rdma-core?branchName=master)](https://dev.azure.com/ucfconsort/rdma-core/_build/latest?definitionId=2&branchName=master)
 
 # RDMA Core Userspace Libraries and Daemons
 
@@ -137,13 +137,13 @@ Make sure that your contribution can be licensed under the same
 license as the original code you are patching, and that you have all
 necessary permissions to release your work.
 
-## TravisCI
+## Azure Pipelines CI
 
-Submitted patches must pass the TravisCI automatic builds without warnings.
-A build similar to TravisCI can be run locally using docker and the
+Submitted patches must pass the Azure Pipelines CI automatic builds without
+warnings.  A build similar to AZP can be run locally using docker and the
 'buildlib/cbuild' script.
 
 ```sh
-$ buildlib/cbuild build-images travis
-$ buildlib/cbuild pkg travis
+$ buildlib/cbuild build-images azp
+$ buildlib/cbuild pkg azp
 ```
