@@ -171,16 +171,39 @@ class centos7_epel(centos7):
         res.lines.append("RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake && ln -sf /usr/bin/python3.4 /usr/bin/python3");
         return res;
 
-class fc30(Environment):
-    docker_parent = "fedora:30";
-    pkgs = (centos7.pkgs - {"make", "python-argparse" }) | {
-        "ninja-build",
+class centos8(Environment):
+    docker_parent = "centos:8";
+    pkgs = {
         "pandoc",
         "perl-generators",
-        "python3-docutils",
         "python3-Cython",
         "python3-devel",
+        "python3-docutils",
+        'cmake',
+        'gcc',
+        'libnl3-devel',
+        'libudev-devel',
+        'ninja-build',
+        'pkgconfig',
+        'rpm-build',
+        'systemd-devel',
+        'valgrind-devel',
     };
+    name = "centos8";
+    specfile = "redhat/rdma-core.spec";
+    is_rpm = True;
+    to_azp = True;
+    proxy = False;
+
+    def get_docker_file(self,tmpdir):
+        res = DockerFile(self.docker_parent);
+        res.lines.append("RUN dnf install --enablerepo=PowerTools -y %s && dnf clean all"%(
+            " ".join(sorted(self.pkgs))));
+        return res;
+
+class fc30(Environment):
+    docker_parent = "fedora:30";
+    pkgs = centos8.pkgs
     name = "fc30";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
@@ -427,6 +450,7 @@ deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ bionic-updates main universe""
 environments = [centos6(),
                 centos7(),
                 centos7_epel(),
+                centos8(),
                 xenial(),
                 bionic(),
                 jessie(),
