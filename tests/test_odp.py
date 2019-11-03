@@ -1,6 +1,7 @@
 from pyverbs.mem_alloc import mmap, munmap, MAP_ANONYMOUS_, MAP_PRIVATE_, \
-    MAP_HUGETLB_, MAP_FIXED_
-from tests.utils import requires_odp, requires_huge_pages, traffic, xrc_traffic
+    MAP_HUGETLB_
+from tests.utils import requires_odp, requires_huge_pages, traffic, \
+    xrc_traffic, create_custom_mr
 from tests.base import RCResources, UDResources, XRCResources
 from tests.base import RDMATestCase
 from pyverbs.mr import MR
@@ -13,8 +14,8 @@ HUGE_PAGE_SIZE = 0x200000
 class OdpUD(UDResources):
     @requires_odp('ud')
     def create_mr(self):
-        self.mr = MR(self.pd, self.msg_size + self.GRH_SIZE,
-                     e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_ON_DEMAND)
+        self.mr = create_custom_mr(self, e.IBV_ACCESS_ON_DEMAND,
+                                   self.msg_size + self.GRH_SIZE)
 
 
 class OdpRC(RCResources):
@@ -41,11 +42,11 @@ class OdpRC(RCResources):
             access |= e.IBV_ACCESS_HUGETLB
         self.mr = MR(self.pd, self.msg_size, access, address=self.user_addr)
 
+
 class OdpXRC(XRCResources):
     @requires_odp('xrc')
     def create_mr(self):
-        self.mr = MR(self.pd, self.msg_size,
-                     e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_ON_DEMAND)
+        self.mr = create_custom_mr(self, e.IBV_ACCESS_ON_DEMAND)
 
 
 class OdpTestCase(RDMATestCase):
