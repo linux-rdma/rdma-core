@@ -11,6 +11,8 @@ rdma_cython_module(pyverbs
   pd.pyx
   qp.pyx
   wr.pyx
+  xrcd.pyx
+  srq.pyx
   )
 
 rdma_python_module(pyverbs

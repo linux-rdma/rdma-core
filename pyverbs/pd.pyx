@@ -6,6 +6,7 @@ from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.device cimport Context, DM
 from .mr cimport MR, MW, DMMR
+from pyverbs.srq cimport SRQ
 from pyverbs.addr cimport AH
 from pyverbs.qp cimport QP
 
@@ -27,6 +28,7 @@ cdef class PD(PyverbsCM):
         self.ctx = context
         context.add_ref(self)
         self.logger.debug('PD: Allocated ibv_pd')
+        self.srqs = weakref.WeakSet()
         self.mrs = weakref.WeakSet()
         self.mws = weakref.WeakSet()
         self.ahs = weakref.WeakSet()
@@ -48,7 +50,7 @@ cdef class PD(PyverbsCM):
         :return: None
         """
         self.logger.debug('Closing PD')
-        self.close_weakrefs([self.qps, self.ahs, self.mws, self.mrs])
+        self.close_weakrefs([self.qps, self.ahs, self.mws, self.mrs, self.srqs])
         if self.pd != NULL:
             rc = v.ibv_dealloc_pd(self.pd)
             if rc != 0:
@@ -65,5 +67,7 @@ cdef class PD(PyverbsCM):
             self.ahs.add(obj)
         elif isinstance(obj, QP):
             self.qps.add(obj)
+        elif isinstance(obj, SRQ):
+            self.srqs.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')

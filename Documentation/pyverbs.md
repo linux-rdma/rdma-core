@@ -339,3 +339,54 @@ wr = pwr.SendWR()
 wr.set_wr_ud(ah, 0x1101, 0) # in real life, use real values
 udqp.post_send(wr)
 ```
+
+##### XRCD
+The following code demonstrates creation of an XRCD object.
+```python
+from pyverbs.xrcd import XRCD, XRCDInitAttr
+import pyverbs.device as d
+import pyverbs.enums as e
+import stat
+import os
+
+
+ctx = d.Context(name='ibp0s8f0')
+xrcd_fd = os.open('/tmp/xrcd', os.O_RDONLY | os.O_CREAT,
+                  stat.S_IRUSR | stat.S_IRGRP)
+init = XRCDInitAttr(e.IBV_XRCD_INIT_ATTR_FD | e.IBV_XRCD_INIT_ATTR_OFLAGS,
+                    os.O_CREAT, xrcd_fd)
+xrcd = XRCD(ctx, init)
+```
+
+##### SRQ
+The following code snippet will demonstrate creation of an XRC SRQ object.
+For more complex examples, please see pyverbs/tests/test_odp.
+```python
+from pyverbs.xrcd import XRCD, XRCDInitAttr
+from pyverbs.srq import SRQ, SrqInitAttrEx
+import pyverbs.device as d
+import pyverbs.enums as e
+from pyverbs.cq import CQ
+from pyverbs.pd import PD
+import stat
+import os
+
+
+ctx = d.Context(name='ibp0s8f0')
+pd = PD(ctx)
+cq = CQ(ctx, 100, None, None, 0)
+xrcd_fd = os.open('/tmp/xrcd', os.O_RDONLY | os.O_CREAT,
+                  stat.S_IRUSR | stat.S_IRGRP)
+init = XRCDInitAttr(e.IBV_XRCD_INIT_ATTR_FD | e.IBV_XRCD_INIT_ATTR_OFLAGS,
+                    os.O_CREAT, xrcd_fd)
+xrcd = XRCD(ctx, init)
+
+srq_attr = SrqInitAttrEx(max_wr=10)
+srq_attr.srq_type = e.IBV_SRQT_XRC
+srq_attr.pd = pd
+srq_attr.xrcd = xrcd
+srq_attr.cq = cq
+srq_attr.comp_mask = e.IBV_SRQ_INIT_ATTR_TYPE | e.IBV_SRQ_INIT_ATTR_PD | \
+                     e.IBV_SRQ_INIT_ATTR_CQ | e.IBV_SRQ_INIT_ATTR_XRCD
+srq = SRQ(ctx, srq_attr)
+```
