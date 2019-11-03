@@ -1,5 +1,5 @@
+from tests.utils import requires_odp, traffic, xrc_traffic, create_custom_mr
 from tests.base import RCResources, UDResources, XRCResources
-from tests.utils import requires_odp, traffic, xrc_traffic
 from tests.base import RDMATestCase
 from pyverbs.mr import MR
 import pyverbs.enums as e
@@ -8,21 +8,20 @@ import pyverbs.enums as e
 class OdpUD(UDResources):
     @requires_odp('ud')
     def create_mr(self):
-        self.mr = MR(self.pd, self.msg_size + self.GRH_SIZE,
-                     e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_ON_DEMAND)
+        self.mr = create_custom_mr(self, e.IBV_ACCESS_ON_DEMAND,
+                                   self.msg_size + self.GRH_SIZE)
 
 
 class OdpRC(RCResources):
     @requires_odp('rc')
     def create_mr(self):
-        self.mr = MR(self.pd, self.msg_size,
-                     e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_ON_DEMAND)
+        self.mr = create_custom_mr(self, e.IBV_ACCESS_ON_DEMAND)
+
 
 class OdpXRC(XRCResources):
     @requires_odp('xrc')
     def create_mr(self):
-        self.mr = MR(self.pd, self.msg_size,
-                     e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_ON_DEMAND)
+        self.mr = create_custom_mr(self, e.IBV_ACCESS_ON_DEMAND)
 
 
 class OdpTestCase(RDMATestCase):
