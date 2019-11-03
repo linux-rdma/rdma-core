@@ -78,9 +78,13 @@ cdef class Context(PyverbsCM):
         """
         Initializes a Context object. The function searches the IB devices list
         for a device with the name provided by the user. If such a device is
-        found, it is opened.
-        :param kwargs: Currently supports 'name' argument only, the IB device's
-                       name.
+        found, it is opened (unless provider attributes were given).
+        :param kwargs: Arguments:
+            * *name* (str)
+               The RDMA device's name
+            * *attr* (object)
+               Device-specific attributes, meaning that the device is to be
+               opened by the provider
         :return: None
         """
         cdef int count
@@ -94,7 +98,7 @@ cdef class Context(PyverbsCM):
         self.xrcds = weakref.WeakSet()
 
         dev_name = kwargs.get('name')
-
+        provider_attr = kwargs.get('attr')
         if dev_name is not None:
             self.name = dev_name
         else:
@@ -106,6 +110,11 @@ cdef class Context(PyverbsCM):
         try:
             for i in range(count):
                 if dev_list[i].name.decode() == self.name:
+                    if provider_attr is not None:
+                        # A provider opens its own context, we're just
+                        # setting its IB device
+                        self.device = dev_list[i]
+                        return
                     self.context = v.ibv_open_device(dev_list[i])
                     if self.context == NULL:
                         raise PyverbsRDMAErrno('Failed to open device {dev}'.

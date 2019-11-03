@@ -9,6 +9,7 @@ cimport pyverbs.libibverbs as v
 
 cdef class Context(PyverbsCM):
     cdef v.ibv_context *context
+    cdef v.ibv_device *device
     cdef object name
     cdef add_ref(self, obj)
     cdef object pds

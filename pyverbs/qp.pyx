@@ -812,7 +812,7 @@ cdef class QP(PyverbsCM):
         self.update_cqs(init_attr)
         # In order to use cdef'd methods, a proper casting must be done, let's
         # infer the type.
-        if type(creator) == Context:
+        if issubclass(type(creator), Context):
             self._create_qp_ex(creator, init_attr)
             ctx = <Context>creator
             self.context = ctx
