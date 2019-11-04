@@ -14,7 +14,7 @@ can be used.  This will create the device node named
 
 or you can create it manually
 
-  mknod /dev/infiniband/rdma_cm c 231 255
+    mknod /dev/infiniband/rdma_cm c 231 255
 
 
 # Common issues
