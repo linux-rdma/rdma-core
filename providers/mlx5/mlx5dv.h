@@ -1281,6 +1281,19 @@ struct mlx5dv_devx_uar {
 struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
 					      uint32_t flags);
 void mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *devx_uar);
+
+
+struct mlx5dv_var {
+	uint32_t page_id;
+	uint32_t length;
+	off_t mmap_off;
+	uint64_t comp_mask;
+};
+
+struct mlx5dv_var *
+mlx5dv_alloc_var(struct ibv_context *context, uint32_t flags);
+void mlx5dv_free_var(struct mlx5dv_var *dv_var);
+
 int mlx5dv_devx_query_eqn(struct ibv_context *context, uint32_t vector,
 			  uint32_t *eqn);
 

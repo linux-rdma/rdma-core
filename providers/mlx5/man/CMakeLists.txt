@@ -1,5 +1,6 @@
 rdma_man_pages(
   mlx5dv_alloc_dm.3.md
+  mlx5dv_alloc_var.3.md
   mlx5dv_create_cq.3.md
   mlx5dv_create_flow.3.md
   mlx5dv_create_flow_action_modify_header.3.md
@@ -28,6 +29,7 @@ rdma_man_pages(
   mlx5dv.7
 )
 rdma_alias_man_pages(
+ mlx5dv_alloc_var.3 mlx5dv_free_var.3
  mlx5dv_create_mkey.3 mlx5dv_destroy_mkey.3
  mlx5dv_devx_alloc_uar.3 mlx5dv_devx_free_uar.3
  mlx5dv_devx_create_cmd_comp.3 mlx5dv_devx_destroy_cmd_comp.3

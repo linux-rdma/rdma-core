@@ -631,6 +631,12 @@ struct mlx5dv_devx_obj {
 	uint32_t object_id;
 };
 
+struct mlx5_var_obj {
+	struct mlx5dv_var dv_var;
+	struct ibv_context *context;
+	uint32_t handle;
+};
+
 struct mlx5_devx_umem {
 	struct mlx5dv_devx_umem dv_devx_umem;
 	struct ibv_context *context;

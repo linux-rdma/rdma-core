@@ -118,6 +118,8 @@ MLX5_1.11 {
 
 MLX5_1.12 {
 	global:
+		mlx5dv_alloc_var;
 		mlx5dv_dr_action_create_flow_meter;
 		mlx5dv_dr_action_modify_flow_meter;
+		mlx5dv_free_var;
 } MLX5_1.11;
