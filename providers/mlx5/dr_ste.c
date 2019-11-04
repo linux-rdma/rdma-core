@@ -566,18 +566,6 @@ bool dr_ste_not_used_ste(struct dr_ste *ste)
 	return !atomic_load(&ste->refcount);
 }
 
-static uint16_t get_bits_per_mask(uint16_t byte_mask)
-{
-	uint16_t bits = 0;
-
-	while (byte_mask) {
-		byte_mask = byte_mask & (byte_mask - 1);
-		bits++;
-	}
-
-	return bits;
-}
-
 /* Init one ste as a pattern for ste data array */
 void dr_ste_set_formated_ste(uint16_t gvmi,
 			     struct dr_domain_rx_tx *nic_dmn,
@@ -626,19 +614,11 @@ int dr_ste_create_next_htbl(struct mlx5dv_dr_matcher *matcher,
 	struct dr_ste_htbl *next_htbl;
 
 	if (!dr_ste_is_last_in_rule(nic_matcher, ste->ste_chain_location)) {
-		uint32_t bits_in_mask;
 		uint8_t next_lu_type;
 		uint16_t byte_mask;
 
 		next_lu_type = DR_STE_GET(general, hw_ste, next_lu_type);
 		byte_mask = DR_STE_GET(general, hw_ste, byte_mask);
-
-		/* Don't allocate table more than required,
-		 * the size of the table defined via the byte_mask, so no need
-		 * to allocate more than that.
-		 */
-		bits_in_mask = get_bits_per_mask(byte_mask) * CHAR_BIT;
-		log_table_size = min_t(uint32_t, log_table_size, bits_in_mask);
 
 		next_htbl = dr_ste_htbl_alloc(dmn->ste_icm_pool,
 					      log_table_size,
