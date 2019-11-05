@@ -9,6 +9,7 @@ rdma_cython_module(pyverbs ""
   cq.pyx
   device.pyx
   enums.pyx
+  mem_alloc.pyx
   mr.pyx
   pd.pyx
   qp.pyx
