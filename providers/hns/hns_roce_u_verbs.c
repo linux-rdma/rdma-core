@@ -645,7 +645,7 @@ static int hns_roce_calc_qp_buff_size(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 	int page_size = to_hr_dev(pd->context->device)->page_size;
 
 	if (to_hr_dev(pd->context->device)->hw_version == HNS_ROCE_HW_VER1) {
-		qp->rq.wqe_shift = ilog32(sizeof(struct hns_roce_rc_rq_wqe));
+		qp->rq.wqe_shift = hr_ilog32(sizeof(struct hns_roce_rc_rq_wqe));
 
 		qp->buf_size = align((qp->sq.wqe_cnt << qp->sq.wqe_shift),
 				     page_size) +
@@ -662,7 +662,7 @@ static int hns_roce_calc_qp_buff_size(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 	} else {
 		unsigned int rqwqe_size = HNS_ROCE_SGE_SIZE * cap->max_recv_sge;
 
-		qp->rq.wqe_shift = ilog32(rqwqe_size);
+		qp->rq.wqe_shift = hr_ilog32(rqwqe_size);
 
 		if (qp->sq.max_gs > HNS_ROCE_SGE_IN_WQE || type == IBV_QPT_UD)
 			qp->sge.sge_shift = HNS_ROCE_SGE_SHIFT;
@@ -747,8 +747,8 @@ static void hns_roce_set_qp_params(struct ibv_pd *pd,
 		qp->rq.wqe_cnt = roundup_pow_of_two(attr->cap.max_recv_wr);
 	}
 
-	qp->sq.wqe_shift = ilog32(sizeof(struct hns_roce_rc_send_wqe));
-	qp->sq.shift = ilog32(qp->sq.wqe_cnt);
+	qp->sq.wqe_shift = hr_ilog32(sizeof(struct hns_roce_rc_send_wqe));
+	qp->sq.shift = hr_ilog32(qp->sq.wqe_cnt);
 	qp->rq.max_gs = attr->cap.max_recv_sge;
 
 	if (to_hr_dev(pd->context->device)->hw_version == HNS_ROCE_HW_VER1) {
@@ -884,7 +884,7 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 
 	cmd.buf_addr = (uintptr_t) qp->buf.buf;
 	cmd.log_sq_stride = qp->sq.wqe_shift;
-	cmd.log_sq_bb_count = ilog32(qp->sq.wqe_cnt);
+	cmd.log_sq_bb_count = hr_ilog32(qp->sq.wqe_cnt);
 
 	pthread_mutex_lock(&context->qp_table_mutex);
 
