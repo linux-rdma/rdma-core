@@ -454,6 +454,15 @@ cdef extern from 'infiniband/verbs.h':
         ibv_qp_type     qp_type;
         unsigned int    events_completed;
 
+    cdef struct ibv_parent_domain_init_attr:
+        ibv_pd          *pd;
+        uint32_t        comp_mask;
+        void            *(*alloc)(ibv_pd *pd, void *pd_context, size_t size,
+                                  size_t alignment, uint64_t resource_type);
+        void            (*free)(ibv_pd *pd, void *pd_context, void *ptr,
+                                uint64_t resource_type);
+        void            *pd_context;
+
     ibv_device **ibv_get_device_list(int *n)
     void ibv_free_device_list(ibv_device **list)
     ibv_context *ibv_open_device(ibv_device *device)
@@ -540,3 +549,5 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_destroy_srq(ibv_srq *srq)
     int ibv_post_srq_recv(ibv_srq *srq, ibv_recv_wr *recv_wr,
                           ibv_recv_wr **bad_recv_wr)
+    ibv_pd *ibv_alloc_parent_domain(ibv_context *context,
+                                    ibv_parent_domain_init_attr *attr)

@@ -45,3 +45,14 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_FLOW_ACTION_FLAGS_ESP_AES_GCM_SPI_STEERING   = 1 << 2
         MLX5DV_FLOW_ACTION_FLAGS_ESP_AES_GCM_FULL_OFFLOAD   = 1 << 3
         MLX5DV_FLOW_ACTION_FLAGS_ESP_AES_GCM_TX_IV_IS_ESN   = 1 << 4
+
+    cpdef unsigned long long MLX5DV_RES_TYPE_QP
+    cpdef unsigned long long MLX5DV_RES_TYPE_RWQ
+    cpdef unsigned long long MLX5DV_RES_TYPE_DBR
+    cpdef unsigned long long MLX5DV_RES_TYPE_SRQ
+
+
+_MLX5DV_RES_TYPE_QP = MLX5DV_RES_TYPE_QP
+_MLX5DV_RES_TYPE_RWQ = MLX5DV_RES_TYPE_RWQ
+_MLX5DV_RES_TYPE_DBR = MLX5DV_RES_TYPE_DBR
+_MLX5DV_RES_TYPE_SRQ = MLX5DV_RES_TYPE_SRQ
