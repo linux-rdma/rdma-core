@@ -143,14 +143,11 @@ static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
 	} 
 
 	verbs_set_ops(&context->ibv_ctx, &c4iw_ctx_common_ops);
+	if (ibv_cmd_query_device(&context->ibv_ctx.context, &attr,
+				 &raw_fw_ver, &qcmd, sizeof(qcmd)))
+		goto err_unmap;
 
 	if (!rhp->mmid2ptr) {
-		int ret;
-
-		ret = ibv_cmd_query_device(&context->ibv_ctx.context, &attr,
-					   &raw_fw_ver, &qcmd, sizeof(qcmd));
-		if (ret)
-			goto err_unmap;
 		rhp->max_mr = attr.max_mr;
 		rhp->mmid2ptr = calloc(attr.max_mr, sizeof(void *));
 		if (!rhp->mmid2ptr) {
@@ -203,9 +200,9 @@ err_free:
 	if (rhp->cqid2ptr)
 		free(rhp->cqid2ptr);
 	if (rhp->qpid2ptr)
-		free(rhp->cqid2ptr);
+		free(rhp->qpid2ptr);
 	if (rhp->mmid2ptr)
-		free(rhp->cqid2ptr);
+		free(rhp->mmid2ptr);
 	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
