@@ -29,13 +29,13 @@ BuildRequires: systemd-devel
 BuildRequires: python3-devel
 BuildRequires: python3-Cython
 %else
-%if 0%{?rhel} == 8 || 0%{?fedora} >= 30
+%if 0%{?rhel} >= 8 || 0%{?fedora} >= 30
 BuildRequires: python3
 %else
 BuildRequires: python
 %endif
 %endif
-%if 0%{?fedora} >= 21
+%if 0%{?fedora} >= 21 || 0%{?rhel} >= 8
 BuildRequires: perl-generators
 %endif
 
@@ -48,7 +48,7 @@ Conflicts: infiniband-diags <= 1.6.7
 
 # Since we recommend developers use Ninja, so should packagers, for consistency.
 %define CMAKE_FLAGS %{nil}
-%if 0%{?fedora} >= 23
+%if 0%{?fedora} >= 23 || 0%{?rhel} >= 8
 # Ninja was introduced in FC23
 BuildRequires: ninja-build
 %define CMAKE_FLAGS -GNinja
@@ -61,8 +61,8 @@ BuildRequires: make
 %define cmake_install DESTDIR=%{buildroot} make install
 %endif
 
-%if 0%{?fedora} >= 25
-# pandoc was introduced in FC25
+%if 0%{?fedora} >= 25 || 0%{?rhel} >= 8
+# pandoc was introduced in FC25, Centos8
 BuildRequires: pandoc
 %endif
 
