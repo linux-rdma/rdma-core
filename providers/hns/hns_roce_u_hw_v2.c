@@ -287,10 +287,9 @@ static int hns_roce_flush_cqe(struct hns_roce_qp **cur_qp, struct ibv_wc *wc)
 		attr.qp_state = IBV_QPS_ERR;
 		ret = hns_roce_u_v2_modify_qp(&(*cur_qp)->ibv_qp,
 						      &attr, attr_mask);
-		if (ret) {
+		if (ret)
 			fprintf(stderr, PFX "failed to modify qp!\n");
-			return ret;
-		}
+
 		(*cur_qp)->ibv_qp.state = IBV_QPS_ERR;
 	}
 
