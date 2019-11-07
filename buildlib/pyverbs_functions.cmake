@@ -14,6 +14,7 @@ function(rdma_cython_module PY_MODULE LINKER_FLAGS)
     include_directories(${PYTHON_INCLUDE_DIRS})
     add_custom_command(
       OUTPUT "${CFILE}"
+      MAIN_DEPENDENCY "${PYX}"
       COMMAND ${CYTHON_EXECUTABLE} "${PYX}" -o "${CFILE}"
       "-I${PYTHON_INCLUDE_DIRS}"
       COMMENT "Cythonizing ${PYX}"

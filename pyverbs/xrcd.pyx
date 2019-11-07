@@ -7,9 +7,7 @@ from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.device cimport Context
 from pyverbs.srq cimport SRQ
 from pyverbs.qp cimport QP
-
-cdef extern from 'errno.h':
-    int errno
+from libc.errno cimport errno
 
 
 cdef class XRCDInitAttr(PyverbsObject):

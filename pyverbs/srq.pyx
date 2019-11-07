@@ -5,12 +5,8 @@ from pyverbs.cq cimport CQEX, CQ
 from pyverbs.xrcd cimport XRCD
 from pyverbs.wr cimport RecvWR
 from pyverbs.pd cimport PD
-
-
-cdef extern from 'errno.h':
-    int errno
-cdef extern from 'string.h':
-    void *memcpy(void *dest, const void *src, size_t n)
+from libc.errno cimport errno
+from libc.string cimport memcpy
 
 
 cdef class SrqAttr(PyverbsObject):

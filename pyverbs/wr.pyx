@@ -5,12 +5,8 @@ from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.addr cimport AH
-
-cdef extern from 'stdlib.h':
-    void *malloc(size_t size)
-    void free(void *ptr)
-cdef extern from 'string.h':
-    void *memcpy(void *dest, const void *src, size_t n)
+from libc.stdlib cimport free, malloc
+from libc.string cimport memcpy
 
 
 cdef class SGE(PyverbsCM):

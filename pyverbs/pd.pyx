@@ -9,9 +9,7 @@ from .mr cimport MR, MW, DMMR
 from pyverbs.srq cimport SRQ
 from pyverbs.addr cimport AH
 from pyverbs.qp cimport QP
-
-cdef extern from 'errno.h':
-    int errno
+from libc.errno cimport errno
 
 
 cdef class PD(PyverbsCM):
