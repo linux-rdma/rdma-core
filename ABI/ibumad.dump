@@ -1,17 +1,20 @@
 $VAR1 = {
-          'ABI_DUMPER_VERSION' => '0.99.12',
-          'ABI_DUMP_VERSION' => '3.2',
+          'ABI_DUMPER_VERSION' => '1.1',
+          'ABI_DUMP_VERSION' => '3.5',
           'Arch' => 'x86_64',
-          'Compiler' => 'clang version 7.0.0 (tags/RELEASE_700/final)',
+          'GccVersion' => '9.1.0',
           'Headers' => {
                          'int-ll64.h' => 1,
-                         'stdint.h' => 1,
+                         'stddef.h' => 1,
+                         'stdint-uintn.h' => 1,
                          'types.h' => 1,
                          'umad.h' => 1
                        },
           'Language' => 'C',
           'LibraryName' => 'libibumad.so.3.1.26.0',
           'LibraryVersion' => 'ibumad',
+          'MissedOffsets' => '1',
+          'MissedRegs' => '1',
           'NameSpaces' => {},
           'Needed' => {
                         'libc.so.6' => 1
@@ -21,755 +24,608 @@ $VAR1 = {
                          'umad_str.c' => 1
                        },
           'SymbolInfo' => {
-                            '10250' => {
+                            '10016' => {
+                                         'Line' => '1036',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fd',
+                                                               'type' => '111'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'mgmt_class',
+                                                               'type' => '111'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'mgmt_version',
+                                                               'type' => '111'
+                                                             },
+                                                      '3' => {
+                                                               'name' => 'rmpp_version',
+                                                               'type' => '210'
+                                                             },
+                                                      '4' => {
+                                                               'name' => 'method_mask',
+                                                               'type' => '10899'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_register',
+                                         'Source' => 'umad.c'
+                                       },
+                            '10926' => {
+                                         'Line' => '997',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fd',
+                                                               'type' => '111'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'mgmt_class',
+                                                               'type' => '111'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'rmpp_version',
+                                                               'type' => '210'
+                                                             },
+                                                      '3' => {
+                                                               'name' => 'oui',
+                                                               'type' => '11823'
+                                                             },
+                                                      '4' => {
+                                                               'name' => 'method_mask',
+                                                               'type' => '10899'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_register_oui',
+                                         'Source' => 'umad.c'
+                                       },
+                            '11850' => {
+                                         'Line' => '991',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fd',
+                                                               'type' => '111'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_get_fd',
+                                         'Source' => 'umad.c'
+                                       },
+                            '12063' => {
+                                         'Line' => '985',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fd',
+                                                               'type' => '111'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'timeout_ms',
+                                                               'type' => '111'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_poll',
+                                         'Source' => 'umad.c'
+                                       },
+                            '12468' => {
+                                         'Line' => '938',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fd',
+                                                               'type' => '111'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'umad',
+                                                               'type' => '173'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'length',
+                                                               'type' => '13438'
+                                                             },
+                                                      '3' => {
+                                                               'name' => 'timeout_ms',
+                                                               'type' => '111'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_recv',
+                                         'Source' => 'umad.c'
+                                       },
+                            '13512' => {
+                                         'Line' => '893',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fd',
+                                                               'type' => '111'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'agentid',
+                                                               'type' => '111'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'umad',
+                                                               'type' => '173'
+                                                             },
+                                                      '3' => {
+                                                               'name' => 'length',
+                                                               'type' => '111'
+                                                             },
+                                                      '4' => {
+                                                               'name' => 'timeout_ms',
+                                                               'type' => '111'
+                                                             },
+                                                      '5' => {
+                                                               'name' => 'retries',
+                                                               'type' => '111'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_send',
+                                         'Source' => 'umad.c'
+                                       },
+                            '14088' => {
+                                         'Line' => '879',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'umad',
+                                                               'type' => '173'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'dlid',
+                                                               'type' => '1064'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'dqp',
+                                                               'type' => '5226'
+                                                             },
+                                                      '3' => {
+                                                               'name' => 'sl',
+                                                               'type' => '111'
+                                                             },
+                                                      '4' => {
+                                                               'name' => 'qkey',
+                                                               'type' => '5226'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_set_addr_net',
+                                         'Source' => 'umad.c'
+                                       },
+                            '14541' => {
+                                         'Line' => '865',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'umad',
+                                                               'type' => '173'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'dlid',
+                                                               'type' => '111'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'dqp',
+                                                               'type' => '111'
+                                                             },
+                                                      '3' => {
+                                                               'name' => 'sl',
+                                                               'type' => '111'
+                                                             },
+                                                      '4' => {
+                                                               'name' => 'qkey',
+                                                               'type' => '111'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_set_addr',
+                                         'Source' => 'umad.c'
+                                       },
+                            '14965' => {
+                                         'Line' => '855',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'umad',
+                                                               'type' => '173'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_get_pkey',
+                                         'Source' => 'umad.c'
+                                       },
+                            '15037' => {
+                                         'Line' => '845',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'umad',
+                                                               'type' => '173'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'pkey_index',
+                                                               'type' => '111'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_set_pkey',
+                                         'Source' => 'umad.c'
+                                       },
+                            '15124' => {
+                                         'Line' => '827',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'umad',
+                                                               'type' => '173'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'mad_addr',
+                                                               'type' => '173'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_set_grh',
+                                         'Source' => 'umad.c'
+                                       },
+                            '15274' => {
+                                         'Line' => '821',
+                                         'Return' => '258',
+                                         'ShortName' => 'umad_size',
+                                         'Source' => 'umad.c'
+                                       },
+                            '15305' => {
+                                         'Line' => '815',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'umad',
+                                                               'type' => '173'
+                                                             }
+                                                    },
+                                         'Return' => '173',
+                                         'ShortName' => 'umad_get_mad',
+                                         'Source' => 'umad.c'
+                                       },
+                            '15356' => {
+                                         'Line' => '808',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fd',
+                                                               'type' => '111'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_close_port',
+                                         'Source' => 'umad.c'
+                                       },
+                            '15572' => {
+                                         'Line' => '793',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'port',
+                                                               'type' => '6092'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_release_port',
+                                         'Source' => 'umad.c'
+                                       },
+                            '15980' => {
+                                         'Line' => '770',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'ca_name',
+                                                               'type' => '270'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'portnum',
+                                                               'type' => '111'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'port',
+                                                               'type' => '6092'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_get_port',
+                                         'Source' => 'umad.c'
+                                       },
+                            '16524' => {
+                                         'Line' => '755',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'ca',
+                                                               'type' => '16876'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_release_ca',
+                                         'Source' => 'umad.c'
+                                       },
+                            '16882' => {
+                                         'Line' => '730',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'ca_name',
+                                                               'type' => '270'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'ca',
+                                                               'type' => '16876'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_get_ca',
+                                         'Source' => 'umad.c'
+                                       },
+                            '17350' => {
+                                         'Line' => '680',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'ca_name',
+                                                               'type' => '270'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'portnum',
+                                                               'type' => '111'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_open_port',
+                                         'Source' => 'umad.c'
+                                       },
+                            '18641' => {
+                                         'Line' => '653',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'ca_name',
+                                                               'type' => '270'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'portnum',
+                                                               'type' => '111'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'path',
+                                                               'type' => '187'
+                                                             },
+                                                      '3' => {
+                                                               'name' => 'max',
+                                                               'type' => '111'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_get_issm_path',
+                                         'Source' => 'umad.c'
+                                       },
+                            '19205' => {
+                                         'Line' => '614',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'ca_name',
+                                                               'type' => '270'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'portguids',
+                                                               'type' => '2558'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'max',
+                                                               'type' => '111'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_get_ca_portguids',
+                                         'Source' => 'umad.c'
+                                       },
+                            '19822' => {
+                                         'Line' => '584',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'cas',
+                                                               'type' => '20603'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'max',
+                                                               'type' => '111'
+                                                             }
+                                                    },
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_get_cas_names',
+                                         'Source' => 'umad.c'
+                                       },
+                            '20894' => {
+                                         'Line' => '564',
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_done',
+                                         'Source' => 'umad.c'
+                                       },
+                            '21060' => {
+                                         'Line' => '558',
+                                         'Return' => '111',
+                                         'ShortName' => 'umad_init',
+                                         'Source' => 'umad.c'
+                                       },
+                            '30262' => {
                                          'Line' => '342',
                                          'Param' => {
                                                       '0' => {
                                                                'name' => 'mgmt_class',
-                                                               'type' => '1207'
+                                                               'type' => '210'
                                                              },
                                                       '1' => {
                                                                'name' => 'attr_id',
-                                                               'type' => '89'
+                                                               'type' => '1064'
                                                              }
                                                     },
-                                         'Reg' => {
-                                                    '0' => 'rdi',
-                                                    '1' => 'rsi'
-                                                  },
-                                         'Return' => '67',
+                                         'Return' => '270',
                                          'ShortName' => 'umad_attribute_str',
                                          'Source' => 'umad_str.c'
                                        },
-                            '2278' => {
-                                        'Line' => '558',
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_init',
-                                        'Source' => 'umad.c'
-                                      },
-                            '2304' => {
-                                        'Line' => '564',
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_done',
-                                        'Source' => 'umad.c'
-                                      },
-                            '2393' => {
-                                        'Line' => '584',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'cas',
-                                                              'type' => '9021'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'max',
-                                                              'type' => '142'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_get_cas_names',
-                                        'Source' => 'umad.c'
-                                      },
-                            '3163' => {
-                                        'Line' => '614',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'ca_name',
-                                                              'type' => '67'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'portguids',
-                                                              'type' => '1058'
-                                                            },
-                                                     '2' => {
-                                                              'name' => 'max',
-                                                              'type' => '142'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi',
-                                                   '2' => 'rdx'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_get_ca_portguids',
-                                        'Source' => 'umad.c'
-                                      },
-                            '3377' => {
+                            '30943' => {
+                                         'Line' => '165',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => '_status',
+                                                               'type' => '1064'
+                                                             }
+                                                    },
+                                         'Return' => '270',
+                                         'ShortName' => 'umad_sa_mad_status_str',
+                                         'Source' => 'umad_str.c'
+                                       },
+                            '31076' => {
+                                         'Line' => '142',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => '_status',
+                                                               'type' => '1064'
+                                                             }
+                                                    },
+                                         'Return' => '270',
+                                         'ShortName' => 'umad_common_mad_status_str',
+                                         'Source' => 'umad_str.c'
+                                       },
+                            '31197' => {
+                                         'Line' => '134',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'mgmt_class',
+                                                               'type' => '210'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'method',
+                                                               'type' => '210'
+                                                             }
+                                                    },
+                                         'Return' => '270',
+                                         'ShortName' => 'umad_method_str',
+                                         'Source' => 'umad_str.c'
+                                       },
+                            '31404' => {
+                                         'Line' => '45',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'mgmt_class',
+                                                               'type' => '210'
+                                                             }
+                                                    },
+                                         'Return' => '270',
+                                         'ShortName' => 'umad_class_str',
+                                         'Source' => 'umad_str.c'
+                                       },
+                            '6754' => {
                                         'Line' => '1267',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'head',
-                                                              'type' => '3423'
+                                                              'type' => '6150'
                                                             }
                                                    },
-                                        'Reg' => {
-                                                   '0' => 'rdi'
-                                                 },
                                         'Return' => '1',
                                         'ShortName' => 'umad_free_ca_device_list',
                                         'Source' => 'umad.c'
                                       },
-                            '4217' => {
-                                        'Line' => '730',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'ca_name',
-                                                              'type' => '67'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'ca',
-                                                              'type' => '2760'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_get_ca',
+                            '6862' => {
+                                        'Line' => '1210',
+                                        'Return' => '6150',
+                                        'ShortName' => 'umad_get_ca_device_list',
                                         'Source' => 'umad.c'
                                       },
-                            '4529' => {
-                                        'Line' => '653',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'ca_name',
-                                                              'type' => '67'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'portnum',
-                                                              'type' => '142'
-                                                            },
-                                                     '2' => {
-                                                              'name' => 'path',
-                                                              'type' => '1041'
-                                                            },
-                                                     '3' => {
-                                                              'name' => 'max',
-                                                              'type' => '142'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi',
-                                                   '2' => 'rdx',
-                                                   '3' => 'rcx'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_get_issm_path',
-                                        'Source' => 'umad.c'
-                                      },
-                            '4922' => {
-                                        'Line' => '680',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'ca_name',
-                                                              'type' => '67'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'portnum',
-                                                              'type' => '142'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_open_port',
-                                        'Source' => 'umad.c'
-                                      },
-                            '5088' => {
-                                        'Line' => '755',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'ca',
-                                                              'type' => '2760'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_release_ca',
-                                        'Source' => 'umad.c'
-                                      },
-                            '5215' => {
-                                        'Line' => '770',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'ca_name',
-                                                              'type' => '67'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'portnum',
-                                                              'type' => '142'
-                                                            },
-                                                     '2' => {
-                                                              'name' => 'port',
-                                                              'type' => '2929'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi',
-                                                   '2' => 'rdx'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_get_port',
-                                        'Source' => 'umad.c'
-                                      },
-                            '5607' => {
-                                        'Line' => '793',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'port',
-                                                              'type' => '2929'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_release_port',
-                                        'Source' => 'umad.c'
-                                      },
-                            '5696' => {
-                                        'Line' => '808',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'fd',
-                                                              'type' => '142'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_close_port',
-                                        'Source' => 'umad.c'
-                                      },
-                            '5739' => {
-                                        'Line' => '815',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'umad',
-                                                              'type' => '42'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi'
-                                                 },
-                                        'Return' => '42',
-                                        'ShortName' => 'umad_get_mad',
-                                        'Source' => 'umad.c'
-                                      },
-                            '5780' => {
-                                        'Line' => '821',
-                                        'Return' => '1',
-                                        'ShortName' => 'umad_size',
-                                        'Source' => 'umad.c'
-                                      },
-                            '5799' => {
-                                        'Line' => '827',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'umad',
-                                                              'type' => '42'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'mad_addr',
-                                                              'type' => '42'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_set_grh',
-                                        'Source' => 'umad.c'
-                                      },
-                            '5928' => {
-                                        'Line' => '845',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'umad',
-                                                              'type' => '42'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'pkey_index',
-                                                              'type' => '142'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_set_pkey',
-                                        'Source' => 'umad.c'
-                                      },
-                            '5997' => {
-                                        'Line' => '855',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'umad',
-                                                              'type' => '42'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_get_pkey',
-                                        'Source' => 'umad.c'
-                                      },
-                            '6052' => {
-                                        'Line' => '865',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'umad',
-                                                              'type' => '42'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'dlid',
-                                                              'type' => '142'
-                                                            },
-                                                     '2' => {
-                                                              'name' => 'dqp',
-                                                              'type' => '142'
-                                                            },
-                                                     '3' => {
-                                                              'name' => 'sl',
-                                                              'type' => '142'
-                                                            },
-                                                     '4' => {
-                                                              'name' => 'qkey',
-                                                              'type' => '142'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi',
-                                                   '2' => 'rdx',
-                                                   '3' => 'rcx',
-                                                   '4' => 'r8'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_set_addr',
-                                        'Source' => 'umad.c'
-                                      },
-                            '6175' => {
-                                        'Line' => '879',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'umad',
-                                                              'type' => '42'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'dlid',
-                                                              'type' => '89'
-                                                            },
-                                                     '2' => {
-                                                              'name' => 'dqp',
-                                                              'type' => '2041'
-                                                            },
-                                                     '3' => {
-                                                              'name' => 'sl',
-                                                              'type' => '142'
-                                                            },
-                                                     '4' => {
-                                                              'name' => 'qkey',
-                                                              'type' => '2041'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi',
-                                                   '2' => 'rdx',
-                                                   '3' => 'rcx',
-                                                   '4' => 'r8'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_set_addr_net',
-                                        'Source' => 'umad.c'
-                                      },
-                            '6298' => {
+                            '7581' => {
                                         'Line' => '1201',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'umad',
-                                                              'type' => '42'
+                                                              'type' => '173'
                                                             }
                                                    },
-                                        'Reg' => {
-                                                   '0' => 'rdi'
-                                                 },
                                         'Return' => '1',
                                         'ShortName' => 'umad_dump',
                                         'Source' => 'umad.c'
                                       },
-                            '6345' => {
-                                        'Line' => '893',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'fd',
-                                                              'type' => '142'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'agentid',
-                                                              'type' => '142'
-                                                            },
-                                                     '2' => {
-                                                              'name' => 'umad',
-                                                              'type' => '42'
-                                                            },
-                                                     '3' => {
-                                                              'name' => 'length',
-                                                              'type' => '142'
-                                                            },
-                                                     '4' => {
-                                                              'name' => 'timeout_ms',
-                                                              'type' => '142'
-                                                            },
-                                                     '5' => {
-                                                              'name' => 'retries',
-                                                              'type' => '142'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi',
-                                                   '2' => 'rdx',
-                                                   '3' => 'rcx',
-                                                   '4' => 'r8',
-                                                   '5' => 'r9'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_send',
-                                        'Source' => 'umad.c'
-                                      },
-                            '6711' => {
-                                        'Line' => '938',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'fd',
-                                                              'type' => '142'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'umad',
-                                                              'type' => '42'
-                                                            },
-                                                     '2' => {
-                                                              'name' => 'length',
-                                                              'type' => '9031'
-                                                            },
-                                                     '3' => {
-                                                              'name' => 'timeout_ms',
-                                                              'type' => '142'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi',
-                                                   '2' => 'rdx',
-                                                   '3' => 'rcx'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_recv',
-                                        'Source' => 'umad.c'
-                                      },
-                            '6955' => {
-                                        'Line' => '985',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'fd',
-                                                              'type' => '142'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'timeout_ms',
-                                                              'type' => '142'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_poll',
-                                        'Source' => 'umad.c'
-                                      },
-                            '7071' => {
-                                        'Line' => '991',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'fd',
-                                                              'type' => '142'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_get_fd',
-                                        'Source' => 'umad.c'
-                                      },
-                            '7114' => {
-                                        'Line' => '997',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'fd',
-                                                              'type' => '142'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'mgmt_class',
-                                                              'type' => '142'
-                                                            },
-                                                     '2' => {
-                                                              'name' => 'rmpp_version',
-                                                              'type' => '1207'
-                                                            },
-                                                     '3' => {
-                                                              'name' => 'oui',
-                                                              'type' => '9058'
-                                                            },
-                                                     '4' => {
-                                                              'name' => 'method_mask',
-                                                              'type' => '9063'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi',
-                                                   '2' => 'rdx',
-                                                   '3' => 'rcx',
-                                                   '4' => 'r8'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_register_oui',
-                                        'Source' => 'umad.c'
-                                      },
-                            '7278' => {
-                                        'Line' => '1036',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'fd',
-                                                              'type' => '142'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'mgmt_class',
-                                                              'type' => '142'
-                                                            },
-                                                     '2' => {
-                                                              'name' => 'mgmt_version',
-                                                              'type' => '142'
-                                                            },
-                                                     '3' => {
-                                                              'name' => 'rmpp_version',
-                                                              'type' => '1207'
-                                                            },
-                                                     '4' => {
-                                                              'name' => 'method_mask',
-                                                              'type' => '9063'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi',
-                                                   '2' => 'rdx',
-                                                   '3' => 'rcx',
-                                                   '4' => 'r8'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_register',
-                                        'Source' => 'umad.c'
-                                      },
-                            '7473' => {
-                                        'Line' => '1071',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'port_fd',
-                                                              'type' => '142'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'attr',
-                                                              'type' => '9185'
-                                                            },
-                                                     '2' => {
-                                                              'name' => 'agent_id',
-                                                              'type' => '9294'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi',
-                                                   '2' => 'rdx'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_register2',
-                                        'Source' => 'umad.c'
-                                      },
-                            '7639' => {
-                                        'Line' => '1154',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'fd',
-                                                              'type' => '142'
-                                                            },
-                                                     '1' => {
-                                                              'name' => 'agentid',
-                                                              'type' => '142'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_unregister',
-                                        'Source' => 'umad.c'
-                                      },
-                            '7698' => {
-                                        'Line' => '1160',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'umad',
-                                                              'type' => '42'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_status',
-                                        'Source' => 'umad.c'
-                                      },
-                            '7753' => {
-                                        'Line' => '1167',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'umad',
-                                                              'type' => '42'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi'
-                                                 },
-                                        'Return' => '9016',
-                                        'ShortName' => 'umad_get_mad_addr',
-                                        'Source' => 'umad.c'
-                                      },
-                            '7808' => {
-                                        'Line' => '1174',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => 'level',
-                                                              'type' => '142'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi'
-                                                 },
-                                        'Return' => '142',
-                                        'ShortName' => 'umad_debug',
-                                        'Source' => 'umad.c'
-                                      },
-                            '7851' => {
+                            '7841' => {
                                         'Line' => '1181',
                                         'Param' => {
                                                      '0' => {
                                                               'name' => 'addr',
-                                                              'type' => '9016'
+                                                              'type' => '8195'
                                                             }
                                                    },
-                                        'Reg' => {
-                                                   '0' => 'rdi'
-                                                 },
                                         'Return' => '1',
                                         'ShortName' => 'umad_addr_dump',
                                         'Source' => 'umad.c'
                                       },
-                            '8059' => {
-                                        'Line' => '1210',
-                                        'Return' => '3423',
-                                        'ShortName' => 'umad_get_ca_device_list',
+                            '8238' => {
+                                        'Line' => '1174',
+                                        'Param' => {
+                                                     '0' => {
+                                                              'name' => 'level',
+                                                              'type' => '111'
+                                                            }
+                                                   },
+                                        'Return' => '111',
+                                        'ShortName' => 'umad_debug',
                                         'Source' => 'umad.c'
                                       },
-                            '9690' => {
-                                        'Line' => '45',
+                            '8289' => {
+                                        'Line' => '1167',
                                         'Param' => {
                                                      '0' => {
-                                                              'name' => 'mgmt_class',
-                                                              'type' => '1207'
+                                                              'name' => 'umad',
+                                                              'type' => '173'
                                                             }
                                                    },
-                                        'Reg' => {
-                                                   '0' => 'rdi'
-                                                 },
-                                        'Return' => '67',
-                                        'ShortName' => 'umad_class_str',
-                                        'Source' => 'umad_str.c'
+                                        'Return' => '8195',
+                                        'ShortName' => 'umad_get_mad_addr',
+                                        'Source' => 'umad.c'
                                       },
-                            '9814' => {
-                                        'Line' => '134',
+                            '8361' => {
+                                        'Line' => '1160',
                                         'Param' => {
                                                      '0' => {
-                                                              'name' => 'mgmt_class',
-                                                              'type' => '1207'
+                                                              'name' => 'umad',
+                                                              'type' => '173'
+                                                            }
+                                                   },
+                                        'Return' => '111',
+                                        'ShortName' => 'umad_status',
+                                        'Source' => 'umad.c'
+                                      },
+                            '8433' => {
+                                        'Line' => '1154',
+                                        'Param' => {
+                                                     '0' => {
+                                                              'name' => 'fd',
+                                                              'type' => '111'
                                                             },
                                                      '1' => {
-                                                              'name' => 'method',
-                                                              'type' => '1207'
+                                                              'name' => 'agentid',
+                                                              'type' => '111'
                                                             }
                                                    },
-                                        'Reg' => {
-                                                   '0' => 'rdi',
-                                                   '1' => 'rsi'
-                                                 },
-                                        'Return' => '67',
-                                        'ShortName' => 'umad_method_str',
-                                        'Source' => 'umad_str.c'
+                                        'Return' => '111',
+                                        'ShortName' => 'umad_unregister',
+                                        'Source' => 'umad.c'
                                       },
-                            '9920' => {
-                                        'Line' => '142',
+                            '8709' => {
+                                        'Line' => '1071',
                                         'Param' => {
                                                      '0' => {
-                                                              'name' => '_status',
-                                                              'type' => '89'
+                                                              'name' => 'port_fd',
+                                                              'type' => '111'
+                                                            },
+                                                     '1' => {
+                                                              'name' => 'attr',
+                                                              'type' => '9983'
+                                                            },
+                                                     '2' => {
+                                                              'name' => 'agent_id',
+                                                              'type' => '9989'
                                                             }
                                                    },
-                                        'Reg' => {
-                                                   '0' => 'rdi'
-                                                 },
-                                        'Return' => '67',
-                                        'ShortName' => 'umad_common_mad_status_str',
-                                        'Source' => 'umad_str.c'
-                                      },
-                            '9976' => {
-                                        'Line' => '165',
-                                        'Param' => {
-                                                     '0' => {
-                                                              'name' => '_status',
-                                                              'type' => '89'
-                                                            }
-                                                   },
-                                        'Reg' => {
-                                                   '0' => 'rdi'
-                                                 },
-                                        'Return' => '67',
-                                        'ShortName' => 'umad_sa_mad_status_str',
-                                        'Source' => 'umad_str.c'
+                                        'Return' => '111',
+                                        'ShortName' => 'umad_register2',
+                                        'Source' => 'umad.c'
                                       }
                           },
           'SymbolVersion' => {
-                               '_ITM_deregisterTMCloneTable' => 'write@@GLIBC_2.2.5',
-                               '_ITM_registerTMCloneTable' => 'write@@GLIBC_2.2.5',
-                               '__gmon_start__' => 'write@@GLIBC_2.2.5',
                                'umad_addr_dump' => 'umad_addr_dump@@IBUMAD_1.0',
                                'umad_attribute_str' => 'umad_attribute_str@@IBUMAD_1.0',
                                'umad_class_str' => 'umad_class_str@@IBUMAD_1.0',
@@ -857,606 +713,658 @@ $VAR1 = {
                                    'Name' => 'void',
                                    'Type' => 'Intrinsic'
                                  },
-                          '100' => {
-                                     'BaseType' => '111',
-                                     'Header' => 'int-ll64.h',
-                                     'Line' => '23',
-                                     'Name' => '__u16',
-                                     'Size' => '2',
-                                     'Type' => 'Typedef'
-                                   },
-                          '1021' => {
-                                      'BaseType' => '77',
-                                      'Name' => 'char[]',
-                                      'Size' => '8',
-                                      'Type' => 'Array'
-                                    },
-                          '1041' => {
-                                      'BaseType' => '77',
-                                      'Name' => 'char*',
-                                      'Size' => '1',
-                                      'Type' => 'Pointer'
-                                    },
-                          '1058' => {
-                                      'BaseType' => '1063',
-                                      'Name' => '__be64*',
-                                      'Size' => '8',
-                                      'Type' => 'Pointer'
-                                    },
-                          '1063' => {
-                                      'BaseType' => '1074',
-                                      'Header' => 'types.h',
-                                      'Line' => '32',
-                                      'Name' => '__be64',
-                                      'Size' => '8',
+                          '1040' => {
+                                      'BaseType' => '52',
+                                      'Header' => 'int-ll64.h',
+                                      'Line' => '24',
+                                      'Name' => '__u16',
+                                      'Size' => '2',
                                       'Type' => 'Typedef'
                                     },
-                          '1074' => {
-                                      'BaseType' => '1085',
+                          '1052' => {
+                                      'BaseType' => '950',
                                       'Header' => 'int-ll64.h',
-                                      'Line' => '30',
+                                      'Line' => '31',
                                       'Name' => '__u64',
                                       'Size' => '8',
                                       'Type' => 'Typedef'
                                     },
-                          '1085' => {
-                                      'Name' => 'unsigned long long',
-                                      'Size' => '8',
-                                      'Type' => 'Intrinsic'
+                          '1064' => {
+                                      'BaseType' => '1040',
+                                      'Header' => 'types.h',
+                                      'Line' => '25',
+                                      'Name' => '__be16',
+                                      'Size' => '2',
+                                      'Type' => 'Typedef'
                                     },
-                          '1092' => {
-                                      'BaseType' => '54',
-                                      'Header' => 'stdint.h',
-                                      'Line' => '55',
-                                      'Name' => 'uint64_t',
+                          '1076' => {
+                                      'BaseType' => '1052',
+                                      'Header' => 'types.h',
+                                      'Line' => '29',
+                                      'Name' => '__be64',
                                       'Size' => '8',
                                       'Type' => 'Typedef'
                                     },
+                          '10899' => {
+                                       'BaseType' => '130',
+                                       'Name' => 'long*',
+                                       'Size' => '8',
+                                       'Type' => 'Pointer'
+                                     },
                           '111' => {
-                                     'Name' => 'unsigned short',
-                                     'Size' => '2',
+                                     'Name' => 'int',
+                                     'Size' => '4',
                                      'Type' => 'Intrinsic'
                                    },
-                          '1120' => {
-                                      'Header' => 'umad.h',
-                                      'Line' => '56',
-                                      'Memb' => {
-                                                  '0' => {
-                                                           'name' => 'raw',
-                                                           'offset' => '0',
-                                                           'type' => '1195'
-                                                         },
-                                                  '1' => {
-                                                           'name' => 'raw_be16',
-                                                           'offset' => '0',
-                                                           'type' => '1225'
-                                                         },
-                                                  '2' => {
-                                                           'name' => 'global',
-                                                           'offset' => '0',
-                                                           'type' => '1165'
-                                                         }
-                                                },
-                                      'Name' => 'union umad_gid',
+                          '1134' => {
+                                      'BaseType' => '210',
+                                      'Name' => 'uint8_t[16]',
                                       'Size' => '16',
-                                      'Type' => 'Union'
+                                      'Type' => 'Array'
                                     },
-                          '1165' => {
+                          '118' => {
+                                     'BaseType' => '59',
+                                     'Header' => 'types.h',
+                                     'Line' => '41',
+                                     'Name' => '__uint32_t',
+                                     'Size' => '4',
+                                     'Type' => 'Typedef'
+                                   },
+                          '11823' => {
+                                       'BaseType' => '210',
+                                       'Name' => 'uint8_t*',
+                                       'Size' => '8',
+                                       'Type' => 'Pointer'
+                                     },
+                          '1238' => {
                                       'Header' => 'umad.h',
                                       'Line' => '59',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'subnet_prefix',
                                                            'offset' => '0',
-                                                           'type' => '1063'
+                                                           'type' => '1076'
                                                          },
                                                   '1' => {
                                                            'name' => 'interface_id',
                                                            'offset' => '8',
-                                                           'type' => '1063'
+                                                           'type' => '1076'
                                                          }
                                                 },
                                       'Name' => 'anon-struct-umad.h-59',
                                       'Size' => '16',
                                       'Type' => 'Struct'
                                     },
-                          '1195' => {
-                                      'BaseType' => '1207',
-                                      'Name' => 'uint8_t[]',
-                                      'Size' => '8',
-                                      'Type' => 'Array'
-                                    },
-                          '1207' => {
-                                      'BaseType' => '1218',
-                                      'Header' => 'stdint.h',
-                                      'Line' => '48',
-                                      'Name' => 'uint8_t',
-                                      'Size' => '1',
-                                      'Type' => 'Typedef'
-                                    },
-                          '1218' => {
-                                      'Name' => 'unsigned char',
-                                      'Size' => '1',
-                                      'Type' => 'Intrinsic'
-                                    },
-                          '1225' => {
-                                      'BaseType' => '89',
-                                      'Name' => '__be16[]',
-                                      'Size' => '8',
-                                      'Type' => 'Array'
-                                    },
-                          '1247' => {
-                                      'Name' => 'unsigned int',
-                                      'Size' => '4',
-                                      'Type' => 'Intrinsic'
-                                    },
-                          '142' => {
-                                     'Name' => 'int',
-                                     'Size' => '4',
-                                     'Type' => 'Intrinsic'
-                                   },
-                          '1828' => {
-                                      'BaseType' => '1247',
-                                      'Header' => 'stdint.h',
-                                      'Line' => '51',
-                                      'Name' => 'uint32_t',
-                                      'Size' => '4',
-                                      'Type' => 'Typedef'
-                                    },
-                          '1839' => {
-                                      'BaseType' => '1850',
+                          '1274' => {
                                       'Header' => 'umad.h',
-                                      'Line' => '84',
-                                      'Name' => 'ib_mad_addr_t',
-                                      'Size' => '44',
-                                      'Type' => 'Typedef'
-                                    },
-                          '1850' => {
-                                      'Header' => 'umad.h',
-                                      'Line' => '67',
+                                      'Line' => '56',
                                       'Memb' => {
                                                   '0' => {
-                                                           'name' => 'qpn',
+                                                           'name' => 'raw',
                                                            'offset' => '0',
-                                                           'type' => '2041'
+                                                           'type' => '1134'
                                                          },
                                                   '1' => {
-                                                           'name' => 'qkey',
-                                                           'offset' => '4',
-                                                           'type' => '2041'
+                                                           'name' => 'raw_be16',
+                                                           'offset' => '0',
+                                                           'type' => '1325'
                                                          },
-                                                  '10' => {
-                                                            'name' => 'flow_label',
-                                                            'offset' => '32',
-                                                            'type' => '2041'
-                                                          },
-                                                  '11' => {
-                                                            'name' => 'pkey_index',
-                                                            'offset' => '36',
-                                                            'type' => '2238'
-                                                          },
-                                                  '12' => {
-                                                            'name' => 'reserved',
-                                                            'offset' => '38',
-                                                            'type' => '1195'
-                                                          },
                                                   '2' => {
-                                                           'name' => 'lid',
-                                                           'offset' => '8',
-                                                           'type' => '89'
-                                                         },
-                                                  '3' => {
-                                                           'name' => 'sl',
-                                                           'offset' => '10',
-                                                           'type' => '1207'
-                                                         },
-                                                  '4' => {
-                                                           'name' => 'path_bits',
-                                                           'offset' => '11',
-                                                           'type' => '1207'
-                                                         },
-                                                  '5' => {
-                                                           'name' => 'grh_present',
-                                                           'offset' => '12',
-                                                           'type' => '1207'
-                                                         },
-                                                  '6' => {
-                                                           'name' => 'gid_index',
-                                                           'offset' => '13',
-                                                           'type' => '1207'
-                                                         },
-                                                  '7' => {
-                                                           'name' => 'hop_limit',
-                                                           'offset' => '14',
-                                                           'type' => '1207'
-                                                         },
-                                                  '8' => {
-                                                           'name' => 'traffic_class',
-                                                           'offset' => '15',
-                                                           'type' => '1207'
-                                                         },
-                                                  '9' => {
-                                                           'name' => 'unnamed0',
-                                                           'offset' => '16',
-                                                           'type' => '1974'
+                                                           'name' => 'global',
+                                                           'offset' => '0',
+                                                           'type' => '1238'
                                                          }
                                                 },
-                                      'Name' => 'struct ib_mad_addr',
-                                      'Size' => '44',
-                                      'Type' => 'Struct'
+                                      'Name' => 'union umad_gid',
+                                      'Size' => '16',
+                                      'Type' => 'Union'
                                     },
-                          '1974' => {
+                          '130' => {
+                                     'Name' => 'long',
+                                     'Size' => '8',
+                                     'Type' => 'Intrinsic'
+                                   },
+                          '1325' => {
+                                      'BaseType' => '1064',
+                                      'Name' => '__be16[8]',
+                                      'Size' => '16',
+                                      'Type' => 'Array'
+                                    },
+                          '13438' => {
+                                       'BaseType' => '111',
+                                       'Name' => 'int*',
+                                       'Size' => '8',
+                                       'Type' => 'Pointer'
+                                     },
+                          '137' => {
+                                     'BaseType' => '66',
+                                     'Header' => 'types.h',
+                                     'Line' => '44',
+                                     'Name' => '__uint64_t',
+                                     'Size' => '8',
+                                     'Type' => 'Typedef'
+                                   },
+                          '16876' => {
+                                       'BaseType' => '6098',
+                                       'Name' => 'umad_ca_t*',
+                                       'Size' => '8',
+                                       'Type' => 'Pointer'
+                                     },
+                          '173' => {
+                                     'BaseType' => '1',
+                                     'Name' => 'void*',
+                                     'Size' => '8',
+                                     'Type' => 'Pointer'
+                                   },
+                          '187' => {
+                                     'BaseType' => '198',
+                                     'Name' => 'char*',
+                                     'Size' => '8',
+                                     'Type' => 'Pointer'
+                                   },
+                          '198' => {
+                                     'Name' => 'char',
+                                     'Size' => '1',
+                                     'Type' => 'Intrinsic'
+                                   },
+                          '205' => {
+                                     'BaseType' => '198',
+                                     'Name' => 'char const',
+                                     'Size' => '1',
+                                     'Type' => 'Const'
+                                   },
+                          '20603' => {
+                                       'BaseType' => '795',
+                                       'Name' => 'char[20]*',
+                                       'Size' => '8',
+                                       'Type' => 'Pointer'
+                                     },
+                          '210' => {
+                                     'BaseType' => '80',
+                                     'Header' => 'stdint-uintn.h',
+                                     'Line' => '24',
+                                     'Name' => 'uint8_t',
+                                     'Size' => '1',
+                                     'Type' => 'Typedef'
+                                   },
+                          '222' => {
+                                     'BaseType' => '99',
+                                     'Header' => 'stdint-uintn.h',
+                                     'Line' => '25',
+                                     'Name' => 'uint16_t',
+                                     'Size' => '2',
+                                     'Type' => 'Typedef'
+                                   },
+                          '234' => {
+                                     'BaseType' => '118',
+                                     'Header' => 'stdint-uintn.h',
+                                     'Line' => '26',
+                                     'Name' => 'uint32_t',
+                                     'Size' => '4',
+                                     'Type' => 'Typedef'
+                                   },
+                          '246' => {
+                                     'BaseType' => '137',
+                                     'Header' => 'stdint-uintn.h',
+                                     'Line' => '27',
+                                     'Name' => 'uint64_t',
+                                     'Size' => '8',
+                                     'Type' => 'Typedef'
+                                   },
+                          '2558' => {
+                                      'BaseType' => '1076',
+                                      'Name' => '__be64*',
+                                      'Size' => '8',
+                                      'Type' => 'Pointer'
+                                    },
+                          '258' => {
+                                     'BaseType' => '66',
+                                     'Header' => 'stddef.h',
+                                     'Line' => '209',
+                                     'Name' => 'size_t',
+                                     'Size' => '8',
+                                     'Type' => 'Typedef'
+                                   },
+                          '270' => {
+                                     'BaseType' => '205',
+                                     'Name' => 'char const*',
+                                     'Size' => '8',
+                                     'Type' => 'Pointer'
+                                   },
+                          '45' => {
+                                    'Name' => 'unsigned char',
+                                    'Size' => '1',
+                                    'Type' => 'Intrinsic'
+                                  },
+                          '4732' => {
+                                      'BaseType' => '198',
+                                      'Name' => 'char[40]',
+                                      'Size' => '40',
+                                      'Type' => 'Array'
+                                    },
+                          '5190' => {
+                                      'BaseType' => '59',
+                                      'Header' => 'int-ll64.h',
+                                      'Line' => '27',
+                                      'Name' => '__u32',
+                                      'Size' => '4',
+                                      'Type' => 'Typedef'
+                                    },
+                          '52' => {
+                                    'Name' => 'unsigned short',
+                                    'Size' => '2',
+                                    'Type' => 'Intrinsic'
+                                  },
+                          '5226' => {
+                                      'BaseType' => '5190',
+                                      'Header' => 'types.h',
+                                      'Line' => '27',
+                                      'Name' => '__be32',
+                                      'Size' => '4',
+                                      'Type' => 'Typedef'
+                                    },
+                          '5353' => {
                                       'Header' => 'umad.h',
                                       'Line' => '77',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'gid',
                                                            'offset' => '0',
-                                                           'type' => '1195'
+                                                           'type' => '1134'
                                                          },
                                                   '1' => {
                                                            'name' => 'ib_gid',
                                                            'offset' => '0',
-                                                           'type' => '1120'
+                                                           'type' => '1274'
                                                          }
                                                 },
-                                      'Name' => 'ib_mad_addr::anon-union-umad.h-77',
-                                      'NameSpace' => 'ib_mad_addr',
+                                      'Name' => 'anon-union-umad.h-77',
                                       'Size' => '16',
                                       'Type' => 'Union'
                                     },
-                          '2041' => {
-                                      'BaseType' => '2052',
-                                      'Header' => 'types.h',
-                                      'Line' => '30',
-                                      'Name' => '__be32',
-                                      'Size' => '4',
-                                      'Type' => 'Typedef'
-                                    },
-                          '2052' => {
-                                      'BaseType' => '1247',
-                                      'Header' => 'int-ll64.h',
-                                      'Line' => '26',
-                                      'Name' => '__u32',
-                                      'Size' => '4',
-                                      'Type' => 'Typedef'
-                                    },
-                          '2238' => {
-                                      'BaseType' => '111',
-                                      'Header' => 'stdint.h',
-                                      'Line' => '49',
-                                      'Name' => 'uint16_t',
-                                      'Size' => '2',
-                                      'Type' => 'Typedef'
-                                    },
-                          '2760' => {
-                                      'BaseType' => '2765',
-                                      'Name' => 'umad_ca_t*',
-                                      'Size' => '208',
-                                      'Type' => 'Pointer'
-                                    },
-                          '2765' => {
-                                      'BaseType' => '2776',
+                          '5389' => {
                                       'Header' => 'umad.h',
-                                      'Line' => '170',
-                                      'Name' => 'umad_ca_t',
-                                      'Size' => '208',
-                                      'Type' => 'Typedef'
-                                    },
-                          '2776' => {
-                                      'Header' => 'umad.h',
-                                      'Line' => '160',
+                                      'Line' => '67',
                                       'Memb' => {
                                                   '0' => {
-                                                           'name' => 'ca_name',
+                                                           'name' => 'qpn',
                                                            'offset' => '0',
-                                                           'type' => '1021'
+                                                           'type' => '5226'
                                                          },
                                                   '1' => {
-                                                           'name' => 'node_type',
-                                                           'offset' => '20',
-                                                           'type' => '1247'
+                                                           'name' => 'qkey',
+                                                           'offset' => '4',
+                                                           'type' => '5226'
                                                          },
+                                                  '10' => {
+                                                            'name' => 'flow_label',
+                                                            'offset' => '32',
+                                                            'type' => '5226'
+                                                          },
+                                                  '11' => {
+                                                            'name' => 'pkey_index',
+                                                            'offset' => '36',
+                                                            'type' => '222'
+                                                          },
+                                                  '12' => {
+                                                            'name' => 'reserved',
+                                                            'offset' => '38',
+                                                            'type' => '5566'
+                                                          },
                                                   '2' => {
-                                                           'name' => 'numports',
-                                                           'offset' => '24',
-                                                           'type' => '142'
+                                                           'name' => 'lid',
+                                                           'offset' => '8',
+                                                           'type' => '1064'
                                                          },
                                                   '3' => {
-                                                           'name' => 'fw_ver',
-                                                           'offset' => '28',
-                                                           'type' => '1021'
+                                                           'name' => 'sl',
+                                                           'offset' => '10',
+                                                           'type' => '210'
                                                          },
                                                   '4' => {
-                                                           'name' => 'ca_type',
-                                                           'offset' => '48',
-                                                           'type' => '1021'
+                                                           'name' => 'path_bits',
+                                                           'offset' => '11',
+                                                           'type' => '210'
                                                          },
                                                   '5' => {
-                                                           'name' => 'hw_ver',
-                                                           'offset' => '88',
-                                                           'type' => '1021'
+                                                           'name' => 'grh_present',
+                                                           'offset' => '12',
+                                                           'type' => '210'
                                                          },
                                                   '6' => {
-                                                           'name' => 'node_guid',
-                                                           'offset' => '112',
-                                                           'type' => '1063'
+                                                           'name' => 'gid_index',
+                                                           'offset' => '13',
+                                                           'type' => '210'
                                                          },
                                                   '7' => {
-                                                           'name' => 'system_guid',
-                                                           'offset' => '120',
-                                                           'type' => '1063'
+                                                           'name' => 'hop_limit',
+                                                           'offset' => '14',
+                                                           'type' => '210'
                                                          },
                                                   '8' => {
-                                                           'name' => 'ports',
-                                                           'offset' => '128',
-                                                           'type' => '2917'
+                                                           'name' => 'traffic_class',
+                                                           'offset' => '15',
+                                                           'type' => '210'
+                                                         },
+                                                  '9' => {
+                                                           'name' => 'unnamed0',
+                                                           'offset' => '16',
+                                                           'type' => '5353'
                                                          }
                                                 },
-                                      'Name' => 'struct umad_ca',
-                                      'Size' => '208',
+                                      'Name' => 'struct ib_mad_addr',
+                                      'Size' => '44',
                                       'Type' => 'Struct'
                                     },
-                          '2917' => {
-                                      'BaseType' => '2929',
-                                      'Name' => 'umad_port_t*[]',
-                                      'Size' => '8',
+                          '5566' => {
+                                      'BaseType' => '210',
+                                      'Name' => 'uint8_t[6]',
+                                      'Size' => '6',
                                       'Type' => 'Array'
                                     },
-                          '2929' => {
-                                      'BaseType' => '2934',
-                                      'Name' => 'umad_port_t*',
-                                      'Size' => '112',
-                                      'Type' => 'Pointer'
-                                    },
-                          '2934' => {
-                                      'BaseType' => '2945',
+                          '5582' => {
+                                      'BaseType' => '5389',
                                       'Header' => 'umad.h',
-                                      'Line' => '158',
-                                      'Name' => 'umad_port_t',
-                                      'Size' => '112',
+                                      'Line' => '84',
+                                      'Name' => 'ib_mad_addr_t',
+                                      'Size' => '44',
                                       'Type' => 'Typedef'
                                     },
-                          '2945' => {
+                          '5718' => {
                                       'Header' => 'umad.h',
                                       'Line' => '142',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'ca_name',
                                                            'offset' => '0',
-                                                           'type' => '1021'
+                                                           'type' => '795'
                                                          },
                                                   '1' => {
                                                            'name' => 'portnum',
                                                            'offset' => '20',
-                                                           'type' => '142'
+                                                           'type' => '111'
                                                          },
                                                   '10' => {
                                                             'name' => 'gid_prefix',
                                                             'offset' => '56',
-                                                            'type' => '1063'
+                                                            'type' => '1076'
                                                           },
                                                   '11' => {
                                                             'name' => 'port_guid',
                                                             'offset' => '64',
-                                                            'type' => '1063'
+                                                            'type' => '1076'
                                                           },
                                                   '12' => {
                                                             'name' => 'pkeys_size',
                                                             'offset' => '72',
-                                                            'type' => '1247'
+                                                            'type' => '59'
                                                           },
                                                   '13' => {
                                                             'name' => 'pkeys',
                                                             'offset' => '80',
-                                                            'type' => '3134'
+                                                            'type' => '5927'
                                                           },
                                                   '14' => {
                                                             'name' => 'link_layer',
                                                             'offset' => '88',
-                                                            'type' => '1021'
+                                                            'type' => '795'
                                                           },
                                                   '2' => {
                                                            'name' => 'base_lid',
                                                            'offset' => '24',
-                                                           'type' => '1247'
+                                                           'type' => '59'
                                                          },
                                                   '3' => {
                                                            'name' => 'lmc',
                                                            'offset' => '28',
-                                                           'type' => '1247'
+                                                           'type' => '59'
                                                          },
                                                   '4' => {
                                                            'name' => 'sm_lid',
                                                            'offset' => '32',
-                                                           'type' => '1247'
+                                                           'type' => '59'
                                                          },
                                                   '5' => {
                                                            'name' => 'sm_sl',
                                                            'offset' => '36',
-                                                           'type' => '1247'
+                                                           'type' => '59'
                                                          },
                                                   '6' => {
                                                            'name' => 'state',
                                                            'offset' => '40',
-                                                           'type' => '1247'
+                                                           'type' => '59'
                                                          },
                                                   '7' => {
                                                            'name' => 'phys_state',
                                                            'offset' => '44',
-                                                           'type' => '1247'
+                                                           'type' => '59'
                                                          },
                                                   '8' => {
                                                            'name' => 'rate',
                                                            'offset' => '48',
-                                                           'type' => '1247'
+                                                           'type' => '59'
                                                          },
                                                   '9' => {
                                                            'name' => 'capmask',
                                                            'offset' => '52',
-                                                           'type' => '2041'
+                                                           'type' => '5226'
                                                          }
                                                 },
                                       'Name' => 'struct umad_port',
                                       'Size' => '112',
                                       'Type' => 'Struct'
                                     },
-                          '3134' => {
-                                      'BaseType' => '2238',
+                          '59' => {
+                                    'Name' => 'unsigned int',
+                                    'Size' => '4',
+                                    'Type' => 'Intrinsic'
+                                  },
+                          '5927' => {
+                                      'BaseType' => '222',
                                       'Name' => 'uint16_t*',
-                                      'Size' => '2',
+                                      'Size' => '8',
                                       'Type' => 'Pointer'
                                     },
-                          '3423' => {
-                                      'BaseType' => '3428',
-                                      'Name' => 'struct umad_device_node*',
-                                      'Size' => '16',
+                          '5933' => {
+                                      'BaseType' => '5718',
+                                      'Header' => 'umad.h',
+                                      'Line' => '158',
+                                      'Name' => 'umad_port_t',
+                                      'Size' => '112',
+                                      'Type' => 'Typedef'
+                                    },
+                          '5945' => {
+                                      'Header' => 'umad.h',
+                                      'Line' => '160',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'ca_name',
+                                                           'offset' => '0',
+                                                           'type' => '795'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'node_type',
+                                                           'offset' => '20',
+                                                           'type' => '59'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'numports',
+                                                           'offset' => '24',
+                                                           'type' => '111'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'fw_ver',
+                                                           'offset' => '28',
+                                                           'type' => '795'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'ca_type',
+                                                           'offset' => '48',
+                                                           'type' => '4732'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'hw_ver',
+                                                           'offset' => '88',
+                                                           'type' => '795'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'node_guid',
+                                                           'offset' => '112',
+                                                           'type' => '1076'
+                                                         },
+                                                  '7' => {
+                                                           'name' => 'system_guid',
+                                                           'offset' => '120',
+                                                           'type' => '1076'
+                                                         },
+                                                  '8' => {
+                                                           'name' => 'ports',
+                                                           'offset' => '128',
+                                                           'type' => '6076'
+                                                         }
+                                                },
+                                      'Name' => 'struct umad_ca',
+                                      'Size' => '208',
+                                      'Type' => 'Struct'
+                                    },
+                          '6076' => {
+                                      'BaseType' => '6092',
+                                      'Name' => 'umad_port_t*[10]',
+                                      'Size' => '80',
+                                      'Type' => 'Array'
+                                    },
+                          '6092' => {
+                                      'BaseType' => '5933',
+                                      'Name' => 'umad_port_t*',
+                                      'Size' => '8',
                                       'Type' => 'Pointer'
                                     },
-                          '3428' => {
+                          '6098' => {
+                                      'BaseType' => '5945',
+                                      'Header' => 'umad.h',
+                                      'Line' => '170',
+                                      'Name' => 'umad_ca_t',
+                                      'Size' => '208',
+                                      'Type' => 'Typedef'
+                                    },
+                          '6110' => {
                                       'Header' => 'umad.h',
                                       'Line' => '172',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'next',
                                                            'offset' => '0',
-                                                           'type' => '3423'
+                                                           'type' => '6150'
                                                          },
                                                   '1' => {
                                                            'name' => 'ca_name',
                                                            'offset' => '8',
-                                                           'type' => '67'
+                                                           'type' => '270'
                                                          }
                                                 },
                                       'Name' => 'struct umad_device_node',
                                       'Size' => '16',
                                       'Type' => 'Struct'
                                     },
-                          '4184' => {
-                                      'Name' => 'long',
-                                      'Size' => '8',
-                                      'Type' => 'Intrinsic'
-                                    },
-                          '42' => {
-                                    'BaseType' => '1',
-                                    'Name' => 'void*',
-                                    'Type' => 'Pointer'
-                                  },
-                          '54' => {
-                                    'Name' => 'unsigned long',
-                                    'Size' => '8',
-                                    'Type' => 'Intrinsic'
-                                  },
-                          '67' => {
-                                    'BaseType' => '72',
-                                    'Name' => 'char const*',
-                                    'Size' => '1',
-                                    'Type' => 'Pointer'
-                                  },
-                          '72' => {
-                                    'BaseType' => '77',
-                                    'Name' => 'char const',
-                                    'Size' => '1',
-                                    'Type' => 'Const'
-                                  },
-                          '77' => {
-                                    'Name' => 'char',
-                                    'Size' => '1',
-                                    'Type' => 'Intrinsic'
-                                  },
-                          '89' => {
-                                    'BaseType' => '100',
-                                    'Header' => 'types.h',
-                                    'Line' => '28',
-                                    'Name' => '__be16',
-                                    'Size' => '2',
-                                    'Type' => 'Typedef'
-                                  },
-                          '9016' => {
-                                      'BaseType' => '1839',
-                                      'Name' => 'ib_mad_addr_t*',
-                                      'Size' => '44',
-                                      'Type' => 'Pointer'
-                                    },
-                          '9021' => {
-                                      'BaseType' => '1021',
-                                      'Name' => 'char[]*',
+                          '6150' => {
+                                      'BaseType' => '6110',
+                                      'Name' => 'struct umad_device_node*',
                                       'Size' => '8',
                                       'Type' => 'Pointer'
                                     },
-                          '9031' => {
-                                      'BaseType' => '142',
-                                      'Name' => 'int*',
-                                      'Size' => '4',
-                                      'Type' => 'Pointer'
-                                    },
-                          '9058' => {
-                                      'BaseType' => '1207',
-                                      'Name' => 'uint8_t*',
-                                      'Size' => '1',
-                                      'Type' => 'Pointer'
-                                    },
-                          '9063' => {
-                                      'BaseType' => '4184',
-                                      'Name' => 'long*',
-                                      'Size' => '8',
-                                      'Type' => 'Pointer'
-                                    },
-                          '9185' => {
-                                      'BaseType' => '9190',
-                                      'Name' => 'struct umad_reg_attr*',
-                                      'Size' => '32',
-                                      'Type' => 'Pointer'
-                                    },
-                          '9190' => {
+                          '6156' => {
                                       'Header' => 'umad.h',
                                       'Line' => '223',
                                       'Memb' => {
                                                   '0' => {
                                                            'name' => 'mgmt_class',
                                                            'offset' => '0',
-                                                           'type' => '1207'
+                                                           'type' => '210'
                                                          },
                                                   '1' => {
                                                            'name' => 'mgmt_class_version',
                                                            'offset' => '1',
-                                                           'type' => '1207'
+                                                           'type' => '210'
                                                          },
                                                   '2' => {
                                                            'name' => 'flags',
                                                            'offset' => '4',
-                                                           'type' => '1828'
+                                                           'type' => '234'
                                                          },
                                                   '3' => {
                                                            'name' => 'method_mask',
                                                            'offset' => '8',
-                                                           'type' => '9271'
+                                                           'type' => '6248'
                                                          },
                                                   '4' => {
                                                            'name' => 'oui',
                                                            'offset' => '24',
-                                                           'type' => '1828'
+                                                           'type' => '234'
                                                          },
                                                   '5' => {
                                                            'name' => 'rmpp_version',
                                                            'offset' => '28',
-                                                           'type' => '1207'
+                                                           'type' => '210'
                                                          }
                                                 },
                                       'Name' => 'struct umad_reg_attr',
                                       'Size' => '32',
                                       'Type' => 'Struct'
                                     },
-                          '9271' => {
-                                      'BaseType' => '1092',
-                                      'Name' => 'uint64_t[]',
-                                      'Size' => '8',
+                          '6248' => {
+                                      'BaseType' => '246',
+                                      'Name' => 'uint64_t[2]',
+                                      'Size' => '16',
                                       'Type' => 'Array'
                                     },
-                          '9294' => {
-                                      'BaseType' => '1828',
+                          '66' => {
+                                    'Name' => 'unsigned long',
+                                    'Size' => '8',
+                                    'Type' => 'Intrinsic'
+                                  },
+                          '795' => {
+                                     'BaseType' => '198',
+                                     'Name' => 'char[20]',
+                                     'Size' => '20',
+                                     'Type' => 'Array'
+                                   },
+                          '80' => {
+                                    'BaseType' => '45',
+                                    'Header' => 'types.h',
+                                    'Line' => '37',
+                                    'Name' => '__uint8_t',
+                                    'Size' => '1',
+                                    'Type' => 'Typedef'
+                                  },
+                          '8195' => {
+                                      'BaseType' => '5582',
+                                      'Name' => 'ib_mad_addr_t*',
+                                      'Size' => '8',
+                                      'Type' => 'Pointer'
+                                    },
+                          '950' => {
+                                     'Name' => 'unsigned long long',
+                                     'Size' => '8',
+                                     'Type' => 'Intrinsic'
+                                   },
+                          '99' => {
+                                    'BaseType' => '52',
+                                    'Header' => 'types.h',
+                                    'Line' => '39',
+                                    'Name' => '__uint16_t',
+                                    'Size' => '2',
+                                    'Type' => 'Typedef'
+                                  },
+                          '9983' => {
+                                      'BaseType' => '6156',
+                                      'Name' => 'struct umad_reg_attr*',
+                                      'Size' => '8',
+                                      'Type' => 'Pointer'
+                                    },
+                          '9989' => {
+                                      'BaseType' => '234',
                                       'Name' => 'uint32_t*',
-                                      'Size' => '4',
+                                      'Size' => '8',
                                       'Type' => 'Pointer'
                                     }
                         },
@@ -1467,14 +1375,14 @@ $VAR1 = {
                                                                '__ctype_b_loc@GLIBC_2.3' => 0,
                                                                '__cxa_finalize@GLIBC_2.2.5' => 0,
                                                                '__errno_location@GLIBC_2.2.5' => 0,
+                                                               '__fprintf_chk@GLIBC_2.3.4' => 0,
                                                                '__gmon_start__' => 0,
-                                                               '__strdup@GLIBC_2.2.5' => 0,
-                                                               '__strsep_g@GLIBC_2.2.5' => 0,
+                                                               '__snprintf_chk@GLIBC_2.3.4' => 0,
+                                                               '__stack_chk_fail@GLIBC_2.4' => 0,
                                                                'alphasort@GLIBC_2.2.5' => 0,
                                                                'calloc@GLIBC_2.2.5' => 0,
                                                                'close@GLIBC_2.2.5' => 0,
                                                                'closedir@GLIBC_2.2.5' => 0,
-                                                               'fprintf@GLIBC_2.2.5' => 0,
                                                                'free@GLIBC_2.2.5' => 0,
                                                                'getpid@GLIBC_2.2.5' => 0,
                                                                'ioctl@GLIBC_2.2.5' => 0,
@@ -1486,13 +1394,14 @@ $VAR1 = {
                                                                'scandir@GLIBC_2.2.5' => 0,
                                                                'snprintf@GLIBC_2.2.5' => 0,
                                                                'stderr@GLIBC_2.2.5' => 0,
-                                                               'strcmp@GLIBC_2.2.5' => 0,
                                                                'strcpy@GLIBC_2.2.5' => 0,
+                                                               'strdup@GLIBC_2.2.5' => 0,
                                                                'strerror@GLIBC_2.2.5' => 0,
                                                                'strlen@GLIBC_2.2.5' => 0,
                                                                'strncmp@GLIBC_2.2.5' => 0,
                                                                'strncpy@GLIBC_2.2.5' => 0,
                                                                'strrchr@GLIBC_2.2.5' => 0,
+                                                               'strsep@GLIBC_2.2.5' => 0,
                                                                'strtol@GLIBC_2.2.5' => 0,
                                                                'strtoul@GLIBC_2.2.5' => 0,
                                                                'strtoull@GLIBC_2.2.5' => 0,
