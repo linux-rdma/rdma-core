@@ -2,6 +2,13 @@
 
 trigger:
   - master
+  - stable-v4*
+  - stable-v3*
+  - stable-v29
+  - stable-v28
+  - stable-v27
+  - stable-v26
+  - stable-v25
 pr:
   - master
 
