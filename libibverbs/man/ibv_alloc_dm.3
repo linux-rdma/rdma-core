@@ -70,7 +70,7 @@ is done with a byte offset from the beginning of the region.
 .sp
 This type of registration is done using ibv_reg_dm_mr.
 .sp
-.BI "int ibv_reg_dm_mr(struct ibv_pd " "*pd" ", struct ibv_dm " "*dm" ", uint64_t " "dm_offset",
+.BI "struct ibv_mr* ibv_reg_dm_mr(struct ibv_pd " "*pd" ", struct ibv_dm " "*dm" ", uint64_t " "dm_offset",
 .BI "                  size_t " "length" ", uint32_t " "access");
 .sp
 .I pd
