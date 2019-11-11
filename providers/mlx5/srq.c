@@ -250,13 +250,14 @@ static void set_srq_buf_ll(struct mlx5_srq *srq, int start, int end)
 }
 
 int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq,
-		       uint32_t max_wr)
+		       uint32_t max_wr, struct ibv_pd *pd)
 {
 	int size;
 	int buf_size;
 	struct mlx5_context	   *ctx;
 	uint32_t orig_max_wr = max_wr;
 	bool have_wq = true;
+	enum mlx5_alloc_type alloc_type;
 
 	ctx = to_mctx(context);
 
@@ -296,11 +297,25 @@ int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq,
 	srq->max = align_queue_size(max_wr);
 	buf_size = srq->max * size;
 
-	if (mlx5_alloc_buf(&srq->buf, buf_size,
-			   to_mdev(context->device)->page_size))
+	mlx5_get_alloc_type(ctx, pd, MLX5_SRQ_PREFIX, &alloc_type,
+			    MLX5_ALLOC_TYPE_ANON);
+
+	if (alloc_type == MLX5_ALLOC_TYPE_CUSTOM) {
+		srq->buf.mparent_domain = to_mparent_domain(pd);
+		srq->buf.req_alignment = to_mdev(context->device)->page_size;
+		srq->buf.resource_type = MLX5DV_RES_TYPE_SRQ;
+	}
+
+	if (mlx5_alloc_prefered_buf(ctx,
+				    &srq->buf, buf_size,
+				    to_mdev(context->device)->page_size,
+				    alloc_type,
+				    MLX5_SRQ_PREFIX))
 		return -1;
 
-	memset(srq->buf.buf, 0, buf_size);
+	if (srq->buf.type != MLX5_ALLOC_TYPE_CUSTOM)
+		memset(srq->buf.buf, 0, buf_size);
+
 	srq->head = 0;
 	srq->tail = align_queue_size(orig_max_wr + 1) - 1;
 	if (have_wq)  {
@@ -313,7 +328,7 @@ int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq,
 
 	srq->wrid = malloc(srq->max * sizeof(*srq->wrid));
 	if (!srq->wrid) {
-		mlx5_free_buf(&srq->buf);
+		mlx5_free_actual_buf(ctx, &srq->buf);
 		return -1;
 	}
 

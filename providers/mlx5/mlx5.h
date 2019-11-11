@@ -71,6 +71,7 @@ enum {
 #define MLX5_QP_PREFIX "MLX_QP"
 #define MLX5_MR_PREFIX "MLX_MR"
 #define MLX5_RWQ_PREFIX "MLX_RWQ"
+#define MLX5_SRQ_PREFIX "MLX_SRQ"
 #define MLX5_MAX_LOG2_CONTIG_BLOCK_SIZE 23
 #define MLX5_MIN_LOG2_CONTIG_BLOCK_SIZE 12
 
@@ -173,6 +174,7 @@ enum mlx5_alloc_type {
 	MLX5_ALLOC_TYPE_PREFER_HUGE,
 	MLX5_ALLOC_TYPE_PREFER_CONTIG,
 	MLX5_ALLOC_TYPE_EXTERNAL,
+	MLX5_ALLOC_TYPE_CUSTOM,
 	MLX5_ALLOC_TYPE_ALL
 };
 
@@ -334,6 +336,9 @@ struct mlx5_buf {
 	int                             base;
 	struct mlx5_hugetlb_mem	       *hmem;
 	enum mlx5_alloc_type		type;
+	uint64_t			resource_type;
+	size_t				req_alignment;
+	struct mlx5_parent_domain	*mparent_domain;
 };
 
 struct mlx5_td {
@@ -352,6 +357,11 @@ struct mlx5_pd {
 struct mlx5_parent_domain {
 	struct mlx5_pd mpd;
 	struct mlx5_td *mtd;
+	void *(*alloc)(struct ibv_pd *pd, void *pd_context, size_t size,
+		       size_t alignment, uint64_t resource_type);
+	void (*free)(struct ibv_pd *pd, void *pd_context, void *ptr,
+		     uint64_t resource_type);
+	void *pd_context;
 };
 
 enum {
@@ -429,6 +439,7 @@ struct mlx5_srq {
 	int				waitq_head;
 	int				waitq_tail;
 	__be32			       *db;
+	bool				custom_db;
 	uint16_t			counter;
 	int				wq_sig;
 	struct ibv_qp		       *cmd_qp;
@@ -544,6 +555,7 @@ struct mlx5_qp {
 	struct mlx5_wq                  sq;
 
 	__be32                         *db;
+	bool				custom_db;
 	struct mlx5_wq                  rq;
 	int                             wq_sig;
 	uint32_t			qp_cap_cache;
@@ -573,6 +585,7 @@ struct mlx5_rwq {
 	int buf_size;
 	struct mlx5_wq rq;
 	__be32  *db;
+	bool	custom_db;
 	void	*pbuff;
 	__be32	*recv_db;
 	int wq_sig;
@@ -775,17 +788,21 @@ int mlx5_alloc_prefered_buf(struct mlx5_context *mctx,
 			    const char *component);
 int mlx5_free_actual_buf(struct mlx5_context *ctx, struct mlx5_buf *buf);
 void mlx5_get_alloc_type(struct mlx5_context *context,
+			 struct ibv_pd *pd,
 			 const char *component,
 			 enum mlx5_alloc_type *alloc_type,
 			 enum mlx5_alloc_type default_alloc_type);
 int mlx5_use_huge(const char *key);
+bool mlx5_is_custom_alloc(struct ibv_pd *pd);
 bool mlx5_is_extern_alloc(struct mlx5_context *context);
 int mlx5_alloc_buf_extern(struct mlx5_context *ctx, struct mlx5_buf *buf,
 			  size_t size);
 void mlx5_free_buf_extern(struct mlx5_context *ctx, struct mlx5_buf *buf);
 
-__be32 *mlx5_alloc_dbrec(struct mlx5_context *context);
-void mlx5_free_db(struct mlx5_context *context, __be32 *db);
+__be32 *mlx5_alloc_dbrec(struct mlx5_context *context, struct ibv_pd *pd,
+			 bool *custom_alloc);
+void mlx5_free_db(struct mlx5_context *context, __be32 *db, struct ibv_pd *pd,
+		  bool custom_alloc);
 
 int mlx5_query_device(struct ibv_context *context,
 		       struct ibv_device_attr *attr);
@@ -847,7 +864,7 @@ int mlx5_query_srq(struct ibv_srq *srq,
 			   struct ibv_srq_attr *attr);
 int mlx5_destroy_srq(struct ibv_srq *srq);
 int mlx5_alloc_srq_buf(struct ibv_context *context, struct mlx5_srq *srq,
-		       uint32_t nwr);
+		       uint32_t nwr, struct ibv_pd *pd);
 void mlx5_complete_odp_fault(struct mlx5_srq *srq, int ind);
 void mlx5_free_srq_wqe(struct mlx5_srq *srq, int ind);
 int mlx5_post_srq_recv(struct ibv_srq *ibsrq,
