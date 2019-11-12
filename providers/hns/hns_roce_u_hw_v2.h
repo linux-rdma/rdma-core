@@ -102,7 +102,6 @@ enum {
 };
 
 enum {
-	HNS_ROCE_V2_CQE_QPN_MASK	= 0x3ffff,
 	HNS_ROCE_V2_CQE_STATUS_MASK	= 0xff,
 	HNS_ROCE_V2_CQE_OPCODE_MASK	= 0x1f,
 };

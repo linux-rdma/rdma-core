@@ -514,17 +514,15 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 		   HNS_ROCE_V2_CQE_IS_SQ);
 
 	/* if qp is zero, it will not get the correct qpn */
-	if (!*cur_qp ||
-	   (qpn & HNS_ROCE_V2_CQE_QPN_MASK) != (*cur_qp)->ibv_qp.qp_num) {
-
+	if (!*cur_qp || qpn != (*cur_qp)->ibv_qp.qp_num) {
 		*cur_qp = hns_roce_v2_find_qp(to_hr_ctx(cq->ibv_cq.context),
-					      qpn & 0xffffff);
+					      qpn);
 		if (!*cur_qp) {
 			fprintf(stderr, PFX "can't find qp!\n");
 			return V2_CQ_POLL_ERR;
 		}
 	}
-	wc->qp_num = qpn & 0xffffff;
+	wc->qp_num = qpn;
 
 	srq = (*cur_qp)->ibv_qp.srq ? to_hr_srq((*cur_qp)->ibv_qp.srq) : NULL;
 	if (is_send) {
