@@ -12,6 +12,7 @@ rdma_python_test(tests
   test_pd.py
   test_qp.py
   test_odp.py
+  test_parent_domain.py
   test_rdmacm.py
   utils.py
   )
