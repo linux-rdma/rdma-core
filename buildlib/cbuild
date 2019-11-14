@@ -985,6 +985,9 @@ def args_build_images(parser):
 def cmd_build_images(args):
     """Run from the top level source directory to make the docker images that are
     needed for building. This only needs to be run once."""
+    # Docker copies the permissions from the local host and we need this umask
+    # to be 022 or the container breaks
+    os.umask(0o22)
     for env in args.ENV:
         with private_tmp(args) as tmpdir:
             df = env.get_docker_file(tmpdir);
@@ -1039,6 +1042,7 @@ def cmd_make_dist_tar(args):
     if args.tag:
         assert args.tag == "v" + ver;
 
+    os.umask(0o22)
     with private_tmp(args) as tmpdir:
         tmp_tarfn = os.path.join(tmpdir,"tmp.tar");
 
