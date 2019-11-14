@@ -200,10 +200,10 @@ class centos8(Environment):
             " ".join(sorted(self.pkgs))));
         return res;
 
-class fc30(Environment):
-    docker_parent = "fedora:30";
+class fc31(Environment):
+    docker_parent = "fedora:31";
     pkgs = centos8.pkgs
-    name = "fc30";
+    name = "fc31";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
     is_rpm = True;
@@ -455,7 +455,7 @@ environments = [centos6(),
                 bionic(),
                 jessie(),
                 stretch(),
-                fc30(),
+                fc31(),
                 leap(),
                 tumbleweed(),
                 debian_experimental(),
