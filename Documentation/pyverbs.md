@@ -390,3 +390,34 @@ srq_attr.comp_mask = e.IBV_SRQ_INIT_ATTR_TYPE | e.IBV_SRQ_INIT_ATTR_PD | \
                      e.IBV_SRQ_INIT_ATTR_CQ | e.IBV_SRQ_INIT_ATTR_XRCD
 srq = SRQ(ctx, srq_attr)
 ```
+
+##### CMID
+The following code snippet will demonstrate creation of a CMID object, which
+represents rdma_cm_id C struct, and establish connection between two peers.
+Currently only synchronous control path is supported (rdma_create_ep).
+For more complex examples, please see tests/test_rdmacm.
+```python
+from pyverbs.qp import QPInitAttr, QPCap
+from pyverbs.cmid import CMID, AddrInfo
+import pyverbs.cm_enums as ce
+
+
+cap = QPCap(max_recv_wr=1)
+qp_init_attr = QPInitAttr(cap=cap)
+server = '11.137.14.124'
+port = '7471'
+
+# Passive side
+
+sai = AddrInfo(server, port, ce.RDMA_PS_TCP, ce.RAI_PASSIVE)
+sid = CMID(creator=sai, qp_init_attr=qp_init_attr)
+sid.listen()  # listen for incoming connection requests
+new_id = sid.get_request()  # check if there are any connection requests
+new_id.accept()  # new_id is connected to remote peer and ready to communicate
+
+# Active side
+
+cai = AddrInfo(server, port, ce.RDMA_PS_TCP)
+cid = CMID(creator=cai, qp_init_attr=qp_init_attr)
+cid.connect()  # send connection request to server
+```

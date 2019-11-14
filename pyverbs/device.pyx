@@ -14,6 +14,7 @@ from .pyverbs_error import PyverbsUserError
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.libibverbs as v
+from pyverbs.cmid cimport CMID
 from pyverbs.xrcd cimport XRCD
 from pyverbs.addr cimport GID
 from pyverbs.mr import DMMR
@@ -73,16 +74,22 @@ cdef class Context(PyverbsCM):
         Initializes a Context object. The function searches the IB devices list
         for a device with the name provided by the user. If such a device is
         found, it is opened (unless provider attributes were given).
+        In case of cmid argument, CMID object already holds an ibv_context
+        initiated pointer, hence all we have to do is assign this pointer to
+        Context's object pointer.
         :param kwargs: Arguments:
             * *name* (str)
                The RDMA device's name
             * *attr* (object)
                Device-specific attributes, meaning that the device is to be
                opened by the provider
+            * *cmid* (CMID)
+                A CMID object (represents rdma_cm_id struct)
         :return: None
         """
         cdef int count
         cdef v.ibv_device **dev_list
+        cdef CMID cmid
 
         self.pds = weakref.WeakSet()
         self.dms = weakref.WeakSet()
@@ -93,7 +100,13 @@ cdef class Context(PyverbsCM):
 
         dev_name = kwargs.get('name')
         provider_attr = kwargs.get('attr')
-        if dev_name is not None:
+        cmid = kwargs.get('cmid')
+
+        if cmid is not None:
+            self.context = cmid.id.verbs
+            cmid.ctx = self
+            return
+        elif dev_name is not None:
             self.name = dev_name
         else:
             raise PyverbsUserError('Device name must be provided')

@@ -3,6 +3,7 @@
 
 rdma_python_test(tests
   __init__.py
+  rdmacm_utils.py
   test_addr.py
   base.py
   test_cq.py
@@ -11,6 +12,7 @@ rdma_python_test(tests
   test_pd.py
   test_qp.py
   test_odp.py
+  test_rdmacm.py
   utils.py
   )
 

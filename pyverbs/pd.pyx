@@ -2,9 +2,10 @@
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.
 import weakref
 
-from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
+from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.device cimport Context, DM
+from pyverbs.cmid cimport CMID
 from .mr cimport MR, MW, DMMR
 from pyverbs.srq cimport SRQ
 from pyverbs.addr cimport AH
@@ -13,18 +14,27 @@ from libc.errno cimport errno
 
 
 cdef class PD(PyverbsCM):
-    def __cinit__(self, Context context not None):
+    def __cinit__(self, object creator not None):
         """
         Initializes a PD object. A reference for the creating Context is kept
         so that Python's GC will destroy the objects in the right order.
         :param context: The Context object creating the PD
         :return: The newly created PD on success
         """
-        self.pd = v.ibv_alloc_pd(<v.ibv_context*>context.context)
-        if self.pd == NULL:
-            raise PyverbsRDMAErrno('Failed to allocate PD', errno)
-        self.ctx = context
-        context.add_ref(self)
+        if issubclass(type(creator), Context):
+            self.pd = v.ibv_alloc_pd((<Context>creator).context)
+            if self.pd == NULL:
+                raise PyverbsRDMAErrno('Failed to allocate PD')
+            self.ctx = creator
+        elif issubclass(type(creator), CMID):
+            cmid = <CMID>creator
+            self.pd = cmid.id.pd
+            self.ctx = cmid.ctx
+            cmid.pd = self
+        else:
+            raise PyverbsUserError('Cannot create PD from {type}'
+                                    .format(type=type(creator)))
+        self.ctx.add_ref(self)
         self.logger.debug('PD: Allocated ibv_pd')
         self.srqs = weakref.WeakSet()
         self.mrs = weakref.WeakSet()
