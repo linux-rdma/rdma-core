@@ -460,7 +460,7 @@ static int hns_roce_handle_recv_inl_wqe(struct hns_roce_v2_cqe *cqe,
 		sge_num = (*cur_qp)->rq_rinl_buf.wqe_list[wr_cnt].sge_cnt;
 		wqe_buf = (uint8_t *)get_recv_wqe_v2(*cur_qp, wr_cnt);
 		if (!wqe_buf)
-			return -EINVAL;
+			return V2_CQ_POLL_ERR;
 
 		data_len = wc->byte_len;
 
@@ -609,7 +609,7 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 			break;
 	}
 
-	if (npolled) {
+	if (npolled || err == V2_CQ_POLL_ERR) {
 		mmio_ordered_writes_hack();
 
 		if (cq->flags & HNS_ROCE_SUPPORT_CQ_RECORD_DB)
