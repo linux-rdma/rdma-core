@@ -181,6 +181,41 @@ cdef class QPInitAttr(PyverbsObject):
     def sq_sig_all(self, val):
         self.attr.sq_sig_all = val
 
+    @property
+    def max_send_wr(self):
+        return self.attr.cap.max_send_wr
+    @max_send_wr.setter
+    def max_send_wr(self, val):
+        self.attr.cap.max_send_wr = val
+
+    @property
+    def max_recv_wr(self):
+        return self.attr.cap.max_recv_wr
+    @max_recv_wr.setter
+    def max_recv_wr(self, val):
+        self.attr.cap.max_recv_wr = val
+
+    @property
+    def max_send_sge(self):
+        return self.attr.cap.max_send_sge
+    @max_send_sge.setter
+    def max_send_sge(self, val):
+        self.attr.cap.max_send_sge = val
+
+    @property
+    def max_recv_sge(self):
+        return self.attr.cap.max_recv_sge
+    @max_recv_sge.setter
+    def max_recv_sge(self, val):
+        self.attr.cap.max_recv_sge = val
+
+    @property
+    def max_inline_data(self):
+        return self.attr.cap.max_inline_data
+    @max_inline_data.setter
+    def max_inline_data(self, val):
+        self.attr.cap.max_inline_data = val
+
     def __str__(self):
         print_format = '{:20}: {:<20}\n'
         ident_format = '    {:20}: {:<20}\n'
@@ -363,6 +398,41 @@ cdef class QPInitAttrEx(PyverbsObject):
     @source_qpn.setter
     def source_qpn(self, val):
         self.attr.source_qpn = val
+
+    @property
+    def max_send_wr(self):
+        return self.attr.cap.max_send_wr
+    @max_send_wr.setter
+    def max_send_wr(self, val):
+        self.attr.cap.max_send_wr = val
+
+    @property
+    def max_recv_wr(self):
+        return self.attr.cap.max_recv_wr
+    @max_recv_wr.setter
+    def max_recv_wr(self, val):
+        self.attr.cap.max_recv_wr = val
+
+    @property
+    def max_send_sge(self):
+        return self.attr.cap.max_send_sge
+    @max_send_sge.setter
+    def max_send_sge(self, val):
+        self.attr.cap.max_send_sge = val
+
+    @property
+    def max_recv_sge(self):
+        return self.attr.cap.max_recv_sge
+    @max_recv_sge.setter
+    def max_recv_sge(self, val):
+        self.attr.cap.max_recv_sge = val
+
+    @property
+    def max_inline_data(self):
+        return self.attr.cap.max_inline_data
+    @max_inline_data.setter
+    def max_inline_data(self, val):
+        self.attr.cap.max_inline_data = val
 
     def mask_to_str(self, mask):
         comp_masks = {1: 'PD', 2: 'XRCD', 4: 'Create Flags',
