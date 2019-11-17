@@ -720,7 +720,7 @@ struct ibv_qp *qelr_create_qp(struct ibv_pd *pd,
 			      struct ibv_qp_init_attr *attrs)
 {
 	struct qelr_devctx *cxt = get_qelr_ctx(pd->context);
-	struct qelr_create_qp_resp resp;
+	struct qelr_create_qp_resp resp = {};
 	struct qelr_create_qp req;
 	struct qelr_qp *qp;
 	int rc;
