@@ -670,7 +670,8 @@ out_errno:
 int dr_actions_build_attr(struct mlx5dv_dr_matcher *matcher,
 			  struct mlx5dv_dr_action *actions[],
 			  size_t num_actions,
-			  struct mlx5dv_flow_action_attr *attr)
+			  struct mlx5dv_flow_action_attr *attr,
+			  struct mlx5_flow_action_attr_aux *attr_aux)
 {
 	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
 	int i;
@@ -704,6 +705,11 @@ int dr_actions_build_attr(struct mlx5dv_dr_matcher *matcher,
 		case DR_ACTION_TYP_CTR:
 			attr[i].type = MLX5DV_FLOW_ACTION_COUNTERS_DEVX;
 			attr[i].obj = actions[i]->ctr.devx_obj;
+
+			if (actions[i]->ctr.offset) {
+				attr_aux[i].type = MLX5_FLOW_ACTION_COUNTER_OFFSET;
+				attr_aux[i].offset = actions[i]->ctr.offset;
+			}
 			break;
 		case DR_ACTION_TYP_TAG:
 			attr[i].type = MLX5DV_FLOW_ACTION_TAG;
