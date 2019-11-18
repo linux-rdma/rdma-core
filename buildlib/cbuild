@@ -41,7 +41,6 @@ import argparse
 import collections
 import filecmp
 import grp
-import imp
 import inspect
 import json
 import multiprocessing
@@ -201,10 +200,10 @@ class centos8(Environment):
             " ".join(sorted(self.pkgs))));
         return res;
 
-class fc30(Environment):
-    docker_parent = "fedora:30";
+class fc31(Environment):
+    docker_parent = "fedora:31";
     pkgs = centos8.pkgs
-    name = "fc30";
+    name = "fc31";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
     is_rpm = True;
@@ -246,6 +245,7 @@ class APTEnvironment(Environment):
         kb = os.path.join(tmpdir,"%s.kb.gpg"%(keyid));
         env = {k:v for k,v in os.environ.items()};
         env["HOME"] = tmpdir;
+        os.makedirs(os.path.join(tmpdir,".gnupg"), exist_ok=True)
         subprocess.check_call(["gpg","--keyserver", "keyserver.ubuntu.com", "--no-default-keyring","--keyring",kb,"--always-trust",
                                "--recv-key",keyid],env=env);
         kr = os.path.join(gpgd,"%s.gpg"%(keyid));
@@ -455,7 +455,7 @@ environments = [centos6(),
                 bionic(),
                 jessie(),
                 stretch(),
-                fc30(),
+                fc31(),
                 leap(),
                 tumbleweed(),
                 debian_experimental(),
@@ -985,6 +985,9 @@ def args_build_images(parser):
 def cmd_build_images(args):
     """Run from the top level source directory to make the docker images that are
     needed for building. This only needs to be run once."""
+    # Docker copies the permissions from the local host and we need this umask
+    # to be 022 or the container breaks
+    os.umask(0o22)
     for env in args.ENV:
         with private_tmp(args) as tmpdir:
             df = env.get_docker_file(tmpdir);
@@ -1039,6 +1042,7 @@ def cmd_make_dist_tar(args):
     if args.tag:
         assert args.tag == "v" + ver;
 
+    os.umask(0o22)
     with private_tmp(args) as tmpdir:
         tmp_tarfn = os.path.join(tmpdir,"tmp.tar");
 
