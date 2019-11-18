@@ -10,13 +10,14 @@ Context and a PD.
 Inheriting from it is `TrafficResources` class, which also holds a MR, CQ and
 QP, making it enough to support loopback traffic testing. It exposes methods for
 creation of these objects which can be overridden by inheriting classes.
-Inheriting from `TrafficResources` are currently two class:
+Inheriting from `TrafficResources` are currently three classes:
 - `RCResources`
 - `UDResources`
+- `XRXResources`
 
-Both add traffic-specific constants. `UDResources` for example overrides
-create_mr and adds the size of the GRH header to the message size. `RCResources`
-exposes a wrapper to modify the QP to RTS.
+The above subclasses add traffic-specific constants.  For example, `UDResources`
+overrides create_mr and adds the size of the GRH header to the message size.
+`RCResources` exposes a wrapper to modify the QP to RTS.
 
 ### Tests-related Classes
 `unittest.TestCase` is a logical test unit in Python's unittest module.
@@ -75,8 +76,8 @@ test_create_ah_roce (test_addr.AHTest) ... ok
 test_destroy_ah (test_addr.AHTest) ... ok
 test_create_comp_channel (test_cq.CCTest) ... ok
 < many more lines here>
-test_odp_rc_traffic (test_odp.OdpTestCase) ... skipped 'No dev/port/GID combinations, please check your setup and try again'
-test_odp_ud_traffic (test_odp.OdpTestCase) ... skipped 'No dev/port/GID combinations, please check your setup and try again'
+test_odp_rc_traffic (test_odp.OdpTestCase) ... skipped 'No port is up, can't run traffic'
+test_odp_ud_traffic (test_odp.OdpTestCase) ... skipped 'No port is up, can't run traffic'
 <more lines>
 
 ----------------------------------------------------------------------
@@ -88,16 +89,36 @@ Verbose mode provides the reason for skipping the test (if one was provided by
 the test developer).
 
 ### Customized Execution
-tests/__init__.py defines a `load_tests` function that returns a
-unittest.TestSuite with the tests that will be executed.
+tests/__init__.py defines a `_load_tests` function that returns an array with
+the tests that will be executed.
 The default implementation collects all test_* methods from all the classes that
 inherit from `unittest.TestCase` (or `RDMATestCase`) and located in files under
 tests directory which names starts with test_.
-Users can replace that and create a suite that contains only a few selected
-tests:
+Users can execute part of the tests by adding `-k` to the run_tests.py command.
+The following example executes only tests cases in files starting with
+`test_device` and not `test_`.
+
 ```
-suite = unittest.TestSuite()
-suite.addTest(RDMATestCase.parametrize(YourTestCase))
+$ build/bin/run_tests.py -v -k test_device
+test_create_dm (tests.test_device.DMTest) ... ok
+test_create_dm_bad_flow (tests.test_device.DMTest) ... ok
+test_destroy_dm (tests.test_device.DMTest) ... ok
+test_destroy_dm_bad_flow (tests.test_device.DMTest) ... ok
+test_dm_read (tests.test_device.DMTest) ... ok
+test_dm_write (tests.test_device.DMTest) ... ok
+test_dm_write_bad_flow (tests.test_device.DMTest) ... ok
+test_dev_list (tests.test_device.DeviceTest) ... ok
+test_open_dev (tests.test_device.DeviceTest) ... ok
+test_query_device (tests.test_device.DeviceTest) ... ok
+test_query_device_ex (tests.test_device.DeviceTest) ... ok
+test_query_gid (tests.test_device.DeviceTest) ... ok
+test_query_port (tests.test_device.DeviceTest) ... ok
+test_query_port_bad_flow (tests.test_device.DeviceTest) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.152s
+
+OK
 ```
 We're using 'parametrize' as it instantiates the TestCase for us.
 'parametrize' can accept arguments as well (device name, IB port, GID index and
