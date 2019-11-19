@@ -223,6 +223,10 @@ cdef class Context(PyverbsCM):
         else:
             raise PyverbsError('Unrecognized object type')
 
+    @property
+    def cmd_fd(self):
+        return self.context.cmd_fd
+
 
 cdef class DeviceAttr(PyverbsObject):
     """

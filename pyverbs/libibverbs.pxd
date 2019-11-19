@@ -22,6 +22,7 @@ cdef extern from 'infiniband/verbs.h':
     cdef struct ibv_context:
         ibv_device *device
         int num_comp_vectors
+        int cmd_fd
 
     cdef struct ibv_device_attr:
         char            *fw_ver
