@@ -32,6 +32,7 @@
 
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <ccan/ilog.h>
 #include <ccan/array_size.h>
 #include "mlx5dv_dr.h"
 
@@ -1367,40 +1368,43 @@ static int dr_action_create_modify_action(struct mlx5dv_dr_domain *dmn,
 					  __be64 actions[],
 					  struct mlx5dv_dr_action *action)
 {
+	uint32_t dynamic_chunck_size;
 	struct dr_icm_chunk *chunk;
-	uint32_t max_hw_actions;
 	uint32_t num_hw_actions;
 	uint32_t num_sw_actions;
 	__be64 *hw_actions;
 	int ret;
 
 	num_sw_actions = actions_sz / DR_MODIFY_ACTION_SIZE;
-	max_hw_actions = dr_icm_pool_chunk_size_to_entries(DR_CHUNK_SIZE_8);
-
-	if (num_sw_actions > max_hw_actions) {
-		dr_dbg(dmn, "Max number of actions %d exceeds limit %d\n",
-		       num_sw_actions, max_hw_actions);
+	if (num_sw_actions == 0) {
+		dr_dbg(dmn, "Invalid number of actions %u\n", num_sw_actions);
 		errno = EINVAL;
 		return errno;
 	}
 
-	chunk = dr_icm_alloc_chunk(dmn->action_icm_pool, DR_CHUNK_SIZE_8);
-	if (!chunk)
-		return errno;
-
-	hw_actions = calloc(1, max_hw_actions * DR_MODIFY_ACTION_SIZE);
+	hw_actions = calloc(1, 2 * num_sw_actions  * DR_MODIFY_ACTION_SIZE);
 	if (!hw_actions) {
 		errno = ENOMEM;
-		goto free_chunk;
+		return errno;
 	}
 
 	ret = dr_actions_convert_modify_header(dmn,
-					       max_hw_actions,
+					       2 * num_sw_actions,
 					       num_sw_actions,
 					       actions,
 					       hw_actions,
 					       &num_hw_actions);
 	if (ret)
+		goto free_hw_actions;
+
+	dynamic_chunck_size = ilog32(num_hw_actions - 1);
+
+	/* HW modify action index granularity is at least 64B */
+	dynamic_chunck_size = max_t(uint32_t, dynamic_chunck_size,
+				    DR_CHUNK_SIZE_8);
+
+	chunk = dr_icm_alloc_chunk(dmn->action_icm_pool, dynamic_chunck_size);
+	if (!chunk)
 		goto free_hw_actions;
 
 	action->rewrite.chunk = chunk;
@@ -1412,14 +1416,14 @@ static int dr_action_create_modify_action(struct mlx5dv_dr_domain *dmn,
 
 	ret = dr_send_postsend_action(dmn, action);
 	if (ret)
-		goto free_hw_actions;
+		goto free_chunk;
 
 	return 0;
 
-free_hw_actions:
-	free(hw_actions);
 free_chunk:
 	dr_icm_free_chunk(chunk);
+free_hw_actions:
+	free(hw_actions);
 	return errno;
 }
 
