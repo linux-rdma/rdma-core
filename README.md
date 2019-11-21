@@ -91,12 +91,13 @@ for the 'cmake' command.
 # Usage
 
 To set up software RDMA on an existing interface with either of the available
-driver, use the following commands, substituting `<DRIVER>` with the name of the
-driver of your choice (`rxe` or `siw`)
+drivers, use the following commands, substituting `<DRIVER>` with the name of
+the driver of your choice (`rdma_rxe` or `siw`) and `<TYPE>` with the type
+corresponding to the driver (`rxe` or `siw`).
 
 ```
 # modprobe <DRIVER>
-# rdma link add <NAME> type <DRIVER> netdev <DEVICE>
+# rdma link add <NAME> type <TYPE> netdev <DEVICE>
 ```
 
 Please note that you need version of `iproute2` recent enough is required for the

@@ -2,8 +2,8 @@
 
 The RDMA subsystem relies on the kernel, udev and systemd to load modules on
 demand when RDMA hardware is present. The RDMA subsystem is unique since it
-does not do not load the optional RDMA hardware modules unless the system has
-the rdma-core package installed.
+does not load the optional RDMA hardware modules unless the system has the
+rdma-core package installed.
 
 This is to avoid exposing systems not using RDMA from having RDMA enabled, for
 instance if a system has a multi-protocol ethernet adapter, but is only using
