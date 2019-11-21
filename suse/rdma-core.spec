@@ -72,7 +72,11 @@ BuildRequires:  python3-Cython
 BuildRequires:  python3-devel
 %endif
 %ifnarch s390 s390x
+%if 0%{?suse_version} >= 1550
+BuildRequires:  valgrind-client-headers
+%else
 BuildRequires:  valgrind-devel
+%endif
 %endif
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  pkgconfig(libnl-3.0)
