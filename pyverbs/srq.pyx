@@ -125,7 +125,7 @@ cdef class SRQ(PyverbsCM):
     def __cinit__(self, object creator not None, object attr not None):
         self.srq = NULL
         self.cq = None
-        if type(creator) == PD:
+        if isinstance(creator, PD):
             self._create_srq(creator, attr)
         elif type(creator) == Context:
             self._create_srq_ex(creator, attr)

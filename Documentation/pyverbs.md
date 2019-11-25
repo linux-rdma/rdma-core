@@ -421,3 +421,30 @@ cai = AddrInfo(server, port, ce.RDMA_PS_TCP)
 cid = CMID(creator=cai, qp_init_attr=qp_init_attr)
 cid.connect()  # send connection request to server
 ```
+
+##### ParentDomain
+The following code demonstrates the creation of Parent Domain object.
+In this example, a simple Python allocator is defined. It uses MemAlloc class to
+allocate aligned memory using a C style aligned_alloc.
+```python
+from pyverbs.pd import PD, ParentDomainInitAttr, ParentDomain, \
+    ParentDomainContext
+from pyverbs.device import Context
+import pyverbs.mem_alloc as mem
+
+
+def alloc_p_func(pd, context, size, alignment, resource_type):
+    p = mem.posix_memalign(size, alignment)
+    return p
+
+
+def free_p_func(pd, context, ptr, resource_type):
+    mem.free(ptr)
+
+
+ctx = Context(name='rocep0s8f0')
+pd = PD(ctx)
+pd_ctx = ParentDomainContext(pd, alloc_p_func, free_p_func)
+pd_attr = ParentDomainInitAttr(pd=pd, pd_context=pd_ctx)
+parent_domain = ParentDomain(ctx, attr=pd_attr)
+```
