@@ -551,3 +551,42 @@ def send_ops_flags_to_str(flags):
     l = {dve.MLX5DV_QP_EX_WITH_MR_INTERLEAVED: 'With MR interleaved',
          dve.MLX5DV_QP_EX_WITH_MR_LIST: 'With MR list'}
     return bitmask_to_str(flags, l)
+
+
+cdef class Mlx5VAR(VAR):
+    def __cinit__(self, Context context not None, flags=0):
+        self.var = dv.mlx5dv_alloc_var(context.context, flags)
+        if self.var == NULL:
+            raise PyverbsRDMAErrno('Failed to allocate VAR')
+        context.add_ref(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.var != NULL:
+            dv.mlx5dv_free_var(self.var)
+            self.var = NULL
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return print_format.format('page id', self.var.page_id) +\
+               print_format.format('length', self.var.length) +\
+               print_format.format('mmap offset', self.var.mmap_off) +\
+               print_format.format('compatibility mask', self.var.comp_mask)
+
+    @property
+    def page_id(self):
+        return self.var.page_id
+
+    @property
+    def length(self):
+        return self.var.length
+
+    @property
+    def mmap_off(self):
+        return self.var.mmap_off
+
+    @property
+    def comp_mask(self):
+        return self.var.comp_mask
