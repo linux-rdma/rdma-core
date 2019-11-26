@@ -56,7 +56,10 @@
 
 #define BNXT_RE_UD_QP_HW_STALL	0x400000
 
-#define CHIP_NUM_57500		0x1750
+#define CHIP_NUM_57508		0x1750
+#define CHIP_NUM_57504		0x1751
+#define CHIP_NUM_57502		0x1752
+
 struct bnxt_re_chip_ctx {
 	__u16 chip_num;
 	__u8 chip_rev;
