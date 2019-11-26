@@ -72,7 +72,11 @@ BuildRequires:  python3-Cython
 BuildRequires:  python3-devel
 %endif
 %ifnarch s390 s390x
+%if 0%{?suse_version} >= 1550
+BuildRequires:  valgrind-client-headers
+%else
 BuildRequires:  valgrind-devel
+%endif
 %endif
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  pkgconfig(libnl-3.0)
@@ -334,7 +338,9 @@ librdmacm provides a userspace RDMA Communication Management API.
 
 %package -n rsocket
 Summary:        Preloadable library to turn the socket API RDMA-aware
+# Older librdmacm-tools used to provide rsocket
 Group:          System/Libraries
+Conflicts:      librdmacm-tools < 2
 
 %description -n rsocket
 Existing applications can make use of rsockets through the use this
@@ -344,6 +350,8 @@ manpage for details.
 %package -n librdmacm-utils
 Summary:        Examples for the librdmacm library
 Group:          Productivity/Networking/Other
+Obsoletes:      librdmacm-tools < %{version}
+Provides:       librdmacm-tools = %{version}
 
 %description -n librdmacm-utils
 Example test programs for the librdmacm library.
