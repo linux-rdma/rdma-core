@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.
 import weakref
+import logging
 
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
@@ -15,20 +16,16 @@ from pyverbs.qp cimport QP
 
 
 cdef class PD(PyverbsCM):
-    def __cinit__(self, object creator not None, **kwargs):
+    def __init__(self, object creator not None):
         """
         Initializes a PD object. A reference for the creating Context is kept
         so that Python's GC will destroy the objects in the right order.
-        :param context: The Context object creating the PD
-        :param kwargs: Arguments:
-            * *attr* (object)
-                If provided PD will not be allocated, leaving the allocation to
-                be made by an inheriting class
+        :param creator: The Context/CMID object creating the PD
         """
+        super().__init__()
         if issubclass(type(creator), Context):
-            # If there's a Parent Domain attribute skip PD allocation
-            # since this is done by the Parent Domain class
-            if not kwargs.get('attr'):
+            # Check if the ibv_pd* was initialized by an inheriting class
+            if self.pd == NULL:
                 self.pd = v.ibv_alloc_pd((<Context>creator).context)
                 if self.pd == NULL:
                     raise PyverbsRDMAErrno('Failed to allocate PD')
@@ -130,7 +127,7 @@ cdef void pd_free(v.ibv_pd *pd, void *pd_context, void *ptr,
 
 
 cdef class ParentDomainContext(PyverbsObject):
-    def __cinit__(self, PD pd, alloc_func, free_func):
+    def __init__(self, PD pd, alloc_func, free_func):
         """
         Initializes ParentDomainContext object which is used as a pd_context.
         It contains the relevant fields in order to allow the user to write
@@ -140,19 +137,21 @@ cdef class ParentDomainContext(PyverbsObject):
         :param alloc_func: Python alloc function
         :param free_func: Python free function
         """
+        super().__init__()
         self.pd = pd
         self.p_alloc = alloc_func
         self.p_free = free_func
 
 
 cdef class ParentDomainInitAttr(PyverbsObject):
-    def __cinit__(self, PD pd not None, ParentDomainContext pd_context=None):
+    def __init__(self, PD pd not None, ParentDomainContext pd_context=None):
         """
         Represents ibv_parent_domain_init_attr C struct
         :param pd: PD to initialize the ParentDomain with
         :param pd_context: ParentDomainContext object including the alloc and
                           free Python callbacks
         """
+        super().__init__()
         self.pd = pd
         self.init_attr.pd = <v.ibv_pd*>pd.pd
         if pd_context:
@@ -171,25 +170,24 @@ cdef class ParentDomainInitAttr(PyverbsObject):
 
 
 cdef class ParentDomain(PD):
-    def __cinit__(self, Context context not None, **kwargs):
+    def __init__(self, Context context not None, ParentDomainInitAttr attr not None):
         """
         Initializes ParentDomain object which represents a parent domain of
         ibv_pd C struct type
         :param context: Device context
-        :param kwargs: Arguments:
-            * *attr* (object)
-                Attribute of type ParentDomainInitAttr to initialize the
-                ParentDomain with
+        :param attr: Attribute of type ParentDomainInitAttr to initialize the
+                     ParentDomain with
         """
-        cdef ParentDomainInitAttr attr
-        attr = kwargs.get('attr')
-        if attr is None:
-            raise PyverbsUserError('ParentDomain must take attr')
+        # Initialize the logger here as the parent's __init__ is called after
+        # the PD is allocated. Allocation can fail, which will lead to exceptions
+        # thrown during object's teardown.
+        self.logger = logging.getLogger(self.__class__.__name__)
         (<PD>attr.pd).add_ref(self)
         self.protection_domain = attr.pd
         self.pd = v.ibv_alloc_parent_domain(context.context, &attr.init_attr)
         if self.pd == NULL:
             raise PyverbsRDMAErrno('Failed to allocate Parent Domain')
+        super().__init__(context)
         self.logger.debug('Allocated ParentDomain')
 
     def __dealloc__(self):

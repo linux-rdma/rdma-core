@@ -5,8 +5,10 @@ import logging
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from libc.errno cimport errno
 
+
 cpdef PyverbsRDMAErrno(str msg):
     return PyverbsRDMAError(msg, errno)
+
 
 LOG_LEVEL=logging.INFO
 LOG_FORMAT='[%(levelname)s] %(asctime)s %(filename)s:%(lineno)s: %(message)s'
@@ -38,7 +40,7 @@ cdef close_weakrefs(iterables):
 
 cdef class PyverbsObject(object):
 
-    def __cinit__(self):
+    def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def set_log_level(self, val):

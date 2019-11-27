@@ -13,8 +13,8 @@ from pyverbs.cq cimport WC
 
 cdef class ConnParam(PyverbsObject):
 
-    def __cinit__(self, resources=1, depth=1, flow_control=0, retry=5,
-                  rnr_retry=5, srq=0, qp_num=0):
+    def __init__(self, resources=1, depth=1, flow_control=0, retry=5,
+                 rnr_retry=5, srq=0, qp_num=0):
         """
         Initialize a ConnParam object over an underlying rdma_conn_param
         C object which contains connection parameters. There are a few types of
@@ -38,6 +38,7 @@ cdef class ConnParam(PyverbsObject):
                        CMID.
         :return: ConnParam object
         """
+        super().__init__()
         memset(&self.conn_param, 0, sizeof(cm.rdma_conn_param))
         self.conn_param.responder_resources = resources
         self.conn_param.initiator_depth = depth
@@ -60,7 +61,7 @@ cdef class ConnParam(PyverbsObject):
 
 
 cdef class AddrInfo(PyverbsObject):
-    def __cinit__(self, node=None, service=None, port_space=0, flags=0):
+    def __init__(self, node=None, service=None, port_space=0, flags=0):
         """
         Initialize an AddrInfo object over an underlying rdma_addrinfo C object.
         :param node: Name, dotted-decimal IPv4 or IPv6 hex address to resolve.
@@ -75,6 +76,7 @@ cdef class AddrInfo(PyverbsObject):
         cdef cm.rdma_addrinfo hints
         cdef cm.rdma_addrinfo *hints_ptr = NULL
 
+        super().__init__()
         if node is not None:
             node = node.encode('utf-8')
             address = <char*>node
@@ -102,8 +104,8 @@ cdef class AddrInfo(PyverbsObject):
 
 cdef class CMID(PyverbsCM):
 
-    def __cinit__(self, object creator=None, QPInitAttr qp_init_attr=None,
-                  PD pd=None):
+    def __init__(self, object creator=None, QPInitAttr qp_init_attr=None,
+                 PD pd=None):
         """
         Initialize a CMID object over an underlying rdma_cm_id C object.
         This is the main RDMA CM object which provides most of the rdmacm API.
@@ -118,6 +120,8 @@ cdef class CMID(PyverbsCM):
         """
         cdef v.ibv_qp_init_attr *init
         cdef v.ibv_pd *in_pd = NULL
+
+        super().__init__()
         self.pd = None
         self.ctx = None
         if creator is None:

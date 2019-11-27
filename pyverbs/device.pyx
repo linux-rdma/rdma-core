@@ -70,7 +70,7 @@ cdef class Context(PyverbsCM):
     """
     Context class represents the C ibv_context.
     """
-    def __cinit__(self, **kwargs):
+    def __init__(self, **kwargs):
         """
         Initializes a Context object. The function searches the IB devices list
         for a device with the name provided by the user. If such a device is
@@ -79,19 +79,22 @@ cdef class Context(PyverbsCM):
         initiated pointer, hence all we have to do is assign this pointer to
         Context's object pointer.
         :param kwargs: Arguments:
-            * *name* (str)
-               The RDMA device's name
-            * *attr* (object)
-               Device-specific attributes, meaning that the device is to be
-               opened by the provider
-            * *cmid* (CMID)
-                A CMID object (represents rdma_cm_id struct)
+            * *name*
+              The device's name
+            * *attr*
+              Provider-specific attributes. If not None, it means that the
+              device will be opened by the provider and __init__ will return
+              after locating the requested device.
+            * *cmid*
+              A CMID object. If not None, it means that the device was already
+              opened by a CMID class, and only a pointer assignment is missing.
         :return: None
         """
         cdef int count
         cdef v.ibv_device **dev_list
         cdef CMID cmid
 
+        super().__init__()
         self.pds = weakref.WeakSet()
         self.dms = weakref.WeakSet()
         self.ccs = weakref.WeakSet()
@@ -99,19 +102,16 @@ cdef class Context(PyverbsCM):
         self.qps = weakref.WeakSet()
         self.xrcds = weakref.WeakSet()
 
-        dev_name = kwargs.get('name')
+        self.name = kwargs.get('name')
         provider_attr = kwargs.get('attr')
         cmid = kwargs.get('cmid')
-
         if cmid is not None:
             self.context = cmid.id.verbs
             cmid.ctx = self
             return
-        elif dev_name is not None:
-            self.name = dev_name
-        else:
-            raise PyverbsUserError('Device name must be provided')
 
+        if self.name is None:
+            raise PyverbsUserError('Device name must be provided')
         dev_list = v.ibv_get_device_list(&count)
         if dev_list == NULL:
             raise PyverbsRDMAError('Failed to get devices list')
@@ -393,7 +393,8 @@ cdef class DeviceAttr(PyverbsObject):
 
 
 cdef class QueryDeviceExInput(PyverbsObject):
-    def __cinit__(self, comp_mask):
+    def __init__(self, comp_mask):
+        super().__init__()
         self.ex_input.comp_mask = comp_mask
 
 
@@ -583,7 +584,7 @@ cdef class DeviceAttrEx(PyverbsObject):
 
 
 cdef class AllocDmAttr(PyverbsObject):
-    def __cinit__(self, length, log_align_req = 0, comp_mask = 0):
+    def __init__(self, length, log_align_req = 0, comp_mask = 0):
         """
         Creates an AllocDmAttr object with the given parameters. This object
         can than be used to create a DM object.
@@ -592,6 +593,7 @@ cdef class AllocDmAttr(PyverbsObject):
         :param comp_mask: compatibility mask
         :return: An AllocDmAttr object
         """
+        super().__init__()
         self.alloc_dm_attr.length = length
         self.alloc_dm_attr.log_align_req = log_align_req
         self.alloc_dm_attr.comp_mask = comp_mask
@@ -622,13 +624,14 @@ cdef class AllocDmAttr(PyverbsObject):
 
 
 cdef class DM(PyverbsCM):
-    def __cinit__(self, Context context, AllocDmAttr dm_attr not None):
+    def __init__(self, Context context, AllocDmAttr dm_attr not None):
         """
         Allocate a device (direct) memory.
         :param context: The context of the device on which to allocate memory
         :param dm_attr: Attributes that define the DM
         :return: A DM object on success
         """
+        super().__init__()
         self.dm_mrs = weakref.WeakSet()
         device_attr = context.query_device_ex()
         if device_attr.max_dm_size <= 0:

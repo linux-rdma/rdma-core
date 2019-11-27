@@ -12,7 +12,8 @@ from libc.errno cimport errno
 
 
 cdef class XRCDInitAttr(PyverbsObject):
-    def __cinit__(self, comp_mask, oflags, fd):
+    def __init__(self, comp_mask, oflags, fd):
+        super().__init__()
         self.attr.fd = fd
         self.attr.comp_mask = comp_mask
         self.attr.oflags = oflags
@@ -40,12 +41,13 @@ cdef class XRCDInitAttr(PyverbsObject):
 
 
 cdef class XRCD(PyverbsCM):
-    def __cinit__(self, Context context not None, XRCDInitAttr init_attr not None):
+    def __init__(self, Context context not None, XRCDInitAttr init_attr not None):
         """
         Initializes a XRCD object.
         :param context: The Context object creating the XRCD
         :return: The newly created XRCD on success
         """
+        super().__init__()
         self.xrcd = v.ibv_open_xrcd(<v.ibv_context*> context.context,
                                     &init_attr.attr)
         if self.xrcd == NULL:

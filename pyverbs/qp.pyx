@@ -18,8 +18,8 @@ from libc.string cimport memcpy
 
 
 cdef class QPCap(PyverbsObject):
-    def __cinit__(self, max_send_wr=1, max_recv_wr=10, max_send_sge=1,
-                      max_recv_sge=1, max_inline_data=0):
+    def __init__(self, max_send_wr=1, max_recv_wr=10, max_send_sge=1,
+                 max_recv_sge=1, max_inline_data=0):
         """
         Initializes a QPCap object with user-provided or default values.
         :param max_send_wr: max number of outstanding WRs in the SQ
@@ -32,6 +32,7 @@ cdef class QPCap(PyverbsObject):
                                 inline to the SQ, otherwise 0
         :return:
         """
+        super().__init__()
         self.cap.max_send_wr = max_send_wr
         self.cap.max_recv_wr = max_recv_wr
         self.cap.max_send_sge = max_send_sge
@@ -83,9 +84,9 @@ cdef class QPCap(PyverbsObject):
 
 
 cdef class QPInitAttr(PyverbsObject):
-    def __cinit__(self, qp_type=e.IBV_QPT_UD, qp_context=None,
-                  PyverbsObject scq=None, PyverbsObject rcq=None,
-                  SRQ srq=None, QPCap cap=None, sq_sig_all=1):
+    def __init__(self, qp_type=e.IBV_QPT_UD, qp_context=None,
+                 PyverbsObject scq=None, PyverbsObject rcq=None,
+                 SRQ srq=None, QPCap cap=None, sq_sig_all=1):
         """
         Initializes a QpInitAttr object representing ibv_qp_init_attr struct.
         Note that SRQ object is not yet supported in pyverbs so can't be passed
@@ -100,6 +101,7 @@ cdef class QPInitAttr(PyverbsObject):
                            entry
         :return: A QpInitAttr object
         """
+        super().__init__()
         _copy_caps(cap, self)
         self.attr.qp_context = <void*>qp_context
         if scq is not None:
@@ -233,12 +235,12 @@ cdef class QPInitAttr(PyverbsObject):
 
 
 cdef class QPInitAttrEx(PyverbsObject):
-    def __cinit__(self, qp_type=e.IBV_QPT_UD, qp_context=None,
-                  PyverbsObject scq=None, PyverbsObject rcq=None,
-                  SRQ srq=None, QPCap cap=None, sq_sig_all=0, comp_mask=0,
-                  PD pd=None, XRCD xrcd=None, create_flags=0,
-                  max_tso_header=0, source_qpn=0, object hash_conf=None,
-                  object ind_table=None):
+    def __init__(self, qp_type=e.IBV_QPT_UD, qp_context=None,
+                 PyverbsObject scq=None, PyverbsObject rcq=None,
+                 SRQ srq=None, QPCap cap=None, sq_sig_all=0, comp_mask=0,
+                 PD pd=None, XRCD xrcd=None, create_flags=0,
+                 max_tso_header=0, source_qpn=0, object hash_conf=None,
+                 object ind_table=None):
         """
         Initialize a QPInitAttrEx object with user-defined or default values.
         :param qp_type: QP type to be created
@@ -261,6 +263,7 @@ cdef class QPInitAttrEx(PyverbsObject):
         :param ind_table: Not yet supported
         :return: An initialized QPInitAttrEx object
         """
+        super().__init__()
         _copy_caps(cap, self)
         if scq is not None:
             if type(scq) is CQ:
@@ -481,8 +484,8 @@ cdef class QPInitAttrEx(PyverbsObject):
 
 
 cdef class QPAttr(PyverbsObject):
-    def __cinit__(self, qp_state=e.IBV_QPS_INIT, cur_qp_state=e.IBV_QPS_RESET,
-                  port_num=1, path_mtu=e.IBV_MTU_1024):
+    def __init__(self, qp_state=e.IBV_QPS_INIT, cur_qp_state=e.IBV_QPS_RESET,
+                 port_num=1, path_mtu=e.IBV_MTU_1024):
         """
         Initializes a QPQttr object which represents ibv_qp_attr structs. It
         can be used to modify a QP.
@@ -491,6 +494,7 @@ cdef class QPAttr(PyverbsObject):
         :param cur_qp_state: Current QP state
         :return: An initialized QpAttr object
         """
+        super().__init__()
         self.attr.qp_state = qp_state
         self.attr.cur_qp_state = cur_qp_state
         self.attr.port_num = port_num
@@ -854,8 +858,8 @@ cdef class QPAttr(PyverbsObject):
 
 
 cdef class QP(PyverbsCM):
-    def __cinit__(self, object creator not None, object init_attr not None,
-                  QPAttr qp_attr=None, **kwargs):
+    def __init__(self, object creator not None, object init_attr not None,
+                 QPAttr qp_attr=None):
         """
         Initializes a QP object and performs state transitions according to
         user request.
@@ -875,39 +879,38 @@ cdef class QP(PyverbsCM):
                           using Context).
         :param qp_attr: Optional QPAttr object. Will be used for QP state
                         transitions after creation.
-        :param kwargs: Provider-specific QP creation attributes, meaning that
-                       the QP will be created by the provider.
         :return: An initialized QP object
         """
         cdef PD pd
         cdef Context ctx
+        super().__init__()
         self.update_cqs(init_attr)
-        if len(kwargs) > 0:
-            # Leave QP initialization to the provider
-            return
-        # In order to use cdef'd methods, a proper casting must be done, let's
-        # infer the type.
-        if issubclass(type(creator), Context):
-            self._create_qp_ex(creator, init_attr)
-            ctx = <Context>creator
-            self.context = ctx
-            ctx.add_ref(self)
-            if init_attr.pd is not None:
-                pd = <PD>init_attr.pd
-                pd.add_ref(self)
-                self.pd = pd
-            if init_attr.xrcd is not None:
-                xrcd = <XRCD>init_attr.xrcd
-                xrcd.add_ref(self)
-                self.xrcd = xrcd
-        else:
-            self._create_qp(creator, init_attr)
-            pd = <PD>creator
-            self.pd = pd
-            pd.add_ref(self)
-            self.context = None
+        # QP initialization was not done by the provider, we should do it here
         if self.qp == NULL:
-            raise PyverbsRDMAErrno('Failed to create QP')
+            # In order to use cdef'd methods, a proper casting must be done,
+            # let's infer the type.
+            if issubclass(type(creator), Context):
+                self._create_qp_ex(creator, init_attr)
+                ctx = <Context>creator
+                self.context = ctx
+                ctx.add_ref(self)
+                if init_attr.pd is not None:
+                    pd = <PD>init_attr.pd
+                    pd.add_ref(self)
+                    self.pd = pd
+                if init_attr.xrcd is not None:
+                    xrcd = <XRCD>init_attr.xrcd
+                    xrcd.add_ref(self)
+                    self.xrcd = xrcd
+            else:
+                self._create_qp(creator, init_attr)
+                pd = <PD>creator
+                self.pd = pd
+                pd.add_ref(self)
+                self.context = None
+            if self.qp == NULL:
+                raise PyverbsRDMAErrno('Failed to create QP')
+
         if qp_attr is not None:
             funcs = {e.IBV_QPT_RC: self.to_init, e.IBV_QPT_UC: self.to_init,
                      e.IBV_QPT_UD: self.to_rts,
