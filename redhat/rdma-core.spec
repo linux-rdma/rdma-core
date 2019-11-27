@@ -650,3 +650,9 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{python3_sitearch}/pyverbs
 %{_docdir}/%{name}-%{version}/tests/*.py
 %endif
+
+%post
+# we ship udev rules, so trigger an update.
+/sbin/udevadm trigger --subsystem-match=infiniband --action=change || true
+/sbin/udevadm trigger --subsystem-match=net --action=change || true
+/sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change || true
