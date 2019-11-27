@@ -4,6 +4,7 @@ import weakref
 
 from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.device cimport Context
 from pyverbs.srq cimport SRQ
@@ -35,7 +36,7 @@ cdef class CompChannel(PyverbsCM):
 
     cpdef close(self):
         self.logger.debug('Closing completion channel')
-        self.close_weakrefs([self.cqs])
+        close_weakrefs([self.cqs])
         if self.cc != NULL:
             rc = v.ibv_destroy_comp_channel(self.cc)
             if rc != 0:
@@ -108,7 +109,7 @@ cdef class CQ(PyverbsCM):
 
     cpdef close(self):
         self.logger.debug('Closing CQ')
-        self.close_weakrefs([self.qps, self.srqs])
+        close_weakrefs([self.qps, self.srqs])
         if self.cq != NULL:
             rc = v.ibv_destroy_cq(self.cq)
             if rc != 0:
@@ -292,7 +293,7 @@ cdef class CQEX(PyverbsCM):
 
     cpdef close(self):
         self.logger.debug('Closing CQEx')
-        self.close_weakrefs([self.srqs, self.qps])
+        close_weakrefs([self.srqs, self.qps])
         if self.cq != NULL:
             rc = v.ibv_destroy_cq(<v.ibv_cq*>self.cq)
             if rc != 0:

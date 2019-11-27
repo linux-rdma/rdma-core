@@ -9,3 +9,5 @@ cdef class PyverbsObject(object):
 
 cdef class PyverbsCM(PyverbsObject):
     cpdef close(self)
+
+cdef close_weakrefs(iterables)

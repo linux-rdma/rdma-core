@@ -12,6 +12,7 @@ from .pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.cq cimport CQEX, CQ, CompChannel
 from .pyverbs_error import PyverbsUserError
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.libibverbs as v
 from pyverbs.cmid cimport CMID
@@ -144,8 +145,8 @@ cdef class Context(PyverbsCM):
 
     cpdef close(self):
         self.logger.debug('Closing Context')
-        self.close_weakrefs([self.qps, self.ccs, self.cqs, self.dms, self.pds,
-                             self.xrcds])
+        close_weakrefs([self.qps, self.ccs, self.cqs, self.dms, self.pds,
+                        self.xrcds])
         if self.context != NULL:
             rc = v.ibv_close_device(self.context)
             if rc != 0:
@@ -647,7 +648,7 @@ cdef class DM(PyverbsCM):
 
     cpdef close(self):
         self.logger.debug('Closing DM')
-        self.close_weakrefs([self.dm_mrs])
+        close_weakrefs([self.dm_mrs])
         if self.dm != NULL:
             rc = v.ibv_free_dm(self.dm)
             if rc != 0:

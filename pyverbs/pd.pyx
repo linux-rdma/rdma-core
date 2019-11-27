@@ -4,6 +4,7 @@ import weakref
 
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.base cimport close_weakrefs
 from pyverbs.device cimport Context
 from libc.stdint cimport uintptr_t
 from pyverbs.cmid cimport CMID
@@ -65,8 +66,8 @@ cdef class PD(PyverbsCM):
         :return: None
         """
         self.logger.debug('Closing PD')
-        self.close_weakrefs([self.parent_domains, self.qps, self.ahs, self.mws,
-                             self.mrs, self.srqs])
+        close_weakrefs([self.parent_domains, self.qps, self.ahs, self.mws,
+                        self.mrs, self.srqs])
         if self.pd != NULL:
             rc = v.ibv_dealloc_pd(self.pd)
             if rc != 0:
