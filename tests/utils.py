@@ -13,6 +13,7 @@ from pyverbs.addr import AHAttr, AH, GlobalRoute
 from pyverbs.wr import SGE, SendWR, RecvWR
 from pyverbs.qp import QPCap, QPInitAttrEx
 from tests.base import XRCResources
+from pyverbs.cq import PollCqAttr
 import pyverbs.device as d
 import pyverbs.enums as e
 
@@ -339,6 +340,37 @@ def poll_cq(cq, count=1):
     return wcs
 
 
+def poll_cq_ex(cqex, count=1):
+    """
+    Poll <count> completions from the extended CQ.
+    :param cq: CQEX to poll from
+    :param count: How many completions to poll
+    :return: None
+    """
+    poll_attr = PollCqAttr()
+    ret = cqex.start_poll(poll_attr)
+    while ret == 2: # ENOENT
+        ret = cqex.start_poll(poll_attr)
+    if ret != 0:
+        raise PyverbsRDMAErrno('Failed to poll CQ')
+    count -= 1
+    if cqex.status != e.IBV_WC_SUCCESS:
+        raise PyverbsRDMAErrno('Completion status is {s}'.
+                               format(s=cqex.status))
+    # Now poll the rest of the packets
+    while count > 0:
+        ret = cqex.poll_next()
+        while ret == 2:
+            ret = cqex.poll_next()
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to poll CQ')
+        if cqex.status != e.IBV_WC_SUCCESS:
+            raise PyverbsRDMAErrno('Completion status is {s}'.
+                                   format(s=cqex.status))
+        count -= 1
+    cqex.end_poll()
+
+
 def validate(received_str, is_server, msg_size):
     """
     Validates the received buffer against the expected result.
@@ -363,7 +395,7 @@ def validate(received_str, is_server, msg_size):
                 format(exp=expected_str, rcv=received_str))
 
 
-def traffic(client, server, iters, gid_idx, port):
+def traffic(client, server, iters, gid_idx, port, is_cq_ex=False):
     """
     Runs basic traffic between two sides
     :param client: client side, clients base class is BaseTraffic
@@ -371,8 +403,10 @@ def traffic(client, server, iters, gid_idx, port):
     :param iters: number of traffic iterations
     :param gid_idx: local gid index
     :param port: IB port
+    :param is_cq_ex: If True, use poll_cq_ex() rather than poll_cq()
     :return:
     """
+    poll = poll_cq_ex if is_cq_ex else poll_cq
     s_recv_wr = get_recv_wr(server)
     c_recv_wr = get_recv_wr(client)
     post_recv(client.qp, c_recv_wr, client.num_msgs)
@@ -381,21 +415,21 @@ def traffic(client, server, iters, gid_idx, port):
     for _ in range(iters):
         c_send_wr = get_send_wr(client, False)
         post_send(client, c_send_wr, gid_idx, port)
-        poll_cq(client.cq)
-        poll_cq(server.cq)
+        poll(client.cq)
+        poll(server.cq)
         post_recv(client.qp, c_recv_wr)
         msg_received = server.mr.read(server.msg_size, read_offset)
         validate(msg_received, True, server.msg_size)
         s_send_wr = get_send_wr(server, True)
         post_send(server, s_send_wr, gid_idx, port)
-        poll_cq(server.cq)
-        poll_cq(client.cq)
+        poll(server.cq)
+        poll(client.cq)
         post_recv(server.qp, s_recv_wr)
         msg_received = client.mr.read(client.msg_size, read_offset)
         validate(msg_received, False, client.msg_size)
 
 
-def xrc_traffic(client, server):
+def xrc_traffic(client, server, is_cq_ex=False):
     """
     Runs basic xrc traffic, this function assumes that number of QPs, which
     server and client have are equal, server.send_qp[i] is connected to
@@ -406,8 +440,10 @@ def xrc_traffic(client, server):
     of XRCResources class
     :param server: Aggregation object of the passive side, should be an instance
     of XRCResources class
+    :param is_cq_ex: If True, use poll_cq_ex() rather than poll_cq()
     :return: None
     """
+    poll = poll_cq_ex if is_cq_ex else poll_cq
     client_srqn = client.srq.get_srq_num()
     server_srqn = server.srq.get_srq_num()
     s_recv_wr = get_recv_wr(server)
@@ -419,15 +455,15 @@ def xrc_traffic(client, server):
             c_send_wr = get_send_wr(client, False)
             c_send_wr.set_qp_type_xrc(server_srqn)
             client.sqp_lst[i].post_send(c_send_wr)
-            poll_cq(client.cq)
-            poll_cq(server.cq)
+            poll(client.cq)
+            poll(server.cq)
             msg_received = server.mr.read(server.msg_size, 0)
             validate(msg_received, True, server.msg_size)
             s_send_wr = get_send_wr(server, True)
             s_send_wr.set_qp_type_xrc(client_srqn)
             server.sqp_lst[i].post_send(s_send_wr)
-            poll_cq(server.cq)
-            poll_cq(client.cq)
+            poll(server.cq)
+            poll(client.cq)
             msg_received = client.mr.read(client.msg_size, 0)
             validate(msg_received, False, client.msg_size)
 

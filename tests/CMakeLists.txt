@@ -7,6 +7,7 @@ rdma_python_test(tests
   test_addr.py
   base.py
   test_cq.py
+  test_cqex.py
   test_device.py
   test_mr.py
   test_pd.py

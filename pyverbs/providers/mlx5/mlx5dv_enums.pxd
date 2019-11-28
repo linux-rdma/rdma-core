@@ -46,6 +46,36 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_FLOW_ACTION_FLAGS_ESP_AES_GCM_FULL_OFFLOAD   = 1 << 3
         MLX5DV_FLOW_ACTION_FLAGS_ESP_AES_GCM_TX_IV_IS_ESN   = 1 << 4
 
+    cpdef enum mlx5dv_qp_init_attr_mask:
+        MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS    = 1 << 0
+        MLX5DV_QP_INIT_ATTR_MASK_DC                 = 1 << 1
+        MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS     = 1 << 2
+
+    cpdef enum mlx5dv_qp_create_flags:
+        MLX5DV_QP_CREATE_TUNNEL_OFFLOADS            = 1 << 0
+        MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_UC = 1 << 1
+        MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_MC = 1 << 2
+        MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE     = 1 << 3
+        MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE       = 1 << 4
+        MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE   = 1 << 5
+
+    cpdef enum mlx5dv_dc_type:
+        MLX5DV_DCTYPE_DCT   = 1
+        MLX5DV_DCTYPE_DCI   = 2
+
+    cpdef enum mlx5dv_qp_create_send_ops_flags:
+        MLX5DV_QP_EX_WITH_MR_INTERLEAVED    = 1 << 0
+        MLX5DV_QP_EX_WITH_MR_LIST           = 1 << 1
+
+    cpdef enum mlx5dv_cq_init_attr_mask:
+        MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE = 1 << 0
+        MLX5DV_CQ_INIT_ATTR_MASK_FLAGS          = 1 << 1
+        MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE       = 1 << 2
+
+    cpdef enum mlx5dv_cq_init_attr_flags:
+        MLX5DV_CQ_INIT_ATTR_FLAGS_CQE_PAD   = 1 << 0
+        MLX5DV_CQ_INIT_ATTR_FLAGS_RESERVED  = 1 << 1
+
     cpdef unsigned long long MLX5DV_RES_TYPE_QP
     cpdef unsigned long long MLX5DV_RES_TYPE_RWQ
     cpdef unsigned long long MLX5DV_RES_TYPE_DBR

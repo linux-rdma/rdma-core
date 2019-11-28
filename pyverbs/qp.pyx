@@ -853,7 +853,7 @@ cdef class QPAttr(PyverbsObject):
 
 cdef class QP(PyverbsCM):
     def __cinit__(self, object creator not None, object init_attr not None,
-                  QPAttr qp_attr=None):
+                  QPAttr qp_attr=None, **kwargs):
         """
         Initializes a QP object and performs state transitions according to
         user request.
@@ -873,11 +873,16 @@ cdef class QP(PyverbsCM):
                           using Context).
         :param qp_attr: Optional QPAttr object. Will be used for QP state
                         transitions after creation.
+        :param kwargs: Provider-specific QP creation attributes, meaning that
+                       the QP will be created by the provider.
         :return: An initialized QP object
         """
         cdef PD pd
         cdef Context ctx
         self.update_cqs(init_attr)
+        if len(kwargs) > 0:
+            # Leave QP initialization to the provider
+            return
         # In order to use cdef'd methods, a proper casting must be done, let's
         # infer the type.
         if issubclass(type(creator), Context):
