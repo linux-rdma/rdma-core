@@ -1968,7 +1968,7 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		return ibqp;
 	}
 
-	if (ctx->atomic_cap == IBV_ATOMIC_HCA)
+	if (ctx->atomic_cap)
 		qp->atomics_enabled = 1;
 
 	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS ||
