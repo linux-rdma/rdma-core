@@ -102,6 +102,75 @@ cdef class AddrInfo(PyverbsObject):
         self.addr_info = NULL
 
 
+cdef class CMEvent(PyverbsObject):
+
+    def __init__(self, CMEventChannel channel):
+        """
+        Initialize a CMEvent object over an underlying rdma_cm_event C object
+        :param channel: Event Channel on which this event has been received
+        :return: CMEvent object
+        """
+        super().__init__()
+        ret = cm.rdma_get_cm_event(channel.event_channel, &self.event)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to create CMEvent')
+        self.logger.debug('Created a CMEvent')
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        self.logger.debug('Closing CMEvent')
+        if self.event != NULL:
+            self.ack_cm_event()
+            self.event = NULL
+
+    @property
+    def event_type(self):
+        return self.event.event
+
+    def ack_cm_event(self):
+        """
+        Free a communication event. This call frees the event structure and any
+        memory that it references.
+        :return: None
+        """
+        ret = cm.rdma_ack_cm_event(self.event)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to Acknowledge Event - {}'
+                                   .format(self.event_str()))
+        self.event = NULL
+
+    def event_str(self):
+        if self.event == NULL:
+            return ''
+        return (<bytes>cm.rdma_event_str(self.event_type)).decode()
+
+
+cdef class CMEventChannel(PyverbsObject):
+
+    def __init__(self):
+        """
+        Initialize a CMEventChannel object over an underlying rdma_event_channel
+        C object.
+        :return: EventChannel object
+        """
+        super().__init__()
+        self.event_channel = cm.rdma_create_event_channel()
+        if self.event_channel == NULL:
+            raise PyverbsRDMAErrno('Failed to create CMEventChannel')
+        self.logger.debug('Created a CMEventChannel')
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        self.logger.debug('Closing CMEventChannel')
+        if self.event_channel != NULL:
+            cm.rdma_destroy_event_channel(self.event_channel)
+            self.event_channel = NULL
+
+
 cdef class CMID(PyverbsCM):
 
     def __init__(self, object creator=None, QPInitAttr qp_init_attr=None,
