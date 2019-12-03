@@ -583,6 +583,7 @@ cdef class QPAttr(PyverbsObject):
         else:
             gr = None
         ah = AHAttr(dlid=self.attr.ah_attr.dlid, sl=self.attr.ah_attr.sl,
+                    port_num=self.attr.ah_attr.port_num,
                     src_path_bits=self.attr.ah_attr.src_path_bits,
                     static_rate=self.attr.ah_attr.static_rate,
                     is_global=self.attr.ah_attr.is_global, gr=gr)
@@ -606,6 +607,7 @@ cdef class QPAttr(PyverbsObject):
         else:
             gr = None
         ah = AHAttr(dlid=self.attr.alt_ah_attr.dlid,
+                    port_num=self.attr.ah_attr.port_num,
                     sl=self.attr.alt_ah_attr.sl,
                     src_path_bits=self.attr.alt_ah_attr.src_path_bits,
                     static_rate=self.attr.alt_ah_attr.static_rate,
