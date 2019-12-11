@@ -385,6 +385,9 @@ static int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 	wrid_idx = cqe->req_id;
 	wc->status = to_ibv_status(cqe->status);
 	wc->vendor_err = cqe->status;
+	wc->wc_flags = 0;
+	wc->qp_num = qpn;
+
 	if (get_efa_io_cdesc_common_q_type(cqe) == EFA_IO_SEND_QUEUE) {
 		wq = &(*cur_qp)->sq.wq;
 		wc->opcode = IBV_WC_SEND;
@@ -399,10 +402,12 @@ static int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 		wc->src_qp = rcqe->src_qp_num;
 		wc->sl = 0;
 		wc->slid = rcqe->ah;
-	}
 
-	wc->wc_flags = 0;
-	wc->qp_num = qpn;
+		if (get_efa_io_cdesc_common_has_imm(cqe)) {
+			wc->imm_data = htobe32(rcqe->imm);
+			wc->wc_flags |= IBV_WC_WITH_IMM;
+		}
+	}
 
 	pthread_spin_lock(&wq->wqlock);
 	wq->wrid_idx_pool_next--;
@@ -440,7 +445,7 @@ static int efa_poll_sub_cqs(struct efa_cq *cq, struct ibv_wc *wc)
 int efa_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 {
 	struct efa_cq *cq = to_efa_cq(ibvcq);
-	ssize_t ret = 0;
+	int ret = 0;
 	int i;
 
 	pthread_spin_lock(&cq->lock);
@@ -701,9 +706,10 @@ static int efa_check_qp_attr(struct efa_dev *dev,
 			     struct efadv_qp_init_attr *efa_attr)
 {
 	uint64_t supp_send_ops_mask;
-	uint64_t supp_ud_send_ops_mask = IBV_QP_EX_WITH_SEND;
+	uint64_t supp_ud_send_ops_mask = IBV_QP_EX_WITH_SEND |
+		IBV_QP_EX_WITH_SEND_WITH_IMM;
 	uint64_t supp_srd_send_ops_mask =
-		IBV_QP_EX_WITH_SEND |
+		IBV_QP_EX_WITH_SEND | IBV_QP_EX_WITH_SEND_WITH_IMM |
 		(is_rdma_read_cap(dev) ? IBV_QP_EX_WITH_RDMA_READ : 0);
 
 #define EFA_CREATE_QP_SUPP_ATTR_MASK \
@@ -1016,8 +1022,7 @@ static void efa_set_tx_buf(struct efa_io_tx_buf_desc *tx_buf,
 
 static void efa_post_send_sgl(struct efa_io_tx_buf_desc *tx_bufs,
 			      const struct ibv_sge *sg_list,
-			      int num_sge,
-			      int *desc_size)
+			      int num_sge)
 {
 	const struct ibv_sge *sge;
 	size_t i;
@@ -1026,14 +1031,10 @@ static void efa_post_send_sgl(struct efa_io_tx_buf_desc *tx_bufs,
 		sge = &sg_list[i];
 		efa_set_tx_buf(&tx_bufs[i], sge->addr, sge->lkey, sge->length);
 	}
-
-	if (desc_size)
-		*desc_size += sizeof(*tx_bufs) * num_sge;
 }
 
 static void efa_post_send_inline_data(const struct ibv_send_wr *wr,
-				      struct efa_io_tx_wqe *tx_wqe,
-				      int *desc_size)
+				      struct efa_io_tx_wqe *tx_wqe)
 {
 	const struct ibv_sge *sgl = wr->sg_list;
 	uint32_t total_length = 0;
@@ -1047,8 +1048,6 @@ static void efa_post_send_inline_data(const struct ibv_send_wr *wr,
 		       (void *)(uintptr_t)sgl[i].addr, length);
 		total_length += length;
 	}
-
-	*desc_size += total_length;
 
 	set_efa_io_tx_meta_desc_inline_msg(&tx_wqe->meta, 1);
 	tx_wqe->meta.length = total_length;
@@ -1113,8 +1112,8 @@ static void efa_set_common_ctrl_flags(struct efa_io_tx_meta_desc *desc,
 	set_efa_io_tx_meta_desc_comp_req(desc, 1);
 }
 
-static ssize_t efa_post_send_validate(struct efa_qp *qp,
-				      unsigned int wr_flags)
+static int efa_post_send_validate(struct efa_qp *qp,
+				  unsigned int wr_flags)
 {
 	if (unlikely(qp->verbs_qp.qp.state != IBV_QPS_RTS &&
 		     qp->verbs_qp.qp.state != IBV_QPS_SQD))
@@ -1136,16 +1135,17 @@ static ssize_t efa_post_send_validate(struct efa_qp *qp,
 	return 0;
 }
 
-static ssize_t efa_post_send_validate_wr(struct efa_qp *qp,
-					 const struct ibv_send_wr *wr)
+static int efa_post_send_validate_wr(struct efa_qp *qp,
+				     const struct ibv_send_wr *wr)
 {
-	ssize_t err;
+	int err;
 
 	err = efa_post_send_validate(qp, wr->send_flags);
 	if (unlikely(err))
 		return err;
 
-	if (unlikely(wr->opcode != IBV_WR_SEND))
+	if (unlikely(wr->opcode != IBV_WR_SEND &&
+		     wr->opcode != IBV_WR_SEND_WITH_IMM))
 		return EINVAL;
 
 	if (wr->send_flags & IBV_SEND_INLINE) {
@@ -1168,13 +1168,10 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	struct efa_io_tx_wqe tx_wqe;
 	uint32_t sq_desc_offset;
 	struct efa_ah *ah;
-	int desc_size;
 	int err = 0;
 
 	pthread_spin_lock(&qp->sq.wq.wqlock);
 	while (wr) {
-		desc_size = sizeof(tx_wqe.meta);
-
 		err = efa_post_send_validate_wr(qp, wr);
 		if (err) {
 			*bad = wr;
@@ -1186,11 +1183,16 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		ah = to_efa_ah(wr->wr.ud.ah);
 
 		if (wr->send_flags & IBV_SEND_INLINE) {
-			efa_post_send_inline_data(wr, &tx_wqe, &desc_size);
+			efa_post_send_inline_data(wr, &tx_wqe);
 		} else {
 			meta_desc->length = wr->num_sge;
 			efa_post_send_sgl(tx_wqe.data.sgl, wr->sg_list,
-					  wr->num_sge, &desc_size);
+					  wr->num_sge);
+		}
+
+		if (wr->opcode == IBV_WR_SEND_WITH_IMM) {
+			meta_desc->immediate_data = be32toh(wr->imm_data);
+			set_efa_io_tx_meta_desc_has_imm(meta_desc, 1);
 		}
 
 		/* Set rest of the descriptor fields */
@@ -1203,7 +1205,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		/* Copy descriptor */
 		sq_desc_offset = (qp->sq.wq.desc_idx & qp->sq.wq.desc_mask) *
 				 sizeof(tx_wqe);
-		memcpy(qp->sq.desc + sq_desc_offset, &tx_wqe, desc_size);
+		memcpy(qp->sq.desc + sq_desc_offset, &tx_wqe, sizeof(tx_wqe));
 
 		/* advance index and change phase */
 		efa_sq_advance_post_idx(qp);
@@ -1253,6 +1255,21 @@ static int efa_send_wr_common(struct ibv_qp_ex *ibvqpx,
 static void efa_send_wr_send(struct ibv_qp_ex *ibvqpx)
 {
 	efa_send_wr_common(ibvqpx, EFA_IO_SEND);
+}
+
+static void efa_send_wr_send_imm(struct ibv_qp_ex *ibvqpx, __be32 imm_data)
+{
+	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
+	struct efa_io_tx_meta_desc *meta_desc;
+	int err;
+
+	err = efa_send_wr_common(ibvqpx, EFA_IO_SEND);
+	if (unlikely(err))
+		return;
+
+	meta_desc = &qp->sq.curr_tx_wqe->meta;
+	meta_desc->immediate_data = be32toh(imm_data);
+	set_efa_io_tx_meta_desc_has_imm(meta_desc, 1);
 }
 
 static void efa_send_wr_rdma_read(struct ibv_qp_ex *ibvqpx, uint32_t rkey,
@@ -1323,7 +1340,7 @@ static void efa_send_wr_set_sge_list(struct ibv_qp_ex *ibvqpx, size_t num_sge,
 			qp->wr_session_err = EINVAL;
 			return;
 		}
-		efa_post_send_sgl(tx_wqe->data.sgl, sg_list, num_sge, NULL);
+		efa_post_send_sgl(tx_wqe->data.sgl, sg_list, num_sge);
 		break;
 	case EFA_IO_RDMA_READ:
 		if (unlikely(num_sge > qp->sq.max_wr_rdma_sge)) {
@@ -1333,7 +1350,7 @@ static void efa_send_wr_set_sge_list(struct ibv_qp_ex *ibvqpx, size_t num_sge,
 		rdma_req = &tx_wqe->data.rdma_req;
 		rdma_req->remote_mem.length = efa_sge_total_bytes(sg_list,
 								  num_sge);
-		efa_post_send_sgl(rdma_req->local_mem, sg_list, num_sge, NULL);
+		efa_post_send_sgl(rdma_req->local_mem, sg_list, num_sge);
 		break;
 	default:
 		return;
@@ -1485,6 +1502,9 @@ static void efa_qp_fill_wr_pfns(struct ibv_qp_ex *ibvqpx,
 	if (attr_ex->send_ops_flags & IBV_QP_EX_WITH_SEND)
 		ibvqpx->wr_send = efa_send_wr_send;
 
+	if (attr_ex->send_ops_flags & IBV_QP_EX_WITH_SEND_WITH_IMM)
+		ibvqpx->wr_send_imm = efa_send_wr_send_imm;
+
 	if (attr_ex->send_ops_flags & IBV_QP_EX_WITH_RDMA_READ)
 		ibvqpx->wr_rdma_read = efa_send_wr_rdma_read;
 
@@ -1495,7 +1515,7 @@ static void efa_qp_fill_wr_pfns(struct ibv_qp_ex *ibvqpx,
 	ibvqpx->wr_set_ud_addr = efa_send_wr_set_addr;
 }
 
-static ssize_t efa_post_recv_validate(struct efa_qp *qp, struct ibv_recv_wr *wr)
+static int efa_post_recv_validate(struct efa_qp *qp, struct ibv_recv_wr *wr)
 {
 	if (unlikely(qp->verbs_qp.qp.state == IBV_QPS_RESET ||
 		     qp->verbs_qp.qp.state == IBV_QPS_ERR))
