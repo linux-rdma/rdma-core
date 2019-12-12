@@ -10,7 +10,6 @@ import json
 
 class CMTestCase(RDMATestCase):
     def setUp(self):
-        mp.set_start_method('fork')
         if self.dev_name is not None:
             net_name = self.get_net_name(self.dev_name)
             try:
@@ -49,12 +48,13 @@ class CMTestCase(RDMATestCase):
         return interface
 
     def test_rdmacm_sync_traffic(self):
-        syncer = mp.Barrier(2, timeout=5)
-        notifier = mp.Queue()
-        passive = mp.Process(target=passive_side, args=[self.ip_addr, syncer,
-                                                        notifier])
-        active = mp.Process(target=active_side, args=[self.ip_addr, syncer,
-                                                      notifier])
+        ctx = mp.get_context('fork')
+        syncer = ctx.Barrier(2, timeout=5)
+        notifier = ctx.Queue()
+        passive = ctx.Process(target=passive_side, args=[self.ip_addr, syncer,
+                                                         notifier])
+        active = ctx.Process(target=active_side, args=[self.ip_addr, syncer,
+                                                       notifier])
         passive.start()
         active.start()
         while notifier.empty():
