@@ -83,6 +83,8 @@
 #define roce_set_bit(origin, shift, val) \
 	roce_set_field((origin), (1ul << (shift)), (shift), (val))
 
+#define hr_ilog32(n)		ilog32((n) - 1)
+
 enum {
 	HNS_ROCE_QP_TABLE_BITS		= 8,
 	HNS_ROCE_QP_TABLE_SIZE		= 1 << HNS_ROCE_QP_TABLE_BITS,
