@@ -3,9 +3,23 @@
 """
 Provide some useful helper function for pyverbs rdmacm' tests.
 """
+from pyverbs.pyverbs_error import PyverbsError
 from tests.base import CMResources
 from tests.utils import validate
+from pyverbs.cmid import CMEvent
+import pyverbs.cm_enums as ce
 import os
+
+events_dict = {ce.RDMA_CM_EVENT_ADDR_ERROR: 'Resolve Address Error',
+               ce.RDMA_CM_EVENT_ROUTE_ERROR: 'Resolve Route Error',
+               ce.RDMA_CM_EVENT_CONNECT_ERROR: 'Connection Error',
+               ce.RDMA_CM_EVENT_UNREACHABLE: 'Node is Unreachable',
+               ce.RDMA_CM_EVENT_REJECTED: 'Connection Rejected',
+               ce.RDMA_CM_EVENT_DEVICE_REMOVAL: 'Device Removal',
+               ce.RDMA_CM_EVENT_MULTICAST_JOIN: 'Multicast Join',
+               ce.RDMA_CM_EVENT_MULTICAST_ERROR: 'Multicast Error',
+               ce.RDMA_CM_EVENT_ADDR_CHANGE: 'Address Change',
+               ce.RDMA_CM_EVENT_TIMEWAIT_EXIT: 'Time wait Exit'}
 
 
 def server_traffic(agr_obj, syncer):
@@ -56,6 +70,45 @@ def client_traffic(agr_obj, syncer):
         validate(msg_received, agr_obj.is_server, agr_obj.msg_size)
 
 
+def event_handler(agr_obj):
+    """
+    Handle and execute corresponding API for RDMACM events of asynchronous
+    communication
+    :param agr_obj: Aggregation object which contains all necessary resources
+    :return: None
+    """
+    cm_event = CMEvent(agr_obj.cmid.event_channel)
+    if cm_event.event_type == ce.RDMA_CM_EVENT_ADDR_RESOLVED:
+        agr_obj.cmid.resolve_route()
+    elif cm_event.event_type == ce.RDMA_CM_EVENT_ROUTE_RESOLVED:
+        agr_obj.create_qp()
+        agr_obj.cmid.connect(agr_obj.create_conn_param())
+    elif cm_event.event_type == ce.RDMA_CM_EVENT_CONNECT_REQUEST:
+        agr_obj.create_child_id(cm_event)
+        agr_obj.create_qp()
+        agr_obj.child_id.accept(agr_obj.create_conn_param())
+    elif cm_event.event_type == ce.RDMA_CM_EVENT_ESTABLISHED:
+        agr_obj.connected = True
+    elif cm_event.event_type == ce.RDMA_CM_EVENT_CONNECT_RESPONSE:
+        agr_obj.connected = True
+        agr_obj.cmid.establish()
+    elif cm_event.event_type == ce.RDMA_CM_EVENT_DISCONNECTED:
+        if agr_obj.is_server:
+            agr_obj.child_id.disconnect()
+            agr_obj.connected = False
+        else:
+            agr_obj.cmid.disconnect()
+            agr_obj.connected = False
+    else:
+        if cm_event.event_type in events_dict:
+            raise PyverbsError('Unexpected event - {}'.format(
+                               events_dict[cm_event.event_type]))
+        else:
+            raise PyverbsError('The event {} is not supported'.format(
+                               cm_event.event_type))
+    cm_event.ack_cm_event()
+
+
 def sync_traffic(addr, syncer, notifier, is_server):
     """
     RDMACM synchronous data and control path which first establish a connection
@@ -83,6 +136,48 @@ def sync_traffic(addr, syncer, notifier, is_server):
             client.create_mr()
             client_traffic(client, syncer)
             client.cmid.disconnect()
+    except Exception as ex:
+        side = 'passive' if is_server else 'active'
+        notifier.put('Caught exception in {side} side process: pid {pid}\n'
+                     .format(side=side, pid=os.getpid()) +
+                     'Exception message: {ex}'.format(ex=str(ex)))
+    else:
+        notifier.put(None)
+
+
+def async_traffic(addr, syncer, notifier, is_server):
+    """
+    RDMACM asynchronous data and control path function that first establishes a
+    connection using RDMACM events API and then executes RDMACM asynchronous
+    traffic.
+    :param addr: Address to connect to and to bind to
+    :param syncer: multiprocessing.Barrier object for processes synchronization
+    :param notifier: Notify parent process about any exceptions or success
+    :param is_server: A flag which indicates if this is a server or not
+    :return: None
+    """
+    try:
+        if is_server:
+            server = CMResources(src=addr, is_async=True)
+            listen_id = server.cmid
+            listen_id.bind_addr(server.ai)
+            listen_id.listen()
+            syncer.wait()
+            while not server.connected:
+                event_handler(server)
+            server.create_mr()
+            server_traffic(server, syncer)
+            server.child_id.disconnect()
+        else:
+            client = CMResources(src=addr, dst=addr, is_async=True)
+            id = client.cmid
+            id.resolve_addr(client.ai)
+            syncer.wait()
+            while not client.connected:
+                event_handler(client)
+            client.create_mr()
+            client_traffic(client, syncer)
+            event_handler(client)
     except Exception as ex:
         side = 'passive' if is_server else 'active'
         notifier.put('Caught exception in {side} side process: pid {pid}\n'

@@ -1,11 +1,16 @@
+# SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
+# Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
+
+from tests.rdmacm_utils import sync_traffic, async_traffic
 from pyverbs.pyverbs_error import PyverbsError
-from tests.rdmacm_utils import sync_traffic
 from tests.base import RDMATestCase
 import multiprocessing as mp
 import pyverbs.device as d
 import subprocess
 import unittest
 import json
+
+NUM_OF_PROCESSES = 2
 
 
 class CMTestCase(RDMATestCase):
@@ -47,20 +52,21 @@ class CMTestCase(RDMATestCase):
             interface = interface + '%' + ifname
         return interface
 
-    def test_rdmacm_sync_traffic(self):
+    @staticmethod
+    def two_nodes_rdmacm_traffic(ip_addr, traffic_func):
         ctx = mp.get_context('fork')
-        syncer = ctx.Barrier(2, timeout=5)
+        syncer = ctx.Barrier(NUM_OF_PROCESSES, timeout=5)
         notifier = ctx.Queue()
-        passive = ctx.Process(target=sync_traffic, args=[self.ip_addr, syncer,
+        passive = ctx.Process(target=traffic_func, args=[ip_addr, syncer,
                                                          notifier, True])
-        active = ctx.Process(target=sync_traffic, args=[self.ip_addr, syncer,
-                                                       notifier, False])
+        active = ctx.Process(target=traffic_func, args=[ip_addr, syncer,
+                                                        notifier, False])
         passive.start()
         active.start()
         while notifier.empty():
             pass
 
-        for _ in range(2):
+        for _ in range(NUM_OF_PROCESSES):
             res = notifier.get()
             if res is not None:
                 passive.terminate()
@@ -69,3 +75,9 @@ class CMTestCase(RDMATestCase):
 
         passive.join()
         active.join()
+
+    def test_rdmacm_sync_traffic(self):
+        self.two_nodes_rdmacm_traffic(self.ip_addr, sync_traffic)
+
+    def test_rdmacm_async_traffic(self):
+        self.two_nodes_rdmacm_traffic(self.ip_addr, async_traffic)
