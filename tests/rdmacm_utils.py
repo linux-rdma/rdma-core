@@ -20,9 +20,9 @@ def active_side(dst_addr, syncer, notifier):
     try:
         client = CMResources(dst=dst_addr)
         syncer.wait()
-        client.pre_run()
+        client.cmid.connect()
         connected_id = client.cmid
-        client.create_mr(connected_id)
+        client.create_mr()
         send_msg = 'c' * client.msg_size
         for _ in range(client.num_msgs):
             client.mr.write(send_msg, client.msg_size)
@@ -55,11 +55,11 @@ def passive_side(src_addr, syncer, notifier):
     """
     try:
         server = CMResources(src=src_addr)
-        server.pre_run()
+        server.cmid.listen()
         syncer.wait()
         connected_id = server.cmid.get_request()
         connected_id.accept()
-        server.create_mr(connected_id)
+        server.create_mr()
         send_msg = 's' * server.msg_size
         for _ in range(server.num_msgs):
             connected_id.post_recv(server.mr)

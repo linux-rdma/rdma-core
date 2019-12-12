@@ -168,6 +168,10 @@ class CMResources:
         dst = kwargs.get('dst')
         self.is_server = True if dst is None else False
         self.qp_init_attr = None
+        # When passive side (server) listens to incoming connection requests,
+        # for each new request it creates a new cmid which is used to establish
+        # the connection with the remote side
+        self.child_id = None
         self.msg_size = 1024
         self.num_msgs = 100
         self.port = kwargs.get('port') if kwargs.get('port') else '7471'
@@ -180,17 +184,19 @@ class CMResources:
         self.create_qp_init_attr()
         self.cmid = CMID(creator=self.ai, qp_init_attr=self.qp_init_attr)
 
-    def create_mr(self, cmid):
-        self.mr = cmid.reg_msgs(self.msg_size)
+    def create_mr(self):
+        if self.is_server:
+            self.mr = self.child_id.reg_msgs(self.msg_size)
+        else:
+            self.mr = self.cmid.reg_msgs(self.msg_size)
+
+    def create_child_id(self):
+        if not self.is_server:
+            raise RuntimeError('create_child_id can only be used in passive side')
+        self.child_id = self.cmid.get_request()
 
     def create_qp_init_attr(self):
         self.qp_init_attr = QPInitAttr(cap=QPCap(max_recv_wr=1))
-
-    def pre_run(self):
-        if self.is_server:
-            self.cmid.listen()
-        else:
-            self.cmid.connect()
 
 
 class BaseResources(object):
