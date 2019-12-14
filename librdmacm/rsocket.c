@@ -3038,7 +3038,7 @@ static int rs_poll_enter(void)
 	pthread_mutex_lock(&mut);
 	if (suspendpoll) {
 		pthread_mutex_unlock(&mut);
-		pthread_yield();
+		sched_yield();
 		return -EBUSY;
 	}
 
