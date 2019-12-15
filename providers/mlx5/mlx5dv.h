@@ -1426,6 +1426,14 @@ enum mlx5dv_dr_domain_sync_flags {
 	MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW		= 1 << 1,
 };
 
+struct mlx5dv_dr_flow_meter_attr {
+	struct mlx5dv_dr_table  *next_table;
+	uint8_t                 active;
+	uint8_t                 reg_c_index;
+	size_t			flow_meter_parameter_sz;
+	__be64			flow_meter_parameter[];
+};
+
 struct mlx5dv_dr_domain *
 mlx5dv_dr_domain_create(struct ibv_context *ctx,
 			enum mlx5dv_dr_domain_type type);

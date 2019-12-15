@@ -1820,6 +1820,38 @@ struct mlx5_ifc_general_obj_out_cmd_hdr_bits {
 	u8         reserved_at_60[0x20];
 };
 
+struct mlx5_ifc_flow_meter_bits {
+	u8         modify_field_select[0x40];
+
+	u8         active[0x1];
+	u8         reserved_at_41[0x3];
+	u8         return_reg_id[0x4];
+	u8         table_type[0x8];
+	u8         reserved_at_50[0x10];
+
+	u8         reserved_at_60[0x8];
+	u8         destination_table_id[0x18];
+
+	u8         reserved_at_80[0x80];
+
+	u8         flow_meter_params[0x100];
+
+	u8         reserved_at_180[0x180];
+
+	u8         sw_steering_icm_address_rx[0x40];
+	u8         sw_steering_icm_address_tx[0x40];
+};
+
+struct mlx5_ifc_create_flow_meter_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits   hdr;
+	struct mlx5_ifc_flow_meter_bits               meter;
+};
+
+struct mlx5_ifc_query_flow_meter_out_bits {
+	struct mlx5_ifc_general_obj_out_cmd_hdr_bits   hdr;
+	struct mlx5_ifc_flow_meter_bits                obj;
+};
+
 struct mlx5_ifc_esw_vport_context_bits {
 	u8         reserved_at_0[0x3];
 	u8         vport_svlan_strip[0x1];
