@@ -115,3 +115,9 @@ MLX5_1.11 {
 		mlx5dv_devx_subscribe_devx_event;
 		mlx5dv_devx_subscribe_devx_event_fd;
 } MLX5_1.10;
+
+MLX5_1.12 {
+	global:
+		mlx5dv_dr_action_create_flow_meter;
+		mlx5dv_dr_action_modify_flow_meter;
+} MLX5_1.11;

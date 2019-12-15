@@ -180,6 +180,7 @@ enum dr_action_type {
 	DR_ACTION_TYP_TAG,
 	DR_ACTION_TYP_MODIFY_HDR,
 	DR_ACTION_TYP_VPORT,
+	DR_ACTION_TYP_METER,
 	DR_ACTION_TYP_MAX,
 };
 
@@ -709,6 +710,12 @@ struct mlx5dv_dr_action {
 				};
 			};
 		} reformat;
+		struct {
+			struct mlx5dv_dr_table	*next_ft;
+			struct mlx5dv_devx_obj	*devx_obj;
+			uint64_t		rx_icm_addr;
+			uint64_t		tx_icm_addr;
+		} meter;
 		struct mlx5dv_dr_table	*dest_tbl;
 		struct {
 			struct mlx5dv_devx_obj	*devx_obj;
