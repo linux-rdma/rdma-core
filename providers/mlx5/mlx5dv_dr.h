@@ -696,6 +696,8 @@ struct mlx5dv_dr_action {
 					uint32_t		data_size;
 					uint16_t		num_of_actions;
 					uint32_t		index;
+					bool			allow_rx;
+					bool			allow_tx;
 				};
 			};
 		} rewrite;
