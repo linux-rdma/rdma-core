@@ -8,74 +8,85 @@ from tests.utils import validate
 import os
 
 
-def active_side(dst_addr, syncer, notifier):
+def server_traffic(agr_obj, syncer):
     """
-    RDMACM active side (client) which establish and uses rdamcm synchronous
-    connection.
-    :param dst_addr: Destination address to connect
+    RDMACM passive side traffic function which uses RDMACM's QP, this function
+    sends and receives a message, and then validate the received message, this
+    operation executed <agr_obj.num_msgs> times.
+    :param agr_obj: Aggregation object which contains all necessary resources
+    :param syncer: multiprocessing.Barrier object for processes synchronization
+    :return: None
+    """
+    send_msg = agr_obj.msg_size * 's'
+    cmid = agr_obj.child_id
+    for _ in range(agr_obj.num_msgs):
+        cmid.post_recv(agr_obj.mr)
+        syncer.wait()
+        syncer.wait()
+        cmid.get_recv_comp()
+        msg_received = agr_obj.mr.read(agr_obj.msg_size, 0)
+        validate(msg_received, agr_obj.is_server, agr_obj.msg_size)
+        agr_obj.mr.write(send_msg, agr_obj.msg_size)
+        cmid.post_send(agr_obj.mr)
+        cmid.get_send_comp()
+        syncer.wait()
+
+
+def client_traffic(agr_obj, syncer):
+    """
+    RDMACM active side traffic function which uses RDMACM's QP, this function
+    sends and receives a message, and then validate the received message, this
+    operation executed <agr_obj.num_msgs> times.
+    :param agr_obj: Aggregation object which contains all necessary resources
+    :param syncer: multiprocessing.Barrier object for processes synchronization
+    :return: None
+    """
+    send_msg = agr_obj.msg_size * 'c'
+    cmid = agr_obj.cmid
+    for _ in range(agr_obj.num_msgs):
+        agr_obj.mr.write(send_msg, agr_obj.msg_size)
+        syncer.wait()
+        cmid.post_send(agr_obj.mr)
+        cmid.get_send_comp()
+        syncer.wait()
+        cmid.post_recv(agr_obj.mr)
+        syncer.wait()
+        cmid.get_recv_comp()
+        msg_received = agr_obj.mr.read(agr_obj.msg_size, 0)
+        validate(msg_received, agr_obj.is_server, agr_obj.msg_size)
+
+
+def sync_traffic(addr, syncer, notifier, is_server):
+    """
+    RDMACM synchronous data and control path which first establish a connection
+    using RDMACM's synchronous API and then execute RDMACM synchronous traffic.
+    :param addr: Address to connect to and to bind to
     :param syncer: multiprocessing.Barrier object for processes synchronization
     :param notifier: Notify parent process about any exceptions or success
+    :param is_server: A flag which indicates if this is a server or client
     :return: None
     """
     try:
-        client = CMResources(dst=dst_addr)
-        syncer.wait()
-        client.cmid.connect()
-        connected_id = client.cmid
-        client.create_mr()
-        send_msg = 'c' * client.msg_size
-        for _ in range(client.num_msgs):
-            client.mr.write(send_msg, client.msg_size)
+        if is_server:
+            server = CMResources(src=addr)
+            server.cmid.listen()
             syncer.wait()
-            connected_id.post_send(client.mr)
-            connected_id.get_send_comp()
+            server.create_child_id()
+            server.child_id.accept()
+            server.create_mr()
+            server_traffic(server, syncer)
+            server.child_id.disconnect()
+        else:
+            client = CMResources(dst=addr)
             syncer.wait()
-            connected_id.post_recv(client.mr)
-            syncer.wait()
-            connected_id.get_recv_comp()
-            msg_received = client.mr.read(client.msg_size, 0)
-            validate(msg_received, False, client.msg_size)
-        connected_id.disconnect()
+            client.cmid.connect()
+            client.create_mr()
+            client_traffic(client, syncer)
+            client.cmid.disconnect()
     except Exception as ex:
-        notifier.put('Caught exception in active side process: pid {}\n'
-                     .format(os.getpid()) +
-                     'Exception message: {}'.format(str(ex)))
-    else:
-        notifier.put(None)
-
-
-def passive_side(src_addr, syncer, notifier):
-    """
-    RDMACM passive side (server) which establish and uses rdamcm synchronous
-    connection.
-    :param src_addr: Local address to bind to
-    :param syncer: multiprocessing.Barrier object for processes synchronization
-    :param notifier: Notify parent process about any exceptions or success
-    :return: None
-    """
-    try:
-        server = CMResources(src=src_addr)
-        server.cmid.listen()
-        syncer.wait()
-        connected_id = server.cmid.get_request()
-        connected_id.accept()
-        server.create_mr()
-        send_msg = 's' * server.msg_size
-        for _ in range(server.num_msgs):
-            connected_id.post_recv(server.mr)
-            syncer.wait()
-            syncer.wait()
-            connected_id.get_recv_comp()
-            msg_received = server.mr.read(server.msg_size, 0)
-            validate(msg_received, True, server.msg_size)
-            server.mr.write(send_msg, server.msg_size)
-            connected_id.post_send(server.mr)
-            connected_id.get_send_comp()
-            syncer.wait()
-        connected_id.disconnect()
-    except Exception as ex:
-        notifier.put('Caught exception in passive side process: pid {}\n'
-                     .format(os.getpid()) +
-                     'Exception message: {}'.format(str(ex)))
+        side = 'passive' if is_server else 'active'
+        notifier.put('Caught exception in {side} side process: pid {pid}\n'
+                     .format(side=side, pid=os.getpid()) +
+                     'Exception message: {ex}'.format(ex=str(ex)))
     else:
         notifier.put(None)

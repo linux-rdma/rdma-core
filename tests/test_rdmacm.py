@@ -1,5 +1,5 @@
-from tests.rdmacm_utils import active_side, passive_side
 from pyverbs.pyverbs_error import PyverbsError
+from tests.rdmacm_utils import sync_traffic
 from tests.base import RDMATestCase
 import multiprocessing as mp
 import pyverbs.device as d
@@ -51,10 +51,10 @@ class CMTestCase(RDMATestCase):
         ctx = mp.get_context('fork')
         syncer = ctx.Barrier(2, timeout=5)
         notifier = ctx.Queue()
-        passive = ctx.Process(target=passive_side, args=[self.ip_addr, syncer,
-                                                         notifier])
-        active = ctx.Process(target=active_side, args=[self.ip_addr, syncer,
-                                                       notifier])
+        passive = ctx.Process(target=sync_traffic, args=[self.ip_addr, syncer,
+                                                         notifier, True])
+        active = ctx.Process(target=sync_traffic, args=[self.ip_addr, syncer,
+                                                       notifier, False])
         passive.start()
         active.start()
         while notifier.empty():
