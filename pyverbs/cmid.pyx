@@ -1,9 +1,10 @@
-from pyverbs.pyverbs_error import PyverbsError
+from pyverbs.pyverbs_error import PyverbsError, PyverbsUserError
 from pyverbs.device cimport PortAttr, Context
 from pyverbs.qp cimport QPInitAttr, QPAttr
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.librdmacm_enums as ce
+from libc.stdint cimport uint8_t
 cimport pyverbs.libibverbs as v
 cimport pyverbs.librdmacm as cm
 from pyverbs.pd cimport PD
@@ -200,17 +201,22 @@ cdef class CMEventChannel(PyverbsObject):
 cdef class CMID(PyverbsCM):
 
     def __init__(self, object creator=None, QPInitAttr qp_init_attr=None,
-                 PD pd=None):
+                 PD pd=None, port_space=ce.RDMA_PS_TCP, CMID listen_id=None):
         """
         Initialize a CMID object over an underlying rdma_cm_id C object.
         This is the main RDMA CM object which provides most of the rdmacm API.
         Currently only synchronous RDMA_PS_TCP communication supported.
+        Notes: User-specific context, currently not supported.
         :param creator: For synchronous communication we need AddrInfo object in
                         order to establish connection. We allow creator to be
                         None for inner usage, see get_request method.
-        :param pd: Optional parameter, a PD to be associated with this CMID.
         :param qp_init_attr: Optional initial QP attributes of CMID
                              associated QP.
+        :param pd: Optional parameter, a PD to be associated with this CMID.
+        :param port_space: RDMA port space.
+        :param listen_id: When passive side establishes a connection, it creates
+                          a new CMID. listen_id is used to initialize the new
+                          CMID.
         :return: CMID object for synchronous communication.
         """
         cdef v.ibv_qp_init_attr *init
@@ -219,9 +225,10 @@ cdef class CMID(PyverbsCM):
         super().__init__()
         self.pd = None
         self.ctx = None
+        self.event_channel = None
         if creator is None:
             return
-        elif issubclass(type(creator), AddrInfo):
+        elif isinstance(creator, AddrInfo):
             init = NULL if qp_init_attr is None else &qp_init_attr.attr
             if pd is not None:
                 in_pd = pd.pd
@@ -234,9 +241,30 @@ cdef class CMID(PyverbsCM):
                 self.ctx = Context(cmid=self)
                 if self.pd is None:
                     self.pd = PD(self)
+        elif isinstance(creator, CMEventChannel):
+             self.event_channel = <CMEventChannel>creator
+             ret = cm.rdma_create_id((<CMEventChannel>creator).event_channel,
+                                     &self.id, NULL, port_space)
+             if ret != 0:
+                raise PyverbsRDMAErrno('Failed to create CM ID')
+        elif isinstance(creator, CMEvent):
+            if listen_id is None:
+                raise PyverbsUserError('listen ID not provided')
+            self.id = (<CMEvent>creator).event.id
+            self.event_channel = listen_id.event_channel
+            self.ctx = listen_id.ctx
+            self.pd = listen_id.pd
         else:
             raise PyverbsRDMAErrno('Cannot create CM ID from {obj}'
                                     .format(obj=type(creator)))
+
+    @property
+    def event_channel(self):
+        return self.event_channel
+
+    @property
+    def context(self):
+        return self.ctx
 
     def __dealloc__(self):
         self.close()
@@ -244,7 +272,14 @@ cdef class CMID(PyverbsCM):
     cpdef close(self):
         self.logger.debug('Closing CMID')
         if self.id != NULL:
-            cm.rdma_destroy_ep(self.id)
+            if self.event_channel is None:
+                cm.rdma_destroy_ep(self.id)
+            else:
+                if self.id.qp != NULL:
+                    cm.rdma_destroy_qp(self.id)
+                ret = cm.rdma_destroy_id(self.id)
+                if ret != 0:
+                    raise PyverbsRDMAErrno('Failed to close CMID')
             if self.ctx:
                 (<Context>self.ctx).context = NULL
             if self.pd:
@@ -269,15 +304,55 @@ cdef class CMID(PyverbsCM):
         self.pd = PD(to_conn)
         return to_conn
 
-    def reg_msgs(self, size):
+    def bind_addr(self, AddrInfo lai not None):
         """
-        Registers a memory region for sending or receiving messages or for
-        RDMA operations. The registered memory may then be posted to an CMID
-        using post_send or post_recv methods.
-        :param size: The total length of the memory to register
-        :return: registered MR
+        Associate a source address with a CMID. If binding to a specific local
+        address, the CMID will also be bound to a local RDMA device.
+        :param lai: Local address information
+        :return: None
         """
-        return MR(self.pd, size, e.IBV_ACCESS_LOCAL_WRITE)
+        ret = cm.rdma_bind_addr(self.id, lai.addr_info.ai_src_addr)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to Bind ID')
+        # After bind address, cm_id contains ibv_context.
+        # Now we can create Context object.
+        if self.ctx is None:
+            self.ctx = Context(cmid=self)
+        if self.pd is None:
+            self.pd = PD(self)
+
+    def resolve_addr(self, AddrInfo rai not None, timeout_ms=2000):
+        """
+        Resolve destination and optional source addresses from IP addresses to
+        an RDMA address. If successful, the specified rdma_cm_id will be bound
+        to a local device.
+        :param rai: Remote address information.
+        :param timeout_ms: Time to wait for resolution to complete [msec]
+        :return: None
+        """
+        ret = cm.rdma_resolve_addr(self.id, rai.addr_info.ai_src_addr,
+                                   rai.addr_info.ai_dst_addr, timeout_ms)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to Resolve Address')
+
+    def resolve_route(self, timeout_ms=2000):
+        """
+        Resolve an RDMA route to the destination address in order to establish
+        a connection. The destination must already have been resolved by calling
+        resolve_addr. Thus this function is called on the client side after
+        resolve_addr but before calling connect.
+        :param timeout_ms: Time to wait for resolution to complete
+        :return: None
+        """
+        ret = cm.rdma_resolve_route(self.id, timeout_ms)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to Resolve Route')
+        # After resolve route, cm_id contains ibv_context.
+        # Now we can create Context object.
+        if self.ctx is None:
+            self.ctx = Context(cmid=self)
+        if self.pd is None:
+            self.pd = PD(self)
 
     def listen(self, backlog=0):
         """
@@ -322,6 +397,76 @@ cdef class CMID(PyverbsCM):
         ret = cm.rdma_accept(self.id, conn)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to Accept Connection')
+
+    def establish(self):
+        """
+        Complete an active connection request.
+        If a QP has not been created on the CMID, this method should be
+        called by the active side to complete the connection, after getting
+        connect response event. This will trigger a connection established
+        event on the passive side.
+        This method should not be used on a CMID on which a QP has been
+        created.
+        """
+        ret = cm.rdma_establish(self.id)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to Complete an active connection request')
+
+    def create_qp(self, QPInitAttr qp_init not None):
+        """
+        Create a QP, which is associated with CMID.
+        If CMID and qp_init don't hold any CQs, new CQs will be created and
+        associated with CMID.
+        If only qp_init provides CQs, they will not be associated with CMID.
+        If both provide CQs they have to be using the same CQs.
+        :param qp_init: QP init attributes
+        """
+        ret = cm.rdma_create_qp(self.id, (<PD>self.pd).pd, &qp_init.attr)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to Create QP')
+
+    def query_qp(self, attr_mask):
+        """
+        Query QP using ibv_query_qp.
+        :param attr_mask: Which attributes to query (use <enum name> enum)
+        :return: A (QPAttr, QPInitAttr) tuple, containing the relevant QP info
+        """
+        attr = QPAttr()
+        init_attr = QPInitAttr()
+        rc = v.ibv_query_qp(self.id.qp, &attr.attr, attr_mask, &init_attr.attr)
+        if rc != 0:
+            raise PyverbsRDMAErrno('Failed to query QP')
+        return attr, init_attr
+
+    def init_qp_attr(self, qp_state):
+        """
+        Initialize a QPAttr object used for state transitions of an external
+        QP (a QP which was not created using CMID).
+        When connecting external QPs using CMIDs both sides must call this
+        method before QP state transition to RTR/RTS in order to obtain
+        relevant QP attributes from CMID.
+        :param qp_state: The QP's destination state
+        :return: A (QPAttr, attr_mask) tuple, where attr_mask defines which
+                 attributes of QPAttr are valid
+        """
+        cdef int attr_mask
+        qp_attr = QPAttr()
+        qp_attr.qp_state = qp_state
+
+        rc = cm.rdma_init_qp_attr(self.id, &qp_attr.attr, &attr_mask)
+        if rc != 0:
+            raise PyverbsRDMAErrno('Failed to get QP attributes')
+        return qp_attr, attr_mask
+
+    def reg_msgs(self, size):
+        """
+        Registers a memory region for sending or receiving messages or for
+        RDMA operations. The registered memory may then be posted to an CMID
+        using post_send or post_recv methods.
+        :param size: The total length of the memory to register
+        :return: registered MR
+        """
+        return MR(self.pd, size, e.IBV_ACCESS_LOCAL_WRITE)
 
     def post_recv(self, MR mr not None):
         """
