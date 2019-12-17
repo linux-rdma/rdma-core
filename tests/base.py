@@ -173,9 +173,10 @@ class CMResources:
         self.port = kwargs.get('port') if kwargs.get('port') else '7471'
         self.mr = None
         if self.is_server:
-            self.ai = AddrInfo(src, self.port, ce.RDMA_PS_TCP, ce.RAI_PASSIVE)
+            self.ai = AddrInfo(src, None, self.port, ce.RDMA_PS_TCP,
+                               ce.RAI_PASSIVE)
         else:
-            self.ai = AddrInfo(dst, self.port, ce.RDMA_PS_TCP)
+            self.ai = AddrInfo(src, dst, self.port, ce.RDMA_PS_TCP)
         self.create_qp_init_attr()
         self.cmid = CMID(creator=self.ai, qp_init_attr=self.qp_init_attr)
 
