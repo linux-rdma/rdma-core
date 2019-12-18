@@ -116,6 +116,7 @@ static int by_onboard(struct data *d)
 		       d->curr, d->prefix, o);
 		ret = -ENOENT;
 		d->name = NULL;
+		goto out;
 	}
 	ret = 0;
 out:
