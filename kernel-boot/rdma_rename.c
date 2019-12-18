@@ -101,6 +101,7 @@ static int by_onboard(struct data *d)
 	if (ret < 0) {
 		ret = -ENOENT;
 		d->name = NULL;
+		goto out;
 	}
 	ret = 0;
 out:
