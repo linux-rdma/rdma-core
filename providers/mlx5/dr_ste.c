@@ -1036,6 +1036,9 @@ static void dr_ste_copy_mask_misc3(char *mask, struct dr_match_misc3 *spec)
 	spec->icmpv4_code = DEVX_GET(dr_match_set_misc3, mask, icmp_code);
 	spec->icmpv6_type = DEVX_GET(dr_match_set_misc3, mask, icmpv6_type);
 	spec->icmpv6_code = DEVX_GET(dr_match_set_misc3, mask, icmpv6_code);
+	spec->gtpu_flags    = DEVX_GET(dr_match_set_misc3, mask, gtpu_flags);
+	spec->gtpu_msg_type = DEVX_GET(dr_match_set_misc3, mask, gtpu_msg_type);
+	spec->gtpu_teid     = DEVX_GET(dr_match_set_misc3, mask, gtpu_teid);
 }
 
 #define MAX_PARAM_SIZE 512
@@ -2228,6 +2231,57 @@ void dr_ste_build_flex_parser_tnl_geneve(struct dr_ste_build *sb,
 	sb->lu_type = DR_STE_LU_TYPE_FLEX_PARSER_TNL_HEADER;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_build_flex_parser_tnl_geneve_tag;
+}
+
+static void
+dr_ste_build_flex_parser_tnl_gtpu_bit_mask(struct dr_match_param *value,
+					   uint8_t *bit_mask)
+{
+	struct dr_match_misc3 *misc3 = &value->misc3;
+
+	DR_STE_SET_MASK_V(flex_parser_tnl_gtpu, bit_mask,
+			  gtpu_flags, misc3,
+			  gtpu_flags);
+	DR_STE_SET_MASK_V(flex_parser_tnl_gtpu, bit_mask,
+			  gtpu_msg_type, misc3,
+			  gtpu_msg_type);
+	DR_STE_SET_MASK_V(flex_parser_tnl_gtpu, bit_mask,
+			  gtpu_teid, misc3,
+			  gtpu_teid);
+}
+
+static int
+dr_ste_build_flex_parser_tnl_gtpu_tag(struct dr_match_param *value,
+				      struct dr_ste_build *sb,
+				      uint8_t *hw_ste_p)
+{
+	struct dr_hw_ste_format *hw_ste = (struct dr_hw_ste_format *)hw_ste_p;
+	struct dr_match_misc3 *misc3 = &value->misc3;
+	uint8_t *tag = hw_ste->tag;
+
+	DR_STE_SET_TAG(flex_parser_tnl_gtpu, tag,
+		       gtpu_flags, misc3,
+		       gtpu_flags);
+	DR_STE_SET_TAG(flex_parser_tnl_gtpu, tag,
+		       gtpu_msg_type, misc3,
+		       gtpu_msg_type);
+	DR_STE_SET_TAG(flex_parser_tnl_gtpu, tag,
+		       gtpu_teid, misc3,
+		       gtpu_teid);
+
+	return 0;
+}
+
+void dr_ste_build_flex_parser_tnl_gtpu(struct dr_ste_build *sb,
+				       struct dr_match_param *mask,
+				       bool inner, bool rx)
+{
+	dr_ste_build_flex_parser_tnl_gtpu_bit_mask(mask, sb->bit_mask);
+	sb->rx = rx;
+	sb->inner = inner;
+	sb->lu_type = DR_STE_LU_TYPE_FLEX_PARSER_TNL_HEADER;
+	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
+	sb->ste_build_tag_func = &dr_ste_build_flex_parser_tnl_gtpu_tag;
 }
 
 static void dr_ste_build_register_0_bit_mask(struct dr_match_param *value,

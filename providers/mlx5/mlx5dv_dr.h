@@ -406,6 +406,9 @@ void dr_ste_build_flex_parser_tnl_vxlan_gpe(struct dr_ste_build *sb,
 void dr_ste_build_flex_parser_tnl_geneve(struct dr_ste_build *sb,
 					 struct dr_match_param *mask,
 					 bool inner, bool rx);
+void dr_ste_build_flex_parser_tnl_gtpu(struct dr_ste_build *sb,
+				       struct dr_match_param *mask,
+				       bool inner, bool rx);
 void dr_ste_build_general_purpose(struct dr_ste_build *sb,
 				  struct dr_match_param *mask,
 				  bool inner, bool rx);
@@ -539,6 +542,9 @@ struct dr_match_misc3 {
 	uint32_t icmpv6_type:8;
 	uint32_t icmpv4_code:8;
 	uint32_t icmpv4_type:8;
+	uint32_t gtpu_teid;
+	uint32_t gtpu_msg_type:8;
+	uint32_t gtpu_flags:3;
 };
 
 struct dr_match_param {
