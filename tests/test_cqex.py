@@ -60,16 +60,19 @@ class CqExTestCase(RDMATestCase):
             server.pre_run(client.psn, client.qpn)
         return client, server
 
+    @u.timeout_decorator
     def test_ud_traffic_cq_ex(self):
         client, server = self.create_players('ud')
         u.traffic(client, server, self.iters, self.gid_index, self.ib_port,
                   is_cq_ex=True)
 
+    @u.timeout_decorator
     def test_rc_traffic_cq_ex(self):
         client, server = self.create_players('rc')
         u.traffic(client, server, self.iters, self.gid_index, self.ib_port,
                   is_cq_ex=True)
 
+    @u.timeout_decorator
     def test_xrc_traffic_cq_ex(self):
         client, server = self.create_players('xrc')
         u.xrc_traffic(client, server, is_cq_ex=True)

@@ -1,5 +1,5 @@
+from tests.utils import requires_odp, traffic, xrc_traffic, timeout_decorator
 from tests.base import RCResources, UDResources, XRCResources
-from tests.utils import requires_odp, traffic, xrc_traffic
 from tests.base import RDMATestCase
 from pyverbs.mr import MR
 import pyverbs.enums as e
@@ -44,14 +44,17 @@ class OdpTestCase(RDMATestCase):
             server.pre_run(client.psn, client.qpn)
         return client, server
 
+    @timeout_decorator
     def test_odp_rc_traffic(self):
         client, server = self.create_players('rc')
         traffic(client, server, self.iters, self.gid_index, self.ib_port)
 
+    @timeout_decorator
     def test_odp_ud_traffic(self):
         client, server = self.create_players('ud')
         traffic(client, server, self.iters, self.gid_index, self.ib_port)
 
+    @timeout_decorator
     def test_odp_xrc_traffic(self):
         client, server = self.create_players('xrc')
         xrc_traffic(client, server)

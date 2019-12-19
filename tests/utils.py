@@ -7,6 +7,7 @@ from itertools import combinations as com
 from string import ascii_lowercase as al
 import unittest
 import random
+import signal
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.addr import AHAttr, AH, GlobalRoute
@@ -479,6 +480,22 @@ def requires_odp(qp_type):
             return func(instance)
         return inner
     return outer
+
+
+# Decorator for test methods to apply a 3 seconds timeout
+def timeout_decorator(func):
+    """
+    Calls the test method func after setting an alarm signal to fire in 3
+    seconds. Pyverbs tests take significantly less time to run, so if the
+    timeout expires we assume the test hung and fail it.
+    If the test method finishes before the timeout expires, the alarm is
+    cancelled.
+    """
+    def func_wrapper(func_self):
+        signal.alarm(3)
+        func(func_self)
+        signal.alarm(0)
+    return func_wrapper
 
 
 def odp_supported(ctx, qp_type):

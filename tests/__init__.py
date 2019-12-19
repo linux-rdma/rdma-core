@@ -2,7 +2,20 @@
 # Copyright (c) 2019 Mellanox Technologies, Inc . All rights reserved. See COPYING file
 
 import importlib
+import signal
 import os
+
+from pyverbs.pyverbs_error import PyverbsError
+
+
+# Handler for timeouts to be used by the test methods
+def sig_handler(signum, frame):
+    raise PyverbsError('Timeout expired')
+
+
+# Register the above handler to catch SIGALRM
+signal.signal(signal.SIGALRM, sig_handler)
+
 
 # Load every test as a module in the system so that unittest's loader can find it
 def _load_tests():
