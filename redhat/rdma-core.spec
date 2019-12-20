@@ -74,19 +74,19 @@ scripts, dracut rules, and the rdma-ndd utility.
 %package devel
 Summary: RDMA core development libraries and headers
 Requires: %{name}%{?_isa} = %{version}-%{release}
-Requires: libibverbs = %{version}-%{release}
+Requires: libibverbs%{?_isa} = %{version}-%{release}
 Provides: libibverbs-devel = %{version}-%{release}
 Obsoletes: libibverbs-devel < %{version}-%{release}
-Requires: libibumad = %{version}-%{release}
+Requires: libibumad%{?_isa} = %{version}-%{release}
 Provides: libibumad-devel = %{version}-%{release}
 Obsoletes: libibumad-devel < %{version}-%{release}
-Requires: librdmacm = %{version}-%{release}
+Requires: librdmacm%{?_isa} = %{version}-%{release}
 Provides: librdmacm-devel = %{version}-%{release}
 Obsoletes: librdmacm-devel < %{version}-%{release}
-Requires: ibacm = %{version}-%{release}
+Requires: ibacm%{?_isa} = %{version}-%{release}
 Provides: ibacm-devel = %{version}-%{release}
 Obsoletes: ibacm-devel < %{version}-%{release}
-Requires: infiniband-diags = %{version}-%{release}
+Requires: infiniband-diags%{?_isa} = %{version}-%{release}
 Provides: infiniband-diags-devel = %{version}-%{release}
 Obsoletes: infiniband-diags-devel < %{version}-%{release}
 Provides: libibmad-devel = %{version}-%{release}
