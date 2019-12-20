@@ -13,6 +13,9 @@ Source: rdma-core-%{version}.tgz
 # Do not build static libs by default.
 %define with_static %{?_with_static: 1} %{?!_with_static: 0}
 
+# 32-bit arm is missing required arch-specific memory barriers,
+ExcludeArch: %{arm}
+
 BuildRequires: binutils
 BuildRequires: cmake >= 2.8.11
 BuildRequires: gcc
