@@ -27,7 +27,11 @@ BuildRequires: /usr/bin/rst2man
 BuildRequires: valgrind-devel
 BuildRequires: systemd
 BuildRequires: systemd-devel
+%if 0%{?fedora} >= 32
+%define with_pyverbs %{?_with_pyverbs: 0} %{?!_with_pyverbs: 1}
+%else
 %define with_pyverbs %{?_with_pyverbs: 1} %{?!_with_pyverbs: 0}
+%endif
 %if %{with_pyverbs}
 BuildRequires: python3-devel
 BuildRequires: python3-Cython
