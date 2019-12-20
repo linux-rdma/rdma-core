@@ -39,7 +39,7 @@ BuildRequires: python
 BuildRequires: perl-generators
 %endif
 
-Requires: dracut, kmod, systemd
+Requires: dracut, kmod, systemd, pciutils
 # Red Hat/Fedora previously shipped redhat/ as a stand-alone
 # package called 'rdma', which we're supplanting here.
 Provides: rdma = %{version}-%{release}
