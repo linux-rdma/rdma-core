@@ -343,23 +343,24 @@ install -D -m0644 ibacm_opts.cfg %{buildroot}%{_sysconfdir}/rdma/
 rm -rf %{buildroot}/%{_initrddir}/
 rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
-# infiniband-diags
+%post -n rdma-core
+# we ship udev rules, so trigger an update.
+/sbin/udevadm trigger --subsystem-match=infiniband --action=change || true
+/sbin/udevadm trigger --subsystem-match=net --action=change || true
+/sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change || true
+
 %post -n infiniband-diags -p /sbin/ldconfig
 %postun -n infiniband-diags -p /sbin/ldconfig
 
-# libibverbs
 %post -n libibverbs -p /sbin/ldconfig
 %postun -n libibverbs -p /sbin/ldconfig
 
-# libibumad
 %post -n libibumad -p /sbin/ldconfig
 %postun -n libibumad -p /sbin/ldconfig
 
-# librdmacm
 %post -n librdmacm -p /sbin/ldconfig
 %postun -n librdmacm -p /sbin/ldconfig
 
-# ibacm
 %post -n ibacm
 %systemd_post ibacm.service
 %preun -n ibacm
@@ -367,7 +368,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %postun -n ibacm
 %systemd_postun_with_restart ibacm.service
 
-# srp_daemon
 %post -n srp_daemon
 %systemd_post srp_daemon.service
 %preun -n srp_daemon
@@ -375,7 +375,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %postun -n srp_daemon
 %systemd_postun_with_restart srp_daemon.service
 
-# iwpmd
 %post -n iwpmd
 %systemd_post iwpmd.service
 %preun -n iwpmd
@@ -657,9 +656,3 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{python3_sitearch}/pyverbs
 %{_docdir}/%{name}-%{version}/tests/*.py
 %endif
-
-%post
-# we ship udev rules, so trigger an update.
-/sbin/udevadm trigger --subsystem-match=infiniband --action=change || true
-/sbin/udevadm trigger --subsystem-match=net --action=change || true
-/sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change || true
