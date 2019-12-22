@@ -7,6 +7,6 @@ import os
 from importlib.machinery import SourceFileLoader
 
 
-module_path = os.path.dirname(__file__) + '/__init__.py'
+module_path = os.path.join(os.path.dirname(__file__), '__init__.py')
 tests = SourceFileLoader('tests', module_path).load_module()
 unittest.main(module=tests)
