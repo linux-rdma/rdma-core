@@ -230,6 +230,7 @@ struct verbs_device {
 	atomic_int refcount;
 	struct list_node entry;
 	struct verbs_sysfs_dev *sysfs;
+	uint64_t core_support;
 };
 
 struct verbs_counters {
