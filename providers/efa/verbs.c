@@ -103,7 +103,7 @@ int efadv_query_device(struct ibv_context *ibvctx,
 	if (!vext_field_avail(typeof(*attr), inline_buf_size, inlen))
 		return EINVAL;
 
-	memset(attr, 0, sizeof(*attr));
+	memset(attr, 0, inlen);
 	attr->max_sq_wr = dev->max_sq_wr;
 	attr->max_rq_wr = dev->max_rq_wr;
 	attr->max_sq_sge = dev->max_sq_sge;
@@ -1612,7 +1612,7 @@ int efadv_query_ah(struct ibv_ah *ibvah, struct efadv_ah_attr *attr,
 	if (!vext_field_avail(typeof(*attr), ahn, inlen))
 		return EINVAL;
 
-	memset(attr, 0, sizeof(*attr));
+	memset(attr, 0, inlen);
 	attr->ahn = to_efa_ah(ibvah)->efa_ah;
 
 	attr->comp_mask = comp_mask_out;
