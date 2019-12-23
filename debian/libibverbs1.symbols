@@ -5,6 +5,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  IBVERBS_1.5@IBVERBS_1.5 20
  IBVERBS_1.6@IBVERBS_1.6 24
  IBVERBS_1.7@IBVERBS_1.7 25
+ IBVERBS_1.8@IBVERBS_1.8 28
  (symver)IBVERBS_PRIVATE_25 25
  ibv_ack_async_event@IBVERBS_1.0 1.1.6
  ibv_ack_async_event@IBVERBS_1.1 1.1.6
@@ -91,6 +92,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_reg_mr@IBVERBS_1.0 1.1.6
  ibv_reg_mr@IBVERBS_1.1 1.1.6
  ibv_reg_mr_iova@IBVERBS_1.7 25
+ ibv_reg_mr_iova2@IBVERBS_1.8 28
  ibv_register_driver@IBVERBS_1.1 1.1.6
  ibv_rereg_mr@IBVERBS_1.1 1.2.1
  ibv_resize_cq@IBVERBS_1.0 1.1.6
