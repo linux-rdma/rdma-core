@@ -148,8 +148,7 @@ Files: providers/bnxt_re/*
 Copyright: 2015-2017, Broadcom Limited and/or its subsidiaries
 License: BSD-2-clause or GPL-2
 
-Files: providers/cxgb3/*
-       providers/cxgb4/*
+Files: providers/cxgb4/*
 Copyright: 2003-2016, Chelsio Communications, Inc.
 License: BSD-MIT or GPL-2
 
@@ -196,11 +195,6 @@ Files: providers/mthca/*
 Copyright: 2004-2005, Topspin Communications.
            2005-2006, Cisco Systems.
            2005, Mellanox Technologies Ltd.
-License: BSD-MIT or GPL-2
-
-Files: providers/nes/*
-Copyright: 2006-2010, Intel Corporation.
-           2006, Open Grid Computing, Inc.
 License: BSD-MIT or GPL-2
 
 Files: providers/ocrdma/*

@@ -44,7 +44,7 @@
 #      prefers python3 if available.
 #   -DNO_PYVERBS=1 (default, build pyverbs)
 #      Invoke cython to build pyverbs. Usually you will run with this option
-#      is set, but it will be disabled for travis runs.
+#      set
 #   -DENABLE_IBDIAGS_COMPAT=True (default False)
 #      Include obsolete scripts. These scripts are replaced by C programs with
 #      a different interface now.
@@ -68,7 +68,7 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "26.0")
+set(PACKAGE_VERSION "27.0")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
@@ -216,7 +216,6 @@ RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WWRITE_STRINGS "-Wwrite-strings")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WFORMAT_2 "-Wformat=2")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WCAST_FUNCTION "-Wcast-function-type")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WFORMAT_NONLITERAL "-Wformat-nonliteral")
-RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WREDUNDANT_DECLS "-Wredundant-decls")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WDATE_TIME "-Wdate-time")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WNESTED_EXTERNS "-Wnested-externs")
 
@@ -616,7 +615,6 @@ add_subdirectory(librdmacm/man)
 # Providers
 if (HAVE_COHERENT_DMA)
 add_subdirectory(providers/bnxt_re)
-add_subdirectory(providers/cxgb3) # NO SPARSE
 add_subdirectory(providers/cxgb4) # NO SPARSE
 add_subdirectory(providers/efa)
 add_subdirectory(providers/efa/man)
@@ -627,7 +625,6 @@ add_subdirectory(providers/mlx4/man)
 add_subdirectory(providers/mlx5)
 add_subdirectory(providers/mlx5/man)
 add_subdirectory(providers/mthca)
-add_subdirectory(providers/nes) # NO SPARSE
 add_subdirectory(providers/ocrdma)
 add_subdirectory(providers/qedr)
 add_subdirectory(providers/vmw_pvrdma)
@@ -648,6 +645,7 @@ add_subdirectory(infiniband-diags/man)
 
 if (CYTHON_EXECUTABLE)
   add_subdirectory(pyverbs)
+  add_subdirectory(tests)
 endif()
 
 # Binaries

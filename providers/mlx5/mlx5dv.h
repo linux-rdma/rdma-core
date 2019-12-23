@@ -59,6 +59,12 @@ extern "C" {
 #define MLX5DV_ALWAYS_INLINE inline
 #endif
 
+
+#define MLX5DV_RES_TYPE_QP ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 1)
+#define MLX5DV_RES_TYPE_RWQ ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 2)
+#define MLX5DV_RES_TYPE_DBR ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 3)
+#define MLX5DV_RES_TYPE_SRQ ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 4)
+
 enum {
 	MLX5_RCV_DBR	= 0,
 	MLX5_SND_DBR	= 1,
@@ -73,6 +79,7 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE	= 1 << 5,
 	MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS	= 1 << 6,
 	MLX5DV_CONTEXT_MASK_DC_ODP_CAPS		= 1 << 7,
+	MLX5DV_CONTEXT_MASK_HCA_CORE_CLOCK	= 1 << 8,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -124,6 +131,7 @@ struct mlx5dv_context {
 	uint64_t	max_clock_info_update_nsec;
 	uint32_t        flow_action_flags; /* use enum mlx5dv_flow_action_cap_flags */
 	uint32_t	dc_odp_caps; /* use enum ibv_odp_transport_cap_bits */
+	void		*hca_core_clock;
 };
 
 enum mlx5dv_context_flags {
@@ -1467,7 +1475,7 @@ struct mlx5dv_dr_action *mlx5dv_dr_action_create_tag(uint32_t tag_value);
 
 struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_flow_counter(struct mlx5dv_devx_obj *devx_obj,
-				     uint32_t offeset);
+				     uint32_t offset);
 
 struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_packet_reformat(struct mlx5dv_dr_domain *domain,

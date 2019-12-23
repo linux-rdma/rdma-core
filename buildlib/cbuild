@@ -41,7 +41,6 @@ import argparse
 import collections
 import filecmp
 import grp
-import imp
 import inspect
 import json
 import multiprocessing
@@ -171,17 +170,74 @@ class centos7_epel(centos7):
         res.lines.append("RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake && ln -sf /usr/bin/python3.4 /usr/bin/python3");
         return res;
 
-class fc30(Environment):
-    docker_parent = "fedora:30";
-    pkgs = (centos7.pkgs - {"make", "python-argparse" }) | {
-        "ninja-build",
+class amazonlinux1(YumEnvironment):
+    docker_parent = "amazonlinux:1";
+    pkgs = {
+        'cmake',
+        'gcc',
+        'libnl3-devel',
+        'libudev-devel',
+        'make',
+        'pkgconfig',
+        'python',
+        'python-argparse',
+        'python27-docutils',
+        'rpm-build',
+        'valgrind-devel',
+    };
+    name = "amazonlinux1";
+    use_make = True;
+    pandoc = False;
+    build_pyverbs = False;
+    specfile = "buildlib/centos6.spec";
+    python_cmd = "python";
+    to_azp = False;
+
+class amazonlinux2(YumEnvironment):
+    docker_parent = "amazonlinux:2";
+    pkgs = centos7.pkgs;
+    name = "amazonlinux2";
+    use_make = True;
+    pandoc = False;
+    build_pyverbs = False;
+    specfile = "redhat/rdma-core.spec";
+    python_cmd = "python";
+    to_azp = False;
+
+class centos8(Environment):
+    docker_parent = "centos:8";
+    pkgs = {
         "pandoc",
         "perl-generators",
-        "python3-docutils",
         "python3-Cython",
         "python3-devel",
+        "python3-docutils",
+        'cmake',
+        'gcc',
+        'libnl3-devel',
+        'libudev-devel',
+        'ninja-build',
+        'pkgconfig',
+        'rpm-build',
+        'systemd-devel',
+        'valgrind-devel',
     };
-    name = "fc30";
+    name = "centos8";
+    specfile = "redhat/rdma-core.spec";
+    is_rpm = True;
+    to_azp = True;
+    proxy = False;
+
+    def get_docker_file(self,tmpdir):
+        res = DockerFile(self.docker_parent);
+        res.lines.append("RUN dnf install --enablerepo=PowerTools -y %s && dnf clean all"%(
+            " ".join(sorted(self.pkgs))));
+        return res;
+
+class fc31(Environment):
+    docker_parent = "fedora:31";
+    pkgs = centos8.pkgs
+    name = "fc31";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
     is_rpm = True;
@@ -223,6 +279,7 @@ class APTEnvironment(Environment):
         kb = os.path.join(tmpdir,"%s.kb.gpg"%(keyid));
         env = {k:v for k,v in os.environ.items()};
         env["HOME"] = tmpdir;
+        os.makedirs(os.path.join(tmpdir,".gnupg"), exist_ok=True)
         subprocess.check_call(["gpg","--keyserver", "keyserver.ubuntu.com", "--no-default-keyring","--keyring",kb,"--always-trust",
                                "--recv-key",keyid],env=env);
         kr = os.path.join(gpgd,"%s.gpg"%(keyid));
@@ -290,100 +347,6 @@ class debian_experimental(APTEnvironment):
             " ".join(sorted(self.pkgs))));
         return res;
 
-class travis(APTEnvironment):
-    """This parses the .travis.yml "apt" add on and converts it to a dockerfile,
-    basically creating a container that is similar to what travis would
-    use. Note this does not use the base travis image, nor does it install the
-    typical travis packages."""
-    docker_parent = "ubuntu:16.04";
-    name = "travis";
-    is_deb = True;
-    _yaml = None;
-
-    def get_yaml(self):
-        if self._yaml:
-            return self._yaml;
-
-        # Load the commands from the travis file
-        with open(".travis.yml") as F:
-            self._yaml = yaml.safe_load(F);
-        return self._yaml;
-    yaml = property(get_yaml);
-
-    def get_repos(self):
-        """Return a list of things to add with apt-add-repository"""
-        Source = collections.namedtuple("Source",["sourceline","key_url"]);
-
-        # See https://github.com/travis-ci/apt-source-whitelist/blob/master/ubuntu.json
-        pre_defined = {
-            "ubuntu-toolchain-r-test": Source("ppa:ubuntu-toolchain-r/test",None),
-        };
-
-        # Unique the sources
-        res = set();
-        for src in self.yaml["addons"]["apt"]["sources"]:
-            if isinstance(src,dict):
-                res.add(Source(sourceline=src["sourceline"],
-                               key_url=src.get("key_url",None)));
-            else:
-                res.add(pre_defined[src]);
-
-        # Add the sources
-        scmds = [];
-        scmds.extend("apt-key add /etc/apt/trusted.gpg.d/%s"%(os.path.basename(I.key_url))
-                    for I in res if I.key_url is not None);
-        scmds.extend("http_proxy= apt-add-repository -y %s"%(pipes.quote(I.sourceline))
-                    for I in res);
-
-        # Download the keys
-        cmds = ["ADD %s /etc/apt/trusted.gpg.d/"%(I.key_url)
-                for I in res if I.key_url is not None];
-
-        cmds.append("RUN " + " && ".join(scmds));
-        return cmds;
-
-    def get_before_script(self):
-        """Return a list of commands to run from before_script"""
-        cmds = ["RUN useradd -ms /bin/bash travis && \\"
-                "su -l -c %s"%(pipes.quote(" && ".join(self.yaml["before_script"]))) + " travis"];
-        return cmds
-
-    def get_clang(self):
-        """We are using the clang that comes in travis, which is not part of our base
-        docker container, install something similar by hand."""
-        llvm_tar = "clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz"
-        cmds = [
-            """RUN wget -q http://releases.llvm.org/7.0.0/{0} -O /tmp/{0} && \\
-            tar xf /tmp/{0} -C /usr/local/ && \\
-            rm /tmp/{0} && \\
-            (cd /usr/local/bin/ && ln -sf ../clang*/bin/clang-7 .)""".format(llvm_tar)];
-        return cmds;
-
-    def get_cython(self):
-        return ["""RUN pip3 install cython"""]
-
-    def get_docker_file(self,tmpdir):
-        # First this to get apt-add-repository
-        self.pkgs = {"software-properties-common"}
-        res = APTEnvironment.get_docker_file(self,tmpdir);
-
-        # Sources list from the travis.yml
-        res.lines.extend(self.get_repos());
-
-        # Package list from the travis.yml
-        # Travis uses the new cmake built into the image, we need to get an
-        # older version from ubuntu.
-        res.lines.append("RUN apt-get update && apt-get install -y --no-install-recommends %s"%(
-            " ".join(sorted(["cmake"] + self.yaml["addons"]["apt"]["packages"]))));
-
-        # Adding before_script commands
-        res.lines.extend(self.get_before_script())
-
-        res.lines.extend(self.get_clang())
-        res.lines.extend(self.get_cython())
-
-        return res;
-
 # -------------------------------------------------------------------------
 
 class ZypperEnvironment(Environment):
@@ -425,7 +388,7 @@ class leap(ZypperEnvironment):
 
 class tumbleweed(ZypperEnvironment):
     docker_parent = "opensuse/tumbleweed:latest";
-    pkgs = leap.pkgs;
+    pkgs = (leap.pkgs ^ {"valgrind-devel"}) | {"valgrind-client-headers"};
     name = "tumbleweed";
     specfile = "suse/rdma-core.spec";
     rpmbuild_options = [ "--without=curlmini" ];
@@ -521,12 +484,14 @@ deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ bionic-updates main universe""
 environments = [centos6(),
                 centos7(),
                 centos7_epel(),
-                travis(),
+                centos8(),
+                amazonlinux1(),
+                amazonlinux2(),
                 xenial(),
                 bionic(),
                 jessie(),
                 stretch(),
-                fc30(),
+                fc31(),
                 leap(),
                 tumbleweed(),
                 debian_experimental(),
@@ -572,7 +537,7 @@ def env_choices_pkg():
     """All the names that can be used with ToEnvAction"""
     envs = set(("all",));
     for I in environments:
-        if I.name == "travis" or getattr(I,"is_deb",False) or getattr(I,"is_rpm",False):
+        if getattr(I,"is_deb",False) or getattr(I,"is_rpm",False):
                 envs.add(I.name);
                 envs.update(I.aliases);
     return envs;
@@ -660,12 +625,12 @@ def get_tar_file(args,tarfn,pandoc_prebuilt=False):
         return;
 
     # When the OS does not support pandoc we got through the extra step to
-    # build pandoc output in the travis container and include it in the
+    # build pandoc output in the azp container and include it in the
     # tar.
     if not args.use_prebuilt_pandoc:
-        subprocess.check_call(["buildlib/cbuild","make","travis","docs"]);
+        subprocess.check_call(["buildlib/cbuild","make","azure_pipelines","docs"]);
 
-    cmd_make_dist_tar(argparse.Namespace(BUILD="build-travis",tarfn=tarfn,
+    cmd_make_dist_tar(argparse.Namespace(BUILD="build-azure_pipelines",tarfn=tarfn,
                                          script_pwd="",tag=None));
 
 def run_rpm_build(args,spec_file,env):
@@ -723,7 +688,8 @@ if "check_output" in dir(subprocess):
     for ln in subprocess.check_output(["rpmspec","-P",{tspec_file!r}]).splitlines():
        if ln.startswith(b"Source:"):
           tarfn = ln.strip().partition(b' ')[2].strip();
-    os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
+    if tarfn != {tarfn!r}:
+        os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
 """.format(passwd=":".join(str(I) for I in pwd.getpwuid(os.getuid())),
            group=":".join(str(I) for I in grp.getgrgid(os.getgid())),
            uid=os.getuid(),
@@ -839,70 +805,6 @@ def copy_abi_files(src):
             print("Changed ABI File: ", ref_fn);
             shutil.copy(cur_fn, ref_fn);
 
-def run_travis_build(args,env):
-    with private_tmp(args) as tmpdir:
-        os.mkdir(os.path.join(tmpdir,"src"));
-        os.mkdir(os.path.join(tmpdir,"tmp"));
-
-        opwd = os.getcwd();
-        with inDirectory(os.path.join(tmpdir,"src")):
-            subprocess.check_call(["git",
-                                   "--git-dir",os.path.join(opwd,".git"),
-                                   "reset","--hard","HEAD"]);
-            subprocess.check_call(["git",
-                                   "--git-dir",os.path.join(opwd,".git"),
-                                   "fetch",
-                                   "--no-tags",
-                                   "https://github.com/linux-rdma/rdma-core.git","HEAD",
-                                   "master"]);
-            base = subprocess.check_output(["git",
-                                            "--git-dir",os.path.join(opwd,".git"),
-                                            "merge-base",
-                                            "HEAD","FETCH_HEAD"]).decode().strip();
-
-        home = os.path.join(os.path.sep,"home","travis");
-        home_build = os.path.join(os.path.sep,home,"build");
-
-        opts = [
-            "run",
-            "--read-only",
-            "--rm=true",
-            "-v","%s:%s"%(tmpdir, home_build),
-            "-w",os.path.join(home_build,"src"),
-            "-u",str(os.getuid()),
-            "-e","TRAVIS_COMMIT_RANGE=%s..HEAD"%(base),
-            "-e","TRAVIS_BRANCH=%s"%(base),
-            "-e","TRAVIS_EVENT_TYPE=pull_request",
-            "-e","HOME=%s"%(home),
-            "-e","TMPDIR=%s"%(os.path.join(home_build,"tmp")),
-        ] + map_git_args(opwd,os.path.join(home_build,"src"));
-
-        # Load the commands from the travis file
-        with open(os.path.join(opwd,".travis.yml")) as F:
-            cmds = yaml.safe_load(F)["script"];
-
-        with open(os.path.join(tmpdir,"go.sh"),"w") as F:
-            print("#!/bin/bash", file=F);
-            print("set -e", file=F);
-            for I in cmds:
-                print(I, file=F);
-
-        if args.run_shell:
-            opts.append("-ti");
-        opts.append(env.image_name());
-
-        if args.run_shell:
-            opts.append("/bin/bash");
-        else:
-            opts.extend(["/bin/bash",os.path.join(home_build,"go.sh")]);
-
-        try:
-            docker_cmd(args,*opts);
-        except subprocess.CalledProcessError as e:
-            copy_abi_files(os.path.join(tmpdir, "src/ABI"));
-            raise;
-        copy_abi_files(os.path.join(tmpdir, "src/ABI"));
-
 def run_azp_build(args,env):
     # Load the commands from the pipelines file
     with open("buildlib/azure-pipelines.yml") as F:
@@ -995,7 +897,7 @@ def args_pkg(parser):
     parser.add_argument("--run-shell",default=False,action="store_true",
                         help="Instead of running the build, enter a shell");
     parser.add_argument("--use-prebuilt-pandoc",default=False,action="store_true",
-                        help="Do not rebuild the pandoc cache in build-travis/pandoc-prebuilt/");
+                        help="Do not rebuild the pandoc cache in build-azure_pipelines/pandoc-prebuilt/");
     parser.add_argument("--with", default=[],action="append", dest="with_flags",
                         help="Enable specified feature in RPM builds");
     parser.add_argument("--without", default=[],action="append", dest="without_flags",
@@ -1003,9 +905,7 @@ def args_pkg(parser):
 def cmd_pkg(args):
     """Build a package in the given environment."""
     for env in args.ENV:
-        if env.name == "travis":
-            run_travis_build(args,env);
-        elif env.name == "azure_pipelines":
+        if env.name == "azure_pipelines":
             run_azp_build(args,env);
         elif getattr(env,"is_deb",False):
             run_deb_build(args,env);
@@ -1122,6 +1022,9 @@ def args_build_images(parser):
 def cmd_build_images(args):
     """Run from the top level source directory to make the docker images that are
     needed for building. This only needs to be run once."""
+    # Docker copies the permissions from the local host and we need this umask
+    # to be 022 or the container breaks
+    os.umask(0o22)
     for env in args.ENV:
         with private_tmp(args) as tmpdir:
             df = env.get_docker_file(tmpdir);
@@ -1176,6 +1079,7 @@ def cmd_make_dist_tar(args):
     if args.tag:
         assert args.tag == "v" + ver;
 
+    os.umask(0o22)
     with private_tmp(args) as tmpdir:
         tmp_tarfn = os.path.join(tmpdir,"tmp.tar");
 

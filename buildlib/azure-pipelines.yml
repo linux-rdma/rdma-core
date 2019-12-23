@@ -2,6 +2,20 @@
 
 trigger:
   - master
+  - stable-v4*
+  - stable-v3*
+  - stable-v29
+  - stable-v28
+  - stable-v27
+  - stable-v26
+  - stable-v25
+  - dev/stable-v4*/*
+  - dev/stable-v3*/*
+  - dev/stable-v29/*
+  - dev/stable-v28/*
+  - dev/stable-v27/*
+  - dev/stable-v26/*
+  - dev/stable-v25/*
 pr:
   - master
 
@@ -16,8 +30,11 @@ resources:
     - container: centos7
       image: ucfconsort.azurecr.io/rdma-core/centos7:25.0
       endpoint: ucfconsort_registry
+    - container: centos8
+      image: ucfconsort.azurecr.io/rdma-core/centos8:25.0
+      endpoint: ucfconsort_registry
     - container: fedora
-      image: ucfconsort.azurecr.io/rdma-core/fc30:25.0
+      image: ucfconsort.azurecr.io/rdma-core/fc31:25.0
       endpoint: ucfconsort_registry
     - container: leap
       image: ucfconsort.azurecr.io/rdma-core/opensuse-15.0:25.0
@@ -161,7 +178,11 @@ stages:
               CONTAINER: centos7
               SPEC: redhat/rdma-core.spec
               RPMBUILD_OPTS:  --define 'EXTRA_CMAKE_FLAGS -DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1'
-            fedora30:
+            centos8:
+              CONTAINER: centos8
+              SPEC: redhat/rdma-core.spec
+              RPMBUILD_OPTS:  --define 'EXTRA_CMAKE_FLAGS -DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1'
+            fedora31:
               CONTAINER: fedora
               SPEC: redhat/rdma-core.spec
               RPMBUILD_OPTS:  --define 'EXTRA_CMAKE_FLAGS -DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1'

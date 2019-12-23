@@ -14,23 +14,19 @@ from .pyverbs_error import PyverbsUserError
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.libibverbs as v
+from pyverbs.cmid cimport CMID
+from pyverbs.xrcd cimport XRCD
 from pyverbs.addr cimport GID
 from pyverbs.mr import DMMR
 from pyverbs.pd cimport PD
 from pyverbs.qp cimport QP
+from libc.errno cimport errno
+from libc.stdlib cimport free, malloc
+from libc.string cimport memset
+from libc.stdint cimport uint64_t
 
-cdef extern from 'errno.h':
-    int errno
 cdef extern from 'endian.h':
     unsigned long be64toh(unsigned long host_64bits);
-cdef extern from 'stdlib.h':
-    void free(void *ptr)
-cdef extern from 'string.h':
-    void *memset(void *s, int c, size_t n)
-cdef extern from 'stdlib.h':
-    void *malloc(size_t size)
-cdef extern from 'stdint.h':
-    ctypedef int uint64_t
 
 
 class Device(PyverbsObject):
@@ -77,23 +73,40 @@ cdef class Context(PyverbsCM):
         """
         Initializes a Context object. The function searches the IB devices list
         for a device with the name provided by the user. If such a device is
-        found, it is opened.
-        :param kwargs: Currently supports 'name' argument only, the IB device's
-                       name.
+        found, it is opened (unless provider attributes were given).
+        In case of cmid argument, CMID object already holds an ibv_context
+        initiated pointer, hence all we have to do is assign this pointer to
+        Context's object pointer.
+        :param kwargs: Arguments:
+            * *name* (str)
+               The RDMA device's name
+            * *attr* (object)
+               Device-specific attributes, meaning that the device is to be
+               opened by the provider
+            * *cmid* (CMID)
+                A CMID object (represents rdma_cm_id struct)
         :return: None
         """
         cdef int count
         cdef v.ibv_device **dev_list
+        cdef CMID cmid
 
         self.pds = weakref.WeakSet()
         self.dms = weakref.WeakSet()
         self.ccs = weakref.WeakSet()
         self.cqs = weakref.WeakSet()
         self.qps = weakref.WeakSet()
+        self.xrcds = weakref.WeakSet()
 
         dev_name = kwargs.get('name')
+        provider_attr = kwargs.get('attr')
+        cmid = kwargs.get('cmid')
 
-        if dev_name is not None:
+        if cmid is not None:
+            self.context = cmid.id.verbs
+            cmid.ctx = self
+            return
+        elif dev_name is not None:
             self.name = dev_name
         else:
             raise PyverbsUserError('Device name must be provided')
@@ -104,6 +117,11 @@ cdef class Context(PyverbsCM):
         try:
             for i in range(count):
                 if dev_list[i].name.decode() == self.name:
+                    if provider_attr is not None:
+                        # A provider opens its own context, we're just
+                        # setting its IB device
+                        self.device = dev_list[i]
+                        return
                     self.context = v.ibv_open_device(dev_list[i])
                     if self.context == NULL:
                         raise PyverbsRDMAErrno('Failed to open device {dev}'.
@@ -126,7 +144,8 @@ cdef class Context(PyverbsCM):
 
     cpdef close(self):
         self.logger.debug('Closing Context')
-        self.close_weakrefs([self.qps, self.ccs, self.cqs, self.dms, self.pds])
+        self.close_weakrefs([self.qps, self.ccs, self.cqs, self.dms, self.pds,
+                             self.xrcds])
         if self.context != NULL:
             rc = v.ibv_close_device(self.context)
             if rc != 0:
@@ -198,6 +217,8 @@ cdef class Context(PyverbsCM):
             self.cqs.add(obj)
         elif isinstance(obj, QP):
             self.qps.add(obj)
+        elif isinstance(obj, XRCD):
+            self.xrcds.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 
@@ -388,6 +409,42 @@ cdef class ODPCaps(PyverbsObject):
     @property
     def ud_odp_caps(self):
         return self.odp_caps.per_transport_caps.ud_odp_caps
+    @property
+    def xrc_odp_caps(self):
+        return self.xrc_odp_caps
+    @xrc_odp_caps.setter
+    def xrc_odp_caps(self, val):
+       self.xrc_odp_caps = val
+
+    def __str__(self):
+        general_caps = {e.IBV_ODP_SUPPORT: 'IBV_ODP_SUPPORT',
+              e.IBV_ODP_SUPPORT_IMPLICIT: 'IBV_ODP_SUPPORT_IMPLICIT'}
+
+        l = {e.IBV_ODP_SUPPORT_SEND: 'IBV_ODP_SUPPORT_SEND',
+             e.IBV_ODP_SUPPORT_RECV: 'IBV_ODP_SUPPORT_RECV',
+             e.IBV_ODP_SUPPORT_WRITE: 'IBV_ODP_SUPPORT_WRITE',
+             e.IBV_ODP_SUPPORT_READ: 'IBV_ODP_SUPPORT_READ',
+             e.IBV_ODP_SUPPORT_ATOMIC: 'IBV_ODP_SUPPORT_ATOMIC',
+             e.IBV_ODP_SUPPORT_SRQ_RECV: 'IBV_ODP_SUPPORT_SRQ_RECV'}
+
+        print_format = '{}: {}\n'
+        return print_format.format('ODP General caps', str_from_flags(self.general_caps, general_caps)) +\
+            print_format.format('RC ODP caps', str_from_flags(self.rc_odp_caps, l)) +\
+            print_format.format('UD ODP caps', str_from_flags(self.ud_odp_caps, l)) +\
+            print_format.format('UC ODP caps', str_from_flags(self.uc_odp_caps, l)) +\
+            print_format.format('XRC ODP caps', str_from_flags(self.xrc_odp_caps, l))
+
+
+cdef class PCIAtomicCaps(PyverbsObject):
+    @property
+    def fetch_add(self):
+        return self.caps.fetch_add
+    @property
+    def swap(self):
+        return self.caps.swap
+    @property
+    def compare_swap(self):
+        return self.caps.compare_swap
 
 
 cdef class TSOCaps(PyverbsObject):
@@ -472,6 +529,7 @@ cdef class DeviceAttrEx(PyverbsObject):
     def odp_caps(self):
         caps = ODPCaps()
         caps.odp_caps = self.dev_attr.odp_caps
+        caps.xrc_odp_caps = self.dev_attr.xrc_odp_caps
         return caps
     @property
     def completion_timestamp_mask(self):
@@ -486,6 +544,11 @@ cdef class DeviceAttrEx(PyverbsObject):
     def tso_caps(self):
         caps = TSOCaps()
         caps.tso_caps = self.dev_attr.tso_caps
+        return caps
+    @property
+    def pci_atomic_caps(self):
+        caps = PCIAtomicCaps()
+        caps.caps = self.dev_attr.pci_atomic_caps
         return caps
     @property
     def rss_caps(self):

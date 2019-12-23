@@ -35,6 +35,10 @@ struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
 				  struct efadv_qp_init_attr *efa_attr,
 				  uint32_t inlen);
 
+enum {
+	EFADV_DEVICE_ATTR_CAPS_RDMA_READ = 1 << 0,
+};
+
 struct efadv_device_attr {
 	uint64_t comp_mask;
 	uint32_t max_sq_wr;
@@ -43,6 +47,8 @@ struct efadv_device_attr {
 	uint16_t max_rq_sge;
 	uint16_t inline_buf_size;
 	uint8_t reserved[2];
+	uint32_t device_caps;
+	uint32_t max_rdma_size;
 };
 
 int efadv_query_device(struct ibv_context *ibvctx,

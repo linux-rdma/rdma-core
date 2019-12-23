@@ -51,11 +51,6 @@ M:	Devesh Sharma  <Devesh.sharma@broadcom.com>
 S:	Supported
 F:	providers/bnxt_re/
 
-CXGB3 USERSPACE PROVIDER (for iw_cxgb3.ko)
-M:	Steve Wise <swise@opengridcomputing.com>
-S:	Supported
-F:	providers/cxgb3/
-
 CXGB4 USERSPACE PROVIDER (for iw_cxgb4.ko)
 M:	Steve Wise <swise@opengridcomputing.com>
 S:	Supported
@@ -145,11 +140,6 @@ H:	Michael S. Tsirkin <mst@mellanox.co.il>
 H:	Roland Dreier <roland@topspin.com>
 S:	Supported
 F:	providers/mthca/
-
-NES USERSPACE PROVIDER (for iw_nes.ko)
-M:	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>
-S:	Supported
-F:	providers/nes/
 
 OCRDMA USERSPACE PROVIDER (for ocrdma.ko)
 M:	Devesh Sharma <Devesh.sharma@broadcom.com>

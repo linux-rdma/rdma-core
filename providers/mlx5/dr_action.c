@@ -32,6 +32,7 @@
 
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <ccan/ilog.h>
 #include <ccan/array_size.h>
 #include "mlx5dv_dr.h"
 
@@ -373,10 +374,10 @@ dr_action_reformat_to_action_type(enum mlx5dv_flow_action_packet_reformat_type t
 	}
 }
 
-static inline void dr_actions_init_next_ste(uint8_t **last_ste,
-					    uint32_t *added_stes,
-					    enum dr_ste_entry_type entry_type,
-					    uint16_t gvmi)
+static void dr_actions_init_next_ste(uint8_t **last_ste,
+				     uint32_t *added_stes,
+				     enum dr_ste_entry_type entry_type,
+				     uint16_t gvmi)
 {
 	(*added_stes)++;
 	*last_ste += DR_STE_SIZE;
@@ -504,10 +505,10 @@ dr_action_get_action_domain(enum mlx5dv_dr_domain_type domain,
 	}
 }
 
-static inline
-int dr_action_validate_and_get_next_state(enum dr_action_domain action_domain,
-					  uint32_t action_type,
-					  uint32_t *state)
+static int
+dr_action_validate_and_get_next_state(enum dr_action_domain action_domain,
+				      uint32_t action_type,
+				      uint32_t *state)
 {
 	uint32_t cur_state = *state;
 
@@ -582,7 +583,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			break;
 		case DR_ACTION_TYP_CTR:
 			attr.ctr_id = action->ctr.devx_obj->object_id +
-				action->ctr.offeset;
+				action->ctr.offset;
 			break;
 		case DR_ACTION_TYP_TAG:
 			attr.flow_tag = action->flow_tag;
@@ -670,7 +671,8 @@ out_errno:
 int dr_actions_build_attr(struct mlx5dv_dr_matcher *matcher,
 			  struct mlx5dv_dr_action *actions[],
 			  size_t num_actions,
-			  struct mlx5dv_flow_action_attr *attr)
+			  struct mlx5dv_flow_action_attr *attr,
+			  struct mlx5_flow_action_attr_aux *attr_aux)
 {
 	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
 	int i;
@@ -704,6 +706,11 @@ int dr_actions_build_attr(struct mlx5dv_dr_matcher *matcher,
 		case DR_ACTION_TYP_CTR:
 			attr[i].type = MLX5DV_FLOW_ACTION_COUNTERS_DEVX;
 			attr[i].obj = actions[i]->ctr.devx_obj;
+
+			if (actions[i]->ctr.offset) {
+				attr_aux[i].type = MLX5_FLOW_ACTION_COUNTER_OFFSET;
+				attr_aux[i].offset = actions[i]->ctr.offset;
+			}
 			break;
 		case DR_ACTION_TYP_TAG:
 			attr[i].type = MLX5DV_FLOW_ACTION_TAG;
@@ -886,7 +893,7 @@ dec_ref:
 
 struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_flow_counter(struct mlx5dv_devx_obj *devx_obj,
-				     uint32_t offeset)
+				     uint32_t offset)
 {
 	struct mlx5dv_dr_action *action;
 
@@ -900,7 +907,7 @@ mlx5dv_dr_action_create_flow_counter(struct mlx5dv_devx_obj *devx_obj,
 		return NULL;
 
 	action->ctr.devx_obj = devx_obj;
-	action->ctr.offeset = offeset;
+	action->ctr.offset = offset;
 
 	return action;
 }
@@ -1361,40 +1368,43 @@ static int dr_action_create_modify_action(struct mlx5dv_dr_domain *dmn,
 					  __be64 actions[],
 					  struct mlx5dv_dr_action *action)
 {
+	uint32_t dynamic_chunck_size;
 	struct dr_icm_chunk *chunk;
-	uint32_t max_hw_actions;
 	uint32_t num_hw_actions;
 	uint32_t num_sw_actions;
 	__be64 *hw_actions;
 	int ret;
 
 	num_sw_actions = actions_sz / DR_MODIFY_ACTION_SIZE;
-	max_hw_actions = dr_icm_pool_chunk_size_to_entries(DR_CHUNK_SIZE_8);
-
-	if (num_sw_actions > max_hw_actions) {
-		dr_dbg(dmn, "Max number of actions %d exceeds limit %d\n",
-		       num_sw_actions, max_hw_actions);
+	if (num_sw_actions == 0) {
+		dr_dbg(dmn, "Invalid number of actions %u\n", num_sw_actions);
 		errno = EINVAL;
 		return errno;
 	}
 
-	chunk = dr_icm_alloc_chunk(dmn->action_icm_pool, DR_CHUNK_SIZE_8);
-	if (!chunk)
-		return errno;
-
-	hw_actions = calloc(1, max_hw_actions * DR_MODIFY_ACTION_SIZE);
+	hw_actions = calloc(1, 2 * num_sw_actions  * DR_MODIFY_ACTION_SIZE);
 	if (!hw_actions) {
 		errno = ENOMEM;
-		goto free_chunk;
+		return errno;
 	}
 
 	ret = dr_actions_convert_modify_header(dmn,
-					       max_hw_actions,
+					       2 * num_sw_actions,
 					       num_sw_actions,
 					       actions,
 					       hw_actions,
 					       &num_hw_actions);
 	if (ret)
+		goto free_hw_actions;
+
+	dynamic_chunck_size = ilog32(num_hw_actions - 1);
+
+	/* HW modify action index granularity is at least 64B */
+	dynamic_chunck_size = max_t(uint32_t, dynamic_chunck_size,
+				    DR_CHUNK_SIZE_8);
+
+	chunk = dr_icm_alloc_chunk(dmn->action_icm_pool, dynamic_chunck_size);
+	if (!chunk)
 		goto free_hw_actions;
 
 	action->rewrite.chunk = chunk;
@@ -1406,14 +1416,14 @@ static int dr_action_create_modify_action(struct mlx5dv_dr_domain *dmn,
 
 	ret = dr_send_postsend_action(dmn, action);
 	if (ret)
-		goto free_hw_actions;
+		goto free_chunk;
 
 	return 0;
 
-free_hw_actions:
-	free(hw_actions);
 free_chunk:
 	dr_icm_free_chunk(chunk);
+free_hw_actions:
+	free(hw_actions);
 	return errno;
 }
 

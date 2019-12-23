@@ -364,12 +364,6 @@ def get_cc_args_from_pkgconfig(args, name, static):
     if not static:
         return opts
 
-    # The old pkg-config that travis uses incorrectly removes duplicated
-    # flags, which breaks linking.
-    if (name == "ibverbs" and
-        subprocess.check_output(["pkg-config", "--version"]).decode().strip() == "0.26"):
-        opts.insert(0, "-libverbs")
-
     # Only static link the pkg-config stuff, otherwise we get warnings about
     # static linking portions of glibc that need NSS.
     opts.insert(0, "-Wl,-Bstatic")

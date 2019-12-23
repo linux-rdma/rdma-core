@@ -1,37 +1,30 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved. See COPYING file
 
-rdma_cython_module(pyverbs
+rdma_cython_module(pyverbs ""
   addr.pyx
   base.pyx
+  cm_enums.pyx
+  cmid.pyx
   cq.pyx
   device.pyx
   enums.pyx
+  mem_alloc.pyx
   mr.pyx
   pd.pyx
   qp.pyx
   wr.pyx
+  xrcd.pyx
+  srq.pyx
   )
 
 rdma_python_module(pyverbs
   __init__.py
   pyverbs_error.py
-  run_tests.py
   utils.py
   )
 
-rdma_python_module(pyverbs/tests
-  tests/__init__.py
-  tests/addr.py
-  tests/base.py
-  tests/cq.py
-  tests/device.py
-  tests/mr.py
-  tests/pd.py
-  tests/qp.py
-  tests/utils.py
-  )
-
-rdma_internal_binary(
-  run_tests.py
-  )
+# mlx5 provider is not built without coherent DMA, e.g. ARM32 build.
+if (HAVE_COHERENT_DMA)
+add_subdirectory(providers/mlx5)
+endif()

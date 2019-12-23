@@ -8,7 +8,6 @@ SUBSYSTEM!="net", GOTO="rdma_hw_modules_end"
 # RDMA.
 ENV{ID_NET_DRIVER}=="be2net", RUN{builtin}+="kmod load ocrdma"
 ENV{ID_NET_DRIVER}=="bnxt_en", RUN{builtin}+="kmod load bnxt_re"
-ENV{ID_NET_DRIVER}=="cxgb3", RUN{builtin}+="kmod load iw_cxgb3"
 ENV{ID_NET_DRIVER}=="cxgb4", RUN{builtin}+="kmod load iw_cxgb4"
 ENV{ID_NET_DRIVER}=="hns", RUN{builtin}+="kmod load hns_roce"
 ENV{ID_NET_DRIVER}=="i40e", RUN{builtin}+="kmod load i40iw"
@@ -34,6 +33,5 @@ ENV{ID_NET_DRIVER}=="enic", RUN{builtin}+="kmod load usnic_verbs"
 # ipathverbs
 # mthca
 # vmw_pvrdma
-# nes
 
 LABEL="rdma_hw_modules_end"

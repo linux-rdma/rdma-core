@@ -399,9 +399,12 @@ int dr_ste_build_flex_parser_1(struct dr_ste_build *sb,
 			       struct dr_match_param *mask,
 			       struct dr_devx_caps *caps,
 			       bool inner, bool rx);
-void dr_ste_build_flex_parser_tnl(struct dr_ste_build *sb,
-				  struct dr_match_param *mask,
-				  bool inner, bool rx);
+void dr_ste_build_flex_parser_tnl_vxlan_gpe(struct dr_ste_build *sb,
+					    struct dr_match_param *mask,
+					    bool inner, bool rx);
+void dr_ste_build_flex_parser_tnl_geneve(struct dr_ste_build *sb,
+					 struct dr_match_param *mask,
+					 bool inner, bool rx);
 void dr_ste_build_general_purpose(struct dr_ste_build *sb,
 				  struct dr_match_param *mask,
 				  bool inner, bool rx);
@@ -427,7 +430,8 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 int dr_actions_build_attr(struct mlx5dv_dr_matcher *matcher,
 			  struct mlx5dv_dr_action *actions[],
 			  size_t num_actions,
-			  struct mlx5dv_flow_action_attr *attr);
+			  struct mlx5dv_flow_action_attr *attr,
+			  struct mlx5_flow_action_attr_aux *attr_aux);
 
 struct dr_match_spec {
 	uint32_t smac_47_16;	/* Source MAC address of incoming packet */
@@ -708,7 +712,7 @@ struct mlx5dv_dr_action {
 		struct mlx5dv_dr_table	*dest_tbl;
 		struct {
 			struct mlx5dv_devx_obj	*devx_obj;
-			uint32_t		offeset;
+			uint32_t		offset;
 		} ctr;
 		struct {
 			struct mlx5dv_dr_domain		*dmn;

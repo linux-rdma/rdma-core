@@ -75,10 +75,16 @@ static const struct verbs_match_ent cna_table[] = {
 	CNA(BROADCOM, 0x16EF),  /* BCM57416 NPAR */
 	CNA(BROADCOM, 0x16F0),  /* BCM58730 */
 	CNA(BROADCOM, 0x16F1),  /* BCM57452 */
-	CNA(BROADCOM, 0x1750),	/* BCM57500 */
+	CNA(BROADCOM, 0x1750),	/* BCM57508 */
+	CNA(BROADCOM, 0x1751),	/* BCM57504 */
+	CNA(BROADCOM, 0x1752),	/* BCM57502 */
+	CNA(BROADCOM, 0x1803),	/* BCM57508 NPAR */
+	CNA(BROADCOM, 0x1804),	/* BCM57504 NPAR */
+	CNA(BROADCOM, 0x1805),	/* BCM57502 NPAR */
+	CNA(BROADCOM, 0x1807),	/* BCM5750x VF */
 	CNA(BROADCOM, 0xD800),  /* BCM880xx VF */
 	CNA(BROADCOM, 0xD802),  /* BCM58802 */
-	CNA(BROADCOM, 0xD804),   /* BCM8804 SR */
+	CNA(BROADCOM, 0xD804),  /* BCM8804 SR */
 	{}
 };
 
@@ -112,7 +118,9 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 
 bool bnxt_re_is_chip_gen_p5(struct bnxt_re_chip_ctx *cctx)
 {
-	return cctx->chip_num == CHIP_NUM_57500;
+	return (cctx->chip_num == CHIP_NUM_57508 ||
+		cctx->chip_num == CHIP_NUM_57504 ||
+		cctx->chip_num == CHIP_NUM_57502);
 }
 
 /* Context Init functions */

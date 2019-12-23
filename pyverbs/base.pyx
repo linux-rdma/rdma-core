@@ -3,10 +3,7 @@
 
 import logging
 from pyverbs.pyverbs_error import PyverbsRDMAError
-
-
-cdef extern from 'errno.h':
-    int errno
+from libc.errno cimport errno
 
 cpdef PyverbsRDMAErrno(str msg):
     return PyverbsRDMAError(msg, errno)

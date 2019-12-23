@@ -1976,10 +1976,22 @@ struct ibv_cq_init_attr_ex {
 	uint32_t		flags;
 };
 
+enum ibv_parent_domain_init_attr_mask {
+	IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS = 1 << 0,
+	IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT = 1 << 1,
+};
+
+#define IBV_ALLOCATOR_USE_DEFAULT ((void *)-1)
+
 struct ibv_parent_domain_init_attr {
 	struct ibv_pd *pd; /* referance to a protection domain object, can't be NULL */
 	struct ibv_td *td; /* referance to a thread domain object, or NULL */
 	uint32_t comp_mask;
+	void *(*alloc)(struct ibv_pd *pd, void *pd_context, size_t size,
+		       size_t alignment, uint64_t resource_type);
+	void (*free)(struct ibv_pd *pd, void *pd_context, void *ptr,
+		     uint64_t resource_type);
+	void *pd_context;
 };
 
 struct ibv_counters_init_attr {
@@ -2144,7 +2156,6 @@ struct ibv_device **ibv_get_device_list(int *num_devices);
 
 struct verbs_devices_ops;
 extern const struct verbs_device_ops verbs_provider_bnxt_re;
-extern const struct verbs_device_ops verbs_provider_cxgb3;
 extern const struct verbs_device_ops verbs_provider_cxgb4;
 extern const struct verbs_device_ops verbs_provider_efa;
 extern const struct verbs_device_ops verbs_provider_hfi1verbs;
@@ -2154,7 +2165,6 @@ extern const struct verbs_device_ops verbs_provider_ipathverbs;
 extern const struct verbs_device_ops verbs_provider_mlx4;
 extern const struct verbs_device_ops verbs_provider_mlx5;
 extern const struct verbs_device_ops verbs_provider_mthca;
-extern const struct verbs_device_ops verbs_provider_nes;
 extern const struct verbs_device_ops verbs_provider_ocrdma;
 extern const struct verbs_device_ops verbs_provider_qedr;
 extern const struct verbs_device_ops verbs_provider_rxe;

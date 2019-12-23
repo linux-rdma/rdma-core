@@ -2,9 +2,11 @@
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.
 import weakref
 
+from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.device cimport Context
+from pyverbs.srq cimport SRQ
 from pyverbs.qp cimport QP
 
 cdef class CompChannel(PyverbsCM):
@@ -65,8 +67,8 @@ cdef class CQ(PyverbsCM):
     A Completion Queue is the notification mechanism for work request
     completions. A CQ can have 0 or more associated QPs.
     """
-    def __cinit__(self, Context context not None, cqe, cq_context,
-                  CompChannel channel, comp_vector):
+    def __cinit__(self, Context context not None, cqe, cq_context=None,
+                  CompChannel channel=None, comp_vector=0):
         """
         Initializes a CQ object with the given parameters.
         :param context: The device's context on which to open the CQ
@@ -90,18 +92,23 @@ cdef class CQ(PyverbsCM):
         self.context = context
         context.add_ref(self)
         self.qps = weakref.WeakSet()
+        self.srqs = weakref.WeakSet()
         self.logger.debug('Created a CQ')
 
     cdef add_ref(self, obj):
         if isinstance(obj, QP):
             self.qps.add(obj)
+        elif isinstance(obj, SRQ):
+            self.srqs.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
 
     def __dealloc__(self):
         self.close()
 
     cpdef close(self):
         self.logger.debug('Closing CQ')
-        self.close_weakrefs([self.qps])
+        self.close_weakrefs([self.qps, self.srqs])
         if self.cq != NULL:
             rc = v.ibv_destroy_cq(self.cq)
             if rc != 0:
@@ -247,7 +254,8 @@ cdef class CqInitAttrEx(PyverbsObject):
 
 
 cdef class CQEX(PyverbsCM):
-    def __cinit__(self, Context context not None, CqInitAttrEx init_attr):
+    def __cinit__(self, Context context not None, CqInitAttrEx init_attr,
+                  **kwargs):
         """
         Initializes a CQEX object on the given device's context with the given
         attributes.
@@ -255,6 +263,11 @@ cdef class CQEX(PyverbsCM):
         :param init_attr: Initial attributes that describe the CQ
         :return: The newly created CQEX on success
         """
+        self.qps = weakref.WeakSet()
+        self.srqs = weakref.WeakSet()
+        if len(kwargs) > 0:
+            # Leave CQ initialization to the provider
+            return
         if init_attr is None:
             init_attr = CqInitAttrEx()
         self.cq = v.ibv_create_cq_ex(context.context, &init_attr.attr)
@@ -265,18 +278,21 @@ cdef class CQEX(PyverbsCM):
         self.ibv_cq = v.ibv_cq_ex_to_cq(self.cq)
         self.context = context
         context.add_ref(self)
-        self.qps = weakref.WeakSet()
 
     cdef add_ref(self, obj):
         if isinstance(obj, QP):
             self.qps.add(obj)
+        elif isinstance(obj, SRQ):
+            self.srqs.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
 
     def __dealloc__(self):
         self.close()
 
     cpdef close(self):
         self.logger.debug('Closing CQEx')
-        self.close_weakrefs([self.qps])
+        self.close_weakrefs([self.srqs, self.qps])
         if self.cq != NULL:
             rc = v.ibv_destroy_cq(<v.ibv_cq*>self.cq)
             if rc != 0:
@@ -366,18 +382,19 @@ cdef class WC(PyverbsObject):
     def __cinit__(self, wr_id=0, status=0, opcode=0, vendor_err=0, byte_len=0,
                   qp_num=0, src_qp=0, imm_data=0, wc_flags=0, pkey_index=0,
                   slid=0, sl=0, dlid_path_bits=0):
-        self.wr_id = wr_id
-        self.status = status
-        self.opcode = opcode
-        self.vendor_err = vendor_err
-        self.byte_len = byte_len
-        self.qp_num = qp_num
-        self.src_qp = src_qp
-        self.wc_flags = wc_flags
-        self.pkey_index = pkey_index
-        self.slid = slid
-        self.sl = sl
-        self.dlid_path_bits = dlid_path_bits
+        self.wc.wr_id = wr_id
+        self.wc.status = status
+        self.wc.opcode = opcode
+        self.wc.vendor_err = vendor_err
+        self.wc.byte_len = byte_len
+        self.wc.qp_num = qp_num
+        self.wc.src_qp = src_qp
+        self.wc.wc_flags = wc_flags
+        self.wc.pkey_index = pkey_index
+        self.wc.slid = slid
+        self.wc.imm_data = imm_data
+        self.wc.sl = sl
+        self.wc.dlid_path_bits = dlid_path_bits
 
     @property
     def wr_id(self):
@@ -457,6 +474,13 @@ cdef class WC(PyverbsObject):
         self.wc.sl = val
 
     @property
+    def imm_data(self):
+        return self.wc.imm_data
+    @imm_data.setter
+    def imm_data(self, val):
+        self.wc.imm_data = val
+
+    @property
     def dlid_path_bits(self):
         return self.wc.dlid_path_bits
     @dlid_path_bits.setter
@@ -476,6 +500,7 @@ cdef class WC(PyverbsObject):
             print_format.format('pkey index', self.pkey_index) +\
             print_format.format('slid', self.slid) +\
             print_format.format('sl', self.sl) +\
+            print_format.format('imm_data', self.imm_data) +\
             print_format.format('dlid path bits', self.dlid_path_bits)
 
 
@@ -570,6 +595,5 @@ def create_wc_flags_to_str(flags):
                  e.IBV_WC_EX_WITH_COMPLETION_TIMESTAMP: 'IBV_WC_EX_WITH_COMPLETION_TIMESTAMP',
                  e.IBV_WC_EX_WITH_CVLAN: 'IBV_WC_EX_WITH_CVLAN',
                  e.IBV_WC_EX_WITH_FLOW_TAG: 'IBV_WC_EX_WITH_FLOW_TAG',
-                 e.IBV_WC_EX_WITH_TM_INFO: 'IBV_WC_EX_WITH_TM_INFO',
                  e.IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK: 'IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK'}
     return flags_to_str(flags, cqe_flags)

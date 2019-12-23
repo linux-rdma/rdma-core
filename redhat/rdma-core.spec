@@ -1,5 +1,5 @@
 Name: rdma-core
-Version: 26.0
+Version: 27.0
 Release: 1%{?dist}
 Summary: RDMA core userspace libraries and daemons
 
@@ -29,13 +29,13 @@ BuildRequires: systemd-devel
 BuildRequires: python3-devel
 BuildRequires: python3-Cython
 %else
-%if 0%{?rhel} == 8 || 0%{?fedora} >= 30
+%if 0%{?rhel} >= 8 || 0%{?fedora} >= 30
 BuildRequires: python3
 %else
 BuildRequires: python
 %endif
 %endif
-%if 0%{?fedora} >= 21
+%if 0%{?fedora} >= 21 || 0%{?rhel} >= 8
 BuildRequires: perl-generators
 %endif
 
@@ -48,7 +48,7 @@ Conflicts: infiniband-diags <= 1.6.7
 
 # Since we recommend developers use Ninja, so should packagers, for consistency.
 %define CMAKE_FLAGS %{nil}
-%if 0%{?fedora} >= 23
+%if 0%{?fedora} >= 23 || 0%{?rhel} >= 8
 # Ninja was introduced in FC23
 BuildRequires: ninja-build
 %define CMAKE_FLAGS -GNinja
@@ -61,8 +61,8 @@ BuildRequires: make
 %define cmake_install DESTDIR=%{buildroot} make install
 %endif
 
-%if 0%{?fedora} >= 25
-# pandoc was introduced in FC25
+%if 0%{?fedora} >= 25 || 0%{?rhel} >= 8
+# pandoc was introduced in FC25, Centos8
 BuildRequires: pandoc
 %endif
 
@@ -128,8 +128,6 @@ Summary: A library and drivers for direct userspace use of RDMA (InfiniBand/iWAR
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 Requires: %{name}%{?_isa} = %{version}-%{release}
-Provides: libcxgb3 = %{version}-%{release}
-Obsoletes: libcxgb3 < %{version}-%{release}
 Provides: libcxgb4 = %{version}-%{release}
 Obsoletes: libcxgb4 < %{version}-%{release}
 Provides: libefa = %{version}-%{release}
@@ -146,8 +144,6 @@ Provides: libmlx5 = %{version}-%{release}
 Obsoletes: libmlx5 < %{version}-%{release}
 Provides: libmthca = %{version}-%{release}
 Obsoletes: libmthca < %{version}-%{release}
-Provides: libnes = %{version}-%{release}
-Obsoletes: libnes < %{version}-%{release}
 Provides: libocrdma = %{version}-%{release}
 Obsoletes: libocrdma < %{version}-%{release}
 Provides: librxe = %{version}-%{release}
@@ -162,7 +158,6 @@ fast path operations.
 
 Device-specific plug-in ibverbs userspace drivers are included:
 
-- libcxgb3: Chelsio T3 iWARP HCA
 - libcxgb4: Chelsio T4 iWARP HCA
 - libefa: Amazon Elastic Fabric Adapter
 - libhfi1: Intel Omni-Path HFI
@@ -172,7 +167,6 @@ Device-specific plug-in ibverbs userspace drivers are included:
 - libmlx4: Mellanox ConnectX-3 InfiniBand HCA
 - libmlx5: Mellanox Connect-IB/X-4+ InfiniBand HCA
 - libmthca: Mellanox InfiniBand HCA
-- libnes: NetEffect RNIC
 - libocrdma: Emulex OneConnect RDMA/RoCE Device
 - libqedr: QLogic QL4xxx RoCE HCA
 - librxe: A software implementation of the RoCE protocol
@@ -654,4 +648,11 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %if %{with_pyverbs}
 %files -n python3-pyverbs
 %{python3_sitearch}/pyverbs
+%{_docdir}/%{name}-%{version}/tests/*.py
 %endif
+
+%post
+# we ship udev rules, so trigger an update.
+/sbin/udevadm trigger --subsystem-match=infiniband --action=change || true
+/sbin/udevadm trigger --subsystem-match=net --action=change || true
+/sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change || true

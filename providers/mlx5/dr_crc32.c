@@ -60,8 +60,8 @@
 
 static uint32_t dr_ste_crc_tab32[8][256];
 
-static inline void dr_crc32_calc_lookup_entry(uint32_t (*tbl)[256], uint8_t i,
-					      uint8_t j)
+static void dr_crc32_calc_lookup_entry(uint32_t (*tbl)[256], uint8_t i,
+				       uint8_t j)
 {
 	tbl[i][j] = (tbl[i-1][j] >> 8) ^ tbl[0][tbl[i-1][j] & 0xff];
 }

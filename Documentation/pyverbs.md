@@ -339,3 +339,217 @@ wr = pwr.SendWR()
 wr.set_wr_ud(ah, 0x1101, 0) # in real life, use real values
 udqp.post_send(wr)
 ```
+
+##### XRCD
+The following code demonstrates creation of an XRCD object.
+```python
+from pyverbs.xrcd import XRCD, XRCDInitAttr
+import pyverbs.device as d
+import pyverbs.enums as e
+import stat
+import os
+
+
+ctx = d.Context(name='ibp0s8f0')
+xrcd_fd = os.open('/tmp/xrcd', os.O_RDONLY | os.O_CREAT,
+                  stat.S_IRUSR | stat.S_IRGRP)
+init = XRCDInitAttr(e.IBV_XRCD_INIT_ATTR_FD | e.IBV_XRCD_INIT_ATTR_OFLAGS,
+                    os.O_CREAT, xrcd_fd)
+xrcd = XRCD(ctx, init)
+```
+
+##### SRQ
+The following code snippet will demonstrate creation of an XRC SRQ object.
+For more complex examples, please see pyverbs/tests/test_odp.
+```python
+from pyverbs.xrcd import XRCD, XRCDInitAttr
+from pyverbs.srq import SRQ, SrqInitAttrEx
+import pyverbs.device as d
+import pyverbs.enums as e
+from pyverbs.cq import CQ
+from pyverbs.pd import PD
+import stat
+import os
+
+
+ctx = d.Context(name='ibp0s8f0')
+pd = PD(ctx)
+cq = CQ(ctx, 100, None, None, 0)
+xrcd_fd = os.open('/tmp/xrcd', os.O_RDONLY | os.O_CREAT,
+                  stat.S_IRUSR | stat.S_IRGRP)
+init = XRCDInitAttr(e.IBV_XRCD_INIT_ATTR_FD | e.IBV_XRCD_INIT_ATTR_OFLAGS,
+                    os.O_CREAT, xrcd_fd)
+xrcd = XRCD(ctx, init)
+
+srq_attr = SrqInitAttrEx(max_wr=10)
+srq_attr.srq_type = e.IBV_SRQT_XRC
+srq_attr.pd = pd
+srq_attr.xrcd = xrcd
+srq_attr.cq = cq
+srq_attr.comp_mask = e.IBV_SRQ_INIT_ATTR_TYPE | e.IBV_SRQ_INIT_ATTR_PD | \
+                     e.IBV_SRQ_INIT_ATTR_CQ | e.IBV_SRQ_INIT_ATTR_XRCD
+srq = SRQ(ctx, srq_attr)
+
+
+##### Open an mlx5 provider
+A provider is essentially a Context with driver-specific extra features. As
+such, it inherits from Context. In legcay flow Context iterates over the IB
+devices and opens the one matches the name given by the user (name= argument).
+When provider attributes are also given (attr=), the Context will assign the
+relevant ib_device to its device member, so that the provider will be able to
+open the device in its specific way as demonstated below:
+
+```python
+import pyverbs.providers.mlx5.mlx5dv as m
+from pyverbs.pd import PD
+attr = m.Mlx5DVContextAttr()  # Default values are fine
+ctx = m.Mlx5Context(attr=attr, name='rocep0s8f0')
+# The provider context can be used as a regular Context, e.g.:
+pd = PD(ctx)  # Success
+```
+
+##### Query an mlx5 provider
+After opening an mlx5 provider, users can use the device-specific query for
+non-legacy attributes. The following snippet demonstrates how to do that.
+```python
+import pyverbs.providers.mlx5.mlx5dv as m
+ctx = m.Mlx5Context(attr=m.Mlx5DVContextAttr(), name='ibp0s8f0')
+mlx5_attrs = ctx.query_mlx5_device()
+print(mlx5_attrs)
+Version             : 0
+Flags               : CQE v1, Support CQE 128B compression, Support CQE 128B padding, Support packet based credit mode (in RC QP)
+comp mask           : CQE compression, SW parsing, Striding RQ, Tunnel offloads, Dynamic BF regs, Clock info update, Flow action flags
+CQE compression caps:
+  max num             : 64
+  supported formats   : with hash, with RX checksum CSUM, with stride index
+SW parsing caps:
+  SW parsing offloads :
+  supported QP types  :
+Striding RQ caps:
+  min single stride log num of bytes: 6
+  max single stride log num of bytes: 13
+  min single wqe log num of strides: 9
+  max single wqe log num of strides: 16
+  supported QP types  : Raw Packet
+Tunnel offloads caps:
+Max dynamic BF registers: 1024
+Max clock info update [nsec]: 1099511
+Flow action flags   : 0
+```
+
+##### Create an mlx5 QP
+Using an Mlx5Context object, one can create either a legacy QP (creation
+process is the same) or an mlx5 QP. An mlx5 QP is a QP by inheritance but its
+constructor receives a keyword argument named `dv_init_attr`. If the user
+provides it, the QP will be created using `mlx5dv_create_qp` rather than
+`ibv_create_qp_ex`. The following snippet demonstrates how to create both a DC
+(dynamically connected) QP and a Raw Packet QP which uses mlx5-specific
+capabilities, unavailable using the legacy interface. Currently, pyverbs
+supports only creation of a DCI. DCT support will be added in one of the
+following PRs.
+```python
+from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr
+from pyverbs.providers.mlx5.mlx5dv import Mlx5DVQPInitAttr, Mlx5QP
+import pyverbs.providers.mlx5.mlx5_enums as me
+from pyverbs.qp import QPInitAttrEx, QPCap
+import pyverbs.enums as e
+from pyverbs.cq import CQ
+from pyverbs.pd import PD
+
+with Mlx5Context(name='rocep0s8f0', attr=Mlx5DVContextAttr()) as ctx:
+    with PD(ctx) as pd:
+        with CQ(ctx, 100) as cq:
+            cap = QPCap(100, 0, 1, 0)
+            # Create a DC QP of type DCI
+            qia = QPInitAttrEx(cap=cap, pd=pd, scq=cq, qp_type=e.IBV_QPT_DRIVER,
+                               comp_mask=e.IBV_QP_INIT_ATTR_PD, rcq=cq)
+            attr = Mlx5DVQPInitAttr(comp_mask=me.MLX5DV_QP_INIT_ATTR_MASK_DC)
+            attr.dc_type = me.MLX5DV_DCTYPE_DCI
+
+            dci = Mlx5QP(ctx, qia, dv_init_attr=attr)
+
+            # Create a Raw Packet QP using mlx5-specific capabilities
+            qia.qp_type = e.IBV_QPT_RAW_PACKET
+            attr.comp_mask = me.MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS
+            attr.create_flags = me.MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE |\
+                                me.MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_UC |\
+                                me.MLX5DV_QP_CREATE_TUNNEL_OFFLOADS
+            qp = Mlx5QP(ctx, qia, dv_init_attr=attr)
+```
+
+##### Create an mlx5 CQ
+Mlx5Context also allows users to create an mlx5 specific CQ. The Mlx5CQ inherits
+from CQEX, but its constructor receives 3 parameters instead of 2. The 3rd
+parameter is a keyword argument named `dv_init_attr`. If provided by the user,
+the CQ will be created using `mlx5dv_create_cq`.
+The following snippet shows this simple creation process.
+```python
+from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr
+from pyverbs.providers.mlx5.mlx5dv import Mlx5DVCQInitAttr, Mlx5CQ
+import pyverbs.providers.mlx5.mlx5_enums as me
+from pyverbs.cq import CqInitAttrEx
+
+with Mlx5Context(name='rocep0s8f0', attr=Mlx5DVContextAttr()) as ctx:
+    cqia = CqInitAttrEx()
+    mlx5_cqia = Mlx5DVCQInitAttr(comp_mask=me.MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE,
+                                 cqe_comp_res_format=me.MLX5DV_CQE_RES_FORMAT_CSUM)
+    cq = Mlx5CQ(ctx, cqia, dv_init_attr=mlx5_cqia)
+```
+
+##### CMID
+The following code snippet will demonstrate creation of a CMID object, which
+represents rdma_cm_id C struct, and establish connection between two peers.
+Currently only synchronous control path is supported (rdma_create_ep).
+For more complex examples, please see tests/test_rdmacm.
+```python
+from pyverbs.qp import QPInitAttr, QPCap
+from pyverbs.cmid import CMID, AddrInfo
+import pyverbs.cm_enums as ce
+
+
+cap = QPCap(max_recv_wr=1)
+qp_init_attr = QPInitAttr(cap=cap)
+server = '11.137.14.124'
+port = '7471'
+
+# Passive side
+
+sai = AddrInfo(server, port, ce.RDMA_PS_TCP, ce.RAI_PASSIVE)
+sid = CMID(creator=sai, qp_init_attr=qp_init_attr)
+sid.listen()  # listen for incoming connection requests
+new_id = sid.get_request()  # check if there are any connection requests
+new_id.accept()  # new_id is connected to remote peer and ready to communicate
+
+# Active side
+
+cai = AddrInfo(server, port, ce.RDMA_PS_TCP)
+cid = CMID(creator=cai, qp_init_attr=qp_init_attr)
+cid.connect()  # send connection request to server
+```
+
+##### ParentDomain
+The following code demonstrates the creation of Parent Domain object.
+In this example, a simple Python allocator is defined. It uses MemAlloc class to
+allocate aligned memory using a C style aligned_alloc.
+```python
+from pyverbs.pd import PD, ParentDomainInitAttr, ParentDomain, \
+    ParentDomainContext
+from pyverbs.device import Context
+import pyverbs.mem_alloc as mem
+
+
+def alloc_p_func(pd, context, size, alignment, resource_type):
+    p = mem.posix_memalign(size, alignment)
+    return p
+
+
+def free_p_func(pd, context, ptr, resource_type):
+    mem.free(ptr)
+
+
+ctx = Context(name='rocep0s8f0')
+pd = PD(ctx)
+pd_ctx = ParentDomainContext(pd, alloc_p_func, free_p_func)
+pd_attr = ParentDomainInitAttr(pd=pd, pd_context=pd_ctx)
+parent_domain = ParentDomain(ctx, attr=pd_attr)
+```

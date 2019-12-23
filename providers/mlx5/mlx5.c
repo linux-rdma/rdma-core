@@ -80,6 +80,7 @@ static const struct verbs_match_ent hca_table[] = {
 	HCA(MELLANOX, 0x101e),	/* ConnectX family mlx5Gen Virtual Function */
 	HCA(MELLANOX, 0xa2d2),	/* BlueField integrated ConnectX-5 network controller */
 	HCA(MELLANOX, 0xa2d3),	/* BlueField integrated ConnectX-5 network controller VF */
+	HCA(MELLANOX, 0xa2d6),  /* BlueField-2 integrated ConnectX-6 Dx network controller */
 	{}
 };
 
@@ -782,6 +783,13 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_DC_ODP_CAPS) {
 		attrs_out->dc_odp_caps = get_dc_odp_caps(ctx_in);
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_DC_ODP_CAPS;
+	}
+
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_HCA_CORE_CLOCK) {
+		if (mctx->hca_core_clock) {
+			attrs_out->hca_core_clock = mctx->hca_core_clock;
+			comp_mask_out |= MLX5DV_CONTEXT_MASK_HCA_CORE_CLOCK;
+		}
 	}
 
 	attrs_out->comp_mask = comp_mask_out;

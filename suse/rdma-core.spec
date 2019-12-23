@@ -23,7 +23,7 @@
 
 %define         git_ver %{nil}
 Name:           rdma-core
-Version:        26.0
+Version:        27.0
 Release:        0
 Summary:        RDMA core userspace libraries and daemons
 License:        GPL-2.0-only OR BSD-2-Clause
@@ -72,7 +72,11 @@ BuildRequires:  python3-Cython
 BuildRequires:  python3-devel
 %endif
 %ifnarch s390 s390x
+%if 0%{?suse_version} >= 1550
+BuildRequires:  valgrind-client-headers
+%else
 BuildRequires:  valgrind-devel
+%endif
 %endif
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  pkgconfig(libnl-3.0)
@@ -178,7 +182,6 @@ RDMA core development libraries and headers.
 Summary:        Library & drivers for direct userspace use of InfiniBand/iWARP/RoCE hardware
 Group:          System/Libraries
 Requires:       %{name}%{?_isa} = %{version}-%{release}
-Obsoletes:      libcxgb3-rdmav2 < %{version}-%{release}
 Obsoletes:      libcxgb4-rdmav2 < %{version}-%{release}
 Obsoletes:      libefa-rdmav2 < %{version}-%{release}
 Obsoletes:      libhfi1verbs-rdmav2 < %{version}-%{release}
@@ -187,7 +190,6 @@ Obsoletes:      libipathverbs-rdmav2 < %{version}-%{release}
 Obsoletes:      libmlx4-rdmav2 < %{version}-%{release}
 Obsoletes:      libmlx5-rdmav2 < %{version}-%{release}
 Obsoletes:      libmthca-rdmav2 < %{version}-%{release}
-Obsoletes:      libnes-rdmav2 < %{version}-%{release}
 Obsoletes:      libocrdma-rdmav2 < %{version}-%{release}
 Obsoletes:      librxe-rdmav2 < %{version}-%{release}
 %if 0%{?dma_coherent}
@@ -208,7 +210,6 @@ fast path operations.
 
 Device-specific plug-in ibverbs userspace drivers are included:
 
-- libcxgb3: Chelsio T3 iWARP HCA
 - libcxgb4: Chelsio T4 iWARP HCA
 - libefa: Amazon Elastic Fabric Adapter
 - libhfi1: Intel Omni-Path HFI
@@ -218,7 +219,6 @@ Device-specific plug-in ibverbs userspace drivers are included:
 - libmlx4: Mellanox ConnectX-3 InfiniBand HCA
 - libmlx5: Mellanox Connect-IB/X-4+ InfiniBand HCA
 - libmthca: Mellanox InfiniBand HCA
-- libnes: NetEffect RNIC
 - libocrdma: Emulex OneConnect RDMA/RoCE Device
 - libqedr: QLogic QL4xxx RoCE HCA
 - librxe: A software implementation of the RoCE protocol
@@ -338,7 +338,9 @@ librdmacm provides a userspace RDMA Communication Management API.
 
 %package -n rsocket
 Summary:        Preloadable library to turn the socket API RDMA-aware
+# Older librdmacm-tools used to provide rsocket
 Group:          System/Libraries
+Conflicts:      librdmacm-tools < 2
 
 %description -n rsocket
 Existing applications can make use of rsockets through the use this
@@ -348,6 +350,8 @@ manpage for details.
 %package -n librdmacm-utils
 Summary:        Examples for the librdmacm library
 Group:          Productivity/Networking/Other
+Obsoletes:      librdmacm-tools < %{version}
+Provides:       librdmacm-tools = %{version}
 
 %description -n librdmacm-utils
 Example test programs for the librdmacm library.
@@ -854,6 +858,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %if %{with_pyverbs}
 %files -n python3-pyverbs
 %{python3_sitearch}/pyverbs
+%{_docdir}/%{name}-%{version}/tests/*.py
 %endif
 
 %changelog

@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/linux-rdma/rdma-core.svg?branch=master)](https://travis-ci.org/linux-rdma/rdma-core)
+[![Build Status](https://dev.azure.com/ucfconsort/rdma-core/_apis/build/status/linux-rdma.rdma-core?branchName=master)](https://dev.azure.com/ucfconsort/rdma-core/_build/latest?definitionId=2&branchName=master)
 
 # RDMA Core Userspace Libraries and Daemons
 
@@ -15,7 +15,6 @@ under the providers/ directory. Support for the following Kernel RDMA drivers
 is included:
 
  - efa.ko
- - iw_cxgb3.ko
  - iw_cxgb4.ko
  - hfi1.ko
  - hns-roce.ko
@@ -24,7 +23,6 @@ is included:
  - mlx4_ib.ko
  - mlx5_ib.ko
  - ib_mthca.ko
- - iw_nes.ko
  - ocrdma.ko
  - qedr.ko
  - rdma_rxe.ko
@@ -71,7 +69,7 @@ NOTE: Fedora Core uses the name 'ninja-build' for the 'ninja' command.
 $ zypper install cmake gcc libnl3-devel libudev-devel ninja pkg-config valgrind-devel python3-devel python3-Cython
 ```
 
-## Building on CentOS 6/7
+## Building on CentOS 6/7, Amazon Linux 1/2
 
 Install required packages:
 
@@ -79,11 +77,20 @@ Install required packages:
 $ yum install cmake gcc libnl3-devel libudev-devel make pkgconfig valgrind-devel
 ```
 
-Developers on CentOS 7 are suggested to install more modern tooling for the
-best experience.
+Developers on CentOS 7 or Amazon Linux 2 are suggested to install more modern
+tooling for the best experience.
+
+CentOS 7:
 
 ```sh
 $ yum install epel-release
+$ yum install cmake3 ninja-build pandoc
+```
+
+Amazon Linux 2:
+
+```sh
+$ amazon-linux-extras install epel
 $ yum install cmake3 ninja-build pandoc
 ```
 
@@ -93,12 +100,13 @@ for the 'cmake' command.
 # Usage
 
 To set up software RDMA on an existing interface with either of the available
-driver, use the following commands, substituting `<DRIVER>` with the name of the
-driver of your choice (`rxe` or `siw`)
+drivers, use the following commands, substituting `<DRIVER>` with the name of
+the driver of your choice (`rdma_rxe` or `siw`) and `<TYPE>` with the type
+corresponding to the driver (`rxe` or `siw`).
 
 ```
 # modprobe <DRIVER>
-# rdma link add <NAME> type <DRIVER> netdev <DEVICE>
+# rdma link add <NAME> type <TYPE> netdev <DEVICE>
 ```
 
 Please note that you need version of `iproute2` recent enough is required for the
@@ -137,13 +145,13 @@ Make sure that your contribution can be licensed under the same
 license as the original code you are patching, and that you have all
 necessary permissions to release your work.
 
-## TravisCI
+## Azure Pipelines CI
 
-Submitted patches must pass the TravisCI automatic builds without warnings.
-A build similar to TravisCI can be run locally using docker and the
+Submitted patches must pass the Azure Pipelines CI automatic builds without
+warnings.  A build similar to AZP can be run locally using docker and the
 'buildlib/cbuild' script.
 
 ```sh
-$ buildlib/cbuild build-images travis
-$ buildlib/cbuild pkg travis
+$ buildlib/cbuild build-images azp
+$ buildlib/cbuild pkg azp
 ```
