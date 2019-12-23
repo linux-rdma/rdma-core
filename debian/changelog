@@ -2,7 +2,67 @@ rdma-core (28.0-1) unstable; urgency=medium
 
   * New upstream release.
 
- -- Jason Gunthorpe <jgg@obsidianresearch.com>  Tue, 20 Nov 2018 12:00:59 +0100
+ -- Jason Gunthorpe <jgg@obsidianresearch.com>  Mon, 23 Dec 2019 13:36:56 +0100
+
+rdma-core (27.0-1) unstable; urgency=medium
+
+  * New upstream release
+    - libcxgb3: Remove libcxgb3 from rdma-core
+    - libnes: Remove libnes from rdma-core
+  * Add missing build dependency dh-python
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Mon, 23 Dec 2019 13:22:46 +0100
+
+rdma-core (26.0-2) unstable; urgency=medium
+
+  * Improve/extent description of python3-pyverbs
+  * Bump Standards-Version to 4.4.1 (no changes required)
+  * Add Rules-Requires-Root: no
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Tue, 29 Oct 2019 13:22:15 +0100
+
+rdma-core (26.0-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Include infiniband-diags source package producing infiniband-diags,
+      libibmad5, libibmad-dev, libibnetdisc5, and libibnetdisc-dev.
+  * Update private libibverbs symbols
+  * Specify Build-Depends-Package for libibmad5 and libibnetdisc5
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Thu, 24 Oct 2019 11:27:45 +0200
+
+rdma-core (24.0-2) unstable; urgency=medium
+
+  * Skip installing efa if the architecture lacks coherent DMA support
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Thu, 11 Jul 2019 12:34:23 +0200
+
+rdma-core (24.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Drop pyverbs-Add-shebang-to-ib_devices.py-example.patch (applied upstream)
+  * Bump Standards-Version to 4.4.0 (no changes needed)
+  * Switch to debhelper 12
+  * Add Pre-Depends on ${misc:Pre-Depends}
+  * Drop debug symbol migration
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Wed, 10 Jul 2019 12:39:27 +0200
+
+rdma-core (22.1-1) unstable; urgency=medium
+
+  * New upstream bugfix release.
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Wed, 06 Feb 2019 15:58:48 +0100
+
+rdma-core (22.0-1) unstable; urgency=medium
+
+  * New upstream release.
+    - mlx5: Add DEVX APIs for interop with verbs objects
+    - Add pyverbs Python binding
+  * Update private libibverbs symbols
+  * Bump Standards-Version to 4.3.0 (no changes required)
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Tue, 22 Jan 2019 13:27:29 +0100
 
 rdma-core (21.0-1) unstable; urgency=medium
 
