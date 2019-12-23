@@ -1633,6 +1633,7 @@ static void dr_ste_build_ipv6_l3_l4_bit_mask(struct dr_match_param *value,
 					     bool inner, uint8_t *bit_mask)
 {
 	struct dr_match_spec *mask = inner ? &value->inner : &value->outer;
+	struct dr_match_misc *misc = &value->misc;
 
 	DR_STE_SET_MASK_V(eth_l4, bit_mask, dst_port, mask, tcp_dport);
 	DR_STE_SET_MASK_V(eth_l4, bit_mask, src_port, mask, tcp_sport);
@@ -1643,6 +1644,13 @@ static void dr_ste_build_ipv6_l3_l4_bit_mask(struct dr_match_param *value,
 	DR_STE_SET_MASK_V(eth_l4, bit_mask, dscp, mask, ip_dscp);
 	DR_STE_SET_MASK_V(eth_l4, bit_mask, ecn, mask, ip_ecn);
 	DR_STE_SET_MASK_V(eth_l4, bit_mask, ipv6_hop_limit, mask, ip_ttl_hoplimit);
+	if (inner) {
+		DR_STE_SET_MASK_V(eth_l4, bit_mask, flow_label,
+				  misc, inner_ipv6_flow_label);
+	} else {
+		DR_STE_SET_MASK_V(eth_l4, bit_mask, flow_label,
+				  misc, outer_ipv6_flow_label);
+	}
 
 	if (mask->tcp_flags) {
 		DR_STE_SET_TCP_FLAGS(eth_l4, bit_mask, mask);
@@ -1656,6 +1664,7 @@ static int dr_ste_build_ipv6_l3_l4_tag(struct dr_match_param *value,
 {
 	struct dr_hw_ste_format *hw_ste = (struct dr_hw_ste_format *)hw_ste_p;
 	struct dr_match_spec *spec = sb->inner ? &value->inner : &value->outer;
+	struct dr_match_misc *misc = &value->misc;
 	uint8_t *tag = hw_ste->tag;
 
 	DR_STE_SET_TAG(eth_l4, tag, dst_port, spec, tcp_dport);
@@ -1667,6 +1676,13 @@ static int dr_ste_build_ipv6_l3_l4_tag(struct dr_match_param *value,
 	DR_STE_SET_TAG(eth_l4, tag, dscp, spec, ip_dscp);
 	DR_STE_SET_TAG(eth_l4, tag, ecn, spec, ip_ecn);
 	DR_STE_SET_TAG(eth_l4, tag, ipv6_hop_limit, spec, ip_ttl_hoplimit);
+	if (sb->inner) {
+		DR_STE_SET_TAG(eth_l4, tag, flow_label,
+			       misc, inner_ipv6_flow_label);
+	} else {
+		DR_STE_SET_TAG(eth_l4, tag, flow_label,
+			       misc, outer_ipv6_flow_label);
+	}
 
 	if (spec->tcp_flags) {
 		DR_STE_SET_TCP_FLAGS(eth_l4, tag, spec);
