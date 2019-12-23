@@ -1,3 +1,12 @@
+rdma-core (27.0-1) unstable; urgency=medium
+
+  * New upstream release
+    - libcxgb3: Remove libcxgb3 from rdma-core
+    - libnes: Remove libnes from rdma-core
+  * Add missing build dependency dh-python
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Mon, 23 Dec 2019 13:22:46 +0100
+
 rdma-core (26.0-2) unstable; urgency=medium
 
   * Improve/extent description of python3-pyverbs
