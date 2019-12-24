@@ -22,6 +22,23 @@
 #include "efadv.h"
 #include "verbs.h"
 
+static bool is_buf_cleared(void *buf, size_t len)
+{
+	int i;
+
+	for (i = 0; i < len; i++) {
+		if (((uint8_t *)buf)[i])
+			return false;
+	}
+
+	return true;
+}
+
+#define is_ext_cleared(ptr, inlen) \
+	is_buf_cleared(ptr + sizeof(*ptr), inlen - sizeof(*ptr))
+
+#define is_reserved_cleared(reserved) is_buf_cleared(reserved, sizeof(reserved))
+
 int efa_query_device(struct ibv_context *ibvctx,
 		     struct ibv_device_attr *dev_attr)
 {
@@ -940,7 +957,10 @@ struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
 
 	if (attr_ex->qp_type != IBV_QPT_DRIVER ||
 	    !vext_field_avail(struct efadv_qp_init_attr,
-			      driver_qp_type, inlen)) {
+			      driver_qp_type, inlen) ||
+	    efa_attr->comp_mask ||
+	    !is_reserved_cleared(efa_attr->reserved) ||
+	    (inlen > sizeof(efa_attr) && !is_ext_cleared(efa_attr, inlen))) {
 		errno = EINVAL;
 		return NULL;
 	}
