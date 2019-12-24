@@ -1,15 +1,17 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved. See COPYING file
 
+import resource
+import logging
+
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
-from pyverbs.device cimport DM
-from .pd cimport PD
-import resource
 from posix.stdlib cimport posix_memalign
-from libc.stdlib cimport free
 from libc.string cimport memcpy, memset
 from libc.stdint cimport uintptr_t
+from pyverbs.device cimport DM
+from libc.stdlib cimport free
+from .pd cimport PD
 
 
 cdef class MR(PyverbsCM):
@@ -17,7 +19,7 @@ cdef class MR(PyverbsCM):
     MR class represents ibv_mr. Buffer allocation in done in the c'tor. Freeing
     it is done in close().
     """
-    def __cinit__(self, PD pd not None, length, access, **kwargs):
+    def __init__(self, PD pd not None, length, access):
         """
         Allocate a user-level buffer of length <length> and register a Memory
         Region of the given length and access flags.
@@ -26,7 +28,8 @@ cdef class MR(PyverbsCM):
         :param access: Access flags, see ibv_access_flags enum
         :return: The newly created MR on success
         """
-        if len(kwargs) != 0:
+        super().__init__()
+        if self.mr != NULL:
             return
         #We want to enable registering an MR of size 0 but this fails with a
         #buffer of size 0, so in this case lets increase the buffer
@@ -107,13 +110,14 @@ cdef class MR(PyverbsCM):
 
 
 cdef class MW(PyverbsCM):
-    def __cinit__(self, PD pd not None, v.ibv_mw_type mw_type):
+    def __init__(self, PD pd not None, v.ibv_mw_type mw_type):
         """
         Initializes a memory window object of the given type
         :param pd: A PD object
         :param mw_type: Type of of the memory window, see ibv_mw_type enum
         :return:
         """
+        super().__init__()
         self.mw = NULL
         self.mw = v.ibv_alloc_mw(pd.pd, mw_type)
         if self.mw == NULL:
@@ -144,29 +148,27 @@ cdef class MW(PyverbsCM):
 
 
 cdef class DMMR(MR):
-    def __cinit__(self, PD pd not None, length, access, **kwargs):
+    def __init__(self, PD pd not None, length, access, DM dm, offset):
         """
         Initializes a DMMR (Device Memory Memory Region) of the given length
         and access flags using the given PD and DM objects.
         :param pd: A PD object
         :param length: Length in bytes
         :param access: Access flags, see ibv_access_flags enum
-        :param kwargs: see below
+        :param dm: A DM (device memory) object to be used for this DMMR
+        :param offset: Byte offset from the beginning of the allocated device
+                       memory buffer
         :return: The newly create DMMR
-
-        :keyword Arguments:
-            * *dm* (DM)
-               A DM (device memory) object to be used for this DMMR
-            * *offset*
-               Byte offset from the beginning of the allocated device memory
-               buffer
         """
-        dm = <DM>kwargs['dm']
-        offset = kwargs['offset']
-        self.mr = v.ibv_reg_dm_mr(pd.pd, (<DM>dm).dm, offset, length, access)
+        # Initialize the logger here as the parent's __init__ is called after
+        # the DMMR is allocated. Allocation can fail, which will lead to
+        # exceptions thrown during object's teardown.
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.mr = v.ibv_reg_dm_mr(pd.pd, dm.dm, offset, length, access)
         if self.mr == NULL:
             raise PyverbsRDMAErrno('Failed to register a device MR. length: {len}, access flags: {flags}'.
                                    format(len=length, flags=access,))
+        super().__init__(pd, length, access)
         self.pd = pd
         self.dm = dm
         pd.add_ref(self)

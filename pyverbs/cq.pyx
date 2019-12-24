@@ -4,6 +4,7 @@ import weakref
 
 from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.device cimport Context
 from pyverbs.srq cimport SRQ
@@ -16,12 +17,13 @@ cdef class CompChannel(PyverbsCM):
     for a CQ, the event is delivered via the completion channel attached to the
     CQ.
     """
-    def __cinit__(self, Context context not None):
+    def __init__(self, Context context not None):
         """
         Initializes a completion channel object on the given device.
         :param context: The device's context to use
         :return: A CompChannel object on success
         """
+        super().__init__()
         self.cc = v.ibv_create_comp_channel(context.context)
         if self.cc == NULL:
             raise PyverbsRDMAErrno('Failed to create a completion channel')
@@ -35,7 +37,7 @@ cdef class CompChannel(PyverbsCM):
 
     cpdef close(self):
         self.logger.debug('Closing completion channel')
-        self.close_weakrefs([self.cqs])
+        close_weakrefs([self.cqs])
         if self.cc != NULL:
             rc = v.ibv_destroy_comp_channel(self.cc)
             if rc != 0:
@@ -67,8 +69,8 @@ cdef class CQ(PyverbsCM):
     A Completion Queue is the notification mechanism for work request
     completions. A CQ can have 0 or more associated QPs.
     """
-    def __cinit__(self, Context context not None, cqe, cq_context=None,
-                  CompChannel channel=None, comp_vector=0):
+    def __init__(self, Context context not None, cqe, cq_context=None,
+                 CompChannel channel=None, comp_vector=0):
         """
         Initializes a CQ object with the given parameters.
         :param context: The device's context on which to open the CQ
@@ -80,6 +82,7 @@ cdef class CQ(PyverbsCM):
                             context's num_comp_vectors
         :return: The newly created CQ
         """
+        super().__init__()
         if channel is not None:
             self.cq = v.ibv_create_cq(context.context, cqe, <void*>cq_context,
                                       channel.cc, comp_vector)
@@ -108,7 +111,7 @@ cdef class CQ(PyverbsCM):
 
     cpdef close(self):
         self.logger.debug('Closing CQ')
-        self.close_weakrefs([self.qps, self.srqs])
+        close_weakrefs([self.qps, self.srqs])
         if self.cq != NULL:
             rc = v.ibv_destroy_cq(self.cq)
             if rc != 0:
@@ -172,8 +175,8 @@ cdef class CQ(PyverbsCM):
 
 
 cdef class CqInitAttrEx(PyverbsObject):
-    def __cinit__(self, cqe = 100, CompChannel channel = None, comp_vector = 0,
-                  wc_flags = 0, comp_mask = 0, flags = 0):
+    def __init__(self, cqe = 100, CompChannel channel = None, comp_vector = 0,
+                 wc_flags = 0, comp_mask = 0, flags = 0):
         """
         Initializes a CqInitAttrEx object with the given parameters.
         :param cqe: CQ's capacity
@@ -188,6 +191,7 @@ cdef class CqInitAttrEx(PyverbsObject):
                       ibv_create_cq_attr_flags enum
         :return:
         """
+        super().__init__()
         self.attr.cqe = cqe
         self.attr.cq_context = NULL
         self.attr.channel = NULL if channel is None else channel.cc
@@ -254,8 +258,7 @@ cdef class CqInitAttrEx(PyverbsObject):
 
 
 cdef class CQEX(PyverbsCM):
-    def __cinit__(self, Context context not None, CqInitAttrEx init_attr,
-                  **kwargs):
+    def __init__(self, Context context not None, CqInitAttrEx init_attr):
         """
         Initializes a CQEX object on the given device's context with the given
         attributes.
@@ -263,9 +266,10 @@ cdef class CQEX(PyverbsCM):
         :param init_attr: Initial attributes that describe the CQ
         :return: The newly created CQEX on success
         """
+        super().__init__()
         self.qps = weakref.WeakSet()
         self.srqs = weakref.WeakSet()
-        if len(kwargs) > 0:
+        if self.cq != NULL:
             # Leave CQ initialization to the provider
             return
         if init_attr is None:
@@ -292,7 +296,7 @@ cdef class CQEX(PyverbsCM):
 
     cpdef close(self):
         self.logger.debug('Closing CQEx')
-        self.close_weakrefs([self.srqs, self.qps])
+        close_weakrefs([self.srqs, self.qps])
         if self.cq != NULL:
             rc = v.ibv_destroy_cq(<v.ibv_cq*>self.cq)
             if rc != 0:
@@ -379,9 +383,10 @@ cdef class CQEX(PyverbsCM):
 
 
 cdef class WC(PyverbsObject):
-    def __cinit__(self, wr_id=0, status=0, opcode=0, vendor_err=0, byte_len=0,
-                  qp_num=0, src_qp=0, imm_data=0, wc_flags=0, pkey_index=0,
-                  slid=0, sl=0, dlid_path_bits=0):
+    def __init__(self, wr_id=0, status=0, opcode=0, vendor_err=0, byte_len=0,
+                 qp_num=0, src_qp=0, imm_data=0, wc_flags=0, pkey_index=0,
+                 slid=0, sl=0, dlid_path_bits=0):
+        super().__init__()
         self.wc.wr_id = wr_id
         self.wc.status = status
         self.wc.opcode = opcode

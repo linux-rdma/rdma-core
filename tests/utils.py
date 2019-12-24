@@ -227,6 +227,9 @@ def random_qp_init_attr_ex(attr_ex, attr, qpt=None):
                 random.randint(16, int(attr_ex.tso_caps.max_tso / 400))
     qia = QPInitAttrEx(qp_type=qpt, cap=qp_cap, sq_sig_all=sig, comp_mask=mask,
                        create_flags=cflags, max_tso_header=max_tso)
+    if mask & e.IBV_QP_INIT_ATTR_MAX_TSO_HEADER:
+        # TSO increases send WQE size, let's be on the safe side
+        qia.cap.max_send_sge = 2
     return qia
 
 

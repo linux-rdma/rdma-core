@@ -45,20 +45,6 @@ class MRTest(PyverbsAPITestCase):
                     with MR(pd, u.get_mr_length(), f) as mr:
                         mr.close()
 
-    @staticmethod
-    def test_reg_mr_bad_flow():
-        """
-        Verify that trying to register a MR with None PD fails
-        """
-        try:
-            # Use the simplest access flags necessary
-            MR(None, random.randint(0, 10000), e.IBV_ACCESS_LOCAL_WRITE)
-        except TypeError as te:
-            assert 'expected pyverbs.pd.PD' in te.args[0]
-            assert 'got NoneType' in te.args[0]
-        else:
-            raise PyverbsRDMAErrno('Created a MR with None PD')
-
     def test_dereg_mr_twice(self):
         """
         Verify that explicit call to MR's close() doesn't fail

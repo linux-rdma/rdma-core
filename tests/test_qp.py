@@ -154,8 +154,6 @@ class QPTest(PyverbsAPITestCase):
             with PD(ctx) as pd:
                 with CQ(ctx, 100, None, None, 0) as cq:
                     for i in range(1, attr.phys_port_cnt + 1):
-                        qpts = [e.IBV_QPT_UD, e.IBV_QPT_RAW_PACKET] \
-                            if is_eth(ctx, i) else [e.IBV_QPT_UD]
                         qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
                                                   e.IBV_QPT_UD)
                         with QP(ctx, qia, QPAttr()) as qp:

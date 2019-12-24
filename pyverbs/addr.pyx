@@ -18,7 +18,8 @@ cdef class GID(PyverbsObject):
     """
     GID class represents ibv_gid. It enables user to query for GIDs values.
     """
-    def __cinit__(self, val=None):
+    def __init__(self, val=None):
+        super().__init__()
         if val is not None:
             vals = gid_str_to_array(val)
 
@@ -59,8 +60,8 @@ cdef class GRH(PyverbsObject):
     Represents ibv_grh struct. Used when creating or initializing an
     Address Handle from a Work Completion.
     """
-    def __cinit__(self, GID sgid=None, GID dgid=None, version_tclass_flow=0,
-                  paylen=0, next_hdr=0, hop_limit=1):
+    def __init__(self, GID sgid=None, GID dgid=None, version_tclass_flow=0,
+                 paylen=0, next_hdr=0, hop_limit=1):
         """
         Initializes a GRH object
         :param sgid: Source GID
@@ -78,6 +79,7 @@ cdef class GRH(PyverbsObject):
                           prior to being discarded
         :return: A GRH object
         """
+        super().__init__()
         self.grh.dgid = dgid.gid
         self.grh.sgid = sgid.gid
         self.grh.version_tclass_flow = version_tclass_flow
@@ -150,8 +152,8 @@ cdef class GlobalRoute(PyverbsObject):
     the values to be used in the GRH of the packets that will be sent using
     this Address Handle.
     """
-    def __cinit__(self, GID dgid=None, flow_label=0, sgid_index=0, hop_limit=1,
-                  traffic_class=0):
+    def __init__(self, GID dgid=None, flow_label=0, sgid_index=0, hop_limit=1,
+                 traffic_class=0):
         """
         Initializes a GlobalRoute object with given parameters.
         :param dgid: Destination GID
@@ -167,6 +169,7 @@ cdef class GlobalRoute(PyverbsObject):
                               delivery priority for routers
         :return: A GlobalRoute object
         """
+        super().__init__()
         self.gr.dgid=dgid.gid
         self.gr.flow_label = flow_label
         self.gr.sgid_index = sgid_index
@@ -222,8 +225,8 @@ cdef class GlobalRoute(PyverbsObject):
 
 cdef class AHAttr(PyverbsObject):
     """ Represents ibv_ah_attr struct """
-    def __cinit__(self, dlid=0, sl=0, src_path_bits=0, static_rate=0,
-                  is_global=0, port_num=1, GlobalRoute gr=None):
+    def __init__(self, dlid=0, sl=0, src_path_bits=0, static_rate=0,
+                 is_global=0, port_num=1, GlobalRoute gr=None):
         """
         Initializes an AHAttr object.
         :param dlid: Destination LID, a 16b unsigned integer
@@ -242,6 +245,7 @@ cdef class AHAttr(PyverbsObject):
                     is_global is non zero.
         :return: An AHAttr object
         """
+        super().__init__()
         self.ah_attr.port_num = port_num
         self.ah_attr.sl = sl
         self.ah_attr.src_path_bits = src_path_bits
@@ -363,7 +367,7 @@ cdef class AHAttr(PyverbsObject):
 
 
 cdef class AH(PyverbsCM):
-    def __cinit__(self, PD pd, **kwargs):
+    def __init__(self, PD pd, **kwargs):
         """
         Initializes an AH object with the given values.
         Two creation methods are supported:
@@ -371,7 +375,7 @@ cdef class AH(PyverbsCM):
         - Creation via a WC object (calls ibv_create_ah_from_wc)
         :param pd: PD object this AH belongs to
         :param kwargs: Arguments:
-           * *attr* (AHAttr)
+            * *attr* (AHAttr)
                An AHAttr object (represents ibv_ah_attr struct)
             * *wc*
                A WC object to use for AH initialization
@@ -381,6 +385,7 @@ cdef class AH(PyverbsCM):
                Port number to be used for this AH (when using wc)
         :return: An AH object on success
         """
+        super().__init__()
         if len(kwargs) == 1:
             # Create AH via ib_create_ah
             ah_attr = <AHAttr>kwargs['attr']
