@@ -1526,6 +1526,8 @@ static void ucma_copy_conn_param_to_kern(struct cma_id_private *id_priv,
 
 int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 {
+	uint32_t qp_num = conn_param ? conn_param->qp_num : 0;
+	uint8_t srq = conn_param ? conn_param->srq : 0;
 	struct ucma_abi_connect cmd;
 	struct cma_id_private *id_priv;
 	int ret;
@@ -1547,17 +1549,12 @@ int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	CMA_INIT_CMD(&cmd, sizeof cmd, CONNECT);
 	cmd.id = id_priv->handle;
 	if (id->qp) {
-		ucma_copy_conn_param_to_kern(id_priv, &cmd.conn_param,
-					     conn_param, id->qp->qp_num,
-					     (id->qp->srq != NULL));
-	} else if (conn_param) {
-		ucma_copy_conn_param_to_kern(id_priv, &cmd.conn_param,
-					     conn_param, conn_param->qp_num,
-					     conn_param->srq);
-	} else {
-		ucma_copy_conn_param_to_kern(id_priv, &cmd.conn_param,
-					     conn_param, 0, 0);
+		qp_num = id->qp->qp_num;
+		srq = !!id->qp->srq;
 	}
+
+	ucma_copy_conn_param_to_kern(id_priv, &cmd.conn_param, conn_param,
+				     qp_num, srq);
 
 	ret = write(id->channel->fd, &cmd, sizeof cmd);
 	if (ret != sizeof cmd)
@@ -1641,6 +1638,8 @@ err:
 
 int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 {
+	uint32_t qp_num = id->qp ? id->qp->qp_num : conn_param->qp_num;
+	uint8_t srq = id->qp ? !!id->qp->srq : conn_param->srq;
 	struct ucma_abi_accept cmd;
 	struct cma_id_private *id_priv;
 	int ret;
@@ -1676,14 +1675,8 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	CMA_INIT_CMD(&cmd, sizeof cmd, ACCEPT);
 	cmd.id = id_priv->handle;
 	cmd.uid = (uintptr_t) id_priv;
-	if (id->qp)
-		ucma_copy_conn_param_to_kern(id_priv, &cmd.conn_param,
-					     conn_param, id->qp->qp_num,
-					     (id->qp->srq != NULL));
-	else
-		ucma_copy_conn_param_to_kern(id_priv, &cmd.conn_param,
-					     conn_param, conn_param->qp_num,
-					     conn_param->srq);
+	ucma_copy_conn_param_to_kern(id_priv, &cmd.conn_param, conn_param,
+				     qp_num, srq);
 
 	ret = write(id->channel->fd, &cmd, sizeof cmd);
 	if (ret != sizeof cmd) {
