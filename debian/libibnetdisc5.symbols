@@ -1,4 +1,5 @@
 libibnetdisc.so.5 libibnetdisc5 #MINVER#
+* Build-Depends-Package: libibnetdisc-dev
  IBNETDISC_1.0@IBNETDISC_1.0 1.6.1
  ibnd_cache_fabric@IBNETDISC_1.0 1.6.1
  ibnd_destroy_fabric@IBNETDISC_1.0 1.6.1

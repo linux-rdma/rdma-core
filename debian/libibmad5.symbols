@@ -1,4 +1,5 @@
 libibmad.so.5 libibmad5 #MINVER#
+* Build-Depends-Package: libibmad-dev
  IBMAD_1.3@IBMAD_1.3 1.3.11
  bm_call_via@IBMAD_1.3 1.3.11
  cc_config_status_via@IBMAD_1.3 1.3.11
