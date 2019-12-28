@@ -811,7 +811,7 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 				      dseg, sge_info);
 	}
 
-	if (wr->send_flags & IBV_SEND_INLINE) {
+	if (wr->send_flags & IBV_SEND_INLINE && sge_info->valid_num) {
 		if (wr->opcode == IBV_WR_RDMA_READ)
 			return EINVAL;
 
