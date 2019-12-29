@@ -295,8 +295,8 @@ int pvrdma_destroy_cq(struct ibv_cq *cq);
 int pvrdma_req_notify_cq(struct ibv_cq *cq, int solicited);
 int pvrdma_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 void pvrdma_cq_event(struct ibv_cq *cq);
-void pvrdma_cq_clean_int(struct pvrdma_cq *cq, uint32_t qpn);
-void pvrdma_cq_clean(struct pvrdma_cq *cq, uint32_t qpn);
+void pvrdma_cq_clean_int(struct pvrdma_cq *cq, uint32_t qp_handle);
+void pvrdma_cq_clean(struct pvrdma_cq *cq, uint32_t qp_handle);
 int pvrdma_get_outstanding_cqes(struct pvrdma_cq *cq);
 void pvrdma_cq_resize_copy_cqes(struct pvrdma_cq *cq, void *buf,
 				int new_cqe);
