@@ -314,8 +314,8 @@ err:
 }
 
 int pvrdma_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
-		      int attr_mask,
-		      struct ibv_qp_init_attr *init_attr)
+		    int attr_mask,
+		    struct ibv_qp_init_attr *init_attr)
 {
 	struct ibv_query_qp cmd;
 	struct pvrdma_qp *qp = to_vqp(ibqp);
@@ -336,25 +336,26 @@ int pvrdma_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	return 0;
 }
 
-int pvrdma_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
-		       int attr_mask)
+int pvrdma_modify_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
+		     int attr_mask)
 {
 	struct ibv_modify_qp cmd;
+	struct pvrdma_qp *qp = to_vqp(ibqp);
 	int ret;
 
 	/* Sanity check */
 	if (!attr_mask)
 		return 0;
 
-	ret = ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof(cmd));
+	ret = ibv_cmd_modify_qp(ibqp, attr, attr_mask, &cmd, sizeof(cmd));
 
 	if (!ret &&
 	    (attr_mask & IBV_QP_STATE) &&
 	    attr->qp_state == IBV_QPS_RESET) {
-		pvrdma_cq_clean(to_vcq(qp->recv_cq), qp->qp_num);
-		if (qp->send_cq != qp->recv_cq)
-			pvrdma_cq_clean(to_vcq(qp->send_cq), qp->qp_num);
-		pvrdma_init_qp_queue(to_vqp(qp));
+		pvrdma_cq_clean(to_vcq(ibqp->recv_cq), qp->qp_handle);
+		if (ibqp->send_cq != ibqp->recv_cq)
+			pvrdma_cq_clean(to_vcq(ibqp->send_cq), qp->qp_handle);
+		pvrdma_init_qp_queue(qp);
 	}
 
 	return ret;
@@ -405,10 +406,10 @@ int pvrdma_destroy_qp(struct ibv_qp *ibqp)
 
 	pvrdma_lock_cqs(ibqp);
 	/* Dump cqs */
-	pvrdma_cq_clean_int(to_vcq(ibqp->recv_cq), ibqp->qp_num);
+	pvrdma_cq_clean_int(to_vcq(ibqp->recv_cq), qp->qp_handle);
 
 	if (ibqp->send_cq != ibqp->recv_cq)
-		pvrdma_cq_clean_int(to_vcq(ibqp->send_cq), ibqp->qp_num);
+		pvrdma_cq_clean_int(to_vcq(ibqp->send_cq), qp->qp_handle);
 	pvrdma_unlock_cqs(ibqp);
 
 	free(qp->sq.wrid);
