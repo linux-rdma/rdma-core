@@ -30,6 +30,8 @@ mlx5dv_dr_action_create_modify_header - Create modify header actions
 
 mlx5dv_dr_action_create_flow_counter - Create devx flow counter actions
 
+mlx5dv_dr_action_create_flow_meter, mlx5dv_dr_action_modify_flow_meter - Create and modify meter action
+
 mlx5dv_dr_action_destroy - Destroy actions
 
 # SYNOPSIS
@@ -99,6 +101,13 @@ struct mlx5dv_dr_action *mlx5dv_dr_action_create_modify_header(
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_flow_counter(
 		struct mlx5dv_devx_obj *devx_obj,
 		uint32_t offset);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_flow_meter(struct mlx5dv_dr_flow_meter_attr *attr);
+
+int mlx5dv_dr_action_modify_flow_meter(struct mlx5dv_dr_action *action,
+				       struct mlx5dv_dr_flow_meter_attr *attr,
+				       __be64 modify_field_select);
 
 int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
 ```
@@ -173,6 +182,10 @@ Action: Modify Header
 
 Action: Flow Count
 *mlx5dv_dr_action_create_flow_counter* creates a flow counter action from a DEVX flow counter object, based on **devx_obj** and specific counter index from **offset** in the counter bulk.
+
+Action: Meter
+*mlx5dv_dr_action_create_flow_meter* creates a meter action based on the flow meter parameters. The paramertes are according to the device specification.
+*mlx5dv_dr_action_modify_flow_meter* modifies existing flow meter **action** based on **modify_field_select**. **modify_field_select** is according to the device specification.
 
 Action Flags: action **flags** can be set to one of the types of *enum mlx5dv_dr_action_flags*:
 

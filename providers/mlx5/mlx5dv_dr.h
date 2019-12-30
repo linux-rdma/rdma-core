@@ -180,6 +180,7 @@ enum dr_action_type {
 	DR_ACTION_TYP_TAG,
 	DR_ACTION_TYP_MODIFY_HDR,
 	DR_ACTION_TYP_VPORT,
+	DR_ACTION_TYP_METER,
 	DR_ACTION_TYP_MAX,
 };
 
@@ -709,6 +710,12 @@ struct mlx5dv_dr_action {
 				};
 			};
 		} reformat;
+		struct {
+			struct mlx5dv_dr_table	*next_ft;
+			struct mlx5dv_devx_obj	*devx_obj;
+			uint64_t		rx_icm_addr;
+			uint64_t		tx_icm_addr;
+		} meter;
 		struct mlx5dv_dr_table	*dest_tbl;
 		struct {
 			struct mlx5dv_devx_obj	*devx_obj;
@@ -838,6 +845,14 @@ struct mlx5dv_devx_obj *dr_devx_create_reformat_ctx(struct ibv_context *ctx,
 						    enum reformat_type rt,
 						    size_t reformat_size,
 						    void *reformat_data);
+struct mlx5dv_devx_obj
+*dr_devx_create_meter(struct ibv_context *ctx,
+		      struct mlx5dv_dr_flow_meter_attr *attr);
+int dr_devx_query_meter(struct mlx5dv_devx_obj *obj, uint64_t *rx_icm_addr,
+			uint64_t *tx_icm_addr);
+int dr_devx_modify_meter(struct mlx5dv_devx_obj *obj,
+			 struct mlx5dv_dr_flow_meter_attr *attr,
+			 __be64 modify_bits);
 struct mlx5dv_devx_obj *dr_devx_create_cq(struct ibv_context *ctx,
 					  uint32_t page_id,
 					  uint32_t buff_umem_id,

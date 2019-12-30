@@ -54,10 +54,12 @@ rdma_alias_man_pages(
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_vport.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_flow_counter.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_drop.3
+ mlx5dv_dr_flow.3 mlx5dv_dr_action_create_flow_meter.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_modify_header.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_packet_reformat.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_tag.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_destroy.3
+ mlx5dv_dr_flow.3 mlx5dv_dr_action_modify_flow_meter.3
  mlx5dv_dr_flow.3 mlx5dv_dr_domain_create.3
  mlx5dv_dr_flow.3 mlx5dv_dr_domain_destroy.3
  mlx5dv_dr_flow.3 mlx5dv_dr_domain_sync.3
