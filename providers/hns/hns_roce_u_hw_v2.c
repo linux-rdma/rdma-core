@@ -37,6 +37,8 @@
 #include "hns_roce_u_db.h"
 #include "hns_roce_u_hw_v2.h"
 
+static void *get_send_sge_ex(struct hns_roce_qp *qp, int n);
+
 static void set_data_seg_v2(struct hns_roce_v2_wqe_data_seg *dseg,
 			 struct ibv_sge *sg)
 {
@@ -45,16 +47,69 @@ static void set_data_seg_v2(struct hns_roce_v2_wqe_data_seg *dseg,
 	dseg->len = htole32(sg->length);
 }
 
-static void set_atomic_seg(struct hns_roce_wqe_atomic_seg *aseg,
-			   struct ibv_send_wr *wr)
+static void set_extend_atomic_seg(struct hns_roce_qp *qp,
+				  unsigned int atomic_buf,
+				  struct hns_roce_sge_info *sge_info,
+				  void *buf)
 {
-	if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
-		aseg->fetchadd_swap_data = htole64(wr->wr.atomic.swap);
-		aseg->cmp_data  = htole64(wr->wr.atomic.compare_add);
-	} else {
-		aseg->fetchadd_swap_data = htole64(wr->wr.atomic.compare_add);
-		aseg->cmp_data  = 0;
-	}
+	unsigned int sge_mask = qp->sge.sge_cnt - 1;
+	int i;
+
+	for (i = 0; i < atomic_buf; i++, sge_info->start_idx++)
+		memcpy(get_send_sge_ex(qp, sge_info->start_idx & sge_mask),
+		       buf + i * HNS_ROCE_SGE_SIZE, HNS_ROCE_SGE_SIZE);
+}
+
+static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
+			  unsigned int msg_len, void *dseg,
+			  struct hns_roce_sge_info *sge_info)
+{
+	struct hns_roce_wqe_atomic_seg *aseg;
+	unsigned int ext_sg_num;
+
+	aseg = dseg;
+
+	if (msg_len == STANDARD_ATOMIC_U_BYTE_8) {
+		if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
+			aseg->fetchadd_swap_data = htole64(wr->wr.atomic.swap);
+			aseg->cmp_data = htole64(wr->wr.atomic.compare_add);
+		} else {
+			aseg->fetchadd_swap_data =
+					htole64(wr->wr.atomic.compare_add);
+			aseg->cmp_data = 0;
+		}
+	} else if (msg_len == EXTEND_ATOMIC_U_BYTE_16 ||
+		   msg_len == EXTEND_ATOMIC_U_BYTE_32 ||
+		   msg_len == EXTEND_ATOMIC_U_BYTE_64) {
+		ext_sg_num = msg_len * DATA_TYPE_NUM >> HNS_ROCE_SGE_SHIFT;
+		aseg->fetchadd_swap_data = 0;
+		aseg->cmp_data = 0;
+		if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
+			if (!wr->wr.atomic.swap || !wr->wr.atomic.compare_add)
+				return -EINVAL;
+
+			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
+					      sge_info,
+					      (void *)wr->wr.atomic.swap);
+			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
+					      sge_info,
+					      (void *)wr->wr.atomic.compare_add);
+		} else {
+			uint8_t buf[EXTEND_ATOMIC_U_BYTE_64] = {};
+
+			if (!wr->wr.atomic.compare_add)
+				return -EINVAL;
+
+			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
+					      sge_info,
+					      (void *)wr->wr.atomic.compare_add);
+			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
+					      sge_info, buf);
+		}
+	} else
+		return -EINVAL;
+
+	return 0;
 }
 
 static void hns_roce_v2_handle_error_cqe(struct hns_roce_v2_cqe *cqe,
@@ -333,12 +388,12 @@ static void hns_roce_v2_get_opcode_from_sender(struct hns_roce_v2_cqe *cqe,
 		break;
 	case HNS_ROCE_SQ_OP_ATOMIC_COMP_AND_SWAP:
 		wc->opcode = IBV_WC_COMP_SWAP;
-		wc->byte_len  = 8;
+		wc->byte_len = le32toh(cqe->byte_cnt);
 		wc->wc_flags = 0;
 		break;
 	case HNS_ROCE_SQ_OP_ATOMIC_FETCH_AND_ADD:
 		wc->opcode = IBV_WC_FETCH_ADD;
-		wc->byte_len  = 8;
+		wc->byte_len = le32toh(cqe->byte_cnt);
 		wc->wc_flags = 0;
 		break;
 	case HNS_ROCE_SQ_OP_BIND_MW:
@@ -706,11 +761,17 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 		hr_op = HNS_ROCE_WQE_OP_ATOMIC_COM_AND_SWAP;
 		rc_sq_wqe->rkey = htole32(wr->wr.atomic.rkey);
 		rc_sq_wqe->va = htole64(wr->wr.atomic.remote_addr);
+		roce_set_field(rc_sq_wqe->byte_16, RC_SQ_WQE_BYTE_16_SGE_NUM_M,
+			       RC_SQ_WQE_BYTE_16_SGE_NUM_S,
+			       sge_info->valid_num);
 		break;
 	case IBV_WR_ATOMIC_FETCH_AND_ADD:
 		hr_op = HNS_ROCE_WQE_OP_ATOMIC_FETCH_AND_ADD;
 		rc_sq_wqe->rkey = htole32(wr->wr.atomic.rkey);
 		rc_sq_wqe->va = htole64(wr->wr.atomic.remote_addr);
+		roce_set_field(rc_sq_wqe->byte_16, RC_SQ_WQE_BYTE_16_SGE_NUM_M,
+			       RC_SQ_WQE_BYTE_16_SGE_NUM_S,
+			       sge_info->valid_num);
 		break;
 	default:
 		hr_op = HNS_ROCE_WQE_OP_MASK;
@@ -753,8 +814,8 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	if (wr->opcode == IBV_WR_ATOMIC_FETCH_AND_ADD ||
 	    wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
 		dseg++;
-		set_atomic_seg((struct hns_roce_wqe_atomic_seg *)dseg, wr);
-		return 0;
+		return set_atomic_seg(qp, wr, le32toh(rc_sq_wqe->msg_len),
+				      dseg, sge_info);
 	}
 
 	if (wr->send_flags & IBV_SEND_INLINE) {
