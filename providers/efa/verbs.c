@@ -1170,7 +1170,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	struct efa_ah *ah;
 	int err = 0;
 
-	pthread_spin_lock(&qp->sq.wq.wqlock);
+	mmio_wc_spinlock(&qp->sq.wq.wqlock);
 	while (wr) {
 		err = efa_post_send_validate_wr(qp, wr);
 		if (err) {
@@ -1214,9 +1214,13 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	}
 
 ring_db:
-	udma_to_device_barrier();
+	mmio_flush_writes();
 	mmio_write32(qp->sq.db, qp->sq.wq.desc_idx);
 
+	/*
+	 * Not using mmio_wc_spinunlock as the doorbell write should be done
+	 * inside the lock.
+	 */
 	pthread_spin_unlock(&qp->sq.wq.wqlock);
 	return err;
 }
@@ -1430,7 +1434,7 @@ static void efa_send_wr_start(struct ibv_qp_ex *ibvqpx)
 {
 	struct efa_qp *qp = to_efa_qp_ex(ibvqpx);
 
-	pthread_spin_lock(&qp->sq.wq.wqlock);
+	mmio_wc_spinlock(&qp->sq.wq.wqlock);
 	qp->wr_session_err = 0;
 	qp->sq.num_wqe_pending = 0;
 	qp->sq.phase_rb = qp->sq.wq.phase;
@@ -1476,9 +1480,13 @@ static int efa_send_wr_complete(struct ibv_qp_ex *ibvqpx)
 			      qp->sq.wq.desc_mask;
 	}
 
-	udma_to_device_barrier();
+	mmio_flush_writes();
 	mmio_write32(qp->sq.db, qp->sq.wq.desc_idx);
 out:
+	/*
+	 * Not using mmio_wc_spinunlock as the doorbell write should be done
+	 * inside the lock.
+	 */
 	pthread_spin_unlock(&qp->sq.wq.wqlock);
 
 	return qp->wr_session_err;
