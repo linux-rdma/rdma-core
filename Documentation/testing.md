@@ -49,16 +49,21 @@ valid RDMA resources for proper functioning.
 - traffic() runs <num> iterations of send/recv between 2 players.
 
 ## How to run rdma-core's tests
+#### Developers
+The tests can be executed from ./build/bin:
+./build.sh
+./build/bin/run_tests.py
+#### Users
 The tests are not a Python package, as such they can be found under
 /usr/share/doc/rdma-core-{version}/tests.
 In order to run all tests:
 ```
-cd /usr/share/doc/rdma-core-26.0/tests
-python3 run_tests.py
+python /usr/share/doc/rdma-core-<version>/tests/run_tests.py
 ```
+#### Execution output
 Output will be something like:
 ```
-$ python3 run_tests.py
+$ ./build/bin/run_tests.py
 ..........................................ss...............
 ----------------------------------------------------------------------
 Ran 59 tests in 13.268s
@@ -70,7 +75,7 @@ that failed.
 
 Tests can also be executed in verbose mode:
 ```
-$ python3 run_tests.py -v
+$ python3 /usr/share/doc/rdma-core-26.0/tests/run_tests.py -v
 test_create_ah (test_addr.AHTest) ... ok
 test_create_ah_roce (test_addr.AHTest) ... ok
 test_destroy_ah (test_addr.AHTest) ... ok
