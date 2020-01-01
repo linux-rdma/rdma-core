@@ -525,6 +525,14 @@ int rdma_reject(struct rdma_cm_id *id, const void *private_data,
 		uint8_t private_data_len);
 
 /**
+ * rdma_reject_ece - Called to reject a connection request with ECE
+ * rejected reason.
+ * The same as rdma_reject()
+ */
+int rdma_reject_ece(struct rdma_cm_id *id, const void *private_data,
+		uint8_t private_data_len);
+
+/**
  * rdma_notify - Notifies the librdmacm of an asynchronous event.
  * @id: RDMA identifier.
  * @event: Asynchronous event.

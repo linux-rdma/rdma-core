@@ -73,6 +73,10 @@ enum {
 	UCMA_CMD_JOIN_MCAST
 };
 
+enum ucm_abi_reject_reason {
+	RDMA_USER_CM_REJ_VENDOR_OPTION_NOT_SUPPORTED = 35
+};
+
 struct ucma_abi_cmd_hdr {
 	__u32 cmd;
 	__u16 in;
@@ -267,7 +271,8 @@ struct ucma_abi_reject {
 	__u16 out;
 	__u32 id;
 	__u8  private_data_len;
-	__u8  reserved[3];
+	__u8  reason; /* enum ucm_abi_reject_reason */
+	__u8  reserved[2];
 	__u8  private_data[RDMA_MAX_PRIVATE_DATA];
 };
 

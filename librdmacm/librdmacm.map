@@ -86,5 +86,6 @@ RDMACM_1.2 {
 RDMACM_1.3 {
 	global:
 		rdma_get_remote_ece;
+		rdma_reject_ece;
 		rdma_set_local_ece;
 } RDMACM_1.2;
