@@ -44,6 +44,7 @@ librdmacm.so.1 librdmacm1 #MINVER#
  rdma_migrate_id@RDMACM_1.0 1.0.15
  rdma_notify@RDMACM_1.0 1.0.15
  rdma_reject@RDMACM_1.0 1.0.15
+ rdma_reject_ece@RDMACM_1.3 31
  rdma_resolve_addr@RDMACM_1.0 1.0.15
  rdma_resolve_route@RDMACM_1.0 1.0.15
  rdma_set_local_ece@RDMACM_1.3 31

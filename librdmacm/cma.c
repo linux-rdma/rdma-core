@@ -1890,8 +1890,8 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	return ucma_complete(id);
 }
 
-int rdma_reject(struct rdma_cm_id *id, const void *private_data,
-		uint8_t private_data_len)
+static int reject_with_reason(struct rdma_cm_id *id, const void *private_data,
+			      uint8_t private_data_len, uint8_t reason)
 {
 	struct ucma_abi_reject cmd;
 	struct cma_id_private *id_priv;
@@ -1905,12 +1905,26 @@ int rdma_reject(struct rdma_cm_id *id, const void *private_data,
 		memcpy(cmd.private_data, private_data, private_data_len);
 		cmd.private_data_len = private_data_len;
 	}
+	cmd.reason = reason;
 
 	ret = write(id->channel->fd, &cmd, sizeof cmd);
 	if (ret != sizeof cmd)
 		return (ret >= 0) ? ERR(ENODATA) : -1;
 
 	return 0;
+}
+
+int rdma_reject(struct rdma_cm_id *id, const void *private_data,
+		uint8_t private_data_len)
+{
+	return reject_with_reason(id, private_data, private_data_len, 0);
+}
+
+int rdma_reject_ece(struct rdma_cm_id *id, const void *private_data,
+		    uint8_t private_data_len)
+{
+	/* IBTA defines CM_REJ_VENDOR_OPTION_NOT_SUPPORTED as 35 */
+	return reject_with_reason(id, private_data, private_data_len, 35);
 }
 
 int rdma_notify(struct rdma_cm_id *id, enum ibv_event_type event)
