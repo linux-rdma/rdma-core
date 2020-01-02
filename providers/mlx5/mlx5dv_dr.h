@@ -280,7 +280,7 @@ struct dr_ste_build {
 	uint8_t			bit_mask[DR_STE_SIZE_MASK];
 	int (*ste_build_tag_func)(struct dr_match_param *spec,
 				  struct dr_ste_build *sb,
-				  uint8_t *hw_ste_p);
+				  uint8_t *tag);
 };
 
 struct dr_ste_htbl *dr_ste_htbl_alloc(struct dr_icm_pool *pool,
