@@ -51,7 +51,7 @@ cdef class XRCD(PyverbsCM):
         self.xrcd = v.ibv_open_xrcd(<v.ibv_context*> context.context,
                                     &init_attr.attr)
         if self.xrcd == NULL:
-            raise PyverbsRDMAErrno('Failed to allocate XRCD', errno)
+            raise PyverbsRDMAErrno('Failed to allocate XRCD')
         self.ctx = context
         context.add_ref(self)
         self.logger.debug('XRCD: Allocated ibv_xrcd')
