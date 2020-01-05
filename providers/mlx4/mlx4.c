@@ -43,6 +43,8 @@
 #include "mlx4.h"
 #include "mlx4-abi.h"
 
+static void mlx4_free_context(struct ibv_context *ibv_ctx);
+
 #ifndef PCI_VENDOR_ID_MELLANOX
 #define PCI_VENDOR_ID_MELLANOX			0x15b3
 #endif
@@ -131,6 +133,7 @@ static const struct verbs_context_ops mlx4_ctx_ops = {
 	.open_xrcd = mlx4_open_xrcd,
 	.query_device_ex = mlx4_query_device_ex,
 	.query_rt_values = mlx4_query_rt_values,
+	.free_context = mlx4_free_context,
 };
 
 static int mlx4_map_internal_clock(struct mlx4_device *mdev,
@@ -302,7 +305,6 @@ static const struct verbs_device_ops mlx4_dev_ops = {
 	.alloc_device = mlx4_device_alloc,
 	.uninit_device = mlx4_uninit_device,
 	.alloc_context = mlx4_alloc_context,
-	.free_context = mlx4_free_context,
 };
 PROVIDER_DRIVER(mlx4, mlx4_dev_ops);
 

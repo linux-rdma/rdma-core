@@ -50,6 +50,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+static void ocrdma_free_context(struct ibv_context *ibctx);
+
 #define PCI_VENDOR_ID_EMULEX		0x10DF
 #define PCI_DEVICE_ID_EMULEX_GEN1	0xe220
 #define PCI_DEVICE_ID_EMULEX_GEN2        0x720
@@ -93,7 +95,8 @@ static const struct verbs_context_ops ocrdma_ctx_ops = {
 	.destroy_srq = ocrdma_destroy_srq,
 	.post_srq_recv = ocrdma_post_srq_recv,
 	.attach_mcast = ocrdma_attach_mcast,
-	.detach_mcast = ocrdma_detach_mcast
+	.detach_mcast = ocrdma_detach_mcast,
+	.free_context = ocrdma_free_context,
 };
 
 static void ocrdma_uninit_device(struct verbs_device *verbs_device)
@@ -194,6 +197,5 @@ static const struct verbs_device_ops ocrdma_dev_ops = {
 	.alloc_device = ocrdma_device_alloc,
 	.uninit_device = ocrdma_uninit_device,
 	.alloc_context = ocrdma_alloc_context,
-	.free_context = ocrdma_free_context,
 };
 PROVIDER_DRIVER(ocrdma, ocrdma_dev_ops);

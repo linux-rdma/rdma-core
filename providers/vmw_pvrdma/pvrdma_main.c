@@ -45,6 +45,8 @@
 
 #include "pvrdma.h"
 
+static void pvrdma_free_context(struct ibv_context *ibctx);
+
 /*
  * VMware PVRDMA vendor id and PCI device id.
  */
@@ -52,6 +54,7 @@
 #define PCI_DEVICE_ID_VMWARE_PVRDMA	0x0820
 
 static const struct verbs_context_ops pvrdma_ctx_ops = {
+	.free_context = pvrdma_free_context,
 	.query_device = pvrdma_query_device,
 	.query_port = pvrdma_query_port,
 	.alloc_pd = pvrdma_alloc_pd,
@@ -208,6 +211,5 @@ static const struct verbs_device_ops pvrdma_dev_ops = {
 	.alloc_device = pvrdma_device_alloc,
 	.uninit_device = pvrdma_uninit_device,
 	.alloc_context = pvrdma_alloc_context,
-	.free_context  = pvrdma_free_context,
 };
 PROVIDER_DRIVER(vmw_pvrdma, pvrdma_dev_ops);

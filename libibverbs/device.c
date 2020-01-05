@@ -379,10 +379,9 @@ LATEST_SYMVER_FUNC(ibv_close_device, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_context *context)
 {
-	struct verbs_device *verbs_device = verbs_get_device(context->device);
+	const struct verbs_context_ops *ops = get_ops(context);
 
-	verbs_device->ops->free_context(context);
-
+	ops->free_context(context);
 	return 0;
 }
 

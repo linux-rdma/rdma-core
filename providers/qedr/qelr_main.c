@@ -48,6 +48,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+static void qelr_free_context(struct ibv_context *ibctx);
+
 #define PCI_VENDOR_ID_QLOGIC           (0x1077)
 #define PCI_DEVICE_ID_QLOGIC_57980S    (0x1629)
 #define PCI_DEVICE_ID_QLOGIC_57980S_40 (0x1634)
@@ -104,6 +106,7 @@ static const struct verbs_context_ops qelr_ctx_ops = {
 	.post_send = qelr_post_send,
 	.post_recv = qelr_post_recv,
 	.async_event = qelr_async_event,
+	.free_context = qelr_free_context,
 };
 
 static void qelr_uninit_device(struct verbs_device *verbs_device)
@@ -271,6 +274,5 @@ static const struct verbs_device_ops qelr_dev_ops = {
 	.alloc_device = qelr_device_alloc,
 	.uninit_device = qelr_uninit_device,
 	.alloc_context = qelr_alloc_context,
-	.free_context = qelr_free_context,
 };
 PROVIDER_DRIVER(qedr, qelr_dev_ops);

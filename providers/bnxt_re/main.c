@@ -50,6 +50,8 @@
 #include "main.h"
 #include "verbs.h"
 
+static void bnxt_re_free_context(struct ibv_context *ibvctx);
+
 #define PCI_VENDOR_ID_BROADCOM		0x14E4
 
 #define CNA(v, d) VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, d, NULL)
@@ -113,7 +115,8 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 	.post_send     = bnxt_re_post_send,
 	.post_recv     = bnxt_re_post_recv,
 	.create_ah     = bnxt_re_create_ah,
-	.destroy_ah    = bnxt_re_destroy_ah
+	.destroy_ah    = bnxt_re_destroy_ah,
+	.free_context  = bnxt_re_free_context,
 };
 
 bool bnxt_re_is_chip_gen_p5(struct bnxt_re_chip_ctx *cctx)
@@ -218,6 +221,5 @@ static const struct verbs_device_ops bnxt_re_dev_ops = {
 	.match_table = cna_table,
 	.alloc_device = bnxt_re_device_alloc,
 	.alloc_context = bnxt_re_alloc_context,
-	.free_context = bnxt_re_free_context,
 };
 PROVIDER_DRIVER(bnxt_re, bnxt_re_dev_ops);
