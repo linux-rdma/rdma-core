@@ -4,10 +4,12 @@
 import unittest
 import tempfile
 import random
+import errno
 import stat
 import os
 
 from pyverbs.qp import QPCap, QPInitAttrEx, QPInitAttr, QPAttr, QP
+from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.addr import AHAttr, GlobalRoute
 from pyverbs.xrcd import XRCD, XRCDInitAttr
 from pyverbs.srq import SRQ, SrqInitAttrEx
@@ -408,7 +410,12 @@ class XRCResources(TrafficResources):
         init = XRCDInitAttr(
             e.IBV_XRCD_INIT_ATTR_FD | e.IBV_XRCD_INIT_ATTR_OFLAGS,
             os.O_CREAT, self.xrcd_fd)
-        self.xrcd = XRCD(self.ctx, init)
+        try:
+            self.xrcd = XRCD(self.ctx, init)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Create XRCD is not supported')
+            raise ex
 
     def create_srq(self):
         """
