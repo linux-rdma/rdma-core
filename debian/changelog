@@ -1,3 +1,13 @@
+rdma-core (27.0-2) unstable; urgency=medium
+
+  [ Debian Janitor ]
+  * Set upstream metadata fields: Repository, Repository-Browse.
+
+  [ Benjamin Drung ]
+  * debian: Remove obsolete ibverbs-providers conffiles (Closes: #947307)
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Mon, 06 Jan 2020 13:23:44 +0100
+
 rdma-core (27.0-1) unstable; urgency=medium
 
   * New upstream release
