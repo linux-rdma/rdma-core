@@ -1,0 +1,2 @@
+rm_conffile /etc/libibverbs.d/nes.driver 27.0-2~
+rm_conffile /etc/libibverbs.d/cxgb3.driver 27.0-2~
