@@ -541,6 +541,7 @@ enum {
 
 enum mlx5_ifc_steering_format_version {
 	MLX5_HW_CONNECTX_5 = 0x0,
+	MLX5_HW_CONNECTX_6DX = 0x1,
 };
 
 struct mlx5_ifc_cmd_hca_cap_bits {
@@ -855,7 +856,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 
 	u8         general_obj_types[0x40];
 
-	u8         reserved_at_440[0x8];
+	u8         reserved_at_440[0x4];
+	u8         steering_format_version[0x4];
 	u8         create_qp_start_hint[0x18];
 
 	u8         reserved_at_460[0x10];

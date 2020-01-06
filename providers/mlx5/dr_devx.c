@@ -155,6 +155,9 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 	roce = DEVX_GET(query_hca_cap_out, out,
 			capability.cmd_hca_cap.roce);
 
+	caps->sw_format_ver = DEVX_GET(query_hca_cap_out, out,
+				       capability.cmd_hca_cap.steering_format_version);
+
 	if (caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V4_ENABLED) {
 		caps->flex_parser_id_icmp_dw0 =
 			DEVX_GET(query_hca_cap_out,

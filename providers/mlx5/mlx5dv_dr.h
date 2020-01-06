@@ -622,6 +622,7 @@ struct dr_devx_caps {
 	uint8_t				flex_parser_id_icmpv6_dw0;
 	uint8_t				flex_parser_id_icmpv6_dw1;
 	uint8_t				max_ft_level;
+	uint8_t				sw_format_ver;
 	bool				eswitch_manager;
 	bool				rx_sw_owner;
 	bool				tx_sw_owner;
