@@ -11,6 +11,7 @@ rdma_python_test(tests
   test_cq_events.py
   test_cqex.py
   test_device.py
+  test_efadv.py
   test_mlx5_pp.py
   test_mlx5_var.py
   test_mr.py
