@@ -580,6 +580,7 @@ enum ibv_access_flags {
 	IBV_ACCESS_MW_BIND		= (1<<4),
 	IBV_ACCESS_ZERO_BASED		= (1<<5),
 	IBV_ACCESS_ON_DEMAND		= (1<<6),
+	IBV_ACCESS_HUGETLB		= (1<<7),
 };
 
 struct ibv_mw_bind_info {

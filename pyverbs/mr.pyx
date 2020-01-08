@@ -4,14 +4,22 @@
 import resource
 import logging
 
+from posix.mman cimport mmap, munmap, MAP_PRIVATE, PROT_READ, PROT_WRITE, \
+    MAP_ANONYMOUS, MAP_HUGETLB
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
 from posix.stdlib cimport posix_memalign
 from libc.string cimport memcpy, memset
+cimport pyverbs.libibverbs_enums as e
 from libc.stdint cimport uintptr_t
 from pyverbs.device cimport DM
 from libc.stdlib cimport free
 from .pd cimport PD
+
+cdef extern from 'sys/mman.h':
+    cdef void* MAP_FAILED
+
+HUGE_PAGE_SIZE = 0x200000
 
 
 cdef class MR(PyverbsCM):
@@ -19,27 +27,47 @@ cdef class MR(PyverbsCM):
     MR class represents ibv_mr. Buffer allocation in done in the c'tor. Freeing
     it is done in close().
     """
-    def __init__(self, PD pd not None, length, access):
+    def __init__(self, PD pd not None, length, access, address=None):
         """
         Allocate a user-level buffer of length <length> and register a Memory
         Region of the given length and access flags.
         :param pd: A PD object
         :param length: Length in bytes
         :param access: Access flags, see ibv_access_flags enum
+        :param address: Memory address to register (Optional). If it's not
+                        provided, a memory will be allocated in the class
+                        initialization.
         :return: The newly created MR on success
         """
         super().__init__()
         if self.mr != NULL:
             return
-        #We want to enable registering an MR of size 0 but this fails with a
-        #buffer of size 0, so in this case lets increase the buffer
+        self.is_huge = True if access & e.IBV_ACCESS_HUGETLB else False
+        # We want to enable registering an MR of size 0 but this fails with a
+        # buffer of size 0, so in this case lets increase the buffer
         if length == 0:
             length = 10
-        rc = posix_memalign(&self.buf, resource.getpagesize(), length)
-        if rc:
-            raise PyverbsRDMAError('Failed to allocate MR buffer of size {l}'.
-                                   format(l=length))
-        memset(self.buf, 0, length)
+        if address:
+            self.is_user_addr = True
+            # uintptr_t is guaranteed to be large enough to hold any pointer.
+            # In order to safely cast addr to void*, it is firstly cast to uintptr_t.
+            self.buf = <void*><uintptr_t>address
+        else:
+            if self.is_huge:
+                # Rounding up to multiple of HUGE_PAGE_SIZE
+                self.mmap_length = length + (HUGE_PAGE_SIZE - length % HUGE_PAGE_SIZE) \
+                    if length % HUGE_PAGE_SIZE else length
+                self.buf = mmap(NULL, self.mmap_length, PROT_READ | PROT_WRITE,
+                                MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0)
+                if self.buf == MAP_FAILED:
+                    raise PyverbsError('Failed to allocate MR buffer of size {l}'.
+                                       format(l=length))
+            else:
+                rc = posix_memalign(&self.buf, resource.getpagesize(), length)
+                if rc:
+                    raise PyverbsError('Failed to allocate MR buffer of size {l}'.
+                                       format(l=length))
+            memset(self.buf, 0, length)
         self.mr = v.ibv_reg_mr(<v.ibv_pd*>pd.pd, self.buf, length, access)
         if self.mr == NULL:
             raise PyverbsRDMAErrno('Failed to register a MR. length: {l}, access flags: {a}'.
@@ -67,7 +95,11 @@ cdef class MR(PyverbsCM):
                 raise PyverbsRDMAErrno('Failed to dereg MR')
             self.mr = NULL
             self.pd = None
-        free(self.buf)
+        if not self.is_user_addr:
+            if self.is_huge:
+                munmap(self.buf, self.mmap_length)
+            else:
+                free(self.buf)
         self.buf = NULL
 
     def write(self, data, length):

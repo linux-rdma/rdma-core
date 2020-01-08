@@ -7,6 +7,7 @@ from itertools import combinations as com
 from string import ascii_lowercase as al
 import unittest
 import random
+import os
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.addr import AHAttr, AH, GlobalRoute
@@ -499,3 +500,25 @@ def odp_supported(ctx, qp_type):
         raise unittest.SkipTest('ODP is not supported - ODP send not supported')
     if has_odp_recv == 0:
         raise unittest.SkipTest('ODP is not supported - ODP recv not supported')
+
+
+def requires_huge_pages():
+    def outer(func):
+        def inner(instance):
+            huge_pages_supported()
+            return func(instance)
+        return inner
+    return outer
+
+
+def huge_pages_supported():
+    """
+    Check if huge pages are supported in the kernel.
+    :return: None
+    """
+    huge_path = '/sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages'
+    if not os.path.isfile(huge_path):
+        raise unittest.SkipTest('Huge pages of size 2M is not supported in this platform')
+    with open(huge_path, 'r') as f:
+        if not int(f.read()):
+            raise unittest.SkipTest('There are no huge pages of size 2M allocated')
