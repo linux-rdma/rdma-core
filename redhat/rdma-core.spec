@@ -640,9 +640,9 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_sbindir}/run_srp_daemon
 %{_udevrulesdir}/60-srp_daemon.rules
 %{_mandir}/man1/ibsrpdm.1*
-%{_mandir}/man1/srp_daemon.1*
 %{_mandir}/man5/srp_daemon.service.5*
 %{_mandir}/man5/srp_daemon_port@.service.5*
+%{_mandir}/man8/srp_daemon.8*
 %doc %{_docdir}/%{name}-%{version}/ibsrpdm.md
 
 %if %{with_pyverbs}

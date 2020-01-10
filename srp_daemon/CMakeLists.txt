@@ -2,7 +2,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${NO_STRICT_ALIASING_FLAGS}")
 
 rdma_man_pages(
   ibsrpdm.1
-  srp_daemon.1.in
+  srp_daemon.8.in
   srp_daemon.service.5
   srp_daemon_port@.service.5
   )
