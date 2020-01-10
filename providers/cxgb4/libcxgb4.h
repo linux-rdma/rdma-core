@@ -257,11 +257,6 @@ void c4iw_flush_srqidx(struct c4iw_qp *qhp, u32 srqidx);
 #define FW_MAJ 0
 #define FW_MIN 0
 
-static inline unsigned long align(unsigned long val, unsigned long align)
-{
-	return (val + align - 1) & ~(align - 1);
-}
-
 #ifdef STATS
 
 #define INC_STAT(a) { c4iw_stats.a++; }

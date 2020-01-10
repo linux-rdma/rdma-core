@@ -188,6 +188,28 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 	ctx->kernel_page_size = sysconf(_SC_PAGESIZE);
 	ctx->db_pa = resp.db_pa;
 	ctx->db_size = resp.db_size;
+
+	/* Set dpm flags according to protocol */
+	if (IS_ROCE(ibdev)) {
+		if (resp.dpm_flags & QEDR_DPM_TYPE_ROCE_ENHANCED)
+			ctx->dpm_flags = QELR_DPM_FLAGS_ENHANCED;
+
+		if (resp.dpm_flags & QEDR_DPM_TYPE_ROCE_LEGACY)
+			ctx->dpm_flags |= QELR_DPM_FLAGS_LEGACY;
+	} else {
+		if (resp.dpm_flags & QEDR_DPM_TYPE_IWARP_LEGACY)
+			ctx->dpm_flags = QELR_DPM_FLAGS_LEGACY;
+	}
+
+	/* Defaults set for backward-forward compatibility */
+	if (resp.dpm_flags & QEDR_DPM_SIZES_SET) {
+		ctx->ldpm_limit_size = resp.ldpm_limit_size;
+		ctx->edpm_trans_size = resp.edpm_trans_size;
+	} else {
+		ctx->ldpm_limit_size = QEDR_LDPM_MAX_SIZE;
+		ctx->edpm_trans_size = QEDR_EDPM_TRANS_SIZE;
+	}
+
 	ctx->max_send_wr = resp.max_send_wr;
 	ctx->max_recv_wr = resp.max_recv_wr;
 	ctx->max_srq_wr = resp.max_srq_wr;

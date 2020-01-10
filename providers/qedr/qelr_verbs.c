@@ -49,16 +49,14 @@
 #include "qelr_chain.h"
 #include "qelr_verbs.h"
 #include <util/compiler.h>
-
+#include <util/util.h>
+#include <util/mmio.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #define QELR_SQE_ELEMENT_SIZE	(sizeof(struct rdma_sq_sge))
 #define QELR_RQE_ELEMENT_SIZE	(sizeof(struct rdma_rq_sge))
 #define QELR_CQE_SIZE		(sizeof(union rdma_cqe))
-
-#define IS_IWARP(_dev)		(_dev->node_type == IBV_NODE_RNIC)
-#define IS_ROCE(_dev)		(_dev->node_type == IBV_NODE_CA)
 
 static void qelr_inc_sw_cons_u16(struct qelr_qp_hwq_info *info)
 {
@@ -1091,16 +1089,27 @@ static inline void qelr_init_dpm_info(struct qelr_devctx *cxt,
 				      int data_size)
 {
 	dpm->is_edpm = 0;
+	dpm->is_ldpm = 0;
 
-	/* Currently dpm is not supported for iWARP */
-	if (IS_IWARP(cxt->ibv_ctx.context.device))
+	/* DPM only succeeds when transmit queues are empty */
+	if (!qelr_chain_is_full(&qp->sq.chain))
 		return;
 
-	if (qelr_chain_is_full(&qp->sq.chain) &&
-	    wr->send_flags & IBV_SEND_INLINE && !qp->edpm_disabled) {
+	/* Check if edpm can be used */
+	if (wr->send_flags & IBV_SEND_INLINE && !qp->edpm_disabled &&
+	    cxt->dpm_flags & QELR_DPM_FLAGS_ENHANCED) {
 		memset(dpm, 0, sizeof(*dpm));
 		dpm->rdma_ext = (struct qelr_rdma_ext *)&dpm->payload;
 		dpm->is_edpm = 1;
+		return;
+	}
+
+	 /* Check if ldpm can be used - not inline and limited to ldpm_limit */
+	if (cxt->dpm_flags & QELR_DPM_FLAGS_LEGACY &&
+	    !(wr->send_flags & IBV_SEND_INLINE) &&
+	    data_size <= cxt->ldpm_limit_size) {
+		memset(dpm, 0, sizeof(*dpm));
+		dpm->is_ldpm = 1;
 	}
 }
 
@@ -1252,6 +1261,12 @@ static void qelr_prepare_sq_sges(struct qelr_qp *qp,
 		TYPEPTR_ADDR_SET(sge, addr, wr->sg_list[i].addr);
 		sge->l_key = htole32(wr->sg_list[i].lkey);
 		sge->length = htole32(wr->sg_list[i].length);
+
+		if (dpm->is_ldpm) {
+			memcpy(&dpm->payload[dpm->payload_size], sge,
+			       sizeof(*sge));
+			dpm->payload_size += sizeof(*sge);
+		}
 	}
 
 	if (wqe_size)
@@ -1286,8 +1301,16 @@ static uint32_t qelr_prepare_sq_rdma_data(struct qelr_qp *qp,
 					    &rwqe->flags, flags);
 		rwqe->wqe_size = *p_wqe_size;
 	} else {
+		if (dpm->is_ldpm)
+			dpm->payload_size = sizeof(*rwqe) + sizeof(*rwqe2);
 		qelr_prepare_sq_sges(qp, dpm, p_wqe_size, wr);
 		rwqe->wqe_size = *p_wqe_size;
+
+		if (dpm->is_ldpm) {
+			memcpy(dpm->payload, rwqe, sizeof(*rwqe));
+			memcpy(&dpm->payload[sizeof(*rwqe)], rwqe2,
+			       sizeof(*rwqe2));
+		}
 	}
 
 	return data_size;
@@ -1317,11 +1340,54 @@ static uint32_t qelr_prepare_sq_send_data(struct qelr_qp *qp,
 					    &swqe->flags, flags);
 		swqe->wqe_size = *p_wqe_size;
 	} else {
+		if (dpm->is_ldpm)
+			dpm->payload_size = sizeof(*swqe) + sizeof(*swqe2);
+
 		qelr_prepare_sq_sges(qp, dpm, p_wqe_size, wr);
 		swqe->wqe_size = *p_wqe_size;
+		if (dpm->is_ldpm) {
+			memcpy(dpm->payload, swqe, sizeof(*swqe));
+			memcpy(&dpm->payload[sizeof(*swqe)], swqe2,
+			       sizeof(*swqe2));
+		}
 	}
 
 	return data_size;
+}
+
+static void qelr_prepare_sq_atom_data(struct qelr_qp *qp,
+				      struct qelr_dpm *dpm,
+				      struct rdma_sq_atomic_wqe_1st *awqe1,
+				      struct rdma_sq_atomic_wqe_2nd *awqe2,
+				      struct rdma_sq_atomic_wqe_3rd *awqe3,
+				      struct ibv_send_wr *wr)
+{
+	if (dpm->is_ldpm) {
+		memcpy(&dpm->payload[dpm->payload_size], awqe1, sizeof(*awqe1));
+		dpm->payload_size += sizeof(*awqe1);
+		memcpy(&dpm->payload[dpm->payload_size], awqe2, sizeof(*awqe2));
+		dpm->payload_size += sizeof(*awqe2);
+		memcpy(&dpm->payload[dpm->payload_size], awqe3, sizeof(*awqe3));
+		dpm->payload_size += sizeof(*awqe3);
+	}
+
+	qelr_prepare_sq_sges(qp, dpm, NULL, wr);
+}
+
+static inline void qelr_ldpm_prepare_data(struct qelr_qp *qp,
+					  struct qelr_dpm *dpm)
+{
+	uint32_t val, params;
+
+	/* DPM size is given in 8 bytes so we round up */
+	val = dpm->payload_size + sizeof(struct db_roce_dpm_data);
+	val = DIV_ROUND_UP(val, sizeof(uint64_t));
+
+	params = 0;
+	SET_FIELD(params, DB_ROCE_DPM_PARAMS_SIZE, val);
+	SET_FIELD(params, DB_ROCE_DPM_PARAMS_DPM_TYPE, DPM_LEGACY);
+
+	dpm->msg.data.params.params = htole32(params);
 }
 
 static enum ibv_wc_opcode qelr_ibv_to_wc_opcode(enum ibv_wr_opcode opcode)
@@ -1358,7 +1424,6 @@ static inline void doorbell_dpm_qp(struct qelr_devctx *cxt, struct qelr_qp *qp,
 				   struct qelr_dpm *dpm)
 {
 	uint32_t offset = 0;
-	uint64_t data;
 	uint64_t *payload = (uint64_t *)dpm->payload;
 	uint32_t num_dwords;
 	int bytes = 0;
@@ -1372,25 +1437,32 @@ static inline void doorbell_dpm_qp(struct qelr_devctx *cxt, struct qelr_qp *qp,
 	db_addr = qp->sq.edpm_db;
 	writeq(dpm->msg.raw, db_addr);
 
-
 	/* Write mesage body */
 	bytes += sizeof(uint64_t);
-	num_dwords = (dpm->payload_size + sizeof(uint64_t) - 1) /
-		sizeof(uint64_t);
+	num_dwords = DIV_ROUND_UP(dpm->payload_size, sizeof(uint64_t));
+
 	db_addr += sizeof(dpm->msg.data);
 
+	if (bytes == cxt->edpm_trans_size) {
+		mmio_flush_writes();
+		bytes = 0;
+	}
+
 	while (offset < num_dwords) {
-		data = payload[offset];
-		writeq(data, db_addr);
+		/* endianity is different between FW and DORQ HW block */
+		if (dpm->is_ldpm)
+			mmio_write64_be(db_addr, htobe64(payload[offset]));
+		else /* EDPM */
+			mmio_write64(db_addr, payload[offset]);
 
 		bytes += sizeof(uint64_t);
 		db_addr += sizeof(uint64_t);
 
-		/* Since we rewrite the buffer every 64 bytes we need to flush
-		 * it here, otherwise the CPU could optimize away the
-		 * duplicate stores.
+		/* Writing to a wc bar. We need to flush the writes every
+		 * edpm transaction size otherwise the CPU could optimize away
+		 * the duplicate stores.
 		 */
-		if (bytes == 64) {
+		if (bytes == cxt->edpm_trans_size) {
 			mmio_flush_writes();
 			bytes = 0;
 		}
@@ -1504,6 +1576,8 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 			qelr_edpm_set_msg_data(qp, &dpm,
 					       QELR_IB_OPCODE_SEND_ONLY_WITH_IMMEDIATE,
 					       wqe_length, se, comp);
+		else if (dpm.is_ldpm)
+			qelr_ldpm_prepare_data(qp, &dpm);
 
 		qp->wqe_wr_id[qp->sq.prod].wqe_size = wqe_size;
 		qp->prev_wqe_size = wqe_size;
@@ -1519,11 +1593,12 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 		wqe_length = qelr_prepare_sq_send_data(qp, &dpm, data_size,
 						       &wqe_size, swqe, swqe2,
 						       wr, 0);
-
 		if (dpm.is_edpm)
 			qelr_edpm_set_msg_data(qp, &dpm,
 					       QELR_IB_OPCODE_SEND_ONLY,
 					       wqe_length, se, comp);
+		else if (dpm.is_ldpm)
+			qelr_ldpm_prepare_data(qp, &dpm);
 
 		qp->wqe_wr_id[qp->sq.prod].wqe_size = wqe_size;
 		qp->prev_wqe_size = wqe_size;
@@ -1551,6 +1626,8 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 			qelr_edpm_set_msg_data(qp, &dpm,
 					       QELR_IB_OPCODE_SEND_WITH_INV,
 					       wqe_length, se, comp);
+		else if (dpm.is_ldpm)
+			qelr_ldpm_prepare_data(qp, &dpm);
 
 		qp->wqe_wr_id[qp->sq.prod].wqe_size = wqe_size;
 		qp->prev_wqe_size = wqe_size;
@@ -1577,6 +1654,9 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 					       QELR_IB_OPCODE_RDMA_WRITE_ONLY_WITH_IMMEDIATE,
 					       wqe_length + sizeof(*dpm.rdma_ext),
 					       se, comp);
+		else if (dpm.is_ldpm)
+			qelr_ldpm_prepare_data(qp, &dpm);
+
 		qp->wqe_wr_id[qp->sq.prod].wqe_size = wqe_size;
 		qp->prev_wqe_size = wqe_size;
 		qp->wqe_wr_id[qp->sq.prod].bytes_len = wqe_length;
@@ -1601,6 +1681,9 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 					       wqe_length +
 					       sizeof(*dpm.rdma_ext),
 					       se, comp);
+		else if (dpm.is_ldpm)
+			qelr_ldpm_prepare_data(qp, &dpm);
+
 		qp->wqe_wr_id[qp->sq.prod].wqe_size = wqe_size;
 		qp->prev_wqe_size = wqe_size;
 		qp->wqe_wr_id[qp->sq.prod].bytes_len = wqe_length;
@@ -1614,6 +1697,9 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 		rwqe2 = (struct rdma_sq_rdma_wqe_2nd *)qelr_chain_produce(&qp->sq.chain);
 		wqe_length = qelr_prepare_sq_rdma_data(qp, &dpm, data_size, &wqe_size,
 						       rwqe, rwqe2, wr, 0);
+		if (dpm.is_ldpm)
+			qelr_ldpm_prepare_data(qp, &dpm);
+
 		qp->wqe_wr_id[qp->sq.prod].wqe_size = wqe_size;
 		qp->prev_wqe_size = wqe_size;
 		qp->wqe_wr_id[qp->sq.prod].bytes_len = wqe_length;
@@ -1639,8 +1725,9 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 			TYPEPTR_ADDR_SET(awqe3, cmp_data, wr->wr.atomic.compare_add);
 		}
 
-		qelr_prepare_sq_sges(qp, &dpm, NULL, wr);
-
+		qelr_prepare_sq_atom_data(qp, &dpm, awqe1, awqe2, awqe3, wr);
+		if (dpm.is_ldpm)
+			qelr_ldpm_prepare_data(qp, &dpm);
 		qp->wqe_wr_id[qp->sq.prod].wqe_size = awqe1->wqe_size;
 		qp->prev_wqe_size = awqe1->wqe_size;
 
@@ -1670,7 +1757,7 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 	db_val = le16toh(qp->sq.db_data.data.value) + 1;
 	qp->sq.db_data.data.value = htole16(db_val);
 
-	if (dpm.is_edpm) {
+	if (dpm.is_edpm || dpm.is_ldpm) {
 		doorbell_dpm_qp(cxt, qp, &dpm);
 		*normal_db_required = 0;
 	} else {

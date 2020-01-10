@@ -671,11 +671,6 @@ extern int mlx5_stall_cq_inc_step;
 extern int mlx5_stall_cq_dec_step;
 extern int mlx5_single_threaded;
 
-static inline unsigned DIV_ROUND_UP(unsigned n, unsigned d)
-{
-	return (n + d - 1u) / d;
-}
-
 #define to_mxxx(xxx, type) container_of(ib##xxx, struct mlx5_##type, ibv_##xxx)
 
 static inline struct mlx5_device *to_mdev(struct ibv_device *ibdev)
