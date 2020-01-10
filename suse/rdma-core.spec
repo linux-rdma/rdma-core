@@ -858,6 +858,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %if %{with_pyverbs}
 %files -n python3-pyverbs
 %{python3_sitearch}/pyverbs
+%dir %{_docdir}/%{name}-%{version}/tests/
 %{_docdir}/%{name}-%{version}/tests/*.py
 %endif
 
