@@ -333,14 +333,19 @@ def poll_cq(cq, count=1):
     :return: An array of work completions of length <count>, None
              when events are used
     """
-    wcs = None
+    wcs = []
+    channel = cq.comp_channel
     while count > 0:
-        nc, wcs = cq.poll(count)
-        for wc in wcs:
+        if channel:
+            channel.get_cq_event(cq)
+            cq.req_notify()
+        nc, tmp_wcs = cq.poll(count)
+        for wc in tmp_wcs:
             if wc.status != e.IBV_WC_SUCCESS:
                 raise PyverbsRDMAError('Completion status is {s}'.
                                        format(s=wc_status_to_str(wc.status)))
         count -= nc
+        wcs.extend(tmp_wcs)
     return wcs
 
 

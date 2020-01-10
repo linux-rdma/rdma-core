@@ -47,7 +47,7 @@ cdef class CompChannel(PyverbsCM):
     def get_cq_event(self, CQ expected_cq):
         """
         Waits for the next completion event in the completion event channel
-        :param expected_cq: The CQ that got the event
+        :param expected_cq: The CQ that is expected to get the event
         :return: None
         """
         cdef v.ibv_cq *cq
@@ -58,6 +58,7 @@ cdef class CompChannel(PyverbsCM):
             raise PyverbsRDMAErrno('Failed to get CQ event')
         if cq != expected_cq.cq:
             raise PyverbsRDMAErrno('Received event on an unexpected CQ')
+        expected_cq.num_events += 1
 
     cdef add_ref(self, obj):
         if isinstance(obj, CQ) or isinstance(obj, CQEX):
@@ -87,15 +88,18 @@ cdef class CQ(PyverbsCM):
             self.cq = v.ibv_create_cq(context.context, cqe, <void*>cq_context,
                                       channel.cc, comp_vector)
             channel.add_ref(self)
+            self.channel = channel
         else:
             self.cq = v.ibv_create_cq(context.context, cqe, <void*>cq_context,
                                       NULL, comp_vector)
+            self.channel = None
         if self.cq == NULL:
             raise PyverbsRDMAErrno('Failed to create a CQ')
         self.context = context
         context.add_ref(self)
         self.qps = weakref.WeakSet()
         self.srqs = weakref.WeakSet()
+        self.num_events = 0
         self.logger.debug('Created a CQ')
 
     cdef add_ref(self, obj):
@@ -112,12 +116,15 @@ cdef class CQ(PyverbsCM):
     cpdef close(self):
         self.logger.debug('Closing CQ')
         close_weakrefs([self.qps, self.srqs])
+        if self.num_events:
+            self.ack_events(self.num_events)
         if self.cq != NULL:
             rc = v.ibv_destroy_cq(self.cq)
             if rc != 0:
                 raise PyverbsRDMAErrno('Failed to close CQ')
             self.cq = NULL
             self.context = None
+            self.channel = None
 
     def poll(self, num_entries=1):
         """
@@ -166,12 +173,17 @@ cdef class CQ(PyverbsCM):
         :return: None
         """
         v.ibv_ack_cq_events(self.cq, num_events)
+        self.num_events -= num_events
 
     def __str__(self):
         print_format = '{:22}: {:<20}\n'
         return 'CQ\n' +\
                print_format.format('Handle', self.cq.handle) +\
                print_format.format('CQEs', self.cq.cqe)
+
+    @property
+    def comp_channel(self):
+        return self.channel
 
 
 cdef class CqInitAttrEx(PyverbsObject):
