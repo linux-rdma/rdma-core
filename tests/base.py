@@ -8,12 +8,12 @@ import errno
 import stat
 import os
 
+from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
 from pyverbs.qp import QPCap, QPInitAttrEx, QPInitAttr, QPAttr, QP
-from pyverbs.pyverbs_error import PyverbsRDMAError
+from pyverbs.cmid import CMID, AddrInfo, CMEventChannel, ConnParam
 from pyverbs.addr import AHAttr, GlobalRoute
 from pyverbs.xrcd import XRCD, XRCDInitAttr
 from pyverbs.srq import SRQ, SrqInitAttrEx
-from pyverbs.cmid import CMID, AddrInfo
 from pyverbs.device import Context
 import pyverbs.cm_enums as ce
 import pyverbs.device as d
@@ -163,17 +163,22 @@ class CMResources:
                Destination address to connect (for active side)
             * *port* (str)
                 Port number of the address
+            * *is_async* (bool)
+                A flag which indicates if its asynchronous RDMACM
         """
         src = kwargs.get('src')
         dst = kwargs.get('dst')
         self.is_server = True if dst is None else False
         self.qp_init_attr = None
+        self.is_async = kwargs.get('is_async', False)
+        self.connected = False
         # When passive side (server) listens to incoming connection requests,
         # for each new request it creates a new cmid which is used to establish
         # the connection with the remote side
         self.child_id = None
         self.msg_size = 1024
         self.num_msgs = 100
+        self.channel = None
         self.port = kwargs.get('port') if kwargs.get('port') else '7471'
         self.mr = None
         if self.is_server:
@@ -181,8 +186,12 @@ class CMResources:
                                ce.RAI_PASSIVE)
         else:
             self.ai = AddrInfo(src, dst, self.port, ce.RDMA_PS_TCP)
-        self.create_qp_init_attr()
-        self.cmid = CMID(creator=self.ai, qp_init_attr=self.qp_init_attr)
+        if self.is_async:
+            self.create_event_channel()
+            self.cmid = CMID(creator=self.channel)
+        else:
+            self.cmid = CMID(creator=self.ai,
+                             qp_init_attr=self.create_qp_init_attr())
 
     def create_mr(self):
         if self.is_server:
@@ -190,13 +199,30 @@ class CMResources:
         else:
             self.mr = self.cmid.reg_msgs(self.msg_size)
 
-    def create_child_id(self):
-        if not self.is_server:
-            raise RuntimeError('create_child_id can only be used in passive side')
-        self.child_id = self.cmid.get_request()
+    def create_event_channel(self):
+        self.channel = CMEventChannel()
 
-    def create_qp_init_attr(self):
-        self.qp_init_attr = QPInitAttr(cap=QPCap(max_recv_wr=1))
+    @staticmethod
+    def create_qp_init_attr():
+        return QPInitAttr(qp_type=e.IBV_QPT_RC, cap=QPCap(max_recv_wr=1))
+
+    @staticmethod
+    def create_conn_param():
+        return ConnParam()
+
+    def create_child_id(self, cm_event=None):
+        if not self.is_server:
+            raise PyverbsUserError('create_child_id can be used only in passive side')
+        if self.is_async:
+            self.child_id = CMID(creator=cm_event, listen_id=self.cmid)
+        else:
+            self.child_id = self.cmid.get_request()
+
+    def create_qp(self):
+        if self.is_server:
+            self.child_id.create_qp(self.create_qp_init_attr())
+        else:
+            self.cmid.create_qp(self.create_qp_init_attr())
 
 
 class BaseResources(object):
