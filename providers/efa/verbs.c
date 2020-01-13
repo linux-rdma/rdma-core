@@ -22,6 +22,23 @@
 #include "efadv.h"
 #include "verbs.h"
 
+static bool is_buf_cleared(void *buf, size_t len)
+{
+	int i;
+
+	for (i = 0; i < len; i++) {
+		if (((uint8_t *)buf)[i])
+			return false;
+	}
+
+	return true;
+}
+
+#define is_ext_cleared(ptr, inlen) \
+	is_buf_cleared(ptr + sizeof(*ptr), inlen - sizeof(*ptr))
+
+#define is_reserved_cleared(reserved) is_buf_cleared(reserved, sizeof(reserved))
+
 int efa_query_device(struct ibv_context *ibvctx,
 		     struct ibv_device_attr *dev_attr)
 {
@@ -103,7 +120,7 @@ int efadv_query_device(struct ibv_context *ibvctx,
 	if (!vext_field_avail(typeof(*attr), inline_buf_size, inlen))
 		return EINVAL;
 
-	memset(attr, 0, sizeof(*attr));
+	memset(attr, 0, inlen);
 	attr->max_sq_wr = dev->max_sq_wr;
 	attr->max_rq_wr = dev->max_rq_wr;
 	attr->max_sq_sge = dev->max_sq_sge;
@@ -205,7 +222,7 @@ static uint32_t efa_sub_cq_get_current_index(struct efa_sub_cq *sub_cq)
 static int efa_cqe_is_pending(struct efa_io_cdesc_common *cqe_common,
 				 int phase)
 {
-	return (cqe_common->flags & EFA_IO_CDESC_COMMON_PHASE_MASK) == phase;
+	return EFA_GET(&cqe_common->flags, EFA_IO_CDESC_COMMON_PHASE) == phase;
 }
 
 static struct efa_io_cdesc_common *
@@ -377,7 +394,7 @@ static int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 		 * because CQs will be locked while QPs are removed
 		 * from the table.
 		 */
-		*cur_qp = ctx->qp_table[qpn];
+		*cur_qp = ctx->qp_table[qpn & ctx->qp_table_sz_m1];
 		if (!*cur_qp)
 			return EINVAL;
 	}
@@ -388,7 +405,8 @@ static int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 	wc->wc_flags = 0;
 	wc->qp_num = qpn;
 
-	if (get_efa_io_cdesc_common_q_type(cqe) == EFA_IO_SEND_QUEUE) {
+	if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_Q_TYPE) ==
+	    EFA_IO_SEND_QUEUE) {
 		wq = &(*cur_qp)->sq.wq;
 		wc->opcode = IBV_WC_SEND;
 	} else {
@@ -403,7 +421,7 @@ static int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 		wc->sl = 0;
 		wc->slid = rcqe->ah;
 
-		if (get_efa_io_cdesc_common_has_imm(cqe)) {
+		if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_HAS_IMM)) {
 			wc->imm_data = htobe32(rcqe->imm);
 			wc->wc_flags |= IBV_WC_WITH_IMM;
 		}
@@ -827,7 +845,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 		goto err_terminate_rq;
 
 	pthread_spin_lock(&ctx->qp_table_lock);
-	ctx->qp_table[ibvqp->qp_num] = qp;
+	ctx->qp_table[ibvqp->qp_num & ctx->qp_table_sz_m1] = qp;
 	pthread_spin_unlock(&ctx->qp_table_lock);
 
 	if (attr->send_cq) {
@@ -939,7 +957,10 @@ struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
 
 	if (attr_ex->qp_type != IBV_QPT_DRIVER ||
 	    !vext_field_avail(struct efadv_qp_init_attr,
-			      driver_qp_type, inlen)) {
+			      driver_qp_type, inlen) ||
+	    efa_attr->comp_mask ||
+	    !is_reserved_cleared(efa_attr->reserved) ||
+	    (inlen > sizeof(efa_attr) && !is_ext_cleared(efa_attr, inlen))) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -994,7 +1015,7 @@ int efa_destroy_qp(struct ibv_qp *ibvqp)
 		efa_cq_dec_ref_cnt(to_efa_cq(ibvqp->recv_cq),
 				   qp->rq.sub_cq_idx);
 
-	ctx->qp_table[ibvqp->qp_num] = NULL;
+	ctx->qp_table[ibvqp->qp_num & ctx->qp_table_sz_m1] = NULL;
 
 	efa_unlock_cqs(ibvqp);
 	pthread_spin_unlock(&ctx->qp_table_lock);
@@ -1015,7 +1036,7 @@ static void efa_set_tx_buf(struct efa_io_tx_buf_desc *tx_buf,
 			   uint32_t length)
 {
 	tx_buf->length = length;
-	set_efa_io_tx_buf_desc_lkey(tx_buf, lkey);
+	EFA_SET(&tx_buf->lkey, EFA_IO_TX_BUF_DESC_LKEY, lkey);
 	tx_buf->buf_addr_lo = addr & 0xffffffff;
 	tx_buf->buf_addr_hi = addr >> 32;
 }
@@ -1049,7 +1070,7 @@ static void efa_post_send_inline_data(const struct ibv_send_wr *wr,
 		total_length += length;
 	}
 
-	set_efa_io_tx_meta_desc_inline_msg(&tx_wqe->meta, 1);
+	EFA_SET(&tx_wqe->meta.ctrl1, EFA_IO_TX_META_DESC_INLINE_MSG, 1);
 	tx_wqe->meta.length = total_length;
 }
 
@@ -1104,12 +1125,12 @@ static void efa_set_common_ctrl_flags(struct efa_io_tx_meta_desc *desc,
 				      struct efa_qp *qp,
 				      enum efa_io_send_op_type op_type)
 {
-	set_efa_io_tx_meta_desc_meta_desc(desc, 1);
-	set_efa_io_tx_meta_desc_op_type(desc, op_type);
-	set_efa_io_tx_meta_desc_phase(desc, qp->sq.wq.phase);
-	set_efa_io_tx_meta_desc_first(desc, 1);
-	set_efa_io_tx_meta_desc_last(desc, 1);
-	set_efa_io_tx_meta_desc_comp_req(desc, 1);
+	EFA_SET(&desc->ctrl1, EFA_IO_TX_META_DESC_META_DESC, 1);
+	EFA_SET(&desc->ctrl1, EFA_IO_TX_META_DESC_OP_TYPE, op_type);
+	EFA_SET(&desc->ctrl2, EFA_IO_TX_META_DESC_PHASE, qp->sq.wq.phase);
+	EFA_SET(&desc->ctrl2, EFA_IO_TX_META_DESC_FIRST, 1);
+	EFA_SET(&desc->ctrl2, EFA_IO_TX_META_DESC_LAST, 1);
+	EFA_SET(&desc->ctrl2, EFA_IO_TX_META_DESC_COMP_REQ, 1);
 }
 
 static int efa_post_send_validate(struct efa_qp *qp,
@@ -1192,7 +1213,8 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 
 		if (wr->opcode == IBV_WR_SEND_WITH_IMM) {
 			meta_desc->immediate_data = be32toh(wr->imm_data);
-			set_efa_io_tx_meta_desc_has_imm(meta_desc, 1);
+			EFA_SET(&meta_desc->ctrl1, EFA_IO_TX_META_DESC_HAS_IMM,
+				1);
 		}
 
 		/* Set rest of the descriptor fields */
@@ -1269,7 +1291,7 @@ static void efa_send_wr_send_imm(struct ibv_qp_ex *ibvqpx, __be32 imm_data)
 
 	meta_desc = &qp->sq.curr_tx_wqe->meta;
 	meta_desc->immediate_data = be32toh(imm_data);
-	set_efa_io_tx_meta_desc_has_imm(meta_desc, 1);
+	EFA_SET(&meta_desc->ctrl1, EFA_IO_TX_META_DESC_HAS_IMM, 1);
 }
 
 static void efa_send_wr_rdma_read(struct ibv_qp_ex *ibvqpx, uint32_t rkey,
@@ -1305,7 +1327,7 @@ static void efa_send_wr_set_sge(struct ibv_qp_ex *ibvqpx, uint32_t lkey,
 	tx_wqe = qp->sq.curr_tx_wqe;
 	tx_wqe->meta.length = 1;
 
-	op_type = get_efa_io_tx_meta_desc_op_type(&tx_wqe->meta);
+	op_type = EFA_GET(&tx_wqe->meta.ctrl1, EFA_IO_TX_META_DESC_OP_TYPE);
 	switch (op_type) {
 	case EFA_IO_SEND:
 		buf = &tx_wqe->data.sgl[0];
@@ -1333,7 +1355,7 @@ static void efa_send_wr_set_sge_list(struct ibv_qp_ex *ibvqpx, size_t num_sge,
 		return;
 
 	tx_wqe = qp->sq.curr_tx_wqe;
-	op_type = get_efa_io_tx_meta_desc_op_type(&tx_wqe->meta);
+	op_type = EFA_GET(&tx_wqe->meta.ctrl1, EFA_IO_TX_META_DESC_OP_TYPE);
 	switch (op_type) {
 	case EFA_IO_SEND:
 		if (unlikely(num_sge > qp->sq.wq.max_sge)) {
@@ -1373,7 +1395,7 @@ static void efa_send_wr_set_inline_data(struct ibv_qp_ex *ibvqpx, void *addr,
 		return;
 	}
 
-	set_efa_io_tx_meta_desc_inline_msg(&tx_wqe->meta, 1);
+	EFA_SET(&tx_wqe->meta.ctrl1, EFA_IO_TX_META_DESC_INLINE_MSG, 1);
 	memcpy(tx_wqe->data.inline_data, addr, length);
 	tx_wqe->meta.length = length;
 }
@@ -1406,7 +1428,7 @@ efa_send_wr_set_inline_data_list(struct ibv_qp_ex *ibvqpx,
 		total_length += length;
 	}
 
-	set_efa_io_tx_meta_desc_inline_msg(&tx_wqe->meta, 1);
+	EFA_SET(&tx_wqe->meta.ctrl1, EFA_IO_TX_META_DESC_INLINE_MSG, 1);
 	tx_wqe->meta.length = total_length;
 }
 
@@ -1558,19 +1580,21 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 		qp->rq.wq.wqe_posted++;
 
 		/* Default init of the rx buffer */
-		set_efa_io_rx_desc_first(&rx_buf, 1);
-		set_efa_io_rx_desc_last(&rx_buf, 0);
+		EFA_SET(&rx_buf.lkey_ctrl, EFA_IO_RX_DESC_FIRST, 1);
+		EFA_SET(&rx_buf.lkey_ctrl, EFA_IO_RX_DESC_LAST, 0);
 
 		for (i = 0; i < wr->num_sge; i++) {
 			/* Set last indication if need) */
 			if (i == wr->num_sge - 1)
-				set_efa_io_rx_desc_last(&rx_buf, 1);
+				EFA_SET(&rx_buf.lkey_ctrl, EFA_IO_RX_DESC_LAST,
+					1);
 
 			addr = wr->sg_list[i].addr;
 
 			/* Set RX buffer desc from SGE */
 			rx_buf.length = wr->sg_list[i].length;
-			set_efa_io_rx_desc_lkey(&rx_buf, wr->sg_list[i].lkey);
+			EFA_SET(&rx_buf.lkey_ctrl, EFA_IO_RX_DESC_LKEY,
+				wr->sg_list[i].lkey);
 			rx_buf.buf_addr_lo = addr;
 			rx_buf.buf_addr_hi = (uint64_t)addr >> 32;
 
@@ -1608,7 +1632,7 @@ int efadv_query_ah(struct ibv_ah *ibvah, struct efadv_ah_attr *attr,
 	if (!vext_field_avail(typeof(*attr), ahn, inlen))
 		return EINVAL;
 
-	memset(attr, 0, sizeof(*attr));
+	memset(attr, 0, inlen);
 	attr->ahn = to_efa_ah(ibvah)->efa_ah;
 
 	attr->comp_mask = comp_mask_out;

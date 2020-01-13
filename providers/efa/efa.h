@@ -24,6 +24,7 @@ struct efa_context {
 	uint32_t max_llq_size;
 	size_t cqe_size;
 	struct efa_qp **qp_table;
+	unsigned int qp_table_sz_m1;
 	pthread_spinlock_t qp_table_lock;
 };
 
