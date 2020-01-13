@@ -2654,6 +2654,8 @@ static void acm_open_dev(struct ibv_device *ibdev)
 		return;
 	}
 
+	free(dev);
+
 err1:
 	ibv_close_device(verbs);
 }
