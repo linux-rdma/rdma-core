@@ -997,7 +997,7 @@ int rdma_resolve_addr(struct rdma_cm_id *id, struct sockaddr *src_addr,
 	if (ret != sizeof cmd)
 		return (ret >= 0) ? ERR(ENODATA) : -1;
 
-	memcpy(&id->route.addr.dst_addr, dst_addr, dst_len);
+	memcpy(&id->route.addr.dst_storage, dst_addr, dst_len);
 	return ucma_complete(id);
 }
 
