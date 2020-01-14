@@ -179,6 +179,6 @@ S:	Supported
 F:	providers/vmw_pvrdma/
 
 PYVERBS
-M:	Noa Osherovich <noaos@mellanox.com>
+M:	Edward Srouji <edwards@mellanox.com>
 S:	Supported
 F:	pyverbs/
