@@ -546,26 +546,6 @@ void dr_ste_always_miss_addr(struct dr_ste *ste, uint64_t miss_addr)
 	dr_ste_set_always_miss((struct dr_hw_ste_format *)ste->hw_ste);
 }
 
-/*
- * The assumption here is that we don't update the ste->hw_ste if it is not
- * used ste, so it will be all zero, checking the next_lu_type.
- */
-bool dr_ste_is_not_valid_entry(uint8_t *p_hw_ste)
-{
-	struct dr_hw_ste_format *hw_ste = (struct dr_hw_ste_format *)p_hw_ste;
-
-	if (DR_STE_GET(general, hw_ste, next_lu_type) ==
-	    DR_STE_LU_TYPE_NOP)
-		return true;
-
-	return false;
-}
-
-bool dr_ste_not_used_ste(struct dr_ste *ste)
-{
-	return !atomic_load(&ste->refcount);
-}
-
 /* Init one ste as a pattern for ste data array */
 void dr_ste_set_formated_ste(uint16_t gvmi,
 			     struct dr_domain_rx_tx *nic_dmn,

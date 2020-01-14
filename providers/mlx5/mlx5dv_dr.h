@@ -308,7 +308,6 @@ uint64_t dr_ste_get_miss_addr(uint8_t *hw_ste);
 void dr_ste_set_hit_addr(uint8_t *hw_ste, uint64_t icm_addr, uint32_t ht_size);
 void dr_ste_always_miss_addr(struct dr_ste *ste, uint64_t miss_addr);
 void dr_ste_set_bit_mask(uint8_t *hw_ste_p, uint8_t *bit_mask);
-bool dr_ste_not_used_ste(struct dr_ste *ste);
 bool dr_ste_is_last_in_rule(struct dr_matcher_rx_tx *nic_matcher,
 			    uint8_t ste_location);
 void dr_ste_rx_set_flow_tag(uint8_t *hw_ste_p, uint32_t flow_tag);
@@ -339,6 +338,11 @@ static inline void dr_ste_put(struct dr_ste *ste,
 static inline void dr_ste_get(struct dr_ste *ste)
 {
 	atomic_fetch_add(&ste->refcount, 1);
+}
+
+static inline bool dr_ste_is_not_used(struct dr_ste *ste)
+{
+	return !atomic_load(&ste->refcount);
 }
 
 void dr_ste_set_hit_addr_by_next_htbl(uint8_t *hw_ste,
@@ -949,7 +953,6 @@ void dr_icm_pool_destroy(struct dr_icm_pool *pool);
 struct dr_icm_chunk *dr_icm_alloc_chunk(struct dr_icm_pool *pool,
 					enum dr_icm_chunk_size chunk_size);
 void dr_icm_free_chunk(struct dr_icm_chunk *chunk);
-bool dr_ste_is_not_valid_entry(uint8_t *p_hw_ste);
 int dr_ste_htbl_init_and_postsend(struct mlx5dv_dr_domain *dmn,
 				  struct dr_domain_rx_tx *nic_dmn,
 				  struct dr_ste_htbl *htbl,
