@@ -418,12 +418,10 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_libexecdir}/rdma-set-sriov-vf
 %{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
-%{_bindir}/rxe_cfg
 %{_sbindir}/rdma-ndd
 %{_unitdir}/rdma-ndd.service
 %{_mandir}/man7/rxe*
 %{_mandir}/man8/rdma-ndd.*
-%{_mandir}/man8/rxe*
 %license COPYING.*
 
 %files devel
@@ -573,6 +571,8 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %files -n libibverbs-utils
 %{_bindir}/ibv_*
 %{_mandir}/man1/ibv_*
+%{_bindir}/rxe_cfg
+%{_mandir}/man8/rxe*
 
 %files -n ibacm
 %config(noreplace) %{_sysconfdir}/rdma/ibacm_opts.cfg
