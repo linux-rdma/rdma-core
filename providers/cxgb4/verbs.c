@@ -241,21 +241,6 @@ err1:
 	return NULL;
 }
 
-int c4iw_resize_cq(struct ibv_cq *ibcq, int cqe)
-{
-#if 0
-	int ret;
-
-	struct ibv_resize_cq cmd;
-	struct ib_uverbs_resize_cq_resp resp;
-	ret = ibv_cmd_resize_cq(ibcq, cqe, &cmd, sizeof cmd, &resp, sizeof resp);
-	PDBG("%s ret %d\n", __func__, ret);
-	return ret;
-#else
-	return -ENOSYS;
-#endif
-}
-
 int c4iw_destroy_cq(struct ibv_cq *ibcq)
 {
 	int ret;
@@ -786,16 +771,6 @@ int c4iw_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	ret = ibv_cmd_query_qp(ibqp, attr, attr_mask, init_attr, &cmd, sizeof cmd);
 	pthread_spin_unlock(&qhp->lock);
 	return ret;
-}
-
-struct ibv_ah *c4iw_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
-{
-	return NULL;
-}
-
-int c4iw_destroy_ah(struct ibv_ah *ah)
-{
-	return ENOSYS;
 }
 
 int c4iw_attach_mcast(struct ibv_qp *ibqp, const union ibv_gid *gid,
