@@ -490,6 +490,8 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_dealloc_pd(ibv_pd *pd)
     ibv_mr *ibv_reg_mr(ibv_pd *pd, void *addr, size_t length, int access)
     int ibv_dereg_mr(ibv_mr *mr)
+    int ibv_advise_mr(ibv_pd *pd, uint32_t advice, uint32_t flags,
+                      ibv_sge *sg_list, uint32_t num_sge)
     ibv_mw *ibv_alloc_mw(ibv_pd *pd, ibv_mw_type type)
     int ibv_dealloc_mw(ibv_mw *mw)
     ibv_dm *ibv_alloc_dm(ibv_context *context, ibv_alloc_dm_attr *attr)
