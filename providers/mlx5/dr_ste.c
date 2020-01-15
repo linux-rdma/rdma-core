@@ -107,20 +107,20 @@ void dr_ste_set_bit_mask(uint8_t *hw_ste_p, uint8_t *bit_mask)
 	memcpy(hw_ste->mask, bit_mask, DR_STE_SIZE_MASK);
 }
 
-void dr_ste_rx_set_flow_tag(uint8_t *hw_ste_p, uint32_t flow_tag)
+static void dr_ste_rx_set_flow_tag(uint8_t *hw_ste_p, uint32_t flow_tag)
 {
 	DR_STE_SET(rx_steering_mult, hw_ste_p, qp_list_pointer,
 		   DR_STE_ENABLE_FLOW_TAG | flow_tag);
 }
 
-void dr_ste_set_counter_id(uint8_t *hw_ste_p, uint32_t ctr_id)
+static void dr_ste_set_counter_id(uint8_t *hw_ste_p, uint32_t ctr_id)
 {
 	/* This can be used for both rx_steering_mult and for sx_transmit */
 	DR_STE_SET(rx_steering_mult, hw_ste_p, counter_trigger_15_0, ctr_id);
 	DR_STE_SET(rx_steering_mult, hw_ste_p, counter_trigger_23_16, ctr_id >> 16);
 }
 
-void dr_ste_set_tx_encap(void *hw_ste_p, uint32_t reformat_id, int size, bool encap_l3)
+static void dr_ste_set_tx_encap(void *hw_ste_p, uint32_t reformat_id, int size, bool encap_l3)
 {
 	DR_STE_SET(sx_transmit, hw_ste_p, action_type,
 		   encap_l3 ? DR_STE_ACTION_TYPE_ENCAP_L3 : DR_STE_ACTION_TYPE_ENCAP);
@@ -129,31 +129,31 @@ void dr_ste_set_tx_encap(void *hw_ste_p, uint32_t reformat_id, int size, bool en
 	DR_STE_SET(sx_transmit, hw_ste_p, encap_pointer_vlan_data, reformat_id);
 }
 
-void dr_ste_set_rx_decap(uint8_t *hw_ste_p)
+static void dr_ste_set_rx_decap(uint8_t *hw_ste_p)
 {
 	DR_STE_SET(rx_steering_mult, hw_ste_p, tunneling_action,
 		   DR_STE_TUNL_ACTION_DECAP);
 }
 
-void dr_ste_set_rx_decap_l3(uint8_t *hw_ste_p, bool vlan)
+static void dr_ste_set_rx_decap_l3(uint8_t *hw_ste_p, bool vlan)
 {
 	DR_STE_SET(rx_steering_mult, hw_ste_p, tunneling_action,
 		   DR_STE_TUNL_ACTION_L3_DECAP);
 	DR_STE_SET(modify_packet, hw_ste_p, action_description, vlan ? 1 : 0);
 }
 
-void dr_ste_set_entry_type(uint8_t *hw_ste_p, uint8_t entry_type)
+static void dr_ste_set_entry_type(uint8_t *hw_ste_p, uint8_t entry_type)
 {
 	DR_STE_SET(general, hw_ste_p, entry_type, entry_type);
 }
 
-uint8_t dr_ste_get_entry_type(uint8_t *hw_ste_p)
+static uint8_t dr_ste_get_entry_type(uint8_t *hw_ste_p)
 {
 	return DR_STE_GET(general, hw_ste_p, entry_type);
 }
 
-void dr_ste_set_rewrite_actions(uint8_t *hw_ste_p, uint16_t num_of_actions,
-				uint32_t re_write_index)
+static void dr_ste_set_rewrite_actions(uint8_t *hw_ste_p, uint16_t num_of_actions,
+				       uint32_t re_write_index)
 {
 	DR_STE_SET(modify_packet, hw_ste_p, number_of_re_write_actions,
 		   num_of_actions);
@@ -161,8 +161,8 @@ void dr_ste_set_rewrite_actions(uint8_t *hw_ste_p, uint16_t num_of_actions,
 		   re_write_index);
 }
 
-void dr_ste_init(uint8_t *hw_ste_p, uint16_t lu_type, uint8_t entry_type,
-		 uint16_t gvmi)
+static void dr_ste_init(uint8_t *hw_ste_p, uint16_t lu_type, uint8_t entry_type,
+			uint16_t gvmi)
 {
 	DR_STE_SET(general, hw_ste_p, entry_type, entry_type);
 	DR_STE_SET(general, hw_ste_p, entry_sub_type, lu_type);
@@ -188,13 +188,31 @@ static void dr_ste_set_always_miss(struct dr_hw_ste_format *hw_ste)
 	hw_ste->mask[0] = 0;
 }
 
-uint64_t dr_ste_get_miss_addr(uint8_t *hw_ste)
+void dr_ste_set_miss_addr(uint8_t *hw_ste_p, uint64_t miss_addr)
+{
+	uint64_t index = miss_addr >> 6;
+
+	/* Miss address for TX and RX STEs located in the same offsets */
+	DR_STE_SET(rx_steering_mult, hw_ste_p, miss_address_39_32, index >> 26);
+	DR_STE_SET(rx_steering_mult, hw_ste_p, miss_address_31_6, index);
+}
+
+static uint64_t dr_ste_get_miss_addr(uint8_t *hw_ste)
 {
 	uint64_t index =
 		(DR_STE_GET(rx_steering_mult, hw_ste, miss_address_31_6) |
 		 DR_STE_GET(rx_steering_mult, hw_ste, miss_address_39_32) << 26);
 
 	return index << 6;
+}
+
+static void dr_ste_always_miss_addr(struct dr_ste *ste, uint64_t miss_addr)
+{
+	uint8_t *hw_ste_p = ste->hw_ste;
+
+	DR_STE_SET(rx_steering_mult, hw_ste_p, next_lu_type, DR_STE_LU_TYPE_DONT_CARE);
+	dr_ste_set_miss_addr(hw_ste_p, miss_addr);
+	dr_ste_set_always_miss((struct dr_hw_ste_format *)ste->hw_ste);
 }
 
 void dr_ste_set_hit_addr(uint8_t *hw_ste, uint64_t icm_addr, uint32_t ht_size)
@@ -226,7 +244,7 @@ struct list_head *dr_ste_get_miss_list(struct dr_ste *ste)
 	return &ste->htbl->miss_list[index];
 }
 
-void dr_ste_always_hit_htbl(struct dr_ste *ste, struct dr_ste_htbl *next_htbl)
+static void dr_ste_always_hit_htbl(struct dr_ste *ste, struct dr_ste_htbl *next_htbl)
 {
 	struct dr_icm_chunk *chunk = next_htbl->chunk;
 	uint8_t *hw_ste = ste->hw_ste;
@@ -439,24 +457,6 @@ void dr_ste_set_hit_addr_by_next_htbl(uint8_t *hw_ste,
 	dr_ste_set_hit_addr(hw_ste, chunk->icm_addr, chunk->num_of_entries);
 }
 
-void dr_ste_set_miss_addr(uint8_t *hw_ste_p, uint64_t miss_addr)
-{
-	uint64_t index = miss_addr >> 6;
-
-	/* Miss address for TX and RX STEs located in the same offsets */
-	DR_STE_SET(rx_steering_mult, hw_ste_p, miss_address_39_32, index >> 26);
-	DR_STE_SET(rx_steering_mult, hw_ste_p, miss_address_31_6, index);
-}
-
-void dr_ste_always_miss_addr(struct dr_ste *ste, uint64_t miss_addr)
-{
-	uint8_t *hw_ste = ste->hw_ste;
-
-	DR_STE_SET(rx_steering_mult, hw_ste, next_lu_type, DR_STE_LU_TYPE_DONT_CARE);
-	dr_ste_set_miss_addr(hw_ste, miss_addr);
-	dr_ste_set_always_miss((struct dr_hw_ste_format *)ste->hw_ste);
-}
-
 /* Init one ste as a pattern for ste data array */
 void dr_ste_set_formated_ste(uint16_t gvmi,
 			     struct dr_domain_rx_tx *nic_dmn,
@@ -610,6 +610,102 @@ int dr_ste_htbl_free(struct dr_ste_htbl *htbl)
 	dr_icm_free_chunk(htbl->chunk);
 	free(htbl);
 	return 0;
+}
+
+static void dr_ste_arr_init_next_ste(uint8_t **last_ste,
+				     uint32_t *added_stes,
+				     enum dr_ste_entry_type entry_type,
+				     uint16_t gvmi)
+{
+	(*added_stes)++;
+	*last_ste += DR_STE_SIZE;
+	dr_ste_init(*last_ste, DR_STE_LU_TYPE_DONT_CARE, entry_type, gvmi);
+}
+
+void dr_ste_set_actions_tx(uint8_t *action_type_set,
+			   uint8_t *last_ste,
+			   struct dr_ste_actions_attr *attr,
+			   uint32_t *added_stes)
+{
+	/* We want to make sure the modify header comes before L2
+	 * encapsulation. The reason for that is that we support
+	 * modify headers for outer headers only
+	 */
+	if (action_type_set[DR_ACTION_TYP_MODIFY_HDR]) {
+		dr_ste_set_entry_type(last_ste, DR_STE_TYPE_MODIFY_PKT);
+		dr_ste_set_rewrite_actions(last_ste,
+					   attr->modify_actions,
+					   attr->modify_index);
+	}
+
+	if (action_type_set[DR_ACTION_TYP_L2_TO_TNL_L2] ||
+	    action_type_set[DR_ACTION_TYP_L2_TO_TNL_L3]) {
+		/* Modify header and encapsulation require a different STEs.
+		 * Since modify header STE format doesn't support encapsulation
+		 * tunneling_action.
+		 */
+		if (action_type_set[DR_ACTION_TYP_MODIFY_HDR])
+			dr_ste_arr_init_next_ste(&last_ste,
+						 added_stes,
+						 DR_STE_TYPE_TX,
+						 attr->gvmi);
+
+		dr_ste_set_tx_encap(last_ste,
+				    attr->reformat_id,
+				    attr->reformat_size,
+				    action_type_set[DR_ACTION_TYP_L2_TO_TNL_L3]);
+	}
+
+	if (action_type_set[DR_ACTION_TYP_CTR])
+		dr_ste_set_counter_id(last_ste, attr->ctr_id);
+
+	dr_ste_set_hit_addr(last_ste, attr->final_icm_addr, 1);
+}
+
+void dr_ste_set_actions_rx(uint8_t *action_type_set,
+			   uint8_t *last_ste,
+			   struct dr_ste_actions_attr *attr,
+			   uint32_t *added_stes)
+{
+	if (action_type_set[DR_ACTION_TYP_CTR])
+		dr_ste_set_counter_id(last_ste, attr->ctr_id);
+
+	if (action_type_set[DR_ACTION_TYP_TNL_L3_TO_L2]) {
+		dr_ste_set_entry_type(last_ste, DR_STE_TYPE_MODIFY_PKT);
+		dr_ste_set_rx_decap_l3(last_ste, attr->decap_with_vlan);
+		dr_ste_set_rewrite_actions(last_ste,
+					   attr->decap_actions,
+					   attr->decap_index);
+	}
+
+	if (action_type_set[DR_ACTION_TYP_TNL_L2_TO_L2])
+		dr_ste_set_rx_decap(last_ste);
+
+	if (action_type_set[DR_ACTION_TYP_MODIFY_HDR]) {
+		if (dr_ste_get_entry_type(last_ste) == DR_STE_TYPE_MODIFY_PKT)
+			dr_ste_arr_init_next_ste(&last_ste,
+						 added_stes,
+						 DR_STE_TYPE_MODIFY_PKT,
+						 attr->gvmi);
+		else
+			dr_ste_set_entry_type(last_ste, DR_STE_TYPE_MODIFY_PKT);
+
+		dr_ste_set_rewrite_actions(last_ste,
+					   attr->modify_actions,
+					   attr->modify_index);
+	}
+
+	if (action_type_set[DR_ACTION_TYP_TAG]) {
+		if (dr_ste_get_entry_type(last_ste) == DR_STE_TYPE_MODIFY_PKT)
+			dr_ste_arr_init_next_ste(&last_ste,
+						 added_stes,
+						 DR_STE_TYPE_RX,
+						 attr->gvmi);
+
+		dr_ste_rx_set_flow_tag(last_ste, attr->flow_tag);
+	}
+
+	dr_ste_set_hit_addr(last_ste, attr->final_icm_addr, 1);
 }
 
 static int dr_ste_build_pre_check_spec(struct mlx5dv_dr_domain *dmn,

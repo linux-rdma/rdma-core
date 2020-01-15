@@ -262,27 +262,38 @@ static inline void dr_htbl_get(struct dr_ste_htbl *htbl)
 
 /* STE utils */
 uint32_t dr_ste_calc_hash_index(uint8_t *hw_ste_p, struct dr_ste_htbl *htbl);
-void dr_ste_init(uint8_t *hw_ste_p, uint16_t lu_type, uint8_t entry_type, uint16_t gvmi);
-void dr_ste_always_hit_htbl(struct dr_ste *ste, struct dr_ste_htbl *next_htbl);
 void dr_ste_set_miss_addr(uint8_t *hw_ste, uint64_t miss_addr);
-uint64_t dr_ste_get_miss_addr(uint8_t *hw_ste);
 void dr_ste_set_hit_addr(uint8_t *hw_ste, uint64_t icm_addr, uint32_t ht_size);
-void dr_ste_always_miss_addr(struct dr_ste *ste, uint64_t miss_addr);
 void dr_ste_set_bit_mask(uint8_t *hw_ste_p, uint8_t *bit_mask);
 bool dr_ste_is_last_in_rule(struct dr_matcher_rx_tx *nic_matcher,
 			    uint8_t ste_location);
-void dr_ste_rx_set_flow_tag(uint8_t *hw_ste_p, uint32_t flow_tag);
-void dr_ste_set_counter_id(uint8_t *hw_ste_p, uint32_t ctr_id);
-void dr_ste_set_tx_encap(void *hw_ste_p, uint32_t reformat_id, int size, bool encap_l3);
-void dr_ste_set_rx_decap(uint8_t *hw_ste_p);
-void dr_ste_set_rx_decap_l3(uint8_t *hw_ste_p, bool vlan);
-void dr_ste_set_entry_type(uint8_t *hw_ste_p, uint8_t entry_type);
-uint8_t dr_ste_get_entry_type(uint8_t *hw_ste_p);
-void dr_ste_set_rewrite_actions(uint8_t *hw_ste_p, uint16_t num_of_actions,
-				uint32_t re_write_index);
 uint64_t dr_ste_get_icm_addr(struct dr_ste *ste);
 uint64_t dr_ste_get_mr_addr(struct dr_ste *ste);
 struct list_head *dr_ste_get_miss_list(struct dr_ste *ste);
+
+struct dr_ste_actions_attr {
+	uint32_t	modify_index;
+	uint16_t	modify_actions;
+	uint32_t	decap_index;
+	uint16_t	decap_actions;
+	bool		decap_with_vlan;
+	uint64_t	final_icm_addr;
+	uint32_t	flow_tag;
+	uint32_t	ctr_id;
+	uint16_t	gvmi;
+	uint16_t	hit_gvmi;
+	uint32_t	reformat_id;
+	uint32_t	reformat_size;
+};
+
+void dr_ste_set_actions_rx(uint8_t *action_type_set,
+			   uint8_t *last_ste,
+			   struct dr_ste_actions_attr *attr,
+			   uint32_t *added_stes);
+void dr_ste_set_actions_tx(uint8_t *action_type_set,
+			   uint8_t *last_ste,
+			   struct dr_ste_actions_attr *attr,
+			   uint32_t *added_stes);
 
 struct dr_ste_ctx *dr_ste_get_ctx(uint8_t version);
 void dr_ste_free(struct dr_ste *ste,

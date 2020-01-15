@@ -351,20 +351,6 @@ static const struct dr_action_modify_field_conv dr_action_conv_arr[] = {
 	},
 };
 
-struct dr_action_apply_attr {
-	uint32_t	modify_index;
-	uint16_t	modify_actions;
-	uint32_t	decap_index;
-	uint16_t	decap_actions;
-	bool		decap_with_vlan;
-	uint64_t	final_icm_addr;
-	uint32_t	flow_tag;
-	uint32_t	ctr_id;
-	uint16_t	gvmi;
-	uint32_t	reformat_id;
-	uint32_t	reformat_size;
-};
-
 static enum mlx5dv_flow_action_packet_reformat_type
 dr_action_type_to_reformat_enum(enum dr_action_type action_type)
 {
@@ -401,118 +387,23 @@ dr_action_reformat_to_action_type(enum mlx5dv_flow_action_packet_reformat_type t
 	}
 }
 
-static void dr_actions_init_next_ste(uint8_t **last_ste,
-				     uint32_t *added_stes,
-				     enum dr_ste_entry_type entry_type,
-				     uint16_t gvmi)
-{
-	(*added_stes)++;
-	*last_ste += DR_STE_SIZE;
-	dr_ste_init(*last_ste, DR_STE_LU_TYPE_DONT_CARE, entry_type, gvmi);
-}
-
-static void dr_actions_apply_tx(uint8_t *action_type_set,
-				uint8_t *last_ste,
-				struct dr_action_apply_attr *attr,
-				uint32_t *added_stes)
-{
-	/* We want to make sure the modify header comes before L2
-	 * encapsulation. The reason for that is that we support
-	 * modify headers for outer headers only
-	 */
-	if (action_type_set[DR_ACTION_TYP_MODIFY_HDR]) {
-		dr_ste_set_entry_type(last_ste, DR_STE_TYPE_MODIFY_PKT);
-		dr_ste_set_rewrite_actions(last_ste,
-					   attr->modify_actions,
-					   attr->modify_index);
-	}
-
-	if (action_type_set[DR_ACTION_TYP_L2_TO_TNL_L2] ||
-	    action_type_set[DR_ACTION_TYP_L2_TO_TNL_L3]) {
-		/* Modify header and encapsulation require a different STEs.
-		 * Since modify header STE format doesn't support encapsulation
-		 * tunneling_action.
-		 */
-		if (action_type_set[DR_ACTION_TYP_MODIFY_HDR])
-			dr_actions_init_next_ste(&last_ste,
-						 added_stes,
-						 DR_STE_TYPE_TX,
-						 attr->gvmi);
-
-		dr_ste_set_tx_encap(last_ste,
-				    attr->reformat_id,
-				    attr->reformat_size,
-				    action_type_set[DR_ACTION_TYP_L2_TO_TNL_L3]);
-	}
-
-	if (action_type_set[DR_ACTION_TYP_CTR])
-		dr_ste_set_counter_id(last_ste, attr->ctr_id);
-}
-
-static void dr_actions_apply_rx(uint8_t *action_type_set,
-				uint8_t *last_ste,
-				struct dr_action_apply_attr *attr,
-				uint32_t *added_stes)
-{
-	if (action_type_set[DR_ACTION_TYP_CTR])
-		dr_ste_set_counter_id(last_ste, attr->ctr_id);
-
-	if (action_type_set[DR_ACTION_TYP_TNL_L3_TO_L2]) {
-		dr_ste_set_entry_type(last_ste, DR_STE_TYPE_MODIFY_PKT);
-		dr_ste_set_rx_decap_l3(last_ste, attr->decap_with_vlan);
-		dr_ste_set_rewrite_actions(last_ste,
-					   attr->decap_actions,
-					   attr->decap_index);
-	}
-
-	if (action_type_set[DR_ACTION_TYP_TNL_L2_TO_L2])
-		dr_ste_set_rx_decap(last_ste);
-
-	if (action_type_set[DR_ACTION_TYP_MODIFY_HDR]) {
-		if (dr_ste_get_entry_type(last_ste) == DR_STE_TYPE_MODIFY_PKT)
-			dr_actions_init_next_ste(&last_ste,
-						 added_stes,
-						 DR_STE_TYPE_MODIFY_PKT,
-						 attr->gvmi);
-		else
-			dr_ste_set_entry_type(last_ste, DR_STE_TYPE_MODIFY_PKT);
-
-		dr_ste_set_rewrite_actions(last_ste,
-					   attr->modify_actions,
-					   attr->modify_index);
-	}
-
-	if (action_type_set[DR_ACTION_TYP_TAG]) {
-		if (dr_ste_get_entry_type(last_ste) == DR_STE_TYPE_MODIFY_PKT)
-			dr_actions_init_next_ste(&last_ste,
-						 added_stes,
-						 DR_STE_TYPE_RX,
-						 attr->gvmi);
-
-		dr_ste_rx_set_flow_tag(last_ste, attr->flow_tag);
-	}
-}
-
 /* Apply the actions on the rule STE array starting from the last_ste.
  * Actions might require more than one STE, new_num_stes will return
  * the new size of the STEs array, rule with actions. */
 static void dr_actions_apply(enum dr_ste_entry_type ste_type,
 			     uint8_t *action_type_set,
 			     uint8_t *last_ste,
-			     struct dr_action_apply_attr *attr,
+			     struct dr_ste_actions_attr *attr,
 			     uint32_t *new_num_stes)
 {
 	uint32_t added_stes = 0;
 
 	if (ste_type == DR_STE_TYPE_RX)
-		dr_actions_apply_rx(action_type_set, last_ste, attr, &added_stes);
+		dr_ste_set_actions_rx(action_type_set, last_ste, attr, &added_stes);
 	else
-		dr_actions_apply_tx(action_type_set, last_ste, attr, &added_stes);
+		dr_ste_set_actions_tx(action_type_set, last_ste, attr, &added_stes);
 
-	last_ste += added_stes * DR_STE_SIZE;
 	*new_num_stes += added_stes;
-
-	dr_ste_set_hit_addr(last_ste, attr->final_icm_addr, 1);
 }
 
 static enum dr_action_domain
@@ -564,7 +455,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
 	uint8_t action_type_set[DR_ACTION_TYP_MAX] = {};
 	uint32_t state = DR_ACTION_STATE_NO_ACTION;
-	struct dr_action_apply_attr attr = {};
+	struct dr_ste_actions_attr attr = {};
 	enum dr_action_domain action_domain;
 	uint8_t *last_ste;
 	int i;
