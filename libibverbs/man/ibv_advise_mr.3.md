@@ -73,8 +73,9 @@ application performance.
 **ibv_advise_mr()** returns 0 when the call was successful, or the value
 		    of errno on failure (which indicates the failure reason).
 
-*ENOSYS*
-:	libibverbs or provider driver doesn't support the ibv_advise_mr() verb.
+*EOPNOTSUPP*
+:	libibverbs or provider driver doesn't support the ibv_advise_mr() verb
+	(ENOSYS may sometimes be returned by old versions of libibverbs).
 
 *ENOTSUP*
 :	The advise operation isn't supported.

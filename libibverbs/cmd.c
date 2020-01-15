@@ -303,7 +303,7 @@ int ibv_cmd_open_xrcd(struct ibv_context *context, struct verbs_xrcd *xrcd,
 	int ret;
 
 	if (attr->comp_mask >= IBV_XRCD_INIT_ATTR_RESERVED)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	if (!(attr->comp_mask & IBV_XRCD_INIT_ATTR_FD) ||
 	    !(attr->comp_mask & IBV_XRCD_INIT_ATTR_OFLAGS))
@@ -544,7 +544,7 @@ int ibv_cmd_create_srq_ex(struct ibv_context *context,
 	int ret;
 
 	if (attr_ex->comp_mask >= IBV_SRQ_INIT_ATTR_RESERVED)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	if (!(attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_PD))
 		return EINVAL;
@@ -863,7 +863,7 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 			     IBV_QP_INIT_ATTR_PD |
 			     IBV_QP_INIT_ATTR_XRCD |
 			     IBV_QP_INIT_ATTR_SEND_OPS_FLAGS))
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	err = create_qp_ex_common(qp, attr_ex, vxrcd,
 				  &cmd->core_payload);
@@ -964,7 +964,7 @@ int ibv_cmd_open_qp(struct ibv_context *context, struct verbs_qp *qp,
 	int ret;
 
 	if (attr->comp_mask >= IBV_QP_OPEN_ATTR_RESERVED)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	if (!(attr->comp_mask & IBV_QP_OPEN_ATTR_XRCD) ||
 	    !(attr->comp_mask & IBV_QP_OPEN_ATTR_NUM) ||
