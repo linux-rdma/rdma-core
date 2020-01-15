@@ -118,6 +118,7 @@ typedef void (*dr_ste_builder_void_init)(struct dr_ste_build *sb,
 typedef int (*dr_ste_builder_int_init)(struct dr_ste_build *sb,
 				       struct dr_match_param *mask);
 struct dr_ste_ctx {
+	/* Builders */
 	dr_ste_builder_void_init build_eth_l2_src_dst_init;
 	dr_ste_builder_void_init build_eth_l3_ipv6_src_init;
 	dr_ste_builder_void_init build_eth_l3_ipv6_dst_init;
@@ -139,6 +140,17 @@ struct dr_ste_ctx {
 	dr_ste_builder_void_init build_register_0_init;
 	dr_ste_builder_void_init build_register_1_init;
 	dr_ste_builder_void_init build_src_gvmi_qpn_init;
+
+	/* Getters and Setters */
+	void (*ste_init)(uint8_t *hw_ste_p, uint16_t lu_type,
+			 uint8_t entry_type, uint16_t gvmi);
+	void (*set_next_lu_type)(uint8_t *hw_ste_p, uint16_t lu_type);
+	uint16_t (*get_next_lu_type)(uint8_t *hw_ste_p);
+	void (*set_miss_addr)(uint8_t *hw_ste_p, uint64_t miss_addr);
+	uint64_t (*get_miss_addr)(uint8_t *hw_ste_p);
+	void (*set_hit_addr)(uint8_t *hw_ste_p, uint64_t icm_addr, uint32_t ht_size);
+	void (*set_byte_mask)(uint8_t *hw_ste_p, uint16_t byte_mask);
+	uint16_t (*get_byte_mask)(uint8_t *hw_ste_p);
 };
 
 struct dr_ste_ctx *dr_ste_get_ctx_v0(void);

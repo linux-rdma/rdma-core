@@ -390,18 +390,22 @@ dr_action_reformat_to_action_type(enum mlx5dv_flow_action_packet_reformat_type t
 /* Apply the actions on the rule STE array starting from the last_ste.
  * Actions might require more than one STE, new_num_stes will return
  * the new size of the STEs array, rule with actions. */
-static void dr_actions_apply(enum dr_ste_entry_type ste_type,
+static void dr_actions_apply(struct mlx5dv_dr_domain *dmn,
+			     enum dr_ste_entry_type ste_type,
 			     uint8_t *action_type_set,
 			     uint8_t *last_ste,
 			     struct dr_ste_actions_attr *attr,
 			     uint32_t *new_num_stes)
 {
+	struct dr_ste_ctx *ste_ctx = dmn->ste_ctx;
 	uint32_t added_stes = 0;
 
 	if (ste_type == DR_STE_TYPE_RX)
-		dr_ste_set_actions_rx(action_type_set, last_ste, attr, &added_stes);
+		dr_ste_set_actions_rx(ste_ctx, action_type_set,
+				      last_ste, attr, &added_stes);
 	else
-		dr_ste_set_actions_tx(action_type_set, last_ste, attr, &added_stes);
+		dr_ste_set_actions_tx(ste_ctx, action_type_set,
+				      last_ste, attr, &added_stes);
 
 	*new_num_stes += added_stes;
 }
@@ -587,7 +591,8 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 	*new_hw_ste_arr_sz = nic_matcher->num_of_builders;
 	last_ste = ste_arr + DR_STE_SIZE * (nic_matcher->num_of_builders - 1);
 
-	dr_actions_apply(nic_dmn->ste_type,
+	dr_actions_apply(dmn,
+			 nic_dmn->ste_type,
 			 action_type_set,
 			 last_ste,
 			 &attr,

@@ -36,7 +36,8 @@
 
 #define DR_RULE_MAX_STE_CHAIN (DR_RULE_MAX_STES + DR_ACTION_MAX_STES)
 
-static int dr_rule_append_to_miss_list(struct dr_ste *new_last_ste,
+static int dr_rule_append_to_miss_list(struct dr_ste_ctx *ste_ctx,
+				       struct dr_ste *new_last_ste,
 				       struct list_head *miss_list,
 				       struct list_head *send_list)
 {
@@ -53,7 +54,10 @@ static int dr_rule_append_to_miss_list(struct dr_ste *new_last_ste,
 		return errno;
 	}
 
-	dr_ste_set_miss_addr(last_ste->hw_ste, dr_ste_get_icm_addr(new_last_ste));
+	dr_ste_set_miss_addr(ste_ctx,
+			     last_ste->hw_ste,
+			     dr_ste_get_icm_addr(new_last_ste));
+
 	list_add_tail(miss_list, &new_last_ste->miss_list_node);
 
 	dr_send_fill_and_append_ste_send_info(last_ste, DR_STE_SIZE_REDUCED,
@@ -69,6 +73,7 @@ static struct dr_ste
 			       uint8_t *hw_ste)
 {
 	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
+	struct dr_ste_ctx *ste_ctx = dmn->ste_ctx;
 	struct dr_ste_htbl *new_htbl;
 	struct dr_ste *ste;
 
@@ -84,7 +89,7 @@ static struct dr_ste
 
 	/* One and only entry, never grows */
 	ste = new_htbl->ste_arr;
-	dr_ste_set_miss_addr(hw_ste, nic_matcher->e_anchor->chunk->icm_addr);
+	dr_ste_set_miss_addr(ste_ctx, hw_ste, nic_matcher->e_anchor->chunk->icm_addr);
 	dr_htbl_get(new_htbl);
 
 	return ste;
@@ -190,6 +195,7 @@ dr_rule_rehash_handle_collision(struct mlx5dv_dr_matcher *matcher,
 				struct dr_ste *col_ste,
 				uint8_t *hw_ste)
 {
+	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
 	struct dr_ste *new_ste;
 	int ret;
 
@@ -201,11 +207,11 @@ dr_rule_rehash_handle_collision(struct mlx5dv_dr_matcher *matcher,
 	new_ste->htbl->miss_list = dr_ste_get_miss_list(col_ste);
 
 	/* Update the previous from the list */
-	ret = dr_rule_append_to_miss_list(new_ste,
+	ret = dr_rule_append_to_miss_list(dmn->ste_ctx, new_ste,
 					  dr_ste_get_miss_list(col_ste),
 					  update_list);
 	if (ret) {
-		dr_dbg(matcher->tbl->dmn, "Failed update dup entry\n");
+		dr_dbg(dmn, "Failed update dup entry\n");
 		goto err_exit;
 	}
 
@@ -245,6 +251,7 @@ static struct dr_ste *dr_rule_rehash_copy_ste(struct mlx5dv_dr_matcher *matcher,
 					      struct dr_ste_htbl *new_htbl,
 					      struct list_head *update_list)
 {
+	struct dr_ste_ctx *ste_ctx = matcher->tbl->dmn->ste_ctx;
 	uint8_t hw_ste[DR_STE_SIZE] = {};
 	struct dr_ste_send_info *ste_info;
 	bool use_update_list = false;
@@ -258,7 +265,7 @@ static struct dr_ste *dr_rule_rehash_copy_ste(struct mlx5dv_dr_matcher *matcher,
 
 	/* Copy STE control and tag */
 	memcpy(hw_ste, cur_ste->hw_ste, DR_STE_SIZE_REDUCED);
-	dr_ste_set_miss_addr(hw_ste, nic_matcher->e_anchor->chunk->icm_addr);
+	dr_ste_set_miss_addr(ste_ctx, hw_ste, nic_matcher->e_anchor->chunk->icm_addr);
 
 	new_idx = dr_ste_calc_hash_index(hw_ste, new_htbl);
 	new_ste = &new_htbl->ste_arr[new_idx];
@@ -403,7 +410,8 @@ static struct dr_ste_htbl *dr_rule_rehash_htbl(struct mlx5dv_dr_rule *rule,
 	/* Write new table to HW */
 	info.type = CONNECT_MISS;
 	info.miss_icm_addr = nic_matcher->e_anchor->chunk->icm_addr;
-	dr_ste_set_formated_ste(dmn->info.caps.gvmi,
+	dr_ste_set_formated_ste(dmn->ste_ctx,
+				dmn->info.caps.gvmi,
 				nic_dmn,
 				new_htbl,
 				formated_ste,
@@ -450,13 +458,15 @@ static struct dr_ste_htbl *dr_rule_rehash_htbl(struct mlx5dv_dr_rule *rule,
 		 * It is safe to operate dr_ste_set_hit_addr on the hw_ste here
 		 * (48B len) which works only on first 32B
 		 */
-		dr_ste_set_hit_addr(prev_htbl->ste_arr[0].hw_ste,
+		dr_ste_set_hit_addr(dmn->ste_ctx,
+				    prev_htbl->ste_arr[0].hw_ste,
 				    new_htbl->chunk->icm_addr,
 				    new_htbl->chunk->num_of_entries);
 
 		ste_to_update = &prev_htbl->ste_arr[0];
 	} else {
-		dr_ste_set_hit_addr_by_next_htbl(cur_htbl->pointing_ste->hw_ste,
+		dr_ste_set_hit_addr_by_next_htbl(dmn->ste_ctx,
+						 cur_htbl->pointing_ste->hw_ste,
 						 new_htbl);
 		ste_to_update = cur_htbl->pointing_ste;
 	}
@@ -508,24 +518,26 @@ static struct dr_ste *dr_rule_handle_collision(struct mlx5dv_dr_matcher *matcher
 					       struct list_head *miss_list,
 					       struct list_head *send_list)
 {
+	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
+	struct dr_ste_ctx *ste_ctx = dmn->ste_ctx;
 	struct dr_ste_send_info *ste_info;
 	struct dr_ste *new_ste;
 
 	ste_info = calloc(1, sizeof(*ste_info));
 	if (!ste_info) {
-		dr_dbg(matcher->tbl->dmn, "Failed allocating ste_info\n");
+		dr_dbg(dmn, "Failed allocating ste_info\n");
 		errno = ENOMEM;
 		return NULL;
 	}
 
 	new_ste = dr_rule_create_collision_entry(matcher, nic_matcher, hw_ste, ste);
 	if (!new_ste) {
-		dr_dbg(matcher->tbl->dmn, "Failed creating collision entry\n");
+		dr_dbg(dmn, "Failed creating collision entry\n");
 		goto free_send_info;
 	}
 
-	if (dr_rule_append_to_miss_list(new_ste, miss_list, send_list)) {
-		dr_dbg(matcher->tbl->dmn, "Failed to update prev miss_list\n");
+	if (dr_rule_append_to_miss_list(ste_ctx, new_ste, miss_list, send_list)) {
+		dr_dbg(dmn, "Failed to update prev miss_list\n");
 		goto err_exit;
 	}
 
@@ -675,6 +687,7 @@ static int dr_rule_handle_action_stes(struct mlx5dv_dr_rule *rule,
 	struct dr_ste_send_info *ste_info_arr[DR_ACTION_MAX_STES];
 	uint8_t num_of_builders = nic_matcher->num_of_builders;
 	struct mlx5dv_dr_matcher *matcher = rule->matcher;
+	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
 	uint8_t *curr_hw_ste, *prev_hw_ste;
 	struct dr_ste *action_ste;
 	int i, k, ret;
@@ -704,17 +717,19 @@ static int dr_rule_handle_action_stes(struct mlx5dv_dr_rule *rule,
 
 		ste_info_arr[k] = calloc(1, sizeof(struct dr_ste_send_info));
 		if (!ste_info_arr[k]) {
-			dr_dbg(matcher->tbl->dmn, "Failed allocate ste_info, k: %d\n", k);
+			dr_dbg(dmn, "Failed allocate ste_info, k: %d\n", k);
 			errno = ENOMEM;
 			ret = errno;
 			goto err_exit;
 		}
 
 		/* Point current ste to the new action */
-		dr_ste_set_hit_addr_by_next_htbl(prev_hw_ste, action_ste->htbl);
+		dr_ste_set_hit_addr_by_next_htbl(dmn->ste_ctx,
+						 prev_hw_ste,
+						 action_ste->htbl);
 		ret = dr_rule_add_member(nic_rule, action_ste);
 		if (ret) {
-			dr_dbg(matcher->tbl->dmn, "Failed adding rule member\n");
+			dr_dbg(dmn, "Failed adding rule member\n");
 			goto free_ste_info;
 		}
 		dr_send_fill_and_append_ste_send_info(action_ste, DR_STE_SIZE, 0,
@@ -741,6 +756,7 @@ static int dr_rule_handle_empty_entry(struct mlx5dv_dr_matcher *matcher,
 				      struct list_head *miss_list,
 				      struct list_head *send_list)
 {
+	struct dr_ste_ctx *ste_ctx = matcher->tbl->dmn->ste_ctx;
 	struct dr_ste_send_info *ste_info;
 
 	/* Take ref on table, only on first time this ste is used */
@@ -749,7 +765,7 @@ static int dr_rule_handle_empty_entry(struct mlx5dv_dr_matcher *matcher,
 	/* new entry -> new branch */
 	list_add_tail(miss_list, &ste->miss_list_node);
 
-	dr_ste_set_miss_addr(hw_ste, nic_matcher->e_anchor->chunk->icm_addr);
+	dr_ste_set_miss_addr(ste_ctx, hw_ste, nic_matcher->e_anchor->chunk->icm_addr);
 
 	ste->ste_chain_location = ste_location;
 

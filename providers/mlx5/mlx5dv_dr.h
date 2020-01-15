@@ -262,8 +262,13 @@ static inline void dr_htbl_get(struct dr_ste_htbl *htbl)
 
 /* STE utils */
 uint32_t dr_ste_calc_hash_index(uint8_t *hw_ste_p, struct dr_ste_htbl *htbl);
-void dr_ste_set_miss_addr(uint8_t *hw_ste, uint64_t miss_addr);
-void dr_ste_set_hit_addr(uint8_t *hw_ste, uint64_t icm_addr, uint32_t ht_size);
+void dr_ste_set_miss_addr(struct dr_ste_ctx *ste_ctx, uint8_t *hw_ste_p,
+			  uint64_t miss_addr);
+void dr_ste_set_hit_addr_by_next_htbl(struct dr_ste_ctx *ste_ctx,
+				      uint8_t *hw_ste,
+				      struct dr_ste_htbl *next_htbl);
+void dr_ste_set_hit_addr(struct dr_ste_ctx *ste_ctx, uint8_t *hw_ste_p,
+			 uint64_t icm_addr, uint32_t ht_size);
 void dr_ste_set_bit_mask(uint8_t *hw_ste_p, uint8_t *bit_mask);
 bool dr_ste_is_last_in_rule(struct dr_matcher_rx_tx *nic_matcher,
 			    uint8_t ste_location);
@@ -286,11 +291,13 @@ struct dr_ste_actions_attr {
 	uint32_t	reformat_size;
 };
 
-void dr_ste_set_actions_rx(uint8_t *action_type_set,
+void dr_ste_set_actions_rx(struct dr_ste_ctx *ste_ctx,
+			   uint8_t *action_type_set,
 			   uint8_t *last_ste,
 			   struct dr_ste_actions_attr *attr,
 			   uint32_t *added_stes);
-void dr_ste_set_actions_tx(uint8_t *action_type_set,
+void dr_ste_set_actions_tx(struct dr_ste_ctx *ste_ctx,
+			   uint8_t *action_type_set,
 			   uint8_t *last_ste,
 			   struct dr_ste_actions_attr *attr,
 			   uint32_t *added_stes);
@@ -318,8 +325,6 @@ static inline bool dr_ste_is_not_used(struct dr_ste *ste)
 	return !atomic_load(&ste->refcount);
 }
 
-void dr_ste_set_hit_addr_by_next_htbl(uint8_t *hw_ste,
-				      struct dr_ste_htbl *next_htbl);
 bool dr_ste_equal_tag(void *src, void *dst);
 int dr_ste_create_next_htbl(struct mlx5dv_dr_matcher *matcher,
 			    struct dr_matcher_rx_tx *nic_matcher,
@@ -949,7 +954,8 @@ int dr_ste_htbl_init_and_postsend(struct mlx5dv_dr_domain *dmn,
 				  struct dr_ste_htbl *htbl,
 				  struct dr_htbl_connect_info *connect_info,
 				  bool update_hw_ste);
-void dr_ste_set_formated_ste(uint16_t gvmi,
+void dr_ste_set_formated_ste(struct dr_ste_ctx *ste_ctx,
+			     uint16_t gvmi,
 			     struct dr_domain_rx_tx *nic_dmn,
 			     struct dr_ste_htbl *htbl,
 			     uint8_t *formated_ste,
