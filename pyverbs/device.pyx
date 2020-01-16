@@ -101,6 +101,7 @@ cdef class Context(PyverbsCM):
         self.cqs = weakref.WeakSet()
         self.qps = weakref.WeakSet()
         self.xrcds = weakref.WeakSet()
+        self.vars = weakref.WeakSet()
 
         self.name = kwargs.get('name')
         provider_attr = kwargs.get('attr')
@@ -146,7 +147,7 @@ cdef class Context(PyverbsCM):
     cpdef close(self):
         self.logger.debug('Closing Context')
         close_weakrefs([self.qps, self.ccs, self.cqs, self.dms, self.pds,
-                        self.xrcds])
+                        self.xrcds, self.vars])
         if self.context != NULL:
             rc = v.ibv_close_device(self.context)
             if rc != 0:
@@ -220,8 +221,14 @@ cdef class Context(PyverbsCM):
             self.qps.add(obj)
         elif isinstance(obj, XRCD):
             self.xrcds.add(obj)
+        elif isinstance(obj, VAR):
+            self.vars.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
+
+    @property
+    def cmd_fd(self):
+        return self.context.cmd_fd
 
 
 cdef class DeviceAttr(PyverbsObject):
@@ -960,3 +967,19 @@ def get_device_list():
     finally:
         v.ibv_free_device_list(dev_list)
     return devices
+
+
+cdef class VAR(PyverbsObject):
+    """
+    This is an abstract class of Virtio Access Region (VAR).
+    Each device specific VAR implementation should inherit this class
+    and initialize it according to the device attributes.
+    """
+    def __cinit__(self, Context context not None, **kwargs):
+        self.context = context
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        pass

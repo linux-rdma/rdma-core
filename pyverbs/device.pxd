@@ -18,6 +18,7 @@ cdef class Context(PyverbsCM):
     cdef object cqs
     cdef object qps
     cdef object xrcds
+    cdef object vars
 
 cdef class DeviceAttr(PyverbsObject):
     cdef v.ibv_device_attr dev_attr
@@ -61,3 +62,7 @@ cdef class DM(PyverbsCM):
 
 cdef class PortAttr(PyverbsObject):
     cdef v.ibv_port_attr attr
+
+cdef class VAR(PyverbsObject):
+    cdef object context
+    cpdef close(self)
