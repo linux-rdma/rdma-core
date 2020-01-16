@@ -5,6 +5,7 @@ publish_headers(rdma
   rsocket.h
   )
 publish_headers(infiniband
+  acm.h
   ib.h
   )
 
