@@ -42,6 +42,13 @@ BuildRequires: python3
 BuildRequires: python
 %endif
 %endif
+
+%if 0%{?rhel} >= 8 || 0%{?fedora} >= 30 || %{with_pyverbs}
+BuildRequires: python3-docutils
+%else
+BuildRequires: python-docutils
+%endif
+
 %if 0%{?fedora} >= 21 || 0%{?rhel} >= 8
 BuildRequires: perl-generators
 %endif
