@@ -52,7 +52,7 @@ static void set_extend_atomic_seg(struct hns_roce_qp *qp,
 				  struct hns_roce_sge_info *sge_info,
 				  void *buf)
 {
-	unsigned int sge_mask = qp->sge.sge_cnt - 1;
+	unsigned int sge_mask = qp->ex_sge.sge_cnt - 1;
 	int i;
 
 	for (i = 0; i < atomic_buf; i++, sge_info->start_idx++)
@@ -200,7 +200,7 @@ static void *get_send_wqe(struct hns_roce_qp *qp, int n)
 
 static void *get_send_sge_ex(struct hns_roce_qp *qp, int n)
 {
-	return qp->buf.buf + qp->sge.offset + (n << qp->sge.sge_shift);
+	return qp->buf.buf + qp->ex_sge.offset + (n << qp->ex_sge.sge_shift);
 }
 
 static void *get_srq_wqe(struct hns_roce_srq *srq, int n)
@@ -215,8 +215,8 @@ static void hns_roce_free_srq_wqe(struct hns_roce_srq *srq, uint16_t ind)
 
 	pthread_spin_lock(&srq->lock);
 
-	bitmap_num = ind / (sizeof(uint64_t) * BIT_CNT_PER_BYTE);
-	bit_num = ind % (sizeof(uint64_t) * BIT_CNT_PER_BYTE);
+	bitmap_num = ind / BIT_CNT_PER_U64;
+	bit_num = ind % BIT_CNT_PER_U64;
 	srq->idx_que.bitmap[bitmap_num] |= (1ULL << bit_num);
 	srq->tail++;
 
@@ -232,7 +232,6 @@ static int hns_roce_v2_wq_overflow(struct hns_roce_wq *wq, int nreq,
 	if (cur + nreq < wq->max_post)
 		return 0;
 
-	/* While the num of wqe exceeds cap of the device, cq will be locked */
 	pthread_spin_lock(&cq->lock);
 	cur = wq->head - wq->tail;
 	pthread_spin_unlock(&cq->lock);
@@ -491,7 +490,6 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 	uint32_t qpn;
 	int is_send;
 	uint16_t wqe_ctr;
-	uint32_t local_qpn;
 	struct hns_roce_wq *wq = NULL;
 	struct hns_roce_v2_cqe *cqe;
 	struct hns_roce_srq *srq;
@@ -514,21 +512,16 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 	is_send = (roce_get_bit(cqe->byte_4, CQE_BYTE_4_S_R_S) ==
 		   HNS_ROCE_V2_CQE_IS_SQ);
 
-	local_qpn = roce_get_field(cqe->byte_16, CQE_BYTE_16_LCL_QPN_M,
-				   CQE_BYTE_16_LCL_QPN_S);
-
 	/* if qp is zero, it will not get the correct qpn */
-	if (!*cur_qp ||
-	   (local_qpn & HNS_ROCE_V2_CQE_QPN_MASK) != (*cur_qp)->ibv_qp.qp_num) {
-
+	if (!*cur_qp || qpn != (*cur_qp)->ibv_qp.qp_num) {
 		*cur_qp = hns_roce_v2_find_qp(to_hr_ctx(cq->ibv_cq.context),
-					      qpn & 0xffffff);
+					      qpn);
 		if (!*cur_qp) {
 			fprintf(stderr, PFX "can't find qp!\n");
 			return V2_CQ_POLL_ERR;
 		}
 	}
-	wc->qp_num = qpn & 0xffffff;
+	wc->qp_num = qpn;
 
 	srq = (*cur_qp)->ibv_qp.srq ? to_hr_srq((*cur_qp)->ibv_qp.srq) : NULL;
 	if (is_send) {
@@ -555,7 +548,7 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 		wqe_ctr = (uint16_t)(roce_get_field(cqe->byte_4,
 						    CQE_BYTE_4_WQE_IDX_M,
 						    CQE_BYTE_4_WQE_IDX_S));
-		wc->wr_id = srq->wrid[wqe_ctr & (srq->max - 1)];
+		wc->wr_id = srq->wrid[wqe_ctr & (srq->max_wqe - 1)];
 		hns_roce_free_srq_wqe(srq, wqe_ctr);
 	} else {
 		wq = &(*cur_qp)->rq;
@@ -686,7 +679,7 @@ static void set_sge(struct hns_roce_v2_wqe_data_seg *dseg,
 			dseg++;
 		} else {
 			dseg = get_send_sge_ex(qp, sge_info->start_idx &
-					       (qp->sge.sge_cnt - 1));
+					       (qp->ex_sge.sge_cnt - 1));
 			set_data_seg_v2(dseg, wr->sg_list + i);
 			sge_info->start_idx++;
 		}
@@ -796,7 +789,7 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	roce_set_field(rc_sq_wqe->byte_20,
 		       RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_M,
 		       RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_S,
-		       sge_info->start_idx & (qp->sge.sge_cnt - 1));
+		       sge_info->start_idx & (qp->ex_sge.sge_cnt - 1));
 
 	if (wr->opcode == IBV_WR_BIND_MW)
 		return 0;
@@ -978,6 +971,7 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 			dseg++;
 		}
 
+		/* hw stop reading when identify the last one */
 		if (i < qp->rq.max_gs) {
 			dseg->lkey = htole32(0x100);
 			dseg->addr = 0;
@@ -1229,7 +1223,7 @@ static int find_empty_entry(struct hns_roce_idx_que *idx_que)
 	bit_num = ffsl(idx_que->bitmap[i]);
 	idx_que->bitmap[i] &= ~(1ULL << (bit_num - 1));
 
-	return i * sizeof(uint64_t) * BIT_CNT_PER_BYTE + (bit_num - 1);
+	return i * BIT_CNT_PER_U64 + (bit_num - 1);
 }
 
 static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
@@ -1250,7 +1244,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 	pthread_spin_lock(&srq->lock);
 
 	/* current idx of srqwq */
-	ind = srq->head & (srq->max - 1);
+	ind = srq->head & (srq->max_wqe - 1);
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (wr->num_sge > srq->max_gs) {
@@ -1278,6 +1272,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 			dseg[i].addr = htole64(wr->sg_list[i].addr);
 		}
 
+		/* hw stop reading when identify the last one */
 		if (i < srq->max_gs) {
 			dseg[i].len = 0;
 			dseg[i].lkey = htole32(0x100);
@@ -1285,7 +1280,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 		}
 
 		srq->wrid[wqe_idx] = wr->wr_id;
-		ind = (ind + 1) & (srq->max - 1);
+		ind = (ind + 1) & (srq->max_wqe - 1);
 	}
 
 	if (nreq) {
