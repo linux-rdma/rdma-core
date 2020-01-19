@@ -1080,3 +1080,18 @@ free_resources:
 
 	return ret;
 }
+
+int ibv_set_ece(struct ibv_qp *qp, struct ibv_ece *ece)
+{
+	if (!ece->vendor_id) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	return get_ops(qp->context)->set_ece(qp, ece);
+}
+
+int ibv_query_ece(struct ibv_qp *qp, struct ibv_ece *ece)
+{
+	return get_ops(qp->context)->query_ece(qp, ece);
+}

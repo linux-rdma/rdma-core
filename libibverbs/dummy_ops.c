@@ -450,6 +450,16 @@ static int resize_cq(struct ibv_cq *cq, int cqe)
 	return EOPNOTSUPP;
 }
 
+static int set_ece(struct ibv_qp *qp, struct ibv_ece *ece)
+{
+	return EOPNOTSUPP;
+}
+
+static int query_ece(struct ibv_qp *qp, struct ibv_ece *ece)
+{
+	return EOPNOTSUPP;
+}
+
 /*
  * Ops in verbs_dummy_ops simply return an EOPNOTSUPP error code when called, or
  * do nothing. They are placed in the ops structures if the provider does not
@@ -519,6 +529,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	post_srq_recv,
 	query_device,
 	query_device_ex,
+	query_ece,
 	query_port,
 	query_qp,
 	query_rt_values,
@@ -529,6 +540,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	req_notify_cq,
 	rereg_mr,
 	resize_cq,
+	set_ece,
 };
 
 /*
@@ -635,6 +647,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, post_srq_recv);
 	SET_PRIV_OP(ctx, query_device);
 	SET_OP(vctx, query_device_ex);
+	SET_PRIV_OP_IC(vctx, query_ece);
 	SET_PRIV_OP_IC(ctx, query_port);
 	SET_PRIV_OP(ctx, query_qp);
 	SET_OP(vctx, query_rt_values);
@@ -645,6 +658,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, req_notify_cq);
 	SET_PRIV_OP(ctx, rereg_mr);
 	SET_PRIV_OP(ctx, resize_cq);
+	SET_PRIV_OP_IC(vctx, set_ece);
 
 #undef SET_OP
 #undef SET_OP2

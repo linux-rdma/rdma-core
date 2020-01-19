@@ -129,6 +129,8 @@ IBVERBS_1.8 {
 IBVERBS_1.9 {
 	global:
 		ibv_get_device_index;
+		ibv_query_ece;
+		ibv_set_ece;
 } IBVERBS_1.8;
 
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol

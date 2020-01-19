@@ -348,6 +348,7 @@ struct verbs_context_ops {
 			       const struct ibv_query_device_ex_input *input,
 			       struct ibv_device_attr_ex *attr,
 			       size_t attr_size);
+	int (*query_ece)(struct ibv_qp *qp, struct ibv_ece *ece);
 	int (*query_port)(struct ibv_context *context, uint8_t port_num,
 			  struct ibv_port_attr *port_attr);
 	int (*query_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
@@ -368,6 +369,7 @@ struct verbs_context_ops {
 	int (*rereg_mr)(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 			void *addr, size_t length, int access);
 	int (*resize_cq)(struct ibv_cq *cq, int cqe);
+	int (*set_ece)(struct ibv_qp *qp, struct ibv_ece *ece);
 };
 
 static inline struct verbs_device *
