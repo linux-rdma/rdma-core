@@ -1401,6 +1401,21 @@ static inline void ibv_wr_abort(struct ibv_qp_ex *qp)
 	qp->wr_abort(qp);
 }
 
+struct ibv_ece {
+	/*
+	 * Unique identifier of the provider vendor on the network.
+	 * The providers will set IEEE OUI here to distinguish
+	 * itself in non-homogenius network.
+	 */
+	uint32_t vendor_id;
+	/*
+	 * Provider specific attributes which are supported or
+	 * needed to be enabled by ECE users.
+	 */
+	uint32_t options;
+	uint32_t comp_mask;
+};
+
 struct ibv_comp_channel {
 	struct ibv_context     *context;
 	int			fd;
@@ -3352,6 +3367,15 @@ static inline uint16_t ibv_flow_label_to_udp_sport(uint32_t fl)
 	return (uint16_t)(fl_low | IB_ROCE_UDP_ENCAP_VALID_PORT_MIN);
 }
 
+/**
+ * ibv_set_ece - Set ECE options
+ */
+int ibv_set_ece(struct ibv_qp *qp, struct ibv_ece *ece);
+
+/**
+ * ibv_query_ece - Get accepted ECE options
+ */
+int ibv_query_ece(struct ibv_qp *qp, struct ibv_ece *ece);
 #ifdef __cplusplus
 }
 #endif

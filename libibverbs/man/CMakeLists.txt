@@ -52,6 +52,7 @@ rdma_man_pages(
   ibv_post_srq_recv.3
   ibv_query_device.3
   ibv_query_device_ex.3
+  ibv_query_ece.3.md
   ibv_query_gid.3.md
   ibv_query_pkey.3.md
   ibv_query_port.3
@@ -66,6 +67,7 @@ rdma_man_pages(
   ibv_req_notify_cq.3.md
   ibv_rereg_mr.3.md
   ibv_resize_cq.3.md
+  ibv_set_ece.3.md
   ibv_srq_pingpong.1
   ibv_uc_pingpong.1
   ibv_ud_pingpong.1

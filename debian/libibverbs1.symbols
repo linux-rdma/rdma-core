@@ -7,6 +7,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  IBVERBS_1.7@IBVERBS_1.7 25
  IBVERBS_1.8@IBVERBS_1.8 28
  IBVERBS_1.9@IBVERBS_1.9 30
+ IBVERBS_1.10@IBVERBS_1.10 31
  (symver)IBVERBS_PRIVATE_25 25
  ibv_ack_async_event@IBVERBS_1.0 1.1.6
  ibv_ack_async_event@IBVERBS_1.1 1.1.6
@@ -78,6 +79,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_qp_to_qp_ex@IBVERBS_1.6 24
  ibv_query_device@IBVERBS_1.0 1.1.6
  ibv_query_device@IBVERBS_1.1 1.1.6
+ ibv_query_ece@IBVERBS_1.10 31
  ibv_query_gid@IBVERBS_1.0 1.1.6
  ibv_query_gid@IBVERBS_1.1 1.1.6
  ibv_query_pkey@IBVERBS_1.0 1.1.6
@@ -100,6 +102,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_resize_cq@IBVERBS_1.0 1.1.6
  ibv_resize_cq@IBVERBS_1.1 1.1.6
  ibv_resolve_eth_l2_from_gid@IBVERBS_1.1 1.2.0
+ ibv_set_ece@IBVERBS_1.10 31
  ibv_wc_status_str@IBVERBS_1.1 1.1.6
  mbps_to_ibv_rate@IBVERBS_1.1 1.1.8
  mult_to_ibv_rate@IBVERBS_1.0 1.1.6
