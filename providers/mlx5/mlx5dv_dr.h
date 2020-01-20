@@ -671,6 +671,7 @@ struct mlx5dv_dr_matcher {
 	uint8_t				match_criteria;
 	atomic_int			refcount;
 	struct mlx5dv_flow_matcher	*dv_matcher;
+	struct list_head		rule_list;
 };
 
 struct dr_rule_member {
@@ -768,6 +769,7 @@ struct mlx5dv_dr_rule {
 		struct ibv_flow *flow;
 	};
 	struct list_head	rule_actions_list;
+	struct list_node	rule_list;
 };
 
 void dr_rule_update_rule_member(struct dr_ste *new_ste, struct dr_ste *ste);

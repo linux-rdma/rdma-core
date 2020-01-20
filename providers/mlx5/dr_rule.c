@@ -976,6 +976,7 @@ static int dr_rule_destroy_rule(struct mlx5dv_dr_rule *rule)
 	}
 
 	dr_rule_remove_action_members(rule);
+	list_del(&rule->rule_list);
 	free(rule);
 	return 0;
 }
@@ -1171,6 +1172,7 @@ dr_rule_create_rule(struct mlx5dv_dr_matcher *matcher,
 
 	rule->matcher = matcher;
 	list_head_init(&rule->rule_actions_list);
+	list_node_init(&rule->rule_list);
 
 	ret = dr_rule_add_action_members(rule, num_actions, actions);
 	if (ret)
@@ -1202,6 +1204,7 @@ dr_rule_create_rule(struct mlx5dv_dr_matcher *matcher,
 	if (ret)
 		goto remove_action_members;
 
+	list_add_tail(&matcher->rule_list, &rule->rule_list);
 	return rule;
 
 remove_action_members:

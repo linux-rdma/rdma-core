@@ -72,6 +72,7 @@ rdma_alias_man_pages(
  mlx5dv_dr_flow.3 mlx5dv_dr_rule_destroy.3
  mlx5dv_dr_flow.3 mlx5dv_dr_table_create.3
  mlx5dv_dr_flow.3 mlx5dv_dr_table_destroy.3
+ mlx5dv_dump.3 mlx5dv_dump_dr_matcher.3
  mlx5dv_dump.3 mlx5dv_dump_dr_rule.3
  mlx5dv_wr_post.3 mlx5dv_wr_set_dc_addr.3
  mlx5dv_wr_post.3 mlx5dv_qp_ex_from_ibv_qp_ex.3

@@ -1519,6 +1519,7 @@ int mlx5dv_dr_action_modify_flow_meter(struct mlx5dv_dr_action *action,
 
 int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
 
+int mlx5dv_dump_dr_matcher(FILE *fout, struct mlx5dv_dr_matcher *matcher);
 int mlx5dv_dump_dr_rule(FILE *fout, struct mlx5dv_dr_rule *rule);
 
 #ifdef __cplusplus

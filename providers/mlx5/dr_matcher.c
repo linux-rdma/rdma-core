@@ -732,6 +732,7 @@ mlx5dv_dr_matcher_create(struct mlx5dv_dr_table *tbl,
 	matcher->match_criteria = match_criteria_enable;
 	atomic_init(&matcher->refcount, 1);
 	list_node_init(&matcher->matcher_list);
+	list_head_init(&matcher->rule_list);
 
 	pthread_mutex_lock(&tbl->dmn->mutex);
 

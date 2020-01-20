@@ -90,6 +90,7 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_alloc_var@MLX5_1.12 28
  mlx5dv_dr_action_create_flow_meter@MLX5_1.12 28
  mlx5dv_dr_action_modify_flow_meter@MLX5_1.12 28
+ mlx5dv_dump_dr_matcher@MLX5_1.12 28
  mlx5dv_dump_dr_rule@MLX5_1.12 28
  mlx5dv_free_var@MLX5_1.12 28
 libefa.so.1 ibverbs-providers #MINVER#

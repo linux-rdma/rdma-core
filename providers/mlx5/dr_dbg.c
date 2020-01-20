@@ -37,6 +37,12 @@
 #define BUFF_SIZE	1024
 
 enum dr_dump_rec_type {
+	DR_DUMP_REC_TYPE_MATCHER = 3200,
+	DR_DUMP_REC_TYPE_MATCHER_MASK = 3201,
+	DR_DUMP_REC_TYPE_MATCHER_RX = 3202,
+	DR_DUMP_REC_TYPE_MATCHER_TX = 3203,
+	DR_DUMP_REC_TYPE_MATCHER_BUILDER = 3204,
+
 	DR_DUMP_REC_TYPE_RULE = 3300,
 	DR_DUMP_REC_TYPE_RULE_RX_ENTRY = 3301,
 	DR_DUMP_REC_TYPE_RULE_TX_ENTRY = 3302,
@@ -229,3 +235,189 @@ int mlx5dv_dump_dr_rule(FILE *fout, struct mlx5dv_dr_rule *rule)
 
 	return ret;
 }
+
+static int dr_dump_matcher_mask(FILE *f, struct dr_match_param *mask,
+				 uint8_t criteria, const uint64_t matcher_id)
+{
+	char dump[BUFF_SIZE] = {};
+	int ret;
+
+	ret = fprintf(f, "%d,0x%" PRIx64 ",", DR_DUMP_REC_TYPE_MATCHER_MASK, matcher_id);
+	if (ret < 0)
+		return ret;
+
+	if (criteria & DR_MATCHER_CRITERIA_OUTER) {
+		dump_hex_print(dump, (char *)&mask->outer, sizeof(mask->outer));
+		ret = fprintf(f, "%s,", dump);
+	} else {
+		ret = fprintf(f, ",");
+	}
+
+	if (ret < 0)
+		return ret;
+
+	if (criteria & DR_MATCHER_CRITERIA_INNER) {
+		dump_hex_print(dump, (char *)&mask->inner, sizeof(mask->inner));
+		ret = fprintf(f, "%s,", dump);
+	} else {
+		ret = fprintf(f, ",");
+	}
+
+
+	if (ret < 0)
+		return ret;
+
+	if (criteria & DR_MATCHER_CRITERIA_MISC) {
+		dump_hex_print(dump, (char *)&mask->misc, sizeof(mask->misc));
+		ret = fprintf(f, "%s,", dump);
+	} else {
+		ret = fprintf(f, ",");
+	}
+
+	if (ret < 0)
+		return ret;
+
+	if (criteria & DR_MATCHER_CRITERIA_MISC2) {
+		dump_hex_print(dump, (char *)&mask->misc2, sizeof(mask->misc2));
+		ret = fprintf(f, "%s,", dump);
+	} else {
+		ret = fprintf(f, ",");
+	}
+
+	if (ret < 0)
+		return ret;
+
+	if (criteria & DR_MATCHER_CRITERIA_MISC3) {
+		dump_hex_print(dump, (char *)&mask->misc3, sizeof(mask->misc3));
+		ret = fprintf(f, "%s\n", dump);
+	} else {
+		ret = fprintf(f, ",\n");
+	}
+
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int dr_dump_matcher_builder(FILE *f, struct dr_ste_build *builder,
+				   uint32_t index, bool is_rx,
+				   const uint64_t matcher_id)
+{
+	int ret;
+
+	ret = fprintf(f, "%d,0x%" PRIx64 "%d,%d,0x%x\n",
+		      DR_DUMP_REC_TYPE_MATCHER_BUILDER,
+		      matcher_id,
+		      index,
+		      is_rx,
+		      builder->lu_type);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int dr_dump_matcher_rx_tx(FILE *f, bool is_rx,
+				 struct dr_matcher_rx_tx *matcher_rx_tx,
+				 const uint64_t matcher_id)
+{
+	enum dr_dump_rec_type rec_type;
+	int i, ret;
+
+	rec_type = is_rx ? DR_DUMP_REC_TYPE_MATCHER_RX :
+			   DR_DUMP_REC_TYPE_MATCHER_TX;
+
+	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",%d,0x%" PRIx64 ",0x%" PRIx64 "\n",
+		      rec_type,
+		      (uint64_t)matcher_rx_tx,
+		      matcher_id,
+		      matcher_rx_tx->num_of_builders,
+		      dr_dump_icm_to_idx(matcher_rx_tx->s_htbl->chunk->icm_addr),
+		      dr_dump_icm_to_idx(matcher_rx_tx->e_anchor->chunk->icm_addr));
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; i < matcher_rx_tx->num_of_builders; i++) {
+		ret = dr_dump_matcher_builder(f, &matcher_rx_tx->ste_builder[i],
+					      i, is_rx, matcher_id);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int dr_dump_matcher(FILE *f, struct mlx5dv_dr_matcher *matcher)
+{
+	struct dr_matcher_rx_tx *rx = &matcher->rx;
+	struct dr_matcher_rx_tx *tx = &matcher->tx;
+	uint64_t matcher_id;
+	int ret;
+
+	matcher_id = (uint64_t)matcher;
+
+	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",%d\n",
+		      DR_DUMP_REC_TYPE_MATCHER,
+		      matcher_id,
+		      (uint64_t)matcher->tbl,
+		      matcher->prio);
+	if (ret < 0)
+		return ret;
+
+
+	if (!dr_is_root_table(matcher->tbl)) {
+		ret = dr_dump_matcher_mask(f, &matcher->mask, matcher->match_criteria, matcher_id);
+		if (ret < 0)
+			return ret;
+
+		if (rx->nic_tbl) {
+			ret = dr_dump_matcher_rx_tx(f, true, rx, matcher_id);
+			if (ret < 0)
+				return ret;
+		}
+
+		if (tx->nic_tbl) {
+			ret = dr_dump_matcher_rx_tx(f, false, tx, matcher_id);
+			if (ret < 0)
+				return ret;
+		}
+	}
+
+	return 0;
+}
+
+static int dr_dump_matcher_all(FILE *fout, struct mlx5dv_dr_matcher *matcher)
+{
+	struct mlx5dv_dr_rule *rule;
+	int ret;
+
+	ret = dr_dump_matcher(fout, matcher);
+	if (ret < 0)
+		return ret;
+
+	list_for_each(&matcher->rule_list, rule, rule_list) {
+		ret = dr_dump_rule(fout, rule);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
+int mlx5dv_dump_dr_matcher(FILE *fout, struct mlx5dv_dr_matcher *matcher)
+{
+	int ret;
+
+	if (!fout || !matcher)
+		return -EINVAL;
+
+	pthread_mutex_lock(&matcher->tbl->dmn->mutex);
+
+	ret = dr_dump_matcher_all(fout, matcher);
+
+	pthread_mutex_unlock(&matcher->tbl->dmn->mutex);
+
+	return ret;
+}
+
