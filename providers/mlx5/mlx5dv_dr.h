@@ -734,6 +734,11 @@ struct mlx5dv_dr_action {
 	};
 };
 
+struct dr_rule_action_member {
+	struct mlx5dv_dr_action *action;
+	struct list_node	list;
+};
+
 enum dr_connect_type {
 	CONNECT_HIT	= 1,
 	CONNECT_MISS	= 2,

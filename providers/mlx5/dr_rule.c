@@ -36,11 +36,6 @@
 
 #define DR_RULE_MAX_STE_CHAIN (DR_RULE_MAX_STES + DR_ACTION_MAX_STES)
 
-struct dr_rule_action_member {
-	struct mlx5dv_dr_action *action;
-	struct list_node	list;
-};
-
 static int dr_rule_append_to_miss_list(struct dr_ste *new_last_ste,
 				       struct list_head *miss_list,
 				       struct list_head *send_list)
