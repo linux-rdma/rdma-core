@@ -37,6 +37,10 @@
 #define BUFF_SIZE	1024
 
 enum dr_dump_rec_type {
+	DR_DUMP_REC_TYPE_TABLE = 3100,
+	DR_DUMP_REC_TYPE_TABLE_RX = 3101,
+	DR_DUMP_REC_TYPE_TABLE_TX = 3102,
+
 	DR_DUMP_REC_TYPE_MATCHER = 3200,
 	DR_DUMP_REC_TYPE_MATCHER_MASK = 3201,
 	DR_DUMP_REC_TYPE_MATCHER_RX = 3202,
@@ -417,6 +421,96 @@ int mlx5dv_dump_dr_matcher(FILE *fout, struct mlx5dv_dr_matcher *matcher)
 	ret = dr_dump_matcher_all(fout, matcher);
 
 	pthread_mutex_unlock(&matcher->tbl->dmn->mutex);
+
+	return ret;
+}
+
+static uint64_t dr_domain_id_calc(enum mlx5dv_dr_domain_type type)
+{
+	return (getpid() << 8) | (type & 0xff);
+}
+
+static int dr_dump_table_rx_tx(FILE *f, bool is_rx,
+			       struct dr_table_rx_tx *table_rx_tx,
+			       const uint64_t table_id)
+{
+	enum dr_dump_rec_type rec_type;
+	int ret;
+
+	rec_type = is_rx ? DR_DUMP_REC_TYPE_TABLE_RX : DR_DUMP_REC_TYPE_TABLE_TX;
+
+	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 "\n",
+		      rec_type,
+		      table_id,
+		      dr_dump_icm_to_idx(table_rx_tx->s_anchor->chunk->icm_addr));
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int dr_dump_table(FILE *f, struct mlx5dv_dr_table *table)
+{
+	struct dr_table_rx_tx *rx = &table->rx;
+	struct dr_table_rx_tx *tx = &table->tx;
+	int ret;
+
+	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",%d,%d\n",
+		      DR_DUMP_REC_TYPE_TABLE,
+		      (uint64_t) table,
+		      dr_domain_id_calc(table->dmn->type),
+		      table->table_type,
+		      table->level);
+	if (ret < 0)
+		return ret;
+
+	if (!dr_is_root_table(table)) {
+		if (rx->nic_dmn) {
+			ret = dr_dump_table_rx_tx(f, true, rx, (uint64_t)table);
+			if (ret < 0)
+				return ret;
+		}
+
+		if (tx->nic_dmn) {
+			ret = dr_dump_table_rx_tx(f, false, tx, (uint64_t)table);
+			if (ret < 0)
+				return ret;
+		}
+	}
+	return 0;
+}
+
+static int dr_dump_table_all(FILE *fout, struct mlx5dv_dr_table *tbl)
+{
+	struct mlx5dv_dr_matcher *matcher;
+	int ret;
+
+	ret = dr_dump_table(fout, tbl);
+	if (ret < 0)
+		return ret;
+
+	if (!dr_is_root_table(tbl)) {
+		list_for_each(&tbl->matcher_list, matcher, matcher_list) {
+			ret = dr_dump_matcher_all(fout, matcher);
+			if (ret < 0)
+				return ret;
+		}
+	}
+	return 0;
+}
+
+int mlx5dv_dump_dr_table(FILE *fout, struct mlx5dv_dr_table *tbl)
+{
+	int ret;
+
+	if (!fout || !tbl)
+		return -EINVAL;
+
+	pthread_mutex_lock(&tbl->dmn->mutex);
+
+	ret = dr_dump_table_all(fout, tbl);
+
+	pthread_mutex_unlock(&tbl->dmn->mutex);
 
 	return ret;
 }
