@@ -10,6 +10,8 @@ footer: mlx5
 
 # NAME
 
+mlx5dv_dump_dr_domain - Dump DR Domain
+
 mlx5dv_dump_dr_table - Dump DR Table
 
 mlx5dv_dump_dr_matcher - Dump DR Matcher
@@ -21,6 +23,7 @@ mlx5dv_dump_dr_rule - Dump DR Rule
 ```c
 #include <infiniband/mlx5dv.h>
 
+int mlx5dv_dump_dr_domain(FILE *fout, struct mlx5dv_dr_domain *domain);
 int mlx5dv_dump_dr_table(FILE *fout, struct mlx5dv_dr_table *table);
 int mlx5dv_dump_dr_matcher(FILE *fout, struct mlx5dv_dr_matcher *matcher);
 int mlx5dv_dump_dr_rule(FILE *fout, struct mlx5dv_dr_rule *rule);
@@ -30,6 +33,8 @@ int mlx5dv_dump_dr_rule(FILE *fout, struct mlx5dv_dr_rule *rule);
 
 The Dump API (mlx5dv_dump_\*) allows the dumping of the existing rdma-core resources to the provided file.
 The output file format is vendor specific.
+
+*mlx5dv_dump_dr_domain()* dumps a DR Domain object properties to a specified file.
 
 *mlx5dv_dump_dr_table()* dumps a DR Table object properties to a specified file.
 

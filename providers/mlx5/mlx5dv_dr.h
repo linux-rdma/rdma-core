@@ -634,6 +634,7 @@ struct mlx5dv_dr_domain {
 	struct dr_icm_pool		*action_icm_pool;
 	struct dr_send_ring		*send_ring;
 	struct dr_domain_info		info;
+	struct list_head		tbl_list;
 };
 
 struct dr_table_rx_tx {
@@ -650,6 +651,7 @@ struct mlx5dv_dr_table {
 	struct list_head		matcher_list;
 	struct mlx5dv_devx_obj		*devx_obj;
 	atomic_int			refcount;
+	struct list_node		tbl_list;
 };
 
 struct dr_matcher_rx_tx {

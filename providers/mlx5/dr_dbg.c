@@ -37,6 +37,13 @@
 #define BUFF_SIZE	1024
 
 enum dr_dump_rec_type {
+	DR_DUMP_REC_TYPE_DOMAIN = 3000,
+	DR_DUMP_REC_TYPE_DOMAIN_INFO_FLEX_PARSER = 3001,
+	DR_DUMP_REC_TYPE_DOMAIN_INFO_DEV_ATTR = 3002,
+	DR_DUMP_REC_TYPE_DOMAIN_INFO_VPORT = 3003,
+	DR_DUMP_REC_TYPE_DOMAIN_INFO_CAPS = 3004,
+	DR_DUMP_REC_TYPE_DOMAIN_SEND_RING = 3005,
+
 	DR_DUMP_REC_TYPE_TABLE = 3100,
 	DR_DUMP_REC_TYPE_TABLE_RX = 3101,
 	DR_DUMP_REC_TYPE_TABLE_TX = 3102,
@@ -511,6 +518,185 @@ int mlx5dv_dump_dr_table(FILE *fout, struct mlx5dv_dr_table *tbl)
 	ret = dr_dump_table_all(fout, tbl);
 
 	pthread_mutex_unlock(&tbl->dmn->mutex);
+
+	return ret;
+}
+
+static int dr_dump_send_ring(FILE *f, struct dr_send_ring *ring,
+			     const uint64_t domain_id)
+{
+	int ret;
+
+	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x,0x%x\n",
+		      DR_DUMP_REC_TYPE_DOMAIN_SEND_RING,
+		      (uint64_t)ring,
+		      domain_id,
+		      ring->cq.cqn,
+		      ring->qp->obj->object_id);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int dr_dump_domain_info_flex_parser(FILE *f, const char *flex_parser_name,
+					   const uint8_t flex_parser_value,
+					   const uint64_t domain_id)
+{
+	int ret;
+
+	ret = fprintf(f, "%d,0x%" PRIx64 ",%s,0x%x\n",
+		      DR_DUMP_REC_TYPE_DOMAIN_INFO_FLEX_PARSER,
+		      domain_id,
+		      flex_parser_name,
+		      flex_parser_value);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int dr_dump_domain_info_caps(FILE *f, struct dr_devx_caps *caps,
+					 const uint64_t domain_id)
+{
+	int i, ret;
+
+	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%x,0x%" PRIx64 ",0x%" PRIx64 ",0x%x,%d,%d\n",
+		      DR_DUMP_REC_TYPE_DOMAIN_INFO_CAPS,
+		      domain_id,
+		      caps->gvmi,
+		      caps->nic_rx_drop_address,
+		      caps->nic_tx_drop_address,
+		      caps->flex_protocols,
+		      caps->num_vports,
+		      caps->eswitch_manager);
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; i < caps->num_vports; i++) {
+		ret = fprintf(f, "%d,0x%" PRIx64 ",%d,0x%x,0x%" PRIx64 ",0x%" PRIx64 "\n",
+			      DR_DUMP_REC_TYPE_DOMAIN_INFO_VPORT,
+			      domain_id,
+			      i,
+			      caps->vports_caps[i].gvmi,
+			      caps->vports_caps[i].icm_address_rx,
+			      caps->vports_caps[i].icm_address_tx);
+		if (ret < 0)
+			return ret;
+	}
+	return 0;
+}
+
+static int dr_dump_domain_info_dev_attr(FILE *f, struct ibv_device_attr *attr,
+					const uint64_t domain_id)
+{
+	int ret;
+
+	ret = fprintf(f, "%d,0x%" PRIx64 ",%d,%s\n",
+		      DR_DUMP_REC_TYPE_DOMAIN_INFO_DEV_ATTR,
+		      domain_id,
+		      attr->phys_port_cnt,
+		      attr->fw_ver);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+static int dr_dump_domain_info(FILE *f, struct dr_domain_info *info,
+			       const uint64_t domain_id)
+{
+	int ret;
+
+	ret = dr_dump_domain_info_dev_attr(f, &info->attr, domain_id);
+	if (ret < 0)
+		return ret;
+
+	ret = dr_dump_domain_info_caps(f, &info->caps, domain_id);
+	if (ret < 0)
+		return ret;
+
+	ret = dr_dump_domain_info_flex_parser(f, "icmp_dw0", info->caps.flex_parser_id_icmp_dw0, domain_id);
+	if (ret < 0)
+		return ret;
+
+	ret = dr_dump_domain_info_flex_parser(f, "icmp_dw1", info->caps.flex_parser_id_icmp_dw1, domain_id);
+	if (ret < 0)
+		return ret;
+
+	ret = dr_dump_domain_info_flex_parser(f, "icmpv6_dw0", info->caps.flex_parser_id_icmpv6_dw0, domain_id);
+	if (ret < 0)
+		return ret;
+
+	ret = dr_dump_domain_info_flex_parser(f, "icmpv6_dw1", info->caps.flex_parser_id_icmpv6_dw1, domain_id);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int dr_dump_domain(FILE *f, struct mlx5dv_dr_domain *dmn)
+{
+	enum mlx5dv_dr_domain_type dmn_type = dmn->type;
+	char *dev_name = dmn->ctx->device->dev_name;
+	uint64_t domain_id;
+	int ret;
+
+	domain_id = dr_domain_id_calc(dmn_type);
+
+	ret = fprintf(f, "%d,0x%" PRIx64 ",%d,0%x,%d,%s,%s\n",
+		      DR_DUMP_REC_TYPE_DOMAIN,
+		      domain_id,
+		      dmn_type,
+		      dmn->info.caps.gvmi,
+		      dmn->info.supp_sw_steering,
+		      PACKAGE_VERSION,
+		      dev_name);
+	if (ret < 0)
+		return ret;
+
+	ret = dr_dump_domain_info(f, &dmn->info, domain_id);
+	if (ret < 0)
+		return ret;
+
+	if (dmn->info.supp_sw_steering) {
+		ret = dr_dump_send_ring(f, dmn->send_ring, domain_id);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int dr_dump_domain_all(FILE *fout, struct mlx5dv_dr_domain *dmn)
+{
+	struct mlx5dv_dr_table *tbl;
+	int ret;
+
+	ret = dr_dump_domain(fout, dmn);
+	if (ret < 0)
+		return ret;
+
+	list_for_each(&dmn->tbl_list, tbl, tbl_list) {
+		ret = dr_dump_table_all(fout, tbl);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
+int mlx5dv_dump_dr_domain(FILE *fout, struct mlx5dv_dr_domain *dmn)
+{
+	int ret;
+
+	if (!fout || !dmn)
+		return -EINVAL;
+
+	pthread_mutex_lock(&dmn->mutex);
+
+	ret = dr_dump_domain_all(fout, dmn);
+
+	pthread_mutex_unlock(&dmn->mutex);
 
 	return ret;
 }
