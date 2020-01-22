@@ -637,7 +637,7 @@ static int ucma_destroy_kern_id(int fd, uint32_t handle)
 	struct ucma_abi_destroy_id_resp resp;
 	struct ucma_abi_destroy_id cmd;
 	int ret;
-	
+
 	CMA_INIT_CMD_RESP(&cmd, sizeof cmd, DESTROY_ID, &resp, sizeof resp);
 	cmd.id = handle;
 
@@ -695,7 +695,7 @@ static int ucma_query_addr(struct rdma_cm_id *id)
 	struct ucma_abi_query cmd;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	CMA_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY, &resp, sizeof resp);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
@@ -728,7 +728,7 @@ static int ucma_query_gid(struct rdma_cm_id *id)
 	struct cma_id_private *id_priv;
 	struct sockaddr_ib *sib;
 	int ret;
-	
+
 	CMA_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY, &resp, sizeof resp);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
@@ -870,7 +870,7 @@ static int rdma_bind_addr2(struct rdma_cm_id *id, struct sockaddr *addr,
 	struct ucma_abi_bind cmd;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	CMA_INIT_CMD(&cmd, sizeof cmd, BIND);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
@@ -892,7 +892,7 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 	struct ucma_abi_bind_ip cmd;
 	struct cma_id_private *id_priv;
 	int ret, addrlen;
-	
+
 	addrlen = ucma_addrlen(addr);
 	if (!addrlen)
 		return ERR(EINVAL);
@@ -948,7 +948,7 @@ static int rdma_resolve_addr2(struct rdma_cm_id *id, struct sockaddr *src_addr,
 	struct ucma_abi_resolve_addr cmd;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	CMA_INIT_CMD(&cmd, sizeof cmd, RESOLVE_ADDR);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
@@ -972,7 +972,7 @@ int rdma_resolve_addr(struct rdma_cm_id *id, struct sockaddr *src_addr,
 	struct ucma_abi_resolve_ip cmd;
 	struct cma_id_private *id_priv;
 	int ret, dst_len, src_len;
-	
+
 	dst_len = ucma_addrlen(dst_addr);
 	if (!dst_len)
 		return ERR(EINVAL);
@@ -1065,7 +1065,7 @@ int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
 	struct ib_uverbs_qp_attr resp;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	CMA_INIT_CMD_RESP(&cmd, sizeof cmd, INIT_QP_ATTR, &resp, sizeof resp);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
@@ -1529,7 +1529,7 @@ int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	struct ucma_abi_connect cmd;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	id_priv = container_of(id, struct cma_id_private, id);
 	ret = ucma_valid_param(id_priv, conn_param);
 	if (ret)
@@ -1576,7 +1576,7 @@ int rdma_listen(struct rdma_cm_id *id, int backlog)
 	struct ucma_abi_listen cmd;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	CMA_INIT_CMD(&cmd, sizeof cmd, LISTEN);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
@@ -1615,7 +1615,7 @@ int rdma_get_request(struct rdma_cm_id *listen, struct rdma_cm_id **id)
 		ret = ERR(event->status);
 		goto err;
 	}
-	
+
 	if (event->event != RDMA_CM_EVENT_CONNECT_REQUEST) {
 		ret = ERR(EINVAL);
 		goto err;
@@ -1703,7 +1703,7 @@ int rdma_reject(struct rdma_cm_id *id, const void *private_data,
 	struct ucma_abi_reject cmd;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	CMA_INIT_CMD(&cmd, sizeof cmd, REJECT);
 
 	id_priv = container_of(id, struct cma_id_private, id);
@@ -1725,7 +1725,7 @@ int rdma_notify(struct rdma_cm_id *id, enum ibv_event_type event)
 	struct ucma_abi_notify cmd;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	CMA_INIT_CMD(&cmd, sizeof cmd, NOTIFY);
 
 	id_priv = container_of(id, struct cma_id_private, id);
@@ -1782,7 +1782,7 @@ static int rdma_join_multicast2(struct rdma_cm_id *id, struct sockaddr *addr,
 	struct cma_id_private *id_priv;
 	struct cma_multicast *mc, **pos;
 	int ret;
-	
+
 	id_priv = container_of(id, struct cma_id_private, id);
 	mc = calloc(1, sizeof(*mc));
 	if (!mc)
@@ -1876,7 +1876,7 @@ int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
 			void *context)
 {
 	int addrlen;
-	
+
 	addrlen = ucma_addrlen(addr);
 	if (!addrlen)
 		return ERR(EINVAL);
@@ -1892,7 +1892,7 @@ int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
 	struct cma_id_private *id_priv;
 	struct cma_multicast *mc, **pos;
 	int ret, addrlen;
-	
+
 	addrlen = ucma_addrlen(addr);
 	if (!addrlen)
 		return ERR(EINVAL);
@@ -1912,7 +1912,7 @@ int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
 
 	if (id->qp && (mc->join_flags != RDMA_MC_JOIN_FLAG_SENDONLY_FULLMEMBER))
 		ibv_detach_mcast(id->qp, &mc->mgid, mc->mlid);
-	
+
 	CMA_INIT_CMD_RESP(&cmd, sizeof cmd, LEAVE_MCAST, &resp, sizeof resp);
 	cmd.id = mc->handle;
 
@@ -2183,7 +2183,7 @@ retry:
 		free(evt);
 		return (ret >= 0) ? ERR(ENODATA) : -1;
 	}
-	
+
 	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	evt->event.event = resp.event;
@@ -2345,7 +2345,7 @@ int rdma_set_option(struct rdma_cm_id *id, int level, int optname,
 	struct ucma_abi_set_option cmd;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	CMA_INIT_CMD(&cmd, sizeof cmd, SET_OPTION);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
