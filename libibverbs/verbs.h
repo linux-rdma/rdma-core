@@ -581,6 +581,7 @@ enum ibv_access_flags {
 	IBV_ACCESS_ZERO_BASED		= (1<<5),
 	IBV_ACCESS_ON_DEMAND		= (1<<6),
 	IBV_ACCESS_HUGETLB		= (1<<7),
+	IBV_ACCESS_RELAXED_ORDERING	= IBV_ACCESS_OPTIONAL_FIRST,
 };
 
 struct ibv_mw_bind_info {
@@ -2384,10 +2385,37 @@ static inline int ibv_close_xrcd(struct ibv_xrcd *xrcd)
 }
 
 /**
+ * ibv_reg_mr_iova2 - Register memory region with a virtual offset address
+ *
+ * This version will be called if ibv_reg_mr or ibv_reg_mr_iova were called
+ * with at least one potential access flag from the IBV_OPTIONAL_ACCESS_RANGE
+ * flags range The optional access flags will be masked if running over kernel
+ * that does not support passing them.
+ */
+struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
+				uint64_t iova, unsigned int access);
+
+/**
  * ibv_reg_mr - Register a memory region
  */
-struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
-			  size_t length, int access);
+struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			  int access);
+/* use new ibv_reg_mr version only if access flags that require it are used */
+__attribute__((__always_inline__)) static inline struct ibv_mr *
+__ibv_reg_mr(struct ibv_pd *pd, void *addr, size_t length, unsigned int access,
+	     int is_access_const)
+{
+	if (is_access_const && (access & IBV_ACCESS_OPTIONAL_RANGE) == 0)
+		return ibv_reg_mr(pd, addr, length, access);
+	else
+		return ibv_reg_mr_iova2(pd, addr, length, (uintptr_t)addr,
+					access);
+}
+
+#define ibv_reg_mr(pd, addr, length, access)                                   \
+	__ibv_reg_mr(pd, addr, length, access,                                 \
+		     __builtin_constant_p(				       \
+			     ((access) & IBV_ACCESS_OPTIONAL_RANGE) == 0))
 
 /**
  * ibv_reg_mr_iova - Register a memory region with a virtual offset
@@ -2395,7 +2423,21 @@ struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
  */
 struct ibv_mr *ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length,
 			       uint64_t iova, int access);
+/* use new ibv_reg_mr version only if access flags that require it are used */
+__attribute__((__always_inline__)) static inline struct ibv_mr *
+__ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length, uint64_t iova,
+		  unsigned int access, int is_access_const)
+{
+	if (is_access_const && (access & IBV_ACCESS_OPTIONAL_RANGE) == 0)
+		return ibv_reg_mr_iova(pd, addr, length, iova, access);
+	else
+		return ibv_reg_mr_iova2(pd, addr, length, iova, access);
+}
 
+#define ibv_reg_mr_iova(pd, addr, length, iova, access)                        \
+	__ibv_reg_mr_iova(pd, addr, length, iova, access,                      \
+			  __builtin_constant_p(                                \
+				  ((access) & IBV_ACCESS_OPTIONAL_RANGE) == 0))
 
 enum ibv_rereg_mr_err_code {
 	/* Old MR is valid, invalid input */

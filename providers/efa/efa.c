@@ -13,6 +13,8 @@
 #include "efa.h"
 #include "verbs.h"
 
+static void efa_free_context(struct ibv_context *ibvctx);
+
 #define PCI_VENDOR_ID_AMAZON 0x1d0f
 
 static const struct verbs_match_ent efa_table[] = {
@@ -41,6 +43,7 @@ static const struct verbs_context_ops efa_ctx_ops = {
 	.query_port = efa_query_port,
 	.query_qp = efa_query_qp,
 	.reg_mr = efa_reg_mr,
+	.free_context = efa_free_context,
 };
 
 static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
@@ -131,7 +134,6 @@ static const struct verbs_device_ops efa_dev_ops = {
 	.alloc_device = efa_device_alloc,
 	.uninit_device = efa_uninit_device,
 	.alloc_context = efa_alloc_context,
-	.free_context = efa_free_context,
 };
 
 bool is_efa_dev(struct ibv_device *device)

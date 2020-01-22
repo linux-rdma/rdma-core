@@ -45,6 +45,8 @@ describes the desired memory protection attributes; it is either 0 or the bitwis
 .B IBV_ACCESS_ON_DEMAND\fR    Create an on-demand paging MR
 .TP
 .B IBV_ACCESS_HUGETLB\fR      Huge pages are guaranteed to be used for this MR, applicable with IBV_ACCESS_ON_DEMAND in explicit mode only
+.TP
+.B IBV_ACCESS_RELAXED_ORDERING\fR Allow system to reorder accesses to the MR to improve performance
 .PP
 If
 .B IBV_ACCESS_REMOTE_WRITE

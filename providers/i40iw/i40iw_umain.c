@@ -50,6 +50,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+static void i40iw_ufree_context(struct ibv_context *ibctx);
+
 #define INTEL_HCA(v, d) VERBS_PCI_MATCH(v, d, NULL)
 static const struct verbs_match_ent hca_table[] = {
 	VERBS_DRIVER_ID(RDMA_DRIVER_I40IW),
@@ -115,7 +117,8 @@ static const struct verbs_context_ops i40iw_uctx_ops = {
 	.destroy_ah	= i40iw_udestroy_ah,
 	.attach_mcast	= i40iw_uattach_mcast,
 	.detach_mcast	= i40iw_udetach_mcast,
-	.async_event	= i40iw_async_event
+	.async_event	= i40iw_async_event,
+	.free_context	= i40iw_ufree_context,
 };
 
 /**
@@ -224,6 +227,5 @@ static const struct verbs_device_ops i40iw_udev_ops = {
 	.alloc_device = i40iw_device_alloc,
 	.uninit_device  = i40iw_uninit_device,
 	.alloc_context = i40iw_ualloc_context,
-	.free_context = i40iw_ufree_context,
 };
 PROVIDER_DRIVER(i40iw, i40iw_udev_ops);

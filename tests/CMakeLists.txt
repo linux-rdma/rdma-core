@@ -12,11 +12,12 @@ rdma_python_test(tests
   test_device.py
   test_mlx5_var.py
   test_mr.py
-  test_pd.py
-  test_qp.py
   test_odp.py
+  test_pd.py
   test_parent_domain.py
+  test_qp.py
   test_rdmacm.py
+  test_relaxed_ordering.py
   utils.py
   )
 

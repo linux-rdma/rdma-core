@@ -40,6 +40,8 @@
 #include "hns_roce_u.h"
 #include "hns_roce_u_abi.h"
 
+static void hns_roce_free_context(struct ibv_context *ibctx);
+
 #define HID_LEN			15
 #define DEV_MATCH_LEN		128
 
@@ -81,6 +83,7 @@ static const struct verbs_context_ops hns_common_ops = {
 	.modify_srq = hns_roce_u_modify_srq,
 	.query_srq = hns_roce_u_query_srq,
 	.destroy_srq = hns_roce_u_destroy_srq,
+	.free_context = hns_roce_free_context,
 };
 
 static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
@@ -207,6 +210,5 @@ static const struct verbs_device_ops hns_roce_dev_ops = {
 	.alloc_device = hns_device_alloc,
 	.uninit_device = hns_uninit_device,
 	.alloc_context = hns_roce_alloc_context,
-	.free_context = hns_roce_free_context,
 };
 PROVIDER_DRIVER(hns, hns_roce_dev_ops);

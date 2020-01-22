@@ -99,3 +99,82 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 	return 0;
 }
 
+static int cmd_alloc_async_fd(struct ibv_context *context)
+{
+	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_ASYNC_EVENT,
+			       UVERBS_METHOD_ASYNC_EVENT_ALLOC, 1);
+	struct ib_uverbs_attr *handle;
+	int ret;
+
+	handle = fill_attr_out_fd(cmdb, UVERBS_ATTR_ASYNC_EVENT_ALLOC_FD_HANDLE,
+				  0);
+
+	ret = execute_ioctl(context, cmdb);
+	if (ret)
+		return ret;
+
+	context->async_fd =
+		read_attr_fd(UVERBS_ATTR_ASYNC_EVENT_ALLOC_FD_HANDLE, handle);
+	return 0;
+}
+
+static int cmd_get_context(struct verbs_context *context_ex,
+				struct ibv_command_buffer *link)
+{
+	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_DEVICE,
+			     UVERBS_METHOD_GET_CONTEXT, 2, link);
+
+	struct ibv_context *context = &context_ex->context;
+	struct verbs_device *verbs_device;
+	uint64_t core_support;
+	uint32_t num_comp_vectors;
+	int ret;
+
+	fill_attr_out_ptr(cmdb, UVERBS_ATTR_GET_CONTEXT_NUM_COMP_VECTORS,
+			  &num_comp_vectors);
+	fill_attr_out_ptr(cmdb, UVERBS_ATTR_GET_CONTEXT_CORE_SUPPORT,
+			  &core_support);
+
+	/* Using free_context cmd_name as alloc context is not in
+	 * verbs_context_ops while free_context is and doesn't use ioctl
+	 */
+	switch (execute_ioctl_fallback(context, free_context, cmdb, &ret)) {
+	case TRY_WRITE: {
+		DECLARE_LEGACY_UHW_BUFS(link, IB_USER_VERBS_CMD_GET_CONTEXT);
+
+		ret = execute_write_bufs(context, IB_USER_VERBS_CMD_GET_CONTEXT,
+					 req, resp);
+		if (ret)
+			return ret;
+
+		context->async_fd = resp->async_fd;
+		context->num_comp_vectors = resp->num_comp_vectors;
+
+		return 0;
+	}
+	case SUCCESS:
+		ret = cmd_alloc_async_fd(context);
+		if (ret)
+			return ret;
+		break;
+	default:
+		return ret;
+	};
+
+	context->num_comp_vectors = num_comp_vectors;
+	verbs_device = verbs_get_device(context->device);
+	verbs_device->core_support = core_support;
+	return 0;
+}
+
+int ibv_cmd_get_context(struct verbs_context *context_ex,
+			struct ibv_get_context *cmd, size_t cmd_size,
+			struct ib_uverbs_get_context_resp *resp,
+			size_t resp_size)
+{
+	DECLARE_CMD_BUFFER_COMPAT(cmdb, UVERBS_OBJECT_DEVICE,
+				  UVERBS_METHOD_GET_CONTEXT, cmd, cmd_size,
+				  resp, resp_size);
+
+	return cmd_get_context(context_ex, cmdb);
+}

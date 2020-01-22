@@ -43,6 +43,8 @@
 #include "libcxgb4.h"
 #include "cxgb4-abi.h"
 
+static void c4iw_free_context(struct ibv_context *ibctx);
+
 #define PCI_VENDOR_ID_CHELSIO		0x1425
 
 /*
@@ -96,6 +98,7 @@ static const struct verbs_context_ops  c4iw_ctx_common_ops = {
 	.detach_mcast = c4iw_detach_mcast,
 	.post_srq_recv = c4iw_post_srq_recv,
 	.req_notify_cq = c4iw_arm_cq,
+	.free_context = c4iw_free_context,
 };
 
 static const struct verbs_context_ops c4iw_ctx_t4_ops = {
@@ -456,7 +459,6 @@ static const struct verbs_device_ops c4iw_dev_ops = {
 	.alloc_device = c4iw_device_alloc,
 	.uninit_device = c4iw_uninit_device,
 	.alloc_context = c4iw_alloc_context,
-	.free_context = c4iw_free_context,
 };
 PROVIDER_DRIVER(cxgb4, c4iw_dev_ops);
 

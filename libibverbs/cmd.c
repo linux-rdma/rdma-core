@@ -47,24 +47,6 @@
 
 bool verbs_allow_disassociate_destroy;
 
-int ibv_cmd_get_context(struct verbs_context *context_ex,
-			struct ibv_get_context *cmd, size_t cmd_size,
-			struct ib_uverbs_get_context_resp *resp, size_t resp_size)
-{
-	int ret;
-
-	ret = execute_cmd_write(&context_ex->context,
-				IB_USER_VERBS_CMD_GET_CONTEXT, cmd, cmd_size,
-				resp, resp_size);
-	if (ret)
-		return ret;
-
-	context_ex->context.async_fd = resp->async_fd;
-	context_ex->context.num_comp_vectors = resp->num_comp_vectors;
-
-	return 0;
-}
-
 static void copy_query_dev_fields(struct ibv_device_attr *device_attr,
 				  struct ib_uverbs_query_device_resp *resp,
 				  uint64_t *raw_fw_ver)
