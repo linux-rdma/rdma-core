@@ -679,7 +679,7 @@ static int dr_matcher_init(struct mlx5dv_dr_matcher *matcher,
 	}
 
 	if (mask) {
-		if (mask->match_sz > sizeof(struct dr_match_param)) {
+		if (mask->match_sz > DEVX_ST_SZ_BYTES(dr_match_param)) {
 			dr_dbg(dmn, "Invalid match size attribute\n");
 			errno = EINVAL;
 			return errno;

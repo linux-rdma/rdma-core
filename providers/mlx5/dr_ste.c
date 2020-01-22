@@ -1050,7 +1050,7 @@ void dr_ste_copy_param(uint8_t match_criteria,
 	void *buff;
 
 	if (match_criteria & DR_MATCHER_CRITERIA_OUTER) {
-		if (mask->match_sz < sizeof(struct dr_match_spec)) {
+		if (mask->match_sz < DEVX_ST_SZ_BYTES(dr_match_spec)) {
 			memcpy(tail_param, data, mask->match_sz);
 			buff = tail_param;
 		} else {
@@ -1058,11 +1058,11 @@ void dr_ste_copy_param(uint8_t match_criteria,
 		}
 		dr_ste_copy_mask_spec(buff, &set_param->outer);
 	}
-	param_location = sizeof(struct dr_match_spec);
+	param_location = DEVX_ST_SZ_BYTES(dr_match_spec);
 
 	if (match_criteria & DR_MATCHER_CRITERIA_MISC) {
 		if (mask->match_sz < param_location +
-		    sizeof(struct dr_match_misc)) {
+		    DEVX_ST_SZ_BYTES(dr_match_set_misc)) {
 			memcpy(tail_param, data + param_location,
 			       mask->match_sz - param_location);
 			buff = tail_param;
@@ -1071,11 +1071,11 @@ void dr_ste_copy_param(uint8_t match_criteria,
 		}
 		dr_ste_copy_mask_misc(buff, &set_param->misc);
 	}
-	param_location += sizeof(struct dr_match_misc);
+	param_location += DEVX_ST_SZ_BYTES(dr_match_set_misc);
 
 	if (match_criteria & DR_MATCHER_CRITERIA_INNER) {
 		if (mask->match_sz < param_location +
-		    sizeof(struct dr_match_spec)) {
+		    DEVX_ST_SZ_BYTES(dr_match_spec)) {
 			memcpy(tail_param, data + param_location,
 			       mask->match_sz - param_location);
 			buff = tail_param;
@@ -1084,11 +1084,11 @@ void dr_ste_copy_param(uint8_t match_criteria,
 		}
 		dr_ste_copy_mask_spec(buff, &set_param->inner);
 	}
-	param_location += sizeof(struct dr_match_spec);
+	param_location += DEVX_ST_SZ_BYTES(dr_match_spec);
 
 	if (match_criteria & DR_MATCHER_CRITERIA_MISC2) {
 		if (mask->match_sz < param_location +
-		    sizeof(struct dr_match_misc2)) {
+		    DEVX_ST_SZ_BYTES(dr_match_set_misc2)) {
 			memcpy(tail_param, data + param_location,
 			       mask->match_sz - param_location);
 			buff = tail_param;
@@ -1098,11 +1098,11 @@ void dr_ste_copy_param(uint8_t match_criteria,
 		dr_ste_copy_mask_misc2(buff, &set_param->misc2);
 	}
 
-	param_location += sizeof(struct dr_match_misc2);
+	param_location += DEVX_ST_SZ_BYTES(dr_match_set_misc2);
 
 	if (match_criteria & DR_MATCHER_CRITERIA_MISC3) {
 		if (mask->match_sz < param_location +
-		    sizeof(struct dr_match_misc3)) {
+		    DEVX_ST_SZ_BYTES(dr_match_set_misc3)) {
 			memcpy(tail_param, data + param_location,
 			       mask->match_sz - param_location);
 			buff = tail_param;

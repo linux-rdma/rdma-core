@@ -450,6 +450,14 @@ struct mlx5_ifc_dr_match_set_misc3_bits {
 	u8         reserved_at_120[0xe0];
 };
 
+struct mlx5_ifc_dr_match_param_bits {
+	struct mlx5_ifc_dr_match_spec_bits outer;
+	struct mlx5_ifc_dr_match_set_misc_bits misc;
+	struct mlx5_ifc_dr_match_spec_bits inner;
+	struct mlx5_ifc_dr_match_set_misc2_bits misc2;
+	struct mlx5_ifc_dr_match_set_misc3_bits misc3;
+};
+
 struct mlx5_ifc_flow_table_prop_layout_bits {
 	u8         ft_support[0x1];
 	u8         flow_tag[0x1];
