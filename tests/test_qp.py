@@ -3,9 +3,12 @@
 """
 Test module for pyverbs' qp module.
 """
+import unittest
 import random
+import errno
 import os
 
+from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.qp import QPInitAttr, QPAttr, QP
 from tests.base import PyverbsAPITestCase
 import pyverbs.enums as e
@@ -101,11 +104,21 @@ class QPTest(PyverbsAPITestCase):
             with PD(ctx) as pd:
                 with CQ(ctx, 100, None, None, 0) as cq:
                     qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex, e.IBV_QPT_RC)
-                    with QP(ctx, qia) as qp:
-                        assert qp.qp_state == e.IBV_QPS_RESET, 'RC QP should have been in RESET'
+                    try:
+                        with QP(ctx, qia) as qp:
+                            assert qp.qp_state == e.IBV_QPS_RESET, 'RC QP should have been in RESET'
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest('Create QP with extended attrs is not supported')
+                        raise ex
                     qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex, e.IBV_QPT_UC)
-                    with QP(ctx, qia) as qp:
-                        assert qp.qp_state == e.IBV_QPS_RESET, 'UC QP should have been in RESET'
+                    try:
+                        with QP(ctx, qia) as qp:
+                            assert qp.qp_state == e.IBV_QPS_RESET, 'UC QP should have been in RESET'
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest('Create QP with extended attrs is not supported')
+                        raise ex
 
     def test_create_qp_ex_no_attr(self):
         """
@@ -119,13 +132,23 @@ class QPTest(PyverbsAPITestCase):
                     for i in range(1, attr.phys_port_cnt + 1):
                         qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
                                                   e.IBV_QPT_UD)
-                        with QP(ctx, qia) as qp:
-                            assert qp.qp_state == e.IBV_QPS_RESET, 'UD QP should have been in RESET'
+                        try:
+                            with QP(ctx, qia) as qp:
+                                assert qp.qp_state == e.IBV_QPS_RESET, 'UD QP should have been in RESET'
+                        except PyverbsRDMAError as ex:
+                            if ex.error_code == errno.EOPNOTSUPP:
+                                raise unittest.SkipTest('Create QP with extended attrs is not supported')
+                            raise ex
                         if is_eth(ctx, i) and is_root():
                             qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
                                                       e.IBV_QPT_RAW_PACKET)
-                            with QP(ctx, qia) as qp:
-                                assert qp.qp_state == e.IBV_QPS_RESET, 'Raw Packet QP should have been in RESET'
+                            try:
+                                with QP(ctx, qia) as qp:
+                                    assert qp.qp_state == e.IBV_QPS_RESET, 'Raw Packet QP should have been in RESET'
+                            except PyverbsRDMAError as ex:
+                                if ex.error_code == errno.EOPNOTSUPP:
+                                    raise unittest.SkipTest('Create QP with extended attrs is not supported')
+                                raise ex
 
     def test_create_qp_ex_with_attr_connected(self):
         """
@@ -137,12 +160,22 @@ class QPTest(PyverbsAPITestCase):
                 with CQ(ctx, 100, None, None, 0) as cq:
                     qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
                                               e.IBV_QPT_RC)
-                    with QP(ctx, qia, QPAttr()) as qp:
-                        assert qp.qp_state == e.IBV_QPS_INIT, 'RC QP should have been in INIT'
+                    try:
+                        with QP(ctx, qia, QPAttr()) as qp:
+                            assert qp.qp_state == e.IBV_QPS_INIT, 'RC QP should have been in INIT'
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest('Create QP with extended attrs is not supported')
+                        raise ex
                     qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
                                               e.IBV_QPT_UC)
-                    with QP(ctx, qia, QPAttr()) as qp:
-                        assert qp.qp_state == e.IBV_QPS_INIT, 'UC QP should have been in INIT'
+                    try:
+                        with QP(ctx, qia, QPAttr()) as qp:
+                            assert qp.qp_state == e.IBV_QPS_INIT, 'UC QP should have been in INIT'
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest('Create QP with extended attrs is not supported')
+                        raise ex
 
     def test_create_qp_ex_with_attr(self):
         """
@@ -156,13 +189,23 @@ class QPTest(PyverbsAPITestCase):
                     for i in range(1, attr.phys_port_cnt + 1):
                         qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
                                                   e.IBV_QPT_UD)
-                        with QP(ctx, qia, QPAttr()) as qp:
-                            assert qp.qp_state == e.IBV_QPS_RTS, 'UD QP should have been in RTS'
+                        try:
+                            with QP(ctx, qia, QPAttr()) as qp:
+                                assert qp.qp_state == e.IBV_QPS_RTS, 'UD QP should have been in RTS'
+                        except PyverbsRDMAError as ex:
+                            if ex.error_code == errno.EOPNOTSUPP:
+                                raise unittest.SkipTest('Create QP with extended attrs is not supported')
+                            raise ex
                         if is_eth(ctx, i) and is_root():
                             qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
                                                       e.IBV_QPT_RAW_PACKET)
-                            with QP(ctx, qia, QPAttr()) as qp:
-                                assert qp.qp_state == e.IBV_QPS_RTS, 'Raw Packet QP should have been in RTS'
+                            try:
+                                with QP(ctx, qia, QPAttr()) as qp:
+                                    assert qp.qp_state == e.IBV_QPS_RTS, 'Raw Packet QP should have been in RTS'
+                            except PyverbsRDMAError as ex:
+                                if ex.error_code == errno.EOPNOTSUPP:
+                                    raise unittest.SkipTest('Create QP with extended attrs is not supported')
+                                raise ex
 
     def test_query_qp(self):
         """
@@ -179,7 +222,12 @@ class QPTest(PyverbsAPITestCase):
                             qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
                                                       qpt)
                             caps = qia.cap  # Save them to verify values later
-                            qp = QP(ctx, qia)
+                            try:
+                                qp = QP(ctx, qia)
+                            except PyverbsRDMAError as ex:
+                                if ex.error_code == errno.EOPNOTSUPP:
+                                    raise unittest.SkipTest('Create QP with extended attrs is not supported')
+                                raise ex
                             qp_attr, qp_init_attr = qp.query(e.IBV_QP_CUR_STATE |
                                                              e.IBV_QP_CAP)
                             verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr,
@@ -204,7 +252,12 @@ class QPTest(PyverbsAPITestCase):
                 with CQ(ctx, 100, None, None, 0) as cq:
                     # Extended QP
                     qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex, e.IBV_QPT_UD)
-                    qp = QP(ctx, qia)
+                    try:
+                        qp = QP(ctx, qia)
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest('Create QP with extended attrs is not supported')
+                        raise ex
                     qa = QPAttr()
                     qa.qkey = 0x123
                     qp.to_init(qa)

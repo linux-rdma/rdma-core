@@ -891,6 +891,8 @@ cdef class QP(PyverbsCM):
             # let's infer the type.
             if issubclass(type(creator), Context):
                 self._create_qp_ex(creator, init_attr)
+                if self.qp == NULL:
+                    raise PyverbsRDMAErrno('Failed to create QP')
                 ctx = <Context>creator
                 self.context = ctx
                 ctx.add_ref(self)
@@ -902,14 +904,15 @@ cdef class QP(PyverbsCM):
                     xrcd = <XRCD>init_attr.xrcd
                     xrcd.add_ref(self)
                     self.xrcd = xrcd
+
             else:
                 self._create_qp(creator, init_attr)
+                if self.qp == NULL:
+                    raise PyverbsRDMAErrno('Failed to create QP')
                 pd = <PD>creator
                 self.pd = pd
                 pd.add_ref(self)
                 self.context = None
-            if self.qp == NULL:
-                raise PyverbsRDMAErrno('Failed to create QP')
 
         if qp_attr is not None:
             funcs = {e.IBV_QPT_RC: self.to_init, e.IBV_QPT_UC: self.to_init,

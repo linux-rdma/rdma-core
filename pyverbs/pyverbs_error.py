@@ -24,7 +24,14 @@ class PyverbsRDMAError(PyverbsError):
     """
     This exception is raised when an rdma-core function returns an error.
     """
-    pass
+    def __init__(self, msg, error_code = -1):
+        super(PyverbsRDMAError, self).__init__(msg, error_code)
+        self._error_code = error_code
+
+    @property
+    def error_code(self):
+        return self._error_code
+
 
 class PyverbsUserError(PyverbsError):
     """

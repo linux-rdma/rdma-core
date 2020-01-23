@@ -1,9 +1,12 @@
+from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.cq import CqInitAttrEx, CQEX
 import pyverbs.enums as e
 from pyverbs.mr import MR
 
 from tests.base import RCResources, UDResources, XRCResources, RDMATestCase
 import tests.utils as u
+import unittest
+import errno
 
 
 def create_ex_cq(res):
@@ -15,8 +18,12 @@ def create_ex_cq(res):
     """
     wc_flags = e.IBV_WC_STANDARD_FLAGS
     cia = CqInitAttrEx(cqe=2000, wc_flags=wc_flags)
-    res.cq = CQEX(res.ctx, cia)
-
+    try:
+        res.cq = CQEX(res.ctx, cia)
+    except PyverbsRDMAError as ex:
+        if ex.error_code == errno.EOPNOTSUPP:
+            raise unittest.SkipTest('Create Extended CQ is not supported')
+        raise ex
 
 class CqExUD(UDResources):
     def create_cq(self):

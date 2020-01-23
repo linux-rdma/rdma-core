@@ -2,9 +2,10 @@
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved.  See COPYING file
 
 import unittest
+import errno
 
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.addr import GlobalRoute, AHAttr, AH
-from pyverbs.pyverbs_error import PyverbsError
 from tests.base import PyverbsAPITestCase
 import pyverbs.device as d
 import pyverbs.enums as e
@@ -29,8 +30,13 @@ class AHTest(PyverbsAPITestCase):
                     continue
                 gr = get_global_route(ctx, port_num=port_num)
                 ah_attr = AHAttr(gr=gr, is_global=1, port_num=port_num)
-                with AH(pd, attr=ah_attr):
-                    done += 1
+                try:
+                    with AH(pd, attr=ah_attr):
+                        done += 1
+                except PyverbsRDMAError as ex:
+                    if ex.error_code == errno.EOPNOTSUPP:
+                        raise unittest.SkipTest('Create AH is not supported')
+                    raise ex
         if done == 0:
             raise unittest.SkipTest('No port is up, can\'t create AH')
     # TODO: Test ibv_create_ah_from_wc once we have traffic
@@ -52,9 +58,11 @@ class AHTest(PyverbsAPITestCase):
                 ah_attr = AHAttr(is_global=0, port_num=port_num)
                 try:
                     ah = AH(pd, attr=ah_attr)
-                except PyverbsError as err:
-                    assert 'Failed to create AH' in err.args[0]
-                    done += 1
+                except PyverbsRDMAError as ex:
+                    if ex.error_code == errno.EOPNOTSUPP:
+                        raise unittest.SkipTest('Create AH is not supported')
+                    assert 'Failed to create AH' in str(ex)
+                    done +=1
                 else:
                     raise PyverbsError('Created a non-global AH on RoCE')
         if done == 0:
@@ -73,9 +81,14 @@ class AHTest(PyverbsAPITestCase):
                     continue
                 gr = get_global_route(ctx)
                 ah_attr = AHAttr(gr=gr, is_global=1, port_num=port_num)
-                with AH(pd, attr=ah_attr) as ah:
-                    ah.close()
-                    done += 1
+                try:
+                    with AH(pd, attr=ah_attr) as ah:
+                        ah.close()
+                        done += 1
+                except PyverbsRDMAError as ex:
+                    if ex.error_code == errno.EOPNOTSUPP:
+                        raise unittest.SkipTest('Create AH is not supported')
+                    raise ex
         if done == 0:
             raise unittest.SkipTest('No port is up, can\'t create AH')
 
