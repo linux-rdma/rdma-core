@@ -71,8 +71,9 @@ failure (which indicates the failure reason)
 
 # ERRORS
 
-ENOSYS
+EOPNOTSUPP
 :	**ibv_create_counters**() is not currently supported on this device
+	(ENOSYS may sometimes be returned by old versions of libibverbs).
 
 ENOMEM
 :	**ibv_create_counters**() could not create ibv_counters object, not enough memory

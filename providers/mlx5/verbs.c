@@ -2294,7 +2294,7 @@ int mlx5_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	int ret;
 
 	if (qp->rss_qp)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	ret = ibv_cmd_query_qp(ibqp, attr, attr_mask, init_attr, &cmd, sizeof(cmd));
 	if (ret)
@@ -2380,7 +2380,7 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		return modify_dct(qp, attr, attr_mask);
 
 	if (mqp->rss_qp)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	if (mqp->flags & MLX5_QP_FLAGS_USE_UNDERLAY) {
 		if (attr_mask & ~(IBV_QP_STATE | IBV_QP_CUR_STATE))

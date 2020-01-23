@@ -640,7 +640,7 @@ static inline int verbs_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 		*srq_num = vsrq->srq_num;
 		return 0;
 	}
-	return ENOSYS;
+	return EOPNOTSUPP;
 }
 
 static inline bool check_comp_mask(uint64_t input, uint64_t supported)

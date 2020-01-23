@@ -897,7 +897,7 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			case IBV_WR_ATOMIC_FETCH_AND_ADD:
 				if (unlikely(!qp->atomics_enabled)) {
 					mlx5_dbg(fp, MLX5_DBG_QP_SEND, "atomic operations are not supported\n");
-					err = ENOSYS;
+					err = EOPNOTSUPP;
 					*bad_wr = wr;
 					goto out;
 				}
