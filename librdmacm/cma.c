@@ -113,6 +113,8 @@ struct cma_id_private {
 	struct ibv_qp_init_attr	*qp_init_attr;
 	uint8_t			initiator_depth;
 	uint8_t			responder_resources;
+	struct ibv_ece		local_ece;
+	struct ibv_ece		remote_ece;
 };
 
 struct cma_multicast {
@@ -1562,6 +1564,24 @@ void rdma_destroy_srq(struct rdma_cm_id *id)
 	ucma_destroy_cqs(id);
 }
 
+static int init_ece(struct rdma_cm_id *id, struct ibv_qp *qp)
+{
+	struct cma_id_private *id_priv =
+		container_of(id, struct cma_id_private, id);
+	struct ibv_ece ece = {};
+	int ret;
+
+	ret = ibv_query_ece(qp, &ece);
+	if (ret)
+		return 0;
+
+	id_priv->local_ece.vendor_id = ece.vendor_id;
+	id_priv->local_ece.options = ece.options;
+
+	return 0;
+}
+
+
 int rdma_create_qp_ex(struct rdma_cm_id *id,
 		      struct ibv_qp_init_attr_ex *attr)
 {
@@ -1609,6 +1629,9 @@ int rdma_create_qp_ex(struct rdma_cm_id *id,
 		goto err1;
 	}
 
+	ret = init_ece(id, qp);
+	if (ret)
+		goto err2;
 	if (ucma_is_ud_qp(id->qp_type))
 		ret = ucma_init_ud_qp(id_priv, qp);
 	else
@@ -2744,3 +2767,31 @@ __be16 rdma_get_dst_port(struct rdma_cm_id *id)
 	return ucma_get_port(&id->route.addr.dst_addr);
 }
 
+int rdma_set_local_ece(struct rdma_cm_id *id, struct ibv_ece *ece)
+{
+	struct cma_id_private *id_priv;
+
+	if (!id || id->qp || !ece || !ece->vendor_id || ece->comp_mask)
+		return ERR(EINVAL);
+
+	id_priv = container_of(id, struct cma_id_private, id);
+	id_priv->local_ece.vendor_id = ece->vendor_id;
+	id_priv->local_ece.options = ece->options;
+
+	return 0;
+}
+
+int rdma_get_remote_ece(struct rdma_cm_id *id, struct ibv_ece *ece)
+{
+	struct cma_id_private *id_priv;
+
+	if (id->qp || !ece)
+		return ERR(EINVAL);
+
+	id_priv = container_of(id, struct cma_id_private, id);
+	ece->vendor_id = id_priv->remote_ece.vendor_id;
+	ece->options = id_priv->remote_ece.options;
+	ece->comp_mask = 0;
+
+	return 0;
+}

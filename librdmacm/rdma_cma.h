@@ -753,6 +753,22 @@ void rdma_freeaddrinfo(struct rdma_addrinfo *res);
  */
 int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
 		      int *qp_attr_mask);
+
+/**
+ * rdma_set_local_ece - Set local ECE options to be used for REQ/REP
+ * communication. In use to implement ECE handshake in external QP.
+ * @id: Communication identifier to establish connection
+ * @ece: ECE parameters
+ */
+int rdma_set_local_ece(struct rdma_cm_id *id, struct ibv_ece *ece);
+
+/**
+ * rdma_get_remote_ece - Provide remote ECE parameters as received
+ * in REQ/REP events. In use to implement ECE handshake in external QP.
+ * @id: Communication identifier to establish connection
+ * @ece: ECE parameters
+ */
+int rdma_get_remote_ece(struct rdma_cm_id *id, struct ibv_ece *ece);
 #ifdef __cplusplus
 }
 #endif
