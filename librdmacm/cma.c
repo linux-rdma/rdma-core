@@ -1727,6 +1727,13 @@ static void ucma_copy_conn_param_to_kern(struct cma_id_private *id_priv,
 	}
 }
 
+static void ucma_copy_ece_param_to_kern_req(struct cma_id_private *id_priv,
+					    struct ucma_abi_ece *dst)
+{
+	dst->vendor_id = id_priv->local_ece.vendor_id;
+	dst->attr_mod = id_priv->local_ece.options;
+}
+
 int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 {
 	uint32_t qp_num = conn_param ? conn_param->qp_num : 0;
@@ -1758,6 +1765,8 @@ int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 
 	ucma_copy_conn_param_to_kern(id_priv, &cmd.conn_param, conn_param,
 				     qp_num, srq);
+
+	ucma_copy_ece_param_to_kern_req(id_priv, &cmd.ece);
 
 	ret = write(id->channel->fd, &cmd, sizeof cmd);
 	if (ret != sizeof cmd)

@@ -227,6 +227,11 @@ struct ucma_abi_ud_param {
 	__u8 reserved2[4];  /* Round to 8-byte boundary to support 32/64 */
 };
 
+struct ucma_abi_ece {
+	__u32 vendor_id;
+	__u32 attr_mod;
+};
+
 struct ucma_abi_connect {
 	__u32 cmd;
 	__u16 in;
@@ -234,6 +239,7 @@ struct ucma_abi_connect {
 	struct ucma_abi_conn_param conn_param;
 	__u32 id;
 	__u32 reserved;
+	struct ucma_abi_ece ece;
 };
 
 struct ucma_abi_listen {
