@@ -258,6 +258,7 @@ struct ucma_abi_accept {
 	struct ucma_abi_conn_param conn_param;
 	__u32 id;
 	__u32 reserved;
+	struct ucma_abi_ece ece;
 };
 
 struct ucma_abi_reject {
