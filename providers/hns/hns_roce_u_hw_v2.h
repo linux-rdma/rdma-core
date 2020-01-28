@@ -216,7 +216,7 @@ struct hns_roce_v2_cqe {
 #define CQE_BYTE_32_PORTN_S 27
 #define CQE_BYTE_32_PORTN_M   (((1UL << 3) - 1) << CQE_BYTE_32_PORTN_S)
 
-#define CQE_BYTE_32_GLH_S 30
+#define CQE_BYTE_32_GRH_S 30
 
 #define CQE_BYTE_32_LPK_S 31
 

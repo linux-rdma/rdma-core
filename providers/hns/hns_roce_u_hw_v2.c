@@ -587,6 +587,15 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 				PFX "failed to handle recv inline wqe!\n");
 			return ret;
 		}
+
+		wc->sl = (uint8_t)roce_get_field(cqe->byte_32, CQE_BYTE_32_SL_M,
+						 CQE_BYTE_32_SL_S);
+		wc->src_qp = roce_get_field(cqe->byte_32, CQE_BYTE_32_RMT_QPN_M,
+					    CQE_BYTE_32_RMT_QPN_S);
+		wc->slid = 0;
+		wc->wc_flags |= roce_get_bit(cqe->byte_32, CQE_BYTE_32_GRH_S) ?
+				IBV_WC_GRH : 0;
+		wc->pkey_index = 0;
 	}
 
 	return V2_CQ_OK;
