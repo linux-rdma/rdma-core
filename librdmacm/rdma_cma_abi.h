@@ -338,6 +338,7 @@ struct ucma_abi_event_resp {
 		struct ucma_abi_conn_param conn;
 		struct ucma_abi_ud_param   ud;
 	} param;
+	struct ucma_abi_ece ece;
 };
 
 struct ucma_abi_set_option {
