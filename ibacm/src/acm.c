@@ -871,6 +871,7 @@ static struct acmc_ep *acm_get_ep(int index)
 			list_for_each(&dev->port[i].ep_list, ep, entry) {
 				if (index == inx)
 					return ep;
+				++inx;
 			}
 		}
 	}
