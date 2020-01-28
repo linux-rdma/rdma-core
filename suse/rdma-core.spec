@@ -126,7 +126,7 @@ BuildRequires:  ninja
 %else
 # Fallback to make otherwise
 BuildRequires:  make
-%define make_jobs make -v %{?_smp_mflags}
+%define make_jobs make VERBOSE=1 %{?_smp_mflags}
 %define cmake_install DESTDIR=%{buildroot} make install
 %endif
 
