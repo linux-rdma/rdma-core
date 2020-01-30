@@ -133,15 +133,12 @@ class RDMATestCase(unittest.TestCase):
         # Don't add ports which are not active
         if ctx.query_port(port).state != e.IBV_PORT_ACTIVE:
             return
-        idx = 0
-        while True:
+
+        for idx in range(ctx.query_port(port).gid_tbl_len):
             gid = ctx.query_gid(port, idx)
-            if gid.gid[-19:] == self.ZERO_GID:
-                # No point iterating on
-                break
-            else:
+            # Avoid adding ZERO GIDs
+            if gid.gid[-19:] != self.ZERO_GID:
                 self.args.append([dev, port, idx])
-                idx += 1
 
     def _add_gids_per_device(self, ctx, dev):
         port_count = ctx.query_device().phys_port_cnt
