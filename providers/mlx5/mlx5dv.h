@@ -1444,7 +1444,7 @@ struct mlx5dv_dr_flow_meter_attr {
 	uint8_t                 active;
 	uint8_t                 reg_c_index;
 	size_t			flow_meter_parameter_sz;
-	__be64			flow_meter_parameter[];
+	void			*flow_meter_parameter;
 };
 
 struct mlx5dv_dr_domain *
