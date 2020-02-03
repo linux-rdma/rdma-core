@@ -86,17 +86,35 @@ cdef extern from '<rdma/rdma_cma.h>':
         in_addr         sin_addr
         char            sin_zero[8]
 
+    rdma_event_channel *rdma_create_event_channel()
+    void rdma_destroy_event_channel(rdma_event_channel *channel)
+    int rdma_get_cm_event(rdma_event_channel *channel, rdma_cm_event **event)
+    int rdma_ack_cm_event(rdma_cm_event *event)
+    char *rdma_event_str(rdma_cm_event_type event)
     int rdma_create_ep(rdma_cm_id **id, rdma_addrinfo *res,
                        ibv_pd *pd, ibv_qp_init_attr *qp_init_attr)
     void rdma_destroy_ep(rdma_cm_id *id)
+    int rdma_create_id(rdma_event_channel *channel, rdma_cm_id **id,
+                       void *context, rdma_port_space ps)
+    int rdma_destroy_id(rdma_cm_id *id)
     int rdma_get_request(rdma_cm_id *listen, rdma_cm_id **id)
+    int rdma_bind_addr(rdma_cm_id *id, sockaddr *addr)
+    int rdma_resolve_addr(rdma_cm_id *id, sockaddr *src_addr,
+                          sockaddr *dst_addr, int timeout_ms)
+    int rdma_resolve_route(rdma_cm_id *id, int timeout_ms)
     int rdma_connect(rdma_cm_id *id, rdma_conn_param *conn_param)
     int rdma_disconnect(rdma_cm_id *id)
     int rdma_listen(rdma_cm_id *id, int backlog)
     int rdma_accept(rdma_cm_id *id, rdma_conn_param *conn_param)
+    int rdma_establish(rdma_cm_id *id)
     int rdma_getaddrinfo(char *node, char *service, rdma_addrinfo *hints,
                          rdma_addrinfo **res)
     void rdma_freeaddrinfo(rdma_addrinfo *res)
+    int rdma_init_qp_attr(rdma_cm_id *id, ibv_qp_attr *qp_attr,
+                          int *qp_attr_mask)
+    int rdma_create_qp(rdma_cm_id *id, ibv_pd *pd,
+                       ibv_qp_init_attr *qp_init_attr)
+    void rdma_destroy_qp(rdma_cm_id *id)
 
 cdef extern from '<rdma/rdma_verbs.h>':
     int rdma_post_recv(rdma_cm_id *id, void *context, void *addr,
