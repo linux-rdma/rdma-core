@@ -115,8 +115,6 @@ command above to work.
 You can use either `ibv_devices` or `rdma link` to verify that the device was
 successfully added.
 
-Use of `rxe_cfg` is deprecated, please use the `rdma` command instead.
-
 # Reporting bugs
 
 Bugs should be reported to the <linux-rdma@vger.kernel.org> mailing list
