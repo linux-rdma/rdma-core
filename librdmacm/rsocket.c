@@ -1454,7 +1454,7 @@ connected:
 		rs->state = rs_connect_rdwr;
 		break;
 	default:
-		ret = ERR(EINVAL);
+		ret = (rs->state & rs_connected) ? 0 : ERR(EINVAL);
 		break;
 	}
 
