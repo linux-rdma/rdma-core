@@ -10,6 +10,7 @@ from pyverbs.providers.mlx5.mlx5dv import Mlx5VAR
 from tests.base import BaseResources
 from tests.base import RDMATestCase
 import unittest
+import errno
 import mmap
 
 
@@ -19,7 +20,7 @@ class Mlx5VarRes(BaseResources):
         try:
             self.var = Mlx5VAR(self.ctx)
         except PyverbsRDMAError as ex:
-            if 'not supported' in str(ex):
+            if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('VAR allocation is not supported')
 
 

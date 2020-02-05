@@ -14,6 +14,7 @@ import pyverbs.enums as e
 from pyverbs.cq import CQ
 import tests.utils as u
 import unittest
+import errno
 
 
 class ParentDomainRes(BaseResources):
@@ -40,7 +41,7 @@ class ParentDomainTestCase(RDMATestCase):
             self.pd_res.parent_domain = ParentDomain(self.pd_res.ctx,
                                                      attr=pd_attr)
         except PyverbsRDMAError as ex:
-            if 'not supported' in str(ex) or 'not implemented' in str(ex):
+            if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Parent Domain is not supported on this device')
             raise ex
 
