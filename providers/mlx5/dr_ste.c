@@ -2299,18 +2299,24 @@ static int dr_ste_build_src_gvmi_qpn_tag(struct dr_match_param *value,
 	struct dr_hw_ste_format *hw_ste = (struct dr_hw_ste_format *)hw_ste_p;
 	struct dr_match_misc *misc = &value->misc;
 	struct dr_devx_vport_cap *vport_cap;
+	uint8_t *bit_mask = sb->bit_mask;
 	uint8_t *tag = hw_ste->tag;
+	bool source_gvmi_set;
 
 	DR_STE_SET_TAG(src_gvmi_qp, tag, source_qp, misc, source_sqn);
 
-	vport_cap = dr_get_vport_cap(sb->caps, misc->source_port);
-	if (!vport_cap)
-		return errno;
+	source_gvmi_set = DR_STE_GET(src_gvmi_qp, bit_mask, source_gvmi);
+	if (source_gvmi_set) {
+		vport_cap = dr_get_vport_cap(sb->caps, misc->source_port);
+		if (!vport_cap)
+			return errno;
 
-	if (vport_cap->gvmi)
-		DR_STE_SET(src_gvmi_qp, tag, source_gvmi, vport_cap->gvmi);
+		if (vport_cap->gvmi)
+			DR_STE_SET(src_gvmi_qp, tag, source_gvmi,
+				   vport_cap->gvmi);
 
-	misc->source_port = 0;
+		misc->source_port = 0;
+	}
 
 	return 0;
 }
