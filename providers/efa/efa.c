@@ -73,6 +73,10 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 	ctx->max_llq_size = resp.max_llq_size;
 	pthread_spin_init(&ctx->qp_table_lock, PTHREAD_PROCESS_PRIVATE);
 
+	/* ah udata is mandatory for ah number retrieval */
+	if (!(ctx->cmds_supp_udata_mask & EFA_USER_CMDS_SUPP_UDATA_CREATE_AH))
+		goto err_free_spinlock;
+
 	verbs_set_ops(&ctx->ibvctx, &efa_ctx_ops);
 
 	err = efa_query_device_ex(&ctx->ibvctx.context, NULL, &attr,
