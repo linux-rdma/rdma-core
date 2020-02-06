@@ -447,7 +447,24 @@ struct mlx5_ifc_dr_match_set_misc3_bits {
 	u8         icmpv6_type[0x8];
 	u8         icmpv6_code[0x8];
 
-	u8         reserved_at_120[0xe0];
+	u8         reserved_at_120[0x20];
+
+	u8         gtpu_teid[0x20];
+
+	u8         gtpu_msg_type[0x8];
+	u8         reserved_at_148[0x5];
+	u8         gtpu_flags[0x3];
+	u8         reserved_at_150[0x10];
+
+	u8         reserved_at_160[0x80];
+};
+
+struct mlx5_ifc_dr_match_param_bits {
+	struct mlx5_ifc_dr_match_spec_bits outer;
+	struct mlx5_ifc_dr_match_set_misc_bits misc;
+	struct mlx5_ifc_dr_match_spec_bits inner;
+	struct mlx5_ifc_dr_match_set_misc2_bits misc2;
+	struct mlx5_ifc_dr_match_set_misc3_bits misc3;
 };
 
 struct mlx5_ifc_flow_table_prop_layout_bits {
@@ -506,6 +523,7 @@ enum {
 	MLX5_FLEX_PARSER_VXLAN_GPE_ENABLED	= 1 << 7,
 	MLX5_FLEX_PARSER_ICMP_V4_ENABLED	= 1 << 8,
 	MLX5_FLEX_PARSER_ICMP_V6_ENABLED	= 1 << 9,
+	MLX5_FLEX_PARSER_GTPU_ENABLED		= 1 << 11,
 };
 
 struct mlx5_ifc_cmd_hca_cap_bits {
@@ -1622,6 +1640,17 @@ struct mlx5_ifc_ste_flex_parser_tnl_geneve_bits {
 	u8         reserved_at_40[0x40];
 };
 
+struct mlx5_ifc_ste_flex_parser_tnl_gtpu_bits {
+	u8         reserved_at_0[0x5];
+	u8         gtpu_flags[0x3];
+	u8         gtpu_msg_type[0x8];
+	u8         reserved_at_10[0x10];
+
+	u8         gtpu_teid[0x20];
+
+	u8         reserved_at_40[0x40];
+};
+
 struct mlx5_ifc_ste_general_purpose_bits {
 	u8         general_purpose_lookup_field[0x20];
 
@@ -1711,6 +1740,7 @@ enum {
 	MLX5_ACTION_IN_FIELD_OUT_DIPV6_31_0    = 0x14,
 	MLX5_ACTION_IN_FIELD_OUT_SIPV4         = 0x15,
 	MLX5_ACTION_IN_FIELD_OUT_DIPV4         = 0x16,
+	MLX5_ACTION_IN_FIELD_OUT_FIRST_VID     = 0x17,
 	MLX5_ACTION_IN_FIELD_OUT_IPV6_HOPLIMIT = 0x47,
 	MLX5_ACTION_IN_FIELD_OUT_METADATA_REGA = 0x49,
 	MLX5_ACTION_IN_FIELD_OUT_METADATA_REGB = 0x50,
