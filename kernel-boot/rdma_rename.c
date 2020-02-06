@@ -22,7 +22,7 @@
  *                 by->onboard -> by-pci -> by-guid -> kernel
  * NAME_KERNEL - leave name as kernel provided
  * NAME_PCI - based on PCI/slot/function location
- * NAME_GUID - based on system image GUID
+ * NAME_GUID - based on node GUID
  * NAME_ONBOARD - based on-board device index
  *
  * The stable names are combination of device type technology and rename mode.
@@ -50,7 +50,7 @@
 struct data {
 	const char *curr;
 	char *prefix;
-	uint64_t sys_image_guid;
+	uint64_t node_guid;
 	char *name;
 	int idx;
 };
@@ -338,11 +338,11 @@ static int by_guid(struct data *d)
 	uint16_t vp[4];
 	int ret = -1;
 
-	if (!d->sys_image_guid)
+	if (!d->node_guid)
 		/* virtual devices start without GUID */
 		goto out;
 
-	memcpy(vp, &d->sys_image_guid, sizeof(uint64_t));
+	memcpy(vp, &d->node_guid, sizeof(uint64_t));
 	ret = asprintf(&d->name, "%sx%04x%04x%04x%04x", d->prefix, vp[3], vp[2],
 		       vp[1], vp[0]);
 out:
@@ -394,7 +394,7 @@ static int get_nldata_cb(struct nl_msg *msg, void *data)
 		return NL_STOP;
 
 	if (!tb[RDMA_NLDEV_ATTR_DEV_NAME] || !tb[RDMA_NLDEV_ATTR_DEV_INDEX] ||
-	    !tb[RDMA_NLDEV_ATTR_SYS_IMAGE_GUID])
+	    !tb[RDMA_NLDEV_ATTR_NODE_GUID])
 		return NL_STOP;
 
 	ret = strcmp(d->curr, nla_get_string(tb[RDMA_NLDEV_ATTR_DEV_NAME]));
@@ -410,7 +410,7 @@ static int get_nldata_cb(struct nl_msg *msg, void *data)
 		return NL_STOP;
 
 	d->idx = nla_get_u32(tb[RDMA_NLDEV_ATTR_DEV_INDEX]);
-	d->sys_image_guid = nla_get_u64(tb[RDMA_NLDEV_ATTR_SYS_IMAGE_GUID]);
+	d->node_guid = nla_get_u64(tb[RDMA_NLDEV_ATTR_NODE_GUID]);
 	return NL_STOP;
 }
 
