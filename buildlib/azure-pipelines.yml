@@ -33,7 +33,7 @@ stages:
       - job: Compile
         displayName: Compile Tests
         pool:
-          vmImage: 'Ubuntu-16.04'
+          vmImage: 'ubuntu-latest'
         container: azp
         steps:
           - task: PythonScript@0
@@ -101,7 +101,7 @@ stages:
       - job: SrcPrep
         displayName: Build Source Tar
         pool:
-          vmImage: 'Ubuntu-16.04'
+          vmImage: 'ubuntu-latest'
         container: azp
         steps:
           - checkout: self
@@ -128,7 +128,7 @@ stages:
         displayName: Test Build RPMs for
         dependsOn: SrcPrep
         pool:
-          vmImage: 'Ubuntu-16.04'
+          vmImage: 'ubuntu-latest'
         strategy:
           matrix:
             centos7:
