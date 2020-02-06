@@ -36,6 +36,9 @@ resources:
     - container: fedora
       image: ucfconsort.azurecr.io/rdma-core/fc31:25.0
       endpoint: ucfconsort_registry
+    - container: xenial
+      image: ucfconsort.azurecr.io/rdma-core/ubuntu-16.04:28.0
+      endpoint: ucfconsort_registry
     - container: leap
       image: ucfconsort.azurecr.io/rdma-core/opensuse-15.0:25.0
       endpoint: ucfconsort_registry
@@ -163,7 +166,7 @@ stages:
               artifactName: source_tar
               targetPath: artifacts
 
-      - job: Distros
+      - job: RPM_Distros
         displayName: Test Build RPMs for
         dependsOn: SrcPrep
         pool:
@@ -206,4 +209,30 @@ stages:
               RPM_SRC=$((rpmspec -P *.spec || grep ^Source: *.spec) | awk '/^Source:/{split($0,a,"[ \t]+");print(a[2])}')
               (cd SOURCES && ln -sf ../rdma-core*.tar.gz "$RPM_SRC")
               rpmbuild --define '_tmppath '$(pwd)'/tmp' --define '_topdir '$(pwd) -bb *.spec $(RPMBUILD_OPTS)
+            displayName: Perform Package Build
+
+      - job: DEB_Distros
+        displayName: Test Build DEBs for
+        dependsOn: SrcPrep
+        pool:
+          vmImage: 'ubuntu-latest'
+        strategy:
+          matrix:
+            xenial:
+              CONTAINER: xenial
+        container: $[ variables['CONTAINER'] ]
+        steps:
+          - checkout: none
+
+          - task: DownloadPipelineArtifact@0
+            inputs:
+              artifactName: source_tar
+              targetPath: .
+
+          - bash: |
+              set -e
+              mv *.tar.gz src.tar.gz
+              tar -xzf src.tar.gz
+              cd rdma-core*/
+              dpkg-buildpackage -b -d
             displayName: Perform Package Build

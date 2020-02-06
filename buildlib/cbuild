@@ -298,6 +298,7 @@ class xenial(APTEnvironment):
         'cmake',
         'debhelper',
         'dh-systemd',
+        'fakeroot', # for AZP
         'gcc',
         'libnl-3-dev',
         'libnl-route-3-dev',
@@ -308,11 +309,12 @@ class xenial(APTEnvironment):
         'pandoc',
         'pkg-config',
         'python3',
-        "python3-docutils",
+        'python3-docutils',
         'valgrind',
     };
     name = "ubuntu-16.04";
     aliases = {"xenial"};
+    to_azp = True;
 
 class bionic(APTEnvironment):
     docker_parent = "ubuntu:18.04"
