@@ -168,7 +168,7 @@ directory.
  * NAME_PCI - read PCI location and topology as a source for stable names,
  which won't change in any software event (reset, PCI probe e.t.c.).
  Example: "ibp0s12f4".
- * NAME_GUID - read system image GUID information in similar manner to
+ * NAME_GUID - read node GUID information in similar manner to
  net MAC naming policy. Example "rocex525400c0fe123455".
  * NAME_ONBOARD - read Firmware/BIOS provided index numbers for on-board devices.
  Example: "ibo3".
@@ -188,7 +188,7 @@ Type of names:
 
  * o<index> - on-board device index number
  * s<slot>[f<function>] - hotplug slot index number
- * x<GUID> - System image GUID
+ * x<GUID> - Node GUID
  * [P<domain>]p<bus>s<slot>[f<function>] - PCI geographical location
 
 Notes:
