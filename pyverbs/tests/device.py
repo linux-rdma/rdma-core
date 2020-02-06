@@ -53,7 +53,7 @@ class device_test(unittest.TestCase):
         assert attr.node_guid != 0
         assert attr.sys_image_guid != 0
         assert attr.max_mr_size > PAGE_SIZE
-        assert attr.page_size_cap > PAGE_SIZE
+        assert attr.page_size_cap >= PAGE_SIZE
         assert attr.vendor_id != 0
         assert attr.vendor_part_id != 0
         assert attr.max_qp > 0
