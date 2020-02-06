@@ -403,7 +403,7 @@ class azure_pipelines(APTEnvironment):
         "abi-compliance-checker",
         "abi-dumper",
         "ca-certificates",
-        "clang-8",
+        "clang-9",
         "cmake",
         "cython3",
         "debhelper",
