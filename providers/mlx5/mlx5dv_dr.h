@@ -625,6 +625,7 @@ struct mlx5dv_dr_domain {
 	struct dr_icm_pool		*action_icm_pool;
 	struct dr_send_ring		*send_ring;
 	struct dr_domain_info		info;
+	struct list_head		tbl_list;
 };
 
 struct dr_table_rx_tx {
@@ -641,6 +642,7 @@ struct mlx5dv_dr_table {
 	struct list_head		matcher_list;
 	struct mlx5dv_devx_obj		*devx_obj;
 	atomic_int			refcount;
+	struct list_node		tbl_list;
 };
 
 struct dr_matcher_rx_tx {
@@ -662,6 +664,7 @@ struct mlx5dv_dr_matcher {
 	uint8_t				match_criteria;
 	atomic_int			refcount;
 	struct mlx5dv_flow_matcher	*dv_matcher;
+	struct list_head		rule_list;
 };
 
 struct dr_rule_member {
@@ -725,6 +728,11 @@ struct mlx5dv_dr_action {
 	};
 };
 
+struct dr_rule_action_member {
+	struct mlx5dv_dr_action *action;
+	struct list_node	list;
+};
+
 enum dr_connect_type {
 	CONNECT_HIT	= 1,
 	CONNECT_MISS	= 2,
@@ -754,6 +762,7 @@ struct mlx5dv_dr_rule {
 		struct ibv_flow *flow;
 	};
 	struct list_head	rule_actions_list;
+	struct list_node	rule_list;
 };
 
 void dr_rule_update_rule_member(struct dr_ste *new_ste, struct dr_ste *ste);

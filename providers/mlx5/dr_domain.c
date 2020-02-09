@@ -279,6 +279,7 @@ mlx5dv_dr_domain_create(struct ibv_context *ctx,
 	dmn->ctx = ctx;
 	dmn->type = type;
 	atomic_init(&dmn->refcount, 1);
+	list_head_init(&dmn->tbl_list);
 
 	if (dr_domain_caps_init(ctx, dmn)) {
 		dr_dbg(dmn, "Failed init domain, no caps\n");

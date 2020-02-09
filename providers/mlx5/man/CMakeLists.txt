@@ -18,6 +18,7 @@ rdma_man_pages(
   mlx5dv_devx_subscribe_devx_event.3.md
   mlx5dv_devx_umem_reg.3.md
   mlx5dv_dr_flow.3.md
+  mlx5dv_dump.3.md
   mlx5dv_flow_action_esp.3.md
   mlx5dv_get_clock_info.3
   mlx5dv_init_obj.3
@@ -71,6 +72,10 @@ rdma_alias_man_pages(
  mlx5dv_dr_flow.3 mlx5dv_dr_rule_destroy.3
  mlx5dv_dr_flow.3 mlx5dv_dr_table_create.3
  mlx5dv_dr_flow.3 mlx5dv_dr_table_destroy.3
+ mlx5dv_dump.3 mlx5dv_dump_dr_domain.3
+ mlx5dv_dump.3 mlx5dv_dump_dr_matcher.3
+ mlx5dv_dump.3 mlx5dv_dump_dr_rule.3
+ mlx5dv_dump.3 mlx5dv_dump_dr_table.3
  mlx5dv_wr_post.3 mlx5dv_wr_set_dc_addr.3
  mlx5dv_wr_post.3 mlx5dv_qp_ex_from_ibv_qp_ex.3
 )
