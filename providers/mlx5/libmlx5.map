@@ -127,3 +127,9 @@ MLX5_1.12 {
 		mlx5dv_dump_dr_table;
 		mlx5dv_free_var;
 } MLX5_1.11;
+
+MLX5_1.13 {
+        global:
+		mlx5dv_pp_alloc;
+		mlx5dv_pp_free;
+} MLX5_1.12;

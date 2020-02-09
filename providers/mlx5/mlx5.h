@@ -639,6 +639,12 @@ struct mlx5_var_obj {
 	uint32_t handle;
 };
 
+struct mlx5_pp_obj {
+	struct mlx5dv_pp dv_pp;
+	struct ibv_context *context;
+	uint32_t handle;
+};
+
 struct mlx5_devx_umem {
 	struct mlx5dv_devx_umem dv_devx_umem;
 	struct ibv_context *context;
