@@ -1042,6 +1042,9 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	if (ret)
 		return ret;
 
+	if (attr_mask & IBV_QP_STATE)
+		qp->state = attr->qp_state;
+
 	if ((attr_mask & IBV_QP_STATE) && attr->qp_state == IBV_QPS_RESET) {
 		hns_roce_v2_cq_clean(to_hr_cq(qp->recv_cq), qp->qp_num,
 				     qp->srq ? to_hr_srq(qp->srq) : NULL);
