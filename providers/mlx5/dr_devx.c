@@ -549,6 +549,8 @@ int dr_devx_modify_qp_rtr2rts(struct ibv_context *ctx,
 	DEVX_SET(qpc, qpc, retry_count, attr->retry_cnt);
 	DEVX_SET(qpc, qpc, rnr_retry, attr->rnr_retry);
 
+	DEVX_SET(qpc, qpc, primary_address_path.ack_timeout, 0x8); /* ~1ms */
+
 	return mlx5dv_devx_obj_modify(qp_obj, in,
 				      sizeof(in), out, sizeof(out));
 }
