@@ -20,45 +20,40 @@ class DeviceTest(unittest.TestCase):
     Test various functionalities of the Device class.
     """
 
-    @staticmethod
-    def test_dev_list():
+    def test_dev_list(self):
         """
         Verify that it's possible to get IB devices list.
         """
         d.get_device_list()
 
     @staticmethod
-    def test_open_dev():
+    def get_device_list():
+        lst = d.get_device_list()
+        if len(lst) == 0:
+            raise unittest.SkipTest('No IB device found')
+        return lst
+
+    def test_open_dev(self):
         """
         Test ibv_open_device()
         """
-        lst = d.get_device_list()
-        if len(lst) == 0:
-            raise unittest.SkipTest('No IB devices found')
-        for dev in lst:
+        for dev in self.get_device_list():
             d.Context(name=dev.name.decode())
 
     def test_query_device(self):
         """
         Test ibv_query_device()
         """
-        lst = d.get_device_list()
-        if len(lst) == 0:
-            raise unittest.SkipTest('No IB devices found')
-        for dev in lst:
+        for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
                 attr = ctx.query_device()
                 self.verify_device_attr(attr)
 
-    @staticmethod
-    def test_query_gid():
+    def test_query_gid(self):
         """
         Test ibv_query_gid()
         """
-        lst = d.get_device_list()
-        if len(lst) == 0:
-            raise unittest.SkipTest('No IB devices found')
-        for dev in lst:
+        for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
                 ctx.query_gid(port_num=1, index=0)
 
@@ -90,10 +85,7 @@ class DeviceTest(unittest.TestCase):
         """
         Test ibv_query_device_ex()
         """
-        lst = d.get_device_list()
-        if len(lst) == 0:
-            raise unittest.SkipTest('No IB devices found')
-        for dev in lst:
+        for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
                 attr_ex = ctx.query_device_ex()
                 self.verify_device_attr(attr_ex.orig_attr)
@@ -118,25 +110,18 @@ class DeviceTest(unittest.TestCase):
         """
         Test ibv_query_port
         """
-        lst = d.get_device_list()
-        if len(lst) == 0:
-            raise unittest.SkipTest('No IB devices found')
-        for dev in lst:
+        for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
                 num_ports = ctx.query_device().phys_port_cnt
                 for p in range(num_ports):
                     port_attr = ctx.query_port(p + 1)
                     self.verify_port_attr(port_attr)
 
-    @staticmethod
-    def test_query_port_bad_flow():
+    def test_query_port_bad_flow(self):
         """
         Verify that querying non-existing ports fails as expected
         """
-        lst = d.get_device_list()
-        if len(lst) == 0:
-            raise unittest.SkipTest('No IB devices found')
-        for dev in lst:
+        for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
                 num_ports = ctx.query_device().phys_port_cnt
                 try:
