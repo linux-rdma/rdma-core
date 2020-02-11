@@ -329,6 +329,7 @@ static int rereg_and_test_port(const char *guid_file, int port, int agent,
 	f = fopen(guid_file, "r");
 	if (!f) {
 		err("cannot open %s: %s\n", guid_file, strerror(errno));
+		free(list);
 		return -1;
 	}
 
