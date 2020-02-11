@@ -194,10 +194,11 @@ int qelr_dereg_mr(struct verbs_mr *vmr)
 	if (rc)
 		return rc;
 
-	free(vmr);
-
 	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_MR,
 		   "MR DERegister %p completed successfully\n", vmr);
+
+	free(vmr);
+
 	return 0;
 }
 
@@ -301,10 +302,11 @@ int qelr_destroy_cq(struct ibv_cq *ibv_cq)
 	}
 
 	qelr_chain_free(&cq->chain);
-	free(cq);
 
 	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_CQ,
 		   "destroy cq: successfully destroyed %p\n", cq);
+
+	free(cq);
 
 	return 0;
 }
@@ -986,10 +988,11 @@ int qelr_destroy_qp(struct ibv_qp *ibqp)
 	qelr_free_rq(qp);
 	qelr_chain_free_sq(qp);
 	qelr_chain_free_rq(qp);
-	free(qp);
 
 	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
 		   "destroy cq: successfully destroyed %p\n", qp);
+
+	free(qp);
 
 	return 0;
 }
