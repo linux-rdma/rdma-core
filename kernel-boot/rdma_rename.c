@@ -168,7 +168,7 @@ static int find_sun(char *devname, char *pci)
 			goto out;
 		}
 
-		ret = fscanf(fp, "%s", address);
+		ret = fscanf(fp, "%255s", address);
 		fclose(fp);
 
 		if (ret != 1) {

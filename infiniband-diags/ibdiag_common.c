@@ -164,6 +164,8 @@ static void read_ibdiag_config(const char *file)
 			ibd_sakey = strtoull(val_str, NULL, 0);
 		} else if (strncmp(name, "nd_format",
 				   strlen("nd_format")) == 0) {
+			if (ibd_nd_format)
+				free(ibd_nd_format);
 			ibd_nd_format = strdup(val_str);
 		}
 	}
