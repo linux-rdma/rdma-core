@@ -807,7 +807,7 @@ def guid_to_hex(node_guid):
 def port_state_to_str(port_state):
     l = {0: 'NOP', 1: 'Down', 2: 'Init', 3: 'Armed', 4: 'Active', 5: 'Defer'}
     try:
-        return '{s} ({n})'.format(s=l[port_state].name, n=port_state)
+        return '{s} ({n})'.format(s=l[port_state], n=port_state)
     except KeyError:
         return 'Invalid state ({s})'.format(s=port_state)
 
