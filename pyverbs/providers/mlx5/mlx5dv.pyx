@@ -54,10 +54,13 @@ cdef class Mlx5Context(Context):
         :param attr: mlx5-specific device attributes
         :return: None
         """
+        super().__init__(name=name, attr=attr)
         if not dv.mlx5dv_is_supported(self.device):
             raise PyverbsUserError('This is not an MLX5 device')
-        super().__init__(name=name, attr=attr)
         self.context = dv.mlx5dv_open_device(self.device, &attr.attr)
+        if self.context == NULL:
+            raise PyverbsRDMAErrno('Failed to open mlx5 context on {dev}'
+                                   .format(dev=self.name))
 
     def query_mlx5_device(self, comp_mask=-1):
         """
