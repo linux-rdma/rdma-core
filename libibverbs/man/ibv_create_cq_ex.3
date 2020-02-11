@@ -29,6 +29,7 @@ int                     comp_vector;       /* Completion vector used to signal c
 uint64_t                wc_flags;          /* The wc_flags that should be returned in ibv_poll_cq_ex. Or'ed bit of enum ibv_wc_flags_ex. */
 uint32_t                comp_mask;         /* compatibility mask (extended verb). */
 uint32_t                flags              /* One or more flags from enum ibv_create_cq_attr_flags */
+struct ibv_pd           *parent_domain;    /* Parent domain to be used by this CQ */
 .in -8
 };
 
@@ -48,6 +49,7 @@ enum ibv_wc_flags_ex {
 
 enum ibv_cq_init_attr_mask {
         IBV_CQ_INIT_ATTR_MASK_FLAGS             = 1 << 0,
+        IBV_CQ_INIT_ATTR_MASK_PD                = 1 << 1,
 };
 
 enum ibv_create_cq_attr_flags {
@@ -175,7 +177,8 @@ CQ should be destroyed with ibv_destroy_cq.
 .BR ibv_resize_cq (3),
 .BR ibv_req_notify_cq (3),
 .BR ibv_ack_cq_events (3),
-.BR ibv_create_qp (3)
+.BR ibv_create_qp (3),
+.BR ibv_alloc_parent_domain (3)
 .SH "AUTHORS"
 .TP
 Matan Barak <matanb@mellanox.com>
