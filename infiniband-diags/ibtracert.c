@@ -855,8 +855,8 @@ static int get_route(char *srcid, char *dstid) {
 
 int main(int argc, char **argv)
 {
-	char dstbuf[20];
-	char srcbuf[20];
+	char dstbuf[21];
+	char srcbuf[21];
 	char portsbuf[80];
 	char *p_first;
 	int len, i;
