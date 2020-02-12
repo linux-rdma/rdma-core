@@ -457,11 +457,12 @@ int pvrdma_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 	}
 
 	pthread_spin_lock(&qp->sq.lock);
+
 	ind = pvrdma_idx(&(qp->sq.ring_state->prod_tail), qp->sq.wqe_cnt);
 	if (ind < 0) {
 		pthread_spin_unlock(&qp->sq.lock);
-		ret = EINVAL;
-		goto out;
+		*bad_wr = wr;
+		return EINVAL;
 	}
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
