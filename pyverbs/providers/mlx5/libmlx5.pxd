@@ -3,6 +3,7 @@
 
 include 'mlx5dv_enums.pxd'
 
+from libc.stdint cimport uint32_t, uint64_t
 from libcpp cimport bool
 
 cimport pyverbs.libibverbs as v
@@ -58,13 +59,23 @@ cdef extern from 'infiniband/mlx5dv.h':
         unsigned int    flags
         unsigned short  cqe_size
 
+    cdef struct mlx5dv_var:
+        uint32_t    page_id
+        uint32_t    length
+        long        mmap_off
+        uint64_t    comp_mask
+
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
     int mlx5dv_query_device(v.ibv_context *ctx, mlx5dv_context *attrs_out)
+
     v.ibv_qp *mlx5dv_create_qp(v.ibv_context *context,
                                v.ibv_qp_init_attr_ex *qp_attr,
                                mlx5dv_qp_init_attr *mlx5_qp_attr)
     v.ibv_cq_ex *mlx5dv_create_cq(v.ibv_context *context,
                                   v.ibv_cq_init_attr_ex *cq_attr,
                                   mlx5dv_cq_init_attr *mlx5_cq_attr)
+
+    mlx5dv_var *mlx5dv_alloc_var(v.ibv_context *context, uint32_t flags)
+    void mlx5dv_free_var(mlx5dv_var *dv_var)

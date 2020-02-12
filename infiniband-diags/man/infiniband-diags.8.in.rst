@@ -99,8 +99,8 @@ The following config files are common amongst many of the utilities.
 Utilities list
 ==============
 
-Basic fabric conectivity
-------------------------
+Basic fabric connectivity
+-------------------------
 
 	See: ibnetdiscover, iblinkinfo
 

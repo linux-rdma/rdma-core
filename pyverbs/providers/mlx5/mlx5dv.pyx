@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
+import logging
+
 from pyverbs.pyverbs_error import PyverbsUserError
 cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
 cimport pyverbs.providers.mlx5.libmlx5 as dv
@@ -16,7 +18,8 @@ cdef class Mlx5DVContextAttr(PyverbsObject):
     Represent mlx5dv_context_attr struct. This class is used to open an mlx5
     device.
     """
-    def __cinit__(self, flags=0, comp_mask=0):
+    def __init__(self, flags=0, comp_mask=0):
+        super().__init__()
         self.attr.flags = flags
         self.attr.comp_mask = comp_mask
 
@@ -44,22 +47,16 @@ cdef class Mlx5Context(Context):
     """
     Represent mlx5 context, which extends Context.
     """
-    def __cinit__(self, **kwargs):
+    def __init__(self, Mlx5DVContextAttr attr not None, name=''):
         """
         Open an mlx5 device using the given attributes
-        :param kwargs: Arguments:
-            * *name* (str)
-               The RDMA device's name (used by parent class)
-            * *attr* (Mlx5DVContextAttr)
-               mlx5-specific device attributes
+        :param name: The RDMA device's name (used by parent class)
+        :param attr: mlx5-specific device attributes
         :return: None
         """
-        cdef Mlx5DVContextAttr attr
-        attr = kwargs.get('attr')
-        if not attr or not isinstance(attr, Mlx5DVContextAttr):
-            raise PyverbsUserError('Missing provider attributes')
         if not dv.mlx5dv_is_supported(self.device):
             raise PyverbsUserError('This is not an MLX5 device')
+        super().__init__(name=name, attr=attr)
         self.context = dv.mlx5dv_open_device(self.device, &attr.attr)
 
     def query_mlx5_device(self, comp_mask=-1):
@@ -187,7 +184,7 @@ cdef class Mlx5DVDCInitAttr(PyverbsObject):
     Represents mlx5dv_dc_init_attr struct, which defines initial attributes
     for DC QP creation.
     """
-    def __cinit__(self, dc_type=dve.MLX5DV_DCTYPE_DCI, dct_access_key=0):
+    def __init__(self, dc_type=dve.MLX5DV_DCTYPE_DCI, dct_access_key=0):
         """
         Initializes an Mlx5DVDCInitAttr object with the given DC type and DCT
         access key.
@@ -195,6 +192,7 @@ cdef class Mlx5DVDCInitAttr(PyverbsObject):
         :param dct_access_key: Access key to be used by the DCT
         :return: An initializes object
         """
+        super().__init__()
         self.attr.dc_type = dc_type
         self.attr.dct_access_key = dct_access_key
 
@@ -223,8 +221,8 @@ cdef class Mlx5DVQPInitAttr(PyverbsObject):
     Represents mlx5dv_qp_init_attr struct, initial attributes used for mlx5 QP
     creation.
     """
-    def __cinit__(self, comp_mask=0, create_flags=0,
-                  Mlx5DVDCInitAttr dc_init_attr=None, send_ops_flags=0):
+    def __init__(self, comp_mask=0, create_flags=0,
+                 Mlx5DVDCInitAttr dc_init_attr=None, send_ops_flags=0):
         """
         Initializes an Mlx5DVQPInitAttr object with the given user data.
         :param comp_mask: A bitmask specifying which fields are valid
@@ -233,6 +231,7 @@ cdef class Mlx5DVQPInitAttr(PyverbsObject):
         :param send_ops_flags: A bitwise OR of mlx5dv_qp_create_send_ops_flags
         :return: An initialized Mlx5DVQPInitAttr object
         """
+        super().__init__()
         self.attr.comp_mask = comp_mask
         self.attr.create_flags = create_flags
         self.attr.send_ops_flags = send_ops_flags
@@ -291,8 +290,8 @@ cdef class Mlx5DVQPInitAttr(PyverbsObject):
 
 
 cdef class Mlx5QP(QP):
-    def __cinit__(self, Mlx5Context context, QPInitAttrEx init_attr,
-                  Mlx5DVQPInitAttr dv_init_attr):
+    def __init__(self, Mlx5Context context, QPInitAttrEx init_attr,
+                 Mlx5DVQPInitAttr dv_init_attr):
         """
         Initializes an mlx5 QP according to the user-provided data.
         :param context: mlx5 Context object
@@ -301,6 +300,11 @@ cdef class Mlx5QP(QP):
         :return: An initialized Mlx5QP
         """
         cdef PD pd
+
+        # Initialize the logger here as the parent's __init__ is called after
+        # the QP is allocated. Allocation can fail, which will lead to exceptions
+        # thrown during object's teardown.
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.dc_type = dv_init_attr.dc_type if dv_init_attr else 0
         if init_attr.pd is not None:
             pd = <PD>init_attr.pd
@@ -314,6 +318,7 @@ cdef class Mlx5QP(QP):
             raise PyverbsRDMAErrno('Failed to create MLX5 QP.\nQPInitAttrEx '
                                    'attributes:\n{}\nMLX5DVQPInitAttr:\n{}'.
                                    format(init_attr, dv_init_attr))
+        super().__init__(context, init_attr)
 
     def _get_comp_mask(self, dst):
         masks = {dve.MLX5DV_DCTYPE_DCT: {'INIT': e.IBV_QP_PKEY_INDEX |
@@ -338,7 +343,7 @@ cdef class Mlx5DVCQInitAttr(PyverbsObject):
     Represents mlx5dv_cq_init_attr struct, initial attributes used for mlx5 CQ
     creation.
     """
-    def __cinit__(self, comp_mask=0, cqe_comp_res_format=0, flags=0, cqe_size=0):
+    def __init__(self, comp_mask=0, cqe_comp_res_format=0, flags=0, cqe_size=0):
         """
         Initializes an Mlx5CQInitAttr object with zeroes as default values.
         :param comp_mask: Marks which of the following fields should be
@@ -353,6 +358,7 @@ cdef class Mlx5DVCQInitAttr(PyverbsObject):
                          Valid when MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE is set.
         :return: None
         """
+        super().__init__()
         self.attr.comp_mask = comp_mask
         self.attr.cqe_comp_res_format = cqe_comp_res_format
         self.attr.flags = flags
@@ -413,8 +419,12 @@ cdef class Mlx5DVCQInitAttr(PyverbsObject):
 
 
 cdef class Mlx5CQ(CQEX):
-    def __cinit__(self, Mlx5Context context, CqInitAttrEx init_attr,
-                  Mlx5DVCQInitAttr dv_init_attr):
+    def __init__(self, Mlx5Context context, CqInitAttrEx init_attr,
+                 Mlx5DVCQInitAttr dv_init_attr):
+        # Initialize the logger here as the parent's __init__ is called after
+        # the CQ is allocated. Allocation can fail, which will lead to exceptions
+        # thrown during object's teardown.
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.cq = \
             dv.mlx5dv_create_cq(context.context, &init_attr.attr,
                                 &dv_init_attr.attr if dv_init_attr is not None
@@ -426,6 +436,7 @@ cdef class Mlx5CQ(CQEX):
         self.ibv_cq = v.ibv_cq_ex_to_cq(self.cq)
         self.context = context
         context.add_ref(self)
+        super().__init__(context, init_attr)
 
     def __str__(self):
         print_format = '{:<22}: {:<20}\n'
@@ -540,3 +551,42 @@ def send_ops_flags_to_str(flags):
     l = {dve.MLX5DV_QP_EX_WITH_MR_INTERLEAVED: 'With MR interleaved',
          dve.MLX5DV_QP_EX_WITH_MR_LIST: 'With MR list'}
     return bitmask_to_str(flags, l)
+
+
+cdef class Mlx5VAR(VAR):
+    def __cinit__(self, Context context not None, flags=0):
+        self.var = dv.mlx5dv_alloc_var(context.context, flags)
+        if self.var == NULL:
+            raise PyverbsRDMAErrno('Failed to allocate VAR')
+        context.add_ref(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.var != NULL:
+            dv.mlx5dv_free_var(self.var)
+            self.var = NULL
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return print_format.format('page id', self.var.page_id) +\
+               print_format.format('length', self.var.length) +\
+               print_format.format('mmap offset', self.var.mmap_off) +\
+               print_format.format('compatibility mask', self.var.comp_mask)
+
+    @property
+    def page_id(self):
+        return self.var.page_id
+
+    @property
+    def length(self):
+        return self.var.length
+
+    @property
+    def mmap_off(self):
+        return self.var.mmap_off
+
+    @property
+    def comp_mask(self):
+        return self.var.comp_mask

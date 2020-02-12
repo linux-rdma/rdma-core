@@ -529,41 +529,48 @@ void copy_iwpm_sockaddr(__u16 addr_family, struct sockaddr_storage *src_sockaddr
 		      struct sockaddr_storage *dst_sockaddr,
 		      char *src_addr, char *dst_addr, __be16 *src_port)
 {
-	char *src = NULL, *dst = NULL;
-
-	if (src_addr)
-		src = src_addr;
-	if (dst_addr)
-		dst = dst_addr;
-
 	switch (addr_family) {
-	case AF_INET:
-		if (src_sockaddr) {
-			src = (char *)&((struct sockaddr_in *)src_sockaddr)->sin_addr.s_addr;
-			*src_port = ((struct sockaddr_in *)src_sockaddr)->sin_port;
-		}
-		if (dst_sockaddr) {
-			dst = (char *)&(((struct sockaddr_in *)dst_sockaddr)->sin_addr.s_addr);
-			((struct sockaddr_in *)dst_sockaddr)->sin_port = *src_port;
-			((struct sockaddr_in *)dst_sockaddr)->sin_family = AF_INET;
-		}
-		break;
-	case AF_INET6:
-		if (src_sockaddr) {
-			src = (char *)&((struct sockaddr_in6 *)src_sockaddr)->sin6_addr.s6_addr;
-			*src_port = ((struct sockaddr_in6 *)src_sockaddr)->sin6_port;
-		}
-		if (dst_sockaddr) {
-			dst = (char *)&(((struct sockaddr_in6 *)dst_sockaddr)->sin6_addr.s6_addr);
-			((struct sockaddr_in6 *)dst_sockaddr)->sin6_port = *src_port;
-			((struct sockaddr_in6 *)dst_sockaddr)->sin6_family = AF_INET6;
-		}
-		break;
-	default:
-		return;
-	}
+	case AF_INET: {
+		const struct in_addr *src = (void *)src_addr;
+		struct in_addr *dst = (void *)dst_addr;
+		const struct sockaddr_in *src_sockaddr_in;
+		struct sockaddr_in *dst_sockaddr_in;
 
-	memcpy(dst, src, IWPM_IPADDR_SIZE);
+		if (src_sockaddr) {
+			src_sockaddr_in = (const void *)src_sockaddr;
+			src = &src_sockaddr_in->sin_addr;
+			*src_port = src_sockaddr_in->sin_port;
+		}
+		if (dst_sockaddr) {
+			dst_sockaddr_in = (void *)dst_sockaddr;
+			dst = &dst_sockaddr_in->sin_addr;
+			dst_sockaddr_in->sin_port = *src_port;
+			dst_sockaddr_in->sin_family = AF_INET;
+		}
+		*dst = *src;
+		break;
+	}
+	case AF_INET6: {
+		const struct in6_addr *src = (void *)src_addr;
+		struct in6_addr *dst = (void *)dst_addr;
+		const struct sockaddr_in6 *src_sockaddr_in6;
+		struct sockaddr_in6 *dst_sockaddr_in6;
+
+		if (src_sockaddr) {
+			src_sockaddr_in6 = (const void *)src_sockaddr;
+			src = &src_sockaddr_in6->sin6_addr;
+			*src_port = src_sockaddr_in6->sin6_port;
+		}
+		if (dst_sockaddr) {
+			dst_sockaddr_in6 = (void *)dst_sockaddr;
+			dst = &dst_sockaddr_in6->sin6_addr;
+			dst_sockaddr_in6->sin6_port = *src_port;
+			dst_sockaddr_in6->sin6_family = AF_INET6;
+		}
+		*dst = *src;
+		break;
+	}
+	}
 }
 
 /**

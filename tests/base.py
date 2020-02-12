@@ -4,14 +4,16 @@
 import unittest
 import tempfile
 import random
+import errno
 import stat
 import os
 
+from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
 from pyverbs.qp import QPCap, QPInitAttrEx, QPInitAttr, QPAttr, QP
+from pyverbs.cmid import CMID, AddrInfo, CMEventChannel, ConnParam
 from pyverbs.addr import AHAttr, GlobalRoute
 from pyverbs.xrcd import XRCD, XRCDInitAttr
 from pyverbs.srq import SRQ, SrqInitAttrEx
-from pyverbs.cmid import CMID, AddrInfo
 from pyverbs.device import Context
 import pyverbs.cm_enums as ce
 import pyverbs.device as d
@@ -131,15 +133,12 @@ class RDMATestCase(unittest.TestCase):
         # Don't add ports which are not active
         if ctx.query_port(port).state != e.IBV_PORT_ACTIVE:
             return
-        idx = 0
-        while True:
+
+        for idx in range(ctx.query_port(port).gid_tbl_len):
             gid = ctx.query_gid(port, idx)
-            if gid.gid[-19:] == self.ZERO_GID:
-                # No point iterating on
-                break
-            else:
+            # Avoid adding ZERO GIDs
+            if gid.gid[-19:] != self.ZERO_GID:
                 self.args.append([dev, port, idx])
-                idx += 1
 
     def _add_gids_per_device(self, ctx, dev):
         port_count = ctx.query_device().phys_port_cnt
@@ -161,33 +160,66 @@ class CMResources:
                Destination address to connect (for active side)
             * *port* (str)
                 Port number of the address
+            * *is_async* (bool)
+                A flag which indicates if its asynchronous RDMACM
         """
         src = kwargs.get('src')
         dst = kwargs.get('dst')
         self.is_server = True if dst is None else False
         self.qp_init_attr = None
+        self.is_async = kwargs.get('is_async', False)
+        self.connected = False
+        # When passive side (server) listens to incoming connection requests,
+        # for each new request it creates a new cmid which is used to establish
+        # the connection with the remote side
+        self.child_id = None
         self.msg_size = 1024
         self.num_msgs = 100
+        self.channel = None
         self.port = kwargs.get('port') if kwargs.get('port') else '7471'
         self.mr = None
         if self.is_server:
-            self.ai = AddrInfo(src, self.port, ce.RDMA_PS_TCP, ce.RAI_PASSIVE)
+            self.ai = AddrInfo(src, None, self.port, ce.RDMA_PS_TCP,
+                               ce.RAI_PASSIVE)
         else:
-            self.ai = AddrInfo(dst, self.port, ce.RDMA_PS_TCP)
-        self.create_qp_init_attr()
-        self.cmid = CMID(creator=self.ai, qp_init_attr=self.qp_init_attr)
+            self.ai = AddrInfo(src, dst, self.port, ce.RDMA_PS_TCP)
+        if self.is_async:
+            self.create_event_channel()
+            self.cmid = CMID(creator=self.channel)
+        else:
+            self.cmid = CMID(creator=self.ai,
+                             qp_init_attr=self.create_qp_init_attr())
 
-    def create_mr(self, cmid):
-        self.mr = cmid.reg_msgs(self.msg_size)
-
-    def create_qp_init_attr(self):
-        self.qp_init_attr = QPInitAttr(cap=QPCap(max_recv_wr=1))
-
-    def pre_run(self):
+    def create_mr(self):
         if self.is_server:
-            self.cmid.listen()
+            self.mr = self.child_id.reg_msgs(self.msg_size)
         else:
-            self.cmid.connect()
+            self.mr = self.cmid.reg_msgs(self.msg_size)
+
+    def create_event_channel(self):
+        self.channel = CMEventChannel()
+
+    @staticmethod
+    def create_qp_init_attr():
+        return QPInitAttr(qp_type=e.IBV_QPT_RC, cap=QPCap(max_recv_wr=1))
+
+    @staticmethod
+    def create_conn_param():
+        return ConnParam()
+
+    def create_child_id(self, cm_event=None):
+        if not self.is_server:
+            raise PyverbsUserError('create_child_id can be used only in passive side')
+        if self.is_async:
+            self.child_id = CMID(creator=cm_event, listen_id=self.cmid)
+        else:
+            self.child_id = self.cmid.get_request()
+
+    def create_qp(self):
+        if self.is_server:
+            self.child_id.create_qp(self.create_qp_init_attr())
+        else:
+            self.cmid.create_qp(self.create_qp_init_attr())
 
 
 class BaseResources(object):
@@ -408,7 +440,12 @@ class XRCResources(TrafficResources):
         init = XRCDInitAttr(
             e.IBV_XRCD_INIT_ATTR_FD | e.IBV_XRCD_INIT_ATTR_OFLAGS,
             os.O_CREAT, self.xrcd_fd)
-        self.xrcd = XRCD(self.ctx, init)
+        try:
+            self.xrcd = XRCD(self.ctx, init)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Create XRCD is not supported')
+            raise ex
 
     def create_srq(self):
         """

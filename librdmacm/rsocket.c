@@ -1454,7 +1454,7 @@ connected:
 		rs->state = rs_connect_rdwr;
 		break;
 	default:
-		ret = ERR(EINVAL);
+		ret = (rs->state & rs_connected) ? 0 : ERR(EINVAL);
 		break;
 	}
 
@@ -3038,7 +3038,7 @@ static int rs_poll_enter(void)
 	pthread_mutex_lock(&mut);
 	if (suspendpoll) {
 		pthread_mutex_unlock(&mut);
-		pthread_yield();
+		sched_yield();
 		return -EBUSY;
 	}
 

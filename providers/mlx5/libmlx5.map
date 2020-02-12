@@ -115,3 +115,15 @@ MLX5_1.11 {
 		mlx5dv_devx_subscribe_devx_event;
 		mlx5dv_devx_subscribe_devx_event_fd;
 } MLX5_1.10;
+
+MLX5_1.12 {
+	global:
+		mlx5dv_alloc_var;
+		mlx5dv_dr_action_create_flow_meter;
+		mlx5dv_dr_action_modify_flow_meter;
+		mlx5dv_dump_dr_domain;
+		mlx5dv_dump_dr_matcher;
+		mlx5dv_dump_dr_rule;
+		mlx5dv_dump_dr_table;
+		mlx5dv_free_var;
+} MLX5_1.11;

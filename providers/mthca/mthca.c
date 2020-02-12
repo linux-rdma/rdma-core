@@ -44,6 +44,8 @@
 #include "mthca.h"
 #include "mthca-abi.h"
 
+static void mthca_free_context(struct ibv_context *ibctx);
+
 #ifndef PCI_VENDOR_ID_MELLANOX
 #define PCI_VENDOR_ID_MELLANOX			0x15b3
 #endif
@@ -111,7 +113,8 @@ static const struct verbs_context_ops mthca_ctx_common_ops = {
 	.create_ah     = mthca_create_ah,
 	.destroy_ah    = mthca_destroy_ah,
 	.attach_mcast  = ibv_cmd_attach_mcast,
-	.detach_mcast  = ibv_cmd_detach_mcast
+	.detach_mcast  = ibv_cmd_detach_mcast,
+	.free_context = mthca_free_context,
 };
 
 static const struct verbs_context_ops mthca_ctx_arbel_ops = {
@@ -237,6 +240,5 @@ static const struct verbs_device_ops mthca_dev_ops = {
 	.alloc_device = mthca_device_alloc,
 	.uninit_device = mthca_uninit_device,
 	.alloc_context = mthca_alloc_context,
-	.free_context = mthca_free_context,
 };
 PROVIDER_DRIVER(mthca, mthca_dev_ops);

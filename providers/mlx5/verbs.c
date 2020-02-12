@@ -454,7 +454,8 @@ enum {
 				 IBV_ACCESS_REMOTE_WRITE	|
 				 IBV_ACCESS_REMOTE_READ		|
 				 IBV_ACCESS_REMOTE_ATOMIC	|
-				 IBV_ACCESS_ZERO_BASED
+				 IBV_ACCESS_ZERO_BASED		|
+				 IBV_ACCESS_OPTIONAL_RANGE
 };
 
 struct ibv_mr *mlx5_reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *ibdm,
@@ -1968,7 +1969,7 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		return ibqp;
 	}
 
-	if (ctx->atomic_cap == IBV_ATOMIC_HCA)
+	if (ctx->atomic_cap)
 		qp->atomics_enabled = 1;
 
 	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS ||
@@ -2293,7 +2294,7 @@ int mlx5_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	int ret;
 
 	if (qp->rss_qp)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	ret = ibv_cmd_query_qp(ibqp, attr, attr_mask, init_attr, &cmd, sizeof(cmd));
 	if (ret)
@@ -2379,7 +2380,7 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		return modify_dct(qp, attr, attr_mask);
 
 	if (mqp->rss_qp)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	if (mqp->flags & MLX5_QP_FLAGS_USE_UNDERLAY) {
 		if (attr_mask & ~(IBV_QP_STATE | IBV_QP_CUR_STATE))
@@ -4902,3 +4903,70 @@ int mlx5dv_destroy_mkey(struct mlx5dv_mkey *dv_mkey)
 	return 0;
 }
 
+struct mlx5dv_var *
+mlx5dv_alloc_var(struct ibv_context *context, uint32_t flags)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_VAR,
+			       MLX5_IB_METHOD_VAR_OBJ_ALLOC,
+			       4);
+
+	struct ib_uverbs_attr *handle;
+	struct mlx5_var_obj *obj;
+	int ret;
+
+	if (!is_mlx5_dev(context->device)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (flags) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	obj = calloc(1, sizeof(*obj));
+	if (!obj) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	handle = fill_attr_out_obj(cmd, MLX5_IB_ATTR_VAR_OBJ_ALLOC_HANDLE);
+	fill_attr_out_ptr(cmd, MLX5_IB_ATTR_VAR_OBJ_ALLOC_MMAP_OFFSET,
+		      &obj->dv_var.mmap_off);
+	fill_attr_out_ptr(cmd, MLX5_IB_ATTR_VAR_OBJ_ALLOC_MMAP_LENGTH,
+		      &obj->dv_var.length);
+	fill_attr_out_ptr(cmd, MLX5_IB_ATTR_VAR_OBJ_ALLOC_PAGE_ID,
+		      &obj->dv_var.page_id);
+
+	ret = execute_ioctl(context, cmd);
+	if (ret)
+		goto err;
+
+	obj->handle = read_attr_obj(MLX5_IB_ATTR_VAR_OBJ_ALLOC_HANDLE, handle);
+	obj->context = context;
+
+	return &obj->dv_var;
+
+err:
+	free(obj);
+	return NULL;
+}
+
+
+void mlx5dv_free_var(struct mlx5dv_var *dv_var)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_VAR,
+			       MLX5_IB_METHOD_VAR_OBJ_DESTROY,
+			       1);
+
+	struct mlx5_var_obj *obj = container_of(dv_var, struct mlx5_var_obj,
+						dv_var);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_VAR_OBJ_DESTROY_HANDLE, obj->handle);
+	if (execute_ioctl(obj->context, cmd))
+		assert(false);
+
+	free(obj);
+}

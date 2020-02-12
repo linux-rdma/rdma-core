@@ -204,6 +204,9 @@ struct mlx5dv_dr_table *mlx5dv_dr_table_create(struct mlx5dv_dr_domain *dmn,
 			goto uninit_tbl;
 	}
 
+	list_node_init(&tbl->tbl_list);
+	list_add_tail(&dmn->tbl_list, &tbl->tbl_list);
+
 	return tbl;
 
 uninit_tbl:
@@ -230,6 +233,7 @@ int mlx5dv_dr_table_destroy(struct mlx5dv_dr_table *tbl)
 		dr_table_uninit(tbl);
 	}
 
+	list_del(&tbl->tbl_list);
 	atomic_fetch_sub(&tbl->dmn->refcount, 1);
 	free(tbl);
 

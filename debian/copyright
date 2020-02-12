@@ -234,7 +234,7 @@ Copyright: 2005, Topspin Communications.
            2006, Mellanox Technologies Ltd.
 License: BSD-MIT or GPL-2
 
-Files: srp_daemon/srp_daemon.1.in
+Files: srp_daemon/srp_daemon.8.in
 Copyright: 2006 Mellanox Technologies.
 License: CPL-1.0 or BSD-2-clause or GPL-2
 

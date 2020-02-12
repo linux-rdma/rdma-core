@@ -233,19 +233,13 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 		dmn->info.tx.ste_type = DR_STE_TYPE_TX;
 		vport_cap = dr_get_vport_cap(&dmn->info.caps, 0);
 		if (!vport_cap) {
-			dr_dbg(dmn, "Failed to get vport 0 caps\n");
-			return errno;
-		}
-
-		dmn->info.rx.default_icm_addr = vport_cap->icm_address_rx;
-		vport_cap = dr_get_vport_cap(&dmn->info.caps, WIRE_PORT);
-		if (!vport_cap) {
-			dr_dbg(dmn, "Failed to get vport WIRE caps\n");
+			dr_dbg(dmn, "Failed to get eswitch manager vport\n");
 			return errno;
 		}
 
 		dmn->info.supp_sw_steering = true;
 		dmn->info.tx.default_icm_addr = vport_cap->icm_address_tx;
+		dmn->info.rx.default_icm_addr = vport_cap->icm_address_rx;
 		dmn->info.rx.drop_icm_addr = dmn->info.caps.esw_rx_drop_address;
 		dmn->info.tx.drop_icm_addr = dmn->info.caps.esw_tx_drop_address;
 		break;
@@ -285,6 +279,7 @@ mlx5dv_dr_domain_create(struct ibv_context *ctx,
 	dmn->ctx = ctx;
 	dmn->type = type;
 	atomic_init(&dmn->refcount, 1);
+	list_head_init(&dmn->tbl_list);
 
 	if (dr_domain_caps_init(ctx, dmn)) {
 		dr_dbg(dmn, "Failed init domain, no caps\n");

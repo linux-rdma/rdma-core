@@ -18,6 +18,7 @@
 #include "siw.h"
 
 static const int siw_debug;
+static void siw_free_context(struct ibv_context *ibv_ctx);
 
 static int siw_query_device(struct ibv_context *ctx,
 			    struct ibv_device_attr *attr)
@@ -841,6 +842,7 @@ static const struct verbs_context_ops siw_context_ops = {
 	.destroy_cq = siw_destroy_cq,
 	.destroy_qp = siw_destroy_qp,
 	.destroy_srq = siw_destroy_srq,
+	.free_context = siw_free_context,
 	.modify_qp = siw_modify_qp,
 	.modify_srq = siw_modify_srq,
 	.poll_cq = siw_poll_cq,
@@ -919,7 +921,6 @@ static const struct verbs_device_ops siw_dev_ops = {
 	.alloc_device = siw_device_alloc,
 	.uninit_device = siw_device_free,
 	.alloc_context = siw_alloc_context,
-	.free_context = siw_free_context
 };
 
 PROVIDER_DRIVER(siw, siw_dev_ops);

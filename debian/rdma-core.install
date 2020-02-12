@@ -21,7 +21,6 @@ lib/udev/rules.d/90-iwpmd.rules
 lib/udev/rules.d/90-rdma-hw-modules.rules
 lib/udev/rules.d/90-rdma-ulp-modules.rules
 lib/udev/rules.d/90-rdma-umad.rules
-usr/bin/rxe_cfg
 usr/lib/truescale-serdes.cmds
 usr/sbin/iwpmd
 usr/sbin/rdma-ndd
@@ -34,4 +33,3 @@ usr/share/man/man5/iwpmd.conf.5
 usr/share/man/man7/rxe.7
 usr/share/man/man8/iwpmd.8
 usr/share/man/man8/rdma-ndd.8
-usr/share/man/man8/rxe_cfg.8

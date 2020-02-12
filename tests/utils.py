@@ -7,6 +7,7 @@ from itertools import combinations as com
 from string import ascii_lowercase as al
 import unittest
 import random
+import os
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.addr import AHAttr, AH, GlobalRoute
@@ -227,6 +228,9 @@ def random_qp_init_attr_ex(attr_ex, attr, qpt=None):
                 random.randint(16, int(attr_ex.tso_caps.max_tso / 400))
     qia = QPInitAttrEx(qp_type=qpt, cap=qp_cap, sq_sig_all=sig, comp_mask=mask,
                        create_flags=cflags, max_tso_header=max_tso)
+    if mask & e.IBV_QP_INIT_ATTR_MAX_TSO_HEADER:
+        # TSO increases send WQE size, let's be on the safe side
+        qia.cap.max_send_sge = 2
     return qia
 
 
@@ -329,14 +333,19 @@ def poll_cq(cq, count=1):
     :return: An array of work completions of length <count>, None
              when events are used
     """
-    wcs = None
+    wcs = []
+    channel = cq.comp_channel
     while count > 0:
-        nc, wcs = cq.poll(count)
-        for wc in wcs:
+        if channel:
+            channel.get_cq_event(cq)
+            cq.req_notify()
+        nc, tmp_wcs = cq.poll(count)
+        for wc in tmp_wcs:
             if wc.status != e.IBV_WC_SUCCESS:
                 raise PyverbsRDMAError('Completion status is {s}'.
                                        format(s=wc_status_to_str(wc.status)))
         count -= nc
+        wcs.extend(tmp_wcs)
     return wcs
 
 
@@ -496,3 +505,25 @@ def odp_supported(ctx, qp_type):
         raise unittest.SkipTest('ODP is not supported - ODP send not supported')
     if has_odp_recv == 0:
         raise unittest.SkipTest('ODP is not supported - ODP recv not supported')
+
+
+def requires_huge_pages():
+    def outer(func):
+        def inner(instance):
+            huge_pages_supported()
+            return func(instance)
+        return inner
+    return outer
+
+
+def huge_pages_supported():
+    """
+    Check if huge pages are supported in the kernel.
+    :return: None
+    """
+    huge_path = '/sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages'
+    if not os.path.isfile(huge_path):
+        raise unittest.SkipTest('Huge pages of size 2M is not supported in this platform')
+    with open(huge_path, 'r') as f:
+        if not int(f.read()):
+            raise unittest.SkipTest('There are no huge pages of size 2M allocated')

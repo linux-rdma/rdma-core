@@ -6,7 +6,7 @@ rxe \- Software RDMA over Ethernet
 .SH "SYNOPSIS"
 \fBmodprobe rdma_rxe\fR
 .br
-This is usually performed by a configuration utility (see \fBrxe_cfg\fR(8).)
+This is usually performed by a configuration utility (see \fBrdma link\fR(8).)
 
 .SH "DESCRIPTION"
 The rdma_rxe kernel module provides a software implementation of the RoCEv2
@@ -24,16 +24,8 @@ In particular, while the use of a GRH header is optional within IB subnets, it i
 Directory that holds RDMA device information. The format is the same as other RDMA devices.
 
 .TP
-\fB/sys/module/rdma_rxe_net/parameters/add\fR
-Write only file used by \fBrxe_cfg(8)\fR to add new RXE devices to existing Ethernet devices.
-
-.TP
-\fB/sys/module/rdma_rxe_net/parameters/remove\fR
-Write only file used by \fBrxe_cfg(8)\fR to remove RXE devices.
-
-.TP
 \fB/sys/module/rdma_rxe_net/parameters/mtu\fR
-Write only file used by \fBrxe_cfg(8)\fR to configure RoCE and Ethernet MTU values.
+Write only file used to configure RoCE and Ethernet MTU values.
 
 .TP
 \fB/sys/module/rdma_rxe/parameters/max_ucontext\fR
@@ -98,7 +90,7 @@ Read/Write file that controls the maximum gap between the PSN of request packets
 Read/Write file that controls the default mtu used for UD packets.
 
 .SH "SEE ALSO"
-.BR rxe_cfg (8),
+.BR rdma (8),
 .BR verbs (7),
 
 .SH "AUTHORS"

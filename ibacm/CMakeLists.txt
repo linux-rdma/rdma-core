@@ -1,5 +1,4 @@
 publish_headers(infiniband
-  include/infiniband/acm.h
   include/infiniband/acm_prov.h
   )
 

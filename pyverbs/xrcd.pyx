@@ -4,6 +4,7 @@ import weakref
 
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.base cimport close_weakrefs
 from pyverbs.device cimport Context
 from pyverbs.srq cimport SRQ
 from pyverbs.qp cimport QP
@@ -11,7 +12,8 @@ from libc.errno cimport errno
 
 
 cdef class XRCDInitAttr(PyverbsObject):
-    def __cinit__(self, comp_mask, oflags, fd):
+    def __init__(self, comp_mask, oflags, fd):
+        super().__init__()
         self.attr.fd = fd
         self.attr.comp_mask = comp_mask
         self.attr.oflags = oflags
@@ -39,16 +41,17 @@ cdef class XRCDInitAttr(PyverbsObject):
 
 
 cdef class XRCD(PyverbsCM):
-    def __cinit__(self, Context context not None, XRCDInitAttr init_attr not None):
+    def __init__(self, Context context not None, XRCDInitAttr init_attr not None):
         """
         Initializes a XRCD object.
         :param context: The Context object creating the XRCD
         :return: The newly created XRCD on success
         """
+        super().__init__()
         self.xrcd = v.ibv_open_xrcd(<v.ibv_context*> context.context,
                                     &init_attr.attr)
         if self.xrcd == NULL:
-            raise PyverbsRDMAErrno('Failed to allocate XRCD', errno)
+            raise PyverbsRDMAErrno('Failed to allocate XRCD')
         self.ctx = context
         context.add_ref(self)
         self.logger.debug('XRCD: Allocated ibv_xrcd')
@@ -68,7 +71,7 @@ cdef class XRCD(PyverbsCM):
         :return: None
         """
         self.logger.debug('Closing XRCD')
-        self.close_weakrefs([self.qps, self.srqs])
+        close_weakrefs([self.qps, self.srqs])
         # XRCD may be deleted directly or indirectly by closing its context,
         # which leaves the Python XRCD object without the underlying C object,
         # so during destruction, need to check whether or not the C object

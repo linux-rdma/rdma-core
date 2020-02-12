@@ -43,6 +43,10 @@ describes the desired memory protection attributes; it is either 0 or the bitwis
 .B IBV_ACCESS_ZERO_BASED\fR    Use byte offset from beginning of MR to access this MR, instead of a pointer address
 .TP
 .B IBV_ACCESS_ON_DEMAND\fR    Create an on-demand paging MR
+.TP
+.B IBV_ACCESS_HUGETLB\fR      Huge pages are guaranteed to be used for this MR, applicable with IBV_ACCESS_ON_DEMAND in explicit mode only
+.TP
+.B IBV_ACCESS_RELAXED_ORDERING\fR Allow system to reorder accesses to the MR to improve performance
 .PP
 If
 .B IBV_ACCESS_REMOTE_WRITE
@@ -55,6 +59,10 @@ must be set too.
 Local read access is always enabled for the MR.
 .PP
 To create an implicit ODP MR, IBV_ACCESS_ON_DEMAND should be set, addr should be 0 and length should be SIZE_MAX.
+.PP
+If
+.B IBV_ACCESS_HUGETLB
+is set, then application awares that for this MR all pages are huge and must promise it will never do anything to break huge pages.
 .PP
 .B ibv_reg_mr_iova()
 ibv_reg_mr_iova is the same as the normal reg_mr, except that the user is

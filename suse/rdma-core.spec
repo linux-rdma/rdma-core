@@ -23,7 +23,7 @@
 
 %define         git_ver %{nil}
 Name:           rdma-core
-Version:        27.0
+Version:        28.0
 Release:        0
 Summary:        RDMA core userspace libraries and daemons
 License:        GPL-2.0-only OR BSD-2-Clause
@@ -126,7 +126,7 @@ BuildRequires:  ninja
 %else
 # Fallback to make otherwise
 BuildRequires:  make
-%define make_jobs make -v %{?_smp_mflags}
+%define make_jobs make VERBOSE=1 %{?_smp_mflags}
 %define cmake_install DESTDIR=%{buildroot} make install
 %endif
 
@@ -197,8 +197,7 @@ Requires:       %{efa_lname} = %{version}-%{release}
 Requires:       %{mlx4_lname} = %{version}-%{release}
 Requires:       %{mlx5_lname} = %{version}-%{release}
 %endif
-# Recommended packages for rxe_cfg
-Recommends:     ethtool
+# Recommended packages for rxe
 Recommends:     iproute2
 
 %description -n libibverbs
@@ -506,8 +505,8 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %post
 # we ship udev rules, so trigger an update.
-/sbin/udevadm trigger --subsystem-match=infiniband --action=change || true
-/sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change || true
+%{_bindir}/udevadm trigger --subsystem-match=infiniband --action=change || true
+%{_bindir}/udevadm trigger --subsystem-match=infiniband_mad --action=change || true
 
 #
 # ibacm
@@ -533,7 +532,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %post -n srp_daemon
 %service_add_post srp_daemon.service
 # we ship udev rules, so trigger an update.
-/sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change
+%{_bindir}/udevadm trigger --subsystem-match=infiniband_mad --action=change
 
 %preun -n srp_daemon
 %service_del_preun srp_daemon.service
@@ -651,9 +650,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %doc %{_docdir}/%{name}-%{version}/libibverbs.md
 %doc %{_docdir}/%{name}-%{version}/rxe.md
 %doc %{_docdir}/%{name}-%{version}/tag_matching.md
-%{_bindir}/rxe_cfg
 %{_mandir}/man7/rxe*
-%{_mandir}/man8/rxe*
 
 %files -n libibnetdisc%{ibnetdisc_major}
 %defattr(-, root, root)
@@ -842,9 +839,9 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_sbindir}/run_srp_daemon
 %{_sbindir}/rcsrp_daemon
 %{_mandir}/man1/ibsrpdm.1*
-%{_mandir}/man1/srp_daemon.1*
 %{_mandir}/man5/srp_daemon.service.5*
 %{_mandir}/man5/srp_daemon_port@.service.5*
+%{_mandir}/man8/srp_daemon.8*
 %doc %{_docdir}/%{name}-%{version}/ibsrpdm.md
 
 %files -n rdma-ndd
@@ -858,6 +855,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %if %{with_pyverbs}
 %files -n python3-pyverbs
 %{python3_sitearch}/pyverbs
+%dir %{_docdir}/%{name}-%{version}/tests/
 %{_docdir}/%{name}-%{version}/tests/*.py
 %endif
 

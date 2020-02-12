@@ -33,6 +33,11 @@ static inline uint64_t roundup_pow_of_two(uint64_t n)
 	return n == 1 ? 1 : 1ULL << ilog64(n - 1);
 }
 
+static inline unsigned long DIV_ROUND_UP(unsigned long n, unsigned long d)
+{
+	return (n + d - 1) / d;
+}
+
 int set_fd_nonblock(int fd, bool nonblock);
 
 int open_cdev(const char *devname_hint, dev_t cdev);

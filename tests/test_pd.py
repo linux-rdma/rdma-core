@@ -40,18 +40,6 @@ class PDTest(PyverbsAPITestCase):
                 with PD(ctx) as pd:
                     pd.close()
 
-    @staticmethod
-    def test_create_pd_none_ctx():
-        """
-        Verify that PD can't be created with a None context
-        """
-        try:
-            PD(None)
-        except TypeError as te:
-            assert 'must not be None' in te.args[0]
-        else:
-            raise PyverbsRDMAErrno('Created a PD with None context')
-
     def test_destroy_pd_twice(self):
         """
         Test bad flow cases in destruction of a PD object

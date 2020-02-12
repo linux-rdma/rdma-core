@@ -447,7 +447,24 @@ struct mlx5_ifc_dr_match_set_misc3_bits {
 	u8         icmpv6_type[0x8];
 	u8         icmpv6_code[0x8];
 
-	u8         reserved_at_120[0xe0];
+	u8         reserved_at_120[0x20];
+
+	u8         gtpu_teid[0x20];
+
+	u8         gtpu_msg_type[0x8];
+	u8         reserved_at_148[0x5];
+	u8         gtpu_flags[0x3];
+	u8         reserved_at_150[0x10];
+
+	u8         reserved_at_160[0x80];
+};
+
+struct mlx5_ifc_dr_match_param_bits {
+	struct mlx5_ifc_dr_match_spec_bits outer;
+	struct mlx5_ifc_dr_match_set_misc_bits misc;
+	struct mlx5_ifc_dr_match_spec_bits inner;
+	struct mlx5_ifc_dr_match_set_misc2_bits misc2;
+	struct mlx5_ifc_dr_match_set_misc3_bits misc3;
 };
 
 struct mlx5_ifc_flow_table_prop_layout_bits {
@@ -506,6 +523,7 @@ enum {
 	MLX5_FLEX_PARSER_VXLAN_GPE_ENABLED	= 1 << 7,
 	MLX5_FLEX_PARSER_ICMP_V4_ENABLED	= 1 << 8,
 	MLX5_FLEX_PARSER_ICMP_V6_ENABLED	= 1 << 9,
+	MLX5_FLEX_PARSER_GTPU_ENABLED		= 1 << 11,
 };
 
 struct mlx5_ifc_cmd_hca_cap_bits {
@@ -1622,6 +1640,17 @@ struct mlx5_ifc_ste_flex_parser_tnl_geneve_bits {
 	u8         reserved_at_40[0x40];
 };
 
+struct mlx5_ifc_ste_flex_parser_tnl_gtpu_bits {
+	u8         reserved_at_0[0x5];
+	u8         gtpu_flags[0x3];
+	u8         gtpu_msg_type[0x8];
+	u8         reserved_at_10[0x10];
+
+	u8         gtpu_teid[0x20];
+
+	u8         reserved_at_40[0x40];
+};
+
 struct mlx5_ifc_ste_general_purpose_bits {
 	u8         general_purpose_lookup_field[0x20];
 
@@ -1667,9 +1696,25 @@ struct mlx5_ifc_add_action_in_bits {
 	u8         data[0x20];
 };
 
+struct mlx5_ifc_copy_action_in_bits {
+	u8         action_type[0x4];
+	u8         src_field[0xc];
+	u8         reserved_at_10[0x3];
+	u8         src_offset[0x5];
+	u8         reserved_at_18[0x3];
+	u8         length[0x5];
+
+	u8         reserved_at_20[0x4];
+	u8         dst_field[0xc];
+	u8         reserved_at_30[0x3];
+	u8         dst_offset[0x5];
+	u8         reserved_at_38[0x8];
+};
+
 enum {
 	MLX5_ACTION_TYPE_SET   = 0x1,
 	MLX5_ACTION_TYPE_ADD   = 0x2,
+	MLX5_ACTION_TYPE_COPY  = 0x3,
 };
 
 enum {
@@ -1695,6 +1740,7 @@ enum {
 	MLX5_ACTION_IN_FIELD_OUT_DIPV6_31_0    = 0x14,
 	MLX5_ACTION_IN_FIELD_OUT_SIPV4         = 0x15,
 	MLX5_ACTION_IN_FIELD_OUT_DIPV4         = 0x16,
+	MLX5_ACTION_IN_FIELD_OUT_FIRST_VID     = 0x17,
 	MLX5_ACTION_IN_FIELD_OUT_IPV6_HOPLIMIT = 0x47,
 	MLX5_ACTION_IN_FIELD_OUT_METADATA_REGA = 0x49,
 	MLX5_ACTION_IN_FIELD_OUT_METADATA_REGB = 0x50,
@@ -1818,6 +1864,38 @@ struct mlx5_ifc_general_obj_out_cmd_hdr_bits {
 	u8         obj_id[0x20];
 
 	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_flow_meter_bits {
+	u8         modify_field_select[0x40];
+
+	u8         active[0x1];
+	u8         reserved_at_41[0x3];
+	u8         return_reg_id[0x4];
+	u8         table_type[0x8];
+	u8         reserved_at_50[0x10];
+
+	u8         reserved_at_60[0x8];
+	u8         destination_table_id[0x18];
+
+	u8         reserved_at_80[0x80];
+
+	u8         flow_meter_params[0x100];
+
+	u8         reserved_at_180[0x180];
+
+	u8         sw_steering_icm_address_rx[0x40];
+	u8         sw_steering_icm_address_tx[0x40];
+};
+
+struct mlx5_ifc_create_flow_meter_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits   hdr;
+	struct mlx5_ifc_flow_meter_bits               meter;
+};
+
+struct mlx5_ifc_query_flow_meter_out_bits {
+	struct mlx5_ifc_general_obj_out_cmd_hdr_bits   hdr;
+	struct mlx5_ifc_flow_meter_bits                obj;
 };
 
 struct mlx5_ifc_esw_vport_context_bits {
@@ -2239,6 +2317,21 @@ struct mlx5_ifc_dr_action_hw_set_bits {
 	u8         inline_data[0x20];
 };
 
+struct mlx5_ifc_dr_action_hw_copy_bits {
+	u8         opcode[0x8];
+	u8         destination_field_code[0x8];
+	u8         reserved_at_10[0x2];
+	u8         destination_left_shifter[0x6];
+	u8         reserved_at_18[0x2];
+	u8         destination_length[0x6];
+
+	u8         reserved_at_20[0x8];
+	u8         source_field_code[0x8];
+	u8         reserved_at_30[0x2];
+	u8         source_left_shifter[0x6];
+	u8         reserved_at_38[0x8];
+};
+
 enum {
 	MLX5_DR_ACTION_MDFY_HW_FLD_L2_0		= 0,
 	MLX5_DR_ACTION_MDFY_HW_FLD_L2_1		= 1,
@@ -2267,6 +2360,7 @@ enum {
 };
 
 enum {
+	MLX5_DR_ACTION_MDFY_HW_OP_COPY		= 0x1,
 	MLX5_DR_ACTION_MDFY_HW_OP_SET		= 0x2,
 	MLX5_DR_ACTION_MDFY_HW_OP_ADD		= 0x3,
 };

@@ -111,6 +111,8 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_ACCESS_MW_BIND
         IBV_ACCESS_ZERO_BASED
         IBV_ACCESS_ON_DEMAND
+        IBV_ACCESS_HUGETLB
+        IBV_ACCESS_RELAXED_ORDERING
 
     cpdef enum ibv_wr_opcode:
         IBV_WR_RDMA_WRITE

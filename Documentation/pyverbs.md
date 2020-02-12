@@ -553,3 +553,20 @@ pd_ctx = ParentDomainContext(pd, alloc_p_func, free_p_func)
 pd_attr = ParentDomainInitAttr(pd=pd, pd_context=pd_ctx)
 parent_domain = ParentDomain(ctx, attr=pd_attr)
 ```
+
+##### MLX5 VAR
+The following code snippet demonstrates how to allocate an mlx5dv_var then using
+it for memory address mapping, then freeing the VAR.
+```python
+from pyverbs.providers.mlx5.mlx5dv import Mlx5VAR
+from pyverbs.device import Context
+import mmap
+
+ctx = Context(name='rocep0s8f0')
+var = Mlx5VAR(ctx)
+var_map = mmap.mmap(fileno=ctx.cmd_fd, length=var.length, offset=var.mmap_off)
+# There is no munmap method in mmap Python module, but by closing the mmap
+# instance the memory is unmapped.
+var_map.close()
+var.close()
+```

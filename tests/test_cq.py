@@ -5,11 +5,13 @@ Test module for pyverbs' cq module.
 """
 import random
 
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.cq import CompChannel, CQ, CqInitAttrEx, CQEX
-from pyverbs.pyverbs_error import PyverbsError
 from tests.base import PyverbsAPITestCase
 import pyverbs.enums as e
 import tests.utils as u
+import unittest
+import errno
 
 
 class CQTest(PyverbsAPITestCase):
@@ -157,7 +159,9 @@ class CQEXTest(PyverbsAPITestCase):
                 cq_attrs_ex.cqe = max_cqe + 1 + int(100 * random.random())
                 try:
                     CQEX(ctx, cq_attrs_ex)
-                except PyverbsError as ex:
+                except PyverbsRDMAError as ex:
+                    if ex.error_code == errno.EOPNOTSUPP:
+                        raise unittest.SkipTest('Create extended CQ is not supported')
                     assert 'Failed to create extended CQ' in ex.args[0]
                     assert ' Errno: 22' in ex.args[0]
                 else:
@@ -169,7 +173,9 @@ class CQEXTest(PyverbsAPITestCase):
                 cq_attrs_ex.cqe = get_num_cqes(attr)
                 try:
                     CQEX(ctx, cq_attrs_ex)
-                except PyverbsError as ex:
+                except PyverbsRDMAError as ex:
+                    if ex.error_code == errno.EOPNOTSUPP:
+                        raise unittest.SkipTest('Create extended CQ is not supported')
                     assert 'Failed to create extended CQ' in ex.args[0]
                     assert ' Errno: 22' in ex.args[0]
                 else:

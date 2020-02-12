@@ -631,6 +631,12 @@ struct mlx5dv_devx_obj {
 	uint32_t object_id;
 };
 
+struct mlx5_var_obj {
+	struct mlx5dv_var dv_var;
+	struct ibv_context *context;
+	uint32_t handle;
+};
+
 struct mlx5_devx_umem {
 	struct mlx5dv_devx_umem dv_devx_umem;
 	struct ibv_context *context;
@@ -670,11 +676,6 @@ extern int mlx5_stall_cq_poll_max;
 extern int mlx5_stall_cq_inc_step;
 extern int mlx5_stall_cq_dec_step;
 extern int mlx5_single_threaded;
-
-static inline unsigned DIV_ROUND_UP(unsigned n, unsigned d)
-{
-	return (n + d - 1u) / d;
-}
 
 #define to_mxxx(xxx, type) container_of(ib##xxx, struct mlx5_##type, ibv_##xxx)
 

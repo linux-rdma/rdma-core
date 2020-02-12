@@ -8,12 +8,13 @@ from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.srq import SrqAttr, SrqInitAttr, SRQ
 from pyverbs.qp import QPInitAttr, QP
 from tests.base import BaseResources
+from tests.base import RDMATestCase
 import pyverbs.mem_alloc as mem
-import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.cq import CQ
 import tests.utils as u
 import unittest
+import errno
 
 
 class ParentDomainRes(BaseResources):
@@ -25,15 +26,9 @@ class ParentDomainRes(BaseResources):
         self.parent_domain = None
 
 
-class ParentDomainTestCase(unittest.TestCase):
-    def __init__(self, methodName='runTest', dev_name=None):
-        super().__init__(methodName)
-        self.dev_name = dev_name
-
+class ParentDomainTestCase(RDMATestCase):
     def setUp(self):
-        if self.dev_name is None:
-            dev = d.get_device_list()[-1]
-            self.dev_name = dev.name.decode()
+        super().setUp()
         self.pd_res = ParentDomainRes(self.dev_name)
 
     def _create_parent_domain_with_allocators(self, alloc_func, free_func):
@@ -46,7 +41,7 @@ class ParentDomainTestCase(unittest.TestCase):
             self.pd_res.parent_domain = ParentDomain(self.pd_res.ctx,
                                                      attr=pd_attr)
         except PyverbsRDMAError as ex:
-            if 'not supported' in str(ex) or 'not implemented' in str(ex):
+            if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Parent Domain is not supported on this device')
             raise ex
 

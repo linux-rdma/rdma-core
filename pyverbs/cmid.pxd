@@ -11,8 +11,19 @@ cimport pyverbs.librdmacm as cm
 
 cdef class CMID(PyverbsCM):
     cdef cm.rdma_cm_id *id
+    cdef object event_channel
     cdef object ctx
     cdef object pd
+    cpdef close(self)
+
+
+cdef class CMEventChannel(PyverbsObject):
+    cdef cm.rdma_event_channel *event_channel
+    cpdef close(self)
+
+
+cdef class CMEvent(PyverbsObject):
+    cdef cm.rdma_cm_event *event
     cpdef close(self)
 
 

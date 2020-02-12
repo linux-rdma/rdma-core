@@ -205,7 +205,6 @@ int c4iw_dereg_mr(struct verbs_mr *vmr);
 struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 			      struct ibv_comp_channel *channel,
 			      int comp_vector);
-int c4iw_resize_cq(struct ibv_cq *cq, int cqe);
 int c4iw_destroy_cq(struct ibv_cq *cq);
 int c4iw_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int c4iw_arm_cq(struct ibv_cq *cq, int solicited);
@@ -238,9 +237,6 @@ int c4iw_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			  struct ibv_send_wr **bad_wr);
 int c4iw_post_receive(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			  struct ibv_recv_wr **bad_wr);
-struct ibv_ah *c4iw_create_ah(struct ibv_pd *pd,
-			     struct ibv_ah_attr *ah_attr);
-int c4iw_destroy_ah(struct ibv_ah *ah);
 int c4iw_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
 			     uint16_t lid);
 int c4iw_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid,
@@ -256,11 +252,6 @@ void c4iw_flush_srqidx(struct c4iw_qp *qhp, u32 srqidx);
 
 #define FW_MAJ 0
 #define FW_MIN 0
-
-static inline unsigned long align(unsigned long val, unsigned long align)
-{
-	return (val + align - 1) & ~(align - 1);
-}
 
 #ifdef STATS
 

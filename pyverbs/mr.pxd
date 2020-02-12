@@ -10,6 +10,9 @@ from . cimport libibverbs as v
 cdef class MR(PyverbsCM):
     cdef object pd
     cdef v.ibv_mr *mr
+    cdef int mmap_length
+    cdef object is_huge
+    cdef object is_user_addr
     cdef void *buf
     cpdef read(self, length, offset)
 

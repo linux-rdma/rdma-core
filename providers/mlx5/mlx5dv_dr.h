@@ -180,6 +180,7 @@ enum dr_action_type {
 	DR_ACTION_TYP_TAG,
 	DR_ACTION_TYP_MODIFY_HDR,
 	DR_ACTION_TYP_VPORT,
+	DR_ACTION_TYP_METER,
 	DR_ACTION_TYP_MAX,
 };
 
@@ -405,6 +406,9 @@ void dr_ste_build_flex_parser_tnl_vxlan_gpe(struct dr_ste_build *sb,
 void dr_ste_build_flex_parser_tnl_geneve(struct dr_ste_build *sb,
 					 struct dr_match_param *mask,
 					 bool inner, bool rx);
+void dr_ste_build_flex_parser_tnl_gtpu(struct dr_ste_build *sb,
+				       struct dr_match_param *mask,
+				       bool inner, bool rx);
 void dr_ste_build_general_purpose(struct dr_ste_build *sb,
 				  struct dr_match_param *mask,
 				  bool inner, bool rx);
@@ -453,7 +457,6 @@ struct dr_match_spec {
 	uint32_t tcp_dport:16;	/* TCP destination port. ;tcp and udp sport/dport are mutually exclusive */
 	uint32_t tcp_sport:16;	/* TCP source port.;tcp and udp sport/dport are mutually exclusive */
 	uint32_t ip_ttl_hoplimit:8;
-	uint32_t reserved:24;
 	uint32_t udp_dport:16;	/* UDP destination port.;tcp and udp sport/dport are mutually exclusive */
 	uint32_t udp_sport:16;	/* UDP source port.;tcp and udp sport/dport are mutually exclusive */
 	uint32_t src_ip_127_96;	/* IPv6 source address of incoming packets ;For IPv4 address use bits 31:0 (rest of the bits are reserved);This field should be qualified by an appropriate ;ethertype */
@@ -471,10 +474,8 @@ struct dr_match_misc {
 	uint32_t source_vhca_port:4;
 	uint32_t gre_s_present:1;		/* used with GRE, sequence number exist when gre_s_present == 1 */
 	uint32_t gre_k_present:1;		/* used with GRE, key exist when gre_k_present == 1 */
-	uint32_t reserved_auto1:1;
 	uint32_t gre_c_present:1;		/* used with GRE, checksum exist when gre_c_present == 1 */
 	uint32_t source_port:16;		/* Source port.;0xffff determines wire port */
-	uint32_t reserved_auto2:16;
 	uint32_t inner_second_vid:12;		/* VLAN ID of first VLAN tag the inner header of the incoming packet. ;Valid only when inner_second_cvlan_tag ==1 or inner_sec;ond_svlan_tag ==1 */
 	uint32_t inner_second_cfi:1;		/* CFI bit of first VLAN tag in the inner header of the incoming packet. ;Valid only when inner_second_cvlan_tag ==1 or inner_sec;ond_svlan_tag ==1 */
 	uint32_t inner_second_prio:3;		/* Priority of second VLAN tag in the inner header of the incoming ;packet. Valid only when inner_second_cvlan_tag ==1 or inner_sec;ond_svlan_tag ==1 */
@@ -482,28 +483,20 @@ struct dr_match_misc {
 	uint32_t outer_second_cfi:1;		/* CFI bit of first VLAN tag in the outer header of the incoming packet. ;Valid only when outer_second_cvlan_tag ==1 or outer_sec;ond_svlan_tag ==1 */
 	uint32_t outer_second_prio:3;		/* Priority of second VLAN tag in the outer header of the incoming ;packet. Valid only when outer_second_cvlan_tag ==1 or outer_sec;ond_svlan_tag ==1 */
 	uint32_t gre_protocol:16;		/* GRE Protocol (outer) */
-	uint32_t reserved_auto3:12;
 	uint32_t inner_second_svlan_tag:1;	/* The second vlan in the inner header of the packet is s-vlan (0x8a88). ;inner_second_cvlan_tag and inner_second_svlan_tag cannot be set ;together */
 	uint32_t outer_second_svlan_tag:1;	/* The second vlan in the outer header of the packet is s-vlan (0x8a88). ;outer_second_cvlan_tag and outer_second_svlan_tag cannot be set ;together */
 	uint32_t inner_second_cvlan_tag:1;	/* The second vlan in the inner header of the packet is c-vlan (0x8100). ;inner_second_cvlan_tag and inner_second_svlan_tag cannot be set ;together */
 	uint32_t outer_second_cvlan_tag:1;	/* The second vlan in the outer header of the packet is c-vlan (0x8100). ;outer_second_cvlan_tag and outer_second_svlan_tag cannot be set ;together */
 	uint32_t gre_key_l:8;			/* GRE Key [7:0] (outer) */
 	uint32_t gre_key_h:24;			/* GRE Key[31:8] (outer) */
-	uint32_t reserved_auto4:8;
 	uint32_t vxlan_vni:24;			/* VXLAN VNI (outer) */
 	uint32_t geneve_oam:1;			/* GENEVE OAM field (outer) */
-	uint32_t reserved_auto5:7;
 	uint32_t geneve_vni:24;			/* GENEVE VNI field (outer) */
 	uint32_t outer_ipv6_flow_label:20;	/* Flow label of incoming IPv6 packet (outer) */
-	uint32_t reserved_auto6:12;
 	uint32_t inner_ipv6_flow_label:20;	/* Flow label of incoming IPv6 packet (inner) */
-	uint32_t reserved_auto7:12;
 	uint32_t geneve_protocol_type:16;	/* GENEVE protocol type (outer) */
 	uint32_t geneve_opt_len:6;		/* GENEVE OptLen (outer) */
-	uint32_t reserved_auto8:10;
 	uint32_t bth_dst_qp:24;			/* Destination QP in BTH header */
-	uint32_t reserved_auto9:8;
-	uint8_t reserved_auto10[20];
 };
 
 struct dr_match_misc2 {
@@ -533,7 +526,6 @@ struct dr_match_misc2 {
 	uint32_t metadata_reg_c_0;			/* metadata_reg_c_0 */
 	uint32_t metadata_reg_a;			/* metadata_reg_a */
 	uint32_t metadata_reg_b;			/* metadata_reg_b */
-	uint8_t reserved_auto2[8];
 };
 
 struct dr_match_misc3 {
@@ -542,8 +534,6 @@ struct dr_match_misc3 {
 	uint32_t inner_tcp_ack_num;
 	uint32_t outer_tcp_ack_num;
 	uint32_t outer_vxlan_gpe_vni:24;
-	uint32_t reserved_auto1:8;
-	uint32_t reserved_auto2:16;
 	uint32_t outer_vxlan_gpe_flags:8;
 	uint32_t outer_vxlan_gpe_next_protocol:8;
 	uint32_t icmpv4_header_data;
@@ -552,7 +542,9 @@ struct dr_match_misc3 {
 	uint32_t icmpv6_type:8;
 	uint32_t icmpv4_code:8;
 	uint32_t icmpv4_type:8;
-	uint8_t reserved_auto3[0x1c];
+	uint32_t gtpu_teid;
+	uint32_t gtpu_msg_type:8;
+	uint32_t gtpu_flags:3;
 };
 
 struct dr_match_param {
@@ -633,6 +625,7 @@ struct mlx5dv_dr_domain {
 	struct dr_icm_pool		*action_icm_pool;
 	struct dr_send_ring		*send_ring;
 	struct dr_domain_info		info;
+	struct list_head		tbl_list;
 };
 
 struct dr_table_rx_tx {
@@ -649,6 +642,7 @@ struct mlx5dv_dr_table {
 	struct list_head		matcher_list;
 	struct mlx5dv_devx_obj		*devx_obj;
 	atomic_int			refcount;
+	struct list_node		tbl_list;
 };
 
 struct dr_matcher_rx_tx {
@@ -670,6 +664,7 @@ struct mlx5dv_dr_matcher {
 	uint8_t				match_criteria;
 	atomic_int			refcount;
 	struct mlx5dv_flow_matcher	*dv_matcher;
+	struct list_head		rule_list;
 };
 
 struct dr_rule_member {
@@ -695,6 +690,8 @@ struct mlx5dv_dr_action {
 					uint32_t		data_size;
 					uint16_t		num_of_actions;
 					uint32_t		index;
+					bool			allow_rx;
+					bool			allow_tx;
 				};
 			};
 		} rewrite;
@@ -709,6 +706,12 @@ struct mlx5dv_dr_action {
 				};
 			};
 		} reformat;
+		struct {
+			struct mlx5dv_dr_table	*next_ft;
+			struct mlx5dv_devx_obj	*devx_obj;
+			uint64_t		rx_icm_addr;
+			uint64_t		tx_icm_addr;
+		} meter;
 		struct mlx5dv_dr_table	*dest_tbl;
 		struct {
 			struct mlx5dv_devx_obj	*devx_obj;
@@ -723,6 +726,11 @@ struct mlx5dv_dr_action {
 		struct mlx5dv_devx_obj	*devx_obj;
 		uint32_t		flow_tag;
 	};
+};
+
+struct dr_rule_action_member {
+	struct mlx5dv_dr_action *action;
+	struct list_node	list;
 };
 
 enum dr_connect_type {
@@ -754,6 +762,7 @@ struct mlx5dv_dr_rule {
 		struct ibv_flow *flow;
 	};
 	struct list_head	rule_actions_list;
+	struct list_node	rule_list;
 };
 
 void dr_rule_update_rule_member(struct dr_ste *new_ste, struct dr_ste *ste);
@@ -838,6 +847,14 @@ struct mlx5dv_devx_obj *dr_devx_create_reformat_ctx(struct ibv_context *ctx,
 						    enum reformat_type rt,
 						    size_t reformat_size,
 						    void *reformat_data);
+struct mlx5dv_devx_obj
+*dr_devx_create_meter(struct ibv_context *ctx,
+		      struct mlx5dv_dr_flow_meter_attr *attr);
+int dr_devx_query_meter(struct mlx5dv_devx_obj *obj, uint64_t *rx_icm_addr,
+			uint64_t *tx_icm_addr);
+int dr_devx_modify_meter(struct mlx5dv_devx_obj *obj,
+			 struct mlx5dv_dr_flow_meter_attr *attr,
+			 __be64 modify_bits);
 struct mlx5dv_devx_obj *dr_devx_create_cq(struct ibv_context *ctx,
 					  uint32_t page_id,
 					  uint32_t buff_umem_id,

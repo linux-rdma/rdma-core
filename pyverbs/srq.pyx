@@ -10,7 +10,8 @@ from libc.string cimport memcpy
 
 
 cdef class SrqAttr(PyverbsObject):
-    def __cinit__(self, max_wr=100, max_sge=1, srq_limit=0):
+    def __init__(self, max_wr=100, max_sge=1, srq_limit=0):
+        super().__init__()
         self.attr.max_wr = max_wr
         self.attr.max_sge = max_sge
         self.attr.srq_limit = srq_limit
@@ -38,11 +39,12 @@ cdef class SrqAttr(PyverbsObject):
 
 
 cdef class SrqInitAttr(PyverbsObject):
-    def __cinit__(self, SrqAttr attr = None):
-         if attr is not None:
-             self.attr.attr.max_wr = attr.max_wr
-             self.attr.attr.max_sge = attr.max_sge
-             self.attr.attr.srq_limit = attr.srq_limit
+    def __init__(self, SrqAttr attr = None):
+        super().__init__()
+        if attr is not None:
+            self.attr.attr.max_wr = attr.max_wr
+            self.attr.attr.max_sge = attr.max_sge
+            self.attr.attr.srq_limit = attr.srq_limit
 
     @property
     def max_wr(self):
@@ -58,7 +60,8 @@ cdef class SrqInitAttr(PyverbsObject):
 
 
 cdef class SrqInitAttrEx(PyverbsObject):
-    def __cinit__(self, max_wr=100, max_sge=1, srq_limit=0):
+    def __init__(self, max_wr=100, max_sge=1, srq_limit=0):
+        super().__init__()
         self.attr.attr.max_wr = max_wr
         self.attr.attr.max_sge = max_sge
         self.attr.attr.srq_limit = srq_limit
@@ -122,7 +125,8 @@ cdef class SrqInitAttrEx(PyverbsObject):
 
 
 cdef class SRQ(PyverbsCM):
-    def __cinit__(self, object creator not None, object attr not None):
+    def __init__(self, object creator not None, object attr not None):
+        super().__init__()
         self.srq = NULL
         self.cq = None
         if isinstance(creator, PD):

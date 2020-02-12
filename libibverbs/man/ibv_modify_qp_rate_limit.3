@@ -52,8 +52,9 @@ returns 0 on success, or the value of errno on failure (which indicates the fail
 .SH "ERRORS"
 .SS EINVAL
 Invalid arguments.
-.SS ENOSYS
+.SS EOPNOTSUPP
 Function is not implemented for this device.
+(ENOSYS may sometimes be returned by old versions of libibverbs).
 .PP
 .SH "SEE ALSO"
 .BR ibv_create_qp (3),

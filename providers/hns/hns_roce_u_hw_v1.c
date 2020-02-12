@@ -462,7 +462,6 @@ static int hns_roce_u_v1_arm_cq(struct ibv_cq *ibvcq, int solicited)
 static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 				   struct ibv_send_wr **bad_wr)
 {
-	unsigned int ind;
 	void *wqe;
 	int nreq;
 	int ps_opcode, i;
@@ -471,11 +470,9 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	struct hns_roce_wqe_data_seg *dseg = NULL;
 	struct hns_roce_qp *qp = to_hr_qp(ibvqp);
 	struct hns_roce_context *ctx = to_hr_ctx(ibvqp->context);
+	unsigned int wqe_idx;
 
 	pthread_spin_lock(&qp->sq.lock);
-
-	/* check that state is OK to post send */
-	ind = qp->sq.head;
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (hns_roce_wq_overflow(&qp->sq, nreq,
@@ -484,6 +481,9 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			*bad_wr = wr;
 			goto out;
 		}
+
+		wqe_idx = (qp->sq.head + nreq) & (qp->rq.wqe_cnt - 1);
+
 		if (wr->num_sge > qp->sq.max_gs) {
 			ret = -1;
 			*bad_wr = wr;
@@ -492,10 +492,10 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			goto out;
 		}
 
-		ctrl = wqe = get_send_wqe(qp, ind & (qp->sq.wqe_cnt - 1));
+		ctrl = wqe = get_send_wqe(qp, wqe_idx);
 		memset(ctrl, 0, sizeof(struct hns_roce_wqe_ctrl_seg));
 
-		qp->sq.wrid[ind & (qp->sq.wqe_cnt - 1)] = wr->wr_id;
+		qp->sq.wrid[wqe_idx] = wr->wr_id;
 		for (i = 0; i < wr->num_sge; i++)
 			ctrl->msg_length = htole32(le32toh(ctrl->msg_length) +
 						   wr->sg_list[i].length);
@@ -578,8 +578,6 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			ctrl->flag |=
 			       htole32(wr->num_sge << HNS_ROCE_WQE_SGE_NUM_BIT);
 		}
-
-		ind++;
 	}
 
 out:
@@ -745,16 +743,13 @@ static int hns_roce_u_v1_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 {
 	int ret = 0;
 	int nreq;
-	int ind;
 	struct ibv_sge *sg;
 	struct hns_roce_rc_rq_wqe *rq_wqe;
 	struct hns_roce_qp *qp = to_hr_qp(ibvqp);
 	struct hns_roce_context *ctx = to_hr_ctx(ibvqp->context);
+	unsigned int wqe_idx;
 
 	pthread_spin_lock(&qp->rq.lock);
-
-	/* check that state is OK to post receive */
-	ind = qp->rq.head & (qp->rq.wqe_cnt - 1);
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (hns_roce_wq_overflow(&qp->rq, nreq,
@@ -764,13 +759,15 @@ static int hns_roce_u_v1_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 			goto out;
 		}
 
+		wqe_idx = (qp->rq.head + nreq) & (qp->rq.wqe_cnt - 1);
+
 		if (wr->num_sge > qp->rq.max_gs) {
 			ret = -1;
 			*bad_wr = wr;
 			goto out;
 		}
 
-		rq_wqe = get_recv_wqe(qp, ind);
+		rq_wqe = get_recv_wqe(qp, wqe_idx);
 		if (wr->num_sge > HNS_ROCE_RC_RQ_WQE_MAX_SGE_NUM) {
 			ret = -1;
 			*bad_wr = wr;
@@ -811,9 +808,7 @@ static int hns_roce_u_v1_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 				       HNS_ROCE_RC_RQ_WQE_MAX_SGE_NUM - 2);
 		}
 
-		qp->rq.wrid[ind] = wr->wr_id;
-
-		ind = (ind + 1) & (qp->rq.wqe_cnt - 1);
+		qp->rq.wrid[wqe_idx] = wr->wr_id;
 	}
 
 out:

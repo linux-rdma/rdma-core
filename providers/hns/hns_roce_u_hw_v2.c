@@ -37,6 +37,8 @@
 #include "hns_roce_u_db.h"
 #include "hns_roce_u_hw_v2.h"
 
+static void *get_send_sge_ex(struct hns_roce_qp *qp, int n);
+
 static void set_data_seg_v2(struct hns_roce_v2_wqe_data_seg *dseg,
 			 struct ibv_sge *sg)
 {
@@ -45,16 +47,69 @@ static void set_data_seg_v2(struct hns_roce_v2_wqe_data_seg *dseg,
 	dseg->len = htole32(sg->length);
 }
 
-static void set_atomic_seg(struct hns_roce_wqe_atomic_seg *aseg,
-			   struct ibv_send_wr *wr)
+static void set_extend_atomic_seg(struct hns_roce_qp *qp,
+				  unsigned int atomic_buf,
+				  struct hns_roce_sge_info *sge_info,
+				  void *buf)
 {
-	if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
-		aseg->fetchadd_swap_data = htole64(wr->wr.atomic.swap);
-		aseg->cmp_data  = htole64(wr->wr.atomic.compare_add);
-	} else {
-		aseg->fetchadd_swap_data = htole64(wr->wr.atomic.compare_add);
-		aseg->cmp_data  = 0;
-	}
+	unsigned int sge_mask = qp->ex_sge.sge_cnt - 1;
+	int i;
+
+	for (i = 0; i < atomic_buf; i++, sge_info->start_idx++)
+		memcpy(get_send_sge_ex(qp, sge_info->start_idx & sge_mask),
+		       buf + i * HNS_ROCE_SGE_SIZE, HNS_ROCE_SGE_SIZE);
+}
+
+static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
+			  unsigned int msg_len, void *dseg,
+			  struct hns_roce_sge_info *sge_info)
+{
+	struct hns_roce_wqe_atomic_seg *aseg;
+	unsigned int ext_sg_num;
+
+	aseg = dseg;
+
+	if (msg_len == STANDARD_ATOMIC_U_BYTE_8) {
+		if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
+			aseg->fetchadd_swap_data = htole64(wr->wr.atomic.swap);
+			aseg->cmp_data = htole64(wr->wr.atomic.compare_add);
+		} else {
+			aseg->fetchadd_swap_data =
+					htole64(wr->wr.atomic.compare_add);
+			aseg->cmp_data = 0;
+		}
+	} else if (msg_len == EXTEND_ATOMIC_U_BYTE_16 ||
+		   msg_len == EXTEND_ATOMIC_U_BYTE_32 ||
+		   msg_len == EXTEND_ATOMIC_U_BYTE_64) {
+		ext_sg_num = msg_len * DATA_TYPE_NUM >> HNS_ROCE_SGE_SHIFT;
+		aseg->fetchadd_swap_data = 0;
+		aseg->cmp_data = 0;
+		if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
+			if (!wr->wr.atomic.swap || !wr->wr.atomic.compare_add)
+				return -EINVAL;
+
+			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
+					      sge_info,
+					      (void *)wr->wr.atomic.swap);
+			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
+					      sge_info,
+					      (void *)wr->wr.atomic.compare_add);
+		} else {
+			uint8_t buf[EXTEND_ATOMIC_U_BYTE_64] = {};
+
+			if (!wr->wr.atomic.compare_add)
+				return -EINVAL;
+
+			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
+					      sge_info,
+					      (void *)wr->wr.atomic.compare_add);
+			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
+					      sge_info, buf);
+		}
+	} else
+		return -EINVAL;
+
+	return 0;
 }
 
 static void hns_roce_v2_handle_error_cqe(struct hns_roce_v2_cqe *cqe,
@@ -145,7 +200,7 @@ static void *get_send_wqe(struct hns_roce_qp *qp, int n)
 
 static void *get_send_sge_ex(struct hns_roce_qp *qp, int n)
 {
-	return qp->buf.buf + qp->sge.offset + (n << qp->sge.sge_shift);
+	return qp->buf.buf + qp->ex_sge.offset + (n << qp->ex_sge.sge_shift);
 }
 
 static void *get_srq_wqe(struct hns_roce_srq *srq, int n)
@@ -160,8 +215,8 @@ static void hns_roce_free_srq_wqe(struct hns_roce_srq *srq, uint16_t ind)
 
 	pthread_spin_lock(&srq->lock);
 
-	bitmap_num = ind / (sizeof(uint64_t) * BIT_CNT_PER_BYTE);
-	bit_num = ind % (sizeof(uint64_t) * BIT_CNT_PER_BYTE);
+	bitmap_num = ind / BIT_CNT_PER_U64;
+	bit_num = ind % BIT_CNT_PER_U64;
 	srq->idx_que.bitmap[bitmap_num] |= (1ULL << bit_num);
 	srq->tail++;
 
@@ -177,7 +232,6 @@ static int hns_roce_v2_wq_overflow(struct hns_roce_wq *wq, int nreq,
 	if (cur + nreq < wq->max_post)
 		return 0;
 
-	/* While the num of wqe exceeds cap of the device, cq will be locked */
 	pthread_spin_lock(&cq->lock);
 	cur = wq->head - wq->tail;
 	pthread_spin_unlock(&cq->lock);
@@ -333,12 +387,12 @@ static void hns_roce_v2_get_opcode_from_sender(struct hns_roce_v2_cqe *cqe,
 		break;
 	case HNS_ROCE_SQ_OP_ATOMIC_COMP_AND_SWAP:
 		wc->opcode = IBV_WC_COMP_SWAP;
-		wc->byte_len  = 8;
+		wc->byte_len = le32toh(cqe->byte_cnt);
 		wc->wc_flags = 0;
 		break;
 	case HNS_ROCE_SQ_OP_ATOMIC_FETCH_AND_ADD:
 		wc->opcode = IBV_WC_FETCH_ADD;
-		wc->byte_len  = 8;
+		wc->byte_len = le32toh(cqe->byte_cnt);
 		wc->wc_flags = 0;
 		break;
 	case HNS_ROCE_SQ_OP_BIND_MW:
@@ -406,7 +460,7 @@ static int hns_roce_handle_recv_inl_wqe(struct hns_roce_v2_cqe *cqe,
 		sge_num = (*cur_qp)->rq_rinl_buf.wqe_list[wr_cnt].sge_cnt;
 		wqe_buf = (uint8_t *)get_recv_wqe_v2(*cur_qp, wr_cnt);
 		if (!wqe_buf)
-			return -EINVAL;
+			return V2_CQ_POLL_ERR;
 
 		data_len = wc->byte_len;
 
@@ -436,7 +490,6 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 	uint32_t qpn;
 	int is_send;
 	uint16_t wqe_ctr;
-	uint32_t local_qpn;
 	struct hns_roce_wq *wq = NULL;
 	struct hns_roce_v2_cqe *cqe;
 	struct hns_roce_srq *srq;
@@ -459,21 +512,16 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 	is_send = (roce_get_bit(cqe->byte_4, CQE_BYTE_4_S_R_S) ==
 		   HNS_ROCE_V2_CQE_IS_SQ);
 
-	local_qpn = roce_get_field(cqe->byte_16, CQE_BYTE_16_LCL_QPN_M,
-				   CQE_BYTE_16_LCL_QPN_S);
-
 	/* if qp is zero, it will not get the correct qpn */
-	if (!*cur_qp ||
-	   (local_qpn & HNS_ROCE_V2_CQE_QPN_MASK) != (*cur_qp)->ibv_qp.qp_num) {
-
+	if (!*cur_qp || qpn != (*cur_qp)->ibv_qp.qp_num) {
 		*cur_qp = hns_roce_v2_find_qp(to_hr_ctx(cq->ibv_cq.context),
-					      qpn & 0xffffff);
+					      qpn);
 		if (!*cur_qp) {
 			fprintf(stderr, PFX "can't find qp!\n");
 			return V2_CQ_POLL_ERR;
 		}
 	}
-	wc->qp_num = qpn & 0xffffff;
+	wc->qp_num = qpn;
 
 	srq = (*cur_qp)->ibv_qp.srq ? to_hr_srq((*cur_qp)->ibv_qp.srq) : NULL;
 	if (is_send) {
@@ -500,7 +548,7 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 		wqe_ctr = (uint16_t)(roce_get_field(cqe->byte_4,
 						    CQE_BYTE_4_WQE_IDX_M,
 						    CQE_BYTE_4_WQE_IDX_S));
-		wc->wr_id = srq->wrid[wqe_ctr & (srq->max - 1)];
+		wc->wr_id = srq->wrid[wqe_ctr & (srq->max_wqe - 1)];
 		hns_roce_free_srq_wqe(srq, wqe_ctr);
 	} else {
 		wq = &(*cur_qp)->rq;
@@ -539,6 +587,15 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 				PFX "failed to handle recv inline wqe!\n");
 			return ret;
 		}
+
+		wc->sl = (uint8_t)roce_get_field(cqe->byte_32, CQE_BYTE_32_SL_M,
+						 CQE_BYTE_32_SL_S);
+		wc->src_qp = roce_get_field(cqe->byte_32, CQE_BYTE_32_RMT_QPN_M,
+					    CQE_BYTE_32_RMT_QPN_S);
+		wc->slid = 0;
+		wc->wc_flags |= roce_get_bit(cqe->byte_32, CQE_BYTE_32_GRH_S) ?
+				IBV_WC_GRH : 0;
+		wc->pkey_index = 0;
 	}
 
 	return V2_CQ_OK;
@@ -561,7 +618,7 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 			break;
 	}
 
-	if (npolled) {
+	if (npolled || err == V2_CQ_POLL_ERR) {
 		mmio_ordered_writes_hack();
 
 		if (cq->flags & HNS_ROCE_SUPPORT_CQ_RECORD_DB)
@@ -608,36 +665,203 @@ static int hns_roce_u_v2_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	return 0;
 }
 
+static void set_sge(struct hns_roce_v2_wqe_data_seg *dseg,
+		    struct hns_roce_qp *qp, struct ibv_send_wr *wr,
+		    struct hns_roce_sge_info *sge_info)
+{
+	int i;
+
+	sge_info->valid_num = 0;
+	sge_info->total_len = 0;
+
+	for (i = 0; i < wr->num_sge; i++) {
+		if (unlikely(!wr->sg_list[i].length))
+			continue;
+
+		sge_info->total_len += wr->sg_list[i].length;
+		sge_info->valid_num++;
+
+		/* No inner sge in UD wqe */
+		if (sge_info->valid_num <= HNS_ROCE_SGE_IN_WQE &&
+		    qp->ibv_qp.qp_type != IBV_QPT_UD) {
+			set_data_seg_v2(dseg, wr->sg_list + i);
+			dseg++;
+		} else {
+			dseg = get_send_sge_ex(qp, sge_info->start_idx &
+					       (qp->ex_sge.sge_cnt - 1));
+			set_data_seg_v2(dseg, wr->sg_list + i);
+			sge_info->start_idx++;
+		}
+	}
+}
+
+static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
+		      int nreq, struct hns_roce_sge_info *sge_info)
+{
+	struct hns_roce_rc_sq_wqe *rc_sq_wqe = wqe;
+	struct hns_roce_v2_wqe_data_seg *dseg;
+	int hr_op;
+	int i;
+
+	memset(rc_sq_wqe, 0, sizeof(struct hns_roce_rc_sq_wqe));
+
+	switch (wr->opcode) {
+	case IBV_WR_RDMA_READ:
+		hr_op = HNS_ROCE_WQE_OP_RDMA_READ;
+		rc_sq_wqe->va = htole64(wr->wr.rdma.remote_addr);
+		rc_sq_wqe->rkey = htole32(wr->wr.rdma.rkey);
+		break;
+	case IBV_WR_RDMA_WRITE:
+		hr_op = HNS_ROCE_WQE_OP_RDMA_WRITE;
+		rc_sq_wqe->va = htole64(wr->wr.rdma.remote_addr);
+		rc_sq_wqe->rkey = htole32(wr->wr.rdma.rkey);
+		break;
+	case IBV_WR_RDMA_WRITE_WITH_IMM:
+		hr_op = HNS_ROCE_WQE_OP_RDMA_WRITE_WITH_IMM;
+		rc_sq_wqe->va = htole64(wr->wr.rdma.remote_addr);
+		rc_sq_wqe->rkey = htole32(wr->wr.rdma.rkey);
+		rc_sq_wqe->immtdata = htole32(be32toh(wr->imm_data));
+		break;
+	case IBV_WR_SEND:
+		hr_op = HNS_ROCE_WQE_OP_SEND;
+		break;
+	case IBV_WR_SEND_WITH_INV:
+		hr_op = HNS_ROCE_WQE_OP_SEND_WITH_INV;
+		rc_sq_wqe->inv_key = htole32(wr->invalidate_rkey);
+		break;
+	case IBV_WR_SEND_WITH_IMM:
+		hr_op = HNS_ROCE_WQE_OP_SEND_WITH_IMM;
+		rc_sq_wqe->immtdata = htole32(be32toh(wr->imm_data));
+		break;
+	case IBV_WR_LOCAL_INV:
+		hr_op = HNS_ROCE_WQE_OP_LOCAL_INV;
+		roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_SO_S, 1);
+		rc_sq_wqe->inv_key = htole32(wr->invalidate_rkey);
+		break;
+	case IBV_WR_BIND_MW:
+		hr_op = HNS_ROCE_WQE_OP_BIND_MW_TYPE;
+		roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_MW_TYPE_S,
+			     wr->bind_mw.mw->type - 1);
+		roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_ATOMIC_S,
+			     (wr->bind_mw.bind_info.mw_access_flags &
+			     IBV_ACCESS_REMOTE_ATOMIC) ? 1 : 0);
+		roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_RDMA_READ_S,
+			     (wr->bind_mw.bind_info.mw_access_flags &
+			     IBV_ACCESS_REMOTE_READ) ? 1 : 0);
+		roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_RDMA_WRITE_S,
+			     (wr->bind_mw.bind_info.mw_access_flags &
+			     IBV_ACCESS_REMOTE_WRITE) ? 1 : 0);
+		rc_sq_wqe->new_rkey = htole32(wr->bind_mw.rkey);
+		rc_sq_wqe->byte_16 = htole32(wr->bind_mw.bind_info.length &
+					     HNS_ROCE_ADDRESS_MASK);
+		rc_sq_wqe->byte_20 = htole32(wr->bind_mw.bind_info.length >>
+					     HNS_ROCE_ADDRESS_SHIFT);
+		rc_sq_wqe->rkey = htole32(wr->bind_mw.bind_info.mr->rkey);
+		rc_sq_wqe->va = htole64(wr->bind_mw.bind_info.addr);
+		break;
+	case IBV_WR_ATOMIC_CMP_AND_SWP:
+		hr_op = HNS_ROCE_WQE_OP_ATOMIC_COM_AND_SWAP;
+		rc_sq_wqe->rkey = htole32(wr->wr.atomic.rkey);
+		rc_sq_wqe->va = htole64(wr->wr.atomic.remote_addr);
+		roce_set_field(rc_sq_wqe->byte_16, RC_SQ_WQE_BYTE_16_SGE_NUM_M,
+			       RC_SQ_WQE_BYTE_16_SGE_NUM_S,
+			       sge_info->valid_num);
+		break;
+	case IBV_WR_ATOMIC_FETCH_AND_ADD:
+		hr_op = HNS_ROCE_WQE_OP_ATOMIC_FETCH_AND_ADD;
+		rc_sq_wqe->rkey = htole32(wr->wr.atomic.rkey);
+		rc_sq_wqe->va = htole64(wr->wr.atomic.remote_addr);
+		roce_set_field(rc_sq_wqe->byte_16, RC_SQ_WQE_BYTE_16_SGE_NUM_M,
+			       RC_SQ_WQE_BYTE_16_SGE_NUM_S,
+			       sge_info->valid_num);
+		break;
+	default:
+		hr_op = HNS_ROCE_WQE_OP_MASK;
+		return -EINVAL;
+	}
+
+	roce_set_field(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_OPCODE_M,
+		       RC_SQ_WQE_BYTE_4_OPCODE_S, hr_op);
+
+	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_CQE_S,
+		     (wr->send_flags & IBV_SEND_SIGNALED) ? 1 : 0);
+
+	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_FENCE_S,
+		     (wr->send_flags & IBV_SEND_FENCE) ? 1 : 0);
+
+	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_SE_S,
+		     (wr->send_flags & IBV_SEND_SOLICITED) ? 1 : 0);
+
+	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_OWNER_S,
+		     ~(((qp->sq.head + nreq) >> qp->sq.shift) & 0x1));
+
+	roce_set_field(rc_sq_wqe->byte_20,
+		       RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_M,
+		       RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_S,
+		       sge_info->start_idx & (qp->ex_sge.sge_cnt - 1));
+
+	if (wr->opcode == IBV_WR_BIND_MW)
+		return 0;
+
+	wqe += sizeof(struct hns_roce_rc_sq_wqe);
+	dseg = wqe;
+
+	set_sge(dseg, qp, wr, sge_info);
+
+	rc_sq_wqe->msg_len = htole32(sge_info->total_len);
+
+	roce_set_field(rc_sq_wqe->byte_16, RC_SQ_WQE_BYTE_16_SGE_NUM_M,
+		       RC_SQ_WQE_BYTE_16_SGE_NUM_S, sge_info->valid_num);
+
+	if (wr->opcode == IBV_WR_ATOMIC_FETCH_AND_ADD ||
+	    wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
+		dseg++;
+		return set_atomic_seg(qp, wr, le32toh(rc_sq_wqe->msg_len),
+				      dseg, sge_info);
+	}
+
+	if (wr->send_flags & IBV_SEND_INLINE) {
+		if (wr->opcode == IBV_WR_RDMA_READ)
+			return -EINVAL;
+
+		if (sge_info->total_len > qp->max_inline_data)
+			return -EINVAL;
+
+		for (i = 0; i < wr->num_sge; i++) {
+			memcpy(dseg, (void *)(uintptr_t)(wr->sg_list[i].addr),
+			       wr->sg_list[i].length);
+			dseg += wr->sg_list[i].length;
+		}
+		roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_INLINE_S, 1);
+	}
+
+	return 0;
+}
+
 int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			    struct ibv_send_wr **bad_wr)
 {
-	unsigned int ind_sge;
-	unsigned int ind;
-	int nreq;
-	void *wqe;
-	int ret = 0;
-	struct hns_roce_qp *qp = to_hr_qp(ibvqp);
 	struct hns_roce_context *ctx = to_hr_ctx(ibvqp->context);
-	struct hns_roce_rc_sq_wqe *rc_sq_wqe;
-	struct hns_roce_v2_wqe_data_seg *dseg;
+	struct hns_roce_qp *qp = to_hr_qp(ibvqp);
+	struct hns_roce_sge_info sge_info = {};
 	struct ibv_qp_attr attr;
-	int valid_num_sge;
+	unsigned int wqe_idx;
 	int attr_mask;
-	int j;
-	int i;
+	int ret = 0;
+	void *wqe;
+	int nreq;
 
 	pthread_spin_lock(&qp->sq.lock);
 
 	/* check that state is OK to post send */
-	ind = qp->sq.head;
-	ind_sge = qp->next_sge;
-
 	if (ibvqp->state == IBV_QPS_RESET || ibvqp->state == IBV_QPS_INIT ||
 	    ibvqp->state == IBV_QPS_RTR) {
 		pthread_spin_unlock(&qp->sq.lock);
 		*bad_wr = wr;
 		return EINVAL;
 	}
+
+	sge_info.start_idx = qp->next_sge; /* start index of extend sge */
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (hns_roce_v2_wq_overflow(&qp->sq, nreq,
@@ -653,269 +877,37 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			goto out;
 		}
 
-		wqe = get_send_wqe(qp, ind & (qp->sq.wqe_cnt - 1));
-		rc_sq_wqe = wqe;
+		wqe_idx = (qp->sq.head + nreq) & (qp->sq.wqe_cnt - 1);
+		wqe = get_send_wqe(qp, wqe_idx);
+		qp->sq.wrid[wqe_idx] = wr->wr_id;
 
-		memset(rc_sq_wqe, 0, sizeof(struct hns_roce_rc_sq_wqe));
-
-		qp->sq.wrid[ind & (qp->sq.wqe_cnt - 1)] = wr->wr_id;
-
-		valid_num_sge = wr->num_sge;
-		j = 0;
-
-		for (i = 0; i < wr->num_sge; i++) {
-			if (unlikely(!wr->sg_list[i].length))
-				valid_num_sge--;
-
-			rc_sq_wqe->msg_len =
-					htole32(le32toh(rc_sq_wqe->msg_len) +
-							wr->sg_list[i].length);
-		}
-
-		if (wr->opcode == IBV_WR_SEND_WITH_IMM ||
-		    wr->opcode == IBV_WR_RDMA_WRITE_WITH_IMM)
-			rc_sq_wqe->immtdata = htole32(be32toh(wr->imm_data));
-
-		roce_set_field(rc_sq_wqe->byte_16, RC_SQ_WQE_BYTE_16_SGE_NUM_M,
-			       RC_SQ_WQE_BYTE_16_SGE_NUM_S, valid_num_sge);
-
-		roce_set_field(rc_sq_wqe->byte_20,
-			       RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_S,
-			       RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_S,
-			       0);
-
-		roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_CQE_S,
-			     (wr->send_flags & IBV_SEND_SIGNALED) ? 1 : 0);
-
-		/* Set fence attr */
-		roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_FENCE_S,
-			     (wr->send_flags & IBV_SEND_FENCE) ? 1 : 0);
-
-		/* Set solicited attr */
-		roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_SE_S,
-			     (wr->send_flags & IBV_SEND_SOLICITED) ? 1 : 0);
-
-		roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_OWNER_S,
-			     ~(((qp->sq.head + nreq) >> qp->sq.shift) & 0x1));
-
-		wqe += sizeof(struct hns_roce_rc_sq_wqe);
-		/* set remote addr segment */
 		switch (ibvqp->qp_type) {
 		case IBV_QPT_RC:
-			switch (wr->opcode) {
-			case IBV_WR_RDMA_READ:
-				roce_set_field(rc_sq_wqe->byte_4,
-					       RC_SQ_WQE_BYTE_4_OPCODE_M,
-					       RC_SQ_WQE_BYTE_4_OPCODE_S,
-					       HNS_ROCE_WQE_OP_RDMA_READ);
-				rc_sq_wqe->va =
-					htole64(wr->wr.rdma.remote_addr);
-				rc_sq_wqe->rkey = htole32(wr->wr.rdma.rkey);
-				break;
-
-			case IBV_WR_RDMA_WRITE:
-				roce_set_field(rc_sq_wqe->byte_4,
-					       RC_SQ_WQE_BYTE_4_OPCODE_M,
-					       RC_SQ_WQE_BYTE_4_OPCODE_S,
-					       HNS_ROCE_WQE_OP_RDMA_WRITE);
-				rc_sq_wqe->va =
-					htole64(wr->wr.rdma.remote_addr);
-				rc_sq_wqe->rkey = htole32(wr->wr.rdma.rkey);
-				break;
-
-			case IBV_WR_RDMA_WRITE_WITH_IMM:
-				roce_set_field(rc_sq_wqe->byte_4,
-				       RC_SQ_WQE_BYTE_4_OPCODE_M,
-				       RC_SQ_WQE_BYTE_4_OPCODE_S,
-				       HNS_ROCE_WQE_OP_RDMA_WRITE_WITH_IMM);
-				rc_sq_wqe->va =
-					htole64(wr->wr.rdma.remote_addr);
-				rc_sq_wqe->rkey = htole32(wr->wr.rdma.rkey);
-				break;
-
-			case IBV_WR_SEND:
-				roce_set_field(rc_sq_wqe->byte_4,
-					       RC_SQ_WQE_BYTE_4_OPCODE_M,
-					       RC_SQ_WQE_BYTE_4_OPCODE_S,
-					       HNS_ROCE_WQE_OP_SEND);
-				break;
-			case IBV_WR_SEND_WITH_INV:
-				roce_set_field(rc_sq_wqe->byte_4,
-					     RC_SQ_WQE_BYTE_4_OPCODE_M,
-					     RC_SQ_WQE_BYTE_4_OPCODE_S,
-					     HNS_ROCE_WQE_OP_SEND_WITH_INV);
-				rc_sq_wqe->inv_key =
-						htole32(wr->invalidate_rkey);
-				break;
-			case IBV_WR_SEND_WITH_IMM:
-				roce_set_field(rc_sq_wqe->byte_4,
-					RC_SQ_WQE_BYTE_4_OPCODE_M,
-					RC_SQ_WQE_BYTE_4_OPCODE_S,
-					HNS_ROCE_WQE_OP_SEND_WITH_IMM);
-				break;
-
-			case IBV_WR_LOCAL_INV:
-				roce_set_field(rc_sq_wqe->byte_4,
-					       RC_SQ_WQE_BYTE_4_OPCODE_M,
-					       RC_SQ_WQE_BYTE_4_OPCODE_S,
-					       HNS_ROCE_WQE_OP_LOCAL_INV);
-				roce_set_bit(rc_sq_wqe->byte_4,
-					     RC_SQ_WQE_BYTE_4_SO_S, 1);
-				rc_sq_wqe->inv_key =
-						htole32(wr->invalidate_rkey);
-				break;
-			case IBV_WR_ATOMIC_CMP_AND_SWP:
-				roce_set_field(rc_sq_wqe->byte_4,
-					RC_SQ_WQE_BYTE_4_OPCODE_M,
-					RC_SQ_WQE_BYTE_4_OPCODE_S,
-					HNS_ROCE_WQE_OP_ATOMIC_COM_AND_SWAP);
-				rc_sq_wqe->rkey = htole32(wr->wr.atomic.rkey);
-				rc_sq_wqe->va =
-					htole64(wr->wr.atomic.remote_addr);
-				break;
-
-			case IBV_WR_ATOMIC_FETCH_AND_ADD:
-				roce_set_field(rc_sq_wqe->byte_4,
-					RC_SQ_WQE_BYTE_4_OPCODE_M,
-					RC_SQ_WQE_BYTE_4_OPCODE_S,
-					HNS_ROCE_WQE_OP_ATOMIC_FETCH_AND_ADD);
-				rc_sq_wqe->rkey = htole32(wr->wr.atomic.rkey);
-				rc_sq_wqe->va =
-					htole64(wr->wr.atomic.remote_addr);
-				break;
-
-			case IBV_WR_BIND_MW:
-				roce_set_field(rc_sq_wqe->byte_4,
-					RC_SQ_WQE_BYTE_4_OPCODE_M,
-					RC_SQ_WQE_BYTE_4_OPCODE_S,
-					HNS_ROCE_WQE_OP_BIND_MW_TYPE);
-				roce_set_bit(rc_sq_wqe->byte_4,
-					RC_SQ_WQE_BYTE_4_MW_TYPE_S,
-					wr->bind_mw.mw->type - 1);
-				roce_set_bit(rc_sq_wqe->byte_4,
-					RC_SQ_WQE_BYTE_4_ATOMIC_S,
-					wr->bind_mw.bind_info.mw_access_flags &
-					IBV_ACCESS_REMOTE_ATOMIC ? 1 : 0);
-				roce_set_bit(rc_sq_wqe->byte_4,
-					RC_SQ_WQE_BYTE_4_RDMA_READ_S,
-					wr->bind_mw.bind_info.mw_access_flags &
-					IBV_ACCESS_REMOTE_READ ? 1 : 0);
-				roce_set_bit(rc_sq_wqe->byte_4,
-					RC_SQ_WQE_BYTE_4_RDMA_WRITE_S,
-					wr->bind_mw.bind_info.mw_access_flags &
-					IBV_ACCESS_REMOTE_WRITE ? 1 : 0);
-
-				rc_sq_wqe->new_rkey = htole32(wr->bind_mw.rkey);
-				rc_sq_wqe->byte_16 =
-					  htole32(wr->bind_mw.bind_info.length &
-						  0xffffffff);
-				rc_sq_wqe->byte_20 =
-					 htole32(wr->bind_mw.bind_info.length >>
-						 32);
-				rc_sq_wqe->rkey =
-					htole32(wr->bind_mw.bind_info.mr->rkey);
-				rc_sq_wqe->va =
-					    htole64(wr->bind_mw.bind_info.addr);
-				break;
-
-			default:
-				roce_set_field(rc_sq_wqe->byte_4,
-					       RC_SQ_WQE_BYTE_4_OPCODE_M,
-					       RC_SQ_WQE_BYTE_4_OPCODE_S,
-					       HNS_ROCE_WQE_OP_MASK);
-				printf("Not supported transport opcode %d\n",
-				       wr->opcode);
-				break;
+			ret = set_rc_wqe(wqe, qp, wr, nreq, &sge_info);
+			if (ret) {
+				*bad_wr = wr;
+				goto out;
 			}
-
 			break;
 		case IBV_QPT_UC:
 		case IBV_QPT_UD:
 		default:
-			break;
+			ret = -EINVAL;
+			*bad_wr = wr;
+			goto out;
 		}
-
-		dseg = wqe;
-		if (wr->opcode == IBV_WR_ATOMIC_FETCH_AND_ADD ||
-		    wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
-			set_data_seg_v2(dseg, wr->sg_list);
-			wqe += sizeof(struct hns_roce_v2_wqe_data_seg);
-			set_atomic_seg(wqe, wr);
-		} else if (wr->send_flags & IBV_SEND_INLINE && valid_num_sge) {
-			if (le32toh(rc_sq_wqe->msg_len) > qp->max_inline_data) {
-				ret = EINVAL;
-				*bad_wr = wr;
-				printf("data len=%d, send_flags = 0x%x!\r\n",
-					rc_sq_wqe->msg_len, wr->send_flags);
-				goto out;
-			}
-
-			if (wr->opcode == IBV_WR_RDMA_READ) {
-				ret = EINVAL;
-				*bad_wr = wr;
-				printf("Not supported inline data!\n");
-				goto out;
-			}
-
-			for (i = 0; i < wr->num_sge; i++) {
-				memcpy(wqe,
-				     ((void *) (uintptr_t) wr->sg_list[i].addr),
-				     wr->sg_list[i].length);
-				wqe = wqe + wr->sg_list[i].length;
-			}
-
-			roce_set_bit(rc_sq_wqe->byte_4,
-				     RC_SQ_WQE_BYTE_4_INLINE_S, 1);
-		} else {
-			/* set sge */
-			if (valid_num_sge <= HNS_ROCE_SGE_IN_WQE) {
-				for (i = 0; i < wr->num_sge; i++)
-					if (likely(wr->sg_list[i].length)) {
-						set_data_seg_v2(dseg,
-							       wr->sg_list + i);
-						dseg++;
-					}
-			} else {
-				roce_set_field(rc_sq_wqe->byte_20,
-					RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_M,
-					RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_S,
-					ind_sge & (qp->sge.sge_cnt - 1));
-
-				for (i = 0; i < wr->num_sge && j < 2; i++)
-					if (likely(wr->sg_list[i].length)) {
-						set_data_seg_v2(dseg,
-							       wr->sg_list + i);
-						dseg++;
-						j++;
-					}
-
-				for (; i < wr->num_sge; i++) {
-					if (likely(wr->sg_list[i].length)) {
-						dseg = get_send_sge_ex(qp,
-							ind_sge &
-							(qp->sge.sge_cnt - 1));
-						set_data_seg_v2(dseg,
-							   wr->sg_list + i);
-						ind_sge++;
-					}
-				}
-			}
-		}
-
-		ind++;
 	}
 
 out:
 	if (likely(nreq)) {
 		qp->sq.head += nreq;
+		qp->next_sge = sge_info.start_idx;
 
 		hns_roce_update_sq_db(ctx, qp->ibv_qp.qp_num, qp->sl,
 				     qp->sq.head & ((qp->sq.wqe_cnt << 1) - 1));
 
 		if (qp->flags & HNS_ROCE_SUPPORT_SQ_RECORD_DB)
 			*(qp->sdb) = qp->sq.head & 0xffff;
-
-		qp->next_sge = ind_sge;
 	}
 
 	pthread_spin_unlock(&qp->sq.lock);
@@ -935,23 +927,21 @@ out:
 static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 				   struct ibv_recv_wr **bad_wr)
 {
-	int ret = 0;
-	int nreq;
-	int ind;
 	struct hns_roce_qp *qp = to_hr_qp(ibvqp);
 	struct hns_roce_context *ctx = to_hr_ctx(ibvqp->context);
 	struct hns_roce_v2_wqe_data_seg *dseg;
 	struct hns_roce_rinl_sge *sge_list;
 	struct ibv_qp_attr attr;
 	int attr_mask;
+	int ret = 0;
+	int wqe_idx;
 	void *wqe;
+	int nreq;
 	int i;
 
 	pthread_spin_lock(&qp->rq.lock);
 
 	/* check that state is OK to post receive */
-	ind = qp->rq.head & (qp->rq.wqe_cnt - 1);
-
 	if (ibvqp->state == IBV_QPS_RESET) {
 		pthread_spin_unlock(&qp->rq.lock);
 		*bad_wr = wr;
@@ -966,13 +956,15 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 			goto out;
 		}
 
+		wqe_idx = (qp->rq.head + nreq) & (qp->rq.wqe_cnt - 1);
+
 		if (wr->num_sge > qp->rq.max_gs) {
 			ret = -EINVAL;
 			*bad_wr = wr;
 			goto out;
 		}
 
-		wqe = get_recv_wqe_v2(qp, ind);
+		wqe = get_recv_wqe_v2(qp, wqe_idx);
 		if (!wqe) {
 			ret = -EINVAL;
 			*bad_wr = wr;
@@ -988,14 +980,15 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 			dseg++;
 		}
 
+		/* hw stop reading when identify the last one */
 		if (i < qp->rq.max_gs) {
 			dseg->lkey = htole32(0x100);
 			dseg->addr = 0;
 		}
 
 		/* QP support receive inline wqe */
-		sge_list = qp->rq_rinl_buf.wqe_list[ind].sg_list;
-		qp->rq_rinl_buf.wqe_list[ind].sge_cnt =
+		sge_list = qp->rq_rinl_buf.wqe_list[wqe_idx].sg_list;
+		qp->rq_rinl_buf.wqe_list[wqe_idx].sge_cnt =
 						(unsigned int)wr->num_sge;
 
 		for (i = 0; i < wr->num_sge; i++) {
@@ -1004,9 +997,7 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 			sge_list[i].len = wr->sg_list[i].length;
 		}
 
-		qp->rq.wrid[ind] = wr->wr_id;
-
-		ind = (ind + 1) & (qp->rq.wqe_cnt - 1);
+		qp->rq.wrid[wqe_idx] = wr->wr_id;
 	}
 
 out:
@@ -1241,7 +1232,7 @@ static int find_empty_entry(struct hns_roce_idx_que *idx_que)
 	bit_num = ffsl(idx_que->bitmap[i]);
 	idx_que->bitmap[i] &= ~(1ULL << (bit_num - 1));
 
-	return i * sizeof(uint64_t) * BIT_CNT_PER_BYTE + (bit_num - 1);
+	return i * BIT_CNT_PER_U64 + (bit_num - 1);
 }
 
 static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
@@ -1262,7 +1253,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 	pthread_spin_lock(&srq->lock);
 
 	/* current idx of srqwq */
-	ind = srq->head & (srq->max - 1);
+	ind = srq->head & (srq->max_wqe - 1);
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (wr->num_sge > srq->max_gs) {
@@ -1290,6 +1281,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 			dseg[i].addr = htole64(wr->sg_list[i].addr);
 		}
 
+		/* hw stop reading when identify the last one */
 		if (i < srq->max_gs) {
 			dseg[i].len = 0;
 			dseg[i].lkey = htole32(0x100);
@@ -1297,7 +1289,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 		}
 
 		srq->wrid[wqe_idx] = wr->wr_id;
-		ind = (ind + 1) & (srq->max - 1);
+		ind = (ind + 1) & (srq->max_wqe - 1);
 	}
 
 	if (nreq) {

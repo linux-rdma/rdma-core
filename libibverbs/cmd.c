@@ -47,24 +47,6 @@
 
 bool verbs_allow_disassociate_destroy;
 
-int ibv_cmd_get_context(struct verbs_context *context_ex,
-			struct ibv_get_context *cmd, size_t cmd_size,
-			struct ib_uverbs_get_context_resp *resp, size_t resp_size)
-{
-	int ret;
-
-	ret = execute_cmd_write(&context_ex->context,
-				IB_USER_VERBS_CMD_GET_CONTEXT, cmd, cmd_size,
-				resp, resp_size);
-	if (ret)
-		return ret;
-
-	context_ex->context.async_fd = resp->async_fd;
-	context_ex->context.num_comp_vectors = resp->num_comp_vectors;
-
-	return 0;
-}
-
 static void copy_query_dev_fields(struct ibv_device_attr *device_attr,
 				  struct ib_uverbs_query_device_resp *resp,
 				  uint64_t *raw_fw_ver)
@@ -303,7 +285,7 @@ int ibv_cmd_open_xrcd(struct ibv_context *context, struct verbs_xrcd *xrcd,
 	int ret;
 
 	if (attr->comp_mask >= IBV_XRCD_INIT_ATTR_RESERVED)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	if (!(attr->comp_mask & IBV_XRCD_INIT_ATTR_FD) ||
 	    !(attr->comp_mask & IBV_XRCD_INIT_ATTR_OFLAGS))
@@ -544,7 +526,7 @@ int ibv_cmd_create_srq_ex(struct ibv_context *context,
 	int ret;
 
 	if (attr_ex->comp_mask >= IBV_SRQ_INIT_ATTR_RESERVED)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	if (!(attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_PD))
 		return EINVAL;
@@ -863,7 +845,7 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 			     IBV_QP_INIT_ATTR_PD |
 			     IBV_QP_INIT_ATTR_XRCD |
 			     IBV_QP_INIT_ATTR_SEND_OPS_FLAGS))
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	err = create_qp_ex_common(qp, attr_ex, vxrcd,
 				  &cmd->core_payload);
@@ -964,7 +946,7 @@ int ibv_cmd_open_qp(struct ibv_context *context, struct verbs_qp *qp,
 	int ret;
 
 	if (attr->comp_mask >= IBV_QP_OPEN_ATTR_RESERVED)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	if (!(attr->comp_mask & IBV_QP_OPEN_ATTR_XRCD) ||
 	    !(attr->comp_mask & IBV_QP_OPEN_ATTR_NUM) ||

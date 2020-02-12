@@ -102,7 +102,6 @@ enum {
 };
 
 enum {
-	HNS_ROCE_V2_CQE_QPN_MASK	= 0x3ffff,
 	HNS_ROCE_V2_CQE_STATUS_MASK	= 0xff,
 	HNS_ROCE_V2_CQE_OPCODE_MASK	= 0x1f,
 };
@@ -217,7 +216,7 @@ struct hns_roce_v2_cqe {
 #define CQE_BYTE_32_PORTN_S 27
 #define CQE_BYTE_32_PORTN_M   (((1UL << 3) - 1) << CQE_BYTE_32_PORTN_S)
 
-#define CQE_BYTE_32_GLH_S 30
+#define CQE_BYTE_32_GRH_S 30
 
 #define CQE_BYTE_32_LPK_S 31
 
@@ -290,5 +289,11 @@ struct hns_roce_wqe_atomic_seg {
 
 int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			    struct ibv_send_wr **bad_wr);
+
+#define DATA_TYPE_NUM 2
+#define STANDARD_ATOMIC_U_BYTE_8 0x8
+#define EXTEND_ATOMIC_U_BYTE_16 0x10
+#define EXTEND_ATOMIC_U_BYTE_32 0x20
+#define EXTEND_ATOMIC_U_BYTE_64 0x40
 
 #endif /* _HNS_ROCE_U_HW_V2_H */

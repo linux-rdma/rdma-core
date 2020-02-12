@@ -68,6 +68,9 @@
 #define HNS_ROCE_TPTR_OFFSET		0x1000
 #define HNS_ROCE_STATIC_RATE		3 /* Gbps */
 
+#define HNS_ROCE_ADDRESS_MASK 0xFFFFFFFF
+#define HNS_ROCE_ADDRESS_SHIFT 32
+
 #define roce_get_field(origin, mask, shift) \
 	(((le32toh(origin)) & (mask)) >> (shift))
 
@@ -110,6 +113,7 @@ struct hns_roce_buf {
 };
 
 #define BIT_CNT_PER_BYTE       8
+#define BIT_CNT_PER_U64		64
 
 /* the sw doorbell type; */
 enum hns_roce_db_type {
@@ -183,7 +187,7 @@ struct hns_roce_srq {
 	pthread_spinlock_t		lock;
 	unsigned long			*wrid;
 	unsigned int			srqn;
-	int				max;
+	unsigned int			max_wqe;
 	unsigned int			max_gs;
 	unsigned int			wqe_shift;
 	int				head;
@@ -204,6 +208,13 @@ struct hns_roce_wq {
 	unsigned int			wqe_shift;
 	unsigned int			shift; /* wq size is 2^shift */
 	int				offset;
+};
+
+/* record the result of sge process */
+struct hns_roce_sge_info {
+	unsigned int valid_num; /* sge length is not 0 */
+	unsigned int start_idx; /* start position of extend sge */
+	unsigned int total_len; /* total length of valid sges */
 };
 
 struct hns_roce_sge_ex {
@@ -237,7 +248,7 @@ struct hns_roce_qp {
 	struct hns_roce_wq		rq;
 	unsigned int			*rdb;
 	unsigned int			*sdb;
-	struct hns_roce_sge_ex		sge;
+	struct hns_roce_sge_ex		ex_sge;
 	unsigned int			next_sge;
 	int				port_num;
 	int				sl;

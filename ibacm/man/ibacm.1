@@ -16,7 +16,7 @@ needed to establish a connection, but does not implement the CM protocol.
 .P
 A primary user of the ibacm service is the librdmacm library.  This
 enables applications to make use of the ibacm service without code
-changes or needing to be aware that the service is in use. 
+changes or needing to be aware that the service is in use.
 librdmacm versions 1.0.12 - 1.0.15 can invoke IB ACM services when built using
 the --with-ib_acm option.  Version 1.0.16 and newer of librdmacm will automatically
 use the IB ACM if it is installed.  The IB ACM services tie in under the
@@ -26,7 +26,7 @@ however existing applications should still see significant connection
 scaling benefits using the calls
 available in librdmacm 1.0.11 and previous releases.
 .P
-The IB ACM is focused on being scalable, efficient, and extensible.  It implements 
+The IB ACM is focused on being scalable, efficient, and extensible.  It implements
 a plugin architecture that allows a vendor to supply its proprietary provider in
 addition to the default provider.  The current default provider implementation
 ibacmp limits network traffic, SA interactions, and centralized
@@ -34,8 +34,8 @@ services.  Ibacmp supports multiple resolution protocols in order to handle
 different fabric topologies.
 .P
 The IB ACM package is comprised of three components: the ibacm core service,
-the default provider ibacmp shared library, and a test/configuration utility 
-- ib_acme.  All three are userspace components and are available for Linux.  
+the default provider ibacmp shared library, and a test/configuration utility
+- ib_acme.  All three are userspace components and are available for Linux.
 Additional details are given below.
 .SH "OPTIONS"
 .TP
@@ -90,15 +90,15 @@ The ibacm service relies on two configuration files.
 .P
 The ibacm_addr.cfg file contains name and address mappings for each IB
 <device, port, pkey> endpoint.  Although the names in the ibacm_addr.cfg
-file can be anything, ib_acme maps the host name to the IB endpoints.  IP 
-addresses, on the other hand, are assigned dynamically.  If the address file 
-cannot be found, the ibacm service will attempt to create one using default 
+file can be anything, ib_acme maps the host name to the IB endpoints.  IP
+addresses, on the other hand, are assigned dynamically.  If the address file
+cannot be found, the ibacm service will attempt to create one using default
 values.
 .P
 The ibacm_opts.cfg file provides a set of configurable options for the
 ibacm core service and default provider, such as timeout, number of retries,
-logging level, etc.  ib_acme generates the ibacm_opts.cfg file using static 
-information.  If an option file cannot be found, ibacm will use default values. 
+logging level, etc.  ib_acme generates the ibacm_opts.cfg file using static
+information.  If an option file cannot be found, ibacm will use default values.
 .P
 ibacm:
 .P
@@ -131,8 +131,8 @@ and destination names or addresses as input to the service, and receive
 as output path record data.
 .P
 The service maps a client's source name/address to a local IB endpoint.
-If the destination name/address is not cached locally in the default provider, 
-it sends a multicast request out on the lowest priority multicast group on the 
+If the destination name/address is not cached locally in the default provider,
+it sends a multicast request out on the lowest priority multicast group on the
 local endpoint.  The request carries a list of multicast groups that the sender can use.
 The recipient of the request selects the highest priority multicast group
 that it can use as well and returns that information directly to the sender.
@@ -146,13 +146,7 @@ The current implementation of the provider ibacmp has several additional restric
 - The ibacmp is limited in its handling of dynamic changes.
 ibacm must be stopped and restarted if a cluster is reconfigured.
 .P
-- Cached data does not timed out and is only updated if a new resolution
-request is received from a different QPN than a cached request.
-.P
 - Support for IPv6 has not been verified.
-.P
-- The number of addresses that can be assigned to a single endpoint is
-limited to 4.
 .P
 - The number of multicast groups that an endpoint can support is limited to 2.
 .P

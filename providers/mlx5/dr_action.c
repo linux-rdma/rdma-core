@@ -64,6 +64,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_TAG]		= DR_ACTION_STATE_NON_TERM,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_NON_TERM,
+			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_TNL_L2_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_TNL_L3_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
@@ -73,6 +74,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_TAG]		= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_REFORMAT,
+			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
 		},
 		[DR_ACTION_STATE_MODIFY_HDR] = {
@@ -80,6 +82,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_TAG]		= DR_ACTION_STATE_MODIFY_HDR,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_MODIFY_HDR,
+			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_NON_TERM] = {
 			[DR_ACTION_TYP_DROP]		= DR_ACTION_STATE_TERM,
@@ -87,6 +90,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_TAG]		= DR_ACTION_STATE_NON_TERM,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_NON_TERM,
+			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_TNL_L2_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_TNL_L3_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
@@ -100,6 +104,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_DROP]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_NON_TERM,
+			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
@@ -107,10 +112,12 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 		[DR_ACTION_STATE_REFORMAT] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_REFORMAT,
+			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_MODIFY_HDR] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_MODIFY_HDR,
+			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_REFORMAT,
 		},
@@ -118,6 +125,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_DROP]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_NON_TERM,
+			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
@@ -131,6 +139,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_DROP]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_NON_TERM,
+			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_TNL_L2_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_TNL_L3_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
@@ -139,18 +148,21 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 		[DR_ACTION_STATE_REFORMAT] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_REFORMAT,
+			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_MODIFY_HDR] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_MODIFY_HDR,
+			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_NON_TERM] = {
 			[DR_ACTION_TYP_DROP]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_NON_TERM,
+			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_TNL_L2_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_TNL_L3_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
@@ -166,6 +178,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_NON_TERM,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
+			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
@@ -173,11 +186,13 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 		[DR_ACTION_STATE_REFORMAT] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_REFORMAT,
+			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_MODIFY_HDR] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_MODIFY_HDR,
+			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
@@ -187,6 +202,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_NON_TERM,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
+			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
@@ -321,6 +337,9 @@ static const struct dr_action_modify_field_conv dr_action_conv_arr[] = {
 	},
 	[MLX5_ACTION_IN_FIELD_OUT_TCP_ACK_NUM] = {
 		.hw_field = MLX5_DR_ACTION_MDFY_HW_FLD_L4_1, .start = 0, .end = 31,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_FIRST_VID] = {
+		.hw_field = MLX5_DR_ACTION_MDFY_HW_FLD_L2_2, .start = 0, .end = 15,
 	},
 };
 
@@ -616,6 +635,20 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			}
 			attr.reformat_size = action->reformat.reformat_size;
 			attr.reformat_id = action->reformat.dvo->object_id;
+			break;
+		case DR_ACTION_TYP_METER:
+			if (action->meter.next_ft->dmn != dmn) {
+				dr_dbg(dmn, "Next table belongs to a different domain\n");
+				goto out_invalid_arg;
+			}
+			if (action->meter.next_ft->level <=
+			    matcher->tbl->level) {
+				dr_dbg(dmn, "Next table level should he higher than source table\n");
+				goto out_invalid_arg;
+			}
+			attr.final_icm_addr = rx_rule ?
+				action->meter.rx_icm_addr :
+				action->meter.tx_icm_addr;
 			break;
 		case DR_ACTION_TYP_VPORT:
 			if (action->vport.dmn != dmn) {
@@ -1142,71 +1175,38 @@ not_found:
 }
 
 static int
-dr_action_modify_sw_to_hw(struct mlx5dv_dr_domain *dmn,
-			  __be64 *sw_action,
-			  __be64 *hw_action,
-			  const struct dr_action_modify_field_conv **ret_hw_info)
+dr_action_modify_sw_to_hw_add(struct mlx5dv_dr_domain *dmn,
+			      __be64 *sw_action,
+			      __be64 *hw_action,
+			      const struct dr_action_modify_field_conv **ret_hw_info)
 {
 	const struct dr_action_modify_field_conv *hw_action_info;
-	uint8_t offset, length, max_length, action;
+	uint8_t max_length;
 	uint16_t sw_field;
-	uint8_t hw_opcode;
 	uint32_t data;
 
 	/* Get SW modify action data */
-	action = DEVX_GET(set_action_in, sw_action, action_type);
-	length = DEVX_GET(set_action_in, sw_action, length);
-	offset = DEVX_GET(set_action_in, sw_action, offset);
 	sw_field = DEVX_GET(set_action_in, sw_action, field);
 	data = DEVX_GET(set_action_in, sw_action, data);
 
 	/* Convert SW data to HW modify action format */
 	hw_action_info = dr_action_modify_get_hw_info(sw_field);
 	if (!hw_action_info) {
-		dr_dbg(dmn, "Modify action invalid field given\n");
+		dr_dbg(dmn, "Modify ADD action invalid field given\n");
 		errno = EINVAL;
 		return errno;
 	}
 
 	max_length = hw_action_info->end - hw_action_info->start + 1;
 
-	switch (action) {
-	case MLX5_ACTION_TYPE_SET:
-		hw_opcode = MLX5_DR_ACTION_MDFY_HW_OP_SET;
-		/* PRM defines that length zero specific length of 32bits */
-		if (!length)
-			length = 32;
-
-		if (length + offset > max_length) {
-			dr_dbg(dmn, "Modify action length + offset exceeds limit\n");
-			errno = EINVAL;
-			return errno;
-		}
-		break;
-
-	case MLX5_ACTION_TYPE_ADD:
-		hw_opcode = MLX5_DR_ACTION_MDFY_HW_OP_ADD;
-		offset = 0;
-		length = max_length;
-		break;
-
-	default:
-		dr_dbg(dmn, "Unsupported action_type for modify action\n");
-		errno = EOPNOTSUPP;
-		return errno;
-	}
-
-	DEVX_SET(dr_action_hw_set, hw_action, opcode, hw_opcode);
-
+	DEVX_SET(dr_action_hw_set, hw_action, opcode,
+		 MLX5_DR_ACTION_MDFY_HW_OP_ADD);
 	DEVX_SET(dr_action_hw_set, hw_action, destination_field_code,
 		 hw_action_info->hw_field);
-
 	DEVX_SET(dr_action_hw_set, hw_action, destination_left_shifter,
-		 hw_action_info->start + offset);
-
+		 hw_action_info->start);
 	DEVX_SET(dr_action_hw_set, hw_action, destination_length,
-		 length == 32 ? 0 : length);
-
+		 max_length == 32 ? 0 : max_length);
 	DEVX_SET(dr_action_hw_set, hw_action, inline_data, data);
 
 	*ret_hw_info = hw_action_info;
@@ -1215,71 +1215,308 @@ dr_action_modify_sw_to_hw(struct mlx5dv_dr_domain *dmn,
 }
 
 static int
-dr_action_modify_check_field_limitation(struct mlx5dv_dr_domain *dmn,
-					const __be64 *sw_action)
+dr_action_modify_sw_to_hw_set(struct mlx5dv_dr_domain *dmn,
+			      __be64 *sw_action,
+			      __be64 *hw_action,
+			      const struct dr_action_modify_field_conv **ret_hw_info)
 {
+	const struct dr_action_modify_field_conv *hw_action_info;
+	uint8_t offset, length, max_length;
 	uint16_t sw_field;
-	uint8_t action;
+	uint32_t data;
 
+	/* Get SW modify action data */
 	sw_field = DEVX_GET(set_action_in, sw_action, field);
-	action = DEVX_GET(set_action_in, sw_action, action_type);
+	offset = DEVX_GET(set_action_in, sw_action, offset);
+	length = DEVX_GET(set_action_in, sw_action, length);
+	data = DEVX_GET(set_action_in, sw_action, data);
 
-	/* Check if SW field is supported in current domain (RX/TX) */
-	if (action == MLX5_ACTION_TYPE_SET) {
-		if (sw_field == MLX5_ACTION_IN_FIELD_OUT_METADATA_REGA) {
-			if (dmn->type != MLX5DV_DR_DOMAIN_TYPE_NIC_TX) {
-				dr_dbg(dmn, "Unsupported field %d for RX/FDB set action\n",
-				       sw_field);
-				errno = EINVAL;
-				return errno;
-			}
-		}
+	/* Convert SW data to HW modify action format */
+	hw_action_info = dr_action_modify_get_hw_info(sw_field);
+	if (!hw_action_info) {
+		dr_dbg(dmn, "Modify SET action invalid field given\n");
+		errno = EINVAL;
+		return errno;
+	}
 
-		if (sw_field == MLX5_ACTION_IN_FIELD_OUT_METADATA_REGB) {
-			if (dmn->type != MLX5DV_DR_DOMAIN_TYPE_NIC_RX) {
-				dr_dbg(dmn, "Unsupported field %d for TX/FDB set action\n",
-				       sw_field);
-				errno = EINVAL;
-				return errno;
-			}
-		}
-	} else if (action == MLX5_ACTION_TYPE_ADD) {
-		if (sw_field != MLX5_ACTION_IN_FIELD_OUT_IP_TTL &&
-		    sw_field != MLX5_ACTION_IN_FIELD_OUT_IPV6_HOPLIMIT &&
-		    sw_field != MLX5_ACTION_IN_FIELD_OUT_TCP_SEQ_NUM &&
-		    sw_field != MLX5_ACTION_IN_FIELD_OUT_TCP_ACK_NUM) {
-			dr_dbg(dmn, "Unsupported field %d for add action\n", sw_field);
+	/* Based on device specification value of 0 means 32 */
+	length = length ? length : 32;
+	max_length = hw_action_info->end - hw_action_info->start + 1;
+
+	if (length + offset > max_length) {
+		dr_dbg(dmn, "Modify action length + offset exceeds limit\n");
+		errno = EINVAL;
+		return errno;
+	}
+
+	DEVX_SET(dr_action_hw_set, hw_action, opcode,
+		 MLX5_DR_ACTION_MDFY_HW_OP_SET);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_field_code,
+		 hw_action_info->hw_field);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_left_shifter,
+		 hw_action_info->start + offset);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_length,
+		 length == 32 ? 0 : length);
+	DEVX_SET(dr_action_hw_set, hw_action, inline_data, data);
+
+	*ret_hw_info = hw_action_info;
+
+	return 0;
+}
+
+static int
+dr_action_modify_sw_to_hw_copy(struct mlx5dv_dr_domain *dmn,
+			       __be64 *sw_action,
+			       __be64 *hw_action,
+			       const struct dr_action_modify_field_conv **ret_dst_hw_info,
+			       const struct dr_action_modify_field_conv **ret_src_hw_info)
+{
+	uint8_t src_offset, dst_offset, src_max_length, dst_max_length, length;
+	const struct dr_action_modify_field_conv *src_hw_action_info;
+	const struct dr_action_modify_field_conv *dst_hw_action_info;
+	uint16_t src_field, dst_field;
+
+	/* Get SW modify action data */
+	src_field = DEVX_GET(copy_action_in, sw_action, src_field);
+	dst_field = DEVX_GET(copy_action_in, sw_action, dst_field);
+	src_offset = DEVX_GET(copy_action_in, sw_action, src_offset);
+	dst_offset = DEVX_GET(copy_action_in, sw_action, dst_offset);
+	length = DEVX_GET(copy_action_in, sw_action, length);
+
+	/* Convert SW data to HW modify action format */
+	src_hw_action_info = dr_action_modify_get_hw_info(src_field);
+	dst_hw_action_info = dr_action_modify_get_hw_info(dst_field);
+	if (!src_hw_action_info || !dst_hw_action_info) {
+		dr_dbg(dmn, "Modify COPY action invalid src/dst field given\n");
+		errno = EINVAL;
+		return errno;
+	}
+
+	/* Based on device specification value of 0 means 32 */
+	length = length ? length : 32;
+	src_max_length = src_hw_action_info->end -
+			 src_hw_action_info->start + 1;
+	dst_max_length = dst_hw_action_info->end -
+			 dst_hw_action_info->start + 1;
+	if (length + src_offset > src_max_length ||
+	    length + dst_offset > dst_max_length) {
+		dr_dbg(dmn, "Modify action length exceeds limit\n");
+		errno = EINVAL;
+		return errno;
+	}
+
+	DEVX_SET(dr_action_hw_copy, hw_action, opcode,
+		 MLX5_DR_ACTION_MDFY_HW_OP_COPY);
+	DEVX_SET(dr_action_hw_copy, hw_action, destination_field_code,
+		 dst_hw_action_info->hw_field);
+	DEVX_SET(dr_action_hw_copy, hw_action, destination_left_shifter,
+		 dst_hw_action_info->start + dst_offset);
+	DEVX_SET(dr_action_hw_copy, hw_action, destination_length, length);
+	DEVX_SET(dr_action_hw_copy, hw_action, source_field_code,
+		 src_hw_action_info->hw_field);
+	DEVX_SET(dr_action_hw_copy, hw_action, source_left_shifter,
+		 src_hw_action_info->start + src_offset);
+
+	*ret_dst_hw_info = dst_hw_action_info;
+	*ret_src_hw_info = src_hw_action_info;
+
+	return 0;
+}
+
+static int
+dr_action_modify_sw_to_hw(struct mlx5dv_dr_domain *dmn,
+			  __be64 *sw_action,
+			  __be64 *hw_action,
+			  const struct dr_action_modify_field_conv **ret_dst_hw_info,
+			  const struct dr_action_modify_field_conv **ret_src_hw_info)
+{
+	uint8_t action = DEVX_GET(set_action_in, sw_action, action_type);
+	int ret = 0;
+
+	*hw_action = 0;
+	*ret_src_hw_info = NULL;
+
+	switch (action) {
+	case MLX5_ACTION_TYPE_SET:
+		ret = dr_action_modify_sw_to_hw_set(dmn,
+						    sw_action,
+						    hw_action,
+						    ret_dst_hw_info);
+		break;
+	case MLX5_ACTION_TYPE_ADD:
+		ret = dr_action_modify_sw_to_hw_add(dmn,
+						    sw_action,
+						    hw_action,
+						    ret_dst_hw_info);
+		break;
+	case MLX5_ACTION_TYPE_COPY:
+		ret = dr_action_modify_sw_to_hw_copy(dmn,
+						     sw_action,
+						     hw_action,
+						     ret_dst_hw_info,
+						     ret_src_hw_info);
+		break;
+	default:
+		dr_dbg(dmn, "Unsupported action type %d for modify action\n",
+		       action);
+		errno = EOPNOTSUPP;
+		ret = errno;
+		break;
+	}
+
+	return ret;
+}
+
+static int
+dr_action_modify_check_field_limitation_set(struct mlx5dv_dr_action *action,
+					    const __be64 *sw_action)
+{
+	uint16_t sw_field = DEVX_GET(set_action_in, sw_action, field);
+	struct mlx5dv_dr_domain *dmn = action->rewrite.dmn;
+
+	if (sw_field == MLX5_ACTION_IN_FIELD_OUT_METADATA_REGA) {
+		action->rewrite.allow_rx = false;
+		if (dmn->type != MLX5DV_DR_DOMAIN_TYPE_NIC_TX) {
+			dr_dbg(dmn, "Unsupported field %d for RX/FDB set action\n",
+			       sw_field);
 			errno = EINVAL;
 			return errno;
 		}
-	} else {
-		dr_dbg(dmn, "Unsupported action %d modify action\n", action);
-		errno = EOPNOTSUPP;
+	} else if (sw_field == MLX5_ACTION_IN_FIELD_OUT_METADATA_REGB) {
+		action->rewrite.allow_tx = false;
+		if (dmn->type != MLX5DV_DR_DOMAIN_TYPE_NIC_RX) {
+			dr_dbg(dmn, "Unsupported field %d for TX/FDB set action\n",
+			       sw_field);
+			errno = EINVAL;
+			return errno;
+		}
+	}
+
+	if (!action->rewrite.allow_rx && !action->rewrite.allow_tx) {
+		dr_dbg(dmn, "Modify SET actions not supported on both RX and TX\n");
+		errno = EINVAL;
 		return errno;
 	}
 
 	return 0;
 }
 
-static int dr_actions_convert_modify_header(struct mlx5dv_dr_domain *dmn,
+static int
+dr_action_modify_check_field_limitation_add(struct mlx5dv_dr_action *action,
+					    const __be64 *sw_action)
+{
+	uint16_t sw_field = DEVX_GET(add_action_in, sw_action, field);
+
+	if (sw_field != MLX5_ACTION_IN_FIELD_OUT_IP_TTL &&
+	    sw_field != MLX5_ACTION_IN_FIELD_OUT_IPV6_HOPLIMIT &&
+	    sw_field != MLX5_ACTION_IN_FIELD_OUT_TCP_SEQ_NUM &&
+	    sw_field != MLX5_ACTION_IN_FIELD_OUT_TCP_ACK_NUM) {
+		dr_dbg(action->rewrite.dmn,
+		       "Unsupported field %d for ADD action\n", sw_field);
+		errno = EINVAL;
+		return errno;
+	}
+
+	return 0;
+}
+
+static int
+dr_action_modify_check_field_limitation_copy(struct mlx5dv_dr_action *action,
+					     const __be64 *sw_action)
+{
+	struct mlx5dv_dr_domain *dmn = action->rewrite.dmn;
+	uint16_t sw_fields[2];
+	int i;
+
+	sw_fields[0] = DEVX_GET(copy_action_in, sw_action, src_field);
+	sw_fields[1] = DEVX_GET(copy_action_in, sw_action, dst_field);
+
+	for (i = 0; i < 2; i++) {
+		if (sw_fields[i] == MLX5_ACTION_IN_FIELD_OUT_METADATA_REGA) {
+			action->rewrite.allow_rx = false;
+			if (dmn->type != MLX5DV_DR_DOMAIN_TYPE_NIC_TX) {
+				dr_dbg(dmn, "Unsupported field %d for RX/FDB COPY action\n",
+				       sw_fields[i]);
+				errno = EINVAL;
+				return errno;
+			}
+		} else if (sw_fields[i] == MLX5_ACTION_IN_FIELD_OUT_METADATA_REGB) {
+			action->rewrite.allow_tx = false;
+			if (dmn->type != MLX5DV_DR_DOMAIN_TYPE_NIC_RX) {
+				dr_dbg(dmn, "Unsupported field %d for TX/FDB COPY action\n",
+				       sw_fields[i]);
+				errno = EINVAL;
+				return errno;
+			}
+		}
+	}
+
+	if (!action->rewrite.allow_rx && !action->rewrite.allow_tx) {
+		dr_dbg(dmn, "Modify actions combination is not supported on both RX and TX\n");
+		errno = EINVAL;
+		return errno;
+	}
+
+	return 0;
+}
+
+static int
+dr_action_modify_check_field_limitation(struct mlx5dv_dr_action *action,
+					const __be64 *sw_action)
+{
+	uint8_t action_type = DEVX_GET(set_action_in, sw_action, action_type);
+	struct mlx5dv_dr_domain *dmn = action->rewrite.dmn;
+	int ret;
+
+	switch (action_type) {
+	case MLX5_ACTION_TYPE_SET:
+		ret = dr_action_modify_check_field_limitation_set(action,
+								  sw_action);
+		break;
+	case MLX5_ACTION_TYPE_ADD:
+		ret = dr_action_modify_check_field_limitation_add(action,
+								  sw_action);
+		break;
+	case MLX5_ACTION_TYPE_COPY:
+		ret = dr_action_modify_check_field_limitation_copy(action,
+								   sw_action);
+		break;
+	default:
+		dr_dbg(dmn, "Unsupported modify action %d\n",
+			action_type);
+		errno = EOPNOTSUPP;
+		ret = errno;
+		break;
+	}
+
+	return ret;
+}
+
+static int dr_actions_convert_modify_header(struct mlx5dv_dr_action *action,
 					    uint32_t max_hw_actions,
 					    uint32_t num_sw_actions,
 					    __be64 sw_actions[],
 					    __be64 hw_actions[],
 					    uint32_t *num_hw_actions)
 {
-	const struct dr_action_modify_field_conv *hw_action_info;
+	const struct dr_action_modify_field_conv *hw_dst_action_info;
+	const struct dr_action_modify_field_conv *hw_src_action_info;
 	uint16_t hw_field = MLX5_DR_ACTION_MDFY_HW_FLD_RESERVED;
 	uint32_t l3_type = MLX5_DR_ACTION_MDFY_HW_HDR_L3_NONE;
 	uint32_t l4_type = MLX5_DR_ACTION_MDFY_HW_HDR_L4_NONE;
+	struct mlx5dv_dr_domain *dmn = action->rewrite.dmn;
 	int ret, i, hw_idx = 0;
 	__be64 *sw_action;
 	__be64 hw_action;
 
+	action->rewrite.allow_rx = true;
+	action->rewrite.allow_tx = true;
+
 	for (i = 0; i < num_sw_actions; i++) {
 		sw_action = &sw_actions[i];
 
-		ret = dr_action_modify_check_field_limitation(dmn, sw_action);
+		ret = dr_action_modify_check_field_limitation(action,
+							      sw_action);
 		if (ret)
 			return ret;
 
@@ -1287,34 +1524,37 @@ static int dr_actions_convert_modify_header(struct mlx5dv_dr_domain *dmn,
 		ret = dr_action_modify_sw_to_hw(dmn,
 						sw_action,
 						&hw_action,
-						&hw_action_info);
+						&hw_dst_action_info,
+						&hw_src_action_info);
 		if (ret)
 			return ret;
 
 		/* Due to a HW limitation we cannot modify 2 different L3 types */
-		if (l3_type && hw_action_info->l3_type &&
-		    (hw_action_info->l3_type != l3_type)) {
+		if (l3_type && hw_dst_action_info->l3_type &&
+		    (hw_dst_action_info->l3_type != l3_type)) {
 			dr_dbg(dmn, "Action list can't support two different L3 types\n");
 			errno = ENOTSUP;
 			return errno;
 		}
-		if (hw_action_info->l3_type)
-			l3_type = hw_action_info->l3_type;
+		if (hw_dst_action_info->l3_type)
+			l3_type = hw_dst_action_info->l3_type;
 
 		/* Due to a HW limitation we cannot modify two different L4 types */
-		if (l4_type && hw_action_info->l4_type &&
-		    (hw_action_info->l4_type != l4_type)) {
+		if (l4_type && hw_dst_action_info->l4_type &&
+		    (hw_dst_action_info->l4_type != l4_type)) {
 			dr_dbg(dmn, "Action list can't support two different L4 types\n");
 			errno = EINVAL;
 			return errno;
 		}
-		if (hw_action_info->l4_type)
-			l4_type = hw_action_info->l4_type;
+		if (hw_dst_action_info->l4_type)
+			l4_type = hw_dst_action_info->l4_type;
 
 		/* HW reads and executes two actions at once this means we
 		 * need to create a gap if two actions access the same field
 		 */
-		if ((hw_idx % 2) && (hw_field == hw_action_info->hw_field)) {
+		if ((hw_idx % 2) && (hw_field == hw_dst_action_info->hw_field ||
+				     (hw_src_action_info &&
+				      hw_field == hw_src_action_info->hw_field))) {
 			/* Check if after gap insertion the total number of HW
 			 * modify actions doesn't exceeds the limit
 			 */
@@ -1325,7 +1565,7 @@ static int dr_actions_convert_modify_header(struct mlx5dv_dr_domain *dmn,
 				return errno;
 			}
 		}
-		hw_field = hw_action_info->hw_field;
+		hw_field = hw_dst_action_info->hw_field;
 
 		hw_actions[hw_idx] = hw_action;
 		hw_idx++;
@@ -1388,7 +1628,7 @@ static int dr_action_create_modify_action(struct mlx5dv_dr_domain *dmn,
 		return errno;
 	}
 
-	ret = dr_actions_convert_modify_header(dmn,
+	ret = dr_actions_convert_modify_header(action,
 					       2 * num_sw_actions,
 					       num_sw_actions,
 					       actions,
@@ -1491,6 +1731,69 @@ dec_ref:
 	return NULL;
 }
 
+int mlx5dv_dr_action_modify_flow_meter(struct mlx5dv_dr_action *action,
+				       struct mlx5dv_dr_flow_meter_attr *attr,
+				       __be64 modify_field_select)
+{
+	int ret;
+
+	if (action->action_type != DR_ACTION_TYP_METER) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	ret = dr_devx_modify_meter(action->meter.devx_obj, attr,
+				   modify_field_select);
+	return ret;
+}
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_flow_meter(struct mlx5dv_dr_flow_meter_attr *attr)
+{
+	struct mlx5dv_dr_domain *dmn = attr->next_table->dmn;
+	uint64_t rx_icm_addr, tx_icm_addr;
+	struct mlx5dv_devx_obj *devx_obj;
+	struct mlx5dv_dr_action *action;
+	int ret;
+
+	if (!dmn->info.supp_sw_steering) {
+		dr_dbg(dmn, "Meter action is not supported on current domain\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (dr_is_root_table(attr->next_table)) {
+		dr_dbg(dmn, "Next table cannot be root\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	devx_obj = dr_devx_create_meter(dmn->ctx, attr);
+	if (!devx_obj)
+		return NULL;
+
+	ret = dr_devx_query_meter(devx_obj, &rx_icm_addr, &tx_icm_addr);
+	if (ret)
+		goto destroy_obj;
+
+	action = dr_action_create_generic(DR_ACTION_TYP_METER);
+	if (!action)
+		goto destroy_obj;
+
+	action->meter.devx_obj = devx_obj;
+	action->meter.next_ft = attr->next_table;
+	action->meter.rx_icm_addr = rx_icm_addr;
+	action->meter.tx_icm_addr = tx_icm_addr;
+
+	atomic_fetch_add(&attr->next_table->refcount, 1);
+
+	return action;
+
+destroy_obj:
+	mlx5dv_devx_obj_destroy(devx_obj);
+	return NULL;
+}
+
 struct mlx5dv_dr_action
 *mlx5dv_dr_action_create_dest_vport(struct mlx5dv_dr_domain *dmn, uint32_t vport)
 {
@@ -1558,6 +1861,10 @@ int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action)
 			free(action->rewrite.data);
 		}
 		atomic_fetch_sub(&action->rewrite.dmn->refcount, 1);
+		break;
+	case DR_ACTION_TYP_METER:
+		mlx5dv_devx_obj_destroy(action->meter.devx_obj);
+		atomic_fetch_sub(&action->meter.next_ft->refcount, 1);
 		break;
 	default:
 		break;

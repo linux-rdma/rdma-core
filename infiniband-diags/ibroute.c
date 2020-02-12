@@ -217,6 +217,7 @@ static const char *dump_multicast_tables(ib_portid_t *portid, unsigned startlid,
 				fprintf(stderr, "SubnGet() failed"
 						"; MAD status 0x%x AM 0x%x\n",
 						status, mod);
+				free(mapnd);
 				return NULL;
 			}
 		}
@@ -365,6 +366,7 @@ static const char *dump_unicast_tables(ib_portid_t *portid, int startlid,
 			fprintf(stderr, "SubnGet() failed"
 					"; MAD status 0x%x AM 0x%x\n",
 					status, block);
+			free(mapnd);
 			return NULL;
 		}
 		i = block * IB_SMP_DATA_SIZE;

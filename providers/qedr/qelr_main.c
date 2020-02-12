@@ -48,6 +48,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+static void qelr_free_context(struct ibv_context *ibctx);
+
 #define PCI_VENDOR_ID_QLOGIC           (0x1077)
 #define PCI_DEVICE_ID_QLOGIC_57980S    (0x1629)
 #define PCI_DEVICE_ID_QLOGIC_57980S_40 (0x1634)
@@ -104,6 +106,7 @@ static const struct verbs_context_ops qelr_ctx_ops = {
 	.post_send = qelr_post_send,
 	.post_recv = qelr_post_recv,
 	.async_event = qelr_async_event,
+	.free_context = qelr_free_context,
 };
 
 static void qelr_uninit_device(struct verbs_device *verbs_device)
@@ -188,6 +191,28 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 	ctx->kernel_page_size = sysconf(_SC_PAGESIZE);
 	ctx->db_pa = resp.db_pa;
 	ctx->db_size = resp.db_size;
+
+	/* Set dpm flags according to protocol */
+	if (IS_ROCE(ibdev)) {
+		if (resp.dpm_flags & QEDR_DPM_TYPE_ROCE_ENHANCED)
+			ctx->dpm_flags = QELR_DPM_FLAGS_ENHANCED;
+
+		if (resp.dpm_flags & QEDR_DPM_TYPE_ROCE_LEGACY)
+			ctx->dpm_flags |= QELR_DPM_FLAGS_LEGACY;
+	} else {
+		if (resp.dpm_flags & QEDR_DPM_TYPE_IWARP_LEGACY)
+			ctx->dpm_flags = QELR_DPM_FLAGS_LEGACY;
+	}
+
+	/* Defaults set for backward-forward compatibility */
+	if (resp.dpm_flags & QEDR_DPM_SIZES_SET) {
+		ctx->ldpm_limit_size = resp.ldpm_limit_size;
+		ctx->edpm_trans_size = resp.edpm_trans_size;
+	} else {
+		ctx->ldpm_limit_size = QEDR_LDPM_MAX_SIZE;
+		ctx->edpm_trans_size = QEDR_EDPM_TRANS_SIZE;
+	}
+
 	ctx->max_send_wr = resp.max_send_wr;
 	ctx->max_recv_wr = resp.max_recv_wr;
 	ctx->max_srq_wr = resp.max_srq_wr;
@@ -249,6 +274,5 @@ static const struct verbs_device_ops qelr_dev_ops = {
 	.alloc_device = qelr_device_alloc,
 	.uninit_device = qelr_uninit_device,
 	.alloc_context = qelr_alloc_context,
-	.free_context = qelr_free_context,
 };
 PROVIDER_DRIVER(qedr, qelr_dev_ops);

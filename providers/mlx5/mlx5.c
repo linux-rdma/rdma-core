@@ -49,6 +49,8 @@
 #include "wqe.h"
 #include "mlx5_ifc.h"
 
+static void mlx5_free_context(struct ibv_context *ibctx);
+
 #ifndef PCI_VENDOR_ID_MELLANOX
 #define PCI_VENDOR_ID_MELLANOX			0x15b3
 #endif
@@ -78,6 +80,7 @@ static const struct verbs_match_ent hca_table[] = {
 	HCA(MELLANOX, 0x101c),	/* ConnectX-6 VF */
 	HCA(MELLANOX, 0x101d),	/* ConnectX-6 DX */
 	HCA(MELLANOX, 0x101e),	/* ConnectX family mlx5Gen Virtual Function */
+	HCA(MELLANOX, 0x1021),  /* ConnectX-7 */
 	HCA(MELLANOX, 0xa2d2),	/* BlueField integrated ConnectX-5 network controller */
 	HCA(MELLANOX, 0xa2d3),	/* BlueField integrated ConnectX-5 network controller VF */
 	HCA(MELLANOX, 0xa2d6),  /* BlueField-2 integrated ConnectX-6 Dx network controller */
@@ -155,6 +158,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.read_counters = mlx5_read_counters,
 	.reg_dm_mr = mlx5_reg_dm_mr,
 	.alloc_null_mr = mlx5_alloc_null_mr,
+	.free_context = mlx5_free_context,
 };
 
 static const struct verbs_context_ops mlx5_ctx_cqev1_ops = {
@@ -1450,7 +1454,6 @@ static const struct verbs_device_ops mlx5_dev_ops = {
 	.alloc_device = mlx5_device_alloc,
 	.uninit_device = mlx5_uninit_device,
 	.alloc_context = mlx5_alloc_context,
-	.free_context = mlx5_free_context,
 };
 
 bool is_mlx5_dev(struct ibv_device *device)

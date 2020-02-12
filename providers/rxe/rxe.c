@@ -56,6 +56,8 @@
 #include "rxe-abi.h"
 #include "rxe.h"
 
+static void rxe_free_context(struct ibv_context *ibctx);
+
 static const struct verbs_match_ent hca_table[] = {
 	VERBS_DRIVER_ID(RDMA_DRIVER_RXE),
 	VERBS_NAME_MATCH("rxe", NULL),
@@ -856,7 +858,8 @@ static const struct verbs_context_ops rxe_ctx_ops = {
 	.create_ah = rxe_create_ah,
 	.destroy_ah = rxe_destroy_ah,
 	.attach_mcast = ibv_cmd_attach_mcast,
-	.detach_mcast = ibv_cmd_detach_mcast
+	.detach_mcast = ibv_cmd_detach_mcast,
+	.free_context = rxe_free_context,
 };
 
 static struct verbs_context *rxe_alloc_context(struct ibv_device *ibdev,
@@ -926,6 +929,5 @@ static const struct verbs_device_ops rxe_dev_ops = {
 	.alloc_device = rxe_device_alloc,
 	.uninit_device = rxe_uninit_device,
 	.alloc_context = rxe_alloc_context,
-	.free_context = rxe_free_context,
 };
 PROVIDER_DRIVER(rxe, rxe_dev_ops);

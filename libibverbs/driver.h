@@ -218,7 +218,6 @@ struct verbs_device_ops {
 	struct verbs_context *(*alloc_context)(struct ibv_device *device,
 					       int cmd_fd,
 					       void *private_data);
-	void (*free_context)(struct ibv_context *context);
 
 	struct verbs_device *(*alloc_device)(struct verbs_sysfs_dev *sysfs_dev);
 	void (*uninit_device)(struct verbs_device *device);
@@ -231,6 +230,7 @@ struct verbs_device {
 	atomic_int refcount;
 	struct list_node entry;
 	struct verbs_sysfs_dev *sysfs;
+	uint64_t core_support;
 };
 
 struct verbs_counters {
@@ -315,6 +315,7 @@ struct verbs_context_ops {
 	int (*destroy_wq)(struct ibv_wq *wq);
 	int (*detach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
 			    uint16_t lid);
+	void (*free_context)(struct ibv_context *context);
 	int (*free_dm)(struct ibv_dm *dm);
 	int (*get_srq_num)(struct ibv_srq *srq, uint32_t *srq_num);
 	int (*modify_cq)(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
@@ -639,7 +640,7 @@ static inline int verbs_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 		*srq_num = vsrq->srq_num;
 		return 0;
 	}
-	return ENOSYS;
+	return EOPNOTSUPP;
 }
 
 static inline bool check_comp_mask(uint64_t input, uint64_t supported)

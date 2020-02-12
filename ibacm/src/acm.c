@@ -68,7 +68,6 @@
 #include "acm_mad.h"
 #include "acm_util.h"
 
-#define MAX_EP_ADDR 4
 #define NL_MSG_BUF_SIZE 4096
 #define ACM_PROV_NAME_SIZE 64
 #define NL_CLIENT_INDEX 0
@@ -135,7 +134,11 @@ struct acmc_ep {
 	struct acmc_port      *port;
 	struct acm_endpoint   endpoint;
 	void                  *prov_ep_context;
-	struct acmc_addr      addr_info[MAX_EP_ADDR];
+	/* Although the below two entries are used for dynamic allocations,
+	 * they are accessed by a single thread, so no locking is required.
+	 */
+	int                   nmbr_ep_addrs;
+	struct acmc_addr      *addr_info;
 	struct list_node      entry;
 };
 
@@ -417,7 +420,7 @@ static void acm_mark_addr_invalid(struct acmc_ep *ep,
 {
 	int i;
 
-	for (i = 0; i < MAX_EP_ADDR; i++) {
+	for (i = 0; i < ep->nmbr_ep_addrs; i++) {
 		if (!acm_addr_cmp(&ep->addr_info[i].addr, data->info.addr, data->type)) {
 			ep->addr_info[i].addr.type = ACM_ADDRESS_INVALID;
 			ep->port->prov->remove_address(ep->addr_info[i].prov_addr_context);
@@ -433,7 +436,7 @@ acm_addr_lookup(const struct acm_endpoint *endpoint, uint8_t *addr, uint8_t addr
 	int i;
 
 	ep = container_of(endpoint, struct acmc_ep, endpoint);
-	for (i = 0; i < MAX_EP_ADDR; i++)
+	for (i = 0; i < ep->nmbr_ep_addrs; i++)
 		if (!acm_addr_cmp(&ep->addr_info[i].addr, addr, addr_type))
 			return &ep->addr_info[i].addr;
 
@@ -842,7 +845,7 @@ acm_get_port_ep_address(struct acmc_port *port, struct acm_ep_addr_data *data)
 		if ((data->type == ACM_EP_INFO_PATH) &&
 		    (!data->info.path.pkey ||
 		     acm_same_partition(be16toh(data->info.path.pkey), ep->endpoint.pkey))) {
-			for (i = 0; i < MAX_EP_ADDR; i++) {
+			for (i = 0; i < ep->nmbr_ep_addrs; i++) {
 				if (ep->addr_info[i].addr.type)
 					return &ep->addr_info[i];
 			}
@@ -898,6 +901,7 @@ static struct acmc_ep *acm_get_ep(int index, uint8_t port_num)
 			list_for_each(&dev->port[i].ep_list, ep, entry) {
 				if (index == inx)
 					return ep;
+				++inx;
 			}
 		}
 	}
@@ -1192,12 +1196,46 @@ static int acm_svr_perf_query(struct acmc_client *client, struct acm_msg *msg)
 	return ret;
 }
 
-static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
+static int may_be_realloc(struct acm_msg **msg_ptr,
+			  int len,
+			  int cnt,
+			  int *cur_msg_siz_ptr,
+			  int max_msg_siz)
 {
+
+	/* Check if a new address exceeds the protocol constrained max size */
+	if (len + (cnt + 1) * ACM_MAX_ADDRESS > max_msg_siz) {
+		acm_log(0, "ERROR - unable to amend more addresses to acm_msg due to protocol constraints\n");
+			return ENOMEM;
+	}
+
+	/* Check if a new address exceeds current size of msg */
+	if (len + (cnt + 1) * ACM_MAX_ADDRESS > *cur_msg_siz_ptr) {
+		const size_t chunk_size = 16 * ACM_MAX_ADDRESS;
+		struct acm_msg *new_msg = realloc(*msg_ptr, *cur_msg_siz_ptr + chunk_size);
+
+		if (!new_msg) {
+			acm_log(0, "ERROR - failed to allocate longer acm_msg\n");
+			return ENOMEM;
+		}
+
+		*msg_ptr = new_msg;
+		*cur_msg_siz_ptr += chunk_size;
+	}
+
+	return 0;
+}
+
+static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg **_msg)
+{
+	int sts;
 	int ret, i;
 	uint16_t len;
 	struct acmc_ep *ep;
 	int index, cnt = 0;
+	struct acm_msg *msg = *_msg;
+	int cur_msg_siz = sizeof(*msg);
+	int max_msg_siz = USHRT_MAX;
 
 	acm_log(2, "client %d\n", client->index);
 	index = msg->hdr.src_out;
@@ -1212,8 +1250,12 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg *msg)
 			ACM_MAX_PROV_NAME - 1);
 		msg->ep_data[0].prov_name[ACM_MAX_PROV_NAME - 1] = '\0';
 		len = ACM_MSG_HDR_LENGTH + sizeof(struct acm_ep_config_data);
-		for (i = 0; i < MAX_EP_ADDR; i++) {
+		for (i = 0; i < ep->nmbr_ep_addrs; i++) {
 			if (ep->addr_info[i].addr.type != ACM_ADDRESS_INVALID) {
+				sts = may_be_realloc(_msg, len, cnt, &cur_msg_siz, max_msg_siz);
+				msg = *_msg;
+				if (sts)
+					break;
 				memcpy(msg->ep_data[0].addrs[cnt++].name,
 				       ep->addr_info[i].string_buf,
 				       ACM_MAX_ADDRESS);
@@ -1247,39 +1289,46 @@ static int acm_msg_length(struct acm_msg *msg)
 
 static void acm_svr_receive(struct acmc_client *client)
 {
-	struct acm_msg msg;
+	struct acm_msg *msg = malloc(sizeof(*msg));
 	int ret;
 
+	if (!msg) {
+		acm_log(0, "ERROR - Unable to alloc acm_msg\n");
+		ret = ENOMEM;
+		goto out;
+	}
+
 	acm_log(2, "client %d\n", client->index);
-	ret = recv(client->sock, (char *) &msg, sizeof msg, 0);
-	if (ret <= 0 || ret != acm_msg_length(&msg)) {
+	ret = recv(client->sock, (char *)msg, sizeof(*msg), 0);
+	if (ret <= 0 || ret != acm_msg_length(msg)) {
 		acm_log(2, "client disconnected\n");
 		ret = ACM_STATUS_ENOTCONN;
 		goto out;
 	}
 
-	if (msg.hdr.version != ACM_VERSION) {
-		acm_log(0, "ERROR - unsupported version %d\n", msg.hdr.version);
+	if (msg->hdr.version != ACM_VERSION) {
+		acm_log(0, "ERROR - unsupported version %d\n", msg->hdr.version);
 		goto out;
 	}
 
-	switch (msg.hdr.opcode & ACM_OP_MASK) {
+	switch (msg->hdr.opcode & ACM_OP_MASK) {
 	case ACM_OP_RESOLVE:
 		atomic_inc(&counter[ACM_CNTR_RESOLVE]);
-		ret = acm_svr_resolve(client, &msg);
+		ret = acm_svr_resolve(client, msg);
 		break;
 	case ACM_OP_PERF_QUERY:
-		ret = acm_svr_perf_query(client, &msg);
+		ret = acm_svr_perf_query(client, msg);
 		break;
 	case ACM_OP_EP_QUERY:
 		ret = acm_svr_ep_query(client, &msg);
 		break;
 	default:
-		acm_log(0, "ERROR - unknown opcode 0x%x\n", msg.hdr.opcode);
+		acm_log(0, "ERROR - unknown opcode 0x%x\n", msg->hdr.opcode);
 		break;
 	}
 
 out:
+	free(msg);
 	if (ret)
 		acm_disconnect_client(client);
 }
@@ -1421,7 +1470,7 @@ static int resync_system_ips(void)
 			port = &dev->port[cnt];
 
 			list_for_each(&port->ep_list, ep, entry) {
-				for (i = 0; i < MAX_EP_ADDR; i++) {
+				for (i = 0; i < ep->nmbr_ep_addrs; i++) {
 					if (ep->addr_info[i].addr.type == ACM_ADDRESS_IP ||
 					    ep->addr_info[i].addr.type == ACM_ADDRESS_IP6)
 						ep->addr_info[i].addr.type = ACM_ADDRESS_INVALID;
@@ -2019,49 +2068,70 @@ static FILE *acm_open_addr_file(void)
 }
 
 static int
-acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
+__acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
 		   uint8_t addr_type)
 {
-	int i, ret = -1;
-	uint8_t tmp[ACM_MAX_ADDRESS];
+	int i;
+	int ret;
+	uint8_t tmp[ACM_MAX_ADDRESS] = {};
 
-	memset(tmp, 0, sizeof tmp);
 	memcpy(tmp, addr, acm_addr_len(addr_type));
 
-	if (!acm_addr_lookup(&ep->endpoint, addr, addr_type)) {
-		for (i = 0; (i < MAX_EP_ADDR) &&
-			    (ep->addr_info[i].addr.type != ACM_ADDRESS_INVALID); i++)
-			;
-		if (i == MAX_EP_ADDR) {
+	for (i = 0; (i < ep->nmbr_ep_addrs) &&
+		     (ep->addr_info[i].addr.type != ACM_ADDRESS_INVALID); i++)
+		;
+	if (i == ep->nmbr_ep_addrs) {
+		struct acmc_addr *new_info;
+		new_info = realloc(ep->addr_info, (i + 1) * sizeof(*ep->addr_info));
+		if (!new_info) {
 			ret = ENOMEM;
 			goto out;
 		}
+		ep->addr_info = new_info;
 
-		/* Open the provider endpoint only if at least a name or
-		   address is found */
-		if (!ep->prov_ep_context) {
-			ret = ep->port->prov->open_endpoint(&ep->endpoint,
-				ep->port->prov_port_context,
-				&ep->prov_ep_context);
-			if (ret) {
-				acm_log(0, "Error: failed to open prov ep\n");
-				goto out;
-			}
-		}
-		ep->addr_info[i].addr.type = addr_type;
-		strncpy(ep->addr_info[i].string_buf, name, ACM_MAX_ADDRESS);
-		memcpy(ep->addr_info[i].addr.info.addr, tmp, ACM_MAX_ADDRESS);
-		ret = ep->port->prov->add_address(&ep->addr_info[i].addr,
-						  ep->prov_ep_context,
-						  &ep->addr_info[i].prov_addr_context);
+		/* Added memory is not initialized */
+		memset(ep->addr_info + i, 0, sizeof(*ep->addr_info));
+		ep->addr_info[i].addr.endpoint = &ep->endpoint;
+		ep->addr_info[i].addr.id_string = ep->addr_info[i].string_buf;
+		++ep->nmbr_ep_addrs;
+	}
+
+	/* Open the provider endpoint only if at least a name or
+	   address is found */
+	if (!ep->prov_ep_context) {
+		ret = ep->port->prov->open_endpoint(&ep->endpoint,
+						    ep->port->prov_port_context,
+						    &ep->prov_ep_context);
 		if (ret) {
-			acm_log(0, "Error: failed to add addr to provider\n");
-			ep->addr_info[i].addr.type = ACM_ADDRESS_INVALID;
+			acm_log(0, "Error: failed to open prov ep\n");
 			goto out;
 		}
 	}
-	ret = 0;
+	ep->addr_info[i].addr.type = addr_type;
+	strncpy(ep->addr_info[i].string_buf, name, ACM_MAX_ADDRESS);
+	memcpy(ep->addr_info[i].addr.info.addr, tmp, ACM_MAX_ADDRESS);
+	ret = ep->port->prov->add_address(&ep->addr_info[i].addr,
+					  ep->prov_ep_context,
+					  &ep->addr_info[i].prov_addr_context);
+	if (ret) {
+		acm_log(0, "Error: failed to add addr to provider\n");
+		ep->addr_info[i].addr.type = ACM_ADDRESS_INVALID;
+	}
+
 out:
+	return ret;
+}
+
+static int
+acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
+		   uint8_t addr_type)
+{
+	int ret = -1;
+
+	if (!acm_addr_lookup(&ep->endpoint, addr, addr_type)) {
+		ret = __acm_ep_insert_addr(ep, name, addr, addr_type);
+	}
+
 	return ret;
 }
 
@@ -2180,7 +2250,7 @@ static int acm_assign_ep_names(struct acmc_ep *ep)
 	fclose(faddr);
 
 out:
-	return (ep->addr_info[0].addr.type == ACM_ADDRESS_INVALID);
+	return (!ep->nmbr_ep_addrs || ep->addr_info[0].addr.type == ACM_ADDRESS_INVALID);
 }
 
 static struct acmc_ep *acm_find_ep(struct acmc_port *port, uint16_t pkey)
@@ -2205,7 +2275,8 @@ static void acm_ep_down(struct acmc_ep *ep)
 	acm_log(1, "%s %d pkey 0x%04x\n",
 		ep->port->dev->device.verbs->device->name,
 		ep->port->port.port_num, ep->endpoint.pkey);
-	for (i = 0; i < MAX_EP_ADDR; i++) {
+
+	for (i = 0; i < ep->nmbr_ep_addrs; i++) {
 		if (ep->addr_info[i].addr.type &&
 		    ep->addr_info[i].prov_addr_context)
 			ep->port->prov->remove_address(ep->addr_info[i].
@@ -2222,7 +2293,6 @@ static struct acmc_ep *
 acm_alloc_ep(struct acmc_port *port, uint16_t pkey)
 {
 	struct acmc_ep *ep;
-	int i;
 
 	acm_log(1, "\n");
 	ep = calloc(1, sizeof *ep);
@@ -2232,11 +2302,8 @@ acm_alloc_ep(struct acmc_port *port, uint16_t pkey)
 	ep->port = port;
 	ep->endpoint.port = &port->port;
 	ep->endpoint.pkey = pkey;
-
-	for (i = 0; i < MAX_EP_ADDR; i++) {
-		ep->addr_info[i].addr.endpoint = &ep->endpoint;
-		ep->addr_info[i].addr.id_string = ep->addr_info[i].string_buf;
-	}
+	ep->addr_info = NULL;
+	ep->nmbr_ep_addrs = 0;
 
 	return ep;
 }
@@ -2604,7 +2671,7 @@ static void acm_open_dev(struct ibv_device *ibdev)
 	struct ibv_context *verbs;
 	size_t size;
 	int i, ret;
-	unsigned int opened_ib_port_cnt = 0;
+	bool has_ib_port = false;
 
 	acm_log(1, "%s\n", ibdev->name);
 	verbs = ibv_open_device(ibdev);
@@ -2619,6 +2686,27 @@ static void acm_open_dev(struct ibv_device *ibdev)
 		goto err1;
 	}
 
+	for (i = 0; i < attr.phys_port_cnt; i++) {
+		ret = ibv_query_port(verbs, i + 1, &port_attr);
+		if (ret) {
+			acm_log(0, "ERROR - ibv_query_port (%s, %d) return (%d)\n",
+				ibdev->name, i + 1, ret);
+			continue;
+		}
+
+		if (port_attr.link_layer == IBV_LINK_LAYER_INFINIBAND) {
+			acm_log(1, "%s port %d is an InfiniBand port\n", ibdev->name, i + 1);
+			has_ib_port = true;
+		} else {
+			acm_log(1, "%s port %d is not an InfiniBand port\n", ibdev->name, i + 1);
+		}
+	}
+
+	if (!has_ib_port) {
+		acm_log(1, "%s does not support InfiniBand.\n", ibdev->name);
+		goto err1;
+	}
+
 	size = sizeof(*dev) + sizeof(struct acmc_port) * attr.phys_port_cnt;
 	dev = (struct acmc_device *) calloc(1, size);
 	if (!dev)
@@ -2630,29 +2718,13 @@ static void acm_open_dev(struct ibv_device *ibdev)
 	list_head_init(&dev->prov_dev_context_list);
 
 	for (i = 0; i < dev->port_cnt; i++) {
-		acm_log(1, "%s port %d\n", ibdev->name, i + 1);
-		ret = ibv_query_port(dev->device.verbs, i + 1, &port_attr);
-		if (ret) {
-			acm_log(0, "ERROR - ibv_query_port (%d)\n", ret);
-			continue;
-		}
-		if (port_attr.link_layer != IBV_LINK_LAYER_INFINIBAND) {
-			acm_log(1, "not an InfiniBand port\n");
-			continue;
-		}
-
 		acm_open_port(&dev->port[i], dev, i + 1);
-		opened_ib_port_cnt++;
 	}
 
-	if (opened_ib_port_cnt) {
-		list_add(&dev_list, &dev->entry);
-		acm_log(1, "%d InfiniBand %s opened for %s\n",
-				opened_ib_port_cnt,
-				opened_ib_port_cnt == 1 ? "port" : "ports",
-				ibdev->name);
-		return;
-	}
+	list_add(&dev_list, &dev->entry);
+
+	acm_log(1, "%s opened\n", ibdev->name);
+	return;
 
 err1:
 	ibv_close_device(verbs);

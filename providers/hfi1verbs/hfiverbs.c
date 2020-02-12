@@ -65,6 +65,8 @@
 #include "hfiverbs.h"
 #include "hfi-abi.h"
 
+static void hfi1_free_context(struct ibv_context *ibctx);
+
 #ifndef PCI_VENDOR_ID_INTEL
 #define PCI_VENDOR_ID_INTEL			0x8086
 #endif
@@ -87,6 +89,7 @@ static const struct verbs_match_ent hca_table[] = {
 };
 
 static const struct verbs_context_ops hfi1_ctx_common_ops = {
+	.free_context	= hfi1_free_context,
 	.query_device	= hfi1_query_device,
 	.query_port	= hfi1_query_port,
 
@@ -205,6 +208,5 @@ static const struct verbs_device_ops hfi1_dev_ops = {
 	.alloc_device = hfi1_device_alloc,
 	.uninit_device  = hf11_uninit_device,
 	.alloc_context = hfi1_alloc_context,
-	.free_context = hfi1_free_context,
 };
 PROVIDER_DRIVER(hfi1verbs, hfi1_dev_ops);
