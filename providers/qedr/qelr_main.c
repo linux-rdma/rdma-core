@@ -178,7 +178,7 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 	qelr_open_debug_file(ctx);
 	qelr_set_debug_mask();
 
-	cmd.context_flags |= QEDR_ALLOC_UCTX_DB_REC;
+	cmd.context_flags = QEDR_ALLOC_UCTX_DB_REC;
 	if (ibv_cmd_get_context(&ctx->ibv_ctx, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
 		goto cmd_err;
