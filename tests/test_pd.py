@@ -6,8 +6,6 @@ Test module for pyverbs' pd module.
 import random
 
 from tests.base import PyverbsAPITestCase
-from pyverbs.base import PyverbsRDMAErrno
-import pyverbs.device as d
 from pyverbs.pd import PD
 
 

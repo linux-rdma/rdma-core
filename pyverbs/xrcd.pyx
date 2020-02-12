@@ -2,13 +2,12 @@
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.
 import weakref
 
-from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
+from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
 from pyverbs.device cimport Context
 from pyverbs.srq cimport SRQ
 from pyverbs.qp cimport QP
-from libc.errno cimport errno
 
 
 cdef class XRCDInitAttr(PyverbsObject):
