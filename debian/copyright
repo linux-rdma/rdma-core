@@ -239,7 +239,7 @@ Copyright: 2006 Mellanox Technologies.
 License: CPL-1.0 or BSD-2-clause or GPL-2
 
 Files: srp_daemon/srpd.in
-       srp_daemon/ibsrpdm.1
+       srp_daemon/ibsrpdm.8
 Copyright: disclaimed
 License: BSD-2-clause
 
