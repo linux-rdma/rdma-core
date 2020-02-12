@@ -377,7 +377,7 @@ Section: libs
 Architecture: linux-any
 Pre-Depends: ${misc:Pre-Depends}
 Depends: libibmad5 (= ${binary:Version}), ${misc:Depends}
-Description: Infiniband Management Datagram (MAD) library
+Description: Debug symbols for Infiniband Management Datagram (MAD) library
  libibmad provides low layer InfiniBand functions for use by the
  Infiniband diagnostic and management programs. These include
  Management Datagrams (MAD), Subnet Administration (SA), Subnet
