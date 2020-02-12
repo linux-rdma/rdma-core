@@ -373,7 +373,7 @@ Description: Infiniband Management Datagram (MAD) library
  This package contains the shared library.
 
 Package: libibmad5-dbg
-Section: libs
+Section: debug
 Architecture: linux-any
 Pre-Depends: ${misc:Pre-Depends}
 Depends: libibmad5 (= ${binary:Version}), ${misc:Depends}
