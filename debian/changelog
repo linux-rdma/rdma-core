@@ -1,3 +1,11 @@
+rdma-core (28.0-1) unstable; urgency=medium
+
+  * New upstream release.
+    - rxe: Remove rxe_cfg
+  * Bump Standards-Version to 4.5.0
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Wed, 12 Feb 2020 17:21:38 +0100
+
 rdma-core (27.0-2) unstable; urgency=medium
 
   [ Debian Janitor ]
