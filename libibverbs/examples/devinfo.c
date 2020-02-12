@@ -40,6 +40,7 @@
 #include <getopt.h>
 #include <endian.h>
 #include <inttypes.h>
+#include <arpa/inet.h>
 
 #include <infiniband/verbs.h>
 #include <infiniband/driver.h>
@@ -162,12 +163,50 @@ static const char *vl_str(uint8_t vl_num)
 	}
 }
 
-static int print_all_port_gids(struct ibv_context *ctx, uint8_t port_num, int tbl_len)
+#define DEVINFO_INVALID_GID_TYPE	2
+static const char *gid_type_str(enum ibv_gid_type type)
 {
+	switch (type) {
+	case IBV_GID_TYPE_IB_ROCE_V1: return "RoCE v1";
+	case IBV_GID_TYPE_ROCE_V2: return "RoCE v2";
+	default: return "Invalid gid type";
+	}
+}
+
+static void print_formated_gid(union ibv_gid *gid, int i,
+			       enum ibv_gid_type type, int ll)
+{
+	char gid_str[INET6_ADDRSTRLEN] = {};
+	char str[20] = {};
+
+	if (ll == IBV_LINK_LAYER_ETHERNET)
+		sprintf(str, ", %s", gid_type_str(type));
+
+	if (type == IBV_GID_TYPE_IB_ROCE_V1)
+		printf("\t\t\tGID[%3d]:\t\t%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x%s\n",
+		       i, gid->raw[0], gid->raw[1], gid->raw[2],
+		       gid->raw[3], gid->raw[4], gid->raw[5], gid->raw[6],
+		       gid->raw[7], gid->raw[8], gid->raw[9], gid->raw[10],
+		       gid->raw[11], gid->raw[12], gid->raw[13], gid->raw[14],
+		       gid->raw[15], str);
+
+	if (type == IBV_GID_TYPE_ROCE_V2) {
+		inet_ntop(AF_INET6, gid->raw, gid_str, sizeof(gid_str));
+		printf("\t\t\tGID[%3d]:\t\t%s%s\n", i, gid_str, str);
+	}
+}
+
+static int print_all_port_gids(struct ibv_context *ctx,
+			       struct ibv_port_attr *port_attr,
+			       uint8_t port_num)
+{
+	enum ibv_gid_type type;
 	union ibv_gid gid;
+	int tbl_len;
 	int rc = 0;
 	int i;
 
+	tbl_len = port_attr->gid_tbl_len;
 	for (i = 0; i < tbl_len; i++) {
 		rc = ibv_query_gid(ctx, port_num, i, &gid);
 		if (rc) {
@@ -175,17 +214,15 @@ static int print_all_port_gids(struct ibv_context *ctx, uint8_t port_num, int tb
 			       port_num, i);
 			return rc;
 		}
+
+		rc = ibv_query_gid_type(ctx, port_num, i, &type);
+		if (rc) {
+			rc = 0;
+			type = DEVINFO_INVALID_GID_TYPE;
+		}
 		if (!null_gid(&gid))
-			printf("\t\t\tGID[%3d]:\t\t%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n",
-			       i,
-			       gid.raw[ 0], gid.raw[ 1],
-			       gid.raw[ 2], gid.raw[ 3],
-			       gid.raw[ 4], gid.raw[ 5],
-			       gid.raw[ 6], gid.raw[ 7],
-			       gid.raw[ 8], gid.raw[ 9],
-			       gid.raw[10], gid.raw[11],
-			       gid.raw[12], gid.raw[13],
-			       gid.raw[14], gid.raw[15]);
+			print_formated_gid(&gid, i, type,
+					   port_attr->link_layer);
 	}
 	return rc;
 }
@@ -614,7 +651,7 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 				printf("\t\t\tphys_state:\t\t%s (%d)\n",
 				       port_phy_state_str(port_attr.phys_state), port_attr.phys_state);
 
-			if (print_all_port_gids(ctx, port, port_attr.gid_tbl_len))
+			if (print_all_port_gids(ctx, &port_attr, port))
 				goto cleanup;
 		}
 		printf("\n");
