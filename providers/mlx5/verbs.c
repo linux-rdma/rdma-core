@@ -2542,8 +2542,23 @@ static uint8_t ah_attr_to_mlx5_rate(enum ibv_rate ah_static_rate)
 	return ib_to_mlx5_rate_table[ah_static_rate];
 }
 
-#define RROCE_UDP_SPORT_MIN 0xC000
-#define RROCE_UDP_SPORT_MAX 0xFFFF
+static void mlx5_ah_set_udp_sport(struct mlx5_ah *ah,
+				  const struct ibv_ah_attr *attr)
+{
+	uint16_t sport;
+	uint32_t fl;
+
+	fl = attr->grh.flow_label & IB_GRH_FLOWLABEL_MASK;
+	if (fl)
+		sport = ibv_flow_label_to_udp_sport(fl);
+	else
+		sport = rand() % (IB_ROCE_UDP_ENCAP_VALID_PORT_MAX + 1
+				  - IB_ROCE_UDP_ENCAP_VALID_PORT_MIN)
+			+ IB_ROCE_UDP_ENCAP_VALID_PORT_MIN;
+
+	ah->av.rlid = htobe16(sport);
+}
+
 struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 {
 	struct mlx5_context *ctx = to_mctx(pd->context);
@@ -2588,9 +2603,8 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 			goto err;
 
 		if (gid_type == IBV_GID_TYPE_ROCE_V2)
-			ah->av.rlid = htobe16(rand() % (RROCE_UDP_SPORT_MAX + 1
-						      - RROCE_UDP_SPORT_MIN)
-					    + RROCE_UDP_SPORT_MIN);
+			mlx5_ah_set_udp_sport(ah, attr);
+
 		/* Since RoCE packets must contain GRH, this bit is reserved
 		 * for RoCE and shouldn't be set.
 		 */
@@ -2607,7 +2621,7 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		ah->av.hop_limit = attr->grh.hop_limit;
 		tmp = htobe32((grh << 30) |
 			    ((attr->grh.sgid_index & 0xff) << 20) |
-			    (attr->grh.flow_label & 0xfffff));
+			    (attr->grh.flow_label & IB_GRH_FLOWLABEL_MASK));
 		ah->av.grh_gid_fl = tmp;
 		memcpy(ah->av.rgid, attr->grh.dgid.raw, 16);
 	}
