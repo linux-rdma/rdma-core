@@ -156,10 +156,7 @@ static int hns_roce_v2_wq_overflow(struct hns_roce_wq *wq, int nreq,
 static void hns_roce_update_rq_db(struct hns_roce_context *ctx,
 				  unsigned int qpn, unsigned int rq_head)
 {
-	struct hns_roce_db rq_db;
-
-	rq_db.byte_4 = 0;
-	rq_db.parameter = 0;
+	struct hns_roce_db rq_db = {};
 
 	roce_set_field(rq_db.byte_4, DB_BYTE_4_TAG_M, DB_BYTE_4_TAG_S, qpn);
 	roce_set_field(rq_db.byte_4, DB_BYTE_4_CMD_M, DB_BYTE_4_CMD_S, 0x1);
@@ -173,12 +170,7 @@ static void hns_roce_update_sq_db(struct hns_roce_context *ctx,
 				  unsigned int qpn, unsigned int sl,
 				  unsigned int sq_head)
 {
-	struct hns_roce_db sq_db;
-
-	sq_db.byte_4 = 0;
-
-	/* In fact, the sq_head bits should be 15bit */
-	sq_db.parameter = 0;
+	struct hns_roce_db sq_db = {};
 
 	/* cmd: 0 sq db; 1 rq db; 2; 2 srq db; 3 cq db ptr; 4 cq db ntr */
 	roce_set_field(sq_db.byte_4, DB_BYTE_4_CMD_M, DB_BYTE_4_CMD_S, 0);
@@ -194,10 +186,7 @@ static void hns_roce_update_sq_db(struct hns_roce_context *ctx,
 static void hns_roce_v2_update_cq_cons_index(struct hns_roce_context *ctx,
 					     struct hns_roce_cq *cq)
 {
-	struct hns_roce_v2_cq_db cq_db;
-
-	cq_db.byte_4 = 0;
-	cq_db.parameter = 0;
+	struct hns_roce_v2_cq_db cq_db = {};
 
 	roce_set_field(cq_db.byte_4, DB_BYTE_4_TAG_M, DB_BYTE_4_TAG_S, cq->cqn);
 	roce_set_field(cq_db.byte_4, DB_BYTE_4_CMD_M, DB_BYTE_4_CMD_S, 0x3);
@@ -506,16 +495,13 @@ static int hns_roce_u_v2_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	uint32_t ci;
 	uint32_t cmd_sn;
 	uint32_t solicited_flag;
-	struct hns_roce_v2_cq_db cq_db;
+	struct hns_roce_v2_cq_db cq_db = {};
 	struct hns_roce_cq *cq = to_hr_cq(ibvcq);
 
 	ci  = cq->cons_index & ((cq->cq_depth << 1) - 1);
 	cmd_sn = cq->arm_sn & HNS_ROCE_CMDSN_MASK;
 	solicited_flag = solicited ? HNS_ROCE_V2_CQ_DB_REQ_SOL :
 				     HNS_ROCE_V2_CQ_DB_REQ_NEXT;
-
-	cq_db.byte_4 = 0;
-	cq_db.parameter = 0;
 
 	roce_set_field(cq_db.byte_4, DB_BYTE_4_TAG_M, DB_BYTE_4_TAG_S, cq->cqn);
 	roce_set_field(cq_db.byte_4, DB_BYTE_4_CMD_M, DB_BYTE_4_CMD_S, 0x4);
