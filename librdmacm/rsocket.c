@@ -1453,9 +1453,14 @@ connected:
 
 		rs->state = rs_connect_rdwr;
 		break;
+	case rs_connect_error:
+	case rs_disconnected:
+	case rs_error:
+		ret = ERR(ENOTCONN);
+		goto unlock;
 	default:
 		ret = (rs->state & rs_connected) ? 0 : ERR(EINVAL);
-		break;
+		goto unlock;
 	}
 
 	if (ret) {
@@ -1466,6 +1471,7 @@ connected:
 			rs->err = errno;
 		}
 	}
+unlock:
 	fastlock_release(&rs->slock);
 	return ret;
 }
