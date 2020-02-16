@@ -50,6 +50,13 @@ cdef class ConnParam(PyverbsObject):
         self.conn_param.srq = srq
         self.conn_param.qp_num = qp_num
 
+    @property
+    def qpn(self):
+        return self.conn_param.qp_num
+    @qpn.setter
+    def qpn(self, val):
+        self.conn_param.qp_num = val
+
     def __str__(self):
         print_format  = '{:<4}: {:<4}\n'
         return '{}: {}\n'.format('Connection parameters', "") +\
@@ -266,6 +273,10 @@ cdef class CMID(PyverbsCM):
     @property
     def context(self):
         return self.ctx
+
+    @property
+    def pd(self):
+        return self.pd
 
     def __dealloc__(self):
         self.close()
