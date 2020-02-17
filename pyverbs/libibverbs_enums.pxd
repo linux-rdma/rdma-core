@@ -238,6 +238,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_QP_INIT_ATTR_MAX_TSO_HEADER
         IBV_QP_INIT_ATTR_IND_TABLE
         IBV_QP_INIT_ATTR_RX_HASH
+        IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
 
     cpdef enum ibv_qp_create_flags:
         IBV_QP_CREATE_BLOCK_SELF_MCAST_LB
@@ -402,6 +403,19 @@ cdef extern from '<infiniband/verbs.h>':
 
     cpdef enum:
         IBV_WC_STANDARD_FLAGS
+
+    cpdef enum ibv_qp_create_send_ops_flags:
+        IBV_QP_EX_WITH_RDMA_WRITE
+        IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM
+        IBV_QP_EX_WITH_SEND
+        IBV_QP_EX_WITH_SEND_WITH_IMM
+        IBV_QP_EX_WITH_RDMA_READ
+        IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP
+        IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD
+        IBV_QP_EX_WITH_LOCAL_INV
+        IBV_QP_EX_WITH_BIND_MW
+        IBV_QP_EX_WITH_SEND_WITH_INV
+        IBV_QP_EX_WITH_TSO
 
     cdef unsigned long long IBV_DEVICE_RAW_SCATTER_FCS
     cdef unsigned long long IBV_DEVICE_PCI_WRITE_END_PADDING

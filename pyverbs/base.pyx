@@ -1,9 +1,15 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.
 
-import logging
-from pyverbs.pyverbs_error import PyverbsRDMAError
 from libc.errno cimport errno
+import logging
+
+from pyverbs.pyverbs_error import PyverbsRDMAError
+cimport pyverbs.libibverbs as v
+
+
+def inc_rkey(rkey):
+    return v.ibv_inc_rkey(rkey)
 
 
 cpdef PyverbsRDMAErrno(str msg):

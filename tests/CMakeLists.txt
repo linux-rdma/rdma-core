@@ -3,9 +3,9 @@
 
 rdma_python_test(tests
   __init__.py
+  base.py
   rdmacm_utils.py
   test_addr.py
-  base.py
   test_cq.py
   test_cq_events.py
   test_cqex.py
@@ -16,6 +16,7 @@ rdma_python_test(tests
   test_pd.py
   test_parent_domain.py
   test_qp.py
+  test_qpex.py
   test_rdmacm.py
   test_relaxed_ordering.py
   utils.py
