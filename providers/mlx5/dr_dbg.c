@@ -88,7 +88,7 @@ static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
 				   struct dr_rule_action_member *action_mem)
 {
 	struct mlx5dv_dr_action *action = action_mem->action;
-	const uint64_t action_id = (uint64_t)action;
+	const uint64_t action_id = (uint64_t) (uintptr_t) action;
 	int ret;
 
 	switch (action->action_type) {
@@ -196,7 +196,7 @@ static int dr_dump_rule_rx_tx(FILE *f, struct dr_rule_rx_tx *rule_rx_tx,
 static int dr_dump_rule(FILE *f, struct mlx5dv_dr_rule *rule)
 {
 	struct dr_rule_action_member *action_mem;
-	const uint64_t rule_id = (uint64_t)rule;
+	const uint64_t rule_id = (uint64_t) (uintptr_t) rule;
 	struct dr_rule_rx_tx *rx = &rule->rx;
 	struct dr_rule_rx_tx *tx = &rule->tx;
 	int ret;
@@ -204,7 +204,7 @@ static int dr_dump_rule(FILE *f, struct mlx5dv_dr_rule *rule)
 	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 "\n",
 		      DR_DUMP_REC_TYPE_RULE,
 		      rule_id,
-		      (uint64_t)rule->matcher);
+		      (uint64_t) (uintptr_t) rule->matcher);
 	if (ret < 0)
 		return ret;
 
@@ -341,7 +341,7 @@ static int dr_dump_matcher_rx_tx(FILE *f, bool is_rx,
 
 	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",%d,0x%" PRIx64 ",0x%" PRIx64 "\n",
 		      rec_type,
-		      (uint64_t)matcher_rx_tx,
+		      (uint64_t) (uintptr_t) matcher_rx_tx,
 		      matcher_id,
 		      matcher_rx_tx->num_of_builders,
 		      dr_dump_icm_to_idx(matcher_rx_tx->s_htbl->chunk->icm_addr),
@@ -366,12 +366,12 @@ static int dr_dump_matcher(FILE *f, struct mlx5dv_dr_matcher *matcher)
 	uint64_t matcher_id;
 	int ret;
 
-	matcher_id = (uint64_t)matcher;
+	matcher_id = (uint64_t) (uintptr_t) matcher;
 
 	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",%d\n",
 		      DR_DUMP_REC_TYPE_MATCHER,
 		      matcher_id,
-		      (uint64_t)matcher->tbl,
+		      (uint64_t) (uintptr_t) matcher->tbl,
 		      matcher->prio);
 	if (ret < 0)
 		return ret;
@@ -464,7 +464,7 @@ static int dr_dump_table(FILE *f, struct mlx5dv_dr_table *table)
 
 	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",%d,%d\n",
 		      DR_DUMP_REC_TYPE_TABLE,
-		      (uint64_t) table,
+		      (uint64_t) (uintptr_t) table,
 		      dr_domain_id_calc(table->dmn->type),
 		      table->table_type,
 		      table->level);
@@ -473,13 +473,13 @@ static int dr_dump_table(FILE *f, struct mlx5dv_dr_table *table)
 
 	if (!dr_is_root_table(table)) {
 		if (rx->nic_dmn) {
-			ret = dr_dump_table_rx_tx(f, true, rx, (uint64_t)table);
+			ret = dr_dump_table_rx_tx(f, true, rx, (uint64_t) (uintptr_t) table);
 			if (ret < 0)
 				return ret;
 		}
 
 		if (tx->nic_dmn) {
-			ret = dr_dump_table_rx_tx(f, false, tx, (uint64_t)table);
+			ret = dr_dump_table_rx_tx(f, false, tx, (uint64_t) (uintptr_t) table);
 			if (ret < 0)
 				return ret;
 		}
@@ -529,7 +529,7 @@ static int dr_dump_send_ring(FILE *f, struct dr_send_ring *ring,
 
 	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x,0x%x\n",
 		      DR_DUMP_REC_TYPE_DOMAIN_SEND_RING,
-		      (uint64_t)ring,
+		      (uint64_t) (uintptr_t) ring,
 		      domain_id,
 		      ring->cq.cqn,
 		      ring->qp->obj->object_id);
