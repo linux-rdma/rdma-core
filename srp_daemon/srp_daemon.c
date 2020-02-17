@@ -2093,7 +2093,10 @@ static int ibsrpdm(int argc, char *argv[])
 		goto out;
 	}
 
-	umad_init();
+	ret = umad_init();
+	if (ret != 0)
+		goto out;
+
 	res = alloc_res();
 	if (!res) {
 		ret = 1;
