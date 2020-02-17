@@ -242,7 +242,7 @@ static void set_port_info(ib_portid_t * dest, uint8_t * data, int portnum,
 
 	mod = portnum;
 	if (espeed_cap)
-		mod |= 1<<31;
+		mod |= (1U)<<31;
 	if (!smp_set_via(data, dest, IB_ATTR_PORT_INFO, mod, 0, srcport))
 		IBEXIT("smp set portinfo failed");
 
