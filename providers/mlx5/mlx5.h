@@ -392,6 +392,7 @@ struct mlx5_cq {
 	uint32_t			cqn;
 	uint32_t			cons_index;
 	__be32			       *dbrec;
+	bool				custom_db;
 	int				arm_sn;
 	int				cqe_sz;
 	int				resize_cqe_sz;
@@ -406,6 +407,7 @@ struct mlx5_cq {
 	uint32_t			flags;
 	int			umr_opcode;
 	struct mlx5dv_clock_info	last_clock_info;
+	struct ibv_pd			*parent_domain;
 };
 
 struct mlx5_tag_entry {

@@ -630,7 +630,8 @@ enum {
 };
 
 enum {
-	CREATE_CQ_SUPPORTED_COMP_MASK = IBV_CQ_INIT_ATTR_MASK_FLAGS
+	CREATE_CQ_SUPPORTED_COMP_MASK = IBV_CQ_INIT_ATTR_MASK_FLAGS |
+					IBV_CQ_INIT_ATTR_MASK_PD
 };
 
 enum {
@@ -714,6 +715,13 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		if (cq_attr->flags & IBV_CREATE_CQ_ATTR_IGNORE_OVERRUN)
 			use_ex = true;
 	}
+	if (cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_PD) {
+		if (!(to_mparent_domain(cq_attr->parent_domain))) {
+			errno = EINVAL;
+			return NULL;
+		}
+		cq->parent_domain = cq_attr->parent_domain;
+	}
 
 	cmd_drv = use_ex ? &cmd_ex.drv_payload : &cmd.drv_payload;
 	resp_drv = use_ex ? &resp_ex.drv_payload : &resp.drv_payload;
@@ -750,7 +758,8 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		goto err_spl;
 	}
 
-	cq->dbrec  = mlx5_alloc_dbrec(to_mctx(context), NULL, NULL);
+	cq->dbrec  = mlx5_alloc_dbrec(to_mctx(context), cq->parent_domain,
+				      &cq->custom_db);
 	if (!cq->dbrec) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "\n");
 		goto err_buf;
@@ -825,6 +834,8 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		goto err_db;
 	}
 
+	if (cq->parent_domain)
+		atomic_fetch_add(&to_mparent_domain(cq->parent_domain)->mpd.refcount, 1);
 	cq->active_buf = &cq->buf_a;
 	cq->resize_buf = NULL;
 	cq->cqn = resp_drv->cqn;
@@ -835,7 +846,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	return &cq->ibv_cq;
 
 err_db:
-	mlx5_free_db(to_mctx(context), cq->dbrec, NULL, 0);
+	mlx5_free_db(to_mctx(context), cq->dbrec, cq->parent_domain, cq->custom_db);
 
 err_buf:
 	mlx5_free_cq_buf(to_mctx(context), &cq->buf_a);
@@ -964,14 +975,18 @@ out:
 int mlx5_destroy_cq(struct ibv_cq *cq)
 {
 	int ret;
+	struct mlx5_cq *mcq = to_mcq(cq);
 
 	ret = ibv_cmd_destroy_cq(cq);
 	if (ret)
 		return ret;
 
-	mlx5_free_db(to_mctx(cq->context), to_mcq(cq)->dbrec, NULL, 0);
-	mlx5_free_cq_buf(to_mctx(cq->context), to_mcq(cq)->active_buf);
-	free(to_mcq(cq));
+	mlx5_free_db(to_mctx(cq->context), mcq->dbrec, mcq->parent_domain,
+		     mcq->custom_db);
+	mlx5_free_cq_buf(to_mctx(cq->context), mcq->active_buf);
+	if (mcq->parent_domain)
+		atomic_fetch_sub(&to_mparent_domain(mcq->parent_domain)->mpd.refcount, 1);
+	free(mcq);
 
 	return 0;
 }

@@ -64,6 +64,7 @@ extern "C" {
 #define MLX5DV_RES_TYPE_RWQ ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 2)
 #define MLX5DV_RES_TYPE_DBR ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 3)
 #define MLX5DV_RES_TYPE_SRQ ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 4)
+#define MLX5DV_RES_TYPE_CQ ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 5)
 
 enum {
 	MLX5_RCV_DBR	= 0,
