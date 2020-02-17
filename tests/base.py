@@ -30,6 +30,13 @@ MIN_RNR_TIMER =12
 RETRY_CNT = 7
 RNR_RETRY = 7
 TIMEOUT = 14
+# Devices that don't support RoCEv2 should be added here
+MLNX_VENDOR_ID = 0x02c9
+CX3_MLNX_PART_ID = 4099
+CX3Pro_MLNX_PART_ID = 4103
+# Dictionary: vendor_id -> array of part_ids of devices that lack RoCEv2 support
+ROCEV2_UNSUPPORTED_DEVS = {MLNX_VENDOR_ID: [CX3Pro_MLNX_PART_ID,
+                                            CX3_MLNX_PART_ID]}
 
 
 class PyverbsAPITestCase(unittest.TestCase):
@@ -131,14 +138,22 @@ class RDMATestCase(unittest.TestCase):
 
     def _add_gids_per_port(self, ctx, dev, port):
         # Don't add ports which are not active
-        if ctx.query_port(port).state != e.IBV_PORT_ACTIVE:
+        port_attrs = ctx.query_port(port)
+        if port_attrs.state != e.IBV_PORT_ACTIVE:
             return
-
-        for idx in range(ctx.query_port(port).gid_tbl_len):
+        dev_attrs = ctx.query_device()
+        vendor_pid = dev_attrs.vendor_part_id
+        for idx in range(port_attrs.gid_tbl_len):
             gid = ctx.query_gid(port, idx)
             # Avoid adding ZERO GIDs
-            if gid.gid[-19:] != self.ZERO_GID:
-                self.args.append([dev, port, idx])
+            if gid.gid[-19:] == self.ZERO_GID:
+                continue
+            # Avoid RoCEv2 GIDs on unsupported devices
+            if port_attrs.link_layer == e.IBV_LINK_LAYER_ETHERNET and \
+                    ctx.query_gid_type(port, idx) == e.IBV_GID_TYPE_ROCE_V2 and \
+                    vendor_pid in ROCEV2_UNSUPPORTED_DEVS[dev_attrs.vendor_id]:
+                continue
+            self.args.append([dev, port, idx])
 
     def _add_gids_per_device(self, ctx, dev):
         port_count = ctx.query_device().phys_port_cnt
