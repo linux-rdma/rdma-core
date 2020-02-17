@@ -611,7 +611,7 @@ void mad_dump_portcapmask(char *buf, int bufsz, void *val, int valsz)
 		s += sprintf(s, "\t\t\t\tIsMcastPkeyTrapSuppressionSupported\n");
 	if (mask & (1 << 30))
 		s += sprintf(s, "\t\t\t\tIsMulticastFDBTopSupported\n");
-	if (mask & (1 << 31))
+	if (mask & ((1U) << 31))
 		s += sprintf(s, "\t\t\t\tIsHierarchyInfoSupported\n");
 
 	if (s != buf)
