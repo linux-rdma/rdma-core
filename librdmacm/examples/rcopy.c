@@ -260,6 +260,7 @@ static int server_open(int rs, struct msg_hdr *msg)
 	if (fd < 0) {
 		printf("unable to open destination file\n");
 		ret = errno;
+		goto out;
 	}
 
 	ret = 0;
