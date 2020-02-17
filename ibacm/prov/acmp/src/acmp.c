@@ -1768,8 +1768,7 @@ acmp_check_addr_match(struct ifaddrs *iap, struct acm_ep_addr_data *saddr,
 
 	s_family = iap->ifa_addr->sa_family;
 
-	if (!iap->ifa_addr ||
-	    !(iap->ifa_flags & IFF_UP) ||
+	if (!(iap->ifa_flags & IFF_UP) ||
 	    (s_family != d_family))
 		return -1;
 
