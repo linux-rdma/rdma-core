@@ -103,12 +103,12 @@ static unsigned int get_abi_version(void)
 	    0) {
 		IBWARN("can't read ABI version from %s/%s (%m): is ib_umad module loaded?",
 		       IB_UMAD_ABI_DIR, IB_UMAD_ABI_FILE);
-		abi_version = 1 << 31;
+		abi_version = (1U) << 31;
 		return 0;
 	}
 
 	if (abi_version < IB_UMAD_ABI_VERSION) {
-		abi_version = 1 << 31;
+		abi_version = (1U) << 31;
 		return 0;
 	}
 

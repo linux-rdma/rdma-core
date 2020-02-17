@@ -53,7 +53,7 @@ static int set_bit(int nr, void *method_mask)
 	int retval;
 
 	addr += nr / (8 * sizeof(long));
-	mask = 1L << (nr % (8 * sizeof(long)));
+	mask = (1UL) << (nr % (8 * sizeof(long)));
 	retval = (mask & *addr) != 0;
 	*addr |= mask;
 	return retval;

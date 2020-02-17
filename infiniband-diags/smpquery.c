@@ -150,7 +150,7 @@ static const char *port_info(ib_portid_t *dest, char **argv, int argc)
 		portnum = strtol(argv[0], NULL, 0);
 	orig_portnum = portnum;
 	if (extended_speeds)
-		portnum |= 1 << 31;
+		portnum |= (1U) << 31;
 
 	if (!smp_query_via(data, dest, IB_ATTR_PORT_INFO, portnum, 0, srcport))
 		return "port info query failed";
