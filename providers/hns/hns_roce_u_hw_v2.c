@@ -90,10 +90,10 @@ static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 
 			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
 					      sge_info,
-					      (void *)wr->wr.atomic.swap);
+					      (void *) (uintptr_t) wr->wr.atomic.swap);
 			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
 					      sge_info,
-					      (void *)wr->wr.atomic.compare_add);
+					      (void *) (uintptr_t) wr->wr.atomic.compare_add);
 		} else {
 			uint8_t buf[EXTEND_ATOMIC_U_BYTE_64] = {};
 
@@ -102,7 +102,7 @@ static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 
 			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
 					      sge_info,
-					      (void *)wr->wr.atomic.compare_add);
+					      (void *) (uintptr_t) wr->wr.atomic.compare_add);
 			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
 					      sge_info, buf);
 		}
