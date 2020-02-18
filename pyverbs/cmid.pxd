@@ -4,8 +4,6 @@
 #cython: language_level=3
 
 from pyverbs.base cimport PyverbsObject, PyverbsCM
-from libc.string cimport memcpy, memset
-from libc.stdlib cimport free, malloc
 cimport pyverbs.librdmacm as cm
 
 

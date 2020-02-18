@@ -9,7 +9,6 @@ from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.cq import CompChannel, CQ, CqInitAttrEx, CQEX
 from tests.base import PyverbsAPITestCase
 import pyverbs.enums as e
-import tests.utils as u
 import unittest
 import errno
 

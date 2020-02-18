@@ -21,7 +21,6 @@ from pyverbs.addr cimport GID
 from pyverbs.mr import DMMR
 from pyverbs.pd cimport PD
 from pyverbs.qp cimport QP
-from libc.errno cimport errno
 from libc.stdlib cimport free, malloc
 from libc.string cimport memset
 from libc.stdint cimport uint64_t
@@ -152,7 +151,7 @@ cdef class Context(PyverbsCM):
             rc = v.ibv_close_device(self.context)
             if rc != 0:
                 raise PyverbsRDMAErrno('Failed to close device {dev}'.
-                                       format(dev=self.device.name), errno)
+                                       format(dev=self.device.name))
             self.context = NULL
 
     @property
@@ -169,7 +168,7 @@ cdef class Context(PyverbsCM):
         rc = v.ibv_query_device(self.context, &dev_attr.dev_attr)
         if rc != 0:
             raise PyverbsRDMAErrno('Failed to query device {name}'.
-                                   format(name=self.name), errno)
+                                   format(name=self.name))
         return dev_attr
 
     def query_device_ex(self, QueryDeviceExInput ex_input = None):
@@ -819,7 +818,7 @@ def guid_to_hex(node_guid):
 def port_state_to_str(port_state):
     l = {0: 'NOP', 1: 'Down', 2: 'Init', 3: 'Armed', 4: 'Active', 5: 'Defer'}
     try:
-        return '{s} ({n})'.format(s=l[port_state].name, n=port_state)
+        return '{s} ({n})'.format(s=l[port_state], n=port_state)
     except KeyError:
         return 'Invalid state ({s})'.format(s=port_state)
 

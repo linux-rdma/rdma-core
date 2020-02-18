@@ -1,10 +1,11 @@
-from pyverbs.pyverbs_error import PyverbsError, PyverbsUserError
-from pyverbs.device cimport PortAttr, Context
+from libc.string cimport memset
+
+from pyverbs.pyverbs_error import PyverbsUserError
 from pyverbs.qp cimport QPInitAttr, QPAttr
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.librdmacm_enums as ce
-from libc.stdint cimport uint8_t
+from pyverbs.device cimport Context
 cimport pyverbs.libibverbs as v
 cimport pyverbs.librdmacm as cm
 from pyverbs.pd cimport PD

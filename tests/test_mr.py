@@ -3,14 +3,12 @@
 """
 Test module for pyverbs' mr module.
 """
-from itertools import combinations as com
 import unittest
 import random
 import errno
 
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from tests.base import PyverbsAPITestCase
-from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.mr import MR, MW, DMMR
 import pyverbs.device as d
 from pyverbs.pd import PD

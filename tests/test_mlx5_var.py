@@ -20,7 +20,7 @@ class Mlx5VarRes(BaseResources):
         try:
             self.var = Mlx5VAR(self.ctx)
         except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
+            if ex.error_code == errno.EOPNOTSUPP or ex.error_code == errno.EPROTONOSUPPORT:
                 raise unittest.SkipTest('VAR allocation is not supported')
 
 
