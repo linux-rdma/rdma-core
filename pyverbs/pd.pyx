@@ -12,6 +12,7 @@ from pyverbs.cmid cimport CMID
 from .mr cimport MR, MW, DMMR
 from pyverbs.srq cimport SRQ
 from pyverbs.addr cimport AH
+from pyverbs.cq cimport CQEX
 from pyverbs.qp cimport QP
 
 
@@ -188,6 +189,7 @@ cdef class ParentDomain(PD):
         if self.pd == NULL:
             raise PyverbsRDMAErrno('Failed to allocate Parent Domain')
         super().__init__(context)
+        self.cqs = weakref.WeakSet()
         self.logger.debug('Allocated ParentDomain')
 
     def __dealloc__(self):
@@ -206,4 +208,12 @@ cdef class ParentDomain(PD):
         """
         self.logger.debug('Closing ParentDomain')
         if not from_dealloc:
-            super(ParentDomain, self).close()
+            if self.pd != NULL:
+                close_weakrefs([self.cqs])
+                super(ParentDomain, self).close()
+
+    cdef add_ref(self, obj):
+        if isinstance(obj, CQEX):
+            self.cqs.add(obj)
+        else:
+            PD.add_ref(self, obj)

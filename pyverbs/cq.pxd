@@ -26,6 +26,7 @@ cdef class CQ(PyverbsCM):
 cdef class CqInitAttrEx(PyverbsObject):
     cdef v.ibv_cq_init_attr_ex attr
     cdef object channel
+    cdef object parent_domain
 
 cdef class CQEX(PyverbsCM):
     cdef v.ibv_cq_ex *cq

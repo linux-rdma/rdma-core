@@ -27,8 +27,9 @@ cdef class ParentDomainInitAttr(PyverbsObject):
     cdef object dealloc
 
 cdef class ParentDomain(PD):
+    cdef add_ref(self, obj)
     cdef object protection_domain
-    pass
+    cdef object cqs
 
 cdef class ParentDomainContext(PyverbsObject):
     cdef object p_alloc
