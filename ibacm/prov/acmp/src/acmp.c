@@ -2431,6 +2431,7 @@ static int __acmp_add_addr(const struct acm_address *addr, struct acmp_ep *ep,
 		acm_log(0, "ERROR - unable to create loopback dest %s\n",
 			addr->id_string);
 		memset(&ep->addr_info[i], 0, sizeof(ep->addr_info[i]));
+		free(addr_ctx);
 		return -1;
 	}
 
