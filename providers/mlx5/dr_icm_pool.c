@@ -89,16 +89,72 @@ struct dr_icm_mr {
 	struct list_node	mr_list;
 };
 
-static struct dr_icm_mr *
-dr_icm_pool_mr_create(struct dr_icm_pool *pool,
-		      enum mlx5_ib_uapi_dm_type dm_type,
-		      size_t align_base)
+static int
+dr_icm_allocate_aligned_dm(struct dr_icm_pool *pool,
+			   struct dr_icm_mr *icm_mr,
+			   struct ibv_alloc_dm_attr *dm_attr)
 {
 	struct mlx5dv_alloc_dm_attr mlx5_dm_attr = {};
+	size_t log_align_base = 0;
+	bool fallback = false;
+	struct mlx5_dm *dm;
+	size_t size;
+
+	/* create dm/mr for this pool */
+	size = dr_icm_pool_chunk_size_to_byte(pool->max_log_chunk_sz,
+					      pool->icm_type);
+
+	if (pool->icm_type == DR_ICM_TYPE_STE) {
+		mlx5_dm_attr.type = MLX5_IB_UAPI_DM_TYPE_STEERING_SW_ICM;
+		/* Align base is the biggest chunk size */
+		log_align_base = ilog32(size - 1);
+	} else if (pool->icm_type == DR_ICM_TYPE_MODIFY_ACTION) {
+		mlx5_dm_attr.type = MLX5_IB_UAPI_DM_TYPE_HEADER_MODIFY_SW_ICM;
+		/* Align base is 64B */
+		log_align_base = ilog32(DR_ICM_MODIFY_HDR_ALIGN_BASE - 1);
+	}
+
+	dm_attr->length = size;
+
+alloc_dm:
+	icm_mr->dm = mlx5dv_alloc_dm(pool->dmn->ctx, dm_attr, &mlx5_dm_attr);
+	if (!icm_mr->dm) {
+		dr_dbg(pool->dmn, "Failed allocating DM\n");
+		return errno;
+	}
+
+	dm = to_mdm(icm_mr->dm);
+	icm_mr->icm_start_addr = dm->remote_va;
+
+	if (icm_mr->icm_start_addr & ((1UL << log_align_base) - 1)) {
+		uint64_t align_base;
+		uint64_t align_diff;
+
+		/* Fallback to previous implementation, ask for double size */
+		dr_dbg(pool->dmn, "Got not aligned memory: %zu last_try: %d\n",
+		       log_align_base, fallback);
+		if (fallback) {
+			align_base = 1UL << log_align_base;
+			align_diff = icm_mr->icm_start_addr % align_base;
+			icm_mr->used_length = align_base - align_diff;
+			return 0;
+		}
+
+		mlx5_free_dm(icm_mr->dm);
+		/* retry to allocate, now double the size */
+		dm_attr->length = size * 2;
+		fallback = true;
+		goto alloc_dm;
+	}
+
+	return 0;
+}
+
+static struct dr_icm_mr *
+dr_icm_pool_mr_create(struct dr_icm_pool *pool)
+{
 	struct ibv_alloc_dm_attr dm_attr = {};
 	struct dr_icm_mr *icm_mr;
-	struct mlx5_dm *dm;
-	size_t align_diff;
 
 	icm_mr = calloc(1, sizeof(struct dr_icm_mr));
 	if (!icm_mr) {
@@ -106,20 +162,8 @@ dr_icm_pool_mr_create(struct dr_icm_pool *pool,
 		return NULL;
 	}
 
-	icm_mr->pool = pool;
-	list_node_init(&icm_mr->mr_list);
-
-	mlx5_dm_attr.type = dm_type;
-
-	/* 2^log_biggest_table * entry-size * double-for-alignment */
-	dm_attr.length = dr_icm_pool_chunk_size_to_byte(pool->max_log_chunk_sz,
-							pool->icm_type) * 2;
-
-	icm_mr->dm = mlx5dv_alloc_dm(pool->dmn->ctx, &dm_attr, &mlx5_dm_attr);
-	if (!icm_mr->dm) {
-		dr_dbg(pool->dmn, "Failed allocating DM\n");
+	if (dr_icm_allocate_aligned_dm(pool, icm_mr, &dm_attr))
 		goto free_icm_mr;
-	}
 
 	/* Register device memory */
 	icm_mr->mr = ibv_reg_dm_mr(pool->dmn->pd, icm_mr->dm, 0,
@@ -132,13 +176,6 @@ dr_icm_pool_mr_create(struct dr_icm_pool *pool,
 		dr_dbg(pool->dmn, "Failed DM registration\n");
 		goto free_dm;
 	}
-
-	dm = to_mdm(icm_mr->dm);
-	icm_mr->icm_start_addr = dm->remote_va;
-
-	align_diff = icm_mr->icm_start_addr % align_base;
-	if (align_diff)
-		icm_mr->used_length = align_base - align_diff;
 
 	list_add_tail(&pool->icm_mr_list, &icm_mr->mr_list);
 
@@ -199,25 +236,13 @@ static int dr_icm_chunks_create(struct dr_icm_bucket *bucket)
 {
 	size_t mr_free_size, mr_req_size, mr_row_size;
 	struct dr_icm_pool *pool = bucket->pool;
-	enum mlx5_ib_uapi_dm_type dm_type;
 	struct dr_icm_chunk *chunk;
 	struct dr_icm_mr *icm_mr;
-	size_t align_base;
 	int i;
 
 	mr_req_size = bucket->num_of_entries * bucket->entry_size;
 	mr_row_size = dr_icm_pool_chunk_size_to_byte(pool->max_log_chunk_sz,
 						     pool->icm_type);
-
-	if (pool->icm_type == DR_ICM_TYPE_STE) {
-		dm_type = MLX5_IB_UAPI_DM_TYPE_STEERING_SW_ICM;
-		/* Align base is the biggest chunk size / row size */
-		align_base = mr_row_size;
-	} else {
-		dm_type = MLX5_IB_UAPI_DM_TYPE_HEADER_MODIFY_SW_ICM;
-		/* Align base is 64B */
-		align_base = DR_ICM_MODIFY_HDR_ALIGN_BASE;
-	}
 
 	pthread_mutex_lock(&pool->mr_mutex);
 	icm_mr = list_tail(&pool->icm_mr_list, struct dr_icm_mr, mr_list);
@@ -225,7 +250,7 @@ static int dr_icm_chunks_create(struct dr_icm_bucket *bucket)
 		mr_free_size = icm_mr->mr->length - icm_mr->used_length;
 
 	if (!icm_mr || mr_free_size < mr_row_size) {
-		icm_mr = dr_icm_pool_mr_create(pool, dm_type, align_base);
+		icm_mr = dr_icm_pool_mr_create(pool);
 		if (!icm_mr)
 			goto out_err;
 	}
