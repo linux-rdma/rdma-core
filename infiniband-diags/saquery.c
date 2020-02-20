@@ -1041,7 +1041,7 @@ static int query_path_records(const struct query_cmd *q, struct sa_handle * h,
 	ib_path_rec_t pr;
 	__be64 comp_mask = 0;
 	uint32_t flow = 0;
-	__be16 qos_class = 0;
+	int qos_class = 0;
 	uint8_t reversible = 0;
 
 	memset(&pr, 0, sizeof(pr));
@@ -1059,9 +1059,13 @@ static int query_path_records(const struct query_cmd *q, struct sa_handle * h,
 	pr.num_path |= reversible << 7;
 	CHECK_AND_SET_VAL(p->pkey, 16, 0, pr.pkey, PR, PKEY);
 	CHECK_AND_SET_VAL(p->sl, 16, -1, pr.qos_class_sl, PR, SL);
-	CHECK_AND_SET_VAL((p->qos_class << 4), 16, -1, qos_class, PR, QOS_CLASS);
-	pr.qos_class_sl = (pr.qos_class_sl & htobe16(IB_PATH_REC_SL_MASK)) |
-			  qos_class;
+
+	if (p->qos_class != -1) {
+		qos_class = p->qos_class;
+		comp_mask |= IB_PR_COMPMASK_QOS_CLASS;
+	}
+	ib_path_rec_set_qos_class(&pr, qos_class);
+
 	CHECK_AND_SET_VAL_AND_SEL(p->mtu, pr.mtu, PR, MTU, SELEC);
 	CHECK_AND_SET_VAL_AND_SEL(p->rate, pr.rate, PR, RATE, SELEC);
 	CHECK_AND_SET_VAL_AND_SEL(p->pkt_life, pr.pkt_life, PR, PKTLIFETIME,
