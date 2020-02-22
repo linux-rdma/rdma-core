@@ -260,11 +260,12 @@ static int align_cq_size(int req)
 	return nent;
 }
 
+/* must check min depth before align */
 static int align_qp_size(int req)
 {
 	int nent;
 
-	for (nent = HNS_ROCE_MIN_WQE_NUM; nent < req; nent <<= 1)
+	for (nent = HNS_ROCE_V1_MIN_WQE_NUM; nent < req; nent <<= 1)
 		;
 
 	return nent;
@@ -573,37 +574,32 @@ static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 {
 	struct hns_roce_device *hr_dev =
 		to_hr_dev(context->ibv_ctx.context.device);
+	uint32_t min_wqe_num = hr_dev->hw_version == HNS_ROCE_HW_VER1 ?
+			       HNS_ROCE_V1_MIN_WQE_NUM :
+			       HNS_ROCE_V2_MIN_WQE_NUM;
 
-	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
-		if (attr->cap.max_send_wr < HNS_ROCE_MIN_WQE_NUM) {
-			fprintf(stderr,
-				"max_send_wr = %d, less than minimum WQE number.\n",
-				attr->cap.max_send_wr);
-				attr->cap.max_send_wr = HNS_ROCE_MIN_WQE_NUM;
-		}
-
-		if (attr->cap.max_recv_wr < HNS_ROCE_MIN_WQE_NUM) {
-			fprintf(stderr,
-				"max_recv_wr = %d, less than minimum WQE number.\n",
-				attr->cap.max_recv_wr);
-				attr->cap.max_recv_wr = HNS_ROCE_MIN_WQE_NUM;
-		}
-	}
-
-	if (attr->cap.max_recv_sge < 1)
-		attr->cap.max_recv_sge = 1;
-	if (attr->cap.max_send_wr > context->max_qp_wr ||
+	if (!attr->cap.max_send_wr ||
+	    attr->cap.max_send_wr > context->max_qp_wr ||
 	    attr->cap.max_recv_wr > context->max_qp_wr ||
 	    attr->cap.max_send_sge > context->max_sge  ||
 	    attr->cap.max_recv_sge > context->max_sge)
-		return -1;
+		return EINVAL;
+
+	if (attr->cap.max_send_wr < min_wqe_num)
+		attr->cap.max_send_wr = min_wqe_num;
+
+	if (attr->cap.max_recv_wr && attr->cap.max_recv_wr < min_wqe_num)
+		attr->cap.max_recv_wr = min_wqe_num;
+
+	if (attr->cap.max_recv_sge < 1)
+		attr->cap.max_recv_sge = 1;
 
 	if ((attr->qp_type != IBV_QPT_RC) && (attr->qp_type != IBV_QPT_UD))
-		return -1;
+		return EINVAL;
 
 	if ((attr->qp_type == IBV_QPT_RC) &&
 	    (attr->cap.max_inline_data > HNS_ROCE_MAX_INLINE_DATA_LEN))
-		return -1;
+		return EINVAL;
 
 	return 0;
 }
