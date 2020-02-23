@@ -311,8 +311,7 @@ int main(int argc, char *argv[])
 
 	if (argc) {
 		for (node = device_list; node; node = node->next)
-			if (!strncmp(node->ca_name, argv[0],
-				     strlen(node->ca_name)))
+			if (!strcmp(node->ca_name, argv[0]))
 				break;
 		if (!node)
 			IBPANIC("'%s' IB device can't be found", argv[0]);
