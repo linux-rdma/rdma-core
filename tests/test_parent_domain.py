@@ -6,12 +6,12 @@ Test module for Pyverbs' ParentDomain.
 from pyverbs.pd import ParentDomainInitAttr, ParentDomain, ParentDomainContext
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.srq import SrqAttr, SrqInitAttr, SRQ
+from pyverbs.cq import CqInitAttrEx, CQEX, CQ
 from pyverbs.qp import QPInitAttr, QP
 from tests.base import BaseResources
 from tests.base import RDMATestCase
 import pyverbs.mem_alloc as mem
 import pyverbs.enums as e
-from pyverbs.cq import CQ
 import tests.utils as u
 import unittest
 import errno
@@ -54,6 +54,9 @@ class ParentDomainTestCase(RDMATestCase):
         QP(self.pd_res.parent_domain, qia)
         srq_init_attr = SrqInitAttr(SrqAttr())
         SRQ(self.pd_res.parent_domain, srq_init_attr)
+        cq_init_attrs_ex = CqInitAttrEx(comp_mask=e.IBV_CQ_INIT_ATTR_MASK_PD,
+                                        parent_domain=self.pd_res.parent_domain)
+        CQEX(self.pd_res.ctx, cq_init_attrs_ex)
 
     def test_without_allocators(self):
         self._create_parent_domain_with_allocators(None, None)
