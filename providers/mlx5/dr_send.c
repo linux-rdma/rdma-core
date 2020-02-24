@@ -807,7 +807,8 @@ int dr_send_postsend_action(struct mlx5dv_dr_domain *dmn,
 	int ret;
 
 	send_info.write.addr	= (uintptr_t) action->rewrite.data;
-	send_info.write.length	= action->rewrite.chunk->byte_size;
+	send_info.write.length	= action->rewrite.num_of_actions *
+				  DR_MODIFY_ACTION_SIZE;
 	send_info.write.lkey	= 0;
 	send_info.remote_addr	= action->rewrite.chunk->mr_addr;
 	send_info.rkey		= action->rewrite.chunk->rkey;
