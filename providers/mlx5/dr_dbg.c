@@ -55,8 +55,10 @@ enum dr_dump_rec_type {
 	DR_DUMP_REC_TYPE_MATCHER_BUILDER = 3204,
 
 	DR_DUMP_REC_TYPE_RULE = 3300,
-	DR_DUMP_REC_TYPE_RULE_RX_ENTRY = 3301,
-	DR_DUMP_REC_TYPE_RULE_TX_ENTRY = 3302,
+	DR_DUMP_REC_TYPE_RULE_RX_ENTRY_V0 = 3301,
+	DR_DUMP_REC_TYPE_RULE_TX_ENTRY_V0 = 3302,
+	DR_DUMP_REC_TYPE_RULE_RX_ENTRY_V1 = 3303,
+	DR_DUMP_REC_TYPE_RULE_TX_ENTRY_V1 = 3304,
 
 	DR_DUMP_REC_TYPE_ACTION_ENCAP_L2 = 3400,
 	DR_DUMP_REC_TYPE_ACTION_ENCAP_L3 = 3401,
@@ -176,14 +178,20 @@ static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
 }
 
 static int dr_dump_rule_mem(FILE *f, struct dr_rule_member *rule_mem,
-			    bool is_rx, const uint64_t rule_id)
+			    bool is_rx, const uint64_t rule_id,
+			    enum mlx5_ifc_steering_format_version format_ver)
 {
 	char hw_ste_dump[BUFF_SIZE] = {};
 	enum dr_dump_rec_type mem_rec_type;
 	int ret;
 
-	mem_rec_type = is_rx ? DR_DUMP_REC_TYPE_RULE_RX_ENTRY :
-			       DR_DUMP_REC_TYPE_RULE_TX_ENTRY;
+	if (format_ver == MLX5_HW_CONNECTX_5) {
+		mem_rec_type = is_rx ? DR_DUMP_REC_TYPE_RULE_RX_ENTRY_V0 :
+				       DR_DUMP_REC_TYPE_RULE_TX_ENTRY_V0;
+	} else {
+		mem_rec_type = is_rx ? DR_DUMP_REC_TYPE_RULE_RX_ENTRY_V1 :
+				       DR_DUMP_REC_TYPE_RULE_TX_ENTRY_V1;
+	}
 
 	dump_hex_print(hw_ste_dump, (char *)rule_mem->ste->hw_ste, DR_STE_SIZE_REDUCED);
 	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",%s\n",
@@ -198,13 +206,14 @@ static int dr_dump_rule_mem(FILE *f, struct dr_rule_member *rule_mem,
 }
 
 static int dr_dump_rule_rx_tx(FILE *f, struct dr_rule_rx_tx *rule_rx_tx,
-			      bool is_rx, const uint64_t rule_id)
+			      bool is_rx, const uint64_t rule_id,
+			      enum mlx5_ifc_steering_format_version format_ver)
 {
 	struct dr_rule_member *rule_mem;
 	int ret;
 
 	list_for_each(&rule_rx_tx->rule_members_list, rule_mem, list) {
-		ret = dr_dump_rule_mem(f, rule_mem, is_rx, rule_id);
+		ret = dr_dump_rule_mem(f, rule_mem, is_rx, rule_id, format_ver);
 		if (ret < 0)
 			return ret;
 	}
@@ -213,11 +222,14 @@ static int dr_dump_rule_rx_tx(FILE *f, struct dr_rule_rx_tx *rule_rx_tx,
 
 static int dr_dump_rule(FILE *f, struct mlx5dv_dr_rule *rule)
 {
-	struct dr_rule_action_member *action_mem;
 	const uint64_t rule_id = (uint64_t) (uintptr_t) rule;
+	enum mlx5_ifc_steering_format_version format_ver;
+	struct dr_rule_action_member *action_mem;
 	struct dr_rule_rx_tx *rx = &rule->rx;
 	struct dr_rule_rx_tx *tx = &rule->tx;
 	int ret;
+
+	format_ver = rule->matcher->tbl->dmn->info.caps.sw_format_ver;
 
 	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 "\n",
 		      DR_DUMP_REC_TYPE_RULE,
@@ -228,13 +240,15 @@ static int dr_dump_rule(FILE *f, struct mlx5dv_dr_rule *rule)
 
 	if (!dr_is_root_table(rule->matcher->tbl)) {
 		if (rx->nic_matcher) {
-			ret = dr_dump_rule_rx_tx(f, rx, true, rule_id);
+			ret = dr_dump_rule_rx_tx(f, rx, true, rule_id,
+						 format_ver);
 			if (ret < 0)
 				return ret;
 		}
 
 		if (tx->nic_matcher) {
-			ret = dr_dump_rule_rx_tx(f, tx, false, rule_id);
+			ret = dr_dump_rule_rx_tx(f, tx, false, rule_id,
+						 format_ver);
 			if (ret < 0)
 				return ret;
 		}
