@@ -52,7 +52,7 @@ struct efa_cq {
 	/* Index of next sub cq idx to poll. This is used to guarantee fairness for sub cqs */
 	uint16_t next_poll_idx;
 	pthread_spinlock_t lock;
-	struct efa_sub_cq sub_cq_arr[0];
+	struct efa_sub_cq sub_cq_arr[];
 };
 
 struct efa_wq {
