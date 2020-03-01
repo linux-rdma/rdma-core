@@ -187,7 +187,7 @@ enum dr_action_type {
 
 struct dr_icm_pool;
 struct dr_icm_chunk;
-struct dr_icm_bucket;
+struct dr_icm_buddy_mem;
 struct dr_ste_htbl;
 struct dr_match_param;
 struct dr_devx_caps;
@@ -769,13 +769,17 @@ struct mlx5dv_dr_rule {
 void dr_rule_update_rule_member(struct dr_ste *new_ste, struct dr_ste *ste);
 
 struct dr_icm_chunk {
-	struct dr_icm_bucket	*bucket;
+	struct dr_icm_buddy_mem *buddy_mem;
 	struct list_node	chunk_list;
 	uint32_t		rkey;
 	uint32_t		num_of_entries;
 	uint32_t		byte_size;
 	uint64_t		icm_addr;
 	uint64_t		mr_addr;
+	/* indicates the index of this chunk in the whole memory,
+	 * used for deleting the chunk from the buddy
+	 */
+	uint32_t		seg;
 
 	/* Memory optimisation */
 	struct dr_ste		*ste_arr;
@@ -793,6 +797,15 @@ static inline int dr_matcher_supp_flex_parser_icmp_v6(struct dr_devx_caps *caps)
 	return caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V6_ENABLED;
 }
 
+static inline int
+dr_icm_pool_dm_type_to_entry_size(enum dr_icm_type icm_type)
+{
+	if (icm_type == DR_ICM_TYPE_STE)
+		return DR_STE_SIZE;
+
+	return DR_MODIFY_ACTION_SIZE;
+}
+
 static inline uint32_t
 dr_icm_pool_chunk_size_to_entries(enum dr_icm_chunk_size chunk_size)
 {
@@ -806,10 +819,7 @@ dr_icm_pool_chunk_size_to_byte(enum dr_icm_chunk_size chunk_size,
 	int num_of_entries;
 	int entry_size;
 
-	if (icm_type == DR_ICM_TYPE_STE)
-		entry_size = DR_STE_SIZE;
-	else
-		entry_size = DR_MODIFY_ACTION_SIZE;
+	entry_size = dr_icm_pool_dm_type_to_entry_size(icm_type);
 
 	num_of_entries = dr_icm_pool_chunk_size_to_entries(chunk_size);
 
