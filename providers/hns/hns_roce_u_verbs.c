@@ -788,7 +788,7 @@ static int get_sq_db_addr(struct ibv_pd *pd, struct ibv_qp_init_attr *attr,
 		attr->cap.max_send_wr) {
 		qp->sdb = hns_roce_alloc_db(context, HNS_ROCE_QP_TYPE_DB);
 		if (!qp->sdb)
-			return -ENOMEM;
+			return ENOMEM;
 
 		*(qp->sdb) = 0;
 		cmd->sdb_addr = (uintptr_t)qp->sdb;
@@ -807,7 +807,7 @@ static int get_rq_db_addr(struct ibv_pd *pd, struct ibv_qp_init_attr *attr,
 	    attr->cap.max_recv_sge) {
 		qp->rdb = hns_roce_alloc_db(context, HNS_ROCE_QP_TYPE_DB);
 		if (!qp->rdb)
-			return -ENOMEM;
+			return ENOMEM;
 
 		*(qp->rdb) = 0;
 		cmd->db_addr = (uintptr_t) qp->rdb;
