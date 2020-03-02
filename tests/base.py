@@ -33,6 +33,31 @@ TIMEOUT = 14
 
 
 class PyverbsAPITestCase(unittest.TestCase):
+    """
+    A base class for test cases which provides the option for user parameters.
+    These can be provided by manually adding the test case to the runner:
+    suite = unittest.TestSuite()
+    ... # Regular auto-detection of test cases, no parameters used.
+    # Now follows your manual addition of test cases e.g:
+    suite.addTest(PyverbsAPITestCase.parametrize(<TestCaseName>, dev_name='..'))
+    """
+    def __init__(self, methodName='runTest', dev_name=None):
+        super(PyverbsAPITestCase, self).__init__(methodName)
+        self.dev_name = dev_name
+
+    @staticmethod
+    def parametrize(testcase_klass, dev_name=None):
+        """
+        Create a test suite containing all the tests from the given subclass
+        with the given dev_name.
+        """
+        loader = unittest.TestLoader()
+        names = loader.getTestCaseNames(testcase_klass)
+        suite = unittest.TestSuite()
+        for n in names:
+            suite.addTest(testcase_klass(n, dev_name=dev_name))
+        return suite
+
     def setUp(self):
         """
         Opens the devices and queries them
@@ -41,11 +66,17 @@ class PyverbsAPITestCase(unittest.TestCase):
         self.devices = []
         if len(lst) == 0:
             raise unittest.SkipTest('No IB devices found')
-        for dev in lst:
-            c = d.Context(name=dev.name.decode())
+        if self.dev_name is not None:
+            c = d.Context(name=self.dev_name)
             attr = c.query_device()
             attr_ex = c.query_device_ex()
             self.devices.append((c, attr, attr_ex))
+        else:
+            for dev in lst:
+                c = d.Context(name=dev.name.decode())
+                attr = c.query_device()
+                attr_ex = c.query_device_ex()
+                self.devices.append((c, attr, attr_ex))
 
     def tearDown(self):
         for tup in self.devices:
