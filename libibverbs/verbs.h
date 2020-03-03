@@ -2962,12 +2962,15 @@ ibv_query_device_ex(struct ibv_context *context,
 	struct verbs_context *vctx;
 	int ret;
 
+	if (input && input->comp_mask)
+		return EINVAL;
+
 	vctx = verbs_get_ctx_op(context, query_device_ex);
 	if (!vctx)
 		goto legacy;
 
 	ret = vctx->query_device_ex(context, input, attr, sizeof(*attr));
-	if (ret == EOPNOTSUPP)
+	if (ret == EOPNOTSUPP || ret == ENOSYS)
 		goto legacy;
 
 	return ret;
