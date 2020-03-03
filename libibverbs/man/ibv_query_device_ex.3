@@ -3,18 +3,23 @@
 .\"
 .TH IBV_QUERY_DEVICE_EX 3 2014-12-17 libibverbs "Libibverbs Programmer's Manual"
 .SH "NAME"
-ibv_query_device_ex \- query an RDMA device's attributes
+ibv_query_device_ex \- query an RDMA device's attributes including extended
+device properties.
 .SH "SYNOPSIS"
 .nf
 .B #include <infiniband/verbs.h>
 .sp
 .BI "int ibv_query_device_ex(struct ibv_context " "*context",
+.BI "                        struct ibv_query_device_ex_input " "*input",
 .BI "                        struct ibv_device_attr_ex " "*attr" );
 .fi
 .SH "DESCRIPTION"
 .B ibv_query_device_ex()
 returns the attributes of the device with context
 .I context\fR.
+The argument
+.I input
+is a pointer to an ibv_query_device_ex_input structure, used for future extensions
 The argument
 .I attr
 is a pointer to an ibv_device_attr_ex struct, as defined in <infiniband/verbs.h>.
