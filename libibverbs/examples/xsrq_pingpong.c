@@ -595,8 +595,10 @@ static int pp_client_connect(const char *servername, int port)
 		return 1;
 	}
 
-	if (send_local_dest(sockfd, 0))
+	if (send_local_dest(sockfd, 0)) {
+		close(sockfd);
 		return 1;
+	}
 
 	if (recv_remote_dest(sockfd, 0))
 		return 1;
