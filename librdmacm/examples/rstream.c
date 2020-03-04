@@ -402,7 +402,7 @@ static int server_connect(void)
 static int client_connect(void)
 {
 	struct rdma_addrinfo *rai = NULL, *rai_src = NULL;
-	struct addrinfo *ai, *ai_src;
+	struct addrinfo *ai = NULL, *ai_src = NULL;
 	struct pollfd fds;
 	int ret, err;
 	socklen_t len;
@@ -425,7 +425,7 @@ static int client_connect(void)
 		}
 		if (ret) {
 			printf("getaddrinfo src_addr: %s\n", gai_strerror(ret));
-			return ret;
+			goto free;
 		}
 	}
 
@@ -489,8 +489,12 @@ close:
 free:
 	if (rai)
 		rdma_freeaddrinfo(rai);
-	else
+	if (ai)
 		freeaddrinfo(ai);
+	if (rai_src)
+		rdma_freeaddrinfo(rai_src);
+	if (ai_src)
+		freeaddrinfo(ai_src);
 	return ret;
 }
 
