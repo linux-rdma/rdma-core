@@ -389,7 +389,7 @@ iwpm_mapped_port *reopen_iwpm_mapped_port(struct sockaddr_storage *local_addr,
 						__u32 flags)
 {
 	iwpm_mapped_port *iwpm_port;
-	int new_sd;
+	int new_sd = -1;
 	const char *str_err = "";
 	int ret = check_iwpm_ip_addr(local_addr);
 	if (ret) {
@@ -400,10 +400,7 @@ iwpm_mapped_port *reopen_iwpm_mapped_port(struct sockaddr_storage *local_addr,
 		str_err = "Different local and mapped sockaddr families";
 		goto reopen_mapped_port_error;
 	}
-	/* get a tcp port from the host net stack */
-	if (flags & IWPM_FLAGS_NO_PORT_MAP) {
-		new_sd = -1;
-	} else {
+	if (!(flags & IWPM_FLAGS_NO_PORT_MAP)) {
 		if (get_iwpm_tcp_port(local_addr->ss_family, htobe16(1), mapped_addr, &new_sd))
 			goto reopen_mapped_port_error;
 	}
@@ -413,6 +410,8 @@ iwpm_mapped_port *reopen_iwpm_mapped_port(struct sockaddr_storage *local_addr,
 reopen_mapped_port_error:
 	iwpm_debug(IWARP_PM_ALL_DBG, "reopen_iwpm_mapped_port: Could not make port mapping (%s).\n",
 			str_err);
+	if (new_sd >= 0)
+		close(new_sd);
 	return NULL;
 }
 
