@@ -315,6 +315,8 @@ struct mlx5_context {
 	uint32_t			flags;
 	struct list_head		dyn_uar_bf_list;
 	struct list_head		dyn_uar_nc_list;
+	struct mlx5_bf			*cq_uar;
+	void				*cq_uar_reg;
 };
 
 struct mlx5_bitmap {

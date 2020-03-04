@@ -870,7 +870,7 @@ static int mlx5dv_get_cq(struct ibv_cq *cq_in,
 	cq_out->cqe_size  = mcq->cqe_sz;
 	cq_out->buf       = mcq->active_buf->buf;
 	cq_out->dbrec     = mcq->dbrec;
-	cq_out->cq_uar	  = mctx->uar[0].reg;
+	cq_out->cq_uar	  = mctx->cq_uar_reg;
 
 	mcq->flags	 |= MLX5_CQ_FLAGS_DV_OWNED;
 
@@ -1005,7 +1005,7 @@ COMPAT_SYMVER_FUNC(mlx5dv_init_obj, 1_0, "MLX5_1.0",
 		/* ABI version 1.0 returns the void ** in this memory
 		 * location
 		 */
-		obj->cq.out->cq_uar = to_mctx(obj->cq.in->context)->uar;
+		obj->cq.out->cq_uar = &(to_mctx(obj->cq.in->context)->cq_uar_reg);
 	}
 	return ret;
 }
@@ -1385,6 +1385,10 @@ retry_open:
 			context->cached_port_flags[j] = port_attr.flags;
 		}
 	}
+
+	context->cq_uar = mlx5_attach_dedicated_uar(&v_ctx->context,
+						    MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC);
+	context->cq_uar_reg = context->cq_uar ? context->cq_uar->uar : context->uar[0].reg;
 
 	return v_ctx;
 

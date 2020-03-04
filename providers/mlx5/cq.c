@@ -1672,7 +1672,7 @@ int mlx5_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	 */
 	mmio_wc_start();
 
-	mmio_write64_be(ctx->uar[0].reg + MLX5_CQ_DOORBELL, htobe64(doorbell));
+	mmio_write64_be(ctx->cq_uar_reg + MLX5_CQ_DOORBELL, htobe64(doorbell));
 
 	mmio_flush_writes();
 

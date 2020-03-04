@@ -909,6 +909,11 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		}
 	}
 
+	if (mctx->cq_uar) {
+		cmd_drv->flags |= MLX5_IB_CREATE_CQ_FLAGS_UAR_PAGE_INDEX;
+		cmd_drv->uar_page_index = mctx->cq_uar->page_id;
+	}
+
 	if (use_ex) {
 		struct ibv_cq_init_attr_ex cq_attr_ex = *cq_attr;
 
@@ -4580,6 +4585,9 @@ void clean_dyn_uars(struct ibv_context *context)
 		list_del(&bf->uar_entry);
 		mlx5_free_uar(context, bf);
 	}
+
+	if (ctx->cq_uar)
+		mlx5_free_uar(context, ctx->cq_uar);
 }
 
 struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
