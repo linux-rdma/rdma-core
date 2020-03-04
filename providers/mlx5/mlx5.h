@@ -305,8 +305,8 @@ struct mlx5_context {
 	struct mlx5_packet_pacing_caps	packet_pacing_caps;
 	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
 	uint32_t			num_dyn_bfregs;
-	uint32_t			*count_dyn_bfregs;
-	uint32_t			start_dyn_bfregs_index;
+	uint32_t			max_num_legacy_dyn_uar_sys_page;
+	uint32_t			curr_legacy_dyn_sys_uar_page;
 	uint16_t			flow_action_flags;
 	uint64_t			max_dm_size;
 	uint32_t                        eth_min_inline_size;
@@ -990,6 +990,7 @@ struct ibv_pd *mlx5_alloc_parent_domain(struct ibv_context *context,
 
 void *mlx5_mmap(struct mlx5_uar_info *uar, int index,
 		int cmd_fd, int page_size, int uar_type);
+off_t get_uar_mmap_offset(int idx, int page_size, int command);
 
 struct ibv_counters *mlx5_create_counters(struct ibv_context *context,
 					  struct ibv_counters_init_attr *init_attr);
