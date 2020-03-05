@@ -974,7 +974,7 @@ cdef class VAR(PyverbsObject):
     Each device specific VAR implementation should inherit this class
     and initialize it according to the device attributes.
     """
-    def __cinit__(self, Context context not None, **kwargs):
+    def __init__(self, Context context not None, **kwargs):
         self.context = context
 
     def __dealloc__(self):
