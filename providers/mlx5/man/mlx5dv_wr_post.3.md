@@ -76,6 +76,7 @@ man for ibv_wr_post and mlx5dv_qp with its available builders and setters.
     The *data* as described by struct mlx5dv_mr_interleaved will hold real data defined by *bytes_count* and then a padding of *bytes_skip*.
     Post a successful registration, RDMA operations can use this *mkey*. The hardware will scatter the data according to the pattern.
     The *mkey* should be used in a zero-based mode. The *addr* field in its *ibv_sge* is an offset in the total data.
+    To create this *mkey* mlx5dv_create_mkey() should be used.
 
     Current implementation requires the IBV_SEND_INLINE option to be on in *ibv_qp_ex->wr_flags* field.
     To be able to have more than 3 *num_interleaved* entries, the QP should be created with a larger WQE size that may fit it.
@@ -142,7 +143,7 @@ ret = ibv_wr_complete(qpx);
 
 # SEE ALSO
 
-**ibv_post_send**(3), **ibv_create_qp_ex(3)**, **ibv_wr_post(3)**.
+**ibv_post_send**(3), **ibv_create_qp_ex(3)**, **ibv_wr_post(3)**, **mlx5dv_create_mkey(3)**.
 
 # AUTHOR
 
