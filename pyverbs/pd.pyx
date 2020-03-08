@@ -3,7 +3,8 @@
 import weakref
 import logging
 
-from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError
+from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError, \
+    PyverbsRDMAError
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
 from pyverbs.device cimport Context
@@ -69,7 +70,7 @@ cdef class PD(PyverbsCM):
         if self.pd != NULL:
             rc = v.ibv_dealloc_pd(self.pd)
             if rc != 0:
-                raise PyverbsRDMAErrno('Failed to dealloc PD')
+                raise PyverbsRDMAError('Failed to dealloc PD', rc)
             self.pd = NULL
             self.ctx = None
 

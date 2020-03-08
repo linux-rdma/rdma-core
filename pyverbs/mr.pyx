@@ -6,7 +6,7 @@ import logging
 
 from posix.mman cimport mmap, munmap, MAP_PRIVATE, PROT_READ, PROT_WRITE, \
     MAP_ANONYMOUS, MAP_HUGETLB
-from pyverbs.pyverbs_error import PyverbsError
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.base import PyverbsRDMAErrno
 from posix.stdlib cimport posix_memalign
 from libc.string cimport memcpy, memset
@@ -92,7 +92,7 @@ cdef class MR(PyverbsCM):
         if self.mr != NULL:
             rc = v.ibv_dereg_mr(self.mr)
             if rc != 0:
-                raise PyverbsRDMAErrno('Failed to dereg MR')
+                raise PyverbsRDMAError('Failed to dereg MR', rc)
             self.mr = NULL
             self.pd = None
         if not self.is_user_addr:
@@ -188,7 +188,7 @@ cdef class MW(PyverbsCM):
         if self.mw is not NULL:
             rc = v.ibv_dealloc_mw(self.mw)
             if rc != 0:
-               raise PyverbsRDMAErrno('Failed to dealloc MW')
+                raise PyverbsRDMAError('Failed to dealloc MW', rc)
             self.mw = NULL
             self.pd = None
 

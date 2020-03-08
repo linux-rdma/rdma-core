@@ -148,8 +148,7 @@ cdef class SRQ(PyverbsCM):
         if self.srq != NULL:
             rc = v.ibv_destroy_srq(self.srq)
             if rc != 0:
-                raise PyverbsRDMAErrno('Failed to destroy SRQ (errno is {err})'.
-                                        format(err=errno))
+                raise PyverbsRDMAError('Failed to destroy SRQ', rc)
             self.srq = NULL
             self.cq =None
 
@@ -173,22 +172,19 @@ cdef class SRQ(PyverbsCM):
         cdef unsigned int srqn
         rc = v.ibv_get_srq_num(self.srq, &srqn)
         if rc != 0:
-           raise PyverbsRDMAErrno('Failed to retrieve SRQ number (returned {rc})'.
-                                   format(rc=rc))
+           raise PyverbsRDMAError('Failed to retrieve SRQ number', rc)
         return srqn
 
     def modify(self, SrqAttr attr, comp_mask):
         rc = v.ibv_modify_srq(self.srq, &attr.attr, comp_mask)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to modify SRQ ({err})'.
-                                   format(err=errno))
+            raise PyverbsRDMAError('Failed to modify SRQ', rc)
 
     def query(self):
         attr = SrqAttr()
         rc = v.ibv_query_srq(self.srq, &attr.attr)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to query SRQ ({err})'.
-                                   format(err=errno))
+            raise PyverbsRDMAError('Failed to query SRQ', rc)
         return attr
 
     def post_recv(self, RecvWR wr not None, RecvWR bad_wr=None):
@@ -197,5 +193,4 @@ cdef class SRQ(PyverbsCM):
         if rc != 0:
             if bad_wr:
                 memcpy(&bad_wr.recv_wr, my_bad_wr, sizeof(bad_wr.recv_wr))
-            raise PyverbsRDMAErrno('Failed to post receive to SRQ ({err})'.
-                              format(err=rc))
+            raise PyverbsRDMAError('Failed to post receive to SRQ.', rc)

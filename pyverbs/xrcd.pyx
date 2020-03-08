@@ -2,7 +2,7 @@
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.
 import weakref
 
-from pyverbs.pyverbs_error import PyverbsError
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
 from pyverbs.device cimport Context
@@ -78,7 +78,7 @@ cdef class XRCD(PyverbsCM):
         if self.xrcd != NULL:
             rc = v.ibv_close_xrcd(self.xrcd)
             if rc != 0:
-                raise PyverbsRDMAErrno('Failed to dealloc XRCD')
+                raise PyverbsRDMAError('Failed to dealloc XRCD', rc)
             self.xrcd = NULL
             self.ctx = None
 
