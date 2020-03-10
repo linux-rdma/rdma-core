@@ -69,13 +69,13 @@ cdef class XRCD(PyverbsCM):
         Closes the underlying C object of the XRCD.
         :return: None
         """
-        self.logger.debug('Closing XRCD')
-        close_weakrefs([self.qps, self.srqs])
         # XRCD may be deleted directly or indirectly by closing its context,
         # which leaves the Python XRCD object without the underlying C object,
         # so during destruction, need to check whether or not the C object
         # exists.
         if self.xrcd != NULL:
+            self.logger.debug('Closing XRCD')
+            close_weakrefs([self.qps, self.srqs])
             rc = v.ibv_close_xrcd(self.xrcd)
             if rc != 0:
                 raise PyverbsRDMAError('Failed to dealloc XRCD', rc)

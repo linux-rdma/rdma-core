@@ -968,8 +968,8 @@ cdef class QP(PyverbsCM):
         self.close()
 
     cpdef close(self):
-        self.logger.debug('Closing QP')
         if self.qp != NULL:
+            self.logger.debug('Closing QP')
             rc = v.ibv_destroy_qp(self.qp)
             if rc:
                 raise PyverbsRDMAError('Failed to destroy QP', rc)

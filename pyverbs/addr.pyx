@@ -405,8 +405,8 @@ cdef class AH(PyverbsCM):
         self.close()
 
     cpdef close(self):
-        self.logger.debug('Closing AH')
         if self.ah != NULL:
+            self.logger.debug('Closing AH')
             rc = v.ibv_destroy_ah(self.ah)
             if rc:
                 raise PyverbsRDMAError('Failed to destroy AH', rc)

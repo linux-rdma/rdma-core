@@ -144,10 +144,10 @@ cdef class Context(PyverbsCM):
         self.close()
 
     cpdef close(self):
-        self.logger.debug('Closing Context')
-        close_weakrefs([self.qps, self.ccs, self.cqs, self.dms, self.pds,
-                        self.xrcds, self.vars])
         if self.context != NULL:
+            self.logger.debug('Closing Context')
+            close_weakrefs([self.qps, self.ccs, self.cqs, self.dms, self.pds,
+                            self.xrcds, self.vars])
             rc = v.ibv_close_device(self.context)
             if rc != 0:
                 raise PyverbsRDMAErrno('Failed to close device {dev}'.
@@ -657,9 +657,9 @@ cdef class DM(PyverbsCM):
         self.close()
 
     cpdef close(self):
-        self.logger.debug('Closing DM')
-        close_weakrefs([self.dm_mrs])
         if self.dm != NULL:
+            self.logger.debug('Closing DM')
+            close_weakrefs([self.dm_mrs])
             rc = v.ibv_free_dm(self.dm)
             if rc != 0:
                 raise PyverbsRDMAError('Failed to free dm', rc)

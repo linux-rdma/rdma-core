@@ -88,8 +88,8 @@ cdef class MR(PyverbsCM):
         destruction, need to check whether or not the C object exists.
         :return: None
         """
-        self.logger.debug('Closing MR')
         if self.mr != NULL:
+            self.logger.debug('Closing MR')
             rc = v.ibv_dereg_mr(self.mr)
             if rc != 0:
                 raise PyverbsRDMAError('Failed to dereg MR', rc)
@@ -184,8 +184,8 @@ cdef class MW(PyverbsCM):
         Need to check that the underlaying MW wasn't dealloced before.
         :return: None
         """
-        self.logger.debug('Closing MW')
         if self.mw is not NULL:
+            self.logger.debug('Closing MW')
             rc = v.ibv_dealloc_mw(self.mw)
             if rc != 0:
                 raise PyverbsRDMAError('Failed to dealloc MW', rc)

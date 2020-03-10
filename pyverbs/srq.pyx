@@ -144,8 +144,8 @@ cdef class SRQ(PyverbsCM):
         self.close()
 
     cpdef close(self):
-        self.logger.debug('Closing SRQ')
         if self.srq != NULL:
+            self.logger.debug('Closing SRQ')
             rc = v.ibv_destroy_srq(self.srq)
             if rc != 0:
                 raise PyverbsRDMAError('Failed to destroy SRQ', rc)

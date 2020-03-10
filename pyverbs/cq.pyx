@@ -37,9 +37,9 @@ cdef class CompChannel(PyverbsCM):
         self.close()
 
     cpdef close(self):
-        self.logger.debug('Closing completion channel')
-        close_weakrefs([self.cqs])
         if self.cc != NULL:
+            self.logger.debug('Closing completion channel')
+            close_weakrefs([self.cqs])
             rc = v.ibv_destroy_comp_channel(self.cc)
             if rc != 0:
                 raise PyverbsRDMAError('Failed to destroy a completion channel',
@@ -116,11 +116,11 @@ cdef class CQ(PyverbsCM):
         self.close()
 
     cpdef close(self):
-        self.logger.debug('Closing CQ')
-        close_weakrefs([self.qps, self.srqs])
-        if self.num_events:
-            self.ack_events(self.num_events)
         if self.cq != NULL:
+            self.logger.debug('Closing CQ')
+            close_weakrefs([self.qps, self.srqs])
+            if self.num_events:
+                self.ack_events(self.num_events)
             rc = v.ibv_destroy_cq(self.cq)
             if rc != 0:
                 raise PyverbsRDMAError('Failed to close CQ', rc)
@@ -322,9 +322,9 @@ cdef class CQEX(PyverbsCM):
         self.close()
 
     cpdef close(self):
-        self.logger.debug('Closing CQEx')
-        close_weakrefs([self.srqs, self.qps])
         if self.cq != NULL:
+            self.logger.debug('Closing CQEx')
+            close_weakrefs([self.srqs, self.qps])
             rc = v.ibv_destroy_cq(<v.ibv_cq*>self.cq)
             if rc != 0:
                 raise PyverbsRDMAError('Failed to destroy CQEX', rc)
