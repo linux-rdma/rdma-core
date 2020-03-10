@@ -1601,7 +1601,7 @@ struct ibv_ah {
 };
 
 enum ibv_flow_flags {
-	IBV_FLOW_ATTR_FLAGS_ALLOW_LOOP_BACK = 1 << 0,
+	/* First bit is deprecated and can't be used */
 	IBV_FLOW_ATTR_FLAGS_DONT_TRAP = 1 << 1,
 	IBV_FLOW_ATTR_FLAGS_EGRESS = 1 << 2,
 };
