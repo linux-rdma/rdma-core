@@ -190,7 +190,7 @@ static void hns_uninit_device(struct verbs_device *verbs_device)
 
 static struct verbs_device *hns_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
-	struct hns_roce_device  *dev;
+	struct hns_roce_device *dev;
 
 	dev = calloc(1, sizeof(*dev));
 	if (!dev)
@@ -198,7 +198,7 @@ static struct verbs_device *hns_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 
 	dev->u_hw = sysfs_dev->match->driver_data;
 	dev->hw_version = dev->u_hw->hw_version;
-	dev->page_size   = sysconf(_SC_PAGESIZE);
+	dev->page_size = sysconf(_SC_PAGESIZE);
 	return &dev->ibv_dev;
 }
 
