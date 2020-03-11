@@ -347,6 +347,7 @@ cdef extern from '<infiniband/verbs.h>':
 
     cpdef enum ibv_cq_init_attr_mask:
         IBV_CQ_INIT_ATTR_MASK_FLAGS
+        IBV_CQ_INIT_ATTR_MASK_PD
 
     cpdef enum ibv_create_cq_attr_flags:
         IBV_CREATE_CQ_ATTR_SINGLE_THREADED

@@ -216,6 +216,7 @@ cdef extern from 'infiniband/verbs.h':
         unsigned long       wc_flags
         unsigned int        comp_mask
         unsigned int        flags
+        ibv_pd              *parent_domain
 
     cdef struct ibv_cq_ex:
         ibv_context         *context

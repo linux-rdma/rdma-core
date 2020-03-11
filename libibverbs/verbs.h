@@ -1946,6 +1946,7 @@ struct ibv_context {
 
 enum ibv_cq_init_attr_mask {
 	IBV_CQ_INIT_ATTR_MASK_FLAGS	= 1 << 0,
+	IBV_CQ_INIT_ATTR_MASK_PD	= 1 << 1,
 };
 
 enum ibv_create_cq_attr_flags {
@@ -1976,6 +1977,7 @@ struct ibv_cq_init_attr_ex {
 	 * enum ibv_create_cq_attr_flags
 	 */
 	uint32_t		flags;
+	struct ibv_pd		*parent_domain;
 };
 
 enum ibv_parent_domain_init_attr_mask {
