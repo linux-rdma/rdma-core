@@ -5,11 +5,13 @@ Provide some useful helper function for pyverbs rdmacm' tests.
 """
 from tests.utils import validate, poll_cq, get_send_element, get_recv_wr
 from tests.base_rdmacm import AsyncCMResources, SyncCMResources
-from pyverbs.pyverbs_error import PyverbsError
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from tests.utils import validate
 from pyverbs.cmid import CMEvent
 import pyverbs.cm_enums as ce
 import abc
+import unittest
+import errno
 import os
 
 
@@ -185,6 +187,8 @@ class CMAsyncConnection(CMConnection):
             self.syncer.wait()
             self.event_handler(expected_event=ce.RDMA_CM_EVENT_CONNECT_REQUEST)
             self.cm_res.create_qp()
+            if self.cm_res.with_ext_qp:
+                self.set_cmids_qp_ece(True)
             self.cm_res.child_id.accept(self.cm_res.create_conn_param())
             if self.cm_res.with_ext_qp:
                 self.cm_res.modify_ext_qp_to_rts()
@@ -196,6 +200,8 @@ class CMAsyncConnection(CMConnection):
             self.cm_res.cmid.resolve_route()
             self.event_handler(expected_event=ce.RDMA_CM_EVENT_ROUTE_RESOLVED)
             self.cm_res.create_qp()
+            if self.cm_res.with_ext_qp:
+                self.set_cmids_qp_ece(False)
             self.cm_res.cmid.connect(self.cm_res.create_conn_param())
             if self.cm_res.with_ext_qp:
                 self.event_handler(expected_event=\
@@ -232,6 +238,22 @@ class CMAsyncConnection(CMConnection):
             self.event_handler(expected_event=ce.RDMA_CM_EVENT_DISCONNECTED)
             self.cm_res.cmid.disconnect()
 
+    def set_cmids_qp_ece(self, passive):
+        """
+        Set the QP ECE.
+        :param passive: Indicates if this CMID is participate as passive in
+                        this connection.
+        """
+        try:
+            if passive:
+                ece = self.cm_res.child_id.get_remote_ece()
+                self.cm_res.qp.set_ece(ece)
+            else:
+                ece = self.cm_res.qp.query_ece()
+                self.cm_res.cmid.set_local_ece(ece)
+        except PyverbsRDMAError as ex:
+            if ex.error_code != errno.EOPNOTSUPP:
+                raise ex
 
 class CMSyncConnection(CMConnection):
     """
