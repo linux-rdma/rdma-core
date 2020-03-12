@@ -6,16 +6,15 @@ Provide some useful helper function for pyverbs rdmacm' tests.
 from tests.utils import validate, poll_cq, get_send_elements, get_recv_wr
 from tests.base_rdmacm import AsyncCMResources, SyncCMResources
 from pyverbs.cmid import CMEvent, AddrInfo, JoinMCAttrEx
-from pyverbs.pyverbs_error import PyverbsError
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 import pyverbs.cm_enums as ce
 from pyverbs.addr import AH
 import pyverbs.enums as e
 import abc
-
+import errno
 
 GRH_SIZE = 40
 MULTICAST_QPN = 0xffffff
-
 
 class CMConnection(abc.ABC):
     """
@@ -243,9 +242,11 @@ class CMAsyncConnection(CMConnection):
             self.syncer.wait()
             self.event_handler(expected_event=ce.RDMA_CM_EVENT_CONNECT_REQUEST)
             self.cm_res.create_qp()
-            self.cm_res.child_id.accept(self.cm_res.create_conn_param())
             if self.cm_res.with_ext_qp:
+                self.set_cmids_qp_ece(self.cm_res.passive)
                 self.cm_res.modify_ext_qp_to_rts()
+                self.set_cmid_ece(self.cm_res.passive)
+            self.cm_res.child_id.accept(self.cm_res.create_conn_param())
             if self.cm_res.port_space == ce.RDMA_PS_TCP:
                 self.event_handler(expected_event=ce.RDMA_CM_EVENT_ESTABLISHED)
         else:
@@ -255,10 +256,13 @@ class CMAsyncConnection(CMConnection):
             self.cm_res.cmid.resolve_route()
             self.event_handler(expected_event=ce.RDMA_CM_EVENT_ROUTE_RESOLVED)
             self.cm_res.create_qp()
+            if self.cm_res.with_ext_qp:
+                self.set_cmid_ece(self.cm_res.passive)
             self.cm_res.cmid.connect(self.cm_res.create_conn_param())
             if self.cm_res.with_ext_qp:
                 self.event_handler(expected_event=\
                     ce.RDMA_CM_EVENT_CONNECT_RESPONSE)
+                self.set_cmids_qp_ece(self.cm_res.passive)
                 self.cm_res.modify_ext_qp_to_rts()
                 self.cm_res.cmid.establish()
             else:
@@ -292,6 +296,33 @@ class CMAsyncConnection(CMConnection):
                 self.event_handler(expected_event=ce.RDMA_CM_EVENT_DISCONNECTED)
                 self.cm_res.cmid.disconnect()
 
+    def set_cmid_ece(self, passive):
+        """
+        Set the local CMIDs ECE. The ECE is taken from the CMIDs QP ECE.
+        :param passive: Indicates if this CMID is participate as passive in
+                        this connection.
+        """
+        cmid = self.cm_res.child_id if passive else self.cm_res.cmid
+        try:
+            ece = self.cm_res.qp.query_ece()
+            cmid.set_local_ece(ece)
+        except PyverbsRDMAError as ex:
+            if ex.error_code != errno.EOPNOTSUPP:
+                raise ex
+
+    def set_cmids_qp_ece(self, passive):
+        """
+        Set the CMIDs QP ECE.
+        :param passive: Indicates if this CMID is participate as passive in
+                        this connection.
+        """
+        cmid = self.cm_res.child_id if passive else self.cm_res.cmid
+        try:
+            ece = cmid.get_remote_ece()
+            self.cm_res.qp.set_ece(ece)
+        except PyverbsRDMAError as ex:
+            if ex.error_code != errno.EOPNOTSUPP:
+                raise ex
 
 class CMSyncConnection(CMConnection):
     """
