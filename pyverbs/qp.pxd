@@ -45,3 +45,6 @@ cdef class DataBuffer(PyverbsCM):
 
 cdef class QPEx(QP):
     cdef v.ibv_qp_ex *qp_ex
+
+cdef class ECE(PyverbsCM):
+    cdef v.ibv_ece ece

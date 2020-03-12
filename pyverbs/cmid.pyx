@@ -2,7 +2,7 @@ from libc.stdint cimport uintptr_t
 from libc.string cimport memset
 
 from pyverbs.pyverbs_error import PyverbsUserError
-from pyverbs.qp cimport QPInitAttr, QPAttr
+from pyverbs.qp cimport QPInitAttr, QPAttr, ECE
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.librdmacm_enums as ce
@@ -535,6 +535,27 @@ cdef class CMID(PyverbsCM):
         ret = cm.rdma_establish(self.id)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to Complete an active connection request')
+
+    def set_local_ece(self, ECE ece):
+        """
+        Set local ECE paraemters to be used for REQ/REP communication.
+        :param ece: ECE object with the requested configuration
+        :return: None
+        """
+        rc = cm.rdma_set_local_ece(self.id, &ece.ece)
+        if rc != 0:
+            raise PyverbsRDMAErrno('Failed to set local ECE')
+
+    def get_remote_ece(self):
+        """
+        Get ECE parameters as were received from the communication peer.
+        :return: ECE object with the ece configuration
+        """
+        ece = ECE()
+        rc = cm.rdma_get_remote_ece(self.id, &ece.ece)
+        if rc != 0:
+            raise PyverbsRDMAErrno('Failed to get remote ECE')
+        return ece
 
     def create_qp(self, QPInitAttr qp_init not None):
         """

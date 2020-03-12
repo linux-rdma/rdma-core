@@ -102,6 +102,8 @@ cdef extern from '<rdma/rdma_cma.h>':
     int rdma_create_id(rdma_event_channel *channel, rdma_cm_id **id,
                        void *context, rdma_port_space ps)
     int rdma_destroy_id(rdma_cm_id *id)
+    int rdma_get_remote_ece(rdma_cm_id *id, ibv_ece *ece)
+    int rdma_set_local_ece(rdma_cm_id *id, ibv_ece *ece)
     int rdma_get_request(rdma_cm_id *listen, rdma_cm_id **id)
     int rdma_bind_addr(rdma_cm_id *id, sockaddr *addr)
     int rdma_resolve_addr(rdma_cm_id *id, sockaddr *src_addr,
