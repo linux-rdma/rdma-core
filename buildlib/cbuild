@@ -257,7 +257,7 @@ class APTEnvironment(Environment):
     build_python = True;
     def get_docker_file(self,tmpdir):
         res = DockerFile(self.docker_parent);
-        res.lines.append("RUN apt-get update && apt-get install -y --no-install-recommends %s && apt-get clean && rm -rf /usr/share/doc/ /usr/lib/debug /var/lib/apt/lists/"%(
+        res.lines.append("RUN apt-get update; apt-get install -y --no-install-recommends %s && apt-get clean && rm -rf /usr/share/doc/ /usr/lib/debug /var/lib/apt/lists/"%(
             " ".join(sorted(self.pkgs))));
         return res;
 
