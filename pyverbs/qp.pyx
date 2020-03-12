@@ -4,9 +4,8 @@
 from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
 
+from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError, PyverbsRDMAError
 from pyverbs.utils import gid_str, qp_type_to_str, qp_state_to_str, mtu_to_str
-from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError, \
-    PyverbsRDMAError
 from pyverbs.utils import access_flags_to_str, mig_state_to_str
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.wr cimport RecvWR, SendWR, SGE
@@ -871,6 +870,27 @@ cdef class QPAttr(PyverbsObject):
                print_format.format('Rate limit', self.attr.rate_limit)
 
 
+cdef class ECE(PyverbsCM):
+    def __init__(self, vendor_id=0, options=0, comp_mask=0):
+        """
+        :param vendor_id: Unique identifier of the provider vendor.
+        :param options: Provider specific attributes which are supported or
+                        needed to be enabled by ECE users.
+        :param comp_mask: A bitmask specifying which ECE options should be
+                          valid.
+        """
+        super().__init__()
+        self.ece.vendor_id = vendor_id
+        self.ece.options = options
+        self.ece.comp_mask = comp_mask
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        print_format.format('Vendor ID', self.ece.vendor_id) +\
+        print_format.format('Options', self.ece.options) +\
+        print_format.format('Comp Mask', self.ece.comp_mask)
+
+
 cdef class QP(PyverbsCM):
     def __init__(self, object creator not None, object init_attr not None,
                  QPAttr qp_attr=None):
@@ -1132,6 +1152,30 @@ cdef class QP(PyverbsCM):
             if (bad_wr):
                 memcpy(&bad_wr.send_wr, my_bad_wr, sizeof(bad_wr.send_wr))
             raise PyverbsRDMAError('Failed to post send', rc)
+
+    def set_ece(self, ECE ece):
+        """
+        Set ECE options and use them for QP configuration stage
+        :param ece: The requested ECE values.
+        :return: None
+        """
+        if ece.ece.vendor_id == 0:
+            return
+
+        rc = v.ibv_set_ece(self.qp, &ece.ece)
+        if rc != 0:
+            raise PyverbsRDMAError('Failed to set ECE', rc)
+
+    def query_ece(self):
+        """
+        Query QPs ECE options
+        :return: ECE object with this QP ece configuration.
+        """
+        ece = ECE()
+        rc = v.ibv_query_ece(self.qp, &ece.ece)
+        if rc != 0:
+            raise PyverbsRDMAError('Failed to query ECE', rc)
+        return ece
 
     @property
     def qp_type(self):
