@@ -1525,6 +1525,17 @@ int mlx5dv_dump_dr_table(FILE *fout, struct mlx5dv_dr_table *table);
 int mlx5dv_dump_dr_matcher(FILE *fout, struct mlx5dv_dr_matcher *matcher);
 int mlx5dv_dump_dr_rule(FILE *fout, struct mlx5dv_dr_rule *rule);
 
+struct mlx5dv_pp {
+	uint16_t index;
+};
+
+struct mlx5dv_pp *mlx5dv_pp_alloc(struct ibv_context *context,
+				  size_t pp_context_sz,
+				  const void *pp_context,
+				  uint32_t flags);
+
+void mlx5dv_pp_free(struct mlx5dv_pp *pp);
+
 #ifdef __cplusplus
 }
 #endif

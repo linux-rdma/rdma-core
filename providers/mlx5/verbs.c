@@ -4985,3 +4985,72 @@ void mlx5dv_free_var(struct mlx5dv_var *dv_var)
 
 	free(obj);
 }
+
+struct mlx5dv_pp *mlx5dv_pp_alloc(struct ibv_context *context,
+				  size_t pp_context_sz,
+				  const void *pp_context,
+				  uint32_t flags)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_PP,
+			       MLX5_IB_METHOD_PP_OBJ_ALLOC,
+			       4);
+
+	struct ib_uverbs_attr *handle;
+	struct mlx5_pp_obj *obj;
+	int ret;
+
+	if (!is_mlx5_dev(context->device)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (!check_comp_mask(flags,
+	    MLX5_IB_UAPI_PP_ALLOC_FLAGS_DEDICATED_INDEX)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	obj = calloc(1, sizeof(*obj));
+	if (!obj) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	handle = fill_attr_out_obj(cmd, MLX5_IB_ATTR_PP_OBJ_ALLOC_HANDLE);
+	fill_attr_in(cmd, MLX5_IB_ATTR_PP_OBJ_ALLOC_CTX,
+		     pp_context, pp_context_sz);
+	fill_attr_const_in(cmd, MLX5_IB_ATTR_PP_OBJ_ALLOC_FLAGS, flags);
+	fill_attr_out_ptr(cmd, MLX5_IB_ATTR_PP_OBJ_ALLOC_INDEX,
+		      &obj->dv_pp.index);
+
+	ret = execute_ioctl(context, cmd);
+	if (ret)
+		goto err;
+
+	obj->handle = read_attr_obj(MLX5_IB_ATTR_PP_OBJ_ALLOC_HANDLE, handle);
+	obj->context = context;
+
+	return &obj->dv_pp;
+
+err:
+	free(obj);
+	return NULL;
+}
+
+void mlx5dv_pp_free(struct mlx5dv_pp *dv_pp)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_PP,
+			       MLX5_IB_METHOD_PP_OBJ_DESTROY,
+			       1);
+
+	struct mlx5_pp_obj *obj = container_of(dv_pp, struct mlx5_pp_obj,
+					       dv_pp);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_PP_OBJ_DESTROY_HANDLE, obj->handle);
+	if (execute_ioctl(obj->context, cmd))
+		assert(false);
+
+	free(obj);
+}
