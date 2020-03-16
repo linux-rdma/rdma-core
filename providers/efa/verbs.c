@@ -220,13 +220,38 @@ int efa_dereg_mr(struct verbs_mr *vmr)
 	return 0;
 }
 
+static uint32_t efa_wq_get_next_wrid_idx_locked(struct efa_wq *wq,
+						uint64_t wr_id)
+{
+	uint32_t wrid_idx;
+
+	/* Get the next wrid to be used from the index pool */
+	wrid_idx = wq->wrid_idx_pool[wq->wrid_idx_pool_next];
+	wq->wrid[wrid_idx] = wr_id;
+
+	/* Will never overlap, as validate function succeeded */
+	wq->wrid_idx_pool_next++;
+	assert(wq->wrid_idx_pool_next <= wq->wqe_cnt);
+
+	return wrid_idx;
+}
+
+static void efa_wq_put_wrid_idx_unlocked(struct efa_wq *wq, uint32_t wrid_idx)
+{
+	pthread_spin_lock(&wq->wqlock);
+	wq->wrid_idx_pool_next--;
+	wq->wrid_idx_pool[wq->wrid_idx_pool_next] = wrid_idx;
+	wq->wqe_completed++;
+	pthread_spin_unlock(&wq->wqlock);
+}
+
 static uint32_t efa_sub_cq_get_current_index(struct efa_sub_cq *sub_cq)
 {
 	return sub_cq->consumed_cnt & sub_cq->qmask;
 }
 
 static int efa_cqe_is_pending(struct efa_io_cdesc_common *cqe_common,
-				 int phase)
+			      int phase)
 {
 	return EFA_GET(&cqe_common->flags, EFA_IO_CDESC_COMMON_PHASE) == phase;
 }
@@ -238,8 +263,172 @@ efa_sub_cq_get_cqe(struct efa_sub_cq *sub_cq, int entry)
 					      (entry * sub_cq->cqe_size));
 }
 
+static struct efa_io_cdesc_common *
+cq_next_sub_cqe_get(struct efa_sub_cq *sub_cq)
+{
+	struct efa_io_cdesc_common *cqe;
+	uint32_t current_index;
+
+	current_index = efa_sub_cq_get_current_index(sub_cq);
+	cqe = efa_sub_cq_get_cqe(sub_cq, current_index);
+	if (efa_cqe_is_pending(cqe, sub_cq->phase)) {
+		/* Do not read the rest of the completion entry before the
+		 * phase bit has been validated.
+		 */
+		udma_from_device_barrier();
+		sub_cq->consumed_cnt++;
+		if (!efa_sub_cq_get_current_index(sub_cq))
+			sub_cq->phase = 1 - sub_cq->phase;
+		return cqe;
+	}
+
+	return NULL;
+}
+
+static enum ibv_wc_status to_ibv_status(enum efa_io_comp_status status)
+{
+	switch (status) {
+	case EFA_IO_COMP_STATUS_OK:
+		return IBV_WC_SUCCESS;
+	case EFA_IO_COMP_STATUS_FLUSHED:
+		return IBV_WC_WR_FLUSH_ERR;
+	case EFA_IO_COMP_STATUS_LOCAL_ERROR_QP_INTERNAL_ERROR:
+	case EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_OP_TYPE:
+	case EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_AH:
+		return IBV_WC_LOC_QP_OP_ERR;
+	case EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_LKEY:
+		return IBV_WC_LOC_PROT_ERR;
+	case EFA_IO_COMP_STATUS_LOCAL_ERROR_BAD_LENGTH:
+		return IBV_WC_LOC_LEN_ERR;
+	case EFA_IO_COMP_STATUS_REMOTE_ERROR_ABORT:
+		return IBV_WC_REM_ABORT_ERR;
+	case EFA_IO_COMP_STATUS_REMOTE_ERROR_RNR:
+		return IBV_WC_RNR_RETRY_EXC_ERR;
+	case EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_DEST_QPN:
+		return IBV_WC_REM_INV_RD_REQ_ERR;
+	case EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_STATUS:
+		return IBV_WC_BAD_RESP_ERR;
+	case EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_LENGTH:
+		return IBV_WC_REM_INV_REQ_ERR;
+	case EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_ADDRESS:
+	default:
+		return IBV_WC_GENERAL_ERR;
+	}
+}
+
+static void efa_process_cqe(struct efa_cq *cq, struct ibv_wc *wc,
+			    struct efa_qp *qp)
+{
+	struct efa_io_cdesc_common *cqe = cq->cur_cqe;
+	uint32_t wrid_idx;
+
+	wc->status = to_ibv_status(cqe->status);
+	wc->vendor_err = cqe->status;
+	wc->wc_flags = 0;
+	wc->qp_num = cqe->qp_num;
+
+	if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_Q_TYPE) ==
+	    EFA_IO_SEND_QUEUE) {
+		cq->cur_wq = &qp->sq.wq;
+		wc->opcode = IBV_WC_SEND;
+	} else {
+		struct efa_io_rx_cdesc *rcqe =
+			container_of(cqe, struct efa_io_rx_cdesc, common);
+
+		cq->cur_wq = &qp->rq.wq;
+
+		wc->byte_len = cqe->length;
+		wc->opcode = IBV_WC_RECV;
+		wc->src_qp = rcqe->src_qp_num;
+		wc->sl = 0;
+		wc->slid = rcqe->ah;
+
+		if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_HAS_IMM)) {
+			wc->imm_data = htobe32(rcqe->imm);
+			wc->wc_flags |= IBV_WC_WITH_IMM;
+		}
+	}
+
+	wrid_idx = cqe->req_id;
+	/* We do not have to take the WQ lock here,
+	 * because this wrid index has not been freed yet,
+	 * so there is no contention on this index.
+	 */
+	wc->wr_id = cq->cur_wq->wrid[wrid_idx];
+}
+
+static int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
+			   struct efa_qp **cur_qp, struct ibv_wc *wc)
+{
+	struct efa_context *ctx = to_efa_context(cq->ibvcq.context);
+	uint32_t qpn;
+
+	cq->cur_cqe = cq_next_sub_cqe_get(sub_cq);
+	if (!cq->cur_cqe)
+		return ENOENT;
+
+	qpn = cq->cur_cqe->qp_num;
+	if (!*cur_qp || qpn != (*cur_qp)->verbs_qp.qp.qp_num) {
+		/* We do not have to take the QP table lock here,
+		 * because CQs will be locked while QPs are removed
+		 * from the table.
+		 */
+		*cur_qp = ctx->qp_table[qpn & ctx->qp_table_sz_m1];
+		if (!*cur_qp)
+			return EINVAL;
+	}
+
+	efa_process_cqe(cq, wc, *cur_qp);
+	efa_wq_put_wrid_idx_unlocked(cq->cur_wq, cq->cur_cqe->req_id);
+
+	return 0;
+}
+
+static int efa_poll_sub_cqs(struct efa_cq *cq, struct ibv_wc *wc)
+{
+	uint16_t num_sub_cqs = cq->num_sub_cqs;
+	struct efa_sub_cq *sub_cq;
+	struct efa_qp *qp = NULL;
+	uint16_t sub_cq_idx;
+	int err = ENOENT;
+
+	for (sub_cq_idx = 0; sub_cq_idx < num_sub_cqs; sub_cq_idx++) {
+		sub_cq = &cq->sub_cq_arr[cq->next_poll_idx++];
+		cq->next_poll_idx %= num_sub_cqs;
+
+		if (!sub_cq->ref_cnt)
+			continue;
+
+		err = efa_poll_sub_cq(cq, sub_cq, &qp, wc);
+		if (err != ENOENT)
+			break;
+	}
+
+	return err;
+}
+
+int efa_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
+{
+	struct efa_cq *cq = to_efa_cq(ibvcq);
+	int ret = 0;
+	int i;
+
+	pthread_spin_lock(&cq->lock);
+	for (i = 0; i < nwc; i++) {
+		ret = efa_poll_sub_cqs(cq, &wc[i]);
+		if (ret) {
+			if (ret == ENOENT)
+				ret = 0;
+			break;
+		}
+	}
+	pthread_spin_unlock(&cq->lock);
+
+	return i ?: -ret;
+}
+
 static void efa_sub_cq_initialize(struct efa_sub_cq *sub_cq, uint8_t *buf,
-				     int sub_cq_size, int cqe_size)
+				  int sub_cq_size, int cqe_size)
 {
 	sub_cq->consumed_cnt = 0;
 	sub_cq->phase = 1;
@@ -327,163 +516,6 @@ int efa_destroy_cq(struct ibv_cq *ibvcq)
 	free(cq);
 
 	return 0;
-}
-
-static struct efa_io_cdesc_common *
-cq_next_sub_cqe_get(struct efa_sub_cq *sub_cq)
-{
-	struct efa_io_cdesc_common *cqe;
-	uint32_t current_index;
-
-	current_index = efa_sub_cq_get_current_index(sub_cq);
-	cqe = efa_sub_cq_get_cqe(sub_cq, current_index);
-	if (efa_cqe_is_pending(cqe, sub_cq->phase)) {
-		/* Do not read the rest of the completion entry before the
-		 * phase bit has been validated.
-		 */
-		udma_from_device_barrier();
-		sub_cq->consumed_cnt++;
-		if (!efa_sub_cq_get_current_index(sub_cq))
-			sub_cq->phase = 1 - sub_cq->phase;
-		return cqe;
-	}
-
-	return NULL;
-}
-
-static enum ibv_wc_status to_ibv_status(enum efa_io_comp_status status)
-{
-	switch (status) {
-	case EFA_IO_COMP_STATUS_OK:
-		return IBV_WC_SUCCESS;
-	case EFA_IO_COMP_STATUS_FLUSHED:
-		return IBV_WC_WR_FLUSH_ERR;
-	case EFA_IO_COMP_STATUS_LOCAL_ERROR_QP_INTERNAL_ERROR:
-	case EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_OP_TYPE:
-	case EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_AH:
-		return IBV_WC_LOC_QP_OP_ERR;
-	case EFA_IO_COMP_STATUS_LOCAL_ERROR_INVALID_LKEY:
-		return IBV_WC_LOC_PROT_ERR;
-	case EFA_IO_COMP_STATUS_LOCAL_ERROR_BAD_LENGTH:
-		return IBV_WC_LOC_LEN_ERR;
-	case EFA_IO_COMP_STATUS_REMOTE_ERROR_ABORT:
-		return IBV_WC_REM_ABORT_ERR;
-	case EFA_IO_COMP_STATUS_REMOTE_ERROR_RNR:
-		return IBV_WC_RNR_RETRY_EXC_ERR;
-	case EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_DEST_QPN:
-		return IBV_WC_REM_INV_RD_REQ_ERR;
-	case EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_STATUS:
-		return IBV_WC_BAD_RESP_ERR;
-	case EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_LENGTH:
-		return IBV_WC_REM_INV_REQ_ERR;
-	case EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_ADDRESS:
-	default:
-		return IBV_WC_GENERAL_ERR;
-	}
-}
-
-static int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
-			   struct efa_qp **cur_qp, struct ibv_wc *wc)
-{
-	struct efa_context *ctx = to_efa_context(cq->ibvcq.context);
-	struct efa_io_cdesc_common *cqe;
-	uint32_t qpn, wrid_idx;
-	struct efa_wq *wq;
-
-	cqe = cq_next_sub_cqe_get(sub_cq);
-	if (!cqe)
-		return ENOENT;
-
-	qpn = cqe->qp_num;
-	if (!*cur_qp || qpn != (*cur_qp)->verbs_qp.qp.qp_num) {
-		/* We do not have to take the QP table lock here,
-		 * because CQs will be locked while QPs are removed
-		 * from the table.
-		 */
-		*cur_qp = ctx->qp_table[qpn & ctx->qp_table_sz_m1];
-		if (!*cur_qp)
-			return EINVAL;
-	}
-
-	wrid_idx = cqe->req_id;
-	wc->status = to_ibv_status(cqe->status);
-	wc->vendor_err = cqe->status;
-	wc->wc_flags = 0;
-	wc->qp_num = qpn;
-
-	if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_Q_TYPE) ==
-	    EFA_IO_SEND_QUEUE) {
-		wq = &(*cur_qp)->sq.wq;
-		wc->opcode = IBV_WC_SEND;
-	} else {
-		struct efa_io_rx_cdesc *rcqe =
-			container_of(cqe, struct efa_io_rx_cdesc, common);
-
-		wq = &(*cur_qp)->rq.wq;
-
-		wc->byte_len = cqe->length;
-		wc->opcode = IBV_WC_RECV;
-		wc->src_qp = rcqe->src_qp_num;
-		wc->sl = 0;
-		wc->slid = rcqe->ah;
-
-		if (EFA_GET(&cqe->flags, EFA_IO_CDESC_COMMON_HAS_IMM)) {
-			wc->imm_data = htobe32(rcqe->imm);
-			wc->wc_flags |= IBV_WC_WITH_IMM;
-		}
-	}
-
-	pthread_spin_lock(&wq->wqlock);
-	wq->wrid_idx_pool_next--;
-	wq->wrid_idx_pool[wq->wrid_idx_pool_next] = wrid_idx;
-	wc->wr_id = wq->wrid[wrid_idx];
-	wq->wqe_completed++;
-	pthread_spin_unlock(&wq->wqlock);
-
-	return 0;
-}
-
-static int efa_poll_sub_cqs(struct efa_cq *cq, struct ibv_wc *wc)
-{
-	uint16_t num_sub_cqs = cq->num_sub_cqs;
-	struct efa_sub_cq *sub_cq;
-	struct efa_qp *qp = NULL;
-	uint16_t sub_cq_idx;
-	int err = ENOENT;
-
-	for (sub_cq_idx = 0; sub_cq_idx < num_sub_cqs; sub_cq_idx++) {
-		sub_cq = &cq->sub_cq_arr[cq->next_poll_idx++];
-		cq->next_poll_idx %= num_sub_cqs;
-
-		if (!sub_cq->ref_cnt)
-			continue;
-
-		err = efa_poll_sub_cq(cq, sub_cq, &qp, wc);
-		if (err != ENOENT)
-			break;
-	}
-
-	return err;
-}
-
-int efa_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
-{
-	struct efa_cq *cq = to_efa_cq(ibvcq);
-	int ret = 0;
-	int i;
-
-	pthread_spin_lock(&cq->lock);
-	for (i = 0; i < nwc; i++) {
-		ret = efa_poll_sub_cqs(cq, &wc[i]);
-		if (ret) {
-			if (ret == ENOENT)
-				ret = 0;
-			break;
-		}
-	}
-	pthread_spin_unlock(&cq->lock);
-
-	return i ?: -ret;
 }
 
 static void efa_cq_inc_ref_cnt(struct efa_cq *cq, uint8_t sub_cq_idx)
@@ -1135,21 +1167,6 @@ static inline void efa_sq_ring_doorbell(struct efa_sq *sq, uint16_t pc)
 	mmio_write32(sq->wq.db, pc);
 }
 
-static uint32_t efa_wq_get_next_wrid_idx(struct efa_wq *wq, uint64_t wr_id)
-{
-	uint32_t wrid_idx;
-
-	/* Get the next wrid to be used from the index pool */
-	wrid_idx = wq->wrid_idx_pool[wq->wrid_idx_pool_next];
-	wq->wrid[wrid_idx] = wr_id;
-
-	/* Will never overlap, as validate function succeeded */
-	wq->wrid_idx_pool_next++;
-	assert(wq->wrid_idx_pool_next <= wq->wqe_cnt);
-
-	return wrid_idx;
-}
-
 static void efa_set_common_ctrl_flags(struct efa_io_tx_meta_desc *desc,
 				      struct efa_qp *qp,
 				      enum efa_io_send_op_type op_type)
@@ -1248,7 +1265,8 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 
 		/* Set rest of the descriptor fields */
 		efa_set_common_ctrl_flags(meta_desc, qp, EFA_IO_SEND);
-		meta_desc->req_id = efa_wq_get_next_wrid_idx(&qp->sq.wq, wr->wr_id);
+		meta_desc->req_id = efa_wq_get_next_wrid_idx_locked(&qp->sq.wq,
+								    wr->wr_id);
 		meta_desc->dest_qp_num = wr->wr.ud.remote_qpn;
 		meta_desc->ah = ah->efa_ah;
 		meta_desc->qkey = wr->wr.ud.remote_qkey;
@@ -1297,7 +1315,8 @@ static int efa_send_wr_common(struct ibv_qp_ex *ibvqpx,
 
 	meta_desc = &qp->sq.curr_tx_wqe->meta;
 	efa_set_common_ctrl_flags(meta_desc, qp, op_type);
-	meta_desc->req_id = efa_wq_get_next_wrid_idx(&qp->sq.wq, ibvqpx->wr_id);
+	meta_desc->req_id = efa_wq_get_next_wrid_idx_locked(&qp->sq.wq,
+							    ibvqpx->wr_id);
 
 	/* advance index and change phase */
 	efa_sq_advance_post_idx(qp);
@@ -1611,7 +1630,8 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 
 		memset(&rx_buf, 0, sizeof(rx_buf));
 
-		rx_buf.req_id = efa_wq_get_next_wrid_idx(&qp->rq.wq, wr->wr_id);
+		rx_buf.req_id = efa_wq_get_next_wrid_idx_locked(&qp->rq.wq,
+								wr->wr_id);
 		qp->rq.wq.wqe_posted++;
 
 		/* Default init of the rx buffer */
