@@ -38,7 +38,6 @@
 #include <sys/mman.h>
 #include <ccan/ilog.h>
 #include <ccan/minmax.h>
-#include <util/util.h>
 #include "hns_roce_u.h"
 #include "hns_roce_u_abi.h"
 #include "hns_roce_u_db.h"
@@ -255,17 +254,6 @@ static int align_cq_size(int req)
 	int nent;
 
 	for (nent = HNS_ROCE_MIN_CQE_NUM; nent < req; nent <<= 1)
-		;
-
-	return nent;
-}
-
-/* must check min depth before align */
-static int align_qp_size(int req)
-{
-	int nent;
-
-	for (nent = HNS_ROCE_V1_MIN_WQE_NUM; nent < req; nent <<= 1)
 		;
 
 	return nent;
@@ -591,9 +579,6 @@ static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 	if (attr->cap.max_recv_wr && attr->cap.max_recv_wr < min_wqe_num)
 		attr->cap.max_recv_wr = min_wqe_num;
 
-	if (attr->cap.max_recv_sge < 1)
-		attr->cap.max_recv_sge = 1;
-
 	if ((attr->qp_type != IBV_QPT_RC) && (attr->qp_type != IBV_QPT_UD))
 		return EINVAL;
 
@@ -607,24 +592,23 @@ static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 static int hns_roce_alloc_recv_inl_buf(struct ibv_qp_cap *cap,
 				       struct hns_roce_qp *qp)
 {
+	unsigned int cnt;
 	int i;
 
-	qp->rq_rinl_buf.wqe_list = calloc(qp->rq.wqe_cnt,
+	cnt = qp->rq_rinl_buf.wqe_cnt;
+	qp->rq_rinl_buf.wqe_list = calloc(cnt,
 					  sizeof(struct hns_roce_rinl_wqe));
 	if (!qp->rq_rinl_buf.wqe_list)
-		return -1;
+		return ENOMEM;
 
-	qp->rq_rinl_buf.wqe_cnt = qp->rq.wqe_cnt;
-
-	qp->rq_rinl_buf.wqe_list[0].sg_list =
-				calloc(qp->rq.wqe_cnt * cap->max_recv_sge,
-				       sizeof(struct hns_roce_rinl_sge));
+	qp->rq_rinl_buf.wqe_list[0].sg_list = calloc(cnt * cap->max_recv_sge,
+					sizeof(struct hns_roce_rinl_sge));
 	if (!qp->rq_rinl_buf.wqe_list[0].sg_list) {
 		free(qp->rq_rinl_buf.wqe_list);
-		return -1;
+		return ENOMEM;
 	}
 
-	for (i = 0; i < qp->rq_rinl_buf.wqe_cnt; i++) {
+	for (i = 0; i < cnt; i++) {
 		int wqe_size = i * cap->max_recv_sge;
 
 		qp->rq_rinl_buf.wqe_list[i].sg_list =
@@ -634,72 +618,64 @@ static int hns_roce_alloc_recv_inl_buf(struct ibv_qp_cap *cap,
 	return 0;
 }
 
-static int hns_roce_calc_qp_buff_size(struct ibv_pd *pd, struct ibv_qp_cap *cap,
-				      enum ibv_qp_type type,
-				      struct hns_roce_qp *qp)
+static void hns_roce_free_recv_inl_buf(struct hns_roce_qp *qp)
 {
-	int page_size = to_hr_dev(pd->context->device)->page_size;
-
-	if (to_hr_dev(pd->context->device)->hw_version == HNS_ROCE_HW_VER1) {
-		qp->rq.wqe_shift = hr_ilog32(sizeof(struct hns_roce_rc_rq_wqe));
-
-		qp->buf_size = align((qp->sq.wqe_cnt << qp->sq.wqe_shift),
-				     page_size) +
-			       (qp->rq.wqe_cnt << qp->rq.wqe_shift);
-
-		if (qp->rq.wqe_shift > qp->sq.wqe_shift) {
-			qp->rq.offset = 0;
-			qp->sq.offset = qp->rq.wqe_cnt << qp->rq.wqe_shift;
-		} else {
-			qp->rq.offset = align((qp->sq.wqe_cnt <<
-					      qp->sq.wqe_shift), page_size);
-			qp->sq.offset = 0;
+	if (qp->rq_rinl_buf.wqe_list) {
+		if (qp->rq_rinl_buf.wqe_list[0].sg_list) {
+			free(qp->rq_rinl_buf.wqe_list[0].sg_list);
+			qp->rq_rinl_buf.wqe_list[0].sg_list = NULL;
 		}
-	} else {
-		unsigned int rqwqe_size = HNS_ROCE_SGE_SIZE * cap->max_recv_sge;
 
-		qp->rq.wqe_shift = hr_ilog32(rqwqe_size);
-
-		if (qp->sq.max_gs > HNS_ROCE_SGE_IN_WQE || type == IBV_QPT_UD)
-			qp->ex_sge.sge_shift = HNS_ROCE_SGE_SHIFT;
-		else
-			qp->ex_sge.sge_shift = 0;
-
-		/* alloc recv inline buf */
-		if (hns_roce_alloc_recv_inl_buf(cap, qp))
-			return -1;
-
-		qp->buf_size = align((qp->sq.wqe_cnt << qp->sq.wqe_shift),
-				     page_size) +
-			       align((qp->ex_sge.sge_cnt <<
-				      qp->ex_sge.sge_shift),
-				     page_size) +
-			       (qp->rq.wqe_cnt << qp->rq.wqe_shift);
-
-		if (qp->ex_sge.sge_cnt) {
-			qp->sq.offset = 0;
-			qp->ex_sge.offset = align((qp->sq.wqe_cnt <<
-						   qp->sq.wqe_shift),
-						  page_size);
-			qp->rq.offset = qp->ex_sge.offset +
-					align((qp->ex_sge.sge_cnt <<
-					       qp->ex_sge.sge_shift),
-					      page_size);
-		} else {
-			qp->sq.offset = 0;
-			qp->ex_sge.offset = 0;
-			qp->rq.offset = align((qp->sq.wqe_cnt <<
-					       qp->sq.wqe_shift), page_size);
-		}
+		free(qp->rq_rinl_buf.wqe_list);
+		qp->rq_rinl_buf.wqe_list = NULL;
 	}
+}
+
+static int calc_qp_buff_size(struct ibv_pd *pd, struct hns_roce_qp *qp)
+{
+	struct hns_roce_wq *sq, *rq;
+	unsigned int size;
+
+	if (to_hr_dev(pd->context->device)->hw_version == HNS_ROCE_HW_VER1 &&
+	    qp->rq.wqe_shift > qp->sq.wqe_shift) {
+		sq = &qp->rq;
+		rq = &qp->sq;
+	} else {
+		sq = &qp->sq;
+		rq = &qp->rq;
+	}
+
+	qp->buf_size = 0;
+
+	/* SQ WQE */
+	sq->offset = 0;
+	size = to_hr_hem_entries_size(sq->wqe_cnt, sq->wqe_shift);
+	qp->buf_size += size;
+
+	/* extend SGE WQE in SQ */
+	qp->ex_sge.offset = qp->buf_size;
+	if (qp->ex_sge.sge_cnt > 0) {
+		size = to_hr_hem_entries_size(qp->ex_sge.sge_cnt,
+					      qp->ex_sge.sge_shift);
+		qp->buf_size += size;
+	}
+
+	/* RQ WQE */
+	rq->offset = qp->buf_size;
+	size = to_hr_hem_entries_size(rq->wqe_cnt, rq->wqe_shift);
+	qp->buf_size += size;
+
+	if (qp->buf_size < 1)
+		return EINVAL;
 
 	return 0;
 }
 
 static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
-				 enum ibv_qp_type type, struct hns_roce_qp *qp)
+				 struct hns_roce_qp *qp)
 {
-	int page_size = to_hr_dev(pd->context->device)->page_size;
+	if (calc_qp_buff_size(pd, qp))
+		return EINVAL;
 
 	qp->sq.wrid = malloc(qp->sq.wqe_cnt * sizeof(uint64_t));
 	if (!qp->sq.wrid)
@@ -707,28 +683,51 @@ static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
 
 	if (qp->rq.wqe_cnt) {
 		qp->rq.wrid = malloc(qp->rq.wqe_cnt * sizeof(uint64_t));
-		if (!qp->rq.wrid) {
-			free(qp->sq.wrid);
-			return -1;
-		}
+		if (!qp->rq.wrid)
+			goto err_alloc;
 	}
 
-	if (hns_roce_calc_qp_buff_size(pd, cap, type, qp)) {
-		if (qp->rq.wqe_cnt)
-			free(qp->rq.wrid);
-		free(qp->sq.wrid);
-		return -1;
+	if (qp->rq_rinl_buf.wqe_cnt) {
+		if (hns_roce_alloc_recv_inl_buf(cap, qp))
+			goto err_alloc;
 	}
 
-	if (hns_roce_alloc_buf(&qp->buf, align(qp->buf_size, page_size),
-			       to_hr_dev(pd->context->device)->page_size)) {
-		if (qp->rq.wqe_cnt)
-			free(qp->rq.wrid);
-		free(qp->sq.wrid);
-		return -1;
-	}
+	if (hns_roce_alloc_buf(&qp->buf, qp->buf_size, HNS_HW_PAGE_SIZE))
+		goto err_alloc;
 
 	return 0;
+
+err_alloc:
+	hns_roce_free_recv_inl_buf(qp);
+	if (qp->rq.wrid)
+		free(qp->rq.wrid);
+
+	if (qp->sq.wrid)
+		free(qp->sq.wrid);
+
+	return ENOMEM;
+}
+
+static void set_extend_sge_param(struct hns_roce_device *hr_dev,
+				 struct ibv_qp_init_attr *attr,
+				 struct hns_roce_qp *qp, unsigned int wr_cnt)
+{
+	int cnt = 0;
+
+	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
+		qp->sq.max_gs = HNS_ROCE_SGE_IN_WQE;
+	} else {
+		qp->sq.max_gs = attr->cap.max_send_sge;
+		if (attr->qp_type == IBV_QPT_UD)
+			cnt = roundup_pow_of_two(wr_cnt * qp->sq.max_gs);
+		else if (qp->sq.max_gs > HNS_ROCE_SGE_IN_WQE)
+			cnt = roundup_pow_of_two(wr_cnt *
+						 (qp->sq.max_gs -
+						  HNS_ROCE_SGE_IN_WQE));
+	}
+
+	qp->ex_sge.sge_shift = HNS_ROCE_SGE_SHIFT;
+	qp->ex_sge.sge_cnt = cnt;
 }
 
 static void hns_roce_set_qp_params(struct ibv_pd *pd,
@@ -736,35 +735,36 @@ static void hns_roce_set_qp_params(struct ibv_pd *pd,
 				   struct hns_roce_qp *qp,
 				   struct hns_roce_context *ctx)
 {
-	unsigned int sge_ex_count;
+	struct hns_roce_device *hr_dev = to_hr_dev(pd->context->device);
+	unsigned int cnt;
 
-	if (to_hr_dev(pd->context->device)->hw_version == HNS_ROCE_HW_VER1) {
-		qp->sq.wqe_cnt = align_qp_size(attr->cap.max_send_wr);
-		qp->rq.wqe_cnt = align_qp_size(attr->cap.max_recv_wr);
-	} else {
-		qp->sq.wqe_cnt = align_queue_size(attr->cap.max_send_wr);
-		qp->rq.wqe_cnt = align_queue_size(attr->cap.max_recv_wr);
-	}
+	/* RQ WQE */
+	qp->rq.max_gs = max(1U, attr->cap.max_recv_sge);
+	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
+		qp->rq.wqe_shift = hr_ilog32(sizeof(struct hns_roce_rc_rq_wqe));
+	else
+		qp->rq.wqe_shift = hr_ilog32(HNS_ROCE_SGE_SIZE * qp->rq.max_gs);
 
+	cnt = roundup_pow_of_two(attr->cap.max_recv_wr);
+	qp->rq.wqe_cnt = cnt;
+	qp->rq.shift = hr_ilog32(cnt);
+	if (to_hr_dev(pd->context->device)->hw_version == HNS_ROCE_HW_VER1)
+		qp->rq_rinl_buf.wqe_cnt = 0;
+	else
+		qp->rq_rinl_buf.wqe_cnt = cnt;
+
+	/* SQ WQE */
 	qp->sq.wqe_shift = hr_ilog32(sizeof(struct hns_roce_rc_send_wqe));
-	qp->sq.shift = hr_ilog32(qp->sq.wqe_cnt);
-	qp->rq.max_gs = attr->cap.max_recv_sge;
+	cnt = roundup_pow_of_two(attr->cap.max_send_wr);
+	qp->sq.wqe_cnt = cnt;
+	qp->sq.shift = hr_ilog32(cnt);
 
-	if (to_hr_dev(pd->context->device)->hw_version == HNS_ROCE_HW_VER1) {
-		qp->sq.max_gs = HNS_ROCE_SGE_IN_WQE;
-	} else {
-		qp->sq.max_gs = attr->cap.max_send_sge;
-		if (qp->sq.max_gs > HNS_ROCE_SGE_IN_WQE) {
-			sge_ex_count = qp->sq.wqe_cnt *
-				       (qp->sq.max_gs - HNS_ROCE_SGE_IN_WQE);
-			qp->ex_sge.sge_cnt = align_queue_size(sge_ex_count);
-		} else {
-			qp->ex_sge.sge_cnt = 0;
-		}
-	}
+	set_extend_sge_param(hr_dev, attr, qp, cnt);
+
+	qp->ibv_qp.qp_type = attr->qp_type;
 
 	/* limit by the context queried during alloc context */
-	qp->sq.max_post = min(ctx->max_qp_wr, qp->sq.wqe_cnt);
+	qp->sq.max_post = min(ctx->max_qp_wr, cnt);
 	qp->sq.max_gs = min(ctx->max_sge, qp->sq.max_gs);
 
 	qp->sq_signal_bits = attr->sq_sig_all ? 0 : 1;
@@ -845,18 +845,14 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 		return NULL;
 	}
 
-	qp = malloc(sizeof(*qp));
-	if (!qp) {
-		fprintf(stderr, "malloc failed!\n");
+	qp = calloc(1, sizeof(*qp));
+	if (!qp)
 		return NULL;
-	}
 
 	hns_roce_set_qp_params(pd, attr, qp, context);
 
-	if (hns_roce_alloc_qp_buf(pd, &attr->cap, attr->qp_type, qp)) {
-		fprintf(stderr, "hns_roce_alloc_qp_buf failed!\n");
+	if (hns_roce_alloc_qp_buf(pd, &attr->cap, qp))
 		goto err_buf;
-	}
 
 	hns_roce_init_qp_indices(qp);
 

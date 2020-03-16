@@ -39,6 +39,7 @@
 
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>
+#include <util/util.h>
 #include <infiniband/verbs.h>
 #include <ccan/bitmap.h>
 #include <ccan/container_of.h>
@@ -48,6 +49,10 @@
 #define HNS_ROCE_HW_VER2		('h' << 24 | 'i' << 16 | '0' << 8 | '8')
 
 #define PFX				"hns: "
+
+/* The minimum page size is 4K for hardware */
+#define HNS_HW_PAGE_SHIFT 12
+#define HNS_HW_PAGE_SIZE (1 << HNS_HW_PAGE_SHIFT)
 
 #define HNS_ROCE_MAX_INLINE_DATA_LEN	32
 #define HNS_ROCE_MAX_CQ_NUM		0x10000
@@ -262,6 +267,15 @@ struct hns_roce_u_hw {
 	uint32_t hw_version;
 	struct verbs_context_ops hw_ops;
 };
+
+/*
+ * The entries's buffer should be aligned to a multiple of the hardware's
+ * minimum page size.
+ */
+static inline unsigned int to_hr_hem_entries_size(int count, int buf_shift)
+{
+	return align(count << buf_shift, HNS_HW_PAGE_SIZE);
+}
 
 static inline struct hns_roce_device *to_hr_dev(struct ibv_device *ibv_dev)
 {
