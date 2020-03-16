@@ -360,7 +360,7 @@ static void efa_process_cqe(struct efa_cq *cq, struct ibv_wc *wc,
 static int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 			   struct efa_qp **cur_qp, struct ibv_wc *wc)
 {
-	struct efa_context *ctx = to_efa_context(cq->ibvcq.context);
+	struct efa_context *ctx = to_efa_context(cq->verbs_cq.cq.context);
 	uint32_t qpn;
 
 	cq->cur_cqe = cq_next_sub_cqe_get(sub_cq);
@@ -438,8 +438,8 @@ static void efa_sub_cq_initialize(struct efa_sub_cq *sub_cq, uint8_t *buf,
 	sub_cq->ref_cnt = 0;
 }
 
-struct ibv_cq *efa_create_cq(struct ibv_context *ibvctx, int ncqe,
-			     struct ibv_comp_channel *channel, int vec)
+static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
+				   struct ibv_cq_init_attr_ex *attr)
 {
 	struct efa_context *ctx = to_efa_context(ibvctx);
 	struct efa_create_cq_resp resp = {};
@@ -461,16 +461,16 @@ struct ibv_cq *efa_create_cq(struct ibv_context *ibvctx, int ncqe,
 	cmd.num_sub_cqs = num_sub_cqs;
 	cmd.cq_entry_size = ctx->cqe_size;
 
-	ncqe = roundup_pow_of_two(ncqe);
-	err = ibv_cmd_create_cq(ibvctx, ncqe, channel, vec,
-				&cq->ibvcq, &cmd.ibv_cmd, sizeof(cmd),
-				&resp.ibv_resp, sizeof(resp));
+	attr->cqe = roundup_pow_of_two(attr->cqe);
+	err = ibv_cmd_create_cq_ex(ibvctx, attr, &cq->verbs_cq,
+				   &cmd.ibv_cmd, sizeof(cmd),
+				   &resp.ibv_resp, sizeof(resp));
 	if (err) {
 		errno = err;
 		goto err_free_cq;
 	}
 
-	sub_cq_size = cq->ibvcq.cqe;
+	sub_cq_size = cq->verbs_cq.cq.cqe;
 	cq->cqn = resp.cq_idx;
 	cq->buf_size = resp.q_mmap_size;
 	cq->num_sub_cqs = num_sub_cqs;
@@ -491,13 +491,28 @@ struct ibv_cq *efa_create_cq(struct ibv_context *ibvctx, int ncqe,
 
 	pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE);
 
-	return &cq->ibvcq;
+	return &cq->verbs_cq.cq_ex;
 
 err_destroy_cq:
-	ibv_cmd_destroy_cq(&cq->ibvcq);
+	ibv_cmd_destroy_cq(&cq->verbs_cq.cq);
 err_free_cq:
 	free(cq);
 	return NULL;
+}
+
+struct ibv_cq *efa_create_cq(struct ibv_context *ibvctx, int ncqe,
+			     struct ibv_comp_channel *channel, int vec)
+{
+	struct ibv_cq_init_attr_ex attr_ex = {
+		.cqe = ncqe,
+		.channel = channel,
+		.comp_vector = vec
+	};
+	struct ibv_cq_ex *ibvcqx;
+
+	ibvcqx = create_cq(ibvctx, &attr_ex);
+
+	return ibvcqx ? ibv_cq_ex_to_cq(ibvcqx) : NULL;
 }
 
 int efa_destroy_cq(struct ibv_cq *ibvcq)
