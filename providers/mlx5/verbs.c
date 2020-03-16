@@ -259,12 +259,6 @@ mlx5_alloc_dyn_uar(struct ibv_context *context, uint32_t flags)
 
 	ret = execute_ioctl(context, cmd);
 	if (ret) {
-		/* The ioctl framework is entirely absent or that kernel
-		 * doesn't support this ioctl command
-		 */
-		if (ret == ENOTTY || ret == EPROTONOSUPPORT)
-			to_mctx(context)->flags |= MLX5_CTX_FLAGS_NO_KERN_DYN_UAR;
-
 		free(bf);
 		return NULL;
 	}
@@ -304,7 +298,13 @@ static void mlx5_insert_dyn_uuars(struct mlx5_context *ctx,
 	int j;
 
 	num_bfregs_per_page = ctx->num_uars_per_page * MLX5_NUM_NON_FP_BFREGS_PER_UAR;
-	head = (bf_uar->nc_mode) ? &ctx->dyn_uar_nc_list : &ctx->dyn_uar_bf_list;
+	if (bf_uar->qp_dedicated)
+		head = &ctx->dyn_uar_qp_dedicated_list;
+	else if (bf_uar->qp_shared)
+		head = &ctx->dyn_uar_qp_shared_list;
+	else
+		head = (bf_uar->nc_mode) ? &ctx->dyn_uar_nc_list : &ctx->dyn_uar_bf_list;
+
 	for (j = 0; j < num_bfregs_per_page; j++) {
 		if (j != 0) {
 			bf = calloc(1, sizeof(*bf));
@@ -325,14 +325,97 @@ static void mlx5_insert_dyn_uuars(struct mlx5_context *ctx,
 		if (!bf_uar->dyn_alloc_uar)
 			bf->bfreg_dyn_index = (ctx->curr_legacy_dyn_sys_uar_page - 1) * num_bfregs_per_page;
 		bf->dyn_alloc_uar = bf_uar->dyn_alloc_uar;
-		bf->need_lock = 0;
+		bf->need_lock = bf_uar->qp_shared;
+		mlx5_spinlock_init(&bf->lock, bf->need_lock);
 		if (j != 0) {
 			bf->uar = bf_uar->uar;
 			bf->page_id = bf_uar->page_id + index_uar_in_page;
 			bf->uar_handle = bf_uar->uar_handle;
 			bf->nc_mode = bf_uar->nc_mode;
 		}
+		if (bf_uar->qp_dedicated) {
+			ctx->qp_alloc_dedicated_uuars++;
+			bf->qp_dedicated = true;
+		} else if (bf_uar->qp_shared) {
+			ctx->qp_alloc_shared_uuars++;
+			bf->qp_shared = true;
+		}
 	}
+}
+
+static void mlx5_put_qp_uar(struct mlx5_context *ctx, struct mlx5_bf *bf)
+{
+	if (!bf || (!bf->qp_dedicated && !bf->qp_shared))
+		return;
+
+	pthread_mutex_lock(&ctx->dyn_bfregs_mutex);
+	if (bf->qp_dedicated)
+		list_add_tail(&ctx->dyn_uar_qp_dedicated_list,
+			      &bf->uar_entry);
+	else
+		bf->count--;
+	pthread_mutex_unlock(&ctx->dyn_bfregs_mutex);
+}
+
+static int mlx5_alloc_qp_uar(struct ibv_context *context, bool dedicated)
+{
+	struct mlx5_context *ctx = to_mctx(context);
+	struct mlx5_bf *bf;
+	uint32_t flags;
+
+	flags = (ctx->shut_up_bf || !ctx->bf_reg_size) ?
+		MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC :
+		MLX5_IB_UAPI_UAR_ALLOC_TYPE_BF;
+
+	bf = mlx5_alloc_dyn_uar(context, flags);
+	if (!bf)
+		return -1;
+
+	if (dedicated)
+		bf->qp_dedicated = true;
+	else
+		bf->qp_shared = true;
+
+	mlx5_insert_dyn_uuars(ctx, bf);
+	return 0;
+}
+
+static struct mlx5_bf *mlx5_get_qp_uar(struct ibv_context *context)
+{
+	struct mlx5_context *ctx = to_mctx(context);
+	struct mlx5_bf *bf = NULL, *bf_entry;
+
+	pthread_mutex_lock(&ctx->dyn_bfregs_mutex);
+	do {
+		bf = list_pop(&ctx->dyn_uar_qp_dedicated_list, struct mlx5_bf, uar_entry);
+		if (bf)
+			break;
+
+		if (ctx->qp_alloc_dedicated_uuars < ctx->qp_max_dedicated_uuars) {
+			if (mlx5_alloc_qp_uar(context, true))
+				break;
+			continue;
+		}
+
+		if (ctx->qp_alloc_shared_uuars < ctx->qp_max_shared_uuars) {
+			if (mlx5_alloc_qp_uar(context, false))
+				break;
+		}
+
+		/* Looking for a shared uuar with the less concurent usage */
+		list_for_each(&ctx->dyn_uar_qp_shared_list, bf_entry, uar_entry) {
+			if (!bf) {
+				bf = bf_entry;
+			} else {
+				if (bf_entry->count < bf->count)
+					bf = bf_entry;
+			}
+		}
+		bf->count++;
+	} while (!bf);
+
+	pthread_mutex_unlock(&ctx->dyn_bfregs_mutex);
+	return bf;
 }
 
 /* Returns a dedicated UAR */
@@ -2188,6 +2271,12 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	if (mparent_domain && mparent_domain->mtd)
 		bf = mparent_domain->mtd->bf;
 
+	if (!bf && !(ctx->flags & MLX5_CTX_FLAGS_NO_KERN_DYN_UAR)) {
+		bf = mlx5_get_qp_uar(context);
+		if (!bf)
+			goto err_free_uidx;
+	}
+
 	if (bf) {
 		if (bf->dyn_alloc_uar) {
 			cmd.bfreg_index = bf->page_id;
@@ -2266,6 +2355,8 @@ err_destroy:
 	ibv_cmd_destroy_qp(ibqp);
 
 err_free_uidx:
+	if (bf)
+		mlx5_put_qp_uar(ctx, bf);
 	if (!ctx->cqe_version)
 		pthread_mutex_unlock(&to_mctx(context)->qp_table_mutex);
 	else if (!is_xrc_tgt(attr->qp_type))
@@ -2402,6 +2493,7 @@ free:
 	if (mparent_domain)
 		atomic_fetch_sub(&mparent_domain->mpd.refcount, 1);
 
+	mlx5_put_qp_uar(ctx, qp->bf);
 	free(qp);
 
 	return 0;
@@ -4582,6 +4674,16 @@ void clean_dyn_uars(struct ibv_context *context)
 	}
 
 	list_for_each_safe(&ctx->dyn_uar_bf_list, bf, tmp_bf, uar_entry) {
+		list_del(&bf->uar_entry);
+		mlx5_free_uar(context, bf);
+	}
+
+	list_for_each_safe(&ctx->dyn_uar_qp_dedicated_list, bf, tmp_bf, uar_entry) {
+		list_del(&bf->uar_entry);
+		mlx5_free_uar(context, bf);
+	}
+
+	list_for_each_safe(&ctx->dyn_uar_qp_shared_list, bf, tmp_bf, uar_entry) {
 		list_del(&bf->uar_entry);
 		mlx5_free_uar(context, bf);
 	}

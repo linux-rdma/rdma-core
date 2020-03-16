@@ -1213,7 +1213,7 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	req.total_num_bfregs = tot_uuars;
 	req.num_low_latency_bfregs = low_lat_uuars;
 	req.max_cqe_version = MLX5_CQE_VERSION_V1;
-	req.lib_caps |= MLX5_LIB_CAP_4K_UAR;
+	req.lib_caps |= (MLX5_LIB_CAP_4K_UAR | MLX5_LIB_CAP_DYN_UAR);
 	if (ctx_attr && ctx_attr->flags) {
 
 		if (!check_comp_mask(ctx_attr->flags,
@@ -1270,18 +1270,12 @@ retry_open:
 
 	adjust_uar_info(mdev, context, resp);
 
-	gross_uuars = context->tot_uuars / MLX5_NUM_NON_FP_BFREGS_PER_UAR * NUM_BFREGS_PER_UAR;
-	context->bfs = calloc(gross_uuars, sizeof(*context->bfs));
-
-	if (!context->bfs) {
-		errno = ENOMEM;
-		goto err_free;
-	}
-
 	context->cmds_supp_uhw = resp.cmds_supp_uhw;
 	context->vendor_cap_flags = 0;
 	list_head_init(&context->dyn_uar_bf_list);
 	list_head_init(&context->dyn_uar_nc_list);
+	list_head_init(&context->dyn_uar_qp_shared_list);
+	list_head_init(&context->dyn_uar_qp_dedicated_list);
 
 	if (resp.eth_min_inline)
 		context->eth_min_inline_size = (resp.eth_min_inline == MLX5_USER_INLINE_MODE_NONE) ?
@@ -1305,6 +1299,20 @@ retry_open:
 
 	context->prefer_bf = get_always_bf();
 	context->shut_up_bf = get_shut_up_bf();
+
+	if (context->tot_uuars) {
+		gross_uuars = context->tot_uuars / MLX5_NUM_NON_FP_BFREGS_PER_UAR * NUM_BFREGS_PER_UAR;
+		context->bfs = calloc(gross_uuars, sizeof(*context->bfs));
+		if (!context->bfs) {
+			errno = ENOMEM;
+			goto err_free;
+		}
+		context->flags |= MLX5_CTX_FLAGS_NO_KERN_DYN_UAR;
+	} else {
+		context->qp_max_dedicated_uuars = low_lat_uuars;
+		context->qp_max_shared_uuars = tot_uuars - low_lat_uuars;
+		goto bf_done;
+	}
 
 	context->max_num_legacy_dyn_uar_sys_page = context->num_dyn_bfregs /
 			(context->num_uars_per_page * MLX5_NUM_NON_FP_BFREGS_PER_UAR);
@@ -1336,6 +1344,9 @@ retry_open:
 			}
 		}
 	}
+
+bf_done:
+
 	context->hca_core_clock = NULL;
 	if (resp.response_length + sizeof(resp.ibv_resp) >=
 	    offsetof(struct mlx5_alloc_ucontext_resp, hca_core_clock_offset) +
