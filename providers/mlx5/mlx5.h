@@ -232,6 +232,7 @@ struct mlx5_uar_info {
 
 enum mlx5_ctx_flags {
 	MLX5_CTX_FLAGS_FATAL_STATE = 1 << 0,
+	MLX5_CTX_FLAGS_NO_KERN_DYN_UAR = 1 << 1,
 };
 
 struct mlx5_context {
@@ -312,6 +313,8 @@ struct mlx5_context {
 	uint32_t                        dump_fill_mkey;
 	__be32                          dump_fill_mkey_be;
 	uint32_t			flags;
+	struct list_head		dyn_uar_bf_list;
+	struct list_head		dyn_uar_nc_list;
 };
 
 struct mlx5_bitmap {
@@ -505,6 +508,13 @@ struct mlx5_bf {
 	/* Index in the dynamic bfregs portion */
 	uint32_t			bfreg_dyn_index;
 	struct mlx5_devx_uar		devx_uar;
+	uint8_t				dyn_alloc_uar : 1;
+	uint8_t				mmaped_entry : 1;
+	uint8_t				nc_mode : 1;
+	struct list_node		uar_entry;
+	uint32_t			uar_handle;
+	uint32_t			length;
+	uint32_t			page_id;
 };
 
 struct mlx5_dm {
@@ -999,6 +1009,9 @@ int mlx5_advise_mr(struct ibv_pd *pd,
 int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 			 const struct ibv_qp_init_attr_ex *attr,
 			 const struct mlx5dv_qp_init_attr *mlx5_attr);
+void clean_dyn_uars(struct ibv_context *context);
+struct mlx5_bf *mlx5_attach_dedicated_uar(struct ibv_context *context,
+					  uint32_t flags);
 
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {

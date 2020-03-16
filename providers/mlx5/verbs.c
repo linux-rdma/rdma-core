@@ -203,6 +203,155 @@ static int mlx5_get_bfreg_index(struct mlx5_context *ctx)
 	return -1;
 }
 
+static void mlx5_free_uar(struct ibv_context *ctx,
+			  struct mlx5_bf *bf)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_UAR,
+			       MLX5_IB_METHOD_UAR_OBJ_DESTROY,
+			       1);
+
+	if (!bf->length)
+		goto end;
+
+	if (bf->mmaped_entry && munmap(bf->uar, bf->length))
+		assert(false);
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_UAR_OBJ_DESTROY_HANDLE, bf->uar_handle);
+	if (execute_ioctl(ctx, cmd))
+		assert(false);
+
+end:
+	free(bf);
+}
+
+static struct mlx5_bf *
+mlx5_alloc_dyn_uar(struct ibv_context *context, uint32_t flags)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       MLX5_IB_OBJECT_UAR,
+			       MLX5_IB_METHOD_UAR_OBJ_ALLOC,
+			       5);
+
+	struct ib_uverbs_attr *handle;
+	struct mlx5_bf *bf;
+	int ret;
+
+	if (to_mctx(context)->flags & MLX5_CTX_FLAGS_NO_KERN_DYN_UAR) {
+		errno = EPROTONOSUPPORT;
+		return NULL;
+	}
+
+	bf = calloc(1, sizeof(*bf));
+	if (!bf) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	bf->dyn_alloc_uar = true;
+	handle = fill_attr_out_obj(cmd, MLX5_IB_ATTR_UAR_OBJ_ALLOC_HANDLE);
+	fill_attr_const_in(cmd, MLX5_IB_ATTR_UAR_OBJ_ALLOC_TYPE,
+			   flags);
+	fill_attr_out_ptr(cmd, MLX5_IB_ATTR_UAR_OBJ_ALLOC_MMAP_OFFSET,
+			  &bf->uar_mmap_offset);
+	fill_attr_out_ptr(cmd, MLX5_IB_ATTR_UAR_OBJ_ALLOC_MMAP_LENGTH, &bf->length);
+	fill_attr_out_ptr(cmd, MLX5_IB_ATTR_UAR_OBJ_ALLOC_PAGE_ID, &bf->page_id);
+
+	ret = execute_ioctl(context, cmd);
+	if (ret) {
+		/* The ioctl framework is entirely absent or that kernel
+		 * doesn't support this ioctl command
+		 */
+		if (ret == ENOTTY || ret == EPROTONOSUPPORT)
+			to_mctx(context)->flags |= MLX5_CTX_FLAGS_NO_KERN_DYN_UAR;
+
+		free(bf);
+		return NULL;
+	}
+
+	bf->uar = mmap(NULL, bf->length, PROT_WRITE, MAP_SHARED,
+		       context->cmd_fd,
+		       bf->uar_mmap_offset);
+
+	if (bf->uar == MAP_FAILED)
+		goto err;
+
+	bf->mmaped_entry = true;
+	bf->uar_handle = read_attr_obj(MLX5_IB_ATTR_UAR_OBJ_ALLOC_HANDLE,
+				       handle);
+	bf->nc_mode = (flags == MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC);
+
+	return bf;
+
+err:
+	mlx5_free_uar(context, bf);
+	return NULL;
+}
+
+static void mlx5_insert_dyn_uuars(struct mlx5_context *ctx,
+				 struct mlx5_bf *bf_uar)
+{
+	int index_in_uar, index_uar_in_page;
+	int num_bfregs_per_page;
+	struct list_head *head;
+	struct mlx5_bf *bf = bf_uar;
+	int j;
+
+	num_bfregs_per_page = ctx->num_uars_per_page * MLX5_NUM_NON_FP_BFREGS_PER_UAR;
+	head = (bf_uar->nc_mode) ? &ctx->dyn_uar_nc_list : &ctx->dyn_uar_bf_list;
+	for (j = 0; j < num_bfregs_per_page; j++) {
+		if (j != 0) {
+			bf = calloc(1, sizeof(*bf));
+			if (!bf)
+				return;
+		}
+
+		index_uar_in_page = (j % num_bfregs_per_page) /
+				    MLX5_NUM_NON_FP_BFREGS_PER_UAR;
+		index_in_uar = j % MLX5_NUM_NON_FP_BFREGS_PER_UAR;
+		bf->reg = bf_uar->uar + (index_uar_in_page * MLX5_ADAPTER_PAGE_SIZE) +
+					 MLX5_BF_OFFSET + (index_in_uar * ctx->bf_reg_size);
+		bf->buf_size = bf_uar->nc_mode ? 0 : ctx->bf_reg_size / 2;
+		/* set to non zero is BF entry, will be detected as part of post_send */
+		bf->uuarn = bf_uar->nc_mode ? 0 : 1;
+		list_node_init(&bf->uar_entry);
+		list_add_tail(head, &bf->uar_entry);
+		bf->dyn_alloc_uar = bf_uar->dyn_alloc_uar;
+		bf->need_lock = 0;
+		if (j != 0) {
+			bf->uar = bf_uar->uar;
+			bf->page_id = bf_uar->page_id + index_uar_in_page;
+			bf->uar_handle = bf_uar->uar_handle;
+			bf->nc_mode = bf_uar->nc_mode;
+		}
+	}
+}
+
+/* Returns a dedicated UAR */
+struct mlx5_bf *mlx5_attach_dedicated_uar(struct ibv_context *context,
+					  uint32_t flags)
+{
+	struct mlx5_context *ctx = to_mctx(context);
+	struct mlx5_bf *bf;
+	struct list_head *head;
+
+	pthread_mutex_lock(&ctx->dyn_bfregs_mutex);
+	head = (flags == MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC) ?
+		&ctx->dyn_uar_nc_list : &ctx->dyn_uar_bf_list;
+	bf = list_pop(head, struct mlx5_bf, uar_entry);
+	if (!bf) {
+		bf = mlx5_alloc_dyn_uar(context, flags);
+		if (!bf)
+			goto end;
+		mlx5_insert_dyn_uuars(ctx, bf);
+		bf = list_pop(head, struct mlx5_bf, uar_entry);
+		assert(bf);
+	}
+end:
+	pthread_mutex_unlock(&ctx->dyn_bfregs_mutex);
+	return bf;
+}
+
 /* Returns a dedicated BF to be used by a thread domain */
 static struct mlx5_bf *mlx5_attach_dedicated_bf(struct ibv_context *context)
 {
@@ -272,6 +421,15 @@ out:
 static void mlx5_detach_dedicated_bf(struct ibv_context *context, struct mlx5_bf *bf)
 {
 	struct mlx5_context *ctx = to_mctx(context);
+
+	if (bf->dyn_alloc_uar) {
+		pthread_mutex_lock(&ctx->dyn_bfregs_mutex);
+		list_add_tail(bf->nc_mode ? &ctx->dyn_uar_nc_list :
+			      &ctx->dyn_uar_bf_list,
+			      &bf->uar_entry);
+		pthread_mutex_unlock(&ctx->dyn_bfregs_mutex);
+		return;
+	}
 
 	mlx5_put_bfreg_index(ctx, bf->bfreg_dyn_index);
 }
@@ -4465,6 +4623,22 @@ int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t 
 	return execute_ioctl(context, cmd);
 }
 
+void clean_dyn_uars(struct ibv_context *context)
+{
+	struct mlx5_context *ctx = to_mctx(context);
+	struct mlx5_bf *bf, *tmp_bf;
+
+	list_for_each_safe(&ctx->dyn_uar_nc_list, bf, tmp_bf, uar_entry) {
+		list_del(&bf->uar_entry);
+		mlx5_free_uar(context, bf);
+	}
+
+	list_for_each_safe(&ctx->dyn_uar_bf_list, bf, tmp_bf, uar_entry) {
+		list_del(&bf->uar_entry);
+		mlx5_free_uar(context, bf);
+	}
+}
+
 struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
 					      uint32_t flags)
 {
@@ -4475,30 +4649,43 @@ struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
 
 	int ret;
 	struct mlx5_bf *bf;
+	struct mlx5_context *ctx = to_mctx(context);
 
 	if (!is_mlx5_dev(context->device)) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
-	if (flags) {
-		errno = ENOTSUP;
+	if (!check_comp_mask(flags, MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC)) {
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
-	bf = mlx5_attach_dedicated_bf(context);
-	if (!bf)
-		return NULL;
+	bf = mlx5_attach_dedicated_uar(context, flags);
+	if (!bf) {
+		if (flags || !(ctx->flags & MLX5_CTX_FLAGS_NO_KERN_DYN_UAR))
+			return NULL;
 
-	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_QUERY_UAR_USER_IDX,
-			    bf->bfreg_dyn_index);
-	fill_attr_out_ptr(cmd, MLX5_IB_ATTR_DEVX_QUERY_UAR_DEV_IDX,
-		      &bf->devx_uar.dv_devx_uar.page_id);
+		/* fallback to legacy mode */
+		bf = mlx5_attach_dedicated_bf(context);
+		if (!bf)
+			return NULL;
+	}
 
-	ret = execute_ioctl(context, cmd);
-	if (ret) {
-		mlx5_detach_dedicated_bf(context, bf);
-		return NULL;
+
+	if (bf->dyn_alloc_uar)
+		bf->devx_uar.dv_devx_uar.page_id = bf->page_id;
+	else {
+		fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_QUERY_UAR_USER_IDX,
+				    bf->bfreg_dyn_index);
+		fill_attr_out_ptr(cmd, MLX5_IB_ATTR_DEVX_QUERY_UAR_DEV_IDX,
+			      &bf->devx_uar.dv_devx_uar.page_id);
+
+		ret = execute_ioctl(context, cmd);
+		if (ret) {
+			mlx5_detach_dedicated_bf(context, bf);
+			return NULL;
+		}
 	}
 
 	bf->devx_uar.dv_devx_uar.reg_addr = bf->reg;

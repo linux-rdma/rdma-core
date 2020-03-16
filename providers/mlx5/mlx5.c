@@ -1290,6 +1290,8 @@ retry_open:
 	context->cmds_supp_uhw = resp.cmds_supp_uhw;
 	context->vendor_cap_flags = 0;
 	context->start_dyn_bfregs_index = gross_uuars;
+	list_head_init(&context->dyn_uar_bf_list);
+	list_head_init(&context->dyn_uar_nc_list);
 
 	if (resp.eth_min_inline)
 		context->eth_min_inline_size = (resp.eth_min_inline == MLX5_USER_INLINE_MODE_NONE) ?
@@ -1434,6 +1436,7 @@ static void mlx5_free_context(struct ibv_context *ibctx)
 	if (context->clock_info_page)
 		munmap((void *)context->clock_info_page, page_size);
 	close_debug_file(context);
+	clean_dyn_uars(ibctx);
 
 	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
