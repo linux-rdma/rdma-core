@@ -6,6 +6,7 @@ from libc.stdint cimport uint8_t, uintptr_t
 from .pyverbs_error import PyverbsUserError, PyverbsRDMAError
 from pyverbs.utils import gid_str_to_array, gid_str
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.cmid cimport UDParam
 cimport pyverbs.libibverbs as v
 from pyverbs.pd cimport PD
 from pyverbs.cq cimport WC
@@ -261,6 +262,14 @@ cdef class AHAttr(PyverbsObject):
             self.ah_attr.grh.sgid_index = gr.sgid_index
             self.ah_attr.grh.hop_limit = gr.hop_limit
             self.ah_attr.grh.traffic_class = gr.traffic_class
+
+    cdef init_from_ud_param(self, UDParam udparam):
+        """
+        Initiate the AHAttr from UDParam's ah_attr.
+        :param udparam: UDParam that contains the AHAttr.
+        :return: None
+        """
+        self.ah_attr = udparam.ud_param.ah_attr
 
     @property
     def port_num(self):

@@ -121,6 +121,9 @@ cdef extern from '<rdma/rdma_verbs.h>':
                        size_t length, ibv_mr *mr)
     int rdma_post_send(rdma_cm_id *id, void *context, void *addr,
                        size_t length, ibv_mr *mr, int flags)
+    int rdma_post_ud_send(rdma_cm_id *id, void *context, void *addr,
+                          size_t length, ibv_mr *mr, int flags, ibv_ah *ah,
+                          uint32_t remote_qpn)
     int rdma_get_send_comp(rdma_cm_id *id, ibv_wc *wc)
     int rdma_get_recv_comp(rdma_cm_id *id, ibv_wc *wc)
     ibv_mr *rdma_reg_msgs(rdma_cm_id *id, void *addr, size_t length)

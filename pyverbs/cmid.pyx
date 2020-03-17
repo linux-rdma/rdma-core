@@ -1,3 +1,4 @@
+from libc.stdint cimport uintptr_t
 from libc.string cimport memset
 
 from pyverbs.pyverbs_error import PyverbsUserError
@@ -5,6 +6,7 @@ from pyverbs.qp cimport QPInitAttr, QPAttr
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.librdmacm_enums as ce
+from pyverbs.addr cimport AH, AHAttr
 from pyverbs.device cimport Context
 cimport pyverbs.libibverbs as v
 cimport pyverbs.librdmacm as cm
@@ -67,6 +69,36 @@ cdef class ConnParam(PyverbsObject):
                print_format.format('rnr retry count', self.conn_param.rnr_retry_count) +\
                print_format.format('srq', self.conn_param.srq) +\
                print_format.format('qp number', self.conn_param.qp_num)
+
+
+cdef class UDParam(PyverbsObject):
+
+    def __init__(self, CMEvent cm_event not None):
+        """
+        Initialize a UDParam object over an underlying rdma_ud_param
+        C object which contains UD connection parameters.
+        :param cm_event: The creator of UDParam. When the active side gets
+                         connection establishment event, the event contains
+                         UDParam for the passive CMID details.
+        :return: UDParam object
+        """
+        super().__init__()
+        memset(&self.ud_param, 0, sizeof(cm.rdma_ud_param))
+        self.ud_param = (<CMEvent>cm_event).event.param.ud
+
+    @property
+    def qp_num(self):
+        return self.ud_param.qp_num
+
+    @property
+    def qkey(self):
+        return self.ud_param.qkey
+
+    @property
+    def ah_attr(self):
+        ah_attr = AHAttr()
+        ah_attr.init_from_ud_param(self)
+        return ah_attr
 
 
 cdef class AddrInfo(PyverbsObject):
@@ -286,6 +318,12 @@ cdef class CMID(PyverbsCM):
     def pd(self):
         return self.pd
 
+    @property
+    def qpn(self):
+        if self.id.qp:
+            return self.id.qp.qp_num
+        return None
+
     def __dealloc__(self):
         self.close()
 
@@ -488,27 +526,51 @@ cdef class CMID(PyverbsCM):
         """
         return MR(self.pd, size, e.IBV_ACCESS_LOCAL_WRITE)
 
-    def post_recv(self, MR mr not None):
+    def post_recv(self, MR mr not None, length=None):
         """
         Posts a recv_wr via QP associated with CMID.
         Context param of rdma_post_recv C function currently not supported.
         :param mr: A valid MR object.
+        :param length: length of buffer to recv (default: mr length).
         :return: None
         """
-        ret = cm.rdma_post_recv(self.id, NULL, mr.buf, mr.mr.length, mr.mr)
+        if not length:
+            length = mr.mr.length
+        ret = cm.rdma_post_recv(self.id, NULL, mr.buf, length, mr.mr)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to Post Receive')
 
-    def post_send(self, MR mr not None, flags=v.IBV_SEND_SIGNALED):
+    def post_send(self, MR mr not None, flags=v.IBV_SEND_SIGNALED, length=None):
         """
         Posts a message via QP associated with CMID.
         Context param of rdma_post_send C function currently not supported.
         :param mr: A valid MR object which contains message to send.
         :param flags: flags for send work request.
+        :param length: length of buffer to send (default: mr length).
         :return: None
         """
-        ret = cm.rdma_post_send(self.id, NULL, mr.buf, mr.mr.length, mr.mr,
+        if not length:
+            length = mr.mr.length
+        ret = cm.rdma_post_send(self.id, NULL, mr.buf, length, mr.mr,
                                 flags)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to Post Send')
+
+    def post_ud_send(self, MR mr not None, AH ah not None, rqpn=0,
+                     flags=v.IBV_SEND_SIGNALED, length=None):
+        """
+        Posts a message via UD QP associated with CMID to another UD QP.
+        :param mr: A valid MR object which contains message to send.
+        :param ah: The destination AH.
+        :param rqpn: The remote QP number.
+        :param flags: flags for send work request.
+        :param length: length of buffer to send.
+        :return: None
+        """
+        if not length:
+            length = mr.mr.length
+        ret = cm.rdma_post_ud_send(self.id, NULL, mr.buf, length, mr.mr,
+                                   flags, ah.ah, rqpn)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to Post Send')
 
