@@ -43,3 +43,8 @@ cdef class Mlx5PP(PyverbsObject):
     cdef dv.mlx5dv_pp *pp
     cdef object context
     cpdef close(self)
+
+cdef class Mlx5UAR(PyverbsObject):
+    cdef dv.mlx5dv_devx_uar *uar
+    cdef object context
+    cpdef close(self)
