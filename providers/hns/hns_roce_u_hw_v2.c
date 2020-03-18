@@ -837,15 +837,14 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	void *wqe;
 	int nreq;
 
-	pthread_spin_lock(&qp->sq.lock);
-
 	/* check that state is OK to post send */
 	if (ibvqp->state == IBV_QPS_RESET || ibvqp->state == IBV_QPS_INIT ||
 	    ibvqp->state == IBV_QPS_RTR) {
-		pthread_spin_unlock(&qp->sq.lock);
 		*bad_wr = wr;
 		return EINVAL;
 	}
+
+	pthread_spin_lock(&qp->sq.lock);
 
 	sge_info.start_idx = qp->next_sge; /* start index of extend sge */
 
@@ -923,14 +922,13 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	int nreq;
 	int i;
 
-	pthread_spin_lock(&qp->rq.lock);
-
 	/* check that state is OK to post receive */
 	if (ibvqp->state == IBV_QPS_RESET) {
-		pthread_spin_unlock(&qp->rq.lock);
 		*bad_wr = wr;
-		return -1;
+		return EINVAL;
 	}
+
+	pthread_spin_lock(&qp->rq.lock);
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (hns_roce_v2_wq_overflow(&qp->rq, nreq,
