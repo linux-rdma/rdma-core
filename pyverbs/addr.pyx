@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2018, Mellanox Technologies. All rights reserved. See COPYING file
 
-from libc.stdint cimport uint8_t
+from libc.stdint cimport uint8_t, uintptr_t
 
 from .pyverbs_error import PyverbsUserError, PyverbsRDMAError
 from pyverbs.utils import gid_str_to_array, gid_str
@@ -380,7 +380,8 @@ cdef class AH(PyverbsCM):
             * *wc*
                A WC object to use for AH initialization
             * *grh*
-               A GRH object to use for AH initialization (when using wc)
+               Pointer to GRH object to use for AH initialization (when using
+               wc)
             * *port_num*
                Port number to be used for this AH (when using wc)
         :return: An AH object on success
@@ -393,9 +394,9 @@ cdef class AH(PyverbsCM):
         else:
             # Create AH from WC
             wc = <WC>kwargs['wc']
-            grh = <GRH>kwargs['grh']
+            grh = <v.ibv_grh*><uintptr_t>kwargs['grh']
             port_num = kwargs['port_num']
-            self.ah = v.ibv_create_ah_from_wc(pd.pd, &wc.wc, &grh.grh, port_num)
+            self.ah = v.ibv_create_ah_from_wc(pd.pd, &wc.wc, grh, port_num)
         if self.ah == NULL:
             raise PyverbsRDMAErrno('Failed to create AH')
         pd.add_ref(self)
