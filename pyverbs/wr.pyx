@@ -170,6 +170,7 @@ cdef class SendWR(PyverbsCM):
             self.send_wr.next = &next_wr.send_wr
         self.send_wr.opcode = opcode
         self.send_wr.send_flags = send_flags
+        self.ah = None
 
     def __dealloc(self):
         self.close()
@@ -236,6 +237,7 @@ cdef class SendWR(PyverbsCM):
         :param rqkey: The remote QKey, authorizing access to the destination QP
         :return: None
         """
+        self.ah = ah
         self.send_wr.wr.ud.ah = ah.ah
         self.send_wr.wr.ud.remote_qpn = rqpn
         self.send_wr.wr.ud.remote_qkey = rqkey

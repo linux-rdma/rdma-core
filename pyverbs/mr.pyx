@@ -6,7 +6,7 @@ import logging
 
 from posix.mman cimport mmap, munmap, MAP_PRIVATE, PROT_READ, PROT_WRITE, \
     MAP_ANONYMOUS, MAP_HUGETLB
-from pyverbs.pyverbs_error import PyverbsError
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.base import PyverbsRDMAErrno
 from posix.stdlib cimport posix_memalign
 from libc.string cimport memcpy, memset
@@ -88,11 +88,11 @@ cdef class MR(PyverbsCM):
         destruction, need to check whether or not the C object exists.
         :return: None
         """
-        self.logger.debug('Closing MR')
         if self.mr != NULL:
+            self.logger.debug('Closing MR')
             rc = v.ibv_dereg_mr(self.mr)
             if rc != 0:
-                raise PyverbsRDMAErrno('Failed to dereg MR')
+                raise PyverbsRDMAError('Failed to dereg MR', rc)
             self.mr = NULL
             self.pd = None
         if not self.is_user_addr:
@@ -184,11 +184,11 @@ cdef class MW(PyverbsCM):
         Need to check that the underlaying MW wasn't dealloced before.
         :return: None
         """
-        self.logger.debug('Closing MW')
         if self.mw is not NULL:
+            self.logger.debug('Closing MW')
             rc = v.ibv_dealloc_mw(self.mw)
             if rc != 0:
-               raise PyverbsRDMAErrno('Failed to dealloc MW')
+                raise PyverbsRDMAError('Failed to dealloc MW', rc)
             self.mw = NULL
             self.pd = None
 

@@ -3,7 +3,8 @@
 import weakref
 import logging
 
-from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError
+from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError, \
+    PyverbsRDMAError
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
 from pyverbs.device cimport Context
@@ -63,13 +64,13 @@ cdef class PD(PyverbsCM):
         destruction, need to check whether or not the C object exists.
         :return: None
         """
-        self.logger.debug('Closing PD')
-        close_weakrefs([self.parent_domains, self.qps, self.ahs, self.mws,
-                        self.mrs, self.srqs])
         if self.pd != NULL:
+            self.logger.debug('Closing PD')
+            close_weakrefs([self.parent_domains, self.qps, self.ahs, self.mws,
+                            self.mrs, self.srqs])
             rc = v.ibv_dealloc_pd(self.pd)
             if rc != 0:
-                raise PyverbsRDMAErrno('Failed to dealloc PD')
+                raise PyverbsRDMAError('Failed to dealloc PD', rc)
             self.pd = NULL
             self.ctx = None
 
@@ -193,24 +194,13 @@ cdef class ParentDomain(PD):
         self.logger.debug('Allocated ParentDomain')
 
     def __dealloc__(self):
-        self.__close(True)
+        self.close()
 
     cpdef close(self):
-        self.__close()
-
-    def __close(self, from_dealloc=False):
-        """
-        The close function can be called either explicitly by the user, or
-        implicitly (from __dealloc__). In the case it was called by dealloc,
-        the close function of the PD would have been already called, thus
-        freeing the PD of this parent domain and no need to dealloc it again
-        :param from_dealloc: Indicates whether the close was called via dealloc
-        """
-        self.logger.debug('Closing ParentDomain')
-        if not from_dealloc:
-            if self.pd != NULL:
-                close_weakrefs([self.cqs])
-                super(ParentDomain, self).close()
+        if self.pd != NULL:
+            self.logger.debug('Closing ParentDomain')
+            close_weakrefs([self.cqs])
+            super(ParentDomain, self).close()
 
     cdef add_ref(self, obj):
         if isinstance(obj, CQEX):

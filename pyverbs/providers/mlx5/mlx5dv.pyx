@@ -575,7 +575,7 @@ def send_ops_flags_to_str(flags):
 
 
 cdef class Mlx5VAR(VAR):
-    def __cinit__(self, Context context not None, flags=0):
+    def __init__(self, Context context not None, flags=0):
         self.var = dv.mlx5dv_alloc_var(context.context, flags)
         if self.var == NULL:
             raise PyverbsRDMAErrno('Failed to allocate VAR')

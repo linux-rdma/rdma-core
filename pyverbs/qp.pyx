@@ -5,10 +5,11 @@ from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
 
 from pyverbs.utils import gid_str, qp_type_to_str, qp_state_to_str, mtu_to_str
-from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError
+from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError, \
+    PyverbsRDMAError
 from pyverbs.utils import access_flags_to_str, mig_state_to_str
-from pyverbs.wr cimport RecvWR, SendWR, SGE
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.wr cimport RecvWR, SendWR, SGE
 from pyverbs.addr cimport AHAttr, GID, AH
 from pyverbs.mr cimport MW, MWBindInfo
 cimport pyverbs.libibverbs_enums as e
@@ -967,10 +968,11 @@ cdef class QP(PyverbsCM):
         self.close()
 
     cpdef close(self):
-        self.logger.debug('Closing QP')
         if self.qp != NULL:
-            if v.ibv_destroy_qp(self.qp):
-                raise PyverbsRDMAErrno('Failed to destroy QP')
+            self.logger.debug('Closing QP')
+            rc = v.ibv_destroy_qp(self.qp)
+            if rc:
+                raise PyverbsRDMAError('Failed to destroy QP', rc)
             self.qp = NULL
             self.pd = None
             self.context = None
@@ -1027,8 +1029,7 @@ cdef class QP(PyverbsCM):
         qp_attr.qp_state = e.IBV_QPS_INIT
         rc =  v.ibv_modify_qp(self.qp, &qp_attr.attr, mask)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to modify QP state to init (returned {rc})'.
-                                   format(rc=rc))
+            raise PyverbsRDMAError('Failed to modify QP state to init', rc)
 
     def to_rtr(self, QPAttr qp_attr):
         """
@@ -1048,8 +1049,7 @@ cdef class QP(PyverbsCM):
         qp_attr.qp_state = e.IBV_QPS_RTR
         rc = v.ibv_modify_qp(self.qp, &qp_attr.attr, mask)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to modify QP state to RTR (returned {rc})'.
-                                   format(rc=rc))
+            raise PyverbsRDMAError('Failed to modify QP state to RTR', rc)
 
     def to_rts(self, QPAttr qp_attr):
         """
@@ -1068,8 +1068,7 @@ cdef class QP(PyverbsCM):
         qp_attr.qp_state = e.IBV_QPS_RTS
         rc = v.ibv_modify_qp(self.qp, &qp_attr.attr, mask)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to modify QP state to RTS (returned {rc})'.
-                                   format(rc=rc))
+            raise PyverbsRDMAError('Failed to modify QP state to RTS', rc)
 
     def query(self, attr_mask):
         """
@@ -1084,8 +1083,7 @@ cdef class QP(PyverbsCM):
         init_attr = QPInitAttr()
         rc = v.ibv_query_qp(self.qp, &attr.attr, attr_mask, &init_attr.attr)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to query QP (returned {rc})'.
-                                   format(rc=rc))
+            raise PyverbsRDMAError('Failed to query QP', rc)
         return attr, init_attr
 
     def modify(self, QPAttr qp_attr not None, comp_mask):
@@ -1099,8 +1097,7 @@ cdef class QP(PyverbsCM):
         """
         rc = v.ibv_modify_qp(self.qp, &qp_attr.attr, comp_mask)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to modify QP (returned {rc})'.
-                                   format(rc=rc))
+            raise PyverbsRDMAError('Failed to modify QP', rc)
 
     def post_recv(self, RecvWR wr not None, RecvWR bad_wr=None):
         """
@@ -1117,8 +1114,7 @@ cdef class QP(PyverbsCM):
         if rc != 0:
             if (bad_wr):
                 memcpy(&bad_wr.recv_wr, my_bad_wr, sizeof(bad_wr.recv_wr))
-            raise PyverbsRDMAErrno('Failed to post recv (returned {rc})'.
-                                   format(rc=rc))
+            raise PyverbsRDMAError('Failed to post recv', rc)
 
     def post_send(self, SendWR wr not None, SendWR bad_wr=None):
         """
@@ -1135,8 +1131,7 @@ cdef class QP(PyverbsCM):
         if rc != 0:
             if (bad_wr):
                 memcpy(&bad_wr.send_wr, my_bad_wr, sizeof(bad_wr.send_wr))
-            raise PyverbsRDMAErrno('Failed to post send (returned {rc})'.
-                                   format(rc=rc))
+            raise PyverbsRDMAError('Failed to post send', rc)
 
     @property
     def qp_type(self):
