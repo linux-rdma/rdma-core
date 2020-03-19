@@ -515,6 +515,8 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None):
     read_offset = GRH_SIZE if client.qp.qp_type == e.IBV_QPT_UD else 0
     for _ in range(iters):
         c_send_wr, c_sg = get_send_elements(client, False)
+        if client.use_mr_prefetch:
+            prefetch_mrs(client, [c_sg])
         c_send_object = c_sg if send_op else c_send_wr
         send(client, c_send_object, gid_idx, port, send_op)
         poll(client.cq)
@@ -523,6 +525,8 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None):
         msg_received = server.mr.read(server.msg_size, read_offset)
         validate(msg_received, True, server.msg_size)
         s_send_wr, s_sg = get_send_elements(server, True)
+        if server.use_mr_prefetch:
+            prefetch_mrs(server, [s_sg])
         s_send_object = s_sg if send_op else s_send_wr
         send(server, s_send_object, gid_idx, port, send_op)
         poll(server.cq)
@@ -669,3 +673,16 @@ def huge_pages_supported():
     with open(huge_path, 'r') as f:
         if not int(f.read()):
             raise unittest.SkipTest('There are no huge pages of size 2M allocated')
+
+
+def prefetch_mrs(agr_obj, sg_list, advise=e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE,
+                 flags=e._IBV_ADVISE_MR_FLAG_FLUSH):
+    """
+    Pre-fetch a range of an on-demand paging MR.
+    :param agr_obj: Aggregation object which contains all resources necessary
+    :param sg_list: SGE list
+    :param advise: The requested advise value
+    :param flags: Describes the properties of the advise operation
+    :return: None
+    """
+    agr_obj.pd.advise_mr(advise, flags, sg_list)
