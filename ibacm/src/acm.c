@@ -2082,11 +2082,19 @@ __acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
 		;
 	if (i == ep->nmbr_ep_addrs) {
 		struct acmc_addr *new_info;
+		int j;
+
 		new_info = realloc(ep->addr_info, (i + 1) * sizeof(*ep->addr_info));
 		if (!new_info) {
 			ret = ENOMEM;
 			goto out;
 		}
+
+		/* id_string needs to point to the reallocated string_buf */
+		for (j = 0; (j < ep->nmbr_ep_addrs); j++) {
+			new_info[j].addr.id_string = new_info[j].string_buf;
+		}
+
 		ep->addr_info = new_info;
 
 		/* Added memory is not initialized */
