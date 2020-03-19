@@ -1,15 +1,16 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
-from tests.rdmacm_utils import sync_traffic, async_traffic, \
-    async_traffic_with_ext_qp
-from pyverbs.pyverbs_error import PyverbsError
-from tests.base import RDMATestCase
 import multiprocessing as mp
-import pyverbs.device as d
 import subprocess
 import unittest
 import json
+import os
+
+from tests.rdmacm_utils import  CMSyncConnection, CMAsyncConnection
+from pyverbs.pyverbs_error import PyverbsError
+from tests.base import RDMATestCase
+
 
 NUM_OF_PROCESSES = 2
 
@@ -26,7 +27,8 @@ class CMTestCase(RDMATestCase):
 
     @staticmethod
     def get_net_name(dev):
-        out = subprocess.check_output(['ls', '/sys/class/infiniband/{}/device/net/'
+        out = subprocess.check_output(['ls',
+                                       '/sys/class/infiniband/{}/device/net/'
                                       .format(dev)])
         return out.decode().split('\n')[0]
 
@@ -39,35 +41,74 @@ class CMTestCase(RDMATestCase):
             interface = interface + '%' + ifname
         return interface
 
-    @staticmethod
-    def two_nodes_rdmacm_traffic(ip_addr, traffic_func):
+    def two_nodes_rdmacm_traffic(self, connection_resources, test_flow,
+                                 **resource_kwargs):
+        """
+        Init and manage the rdmacm test processes. If needed, terminate those
+        processes and raise an exception.
+        :param connection_resources: The CMConnection resources to use.
+        :param test_flow: The target RDMACM flow method to run.
+        :param resource_kwargs: Dict of args that specify the CMResources
+                                specific attributes. Each test case can pass
+                                here as key words the specific CMResources
+                                attributes that are requested.
+        :return: None
+        """
         ctx = mp.get_context('fork')
-        syncer = ctx.Barrier(NUM_OF_PROCESSES, timeout=5)
-        notifier = ctx.Queue()
-        passive = ctx.Process(target=traffic_func,
-                              args=[ip_addr, syncer, notifier, True])
-        active = ctx.Process(target=traffic_func,
-                             args=[ip_addr, syncer, notifier, False])
+        self.syncer = ctx.Barrier(NUM_OF_PROCESSES, timeout=15)
+        self.notifier = ctx.Queue()
+        passive = ctx.Process(target=test_flow,
+                              kwargs={'connection_resources': connection_resources,
+                                      'passive':True, **resource_kwargs})
+        active = ctx.Process(target=test_flow,
+                              kwargs={'connection_resources': connection_resources,
+                                      'passive':False, **resource_kwargs})
         passive.start()
         active.start()
-        while notifier.empty():
-            pass
-
-        for _ in range(NUM_OF_PROCESSES):
-            res = notifier.get()
+        passive.join(15)
+        active.join(15)
+        # If the processes is still alive kill them and fail the test.
+        proc_killed = False
+        for proc in [passive, active]:
+            if proc.is_alive():
+                proc.terminate()
+                proc_killed = True
+        # Check if the test processes raise exceptions.
+        if not self.notifier.empty():
+            res = self.notifier.get()
             if res is not None:
-                passive.terminate()
-                active.terminate()
                 raise PyverbsError(res)
+        # Raise exeption if the test proceses was terminate.
+        if proc_killed:
+            raise Exception('RDMA CM test procces is stuck, kill the test')
 
-        passive.join()
-        active.join()
+    def rdmacm_traffic(self, connection_resources=None, passive=None, **kwargs):
+        """
+        Run RDMACM traffic between two CMIDs.
+        :param connection_resources: The connection resources to use.
+        :param passive: Indicate if this CMID is this the passive side.
+        :return: None
+        """
+        try:
+            player = connection_resources(ip_addr=self.ip_addr,
+                                          syncer=self.syncer,
+                                          notifier=self.notifier,
+                                          passive=passive, **kwargs)
+            player.establish_connection()
+            player.rdmacm_traffic()
+            player.disconnect()
+        except Exception as ex:
+            side = 'passive' if passive else 'active'
+            self.notifier.put('Caught exception in {side} side process: pid '
+                              '{pid}\n'.format(side=side, pid=os.getpid()) +
+                              'Exception message: {ex}'.format(ex=str(ex)))
 
     def test_rdmacm_sync_traffic(self):
-        self.two_nodes_rdmacm_traffic(self.ip_addr, sync_traffic)
+        self.two_nodes_rdmacm_traffic(CMSyncConnection, self.rdmacm_traffic)
 
     def test_rdmacm_async_traffic(self):
-        self.two_nodes_rdmacm_traffic(self.ip_addr, async_traffic)
+        self.two_nodes_rdmacm_traffic(CMAsyncConnection, self.rdmacm_traffic)
 
     def test_rdmacm_async_traffic_external_qp(self):
-        self.two_nodes_rdmacm_traffic(self.ip_addr, async_traffic_with_ext_qp)
+        self.two_nodes_rdmacm_traffic(CMAsyncConnection, self.rdmacm_traffic,
+                                      with_ext_qp=True)
