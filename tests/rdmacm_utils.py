@@ -9,8 +9,13 @@ from pyverbs.pyverbs_error import PyverbsError
 from tests.utils import validate
 from pyverbs.cmid import CMEvent
 import pyverbs.cm_enums as ce
+from pyverbs.addr import AH
+import pyverbs.enums as e
 import abc
 import os
+
+
+GRH_SIZE = 40
 
 
 class CMConnection(abc.ABC):
@@ -93,9 +98,9 @@ class CMConnection(abc.ABC):
         RDMACM API for send, recv and get_completion.
         :return: None
         """
-        send_msg = (self.cm_res.msg_size) * 's'
+        grh_offset = GRH_SIZE if self.cm_res.qp_type == e.IBV_QPT_UD else 0
+        send_msg = (self.cm_res.msg_size + grh_offset) * 's'
         cmid = self.cm_res.child_id
-        grh_offset = 0
         for _ in range(self.cm_res.num_msgs):
             cmid.post_recv(self.cm_res.mr)
             self.syncer.wait()
@@ -104,8 +109,15 @@ class CMConnection(abc.ABC):
             msg_received = self.cm_res.mr.read(self.cm_res.msg_size,
                                                grh_offset)
             validate(msg_received, self.cm_res.passive, self.cm_res.msg_size)
-            self.cm_res.mr.write(send_msg, self.cm_res.msg_size)
-            cmid.post_send(self.cm_res.mr)
+            if self.cm_res.port_space == ce.RDMA_PS_TCP:
+                self.cm_res.mr.write(send_msg, self.cm_res.msg_size)
+                cmid.post_send(self.cm_res.mr)
+            else:
+                rqpn = self.cm_res.remote_qpn
+                ah = AH(cmid.pd, wc=wc, port_num=1, grh=self.cm_res.mr.buf)
+                self.cm_res.mr.write(send_msg, self.cm_res.msg_size + GRH_SIZE)
+                cmid.post_ud_send(self.cm_res.mr, ah, rqpn=rqpn,
+                                  length=self.cm_res.msg_size)
             cmid.get_send_comp()
             self.syncer.wait()
 
@@ -116,13 +128,19 @@ class CMConnection(abc.ABC):
         RDMACM API for send, recv and get_completion.
         :return: None
         """
-        send_msg = (self.cm_res.msg_size) * 'c'
+        grh_offset = GRH_SIZE if self.cm_res.qp_type == e.IBV_QPT_UD else 0
+        send_msg = (self.cm_res.msg_size + grh_offset) * 'c'
         cmid = self.cm_res.cmid
-        grh_offset = 0
         for _ in range(self.cm_res.num_msgs):
             self.cm_res.mr.write(send_msg, self.cm_res.msg_size + grh_offset)
             self.syncer.wait()
-            cmid.post_send(self.cm_res.mr)
+            if self.cm_res.port_space == ce.RDMA_PS_TCP:
+                cmid.post_send(self.cm_res.mr)
+            else:
+                ah = AH(cmid.pd, attr=self.cm_res.ud_params.ah_attr)
+                cmid.post_ud_send(self.cm_res.mr, ah,
+                                  rqpn = self.cm_res.ud_params.qp_num,
+                                  length=self.cm_res.msg_size)
             cmid.get_send_comp()
             cmid.post_recv(self.cm_res.mr)
             self.syncer.wait()
@@ -142,6 +160,8 @@ class CMConnection(abc.ABC):
         cm_event = CMEvent(self.cm_res.cmid.event_channel)
         if cm_event.event_type == ce.RDMA_CM_EVENT_CONNECT_REQUEST:
             self.cm_res.create_child_id(cm_event)
+        elif cm_event.event_type == ce.RDMA_CM_EVENT_ESTABLISHED:
+            self.cm_res.set_ud_params(cm_event)
         if expected_event and expected_event != cm_event.event_type:
             raise PyverbsError('Expected this event: {}, got this event: {}'.
                                 format(expected_event, cm_event.event_str()))
@@ -188,7 +208,8 @@ class CMAsyncConnection(CMConnection):
             self.cm_res.child_id.accept(self.cm_res.create_conn_param())
             if self.cm_res.with_ext_qp:
                 self.cm_res.modify_ext_qp_to_rts()
-            self.event_handler(expected_event=ce.RDMA_CM_EVENT_ESTABLISHED)
+            if self.cm_res.port_space == ce.RDMA_PS_TCP:
+                self.event_handler(expected_event=ce.RDMA_CM_EVENT_ESTABLISHED)
         else:
             self.cm_res.cmid.resolve_addr(self.cm_res.ai)
             self.event_handler(expected_event=ce.RDMA_CM_EVENT_ADDR_RESOLVED)
@@ -226,11 +247,12 @@ class CMAsyncConnection(CMConnection):
         """
         Disconnect the connection.
         """
-        if self.cm_res.passive:
-            self.cm_res.child_id.disconnect()
-        else:
-            self.event_handler(expected_event=ce.RDMA_CM_EVENT_DISCONNECTED)
-            self.cm_res.cmid.disconnect()
+        if self.cm_res.port_space == ce.RDMA_PS_TCP:
+            if self.cm_res.passive:
+                self.cm_res.child_id.disconnect()
+            else:
+                self.event_handler(expected_event=ce.RDMA_CM_EVENT_DISCONNECTED)
+                self.cm_res.cmid.disconnect()
 
 
 class CMSyncConnection(CMConnection):
@@ -271,7 +293,8 @@ class CMSyncConnection(CMConnection):
         """
         Disconnect the connection.
         """
-        if self.cm_res.passive:
-            self.cm_res.child_id.disconnect()
-        else:
-            self.cm_res.cmid.disconnect()
+        if self.cm_res.port_space == ce.RDMA_PS_TCP:
+            if self.cm_res.passive:
+                self.cm_res.child_id.disconnect()
+            else:
+                self.cm_res.cmid.disconnect()

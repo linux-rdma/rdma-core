@@ -8,6 +8,7 @@ import os
 from tests.rdmacm_utils import  CMSyncConnection, CMAsyncConnection
 from pyverbs.pyverbs_error import PyverbsError
 from tests.base import RDMATestCase
+import pyverbs.cm_enums as ce
 
 
 NUM_OF_PROCESSES = 2
@@ -33,6 +34,10 @@ class CMTestCase(RDMATestCase):
                                 attributes that are requested.
         :return: None
         """
+        if resource_kwargs.get('port_space', None) == ce.RDMA_PS_UDP and \
+            self.is_eth_and_has_roce_hw_bug():
+            raise unittest.SkipTest('Device {} doesn\'t support UDP with RoCEv2'
+                                    .format(self.dev_name))
         ctx = mp.get_context('fork')
         self.syncer = ctx.Barrier(NUM_OF_PROCESSES, timeout=15)
         self.notifier = ctx.Queue()
@@ -91,3 +96,7 @@ class CMTestCase(RDMATestCase):
     def test_rdmacm_async_traffic_external_qp(self):
         self.two_nodes_rdmacm_traffic(CMAsyncConnection, self.rdmacm_traffic,
                                       with_ext_qp=True)
+
+    def test_rdmacm_async_udp_traffic(self):
+        self.two_nodes_rdmacm_traffic(CMAsyncConnection, self.rdmacm_traffic,
+                                      port_space=ce.RDMA_PS_UDP)
