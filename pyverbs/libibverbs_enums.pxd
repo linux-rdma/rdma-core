@@ -431,3 +431,9 @@ cdef extern from '<infiniband/verbs.h>':
 _IBV_DEVICE_RAW_SCATTER_FCS = IBV_DEVICE_RAW_SCATTER_FCS
 _IBV_DEVICE_PCI_WRITE_END_PADDING = IBV_DEVICE_PCI_WRITE_END_PADDING
 _IBV_ALLOCATOR_USE_DEFAULT = <size_t>IBV_ALLOCATOR_USE_DEFAULT
+
+
+cdef extern from '<infiniband/driver.h>':
+    cpdef enum ibv_gid_type:
+        IBV_GID_TYPE_IB_ROCE_V1
+        IBV_GID_TYPE_ROCE_V2

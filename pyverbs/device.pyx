@@ -195,6 +195,14 @@ cdef class Context(PyverbsCM):
                                                                    format(idx=index, port=port_num))
         return gid
 
+    def query_gid_type(self, unsigned int port_num, unsigned int index):
+        cdef v.ibv_gid_type gid_type
+        rc = v.ibv_query_gid_type(self.context, port_num, index, &gid_type)
+        if rc != 0:
+            raise PyverbsRDMAErrno('Failed to query gid type of port {p} and gid index {g}'
+                                   .format(p=port_num, g=index))
+        return gid_type
+
     def query_port(self, unsigned int port_num):
         """
         Query port <port_num> of the device and returns its attributes.
