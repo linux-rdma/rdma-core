@@ -272,7 +272,7 @@ def create_custom_mr(agr_obj, additional_access_flags=0, size=None):
 
 # Traffic helpers
 
-def get_send_element(agr_obj, is_server):
+def get_send_elements(agr_obj, is_server):
     """
     Creates a single SGE and a single Send WR for agr_obj's QP type. The content
     of the message is either 's' for server side or 'c' for client side.
@@ -484,10 +484,10 @@ def validate(received_str, is_server, msg_size):
                 format(exp=expected_str, rcv=received_str))
 
 
-def send(agr_obj, send_wr, gid_index, port, send_op=None):
+def send(agr_obj, send_object, gid_index, port, send_op=None):
     if send_op:
-        return post_send_ex(agr_obj, send_wr, gid_index, port, send_op)
-    return post_send(agr_obj, send_wr, gid_index, port)
+        return post_send_ex(agr_obj, send_object, gid_index, port, send_op)
+    return post_send(agr_obj, send_object, gid_index, port)
 
 
 def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None):
@@ -508,23 +508,23 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None):
         imm_data = IMM_DATA
     else:
         imm_data = None
-    # Using the new post send API, we need the SGE, not the SendWR
-    send_element_idx = 1 if send_op else 0
     s_recv_wr = get_recv_wr(server)
     c_recv_wr = get_recv_wr(client)
     post_recv(client.qp, c_recv_wr, client.num_msgs)
     post_recv(server.qp, s_recv_wr, server.num_msgs)
     read_offset = GRH_SIZE if client.qp.qp_type == e.IBV_QPT_UD else 0
     for _ in range(iters):
-        c_send_wr = get_send_element(client, False)[send_element_idx]
-        send(client, c_send_wr, gid_idx, port, send_op)
+        c_send_wr, c_sg = get_send_elements(client, False)
+        c_send_object = c_sg if send_op else c_send_wr
+        send(client, c_send_object, gid_idx, port, send_op)
         poll(client.cq)
         poll(server.cq, data=imm_data)
         post_recv(server.qp, s_recv_wr)
         msg_received = server.mr.read(server.msg_size, read_offset)
         validate(msg_received, True, server.msg_size)
-        s_send_wr = get_send_element(server, True)[send_element_idx]
-        send(server, s_send_wr, gid_idx, port, send_op)
+        s_send_wr, s_sg = get_send_elements(server, True)
+        s_send_object = s_sg if send_op else s_send_wr
+        send(server, s_send_object, gid_idx, port, send_op)
         poll(server.cq)
         poll(client.cq, data=imm_data)
         post_recv(client.qp, c_recv_wr)
@@ -551,7 +551,7 @@ def rdma_traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=N
                        send_op == e.IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP or
                        send_op == e.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD)
     for _ in range(iters):
-        c_send_wr = get_send_element(client, False)[send_element_idx]
+        c_send_wr = get_send_elements(client, False)[send_element_idx]
         send(client, c_send_wr, gid_idx, port, send_op)
         poll_cq(client.cq)
         if same_side_check:
@@ -560,7 +560,7 @@ def rdma_traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=N
             msg_received = server.mr.read(server.msg_size, 0)
         validate(msg_received, False if same_side_check else True,
                  server.msg_size)
-        s_send_wr = get_send_element(server, True)[send_element_idx]
+        s_send_wr = get_send_elements(server, True)[send_element_idx]
         if same_side_check:
             client.mr.write('c' * client.msg_size, client.msg_size)
         send(server, s_send_wr, gid_idx, port, send_op)
@@ -601,7 +601,7 @@ def xrc_traffic(client, server, is_cq_ex=False, send_op=None):
     send_element_idx = 1 if send_op else 0
     for _ in range(client.num_msgs):
         for i in range(server.qp_count):
-            c_send_wr = get_send_element(client, False)[send_element_idx]
+            c_send_wr = get_send_elements(client, False)[send_element_idx]
             if send_op is None:
                 c_send_wr.set_qp_type_xrc(client.remote_srqn)
             xrc_post_send(client, i, c_send_wr, 0, 0, send_op)
@@ -609,7 +609,7 @@ def xrc_traffic(client, server, is_cq_ex=False, send_op=None):
             poll(server.cq)
             msg_received = server.mr.read(server.msg_size, 0)
             validate(msg_received, True, server.msg_size)
-            s_send_wr = get_send_element(server, True)[send_element_idx]
+            s_send_wr = get_send_elements(server, True)[send_element_idx]
             if send_op is None:
                 s_send_wr.set_qp_type_xrc(server.remote_srqn)
             xrc_post_send(server, i, s_send_wr, 0, 0, send_op)
