@@ -16,6 +16,7 @@ rdma_shared_provider(mlx5 libmlx5.map
   cq.c
   dbrec.c
   dr_action.c
+  dr_buddy.c
   dr_crc32.c
   dr_dbg.c
   dr_devx.c

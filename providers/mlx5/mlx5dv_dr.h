@@ -35,6 +35,7 @@
 
 #include <ccan/list.h>
 #include <ccan/minmax.h>
+#include <ccan/bitmap.h>
 #include <stdatomic.h>
 #include "mlx5dv.h"
 #include "mlx5_ifc.h"
@@ -1017,4 +1018,32 @@ int dr_send_postsend_formated_htbl(struct mlx5dv_dr_domain *dmn,
 				   bool update_hw_ste);
 int dr_send_postsend_action(struct mlx5dv_dr_domain *dmn,
 			    struct mlx5dv_dr_action *action);
+/* buddy functions & structure */
+struct dr_icm_mr;
+
+struct dr_icm_buddy_mem {
+	bitmap			**bits;
+	unsigned int		*num_free;
+	bitmap			**set_bit;
+	uint32_t		max_order;
+	struct list_node	list_node;
+	struct dr_icm_mr	*icm_mr;
+	struct dr_icm_pool	*pool;
+
+	/* This is the list of used chunks. HW may be accessing this memory */
+	struct list_head	used_list;
+
+	/* hardware may be accessing this memory but at some future,
+	 * undetermined time, it might cease to do so.
+	 * sync_ste command sets them free.
+	 */
+	struct list_head	hot_list;
+	/* indicates the byte size of hot mem */
+	unsigned int		hot_memory_size;
+};
+
+int dr_buddy_init(struct dr_icm_buddy_mem *buddy, uint32_t max_order);
+void dr_buddy_cleanup(struct dr_icm_buddy_mem *buddy);
+int dr_buddy_alloc_mem(struct dr_icm_buddy_mem *buddy, int order);
+void dr_buddy_free_mem(struct dr_icm_buddy_mem *buddy, uint32_t seg, int order);
 #endif
