@@ -392,7 +392,7 @@ static int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 
 	cqe = cq_next_sub_cqe_get(sub_cq);
 	if (!cqe)
-		return ENOMEM;
+		return ENOENT;
 
 	qpn = cqe->qp_num;
 	if (!*cur_qp || qpn != (*cur_qp)->verbs_qp.qp.qp_num) {
@@ -449,7 +449,7 @@ static int efa_poll_sub_cqs(struct efa_cq *cq, struct ibv_wc *wc)
 	struct efa_sub_cq *sub_cq;
 	struct efa_qp *qp = NULL;
 	uint16_t sub_cq_idx;
-	int err = ENOMEM;
+	int err = ENOENT;
 
 	for (sub_cq_idx = 0; sub_cq_idx < num_sub_cqs; sub_cq_idx++) {
 		sub_cq = &cq->sub_cq_arr[cq->next_poll_idx++];
@@ -459,7 +459,7 @@ static int efa_poll_sub_cqs(struct efa_cq *cq, struct ibv_wc *wc)
 			continue;
 
 		err = efa_poll_sub_cq(cq, sub_cq, &qp, wc);
-		if (err != ENOMEM)
+		if (err != ENOENT)
 			break;
 	}
 
@@ -476,7 +476,7 @@ int efa_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 	for (i = 0; i < nwc; i++) {
 		ret = efa_poll_sub_cqs(cq, &wc[i]);
 		if (ret) {
-			if (ret == ENOMEM)
+			if (ret == ENOENT)
 				ret = 0;
 			break;
 		}
