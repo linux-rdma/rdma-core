@@ -393,31 +393,25 @@ int hns_roce_u_destroy_cq(struct ibv_cq *cq)
 static int hns_roce_create_idx_que(struct ibv_pd *pd, struct hns_roce_srq *srq)
 {
 	struct hns_roce_idx_que	*idx_que = &srq->idx_que;
-	uint32_t bitmap_num;
+	unsigned int buf_size;
 	int i;
 
-	idx_que->entry_sz = HNS_ROCE_IDX_QUE_ENTRY_SZ;
-
-	/* bits needed in bitmap */
-	bitmap_num = align(srq->max_wqe, BIT_CNT_PER_U64);
-
-	idx_que->bitmap = calloc(1, bitmap_num / BIT_CNT_PER_BYTE);
+	idx_que->entry_shift = hr_ilog32(HNS_ROCE_IDX_QUE_ENTRY_SZ);
+	idx_que->bitmap_cnt = align(srq->wqe_cnt, BIT_CNT_PER_LONG) /
+				    BIT_CNT_PER_LONG;
+	idx_que->bitmap = calloc(idx_que->bitmap_cnt, sizeof(unsigned long));
 	if (!idx_que->bitmap)
-		return -1;
+		return ENOMEM;
 
-	/* bitmap_num indicates amount of u64 */
-	bitmap_num = bitmap_num / BIT_CNT_PER_U64;
-
-	idx_que->buf_size = srq->max_wqe * idx_que->entry_sz;
-	if (hns_roce_alloc_buf(&idx_que->buf, idx_que->buf_size,
-			       to_hr_dev(pd->context->device)->page_size)) {
+	buf_size = to_hr_hem_entries_size(srq->wqe_cnt, idx_que->entry_shift);
+	if (hns_roce_alloc_buf(&idx_que->buf, buf_size, HNS_HW_PAGE_SIZE)) {
 		free(idx_que->bitmap);
 		idx_que->bitmap = NULL;
-		return -1;
+		return ENOMEM;
 	}
 
 	/* init the idx_que bitmap */
-	for (i = 0; i < bitmap_num; ++i)
+	for (i = 0; i < idx_que->bitmap_cnt; ++i)
 		idx_que->bitmap[i] = ~(0UL);
 
 	return 0;
@@ -427,30 +421,23 @@ static int hns_roce_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
 				  struct hns_roce_srq *srq)
 {
 	int srq_buf_size;
-	int srq_size;
 
-	srq->wrid = calloc(srq->max_wqe, sizeof(unsigned long));
+	srq->wrid = calloc(srq->wqe_cnt, sizeof(unsigned long));
 	if (!srq->wrid)
-		return -1;
+		return ENOMEM;
 
-	/* srq size */
-	srq_size = srq->max_gs * sizeof(struct hns_roce_v2_wqe_data_seg);
-
-	for (srq->wqe_shift = HNS_ROCE_SGE_SHIFT;
-	     1 << srq->wqe_shift < srq_size; ++srq->wqe_shift)
-		; /* nothing */
-
-	srq_buf_size = srq->max_wqe << srq->wqe_shift;
+	srq->wqe_shift = hr_ilog32(roundup_pow_of_two(HNS_ROCE_SGE_SIZE *
+						      srq->max_gs));
+	srq_buf_size = to_hr_hem_entries_size(srq->wqe_cnt, srq->wqe_shift);
 
 	/* allocate srq wqe buf */
-	if (hns_roce_alloc_buf(&srq->buf, srq_buf_size,
-			       to_hr_dev(pd->context->device)->page_size)) {
+	if (hns_roce_alloc_buf(&srq->buf, srq_buf_size, HNS_HW_PAGE_SIZE)) {
 		free(srq->wrid);
-		return -1;
+		return ENOMEM;
 	}
 
 	srq->head = 0;
-	srq->tail = srq->max_wqe - 1;
+	srq->tail = srq->wqe_cnt - 1;
 
 	return 0;
 }
@@ -474,7 +461,7 @@ struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
 	if (pthread_spin_init(&srq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto out;
 
-	srq->max_wqe = align_queue_size(init_attr->attr.max_wr + 1);
+	srq->wqe_cnt = roundup_pow_of_two(init_attr->attr.max_wr + 1);
 	srq->max_gs = init_attr->attr.max_sge;
 
 	ret = hns_roce_create_idx_que(pd, srq);

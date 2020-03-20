@@ -119,7 +119,7 @@ struct hns_roce_buf {
 };
 
 #define BIT_CNT_PER_BYTE       8
-#define BIT_CNT_PER_U64		64
+#define BIT_CNT_PER_LONG       (BIT_CNT_PER_BYTE * sizeof(unsigned long))
 
 /* the sw doorbell type; */
 enum hns_roce_db_type {
@@ -182,9 +182,9 @@ struct hns_roce_cq {
 
 struct hns_roce_idx_que {
 	struct hns_roce_buf		buf;
-	int				buf_size;
-	int				entry_sz;
+	int				entry_shift;
 	unsigned long			*bitmap;
+	int				bitmap_cnt;
 };
 
 struct hns_roce_srq {
@@ -193,7 +193,7 @@ struct hns_roce_srq {
 	pthread_spinlock_t		lock;
 	unsigned long			*wrid;
 	unsigned int			srqn;
-	unsigned int			max_wqe;
+	unsigned int			wqe_cnt;
 	unsigned int			max_gs;
 	unsigned int			wqe_shift;
 	int				head;
