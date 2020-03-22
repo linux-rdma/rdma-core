@@ -718,7 +718,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	if (cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_PD) {
 		if (!(to_mparent_domain(cq_attr->parent_domain))) {
 			errno = EINVAL;
-			return NULL;
+			goto err;
 		}
 		cq->parent_domain = cq_attr->parent_domain;
 	}

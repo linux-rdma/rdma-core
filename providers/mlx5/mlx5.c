@@ -1168,6 +1168,7 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	int				bfi;
 	int				num_sys_page_map;
 	struct mlx5dv_context_attr      *ctx_attr = private_data;
+	bool				always_devx = false;
 
 	if (ctx_attr && ctx_attr->comp_mask) {
 		errno = EINVAL;
@@ -1222,11 +1223,23 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 		}
 
 		req.flags = MLX5_IB_ALLOC_UCTX_DEVX;
+	} else {
+		req.flags = MLX5_IB_ALLOC_UCTX_DEVX;
+		always_devx = true;
 	}
 
+retry_open:
 	if (mlx5_cmd_get_context(context, &req, sizeof(req), &resp,
-				 sizeof(resp)))
-		goto err_free;
+				 sizeof(resp))) {
+		if (always_devx) {
+			req.flags &= ~MLX5_IB_ALLOC_UCTX_DEVX;
+			always_devx = false;
+			memset(&resp, 0, sizeof(resp));
+			goto retry_open;
+		} else {
+			goto err_free;
+		}
+	}
 
 	context->max_num_qps		= resp.qp_tab_size;
 	context->bf_reg_size		= resp.bf_reg_size;
