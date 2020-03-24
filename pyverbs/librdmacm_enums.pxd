@@ -36,3 +36,11 @@ cdef extern from '<rdma/rdma_cma.h>':
         RAI_NUMERICHOST
         RAI_NOROUTE
         RAI_FAMILY
+
+    cpdef enum rdma_cm_join_mc_attr_mask:
+        RDMA_CM_JOIN_MC_ATTR_ADDRESS
+        RDMA_CM_JOIN_MC_ATTR_JOIN_FLAGS
+
+    cpdef enum rdma_cm_mc_join_flags:
+        RDMA_MC_JOIN_FLAG_FULLMEMBER
+        RDMA_MC_JOIN_FLAG_SENDONLY_FULLMEMBER

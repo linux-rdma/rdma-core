@@ -71,6 +71,38 @@ cdef class ConnParam(PyverbsObject):
                print_format.format('qp number', self.conn_param.qp_num)
 
 
+cdef class JoinMCAttrEx(PyverbsObject):
+
+    def __init__(self, AddrInfo addr not None, comp_mask=0, join_flags=0):
+        """
+        Initialize a JoinMCAttrEx object over an underlying
+        rdma_cm_join_mc_attr_ex C object which contains the extended join
+        multicast attributes.
+        :param addr: Multicast address identifying the group to join.
+        :param comp_mask: Bitwise OR between "rdma_cm_join_mc_attr_mask" enum.
+        :param join_flags: Single flag from "rdma_cm_mc_join_flags" enum.
+                           Indicates the type of the join requests.
+        """
+        super().__init__()
+        self.join_mc_attr_ex.addr = addr.addr_info.ai_src_addr
+        self.join_mc_attr_ex.comp_mask = comp_mask
+        self.join_mc_attr_ex.join_flags = join_flags
+
+    @property
+    def join_flags(self):
+        return self.join_mc_attr_ex.join_flags
+    @join_flags.setter
+    def join_flags(self, val):
+        self.join_mc_attr_ex.join_flags = val
+
+    @property
+    def comp_mask(self):
+        return self.join_mc_attr_ex.comp_mask
+    @comp_mask.setter
+    def comp_mask(self, val):
+        self.join_mc_attr_ex.comp_mask = val
+
+
 cdef class UDParam(PyverbsObject):
 
     def __init__(self, CMEvent cm_event not None):
@@ -392,6 +424,40 @@ cdef class CMID(PyverbsCM):
                                    rai.addr_info.ai_dst_addr, timeout_ms)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to Resolve Address')
+
+    def join_multicast(self, AddrInfo addr=None, JoinMCAttrEx mc_attr=None,
+                       context=0):
+        """
+        Joins a multicast group and attaches an associated QP to the group.
+        :param addr: Multicast address identifying the group to join.
+        :param mc_attr: JoinMCAttrEx object is requierd to use
+                        rdma_join_multicast_ex. This object contains the join
+                        flags and the AddrInfo to join.
+        :param context: User-defined context associated with the join request.
+        :return: None
+        """
+        cdef cm.rdma_cm_join_mc_attr_ex  *mc_join_attr = NULL
+        if not addr and not mc_attr:
+            raise PyverbsUserError('Join to multicast must have AddrInfo or JoinMCAttrEx arguments')
+        if not mc_attr:
+            ret = cm.rdma_join_multicast(self.id, addr.addr_info.ai_src_addr,
+                                         <void*><uintptr_t>context)
+        else:
+            ret = cm.rdma_join_multicast_ex(self.id, &mc_attr.join_mc_attr_ex,
+                                            <void*><uintptr_t>context)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to Join multicast')
+
+    def leave_multicast(self, AddrInfo addr not None):
+        """
+        Leaves a multicast group and detaches an associated QP from the group.
+        :param addr: AddrInfo object, represent the multicast address that
+                     identifies the group to leave.
+        :return: None
+        """
+        ret = cm.rdma_leave_multicast(self.id, addr.addr_info.ai_src_addr)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to leave multicast')
 
     def resolve_route(self, timeout_ms=2000):
         """
