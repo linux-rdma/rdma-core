@@ -66,9 +66,11 @@ Upon success destroy 0 is returned or the value of errno on a failure.
 
 To let this functionality works a DEVX context should be opened by using *mlx5dv_open_device*.
 
+The created indirect mkey can`t work with scatter to CQE feature, consider *mlx5dv_create_qp()* with MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE for small messages.
+
 # SEE ALSO
 
-**mlx5dv_open_device**
+**mlx5dv_open_device**(3), **mlx5dv_create_qp**(3)
 
 #AUTHOR
 
