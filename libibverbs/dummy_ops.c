@@ -369,11 +369,22 @@ static int query_device(struct ibv_context *context,
 	return EOPNOTSUPP;
 }
 
+/* Provide a generic implementation for all providers that don't implement
+ * query_device_ex.
+ */
 static int query_device_ex(struct ibv_context *context,
 			   const struct ibv_query_device_ex_input *input,
 			   struct ibv_device_attr_ex *attr, size_t attr_size)
 {
-	return EOPNOTSUPP;
+	if (input && input->comp_mask)
+		return EINVAL;
+
+	if (attr_size < sizeof(attr->orig_attr))
+		return EOPNOTSUPP;
+
+	memset(&attr->orig_attr, 0, sizeof(attr->orig_attr));
+
+	return ibv_query_device(context, &attr->orig_attr);
 }
 
 static int query_port(struct ibv_context *context, uint8_t port_num,
