@@ -1601,7 +1601,7 @@ struct ibv_ah {
 };
 
 enum ibv_flow_flags {
-	IBV_FLOW_ATTR_FLAGS_ALLOW_LOOP_BACK = 1 << 0,
+	/* First bit is deprecated and can't be used */
 	IBV_FLOW_ATTR_FLAGS_DONT_TRAP = 1 << 1,
 	IBV_FLOW_ATTR_FLAGS_EGRESS = 1 << 2,
 };
@@ -3328,6 +3328,18 @@ static inline int ibv_read_counters(struct ibv_counters *counters,
 		return EOPNOTSUPP;
 
 	return vctx->read_counters(counters, counters_value, ncounters, flags);
+}
+
+#define IB_ROCE_UDP_ENCAP_VALID_PORT_MIN (0xC000)
+#define IB_ROCE_UDP_ENCAP_VALID_PORT_MAX (0xFFFF)
+#define IB_GRH_FLOWLABEL_MASK (0x000FFFFF)
+
+static inline uint16_t ibv_flow_label_to_udp_sport(uint32_t fl)
+{
+	uint32_t fl_low = fl & 0x03FFF, fl_high = fl & 0xFC000;
+
+	fl_low ^= fl_high >> 14;
+	return (uint16_t)(fl_low | IB_ROCE_UDP_ENCAP_VALID_PORT_MIN);
 }
 
 #ifdef __cplusplus

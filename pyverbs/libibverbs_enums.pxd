@@ -308,7 +308,6 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_RX_HASH_DST_PORT_UDP
 
     cpdef enum ibv_flow_flags:
-        IBV_FLOW_ATTR_FLAGS_ALLOW_LOOP_BACK
         IBV_FLOW_ATTR_FLAGS_DONT_TRAP
         IBV_FLOW_ATTR_FLAGS_EGRESS
 

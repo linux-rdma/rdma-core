@@ -50,7 +50,6 @@ IBV_FLOW_ATTR_SNIFFER		= 0x3,		/* Sniffer rule - receive all port traffic */
 .nf
 enum ibv_flow_flags {
 .in +8
-IBV_FLOW_ATTR_FLAGS_ALLOW_LOOP_BACK = 1 << 0,	/* Apply the rules on packets that were sent from the attached QP through loopback */
 IBV_FLOW_ATTR_FLAGS_DONT_TRAP       = 1 << 1,	/* Rule doesn't trap received packets, allowing them to match lower prioritized rules */
 IBV_FLOW_ATTR_FLAGS_EGRESS          = 1 << 2,	/* Match sent packets against EGRESS rules and carry associated actions if required */
 .in -8
