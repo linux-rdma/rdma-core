@@ -199,8 +199,6 @@ static void hns_roce_update_rq_db(struct hns_roce_context *ctx,
 	roce_set_field(rq_db.parameter, DB_PARAM_RQ_PRODUCER_IDX_M,
 		       DB_PARAM_RQ_PRODUCER_IDX_S, rq_head);
 
-	udma_to_device_barrier();
-
 	hns_roce_write64((uint32_t *)&rq_db, ctx, ROCEE_VF_DB_CFG0_OFFSET);
 }
 
@@ -222,8 +220,6 @@ static void hns_roce_update_sq_db(struct hns_roce_context *ctx,
 	roce_set_field(sq_db.parameter, DB_PARAM_SQ_PRODUCER_IDX_M,
 		       DB_PARAM_SQ_PRODUCER_IDX_S, sq_head);
 	roce_set_field(sq_db.parameter, DB_PARAM_SL_M, DB_PARAM_SL_S, sl);
-
-	udma_to_device_barrier();
 
 	hns_roce_write64((uint32_t *)&sq_db, ctx, ROCEE_VF_DB_CFG0_OFFSET);
 }
@@ -905,6 +901,8 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 out:
 	if (likely(nreq)) {
 		qp->sq.head += nreq;
+
+		udma_to_device_barrier();
 
 		hns_roce_update_sq_db(ctx, qp->ibv_qp.qp_num, qp->sl,
 				     qp->sq.head & ((qp->sq.wqe_cnt << 1) - 1));
