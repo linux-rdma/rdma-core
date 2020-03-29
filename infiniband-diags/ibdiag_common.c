@@ -658,7 +658,7 @@ static int resolve_guid(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
 {
 	ib_portid_t tmp;
 	uint8_t buf[IB_SA_DATA_SIZE] = { 0 };
-	uint64_t prefix;
+	__be64 prefix;
 	ibmad_gid_t selfgid;
 
 	if (!sm_id) {
@@ -670,10 +670,9 @@ static int resolve_guid(char *ca_name, uint8_t ca_port, ib_portid_t *portid,
 	if (resolve_self(ca_name, ca_port, NULL, NULL, &selfgid) < 0)
 		return -1;
 
-	memcpy(&prefix, portid->gid, sizeof(prefix));
-	if (!prefix)
-		mad_set_field64(portid->gid, 0, IB_GID_PREFIX_F,
-				IB_DEFAULT_SUBN_PREFIX);
+	memcpy(&prefix, selfgid, sizeof(prefix));
+	mad_set_field64(portid->gid, 0, IB_GID_PREFIX_F,
+			prefix ? be64toh(prefix) : IB_DEFAULT_SUBN_PREFIX);
 	if (guid)
 		mad_set_field64(portid->gid, 0, IB_GID_GUID_F, *guid);
 
