@@ -12,6 +12,7 @@ import pyverbs.cm_enums as ce
 
 
 NUM_OF_PROCESSES = 2
+MC_IP_PREFIX = '230'
 
 
 class CMTestCase(RDMATestCase):
@@ -87,11 +88,48 @@ class CMTestCase(RDMATestCase):
                               '{pid}\n'.format(side=side, pid=os.getpid()) +
                               'Exception message: {ex}'.format(ex=str(ex)))
 
+    def rdmacm_multicast_traffic(self, connection_resources=None, passive=None,
+                                 extended=False, **kwargs):
+        """
+        Run RDMACM multicast traffic between two CMIDs.
+        :param connection_resources: The connection resources to use.
+        :param passive: Indicate if this CMID is the passive side.
+        :param extended: Use exteneded multicast join request. This request
+                         allows CMID to join with specific join flags.
+        :param kwargs: Arguments to be passed to the connection_resources.
+        :return: None
+        """
+        try:
+            player = connection_resources(ip_addr=self.ip_addr, syncer=self.syncer,
+                                          notifier=self.notifier, passive=False,
+                                          **kwargs)
+            mc_addr = MC_IP_PREFIX + self.ip_addr[self.ip_addr.find('.'):]
+            player.join_to_multicast(src_addr=self.ip_addr, mc_addr=mc_addr,
+                                     extended=extended)
+            player.rdmacm_traffic(server=passive, multicast=True)
+            player.leave_multicast(mc_addr=mc_addr)
+        except Exception as ex:
+            side = 'passive' if passive else 'active'
+            self.notifier.put('Caught exception in {side} side process: pid {pid}\n'
+                        .format(side=side, pid=os.getpid()) +
+                        'Exception message: {ex}'.format(ex=str(ex)))
+
+
     def test_rdmacm_sync_traffic(self):
         self.two_nodes_rdmacm_traffic(CMSyncConnection, self.rdmacm_traffic)
 
     def test_rdmacm_async_traffic(self):
         self.two_nodes_rdmacm_traffic(CMAsyncConnection, self.rdmacm_traffic)
+
+    def test_rdmacm_async_multicast_traffic(self):
+        self.two_nodes_rdmacm_traffic(CMAsyncConnection,
+                                      self.rdmacm_multicast_traffic,
+                                      port_space=ce.RDMA_PS_UDP)
+
+    def test_rdmacm_async_ex_multicast_traffic(self):
+        self.two_nodes_rdmacm_traffic(CMAsyncConnection,
+                                      self.rdmacm_multicast_traffic,
+                                      port_space=ce.RDMA_PS_UDP, extended=True)
 
     def test_rdmacm_async_traffic_external_qp(self):
         self.two_nodes_rdmacm_traffic(CMAsyncConnection, self.rdmacm_traffic,
