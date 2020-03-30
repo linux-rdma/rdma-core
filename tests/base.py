@@ -39,6 +39,10 @@ ROCEV2_UNSUPPORTED_DEVS = {MLNX_VENDOR_ID: [CX3Pro_MLNX_PART_ID,
                                             CX3_MLNX_PART_ID]}
 
 
+def has_roce_hw_bug(vendor_id, vendor_part_id):
+    return vendor_part_id in ROCEV2_UNSUPPORTED_DEVS.get(vendor_id, [])
+
+
 class PyverbsAPITestCase(unittest.TestCase):
     def setUp(self):
         """
@@ -142,6 +146,7 @@ class RDMATestCase(unittest.TestCase):
         if port_attrs.state != e.IBV_PORT_ACTIVE:
             return
         dev_attrs = ctx.query_device()
+        vendor_id = dev_attrs.vendor_id
         vendor_pid = dev_attrs.vendor_part_id
         for idx in range(port_attrs.gid_tbl_len):
             gid = ctx.query_gid(port, idx)
@@ -151,7 +156,7 @@ class RDMATestCase(unittest.TestCase):
             # Avoid RoCEv2 GIDs on unsupported devices
             if port_attrs.link_layer == e.IBV_LINK_LAYER_ETHERNET and \
                     ctx.query_gid_type(port, idx) == e.IBV_GID_TYPE_ROCE_V2 and \
-                    vendor_pid in ROCEV2_UNSUPPORTED_DEVS[dev_attrs.vendor_id]:
+                    has_roce_hw_bug(vendor_id, vendor_pid):
                 continue
             self.args.append([dev, port, idx])
 
