@@ -98,9 +98,10 @@ static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
 			      DR_DUMP_REC_TYPE_ACTION_DROP, action_id, rule_id);
 		break;
 	case DR_ACTION_TYP_FT:
-		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x,0x%" PRIx64 "\n",
 			      DR_DUMP_REC_TYPE_ACTION_FT, action_id, rule_id,
-			      action->dest_tbl->devx_obj->object_id);
+			      action->dest_tbl->devx_obj->object_id,
+			      (uint64_t)(uintptr_t)action->dest_tbl);
 		break;
 	case DR_ACTION_TYP_QP:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
