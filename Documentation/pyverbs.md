@@ -533,12 +533,12 @@ import pyverbs.cm_enums as ce
 
 cap = QPCap(max_recv_wr=1)
 qp_init_attr = QPInitAttr(cap=cap)
-server = '11.137.14.124'
+addr = '11.137.14.124'
 port = '7471'
 
 # Passive side
 
-sai = AddrInfo(server, port, ce.RDMA_PS_TCP, ce.RAI_PASSIVE)
+sai = AddrInfo(src=addr, src_service=port, port_space=ce.RDMA_PS_TCP, flags=ce.RAI_PASSIVE)
 sid = CMID(creator=sai, qp_init_attr=qp_init_attr)
 sid.listen()  # listen for incoming connection requests
 new_id = sid.get_request()  # check if there are any connection requests
@@ -546,9 +546,9 @@ new_id.accept()  # new_id is connected to remote peer and ready to communicate
 
 # Active side
 
-cai = AddrInfo(server, port, ce.RDMA_PS_TCP)
+cai = AddrInfo(src=addr, dst=addr, dst_service=port, port_space=ce.RDMA_PS_TCP)
 cid = CMID(creator=cai, qp_init_attr=qp_init_attr)
-cid.connect()  # send connection request to server
+cid.connect()  # send connection request to passive addr
 ```
 
 ##### ParentDomain

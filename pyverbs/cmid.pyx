@@ -71,19 +71,23 @@ cdef class ConnParam(PyverbsObject):
 
 cdef class AddrInfo(PyverbsObject):
 
-    def __init__(self, src=None, dst=None, service=None, port_space=0,
-                  flags=0):
+    def __init__(self, src=None, dst=None, src_service=None, dst_service=None,
+                 port_space=0, flags=0):
         """
         Initialize an AddrInfo object over an underlying rdma_addrinfo C object.
         :param src: Name, dotted-decimal IPv4 or IPv6 hex address to bind to.
         :param dst: Name, dotted-decimal IPv4 or IPv6 hex address to connect to.
-        :param service: The service name or port number of the address.
+        :param src_service: The service name or port number of the source
+                            address.
+        :param dst_service: The service name or port number of the destination
+                            address.
         :param port_space: RDMA port space used (RDMA_PS_UDP or RDMA_PS_TCP).
         :param flags: Hint flags which control the operation.
         :return: An AddrInfo object which contains information needed to
         establish communication.
         """
-        cdef char* srvc = NULL
+        cdef char* src_srvc = NULL
+        cdef char* dst_srvc = NULL
         cdef char* src_addr = NULL
         cdef char* dst_addr = NULL
         cdef cm.rdma_addrinfo hints
@@ -99,28 +103,32 @@ cdef class AddrInfo(PyverbsObject):
             if isinstance(dst, str):
                 dst = dst.encode('utf-8')
             dst_addr = <char*>dst
-        if service is not None:
-            if isinstance(service, str):
-                service = service.encode('utf-8')
-            srvc = <char*>service
+        if src_service is not None:
+            if isinstance(src_service, str):
+                src_service = src_service.encode('utf-8')
+            src_srvc = <char*>src_service
+        if dst_service is not None:
+            if isinstance(dst_service, str):
+                dst_service = dst_service.encode('utf-8')
+            dst_srvc = <char*>dst_service
 
         hints_ptr = &hints
         memset(hints_ptr, 0, sizeof(cm.rdma_addrinfo))
         hints.ai_port_space = port_space
         hints.ai_flags = flags
         if flags & ce.RAI_PASSIVE:
-            ret = cm.rdma_getaddrinfo(src_addr, srvc, hints_ptr,
+            ret = cm.rdma_getaddrinfo(src_addr, src_srvc, hints_ptr,
                                       &self.addr_info)
         else:
             if src:
                 hints.ai_flags |= ce.RAI_PASSIVE
-                ret = cm.rdma_getaddrinfo(src_addr, NULL, hints_ptr, &res)
+                ret = cm.rdma_getaddrinfo(src_addr, src_srvc, hints_ptr, &res)
                 if ret != 0:
                     raise PyverbsRDMAErrno('Failed to get Address Info')
                 hints.ai_src_addr = <cm.sockaddr*>res.ai_src_addr
                 hints.ai_src_len = res.ai_src_len
                 hints.ai_flags &= ~ce.RAI_PASSIVE
-            ret = cm.rdma_getaddrinfo(dst_addr, srvc, hints_ptr,
+            ret = cm.rdma_getaddrinfo(dst_addr, dst_srvc, hints_ptr,
                                       &self.addr_info)
             if src:
                 cm.rdma_freeaddrinfo(res)

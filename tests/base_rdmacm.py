@@ -48,10 +48,11 @@ class CMResources(abc.ABC):
         self.qp = None
         self.mr = None
         if self.passive:
-            self.ai = AddrInfo(addr, None, self.port, self.port_space,
-                               ce.RAI_PASSIVE)
+            self.ai = AddrInfo(src=addr, src_service=self.port,
+                               port_space=self.port_space, flags=ce.RAI_PASSIVE)
         else:
-            self.ai = AddrInfo(addr, addr, self.port, self.port_space)
+            self.ai = AddrInfo(src=addr, dst=addr, dst_service=self.port,
+                               port_space=self.port_space)
 
     def create_mr(self):
         if self.passive:
