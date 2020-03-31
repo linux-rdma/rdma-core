@@ -329,6 +329,7 @@ cdef extern from 'infiniband/verbs.h':
         ibv_sge         *sg_list
         int             num_sge
         ibv_wr_opcode   opcode
+        uint32_t        imm_data
         unsigned int    send_flags
         wr              wr
         qp_type         qp_type
