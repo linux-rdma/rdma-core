@@ -3,6 +3,7 @@
 
 rdma_python_test(tests
   __init__.py
+  args_parser.py
   base.py
   rdmacm_utils.py
   test_addr.py
