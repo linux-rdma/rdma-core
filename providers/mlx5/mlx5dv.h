@@ -1497,6 +1497,8 @@ mlx5dv_dr_action_create_dest_vport(struct mlx5dv_dr_domain *domain,
 
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_drop(void);
 
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_default_miss(void);
+
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_tag(uint32_t tag_value);
 
 struct mlx5dv_dr_action *
