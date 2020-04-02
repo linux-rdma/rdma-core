@@ -761,6 +761,9 @@ int dr_actions_build_attr(struct mlx5dv_dr_matcher *matcher,
 		case DR_ACTION_TYP_MISS:
 			attr[i].type = MLX5DV_FLOW_ACTION_DEFAULT_MISS;
 			break;
+		case DR_ACTION_TYP_DROP:
+			attr[i].type = MLX5DV_FLOW_ACTION_DROP;
+			break;
 		default:
 			dr_dbg(dmn, "Found unsupported action type: %d\n",
 			       actions[i]->action_type);
