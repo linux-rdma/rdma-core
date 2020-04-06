@@ -3160,7 +3160,7 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 	 */
 	attr->attr.max_wr = msrq->max - 1;
 
-	err = ibv_cmd_create_srq_ex(context, &msrq->vsrq, sizeof(msrq->vsrq),
+	err = ibv_cmd_create_srq_ex(context, &msrq->vsrq,
 				    attr, &cmd.ibv_cmd, sizeof(cmd),
 				    &resp.ibv_resp, sizeof(resp));
 

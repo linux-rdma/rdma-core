@@ -308,4 +308,8 @@ struct ibv_create_srq_resp_v5 {
 	__u32 srq_handle;
 };
 
+#define _STRUCT_ib_uverbs_create_srq_v5
+enum { IB_USER_VERBS_CMD_CREATE_SRQ_V5 = IB_USER_VERBS_CMD_CREATE_SRQ };
+DECLARE_CMDX(IB_USER_VERBS_CMD_CREATE_SRQ_V5, ibv_create_srq_v5, ib_uverbs_create_srq, ibv_create_srq_resp_v5);
+
 #endif /* KERN_ABI_H */
