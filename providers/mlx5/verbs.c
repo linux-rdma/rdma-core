@@ -2898,8 +2898,12 @@ int mlx5_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 {
 	struct mlx5_srq *msrq = to_msrq(srq);
 
+	/* May be used by DC users in addition to XRC ones, as there is no
+	 * indication on the SRQ for DC usage we can't force the above check.
+	 * Even DC users are encouraged to use mlx5dv_init_obj() to get
+	 * the SRQN.
+	 */
 	*srq_num = msrq->srqn;
-
 	return 0;
 }
 
