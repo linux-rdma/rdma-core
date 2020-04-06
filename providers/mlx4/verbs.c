@@ -274,6 +274,17 @@ int mlx4_close_xrcd(struct ibv_xrcd *ib_xrcd)
 	return 0;
 }
 
+int mlx4_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
+{
+	struct mlx4_srq *msrq =
+		container_of(srq, struct mlx4_srq, verbs_srq.srq);
+
+	if (!msrq->verbs_srq.xrcd)
+		return EOPNOTSUPP;
+	*srq_num = msrq->verbs_srq.srq_num;
+	return 0;
+}
+
 struct ibv_mr *mlx4_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			   uint64_t hca_va, int access)
 {

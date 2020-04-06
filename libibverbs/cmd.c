@@ -577,21 +577,14 @@ int ibv_cmd_create_srq_ex(struct ibv_context *context,
 	 * If it is than all the others exist as well
 	 */
 	if (vext_field_avail(struct verbs_srq, srq_num, vsrq_sz)) {
-		srq->comp_mask = IBV_SRQ_INIT_ATTR_TYPE;
 		srq->srq_type = (attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_TYPE) ?
 				attr_ex->srq_type : IBV_SRQT_BASIC;
-		if (srq->srq_type == IBV_SRQT_XRC) {
-			srq->comp_mask |= VERBS_SRQ_NUM;
+		if (srq->srq_type == IBV_SRQT_XRC)
 			srq->srq_num = resp->srqn;
-		}
-		if (attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_XRCD) {
-			srq->comp_mask |= VERBS_SRQ_XRCD;
+		if (attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_XRCD)
 			srq->xrcd = vxrcd;
-		}
-		if (attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_CQ) {
-			srq->comp_mask |= VERBS_SRQ_CQ;
+		if (attr_ex->comp_mask & IBV_SRQ_INIT_ATTR_CQ)
 			srq->cq = attr_ex->cq;
-		}
 	}
 
 	attr_ex->attr.max_wr = resp->max_wr;
