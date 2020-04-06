@@ -115,12 +115,12 @@ static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
 			      action->ctr.offset);
 		break;
 	case DR_ACTION_TYP_TAG:
-		ret = fprintf(f, "%d,,0x%" PRIx64 ",0x%" PRIx64 "0x%x\n",
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
 			      DR_DUMP_REC_TYPE_ACTION_TAG, action_id, rule_id,
 			      action->flow_tag);
 		break;
 	case DR_ACTION_TYP_MODIFY_HDR:
-		ret = fprintf(f, "%d,,0x%" PRIx64 ",0x%" PRIx64 "0x%x\n",
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
 			      DR_DUMP_REC_TYPE_ACTION_MODIFY_HDR, action_id,
 			      rule_id, action->rewrite.index);
 		break;
