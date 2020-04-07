@@ -1600,53 +1600,6 @@ int ibv_cmd_create_flow(struct ibv_qp *qp,
 	return 0;
 }
 
-int ibv_cmd_create_wq(struct ibv_context *context,
-		      struct ibv_wq_init_attr *wq_init_attr,
-		      struct ibv_wq *wq,
-		      struct ibv_create_wq *cmd,
-		      size_t cmd_size,
-		      struct ib_uverbs_ex_create_wq_resp *resp,
-		      size_t resp_size)
-{
-	int err;
-
-	if (wq_init_attr->comp_mask >= IBV_WQ_INIT_ATTR_RESERVED)
-		return EINVAL;
-
-	cmd->user_handle   = (uintptr_t)wq;
-	cmd->pd_handle           = wq_init_attr->pd->handle;
-	cmd->cq_handle   = wq_init_attr->cq->handle;
-	cmd->wq_type = wq_init_attr->wq_type;
-	cmd->max_sge = wq_init_attr->max_sge;
-	cmd->max_wr = wq_init_attr->max_wr;
-	cmd->comp_mask = 0;
-
-	if (wq_init_attr->comp_mask & IBV_WQ_INIT_ATTR_FLAGS) {
-		if (wq_init_attr->create_flags & ~(IBV_WQ_FLAGS_RESERVED - 1))
-			return EOPNOTSUPP;
-		cmd->create_flags = wq_init_attr->create_flags;
-	}
-
-	err = execute_cmd_write_ex(context, IB_USER_VERBS_EX_CMD_CREATE_WQ,
-				   cmd, cmd_size, resp, resp_size);
-	if (err)
-		return err;
-
-	if (resp->response_length < sizeof(*resp))
-		return EINVAL;
-
-	wq->handle  = resp->wq_handle;
-	wq_init_attr->max_wr = resp->max_wr;
-	wq_init_attr->max_sge = resp->max_sge;
-	wq->wq_num = resp->wqn;
-	wq->context = context;
-	wq->cq = wq_init_attr->cq;
-	wq->pd = wq_init_attr->pd;
-	wq->wq_type = wq_init_attr->wq_type;
-
-	return 0;
-}
-
 int ibv_cmd_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr,
 		      struct ibv_modify_wq *cmd, size_t cmd_size)
 {
@@ -1675,32 +1628,6 @@ int ibv_cmd_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr,
 
 	if (attr->attr_mask & IBV_WQ_ATTR_STATE)
 		wq->state = attr->wq_state;
-
-	return 0;
-}
-
-int ibv_cmd_destroy_wq(struct ibv_wq *wq)
-{
-	struct ibv_destroy_wq req;
-	struct ib_uverbs_ex_destroy_wq_resp resp;
-	int ret;
-
-	req.core_payload = (struct ib_uverbs_ex_destroy_wq){
-		.wq_handle = wq->handle,
-	};
-
-	ret = execute_cmd_write_ex(wq->context, IB_USER_VERBS_EX_CMD_DESTROY_WQ,
-				   &req, sizeof(req), &resp, sizeof(resp));
-	if (verbs_is_destroy_err(&ret))
-		return ret;
-
-	if (resp.response_length < sizeof(resp))
-		return EINVAL;
-
-	pthread_mutex_lock(&wq->mutex);
-	while (wq->events_completed != resp.events_reported)
-		pthread_cond_wait(&wq->cond, &wq->mutex);
-	pthread_mutex_unlock(&wq->mutex);
 
 	return 0;
 }
