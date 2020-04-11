@@ -565,10 +565,6 @@ static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 	if ((attr->qp_type != IBV_QPT_RC) && (attr->qp_type != IBV_QPT_UD))
 		return EINVAL;
 
-	if ((attr->qp_type == IBV_QPT_RC) &&
-	    (attr->cap.max_inline_data > HNS_ROCE_MAX_INLINE_DATA_LEN))
-		return EINVAL;
-
 	return 0;
 }
 
@@ -751,11 +747,9 @@ static void hns_roce_set_qp_params(struct ibv_pd *pd,
 	qp->sq.max_gs = min(ctx->max_sge, qp->sq.max_gs);
 
 	qp->sq_signal_bits = attr->sq_sig_all ? 0 : 1;
-	qp->max_inline_data = HNS_ROCE_MAX_INLINE_DATA_LEN;
 
 	/* update attr for creating qp */
 	attr->cap.max_send_wr = qp->sq.max_post;
-	attr->cap.max_inline_data = qp->max_inline_data;
 }
 
 static int get_sq_db_addr(struct ibv_pd *pd, struct ibv_qp_init_attr *attr,
@@ -873,6 +867,7 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	}
 	pthread_mutex_unlock(&context->qp_table_mutex);
 
+	qp->max_inline_data = attr->cap.max_inline_data;
 	/* adjust rq maxima to not exceed reported device maxima */
 	attr->cap.max_recv_wr = min(context->max_qp_wr, attr->cap.max_recv_wr);
 	attr->cap.max_recv_sge = min(context->max_sge, attr->cap.max_recv_sge);

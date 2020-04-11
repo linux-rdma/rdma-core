@@ -55,7 +55,7 @@
 #define HNS_HW_PAGE_SHIFT 12
 #define HNS_HW_PAGE_SIZE (1 << HNS_HW_PAGE_SHIFT)
 
-#define HNS_ROCE_MAX_INLINE_DATA_LEN	32
+#define HNS_ROCE_MAX_RC_INL_INN_SZ	32
 #define HNS_ROCE_MAX_CQ_NUM		0x10000
 #define HNS_ROCE_MAX_SRQWQE_NUM		0x8000
 #define HNS_ROCE_MAX_SRQSGE_NUM		0x100
@@ -258,6 +258,7 @@ struct hns_roce_qp {
 	unsigned int			next_sge;
 	int				port_num;
 	int				sl;
+	enum ibv_mtu			path_mtu;
 
 	struct hns_roce_rinl_buf	rq_rinl_buf;
 	unsigned long			flags;

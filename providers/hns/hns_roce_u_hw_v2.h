@@ -270,6 +270,8 @@ struct hns_roce_rc_sq_wqe {
 #define RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_M \
 	(((1UL << 24) - 1) << RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_S)
 
+#define RC_SQ_WQE_BYTE_20_INL_TYPE_S 31
+
 struct hns_roce_v2_wqe_data_seg {
 	__le32		len;
 	__le32		lkey;

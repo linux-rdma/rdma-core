@@ -61,6 +61,19 @@ static inline uint32_t to_hr_opcode(enum ibv_wr_opcode ibv_opcode)
 	return hns_roce_opcode[ibv_opcode];
 }
 
+static const unsigned int hns_roce_mtu[] = {
+	[IBV_MTU_256] = 256,
+	[IBV_MTU_512] = 512,
+	[IBV_MTU_1024] = 1024,
+	[IBV_MTU_2048] = 2048,
+	[IBV_MTU_4096] = 4096,
+};
+
+static inline unsigned int mtu_enum_to_int(enum ibv_mtu mtu)
+{
+	return hns_roce_mtu[mtu];
+}
+
 static void *get_send_sge_ex(struct hns_roce_qp *qp, int n);
 
 static void set_data_seg_v2(struct hns_roce_v2_wqe_data_seg *dseg,
@@ -692,6 +705,11 @@ static void set_sge(struct hns_roce_v2_wqe_data_seg *dseg,
 		sge_info->total_len += wr->sg_list[i].length;
 		sge_info->valid_num++;
 
+		if (wr->send_flags & IBV_SEND_INLINE &&
+		    wr->opcode != IBV_WR_ATOMIC_FETCH_AND_ADD &&
+		    wr->opcode != IBV_WR_ATOMIC_CMP_AND_SWP)
+			continue;
+
 		/* No inner sge in UD wqe */
 		if (sge_info->valid_num <= HNS_ROCE_SGE_IN_WQE &&
 		    qp->ibv_qp.qp_type != IBV_QPT_UD) {
@@ -706,6 +724,37 @@ static void set_sge(struct hns_roce_v2_wqe_data_seg *dseg,
 	}
 }
 
+static int fill_ext_sge_inl_data(struct hns_roce_qp *qp,
+				 const struct ibv_send_wr *wr,
+				 struct hns_roce_sge_info *sge_info)
+{
+	unsigned int sge_sz = sizeof(struct hns_roce_v2_wqe_data_seg);
+	void *dseg;
+	int i;
+
+	if (sge_info->total_len > qp->sq.max_gs * sge_sz)
+		return EINVAL;
+
+	dseg = get_send_sge_ex(qp, sge_info->start_idx);
+
+	for (i = 0; i < wr->num_sge; i++) {
+		memcpy(dseg, (void *)(uintptr_t)wr->sg_list[i].addr,
+		       wr->sg_list[i].length);
+		dseg += wr->sg_list[i].length;
+	}
+
+	sge_info->start_idx += DIV_ROUND_UP(sge_info->total_len, sge_sz);
+
+	return 0;
+}
+
+static bool check_inl_data_len(struct hns_roce_qp *qp, unsigned int len)
+{
+	int mtu = mtu_enum_to_int(qp->path_mtu);
+
+	return (len <= qp->max_inline_data && len <= mtu);
+}
+
 static __le32 get_immtdata(enum ibv_wr_opcode opcode, const struct ibv_send_wr *wr)
 {
 	switch (opcode) {
@@ -715,6 +764,52 @@ static __le32 get_immtdata(enum ibv_wr_opcode opcode, const struct ibv_send_wr *
 	default:
 		return 0;
 	}
+}
+
+static int set_rc_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
+		      struct hns_roce_rc_sq_wqe *rc_sq_wqe,
+		      struct hns_roce_sge_info *sge_info)
+{
+	unsigned int sge_idx = sge_info->start_idx;
+	void *dseg = rc_sq_wqe;
+	int ret;
+	int i;
+
+	if (wr->opcode == IBV_WR_RDMA_READ)
+		return EINVAL;
+
+	if (!check_inl_data_len(qp, sge_info->total_len))
+		return EINVAL;
+
+	dseg += sizeof(struct hns_roce_rc_sq_wqe);
+
+	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_INLINE_S, 1);
+
+	if (sge_info->total_len <= HNS_ROCE_MAX_RC_INL_INN_SZ) {
+		roce_set_bit(rc_sq_wqe->byte_20, RC_SQ_WQE_BYTE_20_INL_TYPE_S,
+			     0);
+
+		for (i = 0; i < wr->num_sge; i++) {
+			memcpy(dseg, (void *)(uintptr_t)(wr->sg_list[i].addr),
+			       wr->sg_list[i].length);
+			dseg += wr->sg_list[i].length;
+		}
+	} else {
+		roce_set_bit(rc_sq_wqe->byte_20, RC_SQ_WQE_BYTE_20_INL_TYPE_S,
+			     1);
+
+		ret = fill_ext_sge_inl_data(qp, wr, sge_info);
+		if (ret)
+			return ret;
+
+		sge_info->valid_num = sge_info->start_idx - sge_idx;
+
+		roce_set_field(rc_sq_wqe->byte_16, RC_SQ_WQE_BYTE_16_SGE_NUM_M,
+			       RC_SQ_WQE_BYTE_16_SGE_NUM_S,
+			       sge_info->valid_num);
+	}
+
+	return 0;
 }
 
 static void set_bind_mw_seg(struct hns_roce_rc_sq_wqe *wqe,
@@ -788,7 +883,6 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	struct hns_roce_rc_sq_wqe *rc_sq_wqe = wqe;
 	struct hns_roce_v2_wqe_data_seg *dseg;
 	int ret;
-	int i;
 
 	memset(rc_sq_wqe, 0, sizeof(struct hns_roce_rc_sq_wqe));
 
@@ -830,27 +924,11 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	    wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
 		dseg++;
 		ret = set_atomic_seg(qp, wr, dseg, sge_info);
+	} else if (wr->send_flags & IBV_SEND_INLINE) {
+		ret = set_rc_inl(qp, wr, rc_sq_wqe, sge_info);
 	}
 
-	if (ret)
-		return ret;
-
-	if (wr->send_flags & IBV_SEND_INLINE && sge_info->valid_num) {
-		if (wr->opcode == IBV_WR_RDMA_READ)
-			return EINVAL;
-
-		if (sge_info->total_len > qp->max_inline_data)
-			return EINVAL;
-
-		for (i = 0; i < wr->num_sge; i++) {
-			memcpy(dseg, (void *)(uintptr_t)(wr->sg_list[i].addr),
-			       wr->sg_list[i].length);
-			dseg += wr->sg_list[i].length;
-		}
-		roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_INLINE_S, 1);
-	}
-
-	return 0;
+	return ret;
 }
 
 int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
@@ -1092,6 +1170,23 @@ static void hns_roce_v2_cq_clean(struct hns_roce_cq *cq, unsigned int qpn,
 	pthread_spin_unlock(&cq->lock);
 }
 
+static void record_qp_attr(struct ibv_qp *qp, struct ibv_qp_attr *attr,
+			   int attr_mask)
+{
+	struct hns_roce_qp *hr_qp = to_hr_qp(qp);
+
+	if (attr_mask & IBV_QP_PORT)
+		hr_qp->port_num = attr->port_num;
+
+	if (attr_mask & IBV_QP_AV)
+		hr_qp->sl = attr->ah_attr.sl;
+
+	if (qp->qp_type == IBV_QPT_UD)
+		hr_qp->path_mtu = IBV_MTU_4096;
+	else if (attr_mask & IBV_QP_PATH_MTU)
+		hr_qp->path_mtu = attr->path_mtu;
+}
+
 static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 				   int attr_mask)
 {
@@ -1129,11 +1224,7 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		hns_roce_init_qp_indices(to_hr_qp(qp));
 	}
 
-	if (attr_mask & IBV_QP_PORT)
-		hr_qp->port_num = attr->port_num;
-
-	if (attr_mask & IBV_QP_AV)
-		hr_qp->sl = attr->ah_attr.sl;
+	record_qp_attr(qp, attr, attr_mask);
 
 	return ret;
 }
