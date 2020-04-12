@@ -551,6 +551,13 @@ static int dev_to_umad_id(const char *dev, unsigned port)
 	return -1;		/* not found */
 }
 
+static int umad_ca_device_list_compare_function(const void *node_a,
+						const void *node_b)
+{
+	return strcmp((*((const struct umad_device_node **)node_a))->ca_name,
+		      (*((const struct umad_device_node **)node_b))->ca_name);
+}
+
 /*******************************
  * Public interface
  */
@@ -1205,6 +1212,53 @@ void umad_dump(void *umad)
 	IBWARN("agent id %d status %x timeout %d",
 	       mad->agent_id, mad->status, mad->timeout_ms);
 	umad_addr_dump(&mad->addr);
+}
+
+int umad_sort_ca_device_list(struct umad_device_node **head, size_t size)
+{
+	int errsv = 0;
+	size_t i;
+	struct umad_device_node *node;
+	struct umad_device_node **nodes_array = NULL;
+
+	if (!size)
+		for (node = *head; node; node = node->next)
+			size++;
+	if (size < 2)
+		return 0;
+
+	nodes_array = calloc(size, sizeof(struct umad_device_node *));
+	if (!nodes_array) {
+		errsv = ENOMEM;
+		goto exit;
+	}
+
+	node = *head;
+	for (i = 0; i < size; i++) {
+		if (!node) {
+			errsv = EINVAL;
+			goto exit;
+		}
+		nodes_array[i] = node;
+		node = node->next;
+	}
+	if (node) {
+		errsv = EINVAL;
+		goto exit;
+	}
+
+	qsort(nodes_array, size, sizeof(struct umad_device_node *),
+	      umad_ca_device_list_compare_function);
+
+	for (i = 0; i < size - 1; i++)
+		nodes_array[i]->next = nodes_array[i + 1];
+
+	*head = nodes_array[0];
+	nodes_array[size - 1]->next = NULL;
+exit:
+	free(nodes_array);
+
+	return errsv;
 }
 
 struct umad_device_node *umad_get_ca_device_list(void)
