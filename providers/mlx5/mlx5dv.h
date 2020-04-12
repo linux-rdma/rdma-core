@@ -1456,6 +1456,9 @@ int mlx5dv_dr_domain_destroy(struct mlx5dv_dr_domain *domain);
 
 int mlx5dv_dr_domain_sync(struct mlx5dv_dr_domain *domain, uint32_t flags);
 
+void mlx5dv_dr_domain_set_reclaim_device_memory(struct mlx5dv_dr_domain *dmn,
+						bool enable);
+
 struct mlx5dv_dr_table *
 mlx5dv_dr_table_create(struct mlx5dv_dr_domain *domain, uint32_t level);
 

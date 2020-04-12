@@ -615,6 +615,10 @@ struct dr_domain_info {
 	struct dr_devx_caps	caps;
 };
 
+enum dr_domain_flags {
+	 DR_DOMAIN_FLAG_MEMORY_RECLAIM = 1 << 0,
+};
+
 struct mlx5dv_dr_domain {
 	struct ibv_context		*ctx;
 	struct ibv_pd			*pd;
@@ -627,6 +631,7 @@ struct mlx5dv_dr_domain {
 	struct dr_send_ring		*send_ring;
 	struct dr_domain_info		info;
 	struct list_head		tbl_list;
+	uint32_t			flags;
 };
 
 struct dr_table_rx_tx {
@@ -1042,6 +1047,7 @@ struct dr_icm_buddy_mem {
 
 	/* This is the list of used chunks. HW may be accessing this memory */
 	struct list_head	used_list;
+	size_t			used_memory;
 
 	/* hardware may be accessing this memory but at some future,
 	 * undetermined time, it might cease to do so.

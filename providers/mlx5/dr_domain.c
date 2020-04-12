@@ -344,6 +344,17 @@ out_unlock:
 	return ret;
 }
 
+void mlx5dv_dr_domain_set_reclaim_device_memory(struct mlx5dv_dr_domain *dmn,
+						bool enable)
+{
+	pthread_mutex_lock(&dmn->mutex);
+	if (enable)
+		dmn->flags |= DR_DOMAIN_FLAG_MEMORY_RECLAIM;
+	else
+		dmn->flags &= ~DR_DOMAIN_FLAG_MEMORY_RECLAIM;
+	pthread_mutex_unlock(&dmn->mutex);
+}
+
 int mlx5dv_dr_domain_destroy(struct mlx5dv_dr_domain *dmn)
 {
 	if (atomic_load(&dmn->refcount) > 1)
