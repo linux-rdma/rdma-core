@@ -2,6 +2,7 @@ libibumad.so.3 libibumad3 #MINVER#
 * Build-Depends-Package: libibumad-dev
  IBUMAD_1.0@IBUMAD_1.0 1.3.9
  IBUMAD_1.1@IBUMAD_1.1 3.1.26
+ IBUMAD_1.2@IBUMAD_1.2 3.2.30
  umad_addr_dump@IBUMAD_1.0 1.3.9
  umad_attribute_str@IBUMAD_1.0 1.3.10.2
  umad_class_str@IBUMAD_1.0 1.3.10.2
@@ -38,5 +39,6 @@ libibumad.so.3 libibumad3 #MINVER#
  umad_set_grh@IBUMAD_1.0 1.3.9
  umad_set_pkey@IBUMAD_1.0 1.3.9
  umad_size@IBUMAD_1.0 1.3.9
+ umad_sort_ca_device_list@IBUMAD_1.2 3.2.30
  umad_status@IBUMAD_1.0 1.3.9
  umad_unregister@IBUMAD_1.0 1.3.9
