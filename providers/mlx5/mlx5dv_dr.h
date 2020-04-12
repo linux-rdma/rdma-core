@@ -1054,8 +1054,6 @@ struct dr_icm_buddy_mem {
 	 * sync_ste command sets them free.
 	 */
 	struct list_head	hot_list;
-	/* indicates the byte size of hot mem */
-	unsigned int		hot_memory_size;
 };
 
 int dr_buddy_init(struct dr_icm_buddy_mem *buddy, uint32_t max_order);
