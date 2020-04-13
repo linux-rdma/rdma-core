@@ -51,8 +51,10 @@ valid RDMA resources for proper functioning.
 ## How to run rdma-core's tests
 #### Developers
 The tests can be executed from ./build/bin:
+```
 ./build.sh
 ./build/bin/run_tests.py
+```
 #### Users
 The tests are not a Python package, as such they can be found under
 /usr/share/doc/rdma-core-{version}/tests.
