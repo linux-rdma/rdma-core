@@ -78,4 +78,4 @@ ibacm source tree.  This is to avoid the version problem when the old provider
 implementation is built against a new acm_prov.h file.  The ibacm will always 
 check the version of the provider at loading time.
 .SH "SEE ALSO"
-ib_acme(1), ibacm(1), ibacm(7)
+ib_acme(1), ibacm(7), ibacm(8)

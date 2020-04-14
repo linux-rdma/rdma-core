@@ -1,20 +1,31 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved.
+
+from libc.stdlib cimport malloc, free
+from libc.string cimport memcpy
+
 from pyverbs.utils import gid_str, qp_type_to_str, qp_state_to_str, mtu_to_str
+from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError, \
+    PyverbsRDMAError
 from pyverbs.utils import access_flags_to_str, mig_state_to_str
-from pyverbs.pyverbs_error import PyverbsUserError
 from pyverbs.base import PyverbsRDMAErrno
-from pyverbs.wr cimport RecvWR, SendWR
+from pyverbs.wr cimport RecvWR, SendWR, SGE
+from pyverbs.addr cimport AHAttr, GID, AH
+from pyverbs.mr cimport MW, MWBindInfo
 cimport pyverbs.libibverbs_enums as e
-from pyverbs.addr cimport AHAttr, GID
 from pyverbs.addr cimport GlobalRoute
 from pyverbs.device cimport Context
+from cpython.ref cimport PyObject
 from pyverbs.cq cimport CQ, CQEX
 cimport pyverbs.libibverbs as v
 from pyverbs.xrcd cimport XRCD
 from pyverbs.srq cimport SRQ
 from pyverbs.pd cimport PD
-from libc.string cimport memcpy
+
+cdef extern from 'Python.h':
+    void* PyLong_AsVoidPtr(object)
+cdef extern from 'endian.h':
+    unsigned long htobe32(unsigned long host_32bits)
 
 
 cdef class QPCap(PyverbsObject):
@@ -240,7 +251,7 @@ cdef class QPInitAttrEx(PyverbsObject):
                  SRQ srq=None, QPCap cap=None, sq_sig_all=0, comp_mask=0,
                  PD pd=None, XRCD xrcd=None, create_flags=0,
                  max_tso_header=0, source_qpn=0, object hash_conf=None,
-                 object ind_table=None):
+                 object ind_table=None, send_ops_flags=0):
         """
         Initialize a QPInitAttrEx object with user-defined or default values.
         :param qp_type: QP type to be created
@@ -261,6 +272,8 @@ cdef class QPInitAttrEx(PyverbsObject):
                            set in create_flags)
         :param hash_conf: Not yet supported
         :param ind_table: Not yet supported
+        :param send_ops_flags: Send opcodes to be supported by the extended QP.
+                               Use ibv_qp_create_send_ops_flags enum
         :return: An initialized QPInitAttrEx object
         """
         super().__init__()
@@ -302,6 +315,7 @@ cdef class QPInitAttrEx(PyverbsObject):
         self.attr.create_flags = create_flags
         self.attr.max_tso_header = max_tso_header
         self.attr.source_qpn = source_qpn
+        self.attr.send_ops_flags = send_ops_flags
 
     @property
     def send_cq(self):
@@ -954,10 +968,11 @@ cdef class QP(PyverbsCM):
         self.close()
 
     cpdef close(self):
-        self.logger.debug('Closing QP')
         if self.qp != NULL:
-            if v.ibv_destroy_qp(self.qp):
-                raise PyverbsRDMAErrno('Failed to destroy QP')
+            self.logger.debug('Closing QP')
+            rc = v.ibv_destroy_qp(self.qp)
+            if rc:
+                raise PyverbsRDMAError('Failed to destroy QP', rc)
             self.qp = NULL
             self.pd = None
             self.context = None
@@ -1014,8 +1029,7 @@ cdef class QP(PyverbsCM):
         qp_attr.qp_state = e.IBV_QPS_INIT
         rc =  v.ibv_modify_qp(self.qp, &qp_attr.attr, mask)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to modify QP state to init (returned {rc})'.
-                                   format(rc=rc))
+            raise PyverbsRDMAError('Failed to modify QP state to init', rc)
 
     def to_rtr(self, QPAttr qp_attr):
         """
@@ -1035,8 +1049,7 @@ cdef class QP(PyverbsCM):
         qp_attr.qp_state = e.IBV_QPS_RTR
         rc = v.ibv_modify_qp(self.qp, &qp_attr.attr, mask)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to modify QP state to RTR (returned {rc})'.
-                                   format(rc=rc))
+            raise PyverbsRDMAError('Failed to modify QP state to RTR', rc)
 
     def to_rts(self, QPAttr qp_attr):
         """
@@ -1055,8 +1068,7 @@ cdef class QP(PyverbsCM):
         qp_attr.qp_state = e.IBV_QPS_RTS
         rc = v.ibv_modify_qp(self.qp, &qp_attr.attr, mask)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to modify QP state to RTS (returned {rc})'.
-                                   format(rc=rc))
+            raise PyverbsRDMAError('Failed to modify QP state to RTS', rc)
 
     def query(self, attr_mask):
         """
@@ -1071,8 +1083,7 @@ cdef class QP(PyverbsCM):
         init_attr = QPInitAttr()
         rc = v.ibv_query_qp(self.qp, &attr.attr, attr_mask, &init_attr.attr)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to query QP (returned {rc})'.
-                                   format(rc=rc))
+            raise PyverbsRDMAError('Failed to query QP', rc)
         return attr, init_attr
 
     def modify(self, QPAttr qp_attr not None, comp_mask):
@@ -1086,8 +1097,7 @@ cdef class QP(PyverbsCM):
         """
         rc = v.ibv_modify_qp(self.qp, &qp_attr.attr, comp_mask)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to modify QP (returned {rc})'.
-                                   format(rc=rc))
+            raise PyverbsRDMAError('Failed to modify QP', rc)
 
     def post_recv(self, RecvWR wr not None, RecvWR bad_wr=None):
         """
@@ -1104,8 +1114,7 @@ cdef class QP(PyverbsCM):
         if rc != 0:
             if (bad_wr):
                 memcpy(&bad_wr.recv_wr, my_bad_wr, sizeof(bad_wr.recv_wr))
-            raise PyverbsRDMAErrno('Failed to post recv (returned {rc})'.
-                                   format(rc=rc))
+            raise PyverbsRDMAError('Failed to post recv', rc)
 
     def post_send(self, SendWR wr not None, SendWR bad_wr=None):
         """
@@ -1122,8 +1131,7 @@ cdef class QP(PyverbsCM):
         if rc != 0:
             if (bad_wr):
                 memcpy(&bad_wr.send_wr, my_bad_wr, sizeof(bad_wr.send_wr))
-            raise PyverbsRDMAErrno('Failed to post send (returned {rc})'.
-                                   format(rc=rc))
+            raise PyverbsRDMAError('Failed to post send', rc)
 
     @property
     def qp_type(self):
@@ -1142,6 +1150,137 @@ cdef class QP(PyverbsCM):
         return print_format.format('QP type', qp_type_to_str(self.qp_type)) +\
                print_format.format('  number', self.qp_num) +\
                print_format.format('  state', qp_state_to_str(self.qp_state))
+
+
+cdef class DataBuffer(PyverbsCM):
+    def __init__(self, addr, length):
+        super().__init__()
+        self.data.addr = PyLong_AsVoidPtr(addr)
+        self.data.length = length
+
+
+cdef class QPEx(QP):
+    def __init__(self, object creator not None, object init_attr not None,
+                 QPAttr qp_attr=None):
+        """
+        Initializes a QPEx object. Since this is an extension of a QP, QP
+        creation is done in the parent class. The extended QP is retrieved by
+        casting the ibv_qp to ibv_qp_ex.
+        :return: An initialized QPEx object
+        """
+        super().__init__(creator, init_attr, qp_attr)
+        self.qp_ex = v.ibv_qp_to_qp_ex(self.qp)
+        if self.qp_ex == NULL:
+            raise PyverbsRDMAErrno('Failed to create extended QP')
+
+    @property
+    def comp_mask(self):
+        return self.qp_ex.comp_mask
+    @comp_mask.setter
+    def comp_mask(self, val):
+        self.qp_ex.comp_mask = val
+
+    @property
+    def wr_id(self):
+        return self.qp_ex.wr_id
+    @wr_id.setter
+    def wr_id(self, val):
+        self.qp_ex.wr_id = val
+
+    @property
+    def wr_flags(self):
+        return self.qp_ex.wr_flags
+    @wr_flags.setter
+    def wr_flags(self, val):
+        self.qp_ex.wr_flags = val
+
+    def wr_atomic_cmp_swp(self, rkey, remote_addr, compare, swap):
+        v.ibv_wr_atomic_cmp_swp(self.qp_ex, rkey, remote_addr, compare, swap)
+
+    def wr_atomic_fetch_add(self, rkey, remote_addr, add):
+        v.ibv_wr_atomic_fetch_add(self.qp_ex, rkey, remote_addr, add)
+
+    def wr_bind_mw(self, MW mw, rkey, MWBindInfo bind_info):
+        cdef v.ibv_mw_bind_info *info
+        info = &bind_info.info
+        v.ibv_wr_bind_mw(self.qp_ex, <v.ibv_mw*>mw.mw, rkey,
+                         <v.ibv_mw_bind_info*>info)
+
+    def wr_local_inv(self, invalidate_rkey):
+        v.ibv_wr_local_inv(self.qp_ex, invalidate_rkey)
+
+    def wr_rdma_read(self, rkey, remote_addr):
+        v.ibv_wr_rdma_read(self.qp_ex, rkey, remote_addr)
+
+    def wr_rdma_write(self, rkey, remote_addr):
+        v.ibv_wr_rdma_write(self.qp_ex, rkey, remote_addr)
+
+    def wr_rdma_write_imm(self, rkey, remote_addr, data):
+        cdef unsigned int imm_data = htobe32(data)
+        v.ibv_wr_rdma_write_imm(self.qp_ex, rkey, remote_addr, imm_data)
+
+    def wr_send(self):
+        v.ibv_wr_send(self.qp_ex)
+
+    def wr_send_imm(self, data):
+        cdef unsigned int imm_data = htobe32(data)
+        return v.ibv_wr_send_imm(self.qp_ex, imm_data)
+
+    def wr_send_inv(self, invalidate_rkey):
+        v.ibv_wr_send_inv(self.qp_ex, invalidate_rkey)
+
+    def wr_send_tso(self, hdr, hdr_sz, mss):
+        ptr = PyLong_AsVoidPtr(hdr)
+        v.ibv_wr_send_tso(self.qp_ex, ptr, hdr_sz, mss)
+
+    def wr_set_ud_addr(self, AH ah, remote_qpn, remote_rkey):
+        v.ibv_wr_set_ud_addr(self.qp_ex, ah.ah, remote_qpn, remote_rkey)
+
+    def wr_set_xrc_srqn(self, remote_srqn):
+        v.ibv_wr_set_xrc_srqn(self.qp_ex, remote_srqn)
+
+    def wr_set_inline_data(self, addr, length):
+        ptr = PyLong_AsVoidPtr(addr)
+        v.ibv_wr_set_inline_data(self.qp_ex, ptr, length)
+
+    def wr_set_inline_data_list(self, num_buf, buf_list):
+        cdef v.ibv_data_buf *data = NULL
+        data = <v.ibv_data_buf*>malloc(num_buf * sizeof(v.ibv_data_buf))
+        if data == NULL:
+            raise PyverbsError('Failed to allocate data buffer')
+        for i in range(num_buf):
+            data_buf = <DataBuffer>buf_list[i]
+            data[i].addr = data_buf.data.addr
+            data[i].length = data_buf.data.length
+        v.ibv_wr_set_inline_data_list(self.qp_ex, num_buf, data)
+        free(data)
+
+    def wr_set_sge(self, SGE sge not None):
+        v.ibv_wr_set_sge(self.qp_ex, sge.lkey, sge.addr, sge.length)
+
+    def wr_set_sge_list(self, num_sge, sg_list):
+        cdef v.ibv_sge *sge = NULL
+        sge = <v.ibv_sge*>malloc(num_sge * sizeof(v.ibv_sge))
+        if sge == NULL:
+            raise PyverbsError('Failed to allocate SGE buffer')
+        for i in range(num_sge):
+            sge[i].addr = sg_list[i].addr
+            sge[i].length = sg_list[i].length
+            sge[i].lkey = sg_list[i].lkey
+        v.ibv_wr_set_sge_list(self.qp_ex, num_sge, sge)
+        free(sge)
+
+    def wr_start(self):
+        v.ibv_wr_start(self.qp_ex)
+
+    def wr_complete(self):
+        rc = v.ibv_wr_complete(self.qp_ex)
+        if rc != 0:
+            raise PyverbsRDMAErrno('ibv_wr_complete failed , returned {}'.
+                                   format(rc))
+
+    def wr_abort(self):
+        v.ibv_wr_abort(self.qp_ex)
 
 
 def _copy_caps(QPCap src, dst):

@@ -1672,7 +1672,7 @@ int mlx5_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	 */
 	mmio_wc_start();
 
-	mmio_write64_be(ctx->uar[0].reg + MLX5_CQ_DOORBELL, htobe64(doorbell));
+	mmio_write64_be(ctx->cq_uar_reg + MLX5_CQ_DOORBELL, htobe64(doorbell));
 
 	mmio_flush_writes();
 
@@ -1861,7 +1861,14 @@ int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_cq *cq,
 	if (mlx5_use_huge("HUGE_CQ"))
 		default_type = MLX5_ALLOC_TYPE_HUGE;
 
-	mlx5_get_alloc_type(mctx, NULL, MLX5_CQ_PREFIX, &type, default_type);
+	mlx5_get_alloc_type(mctx, cq->parent_domain,
+			    MLX5_CQ_PREFIX, &type, default_type);
+
+	if (type == MLX5_ALLOC_TYPE_CUSTOM) {
+		buf->mparent_domain = to_mparent_domain(cq->parent_domain);
+		buf->req_alignment = dev->page_size;
+		buf->resource_type = MLX5DV_RES_TYPE_CQ;
+	}
 
 	ret = mlx5_alloc_prefered_buf(mctx, buf,
 				      align(nent * cqe_sz, dev->page_size),
@@ -1872,7 +1879,8 @@ int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_cq *cq,
 	if (ret)
 		return -1;
 
-	memset(buf->buf, 0, nent * cqe_sz);
+	if (buf->type != MLX5_ALLOC_TYPE_CUSTOM)
+		memset(buf->buf, 0, nent * cqe_sz);
 
 	for (i = 0; i < nent; ++i) {
 		cqe = buf->buf + i * cqe_sz;

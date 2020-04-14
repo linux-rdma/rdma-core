@@ -216,6 +216,7 @@ cdef extern from 'infiniband/verbs.h':
         unsigned long       wc_flags
         unsigned int        comp_mask
         unsigned int        flags
+        ibv_pd              *parent_domain
 
     cdef struct ibv_cq_ex:
         ibv_context         *context
@@ -442,6 +443,10 @@ cdef extern from 'infiniband/verbs.h':
         unsigned int    handle
         unsigned int    events_completed
 
+    cdef struct ibv_data_buf:
+        void    *addr
+        size_t  length
+
     cdef struct ibv_qp:
         ibv_context     *context;
         void            *qp_context;
@@ -463,6 +468,12 @@ cdef extern from 'infiniband/verbs.h':
         void            (*free)(ibv_pd *pd, void *pd_context, void *ptr,
                                 uint64_t resource_type);
         void            *pd_context;
+
+    cdef struct ibv_qp_ex:
+        ibv_qp          qp_base
+        uint64_t        comp_mask
+        uint64_t        wr_id
+        unsigned int    wr_flags
 
     ibv_device **ibv_get_device_list(int *n)
     void ibv_free_device_list(ibv_device **list)
@@ -552,3 +563,39 @@ cdef extern from 'infiniband/verbs.h':
                           ibv_recv_wr **bad_recv_wr)
     ibv_pd *ibv_alloc_parent_domain(ibv_context *context,
                                     ibv_parent_domain_init_attr *attr)
+    uint32_t ibv_inc_rkey(uint32_t rkey)
+    ibv_qp_ex *ibv_qp_to_qp_ex(ibv_qp *qp)
+    void ibv_wr_atomic_cmp_swp(ibv_qp_ex *qp, uint32_t rkey,
+                               uint64_t remote_addr, uint64_t compare,
+                               uint64_t swap)
+    void ibv_wr_atomic_fetch_add(ibv_qp_ex *qp, uint32_t rkey,
+                                 uint64_t remote_addr, uint64_t add)
+    void ibv_wr_bind_mw(ibv_qp_ex *qp, ibv_mw *mw, uint32_t rkey,
+                        ibv_mw_bind_info *bind_info)
+    void ibv_wr_local_inv(ibv_qp_ex *qp, uint32_t invalidate_rkey)
+    void ibv_wr_rdma_read(ibv_qp_ex *qp, uint32_t rkey, uint64_t remote_addr)
+    void ibv_wr_rdma_write(ibv_qp_ex *qp, uint32_t rkey, uint64_t remote_addr)
+    void ibv_wr_rdma_write_imm(ibv_qp_ex *qp, uint32_t rkey,
+                               uint64_t remote_addr, uint32_t imm_data)
+    void ibv_wr_send(ibv_qp_ex *qp)
+    void ibv_wr_send_imm(ibv_qp_ex *qp, uint32_t imm_data)
+    void ibv_wr_send_inv(ibv_qp_ex *qp, uint32_t invalidate_rkey)
+    void ibv_wr_send_tso(ibv_qp_ex *qp, void *hdr, uint16_t hdr_sz,
+                         uint16_t mss)
+    void ibv_wr_set_ud_addr(ibv_qp_ex *qp, ibv_ah *ah, uint32_t remote_qpn,
+                            uint32_t remote_qkey)
+    void ibv_wr_set_xrc_srqn(ibv_qp_ex *qp, uint32_t remote_srqn)
+    void ibv_wr_set_inline_data(ibv_qp_ex *qp, void *addr, size_t length)
+    void ibv_wr_set_inline_data_list(ibv_qp_ex *qp, size_t num_buf,
+                                     ibv_data_buf *buf_list)
+    void ibv_wr_set_sge(ibv_qp_ex *qp, uint32_t lkey, uint64_t addr,
+                        uint32_t length)
+    void ibv_wr_set_sge_list(ibv_qp_ex *qp, size_t num_sge, ibv_sge *sg_list)
+    void ibv_wr_start(ibv_qp_ex *qp)
+    int ibv_wr_complete(ibv_qp_ex *qp)
+    void ibv_wr_abort(ibv_qp_ex *qp)
+
+
+cdef extern from 'infiniband/driver.h':
+    int ibv_query_gid_type(ibv_context *context, uint8_t port_num,
+                           unsigned int index, ibv_gid_type *type)

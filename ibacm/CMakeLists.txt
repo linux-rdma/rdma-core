@@ -54,8 +54,8 @@ target_compile_definitions(ib_acme PRIVATE "-DACME_PRINTS")
 
 rdma_man_pages(
   man/ib_acme.1
-  man/ibacm.1
   man/ibacm.7
+  man/ibacm.8
   man/ibacm_prov.7.in
   )
 

@@ -304,6 +304,29 @@ static void aggregate_perfcounters_ext(__be16 cap_mask, uint32_t cap_mask2)
 	}
 }
 
+static void dump_perfcounters_ext(char *buf, int size, __be16 cap_mask,
+				  uint32_t cap_mask2)
+{
+	size_t offset, tmp_offset;
+
+	mad_dump_fields(buf, size, pc, sizeof(pc), IB_PC_EXT_FIRST_F,
+			IB_PC_EXT_XMT_UPKTS_F);
+	offset = strlen(buf);
+
+	if (cap_mask & IB_PM_EXT_WIDTH_SUPPORTED) {
+		mad_dump_fields(buf + offset, size - offset, pc, sizeof(pc),
+				IB_PC_EXT_XMT_UPKTS_F, IB_PC_EXT_LAST_F);
+		tmp_offset = strlen(buf + offset);
+		offset += tmp_offset;
+	}
+
+	if (htonl(cap_mask2) & IB_PM_IS_ADDL_PORT_CTRS_EXT_SUP) {
+		mad_dump_fields(buf + offset, size - offset, pc, sizeof(pc),
+				IB_PC_EXT_COUNTER_SELECT2_F,
+				IB_PC_EXT_ERR_LAST_F);
+	}
+}
+
 static void output_aggregate_perfcounters_ext(ib_portid_t * portid,
 					      __be16 cap_mask, uint32_t cap_mask2)
 {
@@ -368,7 +391,7 @@ static void output_aggregate_perfcounters_ext(ib_portid_t * portid,
 				 &perf_count_ext.QP1Dropped);
 	}
 
-	mad_dump_perfcounters_ext(buf, sizeof buf, pc, sizeof pc);
+	dump_perfcounters_ext(buf, sizeof(buf), cap_mask, cap_mask2);
 
 	printf("# Port extended counters: %s port %d (CapMask: 0x%02X CapMask2: 0x%07X)\n%s",
 	       portid2str(portid), ALL_PORTS, ntohs(cap_mask), cap_mask2, buf);
@@ -415,8 +438,8 @@ static void dump_perfcounters(int extended, int timeout, __be16 cap_mask,
 		if (aggregate)
 			aggregate_perfcounters_ext(cap_mask, cap_mask2);
 		else
-			mad_dump_perfcounters_ext(buf, sizeof buf, pc,
-						  sizeof pc);
+			dump_perfcounters_ext(buf, sizeof(buf), cap_mask,
+					      cap_mask2);
 	}
 
 	if (!aggregate) {

@@ -87,6 +87,7 @@ Specified in which flow table type, the matcher will store the flow rules:
 	MLX5DV_FLOW_TABLE_TYPE_NIC_TX Specified this matcher will store egress flow rules.
 	MLX5DV_FLOW_TABLE_TYPE_FDB : Specified this matcher will store FDB rules.
 	MLX5DV_FLOW_TABLE_TYPE_RDMA_RX: Specified this matcher will store ingress RDMA flow rules.
+	MLX5DV_FLOW_TABLE_TYPE_RDMA_TX: Specified this matcher will store egress RDMA flow rules.
 
 # RETURN VALUE
 

@@ -232,6 +232,7 @@ struct mlx5_uar_info {
 
 enum mlx5_ctx_flags {
 	MLX5_CTX_FLAGS_FATAL_STATE = 1 << 0,
+	MLX5_CTX_FLAGS_NO_KERN_DYN_UAR = 1 << 1,
 };
 
 struct mlx5_context {
@@ -304,14 +305,24 @@ struct mlx5_context {
 	struct mlx5_packet_pacing_caps	packet_pacing_caps;
 	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
 	uint32_t			num_dyn_bfregs;
-	uint32_t			*count_dyn_bfregs;
-	uint32_t			start_dyn_bfregs_index;
+	uint32_t			max_num_legacy_dyn_uar_sys_page;
+	uint32_t			curr_legacy_dyn_sys_uar_page;
 	uint16_t			flow_action_flags;
 	uint64_t			max_dm_size;
 	uint32_t                        eth_min_inline_size;
 	uint32_t                        dump_fill_mkey;
 	__be32                          dump_fill_mkey_be;
 	uint32_t			flags;
+	struct list_head		dyn_uar_bf_list;
+	struct list_head		dyn_uar_nc_list;
+	struct list_head		dyn_uar_qp_shared_list;
+	struct list_head		dyn_uar_qp_dedicated_list;
+	uint16_t			qp_max_dedicated_uuars;
+	uint16_t			qp_alloc_dedicated_uuars;
+	uint16_t			qp_max_shared_uuars;
+	uint16_t			qp_alloc_shared_uuars;
+	struct mlx5_bf			*cq_uar;
+	void				*cq_uar_reg;
 };
 
 struct mlx5_bitmap {
@@ -392,6 +403,7 @@ struct mlx5_cq {
 	uint32_t			cqn;
 	uint32_t			cons_index;
 	__be32			       *dbrec;
+	bool				custom_db;
 	int				arm_sn;
 	int				cqe_sz;
 	int				resize_cqe_sz;
@@ -406,6 +418,7 @@ struct mlx5_cq {
 	uint32_t			flags;
 	int			umr_opcode;
 	struct mlx5dv_clock_info	last_clock_info;
+	struct ibv_pd			*parent_domain;
 };
 
 struct mlx5_tag_entry {
@@ -503,6 +516,16 @@ struct mlx5_bf {
 	/* Index in the dynamic bfregs portion */
 	uint32_t			bfreg_dyn_index;
 	struct mlx5_devx_uar		devx_uar;
+	uint8_t				dyn_alloc_uar : 1;
+	uint8_t				mmaped_entry : 1;
+	uint8_t				nc_mode : 1;
+	uint8_t				qp_dedicated : 1;
+	uint8_t				qp_shared : 1;
+	uint32_t			count;
+	struct list_node		uar_entry;
+	uint32_t			uar_handle;
+	uint32_t			length;
+	uint32_t			page_id;
 };
 
 struct mlx5_dm {
@@ -633,6 +656,12 @@ struct mlx5dv_devx_obj {
 
 struct mlx5_var_obj {
 	struct mlx5dv_var dv_var;
+	struct ibv_context *context;
+	uint32_t handle;
+};
+
+struct mlx5_pp_obj {
+	struct mlx5dv_pp dv_pp;
 	struct ibv_context *context;
 	uint32_t handle;
 };
@@ -972,6 +1001,7 @@ struct ibv_pd *mlx5_alloc_parent_domain(struct ibv_context *context,
 
 void *mlx5_mmap(struct mlx5_uar_info *uar, int index,
 		int cmd_fd, int page_size, int uar_type);
+off_t get_uar_mmap_offset(int idx, int page_size, int command);
 
 struct ibv_counters *mlx5_create_counters(struct ibv_context *context,
 					  struct ibv_counters_init_attr *init_attr);
@@ -991,6 +1021,9 @@ int mlx5_advise_mr(struct ibv_pd *pd,
 int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 			 const struct ibv_qp_init_attr_ex *attr,
 			 const struct mlx5dv_qp_init_attr *mlx5_attr);
+void clean_dyn_uars(struct ibv_context *context);
+struct mlx5_bf *mlx5_attach_dedicated_uar(struct ibv_context *context,
+					  uint32_t flags);
 
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {

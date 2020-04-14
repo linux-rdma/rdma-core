@@ -5,6 +5,9 @@
 
 cdef extern from 'infiniband/mlx5dv.h':
 
+    cpdef enum  mlx5dv_context_attr_flags:
+        MLX5DV_CONTEXT_FLAGS_DEVX
+
     cpdef enum mlx5dv_context_comp_mask:
         MLX5DV_CONTEXT_MASK_CQE_COMPRESION      = 1 << 0
         MLX5DV_CONTEXT_MASK_SWP                 = 1 << 1
@@ -80,9 +83,11 @@ cdef extern from 'infiniband/mlx5dv.h':
     cpdef unsigned long long MLX5DV_RES_TYPE_RWQ
     cpdef unsigned long long MLX5DV_RES_TYPE_DBR
     cpdef unsigned long long MLX5DV_RES_TYPE_SRQ
+    cpdef unsigned long long MLX5DV_PP_ALLOC_FLAGS_DEDICATED_INDEX
 
 
 _MLX5DV_RES_TYPE_QP = MLX5DV_RES_TYPE_QP
 _MLX5DV_RES_TYPE_RWQ = MLX5DV_RES_TYPE_RWQ
 _MLX5DV_RES_TYPE_DBR = MLX5DV_RES_TYPE_DBR
 _MLX5DV_RES_TYPE_SRQ = MLX5DV_RES_TYPE_SRQ
+_MLX5DV_PP_ALLOC_FLAGS_DEDICATED_INDEX = MLX5DV_PP_ALLOC_FLAGS_DEDICATED_INDEX

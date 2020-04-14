@@ -2,8 +2,9 @@
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.
 import weakref
 
-from pyverbs.pyverbs_error import PyverbsError
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.pd cimport PD, ParentDomain
 from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.device cimport Context
@@ -36,12 +37,13 @@ cdef class CompChannel(PyverbsCM):
         self.close()
 
     cpdef close(self):
-        self.logger.debug('Closing completion channel')
-        close_weakrefs([self.cqs])
         if self.cc != NULL:
+            self.logger.debug('Closing completion channel')
+            close_weakrefs([self.cqs])
             rc = v.ibv_destroy_comp_channel(self.cc)
             if rc != 0:
-                raise PyverbsRDMAErrno('Failed to destroy a completion channel')
+                raise PyverbsRDMAError('Failed to destroy a completion channel',
+                                       rc)
             self.cc = NULL
 
     def get_cq_event(self, CQ expected_cq):
@@ -114,14 +116,14 @@ cdef class CQ(PyverbsCM):
         self.close()
 
     cpdef close(self):
-        self.logger.debug('Closing CQ')
-        close_weakrefs([self.qps, self.srqs])
-        if self.num_events:
-            self.ack_events(self.num_events)
         if self.cq != NULL:
+            self.logger.debug('Closing CQ')
+            close_weakrefs([self.qps, self.srqs])
+            if self.num_events:
+                self.ack_events(self.num_events)
             rc = v.ibv_destroy_cq(self.cq)
             if rc != 0:
-                raise PyverbsRDMAErrno('Failed to close CQ')
+                raise PyverbsRDMAError('Failed to close CQ', rc)
             self.cq = NULL
             self.context = None
             self.channel = None
@@ -188,7 +190,7 @@ cdef class CQ(PyverbsCM):
 
 cdef class CqInitAttrEx(PyverbsObject):
     def __init__(self, cqe = 100, CompChannel channel = None, comp_vector = 0,
-                 wc_flags = 0, comp_mask = 0, flags = 0):
+                 wc_flags = 0, comp_mask = 0, flags = 0, PD parent_domain = None):
         """
         Initializes a CqInitAttrEx object with the given parameters.
         :param cqe: CQ's capacity
@@ -201,6 +203,7 @@ cdef class CqInitAttrEx(PyverbsObject):
         :param comp_mask: compatibility mask (extended verb)
         :param flags: create cq attr flags - one or more flags from
                       ibv_create_cq_attr_flags enum
+        :param parent_domain: If set, will be used to custom alloc cq buffers.
         :return:
         """
         super().__init__()
@@ -211,7 +214,9 @@ cdef class CqInitAttrEx(PyverbsObject):
         self.attr.wc_flags = wc_flags
         self.attr.comp_mask = comp_mask
         self.attr.flags = flags
+        self.attr.parent_domain = NULL if parent_domain is None else parent_domain.pd
         self.channel = channel
+        self.parent_domain = parent_domain
 
     @property
     def cqe(self):
@@ -224,6 +229,14 @@ cdef class CqInitAttrEx(PyverbsObject):
     property cq_context:
         def __set__(self, val):
             self.attr.cq_context = <void*>val
+
+    @property
+    def parent_domain(self):
+        return self.parent_domain
+    @parent_domain.setter
+    def parent_domain(self, PD val):
+        self.parent_domain = val
+        self.attr.parent_domain = val.pd
 
     @property
     def comp_channel(self):
@@ -289,6 +302,8 @@ cdef class CQEX(PyverbsCM):
         self.cq = v.ibv_create_cq_ex(context.context, &init_attr.attr)
         if init_attr.comp_channel:
             init_attr.comp_channel.add_ref(self)
+        if init_attr.parent_domain:
+            (<ParentDomain>init_attr.parent_domain).add_ref(self)
         if self.cq == NULL:
             raise PyverbsRDMAErrno('Failed to create extended CQ')
         self.ibv_cq = v.ibv_cq_ex_to_cq(self.cq)
@@ -307,12 +322,12 @@ cdef class CQEX(PyverbsCM):
         self.close()
 
     cpdef close(self):
-        self.logger.debug('Closing CQEx')
-        close_weakrefs([self.srqs, self.qps])
         if self.cq != NULL:
+            self.logger.debug('Closing CQEx')
+            close_weakrefs([self.srqs, self.qps])
             rc = v.ibv_destroy_cq(<v.ibv_cq*>self.cq)
             if rc != 0:
-                raise PyverbsRDMAErrno('Failed to destroy CQEX')
+                raise PyverbsRDMAError('Failed to destroy CQEX', rc)
             self.cq = NULL
             self.context = None
 

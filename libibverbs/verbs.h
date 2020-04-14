@@ -1601,7 +1601,7 @@ struct ibv_ah {
 };
 
 enum ibv_flow_flags {
-	IBV_FLOW_ATTR_FLAGS_ALLOW_LOOP_BACK = 1 << 0,
+	/* First bit is deprecated and can't be used */
 	IBV_FLOW_ATTR_FLAGS_DONT_TRAP = 1 << 1,
 	IBV_FLOW_ATTR_FLAGS_EGRESS = 1 << 2,
 };
@@ -1946,6 +1946,7 @@ struct ibv_context {
 
 enum ibv_cq_init_attr_mask {
 	IBV_CQ_INIT_ATTR_MASK_FLAGS	= 1 << 0,
+	IBV_CQ_INIT_ATTR_MASK_PD	= 1 << 1,
 };
 
 enum ibv_create_cq_attr_flags {
@@ -1976,6 +1977,7 @@ struct ibv_cq_init_attr_ex {
 	 * enum ibv_create_cq_attr_flags
 	 */
 	uint32_t		flags;
+	struct ibv_pd		*parent_domain;
 };
 
 enum ibv_parent_domain_init_attr_mask {
@@ -2962,12 +2964,15 @@ ibv_query_device_ex(struct ibv_context *context,
 	struct verbs_context *vctx;
 	int ret;
 
+	if (input && input->comp_mask)
+		return EINVAL;
+
 	vctx = verbs_get_ctx_op(context, query_device_ex);
 	if (!vctx)
 		goto legacy;
 
 	ret = vctx->query_device_ex(context, input, attr, sizeof(*attr));
-	if (ret == EOPNOTSUPP)
+	if (ret == EOPNOTSUPP || ret == ENOSYS)
 		goto legacy;
 
 	return ret;
@@ -3323,6 +3328,18 @@ static inline int ibv_read_counters(struct ibv_counters *counters,
 		return EOPNOTSUPP;
 
 	return vctx->read_counters(counters, counters_value, ncounters, flags);
+}
+
+#define IB_ROCE_UDP_ENCAP_VALID_PORT_MIN (0xC000)
+#define IB_ROCE_UDP_ENCAP_VALID_PORT_MAX (0xFFFF)
+#define IB_GRH_FLOWLABEL_MASK (0x000FFFFF)
+
+static inline uint16_t ibv_flow_label_to_udp_sport(uint32_t fl)
+{
+	uint32_t fl_low = fl & 0x03FFF, fl_high = fl & 0xFC000;
+
+	fl_low ^= fl_high >> 14;
+	return (uint16_t)(fl_low | IB_ROCE_UDP_ENCAP_VALID_PORT_MIN);
 }
 
 #ifdef __cplusplus

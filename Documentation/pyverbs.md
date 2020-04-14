@@ -339,6 +339,30 @@ wr = pwr.SendWR()
 wr.set_wr_ud(ah, 0x1101, 0) # in real life, use real values
 udqp.post_send(wr)
 ```
+###### Extended QP
+An extended QP exposes a new set of QP send operations to the user -
+extensibility for new send opcodes, vendor specific send opcodes and even vendor
+specific QP types.
+Pyverbs now exposes the needed interface to create such a QP.
+Note that the IBV_QP_INIT_ATTR_SEND_OPS_FLAGS in the `comp_mask` is mandatory
+when using the extended QP's new post send mechanism.
+```python
+from pyverbs.qp import QPCap, QPInitAttrEx, QPAttr, QPEx
+import pyverbs.device as d
+import pyverbs.enums as e
+from pyverbs.pd import PD
+from pyverbs.cq import CQ
+
+
+ctx = d.Context(name='mlx5_0')
+pd = PD(ctx)
+cq = CQ(ctx, 100)
+cap = QPCap(100, 10, 1, 1, 0)
+qia = QPInitAttrEx(qp_type=e.IBV_QPT_UD, scq=cq, rcq=cq, cap=cap, pd=pd,
+                   comp_mask=e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS| \
+                   e.IBV_QP_INIT_ATTR_PD)
+qp = QPEx(ctx, qia)
+```
 
 ##### XRCD
 The following code demonstrates creation of an XRCD object.
@@ -569,4 +593,21 @@ var_map = mmap.mmap(fileno=ctx.cmd_fd, length=var.length, offset=var.mmap_off)
 # instance the memory is unmapped.
 var_map.close()
 var.close()
+```
+
+##### MLX5 PP
+Packet Pacing (PP) entry can be used for some device commands over the DEVX
+interface. It allows a rate-limited flow configuration on SQs.
+The following code snippet demonstrates how to allocate an mlx5dv_pp with rate
+limit value of 5, then frees the entry.
+```python
+from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, Mlx5PP
+import pyverbs.providers.mlx5.mlx5_enums as e
+
+# The device must be opened as DEVX context
+mlx5dv_attr = Mlx5DVContextAttr(e.MLX5DV_CONTEXT_FLAGS_DEVX)
+ctx = Mlx5Context(attr=mlx5dv_attr, name='rocep0s8f0')
+rate_limit_inbox = (5).to_bytes(length=4, byteorder='big', signed=True)
+pp = Mlx5PP(ctx, rate_limit_inbox)
+pp.close()
 ```

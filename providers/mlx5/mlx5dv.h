@@ -64,6 +64,7 @@ extern "C" {
 #define MLX5DV_RES_TYPE_RWQ ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 2)
 #define MLX5DV_RES_TYPE_DBR ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 3)
 #define MLX5DV_RES_TYPE_SRQ ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 4)
+#define MLX5DV_RES_TYPE_CQ ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 5)
 
 enum {
 	MLX5_RCV_DBR	= 0,
@@ -1523,6 +1524,17 @@ int mlx5dv_dump_dr_domain(FILE *fout, struct mlx5dv_dr_domain *domain);
 int mlx5dv_dump_dr_table(FILE *fout, struct mlx5dv_dr_table *table);
 int mlx5dv_dump_dr_matcher(FILE *fout, struct mlx5dv_dr_matcher *matcher);
 int mlx5dv_dump_dr_rule(FILE *fout, struct mlx5dv_dr_rule *rule);
+
+struct mlx5dv_pp {
+	uint16_t index;
+};
+
+struct mlx5dv_pp *mlx5dv_pp_alloc(struct ibv_context *context,
+				  size_t pp_context_sz,
+				  const void *pp_context,
+				  uint32_t flags);
+
+void mlx5dv_pp_free(struct mlx5dv_pp *pp);
 
 #ifdef __cplusplus
 }

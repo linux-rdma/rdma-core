@@ -566,18 +566,6 @@ bool dr_ste_not_used_ste(struct dr_ste *ste)
 	return !atomic_load(&ste->refcount);
 }
 
-static uint16_t get_bits_per_mask(uint16_t byte_mask)
-{
-	uint16_t bits = 0;
-
-	while (byte_mask) {
-		byte_mask = byte_mask & (byte_mask - 1);
-		bits++;
-	}
-
-	return bits;
-}
-
 /* Init one ste as a pattern for ste data array */
 void dr_ste_set_formated_ste(uint16_t gvmi,
 			     struct dr_domain_rx_tx *nic_dmn,
@@ -626,19 +614,11 @@ int dr_ste_create_next_htbl(struct mlx5dv_dr_matcher *matcher,
 	struct dr_ste_htbl *next_htbl;
 
 	if (!dr_ste_is_last_in_rule(nic_matcher, ste->ste_chain_location)) {
-		uint32_t bits_in_mask;
 		uint8_t next_lu_type;
 		uint16_t byte_mask;
 
 		next_lu_type = DR_STE_GET(general, hw_ste, next_lu_type);
 		byte_mask = DR_STE_GET(general, hw_ste, byte_mask);
-
-		/* Don't allocate table more than required,
-		 * the size of the table defined via the byte_mask, so no need
-		 * to allocate more than that.
-		 */
-		bits_in_mask = get_bits_per_mask(byte_mask) * CHAR_BIT;
-		log_table_size = min_t(uint32_t, log_table_size, bits_in_mask);
 
 		next_htbl = dr_ste_htbl_alloc(dmn->ste_icm_pool,
 					      log_table_size,
@@ -677,7 +657,7 @@ static void dr_ste_set_ctrl(struct dr_ste_htbl *htbl)
 
 	htbl->ctrl.may_grow = true;
 
-	if (htbl->chunk_size == DR_CHUNK_SIZE_MAX - 1)
+	if (htbl->chunk_size == DR_CHUNK_SIZE_MAX - 1 || !htbl->byte_mask)
 		htbl->ctrl.may_grow = false;
 
 	/* Threshold is 50%, one is added to table of size 1 */
@@ -1633,6 +1613,7 @@ static void dr_ste_build_ipv6_l3_l4_bit_mask(struct dr_match_param *value,
 					     bool inner, uint8_t *bit_mask)
 {
 	struct dr_match_spec *mask = inner ? &value->inner : &value->outer;
+	struct dr_match_misc *misc = &value->misc;
 
 	DR_STE_SET_MASK_V(eth_l4, bit_mask, dst_port, mask, tcp_dport);
 	DR_STE_SET_MASK_V(eth_l4, bit_mask, src_port, mask, tcp_sport);
@@ -1643,6 +1624,13 @@ static void dr_ste_build_ipv6_l3_l4_bit_mask(struct dr_match_param *value,
 	DR_STE_SET_MASK_V(eth_l4, bit_mask, dscp, mask, ip_dscp);
 	DR_STE_SET_MASK_V(eth_l4, bit_mask, ecn, mask, ip_ecn);
 	DR_STE_SET_MASK_V(eth_l4, bit_mask, ipv6_hop_limit, mask, ip_ttl_hoplimit);
+	if (inner) {
+		DR_STE_SET_MASK_V(eth_l4, bit_mask, flow_label,
+				  misc, inner_ipv6_flow_label);
+	} else {
+		DR_STE_SET_MASK_V(eth_l4, bit_mask, flow_label,
+				  misc, outer_ipv6_flow_label);
+	}
 
 	if (mask->tcp_flags) {
 		DR_STE_SET_TCP_FLAGS(eth_l4, bit_mask, mask);
@@ -1656,6 +1644,7 @@ static int dr_ste_build_ipv6_l3_l4_tag(struct dr_match_param *value,
 {
 	struct dr_hw_ste_format *hw_ste = (struct dr_hw_ste_format *)hw_ste_p;
 	struct dr_match_spec *spec = sb->inner ? &value->inner : &value->outer;
+	struct dr_match_misc *misc = &value->misc;
 	uint8_t *tag = hw_ste->tag;
 
 	DR_STE_SET_TAG(eth_l4, tag, dst_port, spec, tcp_dport);
@@ -1667,6 +1656,13 @@ static int dr_ste_build_ipv6_l3_l4_tag(struct dr_match_param *value,
 	DR_STE_SET_TAG(eth_l4, tag, dscp, spec, ip_dscp);
 	DR_STE_SET_TAG(eth_l4, tag, ecn, spec, ip_ecn);
 	DR_STE_SET_TAG(eth_l4, tag, ipv6_hop_limit, spec, ip_ttl_hoplimit);
+	if (sb->inner) {
+		DR_STE_SET_TAG(eth_l4, tag, flow_label,
+			       misc, inner_ipv6_flow_label);
+	} else {
+		DR_STE_SET_TAG(eth_l4, tag, flow_label,
+			       misc, outer_ipv6_flow_label);
+	}
 
 	if (spec->tcp_flags) {
 		DR_STE_SET_TCP_FLAGS(eth_l4, tag, spec);

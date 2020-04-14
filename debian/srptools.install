@@ -7,7 +7,7 @@ usr/lib/srp_daemon/start_on_all_ports
 usr/sbin/ibsrpdm
 usr/sbin/srp_daemon
 usr/share/doc/rdma-core/ibsrpdm.md usr/share/doc/srptools/
-usr/share/man/man1/ibsrpdm.1
 usr/share/man/man5/srp_daemon.service.5
 usr/share/man/man5/srp_daemon_port@.service.5
+usr/share/man/man8/ibsrpdm.8
 usr/share/man/man8/srp_daemon.8

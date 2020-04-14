@@ -67,8 +67,8 @@ int hns_roce_u_query_device(struct ibv_context *context,
 	if (ret)
 		return ret;
 
-	major	   = (raw_fw_ver >> 32) & 0xffff;
-	minor	   = (raw_fw_ver >> 16) & 0xffff;
+	major = (raw_fw_ver >> 32) & 0xffff;
+	minor = (raw_fw_ver >> 16) & 0xffff;
 	sub_minor = raw_fw_ver & 0xffff;
 
 	snprintf(attr->fw_ver, sizeof(attr->fw_ver), "%d.%d.%03d", major, minor,
@@ -260,11 +260,12 @@ static int align_cq_size(int req)
 	return nent;
 }
 
+/* must check min depth before align */
 static int align_qp_size(int req)
 {
 	int nent;
 
-	for (nent = HNS_ROCE_MIN_WQE_NUM; nent < req; nent <<= 1)
+	for (nent = HNS_ROCE_V1_MIN_WQE_NUM; nent < req; nent <<= 1)
 		;
 
 	return nent;
@@ -335,7 +336,7 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 		if (!cq->set_ci_db)
 			goto err_buf;
 
-		cmd.db_addr  = (uintptr_t) cq->set_ci_db;
+		cmd.db_addr = (uintptr_t) cq->set_ci_db;
 	}
 
 	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
@@ -351,8 +352,8 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
 		cq->set_ci_db = to_hr_ctx(context)->cq_tptr_base + cq->cqn * 2;
 
-	cq->arm_db    = cq->set_ci_db;
-	cq->arm_sn    = 1;
+	cq->arm_db = cq->set_ci_db;
+	cq->arm_sn = 1;
 	*(cq->set_ci_db) = 0;
 	*(cq->arm_db) = 0;
 
@@ -573,37 +574,32 @@ static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 {
 	struct hns_roce_device *hr_dev =
 		to_hr_dev(context->ibv_ctx.context.device);
+	uint32_t min_wqe_num = hr_dev->hw_version == HNS_ROCE_HW_VER1 ?
+			       HNS_ROCE_V1_MIN_WQE_NUM :
+			       HNS_ROCE_V2_MIN_WQE_NUM;
 
-	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
-		if (attr->cap.max_send_wr < HNS_ROCE_MIN_WQE_NUM) {
-			fprintf(stderr,
-				"max_send_wr = %d, less than minimum WQE number.\n",
-				attr->cap.max_send_wr);
-				attr->cap.max_send_wr = HNS_ROCE_MIN_WQE_NUM;
-		}
-
-		if (attr->cap.max_recv_wr < HNS_ROCE_MIN_WQE_NUM) {
-			fprintf(stderr,
-				"max_recv_wr = %d, less than minimum WQE number.\n",
-				attr->cap.max_recv_wr);
-				attr->cap.max_recv_wr = HNS_ROCE_MIN_WQE_NUM;
-		}
-	}
-
-	if (attr->cap.max_recv_sge < 1)
-		attr->cap.max_recv_sge = 1;
-	if (attr->cap.max_send_wr > context->max_qp_wr ||
+	if (!attr->cap.max_send_wr ||
+	    attr->cap.max_send_wr > context->max_qp_wr ||
 	    attr->cap.max_recv_wr > context->max_qp_wr ||
 	    attr->cap.max_send_sge > context->max_sge  ||
 	    attr->cap.max_recv_sge > context->max_sge)
-		return -1;
+		return EINVAL;
+
+	if (attr->cap.max_send_wr < min_wqe_num)
+		attr->cap.max_send_wr = min_wqe_num;
+
+	if (attr->cap.max_recv_wr && attr->cap.max_recv_wr < min_wqe_num)
+		attr->cap.max_recv_wr = min_wqe_num;
+
+	if (attr->cap.max_recv_sge < 1)
+		attr->cap.max_recv_sge = 1;
 
 	if ((attr->qp_type != IBV_QPT_RC) && (attr->qp_type != IBV_QPT_UD))
-		return -1;
+		return EINVAL;
 
 	if ((attr->qp_type == IBV_QPT_RC) &&
 	    (attr->cap.max_inline_data > HNS_ROCE_MAX_INLINE_DATA_LEN))
-		return -1;
+		return EINVAL;
 
 	return 0;
 }
@@ -788,7 +784,7 @@ static int get_sq_db_addr(struct ibv_pd *pd, struct ibv_qp_init_attr *attr,
 		attr->cap.max_send_wr) {
 		qp->sdb = hns_roce_alloc_db(context, HNS_ROCE_QP_TYPE_DB);
 		if (!qp->sdb)
-			return -ENOMEM;
+			return ENOMEM;
 
 		*(qp->sdb) = 0;
 		cmd->sdb_addr = (uintptr_t)qp->sdb;
@@ -807,7 +803,7 @@ static int get_rq_db_addr(struct ibv_pd *pd, struct ibv_qp_init_attr *attr,
 	    attr->cap.max_recv_sge) {
 		qp->rdb = hns_roce_alloc_db(context, HNS_ROCE_QP_TYPE_DB);
 		if (!qp->rdb)
-			return -ENOMEM;
+			return ENOMEM;
 
 		*(qp->rdb) = 0;
 		cmd->db_addr = (uintptr_t) qp->rdb;

@@ -7,10 +7,8 @@ import errno
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.addr import GlobalRoute, AHAttr, AH
 from tests.base import PyverbsAPITestCase
-import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.pd import PD
-from pyverbs.cq import WC
 
 
 class AHTest(PyverbsAPITestCase):

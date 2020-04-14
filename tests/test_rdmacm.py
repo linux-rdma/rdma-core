@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
-from tests.rdmacm_utils import sync_traffic, async_traffic
+from tests.rdmacm_utils import sync_traffic, async_traffic, \
+    async_traffic_with_ext_qp
 from pyverbs.pyverbs_error import PyverbsError
 from tests.base import RDMATestCase
 import multiprocessing as mp
@@ -57,10 +58,10 @@ class CMTestCase(RDMATestCase):
         ctx = mp.get_context('fork')
         syncer = ctx.Barrier(NUM_OF_PROCESSES, timeout=5)
         notifier = ctx.Queue()
-        passive = ctx.Process(target=traffic_func, args=[ip_addr, syncer,
-                                                         notifier, True])
-        active = ctx.Process(target=traffic_func, args=[ip_addr, syncer,
-                                                        notifier, False])
+        passive = ctx.Process(target=traffic_func,
+                              args=[ip_addr, syncer, notifier, True])
+        active = ctx.Process(target=traffic_func,
+                             args=[ip_addr, syncer, notifier, False])
         passive.start()
         active.start()
         while notifier.empty():
@@ -81,3 +82,6 @@ class CMTestCase(RDMATestCase):
 
     def test_rdmacm_async_traffic(self):
         self.two_nodes_rdmacm_traffic(self.ip_addr, async_traffic)
+
+    def test_rdmacm_async_traffic_external_qp(self):
+        self.two_nodes_rdmacm_traffic(self.ip_addr, async_traffic_with_ext_qp)

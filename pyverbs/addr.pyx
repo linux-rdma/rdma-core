@@ -3,8 +3,8 @@
 
 from libc.stdint cimport uint8_t
 
+from .pyverbs_error import PyverbsUserError, PyverbsRDMAError
 from pyverbs.utils import gid_str_to_array, gid_str
-from .pyverbs_error import PyverbsUserError
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs as v
 from pyverbs.pd cimport PD
@@ -405,9 +405,10 @@ cdef class AH(PyverbsCM):
         self.close()
 
     cpdef close(self):
-        self.logger.debug('Closing AH')
         if self.ah != NULL:
-            if v.ibv_destroy_ah(self.ah):
-                raise PyverbsRDMAErrno('Failed to destroy AH')
+            self.logger.debug('Closing AH')
+            rc = v.ibv_destroy_ah(self.ah)
+            if rc:
+                raise PyverbsRDMAError('Failed to destroy AH', rc)
             self.ah = NULL
             self.pd = None

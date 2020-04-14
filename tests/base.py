@@ -30,6 +30,17 @@ MIN_RNR_TIMER =12
 RETRY_CNT = 7
 RNR_RETRY = 7
 TIMEOUT = 14
+# Devices that don't support RoCEv2 should be added here
+MLNX_VENDOR_ID = 0x02c9
+CX3_MLNX_PART_ID = 4099
+CX3Pro_MLNX_PART_ID = 4103
+# Dictionary: vendor_id -> array of part_ids of devices that lack RoCEv2 support
+ROCEV2_UNSUPPORTED_DEVS = {MLNX_VENDOR_ID: [CX3Pro_MLNX_PART_ID,
+                                            CX3_MLNX_PART_ID]}
+
+
+def has_roce_hw_bug(vendor_id, vendor_part_id):
+    return vendor_part_id in ROCEV2_UNSUPPORTED_DEVS.get(vendor_id, [])
 
 
 class PyverbsAPITestCase(unittest.TestCase):
@@ -131,14 +142,23 @@ class RDMATestCase(unittest.TestCase):
 
     def _add_gids_per_port(self, ctx, dev, port):
         # Don't add ports which are not active
-        if ctx.query_port(port).state != e.IBV_PORT_ACTIVE:
+        port_attrs = ctx.query_port(port)
+        if port_attrs.state != e.IBV_PORT_ACTIVE:
             return
-
-        for idx in range(ctx.query_port(port).gid_tbl_len):
+        dev_attrs = ctx.query_device()
+        vendor_id = dev_attrs.vendor_id
+        vendor_pid = dev_attrs.vendor_part_id
+        for idx in range(port_attrs.gid_tbl_len):
             gid = ctx.query_gid(port, idx)
             # Avoid adding ZERO GIDs
-            if gid.gid[-19:] != self.ZERO_GID:
-                self.args.append([dev, port, idx])
+            if gid.gid[-19:] == self.ZERO_GID:
+                continue
+            # Avoid RoCEv2 GIDs on unsupported devices
+            if port_attrs.link_layer == e.IBV_LINK_LAYER_ETHERNET and \
+                    ctx.query_gid_type(port, idx) == e.IBV_GID_TYPE_ROCE_V2 and \
+                    has_roce_hw_bug(vendor_id, vendor_pid):
+                continue
+            self.args.append([dev, port, idx])
 
     def _add_gids_per_device(self, ctx, dev):
         port_count = ctx.query_device().phys_port_cnt
@@ -162,12 +182,15 @@ class CMResources:
                 Port number of the address
             * *is_async* (bool)
                 A flag which indicates if its asynchronous RDMACM
+            * *with_ext_qp* (bool)
+                If set, an external RC QP will be created and used by RDMACM
         """
         src = kwargs.get('src')
         dst = kwargs.get('dst')
         self.is_server = True if dst is None else False
         self.qp_init_attr = None
         self.is_async = kwargs.get('is_async', False)
+        self.with_ext_qp = kwargs.get('with_ext_qp', False)
         self.connected = False
         # When passive side (server) listens to incoming connection requests,
         # for each new request it creates a new cmid which is used to establish
@@ -176,6 +199,8 @@ class CMResources:
         self.msg_size = 1024
         self.num_msgs = 100
         self.channel = None
+        self.cq = None
+        self.qp = None
         self.port = kwargs.get('port') if kwargs.get('port') else '7471'
         self.mr = None
         if self.is_server:
@@ -200,12 +225,13 @@ class CMResources:
         self.channel = CMEventChannel()
 
     @staticmethod
-    def create_qp_init_attr():
-        return QPInitAttr(qp_type=e.IBV_QPT_RC, cap=QPCap(max_recv_wr=1))
+    def create_qp_init_attr(rcq=None, scq=None):
+        return QPInitAttr(qp_type=e.IBV_QPT_RC, rcq=rcq, scq=scq,
+                          cap=QPCap(max_recv_wr=1))
 
     @staticmethod
-    def create_conn_param():
-        return ConnParam()
+    def create_conn_param(qp_num=0):
+        return ConnParam(qp_num=qp_num)
 
     def create_child_id(self, cm_event=None):
         if not self.is_server:
@@ -216,10 +242,27 @@ class CMResources:
             self.child_id = self.cmid.get_request()
 
     def create_qp(self):
-        if self.is_server:
-            self.child_id.create_qp(self.create_qp_init_attr())
+        """
+        Create a rdmacm QP. If self.with_ext_qp is set, then an external CQ and
+        RC QP will be created and set in self.cq and self.qp
+        respectively.
+        """
+        cmid = self.child_id if self.is_server else self.cmid
+        if not self.with_ext_qp:
+            cmid.create_qp(self.create_qp_init_attr())
         else:
-            self.cmid.create_qp(self.create_qp_init_attr())
+            self.cq = CQ(cmid.context, self.num_msgs, None, None, 0)
+            init_attr = self.create_qp_init_attr(rcq=self.cq, scq=self.cq)
+            self.qp = QP(cmid.pd, init_attr, QPAttr())
+
+    def modify_ext_qp_to_rts(self):
+        cmid = self.child_id if self.is_server else self.cmid
+        attr, mask = cmid.init_qp_attr(e.IBV_QPS_INIT)
+        self.qp.modify(attr, mask)
+        attr, mask = cmid.init_qp_attr(e.IBV_QPS_RTR)
+        self.qp.modify(attr, mask)
+        attr, mask = cmid.init_qp_attr(e.IBV_QPS_RTS)
+        self.qp.modify(attr, mask)
 
 
 class BaseResources(object):

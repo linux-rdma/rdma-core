@@ -11,7 +11,8 @@ from pyverbs.qp cimport QP
 
 
 cdef class Mlx5Context(Context):
-    pass
+    cdef object pps
+    cpdef close(self)
 
 cdef class Mlx5DVContextAttr(PyverbsObject):
     cdef dv.mlx5dv_context_attr attr
@@ -36,4 +37,9 @@ cdef class Mlx5CQ(CQEX):
 
 cdef class Mlx5VAR(VAR):
     cdef dv.mlx5dv_var *var
+    cpdef close(self)
+
+cdef class Mlx5PP(PyverbsObject):
+    cdef dv.mlx5dv_pp *pp
+    cdef object context
     cpdef close(self)
