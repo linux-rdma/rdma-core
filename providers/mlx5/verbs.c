@@ -4356,6 +4356,7 @@ __mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 	bool have_flow_tag = false;
 	bool have_counter = false;
 	bool have_default = false;
+	bool have_drop = false;
 	int ret;
 	int i;
 	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_FLOW,
@@ -4380,7 +4381,8 @@ __mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 		type = actions_attr[i].type;
 		switch (type) {
 		case MLX5DV_FLOW_ACTION_DEST_IBV_QP:
-			if (have_qp || have_dest_devx || have_default) {
+			if (have_qp || have_dest_devx || have_default ||
+			    have_drop) {
 				errno = EOPNOTSUPP;
 				goto err;
 			}
@@ -4402,7 +4404,8 @@ __mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 			num_flow_actions++;
 			break;
 		case MLX5DV_FLOW_ACTION_DEST_DEVX:
-			if (have_dest_devx || have_qp || have_default) {
+			if (have_dest_devx || have_qp || have_default ||
+			    have_drop) {
 				errno = EOPNOTSUPP;
 				goto err;
 			}
@@ -4438,7 +4441,8 @@ __mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 			have_counter = true;
 			break;
 		case MLX5DV_FLOW_ACTION_DEFAULT_MISS:
-			if (have_qp || have_dest_devx || have_default) {
+			if (have_qp || have_dest_devx || have_default ||
+			    have_drop) {
 				errno = EOPNOTSUPP;
 				goto err;
 			}
@@ -4446,6 +4450,17 @@ __mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 					    MLX5_IB_ATTR_CREATE_FLOW_FLAGS,
 					    MLX5_IB_ATTR_CREATE_FLOW_FLAGS_DEFAULT_MISS);
 			have_default = true;
+			break;
+		case MLX5DV_FLOW_ACTION_DROP:
+			if (have_qp || have_dest_devx || have_default ||
+			    have_drop) {
+				errno = EOPNOTSUPP;
+				goto err;
+			}
+			fill_attr_in_uint32(cmd,
+					    MLX5_IB_ATTR_CREATE_FLOW_FLAGS,
+					    MLX5_IB_ATTR_CREATE_FLOW_FLAGS_DROP);
+			have_drop = true;
 			break;
 		default:
 			errno = EOPNOTSUPP;
