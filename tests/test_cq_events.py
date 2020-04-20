@@ -1,3 +1,7 @@
+import errno
+import unittest
+
+from pyverbs.pyverbs_error import PyverbsRDMAError
 from tests.base import RCResources, UDResources
 from tests.base import RDMATestCase
 from tests.utils import traffic
@@ -28,10 +32,15 @@ class CqEventsTestCase(RDMATestCase):
         self.qp_dict = {'ud': CqEventsUD, 'rc': CqEventsRC}
 
     def create_players(self, qp_type):
-        client = self.qp_dict[qp_type](self.dev_name, self.ib_port,
-                                       self.gid_index)
-        server = self.qp_dict[qp_type](self.dev_name, self.ib_port,
-                                       self.gid_index)
+        try:
+            client = self.qp_dict[qp_type](self.dev_name, self.ib_port,
+                                           self.gid_index)
+            server = self.qp_dict[qp_type](self.dev_name, self.ib_port,
+                                           self.gid_index)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Create qp with attrs {} is not supported'.format(qp_type))
+            raise ex
         client.pre_run(server.psn, server.qpn)
         server.pre_run(client.psn, client.qpn)
         return client, server
