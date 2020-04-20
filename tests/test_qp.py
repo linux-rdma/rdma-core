@@ -32,11 +32,21 @@ class QPTest(PyverbsAPITestCase):
                 with CQ(ctx, 100, None, None, 0) as cq:
                     qia = get_qp_init_attr(cq, attr)
                     qia.qp_type = e.IBV_QPT_RC
-                    with QP(pd, qia) as qp:
-                        assert qp.qp_state == e.IBV_QPS_RESET, 'RC QP should have been in RESET'
+                    try:
+                        with QP(pd, qia) as qp:
+                            assert qp.qp_state == e.IBV_QPS_RESET, 'RC QP should have been in RESET'
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest('Create QP with RC attrs is not supported')
+                        raise ex
                     qia.qp_type = e.IBV_QPT_UC
-                    with QP(pd, qia) as qp:
-                        assert qp.qp_state == e.IBV_QPS_RESET, 'UC QP should have been in RESET'
+                    try:
+                        with QP(pd, qia) as qp:
+                            assert qp.qp_state == e.IBV_QPS_RESET, 'UC QP should have been in RESET'
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest('Create QP with UC attrs is not supported')
+                        raise ex
 
 
     def test_create_qp_no_attr(self):
@@ -68,11 +78,21 @@ class QPTest(PyverbsAPITestCase):
                 with CQ(ctx, 100, None, None, 0) as cq:
                     qia = get_qp_init_attr(cq, attr)
                     qia.qp_type = e.IBV_QPT_RC
-                    with QP(pd, qia, QPAttr()) as qp:
-                        assert qp.qp_state == e.IBV_QPS_INIT, 'RC QP should have been in INIT'
+                    try:
+                        with QP(pd, qia, QPAttr()) as qp:
+                            assert qp.qp_state == e.IBV_QPS_INIT, 'RC QP should have been in INIT'
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest('Create QP with RC is not supported')
+                        raise ex
                     qia.qp_type = e.IBV_QPT_UC
-                    with QP(pd, qia, QPAttr()) as qp:
-                        assert qp.qp_state == e.IBV_QPS_INIT, 'UC QP should have been in INIT'
+                    try:
+                        with QP(pd, qia, QPAttr()) as qp:
+                            assert qp.qp_state == e.IBV_QPS_INIT, 'UC QP should have been in INIT'
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest('Create QP with UC attrs is not supported')
+                        raise ex
 
     def test_create_qp_with_attr(self):
         """
