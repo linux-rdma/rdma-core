@@ -22,7 +22,7 @@ uint64_t ibv_get_device_guid(struct ibv_device *device);
 
 # DESCRIPTION
 
-**ibv_get_device_name()** returns the Global Unique IDentifier (GUID) of the
+**ibv_get_device_guid()** returns the Global Unique IDentifier (GUID) of the
 RDMA device *device*.
 
 # RETURN VALUE
