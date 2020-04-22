@@ -150,6 +150,13 @@ LATEST_SYMVER_FUNC(ibv_get_device_guid, 1_1, "IBVERBS_1.1",
 	return htobe64(guid);
 }
 
+int ibv_get_device_index(struct ibv_device *device)
+{
+	struct verbs_sysfs_dev *sysfs_dev = verbs_get_device(device)->sysfs;
+
+	return sysfs_dev->ibdev_idx;
+}
+
 int ibv_get_fw_ver(char *value, size_t len, struct verbs_sysfs_dev *sysfs_dev)
 {
 	/*

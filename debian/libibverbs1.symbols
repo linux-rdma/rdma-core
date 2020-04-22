@@ -6,6 +6,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  IBVERBS_1.6@IBVERBS_1.6 24
  IBVERBS_1.7@IBVERBS_1.7 25
  IBVERBS_1.8@IBVERBS_1.8 28
+ IBVERBS_1.9@IBVERBS_1.9 30
  (symver)IBVERBS_PRIVATE_25 25
  ibv_ack_async_event@IBVERBS_1.0 1.1.6
  ibv_ack_async_event@IBVERBS_1.1 1.1.6
@@ -58,6 +59,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_get_cq_event@IBVERBS_1.1 1.1.6
  ibv_get_device_guid@IBVERBS_1.0 1.1.6
  ibv_get_device_guid@IBVERBS_1.1 1.1.6
+ ibv_get_device_index@IBVERBS_1.9 30
  ibv_get_device_list@IBVERBS_1.0 1.1.6
  ibv_get_device_list@IBVERBS_1.1 1.1.6
  ibv_get_device_name@IBVERBS_1.0 1.1.6

@@ -88,6 +88,7 @@ recommended.
 **ibv_fork_init**(3),
 **ibv_get_device_guid**(3),
 **ibv_get_device_name**(3),
+**ibv_get_device_index**(3),
 **ibv_open_device**(3)
 
 # AUTHOR

@@ -31,7 +31,7 @@ RDMA device *device*.
 order.
 
 # SEE ALSO
-
+**ibv_get_device_index**(3),
 **ibv_get_device_list**(3),
 **ibv_get_device_name**(3),
 **ibv_open_device**(3)
