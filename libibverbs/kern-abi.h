@@ -312,4 +312,11 @@ struct ibv_create_srq_resp_v5 {
 enum { IB_USER_VERBS_CMD_CREATE_SRQ_V5 = IB_USER_VERBS_CMD_CREATE_SRQ };
 DECLARE_CMDX(IB_USER_VERBS_CMD_CREATE_SRQ_V5, ibv_create_srq_v5, ib_uverbs_create_srq, ibv_create_srq_resp_v5);
 
+#define _STRUCT_ib_uverbs_create_qp_v4
+enum { IB_USER_VERBS_CMD_CREATE_QP_V4 = IB_USER_VERBS_CMD_CREATE_QP };
+DECLARE_CMDX(IB_USER_VERBS_CMD_CREATE_QP_V4, ibv_create_qp_v4, ib_uverbs_create_qp, ibv_create_qp_resp_v4);
+
+#define _STRUCT_ib_uverbs_create_qp_v3
+enum { IB_USER_VERBS_CMD_CREATE_QP_V3 = IB_USER_VERBS_CMD_CREATE_QP };
+DECLARE_CMDX(IB_USER_VERBS_CMD_CREATE_QP_V3, ibv_create_qp_v3, ib_uverbs_create_qp, ibv_create_qp_resp_v3);
 #endif /* KERN_ABI_H */

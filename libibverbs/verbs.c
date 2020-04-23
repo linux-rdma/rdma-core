@@ -600,20 +600,6 @@ LATEST_SYMVER_FUNC(ibv_create_qp, 1_1, "IBVERBS_1.1",
 {
 	struct ibv_qp *qp = get_ops(pd->context)->create_qp(pd, qp_init_attr);
 
-	if (qp) {
-		qp->context    	     = pd->context;
-		qp->qp_context 	     = qp_init_attr->qp_context;
-		qp->pd         	     = pd;
-		qp->send_cq    	     = qp_init_attr->send_cq;
-		qp->recv_cq    	     = qp_init_attr->recv_cq;
-		qp->srq        	     = qp_init_attr->srq;
-		qp->qp_type          = qp_init_attr->qp_type;
-		qp->state	     = IBV_QPS_RESET;
-		qp->events_completed = 0;
-		pthread_mutex_init(&qp->mutex, NULL);
-		pthread_cond_init(&qp->cond, NULL);
-	}
-
 	return qp;
 }
 

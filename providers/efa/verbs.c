@@ -826,7 +826,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 	if (attr->qp_type == IBV_QPT_DRIVER)
 		req.driver_qp_type = efa_attr->driver_qp_type;
 
-	err = ibv_cmd_create_qp_ex(ibvctx, &qp->verbs_qp, sizeof(qp->verbs_qp),
+	err = ibv_cmd_create_qp_ex(ibvctx, &qp->verbs_qp,
 				   attr, &req.ibv_cmd, sizeof(req),
 				   &resp.ibv_resp, sizeof(resp));
 	if (err)

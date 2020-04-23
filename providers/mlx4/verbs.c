@@ -790,7 +790,7 @@ static int mlx4_cmd_create_qp_ex_rss(struct ibv_context *context,
 	       sizeof(cmd_ex.rx_hash_key));
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
-				    sizeof(qp->verbs_qp), attr, &cmd_ex.ibv_cmd,
+				    attr, &cmd_ex.ibv_cmd,
 				    sizeof(cmd_ex), &resp.ibv_resp,
 				    sizeof(resp));
 	return ret;
@@ -849,7 +849,7 @@ static int mlx4_cmd_create_qp_ex(struct ibv_context *context,
 	cmd_ex.drv_payload = cmd->drv_payload;
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
-				    sizeof(qp->verbs_qp), attr, &cmd_ex.ibv_cmd,
+				    attr, &cmd_ex.ibv_cmd,
 				    sizeof(cmd_ex), &resp.ibv_resp,
 				    sizeof(resp));
 	return ret;
@@ -981,7 +981,7 @@ static struct ibv_qp *create_qp_ex(struct ibv_context *context,
 		ret = mlx4_cmd_create_qp_ex(context, attr, &cmd, qp);
 	else
 		ret = ibv_cmd_create_qp_ex(context, &qp->verbs_qp,
-					   sizeof(qp->verbs_qp), attr,
+					   attr,
 					   &cmd.ibv_cmd, sizeof(cmd), &resp,
 					   sizeof(resp));
 	if (ret)

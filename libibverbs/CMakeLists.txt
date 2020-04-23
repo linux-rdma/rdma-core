@@ -36,6 +36,7 @@ rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   cmd_mr.c
   cmd_mw.c
   cmd_pd.c
+  cmd_qp.c
   cmd_rwq_ind.c
   cmd_srq.c
   cmd_wq.c
