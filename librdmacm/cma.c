@@ -59,6 +59,7 @@
 #include <infiniband/ib.h>
 #include <util/util.h>
 #include <util/rdma_nl.h>
+#include <ccan/list.h>
 
 #define CMA_INIT_CMD(req, req_size, op)		\
 do {						\
@@ -81,6 +82,8 @@ struct cma_port {
 };
 
 struct cma_device {
+	struct ibv_device  *dev;
+	struct list_node    entry;
 	struct ibv_context *verbs;
 	struct ibv_pd	   *pd;
 	struct ibv_xrcd    *xrcd;
@@ -131,9 +134,8 @@ struct cma_event {
 	struct cma_multicast	*mc;
 };
 
-static struct cma_device *cma_dev_array;
 static int cma_dev_cnt;
-static int cma_init_cnt;
+static LIST_HEAD(cma_dev_list);
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 static int abi_ver = -1;
 static char dev_name[64] = "rdma_cm";
@@ -232,7 +234,7 @@ static int check_abi_version(void)
 
 /*
  * This function is called holding the mutex lock
- * cma_dev_cnt must be set before calling this function to
+ * cma_dev_list must be not empty before calling this function to
  * ensure that the lock is not acquired recursively.
  */
 static void ucma_set_af_ib_support(void)
@@ -256,17 +258,58 @@ static void ucma_set_af_ib_support(void)
 	rdma_destroy_id(id);
 }
 
+static struct cma_device *insert_cma_dev(struct ibv_device *dev)
+{
+	struct cma_device *cma_dev, *p;
+
+	cma_dev = calloc(1, sizeof(struct cma_device));
+	if (!cma_dev)
+		return NULL;
+
+	cma_dev->guid = ibv_get_device_guid(dev);
+	cma_dev->ibv_idx = ibv_get_device_index(dev);
+	cma_dev->dev = dev;
+
+	/* reverse iteration, optimized to ibv_idx which is growing */
+	list_for_each_rev(&cma_dev_list, p, entry) {
+		if (cma_dev->ibv_idx == UCMA_INVALID_IB_INDEX) {
+			/* index not available, sort by guid */
+			if (be64toh(p->guid) < be64toh(cma_dev->guid))
+				break;
+		} else {
+			if (p->ibv_idx < cma_dev->ibv_idx)
+				break;
+		}
+	}
+	list_add_after(&cma_dev_list, &p->entry, &cma_dev->entry);
+	cma_dev_cnt++;
+
+	return cma_dev;
+}
+
+static void remove_cma_dev(struct cma_device *cma_dev)
+{
+	cma_dev_cnt--;
+	list_del_from(&cma_dev_list, &cma_dev->entry);
+	free(cma_dev);
+}
+
 int ucma_init(void)
 {
 	struct ibv_device **dev_list = NULL;
+	struct cma_device *cma_dev, *tmp;
 	int i, ret, dev_cnt;
 
-	/* Quick check without lock to see if we're already initialized */
-	if (cma_dev_cnt)
+	/*
+	 * ucma_set_af_ib_support() below recursively calls to this function
+	 * again under the &mut lock, so do this fast check and return
+	 * immediately.
+	 */
+	if (!list_empty(&cma_dev_list))
 		return 0;
 
 	pthread_mutex_lock(&mut);
-	if (cma_dev_cnt) {
+	if (!list_empty(&cma_dev_list)) {
 		pthread_mutex_unlock(&mut);
 		return 0;
 	}
@@ -289,23 +332,21 @@ int ucma_init(void)
 		goto err2;
 	}
 
-	cma_dev_array = calloc(dev_cnt, sizeof(*cma_dev_array));
-	if (!cma_dev_array) {
-		ret = ERR(ENOMEM);
-		goto err2;
-	}
-
 	for (i = 0; dev_list[i]; i++) {
-		cma_dev_array[i].guid = ibv_get_device_guid(dev_list[i]);
-		cma_dev_array[i].ibv_idx = ibv_get_device_index(dev_list[i]);
+		if (!insert_cma_dev(dev_list[i])) {
+			ret = ERR(ENOMEM);
+			goto err3;
+		}
 	}
 
-	cma_dev_cnt = dev_cnt;
 	ucma_set_af_ib_support();
 	pthread_mutex_unlock(&mut);
 	ibv_free_device_list(dev_list);
 	return 0;
 
+err3:
+	list_for_each_safe(&cma_dev_list, cma_dev, tmp, entry)
+		remove_cma_dev(cma_dev);
 err2:
 	ibv_free_device_list(dev_list);
 err1:
@@ -322,31 +363,6 @@ static bool match(struct cma_device *cma_dev, __be64 guid, uint32_t idx)
 	return cma_dev->ibv_idx == idx && cma_dev->guid == guid;
 }
 
-static struct ibv_context *ucma_open_device(struct cma_device *cma_dev)
-{
-	struct ibv_device **dev_list;
-	struct ibv_context *verbs = NULL;
-	int i;
-
-	dev_list = ibv_get_device_list(NULL);
-	if (!dev_list)
-		return NULL;
-
-	for (i = 0; dev_list[i]; i++) {
-		struct ibv_device *dev = dev_list[i];
-		uint32_t idx = ibv_get_device_index(dev);
-		__be64 guid = ibv_get_device_guid(dev);
-
-		if (match(cma_dev, guid, idx)) {
-			verbs = ibv_open_device(dev);
-			break;
-		}
-	}
-
-	ibv_free_device_list(dev_list);
-	return verbs;
-}
-
 static int ucma_init_device(struct cma_device *cma_dev)
 {
 	struct ibv_port_attr port_attr;
@@ -356,7 +372,7 @@ static int ucma_init_device(struct cma_device *cma_dev)
 	if (cma_dev->verbs)
 		return 0;
 
-	cma_dev->verbs = ucma_open_device(cma_dev);
+	cma_dev->verbs = ibv_open_device(cma_dev->dev);
 	if (!cma_dev->verbs)
 		return ERR(ENODEV);
 
@@ -383,7 +399,6 @@ static int ucma_init_device(struct cma_device *cma_dev)
 	cma_dev->max_qpsize = attr.max_qp_wr;
 	cma_dev->max_initiator_depth = (uint8_t) attr.max_qp_init_rd_atom;
 	cma_dev->max_responder_resources = (uint8_t) attr.max_qp_rd_atom;
-	cma_init_cnt++;
 	return 0;
 
 err:
@@ -394,20 +409,16 @@ err:
 
 static int ucma_init_all(void)
 {
-	int i, ret = 0;
+	struct cma_device *dev;
+	int ret = 0;
 
-	if (!cma_dev_cnt) {
-		ret = ucma_init();
-		if (ret)
-			return ret;
-	}
-
-	if (cma_init_cnt == cma_dev_cnt)
-		return 0;
+	ret = ucma_init();
+	if (ret)
+		return ret;
 
 	pthread_mutex_lock(&mut);
-	for (i = 0; i < cma_dev_cnt; i++) {
-		ret = ucma_init_device(&cma_dev_array[i]);
+	list_for_each(&cma_dev_list, dev, entry) {
+		ret = ucma_init_device(dev);
 		if (ret)
 			break;
 	}
@@ -418,19 +429,23 @@ static int ucma_init_all(void)
 struct ibv_context **rdma_get_devices(int *num_devices)
 {
 	struct ibv_context **devs = NULL;
-	int i;
+	struct cma_device *dev;
+	int i = 0;
 
 	if (ucma_init_all())
-		goto out;
+		goto err_init;
 
+	pthread_mutex_lock(&mut);
 	devs = malloc(sizeof(*devs) * (cma_dev_cnt + 1));
 	if (!devs)
 		goto out;
 
-	for (i = 0; i < cma_dev_cnt; i++)
-		devs[i] = cma_dev_array[i].verbs;
+	list_for_each(&cma_dev_list, dev, entry)
+		devs[i++] = dev->verbs;
 	devs[i] = NULL;
 out:
+	pthread_mutex_unlock(&mut);
+err_init:
 	if (num_devices)
 		*num_devices = devs ? cma_dev_cnt : 0;
 	return devs;
@@ -472,17 +487,16 @@ static int ucma_get_device(struct cma_id_private *id_priv, __be64 guid,
 			   uint32_t idx)
 {
 	struct cma_device *cma_dev;
-	int i, ret;
+	int ret;
 
-	for (i = 0; i < cma_dev_cnt; i++) {
-		cma_dev = &cma_dev_array[i];
+	pthread_mutex_lock(&mut);
+	list_for_each(&cma_dev_list, cma_dev, entry)
 		if (match(cma_dev, guid, idx))
 			goto match;
-	}
+	pthread_mutex_unlock(&mut);
 
 	return ERR(ENODEV);
 match:
-	pthread_mutex_lock(&mut);
 	if ((ret = ucma_init_device(cma_dev)))
 		goto out;
 
@@ -2553,17 +2567,19 @@ void rdma_destroy_ep(struct rdma_cm_id *id)
 int ucma_max_qpsize(struct rdma_cm_id *id)
 {
 	struct cma_id_private *id_priv;
-	int i, max_size = 0;
+	struct cma_device *dev;
+	int max_size = 0;
 
 	id_priv = container_of(id, struct cma_id_private, id);
 	if (id && id_priv->cma_dev) {
 		max_size = id_priv->cma_dev->max_qpsize;
 	} else {
 		ucma_init_all();
-		for (i = 0; i < cma_dev_cnt; i++) {
-			if (!max_size || max_size > cma_dev_array[i].max_qpsize)
-				max_size = cma_dev_array[i].max_qpsize;
-		}
+		pthread_mutex_lock(&mut);
+		list_for_each(&cma_dev_list, dev, entry)
+			if (!max_size || max_size > dev->max_qpsize)
+				max_size = dev->max_qpsize;
+		pthread_mutex_unlock(&mut);
 	}
 	return max_size;
 }
