@@ -58,6 +58,7 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 	int err;
 
 	cmd.comp_mask |= EFA_ALLOC_UCONTEXT_CMD_COMP_TX_BATCH;
+	cmd.comp_mask |= EFA_ALLOC_UCONTEXT_CMD_COMP_MIN_SQ_WR;
 
 	ctx = verbs_init_and_alloc_context(vdev, cmd_fd, ctx, ibvctx,
 					   RDMA_DRIVER_EFA);
@@ -74,6 +75,7 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 	ctx->inline_buf_size = resp.inline_buf_size;
 	ctx->max_llq_size = resp.max_llq_size;
 	ctx->max_tx_batch = resp.max_tx_batch;
+	ctx->min_sq_wr = resp.min_sq_wr;
 	pthread_spin_init(&ctx->qp_table_lock, PTHREAD_PROCESS_PRIVATE);
 
 	/* ah udata is mandatory for ah number retrieval */

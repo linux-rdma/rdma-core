@@ -621,6 +621,13 @@ static int efa_sq_initialize(struct efa_qp *qp,
 	sq->max_batch_wr = ctx->max_tx_batch ?
 		(ctx->max_tx_batch * 64) / sizeof(struct efa_io_tx_wqe) :
 		UINT16_MAX;
+	if (ctx->min_sq_wr) {
+		/* The device can't accept a doorbell for the whole SQ at once,
+		 * set the max batch to at least (SQ size - 1).
+		 */
+		sq->max_batch_wr = min_t(uint32_t, sq->max_batch_wr,
+					 sq->wq.wqe_cnt - 1);
+	}
 
 	return 0;
 
@@ -692,7 +699,8 @@ static void efa_qp_init_indices(struct efa_qp *qp)
 	qp->rq.wq.wrid_idx_pool_next = 0;
 }
 
-static void efa_setup_qp(struct efa_qp *qp,
+static void efa_setup_qp(struct efa_context *ctx,
+			 struct efa_qp *qp,
 			 struct ibv_qp_cap *cap,
 			 size_t page_size)
 {
@@ -700,7 +708,8 @@ static void efa_setup_qp(struct efa_qp *qp,
 
 	efa_qp_init_indices(qp);
 
-	qp->sq.wq.wqe_cnt = roundup_pow_of_two(cap->max_send_wr);
+	qp->sq.wq.wqe_cnt = roundup_pow_of_two(max_t(uint32_t, cap->max_send_wr,
+						     ctx->min_sq_wr));
 	qp->sq.wq.max_sge = cap->max_send_sge;
 	qp->sq.wq.desc_mask = qp->sq.wq.wqe_cnt - 1;
 
@@ -840,7 +849,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 		goto err_out;
 	}
 
-	efa_setup_qp(qp, &attr->cap, dev->pg_sz);
+	efa_setup_qp(ctx, qp, &attr->cap, dev->pg_sz);
 
 	attr->cap.max_send_wr = qp->sq.wq.wqe_cnt;
 	attr->cap.max_recv_wr = qp->rq.wq.wqe_cnt;

@@ -30,6 +30,7 @@ struct efa_context {
 	uint32_t max_rdma_size;
 	uint16_t max_wr_rdma_sge;
 	uint16_t max_tx_batch;
+	uint16_t min_sq_wr;
 	size_t cqe_size;
 	struct efa_qp **qp_table;
 	unsigned int qp_table_sz_m1;
