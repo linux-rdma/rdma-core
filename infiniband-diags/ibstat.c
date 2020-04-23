@@ -278,6 +278,7 @@ int main(int argc, char *argv[])
 	struct umad_device_node *first_node;
 	struct umad_device_node *last_node;
 	int dev_port = -1;
+	int size_of_cas = 0;
 	const char *ca_name;
 
 	const struct ibdiag_opt opts[] = {
@@ -308,6 +309,9 @@ int main(int argc, char *argv[])
 	device_list = umad_get_ca_device_list();
 	if (!device_list && errno)
 		IBPANIC("can't list IB device names");
+
+	if (umad_sort_ca_device_list(&device_list, size_of_cas))
+		IBWARN("can't sort list IB device names");
 
 	if (argc) {
 		for (node = device_list; node; node = node->next)
