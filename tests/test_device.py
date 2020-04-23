@@ -15,23 +15,36 @@ import pyverbs.device as d
 PAGE_SIZE = resource.getpagesize()
 
 
-class DeviceTest(unittest.TestCase):
+class DeviceTest(PyverbsAPITestCase):
     """
     Test various functionalities of the Device class.
     """
+
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def get_device_list(self):
+        lst = d.get_device_list()
+        if len(lst) == 0:
+            raise unittest.SkipTest('No IB device found')
+        dev_name = self.config['dev']
+        if dev_name:
+            for dev in lst:
+                if dev.name.decode() == dev_name:
+                    lst = [dev]
+                    break
+            if len(lst) == 0:
+                raise PyverbsRDMAError(f'No IB device with name {dev_name} found')
+        return lst
 
     def test_dev_list(self):
         """
         Verify that it's possible to get IB devices list.
         """
-        d.get_device_list()
-
-    @staticmethod
-    def get_device_list():
-        lst = d.get_device_list()
-        if len(lst) == 0:
-            raise unittest.SkipTest('No IB device found')
-        return lst
+        self.get_device_list()
 
     def test_open_dev(self):
         """

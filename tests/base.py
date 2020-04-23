@@ -15,6 +15,7 @@ from pyverbs.addr import AHAttr, GlobalRoute
 from pyverbs.xrcd import XRCD, XRCDInitAttr
 from pyverbs.srq import SRQ, SrqInitAttrEx
 from pyverbs.device import Context
+from args_parser import parser
 import pyverbs.cm_enums as ce
 import pyverbs.device as d
 import pyverbs.enums as e
@@ -44,19 +45,32 @@ def has_roce_hw_bug(vendor_id, vendor_part_id):
 
 
 class PyverbsAPITestCase(unittest.TestCase):
+    def __init__(self, methodName='runTest'):
+        super().__init__(methodName)
+        # Hold the command line arguments
+        self.config = parser.get_config()
+
     def setUp(self):
         """
         Opens the devices and queries them
         """
-        lst = d.get_device_list()
         self.devices = []
-        if len(lst) == 0:
-            raise unittest.SkipTest('No IB devices found')
-        for dev in lst:
-            c = d.Context(name=dev.name.decode())
+
+        dev_name = self.config['dev']
+        if dev_name:
+            c = d.Context(name=dev_name)
             attr = c.query_device()
             attr_ex = c.query_device_ex()
             self.devices.append((c, attr, attr_ex))
+        else:
+            for dev in d.get_device_list():
+                c = d.Context(name=dev.name.decode())
+                attr = c.query_device()
+                attr_ex = c.query_device_ex()
+                self.devices.append((c, attr, attr_ex))
+
+        if len(self.devices) == 0:
+            raise unittest.SkipTest('No IB devices found')
 
     def tearDown(self):
         for tup in self.devices:
@@ -79,7 +93,10 @@ class RDMATestCase(unittest.TestCase):
     def __init__(self, methodName='runTest', dev_name=None, ib_port=None,
                  gid_index=None, pkey_index=None):
         super(RDMATestCase, self).__init__(methodName)
-        self.dev_name = dev_name
+        # Hold the command line arguments
+        self.config = parser.get_config()
+        dev = self.config['dev']
+        self.dev_name = dev_name if dev_name else dev
         self.ib_port = ib_port
         self.gid_index = gid_index
         self.pkey_index = pkey_index
