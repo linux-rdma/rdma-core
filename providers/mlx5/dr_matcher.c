@@ -238,6 +238,7 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 	struct dr_ste_build *sb = nic_matcher->ste_builder;
 	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
 	struct dr_match_param mask = {};
+	bool allow_empty_match = false;
 	struct dr_match_misc3 *misc3;
 	bool inner, rx;
 	uint8_t ipv;
@@ -266,6 +267,15 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 				     &matcher->mask, NULL);
 	if (ret)
 		return ret;
+
+	/* Optimize RX pipe by reducing source port match, since
+	 * the FDB RX part is conneted only to the wire.
+	 */
+	if (dmn->type == MLX5DV_DR_DOMAIN_TYPE_FDB &&
+	    rx && mask.misc.source_port) {
+		mask.misc.source_port = 0;
+		allow_empty_match = true;
+	}
 
 	/* Outer */
 	if (matcher->match_criteria & (DR_MATCHER_CRITERIA_OUTER |
@@ -420,8 +430,10 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 		if (DR_MASK_IS_FLEX_PARSER_0_SET(mask.misc2))
 			dr_ste_build_flex_parser_0(&sb[idx++], &mask, inner, rx);
 	}
+
 	/* Empty matcher, takes all */
-	if (matcher->match_criteria == DR_MATCHER_CRITERIA_EMPTY)
+	if ((!idx && allow_empty_match) ||
+	    matcher->match_criteria == DR_MATCHER_CRITERIA_EMPTY)
 		dr_ste_build_empty_always_hit(&sb[idx++], rx);
 
 	if (idx == 0) {
