@@ -309,13 +309,13 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 			dr_ste_build_eth_l2_dst(&sb[idx++], &mask, inner, rx);
 
 		if (ipv == 4) {
-			if (dr_mask_is_ipv4_5_tuple_set(&mask.outer))
-				dr_ste_build_eth_l3_ipv4_5_tuple(&sb[idx++], &mask,
-								 inner, rx);
-
 			if (dr_mask_is_ttl_set(&mask.outer))
 				dr_ste_build_eth_l3_ipv4_misc(&sb[idx++], &mask,
 							      inner, rx);
+
+			if (dr_mask_is_ipv4_5_tuple_set(&mask.outer))
+				dr_ste_build_eth_l3_ipv4_5_tuple(&sb[idx++], &mask,
+								 inner, rx);
 		} else if (ipv == 6) {
 			if (dr_mask_is_dst_addr_set(&mask.outer))
 				dr_ste_build_eth_l3_ipv6_dst(&sb[idx++], &mask,
@@ -390,13 +390,13 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 			dr_ste_build_eth_l2_dst(&sb[idx++], &mask, inner, rx);
 
 		if (ipv == 4) {
-			if (dr_mask_is_ipv4_5_tuple_set(&mask.inner))
-				dr_ste_build_eth_l3_ipv4_5_tuple(&sb[idx++], &mask,
-								 inner, rx);
-
 			if (dr_mask_is_ttl_set(&mask.inner))
 				dr_ste_build_eth_l3_ipv4_misc(&sb[idx++], &mask,
 							      inner, rx);
+
+			if (dr_mask_is_ipv4_5_tuple_set(&mask.inner))
+				dr_ste_build_eth_l3_ipv4_5_tuple(&sb[idx++], &mask,
+								 inner, rx);
 		} else if (ipv == 6) {
 			if (dr_mask_is_dst_addr_set(&mask.inner))
 				dr_ste_build_eth_l3_ipv6_dst(&sb[idx++], &mask,
