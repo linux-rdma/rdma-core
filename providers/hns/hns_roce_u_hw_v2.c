@@ -84,6 +84,10 @@ static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 		ext_sg_num = msg_len * DATA_TYPE_NUM >> HNS_ROCE_SGE_SHIFT;
 		aseg->fetchadd_swap_data = 0;
 		aseg->cmp_data = 0;
+
+		if (ext_sg_num + HNS_ROCE_SGE_IN_WQE > qp->sq.max_gs)
+			return EINVAL;
+
 		if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
 			if (!wr->wr.atomic.swap || !wr->wr.atomic.compare_add)
 				return EINVAL;
