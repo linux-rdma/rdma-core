@@ -95,6 +95,7 @@ struct cma_device {
 	uint8_t		    max_initiator_depth;
 	uint8_t		    max_responder_resources;
 	int		    ibv_idx;
+	uint8_t		    is_device_dead : 1;
 };
 
 struct cma_id_private {
@@ -134,7 +135,6 @@ struct cma_event {
 	struct cma_multicast	*mc;
 };
 
-static int cma_dev_cnt;
 static LIST_HEAD(cma_dev_list);
 /* sorted based or index or guid, depends on kernel support */
 static struct ibv_device **dev_list;
@@ -284,14 +284,24 @@ static struct cma_device *insert_cma_dev(struct ibv_device *dev)
 		}
 	}
 	list_add_after(&cma_dev_list, &p->entry, &cma_dev->entry);
-	cma_dev_cnt++;
 
 	return cma_dev;
 }
 
 static void remove_cma_dev(struct cma_device *cma_dev)
 {
-	cma_dev_cnt--;
+	if (cma_dev->refcnt) {
+		/* we were asked to be deleted by sync_devices_list() */
+		cma_dev->is_device_dead = true;
+		return;
+	}
+
+	if (cma_dev->pd)
+		ibv_dealloc_pd(cma_dev->pd);
+	if (cma_dev->xrcd)
+		ibv_close_xrcd(cma_dev->xrcd);
+	if (cma_dev->verbs)
+		ibv_close_device(cma_dev->verbs);
 	list_del_from(&cma_dev_list, &cma_dev->entry);
 	free(cma_dev);
 }
@@ -304,7 +314,7 @@ static int dev_cmp(const void *a, const void *b)
 static int sync_devices_list(void)
 {
 	struct ibv_device **new_list;
-	int numb_dev;
+	int i, j, numb_dev;
 
 	new_list = ibv_get_device_list(&numb_dev);
 	if (!new_list)
@@ -316,18 +326,59 @@ static int sync_devices_list(void)
 	}
 
 	qsort(new_list, numb_dev, sizeof(struct ibv_device *), dev_cmp);
+	if (unlikely(!dev_list)) {
+		/* first sync */
+		for (j = 0; new_list[j]; j++)
+			insert_cma_dev(new_list[j]);
+		goto out;
+	}
 
-	if (likely(dev_list))
-		/* This is skipped for first sync_devices_list execution */
-		ibv_free_device_list(dev_list);
+	for (i = 0, j = 0; dev_list[i] || new_list[j];) {
+		if (dev_list[i] == new_list[j]) {
+			i++;
+			j++;
+			continue;
+		}
+		/*
+		 * The device list is sorted by pointer address,
+		 * so we need to compare the new list with old one.
+		 *
+		 * 1. If the device exists in new list, but doesn't exist in
+		 * old list, we will add that device to the list.
+		 * 2. If the device exists in old list, but doesn't exist in
+		 * new list, we should delete it.
+		 */
+		if ((dev_list[i] > new_list[j] && new_list[j]) ||
+		    (!dev_list[i] && new_list[j])) {
+			insert_cma_dev(new_list[j++]);
+			continue;
+		}
+		if ((dev_list[i] < new_list[j] && dev_list[i]) ||
+		    (!new_list[j] && dev_list[i])) {
+			/*
+			 * We will try our best to remove the entry,
+			 * but if some process holds it, we will remove it
+			 * later, when rdma-cm will put this resource back.
+			 */
+			struct cma_device *c, *t;
+
+			list_for_each_safe(&cma_dev_list, c, t, entry) {
+				if (c->dev == dev_list[i])
+					remove_cma_dev(c);
+			}
+			i++;
+		}
+	}
+
+	ibv_free_device_list(dev_list);
+out:
 	dev_list = new_list;
 	return 0;
 }
 
 int ucma_init(void)
 {
-	struct cma_device *cma_dev, *tmp;
-	int i, ret;
+	int ret;
 
 	/*
 	 * ucma_set_af_ib_support() below recursively calls to this function
@@ -354,20 +405,10 @@ int ucma_init(void)
 	if (ret)
 		goto err1;
 
-	for (i = 0; dev_list[i]; i++) {
-		if (!insert_cma_dev(dev_list[i])) {
-			ret = ERR(ENOMEM);
-			goto err2;
-		}
-	}
-
 	ucma_set_af_ib_support();
 	pthread_mutex_unlock(&mut);
 	return 0;
 
-err2:
-	list_for_each_safe(&cma_dev_list, cma_dev, tmp, entry)
-		remove_cma_dev(cma_dev);
 err1:
 	fastlock_destroy(&idm_lock);
 	pthread_mutex_unlock(&mut);
@@ -437,6 +478,9 @@ static int ucma_init_all(void)
 
 	pthread_mutex_lock(&mut);
 	list_for_each(&cma_dev_list, dev, entry) {
+		if (dev->is_device_dead)
+			continue;
+
 		ret = ucma_init_device(dev);
 		if (ret)
 			break;
@@ -449,17 +493,39 @@ struct ibv_context **rdma_get_devices(int *num_devices)
 {
 	struct ibv_context **devs = NULL;
 	struct cma_device *dev;
+	int cma_dev_cnt = 0;
 	int i = 0;
 
-	if (ucma_init_all())
+	if (ucma_init())
 		goto err_init;
 
 	pthread_mutex_lock(&mut);
+	if (sync_devices_list())
+		goto out;
+
+	list_for_each(&cma_dev_list, dev, entry) {
+		if (dev->is_device_dead)
+			continue;
+
+		/* reinit newly added devices */
+		if (ucma_init_device(dev)) {
+			cma_dev_cnt = 0;
+			/*
+			 * There is no need to uninit already
+			 * initialized devices, due to an error to other device.
+			 */
+			goto out;
+		}
+		cma_dev_cnt++;
+	}
+
 	devs = malloc(sizeof(*devs) * (cma_dev_cnt + 1));
 	if (!devs)
 		goto out;
 
 	list_for_each(&cma_dev_list, dev, entry) {
+		if (dev->is_device_dead)
+			continue;
 		devs[i++] = dev->verbs;
 		dev->refcnt++;
 	}
@@ -478,10 +544,19 @@ void rdma_free_devices(struct ibv_context **list)
 	int i;
 
 	pthread_mutex_lock(&mut);
-	list_for_each_safe(&cma_dev_list, c, tmp, entry)
+	list_for_each_safe(&cma_dev_list, c, tmp, entry) {
 		for (i = 0; list[i]; i++) {
-			if (list[i] == c->verbs)
-				c->refcnt--;
+			if (list[i] != c->verbs)
+				/*
+				 * Skip devices that were added after
+				 * user received the list.
+				 */
+				continue;
+			c->refcnt--;
+			if (c->is_device_dead)
+				/* try to remove */
+				remove_cma_dev(c);
+		}
 	}
 	pthread_mutex_unlock(&mut);
 	free(list);
@@ -519,12 +594,23 @@ static struct cma_device *ucma_get_cma_device(__be64 guid, uint32_t idx)
 	struct cma_device *cma_dev;
 
 	list_for_each(&cma_dev_list, cma_dev, entry)
-		if (match(cma_dev, guid, idx)) {
-			cma_dev->refcnt++;
-			return cma_dev;
-		}
+		if (!cma_dev->is_device_dead && match(cma_dev, guid, idx))
+			goto match;
 
-	return NULL;
+	if (sync_devices_list())
+		return NULL;
+	/*
+	 * Kernel informed us that we have new device and it must
+	 * be in global dev_list[], let's find the right one.
+	 */
+	list_for_each(&cma_dev_list, cma_dev, entry)
+		if (!cma_dev->is_device_dead && match(cma_dev, guid, idx))
+			goto match;
+	cma_dev = NULL;
+match:
+	if (cma_dev)
+		cma_dev->refcnt++;
+	return cma_dev;
 }
 
 static int ucma_get_device(struct cma_id_private *id_priv, __be64 guid,
@@ -570,6 +656,8 @@ static void ucma_put_device(struct cma_device *cma_dev)
 			ibv_close_xrcd(cma_dev->xrcd);
 		cma_dev->pd = NULL;
 		cma_dev->xrcd = NULL;
+		if (cma_dev->is_device_dead)
+			remove_cma_dev(cma_dev);
 	}
 	pthread_mutex_unlock(&mut);
 }
@@ -2624,7 +2712,8 @@ int ucma_max_qpsize(struct rdma_cm_id *id)
 		ucma_init_all();
 		pthread_mutex_lock(&mut);
 		list_for_each(&cma_dev_list, dev, entry)
-			if (!max_size || max_size > dev->max_qpsize)
+			if (!dev->is_device_dead &&
+			    (!max_size || max_size > dev->max_qpsize))
 				max_size = dev->max_qpsize;
 		pthread_mutex_unlock(&mut);
 	}
