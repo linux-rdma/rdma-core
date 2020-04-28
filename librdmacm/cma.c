@@ -440,8 +440,10 @@ struct ibv_context **rdma_get_devices(int *num_devices)
 	if (!devs)
 		goto out;
 
-	list_for_each(&cma_dev_list, dev, entry)
+	list_for_each(&cma_dev_list, dev, entry) {
 		devs[i++] = dev->verbs;
+		dev->refcnt++;
+	}
 	devs[i] = NULL;
 out:
 	pthread_mutex_unlock(&mut);
@@ -453,6 +455,16 @@ err_init:
 
 void rdma_free_devices(struct ibv_context **list)
 {
+	struct cma_device *c, *tmp;
+	int i;
+
+	pthread_mutex_lock(&mut);
+	list_for_each_safe(&cma_dev_list, c, tmp, entry)
+		for (i = 0; list[i]; i++) {
+			if (list[i] == c->verbs)
+				c->refcnt--;
+	}
+	pthread_mutex_unlock(&mut);
 	free(list);
 }
 
@@ -483,6 +495,19 @@ void rdma_destroy_event_channel(struct rdma_event_channel *channel)
 	free(channel);
 }
 
+static struct cma_device *ucma_get_cma_device(__be64 guid, uint32_t idx)
+{
+	struct cma_device *cma_dev;
+
+	list_for_each(&cma_dev_list, cma_dev, entry)
+		if (match(cma_dev, guid, idx)) {
+			cma_dev->refcnt++;
+			return cma_dev;
+		}
+
+	return NULL;
+}
+
 static int ucma_get_device(struct cma_id_private *id_priv, __be64 guid,
 			   uint32_t idx)
 {
@@ -490,28 +515,29 @@ static int ucma_get_device(struct cma_id_private *id_priv, __be64 guid,
 	int ret;
 
 	pthread_mutex_lock(&mut);
-	list_for_each(&cma_dev_list, cma_dev, entry)
-		if (match(cma_dev, guid, idx))
-			goto match;
-	pthread_mutex_unlock(&mut);
+	cma_dev = ucma_get_cma_device(guid, idx);
+	if (!cma_dev) {
+		pthread_mutex_unlock(&mut);
+		return ERR(ENODEV);
+	}
 
-	return ERR(ENODEV);
-match:
-	if ((ret = ucma_init_device(cma_dev)))
+	ret = ucma_init_device(cma_dev);
+	if (ret)
 		goto out;
 
-	if (!cma_dev->refcnt++) {
+	if (!cma_dev->pd)
 		cma_dev->pd = ibv_alloc_pd(cma_dev->verbs);
-		if (!cma_dev->pd) {
-			cma_dev->refcnt--;
-			ret = ERR(ENOMEM);
-			goto out;
-		}
+	if (!cma_dev->pd) {
+		ret = ERR(ENOMEM);
+		goto out;
 	}
+
 	id_priv->cma_dev = cma_dev;
 	id_priv->id.verbs = cma_dev->verbs;
 	id_priv->id.pd = cma_dev->pd;
 out:
+	if (ret)
+		cma_dev->refcnt--;
 	pthread_mutex_unlock(&mut);
 	return ret;
 }
@@ -523,6 +549,8 @@ static void ucma_put_device(struct cma_device *cma_dev)
 		ibv_dealloc_pd(cma_dev->pd);
 		if (cma_dev->xrcd)
 			ibv_close_xrcd(cma_dev->xrcd);
+		cma_dev->pd = NULL;
+		cma_dev->xrcd = NULL;
 	}
 	pthread_mutex_unlock(&mut);
 }
