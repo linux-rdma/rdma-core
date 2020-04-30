@@ -136,6 +136,8 @@ struct cma_event {
 
 static int cma_dev_cnt;
 static LIST_HEAD(cma_dev_list);
+/* sorted based or index or guid, depends on kernel support */
+static struct ibv_device **dev_list;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 static int abi_ver = -1;
 static char dev_name[64] = "rdma_cm";
@@ -294,11 +296,38 @@ static void remove_cma_dev(struct cma_device *cma_dev)
 	free(cma_dev);
 }
 
+static int dev_cmp(const void *a, const void *b)
+{
+	return (int)(*(char *const *)a - *(char *const *)b);
+}
+
+static int sync_devices_list(void)
+{
+	struct ibv_device **new_list;
+	int numb_dev;
+
+	new_list = ibv_get_device_list(&numb_dev);
+	if (!new_list)
+		return ERR(ENODEV);
+
+	if (!numb_dev) {
+		ibv_free_device_list(new_list);
+		return ERR(ENODEV);
+	}
+
+	qsort(new_list, numb_dev, sizeof(struct ibv_device *), dev_cmp);
+
+	if (likely(dev_list))
+		/* This is skipped for first sync_devices_list execution */
+		ibv_free_device_list(dev_list);
+	dev_list = new_list;
+	return 0;
+}
+
 int ucma_init(void)
 {
-	struct ibv_device **dev_list = NULL;
 	struct cma_device *cma_dev, *tmp;
-	int i, ret, dev_cnt;
+	int i, ret;
 
 	/*
 	 * ucma_set_af_ib_support() below recursively calls to this function
@@ -321,34 +350,24 @@ int ucma_init(void)
 		goto err1;
 	}
 
-	dev_list = ibv_get_device_list(&dev_cnt);
-	if (!dev_list) {
-		ret = ERR(ENODEV);
+	ret = sync_devices_list();
+	if (ret)
 		goto err1;
-	}
-
-	if (!dev_cnt) {
-		ret = ERR(ENODEV);
-		goto err2;
-	}
 
 	for (i = 0; dev_list[i]; i++) {
 		if (!insert_cma_dev(dev_list[i])) {
 			ret = ERR(ENOMEM);
-			goto err3;
+			goto err2;
 		}
 	}
 
 	ucma_set_af_ib_support();
 	pthread_mutex_unlock(&mut);
-	ibv_free_device_list(dev_list);
 	return 0;
 
-err3:
+err2:
 	list_for_each_safe(&cma_dev_list, cma_dev, tmp, entry)
 		remove_cma_dev(cma_dev);
-err2:
-	ibv_free_device_list(dev_list);
 err1:
 	fastlock_destroy(&idm_lock);
 	pthread_mutex_unlock(&mut);
