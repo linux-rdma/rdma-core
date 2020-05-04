@@ -238,6 +238,10 @@ cdef class Context(PyverbsCM):
     def cmd_fd(self):
         return self.context.cmd_fd
 
+    @property
+    def name(self):
+        return self.name
+
 
 cdef class DeviceAttr(PyverbsObject):
     """
