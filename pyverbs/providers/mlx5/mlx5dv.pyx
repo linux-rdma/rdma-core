@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
+from libc.stdint cimport uintptr_t
 import logging
 
 from pyverbs.pyverbs_error import PyverbsUserError
@@ -645,3 +646,47 @@ cdef class Mlx5PP(PyverbsObject):
     @property
     def index(self):
         return self.pp.index
+
+
+cdef class Mlx5UAR(PyverbsObject):
+    def __init__(self, Context context not None, flags=0):
+        self.uar = dv.mlx5dv_devx_alloc_uar(context.context, flags)
+        if self.uar == NULL:
+            raise PyverbsRDMAErrno('Failed to allocate UAR')
+        context.uars.add(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.uar != NULL:
+            dv.mlx5dv_devx_free_uar(self.uar)
+            self.uar = NULL
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return print_format.format('reg addr', <uintptr_t>self.uar.reg_addr) +\
+               print_format.format('base addr', <uintptr_t>self.uar.base_addr) +\
+               print_format.format('page id', self.uar.page_id) +\
+               print_format.format('mmap off', self.uar.mmap_off) +\
+               print_format.format('comp mask', self.uar.comp_mask)
+
+    @property
+    def reg_addr(self):
+        return <uintptr_t>self.uar.reg_addr
+
+    @property
+    def base_addr(self):
+        return <uintptr_t>self.uar.base_addr
+
+    @property
+    def page_id(self):
+        return self.uar.page_id
+
+    @property
+    def mmap_off(self):
+        return self.uar.mmap_off
+
+    @property
+    def comp_mask(self):
+        return self.uar.comp_mask

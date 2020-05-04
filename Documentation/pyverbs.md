@@ -611,3 +611,18 @@ rate_limit_inbox = (5).to_bytes(length=4, byteorder='big', signed=True)
 pp = Mlx5PP(ctx, rate_limit_inbox)
 pp.close()
 ```
+
+##### MLX5 UAR
+User Access Region (UAR) is part of PCI address space that is mapped for direct
+access to the HCA from the CPU.
+The UAR is needed for some device commands over the DevX interface.
+The following code snippet demonstrates how to allocate and free an
+mlx5dv_devx_uar.
+```python
+from pyverbs.providers.mlx5.mlx5dv import Mlx5UAR
+from pyverbs.device import Context
+
+ctx = Context(name='rocep0s8f0')
+uar = Mlx5UAR(ctx)
+uar.close()
+```

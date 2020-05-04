@@ -101,6 +101,7 @@ cdef class Context(PyverbsCM):
         self.qps = weakref.WeakSet()
         self.xrcds = weakref.WeakSet()
         self.vars = weakref.WeakSet()
+        self.uars = weakref.WeakSet()
 
         self.name = kwargs.get('name')
         provider_attr = kwargs.get('attr')
