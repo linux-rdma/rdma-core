@@ -30,7 +30,7 @@ stages:
               set -e
               mkdir build-pandoc artifacts
               cd build-pandoc
-              CC=gcc-9 cmake -GNinja ..
+              CC=gcc-10 cmake -GNinja ..
               ninja docs
 
               cd ..

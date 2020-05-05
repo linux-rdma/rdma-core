@@ -428,7 +428,7 @@ class azure_pipelines(APTEnvironment):
         "dh-systemd",
         "dpkg-dev",
         "fakeroot",
-        "gcc-9",
+        "gcc-10",
         "git",
         "python2.7",
         "libc6-dev",
@@ -450,7 +450,7 @@ class azure_pipelines(APTEnvironment):
         "valgrind",
     } | {
         # 32 bit build support
-        "libgcc-9-dev:i386",
+        "libgcc-10-dev:i386",
         "libc6-dev:i386",
         "libnl-3-dev:i386",
         "libnl-route-3-dev:i386",
