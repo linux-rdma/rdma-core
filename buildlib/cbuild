@@ -257,7 +257,7 @@ class APTEnvironment(Environment):
     build_python = True;
     def get_docker_file(self,tmpdir):
         res = DockerFile(self.docker_parent);
-        res.lines.append("RUN apt-get update; apt-get install -y --no-install-recommends %s && apt-get clean && rm -rf /usr/share/doc/ /usr/lib/debug /var/lib/apt/lists/"%(
+        res.lines.append("RUN apt-get update && apt-get install -y --no-install-recommends %s && apt-get clean && rm -rf /usr/share/doc/ /usr/lib/debug /var/lib/apt/lists/"%(
             " ".join(sorted(self.pkgs))));
         return res;
 
@@ -267,6 +267,15 @@ class APTEnvironment(Environment):
             os.makedirs(sld);
         with open(os.path.join(sld,name),"w") as F:
             F.write(content + "\n");
+
+    def fix_https(self,tmpdir):
+        """The ubuntu image does not include ca-certificates, so if we want to use
+        HTTPS disable certificate validation."""
+        cfgd = os.path.join(tmpdir,"etc","apt","apt.conf.d")
+        if not os.path.isdir(cfgd):
+            os.makedirs(cfgd)
+        with open(os.path.join(cfgd,"01nossl"),"w") as F:
+            F.write('Acquire::https { Verify-Peer "false"; };')
 
     def add_ppa(self,tmpdir,srcline,keyid):
         gpgd = os.path.join(tmpdir,"etc","apt","trusted.gpg.d");
@@ -463,6 +472,7 @@ class azure_pipelines(APTEnvironment):
 
     def get_docker_file(self,tmpdir):
         res = bionic.get_docker_file(self,tmpdir);
+        self.fix_https(tmpdir)
         self.add_ppa(tmpdir,
                      "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu bionic main",
                      "60C317803A41BA51845E371A1E9377A2BA9EF27F");
