@@ -98,9 +98,9 @@ stages:
               set -e
               mkdir build-clang
               cd build-clang
-              CC=clang-9 CFLAGS="-m32" cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
+              CC=clang-10 CFLAGS="-m32" cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
               ninja
-            displayName: clang 9.0 32-bit Compile
+            displayName: clang 10.0 32-bit Compile
 
           - bash: |
               set -e
@@ -132,12 +132,12 @@ stages:
           - bash: |
               set -e
               sed -i -e 's/ninja \(.*\)-v/ninja \1/g' debian/rules
-              debian/rules CC=clang-9 EXTRA_CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1" build
-            displayName: clang 9.0 Bionic Build
+              debian/rules CC=clang-10 EXTRA_CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1" build
+            displayName: clang 10.0 Bionic Build
           - bash: |
               set -e
               fakeroot debian/rules binary
-            displayName: clang 9.0 Bionic .deb Build
+            displayName: clang 10.0 Bionic .deb Build
           - bash: |
               set -e
               lintian ../*.deb
