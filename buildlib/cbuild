@@ -416,7 +416,7 @@ class tumbleweed(ZypperEnvironment):
 # -------------------------------------------------------------------------
 
 class azure_pipelines(APTEnvironment):
-    docker_parent = "ubuntu:18.04"
+    docker_parent = "ubuntu:20.04"
     pkgs = {
         "abi-compliance-checker",
         "abi-dumper",
@@ -425,12 +425,12 @@ class azure_pipelines(APTEnvironment):
         "cmake",
         "cython3",
         "debhelper",
+        "dh-python",
         "dh-systemd",
         "dpkg-dev",
         "fakeroot",
         "gcc-10",
         "git",
-        "python2.7",
         "libc6-dev",
         "libnl-3-dev",
         "libnl-route-3-dev",
@@ -458,8 +458,8 @@ class azure_pipelines(APTEnvironment):
         "libudev-dev:i386",
     } | {
         # ARM 64 cross compiler
-        "gcc-8-aarch64-linux-gnu",
-        "libgcc-8-dev:arm64",
+        "gcc-9-aarch64-linux-gnu",
+        "libgcc-9-dev:arm64",
         "libc6-dev:arm64",
         "libnl-3-dev:arm64",
         "libnl-route-3-dev:arm64",
@@ -467,8 +467,8 @@ class azure_pipelines(APTEnvironment):
         "libudev-dev:arm64",
     } | {
         # PPC 64 cross compiler
-        "gcc-8-powerpc64le-linux-gnu",
-        "libgcc-8-dev:ppc64el",
+        "gcc-9-powerpc64le-linux-gnu",
+        "libgcc-9-dev:ppc64el",
         "libc6-dev:ppc64el",
         "libnl-3-dev:ppc64el",
         "libnl-route-3-dev:ppc64el",
@@ -480,18 +480,18 @@ class azure_pipelines(APTEnvironment):
     aliases = {"azp"}
 
     def get_docker_file(self,tmpdir):
-        res = bionic.get_docker_file(self,tmpdir);
+        res = focal.get_docker_file(self,tmpdir);
         self.fix_https(tmpdir)
         self.add_ppa(tmpdir,
-                     "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu bionic main",
+                     "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu focal main",
                      "60C317803A41BA51845E371A1E9377A2BA9EF27F");
         self.add_ppa(tmpdir,
-                     "deb [arch=amd64] https://apt.llvm.org/bionic/ llvm-toolchain-bionic-10 main",
+                     "deb [arch=amd64] https://apt.llvm.org/focal/ llvm-toolchain-focal-10 main",
                      "15CF4D18AF4F7421");
         self.add_source_list(tmpdir,"arm64.list",
-                             """deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ bionic main universe
-deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ bionic-security main universe
-deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ bionic-updates main universe""");
+                             """deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ focal main universe
+deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ focal-security main universe
+deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ focal-updates main universe""");
 
         res.lines.insert(1,"ADD etc/ /etc/");
         res.lines.insert(1,"RUN dpkg --add-architecture i386 &&"
@@ -499,11 +499,13 @@ deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ bionic-updates main universe""
                          "dpkg --add-architecture arm64 &&"
                          "sed -i -e 's/^deb /deb [arch=amd64,i386] /g' /etc/apt/sources.list");
 
+
         # There is some bug in APT where it doesn't order the install
         # properly. Probably related to multi-arch..  Resolve it by early
         # installing these two packages.
-        res.lines[-1] = res.lines[-1].replace("update && apt-get",
-                                              "update && apt-get install -y --no-install-recommends libgcc-s1:i386 libgcc-s1:ppc64el && apt-get")
+        res.lines[-1] = res.lines[-1].replace("update && DEBIAN_FRONTEND=noninteractive apt-get",
+                                              "update && apt-get install -y --no-install-recommends libgcc-s1:i386 libgcc-s1:ppc64el && DEBIAN_FRONTEND=noninteractive apt-get")
+
         return res;
 
 # -------------------------------------------------------------------------
