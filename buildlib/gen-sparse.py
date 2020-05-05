@@ -70,6 +70,8 @@ def get_buildlib_patches(dfn):
     def add_to_dict(d,lst):
         for I in lst:
             nh = norm_header(I)
+            if nh is None:
+                continue;
             assert nh not in d
             d[nh] = (I, find_system_header(args,nh))
 
