@@ -79,7 +79,7 @@ def get_symbol_vers(fn,exported=True):
 def check_lib_symver(args,fn):
     g = re.match(r"lib([^.]+)\.so\.(\d+)\.(\d+)\.(.*)",fn);
     if g.group(4) != args.PACKAGE_VERSION:
-        raise ValueError("Shared Library filename %r does not have the package version %r (%r)%"(
+        raise ValueError("Shared Library filename %r does not have the package version %r (%r)"%(
             fn,args.PACKAGE_VERSION,g.groups()));
 
     # umad used the wrong symbol version name when they moved to soname 3.0
