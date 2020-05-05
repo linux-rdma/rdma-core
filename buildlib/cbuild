@@ -257,7 +257,7 @@ class APTEnvironment(Environment):
     build_python = True;
     def get_docker_file(self,tmpdir):
         res = DockerFile(self.docker_parent);
-        res.lines.append("RUN apt-get update && apt-get install -y --no-install-recommends %s && apt-get clean && rm -rf /usr/share/doc/ /usr/lib/debug /var/lib/apt/lists/"%(
+        res.lines.append("RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends %s && apt-get clean && rm -rf /usr/share/doc/ /usr/lib/debug /var/lib/apt/lists/"%(
             " ".join(sorted(self.pkgs))));
         return res;
 
@@ -333,6 +333,15 @@ class bionic(APTEnvironment):
     };
     name = "ubuntu-18.04";
     aliases = {"bionic", "ubuntu"};
+    to_azp = True
+
+class focal(APTEnvironment):
+    docker_parent = "ubuntu:20.04"
+    pkgs = bionic.pkgs | {
+        'dh-python',
+    }
+    name = "ubuntu-20.04";
+    aliases = {"focal", "ubuntu"};
 
 class jessie(APTEnvironment):
     docker_parent = "debian:8"
@@ -507,6 +516,7 @@ environments = [centos6(),
                 amazonlinux2(),
                 xenial(),
                 bionic(),
+                focal(),
                 jessie(),
                 stretch(),
                 fc31(),
