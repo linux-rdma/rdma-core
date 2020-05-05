@@ -489,6 +489,12 @@ deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ bionic-updates main universe""
                          "dpkg --add-architecture ppc64el &&"
                          "dpkg --add-architecture arm64 &&"
                          "sed -i -e 's/^deb /deb [arch=amd64,i386] /g' /etc/apt/sources.list");
+
+        # There is some bug in APT where it doesn't order the install
+        # properly. Probably related to multi-arch..  Resolve it by early
+        # installing these two packages.
+        res.lines[-1] = res.lines[-1].replace("update && apt-get",
+                                              "update && apt-get install -y --no-install-recommends libgcc-s1:i386 libgcc-s1:ppc64el && apt-get")
         return res;
 
 # -------------------------------------------------------------------------
