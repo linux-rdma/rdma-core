@@ -41,13 +41,16 @@
 #include "mlx5_ifc.h"
 #include "mlx5.h"
 
-#define DR_RULE_MAX_STES	17
+#define DR_RULE_MAX_STES	19
 #define DR_ACTION_MAX_STES	6
 #define WIRE_PORT		0xFFFF
 #define DR_STE_SVLAN		0x1
 #define DR_STE_CVLAN		0x2
 #define CVLAN_ETHERTYPE	0x8100
 #define SVLAN_ETHERTYPE	0x88a8
+#define NUM_OF_FLEX_PARSERS	8
+#define DR_STE_MAX_FLEX_0_ID	3
+#define DR_STE_MAX_FLEX_1_ID	7
 
 #define dr_dbg(dmn, arg...) dr_dbg_ctx((dmn)->ctx, ##arg)
 
@@ -130,7 +133,8 @@ enum dr_matcher_criteria {
 	DR_MATCHER_CRITERIA_INNER	= 1 << 2,
 	DR_MATCHER_CRITERIA_MISC2	= 1 << 3,
 	DR_MATCHER_CRITERIA_MISC3	= 1 << 4,
-	DR_MATCHER_CRITERIA_MAX		= 1 << 5,
+	DR_MATCHER_CRITERIA_MISC4	= 1 << 5,
+	DR_MATCHER_CRITERIA_MAX		= 1 << 6,
 };
 
 enum dr_action_type {
@@ -485,6 +489,14 @@ void dr_ste_build_src_gvmi_qpn(struct dr_ste_ctx *ste_ctx,
 			       struct dr_match_param *mask,
 			       struct dr_devx_caps *caps,
 			       bool inner, bool rx);
+void dr_ste_build_flex_parser_0(struct dr_ste_ctx *ste_ctx,
+				struct dr_ste_build *sb,
+				struct dr_match_param *mask,
+				bool inner, bool rx);
+void dr_ste_build_flex_parser_1(struct dr_ste_ctx *ste_ctx,
+				struct dr_ste_build *sb,
+				struct dr_match_param *mask,
+				bool inner, bool rx);
 void dr_ste_build_empty_always_hit(struct dr_ste_build *sb, bool rx);
 
 /* Actions utils */
@@ -610,12 +622,24 @@ struct dr_match_misc3 {
 	uint32_t gtpu_flags:3;
 };
 
+struct dr_match_misc4 {
+	uint32_t prog_sample_field_value_0;
+	uint32_t prog_sample_field_id_0;
+	uint32_t prog_sample_field_value_1;
+	uint32_t prog_sample_field_id_1;
+	uint32_t prog_sample_field_value_2;
+	uint32_t prog_sample_field_id_2;
+	uint32_t prog_sample_field_value_3;
+	uint32_t prog_sample_field_id_3;
+};
+
 struct dr_match_param {
 	struct dr_match_spec	outer;
 	struct dr_match_misc	misc;
 	struct dr_match_spec	inner;
 	struct dr_match_misc2	misc2;
 	struct dr_match_misc3	misc3;
+	struct dr_match_misc4	misc4;
 };
 
 #define DR_MASK_IS_ICMPV4_SET(_misc3) ((_misc3)->icmpv4_type || \

@@ -514,12 +514,33 @@ struct mlx5_ifc_dr_match_set_misc3_bits {
 	u8         reserved_at_160[0x80];
 };
 
+struct mlx5_ifc_dr_match_set_misc4_bits {
+	u8         prog_sample_field_value_0[0x20];
+
+	u8         prog_sample_field_id_0[0x20];
+
+	u8         prog_sample_field_value_1[0x20];
+
+	u8         prog_sample_field_id_1[0x20];
+
+	u8         prog_sample_field_value_2[0x20];
+
+	u8         prog_sample_field_id_2[0x20];
+
+	u8         prog_sample_field_value_3[0x20];
+
+	u8         prog_sample_field_id_3[0x20];
+
+	u8         reserved[0x100];
+};
+
 struct mlx5_ifc_dr_match_param_bits {
 	struct mlx5_ifc_dr_match_spec_bits outer;
 	struct mlx5_ifc_dr_match_set_misc_bits misc;
 	struct mlx5_ifc_dr_match_spec_bits inner;
 	struct mlx5_ifc_dr_match_set_misc2_bits misc2;
 	struct mlx5_ifc_dr_match_set_misc3_bits misc3;
+	struct mlx5_ifc_dr_match_set_misc4_bits misc4;
 };
 
 struct mlx5_ifc_flow_table_prop_layout_bits {

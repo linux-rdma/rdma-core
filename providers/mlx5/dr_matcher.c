@@ -251,6 +251,42 @@ static bool dr_mask_is_gvmi_or_qpn_set(struct dr_match_misc *misc)
 	return (misc->source_sqn || misc->source_port);
 }
 
+static bool dr_mask_is_flex_parser_id_0_3_set(uint32_t flex_parser_id,
+					      uint32_t flex_parser_value)
+{
+	if (flex_parser_id)
+		return flex_parser_id <= DR_STE_MAX_FLEX_0_ID;
+
+	/* Using flex_parser 0 means that id is zero, thus value must be set. */
+	return flex_parser_value;
+}
+
+static bool dr_mask_is_flex_parser_0_3_set(struct dr_match_misc4 *misc4)
+{
+	return (dr_mask_is_flex_parser_id_0_3_set(misc4->prog_sample_field_id_0,
+			misc4->prog_sample_field_value_0) ||
+		dr_mask_is_flex_parser_id_0_3_set(misc4->prog_sample_field_id_1,
+			misc4->prog_sample_field_value_1) ||
+		dr_mask_is_flex_parser_id_0_3_set(misc4->prog_sample_field_id_2,
+			misc4->prog_sample_field_value_2) ||
+		dr_mask_is_flex_parser_id_0_3_set(misc4->prog_sample_field_id_3,
+			misc4->prog_sample_field_value_3));
+}
+
+static bool dr_mask_is_flex_parser_id_4_7_set(uint32_t flex_parser_id)
+{
+	return flex_parser_id > DR_STE_MAX_FLEX_0_ID &&
+	       flex_parser_id <= DR_STE_MAX_FLEX_1_ID;
+}
+
+static bool dr_mask_is_flex_parser_4_7_set(struct dr_match_misc4 *misc4)
+{
+	return (dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_0) ||
+		dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_1) ||
+		dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_2) ||
+		dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_3));
+}
+
 static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 				       struct dr_matcher_rx_tx *nic_matcher)
 {
@@ -282,6 +318,9 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 
 	if (matcher->match_criteria & DR_MATCHER_CRITERIA_MISC3)
 		mask.misc3 = matcher->mask.misc3;
+
+	if (matcher->match_criteria & DR_MATCHER_CRITERIA_MISC4)
+		mask.misc4 = matcher->mask.misc4;
 
 	ret = dr_ste_build_pre_check(dmn, matcher->match_criteria,
 				     &matcher->mask, NULL);
@@ -450,6 +489,16 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 		if (DR_MASK_IS_TNL_MPLS_SET(mask.misc2))
 			dr_ste_build_tnl_mpls(ste_ctx, &sb[idx++],
 					      &mask, inner, rx);
+	}
+
+	if (matcher->match_criteria & DR_MATCHER_CRITERIA_MISC4) {
+		if (dr_mask_is_flex_parser_0_3_set(&mask.misc4))
+			dr_ste_build_flex_parser_0(ste_ctx, &sb[idx++],
+						   &mask, false, rx);
+
+		if (dr_mask_is_flex_parser_4_7_set(&mask.misc4))
+			dr_ste_build_flex_parser_1(ste_ctx, &sb[idx++],
+						   &mask, false, rx);
 	}
 
 	/* Empty matcher, takes all */

@@ -137,6 +137,13 @@ enum dr_ste_action_modify_type_l4 {
 
 uint16_t dr_ste_conv_bit_to_byte_mask(uint8_t *bit_mask);
 
+static inline uint8_t *
+dr_ste_calc_flex_parser_offset(uint8_t *tag, uint8_t parser_id)
+{
+	/* Calculate tag byte offset based on flex parser id */
+	return tag + 4 * (3 - (parser_id % 4));
+}
+
 typedef void (*dr_ste_builder_void_init)(struct dr_ste_build *sb,
 					 struct dr_match_param *mask);
 
@@ -165,6 +172,8 @@ struct dr_ste_ctx {
 	dr_ste_builder_void_init build_register_0_init;
 	dr_ste_builder_void_init build_register_1_init;
 	dr_ste_builder_void_init build_src_gvmi_qpn_init;
+	dr_ste_builder_void_init build_flex_parser_0_init;
+	dr_ste_builder_void_init build_flex_parser_1_init;
 
 	/* Getters and Setters */
 	void (*ste_init)(uint8_t *hw_ste_p, uint16_t lu_type,

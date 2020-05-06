@@ -890,6 +890,26 @@ static void dr_ste_copy_mask_misc3(char *mask, struct dr_match_misc3 *spec)
 	spec->gtpu_teid     = DEVX_GET(dr_match_set_misc3, mask, gtpu_teid);
 }
 
+static void dr_ste_copy_mask_misc4(char *mask, struct dr_match_misc4 *spec)
+{
+	spec->prog_sample_field_id_0 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_0);
+	spec->prog_sample_field_value_0 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_0);
+	spec->prog_sample_field_id_1 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_1);
+	spec->prog_sample_field_value_1 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_1);
+	spec->prog_sample_field_id_2 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_2);
+	spec->prog_sample_field_value_2 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_2);
+	spec->prog_sample_field_id_3 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_3);
+	spec->prog_sample_field_value_3 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_3);
+}
+
 #define MAX_PARAM_SIZE 512
 
 void dr_ste_copy_param(uint8_t match_criteria,
@@ -949,7 +969,6 @@ void dr_ste_copy_param(uint8_t match_criteria,
 		}
 		dr_ste_copy_mask_misc2(buff, &set_param->misc2);
 	}
-
 	param_location += DEVX_ST_SZ_BYTES(dr_match_set_misc2);
 
 	if (match_criteria & DR_MATCHER_CRITERIA_MISC3) {
@@ -962,6 +981,19 @@ void dr_ste_copy_param(uint8_t match_criteria,
 			buff = data + param_location;
 		}
 		dr_ste_copy_mask_misc3(buff, &set_param->misc3);
+	}
+	param_location += DEVX_ST_SZ_BYTES(dr_match_set_misc3);
+
+	if (match_criteria & DR_MATCHER_CRITERIA_MISC4) {
+		if (mask->match_sz < param_location +
+		    DEVX_ST_SZ_BYTES(dr_match_set_misc4)) {
+			memcpy(tail_param, data + param_location,
+			       mask->match_sz - param_location);
+			buff = tail_param;
+		} else {
+			buff = data + param_location;
+		}
+		dr_ste_copy_mask_misc4(buff, &set_param->misc4);
 	}
 }
 
@@ -1192,6 +1224,26 @@ void dr_ste_build_src_gvmi_qpn(struct dr_ste_ctx *ste_ctx,
 	sb->caps = caps;
 	sb->inner = inner;
 	ste_ctx->build_src_gvmi_qpn_init(sb, mask);
+}
+
+void dr_ste_build_flex_parser_0(struct dr_ste_ctx *ste_ctx,
+				struct dr_ste_build *sb,
+				struct dr_match_param *mask,
+				bool inner, bool rx)
+{
+	sb->rx = rx;
+	sb->inner = inner;
+	ste_ctx->build_flex_parser_0_init(sb, mask);
+}
+
+void dr_ste_build_flex_parser_1(struct dr_ste_ctx *ste_ctx,
+				struct dr_ste_build *sb,
+				struct dr_match_param *mask,
+				bool inner, bool rx)
+{
+	sb->rx = rx;
+	sb->inner = inner;
+	ste_ctx->build_flex_parser_1_init(sb, mask);
 }
 
 struct dr_ste_ctx *dr_ste_get_ctx(uint8_t version)
