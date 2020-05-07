@@ -255,8 +255,6 @@ static void hns_roce_update_rq_db(struct hns_roce_context *ctx,
 	roce_set_field(rq_db.parameter, DB_PARAM_RQ_PRODUCER_IDX_M,
 		       DB_PARAM_RQ_PRODUCER_IDX_S, rq_head);
 
-	udma_to_device_barrier();
-
 	hns_roce_write64((uint32_t *)&rq_db, ctx, ROCEE_VF_DB_CFG0_OFFSET);
 }
 
@@ -275,8 +273,6 @@ static void hns_roce_update_sq_db(struct hns_roce_context *ctx,
 		       DB_PARAM_SQ_PRODUCER_IDX_S, sq_head);
 	roce_set_field(sq_db.parameter, DB_PARAM_SL_M, DB_PARAM_SL_S, sl);
 
-	udma_to_device_barrier();
-
 	hns_roce_write64((uint32_t *)&sq_db, ctx, ROCEE_VF_DB_CFG0_OFFSET);
 }
 
@@ -290,11 +286,9 @@ static void hns_roce_v2_update_cq_cons_index(struct hns_roce_context *ctx,
 		       HNS_ROCE_V2_CQ_DB_PTR);
 
 	roce_set_field(cq_db.parameter, DB_PARAM_CQ_CONSUMER_IDX_M,
-		       DB_PARAM_CQ_CONSUMER_IDX_S,
-		       cq->cons_index & ((cq->cq_depth << 1) - 1));
+		       DB_PARAM_CQ_CONSUMER_IDX_S, cq->cons_index);
 	roce_set_field(cq_db.parameter, DB_PARAM_CQ_CMD_SN_M,
 		       DB_PARAM_CQ_CMD_SN_S, 1);
-	roce_set_bit(cq_db.parameter, DB_PARAM_CQ_NOTIFY_S, 0);
 
 	hns_roce_write64((uint32_t *)&cq_db, ctx, ROCEE_VF_DB_CFG0_OFFSET);
 }
@@ -616,8 +610,8 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 		mmio_ordered_writes_hack();
 
 		if (cq->flags & HNS_ROCE_SUPPORT_CQ_RECORD_DB)
-			*cq->set_ci_db = (unsigned int)(cq->cons_index &
-						((cq->cq_depth << 1) - 1));
+			*cq->set_ci_db =
+				cq->cons_index & DB_PARAM_CQ_CONSUMER_IDX_M;
 		else
 			hns_roce_v2_update_cq_cons_index(ctx, cq);
 	}
@@ -811,7 +805,7 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 				      dseg, sge_info);
 	}
 
-	if (wr->send_flags & IBV_SEND_INLINE) {
+	if (wr->send_flags & IBV_SEND_INLINE && sge_info->valid_num) {
 		if (wr->opcode == IBV_WR_RDMA_READ)
 			return EINVAL;
 
@@ -893,8 +887,9 @@ out:
 		qp->sq.head += nreq;
 		qp->next_sge = sge_info.start_idx;
 
-		hns_roce_update_sq_db(ctx, qp->ibv_qp.qp_num, qp->sl,
-				     qp->sq.head & ((qp->sq.wqe_cnt << 1) - 1));
+		udma_to_device_barrier();
+
+		hns_roce_update_sq_db(ctx, ibvqp->qp_num, qp->sl, qp->sq.head);
 
 		if (qp->flags & HNS_ROCE_SUPPORT_SQ_RECORD_DB)
 			*(qp->sdb) = qp->sq.head & 0xffff;
@@ -996,8 +991,7 @@ out:
 		if (qp->flags & HNS_ROCE_SUPPORT_RQ_RECORD_DB)
 			*qp->rdb = qp->rq.head & 0xffff;
 		else
-			hns_roce_update_rq_db(ctx, qp->ibv_qp.qp_num,
-				     qp->rq.head & ((qp->rq.wqe_cnt << 1) - 1));
+			hns_roce_update_rq_db(ctx, ibvqp->qp_num, qp->rq.head);
 	}
 
 	pthread_spin_unlock(&qp->rq.lock);
@@ -1291,9 +1285,10 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 		 */
 		udma_to_device_barrier();
 
-		srq_db.byte_4 = htole32(HNS_ROCE_V2_SRQ_DB << DB_BYTE_4_CMD_S
-					| srq->srqn);
-		srq_db.parameter = htole32(srq->head);
+		srq_db.byte_4 = htole32(HNS_ROCE_V2_SRQ_DB << DB_BYTE_4_CMD_S |
+					srq->srqn);
+		srq_db.parameter =
+			htole32(srq->head & DB_PARAM_SRQ_PRODUCER_COUNTER_M);
 
 		hns_roce_write64((uint32_t *)&srq_db, ctx,
 				 ROCEE_VF_DB_CFG0_OFFSET);
