@@ -16,27 +16,13 @@ NUM_OF_PROCESSES = 2
 
 class CMTestCase(RDMATestCase):
     def setUp(self):
-        if self.dev_name is not None:
-            net_name = self.get_net_name(self.dev_name)
-            try:
-                self.ip_addr = self.get_ip_address(net_name)
-            except KeyError:
-                raise unittest.SkipTest('Device {} doesn\'t have net interface'
-                                        .format(self.dev_name))
-        else:
-            dev_list = d.get_device_list()
-            for dev in dev_list:
-                net_name = self.get_net_name(dev.name.decode())
-                try:
-                    self.ip_addr = self.get_ip_address(net_name)
-                except IndexError:
-                    continue
-                else:
-                    self.dev_name = dev.name.decode()
-                    break
-            if self.dev_name is None:
-                raise unittest.SkipTest('No devices with net interface')
         super().setUp()
+        net_name = self.get_net_name(self.dev_name)
+        try:
+            self.ip_addr = self.get_ip_address(net_name)
+        except KeyError:
+            raise unittest.SkipTest('Device {} doesn\'t have net interface'
+                                    .format(self.dev_name))
 
     @staticmethod
     def get_net_name(dev):
