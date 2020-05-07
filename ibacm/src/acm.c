@@ -2116,7 +2116,9 @@ __acm_ep_insert_addr(struct acmc_ep *ep, const char *name, uint8_t *addr,
 		}
 	}
 	ep->addr_info[i].addr.type = addr_type;
-	strncpy(ep->addr_info[i].string_buf, name, ACM_MAX_ADDRESS);
+	if (!check_snprintf(ep->addr_info[i].string_buf,
+			    sizeof(ep->addr_info[i].string_buf), "%s", name))
+		return EINVAL;
 	memcpy(ep->addr_info[i].addr.info.addr, tmp, ACM_MAX_ADDRESS);
 	ret = ep->port->prov->add_address(&ep->addr_info[i].addr,
 					  ep->prov_ep_context,

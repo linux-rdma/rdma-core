@@ -111,7 +111,7 @@ struct acm_ep_addr_data {
  */
 struct acm_resolve_msg {
 	struct acm_hdr          hdr;
-	struct acm_ep_addr_data data[0];
+	struct acm_ep_addr_data data[];
 };
 
 enum {
@@ -130,7 +130,7 @@ enum {
  */
 struct acm_perf_msg {
 	struct acm_hdr          hdr;
-	uint64_t                data[0];
+	uint64_t                data[];
 };
 
 /*
@@ -144,12 +144,12 @@ struct acm_ep_config_data {
 	uint16_t                pkey;
 	uint16_t                addr_cnt;
 	uint8_t                 prov_name[ACM_MAX_PROV_NAME];
-	union acm_ep_info       addrs[0];
+	union acm_ep_info       addrs[];
 };
 
 struct acm_ep_query_msg {
 	struct acm_hdr             hdr;
-	struct acm_ep_config_data  data[0];
+	struct acm_ep_config_data  data[];
 };
 
 struct acm_msg {
