@@ -57,6 +57,13 @@
 #define HDR_LEN_L2        (HDR_LEN_L2_MACS + HDR_LEN_L2_ETHER)
 #define HDR_LEN_L2_W_VLAN (HDR_LEN_L2 + HDR_LEN_L2_VLAN)
 
+enum {
+	HDR_MPLS_OFFSET_LABEL	= 12,
+	HDR_MPLS_OFFSET_EXP	= 9,
+	HDR_MPLS_OFFSET_S_BOS	= 8,
+	HDR_MPLS_OFFSET_TTL	= 0,
+};
+
 /* Read from layout struct */
 #define DR_STE_GET(typ, p, fld) DEVX_GET(ste_##typ, p, fld)
 
