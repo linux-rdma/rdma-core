@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc . All rights reserved. See COPYING file
 
+import subprocess
 import unittest
 import tempfile
 import random
 import errno
 import stat
+import json
 import os
 
 from pyverbs.qp import QPCap, QPInitAttrEx, QPInitAttr, QPAttr, QP
@@ -98,6 +100,7 @@ class RDMATestCase(unittest.TestCase):
         self.ib_port = ib_port
         self.gid_index = gid_index
         self.pkey_index = pkey_index
+        self.ip_addr = None
 
     @staticmethod
     def parametrize(testcase_klass, dev_name=None, ib_port=None, gid_index=None,
@@ -114,6 +117,22 @@ class RDMATestCase(unittest.TestCase):
                                          gid_index=gid_index,
                                          pkey_index=pkey_index))
         return suite
+
+    @staticmethod
+    def get_net_name(dev):
+        out = subprocess.check_output(['ls',
+                                       '/sys/class/infiniband/{}/device/net/'
+                                      .format(dev)])
+        return out.decode().split('\n')[0]
+
+    @staticmethod
+    def get_ip_address(ifname):
+        out = subprocess.check_output(['ip', '-j', 'addr', 'show', ifname])
+        loaded_json = json.loads(out.decode())
+        interface = loaded_json[0]['addr_info'][0]['local']
+        if 'fe80::' in interface:
+            interface = interface + '%' + ifname
+        return interface
 
     def setUp(self):
         """
@@ -150,10 +169,7 @@ class RDMATestCase(unittest.TestCase):
         if not self.args:
             raise unittest.SkipTest('No port is up, can\'t run traffic')
         # Choose one combination and use it
-        args = random.choice(self.args)
-        self.dev_name = args[0]
-        self.ib_port = args[1]
-        self.gid_index = args[2]
+        self._select_config()
 
     def _add_gids_per_port(self, ctx, dev, port):
         # Don't add ports which are not active
@@ -173,12 +189,32 @@ class RDMATestCase(unittest.TestCase):
                     ctx.query_gid_type(port, idx) == e.IBV_GID_TYPE_ROCE_V2 and \
                     has_roce_hw_bug(vendor_id, vendor_pid):
                 continue
-            self.args.append([dev, port, idx])
+            net_name = self.get_net_name(dev)
+            try:
+                ip_addr = self.get_ip_address(net_name)
+            except (KeyError, IndexError):
+                self.args.append([dev, port, idx, None])
+            else:
+                self.args.append([dev, port, idx, ip_addr])
 
     def _add_gids_per_device(self, ctx, dev):
         port_count = ctx.query_device().phys_port_cnt
         for port in range(port_count):
             self._add_gids_per_port(ctx, dev, port+1)
+
+    def _select_config(self):
+        args_with_inet_ip = []
+        for arg in self.args:
+            if arg[3]:
+                args_with_inet_ip.append(arg)
+        if args_with_inet_ip:
+            args = random.choice(args_with_inet_ip)
+        else:
+            args = random.choice(self.args)
+        self.dev_name = args[0]
+        self.ib_port = args[1]
+        self.gid_index = args[2]
+        self.ip_addr = args[3]
 
 
 class BaseResources(object):

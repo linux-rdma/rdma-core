@@ -2,9 +2,7 @@
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
 import multiprocessing as mp
-import subprocess
 import unittest
-import json
 import os
 
 from tests.rdmacm_utils import  CMSyncConnection, CMAsyncConnection
@@ -18,28 +16,9 @@ NUM_OF_PROCESSES = 2
 class CMTestCase(RDMATestCase):
     def setUp(self):
         super().setUp()
-        net_name = self.get_net_name(self.dev_name)
-        try:
-            self.ip_addr = self.get_ip_address(net_name)
-        except KeyError:
+        if not self.ip_addr:
             raise unittest.SkipTest('Device {} doesn\'t have net interface'
                                     .format(self.dev_name))
-
-    @staticmethod
-    def get_net_name(dev):
-        out = subprocess.check_output(['ls',
-                                       '/sys/class/infiniband/{}/device/net/'
-                                      .format(dev)])
-        return out.decode().split('\n')[0]
-
-    @staticmethod
-    def get_ip_address(ifname):
-        out = subprocess.check_output(['ip', '-j', 'addr', 'show', ifname])
-        loaded_json = json.loads(out.decode())
-        interface = loaded_json[0]['addr_info'][0]['local']
-        if 'fe80::' in interface:
-            interface = interface + '%' + ifname
-        return interface
 
     def two_nodes_rdmacm_traffic(self, connection_resources, test_flow,
                                  **resource_kwargs):
