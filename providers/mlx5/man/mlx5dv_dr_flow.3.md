@@ -10,7 +10,7 @@ footer: mlx5
 
 # NAME
 
-mlx5dv_dr_domain_create, mlx5dv_dr_domain_sync, mlx5dv_dr_domain_destroy - Manage flow domains
+mlx5dv_dr_domain_create, mlx5dv_dr_domain_sync, mlx5dv_dr_domain_destroy, mlx5dv_dr_domain_set_reclaim_device_memory - Manage flow domains
 
 mlx5dv_dr_table_create, mlx5dv_dr_table_destroy - Manage flow tables
 
@@ -48,6 +48,10 @@ int mlx5dv_dr_domain_sync(
 		uint32_t flags);
 
 int mlx5dv_dr_domain_destroy(struct mlx5dv_dr_domain *domain);
+
+void mlx5dv_dr_domain_set_reclaim_device_memory(
+		struct mlx5dv_dr_domain *dmn,
+		bool enable);
 
 struct mlx5dv_dr_table *mlx5dv_dr_table_create(
 		struct mlx5dv_dr_domain *domain,
@@ -144,6 +148,9 @@ Default behavior: Forward packet to eSwitch manager vport.
 **MLX5DV_DR_DOMAIN_SYNC_FLAGS_SW**: block until completion of all software queued tasks.
 
 **MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW**: clear the steering HW cache to enforce next packet hits the latest rules, in addition to the SW SYNC handling.
+
+
+*mlx5dv_dr_domain_set_reclaim_device_memory()* is used to enable the reclaiming of device memory back to the system when not in use, by default this feature is disabled.
 
 ## Table
 *mlx5dv_dr_table_create()* creates a DR table in the **domain**, at the appropriate **level**, and can be used with *mlx5dv_dr_matcher_create()* and *mlx5dv_dr_action_create_dest_table()*.

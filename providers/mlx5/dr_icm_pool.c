@@ -33,7 +33,7 @@
 #include "mlx5dv_dr.h"
 
 #define DR_ICM_MODIFY_HDR_ALIGN_BASE	64
-#define DR_ICM_SYNC_THRESHOLD (64 * 1024 * 1024)
+#define DR_ICM_SYNC_THRESHOLD_POOL (64 * 1024 * 1024)
 
 struct dr_icm_pool {
 	enum dr_icm_type	icm_type;
@@ -42,6 +42,7 @@ struct dr_icm_pool {
 	/* memory management */
 	pthread_mutex_t		mutex;
 	struct list_head	buddy_mem_list;
+	uint64_t		hot_memory_size;
 };
 
 struct dr_icm_mr {
@@ -291,6 +292,7 @@ dr_icm_chunk_create(struct dr_icm_pool *pool,
 		goto out_free_chunk;
 	}
 
+	buddy_mem_pool->used_memory += chunk->byte_size;
 	chunk->buddy_mem = buddy_mem_pool;
 	list_node_init(&chunk->chunk_list);
 
@@ -306,18 +308,8 @@ out_free_chunk:
 
 static bool dr_icm_pool_is_sync_required(struct dr_icm_pool *pool)
 {
-	uint64_t allow_hot_size, all_hot_mem = 0;
-	struct dr_icm_buddy_mem *buddy;
-
-	list_for_each(&pool->buddy_mem_list, buddy, list_node) {
-		allow_hot_size = dr_icm_pool_chunk_size_to_byte((buddy->max_order - 2),
-								pool->icm_type);
-		all_hot_mem += buddy->hot_memory_size;
-
-		if ((buddy->hot_memory_size > allow_hot_size) ||
-		    (all_hot_mem > DR_ICM_SYNC_THRESHOLD))
-			return true;
-	}
+	if (pool->hot_memory_size > DR_ICM_SYNC_THRESHOLD_POOL)
+		return true;
 
 	return false;
 }
@@ -339,9 +331,14 @@ static int dr_icm_pool_sync_all_buddy_pools(struct dr_icm_pool *pool)
 		list_for_each_safe(&buddy->hot_list, chunk, tmp_chunk, chunk_list) {
 			dr_buddy_free_mem(buddy, chunk->seg,
 					  ilog32(chunk->num_of_entries - 1));
-			buddy->hot_memory_size -= chunk->byte_size;
+			buddy->used_memory -= chunk->byte_size;
+			pool->hot_memory_size -= chunk->byte_size;
 			dr_icm_chunk_destroy(chunk);
 		}
+
+		if ((pool->dmn->flags & DR_DOMAIN_FLAG_MEMORY_RECLAIM) &&
+		    pool->icm_type == DR_ICM_TYPE_STE && !buddy->used_memory)
+			dr_icm_buddy_destroy(buddy);
 	}
 
 	return 0;
@@ -355,10 +352,6 @@ static int dr_icm_handle_buddies_get_mem(struct dr_icm_pool *pool,
 	struct dr_icm_buddy_mem *buddy_mem_pool;
 	bool new_mem = false;
 	int err = 0;
-
-	/* Check if we have chunks that are waiting for sync-ste */
-	if (dr_icm_pool_is_sync_required(pool))
-		dr_icm_pool_sync_all_buddy_pools(pool);
 
 	*seg = -1;
 
@@ -436,7 +429,12 @@ void dr_icm_free_chunk(struct dr_icm_chunk *chunk)
 	pthread_mutex_lock(&buddy->pool->mutex);
 	list_del_init(&chunk->chunk_list);
 	list_add_tail(&buddy->hot_list, &chunk->chunk_list);
-	buddy->hot_memory_size += chunk->byte_size;
+	buddy->pool->hot_memory_size += chunk->byte_size;
+
+	/* Check if we have chunks that are waiting for sync-ste */
+	if (dr_icm_pool_is_sync_required(buddy->pool))
+		dr_icm_pool_sync_all_buddy_pools(buddy->pool);
+
 	pthread_mutex_unlock(&buddy->pool->mutex);
 }
 
