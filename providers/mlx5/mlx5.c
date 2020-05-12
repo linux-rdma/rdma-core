@@ -43,6 +43,7 @@
 #include <sys/param.h>
 
 #include <util/symver.h>
+#include <rdma/mlx5_user_ioctl_cmds.h>
 
 #include "mlx5.h"
 #include "mlx5-abi.h"
@@ -1367,7 +1368,8 @@ static struct mlx5_context *mlx5_init_context(struct ibv_device *ibdev,
 }
 
 static int mlx5_set_context(struct mlx5_context *context,
-			    struct mlx5_ib_alloc_ucontext_resp *resp)
+			    struct mlx5_ib_alloc_ucontext_resp *resp,
+			    bool is_import)
 {
 	struct verbs_context *v_ctx = &context->ibv_ctx;
 	struct ibv_port_attr port_attr = {};
@@ -1441,6 +1443,10 @@ static int mlx5_set_context(struct mlx5_context *context,
 	context->shut_up_bf = get_shut_up_bf();
 
 	if (resp->tot_bfregs) {
+		if (is_import) {
+			errno = EINVAL;
+			return EINVAL;
+		}
 		context->tot_uuars = resp->tot_bfregs;
 		gross_uuars = context->tot_uuars / MLX5_NUM_NON_FP_BFREGS_PER_UAR * NUM_BFREGS_PER_UAR;
 		context->bfs = calloc(gross_uuars, sizeof(*context->bfs));
@@ -1594,7 +1600,7 @@ retry_open:
 		}
 	}
 
-	ret = mlx5_set_context(context, &resp.drv_payload);
+	ret = mlx5_set_context(context, &resp.drv_payload, false);
 	if (ret)
 		goto err;
 
@@ -1602,6 +1608,40 @@ retry_open:
 
 err:
 	mlx5_uninit_context(context);
+	return NULL;
+}
+
+static struct verbs_context *mlx5_import_context(struct ibv_device *ibdev,
+						int cmd_fd)
+
+{
+	struct mlx5_ib_alloc_ucontext_resp resp = {};
+	DECLARE_COMMAND_BUFFER_LINK(driver_attr, UVERBS_OBJECT_DEVICE,
+				    UVERBS_METHOD_QUERY_CONTEXT, 1,
+				    NULL);
+	struct ibv_context *context;
+	struct mlx5_context *mctx;
+	int ret;
+
+	mctx = mlx5_init_context(ibdev, cmd_fd, NULL);
+	if (!mctx)
+		return NULL;
+
+	context = &mctx->ibv_ctx.context;
+
+	fill_attr_out_ptr(driver_attr, MLX5_IB_ATTR_QUERY_CONTEXT_RESP_UCTX, &resp);
+	ret = ibv_cmd_query_context(context, driver_attr);
+	if (ret)
+		goto err;
+
+	ret = mlx5_set_context(mctx, &resp, true);
+	if (ret)
+		goto err;
+
+	return &mctx->ibv_ctx;
+
+err:
+	mlx5_uninit_context(mctx);
 	return NULL;
 }
 
@@ -1657,6 +1697,7 @@ static const struct verbs_device_ops mlx5_dev_ops = {
 	.alloc_device = mlx5_device_alloc,
 	.uninit_device = mlx5_uninit_device,
 	.alloc_context = mlx5_alloc_context,
+	.import_context = mlx5_import_context,
 };
 
 bool is_mlx5_dev(struct ibv_device *device)
