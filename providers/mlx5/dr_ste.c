@@ -2313,19 +2313,13 @@ void dr_ste_build_register_1(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_build_register_1_tag;
 }
 
-static int dr_ste_build_src_gvmi_qpn_bit_mask(struct dr_match_param *value,
-					      uint8_t *bit_mask)
+static void dr_ste_build_src_gvmi_qpn_bit_mask(struct dr_match_param *value,
+					       uint8_t *bit_mask)
 {
 	struct dr_match_misc *misc_mask = &value->misc;
 
-	if (misc_mask->source_port && misc_mask->source_port != 0xffff) {
-		errno = EINVAL;
-		return errno;
-	}
 	DR_STE_SET_MASK(src_gvmi_qp, bit_mask, source_gvmi, misc_mask, source_port);
 	DR_STE_SET_MASK(src_gvmi_qp, bit_mask, source_qp, misc_mask, source_sqn);
-
-	return 0;
 }
 
 static int dr_ste_build_src_gvmi_qpn_tag(struct dr_match_param *value,
@@ -2355,16 +2349,12 @@ static int dr_ste_build_src_gvmi_qpn_tag(struct dr_match_param *value,
 	return 0;
 }
 
-int dr_ste_build_src_gvmi_qpn(struct dr_ste_build *sb,
-			      struct dr_match_param *mask,
-			      struct dr_devx_caps *caps,
-			      bool inner, bool rx)
+void dr_ste_build_src_gvmi_qpn(struct dr_ste_build *sb,
+			       struct dr_match_param *mask,
+			       struct dr_devx_caps *caps,
+			       bool inner, bool rx)
 {
-	int ret;
-
-	ret = dr_ste_build_src_gvmi_qpn_bit_mask(mask, sb->bit_mask);
-	if (ret)
-		return ret;
+	dr_ste_build_src_gvmi_qpn_bit_mask(mask, sb->bit_mask);
 
 	sb->rx = rx;
 	sb->caps = caps;
@@ -2372,6 +2362,4 @@ int dr_ste_build_src_gvmi_qpn(struct dr_ste_build *sb,
 	sb->lu_type = DR_STE_LU_TYPE_SRC_GVMI_AND_QP;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_build_src_gvmi_qpn_tag;
-
-	return 0;
 }

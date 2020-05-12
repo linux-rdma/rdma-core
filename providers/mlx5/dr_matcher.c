@@ -296,13 +296,10 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 
 		if (dr_mask_is_gvmi_or_qpn_set(&mask.misc) &&
 		    (dmn->type == MLX5DV_DR_DOMAIN_TYPE_FDB ||
-		     dmn->type == MLX5DV_DR_DOMAIN_TYPE_NIC_RX)) {
-			ret = dr_ste_build_src_gvmi_qpn(&sb[idx++], &mask,
-							&dmn->info.caps,
-							inner, rx);
-			if (ret)
-				return ret;
-		}
+		     dmn->type == MLX5DV_DR_DOMAIN_TYPE_NIC_RX))
+			dr_ste_build_src_gvmi_qpn(&sb[idx++], &mask,
+						  &dmn->info.caps,
+						  inner, rx);
 
 		if (dr_mask_is_smac_set(&mask.outer) &&
 		    dr_mask_is_dmac_set(&mask.outer)) {

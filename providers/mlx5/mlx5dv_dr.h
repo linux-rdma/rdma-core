@@ -424,10 +424,10 @@ void dr_ste_build_register_0(struct dr_ste_build *sb,
 void dr_ste_build_register_1(struct dr_ste_build *sb,
 			     struct dr_match_param *mask,
 			     bool inner, bool rx);
-int dr_ste_build_src_gvmi_qpn(struct dr_ste_build *sb,
-			      struct dr_match_param *mask,
-			      struct dr_devx_caps *caps,
-			      bool inner, bool rx);
+void dr_ste_build_src_gvmi_qpn(struct dr_ste_build *sb,
+			       struct dr_match_param *mask,
+			       struct dr_devx_caps *caps,
+			       bool inner, bool rx);
 void dr_ste_build_empty_always_hit(struct dr_ste_build *sb, bool rx);
 
 /* Actions utils */
