@@ -363,9 +363,9 @@ int dr_ste_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			 struct dr_matcher_rx_tx *nic_matcher,
 			 struct dr_match_param *value,
 			 uint8_t *ste_arr);
-int dr_ste_build_eth_l2_src_des(struct dr_ste_build *builder,
-				struct dr_match_param *mask,
-				bool inner, bool rx);
+void dr_ste_build_eth_l2_src_des(struct dr_ste_build *sb,
+				 struct dr_match_param *mask,
+				 bool inner, bool rx);
 void dr_ste_build_eth_l3_ipv4_5_tuple(struct dr_ste_build *sb,
 				      struct dr_match_param *mask,
 				      bool inner, bool rx);

@@ -804,8 +804,8 @@ int dr_ste_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 	return 0;
 }
 
-static int dr_ste_build_eth_l2_src_des_bit_mask(struct dr_match_param *value,
-						bool inner, uint8_t *bit_mask)
+static void dr_ste_build_eth_l2_src_des_bit_mask(struct dr_match_param *value,
+						 bool inner, uint8_t *bit_mask)
 {
 	struct dr_match_spec *mask = inner ? &value->inner : &value->outer;
 
@@ -833,13 +833,6 @@ static int dr_ste_build_eth_l2_src_des_bit_mask(struct dr_match_param *value,
 		DR_STE_SET(eth_l2_src_dst, bit_mask, first_vlan_qualifier, -1);
 		mask->svlan_tag = 0;
 	}
-
-	if (mask->cvlan_tag || mask->svlan_tag) {
-		errno = EINVAL;
-		return errno;
-	}
-
-	return 0;
 }
 
 static void dr_ste_copy_mask_misc(char *mask, struct dr_match_misc *spec)
@@ -1128,23 +1121,17 @@ static int dr_ste_build_eth_l2_src_des_tag(struct dr_match_param *value,
 	return 0;
 }
 
-int dr_ste_build_eth_l2_src_des(struct dr_ste_build *sb,
-				struct dr_match_param *mask,
-				bool inner, bool rx)
+void dr_ste_build_eth_l2_src_des(struct dr_ste_build *sb,
+				 struct dr_match_param *mask,
+				 bool inner, bool rx)
 {
-	int ret;
-
-	ret = dr_ste_build_eth_l2_src_des_bit_mask(mask, inner, sb->bit_mask);
-	if (ret)
-		return ret;
+	dr_ste_build_eth_l2_src_des_bit_mask(mask, inner, sb->bit_mask);
 
 	sb->rx = rx;
 	sb->inner = inner;
 	sb->lu_type = DR_STE_CALC_LU_TYPE(ETHL2_SRC_DST, rx, inner);
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_build_eth_l2_src_des_tag;
-
-	return 0;
 }
 
 static void dr_ste_build_eth_l3_ipv6_dst_bit_mask(struct dr_match_param *value,
