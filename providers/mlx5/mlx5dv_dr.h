@@ -561,9 +561,9 @@ struct dr_match_param {
 	struct dr_match_misc3	misc3;
 };
 
-#define DR_MASK_IS_FLEX_PARSER_ICMPV4_SET(_misc3) (_misc3->icmpv4_type || \
-						   _misc3->icmpv4_code || \
-						   _misc3->icmpv4_header_data)
+#define DR_MASK_IS_FLEX_PARSER_ICMPV4_SET(_misc3) ((_misc3)->icmpv4_type || \
+						   (_misc3)->icmpv4_code || \
+						   (_misc3)->icmpv4_header_data)
 
 struct dr_esw_caps {
 	uint64_t drop_icm_address_rx;
