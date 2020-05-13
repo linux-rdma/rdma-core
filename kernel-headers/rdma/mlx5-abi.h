@@ -322,6 +322,8 @@ struct mlx5_ib_create_qp {
 		__aligned_u64 sq_buf_addr;
 		__aligned_u64 access_key;
 	};
+	__u32  ece_options;
+	__u32  reserved;
 };
 
 /* RX Hash function flags */
@@ -371,7 +373,7 @@ enum mlx5_ib_create_qp_resp_mask {
 
 struct mlx5_ib_create_qp_resp {
 	__u32	bfreg_index;
-	__u32   reserved;
+	__u32   ece_options;
 	__u32	comp_mask;
 	__u32	tirn;
 	__u32	tisn;
@@ -420,12 +422,14 @@ struct mlx5_ib_burst_info {
 struct mlx5_ib_modify_qp {
 	__u32			   comp_mask;
 	struct mlx5_ib_burst_info  burst_info;
-	__u32			   reserved;
+	__u32			   ece_options;
 };
 
 struct mlx5_ib_modify_qp_resp {
 	__u32	response_length;
 	__u32	dctn;
+	__u32   ece_options;
+	__u32   reserved;
 };
 
 struct mlx5_ib_create_wq_resp {
