@@ -66,7 +66,7 @@ struct efa_wq {
 	uint32_t wqe_cnt;
 	uint32_t wqe_posted;
 	uint32_t wqe_completed;
-	uint16_t desc_idx;
+	uint16_t pc; /* Producer counter */
 	uint16_t desc_mask;
 	/* wrid_idx_pool_next: Index of the next entry to use in wrid_idx_pool. */
 	uint16_t wrid_idx_pool_next;

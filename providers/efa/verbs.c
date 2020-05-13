@@ -669,12 +669,12 @@ static void efa_qp_init_indices(struct efa_qp *qp)
 {
 	qp->sq.wq.wqe_posted = 0;
 	qp->sq.wq.wqe_completed = 0;
-	qp->sq.wq.desc_idx = 0;
+	qp->sq.wq.pc = 0;
 	qp->sq.wq.wrid_idx_pool_next = 0;
 
 	qp->rq.wq.wqe_posted = 0;
 	qp->rq.wq.wqe_completed = 0;
-	qp->rq.wq.desc_idx = 0;
+	qp->rq.wq.pc = 0;
 	qp->rq.wq.wrid_idx_pool_next = 0;
 }
 
@@ -1112,22 +1112,22 @@ static size_t efa_buf_list_total_bytes(const struct ibv_data_buf *buf_list,
 static void efa_sq_advance_post_idx(struct efa_qp *qp)
 {
 	qp->sq.wq.wqe_posted++;
-	qp->sq.wq.desc_idx++;
+	qp->sq.wq.pc++;
 
-	if (!(qp->sq.wq.desc_idx & qp->sq.wq.desc_mask))
+	if (!(qp->sq.wq.pc & qp->sq.wq.desc_mask))
 		qp->sq.wq.phase++;
 }
 
-static inline void efa_rq_ring_doorbell(struct efa_rq *rq, uint16_t desc_idx)
+static inline void efa_rq_ring_doorbell(struct efa_rq *rq, uint16_t pc)
 {
 	udma_to_device_barrier();
-	mmio_write32(rq->wq.db, desc_idx);
+	mmio_write32(rq->wq.db, pc);
 }
 
-static inline void efa_sq_ring_doorbell(struct efa_sq *sq, uint16_t desc_idx)
+static inline void efa_sq_ring_doorbell(struct efa_sq *sq, uint16_t pc)
 {
 	mmio_flush_writes();
-	mmio_write32(sq->wq.db, desc_idx);
+	mmio_write32(sq->wq.db, pc);
 }
 
 static uint32_t efa_wq_get_next_wrid_idx(struct efa_wq *wq, uint64_t wr_id)
@@ -1249,7 +1249,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		meta_desc->qkey = wr->wr.ud.remote_qkey;
 
 		/* Copy descriptor */
-		sq_desc_offset = (qp->sq.wq.desc_idx & qp->sq.wq.desc_mask) *
+		sq_desc_offset = (qp->sq.wq.pc & qp->sq.wq.desc_mask) *
 				 sizeof(tx_wqe);
 		memcpy(qp->sq.desc + sq_desc_offset, &tx_wqe, sizeof(tx_wqe));
 
@@ -1260,7 +1260,7 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	}
 
 ring_db:
-	efa_sq_ring_doorbell(&qp->sq, qp->sq.wq.desc_idx);
+	efa_sq_ring_doorbell(&qp->sq, qp->sq.wq.pc);
 
 	/*
 	 * Not using mmio_wc_spinunlock as the doorbell write should be done
@@ -1488,7 +1488,7 @@ static void efa_send_wr_start(struct ibv_qp_ex *ibvqpx)
 static inline void efa_sq_roll_back(struct efa_qp *qp)
 {
 	qp->sq.wq.wqe_posted -= qp->sq.num_wqe_pending;
-	qp->sq.wq.desc_idx -= qp->sq.num_wqe_pending;
+	qp->sq.wq.pc -= qp->sq.num_wqe_pending;
 	qp->sq.wq.wrid_idx_pool_next -= qp->sq.num_wqe_pending;
 	qp->sq.wq.phase = qp->sq.phase_rb;
 }
@@ -1509,7 +1509,7 @@ static int efa_send_wr_complete(struct ibv_qp_ex *ibvqpx)
 	 * Copy local queue to device in chunks, as the descriptor index
 	 * might have wrapped around the submission queue.
 	 */
-	sq_desc_idx = (qp->sq.wq.desc_idx - qp->sq.num_wqe_pending) &
+	sq_desc_idx = (qp->sq.wq.pc - qp->sq.num_wqe_pending) &
 		       qp->sq.wq.desc_mask;
 
 	while (qp->sq.num_wqe_pending) {
@@ -1525,7 +1525,7 @@ static int efa_send_wr_complete(struct ibv_qp_ex *ibvqpx)
 			      qp->sq.wq.desc_mask;
 	}
 
-	efa_sq_ring_doorbell(&qp->sq, qp->sq.wq.desc_idx);
+	efa_sq_ring_doorbell(&qp->sq, qp->sq.wq.pc);
 out:
 	/*
 	 * Not using mmio_wc_spinunlock as the doorbell write should be done
@@ -1629,12 +1629,13 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 			rx_buf.buf_addr_hi = (uint64_t)addr >> 32;
 
 			/* Copy descriptor to RX ring */
-			rq_desc_offset = (qp->rq.wq.desc_idx & qp->rq.wq.desc_mask) * sizeof(rx_buf);
+			rq_desc_offset = (qp->rq.wq.pc & qp->rq.wq.desc_mask) *
+					 sizeof(rx_buf);
 			memcpy(qp->rq.buf + rq_desc_offset, &rx_buf, sizeof(rx_buf));
 
 			/* Wrap rx descriptor index */
-			qp->rq.wq.desc_idx++;
-			if (!(qp->rq.wq.desc_idx & qp->rq.wq.desc_mask))
+			qp->rq.wq.pc++;
+			if (!(qp->rq.wq.pc & qp->rq.wq.desc_mask))
 				qp->rq.wq.phase++;
 
 			/* reset descriptor for next iov */
@@ -1644,7 +1645,7 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	}
 
 ring_db:
-	efa_rq_ring_doorbell(&qp->rq, qp->rq.wq.desc_idx);
+	efa_rq_ring_doorbell(&qp->rq, qp->rq.wq.pc);
 
 	pthread_spin_unlock(&qp->rq.wq.wqlock);
 	return err;
