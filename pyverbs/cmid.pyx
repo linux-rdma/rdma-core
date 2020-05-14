@@ -1,9 +1,11 @@
 from libc.stdint cimport uintptr_t
 from libc.string cimport memset
+import weakref
 
-from pyverbs.pyverbs_error import PyverbsUserError
+from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError
 from pyverbs.qp cimport QPInitAttr, QPAttr, ECE
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.librdmacm_enums as ce
 from pyverbs.addr cimport AH, AHAttr
@@ -306,6 +308,7 @@ cdef class CMID(PyverbsCM):
         self.pd = None
         self.ctx = None
         self.event_channel = None
+        self.mrs = weakref.WeakSet()
         if creator is None:
             return
         elif isinstance(creator, AddrInfo):
@@ -337,6 +340,12 @@ cdef class CMID(PyverbsCM):
         else:
             raise PyverbsRDMAErrno('Cannot create CM ID from {obj}'
                                     .format(obj=type(creator)))
+
+    cdef add_ref(self, obj):
+        if isinstance(obj, MR):
+            self.mrs.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
 
     @property
     def event_channel(self):
@@ -374,6 +383,7 @@ cdef class CMID(PyverbsCM):
                 (<Context>self.ctx).context = NULL
             if self.pd:
                 (<PD>self.pd).pd = NULL
+            close_weakrefs([self.mrs])
             self.id = NULL
 
     def get_request(self):
@@ -611,7 +621,25 @@ cdef class CMID(PyverbsCM):
         :param size: The total length of the memory to register
         :return: registered MR
         """
-        return MR(self.pd, size, e.IBV_ACCESS_LOCAL_WRITE)
+        return MR(self, size, e.IBV_ACCESS_LOCAL_WRITE)
+
+    def reg_read(self, size=0):
+        """
+        Registers a memory region for sending or receiving messages or for
+        remote read operations.
+        :param size: The total length of the memory to register
+        :return: registered MR
+        """
+        return MR(self, size, e.IBV_ACCESS_REMOTE_READ)
+
+    def reg_write(self, size=0):
+        """
+        Registers a memory region for sending or receiving messages or for
+        remote write operations.
+        :param size: The total length of the memory to register
+        :return: registered MR
+        """
+        return MR(self, size, e.IBV_ACCESS_REMOTE_WRITE)
 
     def post_recv(self, MR mr not None, length=None):
         """
@@ -642,6 +670,38 @@ cdef class CMID(PyverbsCM):
                                 flags)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to Post Send')
+
+    def post_read(self, MR mr not None, length, remote_addr, rkey,
+                  flags=0):
+        """
+        Post read WR using the CMIDs internal QP.
+        :param mr: A valid MR object.
+        :param length: length of buffer to send.
+        :param remote_addr: The remote MR address.
+        :param rkey: The remote MR rkey.
+        :param flags: flags for send work request.
+        :return: None
+        """
+        ret = cm.rdma_post_read(self.id, NULL, mr.buf, length, mr.mr,
+                                flags, remote_addr, rkey)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to Post Read')
+
+    def post_write(self, MR mr not None, length, remote_addr, rkey,
+                   flags=0):
+        """
+        Post write WR using the CMIDs internal QP.
+        :param mr: A valid MR object.
+        :param length: length of buffer to send.
+        :param remote_addr: The remote MR address.
+        :param rkey: The remote MR rkey.
+        :param flags: flags for send work request.
+        :return: None
+        """
+        ret = cm.rdma_post_write(self.id, NULL, mr.buf, length, mr.mr,
+                                 flags, remote_addr, rkey)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to Post Write')
 
     def post_ud_send(self, MR mr not None, AH ah not None, rqpn=0,
                      flags=v.IBV_SEND_SIGNALED, length=None):

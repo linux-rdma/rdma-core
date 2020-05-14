@@ -12,6 +12,8 @@ cdef class CMID(PyverbsCM):
     cdef object event_channel
     cdef object ctx
     cdef object pd
+    cdef object mrs
+    cdef add_ref(self, obj)
     cpdef close(self)
 
 

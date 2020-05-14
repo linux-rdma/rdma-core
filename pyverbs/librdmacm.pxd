@@ -137,7 +137,15 @@ cdef extern from '<rdma/rdma_verbs.h>':
     int rdma_post_ud_send(rdma_cm_id *id, void *context, void *addr,
                           size_t length, ibv_mr *mr, int flags, ibv_ah *ah,
                           uint32_t remote_qpn)
+    int rdma_post_read(rdma_cm_id *id, void *context, void *addr,
+                       size_t length, ibv_mr *mr, int flags,
+                       uint64_t remote_addr, uint32_t rkey)
+    int rdma_post_write(rdma_cm_id *id, void *context, void *addr,
+                        size_t length, ibv_mr *mr, int flags,
+                        uint64_t remote_addr, uint32_t rkey)
     int rdma_get_send_comp(rdma_cm_id *id, ibv_wc *wc)
     int rdma_get_recv_comp(rdma_cm_id *id, ibv_wc *wc)
     ibv_mr *rdma_reg_msgs(rdma_cm_id *id, void *addr, size_t length)
+    ibv_mr *rdma_reg_read(rdma_cm_id *id, void *addr, size_t length)
+    ibv_mr *rdma_reg_write(rdma_cm_id *id, void *addr, size_t length)
     int rdma_dereg_mr(ibv_mr *mr)
