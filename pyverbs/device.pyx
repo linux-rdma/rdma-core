@@ -15,6 +15,7 @@ from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.libibverbs as v
+cimport pyverbs.librdmacm as cm
 from pyverbs.cmid cimport CMID
 from pyverbs.xrcd cimport XRCD
 from pyverbs.addr cimport GID
@@ -35,11 +36,12 @@ class Device(PyverbsObject):
     It is not a part of objects creation order - there's no need for the user
     to create it for such purposes.
     """
-    def __init__(self, name, guid, node_type, transport_type):
+    def __init__(self, name, guid, node_type, transport_type, index):
         self._node_type = node_type
         self._transport_type = transport_type
         self._name = name
         self._guid = guid
+        self._index = index
 
     @property
     def name(self):
@@ -57,12 +59,16 @@ class Device(PyverbsObject):
     def guid(self):
         return self._guid
 
+    @property
+    def index(self):
+        return self._index
+
     def __str__(self):
         return 'Device {dev}, node type {ntype}, transport type {ttype},' \
-               ' guid {guid}'.format(dev=self.name.decode(),
+               ' guid {guid}, index {index}'.format(dev=self.name.decode(),
                 ntype=translate_node_type(self.node_type),
                 ttype=translate_transport_type(self.transport_type),
-                guid=guid_to_hex(self.guid))
+                guid=guid_to_hex(self.guid), index=self._index)
 
 
 cdef class Context(PyverbsCM):
@@ -970,6 +976,7 @@ def get_device_list():
                  device node type
                  device transport type
                  device guid
+                 device index
     """
     cdef int count = 0;
     cdef v.ibv_device **dev_list;
@@ -983,7 +990,30 @@ def get_device_list():
             node = dev_list[i].node_type
             transport = dev_list[i].transport_type
             guid = be64toh(v.ibv_get_device_guid(dev_list[i]))
-            devices.append(Device(name, guid, node, transport))
+            index = v.ibv_get_device_index(dev_list[i])
+            devices.append(Device(name, guid, node, transport, index))
     finally:
         v.ibv_free_device_list(dev_list)
+    return devices
+
+
+def rdma_get_devices():
+    """
+    Get the RDMA devices.
+    :return: list of Device objects.
+    """
+    cdef int count
+    cdef v.ibv_context **ctx_list
+    ctx_list = cm.rdma_get_devices(&count)
+    if ctx_list == NULL:
+        raise PyverbsRDMAErrno('Failed to get device list')
+    devices = []
+    for i in range(count):
+        name = ctx_list[i].device.name
+        node = ctx_list[i].device.node_type
+        transport = ctx_list[i].device.transport_type
+        guid = be64toh(v.ibv_get_device_guid(ctx_list[i].device))
+        index = v.ibv_get_device_index(ctx_list[i].device)
+        devices.append(Device(name, guid, node, transport, index))
+    cm.rdma_free_devices(ctx_list)
     return devices

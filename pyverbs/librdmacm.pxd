@@ -93,6 +93,8 @@ cdef extern from '<rdma/rdma_cma.h>':
 
     rdma_event_channel *rdma_create_event_channel()
     void rdma_destroy_event_channel(rdma_event_channel *channel)
+    ibv_context **rdma_get_devices(int *num_devices)
+    void rdma_free_devices (ibv_context **list);
     int rdma_get_cm_event(rdma_event_channel *channel, rdma_cm_event **event)
     int rdma_ack_cm_event(rdma_cm_event *event)
     char *rdma_event_str(rdma_cm_event_type event)

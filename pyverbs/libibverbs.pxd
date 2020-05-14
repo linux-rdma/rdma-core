@@ -481,6 +481,7 @@ cdef extern from 'infiniband/verbs.h':
         uint32_t comp_mask
 
     ibv_device **ibv_get_device_list(int *n)
+    int ibv_get_device_index(ibv_device *device);
     void ibv_free_device_list(ibv_device **list)
     ibv_context *ibv_open_device(ibv_device *device)
     int ibv_close_device(ibv_context *context)
