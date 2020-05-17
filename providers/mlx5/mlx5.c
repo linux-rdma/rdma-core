@@ -51,10 +51,6 @@
 
 static void mlx5_free_context(struct ibv_context *ibctx);
 
-#ifndef PCI_VENDOR_ID_MELLANOX
-#define PCI_VENDOR_ID_MELLANOX			0x15b3
-#endif
-
 #ifndef CPU_OR
 #define CPU_OR(x, y, z) do {} while (0)
 #endif
@@ -155,11 +151,13 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.open_xrcd = mlx5_open_xrcd,
 	.post_srq_ops = mlx5_post_srq_ops,
 	.query_device_ex = mlx5_query_device_ex,
+	.query_ece = mlx5_query_ece,
 	.query_rt_values = mlx5_query_rt_values,
 	.read_counters = mlx5_read_counters,
 	.reg_dm_mr = mlx5_reg_dm_mr,
 	.alloc_null_mr = mlx5_alloc_null_mr,
 	.free_context = mlx5_free_context,
+	.set_ece = mlx5_set_ece,
 };
 
 static const struct verbs_context_ops mlx5_ctx_cqev1_ops = {

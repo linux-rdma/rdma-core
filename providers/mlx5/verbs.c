@@ -1843,6 +1843,42 @@ static void mlx5_free_qp_buf(struct mlx5_context *ctx, struct mlx5_qp *qp)
 		free(qp->sq.wr_data);
 }
 
+int mlx5_set_ece(struct ibv_qp *qp, struct ibv_ece *ece)
+{
+	struct mlx5_qp *mqp = to_mqp(qp);
+
+	if (ece->comp_mask) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	if (ece->vendor_id != PCI_VENDOR_ID_MELLANOX) {
+		/*
+		 * While establishing connection, RDMA-CM will provide
+		 * the vendor ID of their side and it can be not
+		 * PCI_VENDOR_ID_MELLANOX. The librdmacm will rely on
+		 * returned errno and simply return to the other side
+		 * that ECE is not enabled in this connection.
+		 */
+		errno = EINVAL;
+		return errno;
+	}
+
+	mqp->set_ece = ece->options;
+	/* Clean previously returned ECE options */
+	mqp->get_ece = 0;
+	return 0;
+}
+
+int mlx5_query_ece(struct ibv_qp *qp, struct ibv_ece *ece)
+{
+	struct mlx5_qp *mqp = to_mqp(qp);
+
+	ece->vendor_id = PCI_VENDOR_ID_MELLANOX;
+	ece->options = mqp->get_ece;
+	return 0;
+}
+
 static int mlx5_cmd_create_rss_qp(struct ibv_context *context,
 				 struct ibv_qp_init_attr_ex *attr,
 				 struct mlx5_qp *qp,
@@ -2287,6 +2323,7 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		}
 	}
 
+	cmd.ece_options = qp->set_ece;
 	if (attr->comp_mask & MLX5_CREATE_QP_EX2_COMP_MASK)
 		ret = mlx5_cmd_create_qp_ex(context, attr, &cmd, qp, &resp_ex);
 	else
@@ -2312,6 +2349,8 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		pthread_mutex_unlock(&ctx->qp_table_mutex);
 	}
 
+	qp->set_ece = 0;
+	qp->get_ece = resp_drv->ece_options;
 	map_uuar(context, qp, resp_drv->bfreg_index, bf);
 
 	qp->rq.max_post = qp->rq.wqe_cnt;
@@ -2529,7 +2568,7 @@ enum {
 static int modify_dct(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		      int attr_mask)
 {
-	struct ibv_modify_qp_ex cmd_ex = {};
+	struct mlx5_modify_qp cmd = {};
 	struct mlx5_modify_qp_ex_resp resp = {};
 	struct mlx5_qp *mqp = to_mqp(qp);
 	struct mlx5_context *context = to_mctx(qp->context);
@@ -2537,8 +2576,9 @@ static int modify_dct(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	bool dct_create;
 	int ret;
 
-	ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask, &cmd_ex, sizeof(cmd_ex),
-				   &resp.ibv_resp, sizeof(resp));
+	cmd.ece_options = mqp->set_ece;
+	ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask, &cmd.ibv_cmd,
+				   sizeof(cmd), &resp.ibv_resp, sizeof(resp));
 	if (ret)
 		return ret;
 
@@ -2564,6 +2604,8 @@ static int modify_dct(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	}
 
 	qp->qp_num = resp.dctn;
+	mqp->set_ece = 0;
+	mqp->get_ece = resp.ece_options;
 
 	if (!context->cqe_version) {
 		pthread_mutex_lock(&context->qp_table_mutex);
@@ -2582,8 +2624,8 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask)
 {
 	struct ibv_modify_qp cmd = {};
-	struct ibv_modify_qp_ex cmd_ex = {};
-	struct ib_uverbs_ex_modify_qp_resp resp = {};
+	struct mlx5_modify_qp cmd_ex = {};
+	struct mlx5_modify_qp_ex_resp resp = {};
 	struct mlx5_qp *mqp = to_mqp(qp);
 	struct mlx5_context *context = to_mctx(qp->context);
 	int ret;
@@ -2628,12 +2670,24 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		}
 	}
 
-	if (attr_mask & MLX5_MODIFY_QP_EX_ATTR_MASK)
-		ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask, &cmd_ex,
-					   sizeof(cmd_ex), &resp, sizeof(resp));
-	else
+	/*
+	 * ECE is introduced far behind QP rate limit API which uses
+	 * modify_qp_ex path. We can safely call this path for the ECE too.
+	 */
+	if (attr_mask & MLX5_MODIFY_QP_EX_ATTR_MASK || mqp->set_ece) {
+		cmd_ex.ece_options = mqp->set_ece;
+		ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask, &cmd_ex.ibv_cmd,
+					   sizeof(cmd_ex), &resp.ibv_resp,
+					   sizeof(resp));
+	} else {
 		ret = ibv_cmd_modify_qp(qp, attr, attr_mask,
 					&cmd, sizeof(cmd));
+	}
+
+	if (!ret && attr_mask & MLX5_MODIFY_QP_EX_ATTR_MASK) {
+		mqp->set_ece = 0;
+		mqp->get_ece = resp.ece_options;
+	}
 
 	if (!ret		       &&
 	    (attr_mask & IBV_QP_STATE) &&
