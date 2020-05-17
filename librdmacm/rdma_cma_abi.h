@@ -180,6 +180,8 @@ struct ucma_abi_query_route_resp {
 	__u32 num_paths;
 	__u8 port_num;
 	__u8 reserved[3];
+	__u32 ibdev_index;
+	__u32 reserved1;
 };
 
 struct ucma_abi_query_addr_resp {
@@ -191,6 +193,8 @@ struct ucma_abi_query_addr_resp {
 	__u16 dst_size;
 	struct sockaddr_storage src_addr;
 	struct sockaddr_storage dst_addr;
+	__u32 ibdev_index;
+	__u32 reserved1;
 };
 
 struct ucma_abi_query_path_resp {

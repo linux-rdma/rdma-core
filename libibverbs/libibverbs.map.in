@@ -126,6 +126,11 @@ IBVERBS_1.8 {
 		ibv_reg_mr_iova2;
 } IBVERBS_1.7;
 
+IBVERBS_1.9 {
+	global:
+		ibv_get_device_index;
+} IBVERBS_1.8;
+
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. See the top level CMakeLists.txt for this setting. */
 

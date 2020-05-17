@@ -74,6 +74,8 @@ do {						\
 	(req)->response = (uintptr_t) (resp);	\
 } while (0)
 
+#define UCMA_INVALID_IB_INDEX -1
+
 struct cma_port {
 	uint8_t			link_layer;
 };
@@ -89,6 +91,7 @@ struct cma_device {
 	int		    max_qpsize;
 	uint8_t		    max_initiator_depth;
 	uint8_t		    max_responder_resources;
+	int		    ibv_idx;
 };
 
 struct cma_id_private {
@@ -292,8 +295,10 @@ int ucma_init(void)
 		goto err2;
 	}
 
-	for (i = 0; dev_list[i]; i++)
+	for (i = 0; dev_list[i]; i++) {
 		cma_dev_array[i].guid = ibv_get_device_guid(dev_list[i]);
+		cma_dev_array[i].ibv_idx = ibv_get_device_index(dev_list[i]);
+	}
 
 	cma_dev_cnt = dev_cnt;
 	ucma_set_af_ib_support();
@@ -309,20 +314,31 @@ err1:
 	return ret;
 }
 
-static struct ibv_context *ucma_open_device(__be64 guid)
+static bool match(struct cma_device *cma_dev, __be64 guid, uint32_t idx)
+{
+	if (idx == UCMA_INVALID_IB_INDEX)
+		return cma_dev->guid == guid;
+
+	return cma_dev->ibv_idx == idx && cma_dev->guid == guid;
+}
+
+static struct ibv_context *ucma_open_device(struct cma_device *cma_dev)
 {
 	struct ibv_device **dev_list;
 	struct ibv_context *verbs = NULL;
 	int i;
 
 	dev_list = ibv_get_device_list(NULL);
-	if (!dev_list) {
+	if (!dev_list)
 		return NULL;
-	}
 
 	for (i = 0; dev_list[i]; i++) {
-		if (ibv_get_device_guid(dev_list[i]) == guid) {
-			verbs = ibv_open_device(dev_list[i]);
+		struct ibv_device *dev = dev_list[i];
+		uint32_t idx = ibv_get_device_index(dev);
+		__be64 guid = ibv_get_device_guid(dev);
+
+		if (match(cma_dev, guid, idx)) {
+			verbs = ibv_open_device(dev);
 			break;
 		}
 	}
@@ -340,7 +356,7 @@ static int ucma_init_device(struct cma_device *cma_dev)
 	if (cma_dev->verbs)
 		return 0;
 
-	cma_dev->verbs = ucma_open_device(cma_dev->guid);
+	cma_dev->verbs = ucma_open_device(cma_dev);
 	if (!cma_dev->verbs)
 		return ERR(ENODEV);
 
@@ -452,14 +468,15 @@ void rdma_destroy_event_channel(struct rdma_event_channel *channel)
 	free(channel);
 }
 
-static int ucma_get_device(struct cma_id_private *id_priv, __be64 guid)
+static int ucma_get_device(struct cma_id_private *id_priv, __be64 guid,
+			   uint32_t idx)
 {
 	struct cma_device *cma_dev;
 	int i, ret;
 
 	for (i = 0; i < cma_dev_cnt; i++) {
 		cma_dev = &cma_dev_array[i];
-		if (cma_dev->guid == guid)
+		if (match(cma_dev, guid, idx))
 			goto match;
 	}
 
@@ -701,6 +718,12 @@ static int ucma_query_addr(struct rdma_cm_id *id)
 	cmd.id = id_priv->handle;
 	cmd.option = UCMA_QUERY_ADDR;
 
+	/*
+	 * If kernel doesn't support ibdev_index, this field will
+	 * be left as is by the kernel.
+	 */
+	resp.ibdev_index = UCMA_INVALID_IB_INDEX;
+
 	ret = write(id->channel->fd, &cmd, sizeof cmd);
 	if (ret != sizeof cmd)
 		return (ret >= 0) ? ERR(ENODATA) : -1;
@@ -711,7 +734,8 @@ static int ucma_query_addr(struct rdma_cm_id *id)
 	memcpy(&id->route.addr.dst_addr, &resp.dst_addr, resp.dst_size);
 
 	if (!id_priv->cma_dev && resp.node_guid) {
-		ret = ucma_get_device(id_priv, resp.node_guid);
+		ret = ucma_get_device(id_priv, resp.node_guid,
+				      resp.ibdev_index);
 		if (ret)
 			return ret;
 		id->port_num = resp.port_num;
@@ -826,6 +850,12 @@ static int ucma_query_route(struct rdma_cm_id *id)
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
 
+	/*
+	 * If kernel doesn't support ibdev_index, this field will
+	 * be left as is by the kernel.
+	 */
+	resp.ibdev_index = UCMA_INVALID_IB_INDEX;
+
 	ret = write(id->channel->fd, &cmd, sizeof cmd);
 	if (ret != sizeof cmd)
 		return (ret >= 0) ? ERR(ENODATA) : -1;
@@ -855,7 +885,8 @@ static int ucma_query_route(struct rdma_cm_id *id)
 	       sizeof resp.dst_addr);
 
 	if (!id_priv->cma_dev && resp.node_guid) {
-		ret = ucma_get_device(id_priv, resp.node_guid);
+		ret = ucma_get_device(id_priv, resp.node_guid,
+				      resp.ibdev_index);
 		if (ret)
 			return ret;
 		id_priv->id.port_num = resp.port_num;

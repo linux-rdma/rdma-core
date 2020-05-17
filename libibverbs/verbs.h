@@ -2203,6 +2203,15 @@ void ibv_free_device_list(struct ibv_device **list);
 const char *ibv_get_device_name(struct ibv_device *device);
 
 /**
+ * ibv_get_device_index - Return kernel device index
+ *
+ * Available for the kernel with support of IB device query
+ * over netlink interface. For the unsupported kernels, the
+ * relevant -1 will be returned.
+ */
+int ibv_get_device_index(struct ibv_device *device);
+
+/**
  * ibv_get_device_guid - Return device's node GUID
  */
 __be64 ibv_get_device_guid(struct ibv_device *device);

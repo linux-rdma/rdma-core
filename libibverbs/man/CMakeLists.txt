@@ -32,6 +32,7 @@ rdma_man_pages(
   ibv_get_async_event.3
   ibv_get_cq_event.3
   ibv_get_device_guid.3.md
+  ibv_get_device_index.3.md
   ibv_get_device_list.3.md
   ibv_get_device_name.3.md
   ibv_get_pkey_index.3.md
