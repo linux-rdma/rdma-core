@@ -1,22 +1,22 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc . All rights reserved. See COPYING file
 
+import subprocess
 import unittest
 import tempfile
 import random
 import errno
 import stat
+import json
 import os
 
-from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
 from pyverbs.qp import QPCap, QPInitAttrEx, QPInitAttr, QPAttr, QP
-from pyverbs.cmid import CMID, AddrInfo, CMEventChannel, ConnParam
+from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.addr import AHAttr, GlobalRoute
 from pyverbs.xrcd import XRCD, XRCDInitAttr
 from pyverbs.srq import SRQ, SrqInitAttrEx
 from pyverbs.device import Context
 from args_parser import parser
-import pyverbs.cm_enums as ce
 import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.pd import PD
@@ -100,6 +100,7 @@ class RDMATestCase(unittest.TestCase):
         self.ib_port = ib_port
         self.gid_index = gid_index
         self.pkey_index = pkey_index
+        self.ip_addr = None
 
     @staticmethod
     def parametrize(testcase_klass, dev_name=None, ib_port=None, gid_index=None,
@@ -116,6 +117,22 @@ class RDMATestCase(unittest.TestCase):
                                          gid_index=gid_index,
                                          pkey_index=pkey_index))
         return suite
+
+    @staticmethod
+    def get_net_name(dev):
+        out = subprocess.check_output(['ls',
+                                       '/sys/class/infiniband/{}/device/net/'
+                                      .format(dev)])
+        return out.decode().split('\n')[0]
+
+    @staticmethod
+    def get_ip_address(ifname):
+        out = subprocess.check_output(['ip', '-j', 'addr', 'show', ifname])
+        loaded_json = json.loads(out.decode())
+        interface = loaded_json[0]['addr_info'][0]['local']
+        if 'fe80::' in interface:
+            interface = interface + '%' + ifname
+        return interface
 
     def setUp(self):
         """
@@ -152,10 +169,7 @@ class RDMATestCase(unittest.TestCase):
         if not self.args:
             raise unittest.SkipTest('No port is up, can\'t run traffic')
         # Choose one combination and use it
-        args = random.choice(self.args)
-        self.dev_name = args[0]
-        self.ib_port = args[1]
-        self.gid_index = args[2]
+        self._select_config()
 
     def _add_gids_per_port(self, ctx, dev, port):
         # Don't add ports which are not active
@@ -175,111 +189,32 @@ class RDMATestCase(unittest.TestCase):
                     ctx.query_gid_type(port, idx) == e.IBV_GID_TYPE_ROCE_V2 and \
                     has_roce_hw_bug(vendor_id, vendor_pid):
                 continue
-            self.args.append([dev, port, idx])
+            net_name = self.get_net_name(dev)
+            try:
+                ip_addr = self.get_ip_address(net_name)
+            except (KeyError, IndexError):
+                self.args.append([dev, port, idx, None])
+            else:
+                self.args.append([dev, port, idx, ip_addr])
 
     def _add_gids_per_device(self, ctx, dev):
         port_count = ctx.query_device().phys_port_cnt
         for port in range(port_count):
             self._add_gids_per_port(ctx, dev, port+1)
 
-
-class CMResources:
-    """
-    CMResources class is a base aggregator object which contains basic
-    resources for RDMA CM communication.
-    """
-    def __init__(self, **kwargs):
-        """
-        :param kwargs: Arguments:
-            * *src* (str)
-               Local address to bind to (for passive side)
-            * *dst* (str)
-               Destination address to connect (for active side)
-            * *port* (str)
-                Port number of the address
-            * *is_async* (bool)
-                A flag which indicates if its asynchronous RDMACM
-            * *with_ext_qp* (bool)
-                If set, an external RC QP will be created and used by RDMACM
-        """
-        src = kwargs.get('src')
-        dst = kwargs.get('dst')
-        self.is_server = True if dst is None else False
-        self.qp_init_attr = None
-        self.is_async = kwargs.get('is_async', False)
-        self.with_ext_qp = kwargs.get('with_ext_qp', False)
-        self.connected = False
-        # When passive side (server) listens to incoming connection requests,
-        # for each new request it creates a new cmid which is used to establish
-        # the connection with the remote side
-        self.child_id = None
-        self.msg_size = 1024
-        self.num_msgs = 100
-        self.channel = None
-        self.cq = None
-        self.qp = None
-        self.port = kwargs.get('port') if kwargs.get('port') else '7471'
-        self.mr = None
-        if self.is_server:
-            self.ai = AddrInfo(src, None, self.port, ce.RDMA_PS_TCP,
-                               ce.RAI_PASSIVE)
+    def _select_config(self):
+        args_with_inet_ip = []
+        for arg in self.args:
+            if arg[3]:
+                args_with_inet_ip.append(arg)
+        if args_with_inet_ip:
+            args = random.choice(args_with_inet_ip)
         else:
-            self.ai = AddrInfo(src, dst, self.port, ce.RDMA_PS_TCP)
-        if self.is_async:
-            self.create_event_channel()
-            self.cmid = CMID(creator=self.channel)
-        else:
-            self.cmid = CMID(creator=self.ai,
-                             qp_init_attr=self.create_qp_init_attr())
-
-    def create_mr(self):
-        if self.is_server:
-            self.mr = self.child_id.reg_msgs(self.msg_size)
-        else:
-            self.mr = self.cmid.reg_msgs(self.msg_size)
-
-    def create_event_channel(self):
-        self.channel = CMEventChannel()
-
-    @staticmethod
-    def create_qp_init_attr(rcq=None, scq=None):
-        return QPInitAttr(qp_type=e.IBV_QPT_RC, rcq=rcq, scq=scq,
-                          cap=QPCap(max_recv_wr=1))
-
-    @staticmethod
-    def create_conn_param(qp_num=0):
-        return ConnParam(qp_num=qp_num)
-
-    def create_child_id(self, cm_event=None):
-        if not self.is_server:
-            raise PyverbsUserError('create_child_id can be used only in passive side')
-        if self.is_async:
-            self.child_id = CMID(creator=cm_event, listen_id=self.cmid)
-        else:
-            self.child_id = self.cmid.get_request()
-
-    def create_qp(self):
-        """
-        Create a rdmacm QP. If self.with_ext_qp is set, then an external CQ and
-        RC QP will be created and set in self.cq and self.qp
-        respectively.
-        """
-        cmid = self.child_id if self.is_server else self.cmid
-        if not self.with_ext_qp:
-            cmid.create_qp(self.create_qp_init_attr())
-        else:
-            self.cq = CQ(cmid.context, self.num_msgs, None, None, 0)
-            init_attr = self.create_qp_init_attr(rcq=self.cq, scq=self.cq)
-            self.qp = QP(cmid.pd, init_attr, QPAttr())
-
-    def modify_ext_qp_to_rts(self):
-        cmid = self.child_id if self.is_server else self.cmid
-        attr, mask = cmid.init_qp_attr(e.IBV_QPS_INIT)
-        self.qp.modify(attr, mask)
-        attr, mask = cmid.init_qp_attr(e.IBV_QPS_RTR)
-        self.qp.modify(attr, mask)
-        attr, mask = cmid.init_qp_attr(e.IBV_QPS_RTS)
-        self.qp.modify(attr, mask)
+            args = random.choice(self.args)
+        self.dev_name = args[0]
+        self.ib_port = args[1]
+        self.gid_index = args[2]
+        self.ip_addr = args[3]
 
 
 class BaseResources(object):
