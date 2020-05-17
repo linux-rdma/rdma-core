@@ -918,6 +918,7 @@ struct dr_devx_qp_rtr_attr {
 	uint16_t		port_num;
 	uint8_t			min_rnr_timer;
 	uint8_t			sgid_index;
+	bool			fl;
 };
 
 int dr_devx_modify_qp_init2rtr(struct ibv_context *ctx,

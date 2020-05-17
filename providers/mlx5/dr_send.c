@@ -838,17 +838,22 @@ static int dr_prepare_qp_to_rts(struct mlx5dv_dr_domain *dmn)
 	}
 
 	/* RTR */
-	ret = dr_devx_query_gid(dmn->ctx, port, gid_index, &rtr_attr.dgid_attr);
-	if (ret) {
-		dr_dbg(dmn, "can't read sgid of index %d\n", gid_index);
-		return ret;
-	}
-
 	rtr_attr.mtu		= mtu;
 	rtr_attr.qp_num		= dr_qp->obj->object_id;
 	rtr_attr.min_rnr_timer	= 12;
 	rtr_attr.port_num	= port;
-	rtr_attr.sgid_index	= gid_index;
+
+	/* Enable force-loopback on the QP */
+	if (dmn->info.caps.roce_caps.fl_rc_qp_when_roce_enabled) {
+		rtr_attr.fl = true;
+	} else {
+		ret = dr_devx_query_gid(dmn->ctx, port, gid_index, &rtr_attr.dgid_attr);
+		if (ret) {
+			dr_dbg(dmn, "can't read sgid of index %d\n", gid_index);
+			return ret;
+		}
+		rtr_attr.sgid_index = gid_index;
+	}
 
 	ret = dr_devx_modify_qp_init2rtr(dmn->ctx, dr_qp->obj,  &rtr_attr);
 	if (ret) {

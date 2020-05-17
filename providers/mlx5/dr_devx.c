@@ -485,16 +485,20 @@ int dr_devx_modify_qp_init2rtr(struct ibv_context *ctx,
 	DEVX_SET(qpc, qpc, mtu, attr->mtu);
 	DEVX_SET(qpc, qpc, log_msg_max, DR_CHUNK_SIZE_MAX - 1);
 	DEVX_SET(qpc, qpc, remote_qpn, attr->qp_num);
-	memcpy(DEVX_ADDR_OF(qpc, qpc, primary_address_path.rmac_47_32),
-	       attr->dgid_attr.mac, sizeof(attr->dgid_attr.mac));
-	memcpy(DEVX_ADDR_OF(qpc, qpc, primary_address_path.rgid_rip),
-	       attr->dgid_attr.gid.raw, sizeof(attr->dgid_attr.gid.raw));
-	DEVX_SET(qpc, qpc, primary_address_path.src_addr_index,
-		 attr->sgid_index);
 
-	if (attr->dgid_attr.roce_ver == MLX5_ROCE_VERSION_2)
-		DEVX_SET(qpc, qpc, primary_address_path.udp_sport,
-			 DR_DEVX_ICM_UDP_PORT);
+	if (attr->fl) {
+		DEVX_SET(qpc, qpc, primary_address_path.fl, attr->fl);
+	} else {
+		memcpy(DEVX_ADDR_OF(qpc, qpc, primary_address_path.rmac_47_32),
+		       attr->dgid_attr.mac, sizeof(attr->dgid_attr.mac));
+		memcpy(DEVX_ADDR_OF(qpc, qpc, primary_address_path.rgid_rip),
+		       attr->dgid_attr.gid.raw, sizeof(attr->dgid_attr.gid.raw));
+		DEVX_SET(qpc, qpc, primary_address_path.src_addr_index,
+			 attr->sgid_index);
+		if (attr->dgid_attr.roce_ver == MLX5_ROCE_VERSION_2)
+			DEVX_SET(qpc, qpc, primary_address_path.udp_sport,
+				 DR_DEVX_ICM_UDP_PORT);
+	}
 
 	DEVX_SET(qpc, qpc, primary_address_path.vhca_port_num, attr->port_num);
 	DEVX_SET(qpc, qpc, min_rnr_nak, 1);
