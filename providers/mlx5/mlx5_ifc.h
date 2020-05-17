@@ -92,6 +92,14 @@ struct mlx5_ifc_atomic_caps_bits {
 	u8         reserved_at_2b0[0x550];
 };
 
+struct mlx5_ifc_roce_cap_bits {
+	u8         reserved_0[0x6];
+	u8         fl_rc_qp_when_roce_enabled[0x1];
+	u8         reserved_at_7[0x19];
+
+	u8         reserved_at_20[0x7e0];
+};
+
 struct mlx5_ifc_flow_table_context_bits {
 	u8         reformat_en[0x1];
 	u8         decap_en[0x1];
@@ -1034,6 +1042,7 @@ union mlx5_ifc_hca_cap_union_bits {
 	struct mlx5_ifc_flow_table_eswitch_cap_bits flow_table_eswitch_cap;
 	struct mlx5_ifc_device_mem_cap_bits device_mem_cap;
 	struct mlx5_ifc_odp_cap_bits odp_cap;
+	struct mlx5_ifc_roce_cap_bits roce_caps;
 	u8         reserved_at_0[0x8000];
 };
 
@@ -1069,6 +1078,7 @@ enum mlx5_cap_type {
 
 enum {
 	MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE        = 0x0 << 1,
+	MLX5_SET_HCA_CAP_OP_MOD_ROCE                  = 0x4 << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_NIC_FLOW_TABLE        = 0x7 << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_ESW_FLOW_TABLE        = 0x8 << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_DEVICE_MEMORY         = 0xf << 1,
