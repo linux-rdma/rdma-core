@@ -51,6 +51,10 @@
 
 #define PFX		"mlx5: "
 
+#ifndef PCI_VENDOR_ID_MELLANOX
+#define PCI_VENDOR_ID_MELLANOX 0x15b3
+#endif
+
 typedef _Atomic(uint32_t) atomic_uint32_t;
 
 enum {
@@ -233,6 +237,7 @@ struct mlx5_uar_info {
 enum mlx5_ctx_flags {
 	MLX5_CTX_FLAGS_FATAL_STATE = 1 << 0,
 	MLX5_CTX_FLAGS_NO_KERN_DYN_UAR = 1 << 1,
+	MLX5_CTX_FLAGS_ECE_SUPPORTED = 1 << 2,
 };
 
 struct mlx5_lag_caps {
@@ -598,6 +603,19 @@ struct mlx5_qp {
 	uint32_t			rqn;
 	uint32_t			sqn;
 	uint64_t			tir_icm_addr;
+	/*
+	 * ECE configuration is done in create/modify QP stages,
+	 * so this value is cached version of the requested ECE prior
+	 * to its execution. This field will be cleared after successful
+	 * call to relevant "executor".
+	 */
+	uint32_t			set_ece;
+	/*
+	 * This field indicates returned ECE options from the device
+	 * as were received from the HW in previous stage. Every
+	 * write to the set_ece will clear this field.
+	 */
+	uint32_t			get_ece;
 };
 
 struct mlx5_ah {
@@ -1029,6 +1047,9 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 void clean_dyn_uars(struct ibv_context *context);
 struct mlx5_bf *mlx5_attach_dedicated_uar(struct ibv_context *context,
 					  uint32_t flags);
+
+int mlx5_set_ece(struct ibv_qp *qp, struct ibv_ece *ece);
+int mlx5_query_ece(struct ibv_qp *qp, struct ibv_ece *ece);
 
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {
