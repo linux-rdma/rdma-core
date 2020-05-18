@@ -335,6 +335,7 @@ enum mlx5dv_flow_action_type {
 	MLX5DV_FLOW_ACTION_TAG,
 	MLX5DV_FLOW_ACTION_DEST_DEVX,
 	MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
+	MLX5DV_FLOW_ACTION_DEFAULT_MISS,
 };
 
 struct mlx5dv_flow_action_attr {
