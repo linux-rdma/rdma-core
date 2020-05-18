@@ -63,6 +63,8 @@ struct mlx5dv_flow_action_attr {
 		The DEVX counter object for the matched packets.
 	MLX5DV_FLOW_ACTION_DEFAULT_MISS
 		Steer the packet to the default miss destination.
+	MLX5DV_FLOW_ACTION_DROP
+		Action is dropping the matched packet.
 
 *qp*
 :	QP passed, to be used with *type* *MLX5DV_FLOW_ACTION_DEST_IBV_QP*.

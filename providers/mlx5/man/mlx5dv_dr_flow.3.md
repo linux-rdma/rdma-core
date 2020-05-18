@@ -20,6 +20,8 @@ mlx5dv_dr_rule_create, mlx5dv_dr_rule_destroy - Manage flow rules
 
 mlx5dv_dr_action_create_drop - Create drop action
 
+mlx5dv_dr_action_create_default_miss - Create default miss action
+
 mlx5dv_dr_action_create_tag - Create tag actions
 
 mlx5dv_dr_action_create_dest_ibv_qp, mlx5dv_dr_action_create_dest_table, mlx5dv_dr_action_create_dest_vport - Create packet destination actions
@@ -76,6 +78,8 @@ struct mlx5dv_dr_rule *mlx5dv_dr_rule_create(
 void mlx5dv_dr_rule_destroy(struct mlx5dv_dr_rule *rule);
 
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_drop(void);
+
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_default_miss(void);
 
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_tag(
 		uint32_t tag_value);
@@ -172,6 +176,9 @@ When an action handle is reused for multiple rules, the same action will be exec
 
 Action: Drop
 *mlx5dv_dr_action_create_drop* create a terminating action which drops packets. Can not be mixed with Destination actions.
+
+Action: Default miss
+*mlx5dv_dr_action_create_default_miss* create a terminating action which will execute the default behavior based on the domain type.
 
 Action: Tag
 *mlx5dv_dr_action_create_tag* creates a non-terminating action which tags packets with **tag_value**. The **tag_value** is available in the CQE of the packet received. Valid only on domain type NIC_RX.

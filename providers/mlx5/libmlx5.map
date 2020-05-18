@@ -136,5 +136,6 @@ MLX5_1.13 {
 
 MLX5_1.14 {
 	global:
+		mlx5dv_dr_action_create_default_miss;
 		mlx5dv_dr_domain_set_reclaim_device_memory;
 } MLX5_1.13;
