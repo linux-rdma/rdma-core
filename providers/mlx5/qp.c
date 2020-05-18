@@ -2107,7 +2107,7 @@ static void umr_strided_seg_create(struct mlx5_qp *qp,
 {
 	struct mlx5_wqe_umr_repeat_block_seg *rb = seg;
 	struct mlx5_wqe_umr_repeat_ent_seg *eb;
-	int byte_count = 0;
+	uint64_t byte_count = 0;
 	int tmp;
 	int i;
 
