@@ -387,8 +387,6 @@ static void dr_set_raddr_seg(struct mlx5_wqe_raddr_seg *rseg,
 
 static void dr_post_send_db(struct dr_qp *dr_qp, int size, void *ctrl)
 {
-	dr_qp->sq.head += 2; /* RDMA_WRITE + RDMA_READ */
-
 	/*
 	 * Make sure that descriptors are written before
 	 * updating doorbell record and ringing the doorbell
@@ -465,7 +463,7 @@ static void dr_set_ctrl_seg(struct mlx5_wqe_ctrl_seg *ctrl,
 
 static void dr_rdma_segments(struct dr_qp *dr_qp, uint64_t remote_addr,
 			     uint32_t rkey, struct dr_data_seg *data_seg,
-			     uint32_t opcode, int nreq)
+			     uint32_t opcode, bool send_now)
 {
 	struct mlx5_wqe_ctrl_seg *ctrl = NULL;
 	void *qend = dr_qp->sq.qend;
@@ -498,19 +496,26 @@ static void dr_rdma_segments(struct dr_qp *dr_qp, uint64_t remote_addr,
 	ctrl->opmod_idx_opcode =
 		htobe32(((dr_qp->sq.cur_post & 0xffff) << 8) | opcode);
 	ctrl->qpn_ds = htobe32(size | (dr_qp->obj->object_id << 8));
-	dr_qp->sq.wqe_head[idx] = dr_qp->sq.head + nreq;
+	dr_qp->sq.wqe_head[idx] = dr_qp->sq.head;
 	dr_qp->sq.cur_post += DIV_ROUND_UP(size * 16, MLX5_SEND_WQE_BB);
 
-	if (nreq)
+	/* head is ready for the next WQE */
+	dr_qp->sq.head += 1;
+
+	if (send_now)
 		dr_post_send_db(dr_qp, size, ctrl);
 }
 
 static void dr_post_send(struct dr_qp *dr_qp, struct postsend_info *send_info)
 {
-	dr_rdma_segments(dr_qp, send_info->remote_addr, send_info->rkey,
-			 &send_info->write, MLX5_OPCODE_RDMA_WRITE, 0);
-	dr_rdma_segments(dr_qp, send_info->remote_addr, send_info->rkey,
-			 &send_info->read, MLX5_OPCODE_RDMA_READ, 1);
+	if (send_info->type == WRITE_ICM) {
+		/* false, because we delay the post_send_db till the coming READ */
+		dr_rdma_segments(dr_qp, send_info->remote_addr, send_info->rkey,
+				 &send_info->write, MLX5_OPCODE_RDMA_WRITE, false);
+		/* true, because we send WRITE + READ together */
+		dr_rdma_segments(dr_qp, send_info->remote_addr, send_info->rkey,
+				 &send_info->read, MLX5_OPCODE_RDMA_READ, true);
+	}
 }
 
 /*
@@ -593,10 +598,23 @@ static int dr_handle_pending_wc(struct mlx5dv_dr_domain *dmn,
 	return 0;
 }
 
-static void dr_fill_data_segs(struct dr_send_ring *send_ring,
-			      struct postsend_info *send_info)
+static void dr_fill_write_icm_segs(struct mlx5dv_dr_domain *dmn,
+				   struct dr_send_ring *send_ring,
+				   struct postsend_info *send_info)
 {
 	unsigned int inline_flag;
+	uint32_t buff_offset;
+
+	if (send_info->write.length > dmn->info.max_inline_size) {
+		buff_offset = (send_ring->tx_head & (send_ring->signal_th - 1)) *
+			dmn->info.max_send_size;
+		/* Copy to ring mr */
+		memcpy(send_ring->buf + buff_offset,
+		       (void *)(uintptr_t)send_info->write.addr,
+		       send_info->write.length);
+		send_info->write.addr   = (uintptr_t)send_ring->buf + buff_offset;
+		send_info->write.lkey   = send_ring->mr->lkey;
+	}
 
 	send_ring->pending_wqe++;
 	if (!send_info->write.lkey)
@@ -622,13 +640,20 @@ static void dr_fill_data_segs(struct dr_send_ring *send_ring,
 		send_info->read.send_flags = 0;
 }
 
+static void dr_fill_data_segs(struct mlx5dv_dr_domain *dmn,
+			      struct dr_send_ring *send_ring,
+			      struct postsend_info *send_info)
+{
+	if (send_info->type == WRITE_ICM)
+		dr_fill_write_icm_segs(dmn, send_ring, send_info);
+}
+
 static int dr_postsend_icm_data(struct mlx5dv_dr_domain *dmn,
 				struct postsend_info *send_info,
 				int ring_idx)
 {
 	struct dr_send_ring *send_ring =
 		dmn->send_ring[ring_idx % DR_MAX_SEND_RINGS];
-	uint32_t buff_offset;
 	int ret;
 
 	pthread_spin_lock(&send_ring->lock);
@@ -636,19 +661,7 @@ static int dr_postsend_icm_data(struct mlx5dv_dr_domain *dmn,
 	if (ret)
 		goto out_unlock;
 
-	if (send_info->write.length > dmn->info.max_inline_size) {
-		buff_offset = (send_ring->tx_head & (send_ring->signal_th - 1)) *
-			dmn->info.max_send_size;
-		/* Copy to ring mr */
-		memcpy(send_ring->buf + buff_offset,
-		       (void *) (uintptr_t)send_info->write.addr,
-		       send_info->write.length);
-		send_info->write.addr	= (uintptr_t)send_ring->buf + buff_offset;
-		send_info->write.lkey	= send_ring->mr->lkey;
-	}
-
-	send_ring->tx_head++;
-	dr_fill_data_segs(send_ring, send_info);
+	dr_fill_data_segs(dmn, send_ring, send_info);
 	dr_post_send(send_ring->qp, send_info);
 
 out_unlock:

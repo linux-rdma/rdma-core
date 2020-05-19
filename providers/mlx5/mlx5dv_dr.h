@@ -199,7 +199,12 @@ struct dr_data_seg {
 	unsigned int	send_flags;
 };
 
+enum send_info_type {
+	WRITE_ICM = 0,
+};
+
 struct postsend_info {
+	enum send_info_type	type;
 	struct dr_data_seg	write;
 	struct dr_data_seg	read;
 	uint64_t		remote_addr;
