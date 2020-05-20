@@ -634,6 +634,8 @@ def requires_odp(qp_type):
     def outer(func):
         def inner(instance):
             odp_supported(instance.ctx, qp_type)
+            if getattr(instance, 'is_implicit', False):
+                odp_implicit_supported(instance.ctx)
             return func(instance)
         return inner
     return outer
@@ -667,6 +669,18 @@ def odp_supported(ctx, qp_type):
         raise unittest.SkipTest('ODP is not supported - ODP send not supported')
     if has_odp_recv == 0:
         raise unittest.SkipTest('ODP is not supported - ODP recv not supported')
+
+
+def odp_implicit_supported(ctx):
+    """
+    Check device ODP implicit capability.
+    :param ctx: Device Context
+    :return: None
+    """
+    odp_caps = ctx.query_device_ex().odp_caps
+    has_odp_implicit = odp_caps.general_caps & e.IBV_ODP_SUPPORT_IMPLICIT
+    if has_odp_implicit == 0:
+        raise unittest.SkipTest('ODP implicit is not supported')
 
 
 def requires_huge_pages():
