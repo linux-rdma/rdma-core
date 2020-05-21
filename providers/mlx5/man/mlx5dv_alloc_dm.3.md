@@ -61,6 +61,13 @@ struct mlx5dv_alloc_dm_attr {
 		tables and rules. Can be used for direct table and header modification
 		rules creation when allocated by a privileged user.
 
+	MLX5DV_DM_TYPE_HEADER_MODIFY_PATTERN_SW_ICM
+		Device memory of type HEADER MODIFY PATTERN SW ICM - This memory
+		is used by the device to store packet header modification
+		patterns/templates. Can be used for direct table and header modification
+		rules creation when allocated by a privileged user.
+
+
 *comp_mask*
 :	Bitmask specifying what fields in the structure are valid:
 	Currently reserved and should be set to 0.

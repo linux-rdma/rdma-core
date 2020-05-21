@@ -93,6 +93,7 @@ enum dr_icm_chunk_size {
 enum dr_icm_type {
 	DR_ICM_TYPE_STE,
 	DR_ICM_TYPE_MODIFY_ACTION,
+	DR_ICM_TYPE_MODIFY_HDR_PTRN,
 };
 
 static inline enum dr_icm_chunk_size
@@ -191,6 +192,7 @@ struct dr_devx_caps;
 struct dr_rule_rx_tx;
 struct dr_matcher_rx_tx;
 struct dr_ste_ctx;
+struct dr_ptrn_mngr;
 
 struct dr_data_seg {
 	uint64_t	addr;
@@ -911,6 +913,8 @@ struct dr_devx_caps {
 	uint32_t			log_icm_size;
 	uint8_t				log_modify_hdr_icm_size;
 	uint64_t			hdr_modify_icm_addr;
+	uint32_t			log_modify_pattern_icm_size;
+	uint64_t			hdr_modify_pattern_icm_addr;
 	uint32_t			flex_protocols;
 	uint8_t				flex_parser_header_modify;
 	uint8_t				flex_parser_id_icmp_dw0;
@@ -1019,6 +1023,7 @@ struct dr_domain_info {
 	uint32_t		max_inline_size;
 	uint32_t		max_log_sw_icm_sz;
 	uint32_t		max_log_action_icm_sz;
+	uint32_t		max_log_modify_hdr_pattern_icm_sz;
 	uint32_t		max_send_size;
 	struct dr_domain_rx_tx	rx;
 	struct dr_domain_rx_tx	tx;
@@ -1041,6 +1046,7 @@ struct mlx5dv_dr_domain {
 	atomic_int			refcount;
 	struct dr_icm_pool		*ste_icm_pool;
 	struct dr_icm_pool		*action_icm_pool;
+	struct dr_ptrn_mngr		*modify_header_ptrn_mngr;
 	struct dr_send_ring		*send_ring[DR_MAX_SEND_RINGS];
 	struct dr_domain_info		info;
 	struct list_head		tbl_list;
@@ -1661,6 +1667,11 @@ struct dr_icm_buddy_mem {
 	/* HW STE cache entry size */
 	uint8_t                 hw_ste_sz;
 };
+
+bool dr_domain_is_support_modify_hdr_cache(struct mlx5dv_dr_domain *dmn);
+struct dr_ptrn_mngr *
+dr_ptrn_mngr_create(struct mlx5dv_dr_domain *dmn);
+void dr_ptrn_mngr_destroy(struct dr_ptrn_mngr *mngr);
 
 int dr_buddy_init(struct dr_icm_buddy_mem *buddy, uint32_t max_order);
 void dr_buddy_cleanup(struct dr_icm_buddy_mem *buddy);

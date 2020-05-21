@@ -414,6 +414,14 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 	caps->log_modify_hdr_icm_size = DEVX_GET(query_hca_cap_out, out,
 						 capability.device_mem_cap.log_header_modify_sw_icm_size);
 
+	caps->log_modify_pattern_icm_size =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.device_mem_cap.log_header_modify_pattern_sw_icm_size);
+
+	caps->hdr_modify_pattern_icm_addr =
+		DEVX_GET64(query_hca_cap_out, out,
+			   capability.device_mem_cap.header_modify_pattern_sw_icm_start_address);
+
 	/* RoCE caps */
 	if (roce) {
 		err = dr_devx_query_nic_vport_context(ctx, &caps->roce_caps.roce_en);
