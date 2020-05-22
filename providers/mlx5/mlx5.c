@@ -797,6 +797,13 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 		}
 	}
 
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS) {
+		if (mctx->lag_caps.num_lag_ports) {
+			attrs_out->num_lag_ports = mctx->lag_caps.num_lag_ports;
+			comp_mask_out |= MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS;
+		}
+	}
+
 	attrs_out->comp_mask = comp_mask_out;
 
 	return 0;
