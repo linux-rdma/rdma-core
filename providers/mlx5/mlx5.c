@@ -977,6 +977,118 @@ static int mlx5dv_get_pd(struct ibv_pd *pd_in,
 	return 0;
 }
 
+static int query_lag(struct ibv_context *ctx, uint8_t *lag_state,
+		     uint8_t *tx_remap_affinity_1,
+		     uint8_t *tx_remap_affinity_2)
+{
+	uint32_t out_lag[DEVX_ST_SZ_DW(query_lag_out)] = {};
+	uint32_t in_lag[DEVX_ST_SZ_DW(query_lag_in)] = {};
+	int ret;
+
+	DEVX_SET(query_lag_in, in_lag, opcode, MLX5_CMD_OP_QUERY_LAG);
+	ret = mlx5dv_devx_general_cmd(ctx, in_lag, sizeof(in_lag), out_lag,
+				      sizeof(out_lag));
+	if (ret)
+		return ret;
+
+	*lag_state = DEVX_GET(query_lag_out, out_lag, ctx.lag_state);
+	if (tx_remap_affinity_1)
+		*tx_remap_affinity_1 = DEVX_GET(query_lag_out, out_lag,
+						ctx.tx_remap_affinity_1);
+	if (tx_remap_affinity_2)
+		*tx_remap_affinity_2 = DEVX_GET(query_lag_out, out_lag,
+						ctx.tx_remap_affinity_2);
+
+	return 0;
+}
+
+static bool lag_operation_supported(struct ibv_qp *qp)
+{
+	struct mlx5_context *mctx = to_mctx(qp->context);
+	struct mlx5_qp *mqp = to_mqp(qp);
+
+	if (!is_mlx5_dev(qp->context->device) ||
+	    (mctx->lag_caps.num_lag_ports <= 1))
+		return false;
+
+	if ((qp->qp_type == IBV_QPT_RC) ||
+	    (qp->qp_type == IBV_QPT_UD) ||
+	    (qp->qp_type == IBV_QPT_UC) ||
+	    (qp->qp_type == IBV_QPT_RAW_PACKET) ||
+	    (qp->qp_type == IBV_QPT_XRC_SEND) ||
+	    ((qp->qp_type == IBV_QPT_DRIVER) &&
+	     (mqp->dc_type == MLX5DV_DCTYPE_DCI)))
+		return true;
+
+	return false;
+}
+
+
+int mlx5dv_query_qp_lag_port(struct ibv_qp *qp, uint8_t *port_num,
+			     uint8_t *active_port_num)
+{
+	uint8_t lag_state, tx_remap_affinity_1, tx_remap_affinity_2;
+	uint32_t in_tis[DEVX_ST_SZ_DW(query_tis_in)] = {};
+	uint32_t out_tis[DEVX_ST_SZ_DW(query_tis_out)] = {};
+	uint32_t in_qp[DEVX_ST_SZ_DW(query_qp_in)] = {};
+	uint32_t out_qp[DEVX_ST_SZ_DW(query_qp_out)] = {};
+	struct mlx5_context *mctx = to_mctx(qp->context);
+	struct mlx5_qp *mqp = to_mqp(qp);
+	int ret;
+
+	if (!lag_operation_supported(qp))
+		return EOPNOTSUPP;
+
+	ret = query_lag(qp->context, &lag_state,
+			&tx_remap_affinity_1, &tx_remap_affinity_2);
+	if (ret)
+		return ret;
+
+	if (!lag_state && !mctx->lag_caps.lag_tx_port_affinity)
+		return EOPNOTSUPP;
+
+	switch (qp->qp_type) {
+	case IBV_QPT_RAW_PACKET:
+		DEVX_SET(query_tis_in, in_tis, opcode, MLX5_CMD_OP_QUERY_TIS);
+		DEVX_SET(query_tis_in, in_tis, tisn, mqp->tisn);
+		ret = mlx5dv_devx_qp_query(qp, in_tis, sizeof(in_tis), out_tis,
+					   sizeof(out_tis));
+		if (ret)
+			return ret;
+
+		*port_num = DEVX_GET(query_tis_out, out_tis,
+				     tis_context.lag_tx_port_affinity);
+		break;
+
+	default:
+		DEVX_SET(query_qp_in, in_qp, opcode, MLX5_CMD_OP_QUERY_QP);
+		DEVX_SET(query_qp_in, in_qp, qpn, qp->qp_num);
+		ret = mlx5dv_devx_qp_query(qp, in_qp, sizeof(in_qp), out_qp,
+					   sizeof(out_qp));
+		if (ret)
+			return ret;
+
+		*port_num = DEVX_GET(query_qp_out, out_qp,
+				     qpc.lag_tx_port_affinity);
+		break;
+	}
+
+	switch (*port_num) {
+	case 1:
+		*active_port_num = tx_remap_affinity_1;
+		break;
+
+	case 2:
+		*active_port_num = tx_remap_affinity_2;
+		break;
+
+	default:
+		return EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
 LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
 		   int,
 		   struct mlx5dv_obj *obj, uint64_t obj_type)

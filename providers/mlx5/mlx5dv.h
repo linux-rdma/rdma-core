@@ -1544,6 +1544,10 @@ struct mlx5dv_pp *mlx5dv_pp_alloc(struct ibv_context *context,
 
 void mlx5dv_pp_free(struct mlx5dv_pp *pp);
 
+int mlx5dv_query_qp_lag_port(struct ibv_qp *qp,
+			     uint8_t *port_num,
+			     uint8_t *active_port_num);
+
 #ifdef __cplusplus
 }
 #endif
