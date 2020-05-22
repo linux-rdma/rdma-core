@@ -23,6 +23,7 @@ rdma_man_pages(
   mlx5dv_get_clock_info.3
   mlx5dv_init_obj.3
   mlx5dv_is_supported.3.md
+  mlx5dv_modify_qp_lag_port.3.md
   mlx5dv_open_device.3.md
   mlx5dv_pp_alloc.3.md
   mlx5dv_query_device.3

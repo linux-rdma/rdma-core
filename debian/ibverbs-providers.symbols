@@ -101,6 +101,7 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_pp_free@MLX5_1.13 29
  mlx5dv_dr_action_create_default_miss@MLX5_1.14 30
  mlx5dv_dr_domain_set_reclaim_device_memory@MLX5_1.14 30
+ mlx5dv_modify_qp_lag_port@MLX5_1.14 30
  mlx5dv_query_qp_lag_port@MLX5_1.14 30
 libefa.so.1 ibverbs-providers #MINVER#
 * Build-Depends-Package: libibverbs-dev

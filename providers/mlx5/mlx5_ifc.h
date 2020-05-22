@@ -51,6 +51,7 @@ enum {
 	MLX5_CMD_OP_QUERY_ESW_VPORT_CONTEXT = 0x752,
 	MLX5_CMD_OP_QUERY_ROCE_ADDRESS = 0x760,
 	MLX5_CMD_OP_QUERY_LAG = 0x842,
+	MLX5_CMD_OP_MODIFY_TIS = 0x913,
 	MLX5_CMD_OP_QUERY_TIS = 0x915,
 	MLX5_CMD_OP_CREATE_FLOW_TABLE = 0x930,
 	MLX5_CMD_OP_CREATE_FLOW_COUNTER = 0x939,
@@ -2369,6 +2370,43 @@ struct mlx5_ifc_query_lag_in_bits {
 	u8         op_mod[0x10];
 
 	u8         reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_modify_tis_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_modify_tis_bitmask_bits {
+	u8         reserved_at_0[0x20];
+
+	u8         reserved_at_20[0x1d];
+	u8         lag_tx_port_affinity[0x1];
+	u8         strict_lag_tx_port_affinity[0x1];
+	u8         prio[0x1];
+};
+
+struct mlx5_ifc_modify_tis_in_bits {
+	u8         opcode[0x10];
+	u8         uid[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         reserved_at_40[0x8];
+	u8         tisn[0x18];
+
+	u8         reserved_at_60[0x20];
+
+	struct mlx5_ifc_modify_tis_bitmask_bits bitmask;
+
+	u8         reserved_at_c0[0x40];
+
+	struct mlx5_ifc_tisc_bits ctx;
 };
 
 enum roce_version {

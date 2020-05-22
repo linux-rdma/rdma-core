@@ -1089,6 +1089,39 @@ int mlx5dv_query_qp_lag_port(struct ibv_qp *qp, uint8_t *port_num,
 	return 0;
 }
 
+int mlx5dv_modify_qp_lag_port(struct ibv_qp *qp, uint8_t port_num)
+{
+	uint32_t in[DEVX_ST_SZ_DW(modify_tis_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(modify_tis_out)] = {};
+	uint8_t curr_configured, curr_active;
+	struct mlx5_qp *mqp = to_mqp(qp);
+	int ret;
+
+	/* Query lag port to see if we are at all in lag mode, otherwise FW
+	 * might return success and ignore the modification.
+	 */
+	ret = mlx5dv_query_qp_lag_port(qp, &curr_configured, &curr_active);
+	if (ret)
+		return ret;
+
+	switch (qp->qp_type) {
+	case IBV_QPT_RAW_PACKET:
+		DEVX_SET(modify_tis_in, in, opcode, MLX5_CMD_OP_MODIFY_TIS);
+		DEVX_SET(modify_tis_in, in, tisn, mqp->tisn);
+		DEVX_SET(modify_tis_in, in, bitmask.lag_tx_port_affinity, 1);
+		DEVX_SET(modify_tis_in, in, ctx.lag_tx_port_affinity, port_num);
+		ret = mlx5dv_devx_qp_modify(qp, in, sizeof(in), out,
+					    sizeof(out));
+		break;
+
+	default:
+		ret = EOPNOTSUPP;
+		break;
+	}
+
+	return ret;
+}
+
 LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
 		   int,
 		   struct mlx5dv_obj *obj, uint64_t obj_type)
