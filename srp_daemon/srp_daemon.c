@@ -1505,6 +1505,7 @@ static int parse_other_option(struct rule *rule, char *ptr)
 {
 	static const char *const opt[] = {
 		"allow_ext_sg=",
+		"ch_count=",
 		"cmd_sg_entries=",
 		"comp_vector=",
 		"max_cmd_per_lun=",
