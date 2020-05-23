@@ -124,8 +124,8 @@ class CMConnection(abc.ABC):
             self.syncer.wait()
             cmid.post_send(self.cm_res.mr)
             cmid.get_send_comp()
-            self.syncer.wait()
             cmid.post_recv(self.cm_res.mr)
+            self.syncer.wait()
             self.syncer.wait()
             cmid.get_recv_comp()
             msg_received = self.cm_res.mr.read(self.cm_res.msg_size,
