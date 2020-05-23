@@ -151,6 +151,55 @@ static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	return 0;
 }
 
+static int set_masked_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
+				 void *dseg, struct hns_roce_sge_info *sge_info)
+{
+#define EXT_SGE_SPLIT_NUM 2
+	struct hns_roce_wqe_atomic_seg *aseg = dseg;
+	unsigned int msg_len = sge_info->total_len;
+	unsigned int opcode = wr->opcode;
+	unsigned int ext_sg_num;
+
+	if (wr->num_sge != 1 || (msg_len != STANDARD_ATOMIC_U_BYTE_8 &&
+				 msg_len != EXTEND_ATOMIC_U_BYTE_16 &&
+				 msg_len != EXTEND_ATOMIC_U_BYTE_32 &&
+				 msg_len != EXTEND_ATOMIC_U_BYTE_64))
+		return EINVAL;
+
+	aseg->fetchadd_swap_data = 0;
+	aseg->cmp_data = 0;
+
+	if (opcode == IBV_WR_MASKED_ATOMIC_CMP_AND_SWP) {
+		if (!wr->wr.atomic.swap || !wr->wr.atomic.compare_add)
+			return EINVAL;
+
+		ext_sg_num = msg_len * MASKED_CMP_SWAP_DATA_TYPES_NUM >>
+			     HNS_ROCE_SGE_SHIFT;
+
+		if (ext_sg_num + HNS_ROCE_SGE_IN_WQE > qp->sq.max_gs)
+			return EINVAL;
+
+		set_extend_atomic_seg(qp, ext_sg_num / EXT_SGE_SPLIT_NUM,
+				      sge_info, (void *)wr->wr.atomic.swap);
+		set_extend_atomic_seg(qp, ext_sg_num / EXT_SGE_SPLIT_NUM,
+				      sge_info,
+				      (void *)wr->wr.atomic.compare_add);
+	} else {
+		if (!wr->wr.atomic.compare_add)
+			return EINVAL;
+
+		ext_sg_num = msg_len * MASKED_FETCH_ADD_DATA_TYPES_NUM >>
+			     HNS_ROCE_SGE_SHIFT;
+		if (ext_sg_num + HNS_ROCE_SGE_IN_WQE > qp->sq.max_gs)
+			return EINVAL;
+
+		set_extend_atomic_seg(qp, ext_sg_num, sge_info,
+				      (void *)wr->wr.atomic.compare_add);
+	}
+
+	return 0;
+}
+
 static void hns_roce_v2_handle_error_cqe(struct hns_roce_v2_cqe *cqe,
 					 struct ibv_wc *wc)
 {
@@ -420,6 +469,16 @@ static void hns_roce_v2_get_opcode_from_sender(struct hns_roce_v2_cqe *cqe,
 	case HNS_ROCE_SQ_OP_ATOMIC_FETCH_AND_ADD:
 		wc->opcode = IBV_WC_FETCH_ADD;
 		wc->byte_len = le32toh(cqe->byte_cnt);
+		wc->wc_flags = 0;
+		break;
+	case HNS_ROCE_SQ_OP_ATOMIC_MASK_COMP_AND_SWAP:
+		wc->opcode = IBV_WC_MASKED_COMP_SWAP;
+		wc->byte_len  = le32toh(cqe->byte_cnt);
+		wc->wc_flags = 0;
+		break;
+	case HNS_ROCE_SQ_OP_ATOMIC_MASK_FETCH_AND_ADD:
+		wc->opcode = IBV_WC_MASKED_FETCH_ADD;
+		wc->byte_len  = le32toh(cqe->byte_cnt);
 		wc->wc_flags = 0;
 		break;
 	case HNS_ROCE_SQ_OP_BIND_MW:
@@ -854,6 +913,8 @@ static int check_rc_opcode(struct hns_roce_rc_sq_wqe *wqe,
 		break;
 	case IBV_WR_ATOMIC_CMP_AND_SWP:
 	case IBV_WR_ATOMIC_FETCH_AND_ADD:
+	case IBV_WR_MASKED_ATOMIC_CMP_AND_SWP:
+	case IBV_WR_MASKED_ATOMIC_FETCH_AND_ADD:
 		wqe->rkey = htole32(wr->wr.atomic.rkey);
 		wqe->va = htole64(wr->wr.atomic.remote_addr);
 		break;
@@ -924,6 +985,10 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	    wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
 		dseg++;
 		ret = set_atomic_seg(qp, wr, dseg, sge_info);
+	} else if (wr->opcode == IBV_WR_MASKED_ATOMIC_CMP_AND_SWP ||
+		   wr->opcode == IBV_WR_MASKED_ATOMIC_FETCH_AND_ADD) {
+		dseg++;
+		ret = set_masked_atomic_seg(qp, wr, dseg, sge_info);
 	} else if (wr->send_flags & IBV_SEND_INLINE) {
 		ret = set_rc_inl(qp, wr, rc_sq_wqe, sge_info);
 	}

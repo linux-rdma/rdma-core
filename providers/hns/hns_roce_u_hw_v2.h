@@ -294,6 +294,8 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			    struct ibv_send_wr **bad_wr);
 
 #define DATA_TYPE_NUM 2
+#define MASKED_CMP_SWAP_DATA_TYPES_NUM 4
+#define MASKED_FETCH_ADD_DATA_TYPES_NUM 2
 #define STANDARD_ATOMIC_U_BYTE_8 0x8
 #define EXTEND_ATOMIC_U_BYTE_16 0x10
 #define EXTEND_ATOMIC_U_BYTE_32 0x20
