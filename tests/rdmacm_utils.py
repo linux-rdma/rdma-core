@@ -55,6 +55,39 @@ class CMConnection(abc.ABC):
             else:
                 self._cmid_client_traffic(multicast)
 
+    def remote_traffic(self, passive, remote_op='write'):
+        """
+        Run rdmacm remote traffic. This method runs RDMA remote traffic from
+        the active to the passive.
+        :param passive: If True, run as server.
+        :param remote_op: 'write'/'read', The type of the RDMA remote operation.
+        """
+        msg_size = self.cm_res.msg_size
+        if passive:
+            self.cm_res.mr.write((msg_size) * 's', msg_size)
+            mr_details = (self.cm_res.mr.rkey, self.cm_res.mr.buf)
+            self.notifier.put(mr_details)
+            self.syncer.wait()
+            self.syncer.wait()
+            if remote_op == 'write':
+                msg_received = self.cm_res.mr.read(msg_size, 0)
+                validate(msg_received, True, msg_size)
+        else:
+            self.cm_res.mr.write((msg_size) * 'c', msg_size)
+            self.syncer.wait()
+            rkey, remote_addr = self.notifier.get()
+            cmid = self.cm_res.cmid
+            post_func = cmid.post_write if remote_op == 'write' else \
+                cmid.post_read
+            for _ in range(self.cm_res.num_msgs):
+                post_func(self.cm_res.mr, msg_size, remote_addr, rkey,
+                          flags=e.IBV_SEND_SIGNALED)
+                cmid.get_send_comp()
+            self.syncer.wait()
+            if remote_op == 'read':
+                msg_received = self.cm_res.mr.read(msg_size, 0)
+                validate(msg_received, False, msg_size)
+
     def _ext_qp_server_traffic(self):
         """
         RDMACM server side traffic function which sends and receives a message,

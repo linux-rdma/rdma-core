@@ -37,6 +37,7 @@ class CMResources(abc.ABC):
         self.with_ext_qp = kwargs.get('with_ext_qp', False)
         self.port = kwargs.get('port') if kwargs.get('port') else '7471'
         self.port_space = kwargs.get('port_space', ce.RDMA_PS_TCP)
+        self.remote_operation = kwargs.get('remote_op')
         self.qp_type = qp_type_per_ps[self.port_space]
         self.qp_init_attr = QPInitAttr(qp_type=self.qp_type, cap=QPCap())
         self.connected = False
@@ -60,10 +61,10 @@ class CMResources(abc.ABC):
                                port_space=self.port_space)
 
     def create_mr(self):
-        if self.passive:
-            self.mr = self.child_id.reg_msgs(self.msg_size + GRH_SIZE)
-        else:
-            self.mr = self.cmid.reg_msgs(self.msg_size + GRH_SIZE)
+        cmid = self.child_id if self.passive else self.cmid
+        mr_remote_function = {None: cmid.reg_msgs, 'read': cmid.reg_read,
+                              'write': cmid.reg_write}
+        self.mr = mr_remote_function[self.remote_operation](self.msg_size + GRH_SIZE)
 
     def create_event_channel(self):
         self.channel = CMEventChannel()

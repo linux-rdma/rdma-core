@@ -114,6 +114,33 @@ class CMTestCase(RDMATestCase):
                         .format(side=side, pid=os.getpid()) +
                         'Exception message: {ex}'.format(ex=str(ex)))
 
+    def rdmacm_remote_traffic(self, connection_resources=None, passive=None,
+                              remote_op='write', **kwargs):
+        """
+        Run RDMACM remote traffic between two CMIDs.
+        :param connection_resources: The connection resources to use.
+        :param passive: Indicate if this CMID is the passive side.
+        :param remote_op: The remote operation in the traffic.
+        :param kwargs: Arguments to be passed to the connection_resources.
+        :return: None
+        """
+        try:
+            player = connection_resources(ip_addr=self.ip_addr,
+                                          syncer=self.syncer,
+                                          notifier=self.notifier,
+                                          passive=passive,
+                                          remote_op=remote_op, **kwargs)
+            player.establish_connection()
+            player.remote_traffic(passive=passive, remote_op=remote_op)
+            player.disconnect()
+        except Exception as ex:
+            while not self.notifier.empty():
+                self.notifier.get()
+            side = 'passive' if passive else 'active'
+            msg = f'Caught exception in {side} side process: pid {os.getpid()}\n' \
+                  f'Exception message: {str(ex)}'
+            self.notifier.put(msg)
+
 
     def test_rdmacm_sync_traffic(self):
         self.two_nodes_rdmacm_traffic(CMSyncConnection, self.rdmacm_traffic)
@@ -138,3 +165,13 @@ class CMTestCase(RDMATestCase):
     def test_rdmacm_async_udp_traffic(self):
         self.two_nodes_rdmacm_traffic(CMAsyncConnection, self.rdmacm_traffic,
                                       port_space=ce.RDMA_PS_UDP)
+
+    def test_rdmacm_async_read(self):
+        self.two_nodes_rdmacm_traffic(CMAsyncConnection,
+                                      self.rdmacm_remote_traffic,
+                                      remote_op='read')
+
+    def test_rdmacm_async_write(self):
+        self.two_nodes_rdmacm_traffic(CMAsyncConnection,
+                                      self.rdmacm_remote_traffic,
+                                      remote_op='write')
