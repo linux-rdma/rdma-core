@@ -57,68 +57,99 @@ struct ibv_mem_node {
 	int			refcnt;
 };
 
+#define MAX_NUM_PAGE_SIZES 32
+
 static struct ibv_mem_node *mm_root;
 static pthread_mutex_t mm_mutex = PTHREAD_MUTEX_INITIALIZER;
-static int page_size;
 static int huge_page_enabled;
 static int too_late;
+static int num_page_sizes;
+static unsigned long page_sizes[MAX_NUM_PAGE_SIZES];
 
-static unsigned long smaps_page_size(FILE *file)
-{
-	int n;
-	unsigned long size = page_size;
-	char buf[1024];
-
-	while (fgets(buf, sizeof(buf), file) != NULL) {
-		if (!strstr(buf, "KernelPageSize:"))
-			continue;
-
-		n = sscanf(buf, "%*s %lu", &size);
-		if (n < 1)
-			continue;
-
-		/* page size is printed in Kb */
-		size = size * 1024;
-
-		break;
-	}
-
-	return size;
-}
+enum {
+	IBV_SC_PAGE_SIZE_IDX = 0,
+};
 
 static unsigned long get_page_size(void *base)
 {
-	unsigned long ret = page_size;
-	pid_t pid;
-	FILE *file;
-	char buf[1024];
+	unsigned long ret = page_sizes[IBV_SC_PAGE_SIZE_IDX];
+	unsigned long base_aligned;
+	unsigned long pgsz;
+	int err;
+	int i;
 
-	pid = getpid();
-	snprintf(buf, sizeof(buf), "/proc/%d/smaps", pid);
-
-	file = fopen(buf, "r" STREAM_CLOEXEC);
-	if (!file)
-		goto out;
-
-	while (fgets(buf, sizeof(buf), file) != NULL) {
-		int n;
-		uintptr_t range_start, range_end;
-
-		n = sscanf(buf, "%" SCNxPTR "-%" SCNxPTR, &range_start, &range_end);
-
-		if (n < 2)
+	for (i = 0; i < num_page_sizes; i++) {
+		pgsz = page_sizes[i];
+		base_aligned = (uintptr_t)base & ~(pgsz - 1);
+		/* DOFORK is required as the kernel caches the given flags,
+		 * so calling madvise with MADV_DONTFORK twice on the same vma
+		 * returns success without checking the address and length.
+		 */
+		while ((err = madvise((void *)base_aligned, pgsz,
+				      MADV_DOFORK)) &&
+		       errno == EAGAIN) {
+		}
+		if (err)
 			continue;
 
-		if ((uintptr_t) base >= range_start && (uintptr_t) base < range_end) {
-			ret = smaps_page_size(file);
-			break;
+		while ((err = madvise((void *)base_aligned, pgsz,
+				      MADV_DONTFORK)) &&
+		       errno == EAGAIN) {
 		}
+		if (err)
+			continue;
+
+		ret = pgsz;
+		break;
 	}
 
-	fclose(file);
-
-out:
 	return ret;
+}
+
+static int page_sizes_init(void)
+{
+	struct dirent **pglist;
+	unsigned long hpsz;
+	int page_size;
+	int i, n;
+	int err;
+
+	page_size = sysconf(_SC_PAGESIZE);
+	if (page_size < 0)
+		return errno;
+	page_sizes[IBV_SC_PAGE_SIZE_IDX] = page_size;
+	num_page_sizes++;
+
+	if (huge_page_enabled) {
+		n = scandir("/sys/kernel/mm/hugepages", &pglist, NULL, NULL);
+		if (n < 0)
+			return ENOSYS;
+
+		for (i = 0; i < n; i++) {
+			if (sscanf(pglist[i]->d_name, "hugepages-%lukB",
+				   &hpsz) == 1) {
+				if (num_page_sizes >= MAX_NUM_PAGE_SIZES) {
+					err = ENOMEM;
+					goto err_free_pglist;
+				}
+
+				/* page size is printed in Kb */
+				hpsz *= 1024;
+				page_sizes[num_page_sizes++] = hpsz;
+			}
+			free(pglist[i]);
+		}
+		free(pglist);
+	}
+
+	return 0;
+
+err_free_pglist:
+	for (; i < n; i++)
+		free(pglist[i]);
+	free(pglist);
+
+	return err;
 }
 
 int ibv_fork_init(void)
@@ -136,18 +167,19 @@ int ibv_fork_init(void)
 	if (too_late)
 		return EINVAL;
 
-	page_size = sysconf(_SC_PAGESIZE);
-	if (page_size < 0)
-		return errno;
+	ret = page_sizes_init();
+	if (ret)
+		return ret;
 
-	if (posix_memalign(&tmp, page_size, page_size))
+	if (posix_memalign(&tmp, page_sizes[IBV_SC_PAGE_SIZE_IDX],
+			   page_sizes[IBV_SC_PAGE_SIZE_IDX]))
 		return ENOMEM;
 
 	if (huge_page_enabled) {
 		size = get_page_size(tmp);
 		tmp_aligned = (void *) ((uintptr_t) tmp & ~(size - 1));
 	} else {
-		size = page_size;
+		size = page_sizes[IBV_SC_PAGE_SIZE_IDX];
 		tmp_aligned = tmp;
 	}
 
@@ -602,7 +634,7 @@ static int ibv_madvise_range(void *base, size_t size, int advice)
 	if (huge_page_enabled)
 		range_page_size = get_page_size(base);
 	else
-		range_page_size = page_size;
+		range_page_size = page_sizes[IBV_SC_PAGE_SIZE_IDX];
 
 	start = (uintptr_t) base & ~(range_page_size - 1);
 	end   = ((uintptr_t) (base + size + range_page_size - 1) &
