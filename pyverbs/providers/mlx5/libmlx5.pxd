@@ -3,7 +3,7 @@
 
 include 'mlx5dv_enums.pxd'
 
-from libc.stdint cimport uint16_t, uint32_t, uint64_t
+from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
 from libcpp cimport bool
 
 cimport pyverbs.libibverbs as v
@@ -42,6 +42,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         unsigned long           max_clock_info_update_nsec
         unsigned int            flow_action_flags
         unsigned int            dc_odp_caps
+        uint8_t                 num_lag_ports
 
     cdef struct mlx5dv_dc_init_attr:
         mlx5dv_dc_type      dc_type
@@ -83,6 +84,9 @@ cdef extern from 'infiniband/mlx5dv.h':
     v.ibv_qp *mlx5dv_create_qp(v.ibv_context *context,
                                v.ibv_qp_init_attr_ex *qp_attr,
                                mlx5dv_qp_init_attr *mlx5_qp_attr)
+    int mlx5dv_query_qp_lag_port(v.ibv_qp *qp, uint8_t *port_num,
+                                 uint8_t *active_port_num)
+    int mlx5dv_modify_qp_lag_port(v.ibv_qp *qp, uint8_t port_num)
     v.ibv_cq_ex *mlx5dv_create_cq(v.ibv_context *context,
                                   v.ibv_cq_init_attr_ex *cq_attr,
                                   mlx5dv_cq_init_attr *mlx5_cq_attr)
