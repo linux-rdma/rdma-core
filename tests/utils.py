@@ -633,6 +633,16 @@ def requires_odp(qp_type):
     return outer
 
 
+def requires_root_on_eth(port_num=1):
+    def outer(func):
+        def inner(instance):
+            if not (is_eth(instance.ctx, port_num) and is_root()):
+                raise unittest.SkipTest('Must be run by root on Ethernet link layer')
+            return func(instance)
+        return inner
+    return outer
+
+
 def odp_supported(ctx, qp_type):
     """
     Check device ODP capabilities, support only send/recv so far.
@@ -686,3 +696,17 @@ def prefetch_mrs(agr_obj, sg_list, advise=e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE
     :return: None
     """
     agr_obj.pd.advise_mr(advise, flags, sg_list)
+
+
+def is_eth(ctx, port_num):
+    """
+    Querires the device's context's <port_num> port for its link layer.
+    :param ctx: The Context to query
+    :param port_num: Which Context's port to query
+    :return: True if the port's link layer is Ethernet, else False
+    """
+    return ctx.query_port(port_num).link_layer == e.IBV_LINK_LAYER_ETHERNET
+
+
+def is_root():
+    return os.geteuid() == 0
