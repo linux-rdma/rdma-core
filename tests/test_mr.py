@@ -254,7 +254,7 @@ class DMMRTest(PyverbsAPITestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
-                return
+                raise unittest.SkipTest('Device memory is not supported')
             with PD(ctx) as pd:
                 for i in range(10):
                     dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,

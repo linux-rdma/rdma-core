@@ -160,7 +160,7 @@ class DMTest(PyverbsAPITestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
-                return
+                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
@@ -173,7 +173,7 @@ class DMTest(PyverbsAPITestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
-                return
+                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
@@ -186,7 +186,7 @@ class DMTest(PyverbsAPITestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
-                return
+                raise unittest.SkipTest('Device memory is not supported')
             dm_len = attr_ex.max_dm_size + 1
             dm_attrs = u.get_dm_attrs(dm_len)
             try:
@@ -215,7 +215,7 @@ class DMTest(PyverbsAPITestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
-                return
+                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
@@ -229,7 +229,7 @@ class DMTest(PyverbsAPITestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
-                return
+                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
@@ -246,7 +246,7 @@ class DMTest(PyverbsAPITestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
-                return
+                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
@@ -270,7 +270,7 @@ class DMTest(PyverbsAPITestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
-                return
+                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
