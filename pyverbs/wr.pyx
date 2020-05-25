@@ -2,8 +2,10 @@
 # Copyright (c) 2019 Mellanox Technologies Inc. All rights reserved. See COPYING file
 
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError
-from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.base import PyverbsRDMAErrno, inc_rkey
+from pyverbs.mr cimport MW, MR, MWBindInfo
 cimport pyverbs.libibverbs_enums as e
+cimport pyverbs.libibverbs as v
 from pyverbs.addr cimport AH
 from libc.stdlib cimport free, malloc
 from libc.string cimport memcpy
@@ -159,7 +161,9 @@ cdef class SendWR(PyverbsCM):
         cdef v.ibv_sge *dst
 
         super().__init__()
-        if num_sge < 1 or sg is None:
+        mw_opcodes = [e.IBV_WR_LOCAL_INV, e.IBV_WR_BIND_MW,
+                      e.IBV_WR_SEND_WITH_INV]
+        if opcode not in mw_opcodes and (num_sge < 1 or sg is None):
             raise PyverbsUserError('A WR needs at least one SGE')
         self.send_wr.sg_list = <v.ibv_sge*>malloc(num_sge * sizeof(v.ibv_sge))
         if self.send_wr.sg_list == NULL:
@@ -283,6 +287,23 @@ cdef class SendWR(PyverbsCM):
         self.send_wr.wr.atomic.rkey = rkey
         self.send_wr.wr.atomic.compare_add = compare_add
         self.send_wr.wr.atomic.swap = swap
+
+    def set_bind_wr(self, MW mw, MWBindInfo bind_info):
+        """
+        Set the members of the bind_mw struct in the send_wr.
+        :param mw: The MW to bind.
+        :param bind_info: MWBindInfo object, includes the bind attributes.
+        :return: None
+        """
+        self.send_wr.bind_mw.mw = mw.mw
+        # Create the new key from the MW rkey.
+        rkey = inc_rkey(mw.rkey)
+        self.send_wr.bind_mw.rkey = rkey
+        self.send_wr.bind_mw.bind_info = bind_info.info
+
+    @property
+    def rkey(self):
+        return self.send_wr.bind_mw.rkey
 
     def set_qp_type_xrc(self, remote_srqn):
         """

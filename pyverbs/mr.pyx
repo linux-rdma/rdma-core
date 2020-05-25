@@ -204,6 +204,39 @@ cdef class MWBindInfo(PyverbsCM):
         self.info.length = length
         self.info.mw_access_flags = mw_access_flags
 
+    @property
+    def mw_access_flags(self):
+        return self.info.mw_access_flags
+
+    @property
+    def length(self):
+        return self.info.length
+
+    @property
+    def addr(self):
+        return self.info.addr
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        return 'MWBindInfo:\n' +\
+            print_format.format('Addr', self.info.addr) +\
+            print_format.format('Length', self.info.length) +\
+            print_format.format('MW access flags', self.info.mw_access_flags)
+
+
+cdef class MWBind(PyverbsCM):
+    def __init__(self, MWBindInfo info not None,send_flags, wr_id=0):
+        super().__init__()
+        self.mw_bind.wr_id = wr_id
+        self.mw_bind.send_flags = send_flags
+        self.mw_bind.bind_info = info.info
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        return 'MWBind:\n' +\
+            print_format.format('WR id', self.mw_bind.wr_id) +\
+            print_format.format('Send flags', self.mw_bind.send_flags)
+
 
 cdef class MW(PyverbsCM):
     def __init__(self, PD pd not None, v.ibv_mw_type mw_type):
@@ -241,6 +274,25 @@ cdef class MW(PyverbsCM):
                 raise PyverbsRDMAError('Failed to dealloc MW', rc)
             self.mw = NULL
             self.pd = None
+
+    @property
+    def handle(self):
+        return self.mw.handle
+
+    @property
+    def rkey(self):
+        return self.mw.rkey
+
+    @property
+    def type(self):
+        return self.mw.type
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        return 'MW:\n' +\
+            print_format.format('Rkey', self.mw.rkey) +\
+            print_format.format('Handle', self.mw.handle) +\
+            print_format.format('MW Type', mwtype2str(self.mw.type))
 
 
 cdef class DMMR(MR):
