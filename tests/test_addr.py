@@ -51,8 +51,8 @@ class AHTest(PyverbsAPITestCase):
                 if port_attr.state != e.IBV_PORT_ACTIVE and \
                    port_attr.state != e.IBV_PORT_INIT:
                     continue
-                if port_attr.link_layer == e.IBV_LINK_LAYER_INFINIBAND:
-                    raise unittest.SkipTest('Can\'t run RoCE tests on IB link layer')
+                if port_attr.link_layer != e.IBV_LINK_LAYER_ETHERNET:
+                    raise unittest.SkipTest('RoCE tests are only supported on Ethernet link layer')
                 ah_attr = AHAttr(is_global=0, port_num=port_num)
                 try:
                     ah = AH(pd, attr=ah_attr)
