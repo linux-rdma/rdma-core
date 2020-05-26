@@ -76,6 +76,7 @@ static int ibv_icmd_create_qp(struct ibv_context *context,
 			      struct ibv_command_buffer *link)
 {
 	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_QP, UVERBS_METHOD_QP_CREATE, 15, link);
+	struct verbs_ex_private *priv = get_priv(context);
 	struct ib_uverbs_attr *handle;
 	uint32_t qp_num;
 	uint32_t pd_handle;
@@ -171,6 +172,9 @@ static int ibv_icmd_create_qp(struct ibv_context *context,
 
 	fill_attr_in_ptr(cmdb, UVERBS_ATTR_CREATE_QP_CAP, &attr_ex->cap);
 	fill_attr_in_fd(cmdb, UVERBS_ATTR_CREATE_QP_EVENT_FD, context->async_fd);
+
+	if (priv->imported)
+		fallback_require_ioctl(cmdb);
 
 	if (attr_ex->sq_sig_all)
 		create_flags |= IB_UVERBS_QP_CREATE_SQ_SIG_ALL;

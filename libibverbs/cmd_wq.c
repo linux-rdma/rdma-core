@@ -31,6 +31,7 @@
  */
 
 #include <infiniband/cmd_write.h>
+#include "ibverbs.h"
 
 static int ibv_icmd_create_wq(struct ibv_context *context,
 			      struct ibv_wq_init_attr *wq_init_attr,
@@ -38,6 +39,7 @@ static int ibv_icmd_create_wq(struct ibv_context *context,
 			      struct ibv_command_buffer *link)
 {
 	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_WQ, UVERBS_METHOD_WQ_CREATE, 13, link);
+	struct verbs_ex_private *priv = get_priv(context);
 	struct ib_uverbs_attr *handle;
 	uint32_t max_wr;
 	uint32_t max_sge;
@@ -62,6 +64,8 @@ static int ibv_icmd_create_wq(struct ibv_context *context,
 	fill_attr_out_ptr(cmdb, UVERBS_ATTR_CREATE_WQ_RESP_MAX_SGE, &max_sge);
 	fill_attr_out_ptr(cmdb, UVERBS_ATTR_CREATE_WQ_RESP_WQ_NUM, &wq_num);
 
+	if (priv->imported)
+		fallback_require_ioctl(cmdb);
 	fallback_require_ex(cmdb);
 
 	switch (execute_ioctl_fallback(context, create_wq, cmdb, &ret)) {

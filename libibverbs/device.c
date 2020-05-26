@@ -344,6 +344,7 @@ struct ibv_context *verbs_open_device(struct ibv_device *device, void *private_d
 	struct verbs_device *verbs_device = verbs_get_device(device);
 	int cmd_fd;
 	struct verbs_context *context_ex;
+	int ret;
 
 	/*
 	 * We'll only be doing writes, but we need O_RDWR in case the
@@ -363,6 +364,13 @@ struct ibv_context *verbs_open_device(struct ibv_device *device, void *private_d
 		return NULL;
 
 	set_lib_ops(context_ex);
+	if (context_ex->context.async_fd == -1) {
+		ret = ibv_cmd_alloc_async_fd(&context_ex->context);
+		if (ret) {
+			ibv_close_device(&context_ex->context);
+			return NULL;
+		}
+	}
 
 	return &context_ex->context;
 }

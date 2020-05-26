@@ -99,7 +99,7 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 	return 0;
 }
 
-static int cmd_alloc_async_fd(struct ibv_context *context)
+int ibv_cmd_alloc_async_fd(struct ibv_context *context)
 {
 	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_ASYNC_EVENT,
 			       UVERBS_METHOD_ASYNC_EVENT_ALLOC, 1);
@@ -153,9 +153,6 @@ static int cmd_get_context(struct verbs_context *context_ex,
 		return 0;
 	}
 	case SUCCESS:
-		ret = cmd_alloc_async_fd(context);
-		if (ret)
-			return ret;
 		break;
 	default:
 		return ret;
