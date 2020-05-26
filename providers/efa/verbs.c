@@ -82,7 +82,6 @@ int efa_query_device_ex(struct ibv_context *context,
 			size_t attr_size)
 {
 	struct efa_context *ctx = to_efa_context(context);
-	struct efa_dev *dev = to_efa_dev(context->device);
 	int cmd_supp_uhw = ctx->cmds_supp_udata_mask &
 			   EFA_USER_CMDS_SUPP_UDATA_QUERY_DEVICE;
 	struct ibv_device_attr *a = &attr->orig_attr;
@@ -98,13 +97,13 @@ int efa_query_device_ex(struct ibv_context *context,
 	if (err)
 		return err;
 
-	dev->device_caps = resp.device_caps;
-	dev->max_sq_wr = resp.max_sq_wr;
-	dev->max_rq_wr = resp.max_rq_wr;
-	dev->max_sq_sge = resp.max_sq_sge;
-	dev->max_rq_sge = resp.max_rq_sge;
-	dev->max_rdma_size = resp.max_rdma_size;
-	dev->max_wr_rdma_sge = a->max_sge_rd;
+	ctx->device_caps = resp.device_caps;
+	ctx->max_sq_wr = resp.max_sq_wr;
+	ctx->max_rq_wr = resp.max_rq_wr;
+	ctx->max_sq_sge = resp.max_sq_sge;
+	ctx->max_rq_sge = resp.max_rq_sge;
+	ctx->max_rdma_size = resp.max_rdma_size;
+	ctx->max_wr_rdma_sge = a->max_sge_rd;
 
 	a->max_qp_wr = min_t(int, a->max_qp_wr,
 			     ctx->max_llq_size / sizeof(struct efa_io_tx_wqe));
@@ -119,7 +118,6 @@ int efadv_query_device(struct ibv_context *ibvctx,
 		       uint32_t inlen)
 {
 	struct efa_context *ctx = to_efa_context(ibvctx);
-	struct efa_dev *dev = to_efa_dev(ibvctx->device);
 	uint64_t comp_mask_out = 0;
 
 	if (!is_efa_dev(ibvctx->device))
@@ -129,16 +127,16 @@ int efadv_query_device(struct ibv_context *ibvctx,
 		return EINVAL;
 
 	memset(attr, 0, inlen);
-	attr->max_sq_wr = dev->max_sq_wr;
-	attr->max_rq_wr = dev->max_rq_wr;
-	attr->max_sq_sge = dev->max_sq_sge;
-	attr->max_rq_sge = dev->max_rq_sge;
+	attr->max_sq_wr = ctx->max_sq_wr;
+	attr->max_rq_wr = ctx->max_rq_wr;
+	attr->max_sq_sge = ctx->max_sq_sge;
+	attr->max_rq_sge = ctx->max_rq_sge;
 	attr->inline_buf_size = ctx->inline_buf_size;
 
 	if (vext_field_avail(typeof(*attr), max_rdma_size, inlen)) {
-		attr->max_rdma_size = dev->max_rdma_size;
+		attr->max_rdma_size = ctx->max_rdma_size;
 
-		if (is_rdma_read_cap(dev))
+		if (is_rdma_read_cap(ctx))
 			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_RDMA_READ;
 	}
 
@@ -570,7 +568,7 @@ static int efa_sq_initialize(struct efa_qp *qp,
 			     const struct ibv_qp_init_attr_ex *attr,
 			     struct efa_create_qp_resp *resp)
 {
-	struct efa_dev *dev = to_efa_dev(qp->verbs_qp.qp.context->device);
+	struct efa_context *ctx = to_efa_context(qp->verbs_qp.qp.context);
 	struct efa_wq_init_attr wq_attr;
 	struct efa_sq *sq = &qp->sq;
 	size_t desc_ring_size;
@@ -612,7 +610,7 @@ static int efa_sq_initialize(struct efa_qp *qp,
 	}
 
 	sq->desc += sq->desc_offset;
-	sq->max_wr_rdma_sge = min_t(uint16_t, dev->max_wr_rdma_sge,
+	sq->max_wr_rdma_sge = min_t(uint16_t, ctx->max_wr_rdma_sge,
 				    EFA_IO_TX_DESC_NUM_RDMA_BUFS);
 
 	return 0;
@@ -738,7 +736,7 @@ static void efa_unlock_cqs(struct ibv_qp *ibvqp)
 static void efa_qp_fill_wr_pfns(struct ibv_qp_ex *ibvqpx,
 				struct ibv_qp_init_attr_ex *attr_ex);
 
-static int efa_check_qp_attr(struct efa_dev *dev,
+static int efa_check_qp_attr(struct efa_context *ctx,
 			     struct ibv_qp_init_attr_ex *attr,
 			     struct efadv_qp_init_attr *efa_attr)
 {
@@ -747,7 +745,7 @@ static int efa_check_qp_attr(struct efa_dev *dev,
 		IBV_QP_EX_WITH_SEND_WITH_IMM;
 	uint64_t supp_srd_send_ops_mask =
 		IBV_QP_EX_WITH_SEND | IBV_QP_EX_WITH_SEND_WITH_IMM |
-		(is_rdma_read_cap(dev) ? IBV_QP_EX_WITH_RDMA_READ : 0);
+		(is_rdma_read_cap(ctx) ? IBV_QP_EX_WITH_RDMA_READ : 0);
 
 #define EFA_CREATE_QP_SUPP_ATTR_MASK \
 	(IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)
@@ -787,19 +785,19 @@ static int efa_check_qp_attr(struct efa_dev *dev,
 	return 0;
 }
 
-static int efa_check_qp_limits(struct efa_dev *dev,
+static int efa_check_qp_limits(struct efa_context *ctx,
 			       struct ibv_qp_init_attr_ex *attr)
 {
-	if (attr->cap.max_send_sge > dev->max_sq_sge)
+	if (attr->cap.max_send_sge > ctx->max_sq_sge)
 		return EINVAL;
 
-	if (attr->cap.max_recv_sge > dev->max_rq_sge)
+	if (attr->cap.max_recv_sge > ctx->max_rq_sge)
 		return EINVAL;
 
-	if (attr->cap.max_send_wr > dev->max_sq_wr)
+	if (attr->cap.max_send_wr > ctx->max_sq_wr)
 		return EINVAL;
 
-	if (attr->cap.max_recv_wr > dev->max_rq_wr)
+	if (attr->cap.max_recv_wr > ctx->max_rq_wr)
 		return EINVAL;
 
 	return 0;
@@ -819,11 +817,11 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 	struct efa_qp *qp;
 	int err;
 
-	err = efa_check_qp_attr(dev, attr, efa_attr);
+	err = efa_check_qp_attr(ctx, attr, efa_attr);
 	if (err)
 		goto err_out;
 
-	err = efa_check_qp_limits(dev, attr);
+	err = efa_check_qp_limits(ctx, attr);
 	if (err)
 		goto err_out;
 
