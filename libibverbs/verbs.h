@@ -2258,6 +2258,16 @@ struct ibv_pd *ibv_import_pd(struct ibv_context *context,
 void ibv_unimport_pd(struct ibv_pd *pd);
 
 /**
+ * ibv_import_mr - Import a memory region
+ */
+struct ibv_mr *ibv_import_mr(struct ibv_pd *pd, uint32_t mr_handle);
+
+/**
+ * ibv_unimport_mr - Unimport a memory region
+ */
+void ibv_unimport_mr(struct ibv_mr *mr);
+
+/**
  * ibv_get_async_event - Get next async event
  * @event: Pointer to use to return async event
  *

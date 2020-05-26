@@ -366,6 +366,22 @@ void ibv_unimport_pd(struct ibv_pd *pd)
 }
 
 
+/**
+ * ibv_import_mr - Import a memory region
+ */
+struct ibv_mr *ibv_import_mr(struct ibv_pd *pd, uint32_t mr_handle)
+{
+	return get_ops(pd->context)->import_mr(pd, mr_handle);
+}
+
+/**
+ * ibv_unimport_mr - Unimport a memory region
+ */
+void ibv_unimport_mr(struct ibv_mr *mr)
+{
+	get_ops(mr->context)->unimport_mr(mr);
+}
+
 LATEST_SYMVER_FUNC(ibv_rereg_mr, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_mr *mr, int flags,

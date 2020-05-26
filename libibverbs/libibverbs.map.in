@@ -134,9 +134,11 @@ IBVERBS_1.9 {
 IBVERBS_1.10 {
 	global:
 		ibv_import_device;
+		ibv_import_mr;
 		ibv_import_pd;
 		ibv_query_ece;
 		ibv_set_ece;
+		ibv_unimport_mr;
 		ibv_unimport_pd;
 } IBVERBS_1.9;
 
