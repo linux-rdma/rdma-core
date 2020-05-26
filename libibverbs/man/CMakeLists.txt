@@ -37,6 +37,7 @@ rdma_man_pages(
   ibv_get_device_name.3.md
   ibv_get_pkey_index.3.md
   ibv_get_srq_num.3.md
+  ibv_import_device.3.md
   ibv_inc_rkey.3.md
   ibv_modify_qp.3
   ibv_modify_qp_rate_limit.3

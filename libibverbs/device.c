@@ -382,6 +382,68 @@ LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
 	return verbs_open_device(device, NULL);
 }
 
+struct ibv_context *ibv_import_device(int cmd_fd)
+{
+	struct verbs_device *verbs_device = NULL;
+	struct verbs_context *context_ex;
+	struct ibv_device **dev_list;
+	struct ibv_context *ctx = NULL;
+	struct stat st;
+	int ret;
+	int i;
+
+	if (fstat(cmd_fd, &st) || !S_ISCHR(st.st_mode)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	dev_list = ibv_get_device_list(NULL);
+	if (!dev_list) {
+		errno = ENODEV;
+		return NULL;
+	}
+
+	for (i = 0; dev_list[i]; ++i) {
+		if (verbs_get_device(dev_list[i])->sysfs->sysfs_cdev ==
+					st.st_rdev) {
+			verbs_device = verbs_get_device(dev_list[i]);
+			break;
+		}
+	}
+
+	if (!verbs_device) {
+		errno = ENODEV;
+		goto out;
+	}
+
+	if (!verbs_device->ops->import_context) {
+		errno = EOPNOTSUPP;
+		goto out;
+	}
+
+	/* In case the underlay cdev number was assigned in the meantime to
+	 * other device as of some disassociate flow, the next call on the
+	 * FD will end up with EIO (i.e. query_context command) and we should
+	 * be safe from using the wrong device.
+	 */
+	context_ex = verbs_device->ops->import_context(&verbs_device->device, cmd_fd);
+	if (!context_ex)
+		goto out;
+
+	set_lib_ops(context_ex);
+
+	context_ex->priv->imported = true;
+	ctx = &context_ex->context;
+	ret = ibv_cmd_alloc_async_fd(ctx);
+	if (ret) {
+		ibv_close_device(ctx);
+		ctx = NULL;
+	}
+out:
+	ibv_free_device_list(dev_list);
+	return ctx;
+}
+
 void verbs_uninit_context(struct verbs_context *context_ex)
 {
 	free(context_ex->priv);
