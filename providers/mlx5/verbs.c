@@ -1866,7 +1866,7 @@ static int mlx5_cmd_create_rss_qp(struct ibv_context *context,
 			attr->rx_hash_conf.rx_hash_key_len);
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
-				    sizeof(qp->verbs_qp), attr,
+				    attr,
 				    &cmd_ex_rss.ibv_cmd, sizeof(cmd_ex_rss),
 				    &resp.ibv_resp, sizeof(resp));
 	if (ret)
@@ -1899,7 +1899,7 @@ static int mlx5_cmd_create_qp_ex(struct ibv_context *context,
 	cmd_ex.drv_payload = cmd->drv_payload;
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
-				    sizeof(qp->verbs_qp), attr, &cmd_ex.ibv_cmd,
+				    attr, &cmd_ex.ibv_cmd,
 				    sizeof(cmd_ex), &resp->ibv_resp,
 				    sizeof(*resp));
 
@@ -1990,7 +1990,7 @@ static int create_dct(struct ibv_context *context,
 	}
 	cmd.uidx = usr_idx;
 
-	ret = ibv_cmd_create_qp_ex(context, &qp->verbs_qp, sizeof(qp->verbs_qp),
+	ret = ibv_cmd_create_qp_ex(context, &qp->verbs_qp,
 				   attr, &cmd.ibv_cmd, sizeof(cmd),
 				   &resp.ibv_resp, sizeof(resp));
 	if (ret) {
@@ -2290,7 +2290,7 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 	if (attr->comp_mask & MLX5_CREATE_QP_EX2_COMP_MASK)
 		ret = mlx5_cmd_create_qp_ex(context, attr, &cmd, qp, &resp_ex);
 	else
-		ret = ibv_cmd_create_qp_ex(context, &qp->verbs_qp, sizeof(qp->verbs_qp),
+		ret = ibv_cmd_create_qp_ex(context, &qp->verbs_qp,
 					   attr, &cmd.ibv_cmd, sizeof(cmd),
 					   &resp.ibv_resp, sizeof(resp));
 	if (ret) {
@@ -2898,8 +2898,12 @@ int mlx5_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 {
 	struct mlx5_srq *msrq = to_msrq(srq);
 
+	/* May be used by DC users in addition to XRC ones, as there is no
+	 * indication on the SRQ for DC usage we can't force the above check.
+	 * Even DC users are encouraged to use mlx5dv_init_obj() to get
+	 * the SRQN.
+	 */
 	*srq_num = msrq->srqn;
-
 	return 0;
 }
 
@@ -3156,7 +3160,7 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 	 */
 	attr->attr.max_wr = msrq->max - 1;
 
-	err = ibv_cmd_create_srq_ex(context, &msrq->vsrq, sizeof(msrq->vsrq),
+	err = ibv_cmd_create_srq_ex(context, &msrq->vsrq,
 				    attr, &cmd.ibv_cmd, sizeof(cmd),
 				    &resp.ibv_resp, sizeof(resp));
 

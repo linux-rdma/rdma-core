@@ -59,17 +59,8 @@ struct verbs_xrcd {
 	uint32_t		handle;
 };
 
-enum verbs_srq_mask {
-	VERBS_SRQ_TYPE		= 1 << 0,
-	VERBS_SRQ_XRCD		= 1 << 1,
-	VERBS_SRQ_CQ		= 1 << 2,
-	VERBS_SRQ_NUM		= 1 << 3,
-	VERBS_SRQ_RESERVED	= 1 << 4
-};
-
 struct verbs_srq {
 	struct ibv_srq		srq;
-	uint32_t		comp_mask;
 	enum ibv_srq_type	srq_type;
 	struct verbs_xrcd      *xrcd;
 	struct ibv_cq	       *cq;
@@ -512,7 +503,7 @@ int ibv_cmd_create_srq(struct ibv_pd *pd,
 		       struct ibv_create_srq *cmd, size_t cmd_size,
 		       struct ib_uverbs_create_srq_resp *resp, size_t resp_size);
 int ibv_cmd_create_srq_ex(struct ibv_context *context,
-			  struct verbs_srq *srq, int vsrq_sz,
+			  struct verbs_srq *srq,
 			  struct ibv_srq_init_attr_ex *attr_ex,
 			  struct ibv_create_xsrq *cmd, size_t cmd_size,
 			  struct ib_uverbs_create_srq_resp *resp, size_t resp_size);
@@ -530,12 +521,12 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 		      struct ibv_create_qp *cmd, size_t cmd_size,
 		      struct ib_uverbs_create_qp_resp *resp, size_t resp_size);
 int ibv_cmd_create_qp_ex(struct ibv_context *context,
-			 struct verbs_qp *qp, int vqp_sz,
+			 struct verbs_qp *qp,
 			 struct ibv_qp_init_attr_ex *attr_ex,
 			 struct ibv_create_qp *cmd, size_t cmd_size,
 			 struct ib_uverbs_create_qp_resp *resp, size_t resp_size);
 int ibv_cmd_create_qp_ex2(struct ibv_context *context,
-			  struct verbs_qp *qp, int vqp_sz,
+			  struct verbs_qp *qp,
 			  struct ibv_qp_init_attr_ex *qp_attr,
 			  struct ibv_create_qp_ex *cmd,
 			  size_t cmd_size,
@@ -632,16 +623,6 @@ int ibv_read_ibdev_sysfs_file(char *buf, size_t size,
 			      const char *fnfmt, ...)
 	__attribute__((format(printf, 4, 5)));
 int ibv_get_fw_ver(char *value, size_t len, struct verbs_sysfs_dev *sysfs_dev);
-
-static inline int verbs_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
-{
-	struct verbs_srq *vsrq = container_of(srq, struct verbs_srq, srq);
-	if (vsrq->comp_mask & VERBS_SRQ_NUM) {
-		*srq_num = vsrq->srq_num;
-		return 0;
-	}
-	return EOPNOTSUPP;
-}
 
 static inline bool check_comp_mask(uint64_t input, uint64_t supported)
 {

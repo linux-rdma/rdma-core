@@ -23,7 +23,7 @@ int ibv_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num);
 
 # DESCRIPTION
 
-**ibv_get_srq_num()** return srq number associated with the given shared
+**ibv_get_srq_num()** return srq number associated with the given XRC shared
 receive queue The argument *srq* is an ibv_srq struct, as defined in
 <infiniband/verbs.h>. *srq_num* is an output parameter that holds the returned
 srq number.
