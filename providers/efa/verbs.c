@@ -1256,7 +1256,8 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		/* Copy descriptor */
 		sq_desc_offset = (qp->sq.wq.pc & qp->sq.wq.desc_mask) *
 				 sizeof(tx_wqe);
-		memcpy(qp->sq.desc + sq_desc_offset, &tx_wqe, sizeof(tx_wqe));
+		mmio_memcpy_x64(qp->sq.desc + sq_desc_offset, &tx_wqe,
+				sizeof(tx_wqe));
 
 		/* advance index and change phase */
 		efa_sq_advance_post_idx(qp);
@@ -1520,9 +1521,11 @@ static int efa_send_wr_complete(struct ibv_qp_ex *ibvqpx)
 	while (qp->sq.num_wqe_pending) {
 		num_wqe_to_copy = min(qp->sq.num_wqe_pending,
 				      qp->sq.wq.wqe_cnt - sq_desc_idx);
-		memcpy((struct efa_io_tx_wqe *)qp->sq.desc + sq_desc_idx,
-		       (struct efa_io_tx_wqe *)qp->sq.local_queue + local_idx,
-		       num_wqe_to_copy * sizeof(struct efa_io_tx_wqe));
+		mmio_memcpy_x64((struct efa_io_tx_wqe *)qp->sq.desc +
+							sq_desc_idx,
+				(struct efa_io_tx_wqe *)qp->sq.local_queue +
+							local_idx,
+				num_wqe_to_copy * sizeof(struct efa_io_tx_wqe));
 
 		qp->sq.num_wqe_pending -= num_wqe_to_copy;
 		local_idx += num_wqe_to_copy;
