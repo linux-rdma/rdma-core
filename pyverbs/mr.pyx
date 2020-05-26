@@ -6,7 +6,8 @@ import logging
 
 from posix.mman cimport mmap, munmap, MAP_PRIVATE, PROT_READ, PROT_WRITE, \
     MAP_ANONYMOUS, MAP_HUGETLB
-from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError, \
+    PyverbsUserError
 from libc.stdint cimport uintptr_t, SIZE_MAX
 from pyverbs.base import PyverbsRDMAErrno
 from posix.stdlib cimport posix_memalign
@@ -135,6 +136,9 @@ cdef class MR(PyverbsCM):
         :param length: Length of the data to write
         :return: None
         """
+        if not self.buf or length < 0:
+            raise PyverbsUserError('The MR buffer isn\'t allocated or length'
+                                   f' {length} is invalid')
         # If data is a string, cast it to bytes as Python3 doesn't
         # automatically convert it.
         if isinstance(data, str):
@@ -151,6 +155,11 @@ cdef class MR(PyverbsCM):
         cdef char *data
         cdef int off = offset # we can't use offset in the next line, as it is
                               # a Python object and not C
+        if offset < 0:
+            raise PyverbsUserError(f'Invalid offset {offset}')
+        if not self.buf or length < 0:
+            raise PyverbsUserError('The MR buffer isn\'t allocated or length'
+                                   f' {length} is invalid')
         data = <char*>(self.buf + off)
         return data[:length]
 
