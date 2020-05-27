@@ -90,12 +90,13 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 						    int cmd_fd,
 						    void *private_data)
 {
-	int i;
-	struct ibv_get_context cmd;
+	struct hns_roce_device *hr_dev = to_hr_dev(ibdev);
+	struct hns_roce_alloc_ucontext_resp resp = {};
 	struct ibv_device_attr dev_attrs;
 	struct hns_roce_context *context;
-	struct hns_roce_alloc_ucontext_resp resp = {};
-	struct hns_roce_device *hr_dev = to_hr_dev(ibdev);
+	struct ibv_get_context cmd;
+	int offset = 0;
+	int i;
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
 					       RDMA_DRIVER_HNS);
@@ -115,12 +116,12 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	for (i = 0; i < HNS_ROCE_QP_TABLE_SIZE; ++i)
 		context->qp_table[i].refcnt = 0;
 
-	context->uar = mmap(NULL, hr_dev->page_size,
-			    PROT_READ | PROT_WRITE, MAP_SHARED, cmd_fd, 0);
-	if (context->uar == MAP_FAILED) {
-		fprintf(stderr, PFX "Warning: failed to mmap() uar page.\n");
+	context->uar = mmap(NULL, hr_dev->page_size, PROT_READ | PROT_WRITE,
+			    MAP_SHARED, cmd_fd, offset);
+	if (context->uar == MAP_FAILED)
 		goto err_free;
-	}
+
+	offset += hr_dev->page_size;
 
 	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
 		/*
@@ -129,12 +130,9 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 		 */
 		context->cq_tptr_base = mmap(NULL, HNS_ROCE_CQ_DB_BUF_SIZE,
 					     PROT_READ | PROT_WRITE, MAP_SHARED,
-					     cmd_fd, HNS_ROCE_TPTR_OFFSET);
-		if (context->cq_tptr_base == MAP_FAILED) {
-			fprintf(stderr,
-				PFX "Warning: Failed to mmap cq_tptr page.\n");
+					     cmd_fd, offset);
+		if (context->cq_tptr_base == MAP_FAILED)
 			goto db_free;
-		}
 	}
 
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
