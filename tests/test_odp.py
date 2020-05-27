@@ -23,13 +23,15 @@ class OdpUD(UDResources):
 
 class OdpRC(RCResources):
     def __init__(self, dev_name, ib_port, gid_index, is_huge=False,
-                 user_addr=None, use_mr_prefetch=False, is_implicit=False):
+                 user_addr=None, use_mr_prefetch=None, is_implicit=False):
         """
         Initialize an OdpRC object.
         :param dev_name: Device name to be used
         :param ib_port: IB port of the device to use
         :param gid_index: Which GID index to use
-        :param use_mr_prefetch: If True, prefetch the MRs
+        :param use_mr_prefetch: Describes the properties of the prefetch
+                                operation. The options are 'sync', 'async'
+                                and None to skip the prefetch operation.
         :param is_huge: If True, use huge pages for MR registration
         :param user_addr: The MR's buffer address. If None, the buffer will be
                           allocated by pyverbs.
@@ -139,10 +141,18 @@ class OdpTestCase(RDMATestCase):
                                               user_addr=self.user_addr)
         traffic(client, server, self.iters, self.gid_index, self.ib_port)
 
-    def test_odp_prefetch_rc_traffic(self):
-        client, server = self.create_players(OdpRC, use_mr_prefetch=True)
+    def test_odp_sync_prefetch_rc_traffic(self):
+        client, server = self.create_players(OdpRC, use_mr_prefetch='sync')
         traffic(client, server, self.iters, self.gid_index, self.ib_port)
 
-    def test_odp_implicit_prefetch_rc_traffic(self):
-        client, server = self.create_players(OdpRC, use_mr_prefetch=True, is_implicit=True)
+    def test_odp_async_prefetch_rc_traffic(self):
+        client, server = self.create_players(OdpRC, use_mr_prefetch='async')
+        traffic(client, server, self.iters, self.gid_index, self.ib_port)
+
+    def test_odp_implicit_sync_prefetch_rc_traffic(self):
+        client, server = self.create_players(OdpRC, use_mr_prefetch='sync', is_implicit=True)
+        traffic(client, server, self.iters, self.gid_index, self.ib_port)
+
+    def test_odp_implicit_async_prefetch_rc_traffic(self):
+        client, server = self.create_players(OdpRC, use_mr_prefetch='async', is_implicit=True)
         traffic(client, server, self.iters, self.gid_index, self.ib_port)
