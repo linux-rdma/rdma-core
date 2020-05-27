@@ -13,6 +13,9 @@ Source: rdma-core-%{version}.tgz
 # Do not build static libs by default.
 %define with_static %{?_with_static: 1} %{?!_with_static: 0}
 
+# Build with systemd by default.
+%define with_systemd %{?_with_systemd: %_with_systemd} %{?!_with_systemd: 1}
+
 # 32-bit arm is missing required arch-specific memory barriers,
 ExcludeArch: %{arm}
 
@@ -25,8 +28,10 @@ BuildRequires: pkgconfig(libnl-3.0)
 BuildRequires: pkgconfig(libnl-route-3.0)
 BuildRequires: /usr/bin/rst2man
 BuildRequires: valgrind-devel
+%if %{with_systemd}
 BuildRequires: systemd
 BuildRequires: systemd-devel
+%endif
 %if 0%{?fedora} >= 32
 %define with_pyverbs %{?_with_pyverbs: 0} %{?!_with_pyverbs: 1}
 %else
@@ -53,7 +58,11 @@ BuildRequires: python-docutils
 BuildRequires: perl-generators
 %endif
 
-Requires: dracut, kmod, systemd, pciutils
+%if %{with_systemd}
+Requires: systemd
+%endif
+Requires: dracut, kmod, pciutils
+
 # Red Hat/Fedora previously shipped redhat/ as a stand-alone
 # package called 'rdma', which we're supplanting here.
 Provides: rdma = %{version}-%{release}
@@ -197,9 +206,11 @@ displays information about RDMA devices.
 
 %package -n ibacm
 Summary: InfiniBand Communication Manager Assistant
+%if %{with_systemd}
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
+%endif
 Requires: %{name}%{?_isa} = %{version}-%{release}
 
 %description -n ibacm
@@ -214,9 +225,11 @@ library knows how to talk directly to the ibacm daemon to retrieve data.
 
 %package -n iwpmd
 Summary: iWarp Port Mapper userspace daemon
+%if %{with_systemd}
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
+%endif
 Requires: %{name}%{?_isa} = %{version}-%{release}
 
 %description -n iwpmd
@@ -251,9 +264,11 @@ Summary: Tools for using the InfiniBand SRP protocol devices
 Obsoletes: srptools <= 1.0.3
 Provides: srptools = %{version}-%{release}
 Obsoletes: openib-srptools <= 0.0.6
+%if %{with_systemd}
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
+%endif
 Requires: %{name}%{?_isa} = %{version}-%{release}
 
 %description -n srp_daemon
@@ -296,7 +311,9 @@ easy, object-oriented access to IB verbs.
          -DCMAKE_INSTALL_INFODIR:PATH=%{_infodir} \
          -DCMAKE_INSTALL_MANDIR:PATH=%{_mandir} \
          -DCMAKE_INSTALL_SYSCONFDIR:PATH=%{_sysconfdir} \
+%if %{with_systemd}
          -DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=%{_unitdir} \
+%endif
          -DCMAKE_INSTALL_INITDDIR:PATH=%{_initrddir} \
          -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
          -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name} \
@@ -334,7 +351,9 @@ mkdir -p %{buildroot}%{sysmodprobedir}
 install -D -m0644 redhat/rdma.conf %{buildroot}/%{_sysconfdir}/rdma/rdma.conf
 install -D -m0644 redhat/rdma.sriov-vfs %{buildroot}/%{_sysconfdir}/rdma/sriov-vfs
 install -D -m0644 redhat/rdma.mlx4.conf %{buildroot}/%{_sysconfdir}/rdma/mlx4.conf
+%if %{with_systemd}
 install -D -m0644 redhat/rdma.service %{buildroot}%{_unitdir}/rdma.service
+%endif
 install -D -m0755 redhat/rdma.modules-setup.sh %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
 install -D -m0644 redhat/rdma.udev-rules %{buildroot}%{_udevrulesdir}/98-rdma.rules
 install -D -m0644 redhat/rdma.mlx4.sys.modprobe %{buildroot}%{sysmodprobedir}/libmlx4.conf
@@ -346,9 +365,13 @@ install -D -m0755 redhat/rdma.mlx4-setup.sh %{buildroot}%{_libexecdir}/mlx4-setu
 bin/ib_acme -D . -O
 install -D -m0644 ibacm_opts.cfg %{buildroot}%{_sysconfdir}/rdma/
 
+%if %{with_systemd}
 # Delete the package's init.d scripts
 rm -rf %{buildroot}/%{_initrddir}/
 rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
+%else
+rm -rf %{buildroot}/usr/lib/systemd/
+%endif
 
 %post -n rdma-core
 # we ship udev rules, so trigger an update.
@@ -368,6 +391,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %post -n librdmacm -p /sbin/ldconfig
 %postun -n librdmacm -p /sbin/ldconfig
 
+%if %{with_systemd}
 %post -n ibacm
 %systemd_post ibacm.service
 %preun -n ibacm
@@ -388,6 +412,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %systemd_preun iwpmd.service
 %postun -n iwpmd
 %systemd_postun_with_restart iwpmd.service
+%endif
 
 %files
 %dir %{_sysconfdir}/rdma
@@ -407,9 +432,11 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %config(noreplace) %{_sysconfdir}/udev/rules.d/*
 %config(noreplace) %{_sysconfdir}/modprobe.d/mlx4.conf
 %config(noreplace) %{_sysconfdir}/modprobe.d/truescale.conf
+%if %{with_systemd}
 %{_unitdir}/rdma-hw.target
 %{_unitdir}/rdma-load-modules@.service
 %{_unitdir}/rdma.service
+%endif
 %dir %{dracutlibdir}/modules.d/05rdma
 %{dracutlibdir}/modules.d/05rdma/module-setup.sh
 %{_udevrulesdir}/../rdma_rename
@@ -426,7 +453,9 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
 %{_sbindir}/rdma-ndd
+%if %{with_systemd}
 %{_unitdir}/rdma-ndd.service
+%endif
 %{_mandir}/man7/rxe*
 %{_mandir}/man8/rdma-ndd.*
 %license COPYING.*
@@ -587,15 +616,23 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_mandir}/man7/ibacm.*
 %{_mandir}/man7/ibacm_prov.*
 %{_mandir}/man8/ibacm.*
+%if %{with_systemd}
 %{_unitdir}/ibacm.service
 %{_unitdir}/ibacm.socket
+%else
+%{_initrddir}/ibacm
+%endif
 %dir %{_libdir}/ibacm
 %{_libdir}/ibacm/*
 %doc %{_docdir}/%{name}/ibacm.md
 
 %files -n iwpmd
 %{_sbindir}/iwpmd
+%if %{with_systemd}
 %{_unitdir}/iwpmd.service
+%else
+%{_initrddir}/iwpmd
+%endif
 %config(noreplace) %{_sysconfdir}/rdma/modules/iwpmd.conf
 %config(noreplace) %{_sysconfdir}/iwpmd.conf
 %{_udevrulesdir}/90-iwpmd.rules
@@ -644,8 +681,13 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %config(noreplace) %{_sysconfdir}/srp_daemon.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/srp_daemon.conf
 %{_libexecdir}/srp_daemon/start_on_all_ports
+%if %{with_systemd}
 %{_unitdir}/srp_daemon.service
 %{_unitdir}/srp_daemon_port@.service
+%else
+%{_initrddir}/srpd
+%{_sbindir}/srp_daemon.sh
+%endif
 %{_sbindir}/ibsrpdm
 %{_sbindir}/srp_daemon
 %{_sbindir}/run_srp_daemon
