@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2020 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #include <assert.h>
@@ -541,7 +541,9 @@ static void efa_sq_terminate(struct efa_qp *qp)
 	efa_wq_terminate(&qp->sq.wq);
 }
 
-static int efa_sq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
+static int efa_sq_initialize(struct efa_qp *qp,
+			     const struct ibv_qp_init_attr_ex *attr,
+			     struct efa_create_qp_resp *resp)
 {
 	struct efa_dev *dev = to_efa_dev(qp->verbs_qp.qp.context->device);
 	size_t desc_ring_size;
@@ -559,7 +561,7 @@ static int efa_sq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 	desc_ring_size = qp->sq.wq.wqe_cnt * sizeof(struct efa_io_tx_wqe);
 	qp->sq.desc_ring_mmap_size = align(desc_ring_size + qp->sq.desc_offset,
 					   qp->page_size);
-	qp->sq.max_inline_data = resp->ibv_resp.max_inline_data;
+	qp->sq.max_inline_data = attr->cap.max_inline_data;
 
 	qp->sq.local_queue = malloc(desc_ring_size);
 	if (!qp->sq.local_queue) {
@@ -840,7 +842,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 	if (err)
 		goto err_destroy_qp;
 
-	err = efa_sq_initialize(qp, &resp);
+	err = efa_sq_initialize(qp, attr, &resp);
 	if (err)
 		goto err_terminate_rq;
 
