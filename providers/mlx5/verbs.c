@@ -592,7 +592,6 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	ret = ibv_cmd_reg_mr(pd, addr, length, hca_va, access, &mr->vmr, &cmd,
 			     sizeof(cmd), &resp, sizeof(resp));
 	if (ret) {
-		mlx5_free_buf(&(mr->buf));
 		free(mr);
 		return NULL;
 	}
