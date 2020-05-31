@@ -175,6 +175,8 @@ with d.Context(name='mlx5_0') as ctx:
 ##### Memory window
 The following example shows the equivalent of creating a type 1 memory window.
 It includes opening a device and allocating the necessary PD.
+The user should unbind or close the memory window before being able to
+deregister an MR that the MW is bound to.
 ```python
 import pyverbs.device as d
 from pyverbs.pd import PD

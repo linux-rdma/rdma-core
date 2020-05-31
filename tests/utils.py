@@ -278,7 +278,7 @@ def create_custom_mr(agr_obj, additional_access_flags=0, size=None):
 
 # Traffic helpers
 
-def get_send_elements(agr_obj, is_server):
+def get_send_elements(agr_obj, is_server, opcode=e.IBV_WR_SEND):
     """
     Creates a single SGE and a single Send WR for agr_obj's QP type. The content
     of the message is either 's' for server side or 'c' for client side.
@@ -293,8 +293,10 @@ def get_send_elements(agr_obj, is_server):
     msg = (agr_obj.msg_size + offset) * ('s' if is_server else 'c')
     mr.write(msg, agr_obj.msg_size + offset)
     sge = SGE(mr.buf + offset, agr_obj.msg_size, mr.lkey)
-    return SendWR(num_sge=1, sg=[sge]), sge
-
+    send_wr = SendWR(opcode=opcode, num_sge=1, sg=[sge])
+    if opcode in [e.IBV_WR_RDMA_WRITE, e.IBV_WR_RDMA_READ]:
+        send_wr.set_wr_rdma(int(agr_obj.rkey), int(agr_obj.remote_addr))
+    return send_wr, sge
 
 def get_recv_wr(agr_obj):
     """
@@ -490,13 +492,14 @@ def validate(received_str, is_server, msg_size):
                 format(exp=expected_str, rcv=received_str))
 
 
-def send(agr_obj, send_object, gid_index, port, send_op=None):
-    if send_op:
+def send(agr_obj, send_object, gid_index, port, send_op=None, new_send=False):
+    if new_send:
         return post_send_ex(agr_obj, send_object, gid_index, port, send_op)
     return post_send(agr_obj, send_object, gid_index, port)
 
 
-def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None):
+def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
+            new_send=False):
     """
     Runs basic traffic between two sides
     :param client: client side, clients base class is BaseTraffic
@@ -505,7 +508,8 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None):
     :param gid_idx: local gid index
     :param port: IB port
     :param is_cq_ex: If True, use poll_cq_ex() rather than poll_cq()
-    :param send_op: If not None, new post send API is assumed.
+    :param send_op: The send_wr opcode.
+    :param new_send: If True use new post send API.
     :return:
     """
     poll = poll_cq_ex if is_cq_ex else poll_cq
@@ -524,7 +528,7 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None):
         if client.use_mr_prefetch:
             prefetch_mrs(client, [c_sg])
         c_send_object = c_sg if send_op else c_send_wr
-        send(client, c_send_object, gid_idx, port, send_op)
+        send(client, c_send_object, gid_idx, port, send_op, new_send)
         poll(client.cq)
         poll(server.cq, data=imm_data)
         post_recv(server.qp, s_recv_wr)
@@ -534,7 +538,7 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None):
         if server.use_mr_prefetch:
             prefetch_mrs(server, [s_sg])
         s_send_object = s_sg if send_op else s_send_wr
-        send(server, s_send_object, gid_idx, port, send_op)
+        send(server, s_send_object, gid_idx, port, send_op, new_send)
         poll(server.cq)
         poll(client.cq, data=imm_data)
         post_recv(client.qp, c_recv_wr)
@@ -542,7 +546,8 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None):
         validate(msg_received, False, client.msg_size)
 
 
-def rdma_traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None):
+def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
+                 send_op=None):
     """
     Runs basic RDMA traffic between two sides. No receive WQEs are posted. For
     RDMA send with immediate, use traffic().
@@ -551,18 +556,19 @@ def rdma_traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=N
     :param iters: number of traffic iterations
     :param gid_idx: local gid index
     :param port: IB port
-    :param is_cq_ex: If True, use poll_cq_ex() rather than poll_cq()
-    :param send_op: If not None, new post send API is assumed.
+    :param new_send: If True use new post send API.
+    :param send_op: The send_wr opcode.
     :return:
     """
     # Using the new post send API, we need the SGE, not the SendWR
-    send_element_idx = 1 if send_op else 0
-    same_side_check = (send_op == e.IBV_QP_EX_WITH_RDMA_READ or
-                       send_op == e.IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP or
-                       send_op == e.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD)
+    send_element_idx = 1 if new_send else 0
+    same_side_check =  send_op in [e.IBV_QP_EX_WITH_RDMA_READ,
+                                   e.IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP,
+                                   e.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD,
+                                   e.IBV_WR_RDMA_READ]
     for _ in range(iters):
-        c_send_wr = get_send_elements(client, False)[send_element_idx]
-        send(client, c_send_wr, gid_idx, port, send_op)
+        c_send_wr = get_send_elements(client, False, send_op)[send_element_idx]
+        send(client, c_send_wr, gid_idx, port, send_op, new_send)
         poll_cq(client.cq)
         if same_side_check:
             msg_received = client.mr.read(client.msg_size, 0)
@@ -570,10 +576,10 @@ def rdma_traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=N
             msg_received = server.mr.read(server.msg_size, 0)
         validate(msg_received, False if same_side_check else True,
                  server.msg_size)
-        s_send_wr = get_send_elements(server, True)[send_element_idx]
+        s_send_wr = get_send_elements(server, True, send_op)[send_element_idx]
         if same_side_check:
             client.mr.write('c' * client.msg_size, client.msg_size)
-        send(server, s_send_wr, gid_idx, port, send_op)
+        send(server, s_send_wr, gid_idx, port, send_op, new_send)
         poll_cq(server.cq)
         if same_side_check:
             msg_received = server.mr.read(client.msg_size, 0)
