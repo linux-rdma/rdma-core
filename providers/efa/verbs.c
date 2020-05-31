@@ -622,20 +622,23 @@ err_terminate_wq:
 
 static void efa_rq_terminate(struct efa_qp *qp)
 {
-	if (!qp->rq.wq.wrid)
+	struct efa_rq *rq = &qp->rq;
+
+	if (!rq->wq.wrid)
 		return;
 
-	munmap(qp->rq.buf, qp->rq.buf_size);
+	munmap(rq->buf, rq->buf_size);
 
-	efa_wq_terminate(&qp->rq.wq, qp->page_size);
+	efa_wq_terminate(&rq->wq, qp->page_size);
 }
 
 static int efa_rq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 {
 	struct efa_wq_init_attr wq_attr;
+	struct efa_rq *rq = &qp->rq;
 	int err;
 
-	if (!qp->rq.wq.wqe_cnt)
+	if (!rq->wq.wqe_cnt)
 		return 0;
 
 	wq_attr = (struct efa_wq_init_attr) {
@@ -650,10 +653,10 @@ static int efa_rq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 	if (err)
 		return err;
 
-	qp->rq.buf_size = resp->rq_mmap_size;
-	qp->rq.buf = mmap(NULL, qp->rq.buf_size, PROT_WRITE, MAP_SHARED,
-			  qp->verbs_qp.qp.context->cmd_fd, resp->rq_mmap_key);
-	if (qp->rq.buf == MAP_FAILED) {
+	rq->buf_size = resp->rq_mmap_size;
+	rq->buf = mmap(NULL, rq->buf_size, PROT_WRITE, MAP_SHARED,
+		       qp->verbs_qp.qp.context->cmd_fd, resp->rq_mmap_key);
+	if (rq->buf == MAP_FAILED) {
 		err = errno;
 		goto err_terminate_wq;
 	}
@@ -661,7 +664,7 @@ static int efa_rq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 	return 0;
 
 err_terminate_wq:
-	efa_wq_terminate(&qp->rq.wq, qp->page_size);
+	efa_wq_terminate(&rq->wq, qp->page_size);
 	return err;
 }
 
