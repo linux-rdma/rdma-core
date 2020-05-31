@@ -137,6 +137,7 @@ struct qelr_devctx {
 	enum qelr_dpm_flags	dpm_flags;
 	uint32_t		kernel_page_size;
 	uint16_t		ldpm_limit_size;
+	uint16_t		edpm_limit_size;
 	uint8_t			edpm_trans_size;
 
 	uint32_t		max_send_wr;

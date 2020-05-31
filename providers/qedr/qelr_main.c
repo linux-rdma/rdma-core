@@ -181,7 +181,7 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 	qelr_open_debug_file(ctx);
 	qelr_set_debug_mask();
 
-	cmd.context_flags = QEDR_ALLOC_UCTX_DB_REC;
+	cmd.context_flags = QEDR_ALLOC_UCTX_DB_REC | QEDR_SUPPORT_DPM_SIZES;
 	if (ibv_cmd_get_context(&ctx->ibv_ctx, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
 		goto cmd_err;
@@ -208,9 +208,12 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 	if (resp.dpm_flags & QEDR_DPM_SIZES_SET) {
 		ctx->ldpm_limit_size = resp.ldpm_limit_size;
 		ctx->edpm_trans_size = resp.edpm_trans_size;
+		ctx->edpm_limit_size = resp.edpm_limit_size ?
+			resp.edpm_limit_size : QEDR_EDPM_MAX_SIZE;
 	} else {
 		ctx->ldpm_limit_size = QEDR_LDPM_MAX_SIZE;
 		ctx->edpm_trans_size = QEDR_EDPM_TRANS_SIZE;
+		ctx->edpm_limit_size = QEDR_EDPM_MAX_SIZE;
 	}
 
 	ctx->max_send_wr = resp.max_send_wr;

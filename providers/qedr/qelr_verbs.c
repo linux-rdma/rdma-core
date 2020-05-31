@@ -1100,7 +1100,8 @@ static inline void qelr_init_dpm_info(struct qelr_devctx *cxt,
 
 	/* Check if edpm can be used */
 	if (wr->send_flags & IBV_SEND_INLINE && !qp->edpm_disabled &&
-	    cxt->dpm_flags & QELR_DPM_FLAGS_ENHANCED) {
+	    cxt->dpm_flags & QELR_DPM_FLAGS_ENHANCED &&
+	    data_size <= cxt->edpm_limit_size) {
 		memset(dpm, 0, sizeof(*dpm));
 		dpm->rdma_ext = (struct qelr_rdma_ext *)&dpm->payload;
 		dpm->is_edpm = 1;
