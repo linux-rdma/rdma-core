@@ -555,13 +555,15 @@ err_free_wrid:
 
 static void efa_sq_terminate(struct efa_qp *qp)
 {
-	if (!qp->sq.wq.wrid)
+	struct efa_sq *sq = &qp->sq;
+
+	if (!sq->wq.wrid)
 		return;
 
-	munmap(qp->sq.desc - qp->sq.desc_offset, qp->sq.desc_ring_mmap_size);
-	free(qp->sq.local_queue);
+	munmap(sq->desc - sq->desc_offset, sq->desc_ring_mmap_size);
+	free(sq->local_queue);
 
-	efa_wq_terminate(&qp->sq.wq, qp->page_size);
+	efa_wq_terminate(&sq->wq, qp->page_size);
 }
 
 static int efa_sq_initialize(struct efa_qp *qp,
@@ -570,10 +572,11 @@ static int efa_sq_initialize(struct efa_qp *qp,
 {
 	struct efa_dev *dev = to_efa_dev(qp->verbs_qp.qp.context->device);
 	struct efa_wq_init_attr wq_attr;
+	struct efa_sq *sq = &qp->sq;
 	size_t desc_ring_size;
 	int err;
 
-	if (!qp->sq.wq.wqe_cnt)
+	if (!sq->wq.wqe_cnt)
 		return 0;
 
 	wq_attr = (struct efa_wq_init_attr) {
@@ -583,40 +586,41 @@ static int efa_sq_initialize(struct efa_qp *qp,
 		.pgsz = qp->page_size,
 		.sub_cq_idx = resp->send_sub_cq_idx,
 	};
+
 	err = efa_wq_initialize(&qp->sq.wq, &wq_attr);
 	if (err)
 		return err;
 
-	qp->sq.desc_offset = resp->llq_desc_offset;
-	desc_ring_size = qp->sq.wq.wqe_cnt * sizeof(struct efa_io_tx_wqe);
-	qp->sq.desc_ring_mmap_size = align(desc_ring_size + qp->sq.desc_offset,
-					   qp->page_size);
-	qp->sq.max_inline_data = attr->cap.max_inline_data;
+	sq->desc_offset = resp->llq_desc_offset;
+	desc_ring_size = sq->wq.wqe_cnt * sizeof(struct efa_io_tx_wqe);
+	sq->desc_ring_mmap_size = align(desc_ring_size + sq->desc_offset,
+					qp->page_size);
+	sq->max_inline_data = attr->cap.max_inline_data;
 
-	qp->sq.local_queue = malloc(desc_ring_size);
-	if (!qp->sq.local_queue) {
+	sq->local_queue = malloc(desc_ring_size);
+	if (!sq->local_queue) {
 		err = ENOMEM;
 		goto err_terminate_wq;
 	}
 
-	qp->sq.desc = mmap(NULL, qp->sq.desc_ring_mmap_size, PROT_WRITE,
-			   MAP_SHARED, qp->verbs_qp.qp.context->cmd_fd,
-			   resp->llq_desc_mmap_key);
-	if (qp->sq.desc == MAP_FAILED) {
+	sq->desc = mmap(NULL, sq->desc_ring_mmap_size, PROT_WRITE,
+			MAP_SHARED, qp->verbs_qp.qp.context->cmd_fd,
+			resp->llq_desc_mmap_key);
+	if (sq->desc == MAP_FAILED) {
 		err = errno;
 		goto err_free_local_queue;
 	}
 
-	qp->sq.desc += qp->sq.desc_offset;
-	qp->sq.max_wr_rdma_sge = min_t(uint16_t, dev->max_wr_rdma_sge,
-				       EFA_IO_TX_DESC_NUM_RDMA_BUFS);
+	sq->desc += sq->desc_offset;
+	sq->max_wr_rdma_sge = min_t(uint16_t, dev->max_wr_rdma_sge,
+				    EFA_IO_TX_DESC_NUM_RDMA_BUFS);
 
 	return 0;
 
 err_free_local_queue:
-	free(qp->sq.local_queue);
+	free(sq->local_queue);
 err_terminate_wq:
-	efa_wq_terminate(&qp->sq.wq, qp->page_size);
+	efa_wq_terminate(&sq->wq, qp->page_size);
 	return err;
 }
 
