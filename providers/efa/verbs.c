@@ -557,7 +557,7 @@ static void efa_sq_terminate(struct efa_qp *qp)
 {
 	struct efa_sq *sq = &qp->sq;
 
-	if (!sq->wq.wrid)
+	if (!sq->wq.wqe_cnt)
 		return;
 
 	munmap(sq->desc - sq->desc_offset, sq->desc_ring_mmap_size);
@@ -628,7 +628,7 @@ static void efa_rq_terminate(struct efa_qp *qp)
 {
 	struct efa_rq *rq = &qp->rq;
 
-	if (!rq->wq.wrid)
+	if (!rq->wq.wqe_cnt)
 		return;
 
 	munmap(rq->buf, rq->buf_size);
