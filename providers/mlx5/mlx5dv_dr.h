@@ -1700,6 +1700,9 @@ void dr_buddy_cleanup(struct dr_icm_buddy_mem *buddy);
 int dr_buddy_alloc_mem(struct dr_icm_buddy_mem *buddy, int order);
 void dr_buddy_free_mem(struct dr_icm_buddy_mem *buddy, uint32_t seg, int order);
 
+void dr_ste_free_modify_hdr(struct mlx5dv_dr_action *action);
+int dr_ste_alloc_modify_hdr(struct mlx5dv_dr_action *action);
+
 void dr_vports_table_add_wire(struct dr_devx_vports *vports);
 void dr_vports_table_del_wire(struct dr_devx_vports *vports);
 struct dr_devx_vport_cap *dr_vports_table_get_vport_cap(struct dr_devx_caps *caps,
