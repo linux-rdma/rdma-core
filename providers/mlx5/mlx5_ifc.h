@@ -1233,7 +1233,15 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         dma_mmo_qp[0x1];
 	u8         reserved_at_749[0x17];
 
-	u8         reserved_at_760[0x60];
+	u8         reserved_at_760[0x3];
+	u8         log_max_num_header_modify_argument[0x5];
+	u8         reserved_at_768[0x4];
+	u8         log_header_modify_argument_granularity[0x4];
+	u8         reserved_at_770[0x3];
+	u8         log_header_modify_argument_max_alloc[0x5];
+	u8         reserved_at_778[0x8];
+
+	u8         reserved_at_780[0x40];
 
 	u8         match_definer_format_supported[0x40];
 };
@@ -3203,6 +3211,7 @@ enum {
 	MLX5_OBJ_TYPE_MATCH_DEFINER = 0x0018,
 	MLX5_OBJ_TYPE_CRYPTO_LOGIN = 0x001F,
 	MLX5_OBJ_TYPE_FLOW_SAMPLER = 0x0020,
+	MLX5_OBJ_TYPE_HEADER_MODIFY_ARGUMENT = 0x0023,
 	MLX5_OBJ_TYPE_ASO_FLOW_METER = 0x0024,
 	MLX5_OBJ_TYPE_ASO_FIRST_HIT = 0x0025,
 	MLX5_OBJ_TYPE_SCHEDULING_ELEMENT = 0x0026,

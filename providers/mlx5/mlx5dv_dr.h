@@ -938,6 +938,8 @@ struct dr_devx_caps {
 	bool				fdb_sw_owner_v2;
 	struct dr_devx_roce_cap		roce_caps;
 	uint64_t			definer_format_sup;
+	uint16_t			log_header_modify_argument_granularity;
+	bool				support_modify_argument;
 	bool				prio_tag_required;
 	bool				is_ecpf;
 	struct dr_devx_vports		vports;
