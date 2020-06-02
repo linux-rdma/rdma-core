@@ -203,5 +203,6 @@ struct dr_ste_ctx {
 };
 
 struct dr_ste_ctx *dr_ste_get_ctx_v0(void);
+struct dr_ste_ctx *dr_ste_get_ctx_v1(void);
 
 #endif
