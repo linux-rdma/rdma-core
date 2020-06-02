@@ -661,9 +661,8 @@ static void dr_ste_v0_build_tnl_mpls_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_mpls_tag;
 }
 
-#define ICMP_TYPE_OFFSET_FIRST_DW		24
-#define ICMP_CODE_OFFSET_FIRST_DW		16
-#define ICMP_HEADER_DATA_OFFSET_SECOND_DW	0
+#define ICMP_TYPE_OFFSET_FIRST_DW	24
+#define ICMP_CODE_OFFSET_FIRST_DW	16
 
 static int dr_ste_v0_build_icmp_tag(struct dr_match_param *value,
 				    struct dr_ste_build *sb,
@@ -671,47 +670,34 @@ static int dr_ste_v0_build_icmp_tag(struct dr_match_param *value,
 {
 	struct dr_match_misc3 *misc3 = &value->misc3;
 	bool is_ipv4 = DR_MASK_IS_ICMPV4_SET(misc3);
-	uint32_t icmp_header_data;
-	uint32_t icmp_type;
-	uint32_t icmp_code;
+	uint32_t *icmp_header_data;
+	uint8_t *icmp_type;
+	uint8_t *icmp_code;
 	int dw0_location;
 	int dw1_location;
 
 	if (is_ipv4) {
-		icmp_header_data	= misc3->icmpv4_header_data;
-		icmp_type		= misc3->icmpv4_type;
-		icmp_code		= misc3->icmpv4_code;
+		icmp_header_data	= &misc3->icmpv4_header_data;
+		icmp_type		= &misc3->icmpv4_type;
+		icmp_code		= &misc3->icmpv4_code;
 		dw0_location		= sb->caps->flex_parser_id_icmp_dw0;
 		dw1_location		= sb->caps->flex_parser_id_icmp_dw1;
 	} else {
-		icmp_header_data	= misc3->icmpv6_header_data;
-		icmp_type		= misc3->icmpv6_type;
-		icmp_code		= misc3->icmpv6_code;
+		icmp_header_data	= &misc3->icmpv6_header_data;
+		icmp_type		= &misc3->icmpv6_type;
+		icmp_code		= &misc3->icmpv6_code;
 		dw0_location		= sb->caps->flex_parser_id_icmpv6_dw0;
 		dw1_location		= sb->caps->flex_parser_id_icmpv6_dw1;
 	}
 
 	switch (dw0_location) {
 	case 4:
-		if (icmp_type) {
-			DR_STE_SET(flex_parser_1, tag, flex_parser_4,
-				   (icmp_type << ICMP_TYPE_OFFSET_FIRST_DW));
-			if (is_ipv4)
-				misc3->icmpv4_type = 0;
-			else
-				misc3->icmpv6_type = 0;
-		}
+		DR_STE_SET(flex_parser_1, tag, flex_parser_4,
+			   (*icmp_type << ICMP_TYPE_OFFSET_FIRST_DW) |
+			   (*icmp_code << ICMP_CODE_OFFSET_FIRST_DW));
 
-		if (icmp_code) {
-			uint32_t cur_val = DR_STE_GET(flex_parser_1, tag,
-						      flex_parser_4);
-			DR_STE_SET(flex_parser_1, tag, flex_parser_4,
-				   cur_val | (icmp_code << ICMP_CODE_OFFSET_FIRST_DW));
-			if (is_ipv4)
-				misc3->icmpv4_code = 0;
-			else
-				misc3->icmpv6_code = 0;
-		}
+		*icmp_type = 0;
+		*icmp_code = 0;
 		break;
 	default:
 		errno = ENOTSUP;
@@ -720,14 +706,8 @@ static int dr_ste_v0_build_icmp_tag(struct dr_match_param *value,
 
 	switch (dw1_location) {
 	case 5:
-		if (icmp_header_data) {
-			DR_STE_SET(flex_parser_1, tag, flex_parser_5,
-				   (icmp_header_data << ICMP_HEADER_DATA_OFFSET_SECOND_DW));
-			if (is_ipv4)
-				misc3->icmpv4_header_data = 0;
-			else
-				misc3->icmpv6_header_data = 0;
-		}
+		DR_STE_SET(flex_parser_1, tag, flex_parser_5, *icmp_header_data);
+		*icmp_header_data = 0;
 		break;
 	default:
 		errno = ENOTSUP;

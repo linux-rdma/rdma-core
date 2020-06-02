@@ -527,10 +527,10 @@ struct dr_match_misc3 {
 	uint32_t outer_vxlan_gpe_next_protocol:8;
 	uint32_t icmpv4_header_data;
 	uint32_t icmpv6_header_data;
-	uint32_t icmpv6_code:8;
-	uint32_t icmpv6_type:8;
-	uint32_t icmpv4_code:8;
-	uint32_t icmpv4_type:8;
+	uint8_t icmpv6_code;
+	uint8_t icmpv6_type;
+	uint8_t icmpv4_code;
+	uint8_t icmpv4_type;
 	uint32_t gtpu_teid;
 	uint32_t gtpu_msg_type:8;
 	uint32_t gtpu_flags:3;
