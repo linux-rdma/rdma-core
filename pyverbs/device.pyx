@@ -102,6 +102,7 @@ cdef class Context(PyverbsCM):
         self.xrcds = weakref.WeakSet()
         self.vars = weakref.WeakSet()
         self.uars = weakref.WeakSet()
+        self.pps = weakref.WeakSet()
 
         self.name = kwargs.get('name')
         provider_attr = kwargs.get('attr')
@@ -230,8 +231,6 @@ cdef class Context(PyverbsCM):
             self.qps.add(obj)
         elif isinstance(obj, XRCD):
             self.xrcds.add(obj)
-        elif isinstance(obj, VAR):
-            self.vars.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 
@@ -980,19 +979,3 @@ def get_device_list():
     finally:
         v.ibv_free_device_list(dev_list)
     return devices
-
-
-cdef class VAR(PyverbsObject):
-    """
-    This is an abstract class of Virtio Access Region (VAR).
-    Each device specific VAR implementation should inherit this class
-    and initialize it according to the device attributes.
-    """
-    def __init__(self, Context context not None, **kwargs):
-        self.context = context
-
-    def __dealloc__(self):
-        self.close()
-
-    cpdef close(self):
-        pass

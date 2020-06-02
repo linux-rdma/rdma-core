@@ -3,6 +3,7 @@
 
 from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
+import weakref
 
 from pyverbs.utils import gid_str, qp_type_to_str, qp_state_to_str, mtu_to_str
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError, \
@@ -11,6 +12,7 @@ from pyverbs.utils import access_flags_to_str, mig_state_to_str
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.wr cimport RecvWR, SendWR, SGE
 from pyverbs.addr cimport AHAttr, GID, AH
+from pyverbs.base cimport close_weakrefs
 from pyverbs.mr cimport MW, MWBindInfo
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.addr cimport GlobalRoute
@@ -898,6 +900,7 @@ cdef class QP(PyverbsCM):
         cdef PD pd
         cdef Context ctx
         super().__init__()
+        self.mws = weakref.WeakSet()
         self.update_cqs(init_attr)
         # QP initialization was not done by the provider, we should do it here
         if self.qp == NULL:
@@ -964,12 +967,19 @@ cdef class QP(PyverbsCM):
     def _create_qp_ex(self, Context ctx, QPInitAttrEx attr):
         self.qp = v.ibv_create_qp_ex(ctx.context, &attr.attr)
 
+    cdef add_ref(self, obj):
+        if isinstance(obj, MW):
+            self.mws.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
+
     def __dealloc__(self):
         self.close()
 
     cpdef close(self):
         if self.qp != NULL:
             self.logger.debug('Closing QP')
+            close_weakrefs([self.mws])
             rc = v.ibv_destroy_qp(self.qp)
             if rc:
                 raise PyverbsRDMAError('Failed to destroy QP', rc)
@@ -1205,6 +1215,7 @@ cdef class QPEx(QP):
         info = &bind_info.info
         v.ibv_wr_bind_mw(self.qp_ex, <v.ibv_mw*>mw.mw, rkey,
                          <v.ibv_mw_bind_info*>info)
+        self.add_ref(mw)
 
     def wr_local_inv(self, invalidate_rkey):
         v.ibv_wr_local_inv(self.qp_ex, invalidate_rkey)

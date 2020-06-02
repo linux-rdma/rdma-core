@@ -538,7 +538,6 @@ struct mlx5_dm {
 
 struct mlx5_mr {
 	struct verbs_mr                 vmr;
-	struct mlx5_buf			buf;
 	uint32_t			alloc_flags;
 };
 

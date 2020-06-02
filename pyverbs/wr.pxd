@@ -17,3 +17,5 @@ cdef class RecvWR(PyverbsCM):
 cdef class SendWR(PyverbsCM):
     cdef v.ibv_send_wr send_wr
     cdef object ah
+
+cdef copy_sg_array(v.ibv_sge *dst, sg, num_sge)

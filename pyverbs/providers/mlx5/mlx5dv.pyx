@@ -14,7 +14,6 @@ from pyverbs.qp cimport QPInitAttrEx
 from pyverbs.cq cimport CqInitAttrEx
 cimport pyverbs.libibverbs as v
 from pyverbs.pd cimport PD
-import weakref
 
 
 cdef class Mlx5DVContextAttr(PyverbsObject):
@@ -61,7 +60,6 @@ cdef class Mlx5Context(Context):
         super().__init__(name=name, attr=attr)
         if not dv.mlx5dv_is_supported(self.device):
             raise PyverbsUserError('This is not an MLX5 device')
-        self.pps = weakref.WeakSet()
         self.context = dv.mlx5dv_open_device(self.device, &attr.attr)
         if self.context == NULL:
             raise PyverbsRDMAErrno('Failed to open mlx5 context on {dev}'
@@ -92,12 +90,6 @@ cdef class Mlx5Context(Context):
             raise PyverbsRDMAErrno('Failed to query mlx5 device {name}, got {rc}'.
                                    format(name=self.name, rc=rc))
         return dv_attr
-
-    cdef add_ref(self, obj):
-        if isinstance(obj, Mlx5PP):
-            self.pps.add(obj)
-        else:
-            super().add_ref(obj)
 
     def __dealloc__(self):
         self.close()
@@ -575,12 +567,13 @@ def send_ops_flags_to_str(flags):
     return bitmask_to_str(flags, l)
 
 
-cdef class Mlx5VAR(VAR):
+cdef class Mlx5VAR(PyverbsObject):
     def __init__(self, Context context not None, flags=0):
+        self.context = context
         self.var = dv.mlx5dv_alloc_var(context.context, flags)
         if self.var == NULL:
             raise PyverbsRDMAErrno('Failed to allocate VAR')
-        context.add_ref(self)
+        context.vars.add(self)
 
     def __dealloc__(self):
         self.close()
@@ -633,7 +626,7 @@ cdef class Mlx5PP(PyverbsObject):
                                      <char*>pp_ctx_bytes, flags)
         if self.pp == NULL:
             raise PyverbsRDMAErrno('Failed to allocate packet pacing entry')
-        (<Mlx5Context>context).add_ref(self)
+        context.pps.add(self)
 
     def __dealloc__(self):
         self.close()

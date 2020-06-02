@@ -104,7 +104,7 @@ enum write_fallback _execute_ioctl_fallback(struct ibv_context *ctx,
 	if (*ret == EPROTONOSUPPORT) {
 		/*
 		 * EPROTONOSUPPORT means we have the ioctl framework but this
-		 * specific method is not supported
+		 * specific method or a mandatory attribute is not supported
 		 */
 		bitmap_set_bit(priv->unsupported_ioctls, cmd_bit);
 		return _check_legacy(cmdb, ret);

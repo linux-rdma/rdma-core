@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.
+from libc.stdint cimport uintptr_t, uint32_t
+from libc.stdlib cimport malloc
 import weakref
 import logging
 
@@ -7,8 +9,8 @@ from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError, \
     PyverbsRDMAError
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
+from pyverbs.wr cimport copy_sg_array
 from pyverbs.device cimport Context
-from libc.stdint cimport uintptr_t
 from pyverbs.cmid cimport CMID
 from .mr cimport MR, MW, DMMR
 from pyverbs.srq cimport SRQ
@@ -48,6 +50,23 @@ cdef class PD(PyverbsCM):
         self.ahs = weakref.WeakSet()
         self.qps = weakref.WeakSet()
         self.parent_domains = weakref.WeakSet()
+
+    def advise_mr(self, advise, uint32_t flags, sg_list not None):
+        """
+        Give advice or directions to the kernel about an address range
+        belonging to a MR.
+        :param advise: The requested advise value
+        :param flags: Describes the properties of the advise operation
+        :param sg_list: The scatter gather list
+        :return: 0 on success, otherwise PyverbsRDMAError will be raised
+        """
+        num_sges = len(sg_list)
+        dst_sg_list = <v.ibv_sge*>malloc(num_sges * sizeof(v.ibv_sge))
+        copy_sg_array(dst_sg_list, sg_list, num_sges)
+        rc = v.ibv_advise_mr(self.pd, advise, flags, dst_sg_list, num_sges)
+        if rc:
+            raise PyverbsRDMAError('Failed to advise MR', rc)
+        return rc
 
     def __dealloc__(self):
         """
