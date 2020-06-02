@@ -5,10 +5,16 @@ Provide some useful helper function for pyverbs rdmacm' tests.
 """
 from tests.utils import validate, poll_cq, get_send_elements, get_recv_wr
 from tests.base_rdmacm import AsyncCMResources, SyncCMResources
+from pyverbs.cmid import CMEvent, AddrInfo, JoinMCAttrEx
 from pyverbs.pyverbs_error import PyverbsError
-from pyverbs.cmid import CMEvent
 import pyverbs.cm_enums as ce
+from pyverbs.addr import AH
+import pyverbs.enums as e
 import abc
+
+
+GRH_SIZE = 40
+MULTICAST_QPN = 0xffffff
 
 
 class CMConnection(abc.ABC):
@@ -30,22 +36,25 @@ class CMConnection(abc.ABC):
         self.notifier = notifier
         self.cm_res = None
 
-    def rdmacm_traffic(self):
+    def rdmacm_traffic(self, server=None, multicast=False):
         """
         Run rdmacm traffic. This method runs the compatible traffic flow
         depending on the CMResources. If self.with_ext_qp is set the traffic
         will go through the external QP.
+        :param server: Run as server.
+        :param multicast: Run multicast traffic.
         """
+        server = server if server is not None else self.cm_res.passive
         if self.cm_res.with_ext_qp:
-            if self.cm_res.passive:
+            if server:
                 self._ext_qp_server_traffic()
             else:
                 self._ext_qp_client_traffic()
         else:
-            if self.cm_res.passive:
-                self._cmid_server_traffic()
+            if server:
+                self._cmid_server_traffic(multicast)
             else:
-                self._cmid_client_traffic()
+                self._cmid_client_traffic(multicast)
 
     def _ext_qp_server_traffic(self):
         """
@@ -84,51 +93,66 @@ class CMConnection(abc.ABC):
             msg_received = self.cm_res.mr.read(self.cm_res.msg_size, 0)
             validate(msg_received, self.cm_res.passive, self.cm_res.msg_size)
 
-    def _cmid_server_traffic(self):
+    def _cmid_server_traffic(self, multicast=False):
         """
         RDMACM server side traffic function which sends and receives a message,
         and then validates the received message. This traffic method uses the
         RDMACM API for send, recv and get_completion.
         :return: None
         """
-        send_msg = (self.cm_res.msg_size) * 's'
-        cmid = self.cm_res.child_id
-        grh_offset = 0
+        grh_offset = GRH_SIZE if self.cm_res.qp_type == e.IBV_QPT_UD else 0
+        send_msg = (self.cm_res.msg_size + grh_offset) * 's'
+        cmid = self.cm_res.child_id if not multicast else self.cm_res.cmid
         for _ in range(self.cm_res.num_msgs):
             cmid.post_recv(self.cm_res.mr)
             self.syncer.wait()
             self.syncer.wait()
             wc = cmid.get_recv_comp()
-            msg_received = self.cm_res.mr.read(self.cm_res.msg_size,
-                                               grh_offset)
-            validate(msg_received, self.cm_res.passive, self.cm_res.msg_size)
-            self.cm_res.mr.write(send_msg, self.cm_res.msg_size)
-            cmid.post_send(self.cm_res.mr)
+            msg_received = self.cm_res.mr.read(self.cm_res.msg_size, grh_offset)
+            validate(msg_received, True, self.cm_res.msg_size)
+            if self.cm_res.port_space == ce.RDMA_PS_TCP:
+                self.cm_res.mr.write(send_msg, self.cm_res.msg_size)
+                cmid.post_send(self.cm_res.mr)
+            else:
+                if multicast:
+                    ah = AH(cmid.pd, attr=self.cm_res.ud_params.ah_attr)
+                    rqpn = MULTICAST_QPN
+                else:
+                    ah = AH(cmid.pd, wc=wc, port_num=1, grh=self.cm_res.mr.buf)
+                    rqpn = self.cm_res.remote_qpn
+                self.cm_res.mr.write(send_msg, self.cm_res.msg_size + GRH_SIZE)
+                cmid.post_ud_send(self.cm_res.mr, ah, rqpn=rqpn,
+                                  length=self.cm_res.msg_size)
             cmid.get_send_comp()
             self.syncer.wait()
 
-    def _cmid_client_traffic(self):
+    def _cmid_client_traffic(self, multicast=False):
         """
         RDMACM client side traffic function which sends and receives a message,
         and then validates the received message. This traffic method uses the
         RDMACM API for send, recv and get_completion.
         :return: None
         """
-        send_msg = (self.cm_res.msg_size) * 'c'
+        grh_offset = GRH_SIZE if self.cm_res.qp_type == e.IBV_QPT_UD else 0
+        send_msg = (self.cm_res.msg_size + grh_offset) * 'c'
         cmid = self.cm_res.cmid
-        grh_offset = 0
         for _ in range(self.cm_res.num_msgs):
             self.cm_res.mr.write(send_msg, self.cm_res.msg_size + grh_offset)
             self.syncer.wait()
-            cmid.post_send(self.cm_res.mr)
+            if self.cm_res.port_space == ce.RDMA_PS_TCP:
+                cmid.post_send(self.cm_res.mr)
+            else:
+                ah = AH(cmid.pd, attr=self.cm_res.ud_params.ah_attr)
+                rqpn = MULTICAST_QPN if multicast else self.cm_res.ud_params.qp_num
+                cmid.post_ud_send(self.cm_res.mr, ah, rqpn=rqpn,
+                                  length=self.cm_res.msg_size)
             cmid.get_send_comp()
-            self.syncer.wait()
             cmid.post_recv(self.cm_res.mr)
             self.syncer.wait()
+            self.syncer.wait()
             cmid.get_recv_comp()
-            msg_received = self.cm_res.mr.read(self.cm_res.msg_size,
-                                               grh_offset)
-            validate(msg_received, self.cm_res.passive, self.cm_res.msg_size)
+            msg_received = self.cm_res.mr.read(self.cm_res.msg_size, grh_offset)
+            validate(msg_received, False, self.cm_res.msg_size)
 
     def event_handler(self, expected_event=None):
         """
@@ -140,6 +164,9 @@ class CMConnection(abc.ABC):
         cm_event = CMEvent(self.cm_res.cmid.event_channel)
         if cm_event.event_type == ce.RDMA_CM_EVENT_CONNECT_REQUEST:
             self.cm_res.create_child_id(cm_event)
+        elif cm_event.event_type in [ce.RDMA_CM_EVENT_ESTABLISHED,
+                                     ce.RDMA_CM_EVENT_MULTICAST_JOIN]:
+            self.cm_res.set_ud_params(cm_event)
         if expected_event and expected_event != cm_event.event_type:
             raise PyverbsError('Expected this event: {}, got this event: {}'.
                                 format(expected_event, cm_event.event_str()))
@@ -173,6 +200,39 @@ class CMAsyncConnection(CMConnection):
         super(CMAsyncConnection, self).__init__(syncer=syncer, notifier=notifier)
         self.cm_res = AsyncCMResources(addr=ip_addr, passive=passive, **kwargs)
 
+    def join_to_multicast(self, mc_addr=None, src_addr=None, extended=False):
+        """
+        Join the CMID to multicast group.
+        :param mc_addr: The multicast IP address.
+        :param src_addr: The CMIDs source address.
+        :param extended: Use the join_multicast_ex API.
+        """
+        self.cm_res.cmid.bind_addr(self.cm_res.ai)
+        resolve_addr_info = AddrInfo(src=src_addr, dst=mc_addr)
+        self.cm_res.cmid.resolve_addr(resolve_addr_info)
+        self.event_handler(expected_event=ce.RDMA_CM_EVENT_ADDR_RESOLVED)
+        self.cm_res.create_qp()
+        mc_addr_info = AddrInfo(src=mc_addr)
+        if not extended:
+            self.cm_res.cmid.join_multicast(addr=mc_addr_info)
+        else:
+            flags = ce.RDMA_MC_JOIN_FLAG_FULLMEMBER
+            comp_mask = ce.RDMA_CM_JOIN_MC_ATTR_ADDRESS | \
+                        ce.RDMA_CM_JOIN_MC_ATTR_JOIN_FLAGS
+            mcattr = JoinMCAttrEx(addr=mc_addr_info, comp_mask=comp_mask,
+                                  join_flags=flags)
+            self.cm_res.cmid.join_multicast(mc_attr=mcattr)
+        self.event_handler(expected_event=ce.RDMA_CM_EVENT_MULTICAST_JOIN)
+        self.cm_res.create_mr()
+
+    def leave_multicast(self, mc_addr=None):
+        """
+        Leave multicast group.
+        :param mc_addr: The multicast IP address.
+        """
+        mc_addr_info = AddrInfo(src=mc_addr)
+        self.cm_res.cmid.leave_multicast(mc_addr_info)
+
     def establish_connection(self):
         """
         Establish RMDACM connection between two Async CMIDs.
@@ -186,7 +246,8 @@ class CMAsyncConnection(CMConnection):
             self.cm_res.child_id.accept(self.cm_res.create_conn_param())
             if self.cm_res.with_ext_qp:
                 self.cm_res.modify_ext_qp_to_rts()
-            self.event_handler(expected_event=ce.RDMA_CM_EVENT_ESTABLISHED)
+            if self.cm_res.port_space == ce.RDMA_PS_TCP:
+                self.event_handler(expected_event=ce.RDMA_CM_EVENT_ESTABLISHED)
         else:
             self.cm_res.cmid.resolve_addr(self.cm_res.ai)
             self.event_handler(expected_event=ce.RDMA_CM_EVENT_ADDR_RESOLVED)
@@ -224,11 +285,12 @@ class CMAsyncConnection(CMConnection):
         """
         Disconnect the connection.
         """
-        if self.cm_res.passive:
-            self.cm_res.child_id.disconnect()
-        else:
-            self.event_handler(expected_event=ce.RDMA_CM_EVENT_DISCONNECTED)
-            self.cm_res.cmid.disconnect()
+        if self.cm_res.port_space == ce.RDMA_PS_TCP:
+            if self.cm_res.passive:
+                self.cm_res.child_id.disconnect()
+            else:
+                self.event_handler(expected_event=ce.RDMA_CM_EVENT_DISCONNECTED)
+                self.cm_res.cmid.disconnect()
 
 
 class CMSyncConnection(CMConnection):
@@ -269,7 +331,8 @@ class CMSyncConnection(CMConnection):
         """
         Disconnect the connection.
         """
-        if self.cm_res.passive:
-            self.cm_res.child_id.disconnect()
-        else:
-            self.cm_res.cmid.disconnect()
+        if self.cm_res.port_space == ce.RDMA_PS_TCP:
+            if self.cm_res.passive:
+                self.cm_res.child_id.disconnect()
+            else:
+                self.cm_res.cmid.disconnect()

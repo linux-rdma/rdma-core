@@ -72,6 +72,11 @@ cdef extern from '<rdma/rdma_cma.h>':
         void            *ai_connect
         rdma_addrinfo   *ai_next
 
+    cdef struct rdma_cm_join_mc_attr_ex:
+        uint32_t        comp_mask
+        uint32_t        join_flags
+        sockaddr        *addr
+
 # These non rdmacm structs defined in one of rdma_cma.h's included header files
     cdef struct sockaddr:
         unsigned short  sa_family
@@ -102,6 +107,10 @@ cdef extern from '<rdma/rdma_cma.h>':
     int rdma_resolve_addr(rdma_cm_id *id, sockaddr *src_addr,
                           sockaddr *dst_addr, int timeout_ms)
     int rdma_resolve_route(rdma_cm_id *id, int timeout_ms)
+    int rdma_join_multicast(rdma_cm_id *id, sockaddr *addr, void *context)
+    int rdma_join_multicast_ex(rdma_cm_id *id, rdma_cm_join_mc_attr_ex *mc_join_attr,
+                               void *context)
+    int rdma_leave_multicast(rdma_cm_id *id, sockaddr *addr)
     int rdma_connect(rdma_cm_id *id, rdma_conn_param *conn_param)
     int rdma_disconnect(rdma_cm_id *id)
     int rdma_listen(rdma_cm_id *id, int backlog)
@@ -121,6 +130,9 @@ cdef extern from '<rdma/rdma_verbs.h>':
                        size_t length, ibv_mr *mr)
     int rdma_post_send(rdma_cm_id *id, void *context, void *addr,
                        size_t length, ibv_mr *mr, int flags)
+    int rdma_post_ud_send(rdma_cm_id *id, void *context, void *addr,
+                          size_t length, ibv_mr *mr, int flags, ibv_ah *ah,
+                          uint32_t remote_qpn)
     int rdma_get_send_comp(rdma_cm_id *id, ibv_wc *wc)
     int rdma_get_recv_comp(rdma_cm_id *id, ibv_wc *wc)
     ibv_mr *rdma_reg_msgs(rdma_cm_id *id, void *addr, size_t length)

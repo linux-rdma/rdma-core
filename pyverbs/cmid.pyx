@@ -1,3 +1,4 @@
+from libc.stdint cimport uintptr_t
 from libc.string cimport memset
 
 from pyverbs.pyverbs_error import PyverbsUserError
@@ -5,6 +6,7 @@ from pyverbs.qp cimport QPInitAttr, QPAttr
 from pyverbs.base import PyverbsRDMAErrno
 cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.librdmacm_enums as ce
+from pyverbs.addr cimport AH, AHAttr
 from pyverbs.device cimport Context
 cimport pyverbs.libibverbs as v
 cimport pyverbs.librdmacm as cm
@@ -69,21 +71,87 @@ cdef class ConnParam(PyverbsObject):
                print_format.format('qp number', self.conn_param.qp_num)
 
 
+cdef class JoinMCAttrEx(PyverbsObject):
+
+    def __init__(self, AddrInfo addr not None, comp_mask=0, join_flags=0):
+        """
+        Initialize a JoinMCAttrEx object over an underlying
+        rdma_cm_join_mc_attr_ex C object which contains the extended join
+        multicast attributes.
+        :param addr: Multicast address identifying the group to join.
+        :param comp_mask: Bitwise OR between "rdma_cm_join_mc_attr_mask" enum.
+        :param join_flags: Single flag from "rdma_cm_mc_join_flags" enum.
+                           Indicates the type of the join requests.
+        """
+        super().__init__()
+        self.join_mc_attr_ex.addr = addr.addr_info.ai_src_addr
+        self.join_mc_attr_ex.comp_mask = comp_mask
+        self.join_mc_attr_ex.join_flags = join_flags
+
+    @property
+    def join_flags(self):
+        return self.join_mc_attr_ex.join_flags
+    @join_flags.setter
+    def join_flags(self, val):
+        self.join_mc_attr_ex.join_flags = val
+
+    @property
+    def comp_mask(self):
+        return self.join_mc_attr_ex.comp_mask
+    @comp_mask.setter
+    def comp_mask(self, val):
+        self.join_mc_attr_ex.comp_mask = val
+
+
+cdef class UDParam(PyverbsObject):
+
+    def __init__(self, CMEvent cm_event not None):
+        """
+        Initialize a UDParam object over an underlying rdma_ud_param
+        C object which contains UD connection parameters.
+        :param cm_event: The creator of UDParam. When the active side gets
+                         connection establishment event, the event contains
+                         UDParam for the passive CMID details.
+        :return: UDParam object
+        """
+        super().__init__()
+        memset(&self.ud_param, 0, sizeof(cm.rdma_ud_param))
+        self.ud_param = (<CMEvent>cm_event).event.param.ud
+
+    @property
+    def qp_num(self):
+        return self.ud_param.qp_num
+
+    @property
+    def qkey(self):
+        return self.ud_param.qkey
+
+    @property
+    def ah_attr(self):
+        ah_attr = AHAttr()
+        ah_attr.init_from_ud_param(self)
+        return ah_attr
+
+
 cdef class AddrInfo(PyverbsObject):
 
-    def __init__(self, src=None, dst=None, service=None, port_space=0,
-                  flags=0):
+    def __init__(self, src=None, dst=None, src_service=None, dst_service=None,
+                 port_space=0, flags=0):
         """
         Initialize an AddrInfo object over an underlying rdma_addrinfo C object.
         :param src: Name, dotted-decimal IPv4 or IPv6 hex address to bind to.
         :param dst: Name, dotted-decimal IPv4 or IPv6 hex address to connect to.
-        :param service: The service name or port number of the address.
+        :param src_service: The service name or port number of the source
+                            address.
+        :param dst_service: The service name or port number of the destination
+                            address.
         :param port_space: RDMA port space used (RDMA_PS_UDP or RDMA_PS_TCP).
         :param flags: Hint flags which control the operation.
         :return: An AddrInfo object which contains information needed to
         establish communication.
         """
-        cdef char* srvc = NULL
+        cdef char* src_srvc = NULL
+        cdef char* dst_srvc = NULL
         cdef char* src_addr = NULL
         cdef char* dst_addr = NULL
         cdef cm.rdma_addrinfo hints
@@ -99,28 +167,32 @@ cdef class AddrInfo(PyverbsObject):
             if isinstance(dst, str):
                 dst = dst.encode('utf-8')
             dst_addr = <char*>dst
-        if service is not None:
-            if isinstance(service, str):
-                service = service.encode('utf-8')
-            srvc = <char*>service
+        if src_service is not None:
+            if isinstance(src_service, str):
+                src_service = src_service.encode('utf-8')
+            src_srvc = <char*>src_service
+        if dst_service is not None:
+            if isinstance(dst_service, str):
+                dst_service = dst_service.encode('utf-8')
+            dst_srvc = <char*>dst_service
 
         hints_ptr = &hints
         memset(hints_ptr, 0, sizeof(cm.rdma_addrinfo))
         hints.ai_port_space = port_space
         hints.ai_flags = flags
         if flags & ce.RAI_PASSIVE:
-            ret = cm.rdma_getaddrinfo(src_addr, srvc, hints_ptr,
+            ret = cm.rdma_getaddrinfo(src_addr, src_srvc, hints_ptr,
                                       &self.addr_info)
         else:
             if src:
                 hints.ai_flags |= ce.RAI_PASSIVE
-                ret = cm.rdma_getaddrinfo(src_addr, NULL, hints_ptr, &res)
+                ret = cm.rdma_getaddrinfo(src_addr, src_srvc, hints_ptr, &res)
                 if ret != 0:
                     raise PyverbsRDMAErrno('Failed to get Address Info')
                 hints.ai_src_addr = <cm.sockaddr*>res.ai_src_addr
                 hints.ai_src_len = res.ai_src_len
                 hints.ai_flags &= ~ce.RAI_PASSIVE
-            ret = cm.rdma_getaddrinfo(dst_addr, srvc, hints_ptr,
+            ret = cm.rdma_getaddrinfo(dst_addr, dst_srvc, hints_ptr,
                                       &self.addr_info)
             if src:
                 cm.rdma_freeaddrinfo(res)
@@ -278,6 +350,12 @@ cdef class CMID(PyverbsCM):
     def pd(self):
         return self.pd
 
+    @property
+    def qpn(self):
+        if self.id.qp:
+            return self.id.qp.qp_num
+        return None
+
     def __dealloc__(self):
         self.close()
 
@@ -346,6 +424,40 @@ cdef class CMID(PyverbsCM):
                                    rai.addr_info.ai_dst_addr, timeout_ms)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to Resolve Address')
+
+    def join_multicast(self, AddrInfo addr=None, JoinMCAttrEx mc_attr=None,
+                       context=0):
+        """
+        Joins a multicast group and attaches an associated QP to the group.
+        :param addr: Multicast address identifying the group to join.
+        :param mc_attr: JoinMCAttrEx object is requierd to use
+                        rdma_join_multicast_ex. This object contains the join
+                        flags and the AddrInfo to join.
+        :param context: User-defined context associated with the join request.
+        :return: None
+        """
+        cdef cm.rdma_cm_join_mc_attr_ex  *mc_join_attr = NULL
+        if not addr and not mc_attr:
+            raise PyverbsUserError('Join to multicast must have AddrInfo or JoinMCAttrEx arguments')
+        if not mc_attr:
+            ret = cm.rdma_join_multicast(self.id, addr.addr_info.ai_src_addr,
+                                         <void*><uintptr_t>context)
+        else:
+            ret = cm.rdma_join_multicast_ex(self.id, &mc_attr.join_mc_attr_ex,
+                                            <void*><uintptr_t>context)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to Join multicast')
+
+    def leave_multicast(self, AddrInfo addr not None):
+        """
+        Leaves a multicast group and detaches an associated QP from the group.
+        :param addr: AddrInfo object, represent the multicast address that
+                     identifies the group to leave.
+        :return: None
+        """
+        ret = cm.rdma_leave_multicast(self.id, addr.addr_info.ai_src_addr)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to leave multicast')
 
     def resolve_route(self, timeout_ms=2000):
         """
@@ -480,27 +592,51 @@ cdef class CMID(PyverbsCM):
         """
         return MR(self.pd, size, e.IBV_ACCESS_LOCAL_WRITE)
 
-    def post_recv(self, MR mr not None):
+    def post_recv(self, MR mr not None, length=None):
         """
         Posts a recv_wr via QP associated with CMID.
         Context param of rdma_post_recv C function currently not supported.
         :param mr: A valid MR object.
+        :param length: length of buffer to recv (default: mr length).
         :return: None
         """
-        ret = cm.rdma_post_recv(self.id, NULL, mr.buf, mr.mr.length, mr.mr)
+        if not length:
+            length = mr.mr.length
+        ret = cm.rdma_post_recv(self.id, NULL, mr.buf, length, mr.mr)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to Post Receive')
 
-    def post_send(self, MR mr not None, flags=v.IBV_SEND_SIGNALED):
+    def post_send(self, MR mr not None, flags=v.IBV_SEND_SIGNALED, length=None):
         """
         Posts a message via QP associated with CMID.
         Context param of rdma_post_send C function currently not supported.
         :param mr: A valid MR object which contains message to send.
         :param flags: flags for send work request.
+        :param length: length of buffer to send (default: mr length).
         :return: None
         """
-        ret = cm.rdma_post_send(self.id, NULL, mr.buf, mr.mr.length, mr.mr,
+        if not length:
+            length = mr.mr.length
+        ret = cm.rdma_post_send(self.id, NULL, mr.buf, length, mr.mr,
                                 flags)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to Post Send')
+
+    def post_ud_send(self, MR mr not None, AH ah not None, rqpn=0,
+                     flags=v.IBV_SEND_SIGNALED, length=None):
+        """
+        Posts a message via UD QP associated with CMID to another UD QP.
+        :param mr: A valid MR object which contains message to send.
+        :param ah: The destination AH.
+        :param rqpn: The remote QP number.
+        :param flags: flags for send work request.
+        :param length: length of buffer to send.
+        :return: None
+        """
+        if not length:
+            length = mr.mr.length
+        ret = cm.rdma_post_ud_send(self.id, NULL, mr.buf, length, mr.mr,
+                                   flags, ah.ah, rqpn)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to Post Send')
 

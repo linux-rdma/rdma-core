@@ -3,7 +3,7 @@
 
 import abc
 
-from pyverbs.cmid import CMID, AddrInfo, CMEventChannel, ConnParam
+from pyverbs.cmid import CMID, AddrInfo, CMEventChannel, ConnParam, UDParam
 from pyverbs.qp import QPCap, QPInitAttr, QPAttr, QP
 from pyverbs.pyverbs_error import PyverbsUserError
 import pyverbs.cm_enums as ce
@@ -12,6 +12,7 @@ from pyverbs.cq import CQ
 
 
 GRH_SIZE = 40
+qp_type_per_ps = {ce.RDMA_PS_TCP: e.IBV_QPT_RC, ce.RDMA_PS_UDP: e.IBV_QPT_UD}
 
 
 class CMResources(abc.ABC):
@@ -28,13 +29,15 @@ class CMResources(abc.ABC):
                 Port number of the address
             * *with_ext_qp* (bool)
                 If set, an external RC QP will be created and used by RDMACM
+            * *port_space* (str)
+                If set, indicates the CMIDs port space
         """
         self.qp_init_attr = None
         self.passive = passive
         self.with_ext_qp = kwargs.get('with_ext_qp', False)
         self.port = kwargs.get('port') if kwargs.get('port') else '7471'
-        self.port_space = ce.RDMA_PS_TCP
-        self.qp_type = e.IBV_QPT_RC
+        self.port_space = kwargs.get('port_space', ce.RDMA_PS_TCP)
+        self.qp_type = qp_type_per_ps[self.port_space]
         self.qp_init_attr = QPInitAttr(qp_type=self.qp_type, cap=QPCap())
         self.connected = False
         # When passive side (server) listens to incoming connection requests,
@@ -47,11 +50,14 @@ class CMResources(abc.ABC):
         self.cq = None
         self.qp = None
         self.mr = None
+        self.remote_qpn = None
+        self.ud_params = None
         if self.passive:
-            self.ai = AddrInfo(addr, None, self.port, self.port_space,
-                               ce.RAI_PASSIVE)
+            self.ai = AddrInfo(src=addr, src_service=self.port,
+                               port_space=self.port_space, flags=ce.RAI_PASSIVE)
         else:
-            self.ai = AddrInfo(addr, addr, self.port, self.port_space)
+            self.ai = AddrInfo(src=addr, dst=addr, dst_service=self.port,
+                               port_space=self.port_space)
 
     def create_mr(self):
         if self.passive:
@@ -71,10 +77,16 @@ class CMResources(abc.ABC):
             qp_num = self.qp.qp_num
         return ConnParam(qp_num=qp_num)
 
+    def set_ud_params(self, cm_event):
+        if self.port_space == ce.RDMA_PS_UDP:
+            self.ud_params = UDParam(cm_event)
+
     def my_qp_number(self):
         if self.with_ext_qp:
             return self.qp.qp_num
-        return None
+        else:
+            cm = self.child_id if self.passive else self.cmid
+            return cm.qpn
 
     def create_qp(self):
         """

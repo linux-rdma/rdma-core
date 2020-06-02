@@ -102,6 +102,20 @@ class RDMATestCase(unittest.TestCase):
         self.pkey_index = pkey_index
         self.ip_addr = None
 
+    def is_eth_and_has_roce_hw_bug(self):
+        """
+        Check if the link layer is Ethernet and the device lacks RoCEv2 support
+        with a known HW bug.
+        return: True if the link layer is Ethernet and device is not supported
+        """
+        ctx = d.Context(name=self.dev_name)
+        port_attrs = ctx.query_port(self.ib_port)
+        dev_attrs = ctx.query_device()
+        vendor_id = dev_attrs.vendor_id
+        vendor_pid = dev_attrs.vendor_part_id
+        return port_attrs.link_layer == e.IBV_LINK_LAYER_ETHERNET and \
+            has_roce_hw_bug(vendor_id, vendor_pid)
+
     @staticmethod
     def parametrize(testcase_klass, dev_name=None, ib_port=None, gid_index=None,
                     pkey_index=None):
