@@ -267,7 +267,6 @@ struct ibv_srq *mlx4_create_xrc_srq(struct ibv_context *context,
 	cmd.db_addr  = (uintptr_t) srq->db;
 
 	ret = ibv_cmd_create_srq_ex(context, &srq->verbs_srq,
-				    sizeof(srq->verbs_srq),
 				    attr_ex,
 				    &cmd.ibv_cmd, sizeof cmd,
 				    &resp.ibv_resp, sizeof resp);
