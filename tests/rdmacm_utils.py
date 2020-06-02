@@ -3,14 +3,12 @@
 """
 Provide some useful helper function for pyverbs rdmacm' tests.
 """
-from tests.utils import validate, poll_cq, get_send_element, get_recv_wr
+from tests.utils import validate, poll_cq, get_send_elements, get_recv_wr
 from tests.base_rdmacm import AsyncCMResources, SyncCMResources
 from pyverbs.pyverbs_error import PyverbsError
-from tests.utils import validate
 from pyverbs.cmid import CMEvent
 import pyverbs.cm_enums as ce
 import abc
-import os
 
 
 class CMConnection(abc.ABC):
@@ -64,7 +62,7 @@ class CMConnection(abc.ABC):
             self.cm_res.qp.post_recv(recv_wr)
             msg_received = self.cm_res.mr.read(self.cm_res.msg_size, 0)
             validate(msg_received, self.cm_res.passive, self.cm_res.msg_size)
-            send_wr = get_send_element(self.cm_res, self.cm_res.passive)[0]
+            send_wr = get_send_elements(self.cm_res, self.cm_res.passive)[0]
             self.cm_res.qp.post_send(send_wr)
             poll_cq(self.cm_res.cq)
 
@@ -78,7 +76,7 @@ class CMConnection(abc.ABC):
         recv_wr = get_recv_wr(self.cm_res)
         self.syncer.wait()
         for _ in range(self.cm_res.num_msgs):
-            send_wr = get_send_element(self.cm_res, self.cm_res.passive)[0]
+            send_wr = get_send_elements(self.cm_res, self.cm_res.passive)[0]
             self.cm_res.qp.post_send(send_wr)
             poll_cq(self.cm_res.cq)
             self.cm_res.qp.post_recv(recv_wr)

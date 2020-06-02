@@ -257,6 +257,7 @@ class TrafficResources(BaseResources):
         self.num_msgs = 1000
         self.port_attr = None
         self.mr = None
+        self.use_mr_prefetch = None
         self.cq = None
         self.qp = None
         self.rqpn = 0

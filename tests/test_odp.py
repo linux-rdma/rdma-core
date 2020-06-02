@@ -20,12 +20,13 @@ class OdpUD(UDResources):
 
 class OdpRC(RCResources):
     def __init__(self, dev_name, ib_port, gid_index, is_huge=False,
-                 user_addr=None):
+                 user_addr=None, use_mr_prefetch=False):
         """
         Initialize an OdpRC object.
         :param dev_name: Device name to be used
         :param ib_port: IB port of the device to use
         :param gid_index: Which GID index to use
+        :param use_mr_prefetch: If True, prefetch the MRs
         :param is_huge: If True, use huge pages for MR registration
         :param user_addr: The MR's buffer address. If None, the buffer will be
                           allocated by pyverbs.
@@ -34,6 +35,7 @@ class OdpRC(RCResources):
         self.user_addr = user_addr
         super(OdpRC, self).__init__(dev_name=dev_name, ib_port=ib_port,
                                     gid_index=gid_index)
+        self.use_mr_prefetch = use_mr_prefetch
 
     @requires_odp('rc')
     def create_mr(self):
@@ -56,14 +58,16 @@ class OdpTestCase(RDMATestCase):
         self.user_addr = None
         self.qp_dict = {'rc': OdpRC, 'ud': OdpUD, 'xrc': OdpXRC}
 
-    def create_players(self, qp_type, is_huge=False):
+    def create_players(self, qp_type, is_huge=False, use_mr_prefetch=False):
         if qp_type == 'rc':
             client = self.qp_dict[qp_type](self.dev_name, self.ib_port,
                                            self.gid_index, is_huge=is_huge,
-                                           user_addr=self.user_addr)
+                                           user_addr=self.user_addr,
+                                           use_mr_prefetch=use_mr_prefetch)
             server = self.qp_dict[qp_type](self.dev_name, self.ib_port,
                                            self.gid_index, is_huge=is_huge,
-                                           user_addr=self.user_addr)
+                                           user_addr=self.user_addr,
+                                           use_mr_prefetch=use_mr_prefetch)
         else:
             client = self.qp_dict[qp_type](self.dev_name, self.ib_port,
                                            self.gid_index)
@@ -106,3 +110,6 @@ class OdpTestCase(RDMATestCase):
         client, server = self.create_players('rc', is_huge=True)
         traffic(client, server, self.iters, self.gid_index, self.ib_port)
 
+    def test_odp_prefetch_rc_traffic(self):
+        client, server = self.create_players('rc', use_mr_prefetch=True)
+        traffic(client, server, self.iters, self.gid_index, self.ib_port)

@@ -268,7 +268,7 @@ class QpExTestCase(RDMATestCase):
         than a utility method.
         """
         client, server = self.create_players('rc_bind_mw')
-        client_sge = u.get_send_element(client, False)[1]
+        client_sge = u.get_send_elements(client, False)[1]
         # Create a MW and bind it
         server.qp.wr_start()
         server.qp.wr_id = 0x123
