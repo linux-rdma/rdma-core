@@ -3314,6 +3314,18 @@ struct mlx5_ifc_query_flow_sampler_out_bits {
 	struct mlx5_ifc_flow_sampler_bits             obj;
 };
 
+struct mlx5_ifc_modify_header_arg_bits {
+	u8         reserved_at_0[0x80];
+
+	u8         reserved_at_80[0x8];
+	u8         access_pd[0x18];
+};
+
+struct mlx5_ifc_create_modify_header_arg_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits hdr;
+	struct mlx5_ifc_modify_header_arg_bits      arg;
+};
+
 struct mlx5_ifc_definer_bits {
 	u8         modify_field_select[0x40];
 

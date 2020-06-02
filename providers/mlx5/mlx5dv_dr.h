@@ -1529,7 +1529,9 @@ int dr_devx_modify_qp_rtr2rts(struct ibv_context *ctx,
 			      struct dr_devx_qp_rts_attr *attr);
 int dr_devx_query_gid(struct ibv_context *ctx, uint8_t vhca_port_num,
 		      uint16_t index, struct dr_gid_attr *attr);
-
+struct mlx5dv_devx_obj *dr_devx_create_modify_header_arg(struct ibv_context *ctx,
+							 uint16_t log_obj_range,
+							 uint32_t pd);
 static inline bool dr_is_root_table(struct mlx5dv_dr_table *tbl)
 {
 	return tbl->level == 0;

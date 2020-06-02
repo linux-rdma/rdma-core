@@ -1113,3 +1113,24 @@ int dr_devx_query_gid(struct ibv_context *ctx, uint8_t vhca_port_num,
 
 	return 0;
 }
+
+struct mlx5dv_devx_obj *dr_devx_create_modify_header_arg(struct ibv_context *ctx,
+							 uint16_t log_obj_range,
+							 uint32_t pd)
+{
+	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_modify_header_arg_in)] = {};
+	void *attr;
+
+	attr = DEVX_ADDR_OF(create_modify_header_arg_in, in, hdr);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, opcode, MLX5_CMD_OP_CREATE_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, obj_type, MLX5_OBJ_TYPE_HEADER_MODIFY_ARGUMENT);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, log_obj_range, log_obj_range);
+	attr = DEVX_ADDR_OF(create_modify_header_arg_in, in, arg);
+	DEVX_SET(modify_header_arg, attr, access_pd, pd);
+
+	return mlx5dv_devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
+}
