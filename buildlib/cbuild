@@ -189,7 +189,7 @@ class amazonlinux1(YumEnvironment):
     use_make = True;
     pandoc = False;
     build_pyverbs = False;
-    specfile = "buildlib/centos6.spec";
+    specfile = "redhat/rdma-core.spec";
     python_cmd = "python";
     to_azp = False;
 
