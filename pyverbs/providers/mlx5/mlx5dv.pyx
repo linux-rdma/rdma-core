@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, uint8_t
 import logging
 
-from pyverbs.pyverbs_error import PyverbsUserError
+from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError
 cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
 cimport pyverbs.providers.mlx5.libmlx5 as dv
 from pyverbs.base import PyverbsRDMAErrno
@@ -152,6 +152,10 @@ cdef class Mlx5DVContext(PyverbsObject):
     def dc_odp_caps(self):
         return self.dv.dc_odp_caps
 
+    @property
+    def num_lag_ports(self):
+        return self.dv.num_lag_ports
+
     def __str__(self):
         print_format = '{:20}: {:<20}\n'
         ident_format = '  {:20}: {:<20}\n'
@@ -190,7 +194,8 @@ cdef class Mlx5DVContext(PyverbsObject):
                                    self.dv.max_clock_info_update_nsec) +\
                print_format.format('Flow action flags',
                                    self.dv.flow_action_flags) +\
-               print_format.format('DC ODP caps', self.dv.dc_odp_caps)
+               print_format.format('DC ODP caps', self.dv.dc_odp_caps) +\
+               print_format.format('Num LAG ports', self.dv.num_lag_ports)
 
 
 cdef class Mlx5DVDCInitAttr(PyverbsObject):
@@ -351,6 +356,32 @@ cdef class Mlx5QP(QP):
             return super()._get_comp_mask(dst)
         return masks[self.dc_type][dst] | e.IBV_QP_STATE
 
+    @staticmethod
+    def query_lag_port(QP qp):
+        """
+        Queries for port num that the QP desired to use, and the port that
+        is currently used by the bond for this QP.
+        :param qp: Queries the port for this QP.
+        :return: Tuple of the desired port and actual port which used by the HW.
+        """
+        cdef uint8_t port_num
+        cdef uint8_t active_port_num
+        rc = dv.mlx5dv_query_qp_lag_port(qp.qp, &port_num, &active_port_num)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to query QP #{qp.qp.qp_num}', rc)
+        return port_num, active_port_num
+
+    @staticmethod
+    def modify_lag_port(QP qp, uint8_t port_num):
+        """
+        Modifies the lag port num that the QP desires to use.
+        :param qp: Modifies the port for this QP.
+        :param port_num: The desired port to be used by the QP to send traffic
+                         in a LAG configuration.
+        """
+        rc = dv.mlx5dv_modify_qp_lag_port(qp.qp, port_num)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to modify lag of QP #{qp.qp.qp_num}', rc)
 
 cdef class Mlx5DVCQInitAttr(PyverbsObject):
     """

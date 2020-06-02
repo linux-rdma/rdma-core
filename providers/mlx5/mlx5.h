@@ -235,6 +235,11 @@ enum mlx5_ctx_flags {
 	MLX5_CTX_FLAGS_NO_KERN_DYN_UAR = 1 << 1,
 };
 
+struct mlx5_lag_caps {
+	uint8_t num_lag_ports;
+	uint8_t lag_tx_port_affinity;
+};
+
 struct mlx5_context {
 	struct verbs_context		ibv_ctx;
 	int				max_num_qps;
@@ -303,6 +308,7 @@ struct mlx5_context {
 	struct mlx5dv_striding_rq_caps	striding_rq_caps;
 	uint32_t			tunnel_offloads_caps;
 	struct mlx5_packet_pacing_caps	packet_pacing_caps;
+	struct mlx5_lag_caps		lag_caps;
 	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
 	uint32_t			num_dyn_bfregs;
 	uint32_t			max_num_legacy_dyn_uar_sys_page;

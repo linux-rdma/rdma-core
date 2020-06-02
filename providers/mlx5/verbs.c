@@ -3263,6 +3263,31 @@ static void get_pci_atomic_caps(struct ibv_context *context,
 	}
 }
 
+static void get_lag_caps(struct ibv_context *ctx)
+{
+	uint16_t opmod = MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE |
+		HCA_CAP_OPMOD_GET_CUR;
+	uint32_t out[DEVX_ST_SZ_DW(query_hca_cap_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(query_hca_cap_in)] = {};
+	struct mlx5_context *mctx = to_mctx(ctx);
+	int ret;
+
+	DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
+	DEVX_SET(query_hca_cap_in, in, op_mod, opmod);
+
+	ret = mlx5dv_devx_general_cmd(ctx, in, sizeof(in), out, sizeof(out));
+	if (ret)
+		return;
+
+	mctx->lag_caps.num_lag_ports =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.cmd_hca_cap.num_lag_ports);
+
+	mctx->lag_caps.lag_tx_port_affinity =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.cmd_hca_cap.lag_tx_port_affinity);
+}
+
 int mlx5_query_device_ex(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
 			 struct ibv_device_attr_ex *attr,
@@ -3347,6 +3372,8 @@ int mlx5_query_device_ex(struct ibv_context *context,
 	if (attr_size >= offsetof(struct ibv_device_attr_ex, pci_atomic_caps) +
 			sizeof(attr->pci_atomic_caps))
 		get_pci_atomic_caps(context, attr);
+
+	get_lag_caps(context);
 
 	return 0;
 }
