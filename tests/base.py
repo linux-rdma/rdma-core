@@ -247,10 +247,17 @@ class BaseResources(object):
         :param ib_port: IB port of the device to use (default: 1)
         :param gid_index: Which GID index to use (default: 0)
         """
-        self.ctx = Context(name=dev_name)
+        self.dev_name = dev_name
         self.gid_index = gid_index
-        self.pd = PD(self.ctx)
         self.ib_port = ib_port
+        self.create_context()
+        self.create_pd()
+
+    def create_context(self):
+        self.ctx = Context(name=self.dev_name)
+
+    def create_pd(self):
+        self.pd = PD(self.ctx)
 
 
 class TrafficResources(BaseResources):
