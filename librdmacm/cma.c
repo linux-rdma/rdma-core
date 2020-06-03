@@ -1564,6 +1564,61 @@ void rdma_destroy_srq(struct rdma_cm_id *id)
 	ucma_destroy_cqs(id);
 }
 
+static int init_ece(struct rdma_cm_id *id, struct ibv_qp *qp)
+{
+	struct cma_id_private *id_priv =
+		container_of(id, struct cma_id_private, id);
+	struct ibv_ece ece = {};
+	int ret;
+
+	ret = ibv_query_ece(qp, &ece);
+	if (ret && ret != EOPNOTSUPP)
+		return ERR(ret);
+
+	id_priv->local_ece.vendor_id = ece.vendor_id;
+	id_priv->local_ece.options = ece.options;
+
+	if (!id_priv->remote_ece.vendor_id)
+		/*
+		 * This QP was created explicitly and we don't need
+		 * to do anything additional to the setting local_ece values.
+		 */
+		return 0;
+
+	/* This QP was created due to REQ event */
+	if (id_priv->remote_ece.vendor_id != id_priv->local_ece.vendor_id) {
+		/*
+		 * Signal to the provider that other ECE node is different
+		 * vendor and clear ECE options.
+		 */
+		ece.vendor_id = id_priv->local_ece.vendor_id;
+		ece.options = 0;
+	} else {
+		ece.vendor_id = id_priv->remote_ece.vendor_id;
+		ece.options = id_priv->remote_ece.options;
+	}
+	ret = ibv_set_ece(qp, &ece);
+	return (ret && ret != EOPNOTSUPP) ? ERR(ret) : 0;
+}
+
+static int set_local_ece(struct rdma_cm_id *id, struct ibv_qp *qp)
+{
+	struct cma_id_private *id_priv =
+		container_of(id, struct cma_id_private, id);
+	struct ibv_ece ece = {};
+	int ret;
+
+	if (!id_priv->remote_ece.vendor_id)
+		return 0;
+
+	ret = ibv_query_ece(qp, &ece);
+	if (ret && ret != EOPNOTSUPP)
+		return ERR(ret);
+
+	id_priv->local_ece.options = ece.options;
+	return 0;
+}
+
 int rdma_create_qp_ex(struct rdma_cm_id *id,
 		      struct ibv_qp_init_attr_ex *attr)
 {
@@ -1611,10 +1666,17 @@ int rdma_create_qp_ex(struct rdma_cm_id *id,
 		goto err1;
 	}
 
+	ret = init_ece(id, qp);
+	if (ret)
+		goto err2;
+
 	if (ucma_is_ud_qp(id->qp_type))
 		ret = ucma_init_ud_qp(id_priv, qp);
 	else
 		ret = ucma_init_conn_qp(id_priv, qp);
+	if (ret)
+		goto err2;
+	ret = set_local_ece(id, qp);
 	if (ret)
 		goto err2;
 
@@ -2228,8 +2290,8 @@ static int ucma_query_req_info(struct rdma_cm_id *id)
 	return 0;
 }
 
-static int ucma_process_conn_req(struct cma_event *evt,
-				 uint32_t handle)
+static int ucma_process_conn_req(struct cma_event *evt, uint32_t handle,
+				 struct ucma_abi_ece *ece)
 {
 	struct cma_id_private *id_priv;
 	int ret;
@@ -2249,6 +2311,8 @@ static int ucma_process_conn_req(struct cma_event *evt,
 	ucma_insert_id(id_priv);
 	id_priv->initiator_depth = evt->event.param.conn.initiator_depth;
 	id_priv->responder_resources = evt->event.param.conn.responder_resources;
+	id_priv->remote_ece.vendor_id = ece->vendor_id;
+	id_priv->remote_ece.options = ece->attr_mod;
 
 	if (evt->id_priv->sync) {
 		ret = rdma_migrate_id(&id_priv->id, NULL);
@@ -2295,6 +2359,50 @@ static int ucma_process_conn_resp(struct cma_id_private *id_priv)
 err:
 	ucma_modify_qp_err(&id_priv->id);
 	return ret;
+}
+
+static int ucma_process_conn_resp_ece(struct cma_id_private *id_priv,
+				      struct ucma_abi_ece *ece)
+{
+	struct ibv_ece ibv_ece = { .vendor_id = ece->vendor_id,
+				   .options = ece->attr_mod };
+	int ret;
+
+	/* This is response handler */
+	if (!ece->vendor_id) {
+		/*
+		 * Kernel or user-space doesn't support ECE transfer,
+		 * clear everything.
+		 */
+		ibv_ece.vendor_id = id_priv->local_ece.vendor_id;
+		ibv_ece.options = 0;
+	} else if (ece->vendor_id != id_priv->local_ece.vendor_id) {
+		/*
+		 * At this point remote vendor_id should be the same
+		 * as the local one, or something bad happened in
+		 * ECE handshake implementation.
+		 */
+		ucma_modify_qp_err(&id_priv->id);
+		return ERR(EINVAL);
+	}
+
+	id_priv->remote_ece.vendor_id = ece->vendor_id;
+	ret = ibv_set_ece(id_priv->id.qp, &ibv_ece);
+	if (ret && ret != EOPNOTSUPP)
+		return ret;
+
+	ret = ucma_process_conn_resp(id_priv);
+	if (ret)
+		return ret;
+
+	ret = ibv_query_ece(id_priv->id.qp, &ibv_ece);
+	if (ret && ret != EOPNOTSUPP) {
+		ucma_modify_qp_err(&id_priv->id);
+		return ret;
+	}
+
+	id_priv->local_ece.options = (ret == EOPNOTSUPP) ? 0 : ibv_ece.options;
+	return 0;
 }
 
 static int ucma_process_join(struct cma_event *evt)
@@ -2366,7 +2474,7 @@ int rdma_establish(struct rdma_cm_id *id)
 int rdma_get_cm_event(struct rdma_event_channel *channel,
 		      struct rdma_cm_event **event)
 {
-	struct ucma_abi_event_resp resp;
+	struct ucma_abi_event_resp resp = {};
 	struct ucma_abi_get_event cmd;
 	struct cma_event *evt;
 	int ret;
@@ -2433,7 +2541,7 @@ retry:
 		else
 			ucma_copy_conn_event(evt, &resp.param.conn);
 
-		ret = ucma_process_conn_req(evt, resp.id);
+		ret = ucma_process_conn_req(evt, resp.id, &resp.ece);
 		if (ret)
 			goto retry;
 		break;
@@ -2441,9 +2549,11 @@ retry:
 		ucma_copy_conn_event(evt, &resp.param.conn);
 		if (!evt->id_priv->id.qp) {
 			evt->event.event = RDMA_CM_EVENT_CONNECT_RESPONSE;
+			evt->id_priv->remote_ece.vendor_id = resp.ece.vendor_id;
+			evt->id_priv->remote_ece.options = resp.ece.attr_mod;
 		} else {
-			evt->event.status =
-				ucma_process_conn_resp(evt->id_priv);
+			evt->event.status = ucma_process_conn_resp_ece(
+				evt->id_priv, &resp.ece);
 			if (!evt->event.status)
 				evt->event.event = RDMA_CM_EVENT_ESTABLISHED;
 			else {
