@@ -87,6 +87,9 @@ cdef class Context(PyverbsCM):
             * *cmid*
               A CMID object. If not None, it means that the device was already
               opened by a CMID class, and only a pointer assignment is missing.
+            * *cmd_fd*
+              A command FD. If passed, the device will be imported from the
+              given cmd_fd using ibv_import_device.
         :return: None
         """
         cdef int count
@@ -107,9 +110,15 @@ cdef class Context(PyverbsCM):
         self.name = kwargs.get('name')
         provider_attr = kwargs.get('attr')
         cmid = kwargs.get('cmid')
+        cmd_fd = kwargs.get('cmd_fd')
         if cmid is not None:
             self.context = cmid.id.verbs
             cmid.ctx = self
+            return
+        if cmd_fd is not None:
+            self.context = v.ibv_import_device(cmd_fd)
+            if self.context == NULL:
+                raise PyverbsRDMAErrno('Failed to import device')
             return
 
         if self.name is None:
@@ -152,8 +161,7 @@ cdef class Context(PyverbsCM):
                             self.xrcds, self.vars])
             rc = v.ibv_close_device(self.context)
             if rc != 0:
-                raise PyverbsRDMAErrno('Failed to close device {dev}'.
-                                       format(dev=self.device.name))
+                raise PyverbsRDMAErrno(f'Failed to close device {self.name}')
             self.context = NULL
 
     @property

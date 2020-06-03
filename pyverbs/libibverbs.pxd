@@ -601,6 +601,11 @@ cdef extern from 'infiniband/verbs.h':
     void ibv_wr_start(ibv_qp_ex *qp)
     int ibv_wr_complete(ibv_qp_ex *qp)
     void ibv_wr_abort(ibv_qp_ex *qp)
+    ibv_context *ibv_import_device(int cmd_fd)
+    ibv_mr *ibv_import_mr(ibv_pd *pd, uint32_t handle)
+    void ibv_unimport_mr(ibv_mr *mr)
+    ibv_pd *ibv_import_pd(ibv_context *context, uint32_t handle)
+    void ibv_unimport_pd(ibv_pd *pd)
 
 
 cdef extern from 'infiniband/driver.h':
