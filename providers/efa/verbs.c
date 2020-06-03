@@ -144,6 +144,9 @@ int efadv_query_device(struct ibv_context *ibvctx,
 
 		if (is_rdma_read_cap(ctx))
 			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_RDMA_READ;
+
+		if (is_rnr_retry_cap(ctx))
+			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_RNR_RETRY;
 	}
 
 	attr->comp_mask = comp_mask_out;
