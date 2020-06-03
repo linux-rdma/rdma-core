@@ -40,7 +40,7 @@ Using loopback
 	ports on the same system, ARP must be enabled for local
 	resolution:
 
-		sysctl net.ipv4.conf.all.accept_local=1
+		sysctl -w net.ipv4.conf.all.accept_local=1
 
 	Without this setting, loopback connections may timeout
 	during address resolution.
