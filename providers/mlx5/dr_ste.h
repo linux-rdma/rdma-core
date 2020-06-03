@@ -67,18 +67,13 @@
 	} \
 } while (0)
 
-/* Set to STE spec->s_fname to tag->t_fname */
+/* Set to STE spec->s_fname to tag->t_fname set spec->s_fname as used */
 #define DR_STE_SET_TAG(lookup_type, tag, t_fname, spec, s_fname) \
 	DR_STE_SET_VAL(lookup_type, tag, t_fname, spec, s_fname, (spec)->s_fname)
 
-/* Set to STE -1 to bit_mask->bm_fname and set spec->s_fname as used */
-#define DR_STE_SET_MASK(lookup_type, bit_mask, bm_fname, spec, s_fname) \
-	DR_STE_SET_VAL(lookup_type, bit_mask, bm_fname, spec, s_fname, -1)
-
-/* Set to STE spec->s_fname to bit_mask->bm_fname and set spec->s_fname as used */
-#define DR_STE_SET_MASK_V(lookup_type, bit_mask, bm_fname, spec, s_fname) \
-	DR_STE_SET_VAL(lookup_type, bit_mask, bm_fname, spec, s_fname, (spec)->s_fname)
-
+/* Set to STE -1 to tag->t_fname and set spec->s_fname as used */
+#define DR_STE_SET_ONES(lookup_type, tag, t_fname, spec, s_fname) \
+	DR_STE_SET_VAL(lookup_type, tag, t_fname, spec, s_fname, -1)
 
 #define DR_STE_SET_TCP_FLAGS(lookup_type, tag, spec) do { \
 	DR_STE_SET_BOOL(lookup_type, tag, tcp_ns, (spec)->tcp_flags & (1 << 8)); \
@@ -92,18 +87,7 @@
 	DR_STE_SET_BOOL(lookup_type, tag, tcp_fin, (spec)->tcp_flags & (1 << 0)); \
 } while (0)
 
-#define DR_STE_SET_MPLS_MASK(lookup_type, mask, in_out, bit_mask) do { \
-	DR_STE_SET_MASK_V(lookup_type, mask, mpls0_label, mask, \
-			  in_out##_first_mpls_label);\
-	DR_STE_SET_MASK_V(lookup_type, mask, mpls0_s_bos, mask, \
-			  in_out##_first_mpls_s_bos); \
-	DR_STE_SET_MASK_V(lookup_type, mask, mpls0_exp, mask, \
-			  in_out##_first_mpls_exp); \
-	DR_STE_SET_MASK_V(lookup_type, mask, mpls0_ttl, mask, \
-			  in_out##_first_mpls_ttl); \
-} while (0)
-
-#define DR_STE_SET_MPLS_TAG(lookup_type, mask, in_out, tag) do { \
+#define DR_STE_SET_MPLS(lookup_type, mask, in_out, tag) do { \
 	DR_STE_SET_TAG(lookup_type, tag, mpls0_label, mask, \
 		       in_out##_first_mpls_label);\
 	DR_STE_SET_TAG(lookup_type, tag, mpls0_s_bos, mask, \
