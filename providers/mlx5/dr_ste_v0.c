@@ -33,9 +33,53 @@
 #include "dr_ste.h"
 
 #define DR_STE_CALC_LU_TYPE(lookup_type, rx, inner) \
-	((inner) ? DR_STE_LU_TYPE_##lookup_type##_I : \
-		   (rx) ? DR_STE_LU_TYPE_##lookup_type##_D : \
-			  DR_STE_LU_TYPE_##lookup_type##_O)
+	((inner) ? DR_STE_V0_LU_TYPE_##lookup_type##_I : \
+		   (rx) ? DR_STE_V0_LU_TYPE_##lookup_type##_D : \
+			  DR_STE_V0_LU_TYPE_##lookup_type##_O)
+
+enum dr_ste_v0_lu_type {
+	DR_STE_V0_LU_TYPE_NOP				= 0x00,
+	DR_STE_V0_LU_TYPE_SRC_GVMI_AND_QP		= 0x05,
+	DR_STE_V0_LU_TYPE_ETHL2_TUNNELING_I		= 0x0a,
+	DR_STE_V0_LU_TYPE_ETHL2_DST_O			= 0x06,
+	DR_STE_V0_LU_TYPE_ETHL2_DST_I			= 0x07,
+	DR_STE_V0_LU_TYPE_ETHL2_DST_D			= 0x1b,
+	DR_STE_V0_LU_TYPE_ETHL2_SRC_O			= 0x08,
+	DR_STE_V0_LU_TYPE_ETHL2_SRC_I			= 0x09,
+	DR_STE_V0_LU_TYPE_ETHL2_SRC_D			= 0x1c,
+	DR_STE_V0_LU_TYPE_ETHL2_SRC_DST_O		= 0x36,
+	DR_STE_V0_LU_TYPE_ETHL2_SRC_DST_I		= 0x37,
+	DR_STE_V0_LU_TYPE_ETHL2_SRC_DST_D		= 0x38,
+	DR_STE_V0_LU_TYPE_ETHL3_IPV6_DST_O		= 0x0d,
+	DR_STE_V0_LU_TYPE_ETHL3_IPV6_DST_I		= 0x0e,
+	DR_STE_V0_LU_TYPE_ETHL3_IPV6_DST_D		= 0x1e,
+	DR_STE_V0_LU_TYPE_ETHL3_IPV6_SRC_O		= 0x0f,
+	DR_STE_V0_LU_TYPE_ETHL3_IPV6_SRC_I		= 0x10,
+	DR_STE_V0_LU_TYPE_ETHL3_IPV6_SRC_D		= 0x1f,
+	DR_STE_V0_LU_TYPE_ETHL3_IPV4_5_TUPLE_O		= 0x11,
+	DR_STE_V0_LU_TYPE_ETHL3_IPV4_5_TUPLE_I		= 0x12,
+	DR_STE_V0_LU_TYPE_ETHL3_IPV4_5_TUPLE_D		= 0x20,
+	DR_STE_V0_LU_TYPE_ETHL3_IPV4_MISC_O		= 0x29,
+	DR_STE_V0_LU_TYPE_ETHL3_IPV4_MISC_I		= 0x2a,
+	DR_STE_V0_LU_TYPE_ETHL3_IPV4_MISC_D		= 0x2b,
+	DR_STE_V0_LU_TYPE_ETHL4_O			= 0x13,
+	DR_STE_V0_LU_TYPE_ETHL4_I			= 0x14,
+	DR_STE_V0_LU_TYPE_ETHL4_D			= 0x21,
+	DR_STE_V0_LU_TYPE_ETHL4_MISC_O			= 0x2c,
+	DR_STE_V0_LU_TYPE_ETHL4_MISC_I			= 0x2d,
+	DR_STE_V0_LU_TYPE_ETHL4_MISC_D			= 0x2e,
+	DR_STE_V0_LU_TYPE_MPLS_FIRST_O			= 0x15,
+	DR_STE_V0_LU_TYPE_MPLS_FIRST_I			= 0x24,
+	DR_STE_V0_LU_TYPE_MPLS_FIRST_D			= 0x25,
+	DR_STE_V0_LU_TYPE_GRE				= 0x16,
+	DR_STE_V0_LU_TYPE_FLEX_PARSER_0			= 0x22,
+	DR_STE_V0_LU_TYPE_FLEX_PARSER_1			= 0x23,
+	DR_STE_V0_LU_TYPE_FLEX_PARSER_TNL_HEADER	= 0x19,
+	DR_STE_V0_LU_TYPE_GENERAL_PURPOSE		= 0x18,
+	DR_STE_V0_LU_TYPE_STEERING_REGISTERS_0		= 0x2f,
+	DR_STE_V0_LU_TYPE_STEERING_REGISTERS_1		= 0x30,
+	DR_STE_V0_LU_TYPE_DONT_CARE			= DR_STE_LU_TYPE_DONT_CARE,
+};
 
 static void dr_ste_v0_build_eth_l2_src_dst_bit_mask(struct dr_match_param *value,
 						    bool inner, uint8_t *bit_mask)
@@ -455,7 +499,7 @@ static void dr_ste_v0_build_eth_l2_tnl_init(struct dr_ste_build *sb,
 {
 	dr_ste_v0_build_eth_l2_tnl_bit_mask(mask, sb->inner, sb->bit_mask);
 
-	sb->lu_type = DR_STE_LU_TYPE_ETHL2_TUNNELING_I;
+	sb->lu_type = DR_STE_V0_LU_TYPE_ETHL2_TUNNELING_I;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_eth_l2_tnl_tag;
 }
@@ -567,7 +611,7 @@ static void dr_ste_v0_build_tnl_gre_init(struct dr_ste_build *sb,
 {
 	dr_ste_v0_build_tnl_gre_tag(mask, sb, sb->bit_mask);
 
-	sb->lu_type = DR_STE_LU_TYPE_GRE;
+	sb->lu_type = DR_STE_V0_LU_TYPE_GRE;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_gre_tag;
 }
@@ -612,7 +656,7 @@ static void dr_ste_v0_build_tnl_mpls_init(struct dr_ste_build *sb,
 {
 	dr_ste_v0_build_tnl_mpls_tag(mask, sb, sb->bit_mask);
 
-	sb->lu_type = DR_STE_LU_TYPE_FLEX_PARSER_0;
+	sb->lu_type = DR_STE_V0_LU_TYPE_FLEX_PARSER_0;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_mpls_tag;
 }
@@ -702,7 +746,7 @@ static int dr_ste_v0_build_icmp_init(struct dr_ste_build *sb,
 	if (ret)
 		return ret;
 
-	sb->lu_type = DR_STE_LU_TYPE_FLEX_PARSER_1;
+	sb->lu_type = DR_STE_V0_LU_TYPE_FLEX_PARSER_1;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_icmp_tag;
 
@@ -726,7 +770,7 @@ static void dr_ste_v0_build_general_purpose_init(struct dr_ste_build *sb,
 {
 	dr_ste_v0_build_general_purpose_tag(mask, sb, sb->bit_mask);
 
-	sb->lu_type = DR_STE_LU_TYPE_GENERAL_PURPOSE;
+	sb->lu_type = DR_STE_V0_LU_TYPE_GENERAL_PURPOSE;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_general_purpose_tag;
 }
@@ -784,7 +828,7 @@ dr_ste_v0_build_flex_parser_tnl_vxlan_gpe_init(struct dr_ste_build *sb,
 {
 	dr_ste_v0_build_flex_parser_tnl_vxlan_gpe_tag(mask, sb, sb->bit_mask);
 
-	sb->lu_type = DR_STE_LU_TYPE_FLEX_PARSER_TNL_HEADER;
+	sb->lu_type = DR_STE_V0_LU_TYPE_FLEX_PARSER_TNL_HEADER;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_flex_parser_tnl_vxlan_gpe_tag;
 }
@@ -814,7 +858,7 @@ dr_ste_v0_build_flex_parser_tnl_geneve_init(struct dr_ste_build *sb,
 {
 	dr_ste_v0_build_flex_parser_tnl_geneve_tag(mask, sb, sb->bit_mask);
 
-	sb->lu_type = DR_STE_LU_TYPE_FLEX_PARSER_TNL_HEADER;
+	sb->lu_type = DR_STE_V0_LU_TYPE_FLEX_PARSER_TNL_HEADER;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_flex_parser_tnl_geneve_tag;
 }
@@ -843,7 +887,7 @@ static void dr_ste_v0_build_flex_parser_tnl_gtpu_init(struct dr_ste_build *sb,
 {
 	dr_ste_v0_build_flex_parser_tnl_gtpu_tag(mask, sb, sb->bit_mask);
 
-	sb->lu_type = DR_STE_LU_TYPE_FLEX_PARSER_TNL_HEADER;
+	sb->lu_type = DR_STE_V0_LU_TYPE_FLEX_PARSER_TNL_HEADER;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_flex_parser_tnl_gtpu_tag;
 }
@@ -867,7 +911,7 @@ static void dr_ste_v0_build_register_0_init(struct dr_ste_build *sb,
 {
 	dr_ste_v0_build_register_0_tag(mask, sb, sb->bit_mask);
 
-	sb->lu_type = DR_STE_LU_TYPE_STEERING_REGISTERS_0;
+	sb->lu_type = DR_STE_V0_LU_TYPE_STEERING_REGISTERS_0;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_register_0_tag;
 }
@@ -891,7 +935,7 @@ static void dr_ste_v0_build_register_1_init(struct dr_ste_build *sb,
 {
 	dr_ste_v0_build_register_1_tag(mask, sb, sb->bit_mask);
 
-	sb->lu_type = DR_STE_LU_TYPE_STEERING_REGISTERS_1;
+	sb->lu_type = DR_STE_V0_LU_TYPE_STEERING_REGISTERS_1;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_register_1_tag;
 }
@@ -936,7 +980,7 @@ static void dr_ste_v0_build_src_gvmi_qpn_init(struct dr_ste_build *sb,
 {
 	dr_ste_v0_build_src_gvmi_qpn_bit_mask(mask, sb->bit_mask);
 
-	sb->lu_type = DR_STE_LU_TYPE_SRC_GVMI_AND_QP;
+	sb->lu_type = DR_STE_V0_LU_TYPE_SRC_GVMI_AND_QP;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_src_gvmi_qpn_tag;
 }

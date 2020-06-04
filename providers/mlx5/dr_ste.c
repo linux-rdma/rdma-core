@@ -161,7 +161,7 @@ void dr_ste_set_rewrite_actions(uint8_t *hw_ste_p, uint16_t num_of_actions,
 		   re_write_index);
 }
 
-void dr_ste_init(uint8_t *hw_ste_p, uint8_t lu_type, uint8_t entry_type,
+void dr_ste_init(uint8_t *hw_ste_p, uint16_t lu_type, uint8_t entry_type,
 		 uint16_t gvmi)
 {
 	DR_STE_SET(general, hw_ste_p, entry_type, entry_type);
@@ -505,7 +505,7 @@ int dr_ste_create_next_htbl(struct mlx5dv_dr_matcher *matcher,
 	struct dr_ste_htbl *next_htbl;
 
 	if (!dr_ste_is_last_in_rule(nic_matcher, ste->ste_chain_location)) {
-		uint8_t next_lu_type;
+		uint16_t next_lu_type;
 		uint16_t byte_mask;
 
 		next_lu_type = DR_STE_GET(general, hw_ste, next_lu_type);
@@ -558,7 +558,7 @@ static void dr_ste_set_ctrl(struct dr_ste_htbl *htbl)
 
 struct dr_ste_htbl *dr_ste_htbl_alloc(struct dr_icm_pool *pool,
 				      enum dr_icm_chunk_size chunk_size,
-				      uint8_t lu_type, uint16_t byte_mask)
+				      uint16_t lu_type, uint16_t byte_mask)
 {
 	struct dr_icm_chunk *chunk;
 	struct dr_ste_htbl *htbl;

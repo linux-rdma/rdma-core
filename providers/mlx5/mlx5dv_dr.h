@@ -95,47 +95,7 @@ dr_icm_next_higher_chunk(enum dr_icm_chunk_size chunk)
 }
 
 enum dr_ste_lu_type {
-	DR_STE_LU_TYPE_NOP			= 0x00,
-	DR_STE_LU_TYPE_SRC_GVMI_AND_QP		= 0x05,
-	DR_STE_LU_TYPE_ETHL2_TUNNELING_I	= 0x0a,
-	DR_STE_LU_TYPE_ETHL2_DST_O		= 0x06,
-	DR_STE_LU_TYPE_ETHL2_DST_I		= 0x07,
-	DR_STE_LU_TYPE_ETHL2_DST_D		= 0x1b,
-	DR_STE_LU_TYPE_ETHL2_SRC_O		= 0x08,
-	DR_STE_LU_TYPE_ETHL2_SRC_I		= 0x09,
-	DR_STE_LU_TYPE_ETHL2_SRC_D		= 0x1c,
-	DR_STE_LU_TYPE_ETHL2_SRC_DST_O		= 0x36,
-	DR_STE_LU_TYPE_ETHL2_SRC_DST_I		= 0x37,
-	DR_STE_LU_TYPE_ETHL2_SRC_DST_D		= 0x38,
-	DR_STE_LU_TYPE_ETHL3_IPV6_DST_O		= 0x0d,
-	DR_STE_LU_TYPE_ETHL3_IPV6_DST_I		= 0x0e,
-	DR_STE_LU_TYPE_ETHL3_IPV6_DST_D		= 0x1e,
-	DR_STE_LU_TYPE_ETHL3_IPV6_SRC_O		= 0x0f,
-	DR_STE_LU_TYPE_ETHL3_IPV6_SRC_I		= 0x10,
-	DR_STE_LU_TYPE_ETHL3_IPV6_SRC_D		= 0x1f,
-	DR_STE_LU_TYPE_ETHL3_IPV4_5_TUPLE_O	= 0x11,
-	DR_STE_LU_TYPE_ETHL3_IPV4_5_TUPLE_I	= 0x12,
-	DR_STE_LU_TYPE_ETHL3_IPV4_5_TUPLE_D	= 0x20,
-	DR_STE_LU_TYPE_ETHL3_IPV4_MISC_O	= 0x29,
-	DR_STE_LU_TYPE_ETHL3_IPV4_MISC_I	= 0x2a,
-	DR_STE_LU_TYPE_ETHL3_IPV4_MISC_D	= 0x2b,
-	DR_STE_LU_TYPE_ETHL4_O			= 0x13,
-	DR_STE_LU_TYPE_ETHL4_I			= 0x14,
-	DR_STE_LU_TYPE_ETHL4_D			= 0x21,
-	DR_STE_LU_TYPE_ETHL4_MISC_O		= 0x2c,
-	DR_STE_LU_TYPE_ETHL4_MISC_I		= 0x2d,
-	DR_STE_LU_TYPE_ETHL4_MISC_D		= 0x2e,
-	DR_STE_LU_TYPE_MPLS_FIRST_O		= 0x15,
-	DR_STE_LU_TYPE_MPLS_FIRST_I		= 0x24,
-	DR_STE_LU_TYPE_MPLS_FIRST_D		= 0x25,
-	DR_STE_LU_TYPE_GRE			= 0x16,
-	DR_STE_LU_TYPE_FLEX_PARSER_0		= 0x22,
-	DR_STE_LU_TYPE_FLEX_PARSER_1		= 0x23,
-	DR_STE_LU_TYPE_FLEX_PARSER_TNL_HEADER	= 0x19,
-	DR_STE_LU_TYPE_GENERAL_PURPOSE		= 0x18,
-	DR_STE_LU_TYPE_STEERING_REGISTERS_0	= 0x2f,
-	DR_STE_LU_TYPE_STEERING_REGISTERS_1	= 0x30,
-	DR_STE_LU_TYPE_DONT_CARE		= 0x0f,
+	DR_STE_LU_TYPE_DONT_CARE	= 0x0f,
 };
 
 enum dr_ste_entry_type {
@@ -242,7 +202,7 @@ struct dr_ste_htbl_ctrl {
 };
 
 struct dr_ste_htbl {
-	uint8_t			lu_type;
+	uint16_t		lu_type;
 	uint16_t		byte_mask;
 	atomic_int		refcount;
 	struct dr_icm_chunk	*chunk;
@@ -276,7 +236,7 @@ struct dr_ste_build {
 	bool			inner;
 	bool			rx;
 	struct dr_devx_caps	*caps;
-	uint8_t			lu_type;
+	uint16_t		lu_type;
 	uint16_t		byte_mask;
 	uint8_t			bit_mask[DR_STE_SIZE_MASK];
 	int (*ste_build_tag_func)(struct dr_match_param *spec,
@@ -286,7 +246,7 @@ struct dr_ste_build {
 
 struct dr_ste_htbl *dr_ste_htbl_alloc(struct dr_icm_pool *pool,
 				      enum dr_icm_chunk_size chunk_size,
-				      uint8_t lu_type, uint16_t byte_mask);
+				      uint16_t lu_type, uint16_t byte_mask);
 int dr_ste_htbl_free(struct dr_ste_htbl *htbl);
 
 static inline void dr_htbl_put(struct dr_ste_htbl *htbl)
@@ -302,7 +262,7 @@ static inline void dr_htbl_get(struct dr_ste_htbl *htbl)
 
 /* STE utils */
 uint32_t dr_ste_calc_hash_index(uint8_t *hw_ste_p, struct dr_ste_htbl *htbl);
-void dr_ste_init(uint8_t *hw_ste_p, uint8_t lu_type, uint8_t entry_type, uint16_t gvmi);
+void dr_ste_init(uint8_t *hw_ste_p, uint16_t lu_type, uint8_t entry_type, uint16_t gvmi);
 void dr_ste_always_hit_htbl(struct dr_ste *ste, struct dr_ste_htbl *next_htbl);
 void dr_ste_set_miss_addr(uint8_t *hw_ste, uint64_t miss_addr);
 uint64_t dr_ste_get_miss_addr(uint8_t *hw_ste);
