@@ -216,23 +216,6 @@ int verbs_init_context(struct verbs_context *context_ex,
 	context_ex->context.abi_compat = __VERBS_ABI_IS_EXTENDED;
 	context_ex->sz = sizeof(*context_ex);
 
-	/*
-	 * In order to maintain backward/forward binary compatibility
-	 * with apps compiled against libibverbs-1.1.8 that use the
-	 * flow steering addition, we need to set the two
-	 * ABI_placeholder entries to match the driver set flow
-	 * entries.  This is because apps compiled against
-	 * libibverbs-1.1.8 use an inline ibv_create_flow and
-	 * ibv_destroy_flow function that looks in the placeholder
-	 * spots for the proper entry points.  For apps compiled
-	 * against libibverbs-1.1.9 and later, the inline functions
-	 * will be looking in the right place.
-	 */
-	context_ex->ABI_placeholder1 =
-		(void (*)(void))context_ex->ibv_create_flow;
-	context_ex->ABI_placeholder2 =
-		(void (*)(void))context_ex->ibv_destroy_flow;
-
 	context_ex->priv = calloc(1, sizeof(*context_ex->priv));
 	if (!context_ex->priv) {
 		errno = ENOMEM;
@@ -312,6 +295,23 @@ LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
 		context_ex->priv->create_cq_ex = context_ex->create_cq_ex;
 		context_ex->create_cq_ex = __lib_ibv_create_cq_ex;
 	}
+
+	/*
+	 * In order to maintain backward/forward binary compatibility
+	 * with apps compiled against libibverbs-1.1.8 that use the
+	 * flow steering addition, we need to set the two
+	 * ABI_placeholder entries to match the driver set flow
+	 * entries.  This is because apps compiled against
+	 * libibverbs-1.1.8 use an inline ibv_create_flow and
+	 * ibv_destroy_flow function that looks in the placeholder
+	 * spots for the proper entry points.  For apps compiled
+	 * against libibverbs-1.1.9 and later, the inline functions
+	 * will be looking in the right place.
+	 */
+	context_ex->ABI_placeholder1 =
+		(void (*)(void))context_ex->ibv_create_flow;
+	context_ex->ABI_placeholder2 =
+		(void (*)(void))context_ex->ibv_destroy_flow;
 
 	return &context_ex->context;
 }
