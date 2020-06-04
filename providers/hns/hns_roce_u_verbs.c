@@ -390,7 +390,7 @@ int hns_roce_u_destroy_cq(struct ibv_cq *cq)
 	return ret;
 }
 
-static int hns_roce_create_idx_que(struct ibv_pd *pd, struct hns_roce_srq *srq)
+static int hns_roce_create_idx_que(struct hns_roce_srq *srq)
 {
 	struct hns_roce_idx_que	*idx_que = &srq->idx_que;
 	unsigned int buf_size;
@@ -417,8 +417,7 @@ static int hns_roce_create_idx_que(struct ibv_pd *pd, struct hns_roce_srq *srq)
 	return 0;
 }
 
-static int hns_roce_alloc_srq_buf(struct ibv_pd *pd, struct ibv_srq_attr *attr,
-				  struct hns_roce_srq *srq)
+static int hns_roce_alloc_srq_buf(struct hns_roce_srq *srq)
 {
 	int srq_buf_size;
 
@@ -464,16 +463,13 @@ struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
 	srq->wqe_cnt = roundup_pow_of_two(init_attr->attr.max_wr + 1);
 	srq->max_gs = init_attr->attr.max_sge;
 
-	ret = hns_roce_create_idx_que(pd, srq);
-	if (ret) {
-		fprintf(stderr, "hns_roce_create_idx_que failed!\n");
+	ret = hns_roce_create_idx_que(srq);
+	if (ret)
 		goto out;
-	}
 
-	if (hns_roce_alloc_srq_buf(pd, &init_attr->attr, srq)) {
-		fprintf(stderr, "hns_roce_alloc_srq_buf failed!\n");
+	ret = hns_roce_alloc_srq_buf(srq);
+	if (ret)
 		goto err_idx_que;
-	}
 
 	srq->db = hns_roce_alloc_db(to_hr_ctx(pd->context),
 				    HNS_ROCE_QP_TYPE_DB);
