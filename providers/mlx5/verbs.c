@@ -1781,6 +1781,26 @@ static const char *qptype2key(enum ibv_qp_type type)
 	}
 }
 
+static size_t mlx5_set_custom_qp_alignment(struct ibv_context *context,
+					   struct mlx5_qp *qp)
+{
+	uint32_t max_stride;
+	uint32_t buf_page;
+
+	/* The main QP buffer alignment requirement is QP_PAGE_SIZE /
+	 * MLX5_QPC_PAGE_OFFSET_QUANTA. In case the buffer is contig, then
+	 * QP_PAGE_SIZE is the buffer size align to system page_size roundup to
+	 * the next pow of two.
+	 */
+	buf_page = roundup_pow_of_two(align(qp->buf_size,
+					    to_mdev(context->device)->page_size));
+	/* Another QP buffer alignment requirement is to consider send wqe and
+	 * receive wqe strides.
+	 */
+	max_stride = max((1 << qp->sq.wqe_shift), (1 << qp->rq.wqe_shift));
+	return max(max_stride, buf_page / MLX5_QPC_PAGE_OFFSET_QUANTA);
+}
+
 static int mlx5_alloc_qp_buf(struct ibv_context *context,
 			     struct ibv_qp_init_attr_ex *attr,
 			     struct mlx5_qp *qp,
@@ -1790,6 +1810,7 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 	enum mlx5_alloc_type alloc_type;
 	enum mlx5_alloc_type default_alloc_type = MLX5_ALLOC_TYPE_ANON;
 	const char *qp_huge_key;
+	size_t req_align = to_mdev(context->device)->page_size;
 
 	if (qp->sq.wqe_cnt) {
 		qp->sq.wrid = malloc(qp->sq.wqe_cnt * sizeof(*qp->sq.wrid));
@@ -1833,13 +1854,15 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 
 	if (alloc_type == MLX5_ALLOC_TYPE_CUSTOM) {
 		qp->buf.mparent_domain = to_mparent_domain(attr->pd);
-		qp->buf.req_alignment = to_mdev(context->device)->page_size;
+		if (attr->qp_type != IBV_QPT_RAW_PACKET &&
+		    !(qp->flags & MLX5_QP_FLAGS_USE_UNDERLAY))
+			req_align = mlx5_set_custom_qp_alignment(context, qp);
+		qp->buf.req_alignment = req_align;
 		qp->buf.resource_type = MLX5DV_RES_TYPE_QP;
 	}
 
 	err = mlx5_alloc_prefered_buf(to_mctx(context), &qp->buf,
-				      align(qp->buf_size, to_mdev
-				      (context->device)->page_size),
+				      align(qp->buf_size, req_align),
 				      to_mdev(context->device)->page_size,
 				      alloc_type,
 				      MLX5_QP_PREFIX);
