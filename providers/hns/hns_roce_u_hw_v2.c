@@ -193,7 +193,7 @@ static void hns_roce_v2_handle_error_cqe(struct hns_roce_v2_cqe *cqe,
 
 static struct hns_roce_v2_cqe *get_cqe_v2(struct hns_roce_cq *cq, int entry)
 {
-	return cq->buf.buf + entry * HNS_ROCE_CQE_ENTRY_SIZE;
+	return cq->buf.buf + entry * cq->cqe_size;
 }
 
 static void *get_sw_cqe_v2(struct hns_roce_cq *cq, int n)
