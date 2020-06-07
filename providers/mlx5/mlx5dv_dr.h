@@ -207,6 +207,7 @@ struct dr_data_seg {
 
 enum send_info_type {
 	WRITE_ICM = 0,
+	GTA_ARG   = 1,
 };
 
 struct postsend_info {
@@ -1226,6 +1227,7 @@ struct mlx5dv_dr_action {
 					uint8_t			allow_tx:1;
 					struct {
 						struct dr_ptrn_obj *ptrn;
+						struct dr_arg_object *arg;
 					} ptrn_arg;
 				};
 			};
@@ -1667,6 +1669,8 @@ int dr_send_postsend_pattern(struct mlx5dv_dr_domain *dmn,
 			     struct dr_icm_chunk *chunk,
 			     uint16_t num_of_actions,
 			     uint8_t *data);
+int dr_send_postsend_args(struct mlx5dv_dr_domain *dmn, uint64_t arg_id,
+			  uint16_t num_of_actions, uint8_t *actions_data);
 
 /* buddy functions & structure */
 struct dr_icm_mr;

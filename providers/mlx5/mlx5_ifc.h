@@ -184,6 +184,10 @@ enum {
 	MLX5_EQ_DOORBEL_OFFSET = 0x40,
 };
 
+enum {
+	OPCODE_MOD_UPDATE_HEADER_MODIFY_ARGUMENT = 0x1,
+};
+
 struct mlx5_ifc_atomic_caps_bits {
 	u8         reserved_at_0[0x40];
 

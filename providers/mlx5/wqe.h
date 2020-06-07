@@ -238,4 +238,14 @@ struct mlx5_mmo_wqe {
 	struct mlx5_wqe_data_seg dest;
 };
 
+struct mlx5_wqe_flow_update_ctrl_seg {
+	__be32 flow_idx_update;
+	__be32 dest_handle;
+	uint8_t reserved0[40];
+};
+
+struct mlx5_wqe_header_modify_argument_update_seg {
+	uint8_t argument_list[64];
+};
+
 #endif /* WQE_H */
