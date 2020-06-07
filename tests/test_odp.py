@@ -1,8 +1,9 @@
 from pyverbs.mem_alloc import mmap, munmap, MAP_ANONYMOUS_, MAP_PRIVATE_, \
     MAP_HUGETLB_
 from tests.utils import requires_odp, requires_huge_pages, traffic, \
-    xrc_traffic, create_custom_mr
+    xrc_traffic, create_custom_mr, poll_cq, post_send, GRH_SIZE
 from tests.base import RCResources, UDResources, XRCResources
+from pyverbs.wr import SGE, SendWR, RecvWR
 from tests.base import RDMATestCase
 from pyverbs.mr import MR
 import pyverbs.enums as e
@@ -12,10 +13,12 @@ HUGE_PAGE_SIZE = 0x200000
 
 
 class OdpUD(UDResources):
-    @requires_odp('ud', e.IBV_ODP_SUPPORT_SEND | e.IBV_ODP_SUPPORT_RECV)
+    @requires_odp('ud', e.IBV_ODP_SUPPORT_SEND)
     def create_mr(self):
-        self.mr = create_custom_mr(self, e.IBV_ACCESS_ON_DEMAND,
-                                   self.msg_size + self.GRH_SIZE)
+        self.send_mr = MR(self.pd, self.msg_size + self.GRH_SIZE,
+                          e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_ON_DEMAND)
+        self.recv_mr = MR(self.pd, self.msg_size + self.GRH_SIZE,
+                          e.IBV_ACCESS_LOCAL_WRITE)
 
 
 class OdpRC(RCResources):
@@ -92,7 +95,19 @@ class OdpTestCase(RDMATestCase):
 
     def test_odp_ud_traffic(self):
         client, server = self.create_players(OdpUD)
-        traffic(client, server, self.iters, self.gid_index, self.ib_port)
+        # Implement the traffic here because OdpUD uses two different MRs for
+        # send and recv.
+        recv_sge = SGE(server.recv_mr.buf, server.msg_size + GRH_SIZE,
+                       server.recv_mr.lkey)
+        server_recv_wr = RecvWR(sg=[recv_sge], num_sge=1)
+        send_sge = SGE(client.send_mr.buf + GRH_SIZE, client.msg_size,
+                       client.send_mr.lkey)
+        client_send_wr = SendWR(num_sge=1, sg=[send_sge])
+        for i in range(self.iters):
+            server.qp.post_recv(server_recv_wr)
+            post_send(client, client_send_wr, self.gid_index, self.ib_port)
+            poll_cq(client.cq)
+            poll_cq(server.cq)
 
     def test_odp_xrc_traffic(self):
         client, server = self.create_players(OdpXRC)
