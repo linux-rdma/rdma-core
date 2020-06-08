@@ -32,6 +32,20 @@
 
 #include "dr_ste.h"
 
+#define DR_STE_ENABLE_FLOW_TAG (1 << 31)
+
+enum dr_ste_tunl_action {
+	DR_STE_TUNL_ACTION_NONE		= 0,
+	DR_STE_TUNL_ACTION_ENABLE	= 1,
+	DR_STE_TUNL_ACTION_DECAP	= 2,
+	DR_STE_TUNL_ACTION_L3_DECAP	= 3,
+};
+
+enum dr_ste_action_type {
+	DR_STE_ACTION_TYPE_ENCAP_L3	= 3,
+	DR_STE_ACTION_TYPE_ENCAP	= 4,
+};
+
 #define DR_STE_CALC_LU_TYPE(lookup_type, rx, inner) \
 	((inner) ? DR_STE_V0_LU_TYPE_##lookup_type##_I : \
 		   (rx) ? DR_STE_V0_LU_TYPE_##lookup_type##_D : \
@@ -80,6 +94,16 @@ enum dr_ste_v0_lu_type {
 	DR_STE_V0_LU_TYPE_STEERING_REGISTERS_1		= 0x30,
 	DR_STE_V0_LU_TYPE_DONT_CARE			= DR_STE_LU_TYPE_DONT_CARE,
 };
+
+static void dr_ste_v0_set_entry_type(uint8_t *hw_ste_p, uint8_t entry_type)
+{
+	DR_STE_SET(general, hw_ste_p, entry_type, entry_type);
+}
+
+static uint8_t dr_ste_v0_get_entry_type(uint8_t *hw_ste_p)
+{
+	return DR_STE_GET(general, hw_ste_p, entry_type);
+}
 
 static void dr_ste_v0_set_miss_addr(uint8_t *hw_ste_p, uint64_t miss_addr)
 {
@@ -135,13 +159,155 @@ static void dr_ste_v0_set_hit_addr(uint8_t *hw_ste_p, uint64_t icm_addr, uint32_
 static void dr_ste_v0_init(uint8_t *hw_ste_p, uint16_t lu_type,
 			   uint8_t entry_type, uint16_t gvmi)
 {
-	DR_STE_SET(general, hw_ste_p, entry_type, entry_type);
+	dr_ste_v0_set_entry_type(hw_ste_p, entry_type);
 	dr_ste_v0_set_lu_type(hw_ste_p, lu_type);
 	dr_ste_v0_set_next_lu_type(hw_ste_p, DR_STE_LU_TYPE_DONT_CARE);
 
 	DR_STE_SET(rx_steering_mult, hw_ste_p, gvmi, gvmi);
 	DR_STE_SET(rx_steering_mult, hw_ste_p, next_table_base_63_48, gvmi);
 	DR_STE_SET(rx_steering_mult, hw_ste_p, miss_address_63_48, gvmi);
+}
+
+static void dr_ste_v0_set_rx_flow_tag(uint8_t *hw_ste_p, uint32_t flow_tag)
+{
+	DR_STE_SET(rx_steering_mult, hw_ste_p, qp_list_pointer,
+		   DR_STE_ENABLE_FLOW_TAG | flow_tag);
+}
+
+static void dr_ste_v0_set_counter_id(uint8_t *hw_ste_p, uint32_t ctr_id)
+{
+	/* This can be used for both rx_steering_mult and for sx_transmit */
+	DR_STE_SET(rx_steering_mult, hw_ste_p, counter_trigger_15_0, ctr_id);
+	DR_STE_SET(rx_steering_mult, hw_ste_p, counter_trigger_23_16, ctr_id >> 16);
+}
+
+static void dr_ste_v0_set_tx_encap(void *hw_ste_p, uint32_t reformat_id,
+				   int size, bool encap_l3)
+{
+	DR_STE_SET(sx_transmit, hw_ste_p, action_type,
+		   encap_l3 ? DR_STE_ACTION_TYPE_ENCAP_L3 : DR_STE_ACTION_TYPE_ENCAP);
+	/* The hardware expects here size in words (2 byte) */
+	DR_STE_SET(sx_transmit, hw_ste_p, action_description, size / 2);
+	DR_STE_SET(sx_transmit, hw_ste_p, encap_pointer_vlan_data, reformat_id);
+}
+
+static void dr_ste_v0_set_rx_decap(uint8_t *hw_ste_p)
+{
+	DR_STE_SET(rx_steering_mult, hw_ste_p, tunneling_action,
+		   DR_STE_TUNL_ACTION_DECAP);
+}
+
+static void dr_ste_v0_set_rx_decap_l3(uint8_t *hw_ste_p, bool vlan)
+{
+	DR_STE_SET(rx_steering_mult, hw_ste_p, tunneling_action,
+		   DR_STE_TUNL_ACTION_L3_DECAP);
+	DR_STE_SET(modify_packet, hw_ste_p, action_description, vlan ? 1 : 0);
+}
+
+static void dr_ste_v0_set_rewrite_actions(uint8_t *hw_ste_p,
+					  uint16_t num_of_actions,
+					  uint32_t re_write_index)
+{
+	DR_STE_SET(modify_packet, hw_ste_p, number_of_re_write_actions,
+		   num_of_actions);
+	DR_STE_SET(modify_packet, hw_ste_p, header_re_write_actions_pointer,
+		   re_write_index);
+}
+
+static inline void dr_ste_v0_arr_init_next(uint8_t **last_ste,
+					   uint32_t *added_stes,
+					   enum dr_ste_entry_type entry_type,
+					   uint16_t gvmi)
+{
+	(*added_stes)++;
+	*last_ste += DR_STE_SIZE;
+	dr_ste_v0_init(*last_ste, DR_STE_LU_TYPE_DONT_CARE, entry_type, gvmi);
+}
+
+static void dr_ste_v0_set_actions_tx(uint8_t *action_type_set,
+				     uint8_t *last_ste,
+				     struct dr_ste_actions_attr *attr,
+				     uint32_t *added_stes)
+{
+	/* We want to make sure the modify header comes before L2
+	 * encapsulation. The reason for that is that we support
+	 * modify headers for outer headers only
+	 */
+	if (action_type_set[DR_ACTION_TYP_MODIFY_HDR]) {
+		dr_ste_v0_set_entry_type(last_ste, DR_STE_TYPE_MODIFY_PKT);
+		dr_ste_v0_set_rewrite_actions(last_ste,
+					      attr->modify_actions,
+					      attr->modify_index);
+	}
+
+	if (action_type_set[DR_ACTION_TYP_L2_TO_TNL_L2] ||
+	    action_type_set[DR_ACTION_TYP_L2_TO_TNL_L3]) {
+		/* Modify header and encapsulation require a different STEs.
+		 * Since modify header STE format doesn't support encapsulation
+		 * tunneling_action.
+		 */
+		if (action_type_set[DR_ACTION_TYP_MODIFY_HDR])
+			dr_ste_v0_arr_init_next(&last_ste,
+						added_stes,
+						DR_STE_TYPE_TX,
+						attr->gvmi);
+
+		dr_ste_v0_set_tx_encap(last_ste,
+				       attr->reformat_id,
+				       attr->reformat_size,
+				       action_type_set[DR_ACTION_TYP_L2_TO_TNL_L3]);
+	}
+
+	if (action_type_set[DR_ACTION_TYP_CTR])
+		dr_ste_v0_set_counter_id(last_ste, attr->ctr_id);
+
+	dr_ste_v0_set_hit_addr(last_ste, attr->final_icm_addr, 1);
+}
+
+static void dr_ste_v0_set_actions_rx(uint8_t *action_type_set,
+				     uint8_t *last_ste,
+				     struct dr_ste_actions_attr *attr,
+				     uint32_t *added_stes)
+{
+	if (action_type_set[DR_ACTION_TYP_CTR])
+		dr_ste_v0_set_counter_id(last_ste, attr->ctr_id);
+
+	if (action_type_set[DR_ACTION_TYP_TNL_L3_TO_L2]) {
+		dr_ste_v0_set_entry_type(last_ste, DR_STE_TYPE_MODIFY_PKT);
+		dr_ste_v0_set_rx_decap_l3(last_ste, attr->decap_with_vlan);
+		dr_ste_v0_set_rewrite_actions(last_ste,
+					      attr->decap_actions,
+					      attr->decap_index);
+	}
+
+	if (action_type_set[DR_ACTION_TYP_TNL_L2_TO_L2])
+		dr_ste_v0_set_rx_decap(last_ste);
+
+	if (action_type_set[DR_ACTION_TYP_MODIFY_HDR]) {
+		if (dr_ste_v0_get_entry_type(last_ste) == DR_STE_TYPE_MODIFY_PKT)
+			dr_ste_v0_arr_init_next(&last_ste,
+						added_stes,
+						DR_STE_TYPE_MODIFY_PKT,
+						attr->gvmi);
+		else
+			dr_ste_v0_set_entry_type(last_ste, DR_STE_TYPE_MODIFY_PKT);
+
+		dr_ste_v0_set_rewrite_actions(last_ste,
+					      attr->modify_actions,
+					      attr->modify_index);
+	}
+
+	if (action_type_set[DR_ACTION_TYP_TAG]) {
+		if (dr_ste_v0_get_entry_type(last_ste) == DR_STE_TYPE_MODIFY_PKT)
+			dr_ste_v0_arr_init_next(&last_ste,
+						added_stes,
+						DR_STE_TYPE_RX,
+						attr->gvmi);
+
+		dr_ste_v0_set_rx_flow_tag(last_ste, attr->flow_tag);
+	}
+
+	dr_ste_v0_set_hit_addr(last_ste, attr->final_icm_addr, 1);
 }
 
 static void dr_ste_v0_build_eth_l2_src_dst_bit_mask(struct dr_match_param *value,
@@ -1060,6 +1226,9 @@ static struct dr_ste_ctx ste_ctx_v0 = {
 	.set_hit_addr			= &dr_ste_v0_set_hit_addr,
 	.set_byte_mask			= &dr_ste_v0_set_byte_mask,
 	.get_byte_mask			= &dr_ste_v0_get_byte_mask,
+	/* Actions */
+	.set_actions_rx			= &dr_ste_v0_set_actions_rx,
+	.set_actions_tx			= &dr_ste_v0_set_actions_tx,
 };
 
 struct dr_ste_ctx *dr_ste_get_ctx_v0(void)

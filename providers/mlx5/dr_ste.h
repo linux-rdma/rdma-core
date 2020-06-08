@@ -151,6 +151,16 @@ struct dr_ste_ctx {
 	void (*set_hit_addr)(uint8_t *hw_ste_p, uint64_t icm_addr, uint32_t ht_size);
 	void (*set_byte_mask)(uint8_t *hw_ste_p, uint16_t byte_mask);
 	uint16_t (*get_byte_mask)(uint8_t *hw_ste_p);
+
+	/* Actions */
+	void (*set_actions_rx)(uint8_t *action_type_set,
+			       uint8_t *hw_ste_arr,
+			       struct dr_ste_actions_attr *attr,
+			       uint32_t *added_stes);
+	void (*set_actions_tx)(uint8_t *action_type_set,
+			       uint8_t *hw_ste_arr,
+			       struct dr_ste_actions_attr *attr,
+			       uint32_t *added_stes);
 };
 
 struct dr_ste_ctx *dr_ste_get_ctx_v0(void);
