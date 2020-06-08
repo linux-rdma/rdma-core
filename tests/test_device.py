@@ -11,6 +11,7 @@ from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from tests.base import PyverbsAPITestCase
 import tests.utils as u
 import pyverbs.device as d
+import pyverbs.enums as e
 
 PAGE_SIZE = resource.getpagesize()
 
@@ -60,7 +61,7 @@ class DeviceTest(PyverbsAPITestCase):
         for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
                 attr = ctx.query_device()
-                self.verify_device_attr(attr)
+                self.verify_device_attr(attr, dev)
 
     def test_query_gid(self):
         """
@@ -71,15 +72,17 @@ class DeviceTest(PyverbsAPITestCase):
                 ctx.query_gid(port_num=1, index=0)
 
     @staticmethod
-    def verify_device_attr(attr):
+    def verify_device_attr(attr, device):
         """
         Helper method that verifies correctness of some members of DeviceAttr
         object.
         :param attr: A DeviceAttr object
+        :param device: A Device object
         :return: None
         """
-        assert attr.node_guid != 0
-        assert attr.sys_image_guid != 0
+        if device.node_type != e.IBV_NODE_UNSPECIFIED and device.node_type != e.IBV_NODE_UNKNOWN:
+            assert attr.node_guid != 0
+            assert attr.sys_image_guid != 0
         assert attr.max_mr_size > PAGE_SIZE
         assert attr.page_size_cap >= PAGE_SIZE
         assert attr.vendor_id != 0
@@ -101,7 +104,7 @@ class DeviceTest(PyverbsAPITestCase):
         for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
                 attr_ex = ctx.query_device_ex()
-                self.verify_device_attr(attr_ex.orig_attr)
+                self.verify_device_attr(attr_ex.orig_attr, dev)
 
     @staticmethod
     def verify_port_attr(attr):
