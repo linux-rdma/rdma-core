@@ -203,6 +203,9 @@ class RDMATestCase(unittest.TestCase):
                     ctx.query_gid_type(port, idx) == e.IBV_GID_TYPE_ROCE_V2 and \
                     has_roce_hw_bug(vendor_id, vendor_pid):
                 continue
+            if not os.path.exists('/sys/class/infiniband/{}/device/net/'.format(dev)):
+                self.args.append([dev, port, idx, None])
+                continue
             net_name = self.get_net_name(dev)
             try:
                 ip_addr = self.get_ip_address(net_name)
