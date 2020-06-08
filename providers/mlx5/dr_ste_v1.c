@@ -84,6 +84,72 @@ enum dr_ste_v1_lu_type {
 	DR_STE_V1_LU_TYPE_DONT_CARE			= DR_STE_LU_TYPE_DONT_CARE,
 };
 
+static void dr_ste_v1_set_miss_addr(uint8_t *hw_ste_p, uint64_t miss_addr)
+{
+	uint64_t index = miss_addr >> 6;
+
+	DR_STE_SET(match_bwc_v1, hw_ste_p, miss_address_39_32, index >> 26);
+	DR_STE_SET(match_bwc_v1, hw_ste_p, miss_address_31_6, index);
+}
+
+static uint64_t dr_ste_v1_get_miss_addr(uint8_t *hw_ste_p)
+{
+	uint64_t index =
+		(DR_STE_GET(match_bwc_v1, hw_ste_p, miss_address_31_6) |
+		 DR_STE_GET(match_bwc_v1, hw_ste_p, miss_address_39_32) << 26);
+
+	return index << 6;
+}
+
+static void dr_ste_v1_set_byte_mask(uint8_t *hw_ste_p, uint16_t byte_mask)
+{
+	DR_STE_SET(match_bwc_v1, hw_ste_p, byte_mask, byte_mask);
+}
+
+static uint16_t dr_ste_v1_get_byte_mask(uint8_t *hw_ste_p)
+{
+	return DR_STE_GET(match_bwc_v1, hw_ste_p, byte_mask);
+}
+
+static void dr_ste_v1_set_lu_type(uint8_t *hw_ste_p, uint16_t lu_type)
+{
+	DR_STE_SET(match_bwc_v1, hw_ste_p, entry_format, lu_type >> 8);
+	DR_STE_SET(match_bwc_v1, hw_ste_p, match_definer_ctx_idx, lu_type & 0xFF);
+}
+
+static void dr_ste_v1_set_next_lu_type(uint8_t *hw_ste_p, uint16_t lu_type)
+{
+	DR_STE_SET(match_bwc_v1, hw_ste_p, next_entry_format, lu_type >> 8);
+	DR_STE_SET(match_bwc_v1, hw_ste_p, hash_definer_ctx_idx, lu_type & 0xFF);
+}
+
+static uint16_t dr_ste_v1_get_next_lu_type(uint8_t *hw_ste_p)
+{
+	uint8_t mode = DR_STE_GET(match_bwc_v1, hw_ste_p, next_entry_format);
+	uint8_t index = DR_STE_GET(match_bwc_v1, hw_ste_p, hash_definer_ctx_idx);
+
+	return (mode << 8 | index);
+}
+
+static void dr_ste_v1_set_hit_addr(uint8_t *hw_ste_p, uint64_t icm_addr, uint32_t ht_size)
+{
+	uint64_t index = (icm_addr >> 5) | ht_size;
+
+	DR_STE_SET(match_bwc_v1, hw_ste_p, next_table_base_39_32_size, index >> 27);
+	DR_STE_SET(match_bwc_v1, hw_ste_p, next_table_base_31_5_size, index);
+}
+
+static void dr_ste_v1_init(uint8_t *hw_ste_p, uint16_t lu_type,
+			   uint8_t entry_type, uint16_t gvmi)
+{
+	dr_ste_v1_set_lu_type(hw_ste_p, lu_type);
+	dr_ste_v1_set_next_lu_type(hw_ste_p, DR_STE_LU_TYPE_DONT_CARE);
+
+	DR_STE_SET(match_bwc_v1, hw_ste_p, gvmi, gvmi);
+	DR_STE_SET(match_bwc_v1, hw_ste_p, next_table_base_63_48, gvmi);
+	DR_STE_SET(match_bwc_v1, hw_ste_p, miss_address_63_48, gvmi);
+}
+
 static void dr_ste_v1_build_eth_l2_src_dst_bit_mask(struct dr_match_param *value,
 						    bool inner, uint8_t *bit_mask)
 {
@@ -927,6 +993,7 @@ static void dr_ste_v1_build_src_gvmi_qpn_init(struct dr_ste_build *sb,
 }
 
 static struct dr_ste_ctx ste_ctx_v1 = {
+	/* Builders */
 	.build_eth_l2_src_dst_init	= &dr_ste_v1_build_eth_l2_src_dst_init,
 	.build_eth_l3_ipv6_src_init	= &dr_ste_v1_build_eth_l3_ipv6_src_init,
 	.build_eth_l3_ipv6_dst_init	= &dr_ste_v1_build_eth_l3_ipv6_dst_init,
@@ -948,6 +1015,15 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	.build_register_0_init		= &dr_ste_v1_build_register_0_init,
 	.build_register_1_init		= &dr_ste_v1_build_register_1_init,
 	.build_src_gvmi_qpn_init	= &dr_ste_v1_build_src_gvmi_qpn_init,
+	/* Getters and Setters */
+	.ste_init			= &dr_ste_v1_init,
+	.set_next_lu_type		= &dr_ste_v1_set_next_lu_type,
+	.get_next_lu_type		= &dr_ste_v1_get_next_lu_type,
+	.set_miss_addr			= &dr_ste_v1_set_miss_addr,
+	.get_miss_addr			= &dr_ste_v1_get_miss_addr,
+	.set_hit_addr			= &dr_ste_v1_set_hit_addr,
+	.set_byte_mask			= &dr_ste_v1_set_byte_mask,
+	.get_byte_mask			= &dr_ste_v1_get_byte_mask,
 };
 
 struct dr_ste_ctx *dr_ste_get_ctx_v1(void)
