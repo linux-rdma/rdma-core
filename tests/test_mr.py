@@ -219,8 +219,9 @@ class MWTest(PyverbsAPITestCase):
                 try:
                     mw_type = random.randint(3, 100)
                     MW(pd, mw_type)
-                except PyverbsRDMAError:
-                    pass
+                except PyverbsRDMAError as ex:
+                    if ex.error_code == errno.EOPNOTSUPP:
+                        raise unittest.SkipTest('Create memory window of type {} is not supported'.format(mw_type))
                 else:
                     raise PyverbsError('Created a MW with type {t}'.\
                                        format(t=mw_type))
