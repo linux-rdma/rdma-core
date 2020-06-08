@@ -927,7 +927,7 @@ struct ibv_qp *efa_create_qp_ex(struct ibv_context *ibvctx,
 				struct ibv_qp_init_attr_ex *attr_ex)
 {
 	if (attr_ex->qp_type != IBV_QPT_UD) {
-		errno = EINVAL;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
