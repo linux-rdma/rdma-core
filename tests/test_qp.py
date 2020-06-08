@@ -248,7 +248,7 @@ class QPTest(PyverbsAPITestCase):
                                 if ex.error_code == errno.EOPNOTSUPP:
                                     raise unittest.SkipTest('Create QP with extended attrs is not supported')
                                 raise ex
-                            qp_attr, qp_init_attr = qp.query(e.IBV_QP_CUR_STATE |
+                            qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE |
                                                              e.IBV_QP_CAP)
                             verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr,
                                             qp_attr)
@@ -257,7 +257,7 @@ class QPTest(PyverbsAPITestCase):
                             qia.qp_type = qpt
                             caps = qia.cap  # Save them to verify values later
                             qp = QP(pd, qia)
-                            qp_attr, qp_init_attr = qp.query(e.IBV_QP_CUR_STATE |
+                            qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE |
                                                              e.IBV_QP_CAP)
                             verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr,
                                             qp_attr)
