@@ -33,6 +33,7 @@
 #ifndef	_DR_STE_
 #define	_DR_STE_
 
+#include <ccan/array_size.h>
 #include "mlx5dv_dr.h"
 
 #define IPV4_ETHERTYPE    0x0800
@@ -50,6 +51,11 @@
 #define TCP_PROTOCOL      0x6
 #define UDP_PROTOCOL      0x11
 #define IPSEC_PROTOCOL    0x33
+#define HDR_LEN_L2_MACS   0xC
+#define HDR_LEN_L2_VLAN   0x4
+#define HDR_LEN_L2_ETHER  0x2
+#define HDR_LEN_L2        (HDR_LEN_L2_MACS + HDR_LEN_L2_ETHER)
+#define HDR_LEN_L2_W_VLAN (HDR_LEN_L2 + HDR_LEN_L2_VLAN)
 
 /* Read from layout struct */
 #define DR_STE_GET(typ, p, fld) DEVX_GET(ste_##typ, p, fld)
@@ -110,6 +116,18 @@
 	(_misc)->outer_first_mpls_over_udp_s_bos || \
 	(_misc)->outer_first_mpls_over_udp_ttl)
 
+enum dr_ste_action_modify_type_l3 {
+	DR_STE_ACTION_MDFY_TYPE_L3_NONE	= 0x0,
+	DR_STE_ACTION_MDFY_TYPE_L3_IPV4	= 0x1,
+	DR_STE_ACTION_MDFY_TYPE_L3_IPV6	= 0x2,
+};
+
+enum dr_ste_action_modify_type_l4 {
+	DR_STE_ACTION_MDFY_TYPE_L4_NONE	= 0x0,
+	DR_STE_ACTION_MDFY_TYPE_L4_TCP	= 0x1,
+	DR_STE_ACTION_MDFY_TYPE_L4_UDP	= 0x2,
+};
+
 uint16_t dr_ste_conv_bit_to_byte_mask(uint8_t *bit_mask);
 
 typedef void (*dr_ste_builder_void_init)(struct dr_ste_build *sb,
@@ -161,6 +179,27 @@ struct dr_ste_ctx {
 			       uint8_t *hw_ste_arr,
 			       struct dr_ste_actions_attr *attr,
 			       uint32_t *added_stes);
+	uint32_t modify_field_arr_sz;
+	const struct dr_ste_action_modify_field *modify_field_arr;
+	void (*set_action_set)(uint8_t *hw_action,
+			       uint8_t hw_field,
+			       uint8_t shifter,
+			       uint8_t length,
+			       uint32_t data);
+	void (*set_action_add)(uint8_t *hw_action,
+			       uint8_t hw_field,
+			       uint8_t shifter,
+			       uint8_t length,
+			       uint32_t data);
+	void (*set_action_copy)(uint8_t *hw_action,
+				uint8_t dst_hw_field,
+				uint8_t dst_shifter,
+				uint8_t dst_len,
+				uint8_t src_hw_field,
+				uint8_t src_shifter);
+	int (*set_action_decap_l3_list)(void *data, uint32_t data_sz,
+					uint8_t *hw_action, uint32_t hw_action_sz,
+					uint16_t *used_hw_action_num);
 };
 
 struct dr_ste_ctx *dr_ste_get_ctx_v0(void);

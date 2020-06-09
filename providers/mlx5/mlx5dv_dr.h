@@ -301,6 +301,31 @@ void dr_ste_set_actions_tx(struct dr_ste_ctx *ste_ctx,
 			   uint8_t *last_ste,
 			   struct dr_ste_actions_attr *attr,
 			   uint32_t *added_stes);
+void dr_ste_set_action_set(struct dr_ste_ctx *ste_ctx,
+			   __be64 *hw_action,
+			   uint8_t hw_field,
+			   uint8_t shifter,
+			   uint8_t length,
+			   uint32_t data);
+void dr_ste_set_action_add(struct dr_ste_ctx *ste_ctx,
+			   __be64 *hw_action,
+			   uint8_t hw_field,
+			   uint8_t shifter,
+			   uint8_t length,
+			   uint32_t data);
+void dr_ste_set_action_copy(struct dr_ste_ctx *ste_ctx,
+			    __be64 *hw_action,
+			    uint8_t dst_hw_field,
+			    uint8_t dst_shifter,
+			    uint8_t dst_len,
+			    uint8_t src_hw_field,
+			    uint8_t src_shifter);
+int dr_ste_set_action_decap_l3_list(struct dr_ste_ctx *ste_ctx,
+				   void *data, uint32_t data_sz,
+				   uint8_t *hw_action, uint32_t hw_action_sz,
+				   uint16_t *used_hw_action_num);
+const struct dr_ste_action_modify_field *
+dr_ste_conv_modify_hdr_sw_field(struct dr_ste_ctx *ste_ctx, uint16_t sw_field);
 
 struct dr_ste_ctx *dr_ste_get_ctx(uint8_t version);
 void dr_ste_free(struct dr_ste *ste,
@@ -689,6 +714,14 @@ struct dr_rule_member {
 	struct list_node	list;
 	/* attached to dr_ste via this */
 	struct list_node	use_ste_list;
+};
+
+struct dr_ste_action_modify_field {
+	uint16_t hw_field;
+	uint8_t start;
+	uint8_t end;
+	uint8_t l3_type;
+	uint8_t l4_type;
 };
 
 struct mlx5dv_dr_action {

@@ -32,18 +32,25 @@
 
 #include "dr_ste.h"
 
+#define SVLAN_ETHERTYPE		0x88a8
 #define DR_STE_ENABLE_FLOW_TAG (1 << 31)
 
-enum dr_ste_tunl_action {
+enum dr_ste_v0_action_tunl {
 	DR_STE_TUNL_ACTION_NONE		= 0,
 	DR_STE_TUNL_ACTION_ENABLE	= 1,
 	DR_STE_TUNL_ACTION_DECAP	= 2,
 	DR_STE_TUNL_ACTION_L3_DECAP	= 3,
 };
 
-enum dr_ste_action_type {
+enum dr_ste_v0_action_type {
 	DR_STE_ACTION_TYPE_ENCAP_L3	= 3,
 	DR_STE_ACTION_TYPE_ENCAP	= 4,
+};
+
+enum dr_ste_v0_action_mdfy_op {
+	DR_STE_ACTION_MDFY_OP_COPY	= 0x1,
+	DR_STE_ACTION_MDFY_OP_SET	= 0x2,
+	DR_STE_ACTION_MDFY_OP_ADD	= 0x3,
 };
 
 #define DR_STE_CALC_LU_TYPE(lookup_type, rx, inner) \
@@ -93,6 +100,155 @@ enum dr_ste_v0_lu_type {
 	DR_STE_V0_LU_TYPE_STEERING_REGISTERS_0		= 0x2f,
 	DR_STE_V0_LU_TYPE_STEERING_REGISTERS_1		= 0x30,
 	DR_STE_V0_LU_TYPE_DONT_CARE			= DR_STE_LU_TYPE_DONT_CARE,
+};
+
+enum {
+	DR_STE_V0_ACTION_MDFY_FLD_L2_0		= 0x00,
+	DR_STE_V0_ACTION_MDFY_FLD_L2_1		= 0x01,
+	DR_STE_V0_ACTION_MDFY_FLD_L2_2		= 0x02,
+	DR_STE_V0_ACTION_MDFY_FLD_L3_0		= 0x03,
+	DR_STE_V0_ACTION_MDFY_FLD_L3_1		= 0x04,
+	DR_STE_V0_ACTION_MDFY_FLD_L3_2		= 0x05,
+	DR_STE_V0_ACTION_MDFY_FLD_L3_3		= 0x06,
+	DR_STE_V0_ACTION_MDFY_FLD_L3_4		= 0x07,
+	DR_STE_V0_ACTION_MDFY_FLD_L4_0		= 0x08,
+	DR_STE_V0_ACTION_MDFY_FLD_L4_1		= 0x09,
+	DR_STE_V0_ACTION_MDFY_FLD_MPLS		= 0x0a,
+	DR_STE_V0_ACTION_MDFY_FLD_L2_TNL_0	= 0x0b,
+	DR_STE_V0_ACTION_MDFY_FLD_REG_0		= 0x0c,
+	DR_STE_V0_ACTION_MDFY_FLD_REG_1		= 0x0d,
+	DR_STE_V0_ACTION_MDFY_FLD_REG_2		= 0x0e,
+	DR_STE_V0_ACTION_MDFY_FLD_REG_3		= 0x0f,
+	DR_STE_V0_ACTION_MDFY_FLD_L4_2		= 0x10,
+	DR_STE_V0_ACTION_MDFY_FLD_FLEX_0	= 0x11,
+	DR_STE_V0_ACTION_MDFY_FLD_FLEX_1	= 0x12,
+	DR_STE_V0_ACTION_MDFY_FLD_FLEX_2	= 0x13,
+	DR_STE_V0_ACTION_MDFY_FLD_FLEX_3	= 0x14,
+	DR_STE_V0_ACTION_MDFY_FLD_L2_TNL_1	= 0x15,
+	DR_STE_V0_ACTION_MDFY_FLD_METADATA	= 0x16,
+	DR_STE_V0_ACTION_MDFY_FLD_RESERVED	= 0x17,
+};
+
+static const struct dr_ste_action_modify_field dr_ste_v0_action_modify_field_arr[] = {
+	[MLX5_ACTION_IN_FIELD_OUT_SMAC_47_16] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L2_1, .start = 16, .end = 47,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_SMAC_15_0] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L2_1, .start = 0, .end = 15,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_ETHERTYPE] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L2_2, .start = 32, .end = 47,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_DMAC_47_16] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L2_0, .start = 16, .end = 47,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_DMAC_15_0] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L2_0, .start = 0, .end = 15,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_IP_DSCP] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L3_1, .start = 0, .end = 5,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_TCP_FLAGS] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L4_0, .start = 48, .end = 56,
+		.l4_type = DR_STE_ACTION_MDFY_TYPE_L4_TCP,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_TCP_SPORT] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L4_0, .start = 0, .end = 15,
+		.l4_type = DR_STE_ACTION_MDFY_TYPE_L4_TCP,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_TCP_DPORT] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L4_0, .start = 16, .end = 31,
+		.l4_type = DR_STE_ACTION_MDFY_TYPE_L4_TCP,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_IP_TTL] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L3_1, .start = 8, .end = 15,
+		.l3_type = DR_STE_ACTION_MDFY_TYPE_L3_IPV4,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_IPV6_HOPLIMIT] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L3_1, .start = 8, .end = 15,
+		.l3_type = DR_STE_ACTION_MDFY_TYPE_L3_IPV6,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_UDP_SPORT] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L4_0, .start = 0, .end = 15,
+		.l4_type = DR_STE_ACTION_MDFY_TYPE_L4_UDP,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_UDP_DPORT] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L4_0, .start = 16, .end = 31,
+		.l4_type = DR_STE_ACTION_MDFY_TYPE_L4_UDP,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_SIPV6_127_96] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L3_3, .start = 32, .end = 63,
+		.l3_type = DR_STE_ACTION_MDFY_TYPE_L3_IPV6,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_SIPV6_95_64] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L3_3, .start = 0, .end = 31,
+		.l3_type = DR_STE_ACTION_MDFY_TYPE_L3_IPV6,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_SIPV6_63_32] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L3_4, .start = 32, .end = 63,
+		.l3_type = DR_STE_ACTION_MDFY_TYPE_L3_IPV6,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_SIPV6_31_0] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L3_4, .start = 0, .end = 31,
+		.l3_type = DR_STE_ACTION_MDFY_TYPE_L3_IPV6,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_DIPV6_127_96] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L3_0, .start = 32, .end = 63,
+		.l3_type = DR_STE_ACTION_MDFY_TYPE_L3_IPV6,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_DIPV6_95_64] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L3_0, .start = 0, .end = 31,
+		.l3_type = DR_STE_ACTION_MDFY_TYPE_L3_IPV6,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_DIPV6_63_32] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L3_2, .start = 32, .end = 63,
+		.l3_type = DR_STE_ACTION_MDFY_TYPE_L3_IPV6,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_DIPV6_31_0] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L3_2, .start = 0, .end = 31,
+		.l3_type = DR_STE_ACTION_MDFY_TYPE_L3_IPV6,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_SIPV4] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L3_0, .start = 0, .end = 31,
+		.l3_type = DR_STE_ACTION_MDFY_TYPE_L3_IPV4,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_DIPV4] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L3_0, .start = 32, .end = 63,
+		.l3_type = DR_STE_ACTION_MDFY_TYPE_L3_IPV4,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_METADATA_REGA] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_METADATA, .start = 0, .end = 31,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_METADATA_REGB] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_METADATA, .start = 32, .end = 63,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_0] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_REG_0, .start = 32, .end = 63,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_1] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_REG_0, .start = 0, .end = 31,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_2] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_REG_1, .start = 32, .end = 63,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_3] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_REG_1, .start = 0, .end = 31,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_4] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_REG_2, .start = 32, .end = 63,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_5] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_REG_2, .start = 0, .end = 31,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_TCP_SEQ_NUM] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L4_1, .start = 32, .end = 63,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_TCP_ACK_NUM] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L4_1, .start = 0, .end = 31,
+	},
+	[MLX5_ACTION_IN_FIELD_OUT_FIRST_VID] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L2_2, .start = 0, .end = 15,
+	},
 };
 
 static void dr_ste_v0_set_entry_type(uint8_t *hw_ste_p, uint8_t entry_type)
@@ -308,6 +464,142 @@ static void dr_ste_v0_set_actions_rx(uint8_t *action_type_set,
 	}
 
 	dr_ste_v0_set_hit_addr(last_ste, attr->final_icm_addr, 1);
+}
+
+static void dr_ste_v0_set_action_set(uint8_t *hw_action,
+				     uint8_t hw_field,
+				     uint8_t shifter,
+				     uint8_t length,
+				     uint32_t data)
+{
+	length = (length == 32) ? 0 : length;
+	DEVX_SET(dr_action_hw_set, hw_action, opcode, DR_STE_ACTION_MDFY_OP_SET);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_field_code, hw_field);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_left_shifter, shifter);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_length, length);
+	DEVX_SET(dr_action_hw_set, hw_action, inline_data, data);
+}
+
+static void dr_ste_v0_set_action_add(uint8_t *hw_action,
+				     uint8_t hw_field,
+				     uint8_t shifter,
+				     uint8_t length,
+				     uint32_t data)
+{
+	length = (length == 32) ? 0 : length;
+	DEVX_SET(dr_action_hw_set, hw_action, opcode, DR_STE_ACTION_MDFY_OP_ADD);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_field_code, hw_field);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_left_shifter, shifter);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_length, length);
+	DEVX_SET(dr_action_hw_set, hw_action, inline_data, data);
+}
+
+static void dr_ste_v0_set_action_copy(uint8_t *hw_action,
+				      uint8_t dst_hw_field,
+				      uint8_t dst_shifter,
+				      uint8_t dst_len,
+				      uint8_t src_hw_field,
+				      uint8_t src_shifter)
+{
+	DEVX_SET(dr_action_hw_copy, hw_action, opcode, DR_STE_ACTION_MDFY_OP_COPY);
+	DEVX_SET(dr_action_hw_copy, hw_action, destination_field_code, dst_hw_field);
+	DEVX_SET(dr_action_hw_copy, hw_action, destination_left_shifter, dst_shifter);
+	DEVX_SET(dr_action_hw_copy, hw_action, destination_length, dst_len);
+	DEVX_SET(dr_action_hw_copy, hw_action, source_field_code, src_hw_field);
+	DEVX_SET(dr_action_hw_copy, hw_action, source_left_shifter, src_shifter);
+}
+
+#define DR_STE_DECAP_L3_MIN_ACTION_NUM	5
+
+static int
+dr_ste_v0_set_action_decap_l3_list(void *data, uint32_t data_sz,
+				   uint8_t *hw_action, uint32_t hw_action_sz,
+				   uint16_t *used_hw_action_num)
+{
+	struct mlx5_ifc_l2_hdr_bits *l2_hdr = data;
+	uint32_t hw_action_num;
+	int required_actions;
+	uint32_t hdr_fld_4b;
+	uint16_t hdr_fld_2b;
+	uint16_t vlan_type;
+	bool vlan;
+
+	vlan = (data_sz != HDR_LEN_L2);
+	hw_action_num = hw_action_sz / DEVX_ST_SZ_BYTES(dr_action_hw_set);
+	required_actions = DR_STE_DECAP_L3_MIN_ACTION_NUM + !!vlan;
+
+	if (hw_action_num < required_actions) {
+		errno = ENOMEM;
+		return errno;
+	}
+
+	/* dmac_47_16 */
+	DEVX_SET(dr_action_hw_set, hw_action, opcode, DR_STE_ACTION_MDFY_OP_SET);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_length, 0);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_field_code, DR_STE_V0_ACTION_MDFY_FLD_L2_0);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_left_shifter, 16);
+	hdr_fld_4b = DEVX_GET(l2_hdr, l2_hdr, dmac_47_16);
+	DEVX_SET(dr_action_hw_set, hw_action, inline_data, hdr_fld_4b);
+	hw_action += DEVX_ST_SZ_BYTES(dr_action_hw_set);
+
+	/* smac_47_16 */
+	DEVX_SET(dr_action_hw_set, hw_action, opcode, DR_STE_ACTION_MDFY_OP_SET);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_length, 0);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_field_code, DR_STE_V0_ACTION_MDFY_FLD_L2_1);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_left_shifter, 16);
+	hdr_fld_4b = (DEVX_GET(l2_hdr, l2_hdr, smac_31_0) >> 16 |
+		      DEVX_GET(l2_hdr, l2_hdr, smac_47_32) << 16);
+	DEVX_SET(dr_action_hw_set, hw_action, inline_data, hdr_fld_4b);
+	hw_action += DEVX_ST_SZ_BYTES(dr_action_hw_set);
+
+	/* dmac_15_0 */
+	DEVX_SET(dr_action_hw_set, hw_action, opcode, DR_STE_ACTION_MDFY_OP_SET);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_length, 16);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_field_code, DR_STE_V0_ACTION_MDFY_FLD_L2_0);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_left_shifter, 0);
+	hdr_fld_2b = DEVX_GET(l2_hdr, l2_hdr, dmac_15_0);
+	DEVX_SET(dr_action_hw_set, hw_action, inline_data, hdr_fld_2b);
+	hw_action += DEVX_ST_SZ_BYTES(dr_action_hw_set);
+
+	/* ethertype + (optional) vlan */
+	DEVX_SET(dr_action_hw_set, hw_action, opcode, DR_STE_ACTION_MDFY_OP_SET);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_field_code, DR_STE_V0_ACTION_MDFY_FLD_L2_2);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_left_shifter, 32);
+	if (!vlan) {
+		hdr_fld_2b = DEVX_GET(l2_hdr, l2_hdr, ethertype);
+		DEVX_SET(dr_action_hw_set, hw_action, inline_data, hdr_fld_2b);
+		DEVX_SET(dr_action_hw_set, hw_action, destination_length, 16);
+	} else {
+		hdr_fld_2b = DEVX_GET(l2_hdr, l2_hdr, ethertype);
+		vlan_type = hdr_fld_2b == SVLAN_ETHERTYPE ? DR_STE_SVLAN : DR_STE_CVLAN;
+		hdr_fld_2b = DEVX_GET(l2_hdr, l2_hdr, vlan);
+		hdr_fld_4b = (vlan_type << 16) | hdr_fld_2b;
+		DEVX_SET(dr_action_hw_set, hw_action, inline_data, hdr_fld_4b);
+		DEVX_SET(dr_action_hw_set, hw_action, destination_length, 18);
+	}
+	hw_action += DEVX_ST_SZ_BYTES(dr_action_hw_set);
+
+	/* smac_15_0 */
+	DEVX_SET(dr_action_hw_set, hw_action, opcode, DR_STE_ACTION_MDFY_OP_SET);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_length, 16);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_field_code, DR_STE_V0_ACTION_MDFY_FLD_L2_1);
+	DEVX_SET(dr_action_hw_set, hw_action, destination_left_shifter, 0);
+	hdr_fld_2b = DEVX_GET(l2_hdr, l2_hdr, smac_31_0);
+	DEVX_SET(dr_action_hw_set, hw_action, inline_data, hdr_fld_2b);
+	hw_action += DEVX_ST_SZ_BYTES(dr_action_hw_set);
+
+	if (vlan) {
+		DEVX_SET(dr_action_hw_set, hw_action, opcode, DR_STE_ACTION_MDFY_OP_SET);
+		hdr_fld_2b = DEVX_GET(l2_hdr, l2_hdr, vlan_type);
+		DEVX_SET(dr_action_hw_set, hw_action, inline_data, hdr_fld_2b);
+		DEVX_SET(dr_action_hw_set, hw_action, destination_length, 16);
+		DEVX_SET(dr_action_hw_set, hw_action, destination_field_code, DR_STE_V0_ACTION_MDFY_FLD_L2_2);
+		DEVX_SET(dr_action_hw_set, hw_action, destination_left_shifter, 0);
+	}
+
+	*used_hw_action_num = required_actions;
+
+	return 0;
 }
 
 static void dr_ste_v0_build_eth_l2_src_dst_bit_mask(struct dr_match_param *value,
@@ -1229,6 +1521,12 @@ static struct dr_ste_ctx ste_ctx_v0 = {
 	/* Actions */
 	.set_actions_rx			= &dr_ste_v0_set_actions_rx,
 	.set_actions_tx			= &dr_ste_v0_set_actions_tx,
+	.modify_field_arr_sz		= ARRAY_SIZE(dr_ste_v0_action_modify_field_arr),
+	.modify_field_arr		= dr_ste_v0_action_modify_field_arr,
+	.set_action_set			= &dr_ste_v0_set_action_set,
+	.set_action_add			= &dr_ste_v0_set_action_add,
+	.set_action_copy		= &dr_ste_v0_set_action_copy,
+	.set_action_decap_l3_list	= &dr_ste_v0_set_action_decap_l3_list,
 };
 
 struct dr_ste_ctx *dr_ste_get_ctx_v0(void)

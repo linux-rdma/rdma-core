@@ -545,6 +545,76 @@ void dr_ste_set_actions_rx(struct dr_ste_ctx *ste_ctx,
 	ste_ctx->set_actions_rx(action_type_set, hw_ste_arr, attr, added_stes);
 }
 
+const struct dr_ste_action_modify_field *
+dr_ste_conv_modify_hdr_sw_field(struct dr_ste_ctx *ste_ctx, uint16_t sw_field)
+{
+	const struct dr_ste_action_modify_field *hw_field;
+
+	if (sw_field >= ste_ctx->modify_field_arr_sz)
+		goto not_found;
+
+	hw_field = &ste_ctx->modify_field_arr[sw_field];
+	if (!hw_field->end && !hw_field->start)
+		goto not_found;
+
+	return hw_field;
+
+not_found:
+	errno = EINVAL;
+	return NULL;
+}
+
+void dr_ste_set_action_set(struct dr_ste_ctx *ste_ctx,
+			   __be64 *hw_action,
+			   uint8_t hw_field,
+			   uint8_t shifter,
+			   uint8_t length,
+			   uint32_t data)
+{
+	ste_ctx->set_action_set((uint8_t *)hw_action,
+				hw_field, shifter, length, data);
+}
+
+void dr_ste_set_action_add(struct dr_ste_ctx *ste_ctx,
+			   __be64 *hw_action,
+			   uint8_t hw_field,
+			   uint8_t shifter,
+			   uint8_t length,
+			   uint32_t data)
+{
+	ste_ctx->set_action_add((uint8_t *)hw_action,
+				hw_field, shifter, length, data);
+}
+
+void dr_ste_set_action_copy(struct dr_ste_ctx *ste_ctx,
+			    __be64 *hw_action,
+			    uint8_t dst_hw_field,
+			    uint8_t dst_shifter,
+			    uint8_t dst_len,
+			    uint8_t src_hw_field,
+			    uint8_t src_shifter)
+{
+	ste_ctx->set_action_copy((uint8_t *)hw_action,
+				 dst_hw_field, dst_shifter, dst_len,
+				 src_hw_field, src_shifter);
+}
+
+int dr_ste_set_action_decap_l3_list(struct dr_ste_ctx *ste_ctx,
+				    void *data, uint32_t data_sz,
+				    uint8_t *hw_action, uint32_t hw_action_sz,
+				    uint16_t *used_hw_action_num)
+{
+	/* Only Ethernet frame is supported, with VLAN (18) or without (14) */
+	if (data_sz != HDR_LEN_L2 && data_sz != HDR_LEN_L2_W_VLAN) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	return ste_ctx->set_action_decap_l3_list(data, data_sz,
+						 hw_action, hw_action_sz,
+						 used_hw_action_num);
+}
+
 static int dr_ste_build_pre_check_spec(struct mlx5dv_dr_domain *dmn,
 				       struct dr_match_spec *m_spec,
 				       struct dr_match_spec *v_spec)
