@@ -544,6 +544,10 @@ enum mlx5_ifc_steering_format_version {
 	MLX5_HW_CONNECTX_6DX = 0x1,
 };
 
+enum mlx5_ifc_ste_v1_modify_hdr_offset {
+	MLX5_MODIFY_HEADER_V1_QW_OFFSET = 0x20,
+};
+
 struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         access_other_hca_roce[0x1];
 	u8         reserved_at_1[0x1e];
