@@ -595,6 +595,7 @@ struct dr_esw_caps {
 	uint64_t uplink_icm_address_rx;
 	uint64_t uplink_icm_address_tx;
 	bool sw_owner;
+	bool sw_owner_v2;
 };
 
 struct dr_devx_vport_cap {
@@ -627,6 +628,9 @@ struct dr_devx_caps {
 	bool				rx_sw_owner;
 	bool				tx_sw_owner;
 	bool				fdb_sw_owner;
+	bool				rx_sw_owner_v2;
+	bool				tx_sw_owner_v2;
+	bool				fdb_sw_owner_v2;
 	uint32_t			num_vports;
 	struct dr_devx_vport_cap	*vports_caps;
 	struct dr_devx_roce_cap		roce_caps;

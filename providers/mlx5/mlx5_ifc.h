@@ -502,7 +502,9 @@ struct mlx5_ifc_flow_table_prop_layout_bits {
 	u8         reformat_l3_tunnel_to_l2[0x1];
 	u8         reformat_l2_to_l3_tunnel[0x1];
 	u8         reformat_and_modify_action[0x1];
-	u8         reserved_at_15[0xb];
+	u8         reserved_at_15[0x9];
+	u8         sw_owner_v2[0x1];
+	u8         reserved_at_1f[0x1];
 
 	u8         reserved_at_20[0x2];
 	u8         log_max_ft_size[0x6];
