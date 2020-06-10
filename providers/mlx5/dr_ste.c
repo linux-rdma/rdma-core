@@ -370,6 +370,13 @@ void dr_ste_set_hit_addr_by_next_htbl(struct dr_ste_ctx *ste_ctx,
 	ste_ctx->set_hit_addr(hw_ste, chunk->icm_addr, chunk->num_of_entries);
 }
 
+void dr_ste_prepare_for_postsend(struct dr_ste_ctx *ste_ctx,
+				 uint8_t *hw_ste_p, uint32_t ste_size)
+{
+	if (ste_ctx->prepare_for_postsend)
+		ste_ctx->prepare_for_postsend(hw_ste_p, ste_size);
+}
+
 /* Init one ste as a pattern for ste data array */
 void dr_ste_set_formated_ste(struct dr_ste_ctx *ste_ctx,
 			     uint16_t gvmi,

@@ -983,6 +983,8 @@ void dr_icm_pool_destroy(struct dr_icm_pool *pool);
 struct dr_icm_chunk *dr_icm_alloc_chunk(struct dr_icm_pool *pool,
 					enum dr_icm_chunk_size chunk_size);
 void dr_icm_free_chunk(struct dr_icm_chunk *chunk);
+void dr_ste_prepare_for_postsend(struct dr_ste_ctx *ste_ctx,
+				 uint8_t *hw_ste_p, uint32_t ste_size);
 int dr_ste_htbl_init_and_postsend(struct mlx5dv_dr_domain *dmn,
 				  struct dr_domain_rx_tx *nic_dmn,
 				  struct dr_ste_htbl *htbl,

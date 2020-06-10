@@ -200,6 +200,9 @@ struct dr_ste_ctx {
 	int (*set_action_decap_l3_list)(void *data, uint32_t data_sz,
 					uint8_t *hw_action, uint32_t hw_action_sz,
 					uint16_t *used_hw_action_num);
+
+	/* Send */
+	void (*prepare_for_postsend)(uint8_t *hw_ste_p, uint32_t ste_size);
 };
 
 struct dr_ste_ctx *dr_ste_get_ctx_v0(void);

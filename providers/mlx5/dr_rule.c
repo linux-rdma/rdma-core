@@ -133,10 +133,6 @@ static int dr_rule_handle_one_ste_in_update_list(struct dr_ste_send_info *ste_in
 	int ret;
 
 	list_del(&ste_info->send_list);
-	ret = dr_send_postsend_ste(dmn, ste_info->ste, ste_info->data,
-				   ste_info->size, ste_info->offset);
-	if (ret)
-		goto out;
 
 	/* Copy data to ste, only reduced size or control, the last 16B (mask)
 	 * is already written to the hw.
@@ -145,6 +141,11 @@ static int dr_rule_handle_one_ste_in_update_list(struct dr_ste_send_info *ste_in
 		memcpy(ste_info->ste->hw_ste, ste_info->data, DR_STE_SIZE_CTRL);
 	else
 		memcpy(ste_info->ste->hw_ste, ste_info->data, DR_STE_SIZE_REDUCED);
+
+	ret = dr_send_postsend_ste(dmn, ste_info->ste, ste_info->data,
+				   ste_info->size, ste_info->offset);
+	if (ret)
+		goto out;
 
 out:
 	free(ste_info);
