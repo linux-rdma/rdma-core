@@ -402,8 +402,7 @@ enum {
 };
 
 struct mlx5_cq {
-	/* ibv_cq should always be subset of ibv_cq_ex */
-	struct ibv_cq_ex		ibv_cq;
+	struct verbs_cq			verbs_cq;
 	struct mlx5_buf			buf_a;
 	struct mlx5_buf			buf_b;
 	struct mlx5_buf		       *active_buf;
@@ -766,7 +765,7 @@ static inline struct mlx5_parent_domain *to_mparent_domain(struct ibv_pd *ibpd)
 
 static inline struct mlx5_cq *to_mcq(struct ibv_cq *ibcq)
 {
-	return container_of((struct ibv_cq_ex *)ibcq, struct mlx5_cq, ibv_cq);
+	return container_of(ibcq, struct mlx5_cq, verbs_cq.cq);
 }
 
 static inline struct mlx5_srq *to_msrq(struct ibv_srq *ibsrq)

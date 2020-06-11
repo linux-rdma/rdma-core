@@ -354,7 +354,7 @@ static int mlx4dv_get_cq(struct ibv_cq *cq_in,
 	cq_out->arm_db = mcq->arm_db;
 	cq_out->arm_sn = mcq->arm_sn;
 	cq_out->cqe_size = mcq->cqe_size;
-	cq_out->cqe_cnt = mcq->ibv_cq.cqe + 1;
+	cq_out->cqe_cnt = mcq->verbs_cq.cq.cqe + 1;
 
 	mcq->flags |= MLX4_CQ_FLAGS_DV_OWNED;
 

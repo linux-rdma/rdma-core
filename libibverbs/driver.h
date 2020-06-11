@@ -102,6 +102,13 @@ struct verbs_qp {
 };
 static_assert(offsetof(struct ibv_qp_ex, qp_base) == 0, "Invalid qp layout");
 
+struct verbs_cq {
+	union {
+		struct ibv_cq cq;
+		struct ibv_cq_ex cq_ex;
+	};
+};
+
 enum ibv_flow_action_type {
 	IBV_FLOW_ACTION_UNSPECIFIED,
 	IBV_FLOW_ACTION_ESP = 1,
@@ -484,7 +491,7 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      struct ib_uverbs_create_cq_resp *resp, size_t resp_size);
 int ibv_cmd_create_cq_ex(struct ibv_context *context,
 			 struct ibv_cq_init_attr_ex *cq_attr,
-			 struct ibv_cq_ex *cq,
+			 struct verbs_cq *cq,
 			 struct ibv_create_cq_ex *cmd,
 			 size_t cmd_size,
 			 struct ib_uverbs_ex_create_cq_resp *resp,
