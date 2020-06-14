@@ -363,7 +363,7 @@ int dr_ste_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			 struct dr_matcher_rx_tx *nic_matcher,
 			 struct dr_match_param *value,
 			 uint8_t *ste_arr);
-void dr_ste_build_eth_l2_src_des(struct dr_ste_build *sb,
+void dr_ste_build_eth_l2_src_dst(struct dr_ste_build *sb,
 				 struct dr_match_param *mask,
 				 bool inner, bool rx);
 void dr_ste_build_eth_l3_ipv4_5_tuple(struct dr_ste_build *sb,
@@ -387,34 +387,34 @@ void dr_ste_build_eth_l2_dst(struct dr_ste_build *sb,
 void dr_ste_build_eth_l2_tnl(struct dr_ste_build *sb,
 			     struct dr_match_param *mask,
 			     bool inner, bool rx);
-void dr_ste_build_ipv6_l3_l4(struct dr_ste_build *sb,
-			     struct dr_match_param *mask,
-			     bool inner, bool rx);
+void dr_ste_build_eth_ipv6_l3_l4(struct dr_ste_build *sb,
+				 struct dr_match_param *mask,
+				 bool inner, bool rx);
 void dr_ste_build_eth_l4_misc(struct dr_ste_build *sb,
 			      struct dr_match_param *mask,
 			      bool inner, bool rx);
-void dr_ste_build_gre(struct dr_ste_build *sb,
-		      struct dr_match_param *mask,
-		      bool inner, bool rx);
+void dr_ste_build_tnl_gre(struct dr_ste_build *sb,
+			  struct dr_match_param *mask,
+			  bool inner, bool rx);
 void dr_ste_build_mpls(struct dr_ste_build *sb,
 		       struct dr_match_param *mask,
 		       bool inner, bool rx);
-void dr_ste_build_flex_parser_0(struct dr_ste_build *sb,
+void dr_ste_build_tnl_mpls(struct dr_ste_build *sb,
+			   struct dr_match_param *mask,
+			   bool inner, bool rx);
+int dr_ste_build_icmp(struct dr_ste_build *sb,
+		      struct dr_match_param *mask,
+		      struct dr_devx_caps *caps,
+		      bool inner, bool rx);
+void dr_ste_build_tnl_vxlan_gpe(struct dr_ste_build *sb,
 				struct dr_match_param *mask,
 				bool inner, bool rx);
-int dr_ste_build_flex_parser_1(struct dr_ste_build *sb,
-			       struct dr_match_param *mask,
-			       struct dr_devx_caps *caps,
-			       bool inner, bool rx);
-void dr_ste_build_flex_parser_tnl_vxlan_gpe(struct dr_ste_build *sb,
-					    struct dr_match_param *mask,
-					    bool inner, bool rx);
-void dr_ste_build_flex_parser_tnl_geneve(struct dr_ste_build *sb,
-					 struct dr_match_param *mask,
-					 bool inner, bool rx);
-void dr_ste_build_flex_parser_tnl_gtpu(struct dr_ste_build *sb,
-				       struct dr_match_param *mask,
-				       bool inner, bool rx);
+void dr_ste_build_tnl_geneve(struct dr_ste_build *sb,
+			     struct dr_match_param *mask,
+			     bool inner, bool rx);
+void dr_ste_build_tnl_gtpu(struct dr_ste_build *sb,
+			   struct dr_match_param *mask,
+			   bool inner, bool rx);
 void dr_ste_build_general_purpose(struct dr_ste_build *sb,
 				  struct dr_match_param *mask,
 				  bool inner, bool rx);
@@ -561,9 +561,9 @@ struct dr_match_param {
 	struct dr_match_misc3	misc3;
 };
 
-#define DR_MASK_IS_FLEX_PARSER_ICMPV4_SET(_misc3) ((_misc3)->icmpv4_type || \
-						   (_misc3)->icmpv4_code || \
-						   (_misc3)->icmpv4_header_data)
+#define DR_MASK_IS_ICMPV4_SET(_misc3) ((_misc3)->icmpv4_type || \
+				       (_misc3)->icmpv4_code || \
+				       (_misc3)->icmpv4_header_data)
 
 struct dr_esw_caps {
 	uint64_t drop_icm_address_rx;
