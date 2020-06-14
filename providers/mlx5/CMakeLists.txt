@@ -25,6 +25,7 @@ rdma_shared_provider(mlx5 libmlx5.map
   dr_domain.c
   dr_rule.c
   dr_ste.c
+  dr_ste_v0.c
   dr_table.c
   dr_send.c
   mlx5.c

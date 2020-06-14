@@ -539,6 +539,10 @@ enum {
 	MLX5_FLEX_PARSER_GTPU_ENABLED		= 1 << 11,
 };
 
+enum mlx5_ifc_steering_format_version {
+	MLX5_HW_CONNECTX_5 = 0x0,
+};
+
 struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         access_other_hca_roce[0x1];
 	u8         reserved_at_1[0x1e];

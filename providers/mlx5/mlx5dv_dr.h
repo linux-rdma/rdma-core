@@ -193,6 +193,7 @@ struct dr_ste_htbl;
 struct dr_match_param;
 struct dr_devx_caps;
 struct dr_matcher_rx_tx;
+struct dr_ste_ctx;
 
 struct dr_data_seg {
 	uint64_t	addr;
@@ -323,6 +324,7 @@ uint64_t dr_ste_get_icm_addr(struct dr_ste *ste);
 uint64_t dr_ste_get_mr_addr(struct dr_ste *ste);
 struct list_head *dr_ste_get_miss_list(struct dr_ste *ste);
 
+struct dr_ste_ctx *dr_ste_get_ctx(uint8_t version);
 void dr_ste_free(struct dr_ste *ste,
 		 struct mlx5dv_dr_matcher *matcher,
 		 struct dr_matcher_rx_tx *nic_matcher);
@@ -363,68 +365,89 @@ int dr_ste_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			 struct dr_matcher_rx_tx *nic_matcher,
 			 struct dr_match_param *value,
 			 uint8_t *ste_arr);
-void dr_ste_build_eth_l2_src_dst(struct dr_ste_build *sb,
+void dr_ste_build_eth_l2_src_dst(struct dr_ste_ctx *ste_ctx,
+				 struct dr_ste_build *sb,
 				 struct dr_match_param *mask,
 				 bool inner, bool rx);
-void dr_ste_build_eth_l3_ipv4_5_tuple(struct dr_ste_build *sb,
+void dr_ste_build_eth_l3_ipv4_5_tuple(struct dr_ste_ctx *ste_ctx,
+				      struct dr_ste_build *sb,
 				      struct dr_match_param *mask,
 				      bool inner, bool rx);
-void dr_ste_build_eth_l3_ipv4_misc(struct dr_ste_build *sb,
+void dr_ste_build_eth_l3_ipv4_misc(struct dr_ste_ctx *ste_ctx,
+				   struct dr_ste_build *sb,
 				   struct dr_match_param *mask,
 				   bool inner, bool rx);
-void dr_ste_build_eth_l3_ipv6_dst(struct dr_ste_build *sb,
+void dr_ste_build_eth_l3_ipv6_dst(struct dr_ste_ctx *ste_ctx,
+				  struct dr_ste_build *sb,
 				  struct dr_match_param *mask,
 				  bool inner, bool rx);
-void dr_ste_build_eth_l3_ipv6_src(struct dr_ste_build *sb,
+void dr_ste_build_eth_l3_ipv6_src(struct dr_ste_ctx *ste_ctx,
+				  struct dr_ste_build *sb,
 				  struct dr_match_param *mask,
 				  bool inner, bool rx);
-void dr_ste_build_eth_l2_src(struct dr_ste_build *sb,
+void dr_ste_build_eth_l2_src(struct dr_ste_ctx *ste_ctx,
+			     struct dr_ste_build *sb,
 			     struct dr_match_param *mask,
 			     bool inner, bool rx);
-void dr_ste_build_eth_l2_dst(struct dr_ste_build *sb,
+void dr_ste_build_eth_l2_dst(struct dr_ste_ctx *ste_ctx,
+			     struct dr_ste_build *sb,
 			     struct dr_match_param *mask,
 			     bool inner, bool rx);
-void dr_ste_build_eth_l2_tnl(struct dr_ste_build *sb,
+void dr_ste_build_eth_l2_tnl(struct dr_ste_ctx *ste_ctx,
+			     struct dr_ste_build *sb,
 			     struct dr_match_param *mask,
 			     bool inner, bool rx);
-void dr_ste_build_eth_ipv6_l3_l4(struct dr_ste_build *sb,
+void dr_ste_build_eth_ipv6_l3_l4(struct dr_ste_ctx *ste_ctx,
+				 struct dr_ste_build *sb,
 				 struct dr_match_param *mask,
 				 bool inner, bool rx);
-void dr_ste_build_eth_l4_misc(struct dr_ste_build *sb,
+void dr_ste_build_eth_l4_misc(struct dr_ste_ctx *ste_ctx,
+			      struct dr_ste_build *sb,
 			      struct dr_match_param *mask,
 			      bool inner, bool rx);
-void dr_ste_build_tnl_gre(struct dr_ste_build *sb,
+void dr_ste_build_tnl_gre(struct dr_ste_ctx *ste_ctx,
+			  struct dr_ste_build *sb,
 			  struct dr_match_param *mask,
 			  bool inner, bool rx);
-void dr_ste_build_mpls(struct dr_ste_build *sb,
+void dr_ste_build_mpls(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
 		       struct dr_match_param *mask,
 		       bool inner, bool rx);
-void dr_ste_build_tnl_mpls(struct dr_ste_build *sb,
+void dr_ste_build_tnl_mpls(struct dr_ste_ctx *ste_ctx,
+			   struct dr_ste_build *sb,
 			   struct dr_match_param *mask,
 			   bool inner, bool rx);
-int dr_ste_build_icmp(struct dr_ste_build *sb,
+int dr_ste_build_icmp(struct dr_ste_ctx *ste_ctx,
+		      struct dr_ste_build *sb,
 		      struct dr_match_param *mask,
 		      struct dr_devx_caps *caps,
 		      bool inner, bool rx);
-void dr_ste_build_tnl_vxlan_gpe(struct dr_ste_build *sb,
+void dr_ste_build_tnl_vxlan_gpe(struct dr_ste_ctx *ste_ctx,
+				struct dr_ste_build *sb,
 				struct dr_match_param *mask,
 				bool inner, bool rx);
-void dr_ste_build_tnl_geneve(struct dr_ste_build *sb,
+void dr_ste_build_tnl_geneve(struct dr_ste_ctx *ste_ctx,
+			     struct dr_ste_build *sb,
 			     struct dr_match_param *mask,
 			     bool inner, bool rx);
-void dr_ste_build_tnl_gtpu(struct dr_ste_build *sb,
+void dr_ste_build_tnl_gtpu(struct dr_ste_ctx *ste_ctx,
+			   struct dr_ste_build *sb,
 			   struct dr_match_param *mask,
 			   bool inner, bool rx);
-void dr_ste_build_general_purpose(struct dr_ste_build *sb,
+void dr_ste_build_general_purpose(struct dr_ste_ctx *ste_ctx,
+				  struct dr_ste_build *sb,
 				  struct dr_match_param *mask,
 				  bool inner, bool rx);
-void dr_ste_build_register_0(struct dr_ste_build *sb,
+void dr_ste_build_register_0(struct dr_ste_ctx *ste_ctx,
+			     struct dr_ste_build *sb,
 			     struct dr_match_param *mask,
 			     bool inner, bool rx);
-void dr_ste_build_register_1(struct dr_ste_build *sb,
+void dr_ste_build_register_1(struct dr_ste_ctx *ste_ctx,
+			     struct dr_ste_build *sb,
 			     struct dr_match_param *mask,
 			     bool inner, bool rx);
-void dr_ste_build_src_gvmi_qpn(struct dr_ste_build *sb,
+void dr_ste_build_src_gvmi_qpn(struct dr_ste_ctx *ste_ctx,
+			       struct dr_ste_build *sb,
 			       struct dr_match_param *mask,
 			       struct dr_devx_caps *caps,
 			       bool inner, bool rx);
@@ -631,6 +654,7 @@ enum dr_domain_flags {
 
 struct mlx5dv_dr_domain {
 	struct ibv_context		*ctx;
+	struct dr_ste_ctx		*ste_ctx;
 	struct ibv_pd			*pd;
 	struct mlx5dv_devx_uar		*uar;
 	enum mlx5dv_dr_domain_type	type;
