@@ -360,7 +360,8 @@ void verbs_uninit_context(struct verbs_context *context_ex)
 {
 	free(context_ex->priv);
 	close(context_ex->context.cmd_fd);
-	close(context_ex->context.async_fd);
+	if (context_ex->context.async_fd != -1)
+		close(context_ex->context.async_fd);
 	ibverbs_device_put(context_ex->context.device);
 }
 
