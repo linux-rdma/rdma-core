@@ -756,6 +756,30 @@ void mlx5_unimport_pd(struct ibv_pd *pd)
 		assert(false);
 }
 
+struct ibv_mr *mlx5_import_mr(struct ibv_pd *pd,
+			      uint32_t mr_handle)
+{
+	struct mlx5_mr *mr;
+	int ret;
+
+	mr = calloc(1, sizeof *mr);
+	if (!mr)
+		return NULL;
+
+	ret = ibv_cmd_query_mr(pd, &mr->vmr, mr_handle);
+	if (ret) {
+		free(mr);
+		return NULL;
+	}
+
+	return &mr->vmr.ibv_mr;
+}
+
+void mlx5_unimport_mr(struct ibv_mr *ibmr)
+{
+	free(to_mmr(ibmr));
+}
+
 struct ibv_mw *mlx5_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
 {
 	struct ibv_mw *mw;

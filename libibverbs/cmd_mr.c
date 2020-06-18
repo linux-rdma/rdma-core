@@ -85,3 +85,34 @@ int ibv_cmd_dereg_mr(struct verbs_mr *vmr)
 		return ret;
 	return 0;
 }
+
+int ibv_cmd_query_mr(struct ibv_pd *pd, struct verbs_mr *vmr,
+		     uint32_t mr_handle)
+{
+	DECLARE_FBCMD_BUFFER(cmd, UVERBS_OBJECT_MR,
+			     UVERBS_METHOD_QUERY_MR,
+			     4, NULL);
+	struct ibv_mr *mr = &vmr->ibv_mr;
+	int ret;
+
+	fill_attr_in_obj(cmd, UVERBS_ATTR_QUERY_MR_HANDLE, mr_handle);
+	fill_attr_out_ptr(cmd, UVERBS_ATTR_QUERY_MR_RESP_LKEY,
+			  &mr->lkey);
+	fill_attr_out_ptr(cmd, UVERBS_ATTR_QUERY_MR_RESP_RKEY,
+			  &mr->rkey);
+	fill_attr_out_ptr(cmd, UVERBS_ATTR_QUERY_MR_RESP_LENGTH,
+			  &mr->length);
+
+	ret = execute_ioctl(pd->context, cmd);
+	if (ret)
+		return ret;
+
+	mr->handle  = mr_handle;
+	mr->context = pd->context;
+	mr->pd = pd;
+	mr->addr = NULL;
+
+	vmr->mr_type = IBV_MR_TYPE_IMPORTED_MR;
+	return 0;
+}
+
