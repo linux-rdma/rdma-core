@@ -90,7 +90,7 @@ struct mlx5_modify_qp {
 	struct ibv_modify_qp_ex		ibv_cmd;
 	__u32				comp_mask;
 	struct mlx5_ib_burst_info	burst_info;
-	__u32				reserved;
+	__u32				ece_options;
 };
 
 #endif /* MLX5_ABI_H */

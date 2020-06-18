@@ -475,6 +475,11 @@ cdef extern from 'infiniband/verbs.h':
         uint64_t        wr_id
         unsigned int    wr_flags
 
+    cdef struct ibv_ece:
+        uint32_t vendor_id
+        uint32_t options
+        uint32_t comp_mask
+
     ibv_device **ibv_get_device_list(int *n)
     void ibv_free_device_list(ibv_device **list)
     ibv_context *ibv_open_device(ibv_device *device)
@@ -601,3 +606,5 @@ cdef extern from 'infiniband/verbs.h':
 cdef extern from 'infiniband/driver.h':
     int ibv_query_gid_type(ibv_context *context, uint8_t port_num,
                            unsigned int index, ibv_gid_type *type)
+    int ibv_set_ece(ibv_qp *qp, ibv_ece *ece)
+    int ibv_query_ece(ibv_qp *qp, ibv_ece *ece)

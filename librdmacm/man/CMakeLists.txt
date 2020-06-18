@@ -29,6 +29,7 @@ rdma_man_pages(
   rdma_get_local_addr.3
   rdma_get_peer_addr.3
   rdma_get_recv_comp.3
+  rdma_get_remote_ece.3.md
   rdma_get_request.3
   rdma_get_send_comp.3
   rdma_get_src_port.3
@@ -56,6 +57,7 @@ rdma_man_pages(
   rdma_resolve_addr.3
   rdma_resolve_route.3
   rdma_server.1
+  rdma_set_local_ece.3.md
   rdma_set_option.3
   rdma_xclient.1
   rdma_xserver.1
