@@ -556,24 +556,37 @@ static int mlx5_dealloc_parent_domain(struct mlx5_parent_domain *mparent_domain)
 	return 0;
 }
 
-int mlx5_free_pd(struct ibv_pd *pd)
+static int _mlx5_free_pd(struct ibv_pd *pd, bool unimport)
 {
 	int ret;
 	struct mlx5_parent_domain *mparent_domain = to_mparent_domain(pd);
 	struct mlx5_pd *mpd = to_mpd(pd);
 
-	if (mparent_domain)
+	if (mparent_domain) {
+		if (unimport)
+			return EINVAL;
+
 		return mlx5_dealloc_parent_domain(mparent_domain);
+	}
 
 	if (atomic_load(&mpd->refcount) > 1)
 		return EBUSY;
+
+	if (unimport)
+		goto end;
 
 	ret = ibv_cmd_dealloc_pd(pd);
 	if (ret)
 		return ret;
 
+end:
 	free(mpd);
 	return 0;
+}
+
+int mlx5_free_pd(struct ibv_pd *pd)
+{
+	return _mlx5_free_pd(pd, false);
 }
 
 struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
@@ -704,6 +717,43 @@ int mlx5_advise_mr(struct ibv_pd *pd,
 		   uint32_t num_sge)
 {
 	return ibv_cmd_advise_mr(pd, advice, flags, sg_list, num_sge);
+}
+
+struct ibv_pd *mlx5_import_pd(struct ibv_context *context,
+			      uint32_t pd_handle)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       UVERBS_OBJECT_PD,
+			       MLX5_IB_METHOD_PD_QUERY,
+			       2);
+
+	struct mlx5_pd *pd;
+	int ret;
+
+	pd = calloc(1, sizeof *pd);
+	if (!pd)
+		return NULL;
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_QUERY_PD_HANDLE, pd_handle);
+	fill_attr_out_ptr(cmd, MLX5_IB_ATTR_QUERY_PD_RESP_PDN, &pd->pdn);
+
+	ret = execute_ioctl(context, cmd);
+	if (ret) {
+		free(pd);
+		return NULL;
+	}
+
+	pd->ibv_pd.context = context;
+	pd->ibv_pd.handle = pd_handle;
+	atomic_init(&pd->refcount, 1);
+
+	return &pd->ibv_pd;
+}
+
+void mlx5_unimport_pd(struct ibv_pd *pd)
+{
+	if (_mlx5_free_pd(pd, true))
+		assert(false);
 }
 
 struct ibv_mw *mlx5_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
