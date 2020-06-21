@@ -8,7 +8,10 @@ from pyverbs.base import PyverbsRDMAError
 
 
 def dev_cap_to_str(flags):
-    l = {dve.EFADV_DEVICE_ATTR_CAPS_RDMA_READ: 'RDMA Read'}
+    l = {
+            dve.EFADV_DEVICE_ATTR_CAPS_RDMA_READ: 'RDMA Read',
+            dve.EFADV_DEVICE_ATTR_CAPS_RNR_RETRY: 'RNR Retry',
+    }
     return bitmask_to_str(flags, l)
 
 

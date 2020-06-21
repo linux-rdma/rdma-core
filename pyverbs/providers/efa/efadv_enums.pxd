@@ -7,3 +7,4 @@ cdef extern from 'infiniband/efadv.h':
 
     cpdef enum:
         EFADV_DEVICE_ATTR_CAPS_RDMA_READ
+        EFADV_DEVICE_ATTR_CAPS_RNR_RETRY
