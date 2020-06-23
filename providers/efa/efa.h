@@ -22,6 +22,13 @@ struct efa_context {
 	uint16_t sub_cqs_per_cq;
 	uint16_t inline_buf_size;
 	uint32_t max_llq_size;
+	uint32_t device_caps;
+	uint32_t max_sq_wr;
+	uint32_t max_rq_wr;
+	uint16_t max_sq_sge;
+	uint16_t max_rq_sge;
+	uint32_t max_rdma_size;
+	uint16_t max_wr_rdma_sge;
 	size_t cqe_size;
 	struct efa_qp **qp_table;
 	unsigned int qp_table_sz_m1;
@@ -125,18 +132,11 @@ struct efa_ah {
 struct efa_dev {
 	struct verbs_device vdev;
 	uint32_t pg_sz;
-	uint32_t device_caps;
-	uint32_t max_sq_wr;
-	uint32_t max_rq_wr;
-	uint16_t max_sq_sge;
-	uint16_t max_rq_sge;
-	uint32_t max_rdma_size;
-	uint16_t max_wr_rdma_sge;
 };
 
-static inline bool is_rdma_read_cap(struct efa_dev *dev)
+static inline bool is_rdma_read_cap(struct efa_context *ctx)
 {
-	return dev->device_caps & EFA_QUERY_DEVICE_CAPS_RDMA_READ;
+	return ctx->device_caps & EFA_QUERY_DEVICE_CAPS_RDMA_READ;
 }
 
 static inline struct efa_dev *to_efa_dev(struct ibv_device *ibvdev)
