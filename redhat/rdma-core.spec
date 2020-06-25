@@ -53,7 +53,7 @@ BuildRequires: python-docutils
 BuildRequires: perl-generators
 %endif
 
-Requires: dracut, kmod, systemd, pciutils
+Requires: dracut, kmod, pciutils
 # Red Hat/Fedora previously shipped redhat/ as a stand-alone
 # package called 'rdma', which we're supplanting here.
 Provides: rdma = %{version}-%{release}
@@ -347,10 +347,11 @@ rm -rf %{buildroot}/%{_initrddir}/
 rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %post -n rdma-core
-# we ship udev rules, so trigger an update.
+if [ -x /sbin/udevadm ]; then
 /sbin/udevadm trigger --subsystem-match=infiniband --action=change || true
 /sbin/udevadm trigger --subsystem-match=net --action=change || true
 /sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change || true
+fi
 
 %post -n infiniband-diags -p /sbin/ldconfig
 %postun -n infiniband-diags -p /sbin/ldconfig
@@ -405,6 +406,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_unitdir}/rdma-load-modules@.service
 %dir %{dracutlibdir}/modules.d/05rdma
 %{dracutlibdir}/modules.d/05rdma/module-setup.sh
+%dir %{_udevrulesdir}
 %{_udevrulesdir}/../rdma_rename
 %{_udevrulesdir}/60-rdma-ndd.rules
 %{_udevrulesdir}/60-rdma-persistent-naming.rules
