@@ -55,6 +55,8 @@ enum {
 	MLX5_CMD_OP_MODIFY_TIS = 0x913,
 	MLX5_CMD_OP_QUERY_TIS = 0x915,
 	MLX5_CMD_OP_CREATE_FLOW_TABLE = 0x930,
+	MLX5_CMD_OP_CREATE_FLOW_GROUP = 0x933,
+	MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY = 0x936,
 	MLX5_CMD_OP_CREATE_FLOW_COUNTER = 0x939,
 	MLX5_CMD_OP_ALLOC_PACKET_REFORMAT_CONTEXT = 0x93d,
 	MLX5_CMD_OP_DEALLOC_PACKET_REFORMAT_CONTEXT = 0x93e,
@@ -105,7 +107,7 @@ struct mlx5_ifc_flow_table_context_bits {
 	u8         reformat_en[0x1];
 	u8         decap_en[0x1];
 	u8         sw_owner[0x1];
-	u8         reserved_at_3[0x1];
+	u8         termination_table[0x1];
 	u8         table_miss_action[0x4];
 	u8         level[0x8];
 	u8         reserved_at_10[0x8];
@@ -2510,6 +2512,114 @@ struct mlx5_ifc_dr_action_hw_copy_bits {
 	u8         reserved_at_30[0x2];
 	u8         source_left_shifter[0x6];
 	u8         reserved_at_38[0x8];
+};
+
+struct mlx5_ifc_create_flow_group_in_bits {
+	u8         opcode[0x10];
+	u8         reserved_at_10[0x10];
+
+	u8         reserved_at_20[0x60];
+
+	u8         table_type[0x8];
+	u8         reserved_at_88[0x18];
+
+	u8         reserved_at_a0[0x8];
+	u8         table_id[0x18];
+
+	u8         reserved_at_c0[0x1f40];
+};
+
+struct mlx5_ifc_create_flow_group_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x8];
+	u8         group_id[0x18];
+
+	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_dest_format_bits {
+	u8         destination_type[0x8];
+	u8         destination_id[0x18];
+
+	u8         reserved_at_20[0x20];
+};
+
+struct mlx5_ifc_flow_counter_list_bits {
+	u8         flow_counter_id[0x20];
+
+	u8         reserved_at_20[0x20];
+};
+
+union mlx5_ifc_dest_format_flow_counter_list_auto_bits {
+	struct mlx5_ifc_dest_format_bits dest_format;
+	struct mlx5_ifc_flow_counter_list_bits flow_counter_list;
+	u8         reserved_at_0[0x40];
+};
+
+struct mlx5_ifc_flow_context_bits {
+	u8         reserved_at_00[0x20];
+
+	u8         group_id[0x20];
+
+	u8         reserved_at_40[0x8];
+	u8         flow_tag[0x18];
+
+	u8         reserved_at_60[0x10];
+	u8         action[0x10];
+
+	u8         reserved_at_80[0x8];
+	u8         destination_list_size[0x18];
+
+	u8         reserved_at_a0[0x8];
+	u8         flow_counter_list_size[0x18];
+
+	u8         reserved_at_c0[0x1740];
+
+	union mlx5_ifc_dest_format_flow_counter_list_auto_bits destination[0];
+};
+
+struct mlx5_ifc_set_fte_in_bits {
+	u8         opcode[0x10];
+	u8         reserved_at_10[0x10];
+
+	u8         reserved_at_20[0x60];
+
+	u8         table_type[0x8];
+	u8         reserved_at_88[0x18];
+
+	u8         reserved_at_a0[0x8];
+	u8         table_id[0x18];
+
+	u8         reserved_at_c0[0x40];
+	u8         flow_index[0x20];
+
+	u8         reserved_at_120[0xe0];
+	struct mlx5_ifc_flow_context_bits flow_context;
+};
+
+struct mlx5_ifc_set_fte_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x40];
+};
+
+enum dr_devx_flow_dest_type {
+	MLX5_FLOW_DEST_TYPE_VPORT	= 0x0,
+	MLX5_FLOW_DEST_TYPE_TIR		= 0x2,
+
+	MLX5_FLOW_DEST_TYPE_COUNTER	= 0x100,
+};
+
+enum {
+	MLX5_FLOW_CONTEXT_ACTION_FWD_DEST		= 0x4,
+	MLX5_FLOW_CONTEXT_ACTION_COUNT			= 0x8,
 };
 
 enum {

@@ -634,6 +634,47 @@ struct dr_devx_caps {
 	struct dr_devx_roce_cap		roce_caps;
 };
 
+struct dr_devx_flow_table_attr {
+	uint8_t		type;
+	uint8_t		level;
+	bool		sw_owner;
+	bool		term_tbl;
+	uint64_t	icm_addr_rx;
+	uint64_t	icm_addr_tx;
+};
+
+struct dr_devx_flow_group_attr {
+	uint32_t	table_id;
+	uint32_t	table_type;
+};
+
+struct dr_devx_flow_dest_info {
+	enum dr_devx_flow_dest_type type;
+	union {
+		uint32_t vport_num;
+		uint32_t tir_num;
+		uint32_t counter_id;
+	};
+};
+
+struct dr_devx_flow_fte_attr {
+	uint32_t			table_id;
+	uint32_t			table_type;
+	uint32_t			group_id;
+	uint32_t			flow_tag;
+	uint32_t			action;
+	uint32_t			dest_size;
+	struct dr_devx_flow_dest_info	*dest_arr;
+};
+
+struct dr_devx_tbl {
+	uint8_t			type;
+	uint8_t			level;
+	struct mlx5dv_devx_obj	*ft_dvo;
+	struct mlx5dv_devx_obj	*fg_dvo;
+	struct mlx5dv_devx_obj	*fte_dvo;
+};
+
 struct dr_domain_rx_tx {
 	uint64_t		drop_icm_addr;
 	uint64_t		default_icm_addr;
@@ -896,11 +937,16 @@ int dr_devx_query_gvmi(struct ibv_context *ctx,
 int dr_devx_query_esw_caps(struct ibv_context *ctx,
 			   struct dr_esw_caps *caps);
 int dr_devx_sync_steering(struct ibv_context *ctx);
-struct mlx5dv_devx_obj *dr_devx_create_flow_table(struct ibv_context *ctx,
-						  uint32_t table_type,
-						  uint64_t icm_addr_rx,
-						  uint64_t icm_addr_tx,
-						  u8 level);
+struct mlx5dv_devx_obj *
+dr_devx_create_flow_table(struct ibv_context *ctx,
+			  struct dr_devx_flow_table_attr *table_attr);
+
+struct dr_devx_tbl *
+dr_devx_create_always_hit_ft(struct ibv_context *ctx,
+			     struct dr_devx_flow_table_attr *ft_attr,
+			     struct dr_devx_flow_group_attr *fg_attr,
+			     struct dr_devx_flow_fte_attr *fte_attr);
+void dr_devx_destroy_always_hit_ft(struct dr_devx_tbl *devx_tbl);
 struct mlx5dv_devx_obj *dr_devx_create_reformat_ctx(struct ibv_context *ctx,
 						    enum reformat_type rt,
 						    size_t reformat_size,

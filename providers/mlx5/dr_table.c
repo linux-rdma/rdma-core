@@ -151,20 +151,19 @@ static int dr_table_init(struct mlx5dv_dr_table *tbl)
 
 static int dr_table_create_devx_tbl(struct mlx5dv_dr_table *tbl)
 {
-	uint64_t icm_addr_rx = 0;
-	uint64_t icm_addr_tx = 0;
+	struct dr_devx_flow_table_attr ft_attr = {};
+
+	ft_attr.type = tbl->table_type;
+	ft_attr.level = tbl->dmn->info.caps.max_ft_level - 1;
+	ft_attr.sw_owner = true;
 
 	if (tbl->rx.s_anchor)
-		icm_addr_rx = tbl->rx.s_anchor->chunk->icm_addr;
+		ft_attr.icm_addr_rx = tbl->rx.s_anchor->chunk->icm_addr;
 
 	if (tbl->tx.s_anchor)
-		icm_addr_tx = tbl->tx.s_anchor->chunk->icm_addr;
+		ft_attr.icm_addr_tx = tbl->tx.s_anchor->chunk->icm_addr;
 
-	tbl->devx_obj = dr_devx_create_flow_table(tbl->dmn->ctx,
-						  tbl->table_type,
-						  icm_addr_rx,
-						  icm_addr_tx,
-						  tbl->dmn->info.caps.max_ft_level - 1);
+	tbl->devx_obj = dr_devx_create_flow_table(tbl->dmn->ctx, &ft_attr);
 	if (!tbl->devx_obj)
 		return errno;
 
