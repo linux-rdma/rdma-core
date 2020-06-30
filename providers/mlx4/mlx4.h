@@ -159,7 +159,7 @@ enum {
 };
 
 struct mlx4_cq {
-	struct ibv_cq_ex		ibv_cq;
+	struct verbs_cq			verbs_cq;
 	struct mlx4_buf			buf;
 	struct mlx4_buf			resize_buf;
 	pthread_spinlock_t		lock;
@@ -268,7 +268,7 @@ static inline struct mlx4_pd *to_mpd(struct ibv_pd *ibpd)
 
 static inline struct mlx4_cq *to_mcq(struct ibv_cq *ibcq)
 {
-	return container_of((struct ibv_cq_ex *)ibcq, struct mlx4_cq, ibv_cq);
+	return container_of(ibcq, struct mlx4_cq, verbs_cq.cq);
 }
 
 static inline struct mlx4_srq *to_msrq(struct ibv_srq *ibsrq)

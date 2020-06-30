@@ -871,7 +871,7 @@ static int mlx5dv_get_cq(struct ibv_cq *cq_in,
 
 	cq_out->comp_mask = 0;
 	cq_out->cqn       = mcq->cqn;
-	cq_out->cqe_cnt   = mcq->ibv_cq.cqe + 1;
+	cq_out->cqe_cnt   = mcq->verbs_cq.cq.cqe + 1;
 	cq_out->cqe_size  = mcq->cqe_sz;
 	cq_out->buf       = mcq->active_buf->buf;
 	cq_out->dbrec     = mcq->dbrec;

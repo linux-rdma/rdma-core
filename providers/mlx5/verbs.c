@@ -1000,13 +1000,13 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		struct ibv_cq_init_attr_ex cq_attr_ex = *cq_attr;
 
 		cq_attr_ex.cqe = ncqe - 1;
-		ret = ibv_cmd_create_cq_ex(context, &cq_attr_ex, &cq->ibv_cq,
+		ret = ibv_cmd_create_cq_ex(context, &cq_attr_ex, &cq->verbs_cq,
 					   &cmd_ex.ibv_cmd, sizeof(cmd_ex),
 					   &resp_ex.ibv_resp, sizeof(resp_ex));
 	} else {
 		ret = ibv_cmd_create_cq(context, ncqe - 1, cq_attr->channel,
 					cq_attr->comp_vector,
-					ibv_cq_ex_to_cq(&cq->ibv_cq),
+					&cq->verbs_cq.cq,
 					&cmd.ibv_cmd, sizeof(cmd),
 					&resp.ibv_resp, sizeof(resp));
 	}
@@ -1026,7 +1026,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	cq->stall_adaptive_enable = to_mctx(context)->stall_adaptive_enable;
 	cq->stall_cycles = to_mctx(context)->stall_cycles;
 
-	return &cq->ibv_cq;
+	return &cq->verbs_cq.cq_ex;
 
 err_db:
 	mlx5_free_db(to_mctx(context), cq->dbrec, cq->parent_domain, cq->custom_db);
@@ -1107,7 +1107,7 @@ int mlx5_resize_cq(struct ibv_cq *ibcq, int cqe)
 		return EINVAL;
 
 	mlx5_spin_lock(&cq->lock);
-	cq->active_cqes = cq->ibv_cq.cqe;
+	cq->active_cqes = cq->verbs_cq.cq.cqe;
 	if (cq->active_buf == &cq->buf_a)
 		cq->resize_buf = &cq->buf_b;
 	else
@@ -1141,7 +1141,7 @@ int mlx5_resize_cq(struct ibv_cq *ibcq, int cqe)
 	mlx5_cq_resize_copy_cqes(cq);
 	mlx5_free_cq_buf(mctx, cq->active_buf);
 	cq->active_buf = cq->resize_buf;
-	cq->ibv_cq.cqe = cqe - 1;
+	cq->verbs_cq.cq.cqe = cqe - 1;
 	mlx5_spin_unlock(&cq->lock);
 	cq->resize_buf = NULL;
 	return 0;

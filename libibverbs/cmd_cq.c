@@ -135,7 +135,7 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 
 int ibv_cmd_create_cq_ex(struct ibv_context *context,
 			 struct ibv_cq_init_attr_ex *cq_attr,
-			 struct ibv_cq_ex *cq,
+			 struct verbs_cq *cq,
 			 struct ibv_create_cq_ex *cmd,
 			 size_t cmd_size,
 			 struct ib_uverbs_ex_create_cq_resp *resp,
@@ -157,7 +157,7 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 
 	return ibv_icmd_create_cq(context, cq_attr->cqe, cq_attr->channel,
 				  cq_attr->comp_vector, flags,
-				  ibv_cq_ex_to_cq(cq), cmdb);
+				  &cq->cq, cmdb);
 }
 
 int ibv_cmd_destroy_cq(struct ibv_cq *cq)
