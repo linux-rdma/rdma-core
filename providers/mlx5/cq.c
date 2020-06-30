@@ -535,7 +535,7 @@ static inline int mlx5_get_next_cqe(struct mlx5_cq *cq,
 
 #ifdef MLX5_DEBUG
 	{
-		struct mlx5_context *mctx = to_mctx(cq->ibv_cq.context);
+		struct mlx5_context *mctx = to_mctx(cq->verbs_cq.cq_ex.context);
 
 		if (mlx5_debug_mask & MLX5_DBG_CQ_CQE) {
 			FILE *fp = mctx->dbg_fp;
@@ -605,7 +605,7 @@ static int handle_tag_matching(struct mlx5_cq *cq,
 #ifdef MLX5_DEBUG
 		if (srq->op_tail == srq->op_head) {
 			mlx5_dbg(fp, MLX5_DBG_CQ, "got unexpected list op CQE\n");
-			cq->ibv_cq.status = IBV_WC_GENERAL_ERR;
+			cq->verbs_cq.cq_ex.status = IBV_WC_GENERAL_ERR;
 			mlx5_spin_unlock(&srq->lock);
 			return CQ_OK;
 		}
