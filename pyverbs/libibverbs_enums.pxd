@@ -21,6 +21,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_NODE_RNIC
         IBV_NODE_USNIC
         IBV_NODE_USNIC_UDP
+        IBV_NODE_UNSPECIFIED
 
     cpdef enum:
         IBV_LINK_LAYER_UNSPECIFIED
