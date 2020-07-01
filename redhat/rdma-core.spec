@@ -274,6 +274,13 @@ easy, object-oriented access to IB verbs.
 %setup
 
 %build
+# This package uses top level ASM constructs which are incompatible with LTO.
+# Top level ASMs are often used to implement symbol versioning.  gcc-10
+# introduces a new mechanism for symbol versioning which works with LTO.
+# Converting packages to use that mechanism instead of toplevel ASMs is
+# recommended.
+# Disable LTO
+%define _lto_cflags %{nil}
 
 # New RPM defines _rundir, usually as /run
 %if 0%{?_rundir:1}
