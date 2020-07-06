@@ -74,10 +74,8 @@ class OdpTestCase(RDMATestCase):
         """
         client = resource(**self.dev_info, **resource_arg)
         server = resource(**self.dev_info, **resource_arg)
-        psn = 'psns' if resource == OdpXRC else 'psn'
-        qpn = 'qps_num' if resource == OdpXRC else 'qpn'
-        client.pre_run(getattr(server, psn), getattr(server, qpn))
-        server.pre_run(getattr(client, psn), getattr(client, qpn))
+        client.pre_run(server.psns, server.qps_num)
+        server.pre_run(client.psns, client.qps_num)
         return client, server
 
     def tearDown(self):
