@@ -138,7 +138,7 @@ static bool dr_mask_is_tnl_gre_set(struct dr_match_misc *misc)
 	DR_MASK_IS_OUTER_MPLS_OVER_GRE_UDP_SET(_misc2, udp))
 
 static bool
-dr_mask_is_misc3_vxlan_gpe_set(struct dr_match_misc3 *misc3)
+dr_mask_is_vxlan_gpe_set(struct dr_match_misc3 *misc3)
 {
 	return misc3->outer_vxlan_gpe_vni ||
 	       misc3->outer_vxlan_gpe_next_protocol ||
@@ -146,21 +146,21 @@ dr_mask_is_misc3_vxlan_gpe_set(struct dr_match_misc3 *misc3)
 }
 
 static bool
-dr_matcher_supp_flex_parser_vxlan_gpe(struct dr_devx_caps *caps)
+dr_matcher_supp_vxlan_gpe(struct dr_devx_caps *caps)
 {
 	return caps->flex_protocols &
 	       MLX5_FLEX_PARSER_VXLAN_GPE_ENABLED;
 }
 
 static bool
-dr_mask_is_flex_parser_tnl_vxlan_gpe_set(struct dr_match_param *mask,
-					 struct mlx5dv_dr_domain *dmn)
+dr_mask_is_tnl_vxlan_gpe(struct dr_match_param *mask,
+			 struct mlx5dv_dr_domain *dmn)
 {
-	return dr_mask_is_misc3_vxlan_gpe_set(&mask->misc3) &&
-	       dr_matcher_supp_flex_parser_vxlan_gpe(&dmn->info.caps);
+	return dr_mask_is_vxlan_gpe_set(&mask->misc3) &&
+	       dr_matcher_supp_vxlan_gpe(&dmn->info.caps);
 }
 
-static bool dr_mask_is_misc_geneve_set(struct dr_match_misc *misc)
+static bool dr_mask_is_tnl_geneve_set(struct dr_match_misc *misc)
 {
 	return misc->geneve_vni ||
 	       misc->geneve_oam ||
@@ -169,38 +169,45 @@ static bool dr_mask_is_misc_geneve_set(struct dr_match_misc *misc)
 }
 
 static bool
-dr_matcher_supp_flex_parser_geneve(struct dr_devx_caps *caps)
+dr_matcher_supp_tnl_geneve(struct dr_devx_caps *caps)
 {
 	return caps->flex_protocols &
 	       MLX5_FLEX_PARSER_GENEVE_ENABLED;
 }
 
 static bool
-dr_mask_is_flex_parser_tnl_geneve_set(struct dr_match_param *mask,
-				      struct mlx5dv_dr_domain *dmn)
+dr_mask_is_tnl_geneve(struct dr_match_param *mask,
+		      struct mlx5dv_dr_domain *dmn)
 {
-	return dr_mask_is_misc_geneve_set(&mask->misc) &&
-	       dr_matcher_supp_flex_parser_geneve(&dmn->info.caps);
+	return dr_mask_is_tnl_geneve_set(&mask->misc) &&
+	       dr_matcher_supp_tnl_geneve(&dmn->info.caps);
 }
 
-static bool dr_mask_is_misc3_gtpu_set(struct dr_match_misc3 *misc3)
+static bool dr_mask_is_tnl_gtpu_set(struct dr_match_misc3 *misc3)
 {
-	return misc3->gtpu_flags ||
-	       misc3->gtpu_msg_type ||
-	       misc3->gtpu_teid;
+	return misc3->gtpu_flags || misc3->gtpu_msg_type || misc3->gtpu_teid;
 }
 
-static bool dr_matcher_supp_flex_parser_gtpu(struct dr_devx_caps *caps)
+static bool dr_matcher_supp_tnl_gtpu(struct dr_devx_caps *caps)
 {
-	return caps->flex_protocols &
-	       MLX5_FLEX_PARSER_GTPU_ENABLED;
+	return caps->flex_protocols & MLX5_FLEX_PARSER_GTPU_ENABLED;
 }
 
-static bool dr_mask_is_flex_parser_tnl_gtpu_set(struct dr_match_param *mask,
-					 struct mlx5dv_dr_domain *dmn)
+static bool dr_mask_is_tnl_gtpu(struct dr_match_param *mask,
+				struct mlx5dv_dr_domain *dmn)
 {
-	return dr_mask_is_misc3_gtpu_set(&mask->misc3) &&
-	       dr_matcher_supp_flex_parser_gtpu(&dmn->info.caps);
+	return dr_mask_is_tnl_gtpu_set(&mask->misc3) &&
+	       dr_matcher_supp_tnl_gtpu(&dmn->info.caps);
+}
+
+static inline int dr_matcher_supp_icmp_v4(struct dr_devx_caps *caps)
+{
+	return caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V4_ENABLED;
+}
+
+static inline int dr_matcher_supp_icmp_v6(struct dr_devx_caps *caps)
+{
+	return caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V6_ENABLED;
 }
 
 static bool dr_mask_is_icmpv6_set(struct dr_match_misc3 *misc3)
@@ -209,13 +216,13 @@ static bool dr_mask_is_icmpv6_set(struct dr_match_misc3 *misc3)
 		misc3->icmpv6_header_data);
 }
 
-static bool dr_mask_is_flex_parser_icmp_set(struct dr_match_param *mask,
-					    struct mlx5dv_dr_domain *dmn)
+static bool dr_mask_is_icmp(struct dr_match_param *mask,
+			    struct mlx5dv_dr_domain *dmn)
 {
 	if (DR_MASK_IS_ICMPV4_SET(&mask->misc3))
-		return dr_matcher_supp_flex_parser_icmp_v4(&dmn->info.caps);
+		return dr_matcher_supp_icmp_v4(&dmn->info.caps);
 	else if (dr_mask_is_icmpv6_set(&mask->misc3))
-		return dr_matcher_supp_flex_parser_icmp_v6(&dmn->info.caps);
+		return dr_matcher_supp_icmp_v6(&dmn->info.caps);
 
 	return false;
 }
@@ -343,13 +350,13 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 							    inner, rx);
 		}
 
-		if (dr_mask_is_flex_parser_tnl_vxlan_gpe_set(&mask, dmn))
+		if (dr_mask_is_tnl_vxlan_gpe(&mask, dmn))
 			dr_ste_build_tnl_vxlan_gpe(&sb[idx++], &mask,
 						   inner, rx);
-		else if (dr_mask_is_flex_parser_tnl_geneve_set(&mask, dmn))
+		else if (dr_mask_is_tnl_geneve(&mask, dmn))
 			dr_ste_build_tnl_geneve(&sb[idx++], &mask,
 						inner, rx);
-		else if (dr_mask_is_flex_parser_tnl_gtpu_set(&mask, dmn))
+		else if (dr_mask_is_tnl_gtpu(&mask, dmn))
 			dr_ste_build_tnl_gtpu(&sb[idx++], &mask,
 					      inner, rx);
 
@@ -362,7 +369,7 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 		if (DR_MASK_IS_TNL_MPLS_SET(mask.misc2))
 			dr_ste_build_tnl_mpls(&sb[idx++], &mask, inner, rx);
 
-		if (dr_mask_is_flex_parser_icmp_set(&mask, dmn)) {
+		if (dr_mask_is_icmp(&mask, dmn)) {
 			ret = dr_ste_build_icmp(&sb[idx++],
 						&mask, &dmn->info.caps,
 						inner, rx);

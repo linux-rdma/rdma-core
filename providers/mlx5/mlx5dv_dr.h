@@ -802,16 +802,6 @@ struct dr_icm_chunk {
 	struct list_head	*miss_list;
 };
 
-static inline int dr_matcher_supp_flex_parser_icmp_v4(struct dr_devx_caps *caps)
-{
-	return caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V4_ENABLED;
-}
-
-static inline int dr_matcher_supp_flex_parser_icmp_v6(struct dr_devx_caps *caps)
-{
-	return caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V6_ENABLED;
-}
-
 static inline int
 dr_icm_pool_dm_type_to_entry_size(enum dr_icm_type icm_type)
 {
