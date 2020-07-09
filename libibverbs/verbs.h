@@ -2242,6 +2242,32 @@ struct ibv_context *ibv_open_device(struct ibv_device *device);
 int ibv_close_device(struct ibv_context *context);
 
 /**
+ * ibv_import_device - Import device
+ */
+struct ibv_context *ibv_import_device(int cmd_fd);
+
+/**
+ * ibv_import_pd - Import a protetion domain
+ */
+struct ibv_pd *ibv_import_pd(struct ibv_context *context,
+			     uint32_t pd_handle);
+
+/**
+ * ibv_unimport_pd - Unimport a protetion domain
+ */
+void ibv_unimport_pd(struct ibv_pd *pd);
+
+/**
+ * ibv_import_mr - Import a memory region
+ */
+struct ibv_mr *ibv_import_mr(struct ibv_pd *pd, uint32_t mr_handle);
+
+/**
+ * ibv_unimport_mr - Unimport a memory region
+ */
+void ibv_unimport_mr(struct ibv_mr *mr);
+
+/**
  * ibv_get_async_event - Get next async event
  * @event: Pointer to use to return async event
  *

@@ -20,19 +20,31 @@ from pyverbs.qp cimport QP
 
 
 cdef class PD(PyverbsCM):
-    def __init__(self, object creator not None):
+    def __init__(self, object creator not None, **kwargs):
         """
         Initializes a PD object. A reference for the creating Context is kept
         so that Python's GC will destroy the objects in the right order.
         :param creator: The Context/CMID object creating the PD
+        :param kwargs: Arguments:
+            * *handle*
+                A valid kernel handle for a PD object in the given creator
+                (Context). If passed, the PD will be imported and associated
+                with the given handle in the given context using ibv_import_pd.
         """
         super().__init__()
+        pd_handle = kwargs.get('handle')
         if issubclass(type(creator), Context):
             # Check if the ibv_pd* was initialized by an inheriting class
             if self.pd == NULL:
-                self.pd = v.ibv_alloc_pd((<Context>creator).context)
+                if pd_handle is not None:
+                    self.pd = v.ibv_import_pd((<Context>creator).context, pd_handle)
+                    self._is_imported = True
+                    err_str = 'Failed to import PD'
+                else:
+                    self.pd = v.ibv_alloc_pd((<Context>creator).context)
+                    err_str = 'Failed to allocate PD'
                 if self.pd == NULL:
-                    raise PyverbsRDMAErrno('Failed to allocate PD')
+                    raise PyverbsRDMAErrno(err_str)
             self.ctx = creator
         elif issubclass(type(creator), CMID):
             cmid = <CMID>creator
@@ -43,7 +55,7 @@ cdef class PD(PyverbsCM):
             raise PyverbsUserError('Cannot create PD from {type}'
                                    .format(type=type(creator)))
         self.ctx.add_ref(self)
-        self.logger.debug('PD: Allocated ibv_pd')
+        self.logger.debug('Created PD')
         self.srqs = weakref.WeakSet()
         self.mrs = weakref.WeakSet()
         self.mws = weakref.WeakSet()
@@ -68,6 +80,10 @@ cdef class PD(PyverbsCM):
             raise PyverbsRDMAError('Failed to advise MR', rc)
         return rc
 
+    def unimport(self):
+        v.ibv_unimport_pd(self.pd)
+        self.close()
+
     def __dealloc__(self):
         """
         Closes the inner PD.
@@ -81,15 +97,18 @@ cdef class PD(PyverbsCM):
         PD may be deleted directly or indirectly by closing its context, which
         leaves the Python PD object without the underlying C object, so during
         destruction, need to check whether or not the C object exists.
+        In case of an imported PD no deallocation will be done, it's left for
+        the original PD, in order to prevent double dealloc by the GC.
         :return: None
         """
         if self.pd != NULL:
             self.logger.debug('Closing PD')
             close_weakrefs([self.parent_domains, self.qps, self.ahs, self.mws,
                             self.mrs, self.srqs])
-            rc = v.ibv_dealloc_pd(self.pd)
-            if rc != 0:
-                raise PyverbsRDMAError('Failed to dealloc PD', rc)
+            if not self._is_imported:
+                rc = v.ibv_dealloc_pd(self.pd)
+                if rc != 0:
+                    raise PyverbsRDMAError('Failed to dealloc PD', rc)
             self.pd = NULL
             self.ctx = None
 
@@ -108,6 +127,10 @@ cdef class PD(PyverbsCM):
             self.parent_domains.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
+
+    @property
+    def handle(self):
+        return self.pd.handle
 
 
 cdef void *pd_alloc(v.ibv_pd *pd, void *pd_context, size_t size,

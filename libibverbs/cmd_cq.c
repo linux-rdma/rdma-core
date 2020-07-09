@@ -31,6 +31,7 @@
  */
 
 #include <infiniband/cmd_write.h>
+#include "ibverbs.h"
 
 static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 			      struct ibv_comp_channel *channel, int comp_vector,
@@ -38,6 +39,7 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 			      struct ibv_command_buffer *link)
 {
 	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_CQ, UVERBS_METHOD_CQ_CREATE, 8, link);
+	struct verbs_ex_private *priv = get_priv(context);
 	struct ib_uverbs_attr *handle;
 	struct ib_uverbs_attr *async_fd_attr;
 	uint32_t resp_cqe;
@@ -54,8 +56,11 @@ static int ibv_icmd_create_cq(struct ibv_context *context, int cqe,
 		fill_attr_in_fd(cmdb, UVERBS_ATTR_CREATE_CQ_COMP_CHANNEL, channel->fd);
 	fill_attr_in_uint32(cmdb, UVERBS_ATTR_CREATE_CQ_COMP_VECTOR, comp_vector);
 	async_fd_attr = fill_attr_in_fd(cmdb, UVERBS_ATTR_CREATE_CQ_EVENT_FD, context->async_fd);
-	/* Prevent fallback to the 'write' mode if kernel doesn't support it */
-	attr_optional(async_fd_attr);
+	if (priv->imported)
+		fallback_require_ioctl(cmdb);
+	else
+		/* Prevent fallback to the 'write' mode if kernel doesn't support it */
+		attr_optional(async_fd_attr);
 
 	if (flags) {
 		fallback_require_ex(cmdb);

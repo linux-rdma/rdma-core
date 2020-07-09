@@ -25,6 +25,7 @@ rdma_python_test(tests
   test_qpex.py
   test_rdmacm.py
   test_relaxed_ordering.py
+  test_shared_pd.py
   utils.py
   )
 

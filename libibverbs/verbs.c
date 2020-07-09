@@ -352,6 +352,36 @@ struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
 	return ibv_reg_mr_iova(pd, addr, length, iova, access);
 }
 
+
+struct ibv_pd *ibv_import_pd(struct ibv_context *context,
+			     uint32_t pd_handle)
+{
+	return get_ops(context)->import_pd(context, pd_handle);
+}
+
+
+void ibv_unimport_pd(struct ibv_pd *pd)
+{
+	get_ops(pd->context)->unimport_pd(pd);
+}
+
+
+/**
+ * ibv_import_mr - Import a memory region
+ */
+struct ibv_mr *ibv_import_mr(struct ibv_pd *pd, uint32_t mr_handle)
+{
+	return get_ops(pd->context)->import_mr(pd, mr_handle);
+}
+
+/**
+ * ibv_unimport_mr - Unimport a memory region
+ */
+void ibv_unimport_mr(struct ibv_mr *mr)
+{
+	get_ops(mr->context)->unimport_mr(mr);
+}
+
 LATEST_SYMVER_FUNC(ibv_rereg_mr, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_mr *mr, int flags,

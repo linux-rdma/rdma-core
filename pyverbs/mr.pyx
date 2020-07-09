@@ -27,7 +27,7 @@ cdef class MR(PyverbsCM):
     MR class represents ibv_mr. Buffer allocation in done in the c'tor. Freeing
     it is done in close().
     """
-    def __init__(self, PD pd not None, length, access, address=None):
+    def __init__(self, PD pd not None, length=0, access=0, address=None, **kwargs):
         """
         Allocate a user-level buffer of length <length> and register a Memory
         Region of the given length and access flags.
@@ -37,6 +37,11 @@ cdef class MR(PyverbsCM):
         :param address: Memory address to register (Optional). If it's not
                         provided, a memory will be allocated in the class
                         initialization.
+        :param kwargs: Arguments:
+            * *handle*
+                A valid kernel handle for a MR object in the given PD.
+                If passed, the MR will be imported and associated with the
+                context that is associated with the given PD using ibv_import_mr.
         :return: The newly created MR on success
         """
         super().__init__()
@@ -52,7 +57,20 @@ cdef class MR(PyverbsCM):
             # uintptr_t is guaranteed to be large enough to hold any pointer.
             # In order to safely cast addr to void*, it is firstly cast to uintptr_t.
             self.buf = <void*><uintptr_t>address
-        else:
+
+        mr_handle = kwargs.get('handle')
+        # If a MR handle is passed import MR and finish
+        if mr_handle is not None:
+            self.mr = v.ibv_import_mr(pd.pd, mr_handle)
+            if self.mr == NULL:
+                raise PyverbsRDMAErrno('Failed to import MR')
+            self._is_imported = True
+            self.pd = pd
+            pd.add_ref(self)
+            return
+
+        # Allocate a buffer
+        if not address:
             if self.is_huge:
                 # Rounding up to multiple of HUGE_PAGE_SIZE
                 self.mmap_length = length + (HUGE_PAGE_SIZE - length % HUGE_PAGE_SIZE) \
@@ -77,6 +95,10 @@ cdef class MR(PyverbsCM):
         self.logger.debug('Registered ibv_mr. Length: {l}, access flags {a}'.
                           format(l=length, a=access))
 
+    def unimport(self):
+        v.ibv_unimport_mr(self.mr)
+        self.close()
+
     def __dealloc__(self):
         self.close()
 
@@ -86,21 +108,24 @@ cdef class MR(PyverbsCM):
         MR may be deleted directly or indirectly by closing its context, which
         leaves the Python PD object without the underlying C object, so during
         destruction, need to check whether or not the C object exists.
+        In case of an imported MR no deregistration will be done, it's left
+        for the original MR, in order to prevent double dereg by the GC.
         :return: None
         """
         if self.mr != NULL:
             self.logger.debug('Closing MR')
-            rc = v.ibv_dereg_mr(self.mr)
-            if rc != 0:
-                raise PyverbsRDMAError('Failed to dereg MR', rc)
+            if not self._is_imported:
+                rc = v.ibv_dereg_mr(self.mr)
+                if rc != 0:
+                    raise PyverbsRDMAError('Failed to dereg MR', rc)
+                if not self.is_user_addr:
+                    if self.is_huge:
+                        munmap(self.buf, self.mmap_length)
+                    else:
+                        free(self.buf)
             self.mr = NULL
             self.pd = None
-        if not self.is_user_addr:
-            if self.is_huge:
-                munmap(self.buf, self.mmap_length)
-            else:
-                free(self.buf)
-        self.buf = NULL
+            self.buf = NULL
 
     def write(self, data, length):
         """
@@ -143,6 +168,19 @@ cdef class MR(PyverbsCM):
     @property
     def length(self):
         return self.mr.length
+
+    @property
+    def handle(self):
+        return self.mr.handle
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        return 'MR\n' + \
+               print_format.format('lkey', self.lkey) + \
+               print_format.format('rkey', self.rkey) + \
+               print_format.format('length', self.length) + \
+               print_format.format('buf', <uintptr_t>self.buf) + \
+               print_format.format('handle', self.handle)
 
 
 cdef class MWBindInfo(PyverbsCM):

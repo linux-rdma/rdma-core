@@ -53,6 +53,7 @@ static int ibv_icmd_create_srq(struct ibv_pd *pd, struct verbs_srq *vsrq,
 			       struct ibv_command_buffer *link)
 {
 	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_SRQ, UVERBS_METHOD_SRQ_CREATE, 13, link);
+	struct verbs_ex_private *priv = get_priv(pd->context);
 	struct ib_uverbs_attr *handle;
 	uint32_t max_wr;
 	uint32_t max_sge;
@@ -106,6 +107,9 @@ static int ibv_icmd_create_srq(struct ibv_pd *pd, struct verbs_srq *vsrq,
 	fill_attr_in_fd(cmdb, UVERBS_ATTR_CREATE_SRQ_EVENT_FD, pd->context->async_fd);
 	fill_attr_out_ptr(cmdb, UVERBS_ATTR_CREATE_SRQ_RESP_MAX_WR, &max_wr);
 	fill_attr_out_ptr(cmdb, UVERBS_ATTR_CREATE_SRQ_RESP_MAX_SGE, &max_sge);
+
+	if (priv->imported)
+		fallback_require_ioctl(cmdb);
 
 	switch (execute_ioctl_fallback(srq->context, create_srq, cmdb, &ret)) {
 	case TRY_WRITE: {
