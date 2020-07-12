@@ -750,7 +750,7 @@ cdef class DM(PyverbsCM):
             if rc != 0:
                 raise PyverbsRDMAError('Failed to free dm', rc)
             self.dm = NULL
-        self.context = None
+            self.context = None
 
     cdef add_ref(self, obj):
         if isinstance(obj, DMMR):

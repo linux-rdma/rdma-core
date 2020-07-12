@@ -376,8 +376,10 @@ cdef class DMMR(MR):
         self.logger.debug('Registered device ibv_mr. Length: {len}, access flags {flags}'.
                           format(len=length, flags=access))
 
-    def write(self, data, length):
-        return self.dm.copy_to_dm(0, data, length)
+    def write(self, data, length, offset=0):
+        if isinstance(data, str):
+            data = data.encode()
+        return self.dm.copy_to_dm(offset, data, length)
 
     cpdef read(self, length, offset):
         return self.dm.copy_from_dm(offset, length)
