@@ -133,6 +133,7 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 {
 	uint32_t out[DEVX_ST_SZ_DW(query_hca_cap_out)] = {};
 	uint32_t in[DEVX_ST_SZ_DW(query_hca_cap_in)] = {};
+	bool roce;
 	int err;
 
 	DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
@@ -151,6 +152,8 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 	caps->gvmi = DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.vhca_id);
 	caps->flex_protocols = DEVX_GET(query_hca_cap_out, out,
 					capability.cmd_hca_cap.flex_parser_protocols);
+	roce = DEVX_GET(query_hca_cap_out, out,
+			capability.cmd_hca_cap.roce);
 
 	if (dr_matcher_supp_flex_parser_icmp_v4(caps)) {
 		caps->flex_parser_id_icmp_dw0 =
@@ -217,6 +220,21 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 	caps->hdr_modify_icm_addr = DEVX_GET64(query_hca_cap_out, out,
 					       capability.device_mem_cap.
 					       header_modify_sw_icm_start_address);
+	/* RoCE caps */
+	if (roce) {
+		DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
+		DEVX_SET(query_hca_cap_in, in, op_mod,
+			 MLX5_SET_HCA_CAP_OP_MOD_ROCE |
+			 HCA_CAP_OPMOD_GET_CUR);
+
+		err = mlx5dv_devx_general_cmd(ctx, in, sizeof(in), out, sizeof(out));
+		if (err) {
+			dr_dbg_ctx(ctx, "Query RoCE capabilities failed %d\n", err);
+			return err;
+		}
+		caps->roce_caps.fl_rc_qp_when_roce_enabled = DEVX_GET(query_hca_cap_out, out,
+					      capability.roce_caps.fl_rc_qp_when_roce_enabled);
+	}
 
 	return 0;
 }
@@ -467,16 +485,20 @@ int dr_devx_modify_qp_init2rtr(struct ibv_context *ctx,
 	DEVX_SET(qpc, qpc, mtu, attr->mtu);
 	DEVX_SET(qpc, qpc, log_msg_max, DR_CHUNK_SIZE_MAX - 1);
 	DEVX_SET(qpc, qpc, remote_qpn, attr->qp_num);
-	memcpy(DEVX_ADDR_OF(qpc, qpc, primary_address_path.rmac_47_32),
-	       attr->dgid_attr.mac, sizeof(attr->dgid_attr.mac));
-	memcpy(DEVX_ADDR_OF(qpc, qpc, primary_address_path.rgid_rip),
-	       attr->dgid_attr.gid.raw, sizeof(attr->dgid_attr.gid.raw));
-	DEVX_SET(qpc, qpc, primary_address_path.src_addr_index,
-		 attr->sgid_index);
 
-	if (attr->dgid_attr.roce_ver == MLX5_ROCE_VERSION_2)
-		DEVX_SET(qpc, qpc, primary_address_path.udp_sport,
-			 DR_DEVX_ICM_UDP_PORT);
+	if (attr->fl) {
+		DEVX_SET(qpc, qpc, primary_address_path.fl, attr->fl);
+	} else {
+		memcpy(DEVX_ADDR_OF(qpc, qpc, primary_address_path.rmac_47_32),
+		       attr->dgid_attr.mac, sizeof(attr->dgid_attr.mac));
+		memcpy(DEVX_ADDR_OF(qpc, qpc, primary_address_path.rgid_rip),
+		       attr->dgid_attr.gid.raw, sizeof(attr->dgid_attr.gid.raw));
+		DEVX_SET(qpc, qpc, primary_address_path.src_addr_index,
+			 attr->sgid_index);
+		if (attr->dgid_attr.roce_ver == MLX5_ROCE_VERSION_2)
+			DEVX_SET(qpc, qpc, primary_address_path.udp_sport,
+				 DR_DEVX_ICM_UDP_PORT);
+	}
 
 	DEVX_SET(qpc, qpc, primary_address_path.vhca_port_num, attr->port_num);
 	DEVX_SET(qpc, qpc, min_rnr_nak, 1);

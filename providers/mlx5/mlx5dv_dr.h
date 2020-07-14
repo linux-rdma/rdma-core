@@ -575,6 +575,10 @@ struct dr_devx_vport_cap {
 	uint64_t icm_address_tx;
 };
 
+struct dr_devx_roce_cap {
+	bool fl_rc_qp_when_roce_enabled;
+};
+
 struct dr_devx_caps {
 	uint16_t			gvmi;
 	uint64_t			nic_rx_drop_address;
@@ -596,6 +600,7 @@ struct dr_devx_caps {
 	bool				fdb_sw_owner;
 	uint32_t			num_vports;
 	struct dr_devx_vport_cap	*vports_caps;
+	struct dr_devx_roce_cap		roce_caps;
 };
 
 struct dr_domain_rx_tx {
@@ -913,6 +918,7 @@ struct dr_devx_qp_rtr_attr {
 	uint16_t		port_num;
 	uint8_t			min_rnr_timer;
 	uint8_t			sgid_index;
+	bool			fl;
 };
 
 int dr_devx_modify_qp_init2rtr(struct ibv_context *ctx,
