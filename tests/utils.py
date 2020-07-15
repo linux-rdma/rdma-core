@@ -4,6 +4,7 @@
 Provide some useful helper function for pyverbs' tests.
 """
 from itertools import combinations as com
+import errno
 import unittest
 import random
 import socket
@@ -267,8 +268,13 @@ def create_custom_mr(agr_obj, additional_access_flags=0, size=None):
     :param size: MR's length. If None, agr_obj.msg_size is used.
     """
     mr_length = size if size else agr_obj.msg_size
-    return MR(agr_obj.pd, mr_length,
-              e.IBV_ACCESS_LOCAL_WRITE | additional_access_flags)
+    try:
+        return MR(agr_obj.pd, mr_length,
+                  e.IBV_ACCESS_LOCAL_WRITE | additional_access_flags)
+    except PyverbsRDMAError as ex:
+        if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest(f'Create custom mr with additional access flags {additional_access_flags} is not supported')
+        raise ex
 
 # Traffic helpers
 
