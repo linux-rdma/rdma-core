@@ -11,16 +11,45 @@ import errno
 from tests.base import PyverbsAPITestCase, RCResources, RDMATestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.mr import MR, MW, DMMR, DmaBufMR, MWBindInfo, MWBind
-from pyverbs.qp import QPCap, QPInitAttr, QPAttr, QP
 from pyverbs.mem_alloc import posix_memalign, free
-from pyverbs.wr import SendWR
 from pyverbs.dmabuf import DmaBuf
+from pyverbs.qp import QPAttr
+from pyverbs.wr import SendWR
 import pyverbs.device as d
 from pyverbs.pd import PD
 import pyverbs.enums as e
 import tests.utils as u
 
 MAX_IO_LEN = 1048576
+DM_INVALID_ALIGNMENT = 3
+
+
+class MRRes(RCResources):
+    def __init__(self, dev_name, ib_port, gid_index,
+                 mr_access=e.IBV_ACCESS_LOCAL_WRITE):
+        """
+        Initialize MR resources based on RC resources that include RC QP.
+        :param dev_name: Device name to be used
+        :param ib_port: IB port of the device to use
+        :param gid_index: Which GID index to use
+        :param mr_access: The MR access
+        """
+        self.mr_access = mr_access
+        super().__init__(dev_name=dev_name, ib_port=ib_port, gid_index=gid_index)
+
+    def create_mr(self):
+        try:
+            self.mr = MR(self.pd, self.msg_size, self.mr_access)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest(f'Reg MR with access ({self.mr_access}) is not supported')
+            raise ex
+
+    def create_qp_attr(self):
+        qp_attr = QPAttr(port_num=self.ib_port)
+        qp_access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE
+        qp_attr.qp_access_flags = qp_access
+        return qp_attr
 
 
 class MRRes(RCResources):
@@ -387,46 +416,61 @@ class MWTest(RDMATestCase):
                                        format(t=mw_type))
 
 
-class DMMRTest(PyverbsAPITestCase):
+class DeviceMemoryAPITest(PyverbsAPITestCase):
     """
-    Test various functionalities of the DMMR class.
+    Test various API usages of the DMMR class.
     """
-    def test_create_dm_mr(self):
-        """
-        Test ibv_reg_dm_mr
-        """
-        for ctx, attr, attr_ex in self.devices:
-            if attr_ex.max_dm_size == 0:
-                raise unittest.SkipTest('Device memory is not supported')
-            with PD(ctx) as pd:
-                for i in range(10):
-                    dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
-                                              u.DM_ALIGNMENT)
-                    dm_attrs = u.get_dm_attrs(dm_len)
-                    with d.DM(ctx, dm_attrs) as dm:
-                        dm_mr_len = random.randint(1, dm_len)
-                        dm_mr_offset = random.randint(0, (dm_len - dm_mr_len))
-                        DMMR(pd, dm_mr_len, e.IBV_ACCESS_ZERO_BASED, dm=dm,
-                             offset=dm_mr_offset)
+    def setUp(self):
+        super().setUp()
+        _, _, attr_ex = self.devices[0]
+        if attr_ex.max_dm_size == 0:
+            raise unittest.SkipTest('Device memory is not supported')
 
-    def test_destroy_dm_mr(self):
+    def test_create_dm_mr(self):
+        ctx, _, attr_ex = self.devices[0]
+        max_dm_size = attr_ex.max_dm_size
+        dm_access = e.IBV_ACCESS_ZERO_BASED | e.IBV_ACCESS_LOCAL_WRITE
+        for dm_size in [4, max_dm_size/4, max_dm_size/2]:
+            dm_size = dm_size - (dm_size % u.DM_ALIGNMENT)
+            for dmmr_factor_size in [0.1, 0.5, 1]:
+                dmmr_size = dm_size * dmmr_factor_size
+                dmmr_size = dmmr_size - (dmmr_size % u.DM_ALIGNMENT)
+                with d.DM(ctx, d.AllocDmAttr(length=dm_size)) as dm:
+                    DMMR(PD(ctx), dmmr_size, dm_access, dm, 0)
+
+    def test_dm_bad_access(self):
         """
-        Test freeing of dm_mr
+        Test multiple types of bad access to the Device Memory. Device memory
+        access requests a 4B alignment. The test tries to access the DM
+        with bad alignment or outside of the allocated memory.
         """
-        for ctx, attr, attr_ex in self.devices:
-            if attr_ex.max_dm_size == 0:
-                raise unittest.SkipTest('Device memory is not supported')
-            with PD(ctx) as pd:
-                for i in range(10):
-                    dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
-                                              u.DM_ALIGNMENT)
-                    dm_attrs = u.get_dm_attrs(dm_len)
-                    with d.DM(ctx, dm_attrs) as dm:
-                        dm_mr_len = random.randint(1, dm_len)
-                        dm_mr_offset = random.randint(0, (dm_len - dm_mr_len))
-                        dm_mr = DMMR(pd, dm_mr_len, e.IBV_ACCESS_ZERO_BASED,
-                                     dm=dm, offset=dm_mr_offset)
-                        dm_mr.close()
+        ctx, _, _ = self.devices[0]
+        dm_size = 100
+        with d.DM(ctx, d.AllocDmAttr(length=dm_size)) as dm:
+            dm_access = e.IBV_ACCESS_ZERO_BASED | e.IBV_ACCESS_LOCAL_WRITE
+            dmmr = DMMR(PD(ctx), dm_size, dm_access, dm, 0)
+            access_cases = [(DM_INVALID_ALIGNMENT, 4), # Valid length with unaligned offset
+                            (4, DM_INVALID_ALIGNMENT), # Valid offset with unaligned length
+                            (dm_size + 4, 4), # Offset out of allocated memory
+                            (0, dm_size + 4)] # Length out of allocated memory
+            for case in access_cases:
+                offset, length = case
+                with self.assertRaisesRegex(PyverbsRDMAError, 'Failed to copy from dm'):
+                    dmmr.read(offset=offset, length=length)
+                with self.assertRaisesRegex(PyverbsRDMAError, 'Failed to copy to dm'):
+                    dmmr.write(data='s'*length, offset=offset, length=length)
+
+    def test_dm_bad_registration(self):
+        """
+        Test bad Device Memory registration when trying to register bigger DMMR
+        than the allocated DM.
+        """
+        ctx, _, _ = self.devices[0]
+        dm_size = 100
+        with d.DM(ctx, d.AllocDmAttr(length=dm_size)) as dm:
+            dm_access = e.IBV_ACCESS_ZERO_BASED | e.IBV_ACCESS_LOCAL_WRITE
+            with self.assertRaisesRegex(PyverbsRDMAError, 'Failed to register a device MR'):
+                DMMR(PD(ctx), dm_size + 4, dm_access, dm, 0)
 
 
 def check_dmabuf_support(gpu=0):
@@ -687,3 +731,90 @@ class DmaBufTestCase(RDMATestCase):
         client.remote_addr = server.mr.offset
         u.rdma_traffic(client, server, self.iters, self.gid_index, self.ib_port,
                        send_op=e.IBV_WR_RDMA_WRITE)
+
+
+class DeviceMemoryRes(RCResources):
+    def __init__(self, dev_name, ib_port, gid_index, remote_access=False):
+        """
+        Initialize DM resources based on RC resources that include RC
+        QP.
+        :param dev_name: Device name to be used.
+        :param ib_port: IB port of the device to use.
+        :param gid_index: Which GID index to use.
+        :param remote_access: If True, enable remote access.
+        """
+        self.remote_access = remote_access
+        super().__init__(dev_name=dev_name, ib_port=ib_port,
+                         gid_index=gid_index)
+
+    def create_mr(self):
+        try:
+            self.dm = d.DM(self.ctx, d.AllocDmAttr(length=self.msg_size))
+            access = e.IBV_ACCESS_ZERO_BASED | e.IBV_ACCESS_LOCAL_WRITE
+            if self.remote_access:
+                access |= e.IBV_ACCESS_REMOTE_WRITE
+            self.mr = DMMR(self.pd, self.msg_size, access, self.dm, 0)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest(f'Reg DMMR with access={access} is not supported')
+            raise ex
+
+    def create_qp_attr(self):
+        qp_attr = QPAttr(port_num=self.ib_port)
+        qp_attr.qp_access_flags = e.IBV_ACCESS_LOCAL_WRITE
+        if self.remote_access:
+            qp_attr.qp_access_flags |= e.IBV_ACCESS_REMOTE_WRITE
+        return qp_attr
+
+
+class DeviceMemoryTest(RDMATestCase):
+    """
+    Test various functionalities of the DM class.
+    """
+    def setUp(self):
+        super().setUp()
+        self.iters = 10
+        self.server = None
+        self.client = None
+        self.traffic_args = None
+        ctx = d.Context(name=self.dev_name)
+        if ctx.query_device_ex().max_dm_size == 0:
+            raise unittest.SkipTest('Device memory is not supported')
+        # Device memory can not work in scatter to cqe mode in MLX5 devices,
+        # therefore disable it and restore the default value at the end of the
+        # test.
+        self.set_env_variable('MLX5_SCATTER_TO_CQE', '0')
+
+    def create_players(self, resource, **resource_arg):
+        """
+        Init Device Memory tests resources.
+        :param resource: The RDMA resources to use.
+        :param resource_arg: Dict of args that specify the resource specific
+        attributes.
+        :return: None
+        """
+        self.client = resource(**self.dev_info, **resource_arg)
+        self.server = resource(**self.dev_info, **resource_arg)
+        self.client.pre_run(self.server.psns, self.server.qps_num)
+        self.server.pre_run(self.client.psns, self.client.qps_num)
+        self.sync_remote_attr()
+        self.traffic_args = {'client': self.client, 'server': self.server,
+                             'iters': self.iters, 'gid_idx': self.gid_index,
+                             'port': self.ib_port}
+
+    def sync_remote_attr(self):
+        """
+        Exchange the MR remote attributes between the server and the client.
+        """
+        self.server.rkey = self.client.mr.rkey
+        self.server.remote_addr = self.client.mr.buf
+        self.client.rkey = self.server.mr.rkey
+        self.client.remote_addr = self.server.mr.buf
+
+    def test_dm_traffic(self):
+        self.create_players(DeviceMemoryRes)
+        u.traffic(**self.traffic_args)
+
+    def test_dm_remote_traffic(self):
+        self.create_players(DeviceMemoryRes, remote_access=True)
+        u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
