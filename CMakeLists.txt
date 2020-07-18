@@ -442,6 +442,7 @@ if (ENABLE_RESOLVE_NEIGH)
   # FIXME use of pkgconfig is discouraged
   pkg_check_modules(NL libnl-3.0 libnl-route-3.0 REQUIRED)
   include_directories(${NL_INCLUDE_DIRS})
+  link_directories(${NL_LIBRARY_DIRS})
   set(NL_KIND 3)
 else()
   set(NL_KIND 0)
