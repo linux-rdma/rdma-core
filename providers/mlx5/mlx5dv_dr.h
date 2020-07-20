@@ -734,7 +734,13 @@ struct mlx5dv_dr_action {
 			struct dr_devx_vport_cap	*caps;
 			uint32_t			num;
 		} vport;
-		struct ibv_qp		*qp;
+		struct {
+			bool    is_qp;
+			union {
+				struct mlx5dv_devx_obj  *devx_tir;
+				struct ibv_qp           *qp;
+			};
+		} dest_qp;
 		struct mlx5dv_devx_obj	*devx_obj;
 		uint32_t		flow_tag;
 	};

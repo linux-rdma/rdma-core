@@ -51,6 +51,7 @@ enum {
 	MLX5_CMD_OP_QUERY_ESW_VPORT_CONTEXT = 0x752,
 	MLX5_CMD_OP_QUERY_ROCE_ADDRESS = 0x760,
 	MLX5_CMD_OP_QUERY_LAG = 0x842,
+	MLX5_CMD_OP_CREATE_TIR = 0x900,
 	MLX5_CMD_OP_MODIFY_TIS = 0x913,
 	MLX5_CMD_OP_QUERY_TIS = 0x915,
 	MLX5_CMD_OP_CREATE_FLOW_TABLE = 0x930,
@@ -2144,6 +2145,18 @@ struct mlx5_ifc_qpc_bits {
 	u8         reserved_at_684[0x9c];
 
 	u8         dbr_umem_id[0x20];
+};
+
+struct mlx5_ifc_create_tir_out_bits {
+	u8         status[0x8];
+	u8         icm_address_63_40[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         icm_address_39_32[0x8];
+	u8         tirn[0x18];
+
+	u8         icm_address_31_0[0x20];
 };
 
 struct mlx5_ifc_create_qp_out_bits {

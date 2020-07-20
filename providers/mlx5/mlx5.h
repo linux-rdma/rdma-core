@@ -667,6 +667,7 @@ enum mlx5_devx_obj_type {
 	MLX5_DEVX_FLOW_METER		= 3,
 	MLX5_DEVX_QP			= 4,
 	MLX5_DEVX_PKT_REFORMAT_CTX	= 5,
+	MLX5_DEVX_TIR			= 6,
 };
 
 struct mlx5dv_devx_obj {
@@ -674,6 +675,7 @@ struct mlx5dv_devx_obj {
 	uint32_t handle;
 	enum mlx5_devx_obj_type type;
 	uint32_t object_id;
+	uint64_t rx_icm_addr;
 };
 
 struct mlx5_var_obj {

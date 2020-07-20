@@ -4746,6 +4746,13 @@ static void set_devx_obj_info(const void *in, const void *out,
 		obj->type = MLX5_DEVX_QP;
 		obj->object_id = DEVX_GET(create_qp_out, out, qpn);
 		break;
+	case MLX5_CMD_OP_CREATE_TIR:
+		obj->type = MLX5_DEVX_TIR;
+		obj->object_id = DEVX_GET(create_tir_out, out, tirn);
+		obj->rx_icm_addr = DEVX_GET(create_tir_out, out, icm_address_31_0);
+		obj->rx_icm_addr |= (uint64_t)DEVX_GET(create_tir_out, out, icm_address_39_32) << 32;
+		obj->rx_icm_addr |= (uint64_t)DEVX_GET(create_tir_out, out, icm_address_63_40) << 40;
+		break;
 	case MLX5_CMD_OP_ALLOC_PACKET_REFORMAT_CONTEXT:
 		obj->type = MLX5_DEVX_PKT_REFORMAT_CTX;
 		obj->object_id = DEVX_GET(alloc_packet_reformat_context_out,
