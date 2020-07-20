@@ -184,6 +184,8 @@ class RDMATestCase(unittest.TestCase):
             raise unittest.SkipTest('No port is up, can\'t run traffic')
         # Choose one combination and use it
         self._select_config()
+        self.dev_info = {'dev_name': self.dev_name, 'ib_port': self.ib_port,
+                         'gid_index': self.gid_index}
 
     def _add_gids_per_port(self, ctx, dev, port):
         # Don't add ports which are not active

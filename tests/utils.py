@@ -630,10 +630,12 @@ def xrc_traffic(client, server, is_cq_ex=False, send_op=None):
 
 
 # Decorators
-def requires_odp(qp_type):
+def requires_odp(qp_type, required_odp_caps):
     def outer(func):
         def inner(instance):
-            odp_supported(instance.ctx, qp_type)
+            odp_supported(instance.ctx, qp_type, required_odp_caps)
+            if getattr(instance, 'is_implicit', False):
+                odp_implicit_supported(instance.ctx)
             return func(instance)
         return inner
     return outer
@@ -649,24 +651,32 @@ def requires_root_on_eth(port_num=1):
     return outer
 
 
-def odp_supported(ctx, qp_type):
+def odp_supported(ctx, qp_type, required_odp_caps):
     """
     Check device ODP capabilities, support only send/recv so far.
     :param ctx: Device Context
     :param qp_type: QP type ('rc', 'ud' or 'uc')
+    :param required_odp_caps: ODP Capability mask of specified device
     :return: None
     """
     odp_caps = ctx.query_device_ex().odp_caps
     if odp_caps.general_caps == 0:
         raise unittest.SkipTest('ODP is not supported - No ODP caps')
     qp_odp_caps = getattr(odp_caps, '{}_odp_caps'.format(qp_type))
-    has_odp_send = qp_odp_caps & e.IBV_ODP_SUPPORT_SEND
-    has_odp_recv = qp_odp_caps & e.IBV_ODP_SUPPORT_SRQ_RECV if qp_type == 'xrc'\
-                else qp_odp_caps & e.IBV_ODP_SUPPORT_RECV
-    if has_odp_send == 0:
-        raise unittest.SkipTest('ODP is not supported - ODP send not supported')
-    if has_odp_recv == 0:
-        raise unittest.SkipTest('ODP is not supported - ODP recv not supported')
+    if required_odp_caps & qp_odp_caps != required_odp_caps:
+        raise unittest.SkipTest('ODP is not supported - ODP recv/send is not supported')
+
+
+def odp_implicit_supported(ctx):
+    """
+    Check device ODP implicit capability.
+    :param ctx: Device Context
+    :return: None
+    """
+    odp_caps = ctx.query_device_ex().odp_caps
+    has_odp_implicit = odp_caps.general_caps & e.IBV_ODP_SUPPORT_IMPLICIT
+    if has_odp_implicit == 0:
+        raise unittest.SkipTest('ODP implicit is not supported')
 
 
 def requires_huge_pages():

@@ -1,8 +1,9 @@
 from pyverbs.mem_alloc import mmap, munmap, MAP_ANONYMOUS_, MAP_PRIVATE_, \
     MAP_HUGETLB_
 from tests.utils import requires_odp, requires_huge_pages, traffic, \
-    xrc_traffic, create_custom_mr
+    xrc_traffic, create_custom_mr, poll_cq, post_send, GRH_SIZE
 from tests.base import RCResources, UDResources, XRCResources
+from pyverbs.wr import SGE, SendWR, RecvWR
 from tests.base import RDMATestCase
 from pyverbs.mr import MR
 import pyverbs.enums as e
@@ -12,15 +13,17 @@ HUGE_PAGE_SIZE = 0x200000
 
 
 class OdpUD(UDResources):
-    @requires_odp('ud')
+    @requires_odp('ud', e.IBV_ODP_SUPPORT_SEND)
     def create_mr(self):
-        self.mr = create_custom_mr(self, e.IBV_ACCESS_ON_DEMAND,
-                                   self.msg_size + self.GRH_SIZE)
+        self.send_mr = MR(self.pd, self.msg_size + self.GRH_SIZE,
+                          e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_ON_DEMAND)
+        self.recv_mr = MR(self.pd, self.msg_size + self.GRH_SIZE,
+                          e.IBV_ACCESS_LOCAL_WRITE)
 
 
 class OdpRC(RCResources):
     def __init__(self, dev_name, ib_port, gid_index, is_huge=False,
-                 user_addr=None, use_mr_prefetch=False):
+                 user_addr=None, use_mr_prefetch=False, is_implicit=False):
         """
         Initialize an OdpRC object.
         :param dev_name: Device name to be used
@@ -30,23 +33,26 @@ class OdpRC(RCResources):
         :param is_huge: If True, use huge pages for MR registration
         :param user_addr: The MR's buffer address. If None, the buffer will be
                           allocated by pyverbs.
+        :param is_implicit: If True, register implicit MR.
         """
         self.is_huge = is_huge
         self.user_addr = user_addr
+        self.is_implicit = is_implicit
         super(OdpRC, self).__init__(dev_name=dev_name, ib_port=ib_port,
                                     gid_index=gid_index)
         self.use_mr_prefetch = use_mr_prefetch
 
-    @requires_odp('rc')
+    @requires_odp('rc',  e.IBV_ODP_SUPPORT_SEND | e.IBV_ODP_SUPPORT_RECV)
     def create_mr(self):
         access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_ON_DEMAND
         if self.is_huge:
             access |= e.IBV_ACCESS_HUGETLB
-        self.mr = MR(self.pd, self.msg_size, access, address=self.user_addr)
+        self.mr = MR(self.pd, self.msg_size, access, address=self.user_addr,
+                     implicit=self.is_implicit)
 
 
 class OdpXRC(XRCResources):
-    @requires_odp('xrc')
+    @requires_odp('xrc',  e.IBV_ODP_SUPPORT_SEND | e.IBV_ODP_SUPPORT_SRQ_RECV)
     def create_mr(self):
         self.mr = create_custom_mr(self, e.IBV_ACCESS_ON_DEMAND)
 
@@ -56,29 +62,22 @@ class OdpTestCase(RDMATestCase):
         super(OdpTestCase, self).setUp()
         self.iters = 100
         self.user_addr = None
-        self.qp_dict = {'rc': OdpRC, 'ud': OdpUD, 'xrc': OdpXRC}
 
-    def create_players(self, qp_type, is_huge=False, use_mr_prefetch=False):
-        if qp_type == 'rc':
-            client = self.qp_dict[qp_type](self.dev_name, self.ib_port,
-                                           self.gid_index, is_huge=is_huge,
-                                           user_addr=self.user_addr,
-                                           use_mr_prefetch=use_mr_prefetch)
-            server = self.qp_dict[qp_type](self.dev_name, self.ib_port,
-                                           self.gid_index, is_huge=is_huge,
-                                           user_addr=self.user_addr,
-                                           use_mr_prefetch=use_mr_prefetch)
-        else:
-            client = self.qp_dict[qp_type](self.dev_name, self.ib_port,
-                                           self.gid_index)
-            server = self.qp_dict[qp_type](self.dev_name, self.ib_port,
-                                           self.gid_index)
-        if qp_type == 'xrc':
-            client.pre_run(server.psns, server.qps_num)
-            server.pre_run(client.psns, client.qps_num)
-        else:
-            client.pre_run(server.psn, server.qpn)
-            server.pre_run(client.psn, client.qpn)
+    def create_players(self, resource, **resource_arg):
+        """
+        Init odp tests resources.
+        :param resource: The RDMA resources to use. A class of type
+                         BaseResources.
+        :param resource_arg: Dict of args that specify the resource specific
+                             attributes.
+        :return: The (client, server) resources.
+        """
+        client = resource(**self.dev_info, **resource_arg)
+        server = resource(**self.dev_info, **resource_arg)
+        psn = 'psns' if resource == OdpXRC else 'psn'
+        qpn = 'qps_num' if resource == OdpXRC else 'qpn'
+        client.pre_run(getattr(server, psn), getattr(server, qpn))
+        server.pre_run(getattr(client, psn), getattr(client, qpn))
         return client, server
 
     def tearDown(self):
@@ -87,29 +86,50 @@ class OdpTestCase(RDMATestCase):
         super(OdpTestCase, self).tearDown()
 
     def test_odp_rc_traffic(self):
-        client, server = self.create_players('rc')
+        client, server = self.create_players(OdpRC)
+        traffic(client, server, self.iters, self.gid_index, self.ib_port)
+
+    def test_odp_implicit_rc_traffic(self):
+        client, server = self.create_players(OdpRC, is_implicit=True)
         traffic(client, server, self.iters, self.gid_index, self.ib_port)
 
     def test_odp_ud_traffic(self):
-        client, server = self.create_players('ud')
-        traffic(client, server, self.iters, self.gid_index, self.ib_port)
+        client, server = self.create_players(OdpUD)
+        # Implement the traffic here because OdpUD uses two different MRs for
+        # send and recv.
+        recv_sge = SGE(server.recv_mr.buf, server.msg_size + GRH_SIZE,
+                       server.recv_mr.lkey)
+        server_recv_wr = RecvWR(sg=[recv_sge], num_sge=1)
+        send_sge = SGE(client.send_mr.buf + GRH_SIZE, client.msg_size,
+                       client.send_mr.lkey)
+        client_send_wr = SendWR(num_sge=1, sg=[send_sge])
+        for i in range(self.iters):
+            server.qp.post_recv(server_recv_wr)
+            post_send(client, client_send_wr, self.gid_index, self.ib_port)
+            poll_cq(client.cq)
+            poll_cq(server.cq)
 
     def test_odp_xrc_traffic(self):
-        client, server = self.create_players('xrc')
+        client, server = self.create_players(OdpXRC)
         xrc_traffic(client, server)
 
     @requires_huge_pages()
     def test_odp_rc_huge_traffic(self):
-        client, server = self.create_players('rc', is_huge=True)
+        client, server = self.create_players(OdpRC, is_huge=True)
         traffic(client, server, self.iters, self.gid_index, self.ib_port)
 
     @requires_huge_pages()
     def test_odp_rc_huge_user_addr_traffic(self):
         self.user_addr = mmap(length=HUGE_PAGE_SIZE,
                               flags=MAP_ANONYMOUS_| MAP_PRIVATE_| MAP_HUGETLB_)
-        client, server = self.create_players('rc', is_huge=True)
+        client, server = self.create_players(OdpRC, is_huge=True,
+                                              user_addr=self.user_addr)
         traffic(client, server, self.iters, self.gid_index, self.ib_port)
 
     def test_odp_prefetch_rc_traffic(self):
-        client, server = self.create_players('rc', use_mr_prefetch=True)
+        client, server = self.create_players(OdpRC, use_mr_prefetch=True)
+        traffic(client, server, self.iters, self.gid_index, self.ib_port)
+
+    def test_odp_implicit_prefetch_rc_traffic(self):
+        client, server = self.create_players(OdpRC, use_mr_prefetch=True, is_implicit=True)
         traffic(client, server, self.iters, self.gid_index, self.ib_port)
