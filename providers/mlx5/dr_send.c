@@ -721,7 +721,7 @@ int dr_send_postsend_htbl(struct mlx5dv_dr_domain *dmn, struct dr_ste_htbl *htbl
 
 		/* Copy all ste's on the data buffer, need to add the bit_mask */
 		for (j = 0; j < num_stes_per_iter; j++) {
-			if (dr_ste_is_not_valid_entry(htbl->ste_arr[ste_index + j].hw_ste)) {
+			if (dr_ste_is_not_used(&htbl->ste_arr[ste_index + j])) {
 				memcpy(data + (j * DR_STE_SIZE),
 				       formated_ste, DR_STE_SIZE);
 			} else {

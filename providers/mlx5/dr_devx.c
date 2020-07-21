@@ -155,7 +155,7 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 	roce = DEVX_GET(query_hca_cap_out, out,
 			capability.cmd_hca_cap.roce);
 
-	if (dr_matcher_supp_flex_parser_icmp_v4(caps)) {
+	if (caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V4_ENABLED) {
 		caps->flex_parser_id_icmp_dw0 =
 			DEVX_GET(query_hca_cap_out,
 				 out,
@@ -166,7 +166,7 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 				 capability.cmd_hca_cap.flex_parser_id_icmp_dw1);
 	}
 
-	if (dr_matcher_supp_flex_parser_icmp_v6(caps)) {
+	if (caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V6_ENABLED) {
 		caps->flex_parser_id_icmpv6_dw0 =
 			DEVX_GET(query_hca_cap_out,
 				 out,
