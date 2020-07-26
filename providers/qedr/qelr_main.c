@@ -168,7 +168,7 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 						void *private_data)
 {
 	struct qelr_devctx *ctx;
-	struct qelr_alloc_context cmd;
+	struct qelr_alloc_context cmd = {};
 	struct qelr_alloc_context_resp resp;
 
 	ctx = verbs_init_and_alloc_context(ibdev, cmd_fd, ctx, ibv_ctx,
@@ -181,7 +181,8 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 	qelr_open_debug_file(ctx);
 	qelr_set_debug_mask();
 
-	cmd.context_flags = QEDR_ALLOC_UCTX_DB_REC;
+	cmd.context_flags = QEDR_ALLOC_UCTX_DB_REC | QEDR_SUPPORT_DPM_SIZES;
+	cmd.context_flags |= QEDR_ALLOC_UCTX_EDPM_MODE;
 	if (ibv_cmd_get_context(&ctx->ibv_ctx, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
 		goto cmd_err;
@@ -199,6 +200,9 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 
 		if (resp.dpm_flags & QEDR_DPM_TYPE_ROCE_LEGACY)
 			ctx->dpm_flags |= QELR_DPM_FLAGS_LEGACY;
+
+		if (resp.dpm_flags & QEDR_DPM_TYPE_ROCE_EDPM_MODE)
+			ctx->dpm_flags |= QELR_DPM_FLAGS_EDPM_MODE;
 	} else {
 		if (resp.dpm_flags & QEDR_DPM_TYPE_IWARP_LEGACY)
 			ctx->dpm_flags = QELR_DPM_FLAGS_LEGACY;
@@ -208,9 +212,12 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 	if (resp.dpm_flags & QEDR_DPM_SIZES_SET) {
 		ctx->ldpm_limit_size = resp.ldpm_limit_size;
 		ctx->edpm_trans_size = resp.edpm_trans_size;
+		ctx->edpm_limit_size = resp.edpm_limit_size ?
+			resp.edpm_limit_size : QEDR_EDPM_MAX_SIZE;
 	} else {
 		ctx->ldpm_limit_size = QEDR_LDPM_MAX_SIZE;
 		ctx->edpm_trans_size = QEDR_EDPM_TRANS_SIZE;
+		ctx->edpm_limit_size = QEDR_EDPM_MAX_SIZE;
 	}
 
 	ctx->max_send_wr = resp.max_send_wr;
