@@ -84,7 +84,7 @@ load_modules()
 	    continue
 	fi
 	if ! is_loaded $module; then
-	    /sbin/modprobe $module
+	    /sbin/modprobe -b $module
 	    res=$?
 	    RC=$[ $RC + $res ]
 	    if [ $res -ne 0 ]; then
