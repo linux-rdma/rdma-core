@@ -48,6 +48,10 @@
 #   -DENABLE_IBDIAGS_COMPAT=True (default False)
 #      Include obsolete scripts. These scripts are replaced by C programs with
 #      a different interface now.
+#   -DNO_MAN_PAGES=1 (default 0, build/install the man pages)
+#      Disable man pages. Allows rdma-core to be built and installed
+#      (without man pages) when neither pandoc/rst2man nor the pandoc-prebuilt
+#      directory are available.
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(rdma-core C)
@@ -174,7 +178,15 @@ include(RDMA_DoFixup)
 include(publish_headers)
 include(rdma_functions)
 include(pyverbs_functions)
-include(rdma_man)
+if (NO_MAN_PAGES)
+  # define empty stub functions to omit man page processing
+  function(rdma_man_pages)
+  endfunction()
+  function(rdma_alias_man_pages)
+  endfunction()
+else()
+  include(rdma_man)
+endif()
 
 if (NOT DEFINED ENABLE_STATIC)
   set(ENABLE_STATIC "OFF" CACHE BOOL "Produce static linking libraries as well as shared libraries.")
@@ -423,9 +435,12 @@ if (CYTHON_EXECUTABLE)
   string(STRIP ${py_path} CMAKE_PYTHON_SO_SUFFIX)
 endif()
 
-# Look for pandoc and rst2man for making manual pages
-FIND_PACKAGE(pandoc)
-FIND_PACKAGE(rst2man)
+set(NO_MAN_PAGES "OFF" CACHE BOOL "Disable build/install of man pages")
+if (NOT NO_MAN_PAGES)
+  # Look for pandoc and rst2man for making manual pages
+  FIND_PACKAGE(pandoc)
+  FIND_PACKAGE(rst2man)
+endif ()
 
 #-------------------------
 # Find libraries
@@ -703,18 +718,22 @@ else()
     message(STATUS " netlink/route/link.h and net/if.h NOT co-includable (old headers)")
   endif()
 endif()
-if (NOT PANDOC_FOUND)
-  if (NOT EXISTS "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt")
-    message(STATUS " pandoc NOT found and NO prebuilt man pages. 'install' disabled")
-  else()
-    message(STATUS " pandoc NOT found (using prebuilt man pages)")
+if (NO_MAN_PAGES)
+  message(STATUS " man pages NOT built")
+else()
+  if (NOT PANDOC_FOUND)
+    if (NOT EXISTS "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt")
+      message(STATUS " pandoc NOT found and NO prebuilt man pages. 'install' disabled")
+    else()
+      message(STATUS " pandoc NOT found (using prebuilt man pages)")
+    endif()
   endif()
-endif()
-if (NOT RST2MAN_FOUND)
-  if (NOT EXISTS "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt")
-    message(STATUS " rst2man NOT found and NO prebuilt man pages. 'install' disabled")
-  else()
-    message(STATUS " rst2man NOT found (using prebuilt man pages)")
+  if (NOT RST2MAN_FOUND)
+    if (NOT EXISTS "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt")
+      message(STATUS " rst2man NOT found and NO prebuilt man pages. 'install' disabled")
+    else()
+      message(STATUS " rst2man NOT found (using prebuilt man pages)")
+    endif()
   endif()
 endif()
 if (NOT CYTHON_EXECUTABLE)
