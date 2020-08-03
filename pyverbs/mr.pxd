@@ -23,6 +23,10 @@ cdef class MWBindInfo(PyverbsCM):
     cdef v.ibv_mw_bind_info info
     cdef object mr
 
+cdef class MWBind(PyverbsCM):
+    cdef v.ibv_mw_bind mw_bind
+    cdef object mr
+
 cdef class MW(PyverbsCM):
     cdef object pd
     cdef v.ibv_mw *mw

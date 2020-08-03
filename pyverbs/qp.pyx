@@ -8,11 +8,11 @@ import weakref
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError, PyverbsRDMAError
 from pyverbs.utils import gid_str, qp_type_to_str, qp_state_to_str, mtu_to_str
 from pyverbs.utils import access_flags_to_str, mig_state_to_str
-from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.mr cimport MW, MWBindInfo, MWBind
 from pyverbs.wr cimport RecvWR, SendWR, SGE
+from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.addr cimport AHAttr, GID, AH
 from pyverbs.base cimport close_weakrefs
-from pyverbs.mr cimport MW, MWBindInfo
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.addr cimport GlobalRoute
 from pyverbs.device cimport Context
@@ -1187,6 +1187,17 @@ cdef class QP(PyverbsCM):
         if rc != 0:
             raise PyverbsRDMAError('Failed to query ECE', rc)
         return ece
+
+    def bind_mw(self, MW mw not None, MWBind mw_bind):
+        """
+        Bind Memory window type 1.
+        :param mw: The memory window to bind.
+        :param mw_bind: MWBind object, includes the bind attributes.
+        :return: None
+        """
+        rc = v.ibv_bind_mw(self.qp, mw.mw, &mw_bind.mw_bind)
+        if rc != 0:
+            raise PyverbsRDMAError('Failed to Bind MW', rc)
 
     @property
     def qp_type(self):

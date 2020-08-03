@@ -146,7 +146,7 @@ cdef extern from 'infiniband/verbs.h':
         ibv_pd          *pd
         unsigned int    rkey
         unsigned int    handle
-        ibv_mw_type     mw_type
+        ibv_mw_type     type
 
     cdef struct ibv_alloc_dm_attr:
         size_t          length
@@ -303,6 +303,11 @@ cdef extern from 'infiniband/verbs.h':
         unsigned long   length
         unsigned int    mw_access_flags
 
+    cdef struct ibv_mw_bind:
+        uint64_t            wr_id
+        unsigned int        send_flags
+        ibv_mw_bind_info    bind_info
+
     cdef struct bind_mw:
         ibv_mw              *mw
         unsigned int        rkey
@@ -312,10 +317,6 @@ cdef extern from 'infiniband/verbs.h':
         void            *hdr
         unsigned short  hdr_sz
         unsigned short  mss
-
-    cdef union unnamed:
-        bind_mw         bind_mw
-        tso             tso
 
     cdef struct xrc:
         unsigned int    remote_srqn
@@ -329,10 +330,12 @@ cdef extern from 'infiniband/verbs.h':
         ibv_sge         *sg_list
         int             num_sge
         ibv_wr_opcode   opcode
+        uint32_t        imm_data
         unsigned int    send_flags
         wr              wr
         qp_type         qp_type
-        unnamed         unnamed
+        bind_mw         bind_mw
+        tso             tso
 
     cdef struct ibv_qp_cap:
         unsigned int    max_send_wr
@@ -557,6 +560,7 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_destroy_qp(ibv_qp *qp)
     int ibv_post_recv(ibv_qp *qp, ibv_recv_wr *wr, ibv_recv_wr **bad_wr)
     int ibv_post_send(ibv_qp *qp, ibv_send_wr *wr, ibv_send_wr **bad_wr)
+    int ibv_bind_mw(ibv_qp *qp, ibv_mw *mw, ibv_mw_bind *mw_bind)
     ibv_xrcd *ibv_open_xrcd(ibv_context *context,
                             ibv_xrcd_init_attr *xrcd_init_attr)
     int ibv_close_xrcd(ibv_xrcd *xrcd)
