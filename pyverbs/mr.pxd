@@ -4,11 +4,13 @@
 #cython: language_level=3
 
 from pyverbs.base cimport PyverbsCM
+cimport pyverbs.librdmacm as cm
 from . cimport libibverbs as v
 
 
 cdef class MR(PyverbsCM):
     cdef object pd
+    cdef object cmid
     cdef v.ibv_mr *mr
     cdef int mmap_length
     cdef object is_huge
