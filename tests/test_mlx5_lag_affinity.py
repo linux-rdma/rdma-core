@@ -24,7 +24,12 @@ class LagRawQP(BaseResources):
     def create_qp(self):
         qia = QPInitAttr(e.IBV_QPT_RAW_PACKET, rcq=self.cq, scq=self.cq,
                          cap=QPCap())
-        qp = QP(self.pd, qia)
+        try:
+            qp = QP(self.pd, qia)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest("Create Raw Packet QP is not supported")
+            raise ex
         qp.to_init(QPAttr())
         return qp
 

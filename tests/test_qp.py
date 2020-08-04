@@ -65,8 +65,13 @@ class QPTest(PyverbsAPITestCase):
                             assert qp.qp_state == e.IBV_QPS_RESET, 'UD QP should have been in RESET'
                         if u.is_eth(ctx, i) and u.is_root():
                             qia.qp_type = e.IBV_QPT_RAW_PACKET
-                            with QP(pd, qia) as qp:
-                                assert qp.qp_state == e.IBV_QPS_RESET, 'Raw Packet QP should have been in RESET'
+                            try:
+                                with QP(pd, qia) as qp:
+                                    assert qp.qp_state == e.IBV_QPS_RESET, 'Raw Packet QP should have been in RESET'
+                            except PyverbsRDMAError as ex:
+                                if ex.error_code == errno.EOPNOTSUPP:
+                                    raise unittest.SkipTest("Create Raw Packet QP is not supported")
+                                raise ex
 
     def test_create_qp_with_attr_connected(self):
         """
@@ -112,8 +117,13 @@ class QPTest(PyverbsAPITestCase):
                             assert qp.qp_state == e.IBV_QPS_RTS, 'UD QP should have been in RTS'
                         if u.is_eth(ctx, i) and u.is_root():
                             qia.qp_type = e.IBV_QPT_RAW_PACKET
-                            with QP(pd, qia, QPAttr()) as qp:
-                                assert qp.qp_state == e.IBV_QPS_RTS, 'Raw Packet QP should have been in RTS'
+                            try:
+                                with QP(pd, qia, QPAttr()) as qp:
+                                    assert qp.qp_state == e.IBV_QPS_RTS, 'Raw Packet QP should have been in RTS'
+                            except PyverbsRDMAError as ex:
+                                if ex.error_code == errno.EOPNOTSUPP:
+                                    raise unittest.SkipTest("Create Raw Packet QP is not supported")
+                                raise ex
 
     def test_create_qp_ex_no_attr_connected(self):
         """
