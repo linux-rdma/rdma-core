@@ -41,7 +41,7 @@
 #include <pthread.h>
 
 #include "qelr.h"
-#include "qelr_main.h"
+#include "qelr_verbs.h"
 #include "qelr_chain.h"
 
 #include <sys/types.h>
