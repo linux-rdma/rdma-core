@@ -41,6 +41,7 @@ static int ibv_icmd_create_wq(struct ibv_context *context,
 	DECLARE_FBCMD_BUFFER(cmdb, UVERBS_OBJECT_WQ, UVERBS_METHOD_WQ_CREATE, 13, link);
 	struct verbs_ex_private *priv = get_priv(context);
 	struct ib_uverbs_attr *handle;
+	uint32_t create_flags = 0;
 	uint32_t max_wr;
 	uint32_t max_sge;
 	uint32_t wq_num;
@@ -59,7 +60,14 @@ static int ibv_icmd_create_wq(struct ibv_context *context,
 	fill_attr_in_uint32(cmdb, UVERBS_ATTR_CREATE_WQ_MAX_WR, wq_init_attr->max_wr);
 	fill_attr_in_uint32(cmdb, UVERBS_ATTR_CREATE_WQ_MAX_SGE, wq_init_attr->max_sge);
 	fill_attr_in_fd(cmdb, UVERBS_ATTR_CREATE_WQ_EVENT_FD, wq->context->async_fd);
-	fill_attr_in_uint32(cmdb, UVERBS_ATTR_CREATE_WQ_FLAGS, wq_init_attr->create_flags);
+	if (wq_init_attr->comp_mask & IBV_WQ_INIT_ATTR_FLAGS) {
+		if (wq_init_attr->create_flags & ~(IBV_WQ_FLAGS_RESERVED - 1)) {
+			errno = EOPNOTSUPP;
+			return errno;
+		}
+		create_flags = wq_init_attr->create_flags;
+	}
+	fill_attr_in_uint32(cmdb, UVERBS_ATTR_CREATE_WQ_FLAGS, create_flags);
 	fill_attr_out_ptr(cmdb, UVERBS_ATTR_CREATE_WQ_RESP_MAX_WR, &max_wr);
 	fill_attr_out_ptr(cmdb, UVERBS_ATTR_CREATE_WQ_RESP_MAX_SGE, &max_sge);
 	fill_attr_out_ptr(cmdb, UVERBS_ATTR_CREATE_WQ_RESP_WQ_NUM, &wq_num);
@@ -125,13 +133,6 @@ int ibv_cmd_create_wq(struct ibv_context *context,
 	if (wq_init_attr->comp_mask >= IBV_WQ_INIT_ATTR_RESERVED) {
 		errno = EINVAL;
 		return errno;
-	}
-
-	if (wq_init_attr->comp_mask & IBV_WQ_INIT_ATTR_FLAGS) {
-		if (wq_init_attr->create_flags & ~(IBV_WQ_FLAGS_RESERVED - 1)) {
-			errno = EOPNOTSUPP;
-			return errno;
-		}
 	}
 
 	return ibv_icmd_create_wq(context, wq_init_attr, wq, cmdb);
