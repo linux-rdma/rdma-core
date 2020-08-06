@@ -170,6 +170,7 @@ struct pvrdma_qp {
 	struct pvrdma_wq		sq;
 	struct pvrdma_wq		rq;
 	int				is_srq;
+	uint32_t			qp_handle;
 };
 
 struct pvrdma_ah {
@@ -281,8 +282,8 @@ int pvrdma_query_port(struct ibv_context *context, uint8_t port,
 struct ibv_pd *pvrdma_alloc_pd(struct ibv_context *context);
 int pvrdma_free_pd(struct ibv_pd *pd);
 
-struct ibv_mr *pvrdma_reg_mr(struct ibv_pd *pd, void *addr,
-			     size_t length, int access);
+struct ibv_mr *pvrdma_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			     uint64_t hca_va, int access);
 int pvrdma_dereg_mr(struct verbs_mr *mr);
 
 struct ibv_cq *pvrdma_create_cq(struct ibv_context *context, int cqe,
@@ -294,8 +295,8 @@ int pvrdma_destroy_cq(struct ibv_cq *cq);
 int pvrdma_req_notify_cq(struct ibv_cq *cq, int solicited);
 int pvrdma_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 void pvrdma_cq_event(struct ibv_cq *cq);
-void pvrdma_cq_clean_int(struct pvrdma_cq *cq, uint32_t qpn);
-void pvrdma_cq_clean(struct pvrdma_cq *cq, uint32_t qpn);
+void pvrdma_cq_clean_int(struct pvrdma_cq *cq, uint32_t qp_handle);
+void pvrdma_cq_clean(struct pvrdma_cq *cq, uint32_t qp_handle);
 int pvrdma_get_outstanding_cqes(struct pvrdma_cq *cq);
 void pvrdma_cq_resize_copy_cqes(struct pvrdma_cq *cq, void *buf,
 				int new_cqe);

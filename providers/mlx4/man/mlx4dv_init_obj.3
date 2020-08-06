@@ -44,7 +44,8 @@ void            *buf;
 size_t          length;
 .in -8
 } buf;
-uint64_t        comp_mask;
+uint64_t        comp_mask; /* Use enum mlx4dv_qp_comp_mask */
+off_t           uar_mmap_offset; /* If MLX4DV_QP_MASK_UAR_MMAP_OFFSET is set in comp_mask, this will contain the mmap offset of *sdb* */
 .in -8
 };
 

@@ -2,8 +2,8 @@
 
 The RDMA subsystem relies on the kernel, udev and systemd to load modules on
 demand when RDMA hardware is present. The RDMA subsystem is unique since it
-does not do not load the optional RDMA hardware modules unless the system has
-the rdma-core package installed.
+does not load the optional RDMA hardware modules unless the system has the
+rdma-core package installed.
 
 This is to avoid exposing systems not using RDMA from having RDMA enabled, for
 instance if a system has a multi-protocol ethernet adapter, but is only using
@@ -147,3 +147,54 @@ In their unit files.
 
 `rdma-hw.target` is also a synchronization point that orders after the low level,
 pre `sysinit.target` RDMA related units have been started.
+
+# Stable names
+
+The library provides general utility and udev rule to automatically perform
+stable IB device name assignments, so users will always see names based on
+topology/GUID information. Such naming scheme has big advantage that the
+names are fully automatic, fully predictable and they stay fixed even if
+hardware is added or removed (i.e. no reenumeration takes place) and that
+broken hardware can be replaced seamlessly.
+
+The name is combination of link type (Infiniband, RoCE, iWARP, OPA or USNIC)
+and the chosen naming policy, like NAME_KERNEL, NAME_PCI, NAME_GUID, NAME_ONBOARD
+or NAME_FALLBACK. Those naming policies are controlled by udev rule and can be
+overwritten by placing own rename policy udev rules into /etc/udev/rules.d/
+directory.
+
+ * NAME_KERNEL - don't change names and rely on kernel assignment. This
+ will keep RDMA names as before. Example: "mlx5_0".
+ * NAME_PCI - read PCI location and topology as a source for stable names,
+ which won't change in any software event (reset, PCI probe e.t.c.).
+ Example: "ibp0s12f4".
+ * NAME_GUID - read node GUID information in similar manner to
+ net MAC naming policy. Example "rocex525400c0fe123455".
+ * NAME_ONBOARD - read Firmware/BIOS provided index numbers for on-board devices.
+ Example: "ibo3".
+ * NAME_FALLBACK - automatic fallback: NAME_ONBOARD->NAME_PCI->NAME_KERNEL
+
+No doubts that new names are harder to read than the "mlx5_0" everybody,
+is used to, but being consistent in scripts is much more important.
+
+There is a distinction between real devices and virtual ones like RXE or SIW.
+For real devices, the naming policy is NAME_FALLBACK, while virtual devices keep
+their kernel name.
+
+In similar way to netdev, NAME_GUID scheme is not participating in fallback mechanism
+and needs to be enabled explicitly by the users.
+
+Type of names:
+
+ * o<index> - on-board device index number
+ * s<slot>[f<function>] - hotplug slot index number
+ * x<GUID> - Node GUID
+ * [P<domain>]p<bus>s<slot>[f<function>] - PCI geographical location
+
+Notes:
+
+ * All multi-function PCI devices will carry the [f<function>] number in the
+ device name, including the function 0 device.
+ * When using PCI geography, The PCI domain is only prepended when it is not 0.
+ * SR-IOV virtual devices are named based on the name of the parent interface,
+ with a suffix of "v<N>", where <N> is the virtual device number.

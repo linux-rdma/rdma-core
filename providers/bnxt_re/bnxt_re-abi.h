@@ -43,8 +43,6 @@
 #include <rdma/bnxt_re-abi.h>
 #include <kernel-abi/bnxt_re-abi.h>
 
-#define BNXT_RE_ABI_VERSION 1
-
 #define BNXT_RE_FULL_FLAG_DELTA        0x80
 
 DECLARE_DRV_CMD(ubnxt_re_pd, IB_USER_VERBS_CMD_ALLOC_PD,
@@ -244,6 +242,14 @@ struct bnxt_re_bsqe {
 struct bnxt_re_psns {
 	__le32 opc_spsn;
 	__le32 flg_npsn;
+};
+
+struct bnxt_re_psns_ext {
+	__u32 opc_spsn;
+	__u32 flg_npsn;
+	__u16 st_slot_idx;
+	__u16 rsvd0;
+	__u32 rsvd1;
 };
 
 struct bnxt_re_sge {

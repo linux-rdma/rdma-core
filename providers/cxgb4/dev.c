@@ -43,13 +43,16 @@
 #include "libcxgb4.h"
 #include "cxgb4-abi.h"
 
+static void c4iw_free_context(struct ibv_context *ibctx);
+
 #define PCI_VENDOR_ID_CHELSIO		0x1425
 
 /*
  * Macros needed to support the PCI Device ID Table ...
  */
 #define CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN                                    \
-	static const struct verbs_match_ent hca_table[] = {
+	static const struct verbs_match_ent hca_table[] = {                    \
+		VERBS_DRIVER_ID(RDMA_DRIVER_CXGB4),
 
 #define CH_PCI_DEVICE_ID_FUNCTION \
 		0x4
@@ -79,7 +82,6 @@ static const struct verbs_context_ops  c4iw_ctx_common_ops = {
 	.reg_mr = c4iw_reg_mr,
 	.dereg_mr = c4iw_dereg_mr,
 	.create_cq = c4iw_create_cq,
-	.resize_cq = c4iw_resize_cq,
 	.destroy_cq = c4iw_destroy_cq,
 	.create_srq = c4iw_create_srq,
 	.modify_srq = c4iw_modify_srq,
@@ -89,12 +91,11 @@ static const struct verbs_context_ops  c4iw_ctx_common_ops = {
 	.modify_qp = c4iw_modify_qp,
 	.destroy_qp = c4iw_destroy_qp,
 	.query_qp = c4iw_query_qp,
-	.create_ah = c4iw_create_ah,
-	.destroy_ah = c4iw_destroy_ah,
 	.attach_mcast = c4iw_attach_mcast,
 	.detach_mcast = c4iw_detach_mcast,
 	.post_srq_recv = c4iw_post_srq_recv,
 	.req_notify_cq = c4iw_arm_cq,
+	.free_context = c4iw_free_context,
 };
 
 static const struct verbs_context_ops c4iw_ctx_t4_ops = {
@@ -142,30 +143,11 @@ static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
 	} 
 
 	verbs_set_ops(&context->ibv_ctx, &c4iw_ctx_common_ops);
-
-	switch (rhp->chip_version) {
-	case CHELSIO_T6:
-		PDBG("%s T6/T5/T4 device\n", __FUNCTION__);
-	case CHELSIO_T5:
-		PDBG("%s T5/T4 device\n", __FUNCTION__);
-	case CHELSIO_T4:
-		PDBG("%s T4 device\n", __FUNCTION__);
-		verbs_set_ops(&context->ibv_ctx, &c4iw_ctx_t4_ops);
-		break;
-	default:
-		PDBG("%s unknown hca type %d\n", __FUNCTION__,
-		     rhp->chip_version);
+	if (ibv_cmd_query_device(&context->ibv_ctx.context, &attr,
+				 &raw_fw_ver, &qcmd, sizeof(qcmd)))
 		goto err_unmap;
-		break;
-	}
 
 	if (!rhp->mmid2ptr) {
-		int ret;
-
-		ret = ibv_cmd_query_device(&context->ibv_ctx.context, &attr,
-					   &raw_fw_ver, &qcmd, sizeof(qcmd));
-		if (ret)
-			goto err_unmap;
 		rhp->max_mr = attr.max_mr;
 		rhp->mmid2ptr = calloc(attr.max_mr, sizeof(void *));
 		if (!rhp->mmid2ptr) {
@@ -195,6 +177,21 @@ static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
 				context->status_page->write_cmpl_supported;
 	}
 
+	rhp->chip_version = CHELSIO_CHIP_VERSION(attr.vendor_part_id >> 8);
+	switch (rhp->chip_version) {
+	case CHELSIO_T6:
+		PDBG("%s T6/T5/T4 device\n", __func__);
+	case CHELSIO_T5:
+		PDBG("%s T5/T4 device\n", __func__);
+	case CHELSIO_T4:
+		PDBG("%s T4 device\n", __func__);
+		verbs_set_ops(&context->ibv_ctx, &c4iw_ctx_t4_ops);
+		break;
+	default:
+		PDBG("%s unknown hca type %d\n", __func__, rhp->chip_version);
+		goto err_unmap;
+	}
+
 	return &context->ibv_ctx;
 
 err_unmap:
@@ -203,9 +200,9 @@ err_free:
 	if (rhp->cqid2ptr)
 		free(rhp->cqid2ptr);
 	if (rhp->qpid2ptr)
-		free(rhp->cqid2ptr);
+		free(rhp->qpid2ptr);
 	if (rhp->mmid2ptr)
-		free(rhp->cqid2ptr);
+		free(rhp->mmid2ptr);
 	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 	return NULL;
@@ -401,47 +398,6 @@ void dump_state(void)
  */
 int c4iw_abi_version = 1;
 
-static bool c4iw_device_match(struct verbs_sysfs_dev *sysfs_dev)
-{
-	char value[32], *cp;
-	unsigned int fw_maj, fw_min;
-
-	/* Rely on the core code to match PCI devices */
-	if (!sysfs_dev->match)
-		return false;
-
-	/*
-	 * Verify that the firmware major number matches.  Major number
-	 * mismatches are fatal.  Minor number mismatches are tolerated.
-	 */
-	if (ibv_read_sysfs_file(sysfs_dev->ibdev_path, "fw_ver", value,
-				sizeof(value)) < 0)
-		return false;
-
-	cp = strtok(value+1, ".");
-	sscanf(cp, "%i", &fw_maj);
-	cp = strtok(NULL, ".");
-	sscanf(cp, "%i", &fw_min);
-
-	if ((signed int)fw_maj < FW_MAJ) {
-		fprintf(stderr, "libcxgb4: Fatal firmware version mismatch.  "
-			"Firmware major number is %u and libcxgb4 needs %u.\n",
-			fw_maj, FW_MAJ);
-		fflush(stderr);
-		return false;
-	}
-
-	DBGLOG("libcxgb4");
-
-	if ((signed int)fw_min < FW_MIN) {
-		PDBG("libcxgb4: non-fatal firmware version mismatch.  "
-			"Firmware minor number is %u and libcxgb4 needs %u.\n",
-			fw_min, FW_MIN);
-		fflush(stderr);
-	}
-	return true;
-}
-
 static struct verbs_device *c4iw_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct c4iw_dev *dev;
@@ -456,7 +412,6 @@ static struct verbs_device *c4iw_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 
 	pthread_spin_init(&dev->lock, PTHREAD_PROCESS_PRIVATE);
 	c4iw_abi_version = sysfs_dev->abi_ver;
-	dev->chip_version = CHELSIO_CHIP_VERSION(sysfs_dev->match->device >> 8);
 	dev->abi_version = sysfs_dev->abi_ver;
 	list_node_init(&dev->list);
 
@@ -498,13 +453,11 @@ static const struct verbs_device_ops c4iw_dev_ops = {
 	.match_min_abi_version = 0,
 	.match_max_abi_version = INT_MAX,
 	.match_table = hca_table,
-	.match_device = c4iw_device_match,
 	.alloc_device = c4iw_device_alloc,
 	.uninit_device = c4iw_uninit_device,
 	.alloc_context = c4iw_alloc_context,
-	.free_context = c4iw_free_context,
 };
-PROVIDER_DRIVER(c4iw_dev_ops);
+PROVIDER_DRIVER(cxgb4, c4iw_dev_ops);
 
 #ifdef STATS
 void __attribute__ ((destructor)) cs_fini(void);

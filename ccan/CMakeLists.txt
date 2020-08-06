@@ -3,7 +3,9 @@ publish_internal_headers(ccan
   bitmap.h
   build_assert.h
   check_type.h
+  compiler.h
   container_of.h
+  ilog.h
   list.h
   minmax.h
   str.h
@@ -12,6 +14,7 @@ publish_internal_headers(ccan
 
 set(C_FILES
   bitmap.c
+  ilog.c
   list.c
   str.c
   )

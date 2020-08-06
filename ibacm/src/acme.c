@@ -729,17 +729,17 @@ static char *get_dest(char *arg, char *format)
 	}
 }
 
-static void resolve(char *svc)
+static int resolve(char *svc)
 {
 	char **dest_list, **src_list;
 	struct ibv_path_record path;
-	int ret = 0, d = 0, s = 0, i;
+	int ret = -1, d = 0, s = 0, i;
 	char dest_type;
 
 	dest_list = parse(dest_arg, NULL);
 	if (!dest_list) {
 		printf("Unable to parse destination argument\n");
-		return;
+		return ret;
 	}
 
 	src_list = src_arg ? parse(src_arg, NULL) : NULL;
@@ -777,7 +777,7 @@ static void resolve(char *svc)
 			if (!ret)
 				show_path(&path);
 
-			if (verify)
+			if (!ret && verify)
 				ret = verify_resolve(&path);
 			printf("\n");
 
@@ -787,6 +787,8 @@ static void resolve(char *svc)
 	}
 
 	free(dest_list);
+
+	return ret;
 }
 
 static int query_perf_ip(uint64_t **counters, int *cnt)
@@ -924,24 +926,32 @@ static int enumerate_ep(char *svc, int index)
 	static int labels;
 	int ret, i;
 	struct acm_ep_config_data *ep_data;
+	int phys_port_cnt = 255;
+	int found = 0;
+	int port;
 
-	ret = ib_acm_enum_ep(index, &ep_data);
-	if (ret) 
-		return ret;
+	for (port = 1; port <= phys_port_cnt; ++port)  {
+		ret = ib_acm_enum_ep(index, &ep_data, port);
+		if (ret)
+			continue;
 
-	if (!labels) {
-		printf("svc,guid,port,pkey,ep_index,prov,addr_0,addresses\n");
-		labels = 1;
+		found = 1;
+
+		if (!labels) {
+			printf("svc,guid,port,pkey,ep_index,prov,addr_0,addresses\n");
+			labels = 1;
+		}
+
+		printf("%s,0x%016" PRIx64 ",%d,0x%04x,%d,%s", svc, ep_data->dev_guid,
+			ep_data->port_num, ep_data->pkey, index, ep_data->prov_name);
+		for (i = 0; i < ep_data->addr_cnt; i++)
+			printf(",%s", ep_data->addrs[i].name);
+		printf("\n");
+		phys_port_cnt = ep_data->phys_port_cnt;
+		ib_acm_free_ep_data(ep_data);
 	}
 
-	printf("%s,0x%016" PRIx64 ",%d,0x%04x,%d,%s", svc, ep_data->dev_guid,
-	       ep_data->port_num, ep_data->pkey, index, ep_data->prov_name);
-	for (i = 0; i < ep_data->addr_cnt; i++) 
-		printf(",%s", ep_data->addrs[i].name);
-	printf("\n");
-	ib_acm_free_ep_data(ep_data);
-
-	return 0;
+	return !found;
 }
 
 static void enumerate_eps(char *svc)
@@ -976,12 +986,12 @@ static int query_svcs(void)
 		}
 
 		if (dest_arg)
-			resolve(svc_list[i]);
+			ret = resolve(svc_list[i]);
 
 		if (perf_query)
 			query_perf(svc_list[i]);
 
-		if (enum_ep) 
+		if (enum_ep)
 			enumerate_eps(svc_list[i]);
 
 		ib_acm_disconnect();
@@ -1012,7 +1022,7 @@ static void parse_perf_arg(char *arg)
 		perf_query = PERF_QUERY_EP_ADDR;
 	} else {
 		ep_index = atoi(arg);
-		if (ep_index > 0) 
+		if (ep_index > 0)
 			perf_query = PERF_QUERY_EP_INDEX;
 		else
 			perf_query = PERF_QUERY_ROW;
@@ -1086,7 +1096,7 @@ int main(int argc, char **argv)
 	}
 
 	if ((src_arg && (!dest_arg && perf_query != PERF_QUERY_EP_ADDR)) ||
-	    (perf_query == PERF_QUERY_EP_ADDR && !src_arg) || 
+	    (perf_query == PERF_QUERY_EP_ADDR && !src_arg) ||
 	    (!src_arg && !dest_arg && !perf_query && !make_addr && !make_opts &&
 	     !enum_ep))
 		goto show_use;

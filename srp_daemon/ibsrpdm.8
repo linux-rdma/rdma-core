@@ -1,0 +1,38 @@
+.\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+.TH IBSRPDM 8 "August 30, 2005" "OpenFabrics" "USER COMMANDS"
+
+.SH NAME
+ibsrpdm \- Discover SRP targets on an InfiniBand Fabric
+
+.SH SYNOPSIS
+.B ibsrpdm [\fIOPTIONS\fB]
+
+.SH DESCRIPTION
+.PP
+List InfiniBand SCSI RDMA Protocol (SRP) targets on an IB fabric.
+
+.SH OPTIONS
+
+.PP
+.TP
+\fB\-c\fR
+Generate output suitable for piping directly to a
+/sys/class/infiniband_srp/srp\-<device>\-<port>/add_target file
+.TP
+\fB\-d\fR \fIDEVICE\fR
+Use device file \fIDEVICE\fR (default /dev/infiniband/umad0)
+.TP
+\fB\-k\fR \fIP_KEY\fR
+Use InfiniBand partition key \fIP_KEY\fR (default 0xffff)
+.TP
+\fB\-v\fR
+Print more verbose output
+
+.SH SEE ALSO
+.BR srp_daemon (1)
+
+.SH AUTHORS
+.TP
+Roland Dreier
+.RI < roland@kernel.org >
+

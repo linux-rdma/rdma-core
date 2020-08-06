@@ -1,10 +1,12 @@
 libmlx4.so.1 ibverbs-providers #MINVER#
+* Build-Depends-Package: libibverbs-dev
  MLX4_1.0@MLX4_1.0 15
  mlx4dv_init_obj@MLX4_1.0 15
  mlx4dv_query_device@MLX4_1.0 15
  mlx4dv_create_qp@MLX4_1.0 15
  mlx4dv_set_context_attr@MLX4_1.0 15
 libmlx5.so.1 ibverbs-providers #MINVER#
+* Build-Depends-Package: libibverbs-dev
  MLX5_1.0@MLX5_1.0 13
  MLX5_1.1@MLX5_1.1 14
  MLX5_1.2@MLX5_1.2 15
@@ -13,6 +15,14 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  MLX5_1.5@MLX5_1.5 18
  MLX5_1.6@MLX5_1.6 20
  MLX5_1.7@MLX5_1.7 21
+ MLX5_1.8@MLX5_1.8 22
+ MLX5_1.9@MLX5_1.9 23
+ MLX5_1.10@MLX5_1.10 24
+ MLX5_1.11@MLX5_1.11 25
+ MLX5_1.12@MLX5_1.12 28
+ MLX5_1.13@MLX5_1.13 29
+ MLX5_1.14@MLX5_1.14 30
+ MLX5_1.15@MLX5_1.15 31
  mlx5dv_init_obj@MLX5_1.0 13
  mlx5dv_init_obj@MLX5_1.2 15
  mlx5dv_query_device@MLX5_1.0 13
@@ -38,3 +48,68 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_devx_umem_dereg@MLX5_1.7 21
  mlx5dv_devx_umem_reg@MLX5_1.7 21
  mlx5dv_open_device@MLX5_1.7 21
+ mlx5dv_devx_cq_modify@MLX5_1.8 22
+ mlx5dv_devx_cq_query@MLX5_1.8 22
+ mlx5dv_devx_ind_tbl_modify@MLX5_1.8 22
+ mlx5dv_devx_ind_tbl_query@MLX5_1.8 22
+ mlx5dv_devx_qp_modify@MLX5_1.8 22
+ mlx5dv_devx_qp_query@MLX5_1.8 22
+ mlx5dv_devx_srq_modify@MLX5_1.8 22
+ mlx5dv_devx_srq_query@MLX5_1.8 22
+ mlx5dv_devx_wq_modify@MLX5_1.8 22
+ mlx5dv_devx_wq_query@MLX5_1.8 22
+ mlx5dv_is_supported@MLX5_1.8 22
+ mlx5dv_devx_create_cmd_comp@MLX5_1.9 23
+ mlx5dv_devx_destroy_cmd_comp@MLX5_1.9 23
+ mlx5dv_devx_get_async_cmd_comp@MLX5_1.9 23
+ mlx5dv_devx_obj_query_async@MLX5_1.9 23
+ mlx5dv_alloc_dm@MLX5_1.10 24
+ mlx5dv_create_mkey@MLX5_1.10 24
+ mlx5dv_destroy_mkey@MLX5_1.10 24
+ mlx5dv_dr_action_create_dest_table@MLX5_1.10 24
+ mlx5dv_dr_action_create_dest_ibv_qp@MLX5_1.10 24
+ mlx5dv_dr_action_create_dest_vport@MLX5_1.10 24
+ mlx5dv_dr_action_create_flow_counter@MLX5_1.10 24
+ mlx5dv_dr_action_create_drop@MLX5_1.10 24
+ mlx5dv_dr_action_create_modify_header@MLX5_1.10 24
+ mlx5dv_dr_action_create_packet_reformat@MLX5_1.10 24
+ mlx5dv_dr_action_create_tag@MLX5_1.10 24
+ mlx5dv_dr_action_destroy@MLX5_1.10 24
+ mlx5dv_dr_domain_create@MLX5_1.10 24
+ mlx5dv_dr_domain_destroy@MLX5_1.10 24
+ mlx5dv_dr_domain_sync@MLX5_1.10 24
+ mlx5dv_dr_matcher_create@MLX5_1.10 24
+ mlx5dv_dr_matcher_destroy@MLX5_1.10 24
+ mlx5dv_dr_rule_create@MLX5_1.10 24
+ mlx5dv_dr_rule_destroy@MLX5_1.10 24
+ mlx5dv_dr_table_create@MLX5_1.10 24
+ mlx5dv_dr_table_destroy@MLX5_1.10 24
+ mlx5dv_qp_ex_from_ibv_qp_ex@MLX5_1.10 24
+ mlx5dv_devx_create_event_channel@MLX5_1.11 25
+ mlx5dv_devx_destroy_event_channel@MLX5_1.11 25
+ mlx5dv_devx_get_event@MLX5_1.11 25
+ mlx5dv_devx_subscribe_devx_event@MLX5_1.11 25
+ mlx5dv_devx_subscribe_devx_event_fd@MLX5_1.11 25
+ mlx5dv_alloc_var@MLX5_1.12 28
+ mlx5dv_dr_action_create_flow_meter@MLX5_1.12 28
+ mlx5dv_dr_action_modify_flow_meter@MLX5_1.12 28
+ mlx5dv_dump_dr_domain@MLX5_1.12 28
+ mlx5dv_dump_dr_matcher@MLX5_1.12 28
+ mlx5dv_dump_dr_rule@MLX5_1.12 28
+ mlx5dv_dump_dr_table@MLX5_1.12 28
+ mlx5dv_free_var@MLX5_1.12 28
+ mlx5dv_pp_alloc@MLX5_1.13 29
+ mlx5dv_pp_free@MLX5_1.13 29
+ mlx5dv_dr_action_create_default_miss@MLX5_1.14 30
+ mlx5dv_dr_domain_set_reclaim_device_memory@MLX5_1.14 30
+ mlx5dv_modify_qp_lag_port@MLX5_1.14 30
+ mlx5dv_query_qp_lag_port@MLX5_1.14 30
+ mlx5dv_dr_action_create_dest_devx_tir@MLX5_1.15 31
+libefa.so.1 ibverbs-providers #MINVER#
+* Build-Depends-Package: libibverbs-dev
+ EFA_1.0@EFA_1.0 24
+ EFA_1.1@EFA_1.1 26
+ efadv_create_driver_qp@EFA_1.0 24
+ efadv_create_qp_ex@EFA_1.1 26
+ efadv_query_device@EFA_1.1 26
+ efadv_query_ah@EFA_1.1 26

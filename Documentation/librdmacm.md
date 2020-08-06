@@ -22,7 +22,7 @@ or you can create it manually
 Using multiple interfaces
 :	The librdmacm does support multiple interfaces.  To make use
 	of multiple interfaces, however, you need to instruct linux
-	to only send ARP reples on the interface targetted in the ARP
+	to only send ARP replies on the interface targeted in the ARP
 	request.  This can be done using a command similar to the
 	following:
 

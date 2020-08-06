@@ -1,0 +1,24 @@
+--- /usr/include/bits/sysmacros.h	2018-04-16 20:14:20.000000000 +0000
++++ include/bits/sysmacros.h	2019-05-16 19:30:02.096174695 +0000
+@@ -40,8 +40,8 @@
+   __SYSMACROS_DECLARE_MAJOR (DECL_TEMPL)			\
+   {								\
+     unsigned int __major;					\
+-    __major  = ((__dev & (__dev_t) 0x00000000000fff00u) >>  8); \
+-    __major |= ((__dev & (__dev_t) 0xfffff00000000000u) >> 32); \
++    __major  = ((__dev & (__dev_t) 0x00000000000fff00ul) >>  8); \
++    __major |= ((__dev & (__dev_t) 0xfffff00000000000ul) >> 32); \
+     return __major;						\
+   }
+ 
+@@ -52,8 +52,8 @@
+   __SYSMACROS_DECLARE_MINOR (DECL_TEMPL)			\
+   {								\
+     unsigned int __minor;					\
+-    __minor  = ((__dev & (__dev_t) 0x00000000000000ffu) >>  0); \
+-    __minor |= ((__dev & (__dev_t) 0x00000ffffff00000u) >> 12); \
++    __minor  = ((__dev & (__dev_t) 0x00000000000000fful) >>  0); \
++    __minor |= ((__dev & (__dev_t) 0x00000ffffff00000ul) >> 12); \
+     return __minor;						\
+   }
+ 

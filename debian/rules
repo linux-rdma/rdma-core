@@ -6,8 +6,10 @@ export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 
 COHERENT_DMA_ARCHS = amd64 arm64 i386 ia64 powerpc powerpcspe ppc64 ppc64el s390x sparc64 x32
 
+dh_params = --with python3,systemd --builddirectory=build-deb
+
 %:
-	dh $@ --with systemd --builddirectory=build-deb
+	dh $@ $(dh_params)
 
 override_dh_auto_clean:
 	dh_auto_clean
@@ -22,18 +24,31 @@ override_dh_auto_clean:
 #
 # Upstream encourages the use of Ninja to build the source, convince dh to use
 # it until someone writes native support for dh+cmake+ninja.
+DH_AUTO_CONFIGURE := "--" \
+	             "-GNinja" \
+		     "-DDISTRO_FLAVOUR=Debian" \
+		     "-DCMAKE_BUILD_TYPE=Release" \
+		     "-DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc" \
+		     "-DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=/lib/systemd/system" \
+		     "-DCMAKE_INSTALL_INITDDIR:PATH=/etc/init.d" \
+		     "-DCMAKE_INSTALL_LIBEXECDIR:PATH=/usr/lib" \
+		     "-DCMAKE_INSTALL_SHAREDSTATEDIR:PATH=/var/lib" \
+		     "-DCMAKE_INSTALL_RUNDIR:PATH=/run" \
+		     "-DCMAKE_INSTALL_UDEV_RULESDIR:PATH=/lib/udev/rules.d" \
+		     "-DCMAKE_INSTALL_PERLDIR:PATH=/usr/share/perl5" \
+		     "-DENABLE_STATIC=1" \
+		     $(EXTRA_CMAKE_FLAGS)
+
 override_dh_auto_configure:
-	dh_auto_configure -- -GNinja \
-			-DDISTRO_FLAVOUR=Debian \
-			-DCMAKE_BUILD_TYPE=Release \
-			-DCMAKE_INSTALL_SYSCONFDIR:PATH=/etc \
-			-DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=/lib/systemd/system \
-			-DCMAKE_INSTALL_INITDDIR:PATH=/etc/init.d \
-			-DCMAKE_INSTALL_LIBEXECDIR:PATH=/usr/lib \
-			-DCMAKE_INSTALL_SHAREDSTATEDIR:PATH=/var/lib \
-			-DCMAKE_INSTALL_RUNDIR:PATH=/run \
-			-DCMAKE_INSTALL_UDEV_RULESDIR:PATH=/lib/udev/rules.d \
-			$(EXTRA_CMAKE_FLAGS)
+	if [ -e /usr/bin/python3 ]; then \
+		dh_auto_configure $(DH_AUTO_CONFIGURE) \
+				-DPYTHON_EXECUTABLE:PATH=/usr/bin/python3 \
+				-DCMAKE_INSTALL_PYTHON_ARCH_LIB:PATH=/usr/lib/python3/dist-packages; \
+	else \
+		dh_auto_configure $(DH_AUTO_CONFIGURE) \
+			        -DNO_PYVERBS=1; \
+	fi
+
 
 override_dh_auto_build:
 	ninja -C build-deb -v
@@ -47,24 +62,33 @@ ifneq (,$(filter-out $(COHERENT_DMA_ARCHS),$(DEB_HOST_ARCH)))
 	for package in ibverbs-providers libibverbs-dev rdma-core; do \
 		test -e debian/$$package.install.backup || cp debian/$$package.install debian/$$package.install.backup; \
 	done
-	sed -i '/mlx[45]/d' debian/ibverbs-providers.install debian/libibverbs-dev.install debian/rdma-core.install
+	sed -i '/efa\|mlx[45]/d' debian/ibverbs-providers.install debian/libibverbs-dev.install debian/rdma-core.install
 endif
 	DESTDIR=$(CURDIR)/debian/tmp ninja -C build-deb install
 
 # The following files are not used on Debian (we ship our own sysvinit script)
 INST_EXCLUDE := "etc/init.d/srpd" \
+		"etc/init.d/ibacm" \
 		"usr/sbin/run_srp_daemon" \
 		"usr/sbin/srp_daemon.sh"
 INST_EXCLUDE := $(addprefix -X,$(INST_EXCLUDE))
 override_dh_install:
-	dh_install --fail-missing $(INST_EXCLUDE)
+	if [ -e build-deb/python/pyverbs/__init__.py ]; then \
+		dh_install --fail-missing $(INST_EXCLUDE); \
+	else \
+		dh_install -Npython3-pyverbs --fail-missing $(INST_EXCLUDE) --remaining-packages; \
+	fi
 
 # cmake installs the correct init scripts in the correct place, just setup the
 # pre-postrms
 override_dh_installinit:
-	dh_installinit -pibacm --onlyscripts
 	dh_installinit -prdma-core --onlyscripts --name=iwpmd
 	dh_installinit --remaining-packages
+
+override_dh_installsystemd:
+	dh_installsystemd -pibacm --no-start ibacm.service
+	dh_installsystemd -pibacm ibacm.socket
+	dh_installsystemd --remaining-packages
 
 # Provider plugin libaries are not shared libraries and do not belong in the
 # shlibs file.
@@ -75,6 +99,8 @@ override_dh_makeshlibs:
 	dh_makeshlibs $(SHLIBS_EXCLUDE)
 
 override_dh_strip:
+	dh_strip -plibibmad5 --dbg-package=libibmad5-dbg
+	dh_strip -plibibnetdisc5 --dbg-package=libibnetdisc5-dbg
 	dh_strip -plibibumad3 --dbg-package=libibumad3-dbg
 	dh_strip -plibibverbs1 --dbg-package=libibverbs1-dbg
 	dh_strip -plibrdmacm1 --dbg-package=librdmacm1-dbg
@@ -84,4 +110,4 @@ override_dh_strip:
 # directory, allow that directory to be present and still allow dh to work.
 .PHONY: build
 build:
-	dh $@ --with systemd --builddirectory=build-deb
+	dh $@ $(dh_params)

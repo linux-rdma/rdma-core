@@ -26,8 +26,8 @@
 #      Do not generate backwards compatibility symbols in the shared
 #      libraries. This may is necessary if using a dynmic linker that does
 #      not support symbol versions, such as uclibc.
-#  -DIOCTL_MODE=both (default write)
-#      Enable new kABI ioctl() support and support for the legacy write
+#  -DIOCTL_MODE=write (default both)
+#      Disable new kABI ioctl() support and support only the legacy write
 #      path. May also be 'ioctl' to disable fallback to write.
 #  -DIBACM_SERVER_MODE_DEFAULT (default unix)
 #      Selects how clients can connect to this server:
@@ -37,6 +37,21 @@
 #  -DIBACM_ACME_PLUS_KERNEL_ONLY_DEFAULT (default 0)
 #      If non-zero, limit incoming requests to kernel or the ib_acme utility
 #      (i.e. do not serve librdmacm requests)
+#  -DPYTHON_EXECUTABLE
+#      Override automatic detection of python to use a certain
+#      exectuable. This can be used to force the build to use python2 on a
+#      system that has python3 installed. Otherwise the build automatically
+#      prefers python3 if available.
+#   -DNO_PYVERBS=1 (default, build pyverbs)
+#      Invoke cython to build pyverbs. Usually you will run with this option
+#      set
+#   -DENABLE_IBDIAGS_COMPAT=True (default False)
+#      Include obsolete scripts. These scripts are replaced by C programs with
+#      a different interface now.
+#   -DNO_MAN_PAGES=1 (default 0, build/install the man pages)
+#      Disable man pages. Allows rdma-core to be built and installed
+#      (without man pages) when neither pandoc/rst2man nor the pandoc-prebuilt
+#      directory are available.
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(rdma-core C)
@@ -57,10 +72,11 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "21.0")
+set(PACKAGE_VERSION "31.0")
 # When this is changed the values in these files need changing too:
+#   debian/control
 #   debian/libibverbs1.symbols
-set(IBVERBS_PABI_VERSION "21")
+set(IBVERBS_PABI_VERSION "25")
 set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 #-------------------------
@@ -70,6 +86,7 @@ set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 if (IN_PLACE)
   set(CMAKE_INSTALL_SYSCONFDIR "${CMAKE_BINARY_DIR}/etc")
   set(CMAKE_INSTALL_BINDIR "${CMAKE_BINARY_DIR}/bin")
+  set(CMAKE_INSTALL_SBINDIR "${CMAKE_BINARY_DIR}/bin")
   set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}")
   set(CMAKE_INSTALL_LIBDIR "lib")
   set(CMAKE_INSTALL_INCLUDEDIR "include")
@@ -82,8 +99,14 @@ set(BUILD_INCLUDE ${CMAKE_BINARY_DIR}/include)
 set(BUILD_BIN ${CMAKE_BINARY_DIR}/bin)
 # Libraries
 set(BUILD_LIB ${CMAKE_BINARY_DIR}/lib)
+# Static library pre-processing
+set(BUILD_STATIC_LIB ${CMAKE_BINARY_DIR}/lib/statics)
 # Used for IN_PLACE configuration
 set(BUILD_ETC ${CMAKE_BINARY_DIR}/etc)
+set(BUILD_PYTHON ${CMAKE_BINARY_DIR}/python)
+
+set(IBDIAG_CONFIG_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/infiniband-diags")
+set(IBDIAG_NODENAME_MAP_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/rdma/ib-node-name-map")
 
 set(CMAKE_INSTALL_INITDDIR "${CMAKE_INSTALL_SYSCONFDIR}/init.d"
   CACHE PATH "Location for init.d files")
@@ -94,7 +117,6 @@ set(CMAKE_INSTALL_SYSTEMD_BINDIR "/lib/systemd"
 
 set(ACM_PROVIDER_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/ibacm"
   CACHE PATH "Location for ibacm provider plugin shared library files.")
-
 # Location to find the provider plugin shared library files
 set(VERBS_PROVIDER_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/libibverbs"
   CACHE PATH "Location for provider plugin shared library files. If set to empty the system search path is used.")
@@ -117,6 +139,15 @@ if(NOT IS_ABSOLUTE ${CMAKE_INSTALL_UDEV_RULESDIR})
   set(CMAKE_INSTALL_FULL_UDEV_RULESDIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_UDEV_RULESDIR}")
 else()
   set(CMAKE_INSTALL_FULL_UDEV_RULESDIR "${CMAKE_INSTALL_UDEV_RULESDIR}")
+endif()
+
+# Allow the perl library dir to be configurable
+set(CMAKE_INSTALL_PERLDIR "share/perl5"
+  CACHE PATH "Location for system perl library, typically /usr/share/perl5")
+if(NOT IS_ABSOLUTE ${CMAKE_INSTALL_PERLDIR})
+  set(CMAKE_INSTALL_FULL_PERLDIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_PERLDIR}")
+else()
+  set(CMAKE_INSTALL_FULL_PERLDIR "${CMAKE_INSTALL_PERLDIR}")
 endif()
 
 # Location to place provider .driver files
@@ -146,7 +177,16 @@ include(RDMA_BuildType)
 include(RDMA_DoFixup)
 include(publish_headers)
 include(rdma_functions)
-include(rdma_man)
+include(pyverbs_functions)
+if (NO_MAN_PAGES)
+  # define empty stub functions to omit man page processing
+  function(rdma_man_pages)
+  endfunction()
+  function(rdma_alias_man_pages)
+  endfunction()
+else()
+  include(rdma_man)
+endif()
 
 if (NOT DEFINED ENABLE_STATIC)
   set(ENABLE_STATIC "OFF" CACHE BOOL "Produce static linking libraries as well as shared libraries.")
@@ -156,6 +196,21 @@ endif()
 # Setup the basic C compiler
 RDMA_BuildType()
 include_directories(${BUILD_INCLUDE})
+
+# Look for Python. We prefer some variant of python 3 if the system has it.
+FIND_PACKAGE(PythonInterp 3 QUIET)
+if (PythonInterp_FOUND)
+  # pyverbs can only use python3:
+  if (NO_PYVERBS)
+    set(CYTHON_EXECUTABLE "")
+  else()
+    FIND_PACKAGE(cython)
+  endif()
+else()
+  # But we still must have python (be it 2) for the build process:
+  FIND_PACKAGE(PythonInterp REQUIRED)
+  set(CYTHON_EXECUTABLE "")
+endif()
 
 RDMA_CheckSparse()
 
@@ -172,6 +227,9 @@ RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WMISSING_DECLARATIONS "-Wmissing-declarati
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WWRITE_STRINGS "-Wwrite-strings")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WFORMAT_2 "-Wformat=2")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WCAST_FUNCTION "-Wcast-function-type")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WFORMAT_NONLITERAL "-Wformat-nonliteral")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WDATE_TIME "-Wdate-time")
+RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WNESTED_EXTERNS "-Wnested-externs")
 
 # At some point after 4.4 gcc fixed shadow to ignore function vs variable
 # conflicts
@@ -204,6 +262,11 @@ endif()
 set(NO_STRICT_ALIASING_FLAGS "")
 RDMA_AddOptCFlag(NO_STRICT_ALIASING_FLAGS HAVE_NO_STRICT_ALIASING
   "-fno-strict-aliasing")
+
+# pyverbs has a problem with var-tracking warnings, turn it off if we can.
+set(NO_VAR_TRACKING_FLAGS "")
+RDMA_AddOptCFlag(NO_VAR_TRACKING_FLAGS HAVE_NO_VAR_TRACKING_ASSIGNMENTS
+  "-fno-var-tracking-assignments")
 
 CHECK_C_SOURCE_COMPILES("
  #include <unistd.h>
@@ -347,11 +410,37 @@ else()
   set(HAVE_FULL_SYMBOL_VERSIONS 1)
 endif()
 
-# Look for Python
-FIND_PACKAGE(PythonInterp REQUIRED)
+# A cython & python-devel installation that matches our selected interpreter.
 
-# Look for pandoc
-FIND_PACKAGE(pandoc)
+if (CYTHON_EXECUTABLE)
+ # cmake has really bad logic here, if PythonIterp has been run it tries to
+ # find a matching -devel installation but will happily return a non-matching
+ # one too. We need them both to match exactly to guarantee cython does the
+ # right thing.
+  FIND_PACKAGE(PythonLibs ${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}
+    EXACT REQUIRED)
+
+ # Get a default installation path
+  execute_process(COMMAND "${PYTHON_EXECUTABLE}" -c
+    "from distutils.sysconfig import get_python_lib; print(get_python_lib(True, False, '${CMAKE_INSTALL_PREFIX}'))"
+  OUTPUT_VARIABLE py_path)
+  string(STRIP ${py_path} py_path)
+  set(CMAKE_INSTALL_PYTHON_ARCH_LIB "${py_path}"
+  CACHE PATH "Location for architecture specific python libraries")
+
+ # See PEP3149
+  execute_process(COMMAND "${PYTHON_EXECUTABLE}" -c
+    "import sysconfig; x = sysconfig.get_config_var(\"EXT_SUFFIX\"); print(x if x else '.so')"
+    OUTPUT_VARIABLE py_path)
+  string(STRIP ${py_path} CMAKE_PYTHON_SO_SUFFIX)
+endif()
+
+set(NO_MAN_PAGES "OFF" CACHE BOOL "Disable build/install of man pages")
+if (NOT NO_MAN_PAGES)
+  # Look for pandoc and rst2man for making manual pages
+  FIND_PACKAGE(pandoc)
+  FIND_PACKAGE(rst2man)
+endif ()
 
 #-------------------------
 # Find libraries
@@ -368,10 +457,20 @@ if (ENABLE_RESOLVE_NEIGH)
   # FIXME use of pkgconfig is discouraged
   pkg_check_modules(NL libnl-3.0 libnl-route-3.0 REQUIRED)
   include_directories(${NL_INCLUDE_DIRS})
+  link_directories(${NL_LIBRARY_DIRS})
   set(NL_KIND 3)
 else()
   set(NL_KIND 0)
   set(NL_LIBRARIES "")
+  RDMA_DoFixup(0 "netlink/attr.h")
+  RDMA_DoFixup(0 "netlink/msg.h")
+  RDMA_DoFixup(0 "netlink/netlink.h")
+  RDMA_DoFixup(0 "netlink/object-api.h")
+  RDMA_DoFixup(0 "netlink/route/link.h")
+  RDMA_DoFixup(0 "netlink/route/link/vlan.h")
+  RDMA_DoFixup(0 "netlink/route/neighbour.h")
+  RDMA_DoFixup(0 "netlink/route/route.h")
+  RDMA_DoFixup(0 "netlink/route/rtnl.h")
 endif()
 
 # Older stuff blows up if these headers are included together
@@ -454,6 +553,11 @@ RDMA_DoFixup("${HAVE_STATIC_ASSERT}" "assert.h")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WSTRICT_PROTOTYPES "-Wstrict-prototypes")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WOLD_STYLE_DEFINITION "-Wold-style-definition")
 
+if (ENABLE_WERROR)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
+  message(STATUS "Enabled -Werror")
+endif()
+
 # Old versions of libnl have a duplicated rtnl_route_put, disbale the warning on those
 # systems
 if (NOT NL_KIND EQUAL 0)
@@ -486,7 +590,7 @@ elseif ("${IOCTL_MODE}" STREQUAL "write")
 elseif ("${IOCTL_MODE}" STREQUAL "ioctl")
   set(IOCTL_MODE_NUM 1)
 elseif ("${IOCTL_MODE}" STREQUAL "")
-  set(IOCTL_MODE_NUM 2)
+  set(IOCTL_MODE_NUM 3)
 else()
   message(FATAL_ERROR "-DIOCTL_MODE=${IOCTL_MODE} is not a valid choice")
 endif()
@@ -527,8 +631,9 @@ add_subdirectory(librdmacm/man)
 # Providers
 if (HAVE_COHERENT_DMA)
 add_subdirectory(providers/bnxt_re)
-add_subdirectory(providers/cxgb3) # NO SPARSE
 add_subdirectory(providers/cxgb4) # NO SPARSE
+add_subdirectory(providers/efa)
+add_subdirectory(providers/efa/man)
 add_subdirectory(providers/hns)
 add_subdirectory(providers/i40iw) # NO SPARSE
 add_subdirectory(providers/mlx4)
@@ -536,7 +641,6 @@ add_subdirectory(providers/mlx4/man)
 add_subdirectory(providers/mlx5)
 add_subdirectory(providers/mlx5/man)
 add_subdirectory(providers/mthca)
-add_subdirectory(providers/nes) # NO SPARSE
 add_subdirectory(providers/ocrdma)
 add_subdirectory(providers/qedr)
 add_subdirectory(providers/vmw_pvrdma)
@@ -546,9 +650,25 @@ add_subdirectory(providers/hfi1verbs)
 add_subdirectory(providers/ipathverbs)
 add_subdirectory(providers/rxe)
 add_subdirectory(providers/rxe/man)
+add_subdirectory(providers/siw)
+
+add_subdirectory(libibmad)
+add_subdirectory(libibnetdisc)
+add_subdirectory(libibnetdisc/man)
+add_subdirectory(infiniband-diags)
+add_subdirectory(infiniband-diags/scripts)
+add_subdirectory(infiniband-diags/man)
+
+if (CYTHON_EXECUTABLE)
+  add_subdirectory(pyverbs)
+  add_subdirectory(tests)
+endif()
 
 # Binaries
-add_subdirectory(ibacm) # NO SPARSE
+if (NOT NL_KIND EQUAL 0)
+  add_subdirectory(ibacm) # NO SPARSE
+endif()
+
 if (NOT NL_KIND EQUAL 0)
   add_subdirectory(iwpmd)
 endif()
@@ -560,6 +680,7 @@ if (UDEV_FOUND)
 endif()
 add_subdirectory(srp_daemon)
 
+ibverbs_finalize()
 rdma_finalize_libs()
 
 #-------------------------
@@ -597,12 +718,26 @@ else()
     message(STATUS " netlink/route/link.h and net/if.h NOT co-includable (old headers)")
   endif()
 endif()
-if (NOT PANDOC_FOUND)
-  if (NOT EXISTS "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt")
-    message(STATUS " pandoc NOT found and NO prebuilt man pages. 'install' disabled")
-  else()
-    message(STATUS " pandoc NOT found (using prebuilt man pages)")
+if (NO_MAN_PAGES)
+  message(STATUS " man pages NOT built")
+else()
+  if (NOT PANDOC_FOUND)
+    if (NOT EXISTS "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt")
+      message(STATUS " pandoc NOT found and NO prebuilt man pages. 'install' disabled")
+    else()
+      message(STATUS " pandoc NOT found (using prebuilt man pages)")
+    endif()
   endif()
+  if (NOT RST2MAN_FOUND)
+    if (NOT EXISTS "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt")
+      message(STATUS " rst2man NOT found and NO prebuilt man pages. 'install' disabled")
+    else()
+      message(STATUS " rst2man NOT found (using prebuilt man pages)")
+    endif()
+  endif()
+endif()
+if (NOT CYTHON_EXECUTABLE)
+  message(STATUS " cython NOT found (disabling pyverbs)")
 endif()
 if (NOT SYSTEMD_FOUND)
   message(STATUS " libsystemd NOT found (disabling features)")

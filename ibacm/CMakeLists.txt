@@ -1,5 +1,4 @@
 publish_headers(infiniband
-  include/infiniband/acm.h
   include/infiniband/acm_prov.h
   )
 
@@ -7,6 +6,7 @@ publish_headers(infiniband
 include_directories("include")
 include_directories("src")
 include_directories("linux")
+include_directories(${NL_INCLUDE_DIRS})
 
 # NOTE: ibacm exports symbols from its own binary for use by ibacm
 rdma_sbin_executable(ibacm
@@ -16,6 +16,7 @@ rdma_sbin_executable(ibacm
 target_link_libraries(ibacm LINK_PRIVATE
   ibverbs
   ibumad
+  ${NL_LIBRARIES}
   ${SYSTEMD_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
   ${CMAKE_DL_LIBS}
@@ -53,8 +54,8 @@ target_compile_definitions(ib_acme PRIVATE "-DACME_PRINTS")
 
 rdma_man_pages(
   man/ib_acme.1
-  man/ibacm.1
   man/ibacm.7
+  man/ibacm.8
   man/ibacm_prov.7.in
   )
 

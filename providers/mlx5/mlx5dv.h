@@ -34,6 +34,7 @@
 #define _MLX5DV_H_
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <linux/types.h> /* For the __be64 type */
 #include <sys/types.h>
 #include <endian.h>
@@ -58,6 +59,13 @@ extern "C" {
 #define MLX5DV_ALWAYS_INLINE inline
 #endif
 
+
+#define MLX5DV_RES_TYPE_QP ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 1)
+#define MLX5DV_RES_TYPE_RWQ ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 2)
+#define MLX5DV_RES_TYPE_DBR ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 3)
+#define MLX5DV_RES_TYPE_SRQ ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 4)
+#define MLX5DV_RES_TYPE_CQ ((uint64_t)RDMA_DRIVER_MLX5 << 32 | 5)
+
 enum {
 	MLX5_RCV_DBR	= 0,
 	MLX5_SND_DBR	= 1,
@@ -71,6 +79,9 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_DYN_BFREGS		= 1 << 4,
 	MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE	= 1 << 5,
 	MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS	= 1 << 6,
+	MLX5DV_CONTEXT_MASK_DC_ODP_CAPS		= 1 << 7,
+	MLX5DV_CONTEXT_MASK_HCA_CORE_CLOCK	= 1 << 8,
+	MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS	= 1 << 9,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -121,6 +132,9 @@ struct mlx5dv_context {
 	uint32_t	max_dynamic_bfregs;
 	uint64_t	max_clock_info_update_nsec;
 	uint32_t        flow_action_flags; /* use enum mlx5dv_flow_action_cap_flags */
+	uint32_t	dc_odp_caps; /* use enum ibv_odp_transport_cap_bits */
+	void		*hca_core_clock;
+	uint8_t		num_lag_ports;
 };
 
 enum mlx5dv_context_flags {
@@ -133,6 +147,7 @@ enum mlx5dv_context_flags {
 	MLX5DV_CONTEXT_FLAGS_ENHANCED_MPW = (1 << 3),
 	MLX5DV_CONTEXT_FLAGS_CQE_128B_COMP = (1 << 4), /* Support CQE 128B compression */
 	MLX5DV_CONTEXT_FLAGS_CQE_128B_PAD = (1 << 5), /* Support CQE 128B padding */
+	MLX5DV_CONTEXT_FLAGS_PACKET_BASED_CREDIT_MODE = (1 << 6),
 };
 
 enum mlx5dv_cq_init_attr_mask {
@@ -163,11 +178,31 @@ enum mlx5dv_qp_create_flags {
 	MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_MC = 1 << 2,
 	MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE = 1 << 3,
 	MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE = 1 << 4,
+	MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE = 1 << 5,
 };
+
+enum mlx5dv_mkey_init_attr_flags {
+	MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT = 1 << 0,
+};
+
+struct mlx5dv_mkey_init_attr {
+	struct ibv_pd	*pd;
+	uint32_t	create_flags; /* Use enum mlx5dv_mkey_init_attr_flags */
+	uint16_t	max_entries; /* Requested max number of pointed entries by this indirect mkey */
+};
+
+struct mlx5dv_mkey {
+	uint32_t	lkey;
+	uint32_t	rkey;
+};
+
+struct mlx5dv_mkey *mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr);
+int mlx5dv_destroy_mkey(struct mlx5dv_mkey *mkey);
 
 enum mlx5dv_qp_init_attr_mask {
 	MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS	= 1 << 0,
 	MLX5DV_QP_INIT_ATTR_MASK_DC			= 1 << 1,
+	MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS		= 1 << 2,
 };
 
 enum mlx5dv_dc_type {
@@ -180,15 +215,83 @@ struct mlx5dv_dc_init_attr {
 	uint64_t dct_access_key;
 };
 
+enum mlx5dv_qp_create_send_ops_flags {
+	MLX5DV_QP_EX_WITH_MR_INTERLEAVED	= 1 << 0,
+	MLX5DV_QP_EX_WITH_MR_LIST		= 1 << 1,
+};
+
 struct mlx5dv_qp_init_attr {
 	uint64_t comp_mask;	/* Use enum mlx5dv_qp_init_attr_mask */
 	uint32_t create_flags;	/* Use enum mlx5dv_qp_create_flags */
 	struct mlx5dv_dc_init_attr  dc_init_attr;
+	uint64_t send_ops_flags; /* Use enum mlx5dv_qp_create_send_ops_flags */
 };
 
 struct ibv_qp *mlx5dv_create_qp(struct ibv_context *context,
 				struct ibv_qp_init_attr_ex *qp_attr,
 				struct mlx5dv_qp_init_attr *mlx5_qp_attr);
+
+struct mlx5dv_mr_interleaved {
+	uint64_t        addr;
+	uint32_t        bytes_count;
+	uint32_t        bytes_skip;
+	uint32_t        lkey;
+};
+
+enum mlx5dv_wc_opcode {
+	MLX5DV_WC_UMR = IBV_WC_DRIVER1,
+};
+
+struct mlx5dv_qp_ex {
+	uint64_t comp_mask;
+	/*
+	 * Available just for the MLX5 DC QP type with send opcodes of type:
+	 * rdma, atomic and send.
+	 */
+	void (*wr_set_dc_addr)(struct mlx5dv_qp_ex *mqp, struct ibv_ah *ah,
+			       uint32_t remote_dctn, uint64_t remote_dc_key);
+	void (*wr_mr_interleaved)(struct mlx5dv_qp_ex *mqp,
+				  struct mlx5dv_mkey *mkey,
+				  uint32_t access_flags, /* use enum ibv_access_flags */
+				  uint32_t repeat_count,
+				  uint16_t num_interleaved,
+				  struct mlx5dv_mr_interleaved *data);
+	void (*wr_mr_list)(struct mlx5dv_qp_ex *mqp,
+			   struct mlx5dv_mkey *mkey,
+			   uint32_t access_flags, /* use enum ibv_access_flags */
+			   uint16_t num_sges,
+			   struct ibv_sge *sge);
+};
+
+struct mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(struct ibv_qp_ex *qp);
+
+static inline void mlx5dv_wr_set_dc_addr(struct mlx5dv_qp_ex *mqp,
+					 struct ibv_ah *ah,
+					 uint32_t remote_dctn,
+					 uint64_t remote_dc_key)
+{
+	mqp->wr_set_dc_addr(mqp, ah, remote_dctn, remote_dc_key);
+}
+
+static inline void mlx5dv_wr_mr_interleaved(struct mlx5dv_qp_ex *mqp,
+					    struct mlx5dv_mkey *mkey,
+					    uint32_t access_flags,
+					    uint32_t repeat_count,
+					    uint16_t num_interleaved,
+					    struct mlx5dv_mr_interleaved *data)
+{
+	mqp->wr_mr_interleaved(mqp, mkey, access_flags, repeat_count,
+			       num_interleaved, data);
+}
+
+static inline void mlx5dv_wr_mr_list(struct mlx5dv_qp_ex *mqp,
+				      struct mlx5dv_mkey *mkey,
+				      uint32_t access_flags,
+				      uint16_t num_sges,
+				      struct ibv_sge *sge)
+{
+	mqp->wr_mr_list(mqp, mkey, access_flags, num_sges, sge);
+}
 
 enum mlx5dv_flow_action_esp_mask {
 	MLX5DV_FLOW_ACTION_ESP_MASK_FLAGS	= 1 << 0,
@@ -204,13 +307,18 @@ struct mlx5dv_flow_match_parameters {
 	uint64_t match_buf[]; /* Device spec format */
 };
 
+enum mlx5dv_flow_matcher_attr_mask {
+	MLX5DV_FLOW_MATCHER_MASK_FT_TYPE = 1 << 0,
+};
+
 struct mlx5dv_flow_matcher_attr {
 	enum ibv_flow_attr_type type;
 	uint32_t flags; /* From enum ibv_flow_flags */
 	uint16_t priority;
 	uint8_t match_criteria_enable; /* Device spec format */
 	struct mlx5dv_flow_match_parameters *match_mask;
-	uint64_t comp_mask;
+	uint64_t comp_mask; /* use mlx5dv_flow_matcher_attr_mask */
+	enum mlx5dv_flow_table_type ft_type;
 };
 
 struct mlx5dv_flow_matcher;
@@ -228,6 +336,8 @@ enum mlx5dv_flow_action_type {
 	MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION,
 	MLX5DV_FLOW_ACTION_TAG,
 	MLX5DV_FLOW_ACTION_DEST_DEVX,
+	MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
+	MLX5DV_FLOW_ACTION_DEFAULT_MISS,
 };
 
 struct mlx5dv_flow_action_attr {
@@ -294,6 +404,7 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 enum mlx5dv_qp_comp_mask {
 	MLX5DV_QP_MASK_UAR_MMAP_OFFSET		= 1 << 0,
 	MLX5DV_QP_MASK_RAW_QP_HANDLES		= 1 << 1,
+	MLX5DV_QP_MASK_RAW_QP_TIR_ADDR		= 1 << 2,
 };
 
 struct mlx5dv_qp {
@@ -318,6 +429,7 @@ struct mlx5dv_qp {
 	uint32_t		tisn;
 	uint32_t		rqn;
 	uint32_t		sqn;
+	uint64_t		tir_icm_addr;
 };
 
 struct mlx5dv_cq {
@@ -330,6 +442,10 @@ struct mlx5dv_cq {
 	uint64_t		comp_mask;
 };
 
+enum mlx5dv_srq_comp_mask {
+	MLX5DV_SRQ_MASK_SRQN	= 1 << 0,
+};
+
 struct mlx5dv_srq {
 	void			*buf;
 	__be32			*dbrec;
@@ -337,6 +453,7 @@ struct mlx5dv_srq {
 	uint32_t		head;
 	uint32_t		tail;
 	uint64_t		comp_mask;
+	uint32_t		srqn;
 };
 
 struct mlx5dv_rwq {
@@ -347,16 +464,35 @@ struct mlx5dv_rwq {
 	uint64_t	comp_mask;
 };
 
+struct mlx5dv_alloc_dm_attr {
+	enum mlx5dv_alloc_dm_type type;
+	uint64_t comp_mask;
+};
+
+enum mlx5dv_dm_comp_mask {
+	MLX5DV_DM_MASK_REMOTE_VA	= 1 << 0,
+};
+
 struct mlx5dv_dm {
 	void		*buf;
 	uint64_t	length;
 	uint64_t	comp_mask;
+	uint64_t	remote_va;
 };
+
+struct ibv_dm *mlx5dv_alloc_dm(struct ibv_context *context,
+			       struct ibv_alloc_dm_attr *dm_attr,
+			       struct mlx5dv_alloc_dm_attr *mlx5_dm_attr);
 
 struct mlx5_wqe_av;
 
 struct mlx5dv_ah {
 	struct mlx5_wqe_av      *av;
+	uint64_t		comp_mask;
+};
+
+struct mlx5dv_pd {
+	uint32_t		pdn;
 	uint64_t		comp_mask;
 };
 
@@ -385,6 +521,10 @@ struct mlx5dv_obj {
 		struct ibv_ah		*in;
 		struct mlx5dv_ah	*out;
 	} ah;
+	struct {
+		struct ibv_pd		*in;
+		struct mlx5dv_pd	*out;
+	} pd;
 };
 
 enum mlx5dv_obj_type {
@@ -394,6 +534,7 @@ enum mlx5dv_obj_type {
 	MLX5DV_OBJ_RWQ	= 1 << 3,
 	MLX5DV_OBJ_DM	= 1 << 4,
 	MLX5DV_OBJ_AH	= 1 << 5,
+	MLX5DV_OBJ_PD	= 1 << 6,
 };
 
 enum mlx5dv_wq_init_attr_mask {
@@ -490,6 +631,10 @@ enum {
 	MLX5_CQE_SYNDROME_TRANSPORT_RETRY_EXC_ERR	= 0x15,
 	MLX5_CQE_SYNDROME_RNR_RETRY_EXC_ERR		= 0x16,
 	MLX5_CQE_SYNDROME_REMOTE_ABORTED_ERR		= 0x22,
+};
+
+enum {
+	MLX5_CQE_VENDOR_SYNDROME_ODP_PFAULT		= 0x93,
 };
 
 enum {
@@ -741,6 +886,92 @@ struct mlx5_wqe_tm_seg {
 	uint8_t		rsvd1[8];
 	__be64		append_tag;
 	__be64		append_mask;
+};
+
+enum {
+	MLX5_WQE_UMR_CTRL_FLAG_INLINE =			1 << 7,
+	MLX5_WQE_UMR_CTRL_FLAG_CHECK_FREE =		1 << 5,
+	MLX5_WQE_UMR_CTRL_FLAG_TRNSLATION_OFFSET =	1 << 4,
+	MLX5_WQE_UMR_CTRL_FLAG_CHECK_QPN =		1 << 3,
+};
+
+enum {
+	MLX5_WQE_UMR_CTRL_MKEY_MASK_LEN			= 1 << 0,
+	MLX5_WQE_UMR_CTRL_MKEY_MASK_START_ADDR		= 1 << 6,
+	MLX5_WQE_UMR_CTRL_MKEY_MASK_MKEY		= 1 << 13,
+	MLX5_WQE_UMR_CTRL_MKEY_MASK_QPN			= 1 << 14,
+	MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_LOCAL_WRITE	= 1 << 18,
+	MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_REMOTE_READ	= 1 << 19,
+	MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_REMOTE_WRITE	= 1 << 20,
+	MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_ATOMIC	= 1 << 21,
+	MLX5_WQE_UMR_CTRL_MKEY_MASK_FREE		= 1 << 29,
+};
+
+struct mlx5_wqe_umr_ctrl_seg {
+	uint8_t		flags;
+	uint8_t		rsvd0[3];
+	__be16		klm_octowords;
+	__be16		translation_offset;
+	__be64		mkey_mask;
+	uint8_t		rsvd1[32];
+};
+
+struct mlx5_wqe_umr_klm_seg {
+	/* up to 2GB */
+	__be32		byte_count;
+	__be32		mkey;
+	__be64		address;
+};
+
+union mlx5_wqe_umr_inline_seg {
+	struct mlx5_wqe_umr_klm_seg	klm;
+};
+
+struct mlx5_wqe_umr_repeat_ent_seg {
+	__be16		stride;
+	__be16		byte_count;
+	__be32		memkey;
+	__be64		va;
+};
+
+struct mlx5_wqe_umr_repeat_block_seg {
+	__be32		byte_count;
+	__be32		op;
+	__be32		repeat_count;
+	__be16		reserved;
+	__be16		num_ent;
+	struct mlx5_wqe_umr_repeat_ent_seg entries[0];
+};
+
+enum {
+	MLX5_WQE_MKEY_CONTEXT_FREE = 1 << 6
+};
+
+enum {
+	MLX5_WQE_MKEY_CONTEXT_ACCESS_FLAGS_ATOMIC = 1 << 6,
+	MLX5_WQE_MKEY_CONTEXT_ACCESS_FLAGS_REMOTE_WRITE = 1 << 5,
+	MLX5_WQE_MKEY_CONTEXT_ACCESS_FLAGS_REMOTE_READ = 1 << 4,
+	MLX5_WQE_MKEY_CONTEXT_ACCESS_FLAGS_LOCAL_WRITE = 1 << 3,
+	MLX5_WQE_MKEY_CONTEXT_ACCESS_FLAGS_LOCAL_READ = 1 << 2
+};
+
+struct mlx5_wqe_mkey_context_seg {
+	uint8_t		free;
+	uint8_t		reserved1;
+	uint8_t		access_flags;
+	uint8_t		sf;
+	__be32		qpn_mkey;
+	__be32		reserved2;
+	__be32		flags_pd;
+	__be64		start_addr;
+	__be64		len;
+	__be32		bsf_octword_size;
+	__be32		reserved3[4];
+	__be32		translations_octword_size;
+	uint8_t		reserved4[3];
+	uint8_t		log_page_size;
+	__be32		reserved;
+	union mlx5_wqe_umr_inline_seg inseg[0];
 };
 
 /*
@@ -1017,6 +1248,8 @@ struct mlx5dv_context_attr {
 	uint64_t comp_mask;
 };
 
+bool mlx5dv_is_supported(struct ibv_device *device);
+
 struct ibv_context *
 mlx5dv_open_device(struct ibv_device *device, struct mlx5dv_context_attr *attr);
 
@@ -1052,8 +1285,273 @@ struct mlx5dv_devx_uar {
 struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
 					      uint32_t flags);
 void mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *devx_uar);
+
+
+struct mlx5dv_var {
+	uint32_t page_id;
+	uint32_t length;
+	off_t mmap_off;
+	uint64_t comp_mask;
+};
+
+struct mlx5dv_var *
+mlx5dv_alloc_var(struct ibv_context *context, uint32_t flags);
+void mlx5dv_free_var(struct mlx5dv_var *dv_var);
+
 int mlx5dv_devx_query_eqn(struct ibv_context *context, uint32_t vector,
 			  uint32_t *eqn);
+
+int mlx5dv_devx_cq_query(struct ibv_cq *cq, const void *in, size_t inlen,
+			 void *out, size_t outlen);
+int mlx5dv_devx_cq_modify(struct ibv_cq *cq, const void *in, size_t inlen,
+			  void *out, size_t outlen);
+int mlx5dv_devx_qp_query(struct ibv_qp *qp, const void *in, size_t inlen,
+			 void *out, size_t outlen);
+int mlx5dv_devx_qp_modify(struct ibv_qp *qp, const void *in, size_t inlen,
+			  void *out, size_t outlen);
+int mlx5dv_devx_srq_query(struct ibv_srq *srq, const void *in, size_t inlen,
+			  void *out, size_t outlen);
+int mlx5dv_devx_srq_modify(struct ibv_srq *srq, const void *in, size_t inlen,
+			   void *out, size_t outlen);
+int mlx5dv_devx_wq_query(struct ibv_wq *wq, const void *in, size_t inlen,
+			 void *out, size_t outlen);
+int mlx5dv_devx_wq_modify(struct ibv_wq *wq, const void *in, size_t inlen,
+			  void *out, size_t outlen);
+int mlx5dv_devx_ind_tbl_query(struct ibv_rwq_ind_table *ind_tbl,
+			      const void *in, size_t inlen,
+			      void *out, size_t outlen);
+int mlx5dv_devx_ind_tbl_modify(struct ibv_rwq_ind_table *ind_tbl,
+			       const void *in, size_t inlen,
+			       void *out, size_t outlen);
+
+struct mlx5dv_devx_cmd_comp {
+	int fd;
+};
+
+struct mlx5dv_devx_cmd_comp *
+mlx5dv_devx_create_cmd_comp(struct ibv_context *context);
+void mlx5dv_devx_destroy_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp);
+int mlx5dv_devx_obj_query_async(struct mlx5dv_devx_obj *obj, const void *in,
+				size_t inlen, size_t outlen,
+				uint64_t wr_id,
+				struct mlx5dv_devx_cmd_comp *cmd_comp);
+
+int mlx5dv_devx_get_async_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp,
+				   struct mlx5dv_devx_async_cmd_hdr *cmd_resp,
+				   size_t cmd_resp_len);
+
+struct mlx5dv_devx_event_channel {
+	int fd;
+};
+
+struct mlx5dv_devx_event_channel *
+mlx5dv_devx_create_event_channel(struct ibv_context *context,
+				 enum mlx5dv_devx_create_event_channel_flags flags);
+void mlx5dv_devx_destroy_event_channel(struct mlx5dv_devx_event_channel *event_channel);
+
+
+int mlx5dv_devx_subscribe_devx_event(struct mlx5dv_devx_event_channel *event_channel,
+				     struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+				     uint16_t events_sz,
+				     uint16_t events_num[],
+				     uint64_t cookie);
+
+int mlx5dv_devx_subscribe_devx_event_fd(struct mlx5dv_devx_event_channel *event_channel,
+					int fd,
+					struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+					uint16_t event_num);
+
+/* return code: upon success number of bytes read, otherwise -1 and errno was set */
+ssize_t mlx5dv_devx_get_event(struct mlx5dv_devx_event_channel *event_channel,
+				   struct mlx5dv_devx_async_event_hdr *event_data,
+				   size_t event_resp_len);
+
+
+#define __devx_nullp(typ) ((struct mlx5_ifc_##typ##_bits *)NULL)
+#define __devx_st_sz_bits(typ) sizeof(struct mlx5_ifc_##typ##_bits)
+#define __devx_bit_sz(typ, fld) sizeof(__devx_nullp(typ)->fld)
+#define __devx_bit_off(typ, fld) offsetof(struct mlx5_ifc_##typ##_bits, fld)
+#define __devx_dw_off(bit_off) ((bit_off) / 32)
+#define __devx_64_off(bit_off) ((bit_off) / 64)
+#define __devx_dw_bit_off(bit_sz, bit_off) (32 - (bit_sz) - ((bit_off) & 0x1f))
+#define __devx_mask(bit_sz) ((uint32_t)((1ull << (bit_sz)) - 1))
+#define __devx_dw_mask(bit_sz, bit_off)                                        \
+	(__devx_mask(bit_sz) << __devx_dw_bit_off(bit_sz, bit_off))
+
+#define DEVX_FLD_SZ_BYTES(typ, fld) (__devx_bit_sz(typ, fld) / 8)
+#define DEVX_ST_SZ_BYTES(typ) (sizeof(struct mlx5_ifc_##typ##_bits) / 8)
+#define DEVX_ST_SZ_DW(typ) (sizeof(struct mlx5_ifc_##typ##_bits) / 32)
+#define DEVX_ST_SZ_QW(typ) (sizeof(struct mlx5_ifc_##typ##_bits) / 64)
+#define DEVX_UN_SZ_BYTES(typ) (sizeof(union mlx5_ifc_##typ##_bits) / 8)
+#define DEVX_UN_SZ_DW(typ) (sizeof(union mlx5_ifc_##typ##_bits) / 32)
+#define DEVX_BYTE_OFF(typ, fld) (__devx_bit_off(typ, fld) / 8)
+#define DEVX_ADDR_OF(typ, p, fld)                                              \
+	((unsigned char *)(p) + DEVX_BYTE_OFF(typ, fld))
+
+static inline void _devx_set(void *p, uint32_t value, size_t bit_off,
+			     size_t bit_sz)
+{
+	__be32 *fld = (__be32 *)(p) + __devx_dw_off(bit_off);
+	uint32_t dw_mask = __devx_dw_mask(bit_sz, bit_off);
+	uint32_t mask = __devx_mask(bit_sz);
+
+	*fld = htobe32((be32toh(*fld) & (~dw_mask)) |
+		       ((value & mask) << __devx_dw_bit_off(bit_sz, bit_off)));
+}
+
+#define DEVX_SET(typ, p, fld, v)                                               \
+	_devx_set(p, v, __devx_bit_off(typ, fld), __devx_bit_sz(typ, fld))
+
+static inline uint32_t _devx_get(const void *p, size_t bit_off, size_t bit_sz)
+{
+	return ((be32toh(*((const __be32 *)(p) + __devx_dw_off(bit_off))) >>
+		 __devx_dw_bit_off(bit_sz, bit_off)) &
+		__devx_mask(bit_sz));
+}
+
+#define DEVX_GET(typ, p, fld)                                                  \
+	_devx_get(p, __devx_bit_off(typ, fld), __devx_bit_sz(typ, fld))
+
+static inline void _devx_set64(void *p, uint64_t v, size_t bit_off)
+{
+	*((__be64 *)(p) + __devx_64_off(bit_off)) = htobe64(v);
+}
+
+#define DEVX_SET64(typ, p, fld, v) _devx_set64(p, v, __devx_bit_off(typ, fld))
+
+static inline uint64_t _devx_get64(const void *p, size_t bit_off)
+{
+	return be64toh(*((const __be64 *)(p) + __devx_64_off(bit_off)));
+}
+
+#define DEVX_GET64(typ, p, fld) _devx_get64(p, __devx_bit_off(typ, fld))
+
+struct mlx5dv_dr_domain;
+struct mlx5dv_dr_table;
+struct mlx5dv_dr_matcher;
+struct mlx5dv_dr_rule;
+struct mlx5dv_dr_action;
+
+enum mlx5dv_dr_domain_type {
+	MLX5DV_DR_DOMAIN_TYPE_NIC_RX,
+	MLX5DV_DR_DOMAIN_TYPE_NIC_TX,
+	MLX5DV_DR_DOMAIN_TYPE_FDB,
+};
+
+enum mlx5dv_dr_domain_sync_flags {
+	MLX5DV_DR_DOMAIN_SYNC_FLAGS_SW		= 1 << 0,
+	MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW		= 1 << 1,
+};
+
+struct mlx5dv_dr_flow_meter_attr {
+	struct mlx5dv_dr_table  *next_table;
+	uint8_t                 active;
+	uint8_t                 reg_c_index;
+	size_t			flow_meter_parameter_sz;
+	void			*flow_meter_parameter;
+};
+
+struct mlx5dv_dr_domain *
+mlx5dv_dr_domain_create(struct ibv_context *ctx,
+			enum mlx5dv_dr_domain_type type);
+
+int mlx5dv_dr_domain_destroy(struct mlx5dv_dr_domain *domain);
+
+int mlx5dv_dr_domain_sync(struct mlx5dv_dr_domain *domain, uint32_t flags);
+
+void mlx5dv_dr_domain_set_reclaim_device_memory(struct mlx5dv_dr_domain *dmn,
+						bool enable);
+
+struct mlx5dv_dr_table *
+mlx5dv_dr_table_create(struct mlx5dv_dr_domain *domain, uint32_t level);
+
+int mlx5dv_dr_table_destroy(struct mlx5dv_dr_table *table);
+
+struct mlx5dv_dr_matcher *
+mlx5dv_dr_matcher_create(struct mlx5dv_dr_table *table,
+			 uint16_t priority,
+			 uint8_t match_criteria_enable,
+			 struct mlx5dv_flow_match_parameters *mask);
+
+int mlx5dv_dr_matcher_destroy(struct mlx5dv_dr_matcher *matcher);
+
+struct mlx5dv_dr_rule *
+mlx5dv_dr_rule_create(struct mlx5dv_dr_matcher *matcher,
+		      struct mlx5dv_flow_match_parameters *value,
+		      size_t num_actions,
+		      struct mlx5dv_dr_action *actions[]);
+
+int mlx5dv_dr_rule_destroy(struct mlx5dv_dr_rule *rule);
+
+enum mlx5dv_dr_action_flags {
+	MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL	= 1 << 0,
+};
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_ibv_qp(struct ibv_qp *ibqp);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_table(struct mlx5dv_dr_table *table);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_vport(struct mlx5dv_dr_domain *domain,
+				   uint32_t vport);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_devx_tir(struct mlx5dv_devx_obj *devx_obj);
+
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_drop(void);
+
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_default_miss(void);
+
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_tag(uint32_t tag_value);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_flow_counter(struct mlx5dv_devx_obj *devx_obj,
+				     uint32_t offset);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_packet_reformat(struct mlx5dv_dr_domain *domain,
+					uint32_t flags,
+					enum mlx5dv_flow_action_packet_reformat_type reformat_type,
+					size_t data_sz, void *data);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_modify_header(struct mlx5dv_dr_domain *domain,
+				      uint32_t flags,
+				      size_t actions_sz,
+				      __be64 actions[]);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_flow_meter(struct mlx5dv_dr_flow_meter_attr *attr);
+
+int mlx5dv_dr_action_modify_flow_meter(struct mlx5dv_dr_action *action,
+				       struct mlx5dv_dr_flow_meter_attr *attr,
+				       __be64 modify_field_select);
+
+int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
+
+int mlx5dv_dump_dr_domain(FILE *fout, struct mlx5dv_dr_domain *domain);
+int mlx5dv_dump_dr_table(FILE *fout, struct mlx5dv_dr_table *table);
+int mlx5dv_dump_dr_matcher(FILE *fout, struct mlx5dv_dr_matcher *matcher);
+int mlx5dv_dump_dr_rule(FILE *fout, struct mlx5dv_dr_rule *rule);
+
+struct mlx5dv_pp {
+	uint16_t index;
+};
+
+struct mlx5dv_pp *mlx5dv_pp_alloc(struct ibv_context *context,
+				  size_t pp_context_sz,
+				  const void *pp_context,
+				  uint32_t flags);
+
+void mlx5dv_pp_free(struct mlx5dv_pp *pp);
+
+int mlx5dv_query_qp_lag_port(struct ibv_qp *qp,
+			     uint8_t *port_num,
+			     uint8_t *active_port_num);
+
+int mlx5dv_modify_qp_lag_port(struct ibv_qp *qp, uint8_t port_num);
 
 #ifdef __cplusplus
 }

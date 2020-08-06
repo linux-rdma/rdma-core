@@ -49,7 +49,8 @@
 enum {
 	CQ_OK					=  0,
 	CQ_EMPTY				= -1,
-	CQ_POLL_ERR				= -2
+	CQ_POLL_ERR				= -2,
+	CQ_POLL_NODATA				= ENOENT
 };
 
 enum {
@@ -120,13 +121,13 @@ static void *get_cqe(struct mlx5_cq *cq, int n)
 
 static void *get_sw_cqe(struct mlx5_cq *cq, int n)
 {
-	void *cqe = get_cqe(cq, n & cq->ibv_cq.cqe);
+	void *cqe = get_cqe(cq, n & cq->verbs_cq.cq.cqe);
 	struct mlx5_cqe64 *cqe64;
 
 	cqe64 = (cq->cqe_sz == 64) ? cqe : cqe + 64;
 
 	if (likely(mlx5dv_get_cqe_opcode(cqe64) != MLX5_CQE_INVALID) &&
-	    !((cqe64->op_own & MLX5_CQE_OWNER_MASK) ^ !!(n & (cq->ibv_cq.cqe + 1)))) {
+	    !((cqe64->op_own & MLX5_CQE_OWNER_MASK) ^ !!(n & (cq->verbs_cq.cq.cqe + 1)))) {
 		return cqe;
 	} else {
 		return NULL;
@@ -190,7 +191,7 @@ static inline int handle_responder_lazy(struct mlx5_cq *cq, struct mlx5_cqe64 *c
 
 	if (srq) {
 		wqe_ctr = be16toh(cqe->wqe_counter);
-		cq->ibv_cq.wr_id = srq->wrid[wqe_ctr];
+		cq->verbs_cq.cq_ex.wr_id = srq->wrid[wqe_ctr];
 		mlx5_free_srq_wqe(srq, wqe_ctr);
 		if (cqe->op_own & MLX5_INLINE_SCATTER_32)
 			err = mlx5_copy_to_recv_srq(srq, wqe_ctr, cqe,
@@ -208,7 +209,7 @@ static inline int handle_responder_lazy(struct mlx5_cq *cq, struct mlx5_cqe64 *c
 		}
 
 		wqe_ctr = wq->tail & (wq->wqe_cnt - 1);
-		cq->ibv_cq.wr_id = wq->wrid[wqe_ctr];
+		cq->verbs_cq.cq_ex.wr_id = wq->wrid[wqe_ctr];
 		++wq->tail;
 		if (cqe->op_own & MLX5_INLINE_SCATTER_32)
 			err = mlx5_copy_to_recv_wqe(qp, wqe_ctr, cqe,
@@ -534,7 +535,7 @@ static inline int mlx5_get_next_cqe(struct mlx5_cq *cq,
 
 #ifdef MLX5_DEBUG
 	{
-		struct mlx5_context *mctx = to_mctx(cq->ibv_cq.context);
+		struct mlx5_context *mctx = to_mctx(cq->verbs_cq.cq_ex.context);
 
 		if (mlx5_debug_mask & MLX5_DBG_CQ_CQE) {
 			FILE *fp = mctx->dbg_fp;
@@ -559,12 +560,12 @@ static int handle_tag_matching(struct mlx5_cq *cq,
 	struct mlx5_srq_op *op;
 	uint16_t wqe_ctr;
 
-	cq->ibv_cq.status = IBV_WC_SUCCESS;
+	cq->verbs_cq.cq_ex.status = IBV_WC_SUCCESS;
 	switch (cqe64->app_op) {
 	case MLX5_CQE_APP_OP_TM_CONSUMED_MSG_SW_RDNV:
 	case MLX5_CQE_APP_OP_TM_CONSUMED_SW_RDNV:
 	case MLX5_CQE_APP_OP_TM_MSG_COMPLETION_CANCELED:
-		cq->ibv_cq.status = IBV_WC_TM_RNDV_INCOMPLETE;
+		cq->verbs_cq.cq_ex.status = IBV_WC_TM_RNDV_INCOMPLETE;
 		SWITCH_FALLTHROUGH;
 
 	case MLX5_CQE_APP_OP_TM_CONSUMED_MSG:
@@ -575,17 +576,17 @@ static int handle_tag_matching(struct mlx5_cq *cq,
 		if (!tag->expect_cqe) {
 			mlx5_dbg(fp, MLX5_DBG_CQ, "got idx %d which wasn't added\n",
 				 be16toh(cqe64->app_info));
-			cq->ibv_cq.status = IBV_WC_GENERAL_ERR;
+			cq->verbs_cq.cq_ex.status = IBV_WC_GENERAL_ERR;
 			mlx5_spin_unlock(&srq->lock);
 			return CQ_OK;
 		}
-		cq->ibv_cq.wr_id = tag->wr_id;
+		cq->verbs_cq.cq_ex.wr_id = tag->wr_id;
 		if (mlx5_cqe_app_op_tm_is_complete(cqe64->app_op))
 			mlx5_tm_release_tag(srq, tag);
 		/* inline scatter 32 not supported for TM */
 		if (cqe64->op_own & MLX5_INLINE_SCATTER_64) {
 			if (be32toh(cqe64->byte_cnt) > tag->size)
-				cq->ibv_cq.status = IBV_WC_LOC_LEN_ERR;
+				cq->verbs_cq.cq_ex.status = IBV_WC_LOC_LEN_ERR;
 			else
 				memcpy(tag->ptr, cqe64 - 1,
 				       be32toh(cqe64->byte_cnt));
@@ -595,7 +596,7 @@ static int handle_tag_matching(struct mlx5_cq *cq,
 
 	case MLX5_CQE_APP_OP_TM_REMOVE:
 		if (!(be32toh(cqe64->tm_cqe.success) & MLX5_TMC_SUCCESS))
-			cq->ibv_cq.status = IBV_WC_TM_ERR;
+			cq->verbs_cq.cq_ex.status = IBV_WC_TM_ERR;
 		SWITCH_FALLTHROUGH;
 
 	case MLX5_CQE_APP_OP_TM_APPEND:
@@ -604,7 +605,7 @@ static int handle_tag_matching(struct mlx5_cq *cq,
 #ifdef MLX5_DEBUG
 		if (srq->op_tail == srq->op_head) {
 			mlx5_dbg(fp, MLX5_DBG_CQ, "got unexpected list op CQE\n");
-			cq->ibv_cq.status = IBV_WC_GENERAL_ERR;
+			cq->verbs_cq.cq_ex.status = IBV_WC_GENERAL_ERR;
 			mlx5_spin_unlock(&srq->lock);
 			return CQ_OK;
 		}
@@ -614,7 +615,7 @@ static int handle_tag_matching(struct mlx5_cq *cq,
 		if (op->tag) { /* APPEND or REMOVE */
 			mlx5_tm_release_tag(srq, op->tag);
 			if (cqe64->app_op == MLX5_CQE_APP_OP_TM_REMOVE &&
-			    cq->ibv_cq.status == IBV_WC_SUCCESS)
+			    cq->verbs_cq.cq_ex.status == IBV_WC_SUCCESS)
 				/*
 				 * If tag entry was successfully removed we
 				 * don't expect consumption completion for it
@@ -628,7 +629,7 @@ static int handle_tag_matching(struct mlx5_cq *cq,
 		}
 
 		to_mqp(srq->cmd_qp)->sq.tail = op->wqe_head + 1;
-		cq->ibv_cq.wr_id = op->wr_id;
+		cq->verbs_cq.cq_ex.wr_id = op->wr_id;
 
 		mlx5_spin_unlock(&srq->lock);
 		break;
@@ -641,7 +642,7 @@ static int handle_tag_matching(struct mlx5_cq *cq,
 
 	case MLX5_CQE_APP_OP_TM_NO_TAG:
 		wqe_ctr = be16toh(cqe64->wqe_counter);
-		cq->ibv_cq.wr_id = srq->wrid[wqe_ctr];
+		cq->verbs_cq.cq_ex.wr_id = srq->wrid[wqe_ctr];
 		mlx5_free_srq_wqe(srq, wqe_ctr);
 		if (cqe64->op_own & MLX5_INLINE_SCATTER_32)
 			return mlx5_copy_to_recv_srq(srq, wqe_ctr, cqe64,
@@ -657,6 +658,12 @@ static int handle_tag_matching(struct mlx5_cq *cq,
 	}
 
 	return CQ_OK;
+}
+
+static inline int is_odp_pfault_err(struct mlx5_err_cqe *ecqe)
+{
+	return ecqe->syndrome == MLX5_CQE_SYNDROME_REMOTE_ABORTED_ERR &&
+	       ecqe->vendor_err_synd == MLX5_CQE_VENDOR_SYNDROME_ODP_PFAULT;
 }
 
 static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
@@ -682,12 +689,16 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 	int idx;
 	uint8_t opcode;
 	struct mlx5_err_cqe *ecqe;
-	int err = 0;
+	int err;
 	struct mlx5_qp *mqp;
 	struct mlx5_context *mctx;
-	uint8_t is_srq = 0;
+	uint8_t is_srq;
 
-	mctx = to_mctx(ibv_cq_ex_to_cq(&cq->ibv_cq)->context);
+again:
+	is_srq = 0;
+	err = 0;
+
+	mctx = to_mctx(cq->verbs_cq.cq.context);
 	qpn = be32toh(cqe64->sop_drop_qpn) & 0xffffff;
 	if (lazy) {
 		cq->cqe64 = cqe64;
@@ -734,8 +745,8 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 				break;
 			}
 
-			cq->ibv_cq.wr_id = wq->wrid[idx];
-			cq->ibv_cq.status = err;
+			cq->verbs_cq.cq_ex.wr_id = wq->wrid[idx];
+			cq->verbs_cq.cq_ex.status = err;
 		} else {
 			handle_good_req(wc, cqe64, wq, idx);
 
@@ -765,7 +776,7 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 
 		if (lazy) {
 			if (likely(cqe64->app != MLX5_CQE_APP_TAG_MATCHING)) {
-				cq->ibv_cq.status = handle_responder_lazy
+				cq->verbs_cq.cq_ex.status = handle_responder_lazy
 					(cq, cqe64, *cur_rsc,
 					 is_srq ? *cur_srq : NULL);
 			} else {
@@ -802,7 +813,7 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 		srqn_uidx = be32toh(cqe64->srqn_uidx) & 0xffffff;
 		ecqe = (struct mlx5_err_cqe *)cqe64;
 		{
-			enum ibv_wc_status *pstatus = lazy ? &cq->ibv_cq.status : &wc->status;
+			enum ibv_wc_status *pstatus = lazy ? &cq->verbs_cq.cq_ex.status : &wc->status;
 
 			*pstatus = mlx5_handle_error_cqe(ecqe);
 		}
@@ -811,7 +822,8 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 			wc->vendor_err = ecqe->vendor_err_synd;
 
 		if (unlikely(ecqe->syndrome != MLX5_CQE_SYNDROME_WR_FLUSH_ERR &&
-			     ecqe->syndrome != MLX5_CQE_SYNDROME_TRANSPORT_RETRY_EXC_ERR)) {
+			     ecqe->syndrome != MLX5_CQE_SYNDROME_TRANSPORT_RETRY_EXC_ERR &&
+			     !is_odp_pfault_err(ecqe))) {
 			FILE *fp = mctx->dbg_fp;
 			fprintf(fp, PFX "%s: got completion with error:\n",
 				mctx->hostname);
@@ -832,7 +844,7 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 			wqe_ctr = be16toh(cqe64->wqe_counter);
 			idx = wqe_ctr & (wq->wqe_cnt - 1);
 			if (lazy)
-				cq->ibv_cq.wr_id = wq->wrid[idx];
+				cq->verbs_cq.cq_ex.wr_id = wq->wrid[idx];
 			else
 				wc->wr_id = wq->wrid[idx];
 			wq->tail = wq->wqe_head[idx] + 1;
@@ -844,8 +856,19 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 
 			if (is_srq) {
 				wqe_ctr = be16toh(cqe64->wqe_counter);
+				if (is_odp_pfault_err(ecqe)) {
+					mlx5_complete_odp_fault(*cur_srq, wqe_ctr);
+					err = mlx5_get_next_cqe(cq, &cqe64, &cqe);
+					/* CQ_POLL_NODATA indicates that CQ was not empty but the polled CQE
+					 * was handled internally and should not processed by the caller.
+					 */
+					if (err == CQ_EMPTY)
+						return CQ_POLL_NODATA;
+					goto again;
+				}
+
 				if (lazy)
-					cq->ibv_cq.wr_id = (*cur_srq)->wrid[wqe_ctr];
+					cq->verbs_cq.cq_ex.wr_id = (*cur_srq)->wrid[wqe_ctr];
 				else
 					wc->wr_id = (*cur_srq)->wrid[wqe_ctr];
 				mlx5_free_srq_wqe(*cur_srq, wqe_ctr);
@@ -860,7 +883,7 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 				}
 
 				if (lazy)
-					cq->ibv_cq.wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
+					cq->verbs_cq.cq_ex.wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
 				else
 					wc->wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
 				++wq->tail;
@@ -1060,7 +1083,7 @@ static inline int mlx5_start_poll(struct ibv_cq_ex *ibcq, struct ibv_poll_cq_att
 	if (lock && err)
 		mlx5_spin_unlock(&cq->lock);
 
-	if (stall && err) {
+	if (stall && err == CQ_POLL_ERR) {
 		if (stall == POLLING_MODE_STALL_ADAPTIVE) {
 			cq->stall_cycles = max(cq->stall_cycles - mlx5_stall_cq_dec_step,
 						mlx5_stall_cq_poll_min);
@@ -1585,39 +1608,39 @@ int mlx5_cq_fill_pfns(struct mlx5_cq *cq,
 					 ((cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK) ?
 							CLOCK_UPDATE : 0)];
 
-	cq->ibv_cq.start_poll = poll_ops->start_poll;
-	cq->ibv_cq.next_poll = poll_ops->next_poll;
-	cq->ibv_cq.end_poll = poll_ops->end_poll;
+	cq->verbs_cq.cq_ex.start_poll = poll_ops->start_poll;
+	cq->verbs_cq.cq_ex.next_poll = poll_ops->next_poll;
+	cq->verbs_cq.cq_ex.end_poll = poll_ops->end_poll;
 
-	cq->ibv_cq.read_opcode = mlx5_cq_read_wc_opcode;
-	cq->ibv_cq.read_vendor_err = mlx5_cq_read_wc_vendor_err;
-	cq->ibv_cq.read_wc_flags = mlx5_cq_read_wc_flags;
+	cq->verbs_cq.cq_ex.read_opcode = mlx5_cq_read_wc_opcode;
+	cq->verbs_cq.cq_ex.read_vendor_err = mlx5_cq_read_wc_vendor_err;
+	cq->verbs_cq.cq_ex.read_wc_flags = mlx5_cq_read_wc_flags;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_BYTE_LEN)
-		cq->ibv_cq.read_byte_len = mlx5_cq_read_wc_byte_len;
+		cq->verbs_cq.cq_ex.read_byte_len = mlx5_cq_read_wc_byte_len;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_IMM)
-		cq->ibv_cq.read_imm_data = mlx5_cq_read_wc_imm_data;
+		cq->verbs_cq.cq_ex.read_imm_data = mlx5_cq_read_wc_imm_data;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_QP_NUM)
-		cq->ibv_cq.read_qp_num = mlx5_cq_read_wc_qp_num;
+		cq->verbs_cq.cq_ex.read_qp_num = mlx5_cq_read_wc_qp_num;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_SRC_QP)
-		cq->ibv_cq.read_src_qp = mlx5_cq_read_wc_src_qp;
+		cq->verbs_cq.cq_ex.read_src_qp = mlx5_cq_read_wc_src_qp;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_SLID)
-		cq->ibv_cq.read_slid = mlx5_cq_read_wc_slid;
+		cq->verbs_cq.cq_ex.read_slid = mlx5_cq_read_wc_slid;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_SL)
-		cq->ibv_cq.read_sl = mlx5_cq_read_wc_sl;
+		cq->verbs_cq.cq_ex.read_sl = mlx5_cq_read_wc_sl;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_DLID_PATH_BITS)
-		cq->ibv_cq.read_dlid_path_bits = mlx5_cq_read_wc_dlid_path_bits;
+		cq->verbs_cq.cq_ex.read_dlid_path_bits = mlx5_cq_read_wc_dlid_path_bits;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP)
-		cq->ibv_cq.read_completion_ts = mlx5_cq_read_wc_completion_ts;
+		cq->verbs_cq.cq_ex.read_completion_ts = mlx5_cq_read_wc_completion_ts;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_CVLAN)
-		cq->ibv_cq.read_cvlan = mlx5_cq_read_wc_cvlan;
+		cq->verbs_cq.cq_ex.read_cvlan = mlx5_cq_read_wc_cvlan;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_FLOW_TAG)
-		cq->ibv_cq.read_flow_tag = mlx5_cq_read_flow_tag;
+		cq->verbs_cq.cq_ex.read_flow_tag = mlx5_cq_read_flow_tag;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_TM_INFO)
-		cq->ibv_cq.read_tm_info = mlx5_cq_read_wc_tm_info;
+		cq->verbs_cq.cq_ex.read_tm_info = mlx5_cq_read_wc_tm_info;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK) {
 		if (!mctx->clock_info_page)
 			return EOPNOTSUPP;
-		cq->ibv_cq.read_completion_wallclock_ns =
+		cq->verbs_cq.cq_ex.read_completion_wallclock_ns =
 		    mlx5_cq_read_wc_completion_wallclock_ns;
 	}
 
@@ -1649,7 +1672,7 @@ int mlx5_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	 */
 	mmio_wc_start();
 
-	mmio_write64_be(ctx->uar[0].reg + MLX5_CQ_DOORBELL, htobe64(doorbell));
+	mmio_write64_be(ctx->cq_uar_reg + MLX5_CQ_DOORBELL, htobe64(doorbell));
 
 	mmio_flush_writes();
 
@@ -1727,21 +1750,21 @@ void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t rsn, struct mlx5_srq *srq)
 	 * from our QP and therefore don't need to be checked.
 	 */
 	for (prod_index = cq->cons_index; get_sw_cqe(cq, prod_index); ++prod_index)
-		if (prod_index == cq->cons_index + cq->ibv_cq.cqe)
+		if (prod_index == cq->cons_index + cq->verbs_cq.cq.cqe)
 			break;
 
 	/*
 	 * Now sweep backwards through the CQ, removing CQ entries
 	 * that match our QP by copying older entries on top of them.
 	 */
-	cqe_version = (to_mctx(cq->ibv_cq.context))->cqe_version;
+	cqe_version = (to_mctx(cq->verbs_cq.cq.context))->cqe_version;
 	while ((int) --prod_index - (int) cq->cons_index >= 0) {
-		cqe = get_cqe(cq, prod_index & cq->ibv_cq.cqe);
+		cqe = get_cqe(cq, prod_index & cq->verbs_cq.cq.cqe);
 		cqe64 = (cq->cqe_sz == 64) ? cqe : cqe + 64;
 		if (free_res_cqe(cqe64, rsn, srq, cqe_version)) {
 			++nfreed;
 		} else if (nfreed) {
-			dest = get_cqe(cq, (prod_index + nfreed) & cq->ibv_cq.cqe);
+			dest = get_cqe(cq, (prod_index + nfreed) & cq->verbs_cq.cq.cqe);
 			dest64 = (cq->cqe_sz == 64) ? dest : dest + 64;
 			owner_bit = dest64->op_own & MLX5_CQE_OWNER_MASK;
 			memcpy(dest, cqe, cq->cqe_sz);
@@ -1838,7 +1861,14 @@ int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_cq *cq,
 	if (mlx5_use_huge("HUGE_CQ"))
 		default_type = MLX5_ALLOC_TYPE_HUGE;
 
-	mlx5_get_alloc_type(mctx, MLX5_CQ_PREFIX, &type, default_type);
+	mlx5_get_alloc_type(mctx, cq->parent_domain,
+			    MLX5_CQ_PREFIX, &type, default_type);
+
+	if (type == MLX5_ALLOC_TYPE_CUSTOM) {
+		buf->mparent_domain = to_mparent_domain(cq->parent_domain);
+		buf->req_alignment = dev->page_size;
+		buf->resource_type = MLX5DV_RES_TYPE_CQ;
+	}
 
 	ret = mlx5_alloc_prefered_buf(mctx, buf,
 				      align(nent * cqe_sz, dev->page_size),
@@ -1849,7 +1879,8 @@ int mlx5_alloc_cq_buf(struct mlx5_context *mctx, struct mlx5_cq *cq,
 	if (ret)
 		return -1;
 
-	memset(buf->buf, 0, nent * cqe_sz);
+	if (buf->type != MLX5_ALLOC_TYPE_CUSTOM)
+		memset(buf->buf, 0, nent * cqe_sz);
 
 	for (i = 0; i < nent; ++i) {
 		cqe = buf->buf + i * cqe_sz;

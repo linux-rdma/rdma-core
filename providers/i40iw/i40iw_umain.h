@@ -64,13 +64,8 @@
 #define I40E_DB_SHADOW_AREA_SIZE 64
 #define I40E_DB_CQ_OFFSET 0x40
 
-enum i40iw_uhca_type {
-	INTEL_i40iw
-};
-
 struct i40iw_udevice {
 	struct verbs_device ibv_dev;
-	enum i40iw_uhca_type hca_type;
 	int page_size;
 };
 
@@ -160,10 +155,10 @@ int i40iw_uquery_device(struct ibv_context *, struct ibv_device_attr *);
 int i40iw_uquery_port(struct ibv_context *, uint8_t, struct ibv_port_attr *);
 struct ibv_pd *i40iw_ualloc_pd(struct ibv_context *);
 int i40iw_ufree_pd(struct ibv_pd *);
-struct ibv_mr *i40iw_ureg_mr(struct ibv_pd *, void *, size_t, int);
+struct ibv_mr *i40iw_ureg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			     uint64_t hca_va, int access);
 int i40iw_udereg_mr(struct verbs_mr *vmr);
 struct ibv_cq *i40iw_ucreate_cq(struct ibv_context *, int, struct ibv_comp_channel *, int);
-int i40iw_uresize_cq(struct ibv_cq *, int);
 int i40iw_udestroy_cq(struct ibv_cq *);
 int i40iw_upoll_cq(struct ibv_cq *, int, struct ibv_wc *);
 int i40iw_uarm_cq(struct ibv_cq *, int);
@@ -178,10 +173,7 @@ int i40iw_umodify_qp(struct ibv_qp *, struct ibv_qp_attr *, int);
 int i40iw_udestroy_qp(struct ibv_qp *);
 int i40iw_upost_send(struct ibv_qp *, struct ibv_send_wr *, struct ibv_send_wr **);
 int i40iw_upost_recv(struct ibv_qp *, struct ibv_recv_wr *, struct ibv_recv_wr **);
-struct ibv_ah *i40iw_ucreate_ah(struct ibv_pd *, struct ibv_ah_attr *);
-int i40iw_udestroy_ah(struct ibv_ah *);
-int i40iw_uattach_mcast(struct ibv_qp *, const union ibv_gid *, uint16_t);
-int i40iw_udetach_mcast(struct ibv_qp *, const union ibv_gid *, uint16_t);
-void i40iw_async_event(struct ibv_async_event *event);
+void i40iw_async_event(struct ibv_context *context,
+		       struct ibv_async_event *event);
 
 #endif /* i40iw_umain_H */

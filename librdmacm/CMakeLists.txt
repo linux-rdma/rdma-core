@@ -5,12 +5,13 @@ publish_headers(rdma
   rsocket.h
   )
 publish_headers(infiniband
+  acm.h
   ib.h
   )
 
 rdma_library(rdmacm librdmacm.map
   # See Documentation/versioning.md
-  1 1.1.${PACKAGE_VERSION}
+  1 1.3.${PACKAGE_VERSION}
   acm.c
   addrinfo.c
   cma.c
@@ -18,7 +19,11 @@ rdma_library(rdmacm librdmacm.map
   rsocket.c
   )
 target_link_libraries(rdmacm LINK_PUBLIC ibverbs)
-target_link_libraries(rdmacm LINK_PRIVATE ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(rdmacm LINK_PRIVATE
+  ${NL_LIBRARIES}
+  ${CMAKE_THREAD_LIBS_INIT}
+  ${RT_LIBRARIES}
+  )
 
 # The preload library is a bit special, it needs to be open coded
 # Since it is a LD_PRELOAD it has no soname, and is installed in sub dir
@@ -42,4 +47,9 @@ install(TARGETS rspreload DESTINATION "${CMAKE_INSTALL_LIBDIR}/rsocket/")
 rdma_install_symlink("librspreload.so" "${CMAKE_INSTALL_LIBDIR}/rsocket/librspreload.so.1")
 rdma_install_symlink("librspreload.so" "${CMAKE_INSTALL_LIBDIR}/rsocket/librspreload.so.1.0.0")
 
-rdma_pkg_config("rdmacm" "libibverbs" "${CMAKE_THREAD_LIBS_INIT}")
+if (ENABLE_STATIC)
+  if (NOT NL_KIND EQUAL 0)
+    set(REQUIRES "libnl-3.0, libnl-route-3.0, ")
+  endif()
+endif()
+rdma_pkg_config("rdmacm" "${REQUIRES}libibverbs" "${CMAKE_THREAD_LIBS_INIT}")

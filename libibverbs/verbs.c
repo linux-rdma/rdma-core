@@ -46,13 +46,12 @@
 
 #include <util/compiler.h>
 #include <util/symver.h>
+#include <infiniband/cmd_write.h>
 
 #include "ibverbs.h"
-#ifndef NRESOLVE_NEIGH
 #include <net/if.h>
 #include <net/if_arp.h>
 #include "neigh.h"
-#endif
 
 #undef ibv_query_port
 
@@ -68,6 +67,10 @@ int __attribute__((const)) ibv_rate_to_mult(enum ibv_rate rate)
 	case IBV_RATE_60_GBPS:  return 24;
 	case IBV_RATE_80_GBPS:  return 32;
 	case IBV_RATE_120_GBPS: return 48;
+	case IBV_RATE_28_GBPS:  return 11;
+	case IBV_RATE_50_GBPS:  return 20;
+	case IBV_RATE_400_GBPS: return 160;
+	case IBV_RATE_600_GBPS: return 240;
 	default:           return -1;
 	}
 }
@@ -84,6 +87,10 @@ enum ibv_rate __attribute__((const)) mult_to_ibv_rate(int mult)
 	case 24: return IBV_RATE_60_GBPS;
 	case 32: return IBV_RATE_80_GBPS;
 	case 48: return IBV_RATE_120_GBPS;
+	case 11: return IBV_RATE_28_GBPS;
+	case 20: return IBV_RATE_50_GBPS;
+	case 160: return IBV_RATE_400_GBPS;
+	case 240: return IBV_RATE_600_GBPS;
 	default: return IBV_RATE_MAX;
 	}
 }
@@ -108,6 +115,10 @@ int  __attribute__((const)) ibv_rate_to_mbps(enum ibv_rate rate)
 	case IBV_RATE_100_GBPS: return 103125;
 	case IBV_RATE_200_GBPS: return 206250;
 	case IBV_RATE_300_GBPS: return 309375;
+	case IBV_RATE_28_GBPS:  return 28125;
+	case IBV_RATE_50_GBPS:  return 53125;
+	case IBV_RATE_400_GBPS: return 425000;
+	case IBV_RATE_600_GBPS: return 637500;
 	default:               return -1;
 	}
 }
@@ -132,6 +143,10 @@ enum ibv_rate __attribute__((const)) mbps_to_ibv_rate(int mbps)
 	case 103125: return IBV_RATE_100_GBPS;
 	case 206250: return IBV_RATE_200_GBPS;
 	case 309375: return IBV_RATE_300_GBPS;
+	case 28125:  return IBV_RATE_28_GBPS;
+	case 53125:  return IBV_RATE_50_GBPS;
+	case 425000: return IBV_RATE_400_GBPS;
+	case 637500: return IBV_RATE_600_GBPS;
 	default:     return IBV_RATE_MAX;
 	}
 }
@@ -144,12 +159,61 @@ LATEST_SYMVER_FUNC(ibv_query_device, 1_1, "IBVERBS_1.1",
 	return get_ops(context)->query_device(context, device_attr);
 }
 
+int __lib_query_port(struct ibv_context *context, uint8_t port_num,
+		     struct ibv_port_attr *port_attr, size_t port_attr_len)
+{
+	/* Don't expose this mess to the provider, provide a large enough
+	 * temporary buffer if the user buffer is too small.
+	 */
+	if (port_attr_len < sizeof(struct ibv_port_attr)) {
+		struct ibv_port_attr tmp_attr = {};
+		int rc;
+
+		rc = get_ops(context)->query_port(context, port_num,
+						    &tmp_attr);
+		if (rc)
+			return rc;
+
+		memcpy(port_attr, &tmp_attr, port_attr_len);
+		return 0;
+	}
+
+	memset(port_attr, 0, port_attr_len);
+	return get_ops(context)->query_port(context, port_num, port_attr);
+}
+
+struct _compat_ibv_port_attr {
+	enum ibv_port_state state;
+	enum ibv_mtu max_mtu;
+	enum ibv_mtu active_mtu;
+	int gid_tbl_len;
+	uint32_t port_cap_flags;
+	uint32_t max_msg_sz;
+	uint32_t bad_pkey_cntr;
+	uint32_t qkey_viol_cntr;
+	uint16_t pkey_tbl_len;
+	uint16_t lid;
+	uint16_t sm_lid;
+	uint8_t lmc;
+	uint8_t max_vl_num;
+	uint8_t sm_sl;
+	uint8_t subnet_timeout;
+	uint8_t init_type_reply;
+	uint8_t active_width;
+	uint8_t active_speed;
+	uint8_t phys_state;
+	uint8_t link_layer;
+	uint8_t flags;
+};
+
 LATEST_SYMVER_FUNC(ibv_query_port, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_context *context, uint8_t port_num,
-		   struct ibv_port_attr *port_attr)
+		   struct _compat_ibv_port_attr *port_attr)
 {
-	return get_ops(context)->query_port(context, port_num, port_attr);
+	return __lib_query_port(context, port_num,
+				(struct ibv_port_attr *)port_attr,
+				sizeof(*port_attr));
 }
 
 LATEST_SYMVER_FUNC(ibv_query_gid, 1_1, "IBVERBS_1.1",
@@ -157,15 +221,13 @@ LATEST_SYMVER_FUNC(ibv_query_gid, 1_1, "IBVERBS_1.1",
 		   struct ibv_context *context, uint8_t port_num,
 		   int index, union ibv_gid *gid)
 {
-	char name[24];
+	struct verbs_device *verbs_device = verbs_get_device(context->device);
 	char attr[41];
 	uint16_t val;
 	int i;
 
-	snprintf(name, sizeof name, "ports/%d/gids/%d", port_num, index);
-
-	if (ibv_read_sysfs_file(context->device->ibdev_path, name,
-				attr, sizeof attr) < 0)
+	if (ibv_read_ibdev_sysfs_file(attr, sizeof(attr), verbs_device->sysfs,
+				      "ports/%d/gids/%d", port_num, index) < 0)
 		return -1;
 
 	for (i = 0; i < 8; ++i) {
@@ -183,14 +245,12 @@ LATEST_SYMVER_FUNC(ibv_query_pkey, 1_1, "IBVERBS_1.1",
 		   struct ibv_context *context, uint8_t port_num,
 		   int index, __be16 *pkey)
 {
-	char name[24];
+	struct verbs_device *verbs_device = verbs_get_device(context->device);
 	char attr[8];
 	uint16_t val;
 
-	snprintf(name, sizeof name, "ports/%d/pkeys/%d", port_num, index);
-
-	if (ibv_read_sysfs_file(context->device->ibdev_path, name,
-				attr, sizeof attr) < 0)
+	if (ibv_read_ibdev_sysfs_file(attr, sizeof(attr), verbs_device->sysfs,
+				      "ports/%d/pkeys/%d", port_num, index) < 0)
 		return -1;
 
 	if (sscanf(attr, "%hx", &val) != 1)
@@ -236,6 +296,7 @@ LATEST_SYMVER_FUNC(ibv_dealloc_pd, 1_1, "IBVERBS_1.1",
 	return get_ops(pd->context)->dealloc_pd(pd);
 }
 
+#undef ibv_reg_mr
 LATEST_SYMVER_FUNC(ibv_reg_mr, 1_1, "IBVERBS_1.1",
 		   struct ibv_mr *,
 		   struct ibv_pd *pd, void *addr,
@@ -246,7 +307,8 @@ LATEST_SYMVER_FUNC(ibv_reg_mr, 1_1, "IBVERBS_1.1",
 	if (ibv_dontfork_range(addr, length))
 		return NULL;
 
-	mr = get_ops(pd->context)->reg_mr(pd, addr, length, access);
+	mr = get_ops(pd->context)->reg_mr(pd, addr, length, (uintptr_t) addr,
+					  access);
 	if (mr) {
 		mr->context = pd->context;
 		mr->pd      = pd;
@@ -256,6 +318,68 @@ LATEST_SYMVER_FUNC(ibv_reg_mr, 1_1, "IBVERBS_1.1",
 		ibv_dofork_range(addr, length);
 
 	return mr;
+}
+
+#undef ibv_reg_mr_iova
+struct ibv_mr *ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length,
+			       uint64_t iova, int access)
+{
+	struct ibv_mr *mr;
+
+	if (ibv_dontfork_range(addr, length))
+		return NULL;
+
+	mr = get_ops(pd->context)->reg_mr(pd, addr, length, iova, access);
+	if (mr) {
+		mr->context = pd->context;
+		mr->pd      = pd;
+		mr->addr    = addr;
+		mr->length  = length;
+	} else
+		ibv_dofork_range(addr, length);
+
+	return mr;
+}
+
+struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
+				uint64_t iova, unsigned int access)
+{
+	struct verbs_device *device = verbs_get_device(pd->context->device);
+
+	if (!(device->core_support & IB_UVERBS_CORE_SUPPORT_OPTIONAL_MR_ACCESS))
+		access &= ~IBV_ACCESS_OPTIONAL_RANGE;
+
+	return ibv_reg_mr_iova(pd, addr, length, iova, access);
+}
+
+
+struct ibv_pd *ibv_import_pd(struct ibv_context *context,
+			     uint32_t pd_handle)
+{
+	return get_ops(context)->import_pd(context, pd_handle);
+}
+
+
+void ibv_unimport_pd(struct ibv_pd *pd)
+{
+	get_ops(pd->context)->unimport_pd(pd);
+}
+
+
+/**
+ * ibv_import_mr - Import a memory region
+ */
+struct ibv_mr *ibv_import_mr(struct ibv_pd *pd, uint32_t mr_handle)
+{
+	return get_ops(pd->context)->import_mr(pd, mr_handle);
+}
+
+/**
+ * ibv_unimport_mr - Unimport a memory region
+ */
+void ibv_unimport_mr(struct ibv_mr *mr)
+{
+	get_ops(mr->context)->unimport_mr(mr);
 }
 
 LATEST_SYMVER_FUNC(ibv_rereg_mr, 1_1, "IBVERBS_1.1",
@@ -341,21 +465,20 @@ LATEST_SYMVER_FUNC(ibv_dereg_mr, 1_1, "IBVERBS_1.1",
 
 struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context)
 {
-	struct ibv_comp_channel            *channel;
-	struct ibv_create_comp_channel      cmd;
+	struct ibv_create_comp_channel req;
 	struct ib_uverbs_create_comp_channel_resp resp;
+	struct ibv_comp_channel            *channel;
 
 	channel = malloc(sizeof *channel);
 	if (!channel)
 		return NULL;
 
-	IBV_INIT_CMD_RESP(&cmd, sizeof cmd, CREATE_COMP_CHANNEL, &resp, sizeof resp);
-	if (write(context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd) {
+	req.core_payload = (struct ib_uverbs_create_comp_channel){};
+	if (execute_cmd_write(context, IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL,
+			      &req, sizeof(req), &resp, sizeof(resp))) {
 		free(channel);
 		return NULL;
 	}
-
-	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	channel->context = context;
 	channel->fd      = resp.fd;
@@ -507,21 +630,16 @@ LATEST_SYMVER_FUNC(ibv_create_qp, 1_1, "IBVERBS_1.1",
 {
 	struct ibv_qp *qp = get_ops(pd->context)->create_qp(pd, qp_init_attr);
 
-	if (qp) {
-		qp->context    	     = pd->context;
-		qp->qp_context 	     = qp_init_attr->qp_context;
-		qp->pd         	     = pd;
-		qp->send_cq    	     = qp_init_attr->send_cq;
-		qp->recv_cq    	     = qp_init_attr->recv_cq;
-		qp->srq        	     = qp_init_attr->srq;
-		qp->qp_type          = qp_init_attr->qp_type;
-		qp->state	     = IBV_QPS_RESET;
-		qp->events_completed = 0;
-		pthread_mutex_init(&qp->mutex, NULL);
-		pthread_cond_init(&qp->cond, NULL);
-	}
-
 	return qp;
+}
+
+struct ibv_qp_ex *ibv_qp_to_qp_ex(struct ibv_qp *qp)
+{
+	struct verbs_qp *vqp = (struct verbs_qp *)qp;
+
+	if (vqp->comp_mask & VERBS_QP_EX)
+		return &vqp->qp_ex;
+	return NULL;
 }
 
 LATEST_SYMVER_FUNC(ibv_query_qp, 1_1, "IBVERBS_1.1",
@@ -588,18 +706,16 @@ LATEST_SYMVER_FUNC(ibv_create_ah, 1_1, "IBVERBS_1.1",
 int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
 		       unsigned int index, enum ibv_gid_type *type)
 {
-	char name[32];
+	struct verbs_device *verbs_device = verbs_get_device(context->device);
 	char buff[11];
-
-	snprintf(name, sizeof(name), "ports/%d/gid_attrs/types/%d", port_num,
-		 index);
 
 	/* Reset errno so that we can rely on its value upon any error flow in
 	 * ibv_read_sysfs_file.
 	 */
 	errno = 0;
-	if (ibv_read_sysfs_file(context->device->ibdev_path, name, buff,
-				sizeof(buff)) <= 0) {
+	if (ibv_read_ibdev_sysfs_file(buff, sizeof(buff), verbs_device->sysfs,
+				      "ports/%d/gid_attrs/types/%d", port_num,
+				      index) <= 0) {
 		char *dir_path;
 		DIR *dir;
 
@@ -611,7 +727,7 @@ int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
 			return 0;
 		}
 		if (asprintf(&dir_path, "%s/%s/%d/%s/",
-			     context->device->ibdev_path, "ports", port_num,
+			     verbs_device->sysfs->ibdev_path, "ports", port_num,
 			     "gid_attrs") < 0)
 			return -1;
 		dir = opendir(dir_path);
@@ -899,7 +1015,6 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 				uint8_t eth_mac[ETHERNET_LL_SIZE],
 				uint16_t *vid)
 {
-#ifndef NRESOLVE_NEIGH
 	int dst_family;
 	int src_family;
 	int oif;
@@ -956,10 +1071,12 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 	if (process_get_neigh(&neigh_handler))
 		goto free_resources;
 
-	ret_vid = neigh_get_vlan_id_from_dev(&neigh_handler);
+	if (vid) {
+		ret_vid = neigh_get_vlan_id_from_dev(&neigh_handler);
 
-	if (ret_vid <= 0xfff)
-		neigh_set_vlan_id(&neigh_handler, ret_vid);
+		if (ret_vid <= 0xfff)
+			neigh_set_vlan_id(&neigh_handler, ret_vid);
+	}
 
 	/* We are using only Ethernet here */
 	ether_len = neigh_get_ll(&neigh_handler,
@@ -969,7 +1086,8 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 	if (ether_len <= 0)
 		goto free_resources;
 
-	*vid = ret_vid;
+	if (vid)
+		*vid = ret_vid;
 
 	ret = 0;
 
@@ -977,7 +1095,19 @@ free_resources:
 	neigh_free_resources(&neigh_handler);
 
 	return ret;
-#else
-	return -ENOSYS;
-#endif
+}
+
+int ibv_set_ece(struct ibv_qp *qp, struct ibv_ece *ece)
+{
+	if (!ece->vendor_id) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
+	return get_ops(qp->context)->set_ece(qp, ece);
+}
+
+int ibv_query_ece(struct ibv_qp *qp, struct ibv_ece *ece)
+{
+	return get_ops(qp->context)->query_ece(qp, ece);
 }

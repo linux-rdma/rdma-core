@@ -349,10 +349,11 @@ static int is_enabled_by_rules_file(struct target_details *target)
 	int rule;
 	struct config_t *conf = config;
 
-	if (NULL == conf->rules)
+	if (NULL == conf->rules) {
+		pr_debug("Allowing SRP target with id_ext %s because not using a rules file\n", target->id_ext);
 		return 1;
+	}
 
-	pr_debug("Found an SRP target with id_ext %s - check if it allowed by rules file\n", target->id_ext);
 	rule = -1;
 	do {
 		rule++;
@@ -392,12 +393,58 @@ static int is_enabled_by_rules_file(struct target_details *target)
 
 		target->options = conf->rules[rule].options;
 
+		pr_debug("SRP target with id_ext %s %s by rules file\n",
+				target->id_ext,
+				conf->rules[rule].allow ? "allowed" : "disallowed");
 		return conf->rules[rule].allow;
 
 	} while (1);
 }
 
 
+static bool use_imm_data(void)
+{
+	bool ret = false;
+	char flag = 0;
+	int cnt;
+	int fd = open("/sys/module/ib_srp/parameters/use_imm_data", O_RDONLY);
+
+	if (fd < 0)
+		return false;
+	cnt = read(fd, &flag, 1);
+	if (cnt != 1) {
+		close(fd);
+		return false;
+	}
+
+	if (!strncmp(&flag, "Y", 1))
+		ret = true;
+	close(fd);
+	return ret;
+}
+
+static bool imm_data_size_gt_send_size(unsigned int send_size)
+{
+	bool ret = false;
+	unsigned int srp_max_imm_data = 0;
+	FILE *fp = fopen("/sys/module/ib_srp/parameters/max_imm_data", "r");
+	int cnt;
+
+	if (fp == NULL)
+		return ret;
+
+	cnt = fscanf(fp, "%d", &srp_max_imm_data);
+	if (cnt <= 0) {
+		fclose(fp);
+		return ret;
+	}
+
+	if (srp_max_imm_data > send_size)
+		ret = true;
+
+	fclose(fp);
+	return ret;
+}
 
 static int add_non_exist_target(struct target_details *target)
 {
@@ -410,6 +457,7 @@ static int add_non_exist_target(struct target_details *target)
 	char target_config_str[255];
 	int len;
 	int not_connected = 1;
+	unsigned int send_size;
 
 	pr_debug("Found an SRP target with id_ext %s - check if it is already connected\n", target->id_ext);
 
@@ -577,6 +625,25 @@ static int add_non_exist_target(struct target_details *target)
 		}
 	}
 
+	/*
+	 * The SRP initiator stops parsing parameters if it encounters
+	 * an unrecognized parameter. Rest parameters will be ignored.
+	 * Append 'max_it_iu_size' in the very end of login string to
+	 * avoid breaking SRP login.
+	 */
+	send_size = be32toh(target->ioc_prof.send_size);
+	if (use_imm_data() && imm_data_size_gt_send_size(send_size)) {
+		len += snprintf(target_config_str+len,
+			sizeof(target_config_str) - len,
+			",max_it_iu_size=%d", send_size);
+
+		if (len >= sizeof(target_config_str)) {
+			pr_err("Target config string is too long, ignoring target\n");
+			closedir(dir);
+			return -1;
+		}
+	}
+
 	target_config_str[len] = '\0';
 
 	pr_cmd(target_config_str, not_connected);
@@ -679,8 +746,7 @@ static int translate_umad_to_ibdev_and_port(char *umad_dev, char **ibdev,
 
 	umad_dev_name = rindex(umad_dev, '/');
 	if (!umad_dev_name) {
-		pr_err("Couldn't find device name in '%s'\n",
-			umad_dev_name);
+		pr_err("Couldn't find device name in '%s'\n", umad_dev);
 		return -1;
 	}
 
@@ -724,6 +790,7 @@ end:
 	if (ret) {
 		free(*ibport);
 		free(*ibdev);
+		*ibdev = NULL;
 	}
 	free(class_dev_path);
 
@@ -1019,6 +1086,8 @@ static int do_port(struct resources *res, uint16_t pkey, uint16_t dlid,
 			pr_human("        vendor ID: %06x\n", be32toh(target->ioc_prof.vendor_id) >> 8);
 			pr_human("        device ID: %06x\n", be32toh(target->ioc_prof.device_id));
 			pr_human("        IO class : %04hx\n", be16toh(target->ioc_prof.io_class));
+			pr_human("        Maximum size of Send Messages in bytes: %d\n",
+				 be32toh(target->ioc_prof.send_size));
 			pr_human("        ID:        %s\n", target->ioc_prof.id);
 			pr_human("        service entries: %d\n", target->ioc_prof.service_entries);
 
@@ -2092,7 +2161,10 @@ static int ibsrpdm(int argc, char *argv[])
 		goto out;
 	}
 
-	umad_init();
+	ret = umad_init();
+	if (ret != 0)
+		goto out;
+
 	res = alloc_res();
 	if (!res) {
 		ret = 1;
@@ -2225,8 +2297,9 @@ catas_start:
 			pr_debug("Starting a recalculation\n");
 			port_lid = get_port_lid(res->ud_res->ib_ctx,
 						config->port_num, &sm_lid);
-			if (port_lid != res->ud_res->port_attr.lid ||
-				sm_lid != res->ud_res->port_attr.sm_lid) {
+			if (port_lid > 0 && port_lid < 0xc000 &&
+			    (port_lid != res->ud_res->port_attr.lid ||
+			     sm_lid != res->ud_res->port_attr.sm_lid)) {
 
 				if (res->ud_res->ah) {
 					ibv_destroy_ah(res->ud_res->ah);

@@ -1,0 +1,16 @@
+# Define error thresholds here
+
+#SymbolErrorCounter=10
+#LinkErrorRecoveryCounter=10
+#LinkDownedCounter=10
+#PortRcvErrors=10
+#PortRcvRemotePhysicalErrors=100
+#PortRcvSwitchRelayErrors=100
+#PortXmitDiscards=100
+#PortXmitConstraintErrors=100
+#PortRcvConstraintErrors=100
+#LocalLinkIntegrityErrors=10
+#ExcessiveBufferOverrunErrors=10
+#VL15Dropped=100
+#PortXmitWait=1000
+

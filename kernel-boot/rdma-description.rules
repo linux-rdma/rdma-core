@@ -22,10 +22,8 @@ DRIVERS=="ib_qib", ENV{ID_RDMA_INFINIBAND}="1"
 DRIVERS=="hfi1", ENV{ID_RDMA_OPA}="1"
 
 # Hardware that supports iWarp
-DRIVERS=="cxgb3", ENV{ID_RDMA_IWARP}="1"
 DRIVERS=="cxgb4", ENV{ID_RDMA_IWARP}="1"
 DRIVERS=="i40e", ENV{ID_RDMA_IWARP}="1"
-DRIVERS=="nes", ENV{ID_RDMA_IWARP}="1"
 
 # Hardware that supports RoCE
 DRIVERS=="be2net", ENV{ID_RDMA_ROCE}="1"

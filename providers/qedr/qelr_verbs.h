@@ -48,8 +48,8 @@ int qelr_query_port(struct ibv_context *context, uint8_t port,
 struct ibv_pd *qelr_alloc_pd(struct ibv_context *context);
 int qelr_dealloc_pd(struct ibv_pd *ibpd);
 
-struct ibv_mr *qelr_reg_mr(struct ibv_pd *ibpd, void *addr,
-			   size_t len, int access);
+struct ibv_mr *qelr_reg_mr(struct ibv_pd *ibpd, void *addr, size_t len,
+			   uint64_t hca_va, int access);
 int qelr_dereg_mr(struct verbs_mr *mr);
 
 struct ibv_cq *qelr_create_cq(struct ibv_context *context, int cqe,
@@ -82,5 +82,6 @@ int qelr_destroy_srq(struct ibv_srq *ibv_srq);
 int qelr_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
 		       struct ibv_recv_wr **bad_wr);
 
-void qelr_async_event(struct ibv_async_event *event);
+void qelr_async_event(struct ibv_context *context,
+		      struct ibv_async_event *event);
 #endif /* __QELR_VERBS_H__ */

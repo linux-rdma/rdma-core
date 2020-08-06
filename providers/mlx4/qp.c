@@ -358,6 +358,12 @@ int mlx4_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 				ctrl->srcrb_flags |= htobe32(MLX4_WQE_CTRL_IP_HDR_CSUM |
 							   MLX4_WQE_CTRL_TCP_UDP_CSUM);
 			}
+			/* Take the dmac from the payload - needed for loopback */
+			if (qp->link_layer == IBV_LINK_LAYER_ETHERNET) {
+				ctrl->srcrb_flags16[0] = *(__be16 *)(uintptr_t)wr->sg_list[0].addr;
+				ctrl->imm = *(__be32 *)((uintptr_t)(wr->sg_list[0].addr) + 2);
+			}
+
 			break;
 
 		default:
@@ -720,7 +726,7 @@ int mlx4_alloc_qp_buf(struct ibv_context *context, uint32_t max_recv_sge,
 	}
 
 	if (qp->buf_size) {
-		if (mlx4_alloc_buf(&qp->buf,
+		if (mlx4_alloc_buf(to_mctx(context), &qp->buf,
 				   align(qp->buf_size, to_mdev(context->device)->page_size),
 				   to_mdev(context->device)->page_size)) {
 			free(qp->sq.wrid);

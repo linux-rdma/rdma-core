@@ -35,11 +35,12 @@
 #include <string.h>
 #include <pthread.h>
 #include <sys/mman.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 #include "hns_roce_u.h"
 #include "hns_roce_u_abi.h"
+
+static void hns_roce_free_context(struct ibv_context *ibctx);
 
 #define HID_LEN			15
 #define DEV_MATCH_LEN		128
@@ -78,18 +79,24 @@ static const struct verbs_context_ops hns_common_ops = {
 	.query_qp = hns_roce_u_query_qp,
 	.reg_mr = hns_roce_u_reg_mr,
 	.rereg_mr = hns_roce_u_rereg_mr,
+	.create_srq = hns_roce_u_create_srq,
+	.modify_srq = hns_roce_u_modify_srq,
+	.query_srq = hns_roce_u_query_srq,
+	.destroy_srq = hns_roce_u_destroy_srq,
+	.free_context = hns_roce_free_context,
 };
 
 static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 						    int cmd_fd,
 						    void *private_data)
 {
-	int i;
-	struct ibv_get_context cmd;
+	struct hns_roce_device *hr_dev = to_hr_dev(ibdev);
+	struct hns_roce_alloc_ucontext_resp resp = {};
 	struct ibv_device_attr dev_attrs;
 	struct hns_roce_context *context;
-	struct hns_roce_alloc_ucontext_resp resp;
-	struct hns_roce_device *hr_dev = to_hr_dev(ibdev);
+	struct ibv_get_context cmd;
+	int offset = 0;
+	int i;
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
 					       RDMA_DRIVER_HNS);
@@ -109,12 +116,12 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	for (i = 0; i < HNS_ROCE_QP_TABLE_SIZE; ++i)
 		context->qp_table[i].refcnt = 0;
 
-	context->uar = mmap(NULL, to_hr_dev(ibdev)->page_size,
-			    PROT_READ | PROT_WRITE, MAP_SHARED, cmd_fd, 0);
-	if (context->uar == MAP_FAILED) {
-		fprintf(stderr, PFX "Warning: failed to mmap() uar page.\n");
+	context->uar = mmap(NULL, hr_dev->page_size, PROT_READ | PROT_WRITE,
+			    MAP_SHARED, cmd_fd, offset);
+	if (context->uar == MAP_FAILED)
 		goto err_free;
-	}
+
+	offset += hr_dev->page_size;
 
 	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
 		/*
@@ -123,12 +130,9 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 		 */
 		context->cq_tptr_base = mmap(NULL, HNS_ROCE_CQ_DB_BUF_SIZE,
 					     PROT_READ | PROT_WRITE, MAP_SHARED,
-					     cmd_fd, HNS_ROCE_TPTR_OFFSET);
-		if (context->cq_tptr_base == MAP_FAILED) {
-			fprintf(stderr,
-				PFX "Warning: Failed to mmap cq_tptr page.\n");
+					     cmd_fd, offset);
+		if (context->cq_tptr_base == MAP_FAILED)
 			goto db_free;
-		}
 	}
 
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
@@ -153,7 +157,7 @@ tptr_free:
 	}
 
 db_free:
-	munmap(context->uar, to_hr_dev(ibdev)->page_size);
+	munmap(context->uar, hr_dev->page_size);
 	context->uar = NULL;
 
 err_free:
@@ -164,10 +168,11 @@ err_free:
 
 static void hns_roce_free_context(struct ibv_context *ibctx)
 {
+	struct hns_roce_device *hr_dev = to_hr_dev(ibctx->device);
 	struct hns_roce_context *context = to_hr_ctx(ibctx);
 
-	munmap(context->uar, to_hr_dev(ibctx->device)->page_size);
-	if (to_hr_dev(ibctx->device)->hw_version == HNS_ROCE_HW_VER1)
+	munmap(context->uar, hr_dev->page_size);
+	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
 		munmap(context->cq_tptr_base, HNS_ROCE_CQ_DB_BUF_SIZE);
 
 	verbs_uninit_context(&context->ibv_ctx);
@@ -183,7 +188,7 @@ static void hns_uninit_device(struct verbs_device *verbs_device)
 
 static struct verbs_device *hns_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
-	struct hns_roce_device  *dev;
+	struct hns_roce_device *dev;
 
 	dev = calloc(1, sizeof(*dev));
 	if (!dev)
@@ -191,7 +196,7 @@ static struct verbs_device *hns_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 
 	dev->u_hw = sysfs_dev->match->driver_data;
 	dev->hw_version = dev->u_hw->hw_version;
-	dev->page_size   = sysconf(_SC_PAGESIZE);
+	dev->page_size = sysconf(_SC_PAGESIZE);
 	return &dev->ibv_dev;
 }
 
@@ -203,6 +208,5 @@ static const struct verbs_device_ops hns_roce_dev_ops = {
 	.alloc_device = hns_device_alloc,
 	.uninit_device = hns_uninit_device,
 	.alloc_context = hns_roce_alloc_context,
-	.free_context = hns_roce_free_context,
 };
-PROVIDER_DRIVER(hns_roce_dev_ops);
+PROVIDER_DRIVER(hns, hns_roce_dev_ops);

@@ -112,7 +112,7 @@ int pvrdma_free_pd(struct ibv_pd *pd)
 }
 
 struct ibv_mr *pvrdma_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
-			     int access)
+			     uint64_t hca_va, int access)
 {
 	struct verbs_mr *vmr;
 	struct ibv_reg_mr cmd;
@@ -123,9 +123,8 @@ struct ibv_mr *pvrdma_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	if (!vmr)
 		return NULL;
 
-	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t) addr,
-			     access, vmr, &cmd, sizeof(cmd),
-			     &resp, sizeof(resp));
+	ret = ibv_cmd_reg_mr(pd, addr, length, hca_va, access, vmr, &cmd,
+			     sizeof(cmd), &resp, sizeof(resp));
 	if (ret) {
 		free(vmr);
 		return NULL;
@@ -190,7 +189,6 @@ struct ibv_ah *pvrdma_create_ah(struct ibv_pd *pd,
 	struct pvrdma_ah *ah;
 	struct pvrdma_av *av;
 	struct ibv_port_attr port_attr;
-	uint16_t vlan_id;
 
 	if (!attr->is_global)
 		return NULL;
@@ -224,7 +222,7 @@ struct ibv_ah *pvrdma_create_ah(struct ibv_pd *pd,
 
 	if (port_attr.port_cap_flags & IBV_PORT_IP_BASED_GIDS) {
 		if (!ibv_resolve_eth_l2_from_gid(pd->context, attr,
-						 av->dmac, &vlan_id))
+						 av->dmac, NULL))
 			return &ah->ibv_ah;
 	} else {
 		if (!set_mac_from_gid(&attr->grh.dgid, av->dmac))

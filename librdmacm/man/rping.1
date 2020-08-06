@@ -52,6 +52,9 @@ The size of each message transferred, in bytes.  (default 100)
 \-P
 Run the server in persistent mode.  This allows multiple rping clients
 to connect to a single server instance. The server will run until killed.
+.TP
+\-q
+Control QP Creation/Modification directly from the application, instead of rdma_cm.
 .SH "NOTES"
 Because this test maps RDMA resources to userspace, users must ensure
 that they have available system resources and permissions.  See the

@@ -40,6 +40,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include <util/util.h>
+
 static pthread_mutex_t acm_lock = PTHREAD_MUTEX_INITIALIZER;
 static int sock = -1;
 static short server_port = 6125;
@@ -56,7 +58,7 @@ static void acm_set_server_port(void)
 	}
 }
 
-int ib_acm_connect(char *dest)
+static int ib_acm_connect_open(char *dest)
 {
 	struct addrinfo hint, *res;
 	int ret;
@@ -64,65 +66,70 @@ int ib_acm_connect(char *dest)
 	acm_set_server_port();
 	memset(&hint, 0, sizeof hint);
 
-	if (dest && *dest != '/') {
-		hint.ai_family = AF_INET;
-		hint.ai_family = AF_UNSPEC;
+	hint.ai_family = AF_UNSPEC;
+	hint.ai_protocol = IPPROTO_TCP;
 
-		ret = getaddrinfo(dest, NULL, &hint, &res);
-		if (ret)
-			return ret;
+	ret = getaddrinfo(dest, NULL, &hint, &res);
+	if (ret)
+		return ret;
 
-		sock = socket(res->ai_family, res->ai_socktype,
-			      res->ai_protocol);
-		if (sock == -1) {
-			ret = errno;
-			goto err1;
-		}
+	sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+	if (sock == -1) {
+		ret = errno;
+		goto freeaddr;
+	}
 
-		((struct sockaddr_in *) res->ai_addr)->sin_port =
-			htobe16(server_port);
-		ret = connect(sock, res->ai_addr, res->ai_addrlen);
-		if (ret)
-			goto err2;
-
-		freeaddrinfo(res);
-
-err2:
+	((struct sockaddr_in *) res->ai_addr)->sin_port = htobe16(server_port);
+	ret = connect(sock, res->ai_addr, res->ai_addrlen);
+	if (ret) {
 		close(sock);
 		sock = -1;
-err1:
-		freeaddrinfo(res);
-	} else {
-		struct sockaddr_un addr;
+	}
 
-		addr.sun_family = AF_UNIX;
-		if (dest) {
-			if (snprintf(addr.sun_path, sizeof(addr.sun_path),
-				     "%s", dest) >= sizeof(addr.sun_path)) {
-				errno = ENAMETOOLONG;
-				return errno;
-			}
-		} else {
-			BUILD_ASSERT(sizeof(IBACM_IBACME_SERVER_PATH) <=
-				     sizeof(addr.sun_path));
-			strcpy(addr.sun_path, IBACM_IBACME_SERVER_PATH);
-		}
+freeaddr:
+	freeaddrinfo(res);
+	return ret;
+}
 
-		sock = socket(AF_UNIX, SOCK_STREAM, 0);
-		if (sock < 0)
+static int ib_acm_connect_unix(char *dest)
+{
+	struct sockaddr_un addr;
+	int ret;
+
+	addr.sun_family = AF_UNIX;
+	if (dest) {
+		if (snprintf(addr.sun_path, sizeof(addr.sun_path),
+			     "%s", dest) >= sizeof(addr.sun_path)) {
+			errno = ENAMETOOLONG;
 			return errno;
-
-		if (connect(sock,
-			    (struct sockaddr *)&addr, sizeof(addr)) != 0) {
-			ret = errno;
-			close(sock);
-			sock = -1;
-			errno = ret;
-			return ret;
 		}
+	} else {
+		BUILD_ASSERT(sizeof(IBACM_IBACME_SERVER_PATH) <=
+			     sizeof(addr.sun_path));
+		strcpy(addr.sun_path, IBACM_IBACME_SERVER_PATH);
+	}
+
+	sock = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (sock < 0)
+		return errno;
+
+	if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+		ret = errno;
+		close(sock);
+		sock = -1;
+		errno = ret;
+		return ret;
 	}
 
 	return 0;
+}
+
+int ib_acm_connect(char *dest)
+{
+	if (dest && *dest == '/')
+		return ib_acm_connect_unix(dest);
+
+	return ib_acm_connect_open(dest);
 }
 
 void ib_acm_disconnect(void)
@@ -197,7 +204,9 @@ static int acm_format_ep_addr(struct acm_ep_addr_data *data, uint8_t *addr,
 
 	switch (type) {
 	case ACM_EP_INFO_NAME:
-		strncpy((char *) data->info.name,  (char *) addr,  ACM_MAX_ADDRESS);
+		if (!check_snprintf((char *)data->info.name,
+				   sizeof(data->info.name), "%s", (char *)addr))
+			return -1;
 		break;
 	case ACM_EP_INFO_ADDRESS_IP:
 		memcpy(data->info.addr, &((struct sockaddr_in *) addr)->sin_addr, 4);
@@ -349,7 +358,7 @@ int ib_acm_query_perf(int index, uint64_t **counters, int *count)
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_PERF_QUERY;
-	msg.hdr.data[1] = index;
+	msg.hdr.src_index = index;
 	msg.hdr.length = htobe16(ACM_MSG_HDR_LENGTH);
 
 	ret = send(sock, (char *) &msg, ACM_MSG_HDR_LENGTH, 0);
@@ -367,13 +376,13 @@ int ib_acm_query_perf(int index, uint64_t **counters, int *count)
 		goto out;
 	}
 
-	*counters = malloc(sizeof(uint64_t) * msg.hdr.data[0]);
+	*counters = malloc(sizeof(uint64_t) * msg.hdr.src_out);
 	if (!*counters) {
 		ret = ACM_STATUS_ENOMEM;
 		goto out;
 	}
 
-	*count = msg.hdr.data[0];
+	*count = msg.hdr.src_out;
 	for (i = 0; i < *count; i++)
 		(*counters)[i] = be64toh(msg.perf_data[i]);
 	ret = 0;
@@ -382,52 +391,71 @@ out:
 	return ret;
 }
 
-int ib_acm_enum_ep(int index, struct acm_ep_config_data **data)
+int ib_acm_enum_ep(int index, struct acm_ep_config_data **data, uint8_t port)
 {
+	struct acm_ep_config_data *netw_edata = NULL;
+	struct acm_ep_config_data *host_edata = NULL;
+	struct acm_hdr hdr;
 	struct acm_msg msg;
 	int ret;
 	int len;
-	int cnt;
-	struct acm_ep_config_data *edata;
+	int i;
 
 	pthread_mutex_lock(&acm_lock);
 	memset(&msg, 0, sizeof msg);
 	msg.hdr.version = ACM_VERSION;
 	msg.hdr.opcode = ACM_OP_EP_QUERY;
-	msg.hdr.data[0] = index;
+	msg.hdr.src_out = index;
+	msg.hdr.src_index = port;
 	msg.hdr.length = htobe16(ACM_MSG_HDR_LENGTH);
 
 	ret = send(sock, (char *) &msg, ACM_MSG_HDR_LENGTH, 0);
 	if (ret != ACM_MSG_HDR_LENGTH)
 		goto out;
 
-	ret = recv(sock, (char *) &msg, sizeof msg, 0);
-	if (ret < ACM_MSG_HDR_LENGTH || ret != be16toh(msg.hdr.length)) {
+	ret = recv(sock, (char *) &hdr, sizeof(hdr), 0);
+	if (ret != sizeof(hdr)) {
 		ret = ACM_STATUS_EINVAL;
 		goto out;
 	}
 
-	if (msg.hdr.status) {
-		ret = acm_error(msg.hdr.status);
+	if (hdr.status) {
+		ret = acm_error(hdr.status);
 		goto out;
 	}
 
-	cnt = be16toh(msg.ep_data[0].addr_cnt);
-	len = sizeof(struct acm_ep_config_data) +
-		ACM_MAX_ADDRESS * cnt;
-	edata = malloc(len);
-	if (!edata) {
+	len = be16toh(hdr.length) - sizeof(hdr);
+	netw_edata = malloc(len);
+	host_edata = malloc(len);
+	if (!netw_edata || !host_edata) {
 		ret = ACM_STATUS_ENOMEM;
 		goto out;
 	}
 
-	memcpy(edata, &msg.ep_data[0], len);
-	edata->dev_guid = be64toh(msg.ep_data[0].dev_guid);
-	edata->pkey = be16toh(msg.ep_data[0].pkey);
-	edata->addr_cnt = cnt;
-	*data = edata;
+	ret = recv(sock, (char *)netw_edata, len, 0);
+	if (ret != len) {
+		ret = ACM_STATUS_EINVAL;
+		goto out;
+	}
+
+	host_edata->dev_guid = be64toh(netw_edata->dev_guid);
+	host_edata->port_num = netw_edata->port_num;
+	host_edata->phys_port_cnt = netw_edata->phys_port_cnt;
+	host_edata->pkey = be16toh(netw_edata->pkey);
+	host_edata->addr_cnt = be16toh(netw_edata->addr_cnt);
+
+	memcpy(host_edata->prov_name, netw_edata->prov_name,
+	       sizeof(host_edata->prov_name));
+
+	for (i = 0; i < host_edata->addr_cnt; ++i)
+		host_edata->addrs[i] = netw_edata->addrs[i];
+
+	*data = host_edata;
 	ret = 0;
 out:
+	free(netw_edata);
+	if (ret)
+		free(host_edata);
 	pthread_mutex_unlock(&acm_lock);
 	return ret;
 }
@@ -469,13 +497,13 @@ int ib_acm_query_perf_ep_addr(uint8_t *src, uint8_t type,
 		goto out;
 	}
 
-	*counters = malloc(sizeof(uint64_t) * msg.hdr.data[0]);
+	*counters = malloc(sizeof(uint64_t) * msg.hdr.src_out);
 	if (!*counters) {
 		ret = ACM_STATUS_ENOMEM;
 		goto out;
 	}
 
-	*count = msg.hdr.data[0];
+	*count = msg.hdr.src_out;
 	for (i = 0; i < *count; i++)
 		(*counters)[i] = be64toh(msg.perf_data[i]);
 

@@ -26,7 +26,7 @@ mlx5dv_create_flow_action_packet_reformat(struct ibv_context *ctx,
 # DESCRIPTION
 
 Create a packet reformat flow steering action.
-It allows to add/remove packet headers.
+It allows adding/removing packet headers.
 
 # ARGUMENTS
 *ctx*
@@ -41,7 +41,7 @@ It allows to add/remove packet headers.
 *reformat_type*
 :       The reformat type to be create. Use enum mlx5dv_flow_action_packet_reformat_type.
 	MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TUNNEL_TO_L2: Decap a generic L2
-	tunneled packet upto inner L2.
+	tunneled packet up to inner L2.
 
 	MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL: Generic encap, *data*
 		should contain the encapsulating headers.

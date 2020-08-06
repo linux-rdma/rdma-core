@@ -58,11 +58,11 @@ static struct mlx4_cqe *get_cqe(struct mlx4_cq *cq, int entry)
 
 static void *get_sw_cqe(struct mlx4_cq *cq, int n)
 {
-	struct mlx4_cqe *cqe = get_cqe(cq, n & cq->ibv_cq.cqe);
+	struct mlx4_cqe *cqe = get_cqe(cq, n & cq->verbs_cq.cq.cqe);
 	struct mlx4_cqe *tcqe = cq->cqe_size == 64 ? cqe + 1 : cqe;
 
 	return (!!(tcqe->owner_sr_opcode & MLX4_CQE_OWNER_MASK) ^
-		!!(n & (cq->ibv_cq.cqe + 1))) ? NULL : cqe;
+		!!(n & (cq->verbs_cq.cq.cqe + 1))) ? NULL : cqe;
 }
 
 static struct mlx4_cqe *next_cqe_sw(struct mlx4_cq *cq)
@@ -206,7 +206,7 @@ static inline int mlx4_parse_cqe(struct mlx4_cq *cq,
 	int is_send;
 	enum ibv_wc_status *pstatus;
 
-	mctx = to_mctx(cq->ibv_cq.context);
+	mctx = to_mctx(cq->verbs_cq.cq.context);
 	qpn = be32toh(cqe->vlan_my_qpn) & MLX4_CQE_QPN_MASK;
 	if (lazy) {
 		cq->cqe = cqe;
@@ -243,7 +243,7 @@ static inline int mlx4_parse_cqe(struct mlx4_cq *cq,
 			to_msrq((*cur_qp)->verbs_qp.qp.srq) : NULL;
 	}
 
-	pwr_id = lazy ? &cq->ibv_cq.wr_id : &wc->wr_id;
+	pwr_id = lazy ? &cq->verbs_cq.cq_ex.wr_id : &wc->wr_id;
 	if (is_send) {
 		wq = &(*cur_qp)->sq;
 		wqe_index = be16toh(cqe->wqe_index);
@@ -260,7 +260,7 @@ static inline int mlx4_parse_cqe(struct mlx4_cq *cq,
 		++wq->tail;
 	}
 
-	pstatus = lazy ? &cq->ibv_cq.status : &wc->status;
+	pstatus = lazy ? &cq->verbs_cq.cq_ex.status : &wc->status;
 	if (is_error) {
 		ecqe = (struct mlx4_err_cqe *)cqe;
 		*pstatus = mlx4_handle_error_cqe(ecqe);
@@ -610,33 +610,33 @@ void mlx4_cq_fill_pfns(struct mlx4_cq *cq, const struct ibv_cq_init_attr_ex *cq_
 {
 
 	if (cq->flags & MLX4_CQ_FLAGS_SINGLE_THREADED) {
-		cq->ibv_cq.start_poll = mlx4_start_poll;
-		cq->ibv_cq.end_poll = mlx4_end_poll;
+		cq->verbs_cq.cq_ex.start_poll = mlx4_start_poll;
+		cq->verbs_cq.cq_ex.end_poll = mlx4_end_poll;
 	} else {
-		cq->ibv_cq.start_poll = mlx4_start_poll_lock;
-		cq->ibv_cq.end_poll = mlx4_end_poll_lock;
+		cq->verbs_cq.cq_ex.start_poll = mlx4_start_poll_lock;
+		cq->verbs_cq.cq_ex.end_poll = mlx4_end_poll_lock;
 	}
-	cq->ibv_cq.next_poll = mlx4_next_poll;
+	cq->verbs_cq.cq_ex.next_poll = mlx4_next_poll;
 
-	cq->ibv_cq.read_opcode = mlx4_cq_read_wc_opcode;
-	cq->ibv_cq.read_vendor_err = mlx4_cq_read_wc_vendor_err;
-	cq->ibv_cq.read_wc_flags = mlx4_cq_read_wc_flags;
+	cq->verbs_cq.cq_ex.read_opcode = mlx4_cq_read_wc_opcode;
+	cq->verbs_cq.cq_ex.read_vendor_err = mlx4_cq_read_wc_vendor_err;
+	cq->verbs_cq.cq_ex.read_wc_flags = mlx4_cq_read_wc_flags;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_BYTE_LEN)
-		cq->ibv_cq.read_byte_len = mlx4_cq_read_wc_byte_len;
+		cq->verbs_cq.cq_ex.read_byte_len = mlx4_cq_read_wc_byte_len;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_IMM)
-		cq->ibv_cq.read_imm_data = mlx4_cq_read_wc_imm_data;
+		cq->verbs_cq.cq_ex.read_imm_data = mlx4_cq_read_wc_imm_data;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_QP_NUM)
-		cq->ibv_cq.read_qp_num = mlx4_cq_read_wc_qp_num;
+		cq->verbs_cq.cq_ex.read_qp_num = mlx4_cq_read_wc_qp_num;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_SRC_QP)
-		cq->ibv_cq.read_src_qp = mlx4_cq_read_wc_src_qp;
+		cq->verbs_cq.cq_ex.read_src_qp = mlx4_cq_read_wc_src_qp;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_SLID)
-		cq->ibv_cq.read_slid = mlx4_cq_read_wc_slid;
+		cq->verbs_cq.cq_ex.read_slid = mlx4_cq_read_wc_slid;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_SL)
-		cq->ibv_cq.read_sl = mlx4_cq_read_wc_sl;
+		cq->verbs_cq.cq_ex.read_sl = mlx4_cq_read_wc_sl;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_DLID_PATH_BITS)
-		cq->ibv_cq.read_dlid_path_bits = mlx4_cq_read_wc_dlid_path_bits;
+		cq->verbs_cq.cq_ex.read_dlid_path_bits = mlx4_cq_read_wc_dlid_path_bits;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP)
-		cq->ibv_cq.read_completion_ts = mlx4_cq_read_wc_completion_ts;
+		cq->verbs_cq.cq_ex.read_completion_ts = mlx4_cq_read_wc_completion_ts;
 }
 
 int mlx4_arm_cq(struct ibv_cq *ibvcq, int solicited)
@@ -693,7 +693,7 @@ void __mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 	 * from our QP and therefore don't need to be checked.
 	 */
 	for (prod_index = cq->cons_index; get_sw_cqe(cq, prod_index); ++prod_index)
-		if (prod_index == cq->cons_index + cq->ibv_cq.cqe)
+		if (prod_index == cq->cons_index + cq->verbs_cq.cq.cqe)
 			break;
 
 	/*
@@ -701,7 +701,7 @@ void __mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 	 * that match our QP by copying older entries on top of them.
 	 */
 	while ((int) --prod_index - (int) cq->cons_index >= 0) {
-		cqe = get_cqe(cq, prod_index & cq->ibv_cq.cqe);
+		cqe = get_cqe(cq, prod_index & cq->verbs_cq.cq.cqe);
 		cqe += cqe_inc;
 		if (srq && srq->ext_srq &&
 		    (be32toh(cqe->g_mlpath_rqpn) & MLX4_CQE_QPN_MASK) == srq->verbs_srq.srq_num &&
@@ -713,7 +713,7 @@ void __mlx4_cq_clean(struct mlx4_cq *cq, uint32_t qpn, struct mlx4_srq *srq)
 				mlx4_free_srq_wqe(srq, be16toh(cqe->wqe_index));
 			++nfreed;
 		} else if (nfreed) {
-			dest = get_cqe(cq, (prod_index + nfreed) & cq->ibv_cq.cqe);
+			dest = get_cqe(cq, (prod_index + nfreed) & cq->verbs_cq.cq.cqe);
 			dest += cqe_inc;
 			owner_bit = dest->owner_sr_opcode & MLX4_CQE_OWNER_MASK;
 			memcpy(dest, cqe, sizeof *cqe);
@@ -762,8 +762,8 @@ void mlx4_cq_resize_copy_cqes(struct mlx4_cq *cq, void *buf, int old_cqe)
 
 	while ((mlx4dv_get_cqe_opcode(cqe)) != MLX4_CQE_OPCODE_RESIZE) {
 		cqe->owner_sr_opcode = (cqe->owner_sr_opcode & ~MLX4_CQE_OWNER_MASK) |
-			(((i + 1) & (cq->ibv_cq.cqe + 1)) ? MLX4_CQE_OWNER_MASK : 0);
-		memcpy(buf + ((i + 1) & cq->ibv_cq.cqe) * cq->cqe_size,
+			(((i + 1) & (cq->verbs_cq.cq.cqe + 1)) ? MLX4_CQE_OWNER_MASK : 0);
+		memcpy(buf + ((i + 1) & cq->verbs_cq.cq.cqe) * cq->cqe_size,
 		       cqe - cqe_inc, cq->cqe_size);
 		++i;
 		cqe = get_cqe(cq, (i & old_cqe));
@@ -773,10 +773,10 @@ void mlx4_cq_resize_copy_cqes(struct mlx4_cq *cq, void *buf, int old_cqe)
 	++cq->cons_index;
 }
 
-int mlx4_alloc_cq_buf(struct mlx4_device *dev, struct mlx4_buf *buf, int nent,
-		      int entry_size)
+int mlx4_alloc_cq_buf(struct mlx4_device *dev, struct mlx4_context *ctx,
+		      struct mlx4_buf *buf, int nent, int entry_size)
 {
-	if (mlx4_alloc_buf(buf, align(nent * entry_size, dev->page_size),
+	if (mlx4_alloc_buf(ctx, buf, align(nent * entry_size, dev->page_size),
 			   dev->page_size))
 		return -1;
 	memset(buf->buf, 0, nent * entry_size);

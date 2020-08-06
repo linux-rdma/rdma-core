@@ -43,11 +43,12 @@
 #include <alloca.h>
 #include <errno.h>
 
+#include <rdma/ib_user_ioctl_cmds.h>
 #include <util/symver.h>
+#include <util/util.h>
 #include "ibverbs.h"
 
 static pthread_mutex_t dev_list_lock = PTHREAD_MUTEX_INITIALIZER;
-static int initialized;
 static struct list_head device_list = LIST_HEAD_INIT(device_list);
 
 LATEST_SYMVER_FUNC(ibv_get_device_list, 1_1, "IBVERBS_1.1",
@@ -56,6 +57,7 @@ LATEST_SYMVER_FUNC(ibv_get_device_list, 1_1, "IBVERBS_1.1",
 {
 	struct ibv_device **l = NULL;
 	struct verbs_device *device;
+	static bool initialized;
 	int num_devices;
 	int i = 0;
 
@@ -64,28 +66,9 @@ LATEST_SYMVER_FUNC(ibv_get_device_list, 1_1, "IBVERBS_1.1",
 
 	pthread_mutex_lock(&dev_list_lock);
 	if (!initialized) {
-		char value[8];
-		int ret;
-
-		/*
-		 * The uverbs module is not loaded, this is a ENOSYS return
-		 * but it is not a hard failure, we can try again to see if it
-		 * has become loaded since.
-		 */
-		if (ibv_read_sysfs_file(ibv_get_sysfs_path(),
-					"class/infiniband_verbs/abi_version",
-					value, sizeof(value)) < 0) {
-			errno = -ENOSYS;
+		if (ibverbs_init())
 			goto out;
-		}
-
-		ret = ibverbs_init();
-		initialized = (ret < 0) ? ret : 1;
-	}
-
-	if (initialized < 0) {
-		errno = -initialized;
-		goto out;
+		initialized = true;
 	}
 
 	num_devices = ibverbs_get_device_list(&device_list);
@@ -134,13 +117,22 @@ LATEST_SYMVER_FUNC(ibv_get_device_guid, 1_1, "IBVERBS_1.1",
 		   __be64,
 		   struct ibv_device *device)
 {
+	struct verbs_sysfs_dev *sysfs_dev = verbs_get_device(device)->sysfs;
 	char attr[24];
 	uint64_t guid = 0;
 	uint16_t parts[4];
 	int i;
 
-	if (ibv_read_sysfs_file(device->ibdev_path, "node_guid",
-				attr, sizeof attr) < 0)
+	pthread_mutex_lock(&dev_list_lock);
+	if (sysfs_dev->flags & VSYSFS_READ_NODE_GUID) {
+		guid = sysfs_dev->node_guid;
+		pthread_mutex_unlock(&dev_list_lock);
+		return htobe64(guid);
+	}
+	pthread_mutex_unlock(&dev_list_lock);
+
+	if (ibv_read_ibdev_sysfs_file(attr, sizeof(attr), sysfs_dev,
+				      "node_guid") < 0)
 		return 0;
 
 	if (sscanf(attr, "%hx:%hx:%hx:%hx",
@@ -150,7 +142,39 @@ LATEST_SYMVER_FUNC(ibv_get_device_guid, 1_1, "IBVERBS_1.1",
 	for (i = 0; i < 4; ++i)
 		guid = (guid << 16) | parts[i];
 
+	pthread_mutex_lock(&dev_list_lock);
+	sysfs_dev->node_guid = guid;
+	sysfs_dev->flags |= VSYSFS_READ_NODE_GUID;
+	pthread_mutex_unlock(&dev_list_lock);
+
 	return htobe64(guid);
+}
+
+int ibv_get_device_index(struct ibv_device *device)
+{
+	struct verbs_sysfs_dev *sysfs_dev = verbs_get_device(device)->sysfs;
+
+	return sysfs_dev->ibdev_idx;
+}
+
+int ibv_get_fw_ver(char *value, size_t len, struct verbs_sysfs_dev *sysfs_dev)
+{
+	/*
+	 * NOTE: This can only be called by a driver inside the dev_list_lock,
+	 * ie during context setup or otherwise.
+	 */
+	assert(pthread_mutex_trylock(&dev_list_lock) != 0);
+
+	if (!(sysfs_dev->flags & VSYSFS_READ_FW_VER)) {
+		if (ibv_read_ibdev_sysfs_file(sysfs_dev->fw_ver,
+					      sizeof(sysfs_dev->fw_ver),
+					      sysfs_dev, "fw_ver") <= 0)
+			return -1;
+		sysfs_dev->flags |= VSYSFS_READ_FW_VER;
+	}
+	if (!check_snprintf(value, len, "%s", sysfs_dev->fw_ver))
+		return -1;
+	return 0;
 }
 
 void verbs_init_cq(struct ibv_cq *cq, struct ibv_context *context,
@@ -193,6 +217,31 @@ __lib_ibv_create_cq_ex(struct ibv_context *context,
 	return cq;
 }
 
+static bool has_ioctl_write(struct ibv_context *ctx)
+{
+	int rc;
+	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_DEVICE,
+			       UVERBS_METHOD_INVOKE_WRITE, 1);
+
+	if (VERBS_IOCTL_ONLY)
+		return true;
+	if (VERBS_WRITE_ONLY)
+		return false;
+
+	/*
+	 * This command should return ENOSPC since the request length is too
+	 * small.
+	 */
+	fill_attr_const_in(cmdb, UVERBS_ATTR_WRITE_CMD,
+			   IB_USER_VERBS_CMD_QUERY_DEVICE);
+	rc = execute_ioctl(ctx, cmdb);
+	if (rc == EPROTONOSUPPORT)
+		return false;
+	if (rc == ENOTTY)
+		return false;
+	return true;
+}
+
 /*
  * Ownership of cmd_fd is transferred into this function, and it will either
  * be released during the matching call to verbs_uninit_contxt or during the
@@ -214,23 +263,6 @@ int verbs_init_context(struct verbs_context *context_ex,
 	context_ex->context.abi_compat = __VERBS_ABI_IS_EXTENDED;
 	context_ex->sz = sizeof(*context_ex);
 
-	/*
-	 * In order to maintain backward/forward binary compatibility
-	 * with apps compiled against libibverbs-1.1.8 that use the
-	 * flow steering addition, we need to set the two
-	 * ABI_placeholder entries to match the driver set flow
-	 * entries.  This is because apps compiled against
-	 * libibverbs-1.1.8 use an inline ibv_create_flow and
-	 * ibv_destroy_flow function that looks in the placeholder
-	 * spots for the proper entry points.  For apps compiled
-	 * against libibverbs-1.1.9 and later, the inline functions
-	 * will be looking in the right place.
-	 */
-	context_ex->ABI_placeholder1 =
-		(void (*)(void))context_ex->ibv_create_flow;
-	context_ex->ABI_placeholder2 =
-		(void (*)(void))context_ex->ibv_destroy_flow;
-
 	context_ex->priv = calloc(1, sizeof(*context_ex->priv));
 	if (!context_ex->priv) {
 		errno = ENOMEM;
@@ -240,6 +272,7 @@ int verbs_init_context(struct verbs_context *context_ex,
 
 	context_ex->priv->driver_id = driver_id;
 	verbs_set_ops(context_ex, &verbs_dummy_ops);
+	context_ex->priv->use_ioctl_write = has_ioctl_write(context);
 
 	return 0;
 }
@@ -279,25 +312,46 @@ err_free:
 static void set_lib_ops(struct verbs_context *vctx)
 {
 	vctx->create_cq_ex = __lib_ibv_create_cq_ex;
+
+	/*
+	 * The compat symver entry point behaves identically to what used to
+	 * be pointed to by _compat_query_port.
+	 */
+#undef ibv_query_port
+	vctx->context.ops._compat_query_port = ibv_query_port;
+	vctx->query_port = __lib_query_port;
+
+	/*
+	 * In order to maintain backward/forward binary compatibility
+	 * with apps compiled against libibverbs-1.1.8 that use the
+	 * flow steering addition, we need to set the two
+	 * ABI_placeholder entries to match the driver set flow
+	 * entries.  This is because apps compiled against
+	 * libibverbs-1.1.8 use an inline ibv_create_flow and
+	 * ibv_destroy_flow function that looks in the placeholder
+	 * spots for the proper entry points.  For apps compiled
+	 * against libibverbs-1.1.9 and later, the inline functions
+	 * will be looking in the right place.
+	 */
+	vctx->ABI_placeholder1 =
+		(void (*)(void))vctx->ibv_create_flow;
+	vctx->ABI_placeholder2 =
+		(void (*)(void))vctx->ibv_destroy_flow;
 }
 
 struct ibv_context *verbs_open_device(struct ibv_device *device, void *private_data)
 {
 	struct verbs_device *verbs_device = verbs_get_device(device);
-	char *devpath;
 	int cmd_fd;
 	struct verbs_context *context_ex;
-
-	if (asprintf(&devpath, RDMA_CDEV_DIR"/%s", device->dev_name) < 0)
-		return NULL;
+	int ret;
 
 	/*
 	 * We'll only be doing writes, but we need O_RDWR in case the
 	 * provider needs to mmap() the file.
 	 */
-	cmd_fd = open(devpath, O_RDWR | O_CLOEXEC);
-	free(devpath);
-
+	cmd_fd = open_cdev(verbs_device->sysfs->sysfs_name,
+			   verbs_device->sysfs->sysfs_cdev);
 	if (cmd_fd < 0)
 		return NULL;
 
@@ -310,6 +364,13 @@ struct ibv_context *verbs_open_device(struct ibv_device *device, void *private_d
 		return NULL;
 
 	set_lib_ops(context_ex);
+	if (context_ex->context.async_fd == -1) {
+		ret = ibv_cmd_alloc_async_fd(&context_ex->context);
+		if (ret) {
+			ibv_close_device(&context_ex->context);
+			return NULL;
+		}
+	}
 
 	return &context_ex->context;
 }
@@ -321,11 +382,74 @@ LATEST_SYMVER_FUNC(ibv_open_device, 1_1, "IBVERBS_1.1",
 	return verbs_open_device(device, NULL);
 }
 
+struct ibv_context *ibv_import_device(int cmd_fd)
+{
+	struct verbs_device *verbs_device = NULL;
+	struct verbs_context *context_ex;
+	struct ibv_device **dev_list;
+	struct ibv_context *ctx = NULL;
+	struct stat st;
+	int ret;
+	int i;
+
+	if (fstat(cmd_fd, &st) || !S_ISCHR(st.st_mode)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	dev_list = ibv_get_device_list(NULL);
+	if (!dev_list) {
+		errno = ENODEV;
+		return NULL;
+	}
+
+	for (i = 0; dev_list[i]; ++i) {
+		if (verbs_get_device(dev_list[i])->sysfs->sysfs_cdev ==
+					st.st_rdev) {
+			verbs_device = verbs_get_device(dev_list[i]);
+			break;
+		}
+	}
+
+	if (!verbs_device) {
+		errno = ENODEV;
+		goto out;
+	}
+
+	if (!verbs_device->ops->import_context) {
+		errno = EOPNOTSUPP;
+		goto out;
+	}
+
+	/* In case the underlay cdev number was assigned in the meantime to
+	 * other device as of some disassociate flow, the next call on the
+	 * FD will end up with EIO (i.e. query_context command) and we should
+	 * be safe from using the wrong device.
+	 */
+	context_ex = verbs_device->ops->import_context(&verbs_device->device, cmd_fd);
+	if (!context_ex)
+		goto out;
+
+	set_lib_ops(context_ex);
+
+	context_ex->priv->imported = true;
+	ctx = &context_ex->context;
+	ret = ibv_cmd_alloc_async_fd(ctx);
+	if (ret) {
+		ibv_close_device(ctx);
+		ctx = NULL;
+	}
+out:
+	ibv_free_device_list(dev_list);
+	return ctx;
+}
+
 void verbs_uninit_context(struct verbs_context *context_ex)
 {
 	free(context_ex->priv);
 	close(context_ex->context.cmd_fd);
-	close(context_ex->context.async_fd);
+	if (context_ex->context.async_fd != -1)
+		close(context_ex->context.async_fd);
 	ibverbs_device_put(context_ex->context.device);
 }
 
@@ -333,10 +457,9 @@ LATEST_SYMVER_FUNC(ibv_close_device, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_context *context)
 {
-	struct verbs_device *verbs_device = verbs_get_device(context->device);
+	const struct verbs_context_ops *ops = get_ops(context);
 
-	verbs_device->ops->free_context(context);
-
+	ops->free_context(context);
 	return 0;
 }
 
@@ -381,7 +504,7 @@ LATEST_SYMVER_FUNC(ibv_get_async_event, 1_1, "IBVERBS_1.1",
 		break;
 	}
 
-	get_ops(context)->async_event(event);
+	get_ops(context)->async_event(context, event);
 
 	return 0;
 }

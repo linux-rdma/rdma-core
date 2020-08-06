@@ -109,14 +109,16 @@ int c4iw_free_pd(struct ibv_pd *pd)
 	return 0;
 }
 
-static struct ibv_mr *__c4iw_reg_mr(struct ibv_pd *pd, void *addr,
-				    size_t length, uint64_t hca_va,
-				    int access)
+struct ibv_mr *c4iw_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			   uint64_t hca_va, int access)
 {
 	struct c4iw_mr *mhp;
 	struct ibv_reg_mr cmd;
 	struct ib_uverbs_reg_mr_resp resp;
 	struct c4iw_dev *dev = to_c4iw_dev(pd->context->device);
+
+	PDBG("%s addr %p length %ld hca_va %p\n", __func__, addr, length,
+	     hca_va);
 
 	mhp = malloc(sizeof *mhp);
 	if (!mhp)
@@ -140,13 +142,6 @@ static struct ibv_mr *__c4iw_reg_mr(struct ibv_pd *pd, void *addr,
 	pthread_spin_unlock(&dev->lock);
 	INC_STAT(mr);
 	return &mhp->vmr.ibv_mr;
-}
-
-struct ibv_mr *c4iw_reg_mr(struct ibv_pd *pd, void *addr,
-			   size_t length, int access)
-{
-	PDBG("%s addr %p length %ld\n", __func__, addr, length);
-	return __c4iw_reg_mr(pd, addr, length, (uintptr_t) addr, access);
 }
 
 int c4iw_dereg_mr(struct verbs_mr *vmr)
@@ -244,21 +239,6 @@ err2:
 err1:
 	free(chp);
 	return NULL;
-}
-
-int c4iw_resize_cq(struct ibv_cq *ibcq, int cqe)
-{
-#if 0
-	int ret;
-
-	struct ibv_resize_cq cmd;
-	struct ib_uverbs_resize_cq_resp resp;
-	ret = ibv_cmd_resize_cq(ibcq, cqe, &cmd, sizeof cmd, &resp, sizeof resp);
-	PDBG("%s ret %d\n", __func__, ret);
-	return ret;
-#else
-	return -ENOSYS;
-#endif
 }
 
 int c4iw_destroy_cq(struct ibv_cq *ibcq)
@@ -793,16 +773,6 @@ int c4iw_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	return ret;
 }
 
-struct ibv_ah *c4iw_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
-{
-	return NULL;
-}
-
-int c4iw_destroy_ah(struct ibv_ah *ah)
-{
-	return ENOSYS;
-}
-
 int c4iw_attach_mcast(struct ibv_qp *ibqp, const union ibv_gid *gid,
 		      uint16_t lid)
 {
@@ -831,7 +801,8 @@ int c4iw_detach_mcast(struct ibv_qp *ibqp, const union ibv_gid *gid,
 	return ret;
 }
 
-void c4iw_async_event(struct ibv_async_event *event)
+void c4iw_async_event(struct ibv_context *context,
+		      struct ibv_async_event *event)
 {
 	PDBG("%s type %d obj %p\n", __func__, event->event_type,
 	event->element.cq);

@@ -69,6 +69,13 @@ enum {
 	UMAD_SA_MCM_JOIN_STATE_SEND_ONLY_FULL_MEMBER = (1 << 3)
 };
 
+enum {
+	UMAD_SA_MCM_ADDR_SCOPE_LINK_LOCAL = 0x2,
+	UMAD_SA_MCM_ADDR_SCOPE_SITE_LOCAL = 0x5,
+	UMAD_SA_MCM_ADDR_SCOPE_ORG_LOCAL  = 0x8,
+	UMAD_SA_MCM_ADDR_SCOPE_GLOBAL     = 0xE,
+};
+
 struct umad_sa_mcmember_record {
 	uint8_t mgid[16];	/* network-byte order */
 	uint8_t portgid[16];	/* network-byte order */

@@ -50,43 +50,46 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#define INTEL_HCA(v, d, t) VERBS_PCI_MATCH(v, d, (void *)(INTEL_##t))
+static void i40iw_ufree_context(struct ibv_context *ibctx);
+
+#define INTEL_HCA(v, d) VERBS_PCI_MATCH(v, d, NULL)
 static const struct verbs_match_ent hca_table[] = {
+	VERBS_DRIVER_ID(RDMA_DRIVER_I40IW),
 #ifdef I40E_DEV_ID_X722_A0
-	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_X722_A0, i40iw),
+	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_X722_A0),
 #endif
 #ifdef I40E_DEV_ID_X722_A0_VF
-	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_X722_A0_VF, i40iw),
+	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_X722_A0_VF),
 #endif
 #ifdef I40E_DEV_ID_KX_X722
-	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_KX_X722, i40iw),
+	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_KX_X722),
 #endif
 #ifdef I40E_DEV_ID_QSFP_X722
-	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_QSFP_X722, i40iw),
+	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_QSFP_X722),
 #endif
 #ifdef I40E_DEV_ID_SFP_X722
-	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_SFP_X722, i40iw),
+	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_SFP_X722),
 #endif
 #ifdef I40E_DEV_ID_1G_BASE_T_X722
-	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_1G_BASE_T_X722, i40iw),
+	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_1G_BASE_T_X722),
 #endif
 #ifdef I40E_DEV_ID_10G_BASE_T_X722
-	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_10G_BASE_T_X722, i40iw),
+	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_10G_BASE_T_X722),
 #endif
 #ifdef I40E_DEV_ID_SFP_I_X722
-	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_SFP_I_X722, i40iw),
+	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_SFP_I_X722),
 #endif
 #ifdef I40E_DEV_ID_X722_VF
-	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_X722_VF, i40iw),
+	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_X722_VF),
 #endif
 #ifdef I40E_DEV_ID_X722_VF_HV
-	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_X722_VF_HV, i40iw),
+	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_X722_VF_HV),
 #endif
 #ifdef I40E_DEV_ID_X722_FPGA
-	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_X722_FPGA, i40iw),
+	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_X722_FPGA),
 #endif
 #ifdef I40E_DEV_ID_X722_FPGA_VF
-	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_X722_FPGA_VF, i40iw),
+	INTEL_HCA(I40E_INTEL_VENDOR_ID, I40E_DEV_ID_X722_FPGA_VF),
 #endif
 	{}
 };
@@ -102,7 +105,6 @@ static const struct verbs_context_ops i40iw_uctx_ops = {
 	.poll_cq	= i40iw_upoll_cq,
 	.req_notify_cq	= i40iw_uarm_cq,
 	.cq_event	= i40iw_cq_event,
-	.resize_cq	= i40iw_uresize_cq,
 	.destroy_cq	= i40iw_udestroy_cq,
 	.create_qp	= i40iw_ucreate_qp,
 	.query_qp	= i40iw_uquery_qp,
@@ -110,11 +112,8 @@ static const struct verbs_context_ops i40iw_uctx_ops = {
 	.destroy_qp	= i40iw_udestroy_qp,
 	.post_send	= i40iw_upost_send,
 	.post_recv	= i40iw_upost_recv,
-	.create_ah	= i40iw_ucreate_ah,
-	.destroy_ah	= i40iw_udestroy_ah,
-	.attach_mcast	= i40iw_uattach_mcast,
-	.detach_mcast	= i40iw_udetach_mcast,
-	.async_event	= i40iw_async_event
+	.async_event	= i40iw_async_event,
+	.free_context	= i40iw_ufree_context,
 };
 
 /**
@@ -211,7 +210,6 @@ i40iw_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 	if (!dev)
 		return NULL;
 
-	dev->hca_type = (uintptr_t)sysfs_dev->match->driver_data;
 	dev->page_size = I40IW_HW_PAGE_SIZE;
 	return &dev->ibv_dev;
 }
@@ -224,6 +222,5 @@ static const struct verbs_device_ops i40iw_udev_ops = {
 	.alloc_device = i40iw_device_alloc,
 	.uninit_device  = i40iw_uninit_device,
 	.alloc_context = i40iw_ualloc_context,
-	.free_context = i40iw_ufree_context,
 };
-PROVIDER_DRIVER(i40iw_udev_ops);
+PROVIDER_DRIVER(i40iw, i40iw_udev_ops);

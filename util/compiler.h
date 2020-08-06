@@ -7,9 +7,10 @@
 
    This is only enabled for old compilers. gcc 6.x and beyond have excellent
    static flow analysis. If code solicits a warning from 6.x it is almost
-   certainly too complex for a human to understand.
+   certainly too complex for a human to understand. For some reason powerpc
+   uses a different scheme than gcc for flow analysis.
 */
-#if __GNUC__ >= 6 || defined(__clang__)
+#if (__GNUC__ >= 6 && !defined(__powerpc__)) || defined(__clang__)
 #define uninitialized_var(x) x
 #else
 #define uninitialized_var(x) x = x

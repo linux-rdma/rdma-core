@@ -43,12 +43,15 @@
 #include "mlx4.h"
 #include "mlx4-abi.h"
 
+static void mlx4_free_context(struct ibv_context *ibv_ctx);
+
 #ifndef PCI_VENDOR_ID_MELLANOX
 #define PCI_VENDOR_ID_MELLANOX			0x15b3
 #endif
 
 #define HCA(v, d) VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, d, NULL)
 static const struct verbs_match_ent hca_table[] = {
+	VERBS_DRIVER_ID(RDMA_DRIVER_MLX4),
 	HCA(MELLANOX, 0x6340),	/* MT25408 "Hermon" SDR */
 	HCA(MELLANOX, 0x634a),	/* MT25408 "Hermon" DDR */
 	HCA(MELLANOX, 0x6354),	/* MT25408 "Hermon" QDR */
@@ -123,13 +126,14 @@ static const struct verbs_context_ops mlx4_ctx_ops = {
 	.destroy_flow = mlx4_destroy_flow,
 	.destroy_rwq_ind_table = mlx4_destroy_rwq_ind_table,
 	.destroy_wq = mlx4_destroy_wq,
-	.get_srq_num = verbs_get_srq_num,
+	.get_srq_num = mlx4_get_srq_num,
 	.modify_cq = mlx4_modify_cq,
 	.modify_wq = mlx4_modify_wq,
 	.open_qp = mlx4_open_qp,
 	.open_xrcd = mlx4_open_xrcd,
 	.query_device_ex = mlx4_query_device_ex,
 	.query_rt_values = mlx4_query_rt_values,
+	.free_context = mlx4_free_context,
 };
 
 static int mlx4_map_internal_clock(struct mlx4_device *mdev,
@@ -211,8 +215,9 @@ static struct verbs_context *mlx4_alloc_context(struct ibv_device *ibdev,
 	mlx4_init_xsrq_table(&context->xsrq_table, context->num_qps);
 	pthread_mutex_init(&context->db_list_mutex, NULL);
 
+	context->uar_mmap_offset = 0;
 	context->uar = mmap(NULL, dev->page_size, PROT_WRITE,
-			    MAP_SHARED, cmd_fd, 0);
+			    MAP_SHARED, cmd_fd, context->uar_mmap_offset);
 	if (context->uar == MAP_FAILED)
 		goto failed;
 
@@ -300,17 +305,15 @@ static const struct verbs_device_ops mlx4_dev_ops = {
 	.alloc_device = mlx4_device_alloc,
 	.uninit_device = mlx4_uninit_device,
 	.alloc_context = mlx4_alloc_context,
-	.free_context = mlx4_free_context,
 };
-PROVIDER_DRIVER(mlx4_dev_ops);
+PROVIDER_DRIVER(mlx4, mlx4_dev_ops);
 
 static int mlx4dv_get_qp(struct ibv_qp *qp_in,
 			 struct mlx4dv_qp *qp_out)
 {
 	struct mlx4_qp *mqp = to_mqp(qp_in);
 	struct mlx4_context *ctx = to_mctx(qp_in->context);
-
-	qp_out->comp_mask = 0;
+	uint64_t mask_out = 0;
 
 	qp_out->buf.buf = mqp->buf.buf;
 	qp_out->buf.length = mqp->buf.length;
@@ -326,6 +329,13 @@ static int mlx4dv_get_qp(struct ibv_qp *qp_in,
 	qp_out->rq.wqe_cnt = mqp->rq.wqe_cnt;
 	qp_out->rq.wqe_shift = mqp->rq.wqe_shift;
 	qp_out->rq.offset = mqp->rq.offset;
+
+	if (qp_out->comp_mask & MLX4DV_QP_MASK_UAR_MMAP_OFFSET) {
+		qp_out->uar_mmap_offset = ctx->uar_mmap_offset;
+		mask_out |= MLX4DV_QP_MASK_UAR_MMAP_OFFSET;
+	}
+
+	qp_out->comp_mask = mask_out;
 
 	return 0;
 }
@@ -344,7 +354,7 @@ static int mlx4dv_get_cq(struct ibv_cq *cq_in,
 	cq_out->arm_db = mcq->arm_db;
 	cq_out->arm_sn = mcq->arm_sn;
 	cq_out->cqe_size = mcq->cqe_size;
-	cq_out->cqe_cnt = mcq->ibv_cq.cqe + 1;
+	cq_out->cqe_cnt = mcq->verbs_cq.cq.cqe + 1;
 
 	mcq->flags |= MLX4_CQ_FLAGS_DV_OWNED;
 
@@ -429,6 +439,9 @@ int mlx4dv_set_context_attr(struct ibv_context *context,
 	switch (attr_type) {
 	case MLX4DV_SET_CTX_ATTR_LOG_WQS_RANGE_SZ:
 		ctx->log_wqs_range_sz = *((uint8_t *)attr);
+		break;
+	case MLX4DV_SET_CTX_ATTR_BUF_ALLOCATORS:
+		ctx->extern_alloc = *((struct mlx4dv_ctx_allocators *)attr);
 		break;
 	default:
 		return ENOTSUP;

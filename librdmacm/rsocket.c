@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2014 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2008-2019 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -46,7 +46,9 @@
 #include <string.h>
 #include <netinet/tcp.h>
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
 #include <search.h>
+#include <time.h>
 #include <byteswap.h>
 #include <util/compiler.h>
 #include <util/util.h>
@@ -68,6 +70,7 @@
 #define RS_SGL_SIZE 2
 static struct index_map idm;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t svc_mut = PTHREAD_MUTEX_INITIALIZER;
 
 struct rsocket;
 
@@ -77,7 +80,9 @@ enum {
 	RS_SVC_REM_DGRAM,
 	RS_SVC_ADD_KEEPALIVE,
 	RS_SVC_REM_KEEPALIVE,
-	RS_SVC_MOD_KEEPALIVE
+	RS_SVC_MOD_KEEPALIVE,
+	RS_SVC_ADD_CM,
+	RS_SVC_REM_CM,
 };
 
 struct rs_svc_msg {
@@ -103,12 +108,25 @@ static struct rs_svc udp_svc = {
 	.context_size = sizeof(*udp_svc_fds),
 	.run = udp_svc_run
 };
-static uint32_t *tcp_svc_timeouts;
+static uint64_t *tcp_svc_timeouts;
 static void *tcp_svc_run(void *arg);
 static struct rs_svc tcp_svc = {
 	.context_size = sizeof(*tcp_svc_timeouts),
 	.run = tcp_svc_run
 };
+static void *cm_svc_run(void *arg);
+static struct rs_svc listen_svc = {
+	.context_size = sizeof(struct pollfd),
+	.run = cm_svc_run
+};
+static struct rs_svc connect_svc = {
+	.context_size = sizeof(struct pollfd),
+	.run = cm_svc_run
+};
+
+static uint32_t pollcnt;
+static bool suspendpoll;
+static int pollsignal = -1;
 
 static uint16_t def_iomap_size = 0;
 static uint16_t def_inline = 64;
@@ -117,6 +135,7 @@ static uint16_t def_rqsize = 384;
 static uint32_t def_mem = (1 << 17);
 static uint32_t def_wmem = (1 << 17);
 static uint32_t polling_time = 10;
+static int wake_up_interval = 5000;
 
 /*
  * Immediate data format is determined by the upper bits
@@ -250,7 +269,9 @@ enum rs_state {
  * transfer rsocket messages as inline sends.
  */
 #define RS_OPT_MSG_SEND   (1 << 1)
-#define RS_OPT_SVC_ACTIVE (1 << 2)
+#define RS_OPT_UDP_SVC    (1 << 2)
+#define RS_OPT_KEEPALIVE  (1 << 3)
+#define RS_OPT_CM_SVC	  (1 << 4)
 
 union socket_addr {
 	struct sockaddr		sa;
@@ -310,6 +331,7 @@ struct rsocket {
 			struct rdma_cm_id *cm_id;
 			uint64_t	  tcp_opts;
 			unsigned int	  keepalive_time;
+			int		  accept_queue[2];
 
 			unsigned int	  ctrl_seqno;
 			unsigned int	  ctrl_max_seqno;
@@ -420,6 +442,14 @@ static void read_all(int fd, void *msg, size_t len)
 	assert(rc == len);
 }
 
+static uint64_t rs_time_us(void)
+{
+	struct timespec now;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	return now.tv_sec * 1000000 + now.tv_nsec / 1000;
+}
+
 static void ds_insert_qp(struct rsocket *rs, struct ds_qp *qp)
 {
 	if (!rs->qp_list)
@@ -444,7 +474,7 @@ static int rs_notify_svc(struct rs_svc *svc, struct rsocket *rs, int cmd)
 	struct rs_svc_msg msg;
 	int ret;
 
-	pthread_mutex_lock(&mut);
+	pthread_mutex_lock(&svc_mut);
 	if (!svc->cnt) {
 		ret = socketpair(AF_UNIX, SOCK_STREAM, 0, svc->sock);
 		if (ret)
@@ -460,8 +490,8 @@ static int rs_notify_svc(struct rs_svc *svc, struct rsocket *rs, int cmd)
 	msg.cmd = cmd;
 	msg.status = EINVAL;
 	msg.rs = rs;
-	write_all(svc->sock[0], &msg, sizeof msg);
-	read_all(svc->sock[0], &msg, sizeof msg);
+	write_all(svc->sock[0], &msg, sizeof(msg));
+	read_all(svc->sock[0], &msg, sizeof(msg));
 	ret = rdma_seterrno(msg.status);
 	if (svc->cnt)
 		goto unlock;
@@ -471,7 +501,7 @@ closepair:
 	close(svc->sock[0]);
 	close(svc->sock[1]);
 unlock:
-	pthread_mutex_unlock(&mut);
+	pthread_mutex_unlock(&svc_mut);
 	return ret;
 }
 
@@ -530,6 +560,11 @@ static void rs_configure(void)
 		fclose(f);
 	}
 
+	f = fopen(RS_CONF_DIR "/wake_up_interval", "r");
+	if (f) {
+		failable_fscanf(f, "%d", &wake_up_interval);
+		fclose(f);
+	}
 	if ((f = fopen(RS_CONF_DIR "/inline_default", "r"))) {
 		failable_fscanf(f, "%hu", &def_inline);
 		fclose(f);
@@ -644,7 +679,9 @@ static int rs_set_nonblocking(struct rsocket *rs, int arg)
 		if (rs->cm_id->recv_cq_channel)
 			ret = fcntl(rs->cm_id->recv_cq_channel->fd, F_SETFL, arg);
 
-		if (!ret && rs->state < rs_connected)
+		if (rs->state == rs_listening)
+			ret = fcntl(rs->accept_queue[0], F_SETFL, arg);
+		else if (!ret && rs->state < rs_connected)
 			ret = fcntl(rs->cm_id->channel->fd, F_SETFL, arg);
 	} else {
 		ret = fcntl(rs->epfd, F_SETFL, arg);
@@ -1026,6 +1063,11 @@ static void rs_free(struct rsocket *rs)
 		rdma_destroy_id(rs->cm_id);
 	}
 
+	if (rs->accept_queue[0] > 0 || rs->accept_queue[1] > 0) {
+		close(rs->accept_queue[0]);
+		close(rs->accept_queue[1]);
+	}
+
 	fastlock_destroy(&rs->map_lock);
 	fastlock_destroy(&rs->cq_wait_lock);
 	fastlock_destroy(&rs->cq_lock);
@@ -1203,45 +1245,52 @@ int rlisten(int socket, int backlog)
 	if (!rs)
 		return ERR(EBADF);
 
-	if (rs->state != rs_listening) {
-		ret = rdma_listen(rs->cm_id, backlog);
-		if (!ret)
-			rs->state = rs_listening;
-	} else {
-		ret = 0;
+	if (rs->state == rs_listening)
+		return 0;
+
+	ret = rdma_listen(rs->cm_id, backlog);
+	if (ret)
+		return ret;
+
+	ret = socketpair(AF_UNIX, SOCK_STREAM, 0, rs->accept_queue);
+	if (ret)
+		return ret;
+
+	if (rs->fd_flags & O_NONBLOCK) {
+		ret = set_fd_nonblock(rs->accept_queue[0], true);
+		if (ret)
+			return ret;
 	}
-	return ret;
+
+	ret = set_fd_nonblock(rs->cm_id->channel->fd, true);
+	if (ret)
+		return ret;
+
+	ret = rs_notify_svc(&listen_svc, rs, RS_SVC_ADD_CM);
+	if (ret)
+		return ret;
+
+	rs->state = rs_listening;
+	return 0;
 }
 
-/*
- * Nonblocking is usually not inherited between sockets, but we need to
- * inherit it here to establish the connection only.  This is needed to
- * prevent rdma_accept from blocking until the remote side finishes
- * establishing the connection.  If we were to allow rdma_accept to block,
- * then a single thread cannot establish a connection with itself, or
- * two threads which try to connect to each other can deadlock trying to
- * form a connection.
- *
- * Data transfers on the new socket remain blocking unless the user
- * specifies otherwise through rfcntl.
- */
-int raccept(int socket, struct sockaddr *addr, socklen_t *addrlen)
+/* Accepting new connection requests is currently a blocking operation */
+static void rs_accept(struct rsocket *rs)
 {
-	struct rsocket *rs, *new_rs;
+	struct rsocket *new_rs;
 	struct rdma_conn_param param;
 	struct rs_conn_data *creq, cresp;
+	struct rdma_cm_id *cm_id;
 	int ret;
 
-	rs = idm_lookup(&idm, socket);
-	if (!rs)
-		return ERR(EBADF);
+	ret = rdma_get_request(rs->cm_id, &cm_id);
+	if (ret)
+		return;
+
 	new_rs = rs_alloc(rs, rs->type);
 	if (!new_rs)
-		return ERR(ENOMEM);
-
-	ret = rdma_get_request(rs->cm_id, &new_rs->cm_id);
-	if (ret)
 		goto err;
+	new_rs->cm_id = cm_id;
 
 	ret = rs_insert(new_rs, new_rs->cm_id->channel->fd);
 	if (ret < 0)
@@ -1249,13 +1298,8 @@ int raccept(int socket, struct sockaddr *addr, socklen_t *addrlen)
 
 	creq = (struct rs_conn_data *)
 	       (new_rs->cm_id->event->param.conn.private_data + rs_conn_data_offset(rs));
-	if (creq->version != 1) {
-		ret = ERR(ENOTSUP);
+	if (creq->version != 1)
 		goto err;
-	}
-
-	if (rs->fd_flags & O_NONBLOCK)
-		set_fd_nonblock(new_rs->cm_id->channel->fd, true);
 
 	ret = rs_create_ep(new_rs);
 	if (ret)
@@ -1274,13 +1318,34 @@ int raccept(int socket, struct sockaddr *addr, socklen_t *addrlen)
 	else
 		goto err;
 
+	write_all(rs->accept_queue[1], &new_rs, sizeof(new_rs));
+	return;
+
+err:
+	rdma_reject(cm_id, NULL, 0);
+	if (new_rs)
+		rs_free(new_rs);
+}
+
+int raccept(int socket, struct sockaddr *addr, socklen_t *addrlen)
+{
+	struct rsocket *rs, *new_rs;
+	int ret;
+
+	rs = idm_lookup(&idm, socket);
+	if (!rs)
+		return ERR(EBADF);
+
+	if (rs->state != rs_listening)
+		return ERR(EBADF);
+
+	ret = read(rs->accept_queue[0], &new_rs, sizeof(new_rs));
+	if (ret != sizeof(new_rs))
+		return ret;
+
 	if (addr && addrlen)
 		rgetpeername(new_rs->index, addr, addrlen);
 	return new_rs->index;
-
-err:
-	rs_free(new_rs);
-	return ret;
 }
 
 static int rs_do_connect(struct rsocket *rs)
@@ -1290,6 +1355,7 @@ static int rs_do_connect(struct rsocket *rs)
 	struct rs_conn_data *creq, *cresp;
 	int to, ret;
 
+	fastlock_acquire(&rs->slock);
 	switch (rs->state) {
 	case rs_init:
 	case rs_bound:
@@ -1387,9 +1453,14 @@ connected:
 
 		rs->state = rs_connect_rdwr;
 		break;
+	case rs_connect_error:
+	case rs_disconnected:
+	case rs_error:
+		ret = ERR(ENOTCONN);
+		goto unlock;
 	default:
-		ret = ERR(EINVAL);
-		break;
+		ret = (rs->state & rs_connected) ? 0 : ERR(EINVAL);
+		goto unlock;
 	}
 
 	if (ret) {
@@ -1400,6 +1471,8 @@ connected:
 			rs->err = errno;
 		}
 	}
+unlock:
+	fastlock_release(&rs->slock);
 	return ret;
 }
 
@@ -1618,7 +1691,7 @@ out:
 int rconnect(int socket, const struct sockaddr *addr, socklen_t addrlen)
 {
 	struct rsocket *rs;
-	int ret;
+	int ret, save_errno;
 
 	rs = idm_lookup(&idm, socket);
 	if (!rs)
@@ -1626,6 +1699,12 @@ int rconnect(int socket, const struct sockaddr *addr, socklen_t addrlen)
 	if (rs->type == SOCK_STREAM) {
 		memcpy(&rs->cm_id->route.addr.dst_addr, addr, addrlen);
 		ret = rs_do_connect(rs);
+		if (ret == -1 && errno == EINPROGRESS) {
+			save_errno = errno;
+			/* The app can still drive the CM state on failure */
+			rs_notify_svc(&connect_svc, rs, RS_SVC_ADD_CM);
+			errno = save_errno;
+		}
 	} else {
 		if (rs->state == rs_init) {
 			ret = ds_init_ep(rs);
@@ -2060,8 +2139,8 @@ static int rs_process_cq(struct rsocket *rs, int nonblock, int (*test)(struct rs
 
 static int rs_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsocket *rs))
 {
-	struct timeval s, e;
-	uint32_t poll_time = 0;
+	uint64_t start_time = 0;
+	uint32_t poll_time;
 	int ret;
 
 	do {
@@ -2069,12 +2148,10 @@ static int rs_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsoc
 		if (!ret || nonblock || errno != EWOULDBLOCK)
 			return ret;
 
-		if (!poll_time)
-			gettimeofday(&s, NULL);
+		if (!start_time)
+			start_time = rs_time_us();
 
-		gettimeofday(&e, NULL);
-		poll_time = (e.tv_sec - s.tv_sec) * 1000000 +
-			    (e.tv_usec - s.tv_usec) + 1;
+		poll_time = (uint32_t) (rs_time_us() - start_time);
 	} while (poll_time <= polling_time);
 
 	ret = rs_process_cq(rs, 0, test);
@@ -2221,8 +2298,8 @@ static int ds_process_cqs(struct rsocket *rs, int nonblock, int (*test)(struct r
 
 static int ds_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsocket *rs))
 {
-	struct timeval s, e;
-	uint32_t poll_time = 0;
+	uint64_t start_time = 0;
+	uint32_t poll_time;
 	int ret;
 
 	do {
@@ -2230,12 +2307,10 @@ static int ds_get_comp(struct rsocket *rs, int nonblock, int (*test)(struct rsoc
 		if (!ret || nonblock || errno != EWOULDBLOCK)
 			return ret;
 
-		if (!poll_time)
-			gettimeofday(&s, NULL);
+		if (!start_time)
+			start_time = rs_time_us();
 
-		gettimeofday(&e, NULL);
-		poll_time = (e.tv_sec - s.tv_sec) * 1000000 +
-			    (e.tv_usec - s.tv_usec) + 1;
+		poll_time = (uint32_t) (rs_time_us() - start_time);
 	} while (poll_time <= polling_time);
 
 	ret = ds_process_cqs(rs, 0, test);
@@ -2936,19 +3011,154 @@ ssize_t rwritev(int socket, const struct iovec *iov, int iovcnt)
 	return rsendv(socket, iov, iovcnt, 0);
 }
 
+/* When mapping rpoll to poll, the events reported on the RDMA
+ * fd are independent from the events rpoll may be looking for.
+ * To avoid threads hanging in poll, whenever any event occurs,
+ * we need to wakeup all threads in poll, so that they can check
+ * if there has been a change on the rsockets they are monitoring.
+ * To support this, we 'gate' threads entering and leaving rpoll.
+ */
+static int rs_pollinit(void)
+{
+	int ret = 0;
+
+	pthread_mutex_lock(&mut);
+	if (pollsignal >= 0)
+		goto unlock;
+
+	pollsignal = eventfd(0, EFD_NONBLOCK | EFD_SEMAPHORE);
+	if (pollsignal < 0)
+		ret = -errno;
+
+unlock:
+	pthread_mutex_unlock(&mut);
+	return ret;
+}
+
+/* When an event occurs, we must wait until the state of all rsockets
+ * has settled.  Then we need to re-check the rsocket state prior to
+ * blocking on poll().
+ */
+static int rs_poll_enter(void)
+{
+	pthread_mutex_lock(&mut);
+	if (suspendpoll) {
+		pthread_mutex_unlock(&mut);
+		sched_yield();
+		return -EBUSY;
+	}
+
+	pollcnt++;
+	pthread_mutex_unlock(&mut);
+	return 0;
+}
+
+static void rs_poll_exit(void)
+{
+	uint64_t c;
+	int save_errno;
+	ssize_t ret;
+
+	pthread_mutex_lock(&mut);
+	if (!--pollcnt) {
+		/* Keep errno value from poll() call.  We try to clear
+		 * a single signal.  But there's no guarantee that we'll
+		 * find one.  Additional signals indicate that a change
+		 * occurred on an rsocket, which requires all threads to
+		 * re-check before blocking on poll.
+		 */
+		save_errno = errno;
+		ret = read(pollsignal, &c, sizeof(c));
+		if (ret != sizeof(c))
+			errno = save_errno;
+		suspendpoll = 0;
+	}
+	pthread_mutex_unlock(&mut);
+}
+
+/* When an event occurs, it's possible for a single thread blocked in
+ * poll to return from the kernel, read the event, and update the state
+ * of an rsocket.  However, that can leave threads blocked in the kernel
+ * on poll (trying to read the CQ fd), which have had their rsocket
+ * state set.  To avoid those threads remaining blocked in the kernel,
+ * we must wake them up and ensure that they all return to user space,
+ * in order to re-check the state of their rsockets.
+ *
+ * Because poll is racy wrt updating the rsocket states, we need to
+ * signal state checks whenever a thread updates the state of a
+ * monitored rsocket, independent of whether that thread actually
+ * reads an event from an fd.  In other words, we must wake up all
+ * polling threads whenever poll() indicates that there is a new
+ * completion to process, and when rpoll() will return a successful
+ * value after having blocked.
+ */
+static void rs_poll_stop(void)
+{
+	uint64_t c;
+	int save_errno;
+	ssize_t ret;
+
+	/* See comment in rs_poll_exit */
+	save_errno = errno;
+
+	pthread_mutex_lock(&mut);
+	if (!--pollcnt) {
+		ret = read(pollsignal, &c, sizeof(c));
+		suspendpoll = 0;
+	} else if (!suspendpoll) {
+		suspendpoll = 1;
+		c = 1;
+		ret = write(pollsignal, &c, sizeof(c));
+	} else {
+		ret = sizeof(c);
+	}
+	pthread_mutex_unlock(&mut);
+
+	if (ret != sizeof(c))
+		errno = save_errno;
+}
+
+static int rs_poll_signal(void)
+{
+	uint64_t c;
+	ssize_t ret;
+
+	pthread_mutex_lock(&mut);
+	if (pollcnt && !suspendpoll) {
+		suspendpoll = 1;
+		c = 1;
+		ret = write(pollsignal, &c, sizeof(c));
+		if (ret == sizeof(c))
+			ret = 0;
+	} else {
+		ret = 0;
+	}
+	pthread_mutex_unlock(&mut);
+	return ret;
+}
+
+/* We always add the pollsignal read fd to the poll fd set, so
+ * that we can signal any blocked threads.
+ */
 static struct pollfd *rs_fds_alloc(nfds_t nfds)
 {
 	static __thread struct pollfd *rfds;
 	static __thread nfds_t rnfds;
 
-	if (nfds > rnfds) {
+	if (nfds + 1 > rnfds) {
 		if (rfds)
 			free(rfds);
+		else if (rs_pollinit())
+			return NULL;
 
-		rfds = malloc(sizeof(*rfds) * nfds);
-		rnfds = rfds ? nfds : 0;
+		rfds = malloc(sizeof(*rfds) * nfds + 1);
+		rnfds = rfds ? nfds + 1 : 0;
 	}
 
+	if (rfds) {
+		rfds[nfds].fd = pollsignal;
+		rfds[nfds].events = POLLIN;
+	}
 	return rfds;
 }
 
@@ -2990,7 +3200,7 @@ check_cq:
 	}
 
 	if (rs->state == rs_listening) {
-		fds.fd = rs->cm_id->channel->fd;
+		fds.fd = rs->accept_queue[0];
 		fds.events = events;
 		fds.revents = 0;
 		poll(&fds, 1, 0);
@@ -3073,17 +3283,16 @@ static int rs_poll_events(struct pollfd *rfds, struct pollfd *fds, nfds_t nfds)
 	int i, cnt = 0;
 
 	for (i = 0; i < nfds; i++) {
-		if (!rfds[i].revents)
-			continue;
-
 		rs = idm_lookup(&idm, fds[i].fd);
 		if (rs) {
-			fastlock_acquire(&rs->cq_wait_lock);
-			if (rs->type == SOCK_STREAM)
-				rs_get_cq_event(rs);
-			else
-				ds_get_cq_event(rs);
-			fastlock_release(&rs->cq_wait_lock);
+			if (rfds[i].revents) {
+				fastlock_acquire(&rs->cq_wait_lock);
+				if (rs->type == SOCK_STREAM)
+					rs_get_cq_event(rs);
+				else
+					ds_get_cq_event(rs);
+				fastlock_release(&rs->cq_wait_lock);
+			}
 			fds[i].revents = rs_poll_rs(rs, fds[i].events, 1, rs_poll_all);
 		} else {
 			fds[i].revents = rfds[i].revents;
@@ -3102,22 +3311,20 @@ static int rs_poll_events(struct pollfd *rfds, struct pollfd *fds, nfds_t nfds)
  */
 int rpoll(struct pollfd *fds, nfds_t nfds, int timeout)
 {
-	struct timeval s, e;
 	struct pollfd *rfds;
-	uint32_t poll_time = 0;
-	int ret;
+	uint64_t start_time = 0;
+	uint32_t poll_time;
+	int pollsleep, ret;
 
 	do {
 		ret = rs_poll_check(fds, nfds);
 		if (ret || !timeout)
 			return ret;
 
-		if (!poll_time)
-			gettimeofday(&s, NULL);
+		if (!start_time)
+			start_time = rs_time_us();
 
-		gettimeofday(&e, NULL);
-		poll_time = (e.tv_sec - s.tv_sec) * 1000000 +
-			    (e.tv_usec - s.tv_usec) + 1;
+		poll_time = (uint32_t) (rs_time_us() - start_time);
 	} while (poll_time <= polling_time);
 
 	rfds = rs_fds_alloc(nfds);
@@ -3129,11 +3336,26 @@ int rpoll(struct pollfd *fds, nfds_t nfds, int timeout)
 		if (ret)
 			break;
 
-		ret = poll(rfds, nfds, timeout);
-		if (ret <= 0)
+		if (rs_poll_enter())
+			continue;
+
+		if (timeout >= 0) {
+			timeout -= (int) ((rs_time_us() - start_time) / 1000);
+			if (timeout <= 0)
+				return 0;
+			pollsleep = min(timeout, wake_up_interval);
+		} else {
+			pollsleep = wake_up_interval;
+		}
+
+		ret = poll(rfds, nfds + 1, pollsleep);
+		if (ret < 0) {
+			rs_poll_exit();
 			break;
+		}
 
 		ret = rs_poll_events(rfds, fds, nfds);
+		rs_poll_stop();
 	} while (!ret);
 
 	return ret;
@@ -3241,7 +3463,7 @@ int rshutdown(int socket, int how)
 	rs = idm_lookup(&idm, socket);
 	if (!rs)
 		return ERR(EBADF);
-	if (rs->opts & RS_OPT_SVC_ACTIVE)
+	if (rs->opts & RS_OPT_KEEPALIVE)
 		rs_notify_svc(&tcp_svc, rs, RS_SVC_REM_KEEPALIVE);
 
 	if (rs->fd_flags & O_NONBLOCK)
@@ -3291,7 +3513,7 @@ out:
 
 static void ds_shutdown(struct rsocket *rs)
 {
-	if (rs->opts & RS_OPT_SVC_ACTIVE)
+	if (rs->opts & RS_OPT_UDP_SVC)
 		rs_notify_svc(&udp_svc, rs, RS_SVC_REM_DGRAM);
 
 	if (rs->fd_flags & O_NONBLOCK)
@@ -3314,8 +3536,12 @@ int rclose(int socket)
 	if (rs->type == SOCK_STREAM) {
 		if (rs->state & rs_connected)
 			rshutdown(socket, SHUT_RDWR);
-		else if (rs->opts & RS_OPT_SVC_ACTIVE)
+		if (rs->opts & RS_OPT_KEEPALIVE)
 			rs_notify_svc(&tcp_svc, rs, RS_SVC_REM_KEEPALIVE);
+		if (rs->opts & RS_OPT_CM_SVC && rs->state == rs_listening)
+			rs_notify_svc(&listen_svc, rs, RS_SVC_REM_CM);
+		if (rs->opts & RS_OPT_CM_SVC)
+			rs_notify_svc(&connect_svc, rs, RS_SVC_REM_CM);
 	} else {
 		ds_shutdown(rs);
 	}
@@ -3373,8 +3599,8 @@ static int rs_set_keepalive(struct rsocket *rs, int on)
 	FILE *f;
 	int ret;
 
-	if ((on && (rs->opts & RS_OPT_SVC_ACTIVE)) ||
-	    (!on && !(rs->opts & RS_OPT_SVC_ACTIVE)))
+	if ((on && (rs->opts & RS_OPT_KEEPALIVE)) ||
+	    (!on && !(rs->opts & RS_OPT_KEEPALIVE)))
 		return 0;
 
 	if (on) {
@@ -3448,7 +3674,7 @@ int rsetsockopt(int socket, int level, int optname,
 			break;
 		case SO_KEEPALIVE:
 			ret = rs_set_keepalive(rs, *(int *) optval);
-			opt_on = rs->opts & RS_OPT_SVC_ACTIVE;
+			opt_on = rs->opts & RS_OPT_KEEPALIVE;
 			break;
 		case SO_OOBINLINE:
 			opt_on = *(int *) optval;
@@ -3471,7 +3697,7 @@ int rsetsockopt(int socket, int level, int optname,
 				break;
 			}
 			rs->keepalive_time = *(int *) optval;
-			ret = (rs->opts & RS_OPT_SVC_ACTIVE) ?
+			ret = (rs->opts & RS_OPT_KEEPALIVE) ?
 			      rs_notify_svc(&tcp_svc, rs, RS_SVC_MOD_KEEPALIVE) : 0;
 			break;
 		case TCP_NODELAY:
@@ -4034,7 +4260,7 @@ static void udp_svc_process_sock(struct rs_svc *svc)
 	case RS_SVC_ADD_DGRAM:
 		msg.status = rs_svc_add_rs(svc, msg.rs);
 		if (!msg.status) {
-			msg.rs->opts |= RS_OPT_SVC_ACTIVE;
+			msg.rs->opts |= RS_OPT_UDP_SVC;
 			udp_svc_fds = svc->contexts;
 			udp_svc_fds[svc->cnt].fd = msg.rs->udp_sock;
 			udp_svc_fds[svc->cnt].events = POLLIN;
@@ -4044,7 +4270,7 @@ static void udp_svc_process_sock(struct rs_svc *svc)
 	case RS_SVC_REM_DGRAM:
 		msg.status = rs_svc_rm_rs(svc, msg.rs);
 		if (!msg.status)
-			msg.rs->opts &= ~RS_OPT_SVC_ACTIVE;
+			msg.rs->opts &= ~RS_OPT_UDP_SVC;
 		break;
 	case RS_SVC_NOOP:
 		msg.status = 0;
@@ -4256,13 +4482,9 @@ static void *udp_svc_run(void *arg)
 	return NULL;
 }
 
-static uint32_t rs_get_time(void)
+static uint64_t rs_get_time(void)
 {
-	struct timeval now;
-
-	memset(&now, 0, sizeof now);
-	gettimeofday(&now, NULL);
-	return (uint32_t) now.tv_sec;
+	return rs_time_us() / 1000000;
 }
 
 static void tcp_svc_process_sock(struct rs_svc *svc)
@@ -4275,7 +4497,7 @@ static void tcp_svc_process_sock(struct rs_svc *svc)
 	case RS_SVC_ADD_KEEPALIVE:
 		msg.status = rs_svc_add_rs(svc, msg.rs);
 		if (!msg.status) {
-			msg.rs->opts |= RS_OPT_SVC_ACTIVE;
+			msg.rs->opts |= RS_OPT_KEEPALIVE;
 			tcp_svc_timeouts = svc->contexts;
 			tcp_svc_timeouts[svc->cnt] = rs_get_time() +
 						     msg.rs->keepalive_time;
@@ -4284,7 +4506,7 @@ static void tcp_svc_process_sock(struct rs_svc *svc)
 	case RS_SVC_REM_KEEPALIVE:
 		msg.status = rs_svc_rm_rs(svc, msg.rs);
 		if (!msg.status)
-			msg.rs->opts &= ~RS_OPT_SVC_ACTIVE;
+			msg.rs->opts &= ~RS_OPT_KEEPALIVE;
 		break;
 	case RS_SVC_MOD_KEEPALIVE:
 		i = rs_svc_index(svc, msg.rs);
@@ -4324,7 +4546,7 @@ static void *tcp_svc_run(void *arg)
 	struct rs_svc *svc = arg;
 	struct rs_svc_msg msg;
 	struct pollfd fds;
-	uint32_t now, next_timeout;
+	uint64_t now, next_timeout;
 	int i, ret, timeout;
 
 	ret = rs_svc_grow_sets(svc, 16);
@@ -4355,6 +4577,93 @@ static void *tcp_svc_run(void *arg)
 				next_timeout = tcp_svc_timeouts[i];
 		}
 		timeout = (int) (next_timeout - now);
+	} while (svc->cnt >= 1);
+
+	return NULL;
+}
+
+static void rs_handle_cm_event(struct rsocket *rs)
+{
+	int ret;
+
+	if (rs->state & rs_opening) {
+		rs_do_connect(rs);
+	} else {
+		ret = ucma_complete(rs->cm_id);
+		if (!ret && rs->cm_id->event && (rs->state & rs_connected) &&
+		    (rs->cm_id->event->event == RDMA_CM_EVENT_DISCONNECTED))
+			rs->state = rs_disconnected;
+	}
+
+	if (!(rs->state & rs_opening))
+		rs_poll_signal();
+}
+
+static void cm_svc_process_sock(struct rs_svc *svc)
+{
+	struct rs_svc_msg msg;
+	struct pollfd *fds;
+
+	read_all(svc->sock[1], &msg, sizeof(msg));
+	switch (msg.cmd) {
+	case RS_SVC_ADD_CM:
+		msg.status = rs_svc_add_rs(svc, msg.rs);
+		if (!msg.status) {
+			msg.rs->opts |= RS_OPT_CM_SVC;
+			fds = svc->contexts;
+			fds[svc->cnt].fd = msg.rs->cm_id->channel->fd;
+			fds[svc->cnt].events = POLLIN;
+			fds[svc->cnt].revents = 0;
+		}
+		break;
+	case RS_SVC_REM_CM:
+		msg.status = rs_svc_rm_rs(svc, msg.rs);
+		if (!msg.status)
+			msg.rs->opts &= ~RS_OPT_CM_SVC;
+		break;
+	case RS_SVC_NOOP:
+		msg.status = 0;
+		break;
+	default:
+		break;
+	}
+	write_all(svc->sock[1], &msg, sizeof(msg));
+}
+
+static void *cm_svc_run(void *arg)
+{
+	struct rs_svc *svc = arg;
+	struct pollfd *fds;
+	struct rs_svc_msg msg;
+	int i, ret;
+
+	ret = rs_svc_grow_sets(svc, 4);
+	if (ret) {
+		msg.status = ret;
+		write_all(svc->sock[1], &msg, sizeof(msg));
+		return (void *) (uintptr_t) ret;
+	}
+
+	fds = svc->contexts;
+	fds[0].fd = svc->sock[1];
+	fds[0].events = POLLIN;
+	do {
+		for (i = 0; i <= svc->cnt; i++)
+			fds[i].revents = 0;
+
+		poll(fds, svc->cnt + 1, -1);
+		if (fds[0].revents)
+			cm_svc_process_sock(svc);
+
+		for (i = 1; i <= svc->cnt; i++) {
+			if (!fds[i].revents)
+				continue;
+
+			if (svc == &listen_svc)
+				rs_accept(svc->rss[i]);
+			else
+				rs_handle_cm_event(svc->rss[i]);
+		}
 	} while (svc->cnt >= 1);
 
 	return NULL;

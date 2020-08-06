@@ -47,6 +47,7 @@
 #include <netdb.h>
 #include <syslog.h>
 #include <limits.h>
+#include <sys/sysmacros.h>
 
 #include "cma.h"
 #include "indexer.h"
@@ -56,6 +57,9 @@
 #include <rdma/rdma_cma_abi.h>
 #include <rdma/rdma_verbs.h>
 #include <infiniband/ib.h>
+#include <util/util.h>
+#include <util/rdma_nl.h>
+#include <ccan/list.h>
 
 #define CMA_INIT_CMD(req, req_size, op)		\
 do {						\
@@ -71,11 +75,15 @@ do {						\
 	(req)->response = (uintptr_t) (resp);	\
 } while (0)
 
+#define UCMA_INVALID_IB_INDEX -1
+
 struct cma_port {
 	uint8_t			link_layer;
 };
 
 struct cma_device {
+	struct ibv_device  *dev;
+	struct list_node    entry;
 	struct ibv_context *verbs;
 	struct ibv_pd	   *pd;
 	struct ibv_xrcd    *xrcd;
@@ -86,6 +94,8 @@ struct cma_device {
 	int		    max_qpsize;
 	uint8_t		    max_initiator_depth;
 	uint8_t		    max_responder_resources;
+	int		    ibv_idx;
+	uint8_t		    is_device_dead : 1;
 };
 
 struct cma_id_private {
@@ -103,6 +113,8 @@ struct cma_id_private {
 	struct ibv_qp_init_attr	*qp_init_attr;
 	uint8_t			initiator_depth;
 	uint8_t			responder_resources;
+	struct ibv_ece		local_ece;
+	struct ibv_ece		remote_ece;
 };
 
 struct cma_multicast {
@@ -125,16 +137,71 @@ struct cma_event {
 	struct cma_multicast	*mc;
 };
 
-static struct cma_device *cma_dev_array;
-static int cma_dev_cnt;
-static int cma_init_cnt;
+static LIST_HEAD(cma_dev_list);
+/* sorted based or index or guid, depends on kernel support */
+static struct ibv_device **dev_list;
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
-static int abi_ver = RDMA_USER_CM_MAX_ABI_VERSION;
+static int abi_ver = -1;
+static char dev_name[64] = "rdma_cm";
+static dev_t dev_cdev;
 int af_ib_support;
 static struct index_map ucma_idm;
 static fastlock_t idm_lock;
 
-static int check_abi_version(void)
+static int check_abi_version_nl_cb(struct nl_msg *msg, void *data)
+{
+	struct nlattr *tb[RDMA_NLDEV_ATTR_MAX];
+	uint64_t cdev64;
+	int ret;
+
+	ret = nlmsg_parse(nlmsg_hdr(msg), 0, tb, RDMA_NLDEV_ATTR_MAX - 1,
+			  rdmanl_policy);
+	if (ret < 0)
+		return ret;
+	if (!tb[RDMA_NLDEV_ATTR_CHARDEV] || !tb[RDMA_NLDEV_ATTR_CHARDEV_ABI] ||
+	    !tb[RDMA_NLDEV_ATTR_CHARDEV_NAME])
+		return NLE_PARSE_ERR;
+
+	/* Convert from huge_encode_dev to whatever glibc uses */
+	cdev64 = nla_get_u64(tb[RDMA_NLDEV_ATTR_CHARDEV]);
+	dev_cdev = makedev((cdev64 & 0xfff00) >> 8,
+			   (cdev64 & 0xff) | ((cdev64 >> 12) & 0xfff00));
+
+	if (!check_snprintf(dev_name, sizeof(dev_name), "%s",
+			    nla_get_string(tb[RDMA_NLDEV_ATTR_CHARDEV_NAME])))
+		return NLE_PARSE_ERR;
+
+	/*
+	 * The top 32 bits of CHARDEV_ABI are reserved for a future use,
+	 * current kernels set them to 0
+	 */
+	abi_ver = (uint32_t)nla_get_u64(tb[RDMA_NLDEV_ATTR_CHARDEV_ABI]);
+
+	return 0;
+}
+
+/* Ask the kernel for the uverbs char device information */
+static int check_abi_version_nl(void)
+{
+	struct nl_sock *nl;
+
+	nl = rdmanl_socket_alloc();
+	if (!nl)
+		return -1;
+	if (rdmanl_get_chardev(nl, -1, "rdma_cm", check_abi_version_nl_cb,
+			       NULL))
+		goto err_socket;
+	if (abi_ver == -1)
+		goto err_socket;
+	nl_socket_free(nl);
+	return 0;
+
+err_socket:
+	nl_socket_free(nl);
+	return -1;
+}
+
+static void check_abi_version_sysfs(void)
 {
 	char value[8];
 
@@ -149,20 +216,29 @@ static int check_abi_version(void)
 		 * backports, assume the most recent version of the ABI.  If
 		 * we're wrong, we'll simply fail later when calling the ABI.
 		 */
-		return 0;
+		abi_ver = RDMA_USER_CM_MAX_ABI_VERSION;
+		return;
+	}
+	abi_ver = strtol(value, NULL, 10);
+	dev_cdev = 0;
+}
+
+static int check_abi_version(void)
+{
+	if (abi_ver == -1) {
+		if (check_abi_version_nl())
+			check_abi_version_sysfs();
 	}
 
-	abi_ver = strtol(value, NULL, 10);
 	if (abi_ver < RDMA_USER_CM_MIN_ABI_VERSION ||
-	    abi_ver > RDMA_USER_CM_MAX_ABI_VERSION) {
+	    abi_ver > RDMA_USER_CM_MAX_ABI_VERSION)
 		return -1;
-	}
 	return 0;
 }
 
 /*
  * This function is called holding the mutex lock
- * cma_dev_cnt must be set before calling this function to
+ * cma_dev_list must be not empty before calling this function to
  * ensure that the lock is not acquired recursively.
  */
 static void ucma_set_af_ib_support(void)
@@ -186,17 +262,136 @@ static void ucma_set_af_ib_support(void)
 	rdma_destroy_id(id);
 }
 
+static struct cma_device *insert_cma_dev(struct ibv_device *dev)
+{
+	struct cma_device *cma_dev, *p;
+
+	cma_dev = calloc(1, sizeof(struct cma_device));
+	if (!cma_dev)
+		return NULL;
+
+	cma_dev->guid = ibv_get_device_guid(dev);
+	cma_dev->ibv_idx = ibv_get_device_index(dev);
+	cma_dev->dev = dev;
+
+	/* reverse iteration, optimized to ibv_idx which is growing */
+	list_for_each_rev(&cma_dev_list, p, entry) {
+		if (cma_dev->ibv_idx == UCMA_INVALID_IB_INDEX) {
+			/* index not available, sort by guid */
+			if (be64toh(p->guid) < be64toh(cma_dev->guid))
+				break;
+		} else {
+			if (p->ibv_idx < cma_dev->ibv_idx)
+				break;
+		}
+	}
+	list_add_after(&cma_dev_list, &p->entry, &cma_dev->entry);
+
+	return cma_dev;
+}
+
+static void remove_cma_dev(struct cma_device *cma_dev)
+{
+	if (cma_dev->refcnt) {
+		/* we were asked to be deleted by sync_devices_list() */
+		cma_dev->is_device_dead = true;
+		return;
+	}
+
+	if (cma_dev->pd)
+		ibv_dealloc_pd(cma_dev->pd);
+	if (cma_dev->xrcd)
+		ibv_close_xrcd(cma_dev->xrcd);
+	if (cma_dev->verbs)
+		ibv_close_device(cma_dev->verbs);
+	list_del_from(&cma_dev_list, &cma_dev->entry);
+	free(cma_dev);
+}
+
+static int dev_cmp(const void *a, const void *b)
+{
+	return (int)(*(char *const *)a - *(char *const *)b);
+}
+
+static int sync_devices_list(void)
+{
+	struct ibv_device **new_list;
+	int i, j, numb_dev;
+
+	new_list = ibv_get_device_list(&numb_dev);
+	if (!new_list)
+		return ERR(ENODEV);
+
+	if (!numb_dev) {
+		ibv_free_device_list(new_list);
+		return ERR(ENODEV);
+	}
+
+	qsort(new_list, numb_dev, sizeof(struct ibv_device *), dev_cmp);
+	if (unlikely(!dev_list)) {
+		/* first sync */
+		for (j = 0; new_list[j]; j++)
+			insert_cma_dev(new_list[j]);
+		goto out;
+	}
+
+	for (i = 0, j = 0; dev_list[i] || new_list[j];) {
+		if (dev_list[i] == new_list[j]) {
+			i++;
+			j++;
+			continue;
+		}
+		/*
+		 * The device list is sorted by pointer address,
+		 * so we need to compare the new list with old one.
+		 *
+		 * 1. If the device exists in new list, but doesn't exist in
+		 * old list, we will add that device to the list.
+		 * 2. If the device exists in old list, but doesn't exist in
+		 * new list, we should delete it.
+		 */
+		if ((dev_list[i] > new_list[j] && new_list[j]) ||
+		    (!dev_list[i] && new_list[j])) {
+			insert_cma_dev(new_list[j++]);
+			continue;
+		}
+		if ((dev_list[i] < new_list[j] && dev_list[i]) ||
+		    (!new_list[j] && dev_list[i])) {
+			/*
+			 * We will try our best to remove the entry,
+			 * but if some process holds it, we will remove it
+			 * later, when rdma-cm will put this resource back.
+			 */
+			struct cma_device *c, *t;
+
+			list_for_each_safe(&cma_dev_list, c, t, entry) {
+				if (c->dev == dev_list[i])
+					remove_cma_dev(c);
+			}
+			i++;
+		}
+	}
+
+	ibv_free_device_list(dev_list);
+out:
+	dev_list = new_list;
+	return 0;
+}
+
 int ucma_init(void)
 {
-	struct ibv_device **dev_list = NULL;
-	int i, ret, dev_cnt;
+	int ret;
 
-	/* Quick check without lock to see if we're already initialized */
-	if (cma_dev_cnt)
+	/*
+	 * ucma_set_af_ib_support() below recursively calls to this function
+	 * again under the &mut lock, so do this fast check and return
+	 * immediately.
+	 */
+	if (!list_empty(&cma_dev_list))
 		return 0;
 
 	pthread_mutex_lock(&mut);
-	if (cma_dev_cnt) {
+	if (!list_empty(&cma_dev_list)) {
 		pthread_mutex_unlock(&mut);
 		return 0;
 	}
@@ -208,60 +403,26 @@ int ucma_init(void)
 		goto err1;
 	}
 
-	dev_list = ibv_get_device_list(&dev_cnt);
-	if (!dev_list) {
-		ret = ERR(ENODEV);
+	ret = sync_devices_list();
+	if (ret)
 		goto err1;
-	}
 
-	if (!dev_cnt) {
-		ret = ERR(ENODEV);
-		goto err2;
-	}
-
-	cma_dev_array = calloc(dev_cnt, sizeof(*cma_dev_array));
-	if (!cma_dev_array) {
-		ret = ERR(ENOMEM);
-		goto err2;
-	}
-
-	for (i = 0; dev_list[i]; i++)
-		cma_dev_array[i].guid = ibv_get_device_guid(dev_list[i]);
-
-	cma_dev_cnt = dev_cnt;
 	ucma_set_af_ib_support();
 	pthread_mutex_unlock(&mut);
-	ibv_free_device_list(dev_list);
 	return 0;
 
-err2:
-	ibv_free_device_list(dev_list);
 err1:
 	fastlock_destroy(&idm_lock);
 	pthread_mutex_unlock(&mut);
 	return ret;
 }
 
-static struct ibv_context *ucma_open_device(__be64 guid)
+static bool match(struct cma_device *cma_dev, __be64 guid, uint32_t idx)
 {
-	struct ibv_device **dev_list;
-	struct ibv_context *verbs = NULL;
-	int i;
+	if (idx == UCMA_INVALID_IB_INDEX)
+		return cma_dev->guid == guid;
 
-	dev_list = ibv_get_device_list(NULL);
-	if (!dev_list) {
-		return NULL;
-	}
-
-	for (i = 0; dev_list[i]; i++) {
-		if (ibv_get_device_guid(dev_list[i]) == guid) {
-			verbs = ibv_open_device(dev_list[i]);
-			break;
-		}
-	}
-
-	ibv_free_device_list(dev_list);
-	return verbs;
+	return cma_dev->ibv_idx == idx && cma_dev->guid == guid;
 }
 
 static int ucma_init_device(struct cma_device *cma_dev)
@@ -273,7 +434,7 @@ static int ucma_init_device(struct cma_device *cma_dev)
 	if (cma_dev->verbs)
 		return 0;
 
-	cma_dev->verbs = ucma_open_device(cma_dev->guid);
+	cma_dev->verbs = ibv_open_device(cma_dev->dev);
 	if (!cma_dev->verbs)
 		return ERR(ENODEV);
 
@@ -300,7 +461,6 @@ static int ucma_init_device(struct cma_device *cma_dev)
 	cma_dev->max_qpsize = attr.max_qp_wr;
 	cma_dev->max_initiator_depth = (uint8_t) attr.max_qp_init_rd_atom;
 	cma_dev->max_responder_resources = (uint8_t) attr.max_qp_rd_atom;
-	cma_init_cnt++;
 	return 0;
 
 err:
@@ -311,20 +471,19 @@ err:
 
 static int ucma_init_all(void)
 {
-	int i, ret = 0;
+	struct cma_device *dev;
+	int ret = 0;
 
-	if (!cma_dev_cnt) {
-		ret = ucma_init();
-		if (ret)
-			return ret;
-	}
-
-	if (cma_init_cnt == cma_dev_cnt)
-		return 0;
+	ret = ucma_init();
+	if (ret)
+		return ret;
 
 	pthread_mutex_lock(&mut);
-	for (i = 0; i < cma_dev_cnt; i++) {
-		ret = ucma_init_device(&cma_dev_array[i]);
+	list_for_each(&cma_dev_list, dev, entry) {
+		if (dev->is_device_dead)
+			continue;
+
+		ret = ucma_init_device(dev);
 		if (ret)
 			break;
 	}
@@ -335,19 +494,47 @@ static int ucma_init_all(void)
 struct ibv_context **rdma_get_devices(int *num_devices)
 {
 	struct ibv_context **devs = NULL;
-	int i;
+	struct cma_device *dev;
+	int cma_dev_cnt = 0;
+	int i = 0;
 
-	if (ucma_init_all())
+	if (ucma_init())
+		goto err_init;
+
+	pthread_mutex_lock(&mut);
+	if (sync_devices_list())
 		goto out;
+
+	list_for_each(&cma_dev_list, dev, entry) {
+		if (dev->is_device_dead)
+			continue;
+
+		/* reinit newly added devices */
+		if (ucma_init_device(dev)) {
+			cma_dev_cnt = 0;
+			/*
+			 * There is no need to uninit already
+			 * initialized devices, due to an error to other device.
+			 */
+			goto out;
+		}
+		cma_dev_cnt++;
+	}
 
 	devs = malloc(sizeof(*devs) * (cma_dev_cnt + 1));
 	if (!devs)
 		goto out;
 
-	for (i = 0; i < cma_dev_cnt; i++)
-		devs[i] = cma_dev_array[i].verbs;
+	list_for_each(&cma_dev_list, dev, entry) {
+		if (dev->is_device_dead)
+			continue;
+		devs[i++] = dev->verbs;
+		dev->refcnt++;
+	}
 	devs[i] = NULL;
 out:
+	pthread_mutex_unlock(&mut);
+err_init:
 	if (num_devices)
 		*num_devices = devs ? cma_dev_cnt : 0;
 	return devs;
@@ -355,6 +542,25 @@ out:
 
 void rdma_free_devices(struct ibv_context **list)
 {
+	struct cma_device *c, *tmp;
+	int i;
+
+	pthread_mutex_lock(&mut);
+	list_for_each_safe(&cma_dev_list, c, tmp, entry) {
+		for (i = 0; list[i]; i++) {
+			if (list[i] != c->verbs)
+				/*
+				 * Skip devices that were added after
+				 * user received the list.
+				 */
+				continue;
+			c->refcnt--;
+			if (c->is_device_dead)
+				/* try to remove */
+				remove_cma_dev(c);
+		}
+	}
+	pthread_mutex_unlock(&mut);
 	free(list);
 }
 
@@ -369,7 +575,7 @@ struct rdma_event_channel *rdma_create_event_channel(void)
 	if (!channel)
 		return NULL;
 
-	channel->fd = open("/dev/infiniband/rdma_cm", O_RDWR | O_CLOEXEC);
+	channel->fd = open_cdev(dev_name, dev_cdev);
 	if (channel->fd < 0) {
 		goto err;
 	}
@@ -385,35 +591,60 @@ void rdma_destroy_event_channel(struct rdma_event_channel *channel)
 	free(channel);
 }
 
-static int ucma_get_device(struct cma_id_private *id_priv, __be64 guid)
+static struct cma_device *ucma_get_cma_device(__be64 guid, uint32_t idx)
 {
 	struct cma_device *cma_dev;
-	int i, ret;
 
-	for (i = 0; i < cma_dev_cnt; i++) {
-		cma_dev = &cma_dev_array[i];
-		if (cma_dev->guid == guid)
+	list_for_each(&cma_dev_list, cma_dev, entry)
+		if (!cma_dev->is_device_dead && match(cma_dev, guid, idx))
 			goto match;
+
+	if (sync_devices_list())
+		return NULL;
+	/*
+	 * Kernel informed us that we have new device and it must
+	 * be in global dev_list[], let's find the right one.
+	 */
+	list_for_each(&cma_dev_list, cma_dev, entry)
+		if (!cma_dev->is_device_dead && match(cma_dev, guid, idx))
+			goto match;
+	cma_dev = NULL;
+match:
+	if (cma_dev)
+		cma_dev->refcnt++;
+	return cma_dev;
+}
+
+static int ucma_get_device(struct cma_id_private *id_priv, __be64 guid,
+			   uint32_t idx)
+{
+	struct cma_device *cma_dev;
+	int ret;
+
+	pthread_mutex_lock(&mut);
+	cma_dev = ucma_get_cma_device(guid, idx);
+	if (!cma_dev) {
+		pthread_mutex_unlock(&mut);
+		return ERR(ENODEV);
 	}
 
-	return ERR(ENODEV);
-match:
-	pthread_mutex_lock(&mut);
-	if ((ret = ucma_init_device(cma_dev)))
+	ret = ucma_init_device(cma_dev);
+	if (ret)
 		goto out;
 
-	if (!cma_dev->refcnt++) {
+	if (!cma_dev->pd)
 		cma_dev->pd = ibv_alloc_pd(cma_dev->verbs);
-		if (!cma_dev->pd) {
-			cma_dev->refcnt--;
-			ret = ERR(ENOMEM);
-			goto out;
-		}
+	if (!cma_dev->pd) {
+		ret = ERR(ENOMEM);
+		goto out;
 	}
+
 	id_priv->cma_dev = cma_dev;
 	id_priv->id.verbs = cma_dev->verbs;
 	id_priv->id.pd = cma_dev->pd;
 out:
+	if (ret)
+		cma_dev->refcnt--;
 	pthread_mutex_unlock(&mut);
 	return ret;
 }
@@ -425,6 +656,10 @@ static void ucma_put_device(struct cma_device *cma_dev)
 		ibv_dealloc_pd(cma_dev->pd);
 		if (cma_dev->xrcd)
 			ibv_close_xrcd(cma_dev->xrcd);
+		cma_dev->pd = NULL;
+		cma_dev->xrcd = NULL;
+		if (cma_dev->is_device_dead)
+			remove_cma_dev(cma_dev);
 	}
 	pthread_mutex_unlock(&mut);
 }
@@ -570,7 +805,7 @@ static int ucma_destroy_kern_id(int fd, uint32_t handle)
 	struct ucma_abi_destroy_id_resp resp;
 	struct ucma_abi_destroy_id cmd;
 	int ret;
-	
+
 	CMA_INIT_CMD_RESP(&cmd, sizeof cmd, DESTROY_ID, &resp, sizeof resp);
 	cmd.id = handle;
 
@@ -628,11 +863,17 @@ static int ucma_query_addr(struct rdma_cm_id *id)
 	struct ucma_abi_query cmd;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	CMA_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY, &resp, sizeof resp);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
 	cmd.option = UCMA_QUERY_ADDR;
+
+	/*
+	 * If kernel doesn't support ibdev_index, this field will
+	 * be left as is by the kernel.
+	 */
+	resp.ibdev_index = UCMA_INVALID_IB_INDEX;
 
 	ret = write(id->channel->fd, &cmd, sizeof cmd);
 	if (ret != sizeof cmd)
@@ -644,7 +885,8 @@ static int ucma_query_addr(struct rdma_cm_id *id)
 	memcpy(&id->route.addr.dst_addr, &resp.dst_addr, resp.dst_size);
 
 	if (!id_priv->cma_dev && resp.node_guid) {
-		ret = ucma_get_device(id_priv, resp.node_guid);
+		ret = ucma_get_device(id_priv, resp.node_guid,
+				      resp.ibdev_index);
 		if (ret)
 			return ret;
 		id->port_num = resp.port_num;
@@ -661,7 +903,7 @@ static int ucma_query_gid(struct rdma_cm_id *id)
 	struct cma_id_private *id_priv;
 	struct sockaddr_ib *sib;
 	int ret;
-	
+
 	CMA_INIT_CMD_RESP(&cmd, sizeof cmd, QUERY, &resp, sizeof resp);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
@@ -759,6 +1001,12 @@ static int ucma_query_route(struct rdma_cm_id *id)
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
 
+	/*
+	 * If kernel doesn't support ibdev_index, this field will
+	 * be left as is by the kernel.
+	 */
+	resp.ibdev_index = UCMA_INVALID_IB_INDEX;
+
 	ret = write(id->channel->fd, &cmd, sizeof cmd);
 	if (ret != sizeof cmd)
 		return (ret >= 0) ? ERR(ENODATA) : -1;
@@ -788,7 +1036,8 @@ static int ucma_query_route(struct rdma_cm_id *id)
 	       sizeof resp.dst_addr);
 
 	if (!id_priv->cma_dev && resp.node_guid) {
-		ret = ucma_get_device(id_priv, resp.node_guid);
+		ret = ucma_get_device(id_priv, resp.node_guid,
+				      resp.ibdev_index);
 		if (ret)
 			return ret;
 		id_priv->id.port_num = resp.port_num;
@@ -803,7 +1052,7 @@ static int rdma_bind_addr2(struct rdma_cm_id *id, struct sockaddr *addr,
 	struct ucma_abi_bind cmd;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	CMA_INIT_CMD(&cmd, sizeof cmd, BIND);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
@@ -825,7 +1074,7 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 	struct ucma_abi_bind_ip cmd;
 	struct cma_id_private *id_priv;
 	int ret, addrlen;
-	
+
 	addrlen = ucma_addrlen(addr);
 	if (!addrlen)
 		return ERR(EINVAL);
@@ -881,7 +1130,7 @@ static int rdma_resolve_addr2(struct rdma_cm_id *id, struct sockaddr *src_addr,
 	struct ucma_abi_resolve_addr cmd;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	CMA_INIT_CMD(&cmd, sizeof cmd, RESOLVE_ADDR);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
@@ -905,7 +1154,7 @@ int rdma_resolve_addr(struct rdma_cm_id *id, struct sockaddr *src_addr,
 	struct ucma_abi_resolve_ip cmd;
 	struct cma_id_private *id_priv;
 	int ret, dst_len, src_len;
-	
+
 	dst_len = ucma_addrlen(dst_addr);
 	if (!dst_len)
 		return ERR(EINVAL);
@@ -930,7 +1179,7 @@ int rdma_resolve_addr(struct rdma_cm_id *id, struct sockaddr *src_addr,
 	if (ret != sizeof cmd)
 		return (ret >= 0) ? ERR(ENODATA) : -1;
 
-	memcpy(&id->route.addr.dst_addr, dst_addr, dst_len);
+	memcpy(&id->route.addr.dst_storage, dst_addr, dst_len);
 	return ucma_complete(id);
 }
 
@@ -991,14 +1240,14 @@ static int ucma_is_ud_qp(enum ibv_qp_type qp_type)
 	return (qp_type == IBV_QPT_UD);
 }
 
-static int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
-			     int *qp_attr_mask)
+int rdma_init_qp_attr(struct rdma_cm_id *id, struct ibv_qp_attr *qp_attr,
+		      int *qp_attr_mask)
 {
 	struct ucma_abi_init_qp_attr cmd;
 	struct ib_uverbs_qp_attr resp;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	CMA_INIT_CMD_RESP(&cmd, sizeof cmd, INIT_QP_ATTR, &resp, sizeof resp);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
@@ -1023,7 +1272,7 @@ static int ucma_modify_qp_rtr(struct rdma_cm_id *id, uint8_t resp_res)
 	uint8_t link_layer;
 
 	if (!id->qp)
-		return ERR(EINVAL);
+		return 0;
 
 	/* Need to update QP attributes from default values. */
 	qp_attr.qp_state = IBV_QPS_INIT;
@@ -1059,6 +1308,9 @@ static int ucma_modify_qp_rts(struct rdma_cm_id *id, uint8_t init_depth)
 {
 	struct ibv_qp_attr qp_attr;
 	int qp_attr_mask, ret;
+
+	if (!id->qp)
+		return 0;
 
 	qp_attr.qp_state = IBV_QPS_RTS;
 	ret = rdma_init_qp_attr(id, &qp_attr, &qp_attr_mask);
@@ -1312,6 +1564,61 @@ void rdma_destroy_srq(struct rdma_cm_id *id)
 	ucma_destroy_cqs(id);
 }
 
+static int init_ece(struct rdma_cm_id *id, struct ibv_qp *qp)
+{
+	struct cma_id_private *id_priv =
+		container_of(id, struct cma_id_private, id);
+	struct ibv_ece ece = {};
+	int ret;
+
+	ret = ibv_query_ece(qp, &ece);
+	if (ret && ret != EOPNOTSUPP)
+		return ERR(ret);
+
+	id_priv->local_ece.vendor_id = ece.vendor_id;
+	id_priv->local_ece.options = ece.options;
+
+	if (!id_priv->remote_ece.vendor_id)
+		/*
+		 * This QP was created explicitly and we don't need
+		 * to do anything additional to the setting local_ece values.
+		 */
+		return 0;
+
+	/* This QP was created due to REQ event */
+	if (id_priv->remote_ece.vendor_id != id_priv->local_ece.vendor_id) {
+		/*
+		 * Signal to the provider that other ECE node is different
+		 * vendor and clear ECE options.
+		 */
+		ece.vendor_id = id_priv->local_ece.vendor_id;
+		ece.options = 0;
+	} else {
+		ece.vendor_id = id_priv->remote_ece.vendor_id;
+		ece.options = id_priv->remote_ece.options;
+	}
+	ret = ibv_set_ece(qp, &ece);
+	return (ret && ret != EOPNOTSUPP) ? ERR(ret) : 0;
+}
+
+static int set_local_ece(struct rdma_cm_id *id, struct ibv_qp *qp)
+{
+	struct cma_id_private *id_priv =
+		container_of(id, struct cma_id_private, id);
+	struct ibv_ece ece = {};
+	int ret;
+
+	if (!id_priv->remote_ece.vendor_id)
+		return 0;
+
+	ret = ibv_query_ece(qp, &ece);
+	if (ret && ret != EOPNOTSUPP)
+		return ERR(ret);
+
+	id_priv->local_ece.options = ece.options;
+	return 0;
+}
+
 int rdma_create_qp_ex(struct rdma_cm_id *id,
 		      struct ibv_qp_init_attr_ex *attr)
 {
@@ -1359,10 +1666,17 @@ int rdma_create_qp_ex(struct rdma_cm_id *id,
 		goto err1;
 	}
 
+	ret = init_ece(id, qp);
+	if (ret)
+		goto err2;
+
 	if (ucma_is_ud_qp(id->qp_type))
 		ret = ucma_init_ud_qp(id_priv, qp);
 	else
 		ret = ucma_init_conn_qp(id_priv, qp);
+	if (ret)
+		goto err2;
+	ret = set_local_ece(id, qp);
 	if (ret)
 		goto err2;
 
@@ -1454,12 +1768,21 @@ static void ucma_copy_conn_param_to_kern(struct cma_id_private *id_priv,
 	}
 }
 
+static void ucma_copy_ece_param_to_kern_req(struct cma_id_private *id_priv,
+					    struct ucma_abi_ece *dst)
+{
+	dst->vendor_id = id_priv->local_ece.vendor_id;
+	dst->attr_mod = id_priv->local_ece.options;
+}
+
 int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 {
+	uint32_t qp_num = conn_param ? conn_param->qp_num : 0;
+	uint8_t srq = conn_param ? conn_param->srq : 0;
 	struct ucma_abi_connect cmd;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	id_priv = container_of(id, struct cma_id_private, id);
 	ret = ucma_valid_param(id_priv, conn_param);
 	if (ret)
@@ -1477,17 +1800,14 @@ int rdma_connect(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	CMA_INIT_CMD(&cmd, sizeof cmd, CONNECT);
 	cmd.id = id_priv->handle;
 	if (id->qp) {
-		ucma_copy_conn_param_to_kern(id_priv, &cmd.conn_param,
-					     conn_param, id->qp->qp_num,
-					     (id->qp->srq != NULL));
-	} else if (conn_param) {
-		ucma_copy_conn_param_to_kern(id_priv, &cmd.conn_param,
-					     conn_param, conn_param->qp_num,
-					     conn_param->srq);
-	} else {
-		ucma_copy_conn_param_to_kern(id_priv, &cmd.conn_param,
-					     conn_param, 0, 0);
+		qp_num = id->qp->qp_num;
+		srq = !!id->qp->srq;
 	}
+
+	ucma_copy_conn_param_to_kern(id_priv, &cmd.conn_param, conn_param,
+				     qp_num, srq);
+
+	ucma_copy_ece_param_to_kern_req(id_priv, &cmd.ece);
 
 	ret = write(id->channel->fd, &cmd, sizeof cmd);
 	if (ret != sizeof cmd)
@@ -1506,7 +1826,7 @@ int rdma_listen(struct rdma_cm_id *id, int backlog)
 	struct ucma_abi_listen cmd;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	CMA_INIT_CMD(&cmd, sizeof cmd, LISTEN);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
@@ -1545,7 +1865,7 @@ int rdma_get_request(struct rdma_cm_id *listen, struct rdma_cm_id **id)
 		ret = ERR(event->status);
 		goto err;
 	}
-	
+
 	if (event->event != RDMA_CM_EVENT_CONNECT_REQUEST) {
 		ret = ERR(EINVAL);
 		goto err;
@@ -1569,8 +1889,18 @@ err:
 	return ret;
 }
 
+static void ucma_copy_ece_param_to_kern_rep(struct cma_id_private *id_priv,
+					    struct ucma_abi_ece *dst)
+{
+	/* Return result with same ID as received. */
+	dst->vendor_id = id_priv->remote_ece.vendor_id;
+	dst->attr_mod = id_priv->local_ece.options;
+}
+
 int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 {
+	uint32_t qp_num = id->qp ? id->qp->qp_num : conn_param->qp_num;
+	uint8_t srq = id->qp ? !!id->qp->srq : conn_param->srq;
 	struct ucma_abi_accept cmd;
 	struct cma_id_private *id_priv;
 	int ret;
@@ -1606,14 +1936,9 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	CMA_INIT_CMD(&cmd, sizeof cmd, ACCEPT);
 	cmd.id = id_priv->handle;
 	cmd.uid = (uintptr_t) id_priv;
-	if (id->qp)
-		ucma_copy_conn_param_to_kern(id_priv, &cmd.conn_param,
-					     conn_param, id->qp->qp_num,
-					     (id->qp->srq != NULL));
-	else
-		ucma_copy_conn_param_to_kern(id_priv, &cmd.conn_param,
-					     conn_param, conn_param->qp_num,
-					     conn_param->srq);
+	ucma_copy_conn_param_to_kern(id_priv, &cmd.conn_param, conn_param,
+				     qp_num, srq);
+	ucma_copy_ece_param_to_kern_rep(id_priv, &cmd.ece);
 
 	ret = write(id->channel->fd, &cmd, sizeof cmd);
 	if (ret != sizeof cmd) {
@@ -1627,13 +1952,13 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
 	return ucma_complete(id);
 }
 
-int rdma_reject(struct rdma_cm_id *id, const void *private_data,
-		uint8_t private_data_len)
+static int reject_with_reason(struct rdma_cm_id *id, const void *private_data,
+			      uint8_t private_data_len, uint8_t reason)
 {
 	struct ucma_abi_reject cmd;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	CMA_INIT_CMD(&cmd, sizeof cmd, REJECT);
 
 	id_priv = container_of(id, struct cma_id_private, id);
@@ -1642,6 +1967,7 @@ int rdma_reject(struct rdma_cm_id *id, const void *private_data,
 		memcpy(cmd.private_data, private_data, private_data_len);
 		cmd.private_data_len = private_data_len;
 	}
+	cmd.reason = reason;
 
 	ret = write(id->channel->fd, &cmd, sizeof cmd);
 	if (ret != sizeof cmd)
@@ -1650,12 +1976,25 @@ int rdma_reject(struct rdma_cm_id *id, const void *private_data,
 	return 0;
 }
 
+int rdma_reject(struct rdma_cm_id *id, const void *private_data,
+		uint8_t private_data_len)
+{
+	return reject_with_reason(id, private_data, private_data_len, 0);
+}
+
+int rdma_reject_ece(struct rdma_cm_id *id, const void *private_data,
+		    uint8_t private_data_len)
+{
+	/* IBTA defines CM_REJ_VENDOR_OPTION_NOT_SUPPORTED as 35 */
+	return reject_with_reason(id, private_data, private_data_len, 35);
+}
+
 int rdma_notify(struct rdma_cm_id *id, enum ibv_event_type event)
 {
 	struct ucma_abi_notify cmd;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	CMA_INIT_CMD(&cmd, sizeof cmd, NOTIFY);
 
 	id_priv = container_of(id, struct cma_id_private, id);
@@ -1712,7 +2051,7 @@ static int rdma_join_multicast2(struct rdma_cm_id *id, struct sockaddr *addr,
 	struct cma_id_private *id_priv;
 	struct cma_multicast *mc, **pos;
 	int ret;
-	
+
 	id_priv = container_of(id, struct cma_id_private, id);
 	mc = calloc(1, sizeof(*mc));
 	if (!mc)
@@ -1806,7 +2145,7 @@ int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
 			void *context)
 {
 	int addrlen;
-	
+
 	addrlen = ucma_addrlen(addr);
 	if (!addrlen)
 		return ERR(EINVAL);
@@ -1822,7 +2161,7 @@ int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
 	struct cma_id_private *id_priv;
 	struct cma_multicast *mc, **pos;
 	int ret, addrlen;
-	
+
 	addrlen = ucma_addrlen(addr);
 	if (!addrlen)
 		return ERR(EINVAL);
@@ -1842,7 +2181,7 @@ int rdma_leave_multicast(struct rdma_cm_id *id, struct sockaddr *addr)
 
 	if (id->qp && (mc->join_flags != RDMA_MC_JOIN_FLAG_SENDONLY_FULLMEMBER))
 		ibv_detach_mcast(id->qp, &mc->mgid, mc->mlid);
-	
+
 	CMA_INIT_CMD_RESP(&cmd, sizeof cmd, LEAVE_MCAST, &resp, sizeof resp);
 	cmd.id = mc->handle;
 
@@ -1951,8 +2290,8 @@ static int ucma_query_req_info(struct rdma_cm_id *id)
 	return 0;
 }
 
-static int ucma_process_conn_req(struct cma_event *evt,
-				 uint32_t handle)
+static int ucma_process_conn_req(struct cma_event *evt, uint32_t handle,
+				 struct ucma_abi_ece *ece)
 {
 	struct cma_id_private *id_priv;
 	int ret;
@@ -1972,6 +2311,8 @@ static int ucma_process_conn_req(struct cma_event *evt,
 	ucma_insert_id(id_priv);
 	id_priv->initiator_depth = evt->event.param.conn.initiator_depth;
 	id_priv->responder_resources = evt->event.param.conn.responder_resources;
+	id_priv->remote_ece.vendor_id = ece->vendor_id;
+	id_priv->remote_ece.options = ece->attr_mod;
 
 	if (evt->id_priv->sync) {
 		ret = rdma_migrate_id(&id_priv->id, NULL);
@@ -2018,6 +2359,50 @@ static int ucma_process_conn_resp(struct cma_id_private *id_priv)
 err:
 	ucma_modify_qp_err(&id_priv->id);
 	return ret;
+}
+
+static int ucma_process_conn_resp_ece(struct cma_id_private *id_priv,
+				      struct ucma_abi_ece *ece)
+{
+	struct ibv_ece ibv_ece = { .vendor_id = ece->vendor_id,
+				   .options = ece->attr_mod };
+	int ret;
+
+	/* This is response handler */
+	if (!ece->vendor_id) {
+		/*
+		 * Kernel or user-space doesn't support ECE transfer,
+		 * clear everything.
+		 */
+		ibv_ece.vendor_id = id_priv->local_ece.vendor_id;
+		ibv_ece.options = 0;
+	} else if (ece->vendor_id != id_priv->local_ece.vendor_id) {
+		/*
+		 * At this point remote vendor_id should be the same
+		 * as the local one, or something bad happened in
+		 * ECE handshake implementation.
+		 */
+		ucma_modify_qp_err(&id_priv->id);
+		return ERR(EINVAL);
+	}
+
+	id_priv->remote_ece.vendor_id = ece->vendor_id;
+	ret = ibv_set_ece(id_priv->id.qp, &ibv_ece);
+	if (ret && ret != EOPNOTSUPP)
+		return ret;
+
+	ret = ucma_process_conn_resp(id_priv);
+	if (ret)
+		return ret;
+
+	ret = ibv_query_ece(id_priv->id.qp, &ibv_ece);
+	if (ret && ret != EOPNOTSUPP) {
+		ucma_modify_qp_err(&id_priv->id);
+		return ret;
+	}
+
+	id_priv->local_ece.options = (ret == EOPNOTSUPP) ? 0 : ibv_ece.options;
+	return 0;
 }
 
 static int ucma_process_join(struct cma_event *evt)
@@ -2074,10 +2459,22 @@ static void ucma_copy_ud_event(struct cma_event *event,
 	dst->qkey = src->qkey;
 }
 
+int rdma_establish(struct rdma_cm_id *id)
+{
+	if (id->qp)
+		return ERR(EINVAL);
+
+	/* id->qp is NULL, so ucma_process_conn_resp() will only send ACCEPT to
+	 * the passive side, and will not attempt to modify the QP.
+	 */
+	return ucma_process_conn_resp(container_of(id, struct cma_id_private,
+						   id));
+}
+
 int rdma_get_cm_event(struct rdma_event_channel *channel,
 		      struct rdma_cm_event **event)
 {
-	struct ucma_abi_event_resp resp;
+	struct ucma_abi_event_resp resp = {};
 	struct ucma_abi_get_event cmd;
 	struct cma_event *evt;
 	int ret;
@@ -2101,7 +2498,7 @@ retry:
 		free(evt);
 		return (ret >= 0) ? ERR(ENODATA) : -1;
 	}
-	
+
 	VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	evt->event.event = resp.event;
@@ -2144,18 +2541,25 @@ retry:
 		else
 			ucma_copy_conn_event(evt, &resp.param.conn);
 
-		ret = ucma_process_conn_req(evt, resp.id);
+		ret = ucma_process_conn_req(evt, resp.id, &resp.ece);
 		if (ret)
 			goto retry;
 		break;
 	case RDMA_CM_EVENT_CONNECT_RESPONSE:
 		ucma_copy_conn_event(evt, &resp.param.conn);
-		evt->event.status = ucma_process_conn_resp(evt->id_priv);
-		if (!evt->event.status)
-			evt->event.event = RDMA_CM_EVENT_ESTABLISHED;
-		else {
-			evt->event.event = RDMA_CM_EVENT_CONNECT_ERROR;
-			evt->id_priv->connect_error = 1;
+		if (!evt->id_priv->id.qp) {
+			evt->event.event = RDMA_CM_EVENT_CONNECT_RESPONSE;
+			evt->id_priv->remote_ece.vendor_id = resp.ece.vendor_id;
+			evt->id_priv->remote_ece.options = resp.ece.attr_mod;
+		} else {
+			evt->event.status = ucma_process_conn_resp_ece(
+				evt->id_priv, &resp.ece);
+			if (!evt->event.status)
+				evt->event.event = RDMA_CM_EVENT_ESTABLISHED;
+			else {
+				evt->event.event = RDMA_CM_EVENT_CONNECT_ERROR;
+				evt->id_priv->connect_error = 1;
+			}
 		}
 		break;
 	case RDMA_CM_EVENT_ESTABLISHED:
@@ -2258,7 +2662,7 @@ int rdma_set_option(struct rdma_cm_id *id, int level, int optname,
 	struct ucma_abi_set_option cmd;
 	struct cma_id_private *id_priv;
 	int ret;
-	
+
 	CMA_INIT_CMD(&cmd, sizeof cmd, SET_OPTION);
 	id_priv = container_of(id, struct cma_id_private, id);
 	cmd.id = id_priv->handle;
@@ -2442,17 +2846,20 @@ void rdma_destroy_ep(struct rdma_cm_id *id)
 int ucma_max_qpsize(struct rdma_cm_id *id)
 {
 	struct cma_id_private *id_priv;
-	int i, max_size = 0;
+	struct cma_device *dev;
+	int max_size = 0;
 
 	id_priv = container_of(id, struct cma_id_private, id);
 	if (id && id_priv->cma_dev) {
 		max_size = id_priv->cma_dev->max_qpsize;
 	} else {
 		ucma_init_all();
-		for (i = 0; i < cma_dev_cnt; i++) {
-			if (!max_size || max_size > cma_dev_array[i].max_qpsize)
-				max_size = cma_dev_array[i].max_qpsize;
-		}
+		pthread_mutex_lock(&mut);
+		list_for_each(&cma_dev_list, dev, entry)
+			if (!dev->is_device_dead &&
+			    (!max_size || max_size > dev->max_qpsize))
+				max_size = dev->max_qpsize;
+		pthread_mutex_unlock(&mut);
 	}
 	return max_size;
 }
@@ -2481,3 +2888,31 @@ __be16 rdma_get_dst_port(struct rdma_cm_id *id)
 	return ucma_get_port(&id->route.addr.dst_addr);
 }
 
+int rdma_set_local_ece(struct rdma_cm_id *id, struct ibv_ece *ece)
+{
+	struct cma_id_private *id_priv;
+
+	if (!id || id->qp || !ece || !ece->vendor_id || ece->comp_mask)
+		return ERR(EINVAL);
+
+	id_priv = container_of(id, struct cma_id_private, id);
+	id_priv->local_ece.vendor_id = ece->vendor_id;
+	id_priv->local_ece.options = ece->options;
+
+	return 0;
+}
+
+int rdma_get_remote_ece(struct rdma_cm_id *id, struct ibv_ece *ece)
+{
+	struct cma_id_private *id_priv;
+
+	if (!id || id->qp || !ece)
+		return ERR(EINVAL);
+
+	id_priv = container_of(id, struct cma_id_private, id);
+	ece->vendor_id = id_priv->remote_ece.vendor_id;
+	ece->options = id_priv->remote_ece.options;
+	ece->comp_mask = 0;
+
+	return 0;
+}

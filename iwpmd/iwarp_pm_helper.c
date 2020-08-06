@@ -352,7 +352,7 @@ static iwpm_mapped_port *get_iwpm_port(int client_idx, struct sockaddr_storage *
  * @local_addr: local address to be mapped (IP address and TCP port)
  * @client_idx: the index of the client owner of the mapped port
  */
-iwpm_mapped_port *create_iwpm_mapped_port(struct sockaddr_storage *local_addr, int client_idx)
+iwpm_mapped_port *create_iwpm_mapped_port(struct sockaddr_storage *local_addr, int client_idx, __u32 flags)
 {
 	iwpm_mapped_port *iwpm_port;
 	struct sockaddr_storage mapped_addr;
@@ -362,8 +362,13 @@ iwpm_mapped_port *create_iwpm_mapped_port(struct sockaddr_storage *local_addr, i
 	if (get_iwpm_ip_addr(local_addr, &mapped_addr))
 		goto create_mapped_port_error;
 	/* get a tcp port from the host net stack */
-	if (get_iwpm_tcp_port(local_addr->ss_family, 0, &mapped_addr, &new_sd))
-		goto create_mapped_port_error;
+	if (flags & IWPM_FLAGS_NO_PORT_MAP) {
+		mapped_addr = *local_addr;
+		new_sd = -1;
+	} else {
+		if (get_iwpm_tcp_port(local_addr->ss_family, 0, &mapped_addr, &new_sd))
+			goto create_mapped_port_error;
+	}
 
 	iwpm_port = get_iwpm_port(client_idx, local_addr, &mapped_addr, new_sd);
 	return iwpm_port;
@@ -380,10 +385,11 @@ create_mapped_port_error:
  * @client_idx: the index of the client owner of the mapped port
  */
 iwpm_mapped_port *reopen_iwpm_mapped_port(struct sockaddr_storage *local_addr,
-						struct sockaddr_storage *mapped_addr, int client_idx)
+						struct sockaddr_storage *mapped_addr, int client_idx,
+						__u32 flags)
 {
 	iwpm_mapped_port *iwpm_port;
-	int new_sd;
+	int new_sd = -1;
 	const char *str_err = "";
 	int ret = check_iwpm_ip_addr(local_addr);
 	if (ret) {
@@ -394,16 +400,18 @@ iwpm_mapped_port *reopen_iwpm_mapped_port(struct sockaddr_storage *local_addr,
 		str_err = "Different local and mapped sockaddr families";
 		goto reopen_mapped_port_error;
 	}
-	/* get a tcp port from the host net stack */
-	if (get_iwpm_tcp_port(local_addr->ss_family, htobe16(1), mapped_addr, &new_sd))
-		goto reopen_mapped_port_error;
-
+	if (!(flags & IWPM_FLAGS_NO_PORT_MAP)) {
+		if (get_iwpm_tcp_port(local_addr->ss_family, htobe16(1), mapped_addr, &new_sd))
+			goto reopen_mapped_port_error;
+	}
 	iwpm_port = get_iwpm_port(client_idx, local_addr, mapped_addr, new_sd);
 	return iwpm_port;
 
 reopen_mapped_port_error:
 	iwpm_debug(IWARP_PM_ALL_DBG, "reopen_iwpm_mapped_port: Could not make port mapping (%s).\n",
 			str_err);
+	if (new_sd >= 0)
+		close(new_sd);
 	return NULL;
 }
 
@@ -520,7 +528,8 @@ find_same_mapping_exit:
  */
 void free_iwpm_port(iwpm_mapped_port *iwpm_port)
 {
-	close(iwpm_port->sd);
+	if (iwpm_port->sd != -1)
+		close(iwpm_port->sd);
 	free(iwpm_port);
 }
 
@@ -569,7 +578,7 @@ void form_iwpm_send_msg(int pm_sock, struct sockaddr_storage *dest,
  */
 int add_iwpm_pending_msg(iwpm_send_msg *send_msg)
 {
-	iwpm_pending_msg *pending_msg = (iwpm_pending_msg *)malloc(sizeof(iwpm_pending_msg));
+	iwpm_pending_msg *pending_msg = malloc(sizeof(iwpm_pending_msg));
 	if (!pending_msg) {
 		syslog(LOG_WARNING, "add_iwpm_pending_msg: Unable to allocate message.\n");
 		return -ENOMEM;

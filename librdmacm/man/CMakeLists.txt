@@ -20,6 +20,7 @@ rdma_man_pages(
   rdma_destroy_qp.3
   rdma_destroy_srq.3
   rdma_disconnect.3
+  rdma_establish.3.md
   rdma_event_str.3
   rdma_free_devices.3
   rdma_get_cm_event.3
@@ -28,10 +29,12 @@ rdma_man_pages(
   rdma_get_local_addr.3
   rdma_get_peer_addr.3
   rdma_get_recv_comp.3
+  rdma_get_remote_ece.3.md
   rdma_get_request.3
   rdma_get_send_comp.3
   rdma_get_src_port.3
   rdma_getaddrinfo.3
+  rdma_init_qp_attr.3.md
   rdma_join_multicast.3
   rdma_join_multicast_ex.3
   rdma_leave_multicast.3
@@ -54,6 +57,7 @@ rdma_man_pages(
   rdma_resolve_addr.3
   rdma_resolve_route.3
   rdma_server.1
+  rdma_set_local_ece.3.md
   rdma_set_option.3
   rdma_xclient.1
   rdma_xserver.1

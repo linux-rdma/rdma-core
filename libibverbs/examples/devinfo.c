@@ -40,6 +40,7 @@
 #include <getopt.h>
 #include <endian.h>
 #include <inttypes.h>
+#include <arpa/inet.h>
 
 #include <infiniband/verbs.h>
 #include <infiniband/driver.h>
@@ -70,6 +71,7 @@ static const char *transport_str(enum ibv_transport_type transport)
 	case IBV_TRANSPORT_IWARP:	return "iWARP";
 	case IBV_TRANSPORT_USNIC:	return "usNIC";
 	case IBV_TRANSPORT_USNIC_UDP:	return "usNIC UDP";
+	case IBV_TRANSPORT_UNSPECIFIED:	return "unspecified";
 	default:			return "invalid transport";
 	}
 }
@@ -128,6 +130,7 @@ static const char *width_str(uint8_t width)
 	case 2:  return "4";
 	case 4:  return "8";
 	case 8:  return "12";
+	case 16: return "2";
 	default: return "invalid width";
 	}
 }
@@ -143,6 +146,7 @@ static const char *speed_str(uint8_t speed)
 
 	case 16: return "14.0 Gbps";
 	case 32: return "25.0 Gbps";
+	case 64: return "50.0 Gbps";
 	default: return "invalid speed";
 	}
 }
@@ -159,12 +163,50 @@ static const char *vl_str(uint8_t vl_num)
 	}
 }
 
-static int print_all_port_gids(struct ibv_context *ctx, uint8_t port_num, int tbl_len)
+#define DEVINFO_INVALID_GID_TYPE	2
+static const char *gid_type_str(enum ibv_gid_type type)
 {
+	switch (type) {
+	case IBV_GID_TYPE_IB_ROCE_V1: return "RoCE v1";
+	case IBV_GID_TYPE_ROCE_V2: return "RoCE v2";
+	default: return "Invalid gid type";
+	}
+}
+
+static void print_formated_gid(union ibv_gid *gid, int i,
+			       enum ibv_gid_type type, int ll)
+{
+	char gid_str[INET6_ADDRSTRLEN] = {};
+	char str[20] = {};
+
+	if (ll == IBV_LINK_LAYER_ETHERNET)
+		sprintf(str, ", %s", gid_type_str(type));
+
+	if (type == IBV_GID_TYPE_IB_ROCE_V1)
+		printf("\t\t\tGID[%3d]:\t\t%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x%s\n",
+		       i, gid->raw[0], gid->raw[1], gid->raw[2],
+		       gid->raw[3], gid->raw[4], gid->raw[5], gid->raw[6],
+		       gid->raw[7], gid->raw[8], gid->raw[9], gid->raw[10],
+		       gid->raw[11], gid->raw[12], gid->raw[13], gid->raw[14],
+		       gid->raw[15], str);
+
+	if (type == IBV_GID_TYPE_ROCE_V2) {
+		inet_ntop(AF_INET6, gid->raw, gid_str, sizeof(gid_str));
+		printf("\t\t\tGID[%3d]:\t\t%s%s\n", i, gid_str, str);
+	}
+}
+
+static int print_all_port_gids(struct ibv_context *ctx,
+			       struct ibv_port_attr *port_attr,
+			       uint8_t port_num)
+{
+	enum ibv_gid_type type;
 	union ibv_gid gid;
+	int tbl_len;
 	int rc = 0;
 	int i;
 
+	tbl_len = port_attr->gid_tbl_len;
 	for (i = 0; i < tbl_len; i++) {
 		rc = ibv_query_gid(ctx, port_num, i, &gid);
 		if (rc) {
@@ -172,17 +214,15 @@ static int print_all_port_gids(struct ibv_context *ctx, uint8_t port_num, int tb
 			       port_num, i);
 			return rc;
 		}
+
+		rc = ibv_query_gid_type(ctx, port_num, i, &type);
+		if (rc) {
+			rc = 0;
+			type = DEVINFO_INVALID_GID_TYPE;
+		}
 		if (!null_gid(&gid))
-			printf("\t\t\tGID[%3d]:\t\t%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n",
-			       i,
-			       gid.raw[ 0], gid.raw[ 1],
-			       gid.raw[ 2], gid.raw[ 3],
-			       gid.raw[ 4], gid.raw[ 5],
-			       gid.raw[ 6], gid.raw[ 7],
-			       gid.raw[ 8], gid.raw[ 9],
-			       gid.raw[10], gid.raw[11],
-			       gid.raw[12], gid.raw[13],
-			       gid.raw[14], gid.raw[15]);
+			print_formated_gid(&gid, i, type,
+					   port_attr->link_layer);
 	}
 	return rc;
 }
@@ -286,7 +326,8 @@ static void print_odp_trans_caps(uint32_t trans)
 					    IBV_ODP_SUPPORT_RECV |
 					    IBV_ODP_SUPPORT_WRITE |
 					    IBV_ODP_SUPPORT_READ |
-					    IBV_ODP_SUPPORT_ATOMIC);
+					    IBV_ODP_SUPPORT_ATOMIC |
+					    IBV_ODP_SUPPORT_SRQ_RECV);
 
 	if (!trans) {
 		printf("\t\t\t\t\tNO SUPPORT\n");
@@ -301,20 +342,26 @@ static void print_odp_trans_caps(uint32_t trans)
 			printf("\t\t\t\t\tSUPPORT_READ\n");
 		if (trans & IBV_ODP_SUPPORT_ATOMIC)
 			printf("\t\t\t\t\tSUPPORT_ATOMIC\n");
+		if (trans & IBV_ODP_SUPPORT_SRQ_RECV)
+			printf("\t\t\t\t\tSUPPORT_SRQ\n");
 		if (trans & unknown_transport_caps)
 			printf("\t\t\t\t\tUnknown flags: 0x%" PRIX32 "\n",
 			       trans & unknown_transport_caps);
 	}
 }
 
-static void print_odp_caps(const struct ibv_odp_caps *caps)
+static void print_odp_caps(const struct ibv_device_attr_ex *device_attr)
 {
-	uint64_t unknown_general_caps = ~(IBV_ODP_SUPPORT);
+	uint64_t unknown_general_caps = ~(IBV_ODP_SUPPORT |
+					  IBV_ODP_SUPPORT_IMPLICIT);
+	const struct ibv_odp_caps *caps = &device_attr->odp_caps;
 
 	/* general odp caps */
 	printf("\tgeneral_odp_caps:\n");
 	if (caps->general_caps & IBV_ODP_SUPPORT)
 		printf("\t\t\t\t\tODP_SUPPORT\n");
+	if (caps->general_caps & IBV_ODP_SUPPORT_IMPLICIT)
+		printf("\t\t\t\t\tODP_SUPPORT_IMPLICIT\n");
 	if (caps->general_caps & unknown_general_caps)
 		printf("\t\t\t\t\tUnknown flags: 0x%" PRIX64 "\n",
 		       caps->general_caps & unknown_general_caps);
@@ -326,6 +373,8 @@ static void print_odp_caps(const struct ibv_odp_caps *caps)
 	print_odp_trans_caps(caps->per_transport_caps.uc_odp_caps);
 	printf("\tud_odp_caps:\n");
 	print_odp_trans_caps(caps->per_transport_caps.ud_odp_caps);
+	printf("\txrc_odp_caps:\n");
+	print_odp_trans_caps(device_attr->xrc_odp_caps);
 }
 
 static void print_device_cap_flags_ex(uint64_t device_cap_flags_ex)
@@ -364,10 +413,10 @@ static void print_tso_caps(const struct ibv_tso_caps *caps)
 	uint32_t unknown_general_caps = ~(1 << IBV_QPT_RAW_PACKET |
 					  1 << IBV_QPT_UD);
 	printf("\ttso_caps:\n");
-	printf("\tmax_tso:\t\t\t%d\n", caps->max_tso);
+	printf("\t\tmax_tso:\t\t\t%d\n", caps->max_tso);
 
 	if (caps->max_tso) {
-		printf("\tsupported_qp:\n");
+		printf("\t\tsupported_qp:\n");
 		if (ibv_is_qpt_supported(caps->supported_qpts, IBV_QPT_RAW_PACKET))
 			printf("\t\t\t\t\tSUPPORT_RAW_PACKET\n");
 		if (ibv_is_qpt_supported(caps->supported_qpts, IBV_QPT_UD))
@@ -529,7 +578,7 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		printf("\tmax_pkeys:\t\t\t%d\n", device_attr.orig_attr.max_pkeys);
 		printf("\tlocal_ca_ack_delay:\t\t%d\n", device_attr.orig_attr.local_ca_ack_delay);
 
-		print_odp_caps(&device_attr.odp_caps);
+		print_odp_caps(&device_attr);
 		if (device_attr.completion_timestamp_mask)
 			printf("\tcompletion timestamp_mask:\t\t\t0x%016" PRIx64 "\n",
 			       device_attr.completion_timestamp_mask);
@@ -584,6 +633,7 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		if (verbose) {
 			printf("\t\t\tmax_msg_sz:\t\t0x%x\n", port_attr.max_msg_sz);
 			printf("\t\t\tport_cap_flags:\t\t0x%08x\n", port_attr.port_cap_flags);
+			printf("\t\t\tport_cap_flags2:\t0x%04x\n", port_attr.port_cap_flags2);
 			printf("\t\t\tmax_vl_num:\t\t%s (%d)\n",
 			       vl_str(port_attr.max_vl_num), port_attr.max_vl_num);
 			printf("\t\t\tbad_pkey_cntr:\t\t0x%x\n", port_attr.bad_pkey_cntr);
@@ -601,7 +651,7 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 				printf("\t\t\tphys_state:\t\t%s (%d)\n",
 				       port_phy_state_str(port_attr.phys_state), port_attr.phys_state);
 
-			if (print_all_port_gids(ctx, port, port_attr.gid_tbl_len))
+			if (print_all_port_gids(ctx, &port_attr, port))
 				goto cleanup;
 		}
 		printf("\n");

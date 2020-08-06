@@ -44,6 +44,7 @@
 #include <stdbool.h>
 #include <rdma/rdma_user_ioctl_cmds.h>
 #include <infiniband/cmd_ioctl.h>
+#include <sys/types.h>
 
 struct verbs_device;
 
@@ -58,17 +59,8 @@ struct verbs_xrcd {
 	uint32_t		handle;
 };
 
-enum verbs_srq_mask {
-	VERBS_SRQ_TYPE		= 1 << 0,
-	VERBS_SRQ_XRCD		= 1 << 1,
-	VERBS_SRQ_CQ		= 1 << 2,
-	VERBS_SRQ_NUM		= 1 << 3,
-	VERBS_SRQ_RESERVED	= 1 << 4
-};
-
 struct verbs_srq {
 	struct ibv_srq		srq;
-	uint32_t		comp_mask;
 	enum ibv_srq_type	srq_type;
 	struct verbs_xrcd      *xrcd;
 	struct ibv_cq	       *cq;
@@ -77,7 +69,7 @@ struct verbs_srq {
 
 enum verbs_qp_mask {
 	VERBS_QP_XRCD		= 1 << 0,
-	VERBS_QP_RESERVED	= 1 << 1
+	VERBS_QP_EX		= 1 << 1,
 };
 
 enum ibv_gid_type {
@@ -88,6 +80,7 @@ enum ibv_gid_type {
 enum ibv_mr_type {
 	IBV_MR_TYPE_MR,
 	IBV_MR_TYPE_NULL_MR,
+	IBV_MR_TYPE_IMPORTED_MR,
 };
 
 struct verbs_mr {
@@ -101,9 +94,20 @@ static inline struct verbs_mr *verbs_get_mr(struct ibv_mr *mr)
 }
 
 struct verbs_qp {
-	struct ibv_qp		qp;
+	union {
+		struct ibv_qp qp;
+		struct ibv_qp_ex qp_ex;
+	};
 	uint32_t		comp_mask;
 	struct verbs_xrcd       *xrcd;
+};
+static_assert(offsetof(struct ibv_qp_ex, qp_base) == 0, "Invalid qp layout");
+
+struct verbs_cq {
+	union {
+		struct ibv_cq cq;
+		struct ibv_cq_ex cq_ex;
+	};
 };
 
 enum ibv_flow_action_type {
@@ -126,16 +130,27 @@ enum {
 	VERBS_MATCH_SENTINEL = 0,
 	VERBS_MATCH_PCI = 1,
 	VERBS_MATCH_MODALIAS = 2,
+	VERBS_MATCH_DRIVER_ID = 3,
 };
 
 struct verbs_match_ent {
 	void *driver_data;
-	const char *modalias;
+	union {
+		const char *modalias;
+		uint64_t driver_id;
+	} u;
 	uint16_t vendor;
 	uint16_t device;
 	uint8_t kind;
 };
-#define VERBS_PCI_MATCH(_vendor, _device, _data)                               \
+#define VERBS_DRIVER_ID(_id)                                                   \
+	{                                                                      \
+		.u.driver_id = (_id), .kind = VERBS_MATCH_DRIVER_ID,           \
+	}
+/* Note: New drivers should only use VERBS_DRIVER_ID, the below are for legacy
+ * drivers
+ */
+#define VERBS_PCI_MATCH(_vendor, _device, _data)			\
 	{                                                                      \
 	    .driver_data = (void *)(_data),				       \
 	    .vendor = (_vendor),                                               \
@@ -146,7 +161,7 @@ struct verbs_match_ent {
 #define VERBS_MODALIAS_MATCH(_mod_str, _data)                                  \
 	{                                                                      \
 	    .driver_data = (void *)(_data),			               \
-	    .modalias = (_mod_str),                                            \
+	    .u.modalias = (_mod_str),                                          \
 	    .kind = VERBS_MATCH_MODALIAS,                                      \
 	}
 
@@ -158,21 +173,33 @@ struct verbs_match_ent {
 #define VERBS_NAME_MATCH(_name_prefix, _data)                                  \
 	{                                                                      \
 	    .driver_data = (_data),                                            \
-	    .modalias = "rdma_device:*N" _name_prefix "*",                     \
+	    .u.modalias = "rdma_device:*N" _name_prefix "*",                   \
 	    .kind = VERBS_MATCH_MODALIAS,                                      \
 	}
+
+enum {
+	VSYSFS_READ_MODALIAS = 1 << 0,
+	VSYSFS_READ_NODE_GUID = 1 << 1,
+	VSYSFS_READ_FW_VER = 1 << 2,
+};
 
 /* A rdma device detected in sysfs */
 struct verbs_sysfs_dev {
 	struct list_node entry;
 	void *provider_data;
 	const struct verbs_match_ent *match;
+	unsigned int flags;
 	char sysfs_name[IBV_SYSFS_NAME_MAX];
+	dev_t sysfs_cdev;
 	char ibdev_name[IBV_SYSFS_NAME_MAX];
-	char sysfs_path[IBV_SYSFS_PATH_MAX];
 	char ibdev_path[IBV_SYSFS_PATH_MAX];
 	char modalias[512];
-	int abi_ver;
+	char fw_ver[64];
+	uint64_t node_guid;
+	uint32_t driver_id;
+	enum ibv_node_type node_type;
+	int ibdev_idx;
+	uint32_t abi_ver;
 	struct timespec time_created;
 };
 
@@ -180,16 +207,18 @@ struct verbs_sysfs_dev {
 struct verbs_device_ops {
 	const char *name;
 
-	int match_min_abi_version;
-	int match_max_abi_version;
+	uint32_t match_min_abi_version;
+	uint32_t match_max_abi_version;
 	const struct verbs_match_ent *match_table;
+	const struct verbs_device_ops **static_providers;
 
 	bool (*match_device)(struct verbs_sysfs_dev *sysfs_dev);
 
 	struct verbs_context *(*alloc_context)(struct ibv_device *device,
 					       int cmd_fd,
 					       void *private_data);
-	void (*free_context)(struct ibv_context *context);
+	struct verbs_context *(*import_context)(struct ibv_device *device,
+						int cmd_fd);
 
 	struct verbs_device *(*alloc_device)(struct verbs_sysfs_dev *sysfs_dev);
 	void (*uninit_device)(struct verbs_device *device);
@@ -202,6 +231,7 @@ struct verbs_device {
 	atomic_int refcount;
 	struct list_node entry;
 	struct verbs_sysfs_dev *sysfs;
+	uint64_t core_support;
 };
 
 struct verbs_counters {
@@ -217,6 +247,11 @@ struct verbs_counters {
  * Keep sorted.
  */
 struct verbs_context_ops {
+	int (*advise_mr)(struct ibv_pd *pd,
+			 enum ibv_advise_mr_advice advice,
+			 uint32_t flags,
+			 struct ibv_sge *sg_list,
+			 uint32_t num_sges);
 	struct ibv_dm *(*alloc_dm)(struct ibv_context *context,
 				   struct ibv_alloc_dm_attr *attr);
 	struct ibv_mw *(*alloc_mw)(struct ibv_pd *pd, enum ibv_mw_type type);
@@ -227,7 +262,7 @@ struct verbs_context_ops {
 	struct ibv_pd *(*alloc_pd)(struct ibv_context *context);
 	struct ibv_td *(*alloc_td)(struct ibv_context *context,
 				   struct ibv_td_init_attr *init_attr);
-	void (*async_event)(struct ibv_async_event *event);
+	void (*async_event)(struct ibv_context *context, struct ibv_async_event *event);
 	int (*attach_counters_point_flow)(struct ibv_counters *counters,
 					  struct ibv_counter_attach_attr *attr,
 					  struct ibv_flow *flow);
@@ -281,8 +316,13 @@ struct verbs_context_ops {
 	int (*destroy_wq)(struct ibv_wq *wq);
 	int (*detach_mcast)(struct ibv_qp *qp, const union ibv_gid *gid,
 			    uint16_t lid);
+	void (*free_context)(struct ibv_context *context);
 	int (*free_dm)(struct ibv_dm *dm);
 	int (*get_srq_num)(struct ibv_srq *srq, uint32_t *srq_num);
+	struct ibv_mr *(*import_mr)(struct ibv_pd *pd,
+				    uint32_t mr_handle);
+	struct ibv_pd *(*import_pd)(struct ibv_context *context,
+				    uint32_t pd_handle);
 	int (*modify_cq)(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 	int (*modify_flow_action_esp)(struct ibv_flow_action *action,
 				      struct ibv_flow_action_esp_attr *attr);
@@ -313,6 +353,7 @@ struct verbs_context_ops {
 			       const struct ibv_query_device_ex_input *input,
 			       struct ibv_device_attr_ex *attr,
 			       size_t attr_size);
+	int (*query_ece)(struct ibv_qp *qp, struct ibv_ece *ece);
 	int (*query_port)(struct ibv_context *context, uint8_t port_num,
 			  struct ibv_port_attr *port_attr);
 	int (*query_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
@@ -328,11 +369,14 @@ struct verbs_context_ops {
 				    uint64_t dm_offset, size_t length,
 				    unsigned int access);
 	struct ibv_mr *(*reg_mr)(struct ibv_pd *pd, void *addr, size_t length,
-				 int access);
+				 uint64_t hca_va, int access);
 	int (*req_notify_cq)(struct ibv_cq *cq, int solicited_only);
 	int (*rereg_mr)(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 			void *addr, size_t length, int access);
 	int (*resize_cq)(struct ibv_cq *cq, int cqe);
+	int (*set_ece)(struct ibv_qp *qp, struct ibv_ece *ece);
+	void (*unimport_mr)(struct ibv_mr *mr);
+	void (*unimport_pd)(struct ibv_pd *pd);
 };
 
 static inline struct verbs_device *
@@ -355,11 +399,18 @@ typedef struct verbs_device *(*verbs_driver_init_func)(const char *uverbs_sys_pa
 
 void verbs_register_driver(const struct verbs_device_ops *ops);
 
-/* Macro for providers to use to supply verbs_device_ops to the core code */
-#define PROVIDER_DRIVER(drv)                                                   \
+/*
+ * Macro for providers to use to supply verbs_device_ops to the core code.
+ * This creates a global symbol for the provider structure to be used by the
+ * ibv_static_providers() machinery, and a global constructor for the dlopen
+ * machinery.
+ */
+#define PROVIDER_DRIVER(provider_name, drv_struct)                             \
+	extern const struct verbs_device_ops verbs_provider_##provider_name    \
+		__attribute__((alias(stringify(drv_struct))));                 \
 	static __attribute__((constructor)) void drv##__register_driver(void)  \
 	{                                                                      \
-		verbs_register_driver(&drv);                                   \
+		verbs_register_driver(&drv_struct);                            \
 	}
 
 void *_verbs_init_and_alloc_context(struct ibv_device *device, int cmd_fd,
@@ -389,6 +440,8 @@ struct ibv_context *verbs_open_device(struct ibv_device *device,
 int ibv_cmd_get_context(struct verbs_context *context,
 			struct ibv_get_context *cmd, size_t cmd_size,
 			struct ib_uverbs_get_context_resp *resp, size_t resp_size);
+int ibv_cmd_query_context(struct ibv_context *ctx,
+			  struct ibv_command_buffer *driver);
 int ibv_cmd_query_device(struct ibv_context *context,
 			 struct ibv_device_attr *device_attr,
 			 uint64_t *raw_fw_ver,
@@ -405,14 +458,13 @@ int ibv_cmd_query_device_ex(struct ibv_context *context,
 			    struct ibv_device_attr_ex *attr, size_t attr_size,
 			    uint64_t *raw_fw_ver,
 			    struct ibv_query_device_ex *cmd,
-			    size_t cmd_core_size,
 			    size_t cmd_size,
 			    struct ib_uverbs_ex_query_device_resp *resp,
-			    size_t resp_core_size,
 			    size_t resp_size);
 int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 		       struct ibv_port_attr *port_attr,
 		       struct ibv_query_port *cmd, size_t cmd_size);
+int ibv_cmd_alloc_async_fd(struct ibv_context *context);
 int ibv_cmd_alloc_pd(struct ibv_context *context, struct ibv_pd *pd,
 		     struct ibv_alloc_pd *cmd, size_t cmd_size,
 		     struct ib_uverbs_alloc_pd_resp *resp, size_t resp_size);
@@ -434,6 +486,13 @@ int ibv_cmd_rereg_mr(struct verbs_mr *vmr, uint32_t flags, void *addr,
 		     size_t cmd_sz, struct ib_uverbs_rereg_mr_resp *resp,
 		     size_t resp_sz);
 int ibv_cmd_dereg_mr(struct verbs_mr *vmr);
+int ibv_cmd_query_mr(struct ibv_pd *pd, struct verbs_mr *vmr,
+		     uint32_t mr_handle);
+int ibv_cmd_advise_mr(struct ibv_pd *pd,
+		      enum ibv_advise_mr_advice advice,
+		      uint32_t flags,
+		      struct ibv_sge *sg_list,
+		      uint32_t num_sge);
 int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
 		     struct ibv_mw *mw, struct ibv_alloc_mw *cmd,
 		     size_t cmd_size,
@@ -446,7 +505,7 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      struct ib_uverbs_create_cq_resp *resp, size_t resp_size);
 int ibv_cmd_create_cq_ex(struct ibv_context *context,
 			 struct ibv_cq_init_attr_ex *cq_attr,
-			 struct ibv_cq_ex *cq,
+			 struct verbs_cq *cq,
 			 struct ibv_create_cq_ex *cmd,
 			 size_t cmd_size,
 			 struct ib_uverbs_ex_create_cq_resp *resp,
@@ -467,7 +526,7 @@ int ibv_cmd_create_srq(struct ibv_pd *pd,
 		       struct ibv_create_srq *cmd, size_t cmd_size,
 		       struct ib_uverbs_create_srq_resp *resp, size_t resp_size);
 int ibv_cmd_create_srq_ex(struct ibv_context *context,
-			  struct verbs_srq *srq, int vsrq_sz,
+			  struct verbs_srq *srq,
 			  struct ibv_srq_init_attr_ex *attr_ex,
 			  struct ibv_create_xsrq *cmd, size_t cmd_size,
 			  struct ib_uverbs_create_srq_resp *resp, size_t resp_size);
@@ -485,18 +544,16 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 		      struct ibv_create_qp *cmd, size_t cmd_size,
 		      struct ib_uverbs_create_qp_resp *resp, size_t resp_size);
 int ibv_cmd_create_qp_ex(struct ibv_context *context,
-			 struct verbs_qp *qp, int vqp_sz,
+			 struct verbs_qp *qp,
 			 struct ibv_qp_init_attr_ex *attr_ex,
 			 struct ibv_create_qp *cmd, size_t cmd_size,
 			 struct ib_uverbs_create_qp_resp *resp, size_t resp_size);
 int ibv_cmd_create_qp_ex2(struct ibv_context *context,
-			  struct verbs_qp *qp, int vqp_sz,
+			  struct verbs_qp *qp,
 			  struct ibv_qp_init_attr_ex *qp_attr,
 			  struct ibv_create_qp_ex *cmd,
-			  size_t cmd_core_size,
 			  size_t cmd_size,
 			  struct ib_uverbs_ex_create_qp_resp *resp,
-			  size_t resp_core_size,
 			  size_t resp_size);
 int ibv_cmd_open_qp(struct ibv_context *context,
 		    struct verbs_qp *qp,  int vqp_sz,
@@ -512,9 +569,9 @@ int ibv_cmd_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		      struct ibv_modify_qp *cmd, size_t cmd_size);
 int ibv_cmd_modify_qp_ex(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			 int attr_mask, struct ibv_modify_qp_ex *cmd,
-			 size_t cmd_core_size, size_t cmd_size,
+			 size_t cmd_size,
 			 struct ib_uverbs_ex_modify_qp_resp *resp,
-			 size_t resp_core_size, size_t resp_size);
+			 size_t resp_size);
 int ibv_cmd_destroy_qp(struct ibv_qp *qp);
 int ibv_cmd_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 		      struct ibv_send_wr **bad_wr);
@@ -540,25 +597,18 @@ int ibv_cmd_create_wq(struct ibv_context *context,
 		      struct ibv_wq_init_attr *wq_init_attr,
 		      struct ibv_wq *wq,
 		      struct ibv_create_wq *cmd,
-		      size_t cmd_core_size,
 		      size_t cmd_size,
 		      struct ib_uverbs_ex_create_wq_resp *resp,
-		      size_t resp_core_size,
 		      size_t resp_size);
 
 int ibv_cmd_destroy_flow_action(struct verbs_flow_action *action);
 int ibv_cmd_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr,
-		      struct ibv_modify_wq *cmd, size_t cmd_core_size,
-		      size_t cmd_size);
+		      struct ibv_modify_wq *cmd, size_t cmd_size);
 int ibv_cmd_destroy_wq(struct ibv_wq *wq);
 int ibv_cmd_create_rwq_ind_table(struct ibv_context *context,
 				 struct ibv_rwq_ind_table_init_attr *init_attr,
 				 struct ibv_rwq_ind_table *rwq_ind_table,
-				 struct ibv_create_rwq_ind_table *cmd,
-				 size_t cmd_core_size,
-				 size_t cmd_size,
 				 struct ib_uverbs_ex_create_rwq_ind_table_resp *resp,
-				 size_t resp_core_size,
 				 size_t resp_size);
 int ibv_cmd_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_table);
 int ibv_cmd_create_counters(struct ibv_context *context,
@@ -590,16 +640,12 @@ const char *ibv_get_sysfs_path(void);
 
 int ibv_read_sysfs_file(const char *dir, const char *file,
 			char *buf, size_t size);
-
-static inline int verbs_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
-{
-	struct verbs_srq *vsrq = container_of(srq, struct verbs_srq, srq);
-	if (vsrq->comp_mask & VERBS_SRQ_NUM) {
-		*srq_num = vsrq->srq_num;
-		return 0;
-	}
-	return ENOSYS;
-}
+int ibv_read_sysfs_file_at(int dirfd, const char *file, char *buf, size_t size);
+int ibv_read_ibdev_sysfs_file(char *buf, size_t size,
+			      struct verbs_sysfs_dev *sysfs_dev,
+			      const char *fnfmt, ...)
+	__attribute__((format(printf, 4, 5)));
+int ibv_get_fw_ver(char *value, size_t len, struct verbs_sysfs_dev *sysfs_dev);
 
 static inline bool check_comp_mask(uint64_t input, uint64_t supported)
 {

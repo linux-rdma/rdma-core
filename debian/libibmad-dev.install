@@ -1,0 +1,5 @@
+usr/include/infiniband/mad.h
+usr/include/infiniband/mad_osd.h
+usr/lib/*/libibmad*.a
+usr/lib/*/libibmad*.so
+usr/lib/*/pkgconfig/libibmad.pc

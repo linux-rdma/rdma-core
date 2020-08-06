@@ -183,8 +183,8 @@ struct ibv_pd *ipath_alloc_pd(struct ibv_context *pd);
 
 int ipath_free_pd(struct ibv_pd *pd);
 
-struct ibv_mr *ipath_reg_mr(struct ibv_pd *pd, void *addr,
-			    size_t length, int access);
+struct ibv_mr *ipath_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			    uint64_t hca_va, int access);
 
 int ipath_dereg_mr(struct verbs_mr *vmr);
 

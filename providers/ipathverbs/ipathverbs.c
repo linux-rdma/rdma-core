@@ -45,6 +45,8 @@
 #include "ipathverbs.h"
 #include "ipath-abi.h"
 
+static void ipath_free_context(struct ibv_context *ibctx);
+
 #ifndef PCI_VENDOR_ID_PATHSCALE
 #define PCI_VENDOR_ID_PATHSCALE			0x1fc1
 #endif
@@ -76,6 +78,7 @@
 #define HCA(v, d)                                                              \
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, PCI_DEVICE_ID_INFINIPATH_##d, NULL)
 static const struct verbs_match_ent hca_table[] = {
+	VERBS_DRIVER_ID(RDMA_DRIVER_QIB),
 	HCA(PATHSCALE,	HT),
 	HCA(PATHSCALE,	PE800),
 	HCA(QLOGIC,	6220),
@@ -85,6 +88,7 @@ static const struct verbs_match_ent hca_table[] = {
 };
 
 static const struct verbs_context_ops ipath_ctx_common_ops = {
+	.free_context	= ipath_free_context,
 	.query_device	= ipath_query_device,
 	.query_port	= ipath_query_port,
 
@@ -202,6 +206,5 @@ static const struct verbs_device_ops ipath_dev_ops = {
 	.alloc_device = ipath_device_alloc,
 	.uninit_device  = ipath_uninit_device,
 	.alloc_context = ipath_alloc_context,
-	.free_context = ipath_free_context,
 };
-PROVIDER_DRIVER(ipath_dev_ops);
+PROVIDER_DRIVER(ipathverbs, ipath_dev_ops);

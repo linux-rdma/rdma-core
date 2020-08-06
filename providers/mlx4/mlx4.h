@@ -40,6 +40,7 @@
 
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>
+#include <util/util.h>
 #include <infiniband/verbs.h>
 
 #include "mlx4dv.h"
@@ -102,6 +103,7 @@ struct mlx4_context {
 	struct verbs_context		ibv_ctx;
 
 	void			       *uar;
+	off_t				uar_mmap_offset;
 
 	void			       *bf_page;
 	int				bf_buf_size;
@@ -136,6 +138,7 @@ struct mlx4_context {
 	void			       *hca_core_clock;
 	uint32_t			max_inl_recv_sz;
 	uint8_t				log_wqs_range_sz;
+	struct mlx4dv_ctx_allocators	extern_alloc;
 };
 
 struct mlx4_buf {
@@ -156,7 +159,7 @@ enum {
 };
 
 struct mlx4_cq {
-	struct ibv_cq_ex		ibv_cq;
+	struct verbs_cq			verbs_cq;
 	struct mlx4_buf			buf;
 	struct mlx4_buf			resize_buf;
 	pthread_spinlock_t		lock;
@@ -242,12 +245,6 @@ enum {
 	MLX4_RX_CSUM_VALID		= (1 <<  16),
 };
 
-static inline unsigned long align(unsigned long val, unsigned long align)
-{
-	return (val + align - 1) & ~(align - 1);
-}
-int align_queue_size(int req);
-
 #define to_mxxx(xxx, type)                                                     \
 	container_of(ib##xxx, struct mlx4_##type, ibv_##xxx)
 
@@ -271,7 +268,7 @@ static inline struct mlx4_pd *to_mpd(struct ibv_pd *ibpd)
 
 static inline struct mlx4_cq *to_mcq(struct ibv_cq *ibcq)
 {
-	return container_of((struct ibv_cq_ex *)ibcq, struct mlx4_cq, ibv_cq);
+	return container_of(ibcq, struct mlx4_cq, verbs_cq.cq);
 }
 
 static inline struct mlx4_srq *to_msrq(struct ibv_srq *ibsrq)
@@ -299,8 +296,9 @@ static inline void mlx4_update_cons_index(struct mlx4_cq *cq)
 	*cq->set_ci_db = htobe32(cq->cons_index & 0xffffff);
 }
 
-int mlx4_alloc_buf(struct mlx4_buf *buf, size_t size, int page_size);
-void mlx4_free_buf(struct mlx4_buf *buf);
+int mlx4_alloc_buf(struct mlx4_context *ctx, struct mlx4_buf *buf, size_t size,
+		   int page_size);
+void mlx4_free_buf(struct mlx4_context *ctx, struct mlx4_buf *buf);
 
 __be32 *mlx4_alloc_db(struct mlx4_context *context, enum mlx4_db_type type);
 void mlx4_free_db(struct mlx4_context *context, enum mlx4_db_type type,
@@ -321,9 +319,10 @@ int mlx4_free_pd(struct ibv_pd *pd);
 struct ibv_xrcd *mlx4_open_xrcd(struct ibv_context *context,
 				struct ibv_xrcd_init_attr *attr);
 int mlx4_close_xrcd(struct ibv_xrcd *xrcd);
+int mlx4_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num);
 
-struct ibv_mr *mlx4_reg_mr(struct ibv_pd *pd, void *addr,
-			    size_t length, int access);
+struct ibv_mr *mlx4_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			   uint64_t hca_va, int access);
 int mlx4_rereg_mr(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 		  void *addr, size_t length, int access);
 int mlx4_dereg_mr(struct verbs_mr *vmr);
@@ -339,8 +338,8 @@ struct ibv_cq *mlx4_create_cq(struct ibv_context *context, int cqe,
 struct ibv_cq_ex *mlx4_create_cq_ex(struct ibv_context *context,
 				    struct ibv_cq_init_attr_ex *cq_attr);
 void mlx4_cq_fill_pfns(struct mlx4_cq *cq, const struct ibv_cq_init_attr_ex *cq_attr);
-int mlx4_alloc_cq_buf(struct mlx4_device *dev, struct mlx4_buf *buf, int nent,
-		      int entry_size);
+int mlx4_alloc_cq_buf(struct mlx4_device *dev, struct mlx4_context *ctx,
+		      struct mlx4_buf *buf, int nent, int entry_size);
 int mlx4_resize_cq(struct ibv_cq *cq, int cqe);
 int mlx4_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 int mlx4_destroy_cq(struct ibv_cq *cq);

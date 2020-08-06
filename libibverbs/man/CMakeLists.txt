@@ -1,4 +1,5 @@
 rdma_man_pages(
+  ibv_advise_mr.3.md
   ibv_alloc_dm.3
   ibv_alloc_mw.3
   ibv_alloc_null_mr.3.md
@@ -31,10 +32,14 @@ rdma_man_pages(
   ibv_get_async_event.3
   ibv_get_cq_event.3
   ibv_get_device_guid.3.md
+  ibv_get_device_index.3.md
   ibv_get_device_list.3.md
   ibv_get_device_name.3.md
   ibv_get_pkey_index.3.md
   ibv_get_srq_num.3.md
+  ibv_import_device.3.md
+  ibv_import_mr.3.md
+  ibv_import_pd.3.md
   ibv_inc_rkey.3.md
   ibv_modify_qp.3
   ibv_modify_qp_rate_limit.3
@@ -50,6 +55,7 @@ rdma_man_pages(
   ibv_post_srq_recv.3
   ibv_query_device.3
   ibv_query_device_ex.3
+  ibv_query_ece.3.md
   ibv_query_gid.3.md
   ibv_query_pkey.3.md
   ibv_query_port.3
@@ -64,9 +70,11 @@ rdma_man_pages(
   ibv_req_notify_cq.3.md
   ibv_rereg_mr.3.md
   ibv_resize_cq.3.md
+  ibv_set_ece.3.md
   ibv_srq_pingpong.1
   ibv_uc_pingpong.1
   ibv_ud_pingpong.1
+  ibv_wr_post.3.md
   ibv_xsrq_pingpong.1
   )
 rdma_alias_man_pages(
@@ -95,9 +103,31 @@ rdma_alias_man_pages(
   ibv_get_async_event.3 ibv_ack_async_event.3
   ibv_get_cq_event.3 ibv_ack_cq_events.3
   ibv_get_device_list.3 ibv_free_device_list.3
+  ibv_import_pd.3 ibv_unimport_pd.3
+  ibv_import_mr.3 ibv_unimport_mr.3
   ibv_open_device.3 ibv_close_device.3
   ibv_open_xrcd.3 ibv_close_xrcd.3
   ibv_rate_to_mbps.3 mbps_to_ibv_rate.3
   ibv_rate_to_mult.3 mult_to_ibv_rate.3
   ibv_reg_mr.3 ibv_dereg_mr.3
+  ibv_wr_post.3 ibv_wr_abort.3
+  ibv_wr_post.3 ibv_wr_complete.3
+  ibv_wr_post.3 ibv_wr_start.3
+  ibv_wr_post.3 ibv_wr_atomic_cmp_swp.3
+  ibv_wr_post.3 ibv_wr_atomic_fetch_add.3
+  ibv_wr_post.3 ibv_wr_bind_mw.3
+  ibv_wr_post.3 ibv_wr_local_inv.3
+  ibv_wr_post.3 ibv_wr_rdma_read.3
+  ibv_wr_post.3 ibv_wr_rdma_write.3
+  ibv_wr_post.3 ibv_wr_rdma_write_imm.3
+  ibv_wr_post.3 ibv_wr_send.3
+  ibv_wr_post.3 ibv_wr_send_imm.3
+  ibv_wr_post.3 ibv_wr_send_inv.3
+  ibv_wr_post.3 ibv_wr_send_tso.3
+  ibv_wr_post.3 ibv_wr_set_inline_data.3
+  ibv_wr_post.3 ibv_wr_set_inline_data_list.3
+  ibv_wr_post.3 ibv_wr_set_sge.3
+  ibv_wr_post.3 ibv_wr_set_sge_list.3
+  ibv_wr_post.3 ibv_wr_set_ud_addr.3
+  ibv_wr_post.3 ibv_wr_set_xrc_srqn.3
   )

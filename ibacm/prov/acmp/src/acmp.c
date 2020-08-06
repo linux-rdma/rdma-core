@@ -45,6 +45,8 @@
 #include <infiniband/acm_prov.h>
 #include <infiniband/umad.h>
 #include <infiniband/verbs.h>
+#include <infiniband/umad_sa.h>
+#include <infiniband/umad_sa_mcm.h>
 #include <ifaddrs.h>
 #include <dlfcn.h>
 #include <search.h>
@@ -59,10 +61,6 @@
 #include <ccan/list.h>
 #include "acm_util.h"
 #include "acm_mad.h"
-
-#define src_out     data[0]
-#define src_index   data[1]
-#define dst_index   data[2]
 
 #define IB_LID_MCAST_START 0xc000
 
@@ -164,8 +162,13 @@ struct acmp_send_queue {
 struct acmp_addr {
 	uint16_t              type;
 	union acm_ep_info     info;
-	struct acm_address    *addr;
+	struct acm_address    addr;
 	struct acmp_ep        *ep;
+};
+
+struct acmp_addr_ctx {
+	struct acmp_ep	     *ep;
+	int		     addr_inx;
 };
 
 struct acmp_ep {
@@ -188,7 +191,10 @@ struct acmp_ep {
 	struct list_head      active_queue;
 	struct list_head      wait_queue;
 	enum acmp_state       state;
-	struct acmp_addr      addr_info[MAX_EP_ADDR];
+	/* This lock protects nmbr_ep_addrs and addr_info */
+	pthread_rwlock_t      rwlock;
+	int		      nmbr_ep_addrs;
+	struct acmp_addr      *addr_info;
 	atomic_t              counters[ACM_MAX_COUNTER];
 };
 
@@ -1042,9 +1048,11 @@ acmp_resolve_sa_resp(struct acm_sa_mad *mad)
 static struct acmp_addr *
 acmp_addr_lookup(struct acmp_ep *ep, uint8_t *addr, uint16_t type)
 {
+	struct acmp_addr *ret = NULL;
 	int i;
 
-	for (i = 0; i < MAX_EP_ADDR; i++) {
+	pthread_rwlock_rdlock(&ep->rwlock);
+	for (i = 0; i < ep->nmbr_ep_addrs; i++) {
 		if (ep->addr_info[i].type != type)
 			continue;
 
@@ -1053,11 +1061,13 @@ acmp_addr_lookup(struct acmp_ep *ep, uint8_t *addr, uint16_t type)
 			      (char *) addr, ACM_MAX_ADDRESS)) ||
 		    !memcmp(ep->addr_info[i].info.addr, addr,
 			    ACM_MAX_ADDRESS)) {
-			return &ep->addr_info[i];
+			ret = ep->addr_info + i;
+			break;
 		}
 	}
+	pthread_rwlock_unlock(&ep->rwlock);
 
-	return NULL;
+	return ret;
 }
 
 static void
@@ -1220,8 +1230,10 @@ acmp_sa_resp(struct acm_sa_mad *mad)
 
 	req->msg.hdr.opcode |= ACM_OP_ACK;
 	if (!mad->umad.status) {
+		struct acm_ep_addr_data *resolve_data = req->msg.resolve_data;
+
 		req->msg.hdr.status = (uint8_t) (be16toh(sa_mad->status) >> 8);
-		memcpy(&req->msg.resolve_data[0].info.path, sa_mad->data,
+		memcpy(&resolve_data->info.path, sa_mad->data,
 		       sizeof(struct ibv_path_record));
 	} else {
 		req->msg.hdr.status = ACM_STATUS_ETIMEDOUT;
@@ -1380,15 +1392,16 @@ static void acmp_init_join(struct ib_sa_mad *mad, union ibv_gid *port_gid,
 		IB_COMP_MASK_MC_SCOPE | IB_COMP_MASK_MC_JOIN_STATE;
 
 	mc_rec = (struct ib_mc_member_rec *) mad->data;
-	acmp_format_mgid(&mc_rec->mgid, pkey | 0x8000, tos, rate, mtu);
+	acmp_format_mgid(&mc_rec->mgid, pkey | IB_PKEY_FULL_MEMBER, tos, rate, mtu);
 	mc_rec->port_gid = *port_gid;
 	mc_rec->qkey = htobe32(ACM_QKEY);
-	mc_rec->mtu = 0x80 | mtu;
+	mc_rec->mtu = umad_sa_set_rate_mtu_or_life(UMAD_SA_SELECTOR_EXACTLY, mtu);
 	mc_rec->tclass = tclass;
 	mc_rec->pkey = htobe16(pkey);
-	mc_rec->rate = 0x80 | rate;
-	mc_rec->sl_flow_hop = htobe32(((uint32_t) sl) << 28);
-	mc_rec->scope_state = 0x51;
+	mc_rec->rate = umad_sa_set_rate_mtu_or_life(UMAD_SA_SELECTOR_EXACTLY, rate);
+	mc_rec->sl_flow_hop = umad_sa_mcm_set_sl_flow_hop(sl, 0, 0);
+	mc_rec->scope_state = umad_sa_mcm_set_scope_state(UMAD_SA_MCM_ADDR_SCOPE_SITE_LOCAL,
+							  UMAD_SA_MCM_JOIN_STATE_FULL_MEMBER);
 }
 
 static void acmp_join_group(struct acmp_ep *ep, union ibv_gid *port_gid,
@@ -1594,13 +1607,12 @@ static void *acmp_retry_handler(void *context)
 	return NULL;
 }
 
+/* rwlock must be held read-locked */
 static int
-acmp_query(void *addr_context, struct acm_msg *msg, uint64_t id)
+__acmp_query(struct acmp_ep *ep, struct acm_msg *msg, uint64_t id)
 {
 	struct acmp_request *req;
 	struct ib_sa_mad *mad;
-	struct acmp_addr *address = addr_context;
-	struct acmp_ep *ep = address->ep;
 	uint8_t status;
 	struct acm_sa_mad *sa_mad;
 
@@ -1651,6 +1663,21 @@ resp:
 	else
 		atomic_inc(&ep->counters[ACM_CNTR_ERROR]);
 	return acm_query_response(id, msg);
+}
+
+static int
+acmp_query(void *addr_context, struct acm_msg *msg, uint64_t id)
+{
+	struct acmp_addr_ctx *addr_ctx = addr_context;
+	struct acmp_addr *address;
+	int ret;
+
+	pthread_rwlock_rdlock(&addr_ctx->ep->rwlock);
+	address = addr_ctx->ep->addr_info + addr_ctx->addr_inx;
+	ret = __acmp_query(address->ep, msg, id);
+	pthread_rwlock_unlock(&addr_ctx->ep->rwlock);
+
+	return ret;
 }
 
 static uint8_t
@@ -1743,8 +1770,7 @@ acmp_check_addr_match(struct ifaddrs *iap, struct acm_ep_addr_data *saddr,
 
 	s_family = iap->ifa_addr->sa_family;
 
-	if (!iap->ifa_addr ||
-	    !(iap->ifa_flags & IFF_UP) ||
+	if (!(iap->ifa_flags & IFF_UP) ||
 	    (s_family != d_family))
 		return -1;
 
@@ -1941,7 +1967,8 @@ put:
 static int
 acmp_resolve(void *addr_context, struct acm_msg *msg, uint64_t id)
 {
-	struct acmp_addr *address = addr_context;
+	struct acmp_addr_ctx *addr_ctx = addr_context;
+	struct acmp_addr *address = addr_ctx->ep->addr_info + addr_ctx->addr_inx;
 	struct acmp_ep *ep = address->ep;
 
 	if (ep->state != ACMP_READY) {
@@ -2357,38 +2384,55 @@ static void acmp_ep_preload(struct acmp_ep *ep)
 	}
 }
 
-static int acmp_add_addr(const struct acm_address *addr, void *ep_context,
-			 void **addr_context)
+/* rwlock must be held write-locked */
+static int __acmp_add_addr(const struct acm_address *addr, struct acmp_ep *ep,
+			   void **addr_context)
 {
-	struct acmp_ep *ep = ep_context;
 	struct acmp_dest *dest;
+	struct acmp_addr_ctx *addr_ctx;
 	int i;
 
-	acm_log(2, "\n");
-
-	for (i = 0; (i < MAX_EP_ADDR) &&
+	for (i = 0; (i < ep->nmbr_ep_addrs) &&
 	     (ep->addr_info[i].type != ACM_ADDRESS_INVALID); i++)
 		;
 
-	if (i == MAX_EP_ADDR) {
-		acm_log(0, "ERROR - no more space for local address\n");
-		return -1;
+	if (i == ep->nmbr_ep_addrs) {
+		struct acmp_addr *new_info;
+
+		new_info = realloc(ep->addr_info, (i + 1) * sizeof(*ep->addr_info));
+		if (!new_info) {
+			acm_log(0, "ERROR - no more space for local address\n");
+			return -1;
+		}
+		ep->addr_info = new_info;
+		/* Added memory is not initialized */
+		memset(ep->addr_info + i, 0, sizeof(*ep->addr_info));
+		++ep->nmbr_ep_addrs;
 	}
 	ep->addr_info[i].type = addr->type;
 	memcpy(&ep->addr_info[i].info, &addr->info, sizeof(addr->info));
-	ep->addr_info[i].addr = (struct acm_address *) addr;
+	memcpy(&ep->addr_info[i].addr, addr, sizeof(*addr));
 	ep->addr_info[i].ep = ep;
 
+	addr_ctx = malloc(sizeof(*addr_ctx));
+	if (!addr_ctx) {
+		acm_log(0, "ERROR - unable to alloc address context struct\n");
+		return -1;
+	}
+	addr_ctx->ep = ep;
+	addr_ctx->addr_inx = i;
+
 	if (loopback_prot != ACMP_LOOPBACK_PROT_LOCAL) {
-		*addr_context = &ep->addr_info[i];
+		*addr_context = addr_ctx;
 		return 0;
 	}
 
-	dest = acmp_acquire_dest(ep, addr->type, (uint8_t *) addr->info.addr);
+	dest = acmp_acquire_dest(ep, addr->type, (uint8_t *)addr->info.addr);
 	if (!dest) {
 		acm_log(0, "ERROR - unable to create loopback dest %s\n",
 			addr->id_string);
 		memset(&ep->addr_info[i], 0, sizeof(ep->addr_info[i]));
+		free(addr_ctx);
 		return -1;
 	}
 
@@ -2405,18 +2449,70 @@ static int acmp_add_addr(const struct acm_address *addr, void *ep_context,
 	dest->route_timeout = (uint64_t) ~0ULL;
 	dest->state = ACMP_READY;
 	acmp_put_dest(dest);
-	*addr_context = &ep->addr_info[i];
+	*addr_context = addr_ctx;
 	acm_log(1, "added loopback dest %s\n", dest->name);
 
 	return 0;
 }
 
-static void acmp_remove_addr(void *addr_context)
+static int acmp_add_addr(const struct acm_address *addr, void *ep_context,
+			 void **addr_context)
 {
-	struct acmp_addr *address = addr_context;
+	struct acmp_ep *ep = ep_context;
+	int ret;
 
 	acm_log(2, "\n");
+
+	pthread_rwlock_wrlock(&ep->rwlock);
+	ret = __acmp_add_addr(addr, ep, addr_context);
+	pthread_rwlock_unlock(&ep->rwlock);
+
+	return ret;
+}
+
+static void acmp_remove_addr(void *addr_context)
+{
+	struct acmp_addr_ctx *addr_ctx = addr_context;
+	struct acmp_addr *address = addr_ctx->ep->addr_info + addr_ctx->addr_inx;
+	struct acmp_device *dev;
+	struct acmp_dest *dest;
+	struct acmp_ep *ep;
+	int i;
+
+	acm_log(2, "\n");
+
+	/*
+	 * The address may be a local destination address. If so,
+	 * delete it from the cache.
+	 */
+
+	pthread_mutex_lock(&acmp_dev_lock);
+	list_for_each(&acmp_dev_list, dev, entry) {
+		pthread_mutex_unlock(&acmp_dev_lock);
+
+		for (i = 0; i < dev->port_cnt; i++) {
+			struct acmp_port *port = &dev->port[i];
+
+			pthread_mutex_lock(&port->lock);
+			list_for_each(&port->ep_list, ep, entry) {
+				pthread_mutex_unlock(&port->lock);
+				dest = acmp_get_dest(ep, address->type, address->addr.info.addr);
+				if (dest) {
+					acm_log(2, "Found a dest addr, deleting it\n");
+					pthread_mutex_lock(&ep->lock);
+					acmp_remove_dest(ep, dest);
+					pthread_mutex_unlock(&ep->lock);
+				}
+				pthread_mutex_lock(&port->lock);
+			}
+			pthread_mutex_unlock(&port->lock);
+		}
+		pthread_mutex_lock(&acmp_dev_lock);
+	}
+	pthread_mutex_unlock(&acmp_dev_lock);
+
 	memset(address, 0, sizeof(*address));
+	free(addr_ctx);
 }
 
 static struct acmp_port *acmp_get_port(struct acm_endpoint *endpoint)
@@ -2502,6 +2598,14 @@ acmp_alloc_ep(struct acmp_port *port, struct acm_endpoint *endpoint)
 	pthread_mutex_init(&ep->lock, NULL);
 	sprintf(ep->id_string, "%s-%d-0x%x", port->dev->verbs->device->name,
 		port->port_num, endpoint->pkey);
+
+	if (pthread_rwlock_init(&ep->rwlock, NULL)) {
+		free(ep);
+		return NULL;
+	}
+	ep->addr_info = NULL;
+	ep->nmbr_ep_addrs = 0;
+
 	for (i = 0; i < ACM_MAX_COUNTER; i++)
 		atomic_init(&ep->counters[i]);
 
@@ -2620,6 +2724,7 @@ static void acmp_port_up(struct acmp_port *port)
 	__be16 pkey_be;
 	__be16 sm_lid;
 	int i, ret;
+	int instance;
 
 	acm_log(1, "%s %d\n", port->dev->verbs->device->name, port->port_num);
 	ret = ibv_query_port(port->dev->verbs, port->port_num, &attr);
@@ -2645,7 +2750,7 @@ static void acmp_port_up(struct acmp_port *port)
 	acmp_set_dest_addr(&port->sa_dest, ACM_ADDRESS_LID,
 			   (uint8_t *) &sm_lid, sizeof(sm_lid));
 
-	atomic_set(&port->sa_dest.refcnt, 1);
+	instance = atomic_inc(&port->sa_dest.refcnt) - 1;
 	port->sa_dest.state = ACMP_READY;
 	for (i = 0; i < attr.pkey_tbl_len; i++) {
 		ret = ibv_query_pkey(port->dev->verbs, port->port_num, i, &pkey_be);
@@ -2665,11 +2770,13 @@ static void acmp_port_up(struct acmp_port *port)
 	}
 
 	port->state = IBV_PORT_ACTIVE;
-	acm_log(1, "%s %d is up\n", port->dev->verbs->device->name, port->port_num);
+	acm_log(1, "%s %d %d is up\n", port->dev->verbs->device->name, port->port_num, instance);
 }
 
 static void acmp_port_down(struct acmp_port *port)
 {
+	int instance;
+
 	acm_log(1, "%s %d\n", port->dev->verbs->device->name, port->port_num);
 	pthread_mutex_lock(&port->lock);
 	port->state = IBV_PORT_DOWN;
@@ -2680,13 +2787,13 @@ static void acmp_port_down(struct acmp_port *port)
 	 * event instead of a sleep loop, but it's not worth it given how
 	 * infrequently we should be processing a port down event in practice.
 	 */
-	atomic_dec(&port->sa_dest.refcnt);
-	while (atomic_get(&port->sa_dest.refcnt))
-		sleep(0);
-	pthread_mutex_lock(&port->sa_dest.lock);
-	port->sa_dest.state = ACMP_INIT;
-	pthread_mutex_unlock(&port->sa_dest.lock);
-	acm_log(1, "%s %d is down\n", port->dev->verbs->device->name, port->port_num);
+	instance = atomic_dec(&port->sa_dest.refcnt);
+	if (instance == 1) {
+		pthread_mutex_lock(&port->sa_dest.lock);
+		port->sa_dest.state = ACMP_INIT;
+		pthread_mutex_unlock(&port->sa_dest.lock);
+	}
+	acm_log(1, "%s %d %d is down\n", port->dev->verbs->device->name, port->port_num, instance);
 }
 
 static int acmp_open_port(const struct acm_port *cport, void *dev_context,

@@ -84,6 +84,7 @@ enum ibv_node_type {
 	IBV_NODE_RNIC,
 	IBV_NODE_USNIC,
 	IBV_NODE_USNIC_UDP,
+	IBV_NODE_UNSPECIFIED,
 };
 
 enum ibv_transport_type {
@@ -92,6 +93,7 @@ enum ibv_transport_type {
 	IBV_TRANSPORT_IWARP,
 	IBV_TRANSPORT_USNIC,
 	IBV_TRANSPORT_USNIC_UDP,
+	IBV_TRANSPORT_UNSPECIFIED,
 };
 
 enum ibv_device_cap_flags {
@@ -204,6 +206,7 @@ enum ibv_odp_transport_cap_bits {
 	IBV_ODP_SUPPORT_WRITE    = 1 << 2,
 	IBV_ODP_SUPPORT_READ     = 1 << 3,
 	IBV_ODP_SUPPORT_ATOMIC   = 1 << 4,
+	IBV_ODP_SUPPORT_SRQ_RECV = 1 << 5,
 };
 
 struct ibv_odp_caps {
@@ -217,6 +220,7 @@ struct ibv_odp_caps {
 
 enum ibv_odp_general_caps {
 	IBV_ODP_SUPPORT = 1 << 0,
+	IBV_ODP_SUPPORT_IMPLICIT = 1 << 1,
 };
 
 struct ibv_tso_caps {
@@ -293,6 +297,22 @@ struct ibv_cq_moderation_caps {
 	uint16_t max_cq_period; /* in micro seconds */
 };
 
+enum ibv_pci_atomic_op_size {
+	IBV_PCI_ATOMIC_OPERATION_4_BYTE_SIZE_SUP = 1 << 0,
+	IBV_PCI_ATOMIC_OPERATION_8_BYTE_SIZE_SUP = 1 << 1,
+	IBV_PCI_ATOMIC_OPERATION_16_BYTE_SIZE_SUP = 1 << 2,
+};
+
+/*
+ * Bitmask for supported operation sizes
+ * Use enum ibv_pci_atomic_op_size
+ */
+struct ibv_pci_atomic_caps {
+	uint16_t fetch_add;
+	uint16_t swap;
+	uint16_t compare_swap;
+};
+
 struct ibv_device_attr_ex {
 	struct ibv_device_attr	orig_attr;
 	uint32_t		comp_mask;
@@ -308,6 +328,8 @@ struct ibv_device_attr_ex {
 	struct ibv_tm_caps	tm_caps;
 	struct ibv_cq_moderation_caps  cq_mod_caps;
 	uint64_t max_dm_size;
+	struct ibv_pci_atomic_caps pci_atomic_caps;
+	uint32_t xrc_odp_caps;
 };
 
 enum ibv_mtu {
@@ -346,6 +368,7 @@ enum ibv_port_cap_flags {
 	IBV_PORT_SYS_IMAGE_GUID_SUP		= 1 << 11,
 	IBV_PORT_PKEY_SW_EXT_PORT_TRAP_SUP	= 1 << 12,
 	IBV_PORT_EXTENDED_SPEEDS_SUP		= 1 << 14,
+	IBV_PORT_CAP_MASK2_SUP			= 1 << 15,
 	IBV_PORT_CM_SUP				= 1 << 16,
 	IBV_PORT_SNMP_TUNNEL_SUP		= 1 << 17,
 	IBV_PORT_REINIT_SUP			= 1 << 18,
@@ -357,6 +380,15 @@ enum ibv_port_cap_flags {
 	IBV_PORT_LINK_LATENCY_SUP		= 1 << 24,
 	IBV_PORT_CLIENT_REG_SUP			= 1 << 25,
 	IBV_PORT_IP_BASED_GIDS			= 1 << 26
+};
+
+enum ibv_port_cap_flags2 {
+	IBV_PORT_SET_NODE_DESC_SUP		= 1 << 0,
+	IBV_PORT_INFO_EXT_SUP			= 1 << 1,
+	IBV_PORT_VIRT_SUP			= 1 << 2,
+	IBV_PORT_SWITCH_PORT_STATE_TABLE_SUP	= 1 << 3,
+	IBV_PORT_LINK_WIDTH_2X_SUP		= 1 << 4,
+	IBV_PORT_LINK_SPEED_HDR_SUP		= 1 << 5,
 };
 
 struct ibv_port_attr {
@@ -381,6 +413,7 @@ struct ibv_port_attr {
 	uint8_t			phys_state;
 	uint8_t			link_layer;
 	uint8_t			flags;
+	uint16_t		port_cap_flags2;
 };
 
 enum ibv_event_type {
@@ -466,6 +499,7 @@ enum ibv_wc_opcode {
 	IBV_WC_TM_SYNC,
 	IBV_WC_TM_RECV,
 	IBV_WC_TM_NO_TAG,
+	IBV_WC_DRIVER1,
 };
 
 enum {
@@ -546,6 +580,8 @@ enum ibv_access_flags {
 	IBV_ACCESS_MW_BIND		= (1<<4),
 	IBV_ACCESS_ZERO_BASED		= (1<<5),
 	IBV_ACCESS_ON_DEMAND		= (1<<6),
+	IBV_ACCESS_HUGETLB		= (1<<7),
+	IBV_ACCESS_RELAXED_ORDERING	= IBV_ACCESS_OPTIONAL_FIRST,
 };
 
 struct ibv_mw_bind_info {
@@ -650,7 +686,11 @@ enum ibv_rate {
 	IBV_RATE_25_GBPS  = 15,
 	IBV_RATE_100_GBPS = 16,
 	IBV_RATE_200_GBPS = 17,
-	IBV_RATE_300_GBPS = 18
+	IBV_RATE_300_GBPS = 18,
+	IBV_RATE_28_GBPS  = 19,
+	IBV_RATE_50_GBPS  = 20,
+	IBV_RATE_400_GBPS = 21,
+	IBV_RATE_600_GBPS = 22,
 };
 
 /**
@@ -795,7 +835,7 @@ struct ibv_wq_attr {
  * Receive Work Queue Indirection Table.
  * It's used in order to distribute incoming packets between different
  * Receive Work Queues. Associating Receive WQs with different CPU cores
- * allows to workload the traffic between different CPU cores.
+ * allows one to workload the traffic between different CPU cores.
  * The Indirection Table can contain only WQs of type IBV_WQT_RQ.
 */
 struct ibv_rwq_ind_table {
@@ -854,7 +894,7 @@ enum ibv_qp_init_attr_mask {
 	IBV_QP_INIT_ATTR_MAX_TSO_HEADER = 1 << 3,
 	IBV_QP_INIT_ATTR_IND_TABLE	= 1 << 4,
 	IBV_QP_INIT_ATTR_RX_HASH	= 1 << 5,
-	IBV_QP_INIT_ATTR_RESERVED	= 1 << 6
+	IBV_QP_INIT_ATTR_SEND_OPS_FLAGS = 1 << 6,
 };
 
 enum ibv_qp_create_flags {
@@ -863,6 +903,20 @@ enum ibv_qp_create_flags {
 	IBV_QP_CREATE_CVLAN_STRIPPING		= 1 << 9,
 	IBV_QP_CREATE_SOURCE_QPN		= 1 << 10,
 	IBV_QP_CREATE_PCI_WRITE_END_PADDING	= 1 << 11,
+};
+
+enum ibv_qp_create_send_ops_flags {
+	IBV_QP_EX_WITH_RDMA_WRITE		= 1 << 0,
+	IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM	= 1 << 1,
+	IBV_QP_EX_WITH_SEND			= 1 << 2,
+	IBV_QP_EX_WITH_SEND_WITH_IMM		= 1 << 3,
+	IBV_QP_EX_WITH_RDMA_READ		= 1 << 4,
+	IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP	= 1 << 5,
+	IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD	= 1 << 6,
+	IBV_QP_EX_WITH_LOCAL_INV		= 1 << 7,
+	IBV_QP_EX_WITH_BIND_MW			= 1 << 8,
+	IBV_QP_EX_WITH_SEND_WITH_INV		= 1 << 9,
+	IBV_QP_EX_WITH_TSO			= 1 << 10,
 };
 
 struct ibv_rx_hash_conf {
@@ -891,6 +945,8 @@ struct ibv_qp_init_attr_ex {
 	struct ibv_rwq_ind_table       *rwq_ind_tbl;
 	struct ibv_rx_hash_conf	rx_hash_conf;
 	uint32_t		source_qpn;
+	/* See enum ibv_qp_create_send_ops_flags */
+	uint64_t send_ops_flags;
 };
 
 enum ibv_qp_open_attr_mask {
@@ -1006,6 +1062,7 @@ enum ibv_wr_opcode {
 	IBV_WR_BIND_MW,
 	IBV_WR_SEND_WITH_INV,
 	IBV_WR_TSO,
+	IBV_WR_DRIVER1,
 };
 
 enum ibv_send_flags {
@@ -1014,6 +1071,11 @@ enum ibv_send_flags {
 	IBV_SEND_SOLICITED	= 1 << 2,
 	IBV_SEND_INLINE		= 1 << 3,
 	IBV_SEND_IP_CSUM	= 1 << 4
+};
+
+struct ibv_data_buf {
+	void *addr;
+	size_t length;
 };
 
 struct ibv_sge {
@@ -1169,6 +1231,189 @@ struct ibv_qp {
 	pthread_mutex_t		mutex;
 	pthread_cond_t		cond;
 	uint32_t		events_completed;
+};
+
+struct ibv_qp_ex {
+	struct ibv_qp qp_base;
+	uint64_t comp_mask;
+
+	uint64_t wr_id;
+	/* bitmask from enum ibv_send_flags */
+	unsigned int wr_flags;
+
+	void (*wr_atomic_cmp_swp)(struct ibv_qp_ex *qp, uint32_t rkey,
+				  uint64_t remote_addr, uint64_t compare,
+				  uint64_t swap);
+	void (*wr_atomic_fetch_add)(struct ibv_qp_ex *qp, uint32_t rkey,
+				    uint64_t remote_addr, uint64_t add);
+	void (*wr_bind_mw)(struct ibv_qp_ex *qp, struct ibv_mw *mw,
+			   uint32_t rkey,
+			   const struct ibv_mw_bind_info *bind_info);
+	void (*wr_local_inv)(struct ibv_qp_ex *qp, uint32_t invalidate_rkey);
+	void (*wr_rdma_read)(struct ibv_qp_ex *qp, uint32_t rkey,
+			     uint64_t remote_addr);
+	void (*wr_rdma_write)(struct ibv_qp_ex *qp, uint32_t rkey,
+			      uint64_t remote_addr);
+	void (*wr_rdma_write_imm)(struct ibv_qp_ex *qp, uint32_t rkey,
+				  uint64_t remote_addr, __be32 imm_data);
+
+	void (*wr_send)(struct ibv_qp_ex *qp);
+	void (*wr_send_imm)(struct ibv_qp_ex *qp, __be32 imm_data);
+	void (*wr_send_inv)(struct ibv_qp_ex *qp, uint32_t invalidate_rkey);
+	void (*wr_send_tso)(struct ibv_qp_ex *qp, void *hdr, uint16_t hdr_sz,
+			    uint16_t mss);
+
+	void (*wr_set_ud_addr)(struct ibv_qp_ex *qp, struct ibv_ah *ah,
+			       uint32_t remote_qpn, uint32_t remote_qkey);
+	void (*wr_set_xrc_srqn)(struct ibv_qp_ex *qp, uint32_t remote_srqn);
+
+	void (*wr_set_inline_data)(struct ibv_qp_ex *qp, void *addr,
+				   size_t length);
+	void (*wr_set_inline_data_list)(struct ibv_qp_ex *qp, size_t num_buf,
+					const struct ibv_data_buf *buf_list);
+	void (*wr_set_sge)(struct ibv_qp_ex *qp, uint32_t lkey, uint64_t addr,
+			   uint32_t length);
+	void (*wr_set_sge_list)(struct ibv_qp_ex *qp, size_t num_sge,
+				const struct ibv_sge *sg_list);
+
+	void (*wr_start)(struct ibv_qp_ex *qp);
+	int (*wr_complete)(struct ibv_qp_ex *qp);
+	void (*wr_abort)(struct ibv_qp_ex *qp);
+};
+
+struct ibv_qp_ex *ibv_qp_to_qp_ex(struct ibv_qp *qp);
+
+static inline void ibv_wr_atomic_cmp_swp(struct ibv_qp_ex *qp, uint32_t rkey,
+					 uint64_t remote_addr, uint64_t compare,
+					 uint64_t swap)
+{
+	qp->wr_atomic_cmp_swp(qp, rkey, remote_addr, compare, swap);
+}
+
+static inline void ibv_wr_atomic_fetch_add(struct ibv_qp_ex *qp, uint32_t rkey,
+					   uint64_t remote_addr, uint64_t add)
+{
+	qp->wr_atomic_fetch_add(qp, rkey, remote_addr, add);
+}
+
+static inline void ibv_wr_bind_mw(struct ibv_qp_ex *qp, struct ibv_mw *mw,
+				  uint32_t rkey,
+				  const struct ibv_mw_bind_info *bind_info)
+{
+	qp->wr_bind_mw(qp, mw, rkey, bind_info);
+}
+
+static inline void ibv_wr_local_inv(struct ibv_qp_ex *qp,
+				    uint32_t invalidate_rkey)
+{
+	qp->wr_local_inv(qp, invalidate_rkey);
+}
+
+static inline void ibv_wr_rdma_read(struct ibv_qp_ex *qp, uint32_t rkey,
+				    uint64_t remote_addr)
+{
+	qp->wr_rdma_read(qp, rkey, remote_addr);
+}
+
+static inline void ibv_wr_rdma_write(struct ibv_qp_ex *qp, uint32_t rkey,
+				     uint64_t remote_addr)
+{
+	qp->wr_rdma_write(qp, rkey, remote_addr);
+}
+
+static inline void ibv_wr_rdma_write_imm(struct ibv_qp_ex *qp, uint32_t rkey,
+					 uint64_t remote_addr, __be32 imm_data)
+{
+	qp->wr_rdma_write_imm(qp, rkey, remote_addr, imm_data);
+}
+
+static inline void ibv_wr_send(struct ibv_qp_ex *qp)
+{
+	qp->wr_send(qp);
+}
+
+static inline void ibv_wr_send_imm(struct ibv_qp_ex *qp, __be32 imm_data)
+{
+	qp->wr_send_imm(qp, imm_data);
+}
+
+static inline void ibv_wr_send_inv(struct ibv_qp_ex *qp,
+				   uint32_t invalidate_rkey)
+{
+	qp->wr_send_inv(qp, invalidate_rkey);
+}
+
+static inline void ibv_wr_send_tso(struct ibv_qp_ex *qp, void *hdr,
+				   uint16_t hdr_sz, uint16_t mss)
+{
+	qp->wr_send_tso(qp, hdr, hdr_sz, mss);
+}
+
+static inline void ibv_wr_set_ud_addr(struct ibv_qp_ex *qp, struct ibv_ah *ah,
+				      uint32_t remote_qpn, uint32_t remote_qkey)
+{
+	qp->wr_set_ud_addr(qp, ah, remote_qpn, remote_qkey);
+}
+
+static inline void ibv_wr_set_xrc_srqn(struct ibv_qp_ex *qp,
+				       uint32_t remote_srqn)
+{
+	qp->wr_set_xrc_srqn(qp, remote_srqn);
+}
+
+static inline void ibv_wr_set_inline_data(struct ibv_qp_ex *qp, void *addr,
+					  size_t length)
+{
+	qp->wr_set_inline_data(qp, addr, length);
+}
+
+static inline void ibv_wr_set_inline_data_list(struct ibv_qp_ex *qp,
+					       size_t num_buf,
+					       const struct ibv_data_buf *buf_list)
+{
+	qp->wr_set_inline_data_list(qp, num_buf, buf_list);
+}
+
+static inline void ibv_wr_set_sge(struct ibv_qp_ex *qp, uint32_t lkey,
+				  uint64_t addr, uint32_t length)
+{
+	qp->wr_set_sge(qp, lkey, addr, length);
+}
+
+static inline void ibv_wr_set_sge_list(struct ibv_qp_ex *qp, size_t num_sge,
+				       const struct ibv_sge *sg_list)
+{
+	qp->wr_set_sge_list(qp, num_sge, sg_list);
+}
+
+static inline void ibv_wr_start(struct ibv_qp_ex *qp)
+{
+	qp->wr_start(qp);
+}
+
+static inline int ibv_wr_complete(struct ibv_qp_ex *qp)
+{
+	return qp->wr_complete(qp);
+}
+
+static inline void ibv_wr_abort(struct ibv_qp_ex *qp)
+{
+	qp->wr_abort(qp);
+}
+
+struct ibv_ece {
+	/*
+	 * Unique identifier of the provider vendor on the network.
+	 * The providers will set IEEE OUI here to distinguish
+	 * itself in non-homogenius network.
+	 */
+	uint32_t vendor_id;
+	/*
+	 * Provider specific attributes which are supported or
+	 * needed to be enabled by ECE users.
+	 */
+	uint32_t options;
+	uint32_t comp_mask;
 };
 
 struct ibv_comp_channel {
@@ -1371,7 +1616,7 @@ struct ibv_ah {
 };
 
 enum ibv_flow_flags {
-	IBV_FLOW_ATTR_FLAGS_ALLOW_LOOP_BACK = 1 << 0,
+	/* First bit is deprecated and can't be used */
 	IBV_FLOW_ATTR_FLAGS_DONT_TRAP = 1 << 1,
 	IBV_FLOW_ATTR_FLAGS_EGRESS = 1 << 2,
 };
@@ -1661,9 +1906,12 @@ struct ibv_device {
 	char			ibdev_path[IBV_SYSFS_PATH_MAX];
 };
 
+struct _compat_ibv_port_attr;
 struct ibv_context_ops {
 	void *(*_compat_query_device)(void);
-	void *(*_compat_query_port)(void);
+	int (*_compat_query_port)(struct ibv_context *context,
+				  uint8_t port_num,
+				  struct _compat_ibv_port_attr *port_attr);
 	void *(*_compat_alloc_pd)(void);
 	void *(*_compat_dealloc_pd)(void);
 	void *(*_compat_reg_mr)(void);
@@ -1713,6 +1961,7 @@ struct ibv_context {
 
 enum ibv_cq_init_attr_mask {
 	IBV_CQ_INIT_ATTR_MASK_FLAGS	= 1 << 0,
+	IBV_CQ_INIT_ATTR_MASK_PD	= 1 << 1,
 };
 
 enum ibv_create_cq_attr_flags {
@@ -1743,12 +1992,25 @@ struct ibv_cq_init_attr_ex {
 	 * enum ibv_create_cq_attr_flags
 	 */
 	uint32_t		flags;
+	struct ibv_pd		*parent_domain;
 };
+
+enum ibv_parent_domain_init_attr_mask {
+	IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS = 1 << 0,
+	IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT = 1 << 1,
+};
+
+#define IBV_ALLOCATOR_USE_DEFAULT ((void *)-1)
 
 struct ibv_parent_domain_init_attr {
 	struct ibv_pd *pd; /* referance to a protection domain object, can't be NULL */
 	struct ibv_td *td; /* referance to a thread domain object, or NULL */
 	uint32_t comp_mask;
+	void *(*alloc)(struct ibv_pd *pd, void *pd_context, size_t size,
+		       size_t alignment, uint64_t resource_type);
+	void (*free)(struct ibv_pd *pd, void *pd_context, void *ptr,
+		     uint64_t resource_type);
+	void *pd_context;
 };
 
 struct ibv_counters_init_attr {
@@ -1786,6 +2048,14 @@ struct ibv_values_ex {
 
 struct verbs_context {
 	/*  "grows up" - new fields go here */
+	int (*query_port)(struct ibv_context *context, uint8_t port_num,
+			  struct ibv_port_attr *port_attr,
+			  size_t port_attr_len);
+	int (*advise_mr)(struct ibv_pd *pd,
+			 enum ibv_advise_mr_advice advice,
+			 uint32_t flags,
+			 struct ibv_sge *sg_list,
+			 uint32_t num_sges);
 	struct ibv_mr *(*alloc_null_mr)(struct ibv_pd *pd);
 	int (*read_counters)(struct ibv_counters *counters,
 			     uint64_t *counters_value,
@@ -1880,6 +2150,58 @@ static inline struct verbs_context *verbs_get_ctx(struct ibv_context *ctx)
  */
 struct ibv_device **ibv_get_device_list(int *num_devices);
 
+/*
+ * When statically linking the user can set RDMA_STATIC_PROVIDERS to a comma
+ * separated list of provider names to include in the static link, and this
+ * machinery will cause those providers to be included statically.
+ *
+ * Linking will fail if this is set for dynamic linking.
+ */
+#ifdef RDMA_STATIC_PROVIDERS
+#define _RDMA_STATIC_PREFIX_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11,     \
+			     _12, _13, _14, _15, _16, _17, ...)                \
+	&verbs_provider_##_1, &verbs_provider_##_2, &verbs_provider_##_3,      \
+		&verbs_provider_##_4, &verbs_provider_##_5,                    \
+		&verbs_provider_##_6, &verbs_provider_##_7,                    \
+		&verbs_provider_##_8, &verbs_provider_##_9,                    \
+		&verbs_provider_##_10, &verbs_provider_##_11,                  \
+		&verbs_provider_##_12, &verbs_provider_##_13,                  \
+		&verbs_provider_##_14, &verbs_provider_##_15,                  \
+		&verbs_provider_##_16, &verbs_provider_##_17
+#define _RDMA_STATIC_PREFIX(arg)                                               \
+	_RDMA_STATIC_PREFIX_(arg, none, none, none, none, none, none, none,    \
+			     none, none, none, none, none, none, none, none,   \
+			     none)
+
+struct verbs_devices_ops;
+extern const struct verbs_device_ops verbs_provider_bnxt_re;
+extern const struct verbs_device_ops verbs_provider_cxgb4;
+extern const struct verbs_device_ops verbs_provider_efa;
+extern const struct verbs_device_ops verbs_provider_hfi1verbs;
+extern const struct verbs_device_ops verbs_provider_hns;
+extern const struct verbs_device_ops verbs_provider_i40iw;
+extern const struct verbs_device_ops verbs_provider_ipathverbs;
+extern const struct verbs_device_ops verbs_provider_mlx4;
+extern const struct verbs_device_ops verbs_provider_mlx5;
+extern const struct verbs_device_ops verbs_provider_mthca;
+extern const struct verbs_device_ops verbs_provider_ocrdma;
+extern const struct verbs_device_ops verbs_provider_qedr;
+extern const struct verbs_device_ops verbs_provider_rxe;
+extern const struct verbs_device_ops verbs_provider_siw;
+extern const struct verbs_device_ops verbs_provider_vmw_pvrdma;
+extern const struct verbs_device_ops verbs_provider_all;
+extern const struct verbs_device_ops verbs_provider_none;
+void ibv_static_providers(void *unused, ...);
+
+static inline struct ibv_device **__ibv_get_device_list(int *num_devices)
+{
+	ibv_static_providers(NULL, _RDMA_STATIC_PREFIX(RDMA_STATIC_PROVIDERS),
+			     NULL);
+	return ibv_get_device_list(num_devices);
+}
+#define ibv_get_device_list(num_devices) __ibv_get_device_list(num_devices)
+#endif
+
 /**
  * ibv_free_device_list - Free list from ibv_get_device_list()
  *
@@ -1896,6 +2218,15 @@ void ibv_free_device_list(struct ibv_device **list);
 const char *ibv_get_device_name(struct ibv_device *device);
 
 /**
+ * ibv_get_device_index - Return kernel device index
+ *
+ * Available for the kernel with support of IB device query
+ * over netlink interface. For the unsupported kernels, the
+ * relevant -1 will be returned.
+ */
+int ibv_get_device_index(struct ibv_device *device);
+
+/**
  * ibv_get_device_guid - Return device's node GUID
  */
 __be64 ibv_get_device_guid(struct ibv_device *device);
@@ -1909,6 +2240,32 @@ struct ibv_context *ibv_open_device(struct ibv_device *device);
  * ibv_close_device - Release device
  */
 int ibv_close_device(struct ibv_context *context);
+
+/**
+ * ibv_import_device - Import device
+ */
+struct ibv_context *ibv_import_device(int cmd_fd);
+
+/**
+ * ibv_import_pd - Import a protetion domain
+ */
+struct ibv_pd *ibv_import_pd(struct ibv_context *context,
+			     uint32_t pd_handle);
+
+/**
+ * ibv_unimport_pd - Unimport a protetion domain
+ */
+void ibv_unimport_pd(struct ibv_pd *pd);
+
+/**
+ * ibv_import_mr - Import a memory region
+ */
+struct ibv_mr *ibv_import_mr(struct ibv_pd *pd, uint32_t mr_handle);
+
+/**
+ * ibv_unimport_mr - Unimport a memory region
+ */
+void ibv_unimport_mr(struct ibv_mr *mr);
 
 /**
  * ibv_get_async_event - Get next async event
@@ -1942,17 +2299,26 @@ int ibv_query_device(struct ibv_context *context,
  * ibv_query_port - Get port properties
  */
 int ibv_query_port(struct ibv_context *context, uint8_t port_num,
-		   struct ibv_port_attr *port_attr);
+		   struct _compat_ibv_port_attr *port_attr);
 
 static inline int ___ibv_query_port(struct ibv_context *context,
 				    uint8_t port_num,
 				    struct ibv_port_attr *port_attr)
 {
-	/* For compatibility when running with old libibverbs */
-	port_attr->link_layer = IBV_LINK_LAYER_UNSPECIFIED;
-	port_attr->flags      = 0;
+	struct verbs_context *vctx = verbs_get_ctx_op(context, query_port);
 
-	return ibv_query_port(context, port_num, port_attr);
+	if (!vctx) {
+		int rc;
+
+		memset(port_attr, 0, sizeof(*port_attr));
+
+		rc = ibv_query_port(context, port_num,
+				    (struct _compat_ibv_port_attr *)port_attr);
+		return rc;
+	}
+
+	return vctx->query_port(context, port_num, port_attr,
+				sizeof(*port_attr));
 }
 
 #define ibv_query_port(context, port_num, port_attr) \
@@ -1992,7 +2358,7 @@ static inline struct ibv_flow *ibv_create_flow(struct ibv_qp *qp,
 	struct verbs_context *vctx = verbs_get_ctx_op(qp->context,
 						      ibv_create_flow);
 	if (!vctx) {
-		errno = ENOSYS;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
@@ -2004,7 +2370,7 @@ static inline int ibv_destroy_flow(struct ibv_flow *flow_id)
 	struct verbs_context *vctx = verbs_get_ctx_op(flow_id->context,
 						      ibv_destroy_flow);
 	if (!vctx)
-		return -ENOSYS;
+		return -EOPNOTSUPP;
 	return vctx->ibv_destroy_flow(flow_id);
 }
 
@@ -2016,7 +2382,7 @@ ibv_create_flow_action_esp(struct ibv_context *ctx,
 						      create_flow_action_esp);
 
 	if (!vctx) {
-		errno = ENOSYS;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
@@ -2031,7 +2397,7 @@ ibv_modify_flow_action_esp(struct ibv_flow_action *action,
 						      modify_flow_action_esp);
 
 	if (!vctx)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	return vctx->modify_flow_action_esp(action, esp);
 }
@@ -2042,7 +2408,7 @@ static inline int ibv_destroy_flow_action(struct ibv_flow_action *action)
 						      destroy_flow_action);
 
 	if (!vctx)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	return vctx->destroy_flow_action(action);
 }
@@ -2055,7 +2421,7 @@ ibv_open_xrcd(struct ibv_context *context, struct ibv_xrcd_init_attr *xrcd_init_
 {
 	struct verbs_context *vctx = verbs_get_ctx_op(context, open_xrcd);
 	if (!vctx) {
-		errno = ENOSYS;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 	return vctx->open_xrcd(context, xrcd_init_attr);
@@ -2071,11 +2437,59 @@ static inline int ibv_close_xrcd(struct ibv_xrcd *xrcd)
 }
 
 /**
+ * ibv_reg_mr_iova2 - Register memory region with a virtual offset address
+ *
+ * This version will be called if ibv_reg_mr or ibv_reg_mr_iova were called
+ * with at least one potential access flag from the IBV_OPTIONAL_ACCESS_RANGE
+ * flags range The optional access flags will be masked if running over kernel
+ * that does not support passing them.
+ */
+struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
+				uint64_t iova, unsigned int access);
+
+/**
  * ibv_reg_mr - Register a memory region
  */
-struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
-			  size_t length, int access);
+struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+			  int access);
+/* use new ibv_reg_mr version only if access flags that require it are used */
+__attribute__((__always_inline__)) static inline struct ibv_mr *
+__ibv_reg_mr(struct ibv_pd *pd, void *addr, size_t length, unsigned int access,
+	     int is_access_const)
+{
+	if (is_access_const && (access & IBV_ACCESS_OPTIONAL_RANGE) == 0)
+		return ibv_reg_mr(pd, addr, length, access);
+	else
+		return ibv_reg_mr_iova2(pd, addr, length, (uintptr_t)addr,
+					access);
+}
 
+#define ibv_reg_mr(pd, addr, length, access)                                   \
+	__ibv_reg_mr(pd, addr, length, access,                                 \
+		     __builtin_constant_p(				       \
+			     ((access) & IBV_ACCESS_OPTIONAL_RANGE) == 0))
+
+/**
+ * ibv_reg_mr_iova - Register a memory region with a virtual offset
+ * address
+ */
+struct ibv_mr *ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length,
+			       uint64_t iova, int access);
+/* use new ibv_reg_mr version only if access flags that require it are used */
+__attribute__((__always_inline__)) static inline struct ibv_mr *
+__ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length, uint64_t iova,
+		  unsigned int access, int is_access_const)
+{
+	if (is_access_const && (access & IBV_ACCESS_OPTIONAL_RANGE) == 0)
+		return ibv_reg_mr_iova(pd, addr, length, iova, access);
+	else
+		return ibv_reg_mr_iova2(pd, addr, length, iova, access);
+}
+
+#define ibv_reg_mr_iova(pd, addr, length, iova, access)                        \
+	__ibv_reg_mr_iova(pd, addr, length, iova, access,                      \
+			  __builtin_constant_p(                                \
+				  ((access) & IBV_ACCESS_OPTIONAL_RANGE) == 0))
 
 enum ibv_rereg_mr_err_code {
 	/* Old MR is valid, invalid input */
@@ -2110,7 +2524,7 @@ static inline struct ibv_mw *ibv_alloc_mw(struct ibv_pd *pd,
 	struct ibv_mw *mw;
 
 	if (!pd->context->ops.alloc_mw) {
-		errno = ENOSYS;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
@@ -2160,6 +2574,29 @@ struct ibv_comp_channel *ibv_create_comp_channel(struct ibv_context *context);
 int ibv_destroy_comp_channel(struct ibv_comp_channel *channel);
 
 /**
+ * ibv_advise_mr - Gives advice about an address range in MRs
+ * @pd - protection domain of all MRs for which the advice is for
+ * @advice - type of advice
+ * @flags - advice modifiers
+ * @sg_list - an array of memory ranges
+ * @num_sge - number of elements in the array
+ */
+static inline int ibv_advise_mr(struct ibv_pd *pd,
+				enum ibv_advise_mr_advice advice,
+				uint32_t flags,
+				struct ibv_sge *sg_list,
+				uint32_t num_sge)
+{
+	struct verbs_context *vctx;
+
+	vctx = verbs_get_ctx_op(pd->context, advise_mr);
+	if (!vctx)
+		return EOPNOTSUPP;
+
+	return vctx->advise_mr(pd, advice, flags, sg_list, num_sge);
+}
+
+/**
  * ibv_alloc_dm - Allocate device memory
  * @context - Context DM will be attached to
  * @attr - Attributes to allocate the DM with
@@ -2171,7 +2608,7 @@ struct ibv_dm *ibv_alloc_dm(struct ibv_context *context,
 	struct verbs_context *vctx = verbs_get_ctx_op(context, alloc_dm);
 
 	if (!vctx) {
-		errno = ENOSYS;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
@@ -2188,7 +2625,7 @@ int ibv_free_dm(struct ibv_dm *dm)
 	struct verbs_context *vctx = verbs_get_ctx_op(dm->context, free_dm);
 
 	if (!vctx)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	return vctx->free_dm(dm);
 }
@@ -2225,7 +2662,7 @@ struct ibv_mr *ibv_alloc_null_mr(struct ibv_pd *pd)
 
 	vctx = verbs_get_ctx_op(pd->context, alloc_null_mr);
 	if (!vctx) {
-		errno = ENOSYS;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
@@ -2248,7 +2685,7 @@ struct ibv_mr *ibv_reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *dm,
 	struct verbs_context *vctx = verbs_get_ctx_op(pd->context, reg_dm_mr);
 
 	if (!vctx) {
-		errno = ENOSYS;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
@@ -2282,7 +2719,7 @@ struct ibv_cq_ex *ibv_create_cq_ex(struct ibv_context *context,
 	struct verbs_context *vctx = verbs_get_ctx_op(context, create_cq_ex);
 
 	if (!vctx) {
-		errno = ENOSYS;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
@@ -2367,7 +2804,7 @@ static inline int ibv_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *at
 	struct verbs_context *vctx = verbs_get_ctx_op(cq->context, modify_cq);
 
 	if (!vctx)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	return vctx->modify_cq(cq, attr);
 }
@@ -2401,7 +2838,7 @@ ibv_create_srq_ex(struct ibv_context *context,
 
 	vctx = verbs_get_ctx_op(context, create_srq_ex);
 	if (!vctx) {
-		errno = ENOSYS;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 	return vctx->create_srq_ex(context, srq_init_attr_ex);
@@ -2436,7 +2873,7 @@ static inline int ibv_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 	struct verbs_context *vctx = verbs_get_ctx_op(srq->context, get_srq_num);
 
 	if (!vctx)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	return vctx->get_srq_num(srq, srq_num);
 }
@@ -2470,7 +2907,7 @@ static inline int ibv_post_srq_ops(struct ibv_srq *srq,
 	vctx = verbs_get_ctx_op(srq->context, post_srq_ops);
 	if (!vctx) {
 		*bad_op = op;
-		return ENOSYS;
+		return EOPNOTSUPP;
 	}
 	return vctx->post_srq_ops(srq, op, bad_op);
 }
@@ -2493,7 +2930,7 @@ ibv_create_qp_ex(struct ibv_context *context, struct ibv_qp_init_attr_ex *qp_ini
 
 	vctx = verbs_get_ctx_op(context, create_qp_ex);
 	if (!vctx) {
-		errno = ENOSYS;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 	return vctx->create_qp_ex(context, qp_init_attr_ex);
@@ -2509,7 +2946,7 @@ static inline struct ibv_td *ibv_alloc_td(struct ibv_context *context,
 
 	vctx = verbs_get_ctx_op(context, alloc_td);
 	if (!vctx) {
-		errno = ENOSYS;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
@@ -2525,7 +2962,7 @@ static inline int ibv_dealloc_td(struct ibv_td *td)
 
 	vctx = verbs_get_ctx_op(td->context, dealloc_td);
 	if (!vctx)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	return vctx->dealloc_td(td);
 }
@@ -2541,7 +2978,7 @@ ibv_alloc_parent_domain(struct ibv_context *context,
 
 	vctx = verbs_get_ctx_op(context, alloc_parent_domain);
 	if (!vctx) {
-		errno = ENOSYS;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
@@ -2561,7 +2998,7 @@ ibv_query_rt_values_ex(struct ibv_context *context,
 
 	vctx = verbs_get_ctx_op(context, query_rt_values);
 	if (!vctx)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	return vctx->query_rt_values(context, values);
 }
@@ -2577,12 +3014,15 @@ ibv_query_device_ex(struct ibv_context *context,
 	struct verbs_context *vctx;
 	int ret;
 
+	if (input && input->comp_mask)
+		return EINVAL;
+
 	vctx = verbs_get_ctx_op(context, query_device_ex);
 	if (!vctx)
 		goto legacy;
 
 	ret = vctx->query_device_ex(context, input, attr, sizeof(*attr));
-	if (ret == ENOSYS)
+	if (ret == EOPNOTSUPP || ret == ENOSYS)
 		goto legacy;
 
 	return ret;
@@ -2602,7 +3042,7 @@ ibv_open_qp(struct ibv_context *context, struct ibv_qp_open_attr *qp_open_attr)
 {
 	struct verbs_context *vctx = verbs_get_ctx_op(context, open_qp);
 	if (!vctx) {
-		errno = ENOSYS;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 	return vctx->open_qp(context, qp_open_attr);
@@ -2627,7 +3067,7 @@ ibv_modify_qp_rate_limit(struct ibv_qp *qp,
 
 	vctx = verbs_get_ctx_op(qp->context, modify_qp_rate_limit);
 	if (!vctx)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	return vctx->modify_qp_rate_limit(qp, attr);
 }
@@ -2677,12 +3117,13 @@ static inline struct ibv_wq *ibv_create_wq(struct ibv_context *context,
 	struct ibv_wq *wq;
 
 	if (!vctx) {
-		errno = ENOSYS;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
 	wq = vctx->create_wq(context, wq_init_attr);
 	if (wq) {
+		wq->wq_context = wq_init_attr->wq_context;
 		wq->events_completed = 0;
 		pthread_mutex_init(&wq->mutex, NULL);
 		pthread_cond_init(&wq->cond, NULL);
@@ -2709,7 +3150,7 @@ static inline int ibv_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *wq_attr)
 	struct verbs_context *vctx = verbs_get_ctx_op(wq->context, modify_wq);
 
 	if (!vctx)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	return vctx->modify_wq(wq, wq_attr);
 }
@@ -2727,7 +3168,7 @@ static inline int ibv_destroy_wq(struct ibv_wq *wq)
 
 	vctx = verbs_get_ctx_op(wq->context, destroy_wq);
 	if (!vctx)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	return vctx->destroy_wq(wq);
 }
@@ -2747,7 +3188,7 @@ static inline struct ibv_rwq_ind_table *ibv_create_rwq_ind_table(struct ibv_cont
 
 	vctx = verbs_get_ctx_op(context, create_rwq_ind_table);
 	if (!vctx) {
-		errno = ENOSYS;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
@@ -2767,7 +3208,7 @@ static inline int ibv_destroy_rwq_ind_table(struct ibv_rwq_ind_table *rwq_ind_ta
 
 	vctx = verbs_get_ctx_op(rwq_ind_table->context, destroy_rwq_ind_table);
 	if (!vctx)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	return vctx->destroy_rwq_ind_table(rwq_ind_table);
 }
@@ -2895,7 +3336,7 @@ static inline struct ibv_counters *ibv_create_counters(struct ibv_context *conte
 
 	vctx = verbs_get_ctx_op(context, create_counters);
 	if (!vctx) {
-		errno = ENOSYS;
+		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
@@ -2908,7 +3349,7 @@ static inline int ibv_destroy_counters(struct ibv_counters *counters)
 
 	vctx = verbs_get_ctx_op(counters->context, destroy_counters);
 	if (!vctx)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	return vctx->destroy_counters(counters);
 }
@@ -2921,7 +3362,7 @@ static inline int ibv_attach_counters_point_flow(struct ibv_counters *counters,
 
 	vctx = verbs_get_ctx_op(counters->context, attach_counters_point_flow);
 	if (!vctx)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	return vctx->attach_counters_point_flow(counters, attr, flow);
 }
@@ -2935,11 +3376,32 @@ static inline int ibv_read_counters(struct ibv_counters *counters,
 
 	vctx = verbs_get_ctx_op(counters->context, read_counters);
 	if (!vctx)
-		return ENOSYS;
+		return EOPNOTSUPP;
 
 	return vctx->read_counters(counters, counters_value, ncounters, flags);
 }
 
+#define IB_ROCE_UDP_ENCAP_VALID_PORT_MIN (0xC000)
+#define IB_ROCE_UDP_ENCAP_VALID_PORT_MAX (0xFFFF)
+#define IB_GRH_FLOWLABEL_MASK (0x000FFFFF)
+
+static inline uint16_t ibv_flow_label_to_udp_sport(uint32_t fl)
+{
+	uint32_t fl_low = fl & 0x03FFF, fl_high = fl & 0xFC000;
+
+	fl_low ^= fl_high >> 14;
+	return (uint16_t)(fl_low | IB_ROCE_UDP_ENCAP_VALID_PORT_MIN);
+}
+
+/**
+ * ibv_set_ece - Set ECE options
+ */
+int ibv_set_ece(struct ibv_qp *qp, struct ibv_ece *ece);
+
+/**
+ * ibv_query_ece - Get accepted ECE options
+ */
+int ibv_query_ece(struct ibv_qp *qp, struct ibv_ece *ece);
 #ifdef __cplusplus
 }
 #endif

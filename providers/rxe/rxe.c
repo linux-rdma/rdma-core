@@ -56,8 +56,10 @@
 #include "rxe-abi.h"
 #include "rxe.h"
 
+static void rxe_free_context(struct ibv_context *ibctx);
+
 static const struct verbs_match_ent hca_table[] = {
-	/* FIXME: rxe needs a more reliable way to detect the rxe device */
+	VERBS_DRIVER_ID(RDMA_DRIVER_RXE),
 	VERBS_NAME_MATCH("rxe", NULL),
 	{},
 };
@@ -123,7 +125,7 @@ static int rxe_dealloc_pd(struct ibv_pd *pd)
 }
 
 static struct ibv_mr *rxe_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
-				 int access)
+				 uint64_t hca_va, int access)
 {
 	struct verbs_mr *vmr;
 	struct ibv_reg_mr cmd;
@@ -134,8 +136,8 @@ static struct ibv_mr *rxe_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	if (!vmr)
 		return NULL;
 
-	ret = ibv_cmd_reg_mr(pd, addr, length, (uintptr_t)addr, access, vmr,
-			     &cmd, sizeof cmd, &resp, sizeof resp);
+	ret = ibv_cmd_reg_mr(pd, addr, length, hca_va, access, vmr, &cmd,
+			     sizeof(cmd), &resp, sizeof(resp));
 	if (ret) {
 		free(vmr);
 		return NULL;
@@ -585,6 +587,7 @@ static void convert_send_wr(struct rxe_send_wr *kwr, struct ibv_send_wr *uwr)
 	case IBV_WR_BIND_MW:
 	case IBV_WR_SEND_WITH_INV:
 	case IBV_WR_TSO:
+	case IBV_WR_DRIVER1:
 		break;
 	}
 }
@@ -802,6 +805,10 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 
 	rdma_gid2ip(&av->sgid_addr, &sgid);
 	rdma_gid2ip(&av->dgid_addr, &attr->grh.dgid);
+	if (ibv_resolve_eth_l2_from_gid(pd->context, attr, av->dmac, NULL)) {
+		free(ah);
+		return NULL;
+	}
 
 	memset(&resp, 0, sizeof(resp));
 	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr, &resp, sizeof(resp))) {
@@ -851,7 +858,8 @@ static const struct verbs_context_ops rxe_ctx_ops = {
 	.create_ah = rxe_create_ah,
 	.destroy_ah = rxe_destroy_ah,
 	.attach_mcast = ibv_cmd_attach_mcast,
-	.detach_mcast = ibv_cmd_detach_mcast
+	.detach_mcast = ibv_cmd_detach_mcast,
+	.free_context = rxe_free_context,
 };
 
 static struct verbs_context *rxe_alloc_context(struct ibv_device *ibdev,
@@ -921,6 +929,5 @@ static const struct verbs_device_ops rxe_dev_ops = {
 	.alloc_device = rxe_device_alloc,
 	.uninit_device = rxe_uninit_device,
 	.alloc_context = rxe_alloc_context,
-	.free_context = rxe_free_context,
 };
-PROVIDER_DRIVER(rxe_dev_ops);
+PROVIDER_DRIVER(rxe, rxe_dev_ops);

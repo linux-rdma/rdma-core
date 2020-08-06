@@ -50,10 +50,13 @@
 #include "main.h"
 #include "verbs.h"
 
+static void bnxt_re_free_context(struct ibv_context *ibvctx);
+
 #define PCI_VENDOR_ID_BROADCOM		0x14E4
 
 #define CNA(v, d) VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, d, NULL)
 static const struct verbs_match_ent cna_table[] = {
+	VERBS_DRIVER_ID(RDMA_DRIVER_BNXT_RE),
 	CNA(BROADCOM, 0x1605),  /* BCM57454 NPAR */
 	CNA(BROADCOM, 0x1606),  /* BCM57454 VF */
 	CNA(BROADCOM, 0x1614),  /* BCM57454 */
@@ -74,9 +77,16 @@ static const struct verbs_match_ent cna_table[] = {
 	CNA(BROADCOM, 0x16EF),  /* BCM57416 NPAR */
 	CNA(BROADCOM, 0x16F0),  /* BCM58730 */
 	CNA(BROADCOM, 0x16F1),  /* BCM57452 */
+	CNA(BROADCOM, 0x1750),	/* BCM57508 */
+	CNA(BROADCOM, 0x1751),	/* BCM57504 */
+	CNA(BROADCOM, 0x1752),	/* BCM57502 */
+	CNA(BROADCOM, 0x1803),	/* BCM57508 NPAR */
+	CNA(BROADCOM, 0x1804),	/* BCM57504 NPAR */
+	CNA(BROADCOM, 0x1805),	/* BCM57502 NPAR */
+	CNA(BROADCOM, 0x1807),	/* BCM5750x VF */
 	CNA(BROADCOM, 0xD800),  /* BCM880xx VF */
 	CNA(BROADCOM, 0xD802),  /* BCM58802 */
-	CNA(BROADCOM, 0xD804),   /* BCM8804 SR */
+	CNA(BROADCOM, 0xD804),  /* BCM8804 SR */
 	{}
 };
 
@@ -105,8 +115,16 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 	.post_send     = bnxt_re_post_send,
 	.post_recv     = bnxt_re_post_recv,
 	.create_ah     = bnxt_re_create_ah,
-	.destroy_ah    = bnxt_re_destroy_ah
+	.destroy_ah    = bnxt_re_destroy_ah,
+	.free_context  = bnxt_re_free_context,
 };
+
+bool bnxt_re_is_chip_gen_p5(struct bnxt_re_chip_ctx *cctx)
+{
+	return (cctx->chip_num == CHIP_NUM_57508 ||
+		cctx->chip_num == CHIP_NUM_57504 ||
+		cctx->chip_num == CHIP_NUM_57502);
+}
 
 /* Context Init functions */
 static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
@@ -133,6 +151,14 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 	dev->pg_size = resp.pg_size;
 	dev->cqe_size = resp.cqe_sz;
 	dev->max_cq_depth = resp.max_cqd;
+	if (resp.comp_mask & BNXT_RE_UCNTX_CMASK_HAVE_CCTX) {
+		cntx->cctx.chip_num = resp.chip_id0 & 0xFFFF;
+		cntx->cctx.chip_rev = (resp.chip_id0 >>
+				       BNXT_RE_CHIP_ID0_CHIP_REV_SFT) & 0xFF;
+		cntx->cctx.chip_metal = (resp.chip_id0 >>
+					 BNXT_RE_CHIP_ID0_CHIP_MET_SFT) &
+					 0xFF;
+	}
 	pthread_spin_init(&cntx->fqlock, PTHREAD_PROCESS_PRIVATE);
 	/* mmap shared page. */
 	cntx->shpg = mmap(NULL, dev->pg_size, PROT_READ | PROT_WRITE,
@@ -195,6 +221,5 @@ static const struct verbs_device_ops bnxt_re_dev_ops = {
 	.match_table = cna_table,
 	.alloc_device = bnxt_re_device_alloc,
 	.alloc_context = bnxt_re_alloc_context,
-	.free_context = bnxt_re_free_context,
 };
-PROVIDER_DRIVER(bnxt_re_dev_ops);
+PROVIDER_DRIVER(bnxt_re, bnxt_re_dev_ops);

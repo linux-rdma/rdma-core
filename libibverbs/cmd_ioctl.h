@@ -376,6 +376,9 @@ static inline size_t _array_len(size_t size, size_t nelems)
 #define fill_attr_out_ptr_array(cmd, attr_id, ptr, nelems)                     \
 	fill_attr_out(cmd, attr_id, ptr, _array_len(sizeof(*ptr), nelems))
 
+#define fill_attr_in_ptr_array(cmd, attr_id, ptr, nelems)                       \
+	fill_attr_in(cmd, attr_id, ptr, _array_len(sizeof(*ptr), nelems))
+
 static inline size_t __check_divide(size_t val, unsigned int div)
 {
 	assert(val % div == 0);

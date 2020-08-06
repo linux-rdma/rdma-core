@@ -38,6 +38,7 @@
 #include <infiniband/driver.h>
 
 #include <rdma/ib_user_ioctl_cmds.h>
+#include <valgrind/memcheck.h>
 
 /* Number of attrs in this and all the link'd buffers */
 unsigned int __ioctl_final_num_attrs(unsigned int num_attrs,
@@ -111,7 +112,7 @@ static void finalize_attrs(struct ibv_command_buffer *cmd)
 	struct ibv_command_buffer *link;
 	struct ib_uverbs_attr *end;
 
-	for (end = cmd->hdr.attrs; end != cmd->last_attr; end++)
+	for (end = cmd->hdr.attrs; end != cmd->next_attr; end++)
 		finalize_attr(end);
 
 	for (link = cmd->next; link; link = link->next) {

@@ -157,7 +157,7 @@ int pvrdma_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
 	return npolled;
 }
 
-void pvrdma_cq_clean_int(struct pvrdma_cq *cq, uint32_t qpn)
+void pvrdma_cq_clean_int(struct pvrdma_cq *cq, uint32_t qp_handle)
 {
 	/* Flush CQEs from specified QP */
 	int has_data;
@@ -185,7 +185,7 @@ void pvrdma_cq_clean_int(struct pvrdma_cq *cq, uint32_t qpn)
 				tail = cq->cqe_cnt - 1;
 			curr_cqe = get_cqe(cq, curr);
 			udma_from_device_barrier();
-			if ((curr_cqe->qp & 0xFFFF) != qpn) {
+			if ((curr_cqe->qp & 0xFFFF) != qp_handle) {
 				if (curr != tail) {
 					cqe = get_cqe(cq, tail);
 					udma_from_device_barrier();
@@ -202,10 +202,10 @@ void pvrdma_cq_clean_int(struct pvrdma_cq *cq, uint32_t qpn)
 	}
 }
 
-void pvrdma_cq_clean(struct pvrdma_cq *cq, uint32_t qpn)
+void pvrdma_cq_clean(struct pvrdma_cq *cq, uint32_t qp_handle)
 {
 	pthread_spin_lock(&cq->lock);
-	pvrdma_cq_clean_int(cq, qpn);
+	pvrdma_cq_clean_int(cq, qp_handle);
 	pthread_spin_unlock(&cq->lock);
 }
 

@@ -43,6 +43,12 @@ uint32_t        size;
 .in -8
 } bf;
 uint64_t                comp_mask;
+off_t			uar_mmap_offset;
+uint32_t		tirn;
+uint32_t		tisn;
+uint32_t		rqn;
+uint32_t		sqn;
+uint64_t 		tir_icm_address;
 .in -8
 };
 
@@ -66,6 +72,7 @@ uint32_t                stride;
 uint32_t                head;
 uint32_t                tail;
 uint64_t                comp_mask;
+uint32_t                srqn;
 .in -8
 };
 
@@ -84,12 +91,20 @@ struct mlx5dv_dm {
 void		*buf;
 uint64_t	length;
 uint64_t	comp_mask;
+uint64_t	remote_va;
 .in -8
 };
 
 struct mlx5dv_ah {
 .in +8
 struct mlx5_wqe_av    *av;
+uint64_t              comp_mask;
+.in -8
+};
+
+struct mlx5dv_pd {
+.in +8
+uint32_t              pdn;
 uint64_t              comp_mask;
 .in -8
 };
@@ -132,6 +147,12 @@ struct ibv_ah		*in;
 struct mlx5dv_ah	*out;
 .in -8
 } ah;
+struct {
+.in +8
+struct ibv_pd           *in;
+struct mlx5dv_pd        *out;
+.in -8
+} pd;
 .in -8
 };
 
@@ -143,6 +164,7 @@ MLX5DV_OBJ_SRQ  = 1 << 2,
 MLX5DV_OBJ_RWQ  = 1 << 3,
 MLX5DV_OBJ_DM   = 1 << 4,
 MLX5DV_OBJ_AH   = 1 << 5,
+MLX5DV_OBJ_PD   = 1 << 6,
 .in -8
 };
 .fi

@@ -76,3 +76,16 @@ RDMACM_1.1 {
 	global:
 		rdma_join_multicast_ex;
 } RDMACM_1.0;
+
+RDMACM_1.2 {
+	global:
+		rdma_establish;
+		rdma_init_qp_attr;
+} RDMACM_1.1;
+
+RDMACM_1.3 {
+	global:
+		rdma_get_remote_ece;
+		rdma_reject_ece;
+		rdma_set_local_ece;
+} RDMACM_1.2;

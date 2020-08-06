@@ -131,10 +131,8 @@ static int update_node_desc(const char *device, const char *hostname, int force)
 	nd_file[sizeof(nd_file)-1] = '\0';
 
 	f = fopen(nd_file, "r+");
-	if (!f) {
-		syslog(LOG_ERR, "Failed to open %s\n", nd_file);
+	if (!f)
 		return -EIO;
-	}
 
 	if (!fgets(nd, sizeof(nd), f)) {
 		syslog(LOG_ERR, "Failed to read %s\n", nd_file);
@@ -175,7 +173,7 @@ static void set_rdma_node_desc(const char *hostname, int force)
 			continue;
 
 		if (update_node_desc(dent->d_name, hostname, force))
-			syslog(LOG_ERR, "set Node Description failed on %s\n",
+			syslog(LOG_DEBUG, "set Node Description failed on %s\n",
 			       dent->d_name);
 	}
 
@@ -228,10 +226,11 @@ static void process_udev_event(int ud_fd, const char *hostname)
 		dbg_log("Device event: %s, %s, %s\n",
 			udev_device_get_subsystem(dev), device, action);
 
-		if (device && action
-		    && strncmp(action, "add", sizeof("add")) == 0)
+		if (device && action &&
+		    (!strncmp(action, "add", sizeof("add")) ||
+		     !strncmp(action, "move", sizeof("add"))))
 			if (update_node_desc(device, hostname, 1))
-				syslog(LOG_ERR, "set Node Description failed on %s\n",
+				syslog(LOG_DEBUG, "set Node Description failed on %s\n",
 				       device);
 
 		udev_device_unref(dev);

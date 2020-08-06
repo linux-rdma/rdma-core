@@ -12,7 +12,7 @@ Files: debian/*
 Copyright: 2008, Genome Research Ltd
            2014, Ana Beatriz Guerrero Lopez <ana@debian.org>
            2015-2016, Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-           2016-2017, Benjamin Drung <benjamin.drung@profitbricks.com>
+           2016-2018, Benjamin Drung <benjamin.drung@cloud.ionos.com>
            2016-2017, Talat Batheesh <talatb@mellanox.com>
 License: GPL-2+
  This program is free software; you can redistribute it and/or modify
@@ -111,7 +111,6 @@ License: BSD-MIT or GPL-2
 
 Files: libibverbs/man/*
        libibverbs/neigh.h
-       libibverbs/nl1_compat.h
        libibverbs/neigh.c
 Copyright: disclaimed
 License: BSD-2-clause
@@ -149,10 +148,13 @@ Files: providers/bnxt_re/*
 Copyright: 2015-2017, Broadcom Limited and/or its subsidiaries
 License: BSD-2-clause or GPL-2
 
-Files: providers/cxgb3/*
-       providers/cxgb4/*
+Files: providers/cxgb4/*
 Copyright: 2003-2016, Chelsio Communications, Inc.
 License: BSD-MIT or GPL-2
+
+Files: providers/efa/*
+Copyright: 2019 Amazon.com, Inc. or its affiliates.
+License: BSD-2-clause or GPL-2
 
 Files: providers/hfi1verbs/*
 Copyright: 2005 PathScale, Inc.
@@ -195,11 +197,6 @@ Copyright: 2004-2005, Topspin Communications.
            2005, Mellanox Technologies Ltd.
 License: BSD-MIT or GPL-2
 
-Files: providers/nes/*
-Copyright: 2006-2010, Intel Corporation.
-           2006, Open Grid Computing, Inc.
-License: BSD-MIT or GPL-2
-
 Files: providers/ocrdma/*
 Copyright: 2008-2013, Emulex.
 License: BSD-2-clause or GPL-2
@@ -214,6 +211,10 @@ Copyright: 2009-2011, System Fabric Works, Inc.
            2006-2007, QLogic Corporation.
            2005, PathScale, Inc.
 License: BSD-MIT or GPL-2
+
+Files: providers/siw/*
+Copyright: 2008-2019, IBM Corporation.
+License: BSD-3-clause or GPL-2
 
 Files: providers/vmw_pvrdma/*
 Copyright: 2012-2016 VMware, Inc.
@@ -233,12 +234,12 @@ Copyright: 2005, Topspin Communications.
            2006, Mellanox Technologies Ltd.
 License: BSD-MIT or GPL-2
 
-Files: srp_daemon/srp_daemon.1.in
+Files: srp_daemon/srp_daemon.8.in
 Copyright: 2006 Mellanox Technologies.
 License: CPL-1.0 or BSD-2-clause or GPL-2
 
 Files: srp_daemon/srpd.in
-       srp_daemon/ibsrpdm.1
+       srp_daemon/ibsrpdm.8
 Copyright: disclaimed
 License: BSD-2-clause
 
