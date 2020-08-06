@@ -76,6 +76,9 @@ cdef extern from 'infiniband/mlx5dv.h':
         long        mmap_off;
         uint64_t    comp_mask;
 
+    cdef struct mlx5dv_qp_ex:
+        uint64_t comp_mask
+
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
@@ -99,3 +102,6 @@ cdef extern from 'infiniband/mlx5dv.h':
     mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context,
                                            uint32_t flags)
     void mlx5dv_devx_free_uar(mlx5dv_devx_uar *devx_uar)
+    void mlx5dv_wr_set_dc_addr(mlx5dv_qp_ex *mqp, v.ibv_ah *ah,
+                               uint32_t remote_dctn, uint64_t remote_dc_key)
+    mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(v.ibv_qp_ex *qp_ex)

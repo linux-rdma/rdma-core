@@ -1260,9 +1260,12 @@ cdef class QPEx(QP):
         :return: An initialized QPEx object
         """
         super().__init__(creator, init_attr, qp_attr)
-        self.qp_ex = v.ibv_qp_to_qp_ex(self.qp)
-        if self.qp_ex == NULL:
-            raise PyverbsRDMAErrno('Failed to create extended QP')
+        if init_attr.comp_mask & v.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS:
+            self.qp_ex = v.ibv_qp_to_qp_ex(self.qp)
+            if self.qp_ex == NULL:
+                raise PyverbsRDMAErrno('Failed to create extended QP')
+        else:
+            self.logger.debug('qp_ex is not accessible since IBV_QP_INIT_ATTR_SEND_OPS_FLAGS was not passed.')
 
     @property
     def comp_mask(self):
