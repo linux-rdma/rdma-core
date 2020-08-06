@@ -12,11 +12,12 @@ import os
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.addr import AHAttr, AH, GlobalRoute
+from tests.base import XRCResources, DCT_KEY
 from pyverbs.wr import SGE, SendWR, RecvWR
 from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx
+from tests.mlx5_base import Mlx5DcResources
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.mr import MW, MWBindInfo
-from tests.base import XRCResources
 from pyverbs.cq import PollCqAttr
 import pyverbs.device as d
 import pyverbs.enums as e
@@ -391,6 +392,9 @@ def post_send_ex(agr_obj, send_object, gid_index, port, send_op=None, qp_idx=0):
         qp.wr_set_ud_addr(ah, agr_obj.rqps_num[qp_idx], agr_obj.UD_QKEY)
     if qp_type == e.IBV_QPT_XRC_SEND:
         qp.wr_set_xrc_srqn(agr_obj.remote_srqn)
+    if isinstance(agr_obj, Mlx5DcResources):
+        ah = get_global_ah(agr_obj, gid_index, port)
+        qp.wr_set_dc_addr(ah, agr_obj.remote_dct_num, DCT_KEY)
     qp.wr_set_sge(send_object)
     qp.wr_complete()
 

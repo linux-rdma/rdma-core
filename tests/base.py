@@ -35,6 +35,7 @@ TIMEOUT = 14
 MLNX_VENDOR_ID = 0x02c9
 CX3_MLNX_PART_ID = 4099
 CX3Pro_MLNX_PART_ID = 4103
+DCT_KEY = 0xbadc0de
 # Dictionary: vendor_id -> array of part_ids of devices that lack RoCEv2 support
 ROCEV2_UNSUPPORTED_DEVS = {MLNX_VENDOR_ID: [CX3Pro_MLNX_PART_ID,
                                             CX3_MLNX_PART_ID]}
@@ -42,6 +43,18 @@ ROCEV2_UNSUPPORTED_DEVS = {MLNX_VENDOR_ID: [CX3Pro_MLNX_PART_ID,
 
 def has_roce_hw_bug(vendor_id, vendor_part_id):
     return vendor_part_id in ROCEV2_UNSUPPORTED_DEVS.get(vendor_id, [])
+
+
+def set_rnr_attributes(qp_attr):
+    """
+    Set default QP RNR attributes.
+    :param qp_attr: The QPAttr to set its attributes
+    :return: None
+    """
+    qp_attr.min_rnr_timer = MIN_RNR_TIMER
+    qp_attr.timeout = TIMEOUT
+    qp_attr.retry_cnt = RETRY_CNT
+    qp_attr.rnr_retry = RNR_RETRY
 
 
 class PyverbsAPITestCase(unittest.TestCase):
@@ -369,10 +382,7 @@ class RCResources(TrafficResources):
         attr = self.create_qp_attr()
         attr.path_mtu = PATH_MTU
         attr.max_dest_rd_atomic = MAX_DEST_RD_ATOMIC
-        attr.min_rnr_timer = MIN_RNR_TIMER
-        attr.timeout = TIMEOUT
-        attr.retry_cnt = RETRY_CNT
-        attr.rnr_retry = RNR_RETRY
+        set_rnr_attributes(attr)
         attr.max_rd_atomic = MAX_RD_ATOMIC
         gr = GlobalRoute(dgid=self.ctx.query_gid(self.ib_port, self.gid_index),
                          sgid_index=self.gid_index)
@@ -507,10 +517,7 @@ class XRCResources(TrafficResources):
                          gr=gr, dlid=self.port_attr.lid)
         qp_attr = QPAttr()
         qp_attr.path_mtu = PATH_MTU
-        qp_attr.timeout = TIMEOUT
-        qp_attr.retry_cnt = RETRY_CNT
-        qp_attr.rnr_retry = RNR_RETRY
-        qp_attr.min_rnr_timer = MIN_RNR_TIMER
+        set_rnr_attributes(qp_attr)
         qp_attr.ah_attr = ah_attr
         for i in range(self.qp_count):
             qp_attr.dest_qp_num = self.rqps_num[i][1]
