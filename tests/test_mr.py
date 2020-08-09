@@ -312,41 +312,11 @@ class MWTest(RDMATestCase):
         u.rdma_traffic(self.client, self.server, self.iters, self.gid_index,
                        self.ib_port, send_op=e.IBV_WR_RDMA_WRITE)
 
-    def test_invalidate_mw_type1(self):
-        self.test_mw_type1()
-        self.invalidate_mw_type1()
-        with self.assertRaisesRegex(PyverbsRDMAError, 'Remote access error'):
-            u.rdma_traffic(self.client, self.server, self.iters, self.gid_index,
-                           self.ib_port, send_op=e.IBV_WR_RDMA_WRITE)
-
     def test_mw_type2(self):
         self.create_players(MWRC, mw_type=e.IBV_MW_TYPE_2)
         self.bind_mw_type_2()
         u.rdma_traffic(self.client, self.server, self.iters, self.gid_index,
                        self.ib_port, send_op=e.IBV_WR_RDMA_WRITE)
-
-    def test_mw_type2_invalidate_local(self):
-        self.test_mw_type2()
-        self.invalidate_mw_type2_local()
-        with self.assertRaisesRegex(PyverbsRDMAError, 'Remote access error'):
-            u.rdma_traffic(self.client, self.server, self.iters, self.gid_index,
-                           self.ib_port, send_op=e.IBV_WR_RDMA_WRITE)
-
-    def test_mw_type2_invalidate_remote(self):
-        self.test_mw_type2()
-        self.invalidate_mw_type2_remote()
-        with self.assertRaisesRegex(PyverbsRDMAError, 'Remote access error'):
-            u.rdma_traffic(self.client, self.server, self.iters, self.gid_index,
-                           self.ib_port, send_op=e.IBV_WR_RDMA_WRITE)
-
-    def test_mw_type2_invalidate_dealloc(self):
-        self.test_mw_type2()
-        # Dealloc the MW by closing the pyverbs objects.
-        self.server.mw.close()
-        self.client.mw.close()
-        with self.assertRaisesRegex(PyverbsRDMAError, 'Remote access error'):
-            u.rdma_traffic(self.client, self.server, self.iters, self.gid_index,
-                           self.ib_port, send_op=e.IBV_WR_RDMA_WRITE)
 
     def test_reg_mw_wrong_type(self):
         """
