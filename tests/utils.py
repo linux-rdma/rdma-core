@@ -321,6 +321,21 @@ def get_global_ah(agr_obj, gid_index, port):
     return AH(agr_obj.pd, attr=ah_attr)
 
 
+def get_global_route(ctx, gid_index=0, port_num=1):
+    """
+    Queries the provided Context's gid <gid_index> and creates a GlobalRoute
+    object with sgid_index <gid_index> and the queried GID as dgid.
+    :param ctx: Context object to query
+    :param gid_index: GID index to query and use. Default: 0, as it's always
+                      valid
+    :param port_num: Number of the port to query. Default: 1
+    :return: GlobalRoute object
+    """
+    gid = ctx.query_gid(port_num, gid_index)
+    gr = GlobalRoute(dgid=gid, sgid_index=gid_index)
+    return gr
+
+
 def xrc_post_send(agr_obj, qp_num, send_object, gid_index, port, send_op=None):
     agr_obj.qps = agr_obj.sqp_lst
     if send_op:

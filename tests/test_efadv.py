@@ -5,9 +5,12 @@ Test module for efa direct-verbs.
 """
 
 import errno
+from pyverbs.addr import AHAttr
 from pyverbs.base import PyverbsRDMAError
+from pyverbs.pd import PD
 import pyverbs.providers.efa.efadv as efa
 from tests.base import PyverbsAPITestCase
+import tests.utils as u
 import unittest
 
 
@@ -29,3 +32,26 @@ class EfaQueryDeviceTest(PyverbsAPITestCase):
                     if ex.error_code == errno.EOPNOTSUPP:
                         raise unittest.SkipTest('Not supported on non EFA devices')
                     raise ex
+
+
+class EfaAHTest(PyverbsAPITestCase):
+    """
+    Test functionality of the EfaAH class
+    """
+    def test_efadv_query_ah(self):
+        """
+        Test efadv_query_ah()
+        """
+        for ctx, attr, attr_ex in self.devices:
+            pd = PD(ctx)
+            try:
+                gr = u.get_global_route(ctx, port_num=1)
+                ah_attr = AHAttr(gr=gr, is_global=1, port_num=1)
+                ah = efa.EfaAH(pd, attr=ah_attr)
+                query_ah_attr = ah.query_efa_ah()
+                if self.config['verbosity']:
+                    print(f'\n{query_ah_attr}')
+            except PyverbsRDMAError as ex:
+                if ex.error_code == errno.EOPNOTSUPP:
+                    raise unittest.SkipTest('Not supported on non EFA devices')
+                raise ex
