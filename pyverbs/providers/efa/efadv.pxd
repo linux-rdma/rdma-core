@@ -5,6 +5,7 @@
 
 cimport pyverbs.providers.efa.libefa as dv
 
+from pyverbs.addr cimport AH
 from pyverbs.base cimport PyverbsObject
 from pyverbs.device cimport Context
 
@@ -15,3 +16,11 @@ cdef class EfaContext(Context):
 
 cdef class EfaDVDeviceAttr(PyverbsObject):
     cdef dv.efadv_device_attr dv
+
+
+cdef class EfaAH(AH):
+    pass
+
+
+cdef class EfaDVAHAttr(PyverbsObject):
+    cdef dv.efadv_ah_attr ah_attr

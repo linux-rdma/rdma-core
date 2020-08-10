@@ -18,5 +18,12 @@ cdef extern from 'infiniband/efadv.h':
         uint32_t device_caps;
         uint32_t max_rdma_size;
 
+    cdef struct efadv_ah_attr:
+        uint64_t comp_mask;
+        uint16_t ahn;
+        uint8_t reserved[6];
+
     int efadv_query_device(v.ibv_context *ibvctx, efadv_device_attr *attrs,
                            uint32_t inlen)
+    int efadv_query_ah(v.ibv_ah *ibvah, efadv_ah_attr *attr,
+                       uint32_t inlen)

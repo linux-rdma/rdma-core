@@ -100,3 +100,34 @@ cdef class EfaDVDeviceAttr(PyverbsObject):
             print_format.format('Inline buffer size', self.dv.inline_buf_size) + \
             print_format.format('Device Capabilities', dev_cap_to_str(self.dv.device_caps)) + \
             print_format.format('Max RDMA Size', self.dv.max_rdma_size)
+
+
+cdef class EfaDVAHAttr(PyverbsObject):
+    """
+    Represents efadv_ah_attr struct
+    """
+    @property
+    def comp_mask(self):
+        return self.ah_attr.comp_mask
+
+    @property
+    def ahn(self):
+        return self.ah_attr.ahn
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return print_format.format('comp_mask', self.ah_attr.comp_mask) + \
+            print_format.format('ahn', self.ah_attr.ahn)
+
+
+cdef class EfaAH(AH):
+    def query_efa_ah(self):
+        """
+        Queries the provider for EFA specific AH attributes.
+        :return: An EfaDVAHAttr containing the attributes.
+        """
+        ah_attr = EfaDVAHAttr()
+        err = dv.efadv_query_ah(self.ah, &ah_attr.ah_attr, sizeof(ah_attr.ah_attr))
+        if err:
+            raise PyverbsRDMAError('Failed to query efa ah', err)
+        return ah_attr
