@@ -873,6 +873,11 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_TUNNEL_OFFLOADS;
 	}
 
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_DCI_STREAMS) {
+		attrs_out->dci_streams_caps = mctx->dci_streams_caps;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_DCI_STREAMS;
+	}
+
 	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_DYN_BFREGS) {
 		attrs_out->max_dynamic_bfregs = mctx->num_dyn_bfregs;
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_DYN_BFREGS;

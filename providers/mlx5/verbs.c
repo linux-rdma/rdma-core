@@ -3815,6 +3815,10 @@ void mlx5_query_device_ctx(struct mlx5_context *mctx)
 		resp.striding_rq_caps.supported_qpts;
 	mctx->tunnel_offloads_caps = resp.tunnel_offloads_caps;
 	mctx->packet_pacing_caps = resp.packet_pacing_caps;
+	mctx->dci_streams_caps.max_log_num_concurent =
+		resp.dci_streams_caps.max_log_num_concurent;
+	mctx->dci_streams_caps.max_log_num_errored =
+		resp.dci_streams_caps.max_log_num_errored;
 
 	if (resp.flags & MLX5_IB_QUERY_DEV_RESP_FLAGS_CQE_128B_COMP)
 		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_CQE_128B_COMP;

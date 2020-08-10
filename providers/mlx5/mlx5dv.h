@@ -83,6 +83,7 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_HCA_CORE_CLOCK	= 1 << 8,
 	MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS	= 1 << 9,
 	MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD	= 1 << 10,
+	MLX5DV_CONTEXT_MASK_DCI_STREAMS		= 1 << 11,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -101,6 +102,11 @@ struct mlx5dv_striding_rq_caps {
 	uint32_t min_single_wqe_log_num_of_strides;
 	uint32_t max_single_wqe_log_num_of_strides;
 	uint32_t supported_qpts;
+};
+
+struct mlx5dv_dci_streams_caps {
+	uint8_t max_log_num_concurent;
+	uint8_t max_log_num_errored;
 };
 
 enum mlx5dv_tunnel_offloads {
@@ -192,6 +198,7 @@ struct mlx5dv_context {
 	void		*hca_core_clock;
 	uint8_t		num_lag_ports;
 	struct mlx5dv_sig_caps sig_caps;
+	struct mlx5dv_dci_streams_caps dci_streams_caps;
 };
 
 enum mlx5dv_context_flags {
