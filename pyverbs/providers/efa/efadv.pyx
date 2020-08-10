@@ -6,7 +6,7 @@ cimport pyverbs.providers.efa.libefa as dv
 
 from pyverbs.base import PyverbsRDMAErrno, PyverbsRDMAError
 from pyverbs.pd cimport PD
-from pyverbs.qp cimport QP, QPInitAttr
+from pyverbs.qp cimport QP, QPEx, QPInitAttr, QPInitAttrEx
 
 
 def dev_cap_to_str(flags):
@@ -148,3 +148,41 @@ cdef class SRDQP(QP):
         if self.qp == NULL:
             raise PyverbsRDMAErrno('Failed to create SRD QP')
         super().__init__(pd, init_attr)
+
+
+cdef class EfaQPInitAttr(PyverbsObject):
+    """
+    Represents efadv_qp_init_attr struct.
+    """
+    @property
+    def comp_mask(self):
+        return self.qp_init_attr.comp_mask
+
+    @property
+    def driver_qp_type(self):
+        return self.qp_init_attr.driver_qp_type
+
+    @driver_qp_type.setter
+    def driver_qp_type(self,val):
+        self.qp_init_attr.driver_qp_type = val
+
+
+cdef class SRDQPEx(QPEx):
+    """
+    Initializes an SRD QPEx according to the user-provided data.
+    :param ctx: Context object
+    :param init_attr: QPInitAttrEx object
+    :param dv_init_attr: EFAQPInitAttr object
+    :return: An initialized SRDQPEx
+    """
+    def __init__(self, Context ctx not None, QPInitAttrEx attr_ex not None, EfaQPInitAttr efa_init_attr not None):
+        cdef PD pd
+        self.qp = dv.efadv_create_qp_ex(ctx.context, &attr_ex.attr, &efa_init_attr.qp_init_attr, sizeof(efa_init_attr.qp_init_attr))
+        if self.qp == NULL:
+            raise PyverbsRDMAErrno('Failed to create SRD QPEx')
+        self.context = ctx
+        ctx.add_ref(self)
+        if attr_ex.pd is not None:
+            pd=<PD>attr_ex.pd
+            pd.add_ref(self)
+        super().__init__(ctx, attr_ex)
