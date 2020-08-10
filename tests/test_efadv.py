@@ -11,6 +11,9 @@ from pyverbs.cq import CQ
 import pyverbs.enums as e
 from pyverbs.pd import PD
 import pyverbs.providers.efa.efadv as efa
+import pyverbs.providers.efa.efa_enums as efa_e
+from pyverbs.qp import QPInitAttrEx
+import random
 from tests.base import PyverbsAPITestCase
 import tests.utils as u
 import unittest
@@ -78,3 +81,48 @@ class EfaQPTest(PyverbsAPITestCase):
                         if ex.error_code == errno.EOPNOTSUPP:
                             raise unittest.SkipTest("Create SRD QP is not supported")
                         raise ex
+
+
+class EfaQPExTest(PyverbsAPITestCase):
+    """
+    Test SRD QPEx class
+    """
+    def test_efadv_create_qp_ex(self):
+        """
+        Test efadv_create_qp_ex()
+        """
+        for ctx, attr, attr_ex in self.devices:
+            with PD(ctx) as pd:
+                with CQ(ctx, 100) as cq:
+                    qiaEx = get_qp_init_attr_ex(cq, pd, attr)
+                    efaqia = efa.EfaQPInitAttr()
+                    efaqia.driver_qp_type = efa_e.EFADV_QP_DRIVER_TYPE_SRD
+                    try:
+                        qp = efa.SRDQPEx(ctx, qiaEx, efaqia)
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest("Create SRD QPEx is not supported")
+                        raise ex
+
+
+def get_random_send_op_flags():
+    send_ops_flags = [e.IBV_QP_EX_WITH_SEND,
+                      e.IBV_QP_EX_WITH_SEND_WITH_IMM,
+                      e.IBV_QP_EX_WITH_RDMA_READ]
+    selected = u.sample(send_ops_flags)
+    selected_ops_flags = 0
+    for s in selected:
+        selected_ops_flags += s.value
+    return selected_ops_flags
+
+def get_qp_init_attr_ex(cq, pd, attr):
+    qp_cap = u.random_qp_cap(attr)
+    sig = random.randint(0, 1)
+    mask = e.IBV_QP_INIT_ATTR_PD | e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
+    send_ops_flags = get_random_send_op_flags()
+    qia = QPInitAttrEx(qp_type=e.IBV_QPT_DRIVER, cap=qp_cap, sq_sig_all=sig, comp_mask=mask,
+                       create_flags=0, max_tso_header=0, send_ops_flags=send_ops_flags)
+    qia.send_cq = cq
+    qia.recv_cq = cq
+    qia.pd = pd
+    return qia
