@@ -27,3 +27,5 @@ cdef extern from 'infiniband/efadv.h':
                            uint32_t inlen)
     int efadv_query_ah(v.ibv_ah *ibvah, efadv_ah_attr *attr,
                        uint32_t inlen)
+    v.ibv_qp *efadv_create_driver_qp(v.ibv_pd *ibvpd, v.ibv_qp_init_attr *attr,
+                                     uint32_t driver_qp_type)

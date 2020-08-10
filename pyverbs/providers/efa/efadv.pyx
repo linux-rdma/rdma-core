@@ -4,7 +4,9 @@
 cimport pyverbs.providers.efa.efadv_enums as dve
 cimport pyverbs.providers.efa.libefa as dv
 
-from pyverbs.base import PyverbsRDMAError
+from pyverbs.base import PyverbsRDMAErrno, PyverbsRDMAError
+from pyverbs.pd cimport PD
+from pyverbs.qp cimport QP, QPInitAttr
 
 
 def dev_cap_to_str(flags):
@@ -131,3 +133,18 @@ cdef class EfaAH(AH):
         if err:
             raise PyverbsRDMAError('Failed to query efa ah', err)
         return ah_attr
+
+
+cdef class SRDQP(QP):
+    """
+    Initializes an SRD QP according to the user-provided data.
+    :param pd: PD object
+    :param init_attr: QPInitAttr object
+    :return: An initialized SRDQP
+    """
+    def __init__(self, PD pd not None, QPInitAttr init_attr not None):
+        pd.add_ref(self)
+        self.qp = dv.efadv_create_driver_qp(pd.pd, &init_attr.attr, dve.EFADV_QP_DRIVER_TYPE_SRD)
+        if self.qp == NULL:
+            raise PyverbsRDMAErrno('Failed to create SRD QP')
+        super().__init__(pd, init_attr)
