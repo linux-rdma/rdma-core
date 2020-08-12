@@ -95,9 +95,18 @@ struct mlx5dv_qp_init_attr {
 ## *dc_init_attr*
 
 ```c
+
+struct mlx5dv_dci_streams {
+	uint8_t log_num_concurent;
+	uint8_t log_num_errored;
+};
+
 struct mlx5dv_dc_init_attr {
 	enum mlx5dv_dc_type	dc_type;
-	uint64_t dct_access_key;
+	union {
+	    uint64_t dct_access_key;
+	    struct mlx5dv_dci_streams dci_streams;
+	};
 };
 ```
 
@@ -110,6 +119,16 @@ struct mlx5dv_dc_init_attr {
 *dct_access_key*
 :	used to create a DCT QP.
 
+*dci_streams*
+:	dci_streams used to define DCI QP with multiple concurrent streams.
+	Valid when comp_mask includes MLX5DV_QP_INIT_ATTR_MASK_DCI_STREAMS.
+
+	log_num_concurent
+		Defines the number of parallel different streams that could be handled by HW.
+		All work request of a specific stream_id are handled in order.
+
+	log_num_errored
+		Defines the number of dci error stream channels before moving DCI to an error state.
 
 *send_ops_flags*
 :	A bitwise OR of the various values described below.

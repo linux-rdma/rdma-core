@@ -270,6 +270,7 @@ enum mlx5dv_qp_init_attr_mask {
 	MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS	= 1 << 0,
 	MLX5DV_QP_INIT_ATTR_MASK_DC			= 1 << 1,
 	MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS		= 1 << 2,
+	MLX5DV_QP_INIT_ATTR_MASK_DCI_STREAMS            = 1 << 3,
 };
 
 enum mlx5dv_dc_type {
@@ -277,9 +278,17 @@ enum mlx5dv_dc_type {
 	MLX5DV_DCTYPE_DCI,
 };
 
+struct mlx5dv_dci_streams {
+	uint8_t log_num_concurent;
+	uint8_t log_num_errored;
+};
+
 struct mlx5dv_dc_init_attr {
 	enum mlx5dv_dc_type	dc_type;
-	uint64_t dct_access_key;
+	union {
+		uint64_t dct_access_key;
+		struct mlx5dv_dci_streams dci_streams;
+	};
 };
 
 enum mlx5dv_qp_create_send_ops_flags {
