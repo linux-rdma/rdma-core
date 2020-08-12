@@ -10,146 +10,30 @@ import errno
 from tests.base import PyverbsAPITestCase, RCResources, RDMATestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.mr import MR, MW, DMMR, MWBindInfo, MWBind
-from pyverbs.qp import QPCap, QPInitAttr, QPAttr, QP
+from pyverbs.qp import QPAttr
 from pyverbs.wr import SendWR
 import pyverbs.device as d
 from pyverbs.pd import PD
 import pyverbs.enums as e
 import tests.utils as u
 
-MAX_IO_LEN = 1048576
 
-
-class MRTest(PyverbsAPITestCase):
+class MRTest(RDMATestCase):
     """
     Test various functionalities of the MR class.
     """
-    def test_reg_mr(self):
-        """
-        Test ibv_reg_mr()
-        """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                flags = u.get_access_flags(ctx)
-                for f in flags:
-                    with MR(pd, u.get_mr_length(), f) as mr:
-                        pass
-
-    def test_dereg_mr(self):
-        """
-        Test ibv_dereg_mr()
-        """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                flags = u.get_access_flags(ctx)
-                for f in flags:
-                    with MR(pd, u.get_mr_length(), f) as mr:
-                        mr.close()
-
-    def test_dereg_mr_twice(self):
-        """
-        Verify that explicit call to MR's close() doesn't fail
-        """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                flags = u.get_access_flags(ctx)
-                for f in flags:
-                    with MR(pd, u.get_mr_length(), f) as mr:
-                        # Pyverbs supports multiple destruction of objects,
-                        # we are not expecting an exception here.
-                        mr.close()
-                        mr.close()
-
     def test_reg_mr_bad_flags(self):
         """
         Verify that illegal flags combination fails as expected
         """
-        for ctx, attr, attr_ex in self.devices:
+        with d.Context(name=self.dev_name) as ctx:
             with PD(ctx) as pd:
-                for i in range(5):
-                    flags = random.sample([e.IBV_ACCESS_REMOTE_WRITE,
-                                           e.IBV_ACCESS_REMOTE_ATOMIC],
-                                          random.randint(1, 2))
-                    mr_flags = 0
-                    for i in flags:
-                        mr_flags += i.value
-                    try:
-                        MR(pd, u.get_mr_length(), mr_flags)
-                    except PyverbsRDMAError as err:
-                        assert 'Failed to register a MR' in err.args[0]
-                    else:
-                        raise PyverbsRDMAError('Registered a MR with illegal falgs')
-
-    def test_write(self):
-        """
-        Test writing to MR's buffer
-        """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                for i in range(10):
-                    mr_len = u.get_mr_length()
-                    flags = u.get_access_flags(ctx)
-                    for f in flags:
-                        with MR(pd, mr_len, f) as mr:
-                            write_len = min(random.randint(1, MAX_IO_LEN),
-                                            mr_len)
-                            mr.write('a' * write_len, write_len)
-
-    def test_read(self):
-        """
-        Test reading from MR's buffer
-        """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                for i in range(10):
-                    mr_len = u.get_mr_length()
-                    flags = u.get_access_flags(ctx)
-                    for f in flags:
-                        with MR(pd, mr_len, f) as mr:
-                            write_len = min(random.randint(1, MAX_IO_LEN),
-                                            mr_len)
-                            write_str = 'a' * write_len
-                            mr.write(write_str, write_len)
-                            read_len = random.randint(1, write_len)
-                            offset = random.randint(0, write_len-read_len)
-                            read_str = mr.read(read_len, offset).decode()
-                            assert read_str in write_str
-
-    def test_lkey(self):
-        """
-        Test reading lkey property
-        """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                length = u.get_mr_length()
-                flags = u.get_access_flags(ctx)
-                for f in flags:
-                    with MR(pd, length, f) as mr:
-                        mr.lkey
-
-    def test_rkey(self):
-        """
-        Test reading rkey property
-        """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                length = u.get_mr_length()
-                flags = u.get_access_flags(ctx)
-                for f in flags:
-                    with MR(pd, length, f) as mr:
-                        mr.rkey
-
-    def test_buffer(self):
-        """
-        Test reading buf property
-        """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                length = u.get_mr_length()
-                flags = u.get_access_flags(ctx)
-                for f in flags:
-                    with MR(pd, length, f) as mr:
-                        mr.buf
+                with self.assertRaisesRegex(PyverbsRDMAError,
+                                            'Failed to register a MR'):
+                    MR(pd, u.get_mr_length(), e.IBV_ACCESS_REMOTE_WRITE)
+                with self.assertRaisesRegex(PyverbsRDMAError,
+                                            'Failed to register a MR'):
+                    MR(pd, u.get_mr_length(), e.IBV_ACCESS_REMOTE_ATOMIC)
 
 
 class MWRC(RCResources):
