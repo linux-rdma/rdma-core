@@ -7,6 +7,8 @@ Test module for efa direct-verbs.
 import errno
 from pyverbs.addr import AHAttr
 from pyverbs.base import PyverbsRDMAError
+from pyverbs.cq import CQ
+import pyverbs.enums as e
 from pyverbs.pd import PD
 import pyverbs.providers.efa.efadv as efa
 from tests.base import PyverbsAPITestCase
@@ -55,3 +57,24 @@ class EfaAHTest(PyverbsAPITestCase):
                 if ex.error_code == errno.EOPNOTSUPP:
                     raise unittest.SkipTest('Not supported on non EFA devices')
                 raise ex
+
+
+class EfaQPTest(PyverbsAPITestCase):
+    """
+    Test SRD QP class
+    """
+    def test_efadv_create_driver_qp(self):
+        """
+        Test efadv_create_driver_qp()
+        """
+        for ctx, attr, attr_ex in self.devices:
+            with PD(ctx) as pd:
+                with CQ(ctx, 100) as cq:
+                    qia = u.get_qp_init_attr(cq, attr)
+                    qia.qp_type = e.IBV_QPT_DRIVER
+                    try:
+                        qp = efa.SRDQP(pd, qia)
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest("Create SRD QP is not supported")
+                        raise ex

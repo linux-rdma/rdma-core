@@ -13,7 +13,7 @@ import os
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.addr import AHAttr, AH, GlobalRoute
 from pyverbs.wr import SGE, SendWR, RecvWR
-from pyverbs.qp import QPCap, QPInitAttrEx
+from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.mr import MW, MWBindInfo
 from tests.base import XRCResources
@@ -237,6 +237,19 @@ def random_qp_init_attr_ex(attr_ex, attr, qpt=None):
         # TSO increases send WQE size, let's be on the safe side
         qia.cap.max_send_sge = 2
     return qia
+
+
+def get_qp_init_attr(cq, attr):
+    """
+    Creates a QPInitAttr object with a QP type of the provided <qpts> array and
+    other random values.
+    :param cq: CQ to be used as send and receive CQ
+    :param attr: Device attributes for capability checks
+    :return: An initialized QPInitAttr object
+    """
+    qp_cap = random_qp_cap(attr)
+    sig = random.randint(0, 1)
+    return QPInitAttr(scq=cq, rcq=cq, cap=qp_cap, sq_sig_all=sig)
 
 
 def wc_status_to_str(status):
