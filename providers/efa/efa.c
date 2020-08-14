@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2020 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #include <stdio.h>
@@ -20,6 +20,7 @@ static void efa_free_context(struct ibv_context *ibvctx);
 static const struct verbs_match_ent efa_table[] = {
 	VERBS_DRIVER_ID(RDMA_DRIVER_EFA),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa0, NULL),
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa1, NULL),
 	{}
 };
 
@@ -51,18 +52,21 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 					       void *private_data)
 {
 	struct efa_alloc_ucontext_resp resp = {};
+	struct efa_alloc_ucontext cmd = {};
 	struct ibv_device_attr_ex attr;
-	struct ibv_get_context cmd;
 	unsigned int qp_table_sz;
 	struct efa_context *ctx;
 	int err;
+
+	cmd.comp_mask |= EFA_ALLOC_UCONTEXT_CMD_COMP_TX_BATCH;
+	cmd.comp_mask |= EFA_ALLOC_UCONTEXT_CMD_COMP_MIN_SQ_WR;
 
 	ctx = verbs_init_and_alloc_context(vdev, cmd_fd, ctx, ibvctx,
 					   RDMA_DRIVER_EFA);
 	if (!ctx)
 		return NULL;
 
-	if (ibv_cmd_get_context(&ctx->ibvctx, &cmd, sizeof(cmd),
+	if (ibv_cmd_get_context(&ctx->ibvctx, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
 		goto err_free_ctx;
 
@@ -71,6 +75,8 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 	ctx->cqe_size = sizeof(struct efa_io_rx_cdesc);
 	ctx->inline_buf_size = resp.inline_buf_size;
 	ctx->max_llq_size = resp.max_llq_size;
+	ctx->max_tx_batch = resp.max_tx_batch;
+	ctx->min_sq_wr = resp.min_sq_wr;
 	pthread_spin_init(&ctx->qp_table_lock, PTHREAD_PROCESS_PRIVATE);
 
 	/* ah udata is mandatory for ah number retrieval */
