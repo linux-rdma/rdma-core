@@ -28,6 +28,7 @@ static const struct verbs_context_ops efa_ctx_ops = {
 	.alloc_pd = efa_alloc_pd,
 	.create_ah = efa_create_ah,
 	.create_cq = efa_create_cq,
+	.create_cq_ex = efa_create_cq_ex,
 	.create_qp = efa_create_qp,
 	.create_qp_ex = efa_create_qp_ex,
 	.dealloc_pd = efa_dealloc_pd,

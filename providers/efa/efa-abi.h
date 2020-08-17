@@ -16,8 +16,8 @@ DECLARE_DRV_CMD(efa_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT,
 		efa_ibv_alloc_ucontext_cmd, efa_ibv_alloc_ucontext_resp);
 DECLARE_DRV_CMD(efa_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD, empty,
 		efa_ibv_alloc_pd_resp);
-DECLARE_DRV_CMD(efa_create_cq, IB_USER_VERBS_CMD_CREATE_CQ, efa_ibv_create_cq,
-		efa_ibv_create_cq_resp);
+DECLARE_DRV_CMD(efa_create_cq, IB_USER_VERBS_EX_CMD_CREATE_CQ,
+		efa_ibv_create_cq, efa_ibv_create_cq_resp);
 DECLARE_DRV_CMD(efa_create_qp, IB_USER_VERBS_CMD_CREATE_QP, efa_ibv_create_qp,
 		efa_ibv_create_qp_resp);
 DECLARE_DRV_CMD(efa_create_ah, IB_USER_VERBS_CMD_CREATE_AH, empty,

@@ -52,7 +52,7 @@ struct efa_sub_cq {
 };
 
 struct efa_cq {
-	struct ibv_cq ibvcq;
+	struct verbs_cq verbs_cq;
 	uint32_t cqn;
 	size_t cqe_size;
 	uint8_t *buf;
@@ -61,6 +61,8 @@ struct efa_cq {
 	/* Index of next sub cq idx to poll. This is used to guarantee fairness for sub cqs */
 	uint16_t next_poll_idx;
 	pthread_spinlock_t lock;
+	struct efa_wq *cur_wq;
+	struct efa_io_cdesc_common *cur_cqe;
 	struct efa_sub_cq sub_cq_arr[];
 };
 
@@ -159,7 +161,12 @@ static inline struct efa_pd *to_efa_pd(struct ibv_pd *ibvpd)
 
 static inline struct efa_cq *to_efa_cq(struct ibv_cq *ibvcq)
 {
-	return container_of(ibvcq, struct efa_cq, ibvcq);
+	return container_of(ibvcq, struct efa_cq, verbs_cq.cq);
+}
+
+static inline struct efa_cq *to_efa_cq_ex(struct ibv_cq_ex *ibvcqx)
+{
+	return container_of(ibvcqx, struct efa_cq, verbs_cq.cq_ex);
 }
 
 static inline struct efa_qp *to_efa_qp(struct ibv_qp *ibvqp)
