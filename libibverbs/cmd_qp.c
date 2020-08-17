@@ -125,7 +125,7 @@ static int ibv_icmd_create_qp(struct ibv_context *context,
 			fill_attr_in_obj(cmdb, UVERBS_ATTR_CREATE_QP_IND_TABLE_HANDLE,
 				 attr_ex->rwq_ind_tbl->ind_tbl_handle);
 
-			/* send_cq is optinal */
+			/* send_cq is optional */
 			if (attr_ex->cap.max_send_wr) {
 				fill_attr_in_obj(cmdb, UVERBS_ATTR_CREATE_QP_SEND_CQ_HANDLE,
 						 attr_ex->send_cq->handle);
