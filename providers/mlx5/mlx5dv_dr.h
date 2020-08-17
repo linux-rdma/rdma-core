@@ -156,6 +156,7 @@ struct dr_icm_buddy_mem;
 struct dr_ste_htbl;
 struct dr_match_param;
 struct dr_devx_caps;
+struct dr_rule_rx_tx;
 struct dr_matcher_rx_tx;
 struct dr_ste_ctx;
 
@@ -181,13 +182,13 @@ struct dr_ste {
 	/* attached to the miss_list head at each htbl entry */
 	struct list_node	miss_list_node;
 
-	/* each rule member that uses this ste attached here */
-	struct list_head	rule_list;
-
 	/* this ste is member of htbl */
 	struct dr_ste_htbl	*htbl;
 
 	struct dr_ste_htbl	*next_htbl;
+
+	/* The rule this STE belongs to */
+	struct dr_rule_rx_tx    *rule_rx_tx;
 
 	/* this ste is part of a rule, located in ste's chain */
 	uint8_t			ste_chain_location;
@@ -798,14 +799,6 @@ struct mlx5dv_dr_matcher {
 	struct list_head		rule_list;
 };
 
-struct dr_rule_member {
-	struct dr_ste		*ste;
-	/* attached to dr_rule via this */
-	struct list_node	list;
-	/* attached to dr_ste via this */
-	struct list_node	use_ste_list;
-};
-
 struct dr_ste_action_modify_field {
 	uint16_t hw_field;
 	uint8_t start;
@@ -926,10 +919,9 @@ struct dr_htbl_connect_info {
 	};
 };
 
-
 struct dr_rule_rx_tx {
-	struct list_head		rule_members_list;
 	struct dr_matcher_rx_tx		*nic_matcher;
+	struct dr_ste			*last_rule_ste;
 };
 
 struct mlx5dv_dr_rule {
@@ -945,7 +937,13 @@ struct mlx5dv_dr_rule {
 	struct list_node	rule_list;
 };
 
-void dr_rule_update_rule_member(struct dr_ste *new_ste, struct dr_ste *ste);
+void dr_rule_set_last_member(struct dr_rule_rx_tx *nic_rule,
+			     struct dr_ste *ste,
+			     bool force);
+
+void dr_rule_get_reverse_rule_members(struct dr_ste **ste_arr,
+				      struct dr_ste *curr_ste,
+				      int *num_of_stes);
 
 struct dr_icm_chunk {
 	struct dr_icm_buddy_mem *buddy_mem;

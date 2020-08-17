@@ -109,6 +109,7 @@ static struct dr_ste *dr_rule_create_collision_entry(struct mlx5dv_dr_matcher *m
 	}
 
 	ste->ste_chain_location = orig_ste->ste_chain_location;
+	ste->htbl->pointing_ste = orig_ste->htbl->pointing_ste;
 
 	/* In collision entry, all members share the same miss_list_head */
 	ste->htbl->miss_list = dr_ste_get_miss_list(orig_ste);
@@ -208,6 +209,9 @@ dr_rule_rehash_handle_collision(struct mlx5dv_dr_matcher *matcher,
 	if (!new_ste)
 		return NULL;
 
+	/* Update collision pointing STE */
+	new_ste->htbl->pointing_ste = col_ste->htbl->pointing_ste;
+
 	/* In collision entry, all members share the same miss_list_head */
 	new_ste->htbl->miss_list = dr_ste_get_miss_list(col_ste);
 
@@ -235,7 +239,7 @@ static void dr_rule_rehash_copy_ste_ctrl(struct mlx5dv_dr_matcher *matcher,
 	new_ste->next_htbl = cur_ste->next_htbl;
 	new_ste->ste_chain_location = cur_ste->ste_chain_location;
 
-	if (!dr_ste_is_last_in_rule(nic_matcher, new_ste->ste_chain_location))
+	if (new_ste->next_htbl)
 		new_ste->next_htbl->pointing_ste = new_ste;
 
 	/*
@@ -244,10 +248,8 @@ static void dr_rule_rehash_copy_ste_ctrl(struct mlx5dv_dr_matcher *matcher,
 	 */
 	atomic_init(&new_ste->refcount, atomic_load(&cur_ste->refcount));
 
-	/* Link old STEs rule_mem list to the new ste */
-	dr_rule_update_rule_member(cur_ste, new_ste);
-	list_head_init(&new_ste->rule_list);
-	list_append_list(&new_ste->rule_list, &cur_ste->rule_list);
+	/* Link old STEs rule to the new ste */
+	dr_rule_set_last_member(cur_ste->rule_rx_tx, new_ste, false);
 }
 
 static struct dr_ste *dr_rule_rehash_copy_ste(struct mlx5dv_dr_matcher *matcher,
@@ -601,32 +603,63 @@ free_action_members:
 	return errno;
 }
 
-/*
- * While the pointer of ste is no longer valid, like while moving ste to be
- * the first in the miss_list, and to be in the origin table,
- * all rule-members that are attached to this ste should update their ste member
- * to the new pointer
- */
-void dr_rule_update_rule_member(struct dr_ste *ste, struct dr_ste *new_ste)
+void dr_rule_set_last_member(struct dr_rule_rx_tx *nic_rule,
+			     struct dr_ste *ste,
+			     bool force)
 {
-	struct dr_rule_member *rule_mem;
+	/* Update rule member is usually done for the last STE or during rule
+	 * creation to recover from mid-creation failure (for this purpose the
+	 * force flag is used)
+	 */
+	if (ste->next_htbl && !force)
+		return;
 
-	list_for_each(&ste->rule_list, rule_mem, use_ste_list)
-		rule_mem->ste = new_ste;
+	/* Update is required since each rule keeps track of its last STE */
+	ste->rule_rx_tx = nic_rule;
+	nic_rule->last_rule_ste = ste;
+}
+
+static struct dr_ste *dr_rule_get_pointed_ste(struct dr_ste *curr_ste)
+{
+	struct dr_ste *first_ste;
+
+	first_ste = list_top(dr_ste_get_miss_list(curr_ste), struct dr_ste,
+			     miss_list_node);
+
+	return first_ste->htbl->pointing_ste;
+}
+
+void dr_rule_get_reverse_rule_members(struct dr_ste **ste_arr,
+				      struct dr_ste *curr_ste,
+				      int *num_of_stes)
+{
+	bool first = false;
+
+	*num_of_stes = 0;
+
+	if (curr_ste == NULL)
+		return;
+
+	/* Iterate from last to first */
+	while (!first) {
+		first = curr_ste->ste_chain_location == 1;
+		ste_arr[*num_of_stes] = curr_ste;
+		*num_of_stes += 1;
+		curr_ste = dr_rule_get_pointed_ste(curr_ste);
+	}
 }
 
 static void dr_rule_clean_rule_members(struct mlx5dv_dr_rule *rule,
 				       struct dr_rule_rx_tx *nic_rule)
 {
-	struct dr_rule_member *rule_mem;
-	struct dr_rule_member *tmp_mem;
+	struct dr_ste *ste_arr[DR_RULE_MAX_STES + DR_ACTION_MAX_STES];
+	struct dr_ste *curr_ste = nic_rule->last_rule_ste;
+	int i;
 
-	list_for_each_safe(&nic_rule->rule_members_list, rule_mem, tmp_mem, list) {
-		list_del(&rule_mem->list);
-		list_del(&rule_mem->use_ste_list);
-		dr_ste_put(rule_mem->ste, rule->matcher, nic_rule->nic_matcher);
-		free(rule_mem);
-	}
+	dr_rule_get_reverse_rule_members(ste_arr, curr_ste, &i);
+
+	while (i--)
+		dr_ste_put(ste_arr[i], rule->matcher, nic_rule->nic_matcher);
 }
 
 static uint16_t dr_get_bits_per_mask(uint16_t byte_mask)
@@ -661,25 +694,6 @@ static bool dr_rule_need_enlarge_hash(struct dr_ste_htbl *htbl,
 		return true;
 
 	return false;
-}
-
-static int dr_rule_add_member(struct dr_rule_rx_tx *nic_rule,
-			      struct dr_ste *ste)
-{
-	struct dr_rule_member *rule_mem;
-
-	rule_mem = calloc(1, sizeof(*rule_mem));
-	if (!rule_mem) {
-		errno = ENOMEM;
-		return errno;
-	}
-
-	rule_mem->ste = ste;
-	list_add_tail(&nic_rule->rule_members_list, &rule_mem->list);
-
-	list_add_tail(&ste->rule_list, &rule_mem->use_ste_list);
-
-	return 0;
 }
 
 static int dr_rule_handle_action_stes(struct mlx5dv_dr_rule *rule,
@@ -717,6 +731,10 @@ static int dr_rule_handle_action_stes(struct mlx5dv_dr_rule *rule,
 
 		dr_ste_get(action_ste);
 
+		action_ste->htbl->pointing_ste = last_ste;
+		last_ste->next_htbl = action_ste->htbl;
+		last_ste = action_ste;
+
 		/* While free ste we go over the miss list, so add this ste to the list */
 		list_add_tail(dr_ste_get_miss_list(action_ste),
 			      &action_ste->miss_list_node);
@@ -733,11 +751,9 @@ static int dr_rule_handle_action_stes(struct mlx5dv_dr_rule *rule,
 		dr_ste_set_hit_addr_by_next_htbl(dmn->ste_ctx,
 						 prev_hw_ste,
 						 action_ste->htbl);
-		ret = dr_rule_add_member(nic_rule, action_ste);
-		if (ret) {
-			dr_dbg(dmn, "Failed adding rule member\n");
-			goto free_ste_info;
-		}
+
+		dr_rule_set_last_member(nic_rule, action_ste, true);
+
 		dr_send_fill_and_append_ste_send_info(action_ste, DR_STE_SIZE, 0,
 						      curr_hw_ste,
 						      ste_info_arr[k],
@@ -746,8 +762,6 @@ static int dr_rule_handle_action_stes(struct mlx5dv_dr_rule *rule,
 
 	return 0;
 
-free_ste_info:
-	free(ste_info_arr[k]);
 err_exit:
 	dr_ste_put(action_ste, matcher, nic_matcher);
 	return ret;
@@ -1080,8 +1094,6 @@ dr_rule_create_rule_nic(struct mlx5dv_dr_rule *rule,
 	struct dr_ste *ste = NULL; /* Fix compilation warning */
 	int ret, i;
 
-	list_head_init(&nic_rule->rule_members_list);
-
 	if (dr_rule_skip(dmn->type, nic_dmn->ste_type, &matcher->mask, param))
 		return 0;
 
@@ -1124,15 +1136,8 @@ dr_rule_create_rule_nic(struct mlx5dv_dr_rule *rule,
 		}
 
 		cur_htbl = ste->next_htbl;
-
-		/* Keep all STEs in the rule struct */
-		ret = dr_rule_add_member(nic_rule, ste);
-		if (ret) {
-			dr_dbg(dmn, "Failed adding rule member index %d\n", i);
-			goto free_ste;
-		}
-
 		dr_ste_get(ste);
+		dr_rule_set_last_member(nic_rule, ste, true);
 	}
 
 	/* Connect actions */
@@ -1153,8 +1158,6 @@ dr_rule_create_rule_nic(struct mlx5dv_dr_rule *rule,
 
 	goto out_unlock;
 
-free_ste:
-	dr_ste_put(ste, matcher, nic_matcher);
 free_rule:
 	dr_rule_clean_rule_members(rule, nic_rule);
 	/* Clean all ste_info's */
