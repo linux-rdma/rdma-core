@@ -146,70 +146,6 @@ load_hardware_modules()
     return $RC
 }
 
-errata_58()
-{
-    # Check AMD chipset issue Errata #58
-    if test -x /sbin/lspci && test -x /sbin/setpci; then
-	if ( /sbin/lspci -nd 1022:1100 | grep "1100" > /dev/null ) &&
-	   ( /sbin/lspci -nd 1022:7450 | grep "7450" > /dev/null ) &&
-	   ( /sbin/lspci -nd 15b3:5a46 | grep "5a46" > /dev/null ); then
-	    CURVAL=`/sbin/setpci -d 1022:1100 69`
-	    for val in $CURVAL
-	    do
-		if [ "${val}" != "c0" ]; then
-		    /sbin/setpci -d 1022:1100 69=c0
-		    if [ $? -eq 0 ]; then
-			break
-		    else
-			echo "Failed to apply AMD-8131 Errata #58 workaround"
-		    fi
-		fi
-	    done
-	fi
-    fi
-}
-
-errata_56()
-{
-    # Check AMD chipset issue Errata #56
-    if test -x /sbin/lspci && test -x /sbin/setpci; then
-	if ( /sbin/lspci -nd 1022:1100 | grep "1100" > /dev/null ) &&
-	   ( /sbin/lspci -nd 1022:7450 | grep "7450" > /dev/null ) &&
-	   ( /sbin/lspci -nd 15b3:5a46 | grep "5a46" > /dev/null ); then
-	    bus=""
-	    # Look for devices AMD-8131
-	    for dev in `/sbin/setpci -v -f -d 1022:7450 19 | cut -d':' -f1,2`
-	    do
-		bus=`/sbin/setpci -s $dev 19`
-		rev=`/sbin/setpci -s $dev 8`
-		# Look for Tavor attach to secondary bus of this devices
-		for device in `/sbin/setpci -f -s $bus: -d 15b3:5a46 19`
-		do
-		    if [ $rev -lt 13 ]; then
-			/sbin/setpci -d 15b3:5a44 72=14
-			if [ $? -eq 0 ]; then
-			    break
-			else
-			    echo
-			    echo "Failed to apply AMD-8131 Errata #56 workaround"
-			fi
-		    else
-			continue
-		    fi
-		    # If more than one device is on the bus the issue a
-		    # warning
-		    num=`/sbin/setpci -f -s $bus: 0 | wc -l |  sed 's/\ *//g'`
-		    if [ $num -gt 1 ]; then
-			echo "Warning: your current PCI-X configuration might be incorrect."
-			echo "see AMD-8131 Errata 56 for more details."
-		    fi
-		done
-	    done
-	fi
-    fi
-}
-
-
 load_hardware_modules
 RC=$[ $RC + $? ]
 load_modules $LOAD_CORE_MODULES
@@ -220,9 +156,6 @@ load_modules $LOAD_CORE_USER_MODULES
 RC=$[ $RC + $? ]
 load_modules $LOAD_ULP_MODULES
 RC=$[ $RC + $? ]
-
-errata_58
-errata_56
 
 /usr/libexec/rdma-set-sriov-vf
 
