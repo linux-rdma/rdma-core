@@ -18,8 +18,9 @@ from pyverbs.mr import MR
 
 class Mlx5DcResources(TrafficResources):
     def __init__(self, dev_name, ib_port, gid_index, send_ops_flags,
-                 qp_count=1):
+                 qp_count=1, create_flags=0):
         self.send_ops_flags = send_ops_flags
+        self.create_flags = create_flags
         super().__init__(dev_name, ib_port, gid_index, with_srq=True,
                          qp_count=qp_count)
 
@@ -77,7 +78,10 @@ class Mlx5DcResources(TrafficResources):
         try:
             for _ in range(self.qp_count):
                 comp_mask = dve.MLX5DV_QP_INIT_ATTR_MASK_DC
+                if self.create_flags:
+                    comp_mask |= dve.MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS
                 attr = Mlx5DVQPInitAttr(comp_mask=comp_mask,
+                                        create_flags=self.create_flags,
                                         dc_init_attr=Mlx5DVDCInitAttr())
                 qp = Mlx5QP(self.ctx, qp_init_attr, attr)
                 self.qps.append(qp)

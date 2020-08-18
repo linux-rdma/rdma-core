@@ -104,6 +104,29 @@ class RDMATestCase(unittest.TestCase):
         self.gid_index = gid_index
         self.pkey_index = pkey_index
         self.ip_addr = None
+        self.pre_environment = {}
+
+    def set_env_variable(self, var, value):
+        """
+        Set environment variable. The current value for each variable is stored
+        and is set back at the end of the test.
+        :param var: The name of the environment variable
+        :param value: The requested new value of this environment variable
+        """
+        if var not in self.pre_environment.keys():
+            self.pre_environment[var] = os.environ.get(var)
+        os.environ[var] = value
+
+    def tearDown(self):
+        """
+        Restore the previous environment variables values before ending the test.
+        """
+        for k, v in self.pre_environment.items():
+            if v is None:
+                os.environ.pop(k)
+            else:
+                os.environ[k] = v
+        super().tearDown()
 
     def is_eth_and_has_roce_hw_bug(self):
         """
@@ -256,7 +279,7 @@ class TrafficResources(BaseResources):
     needed for traffic.
     """
     def __init__(self, dev_name, ib_port, gid_index, with_srq=False,
-                 qp_count=1):
+                 qp_count=1, msg_size=1024):
         """
         Initializes a TrafficResources object with the given values and creates
         basic RDMA resources.
@@ -265,11 +288,12 @@ class TrafficResources(BaseResources):
         :param gid_index: Which GID index to use
         :param with_srq: If True, create SRQ and attach to QPs
         :param qp_count: Number of QPs to create
+        :param msg_size: Size of resource msg. If None, use 1024 as default.
         """
         super(TrafficResources, self).__init__(dev_name=dev_name,
                                                ib_port=ib_port,
                                                gid_index=gid_index)
-        self.msg_size = 1024
+        self.msg_size = msg_size
         self.num_msgs = 1000
         self.port_attr = None
         self.mr = None
