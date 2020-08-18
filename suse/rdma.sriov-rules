@@ -1,7 +1,0 @@
-ACTION=="remove", GOTO="rdma_sriov_end"
-SUBSYSTEM!="infiniband", GOTO="rdma_sriov_end"
-
-# Automatically load general RDMA ULP modules when RDMA hardware is installed
-TAG+="systemd", ENV{ID_RDMA_INFINIBAND}=="1", ENV{SYSTEMD_WANTS}+="rdma-sriov.service"
-
-LABEL="rdma_sriov_end"

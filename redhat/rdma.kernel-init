@@ -157,6 +157,4 @@ RC=$[ $RC + $? ]
 load_modules $LOAD_ULP_MODULES
 RC=$[ $RC + $? ]
 
-/usr/libexec/rdma-set-sriov-vf
-
 exit $RC
