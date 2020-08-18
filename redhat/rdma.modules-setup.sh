@@ -11,14 +11,12 @@ depends() {
 }
 
 install() {
-	inst /etc/rdma/rdma.conf
 	inst /etc/rdma/mlx4.conf
-	inst /usr/libexec/rdma-init-kernel
 	inst /usr/libexec/mlx4-setup.sh
 	inst /usr/lib/modprobe.d/libmlx4.conf
 	inst_multiple lspci setpci awk sleep
 	inst_multiple -o /etc/modprobe.d/mlx4.conf
-	inst_rules 98-rdma.rules 70-persistent-ipoib.rules
+	inst_rules 70-persistent-ipoib.rules
 }
 
 installkernel() {
