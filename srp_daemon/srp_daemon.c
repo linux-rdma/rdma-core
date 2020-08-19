@@ -142,7 +142,6 @@ static int check_process_uniqueness(struct config_t *conf)
 		return -1;
 	}
 
-	fchmod(fd, S_IRUSR|S_IRGRP|S_IROTH|S_IWUSR|S_IWGRP|S_IWOTH);
 	if (0 != lockf(fd, F_TLOCK, 0)) {
 		pr_err("failed to lock %s (errno: %d). possibly another "
 		       "srp_daemon is locking it\n", path, errno);
