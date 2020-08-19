@@ -4,7 +4,7 @@ Section: net
 Priority: optional
 Build-Depends: cmake (>= 2.8.11),
                cython3,
-               debhelper-compat (= 12),
+               debhelper-compat (= 13),
                dh-python,
                dpkg-dev (>= 1.17),
                libnl-3-dev,
