@@ -1,3 +1,10 @@
+rdma-core (31.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Switch to debhelper 13
+
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Wed, 19 Aug 2020 09:36:17 +0200
+
 rdma-core (29.0-1) unstable; urgency=medium
 
   * New upstream release.
