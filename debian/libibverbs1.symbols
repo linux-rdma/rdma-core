@@ -160,8 +160,10 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_cmd_post_recv@IBVERBS_PRIVATE_25 25
  ibv_cmd_post_send@IBVERBS_PRIVATE_25 25
  ibv_cmd_post_srq_recv@IBVERBS_PRIVATE_25 25
+ ibv_cmd_query_context@IBVERBS_PRIVATE_25 31
  ibv_cmd_query_device@IBVERBS_PRIVATE_25 25
  ibv_cmd_query_device_ex@IBVERBS_PRIVATE_25 25
+ ibv_cmd_query_mr@IBVERBS_PRIVATE_25 31
  ibv_cmd_query_port@IBVERBS_PRIVATE_25 25
  ibv_cmd_query_qp@IBVERBS_PRIVATE_25 25
  ibv_cmd_query_srq@IBVERBS_PRIVATE_25 25
