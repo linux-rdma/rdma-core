@@ -1,7 +1,7 @@
 .\" -*- nroff -*-
 .\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
 .\"
-.TH UMAD_OPEN_PORT 3  "May 21, 2007" "OpenIB" "OpenIB Programmer\'s Manual"
+.TH UMAD_OPEN_PORT 3  "May 21, 2007" "OpenIB" "OpenIB Programmer's Manual"
 .SH "NAME"
 umad_open_port \- open InfiniBand device port for umad access
 .SH "SYNOPSIS"
@@ -24,12 +24,12 @@ for details).
 .SH "RETURN VALUE"
 .B umad_open_port()
 returns 0 or an unique positive value of umad device descriptor on success, and a negative value on error as follows:
- -EOPNOTSUPP ABI version doesn\'t match
- -ENODEV     IB device can\'t be resolved
+ -EOPNOTSUPP ABI version doesn't match
+ -ENODEV     IB device can't be resolved
  -EINVAL     port is not valid (bad
 .I portnum\fR
 or no umad device)
- -EIO        umad device for this port can\'t be opened
+ -EIO        umad device for this port can't be opened
 .SH "SEE ALSO"
 .BR umad_close_port (3),
 .BR umad_get_cas_names (3),
