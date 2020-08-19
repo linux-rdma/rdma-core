@@ -13,6 +13,7 @@ import os
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.addr import AHAttr, AH, GlobalRoute
 from tests.base import XRCResources, DCT_KEY
+from tests.efa_base import SRDResources
 from pyverbs.wr import SGE, SendWR, RecvWR
 from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx
 from tests.mlx5_base import Mlx5DcResources
@@ -22,6 +23,7 @@ from pyverbs.cq import PollCqAttr
 import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.mr import MR
+
 
 MAX_MR_SIZE = 4194304
 # Some HWs limit DM address and length alignment to 4 for read and write
@@ -389,6 +391,8 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
         qp.wr_send()
     if qp_type == e.IBV_QPT_UD:
         qp.wr_set_ud_addr(ah, agr_obj.rqps_num[qp_idx], agr_obj.UD_QKEY)
+    if isinstance(agr_obj, SRDResources):
+        qp.wr_set_ud_addr(ah, agr_obj.rqps_num[qp_idx], agr_obj.SRD_QKEY)
     if qp_type == e.IBV_QPT_XRC_SEND:
         qp.wr_set_xrc_srqn(agr_obj.remote_srqn)
     if isinstance(agr_obj, Mlx5DcResources):
@@ -542,8 +546,7 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
     :param new_send: If True use new post send API.
     :return:
     """
-    if client.qp.qp_type == e.IBV_QPT_UD or \
-       isinstance(client, Mlx5DcResources):
+    if is_datagram_qp(client):
         ah_client = get_global_ah(client, gid_idx, port)
         ah_server = get_global_ah(server, gid_idx, port)
     else:
@@ -804,6 +807,14 @@ def is_eth(ctx, port_num):
     :return: True if the port's link layer is Ethernet, else False
     """
     return ctx.query_port(port_num).link_layer == e.IBV_LINK_LAYER_ETHERNET
+
+
+def is_datagram_qp(agr_obj):
+    if agr_obj.qp.qp_type == e.IBV_QPT_UD or \
+       isinstance(agr_obj, SRDResources) or \
+       isinstance(agr_obj, Mlx5DcResources):
+        return True
+    return False
 
 
 def is_root():

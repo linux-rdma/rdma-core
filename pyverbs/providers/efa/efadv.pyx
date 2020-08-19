@@ -5,6 +5,7 @@ cimport pyverbs.providers.efa.efadv_enums as dve
 cimport pyverbs.providers.efa.libefa as dv
 
 from pyverbs.base import PyverbsRDMAErrno, PyverbsRDMAError
+import pyverbs.enums as e
 from pyverbs.pd cimport PD
 from pyverbs.qp cimport QP, QPEx, QPInitAttr, QPInitAttrEx
 
@@ -186,3 +187,9 @@ cdef class SRDQPEx(QPEx):
             pd=<PD>attr_ex.pd
             pd.add_ref(self)
         super().__init__(ctx, attr_ex)
+
+    def _get_comp_mask(self, dst):
+        srd_mask = {'INIT': e.IBV_QP_PKEY_INDEX | e.IBV_QP_PORT | e.IBV_QP_QKEY,
+                    'RTR': 0,
+                    'RTS': e.IBV_QP_SQ_PSN}
+        return srd_mask [dst] | e.IBV_QP_STATE
