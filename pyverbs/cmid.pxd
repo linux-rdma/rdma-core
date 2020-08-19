@@ -12,6 +12,8 @@ cdef class CMID(PyverbsCM):
     cdef object event_channel
     cdef object ctx
     cdef object pd
+    cdef object mrs
+    cdef add_ref(self, obj)
     cpdef close(self)
 
 
@@ -32,3 +34,10 @@ cdef class AddrInfo(PyverbsObject):
 
 cdef class ConnParam(PyverbsObject):
     cdef cm.rdma_conn_param conn_param
+
+
+cdef class UDParam(PyverbsObject):
+    cdef cm.rdma_ud_param ud_param
+
+cdef class JoinMCAttrEx(PyverbsObject):
+    cdef cm.rdma_cm_join_mc_attr_ex join_mc_attr_ex

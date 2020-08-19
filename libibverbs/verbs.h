@@ -1401,6 +1401,21 @@ static inline void ibv_wr_abort(struct ibv_qp_ex *qp)
 	qp->wr_abort(qp);
 }
 
+struct ibv_ece {
+	/*
+	 * Unique identifier of the provider vendor on the network.
+	 * The providers will set IEEE OUI here to distinguish
+	 * itself in non-homogenius network.
+	 */
+	uint32_t vendor_id;
+	/*
+	 * Provider specific attributes which are supported or
+	 * needed to be enabled by ECE users.
+	 */
+	uint32_t options;
+	uint32_t comp_mask;
+};
+
 struct ibv_comp_channel {
 	struct ibv_context     *context;
 	int			fd;
@@ -2203,6 +2218,15 @@ void ibv_free_device_list(struct ibv_device **list);
 const char *ibv_get_device_name(struct ibv_device *device);
 
 /**
+ * ibv_get_device_index - Return kernel device index
+ *
+ * Available for the kernel with support of IB device query
+ * over netlink interface. For the unsupported kernels, the
+ * relevant -1 will be returned.
+ */
+int ibv_get_device_index(struct ibv_device *device);
+
+/**
  * ibv_get_device_guid - Return device's node GUID
  */
 __be64 ibv_get_device_guid(struct ibv_device *device);
@@ -2216,6 +2240,32 @@ struct ibv_context *ibv_open_device(struct ibv_device *device);
  * ibv_close_device - Release device
  */
 int ibv_close_device(struct ibv_context *context);
+
+/**
+ * ibv_import_device - Import device
+ */
+struct ibv_context *ibv_import_device(int cmd_fd);
+
+/**
+ * ibv_import_pd - Import a protetion domain
+ */
+struct ibv_pd *ibv_import_pd(struct ibv_context *context,
+			     uint32_t pd_handle);
+
+/**
+ * ibv_unimport_pd - Unimport a protetion domain
+ */
+void ibv_unimport_pd(struct ibv_pd *pd);
+
+/**
+ * ibv_import_mr - Import a memory region
+ */
+struct ibv_mr *ibv_import_mr(struct ibv_pd *pd, uint32_t mr_handle);
+
+/**
+ * ibv_unimport_mr - Unimport a memory region
+ */
+void ibv_unimport_mr(struct ibv_mr *mr);
 
 /**
  * ibv_get_async_event - Get next async event
@@ -3073,6 +3123,7 @@ static inline struct ibv_wq *ibv_create_wq(struct ibv_context *context,
 
 	wq = vctx->create_wq(context, wq_init_attr);
 	if (wq) {
+		wq->wq_context = wq_init_attr->wq_context;
 		wq->events_completed = 0;
 		pthread_mutex_init(&wq->mutex, NULL);
 		pthread_cond_init(&wq->cond, NULL);
@@ -3342,6 +3393,15 @@ static inline uint16_t ibv_flow_label_to_udp_sport(uint32_t fl)
 	return (uint16_t)(fl_low | IB_ROCE_UDP_ENCAP_VALID_PORT_MIN);
 }
 
+/**
+ * ibv_set_ece - Set ECE options
+ */
+int ibv_set_ece(struct ibv_qp *qp, struct ibv_ece *ece);
+
+/**
+ * ibv_query_ece - Get accepted ECE options
+ */
+int ibv_query_ece(struct ibv_qp *qp, struct ibv_ece *ece);
 #ifdef __cplusplus
 }
 #endif

@@ -188,15 +188,18 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 	if (ret)
 		return ret;
 
-	/* Non FDB type is supported only over root table */
-	if (dmn->type != MLX5DV_DR_DOMAIN_TYPE_FDB)
-		return 0;
-
 	ret = dr_devx_query_device(ctx, &dmn->info.caps);
 	if (ret)
 		/* Ignore devx query failure to allow steering on root level
 		 * tables in case devx is not supported over mlx5dv_dr API
 		 */
+		return 0;
+
+	/* Non FDB type is supported over root table or when we can enable
+	 * force-loopback.
+	 */
+	if ((dmn->type != MLX5DV_DR_DOMAIN_TYPE_FDB) &&
+	    !dmn->info.caps.roce_caps.fl_rc_qp_when_roce_enabled)
 		return 0;
 
 	ret = dr_domain_query_fdb_caps(ctx, dmn);
@@ -342,6 +345,17 @@ int mlx5dv_dr_domain_sync(struct mlx5dv_dr_domain *dmn, uint32_t flags)
 out_unlock:
 	pthread_mutex_unlock(&dmn->mutex);
 	return ret;
+}
+
+void mlx5dv_dr_domain_set_reclaim_device_memory(struct mlx5dv_dr_domain *dmn,
+						bool enable)
+{
+	pthread_mutex_lock(&dmn->mutex);
+	if (enable)
+		dmn->flags |= DR_DOMAIN_FLAG_MEMORY_RECLAIM;
+	else
+		dmn->flags &= ~DR_DOMAIN_FLAG_MEMORY_RECLAIM;
+	pthread_mutex_unlock(&dmn->mutex);
 }
 
 int mlx5dv_dr_domain_destroy(struct mlx5dv_dr_domain *dmn)

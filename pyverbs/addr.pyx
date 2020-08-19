@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2018, Mellanox Technologies. All rights reserved. See COPYING file
 
-from libc.stdint cimport uint8_t
+from libc.stdint cimport uint8_t, uintptr_t
 
 from .pyverbs_error import PyverbsUserError, PyverbsRDMAError
 from pyverbs.utils import gid_str_to_array, gid_str
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.cmid cimport UDParam
 cimport pyverbs.libibverbs as v
 from pyverbs.pd cimport PD
 from pyverbs.cq cimport WC
@@ -262,6 +263,14 @@ cdef class AHAttr(PyverbsObject):
             self.ah_attr.grh.hop_limit = gr.hop_limit
             self.ah_attr.grh.traffic_class = gr.traffic_class
 
+    cdef init_from_ud_param(self, UDParam udparam):
+        """
+        Initiate the AHAttr from UDParam's ah_attr.
+        :param udparam: UDParam that contains the AHAttr.
+        :return: None
+        """
+        self.ah_attr = udparam.ud_param.ah_attr
+
     @property
     def port_num(self):
         return self.ah_attr.port_num
@@ -380,7 +389,8 @@ cdef class AH(PyverbsCM):
             * *wc*
                A WC object to use for AH initialization
             * *grh*
-               A GRH object to use for AH initialization (when using wc)
+               Pointer to GRH object to use for AH initialization (when using
+               wc)
             * *port_num*
                Port number to be used for this AH (when using wc)
         :return: An AH object on success
@@ -393,9 +403,9 @@ cdef class AH(PyverbsCM):
         else:
             # Create AH from WC
             wc = <WC>kwargs['wc']
-            grh = <GRH>kwargs['grh']
+            grh = <v.ibv_grh*><uintptr_t>kwargs['grh']
             port_num = kwargs['port_num']
-            self.ah = v.ibv_create_ah_from_wc(pd.pd, &wc.wc, &grh.grh, port_num)
+            self.ah = v.ibv_create_ah_from_wc(pd.pd, &wc.wc, grh, port_num)
         if self.ah == NULL:
             raise PyverbsRDMAErrno('Failed to create AH')
         pd.add_ref(self)

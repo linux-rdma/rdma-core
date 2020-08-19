@@ -234,10 +234,10 @@ class centos8(Environment):
             " ".join(sorted(self.pkgs))));
         return res;
 
-class fc31(Environment):
-    docker_parent = "fedora:31";
+class fc32(Environment):
+    docker_parent = "fedora:32";
     pkgs = centos8.pkgs
-    name = "fc31";
+    name = "fc32";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
     is_rpm = True;
@@ -257,7 +257,7 @@ class APTEnvironment(Environment):
     build_python = True;
     def get_docker_file(self,tmpdir):
         res = DockerFile(self.docker_parent);
-        res.lines.append("RUN apt-get update; apt-get install -y --no-install-recommends %s && apt-get clean && rm -rf /usr/share/doc/ /usr/lib/debug /var/lib/apt/lists/"%(
+        res.lines.append("RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends %s && apt-get clean && rm -rf /usr/share/doc/ /usr/lib/debug /var/lib/apt/lists/"%(
             " ".join(sorted(self.pkgs))));
         return res;
 
@@ -267,6 +267,15 @@ class APTEnvironment(Environment):
             os.makedirs(sld);
         with open(os.path.join(sld,name),"w") as F:
             F.write(content + "\n");
+
+    def fix_https(self,tmpdir):
+        """The ubuntu image does not include ca-certificates, so if we want to use
+        HTTPS disable certificate validation."""
+        cfgd = os.path.join(tmpdir,"etc","apt","apt.conf.d")
+        if not os.path.isdir(cfgd):
+            os.makedirs(cfgd)
+        with open(os.path.join(cfgd,"01nossl"),"w") as F:
+            F.write('Acquire::https { Verify-Peer "false"; };')
 
     def add_ppa(self,tmpdir,srcline,keyid):
         gpgd = os.path.join(tmpdir,"etc","apt","trusted.gpg.d");
@@ -324,6 +333,15 @@ class bionic(APTEnvironment):
     };
     name = "ubuntu-18.04";
     aliases = {"bionic", "ubuntu"};
+    to_azp = True
+
+class focal(APTEnvironment):
+    docker_parent = "ubuntu:20.04"
+    pkgs = bionic.pkgs | {
+        'dh-python',
+    }
+    name = "ubuntu-20.04";
+    aliases = {"focal", "ubuntu"};
 
 class jessie(APTEnvironment):
     docker_parent = "debian:8"
@@ -398,21 +416,21 @@ class tumbleweed(ZypperEnvironment):
 # -------------------------------------------------------------------------
 
 class azure_pipelines(APTEnvironment):
-    docker_parent = "ubuntu:18.04"
+    docker_parent = "ubuntu:20.04"
     pkgs = {
         "abi-compliance-checker",
         "abi-dumper",
         "ca-certificates",
-        "clang-9",
+        "clang-10",
         "cmake",
         "cython3",
         "debhelper",
+        "dh-python",
         "dh-systemd",
         "dpkg-dev",
         "fakeroot",
-        "gcc-9",
+        "gcc-10",
         "git",
-        "python2.7",
         "libc6-dev",
         "libnl-3-dev",
         "libnl-route-3-dev",
@@ -432,7 +450,7 @@ class azure_pipelines(APTEnvironment):
         "valgrind",
     } | {
         # 32 bit build support
-        "libgcc-9-dev:i386",
+        "libgcc-10-dev:i386",
         "libc6-dev:i386",
         "libnl-3-dev:i386",
         "libnl-route-3-dev:i386",
@@ -440,8 +458,8 @@ class azure_pipelines(APTEnvironment):
         "libudev-dev:i386",
     } | {
         # ARM 64 cross compiler
-        "gcc-8-aarch64-linux-gnu",
-        "libgcc-8-dev:arm64",
+        "gcc-9-aarch64-linux-gnu",
+        "libgcc-9-dev:arm64",
         "libc6-dev:arm64",
         "libnl-3-dev:arm64",
         "libnl-route-3-dev:arm64",
@@ -449,8 +467,8 @@ class azure_pipelines(APTEnvironment):
         "libudev-dev:arm64",
     } | {
         # PPC 64 cross compiler
-        "gcc-8-powerpc64le-linux-gnu",
-        "libgcc-8-dev:ppc64el",
+        "gcc-9-powerpc64le-linux-gnu",
+        "libgcc-9-dev:ppc64el",
         "libc6-dev:ppc64el",
         "libnl-3-dev:ppc64el",
         "libnl-route-3-dev:ppc64el",
@@ -462,23 +480,32 @@ class azure_pipelines(APTEnvironment):
     aliases = {"azp"}
 
     def get_docker_file(self,tmpdir):
-        res = bionic.get_docker_file(self,tmpdir);
+        res = focal.get_docker_file(self,tmpdir);
+        self.fix_https(tmpdir)
         self.add_ppa(tmpdir,
-                     "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu bionic main",
+                     "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu focal main",
                      "60C317803A41BA51845E371A1E9377A2BA9EF27F");
         self.add_ppa(tmpdir,
-                     "deb [arch=amd64] http://apt.llvm.org/bionic/ llvm-toolchain-bionic-8 main",
+                     "deb [arch=amd64] https://apt.llvm.org/focal/ llvm-toolchain-focal-10 main",
                      "15CF4D18AF4F7421");
         self.add_source_list(tmpdir,"arm64.list",
-                             """deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ bionic main universe
-deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ bionic-security main universe
-deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ bionic-updates main universe""");
+                             """deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ focal main universe
+deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ focal-security main universe
+deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ focal-updates main universe""");
 
         res.lines.insert(1,"ADD etc/ /etc/");
         res.lines.insert(1,"RUN dpkg --add-architecture i386 &&"
                          "dpkg --add-architecture ppc64el &&"
                          "dpkg --add-architecture arm64 &&"
                          "sed -i -e 's/^deb /deb [arch=amd64,i386] /g' /etc/apt/sources.list");
+
+
+        # There is some bug in APT where it doesn't order the install
+        # properly. Probably related to multi-arch..  Resolve it by early
+        # installing these two packages.
+        res.lines[-1] = res.lines[-1].replace("update && DEBIAN_FRONTEND=noninteractive apt-get",
+                                              "update && apt-get install -y --no-install-recommends libgcc-s1:i386 libgcc-s1:ppc64el && DEBIAN_FRONTEND=noninteractive apt-get")
+
         return res;
 
 # -------------------------------------------------------------------------
@@ -491,9 +518,10 @@ environments = [centos6(),
                 amazonlinux2(),
                 xenial(),
                 bionic(),
+                focal(),
                 jessie(),
                 stretch(),
-                fc31(),
+                fc32(),
                 leap(),
                 tumbleweed(),
                 debian_experimental(),

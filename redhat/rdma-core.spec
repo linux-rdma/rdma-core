@@ -1,5 +1,5 @@
 Name: rdma-core
-Version: 29.0
+Version: 31.0
 Release: 1%{?dist}
 Summary: RDMA core userspace libraries and daemons
 
@@ -28,7 +28,7 @@ BuildRequires: valgrind-devel
 BuildRequires: systemd
 BuildRequires: systemd-devel
 %if 0%{?fedora} >= 32
-%define with_pyverbs %{?_with_pyverbs: 0} %{?!_with_pyverbs: 1}
+%define with_pyverbs %{?_with_pyverbs: 1} %{?!_with_pyverbs: %{?!_without_pyverbs: 1} %{?_without_pyverbs: 0}}
 %else
 %define with_pyverbs %{?_with_pyverbs: 1} %{?!_with_pyverbs: 0}
 %endif
@@ -299,7 +299,7 @@ easy, object-oriented access to IB verbs.
          -DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=%{_unitdir} \
          -DCMAKE_INSTALL_INITDDIR:PATH=%{_initrddir} \
          -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
-         -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version} \
+         -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name} \
          -DCMAKE_INSTALL_UDEV_RULESDIR:PATH=%{_udevrulesdir} \
          -DCMAKE_INSTALL_PERLDIR:PATH=%{perl_vendorlib} \
          -DENABLE_IBDIAGS_COMPAT:BOOL=True \
@@ -391,11 +391,11 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %files
 %dir %{_sysconfdir}/rdma
-%dir %{_docdir}/%{name}-%{version}
-%doc %{_docdir}/%{name}-%{version}/README.md
-%doc %{_docdir}/%{name}-%{version}/rxe.md
-%doc %{_docdir}/%{name}-%{version}/udev.md
-%doc %{_docdir}/%{name}-%{version}/tag_matching.md
+%dir %{_docdir}/%{name}
+%doc %{_docdir}/%{name}/README.md
+%doc %{_docdir}/%{name}/rxe.md
+%doc %{_docdir}/%{name}/udev.md
+%doc %{_docdir}/%{name}/tag_matching.md
 %config(noreplace) %{_sysconfdir}/rdma/mlx4.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/infiniband.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/iwarp.conf
@@ -432,7 +432,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %license COPYING.*
 
 %files devel
-%doc %{_docdir}/%{name}-%{version}/MAINTAINERS
+%doc %{_docdir}/%{name}/MAINTAINERS
 %dir %{_includedir}/infiniband
 %dir %{_includedir}/rdma
 %{_includedir}/infiniband/*
@@ -573,7 +573,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_libdir}/libmlx5.so.*
 %{_libdir}/libmlx4.so.*
 %config(noreplace) %{_sysconfdir}/libibverbs.d/*.driver
-%doc %{_docdir}/%{name}-%{version}/libibverbs.md
+%doc %{_docdir}/%{name}/libibverbs.md
 
 %files -n libibverbs-utils
 %{_bindir}/ibv_*
@@ -591,7 +591,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_unitdir}/ibacm.socket
 %dir %{_libdir}/ibacm
 %{_libdir}/ibacm/*
-%doc %{_docdir}/%{name}-%{version}/ibacm.md
+%doc %{_docdir}/%{name}/ibacm.md
 
 %files -n iwpmd
 %{_sbindir}/iwpmd
@@ -609,7 +609,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_libdir}/librdmacm*.so.*
 %dir %{_libdir}/rsocket
 %{_libdir}/rsocket/*.so*
-%doc %{_docdir}/%{name}-%{version}/librdmacm.md
+%doc %{_docdir}/%{name}/librdmacm.md
 %{_mandir}/man7/rsocket.*
 
 %files -n librdmacm-utils
@@ -654,10 +654,10 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_mandir}/man5/srp_daemon_port@.service.5*
 %{_mandir}/man8/ibsrpdm.8*
 %{_mandir}/man8/srp_daemon.8*
-%doc %{_docdir}/%{name}-%{version}/ibsrpdm.md
+%doc %{_docdir}/%{name}/ibsrpdm.md
 
 %if %{with_pyverbs}
 %files -n python3-pyverbs
 %{python3_sitearch}/pyverbs
-%{_docdir}/%{name}-%{version}/tests/*.py
+%{_docdir}/%{name}/tests/*.py
 %endif

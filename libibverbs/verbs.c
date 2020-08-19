@@ -352,6 +352,36 @@ struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
 	return ibv_reg_mr_iova(pd, addr, length, iova, access);
 }
 
+
+struct ibv_pd *ibv_import_pd(struct ibv_context *context,
+			     uint32_t pd_handle)
+{
+	return get_ops(context)->import_pd(context, pd_handle);
+}
+
+
+void ibv_unimport_pd(struct ibv_pd *pd)
+{
+	get_ops(pd->context)->unimport_pd(pd);
+}
+
+
+/**
+ * ibv_import_mr - Import a memory region
+ */
+struct ibv_mr *ibv_import_mr(struct ibv_pd *pd, uint32_t mr_handle)
+{
+	return get_ops(pd->context)->import_mr(pd, mr_handle);
+}
+
+/**
+ * ibv_unimport_mr - Unimport a memory region
+ */
+void ibv_unimport_mr(struct ibv_mr *mr)
+{
+	get_ops(mr->context)->unimport_mr(mr);
+}
+
 LATEST_SYMVER_FUNC(ibv_rereg_mr, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_mr *mr, int flags,
@@ -599,20 +629,6 @@ LATEST_SYMVER_FUNC(ibv_create_qp, 1_1, "IBVERBS_1.1",
 		   struct ibv_qp_init_attr *qp_init_attr)
 {
 	struct ibv_qp *qp = get_ops(pd->context)->create_qp(pd, qp_init_attr);
-
-	if (qp) {
-		qp->context    	     = pd->context;
-		qp->qp_context 	     = qp_init_attr->qp_context;
-		qp->pd         	     = pd;
-		qp->send_cq    	     = qp_init_attr->send_cq;
-		qp->recv_cq    	     = qp_init_attr->recv_cq;
-		qp->srq        	     = qp_init_attr->srq;
-		qp->qp_type          = qp_init_attr->qp_type;
-		qp->state	     = IBV_QPS_RESET;
-		qp->events_completed = 0;
-		pthread_mutex_init(&qp->mutex, NULL);
-		pthread_cond_init(&qp->cond, NULL);
-	}
 
 	return qp;
 }
@@ -1079,4 +1095,19 @@ free_resources:
 	neigh_free_resources(&neigh_handler);
 
 	return ret;
+}
+
+int ibv_set_ece(struct ibv_qp *qp, struct ibv_ece *ece)
+{
+	if (!ece->vendor_id) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
+	return get_ops(qp->context)->set_ece(qp, ece);
+}
+
+int ibv_query_ece(struct ibv_qp *qp, struct ibv_ece *ece)
+{
+	return get_ops(qp->context)->query_ece(qp, ece);
 }

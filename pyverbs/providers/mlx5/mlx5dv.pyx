@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
+from libc.stdint cimport uintptr_t, uint8_t
 import logging
 
-from pyverbs.pyverbs_error import PyverbsUserError
+from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError
 cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
 cimport pyverbs.providers.mlx5.libmlx5 as dv
 from pyverbs.base import PyverbsRDMAErrno
@@ -13,7 +14,6 @@ from pyverbs.qp cimport QPInitAttrEx
 from pyverbs.cq cimport CqInitAttrEx
 cimport pyverbs.libibverbs as v
 from pyverbs.pd cimport PD
-import weakref
 
 
 cdef class Mlx5DVContextAttr(PyverbsObject):
@@ -60,7 +60,6 @@ cdef class Mlx5Context(Context):
         super().__init__(name=name, attr=attr)
         if not dv.mlx5dv_is_supported(self.device):
             raise PyverbsUserError('This is not an MLX5 device')
-        self.pps = weakref.WeakSet()
         self.context = dv.mlx5dv_open_device(self.device, &attr.attr)
         if self.context == NULL:
             raise PyverbsRDMAErrno('Failed to open mlx5 context on {dev}'
@@ -91,12 +90,6 @@ cdef class Mlx5Context(Context):
             raise PyverbsRDMAErrno('Failed to query mlx5 device {name}, got {rc}'.
                                    format(name=self.name, rc=rc))
         return dv_attr
-
-    cdef add_ref(self, obj):
-        if isinstance(obj, Mlx5PP):
-            self.pps.add(obj)
-        else:
-            super().add_ref(obj)
 
     def __dealloc__(self):
         self.close()
@@ -159,6 +152,10 @@ cdef class Mlx5DVContext(PyverbsObject):
     def dc_odp_caps(self):
         return self.dv.dc_odp_caps
 
+    @property
+    def num_lag_ports(self):
+        return self.dv.num_lag_ports
+
     def __str__(self):
         print_format = '{:20}: {:<20}\n'
         ident_format = '  {:20}: {:<20}\n'
@@ -197,7 +194,8 @@ cdef class Mlx5DVContext(PyverbsObject):
                                    self.dv.max_clock_info_update_nsec) +\
                print_format.format('Flow action flags',
                                    self.dv.flow_action_flags) +\
-               print_format.format('DC ODP caps', self.dv.dc_odp_caps)
+               print_format.format('DC ODP caps', self.dv.dc_odp_caps) +\
+               print_format.format('Num LAG ports', self.dv.num_lag_ports)
 
 
 cdef class Mlx5DVDCInitAttr(PyverbsObject):
@@ -358,6 +356,32 @@ cdef class Mlx5QP(QP):
             return super()._get_comp_mask(dst)
         return masks[self.dc_type][dst] | e.IBV_QP_STATE
 
+    @staticmethod
+    def query_lag_port(QP qp):
+        """
+        Queries for port num that the QP desired to use, and the port that
+        is currently used by the bond for this QP.
+        :param qp: Queries the port for this QP.
+        :return: Tuple of the desired port and actual port which used by the HW.
+        """
+        cdef uint8_t port_num
+        cdef uint8_t active_port_num
+        rc = dv.mlx5dv_query_qp_lag_port(qp.qp, &port_num, &active_port_num)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to query QP #{qp.qp.qp_num}', rc)
+        return port_num, active_port_num
+
+    @staticmethod
+    def modify_lag_port(QP qp, uint8_t port_num):
+        """
+        Modifies the lag port num that the QP desires to use.
+        :param qp: Modifies the port for this QP.
+        :param port_num: The desired port to be used by the QP to send traffic
+                         in a LAG configuration.
+        """
+        rc = dv.mlx5dv_modify_qp_lag_port(qp.qp, port_num)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to modify lag of QP #{qp.qp.qp_num}', rc)
 
 cdef class Mlx5DVCQInitAttr(PyverbsObject):
     """
@@ -574,12 +598,13 @@ def send_ops_flags_to_str(flags):
     return bitmask_to_str(flags, l)
 
 
-cdef class Mlx5VAR(VAR):
+cdef class Mlx5VAR(PyverbsObject):
     def __init__(self, Context context not None, flags=0):
+        self.context = context
         self.var = dv.mlx5dv_alloc_var(context.context, flags)
         if self.var == NULL:
             raise PyverbsRDMAErrno('Failed to allocate VAR')
-        context.add_ref(self)
+        context.vars.add(self)
 
     def __dealloc__(self):
         self.close()
@@ -632,7 +657,7 @@ cdef class Mlx5PP(PyverbsObject):
                                      <char*>pp_ctx_bytes, flags)
         if self.pp == NULL:
             raise PyverbsRDMAErrno('Failed to allocate packet pacing entry')
-        (<Mlx5Context>context).add_ref(self)
+        context.pps.add(self)
 
     def __dealloc__(self):
         self.close()
@@ -645,3 +670,47 @@ cdef class Mlx5PP(PyverbsObject):
     @property
     def index(self):
         return self.pp.index
+
+
+cdef class Mlx5UAR(PyverbsObject):
+    def __init__(self, Context context not None, flags=0):
+        self.uar = dv.mlx5dv_devx_alloc_uar(context.context, flags)
+        if self.uar == NULL:
+            raise PyverbsRDMAErrno('Failed to allocate UAR')
+        context.uars.add(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.uar != NULL:
+            dv.mlx5dv_devx_free_uar(self.uar)
+            self.uar = NULL
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return print_format.format('reg addr', <uintptr_t>self.uar.reg_addr) +\
+               print_format.format('base addr', <uintptr_t>self.uar.base_addr) +\
+               print_format.format('page id', self.uar.page_id) +\
+               print_format.format('mmap off', self.uar.mmap_off) +\
+               print_format.format('comp mask', self.uar.comp_mask)
+
+    @property
+    def reg_addr(self):
+        return <uintptr_t>self.uar.reg_addr
+
+    @property
+    def base_addr(self):
+        return <uintptr_t>self.uar.base_addr
+
+    @property
+    def page_id(self):
+        return self.uar.page_id
+
+    @property
+    def mmap_off(self):
+        return self.uar.mmap_off
+
+    @property
+    def comp_mask(self):
+        return self.uar.comp_mask

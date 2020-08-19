@@ -274,6 +274,17 @@ int mlx4_close_xrcd(struct ibv_xrcd *ib_xrcd)
 	return 0;
 }
 
+int mlx4_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
+{
+	struct mlx4_srq *msrq =
+		container_of(srq, struct mlx4_srq, verbs_srq.srq);
+
+	if (!msrq->verbs_srq.xrcd)
+		return EOPNOTSUPP;
+	*srq_num = msrq->verbs_srq.srq_num;
+	return 0;
+}
+
 struct ibv_mr *mlx4_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			   uint64_t hca_va, int access)
 {
@@ -416,7 +427,7 @@ static int mlx4_cmd_create_cq(struct ibv_context *context,
 
 	ret = ibv_cmd_create_cq(context, cq_attr->cqe, cq_attr->channel,
 				cq_attr->comp_vector,
-				ibv_cq_ex_to_cq(&cq->ibv_cq),
+				&cq->verbs_cq.cq,
 				&cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp));
 	if (!ret)
@@ -438,7 +449,7 @@ static int mlx4_cmd_create_cq_ex(struct ibv_context *context,
 	cmd.db_addr  = (uintptr_t) cq->set_ci_db;
 
 	ret = ibv_cmd_create_cq_ex(context, cq_attr,
-				   &cq->ibv_cq, &cmd.ibv_cmd,
+				   &cq->verbs_cq, &cmd.ibv_cmd,
 				   sizeof(cmd),
 				   &resp.ibv_resp,
 				   sizeof(resp));
@@ -530,7 +541,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	if (cq_alloc_flags & MLX4_CQ_FLAGS_EXTENDED)
 		mlx4_cq_fill_pfns(cq, cq_attr);
 
-	return &cq->ibv_cq;
+	return &cq->verbs_cq.cq_ex;
 
 err_db:
 	mlx4_free_db(to_mctx(context), MLX4_DB_TYPE_CQ, cq->set_ci_db);
@@ -779,7 +790,7 @@ static int mlx4_cmd_create_qp_ex_rss(struct ibv_context *context,
 	       sizeof(cmd_ex.rx_hash_key));
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
-				    sizeof(qp->verbs_qp), attr, &cmd_ex.ibv_cmd,
+				    attr, &cmd_ex.ibv_cmd,
 				    sizeof(cmd_ex), &resp.ibv_resp,
 				    sizeof(resp));
 	return ret;
@@ -838,7 +849,7 @@ static int mlx4_cmd_create_qp_ex(struct ibv_context *context,
 	cmd_ex.drv_payload = cmd->drv_payload;
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
-				    sizeof(qp->verbs_qp), attr, &cmd_ex.ibv_cmd,
+				    attr, &cmd_ex.ibv_cmd,
 				    sizeof(cmd_ex), &resp.ibv_resp,
 				    sizeof(resp));
 	return ret;
@@ -970,7 +981,7 @@ static struct ibv_qp *create_qp_ex(struct ibv_context *context,
 		ret = mlx4_cmd_create_qp_ex(context, attr, &cmd, qp);
 	else
 		ret = ibv_cmd_create_qp_ex(context, &qp->verbs_qp,
-					   sizeof(qp->verbs_qp), attr,
+					   attr,
 					   &cmd.ibv_cmd, sizeof(cmd), &resp,
 					   sizeof(resp));
 	if (ret)

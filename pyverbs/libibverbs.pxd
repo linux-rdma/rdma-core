@@ -146,7 +146,7 @@ cdef extern from 'infiniband/verbs.h':
         ibv_pd          *pd
         unsigned int    rkey
         unsigned int    handle
-        ibv_mw_type     mw_type
+        ibv_mw_type     type
 
     cdef struct ibv_alloc_dm_attr:
         size_t          length
@@ -303,6 +303,11 @@ cdef extern from 'infiniband/verbs.h':
         unsigned long   length
         unsigned int    mw_access_flags
 
+    cdef struct ibv_mw_bind:
+        uint64_t            wr_id
+        unsigned int        send_flags
+        ibv_mw_bind_info    bind_info
+
     cdef struct bind_mw:
         ibv_mw              *mw
         unsigned int        rkey
@@ -312,10 +317,6 @@ cdef extern from 'infiniband/verbs.h':
         void            *hdr
         unsigned short  hdr_sz
         unsigned short  mss
-
-    cdef union unnamed:
-        bind_mw         bind_mw
-        tso             tso
 
     cdef struct xrc:
         unsigned int    remote_srqn
@@ -329,10 +330,12 @@ cdef extern from 'infiniband/verbs.h':
         ibv_sge         *sg_list
         int             num_sge
         ibv_wr_opcode   opcode
+        uint32_t        imm_data
         unsigned int    send_flags
         wr              wr
         qp_type         qp_type
-        unnamed         unnamed
+        bind_mw         bind_mw
+        tso             tso
 
     cdef struct ibv_qp_cap:
         unsigned int    max_send_wr
@@ -475,7 +478,13 @@ cdef extern from 'infiniband/verbs.h':
         uint64_t        wr_id
         unsigned int    wr_flags
 
+    cdef struct ibv_ece:
+        uint32_t vendor_id
+        uint32_t options
+        uint32_t comp_mask
+
     ibv_device **ibv_get_device_list(int *n)
+    int ibv_get_device_index(ibv_device *device);
     void ibv_free_device_list(ibv_device **list)
     ibv_context *ibv_open_device(ibv_device *device)
     int ibv_close_device(ibv_context *context)
@@ -490,6 +499,8 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_dealloc_pd(ibv_pd *pd)
     ibv_mr *ibv_reg_mr(ibv_pd *pd, void *addr, size_t length, int access)
     int ibv_dereg_mr(ibv_mr *mr)
+    int ibv_advise_mr(ibv_pd *pd, uint32_t advice, uint32_t flags,
+                      ibv_sge *sg_list, uint32_t num_sge)
     ibv_mw *ibv_alloc_mw(ibv_pd *pd, ibv_mw_type type)
     int ibv_dealloc_mw(ibv_mw *mw)
     ibv_dm *ibv_alloc_dm(ibv_context *context, ibv_alloc_dm_attr *attr)
@@ -549,6 +560,7 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_destroy_qp(ibv_qp *qp)
     int ibv_post_recv(ibv_qp *qp, ibv_recv_wr *wr, ibv_recv_wr **bad_wr)
     int ibv_post_send(ibv_qp *qp, ibv_send_wr *wr, ibv_send_wr **bad_wr)
+    int ibv_bind_mw(ibv_qp *qp, ibv_mw *mw, ibv_mw_bind *mw_bind)
     ibv_xrcd *ibv_open_xrcd(ibv_context *context,
                             ibv_xrcd_init_attr *xrcd_init_attr)
     int ibv_close_xrcd(ibv_xrcd *xrcd)
@@ -594,8 +606,15 @@ cdef extern from 'infiniband/verbs.h':
     void ibv_wr_start(ibv_qp_ex *qp)
     int ibv_wr_complete(ibv_qp_ex *qp)
     void ibv_wr_abort(ibv_qp_ex *qp)
+    ibv_context *ibv_import_device(int cmd_fd)
+    ibv_mr *ibv_import_mr(ibv_pd *pd, uint32_t handle)
+    void ibv_unimport_mr(ibv_mr *mr)
+    ibv_pd *ibv_import_pd(ibv_context *context, uint32_t handle)
+    void ibv_unimport_pd(ibv_pd *pd)
 
 
 cdef extern from 'infiniband/driver.h':
     int ibv_query_gid_type(ibv_context *context, uint8_t port_num,
                            unsigned int index, ibv_gid_type *type)
+    int ibv_set_ece(ibv_qp *qp, ibv_ece *ece)
+    int ibv_query_ece(ibv_qp *qp, ibv_ece *ece)

@@ -2,8 +2,10 @@
 # Copyright (c) 2019 Mellanox Technologies Inc. All rights reserved. See COPYING file
 
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError
-from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.base import PyverbsRDMAErrno, inc_rkey
+from pyverbs.mr cimport MW, MR, MWBindInfo
 cimport pyverbs.libibverbs_enums as e
+cimport pyverbs.libibverbs as v
 from pyverbs.addr cimport AH
 from libc.stdlib cimport free, malloc
 from libc.string cimport memcpy
@@ -143,21 +145,25 @@ cdef class RecvWR(PyverbsCM):
 
 
 cdef class SendWR(PyverbsCM):
-    def __init__(self, wr_id=0, opcode=e.IBV_WR_SEND, num_sge=0, sg = None,
-                 send_flags=e.IBV_SEND_SIGNALED, SendWR next_wr = None):
+    def __init__(self, wr_id=0, opcode=e.IBV_WR_SEND, num_sge=0, imm_data=0,
+                 sg = None, send_flags=e.IBV_SEND_SIGNALED,
+                 SendWR next_wr = None):
         """
         Initialize a SendWR object with user-provided or default values.
         :param wr_id: A user-defined WR ID
         :param opcode: The WR's opcode
         :param num_sge: Number of scatter-gather elements in the WR
-        :param send_flags: Send flags as define in ibv_send_flags enum
+        :param imm_data: Immediate data
         :param sg: A SGE element, head of the scatter-gather list
+        :param send_flags: Send flags as define in ibv_send_flags enum
         :return: An initialized SendWR object
         """
         cdef v.ibv_sge *dst
 
         super().__init__()
-        if num_sge < 1 or sg is None:
+        mw_opcodes = [e.IBV_WR_LOCAL_INV, e.IBV_WR_BIND_MW,
+                      e.IBV_WR_SEND_WITH_INV]
+        if opcode not in mw_opcodes and (num_sge < 1 or sg is None):
             raise PyverbsUserError('A WR needs at least one SGE')
         self.send_wr.sg_list = <v.ibv_sge*>malloc(num_sge * sizeof(v.ibv_sge))
         if self.send_wr.sg_list == NULL:
@@ -170,6 +176,7 @@ cdef class SendWR(PyverbsCM):
             self.send_wr.next = &next_wr.send_wr
         self.send_wr.opcode = opcode
         self.send_wr.send_flags = send_flags
+        self.send_wr.imm_data = imm_data
         self.ah = None
 
     def __dealloc(self):
@@ -184,7 +191,8 @@ cdef class SendWR(PyverbsCM):
                print_format.format('Num SGE', self.send_wr.num_sge) +\
                print_format.format('Opcode', self.send_wr.opcode) +\
                print_format.format('Send flags',
-                                   send_flags_to_str(self.send_wr.send_flags))
+                                   send_flags_to_str(self.send_wr.send_flags) +\
+               print_format.format('Imm Data', self.send_wr.imm_data))
 
     @property
     def next_wr(self):
@@ -210,6 +218,13 @@ cdef class SendWR(PyverbsCM):
     @num_sge.setter
     def num_sge(self, val):
         self.send_wr.num_sge = val
+
+    @property
+    def imm_data(self):
+        return self.send_wr.imm_data
+    @imm_data.setter
+    def imm_data(self, val):
+        self.send_wr.imm_data = val
 
     @property
     def opcode(self):
@@ -272,6 +287,23 @@ cdef class SendWR(PyverbsCM):
         self.send_wr.wr.atomic.rkey = rkey
         self.send_wr.wr.atomic.compare_add = compare_add
         self.send_wr.wr.atomic.swap = swap
+
+    def set_bind_wr(self, MW mw, MWBindInfo bind_info):
+        """
+        Set the members of the bind_mw struct in the send_wr.
+        :param mw: The MW to bind.
+        :param bind_info: MWBindInfo object, includes the bind attributes.
+        :return: None
+        """
+        self.send_wr.bind_mw.mw = mw.mw
+        # Create the new key from the MW rkey.
+        rkey = inc_rkey(mw.rkey)
+        self.send_wr.bind_mw.rkey = rkey
+        self.send_wr.bind_mw.bind_info = bind_info.info
+
+    @property
+    def rkey(self):
+        return self.send_wr.bind_mw.rkey
 
     def set_qp_type_xrc(self, remote_srqn):
         """

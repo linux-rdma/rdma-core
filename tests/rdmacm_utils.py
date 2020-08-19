@@ -3,235 +3,400 @@
 """
 Provide some useful helper function for pyverbs rdmacm' tests.
 """
-from tests.utils import validate, poll_cq, get_send_element, get_recv_wr
-from pyverbs.pyverbs_error import PyverbsError
-from tests.base import CMResources
-from pyverbs.cmid import CMEvent
+from tests.utils import validate, poll_cq, get_send_elements, get_recv_wr
+from tests.base_rdmacm import AsyncCMResources, SyncCMResources
+from pyverbs.cmid import CMEvent, AddrInfo, JoinMCAttrEx
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 import pyverbs.cm_enums as ce
-import os
+from pyverbs.addr import AH
+import pyverbs.enums as e
+import abc
+import errno
 
-events_dict = {ce.RDMA_CM_EVENT_ADDR_ERROR: 'Resolve Address Error',
-               ce.RDMA_CM_EVENT_ROUTE_ERROR: 'Resolve Route Error',
-               ce.RDMA_CM_EVENT_CONNECT_ERROR: 'Connection Error',
-               ce.RDMA_CM_EVENT_UNREACHABLE: 'Node is Unreachable',
-               ce.RDMA_CM_EVENT_REJECTED: 'Connection Rejected',
-               ce.RDMA_CM_EVENT_DEVICE_REMOVAL: 'Device Removal',
-               ce.RDMA_CM_EVENT_MULTICAST_JOIN: 'Multicast Join',
-               ce.RDMA_CM_EVENT_MULTICAST_ERROR: 'Multicast Error',
-               ce.RDMA_CM_EVENT_ADDR_CHANGE: 'Address Change',
-               ce.RDMA_CM_EVENT_TIMEWAIT_EXIT: 'Time wait Exit'}
+GRH_SIZE = 40
+MULTICAST_QPN = 0xffffff
 
-
-def _server_traffic_with_ext_qp(agr_obj, syncer):
-    recv_wr = get_recv_wr(agr_obj)
-    agr_obj.qp.post_recv(recv_wr)
-    syncer.wait()
-    for _ in range(agr_obj.num_msgs):
-        poll_cq(agr_obj.cq)
-        agr_obj.qp.post_recv(recv_wr)
-        msg_received = agr_obj.mr.read(agr_obj.msg_size, 0)
-        validate(msg_received, agr_obj.is_server, agr_obj.msg_size)
-        send_wr = get_send_element(agr_obj, agr_obj.is_server)[0]
-        agr_obj.qp.post_send(send_wr)
-        poll_cq(agr_obj.cq)
-
-
-def server_traffic(agr_obj, syncer):
+class CMConnection(abc.ABC):
     """
-    RDMACM passive side traffic function which sends and receives a message, and
-    then validates the received message. This operation is executed
-    <agr_obj.num_msgs> times. If agr_obj.with_ext_qp is set, the traffic will
-    use the external QP (agr_obj.qp).
-    :param agr_obj: Aggregation object which contains all necessary resources
-    :param syncer: multiprocessing.Barrier object for processes synchronization
-    :return: None
+    RDMA CM base abstract connection class. The class contains the rdmacm
+    resources and other methods to easily establish a connection and run
+    traffic using the rdmacm resources. Each type of connection or traffic
+    should inherit from this class and implement the necessary methods such as
+    connection establishment and traffic.
     """
-    if agr_obj.with_ext_qp:
-        return _server_traffic_with_ext_qp(agr_obj, syncer)
-    send_msg = agr_obj.msg_size * 's'
-    cmid = agr_obj.child_id
-    for _ in range(agr_obj.num_msgs):
-        cmid.post_recv(agr_obj.mr)
-        syncer.wait()
-        syncer.wait()
-        cmid.get_recv_comp()
-        msg_received = agr_obj.mr.read(agr_obj.msg_size, 0)
-        validate(msg_received, agr_obj.is_server, agr_obj.msg_size)
-        agr_obj.mr.write(send_msg, agr_obj.msg_size)
-        cmid.post_send(agr_obj.mr)
-        cmid.get_send_comp()
-        syncer.wait()
+    def __init__(self, syncer=None, notifier=None):
+        """
+        Initializes a connection object.
+        :param syncer: Barrier object to sync between all the test processes.
+        :param notifier: Queue object to pass objects between the connection
+                         sides.
+        """
+        self.syncer = syncer
+        self.notifier = notifier
+        self.cm_res = None
 
-
-def _client_traffic_with_ext_qp(agr_obj, syncer):
-    recv_wr = get_recv_wr(agr_obj)
-    syncer.wait()
-    for _ in range(agr_obj.num_msgs):
-        send_wr = get_send_element(agr_obj, agr_obj.is_server)[0]
-        agr_obj.qp.post_send(send_wr)
-        poll_cq(agr_obj.cq)
-        agr_obj.qp.post_recv(recv_wr)
-        poll_cq(agr_obj.cq)
-        msg_received = agr_obj.mr.read(agr_obj.msg_size, 0)
-        validate(msg_received, agr_obj.is_server, agr_obj.msg_size)
-
-
-def client_traffic(agr_obj, syncer):
-    """
-    RDMACM active side traffic function which sends and receives a message, and
-    then validates the received message. This operation is executed
-    <agr_obj.num_msgs> times. If agr_obj.with_ext_qp is set, the traffic will
-    use the external QP (agr_obj.qp).
-    :param agr_obj: Aggregation object which contains all necessary resources
-    :param syncer: multiprocessing.Barrier object for processes synchronization
-    :return: None
-    """
-    if agr_obj.with_ext_qp:
-        return _client_traffic_with_ext_qp(agr_obj, syncer)
-    send_msg = agr_obj.msg_size * 'c'
-    cmid = agr_obj.cmid
-    for _ in range(agr_obj.num_msgs):
-        agr_obj.mr.write(send_msg, agr_obj.msg_size)
-        syncer.wait()
-        cmid.post_send(agr_obj.mr)
-        cmid.get_send_comp()
-        syncer.wait()
-        cmid.post_recv(agr_obj.mr)
-        syncer.wait()
-        cmid.get_recv_comp()
-        msg_received = agr_obj.mr.read(agr_obj.msg_size, 0)
-        validate(msg_received, agr_obj.is_server, agr_obj.msg_size)
-
-
-def event_handler(agr_obj):
-    """
-    Handle and execute corresponding API for RDMACM events of asynchronous
-    communication
-    :param agr_obj: Aggregation object which contains all necessary resources
-    :return: None
-    """
-    cm_event = CMEvent(agr_obj.cmid.event_channel)
-    if cm_event.event_type == ce.RDMA_CM_EVENT_ADDR_RESOLVED:
-        agr_obj.cmid.resolve_route()
-    elif cm_event.event_type == ce.RDMA_CM_EVENT_ROUTE_RESOLVED:
-        agr_obj.create_qp()
-        param = agr_obj.create_conn_param()
-        if agr_obj.with_ext_qp:
-            param.qpn = agr_obj.qp.qp_num
-        agr_obj.cmid.connect(param)
-    elif cm_event.event_type == ce.RDMA_CM_EVENT_CONNECT_REQUEST:
-        agr_obj.create_child_id(cm_event)
-        param = agr_obj.create_conn_param()
-        agr_obj.create_qp()
-        if agr_obj.with_ext_qp:
-            agr_obj.modify_ext_qp_to_rts()
-            param.qpn = agr_obj.qp.qp_num
-        agr_obj.child_id.accept(param)
-    elif cm_event.event_type == ce.RDMA_CM_EVENT_ESTABLISHED:
-        agr_obj.connected = True
-    elif cm_event.event_type == ce.RDMA_CM_EVENT_CONNECT_RESPONSE:
-        agr_obj.connected = True
-        if agr_obj.with_ext_qp:
-            agr_obj.modify_ext_qp_to_rts()
-        agr_obj.cmid.establish()
-    elif cm_event.event_type == ce.RDMA_CM_EVENT_DISCONNECTED:
-        if agr_obj.is_server:
-            agr_obj.child_id.disconnect()
-            agr_obj.connected = False
+    def rdmacm_traffic(self, server=None, multicast=False):
+        """
+        Run rdmacm traffic. This method runs the compatible traffic flow
+        depending on the CMResources. If self.with_ext_qp is set the traffic
+        will go through the external QP.
+        :param server: Run as server.
+        :param multicast: Run multicast traffic.
+        """
+        server = server if server is not None else self.cm_res.passive
+        if self.cm_res.with_ext_qp:
+            if server:
+                self._ext_qp_server_traffic()
+            else:
+                self._ext_qp_client_traffic()
         else:
-            agr_obj.cmid.disconnect()
-            agr_obj.connected = False
-    else:
-        if cm_event.event_type in events_dict:
-            raise PyverbsError('Unexpected event - {}'.format(
-                               events_dict[cm_event.event_type]))
+            if server:
+                self._cmid_server_traffic(multicast)
+            else:
+                self._cmid_client_traffic(multicast)
+
+    def remote_traffic(self, passive, remote_op='write'):
+        """
+        Run rdmacm remote traffic. This method runs RDMA remote traffic from
+        the active to the passive.
+        :param passive: If True, run as server.
+        :param remote_op: 'write'/'read', The type of the RDMA remote operation.
+        """
+        msg_size = self.cm_res.msg_size
+        if passive:
+            self.cm_res.mr.write((msg_size) * 's', msg_size)
+            mr_details = (self.cm_res.mr.rkey, self.cm_res.mr.buf)
+            self.notifier.put(mr_details)
+            self.syncer.wait()
+            self.syncer.wait()
+            if remote_op == 'write':
+                msg_received = self.cm_res.mr.read(msg_size, 0)
+                validate(msg_received, True, msg_size)
         else:
-            raise PyverbsError('The event {} is not supported'.format(
-                               cm_event.event_type))
-    cm_event.ack_cm_event()
+            self.cm_res.mr.write((msg_size) * 'c', msg_size)
+            self.syncer.wait()
+            rkey, remote_addr = self.notifier.get()
+            cmid = self.cm_res.cmid
+            post_func = cmid.post_write if remote_op == 'write' else \
+                cmid.post_read
+            for _ in range(self.cm_res.num_msgs):
+                post_func(self.cm_res.mr, msg_size, remote_addr, rkey,
+                          flags=e.IBV_SEND_SIGNALED)
+                cmid.get_send_comp()
+            self.syncer.wait()
+            if remote_op == 'read':
+                msg_received = self.cm_res.mr.read(msg_size, 0)
+                validate(msg_received, False, msg_size)
+
+    def _ext_qp_server_traffic(self):
+        """
+        RDMACM server side traffic function which sends and receives a message,
+        and then validates the received message. This traffic method uses the CM
+        external QP and CQ for send, recv and get_completion.
+        :return: None
+        """
+        recv_wr = get_recv_wr(self.cm_res)
+        self.cm_res.qp.post_recv(recv_wr)
+        self.syncer.wait()
+        for _ in range(self.cm_res.num_msgs):
+            poll_cq(self.cm_res.cq)
+            self.cm_res.qp.post_recv(recv_wr)
+            msg_received = self.cm_res.mr.read(self.cm_res.msg_size, 0)
+            validate(msg_received, self.cm_res.passive, self.cm_res.msg_size)
+            send_wr = get_send_elements(self.cm_res, self.cm_res.passive)[0]
+            self.cm_res.qp.post_send(send_wr)
+            poll_cq(self.cm_res.cq)
+
+    def _ext_qp_client_traffic(self):
+        """
+        RDMACM client side traffic function which sends and receives a message,
+        and then validates the received message. This traffic method uses the CM
+        external QP and CQ for send, recv and get_completion.
+        :return: None
+        """
+        recv_wr = get_recv_wr(self.cm_res)
+        self.syncer.wait()
+        for _ in range(self.cm_res.num_msgs):
+            send_wr = get_send_elements(self.cm_res, self.cm_res.passive)[0]
+            self.cm_res.qp.post_send(send_wr)
+            poll_cq(self.cm_res.cq)
+            self.cm_res.qp.post_recv(recv_wr)
+            poll_cq(self.cm_res.cq)
+            msg_received = self.cm_res.mr.read(self.cm_res.msg_size, 0)
+            validate(msg_received, self.cm_res.passive, self.cm_res.msg_size)
+
+    def _cmid_server_traffic(self, multicast=False):
+        """
+        RDMACM server side traffic function which sends and receives a message,
+        and then validates the received message. This traffic method uses the
+        RDMACM API for send, recv and get_completion.
+        :return: None
+        """
+        grh_offset = GRH_SIZE if self.cm_res.qp_type == e.IBV_QPT_UD else 0
+        send_msg = (self.cm_res.msg_size + grh_offset) * 's'
+        cmid = self.cm_res.child_id if not multicast else self.cm_res.cmid
+        for _ in range(self.cm_res.num_msgs):
+            cmid.post_recv(self.cm_res.mr)
+            self.syncer.wait()
+            self.syncer.wait()
+            wc = cmid.get_recv_comp()
+            msg_received = self.cm_res.mr.read(self.cm_res.msg_size, grh_offset)
+            validate(msg_received, True, self.cm_res.msg_size)
+            if self.cm_res.port_space == ce.RDMA_PS_TCP:
+                self.cm_res.mr.write(send_msg, self.cm_res.msg_size)
+                cmid.post_send(self.cm_res.mr)
+            else:
+                if multicast:
+                    ah = AH(cmid.pd, attr=self.cm_res.ud_params.ah_attr)
+                    rqpn = MULTICAST_QPN
+                else:
+                    ah = AH(cmid.pd, wc=wc, port_num=1, grh=self.cm_res.mr.buf)
+                    rqpn = self.cm_res.remote_qpn
+                self.cm_res.mr.write(send_msg, self.cm_res.msg_size + GRH_SIZE)
+                cmid.post_ud_send(self.cm_res.mr, ah, rqpn=rqpn,
+                                  length=self.cm_res.msg_size)
+            cmid.get_send_comp()
+            self.syncer.wait()
+
+    def _cmid_client_traffic(self, multicast=False):
+        """
+        RDMACM client side traffic function which sends and receives a message,
+        and then validates the received message. This traffic method uses the
+        RDMACM API for send, recv and get_completion.
+        :return: None
+        """
+        grh_offset = GRH_SIZE if self.cm_res.qp_type == e.IBV_QPT_UD else 0
+        send_msg = (self.cm_res.msg_size + grh_offset) * 'c'
+        cmid = self.cm_res.cmid
+        for _ in range(self.cm_res.num_msgs):
+            self.cm_res.mr.write(send_msg, self.cm_res.msg_size + grh_offset)
+            self.syncer.wait()
+            if self.cm_res.port_space == ce.RDMA_PS_TCP:
+                cmid.post_send(self.cm_res.mr)
+            else:
+                ah = AH(cmid.pd, attr=self.cm_res.ud_params.ah_attr)
+                rqpn = MULTICAST_QPN if multicast else self.cm_res.ud_params.qp_num
+                cmid.post_ud_send(self.cm_res.mr, ah, rqpn=rqpn,
+                                  length=self.cm_res.msg_size)
+            cmid.get_send_comp()
+            cmid.post_recv(self.cm_res.mr)
+            self.syncer.wait()
+            self.syncer.wait()
+            cmid.get_recv_comp()
+            msg_received = self.cm_res.mr.read(self.cm_res.msg_size, grh_offset)
+            validate(msg_received, False, self.cm_res.msg_size)
+
+    def event_handler(self, expected_event=None):
+        """
+        Handle and execute corresponding API for RDMACM events of asynchronous
+        communication.
+        :param expected_event: The user expected event.
+        :return: None
+        """
+        cm_event = CMEvent(self.cm_res.cmid.event_channel)
+        if cm_event.event_type == ce.RDMA_CM_EVENT_CONNECT_REQUEST:
+            self.cm_res.create_child_id(cm_event)
+        elif cm_event.event_type in [ce.RDMA_CM_EVENT_ESTABLISHED,
+                                     ce.RDMA_CM_EVENT_MULTICAST_JOIN]:
+            self.cm_res.set_ud_params(cm_event)
+        if expected_event and expected_event != cm_event.event_type:
+            raise PyverbsError('Expected this event: {}, got this event: {}'.
+                                format(expected_event, cm_event.event_str()))
+        cm_event.ack_cm_event()
+
+    @abc.abstractmethod
+    def establish_connection(self):
+        pass
+
+    @abc.abstractmethod
+    def disconnect(self):
+        pass
 
 
-def sync_traffic(addr, syncer, notifier, is_server):
+class CMAsyncConnection(CMConnection):
     """
-    RDMACM synchronous data and control path which first establish a connection
-    using RDMACM's synchronous API and then execute RDMACM synchronous traffic.
-    :param addr: Address to connect to and to bind to
-    :param syncer: multiprocessing.Barrier object for processes synchronization
-    :param notifier: Notify parent process about any exceptions or success
-    :param is_server: A flag which indicates if this is a server or client
-    :return: None
+    Implement RDMACM connection management for asynchronous CMIDs. It includes
+    connection establishment, disconnection and other methods such as traffic.
     """
-    try:
-        if is_server:
-            server = CMResources(src=addr)
-            server.cmid.listen()
-            syncer.wait()
-            server.create_child_id()
-            server.child_id.accept()
-            server.create_mr()
-            server_traffic(server, syncer)
-            server.child_id.disconnect()
+    def __init__(self, ip_addr, syncer=None, notifier=None, passive=False, **kwargs):
+        """
+        Init the CMConnection and then init the AsyncCMResources.
+        :param ip_addr: IP address to use.
+        :param syncer: Barrier object to sync between all the test processes.
+        :param notifier: Queue object to pass objects between the connection
+                         sides.
+        :param passive: Indicate if it's a passive side.
+        :param kwargs: Arguments used to initialize the CM resources. For more
+                       info please check CMResources.
+        """
+        super(CMAsyncConnection, self).__init__(syncer=syncer, notifier=notifier)
+        self.cm_res = AsyncCMResources(addr=ip_addr, passive=passive, **kwargs)
+
+    def join_to_multicast(self, mc_addr=None, src_addr=None, extended=False):
+        """
+        Join the CMID to multicast group.
+        :param mc_addr: The multicast IP address.
+        :param src_addr: The CMIDs source address.
+        :param extended: Use the join_multicast_ex API.
+        """
+        self.cm_res.cmid.bind_addr(self.cm_res.ai)
+        resolve_addr_info = AddrInfo(src=src_addr, dst=mc_addr)
+        self.cm_res.cmid.resolve_addr(resolve_addr_info)
+        self.event_handler(expected_event=ce.RDMA_CM_EVENT_ADDR_RESOLVED)
+        self.cm_res.create_qp()
+        mc_addr_info = AddrInfo(src=mc_addr)
+        if not extended:
+            self.cm_res.cmid.join_multicast(addr=mc_addr_info)
         else:
-            client = CMResources(dst=addr)
-            syncer.wait()
-            client.cmid.connect()
-            client.create_mr()
-            client_traffic(client, syncer)
-            client.cmid.disconnect()
-    except Exception as ex:
-        side = 'passive' if is_server else 'active'
-        notifier.put('Caught exception in {side} side process: pid {pid}\n'
-                     .format(side=side, pid=os.getpid()) +
-                     'Exception message: {ex}'.format(ex=str(ex)))
-    else:
-        notifier.put(None)
+            flags = ce.RDMA_MC_JOIN_FLAG_FULLMEMBER
+            comp_mask = ce.RDMA_CM_JOIN_MC_ATTR_ADDRESS | \
+                        ce.RDMA_CM_JOIN_MC_ATTR_JOIN_FLAGS
+            mcattr = JoinMCAttrEx(addr=mc_addr_info, comp_mask=comp_mask,
+                                  join_flags=flags)
+            self.cm_res.cmid.join_multicast(mc_attr=mcattr)
+        self.event_handler(expected_event=ce.RDMA_CM_EVENT_MULTICAST_JOIN)
+        self.cm_res.create_mr()
 
+    def leave_multicast(self, mc_addr=None):
+        """
+        Leave multicast group.
+        :param mc_addr: The multicast IP address.
+        """
+        mc_addr_info = AddrInfo(src=mc_addr)
+        self.cm_res.cmid.leave_multicast(mc_addr_info)
 
-def async_traffic_with_ext_qp(addr, syncer, notifier, is_server):
-    return async_traffic(addr, syncer, notifier, is_server, True)
-
-
-def async_traffic(addr, syncer, notifier, is_server, with_ext_qp=False):
-    """
-    RDMACM asynchronous data and control path function that first establishes a
-    connection using RDMACM events API and then executes RDMACM asynchronous
-    traffic.
-    :param addr: Address to connect to and to bind to
-    :param syncer: multiprocessing.Barrier object for processes synchronization
-    :param notifier: Notify parent process about any exceptions or success
-    :param is_server: A flag which indicates if this is a server or not
-    :param with_ext_qp: If set, an external RC QP will be created and used by
-                        RDMACM (default: False)
-    :return: None
-    """
-    try:
-        if is_server:
-            server = CMResources(src=addr, is_async=True,
-                                 with_ext_qp=with_ext_qp)
-            listen_id = server.cmid
-            listen_id.bind_addr(server.ai)
-            listen_id.listen()
-            syncer.wait()
-            while not server.connected:
-                event_handler(server)
-            server.create_mr()
-            server_traffic(server, syncer)
-            server.child_id.disconnect()
+    def establish_connection(self):
+        """
+        Establish RMDACM connection between two Async CMIDs.
+        """
+        if self.cm_res.passive:
+            self.cm_res.cmid.bind_addr(self.cm_res.ai)
+            self.cm_res.cmid.listen()
+            self.syncer.wait()
+            self.event_handler(expected_event=ce.RDMA_CM_EVENT_CONNECT_REQUEST)
+            self.cm_res.create_qp()
+            if self.cm_res.with_ext_qp:
+                self.set_cmids_qp_ece(self.cm_res.passive)
+                self.cm_res.modify_ext_qp_to_rts()
+                self.set_cmid_ece(self.cm_res.passive)
+            self.cm_res.child_id.accept(self.cm_res.create_conn_param())
+            if self.cm_res.port_space == ce.RDMA_PS_TCP:
+                self.event_handler(expected_event=ce.RDMA_CM_EVENT_ESTABLISHED)
         else:
-            client = CMResources(src=addr, dst=addr, is_async=True,
-                                 with_ext_qp=with_ext_qp)
-            id = client.cmid
-            id.resolve_addr(client.ai)
-            syncer.wait()
-            while not client.connected:
-                event_handler(client)
-            client.create_mr()
-            client_traffic(client, syncer)
-            event_handler(client)
-    except Exception as ex:
-        side = 'passive' if is_server else 'active'
-        notifier.put('Caught exception in {side} side process: pid {pid}\n'
-                     .format(side=side, pid=os.getpid()) +
-                     'Exception message: {ex}'.format(ex=str(ex)))
-    else:
-        notifier.put(None)
+            self.cm_res.cmid.resolve_addr(self.cm_res.ai)
+            self.event_handler(expected_event=ce.RDMA_CM_EVENT_ADDR_RESOLVED)
+            self.syncer.wait()
+            self.cm_res.cmid.resolve_route()
+            self.event_handler(expected_event=ce.RDMA_CM_EVENT_ROUTE_RESOLVED)
+            self.cm_res.create_qp()
+            if self.cm_res.with_ext_qp:
+                self.set_cmid_ece(self.cm_res.passive)
+            self.cm_res.cmid.connect(self.cm_res.create_conn_param())
+            if self.cm_res.with_ext_qp:
+                self.event_handler(expected_event=\
+                    ce.RDMA_CM_EVENT_CONNECT_RESPONSE)
+                self.set_cmids_qp_ece(self.cm_res.passive)
+                self.cm_res.modify_ext_qp_to_rts()
+                self.cm_res.cmid.establish()
+            else:
+                self.event_handler(expected_event=ce.RDMA_CM_EVENT_ESTABLISHED)
+        self.cm_res.create_mr()
+        self.sync_qp_numbers()
+
+    def sync_qp_numbers(self):
+        """
+        Sync the QP numbers of the connections sides.
+        """
+        if self.cm_res.passive:
+            self.syncer.wait()
+            self.notifier.put(self.cm_res.my_qp_number())
+            self.syncer.wait()
+            self.cm_res.remote_qpn = self.notifier.get()
+        else:
+            self.syncer.wait()
+            self.cm_res.remote_qpn = self.notifier.get()
+            self.notifier.put(self.cm_res.my_qp_number())
+            self.syncer.wait()
+
+    def disconnect(self):
+        """
+        Disconnect the connection.
+        """
+        if self.cm_res.port_space == ce.RDMA_PS_TCP:
+            if self.cm_res.passive:
+                self.cm_res.child_id.disconnect()
+            else:
+                self.event_handler(expected_event=ce.RDMA_CM_EVENT_DISCONNECTED)
+                self.cm_res.cmid.disconnect()
+
+    def set_cmid_ece(self, passive):
+        """
+        Set the local CMIDs ECE. The ECE is taken from the CMIDs QP ECE.
+        :param passive: Indicates if this CMID is participate as passive in
+                        this connection.
+        """
+        cmid = self.cm_res.child_id if passive else self.cm_res.cmid
+        try:
+            ece = self.cm_res.qp.query_ece()
+            cmid.set_local_ece(ece)
+        except PyverbsRDMAError as ex:
+            if ex.error_code != errno.EOPNOTSUPP:
+                raise ex
+
+    def set_cmids_qp_ece(self, passive):
+        """
+        Set the CMIDs QP ECE.
+        :param passive: Indicates if this CMID is participate as passive in
+                        this connection.
+        """
+        cmid = self.cm_res.child_id if passive else self.cm_res.cmid
+        try:
+            ece = cmid.get_remote_ece()
+            self.cm_res.qp.set_ece(ece)
+        except PyverbsRDMAError as ex:
+            if ex.error_code != errno.EOPNOTSUPP:
+                raise ex
+
+class CMSyncConnection(CMConnection):
+    """
+    Implement RDMACM connection management for synchronous CMIDs. It includes
+    connection establishment, disconnection and other methods such as traffic.
+    """
+    def __init__(self, ip_addr, syncer=None, notifier=None, passive=False, **kwargs):
+        """
+        Init the CMConnection and then init the SyncCMResources.
+        :param ip_addr: IP address to use.
+        :param syncer: Barrier object to sync between all the test processes.
+        :param notifier: Queue object to pass objects between the connection
+                         sides.
+        :param passive: Indicate if it's a passive side.
+        :param kwargs: Arguments used to initialize the CM resources. For more
+                       info please check CMResources.
+        """
+        super(CMSyncConnection, self).__init__(syncer=syncer, notifier=notifier)
+        self.cm_res = SyncCMResources(addr=ip_addr, passive=passive, **kwargs)
+
+    def establish_connection(self):
+        """
+        Establish RMDACM connection between two Sync CMIDs.
+        """
+        if self.cm_res.passive:
+            self.cm_res.cmid.listen()
+            self.syncer.wait()
+            self.cm_res.create_child_id()
+            self.cm_res.child_id.accept()
+            self.cm_res.create_mr()
+        else:
+            self.syncer.wait()
+            self.cm_res.cmid.connect()
+            self.cm_res.create_mr()
+
+    def disconnect(self):
+        """
+        Disconnect the connection.
+        """
+        if self.cm_res.port_space == ce.RDMA_PS_TCP:
+            if self.cm_res.passive:
+                self.cm_res.child_id.disconnect()
+            else:
+                self.cm_res.cmid.disconnect()

@@ -413,10 +413,10 @@ static void print_tso_caps(const struct ibv_tso_caps *caps)
 	uint32_t unknown_general_caps = ~(1 << IBV_QPT_RAW_PACKET |
 					  1 << IBV_QPT_UD);
 	printf("\ttso_caps:\n");
-	printf("\tmax_tso:\t\t\t%d\n", caps->max_tso);
+	printf("\t\tmax_tso:\t\t\t%d\n", caps->max_tso);
 
 	if (caps->max_tso) {
-		printf("\tsupported_qp:\n");
+		printf("\t\tsupported_qp:\n");
 		if (ibv_is_qpt_supported(caps->supported_qpts, IBV_QPT_RAW_PACKET))
 			printf("\t\t\t\t\tSUPPORT_RAW_PACKET\n");
 		if (ibv_is_qpt_supported(caps->supported_qpts, IBV_QPT_UD))

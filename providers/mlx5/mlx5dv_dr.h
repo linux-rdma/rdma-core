@@ -35,6 +35,7 @@
 
 #include <ccan/list.h>
 #include <ccan/minmax.h>
+#include <ccan/bitmap.h>
 #include <stdatomic.h>
 #include "mlx5dv.h"
 #include "mlx5_ifc.h"
@@ -181,12 +182,13 @@ enum dr_action_type {
 	DR_ACTION_TYP_MODIFY_HDR,
 	DR_ACTION_TYP_VPORT,
 	DR_ACTION_TYP_METER,
+	DR_ACTION_TYP_MISS,
 	DR_ACTION_TYP_MAX,
 };
 
 struct dr_icm_pool;
 struct dr_icm_chunk;
-struct dr_icm_bucket;
+struct dr_icm_buddy_mem;
 struct dr_ste_htbl;
 struct dr_match_param;
 struct dr_devx_caps;
@@ -278,7 +280,7 @@ struct dr_ste_build {
 	uint8_t			bit_mask[DR_STE_SIZE_MASK];
 	int (*ste_build_tag_func)(struct dr_match_param *spec,
 				  struct dr_ste_build *sb,
-				  uint8_t *hw_ste_p);
+				  uint8_t *tag);
 };
 
 struct dr_ste_htbl *dr_ste_htbl_alloc(struct dr_icm_pool *pool,
@@ -306,7 +308,6 @@ uint64_t dr_ste_get_miss_addr(uint8_t *hw_ste);
 void dr_ste_set_hit_addr(uint8_t *hw_ste, uint64_t icm_addr, uint32_t ht_size);
 void dr_ste_always_miss_addr(struct dr_ste *ste, uint64_t miss_addr);
 void dr_ste_set_bit_mask(uint8_t *hw_ste_p, uint8_t *bit_mask);
-bool dr_ste_not_used_ste(struct dr_ste *ste);
 bool dr_ste_is_last_in_rule(struct dr_matcher_rx_tx *nic_matcher,
 			    uint8_t ste_location);
 void dr_ste_rx_set_flow_tag(uint8_t *hw_ste_p, uint32_t flow_tag);
@@ -339,6 +340,11 @@ static inline void dr_ste_get(struct dr_ste *ste)
 	atomic_fetch_add(&ste->refcount, 1);
 }
 
+static inline bool dr_ste_is_not_used(struct dr_ste *ste)
+{
+	return !atomic_load(&ste->refcount);
+}
+
 void dr_ste_set_hit_addr_by_next_htbl(uint8_t *hw_ste,
 				      struct dr_ste_htbl *next_htbl);
 bool dr_ste_equal_tag(void *src, void *dst);
@@ -357,9 +363,9 @@ int dr_ste_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			 struct dr_matcher_rx_tx *nic_matcher,
 			 struct dr_match_param *value,
 			 uint8_t *ste_arr);
-int dr_ste_build_eth_l2_src_des(struct dr_ste_build *builder,
-				struct dr_match_param *mask,
-				bool inner, bool rx);
+void dr_ste_build_eth_l2_src_dst(struct dr_ste_build *sb,
+				 struct dr_match_param *mask,
+				 bool inner, bool rx);
 void dr_ste_build_eth_l3_ipv4_5_tuple(struct dr_ste_build *sb,
 				      struct dr_match_param *mask,
 				      bool inner, bool rx);
@@ -381,34 +387,34 @@ void dr_ste_build_eth_l2_dst(struct dr_ste_build *sb,
 void dr_ste_build_eth_l2_tnl(struct dr_ste_build *sb,
 			     struct dr_match_param *mask,
 			     bool inner, bool rx);
-void dr_ste_build_ipv6_l3_l4(struct dr_ste_build *sb,
-			     struct dr_match_param *mask,
-			     bool inner, bool rx);
+void dr_ste_build_eth_ipv6_l3_l4(struct dr_ste_build *sb,
+				 struct dr_match_param *mask,
+				 bool inner, bool rx);
 void dr_ste_build_eth_l4_misc(struct dr_ste_build *sb,
 			      struct dr_match_param *mask,
 			      bool inner, bool rx);
-void dr_ste_build_gre(struct dr_ste_build *sb,
-		      struct dr_match_param *mask,
-		      bool inner, bool rx);
+void dr_ste_build_tnl_gre(struct dr_ste_build *sb,
+			  struct dr_match_param *mask,
+			  bool inner, bool rx);
 void dr_ste_build_mpls(struct dr_ste_build *sb,
 		       struct dr_match_param *mask,
 		       bool inner, bool rx);
-void dr_ste_build_flex_parser_0(struct dr_ste_build *sb,
+void dr_ste_build_tnl_mpls(struct dr_ste_build *sb,
+			   struct dr_match_param *mask,
+			   bool inner, bool rx);
+int dr_ste_build_icmp(struct dr_ste_build *sb,
+		      struct dr_match_param *mask,
+		      struct dr_devx_caps *caps,
+		      bool inner, bool rx);
+void dr_ste_build_tnl_vxlan_gpe(struct dr_ste_build *sb,
 				struct dr_match_param *mask,
 				bool inner, bool rx);
-int dr_ste_build_flex_parser_1(struct dr_ste_build *sb,
-			       struct dr_match_param *mask,
-			       struct dr_devx_caps *caps,
-			       bool inner, bool rx);
-void dr_ste_build_flex_parser_tnl_vxlan_gpe(struct dr_ste_build *sb,
-					    struct dr_match_param *mask,
-					    bool inner, bool rx);
-void dr_ste_build_flex_parser_tnl_geneve(struct dr_ste_build *sb,
-					 struct dr_match_param *mask,
-					 bool inner, bool rx);
-void dr_ste_build_flex_parser_tnl_gtpu(struct dr_ste_build *sb,
-				       struct dr_match_param *mask,
-				       bool inner, bool rx);
+void dr_ste_build_tnl_geneve(struct dr_ste_build *sb,
+			     struct dr_match_param *mask,
+			     bool inner, bool rx);
+void dr_ste_build_tnl_gtpu(struct dr_ste_build *sb,
+			   struct dr_match_param *mask,
+			   bool inner, bool rx);
 void dr_ste_build_general_purpose(struct dr_ste_build *sb,
 				  struct dr_match_param *mask,
 				  bool inner, bool rx);
@@ -418,10 +424,10 @@ void dr_ste_build_register_0(struct dr_ste_build *sb,
 void dr_ste_build_register_1(struct dr_ste_build *sb,
 			     struct dr_match_param *mask,
 			     bool inner, bool rx);
-int dr_ste_build_src_gvmi_qpn(struct dr_ste_build *sb,
-			      struct dr_match_param *mask,
-			      struct dr_devx_caps *caps,
-			      bool inner, bool rx);
+void dr_ste_build_src_gvmi_qpn(struct dr_ste_build *sb,
+			       struct dr_match_param *mask,
+			       struct dr_devx_caps *caps,
+			       bool inner, bool rx);
 void dr_ste_build_empty_always_hit(struct dr_ste_build *sb, bool rx);
 
 /* Actions utils */
@@ -555,9 +561,9 @@ struct dr_match_param {
 	struct dr_match_misc3	misc3;
 };
 
-#define DR_MASK_IS_FLEX_PARSER_ICMPV4_SET(_misc3) (_misc3->icmpv4_type || \
-						   _misc3->icmpv4_code || \
-						   _misc3->icmpv4_header_data)
+#define DR_MASK_IS_ICMPV4_SET(_misc3) ((_misc3)->icmpv4_type || \
+				       (_misc3)->icmpv4_code || \
+				       (_misc3)->icmpv4_header_data)
 
 struct dr_esw_caps {
 	uint64_t drop_icm_address_rx;
@@ -571,6 +577,10 @@ struct dr_devx_vport_cap {
 	uint16_t gvmi;
 	uint64_t icm_address_rx;
 	uint64_t icm_address_tx;
+};
+
+struct dr_devx_roce_cap {
+	bool fl_rc_qp_when_roce_enabled;
 };
 
 struct dr_devx_caps {
@@ -594,6 +604,7 @@ struct dr_devx_caps {
 	bool				fdb_sw_owner;
 	uint32_t			num_vports;
 	struct dr_devx_vport_cap	*vports_caps;
+	struct dr_devx_roce_cap		roce_caps;
 };
 
 struct dr_domain_rx_tx {
@@ -614,6 +625,10 @@ struct dr_domain_info {
 	struct dr_devx_caps	caps;
 };
 
+enum dr_domain_flags {
+	 DR_DOMAIN_FLAG_MEMORY_RECLAIM = 1 << 0,
+};
+
 struct mlx5dv_dr_domain {
 	struct ibv_context		*ctx;
 	struct ibv_pd			*pd;
@@ -626,6 +641,7 @@ struct mlx5dv_dr_domain {
 	struct dr_send_ring		*send_ring;
 	struct dr_domain_info		info;
 	struct list_head		tbl_list;
+	uint32_t			flags;
 };
 
 struct dr_table_rx_tx {
@@ -722,7 +738,13 @@ struct mlx5dv_dr_action {
 			struct dr_devx_vport_cap	*caps;
 			uint32_t			num;
 		} vport;
-		struct ibv_qp		*qp;
+		struct {
+			bool    is_qp;
+			union {
+				struct mlx5dv_devx_obj  *devx_tir;
+				struct ibv_qp           *qp;
+			};
+		} dest_qp;
 		struct mlx5dv_devx_obj	*devx_obj;
 		uint32_t		flow_tag;
 	};
@@ -768,13 +790,17 @@ struct mlx5dv_dr_rule {
 void dr_rule_update_rule_member(struct dr_ste *new_ste, struct dr_ste *ste);
 
 struct dr_icm_chunk {
-	struct dr_icm_bucket	*bucket;
+	struct dr_icm_buddy_mem *buddy_mem;
 	struct list_node	chunk_list;
 	uint32_t		rkey;
 	uint32_t		num_of_entries;
 	uint32_t		byte_size;
 	uint64_t		icm_addr;
 	uint64_t		mr_addr;
+	/* indicates the index of this chunk in the whole memory,
+	 * used for deleting the chunk from the buddy
+	 */
+	uint32_t		seg;
 
 	/* Memory optimisation */
 	struct dr_ste		*ste_arr;
@@ -782,14 +808,13 @@ struct dr_icm_chunk {
 	struct list_head	*miss_list;
 };
 
-static inline int dr_matcher_supp_flex_parser_icmp_v4(struct dr_devx_caps *caps)
+static inline int
+dr_icm_pool_dm_type_to_entry_size(enum dr_icm_type icm_type)
 {
-	return caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V4_ENABLED;
-}
+	if (icm_type == DR_ICM_TYPE_STE)
+		return DR_STE_SIZE;
 
-static inline int dr_matcher_supp_flex_parser_icmp_v6(struct dr_devx_caps *caps)
-{
-	return caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V6_ENABLED;
+	return DR_MODIFY_ACTION_SIZE;
 }
 
 static inline uint32_t
@@ -805,10 +830,7 @@ dr_icm_pool_chunk_size_to_byte(enum dr_icm_chunk_size chunk_size,
 	int num_of_entries;
 	int entry_size;
 
-	if (icm_type == DR_ICM_TYPE_STE)
-		entry_size = DR_STE_SIZE;
-	else
-		entry_size = DR_MODIFY_ACTION_SIZE;
+	entry_size = dr_icm_pool_dm_type_to_entry_size(icm_type);
 
 	num_of_entries = dr_icm_pool_chunk_size_to_entries(chunk_size);
 
@@ -896,6 +918,7 @@ struct dr_devx_qp_rtr_attr {
 	uint16_t		port_num;
 	uint8_t			min_rnr_timer;
 	uint8_t			sgid_index;
+	bool			fl;
 };
 
 int dr_devx_modify_qp_init2rtr(struct ibv_context *ctx,
@@ -926,7 +949,6 @@ void dr_icm_pool_destroy(struct dr_icm_pool *pool);
 struct dr_icm_chunk *dr_icm_alloc_chunk(struct dr_icm_pool *pool,
 					enum dr_icm_chunk_size chunk_size);
 void dr_icm_free_chunk(struct dr_icm_chunk *chunk);
-bool dr_ste_is_not_valid_entry(uint8_t *p_hw_ste);
 int dr_ste_htbl_init_and_postsend(struct mlx5dv_dr_domain *dmn,
 				  struct dr_domain_rx_tx *nic_dmn,
 				  struct dr_ste_htbl *htbl,
@@ -1017,4 +1039,31 @@ int dr_send_postsend_formated_htbl(struct mlx5dv_dr_domain *dmn,
 				   bool update_hw_ste);
 int dr_send_postsend_action(struct mlx5dv_dr_domain *dmn,
 			    struct mlx5dv_dr_action *action);
+/* buddy functions & structure */
+struct dr_icm_mr;
+
+struct dr_icm_buddy_mem {
+	bitmap			**bits;
+	unsigned int		*num_free;
+	bitmap			**set_bit;
+	uint32_t		max_order;
+	struct list_node	list_node;
+	struct dr_icm_mr	*icm_mr;
+	struct dr_icm_pool	*pool;
+
+	/* This is the list of used chunks. HW may be accessing this memory */
+	struct list_head	used_list;
+	size_t			used_memory;
+
+	/* hardware may be accessing this memory but at some future,
+	 * undetermined time, it might cease to do so.
+	 * sync_ste command sets them free.
+	 */
+	struct list_head	hot_list;
+};
+
+int dr_buddy_init(struct dr_icm_buddy_mem *buddy, uint32_t max_order);
+void dr_buddy_cleanup(struct dr_icm_buddy_mem *buddy);
+int dr_buddy_alloc_mem(struct dr_icm_buddy_mem *buddy, int order);
+void dr_buddy_free_mem(struct dr_icm_buddy_mem *buddy, uint32_t seg, int order);
 #endif

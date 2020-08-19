@@ -21,7 +21,7 @@ configure_file("libibverbs.map.in"
 
 rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   # See Documentation/versioning.md
-  1 1.8.${PACKAGE_VERSION}
+  1 1.10.${PACKAGE_VERSION}
   all_providers.c
   cmd.c
   cmd_ah.c
@@ -36,7 +36,10 @@ rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   cmd_mr.c
   cmd_mw.c
   cmd_pd.c
+  cmd_qp.c
   cmd_rwq_ind.c
+  cmd_srq.c
+  cmd_wq.c
   cmd_xrcd.c
   compat-1_0.c
   device.c

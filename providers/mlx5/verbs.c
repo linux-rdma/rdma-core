@@ -323,7 +323,7 @@ static void mlx5_insert_dyn_uuars(struct mlx5_context *ctx,
 		list_node_init(&bf->uar_entry);
 		list_add_tail(head, &bf->uar_entry);
 		if (!bf_uar->dyn_alloc_uar)
-			bf->bfreg_dyn_index = (ctx->curr_legacy_dyn_sys_uar_page - 1) * num_bfregs_per_page;
+			bf->bfreg_dyn_index = (ctx->curr_legacy_dyn_sys_uar_page - 1) * num_bfregs_per_page + j;
 		bf->dyn_alloc_uar = bf_uar->dyn_alloc_uar;
 		bf->need_lock = bf_uar->qp_shared;
 		mlx5_spinlock_init(&bf->lock, bf->need_lock);
@@ -556,24 +556,37 @@ static int mlx5_dealloc_parent_domain(struct mlx5_parent_domain *mparent_domain)
 	return 0;
 }
 
-int mlx5_free_pd(struct ibv_pd *pd)
+static int _mlx5_free_pd(struct ibv_pd *pd, bool unimport)
 {
 	int ret;
 	struct mlx5_parent_domain *mparent_domain = to_mparent_domain(pd);
 	struct mlx5_pd *mpd = to_mpd(pd);
 
-	if (mparent_domain)
+	if (mparent_domain) {
+		if (unimport)
+			return EINVAL;
+
 		return mlx5_dealloc_parent_domain(mparent_domain);
+	}
 
 	if (atomic_load(&mpd->refcount) > 1)
 		return EBUSY;
+
+	if (unimport)
+		goto end;
 
 	ret = ibv_cmd_dealloc_pd(pd);
 	if (ret)
 		return ret;
 
+end:
 	free(mpd);
 	return 0;
+}
+
+int mlx5_free_pd(struct ibv_pd *pd)
+{
+	return _mlx5_free_pd(pd, false);
 }
 
 struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
@@ -592,7 +605,6 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	ret = ibv_cmd_reg_mr(pd, addr, length, hca_va, access, &mr->vmr, &cmd,
 			     sizeof(cmd), &resp, sizeof(resp));
 	if (ret) {
-		mlx5_free_buf(&(mr->buf));
 		free(mr);
 		return NULL;
 	}
@@ -705,6 +717,67 @@ int mlx5_advise_mr(struct ibv_pd *pd,
 		   uint32_t num_sge)
 {
 	return ibv_cmd_advise_mr(pd, advice, flags, sg_list, num_sge);
+}
+
+struct ibv_pd *mlx5_import_pd(struct ibv_context *context,
+			      uint32_t pd_handle)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       UVERBS_OBJECT_PD,
+			       MLX5_IB_METHOD_PD_QUERY,
+			       2);
+
+	struct mlx5_pd *pd;
+	int ret;
+
+	pd = calloc(1, sizeof *pd);
+	if (!pd)
+		return NULL;
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_QUERY_PD_HANDLE, pd_handle);
+	fill_attr_out_ptr(cmd, MLX5_IB_ATTR_QUERY_PD_RESP_PDN, &pd->pdn);
+
+	ret = execute_ioctl(context, cmd);
+	if (ret) {
+		free(pd);
+		return NULL;
+	}
+
+	pd->ibv_pd.context = context;
+	pd->ibv_pd.handle = pd_handle;
+	atomic_init(&pd->refcount, 1);
+
+	return &pd->ibv_pd;
+}
+
+void mlx5_unimport_pd(struct ibv_pd *pd)
+{
+	if (_mlx5_free_pd(pd, true))
+		assert(false);
+}
+
+struct ibv_mr *mlx5_import_mr(struct ibv_pd *pd,
+			      uint32_t mr_handle)
+{
+	struct mlx5_mr *mr;
+	int ret;
+
+	mr = calloc(1, sizeof *mr);
+	if (!mr)
+		return NULL;
+
+	ret = ibv_cmd_query_mr(pd, &mr->vmr, mr_handle);
+	if (ret) {
+		free(mr);
+		return NULL;
+	}
+
+	return &mr->vmr.ibv_mr;
+}
+
+void mlx5_unimport_mr(struct ibv_mr *ibmr)
+{
+	free(to_mmr(ibmr));
 }
 
 struct ibv_mw *mlx5_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type)
@@ -1001,13 +1074,13 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		struct ibv_cq_init_attr_ex cq_attr_ex = *cq_attr;
 
 		cq_attr_ex.cqe = ncqe - 1;
-		ret = ibv_cmd_create_cq_ex(context, &cq_attr_ex, &cq->ibv_cq,
+		ret = ibv_cmd_create_cq_ex(context, &cq_attr_ex, &cq->verbs_cq,
 					   &cmd_ex.ibv_cmd, sizeof(cmd_ex),
 					   &resp_ex.ibv_resp, sizeof(resp_ex));
 	} else {
 		ret = ibv_cmd_create_cq(context, ncqe - 1, cq_attr->channel,
 					cq_attr->comp_vector,
-					ibv_cq_ex_to_cq(&cq->ibv_cq),
+					&cq->verbs_cq.cq,
 					&cmd.ibv_cmd, sizeof(cmd),
 					&resp.ibv_resp, sizeof(resp));
 	}
@@ -1027,7 +1100,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	cq->stall_adaptive_enable = to_mctx(context)->stall_adaptive_enable;
 	cq->stall_cycles = to_mctx(context)->stall_cycles;
 
-	return &cq->ibv_cq;
+	return &cq->verbs_cq.cq_ex;
 
 err_db:
 	mlx5_free_db(to_mctx(context), cq->dbrec, cq->parent_domain, cq->custom_db);
@@ -1108,7 +1181,7 @@ int mlx5_resize_cq(struct ibv_cq *ibcq, int cqe)
 		return EINVAL;
 
 	mlx5_spin_lock(&cq->lock);
-	cq->active_cqes = cq->ibv_cq.cqe;
+	cq->active_cqes = cq->verbs_cq.cq.cqe;
 	if (cq->active_buf == &cq->buf_a)
 		cq->resize_buf = &cq->buf_b;
 	else
@@ -1142,7 +1215,7 @@ int mlx5_resize_cq(struct ibv_cq *ibcq, int cqe)
 	mlx5_cq_resize_copy_cqes(cq);
 	mlx5_free_cq_buf(mctx, cq->active_buf);
 	cq->active_buf = cq->resize_buf;
-	cq->ibv_cq.cqe = cqe - 1;
+	cq->verbs_cq.cq.cqe = cqe - 1;
 	mlx5_spin_unlock(&cq->lock);
 	cq->resize_buf = NULL;
 	return 0;
@@ -1708,6 +1781,26 @@ static const char *qptype2key(enum ibv_qp_type type)
 	}
 }
 
+static size_t mlx5_set_custom_qp_alignment(struct ibv_context *context,
+					   struct mlx5_qp *qp)
+{
+	uint32_t max_stride;
+	uint32_t buf_page;
+
+	/* The main QP buffer alignment requirement is QP_PAGE_SIZE /
+	 * MLX5_QPC_PAGE_OFFSET_QUANTA. In case the buffer is contig, then
+	 * QP_PAGE_SIZE is the buffer size align to system page_size roundup to
+	 * the next pow of two.
+	 */
+	buf_page = roundup_pow_of_two(align(qp->buf_size,
+					    to_mdev(context->device)->page_size));
+	/* Another QP buffer alignment requirement is to consider send wqe and
+	 * receive wqe strides.
+	 */
+	max_stride = max((1 << qp->sq.wqe_shift), (1 << qp->rq.wqe_shift));
+	return max(max_stride, buf_page / MLX5_QPC_PAGE_OFFSET_QUANTA);
+}
+
 static int mlx5_alloc_qp_buf(struct ibv_context *context,
 			     struct ibv_qp_init_attr_ex *attr,
 			     struct mlx5_qp *qp,
@@ -1717,6 +1810,7 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 	enum mlx5_alloc_type alloc_type;
 	enum mlx5_alloc_type default_alloc_type = MLX5_ALLOC_TYPE_ANON;
 	const char *qp_huge_key;
+	size_t req_align = to_mdev(context->device)->page_size;
 
 	if (qp->sq.wqe_cnt) {
 		qp->sq.wrid = malloc(qp->sq.wqe_cnt * sizeof(*qp->sq.wrid));
@@ -1760,13 +1854,15 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 
 	if (alloc_type == MLX5_ALLOC_TYPE_CUSTOM) {
 		qp->buf.mparent_domain = to_mparent_domain(attr->pd);
-		qp->buf.req_alignment = to_mdev(context->device)->page_size;
+		if (attr->qp_type != IBV_QPT_RAW_PACKET &&
+		    !(qp->flags & MLX5_QP_FLAGS_USE_UNDERLAY))
+			req_align = mlx5_set_custom_qp_alignment(context, qp);
+		qp->buf.req_alignment = req_align;
 		qp->buf.resource_type = MLX5DV_RES_TYPE_QP;
 	}
 
 	err = mlx5_alloc_prefered_buf(to_mctx(context), &qp->buf,
-				      align(qp->buf_size, to_mdev
-				      (context->device)->page_size),
+				      align(qp->buf_size, req_align),
 				      to_mdev(context->device)->page_size,
 				      alloc_type,
 				      MLX5_QP_PREFIX);
@@ -1843,6 +1939,42 @@ static void mlx5_free_qp_buf(struct mlx5_context *ctx, struct mlx5_qp *qp)
 		free(qp->sq.wr_data);
 }
 
+int mlx5_set_ece(struct ibv_qp *qp, struct ibv_ece *ece)
+{
+	struct mlx5_context *context = to_mctx(qp->context);
+	struct mlx5_qp *mqp = to_mqp(qp);
+
+	if (ece->comp_mask) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	if (ece->vendor_id != PCI_VENDOR_ID_MELLANOX) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	if (!(context->flags & MLX5_CTX_FLAGS_ECE_SUPPORTED)) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
+	mqp->set_ece = ece->options;
+	/* Clean previously returned ECE options */
+	mqp->get_ece = 0;
+	return 0;
+}
+
+int mlx5_query_ece(struct ibv_qp *qp, struct ibv_ece *ece)
+{
+	struct mlx5_qp *mqp = to_mqp(qp);
+
+	ece->vendor_id = PCI_VENDOR_ID_MELLANOX;
+	ece->options = mqp->get_ece;
+	ece->comp_mask = 0;
+	return 0;
+}
+
 static int mlx5_cmd_create_rss_qp(struct ibv_context *context,
 				 struct ibv_qp_init_attr_ex *attr,
 				 struct mlx5_qp *qp,
@@ -1866,7 +1998,7 @@ static int mlx5_cmd_create_rss_qp(struct ibv_context *context,
 			attr->rx_hash_conf.rx_hash_key_len);
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
-				    sizeof(qp->verbs_qp), attr,
+				    attr,
 				    &cmd_ex_rss.ibv_cmd, sizeof(cmd_ex_rss),
 				    &resp.ibv_resp, sizeof(resp));
 	if (ret)
@@ -1899,7 +2031,7 @@ static int mlx5_cmd_create_qp_ex(struct ibv_context *context,
 	cmd_ex.drv_payload = cmd->drv_payload;
 
 	ret = ibv_cmd_create_qp_ex2(context, &qp->verbs_qp,
-				    sizeof(qp->verbs_qp), attr, &cmd_ex.ibv_cmd,
+				    attr, &cmd_ex.ibv_cmd,
 				    sizeof(cmd_ex), &resp->ibv_resp,
 				    sizeof(*resp));
 
@@ -1989,8 +2121,11 @@ static int create_dct(struct ibv_context *context,
 		}
 	}
 	cmd.uidx = usr_idx;
+	if (ctx->flags & MLX5_CTX_FLAGS_ECE_SUPPORTED)
+		/* Create QP should start from ECE version 1 as a trigger */
+		cmd.ece_options = 0x10000000;
 
-	ret = ibv_cmd_create_qp_ex(context, &qp->verbs_qp, sizeof(qp->verbs_qp),
+	ret = ibv_cmd_create_qp_ex(context, &qp->verbs_qp,
 				   attr, &cmd.ibv_cmd, sizeof(cmd),
 				   &resp.ibv_resp, sizeof(resp));
 	if (ret) {
@@ -2000,6 +2135,7 @@ static int create_dct(struct ibv_context *context,
 		return ret;
 	}
 
+	qp->get_ece = resp.ece_options;
 	qp->dc_type = MLX5DV_DCTYPE_DCT;
 	qp->rsc.type = MLX5_RSC_TYPE_QP;
 	if (ctx->cqe_version)
@@ -2287,10 +2423,14 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		}
 	}
 
+	if (ctx->flags & MLX5_CTX_FLAGS_ECE_SUPPORTED)
+		/* Create QP should start from ECE version 1 as a trigger */
+		cmd.ece_options = 0x10000000;
+
 	if (attr->comp_mask & MLX5_CREATE_QP_EX2_COMP_MASK)
 		ret = mlx5_cmd_create_qp_ex(context, attr, &cmd, qp, &resp_ex);
 	else
-		ret = ibv_cmd_create_qp_ex(context, &qp->verbs_qp, sizeof(qp->verbs_qp),
+		ret = ibv_cmd_create_qp_ex(context, &qp->verbs_qp,
 					   attr, &cmd.ibv_cmd, sizeof(cmd),
 					   &resp.ibv_resp, sizeof(resp));
 	if (ret) {
@@ -2312,6 +2452,7 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 		pthread_mutex_unlock(&ctx->qp_table_mutex);
 	}
 
+	qp->get_ece = resp_drv->ece_options;
 	map_uuar(context, qp, resp_drv->bfreg_index, bf);
 
 	qp->rq.max_post = qp->rq.wqe_cnt;
@@ -2529,7 +2670,7 @@ enum {
 static int modify_dct(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		      int attr_mask)
 {
-	struct ibv_modify_qp_ex cmd_ex = {};
+	struct mlx5_modify_qp cmd_ex = {};
 	struct mlx5_modify_qp_ex_resp resp = {};
 	struct mlx5_qp *mqp = to_mqp(qp);
 	struct mlx5_context *context = to_mctx(qp->context);
@@ -2537,8 +2678,10 @@ static int modify_dct(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	bool dct_create;
 	int ret;
 
-	ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask, &cmd_ex, sizeof(cmd_ex),
-				   &resp.ibv_resp, sizeof(resp));
+	cmd_ex.ece_options = mqp->set_ece;
+	ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask, &cmd_ex.ibv_cmd,
+				   sizeof(cmd_ex), &resp.ibv_resp,
+				   sizeof(resp));
 	if (ret)
 		return ret;
 
@@ -2564,6 +2707,10 @@ static int modify_dct(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	}
 
 	qp->qp_num = resp.dctn;
+	if (mqp->set_ece) {
+		mqp->set_ece = 0;
+		mqp->get_ece = resp.ece_options;
+	}
 
 	if (!context->cqe_version) {
 		pthread_mutex_lock(&context->qp_table_mutex);
@@ -2582,8 +2729,8 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask)
 {
 	struct ibv_modify_qp cmd = {};
-	struct ibv_modify_qp_ex cmd_ex = {};
-	struct ib_uverbs_ex_modify_qp_resp resp = {};
+	struct mlx5_modify_qp cmd_ex = {};
+	struct mlx5_modify_qp_ex_resp resp = {};
 	struct mlx5_qp *mqp = to_mqp(qp);
 	struct mlx5_context *context = to_mctx(qp->context);
 	int ret;
@@ -2628,12 +2775,20 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		}
 	}
 
-	if (attr_mask & MLX5_MODIFY_QP_EX_ATTR_MASK)
-		ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask, &cmd_ex,
-					   sizeof(cmd_ex), &resp, sizeof(resp));
-	else
+	if (attr_mask & MLX5_MODIFY_QP_EX_ATTR_MASK || mqp->set_ece) {
+		cmd_ex.ece_options = mqp->set_ece;
+		ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask, &cmd_ex.ibv_cmd,
+					   sizeof(cmd_ex), &resp.ibv_resp,
+					   sizeof(resp));
+	} else {
 		ret = ibv_cmd_modify_qp(qp, attr, attr_mask,
 					&cmd, sizeof(cmd));
+	}
+
+	if (!ret && mqp->set_ece) {
+		mqp->set_ece = 0;
+		mqp->get_ece = resp.ece_options;
+	}
 
 	if (!ret		       &&
 	    (attr_mask & IBV_QP_STATE) &&
@@ -2898,8 +3053,12 @@ int mlx5_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 {
 	struct mlx5_srq *msrq = to_msrq(srq);
 
+	/* May be used by DC users in addition to XRC ones, as there is no
+	 * indication on the SRQ for DC usage we can't force the above check.
+	 * Even DC users are encouraged to use mlx5dv_init_obj() to get
+	 * the SRQN.
+	 */
 	*srq_num = msrq->srqn;
-
 	return 0;
 }
 
@@ -3156,7 +3315,7 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 	 */
 	attr->attr.max_wr = msrq->max - 1;
 
-	err = ibv_cmd_create_srq_ex(context, &msrq->vsrq, sizeof(msrq->vsrq),
+	err = ibv_cmd_create_srq_ex(context, &msrq->vsrq,
 				    attr, &cmd.ibv_cmd, sizeof(cmd),
 				    &resp.ibv_resp, sizeof(resp));
 
@@ -3260,6 +3419,31 @@ static void get_pci_atomic_caps(struct ibv_context *context,
 	}
 }
 
+static void get_lag_caps(struct ibv_context *ctx)
+{
+	uint16_t opmod = MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE |
+		HCA_CAP_OPMOD_GET_CUR;
+	uint32_t out[DEVX_ST_SZ_DW(query_hca_cap_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(query_hca_cap_in)] = {};
+	struct mlx5_context *mctx = to_mctx(ctx);
+	int ret;
+
+	DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
+	DEVX_SET(query_hca_cap_in, in, op_mod, opmod);
+
+	ret = mlx5dv_devx_general_cmd(ctx, in, sizeof(in), out, sizeof(out));
+	if (ret)
+		return;
+
+	mctx->lag_caps.num_lag_ports =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.cmd_hca_cap.num_lag_ports);
+
+	mctx->lag_caps.lag_tx_port_affinity =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.cmd_hca_cap.lag_tx_port_affinity);
+}
+
 int mlx5_query_device_ex(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
 			 struct ibv_device_attr_ex *attr,
@@ -3344,6 +3528,8 @@ int mlx5_query_device_ex(struct ibv_context *context,
 	if (attr_size >= offsetof(struct ibv_device_attr_ex, pci_atomic_caps) +
 			sizeof(attr->pci_atomic_caps))
 		get_pci_atomic_caps(context, attr);
+
+	get_lag_caps(context);
 
 	return 0;
 }
@@ -4355,6 +4541,8 @@ __mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 	bool have_dest_devx = false;
 	bool have_flow_tag = false;
 	bool have_counter = false;
+	bool have_default = false;
+	bool have_drop = false;
 	int ret;
 	int i;
 	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_FLOW,
@@ -4379,7 +4567,8 @@ __mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 		type = actions_attr[i].type;
 		switch (type) {
 		case MLX5DV_FLOW_ACTION_DEST_IBV_QP:
-			if (have_qp || have_dest_devx) {
+			if (have_qp || have_dest_devx || have_default ||
+			    have_drop) {
 				errno = EOPNOTSUPP;
 				goto err;
 			}
@@ -4401,7 +4590,8 @@ __mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 			num_flow_actions++;
 			break;
 		case MLX5DV_FLOW_ACTION_DEST_DEVX:
-			if (have_dest_devx || have_qp) {
+			if (have_dest_devx || have_qp || have_default ||
+			    have_drop) {
 				errno = EOPNOTSUPP;
 				goto err;
 			}
@@ -4435,6 +4625,28 @@ __mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 						       &actions_attr_aux[i].offset, 1);
 
 			have_counter = true;
+			break;
+		case MLX5DV_FLOW_ACTION_DEFAULT_MISS:
+			if (have_qp || have_dest_devx || have_default ||
+			    have_drop) {
+				errno = EOPNOTSUPP;
+				goto err;
+			}
+			fill_attr_in_uint32(cmd,
+					    MLX5_IB_ATTR_CREATE_FLOW_FLAGS,
+					    MLX5_IB_ATTR_CREATE_FLOW_FLAGS_DEFAULT_MISS);
+			have_default = true;
+			break;
+		case MLX5DV_FLOW_ACTION_DROP:
+			if (have_qp || have_dest_devx || have_default ||
+			    have_drop) {
+				errno = EOPNOTSUPP;
+				goto err;
+			}
+			fill_attr_in_uint32(cmd,
+					    MLX5_IB_ATTR_CREATE_FLOW_FLAGS,
+					    MLX5_IB_ATTR_CREATE_FLOW_FLAGS_DROP);
+			have_drop = true;
 			break;
 		default:
 			errno = EOPNOTSUPP;
@@ -4556,6 +4768,13 @@ static void set_devx_obj_info(const void *in, const void *out,
 	case MLX5_CMD_OP_CREATE_QP:
 		obj->type = MLX5_DEVX_QP;
 		obj->object_id = DEVX_GET(create_qp_out, out, qpn);
+		break;
+	case MLX5_CMD_OP_CREATE_TIR:
+		obj->type = MLX5_DEVX_TIR;
+		obj->object_id = DEVX_GET(create_tir_out, out, tirn);
+		obj->rx_icm_addr = DEVX_GET(create_tir_out, out, icm_address_31_0);
+		obj->rx_icm_addr |= (uint64_t)DEVX_GET(create_tir_out, out, icm_address_39_32) << 32;
+		obj->rx_icm_addr |= (uint64_t)DEVX_GET(create_tir_out, out, icm_address_63_40) << 40;
 		break;
 	case MLX5_CMD_OP_ALLOC_PACKET_REFORMAT_CONTEXT:
 		obj->type = MLX5_DEVX_PKT_REFORMAT_CTX;

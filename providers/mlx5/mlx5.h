@@ -51,6 +51,10 @@
 
 #define PFX		"mlx5: "
 
+#ifndef PCI_VENDOR_ID_MELLANOX
+#define PCI_VENDOR_ID_MELLANOX 0x15b3
+#endif
+
 typedef _Atomic(uint32_t) atomic_uint32_t;
 
 enum {
@@ -233,6 +237,12 @@ struct mlx5_uar_info {
 enum mlx5_ctx_flags {
 	MLX5_CTX_FLAGS_FATAL_STATE = 1 << 0,
 	MLX5_CTX_FLAGS_NO_KERN_DYN_UAR = 1 << 1,
+	MLX5_CTX_FLAGS_ECE_SUPPORTED = 1 << 2,
+};
+
+struct mlx5_lag_caps {
+	uint8_t num_lag_ports;
+	uint8_t lag_tx_port_affinity;
 };
 
 struct mlx5_context {
@@ -303,6 +313,7 @@ struct mlx5_context {
 	struct mlx5dv_striding_rq_caps	striding_rq_caps;
 	uint32_t			tunnel_offloads_caps;
 	struct mlx5_packet_pacing_caps	packet_pacing_caps;
+	struct mlx5_lag_caps		lag_caps;
 	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
 	uint32_t			num_dyn_bfregs;
 	uint32_t			max_num_legacy_dyn_uar_sys_page;
@@ -391,8 +402,7 @@ enum {
 };
 
 struct mlx5_cq {
-	/* ibv_cq should always be subset of ibv_cq_ex */
-	struct ibv_cq_ex		ibv_cq;
+	struct verbs_cq			verbs_cq;
 	struct mlx5_buf			buf_a;
 	struct mlx5_buf			buf_b;
 	struct mlx5_buf		       *active_buf;
@@ -538,7 +548,6 @@ struct mlx5_dm {
 
 struct mlx5_mr {
 	struct verbs_mr                 vmr;
-	struct mlx5_buf			buf;
 	uint32_t			alloc_flags;
 };
 
@@ -593,6 +602,19 @@ struct mlx5_qp {
 	uint32_t			rqn;
 	uint32_t			sqn;
 	uint64_t			tir_icm_addr;
+	/*
+	 * ECE configuration is done in create/modify QP stages,
+	 * so this value is cached version of the requested ECE prior
+	 * to its execution. This field will be cleared after successful
+	 * call to relevant "executor".
+	 */
+	uint32_t			set_ece;
+	/*
+	 * This field indicates returned ECE options from the device
+	 * as were received from the HW in previous stage. Every
+	 * write to the set_ece will clear this field.
+	 */
+	uint32_t			get_ece;
 };
 
 struct mlx5_ah {
@@ -645,6 +667,7 @@ enum mlx5_devx_obj_type {
 	MLX5_DEVX_FLOW_METER		= 3,
 	MLX5_DEVX_QP			= 4,
 	MLX5_DEVX_PKT_REFORMAT_CTX	= 5,
+	MLX5_DEVX_TIR			= 6,
 };
 
 struct mlx5dv_devx_obj {
@@ -652,6 +675,7 @@ struct mlx5dv_devx_obj {
 	uint32_t handle;
 	enum mlx5_devx_obj_type type;
 	uint32_t object_id;
+	uint64_t rx_icm_addr;
 };
 
 struct mlx5_var_obj {
@@ -743,7 +767,7 @@ static inline struct mlx5_parent_domain *to_mparent_domain(struct ibv_pd *ibpd)
 
 static inline struct mlx5_cq *to_mcq(struct ibv_cq *ibcq)
 {
-	return container_of((struct ibv_cq_ex *)ibcq, struct mlx5_cq, ibv_cq);
+	return container_of(ibcq, struct mlx5_cq, verbs_cq.cq);
 }
 
 static inline struct mlx5_srq *to_msrq(struct ibv_srq *ibsrq)
@@ -1018,12 +1042,21 @@ int mlx5_advise_mr(struct ibv_pd *pd,
 		   uint32_t flags,
 		   struct ibv_sge *sg_list,
 		   uint32_t num_sges);
+struct ibv_mr *mlx5_import_mr(struct ibv_pd *pd,
+			      uint32_t mr_handle);
+void mlx5_unimport_mr(struct ibv_mr *mr);
+struct ibv_pd *mlx5_import_pd(struct ibv_context *context,
+			      uint32_t pd_handle);
+void mlx5_unimport_pd(struct ibv_pd *pd);
 int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 			 const struct ibv_qp_init_attr_ex *attr,
 			 const struct mlx5dv_qp_init_attr *mlx5_attr);
 void clean_dyn_uars(struct ibv_context *context);
 struct mlx5_bf *mlx5_attach_dedicated_uar(struct ibv_context *context,
 					  uint32_t flags);
+
+int mlx5_set_ece(struct ibv_qp *qp, struct ibv_ece *ece);
+int mlx5_query_ece(struct ibv_qp *qp, struct ibv_ece *ece);
 
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {

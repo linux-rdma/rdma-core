@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2020 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFA_H__
@@ -22,6 +22,15 @@ struct efa_context {
 	uint16_t sub_cqs_per_cq;
 	uint16_t inline_buf_size;
 	uint32_t max_llq_size;
+	uint32_t device_caps;
+	uint32_t max_sq_wr;
+	uint32_t max_rq_wr;
+	uint16_t max_sq_sge;
+	uint16_t max_rq_sge;
+	uint32_t max_rdma_size;
+	uint16_t max_wr_rdma_sge;
+	uint16_t max_tx_batch;
+	uint16_t min_sq_wr;
 	size_t cqe_size;
 	struct efa_qp **qp_table;
 	unsigned int qp_table_sz_m1;
@@ -43,7 +52,7 @@ struct efa_sub_cq {
 };
 
 struct efa_cq {
-	struct ibv_cq ibvcq;
+	struct verbs_cq verbs_cq;
 	uint32_t cqn;
 	size_t cqe_size;
 	uint8_t *buf;
@@ -52,6 +61,8 @@ struct efa_cq {
 	/* Index of next sub cq idx to poll. This is used to guarantee fairness for sub cqs */
 	uint16_t next_poll_idx;
 	pthread_spinlock_t lock;
+	struct efa_wq *cur_wq;
+	struct efa_io_cdesc_common *cur_cqe;
 	struct efa_sub_cq sub_cq_arr[];
 };
 
@@ -66,32 +77,32 @@ struct efa_wq {
 	uint32_t wqe_cnt;
 	uint32_t wqe_posted;
 	uint32_t wqe_completed;
-	uint16_t desc_idx;
+	uint16_t pc; /* Producer counter */
 	uint16_t desc_mask;
 	/* wrid_idx_pool_next: Index of the next entry to use in wrid_idx_pool. */
 	uint16_t wrid_idx_pool_next;
 	int max_sge;
 	int phase;
 	pthread_spinlock_t wqlock;
+
+	uint32_t *db;
+	uint16_t sub_cq_idx;
 };
 
 struct efa_rq {
 	struct efa_wq wq;
-	uint32_t *db;
 	uint8_t *buf;
 	size_t buf_size;
-	uint16_t sub_cq_idx;
 };
 
 struct efa_sq {
 	struct efa_wq wq;
-	uint32_t *db;
 	uint8_t *desc;
 	uint32_t desc_offset;
 	size_t desc_ring_mmap_size;
 	size_t max_inline_data;
 	size_t max_wr_rdma_sge;
-	uint16_t sub_cq_idx;
+	uint16_t max_batch_wr;
 
 	/* Buffer for pending WR entries in the current session */
 	uint8_t *local_queue;
@@ -126,18 +137,11 @@ struct efa_ah {
 struct efa_dev {
 	struct verbs_device vdev;
 	uint32_t pg_sz;
-	uint32_t device_caps;
-	uint32_t max_sq_wr;
-	uint32_t max_rq_wr;
-	uint16_t max_sq_sge;
-	uint16_t max_rq_sge;
-	uint32_t max_rdma_size;
-	uint16_t max_wr_rdma_sge;
 };
 
-static inline bool is_rdma_read_cap(struct efa_dev *dev)
+static inline bool is_rdma_read_cap(struct efa_context *ctx)
 {
-	return dev->device_caps & EFA_QUERY_DEVICE_CAPS_RDMA_READ;
+	return ctx->device_caps & EFA_QUERY_DEVICE_CAPS_RDMA_READ;
 }
 
 static inline struct efa_dev *to_efa_dev(struct ibv_device *ibvdev)
@@ -157,7 +161,12 @@ static inline struct efa_pd *to_efa_pd(struct ibv_pd *ibvpd)
 
 static inline struct efa_cq *to_efa_cq(struct ibv_cq *ibvcq)
 {
-	return container_of(ibvcq, struct efa_cq, ibvcq);
+	return container_of(ibvcq, struct efa_cq, verbs_cq.cq);
+}
+
+static inline struct efa_cq *to_efa_cq_ex(struct ibv_cq_ex *ibvcqx)
+{
+	return container_of(ibvcqx, struct efa_cq, verbs_cq.cq_ex);
 }
 
 static inline struct efa_qp *to_efa_qp(struct ibv_qp *ibvqp)

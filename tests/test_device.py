@@ -11,27 +11,41 @@ from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from tests.base import PyverbsAPITestCase
 import tests.utils as u
 import pyverbs.device as d
+import pyverbs.enums as e
 
 PAGE_SIZE = resource.getpagesize()
 
 
-class DeviceTest(unittest.TestCase):
+class DeviceTest(PyverbsAPITestCase):
     """
     Test various functionalities of the Device class.
     """
+
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def get_device_list(self):
+        lst = d.get_device_list()
+        if len(lst) == 0:
+            raise unittest.SkipTest('No IB device found')
+        dev_name = self.config['dev']
+        if dev_name:
+            for dev in lst:
+                if dev.name.decode() == dev_name:
+                    lst = [dev]
+                    break
+            if len(lst) == 0:
+                raise PyverbsRDMAError(f'No IB device with name {dev_name} found')
+        return lst
 
     def test_dev_list(self):
         """
         Verify that it's possible to get IB devices list.
         """
-        d.get_device_list()
-
-    @staticmethod
-    def get_device_list():
-        lst = d.get_device_list()
-        if len(lst) == 0:
-            raise unittest.SkipTest('No IB device found')
-        return lst
+        self.get_device_list()
 
     def test_open_dev(self):
         """
@@ -47,7 +61,7 @@ class DeviceTest(unittest.TestCase):
         for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
                 attr = ctx.query_device()
-                self.verify_device_attr(attr)
+                self.verify_device_attr(attr, dev)
 
     def test_query_gid(self):
         """
@@ -58,15 +72,17 @@ class DeviceTest(unittest.TestCase):
                 ctx.query_gid(port_num=1, index=0)
 
     @staticmethod
-    def verify_device_attr(attr):
+    def verify_device_attr(attr, device):
         """
         Helper method that verifies correctness of some members of DeviceAttr
         object.
         :param attr: A DeviceAttr object
+        :param device: A Device object
         :return: None
         """
-        assert attr.node_guid != 0
-        assert attr.sys_image_guid != 0
+        if device.node_type != e.IBV_NODE_UNSPECIFIED and device.node_type != e.IBV_NODE_UNKNOWN:
+            assert attr.node_guid != 0
+            assert attr.sys_image_guid != 0
         assert attr.max_mr_size > PAGE_SIZE
         assert attr.page_size_cap >= PAGE_SIZE
         assert attr.vendor_id != 0
@@ -88,7 +104,7 @@ class DeviceTest(unittest.TestCase):
         for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
                 attr_ex = ctx.query_device_ex()
-                self.verify_device_attr(attr_ex.orig_attr)
+                self.verify_device_attr(attr_ex.orig_attr, dev)
 
     @staticmethod
     def verify_port_attr(attr):
@@ -147,7 +163,7 @@ class DMTest(PyverbsAPITestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
-                return
+                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
@@ -160,7 +176,7 @@ class DMTest(PyverbsAPITestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
-                return
+                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
@@ -173,7 +189,7 @@ class DMTest(PyverbsAPITestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
-                return
+                raise unittest.SkipTest('Device memory is not supported')
             dm_len = attr_ex.max_dm_size + 1
             dm_attrs = u.get_dm_attrs(dm_len)
             try:
@@ -202,7 +218,7 @@ class DMTest(PyverbsAPITestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
-                return
+                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
@@ -216,7 +232,7 @@ class DMTest(PyverbsAPITestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
-                return
+                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
@@ -233,7 +249,7 @@ class DMTest(PyverbsAPITestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
-                return
+                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
@@ -257,7 +273,7 @@ class DMTest(PyverbsAPITestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
-                return
+                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)

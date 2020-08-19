@@ -23,9 +23,11 @@ rdma_man_pages(
   mlx5dv_get_clock_info.3
   mlx5dv_init_obj.3
   mlx5dv_is_supported.3.md
+  mlx5dv_modify_qp_lag_port.3.md
   mlx5dv_open_device.3.md
   mlx5dv_pp_alloc.3.md
   mlx5dv_query_device.3
+  mlx5dv_query_qp_lag_port.3.md
   mlx5dv_ts_to_ns.3
   mlx5dv_wr_post.3.md
   mlx5dv.7
@@ -55,9 +57,11 @@ rdma_alias_man_pages(
  mlx5dv_devx_umem_reg.3 mlx5dv_devx_umem_dereg.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_table.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_ibv_qp.3
+ mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_devx_tir.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_vport.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_flow_counter.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_drop.3
+ mlx5dv_dr_flow.3 mlx5dv_dr_action_create_default_miss.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_flow_meter.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_modify_header.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_packet_reformat.3
@@ -67,6 +71,7 @@ rdma_alias_man_pages(
  mlx5dv_dr_flow.3 mlx5dv_dr_domain_create.3
  mlx5dv_dr_flow.3 mlx5dv_dr_domain_destroy.3
  mlx5dv_dr_flow.3 mlx5dv_dr_domain_sync.3
+ mlx5dv_dr_flow.3 mlx5dv_dr_domain_set_reclaim_device_memory.3
  mlx5dv_dr_flow.3 mlx5dv_dr_matcher_create.3
  mlx5dv_dr_flow.3 mlx5dv_dr_matcher_destroy.3
  mlx5dv_dr_flow.3 mlx5dv_dr_rule_create.3

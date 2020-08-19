@@ -3,14 +3,19 @@
 
 rdma_python_test(tests
   __init__.py
+  args_parser.py
   base.py
+  base_rdmacm.py
   rdmacm_utils.py
   test_addr.py
   test_cq.py
   test_cq_events.py
   test_cqex.py
   test_device.py
+  test_efadv.py
+  test_mlx5_lag_affinity.py
   test_mlx5_pp.py
+  test_mlx5_uar.py
   test_mlx5_var.py
   test_mr.py
   test_odp.py
@@ -20,6 +25,7 @@ rdma_python_test(tests
   test_qpex.py
   test_rdmacm.py
   test_relaxed_ordering.py
+  test_shared_pd.py
   utils.py
   )
 

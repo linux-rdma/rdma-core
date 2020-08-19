@@ -1,8 +1,12 @@
+import unittest
+import errno
+
 from tests.base import RCResources, UDResources, XRCResources
 from tests.utils import traffic, xrc_traffic
 from tests.base import RDMATestCase
 from pyverbs.mr import MR
 import pyverbs.enums as e
+from pyverbs.pyverbs_error import PyverbsRDMAError
 
 
 class RoUD(UDResources):
@@ -30,10 +34,15 @@ class RoTestCase(RDMATestCase):
         self.qp_dict = {'rc': RoRC, 'ud': RoUD, 'xrc': RoXRC}
 
     def create_players(self, qp_type):
-        client = self.qp_dict[qp_type](self.dev_name, self.ib_port,
-                                       self.gid_index)
-        server = self.qp_dict[qp_type](self.dev_name, self.ib_port,
-                                       self.gid_index)
+        try:
+            client = self.qp_dict[qp_type](self.dev_name, self.ib_port,
+                                           self.gid_index)
+            server = self.qp_dict[qp_type](self.dev_name, self.ib_port,
+                                           self.gid_index)
+        except PyverbsRDMAError as ex:
+           if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Create player with attrs {} is not supported'.format(qp_type))
+           raise ex
         if qp_type == 'xrc':
             client.pre_run(server.psns, server.qps_num)
             server.pre_run(client.psns, client.qps_num)

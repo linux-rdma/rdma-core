@@ -10,7 +10,7 @@ footer: mlx5
 
 # NAME
 
-mlx5dv_dr_domain_create, mlx5dv_dr_domain_sync, mlx5dv_dr_domain_destroy - Manage flow domains
+mlx5dv_dr_domain_create, mlx5dv_dr_domain_sync, mlx5dv_dr_domain_destroy, mlx5dv_dr_domain_set_reclaim_device_memory - Manage flow domains
 
 mlx5dv_dr_table_create, mlx5dv_dr_table_destroy - Manage flow tables
 
@@ -20,9 +20,11 @@ mlx5dv_dr_rule_create, mlx5dv_dr_rule_destroy - Manage flow rules
 
 mlx5dv_dr_action_create_drop - Create drop action
 
+mlx5dv_dr_action_create_default_miss - Create default miss action
+
 mlx5dv_dr_action_create_tag - Create tag actions
 
-mlx5dv_dr_action_create_dest_ibv_qp, mlx5dv_dr_action_create_dest_table, mlx5dv_dr_action_create_dest_vport - Create packet destination actions
+mlx5dv_dr_action_create_dest_ibv_qp, mlx5dv_dr_action_create_dest_table, mlx5dv_dr_action_create_dest_vport, mlx5dv_dr_action_create_dest_devx_tir - Create packet destination actions
 
 mlx5dv_dr_action_create_packet_reformat - Create packet reformat actions
 
@@ -49,6 +51,10 @@ int mlx5dv_dr_domain_sync(
 
 int mlx5dv_dr_domain_destroy(struct mlx5dv_dr_domain *domain);
 
+void mlx5dv_dr_domain_set_reclaim_device_memory(
+		struct mlx5dv_dr_domain *dmn,
+		bool enable);
+
 struct mlx5dv_dr_table *mlx5dv_dr_table_create(
 		struct mlx5dv_dr_domain *domain,
 		uint32_t level);
@@ -73,6 +79,8 @@ void mlx5dv_dr_rule_destroy(struct mlx5dv_dr_rule *rule);
 
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_drop(void);
 
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_default_miss(void);
+
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_tag(
 		uint32_t tag_value);
 
@@ -85,6 +93,9 @@ struct mlx5dv_dr_action *mlx5dv_dr_action_create_dest_table(
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_dest_vport(
 		struct mlx5dv_dr_domain *domain,
 		uint32_t vport);
+
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_dest_devx_tir(
+		struct mlx5dv_devx_obj *devx_obj);
 
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_packet_reformat(
 		struct mlx5dv_dr_domain *domain,
@@ -145,6 +156,9 @@ Default behavior: Forward packet to eSwitch manager vport.
 
 **MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW**: clear the steering HW cache to enforce next packet hits the latest rules, in addition to the SW SYNC handling.
 
+
+*mlx5dv_dr_domain_set_reclaim_device_memory()* is used to enable the reclaiming of device memory back to the system when not in use, by default this feature is disabled.
+
 ## Table
 *mlx5dv_dr_table_create()* creates a DR table in the **domain**, at the appropriate **level**, and can be used with *mlx5dv_dr_matcher_create()* and *mlx5dv_dr_action_create_dest_table()*.
 All packets start traversing the steering domain tree at table **level** zero (0).
@@ -166,6 +180,9 @@ When an action handle is reused for multiple rules, the same action will be exec
 Action: Drop
 *mlx5dv_dr_action_create_drop* create a terminating action which drops packets. Can not be mixed with Destination actions.
 
+Action: Default miss
+*mlx5dv_dr_action_create_default_miss* create a terminating action which will execute the default behavior based on the domain type.
+
 Action: Tag
 *mlx5dv_dr_action_create_tag* creates a non-terminating action which tags packets with **tag_value**. The **tag_value** is available in the CQE of the packet received. Valid only on domain type NIC_RX.
 
@@ -173,6 +190,7 @@ Action: Destination
 *mlx5dv_dr_action_create_dest_ibv_qp* creates a terminating action delivering the packet to a QP, defined by **ibqp**. Valid only on domain type NIC_RX.
 *mlx5dv_dr_action_create_dest_table* creates a forwarding action to another flow table, defined by **table**. The destination **table** must be from the same domain with a level higher than zero.
 *mlx5dv_dr_action_create_dest_vport* creates a forwarding action to a **vport** on the same **domain**. Valid only on domain type FDB.
+*mlx5dv_dr_action_create_dest_devx_tir* creates a terminating action delivering the packet to a TIR, defined by **devx_obj**. Valid only on domain type NIC_RX.
 
 Action: Packet Reformat
 *mlx5dv_dr_action_create_packet_reformat* create a packet reformat context and action in the **domain**. The **reformat_type**, **data_sz** and **data** are defined in *man mlx5dv_create_flow_action_packet_reformat*.

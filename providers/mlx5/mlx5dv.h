@@ -81,6 +81,7 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS	= 1 << 6,
 	MLX5DV_CONTEXT_MASK_DC_ODP_CAPS		= 1 << 7,
 	MLX5DV_CONTEXT_MASK_HCA_CORE_CLOCK	= 1 << 8,
+	MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS	= 1 << 9,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -133,6 +134,7 @@ struct mlx5dv_context {
 	uint32_t        flow_action_flags; /* use enum mlx5dv_flow_action_cap_flags */
 	uint32_t	dc_odp_caps; /* use enum ibv_odp_transport_cap_bits */
 	void		*hca_core_clock;
+	uint8_t		num_lag_ports;
 };
 
 enum mlx5dv_context_flags {
@@ -335,6 +337,7 @@ enum mlx5dv_flow_action_type {
 	MLX5DV_FLOW_ACTION_TAG,
 	MLX5DV_FLOW_ACTION_DEST_DEVX,
 	MLX5DV_FLOW_ACTION_COUNTERS_DEVX,
+	MLX5DV_FLOW_ACTION_DEFAULT_MISS,
 };
 
 struct mlx5dv_flow_action_attr {
@@ -1456,6 +1459,9 @@ int mlx5dv_dr_domain_destroy(struct mlx5dv_dr_domain *domain);
 
 int mlx5dv_dr_domain_sync(struct mlx5dv_dr_domain *domain, uint32_t flags);
 
+void mlx5dv_dr_domain_set_reclaim_device_memory(struct mlx5dv_dr_domain *dmn,
+						bool enable);
+
 struct mlx5dv_dr_table *
 mlx5dv_dr_table_create(struct mlx5dv_dr_domain *domain, uint32_t level);
 
@@ -1491,7 +1497,12 @@ struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_dest_vport(struct mlx5dv_dr_domain *domain,
 				   uint32_t vport);
 
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_devx_tir(struct mlx5dv_devx_obj *devx_obj);
+
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_drop(void);
+
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_default_miss(void);
 
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_tag(uint32_t tag_value);
 
@@ -1535,6 +1546,12 @@ struct mlx5dv_pp *mlx5dv_pp_alloc(struct ibv_context *context,
 				  uint32_t flags);
 
 void mlx5dv_pp_free(struct mlx5dv_pp *pp);
+
+int mlx5dv_query_qp_lag_port(struct ibv_qp *qp,
+			     uint8_t *port_num,
+			     uint8_t *active_port_num);
+
+int mlx5dv_modify_qp_lag_port(struct ibv_qp *qp, uint8_t port_num);
 
 #ifdef __cplusplus
 }

@@ -68,6 +68,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_TNL_L2_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_TNL_L3_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
+			[DR_ACTION_TYP_MISS]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_REFORMAT] = {
 			[DR_ACTION_TYP_QP]		= DR_ACTION_STATE_TERM,
@@ -94,6 +95,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_TNL_L2_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_TNL_L3_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
+			[DR_ACTION_TYP_MISS]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_TERM] = {
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_TERM,
@@ -108,6 +110,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_L2_TO_TNL_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
+			[DR_ACTION_TYP_MISS]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_REFORMAT] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
@@ -129,6 +132,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_L2_TO_TNL_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
+			[DR_ACTION_TYP_MISS]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_TERM] = {
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_TERM,
@@ -144,6 +148,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_TNL_L3_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_MISS]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_REFORMAT] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
@@ -167,6 +172,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_TNL_L3_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_MISS]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_TERM] = {
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_TERM,
@@ -182,6 +188,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_L2_TO_TNL_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_MISS]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_REFORMAT] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
@@ -206,6 +213,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_L2_TO_TNL_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_MISS]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_TERM] = {
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_TERM,
@@ -590,14 +598,14 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				action->dest_tbl->tx.s_anchor->chunk->icm_addr;
 			break;
 		case DR_ACTION_TYP_QP:
-			{
-				struct mlx5_qp *mlx5_qp = to_mqp(action->qp);
+			if (action->dest_qp.is_qp)
+				attr.final_icm_addr = to_mqp(action->dest_qp.qp)->tir_icm_addr;
+			else
+				attr.final_icm_addr = action->dest_qp.devx_tir->rx_icm_addr;
 
-				if (!mlx5_qp->tir_icm_addr) {
-					dr_dbg(dmn, "Unsupported QP for action\n");
-					goto out_invalid_arg;
-				}
-				attr.final_icm_addr = mlx5_qp->tir_icm_addr;
+			if (!attr.final_icm_addr) {
+				dr_dbg(dmn, "Unsupported TIR/QP for action\n");
+				goto out_invalid_arg;
 			}
 			break;
 		case DR_ACTION_TYP_CTR:
@@ -607,6 +615,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 		case DR_ACTION_TYP_TAG:
 			attr.flow_tag = action->flow_tag;
 			break;
+		case DR_ACTION_TYP_MISS:
 		case DR_ACTION_TYP_TNL_L2_TO_L2:
 			break;
 		case DR_ACTION_TYP_TNL_L3_TO_L2:
@@ -733,8 +742,13 @@ int dr_actions_build_attr(struct mlx5dv_dr_matcher *matcher,
 			attr[i].action = actions[i]->rewrite.flow_action;
 			break;
 		case DR_ACTION_TYP_QP:
-			attr[i].type = MLX5DV_FLOW_ACTION_DEST_IBV_QP;
-			attr[i].qp = actions[i]->qp;
+			if (actions[i]->dest_qp.is_qp) {
+				attr[i].type = MLX5DV_FLOW_ACTION_DEST_IBV_QP;
+				attr[i].qp = actions[i]->dest_qp.qp;
+			} else {
+				attr[i].type = MLX5DV_FLOW_ACTION_DEST_DEVX;
+				attr[i].obj = actions[i]->dest_qp.devx_tir;
+			}
 			break;
 		case DR_ACTION_TYP_CTR:
 			attr[i].type = MLX5DV_FLOW_ACTION_COUNTERS_DEVX;
@@ -748,6 +762,12 @@ int dr_actions_build_attr(struct mlx5dv_dr_matcher *matcher,
 		case DR_ACTION_TYP_TAG:
 			attr[i].type = MLX5DV_FLOW_ACTION_TAG;
 			attr[i].tag_value = actions[i]->flow_tag;
+			break;
+		case DR_ACTION_TYP_MISS:
+			attr[i].type = MLX5DV_FLOW_ACTION_DEFAULT_MISS;
+			break;
+		case DR_ACTION_TYP_DROP:
+			attr[i].type = MLX5DV_FLOW_ACTION_DROP;
 			break;
 		default:
 			dr_dbg(dmn, "Found unsupported action type: %d\n",
@@ -879,6 +899,11 @@ struct mlx5dv_dr_action *mlx5dv_dr_action_create_drop(void)
 	return dr_action_create_generic(DR_ACTION_TYP_DROP);
 }
 
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_default_miss(void)
+{
+	return dr_action_create_generic(DR_ACTION_TYP_MISS);
+}
+
 struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_dest_ibv_qp(struct ibv_qp *ibqp)
 {
@@ -893,8 +918,27 @@ mlx5dv_dr_action_create_dest_ibv_qp(struct ibv_qp *ibqp)
 	if (!action)
 		return NULL;
 
-	action->qp = ibqp;
+	action->dest_qp.is_qp = true;
+	action->dest_qp.qp = ibqp;
 
+	return action;
+}
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_devx_tir(struct mlx5dv_devx_obj *devx_obj)
+{
+	struct mlx5dv_dr_action *action;
+
+	if (devx_obj->type != MLX5_DEVX_TIR) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	action = dr_action_create_generic(DR_ACTION_TYP_QP);
+	if (!action)
+		return NULL;
+
+	action->dest_qp.devx_tir = devx_obj;
 	return action;
 }
 

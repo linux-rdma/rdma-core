@@ -32,11 +32,21 @@ class QPTest(PyverbsAPITestCase):
                 with CQ(ctx, 100, None, None, 0) as cq:
                     qia = get_qp_init_attr(cq, attr)
                     qia.qp_type = e.IBV_QPT_RC
-                    with QP(pd, qia) as qp:
-                        assert qp.qp_state == e.IBV_QPS_RESET, 'RC QP should have been in RESET'
+                    try:
+                        with QP(pd, qia) as qp:
+                            assert qp.qp_state == e.IBV_QPS_RESET, 'RC QP should have been in RESET'
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest('Create QP with RC attrs is not supported')
+                        raise ex
                     qia.qp_type = e.IBV_QPT_UC
-                    with QP(pd, qia) as qp:
-                        assert qp.qp_state == e.IBV_QPS_RESET, 'UC QP should have been in RESET'
+                    try:
+                        with QP(pd, qia) as qp:
+                            assert qp.qp_state == e.IBV_QPS_RESET, 'UC QP should have been in RESET'
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest('Create QP with UC attrs is not supported')
+                        raise ex
 
 
     def test_create_qp_no_attr(self):
@@ -53,10 +63,15 @@ class QPTest(PyverbsAPITestCase):
                         qia.qp_type = e.IBV_QPT_UD
                         with QP(pd, qia) as qp:
                             assert qp.qp_state == e.IBV_QPS_RESET, 'UD QP should have been in RESET'
-                        if is_eth(ctx, i) and is_root():
+                        if u.is_eth(ctx, i) and u.is_root():
                             qia.qp_type = e.IBV_QPT_RAW_PACKET
-                            with QP(pd, qia) as qp:
-                                assert qp.qp_state == e.IBV_QPS_RESET, 'Raw Packet QP should have been in RESET'
+                            try:
+                                with QP(pd, qia) as qp:
+                                    assert qp.qp_state == e.IBV_QPS_RESET, 'Raw Packet QP should have been in RESET'
+                            except PyverbsRDMAError as ex:
+                                if ex.error_code == errno.EOPNOTSUPP:
+                                    raise unittest.SkipTest("Create Raw Packet QP is not supported")
+                                raise ex
 
     def test_create_qp_with_attr_connected(self):
         """
@@ -68,11 +83,21 @@ class QPTest(PyverbsAPITestCase):
                 with CQ(ctx, 100, None, None, 0) as cq:
                     qia = get_qp_init_attr(cq, attr)
                     qia.qp_type = e.IBV_QPT_RC
-                    with QP(pd, qia, QPAttr()) as qp:
-                        assert qp.qp_state == e.IBV_QPS_INIT, 'RC QP should have been in INIT'
+                    try:
+                        with QP(pd, qia, QPAttr()) as qp:
+                            assert qp.qp_state == e.IBV_QPS_INIT, 'RC QP should have been in INIT'
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest('Create QP with RC is not supported')
+                        raise ex
                     qia.qp_type = e.IBV_QPT_UC
-                    with QP(pd, qia, QPAttr()) as qp:
-                        assert qp.qp_state == e.IBV_QPS_INIT, 'UC QP should have been in INIT'
+                    try:
+                        with QP(pd, qia, QPAttr()) as qp:
+                            assert qp.qp_state == e.IBV_QPS_INIT, 'UC QP should have been in INIT'
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest('Create QP with UC attrs is not supported')
+                        raise ex
 
     def test_create_qp_with_attr(self):
         """
@@ -85,15 +110,20 @@ class QPTest(PyverbsAPITestCase):
                 with CQ(ctx, 100, None, None, 0) as cq:
                     for i in range(1, attr.phys_port_cnt + 1):
                         qpts = [e.IBV_QPT_UD, e.IBV_QPT_RAW_PACKET] \
-                            if is_eth(ctx, i) else [e.IBV_QPT_UD]
+                            if u.is_eth(ctx, i) else [e.IBV_QPT_UD]
                         qia = get_qp_init_attr(cq, attr)
                         qia.qp_type = e.IBV_QPT_UD
                         with QP(pd, qia, QPAttr()) as qp:
                             assert qp.qp_state == e.IBV_QPS_RTS, 'UD QP should have been in RTS'
-                        if is_eth(ctx, i) and is_root():
+                        if u.is_eth(ctx, i) and u.is_root():
                             qia.qp_type = e.IBV_QPT_RAW_PACKET
-                            with QP(pd, qia, QPAttr()) as qp:
-                                assert qp.qp_state == e.IBV_QPS_RTS, 'Raw Packet QP should have been in RTS'
+                            try:
+                                with QP(pd, qia, QPAttr()) as qp:
+                                    assert qp.qp_state == e.IBV_QPS_RTS, 'Raw Packet QP should have been in RTS'
+                            except PyverbsRDMAError as ex:
+                                if ex.error_code == errno.EOPNOTSUPP:
+                                    raise unittest.SkipTest("Create Raw Packet QP is not supported")
+                                raise ex
 
     def test_create_qp_ex_no_attr_connected(self):
         """
@@ -139,7 +169,7 @@ class QPTest(PyverbsAPITestCase):
                             if ex.error_code == errno.EOPNOTSUPP:
                                 raise unittest.SkipTest('Create QP with extended attrs is not supported')
                             raise ex
-                        if is_eth(ctx, i) and is_root():
+                        if u.is_eth(ctx, i) and u.is_root():
                             qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
                                                       e.IBV_QPT_RAW_PACKET)
                             try:
@@ -196,7 +226,7 @@ class QPTest(PyverbsAPITestCase):
                             if ex.error_code == errno.EOPNOTSUPP:
                                 raise unittest.SkipTest('Create QP with extended attrs is not supported')
                             raise ex
-                        if is_eth(ctx, i) and is_root():
+                        if u.is_eth(ctx, i) and u.is_root():
                             qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
                                                       e.IBV_QPT_RAW_PACKET)
                             try:
@@ -228,7 +258,7 @@ class QPTest(PyverbsAPITestCase):
                                 if ex.error_code == errno.EOPNOTSUPP:
                                     raise unittest.SkipTest('Create QP with extended attrs is not supported')
                                 raise ex
-                            qp_attr, qp_init_attr = qp.query(e.IBV_QP_CUR_STATE |
+                            qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE |
                                                              e.IBV_QP_CAP)
                             verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr,
                                             qp_attr)
@@ -237,7 +267,7 @@ class QPTest(PyverbsAPITestCase):
                             qia.qp_type = qpt
                             caps = qia.cap  # Save them to verify values later
                             qp = QP(pd, qia)
-                            qp_attr, qp_init_attr = qp.query(e.IBV_QP_CUR_STATE |
+                            qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE |
                                                              e.IBV_QP_CAP)
                             verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr,
                                             qp_attr)
@@ -298,7 +328,7 @@ def get_qp_types(ctx, port_num):
     :return: An array of QP types that can be created on this port
     """
     qpts = [e.IBV_QPT_RC, e.IBV_QPT_UC, e.IBV_QPT_UD]
-    if is_eth(ctx, port_num) and is_root():
+    if u.is_eth(ctx, port_num) and u.is_root():
         qpts.append(e.IBV_QPT_RAW_PACKET)
     return qpts
 
@@ -341,17 +371,3 @@ def get_qp_init_attr_ex(cq, pd, attr, attr_ex, qpt):
     qia.recv_cq = cq
     qia.pd = pd  # Only XRCD can be created without a PD
     return qia
-
-
-def is_eth(ctx, port_num):
-    """
-    Querires the device's context's <port_num> port for its link layer.
-    :param ctx: The Context to query
-    :param port_num: Which Context's port to query
-    :return: True if the port's link layer is Ethernet, else False
-    """
-    return ctx.query_port(port_num).link_layer == e.IBV_LINK_LAYER_ETHERNET
-
-
-def is_root():
-    return os.geteuid() == 0

@@ -26,6 +26,10 @@ parameter in specific calls.  If an event channel is provided, an rdma_cm identi
 will report its event data (results of connecting, for example), on that channel.
 If a channel is not provided, then all rdma_cm operations for the selected
 rdma_cm identifier will block until they complete.
+.P
+The RDMA CM gives an option to different libibverbs providers to advertise and
+use various specific to that provider QP configuration options. This functionality
+is called ECE (enhanced connection establishment).
 .SH "RDMA VERBS"
 The rdma_cm supports the full range of verbs available through the libibverbs
 library and interfaces.  However, it also provides wrapper functions for some
@@ -111,6 +115,8 @@ destroy the QP
 release the rdma_cm_id
 .IP rdma_destroy_event_channel
 release the event channel
+.IP rdma_set_local_ece
+set desired ECE options
 .P
 An almost identical process is used to setup unreliable datagram (UD)
 communication between nodes.  No actual connection is formed between QPs
@@ -157,6 +163,10 @@ release the connected rdma_cm_id
 release the listening rdma_cm_id
 .IP rdma_destroy_event_channel
 release the event channel
+.IP rdma_get_remote_ece
+get ECe options sent by the client
+.IP rdma_set_local_ece
+set desired ECE options
 .SH "RETURN CODES"
 .IP "=  0"
 success
@@ -198,6 +208,7 @@ rdma_get_dst_port(3),
 rdma_get_local_addr(3),
 rdma_get_peer_addr(3),
 rdma_get_recv_comp(3),
+rdma_get_remote_ece(3),
 rdma_get_request(3),
 rdma_get_send_comp(3),
 rdma_get_src_port(3),
@@ -221,7 +232,8 @@ rdma_reg_write(3),
 rdma_reject(3),
 rdma_resolve_addr(3),
 rdma_resolve_route(3),
-rdma_set_option(3)
+rdma_get_remote_ece(3),
+rdma_set_option(3),
 mckey(1),
 rdma_client(1),
 rdma_server(1),

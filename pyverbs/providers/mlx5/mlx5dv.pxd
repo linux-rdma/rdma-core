@@ -4,14 +4,13 @@
 #cython: language_level=3
 
 cimport pyverbs.providers.mlx5.libmlx5 as dv
-from pyverbs.device cimport Context, VAR
 from pyverbs.base cimport PyverbsObject
+from pyverbs.device cimport Context
 from pyverbs.cq cimport CQEX
 from pyverbs.qp cimport QP
 
 
 cdef class Mlx5Context(Context):
-    cdef object pps
     cpdef close(self)
 
 cdef class Mlx5DVContextAttr(PyverbsObject):
@@ -35,11 +34,17 @@ cdef class Mlx5DVCQInitAttr(PyverbsObject):
 cdef class Mlx5CQ(CQEX):
     pass
 
-cdef class Mlx5VAR(VAR):
+cdef class Mlx5VAR(PyverbsObject):
     cdef dv.mlx5dv_var *var
+    cdef object context
     cpdef close(self)
 
 cdef class Mlx5PP(PyverbsObject):
     cdef dv.mlx5dv_pp *pp
+    cdef object context
+    cpdef close(self)
+
+cdef class Mlx5UAR(PyverbsObject):
+    cdef dv.mlx5dv_devx_uar *uar
     cdef object context
     cpdef close(self)

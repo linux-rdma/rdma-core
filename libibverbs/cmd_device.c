@@ -99,7 +99,7 @@ int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 	return 0;
 }
 
-static int cmd_alloc_async_fd(struct ibv_context *context)
+int ibv_cmd_alloc_async_fd(struct ibv_context *context)
 {
 	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_ASYNC_EVENT,
 			       UVERBS_METHOD_ASYNC_EVENT_ALLOC, 1);
@@ -153,9 +153,6 @@ static int cmd_get_context(struct verbs_context *context_ex,
 		return 0;
 	}
 	case SUCCESS:
-		ret = cmd_alloc_async_fd(context);
-		if (ret)
-			return ret;
 		break;
 	default:
 		return ret;
@@ -177,4 +174,31 @@ int ibv_cmd_get_context(struct verbs_context *context_ex,
 				  resp, resp_size);
 
 	return cmd_get_context(context_ex, cmdb);
+}
+
+int ibv_cmd_query_context(struct ibv_context *context,
+			  struct ibv_command_buffer *driver)
+{
+	DECLARE_COMMAND_BUFFER_LINK(cmd, UVERBS_OBJECT_DEVICE,
+				    UVERBS_METHOD_QUERY_CONTEXT,
+				    2,
+				    driver);
+
+	struct verbs_device *verbs_device;
+	uint64_t core_support;
+	int ret;
+
+	fill_attr_out_ptr(cmd, UVERBS_ATTR_QUERY_CONTEXT_NUM_COMP_VECTORS,
+			  &context->num_comp_vectors);
+	fill_attr_out_ptr(cmd, UVERBS_ATTR_QUERY_CONTEXT_CORE_SUPPORT,
+			  &core_support);
+
+	ret = execute_ioctl(context, cmd);
+	if (ret)
+		return ret;
+
+	verbs_device = verbs_get_device(context->device);
+	verbs_device->core_support = core_support;
+
+	return 0;
 }

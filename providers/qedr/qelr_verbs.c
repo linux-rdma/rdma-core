@@ -666,6 +666,8 @@ static inline int qelr_configure_qp(struct qelr_devctx *cxt, struct qelr_qp *qp,
 	qp->state = QELR_QPS_RST;
 	qp->sq_sig_all = attrs->sq_sig_all;
 	qp->atomic_supported = resp->atomic_supported;
+	if (cxt->dpm_flags & QELR_DPM_FLAGS_EDPM_MODE)
+		qp->edpm_mode = 1;
 
 	rc = qelr_configure_qp_sq(cxt, qp, attrs, resp);
 	if (rc)
@@ -1100,7 +1102,8 @@ static inline void qelr_init_dpm_info(struct qelr_devctx *cxt,
 
 	/* Check if edpm can be used */
 	if (wr->send_flags & IBV_SEND_INLINE && !qp->edpm_disabled &&
-	    cxt->dpm_flags & QELR_DPM_FLAGS_ENHANCED) {
+	    cxt->dpm_flags & QELR_DPM_FLAGS_ENHANCED &&
+	    data_size <= cxt->edpm_limit_size) {
 		memset(dpm, 0, sizeof(*dpm));
 		dpm->rdma_ext = (struct qelr_rdma_ext *)&dpm->payload;
 		dpm->is_edpm = 1;
@@ -1134,11 +1137,17 @@ static inline void qelr_edpm_set_msg_data(struct qelr_qp *qp,
 					  uint8_t comp)
 {
 	uint32_t wqe_size, dpm_size, params;
+	/* edpm mode - 0 : ack field is treated by old FW as "completion"
+	 * edpm mode - 1 : ack field is treated by new FW as ack which is
+	 * always required.
+	 */
+	uint8_t ack = (qp->edpm_mode) ? 1 : comp;
 
 	params = 0;
 	wqe_size = length + (QELR_IS_IMM_OR_INV(opcode) ? sizeof(uint32_t) : 0);
 	dpm_size = wqe_size + sizeof(struct db_roce_dpm_data);
 
+	SET_FIELD(params, DB_ROCE_DPM_PARAMS_ACK_REQUEST, ack);
 	SET_FIELD(params, DB_ROCE_DPM_PARAMS_DPM_TYPE, DPM_ROCE);
 	SET_FIELD(params, DB_ROCE_DPM_PARAMS_OPCODE, opcode);
 	SET_FIELD(params, DB_ROCE_DPM_PARAMS_WQE_SIZE, wqe_size);

@@ -15,6 +15,7 @@ from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.libibverbs as v
+cimport pyverbs.librdmacm as cm
 from pyverbs.cmid cimport CMID
 from pyverbs.xrcd cimport XRCD
 from pyverbs.addr cimport GID
@@ -35,11 +36,12 @@ class Device(PyverbsObject):
     It is not a part of objects creation order - there's no need for the user
     to create it for such purposes.
     """
-    def __init__(self, name, guid, node_type, transport_type):
+    def __init__(self, name, guid, node_type, transport_type, index):
         self._node_type = node_type
         self._transport_type = transport_type
         self._name = name
         self._guid = guid
+        self._index = index
 
     @property
     def name(self):
@@ -57,12 +59,16 @@ class Device(PyverbsObject):
     def guid(self):
         return self._guid
 
+    @property
+    def index(self):
+        return self._index
+
     def __str__(self):
         return 'Device {dev}, node type {ntype}, transport type {ttype},' \
-               ' guid {guid}'.format(dev=self.name.decode(),
+               ' guid {guid}, index {index}'.format(dev=self.name.decode(),
                 ntype=translate_node_type(self.node_type),
                 ttype=translate_transport_type(self.transport_type),
-                guid=guid_to_hex(self.guid))
+                guid=guid_to_hex(self.guid), index=self._index)
 
 
 cdef class Context(PyverbsCM):
@@ -87,6 +93,9 @@ cdef class Context(PyverbsCM):
             * *cmid*
               A CMID object. If not None, it means that the device was already
               opened by a CMID class, and only a pointer assignment is missing.
+            * *cmd_fd*
+              A command FD. If passed, the device will be imported from the
+              given cmd_fd using ibv_import_device.
         :return: None
         """
         cdef int count
@@ -101,13 +110,21 @@ cdef class Context(PyverbsCM):
         self.qps = weakref.WeakSet()
         self.xrcds = weakref.WeakSet()
         self.vars = weakref.WeakSet()
+        self.uars = weakref.WeakSet()
+        self.pps = weakref.WeakSet()
 
         self.name = kwargs.get('name')
         provider_attr = kwargs.get('attr')
         cmid = kwargs.get('cmid')
+        cmd_fd = kwargs.get('cmd_fd')
         if cmid is not None:
             self.context = cmid.id.verbs
             cmid.ctx = self
+            return
+        if cmd_fd is not None:
+            self.context = v.ibv_import_device(cmd_fd)
+            if self.context == NULL:
+                raise PyverbsRDMAErrno('Failed to import device')
             return
 
         if self.name is None:
@@ -150,8 +167,7 @@ cdef class Context(PyverbsCM):
                             self.xrcds, self.vars])
             rc = v.ibv_close_device(self.context)
             if rc != 0:
-                raise PyverbsRDMAErrno('Failed to close device {dev}'.
-                                       format(dev=self.device.name))
+                raise PyverbsRDMAErrno(f'Failed to close device {self.name}')
             self.context = NULL
 
     @property
@@ -229,14 +245,16 @@ cdef class Context(PyverbsCM):
             self.qps.add(obj)
         elif isinstance(obj, XRCD):
             self.xrcds.add(obj)
-        elif isinstance(obj, VAR):
-            self.vars.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 
     @property
     def cmd_fd(self):
         return self.context.cmd_fd
+
+    @property
+    def name(self):
+        return self.name
 
 
 cdef class DeviceAttr(PyverbsObject):
@@ -958,6 +976,7 @@ def get_device_list():
                  device node type
                  device transport type
                  device guid
+                 device index
     """
     cdef int count = 0;
     cdef v.ibv_device **dev_list;
@@ -971,23 +990,30 @@ def get_device_list():
             node = dev_list[i].node_type
             transport = dev_list[i].transport_type
             guid = be64toh(v.ibv_get_device_guid(dev_list[i]))
-            devices.append(Device(name, guid, node, transport))
+            index = v.ibv_get_device_index(dev_list[i])
+            devices.append(Device(name, guid, node, transport, index))
     finally:
         v.ibv_free_device_list(dev_list)
     return devices
 
 
-cdef class VAR(PyverbsObject):
+def rdma_get_devices():
     """
-    This is an abstract class of Virtio Access Region (VAR).
-    Each device specific VAR implementation should inherit this class
-    and initialize it according to the device attributes.
+    Get the RDMA devices.
+    :return: list of Device objects.
     """
-    def __init__(self, Context context not None, **kwargs):
-        self.context = context
-
-    def __dealloc__(self):
-        self.close()
-
-    cpdef close(self):
-        pass
+    cdef int count
+    cdef v.ibv_context **ctx_list
+    ctx_list = cm.rdma_get_devices(&count)
+    if ctx_list == NULL:
+        raise PyverbsRDMAErrno('Failed to get device list')
+    devices = []
+    for i in range(count):
+        name = ctx_list[i].device.name
+        node = ctx_list[i].device.node_type
+        transport = ctx_list[i].device.transport_type
+        guid = be64toh(v.ibv_get_device_guid(ctx_list[i].device))
+        index = v.ibv_get_device_index(ctx_list[i].device)
+        devices.append(Device(name, guid, node, transport, index))
+    cm.rdma_free_devices(ctx_list)
+    return devices

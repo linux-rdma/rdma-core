@@ -165,8 +165,8 @@ cdef class CQ(PyverbsCM):
         """
         rc = v.ibv_req_notify_cq(self.cq, solicited_only)
         if rc != 0:
-            raise PyverbsRDMAErrno('Request notify CQ returned {rc}'.
-                                   format(rc=rc))
+            raise PyverbsRDMAError('Request notify CQ returned {rc}'.
+                                   format(rc=rc), rc)
 
     def ack_events(self, num_events):
         """

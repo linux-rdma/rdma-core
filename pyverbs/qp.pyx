@@ -3,15 +3,16 @@
 
 from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
+import weakref
 
+from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError, PyverbsRDMAError
 from pyverbs.utils import gid_str, qp_type_to_str, qp_state_to_str, mtu_to_str
-from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError, \
-    PyverbsRDMAError
 from pyverbs.utils import access_flags_to_str, mig_state_to_str
-from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.mr cimport MW, MWBindInfo, MWBind
 from pyverbs.wr cimport RecvWR, SendWR, SGE
+from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.addr cimport AHAttr, GID, AH
-from pyverbs.mr cimport MW, MWBindInfo
+from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.addr cimport GlobalRoute
 from pyverbs.device cimport Context
@@ -871,6 +872,28 @@ cdef class QPAttr(PyverbsObject):
                print_format.format('Rate limit', self.attr.rate_limit)
 
 
+cdef class ECE(PyverbsCM):
+    def __init__(self, vendor_id=0, options=0, comp_mask=0):
+        """
+        :param vendor_id: Unique identifier of the provider vendor.
+        :param options: Provider specific attributes which are supported or
+                        needed to be enabled by ECE users.
+        :param comp_mask: A bitmask specifying which ECE options should be
+                          valid.
+        """
+        super().__init__()
+        self.ece.vendor_id = vendor_id
+        self.ece.options = options
+        self.ece.comp_mask = comp_mask
+
+    def __str__(self):
+        print_format = '{:22}: 0x{:<20x}\n'
+        return 'ECE:\n' +\
+        print_format.format('Vendor ID', self.ece.vendor_id) +\
+        print_format.format('Options', self.ece.options) +\
+        print_format.format('Comp Mask', self.ece.comp_mask)
+
+
 cdef class QP(PyverbsCM):
     def __init__(self, object creator not None, object init_attr not None,
                  QPAttr qp_attr=None):
@@ -898,6 +921,7 @@ cdef class QP(PyverbsCM):
         cdef PD pd
         cdef Context ctx
         super().__init__()
+        self.mws = weakref.WeakSet()
         self.update_cqs(init_attr)
         # QP initialization was not done by the provider, we should do it here
         if self.qp == NULL:
@@ -964,12 +988,19 @@ cdef class QP(PyverbsCM):
     def _create_qp_ex(self, Context ctx, QPInitAttrEx attr):
         self.qp = v.ibv_create_qp_ex(ctx.context, &attr.attr)
 
+    cdef add_ref(self, obj):
+        if isinstance(obj, MW):
+            self.mws.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
+
     def __dealloc__(self):
         self.close()
 
     cpdef close(self):
         if self.qp != NULL:
             self.logger.debug('Closing QP')
+            close_weakrefs([self.mws])
             rc = v.ibv_destroy_qp(self.qp)
             if rc:
                 raise PyverbsRDMAError('Failed to destroy QP', rc)
@@ -1133,6 +1164,41 @@ cdef class QP(PyverbsCM):
                 memcpy(&bad_wr.send_wr, my_bad_wr, sizeof(bad_wr.send_wr))
             raise PyverbsRDMAError('Failed to post send', rc)
 
+    def set_ece(self, ECE ece):
+        """
+        Set ECE options and use them for QP configuration stage
+        :param ece: The requested ECE values.
+        :return: None
+        """
+        if ece.ece.vendor_id == 0:
+            return
+
+        rc = v.ibv_set_ece(self.qp, &ece.ece)
+        if rc != 0:
+            raise PyverbsRDMAError('Failed to set ECE', rc)
+
+    def query_ece(self):
+        """
+        Query QPs ECE options
+        :return: ECE object with this QP ece configuration.
+        """
+        ece = ECE()
+        rc = v.ibv_query_ece(self.qp, &ece.ece)
+        if rc != 0:
+            raise PyverbsRDMAError('Failed to query ECE', rc)
+        return ece
+
+    def bind_mw(self, MW mw not None, MWBind mw_bind):
+        """
+        Bind Memory window type 1.
+        :param mw: The memory window to bind.
+        :param mw_bind: MWBind object, includes the bind attributes.
+        :return: None
+        """
+        rc = v.ibv_bind_mw(self.qp, mw.mw, &mw_bind.mw_bind)
+        if rc != 0:
+            raise PyverbsRDMAError('Failed to Bind MW', rc)
+
     @property
     def qp_type(self):
         return self.qp.qp_type
@@ -1205,6 +1271,7 @@ cdef class QPEx(QP):
         info = &bind_info.info
         v.ibv_wr_bind_mw(self.qp_ex, <v.ibv_mw*>mw.mw, rkey,
                          <v.ibv_mw_bind_info*>info)
+        self.add_ref(mw)
 
     def wr_local_inv(self, invalidate_rkey):
         v.ibv_wr_local_inv(self.qp_ex, invalidate_rkey)

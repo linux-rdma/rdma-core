@@ -69,6 +69,8 @@ enum dr_dump_rec_type {
 	DR_DUMP_REC_TYPE_ACTION_VPORT = 3408,
 	DR_DUMP_REC_TYPE_ACTION_DECAP_L2 = 3409,
 	DR_DUMP_REC_TYPE_ACTION_DECAP_L3 = 3410,
+	DR_DUMP_REC_TYPE_ACTION_DEVX_TIR = 3411,
+	DR_DUMP_REC_TYPE_ACTION_METER = 3414,
 };
 
 static uint64_t dr_dump_icm_to_idx(uint64_t icm_addr)
@@ -97,14 +99,20 @@ static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
 			      DR_DUMP_REC_TYPE_ACTION_DROP, action_id, rule_id);
 		break;
 	case DR_ACTION_TYP_FT:
-		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x,0x%" PRIx64 "\n",
 			      DR_DUMP_REC_TYPE_ACTION_FT, action_id, rule_id,
-			      action->dest_tbl->devx_obj->object_id);
+			      action->dest_tbl->devx_obj->object_id,
+			      (uint64_t)(uintptr_t)action->dest_tbl);
 		break;
 	case DR_ACTION_TYP_QP:
-		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
-			      DR_DUMP_REC_TYPE_ACTION_QP, action_id, rule_id,
-			      action->qp->qp_num);
+		if (action->dest_qp.is_qp)
+			ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
+				      DR_DUMP_REC_TYPE_ACTION_QP, action_id,
+				      rule_id, action->dest_qp.qp->qp_num);
+		else
+			ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%" PRIx64 "\n",
+				      DR_DUMP_REC_TYPE_ACTION_DEVX_TIR, action_id,
+				      rule_id, action->dest_qp.devx_tir->rx_icm_addr);
 		break;
 	case DR_ACTION_TYP_CTR:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
@@ -113,12 +121,12 @@ static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
 			      action->ctr.offset);
 		break;
 	case DR_ACTION_TYP_TAG:
-		ret = fprintf(f, "%d,,0x%" PRIx64 ",0x%" PRIx64 "0x%x\n",
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
 			      DR_DUMP_REC_TYPE_ACTION_TAG, action_id, rule_id,
 			      action->flow_tag);
 		break;
 	case DR_ACTION_TYP_MODIFY_HDR:
-		ret = fprintf(f, "%d,,0x%" PRIx64 ",0x%" PRIx64 "0x%x\n",
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
 			      DR_DUMP_REC_TYPE_ACTION_MODIFY_HDR, action_id,
 			      rule_id, action->rewrite.index);
 		break;
@@ -146,6 +154,16 @@ static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
 			      DR_DUMP_REC_TYPE_ACTION_ENCAP_L3, action_id,
 			      rule_id, action->reformat.dvo->object_id);
+		break;
+	case DR_ACTION_TYP_METER:
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%" PRIx64 ",0x%x,0x%" PRIx64 ",0x%" PRIx64 "\n",
+			      DR_DUMP_REC_TYPE_ACTION_METER,
+			      action_id,
+			      rule_id,
+			      (uint64_t)(uintptr_t)action->meter.next_ft,
+			      action->meter.devx_obj->object_id,
+			      action->meter.rx_icm_addr,
+			      action->meter.tx_icm_addr);
 		break;
 	default:
 		return 0;

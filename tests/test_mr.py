@@ -7,9 +7,11 @@ import unittest
 import random
 import errno
 
+from tests.base import PyverbsAPITestCase, RCResources, RDMATestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
-from tests.base import PyverbsAPITestCase
-from pyverbs.mr import MR, MW, DMMR
+from pyverbs.mr import MR, MW, DMMR, MWBindInfo, MWBind
+from pyverbs.qp import QPCap, QPInitAttr, QPAttr, QP
+from pyverbs.wr import SendWR
 import pyverbs.device as d
 from pyverbs.pd import PD
 import pyverbs.enums as e
@@ -150,77 +152,184 @@ class MRTest(PyverbsAPITestCase):
                         mr.buf
 
 
-class MWTest(PyverbsAPITestCase):
+class MWRC(RCResources):
+    def __init__(self, dev_name, ib_port, gid_index, mw_type):
+        """
+        Initialize Memory Window resources based on RC resources that include RC
+        QP.
+        :param dev_name: Device name to be used
+        :param ib_port: IB port of the device to use
+        :param gid_index: Which GID index to use
+        :param mw_type: The MW type to use
+        """
+        super().__init__(dev_name=dev_name, ib_port=ib_port,
+                                   gid_index=gid_index)
+        self.mw_type = mw_type
+        access = e.IBV_ACCESS_REMOTE_WRITE | e.IBV_ACCESS_LOCAL_WRITE
+        self.mw_bind_info = MWBindInfo(self.mr, self.mr.buf, self.msg_size,
+                                       access)
+        self.mw_bind = MWBind(self.mw_bind_info, e.IBV_SEND_SIGNALED)
+        try:
+            self.mw = MW(self.pd, self.mw_type)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Create MW is not supported')
+            raise ex
+
+    def create_mr(self):
+        access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_MW_BIND
+        try:
+            self.mr = MR(self.pd, self.msg_size, access)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Reg MR with MW access is not supported')
+            raise ex
+
+    def create_qp(self):
+        qp_caps = QPCap(max_recv_wr=self.num_msgs)
+        qp_init_attr = QPInitAttr(qp_type=e.IBV_QPT_RC, scq=self.cq,
+                                  rcq=self.cq, cap=qp_caps)
+        qp_attr = QPAttr(port_num=self.ib_port)
+        qp_access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE
+        qp_attr.qp_access_flags = qp_access
+        try:
+            self.qp = QP(self.pd, qp_init_attr, qp_attr)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Create RC QP is not supported')
+            raise ex
+
+
+
+class MWTest(RDMATestCase):
     """
     Test various functionalities of the MW class.
     """
-    def test_reg_mw_type1(self):
-        """
-        Test ibv_alloc_mw() for type 1 MW
-        """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                try:
-                    with MW(pd, e.IBV_MW_TYPE_1):
-                        pass
-                except PyverbsRDMAError as ex:
-                    if ex.error_code == errno.EOPNOTSUPP:
-                        raise unittest.SkipTest('Create memory window of type 1 is not supported')
-                    raise ex
+    def setUp(self):
+        super().setUp()
+        self.iters = 10
+        self.server = None
+        self.client = None
 
-    def test_reg_mw_type2(self):
+    def create_players(self, resource, **resource_arg):
         """
-        Test ibv_alloc_mw() for type 2 MW
+        Init memory window tests resources.
+        :param resource: The RDMA resources to use.
+        :param resource_arg: Dict of args that specify the resource specific
+        attributes.
+        :return: None
         """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                try:
-                    with MW(pd, e.IBV_MW_TYPE_2):
-                        pass
-                except PyverbsRDMAError as ex:
-                    if ex.error_code == errno.EOPNOTSUPP:
-                        raise unittest.SkipTest('Create memory window of type 2 is not supported')
-                    raise ex
+        self.client = resource(**self.dev_info, **resource_arg)
+        self.server = resource(**self.dev_info, **resource_arg)
+        self.client.pre_run(self.server.psn, self.server.qpn)
+        self.server.pre_run(self.client.psn, self.client.qpn)
 
-    def test_dereg_mw_type1(self):
-        """
-        Test ibv_dealloc_mw() for type 1 MW
-        """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                try:
-                    with MW(pd, e.IBV_MW_TYPE_1) as mw:
-                        mw.close()
-                except PyverbsRDMAError as ex:
-                    if ex.error_code == errno.EOPNOTSUPP:
-                        raise unittest.SkipTest('Create memory window of type 1 is not supported')
-                    raise ex
+    def tearDown(self):
+        if self.server:
+            self.server.mw.close()
+        if self.client:
+            self.client.mw.close()
+        return super().tearDown()
 
-    def test_dereg_mw_type2(self):
+    def bind_mw_type_1(self):
+        self.server.qp.bind_mw(self.server.mw, self.server.mw_bind)
+        self.client.qp.bind_mw(self.client.mw, self.client.mw_bind)
+        # Poll the bind MW action completion.
+        u.poll_cq(self.server.cq)
+        u.poll_cq(self.client.cq)
+        self.server.rkey = self.client.mw.rkey
+        self.server.remote_addr = self.client.mr.buf
+        self.client.rkey = self.server.mw.rkey
+        self.client.remote_addr = self.server.mr.buf
+
+    def bind_mw_type_2(self):
+        client_send_wr = SendWR(opcode=e.IBV_WR_BIND_MW)
+        client_send_wr.set_bind_wr(self.client.mw, self.client.mw_bind_info)
+        server_send_wr = SendWR(opcode=e.IBV_WR_BIND_MW)
+        server_send_wr.set_bind_wr(self.server.mw, self.server.mw_bind_info)
+        self.server.qp.post_send(server_send_wr)
+        self.client.qp.post_send(client_send_wr)
+        # Poll the bind MW WR.
+        u.poll_cq(self.server.cq)
+        u.poll_cq(self.client.cq)
+        self.server.rkey = client_send_wr.rkey
+        self.server.remote_addr = self.client.mr.buf
+        self.client.rkey = server_send_wr.rkey
+        self.client.remote_addr = self.server.mr.buf
+
+    def invalidate_mw_type1(self):
         """
-        Test ibv_dealloc_mw() for type 2 MW
+        Invalidate the MWs by rebind this MW with zero length.
+        :return: None
         """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                try:
-                    with MW(pd, e.IBV_MW_TYPE_2) as mw:
-                        mw.close()
-                except PyverbsRDMAError as ex:
-                    if ex.error_code == errno.EOPNOTSUPP:
-                        raise unittest.SkipTest('Create memory window of type 2 is not supported')
-                    raise ex
+        for player in [self.server, self.client]:
+            mw_bind_info = MWBindInfo(player.mr, player.mr.buf, 0, 0)
+            mw_bind = MWBind(mw_bind_info, e.IBV_SEND_SIGNALED)
+            player.qp.bind_mw(player.mw, mw_bind)
+            # Poll the bound MW action request completion.
+            u.poll_cq(player.cq)
+
+    def invalidate_mw_type2_local(self):
+        """
+        Invalidate the MWs by post invalidation send WR from the local QP.
+        :return: None
+        """
+        inv_send_wr = SendWR(opcode=e.IBV_WR_LOCAL_INV)
+        inv_send_wr.imm_data = self.server.rkey
+        self.client.qp.post_send(inv_send_wr)
+        inv_send_wr = SendWR(opcode=e.IBV_WR_LOCAL_INV)
+        inv_send_wr.imm_data = self.client.rkey
+        self.server.qp.post_send(inv_send_wr)
+        # Poll the invalidate MW WR.
+        u.poll_cq(self.server.cq)
+        u.poll_cq(self.client.cq)
+
+    def invalidate_mw_type2_remote(self):
+        """
+        Invalidate the MWs by sending invalidation send WR from the remote QP.
+        :return: None
+        """
+        server_recv_wr = u.get_recv_wr(self.server)
+        client_recv_wr = u.get_recv_wr(self.client)
+        self.server.qp.post_recv(server_recv_wr)
+        self.client.qp.post_recv(client_recv_wr)
+        inv_send_wr = SendWR(opcode=e.IBV_WR_SEND_WITH_INV)
+        inv_send_wr.imm_data = self.client.rkey
+        self.client.qp.post_send(inv_send_wr)
+        inv_send_wr = SendWR(opcode=e.IBV_WR_SEND_WITH_INV)
+        inv_send_wr.imm_data = self.server.rkey
+        self.server.qp.post_send(inv_send_wr)
+        # Poll the invalidate MW send WR.
+        u.poll_cq(self.server.cq)
+        u.poll_cq(self.client.cq)
+        # Poll the invalidate MW recv WR.
+        u.poll_cq(self.server.cq)
+        u.poll_cq(self.client.cq)
+
+    def test_mw_type1(self):
+        self.create_players(MWRC, mw_type=e.IBV_MW_TYPE_1)
+        self.bind_mw_type_1()
+        u.rdma_traffic(self.client, self.server, self.iters, self.gid_index,
+                       self.ib_port, send_op=e.IBV_WR_RDMA_WRITE)
+
+    def test_mw_type2(self):
+        self.create_players(MWRC, mw_type=e.IBV_MW_TYPE_2)
+        self.bind_mw_type_2()
+        u.rdma_traffic(self.client, self.server, self.iters, self.gid_index,
+                       self.ib_port, send_op=e.IBV_WR_RDMA_WRITE)
 
     def test_reg_mw_wrong_type(self):
         """
         Verify that trying to create a MW of a wrong type fails
         """
-        for ctx, attr, attr_ex in self.devices:
+        with d.Context(name=self.dev_name) as ctx:
             with PD(ctx) as pd:
                 try:
-                    mw_type = random.randint(3, 100)
+                    mw_type = 3
                     MW(pd, mw_type)
-                except PyverbsRDMAError:
-                    pass
+                except PyverbsRDMAError as ex:
+                    if ex.error_code == errno.EOPNOTSUPP:
+                        raise unittest.SkipTest('Create memory window of type {} is not supported'.format(mw_type))
                 else:
                     raise PyverbsError('Created a MW with type {t}'.\
                                        format(t=mw_type))
@@ -254,7 +363,7 @@ class DMMRTest(PyverbsAPITestCase):
         """
         for ctx, attr, attr_ex in self.devices:
             if attr_ex.max_dm_size == 0:
-                return
+                raise unittest.SkipTest('Device memory is not supported')
             with PD(ctx) as pd:
                 for i in range(10):
                     dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,

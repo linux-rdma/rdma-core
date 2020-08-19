@@ -21,6 +21,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_NODE_RNIC
         IBV_NODE_USNIC
         IBV_NODE_USNIC_UDP
+        IBV_NODE_UNSPECIFIED
 
     cpdef enum:
         IBV_LINK_LAYER_UNSPECIFIED
@@ -427,9 +428,18 @@ cdef extern from '<infiniband/verbs.h>':
     cdef void *IBV_ALLOCATOR_USE_DEFAULT
 
 
+cdef extern from "<infiniband/verbs_api.h>":
+    cdef unsigned long long IBV_ADVISE_MR_ADVICE_PREFETCH
+    cdef unsigned long long IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE
+    cdef unsigned long long IBV_ADVISE_MR_FLAG_FLUSH
+
+
 _IBV_DEVICE_RAW_SCATTER_FCS = IBV_DEVICE_RAW_SCATTER_FCS
 _IBV_DEVICE_PCI_WRITE_END_PADDING = IBV_DEVICE_PCI_WRITE_END_PADDING
 _IBV_ALLOCATOR_USE_DEFAULT = <size_t>IBV_ALLOCATOR_USE_DEFAULT
+_IBV_ADVISE_MR_ADVICE_PREFETCH = IBV_ADVISE_MR_ADVICE_PREFETCH
+_IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE = IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE
+_IBV_ADVISE_MR_FLAG_FLUSH = IBV_ADVISE_MR_FLAG_FLUSH
 
 
 cdef extern from '<infiniband/driver.h>':

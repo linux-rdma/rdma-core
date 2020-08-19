@@ -40,6 +40,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include <util/util.h>
+
 static pthread_mutex_t acm_lock = PTHREAD_MUTEX_INITIALIZER;
 static int sock = -1;
 static short server_port = 6125;
@@ -202,7 +204,9 @@ static int acm_format_ep_addr(struct acm_ep_addr_data *data, uint8_t *addr,
 
 	switch (type) {
 	case ACM_EP_INFO_NAME:
-		strncpy((char *) data->info.name,  (char *) addr,  ACM_MAX_ADDRESS);
+		if (!check_snprintf((char *)data->info.name,
+				   sizeof(data->info.name), "%s", (char *)addr))
+			return -1;
 		break;
 	case ACM_EP_INFO_ADDRESS_IP:
 		memcpy(data->info.addr, &((struct sockaddr_in *) addr)->sin_addr, 4);

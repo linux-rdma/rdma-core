@@ -123,8 +123,9 @@ struct qelr_device {
 };
 
 enum qelr_dpm_flags {
-	QELR_DPM_FLAGS_ENHANCED = (1 << 0),
-	QELR_DPM_FLAGS_LEGACY	= (1 << 1),
+	QELR_DPM_FLAGS_ENHANCED  = (1 << 0),
+	QELR_DPM_FLAGS_LEGACY	 = (1 << 1),
+	QELR_DPM_FLAGS_EDPM_MODE = (1 << 2),
 };
 
 struct qelr_devctx {
@@ -137,6 +138,7 @@ struct qelr_devctx {
 	enum qelr_dpm_flags	dpm_flags;
 	uint32_t		kernel_page_size;
 	uint16_t		ldpm_limit_size;
+	uint16_t		edpm_limit_size;
 	uint8_t			edpm_trans_size;
 
 	uint32_t		max_send_wr;
@@ -289,6 +291,7 @@ struct qelr_qp {
 	int					sq_sig_all;
 	int					atomic_supported;
 	uint8_t					edpm_disabled;
+	uint8_t					edpm_mode;
 	struct qelr_srq				*srq;
 };
 

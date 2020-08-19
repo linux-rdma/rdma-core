@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved.
+from libc.stdint cimport uintptr_t, uint32_t
+from libc.stdlib cimport malloc
 import weakref
 import logging
 
@@ -7,8 +9,8 @@ from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError, \
     PyverbsRDMAError
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
+from pyverbs.wr cimport copy_sg_array
 from pyverbs.device cimport Context
-from libc.stdint cimport uintptr_t
 from pyverbs.cmid cimport CMID
 from .mr cimport MR, MW, DMMR
 from pyverbs.srq cimport SRQ
@@ -18,19 +20,31 @@ from pyverbs.qp cimport QP
 
 
 cdef class PD(PyverbsCM):
-    def __init__(self, object creator not None):
+    def __init__(self, object creator not None, **kwargs):
         """
         Initializes a PD object. A reference for the creating Context is kept
         so that Python's GC will destroy the objects in the right order.
         :param creator: The Context/CMID object creating the PD
+        :param kwargs: Arguments:
+            * *handle*
+                A valid kernel handle for a PD object in the given creator
+                (Context). If passed, the PD will be imported and associated
+                with the given handle in the given context using ibv_import_pd.
         """
         super().__init__()
+        pd_handle = kwargs.get('handle')
         if issubclass(type(creator), Context):
             # Check if the ibv_pd* was initialized by an inheriting class
             if self.pd == NULL:
-                self.pd = v.ibv_alloc_pd((<Context>creator).context)
+                if pd_handle is not None:
+                    self.pd = v.ibv_import_pd((<Context>creator).context, pd_handle)
+                    self._is_imported = True
+                    err_str = 'Failed to import PD'
+                else:
+                    self.pd = v.ibv_alloc_pd((<Context>creator).context)
+                    err_str = 'Failed to allocate PD'
                 if self.pd == NULL:
-                    raise PyverbsRDMAErrno('Failed to allocate PD')
+                    raise PyverbsRDMAErrno(err_str)
             self.ctx = creator
         elif issubclass(type(creator), CMID):
             cmid = <CMID>creator
@@ -41,13 +55,34 @@ cdef class PD(PyverbsCM):
             raise PyverbsUserError('Cannot create PD from {type}'
                                    .format(type=type(creator)))
         self.ctx.add_ref(self)
-        self.logger.debug('PD: Allocated ibv_pd')
+        self.logger.debug('Created PD')
         self.srqs = weakref.WeakSet()
         self.mrs = weakref.WeakSet()
         self.mws = weakref.WeakSet()
         self.ahs = weakref.WeakSet()
         self.qps = weakref.WeakSet()
         self.parent_domains = weakref.WeakSet()
+
+    def advise_mr(self, advise, uint32_t flags, sg_list not None):
+        """
+        Give advice or directions to the kernel about an address range
+        belonging to a MR.
+        :param advise: The requested advise value
+        :param flags: Describes the properties of the advise operation
+        :param sg_list: The scatter gather list
+        :return: 0 on success, otherwise PyverbsRDMAError will be raised
+        """
+        num_sges = len(sg_list)
+        dst_sg_list = <v.ibv_sge*>malloc(num_sges * sizeof(v.ibv_sge))
+        copy_sg_array(dst_sg_list, sg_list, num_sges)
+        rc = v.ibv_advise_mr(self.pd, advise, flags, dst_sg_list, num_sges)
+        if rc:
+            raise PyverbsRDMAError('Failed to advise MR', rc)
+        return rc
+
+    def unimport(self):
+        v.ibv_unimport_pd(self.pd)
+        self.close()
 
     def __dealloc__(self):
         """
@@ -62,15 +97,18 @@ cdef class PD(PyverbsCM):
         PD may be deleted directly or indirectly by closing its context, which
         leaves the Python PD object without the underlying C object, so during
         destruction, need to check whether or not the C object exists.
+        In case of an imported PD no deallocation will be done, it's left for
+        the original PD, in order to prevent double dealloc by the GC.
         :return: None
         """
         if self.pd != NULL:
             self.logger.debug('Closing PD')
             close_weakrefs([self.parent_domains, self.qps, self.ahs, self.mws,
                             self.mrs, self.srqs])
-            rc = v.ibv_dealloc_pd(self.pd)
-            if rc != 0:
-                raise PyverbsRDMAError('Failed to dealloc PD', rc)
+            if not self._is_imported:
+                rc = v.ibv_dealloc_pd(self.pd)
+                if rc != 0:
+                    raise PyverbsRDMAError('Failed to dealloc PD', rc)
             self.pd = NULL
             self.ctx = None
 
@@ -89,6 +127,10 @@ cdef class PD(PyverbsCM):
             self.parent_domains.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
+
+    @property
+    def handle(self):
+        return self.pd.handle
 
 
 cdef void *pd_alloc(v.ibv_pd *pd, void *pd_context, size_t size,

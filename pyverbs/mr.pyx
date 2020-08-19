@@ -6,14 +6,16 @@ import logging
 
 from posix.mman cimport mmap, munmap, MAP_PRIVATE, PROT_READ, PROT_WRITE, \
     MAP_ANONYMOUS, MAP_HUGETLB
-from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError, \
+    PyverbsUserError
+from libc.stdint cimport uintptr_t, SIZE_MAX
 from pyverbs.base import PyverbsRDMAErrno
 from posix.stdlib cimport posix_memalign
 from libc.string cimport memcpy, memset
 cimport pyverbs.libibverbs_enums as e
-from libc.stdint cimport uintptr_t
 from pyverbs.device cimport DM
 from libc.stdlib cimport free
+from .cmid cimport CMID
 from .pd cimport PD
 
 cdef extern from 'sys/mman.h':
@@ -27,32 +29,52 @@ cdef class MR(PyverbsCM):
     MR class represents ibv_mr. Buffer allocation in done in the c'tor. Freeing
     it is done in close().
     """
-    def __init__(self, PD pd not None, length, access, address=None):
+    def __init__(self, creator not None, length=0, access=0, address=None,
+                 implicit=False, **kwargs):
         """
         Allocate a user-level buffer of length <length> and register a Memory
         Region of the given length and access flags.
-        :param pd: A PD object
-        :param length: Length in bytes
+        :param creator: A PD/CMID object. In case of CMID is passed the MR will
+                        be registered using rdma_reg_msgs/write/read according
+                        to the passed access flag of local_write/remote_write or
+                        remote_read respectively.
+        :param length: Length (in bytes) of MR's buffer.
         :param access: Access flags, see ibv_access_flags enum
         :param address: Memory address to register (Optional). If it's not
                         provided, a memory will be allocated in the class
                         initialization.
+        :param implicit: Implicit the MR address.
+        :param kwargs: Arguments:
+            * *handle*
+                A valid kernel handle for a MR object in the given PD (creator).
+                If passed, the MR will be imported and associated with the
+                context that is associated with the given PD using ibv_import_mr.
         :return: The newly created MR on success
         """
         super().__init__()
         if self.mr != NULL:
             return
         self.is_huge = True if access & e.IBV_ACCESS_HUGETLB else False
-        # We want to enable registering an MR of size 0 but this fails with a
-        # buffer of size 0, so in this case lets increase the buffer
-        if length == 0:
-            length = 10
         if address:
             self.is_user_addr = True
             # uintptr_t is guaranteed to be large enough to hold any pointer.
             # In order to safely cast addr to void*, it is firstly cast to uintptr_t.
             self.buf = <void*><uintptr_t>address
-        else:
+
+        mr_handle = kwargs.get('handle')
+        # If a MR handle is passed import MR and finish
+        if mr_handle is not None:
+            pd = <PD>creator
+            self.mr = v.ibv_import_mr(pd.pd, mr_handle)
+            if self.mr == NULL:
+                raise PyverbsRDMAErrno('Failed to import MR')
+            self._is_imported = True
+            self.pd = pd
+            pd.add_ref(self)
+            return
+
+        # Allocate a buffer
+        if not address and length > 0:
             if self.is_huge:
                 # Rounding up to multiple of HUGE_PAGE_SIZE
                 self.mmap_length = length + (HUGE_PAGE_SIZE - length % HUGE_PAGE_SIZE) \
@@ -68,14 +90,33 @@ cdef class MR(PyverbsCM):
                     raise PyverbsError('Failed to allocate MR buffer of size {l}'.
                                        format(l=length))
             memset(self.buf, 0, length)
-        self.mr = v.ibv_reg_mr(<v.ibv_pd*>pd.pd, self.buf, length, access)
+        if isinstance(creator, PD):
+            pd = <PD>creator
+            if implicit:
+                self.mr = v.ibv_reg_mr(pd.pd, NULL, SIZE_MAX, access)
+            else:
+                self.mr = v.ibv_reg_mr(pd.pd, self.buf, length, access)
+            self.pd = pd
+            pd.add_ref(self)
+        elif isinstance(creator, CMID):
+            cmid = <CMID>creator
+            if access == e.IBV_ACCESS_LOCAL_WRITE:
+                self.mr = cm.rdma_reg_msgs(cmid.id, self.buf, length)
+            elif access == e.IBV_ACCESS_REMOTE_WRITE:
+                self.mr = cm.rdma_reg_write(cmid.id, self.buf, length)
+            elif access == e.IBV_ACCESS_REMOTE_READ:
+                self.mr = cm.rdma_reg_read(cmid.id, self.buf, length)
+            self.cmid = cmid
+            cmid.add_ref(self)
         if self.mr == NULL:
             raise PyverbsRDMAErrno('Failed to register a MR. length: {l}, access flags: {a}'.
                                    format(l=length, a=access))
-        self.pd = pd
-        pd.add_ref(self)
         self.logger.debug('Registered ibv_mr. Length: {l}, access flags {a}'.
                           format(l=length, a=access))
+
+    def unimport(self):
+        v.ibv_unimport_mr(self.mr)
+        self.close()
 
     def __dealloc__(self):
         self.close()
@@ -86,34 +127,43 @@ cdef class MR(PyverbsCM):
         MR may be deleted directly or indirectly by closing its context, which
         leaves the Python PD object without the underlying C object, so during
         destruction, need to check whether or not the C object exists.
+        In case of an imported MR no deregistration will be done, it's left
+        for the original MR, in order to prevent double dereg by the GC.
         :return: None
         """
         if self.mr != NULL:
             self.logger.debug('Closing MR')
-            rc = v.ibv_dereg_mr(self.mr)
-            if rc != 0:
-                raise PyverbsRDMAError('Failed to dereg MR', rc)
+            if not self._is_imported:
+                rc = v.ibv_dereg_mr(self.mr)
+                if rc != 0:
+                    raise PyverbsRDMAError('Failed to dereg MR', rc)
+                if not self.is_user_addr:
+                    if self.is_huge:
+                        munmap(self.buf, self.mmap_length)
+                    else:
+                        free(self.buf)
             self.mr = NULL
             self.pd = None
-        if not self.is_user_addr:
-            if self.is_huge:
-                munmap(self.buf, self.mmap_length)
-            else:
-                free(self.buf)
-        self.buf = NULL
+            self.buf = NULL
+            self.cmid = None
 
-    def write(self, data, length):
+    def write(self, data, length, offset=0):
         """
         Write user data to the MR's buffer using memcpy
         :param data: User data to write
         :param length: Length of the data to write
+        :param offset: Writing offset
         :return: None
         """
+        if not self.buf or length < 0:
+            raise PyverbsUserError('The MR buffer isn\'t allocated or length'
+                                   f' {length} is invalid')
         # If data is a string, cast it to bytes as Python3 doesn't
         # automatically convert it.
+        cdef int off = offset
         if isinstance(data, str):
             data = data.encode()
-        memcpy(self.buf, <char *>data, length)
+        memcpy(<char*>(self.buf + off), <char *>data, length)
 
     cpdef read(self, length, offset):
         """
@@ -125,6 +175,11 @@ cdef class MR(PyverbsCM):
         cdef char *data
         cdef int off = offset # we can't use offset in the next line, as it is
                               # a Python object and not C
+        if offset < 0:
+            raise PyverbsUserError(f'Invalid offset {offset}')
+        if not self.buf or length < 0:
+            raise PyverbsUserError('The MR buffer isn\'t allocated or length'
+                                   f' {length} is invalid')
         data = <char*>(self.buf + off)
         return data[:length]
 
@@ -144,6 +199,19 @@ cdef class MR(PyverbsCM):
     def length(self):
         return self.mr.length
 
+    @property
+    def handle(self):
+        return self.mr.handle
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        return 'MR\n' + \
+               print_format.format('lkey', self.lkey) + \
+               print_format.format('rkey', self.rkey) + \
+               print_format.format('length', self.length) + \
+               print_format.format('buf', <uintptr_t>self.buf) + \
+               print_format.format('handle', self.handle)
+
 
 cdef class MWBindInfo(PyverbsCM):
     def __init__(self, MR mr not None, addr, length, mw_access_flags):
@@ -153,6 +221,39 @@ cdef class MWBindInfo(PyverbsCM):
         self.info.addr = addr
         self.info.length = length
         self.info.mw_access_flags = mw_access_flags
+
+    @property
+    def mw_access_flags(self):
+        return self.info.mw_access_flags
+
+    @property
+    def length(self):
+        return self.info.length
+
+    @property
+    def addr(self):
+        return self.info.addr
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        return 'MWBindInfo:\n' +\
+            print_format.format('Addr', self.info.addr) +\
+            print_format.format('Length', self.info.length) +\
+            print_format.format('MW access flags', self.info.mw_access_flags)
+
+
+cdef class MWBind(PyverbsCM):
+    def __init__(self, MWBindInfo info not None,send_flags, wr_id=0):
+        super().__init__()
+        self.mw_bind.wr_id = wr_id
+        self.mw_bind.send_flags = send_flags
+        self.mw_bind.bind_info = info.info
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        return 'MWBind:\n' +\
+            print_format.format('WR id', self.mw_bind.wr_id) +\
+            print_format.format('Send flags', self.mw_bind.send_flags)
 
 
 cdef class MW(PyverbsCM):
@@ -191,6 +292,25 @@ cdef class MW(PyverbsCM):
                 raise PyverbsRDMAError('Failed to dealloc MW', rc)
             self.mw = NULL
             self.pd = None
+
+    @property
+    def handle(self):
+        return self.mw.handle
+
+    @property
+    def rkey(self):
+        return self.mw.rkey
+
+    @property
+    def type(self):
+        return self.mw.type
+
+    def __str__(self):
+        print_format = '{:22}: {:<20}\n'
+        return 'MW:\n' +\
+            print_format.format('Rkey', self.mw.rkey) +\
+            print_format.format('Handle', self.mw.handle) +\
+            print_format.format('MW Type', mwtype2str(self.mw.type))
 
 
 cdef class DMMR(MR):

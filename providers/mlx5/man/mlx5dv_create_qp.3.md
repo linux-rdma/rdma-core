@@ -112,6 +112,13 @@ struct mlx5dv_dc_init_attr {
 **mlx5dv_qp_ex_from_ibv_qp_ex()** is used to get *struct mlx5dv_qp_ex* for
 accessing the send ops interfaces when IBV_QP_INIT_ATTR_SEND_OPS_FLAGS is used.
 
+The MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE flag should be set in cases that IOVA doesn't
+match the process' VA and the message payload size is small enough to trigger the scatter to CQE
+feature.
+
+When device memory is used IBV_SEND_INLINE and scatter to CQE should not be used, as the memcpy
+is not possible.
+
 # RETURN VALUE
 
 **mlx5dv_create_qp()**

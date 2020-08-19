@@ -126,6 +126,22 @@ IBVERBS_1.8 {
 		ibv_reg_mr_iova2;
 } IBVERBS_1.7;
 
+IBVERBS_1.9 {
+	global:
+		ibv_get_device_index;
+} IBVERBS_1.8;
+
+IBVERBS_1.10 {
+	global:
+		ibv_import_device;
+		ibv_import_mr;
+		ibv_import_pd;
+		ibv_query_ece;
+		ibv_set_ece;
+		ibv_unimport_mr;
+		ibv_unimport_pd;
+} IBVERBS_1.9;
+
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. See the top level CMakeLists.txt for this setting. */
 
@@ -180,8 +196,10 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_post_recv;
 		ibv_cmd_post_send;
 		ibv_cmd_post_srq_recv;
+		ibv_cmd_query_context;
 		ibv_cmd_query_device;
 		ibv_cmd_query_device_ex;
+		ibv_cmd_query_mr;
 		ibv_cmd_query_port;
 		ibv_cmd_query_qp;
 		ibv_cmd_query_srq;

@@ -22,7 +22,7 @@ pr:
 resources:
   containers:
     - container: azp
-      image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:28.0
+      image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:29.0
       endpoint: ucfconsort_registry
     - container: centos6
       image: ucfconsort.azurecr.io/rdma-core/centos6:25.0
@@ -34,10 +34,13 @@ resources:
       image: ucfconsort.azurecr.io/rdma-core/centos8:25.0
       endpoint: ucfconsort_registry
     - container: fedora
-      image: ucfconsort.azurecr.io/rdma-core/fc31:25.0
+      image: ucfconsort.azurecr.io/rdma-core/fc32:31.0
       endpoint: ucfconsort_registry
     - container: xenial
       image: ucfconsort.azurecr.io/rdma-core/ubuntu-16.04:28.0
+      endpoint: ucfconsort_registry
+    - container: bionic
+      image: ucfconsort.azurecr.io/rdma-core/ubuntu-18.04:29.0
       endpoint: ucfconsort_registry
     - container: leap
       image: ucfconsort.azurecr.io/rdma-core/opensuse-15.0:25.0
@@ -61,18 +64,18 @@ stages:
 
           - bash: |
               set -e
-              mkdir build-gcc9
-              cd build-gcc9
-              CC=gcc-9 cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_STATIC=1 -DENABLE_WERROR=1
+              mkdir build-gcc10
+              cd build-gcc10
+              CC=gcc-10 cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_STATIC=1 -DENABLE_WERROR=1
               ninja
-            displayName: gcc 9.1 Compile
+            displayName: gcc 10.0 Compile
 
           - task: PythonScript@0
             displayName: Check Build Script
             inputs:
               scriptPath: buildlib/check-build
-              arguments: --src .. --cc gcc-9
-              workingDirectory: build-gcc9
+              arguments: --src .. --cc gcc-10
+              workingDirectory: build-gcc10
               pythonInterpreter: /usr/bin/python3
 
           # Run sparse on the subdirectories which are sparse clean
@@ -95,17 +98,17 @@ stages:
               set -e
               mkdir build-clang
               cd build-clang
-              CC=clang-9 CFLAGS="-m32" cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
+              CC=clang-10 CFLAGS="-m32" cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
               ninja
-            displayName: clang 9.0 32-bit Compile
+            displayName: clang 10.0 32-bit Compile
 
           - bash: |
               set -e
               mv util/udma_barrier.h util/udma_barrier.h.old
               echo "#error Fail" >> util/udma_barrier.h
-              cd build-gcc9
+              cd build-gcc10
               rm CMakeCache.txt
-              CC=gcc-9 cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_WERROR=1
+              CC=gcc-10 cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_WERROR=1
               ninja
               mv ../util/udma_barrier.h.old ../util/udma_barrier.h
             displayName: Simulate non-coherent DMA Platform Compile
@@ -114,27 +117,27 @@ stages:
               set -e
               mkdir build-arm64
               cd build-arm64
-              CC=aarch64-linux-gnu-gcc-8 cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
+              CC=aarch64-linux-gnu-gcc-9 cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
               ninja
-            displayName: gcc 8.3 ARM64 Compile
+            displayName: gcc 9.3 ARM64 Compile
 
           - bash: |
               set -e
               mkdir build-ppc64el
               cd build-ppc64el
-              CC=powerpc64le-linux-gnu-gcc-8 cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
+              CC=powerpc64le-linux-gnu-gcc-9 cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
               ninja
-            displayName: gcc 8.3 PPC64EL Compile
+            displayName: gcc 9.3 PPC64EL Compile
 
           - bash: |
               set -e
               sed -i -e 's/ninja \(.*\)-v/ninja \1/g' debian/rules
-              debian/rules CC=clang-9 EXTRA_CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1" build
-            displayName: clang 9.0 Bionic Build
+              debian/rules CC=clang-10 EXTRA_CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1" build
+            displayName: clang 10.0 Bionic Build
           - bash: |
               set -e
               fakeroot debian/rules binary
-            displayName: clang 9.0 Bionic .deb Build
+            displayName: clang 10.0 Bionic .deb Build
           - bash: |
               set -e
               lintian ../*.deb
@@ -153,7 +156,7 @@ stages:
               set -e
               mkdir build-pandoc artifacts
               cd build-pandoc
-              CC=gcc-9 cmake -GNinja ..
+              CC=gcc-10 cmake -GNinja ..
               ninja docs
               cd ../artifacts
               # FIXME: Check Build.SourceBranch for tag consistency
@@ -220,6 +223,8 @@ stages:
           matrix:
             xenial:
               CONTAINER: xenial
+            bionic:
+              CONTAINER: bionic
         container: $[ variables['CONTAINER'] ]
         steps:
           - checkout: none

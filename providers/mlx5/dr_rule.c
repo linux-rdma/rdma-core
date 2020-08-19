@@ -263,7 +263,7 @@ static struct dr_ste *dr_rule_rehash_copy_ste(struct mlx5dv_dr_matcher *matcher,
 	new_idx = dr_ste_calc_hash_index(hw_ste, new_htbl);
 	new_ste = &new_htbl->ste_arr[new_idx];
 
-	if (dr_ste_not_used_ste(new_ste)) {
+	if (dr_ste_is_not_used(new_ste)) {
 		dr_htbl_get(new_htbl);
 		list_add_tail(dr_ste_get_miss_list(new_ste), &new_ste->miss_list_node);
 	} else {
@@ -349,7 +349,7 @@ static int dr_rule_rehash_copy_htbl(struct mlx5dv_dr_matcher *matcher,
 
 	for (i = 0; i < cur_entries; i++) {
 		cur_ste = &cur_htbl->ste_arr[i];
-		if (dr_ste_not_used_ste(cur_ste)) /* Empty, nothing to copy */
+		if (dr_ste_is_not_used(cur_ste)) /* Empty, nothing to copy */
 			continue;
 
 		err = dr_rule_rehash_copy_miss_list(matcher,
@@ -810,7 +810,7 @@ again:
 	miss_list = &cur_htbl->chunk->miss_list[index];
 	ste = &cur_htbl->ste_arr[index];
 
-	if (dr_ste_not_used_ste(ste)) {
+	if (dr_ste_is_not_used(ste)) {
 		if (dr_rule_handle_empty_entry(matcher, nic_matcher, cur_htbl,
 					       ste, ste_location,
 					       hw_ste, miss_list,

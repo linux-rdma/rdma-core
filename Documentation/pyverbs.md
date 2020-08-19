@@ -175,6 +175,8 @@ with d.Context(name='mlx5_0') as ctx:
 ##### Memory window
 The following example shows the equivalent of creating a type 1 memory window.
 It includes opening a device and allocating the necessary PD.
+The user should unbind or close the memory window before being able to
+deregister an MR that the MW is bound to.
 ```python
 import pyverbs.device as d
 from pyverbs.pd import PD
@@ -533,12 +535,12 @@ import pyverbs.cm_enums as ce
 
 cap = QPCap(max_recv_wr=1)
 qp_init_attr = QPInitAttr(cap=cap)
-server = '11.137.14.124'
+addr = '11.137.14.124'
 port = '7471'
 
 # Passive side
 
-sai = AddrInfo(server, port, ce.RDMA_PS_TCP, ce.RAI_PASSIVE)
+sai = AddrInfo(src=addr, src_service=port, port_space=ce.RDMA_PS_TCP, flags=ce.RAI_PASSIVE)
 sid = CMID(creator=sai, qp_init_attr=qp_init_attr)
 sid.listen()  # listen for incoming connection requests
 new_id = sid.get_request()  # check if there are any connection requests
@@ -546,9 +548,9 @@ new_id.accept()  # new_id is connected to remote peer and ready to communicate
 
 # Active side
 
-cai = AddrInfo(server, port, ce.RDMA_PS_TCP)
+cai = AddrInfo(src=addr, dst=addr, dst_service=port, port_space=ce.RDMA_PS_TCP)
 cid = CMID(creator=cai, qp_init_attr=qp_init_attr)
-cid.connect()  # send connection request to server
+cid.connect()  # send connection request to passive addr
 ```
 
 ##### ParentDomain
@@ -610,4 +612,59 @@ ctx = Mlx5Context(attr=mlx5dv_attr, name='rocep0s8f0')
 rate_limit_inbox = (5).to_bytes(length=4, byteorder='big', signed=True)
 pp = Mlx5PP(ctx, rate_limit_inbox)
 pp.close()
+```
+
+##### MLX5 UAR
+User Access Region (UAR) is part of PCI address space that is mapped for direct
+access to the HCA from the CPU.
+The UAR is needed for some device commands over the DevX interface.
+The following code snippet demonstrates how to allocate and free an
+mlx5dv_devx_uar.
+```python
+from pyverbs.providers.mlx5.mlx5dv import Mlx5UAR
+from pyverbs.device import Context
+
+ctx = Context(name='rocep0s8f0')
+uar = Mlx5UAR(ctx)
+uar.close()
+```
+
+##### Import device, PD and MR
+Importing a device, PD and MR enables processes to share their context and then
+share PDs and MRs that is associated with.
+A process creates a device and then uses some of the Linux systems calls to dup
+its 'cmd_fd' member which lets other process to obtain ownership.
+Once other process obtains the 'cmd_fd' it can import the device, then PD(s) and
+MR(s) to share these objects.
+Like in C, Pyverbs users are responsible for unimporting the imported objects
+(which will also close the Pyverbs instance in our case) after they finish using
+them, and they have to sync between the different processes in order to
+coordinate the closure of the objects.
+Unlike in C, closing the underlying objects is currently supported only via the
+"original" object (meaning only by the process that creates them) and not via
+the imported object. This limitation is made because currently there's no
+reference or relation between different Pyverbs objects in different processes.
+But it's doable and might be added in the future.
+Here is a demonstration of importing a device, PD and MR in one process.
+```python
+from pyverbs.device import Context
+from pyverbs.pd import PD
+from pyverbs.mr import MR
+import pyverbs.enums as e
+import os
+
+ctx = Context(name='ibp0s8f0')
+pd = PD(ctx)
+mr = MR(pd, 100, e.IBV_ACCESS_LOCAL_WRITE)
+cmd_fd_dup = os.dup(ctx.cmd_fd)
+improted_ctx = Context(cmd_fd=cmd_fd_dup)
+imported_pd = PD(improted_ctx, handle=pd.handle)
+imported_mr = MR(imported_pd, handle=mr.handle)
+# MRs can be created as usual on the imported PD
+secondary_mr = MR(imported_pd, 100, e.IBV_ACCESS_REMOTE_READ)
+# Must manually unimport the imported objects (which close the object and frees
+# other resources that use them) before closing the "original" objects.
+# This prevents unexpected behaviours caused by the GC.
+imported_mr.unimport()
+imported_pd.unimport()
 ```

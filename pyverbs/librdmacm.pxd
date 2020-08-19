@@ -72,6 +72,11 @@ cdef extern from '<rdma/rdma_cma.h>':
         void            *ai_connect
         rdma_addrinfo   *ai_next
 
+    cdef struct rdma_cm_join_mc_attr_ex:
+        uint32_t        comp_mask
+        uint32_t        join_flags
+        sockaddr        *addr
+
 # These non rdmacm structs defined in one of rdma_cma.h's included header files
     cdef struct sockaddr:
         unsigned short  sa_family
@@ -88,6 +93,8 @@ cdef extern from '<rdma/rdma_cma.h>':
 
     rdma_event_channel *rdma_create_event_channel()
     void rdma_destroy_event_channel(rdma_event_channel *channel)
+    ibv_context **rdma_get_devices(int *num_devices)
+    void rdma_free_devices (ibv_context **list);
     int rdma_get_cm_event(rdma_event_channel *channel, rdma_cm_event **event)
     int rdma_ack_cm_event(rdma_cm_event *event)
     char *rdma_event_str(rdma_cm_event_type event)
@@ -97,11 +104,17 @@ cdef extern from '<rdma/rdma_cma.h>':
     int rdma_create_id(rdma_event_channel *channel, rdma_cm_id **id,
                        void *context, rdma_port_space ps)
     int rdma_destroy_id(rdma_cm_id *id)
+    int rdma_get_remote_ece(rdma_cm_id *id, ibv_ece *ece)
+    int rdma_set_local_ece(rdma_cm_id *id, ibv_ece *ece)
     int rdma_get_request(rdma_cm_id *listen, rdma_cm_id **id)
     int rdma_bind_addr(rdma_cm_id *id, sockaddr *addr)
     int rdma_resolve_addr(rdma_cm_id *id, sockaddr *src_addr,
                           sockaddr *dst_addr, int timeout_ms)
     int rdma_resolve_route(rdma_cm_id *id, int timeout_ms)
+    int rdma_join_multicast(rdma_cm_id *id, sockaddr *addr, void *context)
+    int rdma_join_multicast_ex(rdma_cm_id *id, rdma_cm_join_mc_attr_ex *mc_join_attr,
+                               void *context)
+    int rdma_leave_multicast(rdma_cm_id *id, sockaddr *addr)
     int rdma_connect(rdma_cm_id *id, rdma_conn_param *conn_param)
     int rdma_disconnect(rdma_cm_id *id)
     int rdma_listen(rdma_cm_id *id, int backlog)
@@ -121,7 +134,18 @@ cdef extern from '<rdma/rdma_verbs.h>':
                        size_t length, ibv_mr *mr)
     int rdma_post_send(rdma_cm_id *id, void *context, void *addr,
                        size_t length, ibv_mr *mr, int flags)
+    int rdma_post_ud_send(rdma_cm_id *id, void *context, void *addr,
+                          size_t length, ibv_mr *mr, int flags, ibv_ah *ah,
+                          uint32_t remote_qpn)
+    int rdma_post_read(rdma_cm_id *id, void *context, void *addr,
+                       size_t length, ibv_mr *mr, int flags,
+                       uint64_t remote_addr, uint32_t rkey)
+    int rdma_post_write(rdma_cm_id *id, void *context, void *addr,
+                        size_t length, ibv_mr *mr, int flags,
+                        uint64_t remote_addr, uint32_t rkey)
     int rdma_get_send_comp(rdma_cm_id *id, ibv_wc *wc)
     int rdma_get_recv_comp(rdma_cm_id *id, ibv_wc *wc)
     ibv_mr *rdma_reg_msgs(rdma_cm_id *id, void *addr, size_t length)
+    ibv_mr *rdma_reg_read(rdma_cm_id *id, void *addr, size_t length)
+    ibv_mr *rdma_reg_write(rdma_cm_id *id, void *addr, size_t length)
     int rdma_dereg_mr(ibv_mr *mr)

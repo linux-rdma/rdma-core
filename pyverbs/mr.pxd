@@ -4,20 +4,27 @@
 #cython: language_level=3
 
 from pyverbs.base cimport PyverbsCM
+cimport pyverbs.librdmacm as cm
 from . cimport libibverbs as v
 
 
 cdef class MR(PyverbsCM):
     cdef object pd
+    cdef object cmid
     cdef v.ibv_mr *mr
     cdef int mmap_length
     cdef object is_huge
     cdef object is_user_addr
     cdef void *buf
+    cdef object _is_imported
     cpdef read(self, length, offset)
 
 cdef class MWBindInfo(PyverbsCM):
     cdef v.ibv_mw_bind_info info
+    cdef object mr
+
+cdef class MWBind(PyverbsCM):
+    cdef v.ibv_mw_bind mw_bind
     cdef object mr
 
 cdef class MW(PyverbsCM):

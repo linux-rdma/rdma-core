@@ -74,6 +74,7 @@ struct verbs_ex_private {
 	uint32_t driver_id;
 	bool use_ioctl_write;
 	struct verbs_context_ops ops;
+	bool imported;
 };
 
 static inline struct verbs_ex_private *get_priv(struct ibv_context *ctx)

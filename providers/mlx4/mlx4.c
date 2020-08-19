@@ -126,7 +126,7 @@ static const struct verbs_context_ops mlx4_ctx_ops = {
 	.destroy_flow = mlx4_destroy_flow,
 	.destroy_rwq_ind_table = mlx4_destroy_rwq_ind_table,
 	.destroy_wq = mlx4_destroy_wq,
-	.get_srq_num = verbs_get_srq_num,
+	.get_srq_num = mlx4_get_srq_num,
 	.modify_cq = mlx4_modify_cq,
 	.modify_wq = mlx4_modify_wq,
 	.open_qp = mlx4_open_qp,
@@ -354,7 +354,7 @@ static int mlx4dv_get_cq(struct ibv_cq *cq_in,
 	cq_out->arm_db = mcq->arm_db;
 	cq_out->arm_sn = mcq->arm_sn;
 	cq_out->cqe_size = mcq->cqe_size;
-	cq_out->cqe_cnt = mcq->ibv_cq.cqe + 1;
+	cq_out->cqe_cnt = mcq->verbs_cq.cq.cqe + 1;
 
 	mcq->flags |= MLX4_CQ_FLAGS_DV_OWNED;
 
