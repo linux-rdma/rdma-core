@@ -588,6 +588,8 @@ static void convert_send_wr(struct rxe_send_wr *kwr, struct ibv_send_wr *uwr)
 	case IBV_WR_SEND_WITH_INV:
 	case IBV_WR_TSO:
 	case IBV_WR_DRIVER1:
+	case IBV_WR_MASKED_ATOMIC_CMP_AND_SWP:
+	case IBV_WR_MASKED_ATOMIC_FETCH_AND_ADD:
 		break;
 	}
 }

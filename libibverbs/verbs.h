@@ -502,6 +502,8 @@ enum ibv_wc_opcode {
 	IBV_WC_BIND_MW,
 	IBV_WC_LOCAL_INV,
 	IBV_WC_TSO,
+	IBV_WC_MASKED_COMP_SWAP,
+	IBV_WC_MASKED_FETCH_ADD,
 /*
  * Set value of IBV_WC_RECV so consumers can test if a completion is a
  * receive by testing (opcode & IBV_WC_RECV).
@@ -1076,6 +1078,8 @@ enum ibv_wr_opcode {
 	IBV_WR_BIND_MW,
 	IBV_WR_SEND_WITH_INV,
 	IBV_WR_TSO,
+	IBV_WR_MASKED_ATOMIC_CMP_AND_SWP,
+	IBV_WR_MASKED_ATOMIC_FETCH_AND_ADD,
 	IBV_WR_DRIVER1,
 };
 
