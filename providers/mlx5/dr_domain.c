@@ -44,6 +44,8 @@ static int dr_domain_init_resources(struct mlx5dv_dr_domain *dmn)
 {
 	int ret = -1;
 
+	dmn->ste_ctx = dr_ste_get_ctx(MLX5_HW_CONNECTX_5);
+
 	dmn->pd = ibv_alloc_pd(dmn->ctx);
 	if (!dmn->pd) {
 		dr_dbg(dmn, "Couldn't allocate PD\n");
