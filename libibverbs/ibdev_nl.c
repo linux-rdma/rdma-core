@@ -206,7 +206,8 @@ int find_sysfs_devs_nl(struct list_head *tmp_sysfs_dev_list)
 		goto err;
 
 	list_for_each_safe (tmp_sysfs_dev_list, dev, dev_tmp, entry) {
-		if (find_uverbs_nl(nl, dev) && find_uverbs_sysfs(dev)) {
+		if ((find_uverbs_nl(nl, dev) && find_uverbs_sysfs(dev)) ||
+		    try_access_device(dev)) {
 			list_del(&dev->entry);
 			free(dev);
 		}
