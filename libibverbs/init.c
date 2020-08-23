@@ -64,7 +64,7 @@ struct ibv_driver {
 
 static LIST_HEAD(driver_list);
 
-static int try_access_device(const struct verbs_sysfs_dev *sysfs_dev)
+int try_access_device(const struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct stat cdev_stat;
 	char *devpath;
