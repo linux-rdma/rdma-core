@@ -1132,16 +1132,16 @@ void dr_ste_build_tnl_mpls(struct dr_ste_ctx *ste_ctx,
 	ste_ctx->build_tnl_mpls_init(sb, mask);
 }
 
-int dr_ste_build_icmp(struct dr_ste_ctx *ste_ctx,
-		      struct dr_ste_build *sb,
-		      struct dr_match_param *mask,
-		      struct dr_devx_caps *caps,
-		      bool inner, bool rx)
+void dr_ste_build_icmp(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       struct dr_devx_caps *caps,
+		       bool inner, bool rx)
 {
 	sb->rx = rx;
 	sb->caps = caps;
 	sb->inner = inner;
-	return ste_ctx->build_icmp_init(sb, mask);
+	ste_ctx->build_icmp_init(sb, mask);
 }
 
 void dr_ste_build_general_purpose(struct dr_ste_ctx *ste_ctx,

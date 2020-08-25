@@ -455,11 +455,11 @@ void dr_ste_build_tnl_mpls(struct dr_ste_ctx *ste_ctx,
 			   struct dr_ste_build *sb,
 			   struct dr_match_param *mask,
 			   bool inner, bool rx);
-int dr_ste_build_icmp(struct dr_ste_ctx *ste_ctx,
-		      struct dr_ste_build *sb,
-		      struct dr_match_param *mask,
-		      struct dr_devx_caps *caps,
-		      bool inner, bool rx);
+void dr_ste_build_icmp(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       struct dr_devx_caps *caps,
+		       bool inner, bool rx);
 void dr_ste_build_tnl_vxlan_gpe(struct dr_ste_ctx *ste_ctx,
 				struct dr_ste_build *sb,
 				struct dr_match_param *mask,

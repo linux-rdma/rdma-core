@@ -420,13 +420,11 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 			dr_ste_build_tnl_mpls(ste_ctx, &sb[idx++],
 					      &mask, inner, rx);
 
-		if (dr_mask_is_icmp(&mask, dmn)) {
-			ret = dr_ste_build_icmp(ste_ctx, &sb[idx++],
-						&mask, &dmn->info.caps,
-						inner, rx);
-			if (ret)
-				return ret;
-		}
+		if (dr_mask_is_icmp(&mask, dmn))
+			dr_ste_build_icmp(ste_ctx, &sb[idx++],
+					  &mask, &dmn->info.caps,
+					  inner, rx);
+
 		if (dr_mask_is_tnl_gre_set(&mask.misc))
 			dr_ste_build_tnl_gre(ste_ctx, &sb[idx++], &mask, inner, rx);
 	}

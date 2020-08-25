@@ -1257,8 +1257,10 @@ static int dr_ste_v0_build_icmp_tag(struct dr_match_param *value,
 	struct dr_match_misc3 *misc3 = &value->misc3;
 	bool is_ipv4 = DR_MASK_IS_ICMPV4_SET(misc3);
 	uint32_t *icmp_header_data;
+	uint8_t *parser_ptr;
 	uint8_t *icmp_type;
 	uint8_t *icmp_code;
+	uint32_t icmp_hdr;
 	int dw0_location;
 	int dw1_location;
 
@@ -1276,47 +1278,39 @@ static int dr_ste_v0_build_icmp_tag(struct dr_match_param *value,
 		dw1_location		= sb->caps->flex_parser_id_icmpv6_dw1;
 	}
 
-	switch (dw0_location) {
-	case 4:
-		DR_STE_SET(flex_parser_1, tag, flex_parser_4,
-			   (*icmp_type << ICMP_TYPE_OFFSET_FIRST_DW) |
-			   (*icmp_code << ICMP_CODE_OFFSET_FIRST_DW));
+	parser_ptr = dr_ste_calc_flex_parser_offset(tag, dw0_location);
+	icmp_hdr = (*icmp_type << ICMP_TYPE_OFFSET_FIRST_DW) |
+		   (*icmp_code << ICMP_CODE_OFFSET_FIRST_DW);
+	*(__be32 *)parser_ptr = htobe32(icmp_hdr);
+	*icmp_code = 0;
+	*icmp_type = 0;
 
-		*icmp_type = 0;
-		*icmp_code = 0;
-		break;
-	default:
-		errno = ENOTSUP;
-		return errno;
-	}
-
-	switch (dw1_location) {
-	case 5:
-		DR_STE_SET(flex_parser_1, tag, flex_parser_5, *icmp_header_data);
-		*icmp_header_data = 0;
-		break;
-	default:
-		errno = ENOTSUP;
-		return errno;
-	}
+	parser_ptr = dr_ste_calc_flex_parser_offset(tag, dw1_location);
+	*(__be32 *)parser_ptr = htobe32(*icmp_header_data);
+	*icmp_header_data = 0;
 
 	return 0;
 }
 
-static int dr_ste_v0_build_icmp_init(struct dr_ste_build *sb,
-				     struct dr_match_param *mask)
+static void dr_ste_v0_build_icmp_init(struct dr_ste_build *sb,
+				      struct dr_match_param *mask)
 {
-	int ret;
+	uint8_t parser_id;
+	bool is_ipv4;
 
-	ret = dr_ste_v0_build_icmp_tag(mask, sb, sb->bit_mask);
-	if (ret)
-		return ret;
+	dr_ste_v0_build_icmp_tag(mask, sb, sb->bit_mask);
 
-	sb->lu_type = DR_STE_V0_LU_TYPE_FLEX_PARSER_1;
+	/* STEs with lookup type FLEX_PARSER_{0/1} includes
+	 * flex parsers_{0-3}/{4-7} respectively.
+	 */
+	is_ipv4 = DR_MASK_IS_ICMPV4_SET(&mask->misc3);
+	parser_id = is_ipv4 ? sb->caps->flex_parser_id_icmp_dw0 :
+			      sb->caps->flex_parser_id_icmpv6_dw0;
+	sb->lu_type = parser_id > DR_STE_MAX_FLEX_0_ID ?
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_1 :
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_0;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_icmp_tag;
-
-	return 0;
 }
 
 static int dr_ste_v0_build_general_purpose_tag(struct dr_match_param *value,

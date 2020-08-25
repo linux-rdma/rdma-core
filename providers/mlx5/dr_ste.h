@@ -147,8 +147,6 @@ dr_ste_calc_flex_parser_offset(uint8_t *tag, uint8_t parser_id)
 typedef void (*dr_ste_builder_void_init)(struct dr_ste_build *sb,
 					 struct dr_match_param *mask);
 
-typedef int (*dr_ste_builder_int_init)(struct dr_ste_build *sb,
-				       struct dr_match_param *mask);
 struct dr_ste_ctx {
 	/* Builders */
 	dr_ste_builder_void_init build_eth_l2_src_dst_init;
@@ -163,7 +161,7 @@ struct dr_ste_ctx {
 	dr_ste_builder_void_init build_mpls_init;
 	dr_ste_builder_void_init build_tnl_gre_init;
 	dr_ste_builder_void_init build_tnl_mpls_init;
-	dr_ste_builder_int_init  build_icmp_init;
+	dr_ste_builder_void_init build_icmp_init;
 	dr_ste_builder_void_init build_general_purpose_init;
 	dr_ste_builder_void_init build_eth_l4_misc_init;
 	dr_ste_builder_void_init build_tnl_vxlan_gpe_init;
