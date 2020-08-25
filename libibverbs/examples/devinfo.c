@@ -458,7 +458,7 @@ static void print_raw_packet_caps(uint32_t raw_packet_caps)
 static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 {
 	struct ibv_context *ctx;
-	struct ibv_device_attr_ex device_attr;
+	struct ibv_device_attr_ex device_attr = {};
 	struct ibv_port_attr port_attr;
 	int rc = 0;
 	uint8_t port;
