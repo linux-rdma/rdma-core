@@ -1,11 +1,12 @@
 ACTION=="remove", GOTO="rdma_hw_modules_end"
-SUBSYSTEM!="net", GOTO="rdma_hw_modules_end"
 
+SUBSYSTEM!="net", GOTO="rdma_hw_modules_net_end"
+# For Ethernet cards with RoCE support
 # Automatically load RDMA specific kernel modules when a multi-function device is installed
-
 # These drivers autoload an ethernet driver based on hardware detection and
 # need userspace to load the module that has their RDMA component to turn on
 # RDMA.
+
 ENV{ID_NET_DRIVER}=="be2net", RUN{builtin}+="kmod load ocrdma"
 ENV{ID_NET_DRIVER}=="bnxt_en", RUN{builtin}+="kmod load bnxt_re"
 ENV{ID_NET_DRIVER}=="cxgb4", RUN{builtin}+="kmod load iw_cxgb4"
@@ -18,11 +19,6 @@ ENV{ID_NET_DRIVER}=="qede", RUN{builtin}+="kmod load qedr"
 # The user must explicitly load these modules via /etc/modules-load.d/ or otherwise
 # rxe
 
-# When in IB mode the kernel PCI core module autoloads the protocol modules
-# for these providers
-# mlx4
-# mlx5
-
 # enic no longer has a userspace verbs driver, this rule should probably be
 # owned by libfabric
 ENV{ID_NET_DRIVER}=="enic", RUN{builtin}+="kmod load usnic_verbs"
@@ -33,5 +29,18 @@ ENV{ID_NET_DRIVER}=="enic", RUN{builtin}+="kmod load usnic_verbs"
 # ipathverbs
 # mthca
 # vmw_pvrdma
+
+LABEL="rdma_hw_modules_net_end"
+
+SUBSYSTEM!="pci", GOTO="rdma_hw_modules_pci_end"
+# For InfiniBand cards
+# Normally the request_module inside the driver will trigger this, but in case that fails due to
+# missing modules in the initrd, trigger it again. HW that doesn't create a netdevice will not
+# trigger the net based rules above.
+
+ENV{DRIVER}=="mlx4_core", RUN{builtin}+="kmod load mlx4_ib"
+ENV{DRIVER}=="mlx5_core", RUN{builtin}+="kmod load mlx5_ib"
+
+LABEL="rdma_hw_modules_pci_end"
 
 LABEL="rdma_hw_modules_end"
