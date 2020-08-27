@@ -86,7 +86,6 @@ class DeviceTest(PyverbsAPITestCase):
         assert attr.max_mr_size > PAGE_SIZE
         assert attr.page_size_cap >= PAGE_SIZE
         assert attr.vendor_id != 0
-        assert attr.vendor_part_id != 0
         assert attr.max_qp > 0
         assert attr.max_qp_wr > 0
         assert attr.max_sge > 0
