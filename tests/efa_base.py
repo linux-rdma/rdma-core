@@ -9,6 +9,7 @@ from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.qp import QPAttr, QPCap, QPInitAttrEx
 import random
 from tests.base import TrafficResources
+import tests.utils
 import unittest
 
 
@@ -57,3 +58,9 @@ class SRDResources(TrafficResources):
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Extended SRD QP is not supported on this device')
             raise ex
+
+    def create_mr(self):
+        if self.send_ops_flags == e.IBV_QP_EX_WITH_RDMA_READ:
+            self.mr = tests.utils.create_custom_mr(self, e.IBV_ACCESS_REMOTE_READ)
+        else:
+            self.mr = tests.utils.create_custom_mr(self)

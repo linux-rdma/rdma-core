@@ -614,7 +614,8 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
     :return:
     """
     # Using the new post send API, we need the SGE, not the SendWR
-    if isinstance(client, Mlx5DcResources):
+    if isinstance(client, Mlx5DcResources) or \
+       isinstance(client, SRDResources):
         ah_client = get_global_ah(client, gid_idx, port)
         ah_server = get_global_ah(server, gid_idx, port)
     else:
