@@ -128,6 +128,16 @@ cdef class CQ(PyverbsCM):
             self.context = None
             self.channel = None
 
+    def resize(self, cqe):
+        """
+        Resizes the completion queue (CQ) to have at least cqe entries.
+        :param cqe: The requested CQ depth.
+        :return: None
+        """
+        rc = v.ibv_resize_cq(self.cq, cqe)
+        if rc:
+            raise PyverbsRDMAError('Failed to resize CQ', rc)
+
     def poll(self, num_entries=1):
         """
         Polls the CQ for completions.
@@ -186,6 +196,10 @@ cdef class CQ(PyverbsCM):
     @property
     def comp_channel(self):
         return self.channel
+
+    @property
+    def cqe(self):
+        return self.cq.cqe
 
 
 cdef class CqInitAttrEx(PyverbsObject):
