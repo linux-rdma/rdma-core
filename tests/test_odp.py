@@ -166,3 +166,17 @@ class OdpTestCase(RDMATestCase):
     def test_odp_implicit_async_prefetch_rc_traffic(self):
         client, server = self.create_players(OdpRC, use_mr_prefetch='async', is_implicit=True)
         traffic(client, server, self.iters, self.gid_index, self.ib_port)
+
+    def test_odp_prefetch_sync_no_page_fault_rc_traffic(self):
+        prefetch_advice = e._IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT
+        client, server = self.create_players(OdpRC,
+                                             use_mr_prefetch='sync',
+                                             prefetch_advice=prefetch_advice)
+        traffic(client, server, self.iters, self.gid_index, self.ib_port)
+
+    def test_odp_prefetch_async_no_page_fault_rc_traffic(self):
+        prefetch_advice = e._IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT
+        client, server = self.create_players(OdpRC,
+                                             use_mr_prefetch='async',
+                                             prefetch_advice=prefetch_advice)
+        traffic(client, server, self.iters, self.gid_index, self.ib_port)
