@@ -916,8 +916,10 @@ static bool dr_rule_verify(struct mlx5dv_dr_matcher *matcher,
 	size_t value_size = value->match_sz;
 	uint32_t s_idx, e_idx;
 
-	if (!value_size ||
-	    (value_size > DEVX_ST_SZ_BYTES(dr_match_param) ||
+	if (!value_size)
+		return true;
+
+	if ((value_size > DEVX_ST_SZ_BYTES(dr_match_param) ||
 	     (value_size % sizeof(uint32_t)))) {
 		dr_dbg(dmn, "Rule parameters length is incorrect\n");
 		errno = EINVAL;
