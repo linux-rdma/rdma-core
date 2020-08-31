@@ -271,7 +271,10 @@ static int dr_domain_check_icm_memory_caps(struct mlx5dv_dr_domain *dmn)
 		return errno;
 	}
 
-	dmn->info.max_log_action_icm_sz = DR_CHUNK_SIZE_4K;
+	dmn->info.max_log_action_icm_sz = min_t(uint32_t,
+						DR_CHUNK_SIZE_1024K,
+						dmn->info.caps.log_modify_hdr_icm_size
+						- DR_MODIFY_ACTION_LOG_SIZE);
 
 	if (dmn->info.caps.log_icm_size < DR_CHUNK_SIZE_1024K +
 	    DR_STE_LOG_SIZE) {

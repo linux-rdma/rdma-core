@@ -337,7 +337,7 @@ static int dr_icm_pool_sync_all_buddy_pools(struct dr_icm_pool *pool)
 		}
 
 		if ((pool->dmn->flags & DR_DOMAIN_FLAG_MEMORY_RECLAIM) &&
-		    pool->icm_type == DR_ICM_TYPE_STE && !buddy->used_memory)
+		    !buddy->used_memory)
 			dr_icm_buddy_destroy(buddy);
 	}
 
