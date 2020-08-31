@@ -320,41 +320,49 @@ static int query_sysfs_gid_type(struct ibv_context *context, uint8_t port_num,
 
 static int query_sysfs_gid_entry(struct ibv_context *context, uint32_t port_num,
 				 uint32_t gid_index,
-				 struct ibv_gid_entry *entry)
+				 struct ibv_gid_entry *entry,
+				 uint32_t attr_mask)
 {
 	enum ibv_gid_type_sysfs gid_type;
 	struct ibv_port_attr port_attr = {};
-	int ret;
+	int ret = 0;
 
 	entry->gid_index = gid_index;
 	entry->port_num = port_num;
-	ret = query_sysfs_gid(context, port_num, gid_index, &entry->gid);
-	if (ret)
-		return EINVAL;
 
-	ret = query_sysfs_gid_type(context, port_num, gid_index, &gid_type);
-	if (ret)
-		return EINVAL;
-
-	if (gid_type == IBV_GID_TYPE_SYSFS_IB_ROCE_V1) {
-		ret = ibv_query_port(context, port_num, &port_attr);
+	if (attr_mask & VERBS_QUERY_GID_ATTR_GID) {
+		ret = query_sysfs_gid(context, port_num, gid_index, &entry->gid);
 		if (ret)
-			goto out;
-
-		if (port_attr.link_layer == IBV_LINK_LAYER_INFINIBAND) {
-			entry->gid_type = IBV_GID_TYPE_IB;
-		} else if (port_attr.link_layer == IBV_LINK_LAYER_ETHERNET) {
-			entry->gid_type = IBV_GID_TYPE_ROCE_V1;
-		} else {
-			ret = EINVAL;
-			goto out;
-		}
-	} else {
-		entry->gid_type = IBV_GID_TYPE_ROCE_V2;
+			return EINVAL;
 	}
 
-	ret = query_sysfs_gid_ndev_ifindex(context, port_num, gid_index,
-					   &entry->ndev_ifindex);
+	if (attr_mask & VERBS_QUERY_GID_ATTR_TYPE) {
+		ret = query_sysfs_gid_type(context, port_num, gid_index, &gid_type);
+		if (ret)
+			return EINVAL;
+
+		if (gid_type == IBV_GID_TYPE_SYSFS_IB_ROCE_V1) {
+			ret = ibv_query_port(context, port_num, &port_attr);
+			if (ret)
+				goto out;
+
+			if (port_attr.link_layer == IBV_LINK_LAYER_INFINIBAND) {
+				entry->gid_type = IBV_GID_TYPE_IB;
+			} else if (port_attr.link_layer ==
+				   IBV_LINK_LAYER_ETHERNET) {
+				entry->gid_type = IBV_GID_TYPE_ROCE_V1;
+			} else {
+				ret = EINVAL;
+				goto out;
+			}
+		} else {
+			entry->gid_type = IBV_GID_TYPE_ROCE_V2;
+		}
+	}
+
+	if (attr_mask & VERBS_QUERY_GID_ATTR_NDEV_IFINDEX)
+		ret = query_sysfs_gid_ndev_ifindex(context, port_num, gid_index,
+						   &entry->ndev_ifindex);
 
 out:
 	return ret;
@@ -364,9 +372,10 @@ out:
  * verbs_context_ops while async_event is and doesn't use ioctl.
  */
 #define query_gid_kernel_cap async_event
-int _ibv_query_gid_ex(struct ibv_context *context, uint32_t port_num,
+int __ibv_query_gid_ex(struct ibv_context *context, uint32_t port_num,
 			    uint32_t gid_index, struct ibv_gid_entry *entry,
-			    uint32_t flags, size_t entry_size)
+			    uint32_t flags, size_t entry_size,
+			    uint32_t fallback_attr_mask)
 {
 	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_DEVICE,
 			       UVERBS_METHOD_QUERY_GID_ENTRY, 4);
@@ -386,12 +395,27 @@ int _ibv_query_gid_ex(struct ibv_context *context, uint32_t port_num,
 			return EOPNOTSUPP;
 
 		ret = query_sysfs_gid_entry(context, port_num, gid_index,
-					    entry);
+					    entry, fallback_attr_mask);
 		if (ret)
 			return ret;
 
-		return is_zero_gid(&entry->gid) ? ENODATA : 0;
+		if (fallback_attr_mask & VERBS_QUERY_GID_ATTR_GID &&
+		    is_zero_gid(&entry->gid))
+			return ENODATA;
+
+		return 0;
 	default:
 		return ret;
 	}
+}
+
+int _ibv_query_gid_ex(struct ibv_context *context, uint32_t port_num,
+		      uint32_t gid_index, struct ibv_gid_entry *entry,
+		      uint32_t flags, size_t entry_size)
+{
+	return __ibv_query_gid_ex(context, port_num, gid_index, entry,
+				  flags, entry_size,
+				  VERBS_QUERY_GID_ATTR_GID |
+				  VERBS_QUERY_GID_ATTR_TYPE |
+				  VERBS_QUERY_GID_ATTR_NDEV_IFINDEX);
 }

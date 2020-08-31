@@ -77,6 +77,12 @@ enum ibv_gid_type_sysfs {
 	IBV_GID_TYPE_SYSFS_ROCE_V2,
 };
 
+enum verbs_query_gid_attr_mask {
+	VERBS_QUERY_GID_ATTR_GID		= 1 << 0,
+	VERBS_QUERY_GID_ATTR_TYPE		= 1 << 1,
+	VERBS_QUERY_GID_ATTR_NDEV_IFINDEX	= 1 << 2,
+};
+
 enum ibv_mr_type {
 	IBV_MR_TYPE_MR,
 	IBV_MR_TYPE_NULL_MR,
@@ -633,6 +639,11 @@ int ibv_cmd_reg_dm_mr(struct ibv_pd *pd, struct verbs_dm *dm,
 		      uint64_t offset, size_t length,
 		      unsigned int access, struct verbs_mr *vmr,
 		      struct ibv_command_buffer *link);
+
+int __ibv_query_gid_ex(struct ibv_context *context, uint32_t port_num,
+			    uint32_t gid_index, struct ibv_gid_entry *entry,
+			    uint32_t flags, size_t entry_size,
+			    uint32_t fallback_attr_mask);
 
 /*
  * sysfs helper functions

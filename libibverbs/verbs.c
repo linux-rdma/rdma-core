@@ -224,8 +224,8 @@ LATEST_SYMVER_FUNC(ibv_query_gid, 1_1, "IBVERBS_1.1",
 	struct ibv_gid_entry entry = {};
 	int ret;
 
-	ret = _ibv_query_gid_ex(context, port_num, index, &entry, 0,
-				sizeof(entry));
+	ret = __ibv_query_gid_ex(context, port_num, index, &entry, 0,
+				 sizeof(entry), VERBS_QUERY_GID_ATTR_GID);
 	/* Preserve API behavior for empty GID */
 	if (ret == ENODATA) {
 		memset(gid, 0, sizeof(*gid));
@@ -710,8 +710,8 @@ int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
 	struct ibv_gid_entry entry = {};
 	int ret;
 
-	ret = _ibv_query_gid_ex(context, port_num, index, &entry, 0,
-				sizeof(entry));
+	ret = __ibv_query_gid_ex(context, port_num, index, &entry, 0,
+				 sizeof(entry), VERBS_QUERY_GID_ATTR_TYPE);
 	/* Preserve API behavior for empty GID */
 	if (ret == ENODATA) {
 		*type = IBV_GID_TYPE_SYSFS_IB_ROCE_V1;
