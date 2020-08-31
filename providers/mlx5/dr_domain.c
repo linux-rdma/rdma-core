@@ -263,6 +263,27 @@ static void dr_domain_caps_uninit(struct mlx5dv_dr_domain *dmn)
 		free(dmn->info.caps.vports_caps);
 }
 
+static int dr_domain_check_icm_memory_caps(struct mlx5dv_dr_domain *dmn)
+{
+	if (dmn->info.caps.log_modify_hdr_icm_size < DR_CHUNK_SIZE_4K +
+	    DR_MODIFY_ACTION_LOG_SIZE) {
+		errno = ENOMEM;
+		return errno;
+	}
+
+	dmn->info.max_log_action_icm_sz = DR_CHUNK_SIZE_4K;
+
+	if (dmn->info.caps.log_icm_size < DR_CHUNK_SIZE_1024K +
+	    DR_STE_LOG_SIZE) {
+		errno = ENOMEM;
+		return errno;
+	}
+
+	dmn->info.max_log_sw_icm_sz = DR_CHUNK_SIZE_1024K;
+
+	return 0;
+}
+
 struct mlx5dv_dr_domain *
 mlx5dv_dr_domain_create(struct ibv_context *ctx,
 			enum mlx5dv_dr_domain_type type)
@@ -291,12 +312,12 @@ mlx5dv_dr_domain_create(struct ibv_context *ctx,
 		goto free_domain;
 	}
 
-	dmn->info.max_log_action_icm_sz = DR_CHUNK_SIZE_4K;
-	dmn->info.max_log_sw_icm_sz = min_t(uint32_t, DR_CHUNK_SIZE_1024K,
-					    dmn->info.caps.log_icm_size);
-
 	/* Allocate resources */
 	if (dmn->info.supp_sw_steering) {
+
+		if (dr_domain_check_icm_memory_caps(dmn))
+			goto uninit_caps;
+
 		ret = dr_domain_init_resources(dmn);
 		if (ret) {
 			dr_dbg(dmn, "Failed init domain resources for %s\n",

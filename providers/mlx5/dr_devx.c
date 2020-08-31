@@ -220,6 +220,9 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 	caps->hdr_modify_icm_addr = DEVX_GET64(query_hca_cap_out, out,
 					       capability.device_mem_cap.
 					       header_modify_sw_icm_start_address);
+	caps->log_modify_hdr_icm_size = DEVX_GET(query_hca_cap_out, out,
+						 capability.device_mem_cap.log_header_modify_sw_icm_size);
+
 	/* RoCE caps */
 	if (roce) {
 		DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
