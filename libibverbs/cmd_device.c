@@ -30,6 +30,10 @@
  * SOFTWARE.
  */
 
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <stdlib.h>
+#include <dirent.h>
 #include <infiniband/cmd_write.h>
 
 #include <net/if.h>
@@ -230,6 +234,90 @@ static int query_sysfs_gid_ndev_ifindex(struct ibv_context *context,
 	return *ndev_ifindex ? 0 : errno;
 }
 
+static int query_sysfs_gid(struct ibv_context *context, uint8_t port_num, int index,
+			   union ibv_gid *gid)
+{
+	struct verbs_device *verbs_device = verbs_get_device(context->device);
+	char attr[41];
+	uint16_t val;
+	int i;
+
+	if (ibv_read_ibdev_sysfs_file(attr, sizeof(attr), verbs_device->sysfs,
+				      "ports/%d/gids/%d", port_num, index) < 0)
+		return -1;
+
+	for (i = 0; i < 8; ++i) {
+		if (sscanf(attr + i * 5, "%hx", &val) != 1)
+			return -1;
+		gid->raw[i * 2] = val >> 8;
+		gid->raw[i * 2 + 1] = val & 0xff;
+	}
+
+	return 0;
+}
+
+/* GID types as appear in sysfs, no change is expected as of ABI
+ * compatibility.
+ */
+#define V1_TYPE "IB/RoCE v1"
+#define V2_TYPE "RoCE v2"
+static int query_sysfs_gid_type(struct ibv_context *context, uint8_t port_num,
+				unsigned int index, enum ibv_gid_type_sysfs *type)
+{
+	struct verbs_device *verbs_device = verbs_get_device(context->device);
+	char buff[11];
+
+	/* Reset errno so that we can rely on its value upon any error flow in
+	 * ibv_read_sysfs_file.
+	 */
+	errno = 0;
+	if (ibv_read_ibdev_sysfs_file(buff, sizeof(buff), verbs_device->sysfs,
+				      "ports/%d/gid_attrs/types/%d", port_num,
+				      index) <= 0) {
+		char *dir_path;
+		DIR *dir;
+
+		if (errno == EINVAL) {
+			/* In IB, this file doesn't exist and the kernel sets
+			 * errno to -EINVAL.
+			 */
+			*type = IBV_GID_TYPE_SYSFS_IB_ROCE_V1;
+			return 0;
+		}
+		if (asprintf(&dir_path, "%s/%s/%d/%s/",
+			     verbs_device->sysfs->ibdev_path, "ports", port_num,
+			     "gid_attrs") < 0)
+			return -1;
+		dir = opendir(dir_path);
+		free(dir_path);
+		if (!dir) {
+			if (errno == ENOENT)
+				/* Assuming that if gid_attrs doesn't exist,
+				 * we have an old kernel and all GIDs are
+				 * IB/RoCE v1
+				 */
+				*type = IBV_GID_TYPE_SYSFS_IB_ROCE_V1;
+			else
+				return -1;
+		} else {
+			closedir(dir);
+			errno = EFAULT;
+			return -1;
+		}
+	} else {
+		if (!strcmp(buff, V1_TYPE)) {
+			*type = IBV_GID_TYPE_SYSFS_IB_ROCE_V1;
+		} else if (!strcmp(buff, V2_TYPE)) {
+			*type = IBV_GID_TYPE_SYSFS_ROCE_V2;
+		} else {
+			errno = ENOTSUP;
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 static int query_sysfs_gid_entry(struct ibv_context *context, uint32_t port_num,
 				 uint32_t gid_index,
 				 struct ibv_gid_entry *entry)
@@ -240,11 +328,11 @@ static int query_sysfs_gid_entry(struct ibv_context *context, uint32_t port_num,
 
 	entry->gid_index = gid_index;
 	entry->port_num = port_num;
-	ret = ibv_query_gid(context, port_num, gid_index, &entry->gid);
+	ret = query_sysfs_gid(context, port_num, gid_index, &entry->gid);
 	if (ret)
 		return EINVAL;
 
-	ret = ibv_query_gid_type(context, port_num, gid_index, &gid_type);
+	ret = query_sysfs_gid_type(context, port_num, gid_index, &gid_type);
 	if (ret)
 		return EINVAL;
 
