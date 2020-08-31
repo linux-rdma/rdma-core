@@ -427,6 +427,11 @@ cdef extern from '<infiniband/verbs.h>':
 
     cdef void *IBV_ALLOCATOR_USE_DEFAULT
 
+    cpdef enum ibv_gid_type:
+        IBV_GID_TYPE_IB
+        IBV_GID_TYPE_ROCE_V1
+        IBV_GID_TYPE_ROCE_V2
+
 
 cdef extern from "<infiniband/verbs_api.h>":
     cdef unsigned long long IBV_ADVISE_MR_ADVICE_PREFETCH
