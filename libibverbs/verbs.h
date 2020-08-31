@@ -2370,7 +2370,7 @@ static inline int ibv_destroy_flow(struct ibv_flow *flow_id)
 	struct verbs_context *vctx = verbs_get_ctx_op(flow_id->context,
 						      ibv_destroy_flow);
 	if (!vctx)
-		return -EOPNOTSUPP;
+		return EOPNOTSUPP;
 	return vctx->ibv_destroy_flow(flow_id);
 }
 
