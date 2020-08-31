@@ -149,6 +149,7 @@ enum {
 	DR_STE_SIZE_CTRL	= 32,
 	DR_STE_SIZE_TAG		= 16,
 	DR_STE_SIZE_MASK	= 16,
+	DR_STE_LOG_SIZE		= 6,
 };
 
 enum {
@@ -157,6 +158,7 @@ enum {
 
 enum {
 	DR_MODIFY_ACTION_SIZE	= 8,
+	DR_MODIFY_ACTION_LOG_SIZE	= 3,
 };
 
 enum dr_matcher_criteria {
@@ -591,6 +593,7 @@ struct dr_devx_caps {
 	uint64_t			esw_rx_drop_address;
 	uint64_t			esw_tx_drop_address;
 	uint32_t			log_icm_size;
+	uint8_t				log_modify_hdr_icm_size;
 	uint64_t			hdr_modify_icm_addr;
 	uint32_t			flex_protocols;
 	uint8_t				flex_parser_id_icmp_dw0;
