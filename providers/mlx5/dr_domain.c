@@ -37,7 +37,8 @@
 enum {
 	MLX5DV_DR_DOMAIN_SYNC_SUP_FLAGS =
 		(MLX5DV_DR_DOMAIN_SYNC_FLAGS_SW |
-		 MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW),
+		 MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW |
+		 MLX5DV_DR_DOMAIN_SYNC_FLAGS_MEM),
 };
 
 static int dr_domain_init_resources(struct mlx5dv_dr_domain *dmn)
@@ -363,8 +364,22 @@ int mlx5dv_dr_domain_sync(struct mlx5dv_dr_domain *dmn, uint32_t flags)
 		pthread_mutex_unlock(&dmn->mutex);
 	}
 
-	if (flags & MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW)
+	if (flags & MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW) {
 		ret = dr_devx_sync_steering(dmn->ctx);
+		if (ret)
+			return ret;
+	}
+
+	if (flags & MLX5DV_DR_DOMAIN_SYNC_FLAGS_MEM) {
+		if (dmn->ste_icm_pool) {
+			ret = dr_icm_pool_sync_pool(dmn->ste_icm_pool);
+			if (ret)
+				return ret;
+		}
+
+		if (dmn->action_icm_pool)
+			ret = dr_icm_pool_sync_pool(dmn->action_icm_pool);
+	}
 
 	return ret;
 

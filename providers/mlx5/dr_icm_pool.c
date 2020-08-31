@@ -314,7 +314,7 @@ static bool dr_icm_pool_is_sync_required(struct dr_icm_pool *pool)
 	return false;
 }
 
-static int dr_icm_pool_sync_all_buddy_pools(struct dr_icm_pool *pool)
+static int dr_icm_pool_sync_pool_buddies(struct dr_icm_pool *pool)
 {
 	struct dr_icm_buddy_mem *buddy, *tmp_buddy;
 	int err;
@@ -342,6 +342,17 @@ static int dr_icm_pool_sync_all_buddy_pools(struct dr_icm_pool *pool)
 	}
 
 	return 0;
+}
+
+int dr_icm_pool_sync_pool(struct dr_icm_pool *pool)
+{
+	int ret;
+
+	pthread_mutex_lock(&pool->mutex);
+	ret = dr_icm_pool_sync_pool_buddies(pool);
+	pthread_mutex_unlock(&pool->mutex);
+
+	return ret;
 }
 
 static int dr_icm_handle_buddies_get_mem(struct dr_icm_pool *pool,
@@ -433,7 +444,7 @@ void dr_icm_free_chunk(struct dr_icm_chunk *chunk)
 
 	/* Check if we have chunks that are waiting for sync-ste */
 	if (dr_icm_pool_is_sync_required(buddy->pool))
-		dr_icm_pool_sync_all_buddy_pools(buddy->pool);
+		dr_icm_pool_sync_pool_buddies(buddy->pool);
 
 	pthread_mutex_unlock(&buddy->pool->mutex);
 }

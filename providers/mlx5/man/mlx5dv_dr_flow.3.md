@@ -156,6 +156,8 @@ Default behavior: Forward packet to eSwitch manager vport.
 
 **MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW**: clear the steering HW cache to enforce next packet hits the latest rules, in addition to the SW SYNC handling.
 
+**MLX5DV_DR_DOMAIN_SYNC_FLAGS_MEM**: sync device memory to free cached memory.
+
 
 *mlx5dv_dr_domain_set_reclaim_device_memory()* is used to enable the reclaiming of device memory back to the system when not in use, by default this feature is disabled.
 

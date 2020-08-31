@@ -981,6 +981,7 @@ static inline bool dr_is_root_table(struct mlx5dv_dr_table *tbl)
 struct dr_icm_pool *dr_icm_pool_create(struct mlx5dv_dr_domain *dmn,
 				       enum dr_icm_type icm_type);
 void dr_icm_pool_destroy(struct dr_icm_pool *pool);
+int dr_icm_pool_sync_pool(struct dr_icm_pool *pool);
 
 struct dr_icm_chunk *dr_icm_alloc_chunk(struct dr_icm_pool *pool,
 					enum dr_icm_chunk_size chunk_size);
