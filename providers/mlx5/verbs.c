@@ -2955,7 +2955,7 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 				       attr->grh.sgid_index, &gid_type))
 			goto err;
 
-		if (gid_type == IBV_GID_TYPE_ROCE_V2)
+		if (gid_type == IBV_GID_TYPE_SYSFS_ROCE_V2)
 			mlx5_ah_set_udp_sport(ah, attr);
 
 		/* Since RoCE packets must contain GRH, this bit is reserved

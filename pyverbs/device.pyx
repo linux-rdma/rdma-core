@@ -220,7 +220,7 @@ cdef class Context(PyverbsCM):
         return gid
 
     def query_gid_type(self, unsigned int port_num, unsigned int index):
-        cdef v.ibv_gid_type gid_type
+        cdef v.ibv_gid_type_sysfs gid_type
         rc = v.ibv_query_gid_type(self.context, port_num, index, &gid_type)
         if rc != 0:
             raise PyverbsRDMAErrno('Failed to query gid type of port {p} and gid index {g}'

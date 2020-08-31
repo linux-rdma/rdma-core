@@ -711,7 +711,7 @@ LATEST_SYMVER_FUNC(ibv_create_ah, 1_1, "IBVERBS_1.1",
 #define V1_TYPE "IB/RoCE v1"
 #define V2_TYPE "RoCE v2"
 int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
-		       unsigned int index, enum ibv_gid_type *type)
+		       unsigned int index, enum ibv_gid_type_sysfs *type)
 {
 	struct verbs_device *verbs_device = verbs_get_device(context->device);
 	char buff[11];
@@ -730,7 +730,7 @@ int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
 			/* In IB, this file doesn't exist and the kernel sets
 			 * errno to -EINVAL.
 			 */
-			*type = IBV_GID_TYPE_IB_ROCE_V1;
+			*type = IBV_GID_TYPE_SYSFS_IB_ROCE_V1;
 			return 0;
 		}
 		if (asprintf(&dir_path, "%s/%s/%d/%s/",
@@ -745,7 +745,7 @@ int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
 				 * we have an old kernel and all GIDs are
 				 * IB/RoCE v1
 				 */
-				*type = IBV_GID_TYPE_IB_ROCE_V1;
+				*type = IBV_GID_TYPE_SYSFS_IB_ROCE_V1;
 			else
 				return -1;
 		} else {
@@ -755,9 +755,9 @@ int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
 		}
 	} else {
 		if (!strcmp(buff, V1_TYPE)) {
-			*type = IBV_GID_TYPE_IB_ROCE_V1;
+			*type = IBV_GID_TYPE_SYSFS_IB_ROCE_V1;
 		} else if (!strcmp(buff, V2_TYPE)) {
-			*type = IBV_GID_TYPE_ROCE_V2;
+			*type = IBV_GID_TYPE_SYSFS_ROCE_V2;
 		} else {
 			errno = ENOTSUP;
 			return -1;
@@ -768,9 +768,10 @@ int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
 }
 
 static int ibv_find_gid_index(struct ibv_context *context, uint8_t port_num,
-			      union ibv_gid *gid, enum ibv_gid_type gid_type)
+			      union ibv_gid *gid,
+			      enum ibv_gid_type_sysfs gid_type)
 {
-	enum ibv_gid_type sgid_type = 0;
+	enum ibv_gid_type_sysfs sgid_type = 0;
 	union ibv_gid sgid;
 	int i = 0, ret;
 
@@ -870,7 +871,7 @@ static inline int set_ah_attr_by_ipv4(struct ibv_context *context,
 
 	map_ipv4_addr_to_ipv6(ip4h->daddr, (struct in6_addr *)&sgid);
 	ret = ibv_find_gid_index(context, port_num, &sgid,
-				 IBV_GID_TYPE_ROCE_V2);
+				 IBV_GID_TYPE_SYSFS_ROCE_V2);
 	if (ret < 0)
 		return ret;
 
@@ -900,9 +901,9 @@ static inline int set_ah_attr_by_ipv6(struct ibv_context *context,
 
 	ah_attr->grh.dgid = grh->sgid;
 	if (grh->next_hdr == IPPROTO_UDP) {
-		sgid_type = IBV_GID_TYPE_ROCE_V2;
+		sgid_type = IBV_GID_TYPE_SYSFS_ROCE_V2;
 	} else if (grh->next_hdr == IB_NEXT_HDR) {
-		sgid_type = IBV_GID_TYPE_IB_ROCE_V1;
+		sgid_type = IBV_GID_TYPE_SYSFS_IB_ROCE_V1;
 	} else {
 		errno = EPROTONOSUPPORT;
 		return -1;

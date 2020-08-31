@@ -72,9 +72,9 @@ enum verbs_qp_mask {
 	VERBS_QP_EX		= 1 << 1,
 };
 
-enum ibv_gid_type {
-	IBV_GID_TYPE_IB_ROCE_V1,
-	IBV_GID_TYPE_ROCE_V2,
+enum ibv_gid_type_sysfs {
+	IBV_GID_TYPE_SYSFS_IB_ROCE_V1,
+	IBV_GID_TYPE_SYSFS_ROCE_V2,
 };
 
 enum ibv_mr_type {
@@ -654,7 +654,7 @@ static inline bool check_comp_mask(uint64_t input, uint64_t supported)
 }
 
 int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
-		       unsigned int index, enum ibv_gid_type *type);
+		       unsigned int index, enum ibv_gid_type_sysfs *type);
 
 static inline int
 ibv_check_alloc_parent_domain(struct ibv_parent_domain_init_attr *attr)

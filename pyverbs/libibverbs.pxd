@@ -617,6 +617,6 @@ cdef extern from 'infiniband/verbs.h':
 
 cdef extern from 'infiniband/driver.h':
     int ibv_query_gid_type(ibv_context *context, uint8_t port_num,
-                           unsigned int index, ibv_gid_type *type)
+                           unsigned int index, ibv_gid_type_sysfs *type)
     int ibv_set_ece(ibv_qp *qp, ibv_ece *ece)
     int ibv_query_ece(ibv_qp *qp, ibv_ece *ece)

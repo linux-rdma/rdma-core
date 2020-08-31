@@ -164,17 +164,17 @@ static const char *vl_str(uint8_t vl_num)
 }
 
 #define DEVINFO_INVALID_GID_TYPE	2
-static const char *gid_type_str(enum ibv_gid_type type)
+static const char *gid_type_str(enum ibv_gid_type_sysfs type)
 {
 	switch (type) {
-	case IBV_GID_TYPE_IB_ROCE_V1: return "RoCE v1";
-	case IBV_GID_TYPE_ROCE_V2: return "RoCE v2";
+	case IBV_GID_TYPE_SYSFS_IB_ROCE_V1: return "RoCE v1";
+	case IBV_GID_TYPE_SYSFS_ROCE_V2: return "RoCE v2";
 	default: return "Invalid gid type";
 	}
 }
 
 static void print_formated_gid(union ibv_gid *gid, int i,
-			       enum ibv_gid_type type, int ll)
+			       enum ibv_gid_type_sysfs type, int ll)
 {
 	char gid_str[INET6_ADDRSTRLEN] = {};
 	char str[20] = {};
@@ -182,7 +182,7 @@ static void print_formated_gid(union ibv_gid *gid, int i,
 	if (ll == IBV_LINK_LAYER_ETHERNET)
 		sprintf(str, ", %s", gid_type_str(type));
 
-	if (type == IBV_GID_TYPE_IB_ROCE_V1)
+	if (type == IBV_GID_TYPE_SYSFS_IB_ROCE_V1)
 		printf("\t\t\tGID[%3d]:\t\t%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x%s\n",
 		       i, gid->raw[0], gid->raw[1], gid->raw[2],
 		       gid->raw[3], gid->raw[4], gid->raw[5], gid->raw[6],
@@ -190,7 +190,7 @@ static void print_formated_gid(union ibv_gid *gid, int i,
 		       gid->raw[11], gid->raw[12], gid->raw[13], gid->raw[14],
 		       gid->raw[15], str);
 
-	if (type == IBV_GID_TYPE_ROCE_V2) {
+	if (type == IBV_GID_TYPE_SYSFS_ROCE_V2) {
 		inet_ntop(AF_INET6, gid->raw, gid_str, sizeof(gid_str));
 		printf("\t\t\tGID[%3d]:\t\t%s%s\n", i, gid_str, str);
 	}
@@ -200,7 +200,7 @@ static int print_all_port_gids(struct ibv_context *ctx,
 			       struct ibv_port_attr *port_attr,
 			       uint8_t port_num)
 {
-	enum ibv_gid_type type;
+	enum ibv_gid_type_sysfs type;
 	union ibv_gid gid;
 	int tbl_len;
 	int rc = 0;
