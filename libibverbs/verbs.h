@@ -68,6 +68,20 @@ union ibv_gid {
 	} global;
 };
 
+enum ibv_gid_type {
+	IBV_GID_TYPE_IB,
+	IBV_GID_TYPE_ROCE_V1,
+	IBV_GID_TYPE_ROCE_V2,
+};
+
+struct ibv_gid_entry {
+	union ibv_gid gid;
+	uint32_t gid_index;
+	uint32_t port_num;
+	uint32_t gid_type; /* enum ibv_gid_type */
+	uint32_t ndev_ifindex;
+};
+
 #define vext_field_avail(type, fld, sz) (offsetof(type, fld) < (sz))
 
 #ifdef __cplusplus
@@ -2329,6 +2343,21 @@ static inline int ___ibv_query_port(struct ibv_context *context,
  */
 int ibv_query_gid(struct ibv_context *context, uint8_t port_num,
 		  int index, union ibv_gid *gid);
+
+int _ibv_query_gid_ex(struct ibv_context *context, uint32_t port_num,
+		     uint32_t gid_index, struct ibv_gid_entry *entry,
+		     uint32_t flags, size_t entry_size);
+
+/**
+ * ibv_query_gid_ex - Read a GID table entry
+ */
+static inline int ibv_query_gid_ex(struct ibv_context *context,
+				   uint32_t port_num, uint32_t gid_index,
+				   struct ibv_gid_entry *entry, uint32_t flags)
+{
+	return _ibv_query_gid_ex(context, port_num, gid_index, entry, flags,
+				 sizeof(*entry));
+}
 
 /**
  * ibv_query_pkey - Get a P_Key table entry

@@ -57,6 +57,7 @@ rdma_man_pages(
   ibv_query_device_ex.3
   ibv_query_ece.3.md
   ibv_query_gid.3.md
+  ibv_query_gid_ex.3.md
   ibv_query_pkey.3.md
   ibv_query_port.3
   ibv_query_qp.3

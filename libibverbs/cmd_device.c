@@ -32,6 +32,8 @@
 
 #include <infiniband/cmd_write.h>
 
+#include <net/if.h>
+
 static void copy_query_port_resp_to_port_attr(struct ibv_port_attr *port_attr,
 				       struct ib_uverbs_query_port_resp *resp)
 {
@@ -201,4 +203,107 @@ int ibv_cmd_query_context(struct ibv_context *context,
 	verbs_device->core_support = core_support;
 
 	return 0;
+}
+
+static int is_zero_gid(union ibv_gid *gid)
+{
+	const union ibv_gid zgid = {};
+
+	return !memcmp(gid, &zgid, sizeof(*gid));
+}
+
+static int query_sysfs_gid_ndev_ifindex(struct ibv_context *context,
+					uint8_t port_num, uint32_t gid_index,
+					uint32_t *ndev_ifindex)
+{
+	struct verbs_device *verbs_device = verbs_get_device(context->device);
+	char buff[IF_NAMESIZE];
+
+	if (ibv_read_ibdev_sysfs_file(buff, sizeof(buff), verbs_device->sysfs,
+				      "ports/%d/gid_attrs/ndevs/%d", port_num,
+				      gid_index) <= 0) {
+		*ndev_ifindex = 0;
+		return 0;
+	}
+
+	*ndev_ifindex = if_nametoindex(buff);
+	return *ndev_ifindex ? 0 : errno;
+}
+
+static int query_sysfs_gid_entry(struct ibv_context *context, uint32_t port_num,
+				 uint32_t gid_index,
+				 struct ibv_gid_entry *entry)
+{
+	enum ibv_gid_type_sysfs gid_type;
+	struct ibv_port_attr port_attr = {};
+	int ret;
+
+	entry->gid_index = gid_index;
+	entry->port_num = port_num;
+	ret = ibv_query_gid(context, port_num, gid_index, &entry->gid);
+	if (ret)
+		return EINVAL;
+
+	ret = ibv_query_gid_type(context, port_num, gid_index, &gid_type);
+	if (ret)
+		return EINVAL;
+
+	if (gid_type == IBV_GID_TYPE_SYSFS_IB_ROCE_V1) {
+		ret = ibv_query_port(context, port_num, &port_attr);
+		if (ret)
+			goto out;
+
+		if (port_attr.link_layer == IBV_LINK_LAYER_INFINIBAND) {
+			entry->gid_type = IBV_GID_TYPE_IB;
+		} else if (port_attr.link_layer == IBV_LINK_LAYER_ETHERNET) {
+			entry->gid_type = IBV_GID_TYPE_ROCE_V1;
+		} else {
+			ret = EINVAL;
+			goto out;
+		}
+	} else {
+		entry->gid_type = IBV_GID_TYPE_ROCE_V2;
+	}
+
+	ret = query_sysfs_gid_ndev_ifindex(context, port_num, gid_index,
+					   &entry->ndev_ifindex);
+
+out:
+	return ret;
+}
+
+/* Using async_event cmd_name because query_gid_ex is not in
+ * verbs_context_ops while async_event is and doesn't use ioctl.
+ */
+#define query_gid_kernel_cap async_event
+int _ibv_query_gid_ex(struct ibv_context *context, uint32_t port_num,
+			    uint32_t gid_index, struct ibv_gid_entry *entry,
+			    uint32_t flags, size_t entry_size)
+{
+	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_DEVICE,
+			       UVERBS_METHOD_QUERY_GID_ENTRY, 4);
+	int ret;
+
+	fill_attr_const_in(cmdb, UVERBS_ATTR_QUERY_GID_ENTRY_PORT, port_num);
+	fill_attr_const_in(cmdb, UVERBS_ATTR_QUERY_GID_ENTRY_GID_INDEX,
+			   gid_index);
+	fill_attr_in_uint32(cmdb, UVERBS_ATTR_QUERY_GID_ENTRY_FLAGS, flags);
+	fill_attr_out(cmdb, UVERBS_ATTR_QUERY_GID_ENTRY_RESP_ENTRY, entry,
+		      entry_size);
+
+	switch (execute_ioctl_fallback(context, query_gid_kernel_cap, cmdb,
+				       &ret)) {
+	case TRY_WRITE:
+		if (flags)
+			return EOPNOTSUPP;
+
+		ret = query_sysfs_gid_entry(context, port_num, gid_index,
+					    entry);
+		if (ret)
+			return ret;
+
+		return is_zero_gid(&entry->gid) ? ENODATA : 0;
+	default:
+		return ret;
+	}
 }
