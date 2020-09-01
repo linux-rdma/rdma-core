@@ -25,6 +25,7 @@ from pyverbs.qp cimport QP
 from libc.stdlib cimport free, malloc
 from libc.string cimport memset
 from libc.stdint cimport uint64_t
+from libc.stdint cimport uint16_t
 
 cdef extern from 'endian.h':
     unsigned long be64toh(unsigned long host_64bits);
@@ -202,6 +203,13 @@ cdef class Context(PyverbsCM):
             raise PyverbsRDMAError('Failed to query EX device {name}'.
                                    format(name=self.name), rc)
         return dev_attr_ex
+
+    def query_pkey(self, unsigned int port_num, int index):
+        cdef uint16_t pkey
+        rc = v.ibv_query_pkey(self.context, port_num, index, &pkey)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to query pkey {index} of port {port_num}')
+        return pkey
 
     def query_gid(self, unsigned int port_num, int index):
         gid = GID()
