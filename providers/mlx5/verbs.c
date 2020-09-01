@@ -4770,6 +4770,8 @@ static void set_devx_obj_info(const void *in, const void *out,
 		obj_type = DEVX_GET(general_obj_in_cmd_hdr, in, obj_type);
 		if (obj_type == MLX5_OBJ_TYPE_FLOW_METER)
 			obj->type = MLX5_DEVX_FLOW_METER;
+		else if (obj_type == MLX5_OBJ_TYPE_FLOW_SAMPLER)
+			obj->type = MLX5_DEVX_FLOW_SAMPLER;
 
 		obj->object_id = DEVX_GET(general_obj_out_cmd_hdr, out, obj_id);
 		break;

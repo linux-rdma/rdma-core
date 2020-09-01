@@ -1452,6 +1452,14 @@ struct mlx5dv_dr_flow_meter_attr {
 	void			*flow_meter_parameter;
 };
 
+struct mlx5dv_dr_flow_sampler_attr {
+	uint32_t		sample_ratio;
+	struct mlx5dv_dr_table	*default_next_table;
+	uint32_t		num_sample_actions;
+	struct mlx5dv_dr_action	**sample_actions;
+	__be64			action;
+};
+
 struct mlx5dv_dr_domain *
 mlx5dv_dr_domain_create(struct ibv_context *ctx,
 			enum mlx5dv_dr_domain_type type);
@@ -1529,6 +1537,9 @@ mlx5dv_dr_action_create_flow_meter(struct mlx5dv_dr_flow_meter_attr *attr);
 int mlx5dv_dr_action_modify_flow_meter(struct mlx5dv_dr_action *action,
 				       struct mlx5dv_dr_flow_meter_attr *attr,
 				       __be64 modify_field_select);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_flow_sampler(struct mlx5dv_dr_flow_sampler_attr *attr);
 
 int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
 

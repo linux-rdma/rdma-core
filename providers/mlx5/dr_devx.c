@@ -470,6 +470,64 @@ void dr_devx_destroy_always_hit_ft(struct dr_devx_tbl *devx_tbl)
 	free(devx_tbl);
 }
 
+struct mlx5dv_devx_obj *
+dr_devx_create_flow_sampler(struct ibv_context *ctx,
+			    struct dr_devx_flow_sampler_attr *sampler_attr)
+{
+	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_flow_sampler_in)] = {};
+	void *attr;
+
+	attr = DEVX_ADDR_OF(create_flow_sampler_in, in, hdr);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, opcode, MLX5_CMD_OP_CREATE_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, obj_type, MLX5_OBJ_TYPE_FLOW_SAMPLER);
+
+	attr = DEVX_ADDR_OF(create_flow_sampler_in, in, sampler);
+	DEVX_SET(flow_sampler, attr, table_type, sampler_attr->table_type);
+	DEVX_SET(flow_sampler, attr, level, sampler_attr->level);
+	DEVX_SET(flow_sampler, attr, sample_ratio, sampler_attr->sample_ratio);
+	DEVX_SET(flow_sampler, attr, ignore_flow_level,
+		 sampler_attr->ignore_flow_level);
+	DEVX_SET(flow_sampler, attr, default_table_id,
+		 sampler_attr->default_next_table_id);
+	DEVX_SET(flow_sampler, attr, sample_table_id,
+		 sampler_attr->sample_table_id);
+
+	return mlx5dv_devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
+}
+
+int dr_devx_query_flow_sampler(struct mlx5dv_devx_obj *obj,
+			       uint64_t *rx_icm_addr, uint64_t *tx_icm_addr)
+{
+	uint32_t out[DEVX_ST_SZ_DW(query_flow_sampler_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(general_obj_in_cmd_hdr)] = {};
+	void *attr;
+	int ret;
+
+	DEVX_SET(general_obj_in_cmd_hdr, in, opcode,
+		 MLX5_CMD_OP_QUERY_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr, in, obj_type,
+		 MLX5_OBJ_TYPE_FLOW_SAMPLER);
+	DEVX_SET(general_obj_in_cmd_hdr, in, obj_id, obj->object_id);
+
+	ret = mlx5dv_devx_obj_query(obj, in, sizeof(in), out, sizeof(out));
+	if (ret) {
+		dr_dbg_ctx(obj->context, "Failed to query flow sampler id %u\n",
+			   obj->object_id);
+		return ret;
+	}
+
+	attr = DEVX_ADDR_OF(query_flow_sampler_out, out, obj);
+	*rx_icm_addr = DEVX_GET64(flow_sampler, attr,
+				  sw_steering_icm_address_rx);
+	*tx_icm_addr = DEVX_GET64(flow_sampler, attr,
+				  sw_steering_icm_address_tx);
+
+	return 0;
+}
+
 struct mlx5dv_devx_obj *dr_devx_create_reformat_ctx(struct ibv_context *ctx,
 						    enum reformat_type rt,
 						    size_t reformat_size,

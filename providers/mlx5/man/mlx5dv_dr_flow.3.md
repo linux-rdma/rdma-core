@@ -34,6 +34,8 @@ mlx5dv_dr_action_create_flow_counter - Create devx flow counter actions
 
 mlx5dv_dr_action_create_flow_meter, mlx5dv_dr_action_modify_flow_meter - Create and modify meter action
 
+mlx5dv_dr_action_create_flow_sampler - Create flow sampler action
+
 mlx5dv_dr_action_destroy - Destroy actions
 
 # SYNOPSIS
@@ -119,6 +121,9 @@ mlx5dv_dr_action_create_flow_meter(struct mlx5dv_dr_flow_meter_attr *attr);
 int mlx5dv_dr_action_modify_flow_meter(struct mlx5dv_dr_action *action,
 				       struct mlx5dv_dr_flow_meter_attr *attr,
 				       __be64 modify_field_select);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_flow_sampler(struct mlx5dv_dr_flow_sampler_attr *attr);
 
 int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
 ```
@@ -206,6 +211,12 @@ Action: Flow Count
 Action: Meter
 *mlx5dv_dr_action_create_flow_meter* creates a meter action based on the flow meter parameters. The paramertes are according to the device specification.
 *mlx5dv_dr_action_modify_flow_meter* modifies existing flow meter **action** based on **modify_field_select**. **modify_field_select** is according to the device specification.
+
+Action: Sampler
+*mlx5dv_dr_action_create_flow_sampler* creates a sampler action, allowing us to duplicate and sample a portion of traffic.
+Packets steered to the sampler action will be sampled with an approximate probability of 1/sample_ratio provided in **attr**, and sample_actions provided in **attr** will be executed over them.
+All original packets will be steered to default_next_table in **attr**.
+A modify header format SET_ACTION data can be provided in action of **attr**, which can be executed on packets before going to default flow table. On some devices, this is required to set register value.
 
 Action Flags: action **flags** can be set to one of the types of *enum mlx5dv_dr_action_flags*:
 

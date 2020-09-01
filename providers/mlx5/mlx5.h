@@ -670,6 +670,7 @@ enum mlx5_devx_obj_type {
 	MLX5_DEVX_TIR			= 6,
 	MLX5_DEVX_FLOW_GROUP		= 7,
 	MLX5_DEVX_FLOW_TABLE_ENTRY	= 8,
+	MLX5_DEVX_FLOW_SAMPLER		= 9,
 };
 
 struct mlx5dv_devx_obj {
