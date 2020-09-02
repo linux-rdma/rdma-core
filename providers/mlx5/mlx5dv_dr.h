@@ -645,6 +645,7 @@ struct dr_devx_flow_table_attr {
 	uint8_t		level;
 	bool		sw_owner;
 	bool		term_tbl;
+	bool		reformat_en;
 	uint64_t	icm_addr_rx;
 	uint64_t	icm_addr_tx;
 };
@@ -661,6 +662,8 @@ struct dr_devx_flow_dest_info {
 		uint32_t tir_num;
 		uint32_t counter_id;
 	};
+	bool has_reformat;
+	uint32_t reformat_id;
 };
 
 struct dr_devx_flow_fte_attr {
@@ -671,6 +674,7 @@ struct dr_devx_flow_fte_attr {
 	uint32_t			action;
 	uint32_t			dest_size;
 	struct dr_devx_flow_dest_info	*dest_arr;
+	bool				extended_dest;
 };
 
 struct dr_devx_tbl {

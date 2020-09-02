@@ -286,6 +286,7 @@ dr_devx_create_flow_table(struct ibv_context *ctx,
 	DEVX_SET(flow_table_context, ft_ctx, termination_table, ft_attr->term_tbl);
 	DEVX_SET(flow_table_context, ft_ctx, sw_owner, ft_attr->sw_owner);
 	DEVX_SET(flow_table_context, ft_ctx, level, ft_attr->level);
+	DEVX_SET(flow_table_context, ft_ctx, reformat_en, ft_attr->reformat_en);
 
 	if (ft_attr->sw_owner) {
 		/* icm_addr_0 used for FDB RX / NIC TX / NIC_RX
@@ -375,7 +376,10 @@ dr_devx_set_fte(struct ibv_context *ctx,
 	uint32_t *in;
 	uint32_t i;
 
-	dest_entry_size = DEVX_ST_SZ_BYTES(dest_format);
+	if (fte_attr->extended_dest)
+		dest_entry_size = DEVX_ST_SZ_BYTES(extended_dest_format);
+	else
+		dest_entry_size = DEVX_ST_SZ_BYTES(dest_format);
 	inlen = DEVX_ST_SZ_BYTES(set_fte_in) + fte_attr->dest_size * dest_entry_size;
 	in = calloc(1, inlen);
 	if (!in) {
@@ -391,6 +395,8 @@ dr_devx_set_fte(struct ibv_context *ctx,
 	DEVX_SET(flow_context, in_flow_context, group_id, fte_attr->group_id);
 	DEVX_SET(flow_context, in_flow_context, flow_tag, fte_attr->flow_tag);
 	DEVX_SET(flow_context, in_flow_context, action, fte_attr->action);
+	DEVX_SET(flow_context, in_flow_context, extended_destination,
+		 fte_attr->extended_dest);
 
 	in_dests = DEVX_ADDR_OF(flow_context, in_flow_context, destination);
 	if (fte_attr->action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) {
@@ -417,6 +423,18 @@ dr_devx_set_fte(struct ibv_context *ctx,
 
 			DEVX_SET(dest_format, in_dests, destination_type, type);
 			DEVX_SET(dest_format, in_dests, destination_id, id);
+			if (fte_attr->dest_arr[i].has_reformat) {
+				if (!fte_attr->extended_dest) {
+					errno = EINVAL;
+					goto err_out;
+				}
+
+				DEVX_SET(dest_format, in_dests, packet_reformat, 1);
+				DEVX_SET(extended_dest_format, in_dests,
+					 packet_reformat_id,
+					 fte_attr->dest_arr[i].reformat_id);
+			}
+
 			in_dests += dest_entry_size;
 			list_size++;
 		}

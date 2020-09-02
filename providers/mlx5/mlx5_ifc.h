@@ -3036,7 +3036,17 @@ struct mlx5_ifc_dest_format_bits {
 	u8         destination_type[0x8];
 	u8         destination_id[0x18];
 
-	u8         reserved_at_20[0x20];
+	u8         reserved_at_20[0x1];
+	u8         packet_reformat[0x1];
+	u8         reserved_at_22[0x1e];
+};
+
+struct mlx5_ifc_extended_dest_format_bits {
+	struct mlx5_ifc_dest_format_bits destination_entry;
+
+	u8         packet_reformat_id[0x20];
+
+	u8         reserved_at_60[0x20];
 };
 
 struct mlx5_ifc_flow_counter_list_bits {
@@ -3062,7 +3072,8 @@ struct mlx5_ifc_flow_context_bits {
 	u8         reserved_at_60[0x10];
 	u8         action[0x10];
 
-	u8         reserved_at_80[0x8];
+	u8         extended_destination[0x1];
+	u8         reserved_at_81[0x7];
 	u8         destination_list_size[0x18];
 
 	u8         reserved_at_a0[0x8];
