@@ -11,7 +11,7 @@ from tests.base import PyverbsAPITestCase
 import unittest
 
 
-class EfaDvTest(PyverbsAPITestCase):
+class EfaQueryDeviceTest(PyverbsAPITestCase):
     """
     Test various functionalities of the direct verbs class.
     """
