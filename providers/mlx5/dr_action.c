@@ -65,6 +65,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_NON_TERM,
 			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_SAMPLER]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_DEST_ARRAY]	= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_TNL_L2_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_TNL_L3_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
@@ -77,6 +78,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_SAMPLER]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_DEST_ARRAY]	= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
 		},
 		[DR_ACTION_STATE_MODIFY_HDR] = {
@@ -86,6 +88,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_MODIFY_HDR,
 			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_SAMPLER]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_DEST_ARRAY]	= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_NON_TERM] = {
 			[DR_ACTION_TYP_DROP]		= DR_ACTION_STATE_TERM,
@@ -95,6 +98,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_NON_TERM,
 			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_SAMPLER]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_DEST_ARRAY]	= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_TNL_L2_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_TNL_L3_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
@@ -148,6 +152,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_NON_TERM,
 			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_SAMPLER]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_DEST_ARRAY]	= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_TNL_L2_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_TNL_L3_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
@@ -159,6 +164,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_SAMPLER]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_DEST_ARRAY]	= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
 		},
@@ -167,6 +173,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_MODIFY_HDR,
 			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_SAMPLER]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_DEST_ARRAY]	= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_NON_TERM] = {
@@ -175,6 +182,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_NON_TERM,
 			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_SAMPLER]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_DEST_ARRAY]	= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_TNL_L2_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_TNL_L3_TO_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
@@ -193,6 +201,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
 			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_SAMPLER]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_DEST_ARRAY]	= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
@@ -203,6 +212,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_SAMPLER]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_DEST_ARRAY]	= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_MODIFY_HDR] = {
@@ -210,6 +220,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_MODIFY_HDR,
 			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_SAMPLER]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_DEST_ARRAY]	= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
@@ -221,6 +232,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
 			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_SAMPLER]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_DEST_ARRAY]	= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_REFORMAT,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
@@ -469,6 +481,16 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				attr.final_icm_addr = action->vport.caps->icm_address_tx;
 			}
 			break;
+		case DR_ACTION_TYP_DEST_ARRAY:
+			if (action->dest_array.dmn != dmn) {
+				dr_dbg(dmn, "Destination array belongs to a different domain\n");
+				goto out_invalid_arg;
+			}
+
+			attr.final_icm_addr = rx_rule ?
+				action->dest_array.rx_icm_addr :
+				action->dest_array.tx_icm_addr;
+			break;
 		default:
 			goto out_invalid_arg;
 		}
@@ -525,6 +547,15 @@ int dr_actions_build_attr(struct mlx5dv_dr_matcher *matcher,
 			}
 			attr[i].type = MLX5DV_FLOW_ACTION_DEST_DEVX;
 			attr[i].obj = actions[i]->dest_tbl->devx_obj;
+			break;
+		case DR_ACTION_TYP_DEST_ARRAY:
+			if (actions[i]->dest_array.dmn != dmn) {
+				dr_dbg(dmn, "Destination array belongs to a different domain\n");
+				errno = EINVAL;
+				return errno;
+			}
+			attr[i].type = MLX5DV_FLOW_ACTION_DEST_DEVX;
+			attr[i].obj = actions[i]->dest_array.devx_tbl->ft_dvo;
 			break;
 		case DR_ACTION_TYP_TNL_L2_TO_L2:
 		case DR_ACTION_TYP_L2_TO_TNL_L2:
@@ -1543,6 +1574,75 @@ struct mlx5dv_dr_action
 	return action;
 }
 
+static int
+dr_action_convert_to_fte_dest(struct mlx5dv_dr_domain *dmn,
+			      struct mlx5dv_dr_action *dest,
+			      struct mlx5dv_dr_action *dest_reformat,
+			      struct dr_devx_flow_fte_attr *fte_attr)
+{
+	struct dr_devx_flow_dest_info *dest_info =
+		&fte_attr->dest_arr[fte_attr->dest_size];
+
+	switch (dest->action_type) {
+	case DR_ACTION_TYP_MISS:
+		if (dmn->type != MLX5DV_DR_DOMAIN_TYPE_FDB)
+			goto err_exit;
+
+		fte_attr->action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
+		dest_info->type = MLX5_FLOW_DEST_TYPE_VPORT;
+		break;
+	case DR_ACTION_TYP_VPORT:
+		if (dmn->type != MLX5DV_DR_DOMAIN_TYPE_FDB)
+			goto err_exit;
+
+		fte_attr->action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
+		dest_info->type = MLX5_FLOW_DEST_TYPE_VPORT;
+		dest_info->vport_num = dest->vport.num;
+		break;
+	case DR_ACTION_TYP_QP:
+		fte_attr->action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
+		dest_info->type = MLX5_FLOW_DEST_TYPE_TIR;
+
+		if (dest->dest_qp.is_qp)
+			dest_info->tir_num = to_mqp(dest->dest_qp.qp)->tirn;
+		else
+			dest_info->tir_num = dest->dest_qp.devx_tir->object_id;
+
+		break;
+	case DR_ACTION_TYP_CTR:
+		fte_attr->action |= MLX5_FLOW_CONTEXT_ACTION_COUNT;
+		dest_info->type = MLX5_FLOW_DEST_TYPE_COUNTER;
+		dest_info->counter_id =
+			dest->ctr.devx_obj->object_id + dest->ctr.offset;
+		break;
+	default:
+		goto err_exit;
+	}
+
+	if (dest_reformat) {
+		switch (dest_reformat->action_type) {
+		case DR_ACTION_TYP_L2_TO_TNL_L2:
+		case DR_ACTION_TYP_L2_TO_TNL_L3:
+			if (dest_reformat->reformat.is_root_level)
+				goto err_exit;
+
+			fte_attr->extended_dest = true;
+			dest_info->has_reformat = true;
+			dest_info->reformat_id = dest_reformat->reformat.dvo->object_id;
+			break;
+		default:
+			goto err_exit;
+		}
+	}
+
+	fte_attr->dest_size++;
+	return 0;
+
+err_exit:
+	errno = EOPNOTSUPP;
+	return errno;
+}
+
 static struct dr_devx_tbl_with_refs *
 dr_action_create_sampler_term_tbl(struct mlx5dv_dr_domain *dmn,
 				  struct mlx5dv_dr_flow_sampler_attr *attr)
@@ -1553,7 +1653,6 @@ dr_action_create_sampler_term_tbl(struct mlx5dv_dr_domain *dmn,
 	struct dr_devx_flow_dest_info *dest_info;
 	struct dr_devx_tbl_with_refs *term_tbl;
 	struct mlx5dv_dr_action **ref_actions;
-	uint32_t dest_index = 0;
 	uint32_t ref_index = 0;
 	uint32_t tbl_type;
 	uint32_t i;
@@ -1580,6 +1679,11 @@ dr_action_create_sampler_term_tbl(struct mlx5dv_dr_domain *dmn,
 		goto free_term_tbl;
 	}
 
+	ft_attr.type = tbl_type;
+	ft_attr.level = dmn->info.caps.max_ft_level - 1;
+	ft_attr.term_tbl = true;
+	fte_attr.dest_arr = dest_info;
+
 	for (i = 0; i < attr->num_sample_actions; i++) {
 		enum dr_action_type action_type =
 			attr->sample_actions[i]->action_type;
@@ -1590,53 +1694,22 @@ dr_action_create_sampler_term_tbl(struct mlx5dv_dr_domain *dmn,
 		switch (action_type) {
 		case DR_ACTION_TYP_MISS:
 		case DR_ACTION_TYP_VPORT:
-			if (tbl_type != FS_FT_FDB) {
-				errno = EOPNOTSUPP;
+			if (dr_action_convert_to_fte_dest(dmn, attr->sample_actions[i],
+							  NULL, &fte_attr))
 				goto free_ref_actions;
-			}
 
-			fte_attr.action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
-			dest_info[dest_index].type = MLX5_FLOW_DEST_TYPE_VPORT;
-
-			if (action_type == DR_ACTION_TYP_MISS)
-				dest_info[dest_index].vport_num = 0;
-			else
-				dest_info[dest_index].vport_num =
-					attr->sample_actions[i]->vport.num;
-
-			dest_index++;
 			break;
 		case DR_ACTION_TYP_QP:
-			if (tbl_type != FS_FT_NIC_RX) {
-				errno = EOPNOTSUPP;
-				goto free_ref_actions;
-			}
-
-			fte_attr.action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
-			dest_info[dest_index].type = MLX5_FLOW_DEST_TYPE_TIR;
-
-			if (attr->sample_actions[i]->dest_qp.is_qp) {
-				struct mlx5_qp *mlx5_qp =
-					to_mqp(attr->sample_actions[i]->dest_qp.qp);
-				dest_info[dest_index].tir_num = mlx5_qp->tirn;
-			} else {
-				dest_info[dest_index].tir_num =
-					attr->sample_actions[i]->dest_qp.devx_tir->object_id;
-			}
-			dest_index++;
-			break;
 		case DR_ACTION_TYP_CTR:
 			if (tbl_type != FS_FT_NIC_RX) {
 				errno = EOPNOTSUPP;
 				goto free_ref_actions;
 			}
 
-			fte_attr.action |= MLX5_FLOW_CONTEXT_ACTION_COUNT;
-			dest_info[dest_index].type = MLX5_FLOW_DEST_TYPE_COUNTER;
-			dest_info[dest_index].counter_id =
-				attr->sample_actions[i]->ctr.devx_obj->object_id +
-				attr->sample_actions[i]->ctr.offset;
-			dest_index++;
+			if (dr_action_convert_to_fte_dest(dmn, attr->sample_actions[i],
+							  NULL, &fte_attr))
+				goto free_ref_actions;
+
 			break;
 		case DR_ACTION_TYP_TAG:
 			if (tbl_type != FS_FT_NIC_RX) {
@@ -1652,11 +1725,6 @@ dr_action_create_sampler_term_tbl(struct mlx5dv_dr_domain *dmn,
 		}
 	}
 
-	ft_attr.type = tbl_type;
-	ft_attr.level = dmn->info.caps.max_ft_level - 1;
-	ft_attr.term_tbl = true;
-	fte_attr.dest_size = dest_index;
-	fte_attr.dest_arr = dest_info;
 	term_tbl->devx_tbl = dr_devx_create_always_hit_ft(dmn->ctx, &ft_attr,
 							  &fg_attr, &fte_attr);
 	if (!term_tbl->devx_tbl)
@@ -1930,6 +1998,172 @@ dec_ref:
 	return NULL;
 }
 
+static int dr_action_add_action_member(struct list_head *ref_list,
+				       struct mlx5dv_dr_action *action)
+{
+	struct dr_rule_action_member *action_mem;
+
+	action_mem = calloc(1, sizeof(*action_mem));
+	if (!action_mem) {
+		errno = ENOMEM;
+		return errno;
+	}
+
+	action_mem->action = action;
+	list_node_init(&action_mem->list);
+	list_add_tail(ref_list, &action_mem->list);
+	atomic_fetch_add(&action_mem->action->refcount, 1);
+
+	return 0;
+}
+
+static void dr_action_remove_action_members(struct list_head *ref_list)
+{
+	struct dr_rule_action_member *action_mem;
+	struct dr_rule_action_member *tmp;
+
+	list_for_each_safe(ref_list, action_mem, tmp, list) {
+		list_del(&action_mem->list);
+		atomic_fetch_sub(&action_mem->action->refcount, 1);
+		free(action_mem);
+	}
+}
+
+static int
+dr_action_create_dest_array_tbl(struct mlx5dv_dr_action *action,
+				size_t num_dest,
+				struct mlx5dv_dr_action_dest_attr *dests[])
+{
+	struct mlx5dv_dr_domain *dmn = action->dest_array.dmn;
+	struct dr_devx_flow_table_attr ft_attr = {};
+	struct dr_devx_flow_group_attr fg_attr = {};
+	struct dr_devx_flow_fte_attr fte_attr = {};
+	uint32_t i;
+	int ret;
+
+	switch (dmn->type) {
+	case MLX5DV_DR_DOMAIN_TYPE_FDB:
+		ft_attr.type = FS_FT_FDB;
+		ft_attr.level = dmn->info.caps.max_ft_level - 1;
+		break;
+	case MLX5DV_DR_DOMAIN_TYPE_NIC_RX:
+		ft_attr.type = FS_FT_NIC_RX;
+		ft_attr.level = MLX5_MULTI_PATH_FT_MAX_LEVEL - 1;
+		break;
+	default:
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
+	fte_attr.dest_arr = calloc(num_dest, sizeof(struct dr_devx_flow_dest_info));
+	if (!fte_attr.dest_arr) {
+		errno = ENOMEM;
+		return errno;
+	}
+
+	for (i = 0; i < num_dest; i++) {
+		struct mlx5dv_dr_action *reformat_action;
+		struct mlx5dv_dr_action *dest_action;
+
+		switch (dests[i]->type) {
+		case MLX5DV_DR_ACTION_DEST_REFORMAT:
+			dest_action = dests[i]->dest_reformat->dest;
+			reformat_action = dests[i]->dest_reformat->reformat;
+			ft_attr.reformat_en = true;
+			break;
+		case MLX5DV_DR_ACTION_DEST:
+			dest_action = dests[i]->dest;
+			reformat_action = NULL;
+			break;
+		default:
+			errno = EINVAL;
+			goto clear_actions_list;
+		}
+
+		switch (dest_action->action_type) {
+		case DR_ACTION_TYP_MISS:
+		case DR_ACTION_TYP_VPORT:
+		case DR_ACTION_TYP_QP:
+		case DR_ACTION_TYP_CTR:
+			if (dr_action_add_action_member(&action->dest_array.actions_list,
+							dest_action))
+				goto clear_actions_list;
+
+			break;
+		default:
+			errno = EOPNOTSUPP;
+			goto clear_actions_list;
+		}
+
+		if (reformat_action)
+			if (dr_action_add_action_member(&action->dest_array.actions_list,
+							reformat_action))
+				goto clear_actions_list;
+
+		if (dr_action_convert_to_fte_dest(dmn, dest_action,
+						  reformat_action, &fte_attr))
+			goto clear_actions_list;
+	}
+
+	action->dest_array.devx_tbl = dr_devx_create_always_hit_ft(dmn->ctx,
+								   &ft_attr,
+								   &fg_attr,
+								   &fte_attr);
+	if (!action->dest_array.devx_tbl)
+		goto clear_actions_list;
+
+	ret = dr_devx_query_flow_table(action->dest_array.devx_tbl->ft_dvo,
+				       ft_attr.type,
+				       &action->dest_array.rx_icm_addr,
+				       &action->dest_array.tx_icm_addr);
+	if (ret)
+		goto destroy_devx_tbl;
+
+	free(fte_attr.dest_arr);
+	return 0;
+
+destroy_devx_tbl:
+	dr_devx_destroy_always_hit_ft(action->dest_array.devx_tbl);
+clear_actions_list:
+	dr_action_remove_action_members(&action->dest_array.actions_list);
+
+	free(fte_attr.dest_arr);
+	return errno;
+}
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_array(struct mlx5dv_dr_domain *dmn,
+				   size_t num_dest,
+				   struct mlx5dv_dr_action_dest_attr *dests[])
+{
+	struct mlx5dv_dr_action *action;
+
+	if (num_dest <= 1) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	atomic_fetch_add(&dmn->refcount, 1);
+
+	action = dr_action_create_generic(DR_ACTION_TYP_DEST_ARRAY);
+	if (!action)
+		goto dec_ref;
+
+	action->dest_array.dmn = dmn;
+	list_head_init(&action->dest_array.actions_list);
+
+	if (dr_action_create_dest_array_tbl(action, num_dest, dests))
+		goto free_action;
+
+	return action;
+
+free_action:
+	free(action);
+dec_ref:
+	atomic_fetch_sub(&dmn->refcount, 1);
+	return NULL;
+}
+
 int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action)
 {
 	if (atomic_load(&action->refcount) > 1)
@@ -1980,6 +2214,11 @@ int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action)
 		dr_action_destroy_sampler(action->sampler.sampler_default);
 		dr_action_destroy_sampler_term_tbl(action->sampler.term_tbl);
 		atomic_fetch_sub(&action->sampler.dmn->refcount, 1);
+		break;
+	case DR_ACTION_TYP_DEST_ARRAY:
+		dr_devx_destroy_always_hit_ft(action->dest_array.devx_tbl);
+		dr_action_remove_action_members(&action->dest_array.actions_list);
+		atomic_fetch_sub(&action->dest_array.dmn->refcount, 1);
 		break;
 	default:
 		break;

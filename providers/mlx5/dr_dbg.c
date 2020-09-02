@@ -74,6 +74,7 @@ enum dr_dump_rec_type {
 	DR_DUMP_REC_TYPE_ACTION_DEVX_TIR = 3411,
 	DR_DUMP_REC_TYPE_ACTION_METER = 3414,
 	DR_DUMP_REC_TYPE_ACTION_SAMPLER = 3415,
+	DR_DUMP_REC_TYPE_ACTION_DEST_ARRAY = 3416,
 };
 
 static uint64_t dr_dump_icm_to_idx(uint64_t icm_addr)
@@ -180,6 +181,13 @@ static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
 			      (action->sampler.sampler_restore) ?
 					action->sampler.sampler_restore->tx_icm_addr :
 					action->sampler.sampler_default->tx_icm_addr);
+		break;
+	case DR_ACTION_TYP_DEST_ARRAY:
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x,0x%" PRIx64 ",0x%" PRIx64 "\n",
+			      DR_DUMP_REC_TYPE_ACTION_DEST_ARRAY, action_id, rule_id,
+			      action->dest_array.devx_tbl->ft_dvo->object_id,
+			      action->dest_array.rx_icm_addr,
+			      action->dest_array.tx_icm_addr);
 		break;
 	default:
 		return 0;

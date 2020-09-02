@@ -104,6 +104,10 @@ struct mlx5_ifc_roce_cap_bits {
 	u8         reserved_at_20[0x7e0];
 };
 
+enum {
+	MLX5_MULTI_PATH_FT_MAX_LEVEL = 64,
+};
+
 struct mlx5_ifc_flow_table_context_bits {
 	u8         reformat_en[0x1];
 	u8         decap_en[0x1];

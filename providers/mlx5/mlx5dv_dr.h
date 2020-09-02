@@ -146,6 +146,7 @@ enum dr_action_type {
 	DR_ACTION_TYP_METER,
 	DR_ACTION_TYP_MISS,
 	DR_ACTION_TYP_SAMPLER,
+	DR_ACTION_TYP_DEST_ARRAY,
 	DR_ACTION_TYP_MAX,
 };
 
@@ -853,6 +854,13 @@ struct mlx5dv_dr_action {
 			struct dr_flow_sampler			*sampler_restore;
 		} sampler;
 		struct mlx5dv_dr_table	*dest_tbl;
+		struct {
+			struct mlx5dv_dr_domain		*dmn;
+			struct list_head		actions_list;
+			struct dr_devx_tbl		*devx_tbl;
+			uint64_t			rx_icm_addr;
+			uint64_t			tx_icm_addr;
+		} dest_array;
 		struct {
 			struct mlx5dv_devx_obj	*devx_obj;
 			uint32_t		offset;
