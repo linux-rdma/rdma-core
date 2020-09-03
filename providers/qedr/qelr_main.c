@@ -61,6 +61,8 @@ static void qelr_free_context(struct ibv_context *ibctx);
 #define PCI_DEVICE_ID_QLOGIC_57980S_IOV (0x1664)
 #define PCI_DEVICE_ID_QLOGIC_AH         (0x8070)
 #define PCI_DEVICE_ID_QLOGIC_AH_IOV     (0x8090)
+#define PCI_DEVICE_ID_QLOGIC_AHP        (0x8170)
+#define PCI_DEVICE_ID_QLOGIC_AHP_IOV    (0x8190)
 
 uint32_t qelr_dp_level;
 uint32_t qelr_dp_module;
@@ -79,6 +81,8 @@ static const struct verbs_match_ent hca_table[] = {
 	QHCA(57980S_IOV),
 	QHCA(AH),
 	QHCA(AH_IOV),
+	QHCA(AHP),
+	QHCA(AHP_IOV),
 	{}
 };
 
