@@ -321,7 +321,7 @@ static int query_sysfs_gid_type(struct ibv_context *context, uint8_t port_num,
 static int query_sysfs_gid_entry(struct ibv_context *context, uint32_t port_num,
 				 uint32_t gid_index,
 				 struct ibv_gid_entry *entry,
-				 uint32_t attr_mask)
+				 uint32_t attr_mask, int link_layer)
 {
 	enum ibv_gid_type_sysfs gid_type;
 	struct ibv_port_attr port_attr = {};
@@ -342,14 +342,18 @@ static int query_sysfs_gid_entry(struct ibv_context *context, uint32_t port_num,
 			return EINVAL;
 
 		if (gid_type == IBV_GID_TYPE_SYSFS_IB_ROCE_V1) {
-			ret = ibv_query_port(context, port_num, &port_attr);
-			if (ret)
-				goto out;
+			if (link_layer < 0) {
+				ret = ibv_query_port(context, port_num,
+						     &port_attr);
+				if (ret)
+					goto out;
 
-			if (port_attr.link_layer == IBV_LINK_LAYER_INFINIBAND) {
+				link_layer = port_attr.link_layer;
+			}
+
+			if (link_layer == IBV_LINK_LAYER_INFINIBAND) {
 				entry->gid_type = IBV_GID_TYPE_IB;
-			} else if (port_attr.link_layer ==
-				   IBV_LINK_LAYER_ETHERNET) {
+			} else if (link_layer == IBV_LINK_LAYER_ETHERNET) {
 				entry->gid_type = IBV_GID_TYPE_ROCE_V1;
 			} else {
 				ret = EINVAL;
@@ -368,8 +372,64 @@ out:
 	return ret;
 }
 
-/* Using async_event cmd_name because query_gid_ex is not in
- * verbs_context_ops while async_event is and doesn't use ioctl.
+static int query_gid_table_fb(struct ibv_context *context,
+			      struct ibv_gid_entry *entries, size_t max_entries,
+			      uint64_t *num_entries, size_t entry_size)
+{
+	struct ibv_device_attr dev_attr = {};
+	struct ibv_port_attr port_attr = {};
+	struct ibv_gid_entry entry = {};
+	int attr_mask;
+	void *tmp;
+	int i, j;
+	int ret;
+
+	ret = ibv_query_device(context, &dev_attr);
+	if (ret)
+		goto out;
+
+	tmp = entries;
+	*num_entries = 0;
+	attr_mask = VERBS_QUERY_GID_ATTR_GID | VERBS_QUERY_GID_ATTR_TYPE |
+		    VERBS_QUERY_GID_ATTR_NDEV_IFINDEX;
+	for (i = 0; i < dev_attr.phys_port_cnt; i++) {
+		ret = ibv_query_port(context, i + 1, &port_attr);
+		if (ret)
+			goto out;
+
+		for (j = 0; j < port_attr.gid_tbl_len; j++) {
+			/* In case we already reached max_entries, query to some
+			 * temp entry, in case all other entries are zeros the
+			 * API should succceed.
+			 */
+			if (*num_entries == max_entries)
+				tmp = &entry;
+			ret = query_sysfs_gid_entry(context, i + 1, j,
+						    tmp,
+						    attr_mask,
+						    port_attr.link_layer);
+			if (ret)
+				goto out;
+			if (is_zero_gid(&((struct ibv_gid_entry *)tmp)->gid))
+				continue;
+			if (*num_entries == max_entries) {
+				ret = EINVAL;
+				goto out;
+			}
+
+			(*num_entries)++;
+			tmp += entry_size;
+		}
+	}
+
+out:
+	return ret;
+}
+
+/* Using async_event cmd_name because query_gid_ex and query_gid_table are not
+ * in verbs_context_ops while async_event is and doesn't use ioctl.
+ * If one of them is not supported, so is the other. Hence, we can use a single
+ * cmd_name for both of them.
  */
 #define query_gid_kernel_cap async_event
 int __ibv_query_gid_ex(struct ibv_context *context, uint32_t port_num,
@@ -395,7 +455,7 @@ int __ibv_query_gid_ex(struct ibv_context *context, uint32_t port_num,
 			return EOPNOTSUPP;
 
 		ret = query_sysfs_gid_entry(context, port_num, gid_index,
-					    entry, fallback_attr_mask);
+					    entry, fallback_attr_mask, -1);
 		if (ret)
 			return ret;
 
@@ -418,4 +478,41 @@ int _ibv_query_gid_ex(struct ibv_context *context, uint32_t port_num,
 				  VERBS_QUERY_GID_ATTR_GID |
 				  VERBS_QUERY_GID_ATTR_TYPE |
 				  VERBS_QUERY_GID_ATTR_NDEV_IFINDEX);
+}
+
+ssize_t _ibv_query_gid_table(struct ibv_context *context,
+				struct ibv_gid_entry *entries,
+				size_t max_entries, uint32_t flags,
+				size_t entry_size)
+{
+	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_DEVICE,
+			       UVERBS_METHOD_QUERY_GID_TABLE, 4);
+	uint64_t num_entries;
+	int ret;
+
+	fill_attr_const_in(cmdb, UVERBS_ATTR_QUERY_GID_TABLE_ENTRY_SIZE,
+			   entry_size);
+	fill_attr_in_uint32(cmdb, UVERBS_ATTR_QUERY_GID_TABLE_FLAGS, flags);
+	fill_attr_out(cmdb, UVERBS_ATTR_QUERY_GID_TABLE_RESP_ENTRIES, entries,
+		      _array_len(entry_size, max_entries));
+	fill_attr_out_ptr(cmdb, UVERBS_ATTR_QUERY_GID_TABLE_RESP_NUM_ENTRIES,
+			  &num_entries);
+
+	switch (execute_ioctl_fallback(context, query_gid_kernel_cap, cmdb,
+				       &ret)) {
+	case TRY_WRITE:
+		if (flags)
+			return -EOPNOTSUPP;
+
+		ret = query_gid_table_fb(context, entries, max_entries,
+					 &num_entries, entry_size);
+		break;
+	default:
+		break;
+	}
+
+	if (ret)
+		return -ret;
+
+	return num_entries;
 }

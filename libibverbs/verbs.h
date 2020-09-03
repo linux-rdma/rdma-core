@@ -43,6 +43,7 @@
 #include <string.h>
 #include <linux/types.h>
 #include <stdint.h>
+#include <sys/types.h>
 #include <infiniband/verbs_api.h>
 
 #ifdef __cplusplus
@@ -2357,6 +2358,21 @@ static inline int ibv_query_gid_ex(struct ibv_context *context,
 {
 	return _ibv_query_gid_ex(context, port_num, gid_index, entry, flags,
 				 sizeof(*entry));
+}
+
+ssize_t _ibv_query_gid_table(struct ibv_context *context,
+			     struct ibv_gid_entry *entries, size_t max_entries,
+			     uint32_t flags, size_t entry_size);
+
+/*
+ * ibv_query_gid_table - Get all valid GID table entries
+ */
+static inline ssize_t ibv_query_gid_table(struct ibv_context *context,
+					  struct ibv_gid_entry *entries,
+					  size_t max_entries, uint32_t flags)
+{
+	return _ibv_query_gid_table(context, entries, max_entries, flags,
+				    sizeof(*entries));
 }
 
 /**
