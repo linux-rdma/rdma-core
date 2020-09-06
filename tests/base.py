@@ -78,16 +78,6 @@ class PyverbsAPITestCase(unittest.TestCase):
 
 
 class RDMATestCase(unittest.TestCase):
-    """
-    A base class for test cases which provides the option for user parameters.
-    These can be provided by manually adding the test case to the runner:
-    suite = unittest.TestSuite()
-    ... # Regular auto-detection of test cases, no parameters used.
-    # Now follows your manual addition of test cases e.g:
-    suite.addTest(RDMATestCase.parametrize(<TestCaseName>, dev_name='..',
-                                           ib_port=1, gid_index=3,
-                                           pkey_index=42))
-    """
     ZERO_GID = '0000:0000:0000:0000'
 
     def __init__(self, methodName='runTest', dev_name=None, ib_port=None,
@@ -115,22 +105,6 @@ class RDMATestCase(unittest.TestCase):
         vendor_pid = dev_attrs.vendor_part_id
         return port_attrs.link_layer == e.IBV_LINK_LAYER_ETHERNET and \
             has_roce_hw_bug(vendor_id, vendor_pid)
-
-    @staticmethod
-    def parametrize(testcase_klass, dev_name=None, ib_port=None, gid_index=None,
-                    pkey_index=None):
-        """
-        Create a test suite containing all the tests from the given subclass
-        with the given dev_name, port, gid index and pkey_index.
-        """
-        loader = unittest.TestLoader()
-        names = loader.getTestCaseNames(testcase_klass)
-        suite = unittest.TestSuite()
-        for n in names:
-            suite.addTest(testcase_klass(n, dev_name=dev_name, ib_port=ib_port,
-                                         gid_index=gid_index,
-                                         pkey_index=pkey_index))
-        return suite
 
     @staticmethod
     def get_net_name(dev):
