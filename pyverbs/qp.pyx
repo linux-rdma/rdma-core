@@ -886,12 +886,33 @@ cdef class ECE(PyverbsCM):
         self.ece.options = options
         self.ece.comp_mask = comp_mask
 
+    @property
+    def vendor_id(self):
+        return self.ece.vendor_id
+    @vendor_id.setter
+    def vendor_id(self, val):
+        self.ece.vendor_id = val
+
+    @property
+    def options(self):
+        return self.ece.options
+    @options.setter
+    def options(self, val):
+        self.ece.options = val
+
+    @property
+    def comp_mask(self):
+        return self.ece.comp_mask
+    @comp_mask.setter
+    def comp_mask(self, val):
+        self.ece.comp_mask = val
+
     def __str__(self):
         print_format = '{:22}: 0x{:<20x}\n'
         return 'ECE:\n' +\
-        print_format.format('Vendor ID', self.ece.vendor_id) +\
-        print_format.format('Options', self.ece.options) +\
-        print_format.format('Comp Mask', self.ece.comp_mask)
+            print_format.format('Vendor ID', self.ece.vendor_id) +\
+            print_format.format('Options', self.ece.options) +\
+            print_format.format('Comp Mask', self.ece.comp_mask)
 
 
 cdef class QP(PyverbsCM):
