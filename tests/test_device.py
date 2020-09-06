@@ -63,6 +63,15 @@ class DeviceTest(PyverbsAPITestCase):
                 attr = ctx.query_device()
                 self.verify_device_attr(attr, dev)
 
+    def test_query_pkey(self):
+        """
+        Test ibv_query_pkey()
+        """
+        for dev in self.get_device_list():
+            with d.Context(name=dev.name.decode()) as ctx:
+                if dev.node_type == e.IBV_NODE_CA:
+                    ctx.query_pkey(port_num=1, index=0)
+
     def test_query_gid(self):
         """
         Test ibv_query_gid()

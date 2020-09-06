@@ -495,6 +495,8 @@ cdef extern from 'infiniband/verbs.h':
     unsigned long ibv_get_device_guid(ibv_device *device)
     int ibv_query_gid(ibv_context *context, unsigned int port_num,
                       int index, ibv_gid *gid)
+    int ibv_query_pkey(ibv_context *context, unsigned int port_num,
+                       int index, uint16_t *pkey)
     ibv_pd *ibv_alloc_pd(ibv_context *context)
     int ibv_dealloc_pd(ibv_pd *pd)
     ibv_mr *ibv_reg_mr(ibv_pd *pd, void *addr, size_t length, int access)
