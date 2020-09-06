@@ -41,7 +41,7 @@
 #include "mlx5_ifc.h"
 #include "mlx5.h"
 
-#define DR_RULE_MAX_STES	19
+#define DR_RULE_MAX_STES	20
 #define DR_ACTION_MAX_STES	6
 #define WIRE_PORT		0xFFFF
 #define DR_STE_SVLAN		0x1
@@ -468,6 +468,11 @@ void dr_ste_build_tnl_geneve(struct dr_ste_ctx *ste_ctx,
 			     struct dr_ste_build *sb,
 			     struct dr_match_param *mask,
 			     bool inner, bool rx);
+void dr_ste_build_tnl_geneve_tlv_opt(struct dr_ste_ctx *ste_ctx,
+				     struct dr_ste_build *sb,
+				     struct dr_match_param *mask,
+				     struct dr_devx_caps *caps,
+				     bool inner, bool rx);
 void dr_ste_build_tnl_gtpu(struct dr_ste_ctx *ste_ctx,
 			   struct dr_ste_build *sb,
 			   struct dr_match_param *mask,
@@ -617,6 +622,7 @@ struct dr_match_misc3 {
 	uint8_t icmpv6_type;
 	uint8_t icmpv4_code;
 	uint8_t icmpv4_type;
+	uint32_t geneve_tlv_option_0_data;
 	uint32_t gtpu_teid;
 	uint32_t gtpu_msg_type:8;
 	uint32_t gtpu_flags:3;
@@ -682,6 +688,7 @@ struct dr_devx_caps {
 	uint8_t				flex_parser_id_icmp_dw1;
 	uint8_t				flex_parser_id_icmpv6_dw0;
 	uint8_t				flex_parser_id_icmpv6_dw1;
+	uint8_t				flex_parser_id_geneve_opt_0;
 	uint8_t				max_ft_level;
 	uint8_t				sw_format_ver;
 	bool				isolate_vl_tc;

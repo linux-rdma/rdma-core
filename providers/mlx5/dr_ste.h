@@ -166,6 +166,7 @@ struct dr_ste_ctx {
 	dr_ste_builder_void_init build_eth_l4_misc_init;
 	dr_ste_builder_void_init build_tnl_vxlan_gpe_init;
 	dr_ste_builder_void_init build_tnl_geneve_init;
+	dr_ste_builder_void_init build_tnl_geneve_tlv_opt_init;
 	dr_ste_builder_void_init build_tnl_gtpu_init;
 	dr_ste_builder_void_init build_register_0_init;
 	dr_ste_builder_void_init build_register_1_init;

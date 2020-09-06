@@ -206,6 +206,12 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 				 capability.cmd_hca_cap.flex_parser_id_icmpv6_dw1);
 	}
 
+	if (caps->flex_protocols & MLX5_FLEX_PARSER_GENEVE_OPT_0_ENABLED)
+		caps->flex_parser_id_geneve_opt_0 =
+			DEVX_GET(query_hca_cap_out,
+				 out,
+				 capability.cmd_hca_cap.flex_parser_id_geneve_opt_0);
+
 	DEVX_SET(query_hca_cap_in, in, op_mod,
 		 MLX5_SET_HCA_CAP_OP_MOD_NIC_FLOW_TABLE |
 		 HCA_CAP_OPMOD_GET_CUR);

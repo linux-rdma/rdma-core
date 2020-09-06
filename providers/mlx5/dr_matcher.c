@@ -168,6 +168,18 @@ static bool dr_mask_is_tnl_geneve_set(struct dr_match_misc *misc)
 	       misc->geneve_opt_len;
 }
 
+static int dr_matcher_supp_geneve_tlv_option(struct dr_devx_caps *caps)
+{
+	return caps->flex_protocols & MLX5_FLEX_PARSER_GENEVE_OPT_0_ENABLED;
+}
+
+static bool dr_mask_is_tnl_geneve_tlv_opt(struct dr_match_param *mask,
+					  struct mlx5dv_dr_domain *dmn)
+{
+	return mask->misc3.geneve_tlv_option_0_data &&
+	       dr_matcher_supp_geneve_tlv_option(&dmn->info.caps);
+}
+
 static bool
 dr_matcher_supp_tnl_geneve(struct dr_devx_caps *caps)
 {
@@ -398,15 +410,23 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 							    &mask, inner, rx);
 		}
 
-		if (dr_mask_is_tnl_vxlan_gpe(&mask, dmn))
+		if (dr_mask_is_tnl_vxlan_gpe(&mask, dmn)) {
 			dr_ste_build_tnl_vxlan_gpe(ste_ctx, &sb[idx++],
 						   &mask, inner, rx);
-		else if (dr_mask_is_tnl_geneve(&mask, dmn))
-			dr_ste_build_tnl_geneve(ste_ctx, &sb[idx++],
-						&mask, inner, rx);
-		else if (dr_mask_is_tnl_gtpu(&mask, dmn))
+		} else if (dr_mask_is_tnl_geneve(&mask, dmn) ||
+			 dr_mask_is_tnl_geneve_tlv_opt(&mask, dmn)) {
+			if (dr_mask_is_tnl_geneve(&mask, dmn))
+				dr_ste_build_tnl_geneve(ste_ctx, &sb[idx++],
+							&mask, inner, rx);
+
+			if (dr_mask_is_tnl_geneve_tlv_opt(&mask, dmn))
+				dr_ste_build_tnl_geneve_tlv_opt(ste_ctx, &sb[idx++],
+								&mask, &dmn->info.caps,
+								inner, rx);
+		} else if (dr_mask_is_tnl_gtpu(&mask, dmn)) {
 			dr_ste_build_tnl_gtpu(ste_ctx, &sb[idx++],
 					      &mask, inner, rx);
+		}
 
 		if (DR_MASK_IS_ETH_L4_MISC_SET(mask.misc3, outer))
 			dr_ste_build_eth_l4_misc(ste_ctx, &sb[idx++],

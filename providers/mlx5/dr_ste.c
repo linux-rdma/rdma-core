@@ -885,6 +885,8 @@ static void dr_ste_copy_mask_misc3(char *mask, struct dr_match_misc3 *spec)
 	spec->icmpv4_code = DEVX_GET(dr_match_set_misc3, mask, icmp_code);
 	spec->icmpv6_type = DEVX_GET(dr_match_set_misc3, mask, icmpv6_type);
 	spec->icmpv6_code = DEVX_GET(dr_match_set_misc3, mask, icmpv6_code);
+	spec->geneve_tlv_option_0_data =
+		DEVX_GET(dr_match_set_misc3, mask, geneve_tlv_option_0_data);
 	spec->gtpu_flags    = DEVX_GET(dr_match_set_misc3, mask, gtpu_flags);
 	spec->gtpu_msg_type = DEVX_GET(dr_match_set_misc3, mask, gtpu_msg_type);
 	spec->gtpu_teid     = DEVX_GET(dr_match_set_misc3, mask, gtpu_teid);
@@ -1182,6 +1184,18 @@ void dr_ste_build_tnl_geneve(struct dr_ste_ctx *ste_ctx,
 	sb->rx = rx;
 	sb->inner = inner;
 	ste_ctx->build_tnl_geneve_init(sb, mask);
+}
+
+void dr_ste_build_tnl_geneve_tlv_opt(struct dr_ste_ctx *ste_ctx,
+				     struct dr_ste_build *sb,
+				     struct dr_match_param *mask,
+				     struct dr_devx_caps *caps,
+				     bool inner, bool rx)
+{
+	sb->rx = rx;
+	sb->caps = caps;
+	sb->inner = inner;
+	ste_ctx->build_tnl_geneve_tlv_opt_init(sb, mask);
 }
 
 void dr_ste_build_tnl_gtpu(struct dr_ste_ctx *ste_ctx,
