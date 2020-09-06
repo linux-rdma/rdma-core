@@ -41,6 +41,7 @@
 #include <util/udma_barrier.h>
 #include <util/util.h>
 #include <infiniband/verbs.h>
+#include <ccan/array_size.h>
 #include <ccan/bitmap.h>
 #include <ccan/container_of.h>
 
