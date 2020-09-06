@@ -55,22 +55,12 @@ class CqExTestCase(RDMATestCase):
         self.qp_dict = {'ud': CqExUD, 'rc': CqExRC, 'xrc': CqExXRC}
 
     def create_players(self, qp_type):
-        try:
-            client = self.qp_dict[qp_type](self.dev_name, self.ib_port,
-                                           self.gid_index)
-            server = self.qp_dict[qp_type](self.dev_name, self.ib_port,
-                                           self.gid_index)
-
-        except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
-                raise unittest.SkipTest(f'Create player with {qp_type} is not supported')
-
-        if qp_type == 'xrc':
-            client.pre_run(server.psns, server.qps_num)
-            server.pre_run(client.psns, client.qps_num)
-        else:
-            client.pre_run(server.psn, server.qpn)
-            server.pre_run(client.psn, client.qpn)
+        client = self.qp_dict[qp_type](self.dev_name, self.ib_port,
+                                       self.gid_index)
+        server = self.qp_dict[qp_type](self.dev_name, self.ib_port,
+                                       self.gid_index)
+        client.pre_run(server.psns, server.qps_num)
+        server.pre_run(client.psns, client.qps_num)
         return client, server
 
     def test_ud_traffic_cq_ex(self):

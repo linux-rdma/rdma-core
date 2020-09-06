@@ -185,20 +185,11 @@ class MWRC(RCResources):
                 raise unittest.SkipTest('Reg MR with MW access is not supported')
             raise ex
 
-    def create_qp(self):
-        qp_caps = QPCap(max_recv_wr=self.num_msgs)
-        qp_init_attr = QPInitAttr(qp_type=e.IBV_QPT_RC, scq=self.cq,
-                                  rcq=self.cq, cap=qp_caps)
+    def create_qp_attr(self):
         qp_attr = QPAttr(port_num=self.ib_port)
         qp_access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE
         qp_attr.qp_access_flags = qp_access
-        try:
-            self.qp = QP(self.pd, qp_init_attr, qp_attr)
-        except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
-                raise unittest.SkipTest('Create RC QP is not supported')
-            raise ex
-
+        return qp_attr
 
 
 class MWTest(RDMATestCase):
@@ -221,8 +212,8 @@ class MWTest(RDMATestCase):
         """
         self.client = resource(**self.dev_info, **resource_arg)
         self.server = resource(**self.dev_info, **resource_arg)
-        self.client.pre_run(self.server.psn, self.server.qpn)
-        self.server.pre_run(self.client.psn, self.client.qpn)
+        self.client.pre_run(self.server.psns, self.server.qps_num)
+        self.server.pre_run(self.client.psns, self.client.qps_num)
 
     def tearDown(self):
         if self.server:

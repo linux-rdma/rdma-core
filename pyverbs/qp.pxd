@@ -38,6 +38,7 @@ cdef class QP(PyverbsCM):
     cdef object scq
     cdef object rcq
     cdef object mws
+    cdef object srq
     cdef add_ref(self, obj)
 
 cdef class DataBuffer(PyverbsCM):

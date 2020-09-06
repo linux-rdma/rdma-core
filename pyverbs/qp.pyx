@@ -951,6 +951,10 @@ cdef class QP(PyverbsCM):
                 self.pd = pd
                 pd.add_ref(self)
                 self.context = None
+        if init_attr.srq is not None:
+            srq = <SRQ>init_attr.srq
+            srq.add_ref(self)
+            self.srq = srq
 
         if qp_attr is not None:
             funcs = {e.IBV_QPT_RC: self.to_init, e.IBV_QPT_UC: self.to_init,

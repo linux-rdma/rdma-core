@@ -11,10 +11,10 @@ import json
 import os
 
 from pyverbs.qp import QPCap, QPInitAttrEx, QPInitAttr, QPAttr, QP
+from pyverbs.srq import SRQ, SrqInitAttrEx, SrqInitAttr, SrqAttr
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.addr import AHAttr, GlobalRoute
 from pyverbs.xrcd import XRCD, XRCDInitAttr
-from pyverbs.srq import SRQ, SrqInitAttrEx
 from pyverbs.device import Context
 from args_parser import parser
 import pyverbs.device as d
@@ -241,32 +241,39 @@ class TrafficResources(BaseResources):
     Basic traffic class. It provides the basic RDMA resources and operations
     needed for traffic.
     """
-    def __init__(self, dev_name, ib_port, gid_index):
+    def __init__(self, dev_name, ib_port, gid_index, with_srq=False,
+                 qp_count=1):
         """
         Initializes a TrafficResources object with the given values and creates
         basic RDMA resources.
         :param dev_name: Device name to be used
         :param ib_port: IB port of the device to use
         :param gid_index: Which GID index to use
+        :param with_srq: If True, create SRQ and attach to QPs
+        :param qp_count: Number of QPs to create
         """
         super(TrafficResources, self).__init__(dev_name=dev_name,
                                                ib_port=ib_port,
                                                gid_index=gid_index)
-        self.psn = random.getrandbits(24)
         self.msg_size = 1024
         self.num_msgs = 1000
         self.port_attr = None
         self.mr = None
         self.use_mr_prefetch = None
+        self.srq = None
         self.cq = None
-        self.qp = None
-        self.rqpn = 0
-        self.rpsn = 0
+        self.qps = []
+        self.qps_num = []
+        self.psns = []
+        self.rqps_num = None
+        self.rpsns = None
+        self.with_srq = with_srq
+        self.qp_count = qp_count
         self.init_resources()
 
     @property
-    def qpn(self):
-        return self.qp.qp_num
+    def qp(self):
+        return self.qps[0]
 
     def init_resources(self):
         """
@@ -274,9 +281,11 @@ class TrafficResources(BaseResources):
         :return: None
         """
         self.port_attr = self.ctx.query_port(self.ib_port)
+        if self.with_srq:
+            self.create_srq()
         self.create_cq()
         self.create_mr()
-        self.create_qp()
+        self.create_qps()
 
     def create_cq(self):
         """
@@ -294,24 +303,51 @@ class TrafficResources(BaseResources):
         """
         self.mr = MR(self.pd, self.msg_size, e.IBV_ACCESS_LOCAL_WRITE)
 
-    def create_qp(self):
+    def create_qp_cap(self):
+        return QPCap(max_recv_wr=self.num_msgs)
+
+    def create_qp_init_attr(self):
+        return QPInitAttr(qp_type=e.IBV_QPT_RC, scq=self.cq, rcq=self.cq,
+                          srq=self.srq, cap=self.create_qp_cap())
+
+    def create_qp_attr(self):
+        return QPAttr(port_num=self.ib_port)
+
+    def create_qps(self):
         """
-        Initializes self.qp with an RC QP.
+        Initializes self.qps with RC QPs.
         :return: None
         """
-        qp_caps = QPCap(max_recv_wr=self.num_msgs)
-        qp_init_attr = QPInitAttr(qp_type=e.IBV_QPT_RC, scq=self.cq,
-                                  rcq=self.cq, cap=qp_caps)
-        qp_attr = QPAttr(port_num=self.ib_port)
-        self.qp = QP(self.pd, qp_init_attr, qp_attr)
+        qp_init_attr = self.create_qp_init_attr()
+        qp_attr = self.create_qp_attr()
+        for _ in range(self.qp_count):
+            try:
+                qp = QP(self.pd, qp_init_attr, qp_attr)
+                self.qps.append(qp)
+                self.qps_num.append(qp.qp_num)
+                self.psns.append(random.getrandbits(24))
+            except PyverbsRDMAError as ex:
+                if ex.error_code == errno.EOPNOTSUPP:
+                    raise unittest.SkipTest(f'Create QP type {qp_init_attr.qp_type} is not supported')
+                raise ex
 
-    def pre_run(self, rpsn, rqpn):
+    def create_srq_attr(self):
+        return SrqAttr(max_wr=self.num_msgs*self.qp_count)
+
+    def create_srq_init_attr(self):
+        return SrqInitAttr(self.create_srq_attr())
+
+    def create_srq(self):
+        srq_init_attr = self.create_srq_init_attr()
+        self.srq = SRQ(self.pd, srq_init_attr)
+
+    def pre_run(self, rpsns, rqps_num):
         """
-        Modify the QP's state to RTS and fill receive queue with <num_msgs> work
+        Modify the QP's states to RTS and fill receive queue with <num_msgs> work
         requests.
         This method is not implemented in this class.
-        :param rpsn: Remote PSN
-        :param rqpn: Remote QPN
+        :param rpsns: Remote PSNs
+        :param rqps_num: Remote QPs Number
         :return: None
         """
         raise NotImplementedError()
@@ -325,13 +361,10 @@ class RCResources(TrafficResources):
         ibv_rc_pingpong).
         :return: None
         """
-        attr = QPAttr(port_num=self.ib_port)
-        attr.dest_qp_num = self.rqpn
+        attr = self.create_qp_attr()
         attr.path_mtu = PATH_MTU
         attr.max_dest_rd_atomic = MAX_DEST_RD_ATOMIC
         attr.min_rnr_timer = MIN_RNR_TIMER
-        attr.rq_psn = self.psn
-        attr.sq_psn = self.rpsn
         attr.timeout = TIMEOUT
         attr.retry_cnt = RETRY_CNT
         attr.rnr_retry = RNR_RETRY
@@ -341,17 +374,21 @@ class RCResources(TrafficResources):
         ah_attr = AHAttr(port_num=self.ib_port, is_global=1, gr=gr,
                          dlid=self.port_attr.lid)
         attr.ah_attr = ah_attr
-        self.qp.to_rts(attr)
+        for i in range(self.qp_count):
+            attr.dest_qp_num = self.rqps_num[i]
+            attr.rq_psn = self.psns[i]
+            attr.sq_psn = self.rpsns[i]
+            self.qps[i].to_rts(attr)
 
-    def pre_run(self, rpsn, rqpn):
+    def pre_run(self, rpsns, rqps_num):
         """
         Configure Resources before running traffic
-        :param rpsn: Remote PSN (packet serial number)
-        :param rqpn: Remote QP number
+        :param rpsns: Remote PSNs (packet serial number)
+        :param rqps_num: Remote QPs number
         :return: None
         """
-        self.rqpn = rqpn
-        self.rpsn = rpsn
+        self.rpsns = rpsns
+        self.rqps_num = rqps_num
         self.to_rts()
 
 
@@ -364,18 +401,24 @@ class UDResources(TrafficResources):
         self.mr = MR(self.pd, self.msg_size + self.GRH_SIZE,
                      e.IBV_ACCESS_LOCAL_WRITE)
 
-    def create_qp(self):
-        qp_caps = QPCap(max_recv_wr=self.num_msgs)
-        qp_init_attr = QPInitAttr(qp_type=e.IBV_QPT_UD, cap=qp_caps,
-                                  scq=self.cq, rcq=self.cq)
-        qp_attr = QPAttr(port_num=self.ib_port)
+    def create_qp_init_attr(self):
+        return QPInitAttr(qp_type=e.IBV_QPT_UD, scq=self.cq,
+                          rcq=self.cq, srq=self.srq, cap=self.create_qp_cap())
+
+    def create_qps(self):
+        qp_init_attr = self.create_qp_init_attr()
+        qp_attr = self.create_qp_attr()
         qp_attr.qkey = self.UD_QKEY
         qp_attr.pkey_index = self.UD_PKEY_INDEX
-        self.qp = QP(self.pd, qp_init_attr, qp_attr)
+        for _ in range(self.qp_count):
+            qp = QP(self.pd, qp_init_attr, qp_attr)
+            self.qps.append(qp)
+            self.qps_num.append(qp.qp_num)
+            self.psns.append(random.getrandbits(24))
 
-    def pre_run(self, rpsn, rqpn):
-        self.rqpn = rqpn
-        self.rpsn = rpsn
+    def pre_run(self, rpsns, rqps_num):
+        self.rpsns = rpsns
+        self.rqps_num = rqps_num
 
 
 class XRCResources(TrafficResources):
@@ -383,23 +426,18 @@ class XRCResources(TrafficResources):
         self.temp_file = None
         self.xrcd_fd = -1
         self.xrcd = None
-        self.srq = None
-        self.qp_count = qp_count
         self.sqp_lst = []
         self.rqp_lst = []
-        self.qps_num = []
-        self.psns = []
-        self.rqps_num = None
-        self.rpsns = None
-        super(XRCResources, self).__init__(dev_name, ib_port, gid_index)
+        super(XRCResources, self).__init__(dev_name, ib_port, gid_index,
+                                           qp_count=qp_count)
 
     def close(self):
         os.close(self.xrcd_fd)
         self.temp_file.close()
 
-    def create_qp(self):
+    def create_qps(self):
         """
-        Initializes self.qp with an XRC SEND/RECV QP.
+        Initializes self.qps with an XRC SEND/RECV QPs.
         :return: None
         """
         qp_attr = QPAttr(port_num=self.ib_port)

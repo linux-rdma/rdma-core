@@ -51,6 +51,17 @@ class OdpRC(RCResources):
                      implicit=self.is_implicit)
 
 
+class OdpSrqRc(RCResources):
+    def __init__(self, dev_name, ib_port, gid_index, qp_count=1):
+        super(OdpSrqRc, self).__init__(dev_name=dev_name, ib_port=ib_port,
+                                       gid_index=gid_index, with_srq=True,
+                                       qp_count=qp_count)
+
+    @requires_odp('rc',  e.IBV_ODP_SUPPORT_SEND | e.IBV_ODP_SUPPORT_SRQ_RECV)
+    def create_mr(self):
+        self.mr = create_custom_mr(self, e.IBV_ACCESS_ON_DEMAND)
+
+
 class OdpXRC(XRCResources):
     @requires_odp('xrc',  e.IBV_ODP_SUPPORT_SEND | e.IBV_ODP_SUPPORT_SRQ_RECV)
     def create_mr(self):
@@ -74,10 +85,8 @@ class OdpTestCase(RDMATestCase):
         """
         client = resource(**self.dev_info, **resource_arg)
         server = resource(**self.dev_info, **resource_arg)
-        psn = 'psns' if resource == OdpXRC else 'psn'
-        qpn = 'qps_num' if resource == OdpXRC else 'qpn'
-        client.pre_run(getattr(server, psn), getattr(server, qpn))
-        server.pre_run(getattr(client, psn), getattr(client, qpn))
+        client.pre_run(server.psns, server.qps_num)
+        server.pre_run(client.psns, client.qps_num)
         return client, server
 
     def tearDown(self):
@@ -112,6 +121,10 @@ class OdpTestCase(RDMATestCase):
     def test_odp_xrc_traffic(self):
         client, server = self.create_players(OdpXRC)
         xrc_traffic(client, server)
+
+    def test_odp_rc_srq_traffic(self):
+        client, server = self.create_players(OdpSrqRc, qp_count=2)
+        traffic(client, server, self.iters, self.gid_index, self.ib_port)
 
     @requires_huge_pages()
     def test_odp_rc_huge_traffic(self):
