@@ -1618,6 +1618,39 @@ int mlx5dv_query_qp_lag_port(struct ibv_qp *qp,
 
 int mlx5dv_modify_qp_lag_port(struct ibv_qp *qp, uint8_t port_num);
 
+enum mlx5dv_sched_elem_attr_flags {
+	MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE	= 1 << 0,
+	MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW	= 1 << 1,
+};
+
+struct mlx5dv_sched_attr {
+	struct mlx5dv_sched_node *parent;
+	uint32_t flags;		/* Use mlx5dv_sched_elem_attr_flags */
+	uint32_t bw_share;
+	uint32_t max_avg_bw;
+	uint64_t comp_mask;
+};
+
+struct mlx5dv_sched_node;
+struct mlx5dv_sched_leaf;
+
+struct mlx5dv_sched_node *
+mlx5dv_sched_node_create(struct ibv_context *context,
+			 const struct mlx5dv_sched_attr *sched_attr);
+struct mlx5dv_sched_leaf *
+mlx5dv_sched_leaf_create(struct ibv_context *context,
+			 const struct mlx5dv_sched_attr *sched_attr);
+
+int mlx5dv_sched_node_modify(struct mlx5dv_sched_node *node,
+			     const struct mlx5dv_sched_attr *sched_attr);
+
+int mlx5dv_sched_leaf_modify(struct mlx5dv_sched_leaf *leaf,
+			     const struct mlx5dv_sched_attr *sched_attr);
+
+int mlx5dv_sched_node_destroy(struct mlx5dv_sched_node *node);
+
+int mlx5dv_sched_leaf_destroy(struct mlx5dv_sched_leaf *leaf);
+
 #ifdef __cplusplus
 }
 #endif

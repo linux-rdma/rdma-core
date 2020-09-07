@@ -1131,6 +1131,261 @@ int mlx5dv_modify_qp_lag_port(struct ibv_qp *qp, uint8_t port_num)
 	return ret;
 }
 
+static bool sched_supported(struct ibv_context *ctx)
+{
+	struct mlx5_qos_caps *qc = &to_mctx(ctx)->qos_caps;
+
+	return (qc->qos &&
+		(qc->nic_element_type & ELEMENT_TYPE_CAP_MASK_TASR) &&
+		(qc->nic_element_type & ELEMENT_TYPE_CAP_MASK_QUEUE_GROUP) &&
+		(qc->nic_tsar_type & TSAR_TYPE_CAP_MASK_DWRR));
+}
+
+static struct mlx5dv_devx_obj *
+mlx5dv_sched_nic_create(struct ibv_context *ctx,
+			const struct mlx5dv_sched_attr *sched_attr,
+			int elem_type)
+{
+	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_sched_elem_in)] = {};
+	uint32_t parent_id;
+	void *attr;
+
+	attr = DEVX_ADDR_OF(create_sched_elem_in, in, hdr);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, opcode, MLX5_CMD_OP_CREATE_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, obj_type, MLX5_OBJ_TYPE_SCHEDULING_ELEMENT);
+
+	attr = DEVX_ADDR_OF(create_sched_elem_in, in, sched_elem);
+	DEVX_SET64(sched_elem, attr, modify_field_select, sched_attr->flags);
+	DEVX_SET(sched_elem, attr,
+		 scheduling_hierarchy, MLX5_SCHED_HIERARCHY_NIC);
+
+	attr = DEVX_ADDR_OF(create_sched_elem_in, in, sched_elem.sched_context);
+	DEVX_SET(sched_context, attr, element_type, elem_type);
+
+	parent_id = sched_attr->parent ? sched_attr->parent->obj->object_id : 0;
+	DEVX_SET(sched_context, attr, parent_element_id, parent_id);
+	if (sched_attr->flags & MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE)
+		DEVX_SET(sched_context, attr, bw_share, sched_attr->bw_share);
+	if (sched_attr->flags & MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW)
+		DEVX_SET(sched_context, attr,
+			 max_average_bw, sched_attr->max_avg_bw);
+
+	attr = DEVX_ADDR_OF(create_sched_elem_in, in,
+			    sched_elem.sched_context.sched_elem_attr);
+	DEVX_SET(sched_elem_attr_tsar, attr, tsar_type,
+		 MLX5_SCHED_TSAR_TYPE_DWRR);
+
+	return mlx5dv_devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
+}
+
+static int
+mlx5dv_sched_nic_modify(struct mlx5dv_devx_obj *obj,
+			const struct mlx5dv_sched_attr *sched_attr,
+			int elem_type)
+{
+	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_sched_elem_in)] = {};
+	void *attr;
+
+	attr = DEVX_ADDR_OF(create_sched_elem_in, in, hdr);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, opcode, MLX5_CMD_OP_MODIFY_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, obj_type, MLX5_OBJ_TYPE_SCHEDULING_ELEMENT);
+	DEVX_SET(general_obj_in_cmd_hdr, in, obj_id, obj->object_id);
+
+	attr = DEVX_ADDR_OF(create_sched_elem_in, in, sched_elem);
+	DEVX_SET64(sched_elem, attr, modify_field_select, sched_attr->flags);
+	DEVX_SET(sched_elem, attr,
+		 scheduling_hierarchy, MLX5_SCHED_HIERARCHY_NIC);
+
+	attr = DEVX_ADDR_OF(create_sched_elem_in, in, sched_elem.sched_context);
+	DEVX_SET(sched_context, attr, element_type, elem_type);
+	if (sched_attr->flags & MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE)
+		DEVX_SET(sched_context, attr, bw_share, sched_attr->bw_share);
+	if (sched_attr->flags & MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW)
+		DEVX_SET(sched_context, attr,
+			 max_average_bw, sched_attr->max_avg_bw);
+
+	attr = DEVX_ADDR_OF(create_sched_elem_in, in,
+			    sched_elem.sched_context.sched_elem_attr);
+	DEVX_SET(sched_elem_attr_tsar, attr, tsar_type,
+		 MLX5_SCHED_TSAR_TYPE_DWRR);
+
+	return mlx5dv_devx_obj_modify(obj, in, sizeof(in), out, sizeof(out));
+}
+
+#define MLX5DV_SCHED_ELEM_ATTR_ALL_FLAGS \
+	(MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE |	\
+	 MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW)
+
+static bool attr_supported(struct ibv_context *ctx,
+			   const struct mlx5dv_sched_attr *attr)
+{
+	struct mlx5_qos_caps *qc = &to_mctx(ctx)->qos_caps;
+
+	if ((attr->flags & MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE) &&
+	    !qc->nic_bw_share)
+		return false;
+	if ((attr->flags & MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW) &&
+	    !qc->nic_rate_limit)
+		return false;
+
+	return true;
+}
+
+static bool sched_attr_valid(const struct mlx5dv_sched_attr *attr, bool node)
+{
+	if (!attr || attr->comp_mask ||
+	    !check_comp_mask(attr->flags, MLX5DV_SCHED_ELEM_ATTR_ALL_FLAGS))
+		return false;
+	if (node && (!attr->parent && attr->flags))
+		return false;
+	if (!node && !attr->parent)
+		return false;
+
+	return true;
+}
+
+struct mlx5dv_sched_node *
+mlx5dv_sched_node_create(struct ibv_context *ctx,
+			 const struct mlx5dv_sched_attr *attr)
+{
+	struct mlx5dv_sched_node *node;
+	struct mlx5dv_devx_obj *obj;
+
+	if (!is_mlx5_dev(ctx->device)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (!sched_attr_valid(attr, true)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (!sched_supported(ctx) || !attr_supported(ctx, attr)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	node = calloc(1, sizeof(*node));
+	if (!node) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	obj = mlx5dv_sched_nic_create(ctx, attr, MLX5_SCHED_ELEM_TYPE_TSAR);
+	if (!obj)
+		goto err_sched_nic_create;
+
+	node->obj = obj;
+	node->parent = attr->parent;
+	return node;
+
+err_sched_nic_create:
+	free(node);
+	return NULL;
+}
+
+struct mlx5dv_sched_leaf *
+mlx5dv_sched_leaf_create(struct ibv_context *ctx,
+			 const struct mlx5dv_sched_attr *attr)
+{
+	struct mlx5dv_sched_leaf *leaf;
+	struct mlx5dv_devx_obj *obj;
+
+	if (!sched_attr_valid(attr, false)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (!attr_supported(ctx, attr)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	leaf = calloc(1, sizeof(*leaf));
+	if (!leaf) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	obj = mlx5dv_sched_nic_create(ctx, attr,
+				      MLX5_SCHED_ELEM_TYPE_QUEUE_GROUP);
+	if (!obj)
+		goto err_sched_nic_create;
+
+	leaf->obj = obj;
+	leaf->parent = attr->parent;
+	return leaf;
+
+err_sched_nic_create:
+	free(leaf);
+	return NULL;
+}
+
+int mlx5dv_sched_node_modify(struct mlx5dv_sched_node *node,
+			     const struct mlx5dv_sched_attr *attr)
+{
+	if (!node || !sched_attr_valid(attr, true)) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	if (!attr_supported(node->obj->context, attr)) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
+	return mlx5dv_sched_nic_modify(node->obj, attr,
+				       MLX5_SCHED_ELEM_TYPE_TSAR);
+}
+
+int mlx5dv_sched_leaf_modify(struct mlx5dv_sched_leaf *leaf,
+			     const struct mlx5dv_sched_attr *attr)
+{
+	if (!leaf || !sched_attr_valid(attr, false)) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	if (!attr_supported(leaf->obj->context, attr)) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
+	return mlx5dv_sched_nic_modify(leaf->obj, attr,
+				       MLX5_SCHED_ELEM_TYPE_QUEUE_GROUP);
+}
+
+int mlx5dv_sched_node_destroy(struct mlx5dv_sched_node *node)
+{
+	int ret;
+
+	ret = mlx5dv_devx_obj_destroy(node->obj);
+	if (ret)
+		return ret;
+
+	free(node);
+	return 0;
+}
+
+int mlx5dv_sched_leaf_destroy(struct mlx5dv_sched_leaf *leaf)
+{
+	int ret;
+
+	ret = mlx5dv_devx_obj_destroy(leaf->obj);
+	if (ret)
+		return ret;
+
+	free(leaf);
+	return 0;
+}
+
 LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
 		   int,
 		   struct mlx5dv_obj *obj, uint64_t obj_type)

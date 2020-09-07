@@ -28,6 +28,7 @@ rdma_man_pages(
   mlx5dv_pp_alloc.3.md
   mlx5dv_query_device.3
   mlx5dv_query_qp_lag_port.3.md
+  mlx5dv_sched_node_create.3.md
   mlx5dv_ts_to_ns.3
   mlx5dv_wr_post.3.md
   mlx5dv.7
@@ -89,6 +90,11 @@ rdma_alias_man_pages(
  mlx5dv_dump.3 mlx5dv_dump_dr_rule.3
  mlx5dv_dump.3 mlx5dv_dump_dr_table.3
  mlx5dv_pp_alloc.3 mlx5dv_pp_free.3
+ mlx5dv_sched_node_create.3 mlx5dv_sched_leaf_create.3
+ mlx5dv_sched_node_create.3 mlx5dv_sched_leaf_destroy.3
+ mlx5dv_sched_node_create.3 mlx5dv_sched_leaf_modify.3
+ mlx5dv_sched_node_create.3 mlx5dv_sched_node_destroy.3
+ mlx5dv_sched_node_create.3 mlx5dv_sched_node_modify.3
  mlx5dv_wr_post.3 mlx5dv_wr_set_dc_addr.3
  mlx5dv_wr_post.3 mlx5dv_qp_ex_from_ibv_qp_ex.3
  mlx5dv_wr_post.3 mlx5dv_wr_mr_interleaved.3

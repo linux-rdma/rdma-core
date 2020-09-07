@@ -749,6 +749,16 @@ struct mlx5_flow_action_attr_aux {
 	uint32_t offset;
 };
 
+struct mlx5dv_sched_node {
+	struct mlx5dv_sched_node *parent;
+	struct mlx5dv_devx_obj *obj;
+};
+
+struct mlx5dv_sched_leaf {
+	struct mlx5dv_sched_node *parent;
+	struct mlx5dv_devx_obj *obj;
+};
+
 struct ibv_flow *
 __mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 		     struct mlx5dv_flow_match_parameters *match_value,

@@ -1091,6 +1091,15 @@ struct mlx5_ifc_odp_cap_bits {
 	u8         reserved_at_120[0x6e0];
 };
 
+enum {
+	ELEMENT_TYPE_CAP_MASK_TASR = 1 << 0,
+	ELEMENT_TYPE_CAP_MASK_QUEUE_GROUP = 1 << 4,
+};
+
+enum {
+	TSAR_TYPE_CAP_MASK_DWRR = 1 << 0,
+};
+
 struct mlx5_ifc_qos_cap_bits {
 	u8         reserved_at_0[0x8];
 	u8         nic_sq_scheduling[0x1];
@@ -2394,6 +2403,7 @@ enum {
 	MLX5_OBJ_TYPE_FLOW_SAMPLER = 0x0020,
 	MLX5_OBJ_TYPE_ASO_FLOW_METER = 0x0024,
 	MLX5_OBJ_TYPE_ASO_FIRST_HIT = 0x0025,
+	MLX5_OBJ_TYPE_SCHEDULING_ELEMENT = 0x0026,
 };
 
 struct mlx5_ifc_general_obj_in_cmd_hdr_bits {
@@ -3230,5 +3240,73 @@ enum {
 enum {
 	MLX5_ASO_FIRST_HIT_NUM_PER_OBJ = 512,
 	MLX5_ASO_FLOW_METER_NUM_PER_OBJ = 2,
+};
+
+enum mlx5_sched_hierarchy_type {
+	MLX5_SCHED_HIERARCHY_NIC = 3,
+};
+
+enum mlx5_sched_elem_type {
+	MLX5_SCHED_ELEM_TYPE_TSAR		= 0x0,
+	MLX5_SCHED_ELEM_TYPE_VPORT		= 0x1,
+	MLX5_SCHED_ELEM_TYPE_VPORT_TC		= 0x2,
+	MLX5_SCHED_ELEM_TYPE_PARA_VPORT_TC	= 0x3,
+	MLX5_SCHED_ELEM_TYPE_QUEUE_GROUP	= 0x4,
+};
+
+enum mlx5_sched_tsar_type {
+	MLX5_SCHED_TSAR_TYPE_DWRR		= 0x0,
+	MLX5_SCHED_TSAR_TYPE_ROUND_ROBIN	= 0x1,
+	MLX5_SCHED_TSAR_TYPE_ETS		= 0x2,
+};
+
+struct mlx5_ifc_sched_elem_attr_tsar_bits {
+	u8	reserved_at_0[0x8];
+	u8	tsar_type[0x8];
+	u8	reserved_at_10[0x10];
+};
+
+union mlx5_ifc_sched_elem_attr_bits {
+	struct mlx5_ifc_sched_elem_attr_tsar_bits tsar;
+};
+
+struct  mlx5_ifc_sched_context_bits {
+	u8	element_type[0x8];
+	u8	reserved_at_8[0x18];
+
+	union	mlx5_ifc_sched_elem_attr_bits sched_elem_attr;
+
+	u8	parent_element_id[0x20];
+
+	u8	reserved_at_60[0x40];
+
+	u8	bw_share[0x20];
+
+	u8	max_average_bw[0x20];
+
+	u8	reserved_at_e0[0x120];
+};
+
+struct mlx5_ifc_sched_elem_bits {
+	u8	modify_field_select[0x40];
+
+	u8	scheduling_hierarchy[0x8];
+	u8	reserved_at_48[0x18];
+
+	u8	reserved_at_60[0xa0];
+
+	struct	mlx5_ifc_sched_context_bits sched_context;
+
+	u8	reserved_at_300[0x100];
+};
+
+struct mlx5_ifc_create_sched_elem_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits	hdr;
+	struct mlx5_ifc_sched_elem_bits			sched_elem;
+};
+
+struct mlx5_ifc_create_modify_elem_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits	hdr;
+	struct mlx5_ifc_sched_elem_bits			sched_elem;
 };
 #endif /* MLX5_IFC_H */
