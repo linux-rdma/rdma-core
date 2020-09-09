@@ -383,7 +383,7 @@ def get_send_elements(agr_obj, is_server, opcode=e.IBV_WR_SEND):
     offset = GRH_SIZE if qp_type == e.IBV_QPT_UD else 0
     msg = (agr_obj.msg_size + offset) * ('s' if is_server else 'c')
     mr.write(msg, agr_obj.msg_size + offset)
-    sge = SGE(mr.buf + offset, agr_obj.msg_size, mr.lkey)
+    sge = SGE(mr.buf + offset, agr_obj.msg_size, agr_obj.mr_lkey)
     send_wr = SendWR(opcode=opcode, num_sge=1, sg=[sge])
     if opcode in [e.IBV_WR_RDMA_WRITE, e.IBV_WR_RDMA_READ]:
         send_wr.set_wr_rdma(int(agr_obj.rkey), int(agr_obj.remote_addr))
@@ -616,6 +616,8 @@ def validate(received_str, is_server, msg_size):
 
 
 def send(agr_obj, send_object, send_op=None, new_send=False, qp_idx=0, ah=None, is_imm=False):
+    if isinstance(agr_obj, XRCResources):
+        agr_obj.qps = agr_obj.sqp_lst
     if new_send:
         return post_send_ex(agr_obj, send_object, send_op, qp_idx, ah)
     return post_send(agr_obj, send_object, qp_idx, ah, is_imm)
