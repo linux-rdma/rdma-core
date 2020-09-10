@@ -103,7 +103,8 @@ class DeviceTest(PyverbsAPITestCase):
         assert attr.max_cqe > 0
         assert attr.max_mr > 0
         assert attr.max_pd > 0
-        assert attr.max_pkeys > 0
+        if device.node_type == e.IBV_NODE_CA:
+            assert attr.max_pkeys > 0
 
     def test_query_device_ex(self):
         """
