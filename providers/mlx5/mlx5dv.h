@@ -1441,6 +1441,7 @@ enum mlx5dv_dr_domain_type {
 enum mlx5dv_dr_domain_sync_flags {
 	MLX5DV_DR_DOMAIN_SYNC_FLAGS_SW		= 1 << 0,
 	MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW		= 1 << 1,
+	MLX5DV_DR_DOMAIN_SYNC_FLAGS_MEM		= 1 << 2,
 };
 
 struct mlx5dv_dr_flow_meter_attr {

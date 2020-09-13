@@ -37,7 +37,8 @@
 enum {
 	MLX5DV_DR_DOMAIN_SYNC_SUP_FLAGS =
 		(MLX5DV_DR_DOMAIN_SYNC_FLAGS_SW |
-		 MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW),
+		 MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW |
+		 MLX5DV_DR_DOMAIN_SYNC_FLAGS_MEM),
 };
 
 static int dr_domain_init_resources(struct mlx5dv_dr_domain *dmn)
@@ -263,6 +264,30 @@ static void dr_domain_caps_uninit(struct mlx5dv_dr_domain *dmn)
 		free(dmn->info.caps.vports_caps);
 }
 
+static int dr_domain_check_icm_memory_caps(struct mlx5dv_dr_domain *dmn)
+{
+	if (dmn->info.caps.log_modify_hdr_icm_size < DR_CHUNK_SIZE_4K +
+	    DR_MODIFY_ACTION_LOG_SIZE) {
+		errno = ENOMEM;
+		return errno;
+	}
+
+	dmn->info.max_log_action_icm_sz = min_t(uint32_t,
+						DR_CHUNK_SIZE_1024K,
+						dmn->info.caps.log_modify_hdr_icm_size
+						- DR_MODIFY_ACTION_LOG_SIZE);
+
+	if (dmn->info.caps.log_icm_size < DR_CHUNK_SIZE_1024K +
+	    DR_STE_LOG_SIZE) {
+		errno = ENOMEM;
+		return errno;
+	}
+
+	dmn->info.max_log_sw_icm_sz = DR_CHUNK_SIZE_1024K;
+
+	return 0;
+}
+
 struct mlx5dv_dr_domain *
 mlx5dv_dr_domain_create(struct ibv_context *ctx,
 			enum mlx5dv_dr_domain_type type)
@@ -291,12 +316,12 @@ mlx5dv_dr_domain_create(struct ibv_context *ctx,
 		goto free_domain;
 	}
 
-	dmn->info.max_log_action_icm_sz = DR_CHUNK_SIZE_4K;
-	dmn->info.max_log_sw_icm_sz = min_t(uint32_t, DR_CHUNK_SIZE_1024K,
-					    dmn->info.caps.log_icm_size);
-
 	/* Allocate resources */
 	if (dmn->info.supp_sw_steering) {
+
+		if (dr_domain_check_icm_memory_caps(dmn))
+			goto uninit_caps;
+
 		ret = dr_domain_init_resources(dmn);
 		if (ret) {
 			dr_dbg(dmn, "Failed init domain resources for %s\n",
@@ -339,8 +364,22 @@ int mlx5dv_dr_domain_sync(struct mlx5dv_dr_domain *dmn, uint32_t flags)
 		pthread_mutex_unlock(&dmn->mutex);
 	}
 
-	if (flags & MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW)
+	if (flags & MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW) {
 		ret = dr_devx_sync_steering(dmn->ctx);
+		if (ret)
+			return ret;
+	}
+
+	if (flags & MLX5DV_DR_DOMAIN_SYNC_FLAGS_MEM) {
+		if (dmn->ste_icm_pool) {
+			ret = dr_icm_pool_sync_pool(dmn->ste_icm_pool);
+			if (ret)
+				return ret;
+		}
+
+		if (dmn->action_icm_pool)
+			ret = dr_icm_pool_sync_pool(dmn->action_icm_pool);
+	}
 
 	return ret;
 
