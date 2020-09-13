@@ -257,39 +257,275 @@ int dr_devx_sync_steering(struct ibv_context *ctx)
 	return err;
 }
 
-struct mlx5dv_devx_obj *dr_devx_create_flow_table(struct ibv_context *ctx,
-						  uint32_t table_type,
-						  uint64_t icm_addr_rx,
-						  uint64_t icm_addr_tx,
-						  u8 level)
+struct mlx5dv_devx_obj *
+dr_devx_create_flow_table(struct ibv_context *ctx,
+			  struct dr_devx_flow_table_attr *ft_attr)
 {
 	uint32_t out[DEVX_ST_SZ_DW(create_flow_table_out)] = {};
 	uint32_t in[DEVX_ST_SZ_DW(create_flow_table_in)] = {};
 	void *ft_ctx;
 
 	DEVX_SET(create_flow_table_in, in, opcode, MLX5_CMD_OP_CREATE_FLOW_TABLE);
-	DEVX_SET(create_flow_table_in, in, table_type, table_type);
+	DEVX_SET(create_flow_table_in, in, table_type, ft_attr->type);
 
 	ft_ctx = DEVX_ADDR_OF(create_flow_table_in, in, flow_table_context);
-	DEVX_SET(flow_table_context, ft_ctx, sw_owner, 1);
+	DEVX_SET(flow_table_context, ft_ctx, termination_table, ft_attr->term_tbl);
+	DEVX_SET(flow_table_context, ft_ctx, sw_owner, ft_attr->sw_owner);
+	DEVX_SET(flow_table_context, ft_ctx, level, ft_attr->level);
 
-	DEVX_SET(flow_table_context, ft_ctx, level, level);
-	/*
-	 * icm_addr_0 used for FDB RX / NIC TX / NIC_RX
-	 * icm_addr_1 used for FDB TX
-	 */
-	if (table_type == FS_FT_NIC_RX) {
-		DEVX_SET64(flow_table_context, ft_ctx, sw_owner_icm_root_0, icm_addr_rx);
-	} else if (table_type == FS_FT_NIC_TX) {
-		DEVX_SET64(flow_table_context, ft_ctx, sw_owner_icm_root_0, icm_addr_tx);
-	} else if (table_type == FS_FT_FDB) {
-		DEVX_SET64(flow_table_context, ft_ctx, sw_owner_icm_root_0, icm_addr_rx);
-		DEVX_SET64(flow_table_context, ft_ctx, sw_owner_icm_root_1, icm_addr_tx);
-	} else {
-		assert(false);
+	if (ft_attr->sw_owner) {
+		/* icm_addr_0 used for FDB RX / NIC TX / NIC_RX
+		 * icm_addr_1 used for FDB TX
+		 */
+		if (ft_attr->type == FS_FT_NIC_RX) {
+			DEVX_SET64(flow_table_context, ft_ctx,
+				   sw_owner_icm_root_0, ft_attr->icm_addr_rx);
+		} else if (ft_attr->type == FS_FT_NIC_TX) {
+			DEVX_SET64(flow_table_context, ft_ctx,
+				   sw_owner_icm_root_0, ft_attr->icm_addr_tx);
+		} else if (ft_attr->type == FS_FT_FDB) {
+			DEVX_SET64(flow_table_context, ft_ctx,
+				   sw_owner_icm_root_0, ft_attr->icm_addr_rx);
+			DEVX_SET64(flow_table_context, ft_ctx,
+				   sw_owner_icm_root_1, ft_attr->icm_addr_tx);
+		} else {
+			assert(false);
+		}
 	}
 
 	return mlx5dv_devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
+}
+
+static struct mlx5dv_devx_obj *
+dr_devx_create_flow_group(struct ibv_context *ctx,
+			  struct dr_devx_flow_group_attr *fg_attr)
+{
+	uint32_t out[DEVX_ST_SZ_DW(create_flow_group_out)] = {};
+	uint32_t inlen = DEVX_ST_SZ_BYTES(create_flow_group_in);
+	struct mlx5dv_devx_obj *obj;
+	uint32_t *in;
+
+	in = calloc(1, inlen);
+	if (!in) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	DEVX_SET(create_flow_group_in, in, opcode, MLX5_CMD_OP_CREATE_FLOW_GROUP);
+	DEVX_SET(create_flow_group_in, in, table_type, fg_attr->table_type);
+	DEVX_SET(create_flow_group_in, in, table_id, fg_attr->table_id);
+
+	obj = mlx5dv_devx_obj_create(ctx, in, inlen, out, sizeof(out));
+	free(in);
+
+	return obj;
+}
+
+static struct mlx5dv_devx_obj *
+dr_devx_set_fte(struct ibv_context *ctx,
+		struct dr_devx_flow_fte_attr *fte_attr)
+{
+	uint32_t out[DEVX_ST_SZ_DW(set_fte_out)] = {};
+	struct mlx5dv_devx_obj *obj;
+	uint32_t dest_entry_size;
+	void *in_flow_context;
+	uint32_t list_size;
+	uint8_t *in_dests;
+	uint32_t inlen;
+	uint32_t *in;
+	uint32_t i;
+
+	dest_entry_size = DEVX_ST_SZ_BYTES(dest_format);
+	inlen = DEVX_ST_SZ_BYTES(set_fte_in) + fte_attr->dest_size * dest_entry_size;
+	in = calloc(1, inlen);
+	if (!in) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	DEVX_SET(set_fte_in, in, opcode, MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY);
+	DEVX_SET(set_fte_in, in, table_type, fte_attr->table_type);
+	DEVX_SET(set_fte_in, in, table_id, fte_attr->table_id);
+
+	in_flow_context = DEVX_ADDR_OF(set_fte_in, in, flow_context);
+	DEVX_SET(flow_context, in_flow_context, group_id, fte_attr->group_id);
+	DEVX_SET(flow_context, in_flow_context, flow_tag, fte_attr->flow_tag);
+	DEVX_SET(flow_context, in_flow_context, action, fte_attr->action);
+
+	in_dests = DEVX_ADDR_OF(flow_context, in_flow_context, destination);
+	if (fte_attr->action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) {
+		list_size = 0;
+
+		for (i = 0; i < fte_attr->dest_size; i++) {
+			uint32_t id;
+			uint32_t type = fte_attr->dest_arr[i].type;
+
+			if (type == MLX5_FLOW_DEST_TYPE_COUNTER)
+				continue;
+
+			switch (type) {
+			case MLX5_FLOW_DEST_TYPE_VPORT:
+				id = fte_attr->dest_arr[i].vport_num;
+				break;
+			case MLX5_FLOW_DEST_TYPE_TIR:
+				id = fte_attr->dest_arr[i].tir_num;
+				break;
+			default:
+				errno = EOPNOTSUPP;
+				goto err_out;
+			}
+
+			DEVX_SET(dest_format, in_dests, destination_type, type);
+			DEVX_SET(dest_format, in_dests, destination_id, id);
+			in_dests += dest_entry_size;
+			list_size++;
+		}
+
+		DEVX_SET(flow_context, in_flow_context, destination_list_size, list_size);
+	}
+
+	if (fte_attr->action & MLX5_FLOW_CONTEXT_ACTION_COUNT) {
+		list_size = 0;
+
+		for (i = 0; i < fte_attr->dest_size; i++) {
+			if (fte_attr->dest_arr[i].type != MLX5_FLOW_DEST_TYPE_COUNTER)
+				continue;
+
+			DEVX_SET(flow_counter_list, in_dests, flow_counter_id,
+				 fte_attr->dest_arr[i].counter_id);
+			in_dests += dest_entry_size;
+			list_size++;
+		}
+
+		DEVX_SET(flow_context, in_flow_context, flow_counter_list_size, list_size);
+	}
+
+	obj = mlx5dv_devx_obj_create(ctx, in, inlen, out, sizeof(out));
+
+	free(in);
+	return obj;
+
+err_out:
+	free(in);
+	return NULL;
+}
+
+struct dr_devx_tbl *
+dr_devx_create_always_hit_ft(struct ibv_context *ctx,
+			     struct dr_devx_flow_table_attr *ft_attr,
+			     struct dr_devx_flow_group_attr *fg_attr,
+			     struct dr_devx_flow_fte_attr *fte_attr)
+{
+	struct mlx5dv_devx_obj *fte_dvo;
+	struct mlx5dv_devx_obj *fg_dvo;
+	struct mlx5dv_devx_obj *ft_dvo;
+	struct dr_devx_tbl *tbl;
+
+	tbl = calloc(1, sizeof(*tbl));
+	if (!tbl) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	ft_dvo = dr_devx_create_flow_table(ctx, ft_attr);
+	if (!ft_dvo)
+		goto free_tbl;
+
+	fg_attr->table_id = ft_dvo->object_id;
+	fg_attr->table_type = ft_attr->type;
+	fg_dvo = dr_devx_create_flow_group(ctx, fg_attr);
+	if (!fg_dvo)
+		goto free_ft_dvo;
+
+	fte_attr->table_id = ft_dvo->object_id;
+	fte_attr->table_type = ft_attr->type;
+	fte_attr->group_id = fg_dvo->object_id;
+	fte_dvo = dr_devx_set_fte(ctx, fte_attr);
+	if (!fte_dvo)
+		goto free_fg_dvo;
+
+	tbl->type = ft_attr->type;
+	tbl->level = ft_attr->level;
+	tbl->ft_dvo = ft_dvo;
+	tbl->fg_dvo = fg_dvo;
+	tbl->fte_dvo = fte_dvo;
+
+	return tbl;
+
+free_fg_dvo:
+	mlx5dv_devx_obj_destroy(fg_dvo);
+free_ft_dvo:
+	mlx5dv_devx_obj_destroy(ft_dvo);
+free_tbl:
+	free(tbl);
+
+	return NULL;
+}
+
+void dr_devx_destroy_always_hit_ft(struct dr_devx_tbl *devx_tbl)
+{
+	mlx5dv_devx_obj_destroy(devx_tbl->fte_dvo);
+	mlx5dv_devx_obj_destroy(devx_tbl->fg_dvo);
+	mlx5dv_devx_obj_destroy(devx_tbl->ft_dvo);
+	free(devx_tbl);
+}
+
+struct mlx5dv_devx_obj *
+dr_devx_create_flow_sampler(struct ibv_context *ctx,
+			    struct dr_devx_flow_sampler_attr *sampler_attr)
+{
+	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_flow_sampler_in)] = {};
+	void *attr;
+
+	attr = DEVX_ADDR_OF(create_flow_sampler_in, in, hdr);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, opcode, MLX5_CMD_OP_CREATE_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, obj_type, MLX5_OBJ_TYPE_FLOW_SAMPLER);
+
+	attr = DEVX_ADDR_OF(create_flow_sampler_in, in, sampler);
+	DEVX_SET(flow_sampler, attr, table_type, sampler_attr->table_type);
+	DEVX_SET(flow_sampler, attr, level, sampler_attr->level);
+	DEVX_SET(flow_sampler, attr, sample_ratio, sampler_attr->sample_ratio);
+	DEVX_SET(flow_sampler, attr, ignore_flow_level,
+		 sampler_attr->ignore_flow_level);
+	DEVX_SET(flow_sampler, attr, default_table_id,
+		 sampler_attr->default_next_table_id);
+	DEVX_SET(flow_sampler, attr, sample_table_id,
+		 sampler_attr->sample_table_id);
+
+	return mlx5dv_devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
+}
+
+int dr_devx_query_flow_sampler(struct mlx5dv_devx_obj *obj,
+			       uint64_t *rx_icm_addr, uint64_t *tx_icm_addr)
+{
+	uint32_t out[DEVX_ST_SZ_DW(query_flow_sampler_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(general_obj_in_cmd_hdr)] = {};
+	void *attr;
+	int ret;
+
+	DEVX_SET(general_obj_in_cmd_hdr, in, opcode,
+		 MLX5_CMD_OP_QUERY_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr, in, obj_type,
+		 MLX5_OBJ_TYPE_FLOW_SAMPLER);
+	DEVX_SET(general_obj_in_cmd_hdr, in, obj_id, obj->object_id);
+
+	ret = mlx5dv_devx_obj_query(obj, in, sizeof(in), out, sizeof(out));
+	if (ret) {
+		dr_dbg_ctx(obj->context, "Failed to query flow sampler id %u\n",
+			   obj->object_id);
+		return ret;
+	}
+
+	attr = DEVX_ADDR_OF(query_flow_sampler_out, out, obj);
+	*rx_icm_addr = DEVX_GET64(flow_sampler, attr,
+				  sw_steering_icm_address_rx);
+	*tx_icm_addr = DEVX_GET64(flow_sampler, attr,
+				  sw_steering_icm_address_tx);
+
+	return 0;
 }
 
 struct mlx5dv_devx_obj *dr_devx_create_reformat_ctx(struct ibv_context *ctx,

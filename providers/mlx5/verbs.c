@@ -4754,6 +4754,14 @@ static void set_devx_obj_info(const void *in, const void *out,
 		obj->type = MLX5_DEVX_FLOW_TABLE;
 		obj->object_id = DEVX_GET(create_flow_table_out, out, table_id);
 		break;
+	case MLX5_CMD_OP_CREATE_FLOW_GROUP:
+		obj->type = MLX5_DEVX_FLOW_GROUP;
+		obj->object_id = DEVX_GET(create_flow_group_out, out, group_id);
+		break;
+	case MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY:
+		obj->type = MLX5_DEVX_FLOW_TABLE_ENTRY;
+		obj->object_id = DEVX_GET(set_fte_in, in, flow_index);
+		break;
 	case MLX5_CMD_OP_CREATE_FLOW_COUNTER:
 		obj->type = MLX5_DEVX_FLOW_COUNTER;
 		obj->object_id = DEVX_GET(alloc_flow_counter_out, out, flow_counter_id);
@@ -4762,6 +4770,8 @@ static void set_devx_obj_info(const void *in, const void *out,
 		obj_type = DEVX_GET(general_obj_in_cmd_hdr, in, obj_type);
 		if (obj_type == MLX5_OBJ_TYPE_FLOW_METER)
 			obj->type = MLX5_DEVX_FLOW_METER;
+		else if (obj_type == MLX5_OBJ_TYPE_FLOW_SAMPLER)
+			obj->type = MLX5_DEVX_FLOW_SAMPLER;
 
 		obj->object_id = DEVX_GET(general_obj_out_cmd_hdr, out, obj_id);
 		break;
