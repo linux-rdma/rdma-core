@@ -45,6 +45,10 @@ application performance.
 :	Like IBV_ADVISE_MR_ADVICE_PREFETCH but with read-access
 	and write-access permission to the fetched memory.
 
+*IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT*
+:	Pre-fetch a range of an on-demand paging MR without faulting.
+	This allows presented pages in the CPU to become presented to the device.
+
 # ARGUMENTS
 *pd*
 :	The protection domain (PD) associated with the MR.
