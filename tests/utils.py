@@ -721,17 +721,22 @@ def huge_pages_supported():
             raise unittest.SkipTest('There are no huge pages of size 2M allocated')
 
 
-def prefetch_mrs(agr_obj, sg_list, advise=e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE,
+def prefetch_mrs(agr_obj, sg_list, advice=e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE,
                  flags=e._IBV_ADVISE_MR_FLAG_FLUSH):
     """
     Pre-fetch a range of an on-demand paging MR.
     :param agr_obj: Aggregation object which contains all resources necessary
     :param sg_list: SGE list
-    :param advise: The requested advise value
-    :param flags: Describes the properties of the advise operation
+    :param advice: The requested advice value
+    :param flags: Describes the properties of the advice operation
     :return: None
     """
-    agr_obj.pd.advise_mr(advise, flags, sg_list)
+    try:
+        agr_obj.pd.advise_mr(advice, flags, sg_list)
+    except PyverbsRDMAError as ex:
+        if ex.error_code == errno.EOPNOTSUPP:
+            raise unittest.SkipTest(f'Advise MR with flags ({flags}) and advice ({advice}) is not supported')
+        raise ex
 
 
 def is_eth(ctx, port_num):
