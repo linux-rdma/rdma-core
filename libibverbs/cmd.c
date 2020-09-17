@@ -344,6 +344,7 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	vmr->ibv_mr.rkey    = resp->rkey;
 	vmr->ibv_mr.context = pd->context;
 	vmr->mr_type        = IBV_MR_TYPE_MR;
+	vmr->access = access;
 
 	return 0;
 }
