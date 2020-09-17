@@ -3985,6 +3985,9 @@ mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint3
 		return NULL;
 	}
 
+	if (ibv_dontfork_range(addr, size))
+		goto err;
+
 	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ADDR, (intptr_t)addr);
 	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_LEN, size);
 	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ACCESS, access);
@@ -3995,12 +3998,17 @@ mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint3
 
 	ret = execute_ioctl(context, cmd);
 	if (ret)
-		goto err;
+		goto err_umem_reg_cmd;
 
 	umem->handle = read_attr_obj(MLX5_IB_ATTR_DEVX_UMEM_REG_HANDLE, handle);
 	umem->context = context;
+	umem->addr = addr;
+	umem->size = size;
 
 	return &umem->dv_devx_umem;
+
+err_umem_reg_cmd:
+	ibv_dofork_range(addr, size);
 err:
 	free(umem);
 	return NULL;
@@ -4021,6 +4029,7 @@ int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *dv_devx_umem)
 	if (ret)
 		return ret;
 
+	ibv_dofork_range(umem->addr, umem->size);
 	free(umem);
 	return 0;
 }
