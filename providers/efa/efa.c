@@ -57,6 +57,8 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 
 	cmd.comp_mask |= EFA_ALLOC_UCONTEXT_CMD_COMP_TX_BATCH;
 	cmd.comp_mask |= EFA_ALLOC_UCONTEXT_CMD_COMP_MIN_SQ_WR;
+	strncpy((char *)cmd.userspace_ver, PACKAGE_VERSION,
+		sizeof(cmd.userspace_ver));
 
 	ctx = verbs_init_and_alloc_context(vdev, cmd_fd, ctx, ibvctx,
 					   RDMA_DRIVER_EFA);
