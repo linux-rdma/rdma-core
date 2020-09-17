@@ -622,6 +622,8 @@ struct mlx5_devx_umem {
 	struct mlx5dv_devx_umem dv_devx_umem;
 	struct ibv_context *context;
 	uint32_t handle;
+	void *addr;
+	size_t size;
 };
 
 struct mlx5_mkey {
