@@ -45,7 +45,11 @@ static int dr_domain_init_resources(struct mlx5dv_dr_domain *dmn)
 {
 	int ret = -1;
 
-	dmn->ste_ctx = dr_ste_get_ctx(MLX5_HW_CONNECTX_5);
+	dmn->ste_ctx = dr_ste_get_ctx(dmn->info.caps.sw_format_ver);
+	if (!dmn->ste_ctx) {
+		dr_dbg(dmn, "Couldn't initialize STE context\n");
+		return errno;
+	}
 
 	dmn->pd = ibv_alloc_pd(dmn->ctx);
 	if (!dmn->pd) {
@@ -154,6 +158,7 @@ static int dr_domain_query_fdb_caps(struct ibv_context *ctx,
 		goto err;
 
 	dmn->info.caps.fdb_sw_owner = esw_caps.sw_owner;
+	dmn->info.caps.fdb_sw_owner_v2 = esw_caps.sw_owner_v2;
 	dmn->info.caps.vports_caps[i].icm_address_rx = esw_caps.uplink_icm_address_rx;
 	dmn->info.caps.vports_caps[i].icm_address_tx = esw_caps.uplink_icm_address_tx;
 	dmn->info.caps.esw_rx_drop_address = esw_caps.drop_icm_address_rx;
@@ -211,7 +216,9 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 
 	switch (dmn->type) {
 	case MLX5DV_DR_DOMAIN_TYPE_NIC_RX:
-		if (!dmn->info.caps.rx_sw_owner)
+		if (!dmn->info.caps.rx_sw_owner &&
+		    !(dmn->info.caps.rx_sw_owner_v2 &&
+		      dmn->info.caps.sw_format_ver <= MLX5_HW_CONNECTX_6DX))
 			return 0;
 
 		dmn->info.supp_sw_steering = true;
@@ -220,7 +227,9 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 		dmn->info.rx.drop_icm_addr = dmn->info.caps.nic_rx_drop_address;
 		break;
 	case MLX5DV_DR_DOMAIN_TYPE_NIC_TX:
-		if (!dmn->info.caps.tx_sw_owner)
+		if (!dmn->info.caps.tx_sw_owner &&
+		    !(dmn->info.caps.tx_sw_owner_v2 &&
+		      dmn->info.caps.sw_format_ver <= MLX5_HW_CONNECTX_6DX))
 			return 0;
 
 		dmn->info.supp_sw_steering = true;
@@ -232,7 +241,9 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 		if (!dmn->info.caps.eswitch_manager)
 			return 0;
 
-		if (!dmn->info.caps.fdb_sw_owner)
+		if (!dmn->info.caps.fdb_sw_owner &&
+		    !(dmn->info.caps.fdb_sw_owner_v2 &&
+		      dmn->info.caps.sw_format_ver <= MLX5_HW_CONNECTX_6DX))
 			return 0;
 
 		dmn->info.rx.ste_type = DR_STE_TYPE_RX;
@@ -328,10 +339,10 @@ mlx5dv_dr_domain_create(struct ibv_context *ctx,
 			       ibv_get_device_name(ctx->device));
 			goto uninit_caps;
 		}
-
 		/* Init CRC table for htbl CRC calculation */
 		dr_crc32_init_table();
 	}
+
 	return dmn;
 
 uninit_caps:

@@ -60,7 +60,7 @@ static int dr_rule_append_to_miss_list(struct dr_ste_ctx *ste_ctx,
 
 	list_add_tail(miss_list, &new_last_ste->miss_list_node);
 
-	dr_send_fill_and_append_ste_send_info(last_ste, DR_STE_SIZE_REDUCED,
+	dr_send_fill_and_append_ste_send_info(last_ste, DR_STE_SIZE_CTRL,
 					      0, last_ste->hw_ste,
 					      ste_info_last, send_list, true);
 
@@ -133,14 +133,19 @@ static int dr_rule_handle_one_ste_in_update_list(struct dr_ste_send_info *ste_in
 	int ret;
 
 	list_del(&ste_info->send_list);
+
+	/* Copy data to ste, only reduced size or control, the last 16B (mask)
+	 * is already written to the hw.
+	 */
+	if (ste_info->size == DR_STE_SIZE_CTRL)
+		memcpy(ste_info->ste->hw_ste, ste_info->data, DR_STE_SIZE_CTRL);
+	else
+		memcpy(ste_info->ste->hw_ste, ste_info->data, DR_STE_SIZE_REDUCED);
+
 	ret = dr_send_postsend_ste(dmn, ste_info->ste, ste_info->data,
 				   ste_info->size, ste_info->offset);
 	if (ret)
 		goto out;
-	/* Copy data to ste, only reduced size, the last 16B (mask)
-	 * is already written to the hw.
-	 */
-	memcpy(ste_info->ste->hw_ste, ste_info->data, DR_STE_SIZE_REDUCED);
 
 out:
 	free(ste_info);
@@ -471,7 +476,7 @@ static struct dr_ste_htbl *dr_rule_rehash_htbl(struct mlx5dv_dr_rule *rule,
 		ste_to_update = cur_htbl->pointing_ste;
 	}
 
-	dr_send_fill_and_append_ste_send_info(ste_to_update, DR_STE_SIZE_REDUCED,
+	dr_send_fill_and_append_ste_send_info(ste_to_update, DR_STE_SIZE_CTRL,
 					      0, ste_to_update->hw_ste, ste_info,
 					      update_list, false);
 

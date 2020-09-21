@@ -235,13 +235,16 @@ dr_ste_remove_head_ste(struct dr_ste_ctx *ste_ctx,
  * |_ste_| --> |_next_ste_| -->|__| -->|__| -->/0
  */
 static void
-dr_ste_replace_head_ste(struct dr_ste *ste, struct dr_ste *next_ste,
+dr_ste_replace_head_ste(struct dr_matcher_rx_tx *nic_matcher,
+			struct dr_ste *ste, struct dr_ste *next_ste,
 			struct dr_ste_send_info *ste_info_head,
 			struct list_head *send_ste_list,
 			struct dr_ste_htbl *stats_tbl)
 
 {
 	struct dr_ste_htbl *next_miss_htbl;
+	uint8_t hw_ste[DR_STE_SIZE] = {};
+	int sb_idx;
 
 	next_miss_htbl = next_ste->htbl;
 
@@ -254,14 +257,19 @@ dr_ste_replace_head_ste(struct dr_ste *ste, struct dr_ste *next_ste,
 	/* Move data from next into ste */
 	dr_ste_replace(ste, next_ste);
 
+	/* Copy all 64 hw_ste bytes */
+	memcpy(hw_ste, ste->hw_ste, DR_STE_SIZE_REDUCED);
+	sb_idx = ste->ste_chain_location - 1;
+	dr_ste_set_bit_mask(hw_ste, nic_matcher->ste_builder[sb_idx].bit_mask);
+
 	/*
 	 * Del the htbl that contains the next_ste.
 	 * The origin htbl stay with the same number of entries.
 	 */
 	dr_htbl_put(next_miss_htbl);
 
-	dr_send_fill_and_append_ste_send_info(ste, DR_STE_SIZE_REDUCED,
-					      0, ste->hw_ste,
+	dr_send_fill_and_append_ste_send_info(ste, DR_STE_SIZE,
+					      0, hw_ste,
 					      ste_info_head,
 					      send_ste_list,
 					      true /* Copy data */);
@@ -289,7 +297,7 @@ static void dr_ste_remove_middle_ste(struct dr_ste_ctx *ste_ctx,
 	miss_addr = ste_ctx->get_miss_addr(ste->hw_ste);
 	ste_ctx->set_miss_addr(prev_ste->hw_ste, miss_addr);
 
-	dr_send_fill_and_append_ste_send_info(prev_ste, DR_STE_SIZE_REDUCED, 0,
+	dr_send_fill_and_append_ste_send_info(prev_ste, DR_STE_SIZE_CTRL, 0,
 					      prev_ste->hw_ste, ste_info,
 					      send_ste_list, true /* Copy data*/);
 
@@ -332,8 +340,9 @@ void dr_ste_free(struct dr_ste *ste,
 					       stats_tbl);
 		} else {
 			/* First but not only entry in the list */
-			dr_ste_replace_head_ste(ste, next_ste, &ste_info_head,
-						&send_ste_list, stats_tbl);
+			dr_ste_replace_head_ste(nic_matcher, ste, next_ste,
+						&ste_info_head, &send_ste_list,
+						stats_tbl);
 			put_on_origin_table = false;
 		}
 	} else { /* Ste in the middle of the list */
@@ -368,6 +377,13 @@ void dr_ste_set_hit_addr_by_next_htbl(struct dr_ste_ctx *ste_ctx,
 	struct dr_icm_chunk *chunk = next_htbl->chunk;
 
 	ste_ctx->set_hit_addr(hw_ste, chunk->icm_addr, chunk->num_of_entries);
+}
+
+void dr_ste_prepare_for_postsend(struct dr_ste_ctx *ste_ctx,
+				 uint8_t *hw_ste_p, uint32_t ste_size)
+{
+	if (ste_ctx->prepare_for_postsend)
+		ste_ctx->prepare_for_postsend(hw_ste_p, ste_size);
 }
 
 /* Init one ste as a pattern for ste data array */
@@ -1186,6 +1202,8 @@ struct dr_ste_ctx *dr_ste_get_ctx(uint8_t version)
 {
 	if (version == MLX5_HW_CONNECTX_5)
 		return dr_ste_get_ctx_v0();
+	else if (version == MLX5_HW_CONNECTX_6DX)
+		return dr_ste_get_ctx_v1();
 
 	errno = EOPNOTSUPP;
 

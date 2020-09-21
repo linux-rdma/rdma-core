@@ -148,8 +148,8 @@ dr_mask_is_vxlan_gpe_set(struct dr_match_misc3 *misc3)
 static bool
 dr_matcher_supp_vxlan_gpe(struct dr_devx_caps *caps)
 {
-	return caps->flex_protocols &
-	       MLX5_FLEX_PARSER_VXLAN_GPE_ENABLED;
+	return (caps->sw_format_ver == MLX5_HW_CONNECTX_6DX) ||
+	       (caps->flex_protocols & MLX5_FLEX_PARSER_VXLAN_GPE_ENABLED);
 }
 
 static bool
@@ -171,8 +171,8 @@ static bool dr_mask_is_tnl_geneve_set(struct dr_match_misc *misc)
 static bool
 dr_matcher_supp_tnl_geneve(struct dr_devx_caps *caps)
 {
-	return caps->flex_protocols &
-	       MLX5_FLEX_PARSER_GENEVE_ENABLED;
+	return (caps->sw_format_ver == MLX5_HW_CONNECTX_6DX) ||
+	       (caps->flex_protocols & MLX5_FLEX_PARSER_GENEVE_ENABLED);
 }
 
 static bool
@@ -202,12 +202,14 @@ static bool dr_mask_is_tnl_gtpu(struct dr_match_param *mask,
 
 static inline int dr_matcher_supp_icmp_v4(struct dr_devx_caps *caps)
 {
-	return caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V4_ENABLED;
+	return (caps->sw_format_ver == MLX5_HW_CONNECTX_6DX) ||
+	       (caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V4_ENABLED);
 }
 
 static inline int dr_matcher_supp_icmp_v6(struct dr_devx_caps *caps)
 {
-	return caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V6_ENABLED;
+	return (caps->sw_format_ver == MLX5_HW_CONNECTX_6DX) ||
+	       (caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V6_ENABLED);
 }
 
 static bool dr_mask_is_icmpv6_set(struct dr_match_misc3 *misc3)

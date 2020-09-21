@@ -123,9 +123,12 @@ int dr_devx_query_esw_caps(struct ibv_context *ctx, struct dr_esw_caps *caps)
 	caps->uplink_icm_address_tx =
 		DEVX_GET64(flow_table_eswitch_cap, esw_caps,
 			   sw_steering_uplink_icm_address_tx);
-	caps->sw_owner =
-		DEVX_GET(flow_table_eswitch_cap, esw_caps,
-			 flow_table_properties_nic_esw_fdb.sw_owner);
+	caps->sw_owner_v2 = DEVX_GET(flow_table_eswitch_cap, esw_caps,
+				     flow_table_properties_nic_esw_fdb.sw_owner_v2);
+	if (!caps->sw_owner_v2)
+		caps->sw_owner =
+			DEVX_GET(flow_table_eswitch_cap, esw_caps,
+				 flow_table_properties_nic_esw_fdb.sw_owner);
 	return 0;
 }
 
@@ -154,6 +157,9 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 					capability.cmd_hca_cap.flex_parser_protocols);
 	roce = DEVX_GET(query_hca_cap_out, out,
 			capability.cmd_hca_cap.roce);
+
+	caps->sw_format_ver = DEVX_GET(query_hca_cap_out, out,
+				       capability.cmd_hca_cap.steering_format_version);
 
 	if (caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V4_ENABLED) {
 		caps->flex_parser_id_icmp_dw0 =
@@ -196,12 +202,20 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 	caps->nic_tx_allow_address = DEVX_GET64(query_hca_cap_out, out,
 						capability.flow_table_nic_cap.
 						sw_steering_nic_tx_action_allow_icm_address);
-	caps->rx_sw_owner = DEVX_GET(query_hca_cap_out, out,
-				     capability.flow_table_nic_cap.
-				     flow_table_properties_nic_receive.sw_owner);
-	caps->tx_sw_owner = DEVX_GET(query_hca_cap_out, out,
-				     capability.flow_table_nic_cap.
-				     flow_table_properties_nic_transmit.sw_owner);
+	caps->rx_sw_owner_v2 = DEVX_GET(query_hca_cap_out, out,
+					capability.flow_table_nic_cap.
+					flow_table_properties_nic_receive.sw_owner_v2);
+	caps->tx_sw_owner_v2 = DEVX_GET(query_hca_cap_out, out,
+					capability.flow_table_nic_cap.
+					flow_table_properties_nic_transmit.sw_owner_v2);
+	if (!caps->rx_sw_owner_v2)
+		caps->rx_sw_owner = DEVX_GET(query_hca_cap_out, out,
+					     capability.flow_table_nic_cap.
+					     flow_table_properties_nic_receive.sw_owner);
+	if (!caps->tx_sw_owner_v2)
+		caps->tx_sw_owner = DEVX_GET(query_hca_cap_out, out,
+					     capability.flow_table_nic_cap.
+					     flow_table_properties_nic_transmit.sw_owner);
 	caps->max_ft_level = DEVX_GET(query_hca_cap_out, out,
 				      capability.flow_table_nic_cap.
 				      flow_table_properties_nic_receive.max_ft_level);

@@ -598,6 +598,7 @@ struct dr_esw_caps {
 	uint64_t uplink_icm_address_rx;
 	uint64_t uplink_icm_address_tx;
 	bool sw_owner;
+	bool sw_owner_v2;
 };
 
 struct dr_devx_vport_cap {
@@ -626,10 +627,14 @@ struct dr_devx_caps {
 	uint8_t				flex_parser_id_icmpv6_dw0;
 	uint8_t				flex_parser_id_icmpv6_dw1;
 	uint8_t				max_ft_level;
+	uint8_t				sw_format_ver;
 	bool				eswitch_manager;
 	bool				rx_sw_owner;
 	bool				tx_sw_owner;
 	bool				fdb_sw_owner;
+	bool				rx_sw_owner_v2;
+	bool				tx_sw_owner_v2;
+	bool				fdb_sw_owner_v2;
 	uint32_t			num_vports;
 	struct dr_devx_vport_cap	*vports_caps;
 	struct dr_devx_roce_cap		roce_caps;
@@ -1075,6 +1080,8 @@ int dr_icm_pool_sync_pool(struct dr_icm_pool *pool);
 struct dr_icm_chunk *dr_icm_alloc_chunk(struct dr_icm_pool *pool,
 					enum dr_icm_chunk_size chunk_size);
 void dr_icm_free_chunk(struct dr_icm_chunk *chunk);
+void dr_ste_prepare_for_postsend(struct dr_ste_ctx *ste_ctx,
+				 uint8_t *hw_ste_p, uint32_t ste_size);
 int dr_ste_htbl_init_and_postsend(struct mlx5dv_dr_domain *dmn,
 				  struct dr_domain_rx_tx *nic_dmn,
 				  struct dr_ste_htbl *htbl,
