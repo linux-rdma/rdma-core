@@ -41,7 +41,7 @@
 #include <pthread.h>
 
 #include "qelr.h"
-#include "qelr_main.h"
+#include "qelr_verbs.h"
 #include "qelr_chain.h"
 
 #include <sys/types.h>
@@ -167,6 +167,7 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 						int cmd_fd,
 						void *private_data)
 {
+	struct verbs_context *v_ctx;
 	struct qelr_devctx *ctx;
 	struct qelr_alloc_context cmd = {};
 	struct qelr_alloc_context_resp resp;
@@ -176,6 +177,7 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 	if (!ctx)
 		return NULL;
 
+	v_ctx = &ctx->ibv_ctx;
 	memset(&resp, 0, sizeof(resp));
 
 	qelr_open_debug_file(ctx);
@@ -188,6 +190,12 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 		goto cmd_err;
 
 	verbs_set_ops(&ctx->ibv_ctx, &qelr_ctx_ops);
+
+	ctx->srq_table = calloc(QELR_MAX_SRQ_ID, sizeof(*ctx->srq_table));
+	if (!ctx->srq_table) {
+		DP_ERR(ctx->dbg_fp, "failed to allocate srq_table\n");
+		return NULL;
+	}
 
 	ctx->kernel_page_size = sysconf(_SC_PAGESIZE);
 	ctx->db_pa = resp.db_pa;
@@ -240,6 +248,12 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 		goto cmd_err;
 	}
 
+	v_ctx->create_qp_ex = qelr_create_qp_ex;
+	v_ctx->open_xrcd = qelr_open_xrcd;
+	v_ctx->close_xrcd = qelr_close_xrcd;
+	v_ctx->create_srq_ex = qelr_create_srq_ex;
+	v_ctx->get_srq_num = qelr_get_srq_num;
+
 	return &ctx->ibv_ctx;
 
 cmd_err:
@@ -257,6 +271,7 @@ static void qelr_free_context(struct ibv_context *ibctx)
 	if (ctx->db_addr)
 		munmap(ctx->db_addr, ctx->db_size);
 
+	free(ctx->srq_table);
 	qelr_close_debug_file(ctx);
 	verbs_uninit_context(&ctx->ibv_ctx);
 	free(ctx);
