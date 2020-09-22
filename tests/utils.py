@@ -671,6 +671,21 @@ def requires_root_on_eth(port_num=1):
     return outer
 
 
+def requires_mcast_support():
+    """
+    Check if the device support multicast
+    return: True if multicast is supported
+    """
+    def outer(func):
+        def inner(instance):
+            ctx = d.Context(name=instance.dev_name)
+            if ctx.query_device().max_mcast_grp == 0:
+                raise unittest.SkipTest('Multicast is not supported on this device')
+            return func(instance)
+        return inner
+    return outer
+
+
 def odp_supported(ctx, qp_type, required_odp_caps):
     """
     Check device ODP capabilities, support only send/recv so far.
