@@ -1206,45 +1206,86 @@ static void dr_ste_v0_build_tnl_gre_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_gre_tag;
 }
 
-static int dr_ste_v0_build_tnl_mpls_tag(struct dr_match_param *value,
-					struct dr_ste_build *sb,
-					uint8_t *tag)
+static int dr_ste_v0_build_tnl_mpls_over_udp_tag(struct dr_match_param *value,
+						 struct dr_ste_build *sb,
+						 uint8_t *tag)
 {
 	struct dr_match_misc2 *misc2 = &value->misc2;
-	uint32_t mpls_hdr = 0;
+	uint8_t *parser_ptr;
+	uint8_t parser_id;
+	uint32_t mpls_hdr;
 
-	if (DR_STE_IS_OUTER_MPLS_OVER_GRE_SET(misc2)) {
-		mpls_hdr |= misc2->outer_first_mpls_over_gre_label << HDR_MPLS_OFFSET_LABEL;
-		misc2->outer_first_mpls_over_gre_label = 0;
-		mpls_hdr |= misc2->outer_first_mpls_over_gre_exp << HDR_MPLS_OFFSET_EXP;
-		misc2->outer_first_mpls_over_gre_exp = 0;
-		mpls_hdr |= misc2->outer_first_mpls_over_gre_s_bos << HDR_MPLS_OFFSET_S_BOS;
-		misc2->outer_first_mpls_over_gre_s_bos = 0;
-		mpls_hdr |= misc2->outer_first_mpls_over_gre_ttl << HDR_MPLS_OFFSET_TTL;
-		misc2->outer_first_mpls_over_gre_ttl = 0;
-	} else {
-		mpls_hdr |= misc2->outer_first_mpls_over_udp_label << HDR_MPLS_OFFSET_LABEL;
-		misc2->outer_first_mpls_over_udp_label = 0;
-		mpls_hdr |= misc2->outer_first_mpls_over_udp_exp << HDR_MPLS_OFFSET_EXP;
-		misc2->outer_first_mpls_over_udp_exp = 0;
-		mpls_hdr |= misc2->outer_first_mpls_over_udp_s_bos << HDR_MPLS_OFFSET_S_BOS;
-		misc2->outer_first_mpls_over_udp_s_bos = 0;
-		mpls_hdr |= misc2->outer_first_mpls_over_udp_ttl << HDR_MPLS_OFFSET_TTL;
-		misc2->outer_first_mpls_over_udp_ttl = 0;
-	}
+	mpls_hdr = misc2->outer_first_mpls_over_udp_label << HDR_MPLS_OFFSET_LABEL;
+	misc2->outer_first_mpls_over_udp_label = 0;
+	mpls_hdr |= misc2->outer_first_mpls_over_udp_exp << HDR_MPLS_OFFSET_EXP;
+	misc2->outer_first_mpls_over_udp_exp = 0;
+	mpls_hdr |= misc2->outer_first_mpls_over_udp_s_bos << HDR_MPLS_OFFSET_S_BOS;
+	misc2->outer_first_mpls_over_udp_s_bos = 0;
+	mpls_hdr |= misc2->outer_first_mpls_over_udp_ttl << HDR_MPLS_OFFSET_TTL;
+	misc2->outer_first_mpls_over_udp_ttl = 0;
 
-	DR_STE_SET(flex_parser_0, tag, flex_parser_3, mpls_hdr);
+	parser_id = sb->caps->flex_parser_id_mpls_over_udp;
+	parser_ptr = dr_ste_calc_flex_parser_offset(tag, parser_id);
+	*(__be32 *)parser_ptr = htobe32(mpls_hdr);
+
 	return 0;
 }
 
-static void dr_ste_v0_build_tnl_mpls_init(struct dr_ste_build *sb,
-					  struct dr_match_param *mask)
+static void dr_ste_v0_build_tnl_mpls_over_udp_init(struct dr_ste_build *sb,
+						   struct dr_match_param *mask)
 {
-	dr_ste_v0_build_tnl_mpls_tag(mask, sb, sb->bit_mask);
+	dr_ste_v0_build_tnl_mpls_over_udp_tag(mask, sb, sb->bit_mask);
 
-	sb->lu_type = DR_STE_V0_LU_TYPE_FLEX_PARSER_0;
+	/* STEs with lookup type FLEX_PARSER_{0/1} includes
+	 * flex parsers_{0-3}/{4-7} respectively.
+	 */
+	sb->lu_type = sb->caps->flex_parser_id_mpls_over_udp > DR_STE_MAX_FLEX_0_ID ?
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_1 :
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_0;
+
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
-	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_mpls_tag;
+	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_mpls_over_udp_tag;
+}
+
+static int dr_ste_v0_build_tnl_mpls_over_gre_tag(struct dr_match_param *value,
+						 struct dr_ste_build *sb,
+						 uint8_t *tag)
+{
+	struct dr_match_misc2 *misc2 = &value->misc2;
+	uint8_t *parser_ptr;
+	uint8_t parser_id;
+	uint32_t mpls_hdr;
+
+	mpls_hdr = misc2->outer_first_mpls_over_gre_label << HDR_MPLS_OFFSET_LABEL;
+	misc2->outer_first_mpls_over_gre_label = 0;
+	mpls_hdr |= misc2->outer_first_mpls_over_gre_exp << HDR_MPLS_OFFSET_EXP;
+	misc2->outer_first_mpls_over_gre_exp = 0;
+	mpls_hdr |= misc2->outer_first_mpls_over_gre_s_bos << HDR_MPLS_OFFSET_S_BOS;
+	misc2->outer_first_mpls_over_gre_s_bos = 0;
+	mpls_hdr |= misc2->outer_first_mpls_over_gre_ttl << HDR_MPLS_OFFSET_TTL;
+	misc2->outer_first_mpls_over_gre_ttl = 0;
+
+	parser_id = sb->caps->flex_parser_id_mpls_over_gre;
+	parser_ptr = dr_ste_calc_flex_parser_offset(tag, parser_id);
+	*(__be32 *)parser_ptr = htobe32(mpls_hdr);
+
+	return 0;
+}
+
+static void dr_ste_v0_build_tnl_mpls_over_gre_init(struct dr_ste_build *sb,
+						   struct dr_match_param *mask)
+{
+	dr_ste_v0_build_tnl_mpls_over_gre_tag(mask, sb, sb->bit_mask);
+
+	/* STEs with lookup type FLEX_PARSER_{0/1} includes
+	 * flex parsers_{0-3}/{4-7} respectively.
+	 */
+	sb->lu_type = sb->caps->flex_parser_id_mpls_over_gre > DR_STE_MAX_FLEX_0_ID ?
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_1 :
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_0;
+
+	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
+	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_mpls_over_gre_tag;
 }
 
 #define ICMP_TYPE_OFFSET_FIRST_DW	24
@@ -1653,7 +1694,8 @@ static struct dr_ste_ctx ste_ctx_v0 = {
 	.build_eth_ipv6_l3_l4_init	= &dr_ste_v0_build_eth_ipv6_l3_l4_init,
 	.build_mpls_init		= &dr_ste_v0_build_mpls_init,
 	.build_tnl_gre_init		= &dr_ste_v0_build_tnl_gre_init,
-	.build_tnl_mpls_init		= &dr_ste_v0_build_tnl_mpls_init,
+	.build_tnl_mpls_over_udp_init	= &dr_ste_v0_build_tnl_mpls_over_udp_init,
+	.build_tnl_mpls_over_gre_init	= &dr_ste_v0_build_tnl_mpls_over_gre_init,
 	.build_icmp_init		= &dr_ste_v0_build_icmp_init,
 	.build_general_purpose_init	= &dr_ste_v0_build_general_purpose_init,
 	.build_eth_l4_misc_init		= &dr_ste_v0_build_eth_l4_misc_init,

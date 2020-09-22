@@ -1124,14 +1124,28 @@ void dr_ste_build_tnl_gre(struct dr_ste_ctx *ste_ctx,
 	ste_ctx->build_tnl_gre_init(sb, mask);
 }
 
-void dr_ste_build_tnl_mpls(struct dr_ste_ctx *ste_ctx,
-			   struct dr_ste_build *sb,
-			   struct dr_match_param *mask,
-			   bool inner, bool rx)
+void dr_ste_build_tnl_mpls_over_gre(struct dr_ste_ctx *ste_ctx,
+				    struct dr_ste_build *sb,
+				    struct dr_match_param *mask,
+				    struct dr_devx_caps *caps,
+				    bool inner, bool rx)
 {
 	sb->rx = rx;
 	sb->inner = inner;
-	ste_ctx->build_tnl_mpls_init(sb, mask);
+	sb->caps = caps;
+	ste_ctx->build_tnl_mpls_over_gre_init(sb, mask);
+}
+
+void dr_ste_build_tnl_mpls_over_udp(struct dr_ste_ctx *ste_ctx,
+				    struct dr_ste_build *sb,
+				    struct dr_match_param *mask,
+				    struct dr_devx_caps *caps,
+				    bool inner, bool rx)
+{
+	sb->rx = rx;
+	sb->inner = inner;
+	sb->caps = caps;
+	ste_ctx->build_tnl_mpls_over_udp_init(sb, mask);
 }
 
 void dr_ste_build_icmp(struct dr_ste_ctx *ste_ctx,

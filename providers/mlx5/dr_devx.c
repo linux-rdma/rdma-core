@@ -212,6 +212,18 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 				 out,
 				 capability.cmd_hca_cap.flex_parser_id_geneve_opt_0);
 
+	if (caps->flex_protocols & MLX5_FLEX_PARSER_MPLS_OVER_GRE_ENABLED)
+		caps->flex_parser_id_mpls_over_gre =
+			DEVX_GET(query_hca_cap_out,
+				 out,
+				 capability.cmd_hca_cap.flex_parser_id_outer_first_mpls_over_gre);
+
+	if (caps->flex_protocols & mlx5_FLEX_PARSER_MPLS_OVER_UDP_ENABLED)
+		caps->flex_parser_id_mpls_over_udp =
+			DEVX_GET(query_hca_cap_out,
+				 out,
+				 capability.cmd_hca_cap.flex_parser_id_outer_first_mpls_over_udp_label);
+
 	DEVX_SET(query_hca_cap_in, in, op_mod,
 		 MLX5_SET_HCA_CAP_OP_MOD_NIC_FLOW_TABLE |
 		 HCA_CAP_OPMOD_GET_CUR);

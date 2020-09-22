@@ -451,10 +451,16 @@ void dr_ste_build_mpls(struct dr_ste_ctx *ste_ctx,
 		       struct dr_ste_build *sb,
 		       struct dr_match_param *mask,
 		       bool inner, bool rx);
-void dr_ste_build_tnl_mpls(struct dr_ste_ctx *ste_ctx,
-			   struct dr_ste_build *sb,
-			   struct dr_match_param *mask,
-			   bool inner, bool rx);
+void dr_ste_build_tnl_mpls_over_gre(struct dr_ste_ctx *ste_ctx,
+				    struct dr_ste_build *sb,
+				    struct dr_match_param *mask,
+				    struct dr_devx_caps *caps,
+				    bool inner, bool rx);
+void dr_ste_build_tnl_mpls_over_udp(struct dr_ste_ctx *ste_ctx,
+				    struct dr_ste_build *sb,
+				    struct dr_match_param *mask,
+				    struct dr_devx_caps *caps,
+				    bool inner, bool rx);
 void dr_ste_build_icmp(struct dr_ste_ctx *ste_ctx,
 		       struct dr_ste_build *sb,
 		       struct dr_match_param *mask,
@@ -689,6 +695,8 @@ struct dr_devx_caps {
 	uint8_t				flex_parser_id_icmpv6_dw0;
 	uint8_t				flex_parser_id_icmpv6_dw1;
 	uint8_t				flex_parser_id_geneve_opt_0;
+	uint8_t				flex_parser_id_mpls_over_gre;
+	uint8_t				flex_parser_id_mpls_over_udp;
 	uint8_t				max_ft_level;
 	uint8_t				sw_format_ver;
 	bool				isolate_vl_tc;

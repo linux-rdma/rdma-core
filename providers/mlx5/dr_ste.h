@@ -111,18 +111,6 @@ enum {
 		       in_out##_first_mpls_ttl); \
 } while (0)
 
-#define DR_STE_IS_OUTER_MPLS_OVER_GRE_SET(_misc) (\
-	(_misc)->outer_first_mpls_over_gre_label || \
-	(_misc)->outer_first_mpls_over_gre_exp || \
-	(_misc)->outer_first_mpls_over_gre_s_bos || \
-	(_misc)->outer_first_mpls_over_gre_ttl)
-
-#define DR_STE_IS_OUTER_MPLS_OVER_UDP_SET(_misc) (\
-	(_misc)->outer_first_mpls_over_udp_label || \
-	(_misc)->outer_first_mpls_over_udp_exp || \
-	(_misc)->outer_first_mpls_over_udp_s_bos || \
-	(_misc)->outer_first_mpls_over_udp_ttl)
-
 enum dr_ste_action_modify_type_l3 {
 	DR_STE_ACTION_MDFY_TYPE_L3_NONE	= 0x0,
 	DR_STE_ACTION_MDFY_TYPE_L3_IPV4	= 0x1,
@@ -160,7 +148,8 @@ struct dr_ste_ctx {
 	dr_ste_builder_void_init build_eth_ipv6_l3_l4_init;
 	dr_ste_builder_void_init build_mpls_init;
 	dr_ste_builder_void_init build_tnl_gre_init;
-	dr_ste_builder_void_init build_tnl_mpls_init;
+	dr_ste_builder_void_init build_tnl_mpls_over_gre_init;
+	dr_ste_builder_void_init build_tnl_mpls_over_udp_init;
 	dr_ste_builder_void_init build_icmp_init;
 	dr_ste_builder_void_init build_general_purpose_init;
 	dr_ste_builder_void_init build_eth_l4_misc_init;
