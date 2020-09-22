@@ -9,6 +9,7 @@ from pyverbs.addr import GlobalRoute, AHAttr, AH
 from tests.base import PyverbsAPITestCase
 import pyverbs.enums as e
 from pyverbs.pd import PD
+import tests.utils as u
 
 
 class AHTest(PyverbsAPITestCase):
@@ -26,7 +27,7 @@ class AHTest(PyverbsAPITestCase):
                 state = ctx.query_port(port_num).state
                 if state != e.IBV_PORT_ACTIVE and state != e.IBV_PORT_INIT:
                     continue
-                gr = get_global_route(ctx, port_num=port_num)
+                gr = u.get_global_route(ctx, port_num=port_num)
                 ah_attr = AHAttr(gr=gr, is_global=1, port_num=port_num)
                 try:
                     with AH(pd, attr=ah_attr):
@@ -77,7 +78,7 @@ class AHTest(PyverbsAPITestCase):
                 state = ctx.query_port(port_num).state
                 if state != e.IBV_PORT_ACTIVE and state != e.IBV_PORT_INIT:
                     continue
-                gr = get_global_route(ctx)
+                gr = u.get_global_route(ctx)
                 ah_attr = AHAttr(gr=gr, is_global=1, port_num=port_num)
                 try:
                     with AH(pd, attr=ah_attr) as ah:
@@ -89,18 +90,3 @@ class AHTest(PyverbsAPITestCase):
                     raise ex
         if done == 0:
             raise unittest.SkipTest('No port is up, can\'t create AH')
-
-
-def get_global_route(ctx, gid_index=0, port_num=1):
-    """
-    Queries the provided Context's gid <gid_index> and creates a GlobalRoute
-    object with sgid_index <gid_index> and the queried GID as dgid.
-    :param ctx: Context object to query
-    :param gid_index: GID index to query and use. Default: 0, as it's always
-                      valid
-    :param port_num: Number of the port to query. Default: 1
-    :return: GlobalRoute object
-    """
-    gid = ctx.query_gid(port_num, gid_index)
-    gr = GlobalRoute(dgid=gid, sgid_index=gid_index)
-    return gr

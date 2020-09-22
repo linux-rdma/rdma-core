@@ -339,7 +339,12 @@ class TrafficResources(BaseResources):
 
     def create_srq(self):
         srq_init_attr = self.create_srq_init_attr()
-        self.srq = SRQ(self.pd, srq_init_attr)
+        try:
+            self.srq = SRQ(self.pd, srq_init_attr)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Create SRQ is not supported')
+            raise ex
 
     def pre_run(self, rpsns, rqps_num):
         """

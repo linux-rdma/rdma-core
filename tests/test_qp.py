@@ -59,7 +59,7 @@ class QPTest(PyverbsAPITestCase):
                         qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex, qp_type)
                         creator = ctx
                     else:
-                        qia = get_qp_init_attr(cq, attr)
+                        qia = u.get_qp_init_attr(cq, attr)
                         qia.qp_type = qp_type
                         creator = pd
 
@@ -197,7 +197,7 @@ class QPTest(PyverbsAPITestCase):
                             raise unittest.SkipTest('To Create RAW QP must be done by root on Ethernet link layer')
 
                     # Legacy QP
-                    qia = get_qp_init_attr(cq, attr)
+                    qia = u.get_qp_init_attr(cq, attr)
                     qia.qp_type = qp_type
                     caps = qia.cap
                     qp = self.create_qp(pd, qia, False, False)
@@ -249,7 +249,7 @@ class QPTest(PyverbsAPITestCase):
             with PD(ctx) as pd:
                 with CQ(ctx, 100, None, None, 0) as cq:
                     # Legacy QP
-                    qia = get_qp_init_attr(cq, attr)
+                    qia = u.get_qp_init_attr(cq, attr)
                     qia.qp_type = e.IBV_QPT_UD
                     qp = self.create_qp(pd, qia, False, False)
                     qa = QPAttr()
@@ -281,19 +281,6 @@ class QPTest(PyverbsAPITestCase):
                     qa.qp_state = e.IBV_QPS_RESET
                     qp.modify(qa, e.IBV_QP_STATE)
                     assert qp.qp_state == e.IBV_QPS_RESET, 'Extended QP, QP state is not as expected'
-
-
-def get_qp_init_attr(cq, attr):
-    """
-    Creates a QPInitAttr object with a QP type of the provided <qpts> array and
-    other random values.
-    :param cq: CQ to be used as send and receive CQ
-    :param attr: Device attributes for capability checks
-    :return: An initialized QPInitAttr object
-    """
-    qp_cap = u.random_qp_cap(attr)
-    sig = random.randint(0, 1)
-    return QPInitAttr(scq=cq, rcq=cq, cap=qp_cap, sq_sig_all=sig)
 
 
 def get_qp_init_attr_ex(cq, pd, attr, attr_ex, qpt):

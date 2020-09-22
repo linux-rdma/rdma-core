@@ -13,7 +13,7 @@ import os
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.addr import AHAttr, AH, GlobalRoute
 from pyverbs.wr import SGE, SendWR, RecvWR
-from pyverbs.qp import QPCap, QPInitAttrEx
+from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.mr import MW, MWBindInfo
 from tests.base import XRCResources
@@ -239,6 +239,19 @@ def random_qp_init_attr_ex(attr_ex, attr, qpt=None):
     return qia
 
 
+def get_qp_init_attr(cq, attr):
+    """
+    Creates a QPInitAttr object with a QP type of the provided <qpts> array and
+    other random values.
+    :param cq: CQ to be used as send and receive CQ
+    :param attr: Device attributes for capability checks
+    :return: An initialized QPInitAttr object
+    """
+    qp_cap = random_qp_cap(attr)
+    sig = random.randint(0, 1)
+    return QPInitAttr(scq=cq, rcq=cq, cap=qp_cap, sq_sig_all=sig)
+
+
 def wc_status_to_str(status):
     try:
         return \
@@ -319,6 +332,21 @@ def get_global_ah(agr_obj, gid_index, port):
     ah_attr = AHAttr(port_num=port, is_global=1, gr=gr,
                      dlid=agr_obj.port_attr.lid)
     return AH(agr_obj.pd, attr=ah_attr)
+
+
+def get_global_route(ctx, gid_index=0, port_num=1):
+    """
+    Queries the provided Context's gid <gid_index> and creates a GlobalRoute
+    object with sgid_index <gid_index> and the queried GID as dgid.
+    :param ctx: Context object to query
+    :param gid_index: GID index to query and use. Default: 0, as it's always
+                      valid
+    :param port_num: Number of the port to query. Default: 1
+    :return: GlobalRoute object
+    """
+    gid = ctx.query_gid(port_num, gid_index)
+    gr = GlobalRoute(dgid=gid, sgid_index=gid_index)
+    return gr
 
 
 def xrc_post_send(agr_obj, qp_num, send_object, gid_index, port, send_op=None):
