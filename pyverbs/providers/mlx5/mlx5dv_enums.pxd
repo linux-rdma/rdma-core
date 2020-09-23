@@ -16,6 +16,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_CONTEXT_MASK_DYN_BFREGS          = 1 << 4
         MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE   = 1 << 5
         MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS   = 1 << 6
+        MLX5DV_CONTEXT_MASK_DC_ODP_CAPS         = 1 << 7
         MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS       = 1 << 9
 
     cpdef enum mlx5dv_context_flags:
