@@ -1091,6 +1091,25 @@ struct mlx5_ifc_odp_cap_bits {
 	u8         reserved_at_120[0x6e0];
 };
 
+struct mlx5_ifc_qos_cap_bits {
+	u8         reserved_at_0[0x8];
+	u8         nic_sq_scheduling[0x1];
+	u8         nic_bw_share[0x1];
+	u8         nic_rate_limit[0x1];
+	u8         reserved_at_b[0x15];
+
+	u8         reserved_at_20[0x1];
+	u8         nic_qp_scheduling[0x1];
+	u8         reserved_at_22[0x1e];
+
+	u8         reserved_at_40[0xc0];
+
+	u8         nic_element_type[0x10];
+	u8         nic_tsar_type[0x10];
+
+	u8         reserved_at_120[0x6e0];
+};
+
 union mlx5_ifc_hca_cap_union_bits {
 	struct mlx5_ifc_atomic_caps_bits atomic_caps;
 	struct mlx5_ifc_cmd_hca_cap_bits cmd_hca_cap;
@@ -1099,6 +1118,7 @@ union mlx5_ifc_hca_cap_union_bits {
 	struct mlx5_ifc_device_mem_cap_bits device_mem_cap;
 	struct mlx5_ifc_odp_cap_bits odp_cap;
 	struct mlx5_ifc_roce_cap_bits roce_caps;
+	struct mlx5_ifc_qos_cap_bits qos_caps;
 	u8         reserved_at_0[0x8000];
 };
 
@@ -1137,6 +1157,7 @@ enum {
 	MLX5_SET_HCA_CAP_OP_MOD_ROCE                  = 0x4 << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_NIC_FLOW_TABLE        = 0x7 << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_ESW_FLOW_TABLE        = 0x8 << 1,
+	MLX5_SET_HCA_CAP_OP_MOD_QOS                   = 0xc << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_DEVICE_MEMORY         = 0xf << 1,
 };
 

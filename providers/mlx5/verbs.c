@@ -3428,7 +3428,7 @@ static void get_pci_atomic_caps(struct ibv_context *context,
 	}
 }
 
-static void get_lag_caps(struct mlx5_context *mctx)
+static void get_hca_general_caps(struct mlx5_context *mctx)
 {
 	uint16_t opmod = MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE |
 		HCA_CAP_OPMOD_GET_CUR;
@@ -3451,6 +3451,47 @@ static void get_lag_caps(struct mlx5_context *mctx)
 	mctx->lag_caps.lag_tx_port_affinity =
 		DEVX_GET(query_hca_cap_out, out,
 			 capability.cmd_hca_cap.lag_tx_port_affinity);
+
+	mctx->qos_caps.qos =
+		DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.qos);
+}
+
+static void get_qos_caps(struct mlx5_context *mctx)
+{
+	uint16_t opmod = MLX5_SET_HCA_CAP_OP_MOD_QOS |
+		HCA_CAP_OPMOD_GET_CUR;
+	uint32_t out[DEVX_ST_SZ_DW(query_hca_cap_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(query_hca_cap_in)] = {};
+	int ret;
+
+	DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
+	DEVX_SET(query_hca_cap_in, in, op_mod, opmod);
+
+	ret = mlx5dv_devx_general_cmd(&mctx->ibv_ctx.context, in, sizeof(in), out,
+				      sizeof(out));
+	if (ret)
+		return;
+
+	mctx->qos_caps.nic_sq_scheduling =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.qos_caps.nic_sq_scheduling);
+	if (mctx->qos_caps.nic_sq_scheduling) {
+		mctx->qos_caps.nic_bw_share =
+			DEVX_GET(query_hca_cap_out, out,
+				 capability.qos_caps.nic_bw_share);
+		mctx->qos_caps.nic_rate_limit =
+			DEVX_GET(query_hca_cap_out, out,
+				 capability.qos_caps.nic_rate_limit);
+	}
+	mctx->qos_caps.nic_qp_scheduling =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.qos_caps.nic_qp_scheduling);
+	mctx->qos_caps.nic_element_type =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.qos_caps.nic_element_type);
+	mctx->qos_caps.nic_tsar_type =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.qos_caps.nic_tsar_type);
 }
 
 int mlx5_query_device_ex(struct ibv_context *context,
@@ -3519,7 +3560,10 @@ void mlx5_query_device_ctx(struct mlx5_context *mctx)
 			sizeof(resp) :
 			sizeof(resp.ibv_resp);
 
-	get_lag_caps(mctx);
+	get_hca_general_caps(mctx);
+
+	if (mctx->qos_caps.qos)
+		get_qos_caps(mctx);
 
 	if (ibv_cmd_query_device_any(&mctx->ibv_ctx.context, NULL, &device_attr,
 				     sizeof(device_attr), &resp.ibv_resp,
