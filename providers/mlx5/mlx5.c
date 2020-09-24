@@ -1386,6 +1386,89 @@ int mlx5dv_sched_leaf_destroy(struct mlx5dv_sched_leaf *leaf)
 	return 0;
 }
 
+static int modify_ib_qp_sched_elem_init(struct ibv_qp *qp,
+					uint32_t req_id, uint32_t resp_id)
+{
+	uint64_t mask = MLX5_QPC_OPT_MASK_32_QOS_QUEUE_GROUP_ID;
+	uint32_t in[DEVX_ST_SZ_DW(init2init_qp_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(init2init_qp_out)] = {};
+	void *qpce = DEVX_ADDR_OF(init2init_qp_in, in, qpc_data_ext);
+
+	DEVX_SET(init2init_qp_in, in, opcode, MLX5_CMD_OP_INIT2INIT_QP);
+	DEVX_SET(init2init_qp_in, in, qpc_ext, 1);
+	DEVX_SET(init2init_qp_in, in, qpn, qp->qp_num);
+	DEVX_SET64(init2init_qp_in, in, opt_param_mask_95_32, mask);
+
+	DEVX_SET(qpc_ext, qpce, qos_queue_group_id_requester, req_id);
+	DEVX_SET(qpc_ext, qpce, qos_queue_group_id_responder, resp_id);
+
+	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+}
+
+static int modify_ib_qp_sched_elem_rts(struct ibv_qp *qp,
+				       uint32_t req_id, uint32_t resp_id)
+{
+	uint64_t mask = MLX5_QPC_OPT_MASK_32_QOS_QUEUE_GROUP_ID;
+	uint32_t in[DEVX_ST_SZ_DW(rts2rts_qp_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(rts2rts_qp_out)] = {};
+	void *qpce = DEVX_ADDR_OF(rts2rts_qp_in, in, qpc_data_ext);
+
+	DEVX_SET(rts2rts_qp_in, in, opcode, MLX5_CMD_OP_RTS2RTS_QP);
+	DEVX_SET(rts2rts_qp_in, in, qpc_ext, 1);
+	DEVX_SET(rts2rts_qp_in, in, qpn, qp->qp_num);
+	DEVX_SET64(rts2rts_qp_in, in, opt_param_mask_95_32, mask);
+
+	DEVX_SET(qpc_ext, qpce, qos_queue_group_id_requester, req_id);
+	DEVX_SET(qpc_ext, qpce, qos_queue_group_id_responder, resp_id);
+
+	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+}
+
+static int modify_ib_qp_sched_elem(struct ibv_qp *qp,
+				   uint32_t req_id, uint32_t resp_id)
+{
+	int ret;
+
+	switch (qp->state) {
+	case IBV_QPS_INIT:
+		ret = modify_ib_qp_sched_elem_init(qp, req_id, resp_id);
+		break;
+
+	case IBV_QPS_RTS:
+		ret = modify_ib_qp_sched_elem_rts(qp, req_id, resp_id);
+		break;
+
+	default:
+		return EOPNOTSUPP;
+	};
+
+	return ret;
+}
+
+int mlx5dv_modify_qp_sched_elem(struct ibv_qp *qp,
+				const struct mlx5dv_sched_leaf *requestor,
+				const struct mlx5dv_sched_leaf *responder)
+{
+	struct mlx5_qos_caps *qc = &to_mctx(qp->context)->qos_caps;
+
+	switch (qp->qp_type) {
+	case IBV_QPT_UC:
+	case IBV_QPT_UD:
+		if (responder)
+			return EINVAL;
+		SWITCH_FALLTHROUGH;
+	case IBV_QPT_RC:
+		if ((!to_mctx(qp->context)->qpc_extension_cap) ||
+		    !(qc->nic_qp_scheduling))
+			return EOPNOTSUPP;
+		return modify_ib_qp_sched_elem(qp,
+					       requestor ? requestor->obj->object_id : 0,
+					       responder ? responder->obj->object_id : 0);
+	default:
+		return EOPNOTSUPP;
+	}
+}
+
 LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
 		   int,
 		   struct mlx5dv_obj *obj, uint64_t obj_type)

@@ -3454,6 +3454,10 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 
 	mctx->qos_caps.qos =
 		DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.qos);
+
+	mctx->qpc_extension_cap =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.cmd_hca_cap.qpc_extension);
 }
 
 static void get_qos_caps(struct mlx5_context *mctx)

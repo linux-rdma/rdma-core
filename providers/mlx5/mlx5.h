@@ -340,6 +340,7 @@ struct mlx5_context {
 	struct mlx5_packet_pacing_caps	packet_pacing_caps;
 	struct mlx5_lag_caps		lag_caps;
 	struct mlx5_qos_caps		qos_caps;
+	uint8_t				qpc_extension_cap:1;
 	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
 	uint32_t			num_dyn_bfregs;
 	uint32_t			max_num_legacy_dyn_uar_sys_page;

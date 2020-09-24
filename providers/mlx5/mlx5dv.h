@@ -1651,6 +1651,10 @@ int mlx5dv_sched_node_destroy(struct mlx5dv_sched_node *node);
 
 int mlx5dv_sched_leaf_destroy(struct mlx5dv_sched_leaf *leaf);
 
+int mlx5dv_modify_qp_sched_elem(struct ibv_qp *qp,
+				const struct mlx5dv_sched_leaf *requestor,
+				const struct mlx5dv_sched_leaf *responder);
+
 #ifdef __cplusplus
 }
 #endif

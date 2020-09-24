@@ -48,6 +48,7 @@ enum {
 	MLX5_CMD_OP_RTR2RTS_QP = 0x504,
 	MLX5_CMD_OP_RTS2RTS_QP = 0x505,
 	MLX5_CMD_OP_QUERY_QP = 0x50b,
+	MLX5_CMD_OP_INIT2INIT_QP = 0x50e,
 	MLX5_CMD_OP_QUERY_ESW_VPORT_CONTEXT = 0x752,
 	MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT = 0x754,
 	MLX5_CMD_OP_QUERY_ROCE_ADDRESS = 0x760,
@@ -643,7 +644,9 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         null_mkey[0x1];
 	u8         log_max_klm_list_size[0x6];
 
-	u8         reserved_at_120[0xa];
+	u8         reserved_at_120[0x2];
+	u8         qpc_extension[0x1];
+	u8         reserved_at_123[0x7];
 	u8         log_max_ra_req_dc[0x6];
 	u8         reserved_at_130[0xa];
 	u8         log_max_ra_res_dc[0x6];
@@ -2755,6 +2758,16 @@ struct mlx5_ifc_qpc_bits {
 	u8         dbr_umem_id[0x20];
 };
 
+struct mlx5_ifc_qpc_ext_bits {
+	u8         reserved_at_0[0x20];
+
+	u8         qos_queue_group_id_requester[0x20];
+
+	u8         qos_queue_group_id_responder[0x20];
+
+	u8         reserved_at_60[0x7a0];
+};
+
 struct mlx5_ifc_create_tir_out_bits {
 	u8         status[0x8];
 	u8         icm_address_63_40[0x18];
@@ -2802,6 +2815,41 @@ struct mlx5_ifc_create_qp_in_bits {
 	u8         reserved_at_861[0x1f];
 
 	u8         pas[0][0x40];
+};
+
+enum mlx5_qpc_opt_mask_32 {
+	MLX5_QPC_OPT_MASK_32_QOS_QUEUE_GROUP_ID = 1 << 1,
+};
+
+struct mlx5_ifc_init2init_qp_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_init2init_qp_in_bits {
+	u8         opcode[0x10];
+	u8         uid[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         qpc_ext[0x1];
+	u8         reserved_at_41[0x7];
+	u8         qpn[0x18];
+
+	u8         reserved_at_60[0x60];
+
+	struct mlx5_ifc_qpc_bits qpc;
+
+	u8         reserved_at_800[0x40];
+
+	u8         opt_param_mask_95_32[0x40];
+
+	struct mlx5_ifc_qpc_ext_bits qpc_data_ext;
 };
 
 struct mlx5_ifc_init2rtr_qp_out_bits {
@@ -2892,6 +2940,38 @@ struct mlx5_ifc_rst2init_qp_in_bits {
 	struct mlx5_ifc_qpc_bits qpc;
 
 	u8         reserved_at_800[0x80];
+};
+
+struct mlx5_ifc_rts2rts_qp_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_rts2rts_qp_in_bits {
+	u8         opcode[0x10];
+	u8         uid[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         qpc_ext[0x1];
+	u8         reserved_at_41[0x7];
+	u8         qpn[0x18];
+
+	u8         reserved_at_60[0x60];
+
+	struct mlx5_ifc_qpc_bits qpc;
+
+	u8         reserved_at_800[0x40];
+
+	u8         opt_param_mask_95_32[0x40];
+
+	struct mlx5_ifc_qpc_ext_bits qpc_data_ext;
+
 };
 
 struct mlx5_ifc_query_qp_out_bits {
