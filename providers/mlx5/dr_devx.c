@@ -310,6 +310,32 @@ dr_devx_create_flow_table(struct ibv_context *ctx,
 	return mlx5dv_devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
 }
 
+int dr_devx_query_flow_table(struct mlx5dv_devx_obj *obj, uint32_t type,
+			     uint64_t *rx_icm_addr, uint64_t *tx_icm_addr)
+{
+	uint32_t out[DEVX_ST_SZ_DW(query_flow_table_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(query_flow_table_in)] = {};
+	int ret;
+
+	DEVX_SET(query_flow_table_in, in, opcode, MLX5_CMD_OP_QUERY_FLOW_TABLE);
+	DEVX_SET(query_flow_table_in, in, table_type, type);
+	DEVX_SET(query_flow_table_in, in, table_id, obj->object_id);
+
+	ret = mlx5dv_devx_obj_query(obj, in, sizeof(in), out, sizeof(out));
+	if (ret) {
+		dr_dbg_ctx(obj->context, "Failed to query flow table id %u\n",
+			   obj->object_id);
+		return ret;
+	}
+
+	*tx_icm_addr = DEVX_GET64(query_flow_table_out, out,
+				  flow_table_context.sw_owner_icm_root_1);
+	*rx_icm_addr = DEVX_GET64(query_flow_table_out, out,
+				  flow_table_context.sw_owner_icm_root_0);
+
+	return 0;
+}
+
 static struct mlx5dv_devx_obj *
 dr_devx_create_flow_group(struct ibv_context *ctx,
 			  struct dr_devx_flow_group_attr *fg_attr)

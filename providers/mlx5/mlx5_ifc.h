@@ -55,6 +55,7 @@ enum {
 	MLX5_CMD_OP_MODIFY_TIS = 0x913,
 	MLX5_CMD_OP_QUERY_TIS = 0x915,
 	MLX5_CMD_OP_CREATE_FLOW_TABLE = 0x930,
+	MLX5_CMD_OP_QUERY_FLOW_TABLE = 0x932,
 	MLX5_CMD_OP_CREATE_FLOW_GROUP = 0x933,
 	MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY = 0x936,
 	MLX5_CMD_OP_CREATE_FLOW_COUNTER = 0x939,
@@ -157,6 +158,35 @@ struct mlx5_ifc_create_flow_table_out_bits {
 	u8         table_id[0x18];
 
 	u8         icm_address_31_0[0x20];
+};
+
+struct mlx5_ifc_query_flow_table_in_bits {
+	u8         opcode[0x10];
+	u8         reserved_at_10[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         reserved_at_40[0x40];
+
+	u8         table_type[0x8];
+	u8         reserved_at_88[0x18];
+
+	u8         reserved_at_a0[0x8];
+	u8         table_id[0x18];
+
+	u8         reserved_at_c0[0x140];
+};
+
+struct mlx5_ifc_query_flow_table_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x80];
+
+	struct mlx5_ifc_flow_table_context_bits flow_table_context;
 };
 
 struct mlx5_ifc_sync_steering_in_bits {

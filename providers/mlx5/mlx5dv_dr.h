@@ -983,7 +983,8 @@ int dr_devx_sync_steering(struct ibv_context *ctx);
 struct mlx5dv_devx_obj *
 dr_devx_create_flow_table(struct ibv_context *ctx,
 			  struct dr_devx_flow_table_attr *table_attr);
-
+int dr_devx_query_flow_table(struct mlx5dv_devx_obj *obj,  uint32_t type,
+			     uint64_t *rx_icm_addr, uint64_t *tx_icm_addr);
 struct dr_devx_tbl *
 dr_devx_create_always_hit_ft(struct ibv_context *ctx,
 			     struct dr_devx_flow_table_attr *ft_attr,
