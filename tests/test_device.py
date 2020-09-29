@@ -98,7 +98,7 @@ class DeviceTest(PyverbsAPITestCase):
         assert attr.max_qp > 0
         assert attr.max_qp_wr > 0
         assert attr.max_sge > 0
-        assert attr.max_sge_rd > 0
+        assert attr.max_sge_rd >= 0
         assert attr.max_cq > 0
         assert attr.max_cqe > 0
         assert attr.max_mr > 0
