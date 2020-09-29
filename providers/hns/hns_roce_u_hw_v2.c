@@ -763,10 +763,10 @@ static int check_rc_opcode(struct hns_roce_rc_sq_wqe *wqe,
 		wqe->va = htole64(wr->wr.atomic.remote_addr);
 		break;
 	case IBV_WR_LOCAL_INV:
-		wqe->inv_key = htole32(wr->invalidate_rkey);
+		roce_set_bit(wqe->byte_4, RC_SQ_WQE_BYTE_4_SO_S, 1);
 		/* fallthrough */
 	case IBV_WR_SEND_WITH_INV:
-		roce_set_bit(wqe->byte_4, RC_SQ_WQE_BYTE_4_SO_S, 1);
+		wqe->inv_key = htole32(wr->invalidate_rkey);
 		break;
 	case IBV_WR_BIND_MW:
 		set_bind_mw_seg(wqe, wr);
