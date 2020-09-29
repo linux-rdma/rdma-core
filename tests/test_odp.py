@@ -23,17 +23,22 @@ class OdpUD(UDResources):
 
 class OdpRC(RCResources):
     def __init__(self, dev_name, ib_port, gid_index, is_huge=False,
-                 user_addr=None, use_mr_prefetch=False, is_implicit=False):
+                 user_addr=None, use_mr_prefetch=None, is_implicit=False,
+                 prefetch_advice=e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE):
         """
         Initialize an OdpRC object.
         :param dev_name: Device name to be used
         :param ib_port: IB port of the device to use
         :param gid_index: Which GID index to use
-        :param use_mr_prefetch: If True, prefetch the MRs
         :param is_huge: If True, use huge pages for MR registration
         :param user_addr: The MR's buffer address. If None, the buffer will be
                           allocated by pyverbs.
+        :param use_mr_prefetch: Describes the properties of the prefetch
+                                operation. The options are 'sync', 'async'
+                                and None to skip the prefetch operation.
         :param is_implicit: If True, register implicit MR.
+        :param prefetch_advice: The advice of the prefetch request (ignored
+                                if use_mr_prefetch is None).
         """
         self.is_huge = is_huge
         self.user_addr = user_addr
@@ -41,6 +46,7 @@ class OdpRC(RCResources):
         super(OdpRC, self).__init__(dev_name=dev_name, ib_port=ib_port,
                                     gid_index=gid_index)
         self.use_mr_prefetch = use_mr_prefetch
+        self.prefetch_advice = prefetch_advice
 
     @requires_odp('rc',  e.IBV_ODP_SUPPORT_SEND | e.IBV_ODP_SUPPORT_RECV)
     def create_mr(self):
@@ -139,10 +145,24 @@ class OdpTestCase(RDMATestCase):
                                               user_addr=self.user_addr)
         traffic(client, server, self.iters, self.gid_index, self.ib_port)
 
-    def test_odp_prefetch_rc_traffic(self):
-        client, server = self.create_players(OdpRC, use_mr_prefetch=True)
+    def test_odp_sync_prefetch_rc_traffic(self):
+        for advice in [e._IBV_ADVISE_MR_ADVICE_PREFETCH,
+                       e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE]:
+            client, server = self.create_players(OdpRC, use_mr_prefetch='sync',
+                                                 prefetch_advice=advice)
+            traffic(client, server, self.iters, self.gid_index, self.ib_port)
+
+    def test_odp_async_prefetch_rc_traffic(self):
+        for advice in [e._IBV_ADVISE_MR_ADVICE_PREFETCH,
+                       e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE]:
+            client, server = self.create_players(OdpRC, use_mr_prefetch='async',
+                                                 prefetch_advice=advice)
+            traffic(client, server, self.iters, self.gid_index, self.ib_port)
+
+    def test_odp_implicit_sync_prefetch_rc_traffic(self):
+        client, server = self.create_players(OdpRC, use_mr_prefetch='sync', is_implicit=True)
         traffic(client, server, self.iters, self.gid_index, self.ib_port)
 
-    def test_odp_implicit_prefetch_rc_traffic(self):
-        client, server = self.create_players(OdpRC, use_mr_prefetch=True, is_implicit=True)
+    def test_odp_implicit_async_prefetch_rc_traffic(self):
+        client, server = self.create_players(OdpRC, use_mr_prefetch='async', is_implicit=True)
         traffic(client, server, self.iters, self.gid_index, self.ib_port)
