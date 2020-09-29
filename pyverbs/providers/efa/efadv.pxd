@@ -16,7 +16,7 @@ cdef class EfaContext(Context):
 
 
 cdef class EfaDVDeviceAttr(PyverbsObject):
-    cdef dv.efadv_device_attr dv
+    cdef dv.efadv_device_attr device_attr
 
 
 cdef class EfaAH(AH):

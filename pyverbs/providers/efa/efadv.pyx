@@ -49,7 +49,7 @@ cdef class EfaContext(Context):
         :return: An EfaDVDeviceAttr containing the attributes.
         """
         dv_attr = EfaDVDeviceAttr()
-        rc = dv.efadv_query_device(self.context, &dv_attr.dv, sizeof(dv_attr.dv))
+        rc = dv.efadv_query_device(self.context, &dv_attr.device_attr, sizeof(dv_attr.device_attr))
         if rc:
             raise PyverbsRDMAError(f'Failed to query efa device {self.name}', rc)
         return dv_attr
@@ -62,46 +62,46 @@ cdef class EfaDVDeviceAttr(PyverbsObject):
     """
     @property
     def comp_mask(self):
-        return self.dv.comp_mask
+        return self.device_attr.comp_mask
 
     @property
     def max_sq_wr(self):
-        return self.dv.max_sq_wr
+        return self.device_attr.max_sq_wr
 
     @property
     def max_rq_wr(self):
-        return self.dv.max_rq_wr
+        return self.device_attr.max_rq_wr
 
     @property
     def max_sq_sge(self):
-        return self.dv.max_sq_sge
+        return self.device_attr.max_sq_sge
 
     @property
     def max_rq_sge(self):
-        return self.dv.max_rq_sge
+        return self.device_attr.max_rq_sge
 
     @property
     def inline_buf_size(self):
-        return self.dv.inline_buf_size
+        return self.device_attr.inline_buf_size
 
     @property
     def device_caps(self):
-        return self.dv.device_caps
+        return self.device_attr.device_caps
 
     @property
     def max_rdma_size(self):
-        return self.dv.max_rdma_size
+        return self.device_attr.max_rdma_size
 
     def __str__(self):
         print_format = '{:20}: {:<20}\n'
-        return print_format.format('comp_mask', self.dv.comp_mask) + \
-            print_format.format('Max SQ WR', self.dv.max_sq_wr) + \
-            print_format.format('Max RQ WR', self.dv.max_rq_wr) + \
-            print_format.format('Max SQ SQE', self.dv.max_sq_sge) + \
-            print_format.format('Max RQ SQE', self.dv.max_rq_sge) + \
-            print_format.format('Inline buffer size', self.dv.inline_buf_size) + \
-            print_format.format('Device Capabilities', dev_cap_to_str(self.dv.device_caps)) + \
-            print_format.format('Max RDMA Size', self.dv.max_rdma_size)
+        return print_format.format('comp_mask', self.device_attr.comp_mask) + \
+            print_format.format('Max SQ WR', self.device_attr.max_sq_wr) + \
+            print_format.format('Max RQ WR', self.device_attr.max_rq_wr) + \
+            print_format.format('Max SQ SQE', self.device_attr.max_sq_sge) + \
+            print_format.format('Max RQ SQE', self.device_attr.max_rq_sge) + \
+            print_format.format('Inline buffer size', self.device_attr.inline_buf_size) + \
+            print_format.format('Device Capabilities', dev_cap_to_str(self.device_attr.device_caps)) + \
+            print_format.format('Max RDMA Size', self.device_attr.max_rdma_size)
 
 
 cdef class EfaDVAHAttr(PyverbsObject):
