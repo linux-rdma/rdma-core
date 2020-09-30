@@ -86,6 +86,7 @@ enum ibv_mr_type {
 struct verbs_mr {
 	struct ibv_mr		ibv_mr;
 	enum ibv_mr_type        mr_type;
+	int access;
 };
 
 static inline struct verbs_mr *verbs_get_mr(struct ibv_mr *mr)

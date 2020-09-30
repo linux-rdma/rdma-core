@@ -303,8 +303,9 @@ LATEST_SYMVER_FUNC(ibv_reg_mr, 1_1, "IBVERBS_1.1",
 		   size_t length, int access)
 {
 	struct ibv_mr *mr;
+	bool odp_mr = access & IBV_ACCESS_ON_DEMAND;
 
-	if (ibv_dontfork_range(addr, length))
+	if (!odp_mr && ibv_dontfork_range(addr, length))
 		return NULL;
 
 	mr = get_ops(pd->context)->reg_mr(pd, addr, length, (uintptr_t) addr,
@@ -314,8 +315,10 @@ LATEST_SYMVER_FUNC(ibv_reg_mr, 1_1, "IBVERBS_1.1",
 		mr->pd      = pd;
 		mr->addr    = addr;
 		mr->length  = length;
-	} else
-		ibv_dofork_range(addr, length);
+	} else {
+		if (!odp_mr)
+			ibv_dofork_range(addr, length);
+	}
 
 	return mr;
 }
@@ -325,8 +328,9 @@ struct ibv_mr *ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length,
 			       uint64_t iova, int access)
 {
 	struct ibv_mr *mr;
+	bool odp_mr = access & IBV_ACCESS_ON_DEMAND;
 
-	if (ibv_dontfork_range(addr, length))
+	if (!odp_mr && ibv_dontfork_range(addr, length))
 		return NULL;
 
 	mr = get_ops(pd->context)->reg_mr(pd, addr, length, iova, access);
@@ -335,8 +339,10 @@ struct ibv_mr *ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length,
 		mr->pd      = pd;
 		mr->addr    = addr;
 		mr->length  = length;
-	} else
-		ibv_dofork_range(addr, length);
+	} else {
+		if (!odp_mr)
+			ibv_dofork_range(addr, length);
+	}
 
 	return mr;
 }
@@ -455,9 +461,10 @@ LATEST_SYMVER_FUNC(ibv_dereg_mr, 1_1, "IBVERBS_1.1",
 	void *addr		= mr->addr;
 	size_t length		= mr->length;
 	enum ibv_mr_type type	= verbs_get_mr(mr)->mr_type;
+	int access = verbs_get_mr(mr)->access;
 
 	ret = get_ops(mr->context)->dereg_mr(verbs_get_mr(mr));
-	if (!ret && type == IBV_MR_TYPE_MR)
+	if (!ret && type == IBV_MR_TYPE_MR && !(access & IBV_ACCESS_ON_DEMAND))
 		ibv_dofork_range(addr, length);
 
 	return ret;
