@@ -54,6 +54,7 @@ enum {
 	MLX5_CMD_OP_QUERY_ROCE_ADDRESS = 0x760,
 	MLX5_CMD_OP_QUERY_LAG = 0x842,
 	MLX5_CMD_OP_CREATE_TIR = 0x900,
+	MLX5_CMD_OP_MODIFY_SQ = 0x905,
 	MLX5_CMD_OP_MODIFY_TIS = 0x913,
 	MLX5_CMD_OP_QUERY_TIS = 0x915,
 	MLX5_CMD_OP_CREATE_FLOW_TABLE = 0x930,
@@ -3389,4 +3390,55 @@ struct mlx5_ifc_create_modify_elem_in_bits {
 	struct mlx5_ifc_general_obj_in_cmd_hdr_bits	hdr;
 	struct mlx5_ifc_sched_elem_bits			sched_elem;
 };
+
+enum {
+	MLX5_SQC_STATE_RDY  = 0x1,
+};
+
+struct mlx5_ifc_sqc_bits {
+	u8	reserved_at_0[0x8];
+	u8	state[0x4];
+	u8	reserved_at_c[0x14];
+
+	u8	reserved_at_20[0xe0];
+
+	u8	reserved_at_100[0x10];
+	u8	qos_queue_group_id[0x10];
+
+	u8	reserved_at_120[0x660];
+};
+
+enum {
+	MLX5_MODIFY_SQ_BITMASK_QOS_QUEUE_GROUP_ID	= 1 << 2,
+};
+
+struct mlx5_ifc_modify_sq_out_bits {
+	u8	status[0x8];
+	u8	reserved_at_8[0x18];
+
+	u8	syndrome[0x20];
+
+	u8	reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_modify_sq_in_bits {
+	u8	opcode[0x10];
+	u8	uid[0x10];
+
+	u8	reserved_at_20[0x10];
+	u8	op_mod[0x10];
+
+	u8	sq_state[0x4];
+	u8	reserved_at_44[0x4];
+	u8	sqn[0x18];
+
+	u8	reserved_at_60[0x20];
+
+	u8	modify_bitmask[0x40];
+
+	u8	reserved_at_c0[0x40];
+
+	struct mlx5_ifc_sqc_bits sq_context;
+};
+
 #endif /* MLX5_IFC_H */

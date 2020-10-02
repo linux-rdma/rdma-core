@@ -1445,6 +1445,29 @@ static int modify_ib_qp_sched_elem(struct ibv_qp *qp,
 	return ret;
 }
 
+static int modify_raw_qp_sched_elem(struct ibv_qp *qp, uint32_t qos_id)
+{
+	struct mlx5_qos_caps *qc = &to_mctx(qp->context)->qos_caps;
+	uint32_t mout[DEVX_ST_SZ_DW(modify_sq_out)] = {};
+	uint32_t min[DEVX_ST_SZ_DW(modify_sq_in)] = {};
+	struct mlx5_qp *mqp = to_mqp(qp);
+	void *sqc;
+
+	if (qp->state != IBV_QPS_RTS || !qc->nic_sq_scheduling)
+		return EOPNOTSUPP;
+
+	DEVX_SET(modify_sq_in, min, opcode, MLX5_CMD_OP_MODIFY_SQ);
+	DEVX_SET(modify_sq_in, min, sq_state, MLX5_SQC_STATE_RDY);
+	DEVX_SET(modify_sq_in, min, sqn, mqp->sqn);
+	DEVX_SET64(modify_sq_in, min, modify_bitmask,
+		   MLX5_MODIFY_SQ_BITMASK_QOS_QUEUE_GROUP_ID);
+	sqc = DEVX_ADDR_OF(modify_sq_in, min, sq_context);
+	DEVX_SET(sqc, sqc, state, MLX5_SQC_STATE_RDY);
+	DEVX_SET(sqc, sqc, qos_queue_group_id, qos_id);
+
+	return mlx5dv_devx_qp_modify(qp, min, sizeof(min), mout, sizeof(mout));
+}
+
 int mlx5dv_modify_qp_sched_elem(struct ibv_qp *qp,
 				const struct mlx5dv_sched_leaf *requestor,
 				const struct mlx5dv_sched_leaf *responder)
@@ -1464,6 +1487,11 @@ int mlx5dv_modify_qp_sched_elem(struct ibv_qp *qp,
 		return modify_ib_qp_sched_elem(qp,
 					       requestor ? requestor->obj->object_id : 0,
 					       responder ? responder->obj->object_id : 0);
+	case IBV_QPT_RAW_PACKET:
+		if (responder)
+			return EINVAL;
+		return modify_raw_qp_sched_elem(qp,
+						requestor ? requestor->obj->object_id : 0);
 	default:
 		return EOPNOTSUPP;
 	}
