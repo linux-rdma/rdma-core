@@ -183,6 +183,7 @@ enum mlx5dv_qp_create_flags {
 
 enum mlx5dv_mkey_init_attr_flags {
 	MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT = 1 << 0,
+	MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE = 1 << 1,
 };
 
 struct mlx5dv_mkey_init_attr {

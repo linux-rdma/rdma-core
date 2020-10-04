@@ -765,10 +765,20 @@ struct mlx5_psv {
 	struct mlx5dv_devx_obj *devx_obj;
 };
 
+struct mlx5_sig_block {
+	struct mlx5_psv *mem_psv;
+	struct mlx5_psv *wire_psv;
+};
+
+struct mlx5_sig_ctx {
+	struct mlx5_sig_block block;
+};
+
 struct mlx5_mkey {
 	struct mlx5dv_mkey dv_mkey;
 	struct mlx5dv_devx_obj *devx_obj;
 	uint16_t num_desc;
+	struct mlx5_sig_ctx *sig;
 };
 
 struct mlx5_devx_event_channel {
