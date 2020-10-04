@@ -55,6 +55,7 @@ rdma_alias_man_pages(
  mlx5dv_devx_qp_modify.3 mlx5dv_devx_ind_tbl_query.3
  mlx5dv_devx_subscribe_devx_event.3 mlx5dv_devx_subscribe_devx_event_fd.3
  mlx5dv_devx_umem_reg.3 mlx5dv_devx_umem_dereg.3
+ mlx5dv_dr_flow.3 mlx5dv_dr_action_create_aso.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_table.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_ibv_qp.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_devx_tir.3
@@ -71,6 +72,7 @@ rdma_alias_man_pages(
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_push_vlan.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_tag.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_destroy.3
+ mlx5dv_dr_flow.3 mlx5dv_dr_action_modify_aso.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_modify_flow_meter.3
  mlx5dv_dr_flow.3 mlx5dv_dr_domain_create.3
  mlx5dv_dr_flow.3 mlx5dv_dr_domain_destroy.3

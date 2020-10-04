@@ -151,6 +151,7 @@ enum dr_action_type {
 	DR_ACTION_TYP_DEST_ARRAY,
 	DR_ACTION_TYP_POP_VLAN,
 	DR_ACTION_TYP_PUSH_VLAN,
+	DR_ACTION_TYP_ASO_FIRST_HIT,
 	DR_ACTION_TYP_MAX,
 };
 
@@ -287,6 +288,15 @@ struct list_head *dr_ste_get_miss_list(struct dr_ste *ste);
 
 #define MAX_VLANS 2
 
+struct dr_action_aso {
+	struct mlx5dv_devx_obj *devx_obj;
+	uint32_t offset;
+	uint8_t dest_reg_id;
+	struct {
+		bool set;
+	} first_hit;
+};
+
 struct dr_ste_actions_attr {
 	uint32_t	modify_index;
 	uint16_t	modify_actions;
@@ -305,6 +315,7 @@ struct dr_ste_actions_attr {
 		int		count;
 		uint32_t	headers[MAX_VLANS];
 	} vlans;
+	struct dr_action_aso *aso;
 };
 
 void dr_ste_set_actions_rx(struct dr_ste_ctx *ste_ctx,
@@ -911,6 +922,7 @@ struct mlx5dv_dr_action {
 				struct ibv_qp           *qp;
 			};
 		} dest_qp;
+		struct dr_action_aso	aso;
 		struct mlx5dv_devx_obj	*devx_obj;
 		uint32_t		flow_tag;
 	};

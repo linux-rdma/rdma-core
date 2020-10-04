@@ -117,6 +117,7 @@ enum dr_ste_v1_action_id {
 	DR_STE_V1_ACTION_ID_QUEUE_ID_SEL		= 0x0d,
 	DR_STE_V1_ACTION_ID_ACCELERATED_LIST		= 0x0e,
 	DR_STE_V1_ACTION_ID_MODIFY_LIST			= 0x0f,
+	DR_STE_V1_ACTION_ID_ASO				= 0x12,
 	DR_STE_V1_ACTION_ID_TRAILER			= 0x13,
 	DR_STE_V1_ACTION_ID_COUNTER_ID			= 0x14,
 	DR_STE_V1_ACTION_ID_MAX				= 0x21,
@@ -153,6 +154,10 @@ enum {
 	DR_STE_V1_ACTION_MDFY_FLD_REGISTER_5		= 0x8f,
 	DR_STE_V1_ACTION_MDFY_FLD_REGISTER_6		= 0x90,
 	DR_STE_V1_ACTION_MDFY_FLD_REGISTER_7		= 0x91,
+};
+
+enum dr_ste_v1_aso_ctx_type {
+	DR_STE_V1_ASO_CTX_TYPE_FIRST_HIT = 0x4,
 };
 
 static const struct dr_ste_action_modify_field dr_ste_v1_action_modify_field_arr[] = {
@@ -507,6 +512,26 @@ static inline void dr_ste_v1_arr_init_next_match(uint8_t **last_ste,
 	memset(action, 0, DEVX_FLD_SZ_BYTES(ste_mask_and_match_v1, action));
 }
 
+static void dr_ste_v1_set_aso_first_hit(uint8_t *d_action,
+					uint32_t object_id,
+					uint32_t offset,
+					uint8_t dest_reg_id,
+					bool set)
+{
+	DR_STE_SET(double_action_aso_v1, d_action, action_id,
+		   DR_STE_V1_ACTION_ID_ASO);
+	DR_STE_SET(double_action_aso_v1, d_action, aso_context_number,
+		   object_id + (offset / MLX5_ASO_FIRST_HIT_NUM_PER_OBJ));
+	/* Convert reg_c index to HW 64bit index */
+	DR_STE_SET(double_action_aso_v1, d_action, dest_reg_id, (dest_reg_id - 1) / 2);
+	DR_STE_SET(double_action_aso_v1, d_action, aso_context_type,
+		   DR_STE_V1_ASO_CTX_TYPE_FIRST_HIT);
+	DR_STE_SET(double_action_aso_v1, d_action, first_hit.line_id,
+		   offset % MLX5_ASO_FIRST_HIT_NUM_PER_OBJ);
+	/* In HW 0 is for set and 1 is for just read */
+	DR_STE_SET(double_action_aso_v1, d_action, first_hit.set, !set);
+}
+
 static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 				     uint8_t *last_ste,
 				     struct dr_ste_actions_attr *attr,
@@ -542,6 +567,25 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 			action_sz -= DR_STE_ACTION_DOUBLE_SZ;
 			action += DR_STE_ACTION_DOUBLE_SZ;
 		}
+	}
+
+	if (action_type_set[DR_ACTION_TYP_ASO_FIRST_HIT]) {
+		if (action_sz < DR_STE_ACTION_DOUBLE_SZ) {
+			dr_ste_v1_arr_init_next_match(&last_ste, added_stes,
+						      attr->gvmi);
+			action = DEVX_ADDR_OF(ste_mask_and_match_v1,
+					      last_ste, action);
+			action_sz = DR_STE_ACTION_TRIPLE_SZ;
+			allow_encap = true;
+		}
+		dr_ste_v1_set_aso_first_hit(action,
+					    attr->aso->devx_obj->object_id,
+					    attr->aso->offset,
+					    attr->aso->dest_reg_id,
+					    attr->aso->first_hit.set);
+
+		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
+		action += DR_STE_ACTION_DOUBLE_SZ;
 	}
 
 	if (action_type_set[DR_ACTION_TYP_L2_TO_TNL_L2]) {
@@ -627,6 +671,26 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 		dr_ste_v1_set_rx_pop_vlan(last_ste, action, attr->vlans.count);
 		action_sz -= DR_STE_ACTION_SINGLE_SZ;
 		action += DR_STE_ACTION_SINGLE_SZ;
+	}
+
+	if (action_type_set[DR_ACTION_TYP_ASO_FIRST_HIT]) {
+		if (action_sz < DR_STE_ACTION_DOUBLE_SZ) {
+			dr_ste_v1_arr_init_next_match(&last_ste, added_stes,
+						      attr->gvmi);
+			action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste,
+					      action);
+			action_sz = DR_STE_ACTION_TRIPLE_SZ;
+			allow_modify_hdr = true;
+			allow_ctr = true;
+		}
+		dr_ste_v1_set_aso_first_hit(action,
+					    attr->aso->devx_obj->object_id,
+					    attr->aso->offset,
+					    attr->aso->dest_reg_id,
+					    attr->aso->first_hit.set);
+
+		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
+		action += DR_STE_ACTION_DOUBLE_SZ;
 	}
 
 	if (action_type_set[DR_ACTION_TYP_MODIFY_HDR]) {

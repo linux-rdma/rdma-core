@@ -1485,6 +1485,27 @@ struct mlx5_ifc_ste_double_action_modify_action_list_v1_bits {
 	u8         modify_actions_argument_pointer[0x18];
 };
 
+struct mlx5_ifc_ste_aso_first_hit_action_v1_bits {
+	u8         reserved_at_0[0x6];
+	u8         set[0x1];
+	u8         line_id[0x9];
+};
+
+struct mlx5_ifc_ste_double_action_aso_v1_bits {
+	u8         action_id[0x8];
+	u8         aso_context_number[0x18];
+
+	u8         dest_reg_id[0x2];
+	u8         change_ordering_tag[0x1];
+	u8         aso_check_ordering[0x1];
+	u8         aso_context_type[0x4];
+	u8         reserved_at_28[0x8];
+	union {
+		u8	aso_fields[0x10];
+		struct mlx5_ifc_ste_aso_first_hit_action_v1_bits first_hit;
+	};
+};
+
 struct mlx5_ifc_ste_match_bwc_v1_bits {
 	u8         entry_format[0x8];
 	u8         counter_id[0x18];
@@ -2335,6 +2356,7 @@ struct mlx5_ifc_alloc_flow_counter_out_bits {
 enum {
 	MLX5_OBJ_TYPE_FLOW_METER = 0x000a,
 	MLX5_OBJ_TYPE_FLOW_SAMPLER = 0x0020,
+	MLX5_OBJ_TYPE_ASO_FIRST_HIT = 0x0025,
 };
 
 struct mlx5_ifc_general_obj_in_cmd_hdr_bits {
@@ -2346,7 +2368,9 @@ struct mlx5_ifc_general_obj_in_cmd_hdr_bits {
 
 	u8         obj_id[0x20];
 
-	u8         reserved_at_60[0x20];
+	u8         reserved_at_60[0x3];
+	u8         log_obj_range[0x5];
+	u8         reserved_at_68[0x18];
 };
 
 struct mlx5_ifc_general_obj_out_cmd_hdr_bits {
@@ -3164,5 +3188,9 @@ enum {
 
 enum {
 	MLX5_QPC_PAGE_OFFSET_QUANTA = 64,
+};
+
+enum {
+	MLX5_ASO_FIRST_HIT_NUM_PER_OBJ = 512,
 };
 #endif /* MLX5_IFC_H */
