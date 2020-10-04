@@ -262,6 +262,55 @@ void mlx5_clear_uidx(struct mlx5_context *ctx, uint32_t uidx)
 	pthread_mutex_unlock(&ctx->uidx_table_mutex);
 }
 
+struct mlx5_mkey *mlx5_find_mkey(struct mlx5_context *ctx, uint32_t mkey)
+{
+	int tind = mkey >> MLX5_MKEY_TABLE_SHIFT;
+
+	if (ctx->mkey_table[tind].refcnt)
+		return ctx->mkey_table[tind].table[mkey & MLX5_MKEY_TABLE_MASK];
+	else
+		return NULL;
+}
+
+int mlx5_store_mkey(struct mlx5_context *ctx, uint32_t mkey,
+		    struct mlx5_mkey *mlx5_mkey)
+{
+	int tind = mkey >> MLX5_MKEY_TABLE_SHIFT;
+	int ret = 0;
+
+	pthread_mutex_lock(&ctx->mkey_table_mutex);
+
+	if (!ctx->mkey_table[tind].refcnt) {
+		ctx->mkey_table[tind].table = calloc(MLX5_MKEY_TABLE_MASK + 1,
+				sizeof(struct mlx5_mkey *));
+		if (!ctx->mkey_table[tind].table) {
+			ret = -1;
+			goto out;
+		}
+	}
+
+	++ctx->mkey_table[tind].refcnt;
+	ctx->mkey_table[tind].table[mkey & MLX5_MKEY_TABLE_MASK] = mlx5_mkey;
+
+out:
+	pthread_mutex_unlock(&ctx->mkey_table_mutex);
+	return ret;
+}
+
+void mlx5_clear_mkey(struct mlx5_context *ctx, uint32_t mkey)
+{
+	int tind = mkey >> MLX5_MKEY_TABLE_SHIFT;
+
+	pthread_mutex_lock(&ctx->mkey_table_mutex);
+
+	if (!--ctx->mkey_table[tind].refcnt)
+		free(ctx->mkey_table[tind].table);
+	else
+		ctx->mkey_table[tind].table[mkey & MLX5_MKEY_TABLE_MASK] = NULL;
+
+	pthread_mutex_unlock(&ctx->mkey_table_mutex);
+}
+
 struct mlx5_psv *mlx5_create_psv(struct ibv_pd *pd)
 {
 	uint32_t out[DEVX_ST_SZ_DW(create_psv_out)] = {};
@@ -2060,12 +2109,16 @@ static int mlx5_set_context(struct mlx5_context *context,
 	pthread_mutex_init(&context->qp_table_mutex, NULL);
 	pthread_mutex_init(&context->srq_table_mutex, NULL);
 	pthread_mutex_init(&context->uidx_table_mutex, NULL);
+	pthread_mutex_init(&context->mkey_table_mutex, NULL);
 	pthread_mutex_init(&context->dyn_bfregs_mutex, NULL);
 	for (i = 0; i < MLX5_QP_TABLE_SIZE; ++i)
 		context->qp_table[i].refcnt = 0;
 
 	for (i = 0; i < MLX5_QP_TABLE_SIZE; ++i)
 		context->uidx_table[i].refcnt = 0;
+
+	for (i = 0; i < MLX5_MKEY_TABLE_SIZE; ++i)
+		context->mkey_table[i].refcnt = 0;
 
 	context->db_list = NULL;
 

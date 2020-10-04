@@ -148,6 +148,12 @@ enum {
 };
 
 enum {
+	MLX5_MKEY_TABLE_SHIFT		= 12,
+	MLX5_MKEY_TABLE_MASK		= (1 << MLX5_MKEY_TABLE_SHIFT) - 1,
+	MLX5_MKEY_TABLE_SIZE		= 1 << (24 - MLX5_MKEY_TABLE_SHIFT),
+};
+
+enum {
 	MLX5_BF_OFFSET	= 0x800
 };
 
@@ -319,6 +325,12 @@ struct mlx5_context {
 		int                     refcnt;
 	}				uidx_table[MLX5_UIDX_TABLE_SIZE];
 	pthread_mutex_t                 uidx_table_mutex;
+
+	struct {
+		struct mlx5_mkey      **table;
+		int			refcnt;
+	}				mkey_table[MLX5_MKEY_TABLE_SIZE];
+	pthread_mutex_t			mkey_table_mutex;
 
 	struct mlx5_uar_info		uar[MLX5_MAX_UARS];
 	struct mlx5_db_page	       *db_list;
@@ -1087,6 +1099,10 @@ struct mlx5_srq *mlx5_find_srq(struct mlx5_context *ctx, uint32_t srqn);
 int mlx5_store_srq(struct mlx5_context *ctx, uint32_t srqn,
 		   struct mlx5_srq *srq);
 void mlx5_clear_srq(struct mlx5_context *ctx, uint32_t srqn);
+struct mlx5_mkey *mlx5_find_mkey(struct mlx5_context *ctx, uint32_t mkeyn);
+int mlx5_store_mkey(struct mlx5_context *ctx, uint32_t mkeyn,
+		    struct mlx5_mkey *mkey);
+void mlx5_clear_mkey(struct mlx5_context *ctx, uint32_t mkeyn);
 struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
 int mlx5_destroy_ah(struct ibv_ah *ah);
 int mlx5_alloc_av(struct mlx5_pd *pd, struct ibv_ah_attr *attr,

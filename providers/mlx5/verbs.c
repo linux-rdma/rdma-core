@@ -5821,7 +5821,14 @@ struct mlx5dv_mkey *mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_a
 	mkey->dv_mkey.lkey = (DEVX_GET(create_mkey_out, out, mkey_index) << 8) | 0;
 	mkey->dv_mkey.rkey = mkey->dv_mkey.lkey;
 
+	if (mlx5_store_mkey(to_mctx(pd->context), mkey->dv_mkey.lkey >> 8, mkey)) {
+		errno = ENOMEM;
+		goto err_destroy_mkey_obj;
+	}
+
 	return &mkey->dv_mkey;
+err_destroy_mkey_obj:
+	mlx5dv_devx_obj_destroy(mkey->devx_obj);
 err_destroy_sig_ctx:
 	if (sig_mkey)
 		mlx5_destroy_sig_ctx(mkey->sig);
@@ -5834,6 +5841,7 @@ int mlx5dv_destroy_mkey(struct mlx5dv_mkey *dv_mkey)
 {
 	struct mlx5_mkey *mkey = container_of(dv_mkey, struct mlx5_mkey,
 					  dv_mkey);
+	struct mlx5_context *mctx = to_mctx(mkey->devx_obj->context);
 	int ret;
 
 	if (mkey->sig) {
@@ -5848,6 +5856,7 @@ int mlx5dv_destroy_mkey(struct mlx5dv_mkey *dv_mkey)
 	if (ret)
 		return ret;
 
+	mlx5_clear_mkey(mctx, dv_mkey->lkey >> 8);
 	free(mkey);
 	return 0;
 }
