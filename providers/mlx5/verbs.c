@@ -3515,6 +3515,41 @@ static void get_hca_general_caps_2(struct mlx5_context *mctx)
 			 capability.cmd_hca_cap_2.log_reserved_qpn_granularity);
 }
 
+static void get_hca_sig_caps(uint32_t *hca_caps, struct mlx5_context *mctx)
+{
+	if (!DEVX_GET(query_hca_cap_out, hca_caps,
+		      capability.cmd_hca_cap.sho) ||
+	    !DEVX_GET(query_hca_cap_out, hca_caps,
+		      capability.cmd_hca_cap.sigerr_domain_and_sig_type))
+		return;
+
+	/* Basic signature offload features */
+	mctx->sig_caps.block_prot =
+		MLX5DV_SIG_PROT_CAP_T10DIF | MLX5DV_SIG_PROT_CAP_CRC;
+
+	mctx->sig_caps.block_size =
+		MLX5DV_BLOCK_SIZE_CAP_512 | MLX5DV_BLOCK_SIZE_CAP_520 |
+		MLX5DV_BLOCK_SIZE_CAP_4096 | MLX5DV_BLOCK_SIZE_CAP_4160;
+
+	mctx->sig_caps.t10dif_bg =
+		MLX5DV_SIG_T10DIF_BG_CAP_CRC | MLX5DV_SIG_T10DIF_BG_CAP_CSUM;
+
+	mctx->sig_caps.crc_type = MLX5DV_SIG_CRC_TYPE_CAP_CRC32;
+
+	/* Optional signature offload features */
+	if (DEVX_GET(query_hca_cap_out, hca_caps,
+		     capability.cmd_hca_cap.sig_block_4048))
+		mctx->sig_caps.block_size |= MLX5DV_BLOCK_SIZE_CAP_4048;
+
+	if (DEVX_GET(query_hca_cap_out, hca_caps,
+		     capability.cmd_hca_cap.sig_crc32c))
+		mctx->sig_caps.crc_type |= MLX5DV_SIG_CRC_TYPE_CAP_CRC32C;
+
+	if (DEVX_GET(query_hca_cap_out, hca_caps,
+		     capability.cmd_hca_cap.sig_crc64_xp10))
+		mctx->sig_caps.crc_type |= MLX5DV_SIG_CRC_TYPE_CAP_CRC64_XP10;
+}
+
 static void get_hca_general_caps(struct mlx5_context *mctx)
 {
 	uint16_t opmod = MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE |
@@ -3557,6 +3592,8 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 	mctx->general_obj_types_caps =
 		DEVX_GET64(query_hca_cap_out, out,
 			   capability.cmd_hca_cap.general_obj_types);
+
+	get_hca_sig_caps(out, mctx);
 
 	if (DEVX_GET(query_hca_cap_out, out,
 		     capability.cmd_hca_cap.hca_cap_2))
@@ -5734,6 +5771,11 @@ static struct mlx5_sig_ctx *mlx5_create_sig_ctx(struct ibv_pd *pd,
 {
 	struct mlx5_sig_ctx *sig;
 	int err;
+
+	if (!to_mctx(pd->context)->sig_caps.block_prot) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	sig = calloc(1, sizeof(*sig));
 	if (!sig) {

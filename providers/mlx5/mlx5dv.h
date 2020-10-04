@@ -82,6 +82,7 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_DC_ODP_CAPS		= 1 << 7,
 	MLX5DV_CONTEXT_MASK_HCA_CORE_CLOCK	= 1 << 8,
 	MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS	= 1 << 9,
+	MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD	= 1 << 10,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -123,9 +124,19 @@ enum mlx5dv_sig_type {
 	MLX5DV_SIG_TYPE_CRC,
 };
 
+enum mlx5dv_sig_prot_caps {
+	MLX5DV_SIG_PROT_CAP_T10DIF = 1 << MLX5DV_SIG_TYPE_T10DIF,
+	MLX5DV_SIG_PROT_CAP_CRC = 1 << MLX5DV_SIG_TYPE_CRC,
+};
+
 enum mlx5dv_sig_t10dif_bg_type {
 	MLX5DV_SIG_T10DIF_CRC,
 	MLX5DV_SIG_T10DIF_CSUM,
+};
+
+enum mlx5dv_sig_t10dif_bg_caps {
+	MLX5DV_SIG_T10DIF_BG_CAP_CRC = 1 << MLX5DV_SIG_T10DIF_CRC,
+	MLX5DV_SIG_T10DIF_BG_CAP_CSUM = 1 << MLX5DV_SIG_T10DIF_CSUM,
 };
 
 enum mlx5dv_sig_crc_type {
@@ -134,12 +145,33 @@ enum mlx5dv_sig_crc_type {
 	MLX5DV_SIG_CRC_TYPE_CRC64_XP10,
 };
 
+enum mlx5dv_sig_crc_type_caps {
+	MLX5DV_SIG_CRC_TYPE_CAP_CRC32 = 1 << MLX5DV_SIG_CRC_TYPE_CRC32,
+	MLX5DV_SIG_CRC_TYPE_CAP_CRC32C = 1 << MLX5DV_SIG_CRC_TYPE_CRC32C,
+	MLX5DV_SIG_CRC_TYPE_CAP_CRC64_XP10 = 1 << MLX5DV_SIG_CRC_TYPE_CRC64_XP10,
+};
+
 enum mlx5dv_block_size {
 	MLX5DV_BLOCK_SIZE_512,
 	MLX5DV_BLOCK_SIZE_520,
 	MLX5DV_BLOCK_SIZE_4048,
 	MLX5DV_BLOCK_SIZE_4096,
 	MLX5DV_BLOCK_SIZE_4160,
+};
+
+enum mlx5dv_block_size_caps {
+	MLX5DV_BLOCK_SIZE_CAP_512 = 1 << MLX5DV_BLOCK_SIZE_512,
+	MLX5DV_BLOCK_SIZE_CAP_520 = 1 << MLX5DV_BLOCK_SIZE_520,
+	MLX5DV_BLOCK_SIZE_CAP_4048 = 1 << MLX5DV_BLOCK_SIZE_4048,
+	MLX5DV_BLOCK_SIZE_CAP_4096 = 1 << MLX5DV_BLOCK_SIZE_4096,
+	MLX5DV_BLOCK_SIZE_CAP_4160 = 1 << MLX5DV_BLOCK_SIZE_4160,
+};
+
+struct mlx5dv_sig_caps {
+	uint64_t block_size; /* use enum mlx5dv_block_size_caps */
+	uint32_t block_prot; /* use enum mlx5dv_sig_prot_caps */
+	uint16_t t10dif_bg; /* use enum mlx5dv_sig_t10dif_bg_caps */
+	uint16_t crc_type; /* use enum mlx5dv_sig_crc_type_caps */
 };
 
 /*
@@ -159,6 +191,7 @@ struct mlx5dv_context {
 	uint32_t	dc_odp_caps; /* use enum ibv_odp_transport_cap_bits */
 	void		*hca_core_clock;
 	uint8_t		num_lag_ports;
+	struct mlx5dv_sig_caps sig_caps;
 };
 
 enum mlx5dv_context_flags {

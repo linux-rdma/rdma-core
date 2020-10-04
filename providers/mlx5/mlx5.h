@@ -376,6 +376,7 @@ struct mlx5_context {
 	struct mlx5_hca_cap_2_caps	hca_cap_2_caps;
 	uint64_t			general_obj_types_caps;
 	uint8_t				qpc_extension_cap:1;
+	struct mlx5dv_sig_caps		sig_caps;
 	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
 	uint32_t			num_dyn_bfregs;
 	uint32_t			max_num_legacy_dyn_uar_sys_page;

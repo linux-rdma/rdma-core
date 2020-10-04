@@ -694,7 +694,10 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         reserved_at_130[0xa];
 	u8         log_max_ra_res_dc[0x6];
 
-	u8         reserved_at_140[0xa];
+	u8         reserved_at_140[0x7];
+	u8         sig_crc64_xp10[0x1];
+	u8         sig_crc32c[0x1];
+	u8         reserved_at_149[0x1];
 	u8         log_max_ra_req_qp[0x6];
 	u8         reserved_at_150[0x1];
 	u8         rts2rts_qp_udp_sport[0x1];
@@ -774,7 +777,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         wol_p[0x1];
 
 	u8         stat_rate_support[0x10];
-	u8         reserved_at_1f0[0xc];
+	u8         sig_block_4048[0x1];
+	u8         reserved_at_1f1[0xb];
 	u8         cqe_version[0x4];
 
 	u8         compact_address_vector[0x1];
@@ -961,7 +965,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         reserved_at_460[0x10];
 	u8         max_num_eqs[0x10];
 
-	u8         reserved_at_480[0x3];
+	u8         sigerr_domain_and_sig_type[0x1];
+	u8         reserved_at_481[0x2];
 	u8         log_max_l2_table[0x5];
 	u8         reserved_at_488[0x8];
 	u8         log_uar_page_sz[0x10];

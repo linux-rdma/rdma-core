@@ -907,6 +907,11 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 		}
 	}
 
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD) {
+		attrs_out->sig_caps = mctx->sig_caps;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD;
+	}
+
 	attrs_out->comp_mask = comp_mask_out;
 
 	return 0;
