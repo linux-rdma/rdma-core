@@ -98,7 +98,8 @@ struct mlx5_ifc_atomic_caps_bits {
 };
 
 struct mlx5_ifc_roce_cap_bits {
-	u8         reserved_0[0x6];
+	u8         reserved_0[0x5];
+	u8         fl_rc_qp_when_roce_disabled[0x1];
 	u8         fl_rc_qp_when_roce_enabled[0x1];
 	u8         reserved_at_7[0x19];
 

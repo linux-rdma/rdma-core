@@ -273,6 +273,8 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 			dr_dbg_ctx(ctx, "Query RoCE capabilities failed %d\n", err);
 			return err;
 		}
+		caps->roce_caps.fl_rc_qp_when_roce_disabled = DEVX_GET(query_hca_cap_out, out,
+					      capability.roce_caps.fl_rc_qp_when_roce_disabled);
 		caps->roce_caps.fl_rc_qp_when_roce_enabled = DEVX_GET(query_hca_cap_out, out,
 					      capability.roce_caps.fl_rc_qp_when_roce_enabled);
 	}

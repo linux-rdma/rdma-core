@@ -610,6 +610,7 @@ struct dr_devx_vport_cap {
 
 struct dr_devx_roce_cap {
 	bool roce_en;
+	bool fl_rc_qp_when_roce_disabled;
 	bool fl_rc_qp_when_roce_enabled;
 };
 

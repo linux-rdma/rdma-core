@@ -834,8 +834,10 @@ int dr_send_postsend_action(struct mlx5dv_dr_domain *dmn,
 
 bool dr_send_allow_fl(struct dr_devx_caps *caps)
 {
-	return (caps->roce_caps.roce_en &&
-		caps->roce_caps.fl_rc_qp_when_roce_enabled);
+	return ((caps->roce_caps.roce_en &&
+		 caps->roce_caps.fl_rc_qp_when_roce_enabled) ||
+		(!caps->roce_caps.roce_en &&
+		 caps->roce_caps.fl_rc_qp_when_roce_disabled));
 }
 
 static int dr_prepare_qp_to_rts(struct mlx5dv_dr_domain *dmn)
