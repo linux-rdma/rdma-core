@@ -760,6 +760,11 @@ struct mlx5_devx_umem {
 	size_t size;
 };
 
+struct mlx5_psv {
+	uint32_t index;
+	struct mlx5dv_devx_obj *devx_obj;
+};
+
 struct mlx5_mkey {
 	struct mlx5dv_mkey dv_mkey;
 	struct mlx5dv_devx_obj *devx_obj;
@@ -1134,6 +1139,9 @@ void mlx5_set_singleton_nc_uar(struct ibv_context *context);
 
 int mlx5_set_ece(struct ibv_qp *qp, struct ibv_ece *ece);
 int mlx5_query_ece(struct ibv_qp *qp, struct ibv_ece *ece);
+
+struct mlx5_psv *mlx5_create_psv(struct ibv_pd *pd);
+int mlx5_destroy_psv(struct mlx5_psv *psv);
 
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {

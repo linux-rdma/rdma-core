@@ -49,6 +49,8 @@ enum {
 	MLX5_CMD_OP_RTS2RTS_QP = 0x505,
 	MLX5_CMD_OP_QUERY_QP = 0x50b,
 	MLX5_CMD_OP_INIT2INIT_QP = 0x50e,
+	MLX5_CMD_OP_CREATE_PSV = 0x600,
+	MLX5_CMD_OP_DESTROY_PSV = 0x601,
 	MLX5_CMD_OP_QUERY_ESW_VPORT_CONTEXT = 0x752,
 	MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT = 0x754,
 	MLX5_CMD_OP_QUERY_ROCE_ADDRESS = 0x760,
@@ -3857,6 +3859,41 @@ struct mlx5_ifc_reserved_qpn_bits {
 struct mlx5_ifc_create_reserved_qpn_in_bits {
 	struct mlx5_ifc_general_obj_in_cmd_hdr_bits	hdr;
 	struct mlx5_ifc_reserved_qpn_bits		rqpns;
+};
+
+struct mlx5_ifc_create_psv_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x40];
+
+	u8         reserved_at_80[0x8];
+	u8         psv0_index[0x18];
+
+	u8         reserved_at_a0[0x8];
+	u8         psv1_index[0x18];
+
+	u8         reserved_at_c0[0x8];
+	u8         psv2_index[0x18];
+
+	u8         reserved_at_e0[0x8];
+	u8         psv3_index[0x18];
+};
+
+struct mlx5_ifc_create_psv_in_bits {
+	u8         opcode[0x10];
+	u8         reserved_at_10[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         num_psv[0x4];
+	u8         reserved_at_44[0x4];
+	u8         pd[0x18];
+
+	u8         reserved_at_60[0x20];
 };
 
 #endif /* MLX5_IFC_H */

@@ -262,6 +262,46 @@ void mlx5_clear_uidx(struct mlx5_context *ctx, uint32_t uidx)
 	pthread_mutex_unlock(&ctx->uidx_table_mutex);
 }
 
+struct mlx5_psv *mlx5_create_psv(struct ibv_pd *pd)
+{
+	uint32_t out[DEVX_ST_SZ_DW(create_psv_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_psv_in)] = {};
+	struct mlx5_psv *psv;
+
+	psv = calloc(1, sizeof(*psv));
+	if (!psv) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	DEVX_SET(create_psv_in, in, opcode, MLX5_CMD_OP_CREATE_PSV);
+	DEVX_SET(create_psv_in, in, pd, to_mpd(pd)->pdn);
+	DEVX_SET(create_psv_in, in, num_psv, 1);
+
+	psv->devx_obj = mlx5dv_devx_obj_create(pd->context, in, sizeof(in),
+					       out, sizeof(out));
+	if (!psv->devx_obj)
+		goto err_free_psv;
+
+	psv->index = DEVX_GET(create_psv_out, out, psv0_index);
+
+	return psv;
+err_free_psv:
+	free(psv);
+	return NULL;
+}
+
+int mlx5_destroy_psv(struct mlx5_psv *psv)
+{
+	int ret;
+
+	ret = mlx5dv_devx_obj_destroy(psv->devx_obj);
+	if (!ret)
+		free(psv);
+
+	return ret;
+}
+
 static int mlx5_is_sandy_bridge(int *num_cores)
 {
 	char line[128];
