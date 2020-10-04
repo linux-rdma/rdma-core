@@ -52,6 +52,7 @@ struct dr_qp_init_attr {
 	uint32_t		pdn;
 	struct mlx5dv_devx_uar	*uar;
 	struct ibv_qp_cap	cap;
+	bool			isolate_vl_tc;
 };
 
 static void *dr_cq_get_cqe(struct dr_cq *dr_cq, int n)
@@ -323,6 +324,7 @@ static struct dr_qp *dr_create_rc_qp(struct ibv_context *ctx,
 	qp_create_attr.sq_wqe_cnt = dr_qp->sq.wqe_cnt;
 	qp_create_attr.rq_wqe_cnt = dr_qp->rq.wqe_cnt;
 	qp_create_attr.rq_wqe_shift = dr_qp->rq.wqe_shift;
+	qp_create_attr.isolate_vl_tc = attr->isolate_vl_tc;
 
 	obj = dr_devx_create_qp(ctx, &qp_create_attr);
 	if (!obj)
@@ -951,6 +953,10 @@ int dr_send_ring_alloc(struct mlx5dv_dr_domain *dmn)
 	init_attr.cap.max_send_sge	= 1;
 	init_attr.cap.max_recv_sge	= 1;
 	init_attr.cap.max_inline_data	= DR_STE_SIZE;
+
+	/* Isolated VL is applicable only if force LB is supported */
+	if (dr_send_allow_fl(&dmn->info.caps))
+		init_attr.isolate_vl_tc = dmn->info.caps.isolate_vl_tc;
 
 	dmn->send_ring->qp = dr_create_rc_qp(dmn->ctx, &init_attr);
 	if (!dmn->send_ring->qp)  {

@@ -631,6 +631,7 @@ struct dr_devx_caps {
 	uint8_t				flex_parser_id_icmpv6_dw1;
 	uint8_t				max_ft_level;
 	uint8_t				sw_format_ver;
+	bool				isolate_vl_tc;
 	bool				eswitch_manager;
 	bool				rx_sw_owner;
 	bool				tx_sw_owner;
@@ -1041,6 +1042,7 @@ struct dr_devx_qp_create_attr {
 	uint32_t	sq_wqe_cnt;
 	uint32_t	rq_wqe_cnt;
 	uint32_t	rq_wqe_shift;
+	bool		isolate_vl_tc;
 };
 
 struct mlx5dv_devx_obj *dr_devx_create_qp(struct ibv_context *ctx,

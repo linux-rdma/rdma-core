@@ -605,7 +605,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         reserved_at_90[0xb];
 	u8         log_max_qp[0x5];
 
-	u8         reserved_at_a0[0xb];
+	u8         reserved_at_a0[0xa];
+	u8         isolate_vl_tc[0x1];
 	u8         log_max_srq[0x5];
 	u8         reserved_at_b0[0x10];
 
@@ -2548,7 +2549,8 @@ struct mlx5_ifc_qpc_bits {
 	u8         state[0x4];
 	u8         lag_tx_port_affinity[0x4];
 	u8         st[0x8];
-	u8         reserved_at_10[0x3];
+	u8         reserved_at_10[0x2];
+	u8         isolate_vl_tc[0x1];
 	u8         pm_state[0x2];
 	u8         reserved_at_15[0x1];
 	u8	   req_e2e_credit_mode[0x2];

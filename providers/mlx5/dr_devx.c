@@ -175,8 +175,9 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 	caps->gvmi = DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.vhca_id);
 	caps->flex_protocols = DEVX_GET(query_hca_cap_out, out,
 					capability.cmd_hca_cap.flex_parser_protocols);
-	roce = DEVX_GET(query_hca_cap_out, out,
-			capability.cmd_hca_cap.roce);
+	caps->isolate_vl_tc = DEVX_GET(query_hca_cap_out, out,
+				       capability.cmd_hca_cap.isolate_vl_tc);
+	roce = DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.roce);
 
 	caps->sw_format_ver = DEVX_GET(query_hca_cap_out, out,
 				       capability.cmd_hca_cap.steering_format_version);
@@ -766,6 +767,7 @@ struct mlx5dv_devx_obj *dr_devx_create_qp(struct ibv_context *ctx,
 	DEVX_SET(qpc, qpc, log_rq_stride, attr->rq_wqe_shift - 4);
 	DEVX_SET(qpc, qpc, log_rq_size, ilog32(attr->rq_wqe_cnt - 1));
 	DEVX_SET(qpc, qpc, dbr_umem_id, attr->db_umem_id);
+	DEVX_SET(qpc, qpc, isolate_vl_tc, attr->isolate_vl_tc);
 
 	DEVX_SET(create_qp_in, in, wq_umem_id, attr->buff_umem_id);
 
