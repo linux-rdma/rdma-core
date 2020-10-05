@@ -52,6 +52,8 @@
 #      Disable man pages. Allows rdma-core to be built and installed
 #      (without man pages) when neither pandoc/rst2man nor the pandoc-prebuilt
 #      directory are available.
+#   -DENABLE_CODE_COVERAGE=1 (default 0, compile with code coverage disabled)
+#      Allows compilation of rdma-core with code coverage enabled.
 
 cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 project(rdma-core C)
@@ -556,6 +558,11 @@ RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WOLD_STYLE_DEFINITION "-Wold-style-definit
 if (ENABLE_WERROR)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
   message(STATUS "Enabled -Werror")
+endif()
+
+if (ENABLE_CODE_COVERAGE)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
+  message(STATUS "Enabled code coverage")
 endif()
 
 # Old versions of libnl have a duplicated rtnl_route_put, disbale the warning on those
