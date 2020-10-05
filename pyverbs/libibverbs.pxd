@@ -490,6 +490,32 @@ cdef extern from 'infiniband/verbs.h':
         uint32_t gid_type
         uint32_t ndev_ifindex
 
+    cdef struct ibv_flow:
+        uint32_t    comp_mask
+        ibv_context *context
+        uint32_t    handle
+
+    cdef struct ibv_flow_attr:
+        uint32_t           comp_mask
+        ibv_flow_attr_type type
+        uint16_t           size
+        uint16_t           priority
+        uint8_t            num_of_specs
+        uint8_t            port
+        uint32_t           flags
+
+    cdef struct ibv_flow_eth_filter:
+        uint8_t  dst_mac[6]
+        uint8_t  src_mac[6]
+        uint16_t ether_type
+        uint16_t vlan_tag
+
+    cdef struct ibv_flow_spec_eth:
+        ibv_flow_spec_type  type
+        uint16_t            size
+        ibv_flow_eth_filter val
+        ibv_flow_eth_filter mask
+
     ibv_device **ibv_get_device_list(int *n)
     int ibv_get_device_index(ibv_device *device);
     void ibv_free_device_list(ibv_device **list)
@@ -631,7 +657,8 @@ cdef extern from 'infiniband/verbs.h':
     ssize_t ibv_query_gid_table(ibv_context *context,
                                 ibv_gid_entry *entries, size_t max_entries,
                                 uint32_t flags)
-
+    ibv_flow *ibv_create_flow(ibv_qp *qp, ibv_flow_attr *flow)
+    int ibv_destroy_flow(ibv_flow *flow_id)
 
 cdef extern from 'infiniband/driver.h':
     int ibv_query_gid_type(ibv_context *context, uint8_t port_num,
