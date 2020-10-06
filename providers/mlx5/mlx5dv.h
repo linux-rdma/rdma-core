@@ -1509,6 +1509,29 @@ mlx5dv_dr_action_create_dest_vport(struct mlx5dv_dr_domain *domain,
 struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_dest_devx_tir(struct mlx5dv_devx_obj *devx_obj);
 
+enum mlx5dv_dr_action_dest_type {
+	MLX5DV_DR_ACTION_DEST,
+	MLX5DV_DR_ACTION_DEST_REFORMAT,
+};
+
+struct mlx5dv_dr_action_dest_reformat {
+	struct mlx5dv_dr_action *reformat;
+	struct mlx5dv_dr_action *dest;
+};
+
+struct mlx5dv_dr_action_dest_attr {
+	enum mlx5dv_dr_action_dest_type type;
+	union {
+		struct mlx5dv_dr_action *dest;
+		struct mlx5dv_dr_action_dest_reformat *dest_reformat;
+	};
+};
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_array(struct mlx5dv_dr_domain *domain,
+				   size_t num_dest,
+				   struct mlx5dv_dr_action_dest_attr *dests[]);
+
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_drop(void);
 
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_default_miss(void);

@@ -26,6 +26,8 @@ mlx5dv_dr_action_create_tag - Create tag actions
 
 mlx5dv_dr_action_create_dest_ibv_qp, mlx5dv_dr_action_create_dest_table, mlx5dv_dr_action_create_dest_vport, mlx5dv_dr_action_create_dest_devx_tir - Create packet destination actions
 
+mlx5dv_dr_action_create_dest_array - Create destination array action
+
 mlx5dv_dr_action_create_packet_reformat - Create packet reformat actions
 
 mlx5dv_dr_action_create_modify_header - Create modify header actions
@@ -125,6 +127,11 @@ int mlx5dv_dr_action_modify_flow_meter(struct mlx5dv_dr_action *action,
 struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_flow_sampler(struct mlx5dv_dr_flow_sampler_attr *attr);
 
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_array(struct mlx5dv_dr_domain *domain,
+				   size_t num_dest,
+				   struct mlx5dv_dr_action_dest_attr *dests[]);
+
 int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
 ```
 
@@ -198,6 +205,10 @@ Action: Destination
 *mlx5dv_dr_action_create_dest_table* creates a forwarding action to another flow table, defined by **table**. The destination **table** must be from the same domain with a level higher than zero.
 *mlx5dv_dr_action_create_dest_vport* creates a forwarding action to a **vport** on the same **domain**. Valid only on domain type FDB.
 *mlx5dv_dr_action_create_dest_devx_tir* creates a terminating action delivering the packet to a TIR, defined by **devx_obj**. Valid only on domain type NIC_RX.
+
+Action: Array
+*mlx5dv_dr_action_create_dest_array* creates an action which replicates a packet to multiple destinations. **num_dest** defines the number of replication destinations.
+Each **dests** destination array entry can be of different **type**. Use type MLX5DV_DR_ACTION_DEST for direct forwarding to an action destination. Use type MLX5DV_DR_ACTION_DEST_REFORMAT when reformat action should be performed on the packet before it is forwarding to the destination action.
 
 Action: Packet Reformat
 *mlx5dv_dr_action_create_packet_reformat* create a packet reformat context and action in the **domain**. The **reformat_type**, **data_sz** and **data** are defined in *man mlx5dv_create_flow_action_packet_reformat*.

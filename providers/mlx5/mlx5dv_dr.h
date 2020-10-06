@@ -146,6 +146,7 @@ enum dr_action_type {
 	DR_ACTION_TYP_METER,
 	DR_ACTION_TYP_MISS,
 	DR_ACTION_TYP_SAMPLER,
+	DR_ACTION_TYP_DEST_ARRAY,
 	DR_ACTION_TYP_MAX,
 };
 
@@ -645,6 +646,7 @@ struct dr_devx_flow_table_attr {
 	uint8_t		level;
 	bool		sw_owner;
 	bool		term_tbl;
+	bool		reformat_en;
 	uint64_t	icm_addr_rx;
 	uint64_t	icm_addr_tx;
 };
@@ -661,6 +663,8 @@ struct dr_devx_flow_dest_info {
 		uint32_t tir_num;
 		uint32_t counter_id;
 	};
+	bool has_reformat;
+	uint32_t reformat_id;
 };
 
 struct dr_devx_flow_fte_attr {
@@ -671,6 +675,7 @@ struct dr_devx_flow_fte_attr {
 	uint32_t			action;
 	uint32_t			dest_size;
 	struct dr_devx_flow_dest_info	*dest_arr;
+	bool				extended_dest;
 };
 
 struct dr_devx_tbl {
@@ -850,6 +855,13 @@ struct mlx5dv_dr_action {
 		} sampler;
 		struct mlx5dv_dr_table	*dest_tbl;
 		struct {
+			struct mlx5dv_dr_domain		*dmn;
+			struct list_head		actions_list;
+			struct dr_devx_tbl		*devx_tbl;
+			uint64_t			rx_icm_addr;
+			uint64_t			tx_icm_addr;
+		} dest_array;
+		struct {
 			struct mlx5dv_devx_obj	*devx_obj;
 			uint32_t		offset;
 		} ctr;
@@ -983,7 +995,8 @@ int dr_devx_sync_steering(struct ibv_context *ctx);
 struct mlx5dv_devx_obj *
 dr_devx_create_flow_table(struct ibv_context *ctx,
 			  struct dr_devx_flow_table_attr *table_attr);
-
+int dr_devx_query_flow_table(struct mlx5dv_devx_obj *obj,  uint32_t type,
+			     uint64_t *rx_icm_addr, uint64_t *tx_icm_addr);
 struct dr_devx_tbl *
 dr_devx_create_always_hit_ft(struct ibv_context *ctx,
 			     struct dr_devx_flow_table_attr *ft_attr,
