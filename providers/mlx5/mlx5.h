@@ -621,6 +621,7 @@ struct mlx5_qp {
 	/* Start of new post send API specific fields */
 	bool				inl_wqe;
 	uint8_t				cur_setters_cnt;
+	uint8_t				num_mkey_setters;
 	uint8_t				fm_cache_rb;
 	int				err;
 	int				nreq;
@@ -629,6 +630,7 @@ struct mlx5_qp {
 	void				*cur_eth;
 	void				*cur_data;
 	struct mlx5_wqe_ctrl_seg	*cur_ctrl;
+	struct mlx5_mkey		*cur_mkey;
 	/* End of new post send API specific fields */
 
 	uint8_t				fm_cache;

@@ -2240,6 +2240,75 @@ static void mlx5_send_wr_mr(struct mlx5dv_qp_ex *dv_qp,
 	_common_wqe_finalize(mqp);
 }
 
+static void mlx5_send_wr_mkey_configure(struct mlx5dv_qp_ex *dv_qp,
+					struct mlx5dv_mkey *dv_mkey,
+					uint8_t num_setters,
+					struct mlx5dv_mkey_conf_attr *attr)
+{
+	struct mlx5_qp *mqp = mqp_from_mlx5dv_qp_ex(dv_qp);
+	struct ibv_qp_ex *ibqp = &mqp->verbs_qp.qp_ex;
+	struct mlx5_wqe_umr_ctrl_seg *umr_ctrl;
+	struct mlx5_wqe_mkey_context_seg *mk;
+	struct mlx5_mkey *mkey = container_of(dv_mkey, struct mlx5_mkey,
+					      dv_mkey);
+	uint64_t mkey_mask;
+	void *qend = mqp->sq.qend;
+	void *seg;
+
+	if (unlikely(!(ibqp->wr_flags & IBV_SEND_INLINE))) {
+		mqp->err = EOPNOTSUPP;
+		return;
+	}
+
+	if (unlikely(attr->conf_flags || attr->comp_mask)) {
+		mqp->err = EOPNOTSUPP;
+		return;
+	}
+
+	_common_wqe_init(ibqp, IBV_WR_DRIVER1);
+	mqp->cur_mkey = mkey;
+	mqp->cur_size = sizeof(struct mlx5_wqe_ctrl_seg) / 16;
+	mqp->cur_ctrl->imm = htobe32(dv_mkey->lkey);
+	/*
+	 * There is no need to check (umr_ctrl == qend) here because the WQE
+	 * control and UMR control segments are always in the same WQEBB.
+	 */
+	seg = umr_ctrl =
+		(void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg);
+	memset(umr_ctrl, 0, sizeof(*umr_ctrl));
+	mkey_mask = MLX5_WQE_UMR_CTRL_MKEY_MASK_FREE;
+
+	seg += sizeof(struct mlx5_wqe_umr_ctrl_seg);
+	mqp->cur_size += sizeof(struct mlx5_wqe_umr_ctrl_seg) / 16;
+
+	if (unlikely(seg == qend))
+		seg = mlx5_get_send_wqe(mqp, 0);
+
+	mk = seg;
+	memset(mk, 0, sizeof(*mk));
+	mk->qpn_mkey = htobe32(0xffffff00 | (dv_mkey->lkey & 0xff));
+
+	seg += sizeof(*mk);
+	mqp->cur_size += (sizeof(*mk) / 16);
+
+	if (unlikely(seg == qend))
+		seg = mlx5_get_send_wqe(mqp, 0);
+
+	mqp->cur_data = seg;
+	umr_ctrl->flags = MLX5_WQE_UMR_CTRL_FLAG_INLINE;
+	umr_ctrl->mkey_mask |= htobe64(mkey_mask);
+
+	mqp->fm_cache = MLX5_WQE_CTRL_INITIATOR_SMALL_FENCE;
+	mqp->inl_wqe = 1;
+
+	if (!num_setters) {
+		_common_wqe_finalize(mqp);
+	} else {
+		mqp->cur_setters_cnt = 0;
+		mqp->num_mkey_setters = num_setters;
+	}
+}
+
 static void mlx5_send_wr_mr_interleaved(struct mlx5dv_qp_ex *dv_qp,
 					struct mlx5dv_mkey *mkey,
 					uint32_t access_flags,
@@ -2407,12 +2476,14 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 		if (mlx5_ops) {
 			if (!check_comp_mask(mlx5_ops,
 					     MLX5DV_QP_EX_WITH_MR_INTERLEAVED |
-					     MLX5DV_QP_EX_WITH_MR_LIST))
+					     MLX5DV_QP_EX_WITH_MR_LIST |
+					     MLX5DV_QP_EX_WITH_MKEY_CONFIGURE))
 				return EOPNOTSUPP;
 
 			dv_qp = &mqp->dv_qp;
 			dv_qp->wr_mr_interleaved = mlx5_send_wr_mr_interleaved;
 			dv_qp->wr_mr_list = mlx5_send_wr_mr_list;
+			dv_qp->wr_mkey_configure = mlx5_send_wr_mkey_configure;
 		}
 
 		break;
