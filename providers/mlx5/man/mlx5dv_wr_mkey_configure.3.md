@@ -12,6 +12,9 @@ mlx5dv_wr_mkey_configure - Create a work request to configure an MKEY
 mlx5dv_wr_set_mkey_access_flags - Set the memory protection attributes
 for an MKEY
 
+mlx5dv_wr_set_mkey_layout_list - Set a memory layout for an MKEY based
+on SGE list
+
 # SYNOPSIS
 
 ```c
@@ -25,6 +28,9 @@ static inline void mlx5dv_wr_mkey_configure(struct mlx5dv_qp_ex *mqp,
 static inline void mlx5dv_wr_set_mkey_access_flags(struct mlx5dv_qp_ex *mqp,
                                                    uint32_t access_flags);
 
+static inline void mlx5dv_wr_set_mkey_layout_list(struct mlx5dv_qp_ex *mqp,
+                                                  uint16_t num_sges,
+                                                  const struct ibv_sge *sge);
 ```
 
 # DESCRIPTION
@@ -144,6 +150,44 @@ struct mlx5dv_mkey_conf_attr {
 		the bitwise OR of one or more of flags in **enum
 		ibv_access_flags**.
 
+## Data layout setters
+
+Data layout setters define how data referenced by the MKEY will be
+scattered/gathered in the memory. In order to use MKEY with RDMA
+operations it must be configured with a layout.
+
+Not more than one data layout setter may follow builder
+function. Layout can be updated in the next calls to builder
+function.
+
+When MKEY is used in RDMA operations, it should be used in a
+zero-based mode, i.e. the **addr** field in **ibv_sge** structure is
+an offset in the total data.
+
+**mlx5dv_wr_set_mkey_layout_list()**
+
+:	Set a memory layout for an MKEY based on SGE list. If the MKEY is
+	configured and the data layout was defined by some data layout setter
+	(not necessary this one), the setter overrides the previous value.
+
+	Default WQE size can fit only 4 SGE entries. To allow more the QP
+	should be created with a larger WQE size that may fit it. This
+	should be done using the **max_inline_data** attribute of **struct
+	ibv_qp_cap** upon QP creation.
+
+	*mqp*
+
+	:	The QP where an MKEY configuration work request was created
+		by **mlx5dv_wr_mkey_configure()**.
+
+	*num_sges*
+
+	:	Number of SGEs in the list.
+
+	*sge*
+
+	:	Pointer to the list of **ibv_sge** structures.
+
 # EXAMPLES
 
 ## Create QP and MKEY
@@ -167,6 +211,33 @@ mlx5dv_qp_ex *mqpx = mlx5dv_qp_ex_from_ibv_qp_ex(qpx);
 
 mkey_attr.create_flags = MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT;
 struct mlx5dv_mkey *mkey = mlx5dv_create_mkey(&mkey_attr);
+```
+
+## List data layout configuration
+
+Code below configures an MKEY which allows remote access for read and
+write and is based on SGE list layout with two entries. When this MKEY
+is used in RDMA write operation, data will be scattered between two
+memory regions. The first 64 bytes will go to memory referenced by
+**mr1**. The next 4096 bytes will go to memory referenced by **mr2**.
+
+```c
+ibv_wr_start(qpx);
+qpx->wr_id = my_wr_id_1;
+qpx->wr_flags = IBV_SEND_INLINE;
+
+struct mlx5dv_mkey_conf_attr mkey_attr = {};
+mlx5dv_wr_mkey_configure(mqpx, mkey, 2, &mkey_attr);
+mlx5dv_wr_set_mkey_access_flags(mqpx, IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
+struct ibv_sge sgl[2];
+sgl[0].addr = mr1->addr;
+sgl[0].length = 64;
+sgl[0].lkey = mr1->lkey;
+sgl[1].addr = mr2->addr;
+sgl[1].length = 4096;
+sgl[1].lkey = mr2->lkey;
+mlx5dv_wr_set_mkey_layout_list(mqpx, 2, sgl);
+ret = ibv_wr_complete(qpx);
 ```
 
 # NOTES

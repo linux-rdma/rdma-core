@@ -2059,7 +2059,7 @@ static uint8_t get_umr_mr_flags(uint32_t acc)
 
 static int umr_sg_list_create(struct mlx5_qp *qp,
 			      uint16_t num_sges,
-			      struct ibv_sge *sge,
+			      const struct ibv_sge *sge,
 			      void *seg,
 			      void *qend, int *size, int *xlat_size,
 			      uint64_t *reglen)
@@ -2167,14 +2167,10 @@ static void mlx5_send_wr_mr(struct mlx5dv_qp_ex *dv_qp,
 		return;
 	}
 
-	max_entries = data ?
+	max_entries =
 		min_t(size_t,
 		      (mqp->max_inline_data + sizeof(struct mlx5_wqe_inl_data_seg)) /
 				sizeof(struct mlx5_wqe_umr_repeat_ent_seg) - 1,
-		       mkey->num_desc) :
-		min_t(size_t,
-		      (mqp->max_inline_data + sizeof(struct mlx5_wqe_inl_data_seg)) /
-				sizeof(struct mlx5_wqe_data_seg),
 		       mkey->num_desc);
 
 	if (unlikely(num_entries > max_entries)) {
@@ -2222,12 +2218,8 @@ static void mlx5_send_wr_mr(struct mlx5dv_qp_ex *dv_qp,
 	if (unlikely(seg == qend))
 		seg = mlx5_get_send_wqe(mqp, 0);
 
-	if (data)
-		umr_strided_seg_create(mqp, repeat_count, num_entries, data,
-				       seg, qend, &size, &xlat_size, &reglen);
-	else
-		umr_sg_list_create(mqp, num_entries, sge, seg,
-				   qend, &size, &xlat_size, &reglen);
+	umr_strided_seg_create(mqp, repeat_count, num_entries, data,
+			       seg, qend, &size, &xlat_size, &reglen);
 
 	mk->len = htobe64(reglen);
 	umr_ctrl_seg->klm_octowords = htobe16(align(xlat_size, 64) / 16);
@@ -2361,6 +2353,67 @@ static void mlx5_send_wr_set_mkey_access_flags(struct mlx5dv_qp_ex *dv_qp,
 		_common_wqe_finalize(mqp);
 }
 
+static void mlx5_send_wr_set_mkey_layout(struct mlx5dv_qp_ex *dv_qp,
+					 uint16_t num_entries,
+					 const struct ibv_sge *sge)
+{
+	struct mlx5_qp *mqp = mqp_from_mlx5dv_qp_ex(dv_qp);
+	struct mlx5_mkey *mkey = mqp->cur_mkey;
+	struct mlx5_wqe_umr_ctrl_seg *umr_ctrl;
+	struct mlx5_wqe_mkey_context_seg *mk;
+	int xlat_size;
+	int size;
+	uint64_t reglen = 0;
+	void *qend = mqp->sq.qend;
+	void *seg;
+	uint16_t max_entries;
+
+	if (unlikely(mqp->err))
+		return;
+
+	if (unlikely(!mkey)) {
+		mqp->err = EINVAL;
+		return;
+	}
+
+	max_entries =
+		min_t(size_t,
+		      (mqp->max_inline_data + sizeof(struct mlx5_wqe_inl_data_seg)) /
+				sizeof(struct mlx5_wqe_data_seg),
+		      mkey->num_desc);
+
+	if (unlikely(num_entries > max_entries)) {
+		mqp->err = ENOMEM;
+		return;
+	}
+
+	seg = (void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg);
+	umr_ctrl = seg;
+
+	/* Check whether the data layout is already set. */
+	if (umr_ctrl->klm_octowords) {
+		mqp->err = EINVAL;
+		return;
+	}
+	seg += sizeof(struct mlx5_wqe_umr_ctrl_seg);
+	if (unlikely(seg == qend))
+		seg = mlx5_get_send_wqe(mqp, 0);
+
+	mk = seg;
+	seg = mqp->cur_data;
+
+	umr_sg_list_create(mqp, num_entries, sge, seg, qend, &size, &xlat_size,
+			   &reglen);
+	mk->len = htobe64(reglen);
+	umr_ctrl->mkey_mask |= htobe64(MLX5_WQE_UMR_CTRL_MKEY_MASK_LEN);
+	umr_ctrl->klm_octowords = htobe16(align(xlat_size, 64) / 16);
+	mqp->cur_size += size / 16;
+
+	mqp->cur_setters_cnt++;
+	if (mqp->cur_setters_cnt == mqp->num_mkey_setters)
+		_common_wqe_finalize(mqp);
+}
+
 static void mlx5_send_wr_mr_interleaved(struct mlx5dv_qp_ex *dv_qp,
 					struct mlx5dv_mkey *mkey,
 					uint32_t access_flags,
@@ -2372,13 +2425,24 @@ static void mlx5_send_wr_mr_interleaved(struct mlx5dv_qp_ex *dv_qp,
 			num_interleaved, data, NULL);
 }
 
+static void mlx5_send_wr_set_mkey_layout_list(struct mlx5dv_qp_ex *dv_qp,
+					      uint16_t num_sges,
+					      const struct ibv_sge *sge)
+{
+	mlx5_send_wr_set_mkey_layout(dv_qp, num_sges, sge);
+}
+
 static inline void mlx5_send_wr_mr_list(struct mlx5dv_qp_ex *dv_qp,
 					struct mlx5dv_mkey *mkey,
 					uint32_t access_flags,
 					uint16_t num_sges,
 					struct ibv_sge *sge)
 {
-	mlx5_send_wr_mr(dv_qp, mkey, access_flags, 0, num_sges, NULL, sge);
+	struct mlx5dv_mkey_conf_attr attr = {};
+
+	mlx5_send_wr_mkey_configure(dv_qp, mkey, 2, &attr);
+	mlx5_send_wr_set_mkey_access_flags(dv_qp, access_flags);
+	mlx5_send_wr_set_mkey_layout(dv_qp, num_sges, sge);
 }
 
 static void mlx5_send_wr_set_dc_addr(struct mlx5dv_qp_ex *dv_qp,
@@ -2538,6 +2602,8 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 			dv_qp->wr_mkey_configure = mlx5_send_wr_mkey_configure;
 			dv_qp->wr_set_mkey_access_flags =
 				mlx5_send_wr_set_mkey_access_flags;
+			dv_qp->wr_set_mkey_layout_list =
+				mlx5_send_wr_set_mkey_layout_list;
 		}
 
 		break;
