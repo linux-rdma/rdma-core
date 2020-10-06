@@ -9,6 +9,9 @@ tagline: Verbs
 
 mlx5dv_wr_mkey_configure - Create a work request to configure an MKEY
 
+mlx5dv_wr_set_mkey_access_flags - Set the memory protection attributes
+for an MKEY
+
 # SYNOPSIS
 
 ```c
@@ -18,6 +21,10 @@ static inline void mlx5dv_wr_mkey_configure(struct mlx5dv_qp_ex *mqp,
                                             struct mlx5dv_mkey *mkey,
                                             uint8_t num_setters,
                                             struct mlx5dv_mkey_conf_attr *attr);
+
+static inline void mlx5dv_wr_set_mkey_access_flags(struct mlx5dv_qp_ex *mqp,
+                                                   uint32_t access_flags);
+
 ```
 
 # DESCRIPTION
@@ -113,6 +120,29 @@ struct mlx5dv_mkey_conf_attr {
 *comp_mask*
 
 :	Reserved for future extension, must be 0 now.
+
+## Generic setters
+
+**mlx5dv_wr_set_mkey_access_flags()**
+
+:	Set the memory protection attributes for the MKEY. If the MKEY is
+	configured, the setter overrides the previous value. For example,
+	two MKEY configuration WRs are posted. The first one sets
+	**IBV_ACCESS_REMOTE_READ**. The second one sets
+	**IBV_ACCESS_REMOTE_WRITE**. In this case, the second WR overrides
+	the memory protection attributes, and only **IBV_ACCESS_REMOTE_WRITE**
+	is allowed for the MKEY when the WR is completed.
+
+	*mqp*
+
+	:	The QP where an MKEY configuration work request was created
+		by **mlx5dv_wr_mkey_configure()**.
+
+	*access_flags*
+
+	:	The desired memory protection attributes; it is either 0 or
+		the bitwise OR of one or more of flags in **enum
+		ibv_access_flags**.
 
 # EXAMPLES
 

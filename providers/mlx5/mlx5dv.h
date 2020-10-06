@@ -271,6 +271,8 @@ struct mlx5dv_qp_ex {
 				  struct mlx5dv_mkey *mkey,
 				  uint8_t num_setters,
 				  struct mlx5dv_mkey_conf_attr *attr);
+	void (*wr_set_mkey_access_flags)(struct mlx5dv_qp_ex *mqp,
+					 uint32_t access_flags);
 };
 
 struct mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(struct ibv_qp_ex *qp);
@@ -309,6 +311,12 @@ static inline void mlx5dv_wr_mkey_configure(struct mlx5dv_qp_ex *mqp,
 					    struct mlx5dv_mkey_conf_attr *attr)
 {
 	mqp->wr_mkey_configure(mqp, mkey, num_setters, attr);
+}
+
+static inline void mlx5dv_wr_set_mkey_access_flags(struct mlx5dv_qp_ex *mqp,
+						   uint32_t access_flags)
+{
+	mqp->wr_set_mkey_access_flags(mqp, access_flags);
 }
 
 enum mlx5dv_flow_action_esp_mask {

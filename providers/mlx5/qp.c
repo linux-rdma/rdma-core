@@ -2309,6 +2309,58 @@ static void mlx5_send_wr_mkey_configure(struct mlx5dv_qp_ex *dv_qp,
 	}
 }
 
+static void mlx5_send_wr_set_mkey_access_flags(struct mlx5dv_qp_ex *dv_qp,
+					       uint32_t access_flags)
+{
+	struct mlx5_qp *mqp = mqp_from_mlx5dv_qp_ex(dv_qp);
+	void *seg;
+	void *qend = mqp->sq.qend;
+	struct mlx5_wqe_umr_ctrl_seg *umr_ctrl;
+	__be64 access_flags_mask =
+		htobe64(MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_LOCAL_WRITE |
+			MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_REMOTE_READ |
+			MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_REMOTE_WRITE |
+			MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_ATOMIC);
+	struct mlx5_wqe_mkey_context_seg *mk;
+
+	if (unlikely(mqp->err))
+		return;
+
+	if (unlikely(!mqp->cur_mkey)) {
+		mqp->err = EINVAL;
+		return;
+	}
+
+	if (unlikely(!check_comp_mask(access_flags,
+				      IBV_ACCESS_LOCAL_WRITE |
+				      IBV_ACCESS_REMOTE_WRITE |
+				      IBV_ACCESS_REMOTE_READ |
+				      IBV_ACCESS_REMOTE_ATOMIC))) {
+		mqp->err = EINVAL;
+		return;
+	}
+
+	seg = (void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg);
+	umr_ctrl = seg;
+
+	/* Return an error if the setter is called twice per WQE. */
+	if (umr_ctrl->mkey_mask & access_flags_mask) {
+		mqp->err = EINVAL;
+		return;
+	}
+
+	umr_ctrl->mkey_mask |= access_flags_mask;
+	seg += sizeof(struct mlx5_wqe_umr_ctrl_seg);
+	if (unlikely(seg == qend))
+		seg = mlx5_get_send_wqe(mqp, 0);
+	mk = seg;
+	mk->access_flags = get_umr_mr_flags(access_flags);
+
+	mqp->cur_setters_cnt++;
+	if (mqp->cur_setters_cnt == mqp->num_mkey_setters)
+		_common_wqe_finalize(mqp);
+}
+
 static void mlx5_send_wr_mr_interleaved(struct mlx5dv_qp_ex *dv_qp,
 					struct mlx5dv_mkey *mkey,
 					uint32_t access_flags,
@@ -2484,6 +2536,8 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 			dv_qp->wr_mr_interleaved = mlx5_send_wr_mr_interleaved;
 			dv_qp->wr_mr_list = mlx5_send_wr_mr_list;
 			dv_qp->wr_mkey_configure = mlx5_send_wr_mkey_configure;
+			dv_qp->wr_set_mkey_access_flags =
+				mlx5_send_wr_set_mkey_access_flags;
 		}
 
 		break;

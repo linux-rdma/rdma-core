@@ -104,6 +104,7 @@ rdma_alias_man_pages(
  mlx5dv_sched_node_create.3 mlx5dv_sched_leaf_modify.3
  mlx5dv_sched_node_create.3 mlx5dv_sched_node_destroy.3
  mlx5dv_sched_node_create.3 mlx5dv_sched_node_modify.3
+ mlx5dv_wr_mkey_configure.3 mlx5dv_wr_set_mkey_access_flags.3
  mlx5dv_wr_post.3 mlx5dv_wr_set_dc_addr.3
  mlx5dv_wr_post.3 mlx5dv_qp_ex_from_ibv_qp_ex.3
  mlx5dv_wr_post.3 mlx5dv_wr_mr_interleaved.3
