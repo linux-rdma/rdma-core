@@ -276,6 +276,11 @@ struct mlx5dv_qp_ex {
 	void (*wr_set_mkey_layout_list)(struct mlx5dv_qp_ex *mqp,
 					uint16_t num_sges,
 					const struct ibv_sge *sge);
+	void (*wr_set_mkey_layout_interleaved)(
+				struct mlx5dv_qp_ex *mqp,
+				uint32_t repeat_count,
+				uint16_t num_interleaved,
+				const struct mlx5dv_mr_interleaved *data);
 };
 
 struct mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(struct ibv_qp_ex *qp);
@@ -327,6 +332,15 @@ static inline void mlx5dv_wr_set_mkey_layout_list(struct mlx5dv_qp_ex *mqp,
 						  const struct ibv_sge *sge)
 {
 	mqp->wr_set_mkey_layout_list(mqp, num_sges, sge);
+}
+
+static inline void mlx5dv_wr_set_mkey_layout_interleaved(struct mlx5dv_qp_ex *mqp,
+							 uint32_t repeat_count,
+							 uint16_t num_interleaved,
+							 const struct mlx5dv_mr_interleaved *data)
+{
+	mqp->wr_set_mkey_layout_interleaved(mqp, repeat_count,
+					    num_interleaved, data);
 }
 
 enum mlx5dv_flow_action_esp_mask {

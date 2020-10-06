@@ -15,6 +15,9 @@ for an MKEY
 mlx5dv_wr_set_mkey_layout_list - Set a memory layout for an MKEY based
 on SGE list
 
+mlx5dv_wr_set_mkey_layout_interleaved - Set an interleaved memory
+layout for an MKEY
+
 # SYNOPSIS
 
 ```c
@@ -31,6 +34,11 @@ static inline void mlx5dv_wr_set_mkey_access_flags(struct mlx5dv_qp_ex *mqp,
 static inline void mlx5dv_wr_set_mkey_layout_list(struct mlx5dv_qp_ex *mqp,
                                                   uint16_t num_sges,
                                                   const struct ibv_sge *sge);
+
+static inline void mlx5dv_wr_set_mkey_layout_interleaved(struct mlx5dv_qp_ex *mqp,
+                                                         uint32_t repeat_count,
+                                                         uint16_t num_interleaved,
+                                                         const struct mlx5dv_mr_interleaved *data);
 ```
 
 # DESCRIPTION
@@ -188,6 +196,68 @@ an offset in the total data.
 
 	:	Pointer to the list of **ibv_sge** structures.
 
+
+**mlx5dv_wr_set_mkey_layout_interleaved()**
+
+:	Set an interleaved memory layout for an MKEY. If the MKEY is
+	configured and the data layout was defined by some data layout setter
+	(not necessary this one), the setter overrides the previous value.
+
+	Default WQE size can fit only 3 interleaved entries. To allow more
+	the QP should be created with a larger WQE size that may fit
+	it. This should be done using the **max_inline_data** attribute of
+	**struct ibv_qp_cap** upon QP creation.
+
+	As one entry will be consumed for strided header, the MKEY should
+	be created with one more entry than the required
+	*num_interleaved*.
+
+	*mqp*
+
+	:	The QP where an MKEY configuration work request was created
+		by **mlx5dv_wr_mkey_configure()**.
+
+	*repeat_count*
+
+	:	The *data* layout representation is repeated *repeat_count* times.
+
+	*num_interleaved*
+
+	:	Number of entries in the *data* representation.
+
+	*data*
+
+	:	Pointer to the list of interleaved data layout descriptions.
+
+	Interleaved data layout is described by **mlx5dv_mr_interleaved**
+	structure.
+
+	```c
+struct mlx5dv_mr_interleaved {
+        uint64_t addr;
+        uint32_t bytes_count;
+        uint32_t bytes_skip;
+        uint32_t lkey;
+};
+	```
+
+	*addr*
+
+	:	Start address of the local memory buffer.
+
+	*bytes_count*
+
+	:	Number of data bytes to put into the buffer.
+
+	*bytes_skip*
+
+	:	Number of bytes to skip in the buffer before the next data
+		block.
+
+	*lkey*
+
+	:	Key of the local Memory Region
+
 # EXAMPLES
 
 ## Create QP and MKEY
@@ -237,6 +307,38 @@ sgl[1].addr = mr2->addr;
 sgl[1].length = 4096;
 sgl[1].lkey = mr2->lkey;
 mlx5dv_wr_set_mkey_layout_list(mqpx, 2, sgl);
+ret = ibv_wr_complete(qpx);
+```
+
+## Interleaved data layout configuration
+
+Code below configures an MKEY which allows remote access for read and
+write and is based on interleaved data layout with two entries and
+repeat count of two. When this MKEY is used in RDMA write operation,
+data will be scattered between two memory regions. The first 512 bytes
+will go to memory referenced by **mr1** at offset 0. The next 8 bytes
+will go to memory referenced by **mr2** at offset 0. The next 512
+bytes will go to memory referenced by **mr1** at offset 516. The next
+8 bytes will go to memory referenced by **mr2** at offset 8.
+
+```c
+ibv_wr_start(qpx);
+qpx->wr_id = my_wr_id_1;
+qpx->wr_flags = IBV_SEND_INLINE;
+
+struct mlx5dv_mkey_conf_attr mkey_attr = {};
+mlx5dv_wr_mkey_configure(mqpx, mkey, 2, &mkey_attr);
+mlx5dv_wr_set_mkey_access_flags(mqpx, IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
+struct mlx5dv_mr_interleaved data[2];
+data[0].addr = mr1->addr;
+data[0].bytes_count = 512;
+data[0].bytes_skip = 4;
+data[0].lkey = mr1->lkey;
+data[1].addr = mr2->addr;
+data[1].bytes_count = 8;
+data[1].bytes_skip = 0;
+data[1].lkey = mr2->lkey;
+mlx5dv_wr_set_mkey_layout_interleaved(mqpx, 2, 2, &data);
 ret = ibv_wr_complete(qpx);
 ```
 
