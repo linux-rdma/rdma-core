@@ -15,6 +15,9 @@ import unittest
 import errno
 
 
+HUGE_PAGE_SIZE = 0x200000
+
+
 def default_allocator(pd, context, size, alignment, resource_type):
     return e._IBV_ALLOCATOR_USE_DEFAULT
 
@@ -32,6 +35,22 @@ def free_func(pd, context, ptr, resource_type):
     mem.free(ptr)
 
 
+def huge_page_alloc(pd, context, size, alignment, resource_type):
+    ptr = context.user_data
+    remainder = ptr % alignment
+    ptr += 0 if remainder == 0 else (alignment - remainder)
+    context.user_data += size
+    return ptr
+
+
+def huge_page_free(pd, context, ptr, resource_type):
+    """
+    No need to free memory, since this allocator assumes the huge page was
+    externally mapped (and will be externally un-mapped).
+    """
+    pass
+
+
 def create_parent_domain_with_allocators(res):
     """
     Creates parent domain for res instance. The allocators themselves are taken
@@ -40,7 +59,7 @@ def create_parent_domain_with_allocators(res):
     """
     if res.allocator_func and res.free_func:
         res.pd_ctx = ParentDomainContext(res.pd, res.allocator_func,
-                                         res.free_func)
+                                         res.free_func, res.user_data)
     pd_attr = ParentDomainInitAttr(pd=res.pd, pd_context=res.pd_ctx)
     try:
         res.pd = ParentDomain(res.ctx, attr=pd_attr)
@@ -56,16 +75,18 @@ def parent_domain_res_cls(base_class):
     any BaseResources type. Its purpose is to behave exactly as base_class does,
     except for creating a parent domain with custom allocators.
     Hence the returned class must be initialized with (alloc_func, free_func,
-    **kwargs), while kwargs are the arguments needed (if any) for base_class.
+    user_data, **kwargs), while kwargs are the arguments needed (if any) for
+    base_class.
     :param base_class: The base resources class to inherit from
     :return: ParentDomainRes(alloc_func=None, free_func=None, **kwargs) class
     """
     class ParentDomainRes(base_class):
-        def __init__(self, alloc_func=None, free_func=None, **kwargs):
+        def __init__(self, alloc_func=None, free_func=None, user_data=None, **kwargs):
             self.pd_ctx = None
             self.protection_domain = None
             self.allocator_func = alloc_func
             self.free_func = free_func
+            self.user_data = user_data
             super().__init__(**kwargs)
 
         def create_pd(self):
@@ -74,6 +95,17 @@ def parent_domain_res_cls(base_class):
             create_parent_domain_with_allocators(self)
 
     return ParentDomainRes
+
+
+class ParentDomainHugePageRcRes(parent_domain_res_cls(RCResources)):
+    def __init__(self, alloc_func=None, free_func=None, **kwargs):
+        user_data = mem.mmap(length=HUGE_PAGE_SIZE,
+                             flags=mem.MAP_ANONYMOUS_ | mem.MAP_PRIVATE_ | mem.MAP_HUGETLB_)
+        super().__init__(alloc_func=alloc_func, free_func=free_func,
+                         user_data=user_data, **kwargs)
+
+    def __del__(self):
+        mem.munmap(self.user_data, HUGE_PAGE_SIZE)
 
 
 class ParentDomainCqExSrqRes(parent_domain_res_cls(RCResources)):
@@ -153,3 +185,9 @@ class ParentDomainTrafficTest(RDMATestCase):
         self.create_players(ParentDomainCqExSrqRes,
                             alloc_func=mem_align_allocator, free_func=free_func)
         u.traffic(**self.traffic_args, is_cq_ex=True)
+
+    @u.requires_huge_pages()
+    def test_huge_page_traffic(self):
+        self.create_players(ParentDomainHugePageRcRes,
+                            alloc_func=huge_page_alloc, free_func=huge_page_free)
+        u.traffic(**self.traffic_args)
