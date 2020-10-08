@@ -215,11 +215,6 @@ fail:
 	return NULL;
 }
 
-int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
-{
-	return -ENOSYS;
-}
-
 int bnxt_re_destroy_cq(struct ibv_cq *ibvcq)
 {
 	int status;
@@ -752,11 +747,6 @@ static void bnxt_re_cleanup_cq(struct bnxt_re_qp *qp, struct bnxt_re_cq *cq)
 	bnxt_re_fque_del_node(&qp->snode);
 	bnxt_re_fque_del_node(&qp->rnode);
 	pthread_spin_unlock(&cntx->fqlock);
-}
-
-void bnxt_re_cq_event(struct ibv_cq *ibvcq)
-{
-
 }
 
 int bnxt_re_arm_cq(struct ibv_cq *ibvcq, int flags)
