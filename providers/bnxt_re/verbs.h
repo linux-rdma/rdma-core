@@ -66,10 +66,8 @@ int bnxt_re_dereg_mr(struct verbs_mr *vmr);
 
 struct ibv_cq *bnxt_re_create_cq(struct ibv_context *uctx, int ncqe,
 				 struct ibv_comp_channel *ch, int vec);
-int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe);
 int bnxt_re_destroy_cq(struct ibv_cq *ibvcq);
 int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc);
-void bnxt_re_cq_event(struct ibv_cq *ibvcq);
 int bnxt_re_arm_cq(struct ibv_cq *ibvcq, int flags);
 
 struct ibv_qp *bnxt_re_create_qp(struct ibv_pd *ibvpd,
