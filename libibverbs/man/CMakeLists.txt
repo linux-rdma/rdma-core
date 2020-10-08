@@ -41,6 +41,7 @@ rdma_man_pages(
   ibv_import_mr.3.md
   ibv_import_pd.3.md
   ibv_inc_rkey.3.md
+  ibv_is_fork_initialized.3.md
   ibv_modify_qp.3
   ibv_modify_qp_rate_limit.3
   ibv_modify_srq.3

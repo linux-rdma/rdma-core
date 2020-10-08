@@ -153,6 +153,11 @@ IBVERBS_1.12 {
 		ibv_reg_dmabuf_mr;
 } IBVERBS_1.11;
 
+IBVERBS_1.13 {
+	global:
+		ibv_is_fork_initialized;
+} IBVERBS_1.12;
+
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. See the top level CMakeLists.txt for this setting. */
 

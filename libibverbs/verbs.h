@@ -139,6 +139,12 @@ enum ibv_device_cap_flags {
 	IBV_DEVICE_MANAGED_FLOW_STEERING = 1 << 29
 };
 
+enum ibv_fork_status {
+	IBV_FORK_DISABLED,
+	IBV_FORK_ENABLED,
+	IBV_FORK_UNNEEDED,
+};
+
 /*
  * Can't extended above ibv_device_cap_flags enum as in some systems/compilers
  * enum range is limited to 4 bytes.
@@ -3354,6 +3360,12 @@ int ibv_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid);
  * effect of an application calling fork() is undefined.
  */
 int ibv_fork_init(void);
+
+/**
+ * ibv_is_fork_initialized - Check if fork support
+ * (ibv_fork_init) was enabled.
+ */
+enum ibv_fork_status ibv_is_fork_initialized(void);
 
 /**
  * ibv_node_type_str - Return string describing node_type enum value

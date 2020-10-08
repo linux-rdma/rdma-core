@@ -174,6 +174,11 @@ int ibv_fork_init(void)
 	return 0;
 }
 
+enum ibv_fork_status ibv_is_fork_initialized(void)
+{
+	return mm_root ? IBV_FORK_ENABLED : IBV_FORK_DISABLED;
+}
+
 static struct ibv_mem_node *__mm_prev(struct ibv_mem_node *node)
 {
 	if (node->left) {
