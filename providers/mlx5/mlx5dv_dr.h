@@ -702,6 +702,8 @@ struct dr_domain_rx_tx {
 	uint64_t		drop_icm_addr;
 	uint64_t		default_icm_addr;
 	enum dr_ste_entry_type	ste_type;
+	/* protect rx/tx domain */
+	pthread_mutex_t		mutex;
 };
 
 struct dr_domain_info {
@@ -727,7 +729,6 @@ struct mlx5dv_dr_domain {
 	struct mlx5dv_devx_uar		*uar;
 	enum mlx5dv_dr_domain_type	type;
 	atomic_int			refcount;
-	pthread_mutex_t			mutex;
 	struct dr_icm_pool		*ste_icm_pool;
 	struct dr_icm_pool		*action_icm_pool;
 	struct dr_send_ring		*send_ring;
@@ -735,6 +736,28 @@ struct mlx5dv_dr_domain {
 	struct list_head		tbl_list;
 	uint32_t			flags;
 };
+
+static inline void dr_domain_nic_lock(struct dr_domain_rx_tx *nic_dmn)
+{
+	pthread_mutex_lock(&nic_dmn->mutex);
+}
+
+static inline void dr_domain_nic_unlock(struct dr_domain_rx_tx *nic_dmn)
+{
+	pthread_mutex_unlock(&nic_dmn->mutex);
+}
+
+static inline void dr_domain_lock(struct mlx5dv_dr_domain *dmn)
+{
+	dr_domain_nic_lock(&dmn->info.rx);
+	dr_domain_nic_lock(&dmn->info.tx);
+}
+
+static inline void dr_domain_unlock(struct mlx5dv_dr_domain *dmn)
+{
+	dr_domain_nic_unlock(&dmn->info.tx);
+	dr_domain_nic_unlock(&dmn->info.rx);
+}
 
 struct dr_table_rx_tx {
 	struct dr_ste_htbl		*s_anchor;

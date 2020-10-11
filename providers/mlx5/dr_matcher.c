@@ -790,7 +790,7 @@ mlx5dv_dr_matcher_create(struct mlx5dv_dr_table *tbl,
 	list_node_init(&matcher->matcher_list);
 	list_head_init(&matcher->rule_list);
 
-	pthread_mutex_lock(&tbl->dmn->mutex);
+	dr_domain_lock(tbl->dmn);
 
 	ret = dr_matcher_init(matcher, mask);
 	if (ret)
@@ -800,14 +800,14 @@ mlx5dv_dr_matcher_create(struct mlx5dv_dr_table *tbl,
 	if (ret)
 		goto matcher_uninit;
 
-	pthread_mutex_unlock(&tbl->dmn->mutex);
+	dr_domain_unlock(tbl->dmn);
 
 	return matcher;
 
 matcher_uninit:
 	dr_matcher_uninit(matcher);
 free_matcher:
-	pthread_mutex_unlock(&tbl->dmn->mutex);
+	dr_domain_unlock(tbl->dmn);
 	free(matcher);
 dec_ref:
 	atomic_fetch_sub(&tbl->refcount, 1);
@@ -887,13 +887,14 @@ int mlx5dv_dr_matcher_destroy(struct mlx5dv_dr_matcher *matcher)
 	if (atomic_load(&matcher->refcount) > 1)
 		return EBUSY;
 
-	pthread_mutex_lock(&tbl->dmn->mutex);
+	dr_domain_lock(tbl->dmn);
 
 	dr_matcher_remove_from_tbl(matcher);
 	dr_matcher_uninit(matcher);
 	atomic_fetch_sub(&matcher->tbl->refcount, 1);
 
-	pthread_mutex_unlock(&tbl->dmn->mutex);
+	dr_domain_unlock(tbl->dmn);
+
 	free(matcher);
 
 	return 0;

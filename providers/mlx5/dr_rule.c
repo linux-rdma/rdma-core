@@ -984,7 +984,9 @@ static bool dr_rule_verify(struct mlx5dv_dr_matcher *matcher,
 static int dr_rule_destroy_rule_nic(struct mlx5dv_dr_rule *rule,
 				    struct dr_rule_rx_tx *nic_rule)
 {
+	dr_domain_nic_lock(nic_rule->nic_matcher->nic_tbl->nic_dmn);
 	dr_rule_clean_rule_members(rule, nic_rule);
+	dr_domain_nic_unlock(nic_rule->nic_matcher->nic_tbl->nic_dmn);
 	return 0;
 }
 
@@ -999,6 +1001,10 @@ static int dr_rule_destroy_rule(struct mlx5dv_dr_rule *rule)
 {
 	struct mlx5dv_dr_domain *dmn = rule->matcher->tbl->dmn;
 
+	dr_domain_lock(dmn);
+	list_del(&rule->rule_list);
+	dr_domain_unlock(dmn);
+
 	switch (dmn->type) {
 	case MLX5DV_DR_DOMAIN_TYPE_NIC_RX:
 		dr_rule_destroy_rule_nic(rule, &rule->rx);
@@ -1010,12 +1016,13 @@ static int dr_rule_destroy_rule(struct mlx5dv_dr_rule *rule)
 		dr_rule_destroy_rule_fdb(rule);
 		break;
 	default:
+		assert(false);
 		errno = EINVAL;
 		return errno;
 	}
 
 	dr_rule_remove_action_members(rule);
-	list_del(&rule->rule_list);
+
 	free(rule);
 	return 0;
 }
@@ -1081,14 +1088,16 @@ dr_rule_create_rule_nic(struct mlx5dv_dr_rule *rule,
 	/* Set the tag values inside the ste array */
 	ret = dr_ste_build_ste_arr(matcher, nic_matcher, param, hw_ste_arr);
 	if (ret)
-		goto out_err;
+		return ret;
 
 	/* Set the actions values/addresses inside the ste array */
 	ret = dr_actions_build_ste_arr(matcher, nic_matcher, actions,
 				       num_actions, hw_ste_arr,
 				       &new_hw_ste_arr_sz);
 	if (ret)
-		goto out_err;
+		return ret;
+
+	dr_domain_nic_lock(nic_rule->nic_matcher->nic_tbl->nic_dmn);
 
 	cur_htbl = nic_matcher->s_htbl;
 
@@ -1142,7 +1151,7 @@ dr_rule_create_rule_nic(struct mlx5dv_dr_rule *rule,
 	if (htbl)
 		dr_htbl_put(htbl);
 
-	return 0;
+	goto out_unlock;
 
 free_ste:
 	dr_ste_put(ste, matcher, nic_matcher);
@@ -1153,7 +1162,8 @@ free_rule:
 		list_del(&ste_info->send_list);
 		free(ste_info);
 	}
-out_err:
+out_unlock:
+	dr_domain_nic_unlock(nic_rule->nic_matcher->nic_tbl->nic_dmn);
 	return ret;
 }
 
@@ -1243,7 +1253,10 @@ dr_rule_create_rule(struct mlx5dv_dr_matcher *matcher,
 	if (ret)
 		goto remove_action_members;
 
+	dr_domain_lock(dmn);
 	list_add_tail(&matcher->rule_list, &rule->rule_list);
+	dr_domain_unlock(dmn);
+
 	return rule;
 
 remove_action_members:
@@ -1325,7 +1338,6 @@ struct mlx5dv_dr_rule *mlx5dv_dr_rule_create(struct mlx5dv_dr_matcher *matcher,
 {
 	struct mlx5dv_dr_rule *rule;
 
-	pthread_mutex_lock(&matcher->tbl->dmn->mutex);
 	atomic_fetch_add(&matcher->refcount, 1);
 
 	if (dr_is_root_table(matcher->tbl))
@@ -1336,8 +1348,6 @@ struct mlx5dv_dr_rule *mlx5dv_dr_rule_create(struct mlx5dv_dr_matcher *matcher,
 	if (!rule)
 		atomic_fetch_sub(&matcher->refcount, 1);
 
-	pthread_mutex_unlock(&matcher->tbl->dmn->mutex);
-
 	return rule;
 }
 
@@ -1347,14 +1357,10 @@ int mlx5dv_dr_rule_destroy(struct mlx5dv_dr_rule *rule)
 	struct mlx5dv_dr_table *tbl = rule->matcher->tbl;
 	int ret;
 
-	pthread_mutex_lock(&tbl->dmn->mutex);
-
 	if (dr_is_root_table(tbl))
 		ret = dr_rule_destroy_rule_root(rule);
 	else
 		ret = dr_rule_destroy_rule(rule);
-
-	pthread_mutex_unlock(&tbl->dmn->mutex);
 
 	if (!ret)
 		atomic_fetch_sub(&matcher->refcount, 1);
