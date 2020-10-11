@@ -625,9 +625,10 @@ static int dr_postsend_icm_data(struct mlx5dv_dr_domain *dmn,
 	uint32_t buff_offset;
 	int ret;
 
+	pthread_mutex_lock(&send_ring->mutex);
 	ret = dr_handle_pending_wc(dmn, send_ring);
 	if (ret)
-		return ret;
+		goto out_unlock;
 
 	if (send_info->write.length > dmn->info.max_inline_size) {
 		buff_offset = (send_ring->tx_head & (dmn->send_ring->signal_th - 1)) *
@@ -644,7 +645,9 @@ static int dr_postsend_icm_data(struct mlx5dv_dr_domain *dmn,
 	dr_fill_data_segs(send_ring, send_info);
 	dr_post_send(send_ring->qp, send_info);
 
-	return 0;
+out_unlock:
+	pthread_mutex_unlock(&send_ring->mutex);
+	return ret;
 }
 
 static int dr_get_tbl_copy_details(struct mlx5dv_dr_domain *dmn,
@@ -818,7 +821,6 @@ int dr_send_postsend_action(struct mlx5dv_dr_domain *dmn,
 			    struct mlx5dv_dr_action *action)
 {
 	struct postsend_info send_info = {};
-	int ret;
 
 	send_info.write.addr	= (uintptr_t) action->rewrite.data;
 	send_info.write.length	= action->rewrite.num_of_actions *
@@ -827,11 +829,7 @@ int dr_send_postsend_action(struct mlx5dv_dr_domain *dmn,
 	send_info.remote_addr	= action->rewrite.chunk->mr_addr;
 	send_info.rkey		= action->rewrite.chunk->rkey;
 
-	pthread_mutex_lock(&dmn->mutex);
-	ret = dr_postsend_icm_data(dmn, &send_info);
-	pthread_mutex_unlock(&dmn->mutex);
-
-	return ret;
+	return dr_postsend_icm_data(dmn, &send_info);
 }
 
 bool dr_send_allow_fl(struct dr_devx_caps *caps)
@@ -916,6 +914,8 @@ int dr_send_ring_alloc(struct mlx5dv_dr_domain *dmn)
 		errno = ENOMEM;
 		return errno;
 	}
+
+	pthread_mutex_init(&dmn->send_ring->mutex, NULL);
 
 	cq_size = QUEUE_SIZE + 1;
 	dmn->send_ring->cq.ibv_cq = ibv_create_cq(dmn->ctx, cq_size, NULL, NULL, 0);
@@ -1065,8 +1065,8 @@ int dr_send_ring_force_drain(struct mlx5dv_dr_domain *dmn)
 		if (ret)
 			return ret;
 	}
-
+	pthread_mutex_lock(&send_ring->mutex);
 	ret = dr_handle_pending_wc(dmn, send_ring);
-
+	pthread_mutex_unlock(&send_ring->mutex);
 	return ret;
 }

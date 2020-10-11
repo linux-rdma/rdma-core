@@ -1170,6 +1170,8 @@ struct dr_send_ring {
 	uint32_t		max_post_send_size;
 	/* manage the send queue */
 	uint32_t		tx_head;
+	/* protect QP/CQ operations */
+	pthread_mutex_t         mutex;
 	void			*buf;
 	uint32_t		buf_size;
 	struct ibv_wc		wc[MAX_SEND_CQE];
