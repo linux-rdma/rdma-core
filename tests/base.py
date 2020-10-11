@@ -502,6 +502,12 @@ class UDResources(TrafficResources):
         self.rqps_num = rqps_num
 
 
+class RawResources(TrafficResources):
+    def create_qp_init_attr(self):
+        return QPInitAttr(qp_type=e.IBV_QPT_RAW_PACKET, scq=self.cq,
+                          rcq=self.cq, srq=self.srq, cap=self.create_qp_cap())
+
+
 class XRCResources(TrafficResources):
     def __init__(self, dev_name, ib_port, gid_index, qp_count=2):
         self.temp_file = None
