@@ -64,3 +64,6 @@ cdef class DM(PyverbsCM):
 
 cdef class PortAttr(PyverbsObject):
     cdef v.ibv_port_attr attr
+
+cdef class GIDEntry(PyverbsObject):
+    cdef v.ibv_gid_entry entry

@@ -176,7 +176,8 @@ class RDMATestCase(unittest.TestCase):
                 continue
             # Avoid RoCEv2 GIDs on unsupported devices
             if port_attrs.link_layer == e.IBV_LINK_LAYER_ETHERNET and \
-                    ctx.query_gid_type(port, idx) == e.IBV_GID_TYPE_ROCE_V2 and \
+                    ctx.query_gid_type(port, idx) == \
+                    e.IBV_GID_TYPE_SYSFS_ROCE_V2 and \
                     has_roce_hw_bug(vendor_id, vendor_pid):
                 continue
             if not os.path.exists('/sys/class/infiniband/{}/device/net/'.format(dev)):
