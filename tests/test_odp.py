@@ -1,7 +1,7 @@
 from pyverbs.mem_alloc import mmap, munmap, MAP_ANONYMOUS_, MAP_PRIVATE_, \
     MAP_HUGETLB_
 from tests.utils import requires_odp, requires_huge_pages, traffic, \
-    xrc_traffic, create_custom_mr, poll_cq, post_send, GRH_SIZE
+    xrc_traffic, create_custom_mr, poll_cq, post_send, get_global_ah, GRH_SIZE
 from tests.base import RCResources, UDResources, XRCResources
 from pyverbs.wr import SGE, SendWR, RecvWR
 from tests.base import RDMATestCase
@@ -112,6 +112,7 @@ class OdpTestCase(RDMATestCase):
         client, server = self.create_players(OdpUD)
         # Implement the traffic here because OdpUD uses two different MRs for
         # send and recv.
+        ah_client = get_global_ah(client, self.gid_index, self.ib_port)
         recv_sge = SGE(server.recv_mr.buf, server.msg_size + GRH_SIZE,
                        server.recv_mr.lkey)
         server_recv_wr = RecvWR(sg=[recv_sge], num_sge=1)
@@ -120,7 +121,7 @@ class OdpTestCase(RDMATestCase):
         client_send_wr = SendWR(num_sge=1, sg=[send_sge])
         for i in range(self.iters):
             server.qp.post_recv(server_recv_wr)
-            post_send(client, client_send_wr, self.gid_index, self.ib_port)
+            post_send(client, client_send_wr, ah=ah_client)
             poll_cq(client.cq)
             poll_cq(server.cq)
 
