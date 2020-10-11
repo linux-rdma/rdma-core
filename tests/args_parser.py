@@ -19,6 +19,10 @@ class ArgsParser(object):
         parser.add_argument('-v', '--verbose', dest='verbosity',
                             action='store_const',
                             const=2, help='Verbose output')
+        parser.add_argument('--list-tests', action='store_true', default=False,
+                            help='Print a list of the full test names that are '
+                                 'loaded by default and exit without running '
+                                 'them.')
         ns, args = parser.parse_known_args()
         self.args = vars(ns)
         if self.args['verbosity']:
