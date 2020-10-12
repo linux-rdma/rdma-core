@@ -794,5 +794,15 @@ def is_eth(ctx, port_num):
     return ctx.query_port(port_num).link_layer == e.IBV_LINK_LAYER_ETHERNET
 
 
+def is_unspecified(ctx, port_num):
+    """
+    Queries the device's context's <port_num> port for its link layer.
+    :param ctx: The Context to query
+    :param port_num: Which Context's port to query
+    :return: True if the port's link layer is Unspecified, else False
+    """
+    return ctx.query_port(port_num).link_layer == e.IBV_LINK_LAYER_UNSPECIFIED
+
+
 def is_root():
     return os.geteuid() == 0

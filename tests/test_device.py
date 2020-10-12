@@ -106,6 +106,8 @@ class DeviceTest(PyverbsAPITestCase):
         """
         devs = self.get_device_list()
         with d.Context(name=devs[0].name.decode()) as ctx:
+            if u.is_unspecified(ctx, port_num=1):
+                raise unittest.SkipTest('ibv_query_gid_ex is not supported on this device')
             try:
                 ctx.query_gid_ex(port_num=1, gid_index=0)
             except PyverbsRDMAError as ex:
