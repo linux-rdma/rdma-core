@@ -1944,7 +1944,8 @@ mlx5dv_dr_action_create_flow_sampler(struct mlx5dv_dr_flow_sampler_attr *attr)
 		return NULL;
 	}
 
-	if (dmn->type == MLX5DV_DR_DOMAIN_TYPE_FDB)
+	if (dmn->type == MLX5DV_DR_DOMAIN_TYPE_FDB &&
+	    dmn->info.caps.sw_format_ver == MLX5_HW_CONNECTX_5)
 		restore = true;
 
 	atomic_fetch_add(&dmn->refcount, 1);
