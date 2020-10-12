@@ -89,6 +89,8 @@ class DeviceTest(PyverbsAPITestCase):
         with d.Context(name=devs[0].name.decode()) as ctx:
             device_attr = ctx.query_device()
             port_attr = ctx.query_port(1)
+            if port_attr.link_layer == e.IBV_LINK_LAYER_UNSPECIFIED:
+                raise unittest.SkipTest('ibv_query_gid_table is not supported on this device')
             max_entries = device_attr.phys_port_cnt * port_attr.gid_tbl_len
             try:
                 ctx.query_gid_table(max_entries)
