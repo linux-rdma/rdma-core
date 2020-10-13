@@ -2834,17 +2834,6 @@ static void acm_load_prov_config(void)
 	}
 }
 
-static int acm_string_end_compare(const char *s1, const char *s2)
-{
-	size_t s1_len = strlen(s1);
-	size_t s2_len = strlen(s2);
-
-	if (s1_len < s2_len)
-		return -1;
-
-	return strcmp(s1 + s1_len - s2_len, s2);
-}
-
 static int acm_open_providers(void)
 {
 	DIR *shlib_dir;
@@ -2867,7 +2856,7 @@ static int acm_open_providers(void)
 	}
 
 	while ((dent = readdir(shlib_dir))) {
-		if (acm_string_end_compare(dent->d_name, ".so"))
+		if (!strstr(dent->d_name, ".so"))
 			continue;
 
 		if (!check_snprintf(file_name, sizeof(file_name), "%s/%s",
