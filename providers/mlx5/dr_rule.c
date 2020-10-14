@@ -118,7 +118,7 @@ static struct dr_ste *dr_rule_create_collision_entry(struct mlx5dv_dr_matcher *m
 	return ste;
 
 free_tbl:
-	dr_ste_free(ste, matcher, nic_matcher);
+	dr_htbl_put(ste->htbl);
 	return NULL;
 }
 
@@ -212,7 +212,7 @@ dr_rule_rehash_handle_collision(struct mlx5dv_dr_matcher *matcher,
 	return new_ste;
 
 err_exit:
-	dr_ste_free(new_ste, matcher, nic_matcher);
+	dr_htbl_put(new_ste->htbl);
 	return NULL;
 }
 
@@ -538,7 +538,8 @@ static struct dr_ste *dr_rule_handle_collision(struct mlx5dv_dr_matcher *matcher
 	return new_ste;
 
 err_exit:
-	dr_ste_free(new_ste, matcher, nic_matcher);
+	dr_htbl_put(new_ste->htbl);
+
 free_send_info:
 	free(ste_info);
 	return NULL;
