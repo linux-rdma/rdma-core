@@ -40,6 +40,7 @@ enum dr_ste_v0_action_tunl {
 	DR_STE_TUNL_ACTION_ENABLE	= 1,
 	DR_STE_TUNL_ACTION_DECAP	= 2,
 	DR_STE_TUNL_ACTION_L3_DECAP	= 3,
+	DR_STE_TUNL_ACTION_POP_VLAN	= 4,
 };
 
 enum dr_ste_v0_action_type {
@@ -353,6 +354,12 @@ static void dr_ste_v0_set_rx_decap(uint8_t *hw_ste_p)
 		   DR_STE_TUNL_ACTION_DECAP);
 }
 
+static void dr_ste_v0_set_rx_pop_vlan(uint8_t *hw_ste_p)
+{
+	DR_STE_SET(rx_steering_mult, hw_ste_p, tunneling_action,
+		   DR_STE_TUNL_ACTION_POP_VLAN);
+}
+
 static void dr_ste_v0_set_rx_decap_l3(uint8_t *hw_ste_p, bool vlan)
 {
 	DR_STE_SET(rx_steering_mult, hw_ste_p, tunneling_action,
@@ -438,6 +445,22 @@ static void dr_ste_v0_set_actions_rx(uint8_t *action_type_set,
 
 	if (action_type_set[DR_ACTION_TYP_TNL_L2_TO_L2])
 		dr_ste_v0_set_rx_decap(last_ste);
+
+	if (action_type_set[DR_ACTION_TYP_POP_VLAN]) {
+		int i;
+
+		for (i = 0; i < attr->vlans.count; i++) {
+			if (i ||
+			    action_type_set[DR_ACTION_TYP_TNL_L2_TO_L2] ||
+			    action_type_set[DR_ACTION_TYP_TNL_L3_TO_L2])
+				dr_ste_v0_arr_init_next(&last_ste,
+							added_stes,
+							DR_STE_TYPE_RX,
+							attr->gvmi);
+
+			dr_ste_v0_set_rx_pop_vlan(last_ste);
+		}
+	}
 
 	if (action_type_set[DR_ACTION_TYP_MODIFY_HDR]) {
 		if (dr_ste_v0_get_entry_type(last_ste) == DR_STE_TYPE_MODIFY_PKT)

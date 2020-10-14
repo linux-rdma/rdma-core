@@ -152,3 +152,8 @@ MLX5_1.16 {
 		mlx5dv_dr_action_create_dest_array;
 		mlx5dv_dr_action_create_flow_sampler;
 } MLX5_1.15;
+
+MLX5_1.17 {
+	global:
+		mlx5dv_dr_action_create_pop_vlan;
+} MLX5_1.16;

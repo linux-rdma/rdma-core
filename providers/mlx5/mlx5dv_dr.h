@@ -42,7 +42,7 @@
 #include "mlx5.h"
 
 #define DR_RULE_MAX_STES	17
-#define DR_ACTION_MAX_STES	3
+#define DR_ACTION_MAX_STES	5
 #define WIRE_PORT		0xFFFF
 #define DR_STE_SVLAN		0x1
 #define DR_STE_CVLAN		0x2
@@ -147,6 +147,7 @@ enum dr_action_type {
 	DR_ACTION_TYP_MISS,
 	DR_ACTION_TYP_SAMPLER,
 	DR_ACTION_TYP_DEST_ARRAY,
+	DR_ACTION_TYP_POP_VLAN,
 	DR_ACTION_TYP_MAX,
 };
 
@@ -280,6 +281,8 @@ uint64_t dr_ste_get_icm_addr(struct dr_ste *ste);
 uint64_t dr_ste_get_mr_addr(struct dr_ste *ste);
 struct list_head *dr_ste_get_miss_list(struct dr_ste *ste);
 
+#define MAX_VLANS 2
+
 struct dr_ste_actions_attr {
 	uint32_t	modify_index;
 	uint16_t	modify_actions;
@@ -293,6 +296,10 @@ struct dr_ste_actions_attr {
 	uint16_t	hit_gvmi;
 	uint32_t	reformat_id;
 	uint32_t	reformat_size;
+	struct {
+		int		count;
+		uint32_t	headers[MAX_VLANS];
+	} vlans;
 };
 
 void dr_ste_set_actions_rx(struct dr_ste_ctx *ste_ctx,

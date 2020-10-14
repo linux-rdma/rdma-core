@@ -95,6 +95,7 @@ enum dr_ste_v1_header_anchors {
 enum dr_ste_v1_action_size {
 	DR_STE_ACTION_SINGLE_SZ = 4,
 	DR_STE_ACTION_DOUBLE_SZ = 8,
+	DR_STE_ACTION_TRIPLE_SZ = 12,
 };
 
 enum dr_ste_v1_action_insert_ptr_attr {
@@ -399,6 +400,20 @@ static void dr_ste_v1_set_tx_encap(uint8_t *hw_ste_p, uint8_t *d_action,
 	dr_ste_v1_set_reparse(hw_ste_p);
 }
 
+static void dr_ste_v1_set_rx_pop_vlan(uint8_t *hw_ste_p, uint8_t *s_action,
+				      uint8_t vlans_num)
+{
+	DR_STE_SET(single_action_remove_header_size_v1, s_action, action_id,
+		   DR_STE_V1_ACTION_ID_REMOVE_BY_SIZE);
+	DR_STE_SET(single_action_remove_header_size_v1, s_action, start_anchor,
+		   DR_STE_HEADER_ANCHOR_1ST_VLAN);
+	/* The hardware expects here size in words (2 byte) */
+	DR_STE_SET(single_action_remove_header_size_v1, s_action, remove_size,
+		   (HDR_LEN_L2_VLAN >> 1) * vlans_num);
+
+	dr_ste_v1_set_reparse(hw_ste_p);
+}
+
 static void dr_ste_v1_set_tx_encap_l3(uint8_t *hw_ste_p,
 				      uint8_t *frst_s_action,
 				      uint8_t *scnd_d_action,
@@ -529,51 +544,78 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 				     uint32_t *added_stes)
 {
 	uint8_t *action = DEVX_ADDR_OF(ste_match_bwc_v1, last_ste, action);
-	bool new_ste = false;
-	bool decap;
-
-	decap = action_type_set[DR_ACTION_TYP_TNL_L3_TO_L2] ||
-		action_type_set[DR_ACTION_TYP_TNL_L2_TO_L2];
+	uint8_t action_sz = DR_STE_ACTION_DOUBLE_SZ;
+	bool allow_modify_hdr = true;
+	bool allow_ctr = true;
 
 	if (action_type_set[DR_ACTION_TYP_TNL_L3_TO_L2]) {
 		dr_ste_v1_set_rx_decap_l3(last_ste, action,
 					  attr->decap_actions,
 					  attr->decap_index);
+		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
 		action += DR_STE_ACTION_DOUBLE_SZ;
+		allow_modify_hdr = false;
+		allow_ctr = false;
 	} else if (action_type_set[DR_ACTION_TYP_TNL_L2_TO_L2]) {
 		dr_ste_v1_set_rx_decap(last_ste, action);
+		action_sz -= DR_STE_ACTION_SINGLE_SZ;
 		action += DR_STE_ACTION_SINGLE_SZ;
+		allow_modify_hdr = false;
+		allow_ctr = false;
 	}
 
 	if (action_type_set[DR_ACTION_TYP_TAG]) {
-		if (action_type_set[DR_ACTION_TYP_TNL_L3_TO_L2]) {
+		if (action_sz < DR_STE_ACTION_SINGLE_SZ) {
 			dr_ste_v1_arr_init_next_match(&last_ste, added_stes, attr->gvmi);
 			action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste, action);
-			new_ste = true;
+			action_sz = DR_STE_ACTION_TRIPLE_SZ;
+			allow_modify_hdr = true;
+			allow_ctr = true;
 		}
 		dr_ste_v1_set_rx_flow_tag(action, attr->flow_tag);
+		action_sz -= DR_STE_ACTION_SINGLE_SZ;
+		action += DR_STE_ACTION_SINGLE_SZ;
+	}
+
+	if (action_type_set[DR_ACTION_TYP_POP_VLAN]) {
+		if (action_sz < DR_STE_ACTION_SINGLE_SZ ||
+		    !allow_modify_hdr) {
+			dr_ste_v1_arr_init_next_match(&last_ste, added_stes, attr->gvmi);
+			action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste, action);
+			action_sz = DR_STE_ACTION_TRIPLE_SZ;
+			allow_modify_hdr = false;
+			allow_ctr = false;
+		}
+
+		dr_ste_v1_set_rx_pop_vlan(last_ste, action, attr->vlans.count);
+		action_sz -= DR_STE_ACTION_SINGLE_SZ;
 		action += DR_STE_ACTION_SINGLE_SZ;
 	}
 
 	if (action_type_set[DR_ACTION_TYP_MODIFY_HDR]) {
 		/* Modify header and decapsulation must use different STEs */
-		if (decap && !new_ste) {
+		if (!allow_modify_hdr || action_sz < DR_STE_ACTION_DOUBLE_SZ) {
 			dr_ste_v1_arr_init_next_match(&last_ste, added_stes, attr->gvmi);
 			action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste, action);
-			new_ste = true;
+			action_sz = DR_STE_ACTION_TRIPLE_SZ;
+			allow_modify_hdr = true;
+			allow_ctr = true;
 		}
 		dr_ste_v1_set_rewrite_actions(last_ste, action,
 					      attr->modify_actions,
 					      attr->modify_index);
+		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
 		action += DR_STE_ACTION_DOUBLE_SZ;
 	}
 
 	if (action_type_set[DR_ACTION_TYP_CTR]) {
 		/* Counter action set after decap to exclude decaped header */
-		if (decap && !new_ste) {
+		if (!allow_ctr) {
 			dr_ste_v1_arr_init_next_match(&last_ste, added_stes, attr->gvmi);
 			action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste, action);
-			new_ste = true;
+			action_sz = DR_STE_ACTION_TRIPLE_SZ;
+			allow_modify_hdr = true;
+			allow_ctr = false;
 		}
 		dr_ste_v1_set_counter_id(last_ste, attr->ctr_id);
 	}
