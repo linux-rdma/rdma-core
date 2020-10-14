@@ -32,7 +32,6 @@
 
 #include "dr_ste.h"
 
-#define SVLAN_ETHERTYPE		0x88a8
 #define DR_STE_ENABLE_FLOW_TAG (1 << 31)
 
 enum dr_ste_v0_action_tunl {
@@ -44,6 +43,7 @@ enum dr_ste_v0_action_tunl {
 };
 
 enum dr_ste_v0_action_type {
+	DR_STE_ACTION_TYPE_PUSH_VLAN    = 1,
 	DR_STE_ACTION_TYPE_ENCAP_L3	= 3,
 	DR_STE_ACTION_TYPE_ENCAP	= 4,
 };
@@ -354,6 +354,25 @@ static void dr_ste_v0_set_rx_decap(uint8_t *hw_ste_p)
 		   DR_STE_TUNL_ACTION_DECAP);
 }
 
+static void dr_ste_v0_set_go_back_bit(uint8_t *hw_ste_p)
+{
+	DR_STE_SET(sx_transmit, hw_ste_p, go_back, 1);
+}
+
+static void dr_ste_v0_set_tx_push_vlan(uint8_t *hw_ste_p,
+				       uint32_t vlan_hdr,
+				       bool go_back)
+{
+	DR_STE_SET(sx_transmit, hw_ste_p, action_type,
+		   DR_STE_ACTION_TYPE_PUSH_VLAN);
+	DR_STE_SET(sx_transmit, hw_ste_p, encap_pointer_vlan_data, vlan_hdr);
+	/* Due to HW limitation we need to set this bit, otherwise reformat +
+	 * push vlan will not work.
+	 */
+	if (go_back)
+		dr_ste_v0_set_go_back_bit(hw_ste_p);
+}
+
 static void dr_ste_v0_set_rx_pop_vlan(uint8_t *hw_ste_p)
 {
 	DR_STE_SET(rx_steering_mult, hw_ste_p, tunneling_action,
@@ -392,6 +411,9 @@ static void dr_ste_v0_set_actions_tx(uint8_t *action_type_set,
 				     struct dr_ste_actions_attr *attr,
 				     uint32_t *added_stes)
 {
+	bool encap = action_type_set[DR_ACTION_TYP_L2_TO_TNL_L2] ||
+		action_type_set[DR_ACTION_TYP_L2_TO_TNL_L3];
+
 	/* We want to make sure the modify header comes before L2
 	 * encapsulation. The reason for that is that we support
 	 * modify headers for outer headers only
@@ -403,13 +425,30 @@ static void dr_ste_v0_set_actions_tx(uint8_t *action_type_set,
 					      attr->modify_index);
 	}
 
-	if (action_type_set[DR_ACTION_TYP_L2_TO_TNL_L2] ||
-	    action_type_set[DR_ACTION_TYP_L2_TO_TNL_L3]) {
+	if (action_type_set[DR_ACTION_TYP_PUSH_VLAN]) {
+		int i;
+
+		for (i = 0; i < attr->vlans.count; i++) {
+			if (i || action_type_set[DR_ACTION_TYP_MODIFY_HDR])
+				dr_ste_v0_arr_init_next(&last_ste,
+							added_stes,
+							DR_STE_TYPE_TX,
+							attr->gvmi);
+
+			dr_ste_v0_set_tx_push_vlan(last_ste,
+						   attr->vlans.headers[i],
+						   encap);
+		}
+	}
+
+	if (encap) {
 		/* Modify header and encapsulation require a different STEs.
 		 * Since modify header STE format doesn't support encapsulation
-		 * tunneling_action.
+		 * tunneling_action. Encapsulation and push VLAN cannot be set
+		 * on the same STE.
 		 */
-		if (action_type_set[DR_ACTION_TYP_MODIFY_HDR])
+		if (action_type_set[DR_ACTION_TYP_MODIFY_HDR] ||
+		    action_type_set[DR_ACTION_TYP_PUSH_VLAN])
 			dr_ste_v0_arr_init_next(&last_ste,
 						added_stes,
 						DR_STE_TYPE_TX,
@@ -419,6 +458,13 @@ static void dr_ste_v0_set_actions_tx(uint8_t *action_type_set,
 				       attr->reformat_id,
 				       attr->reformat_size,
 				       action_type_set[DR_ACTION_TYP_L2_TO_TNL_L3]);
+		/* Whenever prio_tag_required enabled, we can be sure that the
+		 * previous table (ACL) already push vlan to our packet,
+		 * And due to HW limitation we need to set this bit, otherwise
+		 * push vlan + reformat will not work.
+		 */
+		if (attr->prio_tag_required)
+			dr_ste_v0_set_go_back_bit(last_ste);
 	}
 
 	if (action_type_set[DR_ACTION_TYP_CTR])

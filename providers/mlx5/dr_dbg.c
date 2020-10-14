@@ -72,6 +72,7 @@ enum dr_dump_rec_type {
 	DR_DUMP_REC_TYPE_ACTION_DECAP_L2 = 3409,
 	DR_DUMP_REC_TYPE_ACTION_DECAP_L3 = 3410,
 	DR_DUMP_REC_TYPE_ACTION_DEVX_TIR = 3411,
+	DR_DUMP_REC_TYPE_ACTION_PUSH_VLAN = 3412,
 	DR_DUMP_REC_TYPE_ACTION_POP_VLAN = 3413,
 	DR_DUMP_REC_TYPE_ACTION_METER = 3414,
 	DR_DUMP_REC_TYPE_ACTION_SAMPLER = 3415,
@@ -194,6 +195,11 @@ static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 "\n",
 			      DR_DUMP_REC_TYPE_ACTION_POP_VLAN, action_id,
 			      rule_id);
+		break;
+	case DR_ACTION_TYP_PUSH_VLAN:
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
+			      DR_DUMP_REC_TYPE_ACTION_PUSH_VLAN, action_id,
+			      rule_id, action->push_vlan.vlan_hdr);
 		break;
 	default:
 		return 0;

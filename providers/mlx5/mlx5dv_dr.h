@@ -46,6 +46,8 @@
 #define WIRE_PORT		0xFFFF
 #define DR_STE_SVLAN		0x1
 #define DR_STE_CVLAN		0x2
+#define CVLAN_ETHERTYPE	0x8100
+#define SVLAN_ETHERTYPE	0x88a8
 
 #define dr_dbg(dmn, arg...) dr_dbg_ctx((dmn)->ctx, ##arg)
 
@@ -148,6 +150,7 @@ enum dr_action_type {
 	DR_ACTION_TYP_SAMPLER,
 	DR_ACTION_TYP_DEST_ARRAY,
 	DR_ACTION_TYP_POP_VLAN,
+	DR_ACTION_TYP_PUSH_VLAN,
 	DR_ACTION_TYP_MAX,
 };
 
@@ -296,6 +299,7 @@ struct dr_ste_actions_attr {
 	uint16_t	hit_gvmi;
 	uint32_t	reformat_id;
 	uint32_t	reformat_size;
+	bool		prio_tag_required;
 	struct {
 		int		count;
 		uint32_t	headers[MAX_VLANS];
@@ -649,6 +653,7 @@ struct dr_devx_caps {
 	uint32_t			num_vports;
 	struct dr_devx_vport_cap	*vports_caps;
 	struct dr_devx_roce_cap		roce_caps;
+	bool				prio_tag_required;
 };
 
 struct dr_devx_flow_table_attr {
@@ -880,6 +885,9 @@ struct mlx5dv_dr_action {
 			struct dr_devx_vport_cap	*caps;
 			uint32_t			num;
 		} vport;
+		struct {
+			uint32_t	vlan_hdr;
+		} push_vlan;
 		struct {
 			bool    is_qp;
 			union {

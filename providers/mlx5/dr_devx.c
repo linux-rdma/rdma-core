@@ -170,6 +170,8 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 		return err;
 	}
 
+	caps->prio_tag_required = DEVX_GET(query_hca_cap_out, out,
+					   capability.cmd_hca_cap.prio_tag_required);
 	caps->eswitch_manager = DEVX_GET(query_hca_cap_out, out,
 					 capability.cmd_hca_cap.eswitch_manager);
 	caps->gvmi = DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.vhca_id);

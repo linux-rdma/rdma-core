@@ -400,6 +400,18 @@ static void dr_ste_v1_set_tx_encap(uint8_t *hw_ste_p, uint8_t *d_action,
 	dr_ste_v1_set_reparse(hw_ste_p);
 }
 
+static void dr_ste_v1_set_tx_push_vlan(uint8_t *ste, uint8_t *d_action,
+				       uint32_t vlan_hdr)
+{
+	DR_STE_SET(double_action_insert_with_inline_v1, d_action, action_id,
+		   DR_STE_V1_ACTION_ID_INSERT_INLINE);
+	/* The hardware expects here offset to vlan header in words (2 byte) */
+	DR_STE_SET(double_action_insert_with_inline_v1, d_action, start_offset,
+		   HDR_LEN_L2_MACS >> 1);
+	DR_STE_SET(double_action_insert_with_inline_v1, d_action, inline_data, vlan_hdr);
+	dr_ste_v1_set_reparse(ste);
+}
+
 static void dr_ste_v1_set_rx_pop_vlan(uint8_t *hw_ste_p, uint8_t *s_action,
 				      uint8_t vlans_num)
 {
@@ -501,6 +513,8 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 				     uint32_t *added_stes)
 {
 	uint8_t *action = DEVX_ADDR_OF(ste_match_bwc_v1, last_ste, action);
+	uint8_t action_sz = DR_STE_ACTION_DOUBLE_SZ;
+	bool allow_encap = true;
 
 	if (action_type_set[DR_ACTION_TYP_CTR])
 		dr_ste_v1_set_counter_id(last_ste, attr->ctr_id);
@@ -509,30 +523,53 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 		dr_ste_v1_set_rewrite_actions(last_ste, action,
 					      attr->modify_actions,
 					      attr->modify_index);
+		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
 		action += DR_STE_ACTION_DOUBLE_SZ;
+		allow_encap = false;
+	}
+
+	if (action_type_set[DR_ACTION_TYP_PUSH_VLAN]) {
+		int i;
+
+		for (i = 0; i < attr->vlans.count; i++) {
+			if (action_sz < DR_STE_ACTION_DOUBLE_SZ || !allow_encap) {
+				dr_ste_v1_arr_init_next_match(&last_ste, added_stes, attr->gvmi);
+				action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste, action);
+				action_sz = DR_STE_ACTION_TRIPLE_SZ;
+				allow_encap = true;
+			}
+			dr_ste_v1_set_tx_push_vlan(last_ste, action, attr->vlans.headers[i]);
+			action_sz -= DR_STE_ACTION_DOUBLE_SZ;
+			action += DR_STE_ACTION_DOUBLE_SZ;
+		}
 	}
 
 	if (action_type_set[DR_ACTION_TYP_L2_TO_TNL_L2]) {
-		if (action_type_set[DR_ACTION_TYP_MODIFY_HDR]) {
+		if (!allow_encap || action_sz < DR_STE_ACTION_DOUBLE_SZ) {
 			dr_ste_v1_arr_init_next_match(&last_ste, added_stes, attr->gvmi);
 			action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste, action);
+			action_sz = DR_STE_ACTION_TRIPLE_SZ;
+			allow_encap = true;
 		}
 		dr_ste_v1_set_tx_encap(last_ste, action,
 				       attr->reformat_id,
 				       attr->reformat_size);
+		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
 		action += DR_STE_ACTION_DOUBLE_SZ;
 	} else if (action_type_set[DR_ACTION_TYP_L2_TO_TNL_L3]) {
 		uint8_t *d_action;
 
 		dr_ste_v1_arr_init_next_match(&last_ste, added_stes, attr->gvmi);
 		action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste, action);
+		action_sz = DR_STE_ACTION_TRIPLE_SZ;
 		d_action = action + DR_STE_ACTION_SINGLE_SZ;
 
 		dr_ste_v1_set_tx_encap_l3(last_ste,
 					  action, d_action,
 					  attr->reformat_id,
 					  attr->reformat_size);
-		action += DR_STE_ACTION_SINGLE_SZ + DR_STE_ACTION_DOUBLE_SZ;
+		action_sz -= DR_STE_ACTION_TRIPLE_SZ;
+		action += DR_STE_ACTION_TRIPLE_SZ;
 	}
 
 	dr_ste_v1_set_hit_addr(last_ste, attr->final_icm_addr, 1);

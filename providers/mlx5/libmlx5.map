@@ -156,4 +156,5 @@ MLX5_1.16 {
 MLX5_1.17 {
 	global:
 		mlx5dv_dr_action_create_pop_vlan;
+		mlx5dv_dr_action_create_push_vlan;
 } MLX5_1.16;

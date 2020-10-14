@@ -40,6 +40,8 @@ mlx5dv_dr_action_create_flow_sampler - Create flow sampler action
 
 mlx5dv_dr_action_create_pop_vlan - Create pop vlan action
 
+mlx5dv_dr_action_create_push_vlan- Create push vlan action
+
 mlx5dv_dr_action_destroy - Destroy actions
 
 # SYNOPSIS
@@ -135,6 +137,10 @@ mlx5dv_dr_action_create_dest_array(struct mlx5dv_dr_domain *domain,
 				   struct mlx5dv_dr_action_dest_attr *dests[]);
 
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_pop_vlan(void);
+
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_push_vlan(
+		struct mlx5dv_dr_domain *dmn,
+		__be32 vlan_hdr)
 
 int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
 ```
@@ -237,6 +243,9 @@ Action Flags: action **flags** can be set to one of the types of *enum mlx5dv_dr
 
 Action: Pop Vlan
 *mlx5dv_dr_action_create_pop_vlan* creates a pop vlan action which removes VLAN tags from packets layer 2.
+
+Action: Push Vlan
+*mlx5dv_dr_action_create_push_vlan* creates a push vlan action which adds VLAN tags to packets layer 2.
 
 **MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL**: is used to indicate the action is targeted for flow table in level=0 (ROOT) of the specific domain.
 
