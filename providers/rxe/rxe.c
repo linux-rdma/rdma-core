@@ -801,7 +801,7 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	memcpy(&av->grh, &attr->grh, sizeof(attr->grh));
 	av->network_type =
 		ipv6_addr_v4mapped((struct in6_addr *)attr->grh.dgid.raw) ?
-		RDMA_NETWORK_IPV4 : RDMA_NETWORK_IPV6;
+		RXE_NETWORK_TYPE_IPV4 : RXE_NETWORK_TYPE_IPV6;
 
 	rdma_gid2ip(&av->sgid_addr, &sgid);
 	rdma_gid2ip(&av->dgid_addr, &attr->grh.dgid);

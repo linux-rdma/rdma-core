@@ -42,12 +42,6 @@
 #include <rdma/rdma_user_rxe.h> /* struct rxe_av */
 #include "rxe-abi.h"
 
-enum rdma_network_type {
-	RDMA_NETWORK_IB,
-	RDMA_NETWORK_IPV4,
-	RDMA_NETWORK_IPV6
-};
-
 struct rxe_device {
 	struct verbs_device	ibv_dev;
 	int	abi_version;
