@@ -308,7 +308,7 @@ static int set_data_inl_seg(struct mlx5_qp *qp, struct ibv_send_wr *wr,
 
 static uint8_t wq_sig(struct mlx5_wqe_ctrl_seg *ctrl)
 {
-	return calc_sig(ctrl, be32toh(ctrl->qpn_ds));
+	return calc_sig(ctrl, (be32toh(ctrl->qpn_ds) & 0x3f) << 4);
 }
 
 #ifdef MLX5_DEBUG
