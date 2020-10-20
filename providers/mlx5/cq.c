@@ -304,14 +304,14 @@ static inline int handle_responder(struct ibv_wc *wc, struct mlx5_cqe64 *cqe,
 	return IBV_WC_SUCCESS;
 }
 
-static void dump_cqe(FILE *fp, void *buf)
+static void dump_cqe(struct mlx5_context *mctx, void *buf)
 {
 	__be32 *p = buf;
 	int i;
 
 	for (i = 0; i < 16; i += 4)
-		fprintf(fp, "%08x %08x %08x %08x\n", be32toh(p[i]), be32toh(p[i + 1]),
-			be32toh(p[i + 2]), be32toh(p[i + 3]));
+		mlx5_err(mctx->dbg_fp, "%08x %08x %08x %08x\n", be32toh(p[i]), be32toh(p[i + 1]),
+			 be32toh(p[i + 2]), be32toh(p[i + 3]));
 }
 
 static enum ibv_wc_status mlx5_handle_error_cqe(struct mlx5_err_cqe *cqe)
@@ -538,10 +538,9 @@ static inline int mlx5_get_next_cqe(struct mlx5_cq *cq,
 		struct mlx5_context *mctx = to_mctx(cq->verbs_cq.cq_ex.context);
 
 		if (mlx5_debug_mask & MLX5_DBG_CQ_CQE) {
-			FILE *fp = mctx->dbg_fp;
-
-			mlx5_dbg(fp, MLX5_DBG_CQ_CQE, "dump cqe for cqn 0x%x:\n", cq->cqn);
-			dump_cqe(fp, cqe64);
+			mlx5_dbg(mctx->dbg_fp, MLX5_DBG_CQ_CQE,
+				 "dump cqe for cqn 0x%x:\n", cq->cqn);
+			dump_cqe(mctx, cqe64);
 		}
 	}
 #endif
@@ -824,12 +823,11 @@ again:
 		if (unlikely(ecqe->syndrome != MLX5_CQE_SYNDROME_WR_FLUSH_ERR &&
 			     ecqe->syndrome != MLX5_CQE_SYNDROME_TRANSPORT_RETRY_EXC_ERR &&
 			     !is_odp_pfault_err(ecqe))) {
-			FILE *fp = mctx->dbg_fp;
-			fprintf(fp, PFX "%s: got completion with error:\n",
+			mlx5_err(mctx->dbg_fp, PFX "%s: got completion with error:\n",
 				mctx->hostname);
-			dump_cqe(fp, ecqe);
+			dump_cqe(mctx, ecqe);
 			if (mlx5_freeze_on_error_cqe) {
-				fprintf(fp, PFX "freezing at poll cq...");
+				mlx5_err(mctx->dbg_fp, PFX "freezing at poll cq...");
 				while (1)
 					sleep(10);
 			}
@@ -1801,7 +1799,7 @@ static int is_hw(uint8_t own, int n, int mask)
 	return (own & MLX5_CQE_OWNER_MASK) ^ !!(n & (mask + 1));
 }
 
-void mlx5_cq_resize_copy_cqes(struct mlx5_cq *cq)
+void mlx5_cq_resize_copy_cqes(struct mlx5_context *mctx, struct mlx5_cq *cq)
 {
 	struct mlx5_cqe64 *scqe64;
 	struct mlx5_cqe64 *dcqe64;
@@ -1821,7 +1819,7 @@ void mlx5_cq_resize_copy_cqes(struct mlx5_cq *cq)
 	scqe64 = ssize == 64 ? scqe : scqe + 64;
 	start_cqe = scqe;
 	if (is_hw(scqe64->op_own, i, cq->active_cqes)) {
-		fprintf(stderr, "expected cqe in sw ownership\n");
+		mlx5_err(mctx->dbg_fp, "expected cqe in sw ownership\n");
 		return;
 	}
 
@@ -1836,12 +1834,12 @@ void mlx5_cq_resize_copy_cqes(struct mlx5_cq *cq)
 		scqe = get_buf_cqe(cq->active_buf, i & cq->active_cqes, ssize);
 		scqe64 = ssize == 64 ? scqe : scqe + 64;
 		if (is_hw(scqe64->op_own, i, cq->active_cqes)) {
-			fprintf(stderr, "expected cqe in sw ownership\n");
+			mlx5_err(mctx->dbg_fp, "expected cqe in sw ownership\n");
 			return;
 		}
 
 		if (scqe == start_cqe) {
-			fprintf(stderr, "resize CQ failed to get resize CQE\n");
+			mlx5_err(mctx->dbg_fp, "resize CQ failed to get resize CQE\n");
 			return;
 		}
 	}
