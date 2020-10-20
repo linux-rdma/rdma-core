@@ -88,8 +88,10 @@ class DeviceTest(PyverbsAPITestCase):
         devs = self.get_device_list()
         with d.Context(name=devs[0].name.decode()) as ctx:
             device_attr = ctx.query_device()
-            port_attr = ctx.query_port(1)
-            max_entries = device_attr.phys_port_cnt * port_attr.gid_tbl_len
+            max_entries = 0
+            for port_num in range(1, device_attr.phys_port_cnt + 1):
+                port_attr = ctx.query_port(port_num)
+                max_entries += port_attr.gid_tbl_len
             try:
                 ctx.query_gid_table(max_entries)
             except PyverbsRDMAError as ex:
