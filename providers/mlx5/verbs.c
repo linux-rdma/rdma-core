@@ -48,6 +48,7 @@
 
 #include <util/compiler.h>
 #include <util/mmio.h>
+#include <util/util.h>
 #include <rdma/ib_user_ioctl_cmds.h>
 #include <rdma/mlx5_user_ioctl_cmds.h>
 #include <infiniband/cmd_write.h>
@@ -2905,8 +2906,8 @@ static void mlx5_ah_set_udp_sport(struct mlx5_ah *ah,
 	if (fl)
 		sport = ibv_flow_label_to_udp_sport(fl);
 	else
-		sport = rand() % (IB_ROCE_UDP_ENCAP_VALID_PORT_MAX + 1
-				  - IB_ROCE_UDP_ENCAP_VALID_PORT_MIN)
+		sport = get_random() % (IB_ROCE_UDP_ENCAP_VALID_PORT_MAX + 1
+					- IB_ROCE_UDP_ENCAP_VALID_PORT_MIN)
 			+ IB_ROCE_UDP_ENCAP_VALID_PORT_MIN;
 
 	ah->av.rlid = htobe16(sport);

@@ -575,6 +575,13 @@ if (NOT NL_KIND EQUAL 0)
 endif()
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WREDUNDANT_DECLS "-Wredundant-decls")
 
+# Support of getrandom() was added to glibc in version 2.25
+CHECK_C_SOURCE_COMPILES("
+ #include <sys/random.h>
+ int main(int argc,const char *argv[]) {char buf[64]; return getrandom(buf, 64, GRND_NONBLOCK);}"
+ HAVE_GLIBC_GETRANDOM)
+RDMA_DoFixup("${HAVE_GLIBC_GETRANDOM}" "sys/random.h")
+
 #-------------------------
 # Build Prep
 # Write out a git ignore file to the build directory if it isn't the source
