@@ -93,7 +93,7 @@ class DeviceTest(PyverbsAPITestCase):
             try:
                 ctx.query_gid_table(max_entries)
             except PyverbsRDMAError as ex:
-                if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                if ex.error_code in [-errno.EOPNOTSUPP, -errno.EPROTONOSUPPORT]:
                     raise unittest.SkipTest('ibv_query_gid_table is not'\
                                             ' supported on this device')
                 raise ex
