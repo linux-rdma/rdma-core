@@ -118,6 +118,30 @@ enum mlx5dv_flow_action_cap_flags {
 	MLX5DV_FLOW_ACTION_FLAGS_ESP_AES_GCM_TX_IV_IS_ESN = 1 << 4,
 };
 
+enum mlx5dv_sig_type {
+	MLX5DV_SIG_TYPE_T10DIF,
+	MLX5DV_SIG_TYPE_CRC,
+};
+
+enum mlx5dv_sig_t10dif_bg_type {
+	MLX5DV_SIG_T10DIF_CRC,
+	MLX5DV_SIG_T10DIF_CSUM,
+};
+
+enum mlx5dv_sig_crc_type {
+	MLX5DV_SIG_CRC_TYPE_CRC32,
+	MLX5DV_SIG_CRC_TYPE_CRC32C,
+	MLX5DV_SIG_CRC_TYPE_CRC64_XP10,
+};
+
+enum mlx5dv_block_size {
+	MLX5DV_BLOCK_SIZE_512,
+	MLX5DV_BLOCK_SIZE_520,
+	MLX5DV_BLOCK_SIZE_4048,
+	MLX5DV_BLOCK_SIZE_4096,
+	MLX5DV_BLOCK_SIZE_4160,
+};
+
 /*
  * Direct verbs device-specific attributes
  */
@@ -240,8 +264,63 @@ struct mlx5dv_mr_interleaved {
 	uint32_t        lkey;
 };
 
+enum mlx5dv_sig_t10dif_flags {
+	MLX5DV_SIG_T10DIF_FLAG_REF_REMAP = 1 << 0,
+	MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE = 1 << 1,
+	MLX5DV_SIG_T10DIF_FLAG_APP_REF_ESCAPE = 1 << 2,
+};
+
+struct mlx5dv_sig_t10dif {
+	enum mlx5dv_sig_t10dif_bg_type bg_type;
+	uint16_t bg;
+	uint16_t app_tag;
+	uint32_t ref_tag;
+	uint16_t flags; /* Use enum mlx5dv_sig_t10dif_flags */
+};
+
+struct mlx5dv_sig_crc {
+	enum mlx5dv_sig_crc_type type;
+	uint64_t seed;
+};
+
+struct mlx5dv_sig_block_domain {
+	enum mlx5dv_sig_type sig_type;
+	union {
+		const struct mlx5dv_sig_t10dif *dif;
+		const struct mlx5dv_sig_crc *crc;
+	} sig;
+	enum mlx5dv_block_size block_size;
+	uint64_t comp_mask;
+};
+
+enum mlx5dv_sig_mask {
+	MLX5DV_SIG_MASK_T10DIF_GUARD = 0xc0,
+	MLX5DV_SIG_MASK_T10DIF_APPTAG = 0x30,
+	MLX5DV_SIG_MASK_T10DIF_REFTAG = 0x0f,
+	MLX5DV_SIG_MASK_CRC32 = 0xf0,
+	MLX5DV_SIG_MASK_CRC32C = MLX5DV_SIG_MASK_CRC32,
+	MLX5DV_SIG_MASK_CRC64_XP10 = 0xff,
+};
+
+enum mlx5dv_sig_block_attr_flags {
+	MLX5DV_SIG_BLOCK_ATTR_FLAG_COPY_MASK = 1 << 0,
+};
+
+struct mlx5dv_sig_block_attr {
+	const struct mlx5dv_sig_block_domain *mem;
+	const struct mlx5dv_sig_block_domain *wire;
+	uint32_t flags; /* Use enum mlx5dv_sig_block_attr_flags */
+	uint8_t check_mask;
+	uint8_t copy_mask;
+	uint64_t comp_mask;
+};
+
+enum mlx5dv_mkey_conf_flags {
+	MLX5DV_MKEY_CONF_FLAG_RESET_SIG_ATTR = 1 << 0,
+};
+
 struct mlx5dv_mkey_conf_attr {
-	uint32_t conf_flags;
+	uint32_t conf_flags; /* Use enum mlx5dv_mkey_conf_flags */
 	uint64_t comp_mask;
 };
 
@@ -282,6 +361,8 @@ struct mlx5dv_qp_ex {
 				uint32_t repeat_count,
 				uint16_t num_interleaved,
 				const struct mlx5dv_mr_interleaved *data);
+	void (*wr_set_mkey_sig_block)(struct mlx5dv_qp_ex *mqp,
+				      const struct mlx5dv_sig_block_attr *attr);
 };
 
 struct mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(struct ibv_qp_ex *qp);
@@ -342,6 +423,12 @@ static inline void mlx5dv_wr_set_mkey_layout_interleaved(struct mlx5dv_qp_ex *mq
 {
 	mqp->wr_set_mkey_layout_interleaved(mqp, repeat_count,
 					    num_interleaved, data);
+}
+
+static inline void mlx5dv_wr_set_mkey_sig_block(struct mlx5dv_qp_ex *mqp,
+						const struct mlx5dv_sig_block_attr *attr)
+{
+	mqp->wr_set_mkey_sig_block(mqp, attr);
 }
 
 enum mlx5dv_flow_action_esp_mask {
@@ -659,6 +746,7 @@ enum {
 	MLX5_OPCODE_FMR			= 0x19,
 	MLX5_OPCODE_LOCAL_INVAL		= 0x1b,
 	MLX5_OPCODE_CONFIG_CMD		= 0x1f,
+	MLX5_OPCODE_SET_PSV		= 0x20,
 	MLX5_OPCODE_UMR			= 0x25,
 	MLX5_OPCODE_TAG_MATCHING	= 0x28
 };
@@ -953,6 +1041,7 @@ enum {
 enum {
 	MLX5_WQE_UMR_CTRL_MKEY_MASK_LEN			= 1 << 0,
 	MLX5_WQE_UMR_CTRL_MKEY_MASK_START_ADDR		= 1 << 6,
+	MLX5_WQE_UMR_CTRL_MKEY_MASK_BSF_ENABLE		= 1 << 12,
 	MLX5_WQE_UMR_CTRL_MKEY_MASK_MKEY		= 1 << 13,
 	MLX5_WQE_UMR_CTRL_MKEY_MASK_QPN			= 1 << 14,
 	MLX5_WQE_UMR_CTRL_MKEY_MASK_ACCESS_LOCAL_WRITE	= 1 << 18,
@@ -966,7 +1055,10 @@ struct mlx5_wqe_umr_ctrl_seg {
 	uint8_t		flags;
 	uint8_t		rsvd0[3];
 	__be16		klm_octowords;
-	__be16		translation_offset;
+	union {
+		__be16	translation_offset;
+		__be16	bsf_octowords;
+	};
 	__be64		mkey_mask;
 	uint8_t		rsvd1[32];
 };

@@ -5807,8 +5807,10 @@ struct mlx5dv_mkey *mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_a
 	DEVX_SET(mkc, mkc, lr, 1);
 	DEVX_SET(mkc, mkc, qpn, 0xffffff);
 	DEVX_SET(mkc, mkc, mkey_7_0, 0);
-	if (sig_mkey)
+	if (sig_mkey) {
 		DEVX_SET(mkc, mkc, bsf_en, 1);
+		DEVX_SET(mkc, mkc, bsf_octword_size, sizeof(struct mlx5_bsf) / 16);
+	}
 
 	mkey->devx_obj = mlx5dv_devx_obj_create(pd->context, in, sizeof(in),
 						out, sizeof(out));

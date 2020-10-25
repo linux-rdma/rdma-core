@@ -38,6 +38,7 @@ rdma_man_pages(
   mlx5dv_ts_to_ns.3
   mlx5dv_wr_mkey_configure.3.md
   mlx5dv_wr_post.3.md
+  mlx5dv_wr_set_mkey_sig_block.3.md
   mlx5dv.7
 )
 rdma_alias_man_pages(

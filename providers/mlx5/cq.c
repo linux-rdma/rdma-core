@@ -173,6 +173,7 @@ static inline void handle_good_req(struct ibv_wc *wc, struct mlx5_cqe64 *cqe, st
 		wc->byte_len  = 8;
 		break;
 	case MLX5_OPCODE_UMR:
+	case MLX5_OPCODE_SET_PSV:
 		wc->opcode = wq->wr_data[idx];
 		break;
 	case MLX5_OPCODE_TSO:
@@ -724,6 +725,7 @@ again:
 
 			switch (be32toh(cqe64->sop_drop_qpn) >> 24) {
 			case MLX5_OPCODE_UMR:
+			case MLX5_OPCODE_SET_PSV:
 				cq->umr_opcode = wq->wr_data[idx];
 				break;
 

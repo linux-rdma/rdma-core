@@ -129,7 +129,12 @@ struct mlx5dv_mkey_conf_attr {
 
 *conf_flags*
 
-:	Reserved for future extension, must be 0 now.
+:	Bitwise OR of the following flags:
+
+	**MLX5DV_MKEY_CONF_FLAG_RESET_SIG_ATTR**
+
+	:	Reset the signature attributes of the MKEY. If not set,
+		previously configured signature attributes will be kept.
 
 *comp_mask*
 
@@ -258,6 +263,23 @@ struct mlx5dv_mr_interleaved {
 
 	:	Key of the local Memory Region
 
+## Signature setters
+
+The signature attributes of the MKEY allow adding/modifying/stripping/validating
+integrity fields when transmitting data from memory to network and when
+receiving data from network to memory.
+
+Use the signature setters to set/update the signature attributes of the MKEY. To
+reset the signature attributes without invalidating the MKEY, use the
+**MLX5DV_MKEY_CONF_FLAG_RESET_SIG_ATTR** flag.
+
+**mlx5dv_wr_set_mkey_sig_block**()
+
+:	Set MKEY block signature attributes. If the MKEY is already configured
+	with the signature attributes, the setter overrides the previous value.
+	See dedicated man page for **mlx5dv_wr_set_mkey_sig_block**(3).
+
+
 # EXAMPLES
 
 ## Create QP and MKEY
@@ -348,7 +370,8 @@ A DEVX context should be opened by using **mlx5dv_open_device**(3).
 
 # SEE ALSO
 
-**mlx5dv_create_mkey**(3), **mlx5dv_create_qp**(3)
+**mlx5dv_create_mkey**(3), **mlx5dv_create_qp**(3),
+**mlx5dv_wr_set_mkey_sig_block**(3)
 
 # AUTHORS
 
