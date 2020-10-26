@@ -42,10 +42,12 @@ class SRDResources(TrafficResources):
     def create_qps(self):
         qp_cap = QPCap(max_recv_wr=self.num_msgs, max_send_wr=self.num_msgs, max_recv_sge=1,
                        max_send_sge=1)
+        comp_mask = e.IBV_QP_INIT_ATTR_PD
+        if self.send_ops_flags:
+            comp_mask |= e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
         qp_init_attr_ex = QPInitAttrEx(cap=qp_cap, qp_type=e.IBV_QPT_DRIVER, scq=self.cq,
                                        rcq=self.cq, pd=self.pd, send_ops_flags=self.send_ops_flags,
-                                       comp_mask=e.IBV_QP_INIT_ATTR_PD |
-                                       e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)
+                                       comp_mask=comp_mask)
         efa_init_attr_ex = efa.EfaQPInitAttr()
         efa_init_attr_ex.driver_qp_type = efa_e.EFADV_QP_DRIVER_TYPE_SRD
         try:

@@ -414,6 +414,8 @@ def post_send(agr_obj, send_wr, qp_idx=0, ah=None):
     qp_type = agr_obj.qp.qp_type
     if qp_type == e.IBV_QPT_UD:
         send_wr.set_wr_ud(ah, agr_obj.rqps_num[qp_idx], agr_obj.UD_QKEY)
+    if isinstance(agr_obj, SRDResources):
+        send_wr.set_wr_ud(ah, agr_obj.rqps_num[qp_idx], agr_obj.SRD_QKEY)
     agr_obj.qps[qp_idx].post_send(send_wr, None)
 
 

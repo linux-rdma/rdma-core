@@ -17,7 +17,7 @@ class QPSRDTestCase(RDMATestCase):
         self.server = None
         self.client = None
 
-    def create_players(self, send_ops_flags, qp_count=8):
+    def create_players(self, send_ops_flags=0, qp_count=8):
         try:
             self.client = SRDResources(self.dev_name, self.ib_port, self.gid_index, send_ops_flags, qp_count)
             self.server = SRDResources(self.dev_name, self.ib_port, self.gid_index, send_ops_flags, qp_count)
@@ -50,3 +50,8 @@ class QPSRDTestCase(RDMATestCase):
         self.server.mr.write('s' * self.server.msg_size, self.server.msg_size)
         u.rdma_traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port,
                        new_send=True, send_op=send_op)
+
+    def test_qp_ex_srd_old_send(self):
+        self.create_players()
+        u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port,
+                  new_send=False)
