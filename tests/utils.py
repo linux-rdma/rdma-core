@@ -401,7 +401,7 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
     qp.wr_complete()
 
 
-def post_send(agr_obj, send_wr, qp_idx=0, ah=None):
+def post_send(agr_obj, send_wr, qp_idx=0, ah=None, is_imm=False):
     """
     Post a single send WR to the QP. Post_send's second parameter (send bad wr)
     is ignored for simplicity. For UD traffic an address vector is added as
@@ -409,9 +409,13 @@ def post_send(agr_obj, send_wr, qp_idx=0, ah=None):
     :param agr_obj: aggregation object which contains all resources necessary
     :param send_wr: Send work request to post send
     :param qp_idx: QP index to use
+    :param ah: The destination address handle
+    :param is_imm: If True, send with imm_data, relevant for old post send API
     :return: None
     """
     qp_type = agr_obj.qp.qp_type
+    if is_imm:
+        send_wr.imm_data = socket.htonl(IMM_DATA)
     if qp_type == e.IBV_QPT_UD:
         send_wr.set_wr_ud(ah, agr_obj.rqps_num[qp_idx], agr_obj.UD_QKEY)
     if isinstance(agr_obj, SRDResources):
@@ -528,14 +532,14 @@ def validate(received_str, is_server, msg_size):
                 format(exp=expected_str, rcv=received_str))
 
 
-def send(agr_obj, send_object, send_op=None, new_send=False, qp_idx=0, ah=None):
+def send(agr_obj, send_object, send_op=None, new_send=False, qp_idx=0, ah=None, is_imm=False):
     if new_send:
         return post_send_ex(agr_obj, send_object, send_op, qp_idx, ah)
-    return post_send(agr_obj, send_object, qp_idx, ah)
+    return post_send(agr_obj, send_object, qp_idx, ah, is_imm)
 
 
 def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
-            new_send=False):
+            new_send=False, is_imm=False):
     """
     Runs basic traffic between two sides
     :param client: client side, clients base class is BaseTraffic
@@ -546,6 +550,7 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
     :param is_cq_ex: If True, use poll_cq_ex() rather than poll_cq()
     :param send_op: The send_wr opcode.
     :param new_send: If True use new post send API.
+    :param is_imm: If True, send with imm_data, relevant for old post send API.
     :return:
     """
     if is_datagram_qp(client):
@@ -556,7 +561,8 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
         ah_server = None
     poll = poll_cq_ex if is_cq_ex else poll_cq
     if send_op == e.IBV_QP_EX_WITH_SEND_WITH_IMM or \
-       send_op == e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM:
+       send_op == e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM or \
+       is_imm:
         imm_data = IMM_DATA
     else:
         imm_data = None
@@ -569,7 +575,10 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
     read_offset = GRH_SIZE if client.qp.qp_type == e.IBV_QPT_UD else 0
     for _ in range(iters):
         for qp_idx in range(server.qp_count):
-            c_send_wr, c_sg = get_send_elements(client, False)
+            if imm_data:
+                c_send_wr, c_sg = get_send_elements(client, False, opcode=e.IBV_WR_SEND_WITH_IMM)
+            else:
+                c_send_wr, c_sg = get_send_elements(client, False)
             if client.use_mr_prefetch:
                 flags = e._IBV_ADVISE_MR_FLAG_FLUSH
                 if client.use_mr_prefetch == 'async':
@@ -578,13 +587,16 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
                              flags=flags)
             c_send_object = c_sg if send_op else c_send_wr
             send(client, c_send_object, send_op, new_send, qp_idx,
-                 ah_client)
+                 ah_client, is_imm=is_imm)
             poll(client.cq)
             poll(server.cq, data=imm_data)
             post_recv(server, s_recv_wr, qp_idx=qp_idx)
             msg_received = server.mr.read(server.msg_size, read_offset)
             validate(msg_received, True, server.msg_size)
-            s_send_wr, s_sg = get_send_elements(server, True)
+            if imm_data:
+                s_send_wr, s_sg = get_send_elements(server, True, opcode=e.IBV_WR_SEND_WITH_IMM)
+            else:
+                s_send_wr, s_sg = get_send_elements(server, True)
             if server.use_mr_prefetch:
                 flags = e._IBV_ADVISE_MR_FLAG_FLUSH
                 if server.use_mr_prefetch == 'async':
@@ -593,7 +605,7 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
                              flags=flags)
             s_send_object = s_sg if send_op else s_send_wr
             send(server, s_send_object, send_op, new_send, qp_idx,
-                 ah_server)
+                 ah_server, is_imm=is_imm)
             poll(server.cq)
             poll(client.cq, data=imm_data)
             post_recv(client, c_recv_wr, qp_idx=qp_idx)

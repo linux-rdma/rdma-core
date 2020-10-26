@@ -55,3 +55,8 @@ class QPSRDTestCase(RDMATestCase):
         self.create_players()
         u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port,
                   new_send=False)
+
+    def test_qp_ex_srd_old_send_imm(self):
+        self.create_players()
+        u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port,
+                  new_send=False, is_imm=True)
