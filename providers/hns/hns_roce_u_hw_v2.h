@@ -179,6 +179,7 @@ struct hns_roce_v2_cqe {
 	__le32	smac;
 	__le32	byte_28;
 	__le32	byte_32;
+	__le32	rsv[8];
 };
 
 #define CQE_BYTE_4_OPCODE_S 0
