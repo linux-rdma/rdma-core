@@ -1334,24 +1334,13 @@ static void mlx5_uninit_context(struct mlx5_context *context)
 }
 
 static struct mlx5_context *mlx5_init_context(struct ibv_device *ibdev,
-						int cmd_fd,
-						void *private_data)
+						int cmd_fd)
 {
-	struct mlx5dv_context_attr *ctx_attr = private_data;
 	struct mlx5_device *mdev = to_mdev(ibdev);
 	struct mlx5_context *context;
 	int low_lat_uuars;
 	int tot_uuars;
 	int ret;
-
-	if (ctx_attr && ctx_attr->comp_mask) {
-		errno = EINVAL;
-		return NULL;
-	}
-
-	ret = get_uar_info(mdev, &tot_uuars, &low_lat_uuars);
-	if (ret)
-		return NULL;
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
 					       RDMA_DRIVER_MLX5);
@@ -1365,6 +1354,12 @@ static struct mlx5_context *mlx5_init_context(struct ibv_device *ibdev,
 		strcpy(context->hostname, "host_unknown");
 
 	mlx5_single_threaded = single_threaded_app();
+
+	ret = get_uar_info(mdev, &tot_uuars, &low_lat_uuars);
+	if (ret) {
+		mlx5_uninit_context(context);
+		return NULL;
+	}
 	context->tot_uuars = tot_uuars;
 	context->low_lat_uuars = low_lat_uuars;
 
@@ -1569,9 +1564,14 @@ static struct verbs_context *mlx5_alloc_context(struct ibv_device *ibdev,
 	bool				always_devx = false;
 	int ret;
 
-	context = mlx5_init_context(ibdev, cmd_fd, NULL);
+	context = mlx5_init_context(ibdev, cmd_fd);
 	if (!context)
 		return NULL;
+
+	if (ctx_attr && ctx_attr->comp_mask) {
+		errno = EINVAL;
+		goto err;
+	}
 
 	req.total_num_bfregs = context->tot_uuars;
 	req.num_low_latency_bfregs = context->low_lat_uuars;
@@ -1627,7 +1627,7 @@ static struct verbs_context *mlx5_import_context(struct ibv_device *ibdev,
 	struct mlx5_context *mctx;
 	int ret;
 
-	mctx = mlx5_init_context(ibdev, cmd_fd, NULL);
+	mctx = mlx5_init_context(ibdev, cmd_fd);
 	if (!mctx)
 		return NULL;
 
