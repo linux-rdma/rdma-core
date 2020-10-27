@@ -7,12 +7,13 @@ import logging
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError
 cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
 cimport pyverbs.providers.mlx5.libmlx5 as dv
+from pyverbs.qp cimport QPInitAttrEx, QPEx
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs_enums as e
-from pyverbs.qp cimport QPInitAttrEx
 from pyverbs.cq cimport CqInitAttrEx
 cimport pyverbs.libibverbs as v
+from pyverbs.addr cimport AH
 from pyverbs.pd cimport PD
 
 
@@ -308,7 +309,7 @@ cdef class Mlx5DVQPInitAttr(PyverbsObject):
         self.attr.dc_init_attr.dct_access_key = val
 
 
-cdef class Mlx5QP(QP):
+cdef class Mlx5QP(QPEx):
     def __init__(self, Mlx5Context context, QPInitAttrEx init_attr,
                  Mlx5DVQPInitAttr dv_init_attr):
         """
@@ -355,6 +356,16 @@ cdef class Mlx5QP(QP):
         if self.dc_type == 0:
             return super()._get_comp_mask(dst)
         return masks[self.dc_type][dst] | e.IBV_QP_STATE
+
+    def wr_set_dc_addr(self, AH ah, remote_dctn, remote_dc_key):
+        """
+        Attach a DC info to the last work request.
+        :param ah: Address Handle to the requested DCT.
+        :param remote_dctn: The remote DCT number.
+        :param remote_dc_key: The remote DC key.
+        """
+        dv.mlx5dv_wr_set_dc_addr(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                 ah.ah, remote_dctn, remote_dc_key)
 
     @staticmethod
     def query_lag_port(QP qp):
