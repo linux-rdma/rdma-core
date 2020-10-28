@@ -609,6 +609,7 @@ struct dr_devx_vport_cap {
 };
 
 struct dr_devx_roce_cap {
+	bool roce_en;
 	bool fl_rc_qp_when_roce_enabled;
 };
 
@@ -1176,6 +1177,7 @@ struct dr_send_ring {
 int dr_send_ring_alloc(struct mlx5dv_dr_domain *dmn);
 void dr_send_ring_free(struct dr_send_ring *send_ring);
 int dr_send_ring_force_drain(struct mlx5dv_dr_domain *dmn);
+bool dr_send_allow_fl(struct dr_devx_caps *caps);
 int dr_send_postsend_ste(struct mlx5dv_dr_domain *dmn, struct dr_ste *ste,
 			 uint8_t *data, uint16_t size, uint16_t offset);
 int dr_send_postsend_htbl(struct mlx5dv_dr_domain *dmn, struct dr_ste_htbl *htbl,

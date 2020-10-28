@@ -49,6 +49,7 @@ enum {
 	MLX5_CMD_OP_RTS2RTS_QP = 0x505,
 	MLX5_CMD_OP_QUERY_QP = 0x50b,
 	MLX5_CMD_OP_QUERY_ESW_VPORT_CONTEXT = 0x752,
+	MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT = 0x754,
 	MLX5_CMD_OP_QUERY_ROCE_ADDRESS = 0x760,
 	MLX5_CMD_OP_QUERY_LAG = 0x842,
 	MLX5_CMD_OP_CREATE_TIR = 0x900,
@@ -2462,6 +2463,34 @@ struct mlx5_ifc_query_esw_vport_context_in_bits {
 	u8         vport_number[0x10];
 
 	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_nic_vport_context_bits {
+	u8         reserved_at_0[0x1f];
+	u8         roce_en[0x1];
+
+	u8         reserved_at_20[0x7e0];
+};
+
+struct mlx5_ifc_query_nic_vport_context_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x40];
+
+	struct mlx5_ifc_nic_vport_context_bits nic_vport_context;
+};
+
+struct mlx5_ifc_query_nic_vport_context_in_bits {
+	u8         opcode[0x10];
+	u8         reserved_at_10[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         reserved_at_40[0x40];
 };
 
 enum {

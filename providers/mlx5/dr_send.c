@@ -832,6 +832,12 @@ int dr_send_postsend_action(struct mlx5dv_dr_domain *dmn,
 	return ret;
 }
 
+bool dr_send_allow_fl(struct dr_devx_caps *caps)
+{
+	return (caps->roce_caps.roce_en &&
+		caps->roce_caps.fl_rc_qp_when_roce_enabled);
+}
+
 static int dr_prepare_qp_to_rts(struct mlx5dv_dr_domain *dmn)
 {
 	struct dr_devx_qp_rts_attr rts_attr = {};
@@ -856,7 +862,7 @@ static int dr_prepare_qp_to_rts(struct mlx5dv_dr_domain *dmn)
 	rtr_attr.port_num	= port;
 
 	/* Enable force-loopback on the QP */
-	if (dmn->info.caps.roce_caps.fl_rc_qp_when_roce_enabled) {
+	if (dr_send_allow_fl(&dmn->info.caps)) {
 		rtr_attr.fl = true;
 	} else {
 		ret = dr_devx_query_gid(dmn->ctx, port, gid_index, &rtr_attr.dgid_attr);
