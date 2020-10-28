@@ -123,7 +123,7 @@ static struct dr_ste *dr_rule_create_collision_entry(struct mlx5dv_dr_matcher *m
 	return ste;
 
 free_tbl:
-	dr_ste_free(ste, matcher, nic_matcher);
+	dr_htbl_put(ste->htbl);
 	return NULL;
 }
 
@@ -223,7 +223,7 @@ dr_rule_rehash_handle_collision(struct mlx5dv_dr_matcher *matcher,
 	return new_ste;
 
 err_exit:
-	dr_ste_free(new_ste, matcher, nic_matcher);
+	dr_htbl_put(new_ste->htbl);
 	return NULL;
 }
 
@@ -555,7 +555,8 @@ static struct dr_ste *dr_rule_handle_collision(struct mlx5dv_dr_matcher *matcher
 	return new_ste;
 
 err_exit:
-	dr_ste_free(new_ste, matcher, nic_matcher);
+	dr_htbl_put(new_ste->htbl);
+
 free_send_info:
 	free(ste_info);
 	return NULL;
@@ -916,8 +917,10 @@ static bool dr_rule_verify(struct mlx5dv_dr_matcher *matcher,
 	size_t value_size = value->match_sz;
 	uint32_t s_idx, e_idx;
 
-	if (!value_size ||
-	    (value_size > DEVX_ST_SZ_BYTES(dr_match_param) ||
+	if (!value_size)
+		return true;
+
+	if ((value_size > DEVX_ST_SZ_BYTES(dr_match_param) ||
 	     (value_size % sizeof(uint32_t)))) {
 		dr_dbg(dmn, "Rule parameters length is incorrect\n");
 		errno = EINVAL;
