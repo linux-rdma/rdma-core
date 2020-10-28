@@ -315,9 +315,6 @@ int mlx4_rereg_mr(struct verbs_mr *vmr,
 	struct ibv_rereg_mr cmd;
 	struct ib_uverbs_rereg_mr_resp resp;
 
-	if (flags & IBV_REREG_MR_KEEP_VALID)
-		return ENOTSUP;
-
 	return ibv_cmd_rereg_mr(vmr, flags, addr, length,
 				(uintptr_t)addr,
 				access, pd,

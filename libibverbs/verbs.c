@@ -295,39 +295,15 @@ LATEST_SYMVER_FUNC(ibv_dealloc_pd, 1_1, "IBVERBS_1.1",
 	return get_ops(pd->context)->dealloc_pd(pd);
 }
 
-#undef ibv_reg_mr
-LATEST_SYMVER_FUNC(ibv_reg_mr, 1_1, "IBVERBS_1.1",
-		   struct ibv_mr *,
-		   struct ibv_pd *pd, void *addr,
-		   size_t length, int access)
+struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
+				uint64_t iova, unsigned int access)
 {
-	struct ibv_mr *mr;
+	struct verbs_device *device = verbs_get_device(pd->context->device);
 	bool odp_mr = access & IBV_ACCESS_ON_DEMAND;
-
-	if (!odp_mr && ibv_dontfork_range(addr, length))
-		return NULL;
-
-	mr = get_ops(pd->context)->reg_mr(pd, addr, length, (uintptr_t) addr,
-					  access);
-	if (mr) {
-		mr->context = pd->context;
-		mr->pd      = pd;
-		mr->addr    = addr;
-		mr->length  = length;
-	} else {
-		if (!odp_mr)
-			ibv_dofork_range(addr, length);
-	}
-
-	return mr;
-}
-
-#undef ibv_reg_mr_iova
-struct ibv_mr *ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length,
-			       uint64_t iova, int access)
-{
 	struct ibv_mr *mr;
-	bool odp_mr = access & IBV_ACCESS_ON_DEMAND;
+
+	if (!(device->core_support & IB_UVERBS_CORE_SUPPORT_OPTIONAL_MR_ACCESS))
+		access &= ~IBV_ACCESS_OPTIONAL_RANGE;
 
 	if (!odp_mr && ibv_dontfork_range(addr, length))
 		return NULL;
@@ -346,17 +322,21 @@ struct ibv_mr *ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length,
 	return mr;
 }
 
-struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
-				uint64_t iova, unsigned int access)
+#undef ibv_reg_mr
+LATEST_SYMVER_FUNC(ibv_reg_mr, 1_1, "IBVERBS_1.1",
+		   struct ibv_mr *,
+		   struct ibv_pd *pd, void *addr,
+		   size_t length, int access)
 {
-	struct verbs_device *device = verbs_get_device(pd->context->device);
-
-	if (!(device->core_support & IB_UVERBS_CORE_SUPPORT_OPTIONAL_MR_ACCESS))
-		access &= ~IBV_ACCESS_OPTIONAL_RANGE;
-
-	return ibv_reg_mr_iova(pd, addr, length, iova, access);
+	return ibv_reg_mr_iova2(pd, addr, length, (uintptr_t)addr, access);
 }
 
+#undef ibv_reg_mr_iova
+struct ibv_mr *ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length,
+			       uint64_t iova, int access)
+{
+	return ibv_reg_mr_iova2(pd, addr, length, iova, access);
+}
 
 struct ibv_pd *ibv_import_pd(struct ibv_context *context,
 			     uint32_t pd_handle)
