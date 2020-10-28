@@ -66,6 +66,26 @@ int dr_devx_query_esw_vport_context(struct ibv_context *ctx,
 	return 0;
 }
 
+static int dr_devx_query_nic_vport_context(struct ibv_context *ctx,
+					   bool *roce_en)
+{
+	uint32_t out[DEVX_ST_SZ_DW(query_nic_vport_context_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(query_nic_vport_context_in)] = {};
+	int err;
+
+	DEVX_SET(query_nic_vport_context_in, in, opcode,
+		 MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT);
+	err = mlx5dv_devx_general_cmd(ctx, in, sizeof(in), out, sizeof(out));
+	if (err) {
+		dr_dbg_ctx(ctx, "Query nic vport context failed %d\n", err);
+		return err;
+	}
+
+	*roce_en = DEVX_GET(query_nic_vport_context_out, out,
+			    nic_vport_context.roce_en);
+	return 0;
+}
+
 int dr_devx_query_gvmi(struct ibv_context *ctx, bool other_vport,
 		       uint16_t vport_number, uint16_t *gvmi)
 {
@@ -225,6 +245,10 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 
 	/* RoCE caps */
 	if (roce) {
+		err = dr_devx_query_nic_vport_context(ctx, &caps->roce_caps.roce_en);
+		if (err)
+			return err;
+
 		DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
 		DEVX_SET(query_hca_cap_in, in, op_mod,
 			 MLX5_SET_HCA_CAP_OP_MOD_ROCE |
