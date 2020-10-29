@@ -356,8 +356,8 @@ static int query_sysfs_gid_entry(struct ibv_context *context, uint32_t port_num,
 			} else if (link_layer == IBV_LINK_LAYER_ETHERNET) {
 				entry->gid_type = IBV_GID_TYPE_ROCE_V1;
 			} else {
-				ret = EINVAL;
-				goto out;
+				/* Unspecified link layer is IB by default */
+				entry->gid_type = IBV_GID_TYPE_IB;
 			}
 		} else {
 			entry->gid_type = IBV_GID_TYPE_ROCE_V2;
