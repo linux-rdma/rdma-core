@@ -267,7 +267,7 @@ class CMAsyncConnection(CMConnection):
 
     def establish_connection(self):
         """
-        Establish RMDACM connection between two Async CMIDs.
+        Establish RDMACM connection between two Async CMIDs.
         """
         if self.cm_res.passive:
             self.cm_res.cmid.bind_addr(self.cm_res.ai)
@@ -378,7 +378,7 @@ class CMSyncConnection(CMConnection):
 
     def establish_connection(self):
         """
-        Establish RMDACM connection between two Sync CMIDs.
+        Establish RDMACM connection between two Sync CMIDs.
         """
         if self.cm_res.passive:
             self.cm_res.cmid.listen()

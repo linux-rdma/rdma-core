@@ -165,7 +165,7 @@ stages:
 
           - task: PublishPipelineArtifact@0
             inputs:
-              # Contains a rdma-core-XX.tar.gz file
+              # Contains an rdma-core-XX.tar.gz file
               artifactName: source_tar
               targetPath: artifacts
 

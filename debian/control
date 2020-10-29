@@ -87,7 +87,7 @@ Description: User space provider drivers for libibverbs
  hardware access from userspace (kernel bypass), and libibverbs
  supports this when available.
  .
- A RDMA driver consists of a kernel portion and a user space portion.
+ An RDMA driver consists of a kernel portion and a user space portion.
  This package contains the user space verbs drivers:
  .
   - bnxt_re: Broadcom NetXtreme-E RoCE HCAs
