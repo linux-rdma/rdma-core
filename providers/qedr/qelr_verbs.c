@@ -1065,7 +1065,7 @@ int qelr_destroy_qp(struct ibv_qp *ibqp)
 		munmap(qp->rq.db_rec_map, cxt->kernel_page_size);
 
 	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
-		   "destroy cq: successfully destroyed %p\n", qp);
+		   "destroy qp: successfully destroyed %p\n", qp);
 
 	free(qp);
 
