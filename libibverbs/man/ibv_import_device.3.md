@@ -10,7 +10,7 @@ title: ibv_import_device
 
 # NAME
 
-ibv_import_device - import a device from a given comamnd FD
+ibv_import_device - import a device from a given command FD
 
 # SYNOPSIS
 

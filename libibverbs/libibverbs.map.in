@@ -142,6 +142,12 @@ IBVERBS_1.10 {
 		ibv_unimport_pd;
 } IBVERBS_1.9;
 
+IBVERBS_1.11 {
+	global:
+		_ibv_query_gid_ex;
+		_ibv_query_gid_table;
+} IBVERBS_1.10;
+
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. See the top level CMakeLists.txt for this setting. */
 

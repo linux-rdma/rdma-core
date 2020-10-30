@@ -12,11 +12,12 @@ import os
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.addr import AHAttr, AH, GlobalRoute
+from tests.base import XRCResources, DCT_KEY
 from pyverbs.wr import SGE, SendWR, RecvWR
-from pyverbs.qp import QPCap, QPInitAttrEx
+from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx
+from tests.mlx5_base import Mlx5DcResources
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.mr import MW, MWBindInfo
-from tests.base import XRCResources
 from pyverbs.cq import PollCqAttr
 import pyverbs.device as d
 import pyverbs.enums as e
@@ -239,6 +240,19 @@ def random_qp_init_attr_ex(attr_ex, attr, qpt=None):
     return qia
 
 
+def get_qp_init_attr(cq, attr):
+    """
+    Creates a QPInitAttr object with a QP type of the provided <qpts> array and
+    other random values.
+    :param cq: CQ to be used as send and receive CQ
+    :param attr: Device attributes for capability checks
+    :return: An initialized QPInitAttr object
+    """
+    qp_cap = random_qp_cap(attr)
+    sig = random.randint(0, 1)
+    return QPInitAttr(scq=cq, rcq=cq, cap=qp_cap, sq_sig_all=sig)
+
+
 def wc_status_to_str(status):
     try:
         return \
@@ -321,52 +335,71 @@ def get_global_ah(agr_obj, gid_index, port):
     return AH(agr_obj.pd, attr=ah_attr)
 
 
+def get_global_route(ctx, gid_index=0, port_num=1):
+    """
+    Queries the provided Context's gid <gid_index> and creates a GlobalRoute
+    object with sgid_index <gid_index> and the queried GID as dgid.
+    :param ctx: Context object to query
+    :param gid_index: GID index to query and use. Default: 0, as it's always
+                      valid
+    :param port_num: Number of the port to query. Default: 1
+    :return: GlobalRoute object
+    """
+    gid = ctx.query_gid(port_num, gid_index)
+    gr = GlobalRoute(dgid=gid, sgid_index=gid_index)
+    return gr
+
+
 def xrc_post_send(agr_obj, qp_num, send_object, gid_index, port, send_op=None):
-    agr_obj.qp = agr_obj.sqp_lst[qp_num]
+    agr_obj.qps = agr_obj.sqp_lst
     if send_op:
         post_send_ex(agr_obj, send_object, gid_index, port, send_op)
     else:
         post_send(agr_obj, send_object, gid_index, port)
 
 
-def post_send_ex(agr_obj, send_object, gid_index, port, send_op=None):
-    qp_type = agr_obj.qp.qp_type
-    agr_obj.qp.wr_start()
-    agr_obj.qp.wr_id = 0x123
-    agr_obj.qp.wr_flags = e.IBV_SEND_SIGNALED
+def post_send_ex(agr_obj, send_object, gid_index, port, send_op=None, qp_idx=0):
+    qp = agr_obj.qps[qp_idx]
+    qp_type = qp.qp_type
+    qp.wr_start()
+    qp.wr_id = 0x123
+    qp.wr_flags = e.IBV_SEND_SIGNALED
     if send_op == e.IBV_QP_EX_WITH_SEND:
-        agr_obj.qp.wr_send()
+        qp.wr_send()
     elif send_op == e.IBV_QP_EX_WITH_RDMA_WRITE:
-        agr_obj.qp.wr_rdma_write(agr_obj.rkey, agr_obj.raddr)
+        qp.wr_rdma_write(agr_obj.rkey, agr_obj.raddr)
     elif send_op == e.IBV_QP_EX_WITH_SEND_WITH_IMM:
-        agr_obj.qp.wr_send_imm(IMM_DATA)
+        qp.wr_send_imm(IMM_DATA)
     elif send_op == e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM:
-        agr_obj.qp.wr_rdma_write_imm(agr_obj.rkey, agr_obj.raddr, IMM_DATA)
+        qp.wr_rdma_write_imm(agr_obj.rkey, agr_obj.raddr, IMM_DATA)
     elif send_op == e.IBV_QP_EX_WITH_RDMA_READ:
-        agr_obj.qp.wr_rdma_read(agr_obj.rkey, agr_obj.raddr)
+        qp.wr_rdma_read(agr_obj.rkey, agr_obj.raddr)
     elif send_op == e.IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP:
         # We're checking the returned value (remote's content), so cmp/swp
         # values are of no importance.
-        agr_obj.qp.wr_atomic_cmp_swp(agr_obj.rkey, agr_obj.raddr, 42, 43)
+        qp.wr_atomic_cmp_swp(agr_obj.rkey, agr_obj.raddr, 42, 43)
     elif send_op == e.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD:
-        agr_obj.qp.wr_atomic_fetch_add(agr_obj.rkey, agr_obj.raddr, 1)
+        qp.wr_atomic_fetch_add(agr_obj.rkey, agr_obj.raddr, 1)
     elif send_op == e.IBV_QP_EX_WITH_BIND_MW:
         bind_info = MWBindInfo(agr_obj.mr, agr_obj.mr.buf, agr_obj.mr.rkey,
                                e.IBV_ACCESS_REMOTE_WRITE)
         mw = MW(agr_obj.pd, mw_type=e.IBV_MW_TYPE_2)
         # A new rkey is needed to be set into bind_info, modify rkey
-        agr_obj.qp.wr_bind_mw(mw, agr_obj.mr.rkey + 12, bind_info)
-        agr_obj.qp.wr_send()
+        qp.wr_bind_mw(mw, agr_obj.mr.rkey + 12, bind_info)
+        qp.wr_send()
     if qp_type == e.IBV_QPT_UD:
         ah = get_global_ah(agr_obj, gid_index, port)
-        agr_obj.qp.wr_set_ud_addr(ah, agr_obj.rqpn, agr_obj.UD_QKEY)
+        qp.wr_set_ud_addr(ah, agr_obj.rqps_num[qp_idx], agr_obj.UD_QKEY)
     if qp_type == e.IBV_QPT_XRC_SEND:
-        agr_obj.qp.wr_set_xrc_srqn(agr_obj.remote_srqn)
-    agr_obj.qp.wr_set_sge(send_object)
-    agr_obj.qp.wr_complete()
+        qp.wr_set_xrc_srqn(agr_obj.remote_srqn)
+    if isinstance(agr_obj, Mlx5DcResources):
+        ah = get_global_ah(agr_obj, gid_index, port)
+        qp.wr_set_dc_addr(ah, agr_obj.remote_dct_num, DCT_KEY)
+    qp.wr_set_sge(send_object)
+    qp.wr_complete()
 
 
-def post_send(agr_obj, send_wr, gid_index, port):
+def post_send(agr_obj, send_wr, gid_index, port, qp_idx=0):
     """
     Post a single send WR to the QP. Post_send's second parameter (send bad wr)
     is ignored for simplicity. For UD traffic an address vector is added as
@@ -375,26 +408,28 @@ def post_send(agr_obj, send_wr, gid_index, port):
     :param send_wr: Send work request to post send
     :param gid_index: Local gid index
     :param port: IB port number
+    :param qp_idx: QP index to use
     :return: None
     """
     qp_type = agr_obj.qp.qp_type
     if qp_type == e.IBV_QPT_UD:
         ah = get_global_ah(agr_obj, gid_index, port)
-        send_wr.set_wr_ud(ah, agr_obj.rqpn, agr_obj.UD_QKEY)
-    agr_obj.qp.post_send(send_wr, None)
+        send_wr.set_wr_ud(ah, agr_obj.rqps_num[qp_idx], agr_obj.UD_QKEY)
+    agr_obj.qps[qp_idx].post_send(send_wr, None)
 
 
-def post_recv(qp, recv_wr, num_wqes=1):
+def post_recv(agr_obj, recv_wr, qp_idx=0 ,num_wqes=1):
     """
     Call the QP's post_recv() method <num_wqes> times. Post_recv's second
     parameter (recv bad wr) is ignored for simplicity.
-    :param qp: QP which posts receive work request
     :param recv_wr: Receive work request to post
+    :param qp_idx: QP index which posts receive work request
     :param num_wqes: Number of WQEs to post
     :return: None
     """
+    receive_queue = agr_obj.srq if agr_obj.srq else agr_obj.qps[qp_idx]
     for _ in range(num_wqes):
-        qp.post_recv(recv_wr, None)
+        receive_queue.post_recv(recv_wr, None)
 
 
 def poll_cq(cq, count=1, data=None):
@@ -492,10 +527,10 @@ def validate(received_str, is_server, msg_size):
                 format(exp=expected_str, rcv=received_str))
 
 
-def send(agr_obj, send_object, gid_index, port, send_op=None, new_send=False):
+def send(agr_obj, send_object, gid_index, port, send_op=None, new_send=False, qp_idx=0):
     if new_send:
-        return post_send_ex(agr_obj, send_object, gid_index, port, send_op)
-    return post_send(agr_obj, send_object, gid_index, port)
+        return post_send_ex(agr_obj, send_object, gid_index, port, send_op, qp_idx)
+    return post_send(agr_obj, send_object, gid_index, port, qp_idx)
 
 
 def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
@@ -520,30 +555,43 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
         imm_data = None
     s_recv_wr = get_recv_wr(server)
     c_recv_wr = get_recv_wr(client)
-    post_recv(client.qp, c_recv_wr, client.num_msgs)
-    post_recv(server.qp, s_recv_wr, server.num_msgs)
+    for qp_idx in range(server.qp_count):
+        # prepare the receive queue with RecvWR
+        post_recv(client, c_recv_wr, qp_idx=qp_idx)
+        post_recv(server, s_recv_wr, qp_idx=qp_idx)
     read_offset = GRH_SIZE if client.qp.qp_type == e.IBV_QPT_UD else 0
     for _ in range(iters):
-        c_send_wr, c_sg = get_send_elements(client, False)
-        if client.use_mr_prefetch:
-            prefetch_mrs(client, [c_sg])
-        c_send_object = c_sg if send_op else c_send_wr
-        send(client, c_send_object, gid_idx, port, send_op, new_send)
-        poll(client.cq)
-        poll(server.cq, data=imm_data)
-        post_recv(server.qp, s_recv_wr)
-        msg_received = server.mr.read(server.msg_size, read_offset)
-        validate(msg_received, True, server.msg_size)
-        s_send_wr, s_sg = get_send_elements(server, True)
-        if server.use_mr_prefetch:
-            prefetch_mrs(server, [s_sg])
-        s_send_object = s_sg if send_op else s_send_wr
-        send(server, s_send_object, gid_idx, port, send_op, new_send)
-        poll(server.cq)
-        poll(client.cq, data=imm_data)
-        post_recv(client.qp, c_recv_wr)
-        msg_received = client.mr.read(client.msg_size, read_offset)
-        validate(msg_received, False, client.msg_size)
+        for qp_idx in range(server.qp_count):
+            c_send_wr, c_sg = get_send_elements(client, False)
+            if client.use_mr_prefetch:
+                flags = e._IBV_ADVISE_MR_FLAG_FLUSH
+                if client.use_mr_prefetch == 'async':
+                    flags = 0
+                prefetch_mrs(client, [c_sg], advice=client.prefetch_advice,
+                             flags=flags)
+            c_send_object = c_sg if send_op else c_send_wr
+            send(client, c_send_object, gid_idx, port, send_op, new_send,
+                 qp_idx)
+            poll(client.cq)
+            poll(server.cq, data=imm_data)
+            post_recv(server, s_recv_wr, qp_idx=qp_idx)
+            msg_received = server.mr.read(server.msg_size, read_offset)
+            validate(msg_received, True, server.msg_size)
+            s_send_wr, s_sg = get_send_elements(server, True)
+            if server.use_mr_prefetch:
+                flags = e._IBV_ADVISE_MR_FLAG_FLUSH
+                if server.use_mr_prefetch == 'async':
+                    flags = 0
+                prefetch_mrs(server, [s_sg], advice=server.prefetch_advice,
+                             flags=flags)
+            s_send_object = s_sg if send_op else s_send_wr
+            send(server, s_send_object, gid_idx, port, send_op, new_send,
+                 qp_idx)
+            poll(server.cq)
+            poll(client.cq, data=imm_data)
+            post_recv(client, c_recv_wr, qp_idx=qp_idx)
+            msg_received = client.mr.read(client.msg_size, read_offset)
+            validate(msg_received, False, client.msg_size)
 
 
 def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
@@ -611,8 +659,8 @@ def xrc_traffic(client, server, is_cq_ex=False, send_op=None):
     client.remote_srqn = server.srq.get_srq_num()
     s_recv_wr = get_recv_wr(server)
     c_recv_wr = get_recv_wr(client)
-    post_recv(client.srq, c_recv_wr, client.qp_count*client.num_msgs)
-    post_recv(server.srq, s_recv_wr, server.qp_count*server.num_msgs)
+    post_recv(client, c_recv_wr, num_wqes=client.qp_count*client.num_msgs)
+    post_recv(server, s_recv_wr, num_wqes=server.qp_count*server.num_msgs)
     # Using the new post send API, we need the SGE, not the SendWR
     send_element_idx = 1 if send_op else 0
     for _ in range(client.num_msgs):
@@ -652,6 +700,21 @@ def requires_root_on_eth(port_num=1):
         def inner(instance):
             if not (is_eth(instance.ctx, port_num) and is_root()):
                 raise unittest.SkipTest('Must be run by root on Ethernet link layer')
+            return func(instance)
+        return inner
+    return outer
+
+
+def requires_mcast_support():
+    """
+    Check if the device support multicast
+    return: True if multicast is supported
+    """
+    def outer(func):
+        def inner(instance):
+            ctx = d.Context(name=instance.dev_name)
+            if ctx.query_device().max_mcast_grp == 0:
+                raise unittest.SkipTest('Multicast is not supported on this device')
             return func(instance)
         return inner
     return outer
@@ -707,17 +770,22 @@ def huge_pages_supported():
             raise unittest.SkipTest('There are no huge pages of size 2M allocated')
 
 
-def prefetch_mrs(agr_obj, sg_list, advise=e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE,
+def prefetch_mrs(agr_obj, sg_list, advice=e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE,
                  flags=e._IBV_ADVISE_MR_FLAG_FLUSH):
     """
     Pre-fetch a range of an on-demand paging MR.
     :param agr_obj: Aggregation object which contains all resources necessary
     :param sg_list: SGE list
-    :param advise: The requested advise value
-    :param flags: Describes the properties of the advise operation
+    :param advice: The requested advice value
+    :param flags: Describes the properties of the advice operation
     :return: None
     """
-    agr_obj.pd.advise_mr(advise, flags, sg_list)
+    try:
+        agr_obj.pd.advise_mr(advice, flags, sg_list)
+    except PyverbsRDMAError as ex:
+        if ex.error_code == errno.EOPNOTSUPP:
+            raise unittest.SkipTest(f'Advise MR with flags ({flags}) and advice ({advice}) is not supported')
+        raise ex
 
 
 def is_eth(ctx, port_num):

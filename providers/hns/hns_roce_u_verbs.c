@@ -275,13 +275,12 @@ static int hns_roce_verify_cq(int *cqe, struct hns_roce_context *context)
 	return 0;
 }
 
-static int hns_roce_alloc_cq_buf(struct hns_roce_device *dev,
-				 struct hns_roce_buf *buf, int nent)
+static int hns_roce_alloc_cq_buf(struct hns_roce_cq *cq, int nent)
 {
-	if (hns_roce_alloc_buf(buf,
-			align(nent * HNS_ROCE_CQE_ENTRY_SIZE, dev->page_size),
-			dev->page_size))
-		return -1;
+	int buf_size = hr_hw_page_align(nent * cq->cqe_size);
+
+	if (hns_roce_alloc_buf(&cq->buf, buf_size, HNS_HW_PAGE_SIZE))
+		return ENOMEM;
 
 	return 0;
 }
@@ -291,12 +290,13 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 				    int comp_vector)
 {
 	struct hns_roce_device *hr_dev = to_hr_dev(context->device);
-	struct hns_roce_create_cq	cmd = {};
-	struct hns_roce_create_cq_resp	resp = {};
-	struct hns_roce_cq		*cq;
-	int				ret;
+	struct hns_roce_context *hr_ctx = to_hr_ctx(context);
+	struct hns_roce_create_cq_resp resp = {};
+	struct hns_roce_create_cq cmd = {};
+	struct hns_roce_cq *cq;
+	int ret;
 
-	if (hns_roce_verify_cq(&cqe, to_hr_ctx(context)))
+	if (hns_roce_verify_cq(&cqe, hr_ctx))
 		return NULL;
 
 	cq = malloc(sizeof(*cq));
@@ -304,6 +304,9 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 		return NULL;
 
 	cq->cons_index = 0;
+
+	cq->cqe_size = hr_ctx->cqe_size;
+	cmd.cqe_size = cq->cqe_size;
 
 	if (pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto err;
@@ -313,7 +316,7 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 	else
 		cqe = align_queue_size(cqe);
 
-	if (hns_roce_alloc_cq_buf(hr_dev, &cq->buf, cqe))
+	if (hns_roce_alloc_cq_buf(cq, cqe))
 		goto err;
 
 	cmd.buf_addr = (uintptr_t) cq->buf.buf;
@@ -565,10 +568,6 @@ static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 	if ((attr->qp_type != IBV_QPT_RC) && (attr->qp_type != IBV_QPT_UD))
 		return EINVAL;
 
-	if ((attr->qp_type == IBV_QPT_RC) &&
-	    (attr->cap.max_inline_data > HNS_ROCE_MAX_INLINE_DATA_LEN))
-		return EINVAL;
-
 	return 0;
 }
 
@@ -751,11 +750,9 @@ static void hns_roce_set_qp_params(struct ibv_pd *pd,
 	qp->sq.max_gs = min(ctx->max_sge, qp->sq.max_gs);
 
 	qp->sq_signal_bits = attr->sq_sig_all ? 0 : 1;
-	qp->max_inline_data = HNS_ROCE_MAX_INLINE_DATA_LEN;
 
 	/* update attr for creating qp */
 	attr->cap.max_send_wr = qp->sq.max_post;
-	attr->cap.max_inline_data = qp->max_inline_data;
 }
 
 static int get_sq_db_addr(struct ibv_pd *pd, struct ibv_qp_init_attr *attr,
@@ -873,6 +870,7 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	}
 	pthread_mutex_unlock(&context->qp_table_mutex);
 
+	qp->max_inline_data = attr->cap.max_inline_data;
 	/* adjust rq maxima to not exceed reported device maxima */
 	attr->cap.max_recv_wr = min(context->max_qp_wr, attr->cap.max_recv_wr);
 	attr->cap.max_recv_sge = min(context->max_sge, attr->cap.max_recv_sge);

@@ -7,6 +7,7 @@ import os
 
 from tests.rdmacm_utils import  CMSyncConnection, CMAsyncConnection
 from pyverbs.pyverbs_error import PyverbsError
+from tests.utils import requires_mcast_support
 from tests.base import RDMATestCase
 import pyverbs.cm_enums as ce
 
@@ -148,11 +149,13 @@ class CMTestCase(RDMATestCase):
     def test_rdmacm_async_traffic(self):
         self.two_nodes_rdmacm_traffic(CMAsyncConnection, self.rdmacm_traffic)
 
+    @requires_mcast_support()
     def test_rdmacm_async_multicast_traffic(self):
         self.two_nodes_rdmacm_traffic(CMAsyncConnection,
                                       self.rdmacm_multicast_traffic,
                                       port_space=ce.RDMA_PS_UDP)
 
+    @requires_mcast_support()
     def test_rdmacm_async_ex_multicast_traffic(self):
         self.two_nodes_rdmacm_traffic(CMAsyncConnection,
                                       self.rdmacm_multicast_traffic,

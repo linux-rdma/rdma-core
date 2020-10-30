@@ -48,6 +48,7 @@
 
 #include <util/compiler.h>
 #include <util/mmio.h>
+#include <util/util.h>
 #include <rdma/ib_user_ioctl_cmds.h>
 #include <rdma/mlx5_user_ioctl_cmds.h>
 #include <infiniband/cmd_write.h>
@@ -685,9 +686,6 @@ int mlx5_rereg_mr(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 {
 	struct ibv_rereg_mr cmd;
 	struct ib_uverbs_rereg_mr_resp resp;
-
-	if (flags & IBV_REREG_MR_KEEP_VALID)
-		return ENOTSUP;
 
 	return ibv_cmd_rereg_mr(vmr, flags, addr, length, (uintptr_t)addr,
 				access, pd, &cmd, sizeof(cmd), &resp,
@@ -2905,8 +2903,8 @@ static void mlx5_ah_set_udp_sport(struct mlx5_ah *ah,
 	if (fl)
 		sport = ibv_flow_label_to_udp_sport(fl);
 	else
-		sport = rand() % (IB_ROCE_UDP_ENCAP_VALID_PORT_MAX + 1
-				  - IB_ROCE_UDP_ENCAP_VALID_PORT_MIN)
+		sport = get_random() % (IB_ROCE_UDP_ENCAP_VALID_PORT_MAX + 1
+					- IB_ROCE_UDP_ENCAP_VALID_PORT_MIN)
 			+ IB_ROCE_UDP_ENCAP_VALID_PORT_MIN;
 
 	ah->av.rlid = htobe16(sport);
@@ -2955,7 +2953,7 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 				       attr->grh.sgid_index, &gid_type))
 			goto err;
 
-		if (gid_type == IBV_GID_TYPE_ROCE_V2)
+		if (gid_type == IBV_GID_TYPE_SYSFS_ROCE_V2)
 			mlx5_ah_set_udp_sport(ah, attr);
 
 		/* Since RoCE packets must contain GRH, this bit is reserved
@@ -4701,6 +4699,9 @@ mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint3
 		return NULL;
 	}
 
+	if (ibv_dontfork_range(addr, size))
+		goto err;
+
 	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ADDR, (intptr_t)addr);
 	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_LEN, size);
 	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ACCESS, access);
@@ -4711,12 +4712,17 @@ mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint3
 
 	ret = execute_ioctl(context, cmd);
 	if (ret)
-		goto err;
+		goto err_umem_reg_cmd;
 
 	umem->handle = read_attr_obj(MLX5_IB_ATTR_DEVX_UMEM_REG_HANDLE, handle);
 	umem->context = context;
+	umem->addr = addr;
+	umem->size = size;
 
 	return &umem->dv_devx_umem;
+
+err_umem_reg_cmd:
+	ibv_dofork_range(addr, size);
 err:
 	free(umem);
 	return NULL;
@@ -4737,6 +4743,7 @@ int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *dv_devx_umem)
 	if (ret)
 		return ret;
 
+	ibv_dofork_range(umem->addr, umem->size);
 	free(umem);
 	return 0;
 }
@@ -4754,6 +4761,14 @@ static void set_devx_obj_info(const void *in, const void *out,
 		obj->type = MLX5_DEVX_FLOW_TABLE;
 		obj->object_id = DEVX_GET(create_flow_table_out, out, table_id);
 		break;
+	case MLX5_CMD_OP_CREATE_FLOW_GROUP:
+		obj->type = MLX5_DEVX_FLOW_GROUP;
+		obj->object_id = DEVX_GET(create_flow_group_out, out, group_id);
+		break;
+	case MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY:
+		obj->type = MLX5_DEVX_FLOW_TABLE_ENTRY;
+		obj->object_id = DEVX_GET(set_fte_in, in, flow_index);
+		break;
 	case MLX5_CMD_OP_CREATE_FLOW_COUNTER:
 		obj->type = MLX5_DEVX_FLOW_COUNTER;
 		obj->object_id = DEVX_GET(alloc_flow_counter_out, out, flow_counter_id);
@@ -4762,6 +4777,8 @@ static void set_devx_obj_info(const void *in, const void *out,
 		obj_type = DEVX_GET(general_obj_in_cmd_hdr, in, obj_type);
 		if (obj_type == MLX5_OBJ_TYPE_FLOW_METER)
 			obj->type = MLX5_DEVX_FLOW_METER;
+		else if (obj_type == MLX5_OBJ_TYPE_FLOW_SAMPLER)
+			obj->type = MLX5_DEVX_FLOW_SAMPLER;
 
 		obj->object_id = DEVX_GET(general_obj_out_cmd_hdr, out, obj_id);
 		break;

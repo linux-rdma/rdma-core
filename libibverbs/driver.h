@@ -72,9 +72,15 @@ enum verbs_qp_mask {
 	VERBS_QP_EX		= 1 << 1,
 };
 
-enum ibv_gid_type {
-	IBV_GID_TYPE_IB_ROCE_V1,
-	IBV_GID_TYPE_ROCE_V2,
+enum ibv_gid_type_sysfs {
+	IBV_GID_TYPE_SYSFS_IB_ROCE_V1,
+	IBV_GID_TYPE_SYSFS_ROCE_V2,
+};
+
+enum verbs_query_gid_attr_mask {
+	VERBS_QUERY_GID_ATTR_GID		= 1 << 0,
+	VERBS_QUERY_GID_ATTR_TYPE		= 1 << 1,
+	VERBS_QUERY_GID_ATTR_NDEV_IFINDEX	= 1 << 2,
 };
 
 enum ibv_mr_type {
@@ -86,6 +92,7 @@ enum ibv_mr_type {
 struct verbs_mr {
 	struct ibv_mr		ibv_mr;
 	enum ibv_mr_type        mr_type;
+	int access;
 };
 
 static inline struct verbs_mr *verbs_get_mr(struct ibv_mr *mr)
@@ -633,6 +640,11 @@ int ibv_cmd_reg_dm_mr(struct ibv_pd *pd, struct verbs_dm *dm,
 		      unsigned int access, struct verbs_mr *vmr,
 		      struct ibv_command_buffer *link);
 
+int __ibv_query_gid_ex(struct ibv_context *context, uint32_t port_num,
+			    uint32_t gid_index, struct ibv_gid_entry *entry,
+			    uint32_t flags, size_t entry_size,
+			    uint32_t fallback_attr_mask);
+
 /*
  * sysfs helper functions
  */
@@ -653,7 +665,7 @@ static inline bool check_comp_mask(uint64_t input, uint64_t supported)
 }
 
 int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
-		       unsigned int index, enum ibv_gid_type *type);
+		       unsigned int index, enum ibv_gid_type_sysfs *type);
 
 static inline int
 ibv_check_alloc_parent_domain(struct ibv_parent_domain_init_attr *attr)

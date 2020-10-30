@@ -221,21 +221,20 @@ LATEST_SYMVER_FUNC(ibv_query_gid, 1_1, "IBVERBS_1.1",
 		   struct ibv_context *context, uint8_t port_num,
 		   int index, union ibv_gid *gid)
 {
-	struct verbs_device *verbs_device = verbs_get_device(context->device);
-	char attr[41];
-	uint16_t val;
-	int i;
+	struct ibv_gid_entry entry = {};
+	int ret;
 
-	if (ibv_read_ibdev_sysfs_file(attr, sizeof(attr), verbs_device->sysfs,
-				      "ports/%d/gids/%d", port_num, index) < 0)
+	ret = __ibv_query_gid_ex(context, port_num, index, &entry, 0,
+				 sizeof(entry), VERBS_QUERY_GID_ATTR_GID);
+	/* Preserve API behavior for empty GID */
+	if (ret == ENODATA) {
+		memset(gid, 0, sizeof(*gid));
+		return 0;
+	}
+	if (ret)
 		return -1;
 
-	for (i = 0; i < 8; ++i) {
-		if (sscanf(attr + i * 5, "%hx", &val) != 1)
-			return -1;
-		gid->raw[i * 2    ] = val >> 8;
-		gid->raw[i * 2 + 1] = val & 0xff;
-	}
+	memcpy(gid, &entry.gid, sizeof(entry.gid));
 
 	return 0;
 }
@@ -296,37 +295,17 @@ LATEST_SYMVER_FUNC(ibv_dealloc_pd, 1_1, "IBVERBS_1.1",
 	return get_ops(pd->context)->dealloc_pd(pd);
 }
 
-#undef ibv_reg_mr
-LATEST_SYMVER_FUNC(ibv_reg_mr, 1_1, "IBVERBS_1.1",
-		   struct ibv_mr *,
-		   struct ibv_pd *pd, void *addr,
-		   size_t length, int access)
+struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
+				uint64_t iova, unsigned int access)
 {
+	struct verbs_device *device = verbs_get_device(pd->context->device);
+	bool odp_mr = access & IBV_ACCESS_ON_DEMAND;
 	struct ibv_mr *mr;
 
-	if (ibv_dontfork_range(addr, length))
-		return NULL;
+	if (!(device->core_support & IB_UVERBS_CORE_SUPPORT_OPTIONAL_MR_ACCESS))
+		access &= ~IBV_ACCESS_OPTIONAL_RANGE;
 
-	mr = get_ops(pd->context)->reg_mr(pd, addr, length, (uintptr_t) addr,
-					  access);
-	if (mr) {
-		mr->context = pd->context;
-		mr->pd      = pd;
-		mr->addr    = addr;
-		mr->length  = length;
-	} else
-		ibv_dofork_range(addr, length);
-
-	return mr;
-}
-
-#undef ibv_reg_mr_iova
-struct ibv_mr *ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length,
-			       uint64_t iova, int access)
-{
-	struct ibv_mr *mr;
-
-	if (ibv_dontfork_range(addr, length))
+	if (!odp_mr && ibv_dontfork_range(addr, length))
 		return NULL;
 
 	mr = get_ops(pd->context)->reg_mr(pd, addr, length, iova, access);
@@ -335,23 +314,29 @@ struct ibv_mr *ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length,
 		mr->pd      = pd;
 		mr->addr    = addr;
 		mr->length  = length;
-	} else
-		ibv_dofork_range(addr, length);
+	} else {
+		if (!odp_mr)
+			ibv_dofork_range(addr, length);
+	}
 
 	return mr;
 }
 
-struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
-				uint64_t iova, unsigned int access)
+#undef ibv_reg_mr
+LATEST_SYMVER_FUNC(ibv_reg_mr, 1_1, "IBVERBS_1.1",
+		   struct ibv_mr *,
+		   struct ibv_pd *pd, void *addr,
+		   size_t length, int access)
 {
-	struct verbs_device *device = verbs_get_device(pd->context->device);
-
-	if (!(device->core_support & IB_UVERBS_CORE_SUPPORT_OPTIONAL_MR_ACCESS))
-		access &= ~IBV_ACCESS_OPTIONAL_RANGE;
-
-	return ibv_reg_mr_iova(pd, addr, length, iova, access);
+	return ibv_reg_mr_iova2(pd, addr, length, (uintptr_t)addr, access);
 }
 
+#undef ibv_reg_mr_iova
+struct ibv_mr *ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length,
+			       uint64_t iova, int access)
+{
+	return ibv_reg_mr_iova2(pd, addr, length, iova, access);
+}
 
 struct ibv_pd *ibv_import_pd(struct ibv_context *context,
 			     uint32_t pd_handle)
@@ -455,9 +440,10 @@ LATEST_SYMVER_FUNC(ibv_dereg_mr, 1_1, "IBVERBS_1.1",
 	void *addr		= mr->addr;
 	size_t length		= mr->length;
 	enum ibv_mr_type type	= verbs_get_mr(mr)->mr_type;
+	int access = verbs_get_mr(mr)->access;
 
 	ret = get_ops(mr->context)->dereg_mr(verbs_get_mr(mr));
-	if (!ret && type == IBV_MR_TYPE_MR)
+	if (!ret && type == IBV_MR_TYPE_MR && !(access & IBV_ACCESS_ON_DEMAND))
 		ibv_dofork_range(addr, length);
 
 	return ret;
@@ -698,72 +684,36 @@ LATEST_SYMVER_FUNC(ibv_create_ah, 1_1, "IBVERBS_1.1",
 	return ah;
 }
 
-/* GID types as appear in sysfs, no change is expected as of ABI
- * compatibility.
- */
-#define V1_TYPE "IB/RoCE v1"
-#define V2_TYPE "RoCE v2"
 int ibv_query_gid_type(struct ibv_context *context, uint8_t port_num,
-		       unsigned int index, enum ibv_gid_type *type)
+		       unsigned int index, enum ibv_gid_type_sysfs *type)
 {
-	struct verbs_device *verbs_device = verbs_get_device(context->device);
-	char buff[11];
+	struct ibv_gid_entry entry = {};
+	int ret;
 
-	/* Reset errno so that we can rely on its value upon any error flow in
-	 * ibv_read_sysfs_file.
-	 */
-	errno = 0;
-	if (ibv_read_ibdev_sysfs_file(buff, sizeof(buff), verbs_device->sysfs,
-				      "ports/%d/gid_attrs/types/%d", port_num,
-				      index) <= 0) {
-		char *dir_path;
-		DIR *dir;
-
-		if (errno == EINVAL) {
-			/* In IB, this file doesn't exist and the kernel sets
-			 * errno to -EINVAL.
-			 */
-			*type = IBV_GID_TYPE_IB_ROCE_V1;
-			return 0;
-		}
-		if (asprintf(&dir_path, "%s/%s/%d/%s/",
-			     verbs_device->sysfs->ibdev_path, "ports", port_num,
-			     "gid_attrs") < 0)
-			return -1;
-		dir = opendir(dir_path);
-		free(dir_path);
-		if (!dir) {
-			if (errno == ENOENT)
-				/* Assuming that if gid_attrs doesn't exist,
-				 * we have an old kernel and all GIDs are
-				 * IB/RoCE v1
-				 */
-				*type = IBV_GID_TYPE_IB_ROCE_V1;
-			else
-				return -1;
-		} else {
-			closedir(dir);
-			errno = EFAULT;
-			return -1;
-		}
-	} else {
-		if (!strcmp(buff, V1_TYPE)) {
-			*type = IBV_GID_TYPE_IB_ROCE_V1;
-		} else if (!strcmp(buff, V2_TYPE)) {
-			*type = IBV_GID_TYPE_ROCE_V2;
-		} else {
-			errno = ENOTSUP;
-			return -1;
-		}
+	ret = __ibv_query_gid_ex(context, port_num, index, &entry, 0,
+				 sizeof(entry), VERBS_QUERY_GID_ATTR_TYPE);
+	/* Preserve API behavior for empty GID */
+	if (ret == ENODATA) {
+		*type = IBV_GID_TYPE_SYSFS_IB_ROCE_V1;
+		return 0;
 	}
+	if (ret)
+		return -1;
+
+	if (entry.gid_type == IBV_GID_TYPE_IB ||
+	    entry.gid_type == IBV_GID_TYPE_ROCE_V1)
+		*type = IBV_GID_TYPE_SYSFS_IB_ROCE_V1;
+	else
+		*type = IBV_GID_TYPE_SYSFS_ROCE_V2;
 
 	return 0;
 }
 
 static int ibv_find_gid_index(struct ibv_context *context, uint8_t port_num,
-			      union ibv_gid *gid, enum ibv_gid_type gid_type)
+			      union ibv_gid *gid,
+			      enum ibv_gid_type_sysfs gid_type)
 {
-	enum ibv_gid_type sgid_type = 0;
+	enum ibv_gid_type_sysfs sgid_type = 0;
 	union ibv_gid sgid;
 	int i = 0, ret;
 
@@ -863,7 +813,7 @@ static inline int set_ah_attr_by_ipv4(struct ibv_context *context,
 
 	map_ipv4_addr_to_ipv6(ip4h->daddr, (struct in6_addr *)&sgid);
 	ret = ibv_find_gid_index(context, port_num, &sgid,
-				 IBV_GID_TYPE_ROCE_V2);
+				 IBV_GID_TYPE_SYSFS_ROCE_V2);
 	if (ret < 0)
 		return ret;
 
@@ -893,9 +843,9 @@ static inline int set_ah_attr_by_ipv6(struct ibv_context *context,
 
 	ah_attr->grh.dgid = grh->sgid;
 	if (grh->next_hdr == IPPROTO_UDP) {
-		sgid_type = IBV_GID_TYPE_ROCE_V2;
+		sgid_type = IBV_GID_TYPE_SYSFS_ROCE_V2;
 	} else if (grh->next_hdr == IB_NEXT_HDR) {
-		sgid_type = IBV_GID_TYPE_IB_ROCE_V1;
+		sgid_type = IBV_GID_TYPE_SYSFS_IB_ROCE_V1;
 	} else {
 		errno = EPROTONOSUPPORT;
 		return -1;

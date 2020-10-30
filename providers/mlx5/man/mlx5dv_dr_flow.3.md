@@ -26,6 +26,8 @@ mlx5dv_dr_action_create_tag - Create tag actions
 
 mlx5dv_dr_action_create_dest_ibv_qp, mlx5dv_dr_action_create_dest_table, mlx5dv_dr_action_create_dest_vport, mlx5dv_dr_action_create_dest_devx_tir - Create packet destination actions
 
+mlx5dv_dr_action_create_dest_array - Create destination array action
+
 mlx5dv_dr_action_create_packet_reformat - Create packet reformat actions
 
 mlx5dv_dr_action_create_modify_header - Create modify header actions
@@ -33,6 +35,8 @@ mlx5dv_dr_action_create_modify_header - Create modify header actions
 mlx5dv_dr_action_create_flow_counter - Create devx flow counter actions
 
 mlx5dv_dr_action_create_flow_meter, mlx5dv_dr_action_modify_flow_meter - Create and modify meter action
+
+mlx5dv_dr_action_create_flow_sampler - Create flow sampler action
 
 mlx5dv_dr_action_destroy - Destroy actions
 
@@ -120,6 +124,14 @@ int mlx5dv_dr_action_modify_flow_meter(struct mlx5dv_dr_action *action,
 				       struct mlx5dv_dr_flow_meter_attr *attr,
 				       __be64 modify_field_select);
 
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_flow_sampler(struct mlx5dv_dr_flow_sampler_attr *attr);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_array(struct mlx5dv_dr_domain *domain,
+				   size_t num_dest,
+				   struct mlx5dv_dr_action_dest_attr *dests[]);
+
 int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
 ```
 
@@ -155,6 +167,8 @@ Default behavior: Forward packet to eSwitch manager vport.
 **MLX5DV_DR_DOMAIN_SYNC_FLAGS_SW**: block until completion of all software queued tasks.
 
 **MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW**: clear the steering HW cache to enforce next packet hits the latest rules, in addition to the SW SYNC handling.
+
+**MLX5DV_DR_DOMAIN_SYNC_FLAGS_MEM**: sync device memory to free cached memory.
 
 
 *mlx5dv_dr_domain_set_reclaim_device_memory()* is used to enable the reclaiming of device memory back to the system when not in use, by default this feature is disabled.
@@ -192,6 +206,10 @@ Action: Destination
 *mlx5dv_dr_action_create_dest_vport* creates a forwarding action to a **vport** on the same **domain**. Valid only on domain type FDB.
 *mlx5dv_dr_action_create_dest_devx_tir* creates a terminating action delivering the packet to a TIR, defined by **devx_obj**. Valid only on domain type NIC_RX.
 
+Action: Array
+*mlx5dv_dr_action_create_dest_array* creates an action which replicates a packet to multiple destinations. **num_dest** defines the number of replication destinations.
+Each **dests** destination array entry can be of different **type**. Use type MLX5DV_DR_ACTION_DEST for direct forwarding to an action destination. Use type MLX5DV_DR_ACTION_DEST_REFORMAT when reformat action should be performed on the packet before it is forwarding to the destination action.
+
 Action: Packet Reformat
 *mlx5dv_dr_action_create_packet_reformat* create a packet reformat context and action in the **domain**. The **reformat_type**, **data_sz** and **data** are defined in *man mlx5dv_create_flow_action_packet_reformat*.
 
@@ -204,6 +222,12 @@ Action: Flow Count
 Action: Meter
 *mlx5dv_dr_action_create_flow_meter* creates a meter action based on the flow meter parameters. The paramertes are according to the device specification.
 *mlx5dv_dr_action_modify_flow_meter* modifies existing flow meter **action** based on **modify_field_select**. **modify_field_select** is according to the device specification.
+
+Action: Sampler
+*mlx5dv_dr_action_create_flow_sampler* creates a sampler action, allowing us to duplicate and sample a portion of traffic.
+Packets steered to the sampler action will be sampled with an approximate probability of 1/sample_ratio provided in **attr**, and sample_actions provided in **attr** will be executed over them.
+All original packets will be steered to default_next_table in **attr**.
+A modify header format SET_ACTION data can be provided in action of **attr**, which can be executed on packets before going to default flow table. On some devices, this is required to set register value.
 
 Action Flags: action **flags** can be set to one of the types of *enum mlx5dv_dr_action_flags*:
 

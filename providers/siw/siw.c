@@ -184,11 +184,6 @@ fail:
 	return NULL;
 }
 
-static int siw_resize_cq(struct ibv_cq *base_cq, int num_cqe)
-{
-	return -EOPNOTSUPP;
-}
-
 static int siw_destroy_cq(struct ibv_cq *base_cq)
 {
 	struct siw_cq *cq = cq_base2siw(base_cq);
@@ -431,16 +426,6 @@ static int siw_destroy_qp(struct ibv_qp *base_qp)
 	free(qp);
 
 	return 0;
-}
-
-static struct ibv_ah *siw_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
-{
-	return NULL;
-}
-
-static int siw_destroy_ah(struct ibv_ah *ah)
-{
-	return -EOPNOTSUPP;
 }
 
 static void siw_async_event(struct ibv_context *ctx,
@@ -832,13 +817,11 @@ static int siw_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
 static const struct verbs_context_ops siw_context_ops = {
 	.alloc_pd = siw_alloc_pd,
 	.async_event = siw_async_event,
-	.create_ah = siw_create_ah,
 	.create_cq = siw_create_cq,
 	.create_qp = siw_create_qp,
 	.create_srq = siw_create_srq,
 	.dealloc_pd = siw_free_pd,
 	.dereg_mr = siw_dereg_mr,
-	.destroy_ah = siw_destroy_ah,
 	.destroy_cq = siw_destroy_cq,
 	.destroy_qp = siw_destroy_qp,
 	.destroy_srq = siw_destroy_srq,
@@ -854,7 +837,6 @@ static const struct verbs_context_ops siw_context_ops = {
 	.query_qp = siw_query_qp,
 	.reg_mr = siw_reg_mr,
 	.req_notify_cq = siw_notify_cq,
-	.resize_cq = siw_resize_cq,
 };
 
 static struct verbs_context *siw_alloc_context(struct ibv_device *base_dev,

@@ -22,6 +22,9 @@
 #include "efadv.h"
 #include "verbs.h"
 
+#define EFA_DEV_CAP(ctx, cap) \
+	((ctx)->device_caps & EFA_QUERY_DEVICE_CAPS_##cap)
+
 static bool is_buf_cleared(void *buf, size_t len)
 {
 	int i;
@@ -142,8 +145,11 @@ int efadv_query_device(struct ibv_context *ibvctx,
 	if (vext_field_avail(typeof(*attr), max_rdma_size, inlen)) {
 		attr->max_rdma_size = ctx->max_rdma_size;
 
-		if (is_rdma_read_cap(ctx))
+		if (EFA_DEV_CAP(ctx, RDMA_READ))
 			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_RDMA_READ;
+
+		if (EFA_DEV_CAP(ctx, RNR_RETRY))
+			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_RNR_RETRY;
 	}
 
 	attr->comp_mask = comp_mask_out;
@@ -1003,7 +1009,7 @@ static int efa_check_qp_attr(struct efa_context *ctx,
 		IBV_QP_EX_WITH_SEND_WITH_IMM;
 	uint64_t supp_srd_send_ops_mask =
 		IBV_QP_EX_WITH_SEND | IBV_QP_EX_WITH_SEND_WITH_IMM |
-		(is_rdma_read_cap(ctx) ? IBV_QP_EX_WITH_RDMA_READ : 0);
+		(EFA_DEV_CAP(ctx, RDMA_READ) ? IBV_QP_EX_WITH_RDMA_READ : 0);
 
 #define EFA_CREATE_QP_SUPP_ATTR_MASK \
 	(IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)

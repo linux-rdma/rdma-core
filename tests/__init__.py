@@ -4,6 +4,8 @@
 import importlib
 import os
 
+from args_parser import parser
+
 # Load every test as a module in the system so that unittest's loader can find it
 def _load_tests():
     res = []
@@ -20,8 +22,23 @@ __test_modules__ = _load_tests()
 # a single test.
 tests = importlib.import_module(".", __name__)
 
+
+def _show_tests_and_exit(loader, standard_tests, pattern):
+    """
+    Prints the full test names that are loaded with the current modules via
+    loadTestsFromModule protocol, without modifying standard_tests.
+    """
+    for mod in __test_modules__:
+        for test in loader.loadTestsFromModule(mod, pattern):
+            for test_case in test:
+                print(test_case.id())
+    return standard_tests
+
+
 def load_tests(loader, standard_tests, pattern):
     """Implement the loadTestsFromModule protocol"""
+    if parser.args['list_tests']:
+        return _show_tests_and_exit(loader, standard_tests, pattern)
     for mod in __test_modules__:
         standard_tests.addTests(loader.loadTestsFromModule(mod, pattern))
     return standard_tests

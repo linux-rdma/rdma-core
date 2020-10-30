@@ -91,4 +91,6 @@ enum ibv_node_type decode_knode_type(unsigned int knode_type);
 
 int find_sysfs_devs_nl(struct list_head *tmp_sysfs_dev_list);
 
+int try_access_device(const struct verbs_sysfs_dev *sysfs_dev);
+
 #endif /* IB_VERBS_H */

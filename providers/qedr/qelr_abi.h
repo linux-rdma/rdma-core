@@ -51,5 +51,9 @@ DECLARE_DRV_CMD(qelr_reg_mr, IB_USER_VERBS_CMD_REG_MR,
 		empty, empty);
 DECLARE_DRV_CMD(qelr_create_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
 		qedr_create_srq_ureq, qedr_create_srq_uresp);
+DECLARE_DRV_CMD(qelr_create_srq_ex, IB_USER_VERBS_CMD_CREATE_XSRQ,
+		qedr_create_srq_ureq, qedr_create_srq_uresp);
+DECLARE_DRV_CMD(qelr_create_qp_ex, IB_USER_VERBS_EX_CMD_CREATE_QP,
+		qedr_create_qp_ureq, qedr_create_qp_uresp);
 
 #endif /* __QELR_ABI_H__ */

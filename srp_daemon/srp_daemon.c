@@ -133,7 +133,7 @@ static int check_process_uniqueness(struct config_t *conf)
 	char path[256];
 	int fd;
 
-	snprintf(path, sizeof(path), SRP_DEAMON_LOCK_PREFIX "_%s_%d",
+	snprintf(path, sizeof(path), SRP_DAEMON_LOCK_PREFIX "_%s_%d",
 		 conf->dev_name, conf->port_num);
 
 	if ((fd = open(path, O_CREAT|O_RDWR,
@@ -142,7 +142,6 @@ static int check_process_uniqueness(struct config_t *conf)
 		return -1;
 	}
 
-	fchmod(fd, S_IRUSR|S_IRGRP|S_IROTH|S_IWUSR|S_IWGRP|S_IWOTH);
 	if (0 != lockf(fd, F_TLOCK, 0)) {
 		pr_err("failed to lock %s (errno: %d). possibly another "
 		       "srp_daemon is locking it\n", path, errno);
@@ -231,7 +230,7 @@ static void usage(const char *argv0)
 	fprintf(stderr, "-R <rescan time>	perform complete Rescan every <rescan time> seconds\n");
 	fprintf(stderr, "-T <retry timeout>	Retries to connect to existing target after Timeout of <retry timeout> seconds\n");
 	fprintf(stderr, "-l <tl_retry timeout>	Transport retry count before failing IO. should be in range [2..7], (default 2)\n");
-	fprintf(stderr, "-f <rules file>	use rules File to set to which target(s) to connect (default: " SRP_DEAMON_CONFIG_FILE ")\n");
+	fprintf(stderr, "-f <rules file>	use rules File to set to which target(s) to connect (default: " SRP_DAEMON_CONFIG_FILE ")\n");
 	fprintf(stderr, "-t <timeout>		Timeout for mad response in milliseconds\n");
 	fprintf(stderr, "-r <retries>		number of send Retries for each mad\n");
 	fprintf(stderr, "-n 			New connection command format - use also initiator extension\n");
@@ -1505,6 +1504,7 @@ static int parse_other_option(struct rule *rule, char *ptr)
 {
 	static const char *const opt[] = {
 		"allow_ext_sg=",
+		"ch_count=",
 		"cmd_sg_entries=",
 		"comp_vector=",
 		"max_cmd_per_lun=",
@@ -1735,7 +1735,7 @@ static int get_config(struct config_t *conf, int argc, char *argv[])
 	conf->retry_timeout 		= 20;
 	conf->add_target_file  		= NULL;
 	conf->print_initiator_ext	= 0;
-	conf->rules_file		= SRP_DEAMON_CONFIG_FILE;
+	conf->rules_file		= SRP_DAEMON_CONFIG_FILE;
 	conf->rules			= NULL;
 	conf->tl_retry_count		= 0;
 

@@ -135,6 +135,13 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 			goto db_free;
 	}
 
+	if (!resp.cqe_size)
+		context->cqe_size = HNS_ROCE_CQE_SIZE;
+	else if (resp.cqe_size <= HNS_ROCE_V3_CQE_SIZE)
+		context->cqe_size = resp.cqe_size;
+	else
+		context->cqe_size = HNS_ROCE_V3_CQE_SIZE;
+
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
 
 	verbs_set_ops(&context->ibv_ctx, &hns_common_ops);

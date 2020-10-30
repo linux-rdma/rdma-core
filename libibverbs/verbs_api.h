@@ -88,6 +88,7 @@
 #define ibv_advise_mr_advice                            ib_uverbs_advise_mr_advice
 #define IBV_ADVISE_MR_ADVICE_PREFETCH                   IB_UVERBS_ADVISE_MR_ADVICE_PREFETCH
 #define IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE             IB_UVERBS_ADVISE_MR_ADVICE_PREFETCH_WRITE
+#define IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT          IB_UVERBS_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT
 
 #define IBV_ADVISE_MR_FLAG_FLUSH                        IB_UVERBS_ADVISE_MR_FLAG_FLUSH
 

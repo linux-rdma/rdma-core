@@ -127,13 +127,6 @@ Ran 14 tests in 0.152s
 
 OK
 ```
-We're using 'parametrize' as it instantiates the TestCase for us.
-'parametrize' can accept arguments as well (device name, IB port, GID index and
-PKey index):
-```
-suite = unittest.TestSuite()
-suite.addTest(RDMATestCase.parametrize(YourTestCase, dev_name='devname'))
-```
 
 ## Writing Tests
 The following section explains how to add a new test, using tests/test_odp.py

@@ -72,7 +72,7 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "31.0")
+set(PACKAGE_VERSION "32.0")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
@@ -574,6 +574,13 @@ if (NOT NL_KIND EQUAL 0)
   set(CMAKE_REQUIRED_FLAGS "${SAFE_CMAKE_REQUIRED_FLAGS}")
 endif()
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WREDUNDANT_DECLS "-Wredundant-decls")
+
+# Support of getrandom() was added to glibc in version 2.25
+CHECK_C_SOURCE_COMPILES("
+ #include <sys/random.h>
+ int main(int argc,const char *argv[]) {char buf[64]; return getrandom(buf, 64, GRND_NONBLOCK);}"
+ HAVE_GLIBC_GETRANDOM)
+RDMA_DoFixup("${HAVE_GLIBC_GETRANDOM}" "sys/random.h")
 
 #-------------------------
 # Build Prep

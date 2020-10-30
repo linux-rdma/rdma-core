@@ -6,6 +6,7 @@ Test module for pyverbs' device module.
 import unittest
 import resource
 import random
+import errno
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from tests.base import PyverbsAPITestCase
@@ -63,6 +64,15 @@ class DeviceTest(PyverbsAPITestCase):
                 attr = ctx.query_device()
                 self.verify_device_attr(attr, dev)
 
+    def test_query_pkey(self):
+        """
+        Test ibv_query_pkey()
+        """
+        for dev in self.get_device_list():
+            with d.Context(name=dev.name.decode()) as ctx:
+                if dev.node_type == e.IBV_NODE_CA:
+                    ctx.query_pkey(port_num=1, index=0)
+
     def test_query_gid(self):
         """
         Test ibv_query_gid()
@@ -70,6 +80,39 @@ class DeviceTest(PyverbsAPITestCase):
         for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
                 ctx.query_gid(port_num=1, index=0)
+
+    def test_query_gid_table(self):
+        """
+        Test ibv_query_gid_table()
+        """
+        devs = self.get_device_list()
+        with d.Context(name=devs[0].name.decode()) as ctx:
+            device_attr = ctx.query_device()
+            max_entries = 0
+            for port_num in range(1, device_attr.phys_port_cnt + 1):
+                port_attr = ctx.query_port(port_num)
+                max_entries += port_attr.gid_tbl_len
+            try:
+                ctx.query_gid_table(max_entries)
+            except PyverbsRDMAError as ex:
+                if ex.error_code in [-errno.EOPNOTSUPP, -errno.EPROTONOSUPPORT]:
+                    raise unittest.SkipTest('ibv_query_gid_table is not'\
+                                            ' supported on this device')
+                raise ex
+
+    def test_query_gid_ex(self):
+        """
+        Test ibv_query_gid_ex()
+        """
+        devs = self.get_device_list()
+        with d.Context(name=devs[0].name.decode()) as ctx:
+            try:
+                ctx.query_gid_ex(port_num=1, gid_index=0)
+            except PyverbsRDMAError as ex:
+                if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                    raise unittest.SkipTest('ibv_query_gid_ex is not'\
+                                            ' supported on this device')
+                raise ex
 
     @staticmethod
     def verify_device_attr(attr, device):
@@ -86,16 +129,16 @@ class DeviceTest(PyverbsAPITestCase):
         assert attr.max_mr_size > PAGE_SIZE
         assert attr.page_size_cap >= PAGE_SIZE
         assert attr.vendor_id != 0
-        assert attr.vendor_part_id != 0
         assert attr.max_qp > 0
         assert attr.max_qp_wr > 0
         assert attr.max_sge > 0
-        assert attr.max_sge_rd > 0
+        assert attr.max_sge_rd >= 0
         assert attr.max_cq > 0
         assert attr.max_cqe > 0
         assert attr.max_mr > 0
         assert attr.max_pd > 0
-        assert attr.max_pkeys > 0
+        if device.node_type == e.IBV_NODE_CA:
+            assert attr.max_pkeys > 0
 
     def test_query_device_ex(self):
         """

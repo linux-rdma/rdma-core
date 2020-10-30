@@ -59,9 +59,11 @@ rdma_alias_man_pages(
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_ibv_qp.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_devx_tir.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_vport.3
+ mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_array.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_flow_counter.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_drop.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_default_miss.3
+ mlx5dv_dr_flow.3 mlx5dv_dr_action_create_flow_sampler.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_flow_meter.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_modify_header.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_packet_reformat.3

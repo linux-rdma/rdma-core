@@ -42,4 +42,5 @@ int set_fd_nonblock(int fd, bool nonblock);
 
 int open_cdev(const char *devname_hint, dev_t cdev);
 
+unsigned int get_random(void);
 #endif

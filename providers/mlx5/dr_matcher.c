@@ -148,8 +148,8 @@ dr_mask_is_vxlan_gpe_set(struct dr_match_misc3 *misc3)
 static bool
 dr_matcher_supp_vxlan_gpe(struct dr_devx_caps *caps)
 {
-	return caps->flex_protocols &
-	       MLX5_FLEX_PARSER_VXLAN_GPE_ENABLED;
+	return (caps->sw_format_ver == MLX5_HW_CONNECTX_6DX) ||
+	       (caps->flex_protocols & MLX5_FLEX_PARSER_VXLAN_GPE_ENABLED);
 }
 
 static bool
@@ -171,8 +171,8 @@ static bool dr_mask_is_tnl_geneve_set(struct dr_match_misc *misc)
 static bool
 dr_matcher_supp_tnl_geneve(struct dr_devx_caps *caps)
 {
-	return caps->flex_protocols &
-	       MLX5_FLEX_PARSER_GENEVE_ENABLED;
+	return (caps->sw_format_ver == MLX5_HW_CONNECTX_6DX) ||
+	       (caps->flex_protocols & MLX5_FLEX_PARSER_GENEVE_ENABLED);
 }
 
 static bool
@@ -202,12 +202,14 @@ static bool dr_mask_is_tnl_gtpu(struct dr_match_param *mask,
 
 static inline int dr_matcher_supp_icmp_v4(struct dr_devx_caps *caps)
 {
-	return caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V4_ENABLED;
+	return (caps->sw_format_ver == MLX5_HW_CONNECTX_6DX) ||
+	       (caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V4_ENABLED);
 }
 
 static inline int dr_matcher_supp_icmp_v6(struct dr_devx_caps *caps)
 {
-	return caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V6_ENABLED;
+	return (caps->sw_format_ver == MLX5_HW_CONNECTX_6DX) ||
+	       (caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V6_ENABLED);
 }
 
 static bool dr_mask_is_icmpv6_set(struct dr_match_misc3 *misc3)
@@ -255,6 +257,7 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 	struct dr_domain_rx_tx *nic_dmn = nic_matcher->nic_tbl->nic_dmn;
 	struct dr_ste_build *sb = nic_matcher->ste_builder;
 	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
+	struct dr_ste_ctx *ste_ctx = dmn->ste_ctx;
 	struct dr_match_param mask = {};
 	bool allow_empty_match = false;
 	bool inner, rx;
@@ -303,81 +306,90 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 		ipv = mask.outer.ip_version;
 
 		if (dr_mask_is_wqe_metadata_set(&mask.misc2))
-			dr_ste_build_general_purpose(&sb[idx++], &mask, inner, rx);
+			dr_ste_build_general_purpose(ste_ctx, &sb[idx++],
+						     &mask, inner, rx);
 
 		if (dr_mask_is_reg_c_0_3_set(&mask.misc2))
-			dr_ste_build_register_0(&sb[idx++], &mask, inner, rx);
+			dr_ste_build_register_0(ste_ctx, &sb[idx++],
+						&mask, inner, rx);
 
 		if (dr_mask_is_reg_c_4_7_set(&mask.misc2))
-			dr_ste_build_register_1(&sb[idx++], &mask, inner, rx);
+			dr_ste_build_register_1(ste_ctx, &sb[idx++],
+						&mask, inner, rx);
 
 		if (dr_mask_is_gvmi_or_qpn_set(&mask.misc) &&
 		    (dmn->type == MLX5DV_DR_DOMAIN_TYPE_FDB ||
 		     dmn->type == MLX5DV_DR_DOMAIN_TYPE_NIC_RX))
-			dr_ste_build_src_gvmi_qpn(&sb[idx++], &mask,
-						  &dmn->info.caps,
+			dr_ste_build_src_gvmi_qpn(ste_ctx, &sb[idx++],
+						  &mask, &dmn->info.caps,
 						  inner, rx);
 
 		if (dr_mask_is_smac_set(&mask.outer) &&
 		    dr_mask_is_dmac_set(&mask.outer))
-			dr_ste_build_eth_l2_src_dst(&sb[idx++], &mask, inner, rx);
+			dr_ste_build_eth_l2_src_dst(ste_ctx, &sb[idx++],
+						    &mask, inner, rx);
 
 		if (dr_mask_is_smac_set(&mask.outer))
-			dr_ste_build_eth_l2_src(&sb[idx++], &mask, inner, rx);
+			dr_ste_build_eth_l2_src(ste_ctx, &sb[idx++],
+						&mask, inner, rx);
 
 		if (DR_MASK_IS_L2_DST(mask.outer, mask.misc, outer))
-			dr_ste_build_eth_l2_dst(&sb[idx++], &mask, inner, rx);
+			dr_ste_build_eth_l2_dst(ste_ctx, &sb[idx++],
+						&mask, inner, rx);
 
 		if (ipv == 4) {
 			if (dr_mask_is_ttl_set(&mask.outer))
-				dr_ste_build_eth_l3_ipv4_misc(&sb[idx++], &mask,
-							      inner, rx);
+				dr_ste_build_eth_l3_ipv4_misc(ste_ctx, &sb[idx++],
+							      &mask, inner, rx);
 
 			if (dr_mask_is_ipv4_5_tuple_set(&mask.outer))
-				dr_ste_build_eth_l3_ipv4_5_tuple(&sb[idx++], &mask,
-								 inner, rx);
+				dr_ste_build_eth_l3_ipv4_5_tuple(ste_ctx, &sb[idx++],
+								 &mask, inner, rx);
 		} else if (ipv == 6) {
 			if (dr_mask_is_dst_addr_set(&mask.outer))
-				dr_ste_build_eth_l3_ipv6_dst(&sb[idx++], &mask,
-							     inner, rx);
+				dr_ste_build_eth_l3_ipv6_dst(ste_ctx, &sb[idx++],
+							     &mask, inner, rx);
 
 			if (dr_mask_is_src_addr_set(&mask.outer))
-				dr_ste_build_eth_l3_ipv6_src(&sb[idx++], &mask,
-							     inner, rx);
+				dr_ste_build_eth_l3_ipv6_src(ste_ctx, &sb[idx++],
+							     &mask, inner, rx);
 
 			if (DR_MASK_IS_ETH_L4_SET(mask.outer, mask.misc, outer))
-				dr_ste_build_eth_ipv6_l3_l4(&sb[idx++], &mask,
-							    inner, rx);
+				dr_ste_build_eth_ipv6_l3_l4(ste_ctx, &sb[idx++],
+							    &mask, inner, rx);
 		}
 
 		if (dr_mask_is_tnl_vxlan_gpe(&mask, dmn))
-			dr_ste_build_tnl_vxlan_gpe(&sb[idx++], &mask,
-						   inner, rx);
+			dr_ste_build_tnl_vxlan_gpe(ste_ctx, &sb[idx++],
+						   &mask, inner, rx);
 		else if (dr_mask_is_tnl_geneve(&mask, dmn))
-			dr_ste_build_tnl_geneve(&sb[idx++], &mask,
-						inner, rx);
+			dr_ste_build_tnl_geneve(ste_ctx, &sb[idx++],
+						&mask, inner, rx);
 		else if (dr_mask_is_tnl_gtpu(&mask, dmn))
-			dr_ste_build_tnl_gtpu(&sb[idx++], &mask,
-					      inner, rx);
+			dr_ste_build_tnl_gtpu(ste_ctx, &sb[idx++],
+					      &mask, inner, rx);
 
 		if (DR_MASK_IS_ETH_L4_MISC_SET(mask.misc3, outer))
-			dr_ste_build_eth_l4_misc(&sb[idx++], &mask, inner, rx);
+			dr_ste_build_eth_l4_misc(ste_ctx, &sb[idx++],
+						 &mask, inner, rx);
 
 		if (DR_MASK_IS_FIRST_MPLS_SET(mask.misc2, outer))
-			dr_ste_build_mpls(&sb[idx++], &mask, inner, rx);
+			dr_ste_build_mpls(ste_ctx, &sb[idx++],
+					  &mask, inner, rx);
 
 		if (DR_MASK_IS_TNL_MPLS_SET(mask.misc2))
-			dr_ste_build_tnl_mpls(&sb[idx++], &mask, inner, rx);
+			dr_ste_build_tnl_mpls(ste_ctx, &sb[idx++],
+					      &mask, inner, rx);
 
 		if (dr_mask_is_icmp(&mask, dmn)) {
-			ret = dr_ste_build_icmp(&sb[idx++],
+			ret = dr_ste_build_icmp(ste_ctx, &sb[idx++],
 						&mask, &dmn->info.caps,
 						inner, rx);
 			if (ret)
 				return ret;
 		}
 		if (dr_mask_is_tnl_gre_set(&mask.misc))
-			dr_ste_build_tnl_gre(&sb[idx++], &mask, inner, rx);
+			dr_ste_build_tnl_gre(ste_ctx, &sb[idx++], &mask, inner, rx);
 	}
 
 	/* Inner */
@@ -389,49 +401,55 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 		ipv = mask.inner.ip_version;
 
 		if (dr_mask_is_eth_l2_tnl_set(&mask.misc))
-			dr_ste_build_eth_l2_tnl(&sb[idx++], &mask, inner, rx);
+			dr_ste_build_eth_l2_tnl(ste_ctx, &sb[idx++], &mask,
+						inner, rx);
 
 		if (dr_mask_is_smac_set(&mask.inner) &&
 		    dr_mask_is_dmac_set(&mask.inner))
-			dr_ste_build_eth_l2_src_dst(&sb[idx++], &mask, inner, rx);
+			dr_ste_build_eth_l2_src_dst(ste_ctx, &sb[idx++],
+						    &mask, inner, rx);
 
 		if (dr_mask_is_smac_set(&mask.inner))
-			dr_ste_build_eth_l2_src(&sb[idx++], &mask, inner, rx);
+			dr_ste_build_eth_l2_src(ste_ctx, &sb[idx++],
+						&mask, inner, rx);
 
 		if (DR_MASK_IS_L2_DST(mask.inner, mask.misc, inner))
-			dr_ste_build_eth_l2_dst(&sb[idx++], &mask, inner, rx);
+			dr_ste_build_eth_l2_dst(ste_ctx, &sb[idx++],
+						&mask, inner, rx);
 
 		if (ipv == 4) {
 			if (dr_mask_is_ttl_set(&mask.inner))
-				dr_ste_build_eth_l3_ipv4_misc(&sb[idx++], &mask,
-							      inner, rx);
+				dr_ste_build_eth_l3_ipv4_misc(ste_ctx, &sb[idx++],
+							      &mask, inner, rx);
 
 			if (dr_mask_is_ipv4_5_tuple_set(&mask.inner))
-				dr_ste_build_eth_l3_ipv4_5_tuple(&sb[idx++], &mask,
-								 inner, rx);
+				dr_ste_build_eth_l3_ipv4_5_tuple(ste_ctx, &sb[idx++],
+								 &mask, inner, rx);
 		} else if (ipv == 6) {
 			if (dr_mask_is_dst_addr_set(&mask.inner))
-				dr_ste_build_eth_l3_ipv6_dst(&sb[idx++], &mask,
-							     inner, rx);
+				dr_ste_build_eth_l3_ipv6_dst(ste_ctx, &sb[idx++],
+							     &mask, inner, rx);
 
 			if (dr_mask_is_src_addr_set(&mask.inner))
-				dr_ste_build_eth_l3_ipv6_src(&sb[idx++], &mask,
-							     inner, rx);
+				dr_ste_build_eth_l3_ipv6_src(ste_ctx, &sb[idx++],
+							     &mask,  inner, rx);
 
 			if (DR_MASK_IS_ETH_L4_SET(mask.inner, mask.misc, inner))
-				dr_ste_build_eth_ipv6_l3_l4(&sb[idx++], &mask,
-							    inner, rx);
+				dr_ste_build_eth_ipv6_l3_l4(ste_ctx, &sb[idx++],
+							    &mask, inner, rx);
 		}
 
 		if (DR_MASK_IS_ETH_L4_MISC_SET(mask.misc3, inner))
-			dr_ste_build_eth_l4_misc(&sb[idx++], &mask, inner, rx);
+			dr_ste_build_eth_l4_misc(ste_ctx, &sb[idx++],
+						 &mask, inner, rx);
 
 		if (DR_MASK_IS_FIRST_MPLS_SET(mask.misc2, inner))
-			dr_ste_build_mpls(&sb[idx++], &mask, inner, rx);
+			dr_ste_build_mpls(ste_ctx, &sb[idx++],
+					  &mask, inner, rx);
 
 		if (DR_MASK_IS_TNL_MPLS_SET(mask.misc2))
-			dr_ste_build_tnl_mpls(&sb[idx++], &mask, inner, rx);
-
+			dr_ste_build_tnl_mpls(ste_ctx, &sb[idx++],
+					      &mask, inner, rx);
 	}
 
 	/* Empty matcher, takes all */

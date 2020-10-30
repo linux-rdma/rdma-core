@@ -396,7 +396,7 @@ static int query_device_ex(struct ibv_context *context,
 	if (attr_size < sizeof(attr->orig_attr))
 		return EOPNOTSUPP;
 
-	memset(&attr->orig_attr, 0, sizeof(attr->orig_attr));
+	memset(attr, 0, attr_size);
 
 	return ibv_query_device(context, &attr->orig_attr);
 }

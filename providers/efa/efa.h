@@ -139,11 +139,6 @@ struct efa_dev {
 	uint32_t pg_sz;
 };
 
-static inline bool is_rdma_read_cap(struct efa_context *ctx)
-{
-	return ctx->device_caps & EFA_QUERY_DEVICE_CAPS_RDMA_READ;
-}
-
 static inline struct efa_dev *to_efa_dev(struct ibv_device *ibvdev)
 {
 	return container_of(ibvdev, struct efa_dev, vdev.device);

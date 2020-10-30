@@ -41,6 +41,7 @@
 #include <util/udma_barrier.h>
 #include <util/util.h>
 #include <infiniband/verbs.h>
+#include <ccan/array_size.h>
 #include <ccan/bitmap.h>
 #include <ccan/container_of.h>
 
@@ -54,7 +55,7 @@
 #define HNS_HW_PAGE_SHIFT 12
 #define HNS_HW_PAGE_SIZE (1 << HNS_HW_PAGE_SHIFT)
 
-#define HNS_ROCE_MAX_INLINE_DATA_LEN	32
+#define HNS_ROCE_MAX_RC_INL_INN_SZ	32
 #define HNS_ROCE_MAX_CQ_NUM		0x10000
 #define HNS_ROCE_MAX_SRQWQE_NUM		0x8000
 #define HNS_ROCE_MAX_SRQSGE_NUM		0x100
@@ -62,7 +63,9 @@
 #define HNS_ROCE_V1_MIN_WQE_NUM		0x20
 #define HNS_ROCE_V2_MIN_WQE_NUM		0x40
 
-#define HNS_ROCE_CQE_ENTRY_SIZE		0x20
+#define HNS_ROCE_CQE_SIZE 0x20
+#define HNS_ROCE_V3_CQE_SIZE 0x40
+
 #define HNS_ROCE_SQWQE_SHIFT		6
 #define HNS_ROCE_SGE_IN_WQE		2
 #define HNS_ROCE_SGE_SIZE		16
@@ -159,6 +162,7 @@ struct hns_roce_context {
 	unsigned int			max_qp_wr;
 	unsigned int			max_sge;
 	int				max_cqe;
+	unsigned int			cqe_size;
 };
 
 struct hns_roce_pd {
@@ -177,6 +181,7 @@ struct hns_roce_cq {
 	unsigned int			*arm_db;
 	int				arm_sn;
 	unsigned long			flags;
+	unsigned int			cqe_size;
 };
 
 struct hns_roce_idx_que {
@@ -257,6 +262,7 @@ struct hns_roce_qp {
 	unsigned int			next_sge;
 	int				port_num;
 	int				sl;
+	enum ibv_mtu			path_mtu;
 
 	struct hns_roce_rinl_buf	rq_rinl_buf;
 	unsigned long			flags;
@@ -271,9 +277,11 @@ struct hns_roce_u_hw {
  * The entries's buffer should be aligned to a multiple of the hardware's
  * minimum page size.
  */
+#define hr_hw_page_align(x) align(x, HNS_HW_PAGE_SIZE)
+
 static inline unsigned int to_hr_hem_entries_size(int count, int buf_shift)
 {
-	return align(count << buf_shift, HNS_HW_PAGE_SIZE);
+	return hr_hw_page_align(count << buf_shift);
 }
 
 static inline struct hns_roce_device *to_hr_dev(struct ibv_device *ibv_dev)

@@ -668,6 +668,9 @@ enum mlx5_devx_obj_type {
 	MLX5_DEVX_QP			= 4,
 	MLX5_DEVX_PKT_REFORMAT_CTX	= 5,
 	MLX5_DEVX_TIR			= 6,
+	MLX5_DEVX_FLOW_GROUP		= 7,
+	MLX5_DEVX_FLOW_TABLE_ENTRY	= 8,
+	MLX5_DEVX_FLOW_SAMPLER		= 9,
 };
 
 struct mlx5dv_devx_obj {
@@ -694,6 +697,8 @@ struct mlx5_devx_umem {
 	struct mlx5dv_devx_umem dv_devx_umem;
 	struct ibv_context *context;
 	uint32_t handle;
+	void *addr;
+	size_t size;
 };
 
 struct mlx5_mkey {

@@ -483,6 +483,13 @@ cdef extern from 'infiniband/verbs.h':
         uint32_t options
         uint32_t comp_mask
 
+    cdef struct ibv_gid_entry:
+        ibv_gid gid
+        uint32_t gid_index
+        uint32_t port_num
+        uint32_t gid_type
+        uint32_t ndev_ifindex
+
     ibv_device **ibv_get_device_list(int *n)
     int ibv_get_device_index(ibv_device *device);
     void ibv_free_device_list(ibv_device **list)
@@ -495,6 +502,8 @@ cdef extern from 'infiniband/verbs.h':
     unsigned long ibv_get_device_guid(ibv_device *device)
     int ibv_query_gid(ibv_context *context, unsigned int port_num,
                       int index, ibv_gid *gid)
+    int ibv_query_pkey(ibv_context *context, unsigned int port_num,
+                       int index, uint16_t *pkey)
     ibv_pd *ibv_alloc_pd(ibv_context *context)
     int ibv_dealloc_pd(ibv_pd *pd)
     ibv_mr *ibv_reg_mr(ibv_pd *pd, void *addr, size_t length, int access)
@@ -611,10 +620,16 @@ cdef extern from 'infiniband/verbs.h':
     void ibv_unimport_mr(ibv_mr *mr)
     ibv_pd *ibv_import_pd(ibv_context *context, uint32_t handle)
     void ibv_unimport_pd(ibv_pd *pd)
+    int ibv_query_gid_ex(ibv_context *context, uint32_t port_num,
+                         uint32_t gid_index, ibv_gid_entry *entry,
+                         uint32_t flags)
+    ssize_t ibv_query_gid_table(ibv_context *context,
+                                ibv_gid_entry *entries, size_t max_entries,
+                                uint32_t flags)
 
 
 cdef extern from 'infiniband/driver.h':
     int ibv_query_gid_type(ibv_context *context, uint8_t port_num,
-                           unsigned int index, ibv_gid_type *type)
+                           unsigned int index, ibv_gid_type_sysfs *type)
     int ibv_set_ece(ibv_qp *qp, ibv_ece *ece)
     int ibv_query_ece(ibv_qp *qp, ibv_ece *ece)

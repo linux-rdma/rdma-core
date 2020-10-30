@@ -4,11 +4,16 @@
 cimport pyverbs.providers.efa.efadv_enums as dve
 cimport pyverbs.providers.efa.libefa as dv
 
-from pyverbs.base import PyverbsRDMAError
+from pyverbs.base import PyverbsRDMAErrno, PyverbsRDMAError
+from pyverbs.pd cimport PD
+from pyverbs.qp cimport QP, QPInitAttr
 
 
 def dev_cap_to_str(flags):
-    l = {dve.EFADV_DEVICE_ATTR_CAPS_RDMA_READ: 'RDMA Read'}
+    l = {
+            dve.EFADV_DEVICE_ATTR_CAPS_RDMA_READ: 'RDMA Read',
+            dve.EFADV_DEVICE_ATTR_CAPS_RNR_RETRY: 'RNR Retry',
+    }
     return bitmask_to_str(flags, l)
 
 
@@ -97,3 +102,49 @@ cdef class EfaDVDeviceAttr(PyverbsObject):
             print_format.format('Inline buffer size', self.dv.inline_buf_size) + \
             print_format.format('Device Capabilities', dev_cap_to_str(self.dv.device_caps)) + \
             print_format.format('Max RDMA Size', self.dv.max_rdma_size)
+
+
+cdef class EfaDVAHAttr(PyverbsObject):
+    """
+    Represents efadv_ah_attr struct
+    """
+    @property
+    def comp_mask(self):
+        return self.ah_attr.comp_mask
+
+    @property
+    def ahn(self):
+        return self.ah_attr.ahn
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return print_format.format('comp_mask', self.ah_attr.comp_mask) + \
+            print_format.format('ahn', self.ah_attr.ahn)
+
+
+cdef class EfaAH(AH):
+    def query_efa_ah(self):
+        """
+        Queries the provider for EFA specific AH attributes.
+        :return: An EfaDVAHAttr containing the attributes.
+        """
+        ah_attr = EfaDVAHAttr()
+        err = dv.efadv_query_ah(self.ah, &ah_attr.ah_attr, sizeof(ah_attr.ah_attr))
+        if err:
+            raise PyverbsRDMAError('Failed to query efa ah', err)
+        return ah_attr
+
+
+cdef class SRDQP(QP):
+    """
+    Initializes an SRD QP according to the user-provided data.
+    :param pd: PD object
+    :param init_attr: QPInitAttr object
+    :return: An initialized SRDQP
+    """
+    def __init__(self, PD pd not None, QPInitAttr init_attr not None):
+        pd.add_ref(self)
+        self.qp = dv.efadv_create_driver_qp(pd.pd, &init_attr.attr, dve.EFADV_QP_DRIVER_TYPE_SRD)
+        if self.qp == NULL:
+            raise PyverbsRDMAErrno('Failed to create SRD QP')
+        super().__init__(pd, init_attr)

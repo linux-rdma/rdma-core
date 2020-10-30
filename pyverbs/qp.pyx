@@ -886,12 +886,33 @@ cdef class ECE(PyverbsCM):
         self.ece.options = options
         self.ece.comp_mask = comp_mask
 
+    @property
+    def vendor_id(self):
+        return self.ece.vendor_id
+    @vendor_id.setter
+    def vendor_id(self, val):
+        self.ece.vendor_id = val
+
+    @property
+    def options(self):
+        return self.ece.options
+    @options.setter
+    def options(self, val):
+        self.ece.options = val
+
+    @property
+    def comp_mask(self):
+        return self.ece.comp_mask
+    @comp_mask.setter
+    def comp_mask(self, val):
+        self.ece.comp_mask = val
+
     def __str__(self):
         print_format = '{:22}: 0x{:<20x}\n'
         return 'ECE:\n' +\
-        print_format.format('Vendor ID', self.ece.vendor_id) +\
-        print_format.format('Options', self.ece.options) +\
-        print_format.format('Comp Mask', self.ece.comp_mask)
+            print_format.format('Vendor ID', self.ece.vendor_id) +\
+            print_format.format('Options', self.ece.options) +\
+            print_format.format('Comp Mask', self.ece.comp_mask)
 
 
 cdef class QP(PyverbsCM):
@@ -951,6 +972,10 @@ cdef class QP(PyverbsCM):
                 self.pd = pd
                 pd.add_ref(self)
                 self.context = None
+        if init_attr.srq is not None:
+            srq = <SRQ>init_attr.srq
+            srq.add_ref(self)
+            self.srq = srq
 
         if qp_attr is not None:
             funcs = {e.IBV_QPT_RC: self.to_init, e.IBV_QPT_UC: self.to_init,
@@ -1235,9 +1260,12 @@ cdef class QPEx(QP):
         :return: An initialized QPEx object
         """
         super().__init__(creator, init_attr, qp_attr)
-        self.qp_ex = v.ibv_qp_to_qp_ex(self.qp)
-        if self.qp_ex == NULL:
-            raise PyverbsRDMAErrno('Failed to create extended QP')
+        if init_attr.comp_mask & v.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS:
+            self.qp_ex = v.ibv_qp_to_qp_ex(self.qp)
+            if self.qp_ex == NULL:
+                raise PyverbsRDMAErrno('Failed to create extended QP')
+        else:
+            self.logger.debug('qp_ex is not accessible since IBV_QP_INIT_ATTR_SEND_OPS_FLAGS was not passed.')
 
     @property
     def comp_mask(self):

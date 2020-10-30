@@ -1441,6 +1441,7 @@ enum mlx5dv_dr_domain_type {
 enum mlx5dv_dr_domain_sync_flags {
 	MLX5DV_DR_DOMAIN_SYNC_FLAGS_SW		= 1 << 0,
 	MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW		= 1 << 1,
+	MLX5DV_DR_DOMAIN_SYNC_FLAGS_MEM		= 1 << 2,
 };
 
 struct mlx5dv_dr_flow_meter_attr {
@@ -1449,6 +1450,14 @@ struct mlx5dv_dr_flow_meter_attr {
 	uint8_t                 reg_c_index;
 	size_t			flow_meter_parameter_sz;
 	void			*flow_meter_parameter;
+};
+
+struct mlx5dv_dr_flow_sampler_attr {
+	uint32_t		sample_ratio;
+	struct mlx5dv_dr_table	*default_next_table;
+	uint32_t		num_sample_actions;
+	struct mlx5dv_dr_action	**sample_actions;
+	__be64			action;
 };
 
 struct mlx5dv_dr_domain *
@@ -1500,6 +1509,29 @@ mlx5dv_dr_action_create_dest_vport(struct mlx5dv_dr_domain *domain,
 struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_dest_devx_tir(struct mlx5dv_devx_obj *devx_obj);
 
+enum mlx5dv_dr_action_dest_type {
+	MLX5DV_DR_ACTION_DEST,
+	MLX5DV_DR_ACTION_DEST_REFORMAT,
+};
+
+struct mlx5dv_dr_action_dest_reformat {
+	struct mlx5dv_dr_action *reformat;
+	struct mlx5dv_dr_action *dest;
+};
+
+struct mlx5dv_dr_action_dest_attr {
+	enum mlx5dv_dr_action_dest_type type;
+	union {
+		struct mlx5dv_dr_action *dest;
+		struct mlx5dv_dr_action_dest_reformat *dest_reformat;
+	};
+};
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_array(struct mlx5dv_dr_domain *domain,
+				   size_t num_dest,
+				   struct mlx5dv_dr_action_dest_attr *dests[]);
+
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_drop(void);
 
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_default_miss(void);
@@ -1528,6 +1560,9 @@ mlx5dv_dr_action_create_flow_meter(struct mlx5dv_dr_flow_meter_attr *attr);
 int mlx5dv_dr_action_modify_flow_meter(struct mlx5dv_dr_action *action,
 				       struct mlx5dv_dr_flow_meter_attr *attr,
 				       __be64 modify_field_select);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_flow_sampler(struct mlx5dv_dr_flow_sampler_attr *attr);
 
 int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
 

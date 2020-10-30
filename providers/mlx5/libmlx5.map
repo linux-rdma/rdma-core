@@ -146,3 +146,9 @@ MLX5_1.15 {
 	global:
 		mlx5dv_dr_action_create_dest_devx_tir;
 } MLX5_1.14;
+
+MLX5_1.16 {
+	global:
+		mlx5dv_dr_action_create_dest_array;
+		mlx5dv_dr_action_create_flow_sampler;
+} MLX5_1.15;
