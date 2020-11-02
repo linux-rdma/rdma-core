@@ -66,8 +66,13 @@ Conflicts: infiniband-diags <= 1.6.7
 # Ninja was introduced in FC23
 BuildRequires: ninja-build
 %define CMAKE_FLAGS -GNinja
+%if 0%{?fedora} >= 33
+%define make_jobs ninja-build -C %{_vpath_builddir} -v %{?_smp_mflags}
+%define cmake_install DESTDIR=%{buildroot} ninja-build -C %{_vpath_builddir} install
+%else
 %define make_jobs ninja-build -v %{?_smp_mflags}
 %define cmake_install DESTDIR=%{buildroot} ninja-build install
+%endif
 %else
 # Fallback to make otherwise
 BuildRequires: make
@@ -346,8 +351,9 @@ rm -f %{buildroot}%{_sysconfdir}/rdma/modules/rdma.conf
 install -D -m0644 redhat/rdma.conf %{buildroot}%{_sysconfdir}/rdma/modules/rdma.conf
 
 # ibacm
-bin/ib_acme -D . -O
-install -D -m0644 ibacm_opts.cfg %{buildroot}%{_sysconfdir}/rdma/
+(if [ -d %{__cmake_builddir} ]; then cd %{__cmake_builddir}; fi
+ ./bin/ib_acme -D . -O &&
+ install -D -m0644 ibacm_opts.cfg %{buildroot}%{_sysconfdir}/rdma/)
 
 # Delete the package's init.d scripts
 rm -rf %{buildroot}/%{_initrddir}/
