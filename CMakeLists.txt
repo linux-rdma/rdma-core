@@ -57,7 +57,7 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "20.6")
+set(PACKAGE_VERSION "20.7")
 # When this is changed the values in these files need changing too:
 #   debian/libibverbs1.symbols
 set(IBVERBS_PABI_VERSION "20")
