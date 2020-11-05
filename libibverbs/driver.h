@@ -190,7 +190,7 @@ enum {
 	VSYSFS_READ_FW_VER = 1 << 2,
 };
 
-/* A rdma device detected in sysfs */
+/* An rdma device detected in sysfs */
 struct verbs_sysfs_dev {
 	struct list_node entry;
 	void *provider_data;

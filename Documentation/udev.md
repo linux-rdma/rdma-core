@@ -26,7 +26,7 @@ This can happen in several spots along the bootup:
    This happens asynchronously in the boot process, systemd does not wait for
    udev to finish loading modules before it continues on.
 
-   This path makes it very likely the system will experience a RDMA 'hot plug'
+   This path makes it very likely the system will experience an RDMA 'hot plug'
    scenario.
 
  - From systemd's fixed module loader systemd-modules-load.service, e.g. from
@@ -41,7 +41,7 @@ This is triggered automatically by udev rules that match the master devices
 and load the protocol module with udev's module loader. This happens
 asynchronously to the rest of the systemd startup.
 
-Once a RDMA device is created by the kernel then udev will cause systemd to
+Once an RDMA device is created by the kernel then udev will cause systemd to
 schedule ULP module loading services (e.g. rdma-load-modules@.service) specific
 to the plugged hardware. If sysinit.target has not yet been passed then these
 loaders will defer sysinit.target until they complete, otherwise this is a hot
