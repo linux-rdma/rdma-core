@@ -336,7 +336,7 @@ install -D -m0644 ibacm_opts.cfg %{buildroot}%{_sysconfdir}/rdma/
 
 # Delete the package's init.d scripts
 rm -rf %{buildroot}/%{_initrddir}/
-rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
+rm -f %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 # infiniband-diags
 %post -n infiniband-diags -p /sbin/ldconfig
