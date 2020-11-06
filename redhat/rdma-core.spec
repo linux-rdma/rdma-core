@@ -344,7 +344,7 @@ install -D -m0644 ibacm_opts.cfg %{buildroot}%{_sysconfdir}/rdma/
 
 # Delete the package's init.d scripts
 rm -rf %{buildroot}/%{_initrddir}/
-rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
+rm -f %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %post -n rdma-core
 # we ship udev rules, so trigger an update.
