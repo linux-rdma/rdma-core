@@ -357,7 +357,7 @@ install -D -m0644 redhat/rdma.conf %{buildroot}%{_sysconfdir}/rdma/modules/rdma.
 
 # Delete the package's init.d scripts
 rm -rf %{buildroot}/%{_initrddir}/
-rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
+rm -f %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %post -n rdma-core
 if [ -x /sbin/udevadm ]; then
