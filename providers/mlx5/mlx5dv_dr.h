@@ -1142,6 +1142,7 @@ struct dr_qp {
 	struct mlx5dv_devx_uar		*uar;
 	struct mlx5dv_devx_umem		*buf_umem;
 	struct mlx5dv_devx_umem		*db_umem;
+	uint8_t nc_uar : 1;
 };
 
 struct dr_cq {

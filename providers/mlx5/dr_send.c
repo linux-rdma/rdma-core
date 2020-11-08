@@ -331,6 +331,8 @@ static struct dr_qp *dr_create_rc_qp(struct ibv_context *ctx,
 		goto err_qp_create;
 
 	dr_qp->uar = attr->uar;
+	dr_qp->nc_uar = container_of(attr->uar, struct mlx5_bf,
+				     devx_uar.dv_devx_uar)->nc_mode;
 	dr_qp->obj = obj;
 
 	return dr_qp;
@@ -391,6 +393,11 @@ static void dr_post_send_db(struct dr_qp *dr_qp, int size, void *ctrl)
 	 */
 	udma_to_device_barrier();
 	dr_qp->db[MLX5_SND_DBR] = htobe32(dr_qp->sq.cur_post & 0xffff);
+	if (dr_qp->nc_uar) {
+		udma_to_device_barrier();
+		mmio_write64_be((uint8_t *)dr_qp->uar->reg_addr, *(__be64 *)ctrl);
+		return;
+	}
 
 	/* Make sure that the doorbell write happens before the memcpy
 	 * to WC memory below
