@@ -2133,6 +2133,11 @@ dr_action_convert_to_fte_dest(struct mlx5dv_dr_domain *dmn,
 		dest_info->counter_id =
 			dest->ctr.devx_obj->object_id + dest->ctr.offset;
 		break;
+	case DR_ACTION_TYP_FT:
+		fte_attr->action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
+		dest_info->type = MLX5_FLOW_DEST_TYPE_FT;
+		dest_info->ft_id = dest->dest_tbl->devx_obj->object_id;
+		break;
 	default:
 		goto err_exit;
 	}
@@ -2604,6 +2609,7 @@ dr_action_create_dest_array_tbl(struct mlx5dv_dr_action *action,
 		case DR_ACTION_TYP_VPORT:
 		case DR_ACTION_TYP_QP:
 		case DR_ACTION_TYP_CTR:
+		case DR_ACTION_TYP_FT:
 			if (dr_action_add_action_member(&action->dest_array.actions_list,
 							dest_action))
 				goto clear_actions_list;

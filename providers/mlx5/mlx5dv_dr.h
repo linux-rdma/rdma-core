@@ -767,6 +767,7 @@ struct dr_devx_flow_dest_info {
 		uint32_t vport_num;
 		uint32_t tir_num;
 		uint32_t counter_id;
+		uint32_t ft_id;
 	};
 	bool has_reformat;
 	uint32_t reformat_id;
