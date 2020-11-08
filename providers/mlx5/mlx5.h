@@ -325,14 +325,13 @@ struct mlx5_context {
 	__be32                          dump_fill_mkey_be;
 	uint32_t			flags;
 	struct list_head		dyn_uar_bf_list;
-	struct list_head		dyn_uar_nc_list;
 	struct list_head		dyn_uar_qp_shared_list;
 	struct list_head		dyn_uar_qp_dedicated_list;
 	uint16_t			qp_max_dedicated_uuars;
 	uint16_t			qp_alloc_dedicated_uuars;
 	uint16_t			qp_max_shared_uuars;
 	uint16_t			qp_alloc_shared_uuars;
-	struct mlx5_bf			*cq_uar;
+	struct mlx5_bf			*nc_uar;
 	void				*cq_uar_reg;
 };
 
@@ -1057,8 +1056,7 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 			 const struct ibv_qp_init_attr_ex *attr,
 			 const struct mlx5dv_qp_init_attr *mlx5_attr);
 void clean_dyn_uars(struct ibv_context *context);
-struct mlx5_bf *mlx5_attach_dedicated_uar(struct ibv_context *context,
-					  uint32_t flags);
+void mlx5_set_singleton_nc_uar(struct ibv_context *context);
 
 int mlx5_set_ece(struct ibv_qp *qp, struct ibv_ece *ece);
 int mlx5_query_ece(struct ibv_qp *qp, struct ibv_ece *ece);

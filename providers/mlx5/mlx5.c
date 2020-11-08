@@ -1415,7 +1415,6 @@ static int mlx5_set_context(struct mlx5_context *context,
 	context->cmds_supp_uhw = resp->cmds_supp_uhw;
 	context->vendor_cap_flags = 0;
 	list_head_init(&context->dyn_uar_bf_list);
-	list_head_init(&context->dyn_uar_nc_list);
 	list_head_init(&context->dyn_uar_qp_shared_list);
 	list_head_init(&context->dyn_uar_qp_dedicated_list);
 
@@ -1536,9 +1535,8 @@ bf_done:
 		}
 	}
 
-	context->cq_uar = mlx5_attach_dedicated_uar(&v_ctx->context,
-						    MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC);
-	context->cq_uar_reg = context->cq_uar ? context->cq_uar->uar : context->uar[0].reg;
+	mlx5_set_singleton_nc_uar(&v_ctx->context);
+	context->cq_uar_reg = context->nc_uar ? context->nc_uar->uar : context->uar[0].reg;
 
 	return 0;
 
