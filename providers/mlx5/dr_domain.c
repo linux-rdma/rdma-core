@@ -207,7 +207,7 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 	 * force-loopback.
 	 */
 	if ((dmn->type != MLX5DV_DR_DOMAIN_TYPE_FDB) &&
-	    !dmn->info.caps.roce_caps.fl_rc_qp_when_roce_enabled)
+	    !dr_send_allow_fl(&dmn->info.caps))
 		return 0;
 
 	ret = dr_domain_query_fdb_caps(ctx, dmn);
