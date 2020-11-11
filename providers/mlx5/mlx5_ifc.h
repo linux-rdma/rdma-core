@@ -1485,10 +1485,24 @@ struct mlx5_ifc_ste_double_action_modify_action_list_v1_bits {
 	u8         modify_actions_argument_pointer[0x18];
 };
 
+enum {
+	MLX5_IFC_ASO_FLOW_METER_INITIAL_COLOR_RED = 0x0,
+	MLX5_IFC_ASO_FLOW_METER_INITIAL_COLOR_YELLOW = 0x1,
+	MLX5_IFC_ASO_FLOW_METER_INITIAL_COLOR_GREEN = 0x2,
+	MLX5_IFC_ASO_FLOW_METER_INITIAL_COLOR_UNDEFINED = 0x3,
+};
+
 struct mlx5_ifc_ste_aso_first_hit_action_v1_bits {
 	u8         reserved_at_0[0x6];
 	u8         set[0x1];
 	u8         line_id[0x9];
+};
+
+struct mlx5_ifc_ste_aso_flow_meter_action_v1_bits {
+	u8         reserved_at_0[0xc];
+	u8         action[0x1];
+	u8         initial_color[0x2];
+	u8         line_id[0x1];
 };
 
 struct mlx5_ifc_ste_double_action_aso_v1_bits {
@@ -1503,6 +1517,7 @@ struct mlx5_ifc_ste_double_action_aso_v1_bits {
 	union {
 		u8	aso_fields[0x10];
 		struct mlx5_ifc_ste_aso_first_hit_action_v1_bits first_hit;
+		struct mlx5_ifc_ste_aso_flow_meter_action_v1_bits flow_meter;
 	};
 };
 
@@ -2356,6 +2371,7 @@ struct mlx5_ifc_alloc_flow_counter_out_bits {
 enum {
 	MLX5_OBJ_TYPE_FLOW_METER = 0x000a,
 	MLX5_OBJ_TYPE_FLOW_SAMPLER = 0x0020,
+	MLX5_OBJ_TYPE_ASO_FLOW_METER = 0x0024,
 	MLX5_OBJ_TYPE_ASO_FIRST_HIT = 0x0025,
 };
 
@@ -3192,5 +3208,6 @@ enum {
 
 enum {
 	MLX5_ASO_FIRST_HIT_NUM_PER_OBJ = 512,
+	MLX5_ASO_FLOW_METER_NUM_PER_OBJ = 2,
 };
 #endif /* MLX5_IFC_H */

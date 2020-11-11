@@ -252,8 +252,12 @@ After a packet hits the rule with the ASO object the value of the ASO object wil
 *mlx5dv_dr_action_modify_aso* modifies ASO action **action** with new values for **offset**, **return_reg_c** and **flags**.
 Only new DR rules using this **action** will use the modified values. Existing DR rules do not change the HW action values stored.
 
-**flags** can be set to one of the types of *mlx5dv_dr_action_aso_first_hit_flags*:
+**flags** can be set to one of the types of *mlx5dv_dr_action_aso_first_hit_flags* or *mlx5dv_dr_action_aso_flow_meter_flags*:
 **MLX5DV_DR_ACTION_ASO_FIRST_HIT_FLAGS_SET**: is used to set the ASO first hit object context, else the context is only copied to the return_reg_c.
+**MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_RED**: is used to indicate to update the initial color in ASO flow meter object value to red.
+**MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_YELLOW**: is used to indicate to update the initial color in ASO flow meter object value to yellow.
+**MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_GREEN**: is used to indicate to update the initial color in ASO flow meter object value to green.
+**MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_UNDEFINED**: is used to indicate to update the initial color in ASO flow meter object value to undefined.
 
 Action: Meter
 *mlx5dv_dr_action_create_flow_meter* creates a meter action based on the flow meter parameters. The paramertes are according to the device specification.

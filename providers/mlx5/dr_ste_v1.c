@@ -157,6 +157,7 @@ enum {
 };
 
 enum dr_ste_v1_aso_ctx_type {
+	DR_STE_V1_ASO_CTX_TYPE_POLICERS = 0x2,
 	DR_STE_V1_ASO_CTX_TYPE_FIRST_HIT = 0x4,
 };
 
@@ -532,6 +533,26 @@ static void dr_ste_v1_set_aso_first_hit(uint8_t *d_action,
 	DR_STE_SET(double_action_aso_v1, d_action, first_hit.set, !set);
 }
 
+static void dr_ste_v1_set_aso_flow_meter(uint8_t *d_action,
+					 uint32_t object_id,
+					 uint32_t offset,
+					 uint8_t dest_reg_id,
+					 uint8_t initial_color)
+{
+	DR_STE_SET(double_action_aso_v1, d_action, action_id,
+		   DR_STE_V1_ACTION_ID_ASO);
+	DR_STE_SET(double_action_aso_v1, d_action, aso_context_number,
+		   object_id + (offset / MLX5_ASO_FLOW_METER_NUM_PER_OBJ));
+	/* Convert reg_c index to HW 64bit index */
+	DR_STE_SET(double_action_aso_v1, d_action, dest_reg_id, (dest_reg_id - 1) / 2);
+	DR_STE_SET(double_action_aso_v1, d_action, aso_context_type,
+		   DR_STE_V1_ASO_CTX_TYPE_POLICERS);
+	DR_STE_SET(double_action_aso_v1, d_action, flow_meter.line_id,
+		   offset % MLX5_ASO_FLOW_METER_NUM_PER_OBJ);
+	DR_STE_SET(double_action_aso_v1, d_action, flow_meter.initial_color,
+		   initial_color);
+}
+
 static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 				     uint8_t *last_ste,
 				     struct dr_ste_actions_attr *attr,
@@ -541,10 +562,28 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 	uint8_t action_sz = DR_STE_ACTION_DOUBLE_SZ;
 	bool allow_encap = true;
 
+	if (action_type_set[DR_ACTION_TYP_ASO_FLOW_METER]) {
+		dr_ste_v1_set_aso_flow_meter(action,
+					     attr->aso->devx_obj->object_id,
+					     attr->aso->offset,
+					     attr->aso->dest_reg_id,
+					     attr->aso->flow_meter.initial_color);
+
+		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
+		action += DR_STE_ACTION_DOUBLE_SZ;
+	}
+
 	if (action_type_set[DR_ACTION_TYP_CTR])
 		dr_ste_v1_set_counter_id(last_ste, attr->ctr_id);
 
 	if (action_type_set[DR_ACTION_TYP_MODIFY_HDR]) {
+		if (action_sz < DR_STE_ACTION_DOUBLE_SZ) {
+			dr_ste_v1_arr_init_next_match(&last_ste, added_stes,
+						      attr->gvmi);
+			action = DEVX_ADDR_OF(ste_mask_and_match_v1,
+					      last_ste, action);
+			action_sz = DR_STE_ACTION_TRIPLE_SZ;
+		}
 		dr_ste_v1_set_rewrite_actions(last_ste, action,
 					      attr->modify_actions,
 					      attr->modify_index);
@@ -705,6 +744,26 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 		dr_ste_v1_set_rewrite_actions(last_ste, action,
 					      attr->modify_actions,
 					      attr->modify_index);
+		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
+		action += DR_STE_ACTION_DOUBLE_SZ;
+	}
+
+	if (action_type_set[DR_ACTION_TYP_ASO_FLOW_METER]) {
+		if (action_sz < DR_STE_ACTION_DOUBLE_SZ) {
+			dr_ste_v1_arr_init_next_match(&last_ste, added_stes,
+						      attr->gvmi);
+			action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste,
+					      action);
+			action_sz = DR_STE_ACTION_TRIPLE_SZ;
+			allow_modify_hdr = false;
+			allow_ctr = true;
+		}
+		dr_ste_v1_set_aso_flow_meter(action,
+					     attr->aso->devx_obj->object_id,
+					     attr->aso->offset,
+					     attr->aso->dest_reg_id,
+					     attr->aso->flow_meter.initial_color);
+
 		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
 		action += DR_STE_ACTION_DOUBLE_SZ;
 	}

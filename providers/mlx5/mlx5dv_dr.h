@@ -42,7 +42,7 @@
 #include "mlx5.h"
 
 #define DR_RULE_MAX_STES	17
-#define DR_ACTION_MAX_STES	5
+#define DR_ACTION_MAX_STES	6
 #define WIRE_PORT		0xFFFF
 #define DR_STE_SVLAN		0x1
 #define DR_STE_CVLAN		0x2
@@ -152,6 +152,7 @@ enum dr_action_type {
 	DR_ACTION_TYP_POP_VLAN,
 	DR_ACTION_TYP_PUSH_VLAN,
 	DR_ACTION_TYP_ASO_FIRST_HIT,
+	DR_ACTION_TYP_ASO_FLOW_METER,
 	DR_ACTION_TYP_MAX,
 };
 
@@ -292,9 +293,14 @@ struct dr_action_aso {
 	struct mlx5dv_devx_obj *devx_obj;
 	uint32_t offset;
 	uint8_t dest_reg_id;
-	struct {
-		bool set;
-	} first_hit;
+	union {
+		struct {
+			bool set;
+		} first_hit;
+		struct {
+			uint8_t initial_color;
+		} flow_meter;
+	};
 };
 
 struct dr_ste_actions_attr {
