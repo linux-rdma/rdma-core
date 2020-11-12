@@ -506,6 +506,11 @@ class TrafficResources(BaseResources):
     def qp(self):
         return self.qps[0]
 
+    @property
+    def mr_lkey(self):
+        if self.mr:
+            return self.mr.lkey
+
     def init_resources(self):
         """
         Initializes a CQ, MR and an RC QP.
