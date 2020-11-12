@@ -199,7 +199,7 @@ static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
 	return 0;
 }
 
-static int dr_dump_rule_mem(FILE *f, struct dr_rule_member *rule_mem,
+static int dr_dump_rule_mem(FILE *f, struct dr_ste *ste,
 			    bool is_rx, const uint64_t rule_id,
 			    enum mlx5_ifc_steering_format_version format_ver)
 {
@@ -215,10 +215,10 @@ static int dr_dump_rule_mem(FILE *f, struct dr_rule_member *rule_mem,
 				       DR_DUMP_REC_TYPE_RULE_TX_ENTRY_V1;
 	}
 
-	dump_hex_print(hw_ste_dump, (char *)rule_mem->ste->hw_ste, DR_STE_SIZE_REDUCED);
+	dump_hex_print(hw_ste_dump, (char *)ste->hw_ste, DR_STE_SIZE_REDUCED);
 	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",%s\n",
 		      mem_rec_type,
-		      dr_dump_icm_to_idx(dr_ste_get_icm_addr(rule_mem->ste)),
+		      dr_dump_icm_to_idx(dr_ste_get_icm_addr(ste)),
 		      rule_id,
 		      hw_ste_dump);
 	if (ret < 0)
@@ -227,18 +227,22 @@ static int dr_dump_rule_mem(FILE *f, struct dr_rule_member *rule_mem,
 	return 0;
 }
 
-static int dr_dump_rule_rx_tx(FILE *f, struct dr_rule_rx_tx *rule_rx_tx,
+static int dr_dump_rule_rx_tx(FILE *f, struct dr_rule_rx_tx *nic_rule,
 			      bool is_rx, const uint64_t rule_id,
 			      enum mlx5_ifc_steering_format_version format_ver)
 {
-	struct dr_rule_member *rule_mem;
-	int ret;
+	struct dr_ste *ste_arr[DR_RULE_MAX_STES + DR_ACTION_MAX_STES];
+	struct dr_ste *curr_ste = nic_rule->last_rule_ste;
+	int ret, i;
 
-	list_for_each(&rule_rx_tx->rule_members_list, rule_mem, list) {
-		ret = dr_dump_rule_mem(f, rule_mem, is_rx, rule_id, format_ver);
+	dr_rule_get_reverse_rule_members(ste_arr, curr_ste, &i);
+
+	while (i--) {
+		ret = dr_dump_rule_mem(f, ste_arr[i], is_rx, rule_id, format_ver);
 		if (ret < 0)
 			return ret;
 	}
+
 	return 0;
 }
 
@@ -292,11 +296,11 @@ int mlx5dv_dump_dr_rule(FILE *fout, struct mlx5dv_dr_rule *rule)
 	if (!fout || !rule)
 		return -EINVAL;
 
-	pthread_mutex_lock(&rule->matcher->tbl->dmn->mutex);
+	dr_domain_lock(rule->matcher->tbl->dmn);
 
 	ret = dr_dump_rule(fout, rule);
 
-	pthread_mutex_unlock(&rule->matcher->tbl->dmn->mutex);
+	dr_domain_unlock(rule->matcher->tbl->dmn);
 
 	return ret;
 }
@@ -477,11 +481,11 @@ int mlx5dv_dump_dr_matcher(FILE *fout, struct mlx5dv_dr_matcher *matcher)
 	if (!fout || !matcher)
 		return -EINVAL;
 
-	pthread_mutex_lock(&matcher->tbl->dmn->mutex);
+	dr_domain_lock(matcher->tbl->dmn);
 
 	ret = dr_dump_matcher_all(fout, matcher);
 
-	pthread_mutex_unlock(&matcher->tbl->dmn->mutex);
+	dr_domain_unlock(matcher->tbl->dmn);
 
 	return ret;
 }
@@ -567,11 +571,11 @@ int mlx5dv_dump_dr_table(FILE *fout, struct mlx5dv_dr_table *tbl)
 	if (!fout || !tbl)
 		return -EINVAL;
 
-	pthread_mutex_lock(&tbl->dmn->mutex);
+	dr_domain_lock(tbl->dmn);
 
 	ret = dr_dump_table_all(fout, tbl);
 
-	pthread_mutex_unlock(&tbl->dmn->mutex);
+	dr_domain_unlock(tbl->dmn);
 
 	return ret;
 }
@@ -746,11 +750,11 @@ int mlx5dv_dump_dr_domain(FILE *fout, struct mlx5dv_dr_domain *dmn)
 	if (!fout || !dmn)
 		return -EINVAL;
 
-	pthread_mutex_lock(&dmn->mutex);
+	dr_domain_lock(dmn);
 
 	ret = dr_dump_domain_all(fout, dmn);
 
-	pthread_mutex_unlock(&dmn->mutex);
+	dr_domain_unlock(dmn);
 
 	return ret;
 }

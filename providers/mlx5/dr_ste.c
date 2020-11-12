@@ -190,9 +190,6 @@ static void dr_ste_replace(struct dr_ste *dst, struct dr_ste *src)
 		dst->next_htbl->pointing_ste = dst;
 
 	atomic_init(&dst->refcount, atomic_load(&src->refcount));
-
-	list_head_init(&dst->rule_list);
-	list_append_list(&dst->rule_list, &src->rule_list);
 }
 
 /* Free ste which is the head and the only one in miss_list */
@@ -251,11 +248,11 @@ dr_ste_replace_head_ste(struct dr_matcher_rx_tx *nic_matcher,
 	/* Remove from the miss_list the next_ste before copy */
 	list_del_init(&next_ste->miss_list_node);
 
-	/* All rule-members that use next_ste should know about that */
-	dr_rule_update_rule_member(next_ste, ste);
-
 	/* Move data from next into ste */
 	dr_ste_replace(ste, next_ste);
+
+	/* Update the rule on STE change */
+	dr_rule_set_last_member(next_ste->rule_rx_tx, ste, false);
 
 	/* Copy all 64 hw_ste bytes */
 	memcpy(hw_ste, ste->hw_ste, DR_STE_SIZE_REDUCED);
@@ -521,7 +518,6 @@ struct dr_ste_htbl *dr_ste_htbl_alloc(struct dr_icm_pool *pool,
 		atomic_init(&ste->refcount, 0);
 		list_node_init(&ste->miss_list_node);
 		list_head_init(&htbl->miss_list[i]);
-		list_head_init(&ste->rule_list);
 	}
 
 	htbl->chunk_size = chunk_size;

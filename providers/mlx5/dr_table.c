@@ -46,8 +46,6 @@ static void dr_table_uninit_fdb(struct mlx5dv_dr_table *tbl)
 
 static void dr_table_uninit(struct mlx5dv_dr_table *tbl)
 {
-	pthread_mutex_lock(&tbl->dmn->mutex);
-
 	switch (tbl->dmn->type) {
 	case MLX5DV_DR_DOMAIN_TYPE_NIC_RX:
 		dr_table_uninit_nic(&tbl->rx);
@@ -61,8 +59,6 @@ static void dr_table_uninit(struct mlx5dv_dr_table *tbl)
 	default:
 		break;
 	}
-
-	pthread_mutex_unlock(&tbl->dmn->mutex);
 }
 
 static int dr_table_init_nic(struct mlx5dv_dr_domain *dmn,
@@ -120,8 +116,6 @@ static int dr_table_init(struct mlx5dv_dr_table *tbl)
 
 	list_head_init(&tbl->matcher_list);
 
-	pthread_mutex_lock(&tbl->dmn->mutex);
-
 	switch (tbl->dmn->type) {
 	case MLX5DV_DR_DOMAIN_TYPE_NIC_RX:
 		tbl->table_type = FS_FT_NIC_RX;
@@ -143,8 +137,6 @@ static int dr_table_init(struct mlx5dv_dr_table *tbl)
 		assert(false);
 		break;
 	}
-
-	pthread_mutex_unlock(&tbl->dmn->mutex);
 
 	return ret;
 }
@@ -204,7 +196,10 @@ struct mlx5dv_dr_table *mlx5dv_dr_table_create(struct mlx5dv_dr_domain *dmn,
 	}
 
 	list_node_init(&tbl->tbl_list);
+
+	dr_domain_lock(dmn);
 	list_add_tail(&dmn->tbl_list, &tbl->tbl_list);
+	dr_domain_unlock(dmn);
 
 	return tbl;
 
@@ -228,11 +223,15 @@ int mlx5dv_dr_table_destroy(struct mlx5dv_dr_table *tbl)
 		ret = mlx5dv_devx_obj_destroy(tbl->devx_obj);
 		if (ret)
 			return ret;
-
-		dr_table_uninit(tbl);
 	}
 
+	dr_domain_lock(tbl->dmn);
 	list_del(&tbl->tbl_list);
+	dr_domain_unlock(tbl->dmn);
+
+	if (!dr_is_root_table(tbl))
+		dr_table_uninit(tbl);
+
 	atomic_fetch_sub(&tbl->dmn->refcount, 1);
 	free(tbl);
 

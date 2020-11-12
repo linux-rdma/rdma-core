@@ -156,6 +156,7 @@ struct dr_icm_buddy_mem;
 struct dr_ste_htbl;
 struct dr_match_param;
 struct dr_devx_caps;
+struct dr_rule_rx_tx;
 struct dr_matcher_rx_tx;
 struct dr_ste_ctx;
 
@@ -181,13 +182,13 @@ struct dr_ste {
 	/* attached to the miss_list head at each htbl entry */
 	struct list_node	miss_list_node;
 
-	/* each rule member that uses this ste attached here */
-	struct list_head	rule_list;
-
 	/* this ste is member of htbl */
 	struct dr_ste_htbl	*htbl;
 
 	struct dr_ste_htbl	*next_htbl;
+
+	/* The rule this STE belongs to */
+	struct dr_rule_rx_tx    *rule_rx_tx;
 
 	/* this ste is part of a rule, located in ste's chain */
 	uint8_t			ste_chain_location;
@@ -702,6 +703,8 @@ struct dr_domain_rx_tx {
 	uint64_t		drop_icm_addr;
 	uint64_t		default_icm_addr;
 	enum dr_ste_entry_type	ste_type;
+	/* protect rx/tx domain */
+	pthread_mutex_t		mutex;
 };
 
 struct dr_domain_info {
@@ -727,7 +730,6 @@ struct mlx5dv_dr_domain {
 	struct mlx5dv_devx_uar		*uar;
 	enum mlx5dv_dr_domain_type	type;
 	atomic_int			refcount;
-	pthread_mutex_t			mutex;
 	struct dr_icm_pool		*ste_icm_pool;
 	struct dr_icm_pool		*action_icm_pool;
 	struct dr_send_ring		*send_ring;
@@ -735,6 +737,28 @@ struct mlx5dv_dr_domain {
 	struct list_head		tbl_list;
 	uint32_t			flags;
 };
+
+static inline void dr_domain_nic_lock(struct dr_domain_rx_tx *nic_dmn)
+{
+	pthread_mutex_lock(&nic_dmn->mutex);
+}
+
+static inline void dr_domain_nic_unlock(struct dr_domain_rx_tx *nic_dmn)
+{
+	pthread_mutex_unlock(&nic_dmn->mutex);
+}
+
+static inline void dr_domain_lock(struct mlx5dv_dr_domain *dmn)
+{
+	dr_domain_nic_lock(&dmn->info.rx);
+	dr_domain_nic_lock(&dmn->info.tx);
+}
+
+static inline void dr_domain_unlock(struct mlx5dv_dr_domain *dmn)
+{
+	dr_domain_nic_unlock(&dmn->info.tx);
+	dr_domain_nic_unlock(&dmn->info.rx);
+}
 
 struct dr_table_rx_tx {
 	struct dr_ste_htbl		*s_anchor;
@@ -773,14 +797,6 @@ struct mlx5dv_dr_matcher {
 	atomic_int			refcount;
 	struct mlx5dv_flow_matcher	*dv_matcher;
 	struct list_head		rule_list;
-};
-
-struct dr_rule_member {
-	struct dr_ste		*ste;
-	/* attached to dr_rule via this */
-	struct list_node	list;
-	/* attached to dr_ste via this */
-	struct list_node	use_ste_list;
 };
 
 struct dr_ste_action_modify_field {
@@ -903,10 +919,9 @@ struct dr_htbl_connect_info {
 	};
 };
 
-
 struct dr_rule_rx_tx {
-	struct list_head		rule_members_list;
 	struct dr_matcher_rx_tx		*nic_matcher;
+	struct dr_ste			*last_rule_ste;
 };
 
 struct mlx5dv_dr_rule {
@@ -922,7 +937,13 @@ struct mlx5dv_dr_rule {
 	struct list_node	rule_list;
 };
 
-void dr_rule_update_rule_member(struct dr_ste *new_ste, struct dr_ste *ste);
+void dr_rule_set_last_member(struct dr_rule_rx_tx *nic_rule,
+			     struct dr_ste *ste,
+			     bool force);
+
+void dr_rule_get_reverse_rule_members(struct dr_ste **ste_arr,
+				      struct dr_ste *curr_ste,
+				      int *num_of_stes);
 
 struct dr_icm_chunk {
 	struct dr_icm_buddy_mem *buddy_mem;
@@ -1170,6 +1191,8 @@ struct dr_send_ring {
 	uint32_t		max_post_send_size;
 	/* manage the send queue */
 	uint32_t		tx_head;
+	/* protect QP/CQ operations */
+	pthread_mutex_t         mutex;
 	void			*buf;
 	uint32_t		buf_size;
 	struct ibv_wc		wc[MAX_SEND_CQE];
