@@ -27,7 +27,7 @@ BuildRequires: /usr/bin/rst2man
 BuildRequires: valgrind-devel
 BuildRequires: systemd
 BuildRequires: systemd-devel
-%if 0%{?fedora} >= 32
+%if 0%{?fedora} >= 32 || 0%{?rhel} >= 8
 %define with_pyverbs %{?_with_pyverbs: 1} %{?!_with_pyverbs: %{?!_without_pyverbs: 1} %{?_without_pyverbs: 0}}
 %else
 %define with_pyverbs %{?_with_pyverbs: 1} %{?!_with_pyverbs: 0}
@@ -53,7 +53,7 @@ BuildRequires: python-docutils
 BuildRequires: perl-generators
 %endif
 
-Requires: dracut, kmod, systemd, pciutils
+Requires: pciutils
 # Red Hat/Fedora previously shipped redhat/ as a stand-alone
 # package called 'rdma', which we're supplanting here.
 Provides: rdma = %{version}-%{release}
@@ -66,8 +66,13 @@ Conflicts: infiniband-diags <= 1.6.7
 # Ninja was introduced in FC23
 BuildRequires: ninja-build
 %define CMAKE_FLAGS -GNinja
+%if 0%{?fedora} >= 33
+%define make_jobs ninja-build -C %{_vpath_builddir} -v %{?_smp_mflags}
+%define cmake_install DESTDIR=%{buildroot} ninja-build -C %{_vpath_builddir} install
+%else
 %define make_jobs ninja-build -v %{?_smp_mflags}
 %define cmake_install DESTDIR=%{buildroot} ninja-build install
+%endif
 %else
 # Fallback to make otherwise
 BuildRequires: make
@@ -274,6 +279,13 @@ easy, object-oriented access to IB verbs.
 %setup
 
 %build
+# This package uses top level ASM constructs which are incompatible with LTO.
+# Top level ASMs are often used to implement symbol versioning.  gcc-10
+# introduces a new mechanism for symbol versioning which works with LTO.
+# Converting packages to use that mechanism instead of toplevel ASMs is
+# recommended.
+# Disable LTO
+%define _lto_cflags %{nil}
 
 # New RPM defines _rundir, usually as /run
 %if 0%{?_rundir:1}
@@ -339,18 +351,20 @@ rm -f %{buildroot}%{_sysconfdir}/rdma/modules/rdma.conf
 install -D -m0644 redhat/rdma.conf %{buildroot}%{_sysconfdir}/rdma/modules/rdma.conf
 
 # ibacm
-bin/ib_acme -D . -O
-install -D -m0644 ibacm_opts.cfg %{buildroot}%{_sysconfdir}/rdma/
+(if [ -d %{__cmake_builddir} ]; then cd %{__cmake_builddir}; fi
+ ./bin/ib_acme -D . -O &&
+ install -D -m0644 ibacm_opts.cfg %{buildroot}%{_sysconfdir}/rdma/)
 
 # Delete the package's init.d scripts
 rm -rf %{buildroot}/%{_initrddir}/
-rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
+rm -f %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %post -n rdma-core
-# we ship udev rules, so trigger an update.
+if [ -x /sbin/udevadm ]; then
 /sbin/udevadm trigger --subsystem-match=infiniband --action=change || true
 /sbin/udevadm trigger --subsystem-match=net --action=change || true
 /sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change || true
+fi
 
 %post -n infiniband-diags -p /sbin/ldconfig
 %postun -n infiniband-diags -p /sbin/ldconfig
@@ -399,12 +413,16 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %config(noreplace) %{_sysconfdir}/rdma/modules/rdma.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/roce.conf
 %config(noreplace) %{_sysconfdir}/udev/rules.d/*
+%dir %{_sysconfdir}/modprobe.d
 %config(noreplace) %{_sysconfdir}/modprobe.d/mlx4.conf
 %config(noreplace) %{_sysconfdir}/modprobe.d/truescale.conf
 %{_unitdir}/rdma-hw.target
 %{_unitdir}/rdma-load-modules@.service
+%dir %{dracutlibdir}
+%dir %{dracutlibdir}/modules.d
 %dir %{dracutlibdir}/modules.d/05rdma
 %{dracutlibdir}/modules.d/05rdma/module-setup.sh
+%dir %{_udevrulesdir}
 %{_udevrulesdir}/../rdma_rename
 %{_udevrulesdir}/60-rdma-ndd.rules
 %{_udevrulesdir}/60-rdma-persistent-naming.rules
@@ -412,6 +430,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_udevrulesdir}/90-rdma-hw-modules.rules
 %{_udevrulesdir}/90-rdma-ulp-modules.rules
 %{_udevrulesdir}/90-rdma-umad.rules
+%dir %{sysmodprobedir}
 %{sysmodprobedir}/libmlx4.conf
 %{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
