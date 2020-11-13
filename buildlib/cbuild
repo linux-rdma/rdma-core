@@ -619,15 +619,26 @@ def inDirectory(dir):
 def map_git_args(src_root,to):
     """Return a list of docker arguments that will map the .git directory into the
     container"""
-    srcd = os.path.join(src_root,".git");
-    res = ["-v","%s:%s:ro"%(srcd,
-                            os.path.join(to,".git"))];
+    git_dir = subprocess.check_output([
+        "git",
+        "-C", src_root,
+        "rev-parse",
+        "--absolute-git-dir",
+    ]).decode().strip()
+    if ".git/worktrees" in git_dir:
+        with open(os.path.join(git_dir, "commondir")) as F:
+            git_dir = os.path.join(git_dir, F.read().strip())
+        git_dir = os.path.abspath(git_dir)
+        res = ["-v", "%s:%s:ro" % (os.path.join(src_root, ".git"), os.path.join(to, ".git")),
+               "-v", "%s:%s:ro" % (git_dir, git_dir)]
+    else:
+        res = ["-v", "%s:%s:ro" % (git_dir, os.path.join(to, ".git"))]
 
-    alternates = os.path.join(srcd,"objects/info/alternates");
+    alternates = os.path.join(git_dir, "objects/info/alternates")
     if os.path.exists(alternates):
         with open(alternates) as F:
             for I in F.readlines():
-                I = I.strip();
+                I = os.path.normpath(I.strip())
                 res.extend(["-v","%s:%s:ro"%(I,I)]);
 
     return res;
