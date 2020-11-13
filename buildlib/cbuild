@@ -234,10 +234,10 @@ class centos8(Environment):
             " ".join(sorted(self.pkgs))));
         return res;
 
-class fc32(Environment):
-    docker_parent = "fedora:32";
+class fc33(Environment):
+    docker_parent = "fedora:33";
     pkgs = centos8.pkgs
-    name = "fc32";
+    name = "fc33";
     specfile = "redhat/rdma-core.spec";
     ninja_cmd = "ninja-build";
     is_rpm = True;
@@ -521,7 +521,7 @@ environments = [centos6(),
                 focal(),
                 jessie(),
                 stretch(),
-                fc32(),
+                fc33(),
                 leap(),
                 tumbleweed(),
                 debian_experimental(),
