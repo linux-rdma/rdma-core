@@ -460,6 +460,11 @@ int ibv_cmd_create_flow_action_esp(struct ibv_context *ctx,
 int ibv_cmd_modify_flow_action_esp(struct verbs_flow_action *flow_action,
 				   struct ibv_flow_action_esp_attr *attr,
 				   struct ibv_command_buffer *driver);
+int ibv_cmd_query_device_any(struct ibv_context *context,
+			     const struct ibv_query_device_ex_input *input,
+			     struct ibv_device_attr_ex *attr, size_t attr_size,
+			     struct ib_uverbs_ex_query_device_resp *resp,
+			     size_t *resp_size);
 int ibv_cmd_query_device_ex(struct ibv_context *context,
 			    const struct ibv_query_device_ex_input *input,
 			    struct ibv_device_attr_ex *attr, size_t attr_size,
