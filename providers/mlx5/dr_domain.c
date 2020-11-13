@@ -57,7 +57,13 @@ static int dr_domain_init_resources(struct mlx5dv_dr_domain *dmn)
 		return ret;
 	}
 
-	dmn->uar = mlx5dv_devx_alloc_uar(dmn->ctx, 0);
+	dmn->uar = mlx5dv_devx_alloc_uar(dmn->ctx,
+					 MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC);
+
+	if (!dmn->uar)
+		dmn->uar = mlx5dv_devx_alloc_uar(dmn->ctx,
+						 MLX5_IB_UAPI_UAR_ALLOC_TYPE_BF);
+
 	if (!dmn->uar) {
 		dr_dbg(dmn, "Can't allocate UAR\n");
 		goto clean_pd;
