@@ -303,7 +303,7 @@ struct mlx5_context {
 	} core_clock;
 	void			       *hca_core_clock;
 	const struct mlx5_ib_clock_info *clock_info_page;
-	struct ibv_tso_caps		cached_tso_caps;
+	struct mlx5_ib_tso_caps		cached_tso_caps;
 	int				cmds_supp_uhw;
 	uint32_t			uar_size;
 	uint64_t			vendor_cap_flags; /* Use enum mlx5_vendor_cap_flags */
@@ -878,6 +878,7 @@ __be32 *mlx5_alloc_dbrec(struct mlx5_context *context, struct ibv_pd *pd,
 void mlx5_free_db(struct mlx5_context *context, __be32 *db, struct ibv_pd *pd,
 		  bool custom_alloc);
 
+void mlx5_query_device_ctx(struct mlx5_context *mctx);
 int mlx5_query_device(struct ibv_context *context,
 		       struct ibv_device_attr *attr);
 int mlx5_query_device_ex(struct ibv_context *context,

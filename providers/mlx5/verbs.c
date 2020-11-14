@@ -3450,19 +3450,19 @@ static void get_pci_atomic_caps(struct ibv_context *context,
 	}
 }
 
-static void get_lag_caps(struct ibv_context *ctx)
+static void get_lag_caps(struct mlx5_context *mctx)
 {
 	uint16_t opmod = MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE |
 		HCA_CAP_OPMOD_GET_CUR;
 	uint32_t out[DEVX_ST_SZ_DW(query_hca_cap_out)] = {};
 	uint32_t in[DEVX_ST_SZ_DW(query_hca_cap_in)] = {};
-	struct mlx5_context *mctx = to_mctx(ctx);
 	int ret;
 
 	DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
 	DEVX_SET(query_hca_cap_in, in, op_mod, opmod);
 
-	ret = mlx5dv_devx_general_cmd(ctx, in, sizeof(in), out, sizeof(out));
+	ret = mlx5dv_devx_general_cmd(&mctx->ibv_ctx.context, in, sizeof(in),
+				      out, sizeof(out));
 	if (ret)
 		return;
 
@@ -3512,6 +3512,41 @@ int mlx5_query_device_ex(struct ibv_context *context,
 	attr->packet_pacing_caps.supported_qpts =
 		resp.packet_pacing_caps.supported_qpts;
 
+	major     = (raw_fw_ver >> 32) & 0xffff;
+	minor     = (raw_fw_ver >> 16) & 0xffff;
+	sub_minor = raw_fw_ver & 0xffff;
+	a = &attr->orig_attr;
+	snprintf(a->fw_ver, sizeof(a->fw_ver), "%d.%d.%04d",
+		 major, minor, sub_minor);
+
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, pci_atomic_caps) +
+			sizeof(attr->pci_atomic_caps))
+		get_pci_atomic_caps(context, attr);
+
+	return 0;
+}
+
+void mlx5_query_device_ctx(struct mlx5_context *mctx)
+{
+	struct ibv_device_attr_ex device_attr;
+	struct mlx5_query_device_ex_resp resp = {};
+	size_t resp_size =
+		(mctx->cmds_supp_uhw & MLX5_USER_CMDS_SUPP_UHW_QUERY_DEVICE) ?
+			sizeof(resp) :
+			sizeof(resp.ibv_resp);
+
+	get_lag_caps(mctx);
+
+	if (ibv_cmd_query_device_any(&mctx->ibv_ctx.context, NULL, &device_attr,
+				     sizeof(device_attr), &resp.ibv_resp,
+				     &resp_size))
+		return;
+
+	mctx->cached_device_cap_flags = device_attr.orig_attr.device_cap_flags;
+	mctx->atomic_cap = device_attr.orig_attr.atomic_cap;
+	mctx->max_dm_size = device_attr.max_dm_size;
+	mctx->cached_tso_caps = resp.tso_caps;
+
 	if (resp.mlx5_ib_support_multi_pkt_send_wqes & MLX5_IB_ALLOW_MPW)
 		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_MPW_ALLOWED;
 
@@ -3519,7 +3554,8 @@ int mlx5_query_device_ex(struct ibv_context *context,
 		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_ENHANCED_MPW;
 
 	mctx->cqe_comp_caps.max_num = resp.cqe_comp_caps.max_num;
-	mctx->cqe_comp_caps.supported_format = resp.cqe_comp_caps.supported_format;
+	mctx->cqe_comp_caps.supported_format =
+		resp.cqe_comp_caps.supported_format;
 	mctx->sw_parsing_caps.sw_parsing_offloads =
 		resp.sw_parsing_caps.sw_parsing_offloads;
 	mctx->sw_parsing_caps.supported_qpts =
@@ -3544,25 +3580,11 @@ int mlx5_query_device_ex(struct ibv_context *context,
 		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_CQE_128B_PAD;
 
 	if (resp.flags & MLX5_IB_QUERY_DEV_RESP_PACKET_BASED_CREDIT_MODE)
-		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_PACKET_BASED_CREDIT_MODE;
+		mctx->vendor_cap_flags |=
+			MLX5_VENDOR_CAP_FLAGS_PACKET_BASED_CREDIT_MODE;
 
 	if (resp.flags & MLX5_IB_QUERY_DEV_RESP_FLAGS_SCAT2CQE_DCT)
 		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_SCAT2CQE_DCT;
-
-	major     = (raw_fw_ver >> 32) & 0xffff;
-	minor     = (raw_fw_ver >> 16) & 0xffff;
-	sub_minor = raw_fw_ver & 0xffff;
-	a = &attr->orig_attr;
-	snprintf(a->fw_ver, sizeof(a->fw_ver), "%d.%d.%04d",
-		 major, minor, sub_minor);
-
-	if (attr_size >= offsetof(struct ibv_device_attr_ex, pci_atomic_caps) +
-			sizeof(attr->pci_atomic_caps))
-		get_pci_atomic_caps(context, attr);
-
-	get_lag_caps(context);
-
-	return 0;
 }
 
 static int rwq_sig_enabled(struct ibv_context *context)
