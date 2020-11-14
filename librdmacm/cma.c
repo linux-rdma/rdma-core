@@ -298,10 +298,10 @@ static void remove_cma_dev(struct cma_device *cma_dev)
 		return;
 	}
 
-	if (cma_dev->pd)
-		ibv_dealloc_pd(cma_dev->pd);
 	if (cma_dev->xrcd)
 		ibv_close_xrcd(cma_dev->xrcd);
+	if (cma_dev->pd)
+		ibv_dealloc_pd(cma_dev->pd);
 	if (cma_dev->verbs)
 		ibv_close_device(cma_dev->verbs);
 	list_del_from(&cma_dev_list, &cma_dev->entry);
