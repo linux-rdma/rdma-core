@@ -275,7 +275,8 @@ int pvrdma_alloc_buf(struct pvrdma_buf *buf, size_t size, int page_size);
 void pvrdma_free_buf(struct pvrdma_buf *buf);
 
 int pvrdma_query_device(struct ibv_context *context,
-			struct ibv_device_attr *attr);
+			const struct ibv_query_device_ex_input *input,
+			struct ibv_device_attr_ex *attr, size_t attr_size);
 int pvrdma_query_port(struct ibv_context *context, uint8_t port,
 		      struct ibv_port_attr *attr);
 

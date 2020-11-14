@@ -151,7 +151,9 @@ static inline struct i40iw_uqp *to_i40iw_uqp(struct ibv_qp *ibqp)
 }
 
 /* i40iw_uverbs.c */
-int i40iw_uquery_device(struct ibv_context *, struct ibv_device_attr *);
+int i40iw_uquery_device(struct ibv_context *context,
+			const struct ibv_query_device_ex_input *input,
+			struct ibv_device_attr_ex *attr, size_t attr_size);
 int i40iw_uquery_port(struct ibv_context *, uint8_t, struct ibv_port_attr *);
 struct ibv_pd *i40iw_ualloc_pd(struct ibv_context *);
 int i40iw_ufree_pd(struct ibv_pd *);

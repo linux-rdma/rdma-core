@@ -75,7 +75,7 @@ int t5_en_wc = 1;
 static LIST_HEAD(devices);
 
 static const struct verbs_context_ops  c4iw_ctx_common_ops = {
-	.query_device = c4iw_query_device,
+	.query_device_ex = c4iw_query_device,
 	.query_port = c4iw_query_port,
 	.alloc_pd = c4iw_alloc_pd,
 	.dealloc_pd = c4iw_free_pd,

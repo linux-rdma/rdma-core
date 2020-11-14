@@ -87,7 +87,7 @@ static const struct verbs_match_ent hca_table[] = {
 };
 
 static const struct verbs_context_ops qelr_ctx_ops = {
-	.query_device = qelr_query_device,
+	.query_device_ex = qelr_query_device,
 	.query_port = qelr_query_port,
 	.alloc_pd = qelr_alloc_pd,
 	.dealloc_pd = qelr_dealloc_pd,
