@@ -879,8 +879,6 @@ void mlx5_free_db(struct mlx5_context *context, __be32 *db, struct ibv_pd *pd,
 		  bool custom_alloc);
 
 void mlx5_query_device_ctx(struct mlx5_context *mctx);
-int mlx5_query_device(struct ibv_context *context,
-		       struct ibv_device_attr *attr);
 int mlx5_query_device_ex(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
 			 struct ibv_device_attr_ex *attr,

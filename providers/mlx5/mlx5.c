@@ -90,7 +90,6 @@ uint32_t mlx5_debug_mask = 0;
 int mlx5_freeze_on_error_cqe;
 
 static const struct verbs_context_ops mlx5_ctx_common_ops = {
-	.query_device  = mlx5_query_device,
 	.query_port    = mlx5_query_port,
 	.alloc_pd      = mlx5_alloc_pd,
 	.async_event   = mlx5_async_event,

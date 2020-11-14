@@ -45,51 +45,36 @@
 #include "mlx4.h"
 #include "mlx4-abi.h"
 
-int mlx4_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
-{
-	struct ibv_query_device cmd;
-	uint64_t raw_fw_ver;
-	unsigned major, minor, sub_minor;
-	int ret;
-
-	ret = ibv_cmd_query_device(context, attr, &raw_fw_ver, &cmd, sizeof cmd);
-	if (ret)
-		return ret;
-
-	major     = (raw_fw_ver >> 32) & 0xffff;
-	minor     = (raw_fw_ver >> 16) & 0xffff;
-	sub_minor = raw_fw_ver & 0xffff;
-
-	snprintf(attr->fw_ver, sizeof attr->fw_ver,
-		 "%d.%d.%03d", major, minor, sub_minor);
-
-	return 0;
-}
-
 int mlx4_query_device_ex(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
 			 struct ibv_device_attr_ex *attr,
 			 size_t attr_size)
 {
-	struct mlx4_query_device_ex_resp resp = {};
-	struct mlx4_query_device_ex cmd = {};
+	struct mlx4_query_device_ex_resp resp;
+	size_t resp_size = sizeof(resp);
 	uint64_t raw_fw_ver;
 	unsigned sub_minor;
 	unsigned major;
 	unsigned minor;
 	int err;
 
-	err = ibv_cmd_query_device_ex(context, input, attr, attr_size,
-				      &raw_fw_ver, &cmd.ibv_cmd, sizeof(cmd),
-				      &resp.ibv_resp, sizeof(resp));
+	err = ibv_cmd_query_device_any(context, input, attr, attr_size,
+				       &resp.ibv_resp, &resp_size);
 	if (err)
 		return err;
 
-	attr->rss_caps.rx_hash_fields_mask = resp.rss_caps.rx_hash_fields_mask;
-	attr->rss_caps.rx_hash_function = resp.rss_caps.rx_hash_function;
-	attr->tso_caps.max_tso = resp.tso_caps.max_tso;
-	attr->tso_caps.supported_qpts = resp.tso_caps.supported_qpts;
+	if (attr_size >= offsetofend(struct ibv_device_attr_ex, rss_caps)) {
+		attr->rss_caps.rx_hash_fields_mask =
+			resp.rss_caps.rx_hash_fields_mask;
+		attr->rss_caps.rx_hash_function =
+			resp.rss_caps.rx_hash_function;
+	}
+	if (attr_size >= offsetofend(struct ibv_device_attr_ex, tso_caps)) {
+		attr->tso_caps.max_tso = resp.tso_caps.max_tso;
+		attr->tso_caps.supported_qpts = resp.tso_caps.supported_qpts;
+	}
 
+	raw_fw_ver = resp.ibv_resp.base.fw_ver;
 	major     = (raw_fw_ver >> 32) & 0xffff;
 	minor     = (raw_fw_ver >> 16) & 0xffff;
 	sub_minor = raw_fw_ver & 0xffff;

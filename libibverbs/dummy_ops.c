@@ -380,7 +380,14 @@ static int post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *recv_wr,
 static int query_device(struct ibv_context *context,
 			struct ibv_device_attr *device_attr)
 {
-	return EOPNOTSUPP;
+	const struct verbs_context_ops *ops = get_ops(context);
+
+	if (!ops->query_device_ex)
+		return EOPNOTSUPP;
+	return ops->query_device_ex(
+		context, NULL,
+		container_of(device_attr, struct ibv_device_attr_ex, orig_attr),
+		sizeof(*device_attr));
 }
 
 /* Provide a generic implementation for all providers that don't implement

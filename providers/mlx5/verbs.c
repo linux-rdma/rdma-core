@@ -65,27 +65,6 @@ static inline int is_xrc_tgt(int type)
 	return type == IBV_QPT_XRC_RECV;
 }
 
-int mlx5_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
-{
-	struct ibv_query_device cmd;
-	uint64_t raw_fw_ver;
-	unsigned major, minor, sub_minor;
-	int ret;
-
-	ret = ibv_cmd_query_device(context, attr, &raw_fw_ver, &cmd, sizeof cmd);
-	if (ret)
-		return ret;
-
-	major     = (raw_fw_ver >> 32) & 0xffff;
-	minor     = (raw_fw_ver >> 16) & 0xffff;
-	sub_minor = raw_fw_ver & 0xffff;
-
-	snprintf(attr->fw_ver, sizeof attr->fw_ver,
-		 "%d.%d.%04d", major, minor, sub_minor);
-
-	return 0;
-}
-
 static int mlx5_read_clock(struct ibv_context *context, uint64_t *cycles)
 {
 	unsigned int clockhi, clocklo, clockhi1;
@@ -3481,47 +3460,53 @@ int mlx5_query_device_ex(struct ibv_context *context,
 			 size_t attr_size)
 {
 	struct mlx5_context *mctx = to_mctx(context);
-	struct mlx5_query_device_ex_resp resp;
-	struct mlx5_query_device_ex cmd;
+	struct mlx5_query_device_ex_resp resp = {};
+	size_t resp_size =
+		(mctx->cmds_supp_uhw & MLX5_USER_CMDS_SUPP_UHW_QUERY_DEVICE) ?
+			sizeof(resp) :
+			sizeof(resp.ibv_resp);
 	struct ibv_device_attr *a;
 	uint64_t raw_fw_ver;
 	unsigned sub_minor;
 	unsigned major;
 	unsigned minor;
 	int err;
-	int cmd_supp_uhw = mctx->cmds_supp_uhw &
-		MLX5_USER_CMDS_SUPP_UHW_QUERY_DEVICE;
 
-	memset(&cmd, 0, sizeof(cmd));
-	memset(&resp, 0, sizeof(resp));
-	err = ibv_cmd_query_device_ex(
-		context, input, attr, attr_size, &raw_fw_ver, &cmd.ibv_cmd,
-		sizeof(cmd), &resp.ibv_resp,
-		cmd_supp_uhw ? sizeof(resp) : sizeof(resp.ibv_resp));
+	err = ibv_cmd_query_device_any(context, input, attr, attr_size,
+				       &resp.ibv_resp, &resp_size);
 	if (err)
 		return err;
 
-	attr->tso_caps.max_tso = resp.tso_caps.max_tso;
-	attr->tso_caps.supported_qpts = resp.tso_caps.supported_qpts;
-	attr->rss_caps.rx_hash_fields_mask = resp.rss_caps.rx_hash_fields_mask;
-	attr->rss_caps.rx_hash_function = resp.rss_caps.rx_hash_function;
-	attr->packet_pacing_caps.qp_rate_limit_min =
-		resp.packet_pacing_caps.qp_rate_limit_min;
-	attr->packet_pacing_caps.qp_rate_limit_max =
-		resp.packet_pacing_caps.qp_rate_limit_max;
-	attr->packet_pacing_caps.supported_qpts =
-		resp.packet_pacing_caps.supported_qpts;
+	if (attr_size >= offsetofend(struct ibv_device_attr_ex, tso_caps)) {
+		attr->tso_caps.max_tso = resp.tso_caps.max_tso;
+		attr->tso_caps.supported_qpts = resp.tso_caps.supported_qpts;
+	}
+	if (attr_size >= offsetofend(struct ibv_device_attr_ex, rss_caps)) {
+		attr->rss_caps.rx_hash_fields_mask =
+			resp.rss_caps.rx_hash_fields_mask;
+		attr->rss_caps.rx_hash_function =
+			resp.rss_caps.rx_hash_function;
+	}
+	if (attr_size >=
+	    offsetofend(struct ibv_device_attr_ex, packet_pacing_caps)) {
+		attr->packet_pacing_caps.qp_rate_limit_min =
+			resp.packet_pacing_caps.qp_rate_limit_min;
+		attr->packet_pacing_caps.qp_rate_limit_max =
+			resp.packet_pacing_caps.qp_rate_limit_max;
+		attr->packet_pacing_caps.supported_qpts =
+			resp.packet_pacing_caps.supported_qpts;
+	}
 
+	if (attr_size >= offsetofend(struct ibv_device_attr_ex, pci_atomic_caps))
+		get_pci_atomic_caps(context, attr);
+
+	raw_fw_ver = resp.ibv_resp.base.fw_ver;
 	major     = (raw_fw_ver >> 32) & 0xffff;
 	minor     = (raw_fw_ver >> 16) & 0xffff;
 	sub_minor = raw_fw_ver & 0xffff;
 	a = &attr->orig_attr;
 	snprintf(a->fw_ver, sizeof(a->fw_ver), "%d.%d.%04d",
 		 major, minor, sub_minor);
-
-	if (attr_size >= offsetof(struct ibv_device_attr_ex, pci_atomic_caps) +
-			sizeof(attr->pci_atomic_caps))
-		get_pci_atomic_caps(context, attr);
 
 	return 0;
 }
