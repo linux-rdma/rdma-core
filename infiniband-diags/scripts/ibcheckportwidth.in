@@ -5,7 +5,7 @@ IBPATH=${IBPATH:-@IBSCRIPTPATH@}
 usage() {
 	echo Usage: `basename $0` "[-h] [-v] [-N | -nocolor] [-G]" \
 	   "[-C ca_name] [-P ca_port] [-t(imeout) timeout_ms] <lid|guid> <port>"
-	exit -1
+	exit 255
 }
 
 green() {
@@ -81,18 +81,18 @@ echo "*** WARNING ***: this command is deprecated\n\n" 1>&2
 fi
 
 if [ "$guid_addr" ]; then
-	if ! lid=`$IBPATH/ibaddr $ca_info -G -L $1 | awk '/failed/{exit -1} {print $3}'`; then
+	if ! lid=`$IBPATH/ibaddr $ca_info -G -L $1 | awk '/failed/{exit 255} {print $3}'`; then
 		echo -n "guid $1 address resolution: "
 		red "FAILED"
-		exit -1
+		exit 255
 	fi
 	guid=$1
 else
 	lid=$1
-	if ! temp=`$IBPATH/ibaddr $ca_info -L $1 | awk '/failed/{exit -1} {print $1}'`; then
+	if ! temp=`$IBPATH/ibaddr $ca_info -L $1 | awk '/failed/{exit 255} {print $1}'`; then
 		echo -n "lid $1 address resolution: "
 		red "FAILED"
-		exit -1
+		exit 255
 	fi
 fi
 
@@ -122,11 +122,11 @@ function blue(s)
 END {
 	if (err != "") {
 		blue(err)
-		exit -1
+		exit 255
 	}
 	if (warn != "") {
 		blue(warn)
-		exit -1
+		exit 255
 	}
 	exit 0
 }' 2>&1 && test $rv -eq 0 ; then
@@ -138,5 +138,5 @@ END {
 else
 	echo -n "Port check lid $lid port $portnum: "
 	red "FAILED"
-	exit -1
+	exit 255
 fi
