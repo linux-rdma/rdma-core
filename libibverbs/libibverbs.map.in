@@ -205,7 +205,6 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_query_context;
 		ibv_cmd_query_device;
 		ibv_cmd_query_device_any;
-		ibv_cmd_query_device_ex;
 		ibv_cmd_query_mr;
 		ibv_cmd_query_port;
 		ibv_cmd_query_qp;

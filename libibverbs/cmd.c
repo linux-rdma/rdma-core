@@ -44,7 +44,6 @@
 #include <infiniband/cmd_write.h>
 #include "ibverbs.h"
 #include <ccan/minmax.h>
-#include <util/util.h>
 
 bool verbs_allow_disassociate_destroy;
 
@@ -109,104 +108,6 @@ int ibv_cmd_query_device(struct ibv_context *context,
 
 	memset(device_attr->fw_ver, 0, sizeof device_attr->fw_ver);
 	copy_query_dev_fields(device_attr, &resp, raw_fw_ver);
-
-	return 0;
-}
-
-int ibv_cmd_query_device_ex(struct ibv_context *context,
-			    const struct ibv_query_device_ex_input *input,
-			    struct ibv_device_attr_ex *attr, size_t attr_size,
-			    uint64_t *raw_fw_ver,
-			    struct ibv_query_device_ex *cmd,
-			    size_t cmd_size,
-			    struct ib_uverbs_ex_query_device_resp *resp,
-			    size_t resp_size)
-{
-	int err;
-
-	if (input && input->comp_mask)
-		return EINVAL;
-
-	if (attr_size < offsetof(struct ibv_device_attr_ex, comp_mask) +
-			sizeof(attr->comp_mask))
-		return EINVAL;
-
-	cmd->comp_mask = 0;
-	cmd->reserved = 0;
-	memset(attr->orig_attr.fw_ver, 0, sizeof(attr->orig_attr.fw_ver));
-	memset(&attr->comp_mask, 0, attr_size - sizeof(attr->orig_attr));
-
-	err = execute_cmd_write_ex(context, IB_USER_VERBS_EX_CMD_QUERY_DEVICE,
-				   cmd, cmd_size, resp, resp_size);
-	if (err)
-		return err;
-
-	copy_query_dev_fields(&attr->orig_attr, &resp->base, raw_fw_ver);
-	/* Report back supported comp_mask bits. For now no comp_mask bit is
-	 * defined */
-	attr->comp_mask = resp->comp_mask & 0;
-
-#define CAN_COPY(_ibv_attr, _uverbs_attr)                                      \
-	(attr_size >= offsetofend(struct ibv_device_attr_ex, _ibv_attr) &&     \
-	 resp->response_length >=                                              \
-		 offsetofend(struct ib_uverbs_ex_query_device_resp,            \
-			     _uverbs_attr))
-
-	if (CAN_COPY(odp_caps, odp_caps)) {
-		attr->odp_caps.general_caps = resp->odp_caps.general_caps;
-		attr->odp_caps.per_transport_caps.rc_odp_caps =
-			resp->odp_caps.per_transport_caps.rc_odp_caps;
-		attr->odp_caps.per_transport_caps.uc_odp_caps =
-			resp->odp_caps.per_transport_caps.uc_odp_caps;
-		attr->odp_caps.per_transport_caps.ud_odp_caps =
-			resp->odp_caps.per_transport_caps.ud_odp_caps;
-	}
-
-	if (CAN_COPY(completion_timestamp_mask, timestamp_mask))
-		attr->completion_timestamp_mask = resp->timestamp_mask;
-
-	if (CAN_COPY(hca_core_clock, hca_core_clock))
-		attr->hca_core_clock = resp->hca_core_clock;
-
-	if (CAN_COPY(device_cap_flags_ex, device_cap_flags_ex))
-		attr->device_cap_flags_ex = resp->device_cap_flags_ex;
-
-	if (CAN_COPY(rss_caps, rss_caps)) {
-		attr->rss_caps.supported_qpts = resp->rss_caps.supported_qpts;
-		attr->rss_caps.max_rwq_indirection_tables =
-			resp->rss_caps.max_rwq_indirection_tables;
-		attr->rss_caps.max_rwq_indirection_table_size =
-			resp->rss_caps.max_rwq_indirection_table_size;
-	}
-
-	if (CAN_COPY(max_wq_type_rq, max_wq_type_rq))
-		attr->max_wq_type_rq = resp->max_wq_type_rq;
-
-	if (CAN_COPY(raw_packet_caps, raw_packet_caps))
-		attr->raw_packet_caps = resp->raw_packet_caps;
-
-	if (CAN_COPY(tm_caps, tm_caps)) {
-		attr->tm_caps.max_rndv_hdr_size =
-			resp->tm_caps.max_rndv_hdr_size;
-		attr->tm_caps.max_num_tags = resp->tm_caps.max_num_tags;
-		attr->tm_caps.flags = resp->tm_caps.flags;
-		attr->tm_caps.max_ops = resp->tm_caps.max_ops;
-		attr->tm_caps.max_sge = resp->tm_caps.max_sge;
-	}
-
-	if (CAN_COPY(cq_mod_caps, cq_moderation_caps)) {
-		attr->cq_mod_caps.max_cq_count =
-			resp->cq_moderation_caps.max_cq_moderation_count;
-		attr->cq_mod_caps.max_cq_period =
-			resp->cq_moderation_caps.max_cq_moderation_period;
-	}
-
-	if (CAN_COPY(max_dm_size, max_dm_size))
-		attr->max_dm_size = resp->max_dm_size;
-
-	if (CAN_COPY(xrc_odp_caps, xrc_odp_caps))
-		attr->xrc_odp_caps = resp->xrc_odp_caps;
-#undef CAN_COPY
 
 	return 0;
 }
