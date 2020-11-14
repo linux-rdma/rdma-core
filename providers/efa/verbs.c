@@ -106,19 +106,49 @@ int efa_query_device_ex(struct ibv_context *context,
 	if (err)
 		return err;
 
-	ctx->device_caps = resp.device_caps;
-	ctx->max_sq_wr = resp.max_sq_wr;
-	ctx->max_rq_wr = resp.max_rq_wr;
-	ctx->max_sq_sge = resp.max_sq_sge;
-	ctx->max_rq_sge = resp.max_rq_sge;
-	ctx->max_rdma_size = resp.max_rdma_size;
-	ctx->max_wr_rdma_sge = a->max_sge_rd;
-
 	a->max_qp_wr = min_t(int, a->max_qp_wr,
 			     ctx->max_llq_size / sizeof(struct efa_io_tx_wqe));
 	snprintf(a->fw_ver, sizeof(a->fw_ver), "%u.%u.%u.%u",
 		 fw_ver[0], fw_ver[1], fw_ver[2], fw_ver[3]);
 
+	return 0;
+}
+
+int efa_query_device_ctx(struct efa_context *ctx)
+{
+	struct efa_query_device_ex_resp resp;
+	struct ibv_device_attr_ex attr;
+	size_t resp_size = sizeof(resp);
+	unsigned int qp_table_sz;
+	int err;
+
+	if (ctx->cmds_supp_udata_mask & EFA_USER_CMDS_SUPP_UDATA_QUERY_DEVICE) {
+		err = ibv_cmd_query_device_any(&ctx->ibvctx.context, NULL,
+					       &attr, sizeof(attr),
+					       &resp.ibv_resp, &resp_size);
+		if (err)
+			return err;
+
+		ctx->device_caps = resp.device_caps;
+		ctx->max_sq_wr = resp.max_sq_wr;
+		ctx->max_rq_wr = resp.max_rq_wr;
+		ctx->max_sq_sge = resp.max_sq_sge;
+		ctx->max_rq_sge = resp.max_rq_sge;
+		ctx->max_rdma_size = resp.max_rdma_size;
+	} else {
+		err = ibv_cmd_query_device_any(&ctx->ibvctx.context, NULL,
+					       &attr, sizeof(attr.orig_attr),
+					       NULL, NULL);
+		if (err)
+			return err;
+	}
+
+	ctx->max_wr_rdma_sge = attr.orig_attr.max_sge_rd;
+	qp_table_sz = roundup_pow_of_two(attr.orig_attr.max_qp);
+	ctx->qp_table_sz_m1 = qp_table_sz - 1;
+	ctx->qp_table = calloc(qp_table_sz, sizeof(*ctx->qp_table));
+	if (!ctx->qp_table)
+		return ENOMEM;
 	return 0;
 }
 
