@@ -1564,6 +1564,13 @@ int mlx5dv_dr_action_modify_flow_meter(struct mlx5dv_dr_action *action,
 struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_flow_sampler(struct mlx5dv_dr_flow_sampler_attr *attr);
 
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_pop_vlan(void);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_push_vlan(struct mlx5dv_dr_domain *domain,
+				  __be32 vlan_hdr);
+
 int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
 
 int mlx5dv_dump_dr_domain(FILE *fout, struct mlx5dv_dr_domain *domain);

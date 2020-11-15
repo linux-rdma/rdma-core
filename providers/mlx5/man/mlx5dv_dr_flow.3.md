@@ -38,6 +38,10 @@ mlx5dv_dr_action_create_flow_meter, mlx5dv_dr_action_modify_flow_meter - Create 
 
 mlx5dv_dr_action_create_flow_sampler - Create flow sampler action
 
+mlx5dv_dr_action_create_pop_vlan - Create pop vlan action
+
+mlx5dv_dr_action_create_push_vlan- Create push vlan action
+
 mlx5dv_dr_action_destroy - Destroy actions
 
 # SYNOPSIS
@@ -131,6 +135,12 @@ struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_dest_array(struct mlx5dv_dr_domain *domain,
 				   size_t num_dest,
 				   struct mlx5dv_dr_action_dest_attr *dests[]);
+
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_pop_vlan(void);
+
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_push_vlan(
+		struct mlx5dv_dr_domain *dmn,
+		__be32 vlan_hdr)
 
 int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
 ```
@@ -230,6 +240,12 @@ All original packets will be steered to default_next_table in **attr**.
 A modify header format SET_ACTION data can be provided in action of **attr**, which can be executed on packets before going to default flow table. On some devices, this is required to set register value.
 
 Action Flags: action **flags** can be set to one of the types of *enum mlx5dv_dr_action_flags*:
+
+Action: Pop Vlan
+*mlx5dv_dr_action_create_pop_vlan* creates a pop vlan action which removes VLAN tags from packets layer 2.
+
+Action: Push Vlan
+*mlx5dv_dr_action_create_push_vlan* creates a push vlan action which adds VLAN tags to packets layer 2.
 
 **MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL**: is used to indicate the action is targeted for flow table in level=0 (ROOT) of the specific domain.
 
