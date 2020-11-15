@@ -982,11 +982,10 @@ static void efa_lock_cqs(struct ibv_qp *ibvqp)
 	struct efa_cq *send_cq = to_efa_cq(ibvqp->send_cq);
 	struct efa_cq *recv_cq = to_efa_cq(ibvqp->recv_cq);
 
-	if (recv_cq == send_cq && recv_cq) {
+	if (recv_cq == send_cq) {
 		pthread_spin_lock(&recv_cq->lock);
 	} else {
-		if (recv_cq)
-			pthread_spin_lock(&recv_cq->lock);
+		pthread_spin_lock(&recv_cq->lock);
 		if (send_cq)
 			pthread_spin_lock(&send_cq->lock);
 	}
@@ -997,11 +996,10 @@ static void efa_unlock_cqs(struct ibv_qp *ibvqp)
 	struct efa_cq *send_cq = to_efa_cq(ibvqp->send_cq);
 	struct efa_cq *recv_cq = to_efa_cq(ibvqp->recv_cq);
 
-	if (recv_cq == send_cq && recv_cq) {
+	if (recv_cq == send_cq) {
 		pthread_spin_unlock(&recv_cq->lock);
 	} else {
-		if (recv_cq)
-			pthread_spin_unlock(&recv_cq->lock);
+		pthread_spin_unlock(&recv_cq->lock);
 		if (send_cq)
 			pthread_spin_unlock(&send_cq->lock);
 	}
@@ -1147,13 +1145,10 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 		pthread_spin_unlock(&send_cq->lock);
 	}
 
-	if (attr->recv_cq) {
-		recv_cq = to_efa_cq(attr->recv_cq);
-		qp->rcq = recv_cq;
-		pthread_spin_lock(&recv_cq->lock);
-		efa_cq_inc_ref_cnt(recv_cq, resp.recv_sub_cq_idx);
-		pthread_spin_unlock(&recv_cq->lock);
-	}
+	recv_cq = to_efa_cq(attr->recv_cq);
+	pthread_spin_lock(&recv_cq->lock);
+	efa_cq_inc_ref_cnt(recv_cq, resp.recv_sub_cq_idx);
+	pthread_spin_unlock(&recv_cq->lock);
 
 	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS) {
 		efa_qp_fill_wr_pfns(&qp->verbs_qp.qp_ex, attr);
@@ -1302,9 +1297,7 @@ int efa_destroy_qp(struct ibv_qp *ibvqp)
 		efa_cq_dec_ref_cnt(to_efa_cq(ibvqp->send_cq),
 				   qp->sq.wq.sub_cq_idx);
 
-	if (ibvqp->recv_cq)
-		efa_cq_dec_ref_cnt(to_efa_cq(ibvqp->recv_cq),
-				   qp->rq.wq.sub_cq_idx);
+	efa_cq_dec_ref_cnt(to_efa_cq(ibvqp->recv_cq), qp->rq.wq.sub_cq_idx);
 
 	ctx->qp_table[ibvqp->qp_num & ctx->qp_table_sz_m1] = NULL;
 
@@ -1868,9 +1861,6 @@ static int efa_post_recv_validate(struct efa_qp *qp, struct ibv_recv_wr *wr)
 {
 	if (unlikely(qp->verbs_qp.qp.state == IBV_QPS_RESET ||
 		     qp->verbs_qp.qp.state == IBV_QPS_ERR))
-		return EINVAL;
-
-	if (unlikely(!qp->rcq))
 		return EINVAL;
 
 	if (unlikely(wr->num_sge > qp->rq.wq.max_sge))
