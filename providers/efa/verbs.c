@@ -986,8 +986,7 @@ static void efa_lock_cqs(struct ibv_qp *ibvqp)
 		pthread_spin_lock(&recv_cq->lock);
 	} else {
 		pthread_spin_lock(&recv_cq->lock);
-		if (send_cq)
-			pthread_spin_lock(&send_cq->lock);
+		pthread_spin_lock(&send_cq->lock);
 	}
 }
 
@@ -1000,8 +999,7 @@ static void efa_unlock_cqs(struct ibv_qp *ibvqp)
 		pthread_spin_unlock(&recv_cq->lock);
 	} else {
 		pthread_spin_unlock(&recv_cq->lock);
-		if (send_cq)
-			pthread_spin_unlock(&send_cq->lock);
+		pthread_spin_unlock(&send_cq->lock);
 	}
 }
 
@@ -1137,13 +1135,10 @@ static struct ibv_qp *create_qp(struct ibv_context *ibvctx,
 	ctx->qp_table[ibvqp->qp_num & ctx->qp_table_sz_m1] = qp;
 	pthread_spin_unlock(&ctx->qp_table_lock);
 
-	if (attr->send_cq) {
-		send_cq = to_efa_cq(attr->send_cq);
-		qp->scq = send_cq;
-		pthread_spin_lock(&send_cq->lock);
-		efa_cq_inc_ref_cnt(send_cq, resp.send_sub_cq_idx);
-		pthread_spin_unlock(&send_cq->lock);
-	}
+	send_cq = to_efa_cq(attr->send_cq);
+	pthread_spin_lock(&send_cq->lock);
+	efa_cq_inc_ref_cnt(send_cq, resp.send_sub_cq_idx);
+	pthread_spin_unlock(&send_cq->lock);
 
 	recv_cq = to_efa_cq(attr->recv_cq);
 	pthread_spin_lock(&recv_cq->lock);
@@ -1293,10 +1288,7 @@ int efa_destroy_qp(struct ibv_qp *ibvqp)
 	pthread_spin_lock(&ctx->qp_table_lock);
 	efa_lock_cqs(ibvqp);
 
-	if (ibvqp->send_cq)
-		efa_cq_dec_ref_cnt(to_efa_cq(ibvqp->send_cq),
-				   qp->sq.wq.sub_cq_idx);
-
+	efa_cq_dec_ref_cnt(to_efa_cq(ibvqp->send_cq), qp->sq.wq.sub_cq_idx);
 	efa_cq_dec_ref_cnt(to_efa_cq(ibvqp->recv_cq), qp->rq.wq.sub_cq_idx);
 
 	ctx->qp_table[ibvqp->qp_num & ctx->qp_table_sz_m1] = NULL;
@@ -1418,9 +1410,6 @@ static int efa_post_send_validate(struct efa_qp *qp,
 {
 	if (unlikely(qp->verbs_qp.qp.state != IBV_QPS_RTS &&
 		     qp->verbs_qp.qp.state != IBV_QPS_SQD))
-		return EINVAL;
-
-	if (unlikely(!qp->scq))
 		return EINVAL;
 
 	if (unlikely(!(wr_flags & IBV_SEND_SIGNALED) && !qp->sq_sig_all))

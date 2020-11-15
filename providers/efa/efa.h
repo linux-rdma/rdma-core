@@ -119,7 +119,6 @@ struct efa_qp {
 	struct efa_sq sq;
 	struct efa_rq rq;
 	int page_size;
-	struct efa_cq *scq;
 	int sq_sig_all;
 	int wr_session_err;
 };
