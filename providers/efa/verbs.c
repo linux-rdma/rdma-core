@@ -1395,7 +1395,6 @@ static inline void efa_rq_ring_doorbell(struct efa_rq *rq, uint16_t pc)
 
 static inline void efa_sq_ring_doorbell(struct efa_sq *sq, uint16_t pc)
 {
-	mmio_flush_writes();
 	mmio_write32(sq->wq.db, pc);
 }
 
@@ -1516,15 +1515,19 @@ int efa_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 
 		if (curbatch == qp->sq.max_batch_wr) {
 			curbatch = 0;
+			mmio_flush_writes();
 			efa_sq_ring_doorbell(&qp->sq, qp->sq.wq.pc);
+			mmio_wc_start();
 		}
 
 		wr = wr->next;
 	}
 
 ring_db:
-	if (curbatch)
+	if (curbatch) {
+		mmio_flush_writes();
 		efa_sq_ring_doorbell(&qp->sq, qp->sq.wq.pc);
+	}
 
 	/*
 	 * Not using mmio_wc_spinunlock as the doorbell write should be done
@@ -1780,6 +1783,7 @@ static int efa_send_wr_complete(struct ibv_qp_ex *ibvqpx)
 	pc = qp->sq.wq.pc - qp->sq.num_wqe_pending;
 	sq_desc_idx = pc & qp->sq.wq.desc_mask;
 
+	/* mmio_wc_start() comes from efa_send_wr_start() */
 	while (qp->sq.num_wqe_pending) {
 		num_wqe_to_copy = min3(qp->sq.num_wqe_pending,
 				       qp->sq.wq.wqe_cnt - sq_desc_idx,
@@ -1798,13 +1802,17 @@ static int efa_send_wr_complete(struct ibv_qp_ex *ibvqpx)
 			      qp->sq.wq.desc_mask;
 
 		if (curbatch == max_txbatch) {
+			mmio_flush_writes();
 			efa_sq_ring_doorbell(&qp->sq, pc);
 			curbatch = 0;
+			mmio_wc_start();
 		}
 	}
 
-	if (curbatch)
+	if (curbatch) {
+		mmio_flush_writes();
 		efa_sq_ring_doorbell(&qp->sq, qp->sq.wq.pc);
+	}
 out:
 	/*
 	 * Not using mmio_wc_spinunlock as the doorbell write should be done
