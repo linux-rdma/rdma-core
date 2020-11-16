@@ -22,6 +22,7 @@ rdma_python_test(tests
   test_mlx5_pp.py
   test_mlx5_sched.py
   test_mlx5_uar.py
+  test_mlx5_udp_sport.py
   test_mlx5_var.py
   test_mr.py
   test_odp.py
