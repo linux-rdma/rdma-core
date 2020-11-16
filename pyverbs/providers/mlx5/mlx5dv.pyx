@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
-from libc.stdint cimport uintptr_t, uint8_t
+from libc.stdint cimport uintptr_t, uint8_t, uint16_t
 import logging
 
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError
@@ -409,6 +409,18 @@ cdef class Mlx5QP(QPEx):
         rc = dv.mlx5dv_modify_qp_sched_elem(qp.qp, req_se, resp_se)
         if rc != 0:
             raise PyverbsRDMAError(f'Failed to modify QP #{qp.qp.qp_num} sched element', rc)
+
+    @staticmethod
+    def modify_udp_sport(QP qp, uint16_t udp_sport):
+        """
+        Modifies the UDP source port of a given QP.
+        :param qp: A QP in RTS state to modify its UDP sport.
+        :param udp_sport: The desired UDP sport to be used by the QP.
+        """
+        rc = dv.mlx5dv_modify_qp_udp_sport(qp.qp, udp_sport)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to modify UDP source port of QP '
+                                   f'#{qp.qp.qp_num}', rc)
 
 
 cdef class Mlx5DVCQInitAttr(PyverbsObject):
