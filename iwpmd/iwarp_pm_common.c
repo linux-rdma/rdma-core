@@ -570,6 +570,10 @@ void copy_iwpm_sockaddr(__u16 addr_family, struct sockaddr_storage *src_sockaddr
 		*dst = *src;
 		break;
 	}
+	default:
+	assert(false);
+	if (dst_sockaddr)
+		dst_sockaddr->ss_family = addr_family;
 	}
 }
 
