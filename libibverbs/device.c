@@ -320,6 +320,7 @@ static void set_lib_ops(struct verbs_context *vctx)
 #undef ibv_query_port
 	vctx->context.ops._compat_query_port = ibv_query_port;
 	vctx->query_port = __lib_query_port;
+	vctx->context.ops._compat_query_device = ibv_query_device;
 
 	/*
 	 * In order to maintain backward/forward binary compatibility

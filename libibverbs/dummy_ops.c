@@ -377,35 +377,11 @@ static int post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *recv_wr,
 	return EOPNOTSUPP;
 }
 
-static int query_device(struct ibv_context *context,
-			struct ibv_device_attr *device_attr)
-{
-	const struct verbs_context_ops *ops = get_ops(context);
-
-	if (!ops->query_device_ex)
-		return EOPNOTSUPP;
-	return ops->query_device_ex(
-		context, NULL,
-		container_of(device_attr, struct ibv_device_attr_ex, orig_attr),
-		sizeof(*device_attr));
-}
-
-/* Provide a generic implementation for all providers that don't implement
- * query_device_ex.
- */
 static int query_device_ex(struct ibv_context *context,
 			   const struct ibv_query_device_ex_input *input,
 			   struct ibv_device_attr_ex *attr, size_t attr_size)
 {
-	if (input && input->comp_mask)
-		return EINVAL;
-
-	if (attr_size < sizeof(attr->orig_attr))
-		return EOPNOTSUPP;
-
-	memset(attr, 0, attr_size);
-
-	return ibv_query_device(context, &attr->orig_attr);
+	return EOPNOTSUPP;
 }
 
 static int query_ece(struct ibv_qp *qp, struct ibv_ece *ece)
@@ -558,7 +534,6 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	post_send,
 	post_srq_ops,
 	post_srq_recv,
-	query_device,
 	query_device_ex,
 	query_ece,
 	query_port,
@@ -680,7 +655,6 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, post_send);
 	SET_OP(vctx, post_srq_ops);
 	SET_OP(ctx, post_srq_recv);
-	SET_PRIV_OP(ctx, query_device);
 	SET_OP(vctx, query_device_ex);
 	SET_PRIV_OP_IC(vctx, query_ece);
 	SET_PRIV_OP_IC(ctx, query_port);

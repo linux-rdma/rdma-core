@@ -156,7 +156,10 @@ LATEST_SYMVER_FUNC(ibv_query_device, 1_1, "IBVERBS_1.1",
 		   struct ibv_context *context,
 		   struct ibv_device_attr *device_attr)
 {
-	return get_ops(context)->query_device(context, device_attr);
+	return get_ops(context)->query_device_ex(
+		context, NULL,
+		container_of(device_attr, struct ibv_device_attr_ex, orig_attr),
+		sizeof(*device_attr));
 }
 
 int __lib_query_port(struct ibv_context *context, uint8_t port_num,
