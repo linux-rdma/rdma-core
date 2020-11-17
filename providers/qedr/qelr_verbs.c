@@ -2678,7 +2678,7 @@ err1:
 	free(srq);
 err0:
 	DP_ERR(cxt->dbg_fp,
-	       "create srq: failed to create %p. rc=%d\n", srq, rc);
+	       "create srq: failed to create. rc=%d\n", rc);
 	return NULL;
 }
 
