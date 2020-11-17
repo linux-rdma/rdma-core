@@ -257,6 +257,7 @@ struct mlx5_entropy_caps {
 	uint8_t num_lag_ports;
 	uint8_t lag_tx_port_affinity:1;
 	uint8_t rts2rts_qp_udp_sport:1;
+	uint8_t rts2rts_lag_tx_port_affinity:1;
 };
 
 struct mlx5_qos_caps {

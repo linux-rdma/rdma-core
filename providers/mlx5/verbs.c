@@ -3456,6 +3456,10 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 		DEVX_GET(query_hca_cap_out, out,
 			 capability.cmd_hca_cap.rts2rts_qp_udp_sport);
 
+	mctx->entropy_caps.rts2rts_lag_tx_port_affinity =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.cmd_hca_cap.rts2rts_lag_tx_port_affinity);
+
 	mctx->qos_caps.qos =
 		DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.qos);
 
