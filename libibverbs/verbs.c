@@ -973,7 +973,6 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 	int ether_len;
 	struct peer_address src;
 	struct peer_address dst;
-	uint16_t ret_vid;
 	int ret = -EINVAL;
 	int err;
 
@@ -1022,10 +1021,11 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 		goto free_resources;
 
 	if (vid) {
-		ret_vid = neigh_get_vlan_id_from_dev(&neigh_handler);
+		uint16_t ret_vid = neigh_get_vlan_id_from_dev(&neigh_handler);
 
 		if (ret_vid <= 0xfff)
 			neigh_set_vlan_id(&neigh_handler, ret_vid);
+		*vid = ret_vid;
 	}
 
 	/* We are using only Ethernet here */
@@ -1035,9 +1035,6 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 
 	if (ether_len <= 0)
 		goto free_resources;
-
-	if (vid)
-		*vid = ret_vid;
 
 	ret = 0;
 

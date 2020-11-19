@@ -27,15 +27,25 @@ else()
 endif()
 
 # And matching source, this also checks that .symver asm works
-check_c_source_compiles("
-void ibv_get_device_list_1(void);
-void ibv_get_device_list_1(void){}
-asm(\".symver ibv_get_device_list_1, ibv_get_device_list@IBVERBS_1.1\");
-void ibv_get_device_list_0(void);
-void ibv_get_device_list_0(void){}
-asm(\".symver ibv_get_device_list_0, ibv_get_device_list@@IBVERBS_1.0\");
-
-int main(int argc,const char *argv[]){return 0;}" _LDSYMVER_SUCCESS)
+if (HAVE_FUNC_ATTRIBUTE_SYMVER)
+  check_c_source_compiles("
+  void ibv_get_device_list_1(void);
+  __attribute((__symver__(\"ibv_get_device_list@IBVERBS_1.1\")))
+  void ibv_get_device_list_1(void){}
+  void ibv_get_device_list_0(void);
+  __attribute((__symver__(\"ibv_get_device_list@IBVERBS_1.0\")))
+  void ibv_get_device_list_0(void){}
+  int main(int argc,const char *argv[]){return 0;}" _LDSYMVER_SUCCESS)
+else()
+  check_c_source_compiles("
+  void ibv_get_device_list_1(void);
+  void ibv_get_device_list_1(void){}
+  asm(\".symver ibv_get_device_list_1, ibv_get_device_list@IBVERBS_1.1\");
+  void ibv_get_device_list_0(void);
+  void ibv_get_device_list_0(void){}
+  asm(\".symver ibv_get_device_list_0, ibv_get_device_list@@IBVERBS_1.0\");
+  int main(int argc,const char *argv[]){return 0;}" _LDSYMVER_SUCCESS)
+endif()
 
 file(REMOVE "${CMAKE_CURRENT_BINARY_DIR}/test.map")
 set(CMAKE_EXE_LINKER_FLAGS "${SAFE_CMAKE_EXE_LINKER_FLAGS}")

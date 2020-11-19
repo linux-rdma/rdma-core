@@ -148,7 +148,7 @@ static int get_port(const char *ca_name, const char *dir, int portnum, umad_port
 {
 	char port_dir[256];
 	union umad_gid gid;
-	struct dirent **namelist = NULL;
+	struct dirent **namelist;
 	int i, len, num_pkeys = 0;
 	uint32_t capmask;
 
@@ -158,23 +158,24 @@ static int get_port(const char *ca_name, const char *dir, int portnum, umad_port
 
 	len = snprintf(port_dir, sizeof(port_dir), "%s/%d", dir, portnum);
 	if (len < 0 || len > sizeof(port_dir))
-		goto clean;
+		return -EIO;
 
 	if (sys_read_uint(port_dir, SYS_PORT_LMC, &port->lmc) < 0)
-		goto clean;
+		return -EIO;
 	if (sys_read_uint(port_dir, SYS_PORT_SMLID, &port->sm_lid) < 0)
-		goto clean;
+		return -EIO;
 	if (sys_read_uint(port_dir, SYS_PORT_SMSL, &port->sm_sl) < 0)
-		goto clean;
+		return -EIO;
 	if (sys_read_uint(port_dir, SYS_PORT_LID, &port->base_lid) < 0)
-		goto clean;
+		return -EIO;
 	if (sys_read_uint(port_dir, SYS_PORT_STATE, &port->state) < 0)
-		goto clean;
+		return -EIO;
 	if (sys_read_uint(port_dir, SYS_PORT_PHY_STATE, &port->phys_state) < 0)
-		goto clean;
-	sys_read_uint(port_dir, SYS_PORT_RATE, &port->rate);
+		return -EIO;
+	if (sys_read_uint(port_dir, SYS_PORT_RATE, &port->rate) < 0)
+		return -EIO;
 	if (sys_read_uint(port_dir, SYS_PORT_CAPMASK, &capmask) < 0)
-		goto clean;
+		return -EIO;
 
 	if (sys_read_string(port_dir, SYS_PORT_LINK_LAYER,
 	    port->link_layer, UMAD_CA_NAME_LEN) < 0)
@@ -184,7 +185,7 @@ static int get_port(const char *ca_name, const char *dir, int portnum, umad_port
 	port->capmask = htobe32(capmask);
 
 	if (sys_read_gid(port_dir, SYS_PORT_GID, &gid) < 0)
-		goto clean;
+		return -EIO;
 
 	port->gid_prefix = gid.global.subnet_prefix;
 	port->port_guid = gid.global.interface_id;
@@ -194,37 +195,37 @@ static int get_port(const char *ca_name, const char *dir, int portnum, umad_port
 	if (num_pkeys <= 0) {
 		IBWARN("no pkeys found for %s:%u (at dir %s)...",
 		       port->ca_name, port->portnum, port_dir);
-		goto clean;
+		return -EIO;
 	}
 	port->pkeys = calloc(num_pkeys, sizeof(port->pkeys[0]));
 	if (!port->pkeys) {
 		IBWARN("get_port: calloc failed: %s", strerror(errno));
-		goto clean;
+		goto clean_names;
 	}
 	for (i = 0; i < num_pkeys; i++) {
 		unsigned idx, val;
+
 		idx = strtoul(namelist[i]->d_name, NULL, 0);
-		sys_read_uint(port_dir, namelist[i]->d_name, &val);
+		if (sys_read_uint(port_dir, namelist[i]->d_name, &val) < 0)
+			goto clean_pkeys;
 		port->pkeys[idx] = val;
-		free(namelist[i]);
 	}
 	port->pkeys_size = num_pkeys;
+	for (i = 0; i < num_pkeys; i++)
+		free(namelist[i]);
 	free(namelist);
-	namelist = NULL;
 	port_dir[len] = '\0';
 
 	/* FIXME: handle gids */
 
 	return 0;
 
-clean:
-	if (namelist) {
-		for (i = 0; i < num_pkeys; i++)
-			free(namelist[i]);
-		free(namelist);
-	}
-	if (port->pkeys)
-		free(port->pkeys);
+clean_pkeys:
+	free(port->pkeys);
+clean_names:
+	for (i = 0; i < num_pkeys; i++)
+		free(namelist[i]);
+	free(namelist);
 	return -EIO;
 }
 

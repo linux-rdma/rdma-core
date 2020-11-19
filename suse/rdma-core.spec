@@ -389,8 +389,6 @@ Pyverbs is a Cython-based Python API over libibverbs, providing an
 easy, object-oriented access to IB verbs.
 
 %prep
-# Make sure LTO is disable as rdma-core fails to compile with LTO enabled
-%define _lto_cflags %{nil}
 %setup -q -n  %{name}-%{version}%{git_ver}
 
 %build
