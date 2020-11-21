@@ -1,5 +1,10 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved. See COPYING file
+# Copyright (c) 2020, Intel Corporation. All rights reserved. See COPYING file
+
+publish_internal_headers(""
+  dmabuf_alloc.h
+)
 
 rdma_cython_module(pyverbs ""
   addr.pyx
@@ -8,15 +13,17 @@ rdma_cython_module(pyverbs ""
   cmid.pyx
   cq.pyx
   device.pyx
+  dmabuf.pyx
+  dmabuf_alloc.c
   enums.pyx
   mem_alloc.pyx
   mr.pyx
   pd.pyx
   qp.pyx
+  srq.pyx
   wr.pyx
   xrcd.pyx
-  srq.pyx
-  )
+)
 
 rdma_python_module(pyverbs
   __init__.py
