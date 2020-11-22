@@ -1542,6 +1542,29 @@ struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_flow_counter(struct mlx5dv_devx_obj *devx_obj,
 				     uint32_t offset);
 
+enum mlx5dv_dr_action_aso_first_hit_flags {
+	MLX5DV_DR_ACTION_FLAGS_ASO_FIRST_HIT_SET = 1 << 0,
+};
+
+enum mlx5dv_dr_action_aso_flow_meter_flags {
+	MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_RED	= 1 << 0,
+	MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_YELLOW	= 1 << 1,
+	MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_GREEN	= 1 << 2,
+	MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_UNDEFINED	= 1 << 3,
+};
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_aso(struct mlx5dv_dr_domain *domain,
+			    struct mlx5dv_devx_obj *devx_obj,
+			    uint32_t offset,
+			    uint32_t flags,
+			    uint8_t return_reg_c);
+
+int mlx5dv_dr_action_modify_aso(struct mlx5dv_dr_action *action,
+				uint32_t offset,
+				uint32_t flags,
+				uint8_t return_reg_c);
+
 struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_packet_reformat(struct mlx5dv_dr_domain *domain,
 					uint32_t flags,

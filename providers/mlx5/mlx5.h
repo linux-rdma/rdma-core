@@ -670,6 +670,8 @@ enum mlx5_devx_obj_type {
 	MLX5_DEVX_FLOW_GROUP		= 7,
 	MLX5_DEVX_FLOW_TABLE_ENTRY	= 8,
 	MLX5_DEVX_FLOW_SAMPLER		= 9,
+	MLX5_DEVX_ASO_FIRST_HIT		= 10,
+	MLX5_DEVX_ASO_FLOW_METER	= 11,
 };
 
 struct mlx5dv_devx_obj {
@@ -678,6 +680,7 @@ struct mlx5dv_devx_obj {
 	enum mlx5_devx_obj_type type;
 	uint32_t object_id;
 	uint64_t rx_icm_addr;
+	uint8_t log_obj_range;
 };
 
 struct mlx5_var_obj {

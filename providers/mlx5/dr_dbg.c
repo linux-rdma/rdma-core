@@ -77,6 +77,8 @@ enum dr_dump_rec_type {
 	DR_DUMP_REC_TYPE_ACTION_METER = 3414,
 	DR_DUMP_REC_TYPE_ACTION_SAMPLER = 3415,
 	DR_DUMP_REC_TYPE_ACTION_DEST_ARRAY = 3416,
+	DR_DUMP_REC_TYPE_ACTION_ASO_FIRST_HIT = 3417,
+	DR_DUMP_REC_TYPE_ACTION_ASO_FLOW_METER = 3418,
 };
 
 static uint64_t dr_dump_icm_to_idx(uint64_t icm_addr)
@@ -200,6 +202,16 @@ static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
 			      DR_DUMP_REC_TYPE_ACTION_PUSH_VLAN, action_id,
 			      rule_id, action->push_vlan.vlan_hdr);
+		break;
+	case DR_ACTION_TYP_ASO_FIRST_HIT:
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
+			      DR_DUMP_REC_TYPE_ACTION_ASO_FIRST_HIT, action_id,
+			      rule_id, action->aso.devx_obj->object_id);
+		break;
+	case DR_ACTION_TYP_ASO_FLOW_METER:
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
+			      DR_DUMP_REC_TYPE_ACTION_ASO_FLOW_METER, action_id,
+			      rule_id, action->aso.devx_obj->object_id);
 		break;
 	default:
 		return 0;
