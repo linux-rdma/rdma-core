@@ -1866,13 +1866,14 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 		  struct ibv_recv_wr **bad)
 {
 	struct efa_qp *qp = to_efa_qp(ibvqp);
+	struct efa_wq *wq = &qp->rq.wq;
 	struct efa_io_rx_desc rx_buf;
 	uint32_t rq_desc_offset;
 	uintptr_t addr;
 	int err = 0;
 	size_t i;
 
-	pthread_spin_lock(&qp->rq.wq.wqlock);
+	pthread_spin_lock(&wq->wqlock);
 	while (wr) {
 		err = efa_post_recv_validate(qp, wr);
 		if (err) {
@@ -1882,9 +1883,8 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 
 		memset(&rx_buf, 0, sizeof(rx_buf));
 
-		rx_buf.req_id = efa_wq_get_next_wrid_idx_locked(&qp->rq.wq,
-								wr->wr_id);
-		qp->rq.wq.wqe_posted++;
+		rx_buf.req_id = efa_wq_get_next_wrid_idx_locked(wq, wr->wr_id);
+		wq->wqe_posted++;
 
 		/* Default init of the rx buffer */
 		EFA_SET(&rx_buf.lkey_ctrl, EFA_IO_RX_DESC_FIRST, 1);
@@ -1906,14 +1906,14 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 			rx_buf.buf_addr_hi = (uint64_t)addr >> 32;
 
 			/* Copy descriptor to RX ring */
-			rq_desc_offset = (qp->rq.wq.pc & qp->rq.wq.desc_mask) *
+			rq_desc_offset = (wq->pc & wq->desc_mask) *
 					 sizeof(rx_buf);
 			memcpy(qp->rq.buf + rq_desc_offset, &rx_buf, sizeof(rx_buf));
 
 			/* Wrap rx descriptor index */
-			qp->rq.wq.pc++;
-			if (!(qp->rq.wq.pc & qp->rq.wq.desc_mask))
-				qp->rq.wq.phase++;
+			wq->pc++;
+			if (!(wq->pc & wq->desc_mask))
+				wq->phase++;
 
 			/* reset descriptor for next iov */
 			memset(&rx_buf, 0, sizeof(rx_buf));
@@ -1922,9 +1922,9 @@ int efa_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	}
 
 ring_db:
-	efa_rq_ring_doorbell(&qp->rq, qp->rq.wq.pc);
+	efa_rq_ring_doorbell(&qp->rq, wq->pc);
 
-	pthread_spin_unlock(&qp->rq.wq.wqlock);
+	pthread_spin_unlock(&wq->wqlock);
 	return err;
 }
 
