@@ -803,7 +803,7 @@ struct dr_domain_rx_tx {
 	uint64_t		default_icm_addr;
 	enum dr_ste_entry_type	ste_type;
 	/* protect rx/tx domain */
-	pthread_mutex_t		mutex;
+	pthread_spinlock_t	lock;
 };
 
 struct dr_domain_info {
@@ -839,12 +839,12 @@ struct mlx5dv_dr_domain {
 
 static inline void dr_domain_nic_lock(struct dr_domain_rx_tx *nic_dmn)
 {
-	pthread_mutex_lock(&nic_dmn->mutex);
+	pthread_spin_lock(&nic_dmn->lock);
 }
 
 static inline void dr_domain_nic_unlock(struct dr_domain_rx_tx *nic_dmn)
 {
-	pthread_mutex_unlock(&nic_dmn->mutex);
+	pthread_spin_unlock(&nic_dmn->lock);
 }
 
 static inline void dr_domain_lock(struct mlx5dv_dr_domain *dmn)
@@ -1297,7 +1297,7 @@ struct dr_send_ring {
 	/* manage the send queue */
 	uint32_t		tx_head;
 	/* protect QP/CQ operations */
-	pthread_mutex_t         mutex;
+	pthread_spinlock_t	lock;
 	void			*buf;
 	uint32_t		buf_size;
 	struct ibv_wc		wc[MAX_SEND_CQE];

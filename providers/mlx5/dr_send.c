@@ -632,7 +632,7 @@ static int dr_postsend_icm_data(struct mlx5dv_dr_domain *dmn,
 	uint32_t buff_offset;
 	int ret;
 
-	pthread_mutex_lock(&send_ring->mutex);
+	pthread_spin_lock(&send_ring->lock);
 	ret = dr_handle_pending_wc(dmn, send_ring);
 	if (ret)
 		goto out_unlock;
@@ -653,7 +653,7 @@ static int dr_postsend_icm_data(struct mlx5dv_dr_domain *dmn,
 	dr_post_send(send_ring->qp, send_info);
 
 out_unlock:
-	pthread_mutex_unlock(&send_ring->mutex);
+	pthread_spin_unlock(&send_ring->lock);
 	return ret;
 }
 
@@ -922,7 +922,11 @@ int dr_send_ring_alloc(struct mlx5dv_dr_domain *dmn)
 		return errno;
 	}
 
-	pthread_mutex_init(&dmn->send_ring->mutex, NULL);
+	ret = pthread_spin_init(&dmn->send_ring->lock, PTHREAD_PROCESS_PRIVATE);
+	if (ret) {
+		errno = ret;
+		goto free_send_ring;
+	}
 
 	cq_size = QUEUE_SIZE + 1;
 	dmn->send_ring->cq.ibv_cq = ibv_create_cq(dmn->ctx, cq_size, NULL, NULL, 0);
@@ -1072,8 +1076,8 @@ int dr_send_ring_force_drain(struct mlx5dv_dr_domain *dmn)
 		if (ret)
 			return ret;
 	}
-	pthread_mutex_lock(&send_ring->mutex);
+	pthread_spin_lock(&send_ring->lock);
 	ret = dr_handle_pending_wc(dmn, send_ring);
-	pthread_mutex_unlock(&send_ring->mutex);
+	pthread_spin_unlock(&send_ring->lock);
 	return ret;
 }
