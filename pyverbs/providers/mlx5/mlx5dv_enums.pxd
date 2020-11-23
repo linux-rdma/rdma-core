@@ -36,6 +36,10 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_CQE_RES_FORMAT_CSUM          = 1 << 1
         MLX5DV_CQE_RES_FORMAT_CSUM_STRIDX   = 1 << 2
 
+    cpdef enum mlx5dv_sched_elem_attr_flags:
+        MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE    = 1 << 0
+        MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW  = 1 << 1
+
     cpdef enum mlx5dv_tunnel_offloads:
         MLX5DV_RAW_PACKET_CAP_TUNNELED_OFFLOAD_VXLAN            = 1 << 0
         MLX5DV_RAW_PACKET_CAP_TUNNELED_OFFLOAD_GRE              = 1 << 1
