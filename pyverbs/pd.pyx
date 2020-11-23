@@ -171,7 +171,7 @@ cdef void pd_free(v.ibv_pd *pd, void *pd_context, void *ptr,
 
 
 cdef class ParentDomainContext(PyverbsObject):
-    def __init__(self, PD pd, alloc_func, free_func):
+    def __init__(self, PD pd, alloc_func, free_func, user_data=None):
         """
         Initializes ParentDomainContext object which is used as a pd_context.
         It contains the relevant fields in order to allow the user to write
@@ -180,11 +180,21 @@ cdef class ParentDomainContext(PyverbsObject):
                   creation of the Parent Domain
         :param alloc_func: Python alloc function
         :param free_func: Python free function
+        :param user_data: Additional user-specific data
         """
         super().__init__()
         self.pd = pd
         self.p_alloc = alloc_func
         self.p_free = free_func
+        self.user_data = user_data
+
+    @property
+    def user_data(self):
+        return self.user_data
+
+    @user_data.setter
+    def user_data(self, val):
+        self.user_data = val
 
 
 cdef class ParentDomainInitAttr(PyverbsObject):
