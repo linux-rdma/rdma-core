@@ -23,9 +23,18 @@ cdef extern from 'infiniband/efadv.h':
         uint16_t ahn;
         uint8_t reserved[6];
 
+    cdef struct efadv_qp_init_attr:
+        uint64_t comp_mask;
+        uint32_t driver_qp_type;
+        uint8_t reserved[4];
+
     int efadv_query_device(v.ibv_context *ibvctx, efadv_device_attr *attrs,
                            uint32_t inlen)
     int efadv_query_ah(v.ibv_ah *ibvah, efadv_ah_attr *attr,
                        uint32_t inlen)
     v.ibv_qp *efadv_create_driver_qp(v.ibv_pd *ibvpd, v.ibv_qp_init_attr *attr,
                                      uint32_t driver_qp_type)
+    v.ibv_qp *efadv_create_qp_ex(v.ibv_context *ibvctx,
+                                 v.ibv_qp_init_attr_ex *attr_ex,
+                                 efadv_qp_init_attr *efa_attr,
+                                 uint32_t inlen)
