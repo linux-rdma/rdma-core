@@ -2822,6 +2822,7 @@ struct mlx5_ifc_create_qp_in_bits {
 
 enum mlx5_qpc_opt_mask_32 {
 	MLX5_QPC_OPT_MASK_32_QOS_QUEUE_GROUP_ID = 1 << 1,
+	MLX5_QPC_OPT_MASK_32_UDP_SPORT = 1 << 2,
 };
 
 struct mlx5_ifc_init2init_qp_out_bits {

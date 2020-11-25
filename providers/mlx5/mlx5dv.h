@@ -1618,6 +1618,8 @@ int mlx5dv_query_qp_lag_port(struct ibv_qp *qp,
 
 int mlx5dv_modify_qp_lag_port(struct ibv_qp *qp, uint8_t port_num);
 
+int mlx5dv_modify_qp_udp_sport(struct ibv_qp *qp, uint16_t udp_sport);
+
 enum mlx5dv_sched_elem_attr_flags {
 	MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE	= 1 << 0,
 	MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW	= 1 << 1,
