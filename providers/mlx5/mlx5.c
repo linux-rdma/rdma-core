@@ -807,8 +807,9 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 	}
 
 	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS) {
-		if (mctx->lag_caps.num_lag_ports) {
-			attrs_out->num_lag_ports = mctx->lag_caps.num_lag_ports;
+		if (mctx->entropy_caps.num_lag_ports) {
+			attrs_out->num_lag_ports =
+				mctx->entropy_caps.num_lag_ports;
 			comp_mask_out |= MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS;
 		}
 	}
@@ -1017,7 +1018,7 @@ static bool lag_operation_supported(struct ibv_qp *qp)
 	struct mlx5_qp *mqp = to_mqp(qp);
 
 	if (!is_mlx5_dev(qp->context->device) ||
-	    (mctx->lag_caps.num_lag_ports <= 1))
+	    (mctx->entropy_caps.num_lag_ports <= 1))
 		return false;
 
 	if ((qp->qp_type == IBV_QPT_RC) ||
@@ -1053,7 +1054,7 @@ int mlx5dv_query_qp_lag_port(struct ibv_qp *qp, uint8_t *port_num,
 	if (ret)
 		return ret;
 
-	if (!lag_state && !mctx->lag_caps.lag_tx_port_affinity)
+	if (!lag_state && !mctx->entropy_caps.lag_tx_port_affinity)
 		return EOPNOTSUPP;
 
 	switch (qp->qp_type) {

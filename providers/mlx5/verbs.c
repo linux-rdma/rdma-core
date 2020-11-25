@@ -3444,13 +3444,17 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 	if (ret)
 		return;
 
-	mctx->lag_caps.num_lag_ports =
+	mctx->entropy_caps.num_lag_ports =
 		DEVX_GET(query_hca_cap_out, out,
 			 capability.cmd_hca_cap.num_lag_ports);
 
-	mctx->lag_caps.lag_tx_port_affinity =
+	mctx->entropy_caps.lag_tx_port_affinity =
 		DEVX_GET(query_hca_cap_out, out,
 			 capability.cmd_hca_cap.lag_tx_port_affinity);
+
+	mctx->entropy_caps.rts2rts_qp_udp_sport =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.cmd_hca_cap.rts2rts_qp_udp_sport);
 
 	mctx->qos_caps.qos =
 		DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.qos);
