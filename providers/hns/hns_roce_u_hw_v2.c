@@ -899,16 +899,13 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_SE_S,
 		     (wr->send_flags & IBV_SEND_SOLICITED) ? 1 : 0);
 
-	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_OWNER_S,
-		     ~(((qp->sq.head + nreq) >> qp->sq.shift) & 0x1));
-
 	roce_set_field(rc_sq_wqe->byte_20,
 		       RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_M,
 		       RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_S,
 		       sge_info->start_idx & (qp->ex_sge.sge_cnt - 1));
 
 	if (wr->opcode == IBV_WR_BIND_MW)
-		return 0;
+		goto wqe_valid;
 
 	wqe += sizeof(struct hns_roce_rc_sq_wqe);
 	dseg = wqe;
@@ -928,7 +925,23 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 		ret = set_rc_inl(qp, wr, rc_sq_wqe, sge_info);
 	}
 
-	return ret;
+	if (ret)
+		return ret;
+
+wqe_valid:
+	/*
+	 * The pipeline can sequentially post all valid WQEs into WQ buffer,
+	 * including new WQEs waiting for the doorbell to update the PI again.
+	 * Therefore, the owner bit of WQE MUST be updated after all fields
+	 * and extSGEs have been written into DDR instead of cache.
+	 */
+	if (qp->flags & HNS_ROCE_QP_CAP_OWNER_DB)
+		udma_to_device_barrier();
+
+	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_OWNER_S,
+		     ~(((qp->sq.head + nreq) >> qp->sq.shift) & 0x1));
+
+	return 0;
 }
 
 int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
