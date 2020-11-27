@@ -35,6 +35,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdatomic.h>
 #include <util/compiler.h>
 
@@ -109,6 +110,18 @@ static inline void mlx5_dbg(FILE *fp, uint32_t mask, const char *fmt, ...)
 {
 }
 #endif
+
+__attribute__((format(printf, 2, 3)))
+static inline void mlx5_err(FILE *fp, const char *fmt, ...)
+{
+	va_list args;
+
+	if (!fp)
+		return;
+	va_start(args, fmt);
+	vfprintf(fp, fmt, args);
+	va_end(args);
+}
 
 enum {
 	MLX5_STAT_RATE_OFFSET		= 5
@@ -930,7 +943,7 @@ int mlx5_arm_cq(struct ibv_cq *cq, int solicited);
 void mlx5_cq_event(struct ibv_cq *cq);
 void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t qpn, struct mlx5_srq *srq);
 void mlx5_cq_clean(struct mlx5_cq *cq, uint32_t qpn, struct mlx5_srq *srq);
-void mlx5_cq_resize_copy_cqes(struct mlx5_cq *cq);
+void mlx5_cq_resize_copy_cqes(struct mlx5_context *mctx, struct mlx5_cq *cq);
 
 struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 				 struct ibv_srq_init_attr *attr);
@@ -1079,7 +1092,7 @@ static inline int mlx5_spin_lock(struct mlx5_spinlock *lock)
 		return pthread_spin_lock(&lock->lock);
 
 	if (unlikely(lock->in_use)) {
-		fprintf(stderr, "*** ERROR: multithreading vilation ***\n"
+		fprintf(stderr, "*** ERROR: multithreading violation ***\n"
 			"You are running a multithreaded application but\n"
 			"you set MLX5_SINGLE_THREADED=1. Please unset it.\n");
 		abort();

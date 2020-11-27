@@ -269,8 +269,6 @@ static int alloc_huge_buf(struct mlx5_context *mctx, struct mlx5_buf *buf,
 		buf->base = bitmap_alloc_range(&hmem->bitmap, nchunk, 1);
 		if (buf->base == -1) {
 			free_huge_mem(hmem);
-			/* TBD: remove after proven stability */
-			fprintf(stderr, "BUG: huge allocation\n");
 			return -1;
 		}
 
@@ -473,7 +471,7 @@ int mlx5_free_actual_buf(struct mlx5_context *ctx, struct mlx5_buf *buf)
 		break;
 
 	default:
-		fprintf(stderr, "Bad allocation type\n");
+		mlx5_err(ctx->dbg_fp, "Bad allocation type\n");
 	}
 
 	return err;
@@ -557,7 +555,8 @@ void mlx5_get_alloc_type(struct mlx5_context *context,
 	}
 }
 
-static void mlx5_alloc_get_env_info(int *max_block_log,
+static void mlx5_alloc_get_env_info(struct mlx5_context *mctx,
+				    int *max_block_log,
 				    int *min_block_log,
 				    const char *component)
 
@@ -578,8 +577,8 @@ static void mlx5_alloc_get_env_info(int *max_block_log,
 		    value >= MLX5_MIN_LOG2_CONTIG_BLOCK_SIZE)
 			*max_block_log = value;
 		else
-			fprintf(stderr, "Invalid value %d for %s\n",
-				value, name);
+			mlx5_err(mctx->dbg_fp, "Invalid value %d for %s\n",
+				 value, name);
 	}
 	sprintf(name, "%s_MIN_LOG2_CONTIG_BSIZE", component);
 	env = getenv(name);
@@ -589,8 +588,8 @@ static void mlx5_alloc_get_env_info(int *max_block_log,
 		    value  <=  *max_block_log)
 			*min_block_log = value;
 		else
-			fprintf(stderr, "Invalid value %d for %s\n",
-				value, name);
+			mlx5_err(mctx->dbg_fp, "Invalid value %d for %s\n",
+				 value, name);
 	}
 }
 
@@ -606,7 +605,7 @@ int mlx5_alloc_buf_contig(struct mlx5_context *mctx,
 	struct ibv_context *context = &mctx->ibv_ctx.context;
 	off_t offset;
 
-	mlx5_alloc_get_env_info(&max_block_log,
+	mlx5_alloc_get_env_info(mctx, &max_block_log,
 				&min_block_log,
 				component);
 

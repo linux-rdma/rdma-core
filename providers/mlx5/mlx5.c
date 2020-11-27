@@ -324,7 +324,8 @@ man cpuset
   The first "1" is for bit 64, the second for bit 32, the third for bit 16, the fourth for bit 8, the fifth for
   bit 4, and the "7" is for bits 2, 1, and 0.
 */
-static void mlx5_local_cpu_set(struct ibv_device *ibdev, cpu_set_t *cpu_set)
+static void mlx5_local_cpu_set(struct ibv_device *ibdev, struct mlx5_context *mctx,
+			       cpu_set_t *cpu_set)
 {
 	char *p, buf[1024] = {};
 	char *env_value;
@@ -343,11 +344,11 @@ static void mlx5_local_cpu_set(struct ibv_device *ibdev, cpu_set_t *cpu_set)
 
 		fp = fopen(fname, "r");
 		if (!fp) {
-			fprintf(stderr, PFX "Warning: can not get local cpu set: failed to open %s\n", fname);
+			mlx5_err(mctx->dbg_fp, PFX "Warning: can not get local cpu set: failed to open %s\n", fname);
 			return;
 		}
 		if (!fgets(buf, sizeof(buf), fp)) {
-			fprintf(stderr, PFX "Warning: can not get local cpu set: failed to read cpu mask\n");
+			mlx5_err(mctx->dbg_fp, PFX "Warning: can not get local cpu set: failed to read cpu mask\n");
 			fclose(fp);
 			return;
 		}
@@ -382,7 +383,7 @@ static void mlx5_local_cpu_set(struct ibv_device *ibdev, cpu_set_t *cpu_set)
 	} while (i < CPU_SETSIZE);
 }
 
-static int mlx5_enable_sandy_bridge_fix(struct ibv_device *ibdev)
+static int mlx5_enable_sandy_bridge_fix(struct ibv_device *ibdev, struct mlx5_context *mctx)
 {
 	cpu_set_t my_cpus, dev_local_cpus, result_set;
 	int stall_enable;
@@ -407,14 +408,14 @@ static int mlx5_enable_sandy_bridge_fix(struct ibv_device *ibdev)
 	ret = sched_getaffinity(0, sizeof(my_cpus), &my_cpus);
 	if (ret == -1) {
 		if (errno == EINVAL)
-			fprintf(stderr, PFX "Warning: my cpu set is too small\n");
+			mlx5_err(mctx->dbg_fp, PFX "Warning: my cpu set is too small\n");
 		else
-			fprintf(stderr, PFX "Warning: failed to get my cpu set\n");
+			mlx5_err(mctx->dbg_fp, PFX "Warning: failed to get my cpu set\n");
 		goto out;
 	}
 
 	/* get device local cpu set */
-	mlx5_local_cpu_set(ibdev, &dev_local_cpus);
+	mlx5_local_cpu_set(ibdev, mctx, &dev_local_cpus);
 
 	/* check if my cpu set is in dev cpu */
 	CPU_OR(&result_set, &my_cpus, &dev_local_cpus);
@@ -434,7 +435,7 @@ static void mlx5_read_env(struct ibv_device *ibdev, struct mlx5_context *ctx)
 		ctx->stall_enable = (strcmp(env_value, "0")) ? 1 : 0;
 	else
 		/* autodetect if we need to do cq polling */
-		ctx->stall_enable = mlx5_enable_sandy_bridge_fix(ibdev);
+		ctx->stall_enable = mlx5_enable_sandy_bridge_fix(ibdev, ctx);
 
 	env_value = getenv("MLX5_STALL_NUM_LOOP");
 	if (env_value)
@@ -491,17 +492,22 @@ static int get_total_uuars(int page_size)
 static void open_debug_file(struct mlx5_context *ctx)
 {
 	char *env;
+	FILE *default_dbg_fp = NULL;
+
+#ifdef MLX5_DEBUG
+	default_dbg_fp = stderr;
+#endif
 
 	env = getenv("MLX5_DEBUG_FILE");
 	if (!env) {
-		ctx->dbg_fp = stderr;
+		ctx->dbg_fp = default_dbg_fp;
 		return;
 	}
 
 	ctx->dbg_fp = fopen(env, "aw+");
 	if (!ctx->dbg_fp) {
-		fprintf(stderr, "Failed opening debug file %s, using stderr\n", env);
-		ctx->dbg_fp = stderr;
+		ctx->dbg_fp = default_dbg_fp;
+		mlx5_err(ctx->dbg_fp, "Failed opening debug file %s\n", env);
 		return;
 	}
 }
@@ -655,9 +661,9 @@ static int mlx5_map_internal_clock(struct mlx5_device *mdev,
 			      mdev->page_size * offset);
 
 	if (hca_clock_page == MAP_FAILED) {
-		fprintf(stderr, PFX
-			"Warning: Timestamp available,\n"
-			"but failed to mmap() hca core clock page.\n");
+		mlx5_err(context->dbg_fp, PFX
+			 "Warning: Timestamp available,\n"
+			 "but failed to mmap() hca core clock page.\n");
 		return -1;
 	}
 

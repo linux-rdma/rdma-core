@@ -1222,7 +1222,7 @@ int mlx5_resize_cq(struct ibv_cq *ibcq, int cqe)
 	if (err)
 		goto out_buf;
 
-	mlx5_cq_resize_copy_cqes(cq);
+	mlx5_cq_resize_copy_cqes(mctx, cq);
 	mlx5_free_cq_buf(mctx, cq->active_buf);
 	cq->active_buf = cq->resize_buf;
 	cq->verbs_cq.cq.cqe = cqe - 1;
@@ -1272,20 +1272,20 @@ struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 	ctx = to_mctx(pd->context);
 	srq = calloc(1, sizeof *srq);
 	if (!srq) {
-		fprintf(stderr, "%s-%d:\n", __func__, __LINE__);
+		mlx5_err(ctx->dbg_fp, "%s-%d:\n", __func__, __LINE__);
 		return NULL;
 	}
 	ibsrq = &srq->vsrq.srq;
 
 	memset(&cmd, 0, sizeof cmd);
 	if (mlx5_spinlock_init_pd(&srq->lock, pd)) {
-		fprintf(stderr, "%s-%d:\n", __func__, __LINE__);
+		mlx5_err(ctx->dbg_fp, "%s-%d:\n", __func__, __LINE__);
 		goto err;
 	}
 
 	if (attr->attr.max_wr > ctx->max_srq_recv_wr) {
-		fprintf(stderr, "%s-%d:max_wr %d, max_srq_recv_wr %d\n", __func__, __LINE__,
-			attr->attr.max_wr, ctx->max_srq_recv_wr);
+		mlx5_err(ctx->dbg_fp, "%s-%d:max_wr %d, max_srq_recv_wr %d\n", __func__, __LINE__,
+			 attr->attr.max_wr, ctx->max_srq_recv_wr);
 		errno = EINVAL;
 		goto err;
 	}
@@ -1297,7 +1297,7 @@ struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 	 */
 	max_sge = ctx->max_rq_desc_sz / sizeof(struct mlx5_wqe_data_seg);
 	if (attr->attr.max_sge > max_sge) {
-		fprintf(stderr, "%s-%d:max_wr %d, max_srq_recv_wr %d\n", __func__, __LINE__,
+		mlx5_err(ctx->dbg_fp, "%s-%d:max_wr %d, max_srq_recv_wr %d\n", __func__, __LINE__,
 			attr->attr.max_wr, ctx->max_srq_recv_wr);
 		errno = EINVAL;
 		goto err;
@@ -1307,13 +1307,13 @@ struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 	srq->counter = 0;
 
 	if (mlx5_alloc_srq_buf(pd->context, srq, attr->attr.max_wr, pd)) {
-		fprintf(stderr, "%s-%d:\n", __func__, __LINE__);
+		mlx5_err(ctx->dbg_fp, "%s-%d:\n", __func__, __LINE__);
 		goto err;
 	}
 
 	srq->db = mlx5_alloc_dbrec(to_mctx(pd->context), pd, &srq->custom_db);
 	if (!srq->db) {
-		fprintf(stderr, "%s-%d:\n", __func__, __LINE__);
+		mlx5_err(ctx->dbg_fp, "%s-%d:\n", __func__, __LINE__);
 		goto err_free;
 	}
 
@@ -3228,7 +3228,6 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 	int max_sge;
 	struct ibv_srq *ibsrq;
 	int uidx;
-	FILE *fp = ctx->dbg_fp;
 
 	if (!(attr->comp_mask & IBV_SRQ_INIT_ATTR_TYPE) ||
 	    (attr->srq_type == IBV_SRQT_BASIC))
@@ -3258,14 +3257,14 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 	memset(&resp, 0, sizeof(resp));
 
 	if (mlx5_spinlock_init_pd(&msrq->lock, attr->pd)) {
-		fprintf(stderr, "%s-%d:\n", __func__, __LINE__);
+		mlx5_err(ctx->dbg_fp, "%s-%d:\n", __func__, __LINE__);
 		goto err;
 	}
 
 	if (attr->attr.max_wr > ctx->max_srq_recv_wr) {
-		fprintf(stderr, "%s-%d:max_wr %d, max_srq_recv_wr %d\n",
-			__func__, __LINE__, attr->attr.max_wr,
-			ctx->max_srq_recv_wr);
+		mlx5_err(ctx->dbg_fp, "%s-%d:max_wr %d, max_srq_recv_wr %d\n",
+			 __func__, __LINE__, attr->attr.max_wr,
+			 ctx->max_srq_recv_wr);
 		errno = EINVAL;
 		goto err;
 	}
@@ -3277,9 +3276,9 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 	 */
 	max_sge = ctx->max_recv_wr / sizeof(struct mlx5_wqe_data_seg);
 	if (attr->attr.max_sge > max_sge) {
-		fprintf(stderr, "%s-%d:max_wr %d, max_srq_recv_wr %d\n",
-			__func__, __LINE__, attr->attr.max_wr,
-			ctx->max_srq_recv_wr);
+		mlx5_err(ctx->dbg_fp, "%s-%d:max_wr %d, max_srq_recv_wr %d\n",
+			 __func__, __LINE__, attr->attr.max_wr,
+			 ctx->max_srq_recv_wr);
 		errno = EINVAL;
 		goto err;
 	}
@@ -3288,13 +3287,13 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 	msrq->counter = 0;
 
 	if (mlx5_alloc_srq_buf(context, msrq, attr->attr.max_wr, attr->pd)) {
-		fprintf(stderr, "%s-%d:\n", __func__, __LINE__);
+		mlx5_err(ctx->dbg_fp, "%s-%d:\n", __func__, __LINE__);
 		goto err;
 	}
 
 	msrq->db = mlx5_alloc_dbrec(ctx, attr->pd, &msrq->custom_db);
 	if (!msrq->db) {
-		fprintf(stderr, "%s-%d:\n", __func__, __LINE__);
+		mlx5_err(ctx->dbg_fp, "%s-%d:\n", __func__, __LINE__);
 		goto err_free;
 	}
 
@@ -3311,7 +3310,7 @@ struct ibv_srq *mlx5_create_srq_ex(struct ibv_context *context,
 	if (ctx->cqe_version) {
 		uidx = mlx5_store_uidx(ctx, msrq);
 		if (uidx < 0) {
-			mlx5_dbg(fp, MLX5_DBG_QP, "Couldn't find free user index\n");
+			mlx5_dbg(ctx->dbg_fp, MLX5_DBG_QP, "Couldn't find free user index\n");
 			goto err_free_db;
 		}
 		cmd.uidx = uidx;
