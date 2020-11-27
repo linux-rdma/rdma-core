@@ -54,8 +54,9 @@
 #include <infiniband/driver.h>
 #include <infiniband/verbs.h>
 
-int bnxt_re_query_device(struct ibv_context *uctx,
-			 struct ibv_device_attr *attr);
+int bnxt_re_query_device(struct ibv_context *context,
+			 const struct ibv_query_device_ex_input *input,
+			 struct ibv_device_attr_ex *attr, size_t attr_size);
 int bnxt_re_query_port(struct ibv_context *uctx, uint8_t port,
 		       struct ibv_port_attr *attr);
 struct ibv_pd *bnxt_re_alloc_pd(struct ibv_context *uctx);

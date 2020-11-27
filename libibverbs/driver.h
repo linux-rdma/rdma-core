@@ -352,8 +352,6 @@ struct verbs_context_ops {
 			    struct ibv_ops_wr **bad_op);
 	int (*post_srq_recv)(struct ibv_srq *srq, struct ibv_recv_wr *recv_wr,
 			     struct ibv_recv_wr **bad_recv_wr);
-	int (*query_device)(struct ibv_context *context,
-			    struct ibv_device_attr *device_attr);
 	int (*query_device_ex)(struct ibv_context *context,
 			       const struct ibv_query_device_ex_input *input,
 			       struct ibv_device_attr_ex *attr,
@@ -447,10 +445,6 @@ int ibv_cmd_get_context(struct verbs_context *context,
 			struct ib_uverbs_get_context_resp *resp, size_t resp_size);
 int ibv_cmd_query_context(struct ibv_context *ctx,
 			  struct ibv_command_buffer *driver);
-int ibv_cmd_query_device(struct ibv_context *context,
-			 struct ibv_device_attr *device_attr,
-			 uint64_t *raw_fw_ver,
-			 struct ibv_query_device *cmd, size_t cmd_size);
 int ibv_cmd_create_flow_action_esp(struct ibv_context *ctx,
 				   struct ibv_flow_action_esp_attr *attr,
 				   struct verbs_flow_action *flow_action,
@@ -458,14 +452,11 @@ int ibv_cmd_create_flow_action_esp(struct ibv_context *ctx,
 int ibv_cmd_modify_flow_action_esp(struct verbs_flow_action *flow_action,
 				   struct ibv_flow_action_esp_attr *attr,
 				   struct ibv_command_buffer *driver);
-int ibv_cmd_query_device_ex(struct ibv_context *context,
-			    const struct ibv_query_device_ex_input *input,
-			    struct ibv_device_attr_ex *attr, size_t attr_size,
-			    uint64_t *raw_fw_ver,
-			    struct ibv_query_device_ex *cmd,
-			    size_t cmd_size,
-			    struct ib_uverbs_ex_query_device_resp *resp,
-			    size_t resp_size);
+int ibv_cmd_query_device_any(struct ibv_context *context,
+			     const struct ibv_query_device_ex_input *input,
+			     struct ibv_device_attr_ex *attr, size_t attr_size,
+			     struct ib_uverbs_ex_query_device_resp *resp,
+			     size_t *resp_size);
 int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 		       struct ibv_port_attr *port_attr,
 		       struct ibv_query_port *cmd, size_t cmd_size);

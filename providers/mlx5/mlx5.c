@@ -90,7 +90,6 @@ uint32_t mlx5_debug_mask = 0;
 int mlx5_freeze_on_error_cqe;
 
 static const struct verbs_context_ops mlx5_ctx_common_ops = {
-	.query_device  = mlx5_query_device,
 	.query_port    = mlx5_query_port,
 	.alloc_pd      = mlx5_alloc_pd,
 	.async_event   = mlx5_async_event,
@@ -1373,7 +1372,6 @@ static int mlx5_set_context(struct mlx5_context *context,
 {
 	struct verbs_context *v_ctx = &context->ibv_ctx;
 	struct ibv_port_attr port_attr = {};
-	struct ibv_device_attr_ex device_attr = {};
 	int cmd_fd = v_ctx->context.cmd_fd;
 	struct mlx5_device *mdev = to_mdev(v_ctx->context.device);
 	struct ibv_device *ibdev = v_ctx->context.device;
@@ -1518,14 +1516,7 @@ bf_done:
 			goto err_free;
 	}
 
-	if (!mlx5_query_device_ex(&v_ctx->context, NULL, &device_attr,
-				  sizeof(struct ibv_device_attr_ex))) {
-		context->cached_device_cap_flags =
-			device_attr.orig_attr.device_cap_flags;
-		context->atomic_cap = device_attr.orig_attr.atomic_cap;
-		context->cached_tso_caps = device_attr.tso_caps;
-		context->max_dm_size = device_attr.max_dm_size;
-	}
+	mlx5_query_device_ctx(context);
 
 	for (j = 0; j < min(MLX5_MAX_PORTS_NUM, context->num_ports); ++j) {
 		memset(&port_attr, 0, sizeof(port_attr));

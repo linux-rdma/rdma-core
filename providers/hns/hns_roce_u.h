@@ -316,7 +316,8 @@ static inline struct  hns_roce_qp *to_hr_qp(struct ibv_qp *ibv_qp)
 }
 
 int hns_roce_u_query_device(struct ibv_context *context,
-			    struct ibv_device_attr *attr);
+			    const struct ibv_query_device_ex_input *input,
+			    struct ibv_device_attr_ex *attr, size_t attr_size);
 int hns_roce_u_query_port(struct ibv_context *context, uint8_t port,
 			  struct ibv_port_attr *attr);
 

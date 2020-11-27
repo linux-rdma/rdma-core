@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <infiniband/cmd_write.h>
+#include <util/util.h>
 
 #include <net/if.h>
 
@@ -515,4 +516,157 @@ ssize_t _ibv_query_gid_table(struct ibv_context *context,
 		return -ret;
 
 	return num_entries;
+}
+
+int ibv_cmd_query_device_any(struct ibv_context *context,
+			     const struct ibv_query_device_ex_input *input,
+			     struct ibv_device_attr_ex *attr, size_t attr_size,
+			     struct ib_uverbs_ex_query_device_resp *resp,
+			     size_t *resp_size)
+{
+	struct ib_uverbs_ex_query_device_resp internal_resp;
+	size_t internal_resp_size;
+	int err;
+
+	if (input && input->comp_mask)
+		return EINVAL;
+	if (attr_size < sizeof(attr->orig_attr))
+		return EINVAL;
+
+	if (!resp) {
+		resp = &internal_resp;
+		internal_resp_size = sizeof(internal_resp);
+		resp_size = &internal_resp_size;
+	}
+	memset(attr, 0, attr_size);
+
+	if (attr_size > sizeof(attr->orig_attr)) {
+		struct ibv_query_device_ex cmd = {};
+
+		err = execute_cmd_write_ex(context,
+					   IB_USER_VERBS_EX_CMD_QUERY_DEVICE,
+					   &cmd, sizeof(cmd), resp, *resp_size);
+		if (err) {
+			if (err != EOPNOTSUPP && err != ENOSYS)
+				return err;
+			attr_size = sizeof(attr->orig_attr);
+		}
+	}
+
+	if (attr_size == sizeof(attr->orig_attr)) {
+		struct ibv_query_device cmd = {};
+
+		err = execute_cmd_write(context, IB_USER_VERBS_CMD_QUERY_DEVICE,
+					&cmd, sizeof(cmd), &resp->base,
+					sizeof(resp->base));
+		if (err)
+			return err;
+		resp->response_length = sizeof(resp->base);
+	}
+
+	*resp_size = resp->response_length;
+	attr->orig_attr.node_guid = resp->base.node_guid;
+	attr->orig_attr.sys_image_guid = resp->base.sys_image_guid;
+	attr->orig_attr.max_mr_size = resp->base.max_mr_size;
+	attr->orig_attr.page_size_cap = resp->base.page_size_cap;
+	attr->orig_attr.vendor_id = resp->base.vendor_id;
+	attr->orig_attr.vendor_part_id = resp->base.vendor_part_id;
+	attr->orig_attr.hw_ver = resp->base.hw_ver;
+	attr->orig_attr.max_qp = resp->base.max_qp;
+	attr->orig_attr.max_qp_wr = resp->base.max_qp_wr;
+	attr->orig_attr.device_cap_flags = resp->base.device_cap_flags;
+	attr->orig_attr.max_sge = resp->base.max_sge;
+	attr->orig_attr.max_sge_rd = resp->base.max_sge_rd;
+	attr->orig_attr.max_cq = resp->base.max_cq;
+	attr->orig_attr.max_cqe = resp->base.max_cqe;
+	attr->orig_attr.max_mr = resp->base.max_mr;
+	attr->orig_attr.max_pd = resp->base.max_pd;
+	attr->orig_attr.max_qp_rd_atom = resp->base.max_qp_rd_atom;
+	attr->orig_attr.max_ee_rd_atom = resp->base.max_ee_rd_atom;
+	attr->orig_attr.max_res_rd_atom = resp->base.max_res_rd_atom;
+	attr->orig_attr.max_qp_init_rd_atom = resp->base.max_qp_init_rd_atom;
+	attr->orig_attr.max_ee_init_rd_atom = resp->base.max_ee_init_rd_atom;
+	attr->orig_attr.atomic_cap = resp->base.atomic_cap;
+	attr->orig_attr.max_ee = resp->base.max_ee;
+	attr->orig_attr.max_rdd = resp->base.max_rdd;
+	attr->orig_attr.max_mw = resp->base.max_mw;
+	attr->orig_attr.max_raw_ipv6_qp = resp->base.max_raw_ipv6_qp;
+	attr->orig_attr.max_raw_ethy_qp = resp->base.max_raw_ethy_qp;
+	attr->orig_attr.max_mcast_grp = resp->base.max_mcast_grp;
+	attr->orig_attr.max_mcast_qp_attach = resp->base.max_mcast_qp_attach;
+	attr->orig_attr.max_total_mcast_qp_attach =
+		resp->base.max_total_mcast_qp_attach;
+	attr->orig_attr.max_ah = resp->base.max_ah;
+	attr->orig_attr.max_fmr = resp->base.max_fmr;
+	attr->orig_attr.max_map_per_fmr = resp->base.max_map_per_fmr;
+	attr->orig_attr.max_srq = resp->base.max_srq;
+	attr->orig_attr.max_srq_wr = resp->base.max_srq_wr;
+	attr->orig_attr.max_srq_sge = resp->base.max_srq_sge;
+	attr->orig_attr.max_pkeys = resp->base.max_pkeys;
+	attr->orig_attr.local_ca_ack_delay = resp->base.local_ca_ack_delay;
+	attr->orig_attr.phys_port_cnt = resp->base.phys_port_cnt;
+
+#define CAN_COPY(_ibv_attr, _uverbs_attr)                                      \
+	(attr_size >= offsetofend(struct ibv_device_attr_ex, _ibv_attr) &&     \
+	 resp->response_length >=                                              \
+		 offsetofend(struct ib_uverbs_ex_query_device_resp,            \
+			     _uverbs_attr))
+
+	if (CAN_COPY(odp_caps, odp_caps)) {
+		attr->odp_caps.general_caps = resp->odp_caps.general_caps;
+		attr->odp_caps.per_transport_caps.rc_odp_caps =
+			resp->odp_caps.per_transport_caps.rc_odp_caps;
+		attr->odp_caps.per_transport_caps.uc_odp_caps =
+			resp->odp_caps.per_transport_caps.uc_odp_caps;
+		attr->odp_caps.per_transport_caps.ud_odp_caps =
+			resp->odp_caps.per_transport_caps.ud_odp_caps;
+	}
+
+	if (CAN_COPY(completion_timestamp_mask, timestamp_mask))
+		attr->completion_timestamp_mask = resp->timestamp_mask;
+
+	if (CAN_COPY(hca_core_clock, hca_core_clock))
+		attr->hca_core_clock = resp->hca_core_clock;
+
+	if (CAN_COPY(device_cap_flags_ex, device_cap_flags_ex))
+		attr->device_cap_flags_ex = resp->device_cap_flags_ex;
+
+	if (CAN_COPY(rss_caps, rss_caps)) {
+		attr->rss_caps.supported_qpts = resp->rss_caps.supported_qpts;
+		attr->rss_caps.max_rwq_indirection_tables =
+			resp->rss_caps.max_rwq_indirection_tables;
+		attr->rss_caps.max_rwq_indirection_table_size =
+			resp->rss_caps.max_rwq_indirection_table_size;
+	}
+
+	if (CAN_COPY(max_wq_type_rq, max_wq_type_rq))
+		attr->max_wq_type_rq = resp->max_wq_type_rq;
+
+	if (CAN_COPY(raw_packet_caps, raw_packet_caps))
+		attr->raw_packet_caps = resp->raw_packet_caps;
+
+	if (CAN_COPY(tm_caps, tm_caps)) {
+		attr->tm_caps.max_rndv_hdr_size =
+			resp->tm_caps.max_rndv_hdr_size;
+		attr->tm_caps.max_num_tags = resp->tm_caps.max_num_tags;
+		attr->tm_caps.flags = resp->tm_caps.flags;
+		attr->tm_caps.max_ops = resp->tm_caps.max_ops;
+		attr->tm_caps.max_sge = resp->tm_caps.max_sge;
+	}
+
+	if (CAN_COPY(cq_mod_caps, cq_moderation_caps)) {
+		attr->cq_mod_caps.max_cq_count =
+			resp->cq_moderation_caps.max_cq_moderation_count;
+		attr->cq_mod_caps.max_cq_period =
+			resp->cq_moderation_caps.max_cq_moderation_period;
+	}
+
+	if (CAN_COPY(max_dm_size, max_dm_size))
+		attr->max_dm_size = resp->max_dm_size;
+
+	if (CAN_COPY(xrc_odp_caps, xrc_odp_caps))
+		attr->xrc_odp_caps = resp->xrc_odp_caps;
+#undef CAN_COPY
+
+	return 0;
 }

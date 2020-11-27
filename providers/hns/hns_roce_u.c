@@ -75,7 +75,7 @@ static const struct verbs_context_ops hns_common_ops = {
 	.dereg_mr = hns_roce_u_dereg_mr,
 	.destroy_cq = hns_roce_u_destroy_cq,
 	.modify_cq = hns_roce_u_modify_cq,
-	.query_device = hns_roce_u_query_device,
+	.query_device_ex = hns_roce_u_query_device,
 	.query_port = hns_roce_u_query_port,
 	.query_qp = hns_roce_u_query_qp,
 	.reg_mr = hns_roce_u_reg_mr,
@@ -148,7 +148,11 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	verbs_set_ops(&context->ibv_ctx, &hns_common_ops);
 	verbs_set_ops(&context->ibv_ctx, &hr_dev->u_hw->hw_ops);
 
-	if (hns_roce_u_query_device(&context->ibv_ctx.context, &dev_attrs))
+	if (hns_roce_u_query_device(&context->ibv_ctx.context, NULL,
+				    container_of(&dev_attrs,
+						 struct ibv_device_attr_ex,
+						 orig_attr),
+				    sizeof(dev_attrs)))
 		goto tptr_free;
 
 	context->max_qp_wr = dev_attrs.max_qp_wr;

@@ -55,23 +55,27 @@
  * @context: user context for the device
  * @attr: where to save all the mx resources from the driver
  **/
-int i40iw_uquery_device(struct ibv_context *context, struct ibv_device_attr *attr)
+int i40iw_uquery_device(struct ibv_context *context,
+			const struct ibv_query_device_ex_input *input,
+			struct ibv_device_attr_ex *attr, size_t attr_size)
 {
-	struct ibv_query_device cmd;
+	struct ib_uverbs_ex_query_device_resp resp;
+	size_t resp_size = sizeof(resp);
 	uint64_t i40iw_fw_ver;
 	int ret;
 	unsigned int minor, major;
 
-	ret = ibv_cmd_query_device(context, attr, &i40iw_fw_ver, &cmd, sizeof(cmd));
-	if (ret) {
-		fprintf(stderr, PFX "%s: query device failed and returned status code: %d\n", __func__, ret);
+	ret = ibv_cmd_query_device_any(context, input, attr, attr_size, &resp,
+				       &resp_size);
+	if (ret)
 		return ret;
-	}
 
+	i40iw_fw_ver = resp.base.fw_ver;
 	major = (i40iw_fw_ver >> 16) & 0xffff;
 	minor = i40iw_fw_ver & 0xffff;
 
-	snprintf(attr->fw_ver, sizeof(attr->fw_ver), "%d.%d", major, minor);
+	snprintf(attr->orig_attr.fw_ver, sizeof(attr->orig_attr.fw_ver),
+		 "%d.%d", major, minor);
 
 	return 0;
 }

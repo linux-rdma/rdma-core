@@ -41,7 +41,8 @@
 #include <util/udma_barrier.h>
 
 int qelr_query_device(struct ibv_context *context,
-		      struct ibv_device_attr *attr);
+		      const struct ibv_query_device_ex_input *input,
+		      struct ibv_device_attr_ex *attr, size_t attr_size);
 int qelr_query_port(struct ibv_context *context, uint8_t port,
 		    struct ibv_port_attr *attr);
 

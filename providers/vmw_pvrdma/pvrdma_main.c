@@ -55,7 +55,7 @@ static void pvrdma_free_context(struct ibv_context *ibctx);
 
 static const struct verbs_context_ops pvrdma_ctx_ops = {
 	.free_context = pvrdma_free_context,
-	.query_device = pvrdma_query_device,
+	.query_device_ex = pvrdma_query_device,
 	.query_port = pvrdma_query_port,
 	.alloc_pd = pvrdma_alloc_pd,
 	.dealloc_pd = pvrdma_free_pd,

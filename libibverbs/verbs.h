@@ -1922,7 +1922,8 @@ struct ibv_device {
 
 struct _compat_ibv_port_attr;
 struct ibv_context_ops {
-	void *(*_compat_query_device)(void);
+	int (*_compat_query_device)(struct ibv_context *context,
+				    struct ibv_device_attr *device_attr);
 	int (*_compat_query_port)(struct ibv_context *context,
 				  uint8_t port_num,
 				  struct _compat_ibv_port_attr *port_attr);

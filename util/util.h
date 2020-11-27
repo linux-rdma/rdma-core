@@ -23,6 +23,9 @@ static inline bool __good_snprintf(size_t len, int rc)
 	 ((a)->tv_nsec CMP (b)->tv_nsec) :	\
 	 ((a)->tv_sec CMP (b)->tv_sec))
 
+#define offsetofend(_type, _member)                                            \
+	(offsetof(_type, _member) + sizeof(((_type *)0)->_member))
+
 static inline unsigned long align(unsigned long val, unsigned long align)
 {
 	return (val + align - 1) & ~(align - 1);

@@ -65,23 +65,26 @@ static const struct verbs_match_ent hca_table[] = {
 };
 
 static int rxe_query_device(struct ibv_context *context,
-			    struct ibv_device_attr *attr)
+			    const struct ibv_query_device_ex_input *input,
+			    struct ibv_device_attr_ex *attr, size_t attr_size)
 {
-	struct ibv_query_device cmd;
+	struct ib_uverbs_ex_query_device_resp resp;
+	size_t resp_size = sizeof(resp);
 	uint64_t raw_fw_ver;
 	unsigned int major, minor, sub_minor;
 	int ret;
 
-	ret = ibv_cmd_query_device(context, attr, &raw_fw_ver,
-				   &cmd, sizeof(cmd));
+	ret = ibv_cmd_query_device_any(context, input, attr, attr_size, &resp,
+				       &resp_size);
 	if (ret)
 		return ret;
 
+	raw_fw_ver = resp.base.fw_ver;
 	major = (raw_fw_ver >> 32) & 0xffff;
 	minor = (raw_fw_ver >> 16) & 0xffff;
 	sub_minor = raw_fw_ver & 0xffff;
 
-	snprintf(attr->fw_ver, sizeof(attr->fw_ver),
+	snprintf(attr->orig_attr.fw_ver, sizeof(attr->orig_attr.fw_ver),
 		 "%d.%d.%d", major, minor, sub_minor);
 
 	return 0;
@@ -831,7 +834,7 @@ static int rxe_destroy_ah(struct ibv_ah *ibah)
 }
 
 static const struct verbs_context_ops rxe_ctx_ops = {
-	.query_device = rxe_query_device,
+	.query_device_ex = rxe_query_device,
 	.query_port = rxe_query_port,
 	.alloc_pd = rxe_alloc_pd,
 	.dealloc_pd = rxe_dealloc_pd,
