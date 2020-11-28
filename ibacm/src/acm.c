@@ -3091,9 +3091,10 @@ static void acmc_recv_mad(struct acmc_port *port)
 	}
 
 	hdr = &resp.sa_mad.mad_hdr;
-	acm_log(2, "bv %x cls %x cv %x mtd %x st %d tid %" PRIx64 "x at %x atm %x\n",
+	acm_log(2, "bv %x cls %x cv %x mtd %x st %d tid %" PRIx64 " at %x atm %x\n",
 		hdr->base_version, hdr->mgmt_class, hdr->class_version,
-		hdr->method, hdr->status, be64toh(hdr->tid), hdr->attr_id, hdr->attr_mod);
+		hdr->method, be16toh(hdr->status), be64toh(hdr->tid),
+		be16toh(hdr->attr_id), be32toh(hdr->attr_mod));
 	found = 0;
 	pthread_mutex_lock(&port->lock);
 	list_for_each(&port->sa_pending, req, entry) {
