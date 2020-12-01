@@ -567,8 +567,10 @@ static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 	if (attr->cap.max_recv_wr && attr->cap.max_recv_wr < min_wqe_num)
 		attr->cap.max_recv_wr = min_wqe_num;
 
-	if ((attr->qp_type != IBV_QPT_RC) && (attr->qp_type != IBV_QPT_UD))
-		return EINVAL;
+	if (!(attr->qp_type == IBV_QPT_RC ||
+	      (attr->qp_type == IBV_QPT_UD &&
+	       hr_dev->hw_version >= HNS_ROCE_HW_VER3)))
+		return EOPNOTSUPP;
 
 	return 0;
 }
@@ -822,10 +824,8 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	struct hns_roce_create_qp_resp resp = {};
 	struct hns_roce_context *context = to_hr_ctx(pd->context);
 
-	if (hns_roce_verify_qp(attr, context)) {
-		fprintf(stderr, "hns_roce_verify_sizes failed!\n");
+	if (hns_roce_verify_qp(attr, context))
 		return NULL;
-	}
 
 	qp = calloc(1, sizeof(*qp));
 	if (!qp)

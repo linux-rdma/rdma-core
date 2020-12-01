@@ -290,4 +290,77 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 #define EXTEND_ATOMIC_U_BYTE_32 0x20
 #define EXTEND_ATOMIC_U_BYTE_64 0x40
 
+struct hns_roce_ud_sq_wqe {
+	__le32 rsv_opcode;
+	__le32 msg_len;
+	__le32 immtdata;
+	__le32 sge_num_pd;
+	__le32 rsv_msg_start_sge_idx;
+	__le32 udpspn_rsv;
+	__le32 qkey;
+	__le32 rsv_dqpn;
+	__le32 tclass_vlan;
+	__le32 lbi_flow_label;
+	uint8_t dmac[ETH_ALEN];
+	uint8_t sgid_index;
+	uint8_t smac_index;
+	uint8_t dgid[HNS_ROCE_GID_SIZE];
+};
+
+#define UD_SQ_WQE_OPCODE_S 0
+#define UD_SQ_WQE_OPCODE_M GENMASK(4, 0)
+
+#define UD_SQ_WQE_DB_SL_L_S 5
+#define UD_SQ_WQE_DB_SL_L_M GENMASK(6, 5)
+
+#define UD_SQ_WQE_DB_SL_H_S 13
+#define UD_SQ_WQE_DB_SL_H_M GENMASK(14, 13)
+
+#define UD_SQ_WQE_INDEX_S 15
+#define UD_SQ_WQE_INDEX_M GENMASK(30, 15)
+
+#define UD_SQ_WQE_OWNER_S 7
+
+#define UD_SQ_WQE_CQE_S 8
+
+#define UD_SQ_WQE_SE_S 11
+
+#define UD_SQ_WQE_FLAG_S 31
+
+#define UD_SQ_WQE_PD_S 0
+#define UD_SQ_WQE_PD_M GENMASK(23, 0)
+
+#define UD_SQ_WQE_SGE_NUM_S 24
+#define UD_SQ_WQE_SGE_NUM_M GENMASK(31, 24)
+
+#define UD_SQ_WQE_MSG_START_SGE_IDX_S 0
+#define UD_SQ_WQE_MSG_START_SGE_IDX_M GENMASK(23, 0)
+
+#define UD_SQ_WQE_UDP_SPN_S 16
+#define UD_SQ_WQE_UDP_SPN_M GENMASK(31, 16)
+
+#define UD_SQ_WQE_DQPN_S 0
+#define UD_SQ_WQE_DQPN_M GENMASK(23, 0)
+
+#define UD_SQ_WQE_VLAN_S 0
+#define UD_SQ_WQE_VLAN_M GENMASK(15, 0)
+
+#define UD_SQ_WQE_HOPLIMIT_S 16
+#define UD_SQ_WQE_HOPLIMIT_M GENMASK(23, 16)
+
+#define UD_SQ_WQE_TCLASS_S 24
+#define UD_SQ_WQE_TCLASS_M GENMASK(31, 24)
+
+#define UD_SQ_WQE_FLOW_LABEL_S 0
+#define UD_SQ_WQE_FLOW_LABEL_M GENMASK(19, 0)
+
+#define UD_SQ_WQE_SL_S 20
+#define UD_SQ_WQE_SL_M GENMASK(23, 20)
+
+#define UD_SQ_WQE_VLAN_EN_S 30
+
+#define UD_SQ_WQE_LBI_S 31
+
+#define MAX_SERVICE_LEVEL 0x7
+
 #endif /* _HNS_ROCE_U_HW_V2_H */

@@ -265,6 +265,7 @@ struct hns_roce_qp {
 	unsigned int			next_sge;
 	int				port_num;
 	int				sl;
+	unsigned int			qkey;
 	enum ibv_mtu			path_mtu;
 
 	struct hns_roce_rinl_buf	rq_rinl_buf;
