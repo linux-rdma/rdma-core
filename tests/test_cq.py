@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All rights reserved.
 """
 Test module for pyverbs' cq module.
 
@@ -44,7 +45,7 @@ class CQAPITest(PyverbsAPITestCase):
 
     def test_create_cq(self):
         for cq_size in [1, self.max_cqe/2, self.max_cqe]:
-            for comp_vector in [0, 1]:
+            for comp_vector in range(0, min(2, self.ctx.num_comp_vectors)):
                 try:
                     cq = CQ(self.ctx, cq_size, None, None, comp_vector)
                     cq.close()
