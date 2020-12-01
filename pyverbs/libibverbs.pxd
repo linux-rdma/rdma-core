@@ -530,6 +530,7 @@ cdef extern from 'infiniband/verbs.h':
     void ibv_ack_cq_events(ibv_cq *cq, int nevents)
     ibv_cq *ibv_create_cq(ibv_context *context, int cqe, void *cq_context,
                           ibv_comp_channel *channel, int comp_vector)
+    int ibv_resize_cq(ibv_cq *cq, int cqe)
     int ibv_destroy_cq(ibv_cq *cq)
     int ibv_poll_cq(ibv_cq *cq, int num_entries, ibv_wc *wc)
     ibv_cq_ex *ibv_create_cq_ex(ibv_context *context,
