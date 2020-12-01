@@ -44,11 +44,13 @@
 #include <ccan/array_size.h>
 #include <ccan/bitmap.h>
 #include <ccan/container_of.h>
+#include <linux/if_ether.h>
 #include "hns_roce_u_abi.h"
 
 #define HNS_ROCE_HW_VER1		('h' << 24 | 'i' << 16 | '0' << 8 | '6')
 
 #define HNS_ROCE_HW_VER2		('h' << 24 | 'i' << 16 | '0' << 8 | '8')
+#define HNS_ROCE_HW_VER3		0x130
 
 #define PFX				"hns: "
 
@@ -269,6 +271,23 @@ struct hns_roce_qp {
 	unsigned long			flags;
 };
 
+struct hns_roce_av {
+	uint8_t port;
+	uint8_t gid_index;
+	uint8_t hop_limit;
+	uint32_t flowlabel;
+	uint16_t udp_sport;
+	uint8_t sl;
+	uint8_t tclass;
+	uint8_t dgid[HNS_ROCE_GID_SIZE];
+	uint8_t mac[ETH_ALEN];
+};
+
+struct hns_roce_ah {
+	struct ibv_ah ibv_ah;
+	struct hns_roce_av av;
+};
+
 struct hns_roce_u_hw {
 	uint32_t hw_version;
 	struct verbs_context_ops hw_ops;
@@ -316,6 +335,11 @@ static inline struct  hns_roce_qp *to_hr_qp(struct ibv_qp *ibv_qp)
 	return container_of(ibv_qp, struct hns_roce_qp, ibv_qp);
 }
 
+static inline struct hns_roce_ah *to_hr_ah(struct ibv_ah *ibv_ah)
+{
+	return container_of(ibv_ah, struct hns_roce_ah, ibv_ah);
+}
+
 int hns_roce_u_query_device(struct ibv_context *context,
 			    const struct ibv_query_device_ex_input *input,
 			    struct ibv_device_attr_ex *attr, size_t attr_size);
@@ -355,6 +379,10 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 
 int hns_roce_u_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 			int attr_mask, struct ibv_qp_init_attr *init_attr);
+
+struct ibv_ah *hns_roce_u_create_ah(struct ibv_pd *pd,
+				    struct ibv_ah_attr *attr);
+int hns_roce_u_destroy_ah(struct ibv_ah *ah);
 
 int hns_roce_alloc_buf(struct hns_roce_buf *buf, unsigned int size,
 		       int page_size);
