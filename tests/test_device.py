@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2018 Mellanox Technologies, Inc. All rights reserved. See COPYING file
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All rights reserved.
 """
 Test module for pyverbs' device module.
 """
@@ -155,8 +156,8 @@ class DeviceTest(PyverbsAPITestCase):
                              f'Got {os.strerror(ex.error_code)} but '
                              f'Expected {os.strerror(errno.ENODATA)}')
         else:
-            raise PyverbsRDMAError(f'Successfully queried '
-                                   'non-existent gid index {i}')
+            raise PyverbsRDMAError('Successfully queried '
+                                   f'non-existent gid index {no_gid_index}')
 
     @staticmethod
     def verify_device_attr(attr, device):
