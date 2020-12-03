@@ -258,6 +258,18 @@ struct mlx5_lag_caps {
 	uint8_t lag_tx_port_affinity;
 };
 
+struct mlx5_qos_caps {
+	uint8_t qos:1;
+
+	uint8_t nic_sq_scheduling:1;
+	uint8_t nic_bw_share:1;
+	uint8_t nic_rate_limit:1;
+	uint8_t nic_qp_scheduling:1;
+
+	uint32_t nic_element_type;
+	uint32_t nic_tsar_type;
+};
+
 struct mlx5_context {
 	struct verbs_context		ibv_ctx;
 	int				max_num_qps;
@@ -327,6 +339,8 @@ struct mlx5_context {
 	uint32_t			tunnel_offloads_caps;
 	struct mlx5_packet_pacing_caps	packet_pacing_caps;
 	struct mlx5_lag_caps		lag_caps;
+	struct mlx5_qos_caps		qos_caps;
+	uint8_t				qpc_extension_cap:1;
 	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
 	uint32_t			num_dyn_bfregs;
 	uint32_t			max_num_legacy_dyn_uar_sys_page;
@@ -734,6 +748,16 @@ enum mlx5_flow_action_type {
 struct mlx5_flow_action_attr_aux {
 	enum mlx5_flow_action_type type;
 	uint32_t offset;
+};
+
+struct mlx5dv_sched_node {
+	struct mlx5dv_sched_node *parent;
+	struct mlx5dv_devx_obj *obj;
+};
+
+struct mlx5dv_sched_leaf {
+	struct mlx5dv_sched_node *parent;
+	struct mlx5dv_devx_obj *obj;
 };
 
 struct ibv_flow *

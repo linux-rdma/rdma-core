@@ -159,4 +159,11 @@ MLX5_1.17 {
 		mlx5dv_dr_action_create_pop_vlan;
 		mlx5dv_dr_action_create_push_vlan;
 		mlx5dv_dr_action_modify_aso;
+		mlx5dv_modify_qp_sched_elem;
+		mlx5dv_sched_leaf_create;
+		mlx5dv_sched_leaf_destroy;
+		mlx5dv_sched_leaf_modify;
+		mlx5dv_sched_node_create;
+		mlx5dv_sched_node_destroy;
+		mlx5dv_sched_node_modify;
 } MLX5_1.16;
