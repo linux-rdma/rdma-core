@@ -54,7 +54,6 @@
 } while (0)
 #endif /* ACME_PRINTS */
 
-int acm_if_is_ib(char *ifname);
 int acm_if_get_pkey(char *ifname, uint16_t *pkey);
 int acm_if_get_sgid(char *ifname, union ibv_gid *sgid);
 int acm_init_if_iter_sys(void);
