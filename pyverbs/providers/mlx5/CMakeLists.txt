@@ -4,5 +4,6 @@
 rdma_cython_module(pyverbs/providers/mlx5 mlx5
   mlx5dv.pyx
   mlx5_enums.pyx
+  mlx5dv_flow.pyx
   mlx5dv_sched.pyx
 )

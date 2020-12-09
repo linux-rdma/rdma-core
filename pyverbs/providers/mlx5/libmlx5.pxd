@@ -103,6 +103,21 @@ cdef extern from 'infiniband/mlx5dv.h':
         uint64_t vport_steering_icm_tx
         mlx5dv_reg reg_c0
 
+    cdef struct mlx5dv_flow_match_parameters:
+        size_t   match_sz;
+        uint64_t *match_buf;
+
+    cdef struct mlx5dv_flow_matcher_attr:
+        v.ibv_flow_attr_type         type;
+        uint32_t                     flags;
+        uint16_t                     priority;
+        uint8_t                      match_criteria_enable;
+        mlx5dv_flow_match_parameters *match_mask;
+        uint64_t                     comp_mask;
+        mlx5_ib_uapi_flow_table_type ft_type;
+
+    cdef struct mlx5dv_flow_matcher
+
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
@@ -143,6 +158,9 @@ cdef extern from 'infiniband/mlx5dv.h':
     int mlx5dv_reserved_qpn_dealloc(v.ibv_context *context, uint32_t qpn)
     void *mlx5dv_dm_map_op_addr(v.ibv_dm *dm, uint8_t op)
     int mlx5dv_query_port(v.ibv_context *context, uint32_t port_num, mlx5dv_port *port)
+    mlx5dv_flow_matcher *mlx5dv_create_flow_matcher(v.ibv_context *context,
+                                                    mlx5dv_flow_matcher_attr *matcher_attr)
+    int mlx5dv_destroy_flow_matcher(mlx5dv_flow_matcher *matcher)
 
     # DevX APIs
     mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context,
