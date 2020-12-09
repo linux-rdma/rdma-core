@@ -502,7 +502,7 @@ struct mlx5_ifc_dr_match_set_misc3_bits {
 	u8         icmpv6_type[0x8];
 	u8         icmpv6_code[0x8];
 
-	u8         reserved_at_120[0x20];
+	u8         geneve_tlv_option_0_data[0x20];
 
 	u8         gtpu_teid[0x20];
 
@@ -514,12 +514,33 @@ struct mlx5_ifc_dr_match_set_misc3_bits {
 	u8         reserved_at_160[0x80];
 };
 
+struct mlx5_ifc_dr_match_set_misc4_bits {
+	u8         prog_sample_field_value_0[0x20];
+
+	u8         prog_sample_field_id_0[0x20];
+
+	u8         prog_sample_field_value_1[0x20];
+
+	u8         prog_sample_field_id_1[0x20];
+
+	u8         prog_sample_field_value_2[0x20];
+
+	u8         prog_sample_field_id_2[0x20];
+
+	u8         prog_sample_field_value_3[0x20];
+
+	u8         prog_sample_field_id_3[0x20];
+
+	u8         reserved[0x100];
+};
+
 struct mlx5_ifc_dr_match_param_bits {
 	struct mlx5_ifc_dr_match_spec_bits outer;
 	struct mlx5_ifc_dr_match_set_misc_bits misc;
 	struct mlx5_ifc_dr_match_spec_bits inner;
 	struct mlx5_ifc_dr_match_set_misc2_bits misc2;
 	struct mlx5_ifc_dr_match_set_misc3_bits misc3;
+	struct mlx5_ifc_dr_match_set_misc4_bits misc4;
 };
 
 struct mlx5_ifc_flow_table_prop_layout_bits {
@@ -577,9 +598,12 @@ struct mlx5_ifc_flow_table_prop_layout_bits {
 
 enum {
 	MLX5_FLEX_PARSER_GENEVE_ENABLED		= 1 << 3,
+	MLX5_FLEX_PARSER_MPLS_OVER_GRE_ENABLED	= 1 << 4,
+	mlx5_FLEX_PARSER_MPLS_OVER_UDP_ENABLED	= 1 << 5,
 	MLX5_FLEX_PARSER_VXLAN_GPE_ENABLED	= 1 << 7,
 	MLX5_FLEX_PARSER_ICMP_V4_ENABLED	= 1 << 8,
 	MLX5_FLEX_PARSER_ICMP_V6_ENABLED	= 1 << 9,
+	MLX5_FLEX_PARSER_GENEVE_OPT_0_ENABLED	= 1 << 10,
 	MLX5_FLEX_PARSER_GTPU_ENABLED		= 1 << 11,
 };
 
@@ -973,7 +997,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         sw_owner_id[0x1];
 	u8         reserve_not_to_use[0x1];
 	u8         reserved_at_620[0xa0];
-	u8         reserved_at_6c0[0x8];
+	u8         reserved_at_6c0[0x4];
+	u8         flex_parser_id_geneve_opt_0[0x4];
 	u8         flex_parser_id_icmp_dw1[0x4];
 	u8         flex_parser_id_icmp_dw0[0x4];
 	u8         flex_parser_id_icmpv6_dw1[0x4];
@@ -2128,10 +2153,7 @@ struct mlx5_ifc_ste_gre_v1_bits {
 };
 
 struct mlx5_ifc_ste_flex_parser_0_bits {
-	u8         parser_3_label[0x14];
-	u8         parser_3_exp[0x3];
-	u8         parser_3_s_bos[0x1];
-	u8         parser_3_ttl[0x8];
+	u8         flex_parser_3[0x20];
 
 	u8         flex_parser_2[0x20];
 
