@@ -43,6 +43,15 @@ GRH_SIZE = 40
 IMM_DATA = 1234
 
 
+class MatchCriteriaEnable:
+    NONE = 0
+    OUTER = 1
+    MISC = 1 << 1
+    INNER = 1 << 2
+    MISC_2 = 1 << 3
+    MISC_3 = 1 << 4
+
+
 class PacketConsts:
     """
     Class to hold constant packets' values.
@@ -949,6 +958,17 @@ def requires_huge_pages():
             return func(instance)
         return inner
     return outer
+
+
+def skip_unsupported(func):
+    def func_wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except PyverbsRDMAError as ex:
+            if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                raise unittest.SkipTest(f'Operation not supported ({str(ex)})')
+            raise ex
+    return func_wrapper
 
 
 def huge_pages_supported():
