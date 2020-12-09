@@ -325,7 +325,7 @@ static void mlx5_insert_dyn_uuars(struct mlx5_context *ctx,
 		if (!bf_uar->dyn_alloc_uar)
 			bf->bfreg_dyn_index = (ctx->curr_legacy_dyn_sys_uar_page - 1) * num_bfregs_per_page + j;
 		bf->dyn_alloc_uar = bf_uar->dyn_alloc_uar;
-		bf->need_lock = bf_uar->qp_shared;
+		bf->need_lock = bf_uar->qp_shared && !mlx5_single_threaded;
 		mlx5_spinlock_init(&bf->lock, bf->need_lock);
 		if (j != 0) {
 			bf->uar = bf_uar->uar;
