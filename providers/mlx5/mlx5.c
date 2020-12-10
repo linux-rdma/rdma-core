@@ -807,8 +807,9 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 	}
 
 	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS) {
-		if (mctx->lag_caps.num_lag_ports) {
-			attrs_out->num_lag_ports = mctx->lag_caps.num_lag_ports;
+		if (mctx->entropy_caps.num_lag_ports) {
+			attrs_out->num_lag_ports =
+				mctx->entropy_caps.num_lag_ports;
 			comp_mask_out |= MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS;
 		}
 	}
@@ -1017,7 +1018,7 @@ static bool lag_operation_supported(struct ibv_qp *qp)
 	struct mlx5_qp *mqp = to_mqp(qp);
 
 	if (!is_mlx5_dev(qp->context->device) ||
-	    (mctx->lag_caps.num_lag_ports <= 1))
+	    (mctx->entropy_caps.num_lag_ports <= 1))
 		return false;
 
 	if ((qp->qp_type == IBV_QPT_RC) ||
@@ -1053,7 +1054,7 @@ int mlx5dv_query_qp_lag_port(struct ibv_qp *qp, uint8_t *port_num,
 	if (ret)
 		return ret;
 
-	if (!lag_state && !mctx->lag_caps.lag_tx_port_affinity)
+	if (!lag_state && !mctx->entropy_caps.lag_tx_port_affinity)
 		return EOPNOTSUPP;
 
 	switch (qp->qp_type) {
@@ -1098,10 +1099,39 @@ int mlx5dv_query_qp_lag_port(struct ibv_qp *qp, uint8_t *port_num,
 	return 0;
 }
 
+static int modify_tis_lag_port(struct ibv_qp *qp, uint8_t port_num)
+{
+	uint32_t out[DEVX_ST_SZ_DW(modify_tis_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(modify_tis_in)] = {};
+	struct mlx5_qp *mqp = to_mqp(qp);
+
+	DEVX_SET(modify_tis_in, in, opcode, MLX5_CMD_OP_MODIFY_TIS);
+	DEVX_SET(modify_tis_in, in, tisn, mqp->tisn);
+	DEVX_SET(modify_tis_in, in, bitmask.lag_tx_port_affinity, 1);
+	DEVX_SET(modify_tis_in, in, ctx.lag_tx_port_affinity, port_num);
+	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+}
+
+static int modify_qp_lag_port(struct ibv_qp *qp, uint8_t port_num)
+{
+	uint32_t out[DEVX_ST_SZ_DW(rts2rts_qp_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(rts2rts_qp_in)] = {};
+	struct mlx5_context *mctx = to_mctx(qp->context);
+
+	if (!mctx->entropy_caps.rts2rts_lag_tx_port_affinity ||
+	    qp->state != IBV_QPS_RTS)
+		return EOPNOTSUPP;
+
+	DEVX_SET(rts2rts_qp_in, in, opcode, MLX5_CMD_OP_RTS2RTS_QP);
+	DEVX_SET(rts2rts_qp_in, in, qpn, qp->qp_num);
+	DEVX_SET(rts2rts_qp_in, in, opt_param_mask,
+		 MLX5_QPC_OPT_MASK_RTS2RTS_LAG_TX_PORT_AFFINITY);
+	DEVX_SET(rts2rts_qp_in, in, qpc.lag_tx_port_affinity, port_num);
+	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+}
+
 int mlx5dv_modify_qp_lag_port(struct ibv_qp *qp, uint8_t port_num)
 {
-	uint32_t in[DEVX_ST_SZ_DW(modify_tis_in)] = {};
-	uint32_t out[DEVX_ST_SZ_DW(modify_tis_out)] = {};
 	uint8_t curr_configured, curr_active;
 	struct mlx5_qp *mqp = to_mqp(qp);
 	int ret;
@@ -1115,20 +1145,50 @@ int mlx5dv_modify_qp_lag_port(struct ibv_qp *qp, uint8_t port_num)
 
 	switch (qp->qp_type) {
 	case IBV_QPT_RAW_PACKET:
-		DEVX_SET(modify_tis_in, in, opcode, MLX5_CMD_OP_MODIFY_TIS);
-		DEVX_SET(modify_tis_in, in, tisn, mqp->tisn);
-		DEVX_SET(modify_tis_in, in, bitmask.lag_tx_port_affinity, 1);
-		DEVX_SET(modify_tis_in, in, ctx.lag_tx_port_affinity, port_num);
-		ret = mlx5dv_devx_qp_modify(qp, in, sizeof(in), out,
-					    sizeof(out));
-		break;
+		return modify_tis_lag_port(qp, port_num);
+
+	case IBV_QPT_DRIVER:
+		if (mqp->dc_type != MLX5DV_DCTYPE_DCI)
+			return EOPNOTSUPP;
+		SWITCH_FALLTHROUGH;
+	case IBV_QPT_RC:
+	case IBV_QPT_UD:
+	case IBV_QPT_UC:
+		return modify_qp_lag_port(qp, port_num);
 
 	default:
-		ret = EOPNOTSUPP;
-		break;
+		return EOPNOTSUPP;
 	}
+}
 
-	return ret;
+int mlx5dv_modify_qp_udp_sport(struct ibv_qp *qp, uint16_t udp_sport)
+{
+	uint32_t in[DEVX_ST_SZ_DW(rts2rts_qp_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(rts2rts_qp_out)] = {};
+	struct mlx5_context *mctx = to_mctx(qp->context);
+
+	if (!is_mlx5_dev(qp->context->device))
+		return EOPNOTSUPP;
+
+	switch (qp->qp_type) {
+	case IBV_QPT_RC:
+	case IBV_QPT_UC:
+		if (qp->state != IBV_QPS_RTS ||
+		    !mctx->entropy_caps.rts2rts_qp_udp_sport)
+			return EOPNOTSUPP;
+		break;
+	default:
+		return EOPNOTSUPP;
+	}
+	DEVX_SET(rts2rts_qp_in, in, opcode, MLX5_CMD_OP_RTS2RTS_QP);
+	DEVX_SET(rts2rts_qp_in, in, qpn, qp->qp_num);
+	DEVX_SET64(rts2rts_qp_in, in, opt_param_mask_95_32,
+		   MLX5_QPC_OPT_MASK_32_UDP_SPORT);
+	DEVX_SET(rts2rts_qp_in, in, qpc.primary_address_path.udp_sport,
+		 udp_sport);
+
+	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out,
+				     sizeof(out));
 }
 
 static bool sched_supported(struct ibv_context *ctx)

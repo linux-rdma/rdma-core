@@ -253,9 +253,11 @@ enum mlx5_ctx_flags {
 	MLX5_CTX_FLAGS_ECE_SUPPORTED = 1 << 2,
 };
 
-struct mlx5_lag_caps {
+struct mlx5_entropy_caps {
 	uint8_t num_lag_ports;
-	uint8_t lag_tx_port_affinity;
+	uint8_t lag_tx_port_affinity:1;
+	uint8_t rts2rts_qp_udp_sport:1;
+	uint8_t rts2rts_lag_tx_port_affinity:1;
 };
 
 struct mlx5_qos_caps {
@@ -338,7 +340,7 @@ struct mlx5_context {
 	struct mlx5dv_striding_rq_caps	striding_rq_caps;
 	uint32_t			tunnel_offloads_caps;
 	struct mlx5_packet_pacing_caps	packet_pacing_caps;
-	struct mlx5_lag_caps		lag_caps;
+	struct mlx5_entropy_caps	entropy_caps;
 	struct mlx5_qos_caps		qos_caps;
 	uint8_t				qpc_extension_cap:1;
 	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
