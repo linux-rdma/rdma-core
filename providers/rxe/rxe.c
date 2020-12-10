@@ -162,12 +162,135 @@ static int rxe_dereg_mr(struct verbs_mr *vmr)
 	return 0;
 }
 
+static int cq_start_poll(struct ibv_cq_ex *current,
+			 struct ibv_poll_cq_attr *attr)
+{
+	struct rxe_cq *cq = container_of(current, struct rxe_cq, vcq.cq_ex);
+
+	pthread_spin_lock(&cq->lock);
+
+	cq->cur_index = load_consumer_index(cq->queue);
+
+	if (check_cq_queue_empty(cq)) {
+		pthread_spin_unlock(&cq->lock);
+		errno = ENOENT;
+		return errno;
+	}
+
+	cq->wc = addr_from_index(cq->queue, cq->cur_index);
+	cq->vcq.cq_ex.status = cq->wc->status;
+	cq->vcq.cq_ex.wr_id = cq->wc->wr_id;
+
+	return 0;
+}
+
+static int cq_next_poll(struct ibv_cq_ex *current)
+{
+	struct rxe_cq *cq = container_of(current, struct rxe_cq, vcq.cq_ex);
+
+	advance_cq_cur_index(cq);
+
+	if (check_cq_queue_empty(cq)) {
+		store_consumer_index(cq->queue, cq->cur_index);
+		pthread_spin_unlock(&cq->lock);
+		errno = ENOENT;
+		return errno;
+	}
+
+	cq->wc = addr_from_index(cq->queue, cq->cur_index);
+	cq->vcq.cq_ex.status = cq->wc->status;
+	cq->vcq.cq_ex.wr_id = cq->wc->wr_id;
+
+	return 0;
+}
+
+static void cq_end_poll(struct ibv_cq_ex *current)
+{
+	struct rxe_cq *cq = container_of(current, struct rxe_cq, vcq.cq_ex);
+
+	advance_cq_cur_index(cq);
+	store_consumer_index(cq->queue, cq->cur_index);
+	pthread_spin_unlock(&cq->lock);
+}
+
+static enum ibv_wc_opcode cq_read_opcode(struct ibv_cq_ex *current)
+{
+	struct rxe_cq *cq = container_of(current, struct rxe_cq, vcq.cq_ex);
+
+	return cq->wc->opcode;
+}
+
+static uint32_t cq_read_vendor_err(struct ibv_cq_ex *current)
+{
+	struct rxe_cq *cq = container_of(current, struct rxe_cq, vcq.cq_ex);
+
+	return cq->wc->vendor_err;
+}
+
+static uint32_t cq_read_byte_len(struct ibv_cq_ex *current)
+{
+	struct rxe_cq *cq = container_of(current, struct rxe_cq, vcq.cq_ex);
+
+	return cq->wc->byte_len;
+}
+
+static __be32 cq_read_imm_data(struct ibv_cq_ex *current)
+{
+	struct rxe_cq *cq = container_of(current, struct rxe_cq, vcq.cq_ex);
+
+	return cq->wc->ex.imm_data;
+}
+
+static uint32_t cq_read_qp_num(struct ibv_cq_ex *current)
+{
+	struct rxe_cq *cq = container_of(current, struct rxe_cq, vcq.cq_ex);
+
+	return cq->wc->qp_num;
+}
+
+static uint32_t cq_read_src_qp(struct ibv_cq_ex *current)
+{
+	struct rxe_cq *cq = container_of(current, struct rxe_cq, vcq.cq_ex);
+
+	return cq->wc->src_qp;
+}
+
+static unsigned int cq_read_wc_flags(struct ibv_cq_ex *current)
+{
+	struct rxe_cq *cq = container_of(current, struct rxe_cq, vcq.cq_ex);
+
+	return cq->wc->wc_flags;
+}
+
+static uint32_t cq_read_slid(struct ibv_cq_ex *current)
+{
+	struct rxe_cq *cq = container_of(current, struct rxe_cq, vcq.cq_ex);
+
+	return cq->wc->slid;
+}
+
+static uint8_t cq_read_sl(struct ibv_cq_ex *current)
+{
+	struct rxe_cq *cq = container_of(current, struct rxe_cq, vcq.cq_ex);
+
+	return cq->wc->sl;
+}
+
+static uint8_t cq_read_dlid_path_bits(struct ibv_cq_ex *current)
+{
+	struct rxe_cq *cq = container_of(current, struct rxe_cq, vcq.cq_ex);
+
+	return cq->wc->dlid_path_bits;
+}
+
+static int rxe_destroy_cq(struct ibv_cq *ibcq);
+
 static struct ibv_cq *rxe_create_cq(struct ibv_context *context, int cqe,
 				    struct ibv_comp_channel *channel,
 				    int comp_vector)
 {
 	struct rxe_cq *cq;
-	struct urxe_create_cq_resp resp;
+	struct urxe_create_cq_resp resp = {};
 	int ret;
 
 	cq = malloc(sizeof(*cq));
@@ -175,7 +298,7 @@ static struct ibv_cq *rxe_create_cq(struct ibv_context *context, int cqe,
 		return NULL;
 
 	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
-				&cq->ibv_cq, NULL, 0,
+				&cq->vcq.cq, NULL, 0,
 				&resp.ibv_resp, sizeof(resp));
 	if (ret) {
 		free(cq);
@@ -185,15 +308,118 @@ static struct ibv_cq *rxe_create_cq(struct ibv_context *context, int cqe,
 	cq->queue = mmap(NULL, resp.mi.size, PROT_READ | PROT_WRITE, MAP_SHARED,
 			 context->cmd_fd, resp.mi.offset);
 	if ((void *)cq->queue == MAP_FAILED) {
-		ibv_cmd_destroy_cq(&cq->ibv_cq);
+		ibv_cmd_destroy_cq(&cq->vcq.cq);
 		free(cq);
+		return NULL;
+	}
+
+	cq->wc_size = 1ULL << cq->queue->log2_elem_size;
+
+	if (cq->wc_size < sizeof(struct ib_uverbs_wc)) {
+		rxe_destroy_cq(&cq->vcq.cq);
 		return NULL;
 	}
 
 	cq->mmap_info = resp.mi;
 	pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE);
 
-	return &cq->ibv_cq;
+	return &cq->vcq.cq;
+}
+
+enum rxe_sup_wc_flags {
+	RXE_SUP_WC_FLAGS	= IBV_WC_EX_WITH_BYTE_LEN
+				| IBV_WC_EX_WITH_IMM
+				| IBV_WC_EX_WITH_QP_NUM
+				| IBV_WC_EX_WITH_SRC_QP
+				| IBV_WC_EX_WITH_SLID
+				| IBV_WC_EX_WITH_SL
+				| IBV_WC_EX_WITH_DLID_PATH_BITS,
+	RXE_SUP_WC_EX_FLAGS	= RXE_SUP_WC_FLAGS,
+				// add extended flags here
+};
+
+static struct ibv_cq_ex *rxe_create_cq_ex(struct ibv_context *context,
+					  struct ibv_cq_init_attr_ex *attr)
+{
+	int ret;
+	struct rxe_cq *cq;
+	struct urxe_create_cq_ex_resp resp = {};
+
+	/* user is asking for flags we don't support */
+	if (attr->wc_flags & ~RXE_SUP_WC_EX_FLAGS) {
+		errno = EOPNOTSUPP;
+		goto err;
+	}
+
+	cq = calloc(1, sizeof(*cq));
+	if (!cq)
+		goto err;
+
+	ret = ibv_cmd_create_cq_ex(context, attr, &cq->vcq,
+				   NULL, 0,
+				   &resp.ibv_resp, sizeof(resp));
+	if (ret)
+		goto err_free;
+
+	cq->queue = mmap(NULL, resp.mi.size, PROT_READ | PROT_WRITE, MAP_SHARED,
+			 context->cmd_fd, resp.mi.offset);
+	if ((void *)cq->queue == MAP_FAILED)
+		goto err_destroy;
+
+	cq->wc_size = 1ULL << cq->queue->log2_elem_size;
+
+	if (cq->wc_size < sizeof(struct ib_uverbs_wc))
+		goto err_unmap;
+
+	cq->mmap_info = resp.mi;
+	pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE);
+
+	cq->vcq.cq_ex.start_poll	= cq_start_poll;
+	cq->vcq.cq_ex.next_poll		= cq_next_poll;
+	cq->vcq.cq_ex.end_poll		= cq_end_poll;
+	cq->vcq.cq_ex.read_opcode	= cq_read_opcode;
+	cq->vcq.cq_ex.read_vendor_err	= cq_read_vendor_err;
+	cq->vcq.cq_ex.read_wc_flags	= cq_read_wc_flags;
+
+	if (attr->wc_flags & IBV_WC_EX_WITH_BYTE_LEN)
+		cq->vcq.cq_ex.read_byte_len
+			= cq_read_byte_len;
+
+	if (attr->wc_flags & IBV_WC_EX_WITH_IMM)
+		cq->vcq.cq_ex.read_imm_data
+			= cq_read_imm_data;
+
+	if (attr->wc_flags & IBV_WC_EX_WITH_QP_NUM)
+		cq->vcq.cq_ex.read_qp_num
+			= cq_read_qp_num;
+
+	if (attr->wc_flags & IBV_WC_EX_WITH_SRC_QP)
+		cq->vcq.cq_ex.read_src_qp
+			= cq_read_src_qp;
+
+	if (attr->wc_flags & IBV_WC_EX_WITH_SLID)
+		cq->vcq.cq_ex.read_slid
+			= cq_read_slid;
+
+	if (attr->wc_flags & IBV_WC_EX_WITH_SL)
+		cq->vcq.cq_ex.read_sl
+			= cq_read_sl;
+
+	if (attr->wc_flags & IBV_WC_EX_WITH_DLID_PATH_BITS)
+		cq->vcq.cq_ex.read_dlid_path_bits
+			= cq_read_dlid_path_bits;
+
+	return &cq->vcq.cq_ex;
+
+err_unmap:
+	if (cq->mmap_info.size)
+		munmap(cq->queue, cq->mmap_info.size);
+err_destroy:
+	ibv_cmd_destroy_cq(&cq->vcq.cq);
+err_free:
+	free(cq);
+err:
+	return NULL;
 }
 
 static int rxe_resize_cq(struct ibv_cq *ibcq, int cqe)
@@ -251,7 +477,7 @@ static int rxe_destroy_cq(struct ibv_cq *ibcq)
 static int rxe_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 {
 	struct rxe_cq *cq = to_rcq(ibcq);
-	struct rxe_queue *q;
+	struct rxe_queue_buf *q;
 	int npolled;
 	uint8_t *src;
 
@@ -262,7 +488,6 @@ static int rxe_poll_cq(struct ibv_cq *ibcq, int ne, struct ibv_wc *wc)
 		if (queue_empty(q))
 			break;
 
-		atomic_thread_fence(memory_order_acquire);
 		src = consumer_addr(q);
 		memcpy(wc, src, sizeof(*wc));
 		advance_consumer(q);
@@ -328,7 +553,7 @@ static int rxe_modify_srq(struct ibv_srq *ibsrq,
 		goto out;
 
 	if (attr_mask & IBV_SRQ_MAX_WR) {
-		(void)munmap(srq->rq.queue, srq->mmap_info.size);
+		munmap(srq->rq.queue, srq->mmap_info.size);
 		srq->rq.queue = mmap(NULL, mi.size,
 				     PROT_READ | PROT_WRITE, MAP_SHARED,
 				     ibsrq->context->cmd_fd, mi.offset);
@@ -360,7 +585,7 @@ static int rxe_destroy_srq(struct ibv_srq *ibvsrq)
 {
 	int ret;
 	struct rxe_srq *srq = to_rsrq(ibvsrq);
-	struct rxe_queue *q = srq->rq.queue;
+	struct rxe_queue_buf *q = srq->rq.queue;
 
 	ret = ibv_cmd_destroy_srq(ibvsrq);
 	if (!ret) {
@@ -376,7 +601,7 @@ static int rxe_post_one_recv(struct rxe_wq *rq, struct ibv_recv_wr *recv_wr)
 {
 	int i;
 	struct rxe_recv_wqe *wqe;
-	struct rxe_queue *q = rq->queue;
+	struct rxe_queue_buf *q = rq->queue;
 	int length = 0;
 	int rc = 0;
 
@@ -841,6 +1066,7 @@ static const struct verbs_context_ops rxe_ctx_ops = {
 	.reg_mr = rxe_reg_mr,
 	.dereg_mr = rxe_dereg_mr,
 	.create_cq = rxe_create_cq,
+	.create_cq_ex = rxe_create_cq_ex,
 	.poll_cq = rxe_poll_cq,
 	.req_notify_cq = ibv_cmd_req_notify_cq,
 	.resize_cq = rxe_resize_cq,

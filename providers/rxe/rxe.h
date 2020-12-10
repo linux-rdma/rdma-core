@@ -39,7 +39,7 @@
 #include <infiniband/driver.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <rdma/rdma_user_rxe.h> /* struct rxe_av */
+#include <rdma/rdma_user_rxe.h>
 #include "rxe-abi.h"
 
 struct rxe_device {
@@ -51,11 +51,17 @@ struct rxe_context {
 	struct verbs_context	ibv_ctx;
 };
 
+/* common between cq and cq_ex */
 struct rxe_cq {
-	struct ibv_cq		ibv_cq;
+	struct verbs_cq		vcq;
 	struct mminfo		mmap_info;
-	struct rxe_queue		*queue;
+	struct rxe_queue_buf	*queue;
 	pthread_spinlock_t	lock;
+
+	/* new API support */
+	struct ib_uverbs_wc	*wc;
+	size_t			wc_size;
+	uint32_t		cur_index;
 };
 
 struct rxe_ah {
@@ -64,7 +70,7 @@ struct rxe_ah {
 };
 
 struct rxe_wq {
-	struct rxe_queue	*queue;
+	struct rxe_queue_buf	*queue;
 	pthread_spinlock_t	lock;
 	unsigned int		max_sge;
 	unsigned int		max_inline;
@@ -102,7 +108,7 @@ static inline struct rxe_device *to_rdev(struct ibv_device *ibdev)
 
 static inline struct rxe_cq *to_rcq(struct ibv_cq *ibcq)
 {
-	return to_rxxx(cq, cq);
+	return container_of(ibcq, struct rxe_cq, vcq.cq);
 }
 
 static inline struct rxe_qp *to_rqp(struct ibv_qp *ibqp)
