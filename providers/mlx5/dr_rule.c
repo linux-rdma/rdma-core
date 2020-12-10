@@ -717,8 +717,10 @@ static int dr_rule_handle_action_stes(struct mlx5dv_dr_rule *rule,
 	 * 2. num_of_builders is less then new_hw_ste_arr_sz, new ste was added
 	 *    to support the action.
 	 */
-	if (num_of_builders == new_hw_ste_arr_sz)
+	if (num_of_builders == new_hw_ste_arr_sz) {
+		last_ste->next_htbl = NULL;
 		return 0;
+	}
 
 	for (i = num_of_builders, k = 0; i < new_hw_ste_arr_sz; i++, k++) {
 		curr_hw_ste = hw_ste_arr + i * DR_STE_SIZE;
