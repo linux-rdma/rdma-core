@@ -188,4 +188,27 @@ static inline int check_cq_queue_empty(struct rxe_cq *cq)
 	return (cq->cur_index == prod);
 }
 
+static inline void advance_qp_cur_index(struct rxe_qp *qp)
+{
+	struct rxe_queue_buf *q = qp->sq.queue;
+
+	qp->cur_index = (qp->cur_index + 1) & q->index_mask;
+}
+
+static inline int check_qp_queue_full(struct rxe_qp *qp)
+{
+	struct rxe_queue_buf *q = qp->sq.queue;
+	uint32_t cons;
+
+	cons = atomic_load_explicit(consumer(q), memory_order_acquire);
+
+	if (qp->err)
+		goto err;
+
+	if (cons == ((qp->cur_index + 1) % q->index_mask))
+		qp->err = ENOSPC;
+err:
+	return qp->err;
+}
+
 #endif /* H_RXE_QUEUE */
