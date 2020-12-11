@@ -648,7 +648,7 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 	if (npolled || err == V2_CQ_POLL_ERR) {
 		mmio_ordered_writes_hack();
 
-		if (cq->flags & HNS_ROCE_SUPPORT_CQ_RECORD_DB)
+		if (cq->flags & HNS_ROCE_CQ_FLAG_RECORD_DB)
 			*cq->set_ci_db =
 				cq->cons_index & DB_PARAM_CQ_CONSUMER_IDX_M;
 		else
@@ -999,7 +999,7 @@ out:
 
 		hns_roce_update_sq_db(ctx, ibvqp->qp_num, qp->sl, qp->sq.head);
 
-		if (qp->flags & HNS_ROCE_SUPPORT_SQ_RECORD_DB)
+		if (qp->flags & HNS_ROCE_QP_CAP_SQ_RECORD_DB)
 			*(qp->sdb) = qp->sq.head & 0xffff;
 	}
 
@@ -1096,7 +1096,7 @@ out:
 
 		udma_to_device_barrier();
 
-		if (qp->flags & HNS_ROCE_SUPPORT_RQ_RECORD_DB)
+		if (qp->flags & HNS_ROCE_QP_CAP_RQ_RECORD_DB)
 			*qp->rdb = qp->rq.head & 0xffff;
 		else
 			hns_roce_update_rq_db(ctx, ibvqp->qp_num, qp->rq.head);

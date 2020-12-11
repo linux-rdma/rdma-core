@@ -38,7 +38,6 @@
 #include <unistd.h>
 
 #include "hns_roce_u.h"
-#include "hns_roce_u_abi.h"
 
 static void hns_roce_free_context(struct ibv_context *ibctx);
 

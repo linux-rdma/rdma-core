@@ -39,7 +39,6 @@
 #include <ccan/ilog.h>
 #include <ccan/minmax.h>
 #include "hns_roce_u.h"
-#include "hns_roce_u_abi.h"
 #include "hns_roce_u_db.h"
 #include "hns_roce_u_hw_v1.h"
 #include "hns_roce_u_hw_v2.h"
