@@ -76,7 +76,7 @@ extern "C" {
 #define IB_BM_BKEY_AND_DATA_SZ	(IB_MAD_SIZE - IB_BM_BKEY_OFFS)
 #define IB_CC_DATA_OFFS         64
 #define IB_CC_DATA_SZ           (IB_MAD_SIZE - IB_CC_DATA_OFFS)
-#define IB_CC_LOG_DATA_OFFS     32 
+#define IB_CC_LOG_DATA_OFFS     32
 #define IB_CC_LOG_DATA_SZ       (IB_MAD_SIZE - IB_CC_LOG_DATA_OFFS)
 
 enum MAD_CLASSES {
@@ -1319,11 +1319,18 @@ enum MAD_FIELDS {
 	IB_PC_QP1_DROP_F,
 
 	/*
-	 * More PortInfoExtended fields
+	 * More PortInfoExtended fields (HDR)
 	 */
 	IB_PORT_EXT_HDR_FEC_MODE_SUPPORTED_F,
 	IB_PORT_EXT_HDR_FEC_MODE_ENABLED_F,
 	IB_PORT_EXT_HDR_FEC_MODE_LAST_F,
+
+	/*
+	 * More PortInfoExtended fields (NDR)
+	 */
+	IB_PORT_EXT_NDR_FEC_MODE_SUPPORTED_F,
+	IB_PORT_EXT_NDR_FEC_MODE_ENABLED_F,
+	IB_PORT_EXT_NDR_FEC_MODE_LAST_F,
 
 	IB_FIELD_LAST_		/* must be last */
 };
