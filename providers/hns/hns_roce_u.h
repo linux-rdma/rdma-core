@@ -44,6 +44,7 @@
 #include <ccan/array_size.h>
 #include <ccan/bitmap.h>
 #include <ccan/container_of.h>
+#include "hns_roce_u_abi.h"
 
 #define HNS_ROCE_HW_VER1		('h' << 24 | 'i' << 16 | '0' << 8 | '6')
 
