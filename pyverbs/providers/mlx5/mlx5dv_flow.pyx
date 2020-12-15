@@ -4,10 +4,14 @@
 from libc.stdlib cimport calloc, free
 from libc.string cimport memcpy
 
-from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
-from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError, \
+    PyverbsUserError
 from pyverbs.device cimport Context
+from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs as v
+from pyverbs.qp cimport QP
+import weakref
 
 
 cdef class Mlx5FlowMatchParameters(PyverbsObject):
@@ -100,6 +104,13 @@ cdef class Mlx5FlowMatcher(PyverbsObject):
                                                           &attr.attr)
         if self.flow_matcher == NULL:
             raise PyverbsRDMAErrno('Flow matcher creation failed.')
+        self.flows = weakref.WeakSet()
+
+    cdef add_ref(self, obj):
+        if isinstance(obj, Flow):
+            self.flows.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
 
     def __dealloc__(self):
         self.close()
@@ -107,7 +118,90 @@ cdef class Mlx5FlowMatcher(PyverbsObject):
     cpdef close(self):
         if self.flow_matcher != NULL:
             self.logger.debug('Closing Mlx5FlowMatcher')
+            close_weakrefs([self.flows])
             rc = dv.mlx5dv_destroy_flow_matcher(self.flow_matcher)
             if rc:
                 raise PyverbsRDMAError('Destroy matcher failed.', rc)
             self.flow_matcher = NULL
+
+
+cdef class Mlx5FlowActionAttr(PyverbsObject):
+    def __init__(self, action_type=None, QP qp=None):
+        """
+        Initialize a Mlx5FlowActionAttr object over an underlying
+        mlx5dv_flow_action_attr C object that defines actions attributes for
+        the flow matcher.
+        :param action_type: Type of the action
+        :param qp: A QP target for go to QP action
+        """
+        super().__init__()
+        if action_type:
+            self.attr.type = action_type
+        if action_type == dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP:
+            self.attr.qp = qp.qp
+            self.qp = qp
+        elif action_type:
+            raise PyverbsUserError(f'Unsupported action type: {action_type}.')
+
+    @property
+    def type(self):
+        return self.attr.type
+
+    @type.setter
+    def type(self, action_type):
+        if self.attr.type != dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP:
+            raise PyverbsUserError(f'Unsupported action type: {action_type}.')
+        self.attr.type = action_type
+
+    @property
+    def qp(self):
+        if self.attr.type != dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP:
+            raise PyverbsUserError(f'Action attr of type {self.attr.type} doesn\'t have a qp')
+        return self.qp
+
+    @qp.setter
+    def qp(self, QP qp):
+        if self.attr.type != dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP:
+            raise PyverbsUserError(f'Action attr of type {self.attr.type} doesn\'t have a qp')
+        self.qp = qp
+
+
+cdef class Mlx5Flow(Flow):
+    def __init__(self, Mlx5FlowMatcher matcher,
+                 Mlx5FlowMatchParameters match_value, action_attrs=[],
+                 num_actions=0):
+        """
+        Initialize a Mlx5Flow object derived form Flow class.
+        :param matcher: A matcher with the fields to match on
+        :param match_value: Match parameters with values to match on
+        :param action_attrs: List of actions to perform
+        :param num_actions: Number of actions
+        """
+        cdef void *tmp_addr
+        cdef void *attr_addr
+
+        super(Flow, self).__init__()
+        if len(action_attrs) != num_actions:
+            self.logger.warn('num_actions is different from actions array length.')
+        total_size = num_actions * sizeof(dv.mlx5dv_flow_action_attr)
+        attr_addr = calloc(1, total_size)
+        if attr_addr == NULL:
+            raise PyverbsError(f'Failed to allocate memory of size {total_size}')
+        tmp_addr = attr_addr
+        for attr in action_attrs:
+            if (<Mlx5FlowActionAttr>attr).attr.type == dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP:
+                (<QP>(attr.qp)).add_ref(self)
+                self.qp = (<Mlx5FlowActionAttr>attr).qp
+            else:
+               raise PyverbsUserError(f'Unsupported action type: '
+                                      f'{<Mlx5FlowActionAttr>attr).attr.type}.')
+            memcpy(tmp_addr, &(<Mlx5FlowActionAttr>attr).attr,
+                   sizeof(dv.mlx5dv_flow_action_attr))
+            tmp_addr += sizeof(dv.mlx5dv_flow_action_attr)
+        self.flow = dv.mlx5dv_create_flow(matcher.flow_matcher,
+                                          match_value.params, num_actions,
+                                          <dv.mlx5dv_flow_action_attr *>attr_addr)
+        free(attr_addr)
+        if self.flow == NULL:
+            raise PyverbsRDMAErrno('Flow creation failed.')
+        matcher.add_ref(self)

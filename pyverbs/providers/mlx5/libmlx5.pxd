@@ -118,6 +118,14 @@ cdef extern from 'infiniband/mlx5dv.h':
 
     cdef struct mlx5dv_flow_matcher
 
+    cdef struct mlx5dv_devx_obj
+
+    cdef struct mlx5dv_flow_action_attr:
+        mlx5dv_flow_action_type type
+        v.ibv_qp                *qp
+        unsigned int            tag_value
+        mlx5dv_devx_obj         *obj
+
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
@@ -161,6 +169,10 @@ cdef extern from 'infiniband/mlx5dv.h':
     mlx5dv_flow_matcher *mlx5dv_create_flow_matcher(v.ibv_context *context,
                                                     mlx5dv_flow_matcher_attr *matcher_attr)
     int mlx5dv_destroy_flow_matcher(mlx5dv_flow_matcher *matcher)
+    v.ibv_flow *mlx5dv_create_flow(mlx5dv_flow_matcher *matcher,
+                                   mlx5dv_flow_match_parameters *match_value,
+                                   size_t num_actions,
+                                   mlx5dv_flow_action_attr actions_attr[])
 
     # DevX APIs
     mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context,

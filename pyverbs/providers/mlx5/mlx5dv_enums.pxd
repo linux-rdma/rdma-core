@@ -85,6 +85,16 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_CQ_INIT_ATTR_FLAGS_CQE_PAD   = 1 << 0
         MLX5DV_CQ_INIT_ATTR_FLAGS_RESERVED  = 1 << 1
 
+    cpdef enum mlx5dv_flow_action_type:
+        MLX5DV_FLOW_ACTION_DEST_IBV_QP
+        MLX5DV_FLOW_ACTION_DROP
+        MLX5DV_FLOW_ACTION_IBV_COUNTER
+        MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION
+        MLX5DV_FLOW_ACTION_TAG
+        MLX5DV_FLOW_ACTION_DEST_DEVX
+        MLX5DV_FLOW_ACTION_COUNTERS_DEVX
+        MLX5DV_FLOW_ACTION_DEFAULT_MISS
+
     cpdef unsigned long long MLX5DV_RES_TYPE_QP
     cpdef unsigned long long MLX5DV_RES_TYPE_RWQ
     cpdef unsigned long long MLX5DV_RES_TYPE_DBR

@@ -5,6 +5,8 @@
 
 cimport pyverbs.providers.mlx5.libmlx5 as dv
 from pyverbs.base cimport PyverbsObject
+from pyverbs.flow cimport Flow
+
 
 cdef class Mlx5FlowMatchParameters(PyverbsObject):
     cdef dv.mlx5dv_flow_match_parameters *params
@@ -15,4 +17,13 @@ cdef class Mlx5FlowMatcherAttr(PyverbsObject):
 
 cdef class Mlx5FlowMatcher(PyverbsObject):
     cdef dv.mlx5dv_flow_matcher *flow_matcher
+    cdef object flows
+    cdef add_ref(self, obj)
     cpdef close(self)
+
+cdef class Mlx5FlowActionAttr(PyverbsObject):
+    cdef dv.mlx5dv_flow_action_attr attr
+    cdef object qp
+
+cdef class Mlx5Flow(Flow):
+    pass
