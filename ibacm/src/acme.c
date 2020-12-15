@@ -143,6 +143,14 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "\n");
 	fprintf(f, "log_level 0\n");
 	fprintf(f, "\n");
+	fprintf(f, "# libibumad debug level:\n");
+	fprintf(f, "# Set the umad library internal debug level to level.\n");
+	fprintf(f, "# 0 - no debug (the default)\n");
+	fprintf(f, "# 1 - basic debug information\n");
+	fprintf(f, "# 2 - verbose debug information.\n");
+	fprintf(f, "\n");
+	fprintf(f, "umad_debug_level 0\n");
+	fprintf(f, "\n");
 	fprintf(f, "# lock_file:\n");
 	fprintf(f, "# Specifies the location of the ACM lock file used to ensure that only a\n");
 	fprintf(f, "# single instance of ACM is running.\n");
