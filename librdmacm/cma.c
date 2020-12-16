@@ -406,7 +406,7 @@ match:
 		cma_dev->pd = ibv_alloc_pd(cma_dev->verbs);
 		if (!cma_dev->pd) {
 			cma_dev->refcnt--;
-			ret = ERR(ENOMEM);
+			ret = -1;
 			goto out;
 		}
 	}
@@ -1241,7 +1241,7 @@ static int ucma_create_cqs(struct rdma_cm_id *id, uint32_t send_size, uint32_t r
 	return 0;
 err:
 	ucma_destroy_cqs(id);
-	return ERR(ENOMEM);
+	return -1;
 }
 
 int rdma_create_srq_ex(struct rdma_cm_id *id, struct ibv_srq_init_attr_ex *attr)
@@ -1358,7 +1358,7 @@ int rdma_create_qp_ex(struct rdma_cm_id *id,
 		attr->srq = id->srq;
 	qp = ibv_create_qp_ex(id->verbs, attr);
 	if (!qp) {
-		ret = ERR(ENOMEM);
+		ret = -1;
 		goto err1;
 	}
 
