@@ -16,11 +16,14 @@
 #include "efa-abi.h"
 #include "efa_io_defs.h"
 
-#define EFA_GET(ptr, type) \
-	((*(ptr) & type##_MASK) >> type##_SHIFT)
+#define EFA_GET(ptr, mask) FIELD_GET(mask##_MASK, *(ptr))
 
-#define EFA_SET(ptr, type, value) \
-	({ *(ptr) |= ((value) << type##_SHIFT) & type##_MASK; })
+#define EFA_SET(ptr, mask, value)                                              \
+	({                                                                     \
+		typeof(ptr) _ptr = ptr;                                        \
+		*_ptr = (*_ptr & ~(mask##_MASK)) |                             \
+			FIELD_PREP(mask##_MASK, value);                        \
+	})
 
 struct efa_context {
 	struct verbs_context ibvctx;
