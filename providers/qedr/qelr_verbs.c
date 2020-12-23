@@ -236,7 +236,8 @@ struct ibv_cq *qelr_create_cq(struct ibv_context *context, int cqe,
 	if (!cqe || cqe > cxt->max_cqes) {
 		DP_ERR(cxt->dbg_fp,
 		       "create cq: failed. attempted to allocate %d cqes but valid range is 1...%d\n",
-		       cqe, cqe > cxt->max_cqes);
+		       cqe, cxt->max_cqes);
+		errno = EINVAL;
 		return NULL;
 	}
 
