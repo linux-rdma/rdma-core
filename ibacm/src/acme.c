@@ -794,6 +794,7 @@ static int resolve(char *svc)
 		} while (src_addr);
 	}
 
+	free(src_list);
 	free(dest_list);
 
 	return ret;
