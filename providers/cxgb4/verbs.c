@@ -174,6 +174,11 @@ struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 	struct c4iw_dev *dev = to_c4iw_dev(context->device);
 	int ret;
 
+	if (!cqe || cqe > T4_MAX_CQ_DEPTH) {
+		errno = EINVAL;
+		return NULL;
+	}
+
 	chp = calloc(1, sizeof *chp);
 	if (!chp) {
 		return NULL;
