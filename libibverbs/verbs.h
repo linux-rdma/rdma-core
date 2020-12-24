@@ -2018,8 +2018,8 @@ enum ibv_parent_domain_init_attr_mask {
 #define IBV_ALLOCATOR_USE_DEFAULT ((void *)-1)
 
 struct ibv_parent_domain_init_attr {
-	struct ibv_pd *pd; /* referance to a protection domain object, can't be NULL */
-	struct ibv_td *td; /* referance to a thread domain object, or NULL */
+	struct ibv_pd *pd; /* reference to a protection domain object, can't be NULL */
+	struct ibv_td *td; /* reference to a thread domain object, or NULL */
 	uint32_t comp_mask;
 	void *(*alloc)(struct ibv_pd *pd, void *pd_context, size_t size,
 		       size_t alignment, uint64_t resource_type);
