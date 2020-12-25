@@ -42,6 +42,7 @@
 #include <sys/shm.h>
 #include <sys/mman.h>
 #include <linux/errno.h>
+#include <util/util.h>
 #include "mlx5.h"
 
 /* Only ia64 requires this */
@@ -53,7 +54,6 @@
 #define MLX5_SHMAT_FLAGS 0
 #endif
 
-#define BITS_PER_LONG		(8 * sizeof(long))
 #define BITS_TO_LONGS(nr)	DIV_ROUND_UP(nr, BITS_PER_LONG)
 
 #ifndef HPAGE_SIZE
