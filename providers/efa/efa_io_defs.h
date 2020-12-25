@@ -13,7 +13,6 @@
 	({ *(ptr) |= ((value) << type##_SHIFT) & type##_MASK; })
 
 #define BIT(nr) (1UL << (nr))
-#define GENMASK(h, l) (((1U << ((h) - (l) + 1)) - 1) << (l))
 
 #define EFA_IO_TX_DESC_NUM_BUFS              2
 #define EFA_IO_TX_DESC_NUM_RDMA_BUFS         1
