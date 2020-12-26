@@ -16,6 +16,9 @@ class ArgsParser(object):
         parser = argparse.ArgumentParser()
         parser.add_argument('--dev',
                             help='RDMA device to run the tests on')
+        parser.add_argument('--port',
+                            help='Use port <port> of RDMA device', type=int,
+                            default=1)
         parser.add_argument('-v', '--verbose', dest='verbosity',
                             action='store_const',
                             const=2, help='Verbose output')
