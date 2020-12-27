@@ -567,8 +567,10 @@ static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 	if (attr->cap.max_recv_wr && attr->cap.max_recv_wr < min_wqe_num)
 		attr->cap.max_recv_wr = min_wqe_num;
 
-	if ((attr->qp_type != IBV_QPT_RC) && (attr->qp_type != IBV_QPT_UD))
-		return EINVAL;
+	if (!(attr->qp_type == IBV_QPT_RC ||
+	      (attr->qp_type == IBV_QPT_UD &&
+	       hr_dev->hw_version >= HNS_ROCE_HW_VER3)))
+		return EOPNOTSUPP;
 
 	return 0;
 }
@@ -822,10 +824,8 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	struct hns_roce_create_qp_resp resp = {};
 	struct hns_roce_context *context = to_hr_ctx(pd->context);
 
-	if (hns_roce_verify_qp(attr, context)) {
-		fprintf(stderr, "hns_roce_verify_sizes failed!\n");
+	if (hns_roce_verify_qp(attr, context))
 		return NULL;
-	}
 
 	qp = calloc(1, sizeof(*qp));
 	if (!qp)
@@ -929,4 +929,97 @@ int hns_roce_u_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 	attr->cap = init_attr->cap;
 
 	return ret;
+}
+
+static uint16_t get_ah_udp_sport(const struct ibv_ah_attr *attr)
+{
+	uint32_t fl = attr->grh.flow_label & IB_GRH_FLOWLABEL_MASK;
+	uint16_t sport;
+
+	if (!fl)
+		sport = get_random() % (IB_ROCE_UDP_ENCAP_VALID_PORT_MAX + 1 -
+					IB_ROCE_UDP_ENCAP_VALID_PORT_MIN) +
+			IB_ROCE_UDP_ENCAP_VALID_PORT_MIN;
+	else
+		sport = ibv_flow_label_to_udp_sport(fl);
+
+	return sport;
+}
+
+static int get_tclass(struct ibv_context *context, struct ibv_ah_attr *attr,
+		      uint8_t *tclass)
+{
+#define DSCP_SHIFT 2
+	enum ibv_gid_type_sysfs gid_type;
+	int ret;
+
+	ret = ibv_query_gid_type(context, attr->port_num, attr->grh.sgid_index,
+				 &gid_type);
+	if (ret)
+		return ret;
+
+	*tclass = gid_type == IBV_GID_TYPE_SYSFS_ROCE_V2 ?
+		  attr->grh.traffic_class >> DSCP_SHIFT :
+		  attr->grh.traffic_class;
+
+	return ret;
+}
+
+struct ibv_ah *hns_roce_u_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
+{
+	struct hns_roce_device *hr_dev = to_hr_dev(pd->context->device);
+	struct ib_uverbs_create_ah_resp resp = {};
+	struct hns_roce_ah *ah;
+
+	/* HIP08 don't support create ah */
+	if (hr_dev->hw_version < HNS_ROCE_HW_VER3)
+		return NULL;
+
+	ah = malloc(sizeof(*ah));
+	if (!ah)
+		return NULL;
+
+	memset(ah, 0, sizeof(*ah));
+
+	ah->av.port = attr->port_num;
+	ah->av.sl = attr->sl;
+
+	if (attr->is_global) {
+		ah->av.gid_index = attr->grh.sgid_index;
+		ah->av.hop_limit = attr->grh.hop_limit;
+
+		if (get_tclass(pd->context, attr, &ah->av.tclass))
+			goto err;
+
+		ah->av.flowlabel = attr->grh.flow_label;
+
+		memcpy(ah->av.dgid, attr->grh.dgid.raw, ARRAY_SIZE(ah->av.dgid));
+	}
+
+	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr, &resp, sizeof(resp)))
+		goto err;
+
+	if (ibv_resolve_eth_l2_from_gid(pd->context, attr, ah->av.mac, NULL))
+		goto err;
+
+	ah->av.udp_sport = get_ah_udp_sport(attr);
+
+	return &ah->ibv_ah;
+
+err:
+	free(ah);
+	return NULL;
+}
+
+int hns_roce_u_destroy_ah(struct ibv_ah *ah)
+{
+	int ret;
+
+	ret = ibv_cmd_destroy_ah(ah);
+	if (ret)
+		return ret;
+
+	free(to_hr_ah(ah));
+
+	return 0;
 }
