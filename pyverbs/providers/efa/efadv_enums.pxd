@@ -12,3 +12,6 @@ cdef extern from 'infiniband/efadv.h':
 
     cpdef enum:
         EFADV_QP_DRIVER_TYPE_SRD
+
+    cpdef enum:
+        EFADV_WC_EX_WITH_SGID
