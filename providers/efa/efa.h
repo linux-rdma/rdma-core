@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019-2020 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2022 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFA_H__
@@ -15,6 +15,7 @@
 
 #include "efa-abi.h"
 #include "efa_io_defs.h"
+#include "efadv.h"
 
 #define EFA_GET(ptr, mask) FIELD_GET(mask##_MASK, *(ptr))
 
@@ -62,6 +63,7 @@ struct efa_sub_cq {
 
 struct efa_cq {
 	struct verbs_cq verbs_cq;
+	struct efadv_cq dv_cq;
 	uint32_t cqn;
 	size_t cqe_size;
 	uint8_t *buf;

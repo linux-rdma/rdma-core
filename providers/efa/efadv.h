@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019-2020 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2022 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFADV_H__
@@ -64,6 +64,22 @@ struct efadv_ah_attr {
 
 int efadv_query_ah(struct ibv_ah *ibvah, struct efadv_ah_attr *attr,
 		   uint32_t inlen);
+
+struct efadv_cq {
+	uint64_t comp_mask;
+};
+
+struct efadv_cq_init_attr {
+	uint64_t comp_mask;
+	uint64_t wc_flags;
+};
+
+struct ibv_cq_ex *efadv_create_cq(struct ibv_context *ibvctx,
+				  struct ibv_cq_init_attr_ex *attr_ex,
+				  struct efadv_cq_init_attr *efa_attr,
+				  uint32_t inlen);
+
+struct efadv_cq *efadv_cq_from_ibv_cq_ex(struct ibv_cq_ex *ibvcqx);
 
 #ifdef __cplusplus
 }

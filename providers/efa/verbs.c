@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
- * Copyright 2019-2021 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2022 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #include <assert.h>
@@ -741,6 +741,14 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
 	int err;
 	int i;
 
+	if (!check_comp_mask(attr->comp_mask, 0) ||
+	    !check_comp_mask(attr->wc_flags, IBV_WC_STANDARD_FLAGS)) {
+		verbs_err(verbs_get_ctx(ibvctx),
+			  "Invalid comp_mask or wc_flags\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
 	if (attr->channel &&
 	    !EFA_DEV_CAP(ctx, CQ_NOTIFICATIONS)) {
 		errno = EOPNOTSUPP;
@@ -829,15 +837,43 @@ struct ibv_cq *efa_create_cq(struct ibv_context *ibvctx, int ncqe,
 struct ibv_cq_ex *efa_create_cq_ex(struct ibv_context *ibvctx,
 				   struct ibv_cq_init_attr_ex *attr_ex)
 {
-	if (!check_comp_mask(attr_ex->comp_mask, 0) ||
-	    !check_comp_mask(attr_ex->wc_flags, IBV_WC_STANDARD_FLAGS)) {
+	return create_cq(ibvctx, attr_ex);
+}
+
+struct ibv_cq_ex *efadv_create_cq(struct ibv_context *ibvctx,
+				  struct ibv_cq_init_attr_ex *attr_ex,
+				  struct efadv_cq_init_attr *efa_attr,
+				  uint32_t inlen)
+{
+	if (!is_efa_dev(ibvctx->device)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Not an EFA device\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (!vext_field_avail(struct efadv_cq_init_attr, wc_flags, inlen) ||
+	    efa_attr->comp_mask ||
+	    (inlen > sizeof(efa_attr) && !is_ext_cleared(efa_attr, inlen))) {
+		verbs_err(verbs_get_ctx(ibvctx), "Compatibility issues\n");
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (efa_attr->wc_flags) {
 		verbs_err(verbs_get_ctx(ibvctx),
-			  "Invalid comp_mask or wc_flags\n");
+			  "Invalid EFA wc_flags[%#x]\n", efa_attr->wc_flags);
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
 	return create_cq(ibvctx, attr_ex);
+}
+
+struct efadv_cq *efadv_cq_from_ibv_cq_ex(struct ibv_cq_ex *ibvcqx)
+{
+	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
+
+	return &cq->dv_cq;
 }
 
 int efa_destroy_cq(struct ibv_cq *ibvcq)
