@@ -13,6 +13,7 @@ import socket
 import struct
 import string
 import glob
+import time
 import os
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
@@ -44,6 +45,7 @@ MAX_DM_LOG_ALIGN = 6
 MAX_RAW_PACKET_SEND_WR = 2500
 GRH_SIZE = 40
 IMM_DATA = 1234
+POLL_CQ_TIMEOUT = 10  # In seconds
 
 
 class MatchCriteriaEnable:
@@ -542,7 +544,8 @@ def poll_cq(cq, count=1, data=None):
     """
     wcs = []
     channel = cq.comp_channel
-    while count > 0:
+    start_poll_t = time.perf_counter()
+    while count > 0 and (time.perf_counter() - start_poll_t < POLL_CQ_TIMEOUT):
         if channel:
             channel.get_cq_event(cq)
             cq.req_notify()
@@ -558,6 +561,10 @@ def poll_cq(cq, count=1, data=None):
                 assert socket.ntohl(wc.imm_data) == data
         count -= nc
         wcs.extend(tmp_wcs)
+
+    if count > 0:
+        raise PyverbsError(f'Got timeout on polling ({count} CQEs remaining)')
+
     return wcs
 
 
@@ -571,9 +578,10 @@ def poll_cq_ex(cqex, count=1, data=None):
     :return: None
     """
     try:
+        start_poll_t = time.perf_counter()
         poll_attr = PollCqAttr()
         ret = cqex.start_poll(poll_attr)
-        while ret == 2: # ENOENT
+        while ret == 2 and (time.perf_counter() - start_poll_t < POLL_CQ_TIMEOUT):
             ret = cqex.start_poll(poll_attr)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to poll CQ')
@@ -584,18 +592,21 @@ def poll_cq_ex(cqex, count=1, data=None):
         if data:
             assert data == socket.ntohl(cqex.read_imm_data())
         # Now poll the rest of the packets
-        while count > 0:
+        while count > 0 and (time.perf_counter() - start_poll_t < POLL_CQ_TIMEOUT):
             ret = cqex.poll_next()
             while ret == 2:
                 ret = cqex.poll_next()
             if ret != 0:
                 raise PyverbsRDMAErrno('Failed to poll CQ')
+            count -= 1
             if cqex.status != e.IBV_WC_SUCCESS:
                 raise PyverbsRDMAErrno('Completion status is {s}'.
                                        format(s=cqex.status))
             if data:
                 assert data == socket.ntohl(cqex.read_imm_data())
             count -= 1
+        if count > 0:
+            raise PyverbsError(f'Got timeout on polling ({count} CQEs remaining)')
     finally:
         cqex.end_poll()
 
