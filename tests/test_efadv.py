@@ -50,8 +50,8 @@ class EfaAHTest(PyverbsAPITestCase):
         for ctx, attr, attr_ex in self.devices:
             pd = PD(ctx)
             try:
-                gr = u.get_global_route(ctx, port_num=1)
-                ah_attr = AHAttr(gr=gr, is_global=1, port_num=1)
+                gr = u.get_global_route(ctx, port_num=self.ib_port)
+                ah_attr = AHAttr(gr=gr, is_global=1, port_num=self.ib_port)
                 ah = efa.EfaAH(pd, attr=ah_attr)
                 query_ah_attr = ah.query_efa_ah()
                 if self.config['verbosity']:
