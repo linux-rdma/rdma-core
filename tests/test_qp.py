@@ -25,7 +25,7 @@ class QPTest(PyverbsAPITestCase):
     Test various functionalities of the QP class.
     """
 
-    def create_qp(self, creator, qp_init_attr, is_ex, with_attr, port_num=1):
+    def create_qp(self, creator, qp_init_attr, is_ex, with_attr, port_num):
         """
         Auxiliary function to create QP object.
         """
@@ -46,15 +46,8 @@ class QPTest(PyverbsAPITestCase):
         for ctx, attr, attr_ex in self.devices:
             with PD(ctx) as pd:
                 with CQ(ctx, 100, None, None, 0) as cq:
-                    port_num = 1
                     if qp_type == e.IBV_QPT_RAW_PACKET:
-                        eth_port = 0
-                        for i in range(1, attr.phys_port_cnt + 1):
-                            if u.is_eth(ctx, i) and u.is_root():
-                                eth_port = i
-                                port_num = eth_port
-                                break
-                        if eth_port == 0:
+                        if not (u.is_eth(ctx, self.ib_port) and u.is_root()):
                             raise unittest.SkipTest('To Create RAW QP must be done by root on Ethernet link layer')
 
                     if is_ex:
@@ -65,7 +58,7 @@ class QPTest(PyverbsAPITestCase):
                         qia.qp_type = qp_type
                         creator = pd
 
-                    qp = self.create_qp(creator, qia, is_ex, with_attr, port_num)
+                    qp = self.create_qp(creator, qia, is_ex, with_attr, self.ib_port)
                     qp_type_str = pu.qp_type_to_str(qp_type)
                     qp_state_str = pu.qp_state_to_str(qp_state)
                     assert qp.qp_state == qp_state , f'{qp_type_str} QP should have been in {qp_state_str}'
@@ -189,29 +182,22 @@ class QPTest(PyverbsAPITestCase):
         for ctx, attr, attr_ex in self.devices:
             with PD(ctx) as pd:
                 with CQ(ctx, 100, None, None, 0) as cq:
-                    port_num = 1
                     if qp_type == e.IBV_QPT_RAW_PACKET:
-                        eth_port = 0
-                        for i in range(1, attr.phys_port_cnt + 1):
-                            if u.is_eth(ctx, i) and u.is_root():
-                                eth_port = i
-                                port_num = eth_port
-                                break
-                        if eth_port == 0:
+                        if not (u.is_eth(ctx, self.ib_port) and u.is_root()):
                             raise unittest.SkipTest('To Create RAW QP must be done by root on Ethernet link layer')
 
                     # Legacy QP
                     qia = u.get_qp_init_attr(cq, attr)
                     qia.qp_type = qp_type
                     caps = qia.cap
-                    qp = self.create_qp(pd, qia, False, False, port_num)
+                    qp = self.create_qp(pd, qia, False, False, self.ib_port)
                     qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE | e.IBV_QP_CAP)
                     self.verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr, qp_attr)
 
                     # Extended QP
                     qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex, qp_type)
                     caps = qia.cap # Save them to verify values later
-                    qp = self.create_qp(ctx, qia, True, False, port_num)
+                    qp = self.create_qp(ctx, qia, True, False, self.ib_port)
                     qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE | e.IBV_QP_CAP)
                     self.verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr, qp_attr)
 
@@ -255,7 +241,7 @@ class QPTest(PyverbsAPITestCase):
                     # Legacy QP
                     qia = u.get_qp_init_attr(cq, attr)
                     qia.qp_type = e.IBV_QPT_UD
-                    qp = self.create_qp(pd, qia, False, False)
+                    qp = self.create_qp(pd, qia, False, False, self.ib_port)
                     qa = QPAttr()
                     qa.qkey = 0x123
                     qp.to_init(qa)
@@ -271,7 +257,7 @@ class QPTest(PyverbsAPITestCase):
                     assert qp.qp_state == e.IBV_QPS_RESET, 'Legacy QP, QP state is not as expected'
                     # Extended QP
                     qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex, e.IBV_QPT_UD)
-                    qp = self.create_qp(ctx, qia, True, False)
+                    qp = self.create_qp(ctx, qia, True, False, self.ib_port)
                     qa = QPAttr()
                     qa.qkey = 0x123
                     qp.to_init(qa)
