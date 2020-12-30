@@ -2,7 +2,7 @@ import unittest
 import errno
 
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, \
-    Mlx5DVCQInitAttr, Mlx5CQ, context_flags_to_str
+    Mlx5DVCQInitAttr, Mlx5CQ, context_flags_to_str, cqe_comp_to_str
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
 from tests.base import RDMATestCase, RCResources
 import pyverbs.providers.mlx5.mlx5_enums as dve
@@ -22,6 +22,12 @@ def create_dv_cq(res):
     if res.cqe_comp_res_format:
         dvcq_init_attr.cqe_comp_res_format = res.cqe_comp_res_format
         dvcq_init_attr.comp_mask |= dve.MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE
+        # Check CQE compression capability
+        cqe_comp_caps = res.ctx.query_mlx5_device().cqe_comp_caps
+        if not (cqe_comp_caps['supported_format'] & res.cqe_comp_res_format) or \
+                not cqe_comp_caps['max_num']:
+            cqe_comp_str = cqe_comp_to_str(res.cqe_comp_res_format)
+            raise unittest.SkipTest(f'CQE compression {cqe_comp_str} is not supported')
     if res.flags:
         dvcq_init_attr.flags = res.flags
         dvcq_init_attr.comp_mask |= dve.MLX5DV_CQ_INIT_ATTR_MASK_FLAGS
