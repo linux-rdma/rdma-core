@@ -1541,8 +1541,6 @@ static inline void mlx5_cq_read_wc_tm_info(struct ibv_cq_ex *ibcq,
 	tm_info->priv = be32toh(cq->cqe64->tmh.app_ctx);
 }
 
-#define BIT(i) (1UL << (i))
-
 #define SINGLE_THREADED BIT(0)
 #define STALL BIT(1)
 #define V1 BIT(2)
