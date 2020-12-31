@@ -6,12 +6,6 @@
 #ifndef _EFA_IO_H_
 #define _EFA_IO_H_
 
-#define EFA_GET(ptr, type) \
-	((*(ptr) & type##_MASK) >> type##_SHIFT)
-
-#define EFA_SET(ptr, type, value) \
-	({ *(ptr) |= ((value) << type##_SHIFT) & type##_MASK; })
-
 #define EFA_IO_TX_DESC_NUM_BUFS              2
 #define EFA_IO_TX_DESC_NUM_RDMA_BUFS         1
 #define EFA_IO_TX_DESC_INLINE_MAX_SIZE       32

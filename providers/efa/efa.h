@@ -16,6 +16,12 @@
 #include "efa-abi.h"
 #include "efa_io_defs.h"
 
+#define EFA_GET(ptr, type) \
+	((*(ptr) & type##_MASK) >> type##_SHIFT)
+
+#define EFA_SET(ptr, type, value) \
+	({ *(ptr) |= ((value) << type##_SHIFT) & type##_MASK; })
+
 struct efa_context {
 	struct verbs_context ibvctx;
 	uint32_t cmds_supp_udata_mask;
