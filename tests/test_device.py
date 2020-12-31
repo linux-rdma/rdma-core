@@ -135,11 +135,14 @@ class DeviceTest(PyverbsAPITestCase):
         ctx, device_attr, _ = self.devices[0]
         try:
             port_attr = ctx.query_port(1)
-            max_entries = device_attr.phys_port_cnt * port_attr.gid_tbl_len
+            max_entries = 0
+            for port_num in range(1, device_attr.phys_port_cnt + 1):
+                attr = ctx.query_port(port_num)
+                max_entries += attr.gid_tbl_len
             gid_indices = {gid_entry.gid_index for gid_entry in
                            ctx.query_gid_table(max_entries) if gid_entry.port_num == 1}
 
-            possible_indices = set(range(port_attr.gid_tbl_len))
+            possible_indices = set(range(port_attr.gid_tbl_len)) if port_attr.gid_tbl_len > 1 else set()
             try:
                 no_gid_index = possible_indices.difference(gid_indices).pop()
             except KeyError:
