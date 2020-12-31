@@ -21,6 +21,8 @@ static inline bool __good_snprintf(size_t len, int rc)
 	 ((a)->tv_nsec CMP (b)->tv_nsec) :	\
 	 ((a)->tv_sec CMP (b)->tv_sec))
 
+#define BIT(nr) (1UL << (nr))
+
 int set_fd_nonblock(int fd, bool nonblock);
 
 #endif
