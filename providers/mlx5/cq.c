@@ -41,6 +41,7 @@
 
 #include <util/compiler.h>
 #include <util/mmio.h>
+#include <util/util.h>
 #include <infiniband/opcode.h>
 
 #include "mlx5.h"
@@ -1542,8 +1543,6 @@ static inline void mlx5_cq_read_wc_tm_info(struct ibv_cq_ex *ibcq,
 	tm_info->tag = be64toh(cq->cqe64->tmh.tag);
 	tm_info->priv = be32toh(cq->cqe64->tmh.app_ctx);
 }
-
-#define BIT(i) (1UL << (i))
 
 #define SINGLE_THREADED BIT(0)
 #define STALL BIT(1)
