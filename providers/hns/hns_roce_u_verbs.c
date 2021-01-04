@@ -251,38 +251,51 @@ int hns_roce_u_dealloc_mw(struct ibv_mw *mw)
 	return 0;
 }
 
-static int align_cq_size(int req)
-{
-	int nent;
-
-	for (nent = HNS_ROCE_MIN_CQE_NUM; nent < req; nent <<= 1)
-		;
-
-	return nent;
-}
-
-static uint64_t align_queue_size(uint64_t req)
-{
-	return roundup_pow_of_two(req);
-}
-
 static int hns_roce_verify_cq(int *cqe, struct hns_roce_context *context)
 {
 	if (*cqe < 1 || *cqe > context->max_cqe)
-		return -1;
+		return -EINVAL;
 
-	if (*cqe < HNS_ROCE_MIN_CQE_NUM)
-		*cqe = HNS_ROCE_MIN_CQE_NUM;
+	*cqe = max((uint64_t)HNS_ROCE_MIN_CQE_NUM, roundup_pow_of_two(*cqe));
 
 	return 0;
 }
 
-static int hns_roce_alloc_cq_buf(struct hns_roce_cq *cq, int nent)
+static int hns_roce_alloc_cq_buf(struct hns_roce_cq *cq)
 {
-	int buf_size = hr_hw_page_align(nent * cq->cqe_size);
+	int buf_size = hr_hw_page_align(cq->cq_depth * cq->cqe_size);
 
 	if (hns_roce_alloc_buf(&cq->buf, buf_size, HNS_HW_PAGE_SIZE))
-		return ENOMEM;
+		return -ENOMEM;
+
+	return 0;
+}
+
+static int exec_cq_create_cmd(struct ibv_context *context,
+			      struct hns_roce_cq *cq, int cqe,
+			      struct ibv_comp_channel *channel, int comp_vector)
+{
+	struct hns_roce_ib_create_cq_resp *resp_drv;
+	struct hns_roce_create_cq_resp resp = {};
+	struct hns_roce_ib_create_cq *cmd_drv;
+	struct hns_roce_create_cq cmd = {};
+	int ret;
+
+	cmd_drv = &cmd.drv_payload;
+	resp_drv = &resp.drv_payload;
+
+	cmd_drv->buf_addr = (uintptr_t)cq->buf.buf;
+	cmd_drv->db_addr = (uintptr_t)cq->db;
+	cmd_drv->cqe_size = (uintptr_t)cq->cqe_size;
+
+	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
+				&cq->ibv_cq, &cmd.ibv_cmd, sizeof(cmd),
+				&resp.ibv_resp, sizeof(resp));
+	if (ret)
+		return ret;
+
+	cq->cqn = resp_drv->cqn;
+	cq->flags = resp_drv->cap_flags;
 
 	return 0;
 }
@@ -293,76 +306,59 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 {
 	struct hns_roce_device *hr_dev = to_hr_dev(context->device);
 	struct hns_roce_context *hr_ctx = to_hr_ctx(context);
-	struct hns_roce_create_cq_resp resp = {};
-	struct hns_roce_create_cq cmd = {};
 	struct hns_roce_cq *cq;
 	int ret;
 
-	if (hns_roce_verify_cq(&cqe, hr_ctx))
-		return NULL;
-
-	cq = malloc(sizeof(*cq));
-	if (!cq)
-		return NULL;
-
-	cq->cons_index = 0;
-
-	cq->cqe_size = hr_ctx->cqe_size;
-	cmd.cqe_size = cq->cqe_size;
-
-	if (pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE))
+	ret = hns_roce_verify_cq(&cqe, hr_ctx);
+	if (ret)
 		goto err;
 
-	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
-		cqe = align_cq_size(cqe);
-	else
-		cqe = align_queue_size(cqe);
-
-	if (hns_roce_alloc_cq_buf(cq, cqe))
+	cq = calloc(1, sizeof(*cq));
+	if (!cq) {
+		errno = ENOMEM;
 		goto err;
-
-	cmd.buf_addr = (uintptr_t) cq->buf.buf;
-
-	if (hr_dev->hw_version != HNS_ROCE_HW_VER1) {
-		cq->set_ci_db = hns_roce_alloc_db(to_hr_ctx(context),
-						  HNS_ROCE_CQ_TYPE_DB);
-		if (!cq->set_ci_db)
-			goto err_buf;
-
-		cmd.db_addr = (uintptr_t) cq->set_ci_db;
 	}
 
-	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
-				&cq->ibv_cq, &cmd.ibv_cmd, sizeof(cmd),
-				&resp.ibv_resp, sizeof(resp));
+	ret = pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE);
 	if (ret)
-		goto err_db;
+		goto err_lock;
 
-	cq->cqn = resp.cqn;
 	cq->cq_depth = cqe;
-	cq->flags = resp.cap_flags;
+	cq->cqe_size = hr_ctx->cqe_size;
 
-	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
-		cq->set_ci_db = to_hr_ctx(context)->cq_tptr_base + cq->cqn * 2;
+	ret = hns_roce_alloc_cq_buf(cq);
+	if (ret)
+		goto err_buf;
 
-	cq->arm_db = cq->set_ci_db;
+	cq->db = hns_roce_alloc_db(hr_ctx, HNS_ROCE_CQ_TYPE_DB);
+	if (!cq->db) {
+		ret = ENOMEM;
+		goto err_db;
+	}
+
+	*cq->db = 0;
+
+	ret = exec_cq_create_cmd(context, cq, cqe, channel, comp_vector);
+	if (ret)
+		goto err_cmd;
+
 	cq->arm_sn = 1;
-	*(cq->set_ci_db) = 0;
-	*(cq->arm_db) = 0;
 
 	return &cq->ibv_cq;
 
-err_db:
+err_cmd:
 	if (hr_dev->hw_version != HNS_ROCE_HW_VER1)
-		hns_roce_free_db(to_hr_ctx(context), cq->set_ci_db,
-				 HNS_ROCE_CQ_TYPE_DB);
-
-err_buf:
+		hns_roce_free_db(hr_ctx, cq->db, HNS_ROCE_CQ_TYPE_DB);
+err_db:
 	hns_roce_free_buf(&cq->buf);
-
-err:
+err_lock:
+err_buf:
 	free(cq);
+err:
+	if (ret < 0)
+		ret = -ret;
 
+	errno = ret;
 	return NULL;
 }
 
@@ -387,8 +383,8 @@ int hns_roce_u_destroy_cq(struct ibv_cq *cq)
 		return ret;
 
 	if (to_hr_dev(cq->context->device)->hw_version != HNS_ROCE_HW_VER1)
-		hns_roce_free_db(to_hr_ctx(cq->context),
-				 to_hr_cq(cq)->set_ci_db, HNS_ROCE_CQ_TYPE_DB);
+		hns_roce_free_db(to_hr_ctx(cq->context), to_hr_cq(cq)->db,
+				 HNS_ROCE_CQ_TYPE_DB);
 	hns_roce_free_buf(&to_hr_cq(cq)->buf);
 	free(to_hr_cq(cq));
 

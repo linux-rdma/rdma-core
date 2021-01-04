@@ -180,7 +180,7 @@ struct hns_roce_cq {
 	unsigned int			cqn;
 	unsigned int			cq_depth;
 	unsigned int			cons_index;
-	unsigned int			*set_ci_db;
+	unsigned int			*db;
 	unsigned int			*arm_db;
 	int				arm_sn;
 	unsigned long			flags;
