@@ -311,11 +311,11 @@ cdef class Mlx5DVQPInitAttr(PyverbsObject):
 
 
 cdef class Mlx5QP(QPEx):
-    def __init__(self, Mlx5Context context, QPInitAttrEx init_attr,
+    def __init__(self, Context context, QPInitAttrEx init_attr,
                  Mlx5DVQPInitAttr dv_init_attr):
         """
         Initializes an mlx5 QP according to the user-provided data.
-        :param context: mlx5 Context object
+        :param context: Context object
         :param init_attr: QPInitAttrEx object
         :param dv_init_attr: Mlx5DVQPInitAttr object
         :return: An initialized Mlx5QP
