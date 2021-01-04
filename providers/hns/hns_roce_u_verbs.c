@@ -617,12 +617,13 @@ static void hns_roce_free_recv_inl_buf(struct hns_roce_qp *qp)
 	}
 }
 
-static int calc_qp_buff_size(struct ibv_pd *pd, struct hns_roce_qp *qp)
+static int calc_qp_buff_size(struct hns_roce_device *hr_dev,
+			     struct hns_roce_qp *qp)
 {
 	struct hns_roce_wq *sq, *rq;
 	unsigned int size;
 
-	if (to_hr_dev(pd->context->device)->hw_version == HNS_ROCE_HW_VER1 &&
+	if (hr_dev->hw_version == HNS_ROCE_HW_VER1 &&
 	    qp->rq.wqe_shift > qp->sq.wqe_shift) {
 		sq = &qp->rq;
 		rq = &qp->sq;
@@ -657,15 +658,16 @@ static int calc_qp_buff_size(struct ibv_pd *pd, struct hns_roce_qp *qp)
 	return 0;
 }
 
-static int hns_roce_alloc_qp_buf(struct ibv_pd *pd, struct ibv_qp_cap *cap,
+static int hns_roce_alloc_qp_buf(struct hns_roce_device *hr_dev,
+				 struct ibv_qp_cap *cap,
 				 struct hns_roce_qp *qp)
 {
-	if (calc_qp_buff_size(pd, qp))
-		return EINVAL;
+	if (calc_qp_buff_size(hr_dev, qp))
+		return -EINVAL;
 
 	qp->sq.wrid = malloc(qp->sq.wqe_cnt * sizeof(uint64_t));
 	if (!qp->sq.wrid)
-		return -1;
+		return -ENOMEM;
 
 	if (qp->rq.wqe_cnt) {
 		qp->rq.wrid = malloc(qp->rq.wqe_cnt * sizeof(uint64_t));
@@ -691,7 +693,7 @@ err_alloc:
 	if (qp->sq.wrid)
 		free(qp->sq.wrid);
 
-	return ENOMEM;
+	return -ENOMEM;
 }
 
 static void set_extend_sge_param(struct hns_roce_device *hr_dev,
@@ -716,12 +718,11 @@ static void set_extend_sge_param(struct hns_roce_device *hr_dev,
 	qp->ex_sge.sge_cnt = cnt;
 }
 
-static void hns_roce_set_qp_params(struct ibv_pd *pd,
+static void hns_roce_set_qp_params(struct hns_roce_device *hr_dev,
 				   struct ibv_qp_init_attr *attr,
 				   struct hns_roce_qp *qp,
 				   struct hns_roce_context *ctx)
 {
-	struct hns_roce_device *hr_dev = to_hr_dev(pd->context->device);
 	unsigned int cnt;
 
 	/* RQ WQE */
@@ -734,7 +735,7 @@ static void hns_roce_set_qp_params(struct ibv_pd *pd,
 	cnt = roundup_pow_of_two(attr->cap.max_recv_wr);
 	qp->rq.wqe_cnt = cnt;
 	qp->rq.shift = hr_ilog32(cnt);
-	if (to_hr_dev(pd->context->device)->hw_version == HNS_ROCE_HW_VER1)
+	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
 		qp->rq_rinl_buf.wqe_cnt = 0;
 	else
 		qp->rq_rinl_buf.wqe_cnt = cnt;
@@ -759,40 +760,48 @@ static void hns_roce_set_qp_params(struct ibv_pd *pd,
 	attr->cap.max_send_wr = qp->sq.max_post;
 }
 
-static int get_sq_db_addr(struct ibv_pd *pd, struct ibv_qp_init_attr *attr,
-			  struct hns_roce_qp *qp,
-			  struct hns_roce_context *context,
-			  struct hns_roce_create_qp *cmd)
+static void qp_free_db(struct hns_roce_qp *qp, struct hns_roce_context *ctx)
 {
-	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
-		attr->cap.max_send_wr) {
-		qp->sdb = hns_roce_alloc_db(context, HNS_ROCE_QP_TYPE_DB);
-		if (!qp->sdb)
-			return ENOMEM;
+	struct hns_roce_device *hr_dev = to_hr_dev(ctx->ibv_ctx.context.device);
 
-		*(qp->sdb) = 0;
-		cmd->sdb_addr = (uintptr_t)qp->sdb;
-	} else
-		cmd->sdb_addr = 0;
+	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
+		return;
 
-	return 0;
+	if (qp->sdb)
+		hns_roce_free_db(ctx, qp->sdb, HNS_ROCE_QP_TYPE_DB);
+
+	if (qp->rdb)
+		hns_roce_free_db(ctx, qp->rdb, HNS_ROCE_QP_TYPE_DB);
 }
 
-static int get_rq_db_addr(struct ibv_pd *pd, struct ibv_qp_init_attr *attr,
-			  struct hns_roce_qp *qp,
-			  struct hns_roce_context *context,
-			  struct hns_roce_create_qp *cmd)
+static int qp_alloc_db(struct ibv_qp_init_attr *attr, struct hns_roce_qp *qp,
+		       struct hns_roce_context *ctx)
 {
-	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
-	    attr->cap.max_recv_sge) {
-		qp->rdb = hns_roce_alloc_db(context, HNS_ROCE_QP_TYPE_DB);
-		if (!qp->rdb)
-			return ENOMEM;
+	struct hns_roce_device *hr_dev = to_hr_dev(ctx->ibv_ctx.context.device);
 
-		*(qp->rdb) = 0;
-		cmd->db_addr = (uintptr_t) qp->rdb;
-	} else
-		cmd->db_addr = 0;
+	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
+		return 0;
+
+	if (attr->cap.max_send_wr) {
+		qp->sdb = hns_roce_alloc_db(ctx, HNS_ROCE_QP_TYPE_DB);
+		if (!qp->sdb)
+			return -ENOMEM;
+
+		*qp->sdb = 0;
+	}
+
+	if (attr->cap.max_recv_sge) {
+		qp->rdb = hns_roce_alloc_db(ctx, HNS_ROCE_QP_TYPE_DB);
+		if (!qp->rdb) {
+			if (qp->sdb)
+				hns_roce_free_db(ctx, qp->sdb,
+						 HNS_ROCE_QP_TYPE_DB);
+
+			return -ENOMEM;
+		}
+
+		*qp->rdb = 0;
+	}
 
 	return 0;
 }
@@ -818,11 +827,12 @@ static int hns_roce_store_qp(struct hns_roce_context *ctx, uint32_t qpn,
 struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 				    struct ibv_qp_init_attr *attr)
 {
-	int ret;
-	struct hns_roce_qp *qp;
-	struct hns_roce_create_qp cmd = {};
-	struct hns_roce_create_qp_resp resp = {};
+	struct hns_roce_device *hr_dev = to_hr_dev(pd->context->device);
 	struct hns_roce_context *context = to_hr_ctx(pd->context);
+	struct hns_roce_create_qp_resp resp = {};
+	struct hns_roce_create_qp cmd = {};
+	struct hns_roce_qp *qp;
+	int ret;
 
 	if (hns_roce_verify_qp(attr, context))
 		return NULL;
@@ -831,9 +841,9 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	if (!qp)
 		return NULL;
 
-	hns_roce_set_qp_params(pd, attr, qp, context);
+	hns_roce_set_qp_params(hr_dev, attr, qp, context);
 
-	if (hns_roce_alloc_qp_buf(pd, &attr->cap, qp))
+	if (hns_roce_alloc_qp_buf(hr_dev, &attr->cap, qp))
 		goto err_buf;
 
 	hns_roce_init_qp_indices(qp);
@@ -844,15 +854,13 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 		goto err_free;
 	}
 
-	ret = get_sq_db_addr(pd, attr, qp, context, &cmd);
+	ret = qp_alloc_db(attr, qp, context);
 	if (ret)
 		goto err_free;
 
-	ret = get_rq_db_addr(pd, attr, qp, context, &cmd);
-	if (ret)
-		goto err_sq_db;
-
-	cmd.buf_addr = (uintptr_t) qp->buf.buf;
+	cmd.sdb_addr = (uintptr_t)qp->sdb;
+	cmd.db_addr = (uintptr_t)qp->rdb;
+	cmd.buf_addr = (uintptr_t)qp->buf.buf;
 	cmd.log_sq_stride = qp->sq.wqe_shift;
 	cmd.log_sq_bb_count = hr_ilog32(qp->sq.wqe_cnt);
 
@@ -860,10 +868,8 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 
 	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd.ibv_cmd,
 				sizeof(cmd), &resp.ibv_resp, sizeof(resp));
-	if (ret) {
-		fprintf(stderr, "ibv_cmd_create_qp failed!\n");
-		goto err_rq_db;
-	}
+	if (ret)
+		goto err_db;
 
 	ret = hns_roce_store_qp(context, qp->ibv_qp.qp_num, qp);
 	if (ret) {
@@ -887,16 +893,9 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 err_destroy:
 	ibv_cmd_destroy_qp(&qp->ibv_qp);
 
-err_rq_db:
+err_db:
 	pthread_mutex_unlock(&context->qp_table_mutex);
-	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
-	    attr->cap.max_recv_sge)
-		hns_roce_free_db(context, qp->rdb, HNS_ROCE_QP_TYPE_DB);
-
-err_sq_db:
-	if ((to_hr_dev(pd->context->device)->hw_version != HNS_ROCE_HW_VER1) &&
-	    attr->cap.max_send_wr)
-		hns_roce_free_db(context, qp->sdb, HNS_ROCE_QP_TYPE_DB);
+	qp_free_db(qp, context);
 
 err_free:
 	free(qp->sq.wrid);
