@@ -401,8 +401,8 @@ int main(int argc, char **argv)
 	    "\twidth, query, down, arm, active, vls, mtu, lid, smlid, lmc,\n"
 	    "\tmkey, mkeylease, mkeyprot\n";
 	const char *usage_examples[] = {
-		"3 1 disable\t\t\t# by lid",
-		"-G 0x2C9000100D051 1 enable\t# by guid",
+		"-C qib0 -P 1 3 1 disable     # by CA name, CA Port Number, lid, physical port number",
+		"-C qib0 -P 1 3 1 enable      # by CA name, CA Port Number, lid, physical port number",
 		"-D 0 1\t\t\t# (query) by direct route",
 		"3 1 reset\t\t\t# by lid",
 		"3 1 speed 1\t\t\t# by lid",

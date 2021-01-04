@@ -37,7 +37,7 @@ to the size of *entries* array.
 *entries* array must be allocated such that it can contain all the valid
 GID table entries of the device. If there are more valid GID entries than
 the provided value of *max_entries* and *entries* array, the call will fail.
-For example, if a RDMA device *context* has a total of 10 valid
+For example, if an RDMA device *context* has a total of 10 valid
 GID entries, *entries* should be allocated for at least 10 entries, and
 *max_entries* should be set appropriately.
 

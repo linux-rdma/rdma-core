@@ -66,6 +66,26 @@ int dr_devx_query_esw_vport_context(struct ibv_context *ctx,
 	return 0;
 }
 
+static int dr_devx_query_nic_vport_context(struct ibv_context *ctx,
+					   bool *roce_en)
+{
+	uint32_t out[DEVX_ST_SZ_DW(query_nic_vport_context_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(query_nic_vport_context_in)] = {};
+	int err;
+
+	DEVX_SET(query_nic_vport_context_in, in, opcode,
+		 MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT);
+	err = mlx5dv_devx_general_cmd(ctx, in, sizeof(in), out, sizeof(out));
+	if (err) {
+		dr_dbg_ctx(ctx, "Query nic vport context failed %d\n", err);
+		return err;
+	}
+
+	*roce_en = DEVX_GET(query_nic_vport_context_out, out,
+			    nic_vport_context.roce_en);
+	return 0;
+}
+
 int dr_devx_query_gvmi(struct ibv_context *ctx, bool other_vport,
 		       uint16_t vport_number, uint16_t *gvmi)
 {
@@ -150,13 +170,16 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 		return err;
 	}
 
+	caps->prio_tag_required = DEVX_GET(query_hca_cap_out, out,
+					   capability.cmd_hca_cap.prio_tag_required);
 	caps->eswitch_manager = DEVX_GET(query_hca_cap_out, out,
 					 capability.cmd_hca_cap.eswitch_manager);
 	caps->gvmi = DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.vhca_id);
 	caps->flex_protocols = DEVX_GET(query_hca_cap_out, out,
 					capability.cmd_hca_cap.flex_parser_protocols);
-	roce = DEVX_GET(query_hca_cap_out, out,
-			capability.cmd_hca_cap.roce);
+	caps->isolate_vl_tc = DEVX_GET(query_hca_cap_out, out,
+				       capability.cmd_hca_cap.isolate_vl_tc);
+	roce = DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.roce);
 
 	caps->sw_format_ver = DEVX_GET(query_hca_cap_out, out,
 				       capability.cmd_hca_cap.steering_format_version);
@@ -182,6 +205,24 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 				 out,
 				 capability.cmd_hca_cap.flex_parser_id_icmpv6_dw1);
 	}
+
+	if (caps->flex_protocols & MLX5_FLEX_PARSER_GENEVE_OPT_0_ENABLED)
+		caps->flex_parser_id_geneve_opt_0 =
+			DEVX_GET(query_hca_cap_out,
+				 out,
+				 capability.cmd_hca_cap.flex_parser_id_geneve_opt_0);
+
+	if (caps->flex_protocols & MLX5_FLEX_PARSER_MPLS_OVER_GRE_ENABLED)
+		caps->flex_parser_id_mpls_over_gre =
+			DEVX_GET(query_hca_cap_out,
+				 out,
+				 capability.cmd_hca_cap.flex_parser_id_outer_first_mpls_over_gre);
+
+	if (caps->flex_protocols & mlx5_FLEX_PARSER_MPLS_OVER_UDP_ENABLED)
+		caps->flex_parser_id_mpls_over_udp =
+			DEVX_GET(query_hca_cap_out,
+				 out,
+				 capability.cmd_hca_cap.flex_parser_id_outer_first_mpls_over_udp_label);
 
 	DEVX_SET(query_hca_cap_in, in, op_mod,
 		 MLX5_SET_HCA_CAP_OP_MOD_NIC_FLOW_TABLE |
@@ -239,6 +280,10 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 
 	/* RoCE caps */
 	if (roce) {
+		err = dr_devx_query_nic_vport_context(ctx, &caps->roce_caps.roce_en);
+		if (err)
+			return err;
+
 		DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
 		DEVX_SET(query_hca_cap_in, in, op_mod,
 			 MLX5_SET_HCA_CAP_OP_MOD_ROCE |
@@ -249,6 +294,8 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 			dr_dbg_ctx(ctx, "Query RoCE capabilities failed %d\n", err);
 			return err;
 		}
+		caps->roce_caps.fl_rc_qp_when_roce_disabled = DEVX_GET(query_hca_cap_out, out,
+					      capability.roce_caps.fl_rc_qp_when_roce_disabled);
 		caps->roce_caps.fl_rc_qp_when_roce_enabled = DEVX_GET(query_hca_cap_out, out,
 					      capability.roce_caps.fl_rc_qp_when_roce_enabled);
 	}
@@ -740,6 +787,7 @@ struct mlx5dv_devx_obj *dr_devx_create_qp(struct ibv_context *ctx,
 	DEVX_SET(qpc, qpc, log_rq_stride, attr->rq_wqe_shift - 4);
 	DEVX_SET(qpc, qpc, log_rq_size, ilog32(attr->rq_wqe_cnt - 1));
 	DEVX_SET(qpc, qpc, dbr_umem_id, attr->db_umem_id);
+	DEVX_SET(qpc, qpc, isolate_vl_tc, attr->isolate_vl_tc);
 
 	DEVX_SET(create_qp_in, in, wq_umem_id, attr->buff_umem_id);
 

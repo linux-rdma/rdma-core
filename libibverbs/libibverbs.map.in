@@ -204,7 +204,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_post_srq_recv;
 		ibv_cmd_query_context;
 		ibv_cmd_query_device;
-		ibv_cmd_query_device_ex;
+		ibv_cmd_query_device_any;
 		ibv_cmd_query_mr;
 		ibv_cmd_query_port;
 		ibv_cmd_query_qp;
@@ -215,7 +215,6 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_req_notify_cq;
 		ibv_cmd_rereg_mr;
 		ibv_cmd_resize_cq;
-		ibv_get_fw_ver;
 		ibv_query_gid_type;
 		ibv_read_ibdev_sysfs_file;
 		verbs_allow_disassociate_destroy;

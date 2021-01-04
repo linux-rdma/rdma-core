@@ -6,6 +6,7 @@ rdma_python_test(tests
   args_parser.py
   base.py
   base_rdmacm.py
+  efa_base.py
   mlx5_base.py
   rdmacm_utils.py
   test_addr.py
@@ -13,11 +14,15 @@ rdma_python_test(tests
   test_cq_events.py
   test_cqex.py
   test_device.py
+  test_efa_srd.py
   test_efadv.py
+  test_mlx5_cq.py
   test_mlx5_dc.py
   test_mlx5_lag_affinity.py
   test_mlx5_pp.py
+  test_mlx5_sched.py
   test_mlx5_uar.py
+  test_mlx5_udp_sport.py
   test_mlx5_var.py
   test_mr.py
   test_odp.py

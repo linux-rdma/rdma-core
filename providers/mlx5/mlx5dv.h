@@ -1542,6 +1542,29 @@ struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_flow_counter(struct mlx5dv_devx_obj *devx_obj,
 				     uint32_t offset);
 
+enum mlx5dv_dr_action_aso_first_hit_flags {
+	MLX5DV_DR_ACTION_FLAGS_ASO_FIRST_HIT_SET = 1 << 0,
+};
+
+enum mlx5dv_dr_action_aso_flow_meter_flags {
+	MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_RED	= 1 << 0,
+	MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_YELLOW	= 1 << 1,
+	MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_GREEN	= 1 << 2,
+	MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_UNDEFINED	= 1 << 3,
+};
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_aso(struct mlx5dv_dr_domain *domain,
+			    struct mlx5dv_devx_obj *devx_obj,
+			    uint32_t offset,
+			    uint32_t flags,
+			    uint8_t return_reg_c);
+
+int mlx5dv_dr_action_modify_aso(struct mlx5dv_dr_action *action,
+				uint32_t offset,
+				uint32_t flags,
+				uint8_t return_reg_c);
+
 struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_packet_reformat(struct mlx5dv_dr_domain *domain,
 					uint32_t flags,
@@ -1563,6 +1586,13 @@ int mlx5dv_dr_action_modify_flow_meter(struct mlx5dv_dr_action *action,
 
 struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_flow_sampler(struct mlx5dv_dr_flow_sampler_attr *attr);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_pop_vlan(void);
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_push_vlan(struct mlx5dv_dr_domain *domain,
+				  __be32 vlan_hdr);
 
 int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
 
@@ -1587,6 +1617,45 @@ int mlx5dv_query_qp_lag_port(struct ibv_qp *qp,
 			     uint8_t *active_port_num);
 
 int mlx5dv_modify_qp_lag_port(struct ibv_qp *qp, uint8_t port_num);
+
+int mlx5dv_modify_qp_udp_sport(struct ibv_qp *qp, uint16_t udp_sport);
+
+enum mlx5dv_sched_elem_attr_flags {
+	MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE	= 1 << 0,
+	MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW	= 1 << 1,
+};
+
+struct mlx5dv_sched_attr {
+	struct mlx5dv_sched_node *parent;
+	uint32_t flags;		/* Use mlx5dv_sched_elem_attr_flags */
+	uint32_t bw_share;
+	uint32_t max_avg_bw;
+	uint64_t comp_mask;
+};
+
+struct mlx5dv_sched_node;
+struct mlx5dv_sched_leaf;
+
+struct mlx5dv_sched_node *
+mlx5dv_sched_node_create(struct ibv_context *context,
+			 const struct mlx5dv_sched_attr *sched_attr);
+struct mlx5dv_sched_leaf *
+mlx5dv_sched_leaf_create(struct ibv_context *context,
+			 const struct mlx5dv_sched_attr *sched_attr);
+
+int mlx5dv_sched_node_modify(struct mlx5dv_sched_node *node,
+			     const struct mlx5dv_sched_attr *sched_attr);
+
+int mlx5dv_sched_leaf_modify(struct mlx5dv_sched_leaf *leaf,
+			     const struct mlx5dv_sched_attr *sched_attr);
+
+int mlx5dv_sched_node_destroy(struct mlx5dv_sched_node *node);
+
+int mlx5dv_sched_leaf_destroy(struct mlx5dv_sched_leaf *leaf);
+
+int mlx5dv_modify_qp_sched_elem(struct ibv_qp *qp,
+				const struct mlx5dv_sched_leaf *requestor,
+				const struct mlx5dv_sched_leaf *responder);
 
 #ifdef __cplusplus
 }

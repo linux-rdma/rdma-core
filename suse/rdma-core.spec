@@ -23,7 +23,7 @@
 
 %define         git_ver %{nil}
 Name:           rdma-core
-Version:        32.0
+Version:        33.0
 Release:        0
 Summary:        RDMA core userspace libraries and daemons
 License:        GPL-2.0-only OR BSD-2-Clause
@@ -389,8 +389,6 @@ Pyverbs is a Cython-based Python API over libibverbs, providing an
 easy, object-oriented access to IB verbs.
 
 %prep
-# Make sure LTO is disable as rdma-core fails to compile with LTO enabled
-%define _lto_cflags %{nil}
 %setup -q -n  %{name}-%{version}%{git_ver}
 
 %build

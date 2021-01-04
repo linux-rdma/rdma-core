@@ -36,3 +36,4 @@ cdef class ParentDomainContext(PyverbsObject):
     cdef object p_alloc
     cdef object p_free
     cdef object pd
+    cdef object user_data

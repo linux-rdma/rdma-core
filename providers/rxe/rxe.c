@@ -65,23 +65,26 @@ static const struct verbs_match_ent hca_table[] = {
 };
 
 static int rxe_query_device(struct ibv_context *context,
-			    struct ibv_device_attr *attr)
+			    const struct ibv_query_device_ex_input *input,
+			    struct ibv_device_attr_ex *attr, size_t attr_size)
 {
-	struct ibv_query_device cmd;
+	struct ib_uverbs_ex_query_device_resp resp;
+	size_t resp_size = sizeof(resp);
 	uint64_t raw_fw_ver;
-	unsigned major, minor, sub_minor;
+	unsigned int major, minor, sub_minor;
 	int ret;
 
-	ret = ibv_cmd_query_device(context, attr, &raw_fw_ver,
-				   &cmd, sizeof cmd);
+	ret = ibv_cmd_query_device_any(context, input, attr, attr_size, &resp,
+				       &resp_size);
 	if (ret)
 		return ret;
 
+	raw_fw_ver = resp.base.fw_ver;
 	major = (raw_fw_ver >> 32) & 0xffff;
 	minor = (raw_fw_ver >> 16) & 0xffff;
 	sub_minor = raw_fw_ver & 0xffff;
 
-	snprintf(attr->fw_ver, sizeof attr->fw_ver,
+	snprintf(attr->orig_attr.fw_ver, sizeof(attr->orig_attr.fw_ver),
 		 "%d.%d.%d", major, minor, sub_minor);
 
 	return 0;
@@ -92,7 +95,7 @@ static int rxe_query_port(struct ibv_context *context, uint8_t port,
 {
 	struct ibv_query_port cmd;
 
-	return ibv_cmd_query_port(context, port, attr, &cmd, sizeof cmd);
+	return ibv_cmd_query_port(context, port, attr, &cmd, sizeof(cmd));
 }
 
 static struct ibv_pd *rxe_alloc_pd(struct ibv_context *context)
@@ -101,11 +104,12 @@ static struct ibv_pd *rxe_alloc_pd(struct ibv_context *context)
 	struct ib_uverbs_alloc_pd_resp resp;
 	struct ibv_pd *pd;
 
-	pd = malloc(sizeof *pd);
+	pd = malloc(sizeof(*pd));
 	if (!pd)
 		return NULL;
 
-	if (ibv_cmd_alloc_pd(context, pd, &cmd, sizeof cmd, &resp, sizeof resp)) {
+	if (ibv_cmd_alloc_pd(context, pd, &cmd, sizeof(cmd),
+					&resp, sizeof(resp))) {
 		free(pd);
 		return NULL;
 	}
@@ -166,14 +170,13 @@ static struct ibv_cq *rxe_create_cq(struct ibv_context *context, int cqe,
 	struct urxe_create_cq_resp resp;
 	int ret;
 
-	cq = malloc(sizeof *cq);
-	if (!cq) {
+	cq = malloc(sizeof(*cq));
+	if (!cq)
 		return NULL;
-	}
 
 	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
 				&cq->ibv_cq, NULL, 0,
-				&resp.ibv_resp, sizeof resp);
+				&resp.ibv_resp, sizeof(resp));
 	if (ret) {
 		free(cq);
 		return NULL;
@@ -202,8 +205,8 @@ static int rxe_resize_cq(struct ibv_cq *ibcq, int cqe)
 
 	pthread_spin_lock(&cq->lock);
 
-	ret = ibv_cmd_resize_cq(ibcq, cqe, &cmd, sizeof cmd,
-				&resp.ibv_resp, sizeof resp);
+	ret = ibv_cmd_resize_cq(ibcq, cqe, &cmd, sizeof(cmd),
+				&resp.ibv_resp, sizeof(resp));
 	if (ret) {
 		pthread_spin_unlock(&cq->lock);
 		return ret;
@@ -277,13 +280,12 @@ static struct ibv_srq *rxe_create_srq(struct ibv_pd *pd,
 	struct urxe_create_srq_resp resp;
 	int ret;
 
-	srq = malloc(sizeof *srq);
-	if (srq == NULL) {
+	srq = malloc(sizeof(*srq));
+	if (srq == NULL)
 		return NULL;
-	}
 
-	ret = ibv_cmd_create_srq(pd, &srq->ibv_srq, attr, &cmd, sizeof cmd,
-				 &resp.ibv_resp, sizeof resp);
+	ret = ibv_cmd_create_srq(pd, &srq->ibv_srq, attr, &cmd, sizeof(cmd),
+				 &resp.ibv_resp, sizeof(resp));
 	if (ret) {
 		free(srq);
 		return NULL;
@@ -319,9 +321,9 @@ static int rxe_modify_srq(struct ibv_srq *ibsrq,
 	if (attr_mask & IBV_SRQ_MAX_WR)
 		pthread_spin_lock(&srq->rq.lock);
 
-	cmd.mmap_info_addr = (__u64)(uintptr_t) & mi;
+	cmd.mmap_info_addr = (__u64)(uintptr_t) &mi;
 	rc = ibv_cmd_modify_srq(ibsrq, attr, attr_mask,
-				&cmd.ibv_cmd, sizeof cmd);
+				&cmd.ibv_cmd, sizeof(cmd));
 	if (rc)
 		goto out;
 
@@ -351,7 +353,7 @@ static int rxe_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *attr)
 {
 	struct ibv_query_srq cmd;
 
-	return ibv_cmd_query_srq(srq, attr, &cmd, sizeof cmd);
+	return ibv_cmd_query_srq(srq, attr, &cmd, sizeof(cmd));
 }
 
 static int rxe_destroy_srq(struct ibv_srq *ibvsrq)
@@ -396,9 +398,8 @@ static int rxe_post_one_recv(struct rxe_wq *rq, struct ibv_recv_wr *recv_wr)
 	memcpy(wqe->dma.sge, recv_wr->sg_list,
 	       wqe->num_sge*sizeof(*wqe->dma.sge));
 
-	for (i = 0; i < wqe->num_sge; i++) {
+	for (i = 0; i < wqe->num_sge; i++)
 		length += wqe->dma.sge[i].length;
-	}
 
 	wqe->dma.length = length;
 	wqe->dma.resid = length;
@@ -444,13 +445,12 @@ static struct ibv_qp *rxe_create_qp(struct ibv_pd *pd,
 	struct rxe_qp *qp;
 	int ret;
 
-	qp = malloc(sizeof *qp);
-	if (!qp) {
+	qp = malloc(sizeof(*qp));
+	if (!qp)
 		return NULL;
-	}
 
-	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd, sizeof cmd,
-				&resp.ibv_resp, sizeof resp);
+	ret = ibv_cmd_create_qp(pd, &qp->ibv_qp, attr, &cmd, sizeof(cmd),
+				&resp.ibv_resp, sizeof(resp));
 	if (ret) {
 		free(qp);
 		return NULL;
@@ -501,7 +501,7 @@ static int rxe_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	struct ibv_query_qp cmd;
 
 	return ibv_cmd_query_qp(qp, attr, attr_mask, init_attr,
-				&cmd, sizeof cmd);
+				&cmd, sizeof(cmd));
 }
 
 static int rxe_modify_qp(struct ibv_qp *ibvqp,
@@ -510,7 +510,7 @@ static int rxe_modify_qp(struct ibv_qp *ibvqp,
 {
 	struct ibv_modify_qp cmd = {};
 
-	return ibv_cmd_modify_qp(ibvqp, attr, attr_mask, &cmd, sizeof cmd);
+	return ibv_cmd_modify_qp(ibvqp, attr, attr_mask, &cmd, sizeof(cmd));
 }
 
 static int rxe_destroy_qp(struct ibv_qp *ibv_qp)
@@ -561,7 +561,7 @@ static void convert_send_wr(struct rxe_send_wr *kwr, struct ibv_send_wr *uwr)
 	kwr->send_flags		= uwr->send_flags;
 	kwr->ex.imm_data	= uwr->imm_data;
 
-	switch(uwr->opcode) {
+	switch (uwr->opcode) {
 	case IBV_WR_RDMA_WRITE:
 	case IBV_WR_RDMA_WRITE_WITH_IMM:
 	case IBV_WR_RDMA_READ:
@@ -688,7 +688,8 @@ static int post_send_db(struct ibv_qp *ibqp)
 }
 
 /* this API does not make a distinction between
-   restartable and non-restartable errors */
+ * restartable and non-restartable errors
+ */
 static int rxe_post_send(struct ibv_qp *ibqp,
 			 struct ibv_send_wr *wr_list,
 			 struct ibv_send_wr **bad_wr)
@@ -704,7 +705,7 @@ static int rxe_post_send(struct ibv_qp *ibqp,
 	*bad_wr = NULL;
 
 	if (!sq || !wr_list || !sq->queue)
-	 	return EINVAL;
+		return EINVAL;
 
 	pthread_spin_lock(&sq->lock);
 
@@ -792,7 +793,7 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		return NULL;
 	}
 
-	ah = malloc(sizeof *ah);
+	ah = malloc(sizeof(*ah));
 	if (ah == NULL)
 		return NULL;
 
@@ -801,7 +802,7 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 	memcpy(&av->grh, &attr->grh, sizeof(attr->grh));
 	av->network_type =
 		ipv6_addr_v4mapped((struct in6_addr *)attr->grh.dgid.raw) ?
-		RDMA_NETWORK_IPV4 : RDMA_NETWORK_IPV6;
+		RXE_NETWORK_TYPE_IPV4 : RXE_NETWORK_TYPE_IPV6;
 
 	rdma_gid2ip(&av->sgid_addr, &sgid);
 	rdma_gid2ip(&av->dgid_addr, &attr->grh.dgid);
@@ -833,7 +834,7 @@ static int rxe_destroy_ah(struct ibv_ah *ibah)
 }
 
 static const struct verbs_context_ops rxe_ctx_ops = {
-	.query_device = rxe_query_device,
+	.query_device_ex = rxe_query_device,
 	.query_port = rxe_query_port,
 	.alloc_pd = rxe_alloc_pd,
 	.dealloc_pd = rxe_dealloc_pd,
@@ -875,8 +876,8 @@ static struct verbs_context *rxe_alloc_context(struct ibv_device *ibdev,
 	if (!context)
 		return NULL;
 
-	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd,
-				sizeof cmd, &resp, sizeof resp))
+	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof(cmd),
+				&resp, sizeof(resp)))
 		goto out;
 
 	verbs_set_ops(&context->ibv_ctx, &rxe_ctx_ops);
@@ -907,6 +908,7 @@ static void rxe_uninit_device(struct verbs_device *verbs_device)
 static struct verbs_device *rxe_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 {
 	struct rxe_device *dev;
+
 	dev = calloc(1, sizeof(*dev));
 	if (!dev)
 		return NULL;

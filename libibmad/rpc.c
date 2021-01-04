@@ -375,6 +375,7 @@ struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port,
 {
 	struct ibmad_port *p;
 	int port_id;
+	char *debug_level_env;
 
 	if (num_classes >= MAX_CLASS) {
 		IBWARN("too many classes %d requested", num_classes);
@@ -386,6 +387,11 @@ struct ibmad_port *mad_rpc_open_port(char *dev_name, int dev_port,
 		IBWARN("can't init UMAD library");
 		errno = ENODEV;
 		return NULL;
+	}
+
+	debug_level_env = getenv("LIBIBMAD_DEBUG_LEVEL");
+	if (debug_level_env) {
+		ibdebug = atoi(debug_level_env);
 	}
 
 	p = malloc(sizeof(*p));

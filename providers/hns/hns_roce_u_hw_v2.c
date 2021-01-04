@@ -648,7 +648,7 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 	if (npolled || err == V2_CQ_POLL_ERR) {
 		mmio_ordered_writes_hack();
 
-		if (cq->flags & HNS_ROCE_SUPPORT_CQ_RECORD_DB)
+		if (cq->flags & HNS_ROCE_CQ_FLAG_RECORD_DB)
 			*cq->set_ci_db =
 				cq->cons_index & DB_PARAM_CQ_CONSUMER_IDX_M;
 		else
@@ -764,6 +764,116 @@ static __le32 get_immtdata(enum ibv_wr_opcode opcode, const struct ibv_send_wr *
 	default:
 		return 0;
 	}
+}
+
+static int check_ud_opcode(struct hns_roce_ud_sq_wqe *ud_sq_wqe,
+			   const struct ibv_send_wr *wr)
+{
+	uint32_t ib_op = wr->opcode;
+
+	if (ib_op != IBV_WR_SEND && ib_op != IBV_WR_SEND_WITH_IMM)
+		return EINVAL;
+
+	ud_sq_wqe->immtdata = get_immtdata(ib_op, wr);
+
+	roce_set_field(ud_sq_wqe->rsv_opcode, UD_SQ_WQE_OPCODE_M,
+		       UD_SQ_WQE_OPCODE_S, to_hr_opcode(ib_op));
+
+	return 0;
+}
+
+static int fill_ud_av(struct hns_roce_ud_sq_wqe *ud_sq_wqe,
+		      struct hns_roce_ah *ah)
+{
+	if (unlikely(ah->av.sl > MAX_SERVICE_LEVEL))
+		return EINVAL;
+
+	roce_set_field(ud_sq_wqe->lbi_flow_label, UD_SQ_WQE_SL_M,
+		       UD_SQ_WQE_SL_S, ah->av.sl);
+
+	roce_set_field(ud_sq_wqe->sge_num_pd, UD_SQ_WQE_PD_M,
+		       UD_SQ_WQE_PD_S, to_hr_pd(ah->ibv_ah.pd)->pdn);
+
+	roce_set_field(ud_sq_wqe->tclass_vlan, UD_SQ_WQE_TCLASS_M,
+		       UD_SQ_WQE_TCLASS_S, ah->av.tclass);
+
+	roce_set_field(ud_sq_wqe->tclass_vlan, UD_SQ_WQE_HOPLIMIT_M,
+		       UD_SQ_WQE_HOPLIMIT_S, ah->av.hop_limit);
+
+	roce_set_field(ud_sq_wqe->lbi_flow_label, UD_SQ_WQE_FLOW_LABEL_M,
+		       UD_SQ_WQE_FLOW_LABEL_S, ah->av.flowlabel);
+
+	roce_set_field(ud_sq_wqe->udpspn_rsv, UD_SQ_WQE_UDP_SPN_M,
+		       UD_SQ_WQE_UDP_SPN_S, ah->av.udp_sport);
+
+	memcpy(ud_sq_wqe->dmac, ah->av.mac, ETH_ALEN);
+	ud_sq_wqe->sgid_index = ah->av.gid_index;
+	memcpy(ud_sq_wqe->dgid, ah->av.dgid, HNS_ROCE_GID_SIZE);
+
+	return 0;
+}
+
+static void fill_ud_data_seg(struct hns_roce_ud_sq_wqe *ud_sq_wqe,
+			     struct hns_roce_qp *qp, struct ibv_send_wr *wr,
+			     struct hns_roce_sge_info *sge_info)
+{
+	roce_set_field(ud_sq_wqe->rsv_msg_start_sge_idx,
+		       UD_SQ_WQE_MSG_START_SGE_IDX_M,
+		       UD_SQ_WQE_MSG_START_SGE_IDX_S,
+		       sge_info->start_idx & (qp->ex_sge.sge_cnt - 1));
+
+	set_sge((struct hns_roce_v2_wqe_data_seg *)ud_sq_wqe, qp, wr, sge_info);
+
+	ud_sq_wqe->msg_len = htole32(sge_info->total_len);
+
+	roce_set_field(ud_sq_wqe->sge_num_pd, UD_SQ_WQE_SGE_NUM_M,
+		       UD_SQ_WQE_SGE_NUM_S, sge_info->valid_num);
+}
+
+static int set_ud_wqe(void *wqe, struct hns_roce_qp *qp,
+		      struct ibv_send_wr *wr, int nreq,
+		      struct hns_roce_sge_info *sge_info)
+{
+	struct hns_roce_ah *ah = to_hr_ah(wr->wr.ud.ah);
+	struct hns_roce_ud_sq_wqe *ud_sq_wqe = wqe;
+	int ret = 0;
+
+	memset(ud_sq_wqe, 0, sizeof(*ud_sq_wqe));
+
+	roce_set_bit(ud_sq_wqe->rsv_opcode, UD_SQ_WQE_CQE_S,
+		     !!(wr->send_flags & IBV_SEND_SIGNALED));
+	roce_set_bit(ud_sq_wqe->rsv_opcode, UD_SQ_WQE_SE_S,
+		     !!(wr->send_flags & IBV_SEND_SOLICITED));
+
+	ret = check_ud_opcode(ud_sq_wqe, wr);
+	if (ret)
+		return ret;
+
+	ud_sq_wqe->qkey = htole32(wr->wr.ud.remote_qkey & 0x80000000 ?
+				  qp->qkey : wr->wr.ud.remote_qkey);
+
+	roce_set_field(ud_sq_wqe->rsv_dqpn, UD_SQ_WQE_DQPN_M,
+		       UD_SQ_WQE_DQPN_S, wr->wr.ud.remote_qpn);
+
+	ret = fill_ud_av(ud_sq_wqe, ah);
+	if (ret)
+		return ret;
+
+	fill_ud_data_seg(ud_sq_wqe, qp, wr, sge_info);
+
+	/*
+	 * The pipeline can sequentially post all valid WQEs in wq buf,
+	 * including those new WQEs waiting for doorbell to update the PI again.
+	 * Therefore, the valid bit of WQE MUST be updated after all of fields
+	 * and extSGEs have been written into DDR instead of cache.
+	 */
+	if (qp->flags & HNS_ROCE_QP_CAP_OWNER_DB)
+		udma_to_device_barrier();
+
+	roce_set_bit(ud_sq_wqe->rsv_opcode, UD_SQ_WQE_OWNER_S,
+		     ~(((qp->sq.head + nreq) >> qp->sq.shift) & 0x1));
+
+	return ret;
 }
 
 static int set_rc_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
@@ -899,16 +1009,13 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_SE_S,
 		     (wr->send_flags & IBV_SEND_SOLICITED) ? 1 : 0);
 
-	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_OWNER_S,
-		     ~(((qp->sq.head + nreq) >> qp->sq.shift) & 0x1));
-
 	roce_set_field(rc_sq_wqe->byte_20,
 		       RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_M,
 		       RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_S,
 		       sge_info->start_idx & (qp->ex_sge.sge_cnt - 1));
 
 	if (wr->opcode == IBV_WR_BIND_MW)
-		return 0;
+		goto wqe_valid;
 
 	wqe += sizeof(struct hns_roce_rc_sq_wqe);
 	dseg = wqe;
@@ -928,7 +1035,23 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 		ret = set_rc_inl(qp, wr, rc_sq_wqe, sge_info);
 	}
 
-	return ret;
+	if (ret)
+		return ret;
+
+wqe_valid:
+	/*
+	 * The pipeline can sequentially post all valid WQEs into WQ buffer,
+	 * including new WQEs waiting for the doorbell to update the PI again.
+	 * Therefore, the owner bit of WQE MUST be updated after all fields
+	 * and extSGEs have been written into DDR instead of cache.
+	 */
+	if (qp->flags & HNS_ROCE_QP_CAP_OWNER_DB)
+		udma_to_device_barrier();
+
+	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_OWNER_S,
+		     ~(((qp->sq.head + nreq) >> qp->sq.shift) & 0x1));
+
+	return 0;
 }
 
 int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
@@ -976,15 +1099,15 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		switch (ibvqp->qp_type) {
 		case IBV_QPT_RC:
 			ret = set_rc_wqe(wqe, qp, wr, nreq, &sge_info);
-			if (ret) {
-				*bad_wr = wr;
-				goto out;
-			}
 			break;
-		case IBV_QPT_UC:
 		case IBV_QPT_UD:
+			ret = set_ud_wqe(wqe, qp, wr, nreq, &sge_info);
+			break;
 		default:
 			ret = EINVAL;
+		}
+
+		if (ret) {
 			*bad_wr = wr;
 			goto out;
 		}
@@ -999,7 +1122,7 @@ out:
 
 		hns_roce_update_sq_db(ctx, ibvqp->qp_num, qp->sl, qp->sq.head);
 
-		if (qp->flags & HNS_ROCE_SUPPORT_SQ_RECORD_DB)
+		if (qp->flags & HNS_ROCE_QP_CAP_SQ_RECORD_DB)
 			*(qp->sdb) = qp->sq.head & 0xffff;
 	}
 
@@ -1096,7 +1219,7 @@ out:
 
 		udma_to_device_barrier();
 
-		if (qp->flags & HNS_ROCE_SUPPORT_RQ_RECORD_DB)
+		if (qp->flags & HNS_ROCE_QP_CAP_RQ_RECORD_DB)
 			*qp->rdb = qp->rq.head & 0xffff;
 		else
 			hns_roce_update_rq_db(ctx, ibvqp->qp_num, qp->rq.head);
@@ -1180,6 +1303,9 @@ static void record_qp_attr(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 	if (attr_mask & IBV_QP_AV)
 		hr_qp->sl = attr->ah_attr.sl;
+
+	if (attr_mask & IBV_QP_QKEY)
+		hr_qp->qkey = attr->qkey;
 
 	if (qp->qp_type == IBV_QPT_UD)
 		hr_qp->path_mtu = IBV_MTU_4096;

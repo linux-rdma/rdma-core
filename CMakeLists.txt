@@ -72,11 +72,11 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "32.0")
+set(PACKAGE_VERSION "33.0")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
-set(IBVERBS_PABI_VERSION "25")
+set(IBVERBS_PABI_VERSION "33")
 set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 #-------------------------
@@ -280,6 +280,16 @@ CHECK_C_SOURCE_COMPILES("
 
  int main(int argc,const char *argv[]) { entry(); }"
   HAVE_FUNC_ATTRIBUTE_IFUNC
+  FAIL_REGEX "warning")
+
+CHECK_C_SOURCE_COMPILES("
+ #include <unistd.h>
+
+ void _sym(void);
+ __attribute__((__symver__(\"sym@TEST_1.1\"))) void _sym(void) {}
+
+ int main(int argc,const char *argv[]) { _sym(); }"
+  HAVE_FUNC_ATTRIBUTE_SYMVER
   FAIL_REGEX "warning")
 
 # The code does not do the racy fcntl if the various CLOEXEC's are not
@@ -699,6 +709,9 @@ if (NOT HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE)
 endif()
 if (NOT HAVE_FUNC_ATTRIBUTE_IFUNC)
   message(STATUS " Compiler attribute ifunc NOT supported")
+endif()
+if (NOT HAVE_FUNC_ATTRIBUTE_SYMVER)
+  message(STATUS " Compiler attribute symver NOT supported, can not use LTO")
 endif()
 if (NOT HAVE_COHERENT_DMA)
   message(STATUS " Architecture NOT able to do coherent DMA (check util/udma_barrier.h) some providers disabled!")

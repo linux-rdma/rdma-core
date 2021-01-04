@@ -91,7 +91,7 @@ class CMResources(abc.ABC):
 
     def create_qp(self):
         """
-        Create a rdmacm QP. If self.with_ext_qp is set, then an external CQ and
+        Create an rdmacm QP. If self.with_ext_qp is set, then an external CQ and
         RC QP will be created and set in self.cq and self.qp
         respectively.
         """

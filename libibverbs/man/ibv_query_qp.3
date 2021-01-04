@@ -35,7 +35,7 @@ enum ibv_mtu            path_mtu;            /* Path MTU (valid only for RC/UC Q
 enum ibv_mig_state      path_mig_state;      /* Path migration state (valid if HCA supports APM) */
 uint32_t                qkey;                /* Q_Key of the QP (valid only for UD QPs) */
 uint32_t                rq_psn;              /* PSN for receive queue (valid only for RC/UC QPs) */
-uint32_t                sq_psn;              /* PSN for send queue (valid only for RC/UC QPs) */
+uint32_t                sq_psn;              /* PSN for send queue */
 uint32_t                dest_qp_num;         /* Destination QP number (valid only for RC/UC QPs) */
 int                     qp_access_flags;     /* Mask of enabled remote access operations (valid only for RC/UC QPs) */
 struct ibv_qp_cap       cap;                 /* QP capabilities */

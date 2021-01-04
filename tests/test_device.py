@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2018 Mellanox Technologies, Inc. All rights reserved. See COPYING file
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All rights reserved.
 """
 Test module for pyverbs' device module.
 """
@@ -7,6 +8,7 @@ import unittest
 import resource
 import random
 import errno
+import os
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from tests.base import PyverbsAPITestCase
@@ -21,12 +23,6 @@ class DeviceTest(PyverbsAPITestCase):
     """
     Test various functionalities of the Device class.
     """
-
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
 
     def get_device_list(self):
         lst = d.get_device_list()
@@ -100,6 +96,24 @@ class DeviceTest(PyverbsAPITestCase):
                                             ' supported on this device')
                 raise ex
 
+    def test_query_gid_table_bad_flow(self):
+        """
+        Test ibv_query_gid_table() with too small a buffer
+        """
+        ctx, _, _ = self.devices[0]
+        try:
+            ctx.query_gid_table(0)
+        except PyverbsRDMAError as ex:
+            if ex.error_code in [-errno.EOPNOTSUPP, -errno.EPROTONOSUPPORT]:
+                raise unittest.SkipTest('ibv_query_gid_table is not'
+                                        ' supported on this device')
+            self.assertEqual(ex.error_code, -errno.EINVAL,
+                             f'Got -{os.strerror(-ex.error_code)} but '
+                             f'Expected -{os.strerror(errno.EINVAL)} ')
+        else:
+            raise PyverbsRDMAError('Successfully queried '
+                                   'gid_table with an insufficient buffer')
+
     def test_query_gid_ex(self):
         """
         Test ibv_query_gid_ex()
@@ -113,6 +127,40 @@ class DeviceTest(PyverbsAPITestCase):
                     raise unittest.SkipTest('ibv_query_gid_ex is not'\
                                             ' supported on this device')
                 raise ex
+
+    def test_query_gid_ex_bad_flow(self):
+        """
+        Test ibv_query_gid_ex() with an empty index
+        """
+        ctx, device_attr, _ = self.devices[0]
+        try:
+            port_attr = ctx.query_port(1)
+            max_entries = 0
+            for port_num in range(1, device_attr.phys_port_cnt + 1):
+                attr = ctx.query_port(port_num)
+                max_entries += attr.gid_tbl_len
+            gid_indices = {gid_entry.gid_index for gid_entry in
+                           ctx.query_gid_table(max_entries) if gid_entry.port_num == 1}
+
+            possible_indices = set(range(port_attr.gid_tbl_len)) if port_attr.gid_tbl_len > 1 else set()
+            try:
+                no_gid_index = possible_indices.difference(gid_indices).pop()
+            except KeyError:
+                # all indices are populated by GIDs
+                raise unittest.SkipTest('All gid indices populated,'
+                                        ' cannot check bad flow')
+
+            ctx.query_gid_ex(port_num=1, gid_index=no_gid_index)
+        except PyverbsRDMAError as ex:
+            if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                raise unittest.SkipTest('ibv_query_gid_ex is not'
+                                        ' supported on this device')
+            self.assertEqual(ex.error_code, errno.ENODATA,
+                             f'Got {os.strerror(ex.error_code)} but '
+                             f'Expected {os.strerror(errno.ENODATA)}')
+        else:
+            raise PyverbsRDMAError('Successfully queried '
+                                   f'non-existent gid index {no_gid_index}')
 
     @staticmethod
     def verify_device_attr(attr, device):

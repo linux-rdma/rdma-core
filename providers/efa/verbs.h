@@ -9,7 +9,7 @@
 #include <infiniband/driver.h>
 #include <infiniband/verbs.h>
 
-int efa_query_device(struct ibv_context *uctx, struct ibv_device_attr *attr);
+int efa_query_device_ctx(struct efa_context *ctx);
 int efa_query_port(struct ibv_context *uctx, uint8_t port,
 		   struct ibv_port_attr *attr);
 int efa_query_device_ex(struct ibv_context *context,

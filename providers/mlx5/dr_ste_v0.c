@@ -32,7 +32,6 @@
 
 #include "dr_ste.h"
 
-#define SVLAN_ETHERTYPE		0x88a8
 #define DR_STE_ENABLE_FLOW_TAG (1 << 31)
 
 enum dr_ste_v0_action_tunl {
@@ -40,9 +39,11 @@ enum dr_ste_v0_action_tunl {
 	DR_STE_TUNL_ACTION_ENABLE	= 1,
 	DR_STE_TUNL_ACTION_DECAP	= 2,
 	DR_STE_TUNL_ACTION_L3_DECAP	= 3,
+	DR_STE_TUNL_ACTION_POP_VLAN	= 4,
 };
 
 enum dr_ste_v0_action_type {
+	DR_STE_ACTION_TYPE_PUSH_VLAN    = 1,
 	DR_STE_ACTION_TYPE_ENCAP_L3	= 3,
 	DR_STE_ACTION_TYPE_ENCAP	= 4,
 };
@@ -353,6 +354,31 @@ static void dr_ste_v0_set_rx_decap(uint8_t *hw_ste_p)
 		   DR_STE_TUNL_ACTION_DECAP);
 }
 
+static void dr_ste_v0_set_go_back_bit(uint8_t *hw_ste_p)
+{
+	DR_STE_SET(sx_transmit, hw_ste_p, go_back, 1);
+}
+
+static void dr_ste_v0_set_tx_push_vlan(uint8_t *hw_ste_p,
+				       uint32_t vlan_hdr,
+				       bool go_back)
+{
+	DR_STE_SET(sx_transmit, hw_ste_p, action_type,
+		   DR_STE_ACTION_TYPE_PUSH_VLAN);
+	DR_STE_SET(sx_transmit, hw_ste_p, encap_pointer_vlan_data, vlan_hdr);
+	/* Due to HW limitation we need to set this bit, otherwise reformat +
+	 * push vlan will not work.
+	 */
+	if (go_back)
+		dr_ste_v0_set_go_back_bit(hw_ste_p);
+}
+
+static void dr_ste_v0_set_rx_pop_vlan(uint8_t *hw_ste_p)
+{
+	DR_STE_SET(rx_steering_mult, hw_ste_p, tunneling_action,
+		   DR_STE_TUNL_ACTION_POP_VLAN);
+}
+
 static void dr_ste_v0_set_rx_decap_l3(uint8_t *hw_ste_p, bool vlan)
 {
 	DR_STE_SET(rx_steering_mult, hw_ste_p, tunneling_action,
@@ -385,6 +411,9 @@ static void dr_ste_v0_set_actions_tx(uint8_t *action_type_set,
 				     struct dr_ste_actions_attr *attr,
 				     uint32_t *added_stes)
 {
+	bool encap = action_type_set[DR_ACTION_TYP_L2_TO_TNL_L2] ||
+		action_type_set[DR_ACTION_TYP_L2_TO_TNL_L3];
+
 	/* We want to make sure the modify header comes before L2
 	 * encapsulation. The reason for that is that we support
 	 * modify headers for outer headers only
@@ -396,13 +425,30 @@ static void dr_ste_v0_set_actions_tx(uint8_t *action_type_set,
 					      attr->modify_index);
 	}
 
-	if (action_type_set[DR_ACTION_TYP_L2_TO_TNL_L2] ||
-	    action_type_set[DR_ACTION_TYP_L2_TO_TNL_L3]) {
+	if (action_type_set[DR_ACTION_TYP_PUSH_VLAN]) {
+		int i;
+
+		for (i = 0; i < attr->vlans.count; i++) {
+			if (i || action_type_set[DR_ACTION_TYP_MODIFY_HDR])
+				dr_ste_v0_arr_init_next(&last_ste,
+							added_stes,
+							DR_STE_TYPE_TX,
+							attr->gvmi);
+
+			dr_ste_v0_set_tx_push_vlan(last_ste,
+						   attr->vlans.headers[i],
+						   encap);
+		}
+	}
+
+	if (encap) {
 		/* Modify header and encapsulation require a different STEs.
 		 * Since modify header STE format doesn't support encapsulation
-		 * tunneling_action.
+		 * tunneling_action. Encapsulation and push VLAN cannot be set
+		 * on the same STE.
 		 */
-		if (action_type_set[DR_ACTION_TYP_MODIFY_HDR])
+		if (action_type_set[DR_ACTION_TYP_MODIFY_HDR] ||
+		    action_type_set[DR_ACTION_TYP_PUSH_VLAN])
 			dr_ste_v0_arr_init_next(&last_ste,
 						added_stes,
 						DR_STE_TYPE_TX,
@@ -412,6 +458,13 @@ static void dr_ste_v0_set_actions_tx(uint8_t *action_type_set,
 				       attr->reformat_id,
 				       attr->reformat_size,
 				       action_type_set[DR_ACTION_TYP_L2_TO_TNL_L3]);
+		/* Whenever prio_tag_required enabled, we can be sure that the
+		 * previous table (ACL) already push vlan to our packet,
+		 * And due to HW limitation we need to set this bit, otherwise
+		 * push vlan + reformat will not work.
+		 */
+		if (attr->prio_tag_required)
+			dr_ste_v0_set_go_back_bit(last_ste);
 	}
 
 	if (action_type_set[DR_ACTION_TYP_CTR])
@@ -438,6 +491,22 @@ static void dr_ste_v0_set_actions_rx(uint8_t *action_type_set,
 
 	if (action_type_set[DR_ACTION_TYP_TNL_L2_TO_L2])
 		dr_ste_v0_set_rx_decap(last_ste);
+
+	if (action_type_set[DR_ACTION_TYP_POP_VLAN]) {
+		int i;
+
+		for (i = 0; i < attr->vlans.count; i++) {
+			if (i ||
+			    action_type_set[DR_ACTION_TYP_TNL_L2_TO_L2] ||
+			    action_type_set[DR_ACTION_TYP_TNL_L3_TO_L2])
+				dr_ste_v0_arr_init_next(&last_ste,
+							added_stes,
+							DR_STE_TYPE_RX,
+							attr->gvmi);
+
+			dr_ste_v0_set_rx_pop_vlan(last_ste);
+		}
+	}
 
 	if (action_type_set[DR_ACTION_TYP_MODIFY_HDR]) {
 		if (dr_ste_v0_get_entry_type(last_ste) == DR_STE_TYPE_MODIFY_PKT)
@@ -1137,49 +1206,86 @@ static void dr_ste_v0_build_tnl_gre_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_gre_tag;
 }
 
-static int dr_ste_v0_build_tnl_mpls_tag(struct dr_match_param *value,
-					struct dr_ste_build *sb,
-					uint8_t *tag)
+static int dr_ste_v0_build_tnl_mpls_over_udp_tag(struct dr_match_param *value,
+						 struct dr_ste_build *sb,
+						 uint8_t *tag)
 {
 	struct dr_match_misc2 *misc2 = &value->misc2;
+	uint8_t *parser_ptr;
+	uint8_t parser_id;
+	uint32_t mpls_hdr;
 
-	if (DR_STE_IS_OUTER_MPLS_OVER_GRE_SET(misc2)) {
-		DR_STE_SET_TAG(flex_parser_0, tag, parser_3_label,
-			       misc2, outer_first_mpls_over_gre_label);
+	mpls_hdr = misc2->outer_first_mpls_over_udp_label << HDR_MPLS_OFFSET_LABEL;
+	misc2->outer_first_mpls_over_udp_label = 0;
+	mpls_hdr |= misc2->outer_first_mpls_over_udp_exp << HDR_MPLS_OFFSET_EXP;
+	misc2->outer_first_mpls_over_udp_exp = 0;
+	mpls_hdr |= misc2->outer_first_mpls_over_udp_s_bos << HDR_MPLS_OFFSET_S_BOS;
+	misc2->outer_first_mpls_over_udp_s_bos = 0;
+	mpls_hdr |= misc2->outer_first_mpls_over_udp_ttl << HDR_MPLS_OFFSET_TTL;
+	misc2->outer_first_mpls_over_udp_ttl = 0;
 
-		DR_STE_SET_TAG(flex_parser_0, tag, parser_3_exp,
-			       misc2, outer_first_mpls_over_gre_exp);
-
-		DR_STE_SET_TAG(flex_parser_0, tag, parser_3_s_bos,
-			       misc2, outer_first_mpls_over_gre_s_bos);
-
-		DR_STE_SET_TAG(flex_parser_0, tag, parser_3_ttl,
-			       misc2, outer_first_mpls_over_gre_ttl);
-	} else {
-		DR_STE_SET_TAG(flex_parser_0, tag, parser_3_label,
-			       misc2, outer_first_mpls_over_udp_label);
-
-		DR_STE_SET_TAG(flex_parser_0, tag, parser_3_exp,
-			       misc2, outer_first_mpls_over_udp_exp);
-
-		DR_STE_SET_TAG(flex_parser_0, tag, parser_3_s_bos,
-			       misc2, outer_first_mpls_over_udp_s_bos);
-
-		DR_STE_SET_TAG(flex_parser_0, tag, parser_3_ttl,
-			       misc2, outer_first_mpls_over_udp_ttl);
-	}
+	parser_id = sb->caps->flex_parser_id_mpls_over_udp;
+	parser_ptr = dr_ste_calc_flex_parser_offset(tag, parser_id);
+	*(__be32 *)parser_ptr = htobe32(mpls_hdr);
 
 	return 0;
 }
 
-static void dr_ste_v0_build_tnl_mpls_init(struct dr_ste_build *sb,
-					  struct dr_match_param *mask)
+static void dr_ste_v0_build_tnl_mpls_over_udp_init(struct dr_ste_build *sb,
+						   struct dr_match_param *mask)
 {
-	dr_ste_v0_build_tnl_mpls_tag(mask, sb, sb->bit_mask);
+	dr_ste_v0_build_tnl_mpls_over_udp_tag(mask, sb, sb->bit_mask);
 
-	sb->lu_type = DR_STE_V0_LU_TYPE_FLEX_PARSER_0;
+	/* STEs with lookup type FLEX_PARSER_{0/1} includes
+	 * flex parsers_{0-3}/{4-7} respectively.
+	 */
+	sb->lu_type = sb->caps->flex_parser_id_mpls_over_udp > DR_STE_MAX_FLEX_0_ID ?
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_1 :
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_0;
+
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
-	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_mpls_tag;
+	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_mpls_over_udp_tag;
+}
+
+static int dr_ste_v0_build_tnl_mpls_over_gre_tag(struct dr_match_param *value,
+						 struct dr_ste_build *sb,
+						 uint8_t *tag)
+{
+	struct dr_match_misc2 *misc2 = &value->misc2;
+	uint8_t *parser_ptr;
+	uint8_t parser_id;
+	uint32_t mpls_hdr;
+
+	mpls_hdr = misc2->outer_first_mpls_over_gre_label << HDR_MPLS_OFFSET_LABEL;
+	misc2->outer_first_mpls_over_gre_label = 0;
+	mpls_hdr |= misc2->outer_first_mpls_over_gre_exp << HDR_MPLS_OFFSET_EXP;
+	misc2->outer_first_mpls_over_gre_exp = 0;
+	mpls_hdr |= misc2->outer_first_mpls_over_gre_s_bos << HDR_MPLS_OFFSET_S_BOS;
+	misc2->outer_first_mpls_over_gre_s_bos = 0;
+	mpls_hdr |= misc2->outer_first_mpls_over_gre_ttl << HDR_MPLS_OFFSET_TTL;
+	misc2->outer_first_mpls_over_gre_ttl = 0;
+
+	parser_id = sb->caps->flex_parser_id_mpls_over_gre;
+	parser_ptr = dr_ste_calc_flex_parser_offset(tag, parser_id);
+	*(__be32 *)parser_ptr = htobe32(mpls_hdr);
+
+	return 0;
+}
+
+static void dr_ste_v0_build_tnl_mpls_over_gre_init(struct dr_ste_build *sb,
+						   struct dr_match_param *mask)
+{
+	dr_ste_v0_build_tnl_mpls_over_gre_tag(mask, sb, sb->bit_mask);
+
+	/* STEs with lookup type FLEX_PARSER_{0/1} includes
+	 * flex parsers_{0-3}/{4-7} respectively.
+	 */
+	sb->lu_type = sb->caps->flex_parser_id_mpls_over_gre > DR_STE_MAX_FLEX_0_ID ?
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_1 :
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_0;
+
+	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
+	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_mpls_over_gre_tag;
 }
 
 #define ICMP_TYPE_OFFSET_FIRST_DW	24
@@ -1192,8 +1298,10 @@ static int dr_ste_v0_build_icmp_tag(struct dr_match_param *value,
 	struct dr_match_misc3 *misc3 = &value->misc3;
 	bool is_ipv4 = DR_MASK_IS_ICMPV4_SET(misc3);
 	uint32_t *icmp_header_data;
+	uint8_t *parser_ptr;
 	uint8_t *icmp_type;
 	uint8_t *icmp_code;
+	uint32_t icmp_hdr;
 	int dw0_location;
 	int dw1_location;
 
@@ -1211,47 +1319,39 @@ static int dr_ste_v0_build_icmp_tag(struct dr_match_param *value,
 		dw1_location		= sb->caps->flex_parser_id_icmpv6_dw1;
 	}
 
-	switch (dw0_location) {
-	case 4:
-		DR_STE_SET(flex_parser_1, tag, flex_parser_4,
-			   (*icmp_type << ICMP_TYPE_OFFSET_FIRST_DW) |
-			   (*icmp_code << ICMP_CODE_OFFSET_FIRST_DW));
+	parser_ptr = dr_ste_calc_flex_parser_offset(tag, dw0_location);
+	icmp_hdr = (*icmp_type << ICMP_TYPE_OFFSET_FIRST_DW) |
+		   (*icmp_code << ICMP_CODE_OFFSET_FIRST_DW);
+	*(__be32 *)parser_ptr = htobe32(icmp_hdr);
+	*icmp_code = 0;
+	*icmp_type = 0;
 
-		*icmp_type = 0;
-		*icmp_code = 0;
-		break;
-	default:
-		errno = ENOTSUP;
-		return errno;
-	}
-
-	switch (dw1_location) {
-	case 5:
-		DR_STE_SET(flex_parser_1, tag, flex_parser_5, *icmp_header_data);
-		*icmp_header_data = 0;
-		break;
-	default:
-		errno = ENOTSUP;
-		return errno;
-	}
+	parser_ptr = dr_ste_calc_flex_parser_offset(tag, dw1_location);
+	*(__be32 *)parser_ptr = htobe32(*icmp_header_data);
+	*icmp_header_data = 0;
 
 	return 0;
 }
 
-static int dr_ste_v0_build_icmp_init(struct dr_ste_build *sb,
-				     struct dr_match_param *mask)
+static void dr_ste_v0_build_icmp_init(struct dr_ste_build *sb,
+				      struct dr_match_param *mask)
 {
-	int ret;
+	uint8_t parser_id;
+	bool is_ipv4;
 
-	ret = dr_ste_v0_build_icmp_tag(mask, sb, sb->bit_mask);
-	if (ret)
-		return ret;
+	dr_ste_v0_build_icmp_tag(mask, sb, sb->bit_mask);
 
-	sb->lu_type = DR_STE_V0_LU_TYPE_FLEX_PARSER_1;
+	/* STEs with lookup type FLEX_PARSER_{0/1} includes
+	 * flex parsers_{0-3}/{4-7} respectively.
+	 */
+	is_ipv4 = DR_MASK_IS_ICMPV4_SET(&mask->misc3);
+	parser_id = is_ipv4 ? sb->caps->flex_parser_id_icmp_dw0 :
+			      sb->caps->flex_parser_id_icmpv6_dw0;
+	sb->lu_type = parser_id > DR_STE_MAX_FLEX_0_ID ?
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_1 :
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_0;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_icmp_tag;
-
-	return 0;
 }
 
 static int dr_ste_v0_build_general_purpose_tag(struct dr_match_param *value,
@@ -1362,6 +1462,38 @@ dr_ste_v0_build_flex_parser_tnl_geneve_init(struct dr_ste_build *sb,
 	sb->lu_type = DR_STE_V0_LU_TYPE_FLEX_PARSER_TNL_HEADER;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_flex_parser_tnl_geneve_tag;
+}
+
+static int
+dr_ste_v0_build_flex_parser_tnl_geneve_tlv_opt_tag(struct dr_match_param *value,
+						   struct dr_ste_build *sb,
+						   uint8_t *tag)
+{
+	uint8_t parser_id = sb->caps->flex_parser_id_geneve_opt_0;
+	uint8_t *parser_ptr = dr_ste_calc_flex_parser_offset(tag, parser_id);
+	struct dr_match_misc3 *misc3 = &value->misc3;
+
+	*(__be32 *)parser_ptr = htobe32(misc3->geneve_tlv_option_0_data);
+	misc3->geneve_tlv_option_0_data = 0;
+
+	return 0;
+}
+
+static void
+dr_ste_v0_build_flex_parser_tnl_geneve_tlv_opt_init(struct dr_ste_build *sb,
+						    struct dr_match_param *mask)
+{
+	dr_ste_v0_build_flex_parser_tnl_geneve_tlv_opt_tag(mask, sb, sb->bit_mask);
+
+	/* STEs with lookup type FLEX_PARSER_{0/1} includes
+	 * flex parsers_{0-3}/{4-7} respectively.
+	 */
+	sb->lu_type = sb->caps->flex_parser_id_geneve_opt_0 > DR_STE_MAX_FLEX_0_ID ?
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_1 :
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_0;
+
+	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
+	sb->ste_build_tag_func = &dr_ste_v0_build_flex_parser_tnl_geneve_tlv_opt_tag;
 }
 
 static int dr_ste_v0_build_flex_parser_tnl_gtpu_tag(struct dr_match_param *value,
@@ -1486,6 +1618,69 @@ static void dr_ste_v0_build_src_gvmi_qpn_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v0_build_src_gvmi_qpn_tag;
 }
 
+static void dr_ste_set_flex_parser(uint32_t *misc4_field_id,
+				   uint32_t *misc4_field_value,
+				   bool *parser_is_used,
+				   uint8_t *tag)
+{
+	uint32_t id = *misc4_field_id;
+	uint8_t *parser_ptr;
+
+	if (parser_is_used[id])
+		return;
+
+	parser_is_used[id] = true;
+	parser_ptr = dr_ste_calc_flex_parser_offset(tag, id);
+
+	*(__be32 *)parser_ptr = htobe32(*misc4_field_value);
+	*misc4_field_id = 0;
+	*misc4_field_value = 0;
+}
+
+static int dr_ste_v0_build_flex_parser_tag(struct dr_match_param *value,
+					   struct dr_ste_build *sb,
+					   uint8_t *tag)
+{
+	struct dr_match_misc4 *misc_4_mask = &value->misc4;
+	bool parser_is_used[NUM_OF_FLEX_PARSERS] = {};
+
+	dr_ste_set_flex_parser(&misc_4_mask->prog_sample_field_id_0,
+			       &misc_4_mask->prog_sample_field_value_0,
+			       parser_is_used, tag);
+
+	dr_ste_set_flex_parser(&misc_4_mask->prog_sample_field_id_1,
+			       &misc_4_mask->prog_sample_field_value_1,
+			       parser_is_used, tag);
+
+	dr_ste_set_flex_parser(&misc_4_mask->prog_sample_field_id_2,
+			       &misc_4_mask->prog_sample_field_value_2,
+			       parser_is_used, tag);
+
+	dr_ste_set_flex_parser(&misc_4_mask->prog_sample_field_id_3,
+			       &misc_4_mask->prog_sample_field_value_3,
+			       parser_is_used, tag);
+
+	return 0;
+}
+
+static void dr_ste_v0_build_flex_parser_0_init(struct dr_ste_build *sb,
+					       struct dr_match_param *mask)
+{
+	sb->lu_type = DR_STE_V0_LU_TYPE_FLEX_PARSER_0;
+	dr_ste_v0_build_flex_parser_tag(mask, sb, sb->bit_mask);
+	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
+	sb->ste_build_tag_func = &dr_ste_v0_build_flex_parser_tag;
+}
+
+static void dr_ste_v0_build_flex_parser_1_init(struct dr_ste_build *sb,
+					       struct dr_match_param *mask)
+{
+	sb->lu_type = DR_STE_V0_LU_TYPE_FLEX_PARSER_1;
+	dr_ste_v0_build_flex_parser_tag(mask, sb, sb->bit_mask);
+	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
+	sb->ste_build_tag_func = &dr_ste_v0_build_flex_parser_tag;
+}
+
 static struct dr_ste_ctx ste_ctx_v0 = {
 	/* Builders */
 	.build_eth_l2_src_dst_init	= &dr_ste_v0_build_eth_l2_src_dst_init,
@@ -1499,16 +1694,20 @@ static struct dr_ste_ctx ste_ctx_v0 = {
 	.build_eth_ipv6_l3_l4_init	= &dr_ste_v0_build_eth_ipv6_l3_l4_init,
 	.build_mpls_init		= &dr_ste_v0_build_mpls_init,
 	.build_tnl_gre_init		= &dr_ste_v0_build_tnl_gre_init,
-	.build_tnl_mpls_init		= &dr_ste_v0_build_tnl_mpls_init,
+	.build_tnl_mpls_over_udp_init	= &dr_ste_v0_build_tnl_mpls_over_udp_init,
+	.build_tnl_mpls_over_gre_init	= &dr_ste_v0_build_tnl_mpls_over_gre_init,
 	.build_icmp_init		= &dr_ste_v0_build_icmp_init,
 	.build_general_purpose_init	= &dr_ste_v0_build_general_purpose_init,
 	.build_eth_l4_misc_init		= &dr_ste_v0_build_eth_l4_misc_init,
 	.build_tnl_vxlan_gpe_init	= &dr_ste_v0_build_flex_parser_tnl_vxlan_gpe_init,
 	.build_tnl_geneve_init		= &dr_ste_v0_build_flex_parser_tnl_geneve_init,
+	.build_tnl_geneve_tlv_opt_init	= &dr_ste_v0_build_flex_parser_tnl_geneve_tlv_opt_init,
 	.build_tnl_gtpu_init		= &dr_ste_v0_build_flex_parser_tnl_gtpu_init,
 	.build_register_0_init		= &dr_ste_v0_build_register_0_init,
 	.build_register_1_init		= &dr_ste_v0_build_register_1_init,
 	.build_src_gvmi_qpn_init	= &dr_ste_v0_build_src_gvmi_qpn_init,
+	.build_flex_parser_0_init	= &dr_ste_v0_build_flex_parser_0_init,
+	.build_flex_parser_1_init	= &dr_ste_v0_build_flex_parser_1_init,
 	/* Getters and Setters */
 	.ste_init			= &dr_ste_v0_init,
 	.set_next_lu_type		= &dr_ste_v0_set_next_lu_type,

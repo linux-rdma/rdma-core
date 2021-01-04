@@ -38,64 +38,43 @@
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
+#include <sys/mman.h>
 
 #include <util/mmio.h>
 
 #include "mlx4.h"
 #include "mlx4-abi.h"
 
-int mlx4_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
-{
-	struct ibv_query_device cmd;
-	uint64_t raw_fw_ver;
-	unsigned major, minor, sub_minor;
-	int ret;
-
-	ret = ibv_cmd_query_device(context, attr, &raw_fw_ver, &cmd, sizeof cmd);
-	if (ret)
-		return ret;
-
-	major     = (raw_fw_ver >> 32) & 0xffff;
-	minor     = (raw_fw_ver >> 16) & 0xffff;
-	sub_minor = raw_fw_ver & 0xffff;
-
-	snprintf(attr->fw_ver, sizeof attr->fw_ver,
-		 "%d.%d.%03d", major, minor, sub_minor);
-
-	return 0;
-}
-
 int mlx4_query_device_ex(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
 			 struct ibv_device_attr_ex *attr,
 			 size_t attr_size)
 {
-	struct mlx4_context *mctx = to_mctx(context);
-	struct mlx4_query_device_ex_resp resp = {};
-	struct mlx4_query_device_ex cmd = {};
+	struct mlx4_query_device_ex_resp resp;
+	size_t resp_size = sizeof(resp);
 	uint64_t raw_fw_ver;
 	unsigned sub_minor;
 	unsigned major;
 	unsigned minor;
 	int err;
 
-	err = ibv_cmd_query_device_ex(context, input, attr, attr_size,
-				      &raw_fw_ver, &cmd.ibv_cmd, sizeof(cmd),
-				      &resp.ibv_resp, sizeof(resp));
+	err = ibv_cmd_query_device_any(context, input, attr, attr_size,
+				       &resp.ibv_resp, &resp_size);
 	if (err)
 		return err;
 
-	attr->rss_caps.rx_hash_fields_mask = resp.rss_caps.rx_hash_fields_mask;
-	attr->rss_caps.rx_hash_function = resp.rss_caps.rx_hash_function;
-	attr->tso_caps.max_tso = resp.tso_caps.max_tso;
-	attr->tso_caps.supported_qpts = resp.tso_caps.supported_qpts;
-
-	if (resp.comp_mask & MLX4_IB_QUERY_DEV_RESP_MASK_CORE_CLOCK_OFFSET) {
-		mctx->core_clock.offset = resp.hca_core_clock_offset;
-		mctx->core_clock.offset_valid = 1;
+	if (attr_size >= offsetofend(struct ibv_device_attr_ex, rss_caps)) {
+		attr->rss_caps.rx_hash_fields_mask =
+			resp.rss_caps.rx_hash_fields_mask;
+		attr->rss_caps.rx_hash_function =
+			resp.rss_caps.rx_hash_function;
 	}
-	mctx->max_inl_recv_sz = resp.max_inl_recv_sz;
+	if (attr_size >= offsetofend(struct ibv_device_attr_ex, tso_caps)) {
+		attr->tso_caps.max_tso = resp.tso_caps.max_tso;
+		attr->tso_caps.supported_qpts = resp.tso_caps.supported_qpts;
+	}
 
+	raw_fw_ver = resp.ibv_resp.base.fw_ver;
 	major     = (raw_fw_ver >> 32) & 0xffff;
 	minor     = (raw_fw_ver >> 16) & 0xffff;
 	sub_minor = raw_fw_ver & 0xffff;
@@ -104,6 +83,41 @@ int mlx4_query_device_ex(struct ibv_context *context,
 		 "%d.%d.%03d", major, minor, sub_minor);
 
 	return 0;
+}
+
+void mlx4_query_device_ctx(struct mlx4_device *mdev, struct mlx4_context *mctx)
+{
+	struct ibv_device_attr_ex device_attr;
+	struct mlx4_query_device_ex_resp resp;
+	size_t resp_size = sizeof(resp);
+
+	if (ibv_cmd_query_device_any(&mctx->ibv_ctx.context, NULL,
+				       &device_attr, sizeof(device_attr),
+				       &resp.ibv_resp, &resp_size))
+		return;
+
+	mctx->max_qp_wr = device_attr.orig_attr.max_qp_wr;
+	mctx->max_sge = device_attr.orig_attr.max_sge;
+	mctx->max_inl_recv_sz = resp.max_inl_recv_sz;
+
+	if (resp.comp_mask & MLX4_IB_QUERY_DEV_RESP_MASK_CORE_CLOCK_OFFSET) {
+		void *hca_clock_page;
+
+		mctx->core_clock.offset = resp.hca_core_clock_offset;
+		mctx->core_clock.offset_valid = 1;
+
+		hca_clock_page =
+			mmap(NULL, mdev->page_size, PROT_READ, MAP_SHARED,
+			     mctx->ibv_ctx.context.cmd_fd, mdev->page_size * 3);
+		if (hca_clock_page != MAP_FAILED)
+			mctx->hca_core_clock =
+				hca_clock_page + (mctx->core_clock.offset &
+						  (mdev->page_size - 1));
+		else
+			fprintf(stderr, PFX
+				"Warning: Timestamp available,\n"
+				"but failed to mmap() hca core clock page.\n");
+	}
 }
 
 static int mlx4_read_clock(struct ibv_context *context, uint64_t *cycles)

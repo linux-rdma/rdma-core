@@ -156,7 +156,10 @@ LATEST_SYMVER_FUNC(ibv_query_device, 1_1, "IBVERBS_1.1",
 		   struct ibv_context *context,
 		   struct ibv_device_attr *device_attr)
 {
-	return get_ops(context)->query_device(context, device_attr);
+	return get_ops(context)->query_device_ex(
+		context, NULL,
+		container_of(device_attr, struct ibv_device_attr_ex, orig_attr),
+		sizeof(*device_attr));
 }
 
 int __lib_query_port(struct ibv_context *context, uint8_t port_num,
@@ -973,7 +976,6 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 	int ether_len;
 	struct peer_address src;
 	struct peer_address dst;
-	uint16_t ret_vid;
 	int ret = -EINVAL;
 	int err;
 
@@ -1022,10 +1024,11 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 		goto free_resources;
 
 	if (vid) {
-		ret_vid = neigh_get_vlan_id_from_dev(&neigh_handler);
+		uint16_t ret_vid = neigh_get_vlan_id_from_dev(&neigh_handler);
 
 		if (ret_vid <= 0xfff)
 			neigh_set_vlan_id(&neigh_handler, ret_vid);
+		*vid = ret_vid;
 	}
 
 	/* We are using only Ethernet here */
@@ -1035,9 +1038,6 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 
 	if (ether_len <= 0)
 		goto free_resources;
-
-	if (vid)
-		*vid = ret_vid;
 
 	ret = 0;
 

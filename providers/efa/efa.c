@@ -40,7 +40,6 @@ static const struct verbs_context_ops efa_ctx_ops = {
 	.poll_cq = efa_poll_cq,
 	.post_recv = efa_post_recv,
 	.post_send = efa_post_send,
-	.query_device = efa_query_device,
 	.query_device_ex = efa_query_device_ex,
 	.query_port = efa_query_port,
 	.query_qp = efa_query_qp,
@@ -54,10 +53,7 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 {
 	struct efa_alloc_ucontext_resp resp = {};
 	struct efa_alloc_ucontext cmd = {};
-	struct ibv_device_attr_ex attr;
-	unsigned int qp_table_sz;
 	struct efa_context *ctx;
-	int err;
 
 	cmd.comp_mask |= EFA_ALLOC_UCONTEXT_CMD_COMP_TX_BATCH;
 	cmd.comp_mask |= EFA_ALLOC_UCONTEXT_CMD_COMP_MIN_SQ_WR;
@@ -86,17 +82,8 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 
 	verbs_set_ops(&ctx->ibvctx, &efa_ctx_ops);
 
-	err = efa_query_device_ex(&ctx->ibvctx.context, NULL, &attr,
-				  sizeof(attr));
-	if (err)
+	if (efa_query_device_ctx(ctx))
 		goto err_free_spinlock;
-
-	qp_table_sz = roundup_pow_of_two(attr.orig_attr.max_qp);
-	ctx->qp_table_sz_m1 = qp_table_sz - 1;
-	ctx->qp_table = calloc(qp_table_sz, sizeof(*ctx->qp_table));
-	if (!ctx->qp_table)
-		goto err_free_spinlock;
-
 	return &ctx->ibvctx;
 
 err_free_spinlock:

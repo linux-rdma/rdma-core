@@ -68,7 +68,7 @@ static const struct verbs_match_ent ucna_table[] = {
 };
 
 static const struct verbs_context_ops ocrdma_ctx_ops = {
-	.query_device = ocrdma_query_device,
+	.query_device_ex = ocrdma_query_device,
 	.query_port = ocrdma_query_port,
 	.alloc_pd = ocrdma_alloc_pd,
 	.dealloc_pd = ocrdma_free_pd,

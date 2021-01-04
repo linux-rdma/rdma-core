@@ -218,6 +218,7 @@ static const char *opts_file = ACM_CONF_DIR "/" ACM_OPTS_FILE;
 static const char *addr_file = ACM_CONF_DIR "/" ACM_ADDR_FILE;
 static char log_file[128] = IBACM_LOG_FILE;
 static int log_level = 0;
+static int umad_debug_level;
 static char lock_file[128] = IBACM_PID_FILE;
 static short server_port = 6125;
 static int server_mode = IBACM_SERVER_MODE_DEFAULT;
@@ -3090,9 +3091,10 @@ static void acmc_recv_mad(struct acmc_port *port)
 	}
 
 	hdr = &resp.sa_mad.mad_hdr;
-	acm_log(2, "bv %x cls %x cv %x mtd %x st %d tid %" PRIx64 "x at %x atm %x\n",
+	acm_log(2, "bv %x cls %x cv %x mtd %x st %d tid %" PRIx64 " at %x atm %x\n",
 		hdr->base_version, hdr->mgmt_class, hdr->class_version,
-		hdr->method, hdr->status, be64toh(hdr->tid), hdr->attr_id, hdr->attr_mod);
+		hdr->method, be16toh(hdr->status), be64toh(hdr->tid),
+		be16toh(hdr->attr_id), be32toh(hdr->attr_mod));
 	found = 0;
 	pthread_mutex_lock(&port->lock);
 	list_for_each(&port->sa_pending, req, entry) {
@@ -3188,6 +3190,11 @@ static void acm_set_options(void)
 			strcpy(log_file, value);
 		else if (!strcasecmp("log_level", opt))
 			log_level = atoi(value);
+		else if (!strcasecmp("umad_debug_level", opt)) {
+			umad_debug_level = atoi(value);
+			if (umad_debug_level > 0)
+				umad_debug(umad_debug_level);
+		}
 		else if (!strcasecmp("lock_file", opt))
 			strcpy(lock_file, value);
 		else if (!strcasecmp("server_port", opt))
@@ -3229,6 +3236,7 @@ static void acm_log_options(void)
 
 	acm_log(0, "log file %s\n", log_file);
 	acm_log(0, "log level %d\n", log_level);
+	acm_log(0, "umad debug level %d\n", umad_debug_level);
 	acm_log(0, "lock file %s\n", lock_file);
 	acm_log(0, "server_port %d\n", server_port);
 	acm_log(0, "server_mode %s\n", server_mode_names[server_mode]);

@@ -449,23 +449,27 @@ static void destroy_nodes(void)
 	free(test.nodes);
 }
 
-static void create_reply_ah(struct cmatest_node *node, struct ibv_wc *wc)
+static int create_reply_ah(struct cmatest_node *node, struct ibv_wc *wc)
 {
 	struct ibv_qp_attr attr;
 	struct ibv_qp_init_attr init_attr;
 
 	node->ah = ibv_create_ah_from_wc(node->pd, wc, node->mem,
 					 node->cma_id->port_num);
+	if (!node->ah)
+		return -1;
 	node->remote_qpn = be32toh(wc->imm_data);
 
-	ibv_query_qp(node->cma_id->qp, &attr, IBV_QP_QKEY, &init_attr);
+	if (ibv_query_qp(node->cma_id->qp, &attr, IBV_QP_QKEY, &init_attr))
+		return -1;
 	node->remote_qkey = attr.qkey;
+	return 0;
 }
 
 static int poll_cqs(void)
 {
 	struct ibv_wc wc[8];
-	int done, i, ret;
+	int done, i, ret, rc;
 
 	for (i = 0; i < connections; i++) {
 		if (!test.nodes[i].connected)
@@ -478,8 +482,13 @@ static int poll_cqs(void)
 				return ret;
 			}
 
-			if (ret && !test.nodes[i].ah)
-				create_reply_ah(&test.nodes[i], wc);
+			if (ret && !test.nodes[i].ah) {
+				rc = create_reply_ah(&test.nodes[i], wc);
+				if (rc) {
+					printf("udaddy: failed to create reply AH\n");
+					return rc;
+				}
+			}
 		}
 	}
 	return 0;

@@ -13,12 +13,12 @@ usage() {
 	echo "		$prog mthca1		# shows status of all ports of 'mthca1'"
 	echo "		$prog mthca0:2	# shows status port number 2 of 'mthca0'"
 	echo "		$prog		# default: shows status of all '$def_ibdev' ports"
-	exit -1
+	exit 255
 }
 
 fatal() {
 	echo "Fatal error: " $*
-	exit -1
+	exit 255
 }
 
 

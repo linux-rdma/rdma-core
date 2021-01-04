@@ -119,7 +119,7 @@ cdef class QPInitAttr(PyverbsObject):
         if scq is not None:
             if type(scq) is CQ:
                 self.attr.send_cq = (<CQ>scq).cq
-            elif type(scq) is CQEX:
+            elif isinstance(scq, CQEX):
                 self.attr.send_cq = (<CQEX>scq).ibv_cq
             else:
                 raise PyverbsUserError('Expected CQ/CQEX, got {t}'.\
@@ -129,7 +129,7 @@ cdef class QPInitAttr(PyverbsObject):
         if rcq is not None:
             if type(rcq) is CQ:
                 self.attr.recv_cq = (<CQ>rcq).cq
-            elif type(rcq) is CQEX:
+            elif isinstance(rcq, CQEX):
                 self.attr.recv_cq = (<CQEX>rcq).ibv_cq
             else:
                 raise PyverbsUserError('Expected CQ/CQEX, got {t}'.\
@@ -282,7 +282,7 @@ cdef class QPInitAttrEx(PyverbsObject):
         if scq is not None:
             if type(scq) is CQ:
                 self.attr.send_cq = (<CQ>scq).cq
-            elif type(scq) is CQEX:
+            elif isinstance(scq, CQEX):
                 self.attr.send_cq = (<CQEX>scq).ibv_cq
             else:
                 raise PyverbsUserError('Expected CQ/CQEX, got {t}'.\
@@ -292,7 +292,7 @@ cdef class QPInitAttrEx(PyverbsObject):
         if rcq is not None:
             if type(rcq) is CQ:
                 self.attr.recv_cq = (<CQ>rcq).cq
-            elif type(rcq) is CQEX:
+            elif isinstance(rcq, CQEX):
                 self.attr.recv_cq = (<CQEX>rcq).ibv_cq
             else:
                 raise PyverbsUserError('Expected CQ/CQEX, got {t}'.\

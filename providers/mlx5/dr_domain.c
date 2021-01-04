@@ -57,7 +57,13 @@ static int dr_domain_init_resources(struct mlx5dv_dr_domain *dmn)
 		return ret;
 	}
 
-	dmn->uar = mlx5dv_devx_alloc_uar(dmn->ctx, 0);
+	dmn->uar = mlx5dv_devx_alloc_uar(dmn->ctx,
+					 MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC);
+
+	if (!dmn->uar)
+		dmn->uar = mlx5dv_devx_alloc_uar(dmn->ctx,
+						 MLX5_IB_UAPI_UAR_ALLOC_TYPE_BF);
+
 	if (!dmn->uar) {
 		dr_dbg(dmn, "Can't allocate UAR\n");
 		goto clean_pd;
@@ -207,7 +213,7 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 	 * force-loopback.
 	 */
 	if ((dmn->type != MLX5DV_DR_DOMAIN_TYPE_FDB) &&
-	    !dmn->info.caps.roce_caps.fl_rc_qp_when_roce_enabled)
+	    !dr_send_allow_fl(&dmn->info.caps))
 		return 0;
 
 	ret = dr_domain_query_fdb_caps(ctx, dmn);
@@ -321,6 +327,8 @@ mlx5dv_dr_domain_create(struct ibv_context *ctx,
 	dmn->type = type;
 	atomic_init(&dmn->refcount, 1);
 	list_head_init(&dmn->tbl_list);
+	pthread_mutex_init(&dmn->info.rx.mutex, NULL);
+	pthread_mutex_init(&dmn->info.tx.mutex, NULL);
 
 	if (dr_domain_caps_init(ctx, dmn)) {
 		dr_dbg(dmn, "Failed init domain, no caps\n");
@@ -367,12 +375,9 @@ int mlx5dv_dr_domain_sync(struct mlx5dv_dr_domain *dmn, uint32_t flags)
 	}
 
 	if (flags & MLX5DV_DR_DOMAIN_SYNC_FLAGS_SW) {
-		pthread_mutex_lock(&dmn->mutex);
 		ret = dr_send_ring_force_drain(dmn);
 		if (ret)
-			goto out_unlock;
-
-		pthread_mutex_unlock(&dmn->mutex);
+			return ret;
 	}
 
 	if (flags & MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW) {
@@ -393,21 +398,17 @@ int mlx5dv_dr_domain_sync(struct mlx5dv_dr_domain *dmn, uint32_t flags)
 	}
 
 	return ret;
-
-out_unlock:
-	pthread_mutex_unlock(&dmn->mutex);
-	return ret;
 }
 
 void mlx5dv_dr_domain_set_reclaim_device_memory(struct mlx5dv_dr_domain *dmn,
 						bool enable)
 {
-	pthread_mutex_lock(&dmn->mutex);
+	dr_domain_lock(dmn);
 	if (enable)
 		dmn->flags |= DR_DOMAIN_FLAG_MEMORY_RECLAIM;
 	else
 		dmn->flags &= ~DR_DOMAIN_FLAG_MEMORY_RECLAIM;
-	pthread_mutex_unlock(&dmn->mutex);
+	dr_domain_unlock(dmn);
 }
 
 int mlx5dv_dr_domain_destroy(struct mlx5dv_dr_domain *dmn)

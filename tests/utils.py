@@ -13,6 +13,7 @@ import os
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.addr import AHAttr, AH, GlobalRoute
 from tests.base import XRCResources, DCT_KEY
+from tests.efa_base import SRDResources
 from pyverbs.wr import SGE, SendWR, RecvWR
 from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx
 from tests.mlx5_base import Mlx5DcResources
@@ -22,6 +23,7 @@ from pyverbs.cq import PollCqAttr
 import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.mr import MR
+
 
 MAX_MR_SIZE = 4194304
 # Some HWs limit DM address and length alignment to 4 for read and write
@@ -350,15 +352,15 @@ def get_global_route(ctx, gid_index=0, port_num=1):
     return gr
 
 
-def xrc_post_send(agr_obj, qp_num, send_object, gid_index, port, send_op=None):
+def xrc_post_send(agr_obj, qp_num, send_object, send_op=None):
     agr_obj.qps = agr_obj.sqp_lst
     if send_op:
-        post_send_ex(agr_obj, send_object, gid_index, port, send_op)
+        post_send_ex(agr_obj, send_object, send_op)
     else:
-        post_send(agr_obj, send_object, gid_index, port)
+        post_send(agr_obj, send_object)
 
 
-def post_send_ex(agr_obj, send_object, gid_index, port, send_op=None, qp_idx=0):
+def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
     qp = agr_obj.qps[qp_idx]
     qp_type = qp.qp_type
     qp.wr_start()
@@ -388,32 +390,29 @@ def post_send_ex(agr_obj, send_object, gid_index, port, send_op=None, qp_idx=0):
         qp.wr_bind_mw(mw, agr_obj.mr.rkey + 12, bind_info)
         qp.wr_send()
     if qp_type == e.IBV_QPT_UD:
-        ah = get_global_ah(agr_obj, gid_index, port)
         qp.wr_set_ud_addr(ah, agr_obj.rqps_num[qp_idx], agr_obj.UD_QKEY)
+    if isinstance(agr_obj, SRDResources):
+        qp.wr_set_ud_addr(ah, agr_obj.rqps_num[qp_idx], agr_obj.SRD_QKEY)
     if qp_type == e.IBV_QPT_XRC_SEND:
         qp.wr_set_xrc_srqn(agr_obj.remote_srqn)
     if isinstance(agr_obj, Mlx5DcResources):
-        ah = get_global_ah(agr_obj, gid_index, port)
         qp.wr_set_dc_addr(ah, agr_obj.remote_dct_num, DCT_KEY)
     qp.wr_set_sge(send_object)
     qp.wr_complete()
 
 
-def post_send(agr_obj, send_wr, gid_index, port, qp_idx=0):
+def post_send(agr_obj, send_wr, qp_idx=0, ah=None):
     """
     Post a single send WR to the QP. Post_send's second parameter (send bad wr)
     is ignored for simplicity. For UD traffic an address vector is added as
     well.
     :param agr_obj: aggregation object which contains all resources necessary
     :param send_wr: Send work request to post send
-    :param gid_index: Local gid index
-    :param port: IB port number
     :param qp_idx: QP index to use
     :return: None
     """
     qp_type = agr_obj.qp.qp_type
     if qp_type == e.IBV_QPT_UD:
-        ah = get_global_ah(agr_obj, gid_index, port)
         send_wr.set_wr_ud(ah, agr_obj.rqps_num[qp_idx], agr_obj.UD_QKEY)
     agr_obj.qps[qp_idx].post_send(send_wr, None)
 
@@ -527,10 +526,10 @@ def validate(received_str, is_server, msg_size):
                 format(exp=expected_str, rcv=received_str))
 
 
-def send(agr_obj, send_object, gid_index, port, send_op=None, new_send=False, qp_idx=0):
+def send(agr_obj, send_object, send_op=None, new_send=False, qp_idx=0, ah=None):
     if new_send:
-        return post_send_ex(agr_obj, send_object, gid_index, port, send_op, qp_idx)
-    return post_send(agr_obj, send_object, gid_index, port, qp_idx)
+        return post_send_ex(agr_obj, send_object, send_op, qp_idx, ah)
+    return post_send(agr_obj, send_object, qp_idx, ah)
 
 
 def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
@@ -547,6 +546,12 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
     :param new_send: If True use new post send API.
     :return:
     """
+    if is_datagram_qp(client):
+        ah_client = get_global_ah(client, gid_idx, port)
+        ah_server = get_global_ah(server, gid_idx, port)
+    else:
+        ah_client = None
+        ah_server = None
     poll = poll_cq_ex if is_cq_ex else poll_cq
     if send_op == e.IBV_QP_EX_WITH_SEND_WITH_IMM or \
        send_op == e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM:
@@ -570,8 +575,8 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
                 prefetch_mrs(client, [c_sg], advice=client.prefetch_advice,
                              flags=flags)
             c_send_object = c_sg if send_op else c_send_wr
-            send(client, c_send_object, gid_idx, port, send_op, new_send,
-                 qp_idx)
+            send(client, c_send_object, send_op, new_send, qp_idx,
+                 ah_client)
             poll(client.cq)
             poll(server.cq, data=imm_data)
             post_recv(server, s_recv_wr, qp_idx=qp_idx)
@@ -585,8 +590,8 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
                 prefetch_mrs(server, [s_sg], advice=server.prefetch_advice,
                              flags=flags)
             s_send_object = s_sg if send_op else s_send_wr
-            send(server, s_send_object, gid_idx, port, send_op, new_send,
-                 qp_idx)
+            send(server, s_send_object, send_op, new_send, qp_idx,
+                 ah_server)
             poll(server.cq)
             poll(client.cq, data=imm_data)
             post_recv(client, c_recv_wr, qp_idx=qp_idx)
@@ -609,6 +614,12 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
     :return:
     """
     # Using the new post send API, we need the SGE, not the SendWR
+    if isinstance(client, Mlx5DcResources):
+        ah_client = get_global_ah(client, gid_idx, port)
+        ah_server = get_global_ah(server, gid_idx, port)
+    else:
+        ah_client = None
+        ah_server = None
     send_element_idx = 1 if new_send else 0
     same_side_check =  send_op in [e.IBV_QP_EX_WITH_RDMA_READ,
                                    e.IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP,
@@ -616,7 +627,7 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
                                    e.IBV_WR_RDMA_READ]
     for _ in range(iters):
         c_send_wr = get_send_elements(client, False, send_op)[send_element_idx]
-        send(client, c_send_wr, gid_idx, port, send_op, new_send)
+        send(client, c_send_wr, send_op, new_send, ah=ah_client)
         poll_cq(client.cq)
         if same_side_check:
             msg_received = client.mr.read(client.msg_size, 0)
@@ -627,7 +638,7 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
         s_send_wr = get_send_elements(server, True, send_op)[send_element_idx]
         if same_side_check:
             client.mr.write('c' * client.msg_size, client.msg_size)
-        send(server, s_send_wr, gid_idx, port, send_op, new_send)
+        send(server, s_send_wr, send_op, new_send, ah=ah_server)
         poll_cq(server.cq)
         if same_side_check:
             msg_received = server.mr.read(client.msg_size, 0)
@@ -668,7 +679,7 @@ def xrc_traffic(client, server, is_cq_ex=False, send_op=None):
             c_send_wr = get_send_elements(client, False)[send_element_idx]
             if send_op is None:
                 c_send_wr.set_qp_type_xrc(client.remote_srqn)
-            xrc_post_send(client, i, c_send_wr, 0, 0, send_op)
+            xrc_post_send(client, i, c_send_wr, send_op)
             poll(client.cq)
             poll(server.cq)
             msg_received = server.mr.read(server.msg_size, 0)
@@ -676,7 +687,7 @@ def xrc_traffic(client, server, is_cq_ex=False, send_op=None):
             s_send_wr = get_send_elements(server, True)[send_element_idx]
             if send_op is None:
                 s_send_wr.set_qp_type_xrc(server.remote_srqn)
-            xrc_post_send(server, i, s_send_wr, 0, 0, send_op)
+            xrc_post_send(server, i, s_send_wr, send_op)
             poll(server.cq)
             poll(client.cq)
             msg_received = client.mr.read(client.msg_size, 0)
@@ -796,6 +807,14 @@ def is_eth(ctx, port_num):
     :return: True if the port's link layer is Ethernet, else False
     """
     return ctx.query_port(port_num).link_layer == e.IBV_LINK_LAYER_ETHERNET
+
+
+def is_datagram_qp(agr_obj):
+    if agr_obj.qp.qp_type == e.IBV_QPT_UD or \
+       isinstance(agr_obj, SRDResources) or \
+       isinstance(agr_obj, Mlx5DcResources):
+        return True
+    return False
 
 
 def is_root():

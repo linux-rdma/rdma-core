@@ -87,7 +87,7 @@ static const struct verbs_match_ent hca_table[] = {
 };
 
 static const struct verbs_context_ops qelr_ctx_ops = {
-	.query_device = qelr_query_device,
+	.query_device_ex = qelr_query_device,
 	.query_port = qelr_query_port,
 	.alloc_pd = qelr_alloc_pd,
 	.dealloc_pd = qelr_dealloc_pd,
@@ -111,6 +111,14 @@ static const struct verbs_context_ops qelr_ctx_ops = {
 	.post_recv = qelr_post_recv,
 	.async_event = qelr_async_event,
 	.free_context = qelr_free_context,
+};
+
+static const struct verbs_context_ops qelr_ctx_roce_ops = {
+	.close_xrcd = qelr_close_xrcd,
+	.create_qp_ex = qelr_create_qp_ex,
+	.create_srq_ex = qelr_create_srq_ex,
+	.get_srq_num = qelr_get_srq_num,
+	.open_xrcd = qelr_open_xrcd,
 };
 
 static void qelr_uninit_device(struct verbs_device *verbs_device)
@@ -171,7 +179,6 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 						int cmd_fd,
 						void *private_data)
 {
-	struct verbs_context *v_ctx;
 	struct qelr_devctx *ctx;
 	struct qelr_alloc_context cmd = {};
 	struct qelr_alloc_context_resp resp;
@@ -181,7 +188,6 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 	if (!ctx)
 		return NULL;
 
-	v_ctx = &ctx->ibv_ctx;
 	memset(&resp, 0, sizeof(resp));
 
 	qelr_open_debug_file(ctx);
@@ -194,6 +200,8 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 		goto cmd_err;
 
 	verbs_set_ops(&ctx->ibv_ctx, &qelr_ctx_ops);
+	if (IS_ROCE(ibdev))
+		verbs_set_ops(&ctx->ibv_ctx, &qelr_ctx_roce_ops);
 
 	ctx->srq_table = calloc(QELR_MAX_SRQ_ID, sizeof(*ctx->srq_table));
 	if (!ctx->srq_table) {
@@ -251,12 +259,6 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 		       resp.db_pa, resp.db_size, cmd_fd, errsv);
 		goto cmd_err;
 	}
-
-	v_ctx->create_qp_ex = qelr_create_qp_ex;
-	v_ctx->open_xrcd = qelr_open_xrcd;
-	v_ctx->close_xrcd = qelr_close_xrcd;
-	v_ctx->create_srq_ex = qelr_create_srq_ex;
-	v_ctx->get_srq_num = qelr_get_srq_num;
 
 	return &ctx->ibv_ctx;
 

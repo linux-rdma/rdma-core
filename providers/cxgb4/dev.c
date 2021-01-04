@@ -75,7 +75,7 @@ int t5_en_wc = 1;
 static LIST_HEAD(devices);
 
 static const struct verbs_context_ops  c4iw_ctx_common_ops = {
-	.query_device = c4iw_query_device,
+	.query_device_ex = c4iw_query_device,
 	.query_port = c4iw_query_port,
 	.alloc_pd = c4iw_alloc_pd,
 	.dealloc_pd = c4iw_free_pd,
@@ -114,8 +114,6 @@ static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
 	struct ibv_get_context cmd;
 	struct uc4iw_alloc_ucontext_resp resp;
 	struct c4iw_dev *rhp = to_c4iw_dev(ibdev);
-	struct ibv_query_device qcmd;
-	uint64_t raw_fw_ver;
 	struct ibv_device_attr attr;
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
@@ -143,8 +141,10 @@ static struct verbs_context *c4iw_alloc_context(struct ibv_device *ibdev,
 	} 
 
 	verbs_set_ops(&context->ibv_ctx, &c4iw_ctx_common_ops);
-	if (ibv_cmd_query_device(&context->ibv_ctx.context, &attr,
-				 &raw_fw_ver, &qcmd, sizeof(qcmd)))
+	if (c4iw_query_device(&context->ibv_ctx.context, NULL,
+			      container_of(&attr, struct ibv_device_attr_ex,
+					   orig_attr),
+			      sizeof(attr)))
 		goto err_unmap;
 
 	if (!rhp->mmid2ptr) {
