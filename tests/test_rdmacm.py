@@ -101,9 +101,7 @@ class CMTestCase(RDMATestCase):
             player.disconnect()
         except Exception as ex:
             side = 'passive' if passive else 'active'
-            self.notifier.put('Caught exception in {side} side process: pid '
-                              '{pid}\n'.format(side=side, pid=os.getpid()) +
-                              'Exception message: {ex}'.format(ex=str(ex)))
+            self.notifier.put((ex, side))
 
     def rdmacm_multicast_traffic(self, connection_resources=None, passive=None,
                                  extended=False, **kwargs):
@@ -127,9 +125,7 @@ class CMTestCase(RDMATestCase):
             player.leave_multicast(mc_addr=mc_addr)
         except Exception as ex:
             side = 'passive' if passive else 'active'
-            self.notifier.put('Caught exception in {side} side process: pid {pid}\n'
-                        .format(side=side, pid=os.getpid()) +
-                        'Exception message: {ex}'.format(ex=str(ex)))
+            self.notifier.put((ex, side))
 
     def rdmacm_remote_traffic(self, connection_resources=None, passive=None,
                               remote_op='write', **kwargs):
@@ -154,9 +150,7 @@ class CMTestCase(RDMATestCase):
             while not self.notifier.empty():
                 self.notifier.get()
             side = 'passive' if passive else 'active'
-            msg = f'Caught exception in {side} side process: pid {os.getpid()}\n' \
-                  f'Exception message: {str(ex)}'
-            self.notifier.put(msg)
+            self.notifier.put((ex, side))
 
 
     def test_rdmacm_sync_traffic(self):
