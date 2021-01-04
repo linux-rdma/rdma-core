@@ -3488,6 +3488,10 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 		DEVX_GET(query_hca_cap_out, out,
 			 capability.cmd_hca_cap.qpc_extension);
 
+	mctx->general_obj_types_caps =
+		DEVX_GET64(query_hca_cap_out, out,
+			   capability.cmd_hca_cap.general_obj_types);
+
 	if (DEVX_GET(query_hca_cap_out, out,
 		     capability.cmd_hca_cap.hca_cap_2))
 		get_hca_general_caps_2(mctx);

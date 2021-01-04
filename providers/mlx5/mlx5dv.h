@@ -1657,6 +1657,9 @@ int mlx5dv_modify_qp_sched_elem(struct ibv_qp *qp,
 				const struct mlx5dv_sched_leaf *requestor,
 				const struct mlx5dv_sched_leaf *responder);
 
+int mlx5dv_reserved_qpn_alloc(struct ibv_context *ctx, uint32_t *qpn);
+int mlx5dv_reserved_qpn_dealloc(struct ibv_context *ctx, uint32_t qpn);
+
 #ifdef __cplusplus
 }
 #endif

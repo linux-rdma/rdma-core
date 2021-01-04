@@ -2446,6 +2446,7 @@ enum {
 	MLX5_OBJ_TYPE_ASO_FLOW_METER = 0x0024,
 	MLX5_OBJ_TYPE_ASO_FIRST_HIT = 0x0025,
 	MLX5_OBJ_TYPE_SCHEDULING_ELEMENT = 0x0026,
+	MLX5_OBJ_TYPE_RESERVED_QPN = 0x002C,
 };
 
 struct mlx5_ifc_general_obj_in_cmd_hdr_bits {
@@ -3485,6 +3486,15 @@ struct mlx5_ifc_modify_sq_in_bits {
 	u8	reserved_at_c0[0x40];
 
 	struct mlx5_ifc_sqc_bits sq_context;
+};
+
+struct mlx5_ifc_reserved_qpn_bits {
+	u8	reserved_at_0[0x80];
+};
+
+struct mlx5_ifc_create_reserved_qpn_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits	hdr;
+	struct mlx5_ifc_reserved_qpn_bits		rqpns;
 };
 
 #endif /* MLX5_IFC_H */
