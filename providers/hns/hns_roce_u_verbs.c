@@ -724,40 +724,42 @@ static void hns_roce_set_qp_params(struct hns_roce_device *hr_dev,
 				   struct hns_roce_context *ctx)
 {
 	unsigned int cnt;
-
-	/* RQ WQE */
-	qp->rq.max_gs = max(1U, attr->cap.max_recv_sge);
-	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
-		qp->rq.wqe_shift = hr_ilog32(sizeof(struct hns_roce_rc_rq_wqe));
-	else
-		qp->rq.wqe_shift = hr_ilog32(HNS_ROCE_SGE_SIZE * qp->rq.max_gs);
-
-	cnt = roundup_pow_of_two(attr->cap.max_recv_wr);
-	qp->rq.wqe_cnt = cnt;
-	qp->rq.shift = hr_ilog32(cnt);
-	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
-		qp->rq_rinl_buf.wqe_cnt = 0;
-	else
-		qp->rq_rinl_buf.wqe_cnt = cnt;
-
-	/* SQ WQE */
-	qp->sq.wqe_shift = hr_ilog32(sizeof(struct hns_roce_rc_send_wqe));
-	cnt = roundup_pow_of_two(attr->cap.max_send_wr);
-	qp->sq.wqe_cnt = cnt;
-	qp->sq.shift = hr_ilog32(cnt);
-
-	set_extend_sge_param(hr_dev, attr, qp, cnt);
-
 	qp->ibv_qp.qp_type = attr->qp_type;
 
-	/* limit by the context queried during alloc context */
-	qp->sq.max_post = min(ctx->max_qp_wr, cnt);
-	qp->sq.max_gs = min(ctx->max_sge, qp->sq.max_gs);
+	if (attr->cap.max_recv_wr) {
+		qp->rq.max_gs = max(1U, attr->cap.max_recv_sge);
+		if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
+			qp->rq.wqe_shift =
+				hr_ilog32(sizeof(struct hns_roce_rc_rq_wqe));
+		else
+			qp->rq.wqe_shift =
+				hr_ilog32(HNS_ROCE_SGE_SIZE * qp->rq.max_gs);
 
-	qp->sq_signal_bits = attr->sq_sig_all ? 0 : 1;
+		cnt = roundup_pow_of_two(attr->cap.max_recv_wr);
+		qp->rq.wqe_cnt = cnt;
+		qp->rq.shift = hr_ilog32(cnt);
+		if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
+			qp->rq_rinl_buf.wqe_cnt = 0;
+		else
+			qp->rq_rinl_buf.wqe_cnt = cnt;
+	}
 
-	/* update attr for creating qp */
-	attr->cap.max_send_wr = qp->sq.max_post;
+	if (attr->cap.max_send_wr) {
+		qp->sq.wqe_shift =
+			hr_ilog32(sizeof(struct hns_roce_rc_send_wqe));
+		cnt = roundup_pow_of_two(attr->cap.max_send_wr);
+		qp->sq.wqe_cnt = cnt;
+		qp->sq.shift = hr_ilog32(cnt);
+
+		set_extend_sge_param(hr_dev, attr, qp, cnt);
+
+		qp->sq.max_post = min(ctx->max_qp_wr, cnt);
+		qp->sq.max_gs = min(ctx->max_sge, qp->sq.max_gs);
+
+		qp->sq_signal_bits = attr->sq_sig_all ? 0 : 1;
+
+		attr->cap.max_send_wr = qp->sq.max_post;
+	}
 }
 
 static void qp_free_db(struct hns_roce_qp *qp, struct hns_roce_context *ctx)
