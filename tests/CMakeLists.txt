@@ -20,6 +20,7 @@ rdma_python_test(tests
   test_mlx5_dc.py
   test_mlx5_lag_affinity.py
   test_mlx5_pp.py
+  test_mlx5_rdmacm.py
   test_mlx5_sched.py
   test_mlx5_uar.py
   test_mlx5_udp_sport.py

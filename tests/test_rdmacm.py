@@ -16,7 +16,14 @@ NUM_OF_PROCESSES = 2
 MC_IP_PREFIX = '230'
 
 
-class CMTestCase(RDMATestCase):
+class RDMACMBaseTest(RDMATestCase):
+    """
+    Base RDMACM test class.
+    This class does not include any test, but rather implements generic
+    connection and traffic methods that are needed by RDMACM tests in general.
+    Each RDMACM test should have a class that inherits this class and extends
+    its functionalities if needed.
+    """
     def setUp(self):
         super().setUp()
         if not self.ip_addr:
@@ -153,6 +160,10 @@ class CMTestCase(RDMATestCase):
             self.notifier.put((ex, side))
 
 
+class CMTestCase(RDMACMBaseTest):
+    """
+    RDMACM Test class. Include all the native RDMACM functionalities.
+    """
     def test_rdmacm_sync_traffic(self):
         self.two_nodes_rdmacm_traffic(CMSyncConnection, self.rdmacm_traffic)
 
