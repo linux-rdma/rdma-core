@@ -377,90 +377,84 @@ static int hns_roce_flush_cqe(struct hns_roce_qp **cur_qp, struct ibv_wc *wc)
 	return V2_CQ_OK;
 }
 
+static const unsigned int wc_send_op_map[] = {
+	[HNS_ROCE_SQ_OP_SEND] = IBV_WC_SEND,
+	[HNS_ROCE_SQ_OP_SEND_WITH_INV] = IBV_WC_SEND,
+	[HNS_ROCE_SQ_OP_SEND_WITH_IMM] = IBV_WC_SEND,
+	[HNS_ROCE_SQ_OP_RDMA_WRITE] = IBV_WC_RDMA_WRITE,
+	[HNS_ROCE_SQ_OP_RDMA_WRITE_WITH_IMM] = IBV_WC_RDMA_WRITE,
+	[HNS_ROCE_SQ_OP_RDMA_READ] = IBV_WC_RDMA_READ,
+	[HNS_ROCE_SQ_OP_ATOMIC_COMP_AND_SWAP] = IBV_WC_COMP_SWAP,
+	[HNS_ROCE_SQ_OP_ATOMIC_FETCH_AND_ADD] = IBV_WC_FETCH_ADD,
+	[HNS_ROCE_SQ_OP_LOCAL_INV] = IBV_WC_LOCAL_INV,
+	[HNS_ROCE_SQ_OP_BIND_MW] = IBV_WC_BIND_MW,
+};
+
 static void hns_roce_v2_get_opcode_from_sender(struct hns_roce_v2_cqe *cqe,
 					       struct ibv_wc *wc)
 {
-	/* Get opcode and flag before update the tail point for send */
-	switch (roce_get_field(cqe->byte_4, CQE_BYTE_4_OPCODE_M,
-		CQE_BYTE_4_OPCODE_S) & HNS_ROCE_V2_CQE_OPCODE_MASK) {
+	uint32_t opcode = roce_get_field(cqe->byte_4, CQE_BYTE_4_OPCODE_M,
+					 CQE_BYTE_4_OPCODE_S);
+
+	switch (opcode) {
 	case HNS_ROCE_SQ_OP_SEND:
-		wc->opcode = IBV_WC_SEND;
+	case HNS_ROCE_SQ_OP_SEND_WITH_INV:
+	case HNS_ROCE_SQ_OP_RDMA_WRITE:
+	case HNS_ROCE_SQ_OP_BIND_MW:
 		wc->wc_flags = 0;
 		break;
 	case HNS_ROCE_SQ_OP_SEND_WITH_IMM:
-		wc->opcode = IBV_WC_SEND;
-		wc->wc_flags = IBV_WC_WITH_IMM;
-		break;
-	case HNS_ROCE_SQ_OP_SEND_WITH_INV:
-		wc->opcode = IBV_WC_SEND;
-		break;
-	case HNS_ROCE_SQ_OP_RDMA_READ:
-		wc->opcode = IBV_WC_RDMA_READ;
-		wc->byte_len = le32toh(cqe->byte_cnt);
-		wc->wc_flags = 0;
-		break;
-	case HNS_ROCE_SQ_OP_RDMA_WRITE:
-		wc->opcode = IBV_WC_RDMA_WRITE;
-		wc->wc_flags = 0;
-		break;
-
 	case HNS_ROCE_SQ_OP_RDMA_WRITE_WITH_IMM:
-		wc->opcode = IBV_WC_RDMA_WRITE;
 		wc->wc_flags = IBV_WC_WITH_IMM;
 		break;
 	case HNS_ROCE_SQ_OP_LOCAL_INV:
-		wc->opcode = IBV_WC_LOCAL_INV;
 		wc->wc_flags = IBV_WC_WITH_INV;
 		break;
+	case HNS_ROCE_SQ_OP_RDMA_READ:
 	case HNS_ROCE_SQ_OP_ATOMIC_COMP_AND_SWAP:
-		wc->opcode = IBV_WC_COMP_SWAP;
-		wc->byte_len = le32toh(cqe->byte_cnt);
-		wc->wc_flags = 0;
-		break;
 	case HNS_ROCE_SQ_OP_ATOMIC_FETCH_AND_ADD:
-		wc->opcode = IBV_WC_FETCH_ADD;
-		wc->byte_len = le32toh(cqe->byte_cnt);
 		wc->wc_flags = 0;
-		break;
-	case HNS_ROCE_SQ_OP_BIND_MW:
-		wc->opcode = IBV_WC_BIND_MW;
-		wc->wc_flags = 0;
+		wc->byte_len  = le32toh(cqe->byte_cnt);
 		break;
 	default:
 		wc->status = IBV_WC_GENERAL_ERR;
 		wc->wc_flags = 0;
-		break;
+		return;
 	}
+
+	wc->opcode = wc_send_op_map[opcode];
 }
+
+static const unsigned int wc_rcv_op_map[] = {
+	[HNS_ROCE_RECV_OP_RDMA_WRITE_IMM] = IBV_WC_RECV_RDMA_WITH_IMM,
+	[HNS_ROCE_RECV_OP_SEND] = IBV_WC_RECV,
+	[HNS_ROCE_RECV_OP_SEND_WITH_IMM] = IBV_WC_RECV,
+	[HNS_ROCE_RECV_OP_SEND_WITH_INV] = IBV_WC_RECV,
+};
 
 static void hns_roce_v2_get_opcode_from_receiver(struct hns_roce_v2_cqe *cqe,
 						 struct ibv_wc *wc,
 						 uint32_t opcode)
 {
 	switch (opcode) {
-	case HNS_ROCE_RECV_OP_RDMA_WRITE_IMM:
-		wc->opcode = IBV_WC_RECV_RDMA_WITH_IMM;
-		wc->wc_flags = IBV_WC_WITH_IMM;
-		wc->imm_data = htobe32(le32toh(cqe->immtdata));
-		break;
 	case HNS_ROCE_RECV_OP_SEND:
-		wc->opcode = IBV_WC_RECV;
 		wc->wc_flags = 0;
 		break;
-	case HNS_ROCE_RECV_OP_SEND_WITH_IMM:
-		wc->opcode = IBV_WC_RECV;
-		wc->wc_flags = IBV_WC_WITH_IMM;
-		wc->imm_data = htobe32(le32toh(cqe->immtdata));
-		break;
 	case HNS_ROCE_RECV_OP_SEND_WITH_INV:
-		wc->opcode = IBV_WC_RECV;
 		wc->wc_flags = IBV_WC_WITH_INV;
 		wc->invalidated_rkey = le32toh(cqe->rkey);
 		break;
+	case HNS_ROCE_RECV_OP_RDMA_WRITE_IMM:
+	case HNS_ROCE_RECV_OP_SEND_WITH_IMM:
+		wc->wc_flags = IBV_WC_WITH_IMM;
+		wc->imm_data = htobe32(le32toh(cqe->immtdata));
+		break;
 	default:
 		wc->status = IBV_WC_GENERAL_ERR;
-		break;
+		return;
 	}
+
+	wc->opcode = wc_rcv_op_map[opcode];
 }
 
 static int hns_roce_handle_recv_inl_wqe(struct hns_roce_v2_cqe *cqe,
