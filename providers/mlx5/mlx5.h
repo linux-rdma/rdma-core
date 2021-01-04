@@ -272,6 +272,10 @@ struct mlx5_qos_caps {
 	uint32_t nic_tsar_type;
 };
 
+struct mlx5_hca_cap_2_caps {
+	uint32_t log_reserved_qpns_per_obj;
+};
+
 struct mlx5_context {
 	struct verbs_context		ibv_ctx;
 	int				max_num_qps;
@@ -342,6 +346,7 @@ struct mlx5_context {
 	struct mlx5_packet_pacing_caps	packet_pacing_caps;
 	struct mlx5_entropy_caps	entropy_caps;
 	struct mlx5_qos_caps		qos_caps;
+	struct mlx5_hca_cap_2_caps	hca_cap_2_caps;
 	uint8_t				qpc_extension_cap:1;
 	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
 	uint32_t			num_dyn_bfregs;
