@@ -389,6 +389,8 @@ int hns_roce_alloc_buf(struct hns_roce_buf *buf, unsigned int size,
 		       int page_size);
 void hns_roce_free_buf(struct hns_roce_buf *buf);
 
+void hns_roce_free_qp_buf(struct hns_roce_qp *qp, struct hns_roce_context *ctx);
+
 void hns_roce_init_qp_indices(struct hns_roce_qp *qp);
 
 extern const struct hns_roce_u_hw hns_roce_u_hw_v1;

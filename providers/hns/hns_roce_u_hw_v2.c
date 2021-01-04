@@ -347,10 +347,14 @@ static void hns_roce_v2_clear_qp(struct hns_roce_context *ctx, uint32_t qpn)
 {
 	int tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
 
+	pthread_mutex_lock(&ctx->qp_table_mutex);
+
 	if (!--ctx->qp_table[tind].refcnt)
 		free(ctx->qp_table[tind].table);
 	else
 		ctx->qp_table[tind].table[qpn & ctx->qp_table_mask] = NULL;
+
+	pthread_mutex_unlock(&ctx->qp_table_mutex);
 }
 
 static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
@@ -1383,15 +1387,15 @@ static void hns_roce_unlock_cqs(struct ibv_qp *qp)
 
 static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 {
-	int ret;
+	struct hns_roce_context *ctx = to_hr_ctx(ibqp->context);
 	struct hns_roce_qp *qp = to_hr_qp(ibqp);
+	int ret;
 
-	pthread_mutex_lock(&to_hr_ctx(ibqp->context)->qp_table_mutex);
 	ret = ibv_cmd_destroy_qp(ibqp);
-	if (ret) {
-		pthread_mutex_unlock(&to_hr_ctx(ibqp->context)->qp_table_mutex);
+	if (ret)
 		return ret;
-	}
+
+	hns_roce_v2_clear_qp(ctx, ibqp->qp_num);
 
 	hns_roce_lock_cqs(ibqp);
 
@@ -1403,32 +1407,9 @@ static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 		__hns_roce_v2_cq_clean(to_hr_cq(ibqp->send_cq), ibqp->qp_num,
 				       NULL);
 
-	hns_roce_v2_clear_qp(to_hr_ctx(ibqp->context), ibqp->qp_num);
-
 	hns_roce_unlock_cqs(ibqp);
-	pthread_mutex_unlock(&to_hr_ctx(ibqp->context)->qp_table_mutex);
 
-	if (qp->rq.max_gs)
-		hns_roce_free_db(to_hr_ctx(ibqp->context), qp->rdb,
-				 HNS_ROCE_QP_TYPE_DB);
-	if (qp->sq.wqe_cnt)
-		hns_roce_free_db(to_hr_ctx(ibqp->context), qp->sdb,
-				 HNS_ROCE_QP_TYPE_DB);
-
-	hns_roce_free_buf(&qp->buf);
-	if (qp->rq_rinl_buf.wqe_list) {
-		if (qp->rq_rinl_buf.wqe_list[0].sg_list) {
-			free(qp->rq_rinl_buf.wqe_list[0].sg_list);
-			qp->rq_rinl_buf.wqe_list[0].sg_list = NULL;
-		}
-
-		free(qp->rq_rinl_buf.wqe_list);
-		qp->rq_rinl_buf.wqe_list = NULL;
-	}
-
-	free(qp->sq.wrid);
-	if (qp->rq.wqe_cnt)
-		free(qp->rq.wrid);
+	hns_roce_free_qp_buf(qp, ctx);
 
 	free(qp);
 
