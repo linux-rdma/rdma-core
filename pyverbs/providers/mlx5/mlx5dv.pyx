@@ -175,7 +175,8 @@ cdef class Mlx5Context(Context):
                 dve.MLX5DV_CONTEXT_MASK_DYN_BFREGS |\
                 dve.MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE |\
                 dve.MLX5DV_CONTEXT_MASK_DC_ODP_CAPS |\
-                dve.MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS
+                dve.MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS |\
+                dve.MLX5DV_CONTEXT_MASK_DCI_STREAMS
         else:
             dv_attr.comp_mask = comp_mask
         rc = dv.mlx5dv_query_device(self.context, &dv_attr.dv)
@@ -324,6 +325,10 @@ cdef class Mlx5DVContext(PyverbsObject):
     def num_lag_ports(self):
         return self.dv.num_lag_ports
 
+    @property
+    def dci_streams_caps(self):
+        return self.dv.dci_streams_caps
+
     def __str__(self):
         print_format = '{:20}: {:<20}\n'
         ident_format = '  {:20}: {:<20}\n'
@@ -348,12 +353,17 @@ cdef class Mlx5DVContext(PyverbsObject):
                                    self.dv.striding_rq_caps.max_single_wqe_log_num_of_strides) +\
                ident_format.format('supported QP types',
                                    qpts_to_str(self.dv.striding_rq_caps.supported_qpts))
+        stream = 'DCI stream caps:\n' +\
+                  ident_format.format('max log num concurent streams',
+                                      self.dv.dci_streams_caps.max_log_num_concurent) +\
+                  ident_format.format('max log num errored streams',
+                                      self.dv.dci_streams_caps.max_log_num_errored)
         return print_format.format('Version', self.dv.version) +\
                print_format.format('Flags',
                                    context_flags_to_str(self.dv.flags)) +\
                print_format.format('comp mask',
                                    context_comp_mask_to_str(self.dv.comp_mask)) +\
-               cqe + swp + strd +\
+               cqe + swp + strd + stream +\
                print_format.format('Tunnel offloads caps',
                                    tunnel_offloads_to_str(self.dv.tunnel_offloads_caps)) +\
                print_format.format('Max dynamic BF registers',

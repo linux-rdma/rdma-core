@@ -30,6 +30,10 @@ cdef extern from 'infiniband/mlx5dv.h':
         unsigned int    max_single_wqe_log_num_of_strides
         unsigned int    supported_qpts
 
+    cdef struct mlx5dv_dci_streams_caps:
+        uint8_t    max_log_num_concurent
+        uint8_t    max_log_num_errored
+
     cdef struct mlx5dv_context:
         unsigned char           version
         unsigned long           flags
@@ -37,6 +41,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         mlx5dv_cqe_comp_caps    cqe_comp_caps
         mlx5dv_sw_parsing_caps  sw_parsing_caps
         mlx5dv_striding_rq_caps striding_rq_caps
+        mlx5dv_dci_streams_caps dci_streams_caps
         unsigned int            tunnel_offloads_caps
         unsigned int            max_dynamic_bfregs
         unsigned long           max_clock_info_update_nsec
