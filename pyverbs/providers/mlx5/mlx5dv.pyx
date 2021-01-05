@@ -376,27 +376,71 @@ cdef class Mlx5DVContext(PyverbsObject):
                print_format.format('Num LAG ports', self.dv.num_lag_ports)
 
 
+cdef class Mlx5DCIStreamInitAttr(PyverbsObject):
+    """
+    Represents dci_streams struct, which defines initial attributes
+    for DC QP creation.
+    """
+    def __init__(self, log_num_concurent=0, log_num_errored=0):
+        """
+        Initializes an Mlx5DCIStreamInitAttr object with the given DC
+        log_num_concurent and log_num_errored.
+        :param log_num_concurent: Number of dci stream channels.
+        :param log_num_errored: Number of dci error stream channels
+                                before moving DCI to error.
+        :return: An initialized object
+        """
+        super().__init__()
+        self.dci_streams.log_num_concurent = log_num_concurent
+        self.dci_streams.log_num_errored = log_num_errored
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return print_format.format('DCI Stream log_num_concurent', self.dci_streams.log_num_concurent) +\
+               print_format.format('DCI Stream log_num_errored', self.dci_streams.log_num_errored)
+
+    @property
+    def log_num_concurent(self):
+        return self.dci_streams.log_num_concurent
+    @log_num_concurent.setter
+    def log_num_concurent(self, val):
+        self.dci_streams.log_num_concurent=val
+
+    @property
+    def log_num_errored(self):
+        return self.dci_streams.log_num_errored
+    @log_num_errored.setter
+    def log_num_errored(self, val):
+        self.dci_streams.log_num_errored=val
+
+
 cdef class Mlx5DVDCInitAttr(PyverbsObject):
     """
     Represents mlx5dv_dc_init_attr struct, which defines initial attributes
     for DC QP creation.
     """
-    def __init__(self, dc_type=dve.MLX5DV_DCTYPE_DCI, dct_access_key=0):
+    def __init__(self, dc_type=dve.MLX5DV_DCTYPE_DCI, dct_access_key=0, dci_streams=None):
         """
         Initializes an Mlx5DVDCInitAttr object with the given DC type and DCT
         access key.
         :param dc_type: Which DC QP to create (DCI/DCT).
         :param dct_access_key: Access key to be used by the DCT
+        :param dci_streams: Mlx5DCIStreamInitAttr
         :return: An initializes object
         """
         super().__init__()
         self.attr.dc_type = dc_type
         self.attr.dct_access_key = dct_access_key
+        if dci_streams is not None:
+            self.attr.dci_streams.log_num_concurent=dci_streams.log_num_concurent
+            self.attr.dci_streams.log_num_errored=dci_streams.log_num_errored
 
     def __str__(self):
         print_format = '{:20}: {:<20}\n'
         return print_format.format('DC type', dc_type_to_str(self.attr.dc_type)) +\
-               print_format.format('DCT access key', self.attr.dct_access_key)
+               print_format.format('DCT access key', self.attr.dct_access_key) +\
+               print_format.format('DCI Stream log_num_concurent', self.attr.dci_streams.log_num_concurent) +\
+               print_format.format('DCI Stream log_num_errored', self.attr.dci_streams.log_num_errored)
 
     @property
     def dc_type(self):
@@ -412,6 +456,12 @@ cdef class Mlx5DVDCInitAttr(PyverbsObject):
     def dct_access_key(self, val):
         self.attr.dct_access_key = val
 
+    @property
+    def dci_streams(self):
+        return self.attr.dci_streams
+    @dci_streams.setter
+    def dci_streams(self, val):
+        self.attr.dci_streams=val
 
 cdef class Mlx5DVQPInitAttr(PyverbsObject):
     """
@@ -434,7 +484,10 @@ cdef class Mlx5DVQPInitAttr(PyverbsObject):
         self.attr.send_ops_flags = send_ops_flags
         if dc_init_attr is not None:
             self.attr.dc_init_attr.dc_type = dc_init_attr.dc_type
-            self.attr.dc_init_attr.dct_access_key = dc_init_attr.dct_access_key
+            if comp_mask & dve.MLX5DV_QP_INIT_ATTR_MASK_DCI_STREAMS:
+                self.attr.dc_init_attr.dci_streams = dc_init_attr.dci_streams
+            else:
+                self.attr.dc_init_attr.dct_access_key = dc_init_attr.dct_access_key
 
     def __str__(self):
         print_format = '{:20}: {:<20}\n'
@@ -445,6 +498,10 @@ cdef class Mlx5DVQPInitAttr(PyverbsObject):
                'DC init attr:\n' +\
                print_format.format('  DC type',
                                    dc_type_to_str(self.attr.dc_init_attr.dc_type)) +\
+               print_format.format('  DCI Stream log_num_concurent',
+                                   self.attr.dc_init_attr.dci_streams.log_num_concurent) +\
+               print_format.format('  DCI Stream log_num_errored',
+                                   self.attr.dc_init_attr.dci_streams.log_num_errored) +\
                print_format.format('  DCT access key',
                                    self.attr.dc_init_attr.dct_access_key) +\
                print_format.format('Send ops flags',
@@ -484,6 +541,14 @@ cdef class Mlx5DVQPInitAttr(PyverbsObject):
     @dct_access_key.setter
     def dct_access_key(self, val):
         self.attr.dc_init_attr.dct_access_key = val
+
+    @property
+    def dci_streams(self):
+        return self.attr.dc_init_attr.dci_streams
+    @dci_streams.setter
+    def dci_streams(self, val):
+        self.attr.dc_init_attr.dci_streams=val
+
 
 cdef copy_mr_interleaved_array(dv.mlx5dv_mr_interleaved *mr_interleaved_p,
                                mr_interleaved_lst):
@@ -936,7 +1001,8 @@ def dc_type_to_str(dctype):
 def qp_comp_mask_to_str(flags):
     l = {dve.MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS: 'Create flags',
          dve.MLX5DV_QP_INIT_ATTR_MASK_DC: 'DC',
-         dve.MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS: 'Send ops flags'}
+         dve.MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS: 'Send ops flags',
+         dve.MLX5DV_QP_INIT_ATTR_MASK_DCI_STREAMS: 'DCI Stream'}
     return bitmask_to_str(flags, l)
 
 

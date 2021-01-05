@@ -49,9 +49,14 @@ cdef extern from 'infiniband/mlx5dv.h':
         unsigned int            dc_odp_caps
         uint8_t                 num_lag_ports
 
+    cdef struct mlx5dv_dci_streams:
+        uint8_t       log_num_concurent
+        uint8_t       log_num_errored
+
     cdef struct mlx5dv_dc_init_attr:
         mlx5dv_dc_type      dc_type
         unsigned long       dct_access_key
+        mlx5dv_dci_streams  dci_streams
 
     cdef struct mlx5dv_qp_init_attr:
         unsigned long       comp_mask
