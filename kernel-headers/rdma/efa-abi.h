@@ -27,7 +27,8 @@ enum {
 
 struct efa_ibv_alloc_ucontext_cmd {
 	__u32 comp_mask;
-	__u8 reserved_20[4];
+	__u8 userspace_ver[32];
+	__u8 reserved_120[4];
 };
 
 enum efa_ibv_user_cmds_supp_udata {
