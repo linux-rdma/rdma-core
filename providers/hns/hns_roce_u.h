@@ -180,7 +180,7 @@ struct hns_roce_cq {
 	unsigned int			cqn;
 	unsigned int			cq_depth;
 	unsigned int			cons_index;
-	unsigned int			*set_ci_db;
+	unsigned int			*db;
 	unsigned int			*arm_db;
 	int				arm_sn;
 	unsigned long			flags;
@@ -388,6 +388,8 @@ int hns_roce_u_destroy_ah(struct ibv_ah *ah);
 int hns_roce_alloc_buf(struct hns_roce_buf *buf, unsigned int size,
 		       int page_size);
 void hns_roce_free_buf(struct hns_roce_buf *buf);
+
+void hns_roce_free_qp_buf(struct hns_roce_qp *qp, struct hns_roce_context *ctx);
 
 void hns_roce_init_qp_indices(struct hns_roce_qp *qp);
 
