@@ -914,8 +914,6 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 				   int cq_alloc_flags,
 				   struct mlx5dv_cq_init_attr *mlx5cq_attr)
 {
-	struct mlx5_create_cq		cmd = {};
-	struct mlx5_create_cq_resp	resp = {};
 	struct mlx5_create_cq_ex	cmd_ex = {};
 	struct mlx5_create_cq_ex_resp	resp_ex = {};
 	struct mlx5_ib_create_cq       *cmd_drv;
@@ -927,7 +925,6 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	int				rc;
 	struct mlx5_context *mctx = to_mctx(context);
 	FILE *fp = to_mctx(context)->dbg_fp;
-	bool				use_ex = false;
 
 	if (!cq_attr->cqe) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "CQE invalid\n");
@@ -974,9 +971,8 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	if (cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS) {
 		if (cq_attr->flags & IBV_CREATE_CQ_ATTR_SINGLE_THREADED)
 			cq->flags |= MLX5_CQ_FLAGS_SINGLE_THREADED;
-		if (cq_attr->flags & IBV_CREATE_CQ_ATTR_IGNORE_OVERRUN)
-			use_ex = true;
 	}
+
 	if (cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_PD) {
 		if (!(to_mparent_domain(cq_attr->parent_domain))) {
 			errno = EINVAL;
@@ -984,9 +980,6 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		}
 		cq->parent_domain = cq_attr->parent_domain;
 	}
-
-	cmd_drv = use_ex ? &cmd_ex.drv_payload : &cmd.drv_payload;
-	resp_drv = use_ex ? &resp_ex.drv_payload : &resp.drv_payload;
 
 	if (cq_alloc_flags & MLX5_CQ_FLAGS_EXTENDED) {
 		rc = mlx5_cq_fill_pfns(cq, cq_attr, mctx);
@@ -996,6 +989,8 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		}
 	}
 
+	cmd_drv = &cmd_ex.drv_payload;
+	resp_drv = &resp_ex.drv_payload;
 	cq->cons_index = 0;
 
 	if (mlx5_spinlock_init(&cq->lock, !mlx5_single_threaded))
@@ -1080,21 +1075,15 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		cmd_drv->uar_page_index = mctx->nc_uar->page_id;
 	}
 
-	if (use_ex) {
+	{
 		struct ibv_cq_init_attr_ex cq_attr_ex = *cq_attr;
 
 		cq_attr_ex.cqe = ncqe - 1;
 		ret = ibv_cmd_create_cq_ex(context, &cq_attr_ex, &cq->verbs_cq,
 					   &cmd_ex.ibv_cmd, sizeof(cmd_ex),
-					   &resp_ex.ibv_resp, sizeof(resp_ex));
-	} else {
-		ret = ibv_cmd_create_cq(context, ncqe - 1, cq_attr->channel,
-					cq_attr->comp_vector,
-					&cq->verbs_cq.cq,
-					&cmd.ibv_cmd, sizeof(cmd),
-					&resp.ibv_resp, sizeof(resp));
+					   &resp_ex.ibv_resp, sizeof(resp_ex),
+					   CREATE_CQ_CMD_FLAGS_TS_IGNORED_EX);
 	}
-
 
 	if (ret) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "ret %d\n", ret);

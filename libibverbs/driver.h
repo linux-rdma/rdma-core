@@ -53,6 +53,10 @@ enum verbs_xrcd_mask {
 	VERBS_XRCD_RESERVED	= 1 << 1
 };
 
+enum create_cq_cmd_flags {
+	CREATE_CQ_CMD_FLAGS_TS_IGNORED_EX = 1 << 0,
+};
+
 struct verbs_xrcd {
 	struct ibv_xrcd		xrcd;
 	uint32_t		comp_mask;
@@ -500,12 +504,13 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      struct ibv_create_cq *cmd, size_t cmd_size,
 		      struct ib_uverbs_create_cq_resp *resp, size_t resp_size);
 int ibv_cmd_create_cq_ex(struct ibv_context *context,
-			 struct ibv_cq_init_attr_ex *cq_attr,
+			 const struct ibv_cq_init_attr_ex *cq_attr,
 			 struct verbs_cq *cq,
 			 struct ibv_create_cq_ex *cmd,
 			 size_t cmd_size,
 			 struct ib_uverbs_ex_create_cq_resp *resp,
-			 size_t resp_size);
+			 size_t resp_size,
+			 uint32_t cmd_flags);
 int ibv_cmd_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int ibv_cmd_req_notify_cq(struct ibv_cq *cq, int solicited_only);
 int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
