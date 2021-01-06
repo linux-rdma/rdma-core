@@ -113,6 +113,7 @@ rdma_alias_man_pages(
  mlx5dv_wr_mkey_configure.3 mlx5dv_wr_set_mkey_layout_interleaved.3
  mlx5dv_wr_mkey_configure.3 mlx5dv_wr_set_mkey_layout_list.3
  mlx5dv_wr_post.3 mlx5dv_wr_set_dc_addr.3
+ mlx5dv_wr_post.3 mlx5dv_wr_set_dc_addr_stream.3
  mlx5dv_wr_post.3 mlx5dv_qp_ex_from_ibv_qp_ex.3
  mlx5dv_wr_post.3 mlx5dv_wr_mr_interleaved.3
  mlx5dv_wr_post.3 mlx5dv_wr_mr_list.3

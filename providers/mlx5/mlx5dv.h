@@ -417,6 +417,11 @@ struct mlx5dv_qp_ex {
 	void (*wr_set_mkey_sig_block)(struct mlx5dv_qp_ex *mqp,
 				      const struct mlx5dv_sig_block_attr *attr);
 	void (*wr_raw_wqe)(struct mlx5dv_qp_ex *mqp, const void *wqe);
+	void (*wr_set_dc_addr_stream)(struct mlx5dv_qp_ex *mqp,
+				      struct ibv_ah *ah,
+				      uint32_t remote_dctn,
+				      uint64_t remote_dc_key,
+				      uint16_t stream_id);
 };
 
 struct mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(struct ibv_qp_ex *qp);
@@ -427,6 +432,16 @@ static inline void mlx5dv_wr_set_dc_addr(struct mlx5dv_qp_ex *mqp,
 					 uint64_t remote_dc_key)
 {
 	mqp->wr_set_dc_addr(mqp, ah, remote_dctn, remote_dc_key);
+}
+
+static inline void mlx5dv_wr_set_dc_addr_stream(struct mlx5dv_qp_ex *mqp,
+						struct ibv_ah *ah,
+						uint32_t remote_dctn,
+						uint64_t remote_dc_key,
+						uint16_t stream_id)
+{
+	mqp->wr_set_dc_addr_stream(mqp, ah, remote_dctn,
+				   remote_dc_key, stream_id);
 }
 
 static inline void mlx5dv_wr_mr_interleaved(struct mlx5dv_qp_ex *mqp,
@@ -1052,10 +1067,10 @@ struct mlx5_wqe_ctrl_seg {
 	__be32		opmod_idx_opcode;
 	__be32		qpn_ds;
 	uint8_t		signature;
-	uint8_t		rsvd[2];
+	__be16		dci_stream_channel_id;
 	uint8_t		fm_ce_se;
 	__be32		imm;
-};
+} __attribute__((__packed__)) __attribute__((__aligned__(4)));
 
 struct mlx5_mprq_wqe {
 	struct mlx5_wqe_srq_next_seg	nseg;
