@@ -251,6 +251,9 @@ cdef extern from 'infiniband/mlx5dv.h':
     void mlx5dv_pp_free(mlx5dv_pp *pp)
     void mlx5dv_wr_set_dc_addr(mlx5dv_qp_ex *mqp, v.ibv_ah *ah,
                                uint32_t remote_dctn, uint64_t remote_dc_key)
+    void mlx5dv_wr_set_dc_addr_stream(mlx5dv_qp_ex *mqp, v.ibv_ah *ah,
+                                      uint32_t remote_dctn, uint64_t remote_dc_key,
+                                      uint16_t stream_id)
     void mlx5dv_wr_mr_interleaved(mlx5dv_qp_ex *mqp, mlx5dv_mkey *mkey,
                                   uint32_t access_flags, uint32_t repeat_count,
                                   uint16_t num_interleaved, mlx5dv_mr_interleaved *data)

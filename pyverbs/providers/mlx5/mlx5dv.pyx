@@ -742,6 +742,18 @@ cdef class Mlx5QP(QPEx):
             raise PyverbsRDMAError(f'Failed to cancel send WRs', -rc)
         return rc
 
+    def wr_set_dc_addr_stream(self, AH ah, remote_dctn, remote_dc_key, stream_id):
+        """
+        Attach a DC info to the last work request.
+        :param ah: Address Handle to the requested DCT.
+        :param remote_dctn: The remote DCT number.
+        :param remote_dc_key: The remote DC key.
+        :param stream_id: DCI stream channel_id
+        """
+        dv.mlx5dv_wr_set_dc_addr_stream(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                        ah.ah, remote_dctn, remote_dc_key,
+                                        stream_id)
+
     @staticmethod
     def query_lag_port(QP qp):
         """
