@@ -290,6 +290,7 @@ bool dr_ste_is_last_in_rule(struct dr_matcher_rx_tx *nic_matcher,
 uint64_t dr_ste_get_icm_addr(struct dr_ste *ste);
 uint64_t dr_ste_get_mr_addr(struct dr_ste *ste);
 struct list_head *dr_ste_get_miss_list(struct dr_ste *ste);
+struct dr_ste *dr_ste_get_miss_list_top(struct dr_ste *ste);
 
 #define MAX_VLANS 2
 
