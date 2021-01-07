@@ -253,7 +253,7 @@ struct hns_roce_rinl_buf {
 };
 
 struct hns_roce_qp {
-	struct ibv_qp			ibv_qp;
+	struct verbs_qp			verbs_qp;
 	struct hns_roce_buf		buf;
 	int				max_inline_data;
 	int				buf_size;
@@ -332,9 +332,9 @@ static inline struct hns_roce_srq *to_hr_srq(struct ibv_srq *ibv_srq)
 			    struct hns_roce_srq, verbs_srq);
 }
 
-static inline struct  hns_roce_qp *to_hr_qp(struct ibv_qp *ibv_qp)
+static inline struct hns_roce_qp *to_hr_qp(struct ibv_qp *ibv_qp)
 {
-	return container_of(ibv_qp, struct hns_roce_qp, ibv_qp);
+	return container_of(ibv_qp, struct hns_roce_qp, verbs_qp.qp);
 }
 
 static inline struct hns_roce_ah *to_hr_ah(struct ibv_ah *ibv_ah)
@@ -378,6 +378,9 @@ int hns_roce_u_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
 int hns_roce_u_destroy_srq(struct ibv_srq *srq);
 struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 				    struct ibv_qp_init_attr *attr);
+struct ibv_qp *
+hns_roce_u_create_qp_ex(struct ibv_context *context,
+			struct ibv_qp_init_attr_ex *qp_init_attr_ex);
 
 int hns_roce_u_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 			int attr_mask, struct ibv_qp_init_attr *init_attr);

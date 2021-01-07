@@ -367,18 +367,15 @@ static int hns_roce_flush_cqe(struct hns_roce_qp **cur_qp, struct ibv_wc *wc)
 {
 	struct ibv_qp_attr attr;
 	int attr_mask;
-	int ret;
 
 	if ((wc->status != IBV_WC_SUCCESS) &&
 	    (wc->status != IBV_WC_WR_FLUSH_ERR)) {
 		attr_mask = IBV_QP_STATE;
 		attr.qp_state = IBV_QPS_ERR;
-		ret = hns_roce_u_v2_modify_qp(&(*cur_qp)->ibv_qp,
-						      &attr, attr_mask);
-		if (ret)
-			fprintf(stderr, PFX "failed to modify qp!\n");
+		hns_roce_u_v2_modify_qp(&(*cur_qp)->verbs_qp.qp, &attr,
+					attr_mask);
 
-		(*cur_qp)->ibv_qp.state = IBV_QPS_ERR;
+		(*cur_qp)->verbs_qp.qp.state = IBV_QPS_ERR;
 	}
 
 	return V2_CQ_OK;
@@ -468,8 +465,8 @@ static int hns_roce_handle_recv_inl_wqe(struct hns_roce_v2_cqe *cqe,
 					struct hns_roce_qp **cur_qp,
 					struct ibv_wc *wc, uint32_t opcode)
 {
-	if (((*cur_qp)->ibv_qp.qp_type == IBV_QPT_RC ||
-	    (*cur_qp)->ibv_qp.qp_type == IBV_QPT_UC) &&
+	if (((*cur_qp)->verbs_qp.qp.qp_type == IBV_QPT_RC ||
+	     (*cur_qp)->verbs_qp.qp.qp_type == IBV_QPT_UC) &&
 	    (opcode == HNS_ROCE_RECV_OP_SEND ||
 	     opcode == HNS_ROCE_RECV_OP_SEND_WITH_IMM ||
 	     opcode == HNS_ROCE_RECV_OP_SEND_WITH_INV) &&
@@ -539,17 +536,16 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 		   HNS_ROCE_V2_CQE_IS_SQ);
 
 	/* if qp is zero, it will not get the correct qpn */
-	if (!*cur_qp || qpn != (*cur_qp)->ibv_qp.qp_num) {
+	if (!*cur_qp || qpn != (*cur_qp)->verbs_qp.qp.qp_num) {
 		*cur_qp = hns_roce_v2_find_qp(to_hr_ctx(cq->ibv_cq.context),
 					      qpn);
-		if (!*cur_qp) {
-			fprintf(stderr, PFX "can't find qp!\n");
+		if (!*cur_qp)
 			return V2_CQ_POLL_ERR;
-		}
 	}
 	wc->qp_num = qpn;
 
-	srq = (*cur_qp)->ibv_qp.srq ? to_hr_srq((*cur_qp)->ibv_qp.srq) : NULL;
+	srq = (*cur_qp)->verbs_qp.qp.srq ?
+				to_hr_srq((*cur_qp)->verbs_qp.qp.srq) : NULL;
 	if (is_send) {
 		wq = &(*cur_qp)->sq;
 		/*
@@ -710,7 +706,7 @@ static void set_sge(struct hns_roce_v2_wqe_data_seg *dseg,
 
 		/* No inner sge in UD wqe */
 		if (sge_info->valid_num <= HNS_ROCE_SGE_IN_WQE &&
-		    qp->ibv_qp.qp_type != IBV_QPT_UD) {
+		    qp->verbs_qp.qp.qp_type != IBV_QPT_UD) {
 			set_data_seg_v2(dseg, wr->sg_list + i);
 			dseg++;
 		} else {
@@ -1159,7 +1155,7 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (hns_roce_v2_wq_overflow(&qp->sq, nreq,
-					    to_hr_cq(qp->ibv_qp.send_cq))) {
+					    to_hr_cq(qp->verbs_qp.qp.send_cq))) {
 			ret = ENOMEM;
 			*bad_wr = wr;
 			goto out;
@@ -1265,7 +1261,7 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (hns_roce_v2_wq_overflow(&qp->rq, nreq,
-					    to_hr_cq(qp->ibv_qp.recv_cq))) {
+					    to_hr_cq(qp->verbs_qp.qp.recv_cq))) {
 			ret = ENOMEM;
 			*bad_wr = wr;
 			goto out;
