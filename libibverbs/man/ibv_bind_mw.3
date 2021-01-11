@@ -28,7 +28,7 @@ is an ibv_mw_bind struct, as defined in <infiniband/verbs.h>.
 struct ibv_mw_bind {
 .in +8
 uint64_t                     wr_id;           /* User defined WR ID */
-int                          send_flags;      /* Use ibv_send_flags */
+unsigned int                 send_flags;      /* Use ibv_send_flags */
 struct ibv_mw_bind_info      bind_info;       /* MW bind information */
 .in -8
 }
@@ -40,7 +40,7 @@ struct ibv_mw_bind_info {
 struct ibv_mr                *mr;             /* The MR to bind the MW to */
 uint64_t                     addr;            /* The address the MW should start at */
 uint64_t                     length;          /* The length (in bytes) the MW should span */
-int                          mw_access_flags; /* Access flags to the MW. Use ibv_access_flags */
+unsigned int                 mw_access_flags; /* Access flags to the MW. Use ibv_access_flags */
 .in -8
 };
 .fi
