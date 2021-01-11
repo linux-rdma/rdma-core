@@ -16,4 +16,4 @@ ProtectKernelModules=yes
 RestrictRealtime=yes
 
 [Install]
-WantedBy=remote-fs-pre.target
+WantedBy=multi-user.target
