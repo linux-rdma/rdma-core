@@ -189,3 +189,8 @@ MLX5_1.20 {
 		mlx5dv_qp_cancel_posted_send_wrs;
 		_mlx5dv_mkey_check;
 } MLX5_1.19;
+
+MLX5_1.21 {
+	global:
+		mlx5dv_dci_stream_id_reset;
+} MLX5_1.20;

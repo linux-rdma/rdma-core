@@ -1298,6 +1298,34 @@ int mlx5dv_modify_qp_udp_sport(struct ibv_qp *qp, uint16_t udp_sport)
 				     sizeof(out));
 }
 
+int mlx5dv_dci_stream_id_reset(struct ibv_qp *qp, uint16_t stream_id)
+{
+	uint32_t out[DEVX_ST_SZ_DW(rts2rts_qp_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(rts2rts_qp_in)] = {};
+	struct mlx5_context *mctx = to_mctx(qp->context);
+	struct mlx5_qp *mqp = to_mqp(qp);
+	void *qpce = DEVX_ADDR_OF(rts2rts_qp_in, in, qpc_data_ext);
+
+	if (!is_mlx5_dev(qp->context->device) ||
+	    !mctx->dci_streams_caps.max_log_num_concurent ||
+	    !mctx->qpc_extension_cap ||
+	    qp->state != IBV_QPS_RTS)
+		return EOPNOTSUPP;
+
+	if ((mqp->dc_type != MLX5DV_DCTYPE_DCI) || (qp->qp_type != IBV_QPT_DRIVER))
+		return EINVAL;
+
+	DEVX_SET(rts2rts_qp_in, in, opcode, MLX5_CMD_OP_RTS2RTS_QP);
+	DEVX_SET(rts2rts_qp_in, in, qpn, qp->qp_num);
+	DEVX_SET(rts2rts_qp_in, in, qpc_ext, 1);
+	DEVX_SET64(rts2rts_qp_in, in, opt_param_mask_95_32,
+		   MLX5_QPC_OPT_MASK_32_DCI_STREAM_CHANNEL_ID);
+
+	DEVX_SET(qpc_ext, qpce, dci_stream_channel_id, stream_id);
+
+	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+}
+
 static bool sched_supported(struct ibv_context *ctx)
 {
 	struct mlx5_qos_caps *qc = &to_mctx(ctx)->qos_caps;
