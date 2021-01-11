@@ -32,7 +32,7 @@ uint32_t                qkey;                   /* Q_Key for the QP (valid only 
 uint32_t                rq_psn;                 /* PSN for receive queue (valid only for RC/UC QPs) */
 uint32_t                sq_psn;                 /* PSN for send queue */
 uint32_t                dest_qp_num;            /* Destination QP number (valid only for RC/UC QPs) */
-int                     qp_access_flags;        /* Mask of enabled remote access operations (valid only for RC/UC QPs) */
+unsigned int            qp_access_flags;        /* Mask of enabled remote access operations (valid only for RC/UC QPs) */
 struct ibv_qp_cap       cap;                    /* QP capabilities (valid if HCA supports QP resizing) */
 struct ibv_ah_attr      ah_attr;                /* Primary path address vector (valid only for RC/UC QPs) */
 struct ibv_ah_attr      alt_ah_attr;            /* Alternate path address vector (valid only for RC/UC QPs) */
