@@ -9,6 +9,7 @@ from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.qp import QPAttr, QPCap, QPInitAttrEx
 import random
 from tests.base import TrafficResources
+import tests.utils
 import unittest
 
 
@@ -41,10 +42,12 @@ class SRDResources(TrafficResources):
     def create_qps(self):
         qp_cap = QPCap(max_recv_wr=self.num_msgs, max_send_wr=self.num_msgs, max_recv_sge=1,
                        max_send_sge=1)
+        comp_mask = e.IBV_QP_INIT_ATTR_PD
+        if self.send_ops_flags:
+            comp_mask |= e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
         qp_init_attr_ex = QPInitAttrEx(cap=qp_cap, qp_type=e.IBV_QPT_DRIVER, scq=self.cq,
                                        rcq=self.cq, pd=self.pd, send_ops_flags=self.send_ops_flags,
-                                       comp_mask=e.IBV_QP_INIT_ATTR_PD |
-                                       e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)
+                                       comp_mask=comp_mask)
         efa_init_attr_ex = efa.EfaQPInitAttr()
         efa_init_attr_ex.driver_qp_type = efa_e.EFADV_QP_DRIVER_TYPE_SRD
         try:
@@ -57,3 +60,9 @@ class SRDResources(TrafficResources):
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Extended SRD QP is not supported on this device')
             raise ex
+
+    def create_mr(self):
+        if self.send_ops_flags == e.IBV_QP_EX_WITH_RDMA_READ:
+            self.mr = tests.utils.create_custom_mr(self, e.IBV_ACCESS_REMOTE_READ)
+        else:
+            self.mr = tests.utils.create_custom_mr(self)
