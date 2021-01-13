@@ -558,22 +558,12 @@ void dr_ste_set_actions_rx(struct dr_ste_ctx *ste_ctx,
 }
 
 const struct dr_ste_action_modify_field *
-dr_ste_conv_modify_hdr_sw_field(struct dr_ste_ctx *ste_ctx, uint16_t sw_field)
+dr_ste_conv_modify_hdr_sw_field(struct dr_ste_ctx *ste_ctx,
+				struct dr_devx_caps *caps,
+				uint16_t sw_field)
 {
-	const struct dr_ste_action_modify_field *hw_field;
+	return ste_ctx->get_action_hw_field(sw_field, caps);
 
-	if (sw_field >= ste_ctx->modify_field_arr_sz)
-		goto not_found;
-
-	hw_field = &ste_ctx->modify_field_arr[sw_field];
-	if (!hw_field->end && !hw_field->start)
-		goto not_found;
-
-	return hw_field;
-
-not_found:
-	errno = EINVAL;
-	return NULL;
 }
 
 void dr_ste_set_action_set(struct dr_ste_ctx *ste_ctx,

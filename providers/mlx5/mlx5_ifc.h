@@ -975,7 +975,9 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 
 	u8         flex_parser_protocols[0x20];
 
-	u8         reserved_at_560[0x13];
+	u8         reserved_at_560[0x10];
+	u8         flex_parser_header_modify[0x1];
+	u8         reserved_at_571[0x2];
 	u8         log_max_guaranteed_connections[0x5];
 	u8         reserved_at_578[0x3];
 	u8         log_max_dct_connections[0x5];
@@ -2370,6 +2372,7 @@ enum {
 	MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_5 = 0x56,
 	MLX5_ACTION_IN_FIELD_OUT_TCP_SEQ_NUM   = 0x59,
 	MLX5_ACTION_IN_FIELD_OUT_TCP_ACK_NUM   = 0x5B,
+	MLX5_ACTION_IN_FIELD_OUT_GTPU_TEID     = 0x6E,
 };
 
 struct mlx5_ifc_packet_reformat_context_in_bits {

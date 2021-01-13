@@ -179,6 +179,9 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 					capability.cmd_hca_cap.flex_parser_protocols);
 	caps->isolate_vl_tc = DEVX_GET(query_hca_cap_out, out,
 				       capability.cmd_hca_cap.isolate_vl_tc);
+	caps->flex_parser_header_modify =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.cmd_hca_cap.flex_parser_header_modify);
 	roce = DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.roce);
 
 	caps->sw_format_ver = DEVX_GET(query_hca_cap_out, out,

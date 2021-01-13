@@ -671,6 +671,25 @@ dr_ste_v0_set_action_decap_l3_list(void *data, uint32_t data_sz,
 	return 0;
 }
 
+static const struct dr_ste_action_modify_field
+*dr_ste_v0_get_action_hw_field(uint16_t sw_field, struct dr_devx_caps *caps)
+{
+	const struct dr_ste_action_modify_field *hw_field;
+
+	if (sw_field >= ARRAY_SIZE(dr_ste_v0_action_modify_field_arr))
+		goto not_found;
+
+	hw_field = &dr_ste_v0_action_modify_field_arr[sw_field];
+	if (!hw_field->end && !hw_field->start)
+		goto not_found;
+
+	return hw_field;
+
+not_found:
+	errno = EINVAL;
+	return NULL;
+}
+
 static void dr_ste_v0_build_eth_l2_src_dst_bit_mask(struct dr_match_param *value,
 						    bool inner, uint8_t *bit_mask)
 {
@@ -1776,11 +1795,10 @@ static struct dr_ste_ctx ste_ctx_v0 = {
 	/* Actions */
 	.set_actions_rx			= &dr_ste_v0_set_actions_rx,
 	.set_actions_tx			= &dr_ste_v0_set_actions_tx,
-	.modify_field_arr_sz		= ARRAY_SIZE(dr_ste_v0_action_modify_field_arr),
-	.modify_field_arr		= dr_ste_v0_action_modify_field_arr,
 	.set_action_set			= &dr_ste_v0_set_action_set,
 	.set_action_add			= &dr_ste_v0_set_action_add,
 	.set_action_copy		= &dr_ste_v0_set_action_copy,
+	.get_action_hw_field		= &dr_ste_v0_get_action_hw_field,
 	.set_action_decap_l3_list	= &dr_ste_v0_set_action_decap_l3_list,
 };
 

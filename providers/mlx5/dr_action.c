@@ -1273,7 +1273,9 @@ dr_action_modify_sw_to_hw_add(struct mlx5dv_dr_domain *dmn,
 	data = DEVX_GET(set_action_in, sw_action, data);
 
 	/* Convert SW data to HW modify action format */
-	hw_action_info = dr_ste_conv_modify_hdr_sw_field(dmn->ste_ctx, sw_field);
+	hw_action_info = dr_ste_conv_modify_hdr_sw_field(dmn->ste_ctx,
+							 &dmn->info.caps,
+							 sw_field);
 	if (!hw_action_info) {
 		dr_dbg(dmn, "Modify ADD action invalid field given\n");
 		errno = EINVAL;
@@ -1311,7 +1313,9 @@ dr_action_modify_sw_to_hw_set(struct mlx5dv_dr_domain *dmn,
 	data = DEVX_GET(set_action_in, sw_action, data);
 
 	/* Convert SW data to HW modify action format */
-	hw_action_info = dr_ste_conv_modify_hdr_sw_field(dmn->ste_ctx, sw_field);
+	hw_action_info = dr_ste_conv_modify_hdr_sw_field(dmn->ste_ctx,
+							 &dmn->info.caps,
+							 sw_field);
 	if (!hw_action_info) {
 		dr_dbg(dmn, "Modify SET action invalid field given\n");
 		errno = EINVAL;
@@ -1359,8 +1363,12 @@ dr_action_modify_sw_to_hw_copy(struct mlx5dv_dr_domain *dmn,
 	length = DEVX_GET(copy_action_in, sw_action, length);
 
 	/* Convert SW data to HW modify action format */
-	src_hw_action_info = dr_ste_conv_modify_hdr_sw_field(dmn->ste_ctx, src_field);
-	dst_hw_action_info = dr_ste_conv_modify_hdr_sw_field(dmn->ste_ctx, dst_field);
+	src_hw_action_info = dr_ste_conv_modify_hdr_sw_field(dmn->ste_ctx,
+							     &dmn->info.caps,
+							     src_field);
+	dst_hw_action_info = dr_ste_conv_modify_hdr_sw_field(dmn->ste_ctx,
+							     &dmn->info.caps,
+							     dst_field);
 	if (!src_hw_action_info || !dst_hw_action_info) {
 		dr_dbg(dmn, "Modify COPY action invalid src/dst field given\n");
 		errno = EINVAL;
