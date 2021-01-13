@@ -122,7 +122,7 @@ Below members and functions are used in order to poll the current completion. Th
 .BI "uint32_t ibv_wc_read_src_qp(struct ibv_cq_ex " "*cq"); \c
  Get the source QP number field from the current completion.
 
-.BI "int ibv_wc_read_wc_flags(struct ibv_cq_ex " "*cq"); \c
+.BI "unsigned int ibv_wc_read_wc_flags(struct ibv_cq_ex " "*cq"); \c
  Get the QP flags field from the current completion.
 
 .BI "uint16_t ibv_wc_read_pkey_index(struct ibv_cq_ex " "*cq"); \c
