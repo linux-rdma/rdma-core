@@ -2879,7 +2879,7 @@ static int acm_open_providers(void)
 			acm_log(0, "Error - could not stat: %s\n", file_name);
 			continue;
 		}
-		if (!S_ISREG(buf.st_mode))
+		if (!(S_ISREG(buf.st_mode) || S_ISLNK(buf.st_mode)))
 			continue;
 
 		acm_log(2, "Loading provider %s...\n", file_name);
