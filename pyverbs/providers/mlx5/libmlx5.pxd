@@ -123,6 +123,7 @@ cdef extern from 'infiniband/mlx5dv.h':
     cdef struct mlx5dv_flow_action_attr:
         mlx5dv_flow_action_type type
         v.ibv_qp                *qp
+        v.ibv_flow_action       *action
         unsigned int            tag_value
         mlx5dv_devx_obj         *obj
 
@@ -173,6 +174,11 @@ cdef extern from 'infiniband/mlx5dv.h':
                                    mlx5dv_flow_match_parameters *match_value,
                                    size_t num_actions,
                                    mlx5dv_flow_action_attr actions_attr[])
+    v.ibv_flow_action *mlx5dv_create_flow_action_packet_reformat(v.ibv_context *context,
+                                                                 size_t data_sz,
+                                                                 void *data,
+                                                                 unsigned char reformat_type,
+                                                                 unsigned char ft_type)
 
     # DevX APIs
     mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context,

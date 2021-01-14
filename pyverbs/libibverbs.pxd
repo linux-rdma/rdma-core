@@ -556,6 +556,9 @@ cdef extern from 'infiniband/verbs.h':
         ibv_flow_ipv6_filter val
         ibv_flow_ipv6_filter mask
 
+    cdef struct ibv_flow_action:
+        ibv_context *context
+
     ibv_device **ibv_get_device_list(int *n)
     int ibv_get_device_index(ibv_device *device);
     void ibv_free_device_list(ibv_device **list)

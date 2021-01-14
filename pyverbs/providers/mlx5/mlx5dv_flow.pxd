@@ -4,8 +4,8 @@
 #cython: language_level=3
 
 cimport pyverbs.providers.mlx5.libmlx5 as dv
+from pyverbs.flow cimport Flow, FlowAction
 from pyverbs.base cimport PyverbsObject
-from pyverbs.flow cimport Flow
 
 
 cdef class Mlx5FlowMatchParameters(PyverbsObject):
@@ -24,6 +24,10 @@ cdef class Mlx5FlowMatcher(PyverbsObject):
 cdef class Mlx5FlowActionAttr(PyverbsObject):
     cdef dv.mlx5dv_flow_action_attr attr
     cdef object qp
+    cdef object action
 
 cdef class Mlx5Flow(Flow):
+    pass
+
+cdef class Mlx5PacketReformatFlowAction(FlowAction):
     pass

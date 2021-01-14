@@ -9,6 +9,7 @@ from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError, \
 from pyverbs.device cimport Context
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
+from pyverbs.device cimport Context
 cimport pyverbs.libibverbs as v
 from pyverbs.qp cimport QP
 import weakref
@@ -125,14 +126,47 @@ cdef class Mlx5FlowMatcher(PyverbsObject):
             self.flow_matcher = NULL
 
 
+cdef class Mlx5PacketReformatFlowAction(FlowAction):
+    def __init__(self, Context context, data=None,
+                 reformat_type=dv.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TUNNEL_TO_L2,
+                 ft_type=dv.MLX5DV_FLOW_TABLE_TYPE_NIC_RX):
+        """
+        Initialize a Mlx5PacketReformatFlowAction object derived from FlowAction
+        class and represents reformat flow steering action that allows to
+        add/remove packet headers.
+        :param context: Context object
+        :param data: Encap headers (if needed)
+        :param reformat_type: L2 or L3 encap or decap
+        :param ft_type: dv.MLX5DV_FLOW_TABLE_TYPE_NIC_RX for ingress or
+                        dv.MLX5DV_FLOW_TABLE_TYPE_NIC_TX for egress
+        """
+        super().__init__()
+        cdef char *buf = NULL
+        data_len = 0 if data is None else len(data)
+        if data:
+            arr = bytearray(data)
+            buf = <char *>calloc(1, data_len)
+            for i in range(data_len):
+                buf[i] = arr[i]
+        reformat_data = NULL if data is None else buf
+        self.action = dv.mlx5dv_create_flow_action_packet_reformat(
+            context.context, data_len, reformat_data, reformat_type, ft_type)
+        if data:
+            free(buf)
+        if self.action == NULL:
+            raise PyverbsRDMAErrno('Failed to create flow action packet reformat')
+
+
 cdef class Mlx5FlowActionAttr(PyverbsObject):
-    def __init__(self, action_type=None, QP qp=None):
+    def __init__(self, action_type=None, QP qp=None,
+                 FlowAction flow_action=None):
         """
         Initialize a Mlx5FlowActionAttr object over an underlying
         mlx5dv_flow_action_attr C object that defines actions attributes for
         the flow matcher.
         :param action_type: Type of the action
         :param qp: A QP target for go to QP action
+        :param flow_action: An action to perform for the flow
         """
         super().__init__()
         if action_type:
@@ -140,6 +174,9 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
         if action_type == dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP:
             self.attr.qp = qp.qp
             self.qp = qp
+        elif action_type == dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION:
+            self.attr.action = flow_action.action
+            self.action = flow_action
         elif action_type:
             raise PyverbsUserError(f'Unsupported action type: {action_type}.')
 
@@ -164,6 +201,19 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
         if self.attr.type != dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP:
             raise PyverbsUserError(f'Action attr of type {self.attr.type} doesn\'t have a qp')
         self.qp = qp
+
+    @property
+    def action(self):
+        if self.attr.type != dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION:
+            raise PyverbsUserError(f'Action attr of type {self.attr.type} doesn\'t have an action')
+        return self.action
+
+    @action.setter
+    def action(self, FlowAction action):
+        if self.attr.type != dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION:
+            raise PyverbsUserError(f'Action attr of type {self.attr.type} doesn\'t have an action')
+        self.action = action
+        self.attr.action = action.action
 
 
 cdef class Mlx5Flow(Flow):
@@ -192,7 +242,7 @@ cdef class Mlx5Flow(Flow):
             if (<Mlx5FlowActionAttr>attr).attr.type == dv.MLX5DV_FLOW_ACTION_DEST_IBV_QP:
                 (<QP>(attr.qp)).add_ref(self)
                 self.qp = (<Mlx5FlowActionAttr>attr).qp
-            else:
+            elif (<Mlx5FlowActionAttr>attr).attr.type not in [dv.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION]:
                raise PyverbsUserError(f'Unsupported action type: '
                                       f'{<Mlx5FlowActionAttr>attr).attr.type}.')
             memcpy(tmp_addr, &(<Mlx5FlowActionAttr>attr).attr,

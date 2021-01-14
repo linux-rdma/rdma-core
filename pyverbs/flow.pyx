@@ -126,3 +126,8 @@ cdef class Flow(PyverbsCM):
                 raise PyverbsRDMAError('Failed to destroy Flow', rc)
             self.flow = NULL
             self.qp = None
+
+
+cdef class FlowAction(PyverbsObject):
+    def __cinit__(self):
+        self.action = NULL
