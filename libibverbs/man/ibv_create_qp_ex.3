@@ -48,7 +48,7 @@ struct ibv_qp_cap {
 uint32_t                max_send_wr;    /* Requested max number of outstanding WRs in the SQ */
 uint32_t                max_recv_wr;    /* Requested max number of outstanding WRs in the RQ */
 uint32_t                max_send_sge;   /* Requested max number of scatter/gather (s/g) elements in a WR in the SQ */
-uint32_t                max_recv_sge;   /* Requested max number of s/g elements in a WR in the SQ */
+uint32_t                max_recv_sge;   /* Requested max number of s/g elements in a WR in the RQ */
 uint32_t                max_inline_data;/* Requested max number of data (bytes) that can be posted inline to the SQ, otherwise 0 */
 .in -8
 };
