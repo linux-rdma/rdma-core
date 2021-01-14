@@ -7,13 +7,13 @@ import errno
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DVQPInitAttr, Mlx5QP, \
     Mlx5DVDCInitAttr, Mlx5Context
 from tests.test_rdmacm import RDMACMBaseTest, CMAsyncConnection
+from tests.base import  PyverbsAPITestCase, DCT_KEY
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.srq import SRQ, SrqInitAttr, SrqAttr
 import pyverbs.providers.mlx5.mlx5_enums as dve
 from tests.base_rdmacm import AsyncCMResources
 from pyverbs.qp import QPCap, QPInitAttrEx
 from pyverbs.cmid import ConnParam
-from tests.base import DCT_KEY
 from pyverbs.addr import AH
 import pyverbs.enums as e
 from pyverbs.cq import CQ
@@ -169,3 +169,39 @@ class Mlx5CMTestCase(RDMACMBaseTest):
         """
         self.two_nodes_rdmacm_traffic(DcCMConnection, self.rdmacm_traffic,
                                       with_ext_qp=True, num_conns=2)
+
+
+class ReservedQPTest(PyverbsAPITestCase):
+
+    def test_reservered_qpn(self):
+        """
+        Alloc reserved qpn multiple times and then dealloc the qpns. In addition,
+        the test includes bad flows where a fake qpn gets deallocated, and a
+        real qpn gets deallocated twice.
+        """
+        ctx, _, _ = self.devices[0]
+        try:
+            # Alloc qp number multiple times.
+            qpns = []
+            for i in range(1000):
+                qpns.append(Mlx5Context.reserved_qpn_alloc(ctx))
+            for i in range(1000):
+                Mlx5Context.reserved_qpn_dealloc(ctx, qpns[i])
+
+            # Dealloc qp number that was not allocated.
+            qpn = Mlx5Context.reserved_qpn_alloc(ctx)
+            with self.assertRaises(PyverbsRDMAError) as ex:
+                fake_qpn = qpn - 1
+                Mlx5Context.reserved_qpn_dealloc(ctx, fake_qpn)
+            self.assertEqual(ex.exception.error_code, errno.EINVAL)
+
+            # Try to dealloc same qp number twice.
+            Mlx5Context.reserved_qpn_dealloc(ctx, qpn)
+            with self.assertRaises(PyverbsRDMAError) as ex:
+                Mlx5Context.reserved_qpn_dealloc(ctx, qpn)
+            self.assertEqual(ex.exception.error_code, errno.EINVAL)
+
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Alloc reserved QP number is not supported')
+            raise ex
