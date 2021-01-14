@@ -1553,6 +1553,11 @@ enum mlx5dv_dr_action_aso_flow_meter_flags {
 	MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_UNDEFINED	= 1 << 3,
 };
 
+enum mlx5dv_dr_action_aso_ct_flags {
+	MLX5DV_DR_ACTION_FLAGS_ASO_CT_DIRECTION_INITIATOR = 1 << 0,
+	MLX5DV_DR_ACTION_FLAGS_ASO_CT_DIRECTION_RESPONDER = 1 << 1,
+};
+
 struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_aso(struct mlx5dv_dr_domain *domain,
 			    struct mlx5dv_devx_obj *devx_obj,

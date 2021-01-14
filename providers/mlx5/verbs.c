@@ -4920,6 +4920,8 @@ static void set_devx_obj_info(const void *in, const void *out,
 			obj->type = MLX5_DEVX_ASO_FIRST_HIT;
 		else if (obj_type == MLX5_OBJ_TYPE_ASO_FLOW_METER)
 			obj->type = MLX5_DEVX_ASO_FLOW_METER;
+		else if (obj_type == MLX5_OBJ_TYPE_ASO_CT)
+			obj->type = MLX5_DEVX_ASO_CT;
 
 		obj->log_obj_range = DEVX_GET(general_obj_in_cmd_hdr, in, log_obj_range);
 		obj->object_id = DEVX_GET(general_obj_out_cmd_hdr, out, obj_id);
