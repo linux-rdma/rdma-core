@@ -333,6 +333,8 @@ static void mlx5_insert_dyn_uuars(struct mlx5_context *ctx,
 			bf->page_id = bf_uar->page_id + index_uar_in_page;
 			bf->uar_handle = bf_uar->uar_handle;
 			bf->nc_mode = bf_uar->nc_mode;
+			if (bf_uar->dyn_alloc_uar)
+				bf->uar_mmap_offset = bf_uar->uar_mmap_offset;
 		}
 		if (bf_uar->qp_dedicated) {
 			ctx->qp_alloc_dedicated_uuars++;
