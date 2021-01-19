@@ -68,6 +68,7 @@ class PyverbsAPITestCase(unittest.TestCase):
         Opens the devices and queries them
         """
         self.devices = []
+        self.ib_port = self.config['port']
 
         dev_name = self.config['dev']
         if dev_name:
@@ -118,7 +119,7 @@ class RDMATestCase(unittest.TestCase):
         self.config = parser.get_config()
         dev = self.config['dev']
         self.dev_name = dev_name if dev_name else dev
-        self.ib_port = ib_port
+        self.ib_port = ib_port if ib_port else self.config['port']
         self.gid_index = gid_index
         self.pkey_index = pkey_index
         self.gid_type = gid_type if gid_index is None else None
@@ -250,9 +251,7 @@ class RDMATestCase(unittest.TestCase):
                 self.args.append([dev, port, idx, ip_addr])
 
     def _add_gids_per_device(self, ctx, dev):
-        port_count = ctx.query_device().phys_port_cnt
-        for port in range(port_count):
-            self._add_gids_per_port(ctx, dev, port+1)
+        self._add_gids_per_port(ctx, dev, self.ib_port)
 
     def _select_config(self):
         args_with_inet_ip = []

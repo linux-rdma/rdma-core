@@ -67,7 +67,7 @@ class DeviceTest(PyverbsAPITestCase):
         for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
                 if dev.node_type == e.IBV_NODE_CA:
-                    ctx.query_pkey(port_num=1, index=0)
+                    ctx.query_pkey(port_num=self.ib_port, index=0)
 
     def test_query_gid(self):
         """
@@ -75,7 +75,7 @@ class DeviceTest(PyverbsAPITestCase):
         """
         for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
-                ctx.query_gid(port_num=1, index=0)
+                ctx.query_gid(port_num=self.ib_port, index=0)
 
     def test_query_gid_table(self):
         """
@@ -121,7 +121,7 @@ class DeviceTest(PyverbsAPITestCase):
         devs = self.get_device_list()
         with d.Context(name=devs[0].name.decode()) as ctx:
             try:
-                ctx.query_gid_ex(port_num=1, gid_index=0)
+                ctx.query_gid_ex(port_num=self.ib_port, gid_index=0)
             except PyverbsRDMAError as ex:
                 if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
                     raise unittest.SkipTest('ibv_query_gid_ex is not'\
@@ -134,13 +134,13 @@ class DeviceTest(PyverbsAPITestCase):
         """
         ctx, device_attr, _ = self.devices[0]
         try:
-            port_attr = ctx.query_port(1)
+            port_attr = ctx.query_port(self.ib_port)
             max_entries = 0
             for port_num in range(1, device_attr.phys_port_cnt + 1):
                 attr = ctx.query_port(port_num)
                 max_entries += attr.gid_tbl_len
             gid_indices = {gid_entry.gid_index for gid_entry in
-                           ctx.query_gid_table(max_entries) if gid_entry.port_num == 1}
+                           ctx.query_gid_table(max_entries) if gid_entry.port_num == self.ib_port}
 
             possible_indices = set(range(port_attr.gid_tbl_len)) if port_attr.gid_tbl_len > 1 else set()
             try:
@@ -150,7 +150,7 @@ class DeviceTest(PyverbsAPITestCase):
                 raise unittest.SkipTest('All gid indices populated,'
                                         ' cannot check bad flow')
 
-            ctx.query_gid_ex(port_num=1, gid_index=no_gid_index)
+            ctx.query_gid_ex(port_num=self.ib_port, gid_index=no_gid_index)
         except PyverbsRDMAError as ex:
             if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
                 raise unittest.SkipTest('ibv_query_gid_ex is not'
@@ -219,10 +219,8 @@ class DeviceTest(PyverbsAPITestCase):
         """
         for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
-                num_ports = ctx.query_device().phys_port_cnt
-                for p in range(num_ports):
-                    port_attr = ctx.query_port(p + 1)
-                    self.verify_port_attr(port_attr)
+                port_attr = ctx.query_port(self.ib_port)
+                self.verify_port_attr(port_attr)
 
     def test_query_port_bad_flow(self):
         """
