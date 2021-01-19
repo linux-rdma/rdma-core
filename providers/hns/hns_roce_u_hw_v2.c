@@ -746,11 +746,85 @@ static int fill_ext_sge_inl_data(struct hns_roce_qp *qp,
 	return 0;
 }
 
+static void fill_ud_inn_inl_data(const struct ibv_send_wr *wr,
+				 struct hns_roce_ud_sq_wqe *ud_sq_wqe)
+{
+	uint8_t data[HNS_ROCE_MAX_UD_INL_INN_SZ] = {0};
+	uint32_t *loc = (uint32_t *)data;
+	uint32_t tmp_data;
+	void *tmp = data;
+	int i;
+
+	for (i = 0; i < wr->num_sge; i++) {
+		memcpy(tmp, (void *)(uintptr_t)wr->sg_list[i].addr,
+		       wr->sg_list[i].length);
+		tmp += wr->sg_list[i].length;
+	}
+
+	roce_set_field(ud_sq_wqe->msg_len,
+		       UD_SQ_WQE_BYTE_8_INL_DATE_15_0_M,
+		       UD_SQ_WQE_BYTE_8_INL_DATE_15_0_S,
+		       *loc & 0xffff);
+
+	roce_set_field(ud_sq_wqe->sge_num_pd,
+		       UD_SQ_WQE_BYTE_16_INL_DATA_23_16_M,
+		       UD_SQ_WQE_BYTE_16_INL_DATA_23_16_S,
+		       (*loc >> 16) & 0xff);
+
+	tmp_data = *loc >> 24;
+	loc++;
+	tmp_data |= ((*loc & 0xffff) << 8);
+
+	roce_set_field(ud_sq_wqe->rsv_msg_start_sge_idx,
+		       UD_SQ_WQE_BYTE_20_INL_DATA_47_24_M,
+		       UD_SQ_WQE_BYTE_20_INL_DATA_47_24_S,
+		       tmp_data);
+
+	roce_set_field(ud_sq_wqe->udpspn_rsv,
+		       UD_SQ_WQE_BYTE_24_INL_DATA_63_48_M,
+		       UD_SQ_WQE_BYTE_24_INL_DATA_63_48_S,
+		       *loc >> 16);
+}
+
 static bool check_inl_data_len(struct hns_roce_qp *qp, unsigned int len)
 {
 	int mtu = mtu_enum_to_int(qp->path_mtu);
 
 	return (len <= qp->max_inline_data && len <= mtu);
+}
+
+static int set_ud_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
+		      struct hns_roce_ud_sq_wqe *ud_sq_wqe,
+		      struct hns_roce_sge_info *sge_info)
+{
+	unsigned int sge_idx = sge_info->start_idx;
+	int ret;
+
+	if (!check_inl_data_len(qp, sge_info->total_len))
+		return -EINVAL;
+
+	roce_set_bit(ud_sq_wqe->rsv_opcode, UD_SQ_WQE_BYTE_4_INL_S, 1);
+
+	if (sge_info->total_len <= HNS_ROCE_MAX_UD_INL_INN_SZ) {
+		roce_set_bit(ud_sq_wqe->rsv_msg_start_sge_idx,
+			     UD_SQ_WQE_BYTE_20_INL_TYPE_S, 0);
+
+		fill_ud_inn_inl_data(wr, ud_sq_wqe);
+	} else {
+		roce_set_bit(ud_sq_wqe->rsv_msg_start_sge_idx,
+			     UD_SQ_WQE_BYTE_20_INL_TYPE_S, 1);
+
+		ret = fill_ext_sge_inl_data(qp, wr, sge_info);
+		if (ret)
+			return ret;
+
+		sge_info->valid_num = sge_info->start_idx - sge_idx;
+
+		roce_set_field(ud_sq_wqe->sge_num_pd, UD_SQ_WQE_SGE_NUM_M,
+			       UD_SQ_WQE_SGE_NUM_S, sge_info->valid_num);
+	}
+
+	return 0;
 }
 
 static __le32 get_immtdata(enum ibv_wr_opcode opcode, const struct ibv_send_wr *wr)
@@ -811,10 +885,12 @@ static int fill_ud_av(struct hns_roce_ud_sq_wqe *ud_sq_wqe,
 	return 0;
 }
 
-static void fill_ud_data_seg(struct hns_roce_ud_sq_wqe *ud_sq_wqe,
-			     struct hns_roce_qp *qp, struct ibv_send_wr *wr,
-			     struct hns_roce_sge_info *sge_info)
+static int fill_ud_data_seg(struct hns_roce_ud_sq_wqe *ud_sq_wqe,
+			    struct hns_roce_qp *qp, struct ibv_send_wr *wr,
+			    struct hns_roce_sge_info *sge_info)
 {
+	int ret = 0;
+
 	roce_set_field(ud_sq_wqe->rsv_msg_start_sge_idx,
 		       UD_SQ_WQE_MSG_START_SGE_IDX_M,
 		       UD_SQ_WQE_MSG_START_SGE_IDX_S,
@@ -826,6 +902,11 @@ static void fill_ud_data_seg(struct hns_roce_ud_sq_wqe *ud_sq_wqe,
 
 	roce_set_field(ud_sq_wqe->sge_num_pd, UD_SQ_WQE_SGE_NUM_M,
 		       UD_SQ_WQE_SGE_NUM_S, sge_info->valid_num);
+
+	if (wr->send_flags & IBV_SEND_INLINE)
+		ret = set_ud_inl(qp, wr, ud_sq_wqe, sge_info);
+
+	return ret;
 }
 
 static int set_ud_wqe(void *wqe, struct hns_roce_qp *qp,
@@ -857,7 +938,9 @@ static int set_ud_wqe(void *wqe, struct hns_roce_qp *qp,
 	if (ret)
 		return ret;
 
-	fill_ud_data_seg(ud_sq_wqe, qp, wr, sge_info);
+	ret = fill_ud_data_seg(ud_sq_wqe, qp, wr, sge_info);
+	if (ret)
+		return ret;
 
 	/*
 	 * The pipeline can sequentially post all valid WQEs in wq buf,
