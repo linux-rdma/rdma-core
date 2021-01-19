@@ -51,8 +51,16 @@ class CMTestCase(RDMATestCase):
                                       'passive':False, **resource_kwargs})
         passive.start()
         active.start()
-        passive.join(15)
-        active.join(15)
+        proc_raised_ex = False
+        for i in range(15):
+            if proc_raised_ex:
+                break
+            for proc in [passive, active]:
+                proc.join(1)
+                if not proc.is_alive() and not self.notifier.empty():
+                    proc_raised_ex = True
+                    break
+
         # If the processes is still alive kill them and fail the test.
         proc_killed = False
         for proc in [passive, active]:
@@ -60,10 +68,18 @@ class CMTestCase(RDMATestCase):
                 proc.terminate()
                 proc_killed = True
         # Check if the test processes raise exceptions.
-        if not self.notifier.empty():
-            res = self.notifier.get()
-            if res is not None:
-                raise PyverbsError(res)
+        proc_res = {}
+        while not self.notifier.empty():
+            res, side = self.notifier.get()
+            proc_res[side] = res
+        for ex in proc_res.values():
+            if isinstance(ex, unittest.case.SkipTest):
+                raise(ex)
+        if proc_res:
+            print(f'Received the following exceptions: {proc_res}')
+            if isinstance(res, Exception):
+                raise(res)
+            raise PyverbsError(res)
         # Raise exeption if the test proceses was terminate.
         if proc_killed:
             raise Exception('RDMA CM test procces is stuck, kill the test')
