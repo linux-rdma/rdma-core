@@ -84,6 +84,10 @@ class PacketConsts:
     DST_IP6 = "b0b1::b2b3:b4b5:b6b7:b8b9"
     SEQ_NUM = 1
     WINDOW_SIZE = 65535
+    VXLAN_PORT = 4789
+    VXLAN_VNI = 7777777
+    VXLAN_FLAGS = 0x8
+    VXLAN_HEADER_SIZE = 8
 
 
 def get_mr_length():
@@ -685,6 +689,37 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
             validate(msg_received, False, client.msg_size)
 
 
+def gen_outer_headers(msg_size):
+    """
+    Generates outer headers for encapsulation with VXLAN: Ethernet, IPv4, UDP
+    and VXLAN using the values from the PacketConst class.
+    :param msg_size: The size of the inner message
+    :return: Outer headers
+    """
+    # Ethernet Header
+    outer = struct.pack('!6s6s',
+                        bytes.fromhex(PacketConsts.DST_MAC.replace(':', '')),
+                        bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+    outer += PacketConsts.ETHER_TYPE_IPV4.to_bytes(2, 'big')
+    # IPv4 Header
+    ip_total_len = msg_size + PacketConsts.UDP_HEADER_SIZE + \
+                   PacketConsts.IPV4_HEADER_SIZE + \
+                   PacketConsts.VXLAN_HEADER_SIZE
+    outer += struct.pack('!2B3H2BH4s4s', (PacketConsts.IP_V4 << 4) +
+                         PacketConsts.IHL, 0, ip_total_len, 0,
+                         PacketConsts.IP_V4_FLAGS << 13,
+                         PacketConsts.TTL_HOP_LIMIT, socket.IPPROTO_UDP, 0,
+                         socket.inet_aton(PacketConsts.SRC_IP),
+                         socket.inet_aton(PacketConsts.DST_IP))
+    # UDP Header
+    outer += struct.pack('!4H', PacketConsts.SRC_PORT, PacketConsts.VXLAN_PORT,
+                         msg_size + PacketConsts.UDP_HEADER_SIZE + 8, 0)
+    # VXLAN Header
+    outer += struct.pack('!II', PacketConsts.VXLAN_FLAGS << 24,
+                         PacketConsts.VXLAN_VNI << 8)
+    return outer
+
+
 def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO):
     """
     Generates a Eth | IPv4 or IPv6 | UDP or TCP packet with hardcoded values in
@@ -759,8 +794,16 @@ def get_send_elements_raw_qp(agr_obj, l3=PacketConsts.IP_V4,
     return send_wr, sge, msg
 
 
+def validate_raw(msg_received, msg_expected, skip_idxs):
+    size = len(msg_expected)
+    for i in range(size):
+        if (msg_received[i] != msg_expected[i]) and i not in skip_idxs:
+            err_msg = f'Data validation failure:\nexpected {msg_expected}\n\nreceived {msg_received}'
+            raise PyverbsError(err_msg)
+
+
 def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
-                l4=PacketConsts.UDP_PROTO):
+                l4=PacketConsts.UDP_PROTO, expected_packet=None, skip_idxs=[]):
     """
     Runs raw ethernet traffic between two sides
     :param client: client side, clients base class is BaseTraffic
@@ -768,6 +811,9 @@ def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
     :param iters: number of traffic iterations
     :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
     :param l4: Packet layer 4 type: 'tcp' or 'udp'
+    :param expected_packet: Expected packet for validation (when different from
+                            the originally sent).
+    :param skip_idxs: indexes to skip during packet validation
     :return:
     """
     s_recv_wr = get_recv_wr(server)
@@ -786,8 +832,8 @@ def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
             post_recv(server, s_recv_wr, qp_idx=qp_idx)
             msg_received = server.mr.read(server.msg_size, read_offset)
             # Validate received packet
-            if msg_received[0:server.msg_size] != msg[0:client.msg_size]:
-                raise PyverbsError(f'Data validation failure: expected {msg}, received {msg_received}')
+            validate_raw(msg_received,
+                         expected_packet if expected_packet else msg, skip_idxs)
 
 
 def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,

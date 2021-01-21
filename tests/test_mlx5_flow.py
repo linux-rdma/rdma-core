@@ -8,11 +8,13 @@ import unittest
 import errno
 
 from pyverbs.providers.mlx5.mlx5dv_flow import Mlx5FlowMatcher, \
-    Mlx5FlowMatcherAttr, Mlx5FlowMatchParameters, Mlx5FlowActionAttr, Mlx5Flow
+    Mlx5FlowMatcherAttr, Mlx5FlowMatchParameters, Mlx5FlowActionAttr, Mlx5Flow,\
+    Mlx5PacketReformatFlowAction
 from tests.utils import requires_root_on_eth, PacketConsts
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from tests.base import RDMATestCase, RawResources
 import pyverbs.providers.mlx5.mlx5_enums as dve
+import pyverbs.enums as e
 import tests.utils as u
 import struct
 
@@ -22,19 +24,23 @@ MAX_MATCH_PARAM_SIZE = 0x180
 
 class Mlx5FlowResources(RawResources):
 
-    def create_matcher(self, mask, match_criteria_enable):
+    def create_matcher(self, mask, match_criteria_enable, flags=0,
+                       ft_type=dve.MLX5DV_FLOW_TABLE_TYPE_NIC_RX_):
         """
         Creates a matcher from a provided mask.
         :param mask: The mask to match on (in bytes)
         :param match_criteria_enable: Bitmask representing which of the
                                       headers and parameters in match_criteria
                                       are used
+        :param flags: Flow matcher flags
+        :param ft_type: Flow table type
         :return: Resulting matcher
         """
         try:
             flow_match_param = Mlx5FlowMatchParameters(len(mask), mask)
             attr = Mlx5FlowMatcherAttr(match_mask=flow_match_param,
-                                       match_criteria_enable=match_criteria_enable)
+                                       match_criteria_enable=match_criteria_enable,
+                                       flags=flags, ft_type=ft_type)
             matcher = Mlx5FlowMatcher(self.ctx, attr)
         except PyverbsRDMAError as ex:
             if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
@@ -100,3 +106,51 @@ class Mlx5MatcherTest(RDMATestCase):
                                        qp=self.server.qp)
         self.server.flow = Mlx5Flow(matcher, value_param, [action_qp], 1)
         u.raw_traffic(self.client, self.server, self.iters)
+
+    @u.skip_unsupported
+    def test_tx_packet_reformat(self):
+        """
+        Creates packet reformat (encap) action on TX and with QP action on RX
+        verifies that the packet was encapsulated as expected.
+        """
+        self.client = Mlx5FlowResources(**self.dev_info)
+        outer = u.gen_outer_headers(self.client.msg_size)
+        # Due to encapsulation action Ipv4 and UDP checksum of the outer header
+        # will be recalculated, need to skip them during packet validation.
+        ipv4_id_idx = [18, 19]
+        ipv4_chksum_idx = [24, 25]
+        udp_chksum_idx = [34, 35]
+        # Server will receive encaped packet so message size must include the
+        # length of the outer part.
+        self.server = Mlx5FlowResources(msg_size=self.client.msg_size + len(outer),
+                                        **self.dev_info)
+        empty_bytes_arr = bytes(MAX_MATCH_PARAM_SIZE)
+        empty_value_param = Mlx5FlowMatchParameters(len(empty_bytes_arr),
+                                                    empty_bytes_arr)
+
+        # TX steering
+        tx_matcher = self.client.create_matcher(empty_bytes_arr,
+                                                u.MatchCriteriaEnable.NONE,
+                                                e.IBV_FLOW_ATTR_FLAGS_EGRESS,
+                                                dve.MLX5DV_FLOW_TABLE_TYPE_NIC_TX_)
+        # Create encap action
+        reformat_action = Mlx5PacketReformatFlowAction(
+            self.client.ctx, data=outer,
+            reformat_type=dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL_,
+            ft_type=dve.MLX5DV_FLOW_TABLE_TYPE_NIC_TX_)
+        action_reformat_attr = Mlx5FlowActionAttr(flow_action=reformat_action,
+                                                  action_type=dve.MLX5DV_FLOW_ACTION_IBV_FLOW_ACTION)
+        self.client.flow = Mlx5Flow(tx_matcher, empty_value_param,
+                                    [action_reformat_attr], 1)
+
+        # RX steering
+        rx_matcher = self.server.create_matcher(empty_bytes_arr, u.MatchCriteriaEnable.NONE)
+        action_qp_attr = Mlx5FlowActionAttr(action_type=dve.MLX5DV_FLOW_ACTION_DEST_IBV_QP,
+                                            qp=self.server.qp)
+        self.server.flow = Mlx5Flow(rx_matcher, empty_value_param, [action_qp_attr], 1)
+
+        # Send traffic and validate packet
+        packet = u.gen_packet(self.client.msg_size)
+        u.raw_traffic(self.client, self.server, self.iters,
+                      expected_packet=outer + packet,
+                      skip_idxs=ipv4_id_idx + ipv4_chksum_idx + udp_chksum_idx)
