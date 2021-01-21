@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
- * Copyright 2019-2020 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2021 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #include <assert.h>
@@ -35,7 +35,7 @@ static bool is_buf_cleared(void *buf, size_t len)
 }
 
 #define is_ext_cleared(ptr, inlen) \
-	is_buf_cleared(ptr + sizeof(*ptr), inlen - sizeof(*ptr))
+	is_buf_cleared((uint8_t *)ptr + sizeof(*ptr), inlen - sizeof(*ptr))
 
 #define is_reserved_cleared(reserved) is_buf_cleared(reserved, sizeof(reserved))
 
@@ -962,7 +962,7 @@ struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
 			      driver_qp_type, inlen) ||
 	    efa_attr->comp_mask ||
 	    !is_reserved_cleared(efa_attr->reserved) ||
-	    (inlen > sizeof(efa_attr) && !is_ext_cleared(efa_attr, inlen))) {
+	    (inlen > sizeof(*efa_attr) && !is_ext_cleared(efa_attr, inlen))) {
 		errno = EINVAL;
 		return NULL;
 	}
