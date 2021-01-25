@@ -128,6 +128,12 @@ cdef class PD(PyverbsCM):
         else:
             raise PyverbsError('Unrecognized object type')
 
+    cdef remove_ref(self, obj):
+        if isinstance(obj, MR):
+            self.mrs.remove(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
+
     @property
     def handle(self):
         return self.pd.handle

@@ -9,6 +9,7 @@ from posix.mman cimport mmap, munmap, MAP_PRIVATE, PROT_READ, PROT_WRITE, \
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError, \
     PyverbsUserError
 from libc.stdint cimport uintptr_t, SIZE_MAX
+from pyverbs.utils import rereg_error_to_str
 from pyverbs.base import PyverbsRDMAErrno
 from posix.stdlib cimport posix_memalign
 from libc.string cimport memcpy, memset
@@ -182,6 +183,37 @@ cdef class MR(PyverbsCM):
                                    f' {length} is invalid')
         data = <char*>(self.buf + off)
         return data[:length]
+
+    def rereg(self, flags, PD pd=None, addr=0, length=0, access=0):
+        """
+        Modifies the attributes of an existing memory region.
+        :param flags: Bit-mask used to indicate which of the properties of the
+                      MR are being modified
+        :param pd: New PD
+        :param addr: New addr to reg the MR on
+        :param length: New length of memory to reg
+        :param access: New MR access
+        :return: None
+        """
+        ret = v.ibv_rereg_mr(self.mr, flags, pd.pd, <void*><uintptr_t>addr,
+                             length, access)
+        if ret != 0:
+            err_msg = rereg_error_to_str(ret)
+            raise PyverbsRDMAErrno(f'Failed to rereg MR: {err_msg}')
+
+        if flags & e.IBV_REREG_MR_CHANGE_TRANSLATION:
+            if not self.is_user_addr:
+                if self.is_huge:
+                    munmap(self.buf, self.mmap_length)
+                else:
+                    free(self.buf)
+            self.buf = <void*><uintptr_t>addr
+            self.is_user_addr = True
+
+        if flags & e.IBV_REREG_MR_CHANGE_PD:
+            (<PD>self.pd).remove_ref(self)
+            self.pd = pd
+            pd.add_ref(self)
 
     @property
     def buf(self):

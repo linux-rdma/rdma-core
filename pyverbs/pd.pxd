@@ -13,6 +13,7 @@ cdef class PD(PyverbsCM):
     cdef v.ibv_pd *pd
     cdef Context ctx
     cdef add_ref(self, obj)
+    cdef remove_ref(self, obj)
     cdef object srqs
     cdef object mrs
     cdef object mws
