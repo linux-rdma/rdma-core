@@ -84,13 +84,13 @@ cdef class Mlx5Context(Context):
                 dve.MLX5DV_CONTEXT_MASK_TUNNEL_OFFLOADS |\
                 dve.MLX5DV_CONTEXT_MASK_DYN_BFREGS |\
                 dve.MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE |\
+                dve.MLX5DV_CONTEXT_MASK_DC_ODP_CAPS |\
                 dve.MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS
         else:
             dv_attr.comp_mask = comp_mask
         rc = dv.mlx5dv_query_device(self.context, &dv_attr.dv)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to query mlx5 device {name}, got {rc}'.
-                                   format(name=self.name, rc=rc))
+            raise PyverbsRDMAError(f'Failed to query mlx5 device {self.name}.', rc)
         return dv_attr
 
     def __dealloc__(self):
