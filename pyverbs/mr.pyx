@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved. See COPYING file
+# Copyright (c) 2020, Intel Corporation. All rights reserved. See COPYING file
 
 import resource
 import logging
 
 from posix.mman cimport mmap, munmap, MAP_PRIVATE, PROT_READ, PROT_WRITE, \
-    MAP_ANONYMOUS, MAP_HUGETLB
+    MAP_ANONYMOUS, MAP_HUGETLB, MAP_SHARED
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError, \
     PyverbsUserError
 from libc.stdint cimport uintptr_t, SIZE_MAX
@@ -15,9 +16,10 @@ from posix.stdlib cimport posix_memalign
 from libc.string cimport memcpy, memset
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.device cimport DM
-from libc.stdlib cimport free
+from libc.stdlib cimport free, malloc
 from .cmid cimport CMID
 from .pd cimport PD
+from .dmabuf cimport DmaBuf
 
 cdef extern from 'sys/mman.h':
     cdef void* MAP_FAILED
@@ -379,6 +381,105 @@ cdef class DMMR(MR):
 
     cpdef read(self, length, offset):
         return self.dm.copy_from_dm(offset, length)
+
+cdef class DmaBufMR(MR):
+    def __init__(self, PD pd not None, length, access, DmaBuf dmabuf=None,
+                 offset=0, unit=0, gtt=0):
+        """
+        Initializes a DmaBufMR (DMA-BUF Memory Region) of the given length
+        and access flags using the given PD and DmaBuf objects.
+        :param pd: A PD object
+        :param length: Length in bytes
+        :param access: Access flags, see ibv_access_flags enum
+        :param dmabuf: A DmaBuf object. One will be allocated if absent
+        :param offset: Byte offset from the beginning of the dma-buf
+        :param unit: GPU unit for internal dmabuf allocation
+        :param gtt: If true allocate internal dmabuf from GTT instead of VRAM
+        :return: The newly created DMABUFMR
+        """
+        self.logger = logging.getLogger(self.__class__.__name__)
+        if dmabuf is None:
+            self.is_dmabuf_internal = True
+            dmabuf = DmaBuf(length + offset, unit, gtt)
+        self.mr = v.ibv_reg_dmabuf_mr(pd.pd, offset, length, offset, dmabuf.fd, access)
+        if self.mr == NULL:
+            raise PyverbsRDMAErrno(f'Failed to register a dma-buf MR. length: {length}, access flags: {access}')
+        super().__init__(pd, length, access)
+        self.pd = pd
+        self.dmabuf = dmabuf
+        self.offset = offset
+        pd.add_ref(self)
+        dmabuf.add_ref(self)
+        self.logger.debug(f'Registered dma-buf ibv_mr. Length: {length}, access flags {access}')
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        """
+        Closes the underlying C object of the MR and frees the memory allocated.
+        :return: None
+        """
+        if self.mr != NULL:
+            self.logger.debug('Closing dma-buf MR')
+            rc = v.ibv_dereg_mr(self.mr)
+            if rc != 0:
+                raise PyverbsRDMAError('Failed to dereg dma-buf MR', rc)
+            self.pd = None
+            self.mr = NULL
+            # Set self.mr to NULL before closing dmabuf because this method is
+            # re-entered when close_weakrefs() is called inside dmabuf.close().
+            if self.is_dmabuf_internal:
+                self.dmabuf.close()
+            self.dmabuf = None
+
+    @property
+    def offset(self):
+        return self.offset
+
+    @property
+    def dmabuf(self):
+        return self.dmabuf
+
+    def write(self, data, length, offset=0):
+        """
+        Write user data to the dma-buf backing the MR
+        :param data: User data to write
+        :param length: Length of the data to write
+        :param offset: Writing offset
+        :return: None
+        """
+        if isinstance(data, str):
+            data = data.encode()
+        cdef int off = offset + self.offset
+        cdef void *buf = mmap(NULL, length + off, PROT_READ | PROT_WRITE,
+                              MAP_SHARED, self.dmabuf.drm_fd,
+                              self.dmabuf.map_offset)
+        if buf == MAP_FAILED:
+            raise PyverbsError(f'Failed to map dma-buf of size {length}')
+        memcpy(<char*>(buf + off), <char *>data, length)
+        munmap(buf, length + off)
+
+    cpdef read(self, length, offset):
+        """
+        Reads data from the dma-buf backing the MR
+        :param length: Length of data to read
+        :param offset: Reading offset
+        :return: The data on the buffer in the requested offset
+        """
+        cdef int off = offset + self.offset
+        cdef void *buf = mmap(NULL, length + off, PROT_READ | PROT_WRITE,
+                              MAP_SHARED, self.dmabuf.drm_fd,
+                              self.dmabuf.map_offset)
+        if buf == MAP_FAILED:
+            raise PyverbsError(f'Failed to map dma-buf of size {length}')
+        cdef char *data =<char*>malloc(length)
+        memset(data, 0, length)
+        memcpy(data, <char*>(buf + off), length)
+        munmap(buf, length + off)
+        res = data[:length]
+        free(data)
+        return res
 
 
 def mwtype2str(mw_type):
