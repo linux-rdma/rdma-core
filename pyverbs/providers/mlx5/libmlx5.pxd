@@ -129,3 +129,5 @@ cdef extern from 'infiniband/mlx5dv.h':
     int mlx5dv_sched_leaf_destroy(mlx5dv_sched_leaf *leaf)
     int mlx5dv_modify_qp_sched_elem(v.ibv_qp *qp, mlx5dv_sched_leaf *requestor,
                                     mlx5dv_sched_leaf *responder)
+    int mlx5dv_reserved_qpn_alloc(v.ibv_context *context, uint32_t *qpn)
+    int mlx5dv_reserved_qpn_dealloc(v.ibv_context *context, uint32_t qpn)

@@ -621,7 +621,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         reserved_at_1[0x1e];
 	u8         vhca_resource_manager[0x1];
 
-	u8         reserved_at_20[0x10];
+	u8         hca_cap_2[0x1];
+	u8         reserved_at_21[0xf];
 	u8         vhca_id[0x10];
 
 	u8         reserved_at_40[0x40];
@@ -1151,6 +1152,16 @@ struct mlx5_ifc_qos_cap_bits {
 	u8         reserved_at_120[0x6e0];
 };
 
+struct mlx5_ifc_cmd_hca_cap_2_bits {
+	u8         reserved_at_0[0x80];
+
+	u8         reserved_at_80[0x13];
+	u8         log_reserved_qpn_granularity[0x5];
+	u8         reserved_at_98[0x8];
+
+	u8         reserved_at_a0[0x760];
+};
+
 union mlx5_ifc_hca_cap_union_bits {
 	struct mlx5_ifc_atomic_caps_bits atomic_caps;
 	struct mlx5_ifc_cmd_hca_cap_bits cmd_hca_cap;
@@ -1160,6 +1171,7 @@ union mlx5_ifc_hca_cap_union_bits {
 	struct mlx5_ifc_odp_cap_bits odp_cap;
 	struct mlx5_ifc_roce_cap_bits roce_caps;
 	struct mlx5_ifc_qos_cap_bits qos_caps;
+	struct mlx5_ifc_cmd_hca_cap_2_bits cmd_hca_cap_2;
 	u8         reserved_at_0[0x8000];
 };
 
@@ -1200,6 +1212,7 @@ enum {
 	MLX5_SET_HCA_CAP_OP_MOD_ESW_FLOW_TABLE        = 0x8 << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_QOS                   = 0xc << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_DEVICE_MEMORY         = 0xf << 1,
+	MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE_CAP_2  = 0x20 << 1,
 };
 
 enum {
@@ -2433,6 +2446,7 @@ enum {
 	MLX5_OBJ_TYPE_ASO_FLOW_METER = 0x0024,
 	MLX5_OBJ_TYPE_ASO_FIRST_HIT = 0x0025,
 	MLX5_OBJ_TYPE_SCHEDULING_ELEMENT = 0x0026,
+	MLX5_OBJ_TYPE_RESERVED_QPN = 0x002C,
 };
 
 struct mlx5_ifc_general_obj_in_cmd_hdr_bits {
@@ -3472,6 +3486,15 @@ struct mlx5_ifc_modify_sq_in_bits {
 	u8	reserved_at_c0[0x40];
 
 	struct mlx5_ifc_sqc_bits sq_context;
+};
+
+struct mlx5_ifc_reserved_qpn_bits {
+	u8	reserved_at_0[0x80];
+};
+
+struct mlx5_ifc_create_reserved_qpn_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits	hdr;
+	struct mlx5_ifc_reserved_qpn_bits		rqpns;
 };
 
 #endif /* MLX5_IFC_H */

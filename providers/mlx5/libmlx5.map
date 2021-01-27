@@ -168,3 +168,9 @@ MLX5_1.17 {
 		mlx5dv_sched_node_destroy;
 		mlx5dv_sched_node_modify;
 } MLX5_1.16;
+
+MLX5_1.18 {
+	global:
+		mlx5dv_reserved_qpn_alloc;
+		mlx5dv_reserved_qpn_dealloc;
+} MLX5_1.17;

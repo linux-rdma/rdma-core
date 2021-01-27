@@ -1559,6 +1559,160 @@ int mlx5dv_modify_qp_sched_elem(struct ibv_qp *qp,
 	}
 }
 
+static struct reserved_qpn_blk *reserved_qpn_blk_alloc(struct mlx5_context *mctx)
+{
+	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_reserved_qpn_in)] = {};
+	struct reserved_qpn_blk *blk;
+	void *attr;
+
+	blk = calloc(1, sizeof(*blk));
+	if (!blk) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	blk->bmp = bitmap_alloc0(1 << mctx->hca_cap_2_caps.log_reserved_qpns_per_obj);
+	if (!blk->bmp) {
+		errno = ENOMEM;
+		goto bmp_alloc_fail;
+	}
+
+	attr = DEVX_ADDR_OF(create_reserved_qpn_in, in, hdr);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, opcode, MLX5_CMD_OP_CREATE_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, obj_type, MLX5_OBJ_TYPE_RESERVED_QPN);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, log_obj_range, mctx->hca_cap_2_caps.log_reserved_qpns_per_obj);
+
+	blk->obj = mlx5dv_devx_obj_create(&mctx->ibv_ctx.context,
+					  in, sizeof(in), out, sizeof(out));
+	if (!blk->obj)
+		goto obj_alloc_fail;
+
+	blk->first_qpn = blk->obj->object_id;
+	blk->next_avail_slot = 0;
+
+	return blk;
+
+obj_alloc_fail:
+	free(blk->bmp);
+
+bmp_alloc_fail:
+	free(blk);
+	return NULL;
+}
+
+static void reserved_qpn_blk_dealloc(struct reserved_qpn_blk *blk)
+{
+	if (mlx5dv_devx_obj_destroy(blk->obj))
+		assert(false);
+
+	free(blk->bmp);
+	free(blk);
+}
+
+static void reserved_qpn_blks_free(struct mlx5_context *mctx)
+{
+	struct reserved_qpn_blk *blk, *tmp;
+
+	pthread_mutex_lock(&mctx->reserved_qpns.mutex);
+
+	list_for_each_safe(&mctx->reserved_qpns.blk_list,
+			   blk, tmp, entry) {
+		list_del(&blk->entry);
+		reserved_qpn_blk_dealloc(blk);
+	}
+
+	pthread_mutex_unlock(&mctx->reserved_qpns.mutex);
+}
+
+/**
+ * Allocate a reserved QPN either from the last FW object allocated,
+ * or by allocating a new one. When find a free QPN in an object, it
+ * always starts from last allocation position, to make sure the QPN
+ * always move forward to prevent stale QPN.
+ */
+int mlx5dv_reserved_qpn_alloc(struct ibv_context *ctx, uint32_t *qpn)
+{
+	struct mlx5_context *mctx = to_mctx(ctx);
+	struct reserved_qpn_blk *blk;
+	uint32_t qpns_per_obj;
+	int ret = 0;
+
+	if (!is_mlx5_dev(ctx->device) ||
+	    !(mctx->general_obj_types_caps & (1ULL << MLX5_OBJ_TYPE_RESERVED_QPN)))
+		return EOPNOTSUPP;
+
+	qpns_per_obj = 1 << mctx->hca_cap_2_caps.log_reserved_qpns_per_obj;
+
+	pthread_mutex_lock(&mctx->reserved_qpns.mutex);
+
+	blk = list_tail(&mctx->reserved_qpns.blk_list,
+			struct reserved_qpn_blk, entry);
+	if (!blk ||
+	    (blk->next_avail_slot >= qpns_per_obj)) {
+		blk = reserved_qpn_blk_alloc(mctx);
+		if (!blk) {
+			ret = errno;
+			goto end;
+		}
+		list_add_tail(&mctx->reserved_qpns.blk_list, &blk->entry);
+	}
+
+	*qpn = blk->first_qpn + blk->next_avail_slot;
+	bitmap_set_bit(blk->bmp, blk->next_avail_slot);
+	blk->next_avail_slot++;
+
+end:
+	pthread_mutex_unlock(&mctx->reserved_qpns.mutex);
+	return ret;
+}
+
+/**
+ * Deallocate a reserved QPN. The FW object is destroyed only when all QPNs
+ * in this object were used and freed.
+ */
+int mlx5dv_reserved_qpn_dealloc(struct ibv_context *ctx, uint32_t qpn)
+{
+	struct mlx5_context *mctx = to_mctx(ctx);
+	struct reserved_qpn_blk *blk, *tmp;
+	uint32_t qpns_per_obj;
+	bool found = false;
+	int ret = 0;
+
+	qpns_per_obj = 1 << mctx->hca_cap_2_caps.log_reserved_qpns_per_obj;
+
+	pthread_mutex_lock(&mctx->reserved_qpns.mutex);
+
+	list_for_each_safe(&mctx->reserved_qpns.blk_list,
+			   blk, tmp, entry) {
+		if ((qpn >= blk->first_qpn) &&
+		    (qpn < blk->first_qpn + qpns_per_obj)) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found || !bitmap_test_bit(blk->bmp, qpn - blk->first_qpn)) {
+		errno = EINVAL;
+		ret = errno;
+		goto end;
+	}
+
+	bitmap_clear_bit(blk->bmp, qpn - blk->first_qpn);
+	if ((blk->next_avail_slot >= qpns_per_obj) &&
+	    (bitmap_empty(blk->bmp, qpns_per_obj))) {
+		list_del(&blk->entry);
+		reserved_qpn_blk_dealloc(blk);
+	}
+
+end:
+	pthread_mutex_unlock(&mctx->reserved_qpns.mutex);
+	return ret;
+}
+
 LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
 		   int,
 		   struct mlx5dv_obj *obj, uint64_t obj_type)
@@ -1963,6 +2117,9 @@ bf_done:
 	mlx5_set_singleton_nc_uar(&v_ctx->context);
 	context->cq_uar_reg = context->nc_uar ? context->nc_uar->uar : context->uar[0].reg;
 
+	pthread_mutex_init(&context->reserved_qpns.mutex, NULL);
+	list_head_init(&context->reserved_qpns.blk_list);
+
 	return 0;
 
 err_free_bf:
@@ -2091,6 +2248,7 @@ static void mlx5_free_context(struct ibv_context *ibctx)
 		munmap((void *)context->clock_info_page, page_size);
 	close_debug_file(context);
 	clean_dyn_uars(ibctx);
+	reserved_qpn_blks_free(context);
 
 	verbs_uninit_context(&context->ibv_ctx);
 	free(context);

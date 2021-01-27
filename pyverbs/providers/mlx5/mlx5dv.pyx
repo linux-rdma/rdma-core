@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
-from libc.stdint cimport uintptr_t, uint8_t, uint16_t
+from libc.stdint cimport uintptr_t, uint8_t, uint16_t, uint32_t
 import logging
 
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError
@@ -92,6 +92,30 @@ cdef class Mlx5Context(Context):
         if rc != 0:
             raise PyverbsRDMAError(f'Failed to query mlx5 device {self.name}.', rc)
         return dv_attr
+
+    @staticmethod
+    def reserved_qpn_alloc(Context ctx):
+        """
+        Allocate a reserved QP number from firmware.
+        :param ctx: The device context to issue the action on.
+        :return: The reserved QP number.
+        """
+        cdef uint32_t qpn
+        rc = dv.mlx5dv_reserved_qpn_alloc(ctx.context, &qpn)
+        if rc != 0:
+            raise PyverbsRDMAError('Failed to alloc reserved QP number.', rc)
+        return qpn
+
+    @staticmethod
+    def reserved_qpn_dealloc(Context ctx, qpn):
+        """
+        Release the reserved QP number to firmware.
+        :param ctx: The device context to issue the action on.
+        :param qpn: The QP number to be deallocated.
+        """
+        rc = dv.mlx5dv_reserved_qpn_dealloc(ctx.context, qpn)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to dealloc QP number {qpn}.', rc)
 
     def __dealloc__(self):
         self.close()
@@ -311,11 +335,11 @@ cdef class Mlx5DVQPInitAttr(PyverbsObject):
 
 
 cdef class Mlx5QP(QPEx):
-    def __init__(self, Mlx5Context context, QPInitAttrEx init_attr,
+    def __init__(self, Context context, QPInitAttrEx init_attr,
                  Mlx5DVQPInitAttr dv_init_attr):
         """
         Initializes an mlx5 QP according to the user-provided data.
-        :param context: mlx5 Context object
+        :param context: Context object
         :param init_attr: QPInitAttrEx object
         :param dv_init_attr: Mlx5DVQPInitAttr object
         :return: An initialized Mlx5QP

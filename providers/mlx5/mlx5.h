@@ -44,6 +44,7 @@
 #include <util/udma_barrier.h>
 #include <util/util.h>
 #include "mlx5-abi.h"
+#include <ccan/bitmap.h>
 #include <ccan/list.h>
 #include "bitmap.h"
 #include <ccan/minmax.h>
@@ -273,6 +274,23 @@ struct mlx5_qos_caps {
 	uint32_t nic_tsar_type;
 };
 
+struct mlx5_hca_cap_2_caps {
+	uint32_t log_reserved_qpns_per_obj;
+};
+
+struct reserved_qpn_blk {
+	bitmap *bmp;
+	uint32_t first_qpn;
+	struct list_node entry;
+	unsigned int next_avail_slot;
+	struct mlx5dv_devx_obj *obj;
+};
+
+struct mlx5_reserved_qpns {
+	struct list_head blk_list;
+	pthread_mutex_t mutex;
+};
+
 struct mlx5_context {
 	struct verbs_context		ibv_ctx;
 	int				max_num_qps;
@@ -343,6 +361,8 @@ struct mlx5_context {
 	struct mlx5_packet_pacing_caps	packet_pacing_caps;
 	struct mlx5_entropy_caps	entropy_caps;
 	struct mlx5_qos_caps		qos_caps;
+	struct mlx5_hca_cap_2_caps	hca_cap_2_caps;
+	uint64_t			general_obj_types_caps;
 	uint8_t				qpc_extension_cap:1;
 	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
 	uint32_t			num_dyn_bfregs;
@@ -363,6 +383,7 @@ struct mlx5_context {
 	uint16_t			qp_alloc_shared_uuars;
 	struct mlx5_bf			*nc_uar;
 	void				*cq_uar_reg;
+	struct mlx5_reserved_qpns	reserved_qpns;
 };
 
 struct mlx5_bitmap {

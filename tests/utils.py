@@ -421,7 +421,7 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
         qp.wr_set_ud_addr(ah, agr_obj.rqps_num[qp_idx], agr_obj.SRD_QKEY)
     if qp_type == e.IBV_QPT_XRC_SEND:
         qp.wr_set_xrc_srqn(agr_obj.remote_srqn)
-    if isinstance(agr_obj, Mlx5DcResources):
+    if hasattr(agr_obj, 'remote_dct_num'):
         qp.wr_set_dc_addr(ah, agr_obj.remote_dct_num, DCT_KEY)
     qp.wr_set_sge(send_object)
     qp.wr_complete()

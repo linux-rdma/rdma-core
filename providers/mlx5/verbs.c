@@ -3441,6 +3441,27 @@ static void get_pci_atomic_caps(struct ibv_context *context,
 	}
 }
 
+static void get_hca_general_caps_2(struct mlx5_context *mctx)
+{
+	uint16_t opmod = MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE_CAP_2 |
+		HCA_CAP_OPMOD_GET_CUR;
+	uint32_t out[DEVX_ST_SZ_DW(query_hca_cap_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(query_hca_cap_in)] = {};
+	int ret;
+
+	DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
+	DEVX_SET(query_hca_cap_in, in, op_mod, opmod);
+
+	ret = mlx5dv_devx_general_cmd(&mctx->ibv_ctx.context, in, sizeof(in),
+				      out, sizeof(out));
+	if (ret)
+		return;
+
+	mctx->hca_cap_2_caps.log_reserved_qpns_per_obj =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.cmd_hca_cap_2.log_reserved_qpn_granularity);
+}
+
 static void get_hca_general_caps(struct mlx5_context *mctx)
 {
 	uint16_t opmod = MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE |
@@ -3479,6 +3500,14 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 	mctx->qpc_extension_cap =
 		DEVX_GET(query_hca_cap_out, out,
 			 capability.cmd_hca_cap.qpc_extension);
+
+	mctx->general_obj_types_caps =
+		DEVX_GET64(query_hca_cap_out, out,
+			   capability.cmd_hca_cap.general_obj_types);
+
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.cmd_hca_cap.hca_cap_2))
+		get_hca_general_caps_2(mctx);
 }
 
 static void get_qos_caps(struct mlx5_context *mctx)
