@@ -137,6 +137,9 @@ cdef extern from 'infiniband/mlx5dv.h':
 
     cdef struct mlx5dv_dr_rule
 
+    cdef struct mlx5dv_clock_info:
+        pass
+
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
@@ -205,6 +208,9 @@ cdef extern from 'infiniband/mlx5dv.h':
                                           size_t num_actions,
                                           mlx5dv_dr_action *actions[])
     int mlx5dv_dr_rule_destroy(mlx5dv_dr_rule *rule)
+    uint64_t mlx5dv_ts_to_ns(mlx5dv_clock_info *clock_info,
+                             uint64_t device_timestamp)
+    int mlx5dv_get_clock_info(v.ibv_context *ctx_in, mlx5dv_clock_info *clock_info)
 
     # DevX APIs
     mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context,

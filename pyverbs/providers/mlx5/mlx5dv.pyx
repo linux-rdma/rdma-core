@@ -227,6 +227,26 @@ cdef class Mlx5Context(Context):
             free(out_mailbox)
         return out
 
+    @staticmethod
+    def device_timestamp_to_ns(Context ctx, device_timestamp):
+        """
+        Convert device timestamp from HCA core clock units to the corresponding
+        nanosecond units. The function uses mlx5dv_get_clock_info to get the
+        device clock information.
+        :param ctx: The device context to issue the action on.
+        :param device_timestamp: The device timestamp to convert.
+        :return: Timestamp in nanoseconds
+        """
+        cdef dv.mlx5dv_clock_info *clock_info
+        clock_info = <dv.mlx5dv_clock_info *>calloc(1, sizeof(dv.mlx5dv_clock_info))
+        rc = dv.mlx5dv_get_clock_info(ctx.context, clock_info)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to get the clock info', rc)
+
+        ns_time = dv.mlx5dv_ts_to_ns(clock_info, device_timestamp)
+        free(clock_info)
+        return ns_time
+
     def __dealloc__(self):
         self.close()
 
