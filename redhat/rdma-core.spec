@@ -346,7 +346,7 @@ rm -rf %{buildroot}/%{_initrddir}/
 rm -f %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %post -n rdma-core
-if [ -x /sbin/udevadm ]; then
+if [ -x /sbin/udevadm ] && [ -S /run/udev/control ]; then
 /sbin/udevadm trigger --subsystem-match=infiniband --action=change || true
 /sbin/udevadm trigger --subsystem-match=net --action=change || true
 /sbin/udevadm trigger --subsystem-match=infiniband_mad --action=change || true
