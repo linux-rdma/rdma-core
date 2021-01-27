@@ -53,6 +53,7 @@ before_script:
   - wget -q http://releases.linaro.org/$LATEST_GCC_LINARO_URL
   - mkdir $HOME/aarch64 && tar xf $LATEST_GCC_LINARO_TAR -C $HOME/aarch64 --strip 1
   - rm $LATEST_GCC_LINARO_TAR
+  - \[ -z $DOCKER_USERNAME \] || (echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin)
 script:
   - buildlib/travis-build
   - buildlib/travis-checkpatch
