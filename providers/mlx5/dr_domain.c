@@ -283,16 +283,14 @@ static void dr_domain_caps_uninit(struct mlx5dv_dr_domain *dmn)
 
 static int dr_domain_check_icm_memory_caps(struct mlx5dv_dr_domain *dmn)
 {
+	uint32_t max_req_bytes_log, max_req_chunks_log;
+
+	/* Check for minimum ICM log byte size requirements */
 	if (dmn->info.caps.log_modify_hdr_icm_size < DR_CHUNK_SIZE_4K +
 	    DR_MODIFY_ACTION_LOG_SIZE) {
 		errno = ENOMEM;
 		return errno;
 	}
-
-	dmn->info.max_log_action_icm_sz = min_t(uint32_t,
-						DR_CHUNK_SIZE_1024K,
-						dmn->info.caps.log_modify_hdr_icm_size
-						- DR_MODIFY_ACTION_LOG_SIZE);
 
 	if (dmn->info.caps.log_icm_size < DR_CHUNK_SIZE_1024K +
 	    DR_STE_LOG_SIZE) {
@@ -300,7 +298,23 @@ static int dr_domain_check_icm_memory_caps(struct mlx5dv_dr_domain *dmn)
 		return errno;
 	}
 
-	dmn->info.max_log_sw_icm_sz = DR_CHUNK_SIZE_1024K;
+	/* Current code tries to use large allocations to improve our internal
+	 * memory allocation (less DMs and less FW calls).
+	 * When creating multiple domains on the same PF, we want to make sure
+	 * we don't deplete all of the ICM resources on a single domain.
+	 * To provide some functionality with a limited resource we will use
+	 * up to 1/8 of the total available size allowing opening a domain
+	 * of each type.
+	 */
+	max_req_bytes_log = dmn->info.caps.log_modify_hdr_icm_size - 3;
+	max_req_chunks_log = max_req_bytes_log - DR_MODIFY_ACTION_LOG_SIZE;
+	dmn->info.max_log_action_icm_sz =
+		min_t(uint32_t, DR_CHUNK_SIZE_1024K, max_req_chunks_log);
+
+	max_req_bytes_log = dmn->info.caps.log_icm_size - 3;
+	max_req_chunks_log = max_req_bytes_log - DR_STE_LOG_SIZE;
+	dmn->info.max_log_sw_icm_sz =
+		min_t(uint32_t, DR_CHUNK_SIZE_1024K, max_req_chunks_log);
 
 	return 0;
 }
