@@ -967,7 +967,6 @@ int hns_roce_u_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 
 	init_attr->cap.max_send_wr = qp->sq.max_post;
 	init_attr->cap.max_send_sge = qp->sq.max_gs;
-	init_attr->cap.max_inline_data = qp->max_inline_data;
 
 	attr->cap = init_attr->cap;
 
