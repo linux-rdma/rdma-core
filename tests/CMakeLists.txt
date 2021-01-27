@@ -27,6 +27,7 @@ rdma_python_test(tests
   test_mlx5_query_port.py
   test_mlx5_rdmacm.py
   test_mlx5_sched.py
+  test_mlx5_timestamp.py
   test_mlx5_uar.py
   test_mlx5_udp_sport.py
   test_mlx5_var.py
