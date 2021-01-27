@@ -1,8 +1,8 @@
-rdma-core (33.1-1) unstable; urgency=low
+rdma-core (33.1-1) unstable; urgency=medium
 
-  * New upstream release.
+  * New upstream bugfix release.
 
- -- Nicolas Morey-Chaisemartin <nmoreychaisemartin@suse.com>  Tue, 26 Jan 2021 09:06:08 +0100
+ -- Benjamin Drung <benjamin.drung@cloud.ionos.com>  Wed, 27 Jan 2021 14:32:48 +0100
 
 rdma-core (33.0-1) unstable; urgency=medium
 
