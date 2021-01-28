@@ -114,11 +114,8 @@ enum {
 	DR_STE_SIZE_CTRL	= 32,
 	DR_STE_SIZE_TAG		= 16,
 	DR_STE_SIZE_MASK	= 16,
+	DR_STE_SIZE_REDUCED	= DR_STE_SIZE - DR_STE_SIZE_MASK,
 	DR_STE_LOG_SIZE		= 6,
-};
-
-enum {
-	DR_STE_SIZE_REDUCED = DR_STE_SIZE - DR_STE_SIZE_MASK,
 };
 
 enum dr_ste_ctx_action_cap {

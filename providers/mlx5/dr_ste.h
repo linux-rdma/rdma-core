@@ -48,9 +48,6 @@
 #define IP_PROTOCOL_UDP   0x11
 #define IP_PROTOCOL_TCP   0x06
 #define IP_PROTOCOL_IPSEC 0x33
-#define TCP_PROTOCOL      0x6
-#define UDP_PROTOCOL      0x11
-#define IPSEC_PROTOCOL    0x33
 #define HDR_LEN_L2_MACS   0xC
 #define HDR_LEN_L2_VLAN   0x4
 #define HDR_LEN_L2_ETHER  0x2
