@@ -4,9 +4,9 @@ import errno
 
 from pyverbs.enums import IBV_WC_EX_WITH_COMPLETION_TIMESTAMP as FREE_RUNNING, \
     IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK as REAL_TIME
+from tests.base import RCResources, RDMATestCase, PyverbsAPITestCase
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context
 from pyverbs.pyverbs_error import PyverbsRDMAError
-from tests.base import RCResources, RDMATestCase
 from pyverbs.cq import CqInitAttrEx, CQEX
 from tests.test_flow import FlowRes
 from pyverbs.qp import QPInitAttr
@@ -204,3 +204,20 @@ class TimeStampTest(RDMATestCase):
         u.send(self.client, c_send_wr, e.IBV_WR_SEND, False, 0)
         self.client.timestamp = self.poll_cq_ex_ts(self.client.scq, ts_type=self.send_ts)
         self.server.timestamp = self.poll_cq_ex_ts(self.server.rcq, ts_type=self.recv_ts)
+
+
+class TimeAPITest(PyverbsAPITestCase):
+    def test_query_rt_values(self):
+        """
+        Test the ibv_query_rt_values_ex API.
+        Query the device real-time values, convert them to ns and verify that
+        the timestamp is a valid value of time..
+        """
+        try:
+            _, hw_time = self.ctx.query_rt_values_ex()
+            time_in_ns = convert_ts_to_ns(self.ctx, hw_time)
+            datetime.datetime.fromtimestamp(time_in_ns/GIGA)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Query device real time is not supported')
+            raise ex
