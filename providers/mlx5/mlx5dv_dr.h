@@ -750,6 +750,7 @@ struct dr_devx_caps {
 	uint32_t			num_vports;
 	struct dr_devx_vport_cap	*vports_caps;
 	struct dr_devx_roce_cap		roce_caps;
+	uint64_t			definer_format_sup;
 	bool				prio_tag_required;
 };
 
@@ -1171,6 +1172,9 @@ dr_devx_create_flow_sampler(struct ibv_context *ctx,
 			    struct dr_devx_flow_sampler_attr *sampler_attr);
 int dr_devx_query_flow_sampler(struct mlx5dv_devx_obj *obj,
 			       uint64_t *rx_icm_addr, uint64_t *tx_icm_addr);
+struct mlx5dv_devx_obj *dr_devx_create_definer(struct ibv_context *ctx,
+					       uint16_t format_id,
+					       uint8_t *match_mask);
 struct mlx5dv_devx_obj *dr_devx_create_reformat_ctx(struct ibv_context *ctx,
 						    enum reformat_type rt,
 						    size_t reformat_size,

@@ -182,6 +182,9 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 	caps->flex_parser_header_modify =
 		DEVX_GET(query_hca_cap_out, out,
 			 capability.cmd_hca_cap.flex_parser_header_modify);
+	caps->definer_format_sup =
+		DEVX_GET64(query_hca_cap_out, out,
+			   capability.cmd_hca_cap.match_definer_format_supported);
 	roce = DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.roce);
 
 	caps->sw_format_ver = DEVX_GET(query_hca_cap_out, out,
@@ -663,6 +666,28 @@ int dr_devx_query_flow_sampler(struct mlx5dv_devx_obj *obj,
 				  sw_steering_icm_address_tx);
 
 	return 0;
+}
+
+struct mlx5dv_devx_obj *dr_devx_create_definer(struct ibv_context *ctx,
+					       uint16_t format_id,
+					       uint8_t *match_mask)
+{
+	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_definer_in)] = {};
+	void *ptr;
+
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 in, opcode, MLX5_CMD_OP_CREATE_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 in, obj_type, MLX5_OBJ_TYPE_MATCH_DEFINER);
+
+	ptr = DEVX_ADDR_OF(create_definer_in, in, definer);
+	DEVX_SET(definer, ptr, format_id, format_id);
+
+	ptr = DEVX_ADDR_OF(definer, ptr, match_mask_dw_7_0);
+	memcpy(ptr, match_mask, DEVX_FLD_SZ_BYTES(definer, match_mask_dw_7_0));
+
+	return mlx5dv_devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
 }
 
 struct mlx5dv_devx_obj *dr_devx_create_reformat_ctx(struct ibv_context *ctx,

@@ -1031,7 +1031,9 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         flex_parser_id_gtpu_first_ext_dw_0[0x4];
 	u8         reserved_at_708[0x18];
 
-	u8         reserved_at_720[0xe0];
+	u8         reserved_at_720[0xa0];
+
+	u8         match_definer_format_supported[0x40];
 };
 
 struct mlx5_ifc_header_modify_cap_properties_bits {
@@ -2475,6 +2477,7 @@ struct mlx5_ifc_alloc_flow_counter_out_bits {
 
 enum {
 	MLX5_OBJ_TYPE_FLOW_METER = 0x000a,
+	MLX5_OBJ_TYPE_MATCH_DEFINER = 0x0018,
 	MLX5_OBJ_TYPE_FLOW_SAMPLER = 0x0020,
 	MLX5_OBJ_TYPE_ASO_FLOW_METER = 0x0024,
 	MLX5_OBJ_TYPE_ASO_FIRST_HIT = 0x0025,
@@ -2568,6 +2571,26 @@ struct mlx5_ifc_create_flow_sampler_in_bits {
 struct mlx5_ifc_query_flow_sampler_out_bits {
 	struct mlx5_ifc_general_obj_out_cmd_hdr_bits  hdr;
 	struct mlx5_ifc_flow_sampler_bits             obj;
+};
+
+struct mlx5_ifc_definer_bits {
+	u8         modify_field_select[0x40];
+
+	u8         reserved_at_40[0x40];
+
+	u8         reserved_at_80[0x10];
+	u8         format_id[0x10];
+
+	u8         reserved_at_60[0x160];
+
+	u8         ctrl[0xA0];
+	u8         match_mask_dw_11_8[0x60];
+	u8         match_mask_dw_7_0[0x100];
+};
+
+struct mlx5_ifc_create_definer_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits   hdr;
+	struct mlx5_ifc_definer_bits                  definer;
 };
 
 struct mlx5_ifc_esw_vport_context_bits {
