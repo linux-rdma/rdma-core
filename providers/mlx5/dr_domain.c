@@ -228,7 +228,7 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 			return 0;
 
 		dmn->info.supp_sw_steering = true;
-		dmn->info.rx.ste_type = DR_STE_TYPE_RX;
+		dmn->info.rx.type = DR_DOMAIN_NIC_TYPE_RX;
 		dmn->info.rx.default_icm_addr = dmn->info.caps.nic_rx_drop_address;
 		dmn->info.rx.drop_icm_addr = dmn->info.caps.nic_rx_drop_address;
 		break;
@@ -239,7 +239,7 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 			return 0;
 
 		dmn->info.supp_sw_steering = true;
-		dmn->info.tx.ste_type = DR_STE_TYPE_TX;
+		dmn->info.tx.type = DR_DOMAIN_NIC_TYPE_TX;
 		dmn->info.tx.default_icm_addr = dmn->info.caps.nic_tx_allow_address;
 		dmn->info.tx.drop_icm_addr = dmn->info.caps.nic_tx_drop_address;
 		break;
@@ -252,8 +252,8 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 		      dmn->info.caps.sw_format_ver <= MLX5_HW_CONNECTX_6DX))
 			return 0;
 
-		dmn->info.rx.ste_type = DR_STE_TYPE_RX;
-		dmn->info.tx.ste_type = DR_STE_TYPE_TX;
+		dmn->info.rx.type = DR_DOMAIN_NIC_TYPE_RX;
+		dmn->info.tx.type = DR_DOMAIN_NIC_TYPE_TX;
 		vport_cap = dr_get_vport_cap(&dmn->info.caps, 0);
 		if (!vport_cap) {
 			dr_dbg(dmn, "Failed to get eswitch manager vport\n");

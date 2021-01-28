@@ -425,7 +425,7 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 	int idx = 0;
 	int ret, i;
 
-	rx = nic_dmn->ste_type == DR_STE_TYPE_RX;
+	rx = nic_dmn->type == DR_DOMAIN_NIC_TYPE_RX;
 
 	/* Create a temporary mask to track and clear used mask fields */
 	if (matcher->match_criteria & DR_MATCHER_CRITERIA_OUTER)

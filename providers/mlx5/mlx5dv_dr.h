@@ -103,12 +103,6 @@ enum dr_ste_lu_type {
 	DR_STE_LU_TYPE_DONT_CARE	= 0x0f,
 };
 
-enum dr_ste_entry_type {
-	DR_STE_TYPE_TX		= 1,
-	DR_STE_TYPE_RX		= 2,
-	DR_STE_TYPE_MODIFY_PKT	= 6,
-};
-
 enum {
 	DR_STE_SIZE		= 64,
 	DR_STE_SIZE_CTRL	= 32,
@@ -798,10 +792,15 @@ struct dr_devx_flow_sampler_attr {
 	uint32_t	sample_table_id;
 };
 
+enum dr_domain_nic_type {
+	DR_DOMAIN_NIC_TYPE_RX,
+	DR_DOMAIN_NIC_TYPE_TX,
+};
+
 struct dr_domain_rx_tx {
 	uint64_t		drop_icm_addr;
 	uint64_t		default_icm_addr;
-	enum dr_ste_entry_type	ste_type;
+	enum dr_domain_nic_type	type;
 	/* protect rx/tx domain */
 	pthread_spinlock_t	lock;
 };
@@ -1232,7 +1231,7 @@ int dr_ste_htbl_init_and_postsend(struct mlx5dv_dr_domain *dmn,
 				  bool update_hw_ste);
 void dr_ste_set_formated_ste(struct dr_ste_ctx *ste_ctx,
 			     uint16_t gvmi,
-			     struct dr_domain_rx_tx *nic_dmn,
+			     enum dr_domain_nic_type nic_type,
 			     struct dr_ste_htbl *htbl,
 			     uint8_t *formated_ste,
 			     struct dr_htbl_connect_info *connect_info);

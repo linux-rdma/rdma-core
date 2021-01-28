@@ -367,7 +367,7 @@ static void dr_ste_v1_set_hit_addr(uint8_t *hw_ste_p, uint64_t icm_addr, uint32_
 }
 
 static void dr_ste_v1_init(uint8_t *hw_ste_p, uint16_t lu_type,
-			   uint8_t entry_type, uint16_t gvmi)
+			   bool is_rx, uint16_t gvmi)
 {
 	dr_ste_v1_set_lu_type(hw_ste_p, lu_type);
 	dr_ste_v1_set_next_lu_type(hw_ste_p, DR_STE_LU_TYPE_DONT_CARE);

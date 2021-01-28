@@ -177,7 +177,7 @@ struct dr_ste_ctx {
 
 	/* Getters and Setters */
 	void (*ste_init)(uint8_t *hw_ste_p, uint16_t lu_type,
-			 uint8_t entry_type, uint16_t gvmi);
+			 bool is_rx, uint16_t gvmi);
 	void (*set_next_lu_type)(uint8_t *hw_ste_p, uint16_t lu_type);
 	uint16_t (*get_next_lu_type)(uint8_t *hw_ste_p);
 	void (*set_miss_addr)(uint8_t *hw_ste_p, uint64_t miss_addr);

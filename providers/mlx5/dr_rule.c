@@ -419,7 +419,7 @@ static struct dr_ste_htbl *dr_rule_rehash_htbl(struct mlx5dv_dr_rule *rule,
 	info.miss_icm_addr = nic_matcher->e_anchor->chunk->icm_addr;
 	dr_ste_set_formated_ste(dmn->ste_ctx,
 				dmn->info.caps.gvmi,
-				nic_dmn,
+				nic_dmn->type,
 				new_htbl,
 				formated_ste,
 				&info);
@@ -1064,17 +1064,17 @@ static int dr_rule_destroy_rule_root(struct mlx5dv_dr_rule *rule)
 }
 
 static int dr_rule_skip(enum mlx5dv_dr_domain_type domain,
-			enum dr_ste_entry_type ste_type,
+			enum dr_domain_nic_type nic_type,
 			struct dr_match_param *mask,
 			struct dr_match_param *value)
 {
 	if (domain == MLX5DV_DR_DOMAIN_TYPE_FDB) {
 		if (mask->misc.source_port) {
-			if (ste_type == DR_STE_TYPE_RX)
+			if (nic_type == DR_DOMAIN_NIC_TYPE_RX)
 				if (value->misc.source_port != WIRE_PORT)
 					return 1;
 
-			if (ste_type == DR_STE_TYPE_TX)
+			if (nic_type == DR_DOMAIN_NIC_TYPE_TX)
 				if (value->misc.source_port == WIRE_PORT)
 					return 1;
 		}
@@ -1103,7 +1103,7 @@ dr_rule_create_rule_nic(struct mlx5dv_dr_rule *rule,
 	struct dr_ste *ste = NULL; /* Fix compilation warning */
 	int ret, i;
 
-	if (dr_rule_skip(dmn->type, nic_dmn->ste_type, &matcher->mask, param))
+	if (dr_rule_skip(dmn->type, nic_dmn->type, &matcher->mask, param))
 		return 0;
 
 	/* Set the tag values inside the ste array */

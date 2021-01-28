@@ -401,14 +401,15 @@ void dr_ste_prepare_for_postsend(struct dr_ste_ctx *ste_ctx,
 /* Init one ste as a pattern for ste data array */
 void dr_ste_set_formated_ste(struct dr_ste_ctx *ste_ctx,
 			     uint16_t gvmi,
-			     struct dr_domain_rx_tx *nic_dmn,
+			     enum dr_domain_nic_type nic_type,
 			     struct dr_ste_htbl *htbl,
 			     uint8_t *formated_ste,
 			     struct dr_htbl_connect_info *connect_info)
 {
+	bool is_rx = nic_type == DR_DOMAIN_NIC_TYPE_RX;
 	struct dr_ste ste = {};
 
-	ste_ctx->ste_init(formated_ste, htbl->lu_type, nic_dmn->ste_type, gvmi);
+	ste_ctx->ste_init(formated_ste, htbl->lu_type, is_rx, gvmi);
 	ste.hw_ste = formated_ste;
 
 	if (connect_info->type == CONNECT_HIT)
@@ -427,7 +428,7 @@ int dr_ste_htbl_init_and_postsend(struct mlx5dv_dr_domain *dmn,
 
 	dr_ste_set_formated_ste(dmn->ste_ctx,
 				dmn->info.caps.gvmi,
-				nic_dmn,
+				nic_dmn->type,
 				htbl,
 				formated_ste,
 				connect_info);
@@ -692,6 +693,7 @@ int dr_ste_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			 uint8_t *ste_arr)
 {
 	struct dr_domain_rx_tx *nic_dmn = nic_matcher->nic_tbl->nic_dmn;
+	bool is_rx = nic_dmn->type == DR_DOMAIN_NIC_TYPE_RX;
 	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
 	struct dr_ste_ctx *ste_ctx = dmn->ste_ctx;
 	struct dr_ste_build *sb;
@@ -706,7 +708,7 @@ int dr_ste_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 	for (i = 0; i < nic_matcher->num_of_builders; i++) {
 		ste_ctx->ste_init(ste_arr,
 				  sb->lu_type,
-				  nic_dmn->ste_type,
+				  is_rx,
 				  dmn->info.caps.gvmi);
 
 		dr_ste_set_bit_mask(ste_arr, sb->bit_mask);
