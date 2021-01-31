@@ -848,6 +848,7 @@ static int dr_matcher_init_nic(struct mlx5dv_dr_matcher *matcher,
 
 	nic_matcher->e_anchor = dr_ste_htbl_alloc(dmn->ste_icm_pool,
 						  DR_CHUNK_SIZE_1,
+						  DR_STE_HTBL_TYPE_LEGACY,
 						  DR_STE_LU_TYPE_DONT_CARE,
 						  0);
 	if (!nic_matcher->e_anchor)
@@ -855,8 +856,9 @@ static int dr_matcher_init_nic(struct mlx5dv_dr_matcher *matcher,
 
 	nic_matcher->s_htbl = dr_ste_htbl_alloc(dmn->ste_icm_pool,
 						DR_CHUNK_SIZE_1,
-						nic_matcher->ste_builder[0].lu_type,
-						nic_matcher->ste_builder[0].byte_mask);
+						nic_matcher->ste_builder->htbl_type,
+						nic_matcher->ste_builder->lu_type,
+						nic_matcher->ste_builder->byte_mask);
 	if (!nic_matcher->s_htbl)
 		goto free_e_htbl;
 

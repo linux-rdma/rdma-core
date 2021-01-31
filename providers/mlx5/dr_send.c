@@ -720,8 +720,10 @@ int dr_send_postsend_ste(struct mlx5dv_dr_domain *dmn, struct dr_ste *ste,
 int dr_send_postsend_htbl(struct mlx5dv_dr_domain *dmn, struct dr_ste_htbl *htbl,
 			  uint8_t *formated_ste, uint8_t *mask)
 {
+	bool legacy_htbl = htbl->type == DR_STE_HTBL_TYPE_LEGACY;
 	uint32_t byte_size = htbl->chunk->byte_size;
 	int i, j, num_stes_per_iter, iterations;
+	uint8_t ste_sz = htbl->ste_arr->size;
 	uint8_t *data;
 	int ret;
 
@@ -744,11 +746,13 @@ int dr_send_postsend_htbl(struct mlx5dv_dr_domain *dmn, struct dr_ste_htbl *htbl
 				       formated_ste, DR_STE_SIZE);
 			} else {
 				/* Copy data */
-				memcpy(data + (j * DR_STE_SIZE), htbl->ste_arr[ste_index + j].hw_ste,
-				       DR_STE_SIZE_REDUCED);
-				/* Copy bit_mask */
-				memcpy(data + (j * DR_STE_SIZE) + DR_STE_SIZE_REDUCED,
-				       mask, DR_STE_SIZE_MASK);
+				memcpy(data + (j * DR_STE_SIZE),
+				       htbl->ste_arr[ste_index + j].hw_ste,
+				       ste_sz);
+				/* Copy bit_mask on legacy tables */
+				if (legacy_htbl)
+					memcpy(data + (j * DR_STE_SIZE) + ste_sz,
+					       mask, DR_STE_SIZE_MASK);
 
 				/* Prepare STE to specific HW format */
 				dr_ste_prepare_for_postsend(dmn->ste_ctx,
@@ -790,10 +794,10 @@ int dr_send_postsend_formated_htbl(struct mlx5dv_dr_domain *dmn,
 		return ret;
 
 	if (update_hw_ste) {
-		/* Copy the reduced STE to hash table ste_arr */
+		/* Copy the STE to hash table ste_arr */
 		for (i = 0; i < num_stes; i++) {
-			copy_dst = htbl->hw_ste_arr + i * DR_STE_SIZE_REDUCED;
-			memcpy(copy_dst, ste_init_data, DR_STE_SIZE_REDUCED);
+			copy_dst = htbl->hw_ste_arr + i * htbl->ste_arr->size;
+			memcpy(copy_dst, ste_init_data, htbl->ste_arr->size);
 		}
 	}
 

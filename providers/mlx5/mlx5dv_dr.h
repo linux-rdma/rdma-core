@@ -106,6 +106,7 @@ enum dr_ste_lu_type {
 enum {
 	DR_STE_SIZE		= 64,
 	DR_STE_SIZE_CTRL	= 32,
+	DR_STE_SIZE_MATCH_TAG	= 32,
 	DR_STE_SIZE_TAG		= 16,
 	DR_STE_SIZE_MASK	= 16,
 	DR_STE_SIZE_REDUCED	= DR_STE_SIZE - DR_STE_SIZE_MASK,
@@ -201,6 +202,7 @@ struct dr_ste {
 
 	/* this ste is part of a rule, located in ste's chain */
 	uint8_t			ste_chain_location;
+	uint8_t			size;
 };
 
 struct dr_ste_htbl_ctrl {
@@ -215,7 +217,13 @@ struct dr_ste_htbl_ctrl {
 	bool	may_grow;
 };
 
+enum dr_ste_htbl_type {
+	DR_STE_HTBL_TYPE_LEGACY		= 0,
+	DR_STE_HTBL_TYPE_MATCH		= 1,
+};
+
 struct dr_ste_htbl {
+	enum dr_ste_htbl_type	type;
 	uint16_t		lu_type;
 	uint16_t		byte_mask;
 	atomic_int		refcount;
@@ -251,6 +259,7 @@ struct dr_ste_build {
 	bool			rx;
 	struct dr_devx_caps	*caps;
 	uint16_t		lu_type;
+	enum dr_ste_htbl_type	htbl_type;
 	uint16_t		byte_mask;
 	uint8_t			bit_mask[DR_STE_SIZE_MASK];
 	int (*ste_build_tag_func)(struct dr_match_param *spec,
@@ -260,6 +269,7 @@ struct dr_ste_build {
 
 struct dr_ste_htbl *dr_ste_htbl_alloc(struct dr_icm_pool *pool,
 				      enum dr_icm_chunk_size chunk_size,
+				      enum dr_ste_htbl_type type,
 				      uint16_t lu_type, uint16_t byte_mask);
 int dr_ste_htbl_free(struct dr_ste_htbl *htbl);
 
@@ -283,13 +293,21 @@ void dr_ste_set_hit_addr_by_next_htbl(struct dr_ste_ctx *ste_ctx,
 				      struct dr_ste_htbl *next_htbl);
 void dr_ste_set_hit_addr(struct dr_ste_ctx *ste_ctx, uint8_t *hw_ste_p,
 			 uint64_t icm_addr, uint32_t ht_size);
-void dr_ste_set_bit_mask(uint8_t *hw_ste_p, uint8_t *bit_mask);
+void dr_ste_set_bit_mask(uint8_t *hw_ste_p, struct dr_ste_build *sb);
 bool dr_ste_is_last_in_rule(struct dr_matcher_rx_tx *nic_matcher,
 			    uint8_t ste_location);
 uint64_t dr_ste_get_icm_addr(struct dr_ste *ste);
 uint64_t dr_ste_get_mr_addr(struct dr_ste *ste);
 struct list_head *dr_ste_get_miss_list(struct dr_ste *ste);
 struct dr_ste *dr_ste_get_miss_list_top(struct dr_ste *ste);
+
+static inline int dr_ste_tag_sz(struct dr_ste *ste)
+{
+	if (ste->htbl->type == DR_STE_HTBL_TYPE_LEGACY)
+		return DR_STE_SIZE_TAG;
+
+	return DR_STE_SIZE_MATCH_TAG;
+}
 
 #define MAX_VLANS 2
 
@@ -392,7 +410,7 @@ static inline bool dr_ste_is_not_used(struct dr_ste *ste)
 	return !atomic_load(&ste->refcount);
 }
 
-bool dr_ste_equal_tag(void *src, void *dst);
+bool dr_ste_equal_tag(void *src, void *dst, uint8_t tag_size);
 int dr_ste_create_next_htbl(struct mlx5dv_dr_matcher *matcher,
 			    struct dr_matcher_rx_tx *nic_matcher,
 			    struct dr_ste *ste,
@@ -1340,6 +1358,8 @@ struct dr_icm_buddy_mem {
 	 * sync_ste command sets them free.
 	 */
 	struct list_head	hot_list;
+	/* HW STE cache entry size */
+	uint8_t                 hw_ste_sz;
 };
 
 int dr_buddy_init(struct dr_icm_buddy_mem *buddy, uint32_t max_order);

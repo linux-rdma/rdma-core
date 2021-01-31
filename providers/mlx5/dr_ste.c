@@ -86,11 +86,12 @@ static uint8_t *dr_ste_get_tag(uint8_t *hw_ste_p)
 	return hw_ste->tag;
 }
 
-void dr_ste_set_bit_mask(uint8_t *hw_ste_p, uint8_t *bit_mask)
+void dr_ste_set_bit_mask(uint8_t *hw_ste_p, struct dr_ste_build *sb)
 {
 	struct dr_hw_ste_format *hw_ste = (struct dr_hw_ste_format *)hw_ste_p;
 
-	memcpy(hw_ste->mask, bit_mask, DR_STE_SIZE_MASK);
+	if (sb->htbl_type == DR_STE_HTBL_TYPE_LEGACY)
+		memcpy(hw_ste->mask, sb->bit_mask, DR_STE_SIZE_MASK);
 }
 
 static void dr_ste_set_always_hit(struct dr_hw_ste_format *hw_ste)
@@ -199,7 +200,7 @@ bool dr_ste_is_last_in_rule(struct dr_matcher_rx_tx *nic_matcher,
  */
 static void dr_ste_replace(struct dr_ste *dst, struct dr_ste *src)
 {
-	memcpy(dst->hw_ste, src->hw_ste, DR_STE_SIZE_REDUCED);
+	memcpy(dst->hw_ste, src->hw_ste, dst->size);
 	dst->next_htbl = src->next_htbl;
 	if (dst->next_htbl)
 		dst->next_htbl->pointing_ste = dst;
@@ -256,6 +257,7 @@ dr_ste_replace_head_ste(struct dr_matcher_rx_tx *nic_matcher,
 {
 	struct dr_ste_htbl *next_miss_htbl;
 	uint8_t hw_ste[DR_STE_SIZE] = {};
+	struct dr_ste_build *sb;
 	int sb_idx;
 
 	next_miss_htbl = next_ste->htbl;
@@ -269,10 +271,12 @@ dr_ste_replace_head_ste(struct dr_matcher_rx_tx *nic_matcher,
 	/* Update the rule on STE change */
 	dr_rule_set_last_member(next_ste->rule_rx_tx, ste, false);
 
-	/* Copy all 64 hw_ste bytes */
-	memcpy(hw_ste, ste->hw_ste, DR_STE_SIZE_REDUCED);
 	sb_idx = ste->ste_chain_location - 1;
-	dr_ste_set_bit_mask(hw_ste, nic_matcher->ste_builder[sb_idx].bit_mask);
+	sb = &nic_matcher->ste_builder[sb_idx];
+
+	/* Copy all 64 hw_ste bytes */
+	memcpy(hw_ste, ste->hw_ste, ste->size);
+	dr_ste_set_bit_mask(hw_ste, sb);
 
 	/*
 	 * Del the htbl that contains the next_ste.
@@ -374,12 +378,12 @@ void dr_ste_free(struct dr_ste *ste,
 		dr_htbl_put(ste->htbl);
 }
 
-bool dr_ste_equal_tag(void *src, void *dst)
+bool dr_ste_equal_tag(void *src, void *dst, uint8_t tag_size)
 {
 	struct dr_hw_ste_format *s_hw_ste = (struct dr_hw_ste_format *)src;
 	struct dr_hw_ste_format *d_hw_ste = (struct dr_hw_ste_format *)dst;
 
-	return !memcmp(s_hw_ste->tag, d_hw_ste->tag, DR_STE_SIZE_TAG);
+	return !memcmp(s_hw_ste->tag, d_hw_ste->tag, tag_size);
 }
 
 void dr_ste_set_hit_addr_by_next_htbl(struct dr_ste_ctx *ste_ctx,
@@ -457,6 +461,7 @@ int dr_ste_create_next_htbl(struct mlx5dv_dr_matcher *matcher,
 
 		next_htbl = dr_ste_htbl_alloc(dmn->ste_icm_pool,
 					      log_table_size,
+					      ste->htbl->type,
 					      next_lu_type,
 					      byte_mask);
 		if (!next_htbl) {
@@ -502,10 +507,12 @@ static void dr_ste_set_ctrl(struct dr_ste_htbl *htbl)
 
 struct dr_ste_htbl *dr_ste_htbl_alloc(struct dr_icm_pool *pool,
 				      enum dr_icm_chunk_size chunk_size,
+				      enum dr_ste_htbl_type type,
 				      uint16_t lu_type, uint16_t byte_mask)
 {
 	struct dr_icm_chunk *chunk;
 	struct dr_ste_htbl *htbl;
+	uint8_t ste_size;
 	int i;
 
 	htbl = calloc(1, sizeof(struct dr_ste_htbl));
@@ -518,6 +525,12 @@ struct dr_ste_htbl *dr_ste_htbl_alloc(struct dr_icm_pool *pool,
 	if (!chunk)
 		goto out_free_htbl;
 
+	if (type == DR_STE_HTBL_TYPE_LEGACY)
+		ste_size = DR_STE_SIZE_REDUCED;
+	else
+		ste_size = DR_STE_SIZE;
+
+	htbl->type = type;
 	htbl->chunk = chunk;
 	htbl->lu_type = lu_type;
 	htbl->byte_mask = byte_mask;
@@ -529,8 +542,9 @@ struct dr_ste_htbl *dr_ste_htbl_alloc(struct dr_icm_pool *pool,
 	for (i = 0; i < chunk->num_of_entries; i++) {
 		struct dr_ste *ste = &htbl->ste_arr[i];
 
-		ste->hw_ste = htbl->hw_ste_arr + i * DR_STE_SIZE_REDUCED;
+		ste->hw_ste = htbl->hw_ste_arr + i * ste_size;
 		ste->htbl = htbl;
+		ste->size = ste_size;
 		atomic_init(&ste->refcount, 0);
 		list_node_init(&ste->miss_list_node);
 		list_head_init(&htbl->miss_list[i]);
@@ -711,7 +725,7 @@ int dr_ste_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				  is_rx,
 				  dmn->info.caps.gvmi);
 
-		dr_ste_set_bit_mask(ste_arr, sb->bit_mask);
+		dr_ste_set_bit_mask(ste_arr, sb);
 
 		ret = sb->ste_build_tag_func(value, sb, dr_ste_get_tag(ste_arr));
 		if (ret)

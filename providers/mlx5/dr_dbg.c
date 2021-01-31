@@ -250,7 +250,7 @@ static int dr_dump_rule_mem(FILE *f, struct dr_ste *ste,
 				       DR_DUMP_REC_TYPE_RULE_TX_ENTRY_V1;
 	}
 
-	dump_hex_print(hw_ste_dump, (char *)ste->hw_ste, DR_STE_SIZE_REDUCED);
+	dump_hex_print(hw_ste_dump, (char *)ste->hw_ste, ste->size);
 	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",%s\n",
 		      mem_rec_type,
 		      dr_dump_icm_to_idx(dr_ste_get_icm_addr(ste)),
