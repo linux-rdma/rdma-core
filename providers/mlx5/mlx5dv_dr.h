@@ -213,8 +213,6 @@ struct dr_ste_htbl_ctrl {
 
 	/* total number of collisions entries attached to this table */
 	int	num_of_collisions;
-	int	increase_threshold;
-	bool	may_grow;
 };
 
 enum dr_ste_htbl_type {
@@ -1112,6 +1110,26 @@ dr_icm_pool_chunk_size_to_byte(enum dr_icm_chunk_size chunk_size,
 	num_of_entries = dr_icm_pool_chunk_size_to_entries(chunk_size);
 
 	return entry_size * num_of_entries;
+}
+
+static inline int
+dr_ste_htbl_increase_threshold(struct dr_ste_htbl *htbl)
+{
+	int num_of_entries =
+		dr_icm_pool_chunk_size_to_entries(htbl->chunk_size);
+
+	/* Threshold is 50%, one is added to table of size 1 */
+	return (num_of_entries + 1) / 2;
+}
+
+static inline bool
+dr_ste_htbl_may_grow(struct dr_ste_htbl *htbl)
+{
+	if (htbl->chunk_size == DR_CHUNK_SIZE_MAX - 1 ||
+	    (htbl->type == DR_STE_HTBL_TYPE_LEGACY && !htbl->byte_mask))
+		return false;
+
+	return true;
 }
 
 static inline struct dr_devx_vport_cap

@@ -684,19 +684,21 @@ static bool dr_rule_need_enlarge_hash(struct dr_ste_htbl *htbl,
 				      struct dr_domain_rx_tx *nic_dmn)
 {
 	struct dr_ste_htbl_ctrl *ctrl = &htbl->ctrl;
+	int threshold;
 
 	if (dmn->info.max_log_sw_icm_sz <= htbl->chunk_size)
 		return false;
 
-	if (!ctrl->may_grow)
+	if (!dr_ste_htbl_may_grow(htbl))
 		return false;
 
 	if (htbl->type == DR_STE_HTBL_TYPE_LEGACY &&
 	    dr_get_bits_per_mask(htbl->byte_mask) * CHAR_BIT <= htbl->chunk_size)
 		return false;
 
-	if (ctrl->num_of_collisions >= ctrl->increase_threshold &&
-	    (ctrl->num_of_valid_entries - ctrl->num_of_collisions) >= ctrl->increase_threshold)
+	threshold = dr_ste_htbl_increase_threshold(htbl);
+	if (ctrl->num_of_collisions >= threshold &&
+	    (ctrl->num_of_valid_entries - ctrl->num_of_collisions) >= threshold)
 		return true;
 
 	return false;

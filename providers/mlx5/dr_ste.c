@@ -490,21 +490,6 @@ free_table:
 	return ENOENT;
 }
 
-static void dr_ste_set_ctrl(struct dr_ste_htbl *htbl)
-{
-	struct dr_ste_htbl_ctrl *ctrl = &htbl->ctrl;
-	int num_of_entries;
-
-	htbl->ctrl.may_grow = true;
-
-	if (htbl->chunk_size == DR_CHUNK_SIZE_MAX - 1 || !htbl->byte_mask)
-		htbl->ctrl.may_grow = false;
-
-	/* Threshold is 50%, one is added to table of size 1 */
-	num_of_entries = dr_icm_pool_chunk_size_to_entries(htbl->chunk_size);
-	ctrl->increase_threshold = (num_of_entries + 1) / 2;
-}
-
 struct dr_ste_htbl *dr_ste_htbl_alloc(struct dr_icm_pool *pool,
 				      enum dr_icm_chunk_size chunk_size,
 				      enum dr_ste_htbl_type type,
@@ -551,7 +536,7 @@ struct dr_ste_htbl *dr_ste_htbl_alloc(struct dr_icm_pool *pool,
 	}
 
 	htbl->chunk_size = chunk_size;
-	dr_ste_set_ctrl(htbl);
+
 	return htbl;
 
 out_free_htbl:
