@@ -1831,9 +1831,14 @@ int mlx5dv_get_clock_info(struct ibv_context *ctx_in,
 			  struct mlx5dv_clock_info *clock_info)
 {
 	struct mlx5_context *ctx = to_mctx(ctx_in);
-	const struct mlx5_ib_clock_info *ci = ctx->clock_info_page;
+	const struct mlx5_ib_clock_info *ci;
 	uint32_t retry, tmp_sig;
 	atomic_uint32_t *sig;
+
+	if (!is_mlx5_dev(ctx_in->device))
+		return EOPNOTSUPP;
+
+	ci = ctx->clock_info_page;
 
 	if (!ci)
 		return EINVAL;
