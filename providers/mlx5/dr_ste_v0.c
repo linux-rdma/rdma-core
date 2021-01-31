@@ -342,6 +342,25 @@ static void dr_ste_v0_init(uint8_t *hw_ste_p, uint16_t lu_type,
 	dr_ste_v0_init_full(hw_ste_p, lu_type, entry_type, gvmi);
 }
 
+static void dr_ste_v0_set_ctrl_always_hit_htbl(uint8_t *hw_ste_p,
+					       uint16_t byte_mask,
+					       uint16_t lu_type,
+					       uint64_t icm_addr,
+					       uint32_t num_of_entries,
+					       uint16_t gvmi)
+{
+	dr_ste_v0_set_next_lu_type(hw_ste_p, lu_type);
+	dr_ste_v0_set_hit_addr(hw_ste_p, icm_addr, num_of_entries);
+	dr_ste_v0_set_byte_mask(hw_ste_p, byte_mask);
+}
+
+static void dr_ste_v0_set_ctrl_always_miss(uint8_t *hw_ste_p, uint64_t miss_addr,
+					   uint16_t gvmi)
+{
+	dr_ste_v0_set_next_lu_type(hw_ste_p, DR_STE_LU_TYPE_DONT_CARE);
+	dr_ste_v0_set_miss_addr(hw_ste_p, miss_addr);
+}
+
 static void dr_ste_v0_set_rx_flow_tag(uint8_t *hw_ste_p, uint32_t flow_tag)
 {
 	DR_STE_SET(rx_steering_mult, hw_ste_p, qp_list_pointer,
@@ -1809,6 +1828,8 @@ static struct dr_ste_ctx ste_ctx_v0 = {
 	.set_hit_addr			= &dr_ste_v0_set_hit_addr,
 	.set_byte_mask			= &dr_ste_v0_set_byte_mask,
 	.get_byte_mask			= &dr_ste_v0_get_byte_mask,
+	.set_ctrl_always_hit_htbl	= &dr_ste_v0_set_ctrl_always_hit_htbl,
+	.set_ctrl_always_miss		= &dr_ste_v0_set_ctrl_always_miss,
 	/* Actions */
 	.actions_caps			= DR_STE_CTX_ACTION_CAP_NONE,
 	.set_actions_rx			= &dr_ste_v0_set_actions_rx,

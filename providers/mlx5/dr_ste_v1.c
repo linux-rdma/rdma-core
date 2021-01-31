@@ -311,6 +311,11 @@ static void dr_ste_v1_set_entry_type(uint8_t *hw_ste_p, uint8_t entry_type)
 	DR_STE_SET(match_bwc_v1, hw_ste_p, entry_format, entry_type);
 }
 
+static uint8_t dr_ste_v1_get_entry_type(uint8_t *hw_ste_p)
+{
+	return DR_STE_GET(match_bwc_v1, hw_ste_p, entry_format);
+}
+
 static void dr_ste_v1_set_miss_addr(uint8_t *hw_ste_p, uint64_t miss_addr)
 {
 	uint64_t index = miss_addr >> 6;
@@ -330,7 +335,8 @@ static uint64_t dr_ste_v1_get_miss_addr(uint8_t *hw_ste_p)
 
 static void dr_ste_v1_set_byte_mask(uint8_t *hw_ste_p, uint16_t byte_mask)
 {
-	DR_STE_SET(match_bwc_v1, hw_ste_p, byte_mask, byte_mask);
+	if (dr_ste_v1_get_entry_type(hw_ste_p) != DR_STE_V1_TYPE_MATCH)
+		DR_STE_SET(match_bwc_v1, hw_ste_p, byte_mask, byte_mask);
 }
 
 static uint16_t dr_ste_v1_get_byte_mask(uint8_t *hw_ste_p)
@@ -346,7 +352,8 @@ static void dr_ste_v1_set_lu_type(uint8_t *hw_ste_p, uint16_t lu_type)
 
 static void dr_ste_v1_set_next_lu_type(uint8_t *hw_ste_p, uint16_t lu_type)
 {
-	DR_STE_SET(match_bwc_v1, hw_ste_p, next_entry_format, lu_type >> 8);
+	if (dr_ste_v1_get_entry_type(hw_ste_p) != DR_STE_V1_TYPE_MATCH)
+		DR_STE_SET(match_bwc_v1, hw_ste_p, next_entry_format, lu_type >> 8);
 	DR_STE_SET(match_bwc_v1, hw_ste_p, hash_definer_ctx_idx, lu_type & 0xFF);
 }
 
@@ -366,20 +373,67 @@ static void dr_ste_v1_set_hit_addr(uint8_t *hw_ste_p, uint64_t icm_addr, uint32_
 	DR_STE_SET(match_bwc_v1, hw_ste_p, next_table_base_31_5_size, index);
 }
 
+static bool dr_ste_v1_is_match_ste(uint16_t lu_type)
+{
+	return ((lu_type >> 8) == DR_STE_V1_TYPE_MATCH);
+}
+
 static void dr_ste_v1_init(uint8_t *hw_ste_p, uint16_t lu_type,
 			   bool is_rx, uint16_t gvmi)
 {
 	dr_ste_v1_set_lu_type(hw_ste_p, lu_type);
-	dr_ste_v1_set_next_lu_type(hw_ste_p, DR_STE_LU_TYPE_DONT_CARE);
 
-	DR_STE_SET(match_bwc_v1, hw_ste_p, gvmi, gvmi);
+	/* No need for GVMI on match ste */
+	if (!dr_ste_v1_is_match_ste(lu_type))
+		DR_STE_SET(match_bwc_v1, hw_ste_p, gvmi, gvmi);
+
+	dr_ste_v1_set_next_lu_type(hw_ste_p, DR_STE_LU_TYPE_DONT_CARE);
 	DR_STE_SET(match_bwc_v1, hw_ste_p, next_table_base_63_48, gvmi);
 	DR_STE_SET(match_bwc_v1, hw_ste_p, miss_address_63_48, gvmi);
+}
+
+static void dr_ste_v1_set_ctrl_always_hit_htbl(uint8_t *hw_ste_p,
+					       uint16_t byte_mask,
+					       uint16_t lu_type,
+					       uint64_t icm_addr,
+					       uint32_t num_of_entries,
+					       uint16_t gvmi)
+{
+	bool target_is_match = dr_ste_v1_is_match_ste(lu_type);
+
+	if (target_is_match) {
+		uint32_t *first_action;
+
+		/* Convert STE to MATCH */
+		dr_ste_v1_set_entry_type(hw_ste_p, DR_STE_V1_TYPE_MATCH);
+		dr_ste_v1_set_miss_addr(hw_ste_p, 0);
+
+		first_action = (uint32_t *)DEVX_ADDR_OF(ste_mask_and_match_v1,
+							hw_ste_p, action);
+		*first_action = 0;
+	} else {
+		/* Convert STE to BWC */
+		dr_ste_v1_set_entry_type(hw_ste_p, DR_STE_V1_TYPE_BWC_BYTE);
+		dr_ste_v1_set_byte_mask(hw_ste_p, byte_mask);
+		DR_STE_SET(match_bwc_v1, hw_ste_p, gvmi, gvmi);
+		DR_STE_SET(match_bwc_v1, hw_ste_p, mask_mode, 0);
+	}
+	dr_ste_v1_set_next_lu_type(hw_ste_p, lu_type);
+	dr_ste_v1_set_hit_addr(hw_ste_p, icm_addr, num_of_entries);
+}
+
+static void dr_ste_v1_set_ctrl_always_miss(uint8_t *hw_ste_p, uint64_t miss_addr,
+					   uint16_t gvmi)
+{
+	dr_ste_v1_set_hit_addr(hw_ste_p, -1, 0);
+	dr_ste_v1_set_next_lu_type(hw_ste_p, DR_STE_V1_LU_TYPE_DONT_CARE);
+	dr_ste_v1_set_miss_addr(hw_ste_p, miss_addr);
 }
 
 static void dr_ste_v1_prepare_for_postsend(uint8_t *hw_ste_p,
 					   uint32_t ste_size)
 {
+	uint8_t entry_type = dr_ste_v1_get_entry_type(hw_ste_p);
 	uint8_t *tag = hw_ste_p + DR_STE_SIZE_CTRL;
 	uint8_t *mask = tag + DR_STE_SIZE_TAG;
 	uint8_t tmp_tag[DR_STE_SIZE_TAG] = {};
@@ -389,6 +443,9 @@ static void dr_ste_v1_prepare_for_postsend(uint8_t *hw_ste_p,
 
 	if (ste_size != DR_STE_SIZE)
 		assert(false);
+
+	if (entry_type == DR_STE_V1_TYPE_MATCH)
+		return;
 
 	/* Backup tag */
 	memcpy(tmp_tag, tag, DR_STE_SIZE_TAG);
@@ -2157,6 +2214,8 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	.set_hit_addr			= &dr_ste_v1_set_hit_addr,
 	.set_byte_mask			= &dr_ste_v1_set_byte_mask,
 	.get_byte_mask			= &dr_ste_v1_get_byte_mask,
+	.set_ctrl_always_hit_htbl	= &dr_ste_v1_set_ctrl_always_hit_htbl,
+	.set_ctrl_always_miss		= &dr_ste_v1_set_ctrl_always_miss,
 	/* Actions */
 	.actions_caps			= DR_STE_CTX_ACTION_CAP_TX_POP |
 					  DR_STE_CTX_ACTION_CAP_RX_PUSH |

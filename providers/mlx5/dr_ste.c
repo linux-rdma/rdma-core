@@ -125,12 +125,13 @@ void dr_ste_set_miss_addr(struct dr_ste_ctx *ste_ctx, uint8_t *hw_ste_p,
 
 static void dr_ste_always_miss_addr(struct dr_ste_ctx *ste_ctx,
 				    struct dr_ste *ste,
-				    uint64_t miss_addr)
+				    uint64_t miss_addr,
+				    uint16_t gvmi)
 {
 	uint8_t *hw_ste_p = ste->hw_ste;
 
-	ste_ctx->set_next_lu_type(hw_ste_p, DR_STE_LU_TYPE_DONT_CARE);
-	ste_ctx->set_miss_addr(hw_ste_p, miss_addr);
+	ste_ctx->set_ctrl_always_miss(hw_ste_p, miss_addr, gvmi);
+
 	dr_ste_set_always_miss((struct dr_hw_ste_format *)ste->hw_ste);
 }
 
@@ -178,14 +179,18 @@ struct dr_ste *dr_ste_get_miss_list_top(struct dr_ste *ste)
 
 static void dr_ste_always_hit_htbl(struct dr_ste_ctx *ste_ctx,
 				   struct dr_ste *ste,
-				   struct dr_ste_htbl *next_htbl)
+				   struct dr_ste_htbl *next_htbl,
+				   uint16_t gvmi)
 {
 	struct dr_icm_chunk *chunk = next_htbl->chunk;
 	uint8_t *hw_ste = ste->hw_ste;
 
-	ste_ctx->set_byte_mask(hw_ste, next_htbl->byte_mask);
-	ste_ctx->set_next_lu_type(hw_ste, next_htbl->lu_type);
-	ste_ctx->set_hit_addr(hw_ste, chunk->icm_addr, chunk->num_of_entries);
+	ste_ctx->set_ctrl_always_hit_htbl(hw_ste,
+					  next_htbl->byte_mask,
+					  next_htbl->lu_type,
+					  chunk->icm_addr,
+					  chunk->num_of_entries,
+					  gvmi);
 
 	dr_ste_set_always_hit((struct dr_hw_ste_format *)ste->hw_ste);
 }
@@ -222,31 +227,32 @@ static void dr_ste_replace(struct dr_ste *dst, struct dr_ste *src)
 /* Free ste which is the head and the only one in miss_list */
 static void
 dr_ste_remove_head_ste(struct dr_ste_ctx *ste_ctx,
+		       struct mlx5dv_dr_domain *dmn,
 		       struct dr_ste *ste,
 		       struct dr_matcher_rx_tx *nic_matcher,
 		       struct dr_ste_send_info *ste_info_head,
 		       struct list_head *send_ste_list,
 		       struct dr_ste_htbl *stats_tbl)
 {
-	uint8_t tmp_data_ste[DR_STE_SIZE] = {};
-	struct dr_ste tmp_ste = {};
-	uint64_t miss_addr;
+	struct dr_domain_rx_tx *nic_dmn = nic_matcher->nic_tbl->nic_dmn;
+	uint8_t formated_ste[DR_STE_SIZE] = {};
+	struct dr_htbl_connect_info info;
 
-	tmp_ste.hw_ste = tmp_data_ste;
-	/*
-	 * Use temp ste because dr_ste_always_miss_addr
-	 * touches bit_mask area which doesn't exist at ste->hw_ste.
-	 */
-	memcpy(tmp_ste.hw_ste, ste->hw_ste, DR_STE_SIZE_REDUCED);
-	miss_addr = nic_matcher->e_anchor->chunk->icm_addr;
-	dr_ste_always_miss_addr(ste_ctx, &tmp_ste, miss_addr);
-	memcpy(ste->hw_ste, tmp_ste.hw_ste, DR_STE_SIZE_REDUCED);
+	info.type = CONNECT_MISS;
+	info.miss_icm_addr = nic_matcher->e_anchor->chunk->icm_addr;
+	dr_ste_set_formated_ste(ste_ctx,
+				dmn->info.caps.gvmi,
+				nic_dmn->type,
+				ste->htbl,
+				formated_ste,
+				&info);
+	memcpy(ste->hw_ste, formated_ste, ste->size);
 
 	list_del_init(&ste->miss_list_node);
 
 	/* Write full STE size in order to have "always_miss" */
 	dr_send_fill_and_append_ste_send_info(ste, DR_STE_SIZE,
-					      0, tmp_data_ste,
+					      0, formated_ste,
 					      ste_info_head,
 					      send_ste_list,
 					      true /* Copy data */);
@@ -360,7 +366,7 @@ void dr_ste_free(struct dr_ste *ste,
 		next_ste = list_next(dr_ste_get_miss_list(ste), ste, miss_list_node);
 		if (!next_ste) {
 			/* One and only entry in the list */
-			dr_ste_remove_head_ste(ste_ctx, ste,
+			dr_ste_remove_head_ste(ste_ctx, dmn, ste,
 					       nic_matcher,
 					       &ste_info_head,
 					       &send_ste_list,
@@ -428,9 +434,9 @@ void dr_ste_set_formated_ste(struct dr_ste_ctx *ste_ctx,
 	ste.hw_ste = formated_ste;
 
 	if (connect_info->type == CONNECT_HIT)
-		dr_ste_always_hit_htbl(ste_ctx, &ste, connect_info->hit_next_htbl);
+		dr_ste_always_hit_htbl(ste_ctx, &ste, connect_info->hit_next_htbl, gvmi);
 	else
-		dr_ste_always_miss_addr(ste_ctx, &ste, connect_info->miss_icm_addr);
+		dr_ste_always_miss_addr(ste_ctx, &ste, connect_info->miss_icm_addr, gvmi);
 }
 
 int dr_ste_htbl_init_and_postsend(struct mlx5dv_dr_domain *dmn,
