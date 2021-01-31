@@ -655,11 +655,19 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 				     struct dr_ste_actions_attr *attr,
 				     uint32_t *added_stes)
 {
-	uint8_t *action = DEVX_ADDR_OF(ste_match_bwc_v1, last_ste, action);
-	uint8_t action_sz = DR_STE_ACTION_DOUBLE_SZ;
 	bool allow_modify_hdr = true;
 	bool allow_pop_vlan = true;
 	bool allow_encap = true;
+	uint8_t action_sz;
+	uint8_t *action;
+
+	if (dr_ste_v1_get_entry_type(last_ste) == DR_STE_V1_TYPE_MATCH) {
+		action_sz = DR_STE_ACTION_TRIPLE_SZ;
+		action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste, action);
+	} else {
+		action_sz = DR_STE_ACTION_DOUBLE_SZ;
+		action = DEVX_ADDR_OF(ste_match_bwc_v1, last_ste, action);
+	}
 
 	if (action_type_set[DR_ACTION_TYP_ASO_FLOW_METER]) {
 		if (action_sz < DR_STE_ACTION_DOUBLE_SZ) {
@@ -783,9 +791,11 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 	} else if (action_type_set[DR_ACTION_TYP_L2_TO_TNL_L3]) {
 		uint8_t *d_action;
 
-		dr_ste_v1_arr_init_next_match(&last_ste, added_stes, attr->gvmi);
-		action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste, action);
-		action_sz = DR_STE_ACTION_TRIPLE_SZ;
+		if (action_sz < DR_STE_ACTION_TRIPLE_SZ) {
+			dr_ste_v1_arr_init_next_match(&last_ste, added_stes, attr->gvmi);
+			action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste, action);
+			action_sz = DR_STE_ACTION_TRIPLE_SZ;
+		}
 		d_action = action + DR_STE_ACTION_SINGLE_SZ;
 
 		dr_ste_v1_set_encap_l3(last_ste,
@@ -804,10 +814,18 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 				     struct dr_ste_actions_attr *attr,
 				     uint32_t *added_stes)
 {
-	uint8_t *action = DEVX_ADDR_OF(ste_match_bwc_v1, last_ste, action);
-	uint8_t action_sz = DR_STE_ACTION_DOUBLE_SZ;
 	bool allow_modify_hdr = true;
 	bool allow_ctr = true;
+	uint8_t action_sz;
+	uint8_t *action;
+
+	if (dr_ste_v1_get_entry_type(last_ste) == DR_STE_V1_TYPE_MATCH) {
+		action_sz = DR_STE_ACTION_TRIPLE_SZ;
+		action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste, action);
+	} else {
+		action_sz = DR_STE_ACTION_DOUBLE_SZ;
+		action = DEVX_ADDR_OF(ste_match_bwc_v1, last_ste, action);
+	}
 
 	if (action_type_set[DR_ACTION_TYP_TNL_L3_TO_L2]) {
 		dr_ste_v1_set_rx_decap_l3(last_ste, action,
