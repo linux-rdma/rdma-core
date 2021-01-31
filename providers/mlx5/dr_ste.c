@@ -38,29 +38,40 @@ struct dr_hw_ste_format {
 	uint8_t mask[DR_STE_SIZE_MASK];
 };
 
-uint32_t dr_ste_calc_hash_index(uint8_t *hw_ste_p,
-				struct dr_ste_htbl *htbl)
+uint32_t dr_ste_calc_hash_index(uint8_t *hw_ste_p, struct dr_ste_htbl *htbl)
 {
 	struct dr_hw_ste_format *hw_ste = (struct dr_hw_ste_format *)hw_ste_p;
 	uint8_t masked[DR_STE_SIZE_TAG] = {};
 	uint32_t crc32, index;
+	uint8_t *p_masked;
 	uint16_t bit;
+	size_t len;
 	int i;
 
 	/* Don't calculate CRC if the result is predicted */
-	if (htbl->chunk->num_of_entries == 1 || htbl->byte_mask == 0)
+	if (htbl->chunk->num_of_entries == 1)
 		return 0;
 
-	/* Mask tag using byte mask, bit per byte */
-	bit = 1 << (DR_STE_SIZE_TAG - 1);
-	for (i = 0; i < DR_STE_SIZE_TAG; i++) {
-		if (htbl->byte_mask & bit)
-			masked[i] = hw_ste->tag[i];
+	if (htbl->type == DR_STE_HTBL_TYPE_LEGACY) {
+		if (htbl->byte_mask == 0)
+			return 0;
 
-		bit = bit >> 1;
+		len = DR_STE_SIZE_TAG;
+		/* Mask tag using byte mask, bit per byte */
+		bit = 1 << (DR_STE_SIZE_TAG - 1);
+		for (i = 0; i < DR_STE_SIZE_TAG; i++) {
+			if (htbl->byte_mask & bit)
+				masked[i] = hw_ste->tag[i];
+
+			bit = bit >> 1;
+		}
+		p_masked = masked;
+	} else {
+		len = DR_STE_SIZE_MATCH_TAG;
+		p_masked = hw_ste->tag;
 	}
 
-	crc32 = dr_crc32_slice8_calc(masked, DR_STE_SIZE_TAG);
+	crc32 = dr_crc32_slice8_calc(p_masked, len);
 	index = crc32 % htbl->chunk->num_of_entries;
 
 	return index;
