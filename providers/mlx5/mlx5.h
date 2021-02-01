@@ -259,6 +259,7 @@ enum mlx5_ctx_flags {
 	MLX5_CTX_FLAGS_FATAL_STATE = 1 << 0,
 	MLX5_CTX_FLAGS_NO_KERN_DYN_UAR = 1 << 1,
 	MLX5_CTX_FLAGS_ECE_SUPPORTED = 1 << 2,
+	MLX5_CTX_FLAGS_SQD2RTS_SUPPORTED = 1 << 3,
 };
 
 struct mlx5_entropy_caps {
@@ -616,6 +617,7 @@ struct mlx5_mr {
 
 enum mlx5_qp_flags {
 	MLX5_QP_FLAGS_USE_UNDERLAY = 0x01,
+	MLX5_QP_FLAGS_DRAIN_SIGERR = 0x02,
 };
 
 struct mlx5_qp {
@@ -1090,6 +1092,7 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask);
 int mlx5_modify_qp_rate_limit(struct ibv_qp *qp,
 			      struct ibv_qp_rate_limit_attr *attr);
+int mlx5_modify_qp_drain_sigerr(struct ibv_qp *qp);
 int mlx5_destroy_qp(struct ibv_qp *qp);
 void mlx5_init_qp_indices(struct mlx5_qp *qp);
 void mlx5_init_rwq_indices(struct mlx5_rwq *rwq);

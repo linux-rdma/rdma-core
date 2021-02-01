@@ -2091,7 +2091,8 @@ enum {
 		 MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_MC |
 		 MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE |
 		 MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE |
-		 MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE),
+		 MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE |
+		 MLX5DV_QP_CREATE_SIG_PIPELINING),
 };
 
 static int create_dct(struct ibv_context *context,
@@ -2286,6 +2287,16 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 			if (mlx5_qp_attr->create_flags &
 			    MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE)
 				mlx5_create_flags |= MLX5_QP_FLAG_PACKET_BASED_CREDIT_MODE;
+
+			if (mlx5_qp_attr->create_flags &
+			    MLX5DV_QP_CREATE_SIG_PIPELINING) {
+				if (!(to_mctx(context)->flags &
+				      MLX5_CTX_FLAGS_SQD2RTS_SUPPORTED)) {
+					errno = EOPNOTSUPP;
+					goto err;
+				}
+				qp->flags |= MLX5_QP_FLAGS_DRAIN_SIGERR;
+			}
 
 		}
 
@@ -2846,6 +2857,13 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		mlx5_spin_lock(&mqp->rq.lock);
 		mqp->db[MLX5_RCV_DBR] = htobe32(mqp->rq.head & 0xffff);
 		mlx5_spin_unlock(&mqp->rq.lock);
+	}
+
+	if (!ret &&
+	    (attr_mask & IBV_QP_STATE) &&
+	    attr->qp_state == IBV_QPS_INIT &&
+	    (mqp->flags & MLX5_QP_FLAGS_DRAIN_SIGERR)) {
+		ret = mlx5_modify_qp_drain_sigerr(qp);
 	}
 
 	return ret;

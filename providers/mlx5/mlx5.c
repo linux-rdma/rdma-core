@@ -1655,6 +1655,22 @@ int mlx5dv_modify_qp_sched_elem(struct ibv_qp *qp,
 	}
 }
 
+int mlx5_modify_qp_drain_sigerr(struct ibv_qp *qp)
+{
+	uint64_t mask = MLX5_QPC_OPT_MASK_INIT2INIT_DRAIN_SIGERR;
+	uint32_t in[DEVX_ST_SZ_DW(init2init_qp_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(init2init_qp_out)] = {};
+	void *qpc = DEVX_ADDR_OF(init2init_qp_in, in, qpc);
+
+	DEVX_SET(init2init_qp_in, in, opcode, MLX5_CMD_OP_INIT2INIT_QP);
+	DEVX_SET(init2init_qp_in, in, qpn, qp->qp_num);
+	DEVX_SET(init2init_qp_in, in, opt_param_mask, mask);
+
+	DEVX_SET(qpc, qpc, drain_sigerr, 1);
+
+	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+}
+
 static struct reserved_qpn_blk *reserved_qpn_blk_alloc(struct mlx5_context *mctx)
 {
 	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
@@ -2083,6 +2099,9 @@ static int mlx5_set_context(struct mlx5_context *context,
 
 	if (resp->comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_ECE)
 		context->flags |= MLX5_CTX_FLAGS_ECE_SUPPORTED;
+
+	if (resp->comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_SQD2RTS)
+		context->flags |= MLX5_CTX_FLAGS_SQD2RTS_SUPPORTED;
 
 	if (resp->comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_DUMP_FILL_MKEY) {
 		context->dump_fill_mkey = resp->dump_fill_mkey;

@@ -3209,6 +3209,7 @@ enum mlx5_qpc_opt_mask_32 {
 };
 
 enum mlx5_qpc_opt_mask {
+	MLX5_QPC_OPT_MASK_INIT2INIT_DRAIN_SIGERR = 1 << 11,
 	MLX5_QPC_OPT_MASK_RTS2RTS_LAG_TX_PORT_AFFINITY = 1 << 15,
 };
 
@@ -3232,7 +3233,11 @@ struct mlx5_ifc_init2init_qp_in_bits {
 	u8         reserved_at_41[0x7];
 	u8         qpn[0x18];
 
-	u8         reserved_at_60[0x60];
+	u8         reserved_at_60[0x20];
+
+	u8         opt_param_mask[0x20];
+
+	u8         reserved_at_a0[0x20];
 
 	struct mlx5_ifc_qpc_bits qpc;
 
