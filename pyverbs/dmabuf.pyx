@@ -12,7 +12,7 @@ from pyverbs.mr cimport DmaBufMR
 cdef extern from "dmabuf_alloc.h":
     cdef struct dmabuf:
         pass
-    dmabuf *dmabuf_alloc(unsigned long size, int unit, int gtt)
+    dmabuf *dmabuf_alloc(unsigned long size, int gpu, int gtt)
     void dmabuf_free(dmabuf *dmabuf)
     int dmabuf_get_drm_fd(dmabuf *dmabuf)
     int dmabuf_get_fd(dmabuf *dmabuf)
@@ -20,20 +20,20 @@ cdef extern from "dmabuf_alloc.h":
 
 
 cdef class DmaBuf:
-    def __init__(self, size, unit=0, gtt=0):
+    def __init__(self, size, gpu=0, gtt=0):
         """
         Allocate DmaBuf object from a GPU device. This is done through the
         DRI device interface. Usually this requires the effective user id
         being a member of the 'render' group.
         :param size: The size (in number of bytes) of the buffer.
-        :param unit: The unit number of the GPU to allocate the buffer from.
-        :param gtt: Allocate from GTT instead of VRAM.
+        :param gpu: The GPU unit to allocate the buffer from.
+        :param gtt: Allocate from GTT (Graphics Translation Table) instead of VRAM.
         :return: The newly created DmaBuf object on success.
         """
         self.dmabuf_mrs = weakref.WeakSet()
-        self.dmabuf = dmabuf_alloc(size, unit, gtt)
+        self.dmabuf = dmabuf_alloc(size, gpu, gtt)
         if self.dmabuf == NULL:
-            raise PyverbsRDMAErrno(f'Failed to allocate dmabuf of size {size} on unit {unit}')
+            raise PyverbsRDMAErrno(f'Failed to allocate dmabuf of size {size} on gpu {gpu}')
         self.drm_fd = dmabuf_get_drm_fd(<dmabuf *>self.dmabuf)
         self.fd = dmabuf_get_fd(<dmabuf *>self.dmabuf)
         self.map_offset = dmabuf_get_offset(<dmabuf *>self.dmabuf)
