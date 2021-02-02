@@ -149,7 +149,7 @@ int ibv_cmd_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
 	vmr->ibv_mr.lkey = lkey;
 	vmr->ibv_mr.rkey = rkey;
 	vmr->ibv_mr.pd = pd;
-	vmr->ibv_mr.addr = (void *)offset;
+	vmr->ibv_mr.addr = (void *)(uintptr_t)offset;
 	vmr->ibv_mr.length = length;
 	vmr->mr_type = IBV_MR_TYPE_DMABUF_MR;
 	return 0;

@@ -384,7 +384,7 @@ struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
 
 	mr->context = pd->context;
 	mr->pd = pd;
-	mr->addr = (void *)offset;
+	mr->addr = (void *)(uintptr_t)offset;
 	mr->length = length;
 	return mr;
 }
