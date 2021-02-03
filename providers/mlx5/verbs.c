@@ -4819,16 +4819,24 @@ mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 				    NULL);
 }
 
-struct mlx5dv_devx_umem *
-mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint32_t access)
+static struct mlx5dv_devx_umem *
+_mlx5dv_devx_umem_reg_ex(struct ibv_context *context,
+			 struct mlx5dv_devx_umem_in *in,
+			 bool legacy)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_UMEM,
 			       MLX5_IB_METHOD_DEVX_UMEM_REG,
-			       5);
+			       6);
+	struct ib_uverbs_attr *pgsz_bitmap;
 	struct ib_uverbs_attr *handle;
 	struct mlx5_devx_umem *umem;
 	int ret;
+
+	if (!check_comp_mask(in->comp_mask, 0)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	umem = calloc(1, sizeof(*umem));
 	if (!umem) {
@@ -4836,12 +4844,16 @@ mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint3
 		return NULL;
 	}
 
-	if (ibv_dontfork_range(addr, size))
+	if (ibv_dontfork_range(in->addr, in->size))
 		goto err;
 
-	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ADDR, (intptr_t)addr);
-	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_LEN, size);
-	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ACCESS, access);
+	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ADDR, (intptr_t)in->addr);
+	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_LEN, in->size);
+	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ACCESS, in->access);
+	pgsz_bitmap = fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_PGSZ_BITMAP,
+					 in->pgsz_bitmap);
+	if (legacy)
+		attr_optional(pgsz_bitmap);
 	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_OUT_ID,
 		      &umem->dv_devx_umem.umem_id,
 		      sizeof(umem->dv_devx_umem.umem_id));
@@ -4853,16 +4865,36 @@ mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint3
 
 	umem->handle = read_attr_obj(MLX5_IB_ATTR_DEVX_UMEM_REG_HANDLE, handle);
 	umem->context = context;
-	umem->addr = addr;
-	umem->size = size;
+	umem->addr = in->addr;
+	umem->size = in->size;
 
 	return &umem->dv_devx_umem;
 
 err_umem_reg_cmd:
-	ibv_dofork_range(addr, size);
+	ibv_dofork_range(in->addr, in->size);
 err:
 	free(umem);
 	return NULL;
+}
+
+struct mlx5dv_devx_umem *
+mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint32_t access)
+{
+	struct mlx5dv_devx_umem_in umem_in = {};
+
+	umem_in.access = access;
+	umem_in.addr = addr;
+	umem_in.size = size;
+
+	umem_in.pgsz_bitmap = UINT64_MAX & ~(MLX5_ADAPTER_PAGE_SIZE - 1);
+
+	return _mlx5dv_devx_umem_reg_ex(context, &umem_in, true);
+}
+
+struct mlx5dv_devx_umem *
+mlx5dv_devx_umem_reg_ex(struct ibv_context *ctx, struct mlx5dv_devx_umem_in *umem_in)
+{
+	return _mlx5dv_devx_umem_reg_ex(ctx, umem_in, false);
 }
 
 int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *dv_devx_umem)

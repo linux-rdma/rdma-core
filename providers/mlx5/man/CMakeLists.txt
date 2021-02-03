@@ -59,6 +59,7 @@ rdma_alias_man_pages(
  mlx5dv_devx_qp_modify.3 mlx5dv_devx_ind_tbl_query.3
  mlx5dv_devx_subscribe_devx_event.3 mlx5dv_devx_subscribe_devx_event_fd.3
  mlx5dv_devx_umem_reg.3 mlx5dv_devx_umem_dereg.3
+ mlx5dv_devx_umem_reg.3 mlx5dv_devx_umem_reg_ex.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_aso.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_table.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_ibv_qp.3

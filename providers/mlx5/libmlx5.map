@@ -174,3 +174,8 @@ MLX5_1.18 {
 		mlx5dv_reserved_qpn_alloc;
 		mlx5dv_reserved_qpn_dealloc;
 } MLX5_1.17;
+
+MLX5_1.19 {
+        global:
+		mlx5dv_devx_umem_reg_ex;
+} MLX5_1.18;
