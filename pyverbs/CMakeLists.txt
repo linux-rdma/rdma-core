@@ -6,6 +6,12 @@ publish_internal_headers(""
   dmabuf_alloc.h
 )
 
+if (DRM_INCLUDE_DIRS)
+  set(DMABUF_ALLOC dmabuf_alloc.c)
+else()
+  set(DMABUF_ALLOC dmabuf_alloc_stub.c)
+endif()
+
 rdma_cython_module(pyverbs ""
   addr.pyx
   base.pyx
@@ -14,7 +20,7 @@ rdma_cython_module(pyverbs ""
   cq.pyx
   device.pyx
   dmabuf.pyx
-  dmabuf_alloc.c
+  ${DMABUF_ALLOC}
   enums.pyx
   mem_alloc.pyx
   mr.pyx
