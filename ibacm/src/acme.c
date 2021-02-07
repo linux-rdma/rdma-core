@@ -449,7 +449,7 @@ static int gen_addr_names(FILE *f)
 	struct ibv_port_attr port_attr;
 	int i, index, ret, found_active;
 	char host_name[256];
-	uint8_t p;
+	uint32_t p;
 
 	ret = gethostname(host_name, sizeof host_name);
 	if (ret) {
@@ -469,17 +469,17 @@ static int gen_addr_names(FILE *f)
 			if (!found_active) {
 				ret = ibv_query_port(verbs[i], p, &port_attr);
 				if (!ret && port_attr.state == IBV_PORT_ACTIVE) {
-					VPRINT("%s %s %d default\n",
+					VPRINT("%s %s %u default\n",
 						host_name, verbs[i]->device->name, p);
-					fprintf(f, "%s %s %d default\n",
+					fprintf(f, "%s %s %u default\n",
 						host_name, verbs[i]->device->name, p);
 					found_active = 1;
 				}
 			}
 
-			VPRINT("%s-%d %s %d default\n",
+			VPRINT("%s-%d %s %u default\n",
 				host_name, index, verbs[i]->device->name, p);
-			fprintf(f, "%s-%d %s %d default\n",
+			fprintf(f, "%s-%d %s %u default\n",
 				host_name, index++, verbs[i]->device->name, p);
 		}
 	}
