@@ -445,13 +445,15 @@ static int hns_roce_alloc_srq_buf(struct hns_roce_srq *srq)
 struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
 				      struct ibv_srq_init_attr *init_attr)
 {
-	struct hns_roce_create_srq	cmd;
+	struct hns_roce_context *ctx = to_hr_ctx(pd->context);
 	struct hns_roce_create_srq_resp resp;
-	struct hns_roce_srq		*srq;
+	struct hns_roce_create_srq cmd;
+	struct hns_roce_srq *srq;
 	int ret;
 
-	if (init_attr->attr.max_wr > HNS_ROCE_MAX_SRQWQE_NUM ||
-	    init_attr->attr.max_sge > HNS_ROCE_MAX_SRQSGE_NUM)
+	if (!init_attr->attr.max_wr || !init_attr->attr.max_sge ||
+	    init_attr->attr.max_wr > ctx->max_srq_wr ||
+	    init_attr->attr.max_sge > ctx->max_srq_sge)
 		return NULL;
 
 	srq = calloc(1, sizeof(*srq));

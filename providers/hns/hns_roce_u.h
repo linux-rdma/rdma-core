@@ -61,8 +61,6 @@
 #define HNS_ROCE_MAX_RC_INL_INN_SZ	32
 #define HNS_ROCE_MAX_UD_INL_INN_SZ	8
 #define HNS_ROCE_MAX_CQ_NUM		0x10000
-#define HNS_ROCE_MAX_SRQWQE_NUM		0x8000
-#define HNS_ROCE_MAX_SRQSGE_NUM		0x100
 #define HNS_ROCE_MIN_CQE_NUM		0x40
 #define HNS_ROCE_V1_MIN_WQE_NUM		0x20
 #define HNS_ROCE_V2_MIN_WQE_NUM		0x40
@@ -165,6 +163,8 @@ struct hns_roce_context {
 
 	unsigned int			max_qp_wr;
 	unsigned int			max_sge;
+	unsigned int			max_srq_wr;
+	unsigned int			max_srq_sge;
 	int				max_cqe;
 	unsigned int			cqe_size;
 };
