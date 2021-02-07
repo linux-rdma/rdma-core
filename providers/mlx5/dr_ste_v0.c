@@ -1239,9 +1239,9 @@ static void dr_ste_v0_build_tnl_mpls_over_udp_init(struct dr_ste_build *sb,
 	/* STEs with lookup type FLEX_PARSER_{0/1} includes
 	 * flex parsers_{0-3}/{4-7} respectively.
 	 */
-	sb->lu_type = sb->caps->flex_parser_id_mpls_over_udp > DR_STE_MAX_FLEX_0_ID ?
-		      DR_STE_V0_LU_TYPE_FLEX_PARSER_1 :
-		      DR_STE_V0_LU_TYPE_FLEX_PARSER_0;
+	sb->lu_type = sb->caps->flex_parser_id_mpls_over_udp <= DR_STE_MAX_FLEX_0_ID ?
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_0 :
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_1;
 
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_mpls_over_udp_tag;
@@ -1280,9 +1280,9 @@ static void dr_ste_v0_build_tnl_mpls_over_gre_init(struct dr_ste_build *sb,
 	/* STEs with lookup type FLEX_PARSER_{0/1} includes
 	 * flex parsers_{0-3}/{4-7} respectively.
 	 */
-	sb->lu_type = sb->caps->flex_parser_id_mpls_over_gre > DR_STE_MAX_FLEX_0_ID ?
-		      DR_STE_V0_LU_TYPE_FLEX_PARSER_1 :
-		      DR_STE_V0_LU_TYPE_FLEX_PARSER_0;
+	sb->lu_type = sb->caps->flex_parser_id_mpls_over_gre <= DR_STE_MAX_FLEX_0_ID ?
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_0 :
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_1;
 
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_mpls_over_gre_tag;
@@ -1347,9 +1347,9 @@ static void dr_ste_v0_build_icmp_init(struct dr_ste_build *sb,
 	is_ipv4 = DR_MASK_IS_ICMPV4_SET(&mask->misc3);
 	parser_id = is_ipv4 ? sb->caps->flex_parser_id_icmp_dw0 :
 			      sb->caps->flex_parser_id_icmpv6_dw0;
-	sb->lu_type = parser_id > DR_STE_MAX_FLEX_0_ID ?
-		      DR_STE_V0_LU_TYPE_FLEX_PARSER_1 :
-		      DR_STE_V0_LU_TYPE_FLEX_PARSER_0;
+	sb->lu_type = parser_id <= DR_STE_MAX_FLEX_0_ID ?
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_0 :
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_1;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_icmp_tag;
 }
@@ -1488,9 +1488,9 @@ dr_ste_v0_build_flex_parser_tnl_geneve_tlv_opt_init(struct dr_ste_build *sb,
 	/* STEs with lookup type FLEX_PARSER_{0/1} includes
 	 * flex parsers_{0-3}/{4-7} respectively.
 	 */
-	sb->lu_type = sb->caps->flex_parser_id_geneve_opt_0 > DR_STE_MAX_FLEX_0_ID ?
-		      DR_STE_V0_LU_TYPE_FLEX_PARSER_1 :
-		      DR_STE_V0_LU_TYPE_FLEX_PARSER_0;
+	sb->lu_type = sb->caps->flex_parser_id_geneve_opt_0 <= DR_STE_MAX_FLEX_0_ID ?
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_0 :
+		      DR_STE_V0_LU_TYPE_FLEX_PARSER_1;
 
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_flex_parser_tnl_geneve_tlv_opt_tag;
@@ -1503,8 +1503,8 @@ static int dr_ste_v0_build_flex_parser_tnl_gtpu_tag(struct dr_match_param *value
 	struct dr_match_misc3 *misc3 = &value->misc3;
 
 	DR_STE_SET_TAG(flex_parser_tnl_gtpu, tag,
-		       gtpu_flags, misc3,
-		       gtpu_flags);
+		       gtpu_msg_flags, misc3,
+		       gtpu_msg_flags);
 	DR_STE_SET_TAG(flex_parser_tnl_gtpu, tag,
 		       gtpu_msg_type, misc3,
 		       gtpu_msg_type);
@@ -1523,6 +1523,60 @@ static void dr_ste_v0_build_flex_parser_tnl_gtpu_init(struct dr_ste_build *sb,
 	sb->lu_type = DR_STE_V0_LU_TYPE_FLEX_PARSER_TNL_HEADER;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v0_build_flex_parser_tnl_gtpu_tag;
+}
+
+static int
+dr_ste_v0_build_tnl_gtpu_flex_parser_0_tag(struct dr_match_param *value,
+					   struct dr_ste_build *sb,
+					   uint8_t *tag)
+{
+	if (sb->caps->flex_parser_id_gtpu_dw_0 <= DR_STE_MAX_FLEX_0_ID)
+		DR_STE_SET_FLEX_PARSER_FIELD(tag, gtpu_dw_0, sb->caps, &value->misc3);
+	if (sb->caps->flex_parser_id_gtpu_teid <= DR_STE_MAX_FLEX_0_ID)
+		DR_STE_SET_FLEX_PARSER_FIELD(tag, gtpu_teid, sb->caps, &value->misc3);
+	if (sb->caps->flex_parser_id_gtpu_dw_2 <= DR_STE_MAX_FLEX_0_ID)
+		DR_STE_SET_FLEX_PARSER_FIELD(tag, gtpu_dw_2, sb->caps, &value->misc3);
+	if (sb->caps->flex_parser_id_gtpu_first_ext_dw_0 <= DR_STE_MAX_FLEX_0_ID)
+		DR_STE_SET_FLEX_PARSER_FIELD(tag, gtpu_first_ext_dw_0, sb->caps, &value->misc3);
+	return 0;
+}
+
+static void
+dr_ste_v0_build_tnl_gtpu_flex_parser_0_init(struct dr_ste_build *sb,
+					    struct dr_match_param *mask)
+{
+	dr_ste_v0_build_tnl_gtpu_flex_parser_0_tag(mask, sb, sb->bit_mask);
+
+	sb->lu_type = DR_STE_V0_LU_TYPE_FLEX_PARSER_0;
+	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
+	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_gtpu_flex_parser_0_tag;
+}
+
+static int
+dr_ste_v0_build_tnl_gtpu_flex_parser_1_tag(struct dr_match_param *value,
+					   struct dr_ste_build *sb,
+					   uint8_t *tag)
+{
+	if (sb->caps->flex_parser_id_gtpu_dw_0 > DR_STE_MAX_FLEX_0_ID)
+		DR_STE_SET_FLEX_PARSER_FIELD(tag, gtpu_dw_0, sb->caps, &value->misc3);
+	if (sb->caps->flex_parser_id_gtpu_teid > DR_STE_MAX_FLEX_0_ID)
+		DR_STE_SET_FLEX_PARSER_FIELD(tag, gtpu_teid, sb->caps, &value->misc3);
+	if (sb->caps->flex_parser_id_gtpu_dw_2 > DR_STE_MAX_FLEX_0_ID)
+		DR_STE_SET_FLEX_PARSER_FIELD(tag, gtpu_dw_2, sb->caps, &value->misc3);
+	if (sb->caps->flex_parser_id_gtpu_first_ext_dw_0 > DR_STE_MAX_FLEX_0_ID)
+		DR_STE_SET_FLEX_PARSER_FIELD(tag, gtpu_first_ext_dw_0, sb->caps, &value->misc3);
+	return 0;
+}
+
+static void
+dr_ste_v0_build_tnl_gtpu_flex_parser_1_init(struct dr_ste_build *sb,
+					    struct dr_match_param *mask)
+{
+	dr_ste_v0_build_tnl_gtpu_flex_parser_1_tag(mask, sb, sb->bit_mask);
+
+	sb->lu_type = DR_STE_V0_LU_TYPE_FLEX_PARSER_1;
+	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
+	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_gtpu_flex_parser_1_tag;
 }
 
 static int dr_ste_v0_build_register_0_tag(struct dr_match_param *value,
@@ -1703,6 +1757,8 @@ static struct dr_ste_ctx ste_ctx_v0 = {
 	.build_tnl_geneve_init		= &dr_ste_v0_build_flex_parser_tnl_geneve_init,
 	.build_tnl_geneve_tlv_opt_init	= &dr_ste_v0_build_flex_parser_tnl_geneve_tlv_opt_init,
 	.build_tnl_gtpu_init		= &dr_ste_v0_build_flex_parser_tnl_gtpu_init,
+	.build_tnl_gtpu_flex_parser_0	= &dr_ste_v0_build_tnl_gtpu_flex_parser_0_init,
+	.build_tnl_gtpu_flex_parser_1	= &dr_ste_v0_build_tnl_gtpu_flex_parser_1_init,
 	.build_register_0_init		= &dr_ste_v0_build_register_0_init,
 	.build_register_1_init		= &dr_ste_v0_build_register_1_init,
 	.build_src_gvmi_qpn_init	= &dr_ste_v0_build_src_gvmi_qpn_init,

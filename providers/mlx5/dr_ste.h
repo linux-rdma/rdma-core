@@ -111,6 +111,15 @@ enum {
 		       in_out##_first_mpls_ttl); \
 } while (0)
 
+#define DR_STE_SET_FLEX_PARSER_FIELD(tag, fname, caps, spec) do { \
+	if ((spec)->fname) { \
+		uint8_t parser_id = caps->flex_parser_id_##fname; \
+		uint8_t *parser_ptr = dr_ste_calc_flex_parser_offset(tag, parser_id); \
+		*(__be32 *)parser_ptr = htobe32((spec)->fname);\
+		(spec)->fname = 0; \
+	} \
+} while (0)
+
 enum dr_ste_action_modify_type_l3 {
 	DR_STE_ACTION_MDFY_TYPE_L3_NONE	= 0x0,
 	DR_STE_ACTION_MDFY_TYPE_L3_IPV4	= 0x1,
@@ -157,6 +166,8 @@ struct dr_ste_ctx {
 	dr_ste_builder_void_init build_tnl_geneve_init;
 	dr_ste_builder_void_init build_tnl_geneve_tlv_opt_init;
 	dr_ste_builder_void_init build_tnl_gtpu_init;
+	dr_ste_builder_void_init build_tnl_gtpu_flex_parser_0;
+	dr_ste_builder_void_init build_tnl_gtpu_flex_parser_1;
 	dr_ste_builder_void_init build_register_0_init;
 	dr_ste_builder_void_init build_register_1_init;
 	dr_ste_builder_void_init build_src_gvmi_qpn_init;

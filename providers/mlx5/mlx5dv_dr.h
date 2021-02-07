@@ -483,6 +483,16 @@ void dr_ste_build_tnl_gtpu(struct dr_ste_ctx *ste_ctx,
 			   struct dr_ste_build *sb,
 			   struct dr_match_param *mask,
 			   bool inner, bool rx);
+void dr_ste_build_tnl_gtpu_flex_parser_0(struct dr_ste_ctx *ste_ctx,
+					 struct dr_ste_build *sb,
+					 struct dr_match_param *mask,
+					 struct dr_devx_caps *caps,
+					 bool inner, bool rx);
+void dr_ste_build_tnl_gtpu_flex_parser_1(struct dr_ste_ctx *ste_ctx,
+					 struct dr_ste_build *sb,
+					 struct dr_match_param *mask,
+					 struct dr_devx_caps *caps,
+					 bool inner, bool rx);
 void dr_ste_build_general_purpose(struct dr_ste_ctx *ste_ctx,
 				  struct dr_ste_build *sb,
 				  struct dr_match_param *mask,
@@ -631,7 +641,10 @@ struct dr_match_misc3 {
 	uint32_t geneve_tlv_option_0_data;
 	uint32_t gtpu_teid;
 	uint32_t gtpu_msg_type:8;
-	uint32_t gtpu_flags:3;
+	uint32_t gtpu_msg_flags:8;
+	uint32_t gtpu_dw_2;
+	uint32_t gtpu_first_ext_dw_0;
+	uint32_t gtpu_dw_0;
 };
 
 struct dr_match_misc4 {
@@ -697,6 +710,10 @@ struct dr_devx_caps {
 	uint8_t				flex_parser_id_geneve_opt_0;
 	uint8_t				flex_parser_id_mpls_over_gre;
 	uint8_t				flex_parser_id_mpls_over_udp;
+	uint8_t				flex_parser_id_gtpu_dw_0;
+	uint8_t				flex_parser_id_gtpu_teid;
+	uint8_t				flex_parser_id_gtpu_dw_2;
+	uint8_t				flex_parser_id_gtpu_first_ext_dw_0;
 	uint8_t				max_ft_level;
 	uint8_t				sw_format_ver;
 	bool				isolate_vl_tc;

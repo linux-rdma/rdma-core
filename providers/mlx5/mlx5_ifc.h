@@ -507,11 +507,16 @@ struct mlx5_ifc_dr_match_set_misc3_bits {
 	u8         gtpu_teid[0x20];
 
 	u8         gtpu_msg_type[0x8];
-	u8         reserved_at_148[0x5];
-	u8         gtpu_flags[0x3];
+	u8         gtpu_msg_flags[0x8];
 	u8         reserved_at_150[0x10];
 
-	u8         reserved_at_160[0x80];
+	u8         gtpu_dw_2[0x20];
+
+	u8         gtpu_first_ext_dw_0[0x20];
+
+	u8         gtpu_dw_0[0x20];
+
+	u8         reserved_at_1c0[0x20];
 };
 
 struct mlx5_ifc_dr_match_set_misc4_bits {
@@ -605,6 +610,10 @@ enum {
 	MLX5_FLEX_PARSER_ICMP_V6_ENABLED	= 1 << 9,
 	MLX5_FLEX_PARSER_GENEVE_OPT_0_ENABLED	= 1 << 10,
 	MLX5_FLEX_PARSER_GTPU_ENABLED		= 1 << 11,
+	MLX5_FLEX_PARSER_GTPU_DW_2_ENABLED	= 1 << 16,
+	MLX5_FLEX_PARSER_GTPU_FIRST_EXT_DW_0_ENABLED	= 1 << 17,
+	MLX5_FLEX_PARSER_GTPU_DW_0_ENABLED	= 1 << 18,
+	MLX5_FLEX_PARSER_GTPU_TEID_ENABLED	= 1 << 19,
 };
 
 enum mlx5_ifc_steering_format_version {
@@ -984,7 +993,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         cqe_compression_timeout[0x10];
 	u8         cqe_compression_max_num[0x10];
 
-	u8         reserved_at_5e0[0xc];
+	u8         reserved_at_5e0[0x8];
+	u8         flex_parser_id_gtpu_dw_0[0x4];
 	u8         log_max_tm_offloaded_op_size[0x4];
 	u8         tag_matching[0x1];
 	u8         rndv_offload_rc[0x1];
@@ -996,7 +1006,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         affiliate_nic_vport_criteria[0x8];
 	u8         native_port_num[0x8];
 	u8         num_vhca_ports[0x8];
-	u8         reserved_at_618[0x5];
+	u8         flex_parser_id_gtpu_teid[0x4];
+	u8         reserved_at_61c[0x1];
 	u8         trusted_vnic_vhca[0x1];
 	u8         sw_owner_id[0x1];
 	u8         reserve_not_to_use[0x1];
@@ -1009,7 +1020,14 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         flex_parser_id_icmpv6_dw0[0x4];
 	u8         flex_parser_id_outer_first_mpls_over_gre[0x4];
 	u8         flex_parser_id_outer_first_mpls_over_udp_label[0x4];
-	u8         reserved_at_6b8[0x120];
+
+	u8         reserved_at_6e0[0x20];
+
+	u8         flex_parser_id_gtpu_dw_2[0x4];
+	u8         flex_parser_id_gtpu_first_ext_dw_0[0x4];
+	u8         reserved_at_708[0x18];
+
+	u8         reserved_at_720[0xe0];
 };
 
 struct mlx5_ifc_header_modify_cap_properties_bits {
@@ -2213,8 +2231,7 @@ struct mlx5_ifc_ste_flex_parser_tnl_geneve_bits {
 };
 
 struct mlx5_ifc_ste_flex_parser_tnl_gtpu_bits {
-	u8         reserved_at_0[0x5];
-	u8         gtpu_flags[0x3];
+	u8         gtpu_msg_flags[0x8];
 	u8         gtpu_msg_type[0x8];
 	u8         reserved_at_10[0x10];
 
