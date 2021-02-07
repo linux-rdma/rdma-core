@@ -78,6 +78,8 @@
 #define HNS_ROCE_CQ_DB_BUF_SIZE		((HNS_ROCE_MAX_CQ_NUM >> 11) << 12)
 #define HNS_ROCE_STATIC_RATE		3 /* Gbps */
 
+#define INVALID_SGE_LENGTH 0x80000000
+
 #define HNS_ROCE_ADDRESS_MASK 0xFFFFFFFF
 #define HNS_ROCE_ADDRESS_SHIFT 32
 
@@ -203,6 +205,7 @@ struct hns_roce_srq {
 	unsigned int			srqn;
 	unsigned int			wqe_cnt;
 	unsigned int			max_gs;
+	unsigned int			rsv_sge;
 	unsigned int			wqe_shift;
 	int				head;
 	int				tail;
@@ -219,6 +222,7 @@ struct hns_roce_wq {
 	unsigned int			head;
 	unsigned int			tail;
 	unsigned int			max_gs;
+	unsigned int			rsv_sge;
 	unsigned int			wqe_shift;
 	unsigned int			shift; /* wq size is 2^shift */
 	int				offset;
