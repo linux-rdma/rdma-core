@@ -422,21 +422,19 @@ class DeviceMemoryAPITest(PyverbsAPITestCase):
     """
     def setUp(self):
         super().setUp()
-        _, _, attr_ex = self.devices[0]
-        if attr_ex.max_dm_size == 0:
+        if self.attr_ex.max_dm_size == 0:
             raise unittest.SkipTest('Device memory is not supported')
 
     def test_create_dm_mr(self):
-        ctx, _, attr_ex = self.devices[0]
-        max_dm_size = attr_ex.max_dm_size
+        max_dm_size = self.attr_ex.max_dm_size
         dm_access = e.IBV_ACCESS_ZERO_BASED | e.IBV_ACCESS_LOCAL_WRITE
         for dm_size in [4, max_dm_size/4, max_dm_size/2]:
             dm_size = dm_size - (dm_size % u.DM_ALIGNMENT)
             for dmmr_factor_size in [0.1, 0.5, 1]:
                 dmmr_size = dm_size * dmmr_factor_size
                 dmmr_size = dmmr_size - (dmmr_size % u.DM_ALIGNMENT)
-                with d.DM(ctx, d.AllocDmAttr(length=dm_size)) as dm:
-                    DMMR(PD(ctx), dmmr_size, dm_access, dm, 0)
+                with d.DM(self.ctx, d.AllocDmAttr(length=dm_size)) as dm:
+                    DMMR(PD(self.ctx), dmmr_size, dm_access, dm, 0)
 
     def test_dm_bad_access(self):
         """
@@ -444,11 +442,10 @@ class DeviceMemoryAPITest(PyverbsAPITestCase):
         access requests a 4B alignment. The test tries to access the DM
         with bad alignment or outside of the allocated memory.
         """
-        ctx, _, _ = self.devices[0]
         dm_size = 100
-        with d.DM(ctx, d.AllocDmAttr(length=dm_size)) as dm:
+        with d.DM(self.ctx, d.AllocDmAttr(length=dm_size)) as dm:
             dm_access = e.IBV_ACCESS_ZERO_BASED | e.IBV_ACCESS_LOCAL_WRITE
-            dmmr = DMMR(PD(ctx), dm_size, dm_access, dm, 0)
+            dmmr = DMMR(PD(self.ctx), dm_size, dm_access, dm, 0)
             access_cases = [(DM_INVALID_ALIGNMENT, 4), # Valid length with unaligned offset
                             (4, DM_INVALID_ALIGNMENT), # Valid offset with unaligned length
                             (dm_size + 4, 4), # Offset out of allocated memory
@@ -465,12 +462,11 @@ class DeviceMemoryAPITest(PyverbsAPITestCase):
         Test bad Device Memory registration when trying to register bigger DMMR
         than the allocated DM.
         """
-        ctx, _, _ = self.devices[0]
         dm_size = 100
-        with d.DM(ctx, d.AllocDmAttr(length=dm_size)) as dm:
+        with d.DM(self.ctx, d.AllocDmAttr(length=dm_size)) as dm:
             dm_access = e.IBV_ACCESS_ZERO_BASED | e.IBV_ACCESS_LOCAL_WRITE
             with self.assertRaisesRegex(PyverbsRDMAError, 'Failed to register a device MR'):
-                DMMR(PD(ctx), dm_size + 4, dm_access, dm, 0)
+                DMMR(PD(self.ctx), dm_size + 4, dm_access, dm, 0)
 
 
 def check_dmabuf_support(gpu=0):
@@ -516,147 +512,139 @@ class DmaBufMRTest(PyverbsAPITestCase):
         Test ibv_reg_dmabuf_mr()
         """
         check_dmabuf_support(self.gpu)
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                check_dmabuf_mr_support(pd, self.gpu)
-                flags = u.get_dmabuf_access_flags(ctx)
-                for f in flags:
-                    len = u.get_mr_length()
-                    for off in [0, len//2]:
-                        with DmaBufMR(pd, len, f, offset=off, gpu=self.gpu,
-                                      gtt=self.gtt) as mr:
-                            pass
+        with PD(self.ctx) as pd:
+            check_dmabuf_mr_support(pd, self.gpu)
+            flags = u.get_dmabuf_access_flags(self.ctx)
+            for f in flags:
+                len = u.get_mr_length()
+                for off in [0, len//2]:
+                    with DmaBufMR(pd, len, f, offset=off, unit=self.gpu,
+                                  gtt=self.gtt) as mr:
+                        pass
 
     def test_dmabuf_dereg_mr(self):
         """
         Test ibv_dereg_mr() with DmaBufMR
         """
         check_dmabuf_support(self.gpu)
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                check_dmabuf_mr_support(pd, self.gpu)
-                flags = u.get_dmabuf_access_flags(ctx)
-                for f in flags:
-                    len = u.get_mr_length()
-                    for off in [0, len//2]:
-                        with DmaBufMR(pd, len, f, offset=off, gpu=self.gpu,
-                                      gtt=self.gtt) as mr:
-                            mr.close()
+        with PD(self.ctx) as pd:
+            check_dmabuf_mr_support(pd, self.gpu)
+            flags = u.get_dmabuf_access_flags(self.ctx)
+            for f in flags:
+                len = u.get_mr_length()
+                for off in [0, len//2]:
+                    with DmaBufMR(pd, len, f, offset=off, unit=self.gpu,
+                                  gtt=self.gtt) as mr:
+                        mr.close()
 
     def test_dmabuf_dereg_mr_twice(self):
         """
         Verify that explicit call to DmaBufMR's close() doesn't fail
         """
         check_dmabuf_support(self.gpu)
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                check_dmabuf_mr_support(pd, self.gpu)
-                flags = u.get_dmabuf_access_flags(ctx)
-                for f in flags:
-                    len = u.get_mr_length()
-                    for off in [0, len//2]:
-                        with DmaBufMR(pd, len, f, offset=off, gpu=self.gpu,
-                                      gtt=self.gtt) as mr:
-                            # Pyverbs supports multiple destruction of objects,
-                            # we are not expecting an exception here.
-                            mr.close()
-                            mr.close()
+        with PD(self.ctx) as pd:
+            check_dmabuf_mr_support(pd, self.gpu)
+            flags = u.get_dmabuf_access_flags(self.ctx)
+            for f in flags:
+                len = u.get_mr_length()
+                for off in [0, len//2]:
+                    with DmaBufMR(pd, len, f, offset=off, unit=self.gpu,
+                                  gtt=self.gtt) as mr:
+                        # Pyverbs supports multiple destruction of objects,
+                        # we are not expecting an exception here.
+                        mr.close()
+                        mr.close()
 
     def test_dmabuf_reg_mr_bad_flags(self):
         """
         Verify that illegal flags combination fails as expected
         """
         check_dmabuf_support(self.gpu)
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                check_dmabuf_mr_support(pd, self.gpu)
-                for i in range(5):
-                    flags = random.sample([e.IBV_ACCESS_REMOTE_WRITE,
-                                           e.IBV_ACCESS_REMOTE_ATOMIC],
-                                          random.randint(1, 2))
-                    mr_flags = 0
-                    for i in flags:
-                        mr_flags += i.value
-                    try:
-                        DmaBufMR(pd, u.get_mr_length(), mr_flags,
-                                 gpu=self.gpu, gtt=self.gtt)
-                    except PyverbsRDMAError as err:
-                        assert 'Failed to register a dma-buf MR' in err.args[0]
-                    else:
-                        raise PyverbsRDMAError('Registered a dma-buf MR with illegal falgs')
+        with PD(self.ctx) as pd:
+            check_dmabuf_mr_support(pd, self.gpu)
+            for i in range(5):
+                flags = random.sample([e.IBV_ACCESS_REMOTE_WRITE,
+                                       e.IBV_ACCESS_REMOTE_ATOMIC],
+                                      random.randint(1, 2))
+                mr_flags = 0
+                for i in flags:
+                    mr_flags += i.value
+                try:
+                    DmaBufMR(pd, u.get_mr_length(), mr_flags,
+                             unit=self.gpu, gtt=self.gtt)
+                except PyverbsRDMAError as err:
+                    assert 'Failed to register a dma-buf MR' in err.args[0]
+                else:
+                    raise PyverbsRDMAError('Registered a dma-buf MR with illegal falgs')
 
     def test_dmabuf_write(self):
         """
         Test writing to DmaBufMR's buffer
         """
         check_dmabuf_support(self.gpu)
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                check_dmabuf_mr_support(pd, self.gpu)
-                for i in range(10):
-                    mr_len = u.get_mr_length()
-                    flags = u.get_dmabuf_access_flags(ctx)
-                    for f in flags:
-                        for mr_off in [0, mr_len//2]:
-                            with DmaBufMR(pd, mr_len, f, offset=mr_off,
-                                          gpu=self.gpu, gtt=self.gtt) as mr:
-                                write_len = min(random.randint(1, MAX_IO_LEN),
-                                                mr_len)
-                                mr.write('a' * write_len, write_len)
+        with PD(self.ctx) as pd:
+            check_dmabuf_mr_support(pd, self.gpu)
+            for i in range(10):
+                mr_len = u.get_mr_length()
+                flags = u.get_dmabuf_access_flags(self.ctx)
+                for f in flags:
+                    for mr_off in [0, mr_len//2]:
+                        with DmaBufMR(pd, mr_len, f, offset=mr_off,
+                                      unit=self.gpu, gtt=self.gtt) as mr:
+                            write_len = min(random.randint(1, MAX_IO_LEN),
+                                            mr_len)
+                            mr.write('a' * write_len, write_len)
 
     def test_dmabuf_read(self):
         """
         Test reading from DmaBufMR's buffer
         """
         check_dmabuf_support(self.gpu)
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                check_dmabuf_mr_support(pd, self.gpu)
-                for i in range(10):
-                    mr_len = u.get_mr_length()
-                    flags = u.get_dmabuf_access_flags(ctx)
-                    for f in flags:
-                        for mr_off in [0, mr_len//2]:
-                            with DmaBufMR(pd, mr_len, f, offset=mr_off,
-                                          gpu=self.gpu, gtt=self.gtt) as mr:
-                                write_len = min(random.randint(1, MAX_IO_LEN),
-                                                mr_len)
-                                write_str = 'a' * write_len
-                                mr.write(write_str, write_len)
-                                read_len = random.randint(1, write_len)
-                                offset = random.randint(0, write_len-read_len)
-                                read_str = mr.read(read_len, offset).decode()
-                                assert read_str in write_str
+        with PD(self.ctx) as pd:
+            check_dmabuf_mr_support(pd, self.gpu)
+            for i in range(10):
+                mr_len = u.get_mr_length()
+                flags = u.get_dmabuf_access_flags(self.ctx)
+                for f in flags:
+                    for mr_off in [0, mr_len//2]:
+                        with DmaBufMR(pd, mr_len, f, offset=mr_off,
+                                      unit=self.gpu, gtt=self.gtt) as mr:
+                            write_len = min(random.randint(1, MAX_IO_LEN),
+                                            mr_len)
+                            write_str = 'a' * write_len
+                            mr.write(write_str, write_len)
+                            read_len = random.randint(1, write_len)
+                            offset = random.randint(0, write_len-read_len)
+                            read_str = mr.read(read_len, offset).decode()
+                            assert read_str in write_str
 
     def test_dmabuf_lkey(self):
         """
         Test reading lkey property
         """
         check_dmabuf_support(self.gpu)
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                check_dmabuf_mr_support(pd, self.gpu)
-                length = u.get_mr_length()
-                flags = u.get_dmabuf_access_flags(ctx)
-                for f in flags:
-                    with DmaBufMR(pd, length, f, gpu=self.gpu,
-                                  gtt=self.gtt) as mr:
-                        mr.lkey
+        with PD(self.ctx) as pd:
+            check_dmabuf_mr_support(pd, self.gpu)
+            length = u.get_mr_length()
+            flags = u.get_dmabuf_access_flags(self.ctx)
+            for f in flags:
+                with DmaBufMR(pd, length, f, unit=self.gpu,
+                              gtt=self.gtt) as mr:
+                    mr.lkey
 
     def test_dmabuf_rkey(self):
         """
         Test reading rkey property
         """
         check_dmabuf_support(self.gpu)
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                check_dmabuf_mr_support(pd, self.gpu)
-                length = u.get_mr_length()
-                flags = u.get_dmabuf_access_flags(ctx)
-                for f in flags:
-                    with DmaBufMR(pd, length, f, gpu=self.gpu,
-                                  gtt=self.gtt) as mr:
-                        mr.rkey
+        with PD(self.ctx) as pd:
+            check_dmabuf_mr_support(pd, self.gpu)
+            length = u.get_mr_length()
+            flags = u.get_dmabuf_access_flags(self.ctx)
+            for f in flags:
+                with DmaBufMR(pd, length, f, unit=self.gpu,
+                              gtt=self.gtt) as mr:
+                    mr.rkey
 
 
 class DmaBufRC(RCResources):

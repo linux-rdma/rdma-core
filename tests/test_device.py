@@ -101,9 +101,8 @@ class DeviceTest(PyverbsAPITestCase):
         """
         Test ibv_query_gid_table() with too small a buffer
         """
-        ctx, _, _ = self.devices[0]
         try:
-            ctx.query_gid_table(0)
+            self.ctx.query_gid_table(0)
         except PyverbsRDMAError as ex:
             if ex.error_code in [-errno.EOPNOTSUPP, -errno.EPROTONOSUPPORT]:
                 raise unittest.SkipTest('ibv_query_gid_table is not'
@@ -133,15 +132,14 @@ class DeviceTest(PyverbsAPITestCase):
         """
         Test ibv_query_gid_ex() with an empty index
         """
-        ctx, device_attr, _ = self.devices[0]
         try:
-            port_attr = ctx.query_port(self.ib_port)
+            port_attr = self.ctx.query_port(self.ib_port)
             max_entries = 0
-            for port_num in range(1, device_attr.phys_port_cnt + 1):
-                attr = ctx.query_port(port_num)
+            for port_num in range(1, self.attr.phys_port_cnt + 1):
+                attr = self.ctx.query_port(port_num)
                 max_entries += attr.gid_tbl_len
             gid_indices = {gid_entry.gid_index for gid_entry in
-                           ctx.query_gid_table(max_entries) if gid_entry.port_num == self.ib_port}
+                           self.ctx.query_gid_table(max_entries) if gid_entry.port_num == self.ib_port}
 
             possible_indices = set(range(port_attr.gid_tbl_len)) if port_attr.gid_tbl_len > 1 else set()
             try:
@@ -151,7 +149,7 @@ class DeviceTest(PyverbsAPITestCase):
                 raise unittest.SkipTest('All gid indices populated,'
                                         ' cannot check bad flow')
 
-            ctx.query_gid_ex(port_num=self.ib_port, gid_index=no_gid_index)
+            self.ctx.query_gid_ex(port_num=self.ib_port, gid_index=no_gid_index)
         except PyverbsRDMAError as ex:
             if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
                 raise unittest.SkipTest('ibv_query_gid_ex is not'
@@ -248,124 +246,116 @@ class DMTest(PyverbsAPITestCase):
     """
     def setUp(self):
         super().setUp()
-        _, _, attr_ex = self.devices[0]
-        if attr_ex.max_dm_size == 0:
+        if self.attr_ex.max_dm_size == 0:
             raise unittest.SkipTest('Device memory is not supported')
 
     def test_create_dm(self):
         """
         test ibv_alloc_dm()
         """
-        for ctx, attr, attr_ex in self.devices:
-            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
-                                      u.DM_ALIGNMENT)
-            dm_attrs = u.get_dm_attrs(dm_len)
-            with d.DM(ctx, dm_attrs):
-                pass
+        dm_len = random.randrange(u.MIN_DM_SIZE, self.attr_ex.max_dm_size/2,
+                                  u.DM_ALIGNMENT)
+        dm_attrs = u.get_dm_attrs(dm_len)
+        with d.DM(self.ctx, dm_attrs):
+            pass
 
     def test_destroy_dm(self):
         """
         test ibv_free_dm()
         """
-        for ctx, attr, attr_ex in self.devices:
-            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
-                                      u.DM_ALIGNMENT)
-            dm_attrs = u.get_dm_attrs(dm_len)
-            dm = d.DM(ctx, dm_attrs)
-            dm.close()
+        dm_len = random.randrange(u.MIN_DM_SIZE, self.attr_ex.max_dm_size/2,
+                                  u.DM_ALIGNMENT)
+        dm_attrs = u.get_dm_attrs(dm_len)
+        dm = d.DM(self.ctx, dm_attrs)
+        dm.close()
 
     def test_create_dm_bad_flow(self):
         """
         test ibv_alloc_dm() with an illegal size and comp mask
         """
-        for ctx, attr, attr_ex in self.devices:
-            dm_len = attr_ex.max_dm_size + 1
-            dm_attrs = u.get_dm_attrs(dm_len)
-            try:
-                d.DM(ctx, dm_attrs)
-            except PyverbsRDMAError as e:
-                assert 'Failed to allocate device memory of size' in \
-                       e.args[0]
-                assert 'Max available size' in e.args[0]
-            else:
-                raise PyverbsError(
-                    'Created a DM with size larger than max reported')
-            dm_attrs.comp_mask = random.randint(1, 100)
-            try:
-                d.DM(ctx, dm_attrs)
-            except PyverbsRDMAError as e:
-                assert 'Failed to allocate device memory of size' in \
-                       e.args[0]
-            else:
-                raise PyverbsError(
-                    'Created a DM with illegal comp mask {c}'. \
-                    format(c=dm_attrs.comp_mask))
+        dm_len = self.attr_ex.max_dm_size + 1
+        dm_attrs = u.get_dm_attrs(dm_len)
+        try:
+            d.DM(self.ctx, dm_attrs)
+        except PyverbsRDMAError as e:
+            assert 'Failed to allocate device memory of size' in \
+                   e.args[0]
+            assert 'Max available size' in e.args[0]
+        else:
+            raise PyverbsError(
+                'Created a DM with size larger than max reported')
+        dm_attrs.comp_mask = random.randint(1, 100)
+        try:
+            d.DM(self.ctx, dm_attrs)
+        except PyverbsRDMAError as e:
+            assert 'Failed to allocate device memory of size' in \
+                   e.args[0]
+        else:
+            raise PyverbsError(
+                'Created a DM with illegal comp mask {c}'. \
+                format(c=dm_attrs.comp_mask))
 
     def test_destroy_dm_bad_flow(self):
         """
         Test calling ibv_free_dm() twice
         """
-        for ctx, attr, attr_ex in self.devices:
-            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
-                                      u.DM_ALIGNMENT)
-            dm_attrs = u.get_dm_attrs(dm_len)
-            dm = d.DM(ctx, dm_attrs)
-            dm.close()
-            dm.close()
+        dm_len = random.randrange(u.MIN_DM_SIZE, self.attr_ex.max_dm_size/2,
+                                  u.DM_ALIGNMENT)
+        dm_attrs = u.get_dm_attrs(dm_len)
+        dm = d.DM(self.ctx, dm_attrs)
+        dm.close()
+        dm.close()
 
     def test_dm_write(self):
         """
         Test writing to the device memory
         """
-        for ctx, attr, attr_ex in self.devices:
-            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
-                                      u.DM_ALIGNMENT)
-            dm_attrs = u.get_dm_attrs(dm_len)
-            with d.DM(ctx, dm_attrs) as dm:
-                data_length = random.randrange(4, dm_len, u.DM_ALIGNMENT)
-                data_offset = random.randrange(0, dm_len - data_length,
-                                               u.DM_ALIGNMENT)
-                data = 'a' * data_length
-                dm.copy_to_dm(data_offset, data.encode(), data_length)
+        dm_len = random.randrange(u.MIN_DM_SIZE, self.attr_ex.max_dm_size/2,
+                                  u.DM_ALIGNMENT)
+        dm_attrs = u.get_dm_attrs(dm_len)
+        with d.DM(self.ctx, dm_attrs) as dm:
+            data_length = random.randrange(4, dm_len, u.DM_ALIGNMENT)
+            data_offset = random.randrange(0, dm_len - data_length,
+                                           u.DM_ALIGNMENT)
+            data = 'a' * data_length
+            dm.copy_to_dm(data_offset, data.encode(), data_length)
 
     def test_dm_write_bad_flow(self):
         """
         Test writing to the device memory with bad offset and length
         """
-        for ctx, attr, attr_ex in self.devices:
-            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
-                                      u.DM_ALIGNMENT)
-            dm_attrs = u.get_dm_attrs(dm_len)
-            with d.DM(ctx, dm_attrs) as dm:
-                data_length = random.randrange(4, dm_len, u.DM_ALIGNMENT)
-                data_offset = random.randrange(0, dm_len - data_length,
-                                               u.DM_ALIGNMENT)
-                data_offset += 1  # offset needs to be a multiple of 4
-                data = 'a' * data_length
-                try:
-                    dm.copy_to_dm(data_offset, data.encode(), data_length)
-                except PyverbsRDMAError as e:
-                    assert 'Failed to copy to dm' in e.args[0]
-                else:
-                    raise PyverbsError(
-                        'Wrote to device memory with a bad offset')
+        dm_len = random.randrange(u.MIN_DM_SIZE, self.attr_ex.max_dm_size/2,
+                                  u.DM_ALIGNMENT)
+        dm_attrs = u.get_dm_attrs(dm_len)
+        with d.DM(self.ctx, dm_attrs) as dm:
+            data_length = random.randrange(4, dm_len, u.DM_ALIGNMENT)
+            data_offset = random.randrange(0, dm_len - data_length,
+                                           u.DM_ALIGNMENT)
+            data_offset += 1  # offset needs to be a multiple of 4
+            data = 'a' * data_length
+            try:
+                dm.copy_to_dm(data_offset, data.encode(), data_length)
+            except PyverbsRDMAError as e:
+                assert 'Failed to copy to dm' in e.args[0]
+            else:
+                raise PyverbsError(
+                    'Wrote to device memory with a bad offset')
 
     def test_dm_read(self):
         """
         Test reading from the device memory
         """
-        for ctx, attr, attr_ex in self.devices:
-            dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
-                                      u.DM_ALIGNMENT)
-            dm_attrs = u.get_dm_attrs(dm_len)
-            with d.DM(ctx, dm_attrs) as dm:
-                data_length = random.randrange(4, dm_len, u.DM_ALIGNMENT)
-                data_offset = random.randrange(0, dm_len - data_length,
-                                               u.DM_ALIGNMENT)
-                data = 'a' * data_length
-                dm.copy_to_dm(data_offset, data.encode(), data_length)
-                read_str = dm.copy_from_dm(data_offset, data_length)
-                assert read_str.decode() == data
+        dm_len = random.randrange(u.MIN_DM_SIZE, self.attr_ex.max_dm_size/2,
+                                  u.DM_ALIGNMENT)
+        dm_attrs = u.get_dm_attrs(dm_len)
+        with d.DM(self.ctx, dm_attrs) as dm:
+            data_length = random.randrange(4, dm_len, u.DM_ALIGNMENT)
+            data_offset = random.randrange(0, dm_len - data_length,
+                                           u.DM_ALIGNMENT)
+            data = 'a' * data_length
+            dm.copy_to_dm(data_offset, data.encode(), data_length)
+            read_str = dm.copy_from_dm(data_offset, data_length)
+            assert read_str.decode() == data
 
     def alloc_dm(self, res_queue, size):
         """
@@ -376,9 +366,8 @@ class DMTest(PyverbsAPITestCase):
         :param size: The DM allocation size.
         :return: None
         """
-        ctx, _, _ = self.devices[0]
         try:
-            dm = d.DM(ctx, d.AllocDmAttr(length=size))
+            d.DM(self.ctx, d.AllocDmAttr(length=size))
         except PyverbsError as err:
             res_queue.put(err.error_code)
         res_queue.put(0)
@@ -387,13 +376,12 @@ class DMTest(PyverbsAPITestCase):
         """
         Several processes try to allocate device memory simultaneously.
         """
-        _, _, attr_ex = self.devices[0]
         res_queue = Queue()
         processes = []
         processes_num = 5
         # Dividing the max dm size by 2 since we're not
         # guaranteed to have the max size free for us.
-        total_size = attr_ex.max_dm_size / 2 / processes_num
+        total_size = self.attr_ex.max_dm_size / 2 / processes_num
         for i in range(processes_num):
             processes.append(Process(target=self.alloc_dm,
                                      args=(res_queue, total_size)))

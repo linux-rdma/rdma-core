@@ -62,33 +62,32 @@ class PyverbsAPITestCase(unittest.TestCase):
         super().__init__(methodName)
         # Hold the command line arguments
         self.config = parser.get_config()
+        self.ctx = None
+        self.attr = None
+        self.attr_ex = None
 
     def setUp(self):
         """
-        Opens the devices and queries them
+        Opens the device and queries it.
+        The results of the query and query_ex are stored in attr and attr_ex
+        instance attributes respectively.
+        If the user didn't pass a device name, the first device is chosen by
+        default.
         """
-        self.devices = []
         self.ib_port = self.config['port']
-
         dev_name = self.config['dev']
-        if dev_name:
-            c = d.Context(name=dev_name)
-            attr = c.query_device()
-            attr_ex = c.query_device_ex()
-            self.devices.append((c, attr, attr_ex))
-        else:
-            for dev in d.get_device_list():
-                c = d.Context(name=dev.name.decode())
-                attr = c.query_device()
-                attr_ex = c.query_device_ex()
-                self.devices.append((c, attr, attr_ex))
+        if not dev_name:
+            dev_list = d.get_device_list()
+            if not dev_list:
+                raise unittest.SkipTest('No IB devices found')
+            dev_name = dev_list[0].name.decode()
 
-        if len(self.devices) == 0:
-            raise unittest.SkipTest('No IB devices found')
+        self.ctx = d.Context(name=dev_name)
+        self.attr = self.ctx.query_device()
+        self.attr_ex = self.ctx.query_device_ex()
 
     def tearDown(self):
-        for tup in self.devices:
-            tup[0].close()
+        self.ctx.close()
 
 
 class RDMATestCase(unittest.TestCase):
