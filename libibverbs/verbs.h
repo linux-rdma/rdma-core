@@ -352,6 +352,7 @@ struct ibv_device_attr_ex {
 	uint64_t max_dm_size;
 	struct ibv_pci_atomic_caps pci_atomic_caps;
 	uint32_t xrc_odp_caps;
+	uint32_t phys_port_cnt_ex;
 };
 
 enum ibv_mtu {

@@ -210,6 +210,7 @@ struct verbs_sysfs_dev {
 	uint32_t driver_id;
 	enum ibv_node_type node_type;
 	int ibdev_idx;
+	uint32_t num_ports;
 	uint32_t abi_ver;
 	struct timespec time_created;
 };
