@@ -95,6 +95,11 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_FLOW_ACTION_COUNTERS_DEVX
         MLX5DV_FLOW_ACTION_DEFAULT_MISS
 
+    cpdef enum mlx5dv_dr_domain_type:
+        MLX5DV_DR_DOMAIN_TYPE_NIC_RX
+        MLX5DV_DR_DOMAIN_TYPE_NIC_TX
+        MLX5DV_DR_DOMAIN_TYPE_FDB
+
     cpdef unsigned long long MLX5DV_RES_TYPE_QP
     cpdef unsigned long long MLX5DV_RES_TYPE_RWQ
     cpdef unsigned long long MLX5DV_RES_TYPE_DBR

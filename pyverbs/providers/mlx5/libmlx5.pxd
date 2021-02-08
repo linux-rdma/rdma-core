@@ -127,6 +127,8 @@ cdef extern from 'infiniband/mlx5dv.h':
         unsigned int            tag_value
         mlx5dv_devx_obj         *obj
 
+    cdef struct mlx5dv_dr_domain
+
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
@@ -179,6 +181,8 @@ cdef extern from 'infiniband/mlx5dv.h':
                                                                  void *data,
                                                                  unsigned char reformat_type,
                                                                  unsigned char ft_type)
+    mlx5dv_dr_domain *mlx5dv_dr_domain_create(v.ibv_context *ctx, mlx5dv_dr_domain_type type)
+    int mlx5dv_dr_domain_destroy(mlx5dv_dr_domain *dmn)
 
     # DevX APIs
     mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context,
