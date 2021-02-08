@@ -815,7 +815,7 @@ struct dr_domain_info {
 	uint32_t		max_log_action_icm_sz;
 	struct dr_domain_rx_tx	rx;
 	struct dr_domain_rx_tx	tx;
-	struct ibv_device_attr	attr;
+	struct ibv_device_attr_ex attr;
 	struct dr_devx_caps	caps;
 };
 

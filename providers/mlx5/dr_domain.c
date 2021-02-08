@@ -136,14 +136,14 @@ static int dr_domain_query_fdb_caps(struct ibv_context *ctx,
 				    struct mlx5dv_dr_domain *dmn)
 {
 	struct dr_esw_caps esw_caps = {};
-	int num_vports;
+	uint32_t num_vports;
 	int ret;
 	int i;
 
 	if (!dmn->info.caps.eswitch_manager)
 		return 0;
 
-	num_vports = dmn->info.attr.phys_port_cnt - 1;
+	num_vports = dmn->info.attr.phys_port_cnt_ex - 1;
 	dmn->info.caps.vports_caps = calloc(num_vports + 1,
 					    sizeof(struct dr_devx_vport_cap));
 	if (!dmn->info.caps.vports_caps) {
@@ -198,7 +198,7 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 		return errno;
 	}
 
-	ret = ibv_query_device(ctx, &dmn->info.attr);
+	ret = ibv_query_device_ex(ctx, NULL, &dmn->info.attr);
 	if (ret)
 		return ret;
 
