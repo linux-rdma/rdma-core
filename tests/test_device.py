@@ -4,6 +4,7 @@
 """
 Test module for pyverbs' device module.
 """
+from multiprocessing import Process, Queue
 import unittest
 import resource
 import random
@@ -245,14 +246,17 @@ class DMTest(PyverbsAPITestCase):
     """
     Test various functionalities of the DM class.
     """
+    def setUp(self):
+        super().setUp()
+        _, _, attr_ex = self.devices[0]
+        if attr_ex.max_dm_size == 0:
+            raise unittest.SkipTest('Device memory is not supported')
 
     def test_create_dm(self):
         """
         test ibv_alloc_dm()
         """
         for ctx, attr, attr_ex in self.devices:
-            if attr_ex.max_dm_size == 0:
-                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
@@ -264,8 +268,6 @@ class DMTest(PyverbsAPITestCase):
         test ibv_free_dm()
         """
         for ctx, attr, attr_ex in self.devices:
-            if attr_ex.max_dm_size == 0:
-                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
@@ -277,8 +279,6 @@ class DMTest(PyverbsAPITestCase):
         test ibv_alloc_dm() with an illegal size and comp mask
         """
         for ctx, attr, attr_ex in self.devices:
-            if attr_ex.max_dm_size == 0:
-                raise unittest.SkipTest('Device memory is not supported')
             dm_len = attr_ex.max_dm_size + 1
             dm_attrs = u.get_dm_attrs(dm_len)
             try:
@@ -306,8 +306,6 @@ class DMTest(PyverbsAPITestCase):
         Test calling ibv_free_dm() twice
         """
         for ctx, attr, attr_ex in self.devices:
-            if attr_ex.max_dm_size == 0:
-                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
@@ -320,8 +318,6 @@ class DMTest(PyverbsAPITestCase):
         Test writing to the device memory
         """
         for ctx, attr, attr_ex in self.devices:
-            if attr_ex.max_dm_size == 0:
-                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
@@ -337,8 +333,6 @@ class DMTest(PyverbsAPITestCase):
         Test writing to the device memory with bad offset and length
         """
         for ctx, attr, attr_ex in self.devices:
-            if attr_ex.max_dm_size == 0:
-                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
@@ -361,8 +355,6 @@ class DMTest(PyverbsAPITestCase):
         Test reading from the device memory
         """
         for ctx, attr, attr_ex in self.devices:
-            if attr_ex.max_dm_size == 0:
-                raise unittest.SkipTest('Device memory is not supported')
             dm_len = random.randrange(u.MIN_DM_SIZE, attr_ex.max_dm_size/2,
                                       u.DM_ALIGNMENT)
             dm_attrs = u.get_dm_attrs(dm_len)
@@ -374,3 +366,40 @@ class DMTest(PyverbsAPITestCase):
                 dm.copy_to_dm(data_offset, data.encode(), data_length)
                 read_str = dm.copy_from_dm(data_offset, data_length)
                 assert read_str.decode() == data
+
+    def alloc_dm(self, res_queue, size):
+        """
+        Alloc device memory. Used by multiple processes that allocate DMs in
+        parallel.
+        :param res_queue: Result Queue to return the result to the parent
+                            process.
+        :param size: The DM allocation size.
+        :return: None
+        """
+        ctx, _, _ = self.devices[0]
+        try:
+            dm = d.DM(ctx, d.AllocDmAttr(length=size))
+        except PyverbsError as err:
+            res_queue.put(err.error_code)
+        res_queue.put(0)
+
+    def test_multi_process_alloc_dm(self):
+        """
+        Several processes try to allocate device memory simultaneously.
+        """
+        _, _, attr_ex = self.devices[0]
+        res_queue = Queue()
+        processes = []
+        processes_num = 5
+        # Dividing the max dm size by 2 since we're not
+        # guaranteed to have the max size free for us.
+        total_size = attr_ex.max_dm_size / 2 / processes_num
+        for i in range(processes_num):
+            processes.append(Process(target=self.alloc_dm,
+                                     args=(res_queue, total_size)))
+        for i in range(processes_num):
+            processes[i].start()
+        for i in range(processes_num):
+            processes[i].join()
+            rc = res_queue.get()
+            self.assertEqual(rc, 0, f'Parallel device memory allocation failed with errno: {rc}')

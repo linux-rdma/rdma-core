@@ -267,6 +267,27 @@ class RDMATestCase(unittest.TestCase):
         self.gid_index = args[2]
         self.ip_addr = args[3]
 
+    def set_env_variable(self, var, value):
+        """
+        Set environment variable. The current value for each variable is stored
+        and is set back at the end of the test.
+        :param var: The name of the environment variable
+        :param value: The requested new value of this environment variable
+        """
+        if var not in self.pre_environment.keys():
+            self.pre_environment[var] = os.environ.get(var)
+        os.environ[var] = value
+
+    def tearDown(self):
+        """
+        Restore the previous environment variables values before ending the test.
+        """
+        for k, v in self.pre_environment.items():
+            if v is None:
+                os.environ.pop(k)
+            else:
+                os.environ[k] = v
+        super().tearDown()
 
 class BaseResources(object):
     """
