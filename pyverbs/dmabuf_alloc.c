@@ -9,12 +9,12 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <drm/drm.h>
-#include <drm/i915_drm.h>
-#include <drm/amdgpu_drm.h>
-#include <drm/radeon_drm.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <drm.h>
+#include <i915_drm.h>
+#include <amdgpu_drm.h>
+#include <radeon_drm.h>
 #include "dmabuf_alloc.h"
 
 /*
@@ -95,7 +95,7 @@ static int amdgpu_mmap_offset(struct drm *drm, uint32_t handle,
 	return 0;
 }
 
-static struct drm *drm_open(int unit)
+static struct drm *drm_open(int gpu)
 {
 	char path[32];
 	struct drm_version version = {};
@@ -107,7 +107,7 @@ static struct drm *drm_open(int unit)
 	if (!drm)
 		return NULL;
 
-	snprintf(path, sizeof(path), "/dev/dri/renderD%d", unit + 128);
+	snprintf(path, sizeof(path), "/dev/dri/renderD%d", gpu + 128);
 
 	drm->fd = open(path, O_RDWR);
 	if (drm->fd < 0)
@@ -204,10 +204,10 @@ struct dmabuf {
 /*
  * dmabuf_alloc - allocate a dmabuf from GPU
  * @size - byte size of the buffer to allocate
- * @unit - the GPU unit to use
- * @gtt - if true, allocate from GTT instead of VRAM
+ * @gpu - the GPU unit to use
+ * @gtt - if true, allocate from GTT (Graphics Translation Table) instead of VRAM
  */
-struct dmabuf *dmabuf_alloc(uint64_t size, int unit, int gtt)
+struct dmabuf *dmabuf_alloc(uint64_t size, int gpu, int gtt)
 {
 	struct dmabuf *dmabuf;
 	int err;
@@ -216,7 +216,7 @@ struct dmabuf *dmabuf_alloc(uint64_t size, int unit, int gtt)
 	if (!dmabuf)
 		return NULL;
 
-	dmabuf->drm = drm_open(unit);
+	dmabuf->drm = drm_open(gpu);
 	if (!dmabuf->drm)
 		goto out_free;
 

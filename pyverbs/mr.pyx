@@ -384,7 +384,7 @@ cdef class DMMR(MR):
 
 cdef class DmaBufMR(MR):
     def __init__(self, PD pd not None, length, access, DmaBuf dmabuf=None,
-                 offset=0, unit=0, gtt=0):
+                 offset=0, gpu=0, gtt=0):
         """
         Initializes a DmaBufMR (DMA-BUF Memory Region) of the given length
         and access flags using the given PD and DmaBuf objects.
@@ -393,14 +393,14 @@ cdef class DmaBufMR(MR):
         :param access: Access flags, see ibv_access_flags enum
         :param dmabuf: A DmaBuf object. One will be allocated if absent
         :param offset: Byte offset from the beginning of the dma-buf
-        :param unit: GPU unit for internal dmabuf allocation
+        :param gpu: GPU unit for internal dmabuf allocation
         :param gtt: If true allocate internal dmabuf from GTT instead of VRAM
         :return: The newly created DMABUFMR
         """
         self.logger = logging.getLogger(self.__class__.__name__)
         if dmabuf is None:
             self.is_dmabuf_internal = True
-            dmabuf = DmaBuf(length + offset, unit, gtt)
+            dmabuf = DmaBuf(length + offset, gpu, gtt)
         self.mr = v.ibv_reg_dmabuf_mr(pd.pd, offset, length, offset, dmabuf.fd, access)
         if self.mr == NULL:
             raise PyverbsRDMAErrno(f'Failed to register a dma-buf MR. length: {length}, access flags: {access}')

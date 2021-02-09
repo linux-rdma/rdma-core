@@ -10,7 +10,7 @@
 
 struct dmabuf;
 
-struct dmabuf *dmabuf_alloc(uint64_t size, int unit, int gtt);
+struct dmabuf *dmabuf_alloc(uint64_t size, int gpu, int gtt);
 void dmabuf_free(struct dmabuf *dmabuf);
 int dmabuf_get_drm_fd(struct dmabuf *dmabuf);
 int dmabuf_get_fd(struct dmabuf *dmabuf);
