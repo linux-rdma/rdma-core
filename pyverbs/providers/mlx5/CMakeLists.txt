@@ -3,6 +3,7 @@
 
 rdma_cython_module(pyverbs/providers/mlx5 mlx5
   dr_domain.pyx
+  dr_matcher.pyx
   dr_table.pyx
   mlx5dv.pyx
   mlx5_enums.pyx

@@ -6,8 +6,6 @@
 cimport pyverbs.providers.mlx5.libmlx5 as dv
 from pyverbs.base cimport PyverbsCM
 
-cdef class DrTable(PyverbsCM):
-    cdef dv.mlx5dv_dr_table *table
-    cdef object dr_domain
-    cdef object dr_matchers
-    cdef add_ref(self, obj)
+cdef class DrMatcher(PyverbsCM):
+    cdef dv.mlx5dv_dr_matcher *matcher
+    cdef object dr_table

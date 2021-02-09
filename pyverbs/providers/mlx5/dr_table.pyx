@@ -2,7 +2,11 @@
 # Copyright (c) 2020 Nvidia, Inc. All rights reserved. See COPYING file
 
 from pyverbs.base import PyverbsRDMAErrno, PyverbsRDMAError
+from pyverbs.providers.mlx5.dr_matcher import DrMatcher
 from pyverbs.providers.mlx5.dr_domain cimport DrDomain
+from pyverbs.pyverbs_error import PyverbsError
+from pyverbs.base cimport close_weakrefs
+import weakref
 
 
 cdef class DrTable(PyverbsCM):
@@ -18,6 +22,13 @@ cdef class DrTable(PyverbsCM):
             raise PyverbsRDMAErrno('DrTable creation failed.')
         domain.add_ref(self)
         self.dr_domain = domain
+        self.dr_matchers = weakref.WeakSet()
+
+    cdef add_ref(self, obj):
+        if isinstance(obj, DrMatcher):
+            self.dr_matchers.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
 
     def __dealloc__(self):
         self.close()
@@ -25,6 +36,7 @@ cdef class DrTable(PyverbsCM):
     cpdef close(self):
         if self.table != NULL:
             self.logger.debug('Closing DrTable.')
+            close_weakrefs([self.dr_matchers])
             rc = dv.mlx5dv_dr_table_destroy(self.table)
             if rc:
                 raise PyverbsRDMAError('Failed to destroy DrTable.', rc)
