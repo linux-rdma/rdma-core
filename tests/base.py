@@ -180,7 +180,7 @@ class RDMATestCase(unittest.TestCase):
     def setUp(self):
         """
         Verify that the test case has dev_name, ib_port, gid_index and pkey index.
-        If not provided by the user, a random valid combination will be used.
+        If not provided by the user, the first valid combination will be used.
         """
         if self.pkey_index is None:
             # To avoid iterating the entire pkeys table, if a pkey index wasn't
@@ -258,9 +258,9 @@ class RDMATestCase(unittest.TestCase):
             if arg[3]:
                 args_with_inet_ip.append(arg)
         if args_with_inet_ip:
-            args = random.choice(args_with_inet_ip)
+            args = args_with_inet_ip[0]
         else:
-            args = random.choice(self.args)
+            args = self.args[0]
         self.dev_name = args[0]
         self.ib_port = args[1]
         self.gid_index = args[2]
