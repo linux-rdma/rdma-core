@@ -867,7 +867,7 @@ static int set_ud_wqe(void *wqe, struct hns_roce_qp *qp,
 		udma_to_device_barrier();
 
 	roce_set_bit(ud_sq_wqe->rsv_opcode, UD_SQ_WQE_OWNER_S,
-		     ~(((qp->sq.head + nreq) >> qp->sq.shift) & 0x1));
+		     ~((qp->sq.head + nreq) >> qp->sq.shift));
 
 	return ret;
 }
@@ -1045,7 +1045,7 @@ wqe_valid:
 		udma_to_device_barrier();
 
 	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_OWNER_S,
-		     ~(((qp->sq.head + nreq) >> qp->sq.shift) & 0x1));
+		     ~((qp->sq.head + nreq) >> qp->sq.shift));
 
 	return 0;
 }
