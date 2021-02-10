@@ -85,8 +85,6 @@ err_page:
 
 static void hns_roce_clear_db_page(struct hns_roce_db_page *page)
 {
-	assert(page);
-
 	free(page->bitmap);
 	hns_roce_free_buf(&(page->buf));
 }
