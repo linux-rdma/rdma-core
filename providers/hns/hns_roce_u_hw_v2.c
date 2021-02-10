@@ -92,15 +92,13 @@ static inline void set_ending_data_seg(struct hns_roce_v2_wqe_data_seg *dseg)
 	dseg->len = htole32(INVALID_SGE_LENGTH);
 }
 
-static void set_extend_atomic_seg(struct hns_roce_qp *qp,
-				  unsigned int atomic_buf,
-				  struct hns_roce_sge_info *sge_info,
-				  void *buf)
+static void set_extend_atomic_seg(struct hns_roce_qp *qp, unsigned int sge_cnt,
+				  struct hns_roce_sge_info *sge_info, void *buf)
 {
 	unsigned int sge_mask = qp->ex_sge.sge_cnt - 1;
-	int i;
+	unsigned int i;
 
-	for (i = 0; i < atomic_buf; i++, sge_info->start_idx++)
+	for (i = 0; i < sge_cnt; i++, sge_info->start_idx++)
 		memcpy(get_send_sge_ex(qp, sge_info->start_idx & sge_mask),
 		       buf + i * HNS_ROCE_SGE_SIZE, HNS_ROCE_SGE_SIZE);
 }
@@ -109,52 +107,48 @@ static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 			  void *dseg, struct hns_roce_sge_info *sge_info)
 {
 	struct hns_roce_wqe_atomic_seg *aseg = dseg;
-	unsigned int msg_len = sge_info->total_len;
-	unsigned int ext_sg_num;
+	unsigned int data_len = sge_info->total_len;
+	uint8_t tmp[ATOMIC_DATA_LEN_MAX] = {};
+	void *buf[ATOMIC_BUF_NUM_MAX];
+	unsigned int buf_sge_num;
 
-	if (msg_len == STANDARD_ATOMIC_U_BYTE_8) {
+	if (is_std_atomic(data_len)) {
 		if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
 			aseg->fetchadd_swap_data = htole64(wr->wr.atomic.swap);
 			aseg->cmp_data = htole64(wr->wr.atomic.compare_add);
 		} else {
 			aseg->fetchadd_swap_data =
-					htole64(wr->wr.atomic.compare_add);
+				htole64(wr->wr.atomic.compare_add);
 			aseg->cmp_data = 0;
 		}
-	} else if (msg_len == EXTEND_ATOMIC_U_BYTE_16 ||
-		   msg_len == EXTEND_ATOMIC_U_BYTE_32 ||
-		   msg_len == EXTEND_ATOMIC_U_BYTE_64) {
-		ext_sg_num = msg_len * DATA_TYPE_NUM >> HNS_ROCE_SGE_SHIFT;
-		aseg->fetchadd_swap_data = 0;
-		aseg->cmp_data = 0;
 
-		if (ext_sg_num + HNS_ROCE_SGE_IN_WQE > qp->sq.max_gs)
-			return EINVAL;
+		return 0;
+	}
 
-		if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
-			if (!wr->wr.atomic.swap || !wr->wr.atomic.compare_add)
-				return EINVAL;
+	if (!is_ext_atomic(data_len))
+		return -EINVAL;
 
-			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
-					      sge_info,
-					      (void *) (uintptr_t) wr->wr.atomic.swap);
-			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
-					      sge_info,
-					      (void *) (uintptr_t) wr->wr.atomic.compare_add);
-		} else {
-			uint8_t buf[EXTEND_ATOMIC_U_BYTE_64] = {};
+	buf_sge_num = data_len >> HNS_ROCE_SGE_SHIFT;
+	aseg->fetchadd_swap_data = 0;
+	aseg->cmp_data = 0;
 
-			if (!wr->wr.atomic.compare_add)
-				return EINVAL;
+	/* both ext CAS and ext FAA need 2 bufs */
+	if ((buf_sge_num << 1) + HNS_ROCE_SGE_IN_WQE > qp->sq.max_gs)
+		return -EINVAL;
 
-			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
-					      sge_info,
-					      (void *) (uintptr_t) wr->wr.atomic.compare_add);
-			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
-					      sge_info, buf);
-		}
-	} else
-		return EINVAL;
+	if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
+		buf[0] = (void *)(uintptr_t)wr->wr.atomic.swap;
+		buf[1] = (void *)(uintptr_t)wr->wr.atomic.compare_add;
+	} else {
+		buf[0] = (void *)(uintptr_t)wr->wr.atomic.compare_add;
+		buf[1] = (void *)(uintptr_t)tmp; /* HW needs all 0 SGEs */
+	}
+
+	if (!buf[0] || !buf[1])
+		return -EINVAL;
+
+	set_extend_atomic_seg(qp, buf_sge_num, sge_info, buf[0]);
+	set_extend_atomic_seg(qp, buf_sge_num, sge_info, buf[1]);
 
 	return 0;
 }

@@ -272,11 +272,23 @@ struct hns_roce_wqe_atomic_seg {
 int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			    struct ibv_send_wr **bad_wr);
 
-#define DATA_TYPE_NUM 2
-#define STANDARD_ATOMIC_U_BYTE_8 0x8
-#define EXTEND_ATOMIC_U_BYTE_16 0x10
-#define EXTEND_ATOMIC_U_BYTE_32 0x20
-#define EXTEND_ATOMIC_U_BYTE_64 0x40
+static inline unsigned int is_std_atomic(unsigned int len)
+{
+	return len == 8;
+}
+
+static inline unsigned int is_ext_atomic(unsigned int len)
+{
+	return len == 16 || len == 32 || len == 64;
+}
+
+static inline unsigned int is_atomic(unsigned int len)
+{
+	return is_std_atomic(len) || is_ext_atomic(len);
+}
+
+#define ATOMIC_DATA_LEN_MAX 64
+#define ATOMIC_BUF_NUM_MAX 2
 
 struct hns_roce_ud_sq_wqe {
 	__le32 rsv_opcode;
