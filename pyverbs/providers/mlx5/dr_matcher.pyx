@@ -3,7 +3,11 @@
 
 from pyverbs.providers.mlx5.mlx5dv_flow cimport Mlx5FlowMatchParameters
 from pyverbs.providers.mlx5.dr_table cimport DrTable
+from pyverbs.providers.mlx5.dr_rule cimport DrRule
+from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.base cimport close_weakrefs
+import weakref
 
 
 cdef class DrMatcher(PyverbsCM):
@@ -32,6 +36,13 @@ cdef class DrMatcher(PyverbsCM):
             raise PyverbsRDMAErrno('DrMatcher creation failed.')
         table.add_ref(self)
         self.dr_table = table
+        self.dr_rules = weakref.WeakSet()
+
+    cdef add_ref(self, obj):
+        if isinstance(obj, DrRule):
+            self.dr_rules.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
 
     def __dealloc__(self):
         self.close()
@@ -39,6 +50,7 @@ cdef class DrMatcher(PyverbsCM):
     cpdef close(self):
         if self.matcher != NULL:
             self.logger.debug('Closing Matcher.')
+            close_weakrefs([self.dr_rules])
             if dv.mlx5dv_dr_matcher_destroy(self.matcher):
                 raise PyverbsRDMAErrno('Failed to destroy DrMatcher.')
             self.matcher = NULL

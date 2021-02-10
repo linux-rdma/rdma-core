@@ -9,3 +9,5 @@ from pyverbs.base cimport PyverbsCM
 cdef class DrMatcher(PyverbsCM):
     cdef dv.mlx5dv_dr_matcher *matcher
     cdef object dr_table
+    cdef object dr_rules
+    cdef add_ref(self, obj)

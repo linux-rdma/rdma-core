@@ -2,15 +2,30 @@
 # Copyright (c) 2020 Nvidia, Inc. All rights reserved. See COPYING file
 
 from pyverbs.base import PyverbsRDMAErrno, PyverbsRDMAError
+from pyverbs.providers.mlx5.dr_rule cimport DrRule
+from pyverbs.pyverbs_error import PyverbsError
+from pyverbs.base cimport close_weakrefs
+import weakref
 
 
 cdef class DrAction(PyverbsCM):
+    def __init__(self):
+        super().__init__()
+        self.dr_rules = weakref.WeakSet()
+
+    cdef add_ref(self, obj):
+        if isinstance(obj, DrRule):
+            self.dr_rules.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
+
     def __dealloc__(self):
         self.close()
 
     cpdef close(self):
         if self.action != NULL:
             self.logger.debug('Closing DrAction.')
+            close_weakrefs([self.dr_rules])
             rc = dv.mlx5dv_dr_action_destroy(self.action)
             if rc:
                 raise PyverbsRDMAError('Failed to destroy DrAction.', rc)

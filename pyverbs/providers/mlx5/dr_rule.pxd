@@ -5,13 +5,7 @@
 
 cimport pyverbs.providers.mlx5.libmlx5 as dv
 from pyverbs.base cimport PyverbsCM
-from pyverbs.qp cimport QP
 
-cdef class DrAction(PyverbsCM):
-    cdef dv.mlx5dv_dr_action *action
-    cdef object dr_rules
-    cdef add_ref(self, obj)
-
-cdef class DrActionQp(DrAction):
-    cdef QP qp
-
+cdef class DrRule(PyverbsCM):
+    cdef dv.mlx5dv_dr_rule *rule
+    cdef object dr_matcher

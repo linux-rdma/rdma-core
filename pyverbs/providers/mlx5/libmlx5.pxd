@@ -135,6 +135,8 @@ cdef extern from 'infiniband/mlx5dv.h':
 
     cdef struct mlx5dv_dr_action
 
+    cdef struct mlx5dv_dr_rule
+
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
@@ -198,6 +200,11 @@ cdef extern from 'infiniband/mlx5dv.h':
     int mlx5dv_dr_matcher_destroy(mlx5dv_dr_matcher *matcher)
     mlx5dv_dr_action *mlx5dv_dr_action_create_dest_ibv_qp(v.ibv_qp *ibqp)
     int mlx5dv_dr_action_destroy(mlx5dv_dr_action *action)
+    mlx5dv_dr_rule *mlx5dv_dr_rule_create(mlx5dv_dr_matcher *matcher,
+                                          mlx5dv_flow_match_parameters *value,
+                                          size_t num_actions,
+                                          mlx5dv_dr_action *actions[])
+    int mlx5dv_dr_rule_destroy(mlx5dv_dr_rule *rule)
 
     # DevX APIs
     mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context,
