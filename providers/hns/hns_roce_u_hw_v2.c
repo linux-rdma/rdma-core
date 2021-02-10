@@ -642,8 +642,6 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 	}
 
 	if (npolled || err == V2_CQ_POLL_ERR) {
-		mmio_ordered_writes_hack();
-
 		if (cq->flags & HNS_ROCE_CQ_FLAG_RECORD_DB)
 			*cq->set_ci_db =
 				cq->cons_index & DB_PARAM_CQ_CONSUMER_IDX_M;
