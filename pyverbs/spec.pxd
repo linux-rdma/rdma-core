@@ -15,3 +15,15 @@ cdef class EthSpec(Spec):
     cdef v.ibv_flow_eth_filter val
     cdef v.ibv_flow_eth_filter mask
     cdef _mac_to_str(self, unsigned char mac[6])
+
+cdef class Ipv4ExtSpec(Spec):
+    cdef v.ibv_flow_ipv4_ext_filter val
+    cdef v.ibv_flow_ipv4_ext_filter mask
+
+cdef class TcpUdpSpec(Spec):
+    cdef v.ibv_flow_tcp_udp_filter val
+    cdef v.ibv_flow_tcp_udp_filter mask
+
+cdef class Ipv6Spec(Spec):
+    cdef v.ibv_flow_ipv6_filter val
+    cdef v.ibv_flow_ipv6_filter mask

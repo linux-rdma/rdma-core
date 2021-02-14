@@ -516,6 +516,44 @@ cdef extern from 'infiniband/verbs.h':
         ibv_flow_eth_filter val
         ibv_flow_eth_filter mask
 
+    cdef struct ibv_flow_ipv4_ext_filter:
+        uint32_t  src_ip
+        uint32_t  dst_ip
+        uint8_t   proto
+        uint8_t   tos
+        uint8_t   ttl
+        uint8_t   flags
+
+    cdef struct ibv_flow_spec_ipv4_ext:
+        ibv_flow_spec_type       type
+        uint16_t                 size
+        ibv_flow_ipv4_ext_filter val
+        ibv_flow_ipv4_ext_filter mask
+
+    cdef struct ibv_flow_tcp_udp_filter:
+        uint16_t dst_port
+        uint16_t src_port
+
+    cdef struct ibv_flow_spec_tcp_udp:
+        ibv_flow_spec_type      type
+        uint16_t                size
+        ibv_flow_tcp_udp_filter val
+        ibv_flow_tcp_udp_filter mask
+
+    cdef struct ibv_flow_ipv6_filter:
+        uint8_t  src_ip[16]
+        uint8_t  dst_ip[16]
+        uint32_t flow_label
+        uint8_t  next_hdr
+        uint8_t  traffic_class
+        uint8_t  hop_limit
+
+    cdef struct ibv_flow_spec_ipv6:
+        ibv_flow_spec_type   type
+        uint16_t             size
+        ibv_flow_ipv6_filter val
+        ibv_flow_ipv6_filter mask
+
     ibv_device **ibv_get_device_list(int *n)
     int ibv_get_device_index(ibv_device *device);
     void ibv_free_device_list(ibv_device **list)
