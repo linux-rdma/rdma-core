@@ -48,16 +48,22 @@ class PacketConsts:
     Class to hold constant packets' values.
     """
     ETHER_HEADER_SIZE = 14
-    IP_HEADER_SIZE = 20
+    IPV4_HEADER_SIZE = 20
+    IPV6_HEADER_SIZE = 40
     UDP_HEADER_SIZE = 8
-    HEADERS_SIZE = IP_HEADER_SIZE + UDP_HEADER_SIZE + ETHER_HEADER_SIZE
+    TCP_HEADER_SIZE = 20
+    TCP_HEADER_SIZE_WORDS = 5
     IP_V4 = 4
+    IP_V6 = 6
+    TCP_PROTO = 'tcp'
+    UDP_PROTO = 'udp'
     IP_V4_FLAGS = 2  # Don't fragment is set
-    TTL = 64
+    TTL_HOP_LIMIT = 64
     IHL = 5
     # Hardcoded values for flow matchers
     ETHER_TYPE_IPV4 = 0x800
     MAC_MASK = "ff:ff:ff:ff:ff:ff"
+    ETHER_TYPE_IPV6 = 0x86DD
     SRC_MAC = "24:8a:07:a5:28:c8"
     # DST mac must be multicast
     DST_MAC = "01:50:56:19:20:a7"
@@ -65,6 +71,10 @@ class PacketConsts:
     DST_IP = "2.2.2.2"
     SRC_PORT = 1234
     DST_PORT = 5678
+    SRC_IP6 = "a0a1::a2a3:a4a5:a6a7:a8a9"
+    DST_IP6 = "b0b1::b2b3:b4b5:b6b7:b8b9"
+    SEQ_NUM = 1
+    WINDOW_SIZE = 65535
 
 
 def get_mr_length():
@@ -665,57 +675,89 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
             validate(msg_received, False, client.msg_size)
 
 
-def gen_ipv4_udp_packet(msg_size):
+def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO):
     """
-    Generates a Eth | IPv4 | UDP packet with hardcoded values in the headers and
-    randomized payload.
+    Generates a Eth | IPv4 or IPv6 | UDP or TCP packet with hardcoded values in
+    the headers and randomized payload.
     :param msg_size: total packet size
+    :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
+    :param l4: Packet layer 4 type: 'tcp' or 'udp'
     :return: packet
     """
-    payload_size = msg_size - PacketConsts.UDP_HEADER_SIZE - \
-                   PacketConsts.IP_HEADER_SIZE - PacketConsts.ETHER_HEADER_SIZE
+    l3_header_size = getattr(PacketConsts, f'IPV{str(l3)}_HEADER_SIZE')
+    l4_header_size = getattr(PacketConsts, f'{l4.upper()}_HEADER_SIZE')
+    payload_size = max(0, msg_size - l3_header_size - l4_header_size -
+                       PacketConsts.ETHER_HEADER_SIZE)
+    next_hdr = getattr(socket, f'IPPROTO_{l4.upper()}')
+    ip_total_len = msg_size - PacketConsts.ETHER_HEADER_SIZE
+
     # Ethernet header
     packet = struct.pack('!6s6s',
                          bytes.fromhex(PacketConsts.DST_MAC.replace(':', '')),
                          bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-    packet += PacketConsts.ETHER_TYPE_IPV4.to_bytes(2, 'big')
-    # IPv4 header
-    ip_total_len = payload_size + PacketConsts.UDP_HEADER_SIZE + \
-                   PacketConsts.IP_HEADER_SIZE
-    packet += struct.pack('!2B3H2BH4s4s', (PacketConsts.IP_V4 << 4) +
-                          PacketConsts.IHL, 0, ip_total_len, 0,
-                          PacketConsts.IP_V4_FLAGS << 13, PacketConsts.TTL,
-                          socket.IPPROTO_UDP, 0,
-                          socket.inet_aton(PacketConsts.SRC_IP),
-                          socket.inet_aton(PacketConsts.DST_IP))
-    # UDP header
-    packet += struct.pack('!4H', PacketConsts.SRC_PORT, PacketConsts.DST_PORT,
-                          payload_size + PacketConsts.UDP_HEADER_SIZE, 0)
+    if l3 == PacketConsts.IP_V4:
+        packet += PacketConsts.ETHER_TYPE_IPV4.to_bytes(2, 'big')
+    else:
+        packet += PacketConsts.ETHER_TYPE_IPV6.to_bytes(2, 'big')
+
+    if l3 == PacketConsts.IP_V4:
+        # IPv4 header
+        packet += struct.pack('!2B3H2BH4s4s', (PacketConsts.IP_V4 << 4) +
+                              PacketConsts.IHL, 0, ip_total_len, 0,
+                              PacketConsts.IP_V4_FLAGS << 13,
+                              PacketConsts.TTL_HOP_LIMIT, next_hdr, 0,
+                              socket.inet_aton(PacketConsts.SRC_IP),
+                              socket.inet_aton(PacketConsts.DST_IP))
+    else:
+        # IPv6 header
+        packet += struct.pack('!IH2B16s16s', (PacketConsts.IP_V6 << 28),
+                       ip_total_len, next_hdr, PacketConsts.TTL_HOP_LIMIT,
+                       socket.inet_pton(socket.AF_INET6, PacketConsts.SRC_IP6),
+                       socket.inet_pton(socket.AF_INET6, PacketConsts.DST_IP6))
+
+    if l4 == PacketConsts.UDP_PROTO:
+        # UDP header
+        packet += struct.pack('!4H', PacketConsts.SRC_PORT,
+                              PacketConsts.DST_PORT,
+                              payload_size + PacketConsts.UDP_HEADER_SIZE, 0)
+    else:
+        # TCP header
+        packet += struct.pack('!2H2I4H', PacketConsts.SRC_PORT,
+                              PacketConsts.DST_PORT, 0, 0,
+                              PacketConsts.TCP_HEADER_SIZE_WORDS << 12,
+                              PacketConsts.WINDOW_SIZE, 0, 0)
     # Payload
     packet += str.encode('a' * payload_size)
     return packet
 
 
-def get_send_elements_raw_qp(agr_obj):
+def get_send_elements_raw_qp(agr_obj, l3=PacketConsts.IP_V4,
+                             l4=PacketConsts.UDP_PROTO):
     """
     Creates a single SGE and a single Send WR for agr_obj's RAW QP type. The
     content of the message is Eth | Ipv4 | UDP packet.
+    :param agr_obj: Aggregation object which contains all resources necessary
+    :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
+    :param l4: Packet layer 4 type: 'tcp' or 'udp'
     :return: send wr, its SGE, and message
     """
     mr = agr_obj.mr
-    msg = gen_ipv4_udp_packet(agr_obj.msg_size)
+    msg = gen_packet(agr_obj.msg_size, l3, l4)
     mr.write(msg, agr_obj.msg_size)
     sge = SGE(mr.buf, agr_obj.msg_size, mr.lkey)
     send_wr = SendWR(opcode=e.IBV_WR_SEND, num_sge=1, sg=[sge])
     return send_wr, sge, msg
 
 
-def raw_traffic(client, server, iters):
+def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
+                l4=PacketConsts.UDP_PROTO):
     """
     Runs raw ethernet traffic between two sides
     :param client: client side, clients base class is BaseTraffic
     :param server: server side, servers base class is BaseTraffic
     :param iters: number of traffic iterations
+    :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
+    :param l4: Packet layer 4 type: 'tcp' or 'udp'
     :return:
     """
     s_recv_wr = get_recv_wr(server)
@@ -727,7 +769,7 @@ def raw_traffic(client, server, iters):
     read_offset = 0
     for _ in range(iters):
         for qp_idx in range(server.qp_count):
-            c_send_wr, c_sg, msg = get_send_elements_raw_qp(client)
+            c_send_wr, c_sg, msg = get_send_elements_raw_qp(client, l3, l4)
             send(client, c_send_wr, e.IBV_WR_SEND, False, qp_idx)
             poll_cq(client.cq)
             poll_cq(server.cq)
