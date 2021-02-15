@@ -51,34 +51,6 @@ class MRRes(RCResources):
         qp_attr.qp_access_flags = qp_access
         return qp_attr
 
-
-class MRRes(RCResources):
-    def __init__(self, dev_name, ib_port, gid_index,
-                 mr_access=e.IBV_ACCESS_LOCAL_WRITE):
-        """
-        Initialize MR resources based on RC resources that include RC QP.
-        :param dev_name: Device name to be used
-        :param ib_port: IB port of the device to use
-        :param gid_index: Which GID index to use
-        :param mr_access: The MR access
-        """
-        self.mr_access = mr_access
-        super().__init__(dev_name=dev_name, ib_port=ib_port, gid_index=gid_index)
-
-    def create_mr(self):
-        try:
-            self.mr = MR(self.pd, self.msg_size, self.mr_access)
-        except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
-                raise unittest.SkipTest(f'Reg MR with access ({self.mr_access}) is not supported')
-            raise ex
-
-    def create_qp_attr(self):
-        qp_attr = QPAttr(port_num=self.ib_port)
-        qp_access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE
-        qp_attr.qp_access_flags = qp_access
-        return qp_attr
-
     def rereg_mr(self, flags, pd=None, addr=0, length=0, access=0):
         try:
             self.mr.rereg(flags, pd, addr, length, access)
