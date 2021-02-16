@@ -2,9 +2,12 @@
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
 from libc.stdint cimport uintptr_t, uint8_t, uint16_t, uint32_t
+from libc.stdlib cimport calloc, free, malloc
+from libc.string cimport memcpy
+from posix.mman cimport munmap
 import logging
 
-from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError
+from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError, PyverbsError
 from pyverbs.providers.mlx5.mlx5dv_sched cimport Mlx5dvSchedLeaf
 cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
 cimport pyverbs.providers.mlx5.libmlx5 as dv
@@ -14,6 +17,7 @@ from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.cq cimport CqInitAttrEx
 cimport pyverbs.libibverbs as v
+from pyverbs.device cimport DM
 from pyverbs.addr cimport AH
 from pyverbs.pd cimport PD
 
@@ -778,3 +782,49 @@ cdef class Mlx5UAR(PyverbsObject):
     @property
     def comp_mask(self):
         return self.uar.comp_mask
+
+
+cdef class Mlx5DmOpAddr(PyverbsCM):
+    def __init__(self, DM dm not None, op=0):
+        """
+        Wraps mlx5dv_dm_map_op_addr.
+        Gets operation address of a device memory (DM), which must be munmapped by
+        the user when it's no longer needed.
+        :param dm: Device Memory instance
+        :param op: DM operation type
+        :return: An mmaped address to the DM for the requested operation (op).
+        """
+        self.addr = dv.mlx5dv_dm_map_op_addr(dm.dm, op)
+        if self.addr == NULL:
+            raise PyverbsRDMAErrno('Failed to get DM operation address')
+
+    def unmap(self, length):
+        munmap(self.addr, length)
+
+    def write(self, data):
+        """
+        Writes data (bytes) to the DM operation address using memcpy.
+        :param data: Bytes of data
+        """
+        memcpy(<char *>self.addr, <char *>data, len(data))
+
+    def read(self, length):
+        """
+        Reads 'length' bytes from the DM operation address using memcpy.
+        :param length: Data length to read (in bytes)
+        :return: Read data in bytes
+        """
+        cdef char *data = <char*> calloc(length, sizeof(char))
+        if data == NULL:
+            raise PyverbsError('Failed to allocate memory')
+        memcpy(<char *>data, <char *>self.addr, length)
+        res = data[:length]
+        free(data)
+        return res
+
+    cpdef close(self):
+        self.addr = NULL
+
+    @property
+    def addr(self):
+        return <uintptr_t>self.addr

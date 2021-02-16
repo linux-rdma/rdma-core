@@ -3,8 +3,8 @@
 
 #cython: language_level=3
 
+from pyverbs.base cimport PyverbsObject, PyverbsCM
 cimport pyverbs.providers.mlx5.libmlx5 as dv
-from pyverbs.base cimport PyverbsObject
 from pyverbs.device cimport Context
 from pyverbs.qp cimport QP, QPEx
 from pyverbs.cq cimport CQEX
@@ -48,3 +48,6 @@ cdef class Mlx5UAR(PyverbsObject):
     cdef dv.mlx5dv_devx_uar *uar
     cdef object context
     cpdef close(self)
+
+cdef class Mlx5DmOpAddr(PyverbsCM):
+    cdef void *addr

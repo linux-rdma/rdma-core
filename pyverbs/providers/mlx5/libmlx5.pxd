@@ -131,3 +131,4 @@ cdef extern from 'infiniband/mlx5dv.h':
                                     mlx5dv_sched_leaf *responder)
     int mlx5dv_reserved_qpn_alloc(v.ibv_context *context, uint32_t *qpn)
     int mlx5dv_reserved_qpn_dealloc(v.ibv_context *context, uint32_t qpn)
+    void *mlx5dv_dm_map_op_addr(v.ibv_dm *dm, uint8_t op)
