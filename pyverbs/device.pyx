@@ -717,38 +717,61 @@ cdef class AllocDmAttr(PyverbsObject):
 
 
 cdef class DM(PyverbsCM):
-    def __init__(self, Context context, AllocDmAttr dm_attr not None):
+    def __init__(self, Context context, AllocDmAttr dm_attr=None, **kwargs):
         """
         Allocate a device (direct) memory.
         :param context: The context of the device on which to allocate memory
         :param dm_attr: Attributes that define the DM
+        :param kwargs: Arguments:
+            * *handle*
+                A valid kernel handle for a DM object in the given context.
+                If passed, the DM will be imported and associated with the
+                given context using ibv_import_dm.
         :return: A DM object on success
         """
         super().__init__()
         self.dm_mrs = weakref.WeakSet()
-        device_attr = context.query_device_ex()
-        if device_attr.max_dm_size <= 0:
-            raise PyverbsUserError('Device doesn\'t support dm allocation')
-        self.dm = v.ibv_alloc_dm(<v.ibv_context*>context.context,
-                                 &dm_attr.alloc_dm_attr)
-        if self.dm == NULL:
-            raise PyverbsRDMAErrno('Failed to allocate device memory of size '
-                                   '{size}. Max available size {max}.'
-                                   .format(size=dm_attr.length,
-                                           max=device_attr.max_dm_size))
+
+        dm_handle = kwargs.get('handle')
+        if dm_handle is not None:
+            self.dm = v.ibv_import_dm(context.context, dm_handle)
+            if self.dm == NULL:
+                raise PyverbsRDMAErrno('Failed to import DM')
+            self._is_imported = True
+        else:
+            device_attr = context.query_device_ex()
+            if device_attr.max_dm_size <= 0:
+                raise PyverbsUserError('Device doesn\'t support dm allocation')
+            self.dm = v.ibv_alloc_dm(<v.ibv_context*>context.context,
+                                     &dm_attr.alloc_dm_attr)
+            if self.dm == NULL:
+                raise PyverbsRDMAErrno('Failed to allocate device memory of size '
+                                       '{size}. Max available size {max}.'
+                                       .format(size=dm_attr.length,
+                                               max=device_attr.max_dm_size))
         self.context = context
         context.add_ref(self)
+
+    def unimport(self):
+        v.ibv_unimport_dm(self.dm)
+        self.close()
 
     def __dealloc__(self):
         self.close()
 
     cpdef close(self):
+        """
+        Closes the underlying C object of the DM.
+        In case of an imported DM, the DM won't be freed, and it's kept for the
+        original DM object, in order to prevent double free by Python GC.
+        """
         if self.dm != NULL:
             self.logger.debug('Closing DM')
             close_weakrefs([self.dm_mrs])
-            rc = v.ibv_free_dm(self.dm)
-            if rc != 0:
-                raise PyverbsRDMAError('Failed to free dm', rc)
+            if not self._is_imported:
+                rc = v.ibv_free_dm(self.dm)
+                if rc != 0:
+                    raise PyverbsRDMAError('Failed to free dm', rc)
             self.dm = NULL
             self.context = None
 
@@ -772,6 +795,10 @@ cdef class DM(PyverbsCM):
         res = data[:length]
         free(data)
         return res
+
+    @property
+    def handle(self):
+        return self.dm.handle
 
 
 cdef class PortAttr(PyverbsObject):

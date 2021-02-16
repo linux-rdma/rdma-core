@@ -156,6 +156,7 @@ cdef extern from 'infiniband/verbs.h':
     cdef struct ibv_dm:
         ibv_context     *context
         unsigned int    comp_mask
+        uint32_t        handle
 
     cdef struct ibv_port_attr:
         ibv_port_state     state
@@ -689,6 +690,8 @@ cdef extern from 'infiniband/verbs.h':
     void ibv_unimport_mr(ibv_mr *mr)
     ibv_pd *ibv_import_pd(ibv_context *context, uint32_t handle)
     void ibv_unimport_pd(ibv_pd *pd)
+    ibv_dm *ibv_import_dm(ibv_context *context, uint32_t dm_handle)
+    void ibv_unimport_dm(ibv_dm *dm)
     int ibv_query_gid_ex(ibv_context *context, uint32_t port_num,
                          uint32_t gid_index, ibv_gid_entry *entry,
                          uint32_t flags)
