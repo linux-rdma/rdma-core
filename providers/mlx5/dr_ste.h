@@ -190,6 +190,7 @@ struct dr_ste_ctx {
 	uint16_t (*get_byte_mask)(uint8_t *hw_ste_p);
 
 	/* Actions */
+	uint32_t actions_caps;
 	void (*set_actions_rx)(uint8_t *action_type_set,
 			       uint8_t *hw_ste_arr,
 			       struct dr_ste_actions_attr *attr,

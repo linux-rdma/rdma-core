@@ -429,8 +429,8 @@ static void dr_ste_v1_set_tx_encap(uint8_t *hw_ste_p, uint8_t *d_action,
 	dr_ste_v1_set_reparse(hw_ste_p);
 }
 
-static void dr_ste_v1_set_tx_push_vlan(uint8_t *ste, uint8_t *d_action,
-				       uint32_t vlan_hdr)
+static void dr_ste_v1_set_push_vlan(uint8_t *ste, uint8_t *d_action,
+				    uint32_t vlan_hdr)
 {
 	DR_STE_SET(double_action_insert_with_inline_v1, d_action, action_id,
 		   DR_STE_V1_ACTION_ID_INSERT_INLINE);
@@ -441,8 +441,8 @@ static void dr_ste_v1_set_tx_push_vlan(uint8_t *ste, uint8_t *d_action,
 	dr_ste_v1_set_reparse(ste);
 }
 
-static void dr_ste_v1_set_rx_pop_vlan(uint8_t *hw_ste_p, uint8_t *s_action,
-				      uint8_t vlans_num)
+static void dr_ste_v1_set_pop_vlan(uint8_t *hw_ste_p, uint8_t *s_action,
+				   uint8_t vlans_num)
 {
 	DR_STE_SET(single_action_remove_header_size_v1, s_action, action_id,
 		   DR_STE_V1_ACTION_ID_REMOVE_BY_SIZE);
@@ -600,9 +600,20 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 {
 	uint8_t *action = DEVX_ADDR_OF(ste_match_bwc_v1, last_ste, action);
 	uint8_t action_sz = DR_STE_ACTION_DOUBLE_SZ;
+	bool allow_modify_hdr = true;
+	bool allow_pop_vlan = true;
 	bool allow_encap = true;
 
 	if (action_type_set[DR_ACTION_TYP_ASO_FLOW_METER]) {
+		if (action_sz < DR_STE_ACTION_DOUBLE_SZ) {
+			dr_ste_v1_arr_init_next_match(&last_ste, added_stes,
+						      attr->gvmi);
+			action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste,
+					      action);
+			action_sz = DR_STE_ACTION_TRIPLE_SZ;
+			allow_pop_vlan = false;
+		}
+
 		dr_ste_v1_set_aso_flow_meter(action,
 					     attr->aso->devx_obj->object_id,
 					     attr->aso->offset,
@@ -611,6 +622,20 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 
 		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
 		action += DR_STE_ACTION_DOUBLE_SZ;
+	}
+
+	if (action_type_set[DR_ACTION_TYP_POP_VLAN]) {
+		if (action_sz < DR_STE_ACTION_SINGLE_SZ || !allow_pop_vlan) {
+			dr_ste_v1_arr_init_next_match(&last_ste, added_stes,
+						      attr->gvmi);
+			action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste,
+					      action);
+			action_sz = DR_STE_ACTION_TRIPLE_SZ;
+		}
+		dr_ste_v1_set_pop_vlan(last_ste, action, attr->vlans.count);
+		action_sz -= DR_STE_ACTION_SINGLE_SZ;
+		action += DR_STE_ACTION_SINGLE_SZ;
+		allow_modify_hdr = false;
 	}
 
 	if (action_type_set[DR_ACTION_TYP_ASO_CT]) {
@@ -635,7 +660,7 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 		dr_ste_v1_set_counter_id(last_ste, attr->ctr_id);
 
 	if (action_type_set[DR_ACTION_TYP_MODIFY_HDR]) {
-		if (action_sz < DR_STE_ACTION_DOUBLE_SZ) {
+		if (!allow_modify_hdr || action_sz < DR_STE_ACTION_DOUBLE_SZ) {
 			dr_ste_v1_arr_init_next_match(&last_ste, added_stes,
 						      attr->gvmi);
 			action = DEVX_ADDR_OF(ste_mask_and_match_v1,
@@ -660,7 +685,8 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 				action_sz = DR_STE_ACTION_TRIPLE_SZ;
 				allow_encap = true;
 			}
-			dr_ste_v1_set_tx_push_vlan(last_ste, action, attr->vlans.headers[i]);
+			dr_ste_v1_set_push_vlan(last_ste, action,
+						attr->vlans.headers[i]);
 			action_sz -= DR_STE_ACTION_DOUBLE_SZ;
 			action += DR_STE_ACTION_DOUBLE_SZ;
 		}
@@ -765,7 +791,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 			allow_ctr = false;
 		}
 
-		dr_ste_v1_set_rx_pop_vlan(last_ste, action, attr->vlans.count);
+		dr_ste_v1_set_pop_vlan(last_ste, action, attr->vlans.count);
 		action_sz -= DR_STE_ACTION_SINGLE_SZ;
 		action += DR_STE_ACTION_SINGLE_SZ;
 	}
@@ -804,6 +830,26 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 					      attr->modify_index);
 		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
 		action += DR_STE_ACTION_DOUBLE_SZ;
+	}
+
+	if (action_type_set[DR_ACTION_TYP_PUSH_VLAN]) {
+		int i;
+
+		for (i = 0; i < attr->vlans.count; i++) {
+			if (action_sz < DR_STE_ACTION_DOUBLE_SZ ||
+			    !allow_modify_hdr) {
+				dr_ste_v1_arr_init_next_match(&last_ste,
+							      added_stes,
+							      attr->gvmi);
+				action = DEVX_ADDR_OF(ste_mask_and_match_v1,
+						      last_ste, action);
+				action_sz = DR_STE_ACTION_TRIPLE_SZ;
+			}
+			dr_ste_v1_set_push_vlan(last_ste, action,
+						attr->vlans.headers[i]);
+			action_sz -= DR_STE_ACTION_DOUBLE_SZ;
+			action += DR_STE_ACTION_DOUBLE_SZ;
+		}
 	}
 
 	if (action_type_set[DR_ACTION_TYP_ASO_FLOW_METER]) {
@@ -2083,6 +2129,8 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	.set_byte_mask			= &dr_ste_v1_set_byte_mask,
 	.get_byte_mask			= &dr_ste_v1_get_byte_mask,
 	/* Actions */
+	.actions_caps			= DR_STE_CTX_ACTION_CAP_TX_POP |
+					  DR_STE_CTX_ACTION_CAP_RX_PUSH,
 	.set_actions_rx			= &dr_ste_v1_set_actions_rx,
 	.set_actions_tx			= &dr_ste_v1_set_actions_tx,
 	.set_action_set			= &dr_ste_v1_set_action_set,
