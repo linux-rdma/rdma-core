@@ -560,6 +560,8 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %post -n rdma-ndd
 %service_add_post rdma-ndd.service
+# we ship udev rules, so trigger an update.
+%{_bindir}/udevadm trigger --subsystem-match=infiniband --action=change || true
 
 %postun -n rdma-ndd
 %service_del_postun rdma-ndd.service
