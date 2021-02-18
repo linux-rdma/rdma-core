@@ -178,7 +178,10 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 	caps->flex_protocols = DEVX_GET(query_hca_cap_out, out,
 					capability.cmd_hca_cap.flex_parser_protocols);
 	caps->isolate_vl_tc = DEVX_GET(query_hca_cap_out, out,
-				       capability.cmd_hca_cap.isolate_vl_tc);
+				       capability.cmd_hca_cap.isolate_vl_tc_new);
+	caps->flex_parser_header_modify =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.cmd_hca_cap.flex_parser_header_modify);
 	roce = DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.roce);
 
 	caps->sw_format_ver = DEVX_GET(query_hca_cap_out, out,
@@ -223,6 +226,30 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 			DEVX_GET(query_hca_cap_out,
 				 out,
 				 capability.cmd_hca_cap.flex_parser_id_outer_first_mpls_over_udp_label);
+
+	if (caps->flex_protocols & MLX5_FLEX_PARSER_GTPU_DW_0_ENABLED)
+		caps->flex_parser_id_gtpu_dw_0 =
+			DEVX_GET(query_hca_cap_out,
+				 out,
+				 capability.cmd_hca_cap.flex_parser_id_gtpu_dw_0);
+
+	if (caps->flex_protocols & MLX5_FLEX_PARSER_GTPU_TEID_ENABLED)
+		caps->flex_parser_id_gtpu_teid =
+			DEVX_GET(query_hca_cap_out,
+				 out,
+				 capability.cmd_hca_cap.flex_parser_id_gtpu_teid);
+
+	if (caps->flex_protocols & MLX5_FLEX_PARSER_GTPU_DW_2_ENABLED)
+		caps->flex_parser_id_gtpu_dw_2 =
+			DEVX_GET(query_hca_cap_out,
+				 out,
+				 capability.cmd_hca_cap.flex_parser_id_gtpu_dw_2);
+
+	if (caps->flex_protocols & MLX5_FLEX_PARSER_GTPU_FIRST_EXT_DW_0_ENABLED)
+		caps->flex_parser_id_gtpu_first_ext_dw_0 =
+			DEVX_GET(query_hca_cap_out,
+				 out,
+				 capability.cmd_hca_cap.flex_parser_id_gtpu_first_ext_dw_0);
 
 	DEVX_SET(query_hca_cap_in, in, op_mod,
 		 MLX5_SET_HCA_CAP_OP_MOD_NIC_FLOW_TABLE |

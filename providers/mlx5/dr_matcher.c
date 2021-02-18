@@ -199,7 +199,7 @@ dr_mask_is_tnl_geneve(struct dr_match_param *mask,
 
 static bool dr_mask_is_tnl_gtpu_set(struct dr_match_misc3 *misc3)
 {
-	return misc3->gtpu_flags || misc3->gtpu_msg_type || misc3->gtpu_teid;
+	return misc3->gtpu_msg_flags || misc3->gtpu_msg_type || misc3->gtpu_teid;
 }
 
 static bool dr_matcher_supp_tnl_gtpu(struct dr_devx_caps *caps)
@@ -212,6 +212,92 @@ static bool dr_mask_is_tnl_gtpu(struct dr_match_param *mask,
 {
 	return dr_mask_is_tnl_gtpu_set(&mask->misc3) &&
 	       dr_matcher_supp_tnl_gtpu(&dmn->info.caps);
+}
+
+static int dr_matcher_supp_tnl_gtpu_dw_0(struct dr_devx_caps *caps)
+{
+	return caps->flex_protocols & MLX5_FLEX_PARSER_GTPU_DW_0_ENABLED;
+}
+
+static bool dr_mask_is_tnl_gtpu_dw_0(struct dr_match_param *mask,
+				     struct mlx5dv_dr_domain *dmn)
+{
+	return mask->misc3.gtpu_dw_0 &&
+	       dr_matcher_supp_tnl_gtpu_dw_0(&dmn->info.caps);
+}
+
+static int dr_matcher_supp_tnl_gtpu_teid(struct dr_devx_caps *caps)
+{
+	return caps->flex_protocols & MLX5_FLEX_PARSER_GTPU_TEID_ENABLED;
+}
+
+static bool dr_mask_is_tnl_gtpu_teid(struct dr_match_param *mask,
+				     struct mlx5dv_dr_domain *dmn)
+{
+	return mask->misc3.gtpu_teid &&
+	       dr_matcher_supp_tnl_gtpu_teid(&dmn->info.caps);
+}
+
+static int dr_matcher_supp_tnl_gtpu_dw_2(struct dr_devx_caps *caps)
+{
+	return caps->flex_protocols & MLX5_FLEX_PARSER_GTPU_DW_2_ENABLED;
+}
+
+static bool dr_mask_is_tnl_gtpu_dw_2(struct dr_match_param *mask,
+				     struct mlx5dv_dr_domain *dmn)
+{
+	return mask->misc3.gtpu_dw_2 &&
+	       dr_matcher_supp_tnl_gtpu_dw_2(&dmn->info.caps);
+}
+
+static int dr_matcher_supp_tnl_gtpu_first_ext(struct dr_devx_caps *caps)
+{
+	return caps->flex_protocols & MLX5_FLEX_PARSER_GTPU_FIRST_EXT_DW_0_ENABLED;
+}
+
+static bool dr_mask_is_tnl_gtpu_first_ext(struct dr_match_param *mask,
+					  struct mlx5dv_dr_domain *dmn)
+{
+	return mask->misc3.gtpu_first_ext_dw_0 &&
+	       dr_matcher_supp_tnl_gtpu_first_ext(&dmn->info.caps);
+}
+
+static bool dr_mask_is_tnl_gtpu_flex_parser_0(struct dr_match_param *mask,
+					      struct mlx5dv_dr_domain *dmn)
+{
+	struct dr_devx_caps *caps = &dmn->info.caps;
+
+	return ((caps->flex_parser_id_gtpu_dw_0 <= DR_STE_MAX_FLEX_0_ID) &&
+		dr_mask_is_tnl_gtpu_dw_0(mask, dmn)) ||
+	       ((caps->flex_parser_id_gtpu_teid <= DR_STE_MAX_FLEX_0_ID) &&
+		dr_mask_is_tnl_gtpu_teid(mask, dmn)) ||
+	       ((caps->flex_parser_id_gtpu_dw_2 <= DR_STE_MAX_FLEX_0_ID) &&
+		dr_mask_is_tnl_gtpu_dw_2(mask, dmn)) ||
+	       ((caps->flex_parser_id_gtpu_first_ext_dw_0 <= DR_STE_MAX_FLEX_0_ID) &&
+		dr_mask_is_tnl_gtpu_first_ext(mask, dmn));
+}
+
+static bool dr_mask_is_tnl_gtpu_flex_parser_1(struct dr_match_param *mask,
+					      struct mlx5dv_dr_domain *dmn)
+{
+	struct dr_devx_caps *caps = &dmn->info.caps;
+
+	return ((caps->flex_parser_id_gtpu_dw_0 > DR_STE_MAX_FLEX_0_ID) &&
+		dr_mask_is_tnl_gtpu_dw_0(mask, dmn)) ||
+	       ((caps->flex_parser_id_gtpu_teid > DR_STE_MAX_FLEX_0_ID) &&
+		dr_mask_is_tnl_gtpu_teid(mask, dmn)) ||
+	       ((caps->flex_parser_id_gtpu_dw_2 > DR_STE_MAX_FLEX_0_ID) &&
+		dr_mask_is_tnl_gtpu_dw_2(mask, dmn)) ||
+	       ((caps->flex_parser_id_gtpu_first_ext_dw_0 > DR_STE_MAX_FLEX_0_ID) &&
+		dr_mask_is_tnl_gtpu_first_ext(mask, dmn));
+}
+
+static bool dr_mask_is_tnl_gtpu_any(struct dr_match_param *mask,
+				    struct mlx5dv_dr_domain *dmn)
+{
+	return dr_mask_is_tnl_gtpu_flex_parser_0(mask, dmn) ||
+	       dr_mask_is_tnl_gtpu_flex_parser_1(mask, dmn) ||
+	       dr_mask_is_tnl_gtpu(mask, dmn);
 }
 
 static inline int dr_matcher_supp_icmp_v4(struct dr_devx_caps *caps)
@@ -449,9 +535,20 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 				dr_ste_build_tnl_geneve_tlv_opt(ste_ctx, &sb[idx++],
 								&mask, &dmn->info.caps,
 								inner, rx);
-		} else if (dr_mask_is_tnl_gtpu(&mask, dmn)) {
-			dr_ste_build_tnl_gtpu(ste_ctx, &sb[idx++],
-					      &mask, inner, rx);
+		} else if (dr_mask_is_tnl_gtpu_any(&mask, dmn)) {
+			if (dr_mask_is_tnl_gtpu_flex_parser_0(&mask, dmn))
+				dr_ste_build_tnl_gtpu_flex_parser_0(ste_ctx, &sb[idx++],
+								    &mask, &dmn->info.caps,
+								    inner, rx);
+
+			if (dr_mask_is_tnl_gtpu_flex_parser_1(&mask, dmn))
+				dr_ste_build_tnl_gtpu_flex_parser_1(ste_ctx, &sb[idx++],
+								    &mask, &dmn->info.caps,
+								    inner, rx);
+
+			if (dr_mask_is_tnl_gtpu(&mask, dmn))
+				dr_ste_build_tnl_gtpu(ste_ctx, &sb[idx++],
+						      &mask, inner, rx);
 		}
 
 		if (DR_MASK_IS_ETH_L4_MISC_SET(mask.misc3, outer))

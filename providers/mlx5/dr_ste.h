@@ -111,6 +111,19 @@ enum {
 		       in_out##_first_mpls_ttl); \
 } while (0)
 
+#define DR_STE_SET_FLEX_PARSER_FIELD(tag, fname, caps, spec) do { \
+	if ((spec)->fname) { \
+		uint8_t parser_id = caps->flex_parser_id_##fname; \
+		uint8_t *parser_ptr = dr_ste_calc_flex_parser_offset(tag, parser_id); \
+		*(__be32 *)parser_ptr = htobe32((spec)->fname);\
+		(spec)->fname = 0; \
+	} \
+} while (0)
+
+enum dr_ste_action_modify_flags {
+	DR_STE_ACTION_MODIFY_FLAG_REQ_FLEX      = 1 << 0,
+};
+
 enum dr_ste_action_modify_type_l3 {
 	DR_STE_ACTION_MDFY_TYPE_L3_NONE	= 0x0,
 	DR_STE_ACTION_MDFY_TYPE_L3_IPV4	= 0x1,
@@ -157,6 +170,8 @@ struct dr_ste_ctx {
 	dr_ste_builder_void_init build_tnl_geneve_init;
 	dr_ste_builder_void_init build_tnl_geneve_tlv_opt_init;
 	dr_ste_builder_void_init build_tnl_gtpu_init;
+	dr_ste_builder_void_init build_tnl_gtpu_flex_parser_0;
+	dr_ste_builder_void_init build_tnl_gtpu_flex_parser_1;
 	dr_ste_builder_void_init build_register_0_init;
 	dr_ste_builder_void_init build_register_1_init;
 	dr_ste_builder_void_init build_src_gvmi_qpn_init;
@@ -183,8 +198,6 @@ struct dr_ste_ctx {
 			       uint8_t *hw_ste_arr,
 			       struct dr_ste_actions_attr *attr,
 			       uint32_t *added_stes);
-	uint32_t modify_field_arr_sz;
-	const struct dr_ste_action_modify_field *modify_field_arr;
 	void (*set_action_set)(uint8_t *hw_action,
 			       uint8_t hw_field,
 			       uint8_t shifter,
@@ -201,6 +214,9 @@ struct dr_ste_ctx {
 				uint8_t dst_len,
 				uint8_t src_hw_field,
 				uint8_t src_shifter);
+	const struct dr_ste_action_modify_field *
+		(*get_action_hw_field)(uint16_t sw_field,
+				       struct dr_devx_caps *caps);
 	int (*set_action_decap_l3_list)(void *data, uint32_t data_sz,
 					uint8_t *hw_action, uint32_t hw_action_sz,
 					uint16_t *used_hw_action_num);

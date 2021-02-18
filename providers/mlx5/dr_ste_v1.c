@@ -148,6 +148,14 @@ enum {
 	DR_STE_V1_ACTION_MDFY_FLD_TCP_MISC_1		= 0x5f,
 	DR_STE_V1_ACTION_MDFY_FLD_METADATA_2_CQE	= 0x7b,
 	DR_STE_V1_ACTION_MDFY_FLD_GNRL_PURPOSE		= 0x7c,
+	DR_STE_V1_ACTION_MDFY_FLD_FLEX_PARSER_7		= 0x82,
+	DR_STE_V1_ACTION_MDFY_FLD_FLEX_PARSER_6		= 0x83,
+	DR_STE_V1_ACTION_MDFY_FLD_FLEX_PARSER_5		= 0x84,
+	DR_STE_V1_ACTION_MDFY_FLD_FLEX_PARSER_4		= 0x85,
+	DR_STE_V1_ACTION_MDFY_FLD_FLEX_PARSER_3		= 0x86,
+	DR_STE_V1_ACTION_MDFY_FLD_FLEX_PARSER_2		= 0x87,
+	DR_STE_V1_ACTION_MDFY_FLD_FLEX_PARSER_1		= 0x88,
+	DR_STE_V1_ACTION_MDFY_FLD_FLEX_PARSER_0		= 0x89,
 	DR_STE_V1_ACTION_MDFY_FLD_REGISTER_2		= 0x8c,
 	DR_STE_V1_ACTION_MDFY_FLD_REGISTER_3		= 0x8d,
 	DR_STE_V1_ACTION_MDFY_FLD_REGISTER_4		= 0x8e,
@@ -281,6 +289,20 @@ static const struct dr_ste_action_modify_field dr_ste_v1_action_modify_field_arr
 	[MLX5_ACTION_IN_FIELD_OUT_FIRST_VID] = {
 		.hw_field = DR_STE_V1_ACTION_MDFY_FLD_L2_OUT_2, .start = 0, .end = 15,
 	},
+	[MLX5_ACTION_IN_FIELD_OUT_GTPU_TEID] = {
+		.flags = DR_STE_ACTION_MODIFY_FLAG_REQ_FLEX, .start = 0, .end = 31,
+	},
+};
+
+static const struct dr_ste_action_modify_field dr_ste_v1_action_modify_flex_field_arr[] = {
+	{.hw_field = DR_STE_V1_ACTION_MDFY_FLD_FLEX_PARSER_0, .start = 0, .end = 31,},
+	{.hw_field = DR_STE_V1_ACTION_MDFY_FLD_FLEX_PARSER_1, .start = 0, .end = 31,},
+	{.hw_field = DR_STE_V1_ACTION_MDFY_FLD_FLEX_PARSER_2, .start = 0, .end = 31,},
+	{.hw_field = DR_STE_V1_ACTION_MDFY_FLD_FLEX_PARSER_3, .start = 0, .end = 31,},
+	{.hw_field = DR_STE_V1_ACTION_MDFY_FLD_FLEX_PARSER_4, .start = 0, .end = 31,},
+	{.hw_field = DR_STE_V1_ACTION_MDFY_FLD_FLEX_PARSER_5, .start = 0, .end = 31,},
+	{.hw_field = DR_STE_V1_ACTION_MDFY_FLD_FLEX_PARSER_6, .start = 0, .end = 31,},
+	{.hw_field = DR_STE_V1_ACTION_MDFY_FLD_FLEX_PARSER_7, .start = 0, .end = 31,},
 };
 
 static void dr_ste_v1_set_entry_type(uint8_t *hw_ste_p, uint8_t entry_type)
@@ -894,6 +916,52 @@ dr_ste_v1_set_action_decap_l3_list(void *data, uint32_t data_sz,
 	return 0;
 }
 
+static const struct dr_ste_action_modify_field *
+dr_ste_v1_get_action_flex_hw_field(uint16_t sw_field, struct dr_devx_caps *caps)
+{
+	uint8_t flex_id;
+
+	if (!caps->flex_parser_header_modify)
+		goto not_found;
+
+	if ((sw_field == MLX5_ACTION_IN_FIELD_OUT_GTPU_TEID) &&
+	    (caps->flex_protocols & MLX5_FLEX_PARSER_GTPU_TEID_ENABLED))
+		flex_id = caps->flex_parser_id_gtpu_teid;
+	else
+		goto not_found;
+
+	if (flex_id >= ARRAY_SIZE(dr_ste_v1_action_modify_flex_field_arr))
+		goto not_found;
+
+	return &dr_ste_v1_action_modify_flex_field_arr[flex_id];
+
+not_found:
+	errno = EINVAL;
+	return NULL;
+}
+
+static const struct dr_ste_action_modify_field *
+dr_ste_v1_get_action_hw_field(uint16_t sw_field, struct dr_devx_caps *caps)
+{
+	const struct dr_ste_action_modify_field *hw_field;
+
+	if (sw_field >= ARRAY_SIZE(dr_ste_v1_action_modify_field_arr))
+		goto not_found;
+
+	hw_field = &dr_ste_v1_action_modify_field_arr[sw_field];
+	if (!hw_field->end && !hw_field->start)
+		goto not_found;
+
+	if (hw_field->flags & DR_STE_ACTION_MODIFY_FLAG_REQ_FLEX)
+		return dr_ste_v1_get_action_flex_hw_field(sw_field, caps);
+
+	return hw_field;
+
+not_found:
+	errno = EINVAL;
+	return NULL;
+}
+
 static void dr_ste_v1_build_eth_l2_src_dst_bit_mask(struct dr_match_param *value,
 						    bool inner, uint8_t *bit_mask)
 {
@@ -1449,9 +1517,9 @@ static void dr_ste_v1_build_tnl_mpls_over_udp_init(struct dr_ste_build *sb,
 	/* STEs with lookup type FLEX_PARSER_{0/1} includes
 	 * flex parsers_{0-3}/{4-7} respectively.
 	 */
-	sb->lu_type = sb->caps->flex_parser_id_mpls_over_udp > DR_STE_MAX_FLEX_0_ID ?
-		      DR_STE_V1_LU_TYPE_FLEX_PARSER_1 :
-		      DR_STE_V1_LU_TYPE_FLEX_PARSER_0;
+	sb->lu_type = sb->caps->flex_parser_id_mpls_over_udp <= DR_STE_MAX_FLEX_0_ID ?
+		      DR_STE_V1_LU_TYPE_FLEX_PARSER_0 :
+		      DR_STE_V1_LU_TYPE_FLEX_PARSER_1;
 
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v1_build_tnl_mpls_over_udp_tag;
@@ -1490,9 +1558,9 @@ static void dr_ste_v1_build_tnl_mpls_over_gre_init(struct dr_ste_build *sb,
 	/* STEs with lookup type FLEX_PARSER_{0/1} includes
 	 * flex parsers_{0-3}/{4-7} respectively.
 	 */
-	sb->lu_type = sb->caps->flex_parser_id_mpls_over_gre > DR_STE_MAX_FLEX_0_ID ?
-		      DR_STE_V1_LU_TYPE_FLEX_PARSER_1 :
-		      DR_STE_V1_LU_TYPE_FLEX_PARSER_0;
+	sb->lu_type = sb->caps->flex_parser_id_mpls_over_gre <= DR_STE_MAX_FLEX_0_ID ?
+		      DR_STE_V1_LU_TYPE_FLEX_PARSER_0 :
+		      DR_STE_V1_LU_TYPE_FLEX_PARSER_1;
 
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v1_build_tnl_mpls_over_gre_tag;
@@ -1673,9 +1741,9 @@ dr_ste_v1_build_flex_parser_tnl_geneve_tlv_opt_init(struct dr_ste_build *sb,
 	/* STEs with lookup type FLEX_PARSER_{0/1} includes
 	 * flex parsers_{0-3}/{4-7} respectively.
 	 */
-	sb->lu_type = sb->caps->flex_parser_id_geneve_opt_0 > DR_STE_MAX_FLEX_0_ID ?
-		      DR_STE_V1_LU_TYPE_FLEX_PARSER_1 :
-		      DR_STE_V1_LU_TYPE_FLEX_PARSER_0;
+	sb->lu_type = sb->caps->flex_parser_id_geneve_opt_0 <= DR_STE_MAX_FLEX_0_ID ?
+		      DR_STE_V1_LU_TYPE_FLEX_PARSER_0 :
+		      DR_STE_V1_LU_TYPE_FLEX_PARSER_1;
 
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v1_build_flex_parser_tnl_geneve_tlv_opt_tag;
@@ -1688,8 +1756,8 @@ static int dr_ste_v1_build_flex_parser_tnl_gtpu_tag(struct dr_match_param *value
 	struct dr_match_misc3 *misc3 = &value->misc3;
 
 	DR_STE_SET_TAG(flex_parser_tnl_gtpu, tag,
-		       gtpu_flags, misc3,
-		       gtpu_flags);
+		       gtpu_msg_flags, misc3,
+		       gtpu_msg_flags);
 	DR_STE_SET_TAG(flex_parser_tnl_gtpu, tag,
 		       gtpu_msg_type, misc3,
 		       gtpu_msg_type);
@@ -1708,6 +1776,60 @@ static void dr_ste_v1_build_flex_parser_tnl_gtpu_init(struct dr_ste_build *sb,
 	sb->lu_type = DR_STE_V1_LU_TYPE_FLEX_PARSER_TNL_HEADER;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v1_build_flex_parser_tnl_gtpu_tag;
+}
+
+static int
+dr_ste_v1_build_tnl_gtpu_flex_parser_0_tag(struct dr_match_param *value,
+					   struct dr_ste_build *sb,
+					   uint8_t *tag)
+{
+	if (sb->caps->flex_parser_id_gtpu_dw_0 <= DR_STE_MAX_FLEX_0_ID)
+		DR_STE_SET_FLEX_PARSER_FIELD(tag, gtpu_dw_0, sb->caps, &value->misc3);
+	if (sb->caps->flex_parser_id_gtpu_teid <= DR_STE_MAX_FLEX_0_ID)
+		DR_STE_SET_FLEX_PARSER_FIELD(tag, gtpu_teid, sb->caps, &value->misc3);
+	if (sb->caps->flex_parser_id_gtpu_dw_2 <= DR_STE_MAX_FLEX_0_ID)
+		DR_STE_SET_FLEX_PARSER_FIELD(tag, gtpu_dw_2, sb->caps, &value->misc3);
+	if (sb->caps->flex_parser_id_gtpu_first_ext_dw_0 <= DR_STE_MAX_FLEX_0_ID)
+		DR_STE_SET_FLEX_PARSER_FIELD(tag, gtpu_first_ext_dw_0, sb->caps, &value->misc3);
+	return 0;
+}
+
+static void
+dr_ste_v1_build_tnl_gtpu_flex_parser_0_init(struct dr_ste_build *sb,
+					    struct dr_match_param *mask)
+{
+	dr_ste_v1_build_tnl_gtpu_flex_parser_0_tag(mask, sb, sb->bit_mask);
+
+	sb->lu_type = DR_STE_V1_LU_TYPE_FLEX_PARSER_0;
+	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
+	sb->ste_build_tag_func = &dr_ste_v1_build_tnl_gtpu_flex_parser_0_tag;
+}
+
+static int
+dr_ste_v1_build_tnl_gtpu_flex_parser_1_tag(struct dr_match_param *value,
+					   struct dr_ste_build *sb,
+					   uint8_t *tag)
+{
+	if (sb->caps->flex_parser_id_gtpu_dw_0 > DR_STE_MAX_FLEX_0_ID)
+		DR_STE_SET_FLEX_PARSER_FIELD(tag, gtpu_dw_0, sb->caps, &value->misc3);
+	if (sb->caps->flex_parser_id_gtpu_teid > DR_STE_MAX_FLEX_0_ID)
+		DR_STE_SET_FLEX_PARSER_FIELD(tag, gtpu_teid, sb->caps, &value->misc3);
+	if (sb->caps->flex_parser_id_gtpu_dw_2 > DR_STE_MAX_FLEX_0_ID)
+		DR_STE_SET_FLEX_PARSER_FIELD(tag, gtpu_dw_2, sb->caps, &value->misc3);
+	if (sb->caps->flex_parser_id_gtpu_first_ext_dw_0 > DR_STE_MAX_FLEX_0_ID)
+		DR_STE_SET_FLEX_PARSER_FIELD(tag, gtpu_first_ext_dw_0, sb->caps, &value->misc3);
+	return 0;
+}
+
+static void
+dr_ste_v1_build_tnl_gtpu_flex_parser_1_init(struct dr_ste_build *sb,
+					    struct dr_match_param *mask)
+{
+	dr_ste_v1_build_tnl_gtpu_flex_parser_1_tag(mask, sb, sb->bit_mask);
+
+	sb->lu_type = DR_STE_V1_LU_TYPE_FLEX_PARSER_1;
+	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
+	sb->ste_build_tag_func = &dr_ste_v1_build_tnl_gtpu_flex_parser_1_tag;
 }
 
 static int dr_ste_v1_build_register_0_tag(struct dr_match_param *value,
@@ -1888,6 +2010,8 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	.build_tnl_geneve_init		= &dr_ste_v1_build_flex_parser_tnl_geneve_init,
 	.build_tnl_geneve_tlv_opt_init	= &dr_ste_v1_build_flex_parser_tnl_geneve_tlv_opt_init,
 	.build_tnl_gtpu_init		= &dr_ste_v1_build_flex_parser_tnl_gtpu_init,
+	.build_tnl_gtpu_flex_parser_0	= &dr_ste_v1_build_tnl_gtpu_flex_parser_0_init,
+	.build_tnl_gtpu_flex_parser_1	= &dr_ste_v1_build_tnl_gtpu_flex_parser_1_init,
 	.build_register_0_init		= &dr_ste_v1_build_register_0_init,
 	.build_register_1_init		= &dr_ste_v1_build_register_1_init,
 	.build_src_gvmi_qpn_init	= &dr_ste_v1_build_src_gvmi_qpn_init,
@@ -1905,11 +2029,10 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	/* Actions */
 	.set_actions_rx			= &dr_ste_v1_set_actions_rx,
 	.set_actions_tx			= &dr_ste_v1_set_actions_tx,
-	.modify_field_arr_sz		= ARRAY_SIZE(dr_ste_v1_action_modify_field_arr),
-	.modify_field_arr		= dr_ste_v1_action_modify_field_arr,
 	.set_action_set			= &dr_ste_v1_set_action_set,
 	.set_action_add			= &dr_ste_v1_set_action_add,
 	.set_action_copy		= &dr_ste_v1_set_action_copy,
+	.get_action_hw_field		= &dr_ste_v1_get_action_hw_field,
 	.set_action_decap_l3_list	= &dr_ste_v1_set_action_decap_l3_list,
 	/* Send */
 	.prepare_for_postsend		= &dr_ste_v1_prepare_for_postsend,
