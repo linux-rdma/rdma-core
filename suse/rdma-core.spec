@@ -105,7 +105,7 @@ Obsoletes:      ofed < %{version}
 # To force build without the use of curl-mini, --without=curlmini
 # should be passed to rpmbuild
 %bcond_without curlmini
-%if 0%{?suse_version} >= 1330
+%if 0%{?suse_version} >= 1330 && 0%{?suse_version} < 1550
 %if %{with curlmini}
 BuildRequires:  curl-mini
 %endif
