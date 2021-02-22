@@ -124,7 +124,7 @@ LATEST_SYMVER_FUNC(ibv_get_device_guid, 1_1, "IBVERBS_1.1",
 	int i;
 
 	pthread_mutex_lock(&dev_list_lock);
-	if (sysfs_dev->flags & VSYSFS_READ_NODE_GUID) {
+	if (sysfs_dev && sysfs_dev->flags & VSYSFS_READ_NODE_GUID) {
 		guid = sysfs_dev->node_guid;
 		pthread_mutex_unlock(&dev_list_lock);
 		return htobe64(guid);
@@ -154,7 +154,7 @@ int ibv_get_device_index(struct ibv_device *device)
 {
 	struct verbs_sysfs_dev *sysfs_dev = verbs_get_device(device)->sysfs;
 
-	return sysfs_dev->ibdev_idx;
+	return sysfs_dev ? sysfs_dev->ibdev_idx : -1;
 }
 
 void verbs_init_cq(struct ibv_cq *cq, struct ibv_context *context,
@@ -323,18 +323,20 @@ static void set_lib_ops(struct verbs_context *vctx)
 struct ibv_context *verbs_open_device(struct ibv_device *device, void *private_data)
 {
 	struct verbs_device *verbs_device = verbs_get_device(device);
-	int cmd_fd;
+	int cmd_fd = -1;
 	struct verbs_context *context_ex;
 	int ret;
 
-	/*
-	 * We'll only be doing writes, but we need O_RDWR in case the
-	 * provider needs to mmap() the file.
-	 */
-	cmd_fd = open_cdev(verbs_device->sysfs->sysfs_name,
-			   verbs_device->sysfs->sysfs_cdev);
-	if (cmd_fd < 0)
-		return NULL;
+	if (verbs_device->sysfs) {
+		/*
+		 * We'll only be doing writes, but we need O_RDWR in case the
+		 * provider needs to mmap() the file.
+		 */
+		cmd_fd = open_cdev(verbs_device->sysfs->sysfs_name,
+				   verbs_device->sysfs->sysfs_cdev);
+		if (cmd_fd < 0)
+			return NULL;
+	}
 
 	/*
 	 * cmd_fd ownership is transferred into alloc_context, if it fails
@@ -345,11 +347,13 @@ struct ibv_context *verbs_open_device(struct ibv_device *device, void *private_d
 		return NULL;
 
 	set_lib_ops(context_ex);
-	if (context_ex->context.async_fd == -1) {
-		ret = ibv_cmd_alloc_async_fd(&context_ex->context);
-		if (ret) {
-			ibv_close_device(&context_ex->context);
-			return NULL;
+	if (verbs_device->sysfs) {
+		if (context_ex->context.async_fd == -1) {
+			ret = ibv_cmd_alloc_async_fd(&context_ex->context);
+			if (ret) {
+				ibv_close_device(&context_ex->context);
+				return NULL;
+			}
 		}
 	}
 
@@ -428,7 +432,8 @@ out:
 void verbs_uninit_context(struct verbs_context *context_ex)
 {
 	free(context_ex->priv);
-	close(context_ex->context.cmd_fd);
+	if (context_ex->context.cmd_fd != -1)
+		close(context_ex->context.cmd_fd);
 	if (context_ex->context.async_fd != -1)
 		close(context_ex->context.async_fd);
 	ibverbs_device_put(context_ex->context.device);
