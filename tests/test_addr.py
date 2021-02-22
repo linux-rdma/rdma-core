@@ -37,49 +37,46 @@ class AHTest(PyverbsAPITestCase):
         """
         Test ibv_create_ah.
         """
-        for ctx, _, _ in self.devices:
-            self.verify_state(ctx)
-            gr = u.get_global_route(ctx, port_num=self.ib_port)
-            ah_attr = AHAttr(gr=gr, is_global=1, port_num=self.ib_port)
-            pd = PD(ctx)
-            try:
-                AH(pd, attr=ah_attr)
-            except PyverbsRDMAError as ex:
-                if ex.error_code == errno.EOPNOTSUPP:
-                    raise unittest.SkipTest('Create AH is not supported')
-                raise ex
+        self.verify_state(self.ctx)
+        gr = u.get_global_route(self.ctx, port_num=self.ib_port)
+        ah_attr = AHAttr(gr=gr, is_global=1, port_num=self.ib_port)
+        pd = PD(self.ctx)
+        try:
+            AH(pd, attr=ah_attr)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Create AH is not supported')
+            raise ex
 
     def test_create_ah_roce(self):
         """
         Verify that AH can't be created without GRH in RoCE
         """
-        for ctx, _, _ in self.devices:
-            self.verify_link_layer_ether(ctx)
-            self.verify_state(ctx)
-            pd = PD(ctx)
-            ah_attr = AHAttr(is_global=0, port_num=self.ib_port)
-            try:
-                AH(pd, attr=ah_attr)
-            except PyverbsRDMAError as ex:
-                if ex.error_code == errno.EOPNOTSUPP:
-                    raise unittest.SkipTest('Create AH is not supported')
-                assert 'Failed to create AH' in str(ex)
-            else:
-                raise PyverbsError(f'Successfully created a non-global AH on RoCE port={self.ib_port}')
+        self.verify_link_layer_ether(self.ctx)
+        self.verify_state(self.ctx)
+        pd = PD(self.ctx)
+        ah_attr = AHAttr(is_global=0, port_num=self.ib_port)
+        try:
+            AH(pd, attr=ah_attr)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Create AH is not supported')
+            assert 'Failed to create AH' in str(ex)
+        else:
+            raise PyverbsError(f'Successfully created a non-global AH on RoCE port={self.ib_port}')
 
     def test_destroy_ah(self):
         """
         Test ibv_destroy_ah.
         """
-        for ctx, _, _ in self.devices:
-            self.verify_state(ctx)
-            gr = u.get_global_route(ctx, port_num=self.ib_port)
-            ah_attr = AHAttr(gr=gr, is_global=1, port_num=self.ib_port)
-            pd = PD(ctx)
-            try:
-                with AH(pd, attr=ah_attr) as ah:
-                    ah.close()
-            except PyverbsRDMAError as ex:
-                if ex.error_code == errno.EOPNOTSUPP:
-                    raise unittest.SkipTest('Create AH is not supported')
-                raise ex
+        self.verify_state(self.ctx)
+        gr = u.get_global_route(self.ctx, port_num=self.ib_port)
+        ah_attr = AHAttr(gr=gr, is_global=1, port_num=self.ib_port)
+        pd = PD(self.ctx)
+        try:
+            with AH(pd, attr=ah_attr) as ah:
+                ah.close()
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Create AH is not supported')
+            raise ex

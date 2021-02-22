@@ -18,25 +18,24 @@ class Mlx5SchedTest(PyverbsAPITestCase):
         them with schedule leaves. In addition, modify some nodes with
         different BW share and max BW.
         """
-        ctx, _, _ = self.devices[0]
         try:
-            root_node = Mlx5dvSchedNode(ctx, Mlx5dvSchedAttr())
+            root_node = Mlx5dvSchedNode(self.ctx, Mlx5dvSchedAttr())
             # Create a node with only max_avg_bw argument.
             max_sched_attr = Mlx5dvSchedAttr(root_node, max_avg_bw=10,
                                              flags=dve.MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW)
-            max_bw_node = Mlx5dvSchedNode(ctx, max_sched_attr)
+            max_bw_node = Mlx5dvSchedNode(self.ctx, max_sched_attr)
 
             # Create a node with only bw_share argument.
             weighed_sched_attr = Mlx5dvSchedAttr(root_node, bw_share=10,
                                                  flags=dve.MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE)
-            max_bw_node = Mlx5dvSchedNode(ctx, weighed_sched_attr)
+            max_bw_node = Mlx5dvSchedNode(self.ctx, weighed_sched_attr)
 
             # Create a node with max_avg_bw and bw_share arguments.
             mixed_flags = dve.MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW | \
                 dve.MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE
             mixed_sched_attr = Mlx5dvSchedAttr(root_node, max_avg_bw=10, bw_share=2,
                                                flags=mixed_flags)
-            mixed_bw_node = Mlx5dvSchedNode(ctx, mixed_sched_attr)
+            mixed_bw_node = Mlx5dvSchedNode(self.ctx, mixed_sched_attr)
 
             # Modify a node.
             modify_sched_attr = Mlx5dvSchedAttr(root_node, max_avg_bw=4, bw_share=1,
@@ -45,7 +44,7 @@ class Mlx5SchedTest(PyverbsAPITestCase):
 
             # Attach sched leaf to mixed_bw_node
             max_sched_attr = Mlx5dvSchedAttr(mixed_bw_node)
-            sched_leaf = Mlx5dvSchedLeaf(ctx, max_sched_attr)
+            sched_leaf = Mlx5dvSchedLeaf(self.ctx, max_sched_attr)
 
             # Modify a leaf.
             modify_sched_attr = Mlx5dvSchedAttr(mixed_bw_node, max_avg_bw=3, bw_share=3,

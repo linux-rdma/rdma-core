@@ -179,26 +179,25 @@ class ReservedQPTest(PyverbsAPITestCase):
         the test includes bad flows where a fake qpn gets deallocated, and a
         real qpn gets deallocated twice.
         """
-        ctx, _, _ = self.devices[0]
         try:
             # Alloc qp number multiple times.
             qpns = []
             for i in range(1000):
-                qpns.append(Mlx5Context.reserved_qpn_alloc(ctx))
+                qpns.append(Mlx5Context.reserved_qpn_alloc(self.ctx))
             for i in range(1000):
-                Mlx5Context.reserved_qpn_dealloc(ctx, qpns[i])
+                Mlx5Context.reserved_qpn_dealloc(self.ctx, qpns[i])
 
             # Dealloc qp number that was not allocated.
-            qpn = Mlx5Context.reserved_qpn_alloc(ctx)
+            qpn = Mlx5Context.reserved_qpn_alloc(self.ctx)
             with self.assertRaises(PyverbsRDMAError) as ex:
                 fake_qpn = qpn - 1
-                Mlx5Context.reserved_qpn_dealloc(ctx, fake_qpn)
+                Mlx5Context.reserved_qpn_dealloc(self.ctx, fake_qpn)
             self.assertEqual(ex.exception.error_code, errno.EINVAL)
 
             # Try to dealloc same qp number twice.
-            Mlx5Context.reserved_qpn_dealloc(ctx, qpn)
+            Mlx5Context.reserved_qpn_dealloc(self.ctx, qpn)
             with self.assertRaises(PyverbsRDMAError) as ex:
-                Mlx5Context.reserved_qpn_dealloc(ctx, qpn)
+                Mlx5Context.reserved_qpn_dealloc(self.ctx, qpn)
             self.assertEqual(ex.exception.error_code, errno.EINVAL)
 
         except PyverbsRDMAError as ex:

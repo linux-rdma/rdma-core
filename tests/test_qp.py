@@ -43,25 +43,24 @@ class QPTest(PyverbsAPITestCase):
         """
         Common function used by create QP tests.
         """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                with CQ(ctx, 100, None, None, 0) as cq:
-                    if qp_type == e.IBV_QPT_RAW_PACKET:
-                        if not (u.is_eth(ctx, self.ib_port) and u.is_root()):
-                            raise unittest.SkipTest('To Create RAW QP must be done by root on Ethernet link layer')
+        with PD(self.ctx) as pd:
+            with CQ(self.ctx, 100, None, None, 0) as cq:
+                if qp_type == e.IBV_QPT_RAW_PACKET:
+                    if not (u.is_eth(self.ctx, self.ib_port) and u.is_root()):
+                        raise unittest.SkipTest('To Create RAW QP must be done by root on Ethernet link layer')
 
-                    if is_ex:
-                        qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex, qp_type)
-                        creator = ctx
-                    else:
-                        qia = u.get_qp_init_attr(cq, attr)
-                        qia.qp_type = qp_type
-                        creator = pd
+                if is_ex:
+                    qia = get_qp_init_attr_ex(cq, pd, self.attr, self.attr_ex, qp_type)
+                    creator = self.ctx
+                else:
+                    qia = u.get_qp_init_attr(cq, self.attr)
+                    qia.qp_type = qp_type
+                    creator = pd
 
-                    qp = self.create_qp(creator, qia, is_ex, with_attr, self.ib_port)
-                    qp_type_str = pu.qp_type_to_str(qp_type)
-                    qp_state_str = pu.qp_state_to_str(qp_state)
-                    assert qp.qp_state == qp_state , f'{qp_type_str} QP should have been in {qp_state_str}'
+                qp = self.create_qp(creator, qia, is_ex, with_attr, self.ib_port)
+                qp_type_str = pu.qp_type_to_str(qp_type)
+                qp_state_str = pu.qp_state_to_str(qp_state)
+                assert qp.qp_state == qp_state , f'{qp_type_str} QP should have been in {qp_state_str}'
 
     def test_create_rc_qp_no_attr(self):
         """
@@ -179,27 +178,26 @@ class QPTest(PyverbsAPITestCase):
         self.assertLessEqual(orig_cap.max_inline_data, init_attr.cap.max_inline_data)
 
     def query_qp_common_test(self, qp_type):
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                with CQ(ctx, 100, None, None, 0) as cq:
-                    if qp_type == e.IBV_QPT_RAW_PACKET:
-                        if not (u.is_eth(ctx, self.ib_port) and u.is_root()):
-                            raise unittest.SkipTest('To Create RAW QP must be done by root on Ethernet link layer')
+        with PD(self.ctx) as pd:
+            with CQ(self.ctx, 100, None, None, 0) as cq:
+                if qp_type == e.IBV_QPT_RAW_PACKET:
+                    if not (u.is_eth(self.ctx, self.ib_port) and u.is_root()):
+                        raise unittest.SkipTest('To Create RAW QP must be done by root on Ethernet link layer')
 
-                    # Legacy QP
-                    qia = u.get_qp_init_attr(cq, attr)
-                    qia.qp_type = qp_type
-                    caps = qia.cap
-                    qp = self.create_qp(pd, qia, False, False, self.ib_port)
-                    qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE | e.IBV_QP_CAP)
-                    self.verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr, qp_attr)
+                # Legacy QP
+                qia = u.get_qp_init_attr(cq, self.attr)
+                qia.qp_type = qp_type
+                caps = qia.cap
+                qp = self.create_qp(pd, qia, False, False, self.ib_port)
+                qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE | e.IBV_QP_CAP)
+                self.verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr, qp_attr)
 
-                    # Extended QP
-                    qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex, qp_type)
-                    caps = qia.cap # Save them to verify values later
-                    qp = self.create_qp(ctx, qia, True, False, self.ib_port)
-                    qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE | e.IBV_QP_CAP)
-                    self.verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr, qp_attr)
+                # Extended QP
+                qia = get_qp_init_attr_ex(cq, pd, self.attr, self.attr_ex, qp_type)
+                caps = qia.cap # Save them to verify values later
+                qp = self.create_qp(self.ctx, qia, True, False, self.ib_port)
+                qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE | e.IBV_QP_CAP)
+                self.verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr, qp_attr)
 
     def test_query_rc_qp(self):
         """
@@ -235,42 +233,41 @@ class QPTest(PyverbsAPITestCase):
         Queries a UD QP after calling modify(). Verifies that its properties are
         as expected.
         """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                with CQ(ctx, 100, None, None, 0) as cq:
-                    # Legacy QP
-                    qia = u.get_qp_init_attr(cq, attr)
-                    qia.qp_type = e.IBV_QPT_UD
-                    qp = self.create_qp(pd, qia, False, False, self.ib_port)
-                    qa = QPAttr()
-                    qa.qkey = 0x123
-                    qp.to_init(qa)
-                    qp_attr, _ = qp.query(e.IBV_QP_QKEY)
-                    assert qp_attr.qkey == qa.qkey, 'Legacy QP, QKey is not as expected'
-                    qp.to_rtr(qa)
-                    qa.sq_psn = 0x45
-                    qp.to_rts(qa)
-                    qp_attr, _ = qp.query(e.IBV_QP_SQ_PSN)
-                    assert qp_attr.sq_psn == qa.sq_psn, 'Legacy QP, SQ PSN is not as expected'
-                    qa.qp_state = e.IBV_QPS_RESET
-                    qp.modify(qa, e.IBV_QP_STATE)
-                    assert qp.qp_state == e.IBV_QPS_RESET, 'Legacy QP, QP state is not as expected'
-                    # Extended QP
-                    qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex, e.IBV_QPT_UD)
-                    qp = self.create_qp(ctx, qia, True, False, self.ib_port)
-                    qa = QPAttr()
-                    qa.qkey = 0x123
-                    qp.to_init(qa)
-                    qp_attr, _ = qp.query(e.IBV_QP_QKEY)
-                    assert qp_attr.qkey == qa.qkey, 'Extended QP, QKey is not as expected'
-                    qp.to_rtr(qa)
-                    qa.sq_psn = 0x45
-                    qp.to_rts(qa)
-                    qp_attr, _ = qp.query(e.IBV_QP_SQ_PSN)
-                    assert qp_attr.sq_psn == qa.sq_psn, 'Extended QP, SQ PSN is not as expected'
-                    qa.qp_state = e.IBV_QPS_RESET
-                    qp.modify(qa, e.IBV_QP_STATE)
-                    assert qp.qp_state == e.IBV_QPS_RESET, 'Extended QP, QP state is not as expected'
+        with PD(self.ctx) as pd:
+            with CQ(self.ctx, 100, None, None, 0) as cq:
+                # Legacy QP
+                qia = u.get_qp_init_attr(cq, self.attr)
+                qia.qp_type = e.IBV_QPT_UD
+                qp = self.create_qp(pd, qia, False, False, self.ib_port)
+                qa = QPAttr()
+                qa.qkey = 0x123
+                qp.to_init(qa)
+                qp_attr, _ = qp.query(e.IBV_QP_QKEY)
+                assert qp_attr.qkey == qa.qkey, 'Legacy QP, QKey is not as expected'
+                qp.to_rtr(qa)
+                qa.sq_psn = 0x45
+                qp.to_rts(qa)
+                qp_attr, _ = qp.query(e.IBV_QP_SQ_PSN)
+                assert qp_attr.sq_psn == qa.sq_psn, 'Legacy QP, SQ PSN is not as expected'
+                qa.qp_state = e.IBV_QPS_RESET
+                qp.modify(qa, e.IBV_QP_STATE)
+                assert qp.qp_state == e.IBV_QPS_RESET, 'Legacy QP, QP state is not as expected'
+                # Extended QP
+                qia = get_qp_init_attr_ex(cq, pd, self.attr, self.attr_ex, e.IBV_QPT_UD)
+                qp = self.create_qp(self.ctx, qia, True, False, self.ib_port)
+                qa = QPAttr()
+                qa.qkey = 0x123
+                qp.to_init(qa)
+                qp_attr, _ = qp.query(e.IBV_QP_QKEY)
+                assert qp_attr.qkey == qa.qkey, 'Extended QP, QKey is not as expected'
+                qp.to_rtr(qa)
+                qa.sq_psn = 0x45
+                qp.to_rts(qa)
+                qp_attr, _ = qp.query(e.IBV_QP_SQ_PSN)
+                assert qp_attr.sq_psn == qa.sq_psn, 'Extended QP, SQ PSN is not as expected'
+                qa.qp_state = e.IBV_QPS_RESET
+                qp.modify(qa, e.IBV_QP_STATE)
+                assert qp.qp_state == e.IBV_QPS_RESET, 'Extended QP, QP state is not as expected'
 
 
 def get_qp_init_attr_ex(cq, pd, attr, attr_ex, qpt):
