@@ -72,6 +72,7 @@ enum {
 
 enum {
 	MLX5_ADAPTER_PAGE_SIZE		= 4096,
+	MLX5_ADAPTER_PAGE_SHIFT		= 12,
 };
 
 #define MLX5_CQ_PREFIX "MLX_CQ"
