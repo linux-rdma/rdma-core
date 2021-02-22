@@ -66,6 +66,9 @@ struct efa_cq {
 	size_t cqe_size;
 	uint8_t *buf;
 	size_t buf_size;
+	uint32_t *db;
+	uint16_t cc; /* Consumer Counter */
+	uint8_t cmd_sn;
 	uint16_t num_sub_cqs;
 	/* Index of next sub cq idx to poll. This is used to guarantee fairness for sub cqs */
 	uint16_t next_poll_idx;
