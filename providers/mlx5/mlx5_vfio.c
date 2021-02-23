@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/time.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -18,10 +19,12 @@
 #include <linux/vfio.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
+#include <util/mmio.h>
 
 #include "mlx5dv.h"
 #include "mlx5_vfio.h"
 #include "mlx5.h"
+#include "mlx5_ifc.h"
 
 static void mlx5_vfio_free_cmd_msg(struct mlx5_vfio_context *ctx,
 				   struct mlx5_cmd_msg *msg);
@@ -155,6 +158,290 @@ static void mlx5_vfio_free_page(struct mlx5_vfio_context *ctx, uint64_t iova)
 	assert(false);
 end:
 	pthread_mutex_unlock(&ctx->mem_alloc.block_list_mutex);
+}
+
+static int cmd_status_to_err(uint8_t status)
+{
+	switch (status) {
+	case MLX5_CMD_STAT_OK:				return 0;
+	case MLX5_CMD_STAT_INT_ERR:			return EIO;
+	case MLX5_CMD_STAT_BAD_OP_ERR:			return EINVAL;
+	case MLX5_CMD_STAT_BAD_PARAM_ERR:		return EINVAL;
+	case MLX5_CMD_STAT_BAD_SYS_STATE_ERR:		return EIO;
+	case MLX5_CMD_STAT_BAD_RES_ERR:			return EINVAL;
+	case MLX5_CMD_STAT_RES_BUSY:			return EBUSY;
+	case MLX5_CMD_STAT_LIM_ERR:			return ENOMEM;
+	case MLX5_CMD_STAT_BAD_RES_STATE_ERR:		return EINVAL;
+	case MLX5_CMD_STAT_IX_ERR:			return EINVAL;
+	case MLX5_CMD_STAT_NO_RES_ERR:			return EAGAIN;
+	case MLX5_CMD_STAT_BAD_INP_LEN_ERR:		return EIO;
+	case MLX5_CMD_STAT_BAD_OUTP_LEN_ERR:		return EIO;
+	case MLX5_CMD_STAT_BAD_QP_STATE_ERR:		return EINVAL;
+	case MLX5_CMD_STAT_BAD_PKT_ERR:			return EINVAL;
+	case MLX5_CMD_STAT_BAD_SIZE_OUTS_CQES_ERR:	return EINVAL;
+	default:					return EIO;
+	}
+}
+
+static const char *cmd_status_str(uint8_t status)
+{
+	switch (status) {
+	case MLX5_CMD_STAT_OK:
+		return "OK";
+	case MLX5_CMD_STAT_INT_ERR:
+		return "internal error";
+	case MLX5_CMD_STAT_BAD_OP_ERR:
+		return "bad operation";
+	case MLX5_CMD_STAT_BAD_PARAM_ERR:
+		return "bad parameter";
+	case MLX5_CMD_STAT_BAD_SYS_STATE_ERR:
+		return "bad system state";
+	case MLX5_CMD_STAT_BAD_RES_ERR:
+		return "bad resource";
+	case MLX5_CMD_STAT_RES_BUSY:
+		return "resource busy";
+	case MLX5_CMD_STAT_LIM_ERR:
+		return "limits exceeded";
+	case MLX5_CMD_STAT_BAD_RES_STATE_ERR:
+		return "bad resource state";
+	case MLX5_CMD_STAT_IX_ERR:
+		return "bad index";
+	case MLX5_CMD_STAT_NO_RES_ERR:
+		return "no resources";
+	case MLX5_CMD_STAT_BAD_INP_LEN_ERR:
+		return "bad input length";
+	case MLX5_CMD_STAT_BAD_OUTP_LEN_ERR:
+		return "bad output length";
+	case MLX5_CMD_STAT_BAD_QP_STATE_ERR:
+		return "bad QP state";
+	case MLX5_CMD_STAT_BAD_PKT_ERR:
+		return "bad packet (discarded)";
+	case MLX5_CMD_STAT_BAD_SIZE_OUTS_CQES_ERR:
+		return "bad size too many outstanding CQEs";
+	default:
+		return "unknown status";
+	}
+}
+
+static void mlx5_cmd_mbox_status(void *out, uint8_t *status, uint32_t *syndrome)
+{
+	*status = DEVX_GET(mbox_out, out, status);
+	*syndrome = DEVX_GET(mbox_out, out, syndrome);
+}
+
+static int mlx5_vfio_cmd_check(struct mlx5_vfio_context *ctx, void *in, void *out)
+{
+	uint32_t syndrome;
+	uint8_t  status;
+	uint16_t opcode;
+	uint16_t op_mod;
+
+	mlx5_cmd_mbox_status(out, &status, &syndrome);
+	if (!status)
+		return 0;
+
+	opcode = DEVX_GET(mbox_in, in, opcode);
+	op_mod = DEVX_GET(mbox_in, in, op_mod);
+
+	mlx5_err(ctx->dbg_fp,
+		 "mlx5_vfio_op_code(0x%x), op_mod(0x%x) failed, status %s(0x%x), syndrome (0x%x)\n",
+		 opcode, op_mod,
+		 cmd_status_str(status), status, syndrome);
+
+	errno = cmd_status_to_err(status);
+	return errno;
+}
+
+static int mlx5_copy_from_msg(void *to, struct mlx5_cmd_msg *from, int size,
+			      struct mlx5_cmd_layout *cmd_lay)
+{
+	struct mlx5_cmd_block *block;
+	struct mlx5_cmd_mailbox *next;
+	int copy;
+
+	copy = min_t(int, size, sizeof(cmd_lay->out));
+	memcpy(to, cmd_lay->out, copy);
+	size -= copy;
+	to += copy;
+
+	next = from->next;
+	while (size) {
+		if (!next) {
+			assert(false);
+			errno = ENOMEM;
+			return errno;
+		}
+
+		copy = min_t(int, size, MLX5_CMD_DATA_BLOCK_SIZE);
+		block = next->buf;
+
+		memcpy(to, block->data, copy);
+		to += copy;
+		size -= copy;
+		next = next->next;
+	}
+
+	return 0;
+}
+
+static int mlx5_copy_to_msg(struct mlx5_cmd_msg *to, void *from, int size,
+			    struct mlx5_cmd_layout *cmd_lay)
+{
+	struct mlx5_cmd_block *block;
+	struct mlx5_cmd_mailbox *next;
+	int copy;
+
+	copy = min_t(int, size, sizeof(cmd_lay->in));
+	memcpy(cmd_lay->in, from, copy);
+	size -= copy;
+	from += copy;
+
+	next = to->next;
+	while (size) {
+		if (!next) {
+			assert(false);
+			errno = ENOMEM;
+			return errno;
+		}
+
+		copy = min_t(int, size, MLX5_CMD_DATA_BLOCK_SIZE);
+		block = next->buf;
+		memcpy(block->data, from, copy);
+		from += copy;
+		size -= copy;
+		next = next->next;
+	}
+
+	return 0;
+}
+
+static int mlx5_vfio_enlarge_cmd_msg(struct mlx5_vfio_context *ctx, struct mlx5_cmd_msg *cmd_msg,
+				     struct mlx5_cmd_layout *cmd_lay, uint32_t len, bool is_in)
+{
+	int err;
+
+	mlx5_vfio_free_cmd_msg(ctx, cmd_msg);
+	err = mlx5_vfio_alloc_cmd_msg(ctx, len, cmd_msg);
+	if (err)
+		return err;
+
+	if (is_in)
+		cmd_lay->iptr = htobe64(cmd_msg->next->iova);
+	else
+		cmd_lay->optr = htobe64(cmd_msg->next->iova);
+
+	return 0;
+}
+
+/* One minute for the sake of bringup */
+#define MLX5_CMD_TIMEOUT_MSEC (60 * 1000)
+
+static int mlx5_vfio_poll_timeout(struct mlx5_cmd_layout *cmd_lay)
+{
+	static struct timeval start, curr;
+	uint64_t ms_start, ms_curr;
+
+	gettimeofday(&start, NULL);
+	ms_start = (uint64_t)start.tv_sec * 1000 + start.tv_usec / 1000;
+	do {
+		if (!(mmio_read8(&cmd_lay->status_own) & 0x1))
+			return 0;
+		pthread_yield();
+		gettimeofday(&curr, NULL);
+		ms_curr = (uint64_t)curr.tv_sec * 1000 + curr.tv_usec / 1000;
+	} while (ms_curr - ms_start < MLX5_CMD_TIMEOUT_MSEC);
+
+	errno = ETIMEDOUT;
+	return errno;
+}
+
+static int mlx5_vfio_cmd_prep_in(struct mlx5_vfio_context *ctx,
+				 struct mlx5_cmd_msg *cmd_in,
+				 struct mlx5_cmd_layout *cmd_lay,
+				 void *in, int ilen)
+{
+	int err;
+
+	if (ilen > cmd_in->len) {
+		err = mlx5_vfio_enlarge_cmd_msg(ctx, cmd_in, cmd_lay, ilen, true);
+		if (err)
+			return err;
+	}
+
+	err = mlx5_copy_to_msg(cmd_in, in, ilen, cmd_lay);
+	if (err)
+		return err;
+
+	cmd_lay->ilen = htobe32(ilen);
+	return 0;
+}
+
+static int mlx5_vfio_cmd_prep_out(struct mlx5_vfio_context *ctx,
+				  struct mlx5_cmd_msg *cmd_out,
+				  struct mlx5_cmd_layout *cmd_lay, int olen)
+{
+	struct mlx5_cmd_mailbox *tmp;
+	struct mlx5_cmd_block *block;
+
+	cmd_lay->olen = htobe32(olen);
+
+	/* zeroing output header */
+	memset(cmd_lay->out, 0, sizeof(cmd_lay->out));
+
+	if (olen > cmd_out->len)
+		/* Upon enlarge output message is zeroed */
+		return mlx5_vfio_enlarge_cmd_msg(ctx, cmd_out, cmd_lay, olen, false);
+
+	/* zeroing output message */
+	tmp = cmd_out->next;
+	olen -= min_t(int, olen, sizeof(cmd_lay->out));
+	while (olen > 0) {
+		block = tmp->buf;
+		memset(block->data, 0, MLX5_CMD_DATA_BLOCK_SIZE);
+		olen -= MLX5_CMD_DATA_BLOCK_SIZE;
+		tmp = tmp->next;
+		assert(tmp || olen <= 0);
+	}
+	return 0;
+}
+
+static int mlx5_vfio_cmd_exec(struct mlx5_vfio_context *ctx, void *in,
+			      int ilen, void *out, int olen,
+			      unsigned int slot)
+{
+	struct mlx5_init_seg *init_seg = ctx->bar_map;
+	struct mlx5_cmd_layout *cmd_lay = ctx->cmd.cmds[slot].lay;
+	struct mlx5_cmd_msg *cmd_in = &ctx->cmd.cmds[slot].in;
+	struct mlx5_cmd_msg *cmd_out = &ctx->cmd.cmds[slot].out;
+	int err;
+
+	pthread_mutex_lock(&ctx->cmd.cmds[slot].lock);
+
+	err = mlx5_vfio_cmd_prep_in(ctx, cmd_in, cmd_lay, in, ilen);
+	if (err)
+		goto end;
+
+	err = mlx5_vfio_cmd_prep_out(ctx, cmd_out, cmd_lay, olen);
+	if (err)
+		goto end;
+
+	cmd_lay->status_own = 0x1;
+
+	udma_to_device_barrier();
+	mmio_write32_be(&init_seg->cmd_dbell, htobe32(0x1 << slot));
+
+	err = mlx5_vfio_poll_timeout(cmd_lay);
+	if (err)
+		goto end;
+	udma_from_device_barrier();
+	err = mlx5_copy_from_msg(out, cmd_out, olen, cmd_lay);
+	if (err)
+		goto end;
+
+	err = mlx5_vfio_cmd_check(ctx, in, out);
+end:
+	pthread_mutex_unlock(&ctx->cmd.cmds[slot].lock);
+	return err;
 }
 
 static int mlx5_vfio_enable_pci_cmd(struct mlx5_vfio_context *ctx)

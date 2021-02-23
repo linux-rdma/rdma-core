@@ -73,6 +73,25 @@ enum {
 	MLX5_CMD_OP_SYNC_STEERING = 0xb00,
 };
 
+enum {
+	MLX5_CMD_STAT_OK = 0x0,
+	MLX5_CMD_STAT_INT_ERR = 0x1,
+	MLX5_CMD_STAT_BAD_OP_ERR = 0x2,
+	MLX5_CMD_STAT_BAD_PARAM_ERR = 0x3,
+	MLX5_CMD_STAT_BAD_SYS_STATE_ERR = 0x4,
+	MLX5_CMD_STAT_BAD_RES_ERR = 0x5,
+	MLX5_CMD_STAT_RES_BUSY = 0x6,
+	MLX5_CMD_STAT_LIM_ERR = 0x8,
+	MLX5_CMD_STAT_BAD_RES_STATE_ERR = 0x9,
+	MLX5_CMD_STAT_IX_ERR = 0xa,
+	MLX5_CMD_STAT_NO_RES_ERR = 0xf,
+	MLX5_CMD_STAT_BAD_INP_LEN_ERR = 0x50,
+	MLX5_CMD_STAT_BAD_OUTP_LEN_ERR = 0x51,
+	MLX5_CMD_STAT_BAD_QP_STATE_ERR = 0x10,
+	MLX5_CMD_STAT_BAD_PKT_ERR = 0x30,
+	MLX5_CMD_STAT_BAD_SIZE_OUTS_CQES_ERR = 0x40,
+};
+
 struct mlx5_ifc_atomic_caps_bits {
 	u8         reserved_at_0[0x40];
 
@@ -4094,6 +4113,25 @@ struct mlx5_ifc_create_psv_in_bits {
 	u8         pd[0x18];
 
 	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_mbox_out_bits {
+	u8	status[0x8];
+	u8	reserved_at_8[0x18];
+
+	u8	syndrome[0x20];
+
+	u8	reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_mbox_in_bits {
+	u8	opcode[0x10];
+	u8	uid[0x10];
+
+	u8	reserved_at_20[0x10];
+	u8	op_mod[0x10];
+
+	u8	reserved_at_40[0x40];
 };
 
 #endif /* MLX5_IFC_H */
