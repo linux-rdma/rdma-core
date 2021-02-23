@@ -23,9 +23,28 @@ enum {
 	MLX5_PCI_CMD_XPORT = 7,
 };
 
+enum mlx5_ib_mtt_access_flags {
+	MLX5_MTT_READ  = (1 << 0),
+	MLX5_MTT_WRITE = (1 << 1),
+};
+
+enum {
+	MLX5_MAX_PAGE_SHIFT = 31,
+};
+
+#define MLX5_MTT_PRESENT (MLX5_MTT_READ | MLX5_MTT_WRITE)
+
 enum {
 	MLX5_VFIO_BLOCK_SIZE = 2 * 1024 * 1024,
 	MLX5_VFIO_BLOCK_NUM_PAGES = MLX5_VFIO_BLOCK_SIZE / MLX5_ADAPTER_PAGE_SIZE,
+};
+
+struct mlx5_vfio_mr {
+	struct verbs_mr vmr;
+	uint64_t iova;
+	uint64_t iova_page_size;
+	uint64_t iova_aligned_offset;
+	uint64_t iova_reg_size;
 };
 
 struct mlx5_vfio_device {
@@ -34,6 +53,7 @@ struct mlx5_vfio_device {
 	char vfio_path[IBV_SYSFS_PATH_MAX];
 	int page_size;
 	uint32_t flags;
+	atomic_int mkey_var;
 };
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -280,6 +300,11 @@ static inline struct mlx5_vfio_device *to_mvfio_dev(struct ibv_device *ibdev)
 static inline struct mlx5_vfio_context *to_mvfio_ctx(struct ibv_context *ibctx)
 {
 	return container_of(ibctx, struct mlx5_vfio_context, vctx.context);
+}
+
+static inline struct mlx5_vfio_mr *to_mvfio_mr(struct ibv_mr *ibmr)
+{
+	return container_of(ibmr, struct mlx5_vfio_mr, vmr.ibv_mr);
 }
 
 #endif

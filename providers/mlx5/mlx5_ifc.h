@@ -51,6 +51,7 @@ enum {
 	MLX5_CMD_OP_QUERY_ISSI = 0x10a,
 	MLX5_CMD_OP_SET_ISSI = 0x10b,
 	MLX5_CMD_OP_CREATE_MKEY = 0x200,
+	MLX5_CMD_OP_DESTROY_MKEY = 0x202,
 	MLX5_CMD_OP_CREATE_EQ = 0x301,
 	MLX5_CMD_OP_DESTROY_EQ = 0x302,
 	MLX5_CMD_OP_CREATE_QP = 0x500,
@@ -67,6 +68,8 @@ enum {
 	MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT = 0x754,
 	MLX5_CMD_OP_MODIFY_NIC_VPORT_CONTEXT = 0x755,
 	MLX5_CMD_OP_QUERY_ROCE_ADDRESS = 0x760,
+	MLX5_CMD_OP_ALLOC_PD = 0x800,
+	MLX5_CMD_OP_DEALLOC_PD = 0x801,
 	MLX5_CMD_OP_ALLOC_UAR = 0x802,
 	MLX5_CMD_OP_DEALLOC_UAR = 0x803,
 	MLX5_CMD_OP_ACCESS_REG = 0x805,
@@ -1380,7 +1383,8 @@ enum {
 };
 
 enum {
-	MLX5_MKC_ACCESS_MODE_KLMS  = 0x2,
+	MLX5_MKC_ACCESS_MODE_MTT = 0x1,
+	MLX5_MKC_ACCESS_MODE_KLMS = 0x2,
 };
 
 struct mlx5_ifc_mkc_bits {
@@ -1425,7 +1429,9 @@ struct mlx5_ifc_mkc_bits {
 
 	u8         translations_octword_size[0x20];
 
-	u8         reserved_at_1c0[0x1b];
+	u8         reserved_at_1c0[0x19];
+	u8         relaxed_ordering_read[0x1];
+	u8         reserved_at_1d9[0x1];
 	u8         log_page_size[0x5];
 
 	u8         reserved_at_1e0[0x20];
@@ -1465,6 +1471,28 @@ struct mlx5_ifc_create_mkey_in_bits {
 	u8         reserved_at_320[0x560];
 
 	u8         klm_pas_mtt[0][0x20];
+};
+
+struct mlx5_ifc_destroy_mkey_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_destroy_mkey_in_bits {
+	u8         opcode[0x10];
+	u8         uid[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         reserved_at_40[0x8];
+	u8         mkey_index[0x18];
+
+	u8         reserved_at_60[0x20];
 };
 
 struct mlx5_ifc_l2_hdr_bits {
@@ -4583,6 +4611,50 @@ struct mlx5_ifc_destroy_eq_in_bits {
 
 	u8         reserved_at_40[0x18];
 	u8         eq_number[0x8];
+
+	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_alloc_pd_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x8];
+	u8         pd[0x18];
+
+	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_alloc_pd_in_bits {
+	u8         opcode[0x10];
+	u8         uid[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_dealloc_pd_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_dealloc_pd_in_bits {
+	u8         opcode[0x10];
+	u8         uid[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         reserved_at_40[0x8];
+	u8         pd[0x18];
 
 	u8         reserved_at_60[0x20];
 };

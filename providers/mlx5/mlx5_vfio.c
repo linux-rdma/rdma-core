@@ -33,6 +33,12 @@ enum {
 	MLX5_VFIO_CMD_VEC_IDX,
 };
 
+enum {
+	MLX5_VFIO_SUPP_MR_ACCESS_FLAGS = IBV_ACCESS_LOCAL_WRITE |
+		IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ |
+		IBV_ACCESS_REMOTE_ATOMIC | IBV_ACCESS_RELAXED_ORDERING,
+};
+
 static int mlx5_vfio_give_pages(struct mlx5_vfio_context *ctx, uint16_t func_id,
 				int32_t npages, bool is_event);
 static int mlx5_vfio_reclaim_pages(struct mlx5_vfio_context *ctx, uint32_t func_id,
@@ -2188,6 +2194,268 @@ static int mlx5_vfio_setup_function(struct mlx5_vfio_context *ctx)
 	return err;
 }
 
+static struct ibv_pd *mlx5_vfio_alloc_pd(struct ibv_context *ibctx)
+{
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(ibctx);
+	uint32_t in[DEVX_ST_SZ_DW(alloc_pd_in)] = {0};
+	uint32_t out[DEVX_ST_SZ_DW(alloc_pd_out)] = {0};
+	int err;
+	struct mlx5_pd *pd;
+
+	pd = calloc(1, sizeof(*pd));
+	if (!pd)
+		return NULL;
+
+	DEVX_SET(alloc_pd_in, in, opcode, MLX5_CMD_OP_ALLOC_PD);
+	err = mlx5_vfio_cmd_exec(ctx, in, sizeof(in), out, sizeof(out), 0);
+
+	if (err)
+		goto err;
+
+	pd->pdn = DEVX_GET(alloc_pd_out, out, pd);
+
+	return &pd->ibv_pd;
+err:
+	free(pd);
+	return NULL;
+}
+
+static int mlx5_vfio_dealloc_pd(struct ibv_pd *pd)
+{
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(pd->context);
+	uint32_t in[DEVX_ST_SZ_DW(dealloc_pd_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(dealloc_pd_out)] = {};
+	struct mlx5_pd *mpd = to_mpd(pd);
+	int ret;
+
+	DEVX_SET(dealloc_pd_in, in, opcode, MLX5_CMD_OP_DEALLOC_PD);
+	DEVX_SET(dealloc_pd_in, in, pd, mpd->pdn);
+
+	ret = mlx5_vfio_cmd_exec(ctx, in, sizeof(in), out, sizeof(out), 0);
+	if (ret)
+		return ret;
+
+	free(mpd);
+	return 0;
+}
+
+static size_t calc_num_dma_blocks(uint64_t iova, size_t length,
+				   unsigned long pgsz)
+{
+	return (size_t)((align(iova + length, pgsz) -
+			 align_down(iova, pgsz)) / pgsz);
+}
+
+static int get_octo_len(uint64_t addr, uint64_t len, int page_shift)
+{
+	uint64_t page_size = 1ULL << page_shift;
+	uint64_t offset;
+	int npages;
+
+	offset = addr & (page_size - 1);
+	npages = align(len + offset, page_size) >> page_shift;
+	return (npages + 1) / 2;
+}
+
+static inline uint32_t mlx5_mkey_to_idx(uint32_t mkey)
+{
+	return mkey >> 8;
+}
+
+static inline uint32_t mlx5_idx_to_mkey(uint32_t mkey_idx)
+{
+	return mkey_idx << 8;
+}
+
+static void set_mkc_access_pd_addr_fields(void *mkc, int acc, uint64_t start_addr,
+					  struct ibv_pd *pd)
+{
+	struct mlx5_pd *mpd = to_mpd(pd);
+
+	DEVX_SET(mkc, mkc, a, !!(acc & IBV_ACCESS_REMOTE_ATOMIC));
+	DEVX_SET(mkc, mkc, rw, !!(acc & IBV_ACCESS_REMOTE_WRITE));
+	DEVX_SET(mkc, mkc, rr, !!(acc & IBV_ACCESS_REMOTE_READ));
+	DEVX_SET(mkc, mkc, lw, !!(acc & IBV_ACCESS_LOCAL_WRITE));
+	DEVX_SET(mkc, mkc, lr, 1);
+	/* Application is responsible to set based on caps */
+	DEVX_SET(mkc, mkc, relaxed_ordering_write,
+		 !!(acc & IBV_ACCESS_RELAXED_ORDERING));
+	DEVX_SET(mkc, mkc, relaxed_ordering_read,
+		 !!(acc & IBV_ACCESS_RELAXED_ORDERING));
+	DEVX_SET(mkc, mkc, pd, mpd->pdn);
+	DEVX_SET(mkc, mkc, qpn, 0xffffff);
+	DEVX_SET64(mkc, mkc, start_addr, start_addr);
+}
+
+static int mlx5_vfio_dereg_mr(struct verbs_mr *vmr)
+{
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(vmr->ibv_mr.context);
+	struct mlx5_vfio_mr *mr = to_mvfio_mr(&vmr->ibv_mr);
+	uint32_t in[DEVX_ST_SZ_DW(destroy_mkey_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(destroy_mkey_in)] = {};
+	int ret;
+
+	DEVX_SET(destroy_mkey_in, in, opcode, MLX5_CMD_OP_DESTROY_MKEY);
+	DEVX_SET(destroy_mkey_in, in, mkey_index, mlx5_mkey_to_idx(vmr->ibv_mr.lkey));
+	ret = mlx5_vfio_cmd_exec(ctx, in, sizeof(in), out, sizeof(out), 0);
+	if (ret)
+		return ret;
+
+	mlx5_vfio_unregister_mem(ctx, mr->iova + mr->iova_aligned_offset,
+				 mr->iova_reg_size);
+	iset_insert_range(ctx->iova_alloc, mr->iova, mr->iova_page_size);
+
+	free(vmr);
+	return 0;
+}
+
+static void mlx5_vfio_populate_pas(uint64_t dma_addr, int num_dma, size_t page_size,
+				  __be64 *pas, uint64_t access_flags)
+{
+	int i;
+
+	for (i = 0; i < num_dma; i++) {
+		*pas = htobe64(dma_addr | access_flags);
+		pas++;
+		dma_addr += page_size;
+	}
+}
+
+static uint64_t calc_spanning_page_size(uint64_t start, uint64_t length)
+{
+	/* Compute a page_size such that:
+	 * start & (page_size-1) == (start + length) & (page_size - 1)
+	 */
+	uint64_t diffs = start ^ (start + length - 1);
+
+	return roundup_pow_of_two(diffs + 1);
+}
+
+static struct ibv_mr *mlx5_vfio_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
+				       uint64_t hca_va, int access)
+{
+	struct mlx5_vfio_device *dev = to_mvfio_dev(pd->context->device);
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(pd->context);
+	uint32_t out[DEVX_ST_SZ_DW(create_mkey_out)] = {};
+	uint32_t mkey_index;
+	uint32_t *in;
+	int inlen, num_pas, ret;
+	struct mlx5_vfio_mr *mr;
+	struct verbs_mr *vmr;
+	int page_shift, iova_min_page_shift;
+	__be64 *pas;
+	uint8_t key;
+	void *mkc;
+	void *aligned_va;
+
+	if (!check_comp_mask(access, MLX5_VFIO_SUPP_MR_ACCESS_FLAGS)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (((uint64_t)addr & (ctx->iova_min_page_size - 1)) !=
+	    (hca_va & (ctx->iova_min_page_size - 1))) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	mr = calloc(1, sizeof(*mr));
+	if (!mr) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	/* Page size that encloses the start and end of the mkey's hca_va range */
+	mr->iova_page_size = max(calc_spanning_page_size(hca_va, length),
+				 ctx->iova_min_page_size);
+
+	ret = iset_alloc_range(ctx->iova_alloc, mr->iova_page_size, &mr->iova);
+	if (ret)
+		goto end;
+
+	aligned_va = (void *)((unsigned long)addr & ~(ctx->iova_min_page_size - 1));
+	page_shift = ilog32(mr->iova_page_size - 1);
+	iova_min_page_shift = ilog32(ctx->iova_min_page_size - 1);
+	if (page_shift > iova_min_page_shift)
+		/* Ensure the low bis of the mkey VA match the low bits of the IOVA because the mkc
+		 * start_addr specifies both the wire VA and the DMA VA.
+		 */
+		mr->iova_aligned_offset = hca_va & GENMASK(page_shift - 1, iova_min_page_shift);
+
+	mr->iova_reg_size = align(length + hca_va, ctx->iova_min_page_size) -
+				  align_down(hca_va, ctx->iova_min_page_size);
+
+	assert(mr->iova_page_size >= mr->iova_aligned_offset + mr->iova_reg_size);
+	ret = mlx5_vfio_register_mem(ctx, aligned_va,
+				     mr->iova + mr->iova_aligned_offset,
+				     mr->iova_reg_size);
+
+	if (ret)
+		goto err_reg;
+
+	num_pas = 1;
+	if (page_shift > MLX5_MAX_PAGE_SHIFT) {
+		page_shift = MLX5_MAX_PAGE_SHIFT;
+		num_pas = calc_num_dma_blocks(hca_va, length, (1ULL << MLX5_MAX_PAGE_SHIFT));
+	}
+
+	inlen = DEVX_ST_SZ_BYTES(create_mkey_in) + (sizeof(*pas) * align(num_pas, 2));
+
+	in = calloc(1, inlen);
+	if (!in) {
+		errno = ENOMEM;
+		goto err_in;
+	}
+
+	pas = (__be64 *)DEVX_ADDR_OF(create_mkey_in, in, klm_pas_mtt);
+	mlx5_vfio_populate_pas(mr->iova, num_pas, (1ULL << page_shift), pas, MLX5_MTT_PRESENT);
+
+	DEVX_SET(create_mkey_in, in, opcode, MLX5_CMD_OP_CREATE_MKEY);
+	DEVX_SET(create_mkey_in, in, pg_access, 1);
+	mkc = DEVX_ADDR_OF(create_mkey_in, in, memory_key_mkey_entry);
+	set_mkc_access_pd_addr_fields(mkc, access, hca_va, pd);
+	DEVX_SET(mkc, mkc, free, 0);
+	DEVX_SET(mkc, mkc, access_mode_1_0, MLX5_MKC_ACCESS_MODE_MTT);
+	DEVX_SET64(mkc, mkc, len, length);
+	DEVX_SET(mkc, mkc, bsf_octword_size, 0);
+	DEVX_SET(mkc, mkc, translations_octword_size,
+		 get_octo_len(hca_va, length, page_shift));
+	DEVX_SET(mkc, mkc, log_page_size, page_shift);
+
+	DEVX_SET(create_mkey_in, in, translations_octword_actual_size,
+		 get_octo_len(hca_va, length, page_shift));
+
+	key = atomic_fetch_add(&dev->mkey_var, 1);
+	DEVX_SET(mkc, mkc, mkey_7_0, key);
+
+	ret = mlx5_vfio_cmd_exec(ctx, in, inlen, out, sizeof(out), 0);
+	if (ret)
+		goto err_exec;
+
+	free(in);
+	mkey_index = DEVX_GET(create_mkey_out, out, mkey_index);
+	vmr = &mr->vmr;
+	vmr->ibv_mr.lkey = key | mlx5_idx_to_mkey(mkey_index);
+	vmr->ibv_mr.rkey = vmr->ibv_mr.lkey;
+	vmr->ibv_mr.context = pd->context;
+	vmr->mr_type = IBV_MR_TYPE_MR;
+	vmr->access = access;
+	vmr->ibv_mr.handle = 0;
+
+	return &mr->vmr.ibv_mr;
+
+err_exec:
+	free(in);
+err_in:
+	mlx5_vfio_unregister_mem(ctx, mr->iova + mr->iova_aligned_offset,
+				 mr->iova_reg_size);
+err_reg:
+	iset_insert_range(ctx->iova_alloc, mr->iova, mr->iova_page_size);
+end:
+	free(mr);
+	return NULL;
+}
+
 static void mlx5_vfio_uninit_context(struct mlx5_vfio_context *ctx)
 {
 	mlx5_close_debug_file(ctx->dbg_fp);
@@ -2210,6 +2478,10 @@ static void mlx5_vfio_free_context(struct ibv_context *ibctx)
 }
 
 static const struct verbs_context_ops mlx5_vfio_common_ops = {
+	.alloc_pd = mlx5_vfio_alloc_pd,
+	.dealloc_pd = mlx5_vfio_dealloc_pd,
+	.reg_mr = mlx5_vfio_reg_mr,
+	.dereg_mr = mlx5_vfio_dereg_mr,
 	.free_context = mlx5_vfio_free_context,
 };
 
@@ -2443,6 +2715,7 @@ mlx5dv_get_vfio_device_list(struct mlx5dv_vfio_context_attr *attr)
 
 	vfio_dev->flags = attr->flags;
 	vfio_dev->page_size = sysconf(_SC_PAGESIZE);
+	atomic_init(&vfio_dev->mkey_var, 0);
 
 	list[0] = &vfio_dev->vdev.device;
 	return list;
