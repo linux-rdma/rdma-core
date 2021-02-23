@@ -41,6 +41,13 @@ enum mlx5_cap_mode {
 
 enum {
 	MLX5_CMD_OP_QUERY_HCA_CAP = 0x100,
+	MLX5_CMD_OP_INIT_HCA = 0x102,
+	MLX5_CMD_OP_TEARDOWN_HCA = 0x103,
+	MLX5_CMD_OP_ENABLE_HCA = 0x104,
+	MLX5_CMD_OP_QUERY_PAGES = 0x107,
+	MLX5_CMD_OP_MANAGE_PAGES = 0x108,
+	MLX5_CMD_OP_QUERY_ISSI = 0x10a,
+	MLX5_CMD_OP_SET_ISSI = 0x10b,
 	MLX5_CMD_OP_CREATE_MKEY = 0x200,
 	MLX5_CMD_OP_CREATE_QP = 0x500,
 	MLX5_CMD_OP_RST2INIT_QP = 0x502,
@@ -55,6 +62,7 @@ enum {
 	MLX5_CMD_OP_QUERY_ESW_VPORT_CONTEXT = 0x752,
 	MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT = 0x754,
 	MLX5_CMD_OP_QUERY_ROCE_ADDRESS = 0x760,
+	MLX5_CMD_OP_ACCESS_REG = 0x805,
 	MLX5_CMD_OP_QUERY_LAG = 0x842,
 	MLX5_CMD_OP_CREATE_TIR = 0x900,
 	MLX5_CMD_OP_MODIFY_SQ = 0x905,
@@ -90,6 +98,16 @@ enum {
 	MLX5_CMD_STAT_BAD_QP_STATE_ERR = 0x10,
 	MLX5_CMD_STAT_BAD_PKT_ERR = 0x30,
 	MLX5_CMD_STAT_BAD_SIZE_OUTS_CQES_ERR = 0x40,
+};
+
+enum {
+	MLX5_PAGES_CANT_GIVE = 0,
+	MLX5_PAGES_GIVE = 1,
+	MLX5_PAGES_TAKE = 2,
+};
+
+enum {
+	MLX5_REG_HOST_ENDIANNESS = 0x7004,
 };
 
 struct mlx5_ifc_atomic_caps_bits {
@@ -4132,6 +4150,203 @@ struct mlx5_ifc_mbox_in_bits {
 	u8	op_mod[0x10];
 
 	u8	reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_enable_hca_in_bits {
+	u8         opcode[0x10];
+	u8         reserved_at_10[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         reserved_at_40[0x10];
+	u8         function_id[0x10];
+
+	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_enable_hca_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x20];
+};
+
+struct mlx5_ifc_query_issi_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x10];
+	u8         current_issi[0x10];
+
+	u8         reserved_at_60[0xa0];
+
+	u8         reserved_at_100[76][0x8];
+	u8         supported_issi_dw0[0x20];
+};
+
+struct mlx5_ifc_query_issi_in_bits {
+	u8         opcode[0x10];
+	u8         reserved_at_10[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_set_issi_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_set_issi_in_bits {
+	u8         opcode[0x10];
+	u8         reserved_at_10[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         reserved_at_40[0x10];
+	u8         current_issi[0x10];
+
+	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_query_pages_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8	   embedded_cpu_function[0x01];
+	u8	   reserved_bits[0x0f];
+	u8	   function_id[0x10];
+
+	u8	   num_pages[0x20];
+};
+
+struct mlx5_ifc_query_pages_in_bits {
+	u8	opcode[0x10];
+	u8	reserved_at_10[0x10];
+
+	u8	reserved_at_20[0x10];
+	u8	op_mod[0x10];
+
+	u8	reserved_at_40[0x10];
+	u8	function_id[0x10];
+
+	u8	reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_manage_pages_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         output_num_entries[0x20];
+
+	u8         reserved_at_60[0x20];
+
+	u8         pas[][0x40];
+};
+
+struct mlx5_ifc_manage_pages_in_bits {
+	u8         opcode[0x10];
+	u8         reserved_at_10[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         embedded_cpu_function[0x1];
+	u8         reserved_at_41[0xf];
+	u8         function_id[0x10];
+
+	u8         input_num_entries[0x20];
+
+	u8         pas[][0x40];
+};
+
+struct mlx5_ifc_teardown_hca_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x3f];
+
+	u8         state[0x1];
+};
+
+enum {
+	MLX5_TEARDOWN_HCA_IN_PROFILE_GRACEFUL_CLOSE = 0x0,
+};
+
+struct mlx5_ifc_teardown_hca_in_bits {
+	u8         opcode[0x10];
+	u8         reserved_at_10[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         reserved_at_40[0x10];
+	u8         profile[0x10];
+
+	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_init_hca_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_init_hca_in_bits {
+	u8         opcode[0x10];
+	u8         reserved_at_10[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_access_register_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x40];
+
+	u8         register_data[][0x20];
+};
+
+struct mlx5_ifc_access_register_in_bits {
+	u8         opcode[0x10];
+	u8         reserved_at_10[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         reserved_at_40[0x10];
+	u8         register_id[0x10];
+
+	u8         argument[0x20];
+
+	u8         register_data[][0x20];
 };
 
 #endif /* MLX5_IFC_H */

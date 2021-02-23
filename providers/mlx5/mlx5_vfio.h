@@ -13,6 +13,9 @@
 #include <infiniband/driver.h>
 #include <util/interval_set.h>
 
+#define FW_INIT_WAIT_MS 2
+#define FW_PRE_INIT_TIMEOUT_MILI 120000
+
 enum {
 	MLX5_MAX_COMMANDS = 32,
 	MLX5_CMD_DATA_BLOCK_SIZE = 512,
@@ -30,6 +33,19 @@ struct mlx5_vfio_device {
 	char vfio_path[IBV_SYSFS_PATH_MAX];
 	int page_size;
 	uint32_t flags;
+};
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#define MLX5_SET_HOST_ENDIANNESS 0
+#elif __BYTE_ORDER == __BIG_ENDIAN
+#define MLX5_SET_HOST_ENDIANNESS 0x80
+#else
+#error Host endianness not defined
+#endif
+
+struct mlx5_reg_host_endianness {
+	uint8_t he;
+	uint8_t rsvd[15];
 };
 
 struct health_buffer {

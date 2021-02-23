@@ -985,6 +985,246 @@ close_cont:
 	return -1;
 }
 
+static int mlx5_vfio_enable_hca(struct mlx5_vfio_context *ctx)
+{
+	uint32_t in[DEVX_ST_SZ_DW(enable_hca_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(enable_hca_out)] = {};
+
+	DEVX_SET(enable_hca_in, in, opcode, MLX5_CMD_OP_ENABLE_HCA);
+	return mlx5_vfio_cmd_exec(ctx, in, sizeof(in), out, sizeof(out), 0);
+}
+
+static int mlx5_vfio_set_issi(struct mlx5_vfio_context *ctx)
+{
+	uint32_t query_in[DEVX_ST_SZ_DW(query_issi_in)] = {};
+	uint32_t query_out[DEVX_ST_SZ_DW(query_issi_out)] = {};
+	uint32_t set_in[DEVX_ST_SZ_DW(set_issi_in)] = {};
+	uint32_t set_out[DEVX_ST_SZ_DW(set_issi_out)] = {};
+	uint32_t sup_issi;
+	int err;
+
+	DEVX_SET(query_issi_in, query_in, opcode, MLX5_CMD_OP_QUERY_ISSI);
+	err = mlx5_vfio_cmd_exec(ctx, query_in, sizeof(query_in), query_out,
+				 sizeof(query_out), 0);
+	if (err)
+		return err;
+
+	sup_issi = DEVX_GET(query_issi_out, query_out, supported_issi_dw0);
+
+	if (!(sup_issi & (1 << 1))) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
+	DEVX_SET(set_issi_in, set_in, opcode, MLX5_CMD_OP_SET_ISSI);
+	DEVX_SET(set_issi_in, set_in, current_issi, 1);
+	return mlx5_vfio_cmd_exec(ctx, set_in, sizeof(set_in), set_out,
+				  sizeof(set_out), 0);
+}
+
+static int mlx5_vfio_give_pages(struct mlx5_vfio_context *ctx,
+				uint16_t func_id,
+				int32_t npages)
+{
+	int32_t out[DEVX_ST_SZ_DW(manage_pages_out)] = {};
+	int inlen = DEVX_ST_SZ_BYTES(manage_pages_in);
+	int i, err;
+	int32_t *in;
+	uint64_t iova;
+
+	inlen += npages * DEVX_FLD_SZ_BYTES(manage_pages_in, pas[0]);
+	in = calloc(1, inlen);
+	if (!in) {
+		errno = ENOMEM;
+		return errno;
+	}
+
+	for (i = 0; i < npages; i++) {
+		err = mlx5_vfio_alloc_page(ctx, &iova);
+		if (err)
+			goto err;
+
+		DEVX_ARRAY_SET64(manage_pages_in, in, pas, i, iova);
+	}
+
+	DEVX_SET(manage_pages_in, in, opcode, MLX5_CMD_OP_MANAGE_PAGES);
+	DEVX_SET(manage_pages_in, in, op_mod, MLX5_PAGES_GIVE);
+	DEVX_SET(manage_pages_in, in, function_id, func_id);
+	DEVX_SET(manage_pages_in, in, input_num_entries, npages);
+
+	err = mlx5_vfio_cmd_exec(ctx, in, inlen, out, sizeof(out),
+				 MLX5_MAX_COMMANDS - 1);
+	if (!err)
+		goto end;
+err:
+	for (i--; i >= 0; i--)
+		mlx5_vfio_free_page(ctx, DEVX_GET64(manage_pages_in, in, pas[i]));
+end:
+	free(in);
+	return err;
+}
+
+static int mlx5_vfio_query_pages(struct mlx5_vfio_context *ctx, int boot,
+				 uint16_t *func_id, int32_t *npages)
+{
+	uint32_t query_pages_in[DEVX_ST_SZ_DW(query_pages_in)] = {};
+	uint32_t query_pages_out[DEVX_ST_SZ_DW(query_pages_out)] = {};
+	int ret;
+
+	DEVX_SET(query_pages_in, query_pages_in, opcode, MLX5_CMD_OP_QUERY_PAGES);
+	DEVX_SET(query_pages_in, query_pages_in, op_mod, boot ? 0x01 : 0x02);
+
+	ret = mlx5_vfio_cmd_exec(ctx, query_pages_in, sizeof(query_pages_in),
+				 query_pages_out, sizeof(query_pages_out), 0);
+	if (ret)
+		return ret;
+
+	*npages = DEVX_GET(query_pages_out, query_pages_out, num_pages);
+	*func_id = DEVX_GET(query_pages_out, query_pages_out, function_id);
+
+	return 0;
+}
+
+static int mlx5_vfio_satisfy_startup_pages(struct mlx5_vfio_context *ctx,
+					   int boot)
+{
+	uint16_t function_id;
+	int32_t npages = 0;
+	int ret;
+
+	ret = mlx5_vfio_query_pages(ctx, boot, &function_id, &npages);
+	if (ret)
+		return ret;
+
+	return mlx5_vfio_give_pages(ctx, function_id, npages);
+}
+
+static int mlx5_vfio_access_reg(struct mlx5_vfio_context *ctx, void *data_in,
+				int size_in, void *data_out, int size_out,
+				uint16_t reg_id, int arg, int write)
+{
+	int outlen = DEVX_ST_SZ_BYTES(access_register_out) + size_out;
+	int inlen = DEVX_ST_SZ_BYTES(access_register_in) + size_in;
+	int err = ENOMEM;
+	uint32_t *out = NULL;
+	uint32_t *in = NULL;
+	void *data;
+
+	in = calloc(1, inlen);
+	out = calloc(1, outlen);
+	if (!in || !out) {
+		errno = ENOMEM;
+		goto out;
+	}
+
+	data = DEVX_ADDR_OF(access_register_in, in, register_data);
+	memcpy(data, data_in, size_in);
+
+	DEVX_SET(access_register_in, in, opcode, MLX5_CMD_OP_ACCESS_REG);
+	DEVX_SET(access_register_in, in, op_mod, !write);
+	DEVX_SET(access_register_in, in, argument, arg);
+	DEVX_SET(access_register_in, in, register_id, reg_id);
+
+	err = mlx5_vfio_cmd_exec(ctx, in, inlen, out, outlen, 0);
+	if (err)
+		goto out;
+
+	data = DEVX_ADDR_OF(access_register_out, out, register_data);
+	memcpy(data_out, data, size_out);
+
+out:
+	free(out);
+	free(in);
+	return err;
+}
+
+static int mlx5_vfio_set_hca_ctrl(struct mlx5_vfio_context *ctx)
+{
+	struct mlx5_reg_host_endianness he_in = {};
+	struct mlx5_reg_host_endianness he_out = {};
+
+	he_in.he = MLX5_SET_HOST_ENDIANNESS;
+	return mlx5_vfio_access_reg(ctx, &he_in, sizeof(he_in),
+				    &he_out, sizeof(he_out),
+				    MLX5_REG_HOST_ENDIANNESS, 0, 1);
+}
+
+static int mlx5_vfio_init_hca(struct mlx5_vfio_context *ctx)
+{
+	uint32_t in[DEVX_ST_SZ_DW(init_hca_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(init_hca_out)] = {};
+
+	DEVX_SET(init_hca_in, in, opcode, MLX5_CMD_OP_INIT_HCA);
+	return mlx5_vfio_cmd_exec(ctx, in, sizeof(in), out, sizeof(out), 0);
+}
+
+static int fw_initializing(struct mlx5_init_seg *init_seg)
+{
+	return be32toh(init_seg->initializing) >> 31;
+}
+
+static int wait_fw_init(struct mlx5_init_seg *init_seg, uint32_t max_wait_mili)
+{
+	int num_loops = max_wait_mili / FW_INIT_WAIT_MS;
+	int loop = 0;
+
+	while (fw_initializing(init_seg)) {
+		usleep(FW_INIT_WAIT_MS * 1000);
+		loop++;
+		if (loop == num_loops) {
+			errno = EBUSY;
+			return errno;
+		}
+	}
+
+	return 0;
+}
+
+static int mlx5_vfio_teardown_hca(struct mlx5_vfio_context *ctx)
+{
+	uint32_t in[DEVX_ST_SZ_DW(teardown_hca_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(teardown_hca_out)] = {};
+
+	DEVX_SET(teardown_hca_in, in, opcode, MLX5_CMD_OP_TEARDOWN_HCA);
+	DEVX_SET(teardown_hca_in, in, profile, MLX5_TEARDOWN_HCA_IN_PROFILE_GRACEFUL_CLOSE);
+	return mlx5_vfio_cmd_exec(ctx, in, sizeof(in), out, sizeof(out), 0);
+}
+
+static int mlx5_vfio_setup_function(struct mlx5_vfio_context *ctx)
+{
+	int err;
+
+	err = wait_fw_init(ctx->bar_map, FW_PRE_INIT_TIMEOUT_MILI);
+	if (err)
+		return err;
+
+	err = mlx5_vfio_enable_hca(ctx);
+	if (err)
+		return err;
+
+	err = mlx5_vfio_set_issi(ctx);
+	if (err)
+		return err;
+
+	err = mlx5_vfio_satisfy_startup_pages(ctx, 1);
+	if (err)
+		return err;
+
+	err = mlx5_vfio_set_hca_ctrl(ctx);
+	if (err)
+		return err;
+
+	err = mlx5_vfio_satisfy_startup_pages(ctx, 0);
+	if (err)
+		return err;
+
+	err = mlx5_vfio_init_hca(ctx);
+	if (err)
+		return err;
+
+	return 0;
+}
+
 static void mlx5_vfio_uninit_context(struct mlx5_vfio_context *ctx)
 {
 	mlx5_close_debug_file(ctx->dbg_fp);
@@ -997,6 +1237,7 @@ static void mlx5_vfio_free_context(struct ibv_context *ibctx)
 {
 	struct mlx5_vfio_context *ctx = to_mvfio_ctx(ibctx);
 
+	mlx5_vfio_teardown_hca(ctx);
 	mlx5_vfio_clean_cmd_interface(ctx);
 	mlx5_vfio_clean_device_dma(ctx);
 	mlx5_vfio_uninit_bar0(ctx);
@@ -1037,9 +1278,14 @@ mlx5_vfio_alloc_context(struct ibv_device *ibdev,
 	if (mlx5_vfio_init_cmd_interface(mctx))
 		goto err_dma;
 
+	if (mlx5_vfio_setup_function(mctx))
+		goto clean_cmd;
+
 	verbs_set_ops(&mctx->vctx, &mlx5_vfio_common_ops);
 	return &mctx->vctx;
 
+clean_cmd:
+	mlx5_vfio_clean_cmd_interface(mctx);
 err_dma:
 	mlx5_vfio_clean_device_dma(mctx);
 err_bar:

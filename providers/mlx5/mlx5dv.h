@@ -1718,6 +1718,10 @@ static inline uint64_t _devx_get64(const void *p, size_t bit_off)
 
 #define DEVX_GET64(typ, p, fld) _devx_get64(p, __devx_bit_off(typ, fld))
 
+#define DEVX_ARRAY_SET64(typ, p, fld, idx, v) do { \
+	DEVX_SET64(typ, p, fld[idx], v); \
+} while (0)
+
 struct mlx5dv_dr_domain;
 struct mlx5dv_dr_table;
 struct mlx5dv_dr_matcher;
