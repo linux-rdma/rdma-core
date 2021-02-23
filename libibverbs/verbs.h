@@ -164,6 +164,10 @@ struct ibv_alloc_dm_attr {
 	uint32_t comp_mask;
 };
 
+enum ibv_dm_mask {
+	IBV_DM_MASK_HANDLE = 1 << 0,
+};
+
 struct ibv_dm {
 	struct ibv_context *context;
 	int (*memcpy_to_dm)(struct ibv_dm *dm, uint64_t dm_offset,
@@ -171,6 +175,8 @@ struct ibv_dm {
 	int (*memcpy_from_dm)(void *host_addr, struct ibv_dm *dm,
 			      uint64_t dm_offset, size_t length);
 	uint32_t comp_mask;
+
+	uint32_t handle;
 };
 
 struct ibv_device_attr {
