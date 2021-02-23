@@ -60,6 +60,8 @@ struct mlx5_vfio_device {
 #define MLX5_VFIO_CAP_ROCE_MAX(ctx, cap) \
 	DEVX_GET(roce_cap, ctx->caps.hca_max[MLX5_CAP_ROCE], cap)
 
+struct mlx5_vfio_context;
+
 struct mlx5_reg_host_endianness {
 	uint8_t he;
 	uint8_t rsvd[15];
@@ -149,12 +151,16 @@ struct mlx5_cmd_msg {
 	struct mlx5_cmd_mailbox *next;
 };
 
+typedef int (*vfio_cmd_slot_comp)(struct mlx5_vfio_context *ctx,
+				  unsigned long slot);
+
 struct mlx5_vfio_cmd_slot {
 	struct mlx5_cmd_layout *lay;
 	struct mlx5_cmd_msg in;
 	struct mlx5_cmd_msg out;
 	pthread_mutex_t lock;
 	int completion_event_fd;
+	vfio_cmd_slot_comp comp_func;
 };
 
 struct mlx5_vfio_cmd {
@@ -163,6 +169,62 @@ struct mlx5_vfio_cmd {
 	uint8_t log_sz;
 	uint8_t log_stride;
 	struct mlx5_vfio_cmd_slot cmds[MLX5_MAX_COMMANDS];
+};
+
+struct mlx5_eq_param {
+	uint8_t irq_index;
+	int nent;
+	uint64_t mask[4];
+};
+
+struct mlx5_eq {
+	__be32 *doorbell;
+	uint32_t cons_index;
+	unsigned int vecidx;
+	uint8_t eqn;
+	int nent;
+	void *vaddr;
+	uint64_t iova;
+	uint64_t iova_size;
+};
+
+struct mlx5_eqe_cmd {
+	__be32 vector;
+	__be32 rsvd[6];
+};
+
+struct mlx5_eqe_page_req {
+	__be16 ec_function;
+	__be16 func_id;
+	__be32 num_pages;
+	__be32 rsvd1[5];
+};
+
+union ev_data {
+	__be32 raw[7];
+	struct mlx5_eqe_cmd cmd;
+	struct mlx5_eqe_page_req req_pages;
+};
+
+struct mlx5_eqe {
+	uint8_t rsvd0;
+	uint8_t type;
+	uint8_t rsvd1;
+	uint8_t sub_type;
+	__be32 rsvd2[7];
+	union ev_data data;
+	__be16 rsvd3;
+	uint8_t signature;
+	uint8_t owner;
+};
+
+#define MLX5_EQE_SIZE (sizeof(struct mlx5_eqe))
+#define MLX5_NUM_CMD_EQE   (32)
+#define MLX5_NUM_SPARE_EQE (0x80)
+
+struct mlx5_vfio_eqs_uar {
+	uint32_t uarn;
+	uint64_t iova;
 };
 
 struct mlx5_vfio_context {
@@ -183,6 +245,9 @@ struct mlx5_vfio_context {
 		uint32_t hca_cur[MLX5_CAP_NUM][DEVX_UN_SZ_DW(hca_cap_union)];
 		uint32_t hca_max[MLX5_CAP_NUM][DEVX_UN_SZ_DW(hca_cap_union)];
 	} caps;
+	struct mlx5_eq async_eq;
+	struct mlx5_vfio_eqs_uar eqs_uar;
+	pthread_mutex_t eq_lock;
 };
 
 static inline struct mlx5_vfio_device *to_mvfio_dev(struct ibv_device *ibdev)

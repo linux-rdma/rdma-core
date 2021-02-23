@@ -19,12 +19,17 @@
 #include <linux/vfio.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
+#include <poll.h>
 #include <util/mmio.h>
 
 #include "mlx5dv.h"
 #include "mlx5_vfio.h"
 #include "mlx5.h"
 #include "mlx5_ifc.h"
+
+enum {
+	MLX5_VFIO_CMD_VEC_IDX,
+};
 
 static void mlx5_vfio_free_cmd_msg(struct mlx5_vfio_context *ctx,
 				   struct mlx5_cmd_msg *msg);
@@ -223,6 +228,37 @@ static const char *cmd_status_str(uint8_t status)
 	}
 }
 
+static struct mlx5_eqe *get_eqe(struct mlx5_eq *eq, uint32_t entry)
+{
+	return eq->vaddr + entry * MLX5_EQE_SIZE;
+}
+
+static struct mlx5_eqe *mlx5_eq_get_eqe(struct mlx5_eq *eq, uint32_t cc)
+{
+	uint32_t ci = eq->cons_index + cc;
+	struct mlx5_eqe *eqe;
+
+	eqe = get_eqe(eq, ci & (eq->nent - 1));
+	eqe = ((eqe->owner & 1) ^ !!(ci & eq->nent)) ? NULL : eqe;
+
+	if (eqe)
+		udma_from_device_barrier();
+
+	return eqe;
+}
+
+static void eq_update_ci(struct mlx5_eq *eq, uint32_t cc, int arm)
+{
+	__be32 *addr = eq->doorbell + (arm ? 0 : 2);
+	uint32_t val;
+
+	eq->cons_index += cc;
+	val = (eq->cons_index & 0xffffff) | (eq->eqn << 24);
+
+	mmio_write32_be(addr, htobe32(val));
+	udma_to_device_barrier();
+}
+
 static void mlx5_cmd_mbox_status(void *out, uint8_t *status, uint32_t *syndrome)
 {
 	*status = DEVX_GET(mbox_out, out, status);
@@ -315,6 +351,85 @@ static int mlx5_copy_to_msg(struct mlx5_cmd_msg *to, void *from, int size,
 	return 0;
 }
 
+/* The HCA will think the queue has overflowed if we don't tell it we've been
+ * processing events.
+ * We create EQs with MLX5_NUM_SPARE_EQE extra entries,
+ * so we must update our consumer index at least that often.
+ */
+static inline uint32_t mlx5_eq_update_cc(struct mlx5_eq *eq, uint32_t cc)
+{
+	if (unlikely(cc >= MLX5_NUM_SPARE_EQE)) {
+		eq_update_ci(eq, cc, 0);
+		cc = 0;
+	}
+	return cc;
+}
+
+static int mlx5_vfio_cmd_comp(struct mlx5_vfio_context *ctx, unsigned long slot)
+{
+	uint64_t u = 1;
+	ssize_t s;
+
+	s = write(ctx->cmd.cmds[slot].completion_event_fd, &u,
+		  sizeof(uint64_t));
+	if (s != sizeof(uint64_t))
+		return -1;
+
+	return 0;
+}
+
+static int mlx5_vfio_process_cmd_eqe(struct mlx5_vfio_context *ctx,
+				     struct mlx5_eqe *eqe)
+{
+	struct mlx5_eqe_cmd *cmd_eqe = &eqe->data.cmd;
+	unsigned long vector = be32toh(cmd_eqe->vector);
+	unsigned long slot;
+	int count = 0;
+	int ret;
+
+	for (slot = 0; slot < MLX5_MAX_COMMANDS; slot++) {
+		if (vector & (1 << slot)) {
+			assert(ctx->cmd.cmds[slot].comp_func);
+			ret = ctx->cmd.cmds[slot].comp_func(ctx, slot);
+			if (ret)
+				return ret;
+
+			vector &= ~(1 << slot);
+			count++;
+		}
+	}
+
+	assert(!vector && count);
+	return 0;
+}
+
+static int mlx5_vfio_process_async_events(struct mlx5_vfio_context *ctx)
+{
+	struct mlx5_eqe *eqe;
+	int ret = 0;
+	int cc = 0;
+
+	pthread_mutex_lock(&ctx->eq_lock);
+	while ((eqe = mlx5_eq_get_eqe(&ctx->async_eq, cc))) {
+		switch (eqe->type) {
+		case MLX5_EVENT_TYPE_CMD:
+			ret = mlx5_vfio_process_cmd_eqe(ctx, eqe);
+			break;
+		default:
+			break;
+		}
+
+		cc = mlx5_eq_update_cc(&ctx->async_eq, ++cc);
+		if (ret)
+			goto out;
+	}
+
+out:
+	eq_update_ci(&ctx->async_eq, cc, 1);
+	pthread_mutex_unlock(&ctx->eq_lock);
+	return ret;
+}
+
 static int mlx5_vfio_enlarge_cmd_msg(struct mlx5_vfio_context *ctx, struct mlx5_cmd_msg *cmd_msg,
 				     struct mlx5_cmd_layout *cmd_lay, uint32_t len, bool is_in)
 {
@@ -331,6 +446,49 @@ static int mlx5_vfio_enlarge_cmd_msg(struct mlx5_vfio_context *ctx, struct mlx5_
 		cmd_lay->optr = htobe64(cmd_msg->next->iova);
 
 	return 0;
+}
+
+static int mlx5_vfio_wait_event(struct mlx5_vfio_context *ctx,
+				unsigned int slot)
+{
+	struct mlx5_cmd_layout *cmd_lay = ctx->cmd.cmds[slot].lay;
+	uint64_t u;
+	ssize_t s;
+	int err;
+
+	struct pollfd fds[2] = {
+		{ .fd = ctx->cmd_comp_fd, .events = POLLIN },
+		{ .fd = ctx->cmd.cmds[slot].completion_event_fd, .events = POLLIN }
+		};
+
+	while (true) {
+		err = poll(fds, 2, -1);
+		if (err < 0 && errno != EAGAIN) {
+			mlx5_err(ctx->dbg_fp, "mlx5_vfio_wait_event, poll failed, errno=%d\n", errno);
+			return errno;
+		}
+		if (fds[0].revents & POLLIN) {
+			s = read(fds[0].fd, &u, sizeof(uint64_t));
+			if (s < 0 && errno != EAGAIN) {
+				mlx5_err(ctx->dbg_fp, "mlx5_vfio_wait_event, read failed, errno=%d\n", errno);
+				return errno;
+			}
+
+			err = mlx5_vfio_process_async_events(ctx);
+			if (err)
+				return err;
+		}
+		if (fds[1].revents & POLLIN) {
+			s = read(fds[1].fd, &u, sizeof(uint64_t));
+			if (s < 0 && errno != EAGAIN) {
+				mlx5_err(ctx->dbg_fp, "mlx5_vfio_wait_event, read failed, slot=%d, errno=%d\n",
+					 slot, errno);
+				return errno;
+			}
+			if (!(mmio_read8(&cmd_lay->status_own) & 0x1))
+				return 0;
+		}
+	}
 }
 
 /* One minute for the sake of bringup */
@@ -430,10 +588,17 @@ static int mlx5_vfio_cmd_exec(struct mlx5_vfio_context *ctx, void *in,
 	udma_to_device_barrier();
 	mmio_write32_be(&init_seg->cmd_dbell, htobe32(0x1 << slot));
 
-	err = mlx5_vfio_poll_timeout(cmd_lay);
-	if (err)
-		goto end;
-	udma_from_device_barrier();
+	if (ctx->have_eq) {
+		err = mlx5_vfio_wait_event(ctx, slot);
+		if (err)
+			goto end;
+	} else {
+		err = mlx5_vfio_poll_timeout(cmd_lay);
+		if (err)
+			goto end;
+		udma_from_device_barrier();
+	}
+
 	err = mlx5_copy_from_msg(out, cmd_out, olen, cmd_lay);
 	if (err)
 		goto end;
@@ -607,6 +772,9 @@ static int mlx5_vfio_setup_cmd_slot(struct mlx5_vfio_context *ctx, int slot)
 		ret = -1;
 		goto err_fd;
 	}
+
+	if (slot != MLX5_MAX_COMMANDS - 1)
+		cmd_slot->comp_func = mlx5_vfio_cmd_comp;
 
 	pthread_mutex_init(&cmd_slot->lock, NULL);
 
@@ -886,7 +1054,7 @@ mlx5_vfio_enable_msix(struct mlx5_vfio_context *ctx)
 	irq_set->index = VFIO_PCI_MSIX_IRQ_INDEX;
 	irq_set->start = 0;
 	fd_ptr = (int *)&irq_set->data;
-	fd_ptr[0] = ctx->cmd_comp_fd;
+	fd_ptr[MLX5_VFIO_CMD_VEC_IDX] = ctx->cmd_comp_fd;
 
 	return ioctl(ctx->device_fd, VFIO_DEVICE_SET_IRQS, irq_set);
 }
@@ -904,7 +1072,7 @@ static int mlx5_vfio_init_async_fd(struct mlx5_vfio_context *ctx)
 		return -1;
 
 	/* set up an eventfd for command completion interrupts */
-	ctx->cmd_comp_fd = eventfd(0, EFD_CLOEXEC);
+	ctx->cmd_comp_fd = eventfd(0, EFD_CLOEXEC | O_NONBLOCK);
 	if (ctx->cmd_comp_fd < 0)
 		return -1;
 
@@ -983,6 +1151,193 @@ close_group:
 close_cont:
 	close(ctx->container_fd);
 	return -1;
+}
+
+enum {
+	MLX5_EQE_OWNER_INIT_VAL = 0x1,
+};
+
+static void init_eq_buf(struct mlx5_eq *eq)
+{
+	struct mlx5_eqe *eqe;
+	int i;
+
+	for (i = 0; i < eq->nent; i++) {
+		eqe = get_eqe(eq, i);
+		eqe->owner = MLX5_EQE_OWNER_INIT_VAL;
+	}
+}
+
+static uint64_t uar2iova(struct mlx5_vfio_context *ctx, uint32_t index)
+{
+	return (uint64_t)((void *)ctx->bar_map + (index * MLX5_ADAPTER_PAGE_SIZE));
+}
+
+static int mlx5_vfio_alloc_uar(struct mlx5_vfio_context *ctx, uint32_t *uarn)
+{
+	uint32_t out[DEVX_ST_SZ_DW(alloc_uar_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(alloc_uar_in)] = {};
+	int err;
+
+	DEVX_SET(alloc_uar_in, in, opcode, MLX5_CMD_OP_ALLOC_UAR);
+	err = mlx5_vfio_cmd_exec(ctx, in, sizeof(in), out, sizeof(out), 0);
+	if (!err)
+		*uarn = DEVX_GET(alloc_uar_out, out, uar);
+
+	return err;
+}
+
+static void mlx5_vfio_dealloc_uar(struct mlx5_vfio_context *ctx, uint32_t uarn)
+{
+	uint32_t out[DEVX_ST_SZ_DW(dealloc_uar_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(dealloc_uar_in)] = {};
+
+	DEVX_SET(dealloc_uar_in, in, opcode, MLX5_CMD_OP_DEALLOC_UAR);
+	DEVX_SET(dealloc_uar_in, in, uar, uarn);
+	mlx5_vfio_cmd_exec(ctx, in, sizeof(in), out, sizeof(out), 0);
+}
+
+static void mlx5_vfio_destroy_eq(struct mlx5_vfio_context *ctx, struct mlx5_eq *eq)
+{
+	uint32_t in[DEVX_ST_SZ_DW(destroy_eq_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(destroy_eq_out)] = {};
+
+	DEVX_SET(destroy_eq_in, in, opcode, MLX5_CMD_OP_DESTROY_EQ);
+	DEVX_SET(destroy_eq_in, in, eq_number, eq->eqn);
+
+	mlx5_vfio_cmd_exec(ctx, in, sizeof(in), out, sizeof(out), 0);
+	mlx5_vfio_unregister_mem(ctx, eq->iova, eq->iova_size);
+	iset_insert_range(ctx->iova_alloc, eq->iova, eq->iova_size);
+	free(eq->vaddr);
+}
+
+static void destroy_async_eqs(struct mlx5_vfio_context *ctx)
+{
+	ctx->have_eq = false;
+	mlx5_vfio_destroy_eq(ctx, &ctx->async_eq);
+	mlx5_vfio_dealloc_uar(ctx, ctx->eqs_uar.uarn);
+}
+
+static int
+create_map_eq(struct mlx5_vfio_context *ctx, struct mlx5_eq *eq,
+	      struct mlx5_eq_param *param)
+{
+	uint32_t out[DEVX_ST_SZ_DW(create_eq_out)] = {};
+	uint8_t vecidx = param->irq_index;
+	__be64 *pas;
+	void *eqc;
+	int inlen;
+	uint32_t *in;
+	int err;
+	int i;
+	int alloc_size;
+
+	pthread_mutex_init(&ctx->eq_lock, NULL);
+	eq->nent = roundup_pow_of_two(param->nent + MLX5_NUM_SPARE_EQE);
+	eq->cons_index = 0;
+	alloc_size = eq->nent * MLX5_EQE_SIZE;
+	eq->iova_size = max(roundup_pow_of_two(alloc_size), ctx->iova_min_page_size);
+
+	inlen = DEVX_ST_SZ_BYTES(create_eq_in) +
+		DEVX_FLD_SZ_BYTES(create_eq_in, pas[0]) * 1;
+
+	in = calloc(1, inlen);
+	if (!in)
+		return ENOMEM;
+
+	pas = (__be64 *)DEVX_ADDR_OF(create_eq_in, in, pas);
+
+	err = posix_memalign(&eq->vaddr, eq->iova_size, alloc_size);
+	if (err) {
+		errno = err;
+		goto end;
+	}
+
+	err = iset_alloc_range(ctx->iova_alloc, eq->iova_size, &eq->iova);
+	if (err)
+		goto err_range;
+
+	err = mlx5_vfio_register_mem(ctx, eq->vaddr, eq->iova, eq->iova_size);
+	if (err)
+		goto err_reg;
+
+	pas[0] = htobe64(eq->iova);
+	init_eq_buf(eq);
+	DEVX_SET(create_eq_in, in, opcode, MLX5_CMD_OP_CREATE_EQ);
+
+	for (i = 0; i < 4; i++)
+		DEVX_ARRAY_SET64(create_eq_in, in, event_bitmask, i,
+				 param->mask[i]);
+
+	eqc = DEVX_ADDR_OF(create_eq_in, in, eq_context_entry);
+	DEVX_SET(eqc, eqc, log_eq_size, ilog32(eq->nent - 1));
+	DEVX_SET(eqc, eqc, uar_page, ctx->eqs_uar.uarn);
+	DEVX_SET(eqc, eqc, intr, vecidx);
+	DEVX_SET(eqc, eqc, log_page_size, ilog32(eq->iova_size - 1) - MLX5_ADAPTER_PAGE_SHIFT);
+
+	err = mlx5_vfio_cmd_exec(ctx, in, inlen, out, sizeof(out), 0);
+	if (err)
+		goto err_cmd;
+
+	eq->vecidx = vecidx;
+	eq->eqn = DEVX_GET(create_eq_out, out, eq_number);
+	eq->doorbell = (void *)ctx->eqs_uar.iova + MLX5_EQ_DOORBEL_OFFSET;
+
+	free(in);
+	return 0;
+
+err_cmd:
+	mlx5_vfio_unregister_mem(ctx, eq->iova, eq->iova_size);
+err_reg:
+	iset_insert_range(ctx->iova_alloc, eq->iova, eq->iova_size);
+err_range:
+	free(eq->vaddr);
+end:
+	free(in);
+	return err;
+}
+
+static int
+setup_async_eq(struct mlx5_vfio_context *ctx, struct mlx5_eq_param *param,
+	       struct mlx5_eq *eq)
+{
+	int err;
+
+	err = create_map_eq(ctx, eq, param);
+	if (err)
+		return err;
+
+	eq_update_ci(eq, 0, 1);
+
+	return 0;
+}
+
+static int create_async_eqs(struct mlx5_vfio_context *ctx)
+{
+	struct mlx5_eq_param param = {};
+	int err;
+
+	err = mlx5_vfio_alloc_uar(ctx, &ctx->eqs_uar.uarn);
+	if (err)
+		return err;
+
+	ctx->eqs_uar.iova = uar2iova(ctx, ctx->eqs_uar.uarn);
+
+	param = (struct mlx5_eq_param) {
+		.irq_index = MLX5_VFIO_CMD_VEC_IDX,
+		.nent = MLX5_NUM_CMD_EQE,
+		.mask[0] = 1ull << MLX5_EVENT_TYPE_CMD,
+	};
+
+	err = setup_async_eq(ctx, &param, &ctx->async_eq);
+	if (err)
+		goto err;
+
+	ctx->have_eq = true;
+	return 0;
+err:
+	mlx5_vfio_dealloc_uar(ctx, ctx->eqs_uar.uarn);
+	return err;
 }
 
 static int mlx5_vfio_enable_hca(struct mlx5_vfio_context *ctx)
@@ -1494,6 +1849,7 @@ static void mlx5_vfio_free_context(struct ibv_context *ibctx)
 {
 	struct mlx5_vfio_context *ctx = to_mvfio_ctx(ibctx);
 
+	destroy_async_eqs(ctx);
 	mlx5_vfio_teardown_hca(ctx);
 	mlx5_vfio_clean_cmd_interface(ctx);
 	mlx5_vfio_clean_device_dma(ctx);
@@ -1538,9 +1894,14 @@ mlx5_vfio_alloc_context(struct ibv_device *ibdev,
 	if (mlx5_vfio_setup_function(mctx))
 		goto clean_cmd;
 
+	if (create_async_eqs(mctx))
+		goto func_teardown;
+
 	verbs_set_ops(&mctx->vctx, &mlx5_vfio_common_ops);
 	return &mctx->vctx;
 
+func_teardown:
+	mlx5_vfio_teardown_hca(mctx);
 clean_cmd:
 	mlx5_vfio_clean_cmd_interface(mctx);
 err_dma:
