@@ -1,4 +1,4 @@
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, uint8_t
 from libc.string cimport memset
 import weakref
 
@@ -756,3 +756,18 @@ cdef class CMID(PyverbsCM):
                   imm_data=wc.imm_data, wc_flags=wc.wc_flags,
                   pkey_index=wc.pkey_index, slid=wc.slid, sl=wc.sl,
                   dlid_path_bits=wc.dlid_path_bits)
+
+    def set_option(self, level, optname, optval, optlen):
+        """
+        Set communication options for a CMID.
+        :param level: The protocol level of the option to set.
+        :param optname: The name of the option to set.
+        :param optval: The option data.
+        :param optlen: The size of the data.
+        """
+        if optname != ce.RDMA_OPTION_ID_ACK_TIMEOUT:
+            raise PyverbsUserError('Currently only RDMA_OPTION_ID_ACK_TIMEOUT is supported in Pyverbs.')
+        cdef uint8_t value = optval
+        ret = cm.rdma_set_option(self.id, level, optname, <void*>&value, optlen)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to set option')
