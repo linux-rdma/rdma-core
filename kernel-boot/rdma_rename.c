@@ -338,7 +338,8 @@ static int get_virtfn_info(struct data *d, struct pci_info *p)
 			ret = -ENOMEM;
 			goto err_dir;
 		}
-		if (vf.func == v.func) {
+		if (vf.func == v.func &&
+		    vf.slot == v.slot) {
 			p->vf = atoi(&dent->d_name[6]);
 			break;
 		}
