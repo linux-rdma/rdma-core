@@ -29,7 +29,9 @@ class CMTestCase(RDMACMBaseTest):
         self.two_nodes_rdmacm_traffic(CMSyncConnection, self.rdmacm_traffic)
 
     def test_rdmacm_async_traffic(self):
-        self.two_nodes_rdmacm_traffic(CMAsyncConnection, self.rdmacm_traffic)
+        # QP ack timeout formula: 4.096 * 2^(ack_timeout) [usec]
+        self.two_nodes_rdmacm_traffic(CMAsyncConnection, self.rdmacm_traffic,
+                                      qp_timeout=21)
 
     @requires_mcast_support()
     def test_rdmacm_async_multicast_traffic(self):

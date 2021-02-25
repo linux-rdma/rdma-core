@@ -219,7 +219,7 @@ class CMAsyncConnection(CMConnection):
     connection establishment, disconnection and other methods such as traffic.
     """
     def __init__(self, ip_addr, syncer=None, notifier=None, passive=False,
-                 num_conns=1, **kwargs):
+                 num_conns=1, qp_timeout=-1, **kwargs):
         """
         Init the CMConnection and then init the AsyncCMResources.
         :param ip_addr: IP address to use.
@@ -228,12 +228,14 @@ class CMAsyncConnection(CMConnection):
                          sides.
         :param passive: Indicate if it's a passive side.
         :param num_conns: Number of connections.
+        :param qp_timeout: Value of the QP timeout.
         :param kwargs: Arguments used to initialize the CM resources. For more
                        info please check CMResources.
         """
         super(CMAsyncConnection, self).__init__(syncer=syncer, notifier=notifier)
         self.num_conns = num_conns
         self.create_cm_res(ip_addr, passive=passive, **kwargs)
+        self.qp_timeout = qp_timeout
 
     def create_cm_res(self, ip_addr, passive, **kwargs):
         self.cm_res = AsyncCMResources(addr=ip_addr, passive=passive, **kwargs)
@@ -288,12 +290,17 @@ class CMAsyncConnection(CMConnection):
                 self.syncer.wait()
                 self.event_handler(expected_event=ce.RDMA_CM_EVENT_CONNECT_REQUEST)
                 self.cm_res.create_qp(conn_idx=conn_idx)
+                if self.qp_timeout >= 0:
+                    self.set_qp_timeout(self.cm_res.child_ids[conn_idx], self.qp_timeout)
                 if self.cm_res.with_ext_qp:
                     self.set_cmids_qp_ece(self.cm_res.passive)
                     self.cm_res.modify_ext_qp_to_rts(conn_idx=conn_idx)
                     self.set_cmid_ece(self.cm_res.passive)
                 child_id = self.cm_res.child_ids[conn_idx]
                 child_id.accept(self.cm_res.create_conn_param(conn_idx=conn_idx))
+                if self.qp_timeout >= 0:
+                    attr, _ = child_id.query_qp(e.IBV_QP_TIMEOUT)
+                    assert self.qp_timeout == attr.timeout
                 if self.cm_res.port_space == ce.RDMA_PS_TCP:
                     self.event_handler(expected_event=ce.RDMA_CM_EVENT_ESTABLISHED)
             else:
@@ -304,6 +311,8 @@ class CMAsyncConnection(CMConnection):
                 cmid.resolve_route()
                 self.event_handler(expected_event=ce.RDMA_CM_EVENT_ROUTE_RESOLVED)
                 self.cm_res.create_qp(conn_idx=conn_idx)
+                if self.qp_timeout >= 0:
+                    self.set_qp_timeout(self.cm_res.cmid, self.qp_timeout)
                 if self.cm_res.with_ext_qp:
                     self.set_cmid_ece(self.cm_res.passive)
                 cmid.connect(self.cm_res.create_conn_param(conn_idx=conn_idx))
@@ -315,9 +324,14 @@ class CMAsyncConnection(CMConnection):
                     cmid.establish()
                 else:
                     self.event_handler(expected_event=ce.RDMA_CM_EVENT_ESTABLISHED)
-
+                if self.qp_timeout >= 0:
+                    attr, _ = self.cm_res.cmid.query_qp(e.IBV_QP_TIMEOUT)
+                    assert self.qp_timeout == attr.timeout
         self.cm_res.create_mr()
         self.sync_qp_numbers()
+
+    def set_qp_timeout(self, cm_id, ack_timeout):
+        cm_id.set_option(ce.RDMA_OPTION_ID, ce.RDMA_OPTION_ID_ACK_TIMEOUT, ack_timeout, 1)
 
     def sync_qp_numbers(self):
         """
