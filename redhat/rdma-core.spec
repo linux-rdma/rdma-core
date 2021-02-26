@@ -1,3 +1,15 @@
+%if 0%{?fedora} >= 25 || 0%{?rhel} == 8
+# Fedora and RHEL 8 have pandoc, so we can build documentation
+%bcond_without builddocs
+%else
+# RHEL > 8 does not ship pandoc, so we don't want to try to build documentation directly
+%bcond_with builddocs
+%endif
+
+# Flip this to 1 to if you're building with prebuilt docs. If you want to do
+# this on Fedora you probably want to pass --without builddocs to rpmbuild
+%define prebuilt_docs 0
+
 Name: rdma-core
 Version: 34.0
 Release: 1%{?dist}
@@ -80,8 +92,10 @@ BuildRequires: make
 %define cmake_install DESTDIR=%{buildroot} make install
 %endif
 
-%if 0%{?fedora} >= 25 || 0%{?rhel} >= 8
-# pandoc was introduced in FC25, Centos8
+%if %{with builddocs}
+# pandoc was introduced in FC25, Building on Fedora defaults to building with
+# docs. Building on Enterprise Linux defaults to building without docs.
+
 BuildRequires: pandoc
 %endif
 
@@ -301,6 +315,9 @@ easy, object-oriented access to IB verbs.
          -DCMAKE_INSTALL_UDEV_RULESDIR:PATH=%{_udevrulesdir} \
          -DCMAKE_INSTALL_PERLDIR:PATH=%{perl_vendorlib} \
          -DENABLE_IBDIAGS_COMPAT:BOOL=True \
+%if ! %{with builddocs} 
+         -DNO_MAN_PAGES=1 \
+%endif
 %if %{with_static}
          -DENABLE_STATIC=1 \
 %endif
@@ -422,8 +439,10 @@ fi
 %{_libexecdir}/truescale-serdes.cmds
 %{_sbindir}/rdma-ndd
 %{_unitdir}/rdma-ndd.service
+%if %{with builddocs} || %{prebuilt_docs}
 %{_mandir}/man7/rxe*
 %{_mandir}/man8/rdma-ndd.*
+%endif
 %license COPYING.*
 
 %files devel
@@ -437,6 +456,7 @@ fi
 %endif
 %{_libdir}/lib*.so
 %{_libdir}/pkgconfig/*.pc
+%if %{with builddocs} || %{prebuilt_docs}
 %{_mandir}/man3/efadv*
 %{_mandir}/man3/ibv_*
 %{_mandir}/man3/rdma*
@@ -449,110 +469,115 @@ fi
 %{_mandir}/man7/mlx5dv*
 %{_mandir}/man7/mlx4dv*
 %{_mandir}/man3/ibnd_*
+%endif
 
 %files -n infiniband-diags-compat
 %{_sbindir}/ibcheckerrs
-%{_mandir}/man8/ibcheckerrs*
 %{_sbindir}/ibchecknet
-%{_mandir}/man8/ibchecknet*
 %{_sbindir}/ibchecknode
-%{_mandir}/man8/ibchecknode*
 %{_sbindir}/ibcheckport
-%{_mandir}/man8/ibcheckport.*
 %{_sbindir}/ibcheckportwidth
-%{_mandir}/man8/ibcheckportwidth*
 %{_sbindir}/ibcheckportstate
-%{_mandir}/man8/ibcheckportstate*
 %{_sbindir}/ibcheckwidth
-%{_mandir}/man8/ibcheckwidth*
 %{_sbindir}/ibcheckstate
-%{_mandir}/man8/ibcheckstate*
 %{_sbindir}/ibcheckerrors
-%{_mandir}/man8/ibcheckerrors*
 %{_sbindir}/ibdatacounts
-%{_mandir}/man8/ibdatacounts*
 %{_sbindir}/ibdatacounters
-%{_mandir}/man8/ibdatacounters*
 %{_sbindir}/ibdiscover.pl
-%{_mandir}/man8/ibdiscover*
 %{_sbindir}/ibswportwatch.pl
-%{_mandir}/man8/ibswportwatch*
 %{_sbindir}/ibqueryerrors.pl
 %{_sbindir}/iblinkinfo.pl
 %{_sbindir}/ibprintca.pl
-%{_mandir}/man8/ibprintca*
 %{_sbindir}/ibprintswitch.pl
-%{_mandir}/man8/ibprintswitch*
 %{_sbindir}/ibprintrt.pl
-%{_mandir}/man8/ibprintrt*
 %{_sbindir}/set_nodedesc.sh
+%if %{with builddocs} || %{prebuilt_docs}
+%{_mandir}/man8/ibcheckerrs*
+%{_mandir}/man8/ibchecknet*
+%{_mandir}/man8/ibchecknode*
+%{_mandir}/man8/ibcheckport.*
+%{_mandir}/man8/ibcheckportwidth*
+%{_mandir}/man8/ibcheckportstate*
+%{_mandir}/man8/ibcheckwidth*
+%{_mandir}/man8/ibcheckstate*
+%{_mandir}/man8/ibcheckerrors*
+%{_mandir}/man8/ibdatacounts*
+%{_mandir}/man8/ibdatacounters*
+%{_mandir}/man8/ibdiscover*
+%{_mandir}/man8/ibswportwatch*
+%{_mandir}/man8/ibprintca*
+%{_mandir}/man8/ibprintswitch*
+%{_mandir}/man8/ibprintrt*
+%endif
 
 %files -n infiniband-diags
 %{_sbindir}/ibaddr
-%{_mandir}/man8/ibaddr*
 %{_sbindir}/ibnetdiscover
-%{_mandir}/man8/ibnetdiscover*
 %{_sbindir}/ibping
-%{_mandir}/man8/ibping*
 %{_sbindir}/ibportstate
-%{_mandir}/man8/ibportstate*
 %{_sbindir}/ibroute
-%{_mandir}/man8/ibroute.*
 %{_sbindir}/ibstat
-%{_mandir}/man8/ibstat.*
 %{_sbindir}/ibsysstat
-%{_mandir}/man8/ibsysstat*
 %{_sbindir}/ibtracert
-%{_mandir}/man8/ibtracert*
 %{_sbindir}/perfquery
-%{_mandir}/man8/perfquery*
 %{_sbindir}/sminfo
-%{_mandir}/man8/sminfo*
 %{_sbindir}/smpdump
-%{_mandir}/man8/smpdump*
 %{_sbindir}/smpquery
-%{_mandir}/man8/smpquery*
 %{_sbindir}/saquery
-%{_mandir}/man8/saquery*
 %{_sbindir}/vendstat
-%{_mandir}/man8/vendstat*
 %{_sbindir}/iblinkinfo
-%{_mandir}/man8/iblinkinfo*
 %{_sbindir}/ibqueryerrors
-%{_mandir}/man8/ibqueryerrors*
 %{_sbindir}/ibcacheedit
-%{_mandir}/man8/ibcacheedit*
 %{_sbindir}/ibccquery
-%{_mandir}/man8/ibccquery*
 %{_sbindir}/ibccconfig
-%{_mandir}/man8/ibccconfig*
 %{_sbindir}/dump_fts
-%{_mandir}/man8/dump_fts*
 %{_sbindir}/ibhosts
-%{_mandir}/man8/ibhosts*
 %{_sbindir}/ibswitches
-%{_mandir}/man8/ibswitches*
 %{_sbindir}/ibnodes
-%{_mandir}/man8/ibnodes*
 %{_sbindir}/ibrouters
-%{_mandir}/man8/ibrouters*
 %{_sbindir}/ibfindnodesusing.pl
-%{_mandir}/man8/ibfindnodesusing*
 %{_sbindir}/ibidsverify.pl
-%{_mandir}/man8/ibidsverify*
 %{_sbindir}/check_lft_balance.pl
-%{_mandir}/man8/check_lft_balance*
 %{_sbindir}/dump_lfts.sh
-%{_mandir}/man8/dump_lfts*
 %{_sbindir}/dump_mfts.sh
-%{_mandir}/man8/dump_mfts*
 %{_sbindir}/ibclearerrors
-%{_mandir}/man8/ibclearerrors*
 %{_sbindir}/ibclearcounters
-%{_mandir}/man8/ibclearcounters*
 %{_sbindir}/ibstatus
+%if %{with builddocs} || %{prebuilt_docs}
+%{_mandir}/man8/dump_mfts*
+%{_mandir}/man8/ibclearerrors*
+%{_mandir}/man8/ibclearcounters*
 %{_mandir}/man8/ibstatus*
 %{_mandir}/man8/infiniband-diags*
+%{_mandir}/man8/ibaddr*
+%{_mandir}/man8/ibnetdiscover*
+%{_mandir}/man8/ibping*
+%{_mandir}/man8/ibportstate*
+%{_mandir}/man8/ibroute.*
+%{_mandir}/man8/ibstat.*
+%{_mandir}/man8/ibsysstat*
+%{_mandir}/man8/ibtracert*
+%{_mandir}/man8/perfquery*
+%{_mandir}/man8/sminfo*
+%{_mandir}/man8/smpdump*
+%{_mandir}/man8/smpquery*
+%{_mandir}/man8/saquery*
+%{_mandir}/man8/vendstat*
+%{_mandir}/man8/iblinkinfo*
+%{_mandir}/man8/ibqueryerrors*
+%{_mandir}/man8/ibcacheedit*
+%{_mandir}/man8/ibccquery*
+%{_mandir}/man8/ibccconfig*
+%{_mandir}/man8/dump_fts*
+%{_mandir}/man8/ibhosts*
+%{_mandir}/man8/ibswitches*
+%{_mandir}/man8/ibnodes*
+%{_mandir}/man8/ibrouters*
+%{_mandir}/man8/ibfindnodesusing*
+%{_mandir}/man8/ibidsverify*
+%{_mandir}/man8/check_lft_balance*
+%{_mandir}/man8/dump_lfts*
+%endif
 %{_libdir}/libibmad*.so.*
 %{_libdir}/libibnetdisc*.so.*
 %{perl_vendorlib}/IBswcountlimits.pm
@@ -572,16 +597,20 @@ fi
 
 %files -n libibverbs-utils
 %{_bindir}/ibv_*
+%if %{with builddocs} || %{prebuilt_docs}
 %{_mandir}/man1/ibv_*
+%endif
 
 %files -n ibacm
 %config(noreplace) %{_sysconfdir}/rdma/ibacm_opts.cfg
 %{_bindir}/ib_acme
 %{_sbindir}/ibacm
+%if %{with builddocs} || %{prebuilt_docs}
 %{_mandir}/man1/ib_acme.*
 %{_mandir}/man7/ibacm.*
 %{_mandir}/man7/ibacm_prov.*
 %{_mandir}/man8/ibacm.*
+%endif
 %{_unitdir}/ibacm.service
 %{_unitdir}/ibacm.socket
 %dir %{_libdir}/ibacm
@@ -594,8 +623,10 @@ fi
 %config(noreplace) %{_sysconfdir}/rdma/modules/iwpmd.conf
 %config(noreplace) %{_sysconfdir}/iwpmd.conf
 %{_udevrulesdir}/90-iwpmd.rules
+%if %{with builddocs} || %{prebuilt_docs}
 %{_mandir}/man8/iwpmd.*
 %{_mandir}/man5/iwpmd.*
+%endif
 
 %files -n libibumad
 %{_libdir}/libibumad*.so.*
@@ -605,7 +636,9 @@ fi
 %dir %{_libdir}/rsocket
 %{_libdir}/rsocket/*.so*
 %doc %{_docdir}/%{name}/librdmacm.md
+%if %{with builddocs} || %{prebuilt_docs}
 %{_mandir}/man7/rsocket.*
+%endif
 
 %files -n librdmacm-utils
 %{_bindir}/cmtime
@@ -621,6 +654,7 @@ fi
 %{_bindir}/ucmatose
 %{_bindir}/udaddy
 %{_bindir}/udpong
+%if %{with builddocs} || %{prebuilt_docs}
 %{_mandir}/man1/cmtime.*
 %{_mandir}/man1/mckey.*
 %{_mandir}/man1/rcopy.*
@@ -634,6 +668,7 @@ fi
 %{_mandir}/man1/ucmatose.*
 %{_mandir}/man1/udaddy.*
 %{_mandir}/man1/udpong.*
+%endif
 
 %files -n srp_daemon
 %config(noreplace) %{_sysconfdir}/srp_daemon.conf
@@ -645,10 +680,12 @@ fi
 %{_sbindir}/srp_daemon
 %{_sbindir}/run_srp_daemon
 %{_udevrulesdir}/60-srp_daemon.rules
+%if %{with builddocs} || %{prebuilt_docs}
 %{_mandir}/man5/srp_daemon.service.5*
 %{_mandir}/man5/srp_daemon_port@.service.5*
 %{_mandir}/man8/ibsrpdm.8*
 %{_mandir}/man8/srp_daemon.8*
+%endif
 %doc %{_docdir}/%{name}/ibsrpdm.md
 
 %if %{with_pyverbs}
