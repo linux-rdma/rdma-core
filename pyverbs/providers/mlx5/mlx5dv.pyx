@@ -22,6 +22,35 @@ from pyverbs.addr cimport AH
 from pyverbs.pd cimport PD
 
 
+cdef char* _prepare_devx_inbox(in_bytes):
+    """
+    Auxiliary function that allocates inboxes for DevX commands, and fills them
+    the bytes input.
+    The allocated box must be freed when it's no longer needed.
+    :param in_bytes: Stream of bytes of the command's input
+    :return: The C allocated inbox
+    """
+    cdef char *in_bytes_c = in_bytes
+    cdef char* in_mailbox = <char*>calloc(1, len(in_bytes))
+    if in_mailbox == NULL:
+        raise MemoryError('Failed to allocate memory')
+    memcpy(in_mailbox, in_bytes_c, len(in_bytes))
+    return in_mailbox
+
+
+cdef char* _prepare_devx_outbox(outlen):
+    """
+    Auxiliary function that allocates the outboxes for DevX commands.
+    The allocated box must be freed when it's no longer needed.
+    :param outlen: Output command's length in bytes
+    :return: The C allocated outbox
+    """
+    cdef char* out_mailbox = <char*>calloc(1, outlen)
+    if out_mailbox == NULL:
+        raise MemoryError('Failed to allocate memory')
+    return out_mailbox
+
+
 cdef class Mlx5DVContextAttr(PyverbsObject):
     """
     Represent mlx5dv_context_attr struct. This class is used to open an mlx5
@@ -120,6 +149,30 @@ cdef class Mlx5Context(Context):
         rc = dv.mlx5dv_reserved_qpn_dealloc(ctx.context, qpn)
         if rc != 0:
             raise PyverbsRDMAError(f'Failed to dealloc QP number {qpn}.', rc)
+
+    def devx_general_cmd(self, in_, outlen):
+        """
+        Executes a DevX general command according to the input mailbox.
+        :param in_: Bytes of the general command's input data provided in a
+                    device specification format.
+                    (Stream of bytes or __bytes__ is implemented)
+        :param outlen: Expected output length in bytes
+        :return out: Bytes of the general command's output data provided in a
+                     device specification format
+        """
+        in_bytes = bytes(in_)
+        cdef char *in_mailbox = _prepare_devx_inbox(in_bytes)
+        cdef char *out_mailbox = _prepare_devx_outbox(outlen)
+        rc = dv.mlx5dv_devx_general_cmd(self.context, in_mailbox, len(in_bytes),
+                                        out_mailbox, outlen)
+        try:
+            if rc:
+                raise PyverbsRDMAError("DevX general command failed", rc)
+            out = <bytes>out_mailbox[:outlen]
+        finally:
+            free(in_mailbox)
+            free(out_mailbox)
+        return out
 
     def __dealloc__(self):
         self.close()

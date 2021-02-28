@@ -111,9 +111,6 @@ cdef extern from 'infiniband/mlx5dv.h':
     mlx5dv_pp *mlx5dv_pp_alloc(v.ibv_context *context, size_t pp_context_sz,
                                const void *pp_context, uint32_t flags)
     void mlx5dv_pp_free(mlx5dv_pp *pp)
-    mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context,
-                                           uint32_t flags)
-    void mlx5dv_devx_free_uar(mlx5dv_devx_uar *devx_uar)
     void mlx5dv_wr_set_dc_addr(mlx5dv_qp_ex *mqp, v.ibv_ah *ah,
                                uint32_t remote_dctn, uint64_t remote_dc_key)
     mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(v.ibv_qp_ex *qp_ex)
@@ -132,3 +129,10 @@ cdef extern from 'infiniband/mlx5dv.h':
     int mlx5dv_reserved_qpn_alloc(v.ibv_context *context, uint32_t *qpn)
     int mlx5dv_reserved_qpn_dealloc(v.ibv_context *context, uint32_t qpn)
     void *mlx5dv_dm_map_op_addr(v.ibv_dm *dm, uint8_t op)
+
+    # DevX APIs
+    mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context,
+                                           uint32_t flags)
+    void mlx5dv_devx_free_uar(mlx5dv_devx_uar *devx_uar)
+    int mlx5dv_devx_general_cmd(v.ibv_context *context, const void *in_,
+                                size_t inlen, void *out, size_t outlen);
