@@ -13,6 +13,7 @@ import os
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from tests.base import PyverbsAPITestCase
+from pyverbs.device import Context, DM
 import tests.utils as u
 import pyverbs.device as d
 import pyverbs.enums as e
@@ -391,3 +392,35 @@ class DMTest(PyverbsAPITestCase):
             processes[i].join()
             rc = res_queue.get()
             self.assertEqual(rc, 0, f'Parallel device memory allocation failed with errno: {rc}')
+
+
+class SharedDMTest(PyverbsAPITestCase):
+    """
+    Tests shared device memory by importing DMs
+    """
+    def setUp(self):
+        super().setUp()
+        if self.attr_ex.max_dm_size == 0:
+            raise unittest.SkipTest('Device memory is not supported')
+        self.dm_size = int(self.attr_ex.max_dm_size / 2)
+
+    def test_import_dm(self):
+        """
+        Creates a DM and imports it from a different (duplicated) Context.
+        Then writes some data to the original DM, reads it from the imported DM
+        and verifies that the read data is as expected.
+        """
+        with d.DM(self.ctx, d.AllocDmAttr(length=self.dm_size)) as dm:
+            cmd_fd_dup = os.dup(self.ctx.cmd_fd)
+            try:
+                imported_ctx = Context(cmd_fd=cmd_fd_dup)
+                imported_dm = DM(imported_ctx, handle=dm.handle)
+            except PyverbsRDMAError as ex:
+                if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                    raise unittest.SkipTest('Some object imports are not supported')
+                raise ex
+            original_data = b'\xab' * self.dm_size
+            dm.copy_to_dm(0, original_data, self.dm_size)
+            read_data = imported_dm.copy_from_dm(0, self.dm_size)
+            self.assertEqual(original_data, read_data)
+            imported_dm.unimport()
