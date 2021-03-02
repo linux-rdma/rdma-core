@@ -81,6 +81,7 @@ static const struct verbs_context_ops hns_common_ops = {
 	.reg_mr = hns_roce_u_reg_mr,
 	.rereg_mr = hns_roce_u_rereg_mr,
 	.create_srq = hns_roce_u_create_srq,
+	.create_srq_ex = hns_roce_u_create_srq_ex,
 	.modify_srq = hns_roce_u_modify_srq,
 	.query_srq = hns_roce_u_query_srq,
 	.destroy_srq = hns_roce_u_destroy_srq,
@@ -110,21 +111,29 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 				&resp.ibv_resp, sizeof(resp)))
 		goto err_free;
 
-	context->num_qps = resp.qp_tab_size;
-	context->qp_table_shift = ffs(context->num_qps) - 1 -
-				  HNS_ROCE_QP_TABLE_BITS;
-	context->qp_table_mask = (1 << context->qp_table_shift) - 1;
-
-	pthread_mutex_init(&context->qp_table_mutex, NULL);
-	for (i = 0; i < HNS_ROCE_QP_TABLE_SIZE; ++i)
-		context->qp_table[i].refcnt = 0;
-
 	if (!resp.cqe_size)
 		context->cqe_size = HNS_ROCE_CQE_SIZE;
 	else if (resp.cqe_size <= HNS_ROCE_V3_CQE_SIZE)
 		context->cqe_size = resp.cqe_size;
 	else
 		context->cqe_size = HNS_ROCE_V3_CQE_SIZE;
+
+	context->num_qps = resp.qp_tab_size;
+	context->num_srqs = resp.srq_tab_size;
+
+	context->qp_table_shift = ffs(context->num_qps) - 1 -
+				  HNS_ROCE_QP_TABLE_BITS;
+	context->qp_table_mask = (1 << context->qp_table_shift) - 1;
+	pthread_mutex_init(&context->qp_table_mutex, NULL);
+	for (i = 0; i < HNS_ROCE_QP_TABLE_SIZE; ++i)
+		context->qp_table[i].refcnt = 0;
+
+	context->srq_table_shift = ffs(context->num_srqs) - 1 -
+				       HNS_ROCE_SRQ_TABLE_BITS;
+	context->srq_table_mask = (1 << context->srq_table_shift) - 1;
+	pthread_mutex_init(&context->srq_table_mutex, NULL);
+	for (i = 0; i < HNS_ROCE_SRQ_TABLE_SIZE; ++i)
+		context->srq_table[i].refcnt = 0;
 
 	if (hns_roce_u_query_device(&context->ibv_ctx.context, NULL,
 				    container_of(&dev_attrs,

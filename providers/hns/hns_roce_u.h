@@ -105,6 +105,9 @@ enum {
 	HNS_ROCE_QP_TABLE_SIZE		= 1 << HNS_ROCE_QP_TABLE_BITS,
 };
 
+#define HNS_ROCE_SRQ_TABLE_BITS 8
+#define HNS_ROCE_SRQ_TABLE_SIZE BIT(HNS_ROCE_SRQ_TABLE_BITS)
+
 /* operation type list */
 enum {
 	/* rq&srq operation */
@@ -153,12 +156,19 @@ struct hns_roce_context {
 		struct hns_roce_qp	**table;
 		int			refcnt;
 	} qp_table[HNS_ROCE_QP_TABLE_SIZE];
-
 	pthread_mutex_t			qp_table_mutex;
+	uint32_t			num_qps;
+	uint32_t			qp_table_shift;
+	uint32_t			qp_table_mask;
 
-	int				num_qps;
-	int				qp_table_shift;
-	int				qp_table_mask;
+	struct {
+		struct hns_roce_srq	**table;
+		int			refcnt;
+	} srq_table[HNS_ROCE_SRQ_TABLE_SIZE];
+	pthread_mutex_t			srq_table_mutex;
+	uint32_t			num_srqs;
+	uint32_t			srq_table_shift;
+	uint32_t			srq_table_mask;
 
 	struct hns_roce_db_page		*db_list[HNS_ROCE_DB_TYPE_NUM];
 	pthread_mutex_t			db_list_mutex;
@@ -376,10 +386,15 @@ void hns_roce_u_cq_event(struct ibv_cq *cq);
 
 struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
 				      struct ibv_srq_init_attr *srq_init_attr);
+struct ibv_srq *hns_roce_u_create_srq_ex(struct ibv_context *context,
+					 struct ibv_srq_init_attr_ex *attr);
 int hns_roce_u_modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
 			  int srq_attr_mask);
 int hns_roce_u_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
-int hns_roce_u_destroy_srq(struct ibv_srq *srq);
+struct hns_roce_srq *hns_roce_find_srq(struct hns_roce_context *ctx,
+				       uint32_t srqn);
+int hns_roce_u_destroy_srq(struct ibv_srq *ibv_srq);
+
 struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 				    struct ibv_qp_init_attr *attr);
 struct ibv_qp *

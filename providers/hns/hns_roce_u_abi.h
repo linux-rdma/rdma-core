@@ -53,4 +53,7 @@ DECLARE_DRV_CMD(hns_roce_create_qp_ex, IB_USER_VERBS_EX_CMD_CREATE_QP,
 DECLARE_DRV_CMD(hns_roce_create_srq, IB_USER_VERBS_CMD_CREATE_SRQ,
 		hns_roce_ib_create_srq, hns_roce_ib_create_srq_resp);
 
+DECLARE_DRV_CMD(hns_roce_create_srq_ex, IB_USER_VERBS_CMD_CREATE_XSRQ,
+		hns_roce_ib_create_srq, hns_roce_ib_create_srq_resp);
+
 #endif /* _HNS_ROCE_U_ABI_H */
