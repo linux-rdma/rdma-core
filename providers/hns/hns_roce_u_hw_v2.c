@@ -1114,14 +1114,20 @@ static void hns_roce_lock_cqs(struct ibv_qp *qp)
 	struct hns_roce_cq *send_cq = to_hr_cq(qp->send_cq);
 	struct hns_roce_cq *recv_cq = to_hr_cq(qp->recv_cq);
 
-	if (send_cq == recv_cq) {
+	if (send_cq && recv_cq) {
+		if (send_cq == recv_cq) {
+			pthread_spin_lock(&send_cq->lock);
+		} else if (send_cq->cqn < recv_cq->cqn) {
+			pthread_spin_lock(&send_cq->lock);
+			pthread_spin_lock(&recv_cq->lock);
+		} else {
+			pthread_spin_lock(&recv_cq->lock);
+			pthread_spin_lock(&send_cq->lock);
+		}
+	} else if (send_cq) {
 		pthread_spin_lock(&send_cq->lock);
-	} else if (send_cq->cqn < recv_cq->cqn) {
-		pthread_spin_lock(&send_cq->lock);
+	} else if (recv_cq) {
 		pthread_spin_lock(&recv_cq->lock);
-	} else {
-		pthread_spin_lock(&recv_cq->lock);
-		pthread_spin_lock(&send_cq->lock);
 	}
 }
 
@@ -1130,13 +1136,19 @@ static void hns_roce_unlock_cqs(struct ibv_qp *qp)
 	struct hns_roce_cq *send_cq = to_hr_cq(qp->send_cq);
 	struct hns_roce_cq *recv_cq = to_hr_cq(qp->recv_cq);
 
-	if (send_cq == recv_cq) {
+	if (send_cq && recv_cq) {
+		if (send_cq == recv_cq) {
+			pthread_spin_unlock(&send_cq->lock);
+		} else if (send_cq->cqn < recv_cq->cqn) {
+			pthread_spin_unlock(&recv_cq->lock);
+			pthread_spin_unlock(&send_cq->lock);
+		} else {
+			pthread_spin_unlock(&send_cq->lock);
+			pthread_spin_unlock(&recv_cq->lock);
+		}
+	} else if (send_cq) {
 		pthread_spin_unlock(&send_cq->lock);
-	} else if (send_cq->cqn < recv_cq->cqn) {
-		pthread_spin_unlock(&recv_cq->lock);
-		pthread_spin_unlock(&send_cq->lock);
-	} else {
-		pthread_spin_unlock(&send_cq->lock);
+	} else if (recv_cq) {
 		pthread_spin_unlock(&recv_cq->lock);
 	}
 }
