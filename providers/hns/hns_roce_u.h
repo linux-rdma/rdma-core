@@ -285,6 +285,7 @@ struct hns_roce_qp {
 
 	struct hns_roce_rinl_buf	rq_rinl_buf;
 	unsigned long			flags;
+	int				refcnt; /* specially used for XRC */
 };
 
 struct hns_roce_av {
@@ -388,6 +389,7 @@ struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
 				      struct ibv_srq_init_attr *srq_init_attr);
 struct ibv_srq *hns_roce_u_create_srq_ex(struct ibv_context *context,
 					 struct ibv_srq_init_attr_ex *attr);
+int hns_roce_u_get_srq_num(struct ibv_srq *ibv_srq, uint32_t *srq_num);
 int hns_roce_u_modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
 			  int srq_attr_mask);
 int hns_roce_u_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
@@ -401,12 +403,20 @@ struct ibv_qp *
 hns_roce_u_create_qp_ex(struct ibv_context *context,
 			struct ibv_qp_init_attr_ex *qp_init_attr_ex);
 
+struct ibv_qp *hns_roce_u_open_qp(struct ibv_context *context,
+				  struct ibv_qp_open_attr *attr);
+
 int hns_roce_u_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 			int attr_mask, struct ibv_qp_init_attr *init_attr);
 
 struct ibv_ah *hns_roce_u_create_ah(struct ibv_pd *pd,
 				    struct ibv_ah_attr *attr);
 int hns_roce_u_destroy_ah(struct ibv_ah *ah);
+
+struct ibv_xrcd *
+hns_roce_u_open_xrcd(struct ibv_context *context,
+		     struct ibv_xrcd_init_attr *xrcd_init_attr);
+int hns_roce_u_close_xrcd(struct ibv_xrcd *ibv_xrcd);
 
 int hns_roce_alloc_buf(struct hns_roce_buf *buf, unsigned int size,
 		       int page_size);

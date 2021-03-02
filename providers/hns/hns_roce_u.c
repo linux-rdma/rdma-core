@@ -88,6 +88,10 @@ static const struct verbs_context_ops hns_common_ops = {
 	.free_context = hns_roce_free_context,
 	.create_ah = hns_roce_u_create_ah,
 	.destroy_ah = hns_roce_u_destroy_ah,
+	.open_xrcd = hns_roce_u_open_xrcd,
+	.close_xrcd = hns_roce_u_close_xrcd,
+	.open_qp = hns_roce_u_open_qp,
+	.get_srq_num = hns_roce_u_get_srq_num,
 };
 
 static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
