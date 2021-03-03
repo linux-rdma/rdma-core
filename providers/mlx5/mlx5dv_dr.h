@@ -703,6 +703,7 @@ struct dr_devx_roce_cap {
 	bool roce_en;
 	bool fl_rc_qp_when_roce_disabled;
 	bool fl_rc_qp_when_roce_enabled;
+	uint8_t qp_ts_format;
 };
 
 struct dr_devx_caps {
@@ -1168,6 +1169,7 @@ struct dr_devx_qp_create_attr {
 	uint32_t	rq_wqe_cnt;
 	uint32_t	rq_wqe_shift;
 	bool		isolate_vl_tc;
+	uint8_t		qp_ts_format;
 };
 
 struct mlx5dv_devx_obj *dr_devx_create_qp(struct ibv_context *ctx,

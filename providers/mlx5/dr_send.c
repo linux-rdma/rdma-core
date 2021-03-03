@@ -53,6 +53,7 @@ struct dr_qp_init_attr {
 	struct mlx5dv_devx_uar	*uar;
 	struct ibv_qp_cap	cap;
 	bool			isolate_vl_tc;
+	uint8_t			qp_ts_format;
 };
 
 static void *dr_cq_get_cqe(struct dr_cq *dr_cq, int n)
@@ -325,6 +326,7 @@ static struct dr_qp *dr_create_rc_qp(struct ibv_context *ctx,
 	qp_create_attr.rq_wqe_cnt = dr_qp->rq.wqe_cnt;
 	qp_create_attr.rq_wqe_shift = dr_qp->rq.wqe_shift;
 	qp_create_attr.isolate_vl_tc = attr->isolate_vl_tc;
+	qp_create_attr.qp_ts_format = attr->qp_ts_format;
 
 	obj = dr_devx_create_qp(ctx, &qp_create_attr);
 	if (!obj)
@@ -847,6 +849,14 @@ bool dr_send_allow_fl(struct dr_devx_caps *caps)
 		 caps->roce_caps.fl_rc_qp_when_roce_disabled));
 }
 
+static int dr_send_get_qp_ts_format(struct dr_devx_caps *caps)
+{
+	/* Set the default TS format in case TS format is supported */
+	return !caps->roce_caps.qp_ts_format ?
+		MLX5_QPC_TIMESTAMP_FORMAT_FREE_RUNNING :
+		MLX5_QPC_TIMESTAMP_FORMAT_DEFAULT;
+}
+
 static int dr_prepare_qp_to_rts(struct mlx5dv_dr_domain *dmn)
 {
 	struct dr_devx_qp_rts_attr rts_attr = {};
@@ -964,6 +974,7 @@ int dr_send_ring_alloc(struct mlx5dv_dr_domain *dmn)
 	init_attr.cap.max_send_sge	= 1;
 	init_attr.cap.max_recv_sge	= 1;
 	init_attr.cap.max_inline_data	= DR_STE_SIZE;
+	init_attr.qp_ts_format		= dr_send_get_qp_ts_format(&dmn->info.caps);
 
 	/* Isolated VL is applicable only if force LB is supported */
 	if (dr_send_allow_fl(&dmn->info.caps))
