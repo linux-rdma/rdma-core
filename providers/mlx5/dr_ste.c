@@ -149,6 +149,21 @@ struct list_head *dr_ste_get_miss_list(struct dr_ste *ste)
 	return &ste->htbl->miss_list[index];
 }
 
+struct dr_ste *dr_ste_get_miss_list_top(struct dr_ste *ste)
+{
+	/* Optimize miss list access (reduce cache misses) by checking
+	 * if we actually need to jump to list_top:
+	 * if number of entries in current hash table is more than one,
+	 * it means that this is not a collision entry.
+	 */
+
+	if (ste->htbl->chunk->num_of_entries > 1)
+		return ste;
+	else
+		return list_top(dr_ste_get_miss_list(ste),
+				struct dr_ste, miss_list_node);
+}
+
 static void dr_ste_always_hit_htbl(struct dr_ste_ctx *ste_ctx,
 				   struct dr_ste *ste,
 				   struct dr_ste_htbl *next_htbl)
@@ -317,7 +332,7 @@ void dr_ste_free(struct dr_ste *ste,
 	struct dr_ste_htbl *stats_tbl;
 	LIST_HEAD(send_ste_list);
 
-	first_ste = list_top(dr_ste_get_miss_list(ste), struct dr_ste, miss_list_node);
+	first_ste = dr_ste_get_miss_list_top(ste);
 	stats_tbl = first_ste->htbl;
 	/*
 	 * Two options:

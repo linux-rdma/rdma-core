@@ -42,7 +42,7 @@
 #include "mlx5.h"
 
 #define DR_RULE_MAX_STES	20
-#define DR_ACTION_MAX_STES	6
+#define DR_ACTION_MAX_STES	7
 #define WIRE_PORT		0xFFFF
 #define DR_STE_SVLAN		0x1
 #define DR_STE_CVLAN		0x2
@@ -157,6 +157,7 @@ enum dr_action_type {
 	DR_ACTION_TYP_PUSH_VLAN,
 	DR_ACTION_TYP_ASO_FIRST_HIT,
 	DR_ACTION_TYP_ASO_FLOW_METER,
+	DR_ACTION_TYP_ASO_CT,
 	DR_ACTION_TYP_MAX,
 };
 
@@ -290,6 +291,7 @@ bool dr_ste_is_last_in_rule(struct dr_matcher_rx_tx *nic_matcher,
 uint64_t dr_ste_get_icm_addr(struct dr_ste *ste);
 uint64_t dr_ste_get_mr_addr(struct dr_ste *ste);
 struct list_head *dr_ste_get_miss_list(struct dr_ste *ste);
+struct dr_ste *dr_ste_get_miss_list_top(struct dr_ste *ste);
 
 #define MAX_VLANS 2
 
@@ -304,6 +306,9 @@ struct dr_action_aso {
 		struct {
 			uint8_t initial_color;
 		} flow_meter;
+		struct {
+			bool direction;
+		} ct;
 	};
 };
 

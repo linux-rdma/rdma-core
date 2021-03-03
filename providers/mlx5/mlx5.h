@@ -723,6 +723,7 @@ enum mlx5_devx_obj_type {
 	MLX5_DEVX_FLOW_SAMPLER		= 9,
 	MLX5_DEVX_ASO_FIRST_HIT		= 10,
 	MLX5_DEVX_ASO_FLOW_METER	= 11,
+	MLX5_DEVX_ASO_CT		= 12,
 };
 
 struct mlx5dv_devx_obj {

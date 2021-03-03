@@ -621,10 +621,7 @@ void dr_rule_set_last_member(struct dr_rule_rx_tx *nic_rule,
 
 static struct dr_ste *dr_rule_get_pointed_ste(struct dr_ste *curr_ste)
 {
-	struct dr_ste *first_ste;
-
-	first_ste = list_top(dr_ste_get_miss_list(curr_ste), struct dr_ste,
-			     miss_list_node);
+	struct dr_ste *first_ste = dr_ste_get_miss_list_top(curr_ste);
 
 	return first_ste->htbl->pointing_ste;
 }
