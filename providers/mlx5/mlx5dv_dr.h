@@ -137,6 +137,7 @@ enum dr_matcher_criteria {
 };
 
 enum dr_matcher_definer {
+	DR_MATCHER_DEFINER_0	= 0,
 	DR_MATCHER_DEFINER_6	= 6,
 	DR_MATCHER_DEFINER_22	= 22,
 	DR_MATCHER_DEFINER_24	= 24,
@@ -556,6 +557,11 @@ void dr_ste_build_flex_parser_1(struct dr_ste_ctx *ste_ctx,
 				struct dr_ste_build *sb,
 				struct dr_match_param *mask,
 				bool inner, bool rx);
+int dr_ste_build_def0(struct dr_ste_ctx *ste_ctx,
+		      struct dr_ste_build *sb,
+		      struct dr_match_param *mask,
+		      struct dr_devx_caps *caps,
+		      bool inner, bool rx);
 int dr_ste_build_def6(struct dr_ste_ctx *ste_ctx,
 		      struct dr_ste_build *sb,
 		      struct dr_match_param *mask,
@@ -612,6 +618,8 @@ struct dr_match_spec {
 	uint32_t tcp_sport:16;	/* TCP source port.;tcp and udp sport/dport are mutually exclusive */
 	uint32_t l3_ok:1;
 	uint32_t l4_ok:1;
+	uint32_t ipv4_checksum_ok:1;
+	uint32_t l4_checksum_ok:1;
 	uint32_t ip_ttl_hoplimit:8;
 	uint32_t udp_dport:16;	/* UDP destination port.;tcp and udp sport/dport are mutually exclusive */
 	uint32_t udp_sport:16;	/* UDP source port.;tcp and udp sport/dport are mutually exclusive */
@@ -776,6 +784,7 @@ struct dr_devx_caps {
 	uint8_t				flex_parser_id_gtpu_teid;
 	uint8_t				flex_parser_id_gtpu_dw_2;
 	uint8_t				flex_parser_id_gtpu_first_ext_dw_0;
+	uint8_t				definer_supp_checksum;
 	uint8_t				max_ft_level;
 	uint8_t				sw_format_ver;
 	bool				isolate_vl_tc;

@@ -290,6 +290,15 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 	caps->max_ft_level = DEVX_GET(query_hca_cap_out, out,
 				      capability.flow_table_nic_cap.
 				      flow_table_properties_nic_receive.max_ft_level);
+
+	/* l4_csum_ok is the indication for definer support csum and ok bits.
+	 * Since we don't have definer versions we rely on new field support
+	 */
+	caps->definer_supp_checksum = DEVX_GET(query_hca_cap_out, out,
+					       capability.flow_table_nic_cap.
+					       ft_field_bitmask_support_2_nic_receive.
+					       outer_l4_checksum_ok);
+
 	DEVX_SET(query_hca_cap_in, in, op_mod,
 		 MLX5_SET_HCA_CAP_OP_MOD_DEVICE_MEMORY |
 		 HCA_CAP_OPMOD_GET_CUR);

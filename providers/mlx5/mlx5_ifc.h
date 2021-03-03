@@ -366,7 +366,8 @@ struct mlx5_ifc_dr_match_spec_bits {
 	u8         reserved_at_c0[0x14];
 	u8         l3_ok[0x1];
 	u8         l4_ok[0x1];
-	u8         reserved_at_d6[0x2];
+	u8         ipv4_checksum_ok[0x1];
+	u8         l4_checksum_ok[0x1];
 	u8         ip_ttl_hoplimit[0x8];
 
 	u8         udp_sport[0x10];
@@ -1053,6 +1054,21 @@ struct mlx5_ifc_header_modify_cap_properties_bits {
 	u8         reserved_at_300[0x100];
 };
 
+struct mlx5_ifc_flow_table_fields_supported_2_bits {
+	u8         reserved_at_0[0x17];
+	u8         inner_l3_ok[0x1];
+	u8         inner_l4_ok[0x1];
+	u8         outer_l3_ok[0x1];
+	u8         outer_l4_ok[0x1];
+	u8         psp_header[0x1];
+	u8         inner_ipv4_checksum_ok[0x1];
+	u8         inner_l4_checksum_ok[0x1];
+	u8         outer_ipv4_checksum_ok[0x1];
+	u8         outer_l4_checksum_ok[0x1];
+
+	u8         reserved_at_20[0x60];
+};
+
 struct mlx5_ifc_flow_table_nic_cap_bits {
 	u8         nic_rx_multi_path_tirs[0x1];
 	u8         nic_rx_multi_path_tirs_fts[0x1];
@@ -1086,7 +1102,31 @@ struct mlx5_ifc_flow_table_nic_cap_bits {
 
 	struct mlx5_ifc_header_modify_cap_properties_bits header_modify_nic_receive;
 
-	u8         reserved_at_1400[0x800];
+	struct mlx5_ifc_flow_table_fields_supported_2_bits ft_field_support_2_nic_receive;
+
+	struct mlx5_ifc_flow_table_fields_supported_2_bits ft_field_bitmask_support_2_nic_receive;
+
+	struct mlx5_ifc_flow_table_fields_supported_2_bits ft_field_support_2_nic_receive_rdma;
+
+	struct mlx5_ifc_flow_table_fields_supported_2_bits ft_field_bitmask_support_2_nic_receive_rdma;
+
+	struct mlx5_ifc_flow_table_fields_supported_2_bits ft_field_support_2_nic_receive_sniffer;
+
+	struct mlx5_ifc_flow_table_fields_supported_2_bits ft_field_bitmask_support_2_nic_receive_sniffer;
+
+	struct mlx5_ifc_flow_table_fields_supported_2_bits ft_field_support_2_nic_transmit;
+
+	struct mlx5_ifc_flow_table_fields_supported_2_bits ft_field_bitmask_support_2_nic_transmit;
+
+	struct mlx5_ifc_flow_table_fields_supported_2_bits ft_field_support_2_nic_transmit_rdma;
+
+	struct mlx5_ifc_flow_table_fields_supported_2_bits ft_field_bitmask_support_2_nic_transmit_rdma;
+
+	struct mlx5_ifc_flow_table_fields_supported_2_bits ft_field_support_2_nic_transmit_sniffer;
+
+	struct mlx5_ifc_flow_table_fields_supported_2_bits ft_field_bitmask_support_2_nic_transmit_sniffer;
+
+	u8         reserved_at_1400[0x200];
 
 	struct mlx5_ifc_header_modify_cap_properties_bits header_modify_nic_transmit;
 
@@ -2313,6 +2353,59 @@ struct mlx5_ifc_ste_icmp_v1_bits {
 	u8         reserved_at_50[0x10];
 
 	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_ste_def0_v1_bits {
+	u8         metadata_reg_c_0[0x20];
+
+	u8         metadata_reg_c_1[0x20];
+
+	u8         dmac_47_16[0x20];
+
+	u8         dmac_15_0[0x10];
+	u8         ethertype[0x10];
+
+	u8         reserved_at_60[0x1];
+	u8         sx_sniffer[0x1];
+	u8         functional_loopback[0x1];
+	u8         ip_frag[0x1];
+	u8         qp_type[0x2];
+	u8         encapsulation_type[0x2];
+	u8         port[0x2];
+	u8         outer_l3_type[0x2];
+	u8         outer_l4_type[0x2];
+	u8         first_vlan_qualifier[0x2];
+	u8         first_priority[0x3];
+	u8         first_cfi[0x1];
+	u8         first_vlan_id[0xc];
+
+	u8         reserved_at_80[0xa];
+	u8         force_loopback[0x1];
+	u8         reserved_at_8b[0x3];
+	u8         second_vlan_qualifier[0x2];
+	u8         second_priority[0x3];
+	u8         second_cfi[0x1];
+	u8         second_vlan_id[0xc];
+
+	u8         smac_47_16[0x20];
+
+	u8         smac_15_0[0x10];
+	u8         inner_ipv4_checksum_ok[0x1];
+	u8         inner_l4_checksum_ok[0x1];
+	u8         outer_ipv4_checksum_ok[0x1];
+	u8         outer_l4_checksum_ok[0x1];
+	u8         inner_l3_ok[0x1];
+	u8         inner_l4_ok[0x1];
+	u8         outer_l3_ok[0x1];
+	u8         outer_l4_ok[0x1];
+	u8         tcp_cwr[0x1];
+	u8         tcp_ece[0x1];
+	u8         tcp_urg[0x1];
+	u8         tcp_ack[0x1];
+	u8         tcp_psh[0x1];
+	u8         tcp_rst[0x1];
+	u8         tcp_syn[0x1];
+	u8         tcp_fin[0x1];
 };
 
 struct mlx5_ifc_ste_def6_v1_bits {

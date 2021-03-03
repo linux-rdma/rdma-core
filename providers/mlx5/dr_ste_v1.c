@@ -2198,6 +2198,94 @@ static void dr_ste_v1_build_flex_parser_1_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v1_build_felx_parser_tag;
 }
 
+static int dr_ste_v1_build_def0_tag(struct dr_match_param *value,
+				    struct dr_ste_build *sb,
+				    uint8_t *tag)
+{
+	struct dr_match_misc2 *misc2 = &value->misc2;
+	struct dr_match_spec *outer = &value->outer;
+	struct dr_match_spec *inner = &value->inner;
+
+	DR_STE_SET_TAG(def0_v1, tag, metadata_reg_c_0, misc2, metadata_reg_c_0);
+	DR_STE_SET_TAG(def0_v1, tag, metadata_reg_c_1, misc2, metadata_reg_c_1);
+
+	DR_STE_SET_TAG(def0_v1, tag, dmac_47_16, outer, dmac_47_16);
+	DR_STE_SET_TAG(def0_v1, tag, dmac_15_0, outer, dmac_15_0);
+	DR_STE_SET_TAG(def0_v1, tag, smac_47_16, outer, smac_47_16);
+	DR_STE_SET_TAG(def0_v1, tag, smac_15_0, outer, smac_15_0);
+	DR_STE_SET_TAG(def0_v1, tag, ethertype, outer, ethertype);
+	DR_STE_SET_TAG(def0_v1, tag, ip_frag, outer, frag);
+
+	if (outer->ip_version == IP_VERSION_IPV4) {
+		DR_STE_SET(def0_v1, tag, outer_l3_type, STE_IPV4);
+		outer->ip_version = 0;
+	} else if (outer->ip_version == IP_VERSION_IPV6) {
+		DR_STE_SET(def0_v1, tag, outer_l3_type, STE_IPV6);
+		outer->ip_version = 0;
+	}
+
+	if (outer->cvlan_tag) {
+		DR_STE_SET(def0_v1, tag, first_vlan_qualifier, DR_STE_CVLAN);
+		outer->cvlan_tag = 0;
+	} else if (outer->svlan_tag) {
+		DR_STE_SET(def0_v1, tag, first_vlan_qualifier, DR_STE_SVLAN);
+		outer->svlan_tag = 0;
+	}
+
+	DR_STE_SET_TAG(def0_v1, tag, first_priority, outer, first_prio);
+	DR_STE_SET_TAG(def0_v1, tag, first_vlan_id, outer, first_vid);
+	DR_STE_SET_TAG(def0_v1, tag, first_cfi, outer, first_cfi);
+
+	if (sb->caps->definer_supp_checksum) {
+		DR_STE_SET_TAG(def0_v1, tag, outer_l3_ok, outer, l3_ok);
+		DR_STE_SET_TAG(def0_v1, tag, outer_l4_ok, outer, l4_ok);
+		DR_STE_SET_TAG(def0_v1, tag, inner_l3_ok, inner, l3_ok);
+		DR_STE_SET_TAG(def0_v1, tag, inner_l4_ok, inner, l4_ok);
+
+		DR_STE_SET_TAG(def0_v1, tag, outer_ipv4_checksum_ok, outer, ipv4_checksum_ok);
+		DR_STE_SET_TAG(def0_v1, tag, outer_l4_checksum_ok, outer, l4_checksum_ok);
+		DR_STE_SET_TAG(def0_v1, tag, inner_ipv4_checksum_ok, inner, ipv4_checksum_ok);
+		DR_STE_SET_TAG(def0_v1, tag, inner_l4_checksum_ok, inner, l4_checksum_ok);
+	}
+
+	if (outer->tcp_flags) {
+		DR_STE_SET_BOOL(def0_v1, tag, tcp_cwr, outer->tcp_flags & (1 << 7));
+		DR_STE_SET_BOOL(def0_v1, tag, tcp_ece, outer->tcp_flags & (1 << 6));
+		DR_STE_SET_BOOL(def0_v1, tag, tcp_urg, outer->tcp_flags & (1 << 5));
+		DR_STE_SET_BOOL(def0_v1, tag, tcp_ack, outer->tcp_flags & (1 << 4));
+		DR_STE_SET_BOOL(def0_v1, tag, tcp_psh, outer->tcp_flags & (1 << 3));
+		DR_STE_SET_BOOL(def0_v1, tag, tcp_rst, outer->tcp_flags & (1 << 2));
+		DR_STE_SET_BOOL(def0_v1, tag, tcp_syn, outer->tcp_flags & (1 << 1));
+		DR_STE_SET_BOOL(def0_v1, tag, tcp_fin, outer->tcp_flags & (1 << 0));
+		outer->tcp_flags ^= (outer->tcp_flags & 0xff);
+	}
+
+	return 0;
+}
+
+static void dr_ste_v1_build_def0_mask(struct dr_match_param *value,
+				      struct dr_ste_build *sb)
+{
+	struct dr_match_spec *outer = &value->outer;
+	uint8_t *tag = sb->match;
+
+	if (outer->svlan_tag || outer->cvlan_tag) {
+		DR_STE_SET(def0_v1, tag, first_vlan_qualifier, -1);
+		outer->cvlan_tag = 0;
+		outer->svlan_tag = 0;
+	}
+
+	dr_ste_v1_build_def0_tag(value, sb, tag);
+}
+
+static void dr_ste_v1_build_def0_init(struct dr_ste_build *sb,
+				      struct dr_match_param *mask)
+{
+	sb->lu_type = DR_STE_V1_LU_TYPE_MATCH;
+	dr_ste_v1_build_def0_mask(mask, sb);
+	sb->ste_build_tag_func = &dr_ste_v1_build_def0_tag;
+}
+
 static int dr_ste_v1_build_def6_tag(struct dr_match_param *value,
 				    struct dr_ste_build *sb,
 				    uint8_t *tag)
@@ -2664,6 +2752,7 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	.build_src_gvmi_qpn_init	= &dr_ste_v1_build_src_gvmi_qpn_init,
 	.build_flex_parser_0_init	= &dr_ste_v1_build_flex_parser_0_init,
 	.build_flex_parser_1_init	= &dr_ste_v1_build_flex_parser_1_init,
+	.build_def0_init		= &dr_ste_v1_build_def0_init,
 	.build_def6_init		= &dr_ste_v1_build_def6_init,
 	.build_def22_init		= &dr_ste_v1_build_def22_init,
 	.build_def24_init		= &dr_ste_v1_build_def24_init,

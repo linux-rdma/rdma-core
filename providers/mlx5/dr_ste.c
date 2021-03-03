@@ -823,6 +823,8 @@ static void dr_ste_copy_mask_spec(char *mask, struct dr_match_spec *spec)
 
 	spec->l3_ok = DEVX_GET(dr_match_spec, mask, l3_ok);
 	spec->l4_ok = DEVX_GET(dr_match_spec, mask, l4_ok);
+	spec->ipv4_checksum_ok = DEVX_GET(dr_match_spec, mask, ipv4_checksum_ok);
+	spec->l4_checksum_ok = DEVX_GET(dr_match_spec, mask, l4_checksum_ok);
 	spec->ip_ttl_hoplimit = DEVX_GET(dr_match_spec, mask, ip_ttl_hoplimit);
 
 	spec->udp_sport = DEVX_GET(dr_match_spec, mask, udp_sport);
@@ -1325,6 +1327,25 @@ void dr_ste_build_flex_parser_1(struct dr_ste_ctx *ste_ctx,
 	sb->rx = rx;
 	sb->inner = inner;
 	ste_ctx->build_flex_parser_1_init(sb, mask);
+}
+
+int dr_ste_build_def0(struct dr_ste_ctx *ste_ctx,
+		      struct dr_ste_build *sb,
+		      struct dr_match_param *mask,
+		      struct dr_devx_caps *caps,
+		      bool inner, bool rx)
+{
+	if (!ste_ctx->build_def0_init) {
+		errno = ENOTSUP;
+		return errno;
+	}
+
+	sb->rx = rx;
+	sb->caps = caps;
+	sb->inner = inner;
+	sb->format_id = DR_MATCHER_DEFINER_0;
+	ste_ctx->build_def0_init(sb, mask);
+	return 0;
 }
 
 int dr_ste_build_def6(struct dr_ste_ctx *ste_ctx,
