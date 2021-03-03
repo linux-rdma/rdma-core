@@ -363,7 +363,10 @@ struct mlx5_ifc_dr_match_spec_bits {
 	u8         tcp_sport[0x10];
 	u8         tcp_dport[0x10];
 
-	u8         reserved_at_c0[0x18];
+	u8         reserved_at_c0[0x14];
+	u8         l3_ok[0x1];
+	u8         l4_ok[0x1];
+	u8         reserved_at_d6[0x2];
 	u8         ip_ttl_hoplimit[0x8];
 
 	u8         udp_sport[0x10];
@@ -2312,6 +2315,36 @@ struct mlx5_ifc_ste_icmp_v1_bits {
 	u8         reserved_at_60[0x20];
 };
 
+struct mlx5_ifc_ste_def6_v1_bits {
+	u8         dst_ipv6_127_96[0x20];
+
+	u8         dst_ipv6_95_64[0x20];
+
+	u8         dst_ipv6_63_32[0x20];
+
+	u8         dst_ipv6_31_0[0x20];
+
+	u8         reserved_at_80[0x40];
+
+	u8         outer_l4_sport[0x10];
+	u8         outer_l4_dport[0x10];
+
+	u8         reserved_e0[0x4];
+	u8         l4_ok[0x1];
+	u8         l3_ok[0x1];
+	u8         ip_frag[0x1];
+	u8         tcp_ns[0x1];
+	u8         tcp_cwr[0x1];
+	u8         tcp_ece[0x1];
+	u8         tcp_urg[0x1];
+	u8         tcp_ack[0x1];
+	u8         tcp_psh[0x1];
+	u8         tcp_rst[0x1];
+	u8         tcp_syn[0x1];
+	u8         tcp_fin[0x1];
+	u8         reserved_f0[0x10];
+};
+
 struct mlx5_ifc_ste_def22_v1_bits {
 	u8         outer_ip_src_addr[0x20];
 
@@ -2399,6 +2432,48 @@ struct mlx5_ifc_ste_def25_v1_bits {
 	u8         outer_l4_dport[0x10];
 
 	u8         reserved_at_e0[0x20];
+};
+
+struct mlx5_ifc_ste_def26_v1_bits {
+	u8         src_ipv6_127_96[0x20];
+
+	u8         src_ipv6_95_64[0x20];
+
+	u8         src_ipv6_63_32[0x20];
+
+	u8         src_ipv6_31_0[0x20];
+
+	u8         reserved_at_80[0x3];
+	u8         ip_frag[0x1];
+	u8         reserved_at_84[0x6];
+	u8         l3_type[0x2];
+	u8         l4_type[0x2];
+	u8         first_vlan_type[0x2];
+	u8         first_priority[0x3];
+	u8         first_cfi[0x1];
+	u8         first_vlan_id[0xc];
+
+	u8         reserved_at_a0[0xb];
+	u8         l2_ok[0x1];
+	u8         l3_ok[0x1];
+	u8         l4_ok[0x1];
+	u8         second_vlan_type[0x2];
+	u8         second_priority[0x3];
+	u8         second_cfi[0x1];
+	u8         second_vlan_id[0xc];
+
+	u8         smac_47_16[0x20];
+
+	u8         smac_15_0[0x10];
+	u8         ip_porotcol[0x8];
+	u8         tcp_cwr[0x1];
+	u8         tcp_ece[0x1];
+	u8         tcp_urg[0x1];
+	u8         tcp_ack[0x1];
+	u8         tcp_psh[0x1];
+	u8         tcp_rst[0x1];
+	u8         tcp_syn[0x1];
+	u8         tcp_fin[0x1];
 };
 
 struct mlx5_ifc_set_action_in_bits {

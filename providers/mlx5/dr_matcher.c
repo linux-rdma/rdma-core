@@ -504,8 +504,14 @@ static int dr_matcher_set_definer_builders(struct mlx5dv_dr_matcher *matcher,
 	struct dr_devx_caps *caps = &dmn->info.caps;
 	struct dr_ste_ctx *ste_ctx = dmn->ste_ctx;
 	struct dr_match_param mask = {};
+	bool src_ipv6, dst_ipv6;
 	uint8_t idx = 0;
+	uint8_t ipv;
 	int ret;
+
+	ipv = matcher->mask.outer.ip_version;
+	src_ipv6 = dr_mask_is_src_addr_set(&matcher->mask.outer);
+	dst_ipv6 = dr_mask_is_dst_addr_set(&matcher->mask.outer);
 
 	if (caps->definer_format_sup & (1 << DR_MATCHER_DEFINER_22)) {
 		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
@@ -534,6 +540,22 @@ static int dr_matcher_set_definer_builders(struct mlx5dv_dr_matcher *matcher,
 			goto done;
 
 		memset(sb, 0, sizeof(*sb));
+		idx = 0;
+	}
+
+	if ((ipv == DR_MASK_IP_VERSION_IPV6 && src_ipv6) &&
+	    (caps->definer_format_sup & (1 << DR_MATCHER_DEFINER_6)) &&
+	    (caps->definer_format_sup & (1 << DR_MATCHER_DEFINER_26))) {
+		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
+		ret = dr_ste_build_def26(ste_ctx, &sb[idx++], &mask, false, rx);
+		if (!ret && dst_ipv6)
+			ret = dr_ste_build_def6(ste_ctx, &sb[idx++], &mask, false, rx);
+
+		if (!ret && dr_matcher_is_mask_consumed(&mask))
+			goto done;
+
+		memset(&sb[0], 0, sizeof(*sb));
+		memset(&sb[1], 0, sizeof(*sb));
 		idx = 0;
 	}
 

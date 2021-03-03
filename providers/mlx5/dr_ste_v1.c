@@ -2198,6 +2198,43 @@ static void dr_ste_v1_build_flex_parser_1_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v1_build_felx_parser_tag;
 }
 
+static int dr_ste_v1_build_def6_tag(struct dr_match_param *value,
+				    struct dr_ste_build *sb,
+				    uint8_t *tag)
+{
+	struct dr_match_spec *outer = &value->outer;
+
+	/* Upper layer should verify this the IPv6 is provided */
+	DR_STE_SET_TAG(def6_v1, tag, dst_ipv6_127_96, outer, dst_ip_127_96);
+	DR_STE_SET_TAG(def6_v1, tag, dst_ipv6_95_64, outer, dst_ip_95_64);
+	DR_STE_SET_TAG(def6_v1, tag, dst_ipv6_63_32, outer, dst_ip_63_32);
+	DR_STE_SET_TAG(def6_v1, tag, dst_ipv6_31_0, outer, dst_ip_31_0);
+
+	DR_STE_SET_TAG(def6_v1, tag, outer_l4_sport, outer, tcp_sport);
+	DR_STE_SET_TAG(def6_v1, tag, outer_l4_sport, outer, udp_sport);
+	DR_STE_SET_TAG(def6_v1, tag, outer_l4_dport, outer, tcp_dport);
+	DR_STE_SET_TAG(def6_v1, tag, outer_l4_dport, outer, udp_dport);
+
+	DR_STE_SET_TAG(def6_v1, tag, ip_frag, outer, frag);
+	DR_STE_SET_TAG(def6_v1, tag, l3_ok, outer, l3_ok);
+	DR_STE_SET_TAG(def6_v1, tag, l4_ok, outer, l4_ok);
+
+	if (outer->tcp_flags) {
+		DR_STE_SET_TCP_FLAGS(def6_v1, tag, outer);
+		outer->tcp_flags = 0;
+	}
+
+	return 0;
+}
+
+static void dr_ste_v1_build_def6_init(struct dr_ste_build *sb,
+				      struct dr_match_param *mask)
+{
+	sb->lu_type = DR_STE_V1_LU_TYPE_MATCH;
+	dr_ste_v1_build_def6_tag(mask, sb, sb->match);
+	sb->ste_build_tag_func = &dr_ste_v1_build_def6_tag;
+}
+
 static int dr_ste_v1_build_def22_tag(struct dr_match_param *value,
 				     struct dr_ste_build *sb,
 				     uint8_t *tag)
@@ -2500,6 +2537,103 @@ static void dr_ste_v1_build_def25_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v1_build_def25_tag;
 }
 
+static int dr_ste_v1_build_def26_tag(struct dr_match_param *value,
+				     struct dr_ste_build *sb,
+				     uint8_t *tag)
+{
+	struct dr_match_spec *outer = &value->outer;
+	struct dr_match_misc *misc = &value->misc;
+
+	if (outer->ip_version == IP_VERSION_IPV6) {
+		DR_STE_SET_TAG(def26_v1, tag, src_ipv6_127_96, outer, src_ip_127_96);
+		DR_STE_SET_TAG(def26_v1, tag, src_ipv6_95_64, outer, src_ip_95_64);
+		DR_STE_SET_TAG(def26_v1, tag, src_ipv6_63_32, outer, src_ip_63_32);
+		DR_STE_SET_TAG(def26_v1, tag, src_ipv6_31_0, outer, src_ip_31_0);
+	}
+
+	DR_STE_SET_TAG(def26_v1, tag, ip_frag, outer, frag);
+
+	if (outer->ip_version == IP_VERSION_IPV6) {
+		DR_STE_SET(def26_v1, tag, l3_type, STE_IPV6);
+		outer->ip_version = 0;
+	}
+
+	if (outer->cvlan_tag) {
+		DR_STE_SET(def26_v1, tag, first_vlan_type, DR_STE_CVLAN);
+		outer->cvlan_tag = 0;
+	} else if (outer->svlan_tag) {
+		DR_STE_SET(def26_v1, tag, first_vlan_type, DR_STE_SVLAN);
+		outer->svlan_tag = 0;
+	}
+
+	DR_STE_SET_TAG(def26_v1, tag, first_vlan_id, outer, first_vid);
+	DR_STE_SET_TAG(def26_v1, tag, first_cfi, outer, first_cfi);
+	DR_STE_SET_TAG(def26_v1, tag, first_priority, outer, first_prio);
+
+	DR_STE_SET_TAG(def26_v1, tag, l3_ok, outer, l3_ok);
+	DR_STE_SET_TAG(def26_v1, tag, l4_ok, outer, l4_ok);
+
+	if (misc->outer_second_cvlan_tag) {
+		DR_STE_SET(def26_v1, tag, second_vlan_type, DR_STE_CVLAN);
+		misc->outer_second_cvlan_tag = 0;
+	} else if (misc->outer_second_svlan_tag) {
+		DR_STE_SET(def26_v1, tag, second_vlan_type, DR_STE_SVLAN);
+		misc->outer_second_svlan_tag = 0;
+	}
+
+	DR_STE_SET_TAG(def26_v1, tag, second_vlan_id, misc, outer_second_vid);
+	DR_STE_SET_TAG(def26_v1, tag, second_cfi, misc, outer_second_cfi);
+	DR_STE_SET_TAG(def26_v1, tag, second_priority, misc, outer_second_prio);
+
+	DR_STE_SET_TAG(def26_v1, tag, smac_47_16, outer, smac_47_16);
+	DR_STE_SET_TAG(def26_v1, tag, smac_15_0, outer, smac_15_0);
+
+	DR_STE_SET_TAG(def26_v1, tag, ip_porotcol, outer, ip_protocol);
+
+	if (outer->tcp_flags) {
+		DR_STE_SET_BOOL(def26_v1, tag, tcp_cwr, outer->tcp_flags & (1 << 7));
+		DR_STE_SET_BOOL(def26_v1, tag, tcp_ece, outer->tcp_flags & (1 << 6));
+		DR_STE_SET_BOOL(def26_v1, tag, tcp_urg, outer->tcp_flags & (1 << 5));
+		DR_STE_SET_BOOL(def26_v1, tag, tcp_ack, outer->tcp_flags & (1 << 4));
+		DR_STE_SET_BOOL(def26_v1, tag, tcp_psh, outer->tcp_flags & (1 << 3));
+		DR_STE_SET_BOOL(def26_v1, tag, tcp_rst, outer->tcp_flags & (1 << 2));
+		DR_STE_SET_BOOL(def26_v1, tag, tcp_syn, outer->tcp_flags & (1 << 1));
+		DR_STE_SET_BOOL(def26_v1, tag, tcp_fin, outer->tcp_flags & (1 << 0));
+		outer->tcp_flags ^= (outer->tcp_flags & 0xff);
+	}
+
+	return 0;
+}
+
+static void dr_ste_v1_build_def26_mask(struct dr_match_param *mask,
+				       struct dr_ste_build *sb)
+{
+	struct dr_match_spec *outer = &mask->outer;
+	struct dr_match_misc *misc = &mask->misc;
+	uint8_t *tag = sb->match;
+
+	if (outer->svlan_tag || outer->cvlan_tag) {
+		DR_STE_SET(def26_v1, tag, first_vlan_type, -1);
+		outer->cvlan_tag = 0;
+		outer->svlan_tag = 0;
+	}
+
+	if (misc->outer_second_svlan_tag || misc->outer_second_cvlan_tag) {
+		DR_STE_SET(def26_v1, tag, second_vlan_type, -1);
+		misc->outer_second_svlan_tag = 0;
+		misc->outer_second_cvlan_tag = 0;
+	}
+
+	dr_ste_v1_build_def26_tag(mask, sb, tag);
+}
+
+static void dr_ste_v1_build_def26_init(struct dr_ste_build *sb,
+				       struct dr_match_param *mask)
+{
+	sb->lu_type = DR_STE_V1_LU_TYPE_MATCH;
+	dr_ste_v1_build_def26_mask(mask, sb);
+	sb->ste_build_tag_func = &dr_ste_v1_build_def26_tag;
+}
 
 static struct dr_ste_ctx ste_ctx_v1 = {
 	/* Builders */
@@ -2530,9 +2664,11 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	.build_src_gvmi_qpn_init	= &dr_ste_v1_build_src_gvmi_qpn_init,
 	.build_flex_parser_0_init	= &dr_ste_v1_build_flex_parser_0_init,
 	.build_flex_parser_1_init	= &dr_ste_v1_build_flex_parser_1_init,
+	.build_def6_init		= &dr_ste_v1_build_def6_init,
 	.build_def22_init		= &dr_ste_v1_build_def22_init,
 	.build_def24_init		= &dr_ste_v1_build_def24_init,
 	.build_def25_init		= &dr_ste_v1_build_def25_init,
+	.build_def26_init		= &dr_ste_v1_build_def26_init,
 	/* Getters and Setters */
 	.ste_init			= &dr_ste_v1_init,
 	.set_next_lu_type		= &dr_ste_v1_set_next_lu_type,

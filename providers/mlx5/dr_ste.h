@@ -174,9 +174,11 @@ struct dr_ste_ctx {
 	dr_ste_builder_void_init build_src_gvmi_qpn_init;
 	dr_ste_builder_void_init build_flex_parser_0_init;
 	dr_ste_builder_void_init build_flex_parser_1_init;
+	dr_ste_builder_void_init build_def6_init;
 	dr_ste_builder_void_init build_def22_init;
 	dr_ste_builder_void_init build_def24_init;
 	dr_ste_builder_void_init build_def25_init;
+	dr_ste_builder_void_init build_def26_init;
 
 	/* Getters and Setters */
 	void (*ste_init)(uint8_t *hw_ste_p, uint16_t lu_type,

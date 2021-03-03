@@ -137,9 +137,11 @@ enum dr_matcher_criteria {
 };
 
 enum dr_matcher_definer {
+	DR_MATCHER_DEFINER_6	= 6,
 	DR_MATCHER_DEFINER_22	= 22,
 	DR_MATCHER_DEFINER_24	= 24,
 	DR_MATCHER_DEFINER_25	= 25,
+	DR_MATCHER_DEFINER_26	= 26,
 };
 
 enum dr_action_type {
@@ -554,6 +556,10 @@ void dr_ste_build_flex_parser_1(struct dr_ste_ctx *ste_ctx,
 				struct dr_ste_build *sb,
 				struct dr_match_param *mask,
 				bool inner, bool rx);
+int dr_ste_build_def6(struct dr_ste_ctx *ste_ctx,
+		      struct dr_ste_build *sb,
+		      struct dr_match_param *mask,
+		      bool inner, bool rx);
 int dr_ste_build_def22(struct dr_ste_ctx *ste_ctx,
 		       struct dr_ste_build *sb,
 		       struct dr_match_param *mask,
@@ -563,6 +569,10 @@ int dr_ste_build_def24(struct dr_ste_ctx *ste_ctx,
 		       struct dr_match_param *mask,
 		       bool inner, bool rx);
 int dr_ste_build_def25(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       bool inner, bool rx);
+int dr_ste_build_def26(struct dr_ste_ctx *ste_ctx,
 		       struct dr_ste_build *sb,
 		       struct dr_match_param *mask,
 		       bool inner, bool rx);
@@ -600,6 +610,8 @@ struct dr_match_spec {
 	uint32_t ip_protocol:8;	/* IP protocol */
 	uint32_t tcp_dport:16;	/* TCP destination port. ;tcp and udp sport/dport are mutually exclusive */
 	uint32_t tcp_sport:16;	/* TCP source port.;tcp and udp sport/dport are mutually exclusive */
+	uint32_t l3_ok:1;
+	uint32_t l4_ok:1;
 	uint32_t ip_ttl_hoplimit:8;
 	uint32_t udp_dport:16;	/* UDP destination port.;tcp and udp sport/dport are mutually exclusive */
 	uint32_t udp_sport:16;	/* UDP source port.;tcp and udp sport/dport are mutually exclusive */
