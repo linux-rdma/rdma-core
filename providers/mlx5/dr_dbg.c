@@ -392,14 +392,16 @@ static int dr_dump_matcher_builder(FILE *f, struct dr_ste_build *builder,
 				   uint32_t index, bool is_rx,
 				   const uint64_t matcher_id)
 {
+	bool is_match = builder->htbl_type == DR_STE_HTBL_TYPE_MATCH;
 	int ret;
 
-	ret = fprintf(f, "%d,0x%" PRIx64 "%d,%d,0x%x\n",
+	ret = fprintf(f, "%d,0x%" PRIx64 "%d,%d,0x%x,%d\n",
 		      DR_DUMP_REC_TYPE_MATCHER_BUILDER,
 		      matcher_id,
 		      index,
 		      is_rx,
-		      builder->lu_type);
+		      builder->lu_type,
+		      is_match ? builder->format_id : -1);
 	if (ret < 0)
 		return ret;
 

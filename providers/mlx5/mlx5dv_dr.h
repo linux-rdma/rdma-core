@@ -136,6 +136,12 @@ enum dr_matcher_criteria {
 	DR_MATCHER_CRITERIA_MAX		= 1 << 6,
 };
 
+enum dr_matcher_definer {
+	DR_MATCHER_DEFINER_22	= 22,
+	DR_MATCHER_DEFINER_24	= 24,
+	DR_MATCHER_DEFINER_25	= 25,
+};
+
 enum dr_action_type {
 	DR_ACTION_TYP_TNL_L2_TO_L2,
 	DR_ACTION_TYP_L2_TO_TNL_L2,
@@ -258,8 +264,17 @@ struct dr_ste_build {
 	struct dr_devx_caps	*caps;
 	uint16_t		lu_type;
 	enum dr_ste_htbl_type	htbl_type;
-	uint16_t		byte_mask;
-	uint8_t			bit_mask[DR_STE_SIZE_MASK];
+	union {
+		struct {
+			uint16_t	byte_mask;
+			uint8_t		bit_mask[DR_STE_SIZE_MASK];
+		};
+		struct {
+			uint16_t		format_id;
+			uint8_t			match[DR_STE_SIZE_MATCH_TAG];
+			struct mlx5dv_devx_obj	*definer_obj;
+		};
+	};
 	int (*ste_build_tag_func)(struct dr_match_param *spec,
 				  struct dr_ste_build *sb,
 				  uint8_t *tag);
@@ -539,6 +554,18 @@ void dr_ste_build_flex_parser_1(struct dr_ste_ctx *ste_ctx,
 				struct dr_ste_build *sb,
 				struct dr_match_param *mask,
 				bool inner, bool rx);
+int dr_ste_build_def22(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       bool inner, bool rx);
+int dr_ste_build_def24(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       bool inner, bool rx);
+int dr_ste_build_def25(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       bool inner, bool rx);
 void dr_ste_build_empty_always_hit(struct dr_ste_build *sb, bool rx);
 
 /* Actions utils */
