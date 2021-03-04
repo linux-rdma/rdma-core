@@ -333,6 +333,13 @@ cdef extern from 'infiniband/mlx5dv.h':
                                               mlx5dv_devx_umem_in *umem_in)
     int mlx5dv_devx_umem_dereg(mlx5dv_devx_umem *umem)
     int mlx5dv_devx_query_eqn(v.ibv_context *context, uint32_t vector, uint32_t *eqn)
+    mlx5dv_devx_obj *mlx5dv_devx_obj_create(v.ibv_context *context, const void *_in,
+                                            size_t inlen, void *out, size_t outlen)
+    int mlx5dv_devx_obj_query(mlx5dv_devx_obj *obj, const void *in_,
+                              size_t inlen, void *out, size_t outlen)
+    int mlx5dv_devx_obj_modify(mlx5dv_devx_obj *obj, const void *in_,
+                               size_t inlen, void *out, size_t outlen)
+    int mlx5dv_devx_obj_destroy(mlx5dv_devx_obj *obj)
 
     # Mkey setters
     void mlx5dv_wr_mkey_configure(mlx5dv_qp_ex *mqp, mlx5dv_mkey *mkey,

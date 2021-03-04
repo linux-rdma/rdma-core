@@ -12,6 +12,7 @@ from pyverbs.cq cimport CQEX
 
 cdef class Mlx5Context(Context):
     cdef object devx_umems
+    cdef object devx_objs
     cdef add_ref(self, obj)
     cpdef close(self)
 
@@ -80,3 +81,8 @@ cdef class Mlx5UMEM(PyverbsCM):
     cdef Context context
     cdef void *addr
     cdef object is_user_addr
+
+cdef class Mlx5DevxObj(PyverbsCM):
+    cdef dv.mlx5dv_devx_obj *obj
+    cdef Context context
+    cdef object out_view

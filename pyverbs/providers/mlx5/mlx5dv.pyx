@@ -140,6 +140,104 @@ cdef class Mlx5DVContextAttr(PyverbsObject):
         self.attr.comp_mask = val
 
 
+cdef class Mlx5DevxObj(PyverbsCM):
+    """
+    Represents mlx5dv_devx_obj C struct.
+    """
+    def __init__(self, Context context, in_, outlen):
+        """
+        Creates a DevX object.
+        If the object was successfully created, the command's output would be
+        stored as a memoryview in self.out_view.
+        :param in_: Bytes of the obj_create command's input data provided in a
+                    device specification format.
+                    (Stream of bytes or __bytes__ is implemented)
+        :param outlen: Expected output length in bytes
+        """
+        super().__init__()
+        in_bytes = bytes(in_)
+        cdef char *in_mailbox = _prepare_devx_inbox(in_bytes)
+        cdef char *out_mailbox = _prepare_devx_outbox(outlen)
+        self.obj = dv.mlx5dv_devx_obj_create(context.context, in_mailbox,
+                                             len(in_bytes), out_mailbox, outlen)
+        try:
+            if self.obj == NULL:
+                raise PyverbsRDMAErrno('Failed to create DevX object')
+            self.out_view = memoryview(out_mailbox[:outlen])
+            status = hex(self.out_view[0])
+            syndrome = self.out_view[4:8].hex()
+            if status != hex(0):
+                raise PyverbsRDMAError('Failed to create DevX object with status'
+                                       f'({status}) and syndrome (0x{syndrome})')
+        finally:
+            free(in_mailbox)
+            free(out_mailbox)
+        self.context = context
+        self.context.add_ref(self)
+
+    def query(self, in_, outlen):
+        """
+        Queries the DevX object.
+        :param in_: Bytes of the obj_query command's input data provided in a
+                    device specification format.
+                    (Stream of bytes or __bytes__ is implemented)
+        :param outlen: Expected output length in bytes
+        :return: Bytes of the command's output
+        """
+        in_bytes = bytes(in_)
+        cdef char *in_mailbox = _prepare_devx_inbox(in_bytes)
+        cdef char *out_mailbox = _prepare_devx_outbox(outlen)
+        rc = dv.mlx5dv_devx_obj_query(self.obj, in_mailbox, len(in_bytes),
+                                      out_mailbox, outlen)
+        try:
+            if rc:
+                raise PyverbsRDMAError('Failed to query DevX object', rc)
+            out = <bytes>out_mailbox[:outlen]
+        finally:
+            free(in_mailbox)
+            free(out_mailbox)
+        return out
+
+    def modify(self, in_, outlen):
+        """
+        Modifies the DevX object.
+        :param in_: Bytes of the obj_modify command's input data provided in a
+                    device specification format.
+                    (Stream of bytes or __bytes__ is implemented)
+        :param outlen: Expected output length in bytes
+        :return: Bytes of the command's output
+        """
+        in_bytes = bytes(in_)
+        cdef char *in_mailbox = _prepare_devx_inbox(in_bytes)
+        cdef char *out_mailbox = _prepare_devx_outbox(outlen)
+        rc = dv.mlx5dv_devx_obj_modify(self.obj, in_mailbox, len(in_bytes),
+                                       out_mailbox, outlen)
+        try:
+            if rc:
+                raise PyverbsRDMAError('Failed to modify DevX object', rc)
+            out = <bytes>out_mailbox[:outlen]
+        finally:
+            free(in_mailbox)
+            free(out_mailbox)
+        return out
+
+    @property
+    def out_view(self):
+        return self.out_view
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.obj != NULL:
+            self.logger.debug('Closing Mlx5DvexObj')
+            rc = dv.mlx5dv_devx_obj_destroy(self.obj)
+            if rc:
+                raise PyverbsRDMAError('Failed to destroy a DevX object', rc)
+            self.obj = NULL
+            self.context = None
+
+
 cdef class Mlx5Context(Context):
     """
     Represent mlx5 context, which extends Context.
@@ -159,6 +257,7 @@ cdef class Mlx5Context(Context):
             raise PyverbsRDMAErrno('Failed to open mlx5 context on {dev}'
                                    .format(dev=self.name))
         self.devx_umems = weakref.WeakSet()
+        self.devx_objs = weakref.WeakSet()
 
     def query_mlx5_device(self, comp_mask=-1):
         """
@@ -281,6 +380,8 @@ cdef class Mlx5Context(Context):
         except PyverbsError:
             if isinstance(obj, Mlx5UMEM):
                 self.devx_umems.add(obj)
+            elif isinstance(obj, Mlx5DevxObj):
+                self.devx_objs.add(obj)
             else:
                 raise PyverbsError('Unrecognized object type')
 
@@ -289,7 +390,7 @@ cdef class Mlx5Context(Context):
 
     cpdef close(self):
         if self.context != NULL:
-            close_weakrefs([self.pps, self.devx_umems])
+            close_weakrefs([self.pps, self.devx_objs, self.devx_umems])
             super(Mlx5Context, self).close()
 
 
