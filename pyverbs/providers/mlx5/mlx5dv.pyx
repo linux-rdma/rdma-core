@@ -263,6 +263,18 @@ cdef class Mlx5Context(Context):
         free(clock_info)
         return ns_time
 
+    def devx_query_eqn(self, vector):
+        """
+        Query EQN for a given vector id.
+        :param vector: Completion vector number
+        :return: The device EQ number which relates to the given input vector
+        """
+        cdef uint32_t eqn
+        rc = dv.mlx5dv_devx_query_eqn(self.context, vector, &eqn)
+        if rc:
+            raise PyverbsRDMAError('Failed to query EQN', rc)
+        return eqn
+
     cdef add_ref(self, obj):
         try:
             Context.add_ref(self, obj)
