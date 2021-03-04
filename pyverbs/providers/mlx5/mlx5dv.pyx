@@ -2,10 +2,11 @@
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
 from libc.stdint cimport uintptr_t, uint8_t, uint16_t, uint32_t
-from libc.stdlib cimport calloc, free, malloc
-from libc.string cimport memcpy
+from libc.string cimport memcpy, memset
+from libc.stdlib cimport calloc, free
 from posix.mman cimport munmap
 import logging
+import weakref
 
 from pyverbs.providers.mlx5.mlx5dv_mkey cimport Mlx5MrInterleaved, Mlx5Mkey, \
     Mlx5MkeyConfAttr, Mlx5SigBlockAttr
@@ -13,6 +14,7 @@ from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError, PyverbsErr
 from pyverbs.providers.mlx5.mlx5dv_sched cimport Mlx5dvSchedLeaf
 cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
 cimport pyverbs.providers.mlx5.libmlx5 as dv
+from pyverbs.mem_alloc import posix_memalign
 from pyverbs.qp cimport QPInitAttrEx, QPEx
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
@@ -156,6 +158,7 @@ cdef class Mlx5Context(Context):
         if self.context == NULL:
             raise PyverbsRDMAErrno('Failed to open mlx5 context on {dev}'
                                    .format(dev=self.name))
+        self.devx_umems = weakref.WeakSet()
 
     def query_mlx5_device(self, comp_mask=-1):
         """
@@ -260,12 +263,21 @@ cdef class Mlx5Context(Context):
         free(clock_info)
         return ns_time
 
+    cdef add_ref(self, obj):
+        try:
+            Context.add_ref(self, obj)
+        except PyverbsError:
+            if isinstance(obj, Mlx5UMEM):
+                self.devx_umems.add(obj)
+            else:
+                raise PyverbsError('Unrecognized object type')
+
     def __dealloc__(self):
         self.close()
 
     cpdef close(self):
         if self.context != NULL:
-            close_weakrefs([self.pps])
+            close_weakrefs([self.pps, self.devx_umems])
             super(Mlx5Context, self).close()
 
 
@@ -1407,3 +1419,78 @@ cdef class Wqe(PyverbsCM):
             if not self.is_user_addr:
                 free(self.addr)
             self.addr = NULL
+
+
+cdef class Mlx5UMEM(PyverbsCM):
+    def __init__(self, Context context not None, size, addr=None, alignment=64,
+                 access=0, pgsz_bitmap=0, comp_mask=0):
+        """
+        User memory object to be used by the DevX interface.
+        If pgsz_bitmap or comp_mask were passed, the extended umem registration
+        will be used.
+        :param context: RDMA device context to create the action on
+        :param size: The size of the addr buffer (or the internal buffer to be
+                     allocated if addr is None)
+        :param alignment: The alignment of the internally allocated buffer
+                          (Valid if addr is None)
+        :param addr: The memory start address to register (if None, the address
+                     will be allocated internally)
+        :param access: The desired memory protection attributes (default: 0)
+        :param pgsz_bitmap: Represents the required page sizes
+        :param comp_mask: Compatibility mask
+        """
+        super().__init__()
+        cdef dv.mlx5dv_devx_umem_in umem_in
+
+        if addr is not None:
+            self.addr = <void*><uintptr_t>addr
+            self.is_user_addr = True
+        else:
+            self.addr = <void*><uintptr_t>posix_memalign(size, alignment)
+            memset(self.addr, 0, size)
+            self.is_user_addr = False
+
+        if pgsz_bitmap or comp_mask:
+            umem_in.addr = self.addr
+            umem_in.size = size
+            umem_in.access = access
+            umem_in.pgsz_bitmap = pgsz_bitmap
+            umem_in.comp_mask = comp_mask
+            self.umem = dv.mlx5dv_devx_umem_reg_ex(context.context, &umem_in)
+        else:
+            self.umem = dv.mlx5dv_devx_umem_reg(context.context, self.addr,
+                                                size, access)
+        if self.umem == NULL:
+            raise PyverbsRDMAErrno("Failed to register a UMEM.")
+        self.context = context
+        self.context.add_ref(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.umem != NULL:
+            self.logger.debug('Closing Mlx5UMEM')
+            rc = dv.mlx5dv_devx_umem_dereg(self.umem)
+            try:
+                if rc:
+                    raise PyverbsError("Failed to dereg UMEM.", rc)
+            finally:
+                if not self.is_user_addr:
+                    free(self.addr)
+            self.umem = NULL
+            self.context = None
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return print_format.format('umem id', self.umem_id) + \
+               print_format.format('reg addr', self.umem_addr)
+
+    @property
+    def umem_id(self):
+        return self.umem.umem_id
+
+    @property
+    def umem_addr(self):
+        if self.addr:
+            return <uintptr_t><void*>self.addr

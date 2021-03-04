@@ -222,6 +222,17 @@ cdef extern from 'infiniband/mlx5dv.h':
         uint8_t     fm_ce_se
         uint32_t    imm
 
+    cdef struct mlx5dv_devx_umem:
+        uint32_t umem_id;
+
+    cdef struct mlx5dv_devx_umem_in:
+        void        *addr
+        size_t      size
+        uint32_t    access
+        uint64_t    pgsz_bitmap
+        uint64_t    comp_mask
+
+
     void mlx5dv_set_ctrl_seg(mlx5_wqe_ctrl_seg *seg, uint16_t pi, uint8_t opcode,
                              uint8_t opmod, uint32_t qp_num, uint8_t fm_ce_se,
                              uint8_t ds, uint8_t signature, uint32_t imm)
@@ -312,11 +323,15 @@ cdef extern from 'infiniband/mlx5dv.h':
     int mlx5dv_map_ah_to_qp(v.ibv_ah *ah, uint32_t qp_num)
 
     # DevX APIs
-    mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context,
-                                           uint32_t flags)
+    mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context, uint32_t flags)
     void mlx5dv_devx_free_uar(mlx5dv_devx_uar *devx_uar)
     int mlx5dv_devx_general_cmd(v.ibv_context *context, const void *in_,
-                                size_t inlen, void *out, size_t outlen);
+                                size_t inlen, void *out, size_t outlen)
+    mlx5dv_devx_umem *mlx5dv_devx_umem_reg(v.ibv_context *ctx, void *addr,
+                                           size_t size, unsigned long access)
+    mlx5dv_devx_umem *mlx5dv_devx_umem_reg_ex(v.ibv_context *ctx,
+                                              mlx5dv_devx_umem_in *umem_in)
+    int mlx5dv_devx_umem_dereg(mlx5dv_devx_umem *umem)
 
     # Mkey setters
     void mlx5dv_wr_mkey_configure(mlx5dv_qp_ex *mqp, mlx5dv_mkey *mkey,
