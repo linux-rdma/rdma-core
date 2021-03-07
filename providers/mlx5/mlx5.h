@@ -1112,6 +1112,9 @@ int mlx5_advise_mr(struct ibv_pd *pd,
 		   uint32_t flags,
 		   struct ibv_sge *sg_list,
 		   uint32_t num_sges);
+struct ibv_dm *mlx5_import_dm(struct ibv_context *context,
+			      uint32_t dm_handle);
+void mlx5_unimport_dm(struct ibv_dm *dm);
 struct ibv_mr *mlx5_import_mr(struct ibv_pd *pd,
 			      uint32_t mr_handle);
 void mlx5_unimport_mr(struct ibv_mr *mr);

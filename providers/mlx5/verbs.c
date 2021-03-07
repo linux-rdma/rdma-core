@@ -4377,6 +4377,64 @@ void *mlx5dv_dm_map_op_addr(struct ibv_dm *dm, uint8_t op)
 	return va + (start_offset & (page_size - 1));
 }
 
+void mlx5_unimport_dm(struct ibv_dm *ibdm)
+{
+	struct mlx5_dm *dm = to_mdm(ibdm);
+	size_t act_size = align(dm->length,
+				to_mdev(ibdm->context->device)->page_size);
+
+	munmap(dm->mmap_va, act_size);
+	free(dm);
+}
+
+struct ibv_dm *mlx5_import_dm(struct ibv_context *context,
+			      uint32_t dm_handle)
+{
+	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_DM, MLX5_IB_METHOD_DM_QUERY,
+			       4);
+	int page_size = to_mdev(context->device)->page_size;
+	uint64_t start_offset, length;
+	struct mlx5_dm *dm;
+	uint16_t page_idx;
+	void *va;
+	int ret;
+
+	dm = calloc(1, sizeof(*dm));
+	if (!dm) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_QUERY_DM_REQ_HANDLE, dm_handle);
+	fill_attr_out(cmd, MLX5_IB_ATTR_QUERY_DM_RESP_START_OFFSET,
+		      &start_offset, sizeof(start_offset));
+	fill_attr_out(cmd, MLX5_IB_ATTR_QUERY_DM_RESP_PAGE_INDEX,
+		      &page_idx, sizeof(page_idx));
+	fill_attr_out(cmd, MLX5_IB_ATTR_QUERY_DM_RESP_LENGTH, &length,
+		      sizeof(length));
+
+	ret = execute_ioctl(context, cmd);
+	if (ret)
+		goto free_dm;
+
+	va = dm_mmap(context, dm, page_idx, length);
+	if (va == MAP_FAILED)
+		goto free_dm;
+
+	dm->mmap_va = va;
+	dm->length = length;
+	dm->start_va = va + (start_offset & (page_size - 1));
+	dm->verbs_dm.dm.memcpy_to_dm = mlx5_memcpy_to_dm;
+	dm->verbs_dm.dm.memcpy_from_dm = mlx5_memcpy_from_dm;
+	dm->verbs_dm.dm.context = context;
+	dm->verbs_dm.handle = dm->verbs_dm.dm.handle = dm_handle;
+
+	return &dm->verbs_dm.dm;
+free_dm:
+	free(dm);
+	return NULL;
+}
+
 static int alloc_dm_memic(struct ibv_context *ctx,
 			  struct mlx5_dm *dm,
 			  struct ibv_alloc_dm_attr *dm_attr,

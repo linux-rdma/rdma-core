@@ -146,6 +146,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.destroy_wq = mlx5_destroy_wq,
 	.free_dm = mlx5_free_dm,
 	.get_srq_num = mlx5_get_srq_num,
+	.import_dm = mlx5_import_dm,
 	.import_mr = mlx5_import_mr,
 	.import_pd = mlx5_import_pd,
 	.modify_cq = mlx5_modify_cq,
@@ -163,6 +164,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.alloc_null_mr = mlx5_alloc_null_mr,
 	.free_context = mlx5_free_context,
 	.set_ece = mlx5_set_ece,
+	.unimport_dm = mlx5_unimport_dm,
 	.unimport_mr = mlx5_unimport_mr,
 	.unimport_pd = mlx5_unimport_pd,
 };
