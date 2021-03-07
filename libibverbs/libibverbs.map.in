@@ -160,6 +160,11 @@ IBVERBS_1.13 {
 		ibv_unimport_dm;
 } IBVERBS_1.12;
 
+IBVERBS_1.14 {
+	global:
+		ibv_query_qp_data_in_order;
+} IBVERBS_1.13;
+
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. See the top level CMakeLists.txt for this setting. */
 
