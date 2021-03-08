@@ -2674,6 +2674,50 @@ free:
 	return 0;
 }
 
+static int query_dct_in_order(struct ibv_qp *qp)
+{
+	uint32_t in_dct[DEVX_ST_SZ_DW(query_dct_in)] = {};
+	uint32_t out_dct[DEVX_ST_SZ_DW(query_dct_out)] = {};
+	int ret;
+
+	DEVX_SET(query_dct_in, in_dct, opcode, MLX5_CMD_OP_QUERY_DCT);
+	DEVX_SET(query_dct_in, in_dct, dctn, qp->qp_num);
+	ret = mlx5dv_devx_qp_query(qp, in_dct, sizeof(in_dct), out_dct,
+				   sizeof(out_dct));
+	if (ret)
+		return 0;
+
+	return DEVX_GET(query_dct_out, out_dct, dctc.data_in_order);
+}
+
+int mlx5_query_qp_data_in_order(struct ibv_qp *qp, enum ibv_wr_opcode op,
+				uint32_t flags)
+{
+	uint32_t in_qp[DEVX_ST_SZ_DW(query_qp_in)] = {};
+	uint32_t out_qp[DEVX_ST_SZ_DW(query_qp_out)] = {};
+	struct mlx5_context *mctx = to_mctx(qp->context);
+	struct mlx5_qp *mqp = to_mqp(qp);
+	int ret;
+
+	if (flags || !mctx->qp_data_in_order_cap)
+		return 0;
+
+	if (mqp->dc_type == MLX5DV_DCTYPE_DCT)
+		return query_dct_in_order(qp);
+
+	if (qp->state != IBV_QPS_RTS)
+		return 0;
+
+	DEVX_SET(query_qp_in, in_qp, opcode, MLX5_CMD_OP_QUERY_QP);
+	DEVX_SET(query_qp_in, in_qp, qpn, qp->qp_num);
+	ret = mlx5dv_devx_qp_query(qp, in_qp, sizeof(in_qp), out_qp,
+				   sizeof(out_qp));
+	if (ret)
+		return 0;
+
+	return DEVX_GET(query_qp_out, out_qp, qpc.data_in_order);
+}
+
 int mlx5_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 		  int attr_mask, struct ibv_qp_init_attr *init_attr)
 {
@@ -3583,6 +3627,10 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 				      out, sizeof(out));
 	if (ret)
 		return;
+
+	mctx->qp_data_in_order_cap =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.cmd_hca_cap.qp_data_in_order);
 
 	mctx->entropy_caps.num_lag_ports =
 		DEVX_GET(query_hca_cap_out, out,
