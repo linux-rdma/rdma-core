@@ -484,6 +484,8 @@ struct ibv_dm *mlx5dv_alloc_dm(struct ibv_context *context,
 			       struct ibv_alloc_dm_attr *dm_attr,
 			       struct mlx5dv_alloc_dm_attr *mlx5_dm_attr);
 
+void *mlx5dv_dm_map_op_addr(struct ibv_dm *dm, uint8_t op);
+
 struct mlx5_wqe_av;
 
 struct mlx5dv_ah {
