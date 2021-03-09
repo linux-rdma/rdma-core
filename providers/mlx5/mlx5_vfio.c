@@ -37,6 +37,8 @@ enum {
 	MLX5_VFIO_SUPP_MR_ACCESS_FLAGS = IBV_ACCESS_LOCAL_WRITE |
 		IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ |
 		IBV_ACCESS_REMOTE_ATOMIC | IBV_ACCESS_RELAXED_ORDERING,
+	MLX5_VFIO_SUPP_UMEM_ACCESS_FLAGS = IBV_ACCESS_LOCAL_WRITE |
+		IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ,
 };
 
 static int mlx5_vfio_give_pages(struct mlx5_vfio_context *ctx, uint16_t func_id,
@@ -173,7 +175,6 @@ static void mlx5_vfio_free_page(struct mlx5_vfio_context *ctx, uint64_t iova)
 		bitmap_set_bit(page_block->free_pages, pg);
 		if (bitmap_full(page_block->free_pages, MLX5_VFIO_BLOCK_NUM_PAGES))
 			mlx5_vfio_free_block(ctx, page_block);
-
 		goto end;
 	}
 
@@ -2464,6 +2465,220 @@ vfio_devx_obj_create(struct ibv_context *context, const void *in,
 	return NULL;
 }
 
+static int vfio_devx_query_eqn(struct ibv_context *ibctx, uint32_t vector,
+			       uint32_t *eqn)
+{
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(ibctx);
+
+	if (vector > ibctx->num_comp_vectors - 1)
+		return EINVAL;
+
+	/* For now use the singleton EQN created for async events */
+	*eqn = ctx->async_eq.eqn;
+	return 0;
+}
+
+static struct mlx5dv_devx_uar *
+vfio_devx_alloc_uar(struct ibv_context *ibctx, uint32_t flags)
+{
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(ibctx);
+	struct mlx5_devx_uar *uar;
+
+	if (flags != MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	uar = calloc(1, sizeof(*uar));
+	if (!uar) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	uar->dv_devx_uar.page_id = ctx->eqs_uar.uarn;
+	uar->dv_devx_uar.base_addr = (void *)ctx->eqs_uar.iova;
+	uar->dv_devx_uar.reg_addr = uar->dv_devx_uar.base_addr + MLX5_BF_OFFSET;
+	uar->context = ibctx;
+
+	return &uar->dv_devx_uar;
+}
+
+static void vfio_devx_free_uar(struct mlx5dv_devx_uar *dv_devx_uar)
+{
+	free(dv_devx_uar);
+}
+
+static struct mlx5dv_devx_umem *
+_vfio_devx_umem_reg(struct ibv_context *context,
+		    void *addr, size_t size, uint32_t access,
+		    uint64_t pgsz_bitmap)
+{
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(context);
+	uint32_t out[DEVX_ST_SZ_DW(create_umem_out)] = {};
+	struct mlx5_vfio_devx_umem *vfio_umem;
+	int iova_page_shift;
+	uint64_t iova_size;
+	int ret;
+	void *in;
+	uint32_t inlen;
+	__be64 *mtt;
+	void *umem;
+	bool writeable;
+	void *aligned_va;
+	int num_pas;
+
+	if (!check_comp_mask(access, MLX5_VFIO_SUPP_UMEM_ACCESS_FLAGS)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if ((access & IBV_ACCESS_REMOTE_WRITE) &&
+	    !(access & IBV_ACCESS_LOCAL_WRITE)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	/* Page size that encloses the start and end of the umem range */
+	iova_size = max(roundup_pow_of_two(size + ((uint64_t) addr & (ctx->iova_min_page_size - 1))),
+			ctx->iova_min_page_size);
+
+	if (!(iova_size & pgsz_bitmap)) {
+		/* input should include the iova page size */
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	writeable = access &
+		(IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+
+	vfio_umem = calloc(1, sizeof(*vfio_umem));
+	if (!vfio_umem) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	vfio_umem->iova_size = iova_size;
+	if (ibv_dontfork_range(addr, size))
+		goto err;
+
+	ret = iset_alloc_range(ctx->iova_alloc, vfio_umem->iova_size, &vfio_umem->iova);
+	if (ret)
+		goto err_alloc;
+
+	/* The registration's arguments have to reflect real VA presently mapped into the process */
+	aligned_va = (void *) ((unsigned long) addr & ~(ctx->iova_min_page_size - 1));
+	vfio_umem->iova_reg_size = align((addr + size) - aligned_va, ctx->iova_min_page_size);
+	ret = mlx5_vfio_register_mem(ctx, aligned_va, vfio_umem->iova, vfio_umem->iova_reg_size);
+	if (ret)
+		goto err_reg;
+
+	iova_page_shift = ilog32(vfio_umem->iova_size - 1);
+	num_pas = 1;
+	if (iova_page_shift > MLX5_MAX_PAGE_SHIFT) {
+		iova_page_shift = MLX5_MAX_PAGE_SHIFT;
+		num_pas = DIV_ROUND_UP(vfio_umem->iova_size, (1ULL << iova_page_shift));
+	}
+
+	inlen = DEVX_ST_SZ_BYTES(create_umem_in) + DEVX_ST_SZ_BYTES(mtt) * num_pas;
+
+	in = calloc(1, inlen);
+	if (!in) {
+		errno = ENOMEM;
+		goto err_in;
+	}
+
+	umem = DEVX_ADDR_OF(create_umem_in, in, umem);
+	mtt = (__be64 *)DEVX_ADDR_OF(umem, umem, mtt);
+
+	DEVX_SET(create_umem_in, in, opcode, MLX5_CMD_OP_CREATE_UMEM);
+	DEVX_SET64(umem, umem, num_of_mtt, num_pas);
+	DEVX_SET(umem, umem, log_page_size, iova_page_shift - MLX5_ADAPTER_PAGE_SHIFT);
+	DEVX_SET(umem, umem, page_offset, addr - aligned_va);
+
+	mlx5_vfio_populate_pas(vfio_umem->iova, num_pas, (1ULL << iova_page_shift), mtt,
+			       (writeable ? MLX5_MTT_WRITE : 0) | MLX5_MTT_READ);
+
+	ret = mlx5_vfio_cmd_exec(ctx, in, inlen, out, sizeof(out), 0);
+	if (ret)
+		goto err_exec;
+
+	free(in);
+
+	vfio_umem->dv_devx_umem.umem_id = DEVX_GET(create_umem_out, out, umem_id);
+	vfio_umem->context = context;
+	vfio_umem->addr = addr;
+	vfio_umem->size = size;
+	return &vfio_umem->dv_devx_umem;
+
+err_exec:
+	free(in);
+err_in:
+	mlx5_vfio_unregister_mem(ctx, vfio_umem->iova, vfio_umem->iova_reg_size);
+err_reg:
+	iset_insert_range(ctx->iova_alloc, vfio_umem->iova, vfio_umem->iova_size);
+err_alloc:
+	ibv_dofork_range(addr, size);
+err:
+	free(vfio_umem);
+	return NULL;
+}
+
+static struct mlx5dv_devx_umem *
+vfio_devx_umem_reg(struct ibv_context *context,
+		   void *addr, size_t size, uint32_t access)
+{
+	return _vfio_devx_umem_reg(context, addr, size, access, UINT64_MAX);
+}
+
+static struct mlx5dv_devx_umem *
+vfio_devx_umem_reg_ex(struct ibv_context *ctx, struct mlx5dv_devx_umem_in *in)
+{
+	if (!check_comp_mask(in->comp_mask, 0)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return _vfio_devx_umem_reg(ctx, in->addr, in->size, in->access, in->pgsz_bitmap);
+}
+
+static int vfio_devx_umem_dereg(struct mlx5dv_devx_umem *dv_devx_umem)
+{
+	struct mlx5_vfio_devx_umem *vfio_umem =
+		container_of(dv_devx_umem, struct mlx5_vfio_devx_umem,
+			     dv_devx_umem);
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(vfio_umem->context);
+	uint32_t in[DEVX_ST_SZ_DW(create_umem_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(create_umem_out)] = {};
+	int ret;
+
+	DEVX_SET(destroy_umem_in, in, opcode, MLX5_CMD_OP_DESTROY_UMEM);
+	DEVX_SET(destroy_umem_in, in, umem_id, dv_devx_umem->umem_id);
+
+	ret = mlx5_vfio_cmd_exec(ctx, in, sizeof(in), out, sizeof(out), 0);
+	if (ret)
+		return ret;
+
+	mlx5_vfio_unregister_mem(ctx, vfio_umem->iova, vfio_umem->iova_reg_size);
+	iset_insert_range(ctx->iova_alloc, vfio_umem->iova, vfio_umem->iova_size);
+	ibv_dofork_range(vfio_umem->addr, vfio_umem->size);
+	free(vfio_umem);
+	return 0;
+}
+
+static int vfio_init_obj(struct mlx5dv_obj *obj, uint64_t obj_type)
+{
+	struct ibv_pd *pd_in = obj->pd.in;
+	struct mlx5dv_pd *pd_out = obj->pd.out;
+	struct mlx5_pd *mpd = to_mpd(pd_in);
+
+	if (obj_type != MLX5DV_OBJ_PD)
+		return EOPNOTSUPP;
+
+	pd_out->comp_mask = 0;
+	pd_out->pdn = mpd->pdn;
+	return 0;
+}
+
 static int vfio_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in,
 				size_t inlen, void *out, size_t outlen)
 {
@@ -2473,6 +2688,13 @@ static int vfio_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in,
 static struct mlx5_dv_context_ops mlx5_vfio_dv_ctx_ops = {
 	.devx_obj_create = vfio_devx_obj_create,
 	.devx_obj_query = vfio_devx_obj_query,
+	.devx_query_eqn = vfio_devx_query_eqn,
+	.devx_alloc_uar = vfio_devx_alloc_uar,
+	.devx_free_uar = vfio_devx_free_uar,
+	.devx_umem_reg = vfio_devx_umem_reg,
+	.devx_umem_reg_ex = vfio_devx_umem_reg_ex,
+	.devx_umem_dereg = vfio_devx_umem_dereg,
+	.init_obj = vfio_init_obj,
 };
 
 static void mlx5_vfio_uninit_context(struct mlx5_vfio_context *ctx)
@@ -2541,6 +2763,10 @@ mlx5_vfio_alloc_context(struct ibv_device *ibdev,
 
 	verbs_set_ops(&mctx->vctx, &mlx5_vfio_common_ops);
 	mctx->dv_ctx_ops = &mlx5_vfio_dv_ctx_ops;
+
+	/* For now only a singelton EQ is supported */
+	mctx->vctx.context.num_comp_vectors = 1;
+
 	return &mctx->vctx;
 
 func_teardown:

@@ -47,6 +47,16 @@ struct mlx5_vfio_mr {
 	uint64_t iova_reg_size;
 };
 
+struct mlx5_vfio_devx_umem {
+	struct mlx5dv_devx_umem dv_devx_umem;
+	struct ibv_context *context;
+	void *addr;
+	size_t size;
+	uint64_t iova;
+	uint64_t iova_size;
+	uint64_t iova_reg_size;
+};
+
 struct mlx5_vfio_device {
 	struct verbs_device vdev;
 	char *pci_name;

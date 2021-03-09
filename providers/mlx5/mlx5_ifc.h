@@ -88,6 +88,8 @@ enum {
 	MLX5_CMD_OP_CREATE_GENERAL_OBJECT = 0xa00,
 	MLX5_CMD_OP_MODIFY_GENERAL_OBJECT = 0xa01,
 	MLX5_CMD_OP_QUERY_GENERAL_OBJECT = 0xa02,
+	MLX5_CMD_OP_CREATE_UMEM = 0xa08,
+	MLX5_CMD_OP_DESTROY_UMEM = 0xa0a,
 	MLX5_CMD_OP_SYNC_STEERING = 0xb00,
 };
 
@@ -4657,6 +4659,74 @@ struct mlx5_ifc_dealloc_pd_in_bits {
 	u8         pd[0x18];
 
 	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_mtt_bits {
+	u8         ptag_63_32[0x20];
+
+	u8         ptag_31_8[0x18];
+	u8         reserved_at_38[0x6];
+	u8         wr_en[0x1];
+	u8         rd_en[0x1];
+};
+
+struct mlx5_ifc_umem_bits {
+	u8         reserved_at_0[0x80];
+
+	u8         reserved_at_80[0x1b];
+	u8         log_page_size[0x5];
+
+	u8         page_offset[0x20];
+
+	u8         num_of_mtt[0x40];
+
+	struct mlx5_ifc_mtt_bits  mtt[];
+};
+
+struct mlx5_ifc_create_umem_in_bits {
+	u8         opcode[0x10];
+	u8         uid[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         reserved_at_40[0x40];
+
+	struct mlx5_ifc_umem_bits  umem;
+};
+
+struct mlx5_ifc_create_umem_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x8];
+	u8         umem_id[0x18];
+
+	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_destroy_umem_in_bits {
+	u8        opcode[0x10];
+	u8        uid[0x10];
+
+	u8        reserved_at_20[0x10];
+	u8        op_mod[0x10];
+
+	u8        reserved_at_40[0x8];
+	u8        umem_id[0x18];
+
+	u8        reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_destroy_umem_out_bits {
+	u8        status[0x8];
+	u8        reserved_at_8[0x18];
+
+	u8        syndrome[0x20];
+
+	u8        reserved_at_40[0x40];
 };
 
 #endif /* MLX5_IFC_H */
