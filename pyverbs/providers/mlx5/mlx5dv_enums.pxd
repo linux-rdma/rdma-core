@@ -68,6 +68,9 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE       = 1 << 4
         MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE   = 1 << 5
 
+    cpdef enum mlx5dv_mkey_init_attr_flags:
+        MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT
+
     cpdef enum mlx5dv_dc_type:
         MLX5DV_DCTYPE_DCT   = 1
         MLX5DV_DCTYPE_DCI   = 2
