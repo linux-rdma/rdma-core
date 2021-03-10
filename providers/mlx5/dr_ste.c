@@ -247,6 +247,12 @@ dr_ste_remove_head_ste(struct dr_ste_ctx *ste_ctx,
 	uint8_t formated_ste[DR_STE_SIZE] = {};
 	struct dr_htbl_connect_info info;
 
+	stats_tbl->ctrl.num_of_valid_entries--;
+
+	/* Hash table will be deleted, no need to update STE */
+	if (atomic_load(&ste->htbl->refcount) == 1)
+		return;
+
 	info.type = CONNECT_MISS;
 	info.miss_icm_addr =
 		dr_icm_pool_get_chunk_icm_addr(nic_matcher->e_anchor->chunk);
@@ -266,8 +272,6 @@ dr_ste_remove_head_ste(struct dr_ste_ctx *ste_ctx,
 					      ste_info_head,
 					      send_ste_list,
 					      true /* Copy data */);
-
-	stats_tbl->ctrl.num_of_valid_entries--;
 }
 
 /*
