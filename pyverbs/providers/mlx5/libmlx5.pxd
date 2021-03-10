@@ -149,6 +149,12 @@ cdef extern from 'infiniband/mlx5dv.h':
         uint32_t lkey
         uint32_t rkey
 
+    cdef struct mlx5dv_mr_interleaved:
+        uint64_t addr
+        uint32_t bytes_count
+        uint32_t bytes_skip
+        uint32_t lkey
+
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
@@ -172,6 +178,11 @@ cdef extern from 'infiniband/mlx5dv.h':
     void mlx5dv_pp_free(mlx5dv_pp *pp)
     void mlx5dv_wr_set_dc_addr(mlx5dv_qp_ex *mqp, v.ibv_ah *ah,
                                uint32_t remote_dctn, uint64_t remote_dc_key)
+    void mlx5dv_wr_mr_interleaved(mlx5dv_qp_ex *mqp, mlx5dv_mkey *mkey,
+                                  uint32_t access_flags, uint32_t repeat_count,
+                                  uint16_t num_interleaved, mlx5dv_mr_interleaved *data)
+    void mlx5dv_wr_mr_list(mlx5dv_qp_ex *mqp, mlx5dv_mkey *mkey,
+                           uint32_t access_flags, uint16_t num_sge, v.ibv_sge *sge)
     mlx5dv_mkey *mlx5dv_create_mkey(mlx5dv_mkey_init_attr *mkey_init_attr)
     int mlx5dv_destroy_mkey(mlx5dv_mkey *mkey)
     mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(v.ibv_qp_ex *qp_ex)

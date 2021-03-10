@@ -8,12 +8,14 @@ from posix.mman cimport munmap
 import logging
 
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError, PyverbsError
+from pyverbs.providers.mlx5.mlx5dv_mkey cimport Mlx5MrInterleaved, Mlx5Mkey
 from pyverbs.providers.mlx5.mlx5dv_sched cimport Mlx5dvSchedLeaf
 cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
 cimport pyverbs.providers.mlx5.libmlx5 as dv
 from pyverbs.qp cimport QPInitAttrEx, QPEx
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
+from pyverbs.wr cimport copy_sg_array
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.cq cimport CqInitAttrEx
 cimport pyverbs.libibverbs as v
@@ -463,6 +465,22 @@ cdef class Mlx5DVQPInitAttr(PyverbsObject):
     def dct_access_key(self, val):
         self.attr.dc_init_attr.dct_access_key = val
 
+cdef copy_mr_interleaved_array(dv.mlx5dv_mr_interleaved *mr_interleaved_p,
+                               mr_interleaved_lst):
+    """
+    Build C array from the C objects of Mlx5MrInterleaved list and set the
+    mr_interleaved_p to this array address. The mr_interleaved_p should be
+    allocated with enough size for those objects.
+    :param mr_interleaved_p: Pointer to array of mlx5dv_mr_interleaved.
+    :param mr_interleaved_lst: List of Mlx5MrInterleaved.
+    """
+    num_interleaved = len(mr_interleaved_lst)
+    cdef dv.mlx5dv_mr_interleaved *tmp
+    for i in range(num_interleaved):
+        tmp = &(<Mlx5MrInterleaved>mr_interleaved_lst[i]).mlx5dv_mr_interleaved
+        memcpy(mr_interleaved_p, tmp, sizeof(dv.mlx5dv_mr_interleaved))
+        mr_interleaved_p += 1
+
 
 cdef class Mlx5QP(QPEx):
     def __init__(self, Context context, QPInitAttrEx init_attr,
@@ -521,6 +539,43 @@ cdef class Mlx5QP(QPEx):
         """
         dv.mlx5dv_wr_set_dc_addr(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
                                  ah.ah, remote_dctn, remote_dc_key)
+
+    def wr_mr_interleaved(self, Mlx5Mkey mkey, access_flags, repeat_count,
+                          mr_interleaved_lst):
+        """
+        Registers an interleaved memory layout by using an indirect mkey and
+        some interleaved data.
+        :param mkey: A Mlx5Mkey instance to reg this memory.
+        :param access_flags: The mkey access flags.
+        :param repeat_count: Number of times to repeat the interleaved layout.
+        :param mr_interleaved_lst: List of Mlx5MrInterleaved.
+        """
+        num_interleaved = len(mr_interleaved_lst)
+        cdef dv.mlx5dv_mr_interleaved *mr_interleaved_p = \
+            <dv.mlx5dv_mr_interleaved*>calloc(1, num_interleaved * sizeof(dv.mlx5dv_mr_interleaved))
+        if mr_interleaved_p == NULL:
+            raise MemoryError('Failed to calloc mr interleaved buffers')
+        copy_mr_interleaved_array(mr_interleaved_p, mr_interleaved_lst)
+        dv.mlx5dv_wr_mr_interleaved(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                    mkey.mlx5dv_mkey, access_flags, repeat_count,
+                                    num_interleaved, mr_interleaved_p)
+        free(mr_interleaved_p)
+
+    def wr_mr_list(self, Mlx5Mkey mkey, access_flags, sge_list):
+        """
+        Registers a memory layout based on list of SGE.
+        :param mkey: A Mlx5Mkey instance to reg this memory.
+        :param access_flags: The mkey access flags.
+        :param sge_list: List of SGE.
+        """
+        num_sges = len(sge_list)
+        cdef v.ibv_sge *sge_p = <v.ibv_sge*>calloc(1, num_sges * sizeof(v.ibv_sge))
+        if sge_p == NULL:
+            raise MemoryError('Failed to calloc sge buffers')
+        copy_sg_array(sge_p, sge_list, num_sges)
+        dv.mlx5dv_wr_mr_list(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                             mkey.mlx5dv_mkey, access_flags, num_sges, sge_p)
+        free(sge_p)
 
     @staticmethod
     def query_lag_port(QP qp):

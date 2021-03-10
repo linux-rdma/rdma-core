@@ -7,6 +7,23 @@ from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.pd cimport PD
 
 
+cdef class Mlx5MrInterleaved(PyverbsObject):
+    def __init__(self, addr, bytes_count, bytes_skip, lkey):
+        """
+        Initializes a Mlx5MrInterleaved object representing mlx5dv_mr_interleaved
+        C struct.
+        :param addr: The start of address.
+        :param bytes_count: Count of bytes from the address that will hold the
+                            real data.
+        :param bytes_skip: Count of bytes to skip after the bytes_count.
+        :param lkey: The lkey of this memory.
+        """
+        self.mlx5dv_mr_interleaved.addr = addr
+        self.mlx5dv_mr_interleaved.bytes_count = bytes_count
+        self.mlx5dv_mr_interleaved.bytes_skip = bytes_skip
+        self.mlx5dv_mr_interleaved.lkey = lkey
+
+
 cdef class Mlx5Mkey(PyverbsCM):
     def __init__(self, PD pd not None, create_flags, max_entries):
         """
