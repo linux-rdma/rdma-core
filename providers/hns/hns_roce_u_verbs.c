@@ -445,13 +445,15 @@ static int hns_roce_alloc_srq_buf(struct hns_roce_srq *srq)
 struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
 				      struct ibv_srq_init_attr *init_attr)
 {
-	struct hns_roce_create_srq	cmd;
+	struct hns_roce_context *ctx = to_hr_ctx(pd->context);
 	struct hns_roce_create_srq_resp resp;
-	struct hns_roce_srq		*srq;
+	struct hns_roce_create_srq cmd;
+	struct hns_roce_srq *srq;
 	int ret;
 
-	if (init_attr->attr.max_wr > HNS_ROCE_MAX_SRQWQE_NUM ||
-	    init_attr->attr.max_sge > HNS_ROCE_MAX_SRQSGE_NUM)
+	if (!init_attr->attr.max_wr || !init_attr->attr.max_sge ||
+	    init_attr->attr.max_wr > ctx->max_srq_wr ||
+	    init_attr->attr.max_sge > ctx->max_srq_sge)
 		return NULL;
 
 	srq = calloc(1, sizeof(*srq));
@@ -461,8 +463,12 @@ struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
 	if (pthread_spin_init(&srq->lock, PTHREAD_PROCESS_PRIVATE))
 		goto out;
 
+	if (to_hr_dev(pd->context->device)->hw_version == HNS_ROCE_HW_VER2)
+		srq->rsv_sge = 1;
+
 	srq->wqe_cnt = roundup_pow_of_two(init_attr->attr.max_wr + 1);
-	srq->max_gs = init_attr->attr.max_sge;
+	srq->max_gs = roundup_pow_of_two(init_attr->attr.max_sge + srq->rsv_sge);
+	init_attr->attr.max_sge = srq->max_gs;
 
 	ret = hns_roce_create_idx_que(srq);
 	if (ret)
@@ -489,6 +495,10 @@ struct ibv_srq *hns_roce_u_create_srq(struct ibv_pd *pd,
 		goto err_srq_db;
 
 	srq->srqn = resp.srqn;
+	srq->max_gs = init_attr->attr.max_sge;
+	init_attr->attr.max_sge =
+		min(init_attr->attr.max_sge - srq->rsv_sge, ctx->max_srq_sge);
+
 	return &srq->verbs_srq.srq;
 
 err_srq_db:
@@ -518,8 +528,12 @@ int hns_roce_u_modify_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr,
 int hns_roce_u_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr)
 {
 	struct ibv_query_srq cmd;
+	int ret;
 
-	return ibv_cmd_query_srq(srq, srq_attr, &cmd, sizeof(cmd));
+	ret = ibv_cmd_query_srq(srq, srq_attr, &cmd, sizeof(cmd));
+	srq_attr->max_sge -= to_hr_srq(srq)->rsv_sge;
+
+	return ret;
 }
 
 int hns_roce_u_destroy_srq(struct ibv_srq *srq)
@@ -560,8 +574,13 @@ static int hns_roce_verify_qp(struct ibv_qp_init_attr *attr,
 	if (attr->cap.max_send_wr < min_wqe_num)
 		attr->cap.max_send_wr = min_wqe_num;
 
-	if (attr->cap.max_recv_wr && attr->cap.max_recv_wr < min_wqe_num)
-		attr->cap.max_recv_wr = min_wqe_num;
+	if (attr->cap.max_recv_wr) {
+		if (attr->cap.max_recv_wr < min_wqe_num)
+			attr->cap.max_recv_wr = min_wqe_num;
+
+		if (!attr->cap.max_recv_sge)
+			return -EINVAL;
+	}
 
 	if (!(attr->qp_type == IBV_QPT_RC ||
 	      (attr->qp_type == IBV_QPT_UD &&
@@ -735,7 +754,11 @@ static void hns_roce_set_qp_params(struct ibv_qp_init_attr *attr,
 	qp->ibv_qp.qp_type = attr->qp_type;
 
 	if (attr->cap.max_recv_wr) {
-		qp->rq.max_gs = max(1U, attr->cap.max_recv_sge);
+		if (hr_dev->hw_version == HNS_ROCE_HW_VER2)
+			qp->rq.rsv_sge = 1;
+
+		qp->rq.max_gs = roundup_pow_of_two(attr->cap.max_recv_sge +
+						   qp->rq.rsv_sge);
 		if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
 			qp->rq.wqe_shift =
 				hr_ilog32(sizeof(struct hns_roce_rc_rq_wqe));
@@ -750,6 +773,9 @@ static void hns_roce_set_qp_params(struct ibv_qp_init_attr *attr,
 			qp->rq_rinl_buf.wqe_cnt = 0;
 		else
 			qp->rq_rinl_buf.wqe_cnt = cnt;
+
+		attr->cap.max_recv_wr = qp->rq.wqe_cnt;
+		attr->cap.max_recv_sge = qp->rq.max_gs;
 	}
 
 	if (attr->cap.max_send_wr) {
@@ -867,12 +893,16 @@ static void qp_setup_config(struct ibv_qp_init_attr *attr,
 {
 	hns_roce_init_qp_indices(qp);
 
-	/* adjust rq maxima to not exceed reported device maxima */
-	attr->cap.max_recv_wr = min(ctx->max_qp_wr, attr->cap.max_recv_wr);
-	attr->cap.max_recv_sge = min(ctx->max_sge, attr->cap.max_recv_sge);
-	qp->rq.wqe_cnt = attr->cap.max_recv_wr;
-	qp->rq.max_gs = attr->cap.max_recv_sge;
-	qp->rq.max_post = attr->cap.max_recv_wr;
+	if (qp->rq.wqe_cnt) {
+		qp->rq.wqe_cnt = attr->cap.max_recv_wr;
+		qp->rq.max_gs = attr->cap.max_recv_sge;
+
+		/* adjust the RQ's cap based on the reported device's cap */
+		attr->cap.max_recv_wr =
+			min(ctx->max_qp_wr, attr->cap.max_recv_wr);
+		attr->cap.max_recv_sge -= qp->rq.rsv_sge;
+		qp->rq.max_post = attr->cap.max_recv_wr;
+	}
 
 	qp->max_inline_data = attr->cap.max_inline_data;
 }
@@ -956,9 +986,9 @@ err:
 int hns_roce_u_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 			int attr_mask, struct ibv_qp_init_attr *init_attr)
 {
-	int ret;
-	struct ibv_query_qp cmd;
 	struct hns_roce_qp *qp = to_hr_qp(ibqp);
+	struct ibv_query_qp cmd;
+	int ret;
 
 	ret = ibv_cmd_query_qp(ibqp, attr, attr_mask, init_attr, &cmd,
 			       sizeof(cmd));
@@ -967,6 +997,9 @@ int hns_roce_u_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 
 	init_attr->cap.max_send_wr = qp->sq.max_post;
 	init_attr->cap.max_send_sge = qp->sq.max_gs;
+
+	if (init_attr->cap.max_recv_wr)
+		init_attr->cap.max_recv_sge -= qp->rq.rsv_sge;
 
 	attr->cap = init_attr->cap;
 

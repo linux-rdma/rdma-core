@@ -136,6 +136,8 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	context->max_qp_wr = dev_attrs.max_qp_wr;
 	context->max_sge = dev_attrs.max_sge;
 	context->max_cqe = dev_attrs.max_cqe;
+	context->max_srq_wr = dev_attrs.max_srq_wr;
+	context->max_srq_sge = dev_attrs.max_srq_sge;
 
 	context->uar = mmap(NULL, hr_dev->page_size, PROT_READ | PROT_WRITE,
 			    MAP_SHARED, cmd_fd, offset);

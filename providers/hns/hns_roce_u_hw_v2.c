@@ -87,9 +87,9 @@ static inline void set_data_seg_v2(struct hns_roce_v2_wqe_data_seg *dseg,
 /* Fill an ending sge to make hw stop reading the remaining sges in wqe */
 static inline void set_ending_data_seg(struct hns_roce_v2_wqe_data_seg *dseg)
 {
-	dseg->lkey = htole32(0x100);
+	dseg->lkey = htole32(0x0);
 	dseg->addr = 0;
-	dseg->len = 0;
+	dseg->len = htole32(INVALID_SGE_LENGTH);
 }
 
 static void set_extend_atomic_seg(struct hns_roce_qp *qp,
@@ -1231,7 +1231,7 @@ static void fill_rq_wqe(struct hns_roce_qp *qp, struct ibv_recv_wr *wr,
 		dseg++;
 	}
 
-	if (i < qp->rq.max_gs)
+	if (qp->rq.rsv_sge)
 		set_ending_data_seg(dseg);
 
 	if (!qp->rq_rinl_buf.wqe_cnt)
@@ -1251,7 +1251,7 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 {
 	struct hns_roce_context *ctx = to_hr_ctx(ibvqp->context);
 	struct hns_roce_qp *qp = to_hr_qp(ibvqp);
-	unsigned int wqe_idx, nreq;
+	unsigned int wqe_idx, nreq, max_sge;
 	struct ibv_qp_attr attr;
 	int ret = 0;
 
@@ -1263,6 +1263,7 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 
 	pthread_spin_lock(&qp->rq.lock);
 
+	max_sge = qp->rq.max_gs - qp->rq.rsv_sge;
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (hns_roce_v2_wq_overflow(&qp->rq, nreq,
 					    to_hr_cq(qp->ibv_qp.recv_cq))) {
@@ -1271,7 +1272,7 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 			goto out;
 		}
 
-		if (wr->num_sge > qp->rq.max_gs) {
+		if (wr->num_sge > max_sge) {
 			ret = EINVAL;
 			*bad_wr = wr;
 			goto out;
@@ -1510,6 +1511,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 	struct hns_roce_srq *srq = to_hr_srq(ib_srq);
 	struct hns_roce_v2_wqe_data_seg *dseg;
 	struct hns_roce_db srq_db;
+	unsigned int max_sge;
 	__le32 *srq_idx;
 	int ret = 0;
 	int wqe_idx;
@@ -1523,16 +1525,16 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 	/* current idx of srqwq */
 	ind = srq->head & (srq->wqe_cnt - 1);
 
+	max_sge = srq->max_gs - srq->rsv_sge;
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
-		if (wr->num_sge > srq->max_gs) {
-			ret = -1;
+		if (wr->num_sge > max_sge) {
+			ret = -EINVAL;
 			*bad_wr = wr;
 			break;
 		}
 
 		if (srq->head == srq->tail) {
-			/* SRQ is full */
-			ret = -1;
+			ret = -ENOMEM;
 			*bad_wr = wr;
 			break;
 		}
@@ -1553,7 +1555,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 		}
 
 		/* hw stop reading when identify the last one */
-		if (i < srq->max_gs)
+		if (srq->rsv_sge)
 			set_ending_data_seg(dseg);
 
 		srq_idx = (__le32 *)get_idx_buf(&srq->idx_que, ind);
