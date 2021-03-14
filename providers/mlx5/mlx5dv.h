@@ -1272,6 +1272,18 @@ struct mlx5dv_devx_umem {
 
 struct mlx5dv_devx_umem *
 mlx5dv_devx_umem_reg(struct ibv_context *ctx, void *addr, size_t size, uint32_t access);
+
+struct mlx5dv_devx_umem_in {
+	void *addr;
+	size_t size;
+	uint32_t access;
+	uint64_t pgsz_bitmap;
+	uint64_t comp_mask;
+};
+
+struct mlx5dv_devx_umem *
+mlx5dv_devx_umem_reg_ex(struct ibv_context *ctx, struct mlx5dv_devx_umem_in *umem_in);
+
 int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *umem);
 
 struct mlx5dv_devx_uar {
