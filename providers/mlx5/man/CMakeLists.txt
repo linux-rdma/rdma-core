@@ -24,6 +24,7 @@ rdma_man_pages(
   mlx5dv_get_clock_info.3
   mlx5dv_init_obj.3
   mlx5dv_is_supported.3.md
+  mlx5dv_map_ah_to_qp.3.md
   mlx5dv_modify_qp_lag_port.3.md
   mlx5dv_modify_qp_sched_elem.3.md
   mlx5dv_modify_qp_udp_sport.3.md

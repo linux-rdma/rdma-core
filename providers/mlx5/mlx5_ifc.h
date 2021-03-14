@@ -2481,6 +2481,7 @@ enum {
 	MLX5_OBJ_TYPE_SCHEDULING_ELEMENT = 0x0026,
 	MLX5_OBJ_TYPE_RESERVED_QPN = 0x002C,
 	MLX5_OBJ_TYPE_ASO_CT = 0x0031,
+	MLX5_OBJ_TYPE_AV_QP_MAPPING = 0x003A,
 };
 
 struct mlx5_ifc_general_obj_in_cmd_hdr_bits {
@@ -2651,6 +2652,22 @@ enum {
 
 enum {
 	MLX5_QPC_PM_STATE_MIGRATED  = 0x3,
+};
+
+struct mlx5_ifc_ud_av_bits {
+	u8         reserved_at_0[0x60];
+
+	u8         reserved_at_60[0x4];
+	u8         sl_or_eth_prio[0x4];
+	u8         reserved_at_68[0x18];
+
+	u8         reserved_at_80[0x60];
+
+	u8         reserved_at_e0[0x4];
+	u8         src_addr_index[0x8];
+	u8         reserved_at_ec[0x14];
+
+	u8         rgid_or_rip[16][0x8];
 };
 
 struct mlx5_ifc_ads_bits {
@@ -3172,6 +3189,27 @@ struct mlx5_ifc_query_lag_in_bits {
 
 	u8         reserved_at_40[0x40];
 };
+
+struct mlx5_ifc_av_qp_mapping_bits {
+	u8         modify_field_select[0x40];
+
+	u8         reserved_at_40[0x20];
+
+	u8         qpn[0x20];
+
+	struct mlx5_ifc_ud_av_bits remote_address_vector;
+};
+
+struct mlx5_ifc_create_av_qp_mapping_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits   hdr;
+	struct mlx5_ifc_av_qp_mapping_bits            mapping;
+};
+
+struct mlx5_ifc_query_av_qp_mapping_out_bits {
+	struct mlx5_ifc_general_obj_out_cmd_hdr_bits  hdr;
+	struct mlx5_ifc_av_qp_mapping_bits            obj;
+};
+
 
 struct mlx5_ifc_modify_tis_out_bits {
 	u8         status[0x8];
