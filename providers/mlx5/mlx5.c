@@ -843,6 +843,9 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 	if (mctx->vendor_cap_flags & MLX5_VENDOR_CAP_FLAGS_CQE_128B_PAD)
 		attrs_out->flags |= MLX5DV_CONTEXT_FLAGS_CQE_128B_PAD;
 
+	if (mctx->flags & MLX5_CTX_FLAGS_REAL_TIME_TS_SUPPORTED)
+		attrs_out->flags |= MLX5DV_CONTEXT_FLAGS_REAL_TIME_TS;
+
 	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_CQE_COMPRESION) {
 		attrs_out->cqe_comp_caps = mctx->cqe_comp_caps;
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_CQE_COMPRESION;
@@ -2103,6 +2106,9 @@ static int mlx5_set_context(struct mlx5_context *context,
 
 	if (resp->comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_SQD2RTS)
 		context->flags |= MLX5_CTX_FLAGS_SQD2RTS_SUPPORTED;
+
+	if (resp->comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_REAL_TIME_TS)
+		context->flags |= MLX5_CTX_FLAGS_REAL_TIME_TS_SUPPORTED;
 
 	if (resp->comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_DUMP_FILL_MKEY) {
 		context->dump_fill_mkey = resp->dump_fill_mkey;

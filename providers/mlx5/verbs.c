@@ -1094,6 +1094,11 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		}
 	}
 
+	if (mctx->flags & MLX5_CTX_FLAGS_REAL_TIME_TS_SUPPORTED &&
+	    !(cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP) &&
+	    cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK)
+		cmd_drv->flags |= MLX5_IB_CREATE_CQ_FLAGS_REAL_TIME_TS;
+
 	if (mctx->nc_uar) {
 		cmd_drv->flags |= MLX5_IB_CREATE_CQ_FLAGS_UAR_PAGE_INDEX;
 		cmd_drv->uar_page_index = mctx->nc_uar->page_id;

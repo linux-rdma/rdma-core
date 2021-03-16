@@ -260,6 +260,7 @@ enum mlx5_ctx_flags {
 	MLX5_CTX_FLAGS_NO_KERN_DYN_UAR = 1 << 1,
 	MLX5_CTX_FLAGS_ECE_SUPPORTED = 1 << 2,
 	MLX5_CTX_FLAGS_SQD2RTS_SUPPORTED = 1 << 3,
+	MLX5_CTX_FLAGS_REAL_TIME_TS_SUPPORTED = 1 << 4,
 };
 
 struct mlx5_entropy_caps {

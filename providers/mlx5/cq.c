@@ -1696,10 +1696,16 @@ int mlx5_cq_fill_pfns(struct mlx5_cq *cq,
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_TM_INFO)
 		cq->verbs_cq.cq_ex.read_tm_info = mlx5_cq_read_wc_tm_info;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK) {
-		if (!mctx->clock_info_page)
-			return EOPNOTSUPP;
-		cq->verbs_cq.cq_ex.read_completion_wallclock_ns =
-		    mlx5_cq_read_wc_completion_wallclock_ns;
+		if (mctx->flags & MLX5_CTX_FLAGS_REAL_TIME_TS_SUPPORTED &&
+		    !(cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP))
+			cq->verbs_cq.cq_ex.read_completion_wallclock_ns =
+				mlx5_cq_read_wc_completion_ts;
+		else {
+			if (!mctx->clock_info_page)
+				return EOPNOTSUPP;
+			cq->verbs_cq.cq_ex.read_completion_wallclock_ns =
+				mlx5_cq_read_wc_completion_wallclock_ns;
+		}
 	}
 
 	return 0;

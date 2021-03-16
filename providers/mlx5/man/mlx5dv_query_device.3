@@ -69,6 +69,10 @@ enum mlx5dv_context_flags {
  MLX5DV_CONTEXT_FLAGS_CQE_128B_COMP = (1 << 4), /* Support CQE 128B compression */
  MLX5DV_CONTEXT_FLAGS_CQE_128B_PAD = (1 << 5), /* Support CQE 128B padding */
  MLX5DV_CONTEXT_FLAGS_PACKET_BASED_CREDIT_MODE = (1 << 6), /* Support packet based credit mode in RC QP */
+/*
+ * If CQ was created with IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK, CQEs timestamp will be in real time format.
+ */
+ MLX5DV_CONTEXT_FLAGS_REAL_TIME_TS = (1 << 7),
 .in -8
 };
 
