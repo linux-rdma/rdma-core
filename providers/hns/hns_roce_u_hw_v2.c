@@ -253,11 +253,10 @@ static void hns_roce_update_rq_db(struct hns_roce_context *ctx,
 {
 	struct hns_roce_db rq_db = {};
 
-	roce_set_field(rq_db.byte_4, DB_BYTE_4_TAG_M, DB_BYTE_4_TAG_S, qpn);
+	rq_db.byte_4 = htole32(qpn);
 	roce_set_field(rq_db.byte_4, DB_BYTE_4_CMD_M, DB_BYTE_4_CMD_S,
 		       HNS_ROCE_V2_RQ_DB);
-	roce_set_field(rq_db.parameter, DB_PARAM_RQ_PRODUCER_IDX_M,
-		       DB_PARAM_RQ_PRODUCER_IDX_S, rq_head);
+	rq_db.parameter = htole32(rq_head);
 
 	hns_roce_write64((uint32_t *)&rq_db, ctx, ROCEE_VF_DB_CFG0_OFFSET);
 }
@@ -268,13 +267,10 @@ static void hns_roce_update_sq_db(struct hns_roce_context *ctx,
 {
 	struct hns_roce_db sq_db = {};
 
-	/* cmd: 0 sq db; 1 rq db; 2; 2 srq db; 3 cq db ptr; 4 cq db ntr */
+	sq_db.byte_4 = htole32(qpn);
 	roce_set_field(sq_db.byte_4, DB_BYTE_4_CMD_M, DB_BYTE_4_CMD_S,
 		       HNS_ROCE_V2_SQ_DB);
-	roce_set_field(sq_db.byte_4, DB_BYTE_4_TAG_M, DB_BYTE_4_TAG_S, qpn);
-
-	roce_set_field(sq_db.parameter, DB_PARAM_SQ_PRODUCER_IDX_M,
-		       DB_PARAM_SQ_PRODUCER_IDX_S, sq_head);
+	sq_db.parameter = htole32(sq_head);
 	roce_set_field(sq_db.parameter, DB_PARAM_SL_M, DB_PARAM_SL_S, sl);
 
 	hns_roce_write64((uint32_t *)&sq_db, ctx, ROCEE_VF_DB_CFG0_OFFSET);
