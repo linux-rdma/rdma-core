@@ -127,36 +127,24 @@ struct hns_roce_db {
 	__le32	parameter;
 };
 #define DB_BYTE_4_TAG_S 0
-#define DB_BYTE_4_TAG_M   (((1UL << 23) - 1) << DB_BYTE_4_TAG_S)
+#define DB_BYTE_4_TAG_M GENMASK(23, 0)
 
 #define DB_BYTE_4_CMD_S 24
-#define DB_BYTE_4_CMD_M   (((1UL << 4) - 1) << DB_BYTE_4_CMD_S)
-
-#define DB_PARAM_SQ_PRODUCER_IDX_S 0
-#define DB_PARAM_SQ_PRODUCER_IDX_M \
-	(((1UL << 16) - 1) << DB_PARAM_SQ_PRODUCER_IDX_S)
-
-#define DB_PARAM_RQ_PRODUCER_IDX_S 0
-#define DB_PARAM_RQ_PRODUCER_IDX_M \
-	(((1UL << 16) - 1) << DB_PARAM_RQ_PRODUCER_IDX_S)
+#define DB_BYTE_4_CMD_M GENMASK(27, 24)
 
 #define DB_PARAM_SRQ_PRODUCER_COUNTER_S 0
-#define DB_PARAM_SRQ_PRODUCER_COUNTER_M \
-	(((1UL << 16) - 1) << DB_PARAM_SRQ_PRODUCER_COUNTER_S)
+#define DB_PARAM_SRQ_PRODUCER_COUNTER_M GENMASK(16, 0)
 
 #define DB_PARAM_SL_S 16
-#define DB_PARAM_SL_M \
-	(((1UL << 3) - 1) << DB_PARAM_SL_S)
+#define DB_PARAM_SL_M GENMASK(18, 16)
 
 #define DB_PARAM_CQ_CONSUMER_IDX_S 0
-#define DB_PARAM_CQ_CONSUMER_IDX_M \
-	(((1UL << 24) - 1) << DB_PARAM_CQ_CONSUMER_IDX_S)
+#define DB_PARAM_CQ_CONSUMER_IDX_M GENMASK(23, 0)
 
 #define DB_PARAM_CQ_NOTIFY_S 24
 
 #define DB_PARAM_CQ_CMD_SN_S 25
-#define DB_PARAM_CQ_CMD_SN_M \
-	(((1UL << 2) - 1) << DB_PARAM_CQ_CMD_SN_S)
+#define DB_PARAM_CQ_CMD_SN_M GENMASK(26, 25)
 
 struct hns_roce_v2_cqe {
 	__le32	byte_4;
