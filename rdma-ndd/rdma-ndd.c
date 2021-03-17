@@ -254,7 +254,6 @@ static void monitor(bool systemd)
 	}
 
 	read_hostname(hn_fd, hostname, sizeof(hostname));
-	set_rdma_node_desc((const char *)hostname, 1);
 
 	fds[0].fd = hn_fd;
 	fds[0].events = 0;
@@ -268,6 +267,8 @@ static void monitor(bool systemd)
 
 	if (systemd)
 		sd_notify(0, "READY=1");
+
+	set_rdma_node_desc((const char *)hostname, 1);
 
 	while (1) {
 		if (poll(fds, numfds, -1) <= 0) {
