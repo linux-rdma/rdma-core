@@ -155,6 +155,17 @@ class TimeStampTest(RDMATestCase):
         timestamp = convert_ts_to_ns(self.server.ctx, self.server.timestamp)
         self.verify_ts(timestamp)
 
+    def test_timestamp_real_time_raw_traffic(self):
+        """
+        Test real time timestamp on RAW traffic.
+        """
+        self.qp_type = e.IBV_QPT_RAW_PACKET
+        self.send_ts = self.recv_ts = REAL_TIME
+        self.create_players(timestamp_res_cls(FlowRes), **self.resource_arg)
+        self.flow = self.server.create_flow([self.server.create_eth_spec()])
+        self.ts_traffic()
+        self.verify_ts(self.client.timestamp)
+
     @staticmethod
     def verify_ts(timestamp):
         """
