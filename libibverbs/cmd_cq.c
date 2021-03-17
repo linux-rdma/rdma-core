@@ -155,14 +155,17 @@ int ibv_cmd_create_cq_ex(struct ibv_context *context,
 				  resp_size);
 	uint32_t flags = 0;
 
-	if (!check_comp_mask(cq_attr->comp_mask, IBV_CQ_INIT_ATTR_MASK_FLAGS))
+	if (!check_comp_mask(cq_attr->comp_mask,
+			     IBV_CQ_INIT_ATTR_MASK_FLAGS |
+			     IBV_CQ_INIT_ATTR_MASK_PD))
 		return EOPNOTSUPP;
 
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP ||
 	    cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK)
 		flags |= IB_UVERBS_CQ_FLAGS_TIMESTAMP_COMPLETION;
 
-	if (cq_attr->flags & IBV_CREATE_CQ_ATTR_IGNORE_OVERRUN)
+	if ((cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS) &&
+	    cq_attr->flags & IBV_CREATE_CQ_ATTR_IGNORE_OVERRUN)
 		flags |= IB_UVERBS_CQ_FLAGS_IGNORE_OVERRUN;
 
 	return ibv_icmd_create_cq(context, cq_attr->cqe, cq_attr->channel,
