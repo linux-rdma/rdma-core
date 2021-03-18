@@ -121,6 +121,12 @@ enum {
 	DR_STE_SIZE_REDUCED = DR_STE_SIZE - DR_STE_SIZE_MASK,
 };
 
+enum dr_ste_ctx_action_cap {
+	DR_STE_CTX_ACTION_CAP_NONE	= 0,
+	DR_STE_CTX_ACTION_CAP_TX_POP	= 1 << 0,
+	DR_STE_CTX_ACTION_CAP_RX_PUSH	= 1 << 1,
+};
+
 enum {
 	DR_MODIFY_ACTION_SIZE	= 8,
 	DR_MODIFY_ACTION_LOG_SIZE	= 3,
@@ -697,6 +703,7 @@ struct dr_devx_roce_cap {
 	bool roce_en;
 	bool fl_rc_qp_when_roce_disabled;
 	bool fl_rc_qp_when_roce_enabled;
+	uint8_t qp_ts_format;
 };
 
 struct dr_devx_caps {
@@ -797,7 +804,7 @@ struct dr_domain_rx_tx {
 	uint64_t		default_icm_addr;
 	enum dr_ste_entry_type	ste_type;
 	/* protect rx/tx domain */
-	pthread_mutex_t		mutex;
+	pthread_spinlock_t	lock;
 };
 
 struct dr_domain_info {
@@ -833,12 +840,12 @@ struct mlx5dv_dr_domain {
 
 static inline void dr_domain_nic_lock(struct dr_domain_rx_tx *nic_dmn)
 {
-	pthread_mutex_lock(&nic_dmn->mutex);
+	pthread_spin_lock(&nic_dmn->lock);
 }
 
 static inline void dr_domain_nic_unlock(struct dr_domain_rx_tx *nic_dmn)
 {
-	pthread_mutex_unlock(&nic_dmn->mutex);
+	pthread_spin_unlock(&nic_dmn->lock);
 }
 
 static inline void dr_domain_lock(struct mlx5dv_dr_domain *dmn)
@@ -1162,6 +1169,7 @@ struct dr_devx_qp_create_attr {
 	uint32_t	rq_wqe_cnt;
 	uint32_t	rq_wqe_shift;
 	bool		isolate_vl_tc;
+	uint8_t		qp_ts_format;
 };
 
 struct mlx5dv_devx_obj *dr_devx_create_qp(struct ibv_context *ctx,
@@ -1291,7 +1299,7 @@ struct dr_send_ring {
 	/* manage the send queue */
 	uint32_t		tx_head;
 	/* protect QP/CQ operations */
-	pthread_mutex_t         mutex;
+	pthread_spinlock_t	lock;
 	void			*buf;
 	uint32_t		buf_size;
 	struct ibv_wc		wc[MAX_SEND_CQE];

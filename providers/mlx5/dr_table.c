@@ -190,6 +190,10 @@ struct mlx5dv_dr_table *mlx5dv_dr_table_create(struct mlx5dv_dr_domain *dmn,
 		if (ret)
 			goto free_tbl;
 
+		ret = dr_send_ring_force_drain(dmn);
+		if (ret)
+			goto uninit_tbl;
+
 		ret = dr_table_create_devx_tbl(tbl);
 		if (ret)
 			goto uninit_tbl;

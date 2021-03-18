@@ -1793,6 +1793,7 @@ static struct dr_ste_ctx ste_ctx_v0 = {
 	.set_byte_mask			= &dr_ste_v0_set_byte_mask,
 	.get_byte_mask			= &dr_ste_v0_get_byte_mask,
 	/* Actions */
+	.actions_caps			= DR_STE_CTX_ACTION_CAP_NONE,
 	.set_actions_rx			= &dr_ste_v0_set_actions_rx,
 	.set_actions_tx			= &dr_ste_v0_set_actions_tx,
 	.set_action_set			= &dr_ste_v0_set_action_set,

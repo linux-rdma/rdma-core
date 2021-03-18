@@ -341,8 +341,15 @@ mlx5dv_dr_domain_create(struct ibv_context *ctx,
 	dmn->type = type;
 	atomic_init(&dmn->refcount, 1);
 	list_head_init(&dmn->tbl_list);
-	pthread_mutex_init(&dmn->info.rx.mutex, NULL);
-	pthread_mutex_init(&dmn->info.tx.mutex, NULL);
+
+	ret = pthread_spin_init(&dmn->info.rx.lock, PTHREAD_PROCESS_PRIVATE);
+	if (!ret)
+		pthread_spin_init(&dmn->info.tx.lock, PTHREAD_PROCESS_PRIVATE);
+
+	if (ret) {
+		errno = ret;
+		goto free_domain;
+	}
 
 	if (dr_domain_caps_init(ctx, dmn)) {
 		dr_dbg(dmn, "Failed init domain, no caps\n");

@@ -53,6 +53,7 @@ struct dr_qp_init_attr {
 	struct mlx5dv_devx_uar	*uar;
 	struct ibv_qp_cap	cap;
 	bool			isolate_vl_tc;
+	uint8_t			qp_ts_format;
 };
 
 static void *dr_cq_get_cqe(struct dr_cq *dr_cq, int n)
@@ -325,6 +326,7 @@ static struct dr_qp *dr_create_rc_qp(struct ibv_context *ctx,
 	qp_create_attr.rq_wqe_cnt = dr_qp->rq.wqe_cnt;
 	qp_create_attr.rq_wqe_shift = dr_qp->rq.wqe_shift;
 	qp_create_attr.isolate_vl_tc = attr->isolate_vl_tc;
+	qp_create_attr.qp_ts_format = attr->qp_ts_format;
 
 	obj = dr_devx_create_qp(ctx, &qp_create_attr);
 	if (!obj)
@@ -632,7 +634,7 @@ static int dr_postsend_icm_data(struct mlx5dv_dr_domain *dmn,
 	uint32_t buff_offset;
 	int ret;
 
-	pthread_mutex_lock(&send_ring->mutex);
+	pthread_spin_lock(&send_ring->lock);
 	ret = dr_handle_pending_wc(dmn, send_ring);
 	if (ret)
 		goto out_unlock;
@@ -653,7 +655,7 @@ static int dr_postsend_icm_data(struct mlx5dv_dr_domain *dmn,
 	dr_post_send(send_ring->qp, send_info);
 
 out_unlock:
-	pthread_mutex_unlock(&send_ring->mutex);
+	pthread_spin_unlock(&send_ring->lock);
 	return ret;
 }
 
@@ -847,6 +849,14 @@ bool dr_send_allow_fl(struct dr_devx_caps *caps)
 		 caps->roce_caps.fl_rc_qp_when_roce_disabled));
 }
 
+static int dr_send_get_qp_ts_format(struct dr_devx_caps *caps)
+{
+	/* Set the default TS format in case TS format is supported */
+	return !caps->roce_caps.qp_ts_format ?
+		MLX5_QPC_TIMESTAMP_FORMAT_FREE_RUNNING :
+		MLX5_QPC_TIMESTAMP_FORMAT_DEFAULT;
+}
+
 static int dr_prepare_qp_to_rts(struct mlx5dv_dr_domain *dmn)
 {
 	struct dr_devx_qp_rts_attr rts_attr = {};
@@ -922,7 +932,11 @@ int dr_send_ring_alloc(struct mlx5dv_dr_domain *dmn)
 		return errno;
 	}
 
-	pthread_mutex_init(&dmn->send_ring->mutex, NULL);
+	ret = pthread_spin_init(&dmn->send_ring->lock, PTHREAD_PROCESS_PRIVATE);
+	if (ret) {
+		errno = ret;
+		goto free_send_ring;
+	}
 
 	cq_size = QUEUE_SIZE + 1;
 	dmn->send_ring->cq.ibv_cq = ibv_create_cq(dmn->ctx, cq_size, NULL, NULL, 0);
@@ -960,6 +974,7 @@ int dr_send_ring_alloc(struct mlx5dv_dr_domain *dmn)
 	init_attr.cap.max_send_sge	= 1;
 	init_attr.cap.max_recv_sge	= 1;
 	init_attr.cap.max_inline_data	= DR_STE_SIZE;
+	init_attr.qp_ts_format		= dr_send_get_qp_ts_format(&dmn->info.caps);
 
 	/* Isolated VL is applicable only if force LB is supported */
 	if (dr_send_allow_fl(&dmn->info.caps))
@@ -1072,8 +1087,8 @@ int dr_send_ring_force_drain(struct mlx5dv_dr_domain *dmn)
 		if (ret)
 			return ret;
 	}
-	pthread_mutex_lock(&send_ring->mutex);
+	pthread_spin_lock(&send_ring->lock);
 	ret = dr_handle_pending_wc(dmn, send_ring);
-	pthread_mutex_unlock(&send_ring->mutex);
+	pthread_spin_unlock(&send_ring->lock);
 	return ret;
 }
