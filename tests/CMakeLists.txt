@@ -16,6 +16,7 @@ rdma_python_test(tests
   test_device.py
   test_efa_srd.py
   test_efadv.py
+  test_flow.py
   test_mlx5_cq.py
   test_mlx5_dc.py
   test_mlx5_lag_affinity.py

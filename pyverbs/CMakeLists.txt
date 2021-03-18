@@ -22,10 +22,12 @@ rdma_cython_module(pyverbs ""
   dmabuf.pyx
   ${DMABUF_ALLOC}
   enums.pyx
+  flow.pyx
   mem_alloc.pyx
   mr.pyx
   pd.pyx
   qp.pyx
+  spec.pyx
   srq.pyx
   wr.pyx
   xrcd.pyx
