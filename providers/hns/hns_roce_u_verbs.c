@@ -604,10 +604,8 @@ static int qp_alloc_recv_inl_buf(struct ibv_qp_cap *cap,
 
 	qp->rq_rinl_buf.wqe_list[0].sg_list = calloc(cnt * cap->max_recv_sge,
 					sizeof(struct hns_roce_rinl_sge));
-	if (!qp->rq_rinl_buf.wqe_list[0].sg_list) {
-		free(qp->rq_rinl_buf.wqe_list);
+	if (!qp->rq_rinl_buf.wqe_list[0].sg_list)
 		return ENOMEM;
-	}
 
 	for (i = 0; i < cnt; i++) {
 		int wqe_size = i * cap->max_recv_sge;
