@@ -641,8 +641,6 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 	}
 
 	if (npolled || err == V2_CQ_POLL_ERR) {
-		mmio_ordered_writes_hack();
-
 		if (cq->flags & HNS_ROCE_CQ_FLAG_RECORD_DB)
 			*cq->db = cq->cons_index & DB_PARAM_CQ_CONSUMER_IDX_M;
 		else
@@ -948,7 +946,7 @@ static int set_ud_wqe(void *wqe, struct hns_roce_qp *qp,
 		udma_to_device_barrier();
 
 	roce_set_bit(ud_sq_wqe->rsv_opcode, UD_SQ_WQE_OWNER_S,
-		     ~(((qp->sq.head + nreq) >> qp->sq.shift) & 0x1));
+		     ~((qp->sq.head + nreq) >> qp->sq.shift));
 
 	return ret;
 }
@@ -1126,7 +1124,7 @@ wqe_valid:
 		udma_to_device_barrier();
 
 	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_OWNER_S,
-		     ~(((qp->sq.head + nreq) >> qp->sq.shift) & 0x1));
+		     ~((qp->sq.head + nreq) >> qp->sq.shift));
 
 	return 0;
 }
@@ -1319,8 +1317,8 @@ static void __hns_roce_v2_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 
 	while ((int) --prod_index - (int) cq->cons_index >= 0) {
 		cqe = get_cqe_v2(cq, prod_index & cq->ibv_cq.cqe);
-		if ((roce_get_field(cqe->byte_16, CQE_BYTE_16_LCL_QPN_M,
-			      CQE_BYTE_16_LCL_QPN_S) & 0xffffff) == qpn) {
+		if (roce_get_field(cqe->byte_16, CQE_BYTE_16_LCL_QPN_M,
+				   CQE_BYTE_16_LCL_QPN_S) == qpn) {
 			is_recv_cqe = roce_get_bit(cqe->byte_4,
 						   CQE_BYTE_4_S_R_S);
 
