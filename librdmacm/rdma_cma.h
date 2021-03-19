@@ -565,6 +565,15 @@ int rdma_notify(struct rdma_cm_id *id, enum ibv_event_type event);
  */
 int rdma_disconnect(struct rdma_cm_id *id);
 
+
+/**
+ * rdma_lib_reset - This function restores a clean state after fork
+ * Description:
+ *   Attempt to close and reopen in-use devices. Applications can call this
+ *   after a fork()
+ */
+void rdma_lib_reset(void);
+
 /**
  * rdma_join_multicast - Joins a multicast group.
  * @id: Communication identifier associated with the request.

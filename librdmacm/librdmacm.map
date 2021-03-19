@@ -69,6 +69,7 @@ RDMACM_1.0 {
 		riowrite;
 		rdma_create_srq_ex;
 		rdma_create_qp_ex;
+		rdma_lib_reset;
 	local: *;
 };
 

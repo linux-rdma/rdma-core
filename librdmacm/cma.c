@@ -378,6 +378,31 @@ out:
 	return 0;
 }
 
+void rdma_lib_reset(void)
+{
+	pthread_mutex_lock(&mut);
+	if (dev_list) {
+		int i;
+
+		for (i = 0; dev_list[i]; i++) {
+			struct cma_device *c, *t;
+
+			list_for_each_safe(&cma_dev_list, c, t, entry) {
+				if (c->dev == dev_list[i])
+					remove_cma_dev(c);
+			}
+			if (!list_empty(&cma_dev_list))
+				fprintf(stderr,
+					"librdmacm: warning: %s failed to close in-use device(s)\n",
+					__func__);
+		}
+		ibv_free_device_list(dev_list);
+		dev_list = NULL;
+	}
+	sync_devices_list();
+	pthread_mutex_unlock(&mut);
+}
+
 int ucma_init(void)
 {
 	int ret;
