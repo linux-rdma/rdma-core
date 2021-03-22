@@ -1150,17 +1150,16 @@ static void bnxt_re_fill_wrid(struct bnxt_re_wrid *wrid, struct ibv_send_wr *wr,
 static int bnxt_re_build_send_sqe(struct bnxt_re_qp *qp, void *wqe,
 				  struct ibv_send_wr *wr, uint8_t is_inline)
 {
-	struct bnxt_re_bsqe *hdr = wqe;
-	struct bnxt_re_send *sqe = ((void *)wqe + sizeof(struct bnxt_re_bsqe));
 	struct bnxt_re_sge *sge = ((void *)wqe + bnxt_re_get_sqe_hdr_sz());
+	struct bnxt_re_bsqe *hdr = wqe;
 	uint32_t wrlen, hdrval = 0;
-	int len;
 	uint8_t opcode, qesize;
+	int len;
 
 	len = bnxt_re_build_sge(sge, wr->sg_list, wr->num_sge, is_inline);
 	if (len < 0)
 		return len;
-	sqe->length = htole32(len);
+	hdr->lhdr.qkey_len = htole64((uint64_t)len);
 
 	/* Fill Header */
 	opcode = bnxt_re_ibv_to_bnxt_wr_opcd(wr->opcode);
@@ -1189,7 +1188,9 @@ static int bnxt_re_build_ud_sqe(struct bnxt_re_qp *qp, void *wqe,
 				struct ibv_send_wr *wr, uint8_t is_inline)
 {
 	struct bnxt_re_send *sqe = ((void *)wqe + sizeof(struct bnxt_re_bsqe));
+	struct bnxt_re_bsqe *hdr = wqe;
 	struct bnxt_re_ah *ah;
+	uint64_t qkey;
 	int len;
 
 	len = bnxt_re_build_send_sqe(qp, wqe, wr, is_inline);
@@ -1198,7 +1199,8 @@ static int bnxt_re_build_ud_sqe(struct bnxt_re_qp *qp, void *wqe,
 		goto bail;
 	}
 	ah = to_bnxt_re_ah(wr->wr.ud.ah);
-	sqe->qkey = htole32(wr->wr.ud.remote_qkey);
+	qkey = wr->wr.ud.remote_qkey;
+	hdr->lhdr.qkey_len |= htole64(qkey << 32);
 	sqe->dst_qp = htole32(wr->wr.ud.remote_qpn);
 	sqe->avid = htole32(ah->avid & 0xFFFFF);
 bail:
@@ -1228,7 +1230,7 @@ static int bnxt_re_build_cns_sqe(struct bnxt_re_qp *qp, void *wqe,
 
 	len = bnxt_re_build_send_sqe(qp, wqe, wr, false);
 	hdr->key_immd = htole32(wr->wr.atomic.rkey);
-	sqe->rva = htole64(wr->wr.atomic.remote_addr);
+	hdr->lhdr.rva = htole64(wr->wr.atomic.remote_addr);
 	sqe->cmp_dt = htole64(wr->wr.atomic.compare_add);
 	sqe->swp_dt = htole64(wr->wr.atomic.swap);
 
@@ -1245,7 +1247,7 @@ static int bnxt_re_build_fna_sqe(struct bnxt_re_qp *qp, void *wqe,
 
 	len = bnxt_re_build_send_sqe(qp, wqe, wr, false);
 	hdr->key_immd = htole32(wr->wr.atomic.rkey);
-	sqe->rva = htole64(wr->wr.atomic.remote_addr);
+	hdr->lhdr.rva = htole64(wr->wr.atomic.remote_addr);
 	sqe->cmp_dt = htole64(wr->wr.atomic.compare_add);
 
 	return len;
@@ -1368,13 +1370,11 @@ static int bnxt_re_build_rqe(struct bnxt_re_qp *qp, struct ibv_recv_wr *wr,
 			     void *rqe)
 {
 	struct bnxt_re_brqe *hdr = rqe;
-	struct bnxt_re_rqe *rwr;
-	struct bnxt_re_sge *sge;
 	struct bnxt_re_wrid *wrid;
+	struct bnxt_re_sge *sge;
 	int wqe_sz, len;
 	uint32_t hdrval;
 
-	rwr = (rqe + sizeof(struct bnxt_re_brqe));
 	sge = (rqe + bnxt_re_get_rqe_hdr_sz());
 	wrid = &qp->rwrid[qp->rqq->tail];
 
@@ -1388,7 +1388,7 @@ static int bnxt_re_build_rqe(struct bnxt_re_qp *qp, struct ibv_recv_wr *wr,
 	hdrval = BNXT_RE_WR_OPCD_RECV;
 	hdrval |= ((wqe_sz & BNXT_RE_HDR_WS_MASK) << BNXT_RE_HDR_WS_SHIFT);
 	hdr->rsv_ws_fl_wt = htole32(hdrval);
-	rwr->wrid = htole32(qp->rqq->tail);
+	hdr->wrid = htole32(qp->rqq->tail);
 
 	/* Fill wrid */
 	wrid->wrid = wr->wr_id;
@@ -1586,13 +1586,11 @@ static int bnxt_re_build_srqe(struct bnxt_re_srq *srq,
 			      struct ibv_recv_wr *wr, void *srqe)
 {
 	struct bnxt_re_brqe *hdr = srqe;
-	struct bnxt_re_rqe *rwr;
 	struct bnxt_re_sge *sge;
 	struct bnxt_re_wrid *wrid;
 	int wqe_sz, len, next;
 	uint32_t hdrval = 0;
 
-	rwr = (srqe + sizeof(struct bnxt_re_brqe));
 	sge = (srqe + bnxt_re_get_srqe_hdr_sz());
 	next = srq->start_idx;
 	wrid = &srq->srwrid[next];
@@ -1602,7 +1600,7 @@ static int bnxt_re_build_srqe(struct bnxt_re_srq *srq,
 	wqe_sz = wr->num_sge + (bnxt_re_get_srqe_hdr_sz() >> 4); /* 16B align */
 	hdrval |= ((wqe_sz & BNXT_RE_HDR_WS_MASK) << BNXT_RE_HDR_WS_SHIFT);
 	hdr->rsv_ws_fl_wt = htole32(hdrval);
-	rwr->wrid = htole32((uint32_t)next);
+	hdr->wrid = htole32((uint32_t)next);
 
 	/* Fill wrid */
 	wrid->wrid = wr->wr_id;
