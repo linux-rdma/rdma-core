@@ -33,7 +33,7 @@ cdef class MR(PyverbsCM):
     it is done in close().
     """
     def __init__(self, creator not None, length=0, access=0, address=None,
-                 implicit=False, **kwargs):
+                 implicit=False, null_mr=False, **kwargs):
         """
         Allocate a user-level buffer of length <length> and register a Memory
         Region of the given length and access flags.
@@ -47,6 +47,7 @@ cdef class MR(PyverbsCM):
                         provided, a memory will be allocated in the class
                         initialization.
         :param implicit: Implicit the MR address.
+        :param null_mr: Allocate a null memory region.
         :param kwargs: Arguments:
             * *handle*
                 A valid kernel handle for a MR object in the given PD (creator).
@@ -64,6 +65,10 @@ cdef class MR(PyverbsCM):
             # In order to safely cast addr to void*, it is firstly cast to uintptr_t.
             self.buf = <void*><uintptr_t>address
 
+        if null_mr:
+            self.is_user_addr = True
+            self.buf = NULL
+
         mr_handle = kwargs.get('handle')
         # If a MR handle is passed import MR and finish
         if mr_handle is not None:
@@ -77,7 +82,7 @@ cdef class MR(PyverbsCM):
             return
 
         # Allocate a buffer
-        if not address and length > 0:
+        if not null_mr and not address and length > 0:
             if self.is_huge:
                 # Rounding up to multiple of HUGE_PAGE_SIZE
                 self.mmap_length = length + (HUGE_PAGE_SIZE - length % HUGE_PAGE_SIZE) \
@@ -95,7 +100,9 @@ cdef class MR(PyverbsCM):
             memset(self.buf, 0, length)
         if isinstance(creator, PD):
             pd = <PD>creator
-            if implicit:
+            if null_mr:
+                self.mr = v.ibv_alloc_null_mr(pd.pd)
+            elif implicit:
                 self.mr = v.ibv_reg_mr(pd.pd, NULL, SIZE_MAX, access)
             else:
                 self.mr = v.ibv_reg_mr(pd.pd, self.buf, length, access)
@@ -103,7 +110,9 @@ cdef class MR(PyverbsCM):
             pd.add_ref(self)
         elif isinstance(creator, CMID):
             cmid = <CMID>creator
-            if access == e.IBV_ACCESS_LOCAL_WRITE:
+            if null_mr:
+                self.mr = NULL
+            elif access == e.IBV_ACCESS_LOCAL_WRITE:
                 self.mr = cm.rdma_reg_msgs(cmid.id, self.buf, length)
             elif access == e.IBV_ACCESS_REMOTE_WRITE:
                 self.mr = cm.rdma_reg_write(cmid.id, self.buf, length)
@@ -112,9 +121,15 @@ cdef class MR(PyverbsCM):
             self.cmid = cmid
             cmid.add_ref(self)
         if self.mr == NULL:
-            raise PyverbsRDMAErrno('Failed to register a MR. length: {l}, access flags: {a}'.
+            if null_mr:
+                raise PyverbsRDMAErrno('Failed to alloc a null MR')
+            else:
+                raise PyverbsRDMAErrno('Failed to register a MR. length: {l}, access flags: {a}'.
                                    format(l=length, a=access))
-        self.logger.debug('Registered ibv_mr. Length: {l}, access flags {a}'.
+        if null_mr:
+            self.logger.debug('Registered ibv_mr. A null memory region')
+        else:
+            self.logger.debug('Registered ibv_mr. Length: {l}, access flags {a}'.
                           format(l=length, a=access))
 
     def unimport(self):

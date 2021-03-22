@@ -570,6 +570,7 @@ cdef extern from 'infiniband/verbs.h':
                        int index, uint16_t *pkey)
     ibv_pd *ibv_alloc_pd(ibv_context *context)
     int ibv_dealloc_pd(ibv_pd *pd)
+    ibv_mr *ibv_alloc_null_mr(ibv_pd *pd)
     ibv_mr *ibv_reg_mr(ibv_pd *pd, void *addr, size_t length, int access)
     ibv_mr *ibv_reg_dmabuf_mr(ibv_pd *pd, uint64_t offset, size_t length,
                               uint64_t iova, int fd, int access)
