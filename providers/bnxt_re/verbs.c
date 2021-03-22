@@ -1195,13 +1195,13 @@ static int bnxt_re_build_ud_sqe(struct bnxt_re_qp *qp, void *wqe,
 	int len;
 
 	len = bnxt_re_build_send_sqe(qp, wqe, wr, is_inline);
-	sqe->qkey = htole32(wr->wr.ud.remote_qkey);
-	sqe->dst_qp = htole32(wr->wr.ud.remote_qpn);
 	if (!wr->wr.ud.ah) {
 		len = -EINVAL;
 		goto bail;
 	}
 	ah = to_bnxt_re_ah(wr->wr.ud.ah);
+	sqe->qkey = htole32(wr->wr.ud.remote_qkey);
+	sqe->dst_qp = htole32(wr->wr.ud.remote_qpn);
 	sqe->avid = htole32(ah->avid & 0xFFFFF);
 bail:
 	return len;
