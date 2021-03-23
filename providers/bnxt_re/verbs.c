@@ -777,25 +777,22 @@ int bnxt_re_arm_cq(struct ibv_cq *ibvcq, int flags)
 static int bnxt_re_check_qp_limits(struct bnxt_re_context *cntx,
 				   struct ibv_qp_init_attr *attr)
 {
-	struct ibv_device_attr devattr;
-	int ret;
+	struct ibv_device_attr *devattr;
+	struct bnxt_re_dev *rdev;
 
-	ret = bnxt_re_query_device(
-		&cntx->ibvctx.context, NULL,
-		container_of(&devattr, struct ibv_device_attr_ex, orig_attr),
-		sizeof(devattr));
-	if (ret)
-		return ret;
-	if (attr->cap.max_send_sge > devattr.max_sge)
+	rdev = cntx->rdev;
+	devattr = &rdev->devattr;
+
+	if (attr->cap.max_send_sge > devattr->max_sge)
 		return EINVAL;
-	if (attr->cap.max_recv_sge > devattr.max_sge)
+	if (attr->cap.max_recv_sge > devattr->max_sge)
 		return EINVAL;
 	if (attr->cap.max_inline_data > BNXT_RE_MAX_INLINE_SIZE)
 		return EINVAL;
-	if (attr->cap.max_send_wr > devattr.max_qp_wr)
-		attr->cap.max_send_wr = devattr.max_qp_wr;
-	if (attr->cap.max_recv_wr > devattr.max_qp_wr)
-		attr->cap.max_recv_wr = devattr.max_qp_wr;
+	if (attr->cap.max_send_wr > devattr->max_qp_wr)
+		attr->cap.max_send_wr = devattr->max_qp_wr;
+	if (attr->cap.max_recv_wr > devattr->max_qp_wr)
+		attr->cap.max_recv_wr = devattr->max_qp_wr;
 
 	return 0;
 }

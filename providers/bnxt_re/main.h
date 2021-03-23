@@ -166,10 +166,12 @@ struct bnxt_re_dev {
 
 	uint32_t cqe_size;
 	uint32_t max_cq_depth;
+	struct ibv_device_attr devattr;
 };
 
 struct bnxt_re_context {
 	struct verbs_context ibvctx;
+	struct bnxt_re_dev *rdev;
 	uint32_t dev_id;
 	uint32_t max_qp;
 	struct bnxt_re_chip_ctx cctx;
