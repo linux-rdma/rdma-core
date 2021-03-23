@@ -74,11 +74,6 @@ M:	Wei Hu(Xavier) <xavier.huwei@huawei.com>
 S:	Supported
 F:	providers/hns/
 
-I40IW USERSPACE PROVIDER (for i40iw.ko)
-M:	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>
-S:	Supported
-F:	providers/i40iw/
-
 RDMA Communication Manager Assistant (for librdmacm.so)
 M:	Haakon Bugge <haakon.bugge@oracle.com>
 M:	Mark Haywood <mark.haywood@oracle.com>
