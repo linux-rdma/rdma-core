@@ -3,7 +3,6 @@ publish_internal_headers(rdma
   rdma/cxgb4-abi.h
   rdma/efa-abi.h
   rdma/hns-abi.h
-  rdma/i40iw-abi.h
   rdma/ib_user_ioctl_cmds.h
   rdma/ib_user_ioctl_verbs.h
   rdma/ib_user_mad.h
@@ -61,7 +60,6 @@ rdma_kernel_provider_abi(
   rdma/cxgb4-abi.h
   rdma/efa-abi.h
   rdma/hns-abi.h
-  rdma/i40iw-abi.h
   rdma/ib_user_verbs.h
   rdma/mlx4-abi.h
   rdma/mlx5-abi.h
