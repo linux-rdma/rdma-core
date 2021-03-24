@@ -526,7 +526,11 @@ if (NOT DRM_INCLUDE_DIRS)
 endif()
 
 if (DRM_INCLUDE_DIRS)
-  include_directories(${DRM_INCLUDE_DIRS})
+  if (EXISTS ${DRM_INCLUDE_DIRS}/i915_drm.h AND EXISTS ${DRM_INCLUDE_DIRS}/amdgpu_drm.h)
+    include_directories(${DRM_INCLUDE_DIRS})
+  else()
+    unset(DRM_INCLUDE_DIRS CACHE)
+  endif()
 endif()
 
 #-------------------------

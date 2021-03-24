@@ -14,7 +14,6 @@
 #include <drm.h>
 #include <i915_drm.h>
 #include <amdgpu_drm.h>
-#include <radeon_drm.h>
 #include "dmabuf_alloc.h"
 
 /*
