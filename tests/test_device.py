@@ -196,6 +196,25 @@ class DeviceTest(PyverbsAPITestCase):
                 attr_ex = ctx.query_device_ex()
                 self.verify_device_attr(attr_ex.orig_attr, dev)
 
+    def test_phys_port_cnt_ex(self):
+        """
+        Test phys_port_cnt_ex
+        """
+        for dev in self.get_device_list():
+            with d.Context(name=dev.name.decode()) as ctx:
+                attr_ex = ctx.query_device_ex()
+                phys_port_cnt = attr_ex.orig_attr.phys_port_cnt
+                phys_port_cnt_ex = attr_ex.phys_port_cnt_ex
+                if phys_port_cnt_ex > 255:
+                    self.assertEqual(phys_port_cnt, 255,
+                                     f'phys_port_cnt should be 255 if ' +
+                                     f'phys_port_cnt_ex is bigger than 255')
+                else:
+                    self.assertEqual(phys_port_cnt, phys_port_cnt_ex,
+                                     f'phys_port_cnt_ex and phys_port_cnt ' +
+                                     f'should be equal if number of ports is ' +
+                                     f'less than 256')
+
     @staticmethod
     def verify_port_attr(attr):
         """
