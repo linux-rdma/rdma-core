@@ -408,6 +408,8 @@ def get_global_route(ctx, gid_index=0, port_num=1):
     :param port_num: Number of the port to query. Default: 1
     :return: GlobalRoute object
     """
+    if ctx.query_port(port_num).gid_tbl_len == 0:
+        raise unittest.SkipTest(f'Not supported without GID table')
     gid = ctx.query_gid(port_num, gid_index)
     gr = GlobalRoute(dgid=gid, sgid_index=gid_index)
     return gr

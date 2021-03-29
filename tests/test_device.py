@@ -77,7 +77,9 @@ class DeviceTest(PyverbsAPITestCase):
         """
         for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
-                ctx.query_gid(port_num=self.ib_port, index=0)
+                gid_tbl_len = ctx.query_port(self.ib_port).gid_tbl_len
+                if gid_tbl_len > 0:
+                    ctx.query_gid(port_num=self.ib_port, index=0)
 
     def test_query_gid_table(self):
         """
@@ -91,7 +93,8 @@ class DeviceTest(PyverbsAPITestCase):
                 port_attr = ctx.query_port(port_num)
                 max_entries += port_attr.gid_tbl_len
             try:
-                ctx.query_gid_table(max_entries)
+                if max_entries > 0:
+                    ctx.query_gid_table(max_entries)
             except PyverbsRDMAError as ex:
                 if ex.error_code in [-errno.EOPNOTSUPP, -errno.EPROTONOSUPPORT]:
                     raise unittest.SkipTest('ibv_query_gid_table is not'\
@@ -122,7 +125,9 @@ class DeviceTest(PyverbsAPITestCase):
         devs = self.get_device_list()
         with d.Context(name=devs[0].name.decode()) as ctx:
             try:
-                ctx.query_gid_ex(port_num=self.ib_port, gid_index=0)
+                gid_tbl_len = ctx.query_port(self.ib_port).gid_tbl_len
+                if gid_tbl_len > 0:
+                    ctx.query_gid_ex(port_num=self.ib_port, gid_index=0)
             except PyverbsRDMAError as ex:
                 if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
                     raise unittest.SkipTest('ibv_query_gid_ex is not'\
@@ -139,8 +144,11 @@ class DeviceTest(PyverbsAPITestCase):
             for port_num in range(1, self.attr.phys_port_cnt + 1):
                 attr = self.ctx.query_port(port_num)
                 max_entries += attr.gid_tbl_len
-            gid_indices = {gid_entry.gid_index for gid_entry in
-                           self.ctx.query_gid_table(max_entries) if gid_entry.port_num == self.ib_port}
+            if max_entries > 0:
+                gid_indices = {gid_entry.gid_index for gid_entry in
+                               self.ctx.query_gid_table(max_entries) if gid_entry.port_num == self.ib_port}
+            else:
+                gid_indices = {}
 
             possible_indices = set(range(port_attr.gid_tbl_len)) if port_attr.gid_tbl_len > 1 else set()
             try:
