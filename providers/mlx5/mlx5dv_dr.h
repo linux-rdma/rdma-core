@@ -938,6 +938,8 @@ struct mlx5dv_dr_domain {
 	struct dr_domain_info		info;
 	struct list_head		tbl_list;
 	uint32_t			flags;
+	/* protect debug lists of all tracked objects */
+	pthread_spinlock_t		debug_lock;
 };
 
 static inline void dr_domain_nic_lock(struct dr_domain_rx_tx *nic_dmn)

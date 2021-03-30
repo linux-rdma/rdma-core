@@ -1096,9 +1096,9 @@ static int dr_rule_destroy_rule(struct mlx5dv_dr_rule *rule)
 {
 	struct mlx5dv_dr_domain *dmn = rule->matcher->tbl->dmn;
 
-	dr_domain_lock(dmn);
+	pthread_spin_lock(&dmn->debug_lock);
 	list_del(&rule->rule_list);
-	dr_domain_unlock(dmn);
+	pthread_spin_unlock(&dmn->debug_lock);
 
 	switch (dmn->type) {
 	case MLX5DV_DR_DOMAIN_TYPE_NIC_RX:
@@ -1337,9 +1337,9 @@ dr_rule_create_rule(struct mlx5dv_dr_matcher *matcher,
 	if (ret)
 		goto remove_action_members;
 
-	dr_domain_lock(dmn);
+	pthread_spin_lock(&dmn->debug_lock);
 	list_add_tail(&matcher->rule_list, &rule->rule_list);
-	dr_domain_unlock(dmn);
+	pthread_spin_unlock(&dmn->debug_lock);
 
 	return rule;
 
