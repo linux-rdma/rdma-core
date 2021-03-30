@@ -1,9 +1,12 @@
-from pyverbs.pyverbs_error import PyverbsRDMAError
+import weakref
+from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.base cimport close_weakrefs
 from pyverbs.device cimport Context
 from pyverbs.cq cimport CQEX, CQ
 from pyverbs.xrcd cimport XRCD
 from pyverbs.wr cimport RecvWR
+from pyverbs.qp cimport QP
 from pyverbs.pd cimport PD
 from libc.errno cimport errno
 from libc.string cimport memcpy
@@ -129,6 +132,7 @@ cdef class SRQ(PyverbsCM):
         super().__init__()
         self.srq = NULL
         self.cq = None
+        self.qps = weakref.WeakSet()
         if isinstance(creator, PD):
             self._create_srq(creator, attr)
         elif type(creator) == Context:
@@ -146,14 +150,22 @@ cdef class SRQ(PyverbsCM):
     cpdef close(self):
         if self.srq != NULL:
             self.logger.debug('Closing SRQ')
+            close_weakrefs([self.qps])
             rc = v.ibv_destroy_srq(self.srq)
             if rc != 0:
                 raise PyverbsRDMAError('Failed to destroy SRQ', rc)
             self.srq = NULL
             self.cq =None
 
+    cdef add_ref(self, obj):
+        if isinstance(obj, QP):
+            self.qps.add(obj)
+        else:
+            raise PyverbsError('Unrecognized object type')
+
     def _create_srq(self, PD pd, SrqInitAttr init_attr):
         self.srq = v.ibv_create_srq(pd.pd, &init_attr.attr)
+        pd.add_ref(self)
 
     def _create_srq_ex(self, Context context, SrqInitAttrEx init_attr_ex):
         self.srq = v.ibv_create_srq_ex(context.context, &init_attr_ex.attr)

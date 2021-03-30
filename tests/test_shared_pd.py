@@ -85,8 +85,8 @@ class SharedPDTestCase(RDMATestCase):
             **setup_params)
         self.imported_res.append(server_import)
         client = QpExRCRDMAWrite(**setup_params)
-        client.pre_run(server_import.psn, server_import.qpn)
-        server_import.pre_run(client.psn, client.qpn)
+        client.pre_run(server_import.psns, server_import.qps_num)
+        server_import.pre_run(client.psns, client.qps_num)
         client.rkey = server_import.mr.rkey
         server_import.rkey = client.mr.rkey
         client.raddr = server_import.mr.buf

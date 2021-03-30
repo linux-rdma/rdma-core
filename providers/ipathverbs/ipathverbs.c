@@ -89,7 +89,7 @@ static const struct verbs_match_ent hca_table[] = {
 
 static const struct verbs_context_ops ipath_ctx_common_ops = {
 	.free_context	= ipath_free_context,
-	.query_device	= ipath_query_device,
+	.query_device_ex = ipath_query_device,
 	.query_port	= ipath_query_port,
 
 	.alloc_pd	= ipath_alloc_pd,

@@ -128,6 +128,8 @@ enum qelr_dpm_flags {
 	QELR_DPM_FLAGS_EDPM_MODE = (1 << 2),
 };
 
+#define QELR_MAX_SRQ_ID         4096
+
 struct qelr_devctx {
 	struct verbs_context	ibv_ctx;
 	FILE			*dbg_fp;
@@ -147,6 +149,7 @@ struct qelr_devctx {
 	uint32_t		sges_per_send_wr;
 	uint32_t		sges_per_recv_wr;
 	uint32_t		sges_per_srq_wr;
+	struct qelr_srq		**srq_table;
 	int			max_cqes;
 };
 
@@ -227,6 +230,10 @@ struct qelr_rdma_ext {
 	__be32	dma_length;
 };
 
+struct qelr_xrceth {
+	__be32	xrc_srq;
+};
+
 /* rdma extension, invalidate / immediate data + padding, inline data... */
 #define QELR_MAX_DPM_PAYLOAD (sizeof(struct qelr_rdma_ext) + sizeof(uint64_t) +\
 			       ROCE_REQ_MAX_INLINE_DATA_SIZE)
@@ -259,16 +266,24 @@ struct qelr_srq_hwq_info {
 };
 
 struct qelr_srq {
-	struct ibv_srq ibv_srq;
+	struct verbs_srq verbs_srq;
 	struct qelr_srq_hwq_info hw_srq;
 	uint16_t srq_id;
 	pthread_spinlock_t lock;
+	bool is_xrc;
+};
+
+enum qelr_qp_flags {
+	QELR_QP_FLAG_SQ		= 1 << 0,
+	QELR_QP_FLAG_RQ		= 1 << 1,
 };
 
 struct qelr_qp {
-	struct ibv_qp				ibv_qp;
+	struct verbs_qp				verbs_qp;
+	struct ibv_qp				*ibv_qp;
 	pthread_spinlock_t			q_lock;
 	enum qelr_qp_state			state;   /*  QP state */
+	uint8_t					flags;
 
 	struct qelr_qp_hwq_info			sq;
 	struct qelr_qp_hwq_info			rq;
@@ -305,9 +320,16 @@ static inline struct qelr_device *get_qelr_dev(struct ibv_device *ibdev)
 	return container_of(ibdev, struct qelr_device, ibv_dev.device);
 }
 
+static inline struct ibv_qp *get_ibv_qp(struct qelr_qp *qp)
+{
+	return &qp->verbs_qp.qp;
+}
+
 static inline struct qelr_qp *get_qelr_qp(struct ibv_qp *ibqp)
 {
-	return container_of(ibqp, struct qelr_qp, ibv_qp);
+	struct verbs_qp *vqp = (struct verbs_qp *)ibqp;
+
+	return container_of(vqp, struct qelr_qp, verbs_qp);
 }
 
 static inline struct qelr_pd *get_qelr_pd(struct ibv_pd *ibpd)
@@ -322,7 +344,14 @@ static inline struct qelr_cq *get_qelr_cq(struct ibv_cq *ibcq)
 
 static inline struct qelr_srq *get_qelr_srq(struct ibv_srq *ibsrq)
 {
-	return container_of(ibsrq, struct qelr_srq, ibv_srq);
+	struct verbs_srq *vsrq = (struct verbs_srq *)ibsrq;
+
+	return container_of(vsrq, struct qelr_srq, verbs_srq);
+}
+
+static inline struct ibv_srq *get_ibv_srq(struct qelr_srq *srq)
+{
+	return &srq->verbs_srq.srq;
 }
 
 #define SET_FIELD(value, name, flag)				\

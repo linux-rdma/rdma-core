@@ -1,9 +1,9 @@
+from tests.base import RCResources, UDResources, XRCResources, RDMATestCase, \
+    PyverbsAPITestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.cq import CqInitAttrEx, CQEX
 import pyverbs.enums as e
 from pyverbs.mr import MR
-
-from tests.base import RCResources, UDResources, XRCResources, RDMATestCase
 import tests.utils as u
 import unittest
 import errno
@@ -59,12 +59,8 @@ class CqExTestCase(RDMATestCase):
                                        self.gid_index)
         server = self.qp_dict[qp_type](self.dev_name, self.ib_port,
                                        self.gid_index)
-        if qp_type == 'xrc':
-            client.pre_run(server.psns, server.qps_num)
-            server.pre_run(client.psns, client.qps_num)
-        else:
-            client.pre_run(server.psn, server.qpn)
-            server.pre_run(client.psn, client.qpn)
+        client.pre_run(server.psns, server.qps_num)
+        server.pre_run(client.psns, client.qps_num)
         return client, server
 
     def test_ud_traffic_cq_ex(self):
@@ -80,3 +76,59 @@ class CqExTestCase(RDMATestCase):
     def test_xrc_traffic_cq_ex(self):
         client, server = self.create_players('xrc')
         u.xrc_traffic(client, server, is_cq_ex=True)
+
+
+class CQEXAPITest(PyverbsAPITestCase):
+    """
+    Test the API of the CQEX class.
+    """
+    def setUp(self):
+        super().setUp()
+        self.max_cqe = self.attr.max_cqe
+
+    def test_create_cq_ex(self):
+        """
+        Test ibv_create_cq_ex()
+        """
+        cq_init_attrs_ex = CqInitAttrEx(cqe=10, wc_flags=0, comp_mask=0, flags=0)
+        if self.attr_ex.raw_packet_caps & e.IBV_RAW_PACKET_CAP_CVLAN_STRIPPING:
+            cq_init_attrs_ex.wc_flags = e.IBV_WC_EX_WITH_CVLAN
+            CQEX(self.ctx, cq_init_attrs_ex)
+
+        for flag in list(e.ibv_create_cq_wc_flags):
+            cq_init_attrs_ex.wc_flags = flag
+            try:
+                cq_ex = CQEX(self.ctx, cq_init_attrs_ex)
+                cq_ex.close()
+            except PyverbsRDMAError as ex:
+                if ex.error_code != errno.EOPNOTSUPP:
+                    raise ex
+
+        cq_init_attrs_ex.wc_flags = 0
+        cq_init_attrs_ex.comp_mask = e.IBV_CQ_INIT_ATTR_MASK_FLAGS
+        attr_flags = list(e.ibv_create_cq_attr_flags)
+        for flag in attr_flags:
+            cq_init_attrs_ex.flags = flag
+            try:
+                cq_ex = CQEX(self.ctx, cq_init_attrs_ex)
+                cq_ex.close()
+            except PyverbsRDMAError as ex:
+                if ex.error_code != errno.EOPNOTSUPP:
+                    raise ex
+
+    def test_create_cq_ex_bad_flow(self):
+        """
+        Test ibv_create_cq_ex() with wrong comp_vector / number of cqes
+        """
+        cq_attrs_ex = CqInitAttrEx(cqe=self.max_cqe + 1, wc_flags=0, comp_mask=0, flags=0)
+        with self.assertRaises(PyverbsRDMAError) as ex:
+            CQEX(self.ctx, cq_attrs_ex)
+        if ex.exception.error_code == errno.EOPNOTSUPP:
+            raise unittest.SkipTest('Create Extended CQ is not supported')
+        self.assertEqual(ex.exception.error_code, errno.EINVAL)
+
+        cq_attrs_ex = CqInitAttrEx(10, wc_flags=0, comp_mask=0, flags=0)
+        cq_attrs_ex.comp_vector = self.ctx.num_comp_vectors + 1
+        with self.assertRaises(PyverbsRDMAError) as ex:
+            CQEX(self.ctx, cq_attrs_ex)
+        self.assertEqual(ex.exception.error_code, errno.EINVAL)

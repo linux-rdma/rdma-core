@@ -41,7 +41,7 @@
 #include <pthread.h>
 
 #include "qelr.h"
-#include "qelr_main.h"
+#include "qelr_verbs.h"
 #include "qelr_chain.h"
 
 #include <sys/types.h>
@@ -61,6 +61,8 @@ static void qelr_free_context(struct ibv_context *ibctx);
 #define PCI_DEVICE_ID_QLOGIC_57980S_IOV (0x1664)
 #define PCI_DEVICE_ID_QLOGIC_AH         (0x8070)
 #define PCI_DEVICE_ID_QLOGIC_AH_IOV     (0x8090)
+#define PCI_DEVICE_ID_QLOGIC_AHP        (0x8170)
+#define PCI_DEVICE_ID_QLOGIC_AHP_IOV    (0x8190)
 
 uint32_t qelr_dp_level;
 uint32_t qelr_dp_module;
@@ -79,11 +81,13 @@ static const struct verbs_match_ent hca_table[] = {
 	QHCA(57980S_IOV),
 	QHCA(AH),
 	QHCA(AH_IOV),
+	QHCA(AHP),
+	QHCA(AHP_IOV),
 	{}
 };
 
 static const struct verbs_context_ops qelr_ctx_ops = {
-	.query_device = qelr_query_device,
+	.query_device_ex = qelr_query_device,
 	.query_port = qelr_query_port,
 	.alloc_pd = qelr_alloc_pd,
 	.dealloc_pd = qelr_dealloc_pd,
@@ -107,6 +111,14 @@ static const struct verbs_context_ops qelr_ctx_ops = {
 	.post_recv = qelr_post_recv,
 	.async_event = qelr_async_event,
 	.free_context = qelr_free_context,
+};
+
+static const struct verbs_context_ops qelr_ctx_roce_ops = {
+	.close_xrcd = qelr_close_xrcd,
+	.create_qp_ex = qelr_create_qp_ex,
+	.create_srq_ex = qelr_create_srq_ex,
+	.get_srq_num = qelr_get_srq_num,
+	.open_xrcd = qelr_open_xrcd,
 };
 
 static void qelr_uninit_device(struct verbs_device *verbs_device)
@@ -188,6 +200,14 @@ static struct verbs_context *qelr_alloc_context(struct ibv_device *ibdev,
 		goto cmd_err;
 
 	verbs_set_ops(&ctx->ibv_ctx, &qelr_ctx_ops);
+	if (IS_ROCE(ibdev))
+		verbs_set_ops(&ctx->ibv_ctx, &qelr_ctx_roce_ops);
+
+	ctx->srq_table = calloc(QELR_MAX_SRQ_ID, sizeof(*ctx->srq_table));
+	if (!ctx->srq_table) {
+		DP_ERR(ctx->dbg_fp, "failed to allocate srq_table\n");
+		return NULL;
+	}
 
 	ctx->kernel_page_size = sysconf(_SC_PAGESIZE);
 	ctx->db_pa = resp.db_pa;
@@ -257,6 +277,7 @@ static void qelr_free_context(struct ibv_context *ibctx)
 	if (ctx->db_addr)
 		munmap(ctx->db_addr, ctx->db_size);
 
+	free(ctx->srq_table);
 	qelr_close_debug_file(ctx);
 	verbs_uninit_context(&ctx->ibv_ctx);
 	free(ctx);

@@ -1119,7 +1119,7 @@ static int rping_connect_client(struct rping_cb *cb)
 		}
 	}
 
-	DEBUG_LOG("rmda_connect successful\n");
+	DEBUG_LOG("rdma_connect successful\n");
 	return 0;
 }
 

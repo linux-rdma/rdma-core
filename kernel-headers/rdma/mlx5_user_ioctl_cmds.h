@@ -154,6 +154,7 @@ enum mlx5_ib_devx_umem_reg_attrs {
 	MLX5_IB_ATTR_DEVX_UMEM_REG_LEN,
 	MLX5_IB_ATTR_DEVX_UMEM_REG_ACCESS,
 	MLX5_IB_ATTR_DEVX_UMEM_REG_OUT_ID,
+	MLX5_IB_ATTR_DEVX_UMEM_REG_PGSZ_BITMAP,
 };
 
 enum mlx5_ib_devx_umem_dereg_attrs {
@@ -232,7 +233,7 @@ enum mlx5_ib_device_query_context_attrs {
 	MLX5_IB_ATTR_QUERY_CONTEXT_RESP_UCTX = (1U << UVERBS_ID_NS_SHIFT),
 };
 
-#define MLX5_IB_DW_MATCH_PARAM 0x80
+#define MLX5_IB_DW_MATCH_PARAM 0x90
 
 struct mlx5_ib_match_params {
 	__u32	match_params[MLX5_IB_DW_MATCH_PARAM];
@@ -263,7 +264,7 @@ enum mlx5_ib_create_flow_attrs {
 	MLX5_IB_ATTR_CREATE_FLOW_FLAGS,
 };
 
-enum mlx5_ib_destoy_flow_attrs {
+enum mlx5_ib_destroy_flow_attrs {
 	MLX5_IB_ATTR_DESTROY_FLOW_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
 };
 

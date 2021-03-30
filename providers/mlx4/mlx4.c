@@ -84,7 +84,6 @@ static const struct verbs_match_ent hca_table[] = {
 };
 
 static const struct verbs_context_ops mlx4_ctx_ops = {
-	.query_device  = mlx4_query_device,
 	.query_port    = mlx4_query_port,
 	.alloc_pd      = mlx4_alloc_pd,
 	.dealloc_pd    = mlx4_free_pd,
@@ -136,28 +135,6 @@ static const struct verbs_context_ops mlx4_ctx_ops = {
 	.free_context = mlx4_free_context,
 };
 
-static int mlx4_map_internal_clock(struct mlx4_device *mdev,
-				   struct ibv_context *ibv_ctx)
-{
-	struct mlx4_context *context = to_mctx(ibv_ctx);
-	void *hca_clock_page;
-
-	hca_clock_page = mmap(NULL, mdev->page_size,
-			      PROT_READ, MAP_SHARED, ibv_ctx->cmd_fd,
-			      mdev->page_size * 3);
-
-	if (hca_clock_page == MAP_FAILED) {
-		fprintf(stderr, PFX
-			"Warning: Timestamp available,\n"
-			"but failed to mmap() hca core clock page.\n");
-		return -1;
-	}
-
-	context->hca_core_clock = hca_clock_page +
-		(context->core_clock.offset & (mdev->page_size - 1));
-	return 0;
-}
-
 static struct verbs_context *mlx4_alloc_context(struct ibv_device *ibdev,
 						  int cmd_fd,
 						  void *private_data)
@@ -170,7 +147,6 @@ static struct verbs_context *mlx4_alloc_context(struct ibv_device *ibdev,
 	__u16				bf_reg_size;
 	struct mlx4_device              *dev = to_mdev(ibdev);
 	struct verbs_context		*verbs_ctx;
-	struct ibv_device_attr_ex	dev_attrs;
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
 					       RDMA_DRIVER_MLX4);
@@ -242,15 +218,7 @@ static struct verbs_context *mlx4_alloc_context(struct ibv_device *ibdev,
 
 	verbs_set_ops(verbs_ctx, &mlx4_ctx_ops);
 
-	context->hca_core_clock = NULL;
-	memset(&dev_attrs, 0, sizeof(dev_attrs));
-	if (!mlx4_query_device_ex(&verbs_ctx->context, NULL, &dev_attrs,
-				  sizeof(struct ibv_device_attr_ex))) {
-		context->max_qp_wr = dev_attrs.orig_attr.max_qp_wr;
-		context->max_sge = dev_attrs.orig_attr.max_sge;
-		if (context->core_clock.offset_valid)
-			mlx4_map_internal_clock(dev, &verbs_ctx->context);
-	}
+	mlx4_query_device_ctx(dev, context);
 
 	return verbs_ctx;
 

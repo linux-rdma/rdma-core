@@ -53,19 +53,24 @@
 #include "main.h"
 #include "verbs.h"
 
-int bnxt_re_query_device(struct ibv_context *ibvctx,
-			 struct ibv_device_attr *dev_attr)
+int bnxt_re_query_device(struct ibv_context *context,
+			 const struct ibv_query_device_ex_input *input,
+			 struct ibv_device_attr_ex *attr, size_t attr_size)
 {
-	struct ibv_query_device cmd;
+	struct ib_uverbs_ex_query_device_resp resp;
+	size_t resp_size = sizeof(resp);
 	uint8_t fw_ver[8];
-	int status;
+	int err;
 
-	memset(dev_attr, 0, sizeof(struct ibv_device_attr));
-	status = ibv_cmd_query_device(ibvctx, dev_attr, (uint64_t *)&fw_ver,
-				      &cmd, sizeof(cmd));
-	snprintf(dev_attr->fw_ver, 64, "%d.%d.%d.%d",
-		 fw_ver[0], fw_ver[1], fw_ver[2], fw_ver[3]);
-	return status;
+	err = ibv_cmd_query_device_any(context, input, attr, attr_size, &resp,
+				       &resp_size);
+	if (err)
+		return err;
+
+	memcpy(fw_ver, &resp.base.fw_ver, sizeof(resp.base.fw_ver));
+	snprintf(attr->orig_attr.fw_ver, 64, "%d.%d.%d.%d", fw_ver[0],
+		 fw_ver[1], fw_ver[2], fw_ver[3]);
+	return 0;
 }
 
 int bnxt_re_query_port(struct ibv_context *ibvctx, uint8_t port,
@@ -173,8 +178,10 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvctx);
 	struct bnxt_re_dev *dev = to_bnxt_re_dev(ibvctx->device);
 
-	if (ncqe > dev->max_cq_depth)
+	if (!ncqe || ncqe > dev->max_cq_depth) {
+		errno = EINVAL;
 		return NULL;
+	}
 
 	cq = calloc(1, sizeof(*cq));
 	if (!cq)
@@ -213,11 +220,6 @@ cmdfail:
 fail:
 	free(cq);
 	return NULL;
-}
-
-int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
-{
-	return -ENOSYS;
 }
 
 int bnxt_re_destroy_cq(struct ibv_cq *ibvcq)
@@ -754,11 +756,6 @@ static void bnxt_re_cleanup_cq(struct bnxt_re_qp *qp, struct bnxt_re_cq *cq)
 	pthread_spin_unlock(&cntx->fqlock);
 }
 
-void bnxt_re_cq_event(struct ibv_cq *ibvcq)
-{
-
-}
-
 int bnxt_re_arm_cq(struct ibv_cq *ibvcq, int flags)
 {
 	struct bnxt_re_cq *cq = to_bnxt_re_cq(ibvcq);
@@ -783,7 +780,10 @@ static int bnxt_re_check_qp_limits(struct bnxt_re_context *cntx,
 	struct ibv_device_attr devattr;
 	int ret;
 
-	ret = bnxt_re_query_device(&cntx->ibvctx.context, &devattr);
+	ret = bnxt_re_query_device(
+		&cntx->ibvctx.context, NULL,
+		container_of(&devattr, struct ibv_device_attr_ex, orig_attr),
+		sizeof(devattr));
 	if (ret)
 		return ret;
 	if (attr->cap.max_send_sge > devattr.max_sge)

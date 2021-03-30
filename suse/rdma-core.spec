@@ -23,7 +23,7 @@
 
 %define         git_ver %{nil}
 Name:           rdma-core
-Version:        31.0
+Version:        35.0
 Release:        0
 Summary:        RDMA core userspace libraries and daemons
 License:        GPL-2.0-only OR BSD-2-Clause
@@ -105,7 +105,7 @@ Obsoletes:      ofed < %{version}
 # To force build without the use of curl-mini, --without=curlmini
 # should be passed to rpmbuild
 %bcond_without curlmini
-%if 0%{?suse_version} >= 1330
+%if 0%{?suse_version} >= 1330 && 0%{?suse_version} < 1550
 %if %{with curlmini}
 BuildRequires:  curl-mini
 %endif
@@ -389,8 +389,6 @@ Pyverbs is a Cython-based Python API over libibverbs, providing an
 easy, object-oriented access to IB verbs.
 
 %prep
-# Make sure LTO is disable as rdma-core fails to compile with LTO enabled
-%define _lto_cflags %{nil}
 %setup -q -n  %{name}-%{version}%{git_ver}
 
 %build
@@ -418,7 +416,7 @@ easy, object-oriented access to IB verbs.
          -DCMAKE_INSTALL_MANDIR:PATH=%{_mandir} \
          -DCMAKE_INSTALL_SYSCONFDIR:PATH=%{_sysconfdir} \
          -DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=%{_unitdir} \
-         -DCMAKE_INSTALL_SYSTEMD_BINDIR:PATH=%{_libexecdir}/systemd \
+         -DCMAKE_INSTALL_SYSTEMD_BINDIR:PATH=%{_prefix}/lib/systemd \
          -DCMAKE_INSTALL_INITDDIR:PATH=%{_initddir} \
          -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
          -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version} \
@@ -452,12 +450,6 @@ mkdir -p %{buildroot}%{_udevrulesdir}
 mkdir -p %{buildroot}%{dracutlibdir}/modules.d/05rdma
 mkdir -p %{buildroot}%{sysmodprobedir}
 mkdir -p %{buildroot}%{_unitdir}
-
-# SRIOV service
-install -D -m0644 redhat/rdma.sriov-vfs %{buildroot}/%{_sysconfdir}/rdma/sriov-vfs
-install -D -m0755 redhat/rdma.sriov-init %{buildroot}%{_libexecdir}/rdma-set-sriov-vf
-install -D -m0644 suse/rdma.sriov-rules %{buildroot}%{_udevrulesdir}/98-rdma-sriov.rules
-install -D -m0644 suse/rdma.sriov-service %{buildroot}%{_unitdir}/rdma-sriov.service
 
 # Port type setup for mlx4 dual port cards
 install -D -m0644 redhat/rdma.mlx4.conf %{buildroot}/%{_sysconfdir}/rdma/mlx4.conf
@@ -566,6 +558,8 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %post -n rdma-ndd
 %service_add_post rdma-ndd.service
+# we ship udev rules, so trigger an update.
+%{_bindir}/udevadm trigger --subsystem-match=infiniband --action=change || true
 
 %postun -n rdma-ndd
 %service_del_postun rdma-ndd.service
@@ -587,7 +581,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %config(noreplace) %{_sysconfdir}/rdma/modules/opa.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/rdma.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/roce.conf
-%config(noreplace) %{_sysconfdir}/rdma/sriov-vfs
 %if 0%{?dma_coherent}
 %config(noreplace) %{_sysconfdir}/modprobe.d/mlx4.conf
 %endif
@@ -595,7 +588,6 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %config(noreplace) %{_sysconfdir}/udev/rules.d/70-persistent-ipoib.rules
 %{_unitdir}/rdma-hw.target
 %{_unitdir}/rdma-load-modules@.service
-%{_unitdir}/rdma-sriov.service
 %dir %{dracutlibdir}
 %dir %{dracutlibdir}/modules.d
 %dir %{dracutlibdir}/modules.d/05rdma
@@ -606,9 +598,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_udevrulesdir}/90-rdma-hw-modules.rules
 %{_udevrulesdir}/90-rdma-ulp-modules.rules
 %{_udevrulesdir}/90-rdma-umad.rules
-%{_udevrulesdir}/98-rdma-sriov.rules
 %{sysmodprobedir}/50-libmlx4.conf
-%{_libexecdir}/rdma-set-sriov-vf
 %{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
 %license COPYING.*

@@ -75,26 +75,29 @@ static inline int qelr_wq_is_full(struct qelr_qp_hwq_info *info)
 }
 
 int qelr_query_device(struct ibv_context *context,
-		      struct ibv_device_attr *attr)
+		      const struct ibv_query_device_ex_input *input,
+		      struct ibv_device_attr_ex *attr, size_t attr_size)
 {
-	struct ibv_query_device cmd;
+	struct ib_uverbs_ex_query_device_resp resp;
+	size_t resp_size = sizeof(resp);
 	uint64_t fw_ver;
 	unsigned int major, minor, revision, eng;
-	int status;
+	int ret;
 
-	bzero(attr, sizeof(*attr));
-	status = ibv_cmd_query_device(context, attr, &fw_ver, &cmd,
-				      sizeof(cmd));
+	ret = ibv_cmd_query_device_any(context, input, attr, attr_size, &resp,
+				       &resp_size);
+	if (ret)
+		return ret;
 
+	fw_ver = resp.base.fw_ver;
 	major = (fw_ver >> 24) & 0xff;
 	minor = (fw_ver >> 16) & 0xff;
 	revision = (fw_ver >> 8) & 0xff;
 	eng = fw_ver & 0xff;
 
-	snprintf(attr->fw_ver, sizeof(attr->fw_ver),
+	snprintf(attr->orig_attr.fw_ver, sizeof(attr->orig_attr.fw_ver),
 		 "%d.%d.%d.%d", major, minor, revision, eng);
-
-	return status;
+	return 0;
 }
 
 int qelr_query_port(struct ibv_context *context, uint8_t port,
@@ -231,7 +234,8 @@ struct ibv_cq *qelr_create_cq(struct ibv_context *context, int cqe,
 	if (!cqe || cqe > cxt->max_cqes) {
 		DP_ERR(cxt->dbg_fp,
 		       "create cq: failed. attempted to allocate %d cqes but valid range is 1...%d\n",
-		       cqe, cqe > cxt->max_cqes);
+		       cqe, cxt->max_cqes);
+		errno = EINVAL;
 		return NULL;
 	}
 
@@ -331,6 +335,16 @@ int qelr_destroy_cq(struct ibv_cq *ibv_cq)
 	return 0;
 }
 
+static struct qelr_srq *qelr_get_srq(struct qelr_devctx *cxt, uint32_t srq_id)
+{
+	if (unlikely(srq_id >= QELR_MAX_SRQ_ID)) {
+		DP_ERR(cxt->dbg_fp, "invalid srq_id %u\n", srq_id);
+		return NULL;
+	}
+
+	return cxt->srq_table[srq_id];
+}
+
 int qelr_query_srq(struct ibv_srq *ibv_srq, struct ibv_srq_attr *attr)
 {
 	struct ibv_query_srq cmd;
@@ -364,12 +378,16 @@ static void qelr_destroy_srq_buffers(struct ibv_srq *ibv_srq)
 
 int qelr_destroy_srq(struct ibv_srq *ibv_srq)
 {
+	struct qelr_devctx *cxt = get_qelr_ctx(ibv_srq->context);
 	struct qelr_srq *srq = get_qelr_srq(ibv_srq);
 	int ret;
 
 	ret = ibv_cmd_destroy_srq(ibv_srq);
 	if (ret)
 		return ret;
+
+	if (srq->is_xrc)
+		cxt->srq_table[srq->srq_id] = NULL;
 
 	qelr_destroy_srq_buffers(ibv_srq);
 	free(srq);
@@ -385,16 +403,23 @@ static void qelr_create_srq_configure_req(struct qelr_srq *srq,
 	req->prod_pair_addr = (uintptr_t)srq->hw_srq.virt_prod_pair_addr;
 }
 
-static int qelr_create_srq_buffers(struct qelr_devctx *cxt,
-					  struct qelr_srq *srq,
-					  struct ibv_srq_init_attr *attrs)
+static inline void
+qelr_create_srq_configure_req_ex(struct qelr_srq *srq,
+				 struct qelr_create_srq_ex *req)
 {
-	uint32_t max_wr, max_sges;
+	req->srq_addr = (uintptr_t)srq->hw_srq.chain.first_addr;
+	req->srq_len = srq->hw_srq.chain.size;
+	req->prod_pair_addr = (uintptr_t)srq->hw_srq.virt_prod_pair_addr;
+}
+
+static int qelr_create_srq_buffers(struct qelr_devctx *cxt,
+				   struct qelr_srq *srq, uint32_t max_wr)
+{
+	uint32_t max_sges;
 	int chain_size, prod_size;
 	void *addr;
 	int rc;
 
-	max_wr = attrs->attr.max_wr;
 	if (!max_wr)
 		return -EINVAL;
 
@@ -441,6 +466,7 @@ struct ibv_srq *qelr_create_srq(struct ibv_pd *pd,
 	struct qelr_devctx *cxt = get_qelr_ctx(pd->context);
 	struct qelr_create_srq req;
 	struct qelr_create_srq_resp resp;
+	struct ibv_srq *ibv_srq;
 	struct qelr_srq *srq;
 	int ret;
 
@@ -448,7 +474,9 @@ struct ibv_srq *qelr_create_srq(struct ibv_pd *pd,
 	if (!srq)
 		return NULL;
 
-	ret = qelr_create_srq_buffers(cxt, srq, init_attr);
+	ibv_srq = &srq->verbs_srq.srq;
+
+	ret = qelr_create_srq_buffers(cxt, srq, init_attr->attr.max_wr);
 	if (ret) {
 		free(srq);
 		return NULL;
@@ -456,15 +484,15 @@ struct ibv_srq *qelr_create_srq(struct ibv_pd *pd,
 
 	pthread_spin_init(&srq->lock, PTHREAD_PROCESS_PRIVATE);
 	qelr_create_srq_configure_req(srq, &req);
-	ret = ibv_cmd_create_srq(pd, &srq->ibv_srq, init_attr, &req.ibv_cmd,
+	ret = ibv_cmd_create_srq(pd, ibv_srq, init_attr, &req.ibv_cmd,
 				    sizeof(req), &resp.ibv_resp, sizeof(resp));
 	if (ret) {
-		qelr_destroy_srq_buffers(&srq->ibv_srq);
+		qelr_destroy_srq_buffers(ibv_srq);
 		free(srq);
 		return NULL;
 	}
 
-	return &srq->ibv_srq;
+	return ibv_srq;
 }
 
 static void qelr_free_rq(struct qelr_qp *qp)
@@ -487,16 +515,26 @@ static void qelr_chain_free_rq(struct qelr_qp *qp)
 	qelr_chain_free(&qp->rq.chain);
 }
 
+static inline bool qelr_qp_has_rq(struct qelr_qp *qp)
+{
+	return !!(qp->flags & QELR_QP_FLAG_RQ);
+}
+
+static inline bool qelr_qp_has_sq(struct qelr_qp *qp)
+{
+	return !!(qp->flags & QELR_QP_FLAG_SQ);
+}
+
 static inline int qelr_create_qp_buffers_sq(struct qelr_devctx *cxt,
 					    struct qelr_qp *qp,
-					    struct ibv_qp_init_attr *attrs)
+					    struct ibv_qp_init_attr_ex *attrx)
 {
 	uint32_t max_send_wr, max_send_sges, max_send_buf;
 	int chain_size;
 	int rc;
 
 	/* SQ */
-	max_send_wr = attrs->cap.max_send_wr;
+	max_send_wr = attrx->cap.max_send_wr;
 	max_send_wr = max_t(uint32_t, max_send_wr, 1);
 	max_send_wr = min_t(uint32_t, max_send_wr, cxt->max_send_wr);
 	max_send_sges = max_send_wr * cxt->sges_per_send_wr;
@@ -516,14 +554,14 @@ static inline int qelr_create_qp_buffers_sq(struct qelr_devctx *cxt,
 
 static inline int qelr_create_qp_buffers_rq(struct qelr_devctx *cxt,
 					    struct qelr_qp *qp,
-					    struct ibv_qp_init_attr *attrs)
+					    struct ibv_qp_init_attr_ex *attrx)
 {
 	uint32_t max_recv_wr, max_recv_sges, max_recv_buf;
 	int chain_size;
 	int rc;
 
 	/* RQ */
-	max_recv_wr = attrs->cap.max_recv_wr;
+	max_recv_wr = attrx->cap.max_recv_wr;
 	max_recv_wr = max_t(uint32_t, max_recv_wr, 1);
 	max_recv_wr = min_t(uint32_t, max_recv_wr, cxt->max_recv_wr);
 	max_recv_sges = max_recv_wr * cxt->sges_per_recv_wr;
@@ -543,20 +581,25 @@ static inline int qelr_create_qp_buffers_rq(struct qelr_devctx *cxt,
 
 static inline int qelr_create_qp_buffers(struct qelr_devctx *cxt,
 					 struct qelr_qp *qp,
-					 struct ibv_qp_init_attr *attrs)
+					 struct ibv_qp_init_attr_ex *attrx)
 {
 	int rc;
 
-	rc = qelr_create_qp_buffers_sq(cxt, qp, attrs);
-	if (rc)
-		return rc;
+	if (qelr_qp_has_sq(qp)) {
+		rc = qelr_create_qp_buffers_sq(cxt, qp, attrx);
+		if (rc)
+			return rc;
+	}
 
-	rc = qelr_create_qp_buffers_rq(cxt, qp, attrs);
-	if (rc) {
-		qelr_chain_free_sq(qp);
-		if (qp->sq.db_rec_map)
-			munmap(qp->sq.db_rec_map, cxt->kernel_page_size);
-		return rc;
+	if (qelr_qp_has_rq(qp)) {
+		rc = qelr_create_qp_buffers_rq(cxt, qp, attrx);
+		if (rc && qelr_qp_has_sq(qp)) {
+			qelr_chain_free_sq(qp);
+			if (qp->sq.db_rec_map)
+				munmap(qp->sq.db_rec_map,
+				       cxt->kernel_page_size);
+			return rc;
+		}
 	}
 
 	return 0;
@@ -564,7 +607,7 @@ static inline int qelr_create_qp_buffers(struct qelr_devctx *cxt,
 
 static inline int qelr_configure_qp_sq(struct qelr_devctx *cxt,
 				       struct qelr_qp *qp,
-				       struct ibv_qp_init_attr *attrs,
+				       struct ibv_qp_init_attr_ex *attrx,
 				       struct qelr_create_qp_resp *resp)
 {
 	qp->sq.icid = resp->sq_icid;
@@ -608,7 +651,6 @@ static inline int qelr_configure_qp_sq(struct qelr_devctx *cxt,
 
 static inline int qelr_configure_qp_rq(struct qelr_devctx *cxt,
 				       struct qelr_qp *qp,
-				       struct ibv_qp_init_attr *attrs,
 				       struct qelr_create_qp_resp *resp)
 {
 	/* RQ */
@@ -655,7 +697,7 @@ static inline int qelr_configure_qp_rq(struct qelr_devctx *cxt,
 }
 
 static inline int qelr_configure_qp(struct qelr_devctx *cxt, struct qelr_qp *qp,
-				    struct ibv_qp_init_attr *attrs,
+				    struct ibv_qp_init_attr_ex *attrx,
 				    struct qelr_create_qp_resp *resp)
 {
 	int rc;
@@ -664,31 +706,35 @@ static inline int qelr_configure_qp(struct qelr_devctx *cxt, struct qelr_qp *qp,
 	pthread_spin_init(&qp->q_lock, PTHREAD_PROCESS_PRIVATE);
 	qp->qp_id = resp->qp_id;
 	qp->state = QELR_QPS_RST;
-	qp->sq_sig_all = attrs->sq_sig_all;
+	qp->sq_sig_all = attrx->sq_sig_all;
 	qp->atomic_supported = resp->atomic_supported;
 	if (cxt->dpm_flags & QELR_DPM_FLAGS_EDPM_MODE)
 		qp->edpm_mode = 1;
 
-	rc = qelr_configure_qp_sq(cxt, qp, attrs, resp);
-	if (rc)
-		return rc;
-	rc = qelr_configure_qp_rq(cxt, qp, attrs, resp);
-	if (rc)
-		qelr_free_sq(qp);
+	if (qelr_qp_has_sq(qp)) {
+		rc = qelr_configure_qp_sq(cxt, qp, attrx, resp);
+		if (rc)
+			return rc;
+	}
+
+	if (qelr_qp_has_rq(qp)) {
+		rc = qelr_configure_qp_rq(cxt, qp, resp);
+		if (rc && qelr_qp_has_sq(qp))
+			qelr_free_sq(qp);
+	}
 
 	return rc;
 }
 
-static inline void qelr_print_qp_init_attr(
-		struct qelr_devctx *cxt,
-		struct ibv_qp_init_attr *attr)
+static inline void qelr_print_qp_init_attr(struct qelr_devctx *cxt,
+					   struct ibv_qp_init_attr_ex *attrx)
 {
 	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
 		   "create qp: send_cq=%p, recv_cq=%p, srq=%p, max_inline_data=%d, max_recv_sge=%d, max_recv_wr=%d, max_send_sge=%d, max_send_wr=%d, qp_type=%d, sq_sig_all=%d\n",
-		   attr->send_cq, attr->recv_cq, attr->srq,
-		   attr->cap.max_inline_data, attr->cap.max_recv_sge,
-		   attr->cap.max_recv_wr, attr->cap.max_send_sge,
-		   attr->cap.max_send_wr, attr->qp_type, attr->sq_sig_all);
+		   attrx->send_cq, attrx->recv_cq, attrx->srq,
+		   attrx->cap.max_inline_data, attrx->cap.max_recv_sge,
+		   attrx->cap.max_recv_wr, attrx->cap.max_send_sge,
+		   attrx->cap.max_send_wr, attrx->qp_type, attrx->sq_sig_all);
 }
 
 static inline void
@@ -714,63 +760,23 @@ qelr_create_qp_configure_req(struct qelr_qp *qp,
 	memset(req, 0, sizeof(*req));
 	req->qp_handle_hi = U64_HI(qp);
 	req->qp_handle_lo = U64_LO(qp);
-	qelr_create_qp_configure_sq_req(qp, req);
-	qelr_create_qp_configure_rq_req(qp, req);
+	if (qelr_qp_has_sq(qp))
+		qelr_create_qp_configure_sq_req(qp, req);
+	if (qelr_qp_has_rq(qp))
+		qelr_create_qp_configure_rq_req(qp, req);
 }
 
-struct ibv_qp *qelr_create_qp(struct ibv_pd *pd,
-			      struct ibv_qp_init_attr *attrs)
+static inline void qelr_basic_qp_config(struct qelr_qp *qp,
+					struct ibv_qp_init_attr_ex *attrx)
 {
-	struct qelr_devctx *cxt = get_qelr_ctx(pd->context);
-	struct qelr_create_qp_resp resp = {};
-	struct qelr_create_qp req;
-	struct qelr_qp *qp;
-	int rc;
+	if (attrx->srq)
+		qp->srq = get_qelr_srq(attrx->srq);
 
-	qelr_print_qp_init_attr(cxt, attrs);
+	if (attrx->qp_type == IBV_QPT_RC || attrx->qp_type == IBV_QPT_XRC_SEND)
+		qp->flags |= QELR_QP_FLAG_SQ;
 
-	qp = calloc(1, sizeof(*qp));
-	if (!qp)
-		return NULL;
-
-	if (attrs->srq)
-		qp->srq = get_qelr_srq(attrs->srq);
-
-	rc = qelr_create_qp_buffers(cxt, qp, attrs);
-	if (rc)
-		goto err0;
-
-	qelr_create_qp_configure_req(qp, &req);
-
-	rc = ibv_cmd_create_qp(pd, &qp->ibv_qp, attrs, &req.ibv_cmd,
-			       sizeof(req), &resp.ibv_resp, sizeof(resp));
-	if (rc) {
-		DP_ERR(cxt->dbg_fp,
-		       "create qp: failed on ibv_cmd_create_qp with %d\n", rc);
-		goto err1;
-	}
-
-	rc = qelr_configure_qp(cxt, qp, attrs, &resp);
-	if (rc)
-		goto err2;
-
-	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
-		   "create qp: successfully created %p. handle_hi=%x handle_lo=%x\n",
-		   qp, req.qp_handle_hi, req.qp_handle_lo);
-
-	return &qp->ibv_qp;
-
-err2:
-	rc = ibv_cmd_destroy_qp(&qp->ibv_qp);
-	if (rc)
-		DP_ERR(cxt->dbg_fp, "create qp: fatal fault. rc=%d\n", rc);
-err1:
-	qelr_chain_free_sq(qp);
-	qelr_chain_free_rq(qp);
-err0:
-	free(qp);
-
-	return NULL;
+	if (attrx->qp_type == IBV_QPT_RC && !qp->srq)
+		qp->flags |= QELR_QP_FLAG_RQ;
 }
 
 static void qelr_print_ah_attr(struct qelr_devctx *cxt, struct ibv_ah_attr *attr)
@@ -862,7 +868,7 @@ static int qelr_update_qp_state(struct qelr_qp *qp,
 	/* iWARP states are updated implicitely by driver and don't have a
 	 * real purpose in user-lib.
 	 */
-	if (IS_IWARP(qp->ibv_qp.context->device))
+	if (IS_IWARP(qp->ibv_qp->context->device))
 		return 0;
 
 	new_state = get_qelr_qp_state(new_ib_state);
@@ -894,7 +900,8 @@ static int qelr_update_qp_state(struct qelr_qp *qp,
 			/* Update doorbell (in case post_recv was done before
 			 * move to RTR)
 			 */
-			if (IS_ROCE(qp->ibv_qp.context->device)) {
+			if (IS_ROCE(qp->ibv_qp->context->device) &&
+				   (qelr_qp_has_rq(qp))) {
 				mmio_wc_start();
 				writel(qp->rq.db_data.raw, qp->rq.db);
 				mmio_flush_writes();
@@ -1531,6 +1538,28 @@ static inline int qelr_can_post_send(struct qelr_devctx *cxt,
 	return 0;
 }
 
+static void qelr_configure_xrc_srq(struct ibv_send_wr *wr,
+				   struct rdma_sq_common_wqe *wqe,
+				   struct qelr_dpm *dpm)
+{
+	struct rdma_sq_send_wqe_1st *xrc_wqe;
+
+	/* xrc_srq location is the same for all relevant wqes */
+	xrc_wqe = (struct rdma_sq_send_wqe_1st *)wqe;
+	xrc_wqe->xrc_srq =  htole32(wr->qp_type.xrc.remote_srqn);
+
+	if (dpm->is_edpm) {
+		struct qelr_xrceth *xrceth;
+
+		xrceth = (struct qelr_xrceth *)
+			 &dpm->payload[dpm->payload_offset];
+		xrceth->xrc_srq = htobe32(wr->qp_type.xrc.remote_srqn);
+		dpm->payload_offset += sizeof(*xrceth);
+		dpm->payload_size += sizeof(*xrceth);
+		dpm->rdma_ext = (struct qelr_rdma_ext *)&dpm->payload_offset;
+	}
+}
+
 static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 			    struct ibv_send_wr *wr, int data_size,
 			    int *normal_db_required)
@@ -1568,6 +1597,8 @@ static int __qelr_post_send(struct qelr_devctx *cxt, struct qelr_qp *qp,
 	wqe->prev_wqe_size = qp->prev_wqe_size;
 
 	qp->wqe_wr_id[qp->sq.prod].opcode = qelr_ibv_to_wc_opcode(wr->opcode);
+	if (get_ibv_qp(qp)->qp_type == IBV_QPT_XRC_SEND)
+		qelr_configure_xrc_srq(wr, wqe, &dpm);
 
 	switch (wr->opcode) {
 	case IBV_WR_SEND_WITH_IMM:
@@ -2043,7 +2074,7 @@ static int process_req(struct qelr_qp *qp, struct qelr_cq *cq, int num_entries,
 		       struct ibv_wc *wc, uint16_t hw_cons,
 		       enum ibv_wc_status status, int force)
 {
-	struct qelr_devctx *cxt = get_qelr_ctx(qp->ibv_qp.context);
+	struct qelr_devctx *cxt = get_qelr_ctx(qp->ibv_qp->context);
 	uint16_t cnt = 0;
 
 	while (num_entries && qp->sq.wqe_cons != hw_cons) {
@@ -2099,7 +2130,7 @@ static int qelr_poll_cq_req(struct qelr_qp *qp, struct qelr_cq *cq,
 			    int num_entries, struct ibv_wc *wc,
 			    struct rdma_cqe_requester *req)
 {
-	struct qelr_devctx *cxt = get_qelr_ctx(qp->ibv_qp.context);
+	struct qelr_devctx *cxt = get_qelr_ctx(qp->ibv_qp->context);
 	uint16_t sq_cons = le16toh(req->sq_cons);
 	int cnt = 0;
 
@@ -2201,11 +2232,11 @@ static int qelr_poll_cq_req(struct qelr_qp *qp, struct qelr_cq *cq,
 	return cnt;
 }
 
-static void __process_resp_one(struct qelr_qp *qp, struct qelr_cq *cq,
+static void __process_resp_one(struct qelr_devctx *cxt, struct qelr_cq *cq,
 			       struct ibv_wc *wc,
-			       struct rdma_cqe_responder *resp, uint64_t wr_id)
+			       struct rdma_cqe_responder *resp, uint64_t wr_id,
+			       uint32_t qp_id)
 {
-	struct qelr_devctx *cxt = get_qelr_ctx(qp->ibv_qp.context);
 	enum ibv_wc_status wc_status = IBV_WC_SUCCESS;
 	uint8_t flags;
 
@@ -2234,6 +2265,9 @@ static void __process_resp_one(struct qelr_qp *qp, struct qelr_cq *cq,
 	case RDMA_CQE_RESP_STS_OK:
 		wc_status = IBV_WC_SUCCESS;
 		wc->byte_len = le32toh(resp->length);
+		if (GET_FIELD(resp->flags, RDMA_CQE_REQUESTER_TYPE) ==
+			      RDMA_CQE_TYPE_RESPONDER_XRC_SRQ)
+			wc->src_qp = le16toh(resp->rq_cons_or_srq_id);
 
 		flags = resp->flags & QELR_RESP_RDMA_IMM;
 
@@ -2266,14 +2300,14 @@ static void __process_resp_one(struct qelr_qp *qp, struct qelr_cq *cq,
 
 	/* fill WC */
 	wc->status = wc_status;
-	wc->qp_num = qp->qp_id;
+	wc->qp_num = qp_id;
 }
 
-static int process_resp_one_srq(struct qelr_qp *qp, struct qelr_cq *cq,
+static int process_resp_one_srq(struct qelr_srq *srq, struct qelr_cq *cq,
 				struct ibv_wc *wc,
-				struct rdma_cqe_responder *resp)
+				struct rdma_cqe_responder *resp, uint32_t qp_id)
 {
-	struct qelr_srq_hwq_info *hw_srq = &qp->srq->hw_srq;
+	struct qelr_srq_hwq_info *hw_srq = &srq->hw_srq;
 	uint64_t wr_id;
 
 	wr_id = (((uint64_t)(le32toh(resp->srq_wr_id.hi))) << 32) +
@@ -2282,10 +2316,11 @@ static int process_resp_one_srq(struct qelr_qp *qp, struct qelr_cq *cq,
 	if (resp->status == RDMA_CQE_RESP_STS_WORK_REQUEST_FLUSHED_ERR) {
 		wc->byte_len = 0;
 		wc->status = IBV_WC_WR_FLUSH_ERR;
-		wc->qp_num = qp->qp_id;
+		wc->qp_num = qp_id;
 		wc->wr_id = wr_id;
 	} else {
-		__process_resp_one(qp, cq, wc, resp, wr_id);
+		__process_resp_one(get_qelr_ctx(srq->verbs_srq.srq.context),
+				   cq, wc, resp, wr_id, qp_id);
 	}
 
 	hw_srq->wr_cons_cnt++;
@@ -2298,7 +2333,8 @@ static int process_resp_one(struct qelr_qp *qp, struct qelr_cq *cq,
 {
 	uint64_t wr_id = qp->rqe_wr_id[qp->rq.cons].wr_id;
 
-	__process_resp_one(qp, cq, wc, resp, wr_id);
+	__process_resp_one(get_qelr_ctx(qp->ibv_qp->context), cq, wc, resp,
+			   wr_id, qp->qp_id);
 
 	while (qp->rqe_wr_id[qp->rq.cons].wqe_size--)
 		qelr_chain_consume(&qp->rq.chain);
@@ -2358,13 +2394,14 @@ static void try_consume_resp_cqe(struct qelr_cq *cq, struct qelr_qp *qp,
 	}
 }
 
-static int qelr_poll_cq_resp_srq(struct qelr_qp *qp, struct qelr_cq *cq,
+static int qelr_poll_cq_resp_srq(struct qelr_srq *srq, struct qelr_cq *cq,
 				 int num_entries, struct ibv_wc *wc,
-				 struct rdma_cqe_responder *resp, int *update)
+				 struct rdma_cqe_responder *resp, int *update,
+				 uint32_t qp_id)
 {
 	int cnt;
 
-	cnt = process_resp_one_srq(qp, cq, wc, resp);
+	cnt = process_resp_one_srq(srq, cq, wc, resp, qp_id);
 	consume_cqe(cq);
 	*update |= 1;
 
@@ -2375,7 +2412,7 @@ static int qelr_poll_cq_resp(struct qelr_qp *qp, struct qelr_cq *cq,
 			     int num_entries, struct ibv_wc *wc,
 			     struct rdma_cqe_responder *resp, int *update)
 {
-	uint16_t rq_cons = le16toh(resp->rq_cons);
+	uint16_t rq_cons = le16toh(resp->rq_cons_or_srq_id);
 	int cnt;
 
 	if (resp->status == RDMA_CQE_RESP_STS_WORK_REQUEST_FLUSHED_ERR) {
@@ -2402,13 +2439,35 @@ static void doorbell_cq(struct qelr_cq *cq, uint32_t cons, uint8_t flags)
 	mmio_flush_writes();
 }
 
+static struct qelr_srq *qelr_get_xrc_srq_from_cqe(struct qelr_cq *cq,
+						  union rdma_cqe *cqe,
+						  struct qelr_qp *qp)
+{
+	struct qelr_devctx *cxt;
+	struct qelr_srq *srq;
+	uint16_t srq_id;
+
+	srq_id = le16toh(cqe->resp.rq_cons_or_srq_id);
+	cxt = get_qelr_ctx(cq->ibv_cq.context);
+	srq = qelr_get_srq(cxt, srq_id);
+	if (unlikely(!srq)) {
+		DP_ERR(cxt->dbg_fp, "srq handle is null\n");
+		return NULL;
+	}
+
+	return srq;
+}
+
 int qelr_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
 {
 	struct qelr_cq *cq = get_qelr_cq(ibcq);
 	int done = 0;
 	union rdma_cqe *cqe = get_cqe(cq);
+	struct qelr_srq *srq;
+	struct regpair *qph;
 	int update = 0;
 	uint32_t db_cons;
+	uint32_t qp_id;
 
 	while (num_entries && is_valid_cqe(cq, cqe)) {
 		int cnt = 0;
@@ -2418,7 +2477,8 @@ int qelr_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
 		udma_from_device_barrier();
 
 		qp = cqe_get_qp(cqe);
-		if (!qp) {
+		if (!qp &&
+		    cqe_get_type(cqe) != RDMA_CQE_TYPE_RESPONDER_XRC_SRQ) {
 			DP_ERR(stderr,
 			       "Error: CQE QP pointer is NULL. CQE=%p\n", cqe);
 			break;
@@ -2434,9 +2494,23 @@ int qelr_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
 			cnt = qelr_poll_cq_resp(qp, cq, num_entries, wc,
 						&cqe->resp, &update);
 			break;
+		case RDMA_CQE_TYPE_RESPONDER_XRC_SRQ:
+			qph = &cqe->req.qp_handle;
+			srq = qelr_get_xrc_srq_from_cqe(cq, cqe, qp);
+			if (unlikely(!srq)) {
+				consume_cqe(cq);
+				cqe = get_cqe(cq);
+				update |= 1;
+				continue;
+			}
+			qp_id = le32toh(qph->lo);
+			cnt = qelr_poll_cq_resp_srq(srq, cq, num_entries, wc,
+						    &cqe->resp, &update, qp_id);
+			break;
 		case RDMA_CQE_TYPE_RESPONDER_SRQ:
-			cnt = qelr_poll_cq_resp_srq(qp, cq, num_entries, wc,
-						    &cqe->resp, &update);
+			cnt = qelr_poll_cq_resp_srq(qp->srq, cq, num_entries,
+						    wc, &cqe->resp, &update,
+						    qp->qp_id);
 			break;
 		case RDMA_CQE_TYPE_INVALID:
 		default:
@@ -2517,4 +2591,209 @@ void qelr_async_event(struct ibv_context *context,
 
 	fprintf(stderr, "qelr_async_event not implemented yet cq=%p qp=%p\n",
 		cq, qp);
+}
+
+struct ibv_xrcd *qelr_open_xrcd(struct ibv_context *context,
+				struct ibv_xrcd_init_attr *init_attr)
+{
+	struct qelr_devctx *cxt = get_qelr_ctx(context);
+	struct ib_uverbs_open_xrcd_resp resp;
+	struct ibv_open_xrcd cmd;
+	struct verbs_xrcd *xrcd;
+	int rc;
+
+	xrcd = calloc(1, sizeof(*xrcd));
+	if (!xrcd)
+		return NULL;
+
+	rc = ibv_cmd_open_xrcd(context, xrcd, sizeof(*xrcd), init_attr, &cmd,
+			       sizeof(cmd), &resp, sizeof(resp));
+	if (rc) {
+		DP_ERR(cxt->dbg_fp, "open xrcd: failed with rc=%d.\n", rc);
+		free(xrcd);
+		return NULL;
+	}
+
+	return &xrcd->xrcd;
+}
+
+int qelr_close_xrcd(struct ibv_xrcd *ibxrcd)
+{
+	struct verbs_xrcd *xrcd = container_of(ibxrcd, struct verbs_xrcd, xrcd);
+	struct qelr_devctx *cxt = get_qelr_ctx(ibxrcd->context);
+	int rc;
+
+	rc = ibv_cmd_close_xrcd(xrcd);
+	if (rc) {
+		DP_ERR(cxt->dbg_fp, "close xrcd: failed with rc=%d.\n", rc);
+		free(xrcd);
+	}
+
+	return rc;
+}
+
+static struct ibv_srq *
+qelr_create_xrc_srq(struct ibv_context *context,
+		    struct ibv_srq_init_attr_ex *init_attr)
+{
+	struct qelr_devctx *cxt = get_qelr_ctx(context);
+	struct qelr_create_srq_ex req;
+	struct qelr_create_srq_resp resp;
+	struct ibv_srq *ibv_srq;
+	struct qelr_srq *srq;
+	int rc = 0;
+
+	srq = calloc(1, sizeof(*srq));
+	if (!srq)
+		goto err0;
+	ibv_srq = &srq->verbs_srq.srq;
+
+	rc = qelr_create_srq_buffers(cxt, srq, init_attr->attr.max_wr);
+	if (rc)
+		goto err1;
+
+	pthread_spin_init(&srq->lock, PTHREAD_PROCESS_PRIVATE);
+	qelr_create_srq_configure_req_ex(srq, &req);
+
+	rc = ibv_cmd_create_srq_ex(context,
+				   &srq->verbs_srq,
+				   init_attr, &req.ibv_cmd, sizeof(req),
+				   &resp.ibv_resp, sizeof(resp));
+	if (rc)
+		goto err1;
+
+	if (unlikely(resp.srq_id >= QELR_MAX_SRQ_ID)) {
+		rc = -EINVAL;
+		goto err1;
+	}
+
+	srq->srq_id = resp.srq_id;
+	srq->is_xrc = 1;
+
+	cxt->srq_table[resp.srq_id] = srq;
+
+	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_SRQ,
+		   "create srq_ex: successfully created %p.\n", srq);
+
+	return ibv_srq;
+
+err1:
+	qelr_destroy_srq_buffers(ibv_srq);
+	free(srq);
+err0:
+	DP_ERR(cxt->dbg_fp,
+	       "create srq: failed to create. rc=%d\n", rc);
+	return NULL;
+}
+
+int qelr_get_srq_num(struct ibv_srq *ibv_srq, uint32_t *srq_num)
+{
+	struct qelr_srq *srq = get_qelr_srq(ibv_srq);
+
+	*srq_num = srq->srq_id;
+
+	return 0;
+}
+
+struct ibv_srq *qelr_create_srq_ex(struct ibv_context *context,
+				   struct ibv_srq_init_attr_ex *init_attr)
+{
+	struct qelr_devctx *cxt = get_qelr_ctx(context);
+
+	if (init_attr->srq_type == IBV_SRQT_BASIC)
+		return qelr_create_srq(init_attr->pd,
+				       (struct ibv_srq_init_attr *)init_attr);
+
+	if (init_attr->srq_type == IBV_SRQT_XRC)
+		return qelr_create_xrc_srq(context, init_attr);
+
+	DP_ERR(cxt->dbg_fp, "failed to create srq type %d\n",
+	       init_attr->srq_type);
+
+	return NULL;
+}
+
+static struct ibv_qp *create_qp(struct ibv_context *context,
+				 struct ibv_qp_init_attr_ex *attrx)
+{
+	struct qelr_devctx *cxt = get_qelr_ctx(context);
+	struct qelr_create_qp_resp resp = {};
+	struct qelr_create_qp req;
+	struct ibv_qp *ibqp;
+	struct qelr_qp *qp;
+	int rc;
+
+	qelr_print_qp_init_attr(cxt, attrx);
+
+	qp = calloc(1, sizeof(*qp));
+	if (!qp)
+		return NULL;
+
+	qelr_basic_qp_config(qp, attrx);
+
+	rc = qelr_create_qp_buffers(cxt, qp, attrx);
+	if (rc)
+		goto err0;
+
+	qelr_create_qp_configure_req(qp, &req);
+
+	rc = ibv_cmd_create_qp_ex(context, &qp->verbs_qp,
+				  attrx, &req.ibv_cmd, sizeof(req),
+				  &resp.ibv_resp, sizeof(resp));
+	if (rc) {
+		DP_ERR(cxt->dbg_fp,
+		       "create qp: failed on ibv_cmd_create_qp with %d\n", rc);
+		goto err1;
+	}
+
+	rc = qelr_configure_qp(cxt, qp, attrx, &resp);
+	if (rc)
+		goto err2;
+
+	DP_VERBOSE(cxt->dbg_fp, QELR_MSG_QP,
+		   "create qp: successfully created %p. handle_hi=%x handle_lo=%x\n",
+		   qp, req.qp_handle_hi, req.qp_handle_lo);
+
+	ibqp = (struct ibv_qp *)&qp->verbs_qp;
+	qp->ibv_qp = ibqp;
+
+	return get_ibv_qp(qp);
+
+err2:
+	rc = ibv_cmd_destroy_qp(get_ibv_qp(qp));
+	if (rc)
+		DP_ERR(cxt->dbg_fp, "create qp: fatal fault. rc=%d\n", rc);
+err1:
+	if (qelr_qp_has_sq(qp))
+		qelr_chain_free(&qp->sq.chain);
+
+	if (qelr_qp_has_rq(qp))
+		qelr_chain_free(&qp->rq.chain);
+err0:
+	free(qp);
+
+	return NULL;
+}
+
+struct ibv_qp *qelr_create_qp_ex(struct ibv_context *context,
+				 struct ibv_qp_init_attr_ex *attr)
+{
+	return create_qp(context, attr);
+
+}
+
+struct ibv_qp *qelr_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr)
+{
+	struct ibv_qp *qp;
+	struct ibv_qp_init_attr_ex attrx = {};
+
+	memcpy(&attrx, attr, sizeof(*attr));
+	attrx.comp_mask = IBV_QP_INIT_ATTR_PD;
+	attrx.pd = pd;
+
+	qp = create_qp(pd->context, &attrx);
+	if (qp)
+		memcpy(attr, &attrx, sizeof(*attr));
+
+	return qp;
 }

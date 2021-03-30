@@ -38,21 +38,26 @@ def create_qp_ex(agr_obj, qp_type, send_flags):
         if ex.error_code == errno.EOPNOTSUPP:
             raise unittest.SkipTest('Extended QP is not supported on this device')
         raise ex
-    return qp
+    if qp_type != e.IBV_QPT_XRC_SEND:
+        agr_obj.qps.append(qp)
+        agr_obj.qps_num.append(qp.qp_num)
+        agr_obj.psns.append(random.getrandbits(24))
+    else:
+        return qp
 
 
 class QpExUDSend(UDResources):
-    def create_qp(self):
-        self.qp = create_qp_ex(self, e.IBV_QPT_UD, e.IBV_QP_EX_WITH_SEND)
+    def create_qps(self):
+        create_qp_ex(self, e.IBV_QPT_UD, e.IBV_QP_EX_WITH_SEND)
 
 
 class QpExRCSend(RCResources):
-    def create_qp(self):
-        self.qp = create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_SEND)
+    def create_qps(self):
+        create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_SEND)
 
 
 class QpExXRCSend(XRCResources):
-    def create_qp(self):
+    def create_qps(self):
         qp_attr = QPAttr(port_num=self.ib_port)
         qp_attr.pkey_index = 0
         for _ in range(self.qp_count):
@@ -71,17 +76,17 @@ class QpExXRCSend(XRCResources):
 
 
 class QpExUDSendImm(UDResources):
-    def create_qp(self):
-        self.qp = create_qp_ex(self, e.IBV_QPT_UD, e.IBV_QP_EX_WITH_SEND_WITH_IMM)
+    def create_qps(self):
+        create_qp_ex(self, e.IBV_QPT_UD, e.IBV_QP_EX_WITH_SEND_WITH_IMM)
 
 
 class QpExRCSendImm(RCResources):
-    def create_qp(self):
-        self.qp = create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_SEND_WITH_IMM)
+    def create_qps(self):
+        create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_SEND_WITH_IMM)
 
 
 class QpExXRCSendImm(XRCResources):
-    def create_qp(self):
+    def create_qps(self):
         qp_attr = QPAttr(port_num=self.ib_port)
         qp_attr.pkey_index = 0
         for _ in range(self.qp_count):
@@ -101,16 +106,16 @@ class QpExXRCSendImm(XRCResources):
 
 
 class QpExRCRDMAWrite(RCResources):
-    def create_qp(self):
-        self.qp = create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_RDMA_WRITE)
+    def create_qps(self):
+        create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_RDMA_WRITE)
 
     def create_mr(self):
         self.mr = u.create_custom_mr(self, e.IBV_ACCESS_REMOTE_WRITE)
 
 
 class QpExRCRDMAWriteImm(RCResources):
-    def create_qp(self):
-        self.qp = create_qp_ex(self, e.IBV_QPT_RC,
+    def create_qps(self):
+        create_qp_ex(self, e.IBV_QPT_RC,
                                e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM)
 
     def create_mr(self):
@@ -118,30 +123,30 @@ class QpExRCRDMAWriteImm(RCResources):
 
 
 class QpExRCRDMARead(RCResources):
-    def create_qp(self):
-        self.qp = create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_RDMA_READ)
+    def create_qps(self):
+        create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_RDMA_READ)
 
     def create_mr(self):
         self.mr = u.create_custom_mr(self, e.IBV_ACCESS_REMOTE_READ)
 
 
 class QpExRCAtomicCmpSwp(RCResources):
-    def create_qp(self):
-        self.qp = create_qp_ex(self, e.IBV_QPT_RC,
+    def create_qps(self):
+        create_qp_ex(self, e.IBV_QPT_RC,
                                e.IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP)
         self.mr = u.create_custom_mr(self, e.IBV_ACCESS_REMOTE_ATOMIC)
 
 
 class QpExRCAtomicFetchAdd(RCResources):
-    def create_qp(self):
-        self.qp = create_qp_ex(self, e.IBV_QPT_RC,
+    def create_qps(self):
+        create_qp_ex(self, e.IBV_QPT_RC,
                                e.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD)
         self.mr = u.create_custom_mr(self, e.IBV_ACCESS_REMOTE_ATOMIC)
 
 
 class QpExRCBindMw(RCResources):
-    def create_qp(self):
-        self.qp = create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_BIND_MW)
+    def create_qps(self):
+        create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_BIND_MW)
 
     def create_mr(self):
         self.mr = u.create_custom_mr(self, e.IBV_ACCESS_REMOTE_WRITE)
@@ -172,12 +177,8 @@ class QpExTestCase(RDMATestCase):
         except PyverbsRDMAError as ex:
            if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Create player with {} is not supported'.format(qp_type))
-        if 'xrc' in qp_type:
-            client.pre_run(server.psns, server.qps_num)
-            server.pre_run(client.psns, client.qps_num)
-        else:
-            client.pre_run(server.psn, server.qpn)
-            server.pre_run(client.psn, client.qpn)
+        client.pre_run(server.psns, server.qps_num)
+        server.pre_run(client.psns, client.qps_num)
         return client, server
 
     def test_qp_ex_ud_send(self):

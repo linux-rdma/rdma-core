@@ -157,7 +157,7 @@ static void hns_roce_handle_error_cqe(struct hns_roce_cqe *cqe,
 
 static struct hns_roce_cqe *get_cqe(struct hns_roce_cq *cq, int entry)
 {
-	return cq->buf.buf + entry * HNS_ROCE_CQE_ENTRY_SIZE;
+	return cq->buf.buf + entry * HNS_ROCE_CQE_SIZE;
 }
 
 static void *get_sw_cqe(struct hns_roce_cq *cq, int n)
@@ -401,8 +401,7 @@ static int hns_roce_u_v1_poll_cq(struct ibv_cq *ibvcq, int ne,
 
 	if (npolled) {
 		if (dev->hw_version == HNS_ROCE_HW_VER1) {
-			*cq->set_ci_db = (cq->cons_index &
-					 ((cq->cq_depth << 1) - 1));
+			*cq->db = (cq->cons_index & ((cq->cq_depth << 1) - 1));
 			mmio_ordered_writes_hack();
 		}
 

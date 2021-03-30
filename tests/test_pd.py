@@ -17,34 +17,30 @@ class PDTest(PyverbsAPITestCase):
         """
         Test ibv_alloc_pd()
         """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx):
-                pass
+        with PD(self.ctx):
+            pass
 
     def test_dealloc_pd(self):
         """
         Test ibv_dealloc_pd()
         """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                pd.close()
+        with PD(self.ctx) as pd:
+            pd.close()
 
     def test_multiple_pd_creation(self):
         """
         Test multiple creations and destructions of a PD object
         """
-        for ctx, attr, attr_ex in self.devices:
-            for i in range(random.randint(1, 200)):
-                with PD(ctx) as pd:
-                    pd.close()
+        for i in range(random.randint(1, 200)):
+            with PD(self.ctx) as pd:
+                pd.close()
 
     def test_destroy_pd_twice(self):
         """
         Test bad flow cases in destruction of a PD object
         """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                # Pyverbs supports multiple destruction of objects, we are
-                # not expecting an exception here.
-                pd.close()
-                pd.close()
+        with PD(self.ctx) as pd:
+            # Pyverbs supports multiple destruction of objects, we are
+            # not expecting an exception here.
+            pd.close()
+            pd.close()

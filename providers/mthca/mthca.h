@@ -273,7 +273,8 @@ struct mthca_db_table *mthca_alloc_db_tab(int uarc_size);
 void mthca_free_db_tab(struct mthca_db_table *db_tab);
 
 int mthca_query_device(struct ibv_context *context,
-		       struct ibv_device_attr *attr);
+		       const struct ibv_query_device_ex_input *input,
+		       struct ibv_device_attr_ex *attr, size_t attr_size);
 int mthca_query_port(struct ibv_context *context, uint8_t port,
 		     struct ibv_port_attr *attr);
 

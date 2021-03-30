@@ -47,24 +47,28 @@ bool is_64b_cqe;
 
 #define MASKED(x) (void *)((unsigned long)(x) & c4iw_page_mask)
 
-int c4iw_query_device(struct ibv_context *context, struct ibv_device_attr *attr)
+int c4iw_query_device(struct ibv_context *context,
+		      const struct ibv_query_device_ex_input *input,
+		      struct ibv_device_attr_ex *attr, size_t attr_size)
 {
-	struct ibv_query_device cmd;
+	struct ib_uverbs_ex_query_device_resp resp;
+	size_t resp_size = sizeof(resp);
 	uint64_t raw_fw_ver;
 	u8 major, minor, sub_minor, build;
 	int ret;
 
-	ret = ibv_cmd_query_device(context, attr, &raw_fw_ver, &cmd,
-				   sizeof cmd);
+	ret = ibv_cmd_query_device_any(context, input, attr, attr_size, &resp,
+				       &resp_size);
 	if (ret)
 		return ret;
 
+	raw_fw_ver = resp.base.fw_ver;
 	major = (raw_fw_ver >> 24) & 0xff;
 	minor = (raw_fw_ver >> 16) & 0xff;
 	sub_minor = (raw_fw_ver >> 8) & 0xff;
 	build = raw_fw_ver & 0xff;
 
-	snprintf(attr->fw_ver, sizeof attr->fw_ver,
+	snprintf(attr->orig_attr.fw_ver, sizeof(attr->orig_attr.fw_ver),
 		 "%d.%d.%d.%d", major, minor, sub_minor, build);
 
 	return 0;
@@ -170,6 +174,11 @@ struct ibv_cq *c4iw_create_cq(struct ibv_context *context, int cqe,
 	struct c4iw_cq *chp;
 	struct c4iw_dev *dev = to_c4iw_dev(context->device);
 	int ret;
+
+	if (!cqe || cqe > T4_MAX_CQ_DEPTH) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	chp = calloc(1, sizeof *chp);
 	if (!chp) {

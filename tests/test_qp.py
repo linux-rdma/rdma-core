@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
+# Copyright (c) 2020 Kamal Heib <kamalheib1@gmail.com>, All rights reserved.  See COPYING file
+
 """
 Test module for pyverbs' qp module.
 """
@@ -11,6 +13,7 @@ import os
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.qp import QPInitAttr, QPAttr, QP
 from tests.base import PyverbsAPITestCase
+import pyverbs.utils as pu
 import pyverbs.enums as e
 from pyverbs.pd import PD
 from pyverbs.cq import CQ
@@ -22,337 +25,249 @@ class QPTest(PyverbsAPITestCase):
     Test various functionalities of the QP class.
     """
 
-    def test_create_qp_no_attr_connected(self):
+    def create_qp(self, creator, qp_init_attr, is_ex, with_attr, port_num):
         """
-        Test QP creation via ibv_create_qp without a QPAttr object proivded.
-        Checked QP types are RC and UC.
+        Auxiliary function to create QP object.
         """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                with CQ(ctx, 100, None, None, 0) as cq:
-                    qia = get_qp_init_attr(cq, attr)
-                    qia.qp_type = e.IBV_QPT_RC
-                    try:
-                        with QP(pd, qia) as qp:
-                            assert qp.qp_state == e.IBV_QPS_RESET, 'RC QP should have been in RESET'
-                    except PyverbsRDMAError as ex:
-                        if ex.error_code == errno.EOPNOTSUPP:
-                            raise unittest.SkipTest('Create QP with RC attrs is not supported')
-                        raise ex
-                    qia.qp_type = e.IBV_QPT_UC
-                    try:
-                        with QP(pd, qia) as qp:
-                            assert qp.qp_state == e.IBV_QPS_RESET, 'UC QP should have been in RESET'
-                    except PyverbsRDMAError as ex:
-                        if ex.error_code == errno.EOPNOTSUPP:
-                            raise unittest.SkipTest('Create QP with UC attrs is not supported')
-                        raise ex
+        try:
+            qp_attr = (None, QPAttr(port_num=port_num))[with_attr]
+            return QP(creator, qp_init_attr, qp_attr)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                with_str = ('without', 'with')[with_attr] + ('', ' extended')[is_ex]
+                qp_type_str = pu.qp_type_to_str(qp_init_attr.qp_type)
+                raise unittest.SkipTest(f'Create {qp_type_str} QP {with_str} attrs is not supported')
+            raise ex
 
+    def create_qp_common_test(self, qp_type, qp_state, is_ex, with_attr):
+        """
+        Common function used by create QP tests.
+        """
+        with PD(self.ctx) as pd:
+            with CQ(self.ctx, 100, None, None, 0) as cq:
+                if qp_type == e.IBV_QPT_RAW_PACKET:
+                    if not (u.is_eth(self.ctx, self.ib_port) and u.is_root()):
+                        raise unittest.SkipTest('To Create RAW QP must be done by root on Ethernet link layer')
 
-    def test_create_qp_no_attr(self):
-        """
-        Test QP creation via ibv_create_qp without a QPAttr object proivded.
-        Checked QP types are Raw Packet and UD. Raw Packet is skipped for
-        non-root users / Infiniband link layer.
-        """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                with CQ(ctx, 100, None, None, 0) as cq:
-                    for i in range(1, attr.phys_port_cnt + 1):
-                        qia = get_qp_init_attr(cq, attr)
-                        qia.qp_type = e.IBV_QPT_UD
-                        with QP(pd, qia) as qp:
-                            assert qp.qp_state == e.IBV_QPS_RESET, 'UD QP should have been in RESET'
-                        if u.is_eth(ctx, i) and u.is_root():
-                            qia.qp_type = e.IBV_QPT_RAW_PACKET
-                            try:
-                                with QP(pd, qia) as qp:
-                                    assert qp.qp_state == e.IBV_QPS_RESET, 'Raw Packet QP should have been in RESET'
-                            except PyverbsRDMAError as ex:
-                                if ex.error_code == errno.EOPNOTSUPP:
-                                    raise unittest.SkipTest("Create Raw Packet QP is not supported")
-                                raise ex
+                if is_ex:
+                    qia = get_qp_init_attr_ex(cq, pd, self.attr, self.attr_ex, qp_type)
+                    creator = self.ctx
+                else:
+                    qia = u.get_qp_init_attr(cq, self.attr)
+                    qia.qp_type = qp_type
+                    creator = pd
 
-    def test_create_qp_with_attr_connected(self):
-        """
-        Test QP creation via ibv_create_qp without a QPAttr object proivded.
-        Checked QP types are RC and UC.
-        """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                with CQ(ctx, 100, None, None, 0) as cq:
-                    qia = get_qp_init_attr(cq, attr)
-                    qia.qp_type = e.IBV_QPT_RC
-                    try:
-                        with QP(pd, qia, QPAttr()) as qp:
-                            assert qp.qp_state == e.IBV_QPS_INIT, 'RC QP should have been in INIT'
-                    except PyverbsRDMAError as ex:
-                        if ex.error_code == errno.EOPNOTSUPP:
-                            raise unittest.SkipTest('Create QP with RC is not supported')
-                        raise ex
-                    qia.qp_type = e.IBV_QPT_UC
-                    try:
-                        with QP(pd, qia, QPAttr()) as qp:
-                            assert qp.qp_state == e.IBV_QPS_INIT, 'UC QP should have been in INIT'
-                    except PyverbsRDMAError as ex:
-                        if ex.error_code == errno.EOPNOTSUPP:
-                            raise unittest.SkipTest('Create QP with UC attrs is not supported')
-                        raise ex
+                qp = self.create_qp(creator, qia, is_ex, with_attr, self.ib_port)
+                qp_type_str = pu.qp_type_to_str(qp_type)
+                qp_state_str = pu.qp_state_to_str(qp_state)
+                assert qp.qp_state == qp_state , f'{qp_type_str} QP should have been in {qp_state_str}'
 
-    def test_create_qp_with_attr(self):
+    def test_create_rc_qp_no_attr(self):
         """
-        Test QP creation via ibv_create_qp with a QPAttr object proivded.
-        Checked QP types are Raw Packet and UD. Raw Packet is skipped for
-        non-root users / Infiniband link layer.
+        Test RC QP creation via ibv_create_qp without a QPAttr object provided.
         """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                with CQ(ctx, 100, None, None, 0) as cq:
-                    for i in range(1, attr.phys_port_cnt + 1):
-                        qpts = [e.IBV_QPT_UD, e.IBV_QPT_RAW_PACKET] \
-                            if u.is_eth(ctx, i) else [e.IBV_QPT_UD]
-                        qia = get_qp_init_attr(cq, attr)
-                        qia.qp_type = e.IBV_QPT_UD
-                        with QP(pd, qia, QPAttr()) as qp:
-                            assert qp.qp_state == e.IBV_QPS_RTS, 'UD QP should have been in RTS'
-                        if u.is_eth(ctx, i) and u.is_root():
-                            qia.qp_type = e.IBV_QPT_RAW_PACKET
-                            try:
-                                with QP(pd, qia, QPAttr()) as qp:
-                                    assert qp.qp_state == e.IBV_QPS_RTS, 'Raw Packet QP should have been in RTS'
-                            except PyverbsRDMAError as ex:
-                                if ex.error_code == errno.EOPNOTSUPP:
-                                    raise unittest.SkipTest("Create Raw Packet QP is not supported")
-                                raise ex
+        self.create_qp_common_test(e.IBV_QPT_RC, e.IBV_QPS_RESET, False, False)
 
-    def test_create_qp_ex_no_attr_connected(self):
+    def test_create_uc_qp_no_attr(self):
         """
-        Test QP creation via ibv_create_qp_ex without a QPAttr object proivded.
-        Checked QP types are RC and UC.
+        Test UC QP creation via ibv_create_qp without a QPAttr object provided.
         """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                with CQ(ctx, 100, None, None, 0) as cq:
-                    qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex, e.IBV_QPT_RC)
-                    try:
-                        with QP(ctx, qia) as qp:
-                            assert qp.qp_state == e.IBV_QPS_RESET, 'RC QP should have been in RESET'
-                    except PyverbsRDMAError as ex:
-                        if ex.error_code == errno.EOPNOTSUPP:
-                            raise unittest.SkipTest('Create QP with extended attrs is not supported')
-                        raise ex
-                    qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex, e.IBV_QPT_UC)
-                    try:
-                        with QP(ctx, qia) as qp:
-                            assert qp.qp_state == e.IBV_QPS_RESET, 'UC QP should have been in RESET'
-                    except PyverbsRDMAError as ex:
-                        if ex.error_code == errno.EOPNOTSUPP:
-                            raise unittest.SkipTest('Create QP with extended attrs is not supported')
-                        raise ex
+        self.create_qp_common_test(e.IBV_QPT_UC, e.IBV_QPS_RESET, False, False)
 
-    def test_create_qp_ex_no_attr(self):
+    def test_create_ud_qp_no_attr(self):
         """
-        Test QP creation via ibv_create_qp_ex without a QPAttr object proivded.
-        Checked QP types are Raw Packet and UD. Raw Packet is skipped for
-        non-root users / Infiniband link layer.
+        Test UD QP creation via ibv_create_qp without a QPAttr object provided.
         """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                with CQ(ctx, 100, None, None, 0) as cq:
-                    for i in range(1, attr.phys_port_cnt + 1):
-                        qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
-                                                  e.IBV_QPT_UD)
-                        try:
-                            with QP(ctx, qia) as qp:
-                                assert qp.qp_state == e.IBV_QPS_RESET, 'UD QP should have been in RESET'
-                        except PyverbsRDMAError as ex:
-                            if ex.error_code == errno.EOPNOTSUPP:
-                                raise unittest.SkipTest('Create QP with extended attrs is not supported')
-                            raise ex
-                        if u.is_eth(ctx, i) and u.is_root():
-                            qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
-                                                      e.IBV_QPT_RAW_PACKET)
-                            try:
-                                with QP(ctx, qia) as qp:
-                                    assert qp.qp_state == e.IBV_QPS_RESET, 'Raw Packet QP should have been in RESET'
-                            except PyverbsRDMAError as ex:
-                                if ex.error_code == errno.EOPNOTSUPP:
-                                    raise unittest.SkipTest('Create QP with extended attrs is not supported')
-                                raise ex
+        self.create_qp_common_test(e.IBV_QPT_UD, e.IBV_QPS_RESET, False, False)
 
-    def test_create_qp_ex_with_attr_connected(self):
+    def test_create_raw_qp_no_attr(self):
         """
-        Test QP creation via ibv_create_qp_ex with a QPAttr object proivded.
-        Checked QP type are RC and UC.
+        Test RAW Packet QP creation via ibv_create_qp without a QPAttr object
+        provided.
+        Raw Packet is skipped for non-root users / Infiniband link layer.
         """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                with CQ(ctx, 100, None, None, 0) as cq:
-                    qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
-                                              e.IBV_QPT_RC)
-                    try:
-                        with QP(ctx, qia, QPAttr()) as qp:
-                            assert qp.qp_state == e.IBV_QPS_INIT, 'RC QP should have been in INIT'
-                    except PyverbsRDMAError as ex:
-                        if ex.error_code == errno.EOPNOTSUPP:
-                            raise unittest.SkipTest('Create QP with extended attrs is not supported')
-                        raise ex
-                    qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
-                                              e.IBV_QPT_UC)
-                    try:
-                        with QP(ctx, qia, QPAttr()) as qp:
-                            assert qp.qp_state == e.IBV_QPS_INIT, 'UC QP should have been in INIT'
-                    except PyverbsRDMAError as ex:
-                        if ex.error_code == errno.EOPNOTSUPP:
-                            raise unittest.SkipTest('Create QP with extended attrs is not supported')
-                        raise ex
+        self.create_qp_common_test(e.IBV_QPT_RAW_PACKET, e.IBV_QPS_RESET, False, False)
 
-    def test_create_qp_ex_with_attr(self):
+    def test_create_rc_qp_with_attr(self):
         """
-        Test QP creation via ibv_create_qp_ex with a QPAttr object proivded.
-        Checked QP types are Raw Packet and UD. Raw Packet is skipped for
-        non-root users / Infiniband link layer.
+        Test RC QP creation via ibv_create_qp with a QPAttr object provided.
         """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                with CQ(ctx, 100, None, None, 0) as cq:
-                    for i in range(1, attr.phys_port_cnt + 1):
-                        qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
-                                                  e.IBV_QPT_UD)
-                        try:
-                            with QP(ctx, qia, QPAttr()) as qp:
-                                assert qp.qp_state == e.IBV_QPS_RTS, 'UD QP should have been in RTS'
-                        except PyverbsRDMAError as ex:
-                            if ex.error_code == errno.EOPNOTSUPP:
-                                raise unittest.SkipTest('Create QP with extended attrs is not supported')
-                            raise ex
-                        if u.is_eth(ctx, i) and u.is_root():
-                            qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
-                                                      e.IBV_QPT_RAW_PACKET)
-                            try:
-                                with QP(ctx, qia, QPAttr()) as qp:
-                                    assert qp.qp_state == e.IBV_QPS_RTS, 'Raw Packet QP should have been in RTS'
-                            except PyverbsRDMAError as ex:
-                                if ex.error_code == errno.EOPNOTSUPP:
-                                    raise unittest.SkipTest('Create QP with extended attrs is not supported')
-                                raise ex
+        self.create_qp_common_test(e.IBV_QPT_RC, e.IBV_QPS_INIT, False, True)
 
-    def test_query_qp(self):
+    def test_create_uc_qp_with_attr(self):
         """
-        Queries a QP after creation. Verifies that its properties are as
+        Test UC QP creation via ibv_create_qp with a QPAttr object provided.
+        """
+        self.create_qp_common_test(e.IBV_QPT_UC, e.IBV_QPS_INIT, False, True)
+
+    def test_create_ud_qp_with_attr(self):
+        """
+        Test UD QP creation via ibv_create_qp with a QPAttr object provided.
+        """
+        self.create_qp_common_test(e.IBV_QPT_UD, e.IBV_QPS_RTS, False, True)
+
+    def test_create_raw_qp_with_attr(self):
+        """
+        Test RAW Packet QP creation via ibv_create_qp with a QPAttr object
+        provided.
+        Raw Packet is skipped for non-root users / Infiniband link layer.
+        """
+        self.create_qp_common_test(e.IBV_QPT_RAW_PACKET, e.IBV_QPS_RTS, False, True)
+
+    def test_create_rc_qp_ex_no_attr(self):
+        """
+        Test RC QP creation via ibv_create_qp_ex without a QPAttr object
+        provided.
+        """
+        self.create_qp_common_test(e.IBV_QPT_RC, e.IBV_QPS_RESET, True, False)
+
+    def test_create_uc_qp_ex_no_attr(self):
+        """
+        Test UC QP creation via ibv_create_qp_ex without a QPAttr object
+        provided.
+        """
+        self.create_qp_common_test(e.IBV_QPT_UC, e.IBV_QPS_RESET, True, False)
+
+    def test_create_ud_qp_ex_no_attr(self):
+        """
+        Test UD QP creation via ibv_create_qp_ex without a QPAttr object
+        provided.
+        """
+        self.create_qp_common_test(e.IBV_QPT_UD, e.IBV_QPS_RESET, True, False)
+
+    def test_create_raw_qp_ex_no_attr(self):
+        """
+        Test Raw Packet QP creation via ibv_create_qp_ex without a QPAttr object
+        provided.
+        Raw Packet is skipped for non-root users / Infiniband link layer.
+        """
+        self.create_qp_common_test(e.IBV_QPT_RAW_PACKET, e.IBV_QPS_RESET, True, False)
+
+    def test_create_rc_qp_ex_with_attr(self):
+        """
+        Test RC QP creation via ibv_create_qp_ex with a QPAttr object provided.
+        """
+        self.create_qp_common_test(e.IBV_QPT_RC, e.IBV_QPS_INIT, True, True)
+
+    def test_create_uc_qp_ex_with_attr(self):
+        """
+        Test UC QP creation via ibv_create_qp_ex with a QPAttr object provided.
+        """
+        self.create_qp_common_test(e.IBV_QPT_UC, e.IBV_QPS_INIT, True, True)
+
+    def test_create_ud_qp_ex_with_attr(self):
+        """
+        Test UD QP creation via ibv_create_qp_ex with a QPAttr object provided.
+        """
+        self.create_qp_common_test(e.IBV_QPT_UD, e.IBV_QPS_RTS, True, True)
+
+    def test_create_raw_qp_ex_with_attr(self):
+        """
+        Test Raw Packet QP creation via ibv_create_qp_ex with a QPAttr object
+        provided.
+        Raw Packet is skipped for non-root users / Infiniband link layer.
+        """
+        self.create_qp_common_test(e.IBV_QPT_RAW_PACKET, e.IBV_QPS_RTS, True, True)
+
+    def verify_qp_attrs(self, orig_cap, state, init_attr, attr):
+        self.assertEqual(state, attr.cur_qp_state)
+        self.assertLessEqual(orig_cap.max_send_wr, init_attr.cap.max_send_wr)
+        self.assertLessEqual(orig_cap.max_recv_wr, init_attr.cap.max_recv_wr)
+        self.assertLessEqual(orig_cap.max_send_sge, init_attr.cap.max_send_sge)
+        self.assertLessEqual(orig_cap.max_recv_sge, init_attr.cap.max_recv_sge)
+        self.assertLessEqual(orig_cap.max_inline_data, init_attr.cap.max_inline_data)
+
+    def query_qp_common_test(self, qp_type):
+        with PD(self.ctx) as pd:
+            with CQ(self.ctx, 100, None, None, 0) as cq:
+                if qp_type == e.IBV_QPT_RAW_PACKET:
+                    if not (u.is_eth(self.ctx, self.ib_port) and u.is_root()):
+                        raise unittest.SkipTest('To Create RAW QP must be done by root on Ethernet link layer')
+
+                # Legacy QP
+                qia = u.get_qp_init_attr(cq, self.attr)
+                qia.qp_type = qp_type
+                caps = qia.cap
+                qp = self.create_qp(pd, qia, False, False, self.ib_port)
+                qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE | e.IBV_QP_CAP)
+                self.verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr, qp_attr)
+
+                # Extended QP
+                qia = get_qp_init_attr_ex(cq, pd, self.attr, self.attr_ex, qp_type)
+                caps = qia.cap # Save them to verify values later
+                qp = self.create_qp(self.ctx, qia, True, False, self.ib_port)
+                qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE | e.IBV_QP_CAP)
+                self.verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr, qp_attr)
+
+    def test_query_rc_qp(self):
+        """
+        Queries an RC QP after creation. Verifies that its properties are as
         expected.
         """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                with CQ(ctx, 100, None, None, 0) as cq:
-                    for i in range(1, attr.phys_port_cnt + 1):
-                        qpts = get_qp_types(ctx, i)
-                        for qpt in qpts:
-                            # Extended QP
-                            qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex,
-                                                      qpt)
-                            caps = qia.cap  # Save them to verify values later
-                            try:
-                                qp = QP(ctx, qia)
-                            except PyverbsRDMAError as ex:
-                                if ex.error_code == errno.EOPNOTSUPP:
-                                    raise unittest.SkipTest('Create QP with extended attrs is not supported')
-                                raise ex
-                            qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE |
-                                                             e.IBV_QP_CAP)
-                            verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr,
-                                            qp_attr)
-                            # Legacy QP
-                            qia = get_qp_init_attr(cq, attr)
-                            qia.qp_type = qpt
-                            caps = qia.cap  # Save them to verify values later
-                            qp = QP(pd, qia)
-                            qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE |
-                                                             e.IBV_QP_CAP)
-                            verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr,
-                                            qp_attr)
+        self.query_qp_common_test(e.IBV_QPT_RC)
 
-    def test_modify_qp(self):
+    def test_query_uc_qp(self):
         """
-        Queries a QP after calling modify(). Verifies that its properties are
+        Queries an UC QP after creation. Verifies that its properties are as
+        expected.
+        """
+        self.query_qp_common_test(e.IBV_QPT_UC)
+
+    def test_query_ud_qp(self):
+        """
+        Queries an UD QP after creation. Verifies that its properties are as
+        expected.
+        """
+        self.query_qp_common_test(e.IBV_QPT_UD)
+
+    def test_query_raw_qp(self):
+        """
+        Queries an RAW Packet QP after creation. Verifies that its properties
+        are as expected.
+        Raw Packet is skipped for non-root users / Infiniband link layer.
+        """
+        self.query_qp_common_test(e.IBV_QPT_RAW_PACKET)
+
+    def test_modify_ud_qp(self):
+        """
+        Queries a UD QP after calling modify(). Verifies that its properties are
         as expected.
         """
-        for ctx, attr, attr_ex in self.devices:
-            with PD(ctx) as pd:
-                with CQ(ctx, 100, None, None, 0) as cq:
-                    # Extended QP
-                    qia = get_qp_init_attr_ex(cq, pd, attr, attr_ex, e.IBV_QPT_UD)
-                    try:
-                        qp = QP(ctx, qia)
-                    except PyverbsRDMAError as ex:
-                        if ex.error_code == errno.EOPNOTSUPP:
-                            raise unittest.SkipTest('Create QP with extended attrs is not supported')
-                        raise ex
-                    qa = QPAttr()
-                    qa.qkey = 0x123
-                    qp.to_init(qa)
-                    qp_attr, qp_iattr = qp.query(e.IBV_QP_QKEY)
-                    assert qp_attr.qkey == qa.qkey, 'Extended QP, QKey is not as expected'
-                    qp.to_rtr(qa)
-                    qa.sq_psn = 0x45
-                    qp.to_rts(qa)
-                    qp_attr, qp_iattr = qp.query(e.IBV_QP_SQ_PSN)
-                    assert qp_attr.sq_psn == qa.sq_psn, 'Extended QP, SQ PSN is not as expected'
-                    qa.qp_state = e.IBV_QPS_RESET
-                    qp.modify(qa, e.IBV_QP_STATE)
-                    assert qp.qp_state == e.IBV_QPS_RESET, 'Extended QP, QP state is not as expected'
-                    # Legacy QP
-                    qia = get_qp_init_attr(cq, attr)
-                    qp = QP(pd, qia)
-                    qa = QPAttr()
-                    qa.qkey = 0x123
-                    qp.to_init(qa)
-                    qp_attr, qp_iattr = qp.query(e.IBV_QP_QKEY)
-                    assert qp_attr.qkey == qa.qkey, 'Legacy QP, QKey is not as expected'
-                    qp.to_rtr(qa)
-                    qa.sq_psn = 0x45
-                    qp.to_rts(qa)
-                    qp_attr, qp_iattr = qp.query(e.IBV_QP_SQ_PSN)
-                    assert qp_attr.sq_psn == qa.sq_psn, 'Legacy QP, SQ PSN is not as expected'
-                    qa.qp_state = e.IBV_QPS_RESET
-                    qp.modify(qa, e.IBV_QP_STATE)
-                    assert qp.qp_state == e.IBV_QPS_RESET, 'Legacy QP, QP state is not as expected'
-
-
-def get_qp_types(ctx, port_num):
-    """
-    Returns a list of the commonly used QP types. Raw Packet QP will not be
-    included if link layer is not Ethernet or it current user is not root.
-    :param ctx: The device's Context, to query the port's link layer
-    :param port_num: Port number to query
-    :return: An array of QP types that can be created on this port
-    """
-    qpts = [e.IBV_QPT_RC, e.IBV_QPT_UC, e.IBV_QPT_UD]
-    if u.is_eth(ctx, port_num) and u.is_root():
-        qpts.append(e.IBV_QPT_RAW_PACKET)
-    return qpts
-
-
-def verify_qp_attrs(orig_cap, state, init_attr, attr):
-    assert state == attr.cur_qp_state
-    assert orig_cap.max_send_wr <= init_attr.cap.max_send_wr
-    assert orig_cap.max_recv_wr <= init_attr.cap.max_recv_wr
-    assert orig_cap.max_send_sge <= init_attr.cap.max_send_sge
-    assert orig_cap.max_recv_sge <= init_attr.cap.max_recv_sge
-    assert orig_cap.max_inline_data <= init_attr.cap.max_inline_data
-
-
-def get_qp_init_attr(cq, attr):
-    """
-    Creates a QPInitAttr object with a QP type of the provided <qpts> array and
-    other random values.
-    :param cq: CQ to be used as send and receive CQ
-    :param attr: Device attributes for capability checks
-    :return: An initialized QPInitAttr object
-    """
-    qp_cap = u.random_qp_cap(attr)
-    sig = random.randint(0, 1)
-    return QPInitAttr(scq=cq, rcq=cq, cap=qp_cap, sq_sig_all=sig)
+        with PD(self.ctx) as pd:
+            with CQ(self.ctx, 100, None, None, 0) as cq:
+                # Legacy QP
+                qia = u.get_qp_init_attr(cq, self.attr)
+                qia.qp_type = e.IBV_QPT_UD
+                qp = self.create_qp(pd, qia, False, False, self.ib_port)
+                qa = QPAttr()
+                qa.qkey = 0x123
+                qp.to_init(qa)
+                qp_attr, _ = qp.query(e.IBV_QP_QKEY)
+                assert qp_attr.qkey == qa.qkey, 'Legacy QP, QKey is not as expected'
+                qp.to_rtr(qa)
+                qa.sq_psn = 0x45
+                qp.to_rts(qa)
+                qp_attr, _ = qp.query(e.IBV_QP_SQ_PSN)
+                assert qp_attr.sq_psn == qa.sq_psn, 'Legacy QP, SQ PSN is not as expected'
+                qa.qp_state = e.IBV_QPS_RESET
+                qp.modify(qa, e.IBV_QP_STATE)
+                assert qp.qp_state == e.IBV_QPS_RESET, 'Legacy QP, QP state is not as expected'
+                # Extended QP
+                qia = get_qp_init_attr_ex(cq, pd, self.attr, self.attr_ex, e.IBV_QPT_UD)
+                qp = self.create_qp(self.ctx, qia, True, False, self.ib_port)
+                qa = QPAttr()
+                qa.qkey = 0x123
+                qp.to_init(qa)
+                qp_attr, _ = qp.query(e.IBV_QP_QKEY)
+                assert qp_attr.qkey == qa.qkey, 'Extended QP, QKey is not as expected'
+                qp.to_rtr(qa)
+                qa.sq_psn = 0x45
+                qp.to_rts(qa)
+                qp_attr, _ = qp.query(e.IBV_QP_SQ_PSN)
+                assert qp_attr.sq_psn == qa.sq_psn, 'Extended QP, SQ PSN is not as expected'
+                qa.qp_state = e.IBV_QPS_RESET
+                qp.modify(qa, e.IBV_QP_STATE)
+                assert qp.qp_state == e.IBV_QPS_RESET, 'Extended QP, QP state is not as expected'
 
 
 def get_qp_init_attr_ex(cq, pd, attr, attr_ex, qpt):

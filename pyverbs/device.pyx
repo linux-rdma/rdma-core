@@ -25,6 +25,9 @@ from pyverbs.qp cimport QP
 from libc.stdlib cimport free, malloc
 from libc.string cimport memset
 from libc.stdint cimport uint64_t
+from libc.stdint cimport uint16_t
+from libc.stdint cimport uint32_t
+from pyverbs.utils import gid_str
 
 cdef extern from 'endian.h':
     unsigned long be64toh(unsigned long host_64bits);
@@ -112,6 +115,8 @@ cdef class Context(PyverbsCM):
         self.vars = weakref.WeakSet()
         self.uars = weakref.WeakSet()
         self.pps = weakref.WeakSet()
+        self.sched_nodes = weakref.WeakSet()
+        self.sched_leafs = weakref.WeakSet()
 
         self.name = kwargs.get('name')
         provider_attr = kwargs.get('attr')
@@ -164,7 +169,8 @@ cdef class Context(PyverbsCM):
         if self.context != NULL:
             self.logger.debug('Closing Context')
             close_weakrefs([self.qps, self.ccs, self.cqs, self.dms, self.pds,
-                            self.xrcds, self.vars])
+                            self.xrcds, self.vars, self.sched_leafs,
+                            self.sched_nodes])
             rc = v.ibv_close_device(self.context)
             if rc != 0:
                 raise PyverbsRDMAErrno(f'Failed to close device {self.name}')
@@ -203,6 +209,13 @@ cdef class Context(PyverbsCM):
                                    format(name=self.name), rc)
         return dev_attr_ex
 
+    def query_pkey(self, unsigned int port_num, int index):
+        cdef uint16_t pkey
+        rc = v.ibv_query_pkey(self.context, port_num, index, &pkey)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to query pkey {index} of port {port_num}')
+        return pkey
+
     def query_gid(self, unsigned int port_num, int index):
         gid = GID()
         rc = v.ibv_query_gid(self.context, port_num, index, &gid.gid)
@@ -212,7 +225,7 @@ cdef class Context(PyverbsCM):
         return gid
 
     def query_gid_type(self, unsigned int port_num, unsigned int index):
-        cdef v.ibv_gid_type gid_type
+        cdef v.ibv_gid_type_sysfs gid_type
         rc = v.ibv_query_gid_type(self.context, port_num, index, &gid_type)
         if rc != 0:
             raise PyverbsRDMAErrno('Failed to query gid type of port {p} and gid index {g}'
@@ -231,6 +244,53 @@ cdef class Context(PyverbsCM):
             raise PyverbsRDMAError('Failed to query port {p}'.
                                    format(p=port_num), rc)
         return port_attrs
+
+    def query_gid_table(self, size_t max_entries, uint32_t flags=0):
+        """
+        Queries the GID tables of the device for at most <max_entries> entries
+        and returns them.
+        :param max_entries: Maximum number of GID entries to retrieve
+        :param flags: Specifies new extra members of struct ibv_gid_entry to
+                      query
+        :return: List of GIDEntry objects on success
+        """
+        cdef v.ibv_gid_entry *entries
+        cdef v.ibv_gid_entry entry
+
+        entries = <v.ibv_gid_entry *>malloc(max_entries *
+                                            sizeof(v.ibv_gid_entry))
+        rc = v.ibv_query_gid_table(self.context, entries, max_entries, flags)
+        if rc < 0:
+            raise PyverbsRDMAError('Failed to query gid tables of the device',
+                                   rc)
+        gid_entries = []
+        for i in range(rc):
+            entry = entries[i]
+            gid_entries.append(GIDEntry(entry.gid._global.subnet_prefix,
+                               entry.gid._global.interface_id, entry.gid_index,
+                               entry.port_num, entry.gid_type,
+                               entry.ndev_ifindex))
+        free(entries)
+        return gid_entries
+
+    def query_gid_ex(self, uint32_t port_num, uint32_t gid_index,
+                     uint32_t flags=0):
+        """
+        Queries the GID table of port <port_num> in index <gid_index>, and
+        returns the GID entry.
+        :param port_num: The port number to query
+        :param gid_index: The index in the GID table to query
+        :param flags: Specifies new extra members of struct ibv_gid_entry to
+                      query
+        :return: GIDEntry object on success
+        """
+        entry = GIDEntry()
+        rc = v.ibv_query_gid_ex(self.context, port_num, gid_index,
+                                &entry.entry, flags)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to query gid table of port '\
+                                   f'{port_num} in index {gid_index}', rc)
+        return entry
 
     cdef add_ref(self, obj):
         if isinstance(obj, PD):
@@ -690,7 +750,7 @@ cdef class DM(PyverbsCM):
             if rc != 0:
                 raise PyverbsRDMAError('Failed to free dm', rc)
             self.dm = NULL
-        self.context = None
+            self.context = None
 
     cdef add_ref(self, obj):
         if isinstance(obj, DMMR):
@@ -806,6 +866,63 @@ cdef class PortAttr(PyverbsObject):
             print_format.format('Active speed', speed_to_str(self.attr.active_speed)) +\
             print_format.format('Phys state', phys_state_to_str(self.attr.phys_state)) +\
             print_format.format('Flags', self.attr.flags)
+
+
+cdef class GIDEntry(PyverbsObject):
+    def __init__(self, subnet_prefix=0, interface_id=0, gid_index=0,
+                 port_num=0, gid_type=0, ndev_ifindex=0):
+        super().__init__()
+        self.entry.gid._global.subnet_prefix = subnet_prefix
+        self.entry.gid._global.interface_id = interface_id
+        self.entry.gid_index = gid_index
+        self.entry.port_num = port_num
+        self.entry.gid_type = gid_type
+        self.entry.ndev_ifindex = ndev_ifindex
+
+    @property
+    def gid_subnet_prefix(self):
+        return self.entry.gid._global.subnet_prefix
+
+    @property
+    def gid_interface_id(self):
+        return self.entry.gid._global.interface_id
+
+    @property
+    def gid_index(self):
+        return self.entry.gid_index
+
+    @property
+    def port_num(self):
+        return self.entry.port_num
+
+    @property
+    def gid_type(self):
+        return self.entry.gid_type
+
+    @property
+    def ndev_ifindex(self):
+        return self.entry.ndev_ifindex
+
+    def gid_str(self):
+        return gid_str(self.gid_subnet_prefix, self.gid_interface_id)
+
+    def __str__(self):
+        print_format = '{:<24}: {:<20}\n'
+        return print_format.format('GID', self.gid_str()) +\
+            print_format.format('GID Index', self.gid_index) +\
+            print_format.format('Port number', self.port_num) +\
+            print_format.format('GID type', translate_gid_type(
+                                self.gid_type)) +\
+            print_format.format('Ndev ifindex', self.ndev_ifindex)
+
+
+def translate_gid_type(gid_type):
+    types = {e.IBV_GID_TYPE_IB: 'IB', e.IBV_GID_TYPE_ROCE_V1: 'RoCEv1',
+             e.IBV_GID_TYPE_ROCE_V2: 'RoCEv2'}
+    try:
+        return types[gid_type]
+    except KeyError:
+        return f'Unknown gid_type ({gid_type})'
 
 
 def guid_format(num):
@@ -961,7 +1078,8 @@ def width_to_str(width):
 
 def speed_to_str(speed):
     l = {0: '0.0 Gbps', 1: '2.5 Gbps', 2: '5.0 Gbps', 4: '5.0 Gbps',
-         8: '10.0 Gbps', 16: '14.0 Gbps', 32: '25.0 Gbps', 64: '50.0 Gbps'}
+         8: '10.0 Gbps', 16: '14.0 Gbps', 32: '25.0 Gbps', 64: '50.0 Gbps',
+         128: '100.0 Gbps'}
     try:
         return '{s} ({n})'.format(s=l[speed], n=speed)
     except KeyError:

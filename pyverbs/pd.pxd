@@ -13,6 +13,7 @@ cdef class PD(PyverbsCM):
     cdef v.ibv_pd *pd
     cdef Context ctx
     cdef add_ref(self, obj)
+    cdef remove_ref(self, obj)
     cdef object srqs
     cdef object mrs
     cdef object mws
@@ -36,3 +37,4 @@ cdef class ParentDomainContext(PyverbsObject):
     cdef object p_alloc
     cdef object p_free
     cdef object pd
+    cdef object user_data

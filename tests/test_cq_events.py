@@ -41,8 +41,8 @@ class CqEventsTestCase(RDMATestCase):
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Create qp with attrs {} is not supported'.format(qp_type))
             raise ex
-        client.pre_run(server.psn, server.qpn)
-        server.pre_run(client.psn, client.qpn)
+        client.pre_run(server.psns, server.qps_num)
+        server.pre_run(client.psns, client.qps_num)
         return client, server
 
     def test_cq_events_ud(self):

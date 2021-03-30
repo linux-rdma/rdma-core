@@ -2,11 +2,11 @@ import unittest
 import errno
 
 
+from tests.base import BaseResources, RDMATestCase, RCResources, UDResources
 from pyverbs.qp import QP, QPAttr, QPInitAttr, QPCap
 from pyverbs.pyverbs_error import PyverbsRDMAError
-from tests.base import BaseResources, RDMATestCase
 from pyverbs.providers.mlx5.mlx5dv import Mlx5QP
-from tests.utils import requires_root_on_eth
+import tests.utils as u
 import pyverbs.enums as e
 from pyverbs.cq import CQ
 
@@ -20,7 +20,7 @@ class LagRawQP(BaseResources):
     def create_cq(self):
         return CQ(self.ctx, 100)
 
-    @requires_root_on_eth()
+    @u.requires_root_on_eth()
     def create_qp(self):
         qia = QPInitAttr(e.IBV_QPT_RAW_PACKET, rcq=self.cq, scq=self.cq,
                          cap=QPCap())
@@ -35,6 +35,17 @@ class LagRawQP(BaseResources):
 
 
 class LagPortTestCase(RDMATestCase):
+    def setUp(self):
+        super().setUp()
+        self.iters = 10
+        self.server = None
+        self.client = None
+
+    def tearDown(self):
+        super().tearDown()
+        del self.server
+        del self.client
+
     def modify_lag(self, resources):
         try:
             port_num, active_port_num = Mlx5QP.query_lag_port(resources.qp)
@@ -51,3 +62,26 @@ class LagPortTestCase(RDMATestCase):
     def test_raw_modify_lag_port(self):
         qp = LagRawQP(self.dev_name)
         self.modify_lag(qp)
+
+    def create_players(self, resource, **resource_arg):
+        """
+        Initialize tests resources.
+        :param resource: The RDMA resources to use.
+        :param resource_arg: Dictionary of args that specify the resource
+                             specific attributes.
+        :return: None
+        """
+        self.client = resource(**self.dev_info, **resource_arg)
+        self.server = resource(**self.dev_info, **resource_arg)
+        self.client.pre_run(self.server.psns, self.server.qps_num)
+        self.server.pre_run(self.client.psns, self.client.qps_num)
+        self.modify_lag(self.client)
+        self.modify_lag(self.server)
+
+    def test_rc_modify_lag_port(self):
+        self.create_players(RCResources)
+        u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port)
+
+    def test_ud_modify_lag_port(self):
+        self.create_players(UDResources)
+        u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port)

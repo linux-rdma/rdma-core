@@ -41,7 +41,8 @@
 #include <util/udma_barrier.h>
 
 int qelr_query_device(struct ibv_context *context,
-		      struct ibv_device_attr *attr);
+		      const struct ibv_query_device_ex_input *input,
+		      struct ibv_device_attr_ex *attr, size_t attr_size);
 int qelr_query_port(struct ibv_context *context, uint8_t port,
 		    struct ibv_port_attr *attr);
 
@@ -84,4 +85,12 @@ int qelr_post_srq_recv(struct ibv_srq *ibsrq, struct ibv_recv_wr *wr,
 
 void qelr_async_event(struct ibv_context *context,
 		      struct ibv_async_event *event);
+struct ibv_xrcd *qelr_open_xrcd(struct ibv_context *context,
+				struct ibv_xrcd_init_attr *init_attr);
+int qelr_close_xrcd(struct ibv_xrcd *ibxrcd);
+struct ibv_srq *qelr_create_srq_ex(struct ibv_context *context,
+				   struct ibv_srq_init_attr_ex *init_attr);
+struct ibv_qp *qelr_create_qp_ex(struct ibv_context *context,
+				 struct ibv_qp_init_attr_ex *attrx);
+int qelr_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num);
 #endif /* __QELR_VERBS_H__ */

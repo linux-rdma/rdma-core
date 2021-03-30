@@ -3,6 +3,7 @@
  * Copyright (c) 2004, 2011-2012 Intel Corporation.  All rights reserved.
  * Copyright (c) 2005, 2006, 2007 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
+ * Copyright (c) 2020 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -43,6 +44,7 @@
 #include <string.h>
 #include <linux/types.h>
 #include <stdint.h>
+#include <sys/types.h>
 #include <infiniband/verbs_api.h>
 
 #ifdef __cplusplus
@@ -66,6 +68,20 @@ union ibv_gid {
 		__be64	subnet_prefix;
 		__be64	interface_id;
 	} global;
+};
+
+enum ibv_gid_type {
+	IBV_GID_TYPE_IB,
+	IBV_GID_TYPE_ROCE_V1,
+	IBV_GID_TYPE_ROCE_V2,
+};
+
+struct ibv_gid_entry {
+	union ibv_gid gid;
+	uint32_t gid_index;
+	uint32_t port_num;
+	uint32_t gid_type; /* enum ibv_gid_type */
+	uint32_t ndev_ifindex;
 };
 
 #define vext_field_avail(type, fld, sz) (offsetof(type, fld) < (sz))
@@ -121,6 +137,12 @@ enum ibv_device_cap_flags {
 	IBV_DEVICE_RC_IP_CSUM		= 1 << 25,
 	IBV_DEVICE_RAW_IP_CSUM		= 1 << 26,
 	IBV_DEVICE_MANAGED_FLOW_STEERING = 1 << 29
+};
+
+enum ibv_fork_status {
+	IBV_FORK_DISABLED,
+	IBV_FORK_ENABLED,
+	IBV_FORK_UNNEEDED,
 };
 
 /*
@@ -624,8 +646,7 @@ enum ibv_rereg_mr_flags {
 	IBV_REREG_MR_CHANGE_TRANSLATION	= (1 << 0),
 	IBV_REREG_MR_CHANGE_PD		= (1 << 1),
 	IBV_REREG_MR_CHANGE_ACCESS	= (1 << 2),
-	IBV_REREG_MR_KEEP_VALID		= (1 << 3),
-	IBV_REREG_MR_FLAGS_SUPPORTED	= ((IBV_REREG_MR_KEEP_VALID << 1) - 1)
+	IBV_REREG_MR_FLAGS_SUPPORTED	= ((IBV_REREG_MR_CHANGE_ACCESS << 1) - 1)
 };
 
 struct ibv_mr {
@@ -1908,7 +1929,8 @@ struct ibv_device {
 
 struct _compat_ibv_port_attr;
 struct ibv_context_ops {
-	void *(*_compat_query_device)(void);
+	int (*_compat_query_device)(struct ibv_context *context,
+				    struct ibv_device_attr *device_attr);
 	int (*_compat_query_port)(struct ibv_context *context,
 				  uint8_t port_num,
 				  struct _compat_ibv_port_attr *port_attr);
@@ -2003,8 +2025,8 @@ enum ibv_parent_domain_init_attr_mask {
 #define IBV_ALLOCATOR_USE_DEFAULT ((void *)-1)
 
 struct ibv_parent_domain_init_attr {
-	struct ibv_pd *pd; /* referance to a protection domain object, can't be NULL */
-	struct ibv_td *td; /* referance to a thread domain object, or NULL */
+	struct ibv_pd *pd; /* reference to a protection domain object, can't be NULL */
+	struct ibv_td *td; /* reference to a thread domain object, or NULL */
 	uint32_t comp_mask;
 	void *(*alloc)(struct ibv_pd *pd, void *pd_context, size_t size,
 		       size_t alignment, uint64_t resource_type);
@@ -2330,6 +2352,36 @@ static inline int ___ibv_query_port(struct ibv_context *context,
 int ibv_query_gid(struct ibv_context *context, uint8_t port_num,
 		  int index, union ibv_gid *gid);
 
+int _ibv_query_gid_ex(struct ibv_context *context, uint32_t port_num,
+		     uint32_t gid_index, struct ibv_gid_entry *entry,
+		     uint32_t flags, size_t entry_size);
+
+/**
+ * ibv_query_gid_ex - Read a GID table entry
+ */
+static inline int ibv_query_gid_ex(struct ibv_context *context,
+				   uint32_t port_num, uint32_t gid_index,
+				   struct ibv_gid_entry *entry, uint32_t flags)
+{
+	return _ibv_query_gid_ex(context, port_num, gid_index, entry, flags,
+				 sizeof(*entry));
+}
+
+ssize_t _ibv_query_gid_table(struct ibv_context *context,
+			     struct ibv_gid_entry *entries, size_t max_entries,
+			     uint32_t flags, size_t entry_size);
+
+/*
+ * ibv_query_gid_table - Get all valid GID table entries
+ */
+static inline ssize_t ibv_query_gid_table(struct ibv_context *context,
+					  struct ibv_gid_entry *entries,
+					  size_t max_entries, uint32_t flags)
+{
+	return _ibv_query_gid_table(context, entries, max_entries, flags,
+				    sizeof(*entries));
+}
+
 /**
  * ibv_query_pkey - Get a P_Key table entry
  */
@@ -2370,7 +2422,7 @@ static inline int ibv_destroy_flow(struct ibv_flow *flow_id)
 	struct verbs_context *vctx = verbs_get_ctx_op(flow_id->context,
 						      ibv_destroy_flow);
 	if (!vctx)
-		return -EOPNOTSUPP;
+		return EOPNOTSUPP;
 	return vctx->ibv_destroy_flow(flow_id);
 }
 
@@ -2490,6 +2542,12 @@ __ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length, uint64_t iova,
 	__ibv_reg_mr_iova(pd, addr, length, iova, access,                      \
 			  __builtin_constant_p(                                \
 				  ((access) & IBV_ACCESS_OPTIONAL_RANGE) == 0))
+
+/**
+ * ibv_reg_dmabuf_mr - Register a dambuf-based memory region
+ */
+struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
+				 uint64_t iova, int fd, int access);
 
 enum ibv_rereg_mr_err_code {
 	/* Old MR is valid, invalid input */
@@ -3302,6 +3360,12 @@ int ibv_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid);
  * effect of an application calling fork() is undefined.
  */
 int ibv_fork_init(void);
+
+/**
+ * ibv_is_fork_initialized - Check if fork support
+ * (ibv_fork_init) was enabled.
+ */
+enum ibv_fork_status ibv_is_fork_initialized(void);
 
 /**
  * ibv_node_type_str - Return string describing node_type enum value

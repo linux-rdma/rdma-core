@@ -6,8 +6,8 @@
 cimport pyverbs.providers.mlx5.libmlx5 as dv
 from pyverbs.base cimport PyverbsObject
 from pyverbs.device cimport Context
+from pyverbs.qp cimport QP, QPEx
 from pyverbs.cq cimport CQEX
-from pyverbs.qp cimport QP
 
 
 cdef class Mlx5Context(Context):
@@ -25,7 +25,7 @@ cdef class Mlx5DVDCInitAttr(PyverbsObject):
 cdef class Mlx5DVQPInitAttr(PyverbsObject):
     cdef dv.mlx5dv_qp_init_attr attr
 
-cdef class Mlx5QP(QP):
+cdef class Mlx5QP(QPEx):
     cdef object dc_type
 
 cdef class Mlx5DVCQInitAttr(PyverbsObject):

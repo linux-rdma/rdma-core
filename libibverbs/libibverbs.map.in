@@ -142,6 +142,22 @@ IBVERBS_1.10 {
 		ibv_unimport_pd;
 } IBVERBS_1.9;
 
+IBVERBS_1.11 {
+	global:
+		_ibv_query_gid_ex;
+		_ibv_query_gid_table;
+} IBVERBS_1.10;
+
+IBVERBS_1.12 {
+	global:
+		ibv_reg_dmabuf_mr;
+} IBVERBS_1.11;
+
+IBVERBS_1.13 {
+	global:
+		ibv_is_fork_initialized;
+} IBVERBS_1.12;
+
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol
    version. See the top level CMakeLists.txt for this setting. */
 
@@ -198,18 +214,18 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 		ibv_cmd_post_srq_recv;
 		ibv_cmd_query_context;
 		ibv_cmd_query_device;
-		ibv_cmd_query_device_ex;
+		ibv_cmd_query_device_any;
 		ibv_cmd_query_mr;
 		ibv_cmd_query_port;
 		ibv_cmd_query_qp;
 		ibv_cmd_query_srq;
 		ibv_cmd_read_counters;
 		ibv_cmd_reg_dm_mr;
+		ibv_cmd_reg_dmabuf_mr;
 		ibv_cmd_reg_mr;
 		ibv_cmd_req_notify_cq;
 		ibv_cmd_rereg_mr;
 		ibv_cmd_resize_cq;
-		ibv_get_fw_ver;
 		ibv_query_gid_type;
 		ibv_read_ibdev_sysfs_file;
 		verbs_allow_disassociate_destroy;

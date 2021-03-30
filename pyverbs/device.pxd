@@ -21,6 +21,8 @@ cdef class Context(PyverbsCM):
     cdef object vars
     cdef object uars
     cdef object pps
+    cdef object sched_nodes
+    cdef object sched_leafs
 
 cdef class DeviceAttr(PyverbsObject):
     cdef v.ibv_device_attr dev_attr
@@ -64,3 +66,6 @@ cdef class DM(PyverbsCM):
 
 cdef class PortAttr(PyverbsObject):
     cdef v.ibv_port_attr attr
+
+cdef class GIDEntry(PyverbsObject):
+    cdef v.ibv_gid_entry entry

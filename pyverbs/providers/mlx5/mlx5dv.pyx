@@ -1,18 +1,20 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
-from libc.stdint cimport uintptr_t, uint8_t
+from libc.stdint cimport uintptr_t, uint8_t, uint16_t, uint32_t
 import logging
 
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError
+from pyverbs.providers.mlx5.mlx5dv_sched cimport Mlx5dvSchedLeaf
 cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
 cimport pyverbs.providers.mlx5.libmlx5 as dv
+from pyverbs.qp cimport QPInitAttrEx, QPEx
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs_enums as e
-from pyverbs.qp cimport QPInitAttrEx
 from pyverbs.cq cimport CqInitAttrEx
 cimport pyverbs.libibverbs as v
+from pyverbs.addr cimport AH
 from pyverbs.pd cimport PD
 
 
@@ -82,14 +84,38 @@ cdef class Mlx5Context(Context):
                 dve.MLX5DV_CONTEXT_MASK_TUNNEL_OFFLOADS |\
                 dve.MLX5DV_CONTEXT_MASK_DYN_BFREGS |\
                 dve.MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE |\
+                dve.MLX5DV_CONTEXT_MASK_DC_ODP_CAPS |\
                 dve.MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS
         else:
             dv_attr.comp_mask = comp_mask
         rc = dv.mlx5dv_query_device(self.context, &dv_attr.dv)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to query mlx5 device {name}, got {rc}'.
-                                   format(name=self.name, rc=rc))
+            raise PyverbsRDMAError(f'Failed to query mlx5 device {self.name}.', rc)
         return dv_attr
+
+    @staticmethod
+    def reserved_qpn_alloc(Context ctx):
+        """
+        Allocate a reserved QP number from firmware.
+        :param ctx: The device context to issue the action on.
+        :return: The reserved QP number.
+        """
+        cdef uint32_t qpn
+        rc = dv.mlx5dv_reserved_qpn_alloc(ctx.context, &qpn)
+        if rc != 0:
+            raise PyverbsRDMAError('Failed to alloc reserved QP number.', rc)
+        return qpn
+
+    @staticmethod
+    def reserved_qpn_dealloc(Context ctx, qpn):
+        """
+        Release the reserved QP number to firmware.
+        :param ctx: The device context to issue the action on.
+        :param qpn: The QP number to be deallocated.
+        """
+        rc = dv.mlx5dv_reserved_qpn_dealloc(ctx.context, qpn)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to dealloc QP number {qpn}.', rc)
 
     def __dealloc__(self):
         self.close()
@@ -308,12 +334,12 @@ cdef class Mlx5DVQPInitAttr(PyverbsObject):
         self.attr.dc_init_attr.dct_access_key = val
 
 
-cdef class Mlx5QP(QP):
-    def __init__(self, Mlx5Context context, QPInitAttrEx init_attr,
+cdef class Mlx5QP(QPEx):
+    def __init__(self, Context context, QPInitAttrEx init_attr,
                  Mlx5DVQPInitAttr dv_init_attr):
         """
         Initializes an mlx5 QP according to the user-provided data.
-        :param context: mlx5 Context object
+        :param context: Context object
         :param init_attr: QPInitAttrEx object
         :param dv_init_attr: Mlx5DVQPInitAttr object
         :return: An initialized Mlx5QP
@@ -356,6 +382,16 @@ cdef class Mlx5QP(QP):
             return super()._get_comp_mask(dst)
         return masks[self.dc_type][dst] | e.IBV_QP_STATE
 
+    def wr_set_dc_addr(self, AH ah, remote_dctn, remote_dc_key):
+        """
+        Attach a DC info to the last work request.
+        :param ah: Address Handle to the requested DCT.
+        :param remote_dctn: The remote DCT number.
+        :param remote_dc_key: The remote DC key.
+        """
+        dv.mlx5dv_wr_set_dc_addr(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                 ah.ah, remote_dctn, remote_dc_key)
+
     @staticmethod
     def query_lag_port(QP qp):
         """
@@ -382,6 +418,34 @@ cdef class Mlx5QP(QP):
         rc = dv.mlx5dv_modify_qp_lag_port(qp.qp, port_num)
         if rc != 0:
             raise PyverbsRDMAError(f'Failed to modify lag of QP #{qp.qp.qp_num}', rc)
+
+    @staticmethod
+    def modify_qp_sched_elem(QP qp, Mlx5dvSchedLeaf req_sched_leaf=None,
+                             Mlx5dvSchedLeaf resp_sched_leaf=None):
+        """
+        Connect a QP with a requestor and/or a responder scheduling element.
+        :param qp: connect this QP to schedule elements.
+        :param req_sched_leaf: Mlx5dvSchedLeaf for the send queue.
+        :param resp_sched_leaf: Mlx5dvSchedLeaf for the recv queue.
+        """
+        req_se = req_sched_leaf.sched_leaf if req_sched_leaf else NULL
+        resp_se = resp_sched_leaf.sched_leaf if resp_sched_leaf else NULL
+        rc = dv.mlx5dv_modify_qp_sched_elem(qp.qp, req_se, resp_se)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to modify QP #{qp.qp.qp_num} sched element', rc)
+
+    @staticmethod
+    def modify_udp_sport(QP qp, uint16_t udp_sport):
+        """
+        Modifies the UDP source port of a given QP.
+        :param qp: A QP in RTS state to modify its UDP sport.
+        :param udp_sport: The desired UDP sport to be used by the QP.
+        """
+        rc = dv.mlx5dv_modify_qp_udp_sport(qp.qp, udp_sport)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to modify UDP source port of QP '
+                                   f'#{qp.qp.qp_num}', rc)
+
 
 cdef class Mlx5DVCQInitAttr(PyverbsObject):
     """

@@ -124,7 +124,7 @@ int mlx5_copy_to_send_wqe(struct mlx5_qp *qp, int idx, void *buf, int size)
 	idx &= (qp->sq.wqe_cnt - 1);
 	ctrl = mlx5_get_send_wqe(qp, idx);
 	if (qp->ibv_qp->qp_type != IBV_QPT_RC) {
-		fprintf(stderr, "scatter to CQE is supported only for RC QPs\n");
+		mlx5_err(ctx->dbg_fp, "scatter to CQE is supported only for RC QPs\n");
 		return IBV_WC_GENERAL_ERR;
 	}
 	p = ctrl + 1;
@@ -141,7 +141,7 @@ int mlx5_copy_to_send_wqe(struct mlx5_qp *qp, int idx, void *buf, int size)
 		break;
 
 	default:
-		fprintf(stderr, "scatter to CQE for opcode %d\n",
+		mlx5_err(ctx->dbg_fp, "scatter to CQE for opcode %d\n",
 			be32toh(ctrl->opmod_idx_opcode) & 0xff);
 		return IBV_WC_REM_INV_REQ_ERR;
 	}
@@ -368,17 +368,16 @@ static int set_data_inl_seg(struct mlx5_qp *qp, struct ibv_send_wr *wr,
 
 static uint8_t wq_sig(struct mlx5_wqe_ctrl_seg *ctrl)
 {
-	return calc_sig(ctrl, be32toh(ctrl->qpn_ds));
+	return calc_sig(ctrl, (be32toh(ctrl->qpn_ds) & 0x3f) << 4);
 }
 
 #ifdef MLX5_DEBUG
-static void dump_wqe(FILE *fp, int idx, int size_16, struct mlx5_qp *qp)
+static void dump_wqe(struct mlx5_context *mctx, int idx, int size_16, struct mlx5_qp *qp)
 {
 	uint32_t *uninitialized_var(p);
 	int i, j;
 	int tidx = idx;
-
-	fprintf(fp, "dump wqe at %p\n", mlx5_get_send_wqe(qp, tidx));
+	mlx5_err(mctx->dbg_fp, "dump wqe at %p\n", mlx5_get_send_wqe(qp, tidx));
 	for (i = 0, j = 0; i < size_16 * 4; i += 4, j += 4) {
 		if ((i & 0xf) == 0) {
 			void *buf = mlx5_get_send_wqe(qp, tidx);
@@ -386,8 +385,8 @@ static void dump_wqe(FILE *fp, int idx, int size_16, struct mlx5_qp *qp)
 			p = buf;
 			j = 0;
 		}
-		fprintf(fp, "%08x %08x %08x %08x\n", be32toh(p[j]), be32toh(p[j + 1]),
-			be32toh(p[j + 2]), be32toh(p[j + 3]));
+		mlx5_err(mctx->dbg_fp, "%08x %08x %08x %08x\n", be32toh(p[j]), be32toh(p[j + 1]),
+			 be32toh(p[j + 2]), be32toh(p[j + 3]));
 	}
 }
 #endif /* MLX5_DEBUG */
@@ -1134,7 +1133,7 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 #ifdef MLX5_DEBUG
 		if (mlx5_debug_mask & MLX5_DBG_QP_SEND)
-			dump_wqe(to_mctx(ibqp->context)->dbg_fp, idx, size, qp);
+			dump_wqe(to_mctx(ibqp->context), idx, size, qp);
 #endif
 	}
 
@@ -1279,9 +1278,8 @@ static inline void _common_wqe_finilize(struct mlx5_qp *mqp)
 #ifdef MLX5_DEBUG
 	if (mlx5_debug_mask & MLX5_DBG_QP_SEND) {
 		int idx = mqp->sq.cur_post & (mqp->sq.wqe_cnt - 1);
-		FILE *fp = to_mctx(mqp->ibv_qp->context)->dbg_fp;
 
-		dump_wqe(fp, idx, mqp->cur_size, mqp);
+		dump_wqe(to_mctx(mqp->ibv_qp->context), idx, mqp->cur_size, mqp);
 	}
 #endif
 
@@ -2880,7 +2878,7 @@ int mlx5_post_srq_ops(struct ibv_srq *ibsrq, struct ibv_ops_wr *wr,
 
 #ifdef MLX5_DEBUG
 		if (mlx5_debug_mask & MLX5_DBG_QP_SEND)
-			dump_wqe(fp, idx, size, qp);
+			dump_wqe(ctx, idx, size, qp);
 #endif
 	}
 

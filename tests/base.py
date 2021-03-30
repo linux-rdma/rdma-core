@@ -11,10 +11,10 @@ import json
 import os
 
 from pyverbs.qp import QPCap, QPInitAttrEx, QPInitAttr, QPAttr, QP
+from pyverbs.srq import SRQ, SrqInitAttrEx, SrqInitAttr, SrqAttr
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.addr import AHAttr, GlobalRoute
 from pyverbs.xrcd import XRCD, XRCDInitAttr
-from pyverbs.srq import SRQ, SrqInitAttrEx
 from pyverbs.device import Context
 from args_parser import parser
 import pyverbs.device as d
@@ -35,6 +35,7 @@ TIMEOUT = 14
 MLNX_VENDOR_ID = 0x02c9
 CX3_MLNX_PART_ID = 4099
 CX3Pro_MLNX_PART_ID = 4103
+DCT_KEY = 0xbadc0de
 # Dictionary: vendor_id -> array of part_ids of devices that lack RoCEv2 support
 ROCEV2_UNSUPPORTED_DEVS = {MLNX_VENDOR_ID: [CX3Pro_MLNX_PART_ID,
                                             CX3_MLNX_PART_ID]}
@@ -44,63 +45,107 @@ def has_roce_hw_bug(vendor_id, vendor_part_id):
     return vendor_part_id in ROCEV2_UNSUPPORTED_DEVS.get(vendor_id, [])
 
 
+def set_rnr_attributes(qp_attr):
+    """
+    Set default QP RNR attributes.
+    :param qp_attr: The QPAttr to set its attributes
+    :return: None
+    """
+    qp_attr.min_rnr_timer = MIN_RNR_TIMER
+    qp_attr.timeout = TIMEOUT
+    qp_attr.retry_cnt = RETRY_CNT
+    qp_attr.rnr_retry = RNR_RETRY
+
+
 class PyverbsAPITestCase(unittest.TestCase):
     def __init__(self, methodName='runTest'):
         super().__init__(methodName)
         # Hold the command line arguments
         self.config = parser.get_config()
+        self.ctx = None
+        self.attr = None
+        self.attr_ex = None
 
     def setUp(self):
         """
-        Opens the devices and queries them
+        Opens the device and queries it.
+        The results of the query and query_ex are stored in attr and attr_ex
+        instance attributes respectively.
+        If the user didn't pass a device name, the first device is chosen by
+        default.
         """
-        self.devices = []
-
+        self.ib_port = self.config['port']
         dev_name = self.config['dev']
-        if dev_name:
-            c = d.Context(name=dev_name)
-            attr = c.query_device()
-            attr_ex = c.query_device_ex()
-            self.devices.append((c, attr, attr_ex))
-        else:
-            for dev in d.get_device_list():
-                c = d.Context(name=dev.name.decode())
-                attr = c.query_device()
-                attr_ex = c.query_device_ex()
-                self.devices.append((c, attr, attr_ex))
+        if not dev_name:
+            dev_list = d.get_device_list()
+            if not dev_list:
+                raise unittest.SkipTest('No IB devices found')
+            dev_name = dev_list[0].name.decode()
 
-        if len(self.devices) == 0:
-            raise unittest.SkipTest('No IB devices found')
+        self.ctx = d.Context(name=dev_name)
+        self.attr = self.ctx.query_device()
+        self.attr_ex = self.ctx.query_device_ex()
 
     def tearDown(self):
-        for tup in self.devices:
-            tup[0].close()
+        self.ctx.close()
 
 
 class RDMATestCase(unittest.TestCase):
-    """
-    A base class for test cases which provides the option for user parameters.
-    These can be provided by manually adding the test case to the runner:
-    suite = unittest.TestSuite()
-    ... # Regular auto-detection of test cases, no parameters used.
-    # Now follows your manual addition of test cases e.g:
-    suite.addTest(RDMATestCase.parametrize(<TestCaseName>, dev_name='..',
-                                           ib_port=1, gid_index=3,
-                                           pkey_index=42))
-    """
     ZERO_GID = '0000:0000:0000:0000'
 
     def __init__(self, methodName='runTest', dev_name=None, ib_port=None,
-                 gid_index=None, pkey_index=None):
+                 gid_index=None, pkey_index=None, gid_type=None):
+        """
+        Initialize a RDMA test unit based on unittest.TestCase.
+        If no device was provided, it iterates over the existing devices, for
+        each port of each device, it checks which GID indexes are valid (in RoCE,
+        only IPv4 and IPv6 based GIDs are used). Each <dev, port, gid> is added
+        to an array and one entry is selected.
+        If a device was provided, the same process is done for all ports of this
+        device (in case they're not provided), and so on.
+        If gid_type is provided by the user, only GIDs of that type would be
+        be chosen (valid only if gid_index was not provided).
+        :param methodName: The base method to be used by the unittest
+        :param dev_name: Device name to use
+        :param ib_port: IB port of the device to use
+        :param gid_index: GID index to use
+        :param pkey_index: PKEY index to use
+        :param gid_type: If provided, only GIDs of gid_type will be chosen
+                         (ignored if gid_index is provided by the user)
+        """
         super(RDMATestCase, self).__init__(methodName)
         # Hold the command line arguments
         self.config = parser.get_config()
         dev = self.config['dev']
         self.dev_name = dev_name if dev_name else dev
-        self.ib_port = ib_port
+        self.ib_port = ib_port if ib_port else self.config['port']
         self.gid_index = gid_index
         self.pkey_index = pkey_index
+        self.gid_type = gid_type if gid_index is None else None
         self.ip_addr = None
+        self.pre_environment = {}
+
+    def set_env_variable(self, var, value):
+        """
+        Set environment variable. The current value for each variable is stored
+        and is set back at the end of the test.
+        :param var: The name of the environment variable
+        :param value: The requested new value of this environment variable
+        """
+        if var not in self.pre_environment.keys():
+            self.pre_environment[var] = os.environ.get(var)
+        os.environ[var] = value
+
+    def tearDown(self):
+        """
+        Restore the previous environment variables values before ending the test.
+        """
+        for k, v in self.pre_environment.items():
+            if v is None:
+                os.environ.pop(k)
+            else:
+                os.environ[k] = v
+        super().tearDown()
 
     def is_eth_and_has_roce_hw_bug(self):
         """
@@ -115,22 +160,6 @@ class RDMATestCase(unittest.TestCase):
         vendor_pid = dev_attrs.vendor_part_id
         return port_attrs.link_layer == e.IBV_LINK_LAYER_ETHERNET and \
             has_roce_hw_bug(vendor_id, vendor_pid)
-
-    @staticmethod
-    def parametrize(testcase_klass, dev_name=None, ib_port=None, gid_index=None,
-                    pkey_index=None):
-        """
-        Create a test suite containing all the tests from the given subclass
-        with the given dev_name, port, gid index and pkey_index.
-        """
-        loader = unittest.TestLoader()
-        names = loader.getTestCaseNames(testcase_klass)
-        suite = unittest.TestSuite()
-        for n in names:
-            suite.addTest(testcase_klass(n, dev_name=dev_name, ib_port=ib_port,
-                                         gid_index=gid_index,
-                                         pkey_index=pkey_index))
-        return suite
 
     @staticmethod
     def get_net_name(dev):
@@ -151,7 +180,7 @@ class RDMATestCase(unittest.TestCase):
     def setUp(self):
         """
         Verify that the test case has dev_name, ib_port, gid_index and pkey index.
-        If not provided by the user, a random valid combination will be used.
+        If not provided by the user, the first valid combination will be used.
         """
         if self.pkey_index is None:
             # To avoid iterating the entire pkeys table, if a pkey index wasn't
@@ -181,7 +210,7 @@ class RDMATestCase(unittest.TestCase):
                 self._add_gids_per_device(ctx, dev_name)
 
         if not self.args:
-            raise unittest.SkipTest('No port is up, can\'t run traffic')
+            raise unittest.SkipTest('No supported port is up, can\'t run traffic')
         # Choose one combination and use it
         self._select_config()
         self.dev_info = {'dev_name': self.dev_name, 'ib_port': self.ib_port,
@@ -202,8 +231,12 @@ class RDMATestCase(unittest.TestCase):
                 continue
             # Avoid RoCEv2 GIDs on unsupported devices
             if port_attrs.link_layer == e.IBV_LINK_LAYER_ETHERNET and \
-                    ctx.query_gid_type(port, idx) == e.IBV_GID_TYPE_ROCE_V2 and \
+                    ctx.query_gid_type(port, idx) == \
+                    e.IBV_GID_TYPE_SYSFS_ROCE_V2 and \
                     has_roce_hw_bug(vendor_id, vendor_pid):
+                continue
+            if self.gid_type is not None and ctx.query_gid_type(port, idx) != \
+                    self.gid_type:
                 continue
             if not os.path.exists('/sys/class/infiniband/{}/device/net/'.format(dev)):
                 self.args.append([dev, port, idx, None])
@@ -217,9 +250,7 @@ class RDMATestCase(unittest.TestCase):
                 self.args.append([dev, port, idx, ip_addr])
 
     def _add_gids_per_device(self, ctx, dev):
-        port_count = ctx.query_device().phys_port_cnt
-        for port in range(port_count):
-            self._add_gids_per_port(ctx, dev, port+1)
+        self._add_gids_per_port(ctx, dev, self.ib_port)
 
     def _select_config(self):
         args_with_inet_ip = []
@@ -227,14 +258,35 @@ class RDMATestCase(unittest.TestCase):
             if arg[3]:
                 args_with_inet_ip.append(arg)
         if args_with_inet_ip:
-            args = random.choice(args_with_inet_ip)
+            args = args_with_inet_ip[0]
         else:
-            args = random.choice(self.args)
+            args = self.args[0]
         self.dev_name = args[0]
         self.ib_port = args[1]
         self.gid_index = args[2]
         self.ip_addr = args[3]
 
+    def set_env_variable(self, var, value):
+        """
+        Set environment variable. The current value for each variable is stored
+        and is set back at the end of the test.
+        :param var: The name of the environment variable
+        :param value: The requested new value of this environment variable
+        """
+        if var not in self.pre_environment.keys():
+            self.pre_environment[var] = os.environ.get(var)
+        os.environ[var] = value
+
+    def tearDown(self):
+        """
+        Restore the previous environment variables values before ending the test.
+        """
+        for k, v in self.pre_environment.items():
+            if v is None:
+                os.environ.pop(k)
+            else:
+                os.environ[k] = v
+        super().tearDown()
 
 class BaseResources(object):
     """
@@ -267,32 +319,40 @@ class TrafficResources(BaseResources):
     Basic traffic class. It provides the basic RDMA resources and operations
     needed for traffic.
     """
-    def __init__(self, dev_name, ib_port, gid_index):
+    def __init__(self, dev_name, ib_port, gid_index, with_srq=False,
+                 qp_count=1, msg_size=1024):
         """
         Initializes a TrafficResources object with the given values and creates
         basic RDMA resources.
         :param dev_name: Device name to be used
         :param ib_port: IB port of the device to use
         :param gid_index: Which GID index to use
+        :param with_srq: If True, create SRQ and attach to QPs
+        :param qp_count: Number of QPs to create
+        :param msg_size: Size of resource msg. If None, use 1024 as default.
         """
         super(TrafficResources, self).__init__(dev_name=dev_name,
                                                ib_port=ib_port,
                                                gid_index=gid_index)
-        self.psn = random.getrandbits(24)
-        self.msg_size = 1024
+        self.msg_size = msg_size
         self.num_msgs = 1000
         self.port_attr = None
         self.mr = None
         self.use_mr_prefetch = None
+        self.srq = None
         self.cq = None
-        self.qp = None
-        self.rqpn = 0
-        self.rpsn = 0
+        self.qps = []
+        self.qps_num = []
+        self.psns = []
+        self.rqps_num = None
+        self.rpsns = None
+        self.with_srq = with_srq
+        self.qp_count = qp_count
         self.init_resources()
 
     @property
-    def qpn(self):
-        return self.qp.qp_num
+    def qp(self):
+        return self.qps[0]
 
     def init_resources(self):
         """
@@ -300,9 +360,11 @@ class TrafficResources(BaseResources):
         :return: None
         """
         self.port_attr = self.ctx.query_port(self.ib_port)
+        if self.with_srq:
+            self.create_srq()
         self.create_cq()
         self.create_mr()
-        self.create_qp()
+        self.create_qps()
 
     def create_cq(self):
         """
@@ -320,24 +382,56 @@ class TrafficResources(BaseResources):
         """
         self.mr = MR(self.pd, self.msg_size, e.IBV_ACCESS_LOCAL_WRITE)
 
-    def create_qp(self):
+    def create_qp_cap(self):
+        return QPCap(max_recv_wr=self.num_msgs)
+
+    def create_qp_init_attr(self):
+        return QPInitAttr(qp_type=e.IBV_QPT_RC, scq=self.cq, rcq=self.cq,
+                          srq=self.srq, cap=self.create_qp_cap())
+
+    def create_qp_attr(self):
+        return QPAttr(port_num=self.ib_port)
+
+    def create_qps(self):
         """
-        Initializes self.qp with an RC QP.
+        Initializes self.qps with RC QPs.
         :return: None
         """
-        qp_caps = QPCap(max_recv_wr=self.num_msgs)
-        qp_init_attr = QPInitAttr(qp_type=e.IBV_QPT_RC, scq=self.cq,
-                                  rcq=self.cq, cap=qp_caps)
-        qp_attr = QPAttr(port_num=self.ib_port)
-        self.qp = QP(self.pd, qp_init_attr, qp_attr)
+        qp_init_attr = self.create_qp_init_attr()
+        qp_attr = self.create_qp_attr()
+        for _ in range(self.qp_count):
+            try:
+                qp = QP(self.pd, qp_init_attr, qp_attr)
+                self.qps.append(qp)
+                self.qps_num.append(qp.qp_num)
+                self.psns.append(random.getrandbits(24))
+            except PyverbsRDMAError as ex:
+                if ex.error_code == errno.EOPNOTSUPP:
+                    raise unittest.SkipTest(f'Create QP type {qp_init_attr.qp_type} is not supported')
+                raise ex
 
-    def pre_run(self, rpsn, rqpn):
+    def create_srq_attr(self):
+        return SrqAttr(max_wr=self.num_msgs*self.qp_count)
+
+    def create_srq_init_attr(self):
+        return SrqInitAttr(self.create_srq_attr())
+
+    def create_srq(self):
+        srq_init_attr = self.create_srq_init_attr()
+        try:
+            self.srq = SRQ(self.pd, srq_init_attr)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Create SRQ is not supported')
+            raise ex
+
+    def pre_run(self, rpsns, rqps_num):
         """
-        Modify the QP's state to RTS and fill receive queue with <num_msgs> work
+        Modify the QP's states to RTS and fill receive queue with <num_msgs> work
         requests.
         This method is not implemented in this class.
-        :param rpsn: Remote PSN
-        :param rqpn: Remote QPN
+        :param rpsns: Remote PSNs
+        :param rqps_num: Remote QPs Number
         :return: None
         """
         raise NotImplementedError()
@@ -351,33 +445,31 @@ class RCResources(TrafficResources):
         ibv_rc_pingpong).
         :return: None
         """
-        attr = QPAttr(port_num=self.ib_port)
-        attr.dest_qp_num = self.rqpn
+        attr = self.create_qp_attr()
         attr.path_mtu = PATH_MTU
         attr.max_dest_rd_atomic = MAX_DEST_RD_ATOMIC
-        attr.min_rnr_timer = MIN_RNR_TIMER
-        attr.rq_psn = self.psn
-        attr.sq_psn = self.rpsn
-        attr.timeout = TIMEOUT
-        attr.retry_cnt = RETRY_CNT
-        attr.rnr_retry = RNR_RETRY
+        set_rnr_attributes(attr)
         attr.max_rd_atomic = MAX_RD_ATOMIC
         gr = GlobalRoute(dgid=self.ctx.query_gid(self.ib_port, self.gid_index),
                          sgid_index=self.gid_index)
         ah_attr = AHAttr(port_num=self.ib_port, is_global=1, gr=gr,
                          dlid=self.port_attr.lid)
         attr.ah_attr = ah_attr
-        self.qp.to_rts(attr)
+        for i in range(self.qp_count):
+            attr.dest_qp_num = self.rqps_num[i]
+            attr.rq_psn = self.psns[i]
+            attr.sq_psn = self.rpsns[i]
+            self.qps[i].to_rts(attr)
 
-    def pre_run(self, rpsn, rqpn):
+    def pre_run(self, rpsns, rqps_num):
         """
         Configure Resources before running traffic
-        :param rpsn: Remote PSN (packet serial number)
-        :param rqpn: Remote QP number
+        :param rpsns: Remote PSNs (packet serial number)
+        :param rqps_num: Remote QPs number
         :return: None
         """
-        self.rqpn = rqpn
-        self.rpsn = rpsn
+        self.rpsns = rpsns
+        self.rqps_num = rqps_num
         self.to_rts()
 
 
@@ -390,18 +482,30 @@ class UDResources(TrafficResources):
         self.mr = MR(self.pd, self.msg_size + self.GRH_SIZE,
                      e.IBV_ACCESS_LOCAL_WRITE)
 
-    def create_qp(self):
-        qp_caps = QPCap(max_recv_wr=self.num_msgs)
-        qp_init_attr = QPInitAttr(qp_type=e.IBV_QPT_UD, cap=qp_caps,
-                                  scq=self.cq, rcq=self.cq)
-        qp_attr = QPAttr(port_num=self.ib_port)
+    def create_qp_init_attr(self):
+        return QPInitAttr(qp_type=e.IBV_QPT_UD, scq=self.cq,
+                          rcq=self.cq, srq=self.srq, cap=self.create_qp_cap())
+
+    def create_qps(self):
+        qp_init_attr = self.create_qp_init_attr()
+        qp_attr = self.create_qp_attr()
         qp_attr.qkey = self.UD_QKEY
         qp_attr.pkey_index = self.UD_PKEY_INDEX
-        self.qp = QP(self.pd, qp_init_attr, qp_attr)
+        for _ in range(self.qp_count):
+            qp = QP(self.pd, qp_init_attr, qp_attr)
+            self.qps.append(qp)
+            self.qps_num.append(qp.qp_num)
+            self.psns.append(random.getrandbits(24))
 
-    def pre_run(self, rpsn, rqpn):
-        self.rqpn = rqpn
-        self.rpsn = rpsn
+    def pre_run(self, rpsns, rqps_num):
+        self.rpsns = rpsns
+        self.rqps_num = rqps_num
+
+
+class RawResources(TrafficResources):
+    def create_qp_init_attr(self):
+        return QPInitAttr(qp_type=e.IBV_QPT_RAW_PACKET, scq=self.cq,
+                          rcq=self.cq, srq=self.srq, cap=self.create_qp_cap())
 
 
 class XRCResources(TrafficResources):
@@ -409,23 +513,18 @@ class XRCResources(TrafficResources):
         self.temp_file = None
         self.xrcd_fd = -1
         self.xrcd = None
-        self.srq = None
-        self.qp_count = qp_count
         self.sqp_lst = []
         self.rqp_lst = []
-        self.qps_num = []
-        self.psns = []
-        self.rqps_num = None
-        self.rpsns = None
-        super(XRCResources, self).__init__(dev_name, ib_port, gid_index)
+        super(XRCResources, self).__init__(dev_name, ib_port, gid_index,
+                                           qp_count=qp_count)
 
     def close(self):
         os.close(self.xrcd_fd)
         self.temp_file.close()
 
-    def create_qp(self):
+    def create_qps(self):
         """
-        Initializes self.qp with an XRC SEND/RECV QP.
+        Initializes self.qps with an XRC SEND/RECV QPs.
         :return: None
         """
         qp_attr = QPAttr(port_num=self.ib_port)
@@ -490,10 +589,7 @@ class XRCResources(TrafficResources):
                          gr=gr, dlid=self.port_attr.lid)
         qp_attr = QPAttr()
         qp_attr.path_mtu = PATH_MTU
-        qp_attr.timeout = TIMEOUT
-        qp_attr.retry_cnt = RETRY_CNT
-        qp_attr.rnr_retry = RNR_RETRY
-        qp_attr.min_rnr_timer = MIN_RNR_TIMER
+        set_rnr_attributes(qp_attr)
         qp_attr.ah_attr = ah_attr
         for i in range(self.qp_count):
             qp_attr.dest_qp_num = self.rqps_num[i][1]

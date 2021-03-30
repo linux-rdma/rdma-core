@@ -20,26 +20,28 @@
 static const int siw_debug;
 static void siw_free_context(struct ibv_context *ibv_ctx);
 
-static int siw_query_device(struct ibv_context *ctx,
-			    struct ibv_device_attr *attr)
+static int siw_query_device(struct ibv_context *context,
+			 const struct ibv_query_device_ex_input *input,
+			 struct ibv_device_attr_ex *attr, size_t attr_size)
 {
-	struct ibv_query_device cmd;
+	struct ib_uverbs_ex_query_device_resp resp;
+	size_t resp_size = sizeof(resp);
 	uint64_t raw_fw_ver;
 	unsigned int major, minor, sub_minor;
 	int rv;
 
-	memset(&cmd, 0, sizeof(cmd));
-
-	rv = ibv_cmd_query_device(ctx, attr, &raw_fw_ver, &cmd, sizeof(cmd));
+	rv = ibv_cmd_query_device_any(context, input, attr, attr_size, &resp,
+				      &resp_size);
 	if (rv)
 		return rv;
 
+	raw_fw_ver = resp.base.fw_ver;
 	major = (raw_fw_ver >> 32) & 0xffff;
 	minor = (raw_fw_ver >> 16) & 0xffff;
 	sub_minor = raw_fw_ver & 0xffff;
 
-	snprintf(attr->fw_ver, sizeof(attr->fw_ver), "%d.%d.%d", major, minor,
-		 sub_minor);
+	snprintf(attr->orig_attr.fw_ver, sizeof(attr->orig_attr.fw_ver),
+		 "%d.%d.%d", major, minor, sub_minor);
 
 	return 0;
 }
@@ -182,11 +184,6 @@ fail:
 	free(cq);
 
 	return NULL;
-}
-
-static int siw_resize_cq(struct ibv_cq *base_cq, int num_cqe)
-{
-	return -EOPNOTSUPP;
 }
 
 static int siw_destroy_cq(struct ibv_cq *base_cq)
@@ -431,16 +428,6 @@ static int siw_destroy_qp(struct ibv_qp *base_qp)
 	free(qp);
 
 	return 0;
-}
-
-static struct ibv_ah *siw_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
-{
-	return NULL;
-}
-
-static int siw_destroy_ah(struct ibv_ah *ah)
-{
-	return -EOPNOTSUPP;
 }
 
 static void siw_async_event(struct ibv_context *ctx,
@@ -832,13 +819,11 @@ static int siw_poll_cq(struct ibv_cq *ibcq, int num_entries, struct ibv_wc *wc)
 static const struct verbs_context_ops siw_context_ops = {
 	.alloc_pd = siw_alloc_pd,
 	.async_event = siw_async_event,
-	.create_ah = siw_create_ah,
 	.create_cq = siw_create_cq,
 	.create_qp = siw_create_qp,
 	.create_srq = siw_create_srq,
 	.dealloc_pd = siw_free_pd,
 	.dereg_mr = siw_dereg_mr,
-	.destroy_ah = siw_destroy_ah,
 	.destroy_cq = siw_destroy_cq,
 	.destroy_qp = siw_destroy_qp,
 	.destroy_srq = siw_destroy_srq,
@@ -849,12 +834,11 @@ static const struct verbs_context_ops siw_context_ops = {
 	.post_recv = siw_post_recv,
 	.post_send = siw_post_send,
 	.post_srq_recv = siw_post_srq_recv,
-	.query_device = siw_query_device,
+	.query_device_ex = siw_query_device,
 	.query_port = siw_query_port,
 	.query_qp = siw_query_qp,
 	.reg_mr = siw_reg_mr,
 	.req_notify_cq = siw_notify_cq,
-	.resize_cq = siw_resize_cq,
 };
 
 static struct verbs_context *siw_alloc_context(struct ibv_device *base_dev,

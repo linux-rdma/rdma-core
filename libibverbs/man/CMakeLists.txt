@@ -41,6 +41,7 @@ rdma_man_pages(
   ibv_import_mr.3.md
   ibv_import_pd.3.md
   ibv_inc_rkey.3.md
+  ibv_is_fork_initialized.3.md
   ibv_modify_qp.3
   ibv_modify_qp_rate_limit.3
   ibv_modify_srq.3
@@ -57,6 +58,8 @@ rdma_man_pages(
   ibv_query_device_ex.3
   ibv_query_ece.3.md
   ibv_query_gid.3.md
+  ibv_query_gid_ex.3.md
+  ibv_query_gid_table.3.md
   ibv_query_pkey.3.md
   ibv_query_port.3
   ibv_query_qp.3

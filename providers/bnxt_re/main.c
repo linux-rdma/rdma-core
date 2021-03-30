@@ -91,7 +91,7 @@ static const struct verbs_match_ent cna_table[] = {
 };
 
 static const struct verbs_context_ops bnxt_re_cntx_ops = {
-	.query_device  = bnxt_re_query_device,
+	.query_device_ex = bnxt_re_query_device,
 	.query_port    = bnxt_re_query_port,
 	.alloc_pd      = bnxt_re_alloc_pd,
 	.dealloc_pd    = bnxt_re_free_pd,
@@ -100,8 +100,6 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 	.create_cq     = bnxt_re_create_cq,
 	.poll_cq       = bnxt_re_poll_cq,
 	.req_notify_cq = bnxt_re_arm_cq,
-	.cq_event      = bnxt_re_cq_event,
-	.resize_cq     = bnxt_re_resize_cq,
 	.destroy_cq    = bnxt_re_destroy_cq,
 	.create_srq    = bnxt_re_create_srq,
 	.modify_srq    = bnxt_re_modify_srq,

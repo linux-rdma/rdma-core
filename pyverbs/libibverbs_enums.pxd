@@ -115,6 +115,18 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_ACCESS_HUGETLB
         IBV_ACCESS_RELAXED_ORDERING
 
+    cpdef enum ibv_rereg_mr_flags:
+        IBV_REREG_MR_CHANGE_TRANSLATION
+        IBV_REREG_MR_CHANGE_PD
+        IBV_REREG_MR_CHANGE_ACCESS
+
+    cpdef enum ibv_rereg_mr_err_code:
+        IBV_REREG_MR_ERR_INPUT
+        IBV_REREG_MR_ERR_DONT_FORK_NEW
+        IBV_REREG_MR_ERR_DO_FORK_OLD
+        IBV_REREG_MR_ERR_CMD
+        IBV_REREG_MR_ERR_CMD_AND_DO_FORK_NEW
+
     cpdef enum ibv_wr_opcode:
         IBV_WR_RDMA_WRITE
         IBV_WR_RDMA_WRITE_WITH_IMM
@@ -427,11 +439,17 @@ cdef extern from '<infiniband/verbs.h>':
 
     cdef void *IBV_ALLOCATOR_USE_DEFAULT
 
+    cpdef enum ibv_gid_type:
+        IBV_GID_TYPE_IB
+        IBV_GID_TYPE_ROCE_V1
+        IBV_GID_TYPE_ROCE_V2
+
 
 cdef extern from "<infiniband/verbs_api.h>":
     cdef unsigned long long IBV_ADVISE_MR_ADVICE_PREFETCH
     cdef unsigned long long IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE
     cdef unsigned long long IBV_ADVISE_MR_FLAG_FLUSH
+    cdef unsigned long long IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT
 
 
 _IBV_DEVICE_RAW_SCATTER_FCS = IBV_DEVICE_RAW_SCATTER_FCS
@@ -440,9 +458,10 @@ _IBV_ALLOCATOR_USE_DEFAULT = <size_t>IBV_ALLOCATOR_USE_DEFAULT
 _IBV_ADVISE_MR_ADVICE_PREFETCH = IBV_ADVISE_MR_ADVICE_PREFETCH
 _IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE = IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE
 _IBV_ADVISE_MR_FLAG_FLUSH = IBV_ADVISE_MR_FLAG_FLUSH
+_IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT = IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT
 
 
 cdef extern from '<infiniband/driver.h>':
-    cpdef enum ibv_gid_type:
-        IBV_GID_TYPE_IB_ROCE_V1
-        IBV_GID_TYPE_ROCE_V2
+    cpdef enum ibv_gid_type_sysfs:
+        IBV_GID_TYPE_SYSFS_IB_ROCE_V1
+        IBV_GID_TYPE_SYSFS_ROCE_V2

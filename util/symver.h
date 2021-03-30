@@ -58,11 +58,16 @@
   warnings.  See also Documentation/versioning.md
 */
 
+#if HAVE_FUNC_ATTRIBUTE_SYMVER
 #define _MAKE_SYMVER(_local_sym, _public_sym, _ver_str)                        \
-	asm(".symver " #_local_sym "," #_public_sym "@" _ver_str)
+	__attribute__((__symver__(#_public_sym "@" _ver_str)))
+#else
+#define _MAKE_SYMVER(_local_sym, _public_sym, _ver_str)                        \
+	asm(".symver " #_local_sym "," #_public_sym "@" _ver_str);
+#endif
 #define _MAKE_SYMVER_FUNC(_public_sym, _uniq, _ver_str, _ret, ...)             \
 	_ret __##_public_sym##_##_uniq(__VA_ARGS__);                           \
-	_MAKE_SYMVER(__##_public_sym##_##_uniq, _public_sym, _ver_str);        \
+	_MAKE_SYMVER(__##_public_sym##_##_uniq, _public_sym, _ver_str)         \
 	_ret __##_public_sym##_##_uniq(__VA_ARGS__)
 
 #if defined(HAVE_FULL_SYMBOL_VERSIONS) && !defined(_STATIC_LIBRARY_BUILD_)

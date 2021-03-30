@@ -10,7 +10,7 @@ title: RDMA_INIT_QP_ATTR
 
 # NAME
 
-rdma_init_qp_attr - Returns qp attributes of a rdma_cm_id.
+rdma_init_qp_attr - Returns qp attributes of an rdma_cm_id.
 
 # SYNOPSIS
 
@@ -23,7 +23,7 @@ int rdma_init_qp_attr(struct rdma_cm_id *id,
 ```
 # DESCRIPTION
 
-**rdma_init_qp_attr()** returns qp attributes of a rdma_cm_id.
+**rdma_init_qp_attr()** returns qp attributes of an rdma_cm_id.
 
 Information about qp attributes and qp attributes mask is returned through the *qp_attr* and *qp_attr_mask* parameters.
 

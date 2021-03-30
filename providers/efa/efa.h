@@ -16,6 +16,15 @@
 #include "efa-abi.h"
 #include "efa_io_defs.h"
 
+#define EFA_GET(ptr, mask) FIELD_GET(mask##_MASK, *(ptr))
+
+#define EFA_SET(ptr, mask, value)                                              \
+	({                                                                     \
+		typeof(ptr) _ptr = ptr;                                        \
+		*_ptr = (*_ptr & ~(mask##_MASK)) |                             \
+			FIELD_PREP(mask##_MASK, value);                        \
+	})
+
 struct efa_context {
 	struct verbs_context ibvctx;
 	uint32_t cmds_supp_udata_mask;
@@ -29,6 +38,8 @@ struct efa_context {
 	uint16_t max_rq_sge;
 	uint32_t max_rdma_size;
 	uint16_t max_wr_rdma_sge;
+	uint16_t max_tx_batch;
+	uint16_t min_sq_wr;
 	size_t cqe_size;
 	struct efa_qp **qp_table;
 	unsigned int qp_table_sz_m1;
@@ -50,7 +61,7 @@ struct efa_sub_cq {
 };
 
 struct efa_cq {
-	struct ibv_cq ibvcq;
+	struct verbs_cq verbs_cq;
 	uint32_t cqn;
 	size_t cqe_size;
 	uint8_t *buf;
@@ -59,6 +70,8 @@ struct efa_cq {
 	/* Index of next sub cq idx to poll. This is used to guarantee fairness for sub cqs */
 	uint16_t next_poll_idx;
 	pthread_spinlock_t lock;
+	struct efa_wq *cur_wq;
+	struct efa_io_cdesc_common *cur_cqe;
 	struct efa_sub_cq sub_cq_arr[];
 };
 
@@ -98,6 +111,7 @@ struct efa_sq {
 	size_t desc_ring_mmap_size;
 	size_t max_inline_data;
 	size_t max_wr_rdma_sge;
+	uint16_t max_batch_wr;
 
 	/* Buffer for pending WR entries in the current session */
 	uint8_t *local_queue;
@@ -114,8 +128,6 @@ struct efa_qp {
 	struct efa_sq sq;
 	struct efa_rq rq;
 	int page_size;
-	struct efa_cq *rcq;
-	struct efa_cq *scq;
 	int sq_sig_all;
 	int wr_session_err;
 };
@@ -134,11 +146,6 @@ struct efa_dev {
 	uint32_t pg_sz;
 };
 
-static inline bool is_rdma_read_cap(struct efa_context *ctx)
-{
-	return ctx->device_caps & EFA_QUERY_DEVICE_CAPS_RDMA_READ;
-}
-
 static inline struct efa_dev *to_efa_dev(struct ibv_device *ibvdev)
 {
 	return container_of(ibvdev, struct efa_dev, vdev.device);
@@ -156,7 +163,12 @@ static inline struct efa_pd *to_efa_pd(struct ibv_pd *ibvpd)
 
 static inline struct efa_cq *to_efa_cq(struct ibv_cq *ibvcq)
 {
-	return container_of(ibvcq, struct efa_cq, ibvcq);
+	return container_of(ibvcq, struct efa_cq, verbs_cq.cq);
+}
+
+static inline struct efa_cq *to_efa_cq_ex(struct ibv_cq_ex *ibvcqx)
+{
+	return container_of(ibvcqx, struct efa_cq, verbs_cq.cq_ex);
 }
 
 static inline struct efa_qp *to_efa_qp(struct ibv_qp *ibvqp)

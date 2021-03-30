@@ -157,26 +157,6 @@ int ibv_get_device_index(struct ibv_device *device)
 	return sysfs_dev->ibdev_idx;
 }
 
-int ibv_get_fw_ver(char *value, size_t len, struct verbs_sysfs_dev *sysfs_dev)
-{
-	/*
-	 * NOTE: This can only be called by a driver inside the dev_list_lock,
-	 * ie during context setup or otherwise.
-	 */
-	assert(pthread_mutex_trylock(&dev_list_lock) != 0);
-
-	if (!(sysfs_dev->flags & VSYSFS_READ_FW_VER)) {
-		if (ibv_read_ibdev_sysfs_file(sysfs_dev->fw_ver,
-					      sizeof(sysfs_dev->fw_ver),
-					      sysfs_dev, "fw_ver") <= 0)
-			return -1;
-		sysfs_dev->flags |= VSYSFS_READ_FW_VER;
-	}
-	if (!check_snprintf(value, len, "%s", sysfs_dev->fw_ver))
-		return -1;
-	return 0;
-}
-
 void verbs_init_cq(struct ibv_cq *cq, struct ibv_context *context,
 		       struct ibv_comp_channel *channel,
 		       void *cq_context)
@@ -320,6 +300,7 @@ static void set_lib_ops(struct verbs_context *vctx)
 #undef ibv_query_port
 	vctx->context.ops._compat_query_port = ibv_query_port;
 	vctx->query_port = __lib_query_port;
+	vctx->context.ops._compat_query_device = ibv_query_device;
 
 	/*
 	 * In order to maintain backward/forward binary compatibility

@@ -143,6 +143,14 @@ static void gen_opts_temp(FILE *f)
 	fprintf(f, "\n");
 	fprintf(f, "log_level 0\n");
 	fprintf(f, "\n");
+	fprintf(f, "# libibumad debug level:\n");
+	fprintf(f, "# Set the umad library internal debug level to level.\n");
+	fprintf(f, "# 0 - no debug (the default)\n");
+	fprintf(f, "# 1 - basic debug information\n");
+	fprintf(f, "# 2 - verbose debug information.\n");
+	fprintf(f, "\n");
+	fprintf(f, "umad_debug_level 0\n");
+	fprintf(f, "\n");
 	fprintf(f, "# lock_file:\n");
 	fprintf(f, "# Specifies the location of the ACM lock file used to ensure that only a\n");
 	fprintf(f, "# single instance of ACM is running.\n");
@@ -453,7 +461,7 @@ static int gen_addr_names(FILE *f)
 	struct ibv_port_attr port_attr;
 	int i, index, ret, found_active;
 	char host_name[256];
-	uint8_t p;
+	uint32_t p;
 
 	ret = gethostname(host_name, sizeof host_name);
 	if (ret) {
@@ -473,17 +481,17 @@ static int gen_addr_names(FILE *f)
 			if (!found_active) {
 				ret = ibv_query_port(verbs[i], p, &port_attr);
 				if (!ret && port_attr.state == IBV_PORT_ACTIVE) {
-					VPRINT("%s %s %d default\n",
+					VPRINT("%s %s %u default\n",
 						host_name, verbs[i]->device->name, p);
-					fprintf(f, "%s %s %d default\n",
+					fprintf(f, "%s %s %u default\n",
 						host_name, verbs[i]->device->name, p);
 					found_active = 1;
 				}
 			}
 
-			VPRINT("%s-%d %s %d default\n",
+			VPRINT("%s-%d %s %u default\n",
 				host_name, index, verbs[i]->device->name, p);
-			fprintf(f, "%s-%d %s %d default\n",
+			fprintf(f, "%s-%d %s %u default\n",
 				host_name, index++, verbs[i]->device->name, p);
 		}
 	}
@@ -786,6 +794,7 @@ static int resolve(char *svc)
 		} while (src_addr);
 	}
 
+	free(src_list);
 	free(dest_list);
 
 	return ret;

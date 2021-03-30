@@ -69,6 +69,9 @@ struct efadv_device_attr {
 	EFADV_DEVICE_ATTR_CAPS_RDMA_READ:
 		RDMA read is supported.
 
+	EFADV_DEVICE_ATTR_CAPS_RNR_RETRY:
+		RNR retry is supported for SRD QPs.
+
 *max_rdma_size*
 :	Maximum RDMA transfer size in bytes.
 
