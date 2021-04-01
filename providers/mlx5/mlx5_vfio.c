@@ -22,6 +22,8 @@
 #include <poll.h>
 #include <util/mmio.h>
 
+#include <ccan/array_size.h>
+
 #include "mlx5dv.h"
 #include "mlx5_vfio.h"
 #include "mlx5.h"
@@ -1907,6 +1909,7 @@ enum mlx5_cmd_addr_l_sz_offset {
 
 enum {
 	MLX5_NIC_IFC_DISABLED = 1,
+	MLX5_NIC_IFC_SW_RESET = 7,
 };
 
 static uint8_t mlx5_vfio_get_nic_state(struct mlx5_vfio_context *ctx)
@@ -1973,6 +1976,169 @@ static int mlx5_vfio_teardown_hca(struct mlx5_vfio_context *ctx)
 	}
 
 	return mlx5_vfio_teardown_hca_regular(ctx);
+}
+
+static bool sensor_pci_not_working(struct mlx5_init_seg *init_seg)
+{
+	/* Offline PCI reads return 0xffffffff */
+	return (be32toh(mmio_read32_be(&init_seg->health.fw_ver)) == 0xffffffff);
+}
+
+enum mlx5_fatal_assert_bit_offsets {
+	MLX5_RFR_OFFSET = 31,
+};
+
+static bool sensor_fw_synd_rfr(struct mlx5_init_seg *init_seg)
+{
+	uint32_t rfr = be32toh(mmio_read32_be(&init_seg->health.rfr)) >> MLX5_RFR_OFFSET;
+	uint8_t synd = mmio_read8(&init_seg->health.synd);
+
+	return (rfr && synd);
+}
+
+enum  {
+	MLX5_SENSOR_NO_ERR = 0,
+	MLX5_SENSOR_PCI_COMM_ERR = 1,
+	MLX5_SENSOR_NIC_DISABLED = 3,
+	MLX5_SENSOR_NIC_SW_RESET = 4,
+	MLX5_SENSOR_FW_SYND_RFR = 5,
+};
+
+static uint32_t mlx5_health_check_fatal_sensors(struct mlx5_vfio_context *ctx)
+{
+	if (sensor_pci_not_working(ctx->bar_map))
+		return MLX5_SENSOR_PCI_COMM_ERR;
+
+	if (mlx5_vfio_get_nic_state(ctx) == MLX5_NIC_IFC_DISABLED)
+		return MLX5_SENSOR_NIC_DISABLED;
+
+	if (mlx5_vfio_get_nic_state(ctx) == MLX5_NIC_IFC_SW_RESET)
+		return MLX5_SENSOR_NIC_SW_RESET;
+
+	if (sensor_fw_synd_rfr(ctx->bar_map))
+		return MLX5_SENSOR_FW_SYND_RFR;
+
+	return MLX5_SENSOR_NO_ERR;
+}
+
+enum {
+	MLX5_HEALTH_SYNDR_FW_ERR = 0x1,
+	MLX5_HEALTH_SYNDR_IRISC_ERR = 0x7,
+	MLX5_HEALTH_SYNDR_HW_UNRECOVERABLE_ERR = 0x8,
+	MLX5_HEALTH_SYNDR_CRC_ERR = 0x9,
+	MLX5_HEALTH_SYNDR_FETCH_PCI_ERR = 0xa,
+	MLX5_HEALTH_SYNDR_HW_FTL_ERR = 0xb,
+	MLX5_HEALTH_SYNDR_ASYNC_EQ_OVERRUN_ERR = 0xc,
+	MLX5_HEALTH_SYNDR_EQ_ERR = 0xd,
+	MLX5_HEALTH_SYNDR_EQ_INV = 0xe,
+	MLX5_HEALTH_SYNDR_FFSER_ERR = 0xf,
+	MLX5_HEALTH_SYNDR_HIGH_TEMP = 0x10,
+};
+
+static const char *hsynd_str(u8 synd)
+{
+	switch (synd) {
+	case MLX5_HEALTH_SYNDR_FW_ERR:
+		return "firmware internal error";
+	case MLX5_HEALTH_SYNDR_IRISC_ERR:
+		return "irisc not responding";
+	case MLX5_HEALTH_SYNDR_HW_UNRECOVERABLE_ERR:
+		return "unrecoverable hardware error";
+	case MLX5_HEALTH_SYNDR_CRC_ERR:
+		return "firmware CRC error";
+	case MLX5_HEALTH_SYNDR_FETCH_PCI_ERR:
+		return "ICM fetch PCI error";
+	case MLX5_HEALTH_SYNDR_HW_FTL_ERR:
+		return "HW fatal error\n";
+	case MLX5_HEALTH_SYNDR_ASYNC_EQ_OVERRUN_ERR:
+		return "async EQ buffer overrun";
+	case MLX5_HEALTH_SYNDR_EQ_ERR:
+		return "EQ error";
+	case MLX5_HEALTH_SYNDR_EQ_INV:
+		return "Invalid EQ referenced";
+	case MLX5_HEALTH_SYNDR_FFSER_ERR:
+		return "FFSER error";
+	case MLX5_HEALTH_SYNDR_HIGH_TEMP:
+		return "High temperature";
+	default:
+		return "unrecognized error";
+	}
+}
+
+static void print_health_info(struct mlx5_vfio_context *ctx)
+{
+	struct mlx5_init_seg *iseg = ctx->bar_map;
+	struct health_buffer *h = &iseg->health;
+	char fw_str[18] = {};
+	int i;
+
+	/* If the syndrome is 0, the device is OK and no need to print buffer */
+	if (!mmio_read8(&h->synd))
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(h->assert_var); i++)
+		mlx5_err(ctx->dbg_fp, "assert_var[%d] 0x%08x\n",
+			 i, be32toh(mmio_read32_be(h->assert_var + i)));
+
+	mlx5_err(ctx->dbg_fp, "assert_exit_ptr 0x%08x\n",
+		 be32toh(mmio_read32_be(&h->assert_exit_ptr)));
+	mlx5_err(ctx->dbg_fp, "assert_callra 0x%08x\n",
+		 be32toh(mmio_read32_be(&h->assert_callra)));
+	sprintf(fw_str, "%d.%d.%d",
+		be32toh(mmio_read32_be(&iseg->fw_rev)) & 0xffff,
+		be32toh(mmio_read32_be(&iseg->fw_rev)) >> 16,
+		be32toh(mmio_read32_be(&iseg->cmdif_rev_fw_sub)) & 0xffff);
+	mlx5_err(ctx->dbg_fp, "fw_ver %s\n", fw_str);
+	mlx5_err(ctx->dbg_fp, "hw_id 0x%08x\n", be32toh(mmio_read32_be(&h->hw_id)));
+	mlx5_err(ctx->dbg_fp, "irisc_index %d\n", mmio_read8(&h->irisc_index));
+	mlx5_err(ctx->dbg_fp, "synd 0x%x: %s\n", mmio_read8(&h->synd),
+		 hsynd_str(mmio_read8(&h->synd)));
+	mlx5_err(ctx->dbg_fp, "ext_synd 0x%04x\n",
+		 be16toh(mmio_read16_be(&h->ext_synd)));
+	mlx5_err(ctx->dbg_fp, "raw fw_ver 0x%08x\n",
+		 be32toh(mmio_read32_be(&iseg->fw_rev)));
+}
+
+static void mlx5_vfio_poll_health(struct mlx5_vfio_context *ctx)
+{
+	struct mlx5_vfio_health_state *hstate = &ctx->health_state;
+	uint32_t fatal_error, count;
+	struct timeval tv;
+	uint64_t time;
+	int ret;
+
+	ret = gettimeofday(&tv, NULL);
+	if (ret)
+		return;
+
+	time = (uint64_t)tv.tv_sec * 1000 + tv.tv_usec / 1000;
+	if (time - hstate->prev_time < POLL_HEALTH_INTERVAL)
+		return;
+
+	fatal_error = mlx5_health_check_fatal_sensors(ctx);
+	if (fatal_error) {
+		mlx5_err(ctx->dbg_fp, "%s: Fatal error %u detected\n",
+			 __func__, fatal_error);
+		goto err;
+	}
+	count = be32toh(mmio_read32_be(&ctx->bar_map->health_counter)) & 0xffffff;
+	if (count == hstate->prev_count)
+		++hstate->miss_counter;
+	else
+		hstate->miss_counter = 0;
+
+	hstate->prev_time = time;
+	hstate->prev_count = count;
+	if (hstate->miss_counter == MAX_MISSES) {
+		mlx5_err(ctx->dbg_fp,
+			 "device's health compromised - reached miss count\n");
+		goto err;
+	}
+
+	return;
+err:
+	print_health_info(ctx);
+	abort();
 }
 
 static int mlx5_vfio_setup_function(struct mlx5_vfio_context *ctx)
@@ -2228,6 +2394,8 @@ int mlx5dv_vfio_process_events(struct ibv_context *ibctx)
 	struct mlx5_vfio_context *ctx = to_mvfio_ctx(ibctx);
 	uint64_t u;
 	ssize_t s;
+
+	mlx5_vfio_poll_health(ctx);
 
 	/* read to re-arm the FD and process all existing events */
 	s = read(ctx->cmd_comp_fd, &u, sizeof(uint64_t));

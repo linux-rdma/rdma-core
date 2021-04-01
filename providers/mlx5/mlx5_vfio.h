@@ -240,6 +240,14 @@ struct mlx5_vfio_eqs_uar {
 	uint64_t iova;
 };
 
+#define POLL_HEALTH_INTERVAL 1000 /* ms */
+#define MAX_MISSES 3
+struct mlx5_vfio_health_state {
+	uint64_t prev_time; /* ms */
+	uint32_t prev_count;
+	uint32_t miss_counter;
+};
+
 struct mlx5_vfio_context {
 	struct verbs_context vctx;
 	int container_fd;
@@ -258,7 +266,7 @@ struct mlx5_vfio_context {
 		uint32_t hca_cur[MLX5_CAP_NUM][DEVX_UN_SZ_DW(hca_cap_union)];
 		uint32_t hca_max[MLX5_CAP_NUM][DEVX_UN_SZ_DW(hca_cap_union)];
 	} caps;
-
+	struct mlx5_vfio_health_state health_state;
 	struct mlx5_eq async_eq;
 	struct mlx5_vfio_eqs_uar eqs_uar;
 	pthread_mutex_t eq_lock;
