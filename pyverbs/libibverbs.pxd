@@ -140,6 +140,7 @@ cdef extern from 'infiniband/verbs.h':
         unsigned long           max_dm_size
         ibv_pci_atomic_caps     pci_atomic_caps
         uint32_t                xrc_odp_caps
+        uint32_t                phys_port_cnt_ex
 
     cdef struct ibv_mw:
         ibv_context     *context
