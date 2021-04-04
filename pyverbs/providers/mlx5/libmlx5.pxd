@@ -239,6 +239,7 @@ cdef extern from 'infiniband/mlx5dv.h':
                                  uint8_t *active_port_num)
     int mlx5dv_modify_qp_lag_port(v.ibv_qp *qp, uint8_t port_num)
     int mlx5dv_modify_qp_udp_sport(v.ibv_qp *qp, uint16_t udp_sport)
+    int mlx5dv_dci_stream_id_reset(v.ibv_qp *qp, uint16_t stream_id)
     v.ibv_cq_ex *mlx5dv_create_cq(v.ibv_context *context,
                                   v.ibv_cq_init_attr_ex *cq_attr,
                                   mlx5dv_cq_init_attr *mlx5_cq_attr)

@@ -808,6 +808,18 @@ cdef class Mlx5QP(QPEx):
         if rc != 0:
             raise PyverbsRDMAError(f'Failed to map AH to QP #{qp_num}', rc)
 
+    @staticmethod
+    def modify_dci_stream_channel_id(QP qp, uint16_t stream_id):
+        """
+        Reset an errored stream_id in the HW DCI context.
+        :param qp: A DCI QP in RTS state.
+        :param stream_id: The desired stream_id that need to be reset.
+        """
+        rc = dv.mlx5dv_dci_stream_id_reset(qp.qp, stream_id)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to reset stream_id #{stream_id} for DCI QP'
+                                   f'#{qp.qp.qp_num}', rc)
+
 
 cdef class Mlx5DVCQInitAttr(PyverbsObject):
     """
