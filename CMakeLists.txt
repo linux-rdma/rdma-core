@@ -162,26 +162,21 @@ RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WFORMAT_2 "-Wformat=2")
 
 # At some point after 4.4 gcc fixed shadow to ignore function vs variable
 # conflicts
-set(SAFE_CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
-  set(CMAKE_REQUIRED_FLAGS "-Wshadow")
-CHECK_C_SOURCE_COMPILES("
+RDMA_Check_C_Compiles(HAVE_C_WORKING_SHADOW "
  #include <unistd.h>
  int main(int argc,const char *argv[]) { int access = 1; return access; }"
-  HAVE_C_WORKING_SHADOW
-  FAIL_REGEX "warning")
+  "-Wshadow")
 if (HAVE_C_WORKING_SHADOW)
   RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WORKING_SHADOW "-Wshadow")
 endif()
-set(CMAKE_REQUIRED_FLAGS "${SAFE_CMAKE_REQUIRED_FLAGS}")
 
 # At some point around 5.4 gcc fixed missing-field-initializers to ignore this
 # common idiom we use extensively. Since this is a useful warning for
 # developers try and leave it on if the compiler supports it.
-CHECK_C_SOURCE_COMPILES("
+RDMA_Check_C_Compiles(HAVE_C_WORKING_MISSING_FIELD_INITIALIZERS "
  struct foo { int a; int b; };
  int main(int argc,const char *argv[]) { struct foo tmp = {}; return tmp.a; }"
-  HAVE_C_WORKING_MISSING_FIELD_INITIALIZERS
-  FAIL_REGEX "warning")
+)
 if (NOT HAVE_C_WORKING_MISSING_FIELD_INITIALIZERS)
   RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WNO_MISSING_FIELD_INITIALIZERS "-Wno-missing-field-initializers")
 endif()
@@ -192,7 +187,7 @@ set(NO_STRICT_ALIASING_FLAGS "")
 RDMA_AddOptCFlag(NO_STRICT_ALIASING_FLAGS HAVE_NO_STRICT_ALIASING
   "-fno-strict-aliasing")
 
-CHECK_C_SOURCE_COMPILES("
+RDMA_Check_C_Compiles(HAVE_FUNC_ATTRIBUTE_IFUNC "
  #include <unistd.h>
 
  void entry(void);
@@ -202,8 +197,7 @@ CHECK_C_SOURCE_COMPILES("
  static void *resolve_entry(void) {return &do_entry;}
 
  int main(int argc,const char *argv[]) { entry(); }"
-  HAVE_FUNC_ATTRIBUTE_IFUNC
-  FAIL_REGEX "warning")
+)
 
 # The code does not do the racy fcntl if the various CLOEXEC's are not
 # supported so it really doesn't work right if this isn't available. Thus hard
@@ -243,12 +237,11 @@ if (NOT HAS_CLOEXEC)
 endif()
 
 # always_inline is supported
-CHECK_C_SOURCE_COMPILES("
+RDMA_Check_C_Compiles(HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE "
  int foo(void);
  inline __attribute__((always_inline)) int foo(void) {return 0;}
  int main(int argc,const char *argv[]) { return foo(); }"
-  HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE
-  FAIL_REGEX "warning")
+)
 
 # Provide a shim if C11 stdatomic.h is not supported.
 if (NOT HAVE_SPARSE)
@@ -394,17 +387,13 @@ RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WOLD_STYLE_DEFINITION "-Wold-style-definit
 # Old versions of libnl have a duplicated rtnl_route_put, disbale the warning on those
 # systems
 if (NOT NL_KIND EQUAL 0)
-  set(SAFE_CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES}")
   set(SAFE_CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
   set(CMAKE_REQUIRED_INCLUDES "${NL_INCLUDE_DIRS}")
-  set(CMAKE_REQUIRED_FLAGS "-Wredundant-decls")
-  CHECK_C_SOURCE_COMPILES("
+  RDMA_Check_C_Compiles(HAVE_C_WREDUNDANT_DECLS "
  #include <netlink/route/route.h>
  int main(int argc,const char *argv[]) { return 0; }"
-  HAVE_C_WREDUNDANT_DECLS
-  FAIL_REGEX "warning")
+  "-Wredundant-decls")
   set(CMAKE_REQUIRED_INCLUDES "${SAFE_CMAKE_REQUIRED_INCLUDES}")
-  set(CMAKE_REQUIRED_FLAGS "${SAFE_CMAKE_REQUIRED_FLAGS}")
 endif()
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WREDUNDANT_DECLS "-Wredundant-decls")
 

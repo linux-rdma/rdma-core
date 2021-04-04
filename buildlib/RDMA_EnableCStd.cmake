@@ -56,6 +56,12 @@ function(RDMA_EnableCStd)
   endif()
 endfunction()
 
+function(RDMA_Check_C_Compiles TO_VAR CHECK_PROGRAM)
+  set(CMAKE_REQUIRED_FLAGS "${ARGV2} -Werror")
+  CHECK_C_SOURCE_COMPILES("${CHECK_PROGRAM}" ${TO_VAR})
+  set(${TO_VAR} ${${TO_VAR}} PARENT_SCOPE)
+endfunction()
+
 function(RDMA_Check_SSE TO_VAR)
   set(SSE_CHECK_PROGRAM "
 #if defined(__i386__)
@@ -77,20 +83,12 @@ int main(int argc, char *argv[])
 #endif
 ")
 
-  CHECK_C_SOURCE_COMPILES(
-    "${SSE_CHECK_PROGRAM}"
-    HAVE_TARGET_SSE
-    FAIL_REGEX "warning")
+  RDMA_Check_C_Compiles(HAVE_TARGET_SSE "${SSE_CHECK_PROGRAM}")
 
   if(NOT HAVE_TARGET_SSE)
     # Older compiler, we can work around this by adding -msse instead of
     # relying on the function attribute.
-    set(CMAKE_REQUIRED_FLAGS "-msse")
-    CHECK_C_SOURCE_COMPILES(
-      "${SSE_CHECK_PROGRAM}"
-      NEED_MSSE_FLAG
-      FAIL_REGEX "warning")
-    set(CMAKE_REQUIRED_FLAGS)
+    RDMA_Check_C_Compiles(NEED_MSSE_FLAG "${SSE_CHECK_PROGRAM}" "-msse")
 
     if(NEED_MSSE_FLAG)
       set(SSE_FLAGS "-msse" PARENT_SCOPE)
