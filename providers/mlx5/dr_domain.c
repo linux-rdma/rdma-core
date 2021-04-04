@@ -343,17 +343,19 @@ mlx5dv_dr_domain_create(struct ibv_context *ctx,
 	list_head_init(&dmn->tbl_list);
 
 	ret = pthread_spin_init(&dmn->info.rx.lock, PTHREAD_PROCESS_PRIVATE);
-	if (!ret)
-		pthread_spin_init(&dmn->info.tx.lock, PTHREAD_PROCESS_PRIVATE);
-
 	if (ret) {
 		errno = ret;
 		goto free_domain;
 	}
+	ret = pthread_spin_init(&dmn->info.tx.lock, PTHREAD_PROCESS_PRIVATE);
+	if (ret) {
+		errno = ret;
+		goto free_rx_spin_locks;
+	}
 
 	if (dr_domain_caps_init(ctx, dmn)) {
 		dr_dbg(dmn, "Failed init domain, no caps\n");
-		goto free_domain;
+		goto free_tx_spin_locks;
 	}
 
 	/* Allocate resources */
@@ -376,6 +378,10 @@ mlx5dv_dr_domain_create(struct ibv_context *ctx,
 
 uninit_caps:
 	dr_domain_caps_uninit(dmn);
+free_tx_spin_locks:
+	pthread_spin_destroy(&dmn->info.tx.lock);
+free_rx_spin_locks:
+	pthread_spin_destroy(&dmn->info.rx.lock);
 free_domain:
 	free(dmn);
 	return NULL;
@@ -444,6 +450,9 @@ int mlx5dv_dr_domain_destroy(struct mlx5dv_dr_domain *dmn)
 	}
 
 	dr_domain_caps_uninit(dmn);
+
+	pthread_spin_destroy(&dmn->info.rx.lock);
+	pthread_spin_destroy(&dmn->info.tx.lock);
 
 	free(dmn);
 	return 0;
