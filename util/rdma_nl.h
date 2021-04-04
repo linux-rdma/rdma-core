@@ -32,6 +32,8 @@
 #ifndef UTIL_RDMA_NL_H
 #define UTIL_RDMA_NL_H
 
+#include <stdbool.h>
+
 #include <rdma/rdma_netlink.h>
 #include <netlink/netlink.h>
 #include <netlink/msg.h>
@@ -43,5 +45,8 @@ int rdmanl_get_devices(struct nl_sock *nl, nl_recvmsg_msg_cb_t cb_func,
 		       void *data);
 int rdmanl_get_chardev(struct nl_sock *nl, int ibidx, const char *name,
 		       nl_recvmsg_msg_cb_t cb_func, void *data);
+bool get_copy_on_fork(void);
+int rdmanl_get_copy_on_fork(struct nl_sock *nl, nl_recvmsg_msg_cb_t cb_func,
+			    void *data);
 
 #endif
