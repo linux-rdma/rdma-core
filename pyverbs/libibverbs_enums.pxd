@@ -447,6 +447,11 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_GID_TYPE_ROCE_V1
         IBV_GID_TYPE_ROCE_V2
 
+    cpdef enum ibv_fork_status:
+        IBV_FORK_DISABLED
+        IBV_FORK_ENABLED
+        IBV_FORK_UNNEEDED
+
 
 cdef extern from "<infiniband/verbs_api.h>":
     cdef unsigned long long IBV_ADVISE_MR_ADVICE_PREFETCH
