@@ -1229,6 +1229,15 @@ cdef class QP(PyverbsCM):
         if rc != 0:
             raise PyverbsRDMAError('Failed to Bind MW', rc)
 
+    def query_data_in_order(self, op, flags=0):
+        """
+        Query if QP data is guaranteed to be in order.
+        :param op: Operation type.
+        :param flags: Extra field for future input. For now must be 0.
+        :return: 1 in case the data is guaranteed to be in order, 0 otherwise.
+        """
+        return v.ibv_query_qp_data_in_order(self.qp, op, flags)
+
     @property
     def qp_type(self):
         return self.qp.qp_type
