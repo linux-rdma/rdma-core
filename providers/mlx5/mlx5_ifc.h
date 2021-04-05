@@ -3314,7 +3314,7 @@ struct mlx5_ifc_qpc_ext_bits {
 
 	u8         qos_queue_group_id_responder[0x20];
 
-	u8         reserved_at_60[0x7a0];
+	u8         reserved_at_60[0x5a0];
 };
 
 struct mlx5_ifc_create_tir_out_bits {
