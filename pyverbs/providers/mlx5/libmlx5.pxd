@@ -159,6 +159,47 @@ cdef extern from 'infiniband/mlx5dv.h':
         uint32_t conf_flags
         uint64_t comp_mask
 
+    cdef struct mlx5dv_sig_crc:
+        mlx5dv_sig_crc_type type
+        uint64_t seed
+
+    cdef struct mlx5dv_sig_t10dif:
+        mlx5dv_sig_t10dif_bg_type bg_type
+        uint16_t bg
+        uint16_t app_tag
+        uint32_t ref_tag
+        uint16_t flags
+
+    cdef union sig:
+        mlx5dv_sig_t10dif *dif
+        mlx5dv_sig_crc *crc
+
+    cdef struct mlx5dv_sig_block_domain:
+        mlx5dv_sig_type sig_type
+        sig sig
+        mlx5dv_block_size block_size
+        uint64_t comp_mask
+
+    cdef struct mlx5dv_sig_block_attr:
+        mlx5dv_sig_block_domain *mem
+        mlx5dv_sig_block_domain *wire
+        uint32_t flags
+        uint8_t check_mask
+        uint8_t copy_mask
+        uint64_t comp_mask
+
+    cdef struct mlx5dv_sig_err:
+        uint64_t actual_value
+        uint64_t expected_value
+        uint64_t offset
+
+    cdef union err:
+        mlx5dv_sig_err sig
+
+    cdef struct mlx5dv_mkey_err:
+        mlx5dv_mkey_err_type err_type
+        err err
+
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
@@ -254,3 +295,5 @@ cdef extern from 'infiniband/mlx5dv.h':
     void mlx5dv_wr_set_mkey_layout_interleaved(mlx5dv_qp_ex *mqp, uint32_t repeat_count,
                                                uint16_t num_interleaved,
                                                mlx5dv_mr_interleaved *data)
+    void mlx5dv_wr_set_mkey_sig_block(mlx5dv_qp_ex *mqp, mlx5dv_sig_block_attr *attr)
+    int mlx5dv_mkey_check(mlx5dv_mkey *mkey, mlx5dv_mkey_err *err_info)

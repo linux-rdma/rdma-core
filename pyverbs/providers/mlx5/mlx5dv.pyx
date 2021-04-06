@@ -8,7 +8,7 @@ from posix.mman cimport munmap
 import logging
 
 from pyverbs.providers.mlx5.mlx5dv_mkey cimport Mlx5MrInterleaved, Mlx5Mkey, \
-    Mlx5MkeyConfAttr
+    Mlx5MkeyConfAttr, Mlx5SigBlockAttr
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError, PyverbsError
 from pyverbs.providers.mlx5.mlx5dv_sched cimport Mlx5dvSchedLeaf
 cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
@@ -628,6 +628,14 @@ cdef class Mlx5QP(QPEx):
                                                  repeat_count, num_interleaved,
                                                  mr_interleaved_p)
         free(mr_interleaved_p)
+
+    def wr_set_mkey_sig_block(self, Mlx5SigBlockAttr block_attr):
+        """
+        Configure a MKEY for block signature (data integrity) operation.
+        :param block_attr: Block signature attributes to set for the mkey.
+        """
+        dv.mlx5dv_wr_set_mkey_sig_block(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                        &block_attr.mlx5dv_sig_block_attr)
 
     @staticmethod
     def query_lag_port(QP qp):
