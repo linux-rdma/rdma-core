@@ -583,7 +583,7 @@ static int get_total_uuars(int page_size)
 	return size;
 }
 
-static void open_debug_file(struct mlx5_context *ctx)
+void mlx5_open_debug_file(FILE **dbg_fp)
 {
 	char *env;
 	FILE *default_dbg_fp = NULL;
@@ -594,25 +594,25 @@ static void open_debug_file(struct mlx5_context *ctx)
 
 	env = getenv("MLX5_DEBUG_FILE");
 	if (!env) {
-		ctx->dbg_fp = default_dbg_fp;
+		*dbg_fp = default_dbg_fp;
 		return;
 	}
 
-	ctx->dbg_fp = fopen(env, "aw+");
-	if (!ctx->dbg_fp) {
-		ctx->dbg_fp = default_dbg_fp;
-		mlx5_err(ctx->dbg_fp, "Failed opening debug file %s\n", env);
+	*dbg_fp = fopen(env, "aw+");
+	if (!*dbg_fp) {
+		*dbg_fp = default_dbg_fp;
+		mlx5_err(*dbg_fp, "Failed opening debug file %s\n", env);
 		return;
 	}
 }
 
-static void close_debug_file(struct mlx5_context *ctx)
+void mlx5_close_debug_file(FILE *dbg_fp)
 {
-	if (ctx->dbg_fp && ctx->dbg_fp != stderr)
-		fclose(ctx->dbg_fp);
+	if (dbg_fp && dbg_fp != stderr)
+		fclose(dbg_fp);
 }
 
-static void set_debug_mask(void)
+void mlx5_set_debug_mask(void)
 {
 	char *env;
 
@@ -2069,7 +2069,7 @@ static int get_uar_info(struct mlx5_device *mdev,
 
 static void mlx5_uninit_context(struct mlx5_context *context)
 {
-	close_debug_file(context);
+	mlx5_close_debug_file(context->dbg_fp);
 
 	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
@@ -2089,8 +2089,8 @@ static struct mlx5_context *mlx5_init_context(struct ibv_device *ibdev,
 	if (!context)
 		return NULL;
 
-	open_debug_file(context);
-	set_debug_mask();
+	mlx5_open_debug_file(&context->dbg_fp);
+	mlx5_set_debug_mask();
 	set_freeze_on_error();
 	if (gethostname(context->hostname, sizeof(context->hostname)))
 		strcpy(context->hostname, "host_unknown");
@@ -2410,7 +2410,7 @@ static void mlx5_free_context(struct ibv_context *ibctx)
 		       page_size);
 	if (context->clock_info_page)
 		munmap((void *)context->clock_info_page, page_size);
-	close_debug_file(context);
+	mlx5_close_debug_file(context->dbg_fp);
 	clean_dyn_uars(ibctx);
 	reserved_qpn_blks_free(context);
 

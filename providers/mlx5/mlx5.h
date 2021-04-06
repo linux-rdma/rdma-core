@@ -993,6 +993,10 @@ static inline struct mlx5_flow *to_mflow(struct ibv_flow *flow_id)
 
 bool is_mlx5_dev(struct ibv_device *device);
 
+void mlx5_open_debug_file(FILE **dbg_fp);
+void mlx5_close_debug_file(FILE *dbg_fp);
+void mlx5_set_debug_mask(void);
+
 int mlx5_alloc_buf(struct mlx5_buf *buf, size_t size, int page_size);
 void mlx5_free_buf(struct mlx5_buf *buf);
 int mlx5_alloc_buf_contig(struct mlx5_context *mctx, struct mlx5_buf *buf,
