@@ -7,6 +7,8 @@ from pyverbs.base cimport PyverbsObject, PyverbsCM
 cimport pyverbs.providers.mlx5.libmlx5 as dv
 from pyverbs.pd cimport PD
 
+cdef class Mlx5MkeyConfAttr(PyverbsObject):
+    cdef dv.mlx5dv_mkey_conf_attr mlx5dv_mkey_conf_attr
 
 cdef class Mlx5MrInterleaved(PyverbsObject):
     cdef dv.mlx5dv_mr_interleaved mlx5dv_mr_interleaved

@@ -155,6 +155,10 @@ cdef extern from 'infiniband/mlx5dv.h':
         uint32_t bytes_skip
         uint32_t lkey
 
+    cdef struct mlx5dv_mkey_conf_attr:
+        uint32_t conf_flags
+        uint64_t comp_mask
+
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
@@ -241,3 +245,12 @@ cdef extern from 'infiniband/mlx5dv.h':
     void mlx5dv_devx_free_uar(mlx5dv_devx_uar *devx_uar)
     int mlx5dv_devx_general_cmd(v.ibv_context *context, const void *in_,
                                 size_t inlen, void *out, size_t outlen);
+
+    # Mkey setters
+    void mlx5dv_wr_mkey_configure(mlx5dv_qp_ex *mqp, mlx5dv_mkey *mkey,
+                                 int num_setters, mlx5dv_mkey_conf_attr *attr)
+    void mlx5dv_wr_set_mkey_access_flags(mlx5dv_qp_ex *mqp, uint32_t access_flags)
+    void mlx5dv_wr_set_mkey_layout_list(mlx5dv_qp_ex *mqp, uint16_t num_sges, v.ibv_sge *sge)
+    void mlx5dv_wr_set_mkey_layout_interleaved(mlx5dv_qp_ex *mqp, uint32_t repeat_count,
+                                               uint16_t num_interleaved,
+                                               mlx5dv_mr_interleaved *data)

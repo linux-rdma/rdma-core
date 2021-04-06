@@ -7,6 +7,18 @@ from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.pd cimport PD
 
 
+cdef class Mlx5MkeyConfAttr(PyverbsObject):
+    def __init__(self, conf_flags=0, comp_mask=0):
+        """
+        Initializes a Mlx5MkeyConfAttr object representing mlx5dv_mkey_conf_attr
+        C struct.
+        :param conf_flags: Mkey configuration flags.
+        :param comp_mask: Compatibility mask.
+        """
+        self.mlx5dv_mkey_conf_attr.conf_flags = conf_flags
+        self.mlx5dv_mkey_conf_attr.comp_mask = comp_mask
+
+
 cdef class Mlx5MrInterleaved(PyverbsObject):
     def __init__(self, addr, bytes_count, bytes_skip, lkey):
         """

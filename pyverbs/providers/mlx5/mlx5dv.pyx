@@ -7,8 +7,9 @@ from libc.string cimport memcpy
 from posix.mman cimport munmap
 import logging
 
+from pyverbs.providers.mlx5.mlx5dv_mkey cimport Mlx5MrInterleaved, Mlx5Mkey, \
+    Mlx5MkeyConfAttr
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError, PyverbsError
-from pyverbs.providers.mlx5.mlx5dv_mkey cimport Mlx5MrInterleaved, Mlx5Mkey
 from pyverbs.providers.mlx5.mlx5dv_sched cimport Mlx5dvSchedLeaf
 cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
 cimport pyverbs.providers.mlx5.libmlx5 as dv
@@ -577,6 +578,57 @@ cdef class Mlx5QP(QPEx):
                              mkey.mlx5dv_mkey, access_flags, num_sges, sge_p)
         free(sge_p)
 
+    def wr_mkey_configure(self, Mlx5Mkey mkey, num_setters, Mlx5MkeyConfAttr mkey_config):
+        """
+        Create a work request to configure an Mkey
+        :param mkey: A Mlx5Mkey instance to configure.
+        :param num_setters: The number of setters that must be called after
+                            this function.
+        :param attr: The Mkey configuration attributes.
+        """
+        dv.mlx5dv_wr_mkey_configure(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                    mkey.mlx5dv_mkey, num_setters,
+                                    &mkey_config.mlx5dv_mkey_conf_attr)
+
+    def wr_set_mkey_access_flags(self, access_flags):
+        """
+        Set the memory protection attributes for an Mkey
+        :param access_flags: The mkey access flags.
+        """
+        dv.mlx5dv_wr_set_mkey_access_flags(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                           access_flags)
+
+    def wr_set_mkey_layout_list(self, sge_list):
+        """
+        Set a memory layout for an Mkey based on SGE list.
+        :param sge_list: List of SGE.
+        """
+        num_sges = len(sge_list)
+        cdef v.ibv_sge *sge_p = <v.ibv_sge*>calloc(1, num_sges * sizeof(v.ibv_sge))
+        if sge_p == NULL:
+            raise MemoryError('Failed to calloc sge buffers')
+        copy_sg_array(sge_p, sge_list, num_sges)
+        dv.mlx5dv_wr_set_mkey_layout_list(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                          num_sges, sge_p)
+        free(sge_p)
+
+    def wr_set_mkey_layout_interleaved(self, repeat_count, mr_interleaved_lst):
+        """
+        Set an interleaved memory layout for an Mkey
+        :param repeat_count: Number of times to repeat the interleaved layout.
+        :param mr_interleaved_lst: List of Mlx5MrInterleaved.
+        """
+        num_interleaved = len(mr_interleaved_lst)
+        cdef dv.mlx5dv_mr_interleaved *mr_interleaved_p = \
+            <dv.mlx5dv_mr_interleaved*>calloc(1, num_interleaved * sizeof(dv.mlx5dv_mr_interleaved))
+        if mr_interleaved_p == NULL:
+            raise MemoryError('Failed to calloc mr interleaved buffers')
+        copy_mr_interleaved_array(mr_interleaved_p, mr_interleaved_lst)
+        dv.mlx5dv_wr_set_mkey_layout_interleaved(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                                 repeat_count, num_interleaved,
+                                                 mr_interleaved_p)
+        free(mr_interleaved_p)
+
     @staticmethod
     def query_lag_port(QP qp):
         """
@@ -855,7 +907,8 @@ def qp_create_flags_to_str(flags):
 
 def send_ops_flags_to_str(flags):
     l = {dve.MLX5DV_QP_EX_WITH_MR_INTERLEAVED: 'With MR interleaved',
-         dve.MLX5DV_QP_EX_WITH_MR_LIST: 'With MR list'}
+         dve.MLX5DV_QP_EX_WITH_MR_LIST: 'With MR list',
+         dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE: 'With Mkey configure'}
     return bitmask_to_str(flags, l)
 
 
