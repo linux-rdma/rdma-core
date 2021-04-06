@@ -9,11 +9,12 @@ from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, \
     Mlx5DVQPInitAttr, Mlx5QP
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError, \
     PyverbsError
-from pyverbs.providers.mlx5.mlx5dv_mkey import Mlx5Mkey, Mlx5MrInterleaved
+from pyverbs.providers.mlx5.mlx5dv_mkey import Mlx5Mkey, Mlx5MrInterleaved, \
+    Mlx5MkeyConfAttr
 from tests.base import RCResources, RDMATestCase
 import pyverbs.providers.mlx5.mlx5_enums as dve
 from pyverbs.wr import SGE, SendWR, RecvWR
-from pyverbs.qp import QPInitAttrEx
+from pyverbs.qp import QPInitAttrEx, QPCap
 import pyverbs.enums as e
 import tests.utils as u
 
@@ -21,6 +22,10 @@ import tests.utils as u
 class Mlx5MkeyResources(RCResources):
     def __init__(self, dev_name, ib_port, gid_index, dv_send_ops_flags=0):
         self.dv_send_ops_flags = dv_send_ops_flags
+        if dv_send_ops_flags & dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE:
+            self.max_inline_data = 512
+        else:
+            self.max_inline_data = 0
         super().__init__(dev_name, ib_port, gid_index)
         self.create_mkey()
 
@@ -40,6 +45,10 @@ class Mlx5MkeyResources(RCResources):
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Create Mkey is not supported')
             raise ex
+
+    def create_qp_cap(self):
+        return QPCap(max_send_wr=self.num_msgs, max_recv_wr=self.num_msgs,
+                     max_inline_data=self.max_inline_data)
 
     def create_qp_init_attr(self):
         comp_mask = e.IBV_QP_INIT_ATTR_PD | e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
@@ -90,23 +99,30 @@ class Mlx5MkeyTest(RDMATestCase):
         self.client.pre_run(self.server.psns, self.server.qps_num)
         self.server.pre_run(self.client.psns, self.client.qps_num)
 
-    def reg_mr_list(self):
+    def reg_mr_list(self, configure_mkey=False):
         """
         Register a list of SGEs using the player's mkeys.
+        :param configure_mkey: If True, use the mkey configuration API.
         """
         for player in [self.server, self.client]:
             player.qp.wr_start()
             player.qp.wr_flags = e.IBV_SEND_SIGNALED | e.IBV_SEND_INLINE
             sge_1 = SGE(player.mr.buf, 8, player.mr.lkey)
             sge_2 = SGE(player.mr.buf + 64, 8, player.mr.lkey)
-            player.qp.wr_mr_list(player.mkey, e.IBV_ACCESS_LOCAL_WRITE,
-                                 sge_list=[sge_1, sge_2])
+            if configure_mkey:
+                player.qp.wr_mkey_configure(player.mkey, 2, Mlx5MkeyConfAttr())
+                player.qp.wr_set_mkey_access_flags(e.IBV_ACCESS_LOCAL_WRITE)
+                player.qp.wr_set_mkey_layout_list([sge_1, sge_2])
+            else:
+                player.qp.wr_mr_list(player.mkey, e.IBV_ACCESS_LOCAL_WRITE,
+                                     sge_list=[sge_1, sge_2])
             player.qp.wr_complete()
             u.poll_cq(player.cq)
 
-    def reg_mr_interleaved(self):
+    def reg_mr_interleaved(self, configure_mkey=False):
         """
         Register an interleaved memory layout using the player's mkeys.
+        :param configure_mkey: Use the mkey configuration API.
         """
         for player in [self.server, self.client]:
             player.qp.wr_start()
@@ -117,8 +133,13 @@ class Mlx5MkeyTest(RDMATestCase):
                                                  bytes_skip=2, lkey=player.mr.lkey)
             mr_interleaved_lst = [mr_interleaved_1, mr_interleaved_2]
             mkey_access = e.IBV_ACCESS_LOCAL_WRITE
-            player.qp.wr_mr_interleaved(player.mkey, e.IBV_ACCESS_LOCAL_WRITE,
-                                        repeat_count=3, mr_interleaved_lst=mr_interleaved_lst)
+            if configure_mkey:
+                player.qp.wr_mkey_configure(player.mkey, 2, Mlx5MkeyConfAttr())
+                player.qp.wr_set_mkey_access_flags(mkey_access)
+                player.qp.wr_set_mkey_layout_interleaved(3, mr_interleaved_lst)
+            else:
+                player.qp.wr_mr_interleaved(player.mkey, e.IBV_ACCESS_LOCAL_WRITE,
+                                            repeat_count=3, mr_interleaved_lst=mr_interleaved_lst)
             player.qp.wr_complete()
             u.poll_cq(player.cq)
 
@@ -182,6 +203,28 @@ class Mlx5MkeyTest(RDMATestCase):
         self.create_players(Mlx5MkeyResources,
                             dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MR_LIST)
         self.reg_mr_list()
+        self.traffic()
+        self.invalidate_mkeys()
+
+    def test_mkey_list_new_api(self):
+        """
+        Create Mkeys, configure it with memory layout using the new API and
+        traffic using this mkey.
+        """
+        self.create_players(Mlx5MkeyResources,
+                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE)
+        self.reg_mr_list(configure_mkey=True)
+        self.traffic()
+        self.invalidate_mkeys()
+
+    def test_mkey_interleaved_new_api(self):
+        """
+        Create Mkeys, configure it with interleaved memory layout using the new
+        API and then perform traffic using it.
+        """
+        self.create_players(Mlx5MkeyResources,
+                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE)
+        self.reg_mr_interleaved(configure_mkey=True)
         self.traffic()
         self.invalidate_mkeys()
 
