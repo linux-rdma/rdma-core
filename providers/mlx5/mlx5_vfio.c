@@ -1351,7 +1351,7 @@ static int wait_fw_init(struct mlx5_init_seg *init_seg, uint32_t max_wait_mili)
 	return 0;
 }
 
-static int mlx5_vfio_teardown_hca(struct mlx5_vfio_context *ctx)
+static int mlx5_vfio_teardown_hca_regular(struct mlx5_vfio_context *ctx)
 {
 	uint32_t in[DEVX_ST_SZ_DW(teardown_hca_in)] = {};
 	uint32_t out[DEVX_ST_SZ_DW(teardown_hca_out)] = {};
@@ -1359,6 +1359,80 @@ static int mlx5_vfio_teardown_hca(struct mlx5_vfio_context *ctx)
 	DEVX_SET(teardown_hca_in, in, opcode, MLX5_CMD_OP_TEARDOWN_HCA);
 	DEVX_SET(teardown_hca_in, in, profile, MLX5_TEARDOWN_HCA_IN_PROFILE_GRACEFUL_CLOSE);
 	return mlx5_vfio_cmd_exec(ctx, in, sizeof(in), out, sizeof(out), 0);
+}
+
+enum mlx5_cmd_addr_l_sz_offset {
+	MLX5_NIC_IFC_OFFSET = 8,
+};
+
+enum {
+	MLX5_NIC_IFC_DISABLED = 1,
+};
+
+static uint8_t mlx5_vfio_get_nic_state(struct mlx5_vfio_context *ctx)
+{
+	return (be32toh(mmio_read32_be(&ctx->bar_map->cmdq_addr_l_sz)) >> 8) & 7;
+}
+
+static void mlx5_vfio_set_nic_state(struct mlx5_vfio_context *ctx, uint8_t state)
+{
+	uint32_t cur_cmdq_addr_l_sz;
+
+	cur_cmdq_addr_l_sz = be32toh(mmio_read32_be(&ctx->bar_map->cmdq_addr_l_sz));
+	mmio_write32_be(&ctx->bar_map->cmdq_addr_l_sz,
+			htobe32((cur_cmdq_addr_l_sz & 0xFFFFF000) |
+				state << MLX5_NIC_IFC_OFFSET));
+}
+
+#define MLX5_FAST_TEARDOWN_WAIT_MS 3000
+#define MLX5_FAST_TEARDOWN_WAIT_ONCE_MS 1
+static int mlx5_vfio_teardown_hca_fast(struct mlx5_vfio_context *ctx)
+{
+	uint32_t out[DEVX_ST_SZ_DW(teardown_hca_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(teardown_hca_in)] = {};
+	int waited = 0, state, ret;
+
+	DEVX_SET(teardown_hca_in, in, opcode, MLX5_CMD_OP_TEARDOWN_HCA);
+	DEVX_SET(teardown_hca_in, in, profile,
+		 MLX5_TEARDOWN_HCA_IN_PROFILE_PREPARE_FAST_TEARDOWN);
+	ret = mlx5_vfio_cmd_exec(ctx, in, sizeof(in), out, sizeof(out), 0);
+	if (ret)
+		return ret;
+
+	state = DEVX_GET(teardown_hca_out, out, state);
+	if (state == MLX5_TEARDOWN_HCA_OUT_FORCE_STATE_FAIL) {
+		mlx5_err(ctx->dbg_fp, "teardown with fast mode failed\n");
+		return EIO;
+	}
+
+	mlx5_vfio_set_nic_state(ctx, MLX5_NIC_IFC_DISABLED);
+	do {
+		if (mlx5_vfio_get_nic_state(ctx) == MLX5_NIC_IFC_DISABLED)
+			break;
+		usleep(MLX5_FAST_TEARDOWN_WAIT_ONCE_MS * 1000);
+		waited += MLX5_FAST_TEARDOWN_WAIT_ONCE_MS;
+	} while (waited < MLX5_FAST_TEARDOWN_WAIT_MS);
+
+	if (mlx5_vfio_get_nic_state(ctx) != MLX5_NIC_IFC_DISABLED) {
+		mlx5_err(ctx->dbg_fp, "NIC IFC still %d after %ums.\n",
+			 mlx5_vfio_get_nic_state(ctx), waited);
+		return EIO;
+	}
+
+	return 0;
+}
+
+static int mlx5_vfio_teardown_hca(struct mlx5_vfio_context *ctx)
+{
+	int err;
+
+	if (MLX5_VFIO_CAP_GEN(ctx, fast_teardown)) {
+		err = mlx5_vfio_teardown_hca_fast(ctx);
+		if (!err)
+			return 0;
+	}
+
+	return mlx5_vfio_teardown_hca_regular(ctx);
 }
 
 static int mlx5_vfio_setup_function(struct mlx5_vfio_context *ctx)

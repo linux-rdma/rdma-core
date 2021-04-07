@@ -4289,6 +4289,10 @@ struct mlx5_ifc_manage_pages_in_bits {
 	u8         pas[][0x40];
 };
 
+enum {
+	MLX5_TEARDOWN_HCA_OUT_FORCE_STATE_FAIL = 0x1,
+};
+
 struct mlx5_ifc_teardown_hca_out_bits {
 	u8         status[0x8];
 	u8         reserved_at_8[0x18];
@@ -4302,6 +4306,7 @@ struct mlx5_ifc_teardown_hca_out_bits {
 
 enum {
 	MLX5_TEARDOWN_HCA_IN_PROFILE_GRACEFUL_CLOSE = 0x0,
+	MLX5_TEARDOWN_HCA_IN_PROFILE_PREPARE_FAST_TEARDOWN = 0x2,
 };
 
 struct mlx5_ifc_teardown_hca_in_bits {
