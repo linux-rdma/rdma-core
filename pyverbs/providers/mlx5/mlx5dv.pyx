@@ -51,6 +51,51 @@ cdef char* _prepare_devx_outbox(outlen):
     return out_mailbox
 
 
+cdef class Mlx5DVPortAttr(PyverbsObject):
+    """
+    Represents mlx5dv_port struct, which exposes mlx5-specific capabilities,
+    reported by mlx5dv_query_port()
+    """
+    def __init__(self):
+        super().__init__()
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return print_format.format('flags', hex(self.attr.flags))
+
+    @property
+    def flags(self):
+        return self.attr.flags
+
+    @property
+    def vport(self):
+        return self.attr.vport
+
+    @property
+    def vport_vhca_id(self):
+        return self.attr.vport_vhca_id
+
+    @property
+    def esw_owner_vhca_id(self):
+        return self.attr.esw_owner_vhca_id
+
+    @property
+    def vport_steering_icm_rx(self):
+        return self.attr.vport_steering_icm_rx
+
+    @property
+    def vport_steering_icm_tx(self):
+        return self.attr.vport_steering_icm_tx
+
+    @property
+    def reg_c0_value(self):
+        return self.attr.reg_c0.value
+
+    @property
+    def reg_c0_mask(self):
+        return self.attr.reg_c0.mask
+
+
 cdef class Mlx5DVContextAttr(PyverbsObject):
     """
     Represent mlx5dv_context_attr struct. This class is used to open an mlx5
@@ -124,6 +169,14 @@ cdef class Mlx5Context(Context):
         rc = dv.mlx5dv_query_device(self.context, &dv_attr.dv)
         if rc != 0:
             raise PyverbsRDMAError(f'Failed to query mlx5 device {self.name}.', rc)
+        return dv_attr
+
+    @staticmethod
+    def query_mlx5_port(Context ctx, port_num):
+        dv_attr = Mlx5DVPortAttr()
+        rc = dv.mlx5dv_query_port(ctx.context, port_num, &dv_attr.attr)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to query dv port mlx5 {ctx.name} port {port_num}.', rc)
         return dv_attr
 
     @staticmethod
