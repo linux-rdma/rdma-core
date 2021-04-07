@@ -297,3 +297,4 @@ cdef extern from 'infiniband/mlx5dv.h':
                                                mlx5dv_mr_interleaved *data)
     void mlx5dv_wr_set_mkey_sig_block(mlx5dv_qp_ex *mqp, mlx5dv_sig_block_attr *attr)
     int mlx5dv_mkey_check(mlx5dv_mkey *mkey, mlx5dv_mkey_err *err_info)
+    int mlx5dv_qp_cancel_posted_send_wrs(mlx5dv_qp_ex *mqp, uint64_t wr_id)

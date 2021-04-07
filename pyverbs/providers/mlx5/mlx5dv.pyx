@@ -637,6 +637,19 @@ cdef class Mlx5QP(QPEx):
         dv.mlx5dv_wr_set_mkey_sig_block(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
                                         &block_attr.mlx5dv_sig_block_attr)
 
+    def cancel_posted_send_wrs(self, wr_id):
+        """
+        Cancel all pending send work requests with supplied wr_id in a QP in
+        SQD state.
+        :param wr_id: The WRID to cancel.
+        :return: Number of work requests that were canceled.
+        """
+        rc = dv.mlx5dv_qp_cancel_posted_send_wrs(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                                 wr_id)
+        if rc < 0:
+            raise PyverbsRDMAError(f'Failed to cancel send WRs', -rc)
+        return rc
+
     @staticmethod
     def query_lag_port(QP qp):
         """
@@ -909,7 +922,8 @@ def qp_create_flags_to_str(flags):
          dve.MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE: 'Disable scatter to CQE',
          dve.MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE: 'Allow scatter to CQE',
          dve.MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE:
-             'Packet based credit mode'}
+             'Packet based credit mode',
+         dve.MLX5DV_QP_CREATE_SIG_PIPELINING: 'Support signature pipeline support'}
     return bitmask_to_str(flags, l)
 
 
