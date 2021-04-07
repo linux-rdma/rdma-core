@@ -606,6 +606,8 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		if (device_attr.max_dm_size)
 			printf("\tmaximum available device memory:\t%" PRIu64"Bytes\n\n",
 			      device_attr.max_dm_size);
+
+		printf("\tnum_comp_vectors:\t\t%d\n", ctx->num_comp_vectors);
 	}
 
 	for (port = 1; port <= device_attr.orig_attr.phys_port_cnt; ++port) {
