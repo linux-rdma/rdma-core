@@ -34,9 +34,15 @@ mlx5dv_dr_action_create_modify_header - Create modify header actions
 
 mlx5dv_dr_action_create_flow_counter - Create devx flow counter actions
 
+mlx5dv_dr_action_create_aso, mlx5dv_dr_action_modify_aso - Create and modify ASO actions
+
 mlx5dv_dr_action_create_flow_meter, mlx5dv_dr_action_modify_flow_meter - Create and modify meter action
 
 mlx5dv_dr_action_create_flow_sampler - Create flow sampler action
+
+mlx5dv_dr_action_create_pop_vlan - Create pop vlan action
+
+mlx5dv_dr_action_create_push_vlan- Create push vlan action
 
 mlx5dv_dr_action_destroy - Destroy actions
 
@@ -118,6 +124,18 @@ struct mlx5dv_dr_action *mlx5dv_dr_action_create_flow_counter(
 		uint32_t offset);
 
 struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_aso(struct mlx5dv_dr_domain *domain,
+			    struct mlx5dv_devx_obj *devx_obj,
+			    uint32_t offset,
+			    uint32_t flags,
+			    uint8_t return_reg_c);
+
+int mlx5dv_dr_action_modify_aso(struct mlx5dv_dr_action *action,
+				uint32_t offset,
+				uint32_t flags,
+				uint8_t return_reg_c);
+
+struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_flow_meter(struct mlx5dv_dr_flow_meter_attr *attr);
 
 int mlx5dv_dr_action_modify_flow_meter(struct mlx5dv_dr_action *action,
@@ -131,6 +149,12 @@ struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_dest_array(struct mlx5dv_dr_domain *domain,
 				   size_t num_dest,
 				   struct mlx5dv_dr_action_dest_attr *dests[]);
+
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_pop_vlan(void);
+
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_push_vlan(
+		struct mlx5dv_dr_domain *dmn,
+		__be32 vlan_hdr)
 
 int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
 ```
@@ -219,6 +243,24 @@ Action: Modify Header
 Action: Flow Count
 *mlx5dv_dr_action_create_flow_counter* creates a flow counter action from a DEVX flow counter object, based on **devx_obj** and specific counter index from **offset** in the counter bulk.
 
+Action: ASO
+*mlx5dv_dr_action_create_aso* receives a **domain** pointer and creates an ASO action from the DEVX ASO object, based on **devx_obj**.
+Use **offset** to select the specific ASO object in the **devx_obj** bulk.
+DR rules using this action can optionally update the ASO object value according to **flags** to choose the specific wanted behavior of this object.
+After a packet hits the rule with the ASO object the value of the ASO object will be copied into the chosen **return_reg_c** which can be used for match in following DR rules.
+
+*mlx5dv_dr_action_modify_aso* modifies ASO action **action** with new values for **offset**, **return_reg_c** and **flags**.
+Only new DR rules using this **action** will use the modified values. Existing DR rules do not change the HW action values stored.
+
+**flags** can be set to one of the types of *mlx5dv_dr_action_aso_first_hit_flags* or *mlx5dv_dr_action_aso_flow_meter_flags* or *mlx5dv_dr_action_aso_ct_flags*:
+**MLX5DV_DR_ACTION_ASO_FIRST_HIT_FLAGS_SET**: is used to set the ASO first hit object context, else the context is only copied to the return_reg_c.
+**MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_RED**: is used to indicate to update the initial color in ASO flow meter object value to red.
+**MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_YELLOW**: is used to indicate to update the initial color in ASO flow meter object value to yellow.
+**MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_GREEN**: is used to indicate to update the initial color in ASO flow meter object value to green.
+**MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_UNDEFINED**: is used to indicate to update the initial color in ASO flow meter object value to undefined.
+**MLX5DV_DR_ACTION_FLAGS_ASO_CT_DIRECTION_INITIATOR**: is used to indicate the TCP connection direction the SYN packet was sent on.
+**MLX5DV_DR_ACTION_FLAGS_ASO_CT_DIRECTION_RESPONDER**: is used to indicate the TCP connection direction the SYN-ACK packet was sent on.
+
 Action: Meter
 *mlx5dv_dr_action_create_flow_meter* creates a meter action based on the flow meter parameters. The paramertes are according to the device specification.
 *mlx5dv_dr_action_modify_flow_meter* modifies existing flow meter **action** based on **modify_field_select**. **modify_field_select** is according to the device specification.
@@ -230,6 +272,12 @@ All original packets will be steered to default_next_table in **attr**.
 A modify header format SET_ACTION data can be provided in action of **attr**, which can be executed on packets before going to default flow table. On some devices, this is required to set register value.
 
 Action Flags: action **flags** can be set to one of the types of *enum mlx5dv_dr_action_flags*:
+
+Action: Pop Vlan
+*mlx5dv_dr_action_create_pop_vlan* creates a pop vlan action which removes VLAN tags from packets layer 2.
+
+Action: Push Vlan
+*mlx5dv_dr_action_create_push_vlan* creates a push vlan action which adds VLAN tags to packets layer 2.
 
 **MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL**: is used to indicate the action is targeted for flow table in level=0 (ROOT) of the specific domain.
 

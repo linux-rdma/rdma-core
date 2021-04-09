@@ -21,6 +21,8 @@ cdef class Context(PyverbsCM):
     cdef object vars
     cdef object uars
     cdef object pps
+    cdef object sched_nodes
+    cdef object sched_leafs
 
 cdef class DeviceAttr(PyverbsObject):
     cdef v.ibv_device_attr dev_attr

@@ -149,6 +149,21 @@ struct list_head *dr_ste_get_miss_list(struct dr_ste *ste)
 	return &ste->htbl->miss_list[index];
 }
 
+struct dr_ste *dr_ste_get_miss_list_top(struct dr_ste *ste)
+{
+	/* Optimize miss list access (reduce cache misses) by checking
+	 * if we actually need to jump to list_top:
+	 * if number of entries in current hash table is more than one,
+	 * it means that this is not a collision entry.
+	 */
+
+	if (ste->htbl->chunk->num_of_entries > 1)
+		return ste;
+	else
+		return list_top(dr_ste_get_miss_list(ste),
+				struct dr_ste, miss_list_node);
+}
+
 static void dr_ste_always_hit_htbl(struct dr_ste_ctx *ste_ctx,
 				   struct dr_ste *ste,
 				   struct dr_ste_htbl *next_htbl)
@@ -317,7 +332,7 @@ void dr_ste_free(struct dr_ste *ste,
 	struct dr_ste_htbl *stats_tbl;
 	LIST_HEAD(send_ste_list);
 
-	first_ste = list_top(dr_ste_get_miss_list(ste), struct dr_ste, miss_list_node);
+	first_ste = dr_ste_get_miss_list_top(ste);
 	stats_tbl = first_ste->htbl;
 	/*
 	 * Two options:
@@ -558,22 +573,12 @@ void dr_ste_set_actions_rx(struct dr_ste_ctx *ste_ctx,
 }
 
 const struct dr_ste_action_modify_field *
-dr_ste_conv_modify_hdr_sw_field(struct dr_ste_ctx *ste_ctx, uint16_t sw_field)
+dr_ste_conv_modify_hdr_sw_field(struct dr_ste_ctx *ste_ctx,
+				struct dr_devx_caps *caps,
+				uint16_t sw_field)
 {
-	const struct dr_ste_action_modify_field *hw_field;
+	return ste_ctx->get_action_hw_field(sw_field, caps);
 
-	if (sw_field >= ste_ctx->modify_field_arr_sz)
-		goto not_found;
-
-	hw_field = &ste_ctx->modify_field_arr[sw_field];
-	if (!hw_field->end && !hw_field->start)
-		goto not_found;
-
-	return hw_field;
-
-not_found:
-	errno = EINVAL;
-	return NULL;
 }
 
 void dr_ste_set_action_set(struct dr_ste_ctx *ste_ctx,
@@ -885,9 +890,35 @@ static void dr_ste_copy_mask_misc3(char *mask, struct dr_match_misc3 *spec)
 	spec->icmpv4_code = DEVX_GET(dr_match_set_misc3, mask, icmp_code);
 	spec->icmpv6_type = DEVX_GET(dr_match_set_misc3, mask, icmpv6_type);
 	spec->icmpv6_code = DEVX_GET(dr_match_set_misc3, mask, icmpv6_code);
-	spec->gtpu_flags    = DEVX_GET(dr_match_set_misc3, mask, gtpu_flags);
+	spec->geneve_tlv_option_0_data =
+		DEVX_GET(dr_match_set_misc3, mask, geneve_tlv_option_0_data);
+	spec->gtpu_msg_flags = DEVX_GET(dr_match_set_misc3, mask, gtpu_msg_flags);
 	spec->gtpu_msg_type = DEVX_GET(dr_match_set_misc3, mask, gtpu_msg_type);
-	spec->gtpu_teid     = DEVX_GET(dr_match_set_misc3, mask, gtpu_teid);
+	spec->gtpu_teid = DEVX_GET(dr_match_set_misc3, mask, gtpu_teid);
+	spec->gtpu_dw_0 = DEVX_GET(dr_match_set_misc3, mask, gtpu_dw_0);
+	spec->gtpu_dw_2 = DEVX_GET(dr_match_set_misc3, mask, gtpu_dw_2);
+	spec->gtpu_first_ext_dw_0 =
+		DEVX_GET(dr_match_set_misc3, mask, gtpu_first_ext_dw_0);
+}
+
+static void dr_ste_copy_mask_misc4(char *mask, struct dr_match_misc4 *spec)
+{
+	spec->prog_sample_field_id_0 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_0);
+	spec->prog_sample_field_value_0 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_0);
+	spec->prog_sample_field_id_1 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_1);
+	spec->prog_sample_field_value_1 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_1);
+	spec->prog_sample_field_id_2 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_2);
+	spec->prog_sample_field_value_2 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_2);
+	spec->prog_sample_field_id_3 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_3);
+	spec->prog_sample_field_value_3 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_3);
 }
 
 #define MAX_PARAM_SIZE 512
@@ -949,7 +980,6 @@ void dr_ste_copy_param(uint8_t match_criteria,
 		}
 		dr_ste_copy_mask_misc2(buff, &set_param->misc2);
 	}
-
 	param_location += DEVX_ST_SZ_BYTES(dr_match_set_misc2);
 
 	if (match_criteria & DR_MATCHER_CRITERIA_MISC3) {
@@ -962,6 +992,19 @@ void dr_ste_copy_param(uint8_t match_criteria,
 			buff = data + param_location;
 		}
 		dr_ste_copy_mask_misc3(buff, &set_param->misc3);
+	}
+	param_location += DEVX_ST_SZ_BYTES(dr_match_set_misc3);
+
+	if (match_criteria & DR_MATCHER_CRITERIA_MISC4) {
+		if (mask->match_sz < param_location +
+		    DEVX_ST_SZ_BYTES(dr_match_set_misc4)) {
+			memcpy(tail_param, data + param_location,
+			       mask->match_sz - param_location);
+			buff = tail_param;
+		} else {
+			buff = data + param_location;
+		}
+		dr_ste_copy_mask_misc4(buff, &set_param->misc4);
 	}
 }
 
@@ -1090,26 +1133,40 @@ void dr_ste_build_tnl_gre(struct dr_ste_ctx *ste_ctx,
 	ste_ctx->build_tnl_gre_init(sb, mask);
 }
 
-void dr_ste_build_tnl_mpls(struct dr_ste_ctx *ste_ctx,
-			   struct dr_ste_build *sb,
-			   struct dr_match_param *mask,
-			   bool inner, bool rx)
+void dr_ste_build_tnl_mpls_over_gre(struct dr_ste_ctx *ste_ctx,
+				    struct dr_ste_build *sb,
+				    struct dr_match_param *mask,
+				    struct dr_devx_caps *caps,
+				    bool inner, bool rx)
 {
 	sb->rx = rx;
 	sb->inner = inner;
-	ste_ctx->build_tnl_mpls_init(sb, mask);
+	sb->caps = caps;
+	ste_ctx->build_tnl_mpls_over_gre_init(sb, mask);
 }
 
-int dr_ste_build_icmp(struct dr_ste_ctx *ste_ctx,
-		      struct dr_ste_build *sb,
-		      struct dr_match_param *mask,
-		      struct dr_devx_caps *caps,
-		      bool inner, bool rx)
+void dr_ste_build_tnl_mpls_over_udp(struct dr_ste_ctx *ste_ctx,
+				    struct dr_ste_build *sb,
+				    struct dr_match_param *mask,
+				    struct dr_devx_caps *caps,
+				    bool inner, bool rx)
+{
+	sb->rx = rx;
+	sb->inner = inner;
+	sb->caps = caps;
+	ste_ctx->build_tnl_mpls_over_udp_init(sb, mask);
+}
+
+void dr_ste_build_icmp(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       struct dr_devx_caps *caps,
+		       bool inner, bool rx)
 {
 	sb->rx = rx;
 	sb->caps = caps;
 	sb->inner = inner;
-	return ste_ctx->build_icmp_init(sb, mask);
+	ste_ctx->build_icmp_init(sb, mask);
 }
 
 void dr_ste_build_general_purpose(struct dr_ste_ctx *ste_ctx,
@@ -1152,6 +1209,18 @@ void dr_ste_build_tnl_geneve(struct dr_ste_ctx *ste_ctx,
 	ste_ctx->build_tnl_geneve_init(sb, mask);
 }
 
+void dr_ste_build_tnl_geneve_tlv_opt(struct dr_ste_ctx *ste_ctx,
+				     struct dr_ste_build *sb,
+				     struct dr_match_param *mask,
+				     struct dr_devx_caps *caps,
+				     bool inner, bool rx)
+{
+	sb->rx = rx;
+	sb->caps = caps;
+	sb->inner = inner;
+	ste_ctx->build_tnl_geneve_tlv_opt_init(sb, mask);
+}
+
 void dr_ste_build_tnl_gtpu(struct dr_ste_ctx *ste_ctx,
 			   struct dr_ste_build *sb,
 			   struct dr_match_param *mask,
@@ -1160,6 +1229,30 @@ void dr_ste_build_tnl_gtpu(struct dr_ste_ctx *ste_ctx,
 	sb->rx = rx;
 	sb->inner = inner;
 	ste_ctx->build_tnl_gtpu_init(sb, mask);
+}
+
+void dr_ste_build_tnl_gtpu_flex_parser_0(struct dr_ste_ctx *ste_ctx,
+					 struct dr_ste_build *sb,
+					 struct dr_match_param *mask,
+					 struct dr_devx_caps *caps,
+					 bool inner, bool rx)
+{
+	sb->rx = rx;
+	sb->caps = caps;
+	sb->inner = inner;
+	ste_ctx->build_tnl_gtpu_flex_parser_0(sb, mask);
+}
+
+void dr_ste_build_tnl_gtpu_flex_parser_1(struct dr_ste_ctx *ste_ctx,
+					 struct dr_ste_build *sb,
+					 struct dr_match_param *mask,
+					 struct dr_devx_caps *caps,
+					 bool inner, bool rx)
+{
+	sb->rx = rx;
+	sb->caps = caps;
+	sb->inner = inner;
+	ste_ctx->build_tnl_gtpu_flex_parser_1(sb, mask);
 }
 
 void dr_ste_build_register_0(struct dr_ste_ctx *ste_ctx,
@@ -1192,6 +1285,26 @@ void dr_ste_build_src_gvmi_qpn(struct dr_ste_ctx *ste_ctx,
 	sb->caps = caps;
 	sb->inner = inner;
 	ste_ctx->build_src_gvmi_qpn_init(sb, mask);
+}
+
+void dr_ste_build_flex_parser_0(struct dr_ste_ctx *ste_ctx,
+				struct dr_ste_build *sb,
+				struct dr_match_param *mask,
+				bool inner, bool rx)
+{
+	sb->rx = rx;
+	sb->inner = inner;
+	ste_ctx->build_flex_parser_0_init(sb, mask);
+}
+
+void dr_ste_build_flex_parser_1(struct dr_ste_ctx *ste_ctx,
+				struct dr_ste_build *sb,
+				struct dr_match_param *mask,
+				bool inner, bool rx)
+{
+	sb->rx = rx;
+	sb->inner = inner;
+	ste_ctx->build_flex_parser_1_init(sb, mask);
 }
 
 struct dr_ste_ctx *dr_ste_get_ctx(uint8_t version)

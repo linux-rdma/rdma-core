@@ -218,7 +218,8 @@ class CMAsyncConnection(CMConnection):
     Implement RDMACM connection management for asynchronous CMIDs. It includes
     connection establishment, disconnection and other methods such as traffic.
     """
-    def __init__(self, ip_addr, syncer=None, notifier=None, passive=False, **kwargs):
+    def __init__(self, ip_addr, syncer=None, notifier=None, passive=False,
+                 num_conns=1, **kwargs):
         """
         Init the CMConnection and then init the AsyncCMResources.
         :param ip_addr: IP address to use.
@@ -226,11 +227,21 @@ class CMAsyncConnection(CMConnection):
         :param notifier: Queue object to pass objects between the connection
                          sides.
         :param passive: Indicate if it's a passive side.
+        :param num_conns: Number of connections.
         :param kwargs: Arguments used to initialize the CM resources. For more
                        info please check CMResources.
         """
         super(CMAsyncConnection, self).__init__(syncer=syncer, notifier=notifier)
+        self.num_conns = num_conns
+        self.create_cm_res(ip_addr, passive=passive, **kwargs)
+
+    def create_cm_res(self, ip_addr, passive, **kwargs):
         self.cm_res = AsyncCMResources(addr=ip_addr, passive=passive, **kwargs)
+        if passive:
+            self.cm_res.create_cmid()
+        else:
+            for i in range(self.num_conns):
+                self.cm_res.create_cmid(i)
 
     def join_to_multicast(self, mc_addr=None, src_addr=None, extended=False):
         """
@@ -272,34 +283,39 @@ class CMAsyncConnection(CMConnection):
         if self.cm_res.passive:
             self.cm_res.cmid.bind_addr(self.cm_res.ai)
             self.cm_res.cmid.listen()
-            self.syncer.wait()
-            self.event_handler(expected_event=ce.RDMA_CM_EVENT_CONNECT_REQUEST)
-            self.cm_res.create_qp()
-            if self.cm_res.with_ext_qp:
-                self.set_cmids_qp_ece(self.cm_res.passive)
-                self.cm_res.modify_ext_qp_to_rts()
-                self.set_cmid_ece(self.cm_res.passive)
-            self.cm_res.child_id.accept(self.cm_res.create_conn_param())
-            if self.cm_res.port_space == ce.RDMA_PS_TCP:
-                self.event_handler(expected_event=ce.RDMA_CM_EVENT_ESTABLISHED)
-        else:
-            self.cm_res.cmid.resolve_addr(self.cm_res.ai)
-            self.event_handler(expected_event=ce.RDMA_CM_EVENT_ADDR_RESOLVED)
-            self.syncer.wait()
-            self.cm_res.cmid.resolve_route()
-            self.event_handler(expected_event=ce.RDMA_CM_EVENT_ROUTE_RESOLVED)
-            self.cm_res.create_qp()
-            if self.cm_res.with_ext_qp:
-                self.set_cmid_ece(self.cm_res.passive)
-            self.cm_res.cmid.connect(self.cm_res.create_conn_param())
-            if self.cm_res.with_ext_qp:
-                self.event_handler(expected_event=\
-                    ce.RDMA_CM_EVENT_CONNECT_RESPONSE)
-                self.set_cmids_qp_ece(self.cm_res.passive)
-                self.cm_res.modify_ext_qp_to_rts()
-                self.cm_res.cmid.establish()
+        for conn_idx in range(self.num_conns):
+            if self.cm_res.passive:
+                self.syncer.wait()
+                self.event_handler(expected_event=ce.RDMA_CM_EVENT_CONNECT_REQUEST)
+                self.cm_res.create_qp(conn_idx=conn_idx)
+                if self.cm_res.with_ext_qp:
+                    self.set_cmids_qp_ece(self.cm_res.passive)
+                    self.cm_res.modify_ext_qp_to_rts(conn_idx=conn_idx)
+                    self.set_cmid_ece(self.cm_res.passive)
+                child_id = self.cm_res.child_ids[conn_idx]
+                child_id.accept(self.cm_res.create_conn_param(conn_idx=conn_idx))
+                if self.cm_res.port_space == ce.RDMA_PS_TCP:
+                    self.event_handler(expected_event=ce.RDMA_CM_EVENT_ESTABLISHED)
             else:
-                self.event_handler(expected_event=ce.RDMA_CM_EVENT_ESTABLISHED)
+                cmid = self.cm_res.cmids[conn_idx]
+                cmid.resolve_addr(self.cm_res.ai)
+                self.event_handler(expected_event=ce.RDMA_CM_EVENT_ADDR_RESOLVED)
+                self.syncer.wait()
+                cmid.resolve_route()
+                self.event_handler(expected_event=ce.RDMA_CM_EVENT_ROUTE_RESOLVED)
+                self.cm_res.create_qp(conn_idx=conn_idx)
+                if self.cm_res.with_ext_qp:
+                    self.set_cmid_ece(self.cm_res.passive)
+                cmid.connect(self.cm_res.create_conn_param(conn_idx=conn_idx))
+                if self.cm_res.with_ext_qp:
+                    self.event_handler(expected_event=\
+                        ce.RDMA_CM_EVENT_CONNECT_RESPONSE)
+                    self.set_cmids_qp_ece(self.cm_res.passive)
+                    self.cm_res.modify_ext_qp_to_rts(conn_idx=conn_idx)
+                    cmid.establish()
+                else:
+                    self.event_handler(expected_event=ce.RDMA_CM_EVENT_ESTABLISHED)
+
         self.cm_res.create_mr()
         self.sync_qp_numbers()
 
@@ -324,10 +340,12 @@ class CMAsyncConnection(CMConnection):
         """
         if self.cm_res.port_space == ce.RDMA_PS_TCP:
             if self.cm_res.passive:
-                self.cm_res.child_id.disconnect()
+                for child_id in self.cm_res.child_ids.values():
+                    child_id.disconnect()
             else:
                 self.event_handler(expected_event=ce.RDMA_CM_EVENT_DISCONNECTED)
-                self.cm_res.cmid.disconnect()
+                for cmid in self.cm_res.cmids.values():
+                    cmid.disconnect()
 
     def set_cmid_ece(self, passive):
         """
@@ -374,7 +392,11 @@ class CMSyncConnection(CMConnection):
                        info please check CMResources.
         """
         super(CMSyncConnection, self).__init__(syncer=syncer, notifier=notifier)
+        self.create_cm_res(ip_addr, passive=passive, **kwargs)
+
+    def create_cm_res(self, ip_addr, passive, **kwargs):
         self.cm_res = SyncCMResources(addr=ip_addr, passive=passive, **kwargs)
+        self.cm_res.create_cmid()
 
     def establish_connection(self):
         """

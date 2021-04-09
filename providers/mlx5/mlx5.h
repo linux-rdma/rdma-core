@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012 Mellanox Technologies, Inc.  All rights reserved.
+ * Copyright (c) 2020 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -35,6 +36,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdatomic.h>
 #include <util/compiler.h>
 
@@ -42,6 +44,7 @@
 #include <util/udma_barrier.h>
 #include <util/util.h>
 #include "mlx5-abi.h"
+#include <ccan/bitmap.h>
 #include <ccan/list.h>
 #include "bitmap.h"
 #include <ccan/minmax.h>
@@ -109,6 +112,18 @@ static inline void mlx5_dbg(FILE *fp, uint32_t mask, const char *fmt, ...)
 {
 }
 #endif
+
+__attribute__((format(printf, 2, 3)))
+static inline void mlx5_err(FILE *fp, const char *fmt, ...)
+{
+	va_list args;
+
+	if (!fp)
+		return;
+	va_start(args, fmt);
+	vfprintf(fp, fmt, args);
+	va_end(args);
+}
 
 enum {
 	MLX5_STAT_RATE_OFFSET		= 5
@@ -240,9 +255,40 @@ enum mlx5_ctx_flags {
 	MLX5_CTX_FLAGS_ECE_SUPPORTED = 1 << 2,
 };
 
-struct mlx5_lag_caps {
+struct mlx5_entropy_caps {
 	uint8_t num_lag_ports;
-	uint8_t lag_tx_port_affinity;
+	uint8_t lag_tx_port_affinity:1;
+	uint8_t rts2rts_qp_udp_sport:1;
+	uint8_t rts2rts_lag_tx_port_affinity:1;
+};
+
+struct mlx5_qos_caps {
+	uint8_t qos:1;
+
+	uint8_t nic_sq_scheduling:1;
+	uint8_t nic_bw_share:1;
+	uint8_t nic_rate_limit:1;
+	uint8_t nic_qp_scheduling:1;
+
+	uint32_t nic_element_type;
+	uint32_t nic_tsar_type;
+};
+
+struct mlx5_hca_cap_2_caps {
+	uint32_t log_reserved_qpns_per_obj;
+};
+
+struct reserved_qpn_blk {
+	bitmap *bmp;
+	uint32_t first_qpn;
+	struct list_node entry;
+	unsigned int next_avail_slot;
+	struct mlx5dv_devx_obj *obj;
+};
+
+struct mlx5_reserved_qpns {
+	struct list_head blk_list;
+	pthread_mutex_t mutex;
 };
 
 struct mlx5_context {
@@ -303,7 +349,7 @@ struct mlx5_context {
 	} core_clock;
 	void			       *hca_core_clock;
 	const struct mlx5_ib_clock_info *clock_info_page;
-	struct ibv_tso_caps		cached_tso_caps;
+	struct mlx5_ib_tso_caps		cached_tso_caps;
 	int				cmds_supp_uhw;
 	uint32_t			uar_size;
 	uint64_t			vendor_cap_flags; /* Use enum mlx5_vendor_cap_flags */
@@ -313,7 +359,11 @@ struct mlx5_context {
 	struct mlx5dv_striding_rq_caps	striding_rq_caps;
 	uint32_t			tunnel_offloads_caps;
 	struct mlx5_packet_pacing_caps	packet_pacing_caps;
-	struct mlx5_lag_caps		lag_caps;
+	struct mlx5_entropy_caps	entropy_caps;
+	struct mlx5_qos_caps		qos_caps;
+	struct mlx5_hca_cap_2_caps	hca_cap_2_caps;
+	uint64_t			general_obj_types_caps;
+	uint8_t				qpc_extension_cap:1;
 	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
 	uint32_t			num_dyn_bfregs;
 	uint32_t			max_num_legacy_dyn_uar_sys_page;
@@ -325,15 +375,15 @@ struct mlx5_context {
 	__be32                          dump_fill_mkey_be;
 	uint32_t			flags;
 	struct list_head		dyn_uar_bf_list;
-	struct list_head		dyn_uar_nc_list;
 	struct list_head		dyn_uar_qp_shared_list;
 	struct list_head		dyn_uar_qp_dedicated_list;
 	uint16_t			qp_max_dedicated_uuars;
 	uint16_t			qp_alloc_dedicated_uuars;
 	uint16_t			qp_max_shared_uuars;
 	uint16_t			qp_alloc_shared_uuars;
-	struct mlx5_bf			*cq_uar;
+	struct mlx5_bf			*nc_uar;
 	void				*cq_uar_reg;
+	struct mlx5_reserved_qpns	reserved_qpns;
 };
 
 struct mlx5_bitmap {
@@ -671,6 +721,9 @@ enum mlx5_devx_obj_type {
 	MLX5_DEVX_FLOW_GROUP		= 7,
 	MLX5_DEVX_FLOW_TABLE_ENTRY	= 8,
 	MLX5_DEVX_FLOW_SAMPLER		= 9,
+	MLX5_DEVX_ASO_FIRST_HIT		= 10,
+	MLX5_DEVX_ASO_FLOW_METER	= 11,
+	MLX5_DEVX_ASO_CT		= 12,
 };
 
 struct mlx5dv_devx_obj {
@@ -679,6 +732,7 @@ struct mlx5dv_devx_obj {
 	enum mlx5_devx_obj_type type;
 	uint32_t object_id;
 	uint64_t rx_icm_addr;
+	uint8_t log_obj_range;
 };
 
 struct mlx5_var_obj {
@@ -719,6 +773,16 @@ enum mlx5_flow_action_type {
 struct mlx5_flow_action_attr_aux {
 	enum mlx5_flow_action_type type;
 	uint32_t offset;
+};
+
+struct mlx5dv_sched_node {
+	struct mlx5dv_sched_node *parent;
+	struct mlx5dv_devx_obj *obj;
+};
+
+struct mlx5dv_sched_leaf {
+	struct mlx5dv_sched_node *parent;
+	struct mlx5dv_devx_obj *obj;
 };
 
 struct ibv_flow *
@@ -879,8 +943,7 @@ __be32 *mlx5_alloc_dbrec(struct mlx5_context *context, struct ibv_pd *pd,
 void mlx5_free_db(struct mlx5_context *context, __be32 *db, struct ibv_pd *pd,
 		  bool custom_alloc);
 
-int mlx5_query_device(struct ibv_context *context,
-		       struct ibv_device_attr *attr);
+void mlx5_query_device_ctx(struct mlx5_context *mctx);
 int mlx5_query_device_ex(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
 			 struct ibv_device_attr_ex *attr,
@@ -901,6 +964,8 @@ void mlx5_async_event(struct ibv_context *context,
 struct ibv_mr *mlx5_alloc_null_mr(struct ibv_pd *pd);
 struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			   uint64_t hca_va, int access);
+struct ibv_mr *mlx5_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
+				  uint64_t iova, int fd, int access);
 int mlx5_rereg_mr(struct verbs_mr *mr, int flags, struct ibv_pd *pd, void *addr,
 		  size_t length, int access);
 int mlx5_dereg_mr(struct verbs_mr *mr);
@@ -929,7 +994,7 @@ int mlx5_arm_cq(struct ibv_cq *cq, int solicited);
 void mlx5_cq_event(struct ibv_cq *cq);
 void __mlx5_cq_clean(struct mlx5_cq *cq, uint32_t qpn, struct mlx5_srq *srq);
 void mlx5_cq_clean(struct mlx5_cq *cq, uint32_t qpn, struct mlx5_srq *srq);
-void mlx5_cq_resize_copy_cqes(struct mlx5_cq *cq);
+void mlx5_cq_resize_copy_cqes(struct mlx5_context *mctx, struct mlx5_cq *cq);
 
 struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 				 struct ibv_srq_init_attr *attr);
@@ -1057,8 +1122,7 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 			 const struct ibv_qp_init_attr_ex *attr,
 			 const struct mlx5dv_qp_init_attr *mlx5_attr);
 void clean_dyn_uars(struct ibv_context *context);
-struct mlx5_bf *mlx5_attach_dedicated_uar(struct ibv_context *context,
-					  uint32_t flags);
+void mlx5_set_singleton_nc_uar(struct ibv_context *context);
 
 int mlx5_set_ece(struct ibv_qp *qp, struct ibv_ece *ece);
 int mlx5_query_ece(struct ibv_qp *qp, struct ibv_ece *ece);
@@ -1079,7 +1143,7 @@ static inline int mlx5_spin_lock(struct mlx5_spinlock *lock)
 		return pthread_spin_lock(&lock->lock);
 
 	if (unlikely(lock->in_use)) {
-		fprintf(stderr, "*** ERROR: multithreading vilation ***\n"
+		fprintf(stderr, "*** ERROR: multithreading violation ***\n"
 			"You are running a multithreaded application but\n"
 			"you set MLX5_SINGLE_THREADED=1. Please unset it.\n");
 		abort();

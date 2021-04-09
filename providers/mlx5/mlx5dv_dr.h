@@ -41,11 +41,16 @@
 #include "mlx5_ifc.h"
 #include "mlx5.h"
 
-#define DR_RULE_MAX_STES	17
-#define DR_ACTION_MAX_STES	3
+#define DR_RULE_MAX_STES	20
+#define DR_ACTION_MAX_STES	7
 #define WIRE_PORT		0xFFFF
 #define DR_STE_SVLAN		0x1
 #define DR_STE_CVLAN		0x2
+#define CVLAN_ETHERTYPE	0x8100
+#define SVLAN_ETHERTYPE	0x88a8
+#define NUM_OF_FLEX_PARSERS	8
+#define DR_STE_MAX_FLEX_0_ID	3
+#define DR_STE_MAX_FLEX_1_ID	7
 
 #define dr_dbg(dmn, arg...) dr_dbg_ctx((dmn)->ctx, ##arg)
 
@@ -116,6 +121,12 @@ enum {
 	DR_STE_SIZE_REDUCED = DR_STE_SIZE - DR_STE_SIZE_MASK,
 };
 
+enum dr_ste_ctx_action_cap {
+	DR_STE_CTX_ACTION_CAP_NONE	= 0,
+	DR_STE_CTX_ACTION_CAP_TX_POP	= 1 << 0,
+	DR_STE_CTX_ACTION_CAP_RX_PUSH	= 1 << 1,
+};
+
 enum {
 	DR_MODIFY_ACTION_SIZE	= 8,
 	DR_MODIFY_ACTION_LOG_SIZE	= 3,
@@ -128,7 +139,8 @@ enum dr_matcher_criteria {
 	DR_MATCHER_CRITERIA_INNER	= 1 << 2,
 	DR_MATCHER_CRITERIA_MISC2	= 1 << 3,
 	DR_MATCHER_CRITERIA_MISC3	= 1 << 4,
-	DR_MATCHER_CRITERIA_MAX		= 1 << 5,
+	DR_MATCHER_CRITERIA_MISC4	= 1 << 5,
+	DR_MATCHER_CRITERIA_MAX		= 1 << 6,
 };
 
 enum dr_action_type {
@@ -147,6 +159,11 @@ enum dr_action_type {
 	DR_ACTION_TYP_MISS,
 	DR_ACTION_TYP_SAMPLER,
 	DR_ACTION_TYP_DEST_ARRAY,
+	DR_ACTION_TYP_POP_VLAN,
+	DR_ACTION_TYP_PUSH_VLAN,
+	DR_ACTION_TYP_ASO_FIRST_HIT,
+	DR_ACTION_TYP_ASO_FLOW_METER,
+	DR_ACTION_TYP_ASO_CT,
 	DR_ACTION_TYP_MAX,
 };
 
@@ -280,6 +297,26 @@ bool dr_ste_is_last_in_rule(struct dr_matcher_rx_tx *nic_matcher,
 uint64_t dr_ste_get_icm_addr(struct dr_ste *ste);
 uint64_t dr_ste_get_mr_addr(struct dr_ste *ste);
 struct list_head *dr_ste_get_miss_list(struct dr_ste *ste);
+struct dr_ste *dr_ste_get_miss_list_top(struct dr_ste *ste);
+
+#define MAX_VLANS 2
+
+struct dr_action_aso {
+	struct mlx5dv_devx_obj *devx_obj;
+	uint32_t offset;
+	uint8_t dest_reg_id;
+	union {
+		struct {
+			bool set;
+		} first_hit;
+		struct {
+			uint8_t initial_color;
+		} flow_meter;
+		struct {
+			bool direction;
+		} ct;
+	};
+};
 
 struct dr_ste_actions_attr {
 	uint32_t	modify_index;
@@ -294,6 +331,12 @@ struct dr_ste_actions_attr {
 	uint16_t	hit_gvmi;
 	uint32_t	reformat_id;
 	uint32_t	reformat_size;
+	bool		prio_tag_required;
+	struct {
+		int		count;
+		uint32_t	headers[MAX_VLANS];
+	} vlans;
+	struct dr_action_aso *aso;
 };
 
 void dr_ste_set_actions_rx(struct dr_ste_ctx *ste_ctx,
@@ -330,7 +373,9 @@ int dr_ste_set_action_decap_l3_list(struct dr_ste_ctx *ste_ctx,
 				   uint8_t *hw_action, uint32_t hw_action_sz,
 				   uint16_t *used_hw_action_num);
 const struct dr_ste_action_modify_field *
-dr_ste_conv_modify_hdr_sw_field(struct dr_ste_ctx *ste_ctx, uint16_t sw_field);
+dr_ste_conv_modify_hdr_sw_field(struct dr_ste_ctx *ste_ctx,
+				struct dr_devx_caps *caps,
+				uint16_t sw_field);
 
 struct dr_ste_ctx *dr_ste_get_ctx(uint8_t version);
 void dr_ste_free(struct dr_ste *ste,
@@ -419,15 +464,21 @@ void dr_ste_build_mpls(struct dr_ste_ctx *ste_ctx,
 		       struct dr_ste_build *sb,
 		       struct dr_match_param *mask,
 		       bool inner, bool rx);
-void dr_ste_build_tnl_mpls(struct dr_ste_ctx *ste_ctx,
-			   struct dr_ste_build *sb,
-			   struct dr_match_param *mask,
-			   bool inner, bool rx);
-int dr_ste_build_icmp(struct dr_ste_ctx *ste_ctx,
-		      struct dr_ste_build *sb,
-		      struct dr_match_param *mask,
-		      struct dr_devx_caps *caps,
-		      bool inner, bool rx);
+void dr_ste_build_tnl_mpls_over_gre(struct dr_ste_ctx *ste_ctx,
+				    struct dr_ste_build *sb,
+				    struct dr_match_param *mask,
+				    struct dr_devx_caps *caps,
+				    bool inner, bool rx);
+void dr_ste_build_tnl_mpls_over_udp(struct dr_ste_ctx *ste_ctx,
+				    struct dr_ste_build *sb,
+				    struct dr_match_param *mask,
+				    struct dr_devx_caps *caps,
+				    bool inner, bool rx);
+void dr_ste_build_icmp(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       struct dr_devx_caps *caps,
+		       bool inner, bool rx);
 void dr_ste_build_tnl_vxlan_gpe(struct dr_ste_ctx *ste_ctx,
 				struct dr_ste_build *sb,
 				struct dr_match_param *mask,
@@ -436,10 +487,25 @@ void dr_ste_build_tnl_geneve(struct dr_ste_ctx *ste_ctx,
 			     struct dr_ste_build *sb,
 			     struct dr_match_param *mask,
 			     bool inner, bool rx);
+void dr_ste_build_tnl_geneve_tlv_opt(struct dr_ste_ctx *ste_ctx,
+				     struct dr_ste_build *sb,
+				     struct dr_match_param *mask,
+				     struct dr_devx_caps *caps,
+				     bool inner, bool rx);
 void dr_ste_build_tnl_gtpu(struct dr_ste_ctx *ste_ctx,
 			   struct dr_ste_build *sb,
 			   struct dr_match_param *mask,
 			   bool inner, bool rx);
+void dr_ste_build_tnl_gtpu_flex_parser_0(struct dr_ste_ctx *ste_ctx,
+					 struct dr_ste_build *sb,
+					 struct dr_match_param *mask,
+					 struct dr_devx_caps *caps,
+					 bool inner, bool rx);
+void dr_ste_build_tnl_gtpu_flex_parser_1(struct dr_ste_ctx *ste_ctx,
+					 struct dr_ste_build *sb,
+					 struct dr_match_param *mask,
+					 struct dr_devx_caps *caps,
+					 bool inner, bool rx);
 void dr_ste_build_general_purpose(struct dr_ste_ctx *ste_ctx,
 				  struct dr_ste_build *sb,
 				  struct dr_match_param *mask,
@@ -457,6 +523,14 @@ void dr_ste_build_src_gvmi_qpn(struct dr_ste_ctx *ste_ctx,
 			       struct dr_match_param *mask,
 			       struct dr_devx_caps *caps,
 			       bool inner, bool rx);
+void dr_ste_build_flex_parser_0(struct dr_ste_ctx *ste_ctx,
+				struct dr_ste_build *sb,
+				struct dr_match_param *mask,
+				bool inner, bool rx);
+void dr_ste_build_flex_parser_1(struct dr_ste_ctx *ste_ctx,
+				struct dr_ste_build *sb,
+				struct dr_match_param *mask,
+				bool inner, bool rx);
 void dr_ste_build_empty_always_hit(struct dr_ste_build *sb, bool rx);
 
 /* Actions utils */
@@ -577,9 +651,24 @@ struct dr_match_misc3 {
 	uint8_t icmpv6_type;
 	uint8_t icmpv4_code;
 	uint8_t icmpv4_type;
+	uint32_t geneve_tlv_option_0_data;
 	uint32_t gtpu_teid;
 	uint32_t gtpu_msg_type:8;
-	uint32_t gtpu_flags:3;
+	uint32_t gtpu_msg_flags:8;
+	uint32_t gtpu_dw_2;
+	uint32_t gtpu_first_ext_dw_0;
+	uint32_t gtpu_dw_0;
+};
+
+struct dr_match_misc4 {
+	uint32_t prog_sample_field_value_0;
+	uint32_t prog_sample_field_id_0;
+	uint32_t prog_sample_field_value_1;
+	uint32_t prog_sample_field_id_1;
+	uint32_t prog_sample_field_value_2;
+	uint32_t prog_sample_field_id_2;
+	uint32_t prog_sample_field_value_3;
+	uint32_t prog_sample_field_id_3;
 };
 
 struct dr_match_param {
@@ -588,6 +677,7 @@ struct dr_match_param {
 	struct dr_match_spec	inner;
 	struct dr_match_misc2	misc2;
 	struct dr_match_misc3	misc3;
+	struct dr_match_misc4	misc4;
 };
 
 #define DR_MASK_IS_ICMPV4_SET(_misc3) ((_misc3)->icmpv4_type || \
@@ -613,6 +703,7 @@ struct dr_devx_roce_cap {
 	bool roce_en;
 	bool fl_rc_qp_when_roce_disabled;
 	bool fl_rc_qp_when_roce_enabled;
+	uint8_t qp_ts_format;
 };
 
 struct dr_devx_caps {
@@ -626,10 +717,18 @@ struct dr_devx_caps {
 	uint8_t				log_modify_hdr_icm_size;
 	uint64_t			hdr_modify_icm_addr;
 	uint32_t			flex_protocols;
+	uint8_t				flex_parser_header_modify;
 	uint8_t				flex_parser_id_icmp_dw0;
 	uint8_t				flex_parser_id_icmp_dw1;
 	uint8_t				flex_parser_id_icmpv6_dw0;
 	uint8_t				flex_parser_id_icmpv6_dw1;
+	uint8_t				flex_parser_id_geneve_opt_0;
+	uint8_t				flex_parser_id_mpls_over_gre;
+	uint8_t				flex_parser_id_mpls_over_udp;
+	uint8_t				flex_parser_id_gtpu_dw_0;
+	uint8_t				flex_parser_id_gtpu_teid;
+	uint8_t				flex_parser_id_gtpu_dw_2;
+	uint8_t				flex_parser_id_gtpu_first_ext_dw_0;
 	uint8_t				max_ft_level;
 	uint8_t				sw_format_ver;
 	bool				isolate_vl_tc;
@@ -643,6 +742,7 @@ struct dr_devx_caps {
 	uint32_t			num_vports;
 	struct dr_devx_vport_cap	*vports_caps;
 	struct dr_devx_roce_cap		roce_caps;
+	bool				prio_tag_required;
 };
 
 struct dr_devx_flow_table_attr {
@@ -704,7 +804,7 @@ struct dr_domain_rx_tx {
 	uint64_t		default_icm_addr;
 	enum dr_ste_entry_type	ste_type;
 	/* protect rx/tx domain */
-	pthread_mutex_t		mutex;
+	pthread_spinlock_t	lock;
 };
 
 struct dr_domain_info {
@@ -740,12 +840,12 @@ struct mlx5dv_dr_domain {
 
 static inline void dr_domain_nic_lock(struct dr_domain_rx_tx *nic_dmn)
 {
-	pthread_mutex_lock(&nic_dmn->mutex);
+	pthread_spin_lock(&nic_dmn->lock);
 }
 
 static inline void dr_domain_nic_unlock(struct dr_domain_rx_tx *nic_dmn)
 {
-	pthread_mutex_unlock(&nic_dmn->mutex);
+	pthread_spin_unlock(&nic_dmn->lock);
 }
 
 static inline void dr_domain_lock(struct mlx5dv_dr_domain *dmn)
@@ -805,6 +905,7 @@ struct dr_ste_action_modify_field {
 	uint8_t end;
 	uint8_t l3_type;
 	uint8_t l4_type;
+	uint32_t flags;
 };
 
 struct dr_devx_tbl_with_refs {
@@ -890,12 +991,16 @@ struct mlx5dv_dr_action {
 			uint32_t			num;
 		} vport;
 		struct {
+			uint32_t	vlan_hdr;
+		} push_vlan;
+		struct {
 			bool    is_qp;
 			union {
 				struct mlx5dv_devx_obj  *devx_tir;
 				struct ibv_qp           *qp;
 			};
 		} dest_qp;
+		struct dr_action_aso	aso;
 		struct mlx5dv_devx_obj	*devx_obj;
 		uint32_t		flow_tag;
 	};
@@ -1064,6 +1169,7 @@ struct dr_devx_qp_create_attr {
 	uint32_t	rq_wqe_cnt;
 	uint32_t	rq_wqe_shift;
 	bool		isolate_vl_tc;
+	uint8_t		qp_ts_format;
 };
 
 struct mlx5dv_devx_obj *dr_devx_create_qp(struct ibv_context *ctx,
@@ -1163,6 +1269,7 @@ struct dr_qp {
 	struct mlx5dv_devx_uar		*uar;
 	struct mlx5dv_devx_umem		*buf_umem;
 	struct mlx5dv_devx_umem		*db_umem;
+	uint8_t nc_uar : 1;
 };
 
 struct dr_cq {
@@ -1192,7 +1299,7 @@ struct dr_send_ring {
 	/* manage the send queue */
 	uint32_t		tx_head;
 	/* protect QP/CQ operations */
-	pthread_mutex_t         mutex;
+	pthread_spinlock_t	lock;
 	void			*buf;
 	uint32_t		buf_size;
 	struct ibv_wc		wc[MAX_SEND_CQE];

@@ -95,7 +95,7 @@ static const struct verbs_match_ent hca_table[] = {
 };
 
 static const struct verbs_context_ops i40iw_uctx_ops = {
-	.query_device	= i40iw_uquery_device,
+	.query_device_ex = i40iw_uquery_device,
 	.query_port	= i40iw_uquery_port,
 	.alloc_pd	= i40iw_ualloc_pd,
 	.dealloc_pd	= i40iw_ufree_pd,

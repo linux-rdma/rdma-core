@@ -173,8 +173,9 @@ static inline struct ipath_rwqe *get_rwqe_ptr(struct ipath_rq *rq,
 		  rq->max_sge * sizeof(struct ibv_sge)) * n);
 }
 
-extern int ipath_query_device(struct ibv_context *context,
-			      struct ibv_device_attr *attr);
+int ipath_query_device(struct ibv_context *context,
+		       const struct ibv_query_device_ex_input *input,
+		       struct ibv_device_attr_ex *attr, size_t attr_size);
 
 extern int ipath_query_port(struct ibv_context *context, uint8_t port,
 			    struct ibv_port_attr *attr);

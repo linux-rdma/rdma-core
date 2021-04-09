@@ -32,7 +32,7 @@ struct ibv_pd
 that contains a
 .I
 struct ibv_td pointer\fR.
-For instance the verb my choose to share resources
+For instance the verb may choose to share resources
 between objects using the same thread domain. The exact behavior is provider
 dependent.
 .sp
@@ -50,8 +50,8 @@ IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT = 1 << 1,
 
 struct ibv_parent_domain_init_attr {
 .in +8
-struct ibv_pd *pd; /* referance to a protection domain, can't be NULL */
-struct ibv_td *td; /* referance to a thread domain, or NULL */
+struct ibv_pd *pd; /* reference to a protection domain, can't be NULL */
+struct ibv_td *td; /* reference to a thread domain, or NULL */
 uint32_t comp_mask;
 void *(*alloc)(struct ibv_pd *pd, void *pd_context, size_t size,
                size_t alignment, uint64_t resource_type);

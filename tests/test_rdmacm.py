@@ -16,7 +16,14 @@ NUM_OF_PROCESSES = 2
 MC_IP_PREFIX = '230'
 
 
-class CMTestCase(RDMATestCase):
+class RDMACMBaseTest(RDMATestCase):
+    """
+    Base RDMACM test class.
+    This class does not include any test, but rather implements generic
+    connection and traffic methods that are needed by RDMACM tests in general.
+    Each RDMACM test should have a class that inherits this class and extends
+    its functionalities if needed.
+    """
     def setUp(self):
         super().setUp()
         if not self.ip_addr:
@@ -51,8 +58,16 @@ class CMTestCase(RDMATestCase):
                                       'passive':False, **resource_kwargs})
         passive.start()
         active.start()
-        passive.join(15)
-        active.join(15)
+        proc_raised_ex = False
+        for i in range(15):
+            if proc_raised_ex:
+                break
+            for proc in [passive, active]:
+                proc.join(1)
+                if not proc.is_alive() and not self.notifier.empty():
+                    proc_raised_ex = True
+                    break
+
         # If the processes is still alive kill them and fail the test.
         proc_killed = False
         for proc in [passive, active]:
@@ -60,10 +75,18 @@ class CMTestCase(RDMATestCase):
                 proc.terminate()
                 proc_killed = True
         # Check if the test processes raise exceptions.
-        if not self.notifier.empty():
-            res = self.notifier.get()
-            if res is not None:
-                raise PyverbsError(res)
+        proc_res = {}
+        while not self.notifier.empty():
+            res, side = self.notifier.get()
+            proc_res[side] = res
+        for ex in proc_res.values():
+            if isinstance(ex, unittest.case.SkipTest):
+                raise(ex)
+        if proc_res:
+            print(f'Received the following exceptions: {proc_res}')
+            if isinstance(res, Exception):
+                raise(res)
+            raise PyverbsError(res)
         # Raise exeption if the test proceses was terminate.
         if proc_killed:
             raise Exception('RDMA CM test procces is stuck, kill the test')
@@ -85,9 +108,7 @@ class CMTestCase(RDMATestCase):
             player.disconnect()
         except Exception as ex:
             side = 'passive' if passive else 'active'
-            self.notifier.put('Caught exception in {side} side process: pid '
-                              '{pid}\n'.format(side=side, pid=os.getpid()) +
-                              'Exception message: {ex}'.format(ex=str(ex)))
+            self.notifier.put((ex, side))
 
     def rdmacm_multicast_traffic(self, connection_resources=None, passive=None,
                                  extended=False, **kwargs):
@@ -111,9 +132,7 @@ class CMTestCase(RDMATestCase):
             player.leave_multicast(mc_addr=mc_addr)
         except Exception as ex:
             side = 'passive' if passive else 'active'
-            self.notifier.put('Caught exception in {side} side process: pid {pid}\n'
-                        .format(side=side, pid=os.getpid()) +
-                        'Exception message: {ex}'.format(ex=str(ex)))
+            self.notifier.put((ex, side))
 
     def rdmacm_remote_traffic(self, connection_resources=None, passive=None,
                               remote_op='write', **kwargs):
@@ -138,11 +157,13 @@ class CMTestCase(RDMATestCase):
             while not self.notifier.empty():
                 self.notifier.get()
             side = 'passive' if passive else 'active'
-            msg = f'Caught exception in {side} side process: pid {os.getpid()}\n' \
-                  f'Exception message: {str(ex)}'
-            self.notifier.put(msg)
+            self.notifier.put((ex, side))
 
 
+class CMTestCase(RDMACMBaseTest):
+    """
+    RDMACM Test class. Include all the native RDMACM functionalities.
+    """
     def test_rdmacm_sync_traffic(self):
         self.two_nodes_rdmacm_traffic(CMSyncConnection, self.rdmacm_traffic)
 

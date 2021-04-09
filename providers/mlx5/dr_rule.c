@@ -621,10 +621,7 @@ void dr_rule_set_last_member(struct dr_rule_rx_tx *nic_rule,
 
 static struct dr_ste *dr_rule_get_pointed_ste(struct dr_ste *curr_ste)
 {
-	struct dr_ste *first_ste;
-
-	first_ste = list_top(dr_ste_get_miss_list(curr_ste), struct dr_ste,
-			     miss_list_node);
+	struct dr_ste *first_ste = dr_ste_get_miss_list_top(curr_ste);
 
 	return first_ste->htbl->pointing_ste;
 }
@@ -717,8 +714,10 @@ static int dr_rule_handle_action_stes(struct mlx5dv_dr_rule *rule,
 	 * 2. num_of_builders is less then new_hw_ste_arr_sz, new ste was added
 	 *    to support the action.
 	 */
-	if (num_of_builders == new_hw_ste_arr_sz)
+	if (num_of_builders == new_hw_ste_arr_sz) {
+		last_ste->next_htbl = NULL;
 		return 0;
+	}
 
 	for (i = num_of_builders, k = 0; i < new_hw_ste_arr_sz; i++, k++) {
 		curr_hw_ste = hw_ste_arr + i * DR_STE_SIZE;
@@ -989,6 +988,16 @@ static bool dr_rule_verify(struct mlx5dv_dr_matcher *matcher,
 
 		if (!dr_rule_cmp_value_to_mask(mask_p, param_p, s_idx, e_idx)) {
 			dr_dbg(dmn, "Rule misc3 parameters contains a value not specified by mask\n");
+			return false;
+		}
+	}
+
+	if (match_criteria & DR_MATCHER_CRITERIA_MISC4) {
+		s_idx = offsetof(struct dr_match_param, misc4);
+		e_idx = min(s_idx + sizeof(param->misc4), value_size);
+
+		if (!dr_rule_cmp_value_to_mask(mask_p, param_p, s_idx, e_idx)) {
+			dr_dbg(dmn, "Rule misc4 parameters contains a value not specified by mask\n");
 			return false;
 		}
 	}

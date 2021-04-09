@@ -38,7 +38,6 @@
 #include <unistd.h>
 
 #include "hns_roce_u.h"
-#include "hns_roce_u_abi.h"
 
 static void hns_roce_free_context(struct ibv_context *ibctx);
 
@@ -59,6 +58,7 @@ static const struct verbs_match_ent hca_table[] = {
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA225, &hns_roce_u_hw_v2),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA226, &hns_roce_u_hw_v2),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA227, &hns_roce_u_hw_v2),
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA228, &hns_roce_u_hw_v2),
 	{}
 };
 
@@ -74,7 +74,7 @@ static const struct verbs_context_ops hns_common_ops = {
 	.dereg_mr = hns_roce_u_dereg_mr,
 	.destroy_cq = hns_roce_u_destroy_cq,
 	.modify_cq = hns_roce_u_modify_cq,
-	.query_device = hns_roce_u_query_device,
+	.query_device_ex = hns_roce_u_query_device,
 	.query_port = hns_roce_u_query_port,
 	.query_qp = hns_roce_u_query_qp,
 	.reg_mr = hns_roce_u_reg_mr,
@@ -84,6 +84,8 @@ static const struct verbs_context_ops hns_common_ops = {
 	.query_srq = hns_roce_u_query_srq,
 	.destroy_srq = hns_roce_u_destroy_srq,
 	.free_context = hns_roce_free_context,
+	.create_ah = hns_roce_u_create_ah,
+	.destroy_ah = hns_roce_u_destroy_ah,
 };
 
 static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
@@ -116,6 +118,27 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	for (i = 0; i < HNS_ROCE_QP_TABLE_SIZE; ++i)
 		context->qp_table[i].refcnt = 0;
 
+	if (!resp.cqe_size)
+		context->cqe_size = HNS_ROCE_CQE_SIZE;
+	else if (resp.cqe_size <= HNS_ROCE_V3_CQE_SIZE)
+		context->cqe_size = resp.cqe_size;
+	else
+		context->cqe_size = HNS_ROCE_V3_CQE_SIZE;
+
+	if (hns_roce_u_query_device(&context->ibv_ctx.context, NULL,
+				    container_of(&dev_attrs,
+						 struct ibv_device_attr_ex,
+						 orig_attr),
+				    sizeof(dev_attrs)))
+		goto err_free;
+
+	hr_dev->hw_version = dev_attrs.hw_ver;
+	context->max_qp_wr = dev_attrs.max_qp_wr;
+	context->max_sge = dev_attrs.max_sge;
+	context->max_cqe = dev_attrs.max_cqe;
+	context->max_srq_wr = dev_attrs.max_srq_wr;
+	context->max_srq_sge = dev_attrs.max_srq_sge;
+
 	context->uar = mmap(NULL, hr_dev->page_size, PROT_READ | PROT_WRITE,
 			    MAP_SHARED, cmd_fd, offset);
 	if (context->uar == MAP_FAILED)
@@ -135,33 +158,12 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 			goto db_free;
 	}
 
-	if (!resp.cqe_size)
-		context->cqe_size = HNS_ROCE_CQE_SIZE;
-	else if (resp.cqe_size <= HNS_ROCE_V3_CQE_SIZE)
-		context->cqe_size = resp.cqe_size;
-	else
-		context->cqe_size = HNS_ROCE_V3_CQE_SIZE;
-
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
 
 	verbs_set_ops(&context->ibv_ctx, &hns_common_ops);
 	verbs_set_ops(&context->ibv_ctx, &hr_dev->u_hw->hw_ops);
 
-	if (hns_roce_u_query_device(&context->ibv_ctx.context, &dev_attrs))
-		goto tptr_free;
-
-	context->max_qp_wr = dev_attrs.max_qp_wr;
-	context->max_sge = dev_attrs.max_sge;
-	context->max_cqe = dev_attrs.max_cqe;
-
 	return &context->ibv_ctx;
-
-tptr_free:
-	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
-		if (munmap(context->cq_tptr_base, HNS_ROCE_CQ_DB_BUF_SIZE))
-			fprintf(stderr, PFX "Warning: Munmap tptr failed.\n");
-		context->cq_tptr_base = NULL;
-	}
 
 db_free:
 	munmap(context->uar, hr_dev->page_size);

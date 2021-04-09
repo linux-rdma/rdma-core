@@ -44,10 +44,13 @@
 #include <ccan/array_size.h>
 #include <ccan/bitmap.h>
 #include <ccan/container_of.h>
+#include <linux/if_ether.h>
+#include "hns_roce_u_abi.h"
 
 #define HNS_ROCE_HW_VER1		('h' << 24 | 'i' << 16 | '0' << 8 | '6')
 
 #define HNS_ROCE_HW_VER2		('h' << 24 | 'i' << 16 | '0' << 8 | '8')
+#define HNS_ROCE_HW_VER3		0x130
 
 #define PFX				"hns: "
 
@@ -56,9 +59,8 @@
 #define HNS_HW_PAGE_SIZE (1 << HNS_HW_PAGE_SHIFT)
 
 #define HNS_ROCE_MAX_RC_INL_INN_SZ	32
+#define HNS_ROCE_MAX_UD_INL_INN_SZ	8
 #define HNS_ROCE_MAX_CQ_NUM		0x10000
-#define HNS_ROCE_MAX_SRQWQE_NUM		0x8000
-#define HNS_ROCE_MAX_SRQSGE_NUM		0x100
 #define HNS_ROCE_MIN_CQE_NUM		0x40
 #define HNS_ROCE_V1_MIN_WQE_NUM		0x20
 #define HNS_ROCE_V2_MIN_WQE_NUM		0x40
@@ -75,6 +77,8 @@
 
 #define HNS_ROCE_CQ_DB_BUF_SIZE		((HNS_ROCE_MAX_CQ_NUM >> 11) << 12)
 #define HNS_ROCE_STATIC_RATE		3 /* Gbps */
+
+#define INVALID_SGE_LENGTH 0x80000000
 
 #define HNS_ROCE_ADDRESS_MASK 0xFFFFFFFF
 #define HNS_ROCE_ADDRESS_SHIFT 32
@@ -161,6 +165,8 @@ struct hns_roce_context {
 
 	unsigned int			max_qp_wr;
 	unsigned int			max_sge;
+	unsigned int			max_srq_wr;
+	unsigned int			max_srq_sge;
 	int				max_cqe;
 	unsigned int			cqe_size;
 };
@@ -177,7 +183,7 @@ struct hns_roce_cq {
 	unsigned int			cqn;
 	unsigned int			cq_depth;
 	unsigned int			cons_index;
-	unsigned int			*set_ci_db;
+	unsigned int			*db;
 	unsigned int			*arm_db;
 	int				arm_sn;
 	unsigned long			flags;
@@ -199,6 +205,7 @@ struct hns_roce_srq {
 	unsigned int			srqn;
 	unsigned int			wqe_cnt;
 	unsigned int			max_gs;
+	unsigned int			rsv_sge;
 	unsigned int			wqe_shift;
 	int				head;
 	int				tail;
@@ -215,6 +222,7 @@ struct hns_roce_wq {
 	unsigned int			head;
 	unsigned int			tail;
 	unsigned int			max_gs;
+	unsigned int			rsv_sge;
 	unsigned int			wqe_shift;
 	unsigned int			shift; /* wq size is 2^shift */
 	int				offset;
@@ -262,10 +270,28 @@ struct hns_roce_qp {
 	unsigned int			next_sge;
 	int				port_num;
 	int				sl;
+	unsigned int			qkey;
 	enum ibv_mtu			path_mtu;
 
 	struct hns_roce_rinl_buf	rq_rinl_buf;
 	unsigned long			flags;
+};
+
+struct hns_roce_av {
+	uint8_t port;
+	uint8_t gid_index;
+	uint8_t hop_limit;
+	uint32_t flowlabel;
+	uint16_t udp_sport;
+	uint8_t sl;
+	uint8_t tclass;
+	uint8_t dgid[HNS_ROCE_GID_SIZE];
+	uint8_t mac[ETH_ALEN];
+};
+
+struct hns_roce_ah {
+	struct ibv_ah ibv_ah;
+	struct hns_roce_av av;
 };
 
 struct hns_roce_u_hw {
@@ -315,8 +341,14 @@ static inline struct  hns_roce_qp *to_hr_qp(struct ibv_qp *ibv_qp)
 	return container_of(ibv_qp, struct hns_roce_qp, ibv_qp);
 }
 
+static inline struct hns_roce_ah *to_hr_ah(struct ibv_ah *ibv_ah)
+{
+	return container_of(ibv_ah, struct hns_roce_ah, ibv_ah);
+}
+
 int hns_roce_u_query_device(struct ibv_context *context,
-			    struct ibv_device_attr *attr);
+			    const struct ibv_query_device_ex_input *input,
+			    struct ibv_device_attr_ex *attr, size_t attr_size);
 int hns_roce_u_query_port(struct ibv_context *context, uint8_t port,
 			  struct ibv_port_attr *attr);
 
@@ -354,9 +386,15 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 int hns_roce_u_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 			int attr_mask, struct ibv_qp_init_attr *init_attr);
 
+struct ibv_ah *hns_roce_u_create_ah(struct ibv_pd *pd,
+				    struct ibv_ah_attr *attr);
+int hns_roce_u_destroy_ah(struct ibv_ah *ah);
+
 int hns_roce_alloc_buf(struct hns_roce_buf *buf, unsigned int size,
 		       int page_size);
 void hns_roce_free_buf(struct hns_roce_buf *buf);
+
+void hns_roce_free_qp_buf(struct hns_roce_qp *qp, struct hns_roce_context *ctx);
 
 void hns_roce_init_qp_indices(struct hns_roce_qp *qp);
 

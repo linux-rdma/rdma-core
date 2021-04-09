@@ -152,3 +152,30 @@ MLX5_1.16 {
 		mlx5dv_dr_action_create_dest_array;
 		mlx5dv_dr_action_create_flow_sampler;
 } MLX5_1.15;
+
+MLX5_1.17 {
+	global:
+		mlx5dv_dr_action_create_aso;
+		mlx5dv_dr_action_create_pop_vlan;
+		mlx5dv_dr_action_create_push_vlan;
+		mlx5dv_dr_action_modify_aso;
+		mlx5dv_modify_qp_sched_elem;
+		mlx5dv_modify_qp_udp_sport;
+		mlx5dv_sched_leaf_create;
+		mlx5dv_sched_leaf_destroy;
+		mlx5dv_sched_leaf_modify;
+		mlx5dv_sched_node_create;
+		mlx5dv_sched_node_destroy;
+		mlx5dv_sched_node_modify;
+} MLX5_1.16;
+
+MLX5_1.18 {
+	global:
+		mlx5dv_reserved_qpn_alloc;
+		mlx5dv_reserved_qpn_dealloc;
+} MLX5_1.17;
+
+MLX5_1.19 {
+        global:
+		mlx5dv_devx_umem_reg_ex;
+} MLX5_1.18;

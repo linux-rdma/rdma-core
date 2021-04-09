@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2005 Topspin Communications.  All rights reserved.
  * Copyright (c) 2006, 2007 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2020 Intel Corperation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -156,7 +157,10 @@ LATEST_SYMVER_FUNC(ibv_query_device, 1_1, "IBVERBS_1.1",
 		   struct ibv_context *context,
 		   struct ibv_device_attr *device_attr)
 {
-	return get_ops(context)->query_device(context, device_attr);
+	return get_ops(context)->query_device_ex(
+		context, NULL,
+		container_of(device_attr, struct ibv_device_attr_ex, orig_attr),
+		sizeof(*device_attr));
 }
 
 int __lib_query_port(struct ibv_context *context, uint8_t port_num,
@@ -365,6 +369,24 @@ struct ibv_mr *ibv_import_mr(struct ibv_pd *pd, uint32_t mr_handle)
 void ibv_unimport_mr(struct ibv_mr *mr)
 {
 	get_ops(mr->context)->unimport_mr(mr);
+}
+
+struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
+				 size_t length, uint64_t iova, int fd,
+				 int access)
+{
+	struct ibv_mr *mr;
+
+	mr = get_ops(pd->context)->reg_dmabuf_mr(pd, offset, length, iova,
+						 fd, access);
+	if (!mr)
+		return NULL;
+
+	mr->context = pd->context;
+	mr->pd = pd;
+	mr->addr = (void *)(uintptr_t)offset;
+	mr->length = length;
+	return mr;
 }
 
 LATEST_SYMVER_FUNC(ibv_rereg_mr, 1_1, "IBVERBS_1.1",
@@ -973,7 +995,6 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 	int ether_len;
 	struct peer_address src;
 	struct peer_address dst;
-	uint16_t ret_vid;
 	int ret = -EINVAL;
 	int err;
 
@@ -1022,10 +1043,11 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 		goto free_resources;
 
 	if (vid) {
-		ret_vid = neigh_get_vlan_id_from_dev(&neigh_handler);
+		uint16_t ret_vid = neigh_get_vlan_id_from_dev(&neigh_handler);
 
 		if (ret_vid <= 0xfff)
 			neigh_set_vlan_id(&neigh_handler, ret_vid);
+		*vid = ret_vid;
 	}
 
 	/* We are using only Ethernet here */
@@ -1035,9 +1057,6 @@ int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
 
 	if (ether_len <= 0)
 		goto free_resources;
-
-	if (vid)
-		*vid = ret_vid;
 
 	ret = 0;
 

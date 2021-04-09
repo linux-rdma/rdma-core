@@ -2,6 +2,7 @@
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
  * Copyright (c) 2005, 2006 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
+ * Copyright (c) 2020 Intel Corporation. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -53,6 +54,10 @@ enum verbs_xrcd_mask {
 	VERBS_XRCD_RESERVED	= 1 << 1
 };
 
+enum create_cq_cmd_flags {
+	CREATE_CQ_CMD_FLAGS_TS_IGNORED_EX = 1 << 0,
+};
+
 struct verbs_xrcd {
 	struct ibv_xrcd		xrcd;
 	uint32_t		comp_mask;
@@ -87,6 +92,7 @@ enum ibv_mr_type {
 	IBV_MR_TYPE_MR,
 	IBV_MR_TYPE_NULL_MR,
 	IBV_MR_TYPE_IMPORTED_MR,
+	IBV_MR_TYPE_DMABUF_MR,
 };
 
 struct verbs_mr {
@@ -187,7 +193,6 @@ struct verbs_match_ent {
 enum {
 	VSYSFS_READ_MODALIAS = 1 << 0,
 	VSYSFS_READ_NODE_GUID = 1 << 1,
-	VSYSFS_READ_FW_VER = 1 << 2,
 };
 
 /* An rdma device detected in sysfs */
@@ -201,7 +206,6 @@ struct verbs_sysfs_dev {
 	char ibdev_name[IBV_SYSFS_NAME_MAX];
 	char ibdev_path[IBV_SYSFS_PATH_MAX];
 	char modalias[512];
-	char fw_ver[64];
 	uint64_t node_guid;
 	uint32_t driver_id;
 	enum ibv_node_type node_type;
@@ -354,8 +358,6 @@ struct verbs_context_ops {
 			    struct ibv_ops_wr **bad_op);
 	int (*post_srq_recv)(struct ibv_srq *srq, struct ibv_recv_wr *recv_wr,
 			     struct ibv_recv_wr **bad_recv_wr);
-	int (*query_device)(struct ibv_context *context,
-			    struct ibv_device_attr *device_attr);
 	int (*query_device_ex)(struct ibv_context *context,
 			       const struct ibv_query_device_ex_input *input,
 			       struct ibv_device_attr_ex *attr,
@@ -375,6 +377,9 @@ struct verbs_context_ops {
 	struct ibv_mr *(*reg_dm_mr)(struct ibv_pd *pd, struct ibv_dm *dm,
 				    uint64_t dm_offset, size_t length,
 				    unsigned int access);
+	struct ibv_mr *(*reg_dmabuf_mr)(struct ibv_pd *pd, uint64_t offset,
+					size_t length, uint64_t iova,
+					int fd, int access);
 	struct ibv_mr *(*reg_mr)(struct ibv_pd *pd, void *addr, size_t length,
 				 uint64_t hca_va, int access);
 	int (*req_notify_cq)(struct ibv_cq *cq, int solicited_only);
@@ -449,10 +454,6 @@ int ibv_cmd_get_context(struct verbs_context *context,
 			struct ib_uverbs_get_context_resp *resp, size_t resp_size);
 int ibv_cmd_query_context(struct ibv_context *ctx,
 			  struct ibv_command_buffer *driver);
-int ibv_cmd_query_device(struct ibv_context *context,
-			 struct ibv_device_attr *device_attr,
-			 uint64_t *raw_fw_ver,
-			 struct ibv_query_device *cmd, size_t cmd_size);
 int ibv_cmd_create_flow_action_esp(struct ibv_context *ctx,
 				   struct ibv_flow_action_esp_attr *attr,
 				   struct verbs_flow_action *flow_action,
@@ -460,14 +461,11 @@ int ibv_cmd_create_flow_action_esp(struct ibv_context *ctx,
 int ibv_cmd_modify_flow_action_esp(struct verbs_flow_action *flow_action,
 				   struct ibv_flow_action_esp_attr *attr,
 				   struct ibv_command_buffer *driver);
-int ibv_cmd_query_device_ex(struct ibv_context *context,
-			    const struct ibv_query_device_ex_input *input,
-			    struct ibv_device_attr_ex *attr, size_t attr_size,
-			    uint64_t *raw_fw_ver,
-			    struct ibv_query_device_ex *cmd,
-			    size_t cmd_size,
-			    struct ib_uverbs_ex_query_device_resp *resp,
-			    size_t resp_size);
+int ibv_cmd_query_device_any(struct ibv_context *context,
+			     const struct ibv_query_device_ex_input *input,
+			     struct ibv_device_attr_ex *attr, size_t attr_size,
+			     struct ib_uverbs_ex_query_device_resp *resp,
+			     size_t *resp_size);
 int ibv_cmd_query_port(struct ibv_context *context, uint8_t port_num,
 		       struct ibv_port_attr *port_attr,
 		       struct ibv_query_port *cmd, size_t cmd_size);
@@ -500,6 +498,9 @@ int ibv_cmd_advise_mr(struct ibv_pd *pd,
 		      uint32_t flags,
 		      struct ibv_sge *sg_list,
 		      uint32_t num_sge);
+int ibv_cmd_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
+			  uint64_t iova, int fd, int access,
+			  struct verbs_mr *vmr);
 int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
 		     struct ibv_mw *mw, struct ibv_alloc_mw *cmd,
 		     size_t cmd_size,
@@ -511,12 +512,13 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      struct ibv_create_cq *cmd, size_t cmd_size,
 		      struct ib_uverbs_create_cq_resp *resp, size_t resp_size);
 int ibv_cmd_create_cq_ex(struct ibv_context *context,
-			 struct ibv_cq_init_attr_ex *cq_attr,
+			 const struct ibv_cq_init_attr_ex *cq_attr,
 			 struct verbs_cq *cq,
 			 struct ibv_create_cq_ex *cmd,
 			 size_t cmd_size,
 			 struct ib_uverbs_ex_create_cq_resp *resp,
-			 size_t resp_size);
+			 size_t resp_size,
+			 uint32_t cmd_flags);
 int ibv_cmd_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int ibv_cmd_req_notify_cq(struct ibv_cq *cq, int solicited_only);
 int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,
@@ -657,7 +659,6 @@ int ibv_read_ibdev_sysfs_file(char *buf, size_t size,
 			      struct verbs_sysfs_dev *sysfs_dev,
 			      const char *fnfmt, ...)
 	__attribute__((format(printf, 4, 5)));
-int ibv_get_fw_ver(char *value, size_t len, struct verbs_sysfs_dev *sysfs_dev);
 
 static inline bool check_comp_mask(uint64_t input, uint64_t supported)
 {

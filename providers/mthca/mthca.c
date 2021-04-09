@@ -92,7 +92,7 @@ static const struct verbs_match_ent hca_table[] = {
 };
 
 static const struct verbs_context_ops mthca_ctx_common_ops = {
-	.query_device  = mthca_query_device,
+	.query_device_ex = mthca_query_device,
 	.query_port    = mthca_query_port,
 	.alloc_pd      = mthca_alloc_pd,
 	.dealloc_pd    = mthca_free_pd,

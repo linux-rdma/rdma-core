@@ -3,6 +3,7 @@
  * Copyright (c) 2004, 2011-2012 Intel Corporation.  All rights reserved.
  * Copyright (c) 2005, 2006, 2007 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
+ * Copyright (c) 2020 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -136,6 +137,12 @@ enum ibv_device_cap_flags {
 	IBV_DEVICE_RC_IP_CSUM		= 1 << 25,
 	IBV_DEVICE_RAW_IP_CSUM		= 1 << 26,
 	IBV_DEVICE_MANAGED_FLOW_STEERING = 1 << 29
+};
+
+enum ibv_fork_status {
+	IBV_FORK_DISABLED,
+	IBV_FORK_ENABLED,
+	IBV_FORK_UNNEEDED,
 };
 
 /*
@@ -1922,7 +1929,8 @@ struct ibv_device {
 
 struct _compat_ibv_port_attr;
 struct ibv_context_ops {
-	void *(*_compat_query_device)(void);
+	int (*_compat_query_device)(struct ibv_context *context,
+				    struct ibv_device_attr *device_attr);
 	int (*_compat_query_port)(struct ibv_context *context,
 				  uint8_t port_num,
 				  struct _compat_ibv_port_attr *port_attr);
@@ -2017,8 +2025,8 @@ enum ibv_parent_domain_init_attr_mask {
 #define IBV_ALLOCATOR_USE_DEFAULT ((void *)-1)
 
 struct ibv_parent_domain_init_attr {
-	struct ibv_pd *pd; /* referance to a protection domain object, can't be NULL */
-	struct ibv_td *td; /* referance to a thread domain object, or NULL */
+	struct ibv_pd *pd; /* reference to a protection domain object, can't be NULL */
+	struct ibv_td *td; /* reference to a thread domain object, or NULL */
 	uint32_t comp_mask;
 	void *(*alloc)(struct ibv_pd *pd, void *pd_context, size_t size,
 		       size_t alignment, uint64_t resource_type);
@@ -2534,6 +2542,12 @@ __ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length, uint64_t iova,
 	__ibv_reg_mr_iova(pd, addr, length, iova, access,                      \
 			  __builtin_constant_p(                                \
 				  ((access) & IBV_ACCESS_OPTIONAL_RANGE) == 0))
+
+/**
+ * ibv_reg_dmabuf_mr - Register a dambuf-based memory region
+ */
+struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
+				 uint64_t iova, int fd, int access);
 
 enum ibv_rereg_mr_err_code {
 	/* Old MR is valid, invalid input */
@@ -3346,6 +3360,12 @@ int ibv_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid);
  * effect of an application calling fork() is undefined.
  */
 int ibv_fork_init(void);
+
+/**
+ * ibv_is_fork_initialized - Check if fork support
+ * (ibv_fork_init) was enabled.
+ */
+enum ibv_fork_status ibv_is_fork_initialized(void);
 
 /**
  * ibv_node_type_str - Return string describing node_type enum value

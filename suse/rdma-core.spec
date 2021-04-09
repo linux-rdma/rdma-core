@@ -23,7 +23,7 @@
 
 %define         git_ver %{nil}
 Name:           rdma-core
-Version:        33.0
+Version:        35.0
 Release:        0
 Summary:        RDMA core userspace libraries and daemons
 License:        GPL-2.0-only OR BSD-2-Clause
@@ -105,7 +105,7 @@ Obsoletes:      ofed < %{version}
 # To force build without the use of curl-mini, --without=curlmini
 # should be passed to rpmbuild
 %bcond_without curlmini
-%if 0%{?suse_version} >= 1330
+%if 0%{?suse_version} >= 1330 && 0%{?suse_version} < 1550
 %if %{with curlmini}
 BuildRequires:  curl-mini
 %endif
@@ -389,8 +389,6 @@ Pyverbs is a Cython-based Python API over libibverbs, providing an
 easy, object-oriented access to IB verbs.
 
 %prep
-# Make sure LTO is disable as rdma-core fails to compile with LTO enabled
-%define _lto_cflags %{nil}
 %setup -q -n  %{name}-%{version}%{git_ver}
 
 %build
@@ -418,7 +416,7 @@ easy, object-oriented access to IB verbs.
          -DCMAKE_INSTALL_MANDIR:PATH=%{_mandir} \
          -DCMAKE_INSTALL_SYSCONFDIR:PATH=%{_sysconfdir} \
          -DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=%{_unitdir} \
-         -DCMAKE_INSTALL_SYSTEMD_BINDIR:PATH=%{_libexecdir}/systemd \
+         -DCMAKE_INSTALL_SYSTEMD_BINDIR:PATH=%{_prefix}/lib/systemd \
          -DCMAKE_INSTALL_INITDDIR:PATH=%{_initddir} \
          -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
          -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version} \
@@ -560,6 +558,8 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 
 %post -n rdma-ndd
 %service_add_post rdma-ndd.service
+# we ship udev rules, so trigger an update.
+%{_bindir}/udevadm trigger --subsystem-match=infiniband --action=change || true
 
 %postun -n rdma-ndd
 %service_del_postun rdma-ndd.service

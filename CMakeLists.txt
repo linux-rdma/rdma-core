@@ -72,11 +72,11 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "33.0")
+set(PACKAGE_VERSION "35.0")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
-set(IBVERBS_PABI_VERSION "25")
+set(IBVERBS_PABI_VERSION "34")
 set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 #-------------------------
@@ -280,6 +280,16 @@ CHECK_C_SOURCE_COMPILES("
 
  int main(int argc,const char *argv[]) { entry(); }"
   HAVE_FUNC_ATTRIBUTE_IFUNC
+  FAIL_REGEX "warning")
+
+CHECK_C_SOURCE_COMPILES("
+ #include <unistd.h>
+
+ void _sym(void);
+ __attribute__((__symver__(\"sym@TEST_1.1\"))) void _sym(void) {}
+
+ int main(int argc,const char *argv[]) { _sym(); }"
+  HAVE_FUNC_ATTRIBUTE_SYMVER
   FAIL_REGEX "warning")
 
 # The code does not do the racy fcntl if the various CLOEXEC's are not
@@ -505,6 +515,24 @@ find_package(Systemd)
 include_directories(${SYSTEMD_INCLUDE_DIRS})
 RDMA_DoFixup("${SYSTEMD_FOUND}" "systemd/sd-daemon.h")
 
+# drm headers
+
+# Check if the headers have been installed by kernel-headers
+find_path(DRM_INCLUDE_DIRS "drm.h" PATH_SUFFIXES "drm")
+
+# Alternatively the headers could have been installed by libdrm
+if (NOT DRM_INCLUDE_DIRS)
+  pkg_check_modules(DRM libdrm)
+endif()
+
+if (DRM_INCLUDE_DIRS)
+  if (EXISTS ${DRM_INCLUDE_DIRS}/i915_drm.h AND EXISTS ${DRM_INCLUDE_DIRS}/amdgpu_drm.h)
+    include_directories(${DRM_INCLUDE_DIRS})
+  else()
+    unset(DRM_INCLUDE_DIRS CACHE)
+  endif()
+endif()
+
 #-------------------------
 # Apply fixups
 
@@ -700,6 +728,9 @@ endif()
 if (NOT HAVE_FUNC_ATTRIBUTE_IFUNC)
   message(STATUS " Compiler attribute ifunc NOT supported")
 endif()
+if (NOT HAVE_FUNC_ATTRIBUTE_SYMVER)
+  message(STATUS " Compiler attribute symver NOT supported, can not use LTO")
+endif()
 if (NOT HAVE_COHERENT_DMA)
   message(STATUS " Architecture NOT able to do coherent DMA (check util/udma_barrier.h) some providers disabled!")
 endif()
@@ -772,4 +803,7 @@ if (NOT HAVE_GLIBC_UAPI_COMPAT)
 endif()
 if (NOT HAVE_TARGET_SSE)
   message(STATUS " attribute(target(\"sse\")) does NOT work")
+endif()
+if (NOT DRM_INCLUDE_DIRS)
+  message(STATUS " DMABUF NOT supported (disabling some tests)")
 endif()

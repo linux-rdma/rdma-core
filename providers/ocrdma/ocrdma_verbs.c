@@ -68,17 +68,21 @@ static inline void ocrdma_swap_cpu_to_le(void *dst, uint32_t len)
  * ocrdma_query_device
  */
 int ocrdma_query_device(struct ibv_context *context,
-			struct ibv_device_attr *attr)
+			const struct ibv_query_device_ex_input *input,
+			struct ibv_device_attr_ex *attr, size_t attr_size)
 {
-	struct ibv_query_device cmd;
-	uint64_t fw_ver;
 	struct ocrdma_device *dev = get_ocrdma_dev(context->device);
-	int status;
+	struct ib_uverbs_ex_query_device_resp resp;
+	size_t resp_size = sizeof(resp);
+	int ret;
 
-	bzero(attr, sizeof *attr);
-	status = ibv_cmd_query_device(context, attr, &fw_ver, &cmd, sizeof cmd);
-	memcpy(attr->fw_ver, dev->fw_ver, sizeof(dev->fw_ver));
-	return status;
+	ret = ibv_cmd_query_device_any(context, input, attr, attr_size, &resp,
+				       &resp_size);
+	if (ret)
+		return ret;
+
+	memcpy(attr->orig_attr.fw_ver, dev->fw_ver, sizeof(dev->fw_ver));
+	return 0;
 }
 
 /*

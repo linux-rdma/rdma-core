@@ -79,6 +79,17 @@ cdef extern from 'infiniband/mlx5dv.h':
     cdef struct mlx5dv_qp_ex:
         uint64_t comp_mask
 
+    cdef struct mlx5dv_sched_node
+
+    cdef struct mlx5dv_sched_leaf
+
+    cdef struct mlx5dv_sched_attr:
+        mlx5dv_sched_node *parent;
+        uint32_t flags;
+        uint32_t bw_share;
+        uint32_t max_avg_bw;
+        uint64_t comp_mask;
+
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
@@ -90,6 +101,7 @@ cdef extern from 'infiniband/mlx5dv.h':
     int mlx5dv_query_qp_lag_port(v.ibv_qp *qp, uint8_t *port_num,
                                  uint8_t *active_port_num)
     int mlx5dv_modify_qp_lag_port(v.ibv_qp *qp, uint8_t port_num)
+    int mlx5dv_modify_qp_udp_sport(v.ibv_qp *qp, uint16_t udp_sport)
     v.ibv_cq_ex *mlx5dv_create_cq(v.ibv_context *context,
                                   v.ibv_cq_init_attr_ex *cq_attr,
                                   mlx5dv_cq_init_attr *mlx5_cq_attr)
@@ -105,3 +117,17 @@ cdef extern from 'infiniband/mlx5dv.h':
     void mlx5dv_wr_set_dc_addr(mlx5dv_qp_ex *mqp, v.ibv_ah *ah,
                                uint32_t remote_dctn, uint64_t remote_dc_key)
     mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(v.ibv_qp_ex *qp_ex)
+    mlx5dv_sched_node *mlx5dv_sched_node_create(v.ibv_context *context,
+                                                mlx5dv_sched_attr *sched_attr)
+    mlx5dv_sched_leaf *mlx5dv_sched_leaf_create(v.ibv_context *context,
+                                                mlx5dv_sched_attr *sched_attr)
+    int mlx5dv_sched_node_modify(mlx5dv_sched_node *node,
+                                 mlx5dv_sched_attr *sched_attr)
+    int mlx5dv_sched_leaf_modify(mlx5dv_sched_leaf *leaf,
+                                 mlx5dv_sched_attr *sched_attr)
+    int mlx5dv_sched_node_destroy(mlx5dv_sched_node *node)
+    int mlx5dv_sched_leaf_destroy(mlx5dv_sched_leaf *leaf)
+    int mlx5dv_modify_qp_sched_elem(v.ibv_qp *qp, mlx5dv_sched_leaf *requestor,
+                                    mlx5dv_sched_leaf *responder)
+    int mlx5dv_reserved_qpn_alloc(v.ibv_context *context, uint32_t *qpn)
+    int mlx5dv_reserved_qpn_dealloc(v.ibv_context *context, uint32_t qpn)

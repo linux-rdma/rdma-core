@@ -91,7 +91,7 @@ static const struct verbs_match_ent cna_table[] = {
 };
 
 static const struct verbs_context_ops bnxt_re_cntx_ops = {
-	.query_device  = bnxt_re_query_device,
+	.query_device_ex = bnxt_re_query_device,
 	.query_port    = bnxt_re_query_port,
 	.alloc_pd      = bnxt_re_alloc_pd,
 	.dealloc_pd    = bnxt_re_free_pd,

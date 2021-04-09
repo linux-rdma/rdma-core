@@ -668,3 +668,80 @@ secondary_mr = MR(imported_pd, 100, e.IBV_ACCESS_REMOTE_READ)
 imported_mr.unimport()
 imported_pd.unimport()
 ```
+
+
+##### Flow Steering
+Flow steering rules define packet matching done by the hardware.
+A spec describes packet matching on a specific layer (L2, L3 etc.).
+A flow is a collection of specs.
+A user QP can attach to flows in order to receive specific packets.
+
+###### Flow and FlowAttr
+
+```python
+from pyverbs.qp import QPCap, QPInitAttr, QPAttr, QP
+from pyverbs.flow import FlowAttr, Flow
+from pyverbs.spec import EthSpec
+import pyverbs.device as d
+import pyverbs.enums as e
+from pyverbs.pd import PD
+from pyverbs.cq import CQ
+
+
+ctx = d.Context(name='rocep0s8f0')
+pd = PD(ctx)
+cq = CQ(ctx, 100, None, None, 0)
+cap = QPCap(100, 10, 1, 1, 0)
+qia = QPInitAttr(cap=cap, qp_type = e.IBV_QPT_UD, scq=cq, rcq=cq)
+qp = QP(pd, qia, QPAttr())
+
+# Create Eth spec
+eth_spec = EthSpec(ether_type=0x800, dst_mac="01:50:56:19:20:a7")
+eth_spec.src_mac = "24:8a:07:a5:28:c8"
+eth_spec.src_mac_mask = "ff:ff:ff:ff:ff:ff"
+
+# Create Flow
+flow_attr = FlowAttr(num_of_specs=1)
+flow_attr.specs.append(eth_spec)
+flow = Flow(qp, flow_attr)
+```
+
+###### Specs
+Each spec holds a specific network layer parameters for matching. To enforce
+the match, the user sets a mask for each parameter. If the bit is set in the
+mask, the corresponding bit in the value should be matched.
+Packets coming from the wire are matched against the flow specification. If a
+match is found, the associated flow actions are executed on the packet. In
+ingress flows, the QP parameter is treated as another action of scattering the
+packet to the respected QP.
+
+
+###### Notes
+* When creating specs mask will be set to FF's to all the given values (unless
+provided by the user). When editing a spec mask should be specified explicitly.
+* If a field is not provided its value and mask will be set to zeros.
+* Hardware only supports full / empty masks.
+* Ethernet, IPv4, TCP/UDP, IPv6 and ESP specs can be inner (IBV_FLOW_SPEC_INNER),
+but set to outer by default.
+
+
+###### Ethernet spec
+Example of creating and editing Ethernet spec
+```python
+from pyverbs.spec import EthSpec
+eth_spec = EthSpec(src_mac="ab:cd:ef:ab:cd:ef", vlan_tag=0x123, is_inner=1)
+eth_spec.dst_mac = "de:de:de:00:de:de"
+eth_spec.dst_mac_mask = "ff:ff:ff:ff:ff:ff"
+eth_spec.ether_type = 0x321
+eth_spec.ether_type_mask = 0xffff
+# Resulting spec
+print(f'{eth_spec}')
+```
+Below is the output when printing the spec.
+
+    Spec type       : IBV_FLOW_SPEC_INNER IBV_FLOW_SPEC_ETH
+    Size            : 40
+    Src mac         : ab:cd:ef:ab:cd:ef    mask: ff:ff:ff:ff:ff:ff
+    Dst mac         : de:de:de:00:de:de    mask: ff:ff:ff:ff:ff:ff
+    Ether type      : 8451                 mask: 65535
+    Vlan tag        : 8961                 mask: 65535

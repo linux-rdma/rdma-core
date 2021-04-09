@@ -48,11 +48,13 @@ enum {
 	MLX5_CMD_OP_RTR2RTS_QP = 0x504,
 	MLX5_CMD_OP_RTS2RTS_QP = 0x505,
 	MLX5_CMD_OP_QUERY_QP = 0x50b,
+	MLX5_CMD_OP_INIT2INIT_QP = 0x50e,
 	MLX5_CMD_OP_QUERY_ESW_VPORT_CONTEXT = 0x752,
 	MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT = 0x754,
 	MLX5_CMD_OP_QUERY_ROCE_ADDRESS = 0x760,
 	MLX5_CMD_OP_QUERY_LAG = 0x842,
 	MLX5_CMD_OP_CREATE_TIR = 0x900,
+	MLX5_CMD_OP_MODIFY_SQ = 0x905,
 	MLX5_CMD_OP_MODIFY_TIS = 0x913,
 	MLX5_CMD_OP_QUERY_TIS = 0x915,
 	MLX5_CMD_OP_CREATE_FLOW_TABLE = 0x930,
@@ -101,7 +103,8 @@ struct mlx5_ifc_roce_cap_bits {
 	u8         reserved_0[0x5];
 	u8         fl_rc_qp_when_roce_disabled[0x1];
 	u8         fl_rc_qp_when_roce_enabled[0x1];
-	u8         reserved_at_7[0x19];
+	u8         reserved_at_7[0x17];
+	u8         qp_ts_format[0x2];
 
 	u8         reserved_at_20[0x7e0];
 };
@@ -500,16 +503,41 @@ struct mlx5_ifc_dr_match_set_misc3_bits {
 	u8         icmpv6_type[0x8];
 	u8         icmpv6_code[0x8];
 
-	u8         reserved_at_120[0x20];
+	u8         geneve_tlv_option_0_data[0x20];
 
 	u8         gtpu_teid[0x20];
 
 	u8         gtpu_msg_type[0x8];
-	u8         reserved_at_148[0x5];
-	u8         gtpu_flags[0x3];
+	u8         gtpu_msg_flags[0x8];
 	u8         reserved_at_150[0x10];
 
-	u8         reserved_at_160[0x80];
+	u8         gtpu_dw_2[0x20];
+
+	u8         gtpu_first_ext_dw_0[0x20];
+
+	u8         gtpu_dw_0[0x20];
+
+	u8         reserved_at_1c0[0x20];
+};
+
+struct mlx5_ifc_dr_match_set_misc4_bits {
+	u8         prog_sample_field_value_0[0x20];
+
+	u8         prog_sample_field_id_0[0x20];
+
+	u8         prog_sample_field_value_1[0x20];
+
+	u8         prog_sample_field_id_1[0x20];
+
+	u8         prog_sample_field_value_2[0x20];
+
+	u8         prog_sample_field_id_2[0x20];
+
+	u8         prog_sample_field_value_3[0x20];
+
+	u8         prog_sample_field_id_3[0x20];
+
+	u8         reserved[0x100];
 };
 
 struct mlx5_ifc_dr_match_param_bits {
@@ -518,6 +546,7 @@ struct mlx5_ifc_dr_match_param_bits {
 	struct mlx5_ifc_dr_match_spec_bits inner;
 	struct mlx5_ifc_dr_match_set_misc2_bits misc2;
 	struct mlx5_ifc_dr_match_set_misc3_bits misc3;
+	struct mlx5_ifc_dr_match_set_misc4_bits misc4;
 };
 
 struct mlx5_ifc_flow_table_prop_layout_bits {
@@ -575,10 +604,17 @@ struct mlx5_ifc_flow_table_prop_layout_bits {
 
 enum {
 	MLX5_FLEX_PARSER_GENEVE_ENABLED		= 1 << 3,
+	MLX5_FLEX_PARSER_MPLS_OVER_GRE_ENABLED	= 1 << 4,
+	mlx5_FLEX_PARSER_MPLS_OVER_UDP_ENABLED	= 1 << 5,
 	MLX5_FLEX_PARSER_VXLAN_GPE_ENABLED	= 1 << 7,
 	MLX5_FLEX_PARSER_ICMP_V4_ENABLED	= 1 << 8,
 	MLX5_FLEX_PARSER_ICMP_V6_ENABLED	= 1 << 9,
+	MLX5_FLEX_PARSER_GENEVE_OPT_0_ENABLED	= 1 << 10,
 	MLX5_FLEX_PARSER_GTPU_ENABLED		= 1 << 11,
+	MLX5_FLEX_PARSER_GTPU_DW_2_ENABLED	= 1 << 16,
+	MLX5_FLEX_PARSER_GTPU_FIRST_EXT_DW_0_ENABLED	= 1 << 17,
+	MLX5_FLEX_PARSER_GTPU_DW_0_ENABLED	= 1 << 18,
+	MLX5_FLEX_PARSER_GTPU_TEID_ENABLED	= 1 << 19,
 };
 
 enum mlx5_ifc_steering_format_version {
@@ -595,18 +631,22 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         reserved_at_1[0x1e];
 	u8         vhca_resource_manager[0x1];
 
-	u8         reserved_at_20[0x10];
+	u8         hca_cap_2[0x1];
+	u8         reserved_at_21[0xf];
 	u8         vhca_id[0x10];
 
 	u8         reserved_at_40[0x40];
 
 	u8         log_max_srq_sz[0x8];
 	u8         log_max_qp_sz[0x8];
-	u8         reserved_at_90[0xb];
+	u8         reserved_at_90[0x3];
+	u8         isolate_vl_tc_new[0x1];
+	u8         reserved_at_94[0x4];
+	u8         prio_tag_required[0x1];
+	u8         reserved_at_99[0x2];
 	u8         log_max_qp[0x5];
 
-	u8         reserved_at_a0[0xa];
-	u8         isolate_vl_tc[0x1];
+	u8         reserved_at_a0[0xb];
 	u8         log_max_srq[0x5];
 	u8         reserved_at_b0[0x10];
 
@@ -641,14 +681,19 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         null_mkey[0x1];
 	u8         log_max_klm_list_size[0x6];
 
-	u8         reserved_at_120[0xa];
+	u8         reserved_at_120[0x2];
+	u8         qpc_extension[0x1];
+	u8         reserved_at_123[0x7];
 	u8         log_max_ra_req_dc[0x6];
 	u8         reserved_at_130[0xa];
 	u8         log_max_ra_res_dc[0x6];
 
 	u8         reserved_at_140[0xa];
 	u8         log_max_ra_req_qp[0x6];
-	u8         reserved_at_150[0xa];
+	u8         reserved_at_150[0x1];
+	u8         rts2rts_qp_udp_sport[0x1];
+	u8         rts2rts_lag_tx_port_affinity[0x1];
+	u8         reserved_at_153[0x7];
 	u8         log_max_ra_res_qp[0x6];
 
 	u8         end_pad[0x1];
@@ -932,7 +977,9 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 
 	u8         flex_parser_protocols[0x20];
 
-	u8         reserved_at_560[0x13];
+	u8         reserved_at_560[0x10];
+	u8         flex_parser_header_modify[0x1];
+	u8         reserved_at_571[0x2];
 	u8         log_max_guaranteed_connections[0x5];
 	u8         reserved_at_578[0x3];
 	u8         log_max_dct_connections[0x5];
@@ -950,7 +997,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         cqe_compression_timeout[0x10];
 	u8         cqe_compression_max_num[0x10];
 
-	u8         reserved_at_5e0[0xc];
+	u8         reserved_at_5e0[0x8];
+	u8         flex_parser_id_gtpu_dw_0[0x4];
 	u8         log_max_tm_offloaded_op_size[0x4];
 	u8         tag_matching[0x1];
 	u8         rndv_offload_rc[0x1];
@@ -962,19 +1010,28 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         affiliate_nic_vport_criteria[0x8];
 	u8         native_port_num[0x8];
 	u8         num_vhca_ports[0x8];
-	u8         reserved_at_618[0x5];
+	u8         flex_parser_id_gtpu_teid[0x4];
+	u8         reserved_at_61c[0x1];
 	u8         trusted_vnic_vhca[0x1];
 	u8         sw_owner_id[0x1];
 	u8         reserve_not_to_use[0x1];
 	u8         reserved_at_620[0xa0];
-	u8         reserved_at_6c0[0x8];
+	u8         reserved_at_6c0[0x4];
+	u8         flex_parser_id_geneve_opt_0[0x4];
 	u8         flex_parser_id_icmp_dw1[0x4];
 	u8         flex_parser_id_icmp_dw0[0x4];
 	u8         flex_parser_id_icmpv6_dw1[0x4];
 	u8         flex_parser_id_icmpv6_dw0[0x4];
 	u8         flex_parser_id_outer_first_mpls_over_gre[0x4];
 	u8         flex_parser_id_outer_first_mpls_over_udp_label[0x4];
-	u8         reserved_at_6b8[0x120];
+
+	u8         reserved_at_6e0[0x20];
+
+	u8         flex_parser_id_gtpu_dw_2[0x4];
+	u8         flex_parser_id_gtpu_first_ext_dw_0[0x4];
+	u8         reserved_at_708[0x18];
+
+	u8         reserved_at_720[0xe0];
 };
 
 struct mlx5_ifc_header_modify_cap_properties_bits {
@@ -1089,6 +1146,44 @@ struct mlx5_ifc_odp_cap_bits {
 	u8         reserved_at_120[0x6e0];
 };
 
+enum {
+	ELEMENT_TYPE_CAP_MASK_TASR = 1 << 0,
+	ELEMENT_TYPE_CAP_MASK_QUEUE_GROUP = 1 << 4,
+};
+
+enum {
+	TSAR_TYPE_CAP_MASK_DWRR = 1 << 0,
+};
+
+struct mlx5_ifc_qos_cap_bits {
+	u8         reserved_at_0[0x8];
+	u8         nic_sq_scheduling[0x1];
+	u8         nic_bw_share[0x1];
+	u8         nic_rate_limit[0x1];
+	u8         reserved_at_b[0x15];
+
+	u8         reserved_at_20[0x1];
+	u8         nic_qp_scheduling[0x1];
+	u8         reserved_at_22[0x1e];
+
+	u8         reserved_at_40[0xc0];
+
+	u8         nic_element_type[0x10];
+	u8         nic_tsar_type[0x10];
+
+	u8         reserved_at_120[0x6e0];
+};
+
+struct mlx5_ifc_cmd_hca_cap_2_bits {
+	u8         reserved_at_0[0x80];
+
+	u8         reserved_at_80[0x13];
+	u8         log_reserved_qpn_granularity[0x5];
+	u8         reserved_at_98[0x8];
+
+	u8         reserved_at_a0[0x760];
+};
+
 union mlx5_ifc_hca_cap_union_bits {
 	struct mlx5_ifc_atomic_caps_bits atomic_caps;
 	struct mlx5_ifc_cmd_hca_cap_bits cmd_hca_cap;
@@ -1097,6 +1192,8 @@ union mlx5_ifc_hca_cap_union_bits {
 	struct mlx5_ifc_device_mem_cap_bits device_mem_cap;
 	struct mlx5_ifc_odp_cap_bits odp_cap;
 	struct mlx5_ifc_roce_cap_bits roce_caps;
+	struct mlx5_ifc_qos_cap_bits qos_caps;
+	struct mlx5_ifc_cmd_hca_cap_2_bits cmd_hca_cap_2;
 	u8         reserved_at_0[0x8000];
 };
 
@@ -1135,7 +1232,9 @@ enum {
 	MLX5_SET_HCA_CAP_OP_MOD_ROCE                  = 0x4 << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_NIC_FLOW_TABLE        = 0x7 << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_ESW_FLOW_TABLE        = 0x8 << 1,
+	MLX5_SET_HCA_CAP_OP_MOD_QOS                   = 0xc << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_DEVICE_MEMORY         = 0xf << 1,
+	MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE_CAP_2  = 0x20 << 1,
 };
 
 enum {
@@ -1481,6 +1580,53 @@ struct mlx5_ifc_ste_double_action_modify_action_list_v1_bits {
 
 	u8         number_of_modify_actions[0x8];
 	u8         modify_actions_argument_pointer[0x18];
+};
+
+enum {
+	MLX5_IFC_ASO_FLOW_METER_INITIAL_COLOR_RED = 0x0,
+	MLX5_IFC_ASO_FLOW_METER_INITIAL_COLOR_YELLOW = 0x1,
+	MLX5_IFC_ASO_FLOW_METER_INITIAL_COLOR_GREEN = 0x2,
+	MLX5_IFC_ASO_FLOW_METER_INITIAL_COLOR_UNDEFINED = 0x3,
+};
+
+enum {
+	MLX5_IFC_ASO_CT_DIRECTION_INITIATOR = 0x0,
+	MLX5_IFC_ASO_CT_DIRECTION_RESPONDER = 0x1,
+};
+
+struct mlx5_ifc_ste_aso_first_hit_action_v1_bits {
+	u8         reserved_at_0[0x6];
+	u8         set[0x1];
+	u8         line_id[0x9];
+};
+
+struct mlx5_ifc_ste_aso_flow_meter_action_v1_bits {
+	u8         reserved_at_0[0xc];
+	u8         action[0x1];
+	u8         initial_color[0x2];
+	u8         line_id[0x1];
+};
+
+struct mlx5_ifc_ste_aso_ct_action_v1_bits {
+	u8         reserved_at_0[0xf];
+	u8         direction[0x1];
+};
+
+struct mlx5_ifc_ste_double_action_aso_v1_bits {
+	u8         action_id[0x8];
+	u8         aso_context_number[0x18];
+
+	u8         dest_reg_id[0x2];
+	u8         change_ordering_tag[0x1];
+	u8         aso_check_ordering[0x1];
+	u8         aso_context_type[0x4];
+	u8         reserved_at_28[0x8];
+	union {
+		u8	aso_fields[0x10];
+		struct mlx5_ifc_ste_aso_first_hit_action_v1_bits first_hit;
+		struct mlx5_ifc_ste_aso_flow_meter_action_v1_bits flow_meter;
+		struct mlx5_ifc_ste_aso_ct_action_v1_bits ct;
+	};
 };
 
 struct mlx5_ifc_ste_match_bwc_v1_bits {
@@ -2056,10 +2202,7 @@ struct mlx5_ifc_ste_gre_v1_bits {
 };
 
 struct mlx5_ifc_ste_flex_parser_0_bits {
-	u8         parser_3_label[0x14];
-	u8         parser_3_exp[0x3];
-	u8         parser_3_s_bos[0x1];
-	u8         parser_3_ttl[0x8];
+	u8         flex_parser_3[0x20];
 
 	u8         flex_parser_2[0x20];
 
@@ -2103,8 +2246,7 @@ struct mlx5_ifc_ste_flex_parser_tnl_geneve_bits {
 };
 
 struct mlx5_ifc_ste_flex_parser_tnl_gtpu_bits {
-	u8         reserved_at_0[0x5];
-	u8         gtpu_flags[0x3];
+	u8         gtpu_msg_flags[0x8];
 	u8         gtpu_msg_type[0x8];
 	u8         reserved_at_10[0x10];
 
@@ -2243,6 +2385,7 @@ enum {
 	MLX5_ACTION_IN_FIELD_OUT_METADATA_REGC_5 = 0x56,
 	MLX5_ACTION_IN_FIELD_OUT_TCP_SEQ_NUM   = 0x59,
 	MLX5_ACTION_IN_FIELD_OUT_TCP_ACK_NUM   = 0x5B,
+	MLX5_ACTION_IN_FIELD_OUT_GTPU_TEID     = 0x6E,
 };
 
 struct mlx5_ifc_packet_reformat_context_in_bits {
@@ -2333,6 +2476,11 @@ struct mlx5_ifc_alloc_flow_counter_out_bits {
 enum {
 	MLX5_OBJ_TYPE_FLOW_METER = 0x000a,
 	MLX5_OBJ_TYPE_FLOW_SAMPLER = 0x0020,
+	MLX5_OBJ_TYPE_ASO_FLOW_METER = 0x0024,
+	MLX5_OBJ_TYPE_ASO_FIRST_HIT = 0x0025,
+	MLX5_OBJ_TYPE_SCHEDULING_ELEMENT = 0x0026,
+	MLX5_OBJ_TYPE_RESERVED_QPN = 0x002C,
+	MLX5_OBJ_TYPE_ASO_CT = 0x0031,
 };
 
 struct mlx5_ifc_general_obj_in_cmd_hdr_bits {
@@ -2344,7 +2492,9 @@ struct mlx5_ifc_general_obj_in_cmd_hdr_bits {
 
 	u8         obj_id[0x20];
 
-	u8         reserved_at_60[0x20];
+	u8         reserved_at_60[0x3];
+	u8         log_obj_range[0x5];
+	u8         reserved_at_68[0x18];
 };
 
 struct mlx5_ifc_general_obj_out_cmd_hdr_bits {
@@ -2545,6 +2695,12 @@ struct mlx5_ifc_ads_bits {
 	u8         rmac_31_0[0x20];
 };
 
+enum {
+	MLX5_QPC_TIMESTAMP_FORMAT_FREE_RUNNING = 0x0,
+	MLX5_QPC_TIMESTAMP_FORMAT_DEFAULT      = 0x1,
+	MLX5_QPC_TIMESTAMP_FORMAT_REAL_TIME    = 0x2,
+};
+
 struct mlx5_ifc_qpc_bits {
 	u8         state[0x4];
 	u8         lag_tx_port_affinity[0x4];
@@ -2574,7 +2730,9 @@ struct mlx5_ifc_qpc_bits {
 	u8         log_rq_stride[0x3];
 	u8         no_sq[0x1];
 	u8         log_sq_size[0x4];
-	u8         reserved_at_55[0x6];
+	u8         reserved_at_55[0x3];
+	u8         ts_format[0x2];
+	u8         reserved_at_5a[0x1];
 	u8         rlky[0x1];
 	u8         ulp_stateless_offload_mode[0x4];
 
@@ -2682,6 +2840,16 @@ struct mlx5_ifc_qpc_bits {
 	u8         dbr_umem_id[0x20];
 };
 
+struct mlx5_ifc_qpc_ext_bits {
+	u8         reserved_at_0[0x20];
+
+	u8         qos_queue_group_id_requester[0x20];
+
+	u8         qos_queue_group_id_responder[0x20];
+
+	u8         reserved_at_60[0x7a0];
+};
+
 struct mlx5_ifc_create_tir_out_bits {
 	u8         status[0x8];
 	u8         icm_address_63_40[0x18];
@@ -2729,6 +2897,46 @@ struct mlx5_ifc_create_qp_in_bits {
 	u8         reserved_at_861[0x1f];
 
 	u8         pas[0][0x40];
+};
+
+enum mlx5_qpc_opt_mask_32 {
+	MLX5_QPC_OPT_MASK_32_QOS_QUEUE_GROUP_ID = 1 << 1,
+	MLX5_QPC_OPT_MASK_32_UDP_SPORT = 1 << 2,
+};
+
+enum mlx5_qpc_opt_mask {
+	MLX5_QPC_OPT_MASK_RTS2RTS_LAG_TX_PORT_AFFINITY = 1 << 15,
+};
+
+struct mlx5_ifc_init2init_qp_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_init2init_qp_in_bits {
+	u8         opcode[0x10];
+	u8         uid[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         qpc_ext[0x1];
+	u8         reserved_at_41[0x7];
+	u8         qpn[0x18];
+
+	u8         reserved_at_60[0x60];
+
+	struct mlx5_ifc_qpc_bits qpc;
+
+	u8         reserved_at_800[0x40];
+
+	u8         opt_param_mask_95_32[0x40];
+
+	struct mlx5_ifc_qpc_ext_bits qpc_data_ext;
 };
 
 struct mlx5_ifc_init2rtr_qp_out_bits {
@@ -2819,6 +3027,41 @@ struct mlx5_ifc_rst2init_qp_in_bits {
 	struct mlx5_ifc_qpc_bits qpc;
 
 	u8         reserved_at_800[0x80];
+};
+
+struct mlx5_ifc_rts2rts_qp_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_rts2rts_qp_in_bits {
+	u8         opcode[0x10];
+	u8         uid[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         qpc_ext[0x1];
+	u8         reserved_at_41[0x7];
+	u8         qpn[0x18];
+
+	u8         reserved_at_60[0x20];
+
+	u8         opt_param_mask[0x20];
+
+	u8         reserved_at_a0[0x20];
+
+	struct mlx5_ifc_qpc_bits qpc;
+
+	u8         reserved_at_800[0x40];
+
+	u8         opt_param_mask_95_32[0x40];
+
+	struct mlx5_ifc_qpc_ext_bits qpc_data_ext;
 };
 
 struct mlx5_ifc_query_qp_out_bits {
@@ -3163,4 +3406,138 @@ enum {
 enum {
 	MLX5_QPC_PAGE_OFFSET_QUANTA = 64,
 };
+
+enum {
+	MLX5_ASO_FIRST_HIT_NUM_PER_OBJ = 512,
+	MLX5_ASO_FLOW_METER_NUM_PER_OBJ = 2,
+	MLX5_ASO_CT_NUM_PER_OBJ = 1,
+};
+
+enum mlx5_sched_hierarchy_type {
+	MLX5_SCHED_HIERARCHY_NIC = 3,
+};
+
+enum mlx5_sched_elem_type {
+	MLX5_SCHED_ELEM_TYPE_TSAR		= 0x0,
+	MLX5_SCHED_ELEM_TYPE_VPORT		= 0x1,
+	MLX5_SCHED_ELEM_TYPE_VPORT_TC		= 0x2,
+	MLX5_SCHED_ELEM_TYPE_PARA_VPORT_TC	= 0x3,
+	MLX5_SCHED_ELEM_TYPE_QUEUE_GROUP	= 0x4,
+};
+
+enum mlx5_sched_tsar_type {
+	MLX5_SCHED_TSAR_TYPE_DWRR		= 0x0,
+	MLX5_SCHED_TSAR_TYPE_ROUND_ROBIN	= 0x1,
+	MLX5_SCHED_TSAR_TYPE_ETS		= 0x2,
+};
+
+struct mlx5_ifc_sched_elem_attr_tsar_bits {
+	u8	reserved_at_0[0x8];
+	u8	tsar_type[0x8];
+	u8	reserved_at_10[0x10];
+};
+
+union mlx5_ifc_sched_elem_attr_bits {
+	struct mlx5_ifc_sched_elem_attr_tsar_bits tsar;
+};
+
+struct  mlx5_ifc_sched_context_bits {
+	u8	element_type[0x8];
+	u8	reserved_at_8[0x18];
+
+	union	mlx5_ifc_sched_elem_attr_bits sched_elem_attr;
+
+	u8	parent_element_id[0x20];
+
+	u8	reserved_at_60[0x40];
+
+	u8	bw_share[0x20];
+
+	u8	max_average_bw[0x20];
+
+	u8	reserved_at_e0[0x120];
+};
+
+struct mlx5_ifc_sched_elem_bits {
+	u8	modify_field_select[0x40];
+
+	u8	scheduling_hierarchy[0x8];
+	u8	reserved_at_48[0x18];
+
+	u8	reserved_at_60[0xa0];
+
+	struct	mlx5_ifc_sched_context_bits sched_context;
+
+	u8	reserved_at_300[0x100];
+};
+
+struct mlx5_ifc_create_sched_elem_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits	hdr;
+	struct mlx5_ifc_sched_elem_bits			sched_elem;
+};
+
+struct mlx5_ifc_create_modify_elem_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits	hdr;
+	struct mlx5_ifc_sched_elem_bits			sched_elem;
+};
+
+enum {
+	MLX5_SQC_STATE_RDY  = 0x1,
+};
+
+struct mlx5_ifc_sqc_bits {
+	u8	reserved_at_0[0x8];
+	u8	state[0x4];
+	u8	reserved_at_c[0x14];
+
+	u8	reserved_at_20[0xe0];
+
+	u8	reserved_at_100[0x10];
+	u8	qos_queue_group_id[0x10];
+
+	u8	reserved_at_120[0x660];
+};
+
+enum {
+	MLX5_MODIFY_SQ_BITMASK_QOS_QUEUE_GROUP_ID	= 1 << 2,
+};
+
+struct mlx5_ifc_modify_sq_out_bits {
+	u8	status[0x8];
+	u8	reserved_at_8[0x18];
+
+	u8	syndrome[0x20];
+
+	u8	reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_modify_sq_in_bits {
+	u8	opcode[0x10];
+	u8	uid[0x10];
+
+	u8	reserved_at_20[0x10];
+	u8	op_mod[0x10];
+
+	u8	sq_state[0x4];
+	u8	reserved_at_44[0x4];
+	u8	sqn[0x18];
+
+	u8	reserved_at_60[0x20];
+
+	u8	modify_bitmask[0x40];
+
+	u8	reserved_at_c0[0x40];
+
+	struct mlx5_ifc_sqc_bits sq_context;
+};
+
+struct mlx5_ifc_reserved_qpn_bits {
+	u8	reserved_at_0[0x80];
+};
+
+struct mlx5_ifc_create_reserved_qpn_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits	hdr;
+	struct mlx5_ifc_reserved_qpn_bits		rqpns;
+};
+
 #endif /* MLX5_IFC_H */

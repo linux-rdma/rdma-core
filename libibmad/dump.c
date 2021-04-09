@@ -335,6 +335,9 @@ void mad_dump_linkspeedext(char *buf, int bufsz, void *val, int valsz)
 	case 4:
 		snprintf(buf, bufsz, "53.125 Gbps");
 		break;
+	case 8:
+		snprintf(buf, bufsz, "106.25 Gbps");
+		break;
 	default:
 		snprintf(buf, bufsz, "undefined (%d)", speed);
 		break;
@@ -356,6 +359,8 @@ static void dump_linkspeedext(char *buf, int bufsz, int speed)
 		n += snprintf(buf + n, bufsz - n, "25.78125 Gbps or ");
 	if (n < bufsz && speed & 0x4)
 		n += snprintf(buf + n, bufsz - n, "53.125 Gbps or ");
+	if (n < bufsz && speed & 0x8)
+		n += snprintf(buf + n, bufsz - n, "106.25 Gbps or ");
 
 	if (n >= bufsz) {
 		if (bufsz > 3)
@@ -363,7 +368,7 @@ static void dump_linkspeedext(char *buf, int bufsz, int speed)
 		return;
 	}
 
-	if (speed >> 3) {
+	if (speed >> 4) {
 		n += snprintf(buf + n, bufsz - n, "undefined (%d)", speed);
 		return;
 	} else if (bufsz > 3)
@@ -636,6 +641,16 @@ void mad_dump_portcapmask2(char *buf, int bufsz, void *val, int valsz)
 		s += sprintf(s, "\t\t\t\tIsLinkWidth2xSupported\n");
 	if (mask & (1 << 5))
 		s += sprintf(s, "\t\t\t\tIsLinkSpeedHDRSupported\n");
+	if (mask & (1 << 6))
+		s += sprintf(s, "\t\t\t\tIsMKeyProtectBitsExtSupported\n");
+	if (mask & (1 << 7))
+		s += sprintf(s, "\t\t\t\tIsEnhancedTrap128Supported\n");
+	if (mask & (1 << 8))
+		s += sprintf(s, "\t\t\t\tIsPartitionTopSupported\n");
+	if (mask & (1 << 9))
+		s += sprintf(s, "\t\t\t\tIsEnhancedQoSArbiterSupported\n");
+	if (mask & (1 << 10))
+		s += sprintf(s, "\t\t\t\tIsLinkSpeedNDRSupported\n");
 
 	if (s != buf)
 		*(--s) = 0;
@@ -1179,16 +1194,25 @@ void mad_dump_classportinfo(char *buf, int bufsz, void *val, int valsz)
 
 void mad_dump_portinfo_ext(char *buf, int bufsz, void *val, int valsz)
 {
-	int cnt;
+	int cnt, n;
 
 	cnt = _dump_fields(buf, bufsz, val, IB_PORT_EXT_FIRST_F,
 			   IB_PORT_EXT_LAST_F);
 	if (cnt < 0)
 		return;
 
+	n = _dump_fields(buf + cnt, bufsz - cnt, val,
+			 IB_PORT_EXT_HDR_FEC_MODE_SUPPORTED_F,
+			 IB_PORT_EXT_HDR_FEC_MODE_LAST_F);
+
+	if (n < 0)
+		return;
+
+	cnt += n;
+
 	_dump_fields(buf + cnt, bufsz - cnt, val,
-		     IB_PORT_EXT_HDR_FEC_MODE_SUPPORTED_F,
-		     IB_PORT_EXT_HDR_FEC_MODE_LAST_F);
+		     IB_PORT_EXT_NDR_FEC_MODE_SUPPORTED_F,
+		     IB_PORT_EXT_NDR_FEC_MODE_LAST_F);
 }
 
 void xdump(FILE * file, const char *msg, void *p, int size)

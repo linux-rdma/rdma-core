@@ -115,6 +115,8 @@ cdef class Context(PyverbsCM):
         self.vars = weakref.WeakSet()
         self.uars = weakref.WeakSet()
         self.pps = weakref.WeakSet()
+        self.sched_nodes = weakref.WeakSet()
+        self.sched_leafs = weakref.WeakSet()
 
         self.name = kwargs.get('name')
         provider_attr = kwargs.get('attr')
@@ -167,7 +169,8 @@ cdef class Context(PyverbsCM):
         if self.context != NULL:
             self.logger.debug('Closing Context')
             close_weakrefs([self.qps, self.ccs, self.cqs, self.dms, self.pds,
-                            self.xrcds, self.vars])
+                            self.xrcds, self.vars, self.sched_leafs,
+                            self.sched_nodes])
             rc = v.ibv_close_device(self.context)
             if rc != 0:
                 raise PyverbsRDMAErrno(f'Failed to close device {self.name}')
@@ -747,7 +750,7 @@ cdef class DM(PyverbsCM):
             if rc != 0:
                 raise PyverbsRDMAError('Failed to free dm', rc)
             self.dm = NULL
-        self.context = None
+            self.context = None
 
     cdef add_ref(self, obj):
         if isinstance(obj, DMMR):
@@ -1075,7 +1078,8 @@ def width_to_str(width):
 
 def speed_to_str(speed):
     l = {0: '0.0 Gbps', 1: '2.5 Gbps', 2: '5.0 Gbps', 4: '5.0 Gbps',
-         8: '10.0 Gbps', 16: '14.0 Gbps', 32: '25.0 Gbps', 64: '50.0 Gbps'}
+         8: '10.0 Gbps', 16: '14.0 Gbps', 32: '25.0 Gbps', 64: '50.0 Gbps',
+         128: '100.0 Gbps'}
     try:
         return '{s} ({n})'.format(s=l[speed], n=speed)
     except KeyError:

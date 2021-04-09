@@ -71,7 +71,7 @@ OPTIONS
 **-f, --foreground**
 Run in the foreground instead of as a daemon
 
-**-d, --debugging**
+**-d, --debug**
 Log additional debugging information to syslog
 
 **--systemd**

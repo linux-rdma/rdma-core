@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017 Mellanox Technologies, Inc.  All rights reserved.
+ * Copyright (c) 2020 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -377,28 +378,11 @@ static int post_srq_recv(struct ibv_srq *srq, struct ibv_recv_wr *recv_wr,
 	return EOPNOTSUPP;
 }
 
-static int query_device(struct ibv_context *context,
-			struct ibv_device_attr *device_attr)
-{
-	return EOPNOTSUPP;
-}
-
-/* Provide a generic implementation for all providers that don't implement
- * query_device_ex.
- */
 static int query_device_ex(struct ibv_context *context,
 			   const struct ibv_query_device_ex_input *input,
 			   struct ibv_device_attr_ex *attr, size_t attr_size)
 {
-	if (input && input->comp_mask)
-		return EINVAL;
-
-	if (attr_size < sizeof(attr->orig_attr))
-		return EOPNOTSUPP;
-
-	memset(attr, 0, attr_size);
-
-	return ibv_query_device(context, &attr->orig_attr);
+	return EOPNOTSUPP;
 }
 
 static int query_ece(struct ibv_qp *qp, struct ibv_ece *ece)
@@ -447,6 +431,14 @@ static struct ibv_mr *reg_dm_mr(struct ibv_pd *pd, struct ibv_dm *dm,
 
 static struct ibv_mr *reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 			     uint64_t hca_va,  int access)
+{
+	errno = EOPNOTSUPP;
+	return NULL;
+}
+
+static struct ibv_mr *reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
+				    size_t length, uint64_t iova,
+				    int fd, int access)
 {
 	errno = EOPNOTSUPP;
 	return NULL;
@@ -551,7 +543,6 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	post_send,
 	post_srq_ops,
 	post_srq_recv,
-	query_device,
 	query_device_ex,
 	query_ece,
 	query_port,
@@ -560,6 +551,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	query_srq,
 	read_counters,
 	reg_dm_mr,
+	reg_dmabuf_mr,
 	reg_mr,
 	req_notify_cq,
 	rereg_mr,
@@ -673,7 +665,6 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(ctx, post_send);
 	SET_OP(vctx, post_srq_ops);
 	SET_OP(ctx, post_srq_recv);
-	SET_PRIV_OP(ctx, query_device);
 	SET_OP(vctx, query_device_ex);
 	SET_PRIV_OP_IC(vctx, query_ece);
 	SET_PRIV_OP_IC(ctx, query_port);
@@ -682,6 +673,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_OP(vctx, read_counters);
 	SET_PRIV_OP(ctx, query_srq);
 	SET_OP(vctx, reg_dm_mr);
+	SET_PRIV_OP_IC(vctx, reg_dmabuf_mr);
 	SET_PRIV_OP(ctx, reg_mr);
 	SET_OP(ctx, req_notify_cq);
 	SET_PRIV_OP(ctx, rereg_mr);

@@ -57,6 +57,13 @@
 #define HDR_LEN_L2        (HDR_LEN_L2_MACS + HDR_LEN_L2_ETHER)
 #define HDR_LEN_L2_W_VLAN (HDR_LEN_L2 + HDR_LEN_L2_VLAN)
 
+enum {
+	HDR_MPLS_OFFSET_LABEL	= 12,
+	HDR_MPLS_OFFSET_EXP	= 9,
+	HDR_MPLS_OFFSET_S_BOS	= 8,
+	HDR_MPLS_OFFSET_TTL	= 0,
+};
+
 /* Read from layout struct */
 #define DR_STE_GET(typ, p, fld) DEVX_GET(ste_##typ, p, fld)
 
@@ -104,17 +111,18 @@
 		       in_out##_first_mpls_ttl); \
 } while (0)
 
-#define DR_STE_IS_OUTER_MPLS_OVER_GRE_SET(_misc) (\
-	(_misc)->outer_first_mpls_over_gre_label || \
-	(_misc)->outer_first_mpls_over_gre_exp || \
-	(_misc)->outer_first_mpls_over_gre_s_bos || \
-	(_misc)->outer_first_mpls_over_gre_ttl)
+#define DR_STE_SET_FLEX_PARSER_FIELD(tag, fname, caps, spec) do { \
+	if ((spec)->fname) { \
+		uint8_t parser_id = caps->flex_parser_id_##fname; \
+		uint8_t *parser_ptr = dr_ste_calc_flex_parser_offset(tag, parser_id); \
+		*(__be32 *)parser_ptr = htobe32((spec)->fname);\
+		(spec)->fname = 0; \
+	} \
+} while (0)
 
-#define DR_STE_IS_OUTER_MPLS_OVER_UDP_SET(_misc) (\
-	(_misc)->outer_first_mpls_over_udp_label || \
-	(_misc)->outer_first_mpls_over_udp_exp || \
-	(_misc)->outer_first_mpls_over_udp_s_bos || \
-	(_misc)->outer_first_mpls_over_udp_ttl)
+enum dr_ste_action_modify_flags {
+	DR_STE_ACTION_MODIFY_FLAG_REQ_FLEX      = 1 << 0,
+};
 
 enum dr_ste_action_modify_type_l3 {
 	DR_STE_ACTION_MDFY_TYPE_L3_NONE	= 0x0,
@@ -130,11 +138,16 @@ enum dr_ste_action_modify_type_l4 {
 
 uint16_t dr_ste_conv_bit_to_byte_mask(uint8_t *bit_mask);
 
+static inline uint8_t *
+dr_ste_calc_flex_parser_offset(uint8_t *tag, uint8_t parser_id)
+{
+	/* Calculate tag byte offset based on flex parser id */
+	return tag + 4 * (3 - (parser_id % 4));
+}
+
 typedef void (*dr_ste_builder_void_init)(struct dr_ste_build *sb,
 					 struct dr_match_param *mask);
 
-typedef int (*dr_ste_builder_int_init)(struct dr_ste_build *sb,
-				       struct dr_match_param *mask);
 struct dr_ste_ctx {
 	/* Builders */
 	dr_ste_builder_void_init build_eth_l2_src_dst_init;
@@ -148,16 +161,22 @@ struct dr_ste_ctx {
 	dr_ste_builder_void_init build_eth_ipv6_l3_l4_init;
 	dr_ste_builder_void_init build_mpls_init;
 	dr_ste_builder_void_init build_tnl_gre_init;
-	dr_ste_builder_void_init build_tnl_mpls_init;
-	dr_ste_builder_int_init  build_icmp_init;
+	dr_ste_builder_void_init build_tnl_mpls_over_gre_init;
+	dr_ste_builder_void_init build_tnl_mpls_over_udp_init;
+	dr_ste_builder_void_init build_icmp_init;
 	dr_ste_builder_void_init build_general_purpose_init;
 	dr_ste_builder_void_init build_eth_l4_misc_init;
 	dr_ste_builder_void_init build_tnl_vxlan_gpe_init;
 	dr_ste_builder_void_init build_tnl_geneve_init;
+	dr_ste_builder_void_init build_tnl_geneve_tlv_opt_init;
 	dr_ste_builder_void_init build_tnl_gtpu_init;
+	dr_ste_builder_void_init build_tnl_gtpu_flex_parser_0;
+	dr_ste_builder_void_init build_tnl_gtpu_flex_parser_1;
 	dr_ste_builder_void_init build_register_0_init;
 	dr_ste_builder_void_init build_register_1_init;
 	dr_ste_builder_void_init build_src_gvmi_qpn_init;
+	dr_ste_builder_void_init build_flex_parser_0_init;
+	dr_ste_builder_void_init build_flex_parser_1_init;
 
 	/* Getters and Setters */
 	void (*ste_init)(uint8_t *hw_ste_p, uint16_t lu_type,
@@ -171,6 +190,7 @@ struct dr_ste_ctx {
 	uint16_t (*get_byte_mask)(uint8_t *hw_ste_p);
 
 	/* Actions */
+	uint32_t actions_caps;
 	void (*set_actions_rx)(uint8_t *action_type_set,
 			       uint8_t *hw_ste_arr,
 			       struct dr_ste_actions_attr *attr,
@@ -179,8 +199,6 @@ struct dr_ste_ctx {
 			       uint8_t *hw_ste_arr,
 			       struct dr_ste_actions_attr *attr,
 			       uint32_t *added_stes);
-	uint32_t modify_field_arr_sz;
-	const struct dr_ste_action_modify_field *modify_field_arr;
 	void (*set_action_set)(uint8_t *hw_action,
 			       uint8_t hw_field,
 			       uint8_t shifter,
@@ -197,6 +215,9 @@ struct dr_ste_ctx {
 				uint8_t dst_len,
 				uint8_t src_hw_field,
 				uint8_t src_shifter);
+	const struct dr_ste_action_modify_field *
+		(*get_action_hw_field)(uint16_t sw_field,
+				       struct dr_devx_caps *caps);
 	int (*set_action_decap_l3_list)(void *data, uint32_t data_sz,
 					uint8_t *hw_action, uint32_t hw_action_sz,
 					uint16_t *used_hw_action_num);

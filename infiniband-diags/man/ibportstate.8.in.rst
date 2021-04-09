@@ -22,8 +22,9 @@ DESCRIPTION
 ibportstate allows the port state and port physical state of an IB port
 to be queried (in addition to link width and speed being validated
 relative to the peer port when the port queried is a switch port),
-or a switch port to be disabled, enabled, or reset. It
-also allows the link speed/width enabled on any IB port to be adjusted.
+or a switch port to be disabled, enabled, or reset. InfiniBand HCA port
+state may be changed locally without the knowledge of the Subnet Manager.
+It also allows the link speed/width enabled on any IB port to be adjusted.
 
 OPTIONS
 =======
@@ -34,8 +35,8 @@ OPTIONS
                         mkey, mkeylease, mkeyprot
 			(Default is query)
 
-        **enable, disable, and reset** are only allowed on switch ports (An
-        error is indicated if attempted on CA or router ports)
+        **enable, disable, and reset** change or reset a switch or HCA port state
+        (You must specify the CA name and Port number when locally change CA port state.)
 
         **off** change the port state to disable.
 
@@ -114,8 +115,8 @@ EXAMPLES
 ========
 
 ::
-        ibportstate 3 1 disable                  # by lid
-        ibportstate -G 0x2C9000100D051 1 enable  # by guid
+        ibportstate -C qib0 -P 1 3 1 disable     # by CA name, CA Port Number, lid, physical port number
+        ibportstate -C qib0 -P 1 3 1 enable      # by CA name, CA Port Number, lid, physical port number
         ibportstate -D 0 1                       # (query) by direct route
         ibportstate 3 1 reset                    # by lid
         ibportstate 3 1 speed 1                  # by lid

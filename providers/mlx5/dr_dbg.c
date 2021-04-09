@@ -72,9 +72,14 @@ enum dr_dump_rec_type {
 	DR_DUMP_REC_TYPE_ACTION_DECAP_L2 = 3409,
 	DR_DUMP_REC_TYPE_ACTION_DECAP_L3 = 3410,
 	DR_DUMP_REC_TYPE_ACTION_DEVX_TIR = 3411,
+	DR_DUMP_REC_TYPE_ACTION_PUSH_VLAN = 3412,
+	DR_DUMP_REC_TYPE_ACTION_POP_VLAN = 3413,
 	DR_DUMP_REC_TYPE_ACTION_METER = 3414,
 	DR_DUMP_REC_TYPE_ACTION_SAMPLER = 3415,
 	DR_DUMP_REC_TYPE_ACTION_DEST_ARRAY = 3416,
+	DR_DUMP_REC_TYPE_ACTION_ASO_FIRST_HIT = 3417,
+	DR_DUMP_REC_TYPE_ACTION_ASO_FLOW_METER = 3418,
+	DR_DUMP_REC_TYPE_ACTION_ASO_CT = 3419,
 };
 
 static uint64_t dr_dump_icm_to_idx(uint64_t icm_addr)
@@ -189,6 +194,31 @@ static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
 			      action->dest_array.rx_icm_addr,
 			      action->dest_array.tx_icm_addr);
 		break;
+	case DR_ACTION_TYP_POP_VLAN:
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 "\n",
+			      DR_DUMP_REC_TYPE_ACTION_POP_VLAN, action_id,
+			      rule_id);
+		break;
+	case DR_ACTION_TYP_PUSH_VLAN:
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
+			      DR_DUMP_REC_TYPE_ACTION_PUSH_VLAN, action_id,
+			      rule_id, action->push_vlan.vlan_hdr);
+		break;
+	case DR_ACTION_TYP_ASO_FIRST_HIT:
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
+			      DR_DUMP_REC_TYPE_ACTION_ASO_FIRST_HIT, action_id,
+			      rule_id, action->aso.devx_obj->object_id);
+		break;
+	case DR_ACTION_TYP_ASO_FLOW_METER:
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
+			      DR_DUMP_REC_TYPE_ACTION_ASO_FLOW_METER, action_id,
+			      rule_id, action->aso.devx_obj->object_id);
+		break;
+	case DR_ACTION_TYP_ASO_CT:
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
+			      DR_DUMP_REC_TYPE_ACTION_ASO_CT, action_id,
+			      rule_id, action->aso.devx_obj->object_id);
+		break;
 	default:
 		return 0;
 	}
@@ -287,22 +317,6 @@ static int dr_dump_rule(FILE *f, struct mlx5dv_dr_rule *rule)
 	}
 
 	return 0;
-}
-
-int mlx5dv_dump_dr_rule(FILE *fout, struct mlx5dv_dr_rule *rule)
-{
-	int ret;
-
-	if (!fout || !rule)
-		return -EINVAL;
-
-	dr_domain_lock(rule->matcher->tbl->dmn);
-
-	ret = dr_dump_rule(fout, rule);
-
-	dr_domain_unlock(rule->matcher->tbl->dmn);
-
-	return ret;
 }
 
 static int dr_dump_matcher_mask(FILE *f, struct dr_match_param *mask,
@@ -474,22 +488,6 @@ static int dr_dump_matcher_all(FILE *fout, struct mlx5dv_dr_matcher *matcher)
 	return 0;
 }
 
-int mlx5dv_dump_dr_matcher(FILE *fout, struct mlx5dv_dr_matcher *matcher)
-{
-	int ret;
-
-	if (!fout || !matcher)
-		return -EINVAL;
-
-	dr_domain_lock(matcher->tbl->dmn);
-
-	ret = dr_dump_matcher_all(fout, matcher);
-
-	dr_domain_unlock(matcher->tbl->dmn);
-
-	return ret;
-}
-
 static uint64_t dr_domain_id_calc(enum mlx5dv_dr_domain_type type)
 {
 	return (getpid() << 8) | (type & 0xff);
@@ -562,22 +560,6 @@ static int dr_dump_table_all(FILE *fout, struct mlx5dv_dr_table *tbl)
 		}
 	}
 	return 0;
-}
-
-int mlx5dv_dump_dr_table(FILE *fout, struct mlx5dv_dr_table *tbl)
-{
-	int ret;
-
-	if (!fout || !tbl)
-		return -EINVAL;
-
-	dr_domain_lock(tbl->dmn);
-
-	ret = dr_dump_table_all(fout, tbl);
-
-	dr_domain_unlock(tbl->dmn);
-
-	return ret;
 }
 
 static int dr_dump_send_ring(FILE *f, struct dr_send_ring *ring,
@@ -756,6 +738,72 @@ int mlx5dv_dump_dr_domain(FILE *fout, struct mlx5dv_dr_domain *dmn)
 
 	dr_domain_unlock(dmn);
 
+	return ret;
+}
+
+int mlx5dv_dump_dr_table(FILE *fout, struct mlx5dv_dr_table *tbl)
+{
+	int ret;
+
+	if (!fout || !tbl)
+		return -EINVAL;
+
+	dr_domain_lock(tbl->dmn);
+	ret = dr_dump_domain(fout, tbl->dmn);
+	if (ret < 0)
+		goto out;
+
+	ret = dr_dump_table_all(fout, tbl);
+out:
+	dr_domain_unlock(tbl->dmn);
+	return ret;
+}
+
+int mlx5dv_dump_dr_matcher(FILE *fout, struct mlx5dv_dr_matcher *matcher)
+{
+	int ret;
+
+	if (!fout || !matcher)
+		return -EINVAL;
+
+	dr_domain_lock(matcher->tbl->dmn);
+	ret = dr_dump_domain(fout, matcher->tbl->dmn);
+	if (ret < 0)
+		goto out;
+
+	ret = dr_dump_table(fout, matcher->tbl);
+	if (ret < 0)
+		goto out;
+
+	ret = dr_dump_matcher_all(fout, matcher);
+out:
+	dr_domain_unlock(matcher->tbl->dmn);
+	return ret;
+}
+
+int mlx5dv_dump_dr_rule(FILE *fout, struct mlx5dv_dr_rule *rule)
+{
+	int ret;
+
+	if (!fout || !rule)
+		return -EINVAL;
+
+	dr_domain_lock(rule->matcher->tbl->dmn);
+	ret = dr_dump_domain(fout, rule->matcher->tbl->dmn);
+	if (ret < 0)
+		goto out;
+
+	ret = dr_dump_table(fout, rule->matcher->tbl);
+	if (ret < 0)
+		goto out;
+
+	ret = dr_dump_matcher(fout, rule->matcher);
+	if (ret < 0)
+		goto out;
+
+	ret = dr_dump_rule(fout, rule);
+out:
+	dr_domain_unlock(rule->matcher->tbl->dmn);
 	return ret;
 }
 

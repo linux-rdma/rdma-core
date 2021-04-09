@@ -16,6 +16,15 @@
 #include "efa-abi.h"
 #include "efa_io_defs.h"
 
+#define EFA_GET(ptr, mask) FIELD_GET(mask##_MASK, *(ptr))
+
+#define EFA_SET(ptr, mask, value)                                              \
+	({                                                                     \
+		typeof(ptr) _ptr = ptr;                                        \
+		*_ptr = (*_ptr & ~(mask##_MASK)) |                             \
+			FIELD_PREP(mask##_MASK, value);                        \
+	})
+
 struct efa_context {
 	struct verbs_context ibvctx;
 	uint32_t cmds_supp_udata_mask;
@@ -119,8 +128,6 @@ struct efa_qp {
 	struct efa_sq sq;
 	struct efa_rq rq;
 	int page_size;
-	struct efa_cq *rcq;
-	struct efa_cq *scq;
 	int sq_sig_all;
 	int wr_session_err;
 };

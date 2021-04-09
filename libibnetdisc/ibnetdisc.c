@@ -935,7 +935,12 @@ ibnd_port_t *ibnd_find_port_lid(ibnd_fabric_t * fabric,
 {
 	f_internal_t *f = (f_internal_t *)fabric;
 
-	return container_of(cl_qmap_get(&f->lid2guid, lid),
+	cl_map_item_t *p_item = cl_qmap_get(&f->lid2guid, lid);
+
+	if (p_item == &f->lid2guid.nil)
+		return NULL;
+
+	return container_of(p_item,
 			    struct lid2guid_item, cl_map)
 		->port;
 }

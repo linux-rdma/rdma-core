@@ -1006,11 +1006,18 @@ static const ib_field_t ib_mad_f[] = {
 	{160, 16, "QP1Dropped", mad_dump_uint},
 
 	/*
-	 * More PortInfoExtended fields
+	 * More PortInfoExtended fields (HDR)
 	 */
 	{112, 16, "HDRFECModeSupported", mad_dump_hex},
 	{128, 16, "HDRFECModeEnabled", mad_dump_hex},
 	{},			/* IB_PORT_EXT_HDR_FEC_MODE_LAST_F */
+
+	/*
+	 * More PortInfoExtended fields (NDR)
+	 */
+	{144, 16, "NDRFECModeSupported", mad_dump_hex},
+	{160, 16, "NDRFECModeEnabled", mad_dump_hex},
+	{},			/* IB_PORT_EXT_NDR_FEC_MODE_LAST_F */
 
 	{}			/* IB_FIELD_LAST_ */
 };

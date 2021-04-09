@@ -12,6 +12,7 @@ from pyverbs.mr cimport MW, MWBindInfo, MWBind
 from pyverbs.wr cimport RecvWR, SendWR, SGE
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.addr cimport AHAttr, GID, AH
+from pyverbs.flow cimport FlowAttr, Flow
 from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.addr cimport GlobalRoute
@@ -119,7 +120,7 @@ cdef class QPInitAttr(PyverbsObject):
         if scq is not None:
             if type(scq) is CQ:
                 self.attr.send_cq = (<CQ>scq).cq
-            elif type(scq) is CQEX:
+            elif isinstance(scq, CQEX):
                 self.attr.send_cq = (<CQEX>scq).ibv_cq
             else:
                 raise PyverbsUserError('Expected CQ/CQEX, got {t}'.\
@@ -129,7 +130,7 @@ cdef class QPInitAttr(PyverbsObject):
         if rcq is not None:
             if type(rcq) is CQ:
                 self.attr.recv_cq = (<CQ>rcq).cq
-            elif type(rcq) is CQEX:
+            elif isinstance(rcq, CQEX):
                 self.attr.recv_cq = (<CQEX>rcq).ibv_cq
             else:
                 raise PyverbsUserError('Expected CQ/CQEX, got {t}'.\
@@ -282,7 +283,7 @@ cdef class QPInitAttrEx(PyverbsObject):
         if scq is not None:
             if type(scq) is CQ:
                 self.attr.send_cq = (<CQ>scq).cq
-            elif type(scq) is CQEX:
+            elif isinstance(scq, CQEX):
                 self.attr.send_cq = (<CQEX>scq).ibv_cq
             else:
                 raise PyverbsUserError('Expected CQ/CQEX, got {t}'.\
@@ -292,7 +293,7 @@ cdef class QPInitAttrEx(PyverbsObject):
         if rcq is not None:
             if type(rcq) is CQ:
                 self.attr.recv_cq = (<CQ>rcq).cq
-            elif type(rcq) is CQEX:
+            elif isinstance(rcq, CQEX):
                 self.attr.recv_cq = (<CQEX>rcq).ibv_cq
             else:
                 raise PyverbsUserError('Expected CQ/CQEX, got {t}'.\
@@ -943,6 +944,7 @@ cdef class QP(PyverbsCM):
         cdef Context ctx
         super().__init__()
         self.mws = weakref.WeakSet()
+        self.flows = weakref.WeakSet()
         self.update_cqs(init_attr)
         # QP initialization was not done by the provider, we should do it here
         if self.qp == NULL:
@@ -1016,6 +1018,8 @@ cdef class QP(PyverbsCM):
     cdef add_ref(self, obj):
         if isinstance(obj, MW):
             self.mws.add(obj)
+        elif isinstance(obj, Flow):
+            self.flows.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 
@@ -1025,7 +1029,7 @@ cdef class QP(PyverbsCM):
     cpdef close(self):
         if self.qp != NULL:
             self.logger.debug('Closing QP')
-            close_weakrefs([self.mws])
+            close_weakrefs([self.mws, self.flows])
             rc = v.ibv_destroy_qp(self.qp)
             if rc:
                 raise PyverbsRDMAError('Failed to destroy QP', rc)
