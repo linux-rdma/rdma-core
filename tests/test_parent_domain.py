@@ -6,7 +6,7 @@ Test module for Pyverbs' ParentDomain.
 from pyverbs.pd import ParentDomainInitAttr, ParentDomain, ParentDomainContext
 from tests.base import RCResources, UDResources, RDMATestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError
-from tests.test_cqex import create_ex_cq
+from pyverbs.cq import CqInitAttrEx, CQEX
 import pyverbs.mem_alloc as mem
 import pyverbs.enums as e
 import tests.utils as u
@@ -126,7 +126,16 @@ class ParentDomainCqExSrqRes(parent_domain_res_cls(RCResources)):
                          free_func=free_func, with_srq=True)
 
     def create_cq(self):
-        create_ex_cq(self)
+        wc_flags = e.IBV_WC_STANDARD_FLAGS
+        cia = CqInitAttrEx(cqe=2000, wc_flags=wc_flags, parent_domain=self.pd,
+                           comp_mask=e.IBV_CQ_INIT_ATTR_MASK_FLAGS |
+                                     e.IBV_CQ_INIT_ATTR_MASK_PD)
+        try:
+            self.cq = CQEX(self.ctx, cia)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Extended CQ with Parent Domain is not supported')
+            raise ex
 
 
 class ParentDomainTrafficTest(RDMATestCase):
