@@ -1,3 +1,26 @@
+rdma-core (33.1+git20210317-1) unstable; urgency=medium
+
+  * New upstream bug-fix snapshot:
+    - mlx5: Fix uuars to have the 'uar_mmap_offset' data
+    - pyverbs: Fix Mlx5 QP constructor
+    - efa: Fix DV extension clear check
+    - verbs: Fix possible port loop overflow
+    - ibacm: Fix possible port loop overflow
+    - mlx5: DR, Check new cap for isolated VL TC QP
+    - kernel-boot: Fix VF lookup
+    - mlx5: DR, Force QP drain on table creation
+    - libhns: Avoid double release of a pointer
+    - libhns: Correct definition of DB_BYTE_4_TAG_M
+    - libhns: Remove assert to check whether a pointer is NULL
+    - libhns: Remove the unnecessary mask on QPN of CQE
+    - libhns: Remove unnecessary mask of ownerbit
+    - libhns: Remove unnecessary barrier when poll cq
+    - rdma-ndd: fix udev racy issue for system with multiple InfiniBand HCAs
+    - verbs: Fix create CQ comp_mask check
+  * Update my email address
+
+ -- Benjamin Drung <benjamin.drung@ionos.com>  Mon, 12 Apr 2021 11:28:57 +0200
+
 rdma-core (33.1-1) unstable; urgency=medium
 
   * New upstream bugfix release.
