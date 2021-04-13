@@ -236,6 +236,9 @@ _ioctl_next_attr(struct ibv_command_buffer *cmd, uint16_t attr_id)
 /* Make the attribute optional. */
 static inline struct ib_uverbs_attr *attr_optional(struct ib_uverbs_attr *attr)
 {
+	if (!attr)
+		return attr;
+
 	attr->flags &= ~UVERBS_ATTR_F_MANDATORY;
 	return attr;
 }
