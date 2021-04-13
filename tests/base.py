@@ -124,6 +124,8 @@ class RDMATestCase(unittest.TestCase):
         self.gid_type = gid_type if gid_index is None else None
         self.ip_addr = None
         self.pre_environment = {}
+        self.server = None
+        self.client = None
 
     def set_env_variable(self, var, value):
         """
@@ -135,17 +137,6 @@ class RDMATestCase(unittest.TestCase):
         if var not in self.pre_environment.keys():
             self.pre_environment[var] = os.environ.get(var)
         os.environ[var] = value
-
-    def tearDown(self):
-        """
-        Restore the previous environment variables values before ending the test.
-        """
-        for k, v in self.pre_environment.items():
-            if v is None:
-                os.environ.pop(k)
-            else:
-                os.environ[k] = v
-        super().tearDown()
 
     def is_eth_and_has_roce_hw_bug(self):
         """
@@ -286,7 +277,12 @@ class RDMATestCase(unittest.TestCase):
                 os.environ.pop(k)
             else:
                 os.environ[k] = v
+        if self.server:
+            self.server.ctx.close()
+        if self.client:
+            self.client.ctx.close()
         super().tearDown()
+
 
 class BaseResources(object):
     """
