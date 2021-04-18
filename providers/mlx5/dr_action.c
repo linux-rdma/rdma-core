@@ -798,7 +798,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			}
 
 			max_actions_type = MAX_VLANS;
-			attr.vlans.count++;
+			attr.vlans.count_pop++;
 			break;
 		case DR_ACTION_TYP_PUSH_VLAN:
 			if (rx_rule && !(dmn->ste_ctx->actions_caps &
@@ -808,12 +808,12 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			}
 
 			max_actions_type = MAX_VLANS;
-			if (attr.vlans.count == MAX_VLANS) {
+			if (attr.vlans.count_push == MAX_VLANS) {
 				errno = ENOTSUP;
 				return ENOTSUP;
 			}
 
-			attr.vlans.headers[attr.vlans.count++] = action->push_vlan.vlan_hdr;
+			attr.vlans.headers[attr.vlans.count_push++] = action->push_vlan.vlan_hdr;
 			break;
 		default:
 			goto out_invalid_arg;

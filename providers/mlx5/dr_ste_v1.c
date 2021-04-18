@@ -710,7 +710,7 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 			action_sz = DR_STE_ACTION_TRIPLE_SZ;
 			ste_loc++;
 		}
-		dr_ste_v1_set_pop_vlan(last_ste, action, attr->vlans.count);
+		dr_ste_v1_set_pop_vlan(last_ste, action, attr->vlans.count_pop);
 		action_sz -= DR_STE_ACTION_SINGLE_SZ;
 		action += DR_STE_ACTION_SINGLE_SZ;
 		allow_modify_hdr = false;
@@ -762,7 +762,7 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 	if (action_type_set[DR_ACTION_TYP_PUSH_VLAN]) {
 		int i;
 
-		for (i = 0; i < attr->vlans.count; i++) {
+		for (i = 0; i < attr->vlans.count_push; i++) {
 			if (action_sz < DR_STE_ACTION_DOUBLE_SZ || !allow_encap) {
 				dr_ste_v1_arr_init_next_match(&last_ste, added_stes, attr->gvmi);
 				action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste, action);
@@ -889,7 +889,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 			ste_loc++;
 		}
 
-		dr_ste_v1_set_pop_vlan(last_ste, action, attr->vlans.count);
+		dr_ste_v1_set_pop_vlan(last_ste, action, attr->vlans.count_pop);
 		action_sz -= DR_STE_ACTION_SINGLE_SZ;
 		action += DR_STE_ACTION_SINGLE_SZ;
 	}
@@ -935,7 +935,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 	if (action_type_set[DR_ACTION_TYP_PUSH_VLAN]) {
 		int i;
 
-		for (i = 0; i < attr->vlans.count; i++) {
+		for (i = 0; i < attr->vlans.count_push; i++) {
 			if (action_sz < DR_STE_ACTION_DOUBLE_SZ ||
 			    !allow_modify_hdr) {
 				dr_ste_v1_arr_init_next_match(&last_ste,

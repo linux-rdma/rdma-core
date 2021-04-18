@@ -472,7 +472,7 @@ static void dr_ste_v0_set_actions_tx(uint8_t *action_type_set,
 	if (action_type_set[DR_ACTION_TYP_PUSH_VLAN]) {
 		int i;
 
-		for (i = 0; i < attr->vlans.count; i++) {
+		for (i = 0; i < attr->vlans.count_push; i++) {
 			if (i || action_type_set[DR_ACTION_TYP_MODIFY_HDR])
 				dr_ste_v0_arr_init_next(&last_ste,
 							added_stes,
@@ -540,7 +540,7 @@ static void dr_ste_v0_set_actions_rx(uint8_t *action_type_set,
 	if (action_type_set[DR_ACTION_TYP_POP_VLAN]) {
 		int i;
 
-		for (i = 0; i < attr->vlans.count; i++) {
+		for (i = 0; i < attr->vlans.count_pop; i++) {
 			if (i ||
 			    action_type_set[DR_ACTION_TYP_TNL_L2_TO_L2] ||
 			    action_type_set[DR_ACTION_TYP_TNL_L3_TO_L2])

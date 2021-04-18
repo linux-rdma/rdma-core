@@ -378,7 +378,8 @@ struct dr_ste_actions_attr {
 	uint32_t	reformat_size;
 	bool		prio_tag_required;
 	struct {
-		int		count;
+		int		count_pop;
+		int		count_push;
 		uint32_t	headers[MAX_VLANS];
 	} vlans;
 	struct dr_action_aso *aso;
