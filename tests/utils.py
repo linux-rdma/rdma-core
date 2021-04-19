@@ -194,8 +194,7 @@ def random_qp_cap(attr):
     recv_wr = random.randint(1, int(attr.max_qp_wr / 8))
     send_sge = random.randint(1, int(attr.max_sge / 2))
     recv_sge = random.randint(1, int(attr.max_sge / 2))
-    inline = random.randint(0, 16)
-    return QPCap(send_wr, recv_wr, send_sge, recv_sge, inline)
+    return QPCap(send_wr, recv_wr, send_sge, recv_sge)
 
 
 def random_qp_create_mask(qpt, attr_ex):
