@@ -330,6 +330,8 @@ struct verbs_context_ops {
 	void (*free_context)(struct ibv_context *context);
 	int (*free_dm)(struct ibv_dm *dm);
 	int (*get_srq_num)(struct ibv_srq *srq, uint32_t *srq_num);
+	struct ibv_dm *(*import_dm)(struct ibv_context *context,
+				    uint32_t dm_handle);
 	struct ibv_mr *(*import_mr)(struct ibv_pd *pd,
 				    uint32_t mr_handle);
 	struct ibv_pd *(*import_pd)(struct ibv_context *context,
@@ -387,6 +389,7 @@ struct verbs_context_ops {
 			void *addr, size_t length, int access);
 	int (*resize_cq)(struct ibv_cq *cq, int cqe);
 	int (*set_ece)(struct ibv_qp *qp, struct ibv_ece *ece);
+	void (*unimport_dm)(struct ibv_dm *dm);
 	void (*unimport_mr)(struct ibv_mr *mr);
 	void (*unimport_pd)(struct ibv_pd *pd);
 };

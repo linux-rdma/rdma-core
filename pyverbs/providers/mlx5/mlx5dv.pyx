@@ -2,9 +2,12 @@
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
 from libc.stdint cimport uintptr_t, uint8_t, uint16_t, uint32_t
+from libc.stdlib cimport calloc, free, malloc
+from libc.string cimport memcpy
+from posix.mman cimport munmap
 import logging
 
-from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError
+from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError, PyverbsError
 from pyverbs.providers.mlx5.mlx5dv_sched cimport Mlx5dvSchedLeaf
 cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
 cimport pyverbs.providers.mlx5.libmlx5 as dv
@@ -14,8 +17,38 @@ from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.cq cimport CqInitAttrEx
 cimport pyverbs.libibverbs as v
+from pyverbs.device cimport DM
 from pyverbs.addr cimport AH
 from pyverbs.pd cimport PD
+
+
+cdef char* _prepare_devx_inbox(in_bytes):
+    """
+    Auxiliary function that allocates inboxes for DevX commands, and fills them
+    the bytes input.
+    The allocated box must be freed when it's no longer needed.
+    :param in_bytes: Stream of bytes of the command's input
+    :return: The C allocated inbox
+    """
+    cdef char *in_bytes_c = in_bytes
+    cdef char* in_mailbox = <char*>calloc(1, len(in_bytes))
+    if in_mailbox == NULL:
+        raise MemoryError('Failed to allocate memory')
+    memcpy(in_mailbox, in_bytes_c, len(in_bytes))
+    return in_mailbox
+
+
+cdef char* _prepare_devx_outbox(outlen):
+    """
+    Auxiliary function that allocates the outboxes for DevX commands.
+    The allocated box must be freed when it's no longer needed.
+    :param outlen: Output command's length in bytes
+    :return: The C allocated outbox
+    """
+    cdef char* out_mailbox = <char*>calloc(1, outlen)
+    if out_mailbox == NULL:
+        raise MemoryError('Failed to allocate memory')
+    return out_mailbox
 
 
 cdef class Mlx5DVContextAttr(PyverbsObject):
@@ -116,6 +149,30 @@ cdef class Mlx5Context(Context):
         rc = dv.mlx5dv_reserved_qpn_dealloc(ctx.context, qpn)
         if rc != 0:
             raise PyverbsRDMAError(f'Failed to dealloc QP number {qpn}.', rc)
+
+    def devx_general_cmd(self, in_, outlen):
+        """
+        Executes a DevX general command according to the input mailbox.
+        :param in_: Bytes of the general command's input data provided in a
+                    device specification format.
+                    (Stream of bytes or __bytes__ is implemented)
+        :param outlen: Expected output length in bytes
+        :return out: Bytes of the general command's output data provided in a
+                     device specification format
+        """
+        in_bytes = bytes(in_)
+        cdef char *in_mailbox = _prepare_devx_inbox(in_bytes)
+        cdef char *out_mailbox = _prepare_devx_outbox(outlen)
+        rc = dv.mlx5dv_devx_general_cmd(self.context, in_mailbox, len(in_bytes),
+                                        out_mailbox, outlen)
+        try:
+            if rc:
+                raise PyverbsRDMAError("DevX general command failed", rc)
+            out = <bytes>out_mailbox[:outlen]
+        finally:
+            free(in_mailbox)
+            free(out_mailbox)
+        return out
 
     def __dealloc__(self):
         self.close()
@@ -778,3 +835,49 @@ cdef class Mlx5UAR(PyverbsObject):
     @property
     def comp_mask(self):
         return self.uar.comp_mask
+
+
+cdef class Mlx5DmOpAddr(PyverbsCM):
+    def __init__(self, DM dm not None, op=0):
+        """
+        Wraps mlx5dv_dm_map_op_addr.
+        Gets operation address of a device memory (DM), which must be munmapped by
+        the user when it's no longer needed.
+        :param dm: Device Memory instance
+        :param op: DM operation type
+        :return: An mmaped address to the DM for the requested operation (op).
+        """
+        self.addr = dv.mlx5dv_dm_map_op_addr(dm.dm, op)
+        if self.addr == NULL:
+            raise PyverbsRDMAErrno('Failed to get DM operation address')
+
+    def unmap(self, length):
+        munmap(self.addr, length)
+
+    def write(self, data):
+        """
+        Writes data (bytes) to the DM operation address using memcpy.
+        :param data: Bytes of data
+        """
+        memcpy(<char *>self.addr, <char *>data, len(data))
+
+    def read(self, length):
+        """
+        Reads 'length' bytes from the DM operation address using memcpy.
+        :param length: Data length to read (in bytes)
+        :return: Read data in bytes
+        """
+        cdef char *data = <char*> calloc(length, sizeof(char))
+        if data == NULL:
+            raise PyverbsError('Failed to allocate memory')
+        memcpy(<char *>data, <char *>self.addr, length)
+        res = data[:length]
+        free(data)
+        return res
+
+    cpdef close(self):
+        self.addr = NULL
+
+    @property
+    def addr(self):
+        return <uintptr_t>self.addr

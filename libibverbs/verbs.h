@@ -164,6 +164,10 @@ struct ibv_alloc_dm_attr {
 	uint32_t comp_mask;
 };
 
+enum ibv_dm_mask {
+	IBV_DM_MASK_HANDLE = 1 << 0,
+};
+
 struct ibv_dm {
 	struct ibv_context *context;
 	int (*memcpy_to_dm)(struct ibv_dm *dm, uint64_t dm_offset,
@@ -171,6 +175,8 @@ struct ibv_dm {
 	int (*memcpy_from_dm)(void *host_addr, struct ibv_dm *dm,
 			      uint64_t dm_offset, size_t length);
 	uint32_t comp_mask;
+
+	uint32_t handle;
 };
 
 struct ibv_device_attr {
@@ -2288,6 +2294,16 @@ struct ibv_mr *ibv_import_mr(struct ibv_pd *pd, uint32_t mr_handle);
  * ibv_unimport_mr - Unimport a memory region
  */
 void ibv_unimport_mr(struct ibv_mr *mr);
+
+/**
+ * ibv_import_dm - Import a device memory
+ */
+struct ibv_dm *ibv_import_dm(struct ibv_context *context, uint32_t dm_handle);
+
+/**
+ * ibv_unimport_dm - Unimport a device memory
+ */
+void ibv_unimport_dm(struct ibv_dm *dm);
 
 /**
  * ibv_get_async_event - Get next async event

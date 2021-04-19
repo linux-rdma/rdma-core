@@ -62,6 +62,7 @@ class PyverbsAPITestCase(unittest.TestCase):
         super().__init__(methodName)
         # Hold the command line arguments
         self.config = parser.get_config()
+        self.dev_name = None
         self.ctx = None
         self.attr = None
         self.attr_ex = None
@@ -75,16 +76,19 @@ class PyverbsAPITestCase(unittest.TestCase):
         default.
         """
         self.ib_port = self.config['port']
-        dev_name = self.config['dev']
-        if not dev_name:
+        self.dev_name = self.config['dev']
+        if not self.dev_name:
             dev_list = d.get_device_list()
             if not dev_list:
                 raise unittest.SkipTest('No IB devices found')
-            dev_name = dev_list[0].name.decode()
+            self.dev_name = dev_list[0].name.decode()
 
-        self.ctx = d.Context(name=dev_name)
+        self.create_context()
         self.attr = self.ctx.query_device()
         self.attr_ex = self.ctx.query_device_ex()
+
+    def create_context(self):
+        self.ctx = d.Context(name=self.dev_name)
 
     def tearDown(self):
         self.ctx.close()

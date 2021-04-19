@@ -62,6 +62,7 @@ cdef class DM(PyverbsCM):
     cdef v.ibv_dm *dm
     cdef object dm_mrs
     cdef object context
+    cdef object _is_imported
     cdef add_ref(self, obj)
 
 cdef class PortAttr(PyverbsObject):
