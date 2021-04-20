@@ -977,7 +977,7 @@ def cmd_make(args):
 
         home = os.path.join(os.path.sep,"home",os.getenv("LOGNAME"));
 
-        dirs = [os.getcwd(),"/tmp"];
+        dirs = [os.getcwd()];
         # Import the symlink target too if BUILD is a symlink
         BUILD_r = os.path.realpath(BUILD);
         if not BUILD_r.startswith(os.path.realpath(SRC)):
@@ -1008,9 +1008,12 @@ def cmd_make(args):
                 "-e","HOME=%s"%(home),
                 "-w",BUILD_r,
         ];
+
+        opts.append("-v");
+        opts.append("/tmp:/tmp");
         for I in dirs:
             opts.append("-v");
-            opts.append("%s:%s"%(I,I));
+            opts.append("%s:%s:Z"%(I,I));
         for I in cmake_envs:
             opts.append("-e");
             opts.append(I);
