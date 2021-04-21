@@ -627,16 +627,16 @@ static int dr_dump_domain_info_caps(FILE *f, struct dr_devx_caps *caps,
 	return 0;
 }
 
-static int dr_dump_domain_info_dev_attr(FILE *f, struct ibv_device_attr *attr,
+static int dr_dump_domain_info_dev_attr(FILE *f, struct dr_domain_info *info,
 					const uint64_t domain_id)
 {
 	int ret;
 
-	ret = fprintf(f, "%d,0x%" PRIx64 ",%d,%s\n",
+	ret = fprintf(f, "%d,0x%" PRIx64 ",%u,%s\n",
 		      DR_DUMP_REC_TYPE_DOMAIN_INFO_DEV_ATTR,
 		      domain_id,
-		      attr->phys_port_cnt,
-		      attr->fw_ver);
+		      info->caps.num_vports + 1,
+		      info->attr.orig_attr.fw_ver);
 	if (ret < 0)
 		return ret;
 
@@ -647,7 +647,7 @@ static int dr_dump_domain_info(FILE *f, struct dr_domain_info *info,
 {
 	int ret;
 
-	ret = dr_dump_domain_info_dev_attr(f, &info->attr, domain_id);
+	ret = dr_dump_domain_info_dev_attr(f, info, domain_id);
 	if (ret < 0)
 		return ret;
 
