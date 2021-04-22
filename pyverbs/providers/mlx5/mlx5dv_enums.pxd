@@ -264,6 +264,9 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL
         MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_GOING_TO_COMMISSIONING
 
+    cpdef enum mlx5dv_dr_action_flags:
+        MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL
+
     cpdef unsigned long long MLX5DV_RES_TYPE_QP
     cpdef unsigned long long MLX5DV_RES_TYPE_RWQ
     cpdef unsigned long long MLX5DV_RES_TYPE_DBR

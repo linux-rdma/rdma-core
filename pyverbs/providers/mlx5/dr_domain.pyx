@@ -2,7 +2,8 @@
 # Copyright (c) 2020 Nvidia, Inc. All rights reserved. See COPYING file
 
 from pyverbs.base import PyverbsRDMAErrno, PyverbsRDMAError
-from pyverbs.providers.mlx5.dr_table import DrTable
+from pyverbs.providers.mlx5.dr_action cimport DrAction
+from pyverbs.providers.mlx5.dr_table cimport DrTable
 from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base cimport close_weakrefs
 from pyverbs.device cimport Context
@@ -24,6 +25,7 @@ cdef class DrDomain(PyverbsCM):
         self.dr_tables = weakref.WeakSet()
         self.context = context
         context.dr_domains.add(self)
+        self.dr_actions = weakref.WeakSet()
 
     def allow_duplicate_rules(self, allow):
         """
@@ -36,6 +38,8 @@ cdef class DrDomain(PyverbsCM):
     cdef add_ref(self, obj):
         if isinstance(obj, DrTable):
             self.dr_tables.add(obj)
+        elif isinstance(obj, DrAction):
+            self.dr_actions.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 
@@ -45,7 +49,7 @@ cdef class DrDomain(PyverbsCM):
     cpdef close(self):
         if self.domain != NULL:
             self.logger.debug('Closing DrDomain.')
-            close_weakrefs([self.dr_tables])
+            close_weakrefs([self.dr_actions, self.dr_tables])
             rc = dv.mlx5dv_dr_domain_destroy(self.domain)
             if rc:
                 raise PyverbsRDMAError('Failed to destroy DrDomain.', rc)

@@ -416,6 +416,8 @@ cdef extern from 'infiniband/mlx5dv.h':
                                                                  void *data,
                                                                  unsigned char reformat_type,
                                                                  unsigned char ft_type)
+
+    # Direct rules verbs
     mlx5dv_dr_domain *mlx5dv_dr_domain_create(v.ibv_context *ctx, mlx5dv_dr_domain_type type)
     int mlx5dv_dr_domain_destroy(mlx5dv_dr_domain *dmn)
     mlx5dv_dr_table *mlx5dv_dr_table_create(mlx5dv_dr_domain *dmn, uint32_t level)
@@ -431,6 +433,8 @@ cdef extern from 'infiniband/mlx5dv.h':
                                           mlx5dv_flow_match_parameters *value,
                                           size_t num_actions,
                                           mlx5dv_dr_action *actions[])
+    mlx5dv_dr_action *mlx5dv_dr_action_create_modify_header(mlx5dv_dr_domain *dmn, uint32_t flags,
+                                                            size_t actions_sz, uint64_t actions[])
     int mlx5dv_dr_rule_destroy(mlx5dv_dr_rule *rule)
     void mlx5dv_dr_domain_allow_duplicate_rules(mlx5dv_dr_domain *dmn, bool allow)
 

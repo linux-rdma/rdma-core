@@ -3,9 +3,11 @@
 
 #cython: language_level=3
 
+from pyverbs.providers.mlx5.dr_domain cimport DrDomain
 cimport pyverbs.providers.mlx5.libmlx5 as dv
 from pyverbs.base cimport PyverbsCM
 from pyverbs.qp cimport QP
+
 
 cdef class DrAction(PyverbsCM):
     cdef dv.mlx5dv_dr_action *action
@@ -15,3 +17,5 @@ cdef class DrAction(PyverbsCM):
 cdef class DrActionQp(DrAction):
     cdef QP qp
 
+cdef class DrActionModify(DrAction):
+    cdef DrDomain domain
