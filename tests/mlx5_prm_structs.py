@@ -1247,3 +1247,15 @@ class FlowTableEntryMatchParam(Packet):
         # supported fields only.
         # StrFixedLenField('reserved1', None, length=128),
     ]
+
+
+class SetActionIn(Packet):
+    fields_desc = [
+        BitField('action_type', 0, 4),
+        BitField('field', 0, 12),
+        BitField('reserved1', 0, 3),
+        BitField('offset', 0, 5),
+        BitField('reserved2', 0, 3),
+        BitField('length', 0, 5),
+        IntField('data', 0),
+    ]

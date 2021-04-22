@@ -731,13 +731,16 @@ def gen_outer_headers(msg_size):
     return outer
 
 
-def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO):
+def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO, **kwargs):
     """
     Generates a Eth | IPv4 or IPv6 | UDP or TCP packet with hardcoded values in
     the headers and randomized payload.
     :param msg_size: total packet size
     :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
     :param l4: Packet layer 4 type: 'tcp' or 'udp'
+    :param kwargs: Arguments:
+            * *src_mac*
+                Source MAC address to use in the packet.
     :return: packet
     """
     l3_header_size = getattr(PacketConsts, f'IPV{str(l3)}_HEADER_SIZE')
@@ -748,9 +751,9 @@ def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO):
     ip_total_len = msg_size - PacketConsts.ETHER_HEADER_SIZE
 
     # Ethernet header
+    src_mac = kwargs.get('src_mac', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
     packet = struct.pack('!6s6s',
-                         bytes.fromhex(PacketConsts.DST_MAC.replace(':', '')),
-                         bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+                         bytes.fromhex(PacketConsts.DST_MAC.replace(':', '')), src_mac)
     if l3 == PacketConsts.IP_V4:
         packet += PacketConsts.ETHER_TYPE_IPV4.to_bytes(2, 'big')
     else:
