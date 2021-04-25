@@ -136,6 +136,8 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  _mlx5dv_mkey_check@MLX5_1.20 36
  mlx5dv_dci_stream_id_reset@MLX5_1.21 37
  mlx5dv_get_vfio_device_list@MLX5_1.21 37
+ mlx5dv_vfio_get_events_fd@MLX5_1.21 37
+ mlx5dv_vfio_process_events@MLX5_1.21 37
 libefa.so.1 ibverbs-providers #MINVER#
 * Build-Depends-Package: libibverbs-dev
  EFA_1.0@EFA_1.0 24

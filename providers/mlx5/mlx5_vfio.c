@@ -31,11 +31,20 @@ enum {
 	MLX5_VFIO_CMD_VEC_IDX,
 };
 
+static int mlx5_vfio_give_pages(struct mlx5_vfio_context *ctx, uint16_t func_id,
+				int32_t npages, bool is_event);
+static int mlx5_vfio_reclaim_pages(struct mlx5_vfio_context *ctx, uint32_t func_id,
+				   int npages);
+
 static void mlx5_vfio_free_cmd_msg(struct mlx5_vfio_context *ctx,
 				   struct mlx5_cmd_msg *msg);
 
 static int mlx5_vfio_alloc_cmd_msg(struct mlx5_vfio_context *ctx,
 				   uint32_t size, struct mlx5_cmd_msg *msg);
+
+static int mlx5_vfio_post_cmd(struct mlx5_vfio_context *ctx, void *in,
+			      int ilen, void *out, int olen,
+			      unsigned int slot, bool async);
 
 static int mlx5_vfio_register_mem(struct mlx5_vfio_context *ctx,
 				  void *vaddr, uint64_t iova, uint64_t size)
@@ -259,6 +268,22 @@ static void eq_update_ci(struct mlx5_eq *eq, uint32_t cc, int arm)
 	udma_to_device_barrier();
 }
 
+static int mlx5_vfio_handle_page_req_event(struct mlx5_vfio_context *ctx,
+					   struct mlx5_eqe *eqe)
+{
+	struct mlx5_eqe_page_req *req = &eqe->data.req_pages;
+	int32_t num_pages;
+	int16_t func_id;
+
+	func_id = be16toh(req->func_id);
+	num_pages = be32toh(req->num_pages);
+
+	if (num_pages > 0)
+		return mlx5_vfio_give_pages(ctx, func_id, num_pages, true);
+
+	return mlx5_vfio_reclaim_pages(ctx, func_id, -1 * num_pages);
+}
+
 static void mlx5_cmd_mbox_status(void *out, uint8_t *status, uint32_t *syndrome)
 {
 	*status = DEVX_GET(mbox_out, out, status);
@@ -365,6 +390,52 @@ static inline uint32_t mlx5_eq_update_cc(struct mlx5_eq *eq, uint32_t cc)
 	return cc;
 }
 
+static int mlx5_vfio_process_page_request_comp(struct mlx5_vfio_context *ctx,
+					       unsigned long slot)
+{
+	struct mlx5_vfio_cmd_slot *cmd_slot = &ctx->cmd.cmds[slot];
+	struct cmd_async_data *cmd_data = &cmd_slot->curr;
+	int num_claimed;
+	int ret, i;
+
+	ret = mlx5_copy_from_msg(cmd_data->buff_out, &cmd_slot->out,
+				 cmd_data->olen, cmd_slot->lay);
+	if (ret)
+		goto end;
+
+	ret = mlx5_vfio_cmd_check(ctx, cmd_data->buff_in, cmd_data->buff_out);
+	if (ret)
+		goto end;
+
+	if (DEVX_GET(manage_pages_in, cmd_data->buff_in, op_mod) == MLX5_PAGES_GIVE)
+		goto end;
+
+	num_claimed = DEVX_GET(manage_pages_out, cmd_data->buff_out, output_num_entries);
+	if (num_claimed > DEVX_GET(manage_pages_in, cmd_data->buff_in, input_num_entries)) {
+		ret = EINVAL;
+		errno = ret;
+		goto end;
+	}
+
+	for (i = 0; i < num_claimed; i++)
+		mlx5_vfio_free_page(ctx, DEVX_GET64(manage_pages_out, cmd_data->buff_out, pas[i]));
+
+end:
+	free(cmd_data->buff_in);
+	free(cmd_data->buff_out);
+	cmd_slot->in_use = false;
+	if (!ret && cmd_slot->is_pending) {
+		cmd_data = &cmd_slot->pending;
+
+		pthread_mutex_lock(&cmd_slot->lock);
+		cmd_slot->is_pending = false;
+		ret = mlx5_vfio_post_cmd(ctx, cmd_data->buff_in, cmd_data->ilen,
+					 cmd_data->buff_out, cmd_data->olen, slot, true);
+		pthread_mutex_unlock(&cmd_slot->lock);
+	}
+	return ret;
+}
+
 static int mlx5_vfio_cmd_comp(struct mlx5_vfio_context *ctx, unsigned long slot)
 {
 	uint64_t u = 1;
@@ -414,6 +485,9 @@ static int mlx5_vfio_process_async_events(struct mlx5_vfio_context *ctx)
 		switch (eqe->type) {
 		case MLX5_EVENT_TYPE_CMD:
 			ret = mlx5_vfio_process_cmd_eqe(ctx, eqe);
+			break;
+		case MLX5_EVENT_TYPE_PAGE_REQUEST:
+			ret = mlx5_vfio_handle_page_req_event(ctx, eqe);
 			break;
 		default:
 			break;
@@ -563,9 +637,9 @@ static int mlx5_vfio_cmd_prep_out(struct mlx5_vfio_context *ctx,
 	return 0;
 }
 
-static int mlx5_vfio_cmd_exec(struct mlx5_vfio_context *ctx, void *in,
+static int mlx5_vfio_post_cmd(struct mlx5_vfio_context *ctx, void *in,
 			      int ilen, void *out, int olen,
-			      unsigned int slot)
+			      unsigned int slot, bool async)
 {
 	struct mlx5_init_seg *init_seg = ctx->bar_map;
 	struct mlx5_cmd_layout *cmd_lay = ctx->cmd.cmds[slot].lay;
@@ -573,20 +647,62 @@ static int mlx5_vfio_cmd_exec(struct mlx5_vfio_context *ctx, void *in,
 	struct mlx5_cmd_msg *cmd_out = &ctx->cmd.cmds[slot].out;
 	int err;
 
-	pthread_mutex_lock(&ctx->cmd.cmds[slot].lock);
+	/* Lock was taken by caller */
+	if (async && ctx->cmd.cmds[slot].in_use) {
+		struct cmd_async_data *pending = &ctx->cmd.cmds[slot].pending;
+
+		if (ctx->cmd.cmds[slot].is_pending) {
+			assert(false);
+			return EINVAL;
+		}
+
+		/* We might get another PAGE EVENT before previous CMD was completed.
+		 * Save the new work and once get the CMD completion go and do the job.
+		 */
+		pending->buff_in = in;
+		pending->buff_out = out;
+		pending->ilen = ilen;
+		pending->olen = olen;
+
+		ctx->cmd.cmds[slot].is_pending = true;
+		return 0;
+	}
 
 	err = mlx5_vfio_cmd_prep_in(ctx, cmd_in, cmd_lay, in, ilen);
 	if (err)
-		goto end;
+		return err;
 
 	err = mlx5_vfio_cmd_prep_out(ctx, cmd_out, cmd_lay, olen);
 	if (err)
-		goto end;
+		return err;
+
+	if (async) {
+		ctx->cmd.cmds[slot].in_use = true;
+		ctx->cmd.cmds[slot].curr.ilen = ilen;
+		ctx->cmd.cmds[slot].curr.olen = olen;
+		ctx->cmd.cmds[slot].curr.buff_in = in;
+		ctx->cmd.cmds[slot].curr.buff_out = out;
+	}
 
 	cmd_lay->status_own = 0x1;
 
 	udma_to_device_barrier();
 	mmio_write32_be(&init_seg->cmd_dbell, htobe32(0x1 << slot));
+	return 0;
+}
+
+static int mlx5_vfio_cmd_exec(struct mlx5_vfio_context *ctx, void *in,
+			       int ilen, void *out, int olen,
+			       unsigned int slot)
+{
+	struct mlx5_cmd_layout *cmd_lay = ctx->cmd.cmds[slot].lay;
+	struct mlx5_cmd_msg *cmd_out = &ctx->cmd.cmds[slot].out;
+	int err;
+
+	pthread_mutex_lock(&ctx->cmd.cmds[slot].lock);
+	err = mlx5_vfio_post_cmd(ctx, in, ilen, out, olen, slot, false);
+	if (err)
+		goto end;
 
 	if (ctx->have_eq) {
 		err = mlx5_vfio_wait_event(ctx, slot);
@@ -775,6 +891,8 @@ static int mlx5_vfio_setup_cmd_slot(struct mlx5_vfio_context *ctx, int slot)
 
 	if (slot != MLX5_MAX_COMMANDS - 1)
 		cmd_slot->comp_func = mlx5_vfio_cmd_comp;
+	else
+		cmd_slot->comp_func = mlx5_vfio_process_page_request_comp;
 
 	pthread_mutex_init(&cmd_slot->lock, NULL);
 
@@ -1326,7 +1444,8 @@ static int create_async_eqs(struct mlx5_vfio_context *ctx)
 	param = (struct mlx5_eq_param) {
 		.irq_index = MLX5_VFIO_CMD_VEC_IDX,
 		.nent = MLX5_NUM_CMD_EQE,
-		.mask[0] = 1ull << MLX5_EVENT_TYPE_CMD,
+		.mask[0] = 1ull << MLX5_EVENT_TYPE_CMD |
+			   1ull << MLX5_EVENT_TYPE_PAGE_REQUEST,
 	};
 
 	err = setup_async_eq(ctx, &param, &ctx->async_eq);
@@ -1337,6 +1456,49 @@ static int create_async_eqs(struct mlx5_vfio_context *ctx)
 	return 0;
 err:
 	mlx5_vfio_dealloc_uar(ctx, ctx->eqs_uar.uarn);
+	return err;
+}
+
+static int mlx5_vfio_reclaim_pages(struct mlx5_vfio_context *ctx, uint32_t func_id,
+				   int npages)
+{
+	uint32_t inlen = DEVX_ST_SZ_BYTES(manage_pages_in);
+	int outlen;
+	uint32_t *out;
+	void *in;
+	int err;
+	int slot = MLX5_MAX_COMMANDS - 1;
+
+	outlen = DEVX_ST_SZ_BYTES(manage_pages_out);
+
+	outlen += npages * DEVX_FLD_SZ_BYTES(manage_pages_out, pas[0]);
+	out = calloc(1, outlen);
+	if (!out) {
+		errno = ENOMEM;
+		return errno;
+	}
+
+	in = calloc(1, inlen);
+	if (!in) {
+		err = ENOMEM;
+		errno = err;
+		goto out_free;
+	}
+
+	DEVX_SET(manage_pages_in, in, opcode, MLX5_CMD_OP_MANAGE_PAGES);
+	DEVX_SET(manage_pages_in, in, op_mod, MLX5_PAGES_TAKE);
+	DEVX_SET(manage_pages_in, in, function_id, func_id);
+	DEVX_SET(manage_pages_in, in, input_num_entries, npages);
+
+	pthread_mutex_lock(&ctx->cmd.cmds[slot].lock);
+	err = mlx5_vfio_post_cmd(ctx, in, inlen, out, outlen, slot, true);
+	pthread_mutex_unlock(&ctx->cmd.cmds[slot].lock);
+	if (!err)
+		return 0;
+
+	free(in);
+out_free:
+	free(out);
 	return err;
 }
 
@@ -1379,10 +1541,13 @@ static int mlx5_vfio_set_issi(struct mlx5_vfio_context *ctx)
 
 static int mlx5_vfio_give_pages(struct mlx5_vfio_context *ctx,
 				uint16_t func_id,
-				int32_t npages)
+				int32_t npages,
+				bool is_event)
 {
 	int32_t out[DEVX_ST_SZ_DW(manage_pages_out)] = {};
 	int inlen = DEVX_ST_SZ_BYTES(manage_pages_in);
+	int slot = MLX5_MAX_COMMANDS - 1;
+	void *outp = out;
 	int i, err;
 	int32_t *in;
 	uint64_t iova;
@@ -1392,6 +1557,15 @@ static int mlx5_vfio_give_pages(struct mlx5_vfio_context *ctx,
 	if (!in) {
 		errno = ENOMEM;
 		return errno;
+	}
+
+	if (is_event) {
+		outp = calloc(1, sizeof(out));
+		if (!outp) {
+			errno = ENOMEM;
+			err = errno;
+			goto end;
+		}
 	}
 
 	for (i = 0; i < npages; i++) {
@@ -1407,11 +1581,22 @@ static int mlx5_vfio_give_pages(struct mlx5_vfio_context *ctx,
 	DEVX_SET(manage_pages_in, in, function_id, func_id);
 	DEVX_SET(manage_pages_in, in, input_num_entries, npages);
 
-	err = mlx5_vfio_cmd_exec(ctx, in, inlen, out, sizeof(out),
-				 MLX5_MAX_COMMANDS - 1);
-	if (!err)
+	if (is_event) {
+		pthread_mutex_lock(&ctx->cmd.cmds[slot].lock);
+		err = mlx5_vfio_post_cmd(ctx, in, inlen, outp, sizeof(out), slot, true);
+		pthread_mutex_unlock(&ctx->cmd.cmds[slot].lock);
+	} else {
+		err = mlx5_vfio_cmd_exec(ctx, in, inlen, outp, sizeof(out), slot);
+	}
+
+	if (!err) {
+		if (is_event)
+			return 0;
 		goto end;
+	}
 err:
+	if (is_event)
+		free(outp);
 	for (i--; i >= 0; i--)
 		mlx5_vfio_free_page(ctx, DEVX_GET64(manage_pages_in, in, pas[i]));
 end:
@@ -1451,7 +1636,7 @@ static int mlx5_vfio_satisfy_startup_pages(struct mlx5_vfio_context *ctx,
 	if (ret)
 		return ret;
 
-	return mlx5_vfio_give_pages(ctx, function_id, npages);
+	return mlx5_vfio_give_pages(ctx, function_id, npages, false);
 }
 
 static int mlx5_vfio_access_reg(struct mlx5_vfio_context *ctx, void *data_in,
@@ -2029,6 +2214,30 @@ static int mlx5_vfio_get_handle(struct mlx5_vfio_device *vfio_dev,
 	vfio_dev->pci_name = strdup(attr->pci_name);
 
 	return 0;
+}
+
+int mlx5dv_vfio_get_events_fd(struct ibv_context *ibctx)
+{
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(ibctx);
+
+	return ctx->cmd_comp_fd;
+}
+
+int mlx5dv_vfio_process_events(struct ibv_context *ibctx)
+{
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(ibctx);
+	uint64_t u;
+	ssize_t s;
+
+	/* read to re-arm the FD and process all existing events */
+	s = read(ctx->cmd_comp_fd, &u, sizeof(uint64_t));
+	if (s < 0 && errno != EAGAIN) {
+		mlx5_err(ctx->dbg_fp, "%s, read failed, errno=%d\n",
+			 __func__, errno);
+		return errno;
+	}
+
+	return mlx5_vfio_process_async_events(ctx);
 }
 
 struct ibv_device **

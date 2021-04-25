@@ -1518,6 +1518,14 @@ struct mlx5dv_vfio_context_attr {
 struct ibv_device **
 mlx5dv_get_vfio_device_list(struct mlx5dv_vfio_context_attr *attr);
 
+int mlx5dv_vfio_get_events_fd(struct ibv_context *ibctx);
+
+/* This API should run from application thread and maintain device events.
+ * The application is responsible to get the events FD by calling mlx5dv_vfio_get_events_fd
+ * and once the FD is pollable call the API to let driver process the ready events.
+ */
+int mlx5dv_vfio_process_events(struct ibv_context *context);
+
 struct ibv_context *
 mlx5dv_open_device(struct ibv_device *device, struct mlx5dv_context_attr *attr);
 

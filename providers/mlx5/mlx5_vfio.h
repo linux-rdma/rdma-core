@@ -151,8 +151,16 @@ struct mlx5_cmd_msg {
 	struct mlx5_cmd_mailbox *next;
 };
 
+
 typedef int (*vfio_cmd_slot_comp)(struct mlx5_vfio_context *ctx,
 				  unsigned long slot);
+
+struct cmd_async_data {
+	void *buff_in;
+	int ilen;
+	void *buff_out;
+	int olen;
+};
 
 struct mlx5_vfio_cmd_slot {
 	struct mlx5_cmd_layout *lay;
@@ -161,6 +169,11 @@ struct mlx5_vfio_cmd_slot {
 	pthread_mutex_t lock;
 	int completion_event_fd;
 	vfio_cmd_slot_comp comp_func;
+	/* async cmd caller data */
+	bool in_use;
+	struct cmd_async_data curr;
+	bool is_pending;
+	struct cmd_async_data pending;
 };
 
 struct mlx5_vfio_cmd {
@@ -245,6 +258,7 @@ struct mlx5_vfio_context {
 		uint32_t hca_cur[MLX5_CAP_NUM][DEVX_UN_SZ_DW(hca_cap_union)];
 		uint32_t hca_max[MLX5_CAP_NUM][DEVX_UN_SZ_DW(hca_cap_union)];
 	} caps;
+
 	struct mlx5_eq async_eq;
 	struct mlx5_vfio_eqs_uar eqs_uar;
 	pthread_mutex_t eq_lock;
