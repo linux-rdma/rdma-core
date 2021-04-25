@@ -5176,6 +5176,24 @@ int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t 
 	return execute_ioctl(context, cmd);
 }
 
+int _mlx5dv_query_port(struct ibv_context *context,
+		       uint32_t port_num,
+		       struct mlx5dv_port *info, size_t info_len)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       UVERBS_OBJECT_DEVICE,
+			       MLX5_IB_METHOD_QUERY_PORT,
+			       2);
+
+	if (!is_mlx5_dev(context->device))
+		return EOPNOTSUPP;
+
+	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_QUERY_PORT_PORT_NUM, port_num);
+	fill_attr_out(cmd, MLX5_IB_ATTR_QUERY_PORT, info, info_len);
+
+	return execute_ioctl(context, cmd);
+}
+
 void clean_dyn_uars(struct ibv_context *context)
 {
 	struct mlx5_context *ctx = to_mctx(context);

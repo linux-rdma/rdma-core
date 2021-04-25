@@ -90,6 +90,19 @@ cdef extern from 'infiniband/mlx5dv.h':
         uint32_t max_avg_bw;
         uint64_t comp_mask;
 
+    cdef struct mlx5dv_reg:
+        uint32_t value;
+        uint32_t mask;
+
+    cdef struct mlx5dv_port:
+        uint64_t flags
+        uint16_t vport
+        uint16_t vport_vhca_id
+        uint16_t esw_owner_vhca_id
+        uint64_t vport_steering_icm_rx
+        uint64_t vport_steering_icm_tx
+        mlx5dv_reg reg_c0
+
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
@@ -129,6 +142,7 @@ cdef extern from 'infiniband/mlx5dv.h':
     int mlx5dv_reserved_qpn_alloc(v.ibv_context *context, uint32_t *qpn)
     int mlx5dv_reserved_qpn_dealloc(v.ibv_context *context, uint32_t qpn)
     void *mlx5dv_dm_map_op_addr(v.ibv_dm *dm, uint8_t op)
+    int mlx5dv_query_port(v.ibv_context *context, uint32_t port_num, mlx5dv_port *port)
 
     # DevX APIs
     mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context,

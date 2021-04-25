@@ -179,4 +179,5 @@ MLX5_1.19 {
         global:
 		mlx5dv_devx_umem_reg_ex;
 		mlx5dv_dm_map_op_addr;
+		_mlx5dv_query_port;
 } MLX5_1.18;
