@@ -36,6 +36,7 @@
 #define u8 uint8_t
 
 enum mlx5_cap_mode {
+	HCA_CAP_OPMOD_GET_MAX = 0,
 	HCA_CAP_OPMOD_GET_CUR	= 1,
 };
 
@@ -46,6 +47,7 @@ enum {
 	MLX5_CMD_OP_ENABLE_HCA = 0x104,
 	MLX5_CMD_OP_QUERY_PAGES = 0x107,
 	MLX5_CMD_OP_MANAGE_PAGES = 0x108,
+	MLX5_CMD_OP_SET_HCA_CAP = 0x109,
 	MLX5_CMD_OP_QUERY_ISSI = 0x10a,
 	MLX5_CMD_OP_SET_ISSI = 0x10b,
 	MLX5_CMD_OP_CREATE_MKEY = 0x200,
@@ -61,6 +63,7 @@ enum {
 	MLX5_CMD_OP_QUERY_DCT = 0x713,
 	MLX5_CMD_OP_QUERY_ESW_VPORT_CONTEXT = 0x752,
 	MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT = 0x754,
+	MLX5_CMD_OP_MODIFY_NIC_VPORT_CONTEXT = 0x755,
 	MLX5_CMD_OP_QUERY_ROCE_ADDRESS = 0x760,
 	MLX5_CMD_OP_ACCESS_REG = 0x805,
 	MLX5_CMD_OP_QUERY_LAG = 0x842,
@@ -110,6 +113,11 @@ enum {
 	MLX5_REG_HOST_ENDIANNESS = 0x7004,
 };
 
+enum {
+	MLX5_CAP_PORT_TYPE_IB  = 0x0,
+	MLX5_CAP_PORT_TYPE_ETH = 0x1,
+};
+
 struct mlx5_ifc_atomic_caps_bits {
 	u8         reserved_at_0[0x40];
 
@@ -140,7 +148,8 @@ struct mlx5_ifc_atomic_caps_bits {
 };
 
 struct mlx5_ifc_roce_cap_bits {
-	u8         reserved_0[0x5];
+	u8         reserved_0[0x4];
+	u8         sw_r_roce_src_udp_port[0x1];
 	u8         fl_rc_qp_when_roce_disabled[0x1];
 	u8         fl_rc_qp_when_roce_enabled[0x1];
 	u8         reserved_at_7[0x17];
@@ -912,7 +921,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         uar_4k[0x1];
 	u8         reserved_at_241[0x9];
 	u8         uar_sz[0x6];
-	u8         reserved_at_250[0x3];
+	u8         reserved_at_250[0x2];
+	u8         umem_uid_0[0x1];
 	u8         log_max_dc_cnak_qps[0x5];
 	u8         log_pg_sz[0x8];
 
@@ -1339,8 +1349,11 @@ struct mlx5_ifc_query_hca_cap_in_bits {
 };
 
 enum mlx5_cap_type {
+	MLX5_CAP_GENERAL = 0,
 	MLX5_CAP_ODP = 2,
 	MLX5_CAP_ATOMIC = 3,
+	MLX5_CAP_ROCE,
+	MLX5_CAP_NUM,
 };
 
 enum {
@@ -4347,6 +4360,76 @@ struct mlx5_ifc_access_register_in_bits {
 	u8         argument[0x20];
 
 	u8         register_data[][0x20];
+};
+
+struct mlx5_ifc_modify_nic_vport_context_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_modify_nic_vport_field_select_bits {
+	u8         reserved_at_0[0x12];
+	u8         affiliation[0x1];
+	u8         reserved_at_13[0x1];
+	u8         disable_uc_local_lb[0x1];
+	u8         disable_mc_local_lb[0x1];
+	u8         node_guid[0x1];
+	u8         port_guid[0x1];
+	u8         min_inline[0x1];
+	u8         mtu[0x1];
+	u8         change_event[0x1];
+	u8         promisc[0x1];
+	u8         permanent_address[0x1];
+	u8         addresses_list[0x1];
+	u8         roce_en[0x1];
+	u8         reserved_at_1f[0x1];
+};
+
+struct mlx5_ifc_modify_nic_vport_context_in_bits {
+	u8         opcode[0x10];
+	u8         reserved_at_10[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         other_vport[0x1];
+	u8         reserved_at_41[0xf];
+	u8         vport_number[0x10];
+
+	struct mlx5_ifc_modify_nic_vport_field_select_bits field_select;
+
+	u8         reserved_at_80[0x780];
+
+	struct mlx5_ifc_nic_vport_context_bits nic_vport_context;
+};
+
+struct mlx5_ifc_set_hca_cap_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_set_hca_cap_in_bits {
+	u8         opcode[0x10];
+	u8         reserved_at_10[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         other_function[0x1];
+	u8         reserved_at_41[0xf];
+	u8         function_id[0x10];
+
+	u8         reserved_at_60[0x20];
+
+	union mlx5_ifc_hca_cap_union_bits capability;
 };
 
 #endif /* MLX5_IFC_H */

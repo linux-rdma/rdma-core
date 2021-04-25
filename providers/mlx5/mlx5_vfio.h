@@ -12,6 +12,7 @@
 
 #include <infiniband/driver.h>
 #include <util/interval_set.h>
+#include "mlx5_ifc.h"
 
 #define FW_INIT_WAIT_MS 2
 #define FW_PRE_INIT_TIMEOUT_MILI 120000
@@ -42,6 +43,22 @@ struct mlx5_vfio_device {
 #else
 #error Host endianness not defined
 #endif
+
+/* GET Dev Caps macros */
+#define MLX5_VFIO_CAP_GEN(ctx, cap) \
+	DEVX_GET(cmd_hca_cap, ctx->caps.hca_cur[MLX5_CAP_GENERAL], cap)
+
+#define MLX5_VFIO_CAP_GEN_64(mdev, cap) \
+	DEVX_GET64(cmd_hca_cap, mdev->caps.hca_cur[MLX5_CAP_GENERAL], cap)
+
+#define MLX5_VFIO_CAP_GEN_MAX(ctx, cap) \
+	DEVX_GET(cmd_hca_cap, ctx->caps.hca_max[MLX5_CAP_GENERAL], cap)
+
+#define MLX5_VFIO_CAP_ROCE(ctx, cap) \
+	DEVX_GET(roce_cap, ctx->caps.hca_cur[MLX5_CAP_ROCE], cap)
+
+#define MLX5_VFIO_CAP_ROCE_MAX(ctx, cap) \
+	DEVX_GET(roce_cap, ctx->caps.hca_max[MLX5_CAP_ROCE], cap)
 
 struct mlx5_reg_host_endianness {
 	uint8_t he;
@@ -162,6 +179,10 @@ struct mlx5_vfio_context {
 	size_t bar_map_size;
 	struct mlx5_vfio_cmd cmd;
 	bool have_eq;
+	struct {
+		uint32_t hca_cur[MLX5_CAP_NUM][DEVX_UN_SZ_DW(hca_cap_union)];
+		uint32_t hca_max[MLX5_CAP_NUM][DEVX_UN_SZ_DW(hca_cap_union)];
+	} caps;
 };
 
 static inline struct mlx5_vfio_device *to_mvfio_dev(struct ibv_device *ibdev)

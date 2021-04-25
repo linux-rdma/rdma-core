@@ -1138,6 +1138,177 @@ out:
 	return err;
 }
 
+static int mlx5_vfio_get_caps_mode(struct mlx5_vfio_context *ctx,
+				   enum mlx5_cap_type cap_type,
+				   enum mlx5_cap_mode cap_mode)
+{
+	uint8_t in[DEVX_ST_SZ_BYTES(query_hca_cap_in)] = {};
+	int out_sz = DEVX_ST_SZ_BYTES(query_hca_cap_out);
+	void *out, *hca_caps;
+	uint16_t opmod = (cap_type << 1) | (cap_mode & 0x01);
+	int err;
+
+	out = calloc(1, out_sz);
+	if (!out) {
+		errno = ENOMEM;
+		return errno;
+	}
+
+	DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
+	DEVX_SET(query_hca_cap_in, in, op_mod, opmod);
+	err = mlx5_vfio_cmd_exec(ctx, in, sizeof(in), out, out_sz, 0);
+	if (err)
+		goto query_ex;
+
+	hca_caps = DEVX_ADDR_OF(query_hca_cap_out, out, capability);
+
+	switch (cap_mode) {
+	case HCA_CAP_OPMOD_GET_MAX:
+		memcpy(ctx->caps.hca_max[cap_type], hca_caps,
+		       DEVX_UN_SZ_BYTES(hca_cap_union));
+		break;
+	case HCA_CAP_OPMOD_GET_CUR:
+		memcpy(ctx->caps.hca_cur[cap_type], hca_caps,
+		       DEVX_UN_SZ_BYTES(hca_cap_union));
+		break;
+	default:
+		err = EINVAL;
+		assert(false);
+		break;
+	}
+
+query_ex:
+	free(out);
+	return err;
+}
+
+enum mlx5_vport_roce_state {
+	MLX5_VPORT_ROCE_DISABLED = 0,
+	MLX5_VPORT_ROCE_ENABLED  = 1,
+};
+
+static int mlx5_vfio_nic_vport_update_roce_state(struct mlx5_vfio_context *ctx,
+						 enum mlx5_vport_roce_state state)
+{
+	uint32_t out[DEVX_ST_SZ_DW(modify_nic_vport_context_out)] = {};
+	int inlen = DEVX_ST_SZ_BYTES(modify_nic_vport_context_in);
+	void *in;
+	int err;
+
+	in = calloc(1, inlen);
+	if (!in) {
+		errno = ENOMEM;
+		return errno;
+	}
+
+	DEVX_SET(modify_nic_vport_context_in, in, field_select.roce_en, 1);
+	DEVX_SET(modify_nic_vport_context_in, in, nic_vport_context.roce_en,
+		 state);
+	DEVX_SET(modify_nic_vport_context_in, in, opcode,
+		 MLX5_CMD_OP_MODIFY_NIC_VPORT_CONTEXT);
+
+	err = mlx5_vfio_cmd_exec(ctx, in, inlen, out, sizeof(out), 0);
+
+	free(in);
+
+	return err;
+}
+
+static int mlx5_vfio_get_caps(struct mlx5_vfio_context *ctx, enum mlx5_cap_type cap_type)
+{
+	int ret;
+
+	ret = mlx5_vfio_get_caps_mode(ctx, cap_type, HCA_CAP_OPMOD_GET_CUR);
+	if (ret)
+		return ret;
+
+	return mlx5_vfio_get_caps_mode(ctx, cap_type, HCA_CAP_OPMOD_GET_MAX);
+}
+
+static int handle_hca_cap_roce(struct mlx5_vfio_context *ctx, void *set_ctx,
+			       int ctx_size)
+{
+	int err;
+	uint32_t out[DEVX_ST_SZ_DW(set_hca_cap_out)] = {};
+	void *set_hca_cap;
+
+	if (!MLX5_VFIO_CAP_GEN(ctx, roce))
+		return 0;
+
+	err = mlx5_vfio_get_caps(ctx, MLX5_CAP_ROCE);
+	if (err)
+		return err;
+
+	if (MLX5_VFIO_CAP_ROCE(ctx, sw_r_roce_src_udp_port) ||
+	    !MLX5_VFIO_CAP_ROCE_MAX(ctx, sw_r_roce_src_udp_port))
+		return 0;
+
+	set_hca_cap = DEVX_ADDR_OF(set_hca_cap_in, set_ctx, capability);
+	memcpy(set_hca_cap, ctx->caps.hca_cur[MLX5_CAP_ROCE],
+	       DEVX_ST_SZ_BYTES(roce_cap));
+	DEVX_SET(roce_cap, set_hca_cap, sw_r_roce_src_udp_port, 1);
+	DEVX_SET(set_hca_cap_in, set_ctx, opcode, MLX5_CMD_OP_SET_HCA_CAP);
+	DEVX_SET(set_hca_cap_in, set_ctx, op_mod, MLX5_SET_HCA_CAP_OP_MOD_ROCE);
+	return mlx5_vfio_cmd_exec(ctx, set_ctx, ctx_size, out, sizeof(out), 0);
+}
+
+static int handle_hca_cap(struct mlx5_vfio_context *ctx, void *set_ctx, int set_sz)
+{
+	struct mlx5_vfio_device *dev = to_mvfio_dev(ctx->vctx.context.device);
+	int sys_page_shift = ilog32(dev->page_size - 1);
+	uint32_t out[DEVX_ST_SZ_DW(set_hca_cap_out)] = {};
+	void *set_hca_cap;
+	int err;
+
+	err = mlx5_vfio_get_caps(ctx, MLX5_CAP_GENERAL);
+	if (err)
+		return err;
+
+	set_hca_cap = DEVX_ADDR_OF(set_hca_cap_in, set_ctx,
+				   capability);
+	memcpy(set_hca_cap, ctx->caps.hca_cur[MLX5_CAP_GENERAL],
+	       DEVX_ST_SZ_BYTES(cmd_hca_cap));
+
+	/* disable cmdif checksum */
+	DEVX_SET(cmd_hca_cap, set_hca_cap, cmdif_checksum, 0);
+
+	if (dev->flags & MLX5DV_VFIO_CTX_FLAGS_INIT_LINK_DOWN)
+		DEVX_SET(cmd_hca_cap, set_hca_cap, disable_link_up_by_init_hca, 1);
+
+	DEVX_SET(cmd_hca_cap, set_hca_cap, log_uar_page_sz, sys_page_shift - 12);
+
+	if (MLX5_VFIO_CAP_GEN_MAX(ctx, mkey_by_name))
+		DEVX_SET(cmd_hca_cap, set_hca_cap, mkey_by_name, 1);
+
+	DEVX_SET(set_hca_cap_in, set_ctx, opcode, MLX5_CMD_OP_SET_HCA_CAP);
+	DEVX_SET(set_hca_cap_in, set_ctx, op_mod, MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE);
+
+	return mlx5_vfio_cmd_exec(ctx, set_ctx, set_sz, out, sizeof(out), 0);
+}
+
+static int set_hca_cap(struct mlx5_vfio_context *ctx)
+{
+	int set_sz = DEVX_ST_SZ_BYTES(set_hca_cap_in);
+	void *set_ctx;
+	int err;
+
+	set_ctx = calloc(1, set_sz);
+	if (!set_ctx) {
+		errno = ENOMEM;
+		return errno;
+	}
+
+	err = handle_hca_cap(ctx, set_ctx, set_sz);
+	if (err)
+		goto out;
+
+	memset(set_ctx, 0, set_sz);
+	err = handle_hca_cap_roce(ctx, set_ctx, set_sz);
+out:
+	free(set_ctx);
+	return err;
+}
+
 static int mlx5_vfio_set_hca_ctrl(struct mlx5_vfio_context *ctx)
 {
 	struct mlx5_reg_host_endianness he_in = {};
@@ -1214,6 +1385,15 @@ static int mlx5_vfio_setup_function(struct mlx5_vfio_context *ctx)
 	if (err)
 		return err;
 
+	err = set_hca_cap(ctx);
+	if (err)
+		return err;
+
+	if (!MLX5_VFIO_CAP_GEN(ctx, umem_uid_0)) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
 	err = mlx5_vfio_satisfy_startup_pages(ctx, 0);
 	if (err)
 		return err;
@@ -1222,7 +1402,10 @@ static int mlx5_vfio_setup_function(struct mlx5_vfio_context *ctx)
 	if (err)
 		return err;
 
-	return 0;
+	if (MLX5_VFIO_CAP_GEN(ctx, port_type) == MLX5_CAP_PORT_TYPE_ETH)
+		err = mlx5_vfio_nic_vport_update_roce_state(ctx, MLX5_VPORT_ROCE_ENABLED);
+
+	return err;
 }
 
 static void mlx5_vfio_uninit_context(struct mlx5_vfio_context *ctx)
