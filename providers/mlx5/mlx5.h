@@ -94,6 +94,7 @@ enum {
 
 extern uint32_t mlx5_debug_mask;
 extern int mlx5_freeze_on_error_cqe;
+extern const struct verbs_match_ent mlx5_hca_table[];
 
 #ifdef MLX5_DEBUG
 #define mlx5_dbg(fp, mask, format, arg...)				\

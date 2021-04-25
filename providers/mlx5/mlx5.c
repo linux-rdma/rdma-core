@@ -62,7 +62,7 @@ static void mlx5_free_context(struct ibv_context *ibctx);
 #endif
 
 #define HCA(v, d) VERBS_PCI_MATCH(PCI_VENDOR_ID_##v, d, NULL)
-static const struct verbs_match_ent hca_table[] = {
+const struct verbs_match_ent mlx5_hca_table[] = {
 	VERBS_DRIVER_ID(RDMA_DRIVER_MLX5),
 	HCA(MELLANOX, 0x1011),	/* MT4113 Connect-IB */
 	HCA(MELLANOX, 0x1012),	/* Connect-IB Virtual Function */
@@ -2443,7 +2443,7 @@ static const struct verbs_device_ops mlx5_dev_ops = {
 	.name = "mlx5",
 	.match_min_abi_version = MLX5_UVERBS_MIN_ABI_VERSION,
 	.match_max_abi_version = MLX5_UVERBS_MAX_ABI_VERSION,
-	.match_table = hca_table,
+	.match_table = mlx5_hca_table,
 	.alloc_device = mlx5_device_alloc,
 	.uninit_device = mlx5_uninit_device,
 	.alloc_context = mlx5_alloc_context,

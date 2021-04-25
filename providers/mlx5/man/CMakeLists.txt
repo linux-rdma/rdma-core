@@ -23,6 +23,7 @@ rdma_man_pages(
   mlx5dv_dump.3.md
   mlx5dv_flow_action_esp.3.md
   mlx5dv_get_clock_info.3
+  mlx5dv_get_vfio_device_list.3.md
   mlx5dv_init_obj.3
   mlx5dv_is_supported.3.md
   mlx5dv_map_ah_to_qp.3.md

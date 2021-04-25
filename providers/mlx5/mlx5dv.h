@@ -1505,6 +1505,19 @@ struct mlx5dv_context_attr {
 
 bool mlx5dv_is_supported(struct ibv_device *device);
 
+enum mlx5dv_vfio_context_attr_flags {
+	MLX5DV_VFIO_CTX_FLAGS_INIT_LINK_DOWN = 1 << 0,
+};
+
+struct mlx5dv_vfio_context_attr {
+	const char *pci_name;
+	uint32_t flags; /* Use enum mlx5dv_vfio_context_attr_flags */
+	uint64_t comp_mask;
+};
+
+struct ibv_device **
+mlx5dv_get_vfio_device_list(struct mlx5dv_vfio_context_attr *attr);
+
 struct ibv_context *
 mlx5dv_open_device(struct ibv_device *device, struct mlx5dv_context_attr *attr);
 
