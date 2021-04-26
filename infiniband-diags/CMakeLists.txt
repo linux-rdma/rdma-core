@@ -16,7 +16,7 @@ add_library(ibdiags_tools STATIC
 function(ibdiag_programs)
   foreach(I ${ARGN})
     rdma_sbin_executable(${I} "${I}.c")
-    target_link_libraries(${I} LINK_PRIVATE ${RT_LIBRARIES} ibumad ibmad ibdiags_tools ibnetdisc)
+    target_link_libraries(${I} LINK_PRIVATE ${RT_LIBRARIES} ibdiags_tools ibumad ibmad ibnetdisc)
   endforeach()
 endfunction()
 
@@ -44,6 +44,6 @@ ibdiag_programs(
   )
 
 rdma_test_executable(ibsendtrap "ibsendtrap.c")
-target_link_libraries(ibsendtrap LINK_PRIVATE ibumad ibmad ibdiags_tools)
+target_link_libraries(ibsendtrap LINK_PRIVATE ibdiags_tools ibumad ibmad)
 rdma_test_executable(mcm_rereg_test "mcm_rereg_test.c")
-target_link_libraries(mcm_rereg_test LINK_PRIVATE ibumad ibmad ibdiags_tools)
+target_link_libraries(mcm_rereg_test LINK_PRIVATE ibdiags_tools ibumad ibmad)
