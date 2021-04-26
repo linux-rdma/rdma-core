@@ -26,3 +26,6 @@ cdef class DrActionFlowCounter(DrAction):
 
 cdef class DrActionDrop(DrAction):
     pass
+
+cdef class DrActionTag(DrAction):
+    pass

@@ -126,3 +126,15 @@ cdef class DrActionModify(DrAction):
         if self.action != NULL:
             super(DrActionModify, self).close()
             self.domain = None
+
+
+cdef class DrActionTag(DrAction):
+    def __init__(self, tag):
+        """
+        Create DR tag action.
+        :param tag: Tag value
+        """
+        super().__init__()
+        self.action = dv.mlx5dv_dr_action_create_tag(tag)
+        if self.action == NULL:
+            raise PyverbsRDMAErrno('DrActionTag creation failed.')
