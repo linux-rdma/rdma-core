@@ -121,8 +121,8 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         :param smac_value: The smac matcher value.
         :param actions: List of actions to attach to the recv rule.
         """
-        domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
-        table = DrTable(domain_rx, 0)
+        self.domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        table = DrTable(self.domain_rx, 0)
         smac_mask = bytes([0xff] * 6)
         mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
         matcher = DrMatcher(table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
@@ -291,6 +291,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         tag_action = DrActionTag(tag)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         self.create_rx_recv_qp_rule(smac_value, [tag_action, qp_action])
+        self.domain_rx.sync()
         u.raw_traffic(self.client, self.server, self.iters)
         # Verify tag
         self.assertEqual(self.server.cq.read_flow_tag(), tag, 'Wrong tag value')
