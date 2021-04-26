@@ -21,8 +21,8 @@ from pyverbs.wr import SGE, SendWR, RecvWR
 from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx
 from tests.mlx5_base import Mlx5DcResources, Mlx5DcStreamsRes
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.cq import PollCqAttr, CQEX
 from pyverbs.mr import MW, MWBindInfo
-from pyverbs.cq import PollCqAttr
 import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.mr import MR
@@ -838,12 +838,13 @@ def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
         post_recv(client, c_recv_wr, qp_idx=qp_idx)
         post_recv(server, s_recv_wr, qp_idx=qp_idx)
     read_offset = 0
+    poll = poll_cq_ex if isinstance(client.cq, CQEX) else poll_cq
     for _ in range(iters):
         for qp_idx in range(server.qp_count):
             c_send_wr, c_sg, msg = get_send_elements_raw_qp(client, l3, l4)
             send(client, c_send_wr, e.IBV_WR_SEND, False, qp_idx)
-            poll_cq(client.cq)
-            poll_cq(server.cq)
+            poll(client.cq)
+            poll(server.cq)
             post_recv(server, s_recv_wr, qp_idx=qp_idx)
             msg_received = server.mr.read(server.msg_size, read_offset)
             # Validate received packet

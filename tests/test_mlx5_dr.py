@@ -9,7 +9,7 @@ import struct
 import errno
 
 from pyverbs.providers.mlx5.dr_action import DrActionQp, DrActionModify, \
-    DrActionFlowCounter, DrActionDrop
+    DrActionFlowCounter, DrActionDrop, DrActionTag
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, Mlx5Context, Mlx5DVContextAttr
 from tests.utils import skip_unsupported, requires_root_on_eth, PacketConsts
 from pyverbs.providers.mlx5.mlx5dv_flow import Mlx5FlowMatchParameters
@@ -20,6 +20,7 @@ from pyverbs.providers.mlx5.dr_table import DrTable
 from pyverbs.providers.mlx5.dr_rule import DrRule
 import pyverbs.providers.mlx5.mlx5_enums as dve
 from tests.mlx5_base import Mlx5RDMATestCase
+from pyverbs.cq import CqInitAttrEx, CQEX
 from tests.base import RawResources
 import pyverbs.enums as e
 import tests.utils as u
@@ -65,9 +66,26 @@ class Mlx5DrResources(RawResources):
                                                              len(QueryFlowCounterOut())))
         return counter_out.flow_statistics.packets
 
+    def __init__(self, dev_name, ib_port, gid_index, wc_flags=0):
+        self.wc_flags = wc_flags
+        super().__init__(dev_name=dev_name, ib_port=ib_port, gid_index=gid_index)
+
     @requires_root_on_eth()
     def create_qps(self):
         super().create_qps()
+
+    def create_cq(self):
+        """
+        Create an Extended CQ.
+        """
+        wc_flags = e.IBV_WC_STANDARD_FLAGS | self.wc_flags
+        cia = CqInitAttrEx(cqe=self.num_msgs, wc_flags=wc_flags)
+        try:
+            self.cq = CQEX(self.ctx, cia)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Create Extended CQ is not supported')
+            raise ex
 
 
 class Mlx5DrTest(Mlx5RDMATestCase):
@@ -156,7 +174,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         c_send_wr, _, _ = u.get_send_elements_raw_qp(self.client, src_mac=src_mac)
         for _ in range(iters):
             u.send(self.client, c_send_wr, e.IBV_WR_SEND)
-            u.poll_cq(self.client.cq)
+            u.poll_cq_ex(self.client.cq)
 
     @skip_unsupported
     def test_root_tbl_qp_rule(self):
@@ -258,3 +276,21 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         recv_packets = self.server.query_counter_packets()
         self.assertEqual(recv_packets, int(self.iters/2),
                          'Drop action dropped TX packets that not matched the rule')
+
+    @skip_unsupported
+    def test_root_tbl_qp_tag_rule(self):
+        """
+        Creates RX domain, root table with matcher on source mac. Creates QP
+        action and tag action. Creates a rule with those actions on the matcher.
+        Verifies traffic and tag.
+        """
+        self.wc_flags = e.IBV_WC_EX_WITH_FLOW_TAG
+        self.create_players(Mlx5DrResources,  wc_flags=e.IBV_WC_EX_WITH_FLOW_TAG)
+        qp_action = DrActionQp(self.server.qp)
+        tag = 0x123
+        tag_action = DrActionTag(tag)
+        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        self.create_rx_recv_qp_rule(smac_value, [tag_action, qp_action])
+        u.raw_traffic(self.client, self.server, self.iters)
+        # Verify tag
+        self.assertEqual(self.server.cq.read_flow_tag(), tag, 'Wrong tag value')
