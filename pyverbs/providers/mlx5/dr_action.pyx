@@ -3,6 +3,7 @@
 
 from pyverbs.base import PyverbsRDMAErrno, PyverbsRDMAError
 from pyverbs.providers.mlx5.dr_domain cimport DrDomain
+from pyverbs.providers.mlx5.mlx5dv cimport Mlx5DevxObj
 from pyverbs.providers.mlx5.dr_rule cimport DrRule
 from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base cimport close_weakrefs
@@ -55,6 +56,30 @@ cdef class DrActionQp(DrAction):
         if self.action != NULL:
             super(DrActionQp, self).close()
             self.qp = None
+
+
+cdef class DrActionFlowCounter(DrAction):
+    def __init__(self, Mlx5DevxObj devx_obj, offset=0):
+        """
+        Create DR flow counter action.
+        :param devx_obj: Mlx5DevxObj object which is the flow counter object.
+        :param offset: Offset of the specific counter in the counter object.
+        """
+        super().__init__()
+        self.action = dv.mlx5dv_dr_action_create_flow_counter(devx_obj.obj, offset)
+        if self.action == NULL:
+            raise PyverbsRDMAErrno('DrActionFlowCounter creation failed.')
+        self.devx_obj = devx_obj
+        devx_obj.add_ref(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.action != NULL:
+            super(DrActionFlowCounter, self).close()
+            self.devx_obj = None
+
 
 cdef class DrActionModify(DrAction):
     def __init__(self, DrDomain domain, flags=0, actions=list()):
