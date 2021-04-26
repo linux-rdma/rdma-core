@@ -43,6 +43,22 @@ cdef class DrDomain(PyverbsCM):
         else:
             raise PyverbsError('Unrecognized object type')
 
+    def sync(self, flags=dv.MLX5DV_DR_DOMAIN_SYNC_FLAGS_SW |
+                         dv.MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW):
+        """
+        Sync is used in order to flush the rule submission queue.
+        :param flags:
+            MLX5DV_DR_DOMAIN_SYNC_FLAGS_SW - block until completion of all
+                                             software queued tasks
+            MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW - clear the steering HW cache to
+                                             enforce next packet hits the
+                                             latest rules.
+            MLX5DV_DR_DOMAIN_SYNC_FLAGS_MEM - sync device memory to free cached
+                                              memory.
+        """
+        if dv.mlx5dv_dr_domain_sync(self.domain, flags):
+            raise PyverbsRDMAErrno('DrDomain sync failed.')
+
     def __dealloc__(self):
         self.close()
 

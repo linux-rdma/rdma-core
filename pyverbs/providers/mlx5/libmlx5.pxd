@@ -419,6 +419,7 @@ cdef extern from 'infiniband/mlx5dv.h':
 
     # Direct rules verbs
     mlx5dv_dr_domain *mlx5dv_dr_domain_create(v.ibv_context *ctx, mlx5dv_dr_domain_type type)
+    int mlx5dv_dr_domain_sync(mlx5dv_dr_domain *domain, uint32_t flags)
     int mlx5dv_dr_domain_destroy(mlx5dv_dr_domain *dmn)
     mlx5dv_dr_table *mlx5dv_dr_table_create(mlx5dv_dr_domain *dmn, uint32_t level)
     int mlx5dv_dr_table_destroy(mlx5dv_dr_table *tbl)
