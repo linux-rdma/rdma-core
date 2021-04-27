@@ -81,6 +81,17 @@ cdef class DrActionFlowCounter(DrAction):
             self.devx_obj = None
 
 
+cdef class DrActionDrop(DrAction):
+    def __init__(self):
+        """
+        Create DR flow drop action.
+        """
+        super().__init__()
+        self.action = dv.mlx5dv_dr_action_create_drop()
+        if self.action == NULL:
+            raise PyverbsRDMAErrno('DrActionDrop creation failed.')
+
+
 cdef class DrActionModify(DrAction):
     def __init__(self, DrDomain domain, flags=0, actions=list()):
         """

@@ -23,3 +23,6 @@ cdef class DrActionModify(DrAction):
 
 cdef class DrActionFlowCounter(DrAction):
     cdef Mlx5DevxObj devx_obj
+
+cdef class DrActionDrop(DrAction):
+    pass
