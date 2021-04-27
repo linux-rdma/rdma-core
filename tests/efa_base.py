@@ -1,16 +1,46 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright 2020 Amazon.com, Inc. or its affiliates. All rights reserved.
 
+import unittest
+import random
 import errno
-import pyverbs.enums as e
-import pyverbs.providers.efa.efadv as efa
-import pyverbs.providers.efa.efa_enums as efa_e
+
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.qp import QPAttr, QPCap, QPInitAttrEx
-import random
+import pyverbs.providers.efa.efa_enums as efa_e
+import pyverbs.providers.efa.efadv as efa
+import pyverbs.device as d
+import pyverbs.enums as e
+
+from tests.base import PyverbsAPITestCase
 from tests.base import TrafficResources
+from tests.base import RDMATestCase
 import tests.utils
-import unittest
+
+
+AMAZON_VENDOR_ID = 0x1d0f
+
+
+def is_efa_dev(ctx):
+    dev_attrs = ctx.query_device()
+    return dev_attrs.vendor_id == AMAZON_VENDOR_ID
+
+
+def skip_if_not_efa_dev(ctx):
+    if not is_efa_dev(ctx):
+        raise unittest.SkipTest('Can not run the test over non EFA device')
+
+
+class EfaAPITestCase(PyverbsAPITestCase):
+    def setUp(self):
+        super().setUp()
+        skip_if_not_efa_dev(self.ctx)
+
+
+class EfaRDMATestCase(RDMATestCase):
+    def setUp(self):
+        super().setUp()
+        skip_if_not_efa_dev(d.Context(name=self.dev_name))
 
 
 class SRDResources(TrafficResources):

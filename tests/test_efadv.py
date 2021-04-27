@@ -4,22 +4,25 @@
 Test module for efa direct-verbs.
 """
 
+import unittest
+import random
 import errno
-from pyverbs.addr import AHAttr
+
+import pyverbs.providers.efa.efa_enums as efa_e
 from pyverbs.base import PyverbsRDMAError
+import pyverbs.providers.efa.efadv as efa
+from pyverbs.qp import QPInitAttrEx
+from pyverbs.addr import AHAttr
 from pyverbs.cq import CQ
 import pyverbs.enums as e
 from pyverbs.pd import PD
-import pyverbs.providers.efa.efadv as efa
-import pyverbs.providers.efa.efa_enums as efa_e
-from pyverbs.qp import QPInitAttrEx
-import random
-from tests.base import PyverbsAPITestCase
+
+from tests.efa_base import EfaAPITestCase
 import tests.utils as u
-import unittest
 
 
-class EfaQueryDeviceTest(PyverbsAPITestCase):
+
+class EfaQueryDeviceTest(EfaAPITestCase):
     """
     Test various functionalities of the direct verbs class.
     """
@@ -38,7 +41,7 @@ class EfaQueryDeviceTest(PyverbsAPITestCase):
                 raise ex
 
 
-class EfaAHTest(PyverbsAPITestCase):
+class EfaAHTest(EfaAPITestCase):
     """
     Test functionality of the EfaAH class
     """
@@ -60,7 +63,7 @@ class EfaAHTest(PyverbsAPITestCase):
             raise ex
 
 
-class EfaQPTest(PyverbsAPITestCase):
+class EfaQPTest(EfaAPITestCase):
     """
     Test SRD QP class
     """
@@ -80,7 +83,7 @@ class EfaQPTest(PyverbsAPITestCase):
                     raise ex
 
 
-class EfaQPExTest(PyverbsAPITestCase):
+class EfaQPExTest(EfaAPITestCase):
     """
     Test SRD QPEx class
     """
