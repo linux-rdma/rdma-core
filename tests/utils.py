@@ -791,17 +791,18 @@ def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO, **kwa
 
 
 def get_send_elements_raw_qp(agr_obj, l3=PacketConsts.IP_V4,
-                             l4=PacketConsts.UDP_PROTO):
+                             l4=PacketConsts.UDP_PROTO, **packet_args):
     """
     Creates a single SGE and a single Send WR for agr_obj's RAW QP type. The
     content of the message is Eth | Ipv4 | UDP packet.
     :param agr_obj: Aggregation object which contains all resources necessary
     :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
     :param l4: Packet layer 4 type: 'tcp' or 'udp'
+    :param packet_args: Pass packet_args to gen_packets method.
     :return: send wr, its SGE, and message
     """
     mr = agr_obj.mr
-    msg = gen_packet(agr_obj.msg_size, l3, l4)
+    msg = gen_packet(agr_obj.msg_size, l3, l4, **packet_args)
     mr.write(msg, agr_obj.msg_size)
     sge = SGE(mr.buf, agr_obj.msg_size, mr.lkey)
     send_wr = SendWR(opcode=e.IBV_WR_SEND, num_sge=1, sg=[sge])

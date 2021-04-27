@@ -21,6 +21,7 @@ from pyverbs.providers.mlx5.dr_rule import DrRule
 import pyverbs.providers.mlx5.mlx5_enums as dve
 from tests.mlx5_base import Mlx5RDMATestCase
 from tests.base import RawResources
+import pyverbs.enums as e
 import tests.utils as u
 
 OUT_SMAC_47_16_FIELD_ID = 0x1
@@ -28,6 +29,7 @@ OUT_SMAC_47_16_FIELD_LENGTH = 32
 OUT_SMAC_15_0_FIELD_ID = 0x2
 OUT_SMAC_15_0_FIELD_LENGTH = 16
 SET_ACTION = 0x1
+MAX_MATCH_PARAM_SIZE = 0x180
 
 
 class Mlx5DrResources(RawResources):
@@ -132,6 +134,31 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.rules.append(DrRule(matcher, value_param, [self.modify_actions]))
 
     @skip_unsupported
+    def create_client_send_rule(self, actions):
+        """
+        Create rule over the client TX domain.
+        :param actions: List of actions to attach to the send rule.
+        """
+        self.domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        table = DrTable(self.domain_tx, 0)
+        mask_param = Mlx5FlowMatchParameters(len(bytes([0xff] * 6)), bytes([0xff] * 6))
+        matcher = DrMatcher(table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
+        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
+        self.rules.append(DrRule(matcher, value_param, actions))
+
+    def send_client_raw_packets(self, iters, src_mac=None):
+        """
+        Send raw packets.
+        :param iters: Number of packets to send.
+        :param src_mac: If set, src mac to set in the packets.
+        """
+        c_send_wr, _, _ = u.get_send_elements_raw_qp(self.client, src_mac=src_mac)
+        for _ in range(iters):
+            u.send(self.client, c_send_wr, e.IBV_WR_SEND)
+            u.poll_cq(self.client.cq)
+
+    @skip_unsupported
     def test_root_tbl_qp_rule(self):
         """
         Creates RX domain, root table with matcher on source mac. Creates QP
@@ -196,3 +223,38 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         with self.assertRaises(PyverbsRDMAError) as ex:
             self.rules.append(DrRule(matcher, empty_param, [self.drop_action]))
             self.assertEqual(ex.exception.error_code, errno.EEXIST)
+
+    @skip_unsupported
+    def test_root_tbl_drop_action(self):
+        """
+        Create drop action on TX and verify using counter on the server RX that
+        only packets that miss the drop rule arrived to the server RX.
+        """
+        self.create_players(Mlx5DrResources)
+        # Create server counter.
+        self.server.create_counter()
+        self.server_counter_action = DrActionFlowCounter(self.server.counter)
+
+        # Create rule that attaches all the packets in the server RX, sends them
+        # to the server RX domain and counts them.
+        domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        table = DrTable(domain_rx, 0)
+        mask_param = Mlx5FlowMatchParameters(MAX_MATCH_PARAM_SIZE, bytes(MAX_MATCH_PARAM_SIZE))
+        matcher = DrMatcher(table, 0, u.MatchCriteriaEnable.NONE, mask_param)
+        self.rx_drop_action = DrActionDrop()
+        self.rules.append(DrRule(matcher, mask_param, [self.server_counter_action, self.rx_drop_action]))
+
+        # Create drop action on the client TX on specific smac.
+        self.tx_drop_action = DrActionDrop()
+        self.create_client_send_rule([self.tx_drop_action])
+
+        # Send packets with two differet smacs and expect half to be dropped.
+        src_mac_drop = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        src_mac_non_drop = struct.pack('!6s', bytes.fromhex("88:88:88:88:88:88".replace(':', '')))
+        self.send_client_raw_packets(int(self.iters/2), src_mac=src_mac_drop)
+        recv_packets = self.server.query_counter_packets()
+        self.assertEqual(recv_packets, 0, 'Drop action did not drop the TX packets')
+        self.send_client_raw_packets(int(self.iters/2), src_mac=src_mac_non_drop)
+        recv_packets = self.server.query_counter_packets()
+        self.assertEqual(recv_packets, int(self.iters/2),
+                         'Drop action dropped TX packets that not matched the rule')
