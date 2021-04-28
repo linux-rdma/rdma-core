@@ -713,7 +713,7 @@ int ibv_dontfork_range(void *base, size_t size)
 	if (mm_root)
 		return ibv_madvise_range(base, size, MADV_DONTFORK);
 	else {
-		too_late = 1;
+		atomic_store(&too_late, 1);
 		return 0;
 	}
 }
@@ -723,7 +723,7 @@ int ibv_dofork_range(void *base, size_t size)
 	if (mm_root)
 		return ibv_madvise_range(base, size, MADV_DOFORK);
 	else {
-		too_late = 1;
+		atomic_store(&too_late, 1);
 		return 0;
 	}
 }
