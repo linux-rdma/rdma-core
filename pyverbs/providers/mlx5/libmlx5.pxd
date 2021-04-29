@@ -233,6 +233,11 @@ cdef extern from 'infiniband/mlx5dv.h':
         uint64_t    pgsz_bitmap
         uint64_t    comp_mask
 
+    cdef struct mlx5dv_vfio_context_attr:
+        const char  *pci_name
+        uint32_t    flags
+        uint64_t    comp_mask
+
     cdef struct mlx5dv_pd:
         uint32_t    pdn
         uint64_t    comp_mask
@@ -386,6 +391,9 @@ cdef extern from 'infiniband/mlx5dv.h':
                              uint64_t device_timestamp)
     int mlx5dv_get_clock_info(v.ibv_context *ctx_in, mlx5dv_clock_info *clock_info)
     int mlx5dv_map_ah_to_qp(v.ibv_ah *ah, uint32_t qp_num)
+    v.ibv_device **mlx5dv_get_vfio_device_list(mlx5dv_vfio_context_attr *attr)
+    int mlx5dv_vfio_get_events_fd(v.ibv_context *ibctx)
+    int mlx5dv_vfio_process_events(v.ibv_context *context)
 
     # DevX APIs
     mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context, uint32_t flags)

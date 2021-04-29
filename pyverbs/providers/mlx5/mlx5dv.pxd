@@ -89,3 +89,6 @@ cdef class Mlx5DevxObj(PyverbsCM):
 
 cdef class Mlx5Cqe64(PyverbsObject):
     cdef dv.mlx5_cqe64 *cqe
+
+cdef class Mlx5VfioAttr(PyverbsObject):
+    cdef dv.mlx5dv_vfio_context_attr attr

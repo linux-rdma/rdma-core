@@ -217,6 +217,9 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5_SEND_WQE_BB
         MLX5_SEND_WQE_SHIFT
 
+    cpdef enum mlx5dv_vfio_context_attr_flags:
+        MLX5DV_VFIO_CTX_FLAGS_INIT_LINK_DOWN
+
     cpdef unsigned long long MLX5DV_RES_TYPE_QP
     cpdef unsigned long long MLX5DV_RES_TYPE_RWQ
     cpdef unsigned long long MLX5DV_RES_TYPE_DBR
