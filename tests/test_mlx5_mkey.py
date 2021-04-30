@@ -10,7 +10,8 @@ from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, \
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError, \
     PyverbsError
 from pyverbs.providers.mlx5.mlx5dv_mkey import Mlx5Mkey, Mlx5MrInterleaved, \
-    Mlx5MkeyConfAttr
+    Mlx5MkeyConfAttr, Mlx5SigT10Dif, Mlx5SigCrc, Mlx5SigBlockDomain, \
+    Mlx5SigBlockAttr
 from tests.base import RCResources, RDMATestCase
 import pyverbs.providers.mlx5.mlx5_enums as dve
 from pyverbs.wr import SGE, SendWR, RecvWR
@@ -20,8 +21,10 @@ import tests.utils as u
 
 
 class Mlx5MkeyResources(RCResources):
-    def __init__(self, dev_name, ib_port, gid_index, dv_send_ops_flags=0):
+    def __init__(self, dev_name, ib_port, gid_index, dv_send_ops_flags=0,
+                 mkey_create_flags=dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT):
         self.dv_send_ops_flags = dv_send_ops_flags
+        self.mkey_create_flags = mkey_create_flags
         if dv_send_ops_flags & dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE:
             self.max_inline_data = 512
         else:
@@ -40,7 +43,7 @@ class Mlx5MkeyResources(RCResources):
 
     def create_mkey(self):
         try:
-            self.mkey = Mlx5Mkey(self.pd, dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT, 3)
+            self.mkey = Mlx5Mkey(self.pd, self.mkey_create_flags, 3)
         except PyverbsRDMAError as ex:
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Create Mkey is not supported')
@@ -143,6 +146,104 @@ class Mlx5MkeyTest(RDMATestCase):
             player.qp.wr_complete()
             u.poll_cq(player.cq)
 
+    def reg_mr_sig_t10dif(self):
+        """
+        Register the player's mkeys with T10DIF signature on the wire domain.
+        """
+        for player in [self.server, self.client]:
+            player.qp.wr_start()
+            player.qp.wr_flags = e.IBV_SEND_SIGNALED | e.IBV_SEND_INLINE
+            sge = SGE(player.mr.buf, 512, player.mr.lkey)
+            player.qp.wr_mkey_configure(player.mkey, 3, Mlx5MkeyConfAttr())
+            player.qp.wr_set_mkey_access_flags(e.IBV_ACCESS_LOCAL_WRITE)
+            player.qp.wr_set_mkey_layout_list([sge])
+
+            t10dif_flags = (dve.MLX5DV_SIG_T10DIF_FLAG_REF_REMAP |
+                            dve.MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE |
+                            dve.MLX5DV_SIG_T10DIF_FLAG_APP_REF_ESCAPE)
+            sig_t10dif = Mlx5SigT10Dif(bg_type=dve.MLX5DV_SIG_T10DIF_CRC,
+                                       bg=0xFFFF, app_tag=0xABCD,
+                                       ref_tag=0x01234567, flags=t10dif_flags)
+
+            sig_type = dve.MLX5DV_SIG_TYPE_T10DIF
+            block_size = dve.MLX5DV_BLOCK_SIZE_512
+            sig_block_domain = Mlx5SigBlockDomain(sig_type=sig_type,
+                                                  dif=sig_t10dif,
+                                                  block_size=block_size)
+
+            check_mask = (dve.MLX5DV_SIG_MASK_T10DIF_GUARD |
+                          dve.MLX5DV_SIG_MASK_T10DIF_APPTAG |
+                          dve.MLX5DV_SIG_MASK_T10DIF_REFTAG)
+            sig_attr = Mlx5SigBlockAttr(wire=sig_block_domain,
+                                        check_mask=check_mask)
+            player.qp.wr_set_mkey_sig_block(sig_attr)
+            player.qp.wr_complete()
+            u.poll_cq(player.cq)
+
+    def reg_mr_sig_crc(self):
+        """
+        Register the player's mkeys with CRC32 signature on the wire domain.
+        """
+        for player in [self.server, self.client]:
+            player.qp.wr_start()
+            player.qp.wr_flags = e.IBV_SEND_SIGNALED | e.IBV_SEND_INLINE
+            sge = SGE(player.mr.buf, 512, player.mr.lkey)
+            player.qp.wr_mkey_configure(player.mkey, 3, Mlx5MkeyConfAttr())
+            player.qp.wr_set_mkey_access_flags(e.IBV_ACCESS_LOCAL_WRITE)
+            player.qp.wr_set_mkey_layout_list([sge])
+
+            sig_crc = Mlx5SigCrc(crc_type=dve.MLX5DV_SIG_CRC_TYPE_CRC32,
+                                 seed=0xFFFFFFFF)
+            sig_block_domain = Mlx5SigBlockDomain(sig_type=dve.MLX5DV_SIG_TYPE_CRC,
+                                                  crc=sig_crc,
+                                                  block_size=dve.MLX5DV_BLOCK_SIZE_512)
+            sig_attr = Mlx5SigBlockAttr(wire=sig_block_domain,
+                                        check_mask=dve.MLX5DV_SIG_MASK_CRC32)
+            player.qp.wr_set_mkey_sig_block(sig_attr)
+            player.qp.wr_complete()
+            u.poll_cq(player.cq)
+
+    def reg_mr_sig_err(self):
+        """
+        Register the player's mkeys with an SGE and CRC32 signature on
+        the memory domain. Data transport operation with these MKEYs will cause
+        a signature error because the test does not fill out the signature in
+        the memory buffer.
+        """
+
+        sig_crc = Mlx5SigCrc(crc_type=dve.MLX5DV_SIG_CRC_TYPE_CRC32,
+                             seed=0xFFFFFFFF)
+
+        block_size = dve.MLX5DV_BLOCK_SIZE_512
+        sig_block_domain = Mlx5SigBlockDomain(sig_type=dve.MLX5DV_SIG_TYPE_CRC,
+                                              crc=sig_crc,
+                                              block_size=block_size)
+        sig_attr = Mlx5SigBlockAttr(mem=sig_block_domain,
+                                    check_mask=dve.MLX5DV_SIG_MASK_CRC32)
+
+        # Configure the mkey on the server side
+        self.server.qp.wr_start()
+        self.server.qp.wr_flags = e.IBV_SEND_SIGNALED | e.IBV_SEND_INLINE
+        sge = SGE(self.server.mr.buf, 512, self.server.mr.lkey)
+        self.server.qp.wr_mkey_configure(self.server.mkey, 2,
+                                         Mlx5MkeyConfAttr())
+        self.server.qp.wr_set_mkey_access_flags(e.IBV_ACCESS_LOCAL_WRITE)
+        self.server.qp.wr_set_mkey_layout_list([sge])
+        self.server.qp.wr_complete()
+        u.poll_cq(self.server.cq)
+
+        # Configure the mkey on the client side
+        self.client.qp.wr_start()
+        self.client.qp.wr_flags = e.IBV_SEND_SIGNALED | e.IBV_SEND_INLINE
+        sge = SGE(self.client.mr.buf, 512 + 4, self.client.mr.lkey)
+        self.client.qp.wr_mkey_configure(self.client.mkey, 3,
+                                         Mlx5MkeyConfAttr())
+        self.client.qp.wr_set_mkey_access_flags(e.IBV_ACCESS_LOCAL_WRITE)
+        self.client.qp.wr_set_mkey_layout_list([sge])
+        self.client.qp.wr_set_mkey_sig_block(sig_attr)
+        self.client.qp.wr_complete()
+        u.poll_cq(self.client.cq)
+
     def build_traffic_elements(self, sge_size):
         """
         Build the server and client send/recv work requests.
@@ -154,25 +255,36 @@ class Mlx5MkeyTest(RDMATestCase):
         client_sge = SGE(0, sge_size, self.client.mkey.lkey)
         self.client_send_wr = SendWR(opcode=opcode, num_sge=1, sg=[client_sge])
 
-    def traffic(self, sge_size=16):
+    def traffic(self, sge_size, exp_buffer):
         """
         Perform RC traffic using the mkey.
         :param sge_size: The sge size using the mkey.
+        :param exp_buffer: The expected result of the receive buffer after
+                           the traffic operation.
         """
         self.build_traffic_elements(sge_size)
         self.server.qp.post_recv(self.server_recv_wr)
-        exp_buffer = (('c' * 8 + 's' * 56) *2)[:100]
         for _ in range(self.iters):
-            self.server.mr.write('s' * 100, 100)
-            self.client.mr.write('c' * 100, 100)
+            self.server.mr.write('s' * self.server.msg_size,
+                                 self.server.msg_size)
+            self.client.mr.write('c' * self.client.msg_size,
+                                 self.client.msg_size)
             self.client.qp.post_send(self.client_send_wr)
             u.poll_cq(self.client.cq)
             u.poll_cq(self.server.cq)
             self.server.qp.post_recv(self.server_recv_wr)
-            act_buffer = self.server.mr.read(100, 0).decode()
+            act_buffer = self.server.mr.read(len(exp_buffer), 0).decode()
             if act_buffer != exp_buffer:
                 raise PyverbsError('Data validation failed: expected '
                                    f'{exp_buffer}, received {act_buffer}')
+
+    def traffic_scattered_data(self, sge_size=16):
+        exp_buffer=((('c' * 8 + 's' * 56) *2)[:100])
+        self.traffic(sge_size=sge_size, exp_buffer=exp_buffer)
+
+    def traffic_sig(self):
+        exp_buffer=('c' * 512 + 's' * (self.server.msg_size - 512))
+        self.traffic(sge_size=512, exp_buffer=exp_buffer)
 
     def invalidate_mkeys(self):
         """
@@ -184,6 +296,18 @@ class Mlx5MkeyTest(RDMATestCase):
             player.qp.post_send(inv_send_wr)
             u.poll_cq(player.cq)
 
+    def check_mkey(self, player, expected=dve.MLX5DV_MKEY_NO_ERR):
+        """
+        Check the player's mkey for a signature error.
+        param player: Player to check.
+        param expected: The expected result of the checking.
+        """
+        mkey_err = player.mkey.mkey_check()
+        if mkey_err.err_type != expected:
+            raise PyverbsRDMAError('MKEY check failed: '
+                    f'expected err_type: {expected_type}, '
+                    f'actual err_type: {mkey_err.err_type}')
+
     def test_mkey_interleaved(self):
         """
         Create Mkeys, register an interleaved memory layout using this mkey and
@@ -192,7 +316,7 @@ class Mlx5MkeyTest(RDMATestCase):
         self.create_players(Mlx5MkeyResources,
                             dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MR_INTERLEAVED)
         self.reg_mr_interleaved()
-        self.traffic()
+        self.traffic_scattered_data()
         self.invalidate_mkeys()
 
     def test_mkey_list(self):
@@ -203,7 +327,7 @@ class Mlx5MkeyTest(RDMATestCase):
         self.create_players(Mlx5MkeyResources,
                             dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MR_LIST)
         self.reg_mr_list()
-        self.traffic()
+        self.traffic_scattered_data()
         self.invalidate_mkeys()
 
     def test_mkey_list_new_api(self):
@@ -214,7 +338,7 @@ class Mlx5MkeyTest(RDMATestCase):
         self.create_players(Mlx5MkeyResources,
                             dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE)
         self.reg_mr_list(configure_mkey=True)
-        self.traffic()
+        self.traffic_scattered_data()
         self.invalidate_mkeys()
 
     def test_mkey_interleaved_new_api(self):
@@ -225,7 +349,7 @@ class Mlx5MkeyTest(RDMATestCase):
         self.create_players(Mlx5MkeyResources,
                             dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE)
         self.reg_mr_interleaved(configure_mkey=True)
-        self.traffic()
+        self.traffic_scattered_data()
         self.invalidate_mkeys()
 
     def test_mkey_list_bad_flow(self):
@@ -238,4 +362,54 @@ class Mlx5MkeyTest(RDMATestCase):
                             dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MR_LIST)
         self.reg_mr_list()
         with self.assertRaises(PyverbsRDMAError) as ex:
-            self.traffic(sge_size=100)
+            self.traffic_scattered_data(sge_size=100)
+
+    def test_mkey_sig_t10dif(self):
+        """
+        Create Mkeys, configure it with T10DIF signature and traffic using
+        this mkey.
+        """
+        self.create_players(Mlx5MkeyResources,
+                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE,
+                            mkey_create_flags=dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+                                              dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE)
+        self.reg_mr_sig_t10dif()
+        self.traffic_sig()
+        self.check_mkey(self.server)
+        self.check_mkey(self.client)
+        self.invalidate_mkeys()
+
+    def test_mkey_sig_crc(self):
+        """
+        Create Mkeys, configure it with CRC32 signature and traffic using
+        this mkey.
+        """
+        self.create_players(Mlx5MkeyResources,
+                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE,
+                            mkey_create_flags=dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+                                              dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE)
+        self.reg_mr_sig_crc()
+        self.traffic_sig()
+        self.check_mkey(self.server)
+        self.check_mkey(self.client)
+        self.invalidate_mkeys()
+
+    def test_mkey_sig_err(self):
+        """
+        Test the signature error handling flow. Create Mkeys, configure it
+        CRC32 signature on the memory domain but do not set a valid signature
+        in the memory buffer. Run traffic using this mkey, ensure that the
+        signature error is detected.
+        """
+        self.create_players(Mlx5MkeyResources,
+                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE,
+                            mkey_create_flags=dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+                                              dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE)
+        self.reg_mr_sig_err()
+        # The test supports only one iteration because mkey re-registration
+        # is required after each signature error.
+        self.iters = 1
+        self.traffic_sig()
+        self.check_mkey(self.client, dve.MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD)
+        self.check_mkey(self.server)
+        self.invalidate_mkeys()
