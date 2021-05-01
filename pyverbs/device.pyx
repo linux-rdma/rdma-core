@@ -326,6 +326,13 @@ cdef class Context(PyverbsCM):
         else:
             raise PyverbsError('Unrecognized object type')
 
+    def get_async_event(self):
+        event = AsyncEvent()
+        rc = v.ibv_get_async_event(self.context, &event.event)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to get async event', rc)
+        return event
+
     @property
     def cmd_fd(self):
         return self.context.cmd_fd
@@ -964,6 +971,24 @@ cdef class GIDEntry(PyverbsObject):
             print_format.format('Ndev ifindex', self.ndev_ifindex)
 
 
+cdef class AsyncEvent(PyverbsObject):
+    def __init__(self, event_type=0):
+        super().__init__()
+        self.event.event_type = event_type
+
+    def ack(self):
+        v.ibv_ack_async_event(&self.event)
+
+    @property
+    def event_type(self):
+        return self.event.event_type
+
+    def __str__(self):
+        print_format = '{:<24}: {:<20}\n'
+        return print_format.format('Event Type', translate_event_type(
+                                   self.event.event_type))
+
+
 def translate_gid_type(gid_type):
     types = {e.IBV_GID_TYPE_IB: 'IB', e.IBV_GID_TYPE_ROCE_V1: 'RoCEv1',
              e.IBV_GID_TYPE_ROCE_V2: 'RoCEv2'}
@@ -1183,3 +1208,32 @@ def rdma_get_devices():
         devices.append(Device(name, guid, node, transport, index))
     cm.rdma_free_devices(ctx_list)
     return devices
+
+
+def translate_event_type(event_type):
+    types = {
+        e.IBV_EVENT_CQ_ERR: 'IBV_EVENT_CQ_ERR',
+        e.IBV_EVENT_QP_FATAL: 'IBV_EVENT_QP_FATAL',
+        e.IBV_EVENT_QP_REQ_ERR: 'IBV_EVENT_QP_REQ_ERR',
+        e.IBV_EVENT_QP_ACCESS_ERR: 'IBV_EVENT_QP_ACCESS_ERR',
+        e.IBV_EVENT_COMM_EST: 'IBV_EVENT_COMM_EST',
+        e.IBV_EVENT_SQ_DRAINED: 'IBV_EVENT_SQ_DRAINED',
+        e.IBV_EVENT_PATH_MIG: 'IBV_EVENT_PATH_MIG',
+        e.IBV_EVENT_PATH_MIG_ERR: 'IBV_EVENT_PATH_MIG_ERR',
+        e.IBV_EVENT_DEVICE_FATAL: 'IBV_EVENT_DEVICE_FATAL',
+        e.IBV_EVENT_PORT_ACTIVE: 'IBV_EVENT_PORT_ACTIVE',
+        e.IBV_EVENT_PORT_ERR: 'IBV_EVENT_PORT_ERR',
+        e.IBV_EVENT_LID_CHANGE: 'IBV_EVENT_LID_CHANGE',
+        e.IBV_EVENT_PKEY_CHANGE: 'IBV_EVENT_PKEY_CHANGE',
+        e.IBV_EVENT_SM_CHANGE: 'IBV_EVENT_SM_CHANGE',
+        e.IBV_EVENT_SRQ_ERR: 'IBV_EVENT_SRQ_ERR',
+        e.IBV_EVENT_SRQ_LIMIT_REACHED: 'IBV_EVENT_SRQ_LIMIT_REACHED',
+        e.IBV_EVENT_QP_LAST_WQE_REACHED: '.IBV_EVENT_QP_LAST_WQE_REACHED',
+        e.IBV_EVENT_CLIENT_REREGISTER: 'IBV_EVENT_CLIENT_REREGISTER',
+        e.IBV_EVENT_GID_CHANGE: 'IBV_EVENT_GID_CHANGE',
+        e.IBV_EVENT_WQ_FATAL: 'IBV_EVENT_WQ_FATAL'
+    }
+    try:
+        return types[event_type]
+    except KeyError:
+        return f'Unknown event_type ({event_type})'
