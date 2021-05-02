@@ -39,7 +39,9 @@ class AHTest(PyverbsAPITestCase):
         """
         self.verify_state(self.ctx)
         gr = u.get_global_route(self.ctx, port_num=self.ib_port)
-        ah_attr = AHAttr(gr=gr, is_global=1, port_num=self.ib_port)
+        port_attrs = self.ctx.query_port(self.ib_port)
+        dlid = port_attrs.lid if port_attrs.link_layer == e.IBV_LINK_LAYER_INFINIBAND else 0
+        ah_attr = AHAttr(dlid=dlid, gr=gr, is_global=1, port_num=self.ib_port)
         pd = PD(self.ctx)
         try:
             AH(pd, attr=ah_attr)
@@ -71,7 +73,9 @@ class AHTest(PyverbsAPITestCase):
         """
         self.verify_state(self.ctx)
         gr = u.get_global_route(self.ctx, port_num=self.ib_port)
-        ah_attr = AHAttr(gr=gr, is_global=1, port_num=self.ib_port)
+        port_attrs = self.ctx.query_port(self.ib_port)
+        dlid = port_attrs.lid if port_attrs.link_layer == e.IBV_LINK_LAYER_INFINIBAND else 0
+        ah_attr = AHAttr(dlid=dlid, gr=gr, is_global=1, port_num=self.ib_port)
         pd = PD(self.ctx)
         try:
             with AH(pd, attr=ah_attr) as ah:
