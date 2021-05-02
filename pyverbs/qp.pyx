@@ -945,6 +945,7 @@ cdef class QP(PyverbsCM):
         super().__init__()
         self.mws = weakref.WeakSet()
         self.flows = weakref.WeakSet()
+        self.dr_actions = weakref.WeakSet()
         self.update_cqs(init_attr)
         # QP initialization was not done by the provider, we should do it here
         if self.qp == NULL:
@@ -1029,7 +1030,7 @@ cdef class QP(PyverbsCM):
     cpdef close(self):
         if self.qp != NULL:
             self.logger.debug('Closing QP')
-            close_weakrefs([self.mws, self.flows])
+            close_weakrefs([self.mws, self.flows, self.dr_actions])
             rc = v.ibv_destroy_qp(self.qp)
             if rc:
                 raise PyverbsRDMAError('Failed to destroy QP', rc)

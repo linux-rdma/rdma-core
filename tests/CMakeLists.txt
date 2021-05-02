@@ -20,6 +20,8 @@ rdma_python_test(tests
   test_mlx5_cq.py
   test_mlx5_dc.py
   test_mlx5_dm_ops.py
+  test_mlx5_dr.py
+  test_mlx5_flow.py
   test_mlx5_lag_affinity.py
   test_mlx5_pp.py
   test_mlx5_query_port.py
