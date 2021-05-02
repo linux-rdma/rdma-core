@@ -3,10 +3,11 @@ import errno
 
 from pyverbs.providers.mlx5.mlx5dv_sched import Mlx5dvSchedAttr, \
     Mlx5dvSchedNode, Mlx5dvSchedLeaf
-from tests.base import RDMATestCase, RCResources, PyverbsAPITestCase
+from tests.base import RCResources, PyverbsAPITestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.providers.mlx5.mlx5dv import Mlx5QP
 import pyverbs.providers.mlx5.mlx5_enums as dve
+from tests.mlx5_base import Mlx5RDMATestCase
 import tests.utils as u
 
 
@@ -56,7 +57,7 @@ class Mlx5SchedTest(PyverbsAPITestCase):
             raise ex
 
 
-class Mlx5SchedTrafficTest(RDMATestCase):
+class Mlx5SchedTrafficTest(Mlx5RDMATestCase):
     def setUp(self):
         super().setUp()
         self.iters = 10

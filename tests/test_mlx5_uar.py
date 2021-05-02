@@ -10,8 +10,8 @@ import errno
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.providers.mlx5.mlx5dv import Mlx5UAR
 import pyverbs.providers.mlx5.mlx5_enums as e
+from tests.mlx5_base import Mlx5RDMATestCase
 from tests.base import BaseResources
-from tests.base import RDMATestCase
 
 
 class Mlx5UarRes(BaseResources):
@@ -20,7 +20,7 @@ class Mlx5UarRes(BaseResources):
         self.uars = []
 
 
-class Mlx5UarTestCase(RDMATestCase):
+class Mlx5UarTestCase(Mlx5RDMATestCase):
     def setUp(self):
         super().setUp()
         self.uar_res = Mlx5UarRes(self.dev_name)

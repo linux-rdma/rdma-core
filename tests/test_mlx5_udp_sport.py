@@ -2,13 +2,14 @@ import unittest
 import errno
 
 from pyverbs.pyverbs_error import PyverbsRDMAError
-from tests.base import RCResources, RDMATestCase
 from pyverbs.providers.mlx5.mlx5dv import Mlx5QP
+from tests.mlx5_base import Mlx5RDMATestCase
+from tests.base import RCResources
 import pyverbs.enums as e
 import tests.utils as u
 
 
-class UdpSportTestCase(RDMATestCase):
+class UdpSportTestCase(Mlx5RDMATestCase):
     def __init__(self, methodName='runTest', dev_name=None, ib_port=None,
                  gid_index=None, pkey_index=None, gid_type=e.IBV_GID_TYPE_SYSFS_ROCE_V2):
         # Modify UDP source port is not supported on RoCEv1

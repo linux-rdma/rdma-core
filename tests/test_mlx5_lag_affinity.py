@@ -2,10 +2,11 @@ import unittest
 import errno
 
 
-from tests.base import BaseResources, RDMATestCase, RCResources, UDResources
+from tests.base import BaseResources, RCResources, UDResources
 from pyverbs.qp import QP, QPAttr, QPInitAttr, QPCap
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.providers.mlx5.mlx5dv import Mlx5QP
+from tests.mlx5_base import Mlx5RDMATestCase
 import tests.utils as u
 import pyverbs.enums as e
 from pyverbs.cq import CQ
@@ -34,7 +35,7 @@ class LagRawQP(BaseResources):
         return qp
 
 
-class LagPortTestCase(RDMATestCase):
+class LagPortTestCase(Mlx5RDMATestCase):
     def setUp(self):
         super().setUp()
         self.iters = 10

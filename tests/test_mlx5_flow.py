@@ -13,8 +13,9 @@ from pyverbs.providers.mlx5.mlx5dv_flow import Mlx5FlowMatcher, \
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
 from tests.utils import requires_root_on_eth, PacketConsts
-from tests.base import RDMATestCase, RawResources
 import pyverbs.providers.mlx5.mlx5_enums as dve
+from tests.mlx5_base import Mlx5RDMATestCase
+from tests.base import RawResources
 import pyverbs.enums as e
 import tests.utils as u
 import struct
@@ -85,7 +86,7 @@ class Mlx5FlowResources(RawResources):
         super().create_qps()
 
 
-class Mlx5MatcherTest(RDMATestCase):
+class Mlx5MatcherTest(Mlx5RDMATestCase):
     def setUp(self):
         super().setUp()
         self.iters = 10
