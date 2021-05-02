@@ -445,7 +445,7 @@ cd build
 cd ..
 mkdir -p %{buildroot}/%{_sysconfdir}/rdma
 
-%global dracutlibdir %%{_libexecdir}/dracut/
+%global dracutlibdir %%{_prefix}/lib/dracut/
 %global sysmodprobedir %%{_sysconfdir}/modprobe.d
 
 mkdir -p %{buildroot}%{_udevrulesdir}
@@ -454,13 +454,18 @@ mkdir -p %{buildroot}%{sysmodprobedir}
 mkdir -p %{buildroot}%{_unitdir}
 
 # Port type setup for mlx4 dual port cards
+install -D -m0644 redhat/rdma.mlx4.sys.modprobe %{buildroot}%{sysmodprobedir}/50-libmlx4.conf
 install -D -m0644 redhat/rdma.mlx4.conf %{buildroot}/%{_sysconfdir}/rdma/mlx4.conf
-sed 's%/usr/libexec%/usr/lib%g' redhat/rdma.mlx4.sys.modprobe > %{buildroot}%{sysmodprobedir}/50-libmlx4.conf
 chmod 0644 %{buildroot}%{sysmodprobedir}/50-libmlx4.conf
 install -D -m0755 redhat/rdma.mlx4-setup.sh %{buildroot}%{_libexecdir}/mlx4-setup.sh
 
 # Dracut file for IB support during boot
 install -D -m0644 suse/module-setup.sh %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
+
+%if "%{_libexecdir}" != "/usr/libexec"
+sed 's-/usr/libexec-%{_libexecdir}-g' -i %{buildroot}%{sysmodprobedir}/50-libmlx4.conf
+sed 's-/usr/libexec-%{_libexecdir}-g' -i %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
+%endif
 
 # ibacm
 cd build
