@@ -6,6 +6,7 @@ include 'mlx5dv_enums.pxd'
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t, uintptr_t
 from posix.types cimport off_t
 from libcpp cimport bool
+cimport libc.stdio as s
 
 cimport pyverbs.libibverbs as v
 
@@ -420,6 +421,7 @@ cdef extern from 'infiniband/mlx5dv.h':
     # Direct rules verbs
     mlx5dv_dr_domain *mlx5dv_dr_domain_create(v.ibv_context *ctx, mlx5dv_dr_domain_type type)
     int mlx5dv_dr_domain_sync(mlx5dv_dr_domain *domain, uint32_t flags)
+    int mlx5dv_dump_dr_domain(s.FILE *fout, mlx5dv_dr_domain *domain)
     int mlx5dv_dr_domain_destroy(mlx5dv_dr_domain *dmn)
     mlx5dv_dr_table *mlx5dv_dr_table_create(mlx5dv_dr_domain *dmn, uint32_t level)
     int mlx5dv_dr_table_destroy(mlx5dv_dr_table *tbl)

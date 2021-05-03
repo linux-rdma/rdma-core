@@ -8,6 +8,7 @@ from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base cimport close_weakrefs
 from pyverbs.device cimport Context
 cimport pyverbs.libibverbs as v
+cimport libc.stdio as s
 import weakref
 
 
@@ -58,6 +59,21 @@ cdef class DrDomain(PyverbsCM):
         """
         if dv.mlx5dv_dr_domain_sync(self.domain, flags):
             raise PyverbsRDMAErrno('DrDomain sync failed.')
+
+    def dump(self, filepath):
+        """
+        Dumps the debug info of the domain into a file.
+        :param filepath: Path to the file
+        """
+        cdef s.FILE *fp
+        fp = s.fopen(filepath.encode('utf-8'), 'w+')
+        if fp == NULL:
+            raise PyverbsError('Opening dump file failed.')
+        rc = dv.mlx5dv_dump_dr_domain(fp, self.domain)
+        if rc != 0:
+            raise PyverbsRDMAError('Domain dump failed.', rc)
+        if s.fclose(fp) != 0:
+            raise PyverbsError('Closing dump file failed.')
 
     def __dealloc__(self):
         self.close()
