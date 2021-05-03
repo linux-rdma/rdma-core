@@ -96,7 +96,7 @@ int efa_query_device_ex(struct ibv_context *context,
 
 int efa_query_device_ctx(struct efa_context *ctx)
 {
-	struct efa_query_device_ex_resp resp;
+	struct efa_query_device_ex_resp resp = {};
 	struct ibv_device_attr_ex attr;
 	size_t resp_size = sizeof(resp);
 	unsigned int qp_table_sz;
