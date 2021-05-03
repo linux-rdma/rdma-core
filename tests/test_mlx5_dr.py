@@ -9,7 +9,7 @@ import struct
 import errno
 
 from pyverbs.providers.mlx5.dr_action import DrActionQp, DrActionModify, \
-    DrActionFlowCounter, DrActionDrop, DrActionTag
+    DrActionFlowCounter, DrActionDrop, DrActionTag, DrActionDestTable
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, Mlx5Context, Mlx5DVContextAttr
 from tests.utils import skip_unsupported, requires_root_on_eth, PacketConsts
 from pyverbs.providers.mlx5.mlx5dv_flow import Mlx5FlowMatchParameters
@@ -116,17 +116,23 @@ class Mlx5DrTest(Mlx5RDMATestCase):
     @skip_unsupported
     def create_rx_recv_qp_rule(self, smac_value, actions):
         """
-        Creates a rule on RX domain that perform actions on packets that match
-        the smac in the matcher.
+        Creates a rule on RX domain that forwards packets that match the smac in the matcher
+        to the SW steering flow table and another rule on that table with provided actions.
         :param smac_value: The smac matcher value.
         :param actions: List of actions to attach to the recv rule.
         """
         self.domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
-        table = DrTable(self.domain_rx, 0)
-        smac_mask = bytes([0xff] * 6)
+        root_table = DrTable(self.domain_rx, 0)
+        table = DrTable(self.domain_rx, 1)
+        smac_mask = bytes([0xff] * 6) + bytes(2)
         mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
         matcher = DrMatcher(table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
+        # Size of the matcher value should be modulo 4
+        smac_value += bytes(2)
         value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
+        root_matcher = DrMatcher(root_table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
+        self.dest_table_action = DrActionDestTable(table)
+        self.rules.append(DrRule(root_matcher, value_param, [self.dest_table_action]))
         self.rules.append(DrRule(matcher, value_param, actions))
 
     @skip_unsupported
@@ -177,10 +183,10 @@ class Mlx5DrTest(Mlx5RDMATestCase):
             u.poll_cq_ex(self.client.cq)
 
     @skip_unsupported
-    def test_root_tbl_qp_rule(self):
+    def test_tbl_qp_rule(self):
         """
-        Creates RX domain, root table with matcher on source mac. Creates QP
-        action and a rule with this action on the matcher.
+        Creates RX domain, SW table with matcher on source mac. Creates QP action
+        and a rule with this action on the matcher.
         """
         self.create_players(Mlx5DrResources)
         self.qp_action = DrActionQp(self.server.qp)
@@ -189,11 +195,11 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters)
 
     @skip_unsupported
-    def test_root_tbl_modify_header_rule(self):
+    def test_tbl_modify_header_rule(self):
         """
-        Creates TX domain, root table with matcher on source mac and modify
-        the smac. Then creates RX domain and rule that forwards packets with
-        the new smac to server QP. Perform traffic that do this flow.
+        Creates TX domain, SW table with matcher on source mac and modify the smac.
+        Then creates RX domain and rule that forwards packets with the new smac
+        to server QP. Perform traffic that do this flow.
         """
         self.create_players(Mlx5DrResources)
         self.create_tx_modify_rule()
@@ -204,7 +210,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters, expected_packet=exp_packet)
 
     @skip_unsupported
-    def test_root_tbl_counter_action(self):
+    def test_tbl_counter_action(self):
         """
         Create flow counter object, attach it to a rule using counter action
         and perform traffic that hit this rule. Verify that the counter packets
@@ -278,10 +284,10 @@ class Mlx5DrTest(Mlx5RDMATestCase):
                          'Drop action dropped TX packets that not matched the rule')
 
     @skip_unsupported
-    def test_root_tbl_qp_tag_rule(self):
+    def test_tbl_qp_tag_rule(self):
         """
-        Creates RX domain, root table with matcher on source mac. Creates QP
-        action and tag action. Creates a rule with those actions on the matcher.
+        Creates RX domain, table with matcher on source mac. Creates QP action
+        and tag action. Creates a rule with those actions on the matcher.
         Verifies traffic and tag.
         """
         self.wc_flags = e.IBV_WC_EX_WITH_FLOW_TAG
