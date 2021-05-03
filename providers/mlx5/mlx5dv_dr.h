@@ -790,7 +790,7 @@ struct dr_esw_caps {
 };
 
 struct dr_devx_vport_cap {
-	uint16_t gvmi;
+	uint16_t vport_gvmi;
 	uint16_t vhca_gvmi;
 	uint64_t icm_address_rx;
 	uint64_t icm_address_tx;
@@ -810,7 +810,21 @@ struct dr_vports_table {
 	struct dr_devx_vport_cap *buckets[DR_VPORTS_BUCKETS];
 };
 
+struct dr_devx_vports {
+	/* E-Switch manager */
+	struct dr_devx_vport_cap	esw_mngr;
+	/* Uplink */
+	struct dr_devx_vport_cap	wire;
+	/* PF + VFS + SF */
+	struct dr_vports_table		*vports;
+	/* Number of vports PF + VFS + SFS + WIRE */
+	uint32_t			num_ports;
+	/* Protect vport query and add*/
+	pthread_spinlock_t		lock;
+};
+
 struct dr_devx_caps {
+	struct mlx5dv_dr_domain		*dmn;
 	uint16_t			gvmi;
 	uint64_t			nic_rx_drop_address;
 	uint64_t			nic_tx_drop_address;
@@ -844,11 +858,10 @@ struct dr_devx_caps {
 	bool				rx_sw_owner_v2;
 	bool				tx_sw_owner_v2;
 	bool				fdb_sw_owner_v2;
-	uint32_t			num_vports;
-	struct dr_devx_vport_cap	*vports_caps;
 	struct dr_devx_roce_cap		roce_caps;
 	uint64_t			definer_format_sup;
 	bool				prio_tag_required;
+	struct dr_devx_vports		vports;
 };
 
 struct dr_devx_flow_table_attr {
@@ -1140,7 +1153,6 @@ struct mlx5dv_dr_action {
 		struct {
 			struct mlx5dv_dr_domain		*dmn;
 			struct dr_devx_vport_cap	*caps;
-			uint32_t			num;
 		} vport;
 		struct {
 			uint32_t	vlan_hdr;
@@ -1303,18 +1315,6 @@ dr_ste_htbl_may_grow(struct dr_ste_htbl *htbl)
 		return false;
 
 	return true;
-}
-
-static inline struct dr_devx_vport_cap
-*dr_get_vport_cap(struct dr_devx_caps *caps, uint32_t vport)
-{
-	if (!caps->vports_caps ||
-	    (vport >= caps->num_vports && vport != WIRE_PORT)) {
-		errno = EINVAL;
-		return NULL;
-	}
-
-	return &caps->vports_caps[vport == WIRE_PORT ? caps->num_vports : vport];
 }
 
 /* internal API functions */
@@ -1570,6 +1570,10 @@ void dr_buddy_cleanup(struct dr_icm_buddy_mem *buddy);
 int dr_buddy_alloc_mem(struct dr_icm_buddy_mem *buddy, int order);
 void dr_buddy_free_mem(struct dr_icm_buddy_mem *buddy, uint32_t seg, int order);
 
+void dr_vports_table_add_wire(struct dr_devx_vports *vports);
+void dr_vports_table_del_wire(struct dr_devx_vports *vports);
+struct dr_devx_vport_cap *dr_vports_table_get_vport_cap(struct dr_devx_caps *caps,
+							uint16_t vport);
 struct dr_vports_table *dr_vports_table_create(struct mlx5dv_dr_domain *dmn);
 void dr_vports_table_destroy(struct dr_vports_table *vports_tbl);
 

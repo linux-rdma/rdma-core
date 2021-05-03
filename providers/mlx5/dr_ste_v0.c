@@ -1708,12 +1708,13 @@ static int dr_ste_v0_build_src_gvmi_qpn_tag(struct dr_match_param *value,
 
 	source_gvmi_set = DR_STE_GET(src_gvmi_qp, bit_mask, source_gvmi);
 	if (source_gvmi_set) {
-		vport_cap = dr_get_vport_cap(sb->caps, misc->source_port);
+		vport_cap = dr_vports_table_get_vport_cap(sb->caps,
+							  misc->source_port);
 		if (!vport_cap)
 			return errno;
 
-		if (vport_cap->gvmi)
-			DR_STE_SET(src_gvmi_qp, tag, source_gvmi, vport_cap->gvmi);
+		if (vport_cap->vport_gvmi)
+			DR_STE_SET(src_gvmi_qp, tag, source_gvmi, vport_cap->vport_gvmi);
 
 		misc->source_port = 0;
 	}
