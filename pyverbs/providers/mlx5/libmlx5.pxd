@@ -430,6 +430,7 @@ cdef extern from 'infiniband/mlx5dv.h':
     int mlx5dv_dr_matcher_destroy(mlx5dv_dr_matcher *matcher)
     mlx5dv_dr_action *mlx5dv_dr_action_create_dest_ibv_qp(v.ibv_qp *ibqp)
     mlx5dv_dr_action *mlx5dv_dr_action_create_tag(uint32_t tag_value)
+    mlx5dv_dr_action *mlx5dv_dr_action_create_dest_table(mlx5dv_dr_table *tbl)
 
     int mlx5dv_dr_action_destroy(mlx5dv_dr_action *action)
     mlx5dv_dr_rule *mlx5dv_dr_rule_create(mlx5dv_dr_matcher *matcher,

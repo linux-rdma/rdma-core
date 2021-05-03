@@ -5,6 +5,7 @@
 
 from pyverbs.providers.mlx5.dr_domain cimport DrDomain
 from pyverbs.providers.mlx5.mlx5dv cimport Mlx5DevxObj
+from pyverbs.providers.mlx5.dr_table cimport DrTable
 cimport pyverbs.providers.mlx5.libmlx5 as dv
 from pyverbs.base cimport PyverbsCM
 from pyverbs.qp cimport QP
@@ -29,3 +30,6 @@ cdef class DrActionDrop(DrAction):
 
 cdef class DrActionTag(DrAction):
     pass
+
+cdef class DrActionDestTable(DrAction):
+    cdef DrTable table

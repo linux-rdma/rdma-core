@@ -138,3 +138,25 @@ cdef class DrActionTag(DrAction):
         self.action = dv.mlx5dv_dr_action_create_tag(tag)
         if self.action == NULL:
             raise PyverbsRDMAErrno('DrActionTag creation failed.')
+
+
+cdef class DrActionDestTable(DrAction):
+    def __init__(self, DrTable table):
+        """
+        Create DR destination table action.
+        :param table: Destination table
+        """
+        super().__init__()
+        self.action = dv.mlx5dv_dr_action_create_dest_table(table.table)
+        if self.action == NULL:
+            raise PyverbsRDMAErrno('DrActionDestTable creation failed.')
+        self.table = table
+        table.dr_actions.add(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.action != NULL:
+            super(DrActionDestTable, self).close()
+            self.table = None
