@@ -10,11 +10,11 @@ import errno
 
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context
+from tests.mlx5_base import Mlx5PyverbsAPITestCase
 import pyverbs.providers.mlx5.mlx5_enums as e
-from tests.base import PyverbsAPITestCase
 
 
-class Mlx5DVQueryPortTestCase(PyverbsAPITestCase):
+class Mlx5DVQueryPortTestCase(Mlx5PyverbsAPITestCase):
     def test_dv_query_port(self):
         """
         Test the DV query port and that no error is returned.

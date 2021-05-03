@@ -3,15 +3,15 @@ import errno
 
 from pyverbs.providers.mlx5.mlx5dv_sched import Mlx5dvSchedAttr, \
     Mlx5dvSchedNode, Mlx5dvSchedLeaf
-from tests.base import RCResources, PyverbsAPITestCase
+from tests.mlx5_base import Mlx5RDMATestCase, Mlx5PyverbsAPITestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.providers.mlx5.mlx5dv import Mlx5QP
 import pyverbs.providers.mlx5.mlx5_enums as dve
-from tests.mlx5_base import Mlx5RDMATestCase
+from tests.base import RCResources
 import tests.utils as u
 
 
-class Mlx5SchedTest(PyverbsAPITestCase):
+class Mlx5SchedTest(Mlx5PyverbsAPITestCase):
     def test_create_sched_tree(self):
         """
         Create schedule elements tree. Test the schedule elements API, this

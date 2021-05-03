@@ -8,7 +8,7 @@ import errno
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, \
     Mlx5DVQPInitAttr, Mlx5QP, Mlx5DVDCInitAttr
 from tests.base import TrafficResources, set_rnr_attributes, DCT_KEY, \
-    RDMATestCase
+    RDMATestCase, PyverbsAPITestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
 from pyverbs.qp import QPCap, QPInitAttrEx, QPAttr
 import pyverbs.providers.mlx5.mlx5_enums as dve
@@ -52,6 +52,12 @@ def is_mlx5_dev(ctx):
 def skip_if_not_mlx5_dev(ctx):
     if not is_mlx5_dev(ctx):
         raise unittest.SkipTest('Can not run the test over non MLX5 device')
+
+
+class Mlx5PyverbsAPITestCase(PyverbsAPITestCase):
+    def setUp(self):
+        super().setUp()
+        skip_if_not_mlx5_dev(self.ctx)
 
 
 class Mlx5RDMATestCase(RDMATestCase):

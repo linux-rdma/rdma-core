@@ -10,8 +10,8 @@ import errno
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, \
     Mlx5DmOpAddr
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
+from tests.mlx5_base import Mlx5PyverbsAPITestCase
 import pyverbs.providers.mlx5.mlx5_enums as dve
-from tests.base import PyverbsAPITestCase
 import pyverbs.device as d
 
 
@@ -50,7 +50,7 @@ def requires_memic_atomic_support(func):
     return wrapper
 
 
-class Mlx5DmOpAddresses(PyverbsAPITestCase):
+class Mlx5DmOpAddresses(Mlx5PyverbsAPITestCase):
     def setUp(self):
         super().setUp()
         self.dm_size = int(self.attr_ex.max_dm_size / 2)
