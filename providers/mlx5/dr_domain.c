@@ -158,7 +158,7 @@ static int dr_domain_query_esw_mgr(struct mlx5dv_dr_domain *dmn,
 {
 	int ret;
 
-	/* Query E-Switch manager */
+	/* Query E-Switch manager PF/ECPF */
 	ret = dr_devx_query_esw_vport_context(dmn->ctx, false, 0,
 					      &esw_mngr->icm_address_rx,
 					      &esw_mngr->icm_address_tx);

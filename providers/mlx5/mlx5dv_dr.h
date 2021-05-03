@@ -47,6 +47,7 @@
 #define DR_MAX_SEND_RINGS	14
 #define NUM_OF_LOCKS		DR_MAX_SEND_RINGS
 #define WIRE_PORT		0xFFFF
+#define ECPF_PORT		0xFFFE
 #define DR_STE_SVLAN		0x1
 #define DR_STE_CVLAN		0x2
 #define CVLAN_ETHERTYPE	0x8100
@@ -861,6 +862,7 @@ struct dr_devx_caps {
 	struct dr_devx_roce_cap		roce_caps;
 	uint64_t			definer_format_sup;
 	bool				prio_tag_required;
+	bool				is_ecpf;
 	struct dr_devx_vports		vports;
 };
 

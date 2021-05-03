@@ -111,6 +111,43 @@ int dr_devx_query_gvmi(struct ibv_context *ctx, bool other_vport,
 	return 0;
 }
 
+static int dr_devx_query_esw_func(struct ibv_context *ctx,
+				  uint16_t max_sfs,
+				  bool *host_pf_vhca_id_valid,
+				  uint16_t *host_pf_vhca_id)
+{
+	uint32_t in[DEVX_ST_SZ_DW(query_esw_functions_in)] = {};
+	size_t outsz;
+	void *out;
+	int err;
+
+	outsz = DEVX_ST_SZ_BYTES(query_esw_functions_out) +
+		(max_sfs - 1) * DEVX_FLD_SZ_BYTES(query_esw_functions_out, host_sf_enable);
+	out = calloc(1, outsz);
+	if (!out) {
+		errno = ENOMEM;
+		return errno;
+	}
+
+	DEVX_SET(query_esw_functions_in, in, opcode,
+		 MLX5_CMD_OP_QUERY_ESW_FUNCTIONS);
+
+	err = mlx5dv_devx_general_cmd(ctx, in, sizeof(in), out, outsz);
+	if (err) {
+		dr_dbg_ctx(ctx, "Query esw func failed %d\n", err);
+		free(out);
+		return err;
+	}
+
+	*host_pf_vhca_id_valid = DEVX_GET(query_esw_functions_out, out,
+					  host_params_context.host_pf_vhca_id_valid);
+
+	*host_pf_vhca_id = DEVX_GET(query_esw_functions_out, out,
+				    host_params_context.host_pf_vhca_id);
+	free(out);
+	return 0;
+}
+
 int dr_devx_query_esw_caps(struct ibv_context *ctx, struct dr_esw_caps *caps)
 {
 	uint32_t out[DEVX_ST_SZ_DW(query_hca_cap_out)] = {};
@@ -156,7 +193,10 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 {
 	uint32_t out[DEVX_ST_SZ_DW(query_hca_cap_out)] = {};
 	uint32_t in[DEVX_ST_SZ_DW(query_hca_cap_in)] = {};
-	bool roce;
+	bool host_pf_vhca_id_valid;
+	uint16_t host_pf_vhca_id;
+	uint32_t max_sfs = 0;
+	bool roce, sf_supp;
 	int err;
 
 	DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
@@ -182,6 +222,7 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 	caps->flex_parser_header_modify =
 		DEVX_GET(query_hca_cap_out, out,
 			 capability.cmd_hca_cap.flex_parser_header_modify);
+	sf_supp = DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.sf);
 	caps->definer_format_sup =
 		DEVX_GET64(query_hca_cap_out, out,
 			   capability.cmd_hca_cap.match_definer_format_supported);
@@ -298,6 +339,28 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 					       capability.flow_table_nic_cap.
 					       ft_field_bitmask_support_2_nic_receive.
 					       outer_l4_checksum_ok);
+
+	if (sf_supp && caps->eswitch_manager) {
+		DEVX_SET(query_hca_cap_in, in, op_mod,
+			 MLX5_SET_HCA_CAP_OP_MOD_ESW | HCA_CAP_OPMOD_GET_CUR);
+
+		err = mlx5dv_devx_general_cmd(ctx, in, sizeof(in), out, sizeof(out));
+		if (err) {
+			dr_dbg_ctx(ctx, "Query eswitch capabilities failed %d\n", err);
+			return err;
+		}
+		max_sfs = 1 << DEVX_GET(query_hca_cap_out, out,
+					capability.e_switch_cap.log_max_esw_sf);
+	}
+
+	if (caps->eswitch_manager) {
+		/* Check if ECPF */
+		err = dr_devx_query_esw_func(ctx, max_sfs,
+					     &host_pf_vhca_id_valid,
+					     &host_pf_vhca_id);
+		if (!err && host_pf_vhca_id_valid && host_pf_vhca_id != caps->gvmi)
+			caps->is_ecpf = true;
+	}
 
 	DEVX_SET(query_hca_cap_in, in, op_mod,
 		 MLX5_SET_HCA_CAP_OP_MOD_DEVICE_MEMORY |

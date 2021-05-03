@@ -102,8 +102,11 @@ struct dr_devx_vport_cap *
 dr_vports_table_get_vport_cap(struct dr_devx_caps *caps, uint16_t vport)
 {
 	struct dr_devx_vports *vports = &caps->vports;
+	bool other_vport = !!vport || caps->is_ecpf;
 	struct dr_devx_vport_cap *vport_cap;
-	bool other_vport = !!vport;
+
+	if (vport == ECPF_PORT && caps->is_ecpf)
+		return &vports->esw_mngr;
 
 	/* no lock on vport_find since table is updated atomically */
 	vport_cap = dr_vports_table_find_vport_num(vports->vports,
