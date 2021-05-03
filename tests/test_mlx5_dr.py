@@ -5,6 +5,7 @@ Test module for pyverbs' mlx5 dr module.
 """
 
 import unittest
+import os.path
 import struct
 import errno
 
@@ -14,12 +15,13 @@ from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, Mlx5Context, Mlx5DVContex
 from tests.utils import skip_unsupported, requires_root_on_eth, PacketConsts
 from pyverbs.providers.mlx5.mlx5dv_flow import Mlx5FlowMatchParameters
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
+from tests.mlx5_base import Mlx5RDMATestCase, PyverbsAPITestCase
 from pyverbs.providers.mlx5.dr_matcher import DrMatcher
 from pyverbs.providers.mlx5.dr_domain import DrDomain
 from pyverbs.providers.mlx5.dr_table import DrTable
 from pyverbs.providers.mlx5.dr_rule import DrRule
 import pyverbs.providers.mlx5.mlx5_enums as dve
-from tests.mlx5_base import Mlx5RDMATestCase
+
 from pyverbs.cq import CqInitAttrEx, CQEX
 from tests.base import RawResources
 import pyverbs.enums as e
@@ -66,7 +68,7 @@ class Mlx5DrResources(RawResources):
                                                              len(QueryFlowCounterOut())))
         return counter_out.flow_statistics.packets
 
-    def __init__(self, dev_name, ib_port, gid_index, wc_flags=0):
+    def __init__(self, dev_name, ib_port, gid_index=0, wc_flags=0):
         self.wc_flags = wc_flags
         super().__init__(dev_name=dev_name, ib_port=ib_port, gid_index=gid_index)
 
@@ -301,3 +303,23 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters)
         # Verify tag
         self.assertEqual(self.server.cq.read_flow_tag(), tag, 'Wrong tag value')
+
+
+class Mlx5DrDumpTest(PyverbsAPITestCase):
+    def setUp(self):
+        super().setUp()
+        self.res = None
+
+    def tearDown(self):
+        super().tearDown()
+        if self.res:
+            self.res.ctx.close()
+
+    @skip_unsupported
+    def test_domain_dump(self):
+        dump_file = '/tmp/dump.txt'
+        self.res = Mlx5DrResources(self.dev_name, self.ib_port)
+        self.domain_rx = DrDomain(self.res.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        self.domain_rx.dump(dump_file)
+        self.assertTrue(os.path.isfile(dump_file), 'Dump file does not exist.')
+        self.assertGreater(os.path.getsize(dump_file), 0, 'Dump file is empty')
