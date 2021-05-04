@@ -627,31 +627,32 @@ int dr_actions_build_attr(struct mlx5dv_dr_matcher *matcher,
 
 struct dr_match_spec {
 	uint32_t smac_47_16;	/* Source MAC address of incoming packet */
-	uint32_t ethertype:16;	/* Incoming packet Ethertype - this is the Ethertype following the last ;VLAN tag of the packet */
 	uint32_t smac_15_0:16;	/* Source MAC address of incoming packet */
+	uint32_t ethertype:16;	/* Incoming packet Ethertype - this is the Ethertype following the last ;VLAN tag of the packet */
 	uint32_t dmac_47_16;	/* Destination MAC address of incoming packet */
-	uint32_t first_vid:12;	/* VLAN ID of first VLAN tag in the incoming packet. Valid only ;when cvlan_tag==1 or svlan_tag==1 */
-	uint32_t first_cfi:1;	/* CFI bit of first VLAN tag in the incoming packet. Valid only when ;cvlan_tag==1 or svlan_tag==1 */
-	uint32_t first_prio:3;	/* Priority of first VLAN tag in the incoming packet. Valid only when ;cvlan_tag==1 or svlan_tag==1 */
 	uint32_t dmac_15_0:16;	/* Destination MAC address of incoming packet */
-	uint32_t tcp_flags:9;	/* TCP flags. ;Bit 0: FIN;Bit 1: SYN;Bit 2: RST;Bit 3: PSH;Bit 4: ACK;Bit 5: URG;Bit 6: ECE;Bit 7: CWR;Bit 8: NS */
-	uint32_t ip_version:4;	/* IP version */
-	uint32_t frag:1;	/* Packet is an IP fragment */
-	uint32_t svlan_tag:1;	/* The first vlan in the packet is s-vlan (0x8a88). cvlan_tag and ;svlan_tag cannot be set together */
-	uint32_t cvlan_tag:1;	/* The first vlan in the packet is c-vlan (0x8100). cvlan_tag and ;svlan_tag cannot be set together */
-	uint32_t ip_ecn:2;	/* Explicit Congestion Notification derived from Traffic Class/TOS ;field of IPv6/v4 */
-	uint32_t ip_dscp:6;	/* Differentiated Services Code Point derived from Traffic Class/;TOS field of IPv6/v4 */
+	uint32_t first_prio:3;	/* Priority of first VLAN tag in the incoming packet. Valid only when ;cvlan_tag==1 or svlan_tag==1 */
+	uint32_t first_cfi:1;	/* CFI bit of first VLAN tag in the incoming packet. Valid only when ;cvlan_tag==1 or svlan_tag==1 */
+	uint32_t first_vid:12;	/* VLAN ID of first VLAN tag in the incoming packet. Valid only ;when cvlan_tag==1 or svlan_tag==1 */
 	uint32_t ip_protocol:8;	/* IP protocol */
-	uint32_t tcp_dport:16;	/* TCP destination port. ;tcp and udp sport/dport are mutually exclusive */
+	uint32_t ip_dscp:6;	/* Differentiated Services Code Point derived from Traffic Class/;TOS field of IPv6/v4 */
+	uint32_t ip_ecn:2;	/* Explicit Congestion Notification derived from Traffic Class/TOS ;field of IPv6/v4 */
+	uint32_t cvlan_tag:1;	/* The first vlan in the packet is c-vlan (0x8100). cvlan_tag and ;svlan_tag cannot be set together */
+	uint32_t svlan_tag:1;	/* The first vlan in the packet is s-vlan (0x8a88). cvlan_tag and ;svlan_tag cannot be set together */
+	uint32_t frag:1;	/* Packet is an IP fragment */
+	uint32_t ip_version:4;	/* IP version */
+	uint32_t tcp_flags:9;	/* TCP flags. ;Bit 0: FIN;Bit 1: SYN;Bit 2: RST;Bit 3: PSH;Bit 4: ACK;Bit 5: URG;Bit 6: ECE;Bit 7: CWR;Bit 8: NS */
 	uint32_t tcp_sport:16;	/* TCP source port.;tcp and udp sport/dport are mutually exclusive */
+	uint32_t tcp_dport:16;	/* TCP destination port. ;tcp and udp sport/dport are mutually exclusive */
+	uint32_t reserved_at_c0:16;
 	uint32_t ipv4_ihl:4;
 	uint32_t l3_ok:1;
 	uint32_t l4_ok:1;
 	uint32_t ipv4_checksum_ok:1;
 	uint32_t l4_checksum_ok:1;
 	uint32_t ip_ttl_hoplimit:8;
-	uint32_t udp_dport:16;	/* UDP destination port.;tcp and udp sport/dport are mutually exclusive */
 	uint32_t udp_sport:16;	/* UDP source port.;tcp and udp sport/dport are mutually exclusive */
+	uint32_t udp_dport:16;	/* UDP destination port.;tcp and udp sport/dport are mutually exclusive */
 	uint32_t src_ip_127_96;	/* IPv6 source address of incoming packets ;For IPv4 address use bits 31:0 (rest of the bits are reserved);This field should be qualified by an appropriate ;ethertype */
 	uint32_t src_ip_95_64;	/* IPv6 source address of incoming packets ;For IPv4 address use bits 31:0 (rest of the bits are reserved);This field should be qualified by an appropriate ;ethertype */
 	uint32_t src_ip_63_32;	/* IPv6 source address of incoming packets ;For IPv4 address use bits 31:0 (rest of the bits are reserved);This field should be qualified by an appropriate ;ethertype */
@@ -663,52 +664,65 @@ struct dr_match_spec {
 };
 
 struct dr_match_misc {
-	uint32_t source_sqn:24;			/* Source SQN */
-	uint32_t source_vhca_port:4;
-	uint32_t gre_s_present:1;		/* used with GRE, sequence number exist when gre_s_present == 1 */
-	uint32_t gre_k_present:1;		/* used with GRE, key exist when gre_k_present == 1 */
 	uint32_t gre_c_present:1;		/* used with GRE, checksum exist when gre_c_present == 1 */
+	uint32_t reserved_at1:1;
+	uint32_t gre_k_present:1;		/* used with GRE, key exist when gre_k_present == 1 */
+	uint32_t gre_s_present:1;		/* used with GRE, sequence number exist when gre_s_present == 1 */
+	uint32_t source_vhca_port:4;
+	uint32_t source_sqn:24;			/* Source SQN */
+	uint32_t source_eswitch_owner_vhca_id:16;
 	uint32_t source_port:16;		/* Source port.;0xffff determines wire port */
-	uint32_t inner_second_vid:12;		/* VLAN ID of first VLAN tag the inner header of the incoming packet. ;Valid only when inner_second_cvlan_tag ==1 or inner_sec;ond_svlan_tag ==1 */
-	uint32_t inner_second_cfi:1;		/* CFI bit of first VLAN tag in the inner header of the incoming packet. ;Valid only when inner_second_cvlan_tag ==1 or inner_sec;ond_svlan_tag ==1 */
-	uint32_t inner_second_prio:3;		/* Priority of second VLAN tag in the inner header of the incoming ;packet. Valid only when inner_second_cvlan_tag ==1 or inner_sec;ond_svlan_tag ==1 */
-	uint32_t outer_second_vid:12;		/* VLAN ID of first VLAN tag the outer header of the incoming packet. ;Valid only when outer_second_cvlan_tag ==1 or outer_sec;ond_svlan_tag ==1 */
-	uint32_t outer_second_cfi:1;		/* CFI bit of first VLAN tag in the outer header of the incoming packet. ;Valid only when outer_second_cvlan_tag ==1 or outer_sec;ond_svlan_tag ==1 */
 	uint32_t outer_second_prio:3;		/* Priority of second VLAN tag in the outer header of the incoming ;packet. Valid only when outer_second_cvlan_tag ==1 or outer_sec;ond_svlan_tag ==1 */
-	uint32_t gre_protocol:16;		/* GRE Protocol (outer) */
-	uint32_t inner_second_svlan_tag:1;	/* The second vlan in the inner header of the packet is s-vlan (0x8a88). ;inner_second_cvlan_tag and inner_second_svlan_tag cannot be set ;together */
-	uint32_t outer_second_svlan_tag:1;	/* The second vlan in the outer header of the packet is s-vlan (0x8a88). ;outer_second_cvlan_tag and outer_second_svlan_tag cannot be set ;together */
-	uint32_t inner_second_cvlan_tag:1;	/* The second vlan in the inner header of the packet is c-vlan (0x8100). ;inner_second_cvlan_tag and inner_second_svlan_tag cannot be set ;together */
+	uint32_t outer_second_cfi:1;		/* CFI bit of first VLAN tag in the outer header of the incoming packet. ;Valid only when outer_second_cvlan_tag ==1 or outer_sec;ond_svlan_tag ==1 */
+	uint32_t outer_second_vid:12;		/* VLAN ID of first VLAN tag the outer header of the incoming packet. ;Valid only when outer_second_cvlan_tag ==1 or outer_sec;ond_svlan_tag ==1 */
+	uint32_t inner_second_prio:3;		/* Priority of second VLAN tag in the inner header of the incoming ;packet. Valid only when inner_second_cvlan_tag ==1 or inner_sec;ond_svlan_tag ==1 */
+	uint32_t inner_second_cfi:1;		/* CFI bit of first VLAN tag in the inner header of the incoming packet. ;Valid only when inner_second_cvlan_tag ==1 or inner_sec;ond_svlan_tag ==1 */
+	uint32_t inner_second_vid:12;		/* VLAN ID of first VLAN tag the inner header of the incoming packet. ;Valid only when inner_second_cvlan_tag ==1 or inner_sec;ond_svlan_tag ==1 */
 	uint32_t outer_second_cvlan_tag:1;	/* The second vlan in the outer header of the packet is c-vlan (0x8100). ;outer_second_cvlan_tag and outer_second_svlan_tag cannot be set ;together */
-	uint32_t gre_key_l:8;			/* GRE Key [7:0] (outer) */
+	uint32_t inner_second_cvlan_tag:1;	/* The second vlan in the inner header of the packet is c-vlan (0x8100). ;inner_second_cvlan_tag and inner_second_svlan_tag cannot be set ;together */
+	uint32_t outer_second_svlan_tag:1;	/* The second vlan in the outer header of the packet is s-vlan (0x8a88). ;outer_second_cvlan_tag and outer_second_svlan_tag cannot be set ;together */
+	uint32_t inner_second_svlan_tag:1;	/* The second vlan in the inner header of the packet is s-vlan (0x8a88). ;inner_second_cvlan_tag and inner_second_svlan_tag cannot be set ;together */
+	uint32_t outer_emd_tag:1;
+	uint32_t reserved_at_65:11;
+	uint32_t gre_protocol:16;		/* GRE Protocol (outer) */
 	uint32_t gre_key_h:24;			/* GRE Key[31:8] (outer) */
+	uint32_t gre_key_l:8;			/* GRE Key [7:0] (outer) */
 	uint32_t vxlan_vni:24;			/* VXLAN VNI (outer) */
-	uint32_t geneve_oam:1;			/* GENEVE OAM field (outer) */
+	uint32_t reserved_at_b8:8;
 	uint32_t geneve_vni:24;			/* GENEVE VNI field (outer) */
+	uint32_t reserved_at_e4:7;
+	uint32_t geneve_oam:1;			/* GENEVE OAM field (outer) */
+	uint32_t reserved_at_ec:12;
 	uint32_t outer_ipv6_flow_label:20;	/* Flow label of incoming IPv6 packet (outer) */
+	uint32_t reserved_at_100:12;
 	uint32_t inner_ipv6_flow_label:20;	/* Flow label of incoming IPv6 packet (inner) */
-	uint32_t geneve_protocol_type:16;	/* GENEVE protocol type (outer) */
+	uint32_t reserved_at_120:10;
 	uint32_t geneve_opt_len:6;		/* GENEVE OptLen (outer) */
+	uint32_t geneve_protocol_type:16;	/* GENEVE protocol type (outer) */
+	uint32_t reserved_at_140:8;
 	uint32_t bth_dst_qp:24;			/* Destination QP in BTH header */
+	uint32_t inner_esp_spi;
+	uint32_t outer_esp_spi;
+	uint32_t reserved_at_1a0[3];
 };
 
 struct dr_match_misc2 {
-	uint32_t outer_first_mpls_ttl:8;		/* First MPLS TTL (outer) */
-	uint32_t outer_first_mpls_s_bos:1;		/* First MPLS S_BOS (outer) */
-	uint32_t outer_first_mpls_exp:3;		/* First MPLS EXP (outer) */
 	uint32_t outer_first_mpls_label:20;		/* First MPLS LABEL (outer) */
-	uint32_t inner_first_mpls_ttl:8;		/* First MPLS TTL (inner) */
-	uint32_t inner_first_mpls_s_bos:1;		/* First MPLS S_BOS (inner) */
-	uint32_t inner_first_mpls_exp:3;		/* First MPLS EXP (inner) */
+	uint32_t outer_first_mpls_exp:3;		/* First MPLS EXP (outer) */
+	uint32_t outer_first_mpls_s_bos:1;		/* First MPLS S_BOS (outer) */
+	uint32_t outer_first_mpls_ttl:8;		/* First MPLS TTL (outer) */
 	uint32_t inner_first_mpls_label:20;		/* First MPLS LABEL (inner) */
-	uint32_t outer_first_mpls_over_gre_ttl:8;	/* last MPLS TTL (outer) */
-	uint32_t outer_first_mpls_over_gre_s_bos:1;	/* last MPLS S_BOS (outer) */
-	uint32_t outer_first_mpls_over_gre_exp:3;	/* last MPLS EXP (outer) */
+	uint32_t inner_first_mpls_exp:3;		/* First MPLS EXP (inner) */
+	uint32_t inner_first_mpls_s_bos:1;		/* First MPLS S_BOS (inner) */
+	uint32_t inner_first_mpls_ttl:8;		/* First MPLS TTL (inner) */
 	uint32_t outer_first_mpls_over_gre_label:20;	/* last MPLS LABEL (outer) */
-	uint32_t outer_first_mpls_over_udp_ttl:8;	/* last MPLS TTL (outer) */
-	uint32_t outer_first_mpls_over_udp_s_bos:1;	/* last MPLS S_BOS (outer) */
-	uint32_t outer_first_mpls_over_udp_exp:3;	/* last MPLS EXP (outer) */
+	uint32_t outer_first_mpls_over_gre_exp:3;	/* last MPLS EXP (outer) */
+	uint32_t outer_first_mpls_over_gre_s_bos:1;	/* last MPLS S_BOS (outer) */
+	uint32_t outer_first_mpls_over_gre_ttl:8;	/* last MPLS TTL (outer) */
 	uint32_t outer_first_mpls_over_udp_label:20;	/* last MPLS LABEL (outer) */
+	uint32_t outer_first_mpls_over_udp_exp:3;	/* last MPLS EXP (outer) */
+	uint32_t outer_first_mpls_over_udp_s_bos:1;	/* last MPLS S_BOS (outer) */
+	uint32_t outer_first_mpls_over_udp_ttl:8;	/* last MPLS TTL (outer) */
 	uint32_t metadata_reg_c_7;			/* metadata_reg_c_7 */
 	uint32_t metadata_reg_c_6;			/* metadata_reg_c_6 */
 	uint32_t metadata_reg_c_5;			/* metadata_reg_c_5 */
@@ -718,7 +732,11 @@ struct dr_match_misc2 {
 	uint32_t metadata_reg_c_1;			/* metadata_reg_c_1 */
 	uint32_t metadata_reg_c_0;			/* metadata_reg_c_0 */
 	uint32_t metadata_reg_a;			/* metadata_reg_a */
-	uint32_t metadata_reg_b;			/* metadata_reg_b */
+	uint32_t psp_syndrome:8;
+	uint32_t reserved_at_1a8:8;
+	uint32_t ipsec_syndrome:8;
+	uint32_t ipsec_next_header:8;
+	uint32_t reserved_at_260[2];
 };
 
 struct dr_match_misc3 {
@@ -726,22 +744,26 @@ struct dr_match_misc3 {
 	uint32_t outer_tcp_seq_num;
 	uint32_t inner_tcp_ack_num;
 	uint32_t outer_tcp_ack_num;
+	uint32_t reserved_at_80:8;
 	uint32_t outer_vxlan_gpe_vni:24;
-	uint32_t outer_vxlan_gpe_flags:8;
 	uint32_t outer_vxlan_gpe_next_protocol:8;
+	uint32_t outer_vxlan_gpe_flags:8;
+	uint32_t reserved_at_b0:16;
 	uint32_t icmpv4_header_data;
 	uint32_t icmpv6_header_data;
-	uint8_t icmpv6_code;
-	uint8_t icmpv6_type;
-	uint8_t icmpv4_code;
 	uint8_t icmpv4_type;
+	uint8_t icmpv4_code;
+	uint8_t icmpv6_type;
+	uint8_t icmpv6_code;
 	uint32_t geneve_tlv_option_0_data;
 	uint32_t gtpu_teid;
 	uint32_t gtpu_msg_type:8;
 	uint32_t gtpu_msg_flags:8;
+	uint32_t reserved_at_150:16;
 	uint32_t gtpu_dw_2;
 	uint32_t gtpu_first_ext_dw_0;
 	uint32_t gtpu_dw_0;
+	uint32_t reserved_at_1c0;
 };
 
 struct dr_match_misc4 {

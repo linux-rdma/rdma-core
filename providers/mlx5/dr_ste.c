@@ -898,7 +898,6 @@ static void dr_ste_copy_mask_misc2(char *mask, struct dr_match_misc2 *spec)
 	spec->metadata_reg_c_1 = DEVX_GET(dr_match_set_misc2, mask, metadata_reg_c_1);
 	spec->metadata_reg_c_0 = DEVX_GET(dr_match_set_misc2, mask, metadata_reg_c_0);
 	spec->metadata_reg_a = DEVX_GET(dr_match_set_misc2, mask, metadata_reg_a);
-	spec->metadata_reg_b = DEVX_GET(dr_match_set_misc2, mask, metadata_reg_b);
 }
 
 static void dr_ste_copy_mask_misc3(char *mask, struct dr_match_misc3 *spec)
