@@ -269,6 +269,11 @@ static uint8_t dr_ste_v0_get_entry_type(uint8_t *hw_ste_p)
 	return DR_STE_GET(general, hw_ste_p, entry_type);
 }
 
+static void dr_ste_v0_set_hit_gvmi(uint8_t *hw_ste_p, uint16_t gvmi)
+{
+	DR_STE_SET(general, hw_ste_p, next_table_base_63_48, gvmi);
+}
+
 static void dr_ste_v0_set_miss_addr(uint8_t *hw_ste_p, uint64_t miss_addr)
 {
 	uint64_t index = miss_addr >> 6;
@@ -509,6 +514,7 @@ static void dr_ste_v0_set_actions_tx(uint8_t *action_type_set,
 	if (action_type_set[DR_ACTION_TYP_CTR])
 		dr_ste_v0_set_counter_id(last_ste, attr->ctr_id);
 
+	dr_ste_v0_set_hit_gvmi(last_ste, attr->hit_gvmi);
 	dr_ste_v0_set_hit_addr(last_ste, attr->final_icm_addr, 1);
 }
 
@@ -571,6 +577,7 @@ static void dr_ste_v0_set_actions_rx(uint8_t *action_type_set,
 		dr_ste_v0_set_rx_flow_tag(last_ste, attr->flow_tag);
 	}
 
+	dr_ste_v0_set_hit_gvmi(last_ste, attr->hit_gvmi);
 	dr_ste_v0_set_hit_addr(last_ste, attr->final_icm_addr, 1);
 }
 

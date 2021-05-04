@@ -360,6 +360,11 @@ static void dr_ste_v1_set_next_lu_type(uint8_t *hw_ste_p, uint16_t lu_type)
 	DR_STE_SET(match_bwc_v1, hw_ste_p, hash_definer_ctx_idx, lu_type & 0xFF);
 }
 
+static void dr_ste_v1_set_hit_gvmi(uint8_t *hw_ste_p, uint16_t gvmi)
+{
+	DR_STE_SET(match_bwc_v1, hw_ste_p, next_table_base_63_48, gvmi);
+}
+
 static uint16_t dr_ste_v1_get_next_lu_type(uint8_t *hw_ste_p)
 {
 	uint8_t mode = DR_STE_GET(match_bwc_v1, hw_ste_p, next_entry_format);
@@ -810,6 +815,7 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 		action += DR_STE_ACTION_TRIPLE_SZ;
 	}
 
+	dr_ste_v1_set_hit_gvmi(last_ste, attr->hit_gvmi);
 	dr_ste_v1_set_hit_addr(last_ste, attr->final_icm_addr, 1);
 }
 
@@ -1012,6 +1018,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 		action_sz -= DR_STE_ACTION_TRIPLE_SZ;
 	}
 
+	dr_ste_v1_set_hit_gvmi(last_ste, attr->hit_gvmi);
 	dr_ste_v1_set_hit_addr(last_ste, attr->final_icm_addr, 1);
 }
 
