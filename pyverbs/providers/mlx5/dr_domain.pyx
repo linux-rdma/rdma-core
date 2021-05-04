@@ -22,6 +22,8 @@ cdef class DrDomain(PyverbsCM):
         if self.domain == NULL:
             raise PyverbsRDMAErrno('DrDomain creation failed.')
         self.dr_tables = weakref.WeakSet()
+        self.context = context
+        context.dr_domains.add(self)
 
     def allow_duplicate_rules(self, allow):
         """
