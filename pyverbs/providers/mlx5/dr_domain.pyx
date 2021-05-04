@@ -22,6 +22,8 @@ cdef class DrDomain(PyverbsCM):
         if self.domain == NULL:
             raise PyverbsRDMAErrno('DrDomain creation failed.')
         self.dr_tables = weakref.WeakSet()
+        self.context = context
+        context.dr_domains.add(self)
 
     cdef add_ref(self, obj):
         if isinstance(obj, DrTable):
