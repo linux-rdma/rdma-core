@@ -2443,6 +2443,11 @@ static void umr_wqe_finalize(struct mlx5_qp *mqp)
 		seg = mlx5_get_send_wqe(mqp, 0);
 	mk = seg;
 
+	umr_ctrl->mkey_mask |= htobe64(MLX5_WQE_UMR_CTRL_MKEY_MASK_SIG_ERR);
+	mk->flags_pd |= htobe32(
+		(mkey->sig->err_count & MLX5_WQE_MKEY_CONTEXT_SIG_ERR_CNT_MASK)
+		<< MLX5_WQE_MKEY_CONTEXT_SIG_ERR_CNT_SHIFT);
+
 	block = &mkey->sig->block;
 	if (!(block->updated))
 		goto umr_finalize;

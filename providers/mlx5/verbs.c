@@ -5747,6 +5747,9 @@ static struct mlx5_sig_ctx *mlx5_create_sig_ctx(struct ibv_pd *pd,
 		goto err_free_sig;
 	}
 
+	sig->err_exists = false;
+	sig->err_count = 1;
+
 	return sig;
 err_free_sig:
 	free(sig);
@@ -5858,6 +5861,117 @@ int mlx5dv_destroy_mkey(struct mlx5dv_mkey *dv_mkey)
 
 	mlx5_clear_mkey(mctx, dv_mkey->lkey >> 8);
 	free(mkey);
+	return 0;
+}
+
+enum {
+	MLX5_SIGERR_CQE_SYNDROME_REFTAG = 1 << 11,
+	MLX5_SIGERR_CQE_SYNDROME_APPTAG = 1 << 12,
+	MLX5_SIGERR_CQE_SYNDROME_GUARD = 1 << 13,
+
+	MLX5_SIGERR_CQE_SIG_TYPE_BLOCK = 0,
+	MLX5_SIGERR_CQE_SIG_TYPE_TRANSACTION = 1,
+
+	MLX5_SIGERR_CQE_DOMAIN_WIRE = 0,
+	MLX5_SIGERR_CQE_DOMAIN_MEMORY = 1,
+};
+
+static void mlx5_decode_sigerr(struct mlx5_sig_err *mlx5_err,
+			       struct mlx5_sig_block_domain *bd,
+			       struct mlx5dv_mkey_err *err_info)
+{
+	struct mlx5dv_sig_err *dv_err = &err_info->err.sig;
+
+	dv_err->offset = mlx5_err->offset;
+
+	if (mlx5_err->syndrome & MLX5_SIGERR_CQE_SYNDROME_REFTAG) {
+		err_info->err_type = MLX5DV_MKEY_SIG_BLOCK_BAD_REFTAG;
+		dv_err->expected_value = mlx5_err->expected & 0xffffffff;
+		dv_err->actual_value = mlx5_err->actual & 0xffffffff;
+
+	} else if (mlx5_err->syndrome & MLX5_SIGERR_CQE_SYNDROME_APPTAG) {
+		err_info->err_type = MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG;
+		dv_err->expected_value = (mlx5_err->expected >> 32) & 0xffff;
+		dv_err->actual_value = (mlx5_err->actual >> 32) & 0xffff;
+
+	} else {
+		err_info->err_type = MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD;
+
+		if (bd->sig_type == MLX5_SIG_TYPE_T10DIF) {
+			dv_err->expected_value = mlx5_err->expected >> 48;
+			dv_err->actual_value = mlx5_err->actual >> 48;
+
+		} else if (bd->sig.crc.type == MLX5DV_SIG_CRC_TYPE_CRC64_XP10) {
+			dv_err->expected_value = mlx5_err->expected;
+			dv_err->actual_value = mlx5_err->actual;
+
+		} else {
+			/* CRC32 or CRC32C */
+			dv_err->expected_value = mlx5_err->expected >> 32;
+			dv_err->actual_value = mlx5_err->actual >> 32;
+		}
+	}
+}
+
+int _mlx5dv_mkey_check(struct mlx5dv_mkey *dv_mkey,
+		       struct mlx5dv_mkey_err *err_info,
+		       size_t err_info_size)
+{
+	struct mlx5_mkey *mkey = container_of(dv_mkey, struct mlx5_mkey,
+					      dv_mkey);
+	struct mlx5_sig_ctx *sig_ctx = mkey->sig;
+	FILE *fp = to_mctx(mkey->devx_obj->context)->dbg_fp;
+	struct mlx5_sig_err *sig_err;
+	struct mlx5_sig_block_domain *domain;
+
+	if (!sig_ctx)
+		return EINVAL;
+
+	if (!sig_ctx->err_exists) {
+		err_info->err_type = MLX5DV_MKEY_NO_ERR;
+		return 0;
+	}
+
+	sig_err = &sig_ctx->err_info;
+
+	if (!(sig_err->syndrome & (MLX5_SIGERR_CQE_SYNDROME_REFTAG |
+				   MLX5_SIGERR_CQE_SYNDROME_APPTAG |
+				   MLX5_SIGERR_CQE_SYNDROME_GUARD))) {
+		mlx5_dbg(fp, MLX5_DBG_CQ,
+			 "unknown signature error, syndrome 0x%x\n",
+			 sig_err->syndrome);
+		return EINVAL;
+	}
+
+	if (sig_err->sig_type != MLX5_SIGERR_CQE_SIG_TYPE_BLOCK) {
+		mlx5_dbg(fp, MLX5_DBG_CQ,
+			 "not supported signature type 0x%x\n",
+			 sig_err->sig_type);
+		return EINVAL;
+	}
+
+	switch (sig_err->domain) {
+	case MLX5_SIGERR_CQE_DOMAIN_WIRE:
+		domain = &sig_ctx->block.attr.wire;
+		break;
+	case MLX5_SIGERR_CQE_DOMAIN_MEMORY:
+		domain = &sig_ctx->block.attr.mem;
+		break;
+	default:
+		mlx5_dbg(fp, MLX5_DBG_CQ, "unknown signature domain 0x%x\n",
+			 sig_err->domain);
+		return EINVAL;
+	}
+
+	if (domain->sig_type == MLX5_SIG_TYPE_NONE) {
+		mlx5_dbg(fp, MLX5_DBG_CQ,
+			 "unexpected signature error for non-signature domain\n");
+		return EINVAL;
+	}
+
+	mlx5_decode_sigerr(sig_err, domain, err_info);
+	sig_ctx->err_exists = false;
+
 	return 0;
 }
 

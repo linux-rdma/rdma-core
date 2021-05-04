@@ -431,6 +431,36 @@ static inline void mlx5dv_wr_set_mkey_sig_block(struct mlx5dv_qp_ex *mqp,
 	mqp->wr_set_mkey_sig_block(mqp, attr);
 }
 
+enum mlx5dv_mkey_err_type {
+	MLX5DV_MKEY_NO_ERR,
+	MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD,
+	MLX5DV_MKEY_SIG_BLOCK_BAD_REFTAG,
+	MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG,
+};
+
+struct mlx5dv_sig_err {
+	uint64_t actual_value;
+	uint64_t expected_value;
+	uint64_t offset;
+};
+
+struct mlx5dv_mkey_err {
+	enum mlx5dv_mkey_err_type err_type;
+	union {
+		struct mlx5dv_sig_err sig;
+	} err;
+};
+
+int _mlx5dv_mkey_check(struct mlx5dv_mkey *mkey,
+		       struct mlx5dv_mkey_err *err_info,
+		       size_t err_info_size);
+
+static inline int mlx5dv_mkey_check(struct mlx5dv_mkey *mkey,
+				    struct mlx5dv_mkey_err *err_info)
+{
+	return _mlx5dv_mkey_check(mkey, err_info, sizeof(*err_info));
+}
+
 enum mlx5dv_flow_action_esp_mask {
 	MLX5DV_FLOW_ACTION_ESP_MASK_FLAGS	= 1 << 0,
 };
@@ -801,6 +831,7 @@ enum {
 	MLX5_CQE_RESP_SEND_INV	= 4,
 	MLX5_CQE_RESIZE_CQ	= 5,
 	MLX5_CQE_NO_PACKET	= 6,
+	MLX5_CQE_SIG_ERR	= 12,
 	MLX5_CQE_REQ_ERR	= 13,
 	MLX5_CQE_RESP_ERR	= 14,
 	MLX5_CQE_INVALID	= 15,
@@ -1041,6 +1072,7 @@ enum {
 enum {
 	MLX5_WQE_UMR_CTRL_MKEY_MASK_LEN			= 1 << 0,
 	MLX5_WQE_UMR_CTRL_MKEY_MASK_START_ADDR		= 1 << 6,
+	MLX5_WQE_UMR_CTRL_MKEY_MASK_SIG_ERR		= 1 << 9,
 	MLX5_WQE_UMR_CTRL_MKEY_MASK_BSF_ENABLE		= 1 << 12,
 	MLX5_WQE_UMR_CTRL_MKEY_MASK_MKEY		= 1 << 13,
 	MLX5_WQE_UMR_CTRL_MKEY_MASK_QPN			= 1 << 14,

@@ -185,4 +185,5 @@ MLX5_1.19 {
 MLX5_1.20 {
 	global:
 		mlx5dv_map_ah_to_qp;
+		_mlx5dv_mkey_check;
 } MLX5_1.19;

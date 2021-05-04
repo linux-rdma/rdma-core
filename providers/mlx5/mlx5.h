@@ -807,8 +807,20 @@ struct mlx5_sig_block {
 	bool updated;
 };
 
+struct mlx5_sig_err {
+	uint16_t syndrome;
+	uint64_t expected;
+	uint64_t actual;
+	uint64_t offset;
+	uint8_t sig_type;
+	uint8_t domain;
+};
+
 struct mlx5_sig_ctx {
 	struct mlx5_sig_block block;
+	struct mlx5_sig_err err_info;
+	uint32_t err_count;
+	bool err_exists;
 };
 
 struct mlx5_mkey {
