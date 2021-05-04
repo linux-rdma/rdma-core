@@ -24,7 +24,15 @@ mlx5dv_dr_action_create_default_miss - Create default miss action
 
 mlx5dv_dr_action_create_tag - Create tag actions
 
-mlx5dv_dr_action_create_dest_ibv_qp, mlx5dv_dr_action_create_dest_table, mlx5dv_dr_action_create_dest_vport, mlx5dv_dr_action_create_dest_devx_tir - Create packet destination actions
+mlx5dv_dr_action_create_dest_ibv_qp - Create packet destination QP action
+
+mlx5dv_dr_action_create_dest_table  - Create packet destination dr table action
+
+mlx5dv_dr_action_create_dest_vport - Create packet destination vport action
+
+mlx5dv_dr_action_create_dest_ib_port - Create packet destination IB port action
+
+mlx5dv_dr_action_create_dest_devx_tir - Create packet destination TIR action
 
 mlx5dv_dr_action_create_dest_array - Create destination array action
 
@@ -108,6 +116,10 @@ struct mlx5dv_dr_action *mlx5dv_dr_action_create_dest_table(
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_dest_vport(
 		struct mlx5dv_dr_domain *domain,
 		uint32_t vport);
+
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_dest_ib_port(
+		struct mlx5dv_dr_domain *domain,
+		uint32_t ib_port);
 
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_dest_devx_tir(
 		struct mlx5dv_devx_obj *devx_obj);
@@ -241,6 +253,7 @@ Action: Destination
 *mlx5dv_dr_action_create_dest_ibv_qp* creates a terminating action delivering the packet to a QP, defined by **ibqp**. Valid only on domain type NIC_RX.
 *mlx5dv_dr_action_create_dest_table* creates a forwarding action to another flow table, defined by **table**. The destination **table** must be from the same domain with a level higher than zero.
 *mlx5dv_dr_action_create_dest_vport* creates a forwarding action to a **vport** on the same **domain**. Valid only on domain type FDB.
+*mlx5dv_dr_action_create_dest_ib_port* creates a forwarding action to a **ib_port** on the same **domain**. The valid range of ports is a based on the capability phys_port_cnt_ex provided by ibq_query_device_ex and it is possible to query the ports details using mlx5dv_query_port. Action is supported only on domain type FDB.
 *mlx5dv_dr_action_create_dest_devx_tir* creates a terminating action delivering the packet to a TIR, defined by **devx_obj**. Valid only on domain type NIC_RX.
 
 Action: Array

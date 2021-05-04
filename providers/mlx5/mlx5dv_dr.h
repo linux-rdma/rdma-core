@@ -796,6 +796,8 @@ struct dr_devx_vport_cap {
 	uint64_t icm_address_rx;
 	uint64_t icm_address_tx;
 	uint16_t num;
+	uint32_t metadata_c;
+	uint32_t metadata_c_mask;
 	/* locate vports table */
 	struct dr_devx_vport_cap *next;
 };
@@ -818,6 +820,8 @@ struct dr_devx_vports {
 	struct dr_devx_vport_cap	wire;
 	/* PF + VFS + SF */
 	struct dr_vports_table		*vports;
+	/* IB ports to vport + other_vports */
+	struct dr_devx_vport_cap	**ib_ports;
 	/* Number of vports PF + VFS + SFS + WIRE */
 	uint32_t			num_ports;
 	/* Protect vport query and add*/
@@ -1576,6 +1580,8 @@ void dr_vports_table_add_wire(struct dr_devx_vports *vports);
 void dr_vports_table_del_wire(struct dr_devx_vports *vports);
 struct dr_devx_vport_cap *dr_vports_table_get_vport_cap(struct dr_devx_caps *caps,
 							uint16_t vport);
+struct dr_devx_vport_cap *dr_vports_table_get_ib_port_cap(struct dr_devx_caps *caps,
+							  uint32_t ib_port);
 struct dr_vports_table *dr_vports_table_create(struct mlx5dv_dr_domain *dmn);
 void dr_vports_table_destroy(struct dr_vports_table *vports_tbl);
 

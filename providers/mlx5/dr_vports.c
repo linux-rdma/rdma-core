@@ -98,6 +98,79 @@ unlock_ret:
 	return new_vport;
 }
 
+static struct dr_devx_vport_cap *
+dr_vports_table_query_and_add_ib_port(struct ibv_context *ctx,
+				      struct dr_devx_vports *vports,
+				      uint32_t port_num)
+{
+	struct dr_devx_vport_cap *vport_ptr;
+	struct mlx5dv_port port_info = {};
+	bool new_vport = false;
+	uint64_t vport_flags;
+	uint64_t wire_flags;
+	int ret;
+
+	wire_flags = MLX5DV_QUERY_PORT_VPORT |
+		     MLX5DV_QUERY_PORT_VPORT_REG_C0 |
+		     MLX5DV_QUERY_PORT_ESW_OWNER_VHCA_ID |
+		     MLX5DV_QUERY_PORT_VPORT_STEERING_ICM_TX;
+
+	vport_flags = wire_flags |
+		      MLX5DV_QUERY_PORT_VPORT_VHCA_ID |
+		      MLX5DV_QUERY_PORT_VPORT_STEERING_ICM_RX;
+
+	ret = mlx5dv_query_port(ctx, port_num, &port_info);
+	/* Check if query succeed and vport is enabled */
+	if (ret || !(port_info.flags & MLX5DV_QUERY_PORT_VPORT))
+		return NULL;
+
+	/* Check if required fields were supplied */
+	if (port_info.vport == WIRE_PORT) {
+		if ((port_info.flags & wire_flags) != wire_flags) {
+			errno = EINVAL;
+			return NULL;
+		}
+	} else {
+		if ((port_info.flags & vport_flags) != vport_flags)
+			return NULL;
+	}
+
+	pthread_spin_lock(&vports->lock);
+
+	vport_ptr = dr_vports_table_find_vport_num(vports->vports,
+						   port_info.esw_owner_vhca_id,
+						   port_info.vport);
+	if (!vport_ptr) {
+		new_vport = true;
+		vport_ptr = calloc(1, sizeof(struct dr_devx_vport_cap));
+		if (!vport_ptr) {
+			errno = ENOMEM;
+			goto unlock_ret;
+		}
+	}
+
+	vport_ptr->num = port_info.vport;
+	vport_ptr->vport_gvmi = port_info.vport_vhca_id;
+	vport_ptr->vhca_gvmi = port_info.esw_owner_vhca_id;
+	vport_ptr->icm_address_rx = port_info.vport_steering_icm_rx;
+	vport_ptr->icm_address_tx = port_info.vport_steering_icm_tx;
+
+	if (port_info.flags & MLX5DV_QUERY_PORT_VPORT_REG_C0) {
+		vport_ptr->metadata_c = port_info.reg_c0.value;
+		vport_ptr->metadata_c_mask = port_info.reg_c0.mask;
+	}
+
+	if (new_vport) {
+		dr_vports_table_add_vport(vports->vports, vport_ptr);
+		/* IB port idx <-> vport idx <-> GVMI/ICM is constant */
+		vports->ib_ports[port_num - 1] = vport_ptr;
+	}
+
+unlock_ret:
+	pthread_spin_unlock(&vports->lock);
+	return vport_ptr;
+}
+
 struct dr_devx_vport_cap *
 dr_vports_table_get_vport_cap(struct dr_devx_caps *caps, uint16_t vport)
 {
@@ -117,6 +190,31 @@ dr_vports_table_get_vport_cap(struct dr_devx_caps *caps, uint16_t vport)
 
 	return dr_vports_table_query_and_add_vport(caps->dmn->ctx, vports,
 						   other_vport, vport);
+}
+
+struct dr_devx_vport_cap *
+dr_vports_table_get_ib_port_cap(struct dr_devx_caps *caps, uint32_t ib_port)
+{
+	struct dr_devx_vports *vports = &caps->vports;
+	struct dr_devx_vport_cap *vport_cap;
+
+	if (!ib_port) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (!vports->ib_ports || ib_port > vports->num_ports) {
+		errno = ENOTSUP;
+		return NULL;
+	}
+
+	/* Query IB port if not found */
+	vport_cap = vports->ib_ports[ib_port - 1];
+	if (vport_cap)
+		return vport_cap;
+
+	return dr_vports_table_query_and_add_ib_port(caps->dmn->ctx, vports,
+						     ib_port);
 }
 
 void dr_vports_table_add_wire(struct dr_devx_vports *vports)

@@ -73,6 +73,7 @@ rdma_alias_man_pages(
  mlx5dv_devx_umem_reg.3 mlx5dv_devx_umem_reg_ex.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_aso.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_table.3
+ mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_ib_port.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_ibv_qp.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_devx_tir.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_create_dest_vport.3

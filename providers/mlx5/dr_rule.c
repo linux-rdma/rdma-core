@@ -1147,12 +1147,12 @@ static int dr_rule_destroy_rule_root(struct mlx5dv_dr_rule *rule)
 	return 0;
 }
 
-static int dr_rule_skip(enum mlx5dv_dr_domain_type domain,
+static int dr_rule_skip(struct mlx5dv_dr_domain *dmn,
 			enum dr_domain_nic_type nic_type,
 			struct dr_match_param *mask,
 			struct dr_match_param *value)
 {
-	if (domain == MLX5DV_DR_DOMAIN_TYPE_FDB) {
+	if (dmn->type == MLX5DV_DR_DOMAIN_TYPE_FDB) {
 		if (mask->misc.source_port) {
 			if (nic_type == DR_DOMAIN_NIC_TYPE_RX)
 				if (value->misc.source_port != WIRE_PORT)
@@ -1160,6 +1160,30 @@ static int dr_rule_skip(enum mlx5dv_dr_domain_type domain,
 
 			if (nic_type == DR_DOMAIN_NIC_TYPE_TX)
 				if (value->misc.source_port == WIRE_PORT)
+					return 1;
+		}
+
+		/* Metadata C can be used to describe the source vport */
+		if (mask->misc2.metadata_reg_c_0) {
+			struct dr_devx_vport_cap *wire;
+			uint32_t vport_metadata_c;
+
+			wire = &dmn->info.caps.vports.wire;
+
+			/* No correlation between wire mask and regc0 mask */
+			if (!(wire->metadata_c_mask &
+			      mask->misc2.metadata_reg_c_0))
+				return 0;
+
+			vport_metadata_c = value->misc2.metadata_reg_c_0
+					   & wire->metadata_c_mask;
+
+			if (nic_type == DR_DOMAIN_NIC_TYPE_RX)
+				if (vport_metadata_c != wire->metadata_c)
+					return 1;
+
+			if (nic_type == DR_DOMAIN_NIC_TYPE_TX)
+				if (vport_metadata_c == wire->metadata_c)
 					return 1;
 		}
 	}
@@ -1187,7 +1211,7 @@ dr_rule_create_rule_nic(struct mlx5dv_dr_rule *rule,
 	struct dr_ste *ste = NULL; /* Fix compilation warning */
 	int ret, i;
 
-	if (dr_rule_skip(dmn->type, nic_dmn->type, &matcher->mask, param))
+	if (dr_rule_skip(dmn, nic_dmn->type, &matcher->mask, param))
 		return 0;
 
 	/* Set the tag values inside the ste array */

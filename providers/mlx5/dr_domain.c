@@ -172,6 +172,24 @@ static int dr_domain_query_esw_mgr(struct mlx5dv_dr_domain *dmn,
 	return 0;
 }
 
+static int dr_domain_query_and_set_ib_ports(struct mlx5dv_dr_domain *dmn)
+{
+	struct dr_devx_vports *vports = &dmn->info.caps.vports;
+	int i;
+
+	vports->ib_ports = calloc(vports->num_ports, sizeof(struct dr_devx_vport_cap *));
+	if (!vports->ib_ports) {
+		errno = ENOMEM;
+		return errno;
+	}
+
+	/* Best effort to query available ib ports */
+	for (i = 1; i <= vports->num_ports; i++)
+		dr_vports_table_get_ib_port_cap(&dmn->info.caps, i);
+
+	return 0;
+}
+
 static int dr_domain_query_fdb_caps(struct ibv_context *ctx,
 				    struct mlx5dv_dr_domain *dmn)
 {
@@ -204,6 +222,12 @@ static int dr_domain_query_fdb_caps(struct ibv_context *ctx,
 	dmn->info.caps.esw_rx_drop_address = esw_caps.drop_icm_address_rx;
 	dmn->info.caps.esw_tx_drop_address = esw_caps.drop_icm_address_tx;
 
+	/* Query all ib ports if supported */
+	ret = dr_domain_query_and_set_ib_ports(dmn);
+	if (ret) {
+		dr_dbg(dmn, "Failed to query ib vports\n");
+		return ret;
+	}
 	return 0;
 }
 
