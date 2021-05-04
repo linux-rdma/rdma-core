@@ -190,6 +190,7 @@ static inline void handle_good_req(struct ibv_wc *wc, struct mlx5_cqe64 *cqe, st
 		break;
 	case MLX5_OPCODE_UMR:
 	case MLX5_OPCODE_SET_PSV:
+	case MLX5_OPCODE_NOP:
 		wc->opcode = wq->wr_data[idx];
 		break;
 	case MLX5_OPCODE_TSO:
@@ -757,7 +758,8 @@ again:
 			switch (be32toh(cqe64->sop_drop_qpn) >> 24) {
 			case MLX5_OPCODE_UMR:
 			case MLX5_OPCODE_SET_PSV:
-				cq->umr_opcode = wq->wr_data[idx];
+			case MLX5_OPCODE_NOP:
+				cq->cached_opcode = wq->wr_data[idx];
 				break;
 
 			case MLX5_OPCODE_RDMA_READ:
@@ -1436,7 +1438,9 @@ static inline enum ibv_wc_opcode mlx5_cq_read_wc_opcode(struct ibv_cq_ex *ibcq)
 		case MLX5_OPCODE_ATOMIC_FA:
 			return IBV_WC_FETCH_ADD;
 		case MLX5_OPCODE_UMR:
-			return cq->umr_opcode;
+		case MLX5_OPCODE_SET_PSV:
+		case MLX5_OPCODE_NOP:
+			return cq->cached_opcode;
 		case MLX5_OPCODE_TSO:
 			return IBV_WC_TSO;
 		}

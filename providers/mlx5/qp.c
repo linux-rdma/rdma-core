@@ -41,6 +41,7 @@
 #include <util/compiler.h>
 
 #include "mlx5.h"
+#include "mlx5_ifc.h"
 #include "wqe.h"
 
 #define MLX5_ATOMIC_SIZE 8
@@ -3607,4 +3608,131 @@ void mlx5_clear_qp(struct mlx5_context *ctx, uint32_t qpn)
 		free(ctx->qp_table[tind].table);
 	else
 		ctx->qp_table[tind].table[qpn & MLX5_QP_TABLE_MASK] = NULL;
+}
+
+static int mlx5_qp_query_sqd(struct mlx5_qp *mqp, unsigned int *cur_idx)
+{
+	struct ibv_qp *ibqp = mqp->ibv_qp;
+	uint32_t in[DEVX_ST_SZ_DW(query_qp_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(query_qp_out)] = {};
+	int err;
+	void *qpc;
+
+	DEVX_SET(query_qp_in, in, opcode, MLX5_CMD_OP_QUERY_QP);
+	DEVX_SET(query_qp_in, in, qpn, ibqp->qp_num);
+
+	err = mlx5dv_devx_qp_query(ibqp, in, sizeof(in), out, sizeof(out));
+	if (err)
+		return -errno;
+
+	qpc = DEVX_ADDR_OF(query_qp_out, out, qpc);
+	if (DEVX_GET(qpc, qpc, state) != MLX5_QPC_STATE_SQDRAINED)
+		return -EINVAL;
+
+	*cur_idx =
+		DEVX_GET(qpc, qpc, hw_sq_wqebb_counter) & (mqp->sq.wqe_cnt - 1);
+
+	return 0;
+}
+
+static int mlx5_qp_sq_next_idx(struct mlx5_qp *mqp, unsigned int cur_idx,
+			       unsigned int *next_idx)
+{
+	unsigned int *wqe_head = mqp->sq.wqe_head;
+	unsigned int idx_mask = mqp->sq.wqe_cnt - 1;
+	unsigned int idx = cur_idx;
+	unsigned int next_head;
+
+	next_head = wqe_head[idx] + 1;
+	if (next_head == mqp->sq.head)
+		return ENOENT;
+
+	idx++;
+	while (wqe_head[idx] != next_head)
+		idx = (idx + 1) & idx_mask;
+
+	*next_idx = idx;
+
+	return 0;
+}
+
+static int mlx5dv_qp_cancel_wr(struct mlx5_qp *mqp, unsigned int idx)
+{
+	struct mlx5_wqe_ctrl_seg *ctrl;
+	uint32_t opmod_idx_opcode;
+	uint32_t *wr_data = &mqp->sq.wr_data[idx];
+
+	ctrl = mlx5_get_send_wqe(mqp, idx);
+
+	opmod_idx_opcode = be32toh(ctrl->opmod_idx_opcode);
+
+	/* Save the original opcode to return it in the work completion. */
+	switch (opmod_idx_opcode & 0xff) {
+	case MLX5_OPCODE_RDMA_WRITE_IMM:
+	case MLX5_OPCODE_RDMA_WRITE:
+		*wr_data = IBV_WC_RDMA_WRITE;
+		break;
+	case MLX5_OPCODE_SEND_IMM:
+	case MLX5_OPCODE_SEND:
+	case MLX5_OPCODE_SEND_INVAL:
+		*wr_data = IBV_WC_SEND;
+		break;
+	case MLX5_OPCODE_RDMA_READ:
+		*wr_data = IBV_WC_RDMA_READ;
+		break;
+	case MLX5_OPCODE_ATOMIC_CS:
+		*wr_data = IBV_WC_COMP_SWAP;
+		break;
+	case MLX5_OPCODE_ATOMIC_FA:
+		*wr_data = IBV_WC_FETCH_ADD;
+		break;
+	case MLX5_OPCODE_TSO:
+		*wr_data = IBV_WC_TSO;
+		break;
+	case MLX5_OPCODE_UMR:
+	case MLX5_OPCODE_SET_PSV:
+		/* wr_data is already set at posting WQE */
+		break;
+	default:
+		return -EINVAL;
+	}
+	opmod_idx_opcode &= 0xffffff00;
+	opmod_idx_opcode |= MLX5_OPCODE_NOP;
+
+	ctrl->opmod_idx_opcode = htobe32(opmod_idx_opcode);
+
+	return 0;
+}
+
+int mlx5dv_qp_cancel_posted_send_wrs(struct mlx5dv_qp_ex *dv_qp, uint64_t wr_id)
+{
+	struct mlx5_qp *mqp = mqp_from_mlx5dv_qp_ex(dv_qp);
+	unsigned int idx;
+	int ret;
+	int num_canceled_wrs = 0;
+
+	mlx5_spin_lock(&mqp->sq.lock);
+
+	ret = mlx5_qp_query_sqd(mqp, &idx);
+	if (ret)
+		goto unlock_and_exit;
+
+	if (idx == mqp->sq.cur_post)
+		goto unlock_and_exit;
+
+	while (!ret) {
+		if (mqp->sq.wrid[idx] == wr_id) {
+			num_canceled_wrs++;
+			ret = mlx5dv_qp_cancel_wr(mqp, idx);
+			if (ret)
+				goto unlock_and_exit;
+		}
+		ret = mlx5_qp_sq_next_idx(mqp, idx, &idx);
+	}
+	ret = num_canceled_wrs;
+
+unlock_and_exit:
+	mlx5_spin_unlock(&mqp->sq.lock);
+
+	return ret;
 }

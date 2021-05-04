@@ -495,6 +495,8 @@ static inline int mlx5dv_mkey_check(struct mlx5dv_mkey *mkey,
 	return _mlx5dv_mkey_check(mkey, err_info, sizeof(*err_info));
 }
 
+int mlx5dv_qp_cancel_posted_send_wrs(struct mlx5dv_qp_ex *mqp, uint64_t wr_id);
+
 enum mlx5dv_flow_action_esp_mask {
 	MLX5DV_FLOW_ACTION_ESP_MASK_FLAGS	= 1 << 0,
 };

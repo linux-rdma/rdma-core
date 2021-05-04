@@ -490,7 +490,7 @@ struct mlx5_cq {
 	struct mlx5_srq			*cur_srq;
 	struct mlx5_cqe64		*cqe64;
 	uint32_t			flags;
-	int			umr_opcode;
+	int				cached_opcode;
 	struct mlx5dv_clock_info	last_clock_info;
 	struct ibv_pd			*parent_domain;
 };

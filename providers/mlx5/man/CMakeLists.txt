@@ -31,6 +31,7 @@ rdma_man_pages(
   mlx5dv_modify_qp_udp_sport.3.md
   mlx5dv_open_device.3.md
   mlx5dv_pp_alloc.3.md
+  mlx5dv_qp_cancel_posted_send_wrs.3.md
   mlx5dv_query_device.3
   mlx5dv_query_port.3.md
   mlx5dv_query_qp_lag_port.3.md
