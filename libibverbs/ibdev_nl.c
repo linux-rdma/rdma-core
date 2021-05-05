@@ -219,3 +219,39 @@ err:
 	nl_socket_free(nl);
 	return EINVAL;
 }
+
+static int get_copy_on_fork_cb(struct nl_msg *msg, void *data)
+{
+	struct nlattr *tb[RDMA_NLDEV_ATTR_MAX];
+	int ret;
+
+	ret = nlmsg_parse(nlmsg_hdr(msg), 0, tb, RDMA_NLDEV_ATTR_MAX - 1,
+			  rdmanl_policy);
+	if (ret < 0)
+		return ret;
+
+	/* Older kernels don't support COF and don't report it through nl */
+	if (!tb[RDMA_NLDEV_SYS_ATTR_COPY_ON_FORK]) {
+		*(uint8_t *)data = 0;
+		return NL_OK;
+	}
+
+	*(uint8_t *)data = nla_get_u8(tb[RDMA_NLDEV_SYS_ATTR_COPY_ON_FORK]);
+	return NL_OK;
+}
+
+bool get_copy_on_fork(void)
+{
+	struct nl_sock *nl;
+	uint8_t cof;
+
+	nl = rdmanl_socket_alloc();
+	if (!nl)
+		return false;
+
+	if (rdmanl_get_copy_on_fork(nl, get_copy_on_fork_cb, &cof))
+		cof = false;
+
+	nl_socket_free(nl);
+	return cof;
+}
