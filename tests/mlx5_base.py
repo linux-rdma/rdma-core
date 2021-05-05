@@ -8,7 +8,7 @@ import errno
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, \
     Mlx5DVQPInitAttr, Mlx5QP, Mlx5DVDCInitAttr
 from tests.base import TrafficResources, set_rnr_attributes, DCT_KEY, \
-    RDMATestCase, PyverbsAPITestCase
+    RDMATestCase, PyverbsAPITestCase, RDMACMBaseTest
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
 from pyverbs.qp import QPCap, QPInitAttrEx, QPAttr
 import pyverbs.providers.mlx5.mlx5_enums as dve
@@ -61,6 +61,12 @@ class Mlx5PyverbsAPITestCase(PyverbsAPITestCase):
 
 
 class Mlx5RDMATestCase(RDMATestCase):
+    def setUp(self):
+        super().setUp()
+        skip_if_not_mlx5_dev(d.Context(name=self.dev_name))
+
+
+class Mlx5RDMACMBaseTest(RDMACMBaseTest):
     def setUp(self):
         super().setUp()
         skip_if_not_mlx5_dev(d.Context(name=self.dev_name))

@@ -7,13 +7,12 @@ import errno
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DVQPInitAttr, Mlx5QP, \
     Mlx5DVDCInitAttr, Mlx5Context
 from tests.test_rdmacm import CMAsyncConnection
-from tests.mlx5_base import Mlx5PyverbsAPITestCase
+from tests.mlx5_base import Mlx5PyverbsAPITestCase, Mlx5RDMACMBaseTest
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.srq import SRQ, SrqInitAttr, SrqAttr
 import pyverbs.providers.mlx5.mlx5_enums as dve
 from tests.base_rdmacm import AsyncCMResources
 from pyverbs.qp import QPCap, QPInitAttrEx
-from tests.base import RDMACMBaseTest
 from pyverbs.cmid import ConnParam
 from tests.base import DCT_KEY
 from pyverbs.addr import AH
@@ -160,7 +159,7 @@ class DcCMResources(AsyncCMResources):
         return ConnParam(qp_num=qp_num)
 
 
-class Mlx5CMTestCase(RDMACMBaseTest):
+class Mlx5CMTestCase(Mlx5RDMACMBaseTest):
     """
     Mlx5 RDMACM test class.
     """
