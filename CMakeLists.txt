@@ -602,6 +602,13 @@ CHECK_C_SOURCE_COMPILES("
  HAVE_GLIBC_GETRANDOM)
 RDMA_DoFixup("${HAVE_GLIBC_GETRANDOM}" "sys/random.h")
 
+# glibc 2.33 and newer stopped to properly declare __fxstat in sys/stat.h
+RDMA_Check_C_Compiles(HAVE_GLIBC_FXSTAT "
+ #include <sys/stat.h>
+ int main(int argc,const char *argv[]) {
+ struct stat stat = {};  __fxstat(0, 0, &stat);  return 0;}")
+RDMA_DoFixup("${HAVE_GLIBC_FXSTAT}" "sys/stat.h")
+
 #-------------------------
 # Build Prep
 # Write out a git ignore file to the build directory if it isn't the source
