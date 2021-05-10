@@ -10,8 +10,9 @@ import errno
 from pyverbs.providers.mlx5.mlx5dv_flow import Mlx5FlowMatcher, \
     Mlx5FlowMatcherAttr, Mlx5FlowMatchParameters, Mlx5FlowActionAttr, Mlx5Flow,\
     Mlx5PacketReformatFlowAction
+from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr
+from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
 from tests.utils import requires_root_on_eth, PacketConsts
-from pyverbs.pyverbs_error import PyverbsRDMAError
 from tests.base import RDMATestCase, RawResources
 import pyverbs.providers.mlx5.mlx5_enums as dve
 import pyverbs.enums as e
@@ -20,6 +21,37 @@ import struct
 
 
 MAX_MATCH_PARAM_SIZE = 0x180
+
+MLX5_CMD_OP_QUERY_HCA_CAP = 0x100
+MLX5_CMD_MOD_NIC_FLOW_TABLE_CAP = 0x7
+MLX5_CMD_OP_QUERY_HCA_CAP_OUT_LEN = 0x1010
+
+
+@u.skip_unsupported
+def requires_reformat_support(func):
+    def func_wrapper(instance):
+        try:
+            ctx = Mlx5Context(Mlx5DVContextAttr(), instance.dev_name)
+        except PyverbsUserError as ex:
+            raise unittest.SkipTest(f'Could not open mlx5 context ({ex})')
+        except PyverbsRDMAError:
+            raise unittest.SkipTest('Opening mlx5 context is not supported')
+        # Query NIC Flow Table capabilities
+        cmd_in = struct.pack('!HIH8s', MLX5_CMD_OP_QUERY_HCA_CAP, 0,
+                             MLX5_CMD_MOD_NIC_FLOW_TABLE_CAP << 1 | 0x1,
+                             bytes(8))
+        cmd_out = Mlx5Context.devx_general_cmd(ctx, cmd_in,
+                                               MLX5_CMD_OP_QUERY_HCA_CAP_OUT_LEN)
+        cmd_view = memoryview(cmd_out)
+        status = cmd_view[0]
+        if status:
+            raise PyverbsRDMAError('Query NIC Flow Table CAPs failed with status'
+                                   f' ({status})')
+        # Verify that both NIC RX and TX support reformat actions
+        if not (cmd_view[80] & 0x1 and cmd_view[272] & 0x1):
+            raise unittest.SkipTest('NIC flow table does not support reformat')
+        return func(instance)
+    return func_wrapper
 
 
 class Mlx5FlowResources(RawResources):
@@ -107,7 +139,7 @@ class Mlx5MatcherTest(RDMATestCase):
         self.server.flow = Mlx5Flow(matcher, value_param, [action_qp], 1)
         u.raw_traffic(self.client, self.server, self.iters)
 
-    @u.skip_unsupported
+    @requires_reformat_support
     def test_tx_packet_reformat(self):
         """
         Creates packet reformat (encap) action on TX and with QP action on RX
