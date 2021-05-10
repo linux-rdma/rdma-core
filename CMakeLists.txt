@@ -226,7 +226,7 @@ RDMA_EnableCStd()
 # but turn off some that are not terribly useful for this source.
 # FIXME: I wonder how many of the signed compares are bugs?
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WARNINGS
-  "-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter")
+  "-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wno-stringop-overread")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WMISSING_PROTOTYPES "-Wmissing-prototypes")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WMISSING_DECLARATIONS "-Wmissing-declarations")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WWRITE_STRINGS "-Wwrite-strings")
@@ -601,6 +601,13 @@ CHECK_C_SOURCE_COMPILES("
  int main(int argc,const char *argv[]) {char buf[64]; return getrandom(buf, 64, GRND_NONBLOCK);}"
  HAVE_GLIBC_GETRANDOM)
 RDMA_DoFixup("${HAVE_GLIBC_GETRANDOM}" "sys/random.h")
+
+# glibc 2.33 and newer stopped to properly declare __fxstat in sys/stat.h
+RDMA_Check_C_Compiles(HAVE_GLIBC_FXSTAT "
+ #include <sys/stat.h>
+ int main(int argc,const char *argv[]) {
+ struct stat stat = {};  __fxstat(0, 0, &stat);  return 0;}")
+RDMA_DoFixup("${HAVE_GLIBC_FXSTAT}" "sys/stat.h")
 
 #-------------------------
 # Build Prep
