@@ -125,6 +125,7 @@ enum dr_ste_ctx_action_cap {
 	DR_STE_CTX_ACTION_CAP_NONE	= 0,
 	DR_STE_CTX_ACTION_CAP_TX_POP	= 1 << 0,
 	DR_STE_CTX_ACTION_CAP_RX_PUSH	= 1 << 1,
+	DR_STE_CTX_ACTION_CAP_RX_ENCAP	= 1 << 3,
 };
 
 enum {
@@ -766,6 +767,7 @@ struct dr_devx_flow_dest_info {
 		uint32_t vport_num;
 		uint32_t tir_num;
 		uint32_t counter_id;
+		uint32_t ft_id;
 	};
 	bool has_reformat;
 	uint32_t reformat_id;
