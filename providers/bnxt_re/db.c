@@ -63,7 +63,8 @@ void bnxt_re_ring_rq_db(struct bnxt_re_qp *qp)
 {
 	struct bnxt_re_db_hdr hdr;
 
-	bnxt_re_init_db_hdr(&hdr, qp->rqq->tail, qp->qpid, BNXT_RE_QUE_TYPE_RQ);
+	bnxt_re_init_db_hdr(&hdr, qp->jrqq->hwque->tail,
+			    qp->qpid, BNXT_RE_QUE_TYPE_RQ);
 	bnxt_re_ring_db(qp->udpi, &hdr);
 }
 
@@ -71,7 +72,8 @@ void bnxt_re_ring_sq_db(struct bnxt_re_qp *qp)
 {
 	struct bnxt_re_db_hdr hdr;
 
-	bnxt_re_init_db_hdr(&hdr, qp->sqq->tail, qp->qpid, BNXT_RE_QUE_TYPE_SQ);
+	bnxt_re_init_db_hdr(&hdr, qp->jsqq->hwque->tail,
+			    qp->qpid, BNXT_RE_QUE_TYPE_SQ);
 	bnxt_re_ring_db(qp->udpi, &hdr);
 }
 
