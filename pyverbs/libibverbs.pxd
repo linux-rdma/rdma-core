@@ -3,6 +3,8 @@
 
 include 'libibverbs_enums.pxd'
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
+from posix.time cimport timespec
+
 
 cdef extern from 'infiniband/verbs.h':
 
@@ -559,6 +561,10 @@ cdef extern from 'infiniband/verbs.h':
     cdef struct ibv_flow_action:
         ibv_context *context
 
+    cdef struct ibv_values_ex:
+        uint32_t comp_mask
+        timespec raw_clock
+
     ibv_device **ibv_get_device_list(int *n)
     int ibv_get_device_index(ibv_device *device);
     void ibv_free_device_list(ibv_device **list)
@@ -704,6 +710,8 @@ cdef extern from 'infiniband/verbs.h':
                                 uint32_t flags)
     ibv_flow *ibv_create_flow(ibv_qp *qp, ibv_flow_attr *flow)
     int ibv_destroy_flow(ibv_flow *flow_id)
+    int ibv_query_rt_values_ex(ibv_context *context, ibv_values_ex *values)
+
 
 cdef extern from 'infiniband/driver.h':
     int ibv_query_gid_type(ibv_context *context, uint8_t port_num,

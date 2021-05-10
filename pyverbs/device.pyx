@@ -292,6 +292,24 @@ cdef class Context(PyverbsCM):
                                    f'{port_num} in index {gid_index}', rc)
         return entry
 
+    def query_rt_values_ex(self, comp_mask=v.IBV_VALUES_MASK_RAW_CLOCK):
+        """
+        Query an RDMA device for some real time values.
+        :return: A tuple of the real time values according to comp_mask (sec, nsec)
+        """
+        cdef v.ibv_values_ex *val
+        val = <v.ibv_values_ex *>malloc(sizeof(v.ibv_values_ex))
+        val.comp_mask = comp_mask
+        rc = v.ibv_query_rt_values_ex(self.context, val)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to query real time values', rc)
+        if val.comp_mask != comp_mask:
+            raise PyverbsRDMAError(f'Failed to query real time values with requested comp_mask')
+        nsec = (<v.ibv_values_ex *>val).raw_clock.tv_nsec
+        sec = (<v.ibv_values_ex *>val).raw_clock.tv_sec
+        free(val)
+        return sec, nsec
+
     cdef add_ref(self, obj):
         if isinstance(obj, PD):
             self.pds.add(obj)
