@@ -491,6 +491,9 @@ static int hns_roce_create_idx_que(struct hns_roce_srq *srq)
 	for (i = 0; i < idx_que->bitmap_cnt; ++i)
 		idx_que->bitmap[i] = ~(0UL);
 
+	idx_que->head = 0;
+	idx_que->tail = srq->wqe_cnt - 1;
+
 	return 0;
 }
 
@@ -511,9 +514,6 @@ static int hns_roce_alloc_srq_buf(struct hns_roce_srq *srq)
 		free(srq->wrid);
 		return ENOMEM;
 	}
-
-	srq->head = 0;
-	srq->tail = srq->wqe_cnt - 1;
 
 	return 0;
 }

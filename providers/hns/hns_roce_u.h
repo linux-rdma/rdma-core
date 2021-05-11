@@ -205,6 +205,8 @@ struct hns_roce_idx_que {
 	int				entry_shift;
 	unsigned long			*bitmap;
 	int				bitmap_cnt;
+	unsigned int			head;
+	unsigned int			tail;
 };
 
 struct hns_roce_srq {
@@ -217,8 +219,6 @@ struct hns_roce_srq {
 	unsigned int			max_gs;
 	unsigned int			rsv_sge;
 	unsigned int			wqe_shift;
-	int				head;
-	int				tail;
 	unsigned int			*db;
 	unsigned short			counter;
 	struct hns_roce_idx_que		idx_que;

@@ -262,7 +262,7 @@ static void hns_roce_free_srq_wqe(struct hns_roce_srq *srq, uint16_t ind)
 	bitmap_num = ind / BIT_CNT_PER_LONG;
 	bit_num = ind % BIT_CNT_PER_LONG;
 	srq->idx_que.bitmap[bitmap_num] |= (1ULL << bit_num);
-	srq->tail++;
+	srq->idx_que.tail++;
 
 	pthread_spin_unlock(&srq->lock);
 }
@@ -1573,7 +1573,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 	pthread_spin_lock(&srq->lock);
 
 	/* current idx of srqwq */
-	ind = srq->head & (srq->wqe_cnt - 1);
+	ind = srq->idx_que.head & (srq->wqe_cnt - 1);
 
 	max_sge = srq->max_gs - srq->rsv_sge;
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
@@ -1583,7 +1583,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 			break;
 		}
 
-		if (srq->head == srq->tail) {
+		if (srq->idx_que.head == srq->idx_que.tail) {
 			ret = -ENOMEM;
 			*bad_wr = wr;
 			break;
@@ -1615,7 +1615,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 	}
 
 	if (nreq) {
-		srq->head += nreq;
+		srq->idx_que.head += nreq;
 
 		/*
 		 * Make sure that descriptors are written before
@@ -1625,8 +1625,8 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 
 		srq_db.byte_4 = htole32(HNS_ROCE_V2_SRQ_DB << DB_BYTE_4_CMD_S |
 					srq->srqn);
-		srq_db.parameter =
-			htole32(srq->head & DB_PARAM_SRQ_PRODUCER_COUNTER_M);
+		srq_db.parameter = htole32(srq->idx_que.head &
+					   DB_PARAM_SRQ_PRODUCER_COUNTER_M);
 
 		hns_roce_write64((uint32_t *)&srq_db, ctx,
 				 ROCEE_VF_DB_CFG0_OFFSET);
