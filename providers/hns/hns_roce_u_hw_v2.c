@@ -244,7 +244,7 @@ static void *get_send_sge_ex(struct hns_roce_qp *qp, unsigned int n)
 
 static void *get_srq_wqe(struct hns_roce_srq *srq, unsigned int n)
 {
-	return srq->buf.buf + (n << srq->wqe_shift);
+	return srq->wqe_buf.buf + (n << srq->wqe_shift);
 }
 
 static void *get_idx_buf(struct hns_roce_idx_que *idx_que, int n)

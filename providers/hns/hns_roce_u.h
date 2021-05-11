@@ -211,7 +211,8 @@ struct hns_roce_idx_que {
 
 struct hns_roce_srq {
 	struct verbs_srq		verbs_srq;
-	struct hns_roce_buf		buf;
+	struct hns_roce_idx_que		idx_que;
+	struct hns_roce_buf		wqe_buf;
 	pthread_spinlock_t		lock;
 	unsigned long			*wrid;
 	unsigned int			srqn;
@@ -221,7 +222,6 @@ struct hns_roce_srq {
 	unsigned int			wqe_shift;
 	unsigned int			*db;
 	unsigned short			counter;
-	struct hns_roce_idx_que		idx_que;
 };
 
 struct hns_roce_wq {
@@ -343,8 +343,7 @@ static inline struct hns_roce_cq *to_hr_cq(struct ibv_cq *ibv_cq)
 
 static inline struct hns_roce_srq *to_hr_srq(struct ibv_srq *ibv_srq)
 {
-	return container_of(container_of(ibv_srq, struct verbs_srq, srq),
-			    struct hns_roce_srq, verbs_srq);
+	return container_of(ibv_srq, struct hns_roce_srq, verbs_srq.srq);
 }
 
 static inline struct hns_roce_qp *to_hr_qp(struct ibv_qp *ibv_qp)
