@@ -492,7 +492,7 @@ static int hns_roce_create_idx_que(struct hns_roce_srq *srq)
 		idx_que->bitmap[i] = ~(0UL);
 
 	idx_que->head = 0;
-	idx_que->tail = srq->wqe_cnt - 1;
+	idx_que->tail = 0;
 
 	return 0;
 }

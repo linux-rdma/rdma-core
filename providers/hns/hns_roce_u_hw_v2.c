@@ -1527,6 +1527,15 @@ static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 	return ret;
 }
 
+static int hns_roce_v2_srqwq_overflow(struct hns_roce_srq *srq)
+{
+	struct hns_roce_idx_que *idx_que = &srq->idx_que;
+	unsigned int cur;
+
+	cur = idx_que->head - idx_que->tail;
+	return cur >= srq->wqe_cnt - 1;
+}
+
 static int get_wqe_idx(struct hns_roce_srq *srq, int *wqe_idx)
 {
 	struct hns_roce_idx_que *idx_que = &srq->idx_que;
@@ -1577,14 +1586,14 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 
 	max_sge = srq->max_gs - srq->rsv_sge;
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
-		if (wr->num_sge > max_sge) {
-			ret = -EINVAL;
+		if (hns_roce_v2_srqwq_overflow(srq)) {
+			ret = -ENOMEM;
 			*bad_wr = wr;
 			break;
 		}
 
-		if (srq->idx_que.head == srq->idx_que.tail) {
-			ret = -ENOMEM;
+		if (wr->num_sge > max_sge) {
+			ret = -EINVAL;
 			*bad_wr = wr;
 			break;
 		}
