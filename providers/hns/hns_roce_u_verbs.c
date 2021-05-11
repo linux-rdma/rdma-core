@@ -489,6 +489,9 @@ static int verify_srq_create_attr(struct hns_roce_context *context,
 	    attr->attr.max_sge > context->max_srq_sge)
 		return -EINVAL;
 
+	attr->attr.max_wr = max_t(uint32_t, attr->attr.max_wr,
+				  HNS_ROCE_MIN_SRQ_WQE_NUM);
+
 	return 0;
 }
 
@@ -498,7 +501,7 @@ static void set_srq_param(struct ibv_context *context, struct hns_roce_srq *srq,
 	if (to_hr_dev(context->device)->hw_version == HNS_ROCE_HW_VER2)
 		srq->rsv_sge = 1;
 
-	srq->wqe_cnt = roundup_pow_of_two(attr->attr.max_wr + 1);
+	srq->wqe_cnt = roundup_pow_of_two(attr->attr.max_wr);
 	srq->max_gs = roundup_pow_of_two(attr->attr.max_sge + srq->rsv_sge);
 	srq->wqe_shift = hr_ilog32(roundup_pow_of_two(HNS_ROCE_SGE_SIZE *
 						      srq->max_gs));

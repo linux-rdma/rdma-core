@@ -1530,10 +1530,8 @@ static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 static int hns_roce_v2_srqwq_overflow(struct hns_roce_srq *srq)
 {
 	struct hns_roce_idx_que *idx_que = &srq->idx_que;
-	unsigned int cur;
 
-	cur = idx_que->head - idx_que->tail;
-	return cur >= srq->wqe_cnt - 1;
+	return idx_que->head - idx_que->tail >= srq->wqe_cnt;
 }
 
 static int check_post_srq_valid(struct hns_roce_srq *srq,
