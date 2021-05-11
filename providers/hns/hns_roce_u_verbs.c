@@ -525,7 +525,7 @@ static int hns_roce_verify_srq(struct hns_roce_context *context,
 	    init_attr->srq_type != IBV_SRQT_XRC)
 		return -EINVAL;
 
-	if (!init_attr->attr.max_wr || !init_attr->attr.max_sge ||
+	if (!init_attr->attr.max_sge ||
 	    init_attr->attr.max_wr > context->max_srq_wr ||
 	    init_attr->attr.max_sge > context->max_srq_sge)
 		return -EINVAL;
