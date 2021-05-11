@@ -16,15 +16,18 @@ import weakref
 
 
 cdef class Mlx5FlowMatchParameters(PyverbsObject):
-    def __init__(self, size=0, values=bytes()):
+    def __init__(self, size, values):
         """
         Initialize a Mlx5FlowMatchParameters object over an underlying
         mlx5dv_flow_match_parameters C object that defines match parameters for
         steering flow.
         :param size: Length of the mask/value in bytes
         :param values: Bytes with mask/value to use in format of Flow Table
-                       Entry Match Parameters Format table in PRM.
+                       Entry Match Parameters Format table in PRM or instance
+                       of FlowTableEntryMatchParam class.
+
         """
+        cdef char *py_bytes_c
         super().__init__()
         struct_size = sizeof(size_t) + size
         self.params = <dv.mlx5dv_flow_match_parameters *>calloc(1, struct_size)
@@ -32,7 +35,9 @@ cdef class Mlx5FlowMatchParameters(PyverbsObject):
             raise PyverbsError(f'Failed to allocate buffer of size {struct_size}')
         self.params.match_sz = size
         if size:
-            memcpy(self.params.match_buf, <char*>values, size)
+            py_bytes = bytes(values)
+            py_bytes_c = py_bytes
+            memcpy(self.params.match_buf, py_bytes_c, len(values))
 
     def __dealloc__(self):
         self.close()
