@@ -1527,8 +1527,9 @@ static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 	return ret;
 }
 
-static int find_empty_entry(struct hns_roce_idx_que *idx_que)
+static int get_wqe_idx(struct hns_roce_srq *srq, int *wqe_idx)
 {
+	struct hns_roce_idx_que *idx_que = &srq->idx_que;
 	int bit_num;
 	int i;
 
@@ -1536,12 +1537,20 @@ static int find_empty_entry(struct hns_roce_idx_que *idx_que)
 	for (i = 0; i < idx_que->bitmap_cnt && idx_que->bitmap[i] == 0; ++i)
 		;
 	if (i == idx_que->bitmap_cnt)
-		return ENOMEM;
+		return -ENOMEM;
 
 	bit_num = ffsl(idx_que->bitmap[i]);
 	idx_que->bitmap[i] &= ~(1ULL << (bit_num - 1));
 
-	return i * BIT_CNT_PER_LONG + (bit_num - 1);
+	*wqe_idx = i * BIT_CNT_PER_LONG + (bit_num - 1);
+
+	/* If wqe_cnt is less than BIT_CNT_PER_LONG, wqe_idx may be greater
+	 * than wqe_cnt.
+	 */
+	if (*wqe_idx >= srq->wqe_cnt)
+		return -ENOMEM;
+
+	return 0;
 }
 
 static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
@@ -1580,9 +1589,8 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 			break;
 		}
 
-		wqe_idx = find_empty_entry(&srq->idx_que);
-		if (wqe_idx < 0 || wqe_idx >= srq->wqe_cnt) {
-			ret = -ENOMEM;
+		ret = get_wqe_idx(srq, &wqe_idx);
+		if (ret) {
 			*bad_wr = wr;
 			break;
 		}
