@@ -44,6 +44,7 @@
 #include <stddef.h>
 #include <endian.h>
 #include <pthread.h>
+#include <sys/param.h>
 
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>

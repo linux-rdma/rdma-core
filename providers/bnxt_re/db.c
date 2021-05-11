@@ -62,18 +62,20 @@ static void bnxt_re_init_db_hdr(struct bnxt_re_db_hdr *hdr, uint32_t indx,
 void bnxt_re_ring_rq_db(struct bnxt_re_qp *qp)
 {
 	struct bnxt_re_db_hdr hdr;
+	uint32_t tail;
 
-	bnxt_re_init_db_hdr(&hdr, qp->jrqq->hwque->tail,
-			    qp->qpid, BNXT_RE_QUE_TYPE_RQ);
+	tail = qp->jrqq->hwque->tail / qp->jrqq->hwque->max_slots;
+	bnxt_re_init_db_hdr(&hdr, tail, qp->qpid, BNXT_RE_QUE_TYPE_RQ);
 	bnxt_re_ring_db(qp->udpi, &hdr);
 }
 
 void bnxt_re_ring_sq_db(struct bnxt_re_qp *qp)
 {
 	struct bnxt_re_db_hdr hdr;
+	uint32_t tail;
 
-	bnxt_re_init_db_hdr(&hdr, qp->jsqq->hwque->tail,
-			    qp->qpid, BNXT_RE_QUE_TYPE_SQ);
+	tail = qp->jsqq->hwque->tail / qp->jsqq->hwque->max_slots;
+	bnxt_re_init_db_hdr(&hdr, tail, qp->qpid, BNXT_RE_QUE_TYPE_SQ);
 	bnxt_re_ring_db(qp->udpi, &hdr);
 }
 
