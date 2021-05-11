@@ -580,6 +580,7 @@ static struct ibv_srq *create_srq(struct ibv_context *context,
 	srq->wqe_cnt = roundup_pow_of_two(attr->max_wr + 1);
 	srq->max_gs = roundup_pow_of_two(attr->max_sge + srq->rsv_sge);
 	attr->max_sge = srq->max_gs;
+	attr->srq_limit = 0;
 
 	ret = hns_roce_create_idx_que(srq);
 	if (ret)
