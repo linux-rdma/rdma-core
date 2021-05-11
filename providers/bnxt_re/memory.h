@@ -97,14 +97,14 @@ static inline uint32_t bnxt_re_incr(uint32_t val, uint32_t max)
 	return (++val & (max - 1));
 }
 
-static inline void bnxt_re_incr_tail(struct bnxt_re_queue *que)
+static inline void bnxt_re_incr_tail(struct bnxt_re_queue *que, uint8_t cnt)
 {
-	que->tail = bnxt_re_incr(que->tail, que->depth);
+	que->tail = (que->tail + cnt) & (que->depth - 1);
 }
 
-static inline void bnxt_re_incr_head(struct bnxt_re_queue *que)
+static inline void bnxt_re_incr_head(struct bnxt_re_queue *que, uint8_t cnt)
 {
-	que->head = bnxt_re_incr(que->head, que->depth);
+	que->head = (que->head + cnt) & (que->depth - 1);
 }
 
 #endif
