@@ -760,6 +760,11 @@ static int verify_qp_create_cap(struct hns_roce_context *ctx,
 	    cap->max_recv_sge > ctx->max_sge)
 		return -EINVAL;
 
+	if (attr->srq) {
+		cap->max_recv_wr = 0;
+		cap->max_recv_sge = 0;
+	}
+
 	min_wqe_num = hr_dev->hw_version == HNS_ROCE_HW_VER1 ?
 		      HNS_ROCE_V1_MIN_WQE_NUM : HNS_ROCE_V2_MIN_WQE_NUM;
 
