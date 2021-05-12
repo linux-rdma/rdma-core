@@ -184,5 +184,6 @@ MLX5_1.19 {
 
 MLX5_1.20 {
 	global:
+		mlx5dv_dr_domain_allow_duplicate_rules;
 		mlx5dv_map_ah_to_qp;
 } MLX5_1.19;

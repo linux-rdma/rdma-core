@@ -438,6 +438,17 @@ void mlx5dv_dr_domain_set_reclaim_device_memory(struct mlx5dv_dr_domain *dmn,
 	dr_domain_unlock(dmn);
 }
 
+void mlx5dv_dr_domain_allow_duplicate_rules(struct mlx5dv_dr_domain *dmn,
+					    bool allow)
+{
+	dr_domain_lock(dmn);
+	if (allow)
+		dmn->flags &= ~DR_DOMAIN_FLAG_DISABLE_DUPLICATE_RULES;
+	else
+		dmn->flags |= DR_DOMAIN_FLAG_DISABLE_DUPLICATE_RULES;
+	dr_domain_unlock(dmn);
+}
+
 int mlx5dv_dr_domain_destroy(struct mlx5dv_dr_domain *dmn)
 {
 	if (atomic_load(&dmn->refcount) > 1)
