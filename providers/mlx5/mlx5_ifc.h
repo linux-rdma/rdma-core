@@ -3393,6 +3393,7 @@ struct mlx5_ifc_set_fte_out_bits {
 
 enum dr_devx_flow_dest_type {
 	MLX5_FLOW_DEST_TYPE_VPORT	= 0x0,
+	MLX5_FLOW_DEST_TYPE_FT		= 0x1,
 	MLX5_FLOW_DEST_TYPE_TIR		= 0x2,
 
 	MLX5_FLOW_DEST_TYPE_COUNTER	= 0x100,

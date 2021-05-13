@@ -62,6 +62,7 @@ class PyverbsAPITestCase(unittest.TestCase):
         super().__init__(methodName)
         # Hold the command line arguments
         self.config = parser.get_config()
+        self.dev_name = None
         self.ctx = None
         self.attr = None
         self.attr_ex = None
@@ -75,16 +76,19 @@ class PyverbsAPITestCase(unittest.TestCase):
         default.
         """
         self.ib_port = self.config['port']
-        dev_name = self.config['dev']
-        if not dev_name:
+        self.dev_name = self.config['dev']
+        if not self.dev_name:
             dev_list = d.get_device_list()
             if not dev_list:
                 raise unittest.SkipTest('No IB devices found')
-            dev_name = dev_list[0].name.decode()
+            self.dev_name = dev_list[0].name.decode()
 
-        self.ctx = d.Context(name=dev_name)
+        self.create_context()
         self.attr = self.ctx.query_device()
         self.attr_ex = self.ctx.query_device_ex()
+
+    def create_context(self):
+        self.ctx = d.Context(name=self.dev_name)
 
     def tearDown(self):
         self.ctx.close()
@@ -124,6 +128,8 @@ class RDMATestCase(unittest.TestCase):
         self.gid_type = gid_type if gid_index is None else None
         self.ip_addr = None
         self.pre_environment = {}
+        self.server = None
+        self.client = None
 
     def set_env_variable(self, var, value):
         """
@@ -135,17 +141,6 @@ class RDMATestCase(unittest.TestCase):
         if var not in self.pre_environment.keys():
             self.pre_environment[var] = os.environ.get(var)
         os.environ[var] = value
-
-    def tearDown(self):
-        """
-        Restore the previous environment variables values before ending the test.
-        """
-        for k, v in self.pre_environment.items():
-            if v is None:
-                os.environ.pop(k)
-            else:
-                os.environ[k] = v
-        super().tearDown()
 
     def is_eth_and_has_roce_hw_bug(self):
         """
@@ -286,7 +281,12 @@ class RDMATestCase(unittest.TestCase):
                 os.environ.pop(k)
             else:
                 os.environ[k] = v
+        if self.server:
+            self.server.ctx.close()
+        if self.client:
+            self.client.ctx.close()
         super().tearDown()
+
 
 class BaseResources(object):
     """

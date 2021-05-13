@@ -29,12 +29,6 @@ class DCTest(RDMATestCase):
         self.client = None
         self.traffic_args = None
 
-    def tearDown(self):
-        if self.server:
-            self.server.ctx.close()
-        if self.client:
-            self.client.ctx.close()
-
     def sync_remote_attr(self):
         """
         Exchange the remote attributes between the server and the client.

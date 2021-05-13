@@ -417,6 +417,9 @@ cdef extern from '<infiniband/verbs.h>':
     cpdef enum:
         IBV_WC_STANDARD_FLAGS
 
+    cpdef enum ibv_values_mask:
+        IBV_VALUES_MASK_RAW_CLOCK
+
     cpdef enum ibv_qp_create_send_ops_flags:
         IBV_QP_EX_WITH_RDMA_WRITE
         IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM

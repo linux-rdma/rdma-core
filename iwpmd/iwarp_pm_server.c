@@ -36,7 +36,6 @@
 #include <getopt.h>
 #include "iwarp_pm.h"
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 
 static const char iwpm_ulib_name [] = "iWarpPortMapperUser";
@@ -1262,7 +1261,9 @@ static int process_iwpm_msg(int pm_sock)
 		ret = -errno;
 		goto process_iwpm_msg_exit;
 	}
-	parse_iwpm_msg(&recv_buffer, &msg_parms);
+	ret = parse_iwpm_msg(&recv_buffer, &msg_parms);
+	if (ret)
+		goto process_iwpm_msg_exit;
 
 	switch (msg_parms.mt) {
 	case IWARP_PM_MT_REQ:

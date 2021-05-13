@@ -492,6 +492,9 @@ dr_devx_set_fte(struct ibv_context *ctx,
 			case MLX5_FLOW_DEST_TYPE_TIR:
 				id = fte_attr->dest_arr[i].tir_num;
 				break;
+			case MLX5_FLOW_DEST_TYPE_FT:
+				id = fte_attr->dest_arr[i].ft_id;
+				break;
 			default:
 				errno = EOPNOTSUPP;
 				goto err_out;

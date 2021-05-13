@@ -288,6 +288,13 @@ static int get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
 	return EOPNOTSUPP;
 }
 
+static struct ibv_dm *import_dm(struct ibv_context *context,
+				uint32_t dm_handle)
+{
+	errno = EOPNOTSUPP;
+	return NULL;
+}
+
 static struct ibv_mr *import_mr(struct ibv_pd *pd,
 				uint32_t mr_handle)
 {
@@ -466,6 +473,10 @@ static int set_ece(struct ibv_qp *qp, struct ibv_ece *ece)
 	return EOPNOTSUPP;
 }
 
+static void unimport_dm(struct ibv_dm *dm)
+{
+}
+
 static void unimport_mr(struct ibv_mr *mr)
 {
 }
@@ -528,6 +539,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	free_context,
 	free_dm,
 	get_srq_num,
+	import_dm,
 	import_mr,
 	import_pd,
 	modify_cq,
@@ -557,6 +569,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	rereg_mr,
 	resize_cq,
 	set_ece,
+	unimport_dm,
 	unimport_mr,
 	unimport_pd,
 };
@@ -650,6 +663,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_PRIV_OP_IC(ctx, free_context);
 	SET_OP(vctx, free_dm);
 	SET_OP(vctx, get_srq_num);
+	SET_PRIV_OP_IC(vctx, import_dm);
 	SET_PRIV_OP_IC(vctx, import_mr);
 	SET_PRIV_OP_IC(vctx, import_pd);
 	SET_OP(vctx, modify_cq);
@@ -679,6 +693,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_PRIV_OP(ctx, rereg_mr);
 	SET_PRIV_OP(ctx, resize_cq);
 	SET_PRIV_OP_IC(vctx, set_ece);
+	SET_PRIV_OP_IC(vctx, unimport_dm);
 	SET_PRIV_OP_IC(vctx, unimport_mr);
 	SET_PRIV_OP_IC(vctx, unimport_pd);
 

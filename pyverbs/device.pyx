@@ -292,6 +292,24 @@ cdef class Context(PyverbsCM):
                                    f'{port_num} in index {gid_index}', rc)
         return entry
 
+    def query_rt_values_ex(self, comp_mask=v.IBV_VALUES_MASK_RAW_CLOCK):
+        """
+        Query an RDMA device for some real time values.
+        :return: A tuple of the real time values according to comp_mask (sec, nsec)
+        """
+        cdef v.ibv_values_ex *val
+        val = <v.ibv_values_ex *>malloc(sizeof(v.ibv_values_ex))
+        val.comp_mask = comp_mask
+        rc = v.ibv_query_rt_values_ex(self.context, val)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to query real time values', rc)
+        if val.comp_mask != comp_mask:
+            raise PyverbsRDMAError(f'Failed to query real time values with requested comp_mask')
+        nsec = (<v.ibv_values_ex *>val).raw_clock.tv_nsec
+        sec = (<v.ibv_values_ex *>val).raw_clock.tv_sec
+        free(val)
+        return sec, nsec
+
     cdef add_ref(self, obj):
         if isinstance(obj, PD):
             self.pds.add(obj)
@@ -674,6 +692,9 @@ cdef class DeviceAttrEx(PyverbsObject):
     @property
     def max_dm_size(self):
         return self.dev_attr.max_dm_size
+    @property
+    def phys_port_cnt_ex(self):
+        return self.dev_attr.phys_port_cnt_ex
 
 
 cdef class AllocDmAttr(PyverbsObject):
@@ -717,38 +738,61 @@ cdef class AllocDmAttr(PyverbsObject):
 
 
 cdef class DM(PyverbsCM):
-    def __init__(self, Context context, AllocDmAttr dm_attr not None):
+    def __init__(self, Context context, AllocDmAttr dm_attr=None, **kwargs):
         """
         Allocate a device (direct) memory.
         :param context: The context of the device on which to allocate memory
         :param dm_attr: Attributes that define the DM
+        :param kwargs: Arguments:
+            * *handle*
+                A valid kernel handle for a DM object in the given context.
+                If passed, the DM will be imported and associated with the
+                given context using ibv_import_dm.
         :return: A DM object on success
         """
         super().__init__()
         self.dm_mrs = weakref.WeakSet()
-        device_attr = context.query_device_ex()
-        if device_attr.max_dm_size <= 0:
-            raise PyverbsUserError('Device doesn\'t support dm allocation')
-        self.dm = v.ibv_alloc_dm(<v.ibv_context*>context.context,
-                                 &dm_attr.alloc_dm_attr)
-        if self.dm == NULL:
-            raise PyverbsRDMAErrno('Failed to allocate device memory of size '
-                                   '{size}. Max available size {max}.'
-                                   .format(size=dm_attr.length,
-                                           max=device_attr.max_dm_size))
+
+        dm_handle = kwargs.get('handle')
+        if dm_handle is not None:
+            self.dm = v.ibv_import_dm(context.context, dm_handle)
+            if self.dm == NULL:
+                raise PyverbsRDMAErrno('Failed to import DM')
+            self._is_imported = True
+        else:
+            device_attr = context.query_device_ex()
+            if device_attr.max_dm_size <= 0:
+                raise PyverbsUserError('Device doesn\'t support dm allocation')
+            self.dm = v.ibv_alloc_dm(<v.ibv_context*>context.context,
+                                     &dm_attr.alloc_dm_attr)
+            if self.dm == NULL:
+                raise PyverbsRDMAErrno('Failed to allocate device memory of size '
+                                       '{size}. Max available size {max}.'
+                                       .format(size=dm_attr.length,
+                                               max=device_attr.max_dm_size))
         self.context = context
         context.add_ref(self)
+
+    def unimport(self):
+        v.ibv_unimport_dm(self.dm)
+        self.close()
 
     def __dealloc__(self):
         self.close()
 
     cpdef close(self):
+        """
+        Closes the underlying C object of the DM.
+        In case of an imported DM, the DM won't be freed, and it's kept for the
+        original DM object, in order to prevent double free by Python GC.
+        """
         if self.dm != NULL:
             self.logger.debug('Closing DM')
             close_weakrefs([self.dm_mrs])
-            rc = v.ibv_free_dm(self.dm)
-            if rc != 0:
-                raise PyverbsRDMAError('Failed to free dm', rc)
+            if not self._is_imported:
+                rc = v.ibv_free_dm(self.dm)
+                if rc != 0:
+                    raise PyverbsRDMAError('Failed to free dm', rc)
             self.dm = NULL
             self.context = None
 
@@ -772,6 +816,10 @@ cdef class DM(PyverbsCM):
         res = data[:length]
         free(data)
         return res
+
+    @property
+    def handle(self):
+        return self.dm.handle
 
 
 cdef class PortAttr(PyverbsObject):

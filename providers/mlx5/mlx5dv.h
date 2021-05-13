@@ -484,6 +484,8 @@ struct ibv_dm *mlx5dv_alloc_dm(struct ibv_context *context,
 			       struct ibv_alloc_dm_attr *dm_attr,
 			       struct mlx5dv_alloc_dm_attr *mlx5_dm_attr);
 
+void *mlx5dv_dm_map_op_addr(struct ibv_dm *dm, uint8_t op);
+
 struct mlx5_wqe_av;
 
 struct mlx5dv_ah {
@@ -1265,6 +1267,18 @@ int mlx5dv_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in, size_t i
 int mlx5dv_devx_obj_destroy(struct mlx5dv_devx_obj *obj);
 int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t inlen,
 			    void *out, size_t outlen);
+
+int _mlx5dv_query_port(struct ibv_context *context,
+		       uint32_t port_num,
+		       struct mlx5dv_port *info,
+		       size_t info_len);
+
+static inline int mlx5dv_query_port(struct ibv_context *context,
+				    uint32_t port_num,
+				    struct mlx5dv_port *info)
+{
+	return _mlx5dv_query_port(context, port_num, info, sizeof(*info));
+}
 
 struct mlx5dv_devx_umem {
 	uint32_t umem_id;

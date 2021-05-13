@@ -17,6 +17,7 @@ rdma_man_pages(
   mlx5dv_devx_query_eqn.3.md
   mlx5dv_devx_subscribe_devx_event.3.md
   mlx5dv_devx_umem_reg.3.md
+  mlx5dv_dm_map_op_addr.3.md
   mlx5dv_dr_flow.3.md
   mlx5dv_dump.3.md
   mlx5dv_flow_action_esp.3.md
@@ -29,6 +30,7 @@ rdma_man_pages(
   mlx5dv_open_device.3.md
   mlx5dv_pp_alloc.3.md
   mlx5dv_query_device.3
+  mlx5dv_query_port.3.md
   mlx5dv_query_qp_lag_port.3.md
   mlx5dv_reserved_qpn_alloc.3.md
   mlx5dv_sched_node_create.3.md

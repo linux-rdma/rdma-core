@@ -80,6 +80,7 @@ enum dr_dump_rec_type {
 	DR_DUMP_REC_TYPE_ACTION_ASO_FIRST_HIT = 3417,
 	DR_DUMP_REC_TYPE_ACTION_ASO_FLOW_METER = 3418,
 	DR_DUMP_REC_TYPE_ACTION_ASO_CT = 3419,
+	DR_DUMP_REC_TYPE_ACTION_MISS = 3423,
 };
 
 static uint64_t dr_dump_icm_to_idx(uint64_t icm_addr)
@@ -218,6 +219,10 @@ static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
 			      DR_DUMP_REC_TYPE_ACTION_ASO_CT, action_id,
 			      rule_id, action->aso.devx_obj->object_id);
+		break;
+	case DR_ACTION_TYP_MISS:
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 "\n",
+			      DR_DUMP_REC_TYPE_ACTION_MISS, action_id, rule_id);
 		break;
 	default:
 		return 0;
@@ -627,16 +632,16 @@ static int dr_dump_domain_info_caps(FILE *f, struct dr_devx_caps *caps,
 	return 0;
 }
 
-static int dr_dump_domain_info_dev_attr(FILE *f, struct ibv_device_attr *attr,
+static int dr_dump_domain_info_dev_attr(FILE *f, struct dr_domain_info *info,
 					const uint64_t domain_id)
 {
 	int ret;
 
-	ret = fprintf(f, "%d,0x%" PRIx64 ",%d,%s\n",
+	ret = fprintf(f, "%d,0x%" PRIx64 ",%u,%s\n",
 		      DR_DUMP_REC_TYPE_DOMAIN_INFO_DEV_ATTR,
 		      domain_id,
-		      attr->phys_port_cnt,
-		      attr->fw_ver);
+		      info->caps.num_vports + 1,
+		      info->attr.orig_attr.fw_ver);
 	if (ret < 0)
 		return ret;
 
@@ -647,7 +652,7 @@ static int dr_dump_domain_info(FILE *f, struct dr_domain_info *info,
 {
 	int ret;
 
-	ret = dr_dump_domain_info_dev_attr(f, &info->attr, domain_id);
+	ret = dr_dump_domain_info_dev_attr(f, info, domain_id);
 	if (ret < 0)
 		return ret;
 

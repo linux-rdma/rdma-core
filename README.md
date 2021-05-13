@@ -55,6 +55,11 @@ only load from the system path.
 $ apt-get install build-essential cmake gcc libudev-dev libnl-3-dev libnl-route-3-dev ninja-build pkg-config valgrind python3-dev cython3 python3-docutils pandoc
 ```
 
+Supported releases:
+
+* Debian 9 (stretch) or newer
+* Ubuntu 16.04 LTS (xenial) or newer
+
 ### Fedora
 
 ```sh

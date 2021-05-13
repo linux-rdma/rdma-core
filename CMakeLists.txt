@@ -53,7 +53,12 @@
 #      (without man pages) when neither pandoc/rst2man nor the pandoc-prebuilt
 #      directory are available.
 
-cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
+if (${CMAKE_VERSION} VERSION_LESS "3.18.1")
+	# Centos 6 support
+	cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
+else()
+	cmake_minimum_required(VERSION 3.18.1 FATAL_ERROR)
+endif()
 project(rdma-core C)
 
 # CMake likes to use -rdynamic too much, they fixed it in 3.4.
@@ -72,7 +77,7 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "35.0")
+set(PACKAGE_VERSION "36.0")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
@@ -221,7 +226,7 @@ RDMA_EnableCStd()
 # but turn off some that are not terribly useful for this source.
 # FIXME: I wonder how many of the signed compares are bugs?
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WARNINGS
-  "-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter")
+  "-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wno-stringop-overread")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WMISSING_PROTOTYPES "-Wmissing-prototypes")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WMISSING_DECLARATIONS "-Wmissing-declarations")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WWRITE_STRINGS "-Wwrite-strings")
@@ -233,26 +238,21 @@ RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WNESTED_EXTERNS "-Wnested-externs")
 
 # At some point after 4.4 gcc fixed shadow to ignore function vs variable
 # conflicts
-set(SAFE_CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
-  set(CMAKE_REQUIRED_FLAGS "-Wshadow")
-CHECK_C_SOURCE_COMPILES("
+RDMA_Check_C_Compiles(HAVE_C_WORKING_SHADOW "
  #include <unistd.h>
  int main(int argc,const char *argv[]) { int access = 1; return access; }"
-  HAVE_C_WORKING_SHADOW
-  FAIL_REGEX "warning")
+  "-Wshadow")
 if (HAVE_C_WORKING_SHADOW)
   RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WORKING_SHADOW "-Wshadow")
 endif()
-set(CMAKE_REQUIRED_FLAGS "${SAFE_CMAKE_REQUIRED_FLAGS}")
 
 # At some point around 5.4 gcc fixed missing-field-initializers to ignore this
 # common idiom we use extensively. Since this is a useful warning for
 # developers try and leave it on if the compiler supports it.
-CHECK_C_SOURCE_COMPILES("
+RDMA_Check_C_Compiles(HAVE_C_WORKING_MISSING_FIELD_INITIALIZERS "
  struct foo { int a; int b; };
  int main(int argc,const char *argv[]) { struct foo tmp = {}; return tmp.a; }"
-  HAVE_C_WORKING_MISSING_FIELD_INITIALIZERS
-  FAIL_REGEX "warning")
+)
 if (NOT HAVE_C_WORKING_MISSING_FIELD_INITIALIZERS)
   RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WNO_MISSING_FIELD_INITIALIZERS "-Wno-missing-field-initializers")
 endif()
@@ -268,7 +268,7 @@ set(NO_VAR_TRACKING_FLAGS "")
 RDMA_AddOptCFlag(NO_VAR_TRACKING_FLAGS HAVE_NO_VAR_TRACKING_ASSIGNMENTS
   "-fno-var-tracking-assignments")
 
-CHECK_C_SOURCE_COMPILES("
+RDMA_Check_C_Compiles(HAVE_FUNC_ATTRIBUTE_IFUNC "
  #include <unistd.h>
 
  void entry(void);
@@ -279,18 +279,16 @@ CHECK_C_SOURCE_COMPILES("
  static fn_t resolve_entry(void) {return &do_entry;}
 
  int main(int argc,const char *argv[]) { entry(); }"
-  HAVE_FUNC_ATTRIBUTE_IFUNC
-  FAIL_REGEX "warning")
+)
 
-CHECK_C_SOURCE_COMPILES("
+RDMA_Check_C_Compiles(HAVE_FUNC_ATTRIBUTE_SYMVER "
  #include <unistd.h>
 
  void _sym(void);
  __attribute__((__symver__(\"sym@TEST_1.1\"))) void _sym(void) {}
 
  int main(int argc,const char *argv[]) { _sym(); }"
-  HAVE_FUNC_ATTRIBUTE_SYMVER
-  FAIL_REGEX "warning")
+)
 
 # The code does not do the racy fcntl if the various CLOEXEC's are not
 # supported so it really doesn't work right if this isn't available. Thus hard
@@ -330,19 +328,17 @@ if (NOT HAS_CLOEXEC)
 endif()
 
 # always_inline is supported
-CHECK_C_SOURCE_COMPILES("
+RDMA_Check_C_Compiles(HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE "
  int foo(void);
  inline __attribute__((always_inline)) int foo(void) {return 0;}
  int main(int argc,const char *argv[]) { return foo(); }"
-  HAVE_FUNC_ATTRIBUTE_ALWAYS_INLINE
-  FAIL_REGEX "warning")
+)
 
 # Linux __u64 is an unsigned long long
-CHECK_C_SOURCE_COMPILES("
+RDMA_Check_C_Compiles(HAVE_LONG_LONG_U64 "
 #include <linux/types.h>
  int main(int argc,const char *argv[]) { __u64 tmp = 0; unsigned long long *tmp2 = &tmp; return *tmp2; }"
-  HAVE_LONG_LONG_U64
-  FAIL_REGEX "warning")
+)
 
 if (NOT HAVE_LONG_LONG_U64)
   # Modern Linux has switched to use ull in all cases, but to avoid disturbing
@@ -589,17 +585,13 @@ endif()
 # Old versions of libnl have a duplicated rtnl_route_put, disbale the warning on those
 # systems
 if (NOT NL_KIND EQUAL 0)
-  set(SAFE_CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES}")
   set(SAFE_CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
   set(CMAKE_REQUIRED_INCLUDES "${NL_INCLUDE_DIRS}")
-  set(CMAKE_REQUIRED_FLAGS "-Wredundant-decls")
-  CHECK_C_SOURCE_COMPILES("
+  RDMA_Check_C_Compiles(HAVE_C_WREDUNDANT_DECLS "
  #include <netlink/route/route.h>
  int main(int argc,const char *argv[]) { return 0; }"
-  HAVE_C_WREDUNDANT_DECLS
-  FAIL_REGEX "warning")
+  "-Wredundant-decls")
   set(CMAKE_REQUIRED_INCLUDES "${SAFE_CMAKE_REQUIRED_INCLUDES}")
-  set(CMAKE_REQUIRED_FLAGS "${SAFE_CMAKE_REQUIRED_FLAGS}")
 endif()
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WREDUNDANT_DECLS "-Wredundant-decls")
 
@@ -609,6 +601,13 @@ CHECK_C_SOURCE_COMPILES("
  int main(int argc,const char *argv[]) {char buf[64]; return getrandom(buf, 64, GRND_NONBLOCK);}"
  HAVE_GLIBC_GETRANDOM)
 RDMA_DoFixup("${HAVE_GLIBC_GETRANDOM}" "sys/random.h")
+
+# glibc 2.33 and newer stopped to properly declare __fxstat in sys/stat.h
+RDMA_Check_C_Compiles(HAVE_GLIBC_FXSTAT "
+ #include <sys/stat.h>
+ int main(int argc,const char *argv[]) {
+ struct stat stat = {};  __fxstat(0, 0, &stat);  return 0;}")
+RDMA_DoFixup("${HAVE_GLIBC_FXSTAT}" "sys/stat.h")
 
 #-------------------------
 # Build Prep

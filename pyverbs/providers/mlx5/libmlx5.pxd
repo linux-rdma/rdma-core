@@ -90,6 +90,56 @@ cdef extern from 'infiniband/mlx5dv.h':
         uint32_t max_avg_bw;
         uint64_t comp_mask;
 
+    cdef struct mlx5dv_reg:
+        uint32_t value;
+        uint32_t mask;
+
+    cdef struct mlx5dv_port:
+        uint64_t flags
+        uint16_t vport
+        uint16_t vport_vhca_id
+        uint16_t esw_owner_vhca_id
+        uint64_t vport_steering_icm_rx
+        uint64_t vport_steering_icm_tx
+        mlx5dv_reg reg_c0
+
+    cdef struct mlx5dv_flow_match_parameters:
+        size_t   match_sz;
+        uint64_t *match_buf;
+
+    cdef struct mlx5dv_flow_matcher_attr:
+        v.ibv_flow_attr_type         type;
+        uint32_t                     flags;
+        uint16_t                     priority;
+        uint8_t                      match_criteria_enable;
+        mlx5dv_flow_match_parameters *match_mask;
+        uint64_t                     comp_mask;
+        mlx5_ib_uapi_flow_table_type ft_type;
+
+    cdef struct mlx5dv_flow_matcher
+
+    cdef struct mlx5dv_devx_obj
+
+    cdef struct mlx5dv_flow_action_attr:
+        mlx5dv_flow_action_type type
+        v.ibv_qp                *qp
+        v.ibv_flow_action       *action
+        unsigned int            tag_value
+        mlx5dv_devx_obj         *obj
+
+    cdef struct mlx5dv_dr_domain
+
+    cdef struct mlx5dv_dr_table
+
+    cdef struct mlx5dv_dr_matcher
+
+    cdef struct mlx5dv_dr_action
+
+    cdef struct mlx5dv_dr_rule
+
+    cdef struct mlx5dv_clock_info:
+        pass
+
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
@@ -111,9 +161,6 @@ cdef extern from 'infiniband/mlx5dv.h':
     mlx5dv_pp *mlx5dv_pp_alloc(v.ibv_context *context, size_t pp_context_sz,
                                const void *pp_context, uint32_t flags)
     void mlx5dv_pp_free(mlx5dv_pp *pp)
-    mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context,
-                                           uint32_t flags)
-    void mlx5dv_devx_free_uar(mlx5dv_devx_uar *devx_uar)
     void mlx5dv_wr_set_dc_addr(mlx5dv_qp_ex *mqp, v.ibv_ah *ah,
                                uint32_t remote_dctn, uint64_t remote_dc_key)
     mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(v.ibv_qp_ex *qp_ex)
@@ -131,3 +178,43 @@ cdef extern from 'infiniband/mlx5dv.h':
                                     mlx5dv_sched_leaf *responder)
     int mlx5dv_reserved_qpn_alloc(v.ibv_context *context, uint32_t *qpn)
     int mlx5dv_reserved_qpn_dealloc(v.ibv_context *context, uint32_t qpn)
+    void *mlx5dv_dm_map_op_addr(v.ibv_dm *dm, uint8_t op)
+    int mlx5dv_query_port(v.ibv_context *context, uint32_t port_num, mlx5dv_port *port)
+    mlx5dv_flow_matcher *mlx5dv_create_flow_matcher(v.ibv_context *context,
+                                                    mlx5dv_flow_matcher_attr *matcher_attr)
+    int mlx5dv_destroy_flow_matcher(mlx5dv_flow_matcher *matcher)
+    v.ibv_flow *mlx5dv_create_flow(mlx5dv_flow_matcher *matcher,
+                                   mlx5dv_flow_match_parameters *match_value,
+                                   size_t num_actions,
+                                   mlx5dv_flow_action_attr actions_attr[])
+    v.ibv_flow_action *mlx5dv_create_flow_action_packet_reformat(v.ibv_context *context,
+                                                                 size_t data_sz,
+                                                                 void *data,
+                                                                 unsigned char reformat_type,
+                                                                 unsigned char ft_type)
+    mlx5dv_dr_domain *mlx5dv_dr_domain_create(v.ibv_context *ctx, mlx5dv_dr_domain_type type)
+    int mlx5dv_dr_domain_destroy(mlx5dv_dr_domain *dmn)
+    mlx5dv_dr_table *mlx5dv_dr_table_create(mlx5dv_dr_domain *dmn, uint32_t level)
+    int mlx5dv_dr_table_destroy(mlx5dv_dr_table *tbl)
+    mlx5dv_dr_matcher *mlx5dv_dr_matcher_create(mlx5dv_dr_table *table,
+                                                uint16_t priority,
+                                                uint8_t match_criteria_enable,
+                                                mlx5dv_flow_match_parameters *mask)
+    int mlx5dv_dr_matcher_destroy(mlx5dv_dr_matcher *matcher)
+    mlx5dv_dr_action *mlx5dv_dr_action_create_dest_ibv_qp(v.ibv_qp *ibqp)
+    int mlx5dv_dr_action_destroy(mlx5dv_dr_action *action)
+    mlx5dv_dr_rule *mlx5dv_dr_rule_create(mlx5dv_dr_matcher *matcher,
+                                          mlx5dv_flow_match_parameters *value,
+                                          size_t num_actions,
+                                          mlx5dv_dr_action *actions[])
+    int mlx5dv_dr_rule_destroy(mlx5dv_dr_rule *rule)
+    uint64_t mlx5dv_ts_to_ns(mlx5dv_clock_info *clock_info,
+                             uint64_t device_timestamp)
+    int mlx5dv_get_clock_info(v.ibv_context *ctx_in, mlx5dv_clock_info *clock_info)
+
+    # DevX APIs
+    mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context,
+                                           uint32_t flags)
+    void mlx5dv_devx_free_uar(mlx5dv_devx_uar *devx_uar)
+    int mlx5dv_devx_general_cmd(v.ibv_context *context, const void *in_,
+                                size_t inlen, void *out, size_t outlen);
