@@ -107,7 +107,8 @@ static inline bool mlx5_cqe_app_op_tm_is_complete(int op)
 enum {
 	MLX5_CQ_LAZY_FLAGS =
 		MLX5_CQ_FLAGS_RX_CSUM_VALID |
-		MLX5_CQ_FLAGS_TM_SYNC_REQ
+		MLX5_CQ_FLAGS_TM_SYNC_REQ |
+		MLX5_CQ_FLAGS_RAW_WQE
 };
 
 int mlx5_stall_num_loop = 60;
@@ -197,6 +198,9 @@ static inline void handle_good_req(struct ibv_wc *wc, struct mlx5_cqe64 *cqe, st
 		wc->opcode    = IBV_WC_TSO;
 		break;
 	}
+
+	if (unlikely(wq->wr_data[idx] == IBV_WC_DRIVER2)) /* raw WQE */
+		wc->opcode = IBV_WC_DRIVER2;
 }
 
 static inline int handle_responder_lazy(struct mlx5_cq *cq, struct mlx5_cqe64 *cqe,
@@ -781,6 +785,9 @@ again:
 
 			cq->verbs_cq.cq_ex.wr_id = wq->wrid[idx];
 			cq->verbs_cq.cq_ex.status = err;
+
+			if (unlikely(wq->wr_data[idx] == IBV_WC_DRIVER2))
+				cq->flags |= MLX5_CQ_FLAGS_RAW_WQE;
 		} else {
 			handle_good_req(wc, cqe64, wq, idx);
 
@@ -1423,6 +1430,9 @@ static inline enum ibv_wc_opcode mlx5_cq_read_wc_opcode(struct ibv_cq_ex *ibcq)
 		}
 		break;
 	case MLX5_CQE_REQ:
+		if (unlikely(cq->flags & MLX5_CQ_FLAGS_RAW_WQE))
+			return IBV_WC_DRIVER2;
+
 		switch (be32toh(cq->cqe64->sop_drop_qpn) >> 24) {
 		case MLX5_OPCODE_RDMA_WRITE_IMM:
 		case MLX5_OPCODE_RDMA_WRITE:

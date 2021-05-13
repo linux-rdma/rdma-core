@@ -529,6 +529,7 @@ enum ibv_wc_opcode {
 	IBV_WC_TM_RECV,
 	IBV_WC_TM_NO_TAG,
 	IBV_WC_DRIVER1,
+	IBV_WC_DRIVER2,
 };
 
 enum {
