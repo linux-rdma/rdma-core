@@ -701,39 +701,78 @@ static int check_qp_send(struct ibv_qp *qp, struct hns_roce_context *ctx)
 	return 0;
 }
 
-static void set_sge(struct hns_roce_v2_wqe_data_seg *dseg,
-		    struct hns_roce_qp *qp, struct ibv_send_wr *wr,
-		    struct hns_roce_sge_info *sge_info)
+static void set_rc_sge(struct hns_roce_v2_wqe_data_seg *dseg,
+		       struct hns_roce_qp *qp, struct ibv_send_wr *wr,
+		       struct hns_roce_sge_info *sge_info)
 {
+	uint32_t mask = qp->ex_sge.sge_cnt - 1;
+	uint32_t index = sge_info->start_idx;
+	struct ibv_sge *sge = wr->sg_list;
+	uint32_t len = 0;
+	uint32_t cnt = 0;
+	int flag;
 	int i;
 
-	sge_info->valid_num = 0;
-	sge_info->total_len = 0;
+	flag = (wr->send_flags & IBV_SEND_INLINE &&
+		wr->opcode != IBV_WR_ATOMIC_FETCH_AND_ADD &&
+		wr->opcode != IBV_WR_ATOMIC_CMP_AND_SWP);
 
-	for (i = 0; i < wr->num_sge; i++) {
-		if (unlikely(!wr->sg_list[i].length))
+	for (i = 0; i < wr->num_sge; i++, sge++) {
+		if (unlikely(!sge->length))
 			continue;
 
-		sge_info->total_len += wr->sg_list[i].length;
-		sge_info->valid_num++;
+		len += sge->length;
+		cnt++;
 
-		if (wr->send_flags & IBV_SEND_INLINE &&
-		    wr->opcode != IBV_WR_ATOMIC_FETCH_AND_ADD &&
-		    wr->opcode != IBV_WR_ATOMIC_CMP_AND_SWP)
+		if (flag)
+			continue;
+
+		if (cnt <= HNS_ROCE_SGE_IN_WQE) {
+			set_data_seg_v2(dseg, sge);
+			dseg++;
+		} else {
+			dseg = get_send_sge_ex(qp, index & mask);
+			set_data_seg_v2(dseg, sge);
+			index++;
+		}
+	}
+
+	sge_info->start_idx = index;
+	sge_info->valid_num = cnt;
+	sge_info->total_len = len;
+}
+
+static void set_ud_sge(struct hns_roce_v2_wqe_data_seg *dseg,
+		       struct hns_roce_qp *qp, struct ibv_send_wr *wr,
+		       struct hns_roce_sge_info *sge_info)
+{
+	int flag = wr->send_flags & IBV_SEND_INLINE;
+	uint32_t mask = qp->ex_sge.sge_cnt - 1;
+	uint32_t index = sge_info->start_idx;
+	struct ibv_sge *sge = wr->sg_list;
+	uint32_t len = 0;
+	uint32_t cnt = 0;
+	int i;
+
+	for (i = 0; i < wr->num_sge; i++, sge++) {
+		if (unlikely(!sge->length))
+			continue;
+
+		len += sge->length;
+		cnt++;
+
+		if (flag)
 			continue;
 
 		/* No inner sge in UD wqe */
-		if (sge_info->valid_num <= HNS_ROCE_SGE_IN_WQE &&
-		    qp->verbs_qp.qp.qp_type != IBV_QPT_UD) {
-			set_data_seg_v2(dseg, wr->sg_list + i);
-			dseg++;
-		} else {
-			dseg = get_send_sge_ex(qp, sge_info->start_idx &
-					       (qp->ex_sge.sge_cnt - 1));
-			set_data_seg_v2(dseg, wr->sg_list + i);
-			sge_info->start_idx++;
-		}
+		dseg = get_send_sge_ex(qp, index & mask);
+		set_data_seg_v2(dseg, sge);
+		index++;
 	}
+
+	sge_info->start_idx = index;
+	sge_info->valid_num = cnt;
+	sge_info->total_len = len;
 }
 
 static int fill_ext_sge_inl_data(struct hns_roce_qp *qp,
@@ -910,7 +949,7 @@ static int fill_ud_data_seg(struct hns_roce_ud_sq_wqe *ud_sq_wqe,
 		       UD_SQ_WQE_MSG_START_SGE_IDX_S,
 		       sge_info->start_idx & (qp->ex_sge.sge_cnt - 1));
 
-	set_sge((struct hns_roce_v2_wqe_data_seg *)ud_sq_wqe, qp, wr, sge_info);
+	set_ud_sge((struct hns_roce_v2_wqe_data_seg *)ud_sq_wqe, qp, wr, sge_info);
 
 	ud_sq_wqe->msg_len = htole32(sge_info->total_len);
 
@@ -1111,7 +1150,7 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	wqe += sizeof(struct hns_roce_rc_sq_wqe);
 	dseg = wqe;
 
-	set_sge(dseg, qp, wr, sge_info);
+	set_rc_sge(dseg, qp, wr, sge_info);
 
 	rc_sq_wqe->msg_len = htole32(sge_info->total_len);
 
