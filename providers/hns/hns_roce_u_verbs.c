@@ -920,31 +920,44 @@ err_alloc:
 	return -ENOMEM;
 }
 
-static void set_extend_sge_param(struct hns_roce_device *hr_dev,
-				 struct ibv_qp_init_attr_ex *attr,
-				 struct hns_roce_qp *qp, unsigned int wr_cnt)
+static unsigned int get_wqe_ext_sge_cnt(struct hns_roce_qp *qp)
 {
-	int cnt = 0;
+	if (qp->verbs_qp.qp.qp_type == IBV_QPT_UD)
+		return qp->sq.max_gs;
+
+	if (qp->sq.max_gs > HNS_ROCE_SGE_IN_WQE)
+		return qp->sq.max_gs - HNS_ROCE_SGE_IN_WQE;
+
+	return 0;
+}
+
+static void set_ext_sge_param(struct hns_roce_device *hr_dev,
+			      struct ibv_qp_init_attr_ex *attr,
+			      struct hns_roce_qp *qp, unsigned int wr_cnt)
+{
+	unsigned int total_sge_cnt;
+	unsigned int wqe_sge_cnt;
+
+	qp->ex_sge.sge_shift = HNS_ROCE_SGE_SHIFT;
 
 	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
 		qp->sq.max_gs = HNS_ROCE_SGE_IN_WQE;
-	} else {
-		qp->sq.max_gs = attr->cap.max_send_sge;
-		if (attr->qp_type == IBV_QPT_UD)
-			cnt = roundup_pow_of_two(wr_cnt * qp->sq.max_gs);
-		else if (qp->sq.max_gs > HNS_ROCE_SGE_IN_WQE)
-			cnt = roundup_pow_of_two(wr_cnt *
-						 (qp->sq.max_gs -
-						  HNS_ROCE_SGE_IN_WQE));
+		return;
 	}
 
-	qp->ex_sge.sge_shift = HNS_ROCE_SGE_SHIFT;
+	qp->sq.max_gs = attr->cap.max_send_sge;
+
+	wqe_sge_cnt = get_wqe_ext_sge_cnt(qp);
 
 	/* If the number of extended sge is not zero, they MUST use the
 	 * space of HNS_HW_PAGE_SIZE at least.
 	 */
-	qp->ex_sge.sge_cnt = cnt ?
-			     max(cnt, HNS_HW_PAGE_SIZE / HNS_ROCE_SGE_SIZE) : 0;
+	if (wqe_sge_cnt) {
+		total_sge_cnt = roundup_pow_of_two(wr_cnt * wqe_sge_cnt);
+		qp->ex_sge.sge_cnt =
+			max(total_sge_cnt,
+			    (unsigned int)HNS_HW_PAGE_SIZE / HNS_ROCE_SGE_SIZE);
+	}
 }
 
 static void hns_roce_set_qp_params(struct ibv_qp_init_attr_ex *attr,
@@ -988,7 +1001,7 @@ static void hns_roce_set_qp_params(struct ibv_qp_init_attr_ex *attr,
 		qp->sq.wqe_cnt = cnt;
 		qp->sq.shift = hr_ilog32(cnt);
 
-		set_extend_sge_param(hr_dev, attr, qp, cnt);
+		set_ext_sge_param(hr_dev, attr, qp, cnt);
 
 		qp->sq.max_post = min(ctx->max_qp_wr, cnt);
 		qp->sq.max_gs = min(ctx->max_sge, qp->sq.max_gs);
