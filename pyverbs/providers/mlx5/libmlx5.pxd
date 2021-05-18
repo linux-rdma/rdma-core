@@ -432,6 +432,8 @@ cdef extern from 'infiniband/mlx5dv.h':
                                           size_t num_actions,
                                           mlx5dv_dr_action *actions[])
     int mlx5dv_dr_rule_destroy(mlx5dv_dr_rule *rule)
+    void mlx5dv_dr_domain_allow_duplicate_rules(mlx5dv_dr_domain *dmn, bool allow)
+
     uint64_t mlx5dv_ts_to_ns(mlx5dv_clock_info *clock_info,
                              uint64_t device_timestamp)
     int mlx5dv_get_clock_info(v.ibv_context *ctx_in, mlx5dv_clock_info *clock_info)

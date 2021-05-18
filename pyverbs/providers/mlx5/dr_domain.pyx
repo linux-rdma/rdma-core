@@ -23,6 +23,14 @@ cdef class DrDomain(PyverbsCM):
             raise PyverbsRDMAErrno('DrDomain creation failed.')
         self.dr_tables = weakref.WeakSet()
 
+    def allow_duplicate_rules(self, allow):
+        """
+        Allows or prevents duplicate rules insertion, by default this feature is
+        allowed.
+        :param allow: Boolean to allow or prevent
+        """
+        dv.mlx5dv_dr_domain_allow_duplicate_rules(self.domain, allow)
+
     cdef add_ref(self, obj):
         if isinstance(obj, DrTable):
             self.dr_tables.add(obj)
