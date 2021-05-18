@@ -175,3 +175,12 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters)
         recv_packets = self.server.query_counter_packets()
         self.assertEqual(recv_packets, self.iters, 'Counter missed some recv packets')
+
+    @skip_unsupported
+    def test_prevent_duplicate_rule(self):
+        """
+        Creates RX domain, sets duplicate rule to be not allowed on that domain
+        """
+        self.server = Mlx5DrResources(**self.dev_info)
+        domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        domain_rx.allow_duplicate_rules(False)
