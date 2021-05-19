@@ -54,7 +54,8 @@ struct dr_icm_mr {
 static int
 dr_icm_allocate_aligned_dm(struct dr_icm_pool *pool,
 			   struct dr_icm_mr *icm_mr,
-			   struct ibv_alloc_dm_attr *dm_attr)
+			   struct ibv_alloc_dm_attr *dm_attr,
+			   uint64_t *ofsset_in_dm)
 {
 	struct mlx5dv_alloc_dm_attr mlx5_dm_attr = {};
 	size_t log_align_base = 0;
@@ -77,6 +78,7 @@ dr_icm_allocate_aligned_dm(struct dr_icm_pool *pool,
 	}
 
 	dm_attr->length = size;
+	*ofsset_in_dm = 0;
 
 alloc_dm:
 	icm_mr->dm = mlx5dv_alloc_dm(pool->dmn->ctx, dm_attr, &mlx5_dm_attr);
@@ -101,6 +103,9 @@ alloc_dm:
 			/* increase the address to start from aligned size */
 			icm_mr->icm_start_addr = icm_mr->icm_start_addr +
 				(align_base - align_diff);
+			*ofsset_in_dm = align_base - align_diff;
+			/* return the size to its original val */
+			dm_attr->length = size;
 			return 0;
 		}
 
@@ -118,6 +123,7 @@ static struct dr_icm_mr *
 dr_icm_pool_mr_create(struct dr_icm_pool *pool)
 {
 	struct ibv_alloc_dm_attr dm_attr = {};
+	uint64_t align_offset_in_dm;
 	struct dr_icm_mr *icm_mr;
 
 	icm_mr = calloc(1, sizeof(struct dr_icm_mr));
@@ -126,11 +132,11 @@ dr_icm_pool_mr_create(struct dr_icm_pool *pool)
 		return NULL;
 	}
 
-	if (dr_icm_allocate_aligned_dm(pool, icm_mr, &dm_attr))
+	if (dr_icm_allocate_aligned_dm(pool, icm_mr, &dm_attr, &align_offset_in_dm))
 		goto free_icm_mr;
 
 	/* Register device memory */
-	icm_mr->mr = ibv_reg_dm_mr(pool->dmn->pd, icm_mr->dm, 0,
+	icm_mr->mr = ibv_reg_dm_mr(pool->dmn->pd, icm_mr->dm, align_offset_in_dm,
 				   dm_attr.length,
 				   IBV_ACCESS_ZERO_BASED |
 				   IBV_ACCESS_REMOTE_WRITE |
