@@ -2632,6 +2632,37 @@ struct mlx5_ifc_ste_def26_v1_bits {
 	u8         tcp_fin[0x1];
 };
 
+struct mlx5_ifc_ste_def28_v1_bits {
+	u8         inner_l4_sport[0x10];
+	u8         inner_l4_dport[0x10];
+
+	u8         flex_gtpu_teid[0x20];
+
+	u8         inner_ip_src_addr[0x20];
+
+	u8         inner_ip_dst_addr[0x20];
+
+	u8         outer_ip_src_addr[0x20];
+
+	u8         outer_ip_dst_addr[0x20];
+
+	u8         outer_l4_sport[0x10];
+	u8         outer_l4_dport[0x10];
+
+	u8         inner_ip_protocol[0x8];
+	u8         inner_l3_type[0x2];
+	u8         inner_l4_type[0x2];
+	u8         inner_first_vlan_type[0x2];
+	u8         inner_ip_frag[0x1];
+	u8         functional_lb[0x1];
+	u8         outer_ip_protocol[0x8];
+	u8         outer_l3_type[0x2];
+	u8         outer_l4_type[0x2];
+	u8         outer_first_vlan_type[0x2];
+	u8         outer_ip_frag[0x1];
+	u8         functional_lb_dup[0x1];
+};
+
 struct mlx5_ifc_set_action_in_bits {
 	u8         action_type[0x4];
 	u8         field[0xc];

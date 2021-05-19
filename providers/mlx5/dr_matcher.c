@@ -585,6 +585,16 @@ static int dr_matcher_set_definer_builders(struct mlx5dv_dr_matcher *matcher,
 		idx = 0;
 	}
 
+	if (dmn->info.caps.definer_format_sup & (1 << DR_MATCHER_DEFINER_28)) {
+		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
+		ret = dr_ste_build_def28(ste_ctx, &sb[idx++], &mask, false, rx);
+		if (!ret && dr_matcher_is_mask_consumed(&mask))
+			goto done;
+
+		memset(sb, 0, sizeof(struct dr_ste_build));
+		idx = 0;
+	}
+
 	return ENOTSUP;
 
 done:

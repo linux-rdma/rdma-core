@@ -1453,6 +1453,23 @@ int dr_ste_build_def26(struct dr_ste_ctx *ste_ctx,
 	return 0;
 }
 
+int dr_ste_build_def28(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       bool inner, bool rx)
+{
+	if (!ste_ctx->build_def28_init) {
+		errno = ENOTSUP;
+		return errno;
+	}
+
+	sb->rx = rx;
+	sb->inner = inner;
+	sb->format_id = DR_MATCHER_DEFINER_28;
+	ste_ctx->build_def28_init(sb, mask);
+	return 0;
+}
+
 struct dr_ste_ctx *dr_ste_get_ctx(uint8_t version)
 {
 	if (version == MLX5_HW_CONNECTX_5)
