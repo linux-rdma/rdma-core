@@ -4,10 +4,9 @@
 import unittest
 import errno
 
+from tests.mlx5_base import Mlx5DcResources, Mlx5RDMATestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.providers.mlx5.mlx5dv import Mlx5QP
-from tests.mlx5_base import Mlx5DcResources
-from tests.base import RDMATestCase
 import pyverbs.enums as e
 import tests.utils as u
 
@@ -22,7 +21,7 @@ class OdpDc(Mlx5DcResources):
             raise ex
 
 
-class DCTest(RDMATestCase):
+class DCTest(Mlx5RDMATestCase):
     def setUp(self):
         super().setUp()
         self.iters = 10

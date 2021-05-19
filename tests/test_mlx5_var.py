@@ -7,8 +7,8 @@ Test module for Mlx5 VAR allocation.
 
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.providers.mlx5.mlx5dv import Mlx5VAR
+from tests.mlx5_base import Mlx5RDMATestCase
 from tests.base import BaseResources
-from tests.base import RDMATestCase
 import unittest
 import errno
 import mmap
@@ -24,7 +24,7 @@ class Mlx5VarRes(BaseResources):
                 raise unittest.SkipTest('VAR allocation is not supported')
 
 
-class Mlx5VarTestCase(RDMATestCase):
+class Mlx5VarTestCase(Mlx5RDMATestCase):
     def setUp(self):
         super().setUp()
         self.var_res = Mlx5VarRes(self.dev_name)

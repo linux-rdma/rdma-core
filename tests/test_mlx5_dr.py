@@ -11,8 +11,9 @@ from pyverbs.providers.mlx5.dr_action import DrActionQp
 from pyverbs.providers.mlx5.dr_domain import DrDomain
 from pyverbs.providers.mlx5.dr_table import DrTable
 from pyverbs.providers.mlx5.dr_rule import DrRule
-from tests.base import RDMATestCase, RawResources
 import pyverbs.providers.mlx5.mlx5_enums as dve
+from tests.mlx5_base import Mlx5RDMATestCase
+from tests.base import RawResources
 import tests.utils as u
 import struct
 
@@ -26,7 +27,7 @@ class Mlx5DrResources(RawResources):
         super().create_qps()
 
 
-class Mlx5DrTest(RDMATestCase):
+class Mlx5DrTest(Mlx5RDMATestCase):
     def setUp(self):
         super().setUp()
         self.iters = 10

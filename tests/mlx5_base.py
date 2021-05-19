@@ -7,13 +7,69 @@ import errno
 
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, \
     Mlx5DVQPInitAttr, Mlx5QP, Mlx5DVDCInitAttr
-from tests.base import TrafficResources, set_rnr_attributes, DCT_KEY
+from tests.base import TrafficResources, set_rnr_attributes, DCT_KEY, \
+    RDMATestCase, PyverbsAPITestCase, RDMACMBaseTest
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
 from pyverbs.qp import QPCap, QPInitAttrEx, QPAttr
 import pyverbs.providers.mlx5.mlx5_enums as dve
 from pyverbs.addr import AHAttr, GlobalRoute
+import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.mr import MR
+
+
+MELLANOX_VENDOR_ID = 0x02c9
+MLX5_DEVS = {
+	0x1011, # MT4113 Connect-IB
+	0x1012, # Connect-IB Virtual Function
+	0x1013, # ConnectX-4
+	0x1014, # ConnectX-4 Virtual Function
+	0x1015, # ConnectX-4LX
+	0x1016, # ConnectX-4LX Virtual Function
+	0x1017, # ConnectX-5, PCIe 3.0
+	0x1018, # ConnectX-5 Virtual Function
+	0x1019, # ConnectX-5 Ex
+	0x101a, # ConnectX-5 Ex VF
+	0x101b, # ConnectX-6
+	0x101c, # ConnectX-6 VF
+	0x101d, # ConnectX-6 DX
+	0x101e, # ConnectX family mlx5Gen Virtual Function
+	0x101f, # ConnectX-6 LX
+	0x1021, # ConnectX-7
+	0xa2d2, # BlueField integrated ConnectX-5 network controller
+	0xa2d3, # BlueField integrated ConnectX-5 network controller VF
+	0xa2d6, # BlueField-2 integrated ConnectX-6 Dx network controller
+	0xa2dc, # BlueField-3 integrated ConnectX-7 network controller
+}
+
+
+def is_mlx5_dev(ctx):
+    dev_attrs = ctx.query_device()
+    return dev_attrs.vendor_id == MELLANOX_VENDOR_ID and \
+        dev_attrs.vendor_part_id in MLX5_DEVS
+
+
+def skip_if_not_mlx5_dev(ctx):
+    if not is_mlx5_dev(ctx):
+        raise unittest.SkipTest('Can not run the test over non MLX5 device')
+
+
+class Mlx5PyverbsAPITestCase(PyverbsAPITestCase):
+    def setUp(self):
+        super().setUp()
+        skip_if_not_mlx5_dev(self.ctx)
+
+
+class Mlx5RDMATestCase(RDMATestCase):
+    def setUp(self):
+        super().setUp()
+        skip_if_not_mlx5_dev(d.Context(name=self.dev_name))
+
+
+class Mlx5RDMACMBaseTest(RDMACMBaseTest):
+    def setUp(self):
+        super().setUp()
+        skip_if_not_mlx5_dev(d.Context(name=self.dev_name))
 
 
 class Mlx5DcResources(TrafficResources):
