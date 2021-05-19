@@ -366,7 +366,8 @@ struct mlx5_ifc_dr_match_spec_bits {
 	u8         tcp_sport[0x10];
 	u8         tcp_dport[0x10];
 
-	u8         reserved_at_c0[0x14];
+	u8         reserved_at_c0[0x10];
+	u8         ipv4_ihl[0x4];
 	u8         l3_ok[0x1];
 	u8         l4_ok[0x1];
 	u8         ipv4_checksum_ok[0x1];
@@ -2418,6 +2419,56 @@ struct mlx5_ifc_ste_def0_v1_bits {
 	u8         tcp_rst[0x1];
 	u8         tcp_syn[0x1];
 	u8         tcp_fin[0x1];
+};
+
+struct mlx5_ifc_ste_def2_v1_bits {
+	u8         metadata_reg_a[0x20];
+
+	u8         outer_ip_version[0x4];
+	u8         outer_ip_ihl[0x4];
+	u8         outer_ip_dscp[0x6];
+	u8         outer_ip_ecn[0x2];
+	u8         outer_ip_ttl[0x8];
+	u8         outer_ip_protocol[0x8];
+
+	u8         outer_ip_identification[0x10];
+	u8         outer_ip_flags[0x3];
+	u8         outer_ip_fragment_offset[0xd];
+
+	u8         outer_ip_total_length[0x10];
+	u8         outer_ip_checksum[0x10];
+
+	u8         reserved_180[0xc];
+	u8         outer_ip_flow_label[0x14];
+
+	u8         outer_eth_packet_length[0x10];
+	u8         outer_ip_payload_length[0x10];
+
+	u8         outer_l4_sport[0x10];
+	u8         outer_l4_dport[0x10];
+
+	u8         outer_data_offset[0x4];
+	u8         reserved_1e4[0x2];
+	u8         outer_ip_frag[0x1];
+	u8         tcp_ns[0x1];
+	u8         tcp_cwr[0x1];
+	u8         tcp_ece[0x1];
+	u8         tcp_urg[0x1];
+	u8         tcp_ack[0x1];
+	u8         tcp_psh[0x1];
+	u8         tcp_rst[0x1];
+	u8         tcp_syn[0x1];
+	u8         tcp_fin[0x1];
+	u8         outer_ip_frag_first[0x1];
+	u8         reserved_1f0[0x7];
+	u8         inner_ipv4_checksum_ok[0x1];
+	u8         inner_l4_checksum_ok[0x1];
+	u8         outer_ipv4_checksum_ok[0x1];
+	u8         outer_l4_checksum_ok[0x1];
+	u8         inner_l3_ok[0x1];
+	u8         inner_l4_ok[0x1];
+	u8         outer_l3_ok[0x1];
+	u8         outer_l4_ok[0x1];
 };
 
 struct mlx5_ifc_ste_def6_v1_bits {

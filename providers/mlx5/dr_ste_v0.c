@@ -1156,6 +1156,7 @@ static int dr_ste_v0_build_eth_l3_ipv4_misc_tag(struct dr_match_param *value,
 	struct dr_match_spec *spec = sb->inner ? &value->inner : &value->outer;
 
 	DR_STE_SET_TAG(eth_l3_ipv4_misc, tag, time_to_live, spec, ip_ttl_hoplimit);
+	DR_STE_SET_TAG(eth_l3_ipv4_misc, tag, ihl, spec, ipv4_ihl);
 
 	return 0;
 }

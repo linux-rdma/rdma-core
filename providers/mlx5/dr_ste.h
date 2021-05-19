@@ -175,6 +175,7 @@ struct dr_ste_ctx {
 	dr_ste_builder_void_init build_flex_parser_0_init;
 	dr_ste_builder_void_init build_flex_parser_1_init;
 	dr_ste_builder_void_init build_def0_init;
+	dr_ste_builder_void_init build_def2_init;
 	dr_ste_builder_void_init build_def6_init;
 	dr_ste_builder_void_init build_def22_init;
 	dr_ste_builder_void_init build_def24_init;

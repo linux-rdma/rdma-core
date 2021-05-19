@@ -821,6 +821,7 @@ static void dr_ste_copy_mask_spec(char *mask, struct dr_match_spec *spec)
 	spec->tcp_sport = DEVX_GET(dr_match_spec, mask, tcp_sport);
 	spec->tcp_dport = DEVX_GET(dr_match_spec, mask, tcp_dport);
 
+	spec->ipv4_ihl = DEVX_GET(dr_match_spec, mask, ipv4_ihl);
 	spec->l3_ok = DEVX_GET(dr_match_spec, mask, l3_ok);
 	spec->l4_ok = DEVX_GET(dr_match_spec, mask, l4_ok);
 	spec->ipv4_checksum_ok = DEVX_GET(dr_match_spec, mask, ipv4_checksum_ok);
@@ -1345,6 +1346,25 @@ int dr_ste_build_def0(struct dr_ste_ctx *ste_ctx,
 	sb->inner = inner;
 	sb->format_id = DR_MATCHER_DEFINER_0;
 	ste_ctx->build_def0_init(sb, mask);
+	return 0;
+}
+
+int dr_ste_build_def2(struct dr_ste_ctx *ste_ctx,
+		      struct dr_ste_build *sb,
+		      struct dr_match_param *mask,
+		      struct dr_devx_caps *caps,
+		      bool inner, bool rx)
+{
+	if (!ste_ctx->build_def2_init) {
+		errno = ENOTSUP;
+		return errno;
+	}
+
+	sb->rx = rx;
+	sb->caps = caps;
+	sb->inner = inner;
+	sb->format_id = DR_MATCHER_DEFINER_2;
+	ste_ctx->build_def2_init(sb, mask);
 	return 0;
 }
 
