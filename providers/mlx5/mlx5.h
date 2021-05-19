@@ -671,6 +671,9 @@ struct mlx5_ah {
 	struct ibv_ah			ibv_ah;
 	struct mlx5_wqe_av		av;
 	bool				kern_ah;
+	pthread_mutex_t			mutex;
+	uint8_t				is_global;
+	struct mlx5dv_devx_obj		*ah_qp_mapping;
 };
 
 struct mlx5_rwq {

@@ -576,6 +576,18 @@ cdef class Mlx5QP(QPEx):
             raise PyverbsRDMAError(f'Failed to modify UDP source port of QP '
                                    f'#{qp.qp.qp_num}', rc)
 
+    @staticmethod
+    def map_ah_to_qp(AH ah, qp_num):
+        """
+        Map the destination path information in ah to the information extracted
+        from the qp.
+        :param ah: The target’s address handle.
+        :param qp_num: The traffic initiator QP number.
+        """
+        rc = dv.mlx5dv_map_ah_to_qp(ah.ah, qp_num)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to map AH to QP #{qp_num}', rc)
+
 
 cdef class Mlx5DVCQInitAttr(PyverbsObject):
     """

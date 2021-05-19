@@ -181,3 +181,8 @@ MLX5_1.19 {
 		mlx5dv_dm_map_op_addr;
 		_mlx5dv_query_port;
 } MLX5_1.18;
+
+MLX5_1.20 {
+	global:
+		mlx5dv_map_ah_to_qp;
+} MLX5_1.19;

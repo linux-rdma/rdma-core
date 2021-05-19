@@ -211,6 +211,7 @@ cdef extern from 'infiniband/mlx5dv.h':
     uint64_t mlx5dv_ts_to_ns(mlx5dv_clock_info *clock_info,
                              uint64_t device_timestamp)
     int mlx5dv_get_clock_info(v.ibv_context *ctx_in, mlx5dv_clock_info *clock_info)
+    int mlx5dv_map_ah_to_qp(v.ibv_ah *ah, uint32_t qp_num)
 
     # DevX APIs
     mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context,
