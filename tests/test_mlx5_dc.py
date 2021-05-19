@@ -6,6 +6,7 @@ import errno
 
 from tests.mlx5_base import Mlx5DcResources, Mlx5RDMATestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError
+from pyverbs.providers.mlx5.mlx5dv import Mlx5QP
 import pyverbs.enums as e
 import tests.utils as u
 
@@ -65,6 +66,19 @@ class DCTest(Mlx5RDMATestCase):
     def test_dc_send(self):
         self.create_players(Mlx5DcResources, qp_count=2,
                             send_ops_flags=e.IBV_QP_EX_WITH_SEND)
+        u.traffic(**self.traffic_args, new_send=True,
+                  send_op=e.IBV_QP_EX_WITH_SEND)
+
+    def test_dc_ah_to_qp_mapping(self):
+        self.create_players(Mlx5DcResources, qp_count=2,
+                            send_ops_flags=e.IBV_QP_EX_WITH_SEND)
+        client_ah = u.get_global_ah(self.client, self.gid_index, self.ib_port)
+        try:
+            Mlx5QP.map_ah_to_qp(client_ah, self.server.qps[0].qp_num)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Mapping AH to QP is not supported')
+            raise ex
         u.traffic(**self.traffic_args, new_send=True,
                   send_op=e.IBV_QP_EX_WITH_SEND)
 

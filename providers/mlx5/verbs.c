@@ -3018,6 +3018,9 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		}
 	}
 
+	pthread_mutex_init(&ah->mutex, NULL);
+	ah->is_global = attr->is_global;
+
 	return &ah->ibv_ah;
 err:
 	free(ah);
@@ -3035,8 +3038,58 @@ int mlx5_destroy_ah(struct ibv_ah *ah)
 			return err;
 	}
 
+	if (mah->ah_qp_mapping)
+		mlx5dv_devx_obj_destroy(mah->ah_qp_mapping);
+
 	free(mah);
 	return 0;
+}
+
+int mlx5dv_map_ah_to_qp(struct ibv_ah *ah, uint32_t qp_num)
+{
+	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_av_qp_mapping_in)] = {};
+	struct mlx5_context *mctx = to_mctx(ah->context);
+	struct mlx5_ah *mah = to_mah(ah);
+	uint8_t sgid_index;
+	void *attr;
+	int ret = 0;
+
+	if (!is_mlx5_dev(ah->context->device))
+		return EOPNOTSUPP;
+
+	if (!(mctx->general_obj_types_caps &
+	      (1ULL << MLX5_OBJ_TYPE_AV_QP_MAPPING)) ||
+	    !mah->is_global)
+		return EOPNOTSUPP;
+
+	attr = DEVX_ADDR_OF(create_av_qp_mapping_in, in, hdr);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, opcode, MLX5_CMD_OP_CREATE_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, obj_type, MLX5_OBJ_TYPE_AV_QP_MAPPING);
+
+	sgid_index = (be32toh(mah->av.grh_gid_fl) >> 20) & 0xff;
+	attr = DEVX_ADDR_OF(create_av_qp_mapping_in, in, mapping);
+	DEVX_SET(av_qp_mapping, attr, qpn, qp_num);
+	DEVX_SET(av_qp_mapping, attr, remote_address_vector.sl_or_eth_prio,
+		 mah->av.stat_rate_sl);
+	DEVX_SET(av_qp_mapping, attr, remote_address_vector.src_addr_index,
+		 sgid_index);
+	memcpy(DEVX_ADDR_OF(av_qp_mapping, attr,
+			    remote_address_vector.rgid_or_rip),
+	       mah->av.rgid, sizeof(mah->av.rgid));
+
+	pthread_mutex_lock(&mah->mutex);
+	if (!mah->ah_qp_mapping) {
+		mah->ah_qp_mapping = mlx5dv_devx_obj_create(
+			ah->context, in, sizeof(in), out, sizeof(out));
+		if (!mah->ah_qp_mapping)
+			ret = errno;
+	}
+	pthread_mutex_unlock(&mah->mutex);
+
+	return ret;
 }
 
 int mlx5_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)

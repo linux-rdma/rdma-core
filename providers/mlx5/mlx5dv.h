@@ -401,6 +401,8 @@ mlx5dv_create_flow_action_packet_reformat(struct ibv_context *ctx,
 int mlx5dv_query_device(struct ibv_context *ctx_in,
 			struct mlx5dv_context *attrs_out);
 
+int mlx5dv_map_ah_to_qp(struct ibv_ah *ah, uint32_t qp_num);
+
 enum mlx5dv_qp_comp_mask {
 	MLX5DV_QP_MASK_UAR_MMAP_OFFSET		= 1 << 0,
 	MLX5DV_QP_MASK_RAW_QP_HANDLES		= 1 << 1,
