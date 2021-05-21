@@ -16,6 +16,8 @@ Before=network-pre.target
 # Orders all kernel module startup before rdma-hw.target can become ready
 Before=rdma-hw.target
 
+# Exclude loading rdma modules for s390x: https://bugzilla.redhat.com/show_bug.cgi?id=1782876
+ConditionArchitecture=!s390x
 ConditionCapability=CAP_SYS_MODULE
 
 [Service]
