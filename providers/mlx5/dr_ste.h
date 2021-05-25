@@ -48,9 +48,6 @@
 #define IP_PROTOCOL_UDP   0x11
 #define IP_PROTOCOL_TCP   0x06
 #define IP_PROTOCOL_IPSEC 0x33
-#define TCP_PROTOCOL      0x6
-#define UDP_PROTOCOL      0x11
-#define IPSEC_PROTOCOL    0x33
 #define HDR_LEN_L2_MACS   0xC
 #define HDR_LEN_L2_VLAN   0x4
 #define HDR_LEN_L2_ETHER  0x2
@@ -177,10 +174,16 @@ struct dr_ste_ctx {
 	dr_ste_builder_void_init build_src_gvmi_qpn_init;
 	dr_ste_builder_void_init build_flex_parser_0_init;
 	dr_ste_builder_void_init build_flex_parser_1_init;
+	dr_ste_builder_void_init build_def0_init;
+	dr_ste_builder_void_init build_def6_init;
+	dr_ste_builder_void_init build_def22_init;
+	dr_ste_builder_void_init build_def24_init;
+	dr_ste_builder_void_init build_def25_init;
+	dr_ste_builder_void_init build_def26_init;
 
 	/* Getters and Setters */
 	void (*ste_init)(uint8_t *hw_ste_p, uint16_t lu_type,
-			 uint8_t entry_type, uint16_t gvmi);
+			 bool is_rx, uint16_t gvmi);
 	void (*set_next_lu_type)(uint8_t *hw_ste_p, uint16_t lu_type);
 	uint16_t (*get_next_lu_type)(uint8_t *hw_ste_p);
 	void (*set_miss_addr)(uint8_t *hw_ste_p, uint64_t miss_addr);
@@ -188,6 +191,12 @@ struct dr_ste_ctx {
 	void (*set_hit_addr)(uint8_t *hw_ste_p, uint64_t icm_addr, uint32_t ht_size);
 	void (*set_byte_mask)(uint8_t *hw_ste_p, uint16_t byte_mask);
 	uint16_t (*get_byte_mask)(uint8_t *hw_ste_p);
+	void (*set_ctrl_always_hit_htbl)(uint8_t *hw_ste, uint16_t byte_mask,
+					 uint16_t lu_type, uint64_t icm_addr,
+					 uint32_t num_of_entries, uint16_t gvmi);
+	void (*set_ctrl_always_miss)(uint8_t *hw_ste,
+				     uint64_t miss_addr,
+				     uint16_t gvmi);
 
 	/* Actions */
 	uint32_t actions_caps;
