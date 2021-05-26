@@ -438,7 +438,9 @@ cdef extern from 'infiniband/mlx5dv.h':
     mlx5dv_dr_action *mlx5dv_dr_action_create_dest_ibv_qp(v.ibv_qp *ibqp)
     mlx5dv_dr_action *mlx5dv_dr_action_create_tag(uint32_t tag_value)
     mlx5dv_dr_action *mlx5dv_dr_action_create_dest_table(mlx5dv_dr_table *tbl)
-
+    mlx5dv_dr_action *mlx5dv_dr_action_create_pop_vlan()
+    mlx5dv_dr_action *mlx5dv_dr_action_create_push_vlan(mlx5dv_dr_domain *dmn,
+                                                        uint32_t vlan_hdr)
     int mlx5dv_dr_action_destroy(mlx5dv_dr_action *action)
     mlx5dv_dr_rule *mlx5dv_dr_rule_create(mlx5dv_dr_matcher *matcher,
                                           mlx5dv_flow_match_parameters *value,

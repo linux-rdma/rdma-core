@@ -33,3 +33,9 @@ cdef class DrActionTag(DrAction):
 
 cdef class DrActionDestTable(DrAction):
     cdef DrTable table
+
+cdef class DrActionPushVLan(DrAction):
+    cdef DrDomain domain
+
+cdef class DrActionPopVLan(DrAction):
+    pass

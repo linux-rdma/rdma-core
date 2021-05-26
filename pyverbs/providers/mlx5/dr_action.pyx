@@ -8,6 +8,7 @@ from pyverbs.providers.mlx5.dr_rule cimport DrRule
 from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base cimport close_weakrefs
 from libc.stdlib cimport calloc, free
+from libc.stdint cimport uint32_t
 import weakref
 import struct
 import errno
@@ -160,3 +161,38 @@ cdef class DrActionDestTable(DrAction):
         if self.action != NULL:
             super(DrActionDestTable, self).close()
             self.table = None
+
+
+cdef class DrActionPopVLan(DrAction):
+    def __init__(self):
+        """
+        Create DR Pop VLAN action.
+        """
+        super().__init__()
+        self.action = dv.mlx5dv_dr_action_create_pop_vlan()
+        if self.action == NULL:
+            raise PyverbsRDMAErrno('DrActionPopVLan creation failed.')
+
+
+cdef class DrActionPushVLan(DrAction):
+    def __init__(self, DrDomain domain, vlan_hdr):
+        """
+        Create DR Push VLAN action.
+        :param domain: DrDomain object where the action should be located.
+        :param vlan_hdr: VLAN header.
+        """
+        super().__init__()
+        self.domain = domain
+        self.action = dv.mlx5dv_dr_action_create_push_vlan(domain.domain,
+                                                           <uint32_t>vlan_hdr)
+        if self.action == NULL:
+            raise PyverbsRDMAErrno('DrActionPushVLan creation failed.')
+        domain.dr_actions.add(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.action != NULL:
+            super(DrActionPushVLan, self).close()
+            self.domain = None
