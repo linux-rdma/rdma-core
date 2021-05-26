@@ -10,7 +10,8 @@ import struct
 import errno
 
 from pyverbs.providers.mlx5.dr_action import DrActionQp, DrActionModify, \
-    DrActionFlowCounter, DrActionDrop, DrActionTag, DrActionDestTable
+    DrActionFlowCounter, DrActionDrop, DrActionTag, DrActionDestTable, \
+    DrActionPopVLan, DrActionPushVLan
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, Mlx5Context, Mlx5DVContextAttr
 from tests.utils import skip_unsupported, requires_root_on_eth, PacketConsts
 from pyverbs.providers.mlx5.mlx5dv_flow import Mlx5FlowMatchParameters
@@ -68,9 +69,10 @@ class Mlx5DrResources(RawResources):
                                                              len(QueryFlowCounterOut())))
         return counter_out.flow_statistics.packets
 
-    def __init__(self, dev_name, ib_port, gid_index=0, wc_flags=0):
+    def __init__(self, dev_name, ib_port, gid_index=0, wc_flags=0, msg_size=1024):
         self.wc_flags = wc_flags
-        super().__init__(dev_name=dev_name, ib_port=ib_port, gid_index=gid_index)
+        super().__init__(dev_name=dev_name, ib_port=ib_port, gid_index=gid_index,
+                         msg_size=msg_size)
 
     @requires_root_on_eth()
     def create_qps(self):
@@ -116,15 +118,18 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.server = resource(**self.dev_info, **resource_arg)
 
     @skip_unsupported
-    def create_rx_recv_qp_rule(self, smac_value, actions, log_matcher_size=None):
+    def create_rx_recv_qp_rule(self, smac_value, actions, log_matcher_size=None, domain=None):
         """
         Creates a rule on RX domain that forwards packets that match the smac in the matcher
         to the SW steering flow table and another rule on that table with provided actions.
         :param smac_value: The smac matcher value.
         :param actions: List of actions to attach to the recv rule.
         :param log_matcher_size: Size of the matcher table
+        :param domain: RX DR domain to use if provided, otherwise create default RX domain.
+        :return: Non root table and dest table action to it
         """
-        self.domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        self.domain_rx = domain if domain else DrDomain(self.server.ctx,
+                                                        dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         root_table = DrTable(self.domain_rx, 0)
         table = DrTable(self.domain_rx, 1)
         smac_mask = bytes([0xff] * 6) + bytes(2)
@@ -139,6 +144,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.dest_table_action = DrActionDestTable(table)
         self.rules.append(DrRule(root_matcher, value_param, [self.dest_table_action]))
         self.rules.append(DrRule(self.matcher, value_param, actions))
+        return table, self.dest_table_action
 
     @skip_unsupported
     def create_tx_modify_rule(self):
@@ -322,6 +328,48 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters)
         self.matcher.set_layout(flags=dve.MLX5DV_DR_MATCHER_LAYOUT_RESIZABLE)
         u.raw_traffic(self.client, self.server, self.iters)
+
+    @skip_unsupported
+    def test_push_vlan(self):
+        """
+        Creates RX domain, root table with matcher on source mac. Create a rule to forward
+        all traffic to the non-root table. Creates QP action and push VLAN action.
+        Creates a rule with those actions on the matcher.
+        Verifies traffic and packet with specified VLAN.
+        """
+        self.client = Mlx5DrResources(**self.dev_info)
+        vlan_hdr = struct.pack('!HH', PacketConsts.VLAN_TPID, (PacketConsts.VLAN_PRIO << 13) +
+                               (PacketConsts.VLAN_CFI << 12) + PacketConsts.VLAN_ID)
+        self.server = Mlx5DrResources(msg_size=self.client.msg_size + PacketConsts.VLAN_HEADER_SIZE,
+                                      **self.dev_info)
+        self.domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        push_action = DrActionPushVLan(self.domain_tx, struct.unpack('I', vlan_hdr)[0])
+        self.tx_table, self.tx_dest_act = self.create_rx_recv_qp_rule(smac_value, [push_action],
+                                                                      domain=self.domain_tx)
+        self.domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        qp_action = DrActionQp(self.server.qp)
+        self.create_rx_recv_qp_rule(smac_value, [qp_action], domain=self.domain_rx)
+        exp_packet = u.gen_packet(self.client.msg_size + PacketConsts.VLAN_HEADER_SIZE,
+                                  with_vlan=True)
+        u.raw_traffic(self.client, self.server, self.iters, expected_packet=exp_packet)
+
+    @skip_unsupported
+    def test_pop_vlan(self):
+        """
+        Creates RX domain, root table with matcher on source mac. Create a rule to forward
+        all traffic to the non-root table. Creates QP action and pop VLAN action.
+        Creates a rule with those actions on the matcher.
+        Verifies packets received without VLAN header.
+        """
+        self.server = Mlx5DrResources(**self.dev_info)
+        self.client = Mlx5DrResources(**self.dev_info)
+        exp_packet = u.gen_packet(self.server.msg_size - PacketConsts.VLAN_HEADER_SIZE)
+        qp_action = DrActionQp(self.server.qp)
+        pop_action = DrActionPopVLan()
+        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        self.create_rx_recv_qp_rule(smac_value, [pop_action, qp_action])
+        u.raw_traffic(self.client, self.server, self.iters, with_vlan=True, expected_packet=exp_packet)
 
 
 class Mlx5DrDumpTest(PyverbsAPITestCase):
