@@ -242,9 +242,9 @@ static void *get_send_sge_ex(struct hns_roce_qp *qp, unsigned int n)
 	return qp->buf.buf + qp->ex_sge.offset + (n << qp->ex_sge.sge_shift);
 }
 
-static void *get_srq_wqe(struct hns_roce_srq *srq, int n)
+static void *get_srq_wqe(struct hns_roce_srq *srq, unsigned int n)
 {
-	return srq->buf.buf + (n << srq->wqe_shift);
+	return srq->wqe_buf.buf + (n << srq->wqe_shift);
 }
 
 static void *get_idx_buf(struct hns_roce_idx_que *idx_que, int n)
@@ -262,7 +262,7 @@ static void hns_roce_free_srq_wqe(struct hns_roce_srq *srq, uint16_t ind)
 	bitmap_num = ind / BIT_CNT_PER_LONG;
 	bit_num = ind % BIT_CNT_PER_LONG;
 	srq->idx_que.bitmap[bitmap_num] |= (1ULL << bit_num);
-	srq->tail++;
+	srq->idx_que.tail++;
 
 	pthread_spin_unlock(&srq->lock);
 }
@@ -1527,8 +1527,30 @@ static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 	return ret;
 }
 
-static int find_empty_entry(struct hns_roce_idx_que *idx_que)
+static int hns_roce_v2_srqwq_overflow(struct hns_roce_srq *srq)
 {
+	struct hns_roce_idx_que *idx_que = &srq->idx_que;
+
+	return idx_que->head - idx_que->tail >= srq->wqe_cnt;
+}
+
+static int check_post_srq_valid(struct hns_roce_srq *srq,
+				struct ibv_recv_wr *wr)
+{
+	unsigned int max_sge = srq->max_gs - srq->rsv_sge;
+
+	if (hns_roce_v2_srqwq_overflow(srq))
+		return -ENOMEM;
+
+	if (wr->num_sge > max_sge)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int get_wqe_idx(struct hns_roce_srq *srq, unsigned int *wqe_idx)
+{
+	struct hns_roce_idx_que *idx_que = &srq->idx_que;
 	int bit_num;
 	int i;
 
@@ -1536,12 +1558,56 @@ static int find_empty_entry(struct hns_roce_idx_que *idx_que)
 	for (i = 0; i < idx_que->bitmap_cnt && idx_que->bitmap[i] == 0; ++i)
 		;
 	if (i == idx_que->bitmap_cnt)
-		return ENOMEM;
+		return -ENOMEM;
 
 	bit_num = ffsl(idx_que->bitmap[i]);
 	idx_que->bitmap[i] &= ~(1ULL << (bit_num - 1));
 
-	return i * BIT_CNT_PER_LONG + (bit_num - 1);
+	*wqe_idx = i * BIT_CNT_PER_LONG + (bit_num - 1);
+
+	/* If wqe_cnt is less than BIT_CNT_PER_LONG, wqe_idx may be greater
+	 * than wqe_cnt.
+	 */
+	if (*wqe_idx >= srq->wqe_cnt)
+		return -ENOMEM;
+
+	return 0;
+}
+
+static void fill_srq_wqe(struct hns_roce_srq *srq, unsigned int wqe_idx,
+			 struct ibv_recv_wr *wr)
+{
+	struct hns_roce_v2_wqe_data_seg *dseg;
+	int i;
+
+	dseg = get_srq_wqe(srq, wqe_idx);
+
+	for (i = 0; i < wr->num_sge; ++i) {
+		dseg[i].len = htole32(wr->sg_list[i].length);
+		dseg[i].lkey = htole32(wr->sg_list[i].lkey);
+		dseg[i].addr = htole64(wr->sg_list[i].addr);
+	}
+
+	/* hw stop reading when identify the last one */
+	if (srq->rsv_sge) {
+		dseg[i].len = htole32(INVALID_SGE_LENGTH);
+		dseg[i].lkey = htole32(0x0);
+		dseg[i].addr = 0;
+	}
+}
+
+static void fill_wqe_idx(struct hns_roce_srq *srq, unsigned int wqe_idx)
+{
+	struct hns_roce_idx_que *idx_que = &srq->idx_que;
+	unsigned int head;
+	__le32 *idx_buf;
+
+	head = idx_que->head & (srq->wqe_cnt - 1);
+
+	idx_buf = get_idx_buf(idx_que, head);
+	*idx_buf = htole32(wqe_idx);
+
+	idx_que->head++;
 }
 
 static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
@@ -1550,65 +1616,33 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 {
 	struct hns_roce_context *ctx = to_hr_ctx(ib_srq->context);
 	struct hns_roce_srq *srq = to_hr_srq(ib_srq);
-	struct hns_roce_v2_wqe_data_seg *dseg;
 	struct hns_roce_db srq_db;
-	unsigned int max_sge;
-	__le32 *srq_idx;
+	unsigned int wqe_idx;
 	int ret = 0;
-	int wqe_idx;
-	void *wqe;
 	int nreq;
-	int ind;
-	int i;
 
 	pthread_spin_lock(&srq->lock);
 
-	/* current idx of srqwq */
-	ind = srq->head & (srq->wqe_cnt - 1);
-
-	max_sge = srq->max_gs - srq->rsv_sge;
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
-		if (wr->num_sge > max_sge) {
-			ret = -EINVAL;
+		ret = check_post_srq_valid(srq, wr);
+		if (ret) {
 			*bad_wr = wr;
 			break;
 		}
 
-		if (srq->head == srq->tail) {
-			ret = -ENOMEM;
+		ret = get_wqe_idx(srq, &wqe_idx);
+		if (ret) {
 			*bad_wr = wr;
 			break;
 		}
 
-		wqe_idx = find_empty_entry(&srq->idx_que);
-		if (wqe_idx < 0 || wqe_idx >= srq->wqe_cnt) {
-			ret = -ENOMEM;
-			*bad_wr = wr;
-			break;
-		}
-
-		wqe = get_srq_wqe(srq, wqe_idx);
-		dseg = (struct hns_roce_v2_wqe_data_seg *)wqe;
-
-		for (i = 0; i < wr->num_sge; ++i) {
-			set_data_seg_v2(dseg, wr->sg_list + i);
-			dseg++;
-		}
-
-		/* hw stop reading when identify the last one */
-		if (srq->rsv_sge)
-			set_ending_data_seg(dseg);
-
-		srq_idx = (__le32 *)get_idx_buf(&srq->idx_que, ind);
-		*srq_idx = htole32(wqe_idx);
+		fill_srq_wqe(srq, wqe_idx, wr);
+		fill_wqe_idx(srq, wqe_idx);
 
 		srq->wrid[wqe_idx] = wr->wr_id;
-		ind = (ind + 1) & (srq->wqe_cnt - 1);
 	}
 
 	if (nreq) {
-		srq->head += nreq;
-
 		/*
 		 * Make sure that descriptors are written before
 		 * we write doorbell record.
@@ -1617,8 +1651,8 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 
 		srq_db.byte_4 = htole32(HNS_ROCE_V2_SRQ_DB << DB_BYTE_4_CMD_S |
 					srq->srqn);
-		srq_db.parameter =
-			htole32(srq->head & DB_PARAM_SRQ_PRODUCER_COUNTER_M);
+		srq_db.parameter = htole32(srq->idx_que.head &
+					   DB_PARAM_SRQ_PRODUCER_COUNTER_M);
 
 		hns_roce_write64((uint32_t *)&srq_db, ctx,
 				 ROCEE_VF_DB_CFG0_OFFSET);

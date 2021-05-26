@@ -64,6 +64,7 @@
 #define HNS_ROCE_MIN_CQE_NUM		0x40
 #define HNS_ROCE_V1_MIN_WQE_NUM		0x20
 #define HNS_ROCE_V2_MIN_WQE_NUM		0x40
+#define HNS_ROCE_MIN_SRQ_WQE_NUM	1
 
 #define HNS_ROCE_CQE_SIZE 0x20
 #define HNS_ROCE_V3_CQE_SIZE 0x40
@@ -205,11 +206,14 @@ struct hns_roce_idx_que {
 	int				entry_shift;
 	unsigned long			*bitmap;
 	int				bitmap_cnt;
+	unsigned int			head;
+	unsigned int			tail;
 };
 
 struct hns_roce_srq {
 	struct verbs_srq		verbs_srq;
-	struct hns_roce_buf		buf;
+	struct hns_roce_idx_que		idx_que;
+	struct hns_roce_buf		wqe_buf;
 	pthread_spinlock_t		lock;
 	unsigned long			*wrid;
 	unsigned int			srqn;
@@ -217,11 +221,8 @@ struct hns_roce_srq {
 	unsigned int			max_gs;
 	unsigned int			rsv_sge;
 	unsigned int			wqe_shift;
-	int				head;
-	int				tail;
 	unsigned int			*db;
 	unsigned short			counter;
-	struct hns_roce_idx_que		idx_que;
 };
 
 struct hns_roce_wq {
@@ -343,8 +344,7 @@ static inline struct hns_roce_cq *to_hr_cq(struct ibv_cq *ibv_cq)
 
 static inline struct hns_roce_srq *to_hr_srq(struct ibv_srq *ibv_srq)
 {
-	return container_of(container_of(ibv_srq, struct verbs_srq, srq),
-			    struct hns_roce_srq, verbs_srq);
+	return container_of(ibv_srq, struct hns_roce_srq, verbs_srq.srq);
 }
 
 static inline struct hns_roce_qp *to_hr_qp(struct ibv_qp *ibv_qp)
