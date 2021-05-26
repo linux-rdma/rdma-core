@@ -2091,7 +2091,8 @@ enum {
 		 MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_MC |
 		 MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE |
 		 MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE |
-		 MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE),
+		 MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE |
+		 MLX5DV_QP_CREATE_SIG_PIPELINING),
 };
 
 static int create_dct(struct ibv_context *context,
@@ -2286,6 +2287,16 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 			if (mlx5_qp_attr->create_flags &
 			    MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE)
 				mlx5_create_flags |= MLX5_QP_FLAG_PACKET_BASED_CREDIT_MODE;
+
+			if (mlx5_qp_attr->create_flags &
+			    MLX5DV_QP_CREATE_SIG_PIPELINING) {
+				if (!(to_mctx(context)->flags &
+				      MLX5_CTX_FLAGS_SQD2RTS_SUPPORTED)) {
+					errno = EOPNOTSUPP;
+					goto err;
+				}
+				qp->flags |= MLX5_QP_FLAGS_DRAIN_SIGERR;
+			}
 
 		}
 
@@ -2846,6 +2857,13 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		mlx5_spin_lock(&mqp->rq.lock);
 		mqp->db[MLX5_RCV_DBR] = htobe32(mqp->rq.head & 0xffff);
 		mlx5_spin_unlock(&mqp->rq.lock);
+	}
+
+	if (!ret &&
+	    (attr_mask & IBV_QP_STATE) &&
+	    attr->qp_state == IBV_QPS_INIT &&
+	    (mqp->flags & MLX5_QP_FLAGS_DRAIN_SIGERR)) {
+		ret = mlx5_modify_qp_drain_sigerr(qp);
 	}
 
 	return ret;
@@ -3515,6 +3533,41 @@ static void get_hca_general_caps_2(struct mlx5_context *mctx)
 			 capability.cmd_hca_cap_2.log_reserved_qpn_granularity);
 }
 
+static void get_hca_sig_caps(uint32_t *hca_caps, struct mlx5_context *mctx)
+{
+	if (!DEVX_GET(query_hca_cap_out, hca_caps,
+		      capability.cmd_hca_cap.sho) ||
+	    !DEVX_GET(query_hca_cap_out, hca_caps,
+		      capability.cmd_hca_cap.sigerr_domain_and_sig_type))
+		return;
+
+	/* Basic signature offload features */
+	mctx->sig_caps.block_prot =
+		MLX5DV_SIG_PROT_CAP_T10DIF | MLX5DV_SIG_PROT_CAP_CRC;
+
+	mctx->sig_caps.block_size =
+		MLX5DV_BLOCK_SIZE_CAP_512 | MLX5DV_BLOCK_SIZE_CAP_520 |
+		MLX5DV_BLOCK_SIZE_CAP_4096 | MLX5DV_BLOCK_SIZE_CAP_4160;
+
+	mctx->sig_caps.t10dif_bg =
+		MLX5DV_SIG_T10DIF_BG_CAP_CRC | MLX5DV_SIG_T10DIF_BG_CAP_CSUM;
+
+	mctx->sig_caps.crc_type = MLX5DV_SIG_CRC_TYPE_CAP_CRC32;
+
+	/* Optional signature offload features */
+	if (DEVX_GET(query_hca_cap_out, hca_caps,
+		     capability.cmd_hca_cap.sig_block_4048))
+		mctx->sig_caps.block_size |= MLX5DV_BLOCK_SIZE_CAP_4048;
+
+	if (DEVX_GET(query_hca_cap_out, hca_caps,
+		     capability.cmd_hca_cap.sig_crc32c))
+		mctx->sig_caps.crc_type |= MLX5DV_SIG_CRC_TYPE_CAP_CRC32C;
+
+	if (DEVX_GET(query_hca_cap_out, hca_caps,
+		     capability.cmd_hca_cap.sig_crc64_xp10))
+		mctx->sig_caps.crc_type |= MLX5DV_SIG_CRC_TYPE_CAP_CRC64_XP10;
+}
+
 static void get_hca_general_caps(struct mlx5_context *mctx)
 {
 	uint16_t opmod = MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE |
@@ -3557,6 +3610,8 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 	mctx->general_obj_types_caps =
 		DEVX_GET64(query_hca_cap_out, out,
 			   capability.cmd_hca_cap.general_obj_types);
+
+	get_hca_sig_caps(out, mctx);
 
 	if (DEVX_GET(query_hca_cap_out, out,
 		     capability.cmd_hca_cap.hca_cap_2))
@@ -5687,16 +5742,104 @@ ssize_t mlx5dv_devx_get_event(struct mlx5dv_devx_event_channel *event_channel,
 	return bytes;
 }
 
+static int mlx5_destroy_sig_psvs(struct mlx5_sig_ctx *sig)
+{
+	int ret = 0;
+
+	if (sig->block.mem_psv) {
+		ret = mlx5_destroy_psv(sig->block.mem_psv);
+		if (!ret)
+			sig->block.mem_psv = NULL;
+	}
+	if (!ret && sig->block.wire_psv) {
+		ret = mlx5_destroy_psv(sig->block.wire_psv);
+		if (!ret)
+			sig->block.wire_psv = NULL;
+	}
+
+	return ret;
+}
+
+static int mlx5_create_sig_psvs(struct ibv_pd *pd,
+				struct mlx5dv_mkey_init_attr *attr,
+				struct mlx5_sig_ctx *sig)
+{
+	int err;
+
+	if (attr->create_flags & MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE) {
+		sig->block.mem_psv = mlx5_create_psv(pd);
+		if (!sig->block.mem_psv)
+			return errno;
+
+		sig->block.wire_psv = mlx5_create_psv(pd);
+		if (!sig->block.wire_psv) {
+			err = errno;
+			goto err_destroy_psvs;
+		}
+	}
+
+	return 0;
+err_destroy_psvs:
+	mlx5_destroy_sig_psvs(sig);
+	return err;
+}
+
+static struct mlx5_sig_ctx *mlx5_create_sig_ctx(struct ibv_pd *pd,
+						struct mlx5dv_mkey_init_attr *attr)
+{
+	struct mlx5_sig_ctx *sig;
+	int err;
+
+	if (!to_mctx(pd->context)->sig_caps.block_prot) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	sig = calloc(1, sizeof(*sig));
+	if (!sig) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	err = mlx5_create_sig_psvs(pd, attr, sig);
+	if (err) {
+		errno = err;
+		goto err_free_sig;
+	}
+
+	sig->err_exists = false;
+	sig->err_count = 1;
+
+	return sig;
+err_free_sig:
+	free(sig);
+	return NULL;
+}
+
+static int mlx5_destroy_sig_ctx(struct mlx5_sig_ctx *sig)
+{
+	int ret;
+
+	ret = mlx5_destroy_sig_psvs(sig);
+	if (!ret)
+		free(sig);
+
+	return ret;
+}
+
 struct mlx5dv_mkey *mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 {
 	uint32_t out[DEVX_ST_SZ_DW(create_mkey_out)] = {};
 	uint32_t in[DEVX_ST_SZ_DW(create_mkey_in)] = {};
 	struct mlx5_mkey *mkey;
+	bool sig_mkey;
+	struct ibv_pd *pd = mkey_init_attr->pd;
 	void *mkc;
 
 	if (!mkey_init_attr->create_flags ||
 	    !check_comp_mask(mkey_init_attr->create_flags,
-			     MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT)) {
+			     MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+			     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE)) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -5707,29 +5850,52 @@ struct mlx5dv_mkey *mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_a
 		return NULL;
 	}
 
+	sig_mkey = mkey_init_attr->create_flags &
+		   MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE;
+
+	if (sig_mkey) {
+		mkey->sig = mlx5_create_sig_ctx(pd, mkey_init_attr);
+		if (!mkey->sig)
+			goto err_free_mkey;
+	}
+
 	mkey->num_desc = align(mkey_init_attr->max_entries, 4);
 	DEVX_SET(create_mkey_in, in, opcode, MLX5_CMD_OP_CREATE_MKEY);
 	mkc = DEVX_ADDR_OF(create_mkey_in, in, memory_key_mkey_entry);
 	DEVX_SET(mkc, mkc, access_mode_1_0, MLX5_MKC_ACCESS_MODE_KLMS);
 	DEVX_SET(mkc, mkc, free, 1);
 	DEVX_SET(mkc, mkc, umr_en, 1);
-	DEVX_SET(mkc, mkc, pd, to_mpd(mkey_init_attr->pd)->pdn);
+	DEVX_SET(mkc, mkc, pd, to_mpd(pd)->pdn);
 	DEVX_SET(mkc, mkc, translations_octword_size, mkey->num_desc);
 	DEVX_SET(mkc, mkc, lr, 1);
 	DEVX_SET(mkc, mkc, qpn, 0xffffff);
 	DEVX_SET(mkc, mkc, mkey_7_0, 0);
+	if (sig_mkey) {
+		DEVX_SET(mkc, mkc, bsf_en, 1);
+		DEVX_SET(mkc, mkc, bsf_octword_size, sizeof(struct mlx5_bsf) / 16);
+	}
 
-	mkey->devx_obj = mlx5dv_devx_obj_create(mkey_init_attr->pd->context,
-						in, sizeof(in), out, sizeof(out));
+	mkey->devx_obj = mlx5dv_devx_obj_create(pd->context, in, sizeof(in),
+						out, sizeof(out));
 	if (!mkey->devx_obj)
-		goto end;
+		goto err_destroy_sig_ctx;
 
 	mkey_init_attr->max_entries = mkey->num_desc;
 	mkey->dv_mkey.lkey = (DEVX_GET(create_mkey_out, out, mkey_index) << 8) | 0;
 	mkey->dv_mkey.rkey = mkey->dv_mkey.lkey;
 
+	if (mlx5_store_mkey(to_mctx(pd->context), mkey->dv_mkey.lkey >> 8, mkey)) {
+		errno = ENOMEM;
+		goto err_destroy_mkey_obj;
+	}
+
 	return &mkey->dv_mkey;
-end:
+err_destroy_mkey_obj:
+	mlx5dv_devx_obj_destroy(mkey->devx_obj);
+err_destroy_sig_ctx:
+	if (sig_mkey)
+		mlx5_destroy_sig_ctx(mkey->sig);
+err_free_mkey:
 	free(mkey);
 	return NULL;
 }
@@ -5738,13 +5904,134 @@ int mlx5dv_destroy_mkey(struct mlx5dv_mkey *dv_mkey)
 {
 	struct mlx5_mkey *mkey = container_of(dv_mkey, struct mlx5_mkey,
 					  dv_mkey);
+	struct mlx5_context *mctx = to_mctx(mkey->devx_obj->context);
 	int ret;
+
+	if (mkey->sig) {
+		ret = mlx5_destroy_sig_ctx(mkey->sig);
+		if (ret)
+			return ret;
+
+		mkey->sig = NULL;
+	}
 
 	ret = mlx5dv_devx_obj_destroy(mkey->devx_obj);
 	if (ret)
 		return ret;
 
+	mlx5_clear_mkey(mctx, dv_mkey->lkey >> 8);
 	free(mkey);
+	return 0;
+}
+
+enum {
+	MLX5_SIGERR_CQE_SYNDROME_REFTAG = 1 << 11,
+	MLX5_SIGERR_CQE_SYNDROME_APPTAG = 1 << 12,
+	MLX5_SIGERR_CQE_SYNDROME_GUARD = 1 << 13,
+
+	MLX5_SIGERR_CQE_SIG_TYPE_BLOCK = 0,
+	MLX5_SIGERR_CQE_SIG_TYPE_TRANSACTION = 1,
+
+	MLX5_SIGERR_CQE_DOMAIN_WIRE = 0,
+	MLX5_SIGERR_CQE_DOMAIN_MEMORY = 1,
+};
+
+static void mlx5_decode_sigerr(struct mlx5_sig_err *mlx5_err,
+			       struct mlx5_sig_block_domain *bd,
+			       struct mlx5dv_mkey_err *err_info)
+{
+	struct mlx5dv_sig_err *dv_err = &err_info->err.sig;
+
+	dv_err->offset = mlx5_err->offset;
+
+	if (mlx5_err->syndrome & MLX5_SIGERR_CQE_SYNDROME_REFTAG) {
+		err_info->err_type = MLX5DV_MKEY_SIG_BLOCK_BAD_REFTAG;
+		dv_err->expected_value = mlx5_err->expected & 0xffffffff;
+		dv_err->actual_value = mlx5_err->actual & 0xffffffff;
+
+	} else if (mlx5_err->syndrome & MLX5_SIGERR_CQE_SYNDROME_APPTAG) {
+		err_info->err_type = MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG;
+		dv_err->expected_value = (mlx5_err->expected >> 32) & 0xffff;
+		dv_err->actual_value = (mlx5_err->actual >> 32) & 0xffff;
+
+	} else {
+		err_info->err_type = MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD;
+
+		if (bd->sig_type == MLX5_SIG_TYPE_T10DIF) {
+			dv_err->expected_value = mlx5_err->expected >> 48;
+			dv_err->actual_value = mlx5_err->actual >> 48;
+
+		} else if (bd->sig.crc.type == MLX5DV_SIG_CRC_TYPE_CRC64_XP10) {
+			dv_err->expected_value = mlx5_err->expected;
+			dv_err->actual_value = mlx5_err->actual;
+
+		} else {
+			/* CRC32 or CRC32C */
+			dv_err->expected_value = mlx5_err->expected >> 32;
+			dv_err->actual_value = mlx5_err->actual >> 32;
+		}
+	}
+}
+
+int _mlx5dv_mkey_check(struct mlx5dv_mkey *dv_mkey,
+		       struct mlx5dv_mkey_err *err_info,
+		       size_t err_info_size)
+{
+	struct mlx5_mkey *mkey = container_of(dv_mkey, struct mlx5_mkey,
+					      dv_mkey);
+	struct mlx5_sig_ctx *sig_ctx = mkey->sig;
+	FILE *fp = to_mctx(mkey->devx_obj->context)->dbg_fp;
+	struct mlx5_sig_err *sig_err;
+	struct mlx5_sig_block_domain *domain;
+
+	if (!sig_ctx)
+		return EINVAL;
+
+	if (!sig_ctx->err_exists) {
+		err_info->err_type = MLX5DV_MKEY_NO_ERR;
+		return 0;
+	}
+
+	sig_err = &sig_ctx->err_info;
+
+	if (!(sig_err->syndrome & (MLX5_SIGERR_CQE_SYNDROME_REFTAG |
+				   MLX5_SIGERR_CQE_SYNDROME_APPTAG |
+				   MLX5_SIGERR_CQE_SYNDROME_GUARD))) {
+		mlx5_dbg(fp, MLX5_DBG_CQ,
+			 "unknown signature error, syndrome 0x%x\n",
+			 sig_err->syndrome);
+		return EINVAL;
+	}
+
+	if (sig_err->sig_type != MLX5_SIGERR_CQE_SIG_TYPE_BLOCK) {
+		mlx5_dbg(fp, MLX5_DBG_CQ,
+			 "not supported signature type 0x%x\n",
+			 sig_err->sig_type);
+		return EINVAL;
+	}
+
+	switch (sig_err->domain) {
+	case MLX5_SIGERR_CQE_DOMAIN_WIRE:
+		domain = &sig_ctx->block.attr.wire;
+		break;
+	case MLX5_SIGERR_CQE_DOMAIN_MEMORY:
+		domain = &sig_ctx->block.attr.mem;
+		break;
+	default:
+		mlx5_dbg(fp, MLX5_DBG_CQ, "unknown signature domain 0x%x\n",
+			 sig_err->domain);
+		return EINVAL;
+	}
+
+	if (domain->sig_type == MLX5_SIG_TYPE_NONE) {
+		mlx5_dbg(fp, MLX5_DBG_CQ,
+			 "unexpected signature error for non-signature domain\n");
+		return EINVAL;
+	}
+
+	mlx5_decode_sigerr(sig_err, domain, err_info);
+	sig_ctx->err_exists = false;
+
 	return 0;
 }
 

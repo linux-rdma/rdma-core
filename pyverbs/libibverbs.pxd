@@ -565,6 +565,16 @@ cdef extern from 'infiniband/verbs.h':
         uint32_t comp_mask
         timespec raw_clock
 
+    cdef union ibv_async_event_element:
+        ibv_cq  *cq;
+        ibv_qp  *qp;
+        ibv_srq *srq;
+        int     port_num;
+
+    cdef struct ibv_async_event:
+        ibv_async_event_element element
+        ibv_event_type event_type
+
     ibv_device **ibv_get_device_list(int *n)
     int ibv_get_device_index(ibv_device *device);
     void ibv_free_device_list(ibv_device **list)
@@ -711,6 +721,8 @@ cdef extern from 'infiniband/verbs.h':
     ibv_flow *ibv_create_flow(ibv_qp *qp, ibv_flow_attr *flow)
     int ibv_destroy_flow(ibv_flow *flow_id)
     int ibv_query_rt_values_ex(ibv_context *context, ibv_values_ex *values)
+    int ibv_get_async_event(ibv_context *context, ibv_async_event *event)
+    void ibv_ack_async_event(ibv_async_event *event)
 
 
 cdef extern from 'infiniband/driver.h':

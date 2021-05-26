@@ -70,3 +70,6 @@ cdef class PortAttr(PyverbsObject):
 
 cdef class GIDEntry(PyverbsObject):
     cdef v.ibv_gid_entry entry
+
+cdef class AsyncEvent(PyverbsObject):
+    cdef v.ibv_async_event event

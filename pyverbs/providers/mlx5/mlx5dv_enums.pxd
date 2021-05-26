@@ -18,6 +18,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS   = 1 << 6
         MLX5DV_CONTEXT_MASK_DC_ODP_CAPS         = 1 << 7
         MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS       = 1 << 9
+        MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD   = 1 << 10
 
     cpdef enum mlx5dv_context_flags:
         MLX5DV_CONTEXT_FLAGS_CQE_V1                     = 1 << 0
@@ -67,14 +68,62 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE     = 1 << 3
         MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE       = 1 << 4
         MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE   = 1 << 5
+        MLX5DV_QP_CREATE_SIG_PIPELINING             = 1 << 6
 
     cpdef enum mlx5dv_dc_type:
         MLX5DV_DCTYPE_DCT   = 1
         MLX5DV_DCTYPE_DCI   = 2
 
+    cpdef enum mlx5dv_mkey_init_attr_flags:
+        MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT
+        MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE
+
+    cpdef enum mlx5dv_mkey_err_type:
+        MLX5DV_MKEY_NO_ERR
+        MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD
+        MLX5DV_MKEY_SIG_BLOCK_BAD_REFTAG
+        MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG
+
+    cpdef enum mlx5dv_sig_type:
+        MLX5DV_SIG_TYPE_T10DIF
+        MLX5DV_SIG_TYPE_CRC
+
+    cpdef enum mlx5dv_sig_t10dif_bg_type:
+        MLX5DV_SIG_T10DIF_CRC
+        MLX5DV_SIG_T10DIF_CSUM
+
+    cpdef enum mlx5dv_sig_t10dif_flags:
+        MLX5DV_SIG_T10DIF_FLAG_REF_REMAP
+        MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE
+        MLX5DV_SIG_T10DIF_FLAG_APP_REF_ESCAPE
+
+    cpdef enum mlx5dv_sig_crc_type:
+        MLX5DV_SIG_CRC_TYPE_CRC32
+        MLX5DV_SIG_CRC_TYPE_CRC32C
+        MLX5DV_SIG_CRC_TYPE_CRC64_XP10
+
+    cpdef enum mlx5dv_block_size:
+        MLX5DV_BLOCK_SIZE_512
+        MLX5DV_BLOCK_SIZE_520
+        MLX5DV_BLOCK_SIZE_4048
+        MLX5DV_BLOCK_SIZE_4096
+        MLX5DV_BLOCK_SIZE_4160
+
+    cpdef enum mlx5dv_sig_mask:
+        MLX5DV_SIG_MASK_T10DIF_GUARD
+        MLX5DV_SIG_MASK_T10DIF_APPTAG
+        MLX5DV_SIG_MASK_T10DIF_REFTAG
+        MLX5DV_SIG_MASK_CRC32
+        MLX5DV_SIG_MASK_CRC32C
+        MLX5DV_SIG_MASK_CRC64_XP10
+
+    cpdef enum mlx5dv_sig_block_attr_flags:
+        MLX5DV_SIG_BLOCK_ATTR_FLAG_COPY_MASK
+
     cpdef enum mlx5dv_qp_create_send_ops_flags:
         MLX5DV_QP_EX_WITH_MR_INTERLEAVED    = 1 << 0
         MLX5DV_QP_EX_WITH_MR_LIST           = 1 << 1
+        MLX5DV_QP_EX_WITH_MKEY_CONFIGURE    = 1 << 2
 
     cpdef enum mlx5dv_cq_init_attr_mask:
         MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE = 1 << 0

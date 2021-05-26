@@ -148,6 +148,12 @@ enum {
 };
 
 enum {
+	MLX5_MKEY_TABLE_SHIFT		= 12,
+	MLX5_MKEY_TABLE_MASK		= (1 << MLX5_MKEY_TABLE_SHIFT) - 1,
+	MLX5_MKEY_TABLE_SIZE		= 1 << (24 - MLX5_MKEY_TABLE_SHIFT),
+};
+
+enum {
 	MLX5_BF_OFFSET	= 0x800
 };
 
@@ -253,6 +259,7 @@ enum mlx5_ctx_flags {
 	MLX5_CTX_FLAGS_FATAL_STATE = 1 << 0,
 	MLX5_CTX_FLAGS_NO_KERN_DYN_UAR = 1 << 1,
 	MLX5_CTX_FLAGS_ECE_SUPPORTED = 1 << 2,
+	MLX5_CTX_FLAGS_SQD2RTS_SUPPORTED = 1 << 3,
 };
 
 struct mlx5_entropy_caps {
@@ -320,6 +327,12 @@ struct mlx5_context {
 	}				uidx_table[MLX5_UIDX_TABLE_SIZE];
 	pthread_mutex_t                 uidx_table_mutex;
 
+	struct {
+		struct mlx5_mkey      **table;
+		int			refcnt;
+	}				mkey_table[MLX5_MKEY_TABLE_SIZE];
+	pthread_mutex_t			mkey_table_mutex;
+
 	struct mlx5_uar_info		uar[MLX5_MAX_UARS];
 	struct mlx5_db_page	       *db_list;
 	pthread_mutex_t			db_list_mutex;
@@ -364,6 +377,7 @@ struct mlx5_context {
 	struct mlx5_hca_cap_2_caps	hca_cap_2_caps;
 	uint64_t			general_obj_types_caps;
 	uint8_t				qpc_extension_cap:1;
+	struct mlx5dv_sig_caps		sig_caps;
 	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
 	uint32_t			num_dyn_bfregs;
 	uint32_t			max_num_legacy_dyn_uar_sys_page;
@@ -476,7 +490,7 @@ struct mlx5_cq {
 	struct mlx5_srq			*cur_srq;
 	struct mlx5_cqe64		*cqe64;
 	uint32_t			flags;
-	int			umr_opcode;
+	int				cached_opcode;
 	struct mlx5dv_clock_info	last_clock_info;
 	struct ibv_pd			*parent_domain;
 };
@@ -603,6 +617,7 @@ struct mlx5_mr {
 
 enum mlx5_qp_flags {
 	MLX5_QP_FLAGS_USE_UNDERLAY = 0x01,
+	MLX5_QP_FLAGS_DRAIN_SIGERR = 0x02,
 };
 
 struct mlx5_qp {
@@ -621,6 +636,7 @@ struct mlx5_qp {
 	/* Start of new post send API specific fields */
 	bool				inl_wqe;
 	uint8_t				cur_setters_cnt;
+	uint8_t				num_mkey_setters;
 	uint8_t				fm_cache_rb;
 	int				err;
 	int				nreq;
@@ -629,6 +645,7 @@ struct mlx5_qp {
 	void				*cur_eth;
 	void				*cur_data;
 	struct mlx5_wqe_ctrl_seg	*cur_ctrl;
+	struct mlx5_mkey		*cur_mkey;
 	/* End of new post send API specific fields */
 
 	uint8_t				fm_cache;
@@ -758,10 +775,63 @@ struct mlx5_devx_umem {
 	size_t size;
 };
 
+struct mlx5_psv {
+	uint32_t index;
+	struct mlx5dv_devx_obj *devx_obj;
+};
+
+enum mlx5_sig_type {
+	MLX5_SIG_TYPE_NONE = 0,
+	MLX5_SIG_TYPE_CRC,
+	MLX5_SIG_TYPE_T10DIF,
+};
+
+struct mlx5_sig_block_domain {
+	enum mlx5_sig_type sig_type;
+	union {
+		struct mlx5dv_sig_t10dif dif;
+		struct mlx5dv_sig_crc crc;
+	} sig;
+	enum mlx5dv_block_size block_size;
+};
+
+struct mlx5_sig_block_attr {
+	struct mlx5_sig_block_domain mem;
+	struct mlx5_sig_block_domain wire;
+	uint32_t flags;
+	uint8_t check_mask;
+	uint8_t copy_mask;
+};
+
+struct mlx5_sig_block {
+	struct mlx5_psv *mem_psv;
+	struct mlx5_psv *wire_psv;
+	struct mlx5_sig_block_attr attr;
+	bool updated;
+};
+
+struct mlx5_sig_err {
+	uint16_t syndrome;
+	uint64_t expected;
+	uint64_t actual;
+	uint64_t offset;
+	uint8_t sig_type;
+	uint8_t domain;
+};
+
+struct mlx5_sig_ctx {
+	struct mlx5_sig_block block;
+	struct mlx5_sig_err err_info;
+	uint32_t err_count;
+	bool err_exists;
+};
+
 struct mlx5_mkey {
 	struct mlx5dv_mkey dv_mkey;
 	struct mlx5dv_devx_obj *devx_obj;
 	uint16_t num_desc;
+	uint64_t length;
+	struct mlx5_sig_ctx *sig;
 };
 
 struct mlx5_devx_event_channel {
@@ -1022,6 +1092,7 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask);
 int mlx5_modify_qp_rate_limit(struct ibv_qp *qp,
 			      struct ibv_qp_rate_limit_attr *attr);
+int mlx5_modify_qp_drain_sigerr(struct ibv_qp *qp);
 int mlx5_destroy_qp(struct ibv_qp *qp);
 void mlx5_init_qp_indices(struct mlx5_qp *qp);
 void mlx5_init_rwq_indices(struct mlx5_rwq *rwq);
@@ -1044,6 +1115,10 @@ struct mlx5_srq *mlx5_find_srq(struct mlx5_context *ctx, uint32_t srqn);
 int mlx5_store_srq(struct mlx5_context *ctx, uint32_t srqn,
 		   struct mlx5_srq *srq);
 void mlx5_clear_srq(struct mlx5_context *ctx, uint32_t srqn);
+struct mlx5_mkey *mlx5_find_mkey(struct mlx5_context *ctx, uint32_t mkeyn);
+int mlx5_store_mkey(struct mlx5_context *ctx, uint32_t mkeyn,
+		    struct mlx5_mkey *mkey);
+void mlx5_clear_mkey(struct mlx5_context *ctx, uint32_t mkeyn);
 struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
 int mlx5_destroy_ah(struct ibv_ah *ah);
 int mlx5_alloc_av(struct mlx5_pd *pd, struct ibv_ah_attr *attr,
@@ -1132,6 +1207,9 @@ void mlx5_set_singleton_nc_uar(struct ibv_context *context);
 
 int mlx5_set_ece(struct ibv_qp *qp, struct ibv_ece *ece);
 int mlx5_query_ece(struct ibv_qp *qp, struct ibv_ece *ece);
+
+struct mlx5_psv *mlx5_create_psv(struct ibv_pd *pd);
+int mlx5_destroy_psv(struct mlx5_psv *psv);
 
 static inline void *mlx5_find_uidx(struct mlx5_context *ctx, uint32_t uidx)
 {
