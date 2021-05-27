@@ -106,6 +106,7 @@ enum dr_ste_v0_lu_type {
 	DR_STE_V0_LU_TYPE_GENERAL_PURPOSE		= 0x18,
 	DR_STE_V0_LU_TYPE_STEERING_REGISTERS_0		= 0x2f,
 	DR_STE_V0_LU_TYPE_STEERING_REGISTERS_1		= 0x30,
+	DR_STE_V0_LU_TYPE_TUNNEL_HEADER			= 0x34,
 	DR_STE_V0_LU_TYPE_DONT_CARE			= DR_STE_LU_TYPE_DONT_CARE,
 };
 
@@ -1791,6 +1792,27 @@ static void dr_ste_v0_build_flex_parser_1_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v0_build_flex_parser_tag;
 }
 
+static int dr_ste_v0_build_tunnel_header_0_1_tag(struct dr_match_param *value,
+						 struct dr_ste_build *sb,
+						 uint8_t *tag)
+{
+	struct dr_match_misc5 *misc5 = &value->misc5;
+
+	DR_STE_SET_TAG(tunnel_header, tag, tunnel_header_dw0, misc5, tunnel_header_0);
+	DR_STE_SET_TAG(tunnel_header, tag, tunnel_header_dw1, misc5, tunnel_header_1);
+
+	return 0;
+}
+
+static void dr_ste_v0_build_tunnel_header_0_1_init(struct dr_ste_build *sb,
+						   struct dr_match_param *mask)
+{
+	sb->lu_type = DR_STE_V0_LU_TYPE_TUNNEL_HEADER;
+	dr_ste_v0_build_tunnel_header_0_1_tag(mask, sb, sb->bit_mask);
+	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
+	sb->ste_build_tag_func = &dr_ste_v0_build_tunnel_header_0_1_tag;
+}
+
 static struct dr_ste_ctx ste_ctx_v0 = {
 	/* Builders */
 	.build_eth_l2_src_dst_init	= &dr_ste_v0_build_eth_l2_src_dst_init,
@@ -1820,6 +1842,7 @@ static struct dr_ste_ctx ste_ctx_v0 = {
 	.build_src_gvmi_qpn_init	= &dr_ste_v0_build_src_gvmi_qpn_init,
 	.build_flex_parser_0_init	= &dr_ste_v0_build_flex_parser_0_init,
 	.build_flex_parser_1_init	= &dr_ste_v0_build_flex_parser_1_init,
+	.build_tunnel_header_0_1	= &dr_ste_v0_build_tunnel_header_0_1_init,
 	/* Getters and Setters */
 	.ste_init			= &dr_ste_v0_init,
 	.set_next_lu_type		= &dr_ste_v0_set_next_lu_type,

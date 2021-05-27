@@ -2300,6 +2300,22 @@ struct mlx5_ifc_ste_flex_parser_1_bits {
 	u8         flex_parser_4[0x20];
 };
 
+struct mlx5_ifc_ste_tunnel_header_bits {
+	u8	tunnel_header_dw0[0x20];
+
+	u8	tunnel_header_dw1[0x20];
+
+	u8	reserved_at_40[0x40];
+};
+
+struct mlx5_ifc_ste_tunnel_header_v1_bits {
+	u8	tunnel_header_0[0x20];
+
+	u8	tunnel_header_1[0x20];
+
+	u8	reserved_at_40[0x40];
+};
+
 struct mlx5_ifc_ste_flex_parser_tnl_vxlan_gpe_bits {
 	u8         outer_vxlan_gpe_flags[0x8];
 	u8         reserved_at_8[0x10];
@@ -2520,6 +2536,35 @@ struct mlx5_ifc_ste_def6_v1_bits {
 	u8         tcp_syn[0x1];
 	u8         tcp_fin[0x1];
 	u8         reserved_f0[0x10];
+};
+
+struct mlx5_ifc_ste_def16_v1_bits {
+	u8	tunnel_header_0[0x20];
+
+	u8	tunnel_header_1[0x20];
+
+	u8	tunnel_header_2[0x20];
+
+	u8	tunnel_header_3[0x20];
+
+	u8	random_number[0x10];
+	u8	reserved_90[0x10];
+
+	u8	metadata_reg_a[0x20];
+
+	u8	reserved_c0[0x8];
+	u8	outer_l3_type[0x2];
+	u8	outer_l4_type[0x2];
+	u8	outer_first_vlan_type[0x2];
+	u8	reserved_ce[0x1];
+	u8	functional_lb[0x1];
+	u8	source_gvmi[0x10];
+
+	u8	force_lb[0x1];
+	u8	outer_ip_frag[0x1];
+	u8	source_is_requester[0x1];
+	u8	reserved_e3[0x5];
+	u8	source_sqn[0x18];
 };
 
 struct mlx5_ifc_ste_def22_v1_bits {

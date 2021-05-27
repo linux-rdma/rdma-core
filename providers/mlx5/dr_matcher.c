@@ -392,6 +392,11 @@ static bool dr_mask_is_flex_parser_4_7_set(struct dr_match_misc4 *misc4)
 		dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_3));
 }
 
+static bool dr_mask_is_tunnel_header_0_1_set(struct dr_match_misc5 *misc5)
+{
+	return misc5->tunnel_header_0 || misc5->tunnel_header_1;
+}
+
 static int dr_matcher_supp_tnl_mpls_over_gre(struct dr_devx_caps *caps)
 {
 	return caps->flex_protocols & MLX5_FLEX_PARSER_MPLS_OVER_GRE_ENABLED;
@@ -542,6 +547,16 @@ static int dr_matcher_set_definer_builders(struct mlx5dv_dr_matcher *matcher,
 		idx = 0;
 	}
 
+	if (caps->definer_format_sup & (1 << DR_MATCHER_DEFINER_16)) {
+		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
+		ret = dr_ste_build_def16(ste_ctx, &sb[idx++], &mask, caps, false, rx);
+		if (!ret && dr_matcher_is_mask_consumed(&mask))
+			goto done;
+
+		memset(sb, 0, sizeof(*sb));
+		idx = 0;
+	}
+
 	if (caps->definer_format_sup & (1 << DR_MATCHER_DEFINER_22)) {
 		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
 		ret = dr_ste_build_def22(ste_ctx, &sb[idx++], &mask, false, rx);
@@ -680,7 +695,8 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 	if (matcher->match_criteria & (DR_MATCHER_CRITERIA_OUTER |
 				       DR_MATCHER_CRITERIA_MISC |
 				       DR_MATCHER_CRITERIA_MISC2 |
-				       DR_MATCHER_CRITERIA_MISC3)) {
+				       DR_MATCHER_CRITERIA_MISC3 |
+				       DR_MATCHER_CRITERIA_MISC5)) {
 		inner = false;
 		ipv = mask.outer.ip_version;
 
@@ -766,6 +782,9 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 			if (dr_mask_is_tnl_gtpu(&mask, dmn))
 				dr_ste_build_tnl_gtpu(ste_ctx, &sb[idx++],
 						      &mask, inner, rx);
+		} else if (dr_mask_is_tunnel_header_0_1_set(&mask.misc5)) {
+			dr_ste_build_tunnel_header_0_1(ste_ctx, &sb[idx++],
+						       &mask, false, rx);
 		}
 
 		if (DR_MASK_IS_ETH_L4_MISC_SET(mask.misc3, outer))
