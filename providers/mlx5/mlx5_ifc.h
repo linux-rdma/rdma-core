@@ -548,6 +548,26 @@ struct mlx5_ifc_dr_match_set_misc4_bits {
 	u8         reserved[0x100];
 };
 
+struct mlx5_ifc_dr_match_set_misc5_bits {
+	u8	macsec_tag_0[0x20];
+
+	u8	macsec_tag_1[0x20];
+
+	u8	macsec_tag_2[0x20];
+
+	u8	macsec_tag_3[0x20];
+
+	u8	tunnel_header_0[0x20];
+
+	u8	tunnel_header_1[0x20];
+
+	u8	tunnel_header_2[0x20];
+
+	u8	tunnel_header_3[0x20];
+
+	u8	reserved[0x100];
+};
+
 struct mlx5_ifc_dr_match_param_bits {
 	struct mlx5_ifc_dr_match_spec_bits outer;
 	struct mlx5_ifc_dr_match_set_misc_bits misc;
@@ -555,6 +575,7 @@ struct mlx5_ifc_dr_match_param_bits {
 	struct mlx5_ifc_dr_match_set_misc2_bits misc2;
 	struct mlx5_ifc_dr_match_set_misc3_bits misc3;
 	struct mlx5_ifc_dr_match_set_misc4_bits misc4;
+	struct mlx5_ifc_dr_match_set_misc5_bits misc5;
 };
 
 struct mlx5_ifc_flow_table_prop_layout_bits {

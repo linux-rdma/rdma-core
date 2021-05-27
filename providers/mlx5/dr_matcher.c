@@ -448,6 +448,9 @@ static void dr_matcher_copy_mask(struct dr_match_param *dst_mask,
 
 	if (match_criteria & DR_MATCHER_CRITERIA_MISC4)
 		dst_mask->misc4 = src_mask->misc4;
+
+	if (match_criteria & DR_MATCHER_CRITERIA_MISC5)
+		dst_mask->misc5 = src_mask->misc5;
 }
 
 static void dr_matcher_destroy_definer_objs(struct dr_ste_build *sb,

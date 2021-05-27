@@ -944,6 +944,26 @@ static void dr_ste_copy_mask_misc4(char *mask, struct dr_match_misc4 *spec)
 		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_3);
 }
 
+static void dr_ste_copy_mask_misc5(char *mask, struct dr_match_misc5 *spec)
+{
+	spec->macsec_tag_0 =
+		DEVX_GET(dr_match_set_misc5, mask, macsec_tag_0);
+	spec->macsec_tag_1 =
+		DEVX_GET(dr_match_set_misc5, mask, macsec_tag_1);
+	spec->macsec_tag_2 =
+		DEVX_GET(dr_match_set_misc5, mask, macsec_tag_2);
+	spec->macsec_tag_3 =
+		DEVX_GET(dr_match_set_misc5, mask, macsec_tag_3);
+	spec->tunnel_header_0 =
+		DEVX_GET(dr_match_set_misc5, mask, tunnel_header_0);
+	spec->tunnel_header_1 =
+		DEVX_GET(dr_match_set_misc5, mask, tunnel_header_1);
+	spec->tunnel_header_2 =
+		DEVX_GET(dr_match_set_misc5, mask, tunnel_header_2);
+	spec->tunnel_header_3 =
+		DEVX_GET(dr_match_set_misc5, mask, tunnel_header_3);
+}
+
 #define MAX_PARAM_SIZE 512
 
 void dr_ste_copy_param(uint8_t match_criteria,
@@ -1028,6 +1048,19 @@ void dr_ste_copy_param(uint8_t match_criteria,
 			buff = data + param_location;
 		}
 		dr_ste_copy_mask_misc4(buff, &set_param->misc4);
+	}
+	param_location += DEVX_ST_SZ_BYTES(dr_match_set_misc4);
+
+	if (match_criteria & DR_MATCHER_CRITERIA_MISC5) {
+		if (mask->match_sz < param_location +
+		    DEVX_ST_SZ_BYTES(dr_match_set_misc5)) {
+			memcpy(tail_param, data + param_location,
+			       mask->match_sz - param_location);
+			buff = tail_param;
+		} else {
+			buff = data + param_location;
+		}
+		dr_ste_copy_mask_misc5(buff, &set_param->misc5);
 	}
 }
 

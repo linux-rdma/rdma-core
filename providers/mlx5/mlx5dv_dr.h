@@ -133,7 +133,8 @@ enum dr_matcher_criteria {
 	DR_MATCHER_CRITERIA_MISC2	= 1 << 3,
 	DR_MATCHER_CRITERIA_MISC3	= 1 << 4,
 	DR_MATCHER_CRITERIA_MISC4	= 1 << 5,
-	DR_MATCHER_CRITERIA_MAX		= 1 << 6,
+	DR_MATCHER_CRITERIA_MISC5       = 1 << 6,
+	DR_MATCHER_CRITERIA_MAX		= 1 << 7,
 };
 
 enum dr_matcher_definer {
@@ -738,6 +739,18 @@ struct dr_match_misc4 {
 	uint32_t prog_sample_field_id_3;
 };
 
+struct dr_match_misc5 {
+	uint32_t macsec_tag_0;
+	uint32_t macsec_tag_1;
+	uint32_t macsec_tag_2;
+	uint32_t macsec_tag_3;
+	uint32_t tunnel_header_0;
+	uint32_t tunnel_header_1;
+	uint32_t tunnel_header_2;
+	uint32_t tunnel_header_3;
+	uint32_t reserved[0x8];
+};
+
 struct dr_match_param {
 	struct dr_match_spec	outer;
 	struct dr_match_misc	misc;
@@ -745,6 +758,7 @@ struct dr_match_param {
 	struct dr_match_misc2	misc2;
 	struct dr_match_misc3	misc3;
 	struct dr_match_misc4	misc4;
+	struct dr_match_misc5	misc5;
 };
 
 #define DR_MASK_IS_ICMPV4_SET(_misc3) ((_misc3)->icmpv4_type || \
