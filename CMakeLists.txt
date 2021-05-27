@@ -457,7 +457,7 @@ FIND_PACKAGE(PkgConfig REQUIRED)
 
 # libnl
 if (NOT DEFINED ENABLE_RESOLVE_NEIGH)
-  set(ENABLE_RESOLVE_NEIGH "ON" CACHE BOOL "Enable internal resolution of neighbours for Etherent")
+  set(ENABLE_RESOLVE_NEIGH "ON" CACHE BOOL "Enable internal resolution of neighbours for Ethernet")
 endif()
 if (ENABLE_RESOLVE_NEIGH)
   # FIXME use of pkgconfig is discouraged
