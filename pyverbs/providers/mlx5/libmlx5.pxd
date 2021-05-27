@@ -162,6 +162,15 @@ cdef extern from 'infiniband/mlx5dv.h':
 
     cdef struct mlx5dv_dr_rule
 
+    cdef struct mlx5dv_dr_action_dest_reformat:
+        mlx5dv_dr_action *reformat
+        mlx5dv_dr_action *dest
+
+    cdef struct mlx5dv_dr_action_dest_attr:
+        mlx5dv_dr_action_dest_type type
+        mlx5dv_dr_action *dest
+        mlx5dv_dr_action_dest_reformat *dest_reformat
+
     cdef struct mlx5dv_clock_info:
         pass
 
@@ -441,6 +450,9 @@ cdef extern from 'infiniband/mlx5dv.h':
     mlx5dv_dr_action *mlx5dv_dr_action_create_pop_vlan()
     mlx5dv_dr_action *mlx5dv_dr_action_create_push_vlan(mlx5dv_dr_domain *dmn,
                                                         uint32_t vlan_hdr)
+    mlx5dv_dr_action *mlx5dv_dr_action_create_dest_array(
+            mlx5dv_dr_domain *domain, size_t num_dest,
+            mlx5dv_dr_action_dest_attr *dests[])
     int mlx5dv_dr_action_destroy(mlx5dv_dr_action *action)
     mlx5dv_dr_rule *mlx5dv_dr_rule_create(mlx5dv_dr_matcher *matcher,
                                           mlx5dv_flow_match_parameters *value,

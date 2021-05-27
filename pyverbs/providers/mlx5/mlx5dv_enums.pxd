@@ -276,6 +276,10 @@ cdef extern from 'infiniband/mlx5dv.h':
        MLX5DV_DR_MATCHER_LAYOUT_RESIZABLE
        MLX5DV_DR_MATCHER_LAYOUT_NUM_RULE
 
+    cpdef enum mlx5dv_dr_action_dest_type:
+        MLX5DV_DR_ACTION_DEST
+        MLX5DV_DR_ACTION_DEST_REFORMAT
+
     cpdef unsigned long long MLX5DV_RES_TYPE_QP
     cpdef unsigned long long MLX5DV_RES_TYPE_RWQ
     cpdef unsigned long long MLX5DV_RES_TYPE_DBR

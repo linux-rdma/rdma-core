@@ -5,6 +5,7 @@ from pyverbs.base import PyverbsRDMAErrno, PyverbsRDMAError
 from pyverbs.providers.mlx5.dr_domain cimport DrDomain
 from pyverbs.providers.mlx5.mlx5dv cimport Mlx5DevxObj
 from pyverbs.providers.mlx5.dr_rule cimport DrRule
+import pyverbs.providers.mlx5.mlx5_enums as dve
 from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base cimport close_weakrefs
 from libc.stdlib cimport calloc, free
@@ -196,3 +197,89 @@ cdef class DrActionPushVLan(DrAction):
         if self.action != NULL:
             super(DrActionPushVLan, self).close()
             self.domain = None
+
+
+cdef class DrActionDestAttr(PyverbsCM):
+    def __init__(self, action_type, DrAction dest, DrAction reformat=None):
+        """
+        Multi destination attributes class used in order to create
+        multi destination array action.
+        :param action_type: Type of action DEST or DEST_REFORMAT
+        :param dest: Destination action to use
+        :param reformat: Reformat action to use before destination action
+        """
+        super().__init__()
+        self.dest_reformat = NULL
+        self.action_dest_attr = NULL
+        if action_type == dve.MLX5DV_DR_ACTION_DEST:
+            self.action_dest_attr = <dv.mlx5dv_dr_action_dest_attr *> calloc(
+                1, sizeof(dv.mlx5dv_dr_action_dest_attr))
+            if self.action_dest_attr == NULL:
+                raise PyverbsRDMAErrno('Memory allocation for DrActionDestAttr failed.')
+            self.action_dest_attr.type = action_type
+            self.action_dest_attr.dest = dest.action
+            self.dest = dest
+        elif action_type == dve.MLX5DV_DR_ACTION_DEST_REFORMAT:
+            self.dest_reformat = <dv.mlx5dv_dr_action_dest_reformat *> calloc(
+                1, sizeof(dv.mlx5dv_dr_action_dest_reformat))
+            if self.dest_reformat == NULL:
+                raise PyverbsRDMAErrno('Memory allocation for DrActionDestAttr failed.')
+            self.action_dest_attr.dest_reformat = self.dest_reformat
+            self.action_dest_attr.dest_reformat.reformat = reformat.action
+            self.action_dest_attr.dest_reformat.dest = dest.action
+        else:
+            raise PyverbsError('Unsupported action type is provided.')
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        super(DrActionDestAttr, self).close()
+        self.logger.debug('Closing DrActionDestAttr')
+        if self.action_dest_attr != NULL:
+            free(self.action_dest_attr)
+            self.action_dest_attr = NULL
+        if self.dest_reformat != NULL:
+            free(self.dest_reformat)
+            self.dest_reformat = NULL
+
+
+cdef class DrActionDestArray(DrAction):
+    def __init__(self, DrDomain domain, actions_num, dest_actions):
+        """
+        Create Dest Array Action.
+        :param domain: DrDomain object where the action should be located.
+        :param actions_num: Number of actions.
+        :param dest_actions: Destination actions to use for dest array action.
+        """
+        cdef dv.mlx5dv_dr_action_dest_attr ** ptr_list
+        cdef DrActionDestAttr temp_attr
+        super().__init__()
+        if not actions_num or not dest_actions or not domain:
+            raise PyverbsError('Domain, number of actions and '
+                               'dest_actions list must be provided '
+                               'for creating dest array action.')
+        self.domain = domain
+        self.dest_actions = dest_actions
+        ptr_list = <dv.mlx5dv_dr_action_dest_attr**>calloc(
+            actions_num, sizeof(dv.mlx5dv_dr_action_dest_attr *))
+        if ptr_list == NULL:
+            raise PyverbsError('Failed to allocate memory.')
+        for j in range(actions_num):
+            temp_attr = <DrActionDestAttr>(dest_actions[j])
+            ptr_list[j] = <dv.mlx5dv_dr_action_dest_attr*>temp_attr.action_dest_attr
+        self.action = dv.mlx5dv_dr_action_create_dest_array(
+                        domain.domain, actions_num, ptr_list)
+        if self.action == NULL:
+            raise PyverbsRDMAErrno('DrActionDestArray creation failed.')
+        free(ptr_list)
+        domain.dr_actions.add(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.action != NULL:
+            super(DrActionDestArray, self).close()
+            self.domain = None
+            self.dest_actions = None

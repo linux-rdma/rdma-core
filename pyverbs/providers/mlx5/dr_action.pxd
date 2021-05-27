@@ -39,3 +39,12 @@ cdef class DrActionPushVLan(DrAction):
 
 cdef class DrActionPopVLan(DrAction):
     pass
+
+cdef class DrActionDestAttr(PyverbsCM):
+    cdef DrAction dest
+    cdef dv.mlx5dv_dr_action_dest_attr *action_dest_attr
+    cdef dv.mlx5dv_dr_action_dest_reformat *dest_reformat
+
+cdef class DrActionDestArray(DrAction):
+    cdef DrDomain domain
+    cdef object dest_actions
