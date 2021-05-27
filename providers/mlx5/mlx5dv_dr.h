@@ -884,6 +884,7 @@ struct dr_domain_info {
 
 enum dr_domain_flags {
 	 DR_DOMAIN_FLAG_MEMORY_RECLAIM = 1 << 0,
+	 DR_DOMAIN_FLAG_DISABLE_DUPLICATE_RULES = 1 << 1,
 };
 
 struct mlx5dv_dr_domain {

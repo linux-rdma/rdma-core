@@ -10,7 +10,7 @@ footer: mlx5
 
 # NAME
 
-mlx5dv_dr_domain_create, mlx5dv_dr_domain_sync, mlx5dv_dr_domain_destroy, mlx5dv_dr_domain_set_reclaim_device_memory - Manage flow domains
+mlx5dv_dr_domain_create, mlx5dv_dr_domain_sync, mlx5dv_dr_domain_destroy, mlx5dv_dr_domain_set_reclaim_device_memory, mlx5dv_dr_domain_allow_duplicate_rules - Manage flow domains
 
 mlx5dv_dr_table_create, mlx5dv_dr_table_destroy - Manage flow tables
 
@@ -64,6 +64,8 @@ int mlx5dv_dr_domain_destroy(struct mlx5dv_dr_domain *domain);
 void mlx5dv_dr_domain_set_reclaim_device_memory(
 		struct mlx5dv_dr_domain *dmn,
 		bool enable);
+
+void mlx5dv_dr_domain_allow_duplicate_rules(struct mlx5dv_dr_domain *dmn, bool allow);
 
 struct mlx5dv_dr_table *mlx5dv_dr_table_create(
 		struct mlx5dv_dr_domain *domain,
@@ -196,6 +198,8 @@ Default behavior: Forward packet to eSwitch manager vport.
 
 
 *mlx5dv_dr_domain_set_reclaim_device_memory()* is used to enable the reclaiming of device memory back to the system when not in use, by default this feature is disabled.
+
+*mlx5dv_dr_domain_allow_duplicate_rules()* is used to allow or prevent insertion of rules matching on same fields(duplicates) on non root tables, by default this feature is allowed.
 
 ## Table
 *mlx5dv_dr_table_create()* creates a DR table in the **domain**, at the appropriate **level**, and can be used with *mlx5dv_dr_matcher_create()* and *mlx5dv_dr_action_create_dest_table()*.

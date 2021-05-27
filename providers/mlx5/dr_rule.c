@@ -878,6 +878,11 @@ again:
 			if (!dr_ste_is_last_in_rule(nic_matcher, ste_location))
 				return matched_ste;
 
+			if (dmn->flags & DR_DOMAIN_FLAG_DISABLE_DUPLICATE_RULES) {
+				dr_dbg(dmn, "Duplicate rules are not supported\n");
+				errno = EEXIST;
+				return NULL;
+			}
 			dr_dbg(dmn, "Duplicate rule inserted\n");
 		}
 
