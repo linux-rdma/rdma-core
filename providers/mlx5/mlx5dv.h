@@ -553,6 +553,27 @@ static inline void mlx5dv_wr_raw_wqe(struct mlx5dv_qp_ex *mqp, const void *wqe)
 	mqp->wr_raw_wqe(mqp, wqe);
 }
 
+struct mlx5dv_crypto_login_attr {
+	uint32_t credential_id;
+	uint32_t import_kek_id;
+	char credential[48];
+	uint64_t comp_mask;
+};
+
+enum mlx5dv_crypto_login_state {
+	MLX5DV_CRYPTO_LOGIN_STATE_VALID,
+	MLX5DV_CRYPTO_LOGIN_STATE_NO_LOGIN,
+	MLX5DV_CRYPTO_LOGIN_STATE_INVALID,
+};
+
+int mlx5dv_crypto_login(struct ibv_context *context,
+			struct mlx5dv_crypto_login_attr *login_attr);
+
+int mlx5dv_crypto_login_query_state(struct ibv_context *context,
+				    enum mlx5dv_crypto_login_state *state);
+
+int mlx5dv_crypto_logout(struct ibv_context *context);
+
 enum mlx5dv_flow_action_esp_mask {
 	MLX5DV_FLOW_ACTION_ESP_MASK_FLAGS	= 1 << 0,
 };

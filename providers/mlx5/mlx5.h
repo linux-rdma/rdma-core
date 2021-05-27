@@ -414,6 +414,8 @@ struct mlx5_context {
 	struct mlx5_reserved_qpns	reserved_qpns;
 	uint8_t				qp_data_in_order_cap:1;
 	struct mlx5_dv_context_ops	*dv_ctx_ops;
+	struct mlx5dv_devx_obj		*crypto_login;
+	pthread_mutex_t			crypto_login_mutex;
 };
 
 struct mlx5_bitmap {
@@ -1439,6 +1441,12 @@ struct mlx5_dv_context_ops {
 
 	struct mlx5dv_mkey *(*create_mkey)(struct mlx5dv_mkey_init_attr *mkey_init_attr);
 	int (*destroy_mkey)(struct mlx5dv_mkey *dv_mkey);
+
+	int (*crypto_login)(struct ibv_context *context,
+			    struct mlx5dv_crypto_login_attr *login_attr);
+	int (*crypto_login_query_state)(struct ibv_context *context,
+					enum mlx5dv_crypto_login_state *state);
+	int (*crypto_logout)(struct ibv_context *context);
 
 	struct mlx5dv_var *(*alloc_var)(struct ibv_context *context, uint32_t flags);
 	void (*free_var)(struct mlx5dv_var *dv_var);

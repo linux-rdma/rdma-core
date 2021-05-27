@@ -6747,6 +6747,160 @@ int _mlx5dv_mkey_check(struct mlx5dv_mkey *dv_mkey,
 	return 0;
 }
 
+static int _mlx5dv_crypto_login(struct ibv_context *context,
+				struct mlx5dv_crypto_login_attr *login_attr)
+{
+	uint32_t in[DEVX_ST_SZ_DW(create_crypto_login_obj_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
+	struct mlx5_context *mctx = to_mctx(context);
+	int ret = 0;
+	void *attr;
+
+	if (!(mctx->general_obj_types_caps &
+	      (1ULL << MLX5_OBJ_TYPE_CRYPTO_LOGIN)))
+		return EOPNOTSUPP;
+
+	if (login_attr->comp_mask)
+		return EINVAL;
+
+	if (login_attr->credential_id & 0xff000000 ||
+	    login_attr->import_kek_id & 0xff000000)
+		return EINVAL;
+
+	pthread_mutex_lock(&mctx->crypto_login_mutex);
+	if (mctx->crypto_login) {
+		ret = EEXIST;
+		goto out;
+	}
+
+	attr = DEVX_ADDR_OF(create_crypto_login_obj_in, in, hdr);
+	DEVX_SET(general_obj_in_cmd_hdr, attr, opcode,
+		 MLX5_CMD_OP_CREATE_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr, attr, obj_type,
+		 MLX5_OBJ_TYPE_CRYPTO_LOGIN);
+
+	attr = DEVX_ADDR_OF(create_crypto_login_obj_in, in, login_obj);
+	DEVX_SET(crypto_login_obj, attr, credential_pointer,
+		 login_attr->credential_id);
+	DEVX_SET(crypto_login_obj, attr, session_import_kek_ptr,
+		 login_attr->import_kek_id);
+	memcpy(DEVX_ADDR_OF(crypto_login_obj, attr, credential),
+	       login_attr->credential, sizeof(login_attr->credential));
+
+	mctx->crypto_login = mlx5dv_devx_obj_create(context, in, sizeof(in),
+						    out, sizeof(out));
+	if (!mctx->crypto_login)
+		ret = errno;
+
+out:
+	pthread_mutex_unlock(&mctx->crypto_login_mutex);
+	return ret;
+}
+
+int mlx5dv_crypto_login(struct ibv_context *context,
+			struct mlx5dv_crypto_login_attr *login_attr)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->crypto_login)
+		return EOPNOTSUPP;
+
+	return dvops->crypto_login(context, login_attr);
+}
+
+static int
+_mlx5dv_crypto_login_query_state(struct ibv_context *context,
+				 enum mlx5dv_crypto_login_state *state)
+{
+	uint32_t out[DEVX_ST_SZ_DW(query_crypto_login_obj_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(general_obj_in_cmd_hdr)] = {};
+	struct mlx5_context *mctx = to_mctx(context);
+	uint8_t crypto_login_state;
+	void *attr;
+	int ret;
+
+	pthread_mutex_lock(&mctx->crypto_login_mutex);
+	if (!mctx->crypto_login) {
+		*state = MLX5DV_CRYPTO_LOGIN_STATE_NO_LOGIN;
+		ret = 0;
+		goto out;
+	}
+
+	DEVX_SET(general_obj_in_cmd_hdr, in, opcode,
+		 MLX5_CMD_OP_QUERY_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr, in, obj_type,
+		 MLX5_OBJ_TYPE_CRYPTO_LOGIN);
+	DEVX_SET(general_obj_in_cmd_hdr, in, obj_id,
+		 mctx->crypto_login->object_id);
+
+	ret = mlx5dv_devx_obj_query(mctx->crypto_login, in, sizeof(in), out,
+				    sizeof(out));
+	if (ret)
+		goto out;
+
+	attr = DEVX_ADDR_OF(query_crypto_login_obj_out, out, obj);
+	crypto_login_state = DEVX_GET(crypto_login_obj, attr, state);
+
+	switch (crypto_login_state) {
+	case MLX5_CRYPTO_LOGIN_OBJ_STATE_VALID:
+		*state = MLX5DV_CRYPTO_LOGIN_STATE_VALID;
+		break;
+	case MLX5_CRYPTO_LOGIN_OBJ_STATE_INVALID:
+		*state = MLX5DV_CRYPTO_LOGIN_STATE_INVALID;
+		break;
+	default:
+		ret = EINVAL;
+		break;
+	}
+
+out:
+	pthread_mutex_unlock(&mctx->crypto_login_mutex);
+	return ret;
+}
+
+int mlx5dv_crypto_login_query_state(struct ibv_context *context,
+				    enum mlx5dv_crypto_login_state *state)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->crypto_login_query_state)
+		return EOPNOTSUPP;
+
+	return dvops->crypto_login_query_state(context, state);
+}
+
+static int _mlx5dv_crypto_logout(struct ibv_context *context)
+{
+	struct mlx5_context *mctx = to_mctx(context);
+	int ret;
+
+	pthread_mutex_lock(&mctx->crypto_login_mutex);
+	if (!mctx->crypto_login) {
+		ret = ENOENT;
+		goto out;
+	}
+
+	ret = mlx5dv_devx_obj_destroy(mctx->crypto_login);
+	if (ret)
+		goto out;
+
+	mctx->crypto_login = NULL;
+
+out:
+	pthread_mutex_unlock(&mctx->crypto_login_mutex);
+	return ret;
+}
+
+int mlx5dv_crypto_logout(struct ibv_context *context)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->crypto_logout)
+		return EOPNOTSUPP;
+
+	return dvops->crypto_logout(context);
+}
+
 static struct mlx5dv_var *
 _mlx5dv_alloc_var(struct ibv_context *context, uint32_t flags)
 {
@@ -6975,6 +7129,10 @@ void mlx5_set_dv_ctx_ops(struct mlx5_dv_context_ops *ops)
 
 	ops->create_mkey = _mlx5dv_create_mkey;
 	ops->destroy_mkey = _mlx5dv_destroy_mkey;
+
+	ops->crypto_login = _mlx5dv_crypto_login;
+	ops->crypto_login_query_state = _mlx5dv_crypto_login_query_state;
+	ops->crypto_logout = _mlx5dv_crypto_logout;
 
 	ops->alloc_var = _mlx5dv_alloc_var;
 	ops->free_var = _mlx5dv_free_var;

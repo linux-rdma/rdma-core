@@ -192,6 +192,9 @@ MLX5_1.20 {
 
 MLX5_1.21 {
 	global:
+		mlx5dv_crypto_login;
+		mlx5dv_crypto_login_query_state;
+		mlx5dv_crypto_logout;
 		mlx5dv_dci_stream_id_reset;
 		mlx5dv_dr_action_create_dest_ib_port;
 		mlx5dv_dr_matcher_set_layout;

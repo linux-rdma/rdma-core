@@ -3103,6 +3103,7 @@ struct mlx5_ifc_dealloc_flow_counter_in_bits {
 enum {
 	MLX5_OBJ_TYPE_FLOW_METER = 0x000a,
 	MLX5_OBJ_TYPE_MATCH_DEFINER = 0x0018,
+	MLX5_OBJ_TYPE_CRYPTO_LOGIN = 0x001F,
 	MLX5_OBJ_TYPE_FLOW_SAMPLER = 0x0020,
 	MLX5_OBJ_TYPE_ASO_FLOW_METER = 0x0024,
 	MLX5_OBJ_TYPE_ASO_FIRST_HIT = 0x0025,
@@ -5369,4 +5370,39 @@ struct mlx5_ifc_dealloc_xrcd_in_bits {
 
 	u8         reserved_at_60[0x20];
 };
+
+enum {
+	MLX5_CRYPTO_LOGIN_OBJ_STATE_VALID    = 0x0,
+	MLX5_CRYPTO_LOGIN_OBJ_STATE_INVALID  = 0x1,
+};
+
+struct mlx5_ifc_crypto_login_obj_bits {
+	u8         modify_field_select[0x40];
+
+	u8         reserved_at_40[0x40];
+
+	u8         reserved_at_80[0x4];
+	u8         state[0x4];
+	u8         credential_pointer[0x18];
+
+	u8         reserved_at_a0[0x8];
+	u8         session_import_kek_ptr[0x18];
+
+	u8         reserved_at_c0[0x140];
+
+	u8         credential[12][0x20];
+
+	u8         reserved_at_380[0x480];
+};
+
+struct mlx5_ifc_create_crypto_login_obj_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits     hdr;
+	struct mlx5_ifc_crypto_login_obj_bits           login_obj;
+};
+
+struct mlx5_ifc_query_crypto_login_obj_out_bits {
+	struct mlx5_ifc_general_obj_out_cmd_hdr_bits    hdr;
+	struct mlx5_ifc_crypto_login_obj_bits           obj;
+};
+
 #endif /* MLX5_IFC_H */

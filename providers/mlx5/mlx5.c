@@ -2377,6 +2377,7 @@ static int mlx5_set_context(struct mlx5_context *context,
 	pthread_mutex_init(&context->uidx_table_mutex, NULL);
 	pthread_mutex_init(&context->mkey_table_mutex, NULL);
 	pthread_mutex_init(&context->dyn_bfregs_mutex, NULL);
+	pthread_mutex_init(&context->crypto_login_mutex, NULL);
 	for (i = 0; i < MLX5_QP_TABLE_SIZE; ++i)
 		context->qp_table[i].refcnt = 0;
 
