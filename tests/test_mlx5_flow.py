@@ -41,8 +41,13 @@ def requires_reformat_support(func):
         cmd_in = struct.pack('!HIH8s', MLX5_CMD_OP_QUERY_HCA_CAP, 0,
                              MLX5_CMD_MOD_NIC_FLOW_TABLE_CAP << 1 | 0x1,
                              bytes(8))
-        cmd_out = Mlx5Context.devx_general_cmd(ctx, cmd_in,
-                                               MLX5_CMD_OP_QUERY_HCA_CAP_OUT_LEN)
+        try:
+            cmd_out = Mlx5Context.devx_general_cmd(ctx, cmd_in,
+                                                   MLX5_CMD_OP_QUERY_HCA_CAP_OUT_LEN)
+        except PyverbsRDMAError as ex:
+            if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                raise unittest.SkipTest('DevX general command is not supported')
+            raise ex
         cmd_view = memoryview(cmd_out)
         status = cmd_view[0]
         if status:
