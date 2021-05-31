@@ -377,6 +377,13 @@ static int dr_dump_matcher_mask(FILE *f, struct dr_match_param *mask,
 
 	if (criteria & DR_MATCHER_CRITERIA_MISC3) {
 		dump_hex_print(dump, (char *)&mask->misc3, sizeof(mask->misc3));
+		ret = fprintf(f, "%s,", dump);
+	} else {
+		ret = fprintf(f, ",");
+	}
+
+	if (criteria & DR_MATCHER_CRITERIA_MISC4) {
+		dump_hex_print(dump, (char *)&mask->misc4, sizeof(mask->misc4));
 		ret = fprintf(f, "%s\n", dump);
 	} else {
 		ret = fprintf(f, ",\n");
