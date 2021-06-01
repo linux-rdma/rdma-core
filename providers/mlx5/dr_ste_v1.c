@@ -645,7 +645,11 @@ dr_ste_v1_set_action_decap_l3_list(void *data, uint32_t data_sz,
 		return errno;
 	}
 
-	memcpy(padded_data, data, data_sz);
+	inline_data_sz =
+		DEVX_FLD_SZ_BYTES(ste_double_action_insert_with_inline_v1, inline_data);
+
+	/* Add an alignment padding  */
+	memcpy(padded_data + data_sz % inline_data_sz, data, data_sz);
 
 	/* Remove L2L3 outer headers */
 	DR_STE_SET(single_action_remove_header_v1, hw_action, action_id,
@@ -657,32 +661,34 @@ dr_ste_v1_set_action_decap_l3_list(void *data, uint32_t data_sz,
 	hw_action += DR_STE_ACTION_DOUBLE_SZ;
 	used_actions++;
 
-	inline_data_sz =
-		DEVX_FLD_SZ_BYTES(ste_double_action_insert_with_inline_v1, inline_data);
+	/* Point to the last dword of the header */
+	data_ptr += (data_sz / inline_data_sz) * inline_data_sz;
 
-	/* Add the new header inline + 2 extra bytes */
+	/* Add the new header using inline action 4Byte at a time, the header
+	 * is added in reversed order to the beginning of the packet to avoid
+	 * incorrect parsing by the HW. Since header is 14B or 18B an extra
+	 * two bytes are padded and later removed.
+	 */
 	for (i = 0; i < data_sz / inline_data_sz + 1; i++) {
 		void *addr_inline;
 
 		DR_STE_SET(double_action_insert_with_inline_v1, hw_action, action_id,
 			   DR_STE_V1_ACTION_ID_INSERT_INLINE);
 		/* The hardware expects here offset to words (2 bytes) */
-		DR_STE_SET(double_action_insert_with_inline_v1, hw_action, start_offset,
-			   i * 2);
+		DR_STE_SET(double_action_insert_with_inline_v1, hw_action, start_offset, 0);
 
 		/* Copy byte byte in order to skip endianness problem */
 		addr_inline = DEVX_ADDR_OF(ste_double_action_insert_with_inline_v1,
 					   hw_action, inline_data);
-		memcpy(addr_inline, data_ptr, inline_data_sz);
+		memcpy(addr_inline, data_ptr - inline_data_sz * i, inline_data_sz);
 		hw_action += DR_STE_ACTION_DOUBLE_SZ;
-		data_ptr += inline_data_sz;
 		used_actions++;
 	}
 
-	/* Remove 2 extra bytes */
+	/* Remove first 2 extra bytes */
 	DR_STE_SET(single_action_remove_header_size_v1, hw_action, action_id,
 		   DR_STE_V1_ACTION_ID_REMOVE_BY_SIZE);
-	DR_STE_SET(single_action_remove_header_size_v1, hw_action, start_offset, data_sz / 2);
+	DR_STE_SET(single_action_remove_header_size_v1, hw_action, start_offset, 0);
 	/* The hardware expects here size in words (2 bytes) */
 	DR_STE_SET(single_action_remove_header_size_v1, hw_action, remove_size, 1);
 	used_actions++;
