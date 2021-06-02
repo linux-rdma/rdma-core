@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+import subprocess
+import urllib.request
+import os
+import re
+import tempfile
+import collections
+import sys
+
+base = os.environ["SYSTEM_PULLREQUEST_TARGETBRANCH"]
+if not re.match("^[0-9a-fA-F]{40}$", base):
+    base = "refs/remotes/origin/" + base
+
+with tempfile.TemporaryDirectory() as dfn:
+    patches = subprocess.check_output(
+        [
+            "git", "format-patch",
+            "--output-directory", dfn,
+            os.environ["SYSTEM_PULLREQUEST_SOURCECOMMITID"], "^" + base
+        ],
+        universal_newlines=True).splitlines()
+    if len(patches) == 0:
+        sys.exit(0)
+
+    ckp = os.path.join(dfn, "checkpatch.pl")
+    urllib.request.urlretrieve(
+        "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/scripts/checkpatch.pl",
+        ckp)
+    urllib.request.urlretrieve(
+        "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/scripts/spelling.txt",
+        os.path.join(dfn, "spelling.txt"))
+    os.symlink(
+        os.path.join(os.getcwd(), "buildlib/const_structs.checkpatch"),
+        os.path.join(dfn, "const_structs.checkpatch"))
+    checkpatch = [
+        "perl", ckp, "--no-tree", "--ignore",
+        "PREFER_KERNEL_TYPES,FILE_PATH_CHANGES,EXECUTE_PERMISSIONS,USE_NEGATIVE_ERRNO,CONST_STRUCT",
+        "--emacs", "--mailback", "--quiet", "--no-summary"
+    ]
+
+    failed = False
+    for fn in patches:
+        proc = subprocess.run(
+            checkpatch + [os.path.basename(fn)],
+            cwd=dfn,
+            stdout=subprocess.PIPE,
+            universal_newlines=True,
+            stderr=subprocess.STDOUT)
+        if proc.returncode == 0:
+            assert (not proc.stdout)
+            continue
+        sys.stdout.write(proc.stdout)
+
+        failed = True
+        for g in re.finditer(
+                r"^\d+-.*:\d+: (\S+): (.*)(?:\n#(\d+): (?:FILE: (.*):(\d+):)?)?$",
+                proc.stdout,
+                flags=re.MULTILINE):
+            itms = {}
+            if g.group(1) == "WARNING":
+                itms["type"] = "warning"
+            else:
+                itms["type"] = "error"
+            if g.group(4):
+                itms["sourcepath"] = g.group(4)
+                itms["linenumber"] = g.group(5)
+            print("##vso[task.logissue %s]%s" % (";".join(
+                "%s=%s" % (k, v)
+                for k, v in sorted(itms.items())), g.group(2)))
+
+if failed:
+    print("##vso[task.complete result=SucceededWithIssues]]azp-checkpatch")
