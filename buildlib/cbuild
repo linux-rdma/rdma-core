@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright 2015-2016 Obsidian Research Corp.
 # Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 # PYTHON_ARGCOMPLETE_OK
@@ -36,6 +36,7 @@ finished, only the base container created during 'build-images' is kept. The
 running the build command and instead run an interactive bash shell. This is
 useful for debugging certain kinds of build problems."""
 
+from __future__ import print_function
 import argparse
 import collections
 import filecmp
@@ -52,7 +53,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import yaml
 from contextlib import contextmanager;
 
 project = "rdma-core";
@@ -80,7 +80,11 @@ class Environment(object):
     proxy = True;
     build_pyverbs = True;
 
+    to_azp = False;
+
     def image_name(self):
+        if self.to_azp:
+            return "ucfconsort.azurecr.io/%s/%s"%(project, self.name);
         return "build-%s/%s"%(project,self.name);
 
 # -------------------------------------------------------------------------
@@ -123,6 +127,7 @@ class centos7(YumEnvironment):
     build_pyverbs = False;
     specfile = "redhat/rdma-core.spec";
     python_cmd = "python";
+    to_azp = True;
 
 class centos7_epel(centos7):
     pkgs = (centos7.pkgs - {"cmake","make"}) | {"ninja-build","cmake3","pandoc", 'python3-Cython', 'python3-devel'};
@@ -228,100 +233,6 @@ class debian_experimental(APTEnvironment):
             " ".join(sorted(self.pkgs))));
         return res;
 
-class travis(APTEnvironment):
-    """This parses the .travis.yml "apt" add on and converts it to a dockerfile,
-    basically creating a container that is similar to what travis would
-    use. Note this does not use the base travis image, nor does it install the
-    typical travis packages."""
-    docker_parent = "ubuntu:16.04";
-    name = "travis";
-    is_deb = True;
-    _yaml = None;
-
-    def get_yaml(self):
-        if self._yaml:
-            return self._yaml;
-
-        # Load the commands from the travis file
-        with open(".travis.yml") as F:
-            self._yaml = yaml.load(F);
-        return self._yaml;
-    yaml = property(get_yaml);
-
-    def get_repos(self):
-        """Return a list of things to add with apt-add-repository"""
-        Source = collections.namedtuple("Source",["sourceline","key_url"]);
-
-        # See https://github.com/travis-ci/apt-source-whitelist/blob/master/ubuntu.json
-        pre_defined = {
-            "ubuntu-toolchain-r-test": Source("ppa:ubuntu-toolchain-r/test",None),
-        };
-
-        # Unique the sources
-        res = set();
-        for src in self.yaml["addons"]["apt"]["sources"]:
-            if isinstance(src,dict):
-                res.add(Source(sourceline=src["sourceline"],
-                               key_url=src.get("key_url",None)));
-            else:
-                res.add(pre_defined[src]);
-
-        # Add the sources
-        scmds = [];
-        scmds.extend("apt-key add /etc/apt/trusted.gpg.d/%s"%(os.path.basename(I.key_url))
-                    for I in res if I.key_url is not None);
-        scmds.extend("http_proxy= apt-add-repository -y %s"%(pipes.quote(I.sourceline))
-                    for I in res);
-
-        # Download the keys
-        cmds = ["ADD %s /etc/apt/trusted.gpg.d/"%(I.key_url)
-                for I in res if I.key_url is not None];
-
-        cmds.append("RUN " + " && ".join(scmds));
-        return cmds;
-
-    def get_before_script(self):
-        """Return a list of commands to run from before_script"""
-        cmds = ["RUN useradd -ms /bin/bash travis && \\"
-                "su -l -c %s"%(pipes.quote(" && ".join(self.yaml["before_script"]))) + " travis"];
-        return cmds
-
-    def get_clang(self):
-        """We are using the clang that comes in travis, which is not part of our base
-        docker container, install something similar by hand."""
-        llvm_tar = "clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz"
-        cmds = [
-            """RUN wget -q http://releases.llvm.org/7.0.0/{0} -O /tmp/{0} && \\
-            tar xf /tmp/{0} -C /usr/local/ && \\
-            rm /tmp/{0} && \\
-            (cd /usr/local/bin/ && ln -sf ../clang*/bin/clang-7 .)""".format(llvm_tar)];
-        return cmds;
-
-    def get_cython(self):
-        return ["""RUN pip3 install cython"""]
-
-    def get_docker_file(self):
-        # First this to get apt-add-repository
-        self.pkgs = {"software-properties-common"}
-        res = APTEnvironment.get_docker_file(self);
-
-        # Sources list from the travis.yml
-        res.lines.extend(self.get_repos());
-
-        # Package list from the travis.yml
-        # Travis uses the new cmake built into the image, we need to get an
-        # older version from ubuntu.
-        res.lines.append("RUN apt-get update && apt-get install -y --no-install-recommends %s"%(
-            " ".join(sorted(["cmake"] + self.yaml["addons"]["apt"]["packages"]))));
-
-        # Adding before_script commands
-        res.lines.extend(self.get_before_script())
-
-        res.lines.extend(self.get_clang())
-        res.lines.extend(self.get_cython())
-
-        return res;
-
 # -------------------------------------------------------------------------
 
 class ZypperEnvironment(Environment):
@@ -356,6 +267,7 @@ class leap(ZypperEnvironment):
         'python3-devel',
     };
     rpmbuild_options = [ "--without=curlmini" ];
+    to_azp = True;
     name = "opensuse-15.0";
     aliases = {"leap"};
 
@@ -368,10 +280,55 @@ class tumbleweed(ZypperEnvironment):
 
 # -------------------------------------------------------------------------
 
+class azure_pipelines(bionic):
+    pkgs = bionic.pkgs | {
+        "abi-compliance-checker",
+        "abi-dumper",
+        "ca-certificates",
+        "clang-7",
+        "fakeroot",
+        "gcc-8",
+        "git",
+        "python2.7",
+        "sparse",
+        'python-docutils',
+    } | {
+        # 32 bit build support
+        "libgcc-8-dev:i386",
+        "libc6-dev:i386",
+        "libnl-3-dev:i386",
+        "libnl-route-3-dev:i386",
+        "libsystemd-dev:i386",
+        "libudev-dev:i386",
+    } | {
+        # ARM 64 cross compiler
+        "gcc-8-aarch64-linux-gnu",
+        "libgcc-8-dev:arm64",
+        "libc6-dev:arm64",
+        "libnl-3-dev:arm64",
+        "libnl-route-3-dev:arm64",
+        "libsystemd-dev:arm64",
+        "libudev-dev:arm64",
+    }
+    to_azp = True;
+    name = "azure_pipelines";
+    aliases = {"azp"}
+
+    def get_docker_file(self):
+        res = bionic.get_docker_file(self);
+        res.lines.insert(1,"RUN dpkg --add-architecture i386 &&"
+                         "dpkg --add-architecture arm64 &&"
+                         "sed -i -e 's/^deb /deb [arch=amd64,i386] /g' /etc/apt/sources.list &&"
+                         "echo 'deb [arch=arm64] http://ports.ubuntu.com/ bionic main universe\\n"
+                               "deb [arch=arm64] http://ports.ubuntu.com/ bionic-security main universe\\n"
+                               "deb [arch=arm64] http://ports.ubuntu.com/ bionic-updates main universe' > /etc/apt/sources.list.d/arm64.list");
+        return res;
+
+# -------------------------------------------------------------------------
+
 environments = [centos6(),
                 centos7(),
                 centos7_epel(),
-                travis(),
                 trusty(),
                 xenial(),
                 bionic(),
@@ -381,6 +338,7 @@ environments = [centos6(),
                 leap(),
                 tumbleweed(),
                 debian_experimental(),
+                azure_pipelines(),
 ];
 
 class ToEnvActionPkg(argparse.Action):
@@ -422,7 +380,7 @@ def env_choices_pkg():
     """All the names that can be used with ToEnvAction"""
     envs = set(("all",));
     for I in environments:
-        if I.name == "travis" or getattr(I,"is_deb",False) or getattr(I,"is_rpm",False):
+        if getattr(I,"is_deb",False) or getattr(I,"is_rpm",False):
                 envs.add(I.name);
                 envs.update(I.aliases);
     return envs;
@@ -446,8 +404,8 @@ def docker_cmd_str(env,*cmd):
     """Invoke docker"""
     cmd = list(cmd);
     if env.sudo:
-        return subprocess.check_output(["sudo","docker"] + cmd);
-    return subprocess.check_output(["docker"] + cmd);
+        return subprocess.check_output(["sudo","docker"] + cmd).decode();
+    return subprocess.check_output(["docker"] + cmd).decode();
 
 @contextmanager
 def private_tmp(args):
@@ -510,22 +468,13 @@ def get_tar_file(args,tarfn,pandoc_prebuilt=False):
         return;
 
     # When the OS does not support pandoc we got through the extra step to
-    # build pandoc output in the travis container and include it in the
-    # tar. This is similar to what buildlib/github-release does.
+    # build pandoc output in the azp container and include it in the
+    # tar.
     if not args.use_prebuilt_pandoc:
-        subprocess.check_call(["buildlib/cbuild","make","travis","docs"]);
+        subprocess.check_call(["buildlib/cbuild","make","azure_pipelines","docs"]);
 
-    tmp_tarfn = os.path.join(os.path.dirname(tarfn),"tmp.tar");
-    get_tar_file(args,tmp_tarfn,False);
-
-    subprocess.check_call([
-        "tar",
-        "-rf",tmp_tarfn,
-        "build-travis/pandoc-prebuilt/",
-        "--xform","s|build-travis/pandoc-prebuilt|%sbuildlib/pandoc-prebuilt|g"%(prefix)]);
-    with open(tarfn,"w") as F:
-        subprocess.check_call(["gzip","-9c",tmp_tarfn],stdout=F);
-    os.unlink(tmp_tarfn);
+    cmd_make_dist_tar(argparse.Namespace(BUILD="build-azure_pipelines",tarfn=tarfn,
+                                         script_pwd="",tag=None));
 
 def run_rpm_build(args,spec_file,env):
     with open(spec_file,"r") as F:
@@ -567,7 +516,7 @@ def run_rpm_build(args,spec_file,env):
         # rpmbuild complains if we do not have an entry in passwd and group
         # for the user we are going to use to do the build.
         with open(os.path.join(tmpdir,"go.py"),"w") as F:
-            print >> F,"""
+            print("""
 import os,subprocess;
 with open("/etc/passwd","a") as F:
    F.write({passwd!r} + "\\n");
@@ -586,7 +535,7 @@ os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
            uid=os.getuid(),
            gid=os.getgid(),
            tarfn=tarfn,
-           tspec_file=tspec_file);
+           tspec_file=tspec_file), file=F);
 
             extra_opts = getattr(env,"rpmbuild_options", [])
             bopts = ["-bb",tspec_file] + extra_opts;
@@ -598,8 +547,8 @@ os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
                 if env.build_pyverbs:
                     bopts.extend(["--with", "pyverbs"]);
 
-            print >> F,'os.execlp("rpmbuild","rpmbuild",%s)'%(
-                ",".join(repr(I) for I in bopts));
+            print('os.execlp("rpmbuild","rpmbuild",%s)'%(
+                ",".join(repr(I) for I in bopts)), file=F);
 
         if args.run_shell:
             opts.append("-ti");
@@ -612,10 +561,10 @@ os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
 
         docker_cmd(args,*opts)
 
-        print
+        print()
         for path,jnk,files in os.walk(os.path.join(tmpdir,"RPMS")):
             for I in files:
-                print "Final RPM: ",os.path.join("..",I);
+                print("Final RPM: ",os.path.join("..",I));
                 shutil.move(os.path.join(path,I),
                             os.path.join("..",I));
 
@@ -648,7 +597,7 @@ def run_deb_build(args,env):
         # Create a go.py that will let us run the compilation as the user and
         # then switch to root only for the packaging step.
         with open(os.path.join(tmpdir,"go.py"),"w") as F:
-            print >> F,"""
+            print("""
 import subprocess,os;
 def to_user():
    os.setgid({gid:d});
@@ -657,7 +606,7 @@ subprocess.check_call(["debian/rules","debian/rules","build"],
             preexec_fn=to_user);
 subprocess.check_call(["debian/rules","debian/rules","binary"]);
 """.format(uid=os.getuid(),
-           gid=os.getgid());
+           gid=os.getgid()), file=F);
 
         if args.run_shell:
             opts.append("-ti");
@@ -670,10 +619,10 @@ subprocess.check_call(["debian/rules","debian/rules","binary"]);
 
         docker_cmd(args,*opts);
 
-        print
+        print()
         for I in os.listdir(tmpdir):
             if I.endswith(".deb"):
-                print "Final DEB: ",os.path.join("..",I);
+                print("Final DEB: ",os.path.join("..",I));
                 shutil.move(os.path.join(tmpdir,I),
                             os.path.join("..",I));
 
@@ -693,16 +642,47 @@ def copy_abi_files(src):
             if os.path.isfile(ref_fn) and filecmp.cmp(ref_fn,cur_fn,False):
                 continue;
 
-            print "Changed ABI File: ", ref_fn;
+            print("Changed ABI File: ", ref_fn);
             shutil.copy(cur_fn, ref_fn);
 
-def run_travis_build(args,env):
+def run_azp_build(args,env):
+    import yaml
+    # Load the commands from the pipelines file
+    with open("buildlib/azure-pipelines.yml") as F:
+        azp = yaml.safe_load(F);
+    for bst in azp["stages"]:
+        if bst["stage"] == "Build":
+            break;
+    else:
+        raise ValueError("No Build stage found");
+    for job in bst["jobs"]:
+        if job["job"] == "Compile":
+            break;
+    else:
+        raise ValueError("No Compile job found");
+
+    script = ["#!/bin/bash"]
+    workdir = "/__w/1"
+    srcdir = os.path.join(workdir,"s");
+    for I in job["steps"]:
+        script.append("echo ===================================");
+        script.append("echo %s"%(I["displayName"]));
+        script.append("cd %s"%(srcdir));
+        if "bash" in I:
+            script.append(I["bash"]);
+        elif I.get("task") == "PythonScript@0":
+            script.append("set -e");
+            script.append("%s %s"%(I["inputs"]["pythonInterpreter"],
+                                   I["inputs"]["scriptPath"]));
+        else:
+            raise ValueError("Unknown stanza %r"%(I));
+
     with private_tmp(args) as tmpdir:
-        os.mkdir(os.path.join(tmpdir,"src"));
+        os.mkdir(os.path.join(tmpdir,"s"));
         os.mkdir(os.path.join(tmpdir,"tmp"));
 
         opwd = os.getcwd();
-        with inDirectory(os.path.join(tmpdir,"src")):
+        with inDirectory(os.path.join(tmpdir,"s")):
             subprocess.check_call(["git",
                                    "--git-dir",os.path.join(opwd,".git"),
                                    "reset","--hard","HEAD"]);
@@ -715,57 +695,47 @@ def run_travis_build(args,env):
             base = subprocess.check_output(["git",
                                             "--git-dir",os.path.join(opwd,".git"),
                                             "merge-base",
-                                            "HEAD","FETCH_HEAD"]).strip();
-
-        home = os.path.join(os.path.sep,"home","travis");
-        home_build = os.path.join(os.path.sep,home,"build");
+                                            "HEAD","FETCH_HEAD"]).decode().strip();
 
         opts = [
             "run",
             "--read-only",
             "--rm=true",
-            "-v","%s:%s"%(tmpdir, home_build),
-            "-w",os.path.join(home_build,"src"),
+            "-v","%s:%s"%(tmpdir, workdir),
+            "-w",srcdir,
             "-u",str(os.getuid()),
-            "-e","TRAVIS_COMMIT_RANGE=%s..HEAD"%(base),
-            "-e","TRAVIS_BRANCH=%s"%(base),
-            "-e","TRAVIS_EVENT_TYPE=pull_request",
-            "-e","HOME=%s"%(home),
-            "-e","TMPDIR=%s"%(os.path.join(home_build,"tmp")),
-        ] + map_git_args(opwd,os.path.join(home_build,"src"));
-
-        # Load the commands from the travis file
-        with open(os.path.join(opwd,".travis.yml")) as F:
-            cmds = yaml.load(F)["script"];
-
-        with open(os.path.join(tmpdir,"go.sh"),"w") as F:
-            print >> F,"#!/bin/bash";
-            print >> F,"set -e";
-            for I in cmds:
-                print >> F,I;
+            "-e","SYSTEM_PULLREQUEST_SOURCECOMMITID=HEAD",
+            # azp puts the branch name 'master' here, we need to put a commit ID..
+            "-e","SYSTEM_PULLREQUEST_TARGETBRANCH=%s"%(base),
+            "-e","HOME=%s"%(workdir),
+            "-e","TMPDIR=%s"%(os.path.join(workdir,"tmp")),
+        ] + map_git_args(opwd,srcdir);
 
         if args.run_shell:
             opts.append("-ti");
         opts.append(env.image_name());
 
+        with open(os.path.join(tmpdir,"go.sh"),"w") as F:
+            F.write("\n".join(script))
+
         if args.run_shell:
             opts.append("/bin/bash");
         else:
-            opts.extend(["/bin/bash",os.path.join(home_build,"go.sh")]);
+            opts.extend(["/bin/bash",os.path.join(workdir,"go.sh")]);
 
         try:
             docker_cmd(args,*opts);
-        except subprocess.CalledProcessError, e:
-            copy_abi_files(os.path.join(tmpdir, "src/ABI"));
+        except subprocess.CalledProcessError as e:
+            copy_abi_files(os.path.join(tmpdir, "s/ABI"));
             raise;
-        copy_abi_files(os.path.join(tmpdir, "src/ABI"));
+        copy_abi_files(os.path.join(tmpdir, "s/ABI"));
 
 def args_pkg(parser):
     parser.add_argument("ENV",action=ToEnvActionPkg,choices=env_choices_pkg());
     parser.add_argument("--run-shell",default=False,action="store_true",
                         help="Instead of running the build, enter a shell");
     parser.add_argument("--use-prebuilt-pandoc",default=False,action="store_true",
-                        help="Do not rebuild the pandoc cache in build-travis/pandoc-prebuilt/");
+                        help="Do not rebuild the pandoc cache in build-azure_pipelines/pandoc-prebuilt/");
     parser.add_argument("--with", default=[],action="append", dest="with_flags",
                         help="Enable specified feature in RPM builds");
     parser.add_argument("--without", default=[],action="append", dest="without_flags",
@@ -773,8 +743,8 @@ def args_pkg(parser):
 def cmd_pkg(args):
     """Build a package in the given environment."""
     for env in args.ENV:
-        if env.name == "travis":
-            run_travis_build(args,env);
+        if env.name == "azure_pipelines":
+            run_azp_build(args,env);
         elif getattr(env,"is_deb",False):
             run_deb_build(args,env);
         elif getattr(env,"is_rpm",False):
@@ -782,7 +752,7 @@ def cmd_pkg(args):
                           getattr(env,"specfile","%s.spec"%(project)),
                           env);
         else:
-            print "%s does not support packaging"%(env.name);
+            print("%s does not support packaging"%(env.name));
 
 # -------------------------------------------------------------------------
 
@@ -896,13 +866,52 @@ def cmd_build_images(args):
             fn = os.path.join(tmpdir,"Dockerfile");
             with open(fn,"wt") as F:
                 for ln in df.lines:
-                    print >> F,ln;
+                    print(ln, file=F);
             opts = (["build"] +
                     get_build_args(args,env) +
                     ["-f",fn,
                      "-t",env.image_name(),
                      tmpdir]);
             docker_cmd(args,*opts);
+
+# -------------------------------------------------------------------------
+def args_make_dist_tar(parser):
+    parser.add_argument("BUILD",help="Path to the build directory")
+    parser.add_argument("--tarfn",help="Output TAR filename")
+    parser.add_argument("--tag",help="git tag to sanity check against")
+def cmd_make_dist_tar(args):
+    """Make the standard distribution tar. The BUILD argument must point to a build
+    output directory that has pandoc-prebuilt"""
+    ver = get_version();
+
+    if not args.tarfn:
+        args.tarfn = "%s-%s.tar.gz"%(project,ver)
+
+    # The tag name and the cmake file must match.
+    if args.tag:
+        assert args.tag == "v" + ver;
+
+    with private_tmp(args) as tmpdir:
+        tmp_tarfn = os.path.join(tmpdir,"tmp.tar");
+
+        prefix = "%s-%s/"%(project,get_version());
+        subprocess.check_call(["git","archive",
+                               "--prefix",prefix,
+                               "--output",tmp_tarfn,
+                               "HEAD"]);
+
+        # Mangle the paths and append the prebuilt stuff to the tar file
+        if args.BUILD:
+            subprocess.check_call([
+                "tar",
+                "-C",os.path.join(args.script_pwd,args.BUILD,"pandoc-prebuilt"),
+                "-rf",tmp_tarfn,
+                "./",
+                "--xform",r"s|^\.|%sbuildlib/pandoc-prebuilt|g"%(prefix)]);
+
+        assert args.tarfn.endswith(".gz") or args.tarfn.endswith(".tgz");
+        with open(os.path.join(args.script_pwd,args.tarfn),"w") as F:
+            subprocess.check_call(["gzip","-9c",tmp_tarfn],stdout=F);
 
 # -------------------------------------------------------------------------
 def args_docker_gc(parser):
@@ -922,13 +931,15 @@ def cmd_docker_gc(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Operate docker for building this package')
-    subparsers = parser.add_subparsers(title="Sub Commands");
+    subparsers = parser.add_subparsers(title="Sub Commands",dest="command");
+    subparsers.required = True;
 
     funcs = globals();
-    for k,v in funcs.items():
+    for k,v in list(funcs.items()):
         if k.startswith("cmd_") and inspect.isfunction(v):
             sparser = subparsers.add_parser(k[4:].replace('_','-'),
                                             help=v.__doc__);
+            sparser.required = True;
             funcs["args_" + k[4:]](sparser);
             sparser.set_defaults(func=v);
 
@@ -944,6 +955,7 @@ if __name__ == '__main__':
     # This script must always run from the top of the git tree, and a git
     # checkout is mandatory.
     git_top = subprocess.check_output(["git","rev-parse","--show-toplevel"]).strip();
+    args.script_pwd = os.getcwd();
     os.chdir(git_top);
 
     args.func(args);
