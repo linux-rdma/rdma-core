@@ -52,6 +52,13 @@ Create an indirect mkey to enable application uses its specific device functiona
 		Indirect mkey is being created.
 	MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE:
 		Enable block signature offload support for mkey.
+	MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO:
+		Enable crypto offload support for mkey.
+		Setting this flag means that crypto operations will be done and
+		hence, must be configured. I.e. if this flag is set and the MKey
+		was not configured for crypto properties using
+		**mlx5dv_wr_set_mkey_crypto()**, then running traffic with the
+		MKey will fail, generating a CQE with error.
 
 *max_entries*
 :	Requested max number of pointed entries by this indirect mkey.

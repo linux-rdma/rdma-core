@@ -1534,7 +1534,9 @@ struct mlx5_ifc_mkc_bits {
 	u8         reserved_at_1d9[0x1];
 	u8         log_page_size[0x5];
 
-	u8         reserved_at_1e0[0x20];
+	u8         reserved_at_1e0[0x3];
+	u8         crypto_en[0x2];
+	u8         reserved_at_1e5[0x1b];
 };
 
 struct mlx5_ifc_create_mkey_out_bits {
@@ -5452,6 +5454,17 @@ struct mlx5_ifc_create_encryption_key_obj_in_bits {
 struct mlx5_ifc_query_encryption_key_obj_out_bits {
 	struct mlx5_ifc_general_obj_out_cmd_hdr_bits    hdr;
 	struct mlx5_ifc_encryption_key_obj_bits         obj;
+};
+
+enum {
+	MLX5_ENCRYPTION_ORDER_ENCRYPTED_WIRE_SIGNATURE    = 0x0,
+	MLX5_ENCRYPTION_ORDER_ENCRYPTED_MEMORY_SIGNATURE  = 0x1,
+	MLX5_ENCRYPTION_ORDER_ENCRYPTED_RAW_WIRE          = 0x2,
+	MLX5_ENCRYPTION_ORDER_ENCRYPTED_RAW_MEMORY        = 0x3,
+};
+
+enum {
+	MLX5_ENCRYPTION_STANDARD_AES_XTS  = 0x0,
 };
 
 #endif /* MLX5_IFC_H */

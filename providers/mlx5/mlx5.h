@@ -801,6 +801,25 @@ struct mlx5_devx_umem {
 	size_t size;
 };
 
+/*
+ * The BSF state is used in signature and crypto attributes. It indicates the
+ * state the attributes are in, and helps constructing the signature and crypto
+ * BSFs during MKey configuration.
+ *
+ * INIT state indicates that the attributes are not configured.
+ * RESET state indicates that the attributes should be reset in current MKey
+ * configuration.
+ * SET state indicates that the attributes have been set before.
+ * UPDATED state indicates that the attributes have been updated in current
+ * MKey configuration.
+ */
+enum mlx5_mkey_bsf_state {
+	MLX5_MKEY_BSF_STATE_INIT,
+	MLX5_MKEY_BSF_STATE_RESET,
+	MLX5_MKEY_BSF_STATE_SET,
+	MLX5_MKEY_BSF_STATE_UPDATED,
+};
+
 struct mlx5_psv {
 	uint32_t index;
 	struct mlx5dv_devx_obj *devx_obj;
@@ -833,7 +852,7 @@ struct mlx5_sig_block {
 	struct mlx5_psv *mem_psv;
 	struct mlx5_psv *wire_psv;
 	struct mlx5_sig_block_attr attr;
-	bool updated;
+	enum mlx5_mkey_bsf_state state;
 };
 
 struct mlx5_sig_err {
@@ -852,12 +871,24 @@ struct mlx5_sig_ctx {
 	bool err_exists;
 };
 
+struct mlx5_crypto_attr {
+	enum mlx5dv_crypto_standard crypto_standard;
+	bool encrypt_on_tx;
+	enum mlx5dv_signature_crypto_order signature_crypto_order;
+	enum mlx5dv_block_size data_unit_size;
+	char initial_tweak[16];
+	struct mlx5dv_dek *dek;
+	char keytag[8];
+	enum mlx5_mkey_bsf_state state;
+};
+
 struct mlx5_mkey {
 	struct mlx5dv_mkey dv_mkey;
 	struct mlx5dv_devx_obj *devx_obj;
 	uint16_t num_desc;
 	uint64_t length;
 	struct mlx5_sig_ctx *sig;
+	struct mlx5_crypto_attr *crypto;
 };
 
 struct mlx5dv_dek {

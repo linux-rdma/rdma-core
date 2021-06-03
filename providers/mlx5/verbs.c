@@ -6521,13 +6521,16 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 	uint32_t in[DEVX_ST_SZ_DW(create_mkey_in)] = {};
 	struct mlx5_mkey *mkey;
 	bool sig_mkey;
+	bool crypto_mkey;
 	struct ibv_pd *pd = mkey_init_attr->pd;
+	size_t bsf_size = 0;
 	void *mkc;
 
 	if (!mkey_init_attr->create_flags ||
 	    !check_comp_mask(mkey_init_attr->create_flags,
 			     MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
-			     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE)) {
+			     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE |
+			     MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO)) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -6545,6 +6548,21 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 		mkey->sig = mlx5_create_sig_ctx(pd, mkey_init_attr);
 		if (!mkey->sig)
 			goto err_free_mkey;
+
+		bsf_size += sizeof(struct mlx5_bsf);
+	}
+
+	crypto_mkey = mkey_init_attr->create_flags &
+		      MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO;
+
+	if (crypto_mkey) {
+		mkey->crypto = calloc(1, sizeof(*mkey->crypto));
+		if (!mkey->crypto) {
+			errno = ENOMEM;
+			goto err_destroy_sig_ctx;
+		}
+
+		bsf_size += sizeof(struct mlx5_crypto_bsf);
 	}
 
 	mkey->num_desc = align(mkey_init_attr->max_entries, 4);
@@ -6558,15 +6576,17 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 	DEVX_SET(mkc, mkc, lr, 1);
 	DEVX_SET(mkc, mkc, qpn, 0xffffff);
 	DEVX_SET(mkc, mkc, mkey_7_0, 0);
-	if (sig_mkey) {
+	if (crypto_mkey)
+		DEVX_SET(mkc, mkc, crypto_en, 1);
+	if (sig_mkey || crypto_mkey) {
 		DEVX_SET(mkc, mkc, bsf_en, 1);
-		DEVX_SET(mkc, mkc, bsf_octword_size, sizeof(struct mlx5_bsf) / 16);
+		DEVX_SET(mkc, mkc, bsf_octword_size, bsf_size / 16);
 	}
 
 	mkey->devx_obj = mlx5dv_devx_obj_create(pd->context, in, sizeof(in),
 						out, sizeof(out));
 	if (!mkey->devx_obj)
-		goto err_destroy_sig_ctx;
+		goto err_free_crypto;
 
 	mkey_init_attr->max_entries = mkey->num_desc;
 	mkey->dv_mkey.lkey = (DEVX_GET(create_mkey_out, out, mkey_index) << 8) | 0;
@@ -6580,6 +6600,9 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 	return &mkey->dv_mkey;
 err_destroy_mkey_obj:
 	mlx5dv_devx_obj_destroy(mkey->devx_obj);
+err_free_crypto:
+	if (crypto_mkey)
+		free(mkey->crypto);
 err_destroy_sig_ctx:
 	if (sig_mkey)
 		mlx5_destroy_sig_ctx(mkey->sig);
@@ -6618,6 +6641,9 @@ static int _mlx5dv_destroy_mkey(struct mlx5dv_mkey *dv_mkey)
 	ret = mlx5dv_devx_obj_destroy(mkey->devx_obj);
 	if (ret)
 		return ret;
+
+	if (mkey->crypto)
+		free(mkey->crypto);
 
 	mlx5_clear_mkey(mctx, dv_mkey->lkey >> 8);
 	free(mkey);

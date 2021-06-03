@@ -46,6 +46,7 @@ rdma_man_pages(
   mlx5dv_vfio_get_events_fd.3.md
   mlx5dv_vfio_process_events.3.md
   mlx5dv_wr_post.3.md
+  mlx5dv_wr_set_mkey_crypto.3.md
   mlx5dv_wr_set_mkey_sig_block.3.md
   mlx5dv.7
 )

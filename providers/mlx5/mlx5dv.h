@@ -252,6 +252,7 @@ enum mlx5dv_qp_create_flags {
 enum mlx5dv_mkey_init_attr_flags {
 	MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT = 1 << 0,
 	MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE = 1 << 1,
+	MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO = 1 << 2,
 };
 
 struct mlx5dv_mkey_init_attr {
@@ -370,6 +371,26 @@ struct mlx5dv_sig_block_attr {
 	uint64_t comp_mask;
 };
 
+enum mlx5dv_crypto_standard {
+	MLX5DV_CRYPTO_STANDARD_AES_XTS,
+};
+
+enum mlx5dv_signature_crypto_order {
+	MLX5DV_SIGNATURE_CRYPTO_ORDER_SIGNATURE_AFTER_CRYPTO_ON_TX,
+	MLX5DV_SIGNATURE_CRYPTO_ORDER_SIGNATURE_BEFORE_CRYPTO_ON_TX,
+};
+
+struct mlx5dv_crypto_attr {
+	enum mlx5dv_crypto_standard crypto_standard;
+	bool encrypt_on_tx;
+	enum mlx5dv_signature_crypto_order signature_crypto_order;
+	enum mlx5dv_block_size data_unit_size;
+	char initial_tweak[16];
+	struct mlx5dv_dek *dek;
+	char keytag[8];
+	uint64_t comp_mask;
+};
+
 enum mlx5dv_mkey_conf_flags {
 	MLX5DV_MKEY_CONF_FLAG_RESET_SIG_ATTR = 1 << 0,
 };
@@ -430,6 +451,8 @@ struct mlx5dv_qp_ex {
 			  uint32_t dest_lkey, uint64_t dest_addr,
 			  uint32_t src_lkey, uint64_t src_addr,
 			  size_t length);
+	void (*wr_set_mkey_crypto)(struct mlx5dv_qp_ex *mqp,
+				   const struct mlx5dv_crypto_attr *attr);
 };
 
 struct mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(struct ibv_qp_ex *qp);
@@ -506,6 +529,13 @@ static inline void mlx5dv_wr_set_mkey_sig_block(struct mlx5dv_qp_ex *mqp,
 						const struct mlx5dv_sig_block_attr *attr)
 {
 	mqp->wr_set_mkey_sig_block(mqp, attr);
+}
+
+static inline void
+mlx5dv_wr_set_mkey_crypto(struct mlx5dv_qp_ex *mqp,
+			  const struct mlx5dv_crypto_attr *attr)
+{
+	mqp->wr_set_mkey_crypto(mqp, attr);
 }
 
 static inline void mlx5dv_wr_memcpy(struct mlx5dv_qp_ex *mqp,
