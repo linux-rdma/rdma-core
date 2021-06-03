@@ -1,3 +1,18 @@
+rdma-core (33.2-1) unstable; urgency=medium
+
+  * New upstream bug-fix release:
+    - libhns: Fix wrong range of a mask
+    - verbs: Fix attr_optional() when 'IOCTL_MODE=write' is used
+    - mlx4: Fix mlx4_read_clock returned errno value
+    - efa: Fix use of uninitialized query device response
+    - libhns: Avoid accessing NULL pointer when locking/unlocking CQ
+    - mlx5: Fix mlx5_read_clock returned errno value
+    - bnxt_re/lib: Check AH handler validity before use
+    - iwpmd: Check returned value of parse_iwpm_msg
+    - libhns: Bugfix for calculation of extended sge
+
+ -- Benjamin Drung <benjamin.drung@ionos.com>  Thu, 03 Jun 2021 11:19:24 +0200
+
 rdma-core (33.1+git20210317-1) unstable; urgency=medium
 
   * New upstream bug-fix snapshot:
