@@ -138,23 +138,4 @@ In your bug report, please include:
 
 # Submitting patches
 
-Patches should also be submitted to the <linux-rdma@vger.kernel.org>
-mailing list.  Please use unified diff form (the -u option to GNU diff),
-and include a good description of what your patch does and why it should
-be applied.  If your patch fixes a bug, please make sure to describe the
-bug and how your fix works.
-
-Make sure that your contribution can be licensed under the same
-license as the original code you are patching, and that you have all
-necessary permissions to release your work.
-
-## Azure Pipelines CI
-
-Submitted patches must pass the Azure Pipelines CI automatic builds without
-warnings.  A build similar to AZP can be run locally using docker and the
-'buildlib/cbuild' script.
-
-```sh
-$ buildlib/cbuild build-images azp
-$ buildlib/cbuild pkg azp
-```
+See [Contributing to rdma-core](Documentation/contributing.md).
