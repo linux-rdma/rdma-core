@@ -222,6 +222,55 @@ static bool has_ioctl_write(struct ibv_context *ctx)
 	return true;
 }
 
+static void verbs_set_log_level(struct verbs_context *context_ex)
+{
+	char *env;
+
+	env = getenv("VERBS_LOG_LEVEL");
+	if (env)
+		context_ex->log_level = strtol(env, NULL, 0);
+}
+
+/*
+ * Fallback in case log file is not provided or can't be opened.
+ * Release mode: disable debug prints.
+ * Debug mode: Use stderr instead of a file.
+ */
+static void verbs_log_file_fallback(struct verbs_context *context_ex)
+{
+#ifdef VERBS_DEBUG
+	context_ex->log_fp = stderr;
+#else
+	context_ex->log_level = VERBS_LOG_LEVEL_NONE;
+#endif
+}
+
+static void verbs_set_log_file(struct verbs_context *context_ex)
+{
+	char *env;
+
+	if (context_ex->log_level == VERBS_LOG_LEVEL_NONE)
+		return;
+
+	env = getenv("VERBS_LOG_FILE");
+	if (!env) {
+		verbs_log_file_fallback(context_ex);
+		return;
+	}
+
+	context_ex->log_fp = fopen(env, "aw+");
+	if (!context_ex->log_fp) {
+		verbs_log_file_fallback(context_ex);
+		return;
+	}
+}
+
+static void verbs_close_log_file(struct verbs_context *context_ex)
+{
+	if (context_ex->log_fp && context_ex->log_fp != stderr)
+		fclose(context_ex->log_fp);
+}
+
 /*
  * Ownership of cmd_fd is transferred into this function, and it will either
  * be released during the matching call to verbs_uninit_contxt or during the
@@ -252,6 +301,8 @@ int verbs_init_context(struct verbs_context *context_ex,
 
 	context_ex->priv->driver_id = driver_id;
 	verbs_set_ops(context_ex, &verbs_dummy_ops);
+	verbs_set_log_level(context_ex);
+	verbs_set_log_file(context_ex);
 	context_ex->priv->use_ioctl_write = has_ioctl_write(context);
 
 	return 0;
@@ -427,6 +478,7 @@ out:
 
 void verbs_uninit_context(struct verbs_context *context_ex)
 {
+	verbs_close_log_file(context_ex);
 	free(context_ex->priv);
 	close(context_ex->context.cmd_fd);
 	if (context_ex->context.async_fd != -1)
