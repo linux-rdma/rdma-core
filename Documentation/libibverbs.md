@@ -56,3 +56,21 @@ need to increase this limit.  This is usually done for ordinary users
 via the file /etc/security/limits.conf.  More configuration may be
 necessary if you are logging in via OpenSSH and your sshd is
 configured to use privilege separation.
+
+# Debugging
+
+### Enabling debug prints
+
+Library and providers debug prints can be enabled using the `VERBS_LOG_LEVEL`
+environment variable, the output shall be written to the file provided in the
+`VERBS_LOG_FILE` environment variable. When the library is compiled in debug
+mode and no file is provided the output will be written to stderr.
+
+Note: some of the debug prints are only available when the library is compiled
+in debug mode.
+
+The following table describes the expected behavior when VERBS_LOG_LEVEL is set:
+|                 | Release                         | Debug                                          |
+|-----------------|---------------------------------|------------------------------------------------|
+| Regular prints  | Output to VERBS_LOG_FILE if set | Output to VERBS_LOG_FILE, or stderr if not set |
+| Datapath prints | Compiled out, no output         | Output to VERBS_LOG_FILE, or stderr if not set |

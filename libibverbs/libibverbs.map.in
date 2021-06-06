@@ -172,6 +172,7 @@ IBVERBS_PRIVATE_@IBVERBS_PABI_VERSION@ {
 	global:
 		/* These historical symbols are now private to libibverbs */
 		__ioctl_final_num_attrs;
+		__verbs_log;
 		_verbs_init_and_alloc_context;
 		execute_ioctl;
 		ibv_cmd_advise_mr;
