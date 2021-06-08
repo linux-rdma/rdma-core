@@ -45,6 +45,7 @@
 #include <inttypes.h>
 
 #include "ibverbs.h"
+#include "util/rdma_nl.h"
 
 struct ibv_mem_node {
 	enum {
@@ -176,6 +177,9 @@ int ibv_fork_init(void)
 
 enum ibv_fork_status ibv_is_fork_initialized(void)
 {
+	if (get_copy_on_fork())
+		return IBV_FORK_UNNEEDED;
+
 	return mm_root ? IBV_FORK_ENABLED : IBV_FORK_DISABLED;
 }
 

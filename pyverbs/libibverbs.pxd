@@ -3,6 +3,8 @@
 
 include 'libibverbs_enums.pxd'
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
+from posix.time cimport timespec
+
 
 cdef extern from 'infiniband/verbs.h':
 
@@ -140,6 +142,7 @@ cdef extern from 'infiniband/verbs.h':
         unsigned long           max_dm_size
         ibv_pci_atomic_caps     pci_atomic_caps
         uint32_t                xrc_odp_caps
+        uint32_t                phys_port_cnt_ex
 
     cdef struct ibv_mw:
         ibv_context     *context
@@ -156,6 +159,7 @@ cdef extern from 'infiniband/verbs.h':
     cdef struct ibv_dm:
         ibv_context     *context
         unsigned int    comp_mask
+        uint32_t        handle
 
     cdef struct ibv_port_attr:
         ibv_port_state     state
@@ -554,6 +558,23 @@ cdef extern from 'infiniband/verbs.h':
         ibv_flow_ipv6_filter val
         ibv_flow_ipv6_filter mask
 
+    cdef struct ibv_flow_action:
+        ibv_context *context
+
+    cdef struct ibv_values_ex:
+        uint32_t comp_mask
+        timespec raw_clock
+
+    cdef union ibv_async_event_element:
+        ibv_cq  *cq;
+        ibv_qp  *qp;
+        ibv_srq *srq;
+        int     port_num;
+
+    cdef struct ibv_async_event:
+        ibv_async_event_element element
+        ibv_event_type event_type
+
     ibv_device **ibv_get_device_list(int *n)
     int ibv_get_device_index(ibv_device *device);
     void ibv_free_device_list(ibv_device **list)
@@ -689,6 +710,8 @@ cdef extern from 'infiniband/verbs.h':
     void ibv_unimport_mr(ibv_mr *mr)
     ibv_pd *ibv_import_pd(ibv_context *context, uint32_t handle)
     void ibv_unimport_pd(ibv_pd *pd)
+    ibv_dm *ibv_import_dm(ibv_context *context, uint32_t dm_handle)
+    void ibv_unimport_dm(ibv_dm *dm)
     int ibv_query_gid_ex(ibv_context *context, uint32_t port_num,
                          uint32_t gid_index, ibv_gid_entry *entry,
                          uint32_t flags)
@@ -697,6 +720,10 @@ cdef extern from 'infiniband/verbs.h':
                                 uint32_t flags)
     ibv_flow *ibv_create_flow(ibv_qp *qp, ibv_flow_attr *flow)
     int ibv_destroy_flow(ibv_flow *flow_id)
+    int ibv_query_rt_values_ex(ibv_context *context, ibv_values_ex *values)
+    int ibv_get_async_event(ibv_context *context, ibv_async_event *event)
+    void ibv_ack_async_event(ibv_async_event *event)
+
 
 cdef extern from 'infiniband/driver.h':
     int ibv_query_gid_type(ibv_context *context, uint8_t port_num,

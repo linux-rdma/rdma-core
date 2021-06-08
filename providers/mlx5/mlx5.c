@@ -146,6 +146,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.destroy_wq = mlx5_destroy_wq,
 	.free_dm = mlx5_free_dm,
 	.get_srq_num = mlx5_get_srq_num,
+	.import_dm = mlx5_import_dm,
 	.import_mr = mlx5_import_mr,
 	.import_pd = mlx5_import_pd,
 	.modify_cq = mlx5_modify_cq,
@@ -163,6 +164,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.alloc_null_mr = mlx5_alloc_null_mr,
 	.free_context = mlx5_free_context,
 	.set_ece = mlx5_set_ece,
+	.unimport_dm = mlx5_unimport_dm,
 	.unimport_mr = mlx5_unimport_mr,
 	.unimport_pd = mlx5_unimport_pd,
 };
@@ -258,6 +260,95 @@ void mlx5_clear_uidx(struct mlx5_context *ctx, uint32_t uidx)
 		ctx->uidx_table[tind].table[uidx & MLX5_UIDX_TABLE_MASK] = NULL;
 
 	pthread_mutex_unlock(&ctx->uidx_table_mutex);
+}
+
+struct mlx5_mkey *mlx5_find_mkey(struct mlx5_context *ctx, uint32_t mkey)
+{
+	int tind = mkey >> MLX5_MKEY_TABLE_SHIFT;
+
+	if (ctx->mkey_table[tind].refcnt)
+		return ctx->mkey_table[tind].table[mkey & MLX5_MKEY_TABLE_MASK];
+	else
+		return NULL;
+}
+
+int mlx5_store_mkey(struct mlx5_context *ctx, uint32_t mkey,
+		    struct mlx5_mkey *mlx5_mkey)
+{
+	int tind = mkey >> MLX5_MKEY_TABLE_SHIFT;
+	int ret = 0;
+
+	pthread_mutex_lock(&ctx->mkey_table_mutex);
+
+	if (!ctx->mkey_table[tind].refcnt) {
+		ctx->mkey_table[tind].table = calloc(MLX5_MKEY_TABLE_MASK + 1,
+				sizeof(struct mlx5_mkey *));
+		if (!ctx->mkey_table[tind].table) {
+			ret = -1;
+			goto out;
+		}
+	}
+
+	++ctx->mkey_table[tind].refcnt;
+	ctx->mkey_table[tind].table[mkey & MLX5_MKEY_TABLE_MASK] = mlx5_mkey;
+
+out:
+	pthread_mutex_unlock(&ctx->mkey_table_mutex);
+	return ret;
+}
+
+void mlx5_clear_mkey(struct mlx5_context *ctx, uint32_t mkey)
+{
+	int tind = mkey >> MLX5_MKEY_TABLE_SHIFT;
+
+	pthread_mutex_lock(&ctx->mkey_table_mutex);
+
+	if (!--ctx->mkey_table[tind].refcnt)
+		free(ctx->mkey_table[tind].table);
+	else
+		ctx->mkey_table[tind].table[mkey & MLX5_MKEY_TABLE_MASK] = NULL;
+
+	pthread_mutex_unlock(&ctx->mkey_table_mutex);
+}
+
+struct mlx5_psv *mlx5_create_psv(struct ibv_pd *pd)
+{
+	uint32_t out[DEVX_ST_SZ_DW(create_psv_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_psv_in)] = {};
+	struct mlx5_psv *psv;
+
+	psv = calloc(1, sizeof(*psv));
+	if (!psv) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	DEVX_SET(create_psv_in, in, opcode, MLX5_CMD_OP_CREATE_PSV);
+	DEVX_SET(create_psv_in, in, pd, to_mpd(pd)->pdn);
+	DEVX_SET(create_psv_in, in, num_psv, 1);
+
+	psv->devx_obj = mlx5dv_devx_obj_create(pd->context, in, sizeof(in),
+					       out, sizeof(out));
+	if (!psv->devx_obj)
+		goto err_free_psv;
+
+	psv->index = DEVX_GET(create_psv_out, out, psv0_index);
+
+	return psv;
+err_free_psv:
+	free(psv);
+	return NULL;
+}
+
+int mlx5_destroy_psv(struct mlx5_psv *psv)
+{
+	int ret;
+
+	ret = mlx5dv_devx_obj_destroy(psv->devx_obj);
+	if (!ret)
+		free(psv);
+
+	return ret;
 }
 
 static int mlx5_is_sandy_bridge(int *num_cores)
@@ -814,6 +905,11 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 				mctx->entropy_caps.num_lag_ports;
 			comp_mask_out |= MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS;
 		}
+	}
+
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD) {
+		attrs_out->sig_caps = mctx->sig_caps;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD;
 	}
 
 	attrs_out->comp_mask = comp_mask_out;
@@ -1559,6 +1655,22 @@ int mlx5dv_modify_qp_sched_elem(struct ibv_qp *qp,
 	}
 }
 
+int mlx5_modify_qp_drain_sigerr(struct ibv_qp *qp)
+{
+	uint64_t mask = MLX5_QPC_OPT_MASK_INIT2INIT_DRAIN_SIGERR;
+	uint32_t in[DEVX_ST_SZ_DW(init2init_qp_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(init2init_qp_out)] = {};
+	void *qpc = DEVX_ADDR_OF(init2init_qp_in, in, qpc);
+
+	DEVX_SET(init2init_qp_in, in, opcode, MLX5_CMD_OP_INIT2INIT_QP);
+	DEVX_SET(init2init_qp_in, in, qpn, qp->qp_num);
+	DEVX_SET(init2init_qp_in, in, opt_param_mask, mask);
+
+	DEVX_SET(qpc, qpc, drain_sigerr, 1);
+
+	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+}
+
 static struct reserved_qpn_blk *reserved_qpn_blk_alloc(struct mlx5_context *mctx)
 {
 	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
@@ -1829,9 +1941,14 @@ int mlx5dv_get_clock_info(struct ibv_context *ctx_in,
 			  struct mlx5dv_clock_info *clock_info)
 {
 	struct mlx5_context *ctx = to_mctx(ctx_in);
-	const struct mlx5_ib_clock_info *ci = ctx->clock_info_page;
+	const struct mlx5_ib_clock_info *ci;
 	uint32_t retry, tmp_sig;
 	atomic_uint32_t *sig;
+
+	if (!is_mlx5_dev(ctx_in->device))
+		return EOPNOTSUPP;
+
+	ci = ctx->clock_info_page;
 
 	if (!ci)
 		return EINVAL;
@@ -1983,6 +2100,9 @@ static int mlx5_set_context(struct mlx5_context *context,
 	if (resp->comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_ECE)
 		context->flags |= MLX5_CTX_FLAGS_ECE_SUPPORTED;
 
+	if (resp->comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_SQD2RTS)
+		context->flags |= MLX5_CTX_FLAGS_SQD2RTS_SUPPORTED;
+
 	if (resp->comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_DUMP_FILL_MKEY) {
 		context->dump_fill_mkey = resp->dump_fill_mkey;
 		/* Have the BE value ready to be used in data path */
@@ -2013,12 +2133,16 @@ static int mlx5_set_context(struct mlx5_context *context,
 	pthread_mutex_init(&context->qp_table_mutex, NULL);
 	pthread_mutex_init(&context->srq_table_mutex, NULL);
 	pthread_mutex_init(&context->uidx_table_mutex, NULL);
+	pthread_mutex_init(&context->mkey_table_mutex, NULL);
 	pthread_mutex_init(&context->dyn_bfregs_mutex, NULL);
 	for (i = 0; i < MLX5_QP_TABLE_SIZE; ++i)
 		context->qp_table[i].refcnt = 0;
 
 	for (i = 0; i < MLX5_QP_TABLE_SIZE; ++i)
 		context->uidx_table[i].refcnt = 0;
+
+	for (i = 0; i < MLX5_MKEY_TABLE_SIZE; ++i)
+		context->mkey_table[i].refcnt = 0;
 
 	context->db_list = NULL;
 

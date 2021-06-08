@@ -17,7 +17,7 @@ install() {
 	inst /etc/rdma/modules/opa.conf
 	inst /etc/rdma/modules/rdma.conf
 	inst /etc/rdma/modules/roce.conf
-	inst /usr/lib/mlx4-setup.sh
+	inst /usr/libexec/mlx4-setup.sh
 	inst_multiple lspci setpci awk sleep
 	inst_rules 60-rdma-persistent-naming.rules 70-persistent-ipoib.rules 75-rdma-description.rules 90-rdma-hw-modules.rules 90-rdma-ulp-modules.rules
 	inst_multiple -o \

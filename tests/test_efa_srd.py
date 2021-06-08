@@ -1,16 +1,19 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright 2020 Amazon.com, Inc. or its affiliates. All rights reserved.
 
+import unittest
 import errno
-import pyverbs.enums as e
+
 from pyverbs.pyverbs_error import PyverbsRDMAError
-from tests.base import RDMATestCase
+import pyverbs.enums as e
+
+from tests.efa_base import EfaRDMATestCase
 from tests.efa_base import SRDResources
 import tests.utils as u
-import unittest
 
 
-class QPSRDTestCase(RDMATestCase):
+
+class QPSRDTestCase(EfaRDMATestCase):
     def setUp(self):
         super().setUp()
         self.iters = 100

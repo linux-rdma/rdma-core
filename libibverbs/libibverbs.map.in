@@ -155,7 +155,9 @@ IBVERBS_1.12 {
 
 IBVERBS_1.13 {
 	global:
+		ibv_import_dm;
 		ibv_is_fork_initialized;
+		ibv_unimport_dm;
 } IBVERBS_1.12;
 
 /* If any symbols in this stanza change ABI then the entire staza gets a new symbol

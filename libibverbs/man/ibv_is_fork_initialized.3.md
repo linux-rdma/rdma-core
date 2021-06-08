@@ -38,6 +38,13 @@ disabled, or IBV_FORK_ENABLED if enabled. IBV_FORK_UNNEEDED return value
 indicates that the kernel copies DMA pages on fork, hence a call to
 **ibv_fork_init()** is unneeded.
 
+# NOTES
+
+The IBV_FORK_UNNEEDED return value takes precedence over IBV_FORK_DISABLED
+and IBV_FORK_ENABLED. If the kernel supports copy-on-fork for DMA pages then
+IBV_FORK_UNNEEDED will be returned regardless of whether **ibv_fork_init()**
+was called or not.
+
 # SEE ALSO
 
 **fork**(2),

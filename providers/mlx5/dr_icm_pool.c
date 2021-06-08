@@ -163,15 +163,18 @@ get_chunk_icm_type(struct dr_icm_chunk *chunk)
 	return chunk->buddy_mem->pool->icm_type;
 }
 
-static int dr_icm_chunk_ste_init(struct dr_icm_chunk *chunk)
+static int
+dr_icm_chunk_ste_init(struct dr_icm_chunk *chunk)
 {
+	struct dr_icm_buddy_mem *buddy = chunk->buddy_mem;
+
 	chunk->ste_arr = calloc(chunk->num_of_entries, sizeof(struct dr_ste));
 	if (!chunk->ste_arr) {
 		errno = ENOMEM;
 		return errno;
 	}
 
-	chunk->hw_ste_arr = calloc(chunk->num_of_entries, DR_STE_SIZE_REDUCED);
+	chunk->hw_ste_arr = calloc(chunk->num_of_entries, buddy->hw_ste_sz);
 	if (!chunk->hw_ste_arr) {
 		errno = ENOMEM;
 		goto out_free_ste_arr;
@@ -214,6 +217,7 @@ static void dr_icm_chunk_destroy(struct dr_icm_chunk *chunk)
 
 static int dr_icm_buddy_create(struct dr_icm_pool *pool)
 {
+	struct dr_devx_caps *caps = &pool->dmn->info.caps;
 	struct dr_icm_buddy_mem *buddy;
 	struct dr_icm_mr *icm_mr;
 
@@ -232,6 +236,11 @@ static int dr_icm_buddy_create(struct dr_icm_pool *pool)
 
 	buddy->icm_mr = icm_mr;
 	buddy->pool = pool;
+
+	/* Set single entry HW STE cache size */
+	if (pool->icm_type == DR_ICM_TYPE_STE)
+		buddy->hw_ste_sz = caps->sw_format_ver == MLX5_HW_CONNECTX_5 ?
+			DR_STE_SIZE_REDUCED : DR_STE_SIZE;
 
 	/* add it to the -start- of the list in order to search in it first */
 	list_add(&pool->buddy_mem_list, &buddy->list_node);
@@ -279,6 +288,7 @@ dr_icm_chunk_create(struct dr_icm_pool *pool,
 
 	offset = dr_icm_pool_dm_type_to_entry_size(pool->icm_type) * seg;
 
+	chunk->buddy_mem = buddy_mem_pool;
 	chunk->rkey = buddy_mem_pool->icm_mr->mr->rkey;
 	chunk->mr_addr = (uintptr_t)buddy_mem_pool->icm_mr->mr->addr + offset;
 	chunk->icm_addr = (uintptr_t)buddy_mem_pool->icm_mr->icm_start_addr + offset;
@@ -293,7 +303,6 @@ dr_icm_chunk_create(struct dr_icm_pool *pool,
 	}
 
 	buddy_mem_pool->used_memory += chunk->byte_size;
-	chunk->buddy_mem = buddy_mem_pool;
 	list_node_init(&chunk->chunk_list);
 
 	/* chunk now is part of the used_list */

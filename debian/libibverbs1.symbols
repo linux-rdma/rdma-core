@@ -73,6 +73,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_get_pkey_index@IBVERBS_1.5 20
  ibv_get_sysfs_path@IBVERBS_1.0 1.1.6
  ibv_import_device@IBVERBS_1.10 31
+ ibv_import_dm@IBVERBS_1.13 35
  ibv_import_mr@IBVERBS_1.10 31
  ibv_import_pd@IBVERBS_1.10 31
  ibv_init_ah_from_wc@IBVERBS_1.1 1.1.6
@@ -113,6 +114,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_resize_cq@IBVERBS_1.1 1.1.6
  ibv_resolve_eth_l2_from_gid@IBVERBS_1.1 1.2.0
  ibv_set_ece@IBVERBS_1.10 31
+ ibv_unimport_dm@IBVERBS_1.13 35
  ibv_unimport_mr@IBVERBS_1.10 31
  ibv_unimport_pd@IBVERBS_1.10 31
  ibv_wc_status_str@IBVERBS_1.1 1.1.6

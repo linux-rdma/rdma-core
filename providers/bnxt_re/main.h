@@ -120,13 +120,18 @@ struct bnxt_re_srq {
 	bool arm_req;
 };
 
+struct bnxt_re_joint_queue {
+	struct bnxt_re_queue *hwque;
+	struct bnxt_re_wrid *swque;
+	uint32_t start_idx;
+	uint32_t last_idx;
+};
+
 struct bnxt_re_qp {
 	struct ibv_qp ibvqp;
 	struct bnxt_re_chip_ctx *cctx;
-	struct bnxt_re_queue *sqq;
-	struct bnxt_re_wrid *swrid;
-	struct bnxt_re_queue *rqq;
-	struct bnxt_re_wrid *rwrid;
+	struct bnxt_re_joint_queue *jsqq;
+	struct bnxt_re_joint_queue *jrqq;
 	struct bnxt_re_srq *srq;
 	struct bnxt_re_cq *scq;
 	struct bnxt_re_cq *rcq;
@@ -161,10 +166,12 @@ struct bnxt_re_dev {
 
 	uint32_t cqe_size;
 	uint32_t max_cq_depth;
+	struct ibv_device_attr devattr;
 };
 
 struct bnxt_re_context {
 	struct verbs_context ibvctx;
+	struct bnxt_re_dev *rdev;
 	uint32_t dev_id;
 	uint32_t max_qp;
 	struct bnxt_re_chip_ctx cctx;

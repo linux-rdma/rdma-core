@@ -103,28 +103,21 @@ enum dr_ste_lu_type {
 	DR_STE_LU_TYPE_DONT_CARE	= 0x0f,
 };
 
-enum dr_ste_entry_type {
-	DR_STE_TYPE_TX		= 1,
-	DR_STE_TYPE_RX		= 2,
-	DR_STE_TYPE_MODIFY_PKT	= 6,
-};
-
 enum {
 	DR_STE_SIZE		= 64,
 	DR_STE_SIZE_CTRL	= 32,
+	DR_STE_SIZE_MATCH_TAG	= 32,
 	DR_STE_SIZE_TAG		= 16,
 	DR_STE_SIZE_MASK	= 16,
+	DR_STE_SIZE_REDUCED	= DR_STE_SIZE - DR_STE_SIZE_MASK,
 	DR_STE_LOG_SIZE		= 6,
-};
-
-enum {
-	DR_STE_SIZE_REDUCED = DR_STE_SIZE - DR_STE_SIZE_MASK,
 };
 
 enum dr_ste_ctx_action_cap {
 	DR_STE_CTX_ACTION_CAP_NONE	= 0,
 	DR_STE_CTX_ACTION_CAP_TX_POP	= 1 << 0,
 	DR_STE_CTX_ACTION_CAP_RX_PUSH	= 1 << 1,
+	DR_STE_CTX_ACTION_CAP_RX_ENCAP	= 1 << 3,
 };
 
 enum {
@@ -141,6 +134,15 @@ enum dr_matcher_criteria {
 	DR_MATCHER_CRITERIA_MISC3	= 1 << 4,
 	DR_MATCHER_CRITERIA_MISC4	= 1 << 5,
 	DR_MATCHER_CRITERIA_MAX		= 1 << 6,
+};
+
+enum dr_matcher_definer {
+	DR_MATCHER_DEFINER_0	= 0,
+	DR_MATCHER_DEFINER_6	= 6,
+	DR_MATCHER_DEFINER_22	= 22,
+	DR_MATCHER_DEFINER_24	= 24,
+	DR_MATCHER_DEFINER_25	= 25,
+	DR_MATCHER_DEFINER_26	= 26,
 };
 
 enum dr_action_type {
@@ -209,6 +211,7 @@ struct dr_ste {
 
 	/* this ste is part of a rule, located in ste's chain */
 	uint8_t			ste_chain_location;
+	uint8_t			size;
 };
 
 struct dr_ste_htbl_ctrl {
@@ -219,11 +222,15 @@ struct dr_ste_htbl_ctrl {
 
 	/* total number of collisions entries attached to this table */
 	int	num_of_collisions;
-	int	increase_threshold;
-	bool	may_grow;
+};
+
+enum dr_ste_htbl_type {
+	DR_STE_HTBL_TYPE_LEGACY		= 0,
+	DR_STE_HTBL_TYPE_MATCH		= 1,
 };
 
 struct dr_ste_htbl {
+	enum dr_ste_htbl_type	type;
 	uint16_t		lu_type;
 	uint16_t		byte_mask;
 	atomic_int		refcount;
@@ -259,8 +266,18 @@ struct dr_ste_build {
 	bool			rx;
 	struct dr_devx_caps	*caps;
 	uint16_t		lu_type;
-	uint16_t		byte_mask;
-	uint8_t			bit_mask[DR_STE_SIZE_MASK];
+	enum dr_ste_htbl_type	htbl_type;
+	union {
+		struct {
+			uint16_t	byte_mask;
+			uint8_t		bit_mask[DR_STE_SIZE_MASK];
+		};
+		struct {
+			uint16_t		format_id;
+			uint8_t			match[DR_STE_SIZE_MATCH_TAG];
+			struct mlx5dv_devx_obj	*definer_obj;
+		};
+	};
 	int (*ste_build_tag_func)(struct dr_match_param *spec,
 				  struct dr_ste_build *sb,
 				  uint8_t *tag);
@@ -268,6 +285,7 @@ struct dr_ste_build {
 
 struct dr_ste_htbl *dr_ste_htbl_alloc(struct dr_icm_pool *pool,
 				      enum dr_icm_chunk_size chunk_size,
+				      enum dr_ste_htbl_type type,
 				      uint16_t lu_type, uint16_t byte_mask);
 int dr_ste_htbl_free(struct dr_ste_htbl *htbl);
 
@@ -291,13 +309,21 @@ void dr_ste_set_hit_addr_by_next_htbl(struct dr_ste_ctx *ste_ctx,
 				      struct dr_ste_htbl *next_htbl);
 void dr_ste_set_hit_addr(struct dr_ste_ctx *ste_ctx, uint8_t *hw_ste_p,
 			 uint64_t icm_addr, uint32_t ht_size);
-void dr_ste_set_bit_mask(uint8_t *hw_ste_p, uint8_t *bit_mask);
+void dr_ste_set_bit_mask(uint8_t *hw_ste_p, struct dr_ste_build *sb);
 bool dr_ste_is_last_in_rule(struct dr_matcher_rx_tx *nic_matcher,
 			    uint8_t ste_location);
 uint64_t dr_ste_get_icm_addr(struct dr_ste *ste);
 uint64_t dr_ste_get_mr_addr(struct dr_ste *ste);
 struct list_head *dr_ste_get_miss_list(struct dr_ste *ste);
 struct dr_ste *dr_ste_get_miss_list_top(struct dr_ste *ste);
+
+static inline int dr_ste_tag_sz(struct dr_ste *ste)
+{
+	if (ste->htbl->type == DR_STE_HTBL_TYPE_LEGACY)
+		return DR_STE_SIZE_TAG;
+
+	return DR_STE_SIZE_MATCH_TAG;
+}
 
 #define MAX_VLANS 2
 
@@ -400,7 +426,7 @@ static inline bool dr_ste_is_not_used(struct dr_ste *ste)
 	return !atomic_load(&ste->refcount);
 }
 
-bool dr_ste_equal_tag(void *src, void *dst);
+bool dr_ste_equal_tag(void *src, void *dst, uint8_t tag_size);
 int dr_ste_create_next_htbl(struct mlx5dv_dr_matcher *matcher,
 			    struct dr_matcher_rx_tx *nic_matcher,
 			    struct dr_ste *ste,
@@ -531,6 +557,31 @@ void dr_ste_build_flex_parser_1(struct dr_ste_ctx *ste_ctx,
 				struct dr_ste_build *sb,
 				struct dr_match_param *mask,
 				bool inner, bool rx);
+int dr_ste_build_def0(struct dr_ste_ctx *ste_ctx,
+		      struct dr_ste_build *sb,
+		      struct dr_match_param *mask,
+		      struct dr_devx_caps *caps,
+		      bool inner, bool rx);
+int dr_ste_build_def6(struct dr_ste_ctx *ste_ctx,
+		      struct dr_ste_build *sb,
+		      struct dr_match_param *mask,
+		      bool inner, bool rx);
+int dr_ste_build_def22(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       bool inner, bool rx);
+int dr_ste_build_def24(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       bool inner, bool rx);
+int dr_ste_build_def25(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       bool inner, bool rx);
+int dr_ste_build_def26(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       bool inner, bool rx);
 void dr_ste_build_empty_always_hit(struct dr_ste_build *sb, bool rx);
 
 /* Actions utils */
@@ -565,6 +616,10 @@ struct dr_match_spec {
 	uint32_t ip_protocol:8;	/* IP protocol */
 	uint32_t tcp_dport:16;	/* TCP destination port. ;tcp and udp sport/dport are mutually exclusive */
 	uint32_t tcp_sport:16;	/* TCP source port.;tcp and udp sport/dport are mutually exclusive */
+	uint32_t l3_ok:1;
+	uint32_t l4_ok:1;
+	uint32_t ipv4_checksum_ok:1;
+	uint32_t l4_checksum_ok:1;
 	uint32_t ip_ttl_hoplimit:8;
 	uint32_t udp_dport:16;	/* UDP destination port.;tcp and udp sport/dport are mutually exclusive */
 	uint32_t udp_sport:16;	/* UDP source port.;tcp and udp sport/dport are mutually exclusive */
@@ -729,6 +784,7 @@ struct dr_devx_caps {
 	uint8_t				flex_parser_id_gtpu_teid;
 	uint8_t				flex_parser_id_gtpu_dw_2;
 	uint8_t				flex_parser_id_gtpu_first_ext_dw_0;
+	uint8_t				definer_supp_checksum;
 	uint8_t				max_ft_level;
 	uint8_t				sw_format_ver;
 	bool				isolate_vl_tc;
@@ -742,6 +798,7 @@ struct dr_devx_caps {
 	uint32_t			num_vports;
 	struct dr_devx_vport_cap	*vports_caps;
 	struct dr_devx_roce_cap		roce_caps;
+	uint64_t			definer_format_sup;
 	bool				prio_tag_required;
 };
 
@@ -766,6 +823,7 @@ struct dr_devx_flow_dest_info {
 		uint32_t vport_num;
 		uint32_t tir_num;
 		uint32_t counter_id;
+		uint32_t ft_id;
 	};
 	bool has_reformat;
 	uint32_t reformat_id;
@@ -799,10 +857,15 @@ struct dr_devx_flow_sampler_attr {
 	uint32_t	sample_table_id;
 };
 
+enum dr_domain_nic_type {
+	DR_DOMAIN_NIC_TYPE_RX,
+	DR_DOMAIN_NIC_TYPE_TX,
+};
+
 struct dr_domain_rx_tx {
 	uint64_t		drop_icm_addr;
 	uint64_t		default_icm_addr;
-	enum dr_ste_entry_type	ste_type;
+	enum dr_domain_nic_type	type;
 	/* protect rx/tx domain */
 	pthread_spinlock_t	lock;
 };
@@ -815,12 +878,13 @@ struct dr_domain_info {
 	uint32_t		max_log_action_icm_sz;
 	struct dr_domain_rx_tx	rx;
 	struct dr_domain_rx_tx	tx;
-	struct ibv_device_attr	attr;
+	struct ibv_device_attr_ex attr;
 	struct dr_devx_caps	caps;
 };
 
 enum dr_domain_flags {
 	 DR_DOMAIN_FLAG_MEMORY_RECLAIM = 1 << 0,
+	 DR_DOMAIN_FLAG_DISABLE_DUPLICATE_RULES = 1 << 1,
 };
 
 struct mlx5dv_dr_domain {
@@ -1098,6 +1162,26 @@ dr_icm_pool_chunk_size_to_byte(enum dr_icm_chunk_size chunk_size,
 	return entry_size * num_of_entries;
 }
 
+static inline int
+dr_ste_htbl_increase_threshold(struct dr_ste_htbl *htbl)
+{
+	int num_of_entries =
+		dr_icm_pool_chunk_size_to_entries(htbl->chunk_size);
+
+	/* Threshold is 50%, one is added to table of size 1 */
+	return (num_of_entries + 1) / 2;
+}
+
+static inline bool
+dr_ste_htbl_may_grow(struct dr_ste_htbl *htbl)
+{
+	if (htbl->chunk_size == DR_CHUNK_SIZE_MAX - 1 ||
+	    (htbl->type == DR_STE_HTBL_TYPE_LEGACY && !htbl->byte_mask))
+		return false;
+
+	return true;
+}
+
 static inline struct dr_devx_vport_cap
 *dr_get_vport_cap(struct dr_devx_caps *caps, uint32_t vport)
 {
@@ -1137,6 +1221,9 @@ dr_devx_create_flow_sampler(struct ibv_context *ctx,
 			    struct dr_devx_flow_sampler_attr *sampler_attr);
 int dr_devx_query_flow_sampler(struct mlx5dv_devx_obj *obj,
 			       uint64_t *rx_icm_addr, uint64_t *tx_icm_addr);
+struct mlx5dv_devx_obj *dr_devx_create_definer(struct ibv_context *ctx,
+					       uint16_t format_id,
+					       uint8_t *match_mask);
 struct mlx5dv_devx_obj *dr_devx_create_reformat_ctx(struct ibv_context *ctx,
 						    enum reformat_type rt,
 						    size_t reformat_size,
@@ -1233,7 +1320,7 @@ int dr_ste_htbl_init_and_postsend(struct mlx5dv_dr_domain *dmn,
 				  bool update_hw_ste);
 void dr_ste_set_formated_ste(struct dr_ste_ctx *ste_ctx,
 			     uint16_t gvmi,
-			     struct dr_domain_rx_tx *nic_dmn,
+			     enum dr_domain_nic_type nic_type,
 			     struct dr_ste_htbl *htbl,
 			     uint8_t *formated_ste,
 			     struct dr_htbl_connect_info *connect_info);
@@ -1342,6 +1429,8 @@ struct dr_icm_buddy_mem {
 	 * sync_ste command sets them free.
 	 */
 	struct list_head	hot_list;
+	/* HW STE cache entry size */
+	uint8_t                 hw_ste_sz;
 };
 
 int dr_buddy_init(struct dr_icm_buddy_mem *buddy, uint32_t max_order);

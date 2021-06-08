@@ -268,7 +268,7 @@ static int hns_roce_v1_poll_one(struct hns_roce_cq *cq,
 
 	/* if qp is zero, it will not get the correct qpn */
 	if (!*cur_qp ||
-	    (local_qpn & HNS_ROCE_CQE_QPN_MASK) != (*cur_qp)->ibv_qp.qp_num) {
+	    (local_qpn & HNS_ROCE_CQE_QPN_MASK) != (*cur_qp)->verbs_qp.qp.qp_num) {
 
 		*cur_qp = hns_roce_find_qp(to_hr_ctx(cq->ibv_cq.context),
 					   qpn & 0xffffff);
@@ -463,7 +463,7 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (hns_roce_wq_overflow(&qp->sq, nreq,
-					 to_hr_cq(qp->ibv_qp.send_cq))) {
+					 to_hr_cq(qp->verbs_qp.qp.send_cq))) {
 			ret = -1;
 			*bad_wr = wr;
 			goto out;
@@ -572,9 +572,10 @@ out:
 	if (likely(nreq)) {
 		qp->sq.head += nreq;
 
-		hns_roce_update_sq_head(ctx, qp->ibv_qp.qp_num,
-				qp->port_num - 1, qp->sl,
-				qp->sq.head & ((qp->sq.wqe_cnt << 1) - 1));
+		hns_roce_update_sq_head(ctx, qp->verbs_qp.qp.qp_num,
+					qp->port_num - 1, qp->sl,
+					qp->sq.head & ((qp->sq.wqe_cnt << 1) -
+					1));
 	}
 
 	pthread_spin_unlock(&qp->sq.lock);
@@ -740,7 +741,7 @@ static int hns_roce_u_v1_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (hns_roce_wq_overflow(&qp->rq, nreq,
-					 to_hr_cq(qp->ibv_qp.recv_cq))) {
+					 to_hr_cq(qp->verbs_qp.qp.recv_cq))) {
 			ret = -1;
 			*bad_wr = wr;
 			goto out;
@@ -802,8 +803,9 @@ out:
 	if (nreq) {
 		qp->rq.head += nreq;
 
-		hns_roce_update_rq_head(ctx, qp->ibv_qp.qp_num,
-				    qp->rq.head & ((qp->rq.wqe_cnt << 1) - 1));
+		hns_roce_update_rq_head(ctx, qp->verbs_qp.qp.qp_num,
+					qp->rq.head & ((qp->rq.wqe_cnt << 1) -
+					1));
 	}
 
 	pthread_spin_unlock(&qp->rq.lock);

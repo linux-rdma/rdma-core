@@ -34,6 +34,12 @@
 
 #define DR_STE_ENABLE_FLOW_TAG (1 << 31)
 
+enum dr_ste_v0_entry_type {
+	DR_STE_TYPE_TX		= 1,
+	DR_STE_TYPE_RX		= 2,
+	DR_STE_TYPE_MODIFY_PKT	= 6,
+};
+
 enum dr_ste_v0_action_tunl {
 	DR_STE_TUNL_ACTION_NONE		= 0,
 	DR_STE_TUNL_ACTION_ENABLE	= 1,
@@ -313,8 +319,9 @@ static void dr_ste_v0_set_hit_addr(uint8_t *hw_ste_p, uint64_t icm_addr, uint32_
 	DR_STE_SET(general, hw_ste_p, next_table_base_31_5_size, index);
 }
 
-static void dr_ste_v0_init(uint8_t *hw_ste_p, uint16_t lu_type,
-			   uint8_t entry_type, uint16_t gvmi)
+static void dr_ste_v0_init_full(uint8_t *hw_ste_p, uint16_t lu_type,
+				enum dr_ste_v0_entry_type entry_type,
+				uint16_t gvmi)
 {
 	dr_ste_v0_set_entry_type(hw_ste_p, entry_type);
 	dr_ste_v0_set_lu_type(hw_ste_p, lu_type);
@@ -323,6 +330,35 @@ static void dr_ste_v0_init(uint8_t *hw_ste_p, uint16_t lu_type,
 	DR_STE_SET(rx_steering_mult, hw_ste_p, gvmi, gvmi);
 	DR_STE_SET(rx_steering_mult, hw_ste_p, next_table_base_63_48, gvmi);
 	DR_STE_SET(rx_steering_mult, hw_ste_p, miss_address_63_48, gvmi);
+}
+
+static void dr_ste_v0_init(uint8_t *hw_ste_p, uint16_t lu_type,
+			   bool is_rx, uint16_t gvmi)
+{
+	enum dr_ste_v0_entry_type entry_type;
+
+	entry_type = is_rx ? DR_STE_TYPE_RX : DR_STE_TYPE_TX;
+
+	dr_ste_v0_init_full(hw_ste_p, lu_type, entry_type, gvmi);
+}
+
+static void dr_ste_v0_set_ctrl_always_hit_htbl(uint8_t *hw_ste_p,
+					       uint16_t byte_mask,
+					       uint16_t lu_type,
+					       uint64_t icm_addr,
+					       uint32_t num_of_entries,
+					       uint16_t gvmi)
+{
+	dr_ste_v0_set_next_lu_type(hw_ste_p, lu_type);
+	dr_ste_v0_set_hit_addr(hw_ste_p, icm_addr, num_of_entries);
+	dr_ste_v0_set_byte_mask(hw_ste_p, byte_mask);
+}
+
+static void dr_ste_v0_set_ctrl_always_miss(uint8_t *hw_ste_p, uint64_t miss_addr,
+					   uint16_t gvmi)
+{
+	dr_ste_v0_set_next_lu_type(hw_ste_p, DR_STE_LU_TYPE_DONT_CARE);
+	dr_ste_v0_set_miss_addr(hw_ste_p, miss_addr);
 }
 
 static void dr_ste_v0_set_rx_flow_tag(uint8_t *hw_ste_p, uint32_t flow_tag)
@@ -398,12 +434,12 @@ static void dr_ste_v0_set_rewrite_actions(uint8_t *hw_ste_p,
 
 static inline void dr_ste_v0_arr_init_next(uint8_t **last_ste,
 					   uint32_t *added_stes,
-					   enum dr_ste_entry_type entry_type,
+					   enum dr_ste_v0_entry_type entry_type,
 					   uint16_t gvmi)
 {
 	(*added_stes)++;
 	*last_ste += DR_STE_SIZE;
-	dr_ste_v0_init(*last_ste, DR_STE_LU_TYPE_DONT_CARE, entry_type, gvmi);
+	dr_ste_v0_init_full(*last_ste, DR_STE_LU_TYPE_DONT_CARE, entry_type, gvmi);
 }
 
 static void dr_ste_v0_set_actions_tx(uint8_t *action_type_set,
@@ -1792,6 +1828,8 @@ static struct dr_ste_ctx ste_ctx_v0 = {
 	.set_hit_addr			= &dr_ste_v0_set_hit_addr,
 	.set_byte_mask			= &dr_ste_v0_set_byte_mask,
 	.get_byte_mask			= &dr_ste_v0_get_byte_mask,
+	.set_ctrl_always_hit_htbl	= &dr_ste_v0_set_ctrl_always_hit_htbl,
+	.set_ctrl_always_miss		= &dr_ste_v0_set_ctrl_always_miss,
 	/* Actions */
 	.actions_caps			= DR_STE_CTX_ACTION_CAP_NONE,
 	.set_actions_rx			= &dr_ste_v0_set_actions_rx,

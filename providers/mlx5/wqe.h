@@ -122,5 +122,84 @@ struct mlx5_wqe_inline_seg {
 	__be32		byte_count;
 };
 
+enum {
+	MLX5_WQE_MKEY_CONTEXT_FLAGS_BSF_ENABLE = 1 << 30,
+	MLX5_WQE_MKEY_CONTEXT_SIG_ERR_CNT_MASK = 1,
+	MLX5_WQE_MKEY_CONTEXT_SIG_ERR_CNT_SHIFT = 26,
+};
+
+enum {
+	MLX5_BSF_SIZE_BASIC = 0,
+	MLX5_BSF_SIZE_EXTENDED = 1,
+	MLX5_BSF_SIZE_WITH_INLINE = 2,
+	MLX5_BSF_SIZE_SHIFT = 6,
+	MLX5_BSF_SBS_SHIFT = 4,
+
+	/* Block Format Selector */
+	MLX5_BFS_CRC32_BASE = 0x20,
+	MLX5_BFS_CRC32C_BASE = 0x40,
+	MLX5_BFS_CRC64_XP10_BASE = 0x50,
+	MLX5_BFS_CRC_REPEAT_BIT = 0x2,
+	MLX5_BFS_CRC_BLOCK_SIGS_COV_BIT = 0x2,
+	MLX5_BFS_CRC_SEED_BIT = 0x1,
+	MLX5_BFS_SHIFT = 24,
+
+	MLX5_BSF_PSV_INDEX_MASK = 0xFFFFFF,
+	/* Inline section */
+	MLX5_BSF_INL_VALID = 1 << 15,
+	MLX5_BSF_REFRESH_DIF = 1 << 14,
+	MLX5_BSF_REPEAT_BLOCK = 1 << 7,
+	MLX5_BSF_INC_REFTAG = 1 << 6,
+	MLX5_BSF_SEED = 1 << 3,
+	MLX5_BSF_APPTAG_ESCAPE = 0x1,
+	MLX5_BSF_APPREF_ESCAPE = 0x2,
+	MLX5_T10DIF_CRC = 0x1,
+	MLX5_T10DIF_IPCS = 0x2,
+};
+
+struct mlx5_bsf_inl {
+	__be16 vld_refresh;
+	__be16 dif_apptag;
+	__be32 dif_reftag;
+	uint8_t sig_type;
+	uint8_t rp_inv_seed;
+	uint8_t rsvd[3];
+	uint8_t dif_inc_ref_guard_check;
+	__be16 dif_app_bitmask_check;
+};
+
+struct mlx5_bsf {
+	struct mlx5_bsf_basic {
+		uint8_t bsf_size_sbs;
+		uint8_t check_byte_mask;
+		union {
+			uint8_t copy_byte_mask;
+			uint8_t bs_selector;
+			uint8_t rsvd_wflags;
+		} wire;
+		union {
+			uint8_t bs_selector;
+			uint8_t rsvd_mflags;
+		} mem;
+		__be32 raw_data_size;
+		__be32 w_bfs_psv;
+		__be32 m_bfs_psv;
+	} basic;
+	struct mlx5_bsf_ext {
+		__be32 t_init_gen_pro_size;
+		__be32 rsvd_epi_size;
+		__be32 w_tfs_psv;
+		__be32 m_tfs_psv;
+	} ext;
+	struct mlx5_bsf_inl w_inl;
+	struct mlx5_bsf_inl m_inl;
+};
+
+struct mlx5_wqe_set_psv_seg {
+	__be32 psv_index;
+	__be16 syndrome;
+	uint8_t reserved[2];
+	__be64 transient_signature;
+};
 
 #endif /* WQE_H */

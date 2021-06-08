@@ -80,6 +80,7 @@ enum dr_dump_rec_type {
 	DR_DUMP_REC_TYPE_ACTION_ASO_FIRST_HIT = 3417,
 	DR_DUMP_REC_TYPE_ACTION_ASO_FLOW_METER = 3418,
 	DR_DUMP_REC_TYPE_ACTION_ASO_CT = 3419,
+	DR_DUMP_REC_TYPE_ACTION_MISS = 3423,
 };
 
 static uint64_t dr_dump_icm_to_idx(uint64_t icm_addr)
@@ -219,6 +220,10 @@ static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
 			      DR_DUMP_REC_TYPE_ACTION_ASO_CT, action_id,
 			      rule_id, action->aso.devx_obj->object_id);
 		break;
+	case DR_ACTION_TYP_MISS:
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 "\n",
+			      DR_DUMP_REC_TYPE_ACTION_MISS, action_id, rule_id);
+		break;
 	default:
 		return 0;
 	}
@@ -245,7 +250,7 @@ static int dr_dump_rule_mem(FILE *f, struct dr_ste *ste,
 				       DR_DUMP_REC_TYPE_RULE_TX_ENTRY_V1;
 	}
 
-	dump_hex_print(hw_ste_dump, (char *)ste->hw_ste, DR_STE_SIZE_REDUCED);
+	dump_hex_print(hw_ste_dump, (char *)ste->hw_ste, ste->size);
 	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",%s\n",
 		      mem_rec_type,
 		      dr_dump_icm_to_idx(dr_ste_get_icm_addr(ste)),
@@ -387,14 +392,16 @@ static int dr_dump_matcher_builder(FILE *f, struct dr_ste_build *builder,
 				   uint32_t index, bool is_rx,
 				   const uint64_t matcher_id)
 {
+	bool is_match = builder->htbl_type == DR_STE_HTBL_TYPE_MATCH;
 	int ret;
 
-	ret = fprintf(f, "%d,0x%" PRIx64 "%d,%d,0x%x\n",
+	ret = fprintf(f, "%d,0x%" PRIx64 "%d,%d,0x%x,%d\n",
 		      DR_DUMP_REC_TYPE_MATCHER_BUILDER,
 		      matcher_id,
 		      index,
 		      is_rx,
-		      builder->lu_type);
+		      builder->lu_type,
+		      is_match ? builder->format_id : -1);
 	if (ret < 0)
 		return ret;
 
@@ -627,16 +634,16 @@ static int dr_dump_domain_info_caps(FILE *f, struct dr_devx_caps *caps,
 	return 0;
 }
 
-static int dr_dump_domain_info_dev_attr(FILE *f, struct ibv_device_attr *attr,
+static int dr_dump_domain_info_dev_attr(FILE *f, struct dr_domain_info *info,
 					const uint64_t domain_id)
 {
 	int ret;
 
-	ret = fprintf(f, "%d,0x%" PRIx64 ",%d,%s\n",
+	ret = fprintf(f, "%d,0x%" PRIx64 ",%u,%s\n",
 		      DR_DUMP_REC_TYPE_DOMAIN_INFO_DEV_ATTR,
 		      domain_id,
-		      attr->phys_port_cnt,
-		      attr->fw_ver);
+		      info->caps.num_vports + 1,
+		      info->attr.orig_attr.fw_ver);
 	if (ret < 0)
 		return ret;
 
@@ -647,7 +654,7 @@ static int dr_dump_domain_info(FILE *f, struct dr_domain_info *info,
 {
 	int ret;
 
-	ret = dr_dump_domain_info_dev_attr(f, &info->attr, domain_id);
+	ret = dr_dump_domain_info_dev_attr(f, info, domain_id);
 	if (ret < 0)
 		return ret;
 

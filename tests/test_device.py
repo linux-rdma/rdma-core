@@ -13,6 +13,7 @@ import os
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from tests.base import PyverbsAPITestCase
+from pyverbs.device import Context, DM
 import tests.utils as u
 import pyverbs.device as d
 import pyverbs.enums as e
@@ -76,7 +77,9 @@ class DeviceTest(PyverbsAPITestCase):
         """
         for dev in self.get_device_list():
             with d.Context(name=dev.name.decode()) as ctx:
-                ctx.query_gid(port_num=self.ib_port, index=0)
+                gid_tbl_len = ctx.query_port(self.ib_port).gid_tbl_len
+                if gid_tbl_len > 0:
+                    ctx.query_gid(port_num=self.ib_port, index=0)
 
     def test_query_gid_table(self):
         """
@@ -90,7 +93,8 @@ class DeviceTest(PyverbsAPITestCase):
                 port_attr = ctx.query_port(port_num)
                 max_entries += port_attr.gid_tbl_len
             try:
-                ctx.query_gid_table(max_entries)
+                if max_entries > 0:
+                    ctx.query_gid_table(max_entries)
             except PyverbsRDMAError as ex:
                 if ex.error_code in [-errno.EOPNOTSUPP, -errno.EPROTONOSUPPORT]:
                     raise unittest.SkipTest('ibv_query_gid_table is not'\
@@ -121,7 +125,9 @@ class DeviceTest(PyverbsAPITestCase):
         devs = self.get_device_list()
         with d.Context(name=devs[0].name.decode()) as ctx:
             try:
-                ctx.query_gid_ex(port_num=self.ib_port, gid_index=0)
+                gid_tbl_len = ctx.query_port(self.ib_port).gid_tbl_len
+                if gid_tbl_len > 0:
+                    ctx.query_gid_ex(port_num=self.ib_port, gid_index=0)
             except PyverbsRDMAError as ex:
                 if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
                     raise unittest.SkipTest('ibv_query_gid_ex is not'\
@@ -138,8 +144,11 @@ class DeviceTest(PyverbsAPITestCase):
             for port_num in range(1, self.attr.phys_port_cnt + 1):
                 attr = self.ctx.query_port(port_num)
                 max_entries += attr.gid_tbl_len
-            gid_indices = {gid_entry.gid_index for gid_entry in
-                           self.ctx.query_gid_table(max_entries) if gid_entry.port_num == self.ib_port}
+            if max_entries > 0:
+                gid_indices = {gid_entry.gid_index for gid_entry in
+                               self.ctx.query_gid_table(max_entries) if gid_entry.port_num == self.ib_port}
+            else:
+                gid_indices = {}
 
             possible_indices = set(range(port_attr.gid_tbl_len)) if port_attr.gid_tbl_len > 1 else set()
             try:
@@ -195,6 +204,25 @@ class DeviceTest(PyverbsAPITestCase):
             with d.Context(name=dev.name.decode()) as ctx:
                 attr_ex = ctx.query_device_ex()
                 self.verify_device_attr(attr_ex.orig_attr, dev)
+
+    def test_phys_port_cnt_ex(self):
+        """
+        Test phys_port_cnt_ex
+        """
+        for dev in self.get_device_list():
+            with d.Context(name=dev.name.decode()) as ctx:
+                attr_ex = ctx.query_device_ex()
+                phys_port_cnt = attr_ex.orig_attr.phys_port_cnt
+                phys_port_cnt_ex = attr_ex.phys_port_cnt_ex
+                if phys_port_cnt_ex > 255:
+                    self.assertEqual(phys_port_cnt, 255,
+                                     f'phys_port_cnt should be 255 if ' +
+                                     f'phys_port_cnt_ex is bigger than 255')
+                else:
+                    self.assertEqual(phys_port_cnt, phys_port_cnt_ex,
+                                     f'phys_port_cnt_ex and phys_port_cnt ' +
+                                     f'should be equal if number of ports is ' +
+                                     f'less than 256')
 
     @staticmethod
     def verify_port_attr(attr):
@@ -391,3 +419,35 @@ class DMTest(PyverbsAPITestCase):
             processes[i].join()
             rc = res_queue.get()
             self.assertEqual(rc, 0, f'Parallel device memory allocation failed with errno: {rc}')
+
+
+class SharedDMTest(PyverbsAPITestCase):
+    """
+    Tests shared device memory by importing DMs
+    """
+    def setUp(self):
+        super().setUp()
+        if self.attr_ex.max_dm_size == 0:
+            raise unittest.SkipTest('Device memory is not supported')
+        self.dm_size = int(self.attr_ex.max_dm_size / 2)
+
+    def test_import_dm(self):
+        """
+        Creates a DM and imports it from a different (duplicated) Context.
+        Then writes some data to the original DM, reads it from the imported DM
+        and verifies that the read data is as expected.
+        """
+        with d.DM(self.ctx, d.AllocDmAttr(length=self.dm_size)) as dm:
+            cmd_fd_dup = os.dup(self.ctx.cmd_fd)
+            try:
+                imported_ctx = Context(cmd_fd=cmd_fd_dup)
+                imported_dm = DM(imported_ctx, handle=dm.handle)
+            except PyverbsRDMAError as ex:
+                if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                    raise unittest.SkipTest('Some object imports are not supported')
+                raise ex
+            original_data = b'\xab' * self.dm_size
+            dm.copy_to_dm(0, original_data, self.dm_size)
+            read_data = imported_dm.copy_from_dm(0, self.dm_size)
+            self.assertEqual(original_data, read_data)
+            imported_dm.unimport()

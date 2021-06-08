@@ -127,7 +127,7 @@ static int mlx4_read_clock(struct ibv_context *context, uint64_t *cycles)
 	struct mlx4_context *ctx = to_mctx(context);
 
 	if (!ctx->hca_core_clock)
-		return -EOPNOTSUPP;
+		return EOPNOTSUPP;
 
 	/* Handle wraparound */
 	for (i = 0; i < 2; i++) {

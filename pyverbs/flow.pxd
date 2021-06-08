@@ -14,3 +14,6 @@ cdef class Flow(PyverbsCM):
     cdef v.ibv_flow *flow
     cdef object qp
     cpdef close(self)
+
+cdef class FlowAction(PyverbsObject):
+    cdef v.ibv_flow_action *action

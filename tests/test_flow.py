@@ -98,11 +98,6 @@ class FlowTest(RDMATestCase):
         self.server = None
         self.client = None
 
-    def tearDown(self):
-        super().tearDown()
-        del self.server
-        del self.client
-
     def create_players(self, resource, **resource_arg):
         """
         Init Flow tests resources.

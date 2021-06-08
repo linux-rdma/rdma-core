@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc . All rights reserved. See COPYING file
 
+import multiprocessing as mp
 import subprocess
 import unittest
 import tempfile
@@ -12,11 +13,12 @@ import os
 
 from pyverbs.qp import QPCap, QPInitAttrEx, QPInitAttr, QPAttr, QP
 from pyverbs.srq import SRQ, SrqInitAttrEx, SrqInitAttr, SrqAttr
-from pyverbs.pyverbs_error import PyverbsRDMAError
+from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.addr import AHAttr, GlobalRoute
 from pyverbs.xrcd import XRCD, XRCDInitAttr
 from pyverbs.device import Context
 from args_parser import parser
+import pyverbs.cm_enums as ce
 import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.pd import PD
@@ -26,6 +28,8 @@ from pyverbs.mr import MR
 
 PATH_MTU = e.IBV_MTU_1024
 MAX_DEST_RD_ATOMIC = 1
+NUM_OF_PROCESSES = 2
+MC_IP_PREFIX = '230'
 MAX_RD_ATOMIC = 1
 MIN_RNR_TIMER =12
 RETRY_CNT = 7
@@ -62,6 +66,7 @@ class PyverbsAPITestCase(unittest.TestCase):
         super().__init__(methodName)
         # Hold the command line arguments
         self.config = parser.get_config()
+        self.dev_name = None
         self.ctx = None
         self.attr = None
         self.attr_ex = None
@@ -75,16 +80,19 @@ class PyverbsAPITestCase(unittest.TestCase):
         default.
         """
         self.ib_port = self.config['port']
-        dev_name = self.config['dev']
-        if not dev_name:
+        self.dev_name = self.config['dev']
+        if not self.dev_name:
             dev_list = d.get_device_list()
             if not dev_list:
                 raise unittest.SkipTest('No IB devices found')
-            dev_name = dev_list[0].name.decode()
+            self.dev_name = dev_list[0].name.decode()
 
-        self.ctx = d.Context(name=dev_name)
+        self.create_context()
         self.attr = self.ctx.query_device()
         self.attr_ex = self.ctx.query_device_ex()
+
+    def create_context(self):
+        self.ctx = d.Context(name=self.dev_name)
 
     def tearDown(self):
         self.ctx.close()
@@ -124,6 +132,8 @@ class RDMATestCase(unittest.TestCase):
         self.gid_type = gid_type if gid_index is None else None
         self.ip_addr = None
         self.pre_environment = {}
+        self.server = None
+        self.client = None
 
     def set_env_variable(self, var, value):
         """
@@ -135,17 +145,6 @@ class RDMATestCase(unittest.TestCase):
         if var not in self.pre_environment.keys():
             self.pre_environment[var] = os.environ.get(var)
         os.environ[var] = value
-
-    def tearDown(self):
-        """
-        Restore the previous environment variables values before ending the test.
-        """
-        for k, v in self.pre_environment.items():
-            if v is None:
-                os.environ.pop(k)
-            else:
-                os.environ[k] = v
-        super().tearDown()
 
     def is_eth_and_has_roce_hw_bug(self):
         """
@@ -286,7 +285,156 @@ class RDMATestCase(unittest.TestCase):
                 os.environ.pop(k)
             else:
                 os.environ[k] = v
+        if self.server:
+            self.server.ctx.close()
+        if self.client:
+            self.client.ctx.close()
         super().tearDown()
+
+
+class RDMACMBaseTest(RDMATestCase):
+    """
+    Base RDMACM test class.
+    This class does not include any test, but rather implements generic
+    connection and traffic methods that are needed by RDMACM tests in general.
+    Each RDMACM test should have a class that inherits this class and extends
+    its functionalities if needed.
+    """
+    def setUp(self):
+        super().setUp()
+        if not self.ip_addr:
+            raise unittest.SkipTest('Device {} doesn\'t have net interface'
+                                    .format(self.dev_name))
+
+    def two_nodes_rdmacm_traffic(self, connection_resources, test_flow,
+                                 **resource_kwargs):
+        """
+        Init and manage the rdmacm test processes. If needed, terminate those
+        processes and raise an exception.
+        :param connection_resources: The CMConnection resources to use.
+        :param test_flow: The target RDMACM flow method to run.
+        :param resource_kwargs: Dict of args that specify the CMResources
+                                specific attributes. Each test case can pass
+                                here as key words the specific CMResources
+                                attributes that are requested.
+        :return: None
+        """
+        if resource_kwargs.get('port_space', None) == ce.RDMA_PS_UDP and \
+            self.is_eth_and_has_roce_hw_bug():
+            raise unittest.SkipTest('Device {} doesn\'t support UDP with RoCEv2'
+                                    .format(self.dev_name))
+        ctx = mp.get_context('fork')
+        self.syncer = ctx.Barrier(NUM_OF_PROCESSES, timeout=15)
+        self.notifier = ctx.Queue()
+        passive = ctx.Process(target=test_flow,
+                              kwargs={'connection_resources': connection_resources,
+                                      'passive':True, **resource_kwargs})
+        active = ctx.Process(target=test_flow,
+                              kwargs={'connection_resources': connection_resources,
+                                      'passive':False, **resource_kwargs})
+        passive.start()
+        active.start()
+        proc_raised_ex = False
+        for i in range(15):
+            if proc_raised_ex:
+                break
+            for proc in [passive, active]:
+                proc.join(1)
+                if not proc.is_alive() and not self.notifier.empty():
+                    proc_raised_ex = True
+                    break
+
+        # If the processes is still alive kill them and fail the test.
+        proc_killed = False
+        for proc in [passive, active]:
+            if proc.is_alive():
+                proc.terminate()
+                proc_killed = True
+        # Check if the test processes raise exceptions.
+        proc_res = {}
+        while not self.notifier.empty():
+            res, side = self.notifier.get()
+            proc_res[side] = res
+        for ex in proc_res.values():
+            if isinstance(ex, unittest.case.SkipTest):
+                raise(ex)
+        if proc_res:
+            print(f'Received the following exceptions: {proc_res}')
+            if isinstance(res, Exception):
+                raise(res)
+            raise PyverbsError(res)
+        # Raise exeption if the test proceses was terminate.
+        if proc_killed:
+            raise Exception('RDMA CM test procces is stuck, kill the test')
+
+    def rdmacm_traffic(self, connection_resources=None, passive=None, **kwargs):
+        """
+        Run RDMACM traffic between two CMIDs.
+        :param connection_resources: The connection resources to use.
+        :param passive: Indicate if this CMID is this the passive side.
+        :return: None
+        """
+        try:
+            player = connection_resources(ip_addr=self.ip_addr,
+                                          syncer=self.syncer,
+                                          notifier=self.notifier,
+                                          passive=passive, **kwargs)
+            player.establish_connection()
+            player.rdmacm_traffic()
+            player.disconnect()
+        except Exception as ex:
+            side = 'passive' if passive else 'active'
+            self.notifier.put((ex, side))
+
+    def rdmacm_multicast_traffic(self, connection_resources=None, passive=None,
+                                 extended=False, **kwargs):
+        """
+        Run RDMACM multicast traffic between two CMIDs.
+        :param connection_resources: The connection resources to use.
+        :param passive: Indicate if this CMID is the passive side.
+        :param extended: Use exteneded multicast join request. This request
+                         allows CMID to join with specific join flags.
+        :param kwargs: Arguments to be passed to the connection_resources.
+        :return: None
+        """
+        try:
+            player = connection_resources(ip_addr=self.ip_addr, syncer=self.syncer,
+                                          notifier=self.notifier, passive=False,
+                                          **kwargs)
+            mc_addr = MC_IP_PREFIX + self.ip_addr[self.ip_addr.find('.'):]
+            player.join_to_multicast(src_addr=self.ip_addr, mc_addr=mc_addr,
+                                     extended=extended)
+            player.rdmacm_traffic(server=passive, multicast=True)
+            player.leave_multicast(mc_addr=mc_addr)
+        except Exception as ex:
+            side = 'passive' if passive else 'active'
+            self.notifier.put((ex, side))
+
+    def rdmacm_remote_traffic(self, connection_resources=None, passive=None,
+                              remote_op='write', **kwargs):
+        """
+        Run RDMACM remote traffic between two CMIDs.
+        :param connection_resources: The connection resources to use.
+        :param passive: Indicate if this CMID is the passive side.
+        :param remote_op: The remote operation in the traffic.
+        :param kwargs: Arguments to be passed to the connection_resources.
+        :return: None
+        """
+        try:
+            player = connection_resources(ip_addr=self.ip_addr,
+                                          syncer=self.syncer,
+                                          notifier=self.notifier,
+                                          passive=passive,
+                                          remote_op=remote_op, **kwargs)
+            player.establish_connection()
+            player.remote_traffic(passive=passive, remote_op=remote_op)
+            player.disconnect()
+        except Exception as ex:
+            while not self.notifier.empty():
+                self.notifier.get()
+            side = 'passive' if passive else 'active'
+            self.notifier.put((ex, side))
+
 
 class BaseResources(object):
     """

@@ -145,12 +145,6 @@ class ParentDomainTrafficTest(RDMATestCase):
         self.server = None
         self.client = None
 
-    def tearDown(self):
-        if self.server:
-            self.server.pd.close()
-        if self.client:
-            self.client.pd.close()
-
     def create_players(self, resource, **resource_arg):
         """
         Init Parent Domain tests resources.

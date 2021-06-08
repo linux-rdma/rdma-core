@@ -55,6 +55,11 @@ only load from the system path.
 $ apt-get install build-essential cmake gcc libudev-dev libnl-3-dev libnl-route-3-dev ninja-build pkg-config valgrind python3-dev cython3 python3-docutils pandoc
 ```
 
+Supported releases:
+
+* Debian 9 (stretch) or newer
+* Ubuntu 16.04 LTS (xenial) or newer
+
 ### Fedora
 
 ```sh
@@ -133,23 +138,4 @@ In your bug report, please include:
 
 # Submitting patches
 
-Patches should also be submitted to the <linux-rdma@vger.kernel.org>
-mailing list.  Please use unified diff form (the -u option to GNU diff),
-and include a good description of what your patch does and why it should
-be applied.  If your patch fixes a bug, please make sure to describe the
-bug and how your fix works.
-
-Make sure that your contribution can be licensed under the same
-license as the original code you are patching, and that you have all
-necessary permissions to release your work.
-
-## Azure Pipelines CI
-
-Submitted patches must pass the Azure Pipelines CI automatic builds without
-warnings.  A build similar to AZP can be run locally using docker and the
-'buildlib/cbuild' script.
-
-```sh
-$ buildlib/cbuild build-images azp
-$ buildlib/cbuild pkg azp
-```
+See [Contributing to rdma-core](Documentation/contributing.md).

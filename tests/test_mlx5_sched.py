@@ -3,14 +3,15 @@ import errno
 
 from pyverbs.providers.mlx5.mlx5dv_sched import Mlx5dvSchedAttr, \
     Mlx5dvSchedNode, Mlx5dvSchedLeaf
-from tests.base import RDMATestCase, RCResources, PyverbsAPITestCase
+from tests.mlx5_base import Mlx5RDMATestCase, Mlx5PyverbsAPITestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.providers.mlx5.mlx5dv import Mlx5QP
 import pyverbs.providers.mlx5.mlx5_enums as dve
+from tests.base import RCResources
 import tests.utils as u
 
 
-class Mlx5SchedTest(PyverbsAPITestCase):
+class Mlx5SchedTest(Mlx5PyverbsAPITestCase):
     def test_create_sched_tree(self):
         """
         Create schedule elements tree. Test the schedule elements API, this
@@ -56,7 +57,7 @@ class Mlx5SchedTest(PyverbsAPITestCase):
             raise ex
 
 
-class Mlx5SchedTrafficTest(RDMATestCase):
+class Mlx5SchedTrafficTest(Mlx5RDMATestCase):
     def setUp(self):
         super().setUp()
         self.iters = 10

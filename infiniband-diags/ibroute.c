@@ -321,7 +321,7 @@ static int dump_lid(char *str, int strlen, int lid, int valid)
 static const char *dump_unicast_tables(ib_portid_t *portid, int startlid,
 				       int endlid)
 {
-	char lft[IB_SMP_DATA_SIZE] = { 0 };
+	uint8_t lft[IB_SMP_DATA_SIZE] = { 0 };
 	char nd[IB_SMP_DATA_SIZE] = { 0 };
 	uint8_t sw[IB_SMP_DATA_SIZE] = { 0 };
 	char str[200];
