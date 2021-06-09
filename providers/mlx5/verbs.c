@@ -3802,6 +3802,13 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 
 	get_hca_sig_caps(out, mctx);
 
+	if (DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.crypto))
+		mctx->crypto_caps.flags |= MLX5DV_CRYPTO_CAPS_CRYPTO;
+
+	if (DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.aes_xts))
+		mctx->crypto_caps.crypto_engines |=
+			MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS;
+
 	if (DEVX_GET(query_hca_cap_out, out,
 		     capability.cmd_hca_cap.hca_cap_2))
 		get_hca_general_caps_2(mctx);
@@ -3861,6 +3868,46 @@ static void get_qos_caps(struct mlx5_context *mctx)
 	mctx->qos_caps.nic_tsar_type =
 		DEVX_GET(query_hca_cap_out, out,
 			 capability.qos_caps.nic_tsar_type);
+}
+
+static void get_crypto_caps(struct mlx5_context *mctx)
+{
+	uint16_t opmod = MLX5_SET_HCA_CAP_OP_MOD_CRYPTO | HCA_CAP_OPMOD_GET_CUR;
+	uint32_t out[DEVX_ST_SZ_DW(query_hca_cap_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(query_hca_cap_in)] = {};
+	int ret;
+
+	DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
+	DEVX_SET(query_hca_cap_in, in, op_mod, opmod);
+
+	ret = mlx5dv_devx_general_cmd(&mctx->ibv_ctx.context, in, sizeof(in),
+				      out, sizeof(out));
+	if (ret)
+		return;
+
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.crypto_caps.wrapped_crypto_operational))
+		mctx->crypto_caps.flags |=
+			MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL;
+
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.crypto_caps
+			     .wrapped_crypto_going_to_commissioning))
+		mctx->crypto_caps.flags |=
+			MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_GOING_TO_COMMISSIONING;
+
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.crypto_caps.wrapped_import_method) &
+	    MLX5_CRYPTO_CAPS_WRAPPED_IMPORT_METHOD_AES)
+		mctx->crypto_caps.wrapped_import_method |=
+			MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS;
+
+	mctx->crypto_caps.log_max_num_deks =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.crypto_caps.log_max_num_deks);
+	mctx->crypto_caps.failed_selftests =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.crypto_caps.failed_selftests);
 }
 
 int mlx5_query_device_ex(struct ibv_context *context,
@@ -3933,6 +3980,9 @@ void mlx5_query_device_ctx(struct mlx5_context *mctx)
 
 	if (mctx->qos_caps.qos)
 		get_qos_caps(mctx);
+
+	if (mctx->crypto_caps.flags & MLX5DV_CRYPTO_CAPS_CRYPTO)
+		get_crypto_caps(mctx);
 
 	if (ibv_cmd_query_device_any(&mctx->ibv_ctx.context, NULL, &device_attr,
 				     sizeof(device_attr), &resp.ibv_resp,
@@ -6556,6 +6606,14 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 		      MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO;
 
 	if (crypto_mkey) {
+		if (!(to_mctx(pd->context)->crypto_caps.crypto_engines &
+		      MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS) ||
+		    !(to_mctx(pd->context)->crypto_caps.flags &
+		      MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL)) {
+			errno = EOPNOTSUPP;
+			goto err_destroy_sig_ctx;
+		}
+
 		mkey->crypto = calloc(1, sizeof(*mkey->crypto));
 		if (!mkey->crypto) {
 			errno = ENOMEM;
@@ -6781,6 +6839,11 @@ static int _mlx5dv_crypto_login(struct ibv_context *context,
 	struct mlx5_context *mctx = to_mctx(context);
 	int ret = 0;
 	void *attr;
+
+	if (!(mctx->crypto_caps.flags & MLX5DV_CRYPTO_CAPS_CRYPTO) ||
+	    !(mctx->crypto_caps.flags &
+	      MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL))
+		return EOPNOTSUPP;
 
 	if (!(mctx->general_obj_types_caps &
 	      (1ULL << MLX5_OBJ_TYPE_CRYPTO_LOGIN)))

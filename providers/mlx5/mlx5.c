@@ -926,6 +926,11 @@ static int _mlx5dv_query_device(struct ibv_context *ctx_in,
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH;
 	}
 
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD) {
+		attrs_out->crypto_caps = mctx->crypto_caps;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD;
+	}
+
 	attrs_out->comp_mask = comp_mask_out;
 
 	return 0;

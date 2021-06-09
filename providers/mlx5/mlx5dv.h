@@ -85,6 +85,7 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD	= 1 << 10,
 	MLX5DV_CONTEXT_MASK_DCI_STREAMS		= 1 << 11,
 	MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH	= 1 << 12,
+	MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD	= 1 << 13,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -181,6 +182,33 @@ struct mlx5dv_sig_caps {
 	uint16_t crc_type; /* use enum mlx5dv_sig_crc_type_caps */
 };
 
+enum mlx5dv_crypto_engines_caps {
+	MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS = 1 << 0,
+};
+
+enum mlx5dv_crypto_wrapped_import_method_caps {
+	MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS = 1 << 0,
+};
+
+enum mlx5dv_crypto_caps_flags {
+	MLX5DV_CRYPTO_CAPS_CRYPTO = 1 << 0,
+	MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL = 1 << 1,
+	MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_GOING_TO_COMMISSIONING = 1 << 2,
+};
+
+struct mlx5dv_crypto_caps {
+	/*
+	 * if failed_selftests != 0 it means there are some self tests errors
+	 * that may render specific crypto engines unusable. Exact code meaning
+	 * should be consulted with NVIDIA.
+	 */
+	uint16_t failed_selftests;
+	uint8_t crypto_engines; /* use enum mlx5dv_crypto_engines_caps */
+	uint8_t wrapped_import_method; /* use enum mlx5dv_crypto_wrapped_import_method_caps */
+	uint8_t log_max_num_deks;
+	uint32_t flags; /* use enum mlx5dv_crypto_caps_flags */
+};
+
 /*
  * Direct verbs device-specific attributes
  */
@@ -201,6 +229,7 @@ struct mlx5dv_context {
 	struct mlx5dv_sig_caps sig_caps;
 	struct mlx5dv_dci_streams_caps dci_streams_caps;
 	size_t max_wr_memcpy_length;
+	struct mlx5dv_crypto_caps crypto_caps;
 };
 
 enum mlx5dv_context_flags {

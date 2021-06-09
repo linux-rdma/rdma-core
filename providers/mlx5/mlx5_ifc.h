@@ -1136,7 +1136,10 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         steering_format_version[0x4];
 	u8         create_qp_start_hint[0x18];
 
-	u8         reserved_at_460[0x10];
+	u8         reserved_at_460[0x8];
+	u8         aes_xts[0x1];
+	u8         crypto[0x1];
+	u8         reserved_at_46a[0x6];
 	u8         max_num_eqs[0x10];
 
 	u8         sigerr_domain_and_sig_type[0x1];
@@ -1424,6 +1427,30 @@ struct mlx5_ifc_cmd_hca_cap_2_bits {
 	u8         reserved_at_a0[0x760];
 };
 
+enum {
+	MLX5_CRYPTO_CAPS_WRAPPED_IMPORT_METHOD_AES = 0x4,
+};
+
+struct mlx5_ifc_crypto_caps_bits {
+	u8         wrapped_crypto_operational[0x1];
+	u8         wrapped_crypto_going_to_commissioning[0x1];
+	u8         reserved_at_2[0x16];
+	u8         wrapped_import_method[0x8];
+
+	u8         reserved_at_20[0xb];
+	u8         log_max_num_deks[0x5];
+	u8         reserved_at_30[0x3];
+	u8         log_max_num_import_keks[0x5];
+	u8         reserved_at_38[0x3];
+	u8         log_max_num_creds[0x5];
+
+	u8         failed_selftests[0x10];
+	u8         num_nv_import_keks[0x8];
+	u8         num_nv_credentials[0x8];
+
+	u8         reserved_at_60[0x7a0];
+};
+
 union mlx5_ifc_hca_cap_union_bits {
 	struct mlx5_ifc_atomic_caps_bits atomic_caps;
 	struct mlx5_ifc_cmd_hca_cap_bits cmd_hca_cap;
@@ -1435,6 +1462,7 @@ union mlx5_ifc_hca_cap_union_bits {
 	struct mlx5_ifc_roce_cap_bits roce_caps;
 	struct mlx5_ifc_qos_cap_bits qos_caps;
 	struct mlx5_ifc_cmd_hca_cap_2_bits cmd_hca_cap_2;
+	struct mlx5_ifc_crypto_caps_bits crypto_caps;
 	u8         reserved_at_0[0x8000];
 };
 
@@ -1479,6 +1507,7 @@ enum {
 	MLX5_SET_HCA_CAP_OP_MOD_QOS                   = 0xc << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_ESW                   = 0x9 << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_DEVICE_MEMORY         = 0xf << 1,
+	MLX5_SET_HCA_CAP_OP_MOD_CRYPTO                = 0x1a << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE_CAP_2  = 0x20 << 1,
 };
 

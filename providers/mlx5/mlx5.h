@@ -392,6 +392,7 @@ struct mlx5_context {
 	uint8_t				qpc_extension_cap:1;
 	struct mlx5dv_sig_caps		sig_caps;
 	struct mlx5_dma_mmo_caps	dma_mmo_caps;
+	struct mlx5dv_crypto_caps	crypto_caps;
 	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
 	uint32_t			num_dyn_bfregs;
 	uint32_t			max_num_legacy_dyn_uar_sys_page;
