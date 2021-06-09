@@ -146,10 +146,12 @@ class QpExRCAtomicFetchAdd(RCResources):
 
 class QpExRCBindMw(RCResources):
     def create_qps(self):
-        create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_BIND_MW)
+        create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_RDMA_WRITE |
+                     e.IBV_QP_EX_WITH_BIND_MW)
 
     def create_mr(self):
-        self.mr = u.create_custom_mr(self, e.IBV_ACCESS_REMOTE_WRITE)
+        self.mr = u.create_custom_mr(self, e.IBV_ACCESS_REMOTE_WRITE |
+                                     e.IBV_ACCESS_MW_BIND)
 
 
 class QpExTestCase(RDMATestCase):
