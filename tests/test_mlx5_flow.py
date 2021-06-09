@@ -53,8 +53,11 @@ def requires_reformat_support(func):
         if status:
             raise PyverbsRDMAError('Query NIC Flow Table CAPs failed with status'
                                    f' ({status})')
-        # Verify that both NIC RX and TX support reformat actions
-        if not (cmd_view[80] & 0x1 and cmd_view[272] & 0x1):
+        # Verify that both NIC RX and TX support reformat actions by checking
+        # the following PRM fields: encap_general_header,
+        # log_max_packet_reformat, and reformat (for both RX and TX).
+        if not (cmd_view[20] & 0x80 and cmd_view[21] & 0x1f and
+                cmd_view[80] & 0x1 and cmd_view[272] & 0x1):
             raise unittest.SkipTest('NIC flow table does not support reformat')
         return func(instance)
     return func_wrapper
