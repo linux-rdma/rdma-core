@@ -100,6 +100,7 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 	.create_cq     = bnxt_re_create_cq,
 	.poll_cq       = bnxt_re_poll_cq,
 	.req_notify_cq = bnxt_re_arm_cq,
+	.resize_cq     = bnxt_re_resize_cq,
 	.destroy_cq    = bnxt_re_destroy_cq,
 	.create_srq    = bnxt_re_create_srq,
 	.modify_srq    = bnxt_re_modify_srq,

@@ -81,9 +81,11 @@ struct bnxt_re_cq {
 	struct ibv_cq ibvcq;
 	uint32_t cqid;
 	struct bnxt_re_queue cqq;
+	struct bnxt_re_queue resize_cqq;
 	struct bnxt_re_dpi *udpi;
 	struct list_head sfhead;
 	struct list_head rfhead;
+	struct list_head prev_cq_head;
 	uint32_t cqe_size;
 	uint8_t  phase;
 	int deferred_arm_flags;

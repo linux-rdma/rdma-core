@@ -53,6 +53,8 @@
 #include "main.h"
 #include "verbs.h"
 
+static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
+			    uint32_t *resize);
 int bnxt_re_query_device(struct ibv_context *context,
 			 const struct ibv_query_device_ex_input *input,
 			 struct ibv_device_attr_ex *attr, size_t attr_size)
@@ -213,6 +215,7 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 
 	list_head_init(&cq->sfhead);
 	list_head_init(&cq->rfhead);
+	list_head_init(&cq->prev_cq_head);
 
 	return &cq->ibvcq;
 cmdfail:
@@ -220,6 +223,103 @@ cmdfail:
 fail:
 	free(cq);
 	return NULL;
+}
+
+static int bnxt_re_poll_kernel_cq(struct bnxt_re_cq *cq)
+{
+	struct ibv_wc tmp_wc;
+	int rc;
+
+	rc = ibv_cmd_poll_cq(&cq->ibvcq, 1, &tmp_wc);
+	if (rc)
+		fprintf(stderr, "ibv_cmd_poll_cq failed: %d\n", rc);
+	return rc;
+}
+
+/*
+ * Function to complete the last steps in CQ resize. Invoke poll function
+ * in the kernel driver; this serves as a signal to the driver to complete CQ
+ * resize steps required. Free memory mapped for the original CQ and switch
+ * over to the memory mapped for CQ with the new size. Finally Ack the Cutoff
+ * CQE. This function must be called under cq->cqq.lock.
+ */
+static void bnxt_re_resize_cq_complete(struct bnxt_re_cq *cq)
+{
+	bnxt_re_poll_kernel_cq(cq);
+	bnxt_re_free_aligned(&cq->cqq);
+	memcpy(&cq->cqq, &cq->resize_cqq, sizeof(cq->cqq));
+	bnxt_re_ring_cq_arm_db(cq, BNXT_RE_QUE_TYPE_CQ_CUT_ACK);
+}
+
+int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
+{
+	struct bnxt_re_dev *dev = to_bnxt_re_dev(ibvcq->context->device);
+	struct bnxt_re_cq *cq = to_bnxt_re_cq(ibvcq);
+	struct ib_uverbs_resize_cq_resp resp = {};
+	struct ubnxt_re_resize_cq cmd = {};
+	int rc = 0;
+
+	if (ncqe > dev->max_cq_depth)
+		return -EINVAL;
+
+	pthread_spin_lock(&cq->cqq.qlock);
+	cq->resize_cqq.depth = roundup_pow_of_two(ncqe + 1);
+	if (cq->resize_cqq.depth > dev->max_cq_depth + 1)
+		cq->resize_cqq.depth = dev->max_cq_depth + 1;
+	cq->resize_cqq.stride = dev->cqe_size;
+	if (bnxt_re_alloc_aligned(&cq->resize_cqq, dev->pg_size))
+		goto done;
+	/* As an exception no need to call get_ring api we know
+	 * this is the only consumer
+	 */
+	cmd.cq_va = (uintptr_t)cq->resize_cqq.va;
+	rc = ibv_cmd_resize_cq(ibvcq, ncqe, &cmd.ibv_cmd,
+			       sizeof(cmd), &resp, sizeof(resp));
+	if (rc) {
+		bnxt_re_free_aligned(&cq->resize_cqq);
+		goto done;
+	}
+
+	while (true) {
+		struct bnxt_re_work_compl *compl = NULL;
+		struct ibv_wc tmp_wc = {};
+		uint32_t resize = 0;
+		int dqed = 0;
+
+		dqed = bnxt_re_poll_one(cq, 1, &tmp_wc, &resize);
+		if (resize) {
+			if (cq->deferred_arm) {
+				bnxt_re_ring_cq_arm_db(cq, cq->deferred_arm_flags);
+				cq->deferred_arm = false;
+			}
+			break;
+		}
+		if (dqed) {
+			compl = calloc(1, sizeof(*compl));
+			if (!compl)
+				break;
+			memcpy(&compl->wc, &tmp_wc, sizeof(tmp_wc));
+			list_add_tail(&cq->prev_cq_head, &compl->list);
+			compl = NULL;
+			memset(&tmp_wc, 0, sizeof(tmp_wc));
+		}
+	}
+done:
+	pthread_spin_unlock(&cq->cqq.qlock);
+	return rc;
+}
+
+static void bnxt_re_destroy_resize_cq_list(struct bnxt_re_cq *cq)
+{
+	struct bnxt_re_work_compl *compl, *tmp;
+
+	if (list_empty(&cq->prev_cq_head))
+		return;
+
+	list_for_each_safe(&cq->prev_cq_head, compl, tmp, list) {
+		list_del(&compl->list);
+		free(compl);
+	}
 }
 
 int bnxt_re_destroy_cq(struct ibv_cq *ibvcq)
@@ -230,7 +330,7 @@ int bnxt_re_destroy_cq(struct ibv_cq *ibvcq)
 	status = ibv_cmd_destroy_cq(ibvcq);
 	if (status)
 		return status;
-
+	bnxt_re_destroy_resize_cq_list(cq);
 	bnxt_re_free_aligned(&cq->cqq);
 	free(cq);
 
@@ -535,7 +635,8 @@ static uint8_t bnxt_re_poll_term_cqe(struct bnxt_re_qp *qp,
 	return pcqe;
 }
 
-static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc)
+static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc,
+			    uint32_t *resize)
 {
 	struct bnxt_re_queue *cqq = &cq->cqq;
 	struct bnxt_re_qp *qp;
@@ -586,7 +687,11 @@ static int bnxt_re_poll_one(struct bnxt_re_cq *cq, int nwc, struct ibv_wc *wc)
 			pcqe = bnxt_re_poll_term_cqe(qp, wc, cqe, &cnt);
 			break;
 		case BNXT_RE_WC_TYPE_COFF:
-			break;
+			/* Stop further processing and return */
+			bnxt_re_resize_cq_complete(cq);
+			if (resize)
+				*resize = 1;
+			return dqed;
 		default:
 			break;
 		};
@@ -711,14 +816,45 @@ static int bnxt_re_poll_flush_lists(struct bnxt_re_cq *cq, uint32_t nwc,
 	return polled;
 }
 
+static int bnxt_re_poll_resize_cq_list(struct bnxt_re_cq *cq, uint32_t nwc,
+				       struct ibv_wc *ibvwc)
+{
+	struct bnxt_re_work_compl *compl, *tmp;
+	int left;
+
+	left = nwc;
+	list_for_each_safe(&cq->prev_cq_head, compl, tmp, list) {
+		if (!left)
+			break;
+		memcpy(ibvwc, &compl->wc, sizeof(*ibvwc));
+		ibvwc++;
+		left--;
+		list_del(&compl->list);
+		free(compl);
+	}
+
+	return nwc - left;
+}
+
 int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 {
 	struct bnxt_re_cq *cq = to_bnxt_re_cq(ibvcq);
 	struct bnxt_re_context *cntx = to_bnxt_re_context(ibvcq->context);
-	int dqed, left = 0;
+	int dqed = 0, left = 0;
+	uint32_t resize = 0;
 
 	pthread_spin_lock(&cq->cqq.qlock);
-	dqed = bnxt_re_poll_one(cq, nwc, wc);
+	left = nwc;
+	/* Check  whether we have anything to be completed from prev cq context */
+	if (!list_empty(&cq->prev_cq_head)) {
+		dqed = bnxt_re_poll_resize_cq_list(cq, nwc, wc);
+		left = nwc - dqed;
+		if (!left) {
+			pthread_spin_unlock(&cq->cqq.qlock);
+			return dqed;
+		}
+	}
+	dqed += bnxt_re_poll_one(cq, left, wc + dqed, &resize);
 	if (cq->deferred_arm) {
 		bnxt_re_ring_cq_arm_db(cq, cq->deferred_arm_flags);
 		cq->deferred_arm = false;
