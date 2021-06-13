@@ -48,3 +48,6 @@ cdef class DrActionDestAttr(PyverbsCM):
 cdef class DrActionDestArray(DrAction):
     cdef DrDomain domain
     cdef object dest_actions
+
+cdef class DrActionDefMiss(DrAction):
+    pass

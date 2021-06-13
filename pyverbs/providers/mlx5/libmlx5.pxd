@@ -463,6 +463,7 @@ cdef extern from 'infiniband/mlx5dv.h':
     mlx5dv_dr_action *mlx5dv_dr_action_create_flow_counter(mlx5dv_devx_obj *devx_obj,
                                                            uint32_t offset)
     mlx5dv_dr_action *mlx5dv_dr_action_create_drop()
+    mlx5dv_dr_action *mlx5dv_dr_action_create_default_miss()
     int mlx5dv_dr_rule_destroy(mlx5dv_dr_rule *rule)
     void mlx5dv_dr_domain_allow_duplicate_rules(mlx5dv_dr_domain *dmn, bool allow)
 

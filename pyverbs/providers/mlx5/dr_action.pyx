@@ -283,3 +283,14 @@ cdef class DrActionDestArray(DrAction):
             super(DrActionDestArray, self).close()
             self.domain = None
             self.dest_actions = None
+
+
+cdef class DrActionDefMiss(DrAction):
+    def __init__(self):
+        """
+        Create DR default miss action.
+        """
+        super().__init__()
+        self.action = dv.mlx5dv_dr_action_create_default_miss()
+        if self.action == NULL:
+            raise PyverbsRDMAErrno('DrActionDefMiss creation failed.')
