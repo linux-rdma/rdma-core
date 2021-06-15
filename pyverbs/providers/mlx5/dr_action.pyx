@@ -294,3 +294,51 @@ cdef class DrActionDefMiss(DrAction):
         self.action = dv.mlx5dv_dr_action_create_default_miss()
         if self.action == NULL:
             raise PyverbsRDMAErrno('DrActionDefMiss creation failed.')
+
+
+cdef class DrActionVPort(DrAction):
+    def __init__(self, DrDomain domain, vport):
+        """
+        Create DR vport action.
+        :param domain: DrDomain object where the action should be placed.
+        :param vport: VPort number.
+        """
+        super().__init__()
+        self.action = dv.mlx5dv_dr_action_create_dest_vport(domain.domain, vport)
+        if self.action == NULL:
+            raise PyverbsRDMAErrno('Failed to create dr VPort action')
+        self.domain = domain
+        self.vport = vport
+        domain.dr_actions.add(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.action != NULL:
+            super(DrActionVPort, self).close()
+            self.domain = None
+
+
+cdef class DrActionIBPort(DrAction):
+    def __init__(self, DrDomain domain, ib_port):
+        """
+        Create DR IB port action.
+        :param domain: DrDomain object where the action should be placed.
+        :param ib_port: IB port number.
+        """
+        super().__init__()
+        self.action = dv.mlx5dv_dr_action_create_dest_ib_port(domain.domain, ib_port)
+        if self.action == NULL:
+            raise PyverbsRDMAErrno('Failed to create dr IB port action')
+        self.domain = domain
+        self.ib_port = ib_port
+        domain.dr_actions.add(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.action != NULL:
+            super(DrActionIBPort, self).close()
+            self.domain = None

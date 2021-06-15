@@ -51,3 +51,11 @@ cdef class DrActionDestArray(DrAction):
 
 cdef class DrActionDefMiss(DrAction):
     pass
+
+cdef class DrActionVPort(DrAction):
+    cdef DrDomain domain
+    cdef int vport
+
+cdef class DrActionIBPort(DrAction):
+    cdef DrDomain domain
+    cdef int ib_port
