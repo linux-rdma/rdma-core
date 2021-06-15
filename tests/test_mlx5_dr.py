@@ -11,7 +11,7 @@ import errno
 
 from pyverbs.providers.mlx5.dr_action import DrActionQp, DrActionModify, \
     DrActionFlowCounter, DrActionDrop, DrActionTag, DrActionDestTable, \
-    DrActionPopVLan, DrActionPushVLan
+    DrActionPopVLan, DrActionPushVLan, DrActionDestAttr, DrActionDestArray
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, Mlx5Context, Mlx5DVContextAttr
 from tests.utils import skip_unsupported, requires_root_on_eth, PacketConsts
 from pyverbs.providers.mlx5.mlx5dv_flow import Mlx5FlowMatchParameters
@@ -69,10 +69,10 @@ class Mlx5DrResources(RawResources):
                                                              len(QueryFlowCounterOut())))
         return counter_out.flow_statistics.packets
 
-    def __init__(self, dev_name, ib_port, gid_index=0, wc_flags=0, msg_size=1024):
+    def __init__(self, dev_name, ib_port, gid_index=0, wc_flags=0, msg_size=1024, qp_count=1):
         self.wc_flags = wc_flags
         super().__init__(dev_name=dev_name, ib_port=ib_port, gid_index=gid_index,
-                         msg_size=msg_size)
+                         msg_size=msg_size, qp_count=qp_count)
 
     @requires_root_on_eth()
     def create_qps(self):
@@ -370,6 +370,41 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         self.create_rx_recv_qp_rule(smac_value, [pop_action, qp_action])
         u.raw_traffic(self.client, self.server, self.iters, with_vlan=True, expected_packet=exp_packet)
+
+    @skip_unsupported
+    def test_dest_array(self):
+        """
+        Creates RX domain, root table with matcher on source mac. Create a rule
+        to forward all traffic to the non-root table. On this table add a rule
+        with multi dest array action which include destination QP actions and
+        next FT (also with QP action).
+        Validate on all QPs the received packets.
+        """
+        max_actions = 8
+        self.client = Mlx5DrResources(qp_count=max_actions, **self.dev_info)
+        self.server = Mlx5DrResources(qp_count=max_actions, **self.dev_info)
+        self.domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        actions = []
+        dest_attrs = []
+        for qp in self.server.qps[:-1]:
+            qp_action = DrActionQp(qp)
+            actions.append(qp_action)
+            dest_attrs.append(DrActionDestAttr(dve.MLX5DV_DR_ACTION_DEST, qp_action))
+        ft_action = DrTable(self.domain_rx, 0xff)
+        last_table_action = DrActionDestTable(ft_action)
+        smac_mask = bytes([0xff] * 6) + bytes(2)
+        mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
+        last_matcher = DrMatcher(ft_action, 1, u.MatchCriteriaEnable.OUTER, mask_param)
+        dest_attrs.append(DrActionDestAttr(dve.MLX5DV_DR_ACTION_DEST, last_table_action))
+        last_qp_action = DrActionQp(self.server.qps[max_actions - 1])
+        smac_value = struct.pack('!6s2s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')),
+                                 bytes(2))
+        value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
+        self.rules.append(DrRule(last_matcher, value_param, [last_qp_action]))
+        multi_dest_a = DrActionDestArray(self.domain_rx, len(dest_attrs), dest_attrs)
+        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        self.create_rx_recv_qp_rule(smac_value, [multi_dest_a], domain=self.domain_rx)
+        u.raw_traffic(self.client, self.server, self.iters)
 
 
 class Mlx5DrDumpTest(PyverbsAPITestCase):
