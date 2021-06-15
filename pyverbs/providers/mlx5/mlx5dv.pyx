@@ -550,6 +550,14 @@ cdef class Mlx5QP(QPEx):
         dv.mlx5dv_wr_set_dc_addr(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
                                  ah.ah, remote_dctn, remote_dc_key)
 
+    def wr_raw_wqe(self, wqe):
+        """
+        Build a raw work request
+        :param wqe: A Wqe object
+        """
+        cdef void *wqe_ptr = <void *> <uintptr_t> wqe.address
+        dv.mlx5dv_wr_raw_wqe(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex), wqe_ptr)
+
     def wr_mr_interleaved(self, Mlx5Mkey mkey, access_flags, repeat_count,
                           mr_interleaved_lst):
         """

@@ -232,7 +232,7 @@ cdef extern from 'infiniband/mlx5dv.h':
     v.ibv_cq_ex *mlx5dv_create_cq(v.ibv_context *context,
                                   v.ibv_cq_init_attr_ex *cq_attr,
                                   mlx5dv_cq_init_attr *mlx5_cq_attr)
-
+    void mlx5dv_wr_raw_wqe(mlx5dv_qp_ex *mqp_ex, const void *wqe)
     mlx5dv_var *mlx5dv_alloc_var(v.ibv_context *context, uint32_t flags)
     void mlx5dv_free_var(mlx5dv_var *dv_var)
     mlx5dv_pp *mlx5dv_pp_alloc(v.ibv_context *context, size_t pp_context_sz,
