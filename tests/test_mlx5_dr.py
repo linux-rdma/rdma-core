@@ -11,7 +11,8 @@ import errno
 
 from pyverbs.providers.mlx5.dr_action import DrActionQp, DrActionModify, \
     DrActionFlowCounter, DrActionDrop, DrActionTag, DrActionDestTable, \
-    DrActionPopVLan, DrActionPushVLan, DrActionDestAttr, DrActionDestArray
+    DrActionPopVLan, DrActionPushVLan, DrActionDestAttr, DrActionDestArray, \
+    DrActionDefMiss
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, Mlx5Context, Mlx5DVContextAttr
 from tests.utils import skip_unsupported, requires_root_on_eth, PacketConsts
 from pyverbs.providers.mlx5.mlx5dv_flow import Mlx5FlowMatchParameters
@@ -404,6 +405,32 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         multi_dest_a = DrActionDestArray(self.domain_rx, len(dest_attrs), dest_attrs)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         self.create_rx_recv_qp_rule(smac_value, [multi_dest_a], domain=self.domain_rx)
+        u.raw_traffic(self.client, self.server, self.iters)
+
+    @skip_unsupported
+    def test_tx_def_miss_action(self):
+        """
+        Create TX root table and forward all traffic to next SW steering table,
+        create two matchers with different priorities, one with default miss
+        action (on TX it's go to wire action) and one with drop action, default
+        miss action should occur before the drop action hence packets
+        should reach server side which has RX rule with QP action.
+        """
+        self.create_players(Mlx5DrResources)
+        self.domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        tx_def_miss = DrActionDefMiss()
+        tx_drop_action = DrActionDrop()
+        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        self.tx_table, self.tx_dest_act = self.create_rx_recv_qp_rule(smac_value, [tx_def_miss],
+                                                                      domain=self.domain_tx)
+        qp_action = DrActionQp(self.server.qp)
+        self.create_rx_recv_qp_rule(smac_value, [qp_action])
+        smac_mask = bytes([0xff] * 6) + bytes(2)
+        mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
+        matcher_tx2 = DrMatcher(self.tx_table, 2, u.MatchCriteriaEnable.OUTER, mask_param)
+        smac_value += bytes(2)
+        value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
+        self.rules.append(DrRule(matcher_tx2, value_param, [tx_drop_action]))
         u.raw_traffic(self.client, self.server, self.iters)
 
 
