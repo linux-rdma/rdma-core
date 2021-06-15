@@ -25,6 +25,15 @@ from pyverbs.addr cimport AH
 from pyverbs.pd cimport PD
 
 
+cdef extern from 'endian.h':
+    unsigned long htobe16(unsigned long host_16bits)
+    unsigned long be16toh(unsigned long network_16bits)
+    unsigned long htobe32(unsigned long host_32bits)
+    unsigned long be32toh(unsigned long network_32bits)
+    unsigned long htobe64(unsigned long host_64bits)
+    unsigned long be64toh(unsigned long network_64bits)
+
+
 cdef char* _prepare_devx_inbox(in_bytes):
     """
     Auxiliary function that allocates inboxes for DevX commands, and fills them
@@ -1096,3 +1105,197 @@ cdef class Mlx5DmOpAddr(PyverbsCM):
     @property
     def addr(self):
         return <uintptr_t>self.addr
+
+
+cdef class WqeSeg(PyverbsCM):
+    """
+    An abstract class for WQE segments.
+    Each WQE segment (such as control segment, data segment, etc.) should
+    inherit from this class.
+    """
+
+    @staticmethod
+    def sizeof():
+        return 0
+
+    cpdef _copy_to_buffer(self, addr):
+        memcpy(<void *><uintptr_t>addr, <void *>self.segment, self.sizeof())
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.segment != NULL:
+            free(self.segment)
+            self.segment = NULL
+
+
+cdef class WqeCtrlSeg(WqeSeg):
+    """
+    Wrapper class for dv.mlx5_wqe_ctrl_seg
+    """
+
+    def __init__(self, pi=0, opcode=0, opmod=0, qp_num=0, fm_ce_se=0, ds=0,
+                 signature=0, imm=0):
+        """
+        Create a WqeCtrlSeg by creating a mlx5_wqe_ctrl_seg and
+        using mlx5dv_set_ctrl_seg, segment values are accessed
+        through the getters/setters.
+        """
+        self.segment = calloc(sizeof(dv.mlx5_wqe_ctrl_seg), 1)
+        self.set_ctrl_seg(pi, opcode, opmod, qp_num, fm_ce_se, ds, signature, imm)
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return print_format.format('opcode',
+                                   (<dv.mlx5_wqe_ctrl_seg *>self.segment).opmod_idx_opcode) + \
+               print_format.format('qpn_ds',
+                                   (<dv.mlx5_wqe_ctrl_seg *>self.segment).qpn_ds) + \
+               print_format.format('signature',
+                                   (<dv.mlx5_wqe_ctrl_seg *>self.segment).signature) + \
+               print_format.format('fm_ce_se',
+                                   (<dv.mlx5_wqe_ctrl_seg *>self.segment).fm_ce_se) + \
+               print_format.format('imm',
+                                   (<dv.mlx5_wqe_ctrl_seg *>self.segment).imm)
+
+    def set_ctrl_seg(self, pi, opcode, opmod, qp_num, fm_ce_se, ds, signature, imm):
+        dv.mlx5dv_set_ctrl_seg(<dv.mlx5_wqe_ctrl_seg *>self.segment, pi, opcode,
+                               opmod, qp_num, fm_ce_se, ds, signature, imm)
+
+    @staticmethod
+    def sizeof():
+        return sizeof(dv.mlx5_wqe_ctrl_seg)
+
+    @property
+    def addr(self):
+        return <uintptr_t>self.segment
+
+    @property
+    def opmod_idx_opcode(self):
+        return be32toh((<dv.mlx5_wqe_ctrl_seg *>self.segment).opmod_idx_opcode)
+    @opmod_idx_opcode.setter
+    def opmod_idx_opcode(self, val):
+        (<dv.mlx5_wqe_ctrl_seg *>self.segment).opmod_idx_opcode = htobe32(val)
+
+    @property
+    def qpn_ds(self):
+        return be32toh((<dv.mlx5_wqe_ctrl_seg *>self.segment).qpn_ds)
+    @qpn_ds.setter
+    def qpn_ds(self, val):
+        (<dv.mlx5_wqe_ctrl_seg *>self.segment).qpn_ds = htobe32(val)
+
+    @property
+    def signature(self):
+        return (<dv.mlx5_wqe_ctrl_seg *>self.segment).signature
+    @signature.setter
+    def signature(self, val):
+        (<dv.mlx5_wqe_ctrl_seg *>self.segment).signature = val
+
+    @property
+    def fm_ce_se(self):
+        return (<dv.mlx5_wqe_ctrl_seg *>self.segment).fm_ce_se
+    @fm_ce_se.setter
+    def fm_ce_se(self, val):
+        (<dv.mlx5_wqe_ctrl_seg *>self.segment).fm_ce_se = val
+
+    @property
+    def imm(self):
+        return be32toh((<dv.mlx5_wqe_ctrl_seg *>self.segment).imm)
+    @imm.setter
+    def imm(self, val):
+        (<dv.mlx5_wqe_ctrl_seg *>self.segment).imm = htobe32(val)
+
+
+cdef class WqeDataSeg(WqeSeg):
+
+    def __init__(self, length=0, lkey=0, addr=0):
+        """
+        Create a dv.mlx5_wqe_data_seg by allocating it and using
+        dv.mlx5dv_set_data_seg with the values received in init
+        """
+        self.segment = calloc(sizeof(dv.mlx5_wqe_data_seg), 1)
+        self.set_data_seg(length, lkey, addr)
+
+    @staticmethod
+    def sizeof():
+        return sizeof(dv.mlx5_wqe_data_seg)
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return print_format.format('byte_count',
+                                   (<dv.mlx5_wqe_data_seg *>self.segment).byte_count) + \
+               print_format.format('lkey', (<dv.mlx5_wqe_data_seg *>self.segment).lkey) + \
+               print_format.format('addr', (<dv.mlx5_wqe_data_seg *>self.segment).addr)
+
+    def set_data_seg(self, length, lkey, addr):
+        dv.mlx5dv_set_data_seg(<dv.mlx5_wqe_data_seg *>self.segment,
+                               length, lkey, addr)
+
+    @property
+    def byte_count(self):
+        return be32toh((<dv.mlx5_wqe_data_seg *>self.segment).byte_count)
+    @byte_count.setter
+    def byte_count(self, val):
+        (<dv.mlx5_wqe_data_seg *>self.segment).byte_count = htobe32(val)
+
+    @property
+    def lkey(self):
+        return be32toh((<dv.mlx5_wqe_data_seg *>self.segment).lkey)
+    @lkey.setter
+    def lkey(self, val):
+        (<dv.mlx5_wqe_data_seg *>self.segment).lkey = htobe32(val)
+
+    @property
+    def addr(self):
+        return be64toh((<dv.mlx5_wqe_data_seg *>self.segment).addr)
+    @addr.setter
+    def addr(self, val):
+        (<dv.mlx5_wqe_data_seg *>self.segment).addr = htobe64(val)
+
+
+cdef class Wqe(PyverbsCM):
+    """
+    The Wqe class represents a WQE, which is one or more chained WQE segments.
+    """
+
+    def __init__(self, segments, addr=0):
+        """
+        Create a Wqe with <segments>, in case an address <addr> was not passed
+        by the user, memory would be allocated according to the size needed and
+        the segments are copied over to the buffer.
+        :param segments: The segments (ctrl, data) of the Wqe
+        :param addr: User address to write the WQE on (Optional)
+        """
+        self.segments = segments
+        if addr:
+            self.is_user_addr = True
+            self.addr = <void*><uintptr_t> addr
+        else:
+            self.is_user_addr = False
+            allocation_size = sum(map(lambda x: x.sizeof(), self.segments))
+            self.addr = calloc(allocation_size, 1)
+        addr = <uintptr_t>self.addr
+        for seg in self.segments:
+            seg._copy_to_buffer(addr)
+            addr += seg.sizeof()
+
+    @property
+    def address(self):
+        return <uintptr_t>self.addr
+
+    def __str__(self):
+        ret_str = ''
+        i = 0
+        for segment in self.segments:
+            ret_str += f'Segment type {type(segment)} #{i}:\n' + str(segment)
+            i += 1
+        return ret_str
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.addr != NULL:
+            if not self.is_user_addr:
+                free(self.addr)
+            self.addr = NULL
