@@ -723,6 +723,7 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_query_rt_values_ex(ibv_context *context, ibv_values_ex *values)
     int ibv_get_async_event(ibv_context *context, ibv_async_event *event)
     void ibv_ack_async_event(ibv_async_event *event)
+    int ibv_query_qp_data_in_order(ibv_qp *qp, ibv_wr_opcode op, uint32_t flags)
 
 
 cdef extern from 'infiniband/driver.h':
