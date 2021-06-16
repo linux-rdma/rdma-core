@@ -8,9 +8,8 @@ import unittest
 import struct
 import errno
 
-
 from pyverbs.providers.mlx5.dr_action import DrActionQp, DrActionModify, \
-    DrActionFlowCounter
+    DrActionFlowCounter, DrActionDrop
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, Mlx5Context, Mlx5DVContextAttr
 from tests.utils import skip_unsupported, requires_root_on_eth, PacketConsts
 from pyverbs.providers.mlx5.mlx5dv_flow import Mlx5FlowMatchParameters
@@ -179,8 +178,21 @@ class Mlx5DrTest(Mlx5RDMATestCase):
     @skip_unsupported
     def test_prevent_duplicate_rule(self):
         """
-        Creates RX domain, sets duplicate rule to be not allowed on that domain
+        Creates RX domain, sets duplicate rule to be not allowed on that domain,
+        try creating duplicate rule. Fail if creation succeeded.
         """
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParam
+
         self.server = Mlx5DrResources(**self.dev_info)
         domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         domain_rx.allow_duplicate_rules(False)
+        table = DrTable(domain_rx, 1)
+        empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParam()),
+                                              FlowTableEntryMatchParam())
+        matcher = DrMatcher(table, 0, u.MatchCriteriaEnable.NONE, empty_param)
+        self.qp_action = DrActionQp(self.server.qp)
+        self.drop_action = DrActionDrop()
+        self.rules.append(DrRule(matcher, empty_param, [self.qp_action]))
+        with self.assertRaises(PyverbsRDMAError) as ex:
+            self.rules.append(DrRule(matcher, empty_param, [self.drop_action]))
+            self.assertEqual(ex.exception.error_code, errno.EEXIST)
