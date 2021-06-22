@@ -642,11 +642,11 @@ static void dr_ste_v1_set_aso_flow_meter(uint8_t *d_action,
 		   initial_color);
 }
 
-static void dr_ste_v1_set_aso_ct(uint8_t *d_action,
-				 uint32_t object_id,
-				 uint32_t offset,
-				 uint8_t dest_reg_id,
-				 bool direction)
+void dr_ste_v1_set_aso_ct(uint8_t *d_action,
+			  uint32_t object_id,
+			  uint32_t offset,
+			  uint8_t dest_reg_id,
+			  bool direction)
 {
 	DR_STE_SET(double_action_aso_v1, d_action, action_id,
 		   DR_STE_V1_ACTION_ID_ASO);
@@ -669,6 +669,7 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 	bool allow_encap = true;
 	uint8_t action_sz;
 	uint8_t *action;
+	uint32_t ste_loc = 0;
 
 	if (dr_ste_v1_get_entry_type(last_ste) == DR_STE_V1_TYPE_MATCH) {
 		action_sz = DR_STE_ACTION_TRIPLE_SZ;
@@ -686,6 +687,7 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 					      action);
 			action_sz = DR_STE_ACTION_TRIPLE_SZ;
 			allow_pop_vlan = false;
+			ste_loc++;
 		}
 
 		dr_ste_v1_set_aso_flow_meter(action,
@@ -705,6 +707,7 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 			action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste,
 					      action);
 			action_sz = DR_STE_ACTION_TRIPLE_SZ;
+			ste_loc++;
 		}
 		dr_ste_v1_set_pop_vlan(last_ste, action, attr->vlans.count);
 		action_sz -= DR_STE_ACTION_SINGLE_SZ;
@@ -713,21 +716,27 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 	}
 
 	if (action_type_set[DR_ACTION_TYP_ASO_CT]) {
-		if (action_sz < DR_STE_ACTION_DOUBLE_SZ) {
+		if (attr->aso->dmn->info.caps.gvmi != attr->gvmi ||
+		    action_sz < DR_STE_ACTION_DOUBLE_SZ) {
 			dr_ste_v1_arr_init_next_match(&last_ste, added_stes,
 						      attr->gvmi);
 			action = DEVX_ADDR_OF(ste_mask_and_match_v1,
 					      last_ste, action);
 			action_sz = DR_STE_ACTION_TRIPLE_SZ;
 		}
-		dr_ste_v1_set_aso_ct(action,
-				     attr->aso->devx_obj->object_id,
-				     attr->aso->offset,
-				     attr->aso->dest_reg_id,
-				     attr->aso->ct.direction);
 
-		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
-		action += DR_STE_ACTION_DOUBLE_SZ;
+		if (attr->aso->dmn->info.caps.gvmi != attr->gvmi) {
+			attr->aso_ste_loc = ste_loc;
+		} else {
+			dr_ste_v1_set_aso_ct(action,
+					     attr->aso->devx_obj->object_id,
+					     attr->aso->offset,
+					     attr->aso->dest_reg_id,
+					     attr->aso->ct.direction);
+
+			action_sz -= DR_STE_ACTION_DOUBLE_SZ;
+			action += DR_STE_ACTION_DOUBLE_SZ;
+		}
 	}
 
 	if (action_type_set[DR_ACTION_TYP_CTR])
@@ -828,6 +837,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 	bool allow_ctr = true;
 	uint8_t action_sz;
 	uint8_t *action;
+	uint32_t ste_loc = 0;
 
 	if (dr_ste_v1_get_entry_type(last_ste) == DR_STE_V1_TYPE_MATCH) {
 		action_sz = DR_STE_ACTION_TRIPLE_SZ;
@@ -860,6 +870,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 			action_sz = DR_STE_ACTION_TRIPLE_SZ;
 			allow_modify_hdr = true;
 			allow_ctr = true;
+			ste_loc++;
 		}
 		dr_ste_v1_set_rx_flow_tag(action, attr->flow_tag);
 		action_sz -= DR_STE_ACTION_SINGLE_SZ;
@@ -874,6 +885,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 			action_sz = DR_STE_ACTION_TRIPLE_SZ;
 			allow_modify_hdr = false;
 			allow_ctr = false;
+			ste_loc++;
 		}
 
 		dr_ste_v1_set_pop_vlan(last_ste, action, attr->vlans.count);
@@ -890,6 +902,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 			action_sz = DR_STE_ACTION_TRIPLE_SZ;
 			allow_modify_hdr = true;
 			allow_ctr = true;
+			ste_loc++;
 		}
 		dr_ste_v1_set_aso_first_hit(action,
 					    attr->aso->devx_obj->object_id,
@@ -909,6 +922,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 			action_sz = DR_STE_ACTION_TRIPLE_SZ;
 			allow_modify_hdr = true;
 			allow_ctr = true;
+			ste_loc++;
 		}
 		dr_ste_v1_set_rewrite_actions(last_ste, action,
 					      attr->modify_actions,
@@ -929,6 +943,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 				action = DEVX_ADDR_OF(ste_mask_and_match_v1,
 						      last_ste, action);
 				action_sz = DR_STE_ACTION_TRIPLE_SZ;
+				ste_loc++;
 			}
 			dr_ste_v1_set_push_vlan(last_ste, action,
 						attr->vlans.headers[i]);
@@ -946,6 +961,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 			action_sz = DR_STE_ACTION_TRIPLE_SZ;
 			allow_modify_hdr = false;
 			allow_ctr = true;
+			ste_loc++;
 		}
 		dr_ste_v1_set_aso_flow_meter(action,
 					     attr->aso->devx_obj->object_id,
@@ -958,23 +974,28 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 	}
 
 	if (action_type_set[DR_ACTION_TYP_ASO_CT]) {
-		if (action_sz < DR_STE_ACTION_DOUBLE_SZ) {
+		if (attr->aso->dmn->info.caps.gvmi != attr->gvmi ||
+		    action_sz < DR_STE_ACTION_DOUBLE_SZ) {
 			dr_ste_v1_arr_init_next_match(&last_ste, added_stes,
 						      attr->gvmi);
 			action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste,
 					      action);
 			action_sz = DR_STE_ACTION_TRIPLE_SZ;
-			allow_modify_hdr = false;
 			allow_ctr = true;
 		}
-		dr_ste_v1_set_aso_ct(action,
-				     attr->aso->devx_obj->object_id,
-				     attr->aso->offset,
-				     attr->aso->dest_reg_id,
-				     attr->aso->ct.direction);
 
-		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
-		action += DR_STE_ACTION_DOUBLE_SZ;
+		if (attr->aso->dmn->info.caps.gvmi != attr->gvmi) {
+			attr->aso_ste_loc = ste_loc;
+		} else {
+			dr_ste_v1_set_aso_ct(action,
+					     attr->aso->devx_obj->object_id,
+					     attr->aso->offset,
+					     attr->aso->dest_reg_id,
+					     attr->aso->ct.direction);
+
+			action_sz -= DR_STE_ACTION_DOUBLE_SZ;
+			action += DR_STE_ACTION_DOUBLE_SZ;
+		}
 	}
 
 	if (action_type_set[DR_ACTION_TYP_CTR]) {
@@ -2160,6 +2181,23 @@ static void dr_ste_v1_build_src_gvmi_qpn_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v1_build_src_gvmi_qpn_tag;
 }
 
+static void dr_ste_v1_set_aso_ct_cross_dmn(uint8_t *hw_ste,
+					   uint32_t object_id,
+					   uint32_t offset,
+					   uint8_t dest_reg_id,
+					   bool direction)
+{
+	uint8_t *action_addr;
+
+	action_addr = DEVX_ADDR_OF(ste_match_bwc_v1, hw_ste, action);
+
+	dr_ste_v1_set_aso_ct(action_addr,
+			     object_id,
+			     offset,
+			     dest_reg_id,
+			     direction);
+}
+
 static void dr_ste_set_flex_parser(uint16_t lu_type,
 				   uint32_t *misc4_field_id,
 				   uint32_t *misc4_field_value,
@@ -3144,6 +3182,225 @@ static void dr_ste_v1_build_def33_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v1_build_def33_tag;
 }
 
+static int dr_ste_v1_aso_other_domain_link(struct mlx5dv_devx_obj *devx_obj,
+					   struct mlx5dv_dr_domain *peer_dmn,
+					   struct mlx5dv_dr_domain *dmn,
+					   uint32_t flags,
+					   uint8_t return_reg_c)
+{
+	uint32_t chunk_size = devx_obj->log_obj_range;
+	struct dr_aso_cross_dmn_arrays *cross_dmn_arrays;
+	struct dr_ste_htbl **action_htbl, **rule_htbl;
+	struct dr_ste_send_info **ste_info_arr;
+	struct dr_ste *action_ste;
+	LIST_HEAD(send_ste_list);
+	struct dr_ste *rule_ste;
+	uint8_t *action_hw_ste;
+	int ret = 0, i, j;
+	bool direction;
+
+	if (!flags ||
+	    (flags > MLX5DV_DR_ACTION_FLAGS_ASO_CT_DIRECTION_RESPONDER)) {
+		errno = EINVAL;
+		ret = errno;
+		goto out;
+	}
+
+	if (flags == MLX5DV_DR_ACTION_FLAGS_ASO_CT_DIRECTION_INITIATOR)
+		direction = MLX5_IFC_ASO_CT_DIRECTION_INITIATOR;
+	else
+		direction = MLX5_IFC_ASO_CT_DIRECTION_RESPONDER;
+
+	action_hw_ste = calloc(1 << chunk_size, DR_STE_SIZE);
+	if (!action_hw_ste) {
+		errno = ENOMEM;
+		ret = errno;
+		goto out;
+	}
+
+	ste_info_arr = calloc((1 << chunk_size), sizeof(struct dr_ste_send_info *));
+	if (!ste_info_arr) {
+		errno = ENOMEM;
+		ret = errno;
+		goto free_action_hw_ste;
+	}
+
+	action_htbl = calloc(1 << chunk_size, sizeof(struct dr_ste_htbl *));
+	if (!action_htbl) {
+		errno = ENOMEM;
+		ret = errno;
+		goto free_ste_info_arr;
+	}
+
+	rule_htbl = calloc(1 << chunk_size, sizeof(struct dr_ste_htbl *));
+	if (!rule_htbl) {
+		errno = ENOMEM;
+		ret = errno;
+		goto free_action_htbl;
+	}
+
+	for (i = 0; i < (1 << chunk_size); i++) {
+		action_htbl[i] = dr_ste_htbl_alloc(peer_dmn->ste_icm_pool,
+						   DR_CHUNK_SIZE_1,
+						   DR_STE_HTBL_TYPE_LEGACY,
+						   DR_STE_LU_TYPE_DONT_CARE,
+						   0);
+		if (!action_htbl[i]) {
+			dr_dbg(peer_dmn, "Failed allocating collision table\n");
+			errno = ENOMEM;
+			ret = errno;
+			goto free_till_i_with_ste_info;
+		}
+
+		dr_htbl_get(action_htbl[i]);
+
+		rule_htbl[i] = dr_ste_htbl_alloc(dmn->ste_icm_pool,
+						 DR_CHUNK_SIZE_1,
+						 DR_STE_HTBL_TYPE_MATCH,
+						 DR_STE_LU_TYPE_DONT_CARE,
+						 0);
+		if (!rule_htbl[i]) {
+			dr_dbg(dmn, "Failed allocating collision table\n");
+			errno = ENOMEM;
+			ret = errno;
+			goto free_action_htbl_i;
+		}
+
+		dr_htbl_get(rule_htbl[i]);
+
+		action_ste = action_htbl[i]->ste_arr;
+		dr_ste_get(action_ste);
+
+		peer_dmn->ste_ctx->ste_init(action_ste->hw_ste,
+					     DR_STE_LU_TYPE_DONT_CARE,
+					     0,
+					     peer_dmn->info.caps.gvmi);
+
+		peer_dmn->ste_ctx->set_hit_gvmi(action_ste->hw_ste,
+						 dmn->info.caps.gvmi);
+
+		peer_dmn->ste_ctx->set_aso_ct_cross_dmn(action_ste->hw_ste,
+							devx_obj->object_id,
+							i,
+							return_reg_c,
+							direction);
+
+		list_add_tail(dr_ste_get_miss_list(action_ste),
+			      &action_ste->miss_list_node);
+
+		rule_ste = rule_htbl[i]->ste_arr;
+		dr_ste_get(rule_ste);
+		dmn->ste_ctx->ste_init(rule_ste->hw_ste,
+				       DR_STE_LU_TYPE_DONT_CARE,
+				       0,
+				       dmn->info.caps.gvmi);
+		list_add_tail(dr_ste_get_miss_list(rule_ste),
+			      &rule_ste->miss_list_node);
+
+		dr_ste_set_hit_addr_by_next_htbl(peer_dmn->ste_ctx,
+						 action_ste->hw_ste,
+						 rule_ste->htbl);
+		rule_htbl[i]->pointing_ste = action_ste;
+		action_ste->next_htbl = rule_htbl[i];
+
+		ste_info_arr[i] = calloc(1, sizeof(struct dr_ste_send_info));
+		if (!ste_info_arr[i]) {
+			dr_dbg(peer_dmn, "Failed allocate ste_info\n");
+			errno = ENOMEM;
+			ret = errno;
+			goto free_rule_htbl_i;
+		}
+
+		memcpy(&action_hw_ste[i * DR_STE_SIZE], action_ste->hw_ste,
+		       DR_STE_SIZE_REDUCED);
+
+		dr_send_fill_and_append_ste_send_info(action_ste,
+						      DR_STE_SIZE, 0,
+						      &action_hw_ste[i * DR_STE_SIZE],
+						      ste_info_arr[i],
+						      &send_ste_list, false);
+	}
+
+	ret = dr_rule_send_update_list(&send_ste_list, peer_dmn, false, 0);
+	if (ret) {
+		dr_dbg(peer_dmn, "Failed sending ste!\n");
+		goto free_till_i;
+	}
+
+	ret = mlx5dv_dr_domain_sync(peer_dmn, MLX5DV_DR_DOMAIN_SYNC_FLAGS_SW);
+	if (ret) {
+		dr_dbg(peer_dmn, "Failed syncing domain\n");
+		goto free_till_i;
+	}
+
+	cross_dmn_arrays = (struct dr_aso_cross_dmn_arrays *) malloc(sizeof(struct dr_aso_cross_dmn_arrays));
+
+	cross_dmn_arrays->action_htbl = action_htbl;
+	cross_dmn_arrays->rule_htbl = rule_htbl;
+	devx_obj->priv = cross_dmn_arrays;
+
+	goto free_ste_info_arr;
+
+free_rule_htbl_i:
+	dr_htbl_put(rule_htbl[i]);
+free_action_htbl_i:
+	 dr_htbl_put(action_htbl[i]);
+free_till_i_with_ste_info:
+	for (j = 0; j < i; j++)
+		free(ste_info_arr[j]);
+free_till_i:
+	for (j = 0; j < i; j++) {
+		dr_htbl_put(rule_htbl[j]);
+		dr_htbl_put(action_htbl[j]);
+	}
+	free(rule_htbl);
+free_action_htbl:
+	free(action_htbl);
+free_ste_info_arr:
+	free(ste_info_arr);
+free_action_hw_ste:
+	free(action_hw_ste);
+out:
+	return ret;
+}
+
+static int dr_ste_v1_aso_other_domain_unlink(struct mlx5dv_devx_obj *devx_obj)
+{
+	struct dr_aso_cross_dmn_arrays *cross_dmn_arrays;
+	bool ready_to_clear = true;
+	int i;
+
+	if (!devx_obj->priv) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	cross_dmn_arrays = (struct dr_aso_cross_dmn_arrays *) devx_obj->priv;
+
+	for (i = 0; i < (1 << devx_obj->log_obj_range); i++) {
+		if ((atomic_load(&cross_dmn_arrays->rule_htbl[i]->ste_arr->refcount) > 1) ||
+		    (atomic_load(&cross_dmn_arrays->action_htbl[i]->ste_arr->refcount) > 1))
+			ready_to_clear = false;
+	}
+
+	if (ready_to_clear) {
+		for (i = 0; i < (1 << devx_obj->log_obj_range); i++) {
+			dr_htbl_put(cross_dmn_arrays->rule_htbl[i]);
+			dr_htbl_put(cross_dmn_arrays->action_htbl[i]);
+		}
+
+		free(cross_dmn_arrays->rule_htbl);
+		free(cross_dmn_arrays->action_htbl);
+		free(cross_dmn_arrays);
+		devx_obj->priv = NULL;
+	} else {
+		errno = EBUSY;
+		return errno;
+	}
+
+	return 0;
+}
+
 static struct dr_ste_ctx ste_ctx_v1 = {
 	/* Builders */
 	.build_eth_l2_src_dst_init	= &dr_ste_v1_build_eth_l2_src_dst_init,
@@ -3184,6 +3441,8 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	.build_def26_init		= &dr_ste_v1_build_def26_init,
 	.build_def28_init		= &dr_ste_v1_build_def28_init,
 	.build_def33_init		= &dr_ste_v1_build_def33_init,
+	.aso_other_domain_link		= &dr_ste_v1_aso_other_domain_link,
+	.aso_other_domain_unlink	= &dr_ste_v1_aso_other_domain_unlink,
 	/* Getters and Setters */
 	.ste_init			= &dr_ste_v1_init,
 	.set_next_lu_type		= &dr_ste_v1_set_next_lu_type,
@@ -3195,6 +3454,7 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	.get_byte_mask			= &dr_ste_v1_get_byte_mask,
 	.set_ctrl_always_hit_htbl	= &dr_ste_v1_set_ctrl_always_hit_htbl,
 	.set_ctrl_always_miss		= &dr_ste_v1_set_ctrl_always_miss,
+	.set_hit_gvmi			= &dr_ste_v1_set_hit_gvmi,
 	/* Actions */
 	.actions_caps			= DR_STE_CTX_ACTION_CAP_TX_POP |
 					  DR_STE_CTX_ACTION_CAP_RX_PUSH |
@@ -3206,6 +3466,7 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	.set_action_copy		= &dr_ste_v1_set_action_copy,
 	.get_action_hw_field		= &dr_ste_v1_get_action_hw_field,
 	.set_action_decap_l3_list	= &dr_ste_v1_set_action_decap_l3_list,
+	.set_aso_ct_cross_dmn		= &dr_ste_v1_set_aso_ct_cross_dmn,
 	/* Send */
 	.prepare_for_postsend		= &dr_ste_v1_prepare_for_postsend,
 };

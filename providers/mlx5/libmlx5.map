@@ -205,3 +205,9 @@ MLX5_1.21 {
 		mlx5dv_vfio_get_events_fd;
 		mlx5dv_vfio_process_events;
 } MLX5_1.20;
+
+MLX5_1.22 {
+	global:
+		mlx5dv_dr_aso_other_domain_link;
+		mlx5dv_dr_aso_other_domain_unlink;
+} MLX5_1.21;

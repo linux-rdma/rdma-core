@@ -43,6 +43,7 @@
 
 #define DR_RULE_MAX_STES	20
 #define DR_ACTION_MAX_STES	7
+#define DR_ACTION_ASO_CROSS_GVMI_STES 2
 /* Use up to 14 send rings. This number provided the best performance */
 #define DR_MAX_SEND_RINGS	14
 #define NUM_OF_LOCKS		DR_MAX_SEND_RINGS
@@ -319,6 +320,8 @@ void dr_ste_set_hit_addr_by_next_htbl(struct dr_ste_ctx *ste_ctx,
 				      struct dr_ste_htbl *next_htbl);
 void dr_ste_set_hit_addr(struct dr_ste_ctx *ste_ctx, uint8_t *hw_ste_p,
 			 uint64_t icm_addr, uint32_t ht_size);
+void dr_ste_set_hit_gvmi(struct dr_ste_ctx *ste_ctx, uint8_t *hw_ste_p,
+			 uint16_t gvmi);
 void dr_ste_set_bit_mask(uint8_t *hw_ste_p, struct dr_ste_build *sb);
 bool dr_ste_is_last_in_rule(struct dr_matcher_rx_tx *nic_matcher,
 			    uint8_t ste_location);
@@ -337,7 +340,13 @@ static inline int dr_ste_tag_sz(struct dr_ste *ste)
 
 #define MAX_VLANS 2
 
+struct dr_aso_cross_dmn_arrays {
+	struct dr_ste_htbl **action_htbl;
+	struct dr_ste_htbl **rule_htbl;
+};
+
 struct dr_action_aso {
+	struct mlx5dv_dr_domain *dmn;
 	struct mlx5dv_devx_obj *devx_obj;
 	uint32_t offset;
 	uint8_t dest_reg_id;
@@ -373,6 +382,12 @@ struct dr_ste_actions_attr {
 		uint32_t	headers[MAX_VLANS];
 	} vlans;
 	struct dr_action_aso *aso;
+	uint32_t aso_ste_loc;
+};
+
+struct cross_dmn_params {
+	uint32_t cross_dmn_loc;
+	struct mlx5dv_dr_action *cross_dmn_action;
 };
 
 void dr_ste_set_actions_rx(struct dr_ste_ctx *ste_ctx,
@@ -408,6 +423,11 @@ int dr_ste_set_action_decap_l3_list(struct dr_ste_ctx *ste_ctx,
 				   void *data, uint32_t data_sz,
 				   uint8_t *hw_action, uint32_t hw_action_sz,
 				   uint16_t *used_hw_action_num);
+void dr_ste_v1_set_aso_ct(uint8_t *d_action,
+			  uint32_t object_id,
+			  uint32_t offset,
+			  uint8_t dest_reg_id,
+			  bool direction);
 const struct dr_ste_action_modify_field *
 dr_ste_conv_modify_hdr_sw_field(struct dr_ste_ctx *ste_ctx,
 				struct dr_devx_caps *caps,
@@ -623,7 +643,8 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			     struct mlx5dv_dr_action *actions[],
 			     uint32_t num_actions,
 			     uint8_t *ste_arr,
-			     uint32_t *new_hw_ste_arr_sz);
+			     uint32_t *new_hw_ste_arr_sz,
+			     struct cross_dmn_params *cross_dmn_p);
 int dr_actions_build_attr(struct mlx5dv_dr_matcher *matcher,
 			  struct mlx5dv_dr_action *actions[],
 			  size_t num_actions,
@@ -1264,6 +1285,11 @@ void dr_rule_set_last_member(struct dr_rule_rx_tx *nic_rule,
 void dr_rule_get_reverse_rule_members(struct dr_ste **ste_arr,
 				      struct dr_ste *curr_ste,
 				      int *num_of_stes);
+
+int dr_rule_send_update_list(struct list_head *send_ste_list,
+			     struct mlx5dv_dr_domain *dmn,
+			     bool is_reverse,
+			     uint8_t send_ring_idx);
 
 struct dr_icm_chunk {
 	struct dr_icm_buddy_mem *buddy_mem;

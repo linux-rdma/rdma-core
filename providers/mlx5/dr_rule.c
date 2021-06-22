@@ -34,7 +34,8 @@
 #include <ccan/minmax.h>
 #include "mlx5dv_dr.h"
 
-#define DR_RULE_MAX_STE_CHAIN (DR_RULE_MAX_STES + DR_ACTION_MAX_STES)
+/* +1 for the cross GVMI STE */
+#define DR_RULE_MAX_STE_CHAIN (DR_RULE_MAX_STES + DR_ACTION_MAX_STES + 1)
 
 static int dr_rule_append_to_miss_list(struct dr_ste_ctx *ste_ctx,
 				       struct dr_ste *new_last_ste,
@@ -157,10 +158,10 @@ out:
 	return ret;
 }
 
-static int dr_rule_send_update_list(struct list_head *send_ste_list,
-				    struct mlx5dv_dr_domain *dmn,
-				    bool is_reverse,
-				    uint8_t send_ring_idx)
+int dr_rule_send_update_list(struct list_head *send_ste_list,
+			     struct mlx5dv_dr_domain *dmn,
+			     bool is_reverse,
+			     uint8_t send_ring_idx)
 {
 	struct dr_ste_send_info *ste_info, *tmp_ste_info;
 	int ret;
@@ -709,7 +710,8 @@ void dr_rule_get_reverse_rule_members(struct dr_ste **ste_arr,
 static void dr_rule_clean_rule_members(struct mlx5dv_dr_rule *rule,
 				       struct dr_rule_rx_tx *nic_rule)
 {
-	struct dr_ste *ste_arr[DR_RULE_MAX_STES + DR_ACTION_MAX_STES];
+	struct dr_ste *ste_arr[DR_RULE_MAX_STES + DR_ACTION_MAX_STES +
+			       DR_ACTION_ASO_CROSS_GVMI_STES];
 	struct dr_ste *curr_ste = nic_rule->last_rule_ste;
 	int i;
 
@@ -717,6 +719,28 @@ static void dr_rule_clean_rule_members(struct mlx5dv_dr_rule *rule,
 
 	while (i--)
 		dr_ste_put(ste_arr[i], rule, nic_rule);
+}
+
+static void dr_rule_clean_cross_dmn_rule_members(struct mlx5dv_dr_rule *rule,
+						 struct dr_rule_rx_tx *nic_rule,
+						 struct list_head *send_ste_list,
+						 struct mlx5dv_dr_action *cross_dmn_action)
+{
+	struct dr_aso_cross_dmn_arrays *cross_dmn_arrays =
+		(struct dr_aso_cross_dmn_arrays *) cross_dmn_action->aso.devx_obj->priv;
+	struct dr_ste_send_info *ste_info, *tmp_ste_info;
+
+	dr_rule_clean_rule_members(rule, nic_rule);
+	/* Clean all ste_info's */
+	list_for_each_safe(send_ste_list, ste_info, tmp_ste_info, send_list) {
+		list_del(&ste_info->send_list);
+		free(ste_info);
+	}
+
+	if (atomic_load(&cross_dmn_arrays->rule_htbl[cross_dmn_action->aso.offset]->ste_arr->refcount) > 1) {
+		atomic_fetch_sub(&cross_dmn_arrays->rule_htbl[cross_dmn_action->aso.offset]->ste_arr->refcount, 1);
+		atomic_fetch_sub(&cross_dmn_arrays->action_htbl[cross_dmn_action->aso.offset]->ste_arr->refcount, 1);
+	}
 }
 
 static uint16_t dr_get_bits_per_mask(uint16_t byte_mask)
@@ -729,6 +753,106 @@ static uint16_t dr_get_bits_per_mask(uint16_t byte_mask)
 	}
 
 	return bits;
+}
+
+static int dr_rule_handle_cross_action_stes(struct mlx5dv_dr_rule *rule,
+					    struct dr_rule_rx_tx *nic_rule,
+					    struct list_head *send_ste_list,
+					    struct dr_ste *last_ste,
+					    uint8_t *hw_ste_arr,
+					    uint32_t new_hw_ste_arr_sz,
+					    uint32_t cross_dmn_loc,
+					    struct mlx5dv_dr_action *cross_dmn_action)
+{
+	struct dr_matcher_rx_tx *nic_matcher = nic_rule->nic_matcher;
+	struct dr_ste_send_info *ste_info_arr[DR_ACTION_MAX_STES + 1];
+	uint8_t num_of_builders = nic_matcher->num_of_builders;
+	struct mlx5dv_dr_matcher *matcher = rule->matcher;
+	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
+	uint8_t *curr_hw_ste, *prev_hw_ste;
+	struct dr_ste *action_ste, *cross_dmn_action_ste,
+		      *cross_dmn_rule_ste;
+	bool is_ste_for_cross_dmn;
+	int i, k;
+
+	for (i = num_of_builders, k = 0; i < new_hw_ste_arr_sz; i++, k++) {
+		curr_hw_ste = hw_ste_arr + i * DR_STE_SIZE;
+
+		prev_hw_ste = (i == 0) ? curr_hw_ste :
+			hw_ste_arr + (i - 1) * DR_STE_SIZE;
+
+		is_ste_for_cross_dmn = (cross_dmn_loc == k);
+
+		if (!is_ste_for_cross_dmn) {
+			action_ste = dr_rule_create_collision_htbl(matcher,
+								   nic_matcher,
+								   curr_hw_ste);
+			if (!action_ste)
+				return errno;
+
+			dr_ste_get(action_ste);
+
+			action_ste->htbl->pointing_ste = last_ste;
+			last_ste->next_htbl = action_ste->htbl;
+			last_ste = action_ste;
+
+			/* While free ste we go over the miss list, so add this ste to the list */
+			list_add_tail(dr_ste_get_miss_list(action_ste),
+				      &action_ste->miss_list_node);
+
+			/* Point current ste to the new action */
+			dr_ste_set_hit_addr_by_next_htbl(dmn->ste_ctx,
+							 prev_hw_ste,
+							 action_ste->htbl);
+
+			dr_rule_set_last_member(nic_rule, action_ste, true);
+		} else {
+			struct dr_aso_cross_dmn_arrays *cross_dmn_arrays = (struct dr_aso_cross_dmn_arrays *) cross_dmn_action->aso.devx_obj->priv;
+
+			cross_dmn_action_ste = cross_dmn_arrays->action_htbl[cross_dmn_action->aso.offset]->ste_arr;
+			cross_dmn_rule_ste = cross_dmn_arrays->rule_htbl[cross_dmn_action->aso.offset]->ste_arr;
+			/* Connect last ste to cross_dmn_action_ste */
+			cross_dmn_action_ste->htbl->pointing_ste = last_ste;
+			last_ste->next_htbl = cross_dmn_action_ste->htbl;
+			dr_ste_set_hit_addr_by_next_htbl(dmn->ste_ctx,
+							 prev_hw_ste,
+							 cross_dmn_action_ste->htbl);
+			dr_ste_set_hit_gvmi(dmn->ste_ctx,
+					    prev_hw_ste,
+					    cross_dmn_action->aso.dmn->info.caps.gvmi);
+			/* Point rule STE as last member */
+			dr_rule_set_last_member(nic_rule, cross_dmn_rule_ste, true);
+			/* Point rule STE as last STE */
+			last_ste = cross_dmn_rule_ste;
+		}
+
+		ste_info_arr[k] = calloc(1, sizeof(struct dr_ste_send_info));
+		if (!ste_info_arr[k]) {
+			dr_dbg(dmn, "Failed allocate ste_info, k: %d\n", k);
+			errno = ENOMEM;
+			return errno;
+		}
+
+		if (!is_ste_for_cross_dmn) {
+			dr_send_fill_and_append_ste_send_info(action_ste, DR_STE_SIZE, 0,
+							      curr_hw_ste,
+							      ste_info_arr[k],
+							      send_ste_list, false);
+		} else {
+			memcpy(cross_dmn_rule_ste->hw_ste,
+			       curr_hw_ste,
+			       DR_STE_SIZE_REDUCED);
+			dr_send_fill_and_append_ste_send_info(cross_dmn_rule_ste,
+							      DR_STE_SIZE, 0,
+							      curr_hw_ste,
+							      ste_info_arr[k],
+							      send_ste_list, false);
+		}
+	}
+
+	last_ste->next_htbl = NULL;
+
+	return 0;
 }
 
 static bool dr_rule_need_enlarge_hash(struct dr_ste_htbl *htbl,
@@ -756,12 +880,12 @@ static bool dr_rule_need_enlarge_hash(struct dr_ste_htbl *htbl,
 	return false;
 }
 
-static int dr_rule_handle_action_stes(struct mlx5dv_dr_rule *rule,
-				      struct dr_rule_rx_tx *nic_rule,
-				      struct list_head *send_ste_list,
-				      struct dr_ste *last_ste,
-				      uint8_t *hw_ste_arr,
-				      uint32_t new_hw_ste_arr_sz)
+static int dr_rule_handle_regular_action_stes(struct mlx5dv_dr_rule *rule,
+					      struct dr_rule_rx_tx *nic_rule,
+					      struct list_head *send_ste_list,
+					      struct dr_ste *last_ste,
+					      uint8_t *hw_ste_arr,
+					      uint32_t new_hw_ste_arr_sz)
 {
 	struct dr_matcher_rx_tx *nic_matcher = nic_rule->nic_matcher;
 	struct dr_ste_send_info *ste_info_arr[DR_ACTION_MAX_STES];
@@ -830,6 +954,30 @@ static int dr_rule_handle_action_stes(struct mlx5dv_dr_rule *rule,
 err_exit:
 	dr_ste_put(action_ste, rule, nic_rule);
 	return ret;
+}
+
+static int dr_rule_handle_action_stes(struct mlx5dv_dr_rule *rule,
+				      struct dr_rule_rx_tx *nic_rule,
+				      struct list_head *send_ste_list,
+				      struct dr_ste *last_ste,
+				      uint8_t *hw_ste_arr,
+				      uint32_t new_hw_ste_arr_sz,
+				      struct cross_dmn_params *cross_dmn_p)
+{
+	if (cross_dmn_p->cross_dmn_loc != -1)
+		return dr_rule_handle_cross_action_stes(rule, nic_rule,
+							send_ste_list,
+							last_ste,
+							hw_ste_arr,
+							new_hw_ste_arr_sz,
+							cross_dmn_p->cross_dmn_loc,
+							cross_dmn_p->cross_dmn_action);
+
+	return dr_rule_handle_regular_action_stes(rule, nic_rule,
+						  send_ste_list,
+						  last_ste,
+						  hw_ste_arr,
+						  new_hw_ste_arr_sz);
 }
 
 static int dr_rule_handle_empty_entry(struct mlx5dv_dr_matcher *matcher,
@@ -1206,10 +1354,13 @@ dr_rule_create_rule_nic(struct mlx5dv_dr_rule *rule,
 	struct dr_ste_send_info *ste_info, *tmp_ste_info;
 	struct dr_ste_htbl *htbl = NULL;
 	struct dr_ste_htbl *cur_htbl;
-	uint32_t new_hw_ste_arr_sz;
+	uint32_t new_hw_ste_arr_sz = 0;
+	struct cross_dmn_params cross_dmn_p = {};
 	LIST_HEAD(send_ste_list);
 	struct dr_ste *ste = NULL; /* Fix compilation warning */
 	int ret, i;
+
+	cross_dmn_p.cross_dmn_loc = -1;
 
 	if (dr_rule_skip(dmn, nic_dmn->type, &matcher->mask, param))
 		return 0;
@@ -1222,7 +1373,8 @@ dr_rule_create_rule_nic(struct mlx5dv_dr_rule *rule,
 	/* Set the actions values/addresses inside the ste array */
 	ret = dr_actions_build_ste_arr(matcher, nic_matcher, actions,
 				       num_actions, hw_ste_arr,
-				       &new_hw_ste_arr_sz);
+				       &new_hw_ste_arr_sz,
+				       &cross_dmn_p);
 	if (ret)
 		return ret;
 
@@ -1258,8 +1410,9 @@ dr_rule_create_rule_nic(struct mlx5dv_dr_rule *rule,
 	}
 
 	/* Connect actions */
-	ret = dr_rule_handle_action_stes(rule, nic_rule, &send_ste_list,
-					 ste, hw_ste_arr, new_hw_ste_arr_sz);
+	ret = dr_rule_handle_action_stes(rule, nic_rule, &send_ste_list, ste,
+					 hw_ste_arr, new_hw_ste_arr_sz,
+					 &cross_dmn_p);
 	if (ret) {
 		dr_dbg(dmn, "Failed apply actions\n");
 		goto free_rule;
@@ -1276,11 +1429,17 @@ dr_rule_create_rule_nic(struct mlx5dv_dr_rule *rule,
 	goto out_unlock;
 
 free_rule:
-	dr_rule_clean_rule_members(rule, nic_rule);
-	/* Clean all ste_info's */
-	list_for_each_safe(&send_ste_list, ste_info, tmp_ste_info, send_list) {
-		list_del(&ste_info->send_list);
-		free(ste_info);
+	if (cross_dmn_p.cross_dmn_action) {
+		dr_rule_clean_cross_dmn_rule_members(rule, nic_rule,
+						     &send_ste_list,
+						     cross_dmn_p.cross_dmn_action);
+	} else {
+		dr_rule_clean_rule_members(rule, nic_rule);
+		/* Clean all ste_info's */
+		list_for_each_safe(&send_ste_list, ste_info, tmp_ste_info, send_list) {
+			list_del(&ste_info->send_list);
+			free(ste_info);
+		}
 	}
 out_unlock:
 	dr_rule_unlock(nic_rule);

@@ -780,6 +780,7 @@ struct mlx5dv_devx_obj {
 	uint32_t object_id;
 	uint64_t rx_icm_addr;
 	uint8_t log_obj_range;
+	void *priv;
 };
 
 struct mlx5_var_obj {

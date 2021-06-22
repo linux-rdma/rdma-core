@@ -185,6 +185,12 @@ struct dr_ste_ctx {
 	dr_ste_builder_void_init build_def26_init;
 	dr_ste_builder_void_init build_def28_init;
 	dr_ste_builder_void_init build_def33_init;
+	int (*aso_other_domain_link)(struct mlx5dv_devx_obj *devx_obj,
+				     struct mlx5dv_dr_domain *peer_dmn,
+				     struct mlx5dv_dr_domain *dmn,
+				     uint32_t flags,
+				     uint8_t return_reg_c);
+	int (*aso_other_domain_unlink)(struct mlx5dv_devx_obj *devx_obj);
 
 	/* Getters and Setters */
 	void (*ste_init)(uint8_t *hw_ste_p, uint16_t lu_type,
@@ -202,6 +208,7 @@ struct dr_ste_ctx {
 	void (*set_ctrl_always_miss)(uint8_t *hw_ste,
 				     uint64_t miss_addr,
 				     uint16_t gvmi);
+	void (*set_hit_gvmi)(uint8_t *hw_ste, uint16_t gvmi);
 
 	/* Actions */
 	uint32_t actions_caps;
@@ -235,6 +242,9 @@ struct dr_ste_ctx {
 	int (*set_action_decap_l3_list)(void *data, uint32_t data_sz,
 					uint8_t *hw_action, uint32_t hw_action_sz,
 					uint16_t *used_hw_action_num);
+	void (*set_aso_ct_cross_dmn)(uint8_t *hw_ste, uint32_t object_id,
+				     uint32_t offset, uint8_t dest_reg_id,
+				     bool direction);
 
 	/* Send */
 	void (*prepare_for_postsend)(uint8_t *hw_ste_p, uint32_t ste_size);
