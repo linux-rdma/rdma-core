@@ -352,6 +352,7 @@ static void dr_ste_v0_set_rx_decap(uint8_t *hw_ste_p)
 {
 	DR_STE_SET(rx_steering_mult, hw_ste_p, tunneling_action,
 		   DR_STE_TUNL_ACTION_DECAP);
+	DR_STE_SET(rx_steering_mult, hw_ste_p, fail_on_error, 1);
 }
 
 static void dr_ste_v0_set_go_back_bit(uint8_t *hw_ste_p)
@@ -384,6 +385,7 @@ static void dr_ste_v0_set_rx_decap_l3(uint8_t *hw_ste_p, bool vlan)
 	DR_STE_SET(rx_steering_mult, hw_ste_p, tunneling_action,
 		   DR_STE_TUNL_ACTION_L3_DECAP);
 	DR_STE_SET(modify_packet, hw_ste_p, action_description, vlan ? 1 : 0);
+	DR_STE_SET(rx_steering_mult, hw_ste_p, fail_on_error, 1);
 }
 
 static void dr_ste_v0_set_rewrite_actions(uint8_t *hw_ste_p,
