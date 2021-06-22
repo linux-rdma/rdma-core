@@ -1079,9 +1079,9 @@ static bool dr_rule_verify(struct mlx5dv_dr_matcher *matcher,
 static int dr_rule_destroy_rule_nic(struct mlx5dv_dr_rule *rule,
 				    struct dr_rule_rx_tx *nic_rule)
 {
-	dr_domain_nic_lock(nic_rule->nic_matcher->nic_tbl->nic_dmn);
+	dr_rule_lock(nic_rule, NULL);
 	dr_rule_clean_rule_members(rule, nic_rule);
-	dr_domain_nic_unlock(nic_rule->nic_matcher->nic_tbl->nic_dmn);
+	dr_rule_unlock(nic_rule);
 	return 0;
 }
 
@@ -1190,7 +1190,7 @@ dr_rule_create_rule_nic(struct mlx5dv_dr_rule *rule,
 	if (ret)
 		return ret;
 
-	dr_domain_nic_lock(nic_rule->nic_matcher->nic_tbl->nic_dmn);
+	dr_rule_lock(nic_rule, hw_ste_arr);
 
 	cur_htbl = nic_matcher->s_htbl;
 
@@ -1247,7 +1247,7 @@ free_rule:
 		free(ste_info);
 	}
 out_unlock:
-	dr_domain_nic_unlock(nic_rule->nic_matcher->nic_tbl->nic_dmn);
+	dr_rule_unlock(nic_rule);
 	return ret;
 }
 

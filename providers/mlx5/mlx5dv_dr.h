@@ -43,6 +43,9 @@
 
 #define DR_RULE_MAX_STES	20
 #define DR_ACTION_MAX_STES	7
+/* Use up to 14 send rings. This number provided the best performance */
+#define DR_MAX_SEND_RINGS	14
+#define NUM_OF_LOCKS		DR_MAX_SEND_RINGS
 #define WIRE_PORT		0xFFFF
 #define DR_STE_SVLAN		0x1
 #define DR_STE_CVLAN		0x2
@@ -903,7 +906,7 @@ struct dr_domain_rx_tx {
 	uint64_t		default_icm_addr;
 	enum dr_domain_nic_type	type;
 	/* protect rx/tx domain */
-	pthread_spinlock_t	lock;
+	pthread_spinlock_t	locks[NUM_OF_LOCKS];
 };
 
 struct dr_domain_info {
@@ -942,14 +945,49 @@ struct mlx5dv_dr_domain {
 	pthread_spinlock_t		debug_lock;
 };
 
+static inline int dr_domain_nic_lock_init(struct dr_domain_rx_tx *nic_dmn)
+{
+	int ret;
+	int i;
+
+	for (i = 0; i < NUM_OF_LOCKS; i++) {
+		ret = pthread_spin_init(&nic_dmn->locks[i], PTHREAD_PROCESS_PRIVATE);
+		if (ret) {
+			errno = ret;
+			goto destroy_locks;
+		}
+	}
+	return 0;
+
+destroy_locks:
+	while (i--)
+		pthread_spin_destroy(&nic_dmn->locks[i]);
+
+	return ret;
+}
+
+static inline void dr_domain_nic_lock_uninit(struct dr_domain_rx_tx *nic_dmn)
+{
+	int i;
+
+	for (i = 0; i < NUM_OF_LOCKS; i++)
+		pthread_spin_destroy(&nic_dmn->locks[i]);
+}
+
 static inline void dr_domain_nic_lock(struct dr_domain_rx_tx *nic_dmn)
 {
-	pthread_spin_lock(&nic_dmn->lock);
+	int i;
+
+	for (i = 0; i < NUM_OF_LOCKS; i++)
+		pthread_spin_lock(&nic_dmn->locks[i]);
 }
 
 static inline void dr_domain_nic_unlock(struct dr_domain_rx_tx *nic_dmn)
 {
-	pthread_spin_unlock(&nic_dmn->lock);
+	int i;
+
+	for (i = 0; i < NUM_OF_LOCKS; i++)
+		pthread_spin_unlock(&nic_dmn->locks[i]);
 }
 
 static inline void dr_domain_lock(struct mlx5dv_dr_domain *dmn)
@@ -1132,6 +1170,7 @@ struct dr_htbl_connect_info {
 struct dr_rule_rx_tx {
 	struct dr_matcher_rx_tx		*nic_matcher;
 	struct dr_ste			*last_rule_ste;
+	uint8_t				lock_index;
 };
 
 struct mlx5dv_dr_rule {
@@ -1147,6 +1186,36 @@ struct mlx5dv_dr_rule {
 	struct mlx5dv_dr_action	**actions;
 	uint16_t		num_actions;
 };
+
+static inline void
+dr_rule_lock(struct dr_rule_rx_tx *nic_rule, uint8_t *hw_ste)
+{
+	struct dr_matcher_rx_tx *nic_matcher = nic_rule->nic_matcher;
+	struct dr_domain_rx_tx *nic_dmn = nic_matcher->nic_tbl->nic_dmn;
+	uint32_t index;
+
+	if (nic_matcher->fixed_size) {
+		if (hw_ste) {
+			index = dr_ste_calc_hash_index(hw_ste, nic_matcher->s_htbl);
+			nic_rule->lock_index = index % NUM_OF_LOCKS;
+		}
+		pthread_spin_lock(&nic_dmn->locks[nic_rule->lock_index]);
+	} else {
+		pthread_spin_lock(&nic_dmn->locks[0]);
+	}
+}
+
+static inline void
+dr_rule_unlock(struct dr_rule_rx_tx *nic_rule)
+{
+	struct dr_matcher_rx_tx *nic_matcher = nic_rule->nic_matcher;
+	struct dr_domain_rx_tx *nic_dmn = nic_matcher->nic_tbl->nic_dmn;
+
+	if (nic_matcher->fixed_size)
+		pthread_spin_unlock(&nic_dmn->locks[nic_rule->lock_index]);
+	else
+		pthread_spin_unlock(&nic_dmn->locks[0]);
+}
 
 void dr_rule_set_last_member(struct dr_rule_rx_tx *nic_rule,
 			     struct dr_ste *ste,
