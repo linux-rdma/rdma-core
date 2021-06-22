@@ -23,6 +23,7 @@ rdma_cython_module(pyverbs ""
   ${DMABUF_ALLOC}
   enums.pyx
   flow.pyx
+  fork.pyx
   mem_alloc.pyx
   mr.pyx
   pd.pyx
