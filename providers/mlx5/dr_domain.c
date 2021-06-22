@@ -281,6 +281,29 @@ static void dr_domain_caps_uninit(struct mlx5dv_dr_domain *dmn)
 		free(dmn->info.caps.vports_caps);
 }
 
+bool dr_domain_is_support_ste_icm_size(struct mlx5dv_dr_domain *dmn,
+				       uint32_t req_log_icm_sz)
+{
+	if (dmn->info.caps.log_icm_size < req_log_icm_sz + DR_STE_LOG_SIZE)
+		return false;
+
+	return true;
+}
+
+bool dr_domain_set_max_ste_icm_size(struct mlx5dv_dr_domain *dmn,
+				    uint32_t req_log_icm_sz)
+{
+	if (!dr_domain_is_support_ste_icm_size(dmn, req_log_icm_sz))
+		return false;
+
+	if (dmn->info.max_log_sw_icm_sz < req_log_icm_sz) {
+		dmn->info.max_log_sw_icm_sz = req_log_icm_sz;
+		dr_icm_pool_set_pool_max_log_chunk_sz(dmn->ste_icm_pool,
+						      dmn->info.max_log_sw_icm_sz);
+	}
+	return true;
+}
+
 static int dr_domain_check_icm_memory_caps(struct mlx5dv_dr_domain *dmn)
 {
 	uint32_t max_req_bytes_log, max_req_chunks_log;

@@ -440,12 +440,13 @@ struct dr_icm_chunk *dr_icm_alloc_chunk(struct dr_icm_pool *pool,
 	int ret;
 	int seg;
 
+	pthread_spin_lock(&pool->lock);
+
 	if (chunk_size > pool->max_log_chunk_sz) {
 		errno = EINVAL;
-		return NULL;
+		goto out;
 	}
 
-	pthread_spin_lock(&pool->lock);
 	/* find mem, get back the relevant buddy pool and seg in that mem */
 	ret = dr_icm_handle_buddies_get_mem(pool, chunk_size, &buddy, &seg);
 	if (ret)
@@ -479,6 +480,14 @@ void dr_icm_free_chunk(struct dr_icm_chunk *chunk)
 	if (dr_icm_pool_is_sync_required(pool) && !pool->syncing)
 		dr_icm_pool_sync_pool_buddies(buddy->pool);
 
+	pthread_spin_unlock(&pool->lock);
+}
+
+void dr_icm_pool_set_pool_max_log_chunk_sz(struct dr_icm_pool *pool,
+					   enum dr_icm_chunk_size max_log_chunk_sz)
+{
+	pthread_spin_lock(&pool->lock);
+	pool->max_log_chunk_sz = max_log_chunk_sz;
 	pthread_spin_unlock(&pool->lock);
 }
 

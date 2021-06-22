@@ -380,16 +380,14 @@ clean_copy:
 	return err;
 }
 
-static struct dr_ste_htbl *dr_rule_rehash_htbl(struct mlx5dv_dr_rule *rule,
-					       struct dr_rule_rx_tx *nic_rule,
-					       struct dr_ste_htbl *cur_htbl,
-					       uint8_t ste_location,
-					       struct list_head *update_list,
-					       enum dr_icm_chunk_size new_size)
+static struct dr_ste_htbl *dr_rule_rehash_htbl_common(struct mlx5dv_dr_matcher *matcher,
+						      struct dr_matcher_rx_tx *nic_matcher,
+						      struct dr_ste_htbl *cur_htbl,
+						      uint8_t ste_location,
+						      struct list_head *update_list,
+						      enum dr_icm_chunk_size new_size)
 {
-	struct dr_matcher_rx_tx *nic_matcher = nic_rule->nic_matcher;
 	struct dr_domain_rx_tx *nic_dmn = nic_matcher->nic_tbl->nic_dmn;
-	struct mlx5dv_dr_matcher *matcher = rule->matcher;
 	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
 	struct dr_ste_send_info *del_ste_info, *tmp_ste_info;
 	uint8_t formated_ste[DR_STE_SIZE] = {};
@@ -502,6 +500,60 @@ free_new_htbl:
 free_ste_info:
 	free(ste_info);
 	return NULL;
+}
+
+static struct dr_ste_htbl *dr_rule_rehash_htbl(struct mlx5dv_dr_rule *rule,
+					       struct dr_rule_rx_tx *nic_rule,
+					       struct dr_ste_htbl *cur_htbl,
+					       uint8_t ste_location,
+					       struct list_head *update_list,
+					       enum dr_icm_chunk_size new_size)
+{
+	struct dr_matcher_rx_tx *nic_matcher = nic_rule->nic_matcher;
+	struct mlx5dv_dr_matcher *matcher = rule->matcher;
+
+	return dr_rule_rehash_htbl_common(matcher, nic_matcher, cur_htbl,
+					  ste_location, update_list, new_size);
+
+}
+
+int dr_rule_rehash_matcher_s_anchor(struct mlx5dv_dr_matcher *matcher,
+				    struct dr_matcher_rx_tx *nic_matcher,
+				    enum dr_icm_chunk_size new_size)
+{
+	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
+	struct dr_ste_htbl *new_htbl;
+	LIST_HEAD(update_list);
+	int ret;
+
+	if (nic_matcher->s_htbl->chunk_size == new_size) {
+		dr_dbg(dmn, "both are with the same size, nothing to do\n");
+		return 0;
+	}
+
+	new_htbl = dr_rule_rehash_htbl_common(matcher, nic_matcher,
+					      nic_matcher->s_htbl,
+					      1, &update_list, new_size);
+	if (!new_htbl) {
+		dr_dbg(dmn, "Failed creating new matcher s_anchor\n");
+		goto err_out;
+	}
+
+	ret = dr_rule_send_update_list(&update_list, dmn, true);
+	if (ret) {
+		dr_dbg(dmn, "Failed sending ste!\n");
+		goto free_new_htbl;
+	}
+
+	dr_ste_htbl_free(nic_matcher->s_htbl);
+	nic_matcher->s_htbl = new_htbl;
+
+	return 0;
+
+free_new_htbl:
+	dr_ste_htbl_free(new_htbl);
+err_out:
+	return ENOTSUP;
 }
 
 static struct dr_ste_htbl *dr_rule_rehash(struct mlx5dv_dr_rule *rule,
@@ -840,7 +892,7 @@ static struct dr_ste *dr_rule_handle_ste_branch(struct mlx5dv_dr_rule *rule,
 	struct dr_ste_htbl *new_htbl;
 	struct list_head *miss_list;
 	struct dr_ste *matched_ste;
-	bool skip_rehash = false;
+	bool skip_rehash = nic_matcher->fixed_size;
 	struct dr_ste *ste;
 	int index;
 

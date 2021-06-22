@@ -620,6 +620,16 @@ done:
 	return 0;
 }
 
+static bool dr_matcher_is_definer_support_mq(struct dr_matcher_rx_tx *nic_matcher)
+{
+	/* ipv6 needs 2 definers and not supported yet */
+	if (nic_matcher->num_of_builders == 1 &&
+	    nic_matcher->ste_builder->htbl_type == DR_STE_HTBL_TYPE_MATCH)
+		return true;
+
+	return false;
+}
+
 static int dr_matcher_set_large_ste_builders(struct mlx5dv_dr_matcher *matcher,
 					     struct dr_matcher_rx_tx *nic_matcher)
 {
@@ -1205,6 +1215,97 @@ static int dr_matcher_init(struct mlx5dv_dr_matcher *matcher,
 	}
 
 	return ret;
+}
+
+static int
+dr_matcher_set_nic_matcher_layout(struct mlx5dv_dr_matcher *matcher,
+				  struct dr_matcher_rx_tx *nic_matcher,
+				  struct mlx5dv_dr_matcher_layout *matcher_layout)
+{
+	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
+	int ret = 0;
+
+	if (!dr_matcher_is_definer_support_mq(nic_matcher)) {
+		dr_dbg(dmn, "not supported not a definer\n");
+		errno = ENOTSUP;
+		return ENOTSUP;
+	}
+
+	dr_domain_lock(dmn);
+
+	if (matcher_layout->flags & MLX5DV_DR_MATCHER_LAYOUT_NUM_RULE) {
+		/* if needed set dmn->info.max_log_sw_icm_sz and pool max_log_chunk_sz */
+		dr_domain_set_max_ste_icm_size(dmn, matcher_layout->log_num_of_rules_hint);
+
+		ret = dr_rule_rehash_matcher_s_anchor(matcher, nic_matcher,
+						      matcher_layout->log_num_of_rules_hint);
+		if (ret) {
+			dr_dbg(dmn, "failed rehash with log-size: %d\n",
+			       matcher_layout->log_num_of_rules_hint);
+			goto out;
+		}
+	}
+
+	if (matcher_layout->flags & MLX5DV_DR_MATCHER_LAYOUT_RESIZABLE) {
+		nic_matcher->fixed_size = false;
+	} else {
+		nic_matcher->fixed_size = true;
+		dmn->info.use_mqs = true;
+	}
+
+	dr_send_ring_force_drain(dmn);
+out:
+	dr_domain_unlock(dmn);
+	return ret;
+}
+
+int mlx5dv_dr_matcher_set_layout(struct mlx5dv_dr_matcher *matcher,
+				 struct mlx5dv_dr_matcher_layout *matcher_layout)
+{
+	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
+	int ret = 0;
+
+	if (dr_is_root_table(matcher->tbl)) {
+		dr_dbg(dmn, "Not supported in root table\n");
+		errno = ENOTSUP;
+		return ENOTSUP;
+	}
+	if (!check_comp_mask(matcher_layout->flags,
+			 MLX5DV_DR_MATCHER_LAYOUT_RESIZABLE |
+			 MLX5DV_DR_MATCHER_LAYOUT_NUM_RULE)) {
+		dr_dbg(dmn, "Not supported flags 0x%x\n", matcher_layout->flags);
+		errno = ENOTSUP;
+		return ENOTSUP;
+	}
+
+	if ((matcher_layout->flags & MLX5DV_DR_MATCHER_LAYOUT_NUM_RULE) &&
+	    !dr_domain_is_support_ste_icm_size(dmn, matcher_layout->log_num_of_rules_hint)) {
+		dr_dbg(dmn, "the size is too big: %d\n",
+		       matcher_layout->log_num_of_rules_hint);
+		errno = ENOTSUP;
+		return ENOTSUP;
+	}
+
+	if (dmn->type == MLX5DV_DR_DOMAIN_TYPE_NIC_RX ||
+	    dmn->type == MLX5DV_DR_DOMAIN_TYPE_FDB) {
+		ret = dr_matcher_set_nic_matcher_layout(matcher,
+							&matcher->rx,
+							matcher_layout);
+	}
+	if (!ret && (dmn->type == MLX5DV_DR_DOMAIN_TYPE_NIC_TX ||
+		     dmn->type == MLX5DV_DR_DOMAIN_TYPE_FDB)) {
+		ret = dr_matcher_set_nic_matcher_layout(matcher,
+							&matcher->tx,
+							matcher_layout);
+	}
+
+	if (ret) {
+		dr_dbg(dmn, "failed nic (%d) rehash with log-size: %d\n",
+		       dmn->type, matcher_layout->log_num_of_rules_hint);
+		return ret;
+	}
+
+	return 0;
 }
 
 struct mlx5dv_dr_matcher *

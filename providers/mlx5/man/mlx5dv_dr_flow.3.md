@@ -14,7 +14,7 @@ mlx5dv_dr_domain_create, mlx5dv_dr_domain_sync, mlx5dv_dr_domain_destroy, mlx5dv
 
 mlx5dv_dr_table_create, mlx5dv_dr_table_destroy - Manage flow tables
 
-mlx5dv_dr_matcher_create, mlx5dv_dr_matcher_destroy - Manage flow matchers
+mlx5dv_dr_matcher_create, mlx5dv_dr_matcher_destroy, mlx5dv_dr_matcher_set_layout - Manage flow matchers
 
 mlx5dv_dr_rule_create, mlx5dv_dr_rule_destroy - Manage flow rules
 
@@ -80,6 +80,9 @@ struct mlx5dv_dr_matcher *mlx5dv_dr_matcher_create(
 		struct mlx5dv_flow_match_parameters *mask);
 
 int mlx5dv_dr_matcher_destroy(struct mlx5dv_dr_matcher *matcher);
+
+
+int mlx5dv_dr_matcher_set_layout(struct mlx5dv_dr_matcher *matcher, struct mlx5dv_dr_matcher_layout *matcher_layout);
 
 struct mlx5dv_dr_rule *mlx5dv_dr_rule_create(
 		struct mlx5dv_dr_matcher *matcher,
@@ -212,6 +215,12 @@ A table should be destroyed by calling *mlx5dv_dr_table_destroy()* once all depe
 *mlx5dv_dr_matcher_create()* create a matcher object in **table**, at sorted **priority** (lower value is check first). A matcher can hold multiple rules, all with identical **mask** of type *struct mlx5dv_flow_match_parameters* which represents the exact attributes to be compared by HW steering. The **match_criteria_enable** and **mask** are defined in a device spec format. Only the fields that where masked in the *matcher* should be filled by the rule in *mlx5dv_dr_rule_create()*.
 
 A matcher should be destroyed by calling *mlx5dv_dr_matcher_destroy()* once all depended resources are released.
+
+*mlx5dv_dr_matcher_set_layout()* is used to set specific layout parameters of a matcher, on some conditions setting some attributes might not be supported, in such cases ENOTSUP will be returned. **flags** should be a set of type *enum mlx5dv_dr_matcher_layout_flags*:
+
+**MLX5DV_DR_MATCHER_LAYOUT_RESIZABLE**: The matcher can resize its scale and resources according to the rules that are inserted or removed.
+
+**MLX5DV_DR_MATCHER_LAYOUT_NUM_RULE**: Indicates a hint from the application about the number of the rules the matcher is expected to handle. This allows preallocation of matcher resources for faster rule updates when using with non-resizable layout mode.
 
 ## Actions
 A set of action create API are defined by *mlx5dv_dr_action_create_\*()*. All action are created as *struct mlx5dv_dr_action*.

@@ -917,6 +917,7 @@ struct dr_domain_info {
 	struct dr_domain_rx_tx	tx;
 	struct ibv_device_attr_ex attr;
 	struct dr_devx_caps	caps;
+	bool			use_mqs;
 };
 
 enum dr_domain_flags {
@@ -985,6 +986,7 @@ struct dr_matcher_rx_tx {
 	uint8_t				num_of_builders;
 	uint64_t			default_icm_addr;
 	struct dr_table_rx_tx		*nic_tbl;
+	bool				fixed_size;
 };
 
 struct mlx5dv_dr_matcher {
@@ -1200,6 +1202,9 @@ dr_icm_pool_chunk_size_to_byte(enum dr_icm_chunk_size chunk_size,
 	return entry_size * num_of_entries;
 }
 
+void dr_icm_pool_set_pool_max_log_chunk_sz(struct dr_icm_pool *pool,
+					   enum dr_icm_chunk_size max_log_chunk_sz);
+
 static inline int
 dr_ste_htbl_increase_threshold(struct dr_ste_htbl *htbl)
 {
@@ -1340,6 +1345,14 @@ static inline bool dr_is_root_table(struct mlx5dv_dr_table *tbl)
 {
 	return tbl->level == 0;
 }
+
+bool dr_domain_is_support_ste_icm_size(struct mlx5dv_dr_domain *dmn,
+				       uint32_t req_log_icm_sz);
+bool dr_domain_set_max_ste_icm_size(struct mlx5dv_dr_domain *dmn,
+				    uint32_t req_log_icm_sz);
+int dr_rule_rehash_matcher_s_anchor(struct mlx5dv_dr_matcher *matcher,
+				    struct dr_matcher_rx_tx *nic_matcher,
+				    enum dr_icm_chunk_size new_size);
 
 struct dr_icm_pool *dr_icm_pool_create(struct mlx5dv_dr_domain *dmn,
 				       enum dr_icm_type icm_type);
