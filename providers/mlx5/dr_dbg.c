@@ -96,10 +96,9 @@ static void dump_hex_print(char *dest, char *src, uint32_t size)
 		sprintf(&dest[2 * i], "%02x", (uint8_t)src[i]);
 }
 
-static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
-				   struct dr_rule_action_member *action_mem)
+static int dr_dump_rule_action(FILE *f, const uint64_t rule_id,
+			       struct mlx5dv_dr_action *action)
 {
-	struct mlx5dv_dr_action *action = action_mem->action;
 	const uint64_t action_id = (uint64_t) (uintptr_t) action;
 	int ret;
 
@@ -285,10 +284,10 @@ static int dr_dump_rule(FILE *f, struct mlx5dv_dr_rule *rule)
 {
 	const uint64_t rule_id = (uint64_t) (uintptr_t) rule;
 	enum mlx5_ifc_steering_format_version format_ver;
-	struct dr_rule_action_member *action_mem;
 	struct dr_rule_rx_tx *rx = &rule->rx;
 	struct dr_rule_rx_tx *tx = &rule->tx;
 	int ret;
+	int i;
 
 	format_ver = rule->matcher->tbl->dmn->info.caps.sw_format_ver;
 
@@ -315,8 +314,8 @@ static int dr_dump_rule(FILE *f, struct mlx5dv_dr_rule *rule)
 		}
 	}
 
-	list_for_each(&rule->rule_actions_list, action_mem, list) {
-		ret = dr_dump_rule_action_mem(f, rule_id, action_mem);
+	for (i = 0; i < rule->num_actions; i++) {
+		ret = dr_dump_rule_action(f, rule_id, rule->actions[i]);
 		if (ret < 0)
 			return ret;
 	}
@@ -377,6 +376,13 @@ static int dr_dump_matcher_mask(FILE *f, struct dr_match_param *mask,
 
 	if (criteria & DR_MATCHER_CRITERIA_MISC3) {
 		dump_hex_print(dump, (char *)&mask->misc3, sizeof(mask->misc3));
+		ret = fprintf(f, "%s,", dump);
+	} else {
+		ret = fprintf(f, ",");
+	}
+
+	if (criteria & DR_MATCHER_CRITERIA_MISC4) {
+		dump_hex_print(dump, (char *)&mask->misc4, sizeof(mask->misc4));
 		ret = fprintf(f, "%s\n", dump);
 	} else {
 		ret = fprintf(f, ",\n");

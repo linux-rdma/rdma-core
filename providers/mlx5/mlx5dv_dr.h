@@ -1102,8 +1102,9 @@ struct mlx5dv_dr_rule {
 		};
 		struct ibv_flow *flow;
 	};
-	struct list_head	rule_actions_list;
 	struct list_node	rule_list;
+	struct mlx5dv_dr_action	**actions;
+	uint16_t		num_actions;
 };
 
 void dr_rule_set_last_member(struct dr_rule_rx_tx *nic_rule,

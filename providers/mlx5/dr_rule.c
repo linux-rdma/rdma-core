@@ -574,41 +574,34 @@ free_send_info:
 
 static void dr_rule_remove_action_members(struct mlx5dv_dr_rule *rule)
 {
-	struct dr_rule_action_member *action_mem;
-	struct dr_rule_action_member *tmp;
+	int i;
 
-	list_for_each_safe(&rule->rule_actions_list, action_mem, tmp, list) {
-		list_del(&action_mem->list);
-		atomic_fetch_sub(&action_mem->action->refcount, 1);
-		free(action_mem);
-	}
+	for (i = 0; i < rule->num_actions; i++)
+		atomic_fetch_sub(&rule->actions[i]->refcount, 1);
+
+	free(rule->actions);
 }
 
 static int dr_rule_add_action_members(struct mlx5dv_dr_rule *rule,
 				      size_t num_actions,
 				      struct mlx5dv_dr_action *actions[])
 {
-	struct dr_rule_action_member *action_mem;
+	struct mlx5dv_dr_action *action;
 	int i;
 
-	for (i = 0; i < num_actions; i++) {
-		action_mem = calloc(1, sizeof(*action_mem));
-		if (!action_mem) {
-			errno = ENOMEM;
-			goto free_action_members;
-		}
+	rule->actions = calloc(num_actions, sizeof(action));
+	if (!rule->actions) {
+		errno = ENOMEM;
+		return errno;
+	}
+	rule->num_actions = num_actions;
 
-		action_mem->action = actions[i];
-		list_node_init(&action_mem->list);
-		list_add_tail(&rule->rule_actions_list, &action_mem->list);
-		atomic_fetch_add(&action_mem->action->refcount, 1);
+	for (i = 0; i < num_actions; i++) {
+		rule->actions[i] = actions[i];
+		atomic_fetch_add(&rule->actions[i]->refcount, 1);
 	}
 
 	return 0;
-
-free_action_members:
-	dr_rule_remove_action_members(rule);
-	return errno;
 }
 
 void dr_rule_set_last_member(struct dr_rule_rx_tx *nic_rule,
@@ -1252,7 +1245,7 @@ dr_rule_create_rule(struct mlx5dv_dr_matcher *matcher,
 	}
 
 	rule->matcher = matcher;
-	list_head_init(&rule->rule_actions_list);
+
 	list_node_init(&rule->rule_list);
 
 	ret = dr_rule_add_action_members(rule, num_actions, actions);
@@ -1317,7 +1310,6 @@ dr_rule_create_rule_root(struct mlx5dv_dr_matcher *matcher,
 	}
 
 	rule->matcher = matcher;
-	list_head_init(&rule->rule_actions_list);
 
 	attr = calloc(num_actions, sizeof(*attr));
 	if (!attr) {
