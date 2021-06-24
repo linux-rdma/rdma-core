@@ -154,6 +154,10 @@ cdef extern from 'infiniband/mlx5dv.h':
 
     cdef struct mlx5dv_dr_matcher
 
+    cdef struct mlx5dv_dr_matcher_layout:
+        uint32_t flags
+        uint32_t log_num_of_rules_hint
+
     cdef struct mlx5dv_dr_action
 
     cdef struct mlx5dv_dr_rule
@@ -429,6 +433,7 @@ cdef extern from 'infiniband/mlx5dv.h':
                                                 uint16_t priority,
                                                 uint8_t match_criteria_enable,
                                                 mlx5dv_flow_match_parameters *mask)
+    int mlx5dv_dr_matcher_set_layout(mlx5dv_dr_matcher *matcher, mlx5dv_dr_matcher_layout *layout)
     int mlx5dv_dr_matcher_destroy(mlx5dv_dr_matcher *matcher)
     mlx5dv_dr_action *mlx5dv_dr_action_create_dest_ibv_qp(v.ibv_qp *ibqp)
     mlx5dv_dr_action *mlx5dv_dr_action_create_tag(uint32_t tag_value)

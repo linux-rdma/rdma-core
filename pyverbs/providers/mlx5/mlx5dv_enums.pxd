@@ -272,6 +272,10 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW
         MLX5DV_DR_DOMAIN_SYNC_FLAGS_MEM
 
+    cpdef enum mlx5dv_dr_matcher_layout_flags:
+       MLX5DV_DR_MATCHER_LAYOUT_RESIZABLE
+       MLX5DV_DR_MATCHER_LAYOUT_NUM_RULE
+
     cpdef unsigned long long MLX5DV_RES_TYPE_QP
     cpdef unsigned long long MLX5DV_RES_TYPE_RWQ
     cpdef unsigned long long MLX5DV_RES_TYPE_DBR

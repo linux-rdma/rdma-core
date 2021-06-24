@@ -2,9 +2,9 @@
 # Copyright (c) 2020 Nvidia, Inc. All rights reserved. See COPYING file
 
 from pyverbs.providers.mlx5.mlx5dv_flow cimport Mlx5FlowMatchParameters
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.providers.mlx5.dr_table cimport DrTable
 from pyverbs.providers.mlx5.dr_rule cimport DrRule
-from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
 import weakref
@@ -43,6 +43,19 @@ cdef class DrMatcher(PyverbsCM):
             self.dr_rules.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
+
+    def set_layout(self, log_num_of_rules=0, flags=dv.MLX5DV_DR_MATCHER_LAYOUT_NUM_RULE):
+        """
+        Set the size of the table for the matcher
+        :param log_num_of_rules: Log of the table size (relevant for MLX5DV_DR_MATCHER_LAYOUT_NUM_RULE)
+        :param flags: Matcher layout flags
+        """
+        cdef dv.mlx5dv_dr_matcher_layout matcher_layout
+        matcher_layout.log_num_of_rules_hint = log_num_of_rules
+        matcher_layout.flags = flags
+        rc = dv.mlx5dv_dr_matcher_set_layout(self.matcher, &matcher_layout)
+        if rc:
+            raise PyverbsRDMAError('Setting matcher layout failed.', rc)
 
     def __dealloc__(self):
         self.close()
