@@ -116,26 +116,29 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.server = resource(**self.dev_info, **resource_arg)
 
     @skip_unsupported
-    def create_rx_recv_qp_rule(self, smac_value, actions):
+    def create_rx_recv_qp_rule(self, smac_value, actions, log_matcher_size=None):
         """
         Creates a rule on RX domain that forwards packets that match the smac in the matcher
         to the SW steering flow table and another rule on that table with provided actions.
         :param smac_value: The smac matcher value.
         :param actions: List of actions to attach to the recv rule.
+        :param log_matcher_size: Size of the matcher table
         """
         self.domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         root_table = DrTable(self.domain_rx, 0)
         table = DrTable(self.domain_rx, 1)
         smac_mask = bytes([0xff] * 6) + bytes(2)
         mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
-        matcher = DrMatcher(table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
+        root_matcher = DrMatcher(root_table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
+        self.matcher = DrMatcher(table, 1, u.MatchCriteriaEnable.OUTER, mask_param)
+        if log_matcher_size:
+            self.matcher.set_layout(log_matcher_size)
         # Size of the matcher value should be modulo 4
         smac_value += bytes(2)
         value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
-        root_matcher = DrMatcher(root_table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
         self.dest_table_action = DrActionDestTable(table)
         self.rules.append(DrRule(root_matcher, value_param, [self.dest_table_action]))
-        self.rules.append(DrRule(matcher, value_param, actions))
+        self.rules.append(DrRule(self.matcher, value_param, actions))
 
     @skip_unsupported
     def create_tx_modify_rule(self):
@@ -303,6 +306,22 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters)
         # Verify tag
         self.assertEqual(self.server.cq.read_flow_tag(), tag, 'Wrong tag value')
+
+    @skip_unsupported
+    def test_set_matcher_layout(self):
+        """
+        Creates a non root matcher and sets its size. Creates a rule on that
+        matcher and increases the matcher size. Verifies the rule.
+        """
+        log_matcher_size = 5
+        self.create_players(Mlx5DrResources)
+        self.qp_action = DrActionQp(self.server.qp)
+        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        self.create_rx_recv_qp_rule(smac_value, [self.qp_action], log_matcher_size)
+        self.matcher.set_layout(log_matcher_size + 1)
+        u.raw_traffic(self.client, self.server, self.iters)
+        self.matcher.set_layout(flags=dve.MLX5DV_DR_MATCHER_LAYOUT_RESIZABLE)
+        u.raw_traffic(self.client, self.server, self.iters)
 
 
 class Mlx5DrDumpTest(PyverbsAPITestCase):
