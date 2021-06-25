@@ -26,12 +26,16 @@ static inline bool __good_snprintf(size_t len, int rc)
 #define offsetofend(_type, _member)                                            \
 	(offsetof(_type, _member) + sizeof(((_type *)0)->_member))
 
-#define BITS_PER_LONG	(8 * sizeof(long))
+#define BITS_PER_LONG	   (8 * sizeof(long))
+#define BITS_PER_LONG_LONG (8 * sizeof(long long))
 
 #define GENMASK(h, l) \
 	(((~0UL) - (1UL << (l)) + 1) & (~0UL >> (BITS_PER_LONG - 1 - (h))))
+#define GENMASK_ULL(h, l) \
+	(((~0ULL) << (l)) & (~0ULL >> (BITS_PER_LONG_LONG - 1 - (h))))
 
-#define BIT(nr) (1UL << (nr))
+#define BIT(nr)     (1UL << (nr))
+#define BIT_ULL(nr) (1ULL << (nr))
 
 #define __bf_shf(x) (__builtin_ffsll(x) - 1)
 
