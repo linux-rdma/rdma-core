@@ -5,7 +5,6 @@ include 'libibverbs_enums.pxd'
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
 from posix.time cimport timespec
 
-
 cdef extern from 'infiniband/verbs.h':
 
     cdef struct anon:
@@ -723,6 +722,9 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_query_rt_values_ex(ibv_context *context, ibv_values_ex *values)
     int ibv_get_async_event(ibv_context *context, ibv_async_event *event)
     void ibv_ack_async_event(ibv_async_event *event)
+    int ibv_query_qp_data_in_order(ibv_qp *qp, ibv_wr_opcode op, uint32_t flags)
+    int ibv_fork_init()
+    ibv_fork_status ibv_is_fork_initialized()
 
 
 cdef extern from 'infiniband/driver.h':

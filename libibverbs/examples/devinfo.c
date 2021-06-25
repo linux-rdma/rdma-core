@@ -761,14 +761,16 @@ int main(int argc, char *argv[])
 
 		if (!*dev_list) {
 			fprintf(stderr, "IB device '%s' wasn't found\n", ib_devname);
-			return -1;
+			ret = -1;
+			goto out;
 		}
 
 		ret |= print_hca_cap(*dev_list, ib_port);
 	} else {
 		if (!*dev_list) {
 			fprintf(stderr, "No IB devices found\n");
-			return -1;
+			ret = -1;
+			goto out;
 		}
 
 		while (*dev_list) {
@@ -777,6 +779,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+out:
 	if (ib_devname)
 		free(ib_devname);
 

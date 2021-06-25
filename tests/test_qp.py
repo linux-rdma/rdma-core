@@ -228,6 +228,19 @@ class QPTest(PyverbsAPITestCase):
         """
         self.query_qp_common_test(e.IBV_QPT_RAW_PACKET)
 
+    def test_query_data_in_order(self):
+        """
+        Queries an UD QP data in order after moving it to RTS state.
+        Verifies that the result from the query is valid.
+        """
+        with PD(self.ctx) as pd:
+            with CQ(self.ctx, 100, None, None, 0) as cq:
+                qia = u.get_qp_init_attr(cq, self.attr)
+                qia.qp_type = e.IBV_QPT_UD
+                qp = self.create_qp(pd, qia, False, True, self.ib_port)
+                is_data_in_order = qp.query_data_in_order(e.IBV_WR_SEND)
+                self.assertIn(is_data_in_order, [0, 1], 'Data in order result is not valid')
+
     def test_modify_ud_qp(self):
         """
         Queries a UD QP after calling modify(). Verifies that its properties are

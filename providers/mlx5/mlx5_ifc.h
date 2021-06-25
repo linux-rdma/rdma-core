@@ -51,6 +51,7 @@ enum {
 	MLX5_CMD_OP_INIT2INIT_QP = 0x50e,
 	MLX5_CMD_OP_CREATE_PSV = 0x600,
 	MLX5_CMD_OP_DESTROY_PSV = 0x601,
+	MLX5_CMD_OP_QUERY_DCT = 0x713,
 	MLX5_CMD_OP_QUERY_ESW_VPORT_CONTEXT = 0x752,
 	MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT = 0x754,
 	MLX5_CMD_OP_QUERY_ROCE_ADDRESS = 0x760,
@@ -641,7 +642,11 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         reserved_at_21[0xf];
 	u8         vhca_id[0x10];
 
-	u8         reserved_at_40[0x40];
+	u8         reserved_at_40[0x20];
+
+	u8         reserved_at_60[0x2];
+	u8         qp_data_in_order[0x1];
+	u8         reserved_at_63[0x1d];
 
 	u8         log_max_srq_sz[0x8];
 	u8         log_max_qp_sz[0x8];
@@ -2654,6 +2659,12 @@ enum {
 	MLX5_ACTION_IN_FIELD_OUT_GTPU_TEID     = 0x6E,
 };
 
+struct mlx5_ifc_dctc_bits {
+	u8         reserved_at_0[0x1d];
+	u8         data_in_order[0x1];
+	u8         reserved_at_1e[0x362];
+};
+
 struct mlx5_ifc_packet_reformat_context_in_bits {
 	u8	reserved_at_0[0x5];
 	u8	reformat_type[0x3];
@@ -3040,7 +3051,7 @@ struct mlx5_ifc_qpc_bits {
 	u8         log_sq_size[0x4];
 	u8         reserved_at_55[0x3];
 	u8         ts_format[0x2];
-	u8         reserved_at_5a[0x1];
+	u8         data_in_order[0x1];
 	u8         rlky[0x1];
 	u8         ulp_stateless_offload_mode[0x4];
 
@@ -3405,6 +3416,30 @@ struct mlx5_ifc_query_qp_in_bits {
 
 	u8         reserved_at_40[0x8];
 	u8         qpn[0x18];
+
+	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_query_dct_out_bits {
+	u8         status[0x8];
+	u8         reserved_at_8[0x18];
+
+	u8         syndrome[0x20];
+
+	u8         reserved_at_40[0x40];
+
+	struct mlx5_ifc_dctc_bits dctc;
+};
+
+struct mlx5_ifc_query_dct_in_bits {
+	u8         opcode[0x10];
+	u8         reserved_at_10[0x10];
+
+	u8         reserved_at_20[0x10];
+	u8         op_mod[0x10];
+
+	u8         reserved_at_40[0x8];
+	u8         dctn[0x18];
 
 	u8         reserved_at_60[0x20];
 };

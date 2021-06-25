@@ -397,6 +397,12 @@ static int query_ece(struct ibv_qp *qp, struct ibv_ece *ece)
 	return EOPNOTSUPP;
 }
 
+static int query_qp_data_in_order(struct ibv_qp *qp, enum ibv_wr_opcode op,
+				  uint32_t flags)
+{
+	return 0;
+}
+
 static int query_port(struct ibv_context *context, uint8_t port_num,
 		      struct ibv_port_attr *port_attr)
 {
@@ -559,6 +565,7 @@ const struct verbs_context_ops verbs_dummy_ops = {
 	query_ece,
 	query_port,
 	query_qp,
+	query_qp_data_in_order,
 	query_rt_values,
 	query_srq,
 	read_counters,
@@ -683,6 +690,7 @@ void verbs_set_ops(struct verbs_context *vctx,
 	SET_PRIV_OP_IC(vctx, query_ece);
 	SET_PRIV_OP_IC(ctx, query_port);
 	SET_PRIV_OP(ctx, query_qp);
+	SET_PRIV_OP_IC(ctx, query_qp_data_in_order);
 	SET_OP(vctx, query_rt_values);
 	SET_OP(vctx, read_counters);
 	SET_PRIV_OP(ctx, query_srq);

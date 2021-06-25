@@ -800,7 +800,7 @@ ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 	ibmad_port = mad_rpc_open_port(ca_name, ca_port, mc, nc);
 	if (!ibmad_port) {
 		IBND_ERROR("can't open MAD port (%s:%d)\n", ca_name, ca_port);
-		return (NULL);
+		goto error_int;
 	}
 	mad_rpc_set_timeout(ibmad_port, cfg->timeout_ms);
 	mad_rpc_set_retries(ibmad_port, cfg->retries);
@@ -810,13 +810,12 @@ ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 				NULL, NULL, ibmad_port) < 0) {
 		IBND_ERROR("Failed to resolve self\n");
 		mad_rpc_close_port(ibmad_port);
-		return NULL;
+		goto error_int;
 	}
 	mad_rpc_close_port(ibmad_port);
 
 	if (smp_engine_init(&engine, ca_name, ca_port, &scan, &config)) {
-		free(f_int);
-		return (NULL);
+		goto error_int;
 	}
 
 	IBND_DEBUG("from %s\n", portid2str(from));
@@ -836,6 +835,8 @@ ibnd_fabric_t *ibnd_discover_fabric(char * ca_name, int ca_port,
 error:
 	smp_engine_destroy(&engine);
 	ibnd_destroy_fabric(&f_int->fabric);
+error_int:
+	free(f_int);
 	return NULL;
 }
 

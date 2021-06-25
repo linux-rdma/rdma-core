@@ -398,6 +398,7 @@ struct mlx5_context {
 	struct mlx5_bf			*nc_uar;
 	void				*cq_uar_reg;
 	struct mlx5_reserved_qpns	reserved_qpns;
+	uint8_t				qp_data_in_order_cap:1;
 };
 
 struct mlx5_bitmap {
@@ -1088,6 +1089,8 @@ struct ibv_qp *mlx5_create_qp(struct ibv_pd *pd, struct ibv_qp_init_attr *attr);
 int mlx5_query_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		  int attr_mask,
 		  struct ibv_qp_init_attr *init_attr);
+int mlx5_query_qp_data_in_order(struct ibv_qp *qp, enum ibv_wr_opcode op,
+				uint32_t flags);
 int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask);
 int mlx5_modify_qp_rate_limit(struct ibv_qp *qp,

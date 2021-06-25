@@ -64,6 +64,7 @@ rdma_man_pages(
   ibv_query_pkey.3.md
   ibv_query_port.3
   ibv_query_qp.3
+  ibv_query_qp_data_in_order.3.md
   ibv_query_rt_values_ex.3
   ibv_query_srq.3
   ibv_rate_to_mbps.3.md
