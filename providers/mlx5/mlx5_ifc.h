@@ -3308,13 +3308,15 @@ struct mlx5_ifc_qpc_bits {
 };
 
 struct mlx5_ifc_qpc_ext_bits {
-	u8         reserved_at_0[0x20];
+	u8         reserved_at_0[0x10];
+
+	u8	   dci_stream_channel_id[0x10];
 
 	u8         qos_queue_group_id_requester[0x20];
 
 	u8         qos_queue_group_id_responder[0x20];
 
-	u8         reserved_at_60[0x7a0];
+	u8         reserved_at_60[0x5a0];
 };
 
 struct mlx5_ifc_create_tir_out_bits {
@@ -3367,6 +3369,7 @@ struct mlx5_ifc_create_qp_in_bits {
 };
 
 enum mlx5_qpc_opt_mask_32 {
+	MLX5_QPC_OPT_MASK_32_DCI_STREAM_CHANNEL_ID = 1 << 0,
 	MLX5_QPC_OPT_MASK_32_QOS_QUEUE_GROUP_ID = 1 << 1,
 	MLX5_QPC_OPT_MASK_32_UDP_SPORT = 1 << 2,
 };
