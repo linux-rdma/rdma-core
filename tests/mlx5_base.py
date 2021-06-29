@@ -20,26 +20,26 @@ from pyverbs.mr import MR
 
 MELLANOX_VENDOR_ID = 0x02c9
 MLX5_DEVS = {
-	0x1011, # MT4113 Connect-IB
-	0x1012, # Connect-IB Virtual Function
-	0x1013, # ConnectX-4
-	0x1014, # ConnectX-4 Virtual Function
-	0x1015, # ConnectX-4LX
-	0x1016, # ConnectX-4LX Virtual Function
-	0x1017, # ConnectX-5, PCIe 3.0
-	0x1018, # ConnectX-5 Virtual Function
-	0x1019, # ConnectX-5 Ex
-	0x101a, # ConnectX-5 Ex VF
-	0x101b, # ConnectX-6
-	0x101c, # ConnectX-6 VF
-	0x101d, # ConnectX-6 DX
-	0x101e, # ConnectX family mlx5Gen Virtual Function
-	0x101f, # ConnectX-6 LX
-	0x1021, # ConnectX-7
-	0xa2d2, # BlueField integrated ConnectX-5 network controller
-	0xa2d3, # BlueField integrated ConnectX-5 network controller VF
-	0xa2d6, # BlueField-2 integrated ConnectX-6 Dx network controller
-	0xa2dc, # BlueField-3 integrated ConnectX-7 network controller
+    0x1011,  # MT4113 Connect-IB
+    0x1012,  # Connect-IB Virtual Function
+    0x1013,  # ConnectX-4
+    0x1014,  # ConnectX-4 Virtual Function
+    0x1015,  # ConnectX-4LX
+    0x1016,  # ConnectX-4LX Virtual Function
+    0x1017,  # ConnectX-5, PCIe 3.0
+    0x1018,  # ConnectX-5 Virtual Function
+    0x1019,  # ConnectX-5 Ex
+    0x101a,  # ConnectX-5 Ex VF
+    0x101b,  # ConnectX-6
+    0x101c,  # ConnectX-6 VF
+    0x101d,  # ConnectX-6 DX
+    0x101e,  # ConnectX family mlx5Gen Virtual Function
+    0x101f,  # ConnectX-6 LX
+    0x1021,  # ConnectX-7
+    0xa2d2,  # BlueField integrated ConnectX-5 network controller
+    0xa2d3,  # BlueField integrated ConnectX-5 network controller VF
+    0xa2d6,  # BlueField-2 integrated ConnectX-6 Dx network controller
+    0xa2dc,  # BlueField-3 integrated ConnectX-7 network controller
 }
 
 
