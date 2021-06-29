@@ -195,6 +195,28 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_OBJ_AH
         MLX5DV_OBJ_PD
 
+    cpdef enum:
+        MLX5_RCV_DBR
+        MLX5_SND_DBR
+
+    cpdef enum:
+        MLX5_CQE_OWNER_MASK
+        MLX5_CQE_REQ
+        MLX5_CQE_RESP_WR_IMM
+        MLX5_CQE_RESP_SEND
+        MLX5_CQE_RESP_SEND_IMM
+        MLX5_CQE_RESP_SEND_INV
+        MLX5_CQE_RESIZE_CQ
+        MLX5_CQE_NO_PACKET
+        MLX5_CQE_SIG_ERR
+        MLX5_CQE_REQ_ERR
+        MLX5_CQE_RESP_ERR
+        MLX5_CQE_INVALID
+
+    cpdef enum:
+        MLX5_SEND_WQE_BB
+        MLX5_SEND_WQE_SHIFT
+
     cpdef unsigned long long MLX5DV_RES_TYPE_QP
     cpdef unsigned long long MLX5DV_RES_TYPE_RWQ
     cpdef unsigned long long MLX5DV_RES_TYPE_DBR

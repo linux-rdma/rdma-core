@@ -1607,3 +1607,74 @@ cdef class Mlx5UMEM(PyverbsCM):
     def umem_addr(self):
         if self.addr:
             return <uintptr_t><void*>self.addr
+
+
+cdef class Mlx5Cqe64(PyverbsObject):
+    def __init__(self, addr):
+        self.cqe = <dv.mlx5_cqe64*><uintptr_t> addr
+
+    def dump(self):
+        dump_format = '{:08x} {:08x} {:08x} {:08x}\n'
+        str = ''
+        for i in range(0, 16, 4):
+            str += dump_format.format(be32toh((<uint32_t*>self.cqe)[i]),
+                                      be32toh((<uint32_t*>self.cqe)[i + 1]),
+                                      be32toh((<uint32_t*>self.cqe)[i + 2]),
+                                      be32toh((<uint32_t*>self.cqe)[i + 3]))
+        return str
+
+    def is_empty(self):
+        for i in range(16):
+            if be32toh((<uint32_t*>self.cqe)[i]) != 0:
+                return False
+        return True
+
+    @property
+    def owner(self):
+        return dv.mlx5dv_get_cqe_owner(self.cqe)
+    @owner.setter
+    def owner(self, val):
+        dv.mlx5dv_set_cqe_owner(self.cqe, <uint8_t> val)
+
+    @property
+    def se(self):
+        return dv.mlx5dv_get_cqe_se(self.cqe)
+
+    @property
+    def format(self):
+        return dv.mlx5dv_get_cqe_format(self.cqe)
+
+    @property
+    def opcode(self):
+        return dv.mlx5dv_get_cqe_opcode(self.cqe)
+
+    @property
+    def imm_inval_pkey(self):
+        return be32toh(self.cqe.imm_inval_pkey)
+
+    @property
+    def wqe_id(self):
+        return be16toh(self.cqe.wqe_id)
+
+    @property
+    def byte_cnt(self):
+        return be32toh(self.cqe.byte_cnt)
+
+    @property
+    def timestamp(self):
+        return be64toh(self.cqe.timestamp)
+
+    @property
+    def wqe_counter(self):
+        return be16toh(self.cqe.wqe_counter)
+
+    @property
+    def signature(self):
+        return self.cqe.signature
+
+    @property
+    def op_own(self):
+        return self.cqe.op_own
+
+    def __str__(self):
+        return (<dv.mlx5_cqe64>((<dv.mlx5_cqe64*>self.cqe)[0])).__str__()

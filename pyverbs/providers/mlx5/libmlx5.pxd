@@ -283,12 +283,26 @@ cdef extern from 'infiniband/mlx5dv.h':
         qp  qp
         srq srq
 
+    cdef struct mlx5_cqe64:
+        uint16_t    wqe_id
+        uint32_t    imm_inval_pkey
+        uint32_t    byte_cnt
+        uint64_t    timestamp
+        uint16_t    wqe_counter
+        uint8_t     signature
+        uint8_t     op_own
+
 
     void mlx5dv_set_ctrl_seg(mlx5_wqe_ctrl_seg *seg, uint16_t pi, uint8_t opcode,
                              uint8_t opmod, uint32_t qp_num, uint8_t fm_ce_se,
                              uint8_t ds, uint8_t signature, uint32_t imm)
     void mlx5dv_set_data_seg(mlx5_wqe_data_seg *seg, uint32_t length,
                              uint32_t lkey, uintptr_t address)
+    uint8_t mlx5dv_get_cqe_owner(mlx5_cqe64 *cqe)
+    void mlx5dv_set_cqe_owner(mlx5_cqe64 *cqe, uint8_t val)
+    uint8_t mlx5dv_get_cqe_se(mlx5_cqe64 *cqe)
+    uint8_t mlx5dv_get_cqe_format(mlx5_cqe64 *cqe)
+    uint8_t mlx5dv_get_cqe_opcode(mlx5_cqe64 *cqe)
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
