@@ -1595,6 +1595,7 @@ static int dr_ste_v1_build_eth_l3_ipv4_misc_tag(struct dr_match_param *value,
 	struct dr_match_spec *spec = sb->inner ? &value->inner : &value->outer;
 
 	DR_STE_SET_TAG(eth_l3_ipv4_misc_v1, tag, time_to_live, spec, ip_ttl_hoplimit);
+	DR_STE_SET_TAG(eth_l3_ipv4_misc_v1, tag, ihl, spec, ipv4_ihl);
 
 	return 0;
 }
@@ -2204,6 +2205,27 @@ static void dr_ste_v1_build_flex_parser_1_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v1_build_felx_parser_tag;
 }
 
+static int dr_ste_v1_build_tunnel_header_0_1_tag(struct dr_match_param *value,
+						 struct dr_ste_build *sb,
+						 uint8_t *tag)
+{
+	struct dr_match_misc5 *misc5 = &value->misc5;
+
+	DR_STE_SET_TAG(tunnel_header_v1, tag, tunnel_header_0, misc5, tunnel_header_0);
+	DR_STE_SET_TAG(tunnel_header_v1, tag, tunnel_header_1, misc5, tunnel_header_1);
+
+	return 0;
+}
+
+static void dr_ste_v1_build_tunnel_header_0_1_init(struct dr_ste_build *sb,
+						   struct dr_match_param *mask)
+{
+	sb->lu_type = DR_STE_V1_LU_TYPE_FLEX_PARSER_TNL_HEADER;
+	dr_ste_v1_build_tunnel_header_0_1_tag(mask, sb, sb->bit_mask);
+	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
+	sb->ste_build_tag_func = &dr_ste_v1_build_tunnel_header_0_1_tag;
+}
+
 static int dr_ste_v1_build_def0_tag(struct dr_match_param *value,
 				    struct dr_ste_build *sb,
 				    uint8_t *tag)
@@ -2292,6 +2314,63 @@ static void dr_ste_v1_build_def0_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v1_build_def0_tag;
 }
 
+static int dr_ste_v1_build_def2_tag(struct dr_match_param *value,
+				    struct dr_ste_build *sb,
+				    uint8_t *tag)
+{
+	struct dr_match_misc2 *misc2 = &value->misc2;
+	struct dr_match_spec *outer = &value->outer;
+	struct dr_match_spec *inner = &value->inner;
+
+	DR_STE_SET_TAG(def2_v1, tag, metadata_reg_a, misc2, metadata_reg_a);
+	DR_STE_SET_TAG(def2_v1, tag, outer_ip_version, outer, ip_version);
+	DR_STE_SET_TAG(def2_v1, tag, outer_ip_ihl, outer, ipv4_ihl);
+	DR_STE_SET_TAG(def2_v1, tag, outer_ip_dscp, outer, ip_dscp);
+	DR_STE_SET_TAG(def2_v1, tag, outer_ip_ecn, outer, ip_ecn);
+	DR_STE_SET_TAG(def2_v1, tag, outer_ip_ttl, outer, ip_ttl_hoplimit);
+	DR_STE_SET_TAG(def2_v1, tag, outer_ip_protocol, outer, ip_protocol);
+	DR_STE_SET_TAG(def2_v1, tag, outer_l4_sport, outer, tcp_sport);
+	DR_STE_SET_TAG(def2_v1, tag, outer_l4_dport, outer, tcp_dport);
+	DR_STE_SET_TAG(def2_v1, tag, outer_l4_sport, outer, udp_sport);
+	DR_STE_SET_TAG(def2_v1, tag, outer_l4_dport, outer, udp_dport);
+	DR_STE_SET_TAG(def2_v1, tag, outer_ip_frag, outer, frag);
+
+	if (outer->tcp_flags) {
+		DR_STE_SET_BOOL(def2_v1, tag, tcp_ns, outer->tcp_flags & (1 << 8));
+		DR_STE_SET_BOOL(def2_v1, tag, tcp_cwr, outer->tcp_flags & (1 << 7));
+		DR_STE_SET_BOOL(def2_v1, tag, tcp_ece, outer->tcp_flags & (1 << 6));
+		DR_STE_SET_BOOL(def2_v1, tag, tcp_urg, outer->tcp_flags & (1 << 5));
+		DR_STE_SET_BOOL(def2_v1, tag, tcp_ack, outer->tcp_flags & (1 << 4));
+		DR_STE_SET_BOOL(def2_v1, tag, tcp_psh, outer->tcp_flags & (1 << 3));
+		DR_STE_SET_BOOL(def2_v1, tag, tcp_rst, outer->tcp_flags & (1 << 2));
+		DR_STE_SET_BOOL(def2_v1, tag, tcp_syn, outer->tcp_flags & (1 << 1));
+		DR_STE_SET_BOOL(def2_v1, tag, tcp_fin, outer->tcp_flags & (1 << 0));
+		outer->tcp_flags = 0;
+	}
+
+	if (sb->caps->definer_supp_checksum) {
+		DR_STE_SET_TAG(def2_v1, tag, outer_l3_ok, outer, l3_ok);
+		DR_STE_SET_TAG(def2_v1, tag, outer_l4_ok, outer, l4_ok);
+		DR_STE_SET_TAG(def2_v1, tag, inner_l3_ok, inner, l3_ok);
+		DR_STE_SET_TAG(def2_v1, tag, inner_l4_ok, inner, l4_ok);
+
+		DR_STE_SET_TAG(def2_v1, tag, outer_ipv4_checksum_ok, outer, ipv4_checksum_ok);
+		DR_STE_SET_TAG(def2_v1, tag, outer_l4_checksum_ok, outer, l4_checksum_ok);
+		DR_STE_SET_TAG(def2_v1, tag, inner_ipv4_checksum_ok, inner, ipv4_checksum_ok);
+		DR_STE_SET_TAG(def2_v1, tag, inner_l4_checksum_ok, inner, l4_checksum_ok);
+	}
+
+	return 0;
+}
+
+static void dr_ste_v1_build_def2_init(struct dr_ste_build *sb,
+				      struct dr_match_param *mask)
+{
+	sb->lu_type = DR_STE_V1_LU_TYPE_MATCH;
+	dr_ste_v1_build_def2_tag(mask, sb, sb->match);
+	sb->ste_build_tag_func = &dr_ste_v1_build_def2_tag;
+}
+
 static int dr_ste_v1_build_def6_tag(struct dr_match_param *value,
 				    struct dr_ste_build *sb,
 				    uint8_t *tag)
@@ -2327,6 +2406,104 @@ static void dr_ste_v1_build_def6_init(struct dr_ste_build *sb,
 	sb->lu_type = DR_STE_V1_LU_TYPE_MATCH;
 	dr_ste_v1_build_def6_tag(mask, sb, sb->match);
 	sb->ste_build_tag_func = &dr_ste_v1_build_def6_tag;
+}
+
+static int dr_ste_v1_build_def16_tag(struct dr_match_param *value,
+				     struct dr_ste_build *sb,
+				     uint8_t *tag)
+{
+	struct dr_match_misc2 *misc2 = &value->misc2;
+	struct dr_match_misc5 *misc5 = &value->misc5;
+	struct dr_match_spec *outer = &value->outer;
+	struct dr_match_misc *misc = &value->misc;
+	struct dr_devx_vport_cap *vport_cap;
+	bool source_gvmi_set;
+
+	DR_STE_SET_TAG(def16_v1, tag, tunnel_header_0, misc5, tunnel_header_0);
+	DR_STE_SET_TAG(def16_v1, tag, tunnel_header_1, misc5, tunnel_header_1);
+	DR_STE_SET_TAG(def16_v1, tag, tunnel_header_2, misc5, tunnel_header_2);
+	DR_STE_SET_TAG(def16_v1, tag, tunnel_header_3, misc5, tunnel_header_3);
+
+	DR_STE_SET_TAG(def16_v1, tag, metadata_reg_a, misc2, metadata_reg_a);
+
+	source_gvmi_set = DR_STE_GET(def16_v1, sb->match, source_gvmi);
+	if (source_gvmi_set) {
+		vport_cap = dr_get_vport_cap(sb->caps, misc->source_port);
+		if (!vport_cap)
+			return errno;
+
+		if (vport_cap->gvmi)
+			DR_STE_SET(def16_v1, tag, source_gvmi, vport_cap->gvmi);
+
+		misc->source_port = 0;
+	}
+
+	if (outer->cvlan_tag) {
+		DR_STE_SET(def16_v1, tag, outer_first_vlan_type, DR_STE_CVLAN);
+		outer->cvlan_tag = 0;
+	} else if (outer->svlan_tag) {
+		DR_STE_SET(def16_v1, tag, outer_first_vlan_type, DR_STE_SVLAN);
+		outer->svlan_tag = 0;
+	}
+
+	if (outer->ip_version == IP_VERSION_IPV4) {
+		DR_STE_SET(def16_v1, tag, outer_l3_type, STE_IPV4);
+		outer->ip_version = 0;
+	} else if (outer->ip_version == IP_VERSION_IPV6) {
+		DR_STE_SET(def16_v1, tag, outer_l3_type, STE_IPV6);
+		outer->ip_version = 0;
+	}
+
+	if (outer->ip_protocol == IP_PROTOCOL_UDP) {
+		DR_STE_SET(def16_v1, tag, outer_l4_type, STE_UDP);
+		outer->ip_protocol = 0;
+	} else if (outer->ip_protocol == IP_PROTOCOL_TCP) {
+		DR_STE_SET(def16_v1, tag, outer_l4_type, STE_TCP);
+		outer->ip_protocol = 0;
+	}
+
+	DR_STE_SET_TAG(def16_v1, tag, source_sqn, misc, source_sqn);
+	DR_STE_SET_TAG(def16_v1, tag, outer_ip_frag, outer, frag);
+
+	return 0;
+}
+
+static void dr_ste_v1_build_def16_mask(struct dr_match_param *value,
+				       struct dr_ste_build *sb)
+{
+	struct dr_match_spec *outer = &value->outer;
+	struct dr_match_misc *misc = &value->misc;
+	uint8_t *tag = sb->match;
+	bool is_tcp_or_udp;
+
+	/* Hint to indicate UDP/TCP packet due to l4_type limitations */
+	is_tcp_or_udp = outer->tcp_dport || outer->tcp_sport ||
+			outer->udp_dport || outer->udp_sport ||
+			outer->ip_protocol == IP_PROTOCOL_UDP ||
+			outer->ip_protocol == IP_PROTOCOL_TCP;
+
+	if (outer->ip_protocol && is_tcp_or_udp) {
+		DR_STE_SET(def16_v1, tag, outer_l4_type, -1);
+		outer->ip_protocol = 0;
+	}
+
+	if (outer->svlan_tag || outer->cvlan_tag) {
+		DR_STE_SET(def16_v1, tag, outer_first_vlan_type, -1);
+		outer->cvlan_tag = 0;
+		outer->svlan_tag = 0;
+	}
+
+	dr_ste_v1_build_def16_tag(value, sb, tag);
+
+	DR_STE_SET_ONES(def16_v1, tag, source_gvmi, misc, source_port);
+}
+
+static void dr_ste_v1_build_def16_init(struct dr_ste_build *sb,
+				       struct dr_match_param *mask)
+{
+	sb->lu_type = DR_STE_V1_LU_TYPE_MATCH;
+	dr_ste_v1_build_def16_mask(mask, sb);
+	sb->ste_build_tag_func = &dr_ste_v1_build_def16_tag;
 }
 
 static int dr_ste_v1_build_def22_tag(struct dr_match_param *value,
@@ -2514,6 +2691,7 @@ static int dr_ste_v1_build_def25_tag(struct dr_match_param *value,
 				     struct dr_ste_build *sb,
 				     uint8_t *tag)
 {
+	struct dr_match_misc5 *misc5 = &value->misc5;
 	struct dr_match_spec *outer = &value->outer;
 	struct dr_match_spec *inner = &value->inner;
 
@@ -2526,6 +2704,10 @@ static int dr_ste_v1_build_def25_tag(struct dr_match_param *value,
 	DR_STE_SET_TAG(def25_v1, tag, inner_l4_sport, inner, udp_sport);
 	DR_STE_SET_TAG(def25_v1, tag, inner_l4_dport, inner, tcp_dport);
 	DR_STE_SET_TAG(def25_v1, tag, inner_l4_dport, inner, udp_dport);
+
+	DR_STE_SET_TAG(def25_v1, tag, tunnel_header_0, misc5, tunnel_header_0);
+	DR_STE_SET_TAG(def25_v1, tag, tunnel_header_1, misc5, tunnel_header_1);
+
 	DR_STE_SET_TAG(def25_v1, tag, outer_l4_dport, outer, tcp_dport);
 	DR_STE_SET_TAG(def25_v1, tag, outer_l4_dport, outer, udp_dport);
 
@@ -2729,6 +2911,107 @@ static void dr_ste_v1_build_def26_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v1_build_def26_tag;
 }
 
+static int dr_ste_v1_build_def28_tag(struct dr_match_param *value,
+				     struct dr_ste_build *sb,
+				     uint8_t *tag)
+{
+	struct dr_match_misc3 *misc3 = &value->misc3;
+	struct dr_match_spec *outer = &value->outer;
+	struct dr_match_spec *inner = &value->inner;
+
+	DR_STE_SET_TAG(def28_v1, tag, flex_gtpu_teid, misc3, gtpu_teid);
+
+	if (outer->ip_version == IP_VERSION_IPV4) {
+		DR_STE_SET_TAG(def28_v1, tag, outer_ip_src_addr, outer, src_ip_31_0);
+		DR_STE_SET_TAG(def28_v1, tag, outer_ip_dst_addr, outer, dst_ip_31_0);
+	}
+
+	if (inner->ip_version == IP_VERSION_IPV4) {
+		DR_STE_SET_TAG(def28_v1, tag, inner_ip_src_addr, inner, src_ip_31_0);
+		DR_STE_SET_TAG(def28_v1, tag, inner_ip_dst_addr, inner, dst_ip_31_0);
+	}
+
+	if (outer->ip_version == IP_VERSION_IPV4) {
+		DR_STE_SET(def28_v1, tag, outer_l3_type, STE_IPV4);
+		outer->ip_version = 0;
+	} else if (outer->ip_version == IP_VERSION_IPV6) {
+		DR_STE_SET(def28_v1, tag, outer_l3_type, STE_IPV6);
+		outer->ip_version = 0;
+	}
+
+	DR_STE_SET_TAG(def28_v1, tag, outer_l4_sport, outer, tcp_sport);
+	DR_STE_SET_TAG(def28_v1, tag, outer_l4_sport, outer, udp_sport);
+	DR_STE_SET_TAG(def28_v1, tag, outer_l4_dport, outer, tcp_dport);
+	DR_STE_SET_TAG(def28_v1, tag, outer_l4_dport, outer, udp_dport);
+
+	DR_STE_SET_TAG(def28_v1, tag, inner_l4_sport, inner, tcp_sport);
+	DR_STE_SET_TAG(def28_v1, tag, inner_l4_sport, inner, udp_sport);
+	DR_STE_SET_TAG(def28_v1, tag, inner_l4_dport, inner, tcp_dport);
+	DR_STE_SET_TAG(def28_v1, tag, inner_l4_dport, inner, udp_dport);
+
+	DR_STE_SET_TAG(def28_v1, tag, outer_ip_protocol, outer, ip_protocol);
+	DR_STE_SET_TAG(def28_v1, tag, outer_ip_frag, outer, frag);
+
+	if (inner->ip_version == IP_VERSION_IPV4) {
+		DR_STE_SET(def28_v1, tag, inner_l3_type, STE_IPV4);
+		inner->ip_version = 0;
+	} else if (inner->ip_version == IP_VERSION_IPV6) {
+		DR_STE_SET(def28_v1, tag, inner_l3_type, STE_IPV6);
+		inner->ip_version = 0;
+	}
+
+	if (outer->cvlan_tag) {
+		DR_STE_SET(def28_v1, tag, outer_first_vlan_type, DR_STE_CVLAN);
+		outer->cvlan_tag = 0;
+	} else if (outer->svlan_tag) {
+		DR_STE_SET(def28_v1, tag, outer_first_vlan_type, DR_STE_SVLAN);
+		outer->svlan_tag = 0;
+	}
+
+	if (inner->cvlan_tag) {
+		DR_STE_SET(def28_v1, tag, inner_first_vlan_type, DR_STE_CVLAN);
+		inner->cvlan_tag = 0;
+	} else if (inner->svlan_tag) {
+		DR_STE_SET(def28_v1, tag, inner_first_vlan_type, DR_STE_SVLAN);
+		inner->svlan_tag = 0;
+	}
+
+	DR_STE_SET_TAG(def28_v1, tag, inner_ip_protocol, inner, ip_protocol);
+	DR_STE_SET_TAG(def28_v1, tag, inner_ip_frag, inner, frag);
+
+	return 0;
+}
+
+static void dr_ste_v1_build_def28_mask(struct dr_match_param *value,
+				       struct dr_ste_build *sb)
+{
+	struct dr_match_spec *outer = &value->outer;
+	struct dr_match_spec *inner = &value->inner;
+	uint8_t *tag = sb->match;
+
+	if (outer->svlan_tag || outer->cvlan_tag) {
+		DR_STE_SET(def28_v1, tag, outer_first_vlan_type, -1);
+		outer->cvlan_tag = 0;
+		outer->svlan_tag = 0;
+	}
+
+	if (inner->svlan_tag || inner->cvlan_tag) {
+		DR_STE_SET(def28_v1, tag, inner_first_vlan_type, -1);
+		inner->cvlan_tag = 0;
+		inner->svlan_tag = 0;
+	}
+
+	dr_ste_v1_build_def28_tag(value, sb, tag);
+}
+
+static void dr_ste_v1_build_def28_init(struct dr_ste_build *sb,
+				       struct dr_match_param *mask)
+{
+	sb->lu_type = DR_STE_V1_LU_TYPE_MATCH;
+	dr_ste_v1_build_def28_mask(mask, sb);
+	sb->ste_build_tag_func = &dr_ste_v1_build_def28_tag;
+}
+
 static struct dr_ste_ctx ste_ctx_v1 = {
 	/* Builders */
 	.build_eth_l2_src_dst_init	= &dr_ste_v1_build_eth_l2_src_dst_init,
@@ -2758,12 +3041,16 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	.build_src_gvmi_qpn_init	= &dr_ste_v1_build_src_gvmi_qpn_init,
 	.build_flex_parser_0_init	= &dr_ste_v1_build_flex_parser_0_init,
 	.build_flex_parser_1_init	= &dr_ste_v1_build_flex_parser_1_init,
+	.build_tunnel_header_0_1        = &dr_ste_v1_build_tunnel_header_0_1_init,
 	.build_def0_init		= &dr_ste_v1_build_def0_init,
+	.build_def2_init		= &dr_ste_v1_build_def2_init,
 	.build_def6_init		= &dr_ste_v1_build_def6_init,
+	.build_def16_init		= &dr_ste_v1_build_def16_init,
 	.build_def22_init		= &dr_ste_v1_build_def22_init,
 	.build_def24_init		= &dr_ste_v1_build_def24_init,
 	.build_def25_init		= &dr_ste_v1_build_def25_init,
 	.build_def26_init		= &dr_ste_v1_build_def26_init,
+	.build_def28_init		= &dr_ste_v1_build_def28_init,
 	/* Getters and Setters */
 	.ste_init			= &dr_ste_v1_init,
 	.set_next_lu_type		= &dr_ste_v1_set_next_lu_type,

@@ -43,6 +43,7 @@ struct dr_icm_pool {
 	pthread_spinlock_t	lock;
 	struct list_head	buddy_mem_list;
 	uint64_t		hot_memory_size;
+	bool			syncing;
 };
 
 struct dr_icm_mr {
@@ -329,42 +330,58 @@ static bool dr_icm_pool_is_sync_required(struct dr_icm_pool *pool)
 	return false;
 }
 
+/* In order to gain performance FW command is done out of the lock */
 static int dr_icm_pool_sync_pool_buddies(struct dr_icm_pool *pool)
 {
 	struct dr_icm_buddy_mem *buddy, *tmp_buddy;
+	struct dr_icm_chunk *chunk, *tmp_chunk;
+	struct list_head sync_list;
+	bool need_reclaim = false;
 	int err;
 
+	list_head_init(&sync_list);
+
+	list_for_each_safe(&pool->buddy_mem_list, buddy, tmp_buddy, list_node)
+		list_append_list(&sync_list, &buddy->hot_list);
+
+	pool->syncing = true;
+
+	pthread_spin_unlock(&pool->lock);
+
+	if (pool->dmn->flags & DR_DOMAIN_FLAG_MEMORY_RECLAIM)
+		need_reclaim = true;
+
 	err = dr_devx_sync_steering(pool->dmn->ctx);
-	if (err) {
+	if (err) /* Unexpected state, add debug note and continue */
 		dr_dbg(pool->dmn, "Failed devx sync hw\n");
-		return err;
+
+	pthread_spin_lock(&pool->lock);
+	list_for_each_safe(&sync_list, chunk, tmp_chunk, chunk_list) {
+		buddy = chunk->buddy_mem;
+		dr_buddy_free_mem(buddy, chunk->seg,
+				  ilog32(chunk->num_of_entries - 1));
+		buddy->used_memory -= chunk->byte_size;
+		pool->hot_memory_size -= chunk->byte_size;
+		dr_icm_chunk_destroy(chunk);
 	}
 
-	list_for_each_safe(&pool->buddy_mem_list, buddy, tmp_buddy, list_node) {
-		struct dr_icm_chunk *chunk, *tmp_chunk;
-
-		list_for_each_safe(&buddy->hot_list, chunk, tmp_chunk, chunk_list) {
-			dr_buddy_free_mem(buddy, chunk->seg,
-					  ilog32(chunk->num_of_entries - 1));
-			buddy->used_memory -= chunk->byte_size;
-			pool->hot_memory_size -= chunk->byte_size;
-			dr_icm_chunk_destroy(chunk);
-		}
-
-		if ((pool->dmn->flags & DR_DOMAIN_FLAG_MEMORY_RECLAIM) &&
-		    !buddy->used_memory)
-			dr_icm_buddy_destroy(buddy);
+	if (need_reclaim) {
+		list_for_each_safe(&pool->buddy_mem_list, buddy, tmp_buddy, list_node)
+			if (!buddy->used_memory)
+				dr_icm_buddy_destroy(buddy);
 	}
 
-	return 0;
+	pool->syncing = false;
+	return err;
 }
 
 int dr_icm_pool_sync_pool(struct dr_icm_pool *pool)
 {
-	int ret;
+	int ret = 0;
 
 	pthread_spin_lock(&pool->lock);
-	ret = dr_icm_pool_sync_pool_buddies(pool);
+	if (!pool->syncing)
+		ret = dr_icm_pool_sync_pool_buddies(pool);
 	pthread_spin_unlock(&pool->lock);
 
 	return ret;
@@ -450,6 +467,7 @@ out:
 void dr_icm_free_chunk(struct dr_icm_chunk *chunk)
 {
 	struct dr_icm_buddy_mem *buddy = chunk->buddy_mem;
+	struct dr_icm_pool *pool = buddy->pool;
 
 	/* move the memory to the waiting list AKA "hot" */
 	pthread_spin_lock(&buddy->pool->lock);
@@ -458,7 +476,7 @@ void dr_icm_free_chunk(struct dr_icm_chunk *chunk)
 	buddy->pool->hot_memory_size += chunk->byte_size;
 
 	/* Check if we have chunks that are waiting for sync-ste */
-	if (dr_icm_pool_is_sync_required(buddy->pool))
+	if (dr_icm_pool_is_sync_required(pool) && !pool->syncing)
 		dr_icm_pool_sync_pool_buddies(buddy->pool);
 
 	pthread_spin_unlock(&buddy->pool->lock);

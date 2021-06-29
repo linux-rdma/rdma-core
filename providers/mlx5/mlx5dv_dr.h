@@ -133,16 +133,20 @@ enum dr_matcher_criteria {
 	DR_MATCHER_CRITERIA_MISC2	= 1 << 3,
 	DR_MATCHER_CRITERIA_MISC3	= 1 << 4,
 	DR_MATCHER_CRITERIA_MISC4	= 1 << 5,
-	DR_MATCHER_CRITERIA_MAX		= 1 << 6,
+	DR_MATCHER_CRITERIA_MISC5       = 1 << 6,
+	DR_MATCHER_CRITERIA_MAX		= 1 << 7,
 };
 
 enum dr_matcher_definer {
 	DR_MATCHER_DEFINER_0	= 0,
+	DR_MATCHER_DEFINER_2	= 2,
 	DR_MATCHER_DEFINER_6	= 6,
+	DR_MATCHER_DEFINER_16	= 16,
 	DR_MATCHER_DEFINER_22	= 22,
 	DR_MATCHER_DEFINER_24	= 24,
 	DR_MATCHER_DEFINER_25	= 25,
 	DR_MATCHER_DEFINER_26	= 26,
+	DR_MATCHER_DEFINER_28   = 28
 };
 
 enum dr_action_type {
@@ -557,7 +561,16 @@ void dr_ste_build_flex_parser_1(struct dr_ste_ctx *ste_ctx,
 				struct dr_ste_build *sb,
 				struct dr_match_param *mask,
 				bool inner, bool rx);
+void dr_ste_build_tunnel_header_0_1(struct dr_ste_ctx *ste_ctx,
+				    struct dr_ste_build *sb,
+				    struct dr_match_param *mask,
+				    bool inner, bool rx);
 int dr_ste_build_def0(struct dr_ste_ctx *ste_ctx,
+		      struct dr_ste_build *sb,
+		      struct dr_match_param *mask,
+		      struct dr_devx_caps *caps,
+		      bool inner, bool rx);
+int dr_ste_build_def2(struct dr_ste_ctx *ste_ctx,
 		      struct dr_ste_build *sb,
 		      struct dr_match_param *mask,
 		      struct dr_devx_caps *caps,
@@ -566,6 +579,11 @@ int dr_ste_build_def6(struct dr_ste_ctx *ste_ctx,
 		      struct dr_ste_build *sb,
 		      struct dr_match_param *mask,
 		      bool inner, bool rx);
+int dr_ste_build_def16(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       struct dr_devx_caps *caps,
+		       bool inner, bool rx);
 int dr_ste_build_def22(struct dr_ste_ctx *ste_ctx,
 		       struct dr_ste_build *sb,
 		       struct dr_match_param *mask,
@@ -579,6 +597,10 @@ int dr_ste_build_def25(struct dr_ste_ctx *ste_ctx,
 		       struct dr_match_param *mask,
 		       bool inner, bool rx);
 int dr_ste_build_def26(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       bool inner, bool rx);
+int dr_ste_build_def28(struct dr_ste_ctx *ste_ctx,
 		       struct dr_ste_build *sb,
 		       struct dr_match_param *mask,
 		       bool inner, bool rx);
@@ -616,6 +638,7 @@ struct dr_match_spec {
 	uint32_t ip_protocol:8;	/* IP protocol */
 	uint32_t tcp_dport:16;	/* TCP destination port. ;tcp and udp sport/dport are mutually exclusive */
 	uint32_t tcp_sport:16;	/* TCP source port.;tcp and udp sport/dport are mutually exclusive */
+	uint32_t ipv4_ihl:4;
 	uint32_t l3_ok:1;
 	uint32_t l4_ok:1;
 	uint32_t ipv4_checksum_ok:1;
@@ -726,6 +749,18 @@ struct dr_match_misc4 {
 	uint32_t prog_sample_field_id_3;
 };
 
+struct dr_match_misc5 {
+	uint32_t macsec_tag_0;
+	uint32_t macsec_tag_1;
+	uint32_t macsec_tag_2;
+	uint32_t macsec_tag_3;
+	uint32_t tunnel_header_0;
+	uint32_t tunnel_header_1;
+	uint32_t tunnel_header_2;
+	uint32_t tunnel_header_3;
+	uint32_t reserved[0x8];
+};
+
 struct dr_match_param {
 	struct dr_match_spec	outer;
 	struct dr_match_misc	misc;
@@ -733,6 +768,7 @@ struct dr_match_param {
 	struct dr_match_misc2	misc2;
 	struct dr_match_misc3	misc3;
 	struct dr_match_misc4	misc4;
+	struct dr_match_misc5	misc5;
 };
 
 #define DR_MASK_IS_ICMPV4_SET(_misc3) ((_misc3)->icmpv4_type || \

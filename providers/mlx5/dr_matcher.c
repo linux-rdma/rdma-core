@@ -94,6 +94,11 @@ static bool dr_mask_is_ttl_set(struct dr_match_spec *spec)
 	return spec->ip_ttl_hoplimit;
 }
 
+static bool dr_mask_is_ipv4_ihl_set(struct dr_match_spec *spec)
+{
+	return spec->ipv4_ihl;
+}
+
 #define DR_MASK_IS_L2_DST(_spec, _misc, _inner_outer) (_spec.first_vid || \
 	(_spec).first_cfi || (_spec).first_prio || (_spec).cvlan_tag || \
 	(_spec).svlan_tag || (_spec).dmac_47_16 || (_spec).dmac_15_0 || \
@@ -387,6 +392,11 @@ static bool dr_mask_is_flex_parser_4_7_set(struct dr_match_misc4 *misc4)
 		dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_3));
 }
 
+static bool dr_mask_is_tunnel_header_0_1_set(struct dr_match_misc5 *misc5)
+{
+	return misc5->tunnel_header_0 || misc5->tunnel_header_1;
+}
+
 static int dr_matcher_supp_tnl_mpls_over_gre(struct dr_devx_caps *caps)
 {
 	return caps->flex_protocols & MLX5_FLEX_PARSER_MPLS_OVER_GRE_ENABLED;
@@ -443,6 +453,9 @@ static void dr_matcher_copy_mask(struct dr_match_param *dst_mask,
 
 	if (match_criteria & DR_MATCHER_CRITERIA_MISC4)
 		dst_mask->misc4 = src_mask->misc4;
+
+	if (match_criteria & DR_MATCHER_CRITERIA_MISC5)
+		dst_mask->misc5 = src_mask->misc5;
 }
 
 static void dr_matcher_destroy_definer_objs(struct dr_ste_build *sb,
@@ -524,6 +537,26 @@ static int dr_matcher_set_definer_builders(struct mlx5dv_dr_matcher *matcher,
 		idx = 0;
 	}
 
+	if (dmn->info.caps.definer_format_sup & (1 << DR_MATCHER_DEFINER_2)) {
+		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
+		ret = dr_ste_build_def2(ste_ctx, &sb[idx++], &mask, caps, false, rx);
+		if (!ret && dr_matcher_is_mask_consumed(&mask))
+			goto done;
+
+		memset(sb, 0, sizeof(*sb));
+		idx = 0;
+	}
+
+	if (caps->definer_format_sup & (1 << DR_MATCHER_DEFINER_16)) {
+		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
+		ret = dr_ste_build_def16(ste_ctx, &sb[idx++], &mask, caps, false, rx);
+		if (!ret && dr_matcher_is_mask_consumed(&mask))
+			goto done;
+
+		memset(sb, 0, sizeof(*sb));
+		idx = 0;
+	}
+
 	if (caps->definer_format_sup & (1 << DR_MATCHER_DEFINER_22)) {
 		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
 		ret = dr_ste_build_def22(ste_ctx, &sb[idx++], &mask, false, rx);
@@ -567,6 +600,16 @@ static int dr_matcher_set_definer_builders(struct mlx5dv_dr_matcher *matcher,
 
 		memset(&sb[0], 0, sizeof(*sb));
 		memset(&sb[1], 0, sizeof(*sb));
+		idx = 0;
+	}
+
+	if (dmn->info.caps.definer_format_sup & (1 << DR_MATCHER_DEFINER_28)) {
+		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
+		ret = dr_ste_build_def28(ste_ctx, &sb[idx++], &mask, false, rx);
+		if (!ret && dr_matcher_is_mask_consumed(&mask))
+			goto done;
+
+		memset(sb, 0, sizeof(struct dr_ste_build));
 		idx = 0;
 	}
 
@@ -652,7 +695,8 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 	if (matcher->match_criteria & (DR_MATCHER_CRITERIA_OUTER |
 				       DR_MATCHER_CRITERIA_MISC |
 				       DR_MATCHER_CRITERIA_MISC2 |
-				       DR_MATCHER_CRITERIA_MISC3)) {
+				       DR_MATCHER_CRITERIA_MISC3 |
+				       DR_MATCHER_CRITERIA_MISC5)) {
 		inner = false;
 		ipv = mask.outer.ip_version;
 
@@ -689,7 +733,8 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 						&mask, inner, rx);
 
 		if (ipv == 4) {
-			if (dr_mask_is_ttl_set(&mask.outer))
+			if (dr_mask_is_ttl_set(&mask.outer) ||
+			    dr_mask_is_ipv4_ihl_set(&mask.outer))
 				dr_ste_build_eth_l3_ipv4_misc(ste_ctx, &sb[idx++],
 							      &mask, inner, rx);
 
@@ -737,6 +782,9 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 			if (dr_mask_is_tnl_gtpu(&mask, dmn))
 				dr_ste_build_tnl_gtpu(ste_ctx, &sb[idx++],
 						      &mask, inner, rx);
+		} else if (dr_mask_is_tunnel_header_0_1_set(&mask.misc5)) {
+			dr_ste_build_tunnel_header_0_1(ste_ctx, &sb[idx++],
+						       &mask, false, rx);
 		}
 
 		if (DR_MASK_IS_ETH_L4_MISC_SET(mask.misc3, outer))
@@ -791,7 +839,8 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 						&mask, inner, rx);
 
 		if (ipv == 4) {
-			if (dr_mask_is_ttl_set(&mask.inner))
+			if (dr_mask_is_ttl_set(&mask.inner) ||
+			    dr_mask_is_ipv4_ihl_set(&mask.inner))
 				dr_ste_build_eth_l3_ipv4_misc(ste_ctx, &sb[idx++],
 							      &mask, inner, rx);
 
