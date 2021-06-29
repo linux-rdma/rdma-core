@@ -178,6 +178,23 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_DR_DOMAIN_TYPE_NIC_TX
         MLX5DV_DR_DOMAIN_TYPE_FDB
 
+    cpdef enum mlx5dv_qp_comp_mask:
+        MLX5DV_QP_MASK_UAR_MMAP_OFFSET
+        MLX5DV_QP_MASK_RAW_QP_HANDLES
+        MLX5DV_QP_MASK_RAW_QP_TIR_ADDR
+
+    cpdef enum mlx5dv_srq_comp_mask:
+        MLX5DV_SRQ_MASK_SRQN
+
+    cpdef enum mlx5dv_obj_type:
+        MLX5DV_OBJ_QP
+        MLX5DV_OBJ_CQ
+        MLX5DV_OBJ_SRQ
+        MLX5DV_OBJ_RWQ
+        MLX5DV_OBJ_DM
+        MLX5DV_OBJ_AH
+        MLX5DV_OBJ_PD
+
     cpdef unsigned long long MLX5DV_RES_TYPE_QP
     cpdef unsigned long long MLX5DV_RES_TYPE_RWQ
     cpdef unsigned long long MLX5DV_RES_TYPE_DBR

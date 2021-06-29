@@ -4,6 +4,7 @@
 include 'mlx5dv_enums.pxd'
 
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t, uintptr_t
+from posix.types cimport off_t
 from libcpp cimport bool
 
 cimport pyverbs.libibverbs as v
@@ -232,6 +233,56 @@ cdef extern from 'infiniband/mlx5dv.h':
         uint64_t    pgsz_bitmap
         uint64_t    comp_mask
 
+    cdef struct mlx5dv_pd:
+        uint32_t    pdn
+        uint64_t    comp_mask
+
+    cdef struct mlx5dv_cq:
+        void        *buf
+        uint32_t    *dbrec
+        uint32_t    cqe_cnt
+        uint32_t    cqe_size
+        void        *cq_uar
+        uint32_t    cqn
+        uint64_t    comp_mask
+
+    cdef struct mlx5dv_qp:
+        uint64_t    comp_mask
+        off_t       uar_mmap_offset
+        uint32_t    tirn
+        uint32_t    tisn
+        uint32_t    rqn
+        uint32_t    sqn
+
+    cdef struct mlx5dv_srq:
+        uint32_t    stride
+        uint32_t    head
+        uint32_t    tail
+        uint64_t    comp_mask
+        uint32_t    srqn
+
+    cdef struct pd:
+        v.ibv_pd    *in_ "in"
+        mlx5dv_pd   *out
+
+    cdef struct cq:
+        v.ibv_cq    *in_ "in"
+        mlx5dv_cq   *out
+
+    cdef struct qp:
+        v.ibv_qp    *in_ "in"
+        mlx5dv_qp   *out
+
+    cdef struct srq:
+        v.ibv_srq   *in_ "in"
+        mlx5dv_srq  *out
+
+    cdef struct mlx5dv_obj:
+        pd  pd
+        cq  cq
+        qp  qp
+        srq srq
+
 
     void mlx5dv_set_ctrl_seg(mlx5_wqe_ctrl_seg *seg, uint16_t pi, uint8_t opcode,
                              uint8_t opmod, uint32_t qp_num, uint8_t fm_ce_se,
@@ -340,6 +391,7 @@ cdef extern from 'infiniband/mlx5dv.h':
     int mlx5dv_devx_obj_modify(mlx5dv_devx_obj *obj, const void *in_,
                                size_t inlen, void *out, size_t outlen)
     int mlx5dv_devx_obj_destroy(mlx5dv_devx_obj *obj)
+    int mlx5dv_init_obj(mlx5dv_obj *obj, uint64_t obj_type)
 
     # Mkey setters
     void mlx5dv_wr_mkey_configure(mlx5dv_qp_ex *mqp, mlx5dv_mkey *mkey,
