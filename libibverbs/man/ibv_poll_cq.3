@@ -84,7 +84,7 @@ overrun from occurrence.  In case of a CQ overrun, the async event
 will be triggered, and the CQ cannot be used.
 .PP
 IBV_WC_DRIVER1 will be reported as a response to IBV_WR_DRIVER1 opcode;
-IBV_WC_DRIVER2 will be reported on a specific driver operation.
+IBV_WC_DRIVER2/IBV_WC_DRIVER3 will be reported on specific driver operations.
 .SH "SEE ALSO"
 .BR ibv_post_send (3),
 .BR ibv_post_recv (3)

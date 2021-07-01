@@ -84,6 +84,7 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS	= 1 << 9,
 	MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD	= 1 << 10,
 	MLX5DV_CONTEXT_MASK_DCI_STREAMS		= 1 << 11,
+	MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH	= 1 << 12,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -199,6 +200,7 @@ struct mlx5dv_context {
 	uint8_t		num_lag_ports;
 	struct mlx5dv_sig_caps sig_caps;
 	struct mlx5dv_dci_streams_caps dci_streams_caps;
+	size_t max_wr_memcpy_length;
 };
 
 enum mlx5dv_context_flags {
@@ -296,6 +298,7 @@ enum mlx5dv_qp_create_send_ops_flags {
 	MLX5DV_QP_EX_WITH_MR_LIST		= 1 << 1,
 	MLX5DV_QP_EX_WITH_MKEY_CONFIGURE	= 1 << 2,
 	MLX5DV_QP_EX_WITH_RAW_WQE		= 1 << 3,
+	MLX5DV_QP_EX_WITH_MEMCPY		= 1 << 4,
 };
 
 struct mlx5dv_qp_init_attr {
@@ -379,6 +382,7 @@ struct mlx5dv_mkey_conf_attr {
 enum mlx5dv_wc_opcode {
 	MLX5DV_WC_UMR = IBV_WC_DRIVER1,
 	MLX5DV_WC_RAW_WQE = IBV_WC_DRIVER2,
+	MLX5DV_WC_MEMCPY = IBV_WC_DRIVER3,
 };
 
 struct mlx5dv_qp_ex {
@@ -422,6 +426,10 @@ struct mlx5dv_qp_ex {
 				      uint32_t remote_dctn,
 				      uint64_t remote_dc_key,
 				      uint16_t stream_id);
+	void (*wr_memcpy)(struct mlx5dv_qp_ex *mqp,
+			  uint32_t dest_lkey, uint64_t dest_addr,
+			  uint32_t src_lkey, uint64_t src_addr,
+			  size_t length);
 };
 
 struct mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(struct ibv_qp_ex *qp);
@@ -498,6 +506,14 @@ static inline void mlx5dv_wr_set_mkey_sig_block(struct mlx5dv_qp_ex *mqp,
 						const struct mlx5dv_sig_block_attr *attr)
 {
 	mqp->wr_set_mkey_sig_block(mqp, attr);
+}
+
+static inline void mlx5dv_wr_memcpy(struct mlx5dv_qp_ex *mqp,
+				    uint32_t dest_lkey, uint64_t dest_addr,
+				    uint32_t src_lkey, uint64_t src_addr,
+				    size_t length)
+{
+	mqp->wr_memcpy(mqp, dest_lkey, dest_addr, src_lkey, src_addr, length);
 }
 
 enum mlx5dv_mkey_err_type {
@@ -854,7 +870,8 @@ enum {
 	MLX5_OPCODE_CONFIG_CMD		= 0x1f,
 	MLX5_OPCODE_SET_PSV		= 0x20,
 	MLX5_OPCODE_UMR			= 0x25,
-	MLX5_OPCODE_TAG_MATCHING	= 0x28
+	MLX5_OPCODE_TAG_MATCHING	= 0x28,
+	MLX5_OPCODE_MMO			= 0x2F,
 };
 
 /*

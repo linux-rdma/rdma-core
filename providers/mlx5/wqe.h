@@ -35,6 +35,8 @@
 
 #include <stdint.h>
 
+#include "mlx5dv.h"
+
 struct mlx5_sg_copy_ptr {
 	int	index;
 	int	offset;
@@ -200,6 +202,23 @@ struct mlx5_wqe_set_psv_seg {
 	__be16 syndrome;
 	uint8_t reserved[2];
 	__be64 transient_signature;
+};
+
+enum {
+	MLX5_OPC_MOD_MMO_DMA = 0x1,
+};
+
+struct mlx5_mmo_metadata_seg {
+	__be32 mmo_control_31_0;
+	__be32 local_key;
+	__be64 local_address;
+};
+
+struct mlx5_mmo_wqe {
+	struct mlx5_wqe_ctrl_seg ctrl;
+	struct mlx5_mmo_metadata_seg mmo_meta;
+	struct mlx5_wqe_data_seg src;
+	struct mlx5_wqe_data_seg dest;
 };
 
 #endif /* WQE_H */

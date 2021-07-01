@@ -155,6 +155,7 @@ struct ibv_pd *mlx5_alloc_pd(struct ibv_context *context)
 
 	atomic_init(&pd->refcount, 1);
 	pd->pdn = resp.pdn;
+	pthread_mutex_init(&pd->opaque_mr_mutex, NULL);
 
 	return &pd->ibv_pd;
 }
@@ -588,6 +589,15 @@ static int _mlx5_free_pd(struct ibv_pd *pd, bool unimport)
 	if (atomic_load(&mpd->refcount) > 1)
 		return EBUSY;
 
+	if (mpd->opaque_mr) {
+		ret = mlx5_dereg_mr(verbs_get_mr(mpd->opaque_mr));
+		if (ret)
+			return ret;
+
+		mpd->opaque_mr = NULL;
+		free(mpd->opaque_buf);
+	}
+
 	if (unimport)
 		goto end;
 
@@ -780,6 +790,7 @@ struct ibv_pd *mlx5_import_pd(struct ibv_context *context,
 	pd->ibv_pd.context = context;
 	pd->ibv_pd.handle = pd_handle;
 	atomic_init(&pd->refcount, 1);
+	pthread_mutex_init(&pd->opaque_mr_mutex, NULL);
 
 	return &pd->ibv_pd;
 }
@@ -2182,6 +2193,60 @@ static int create_dct(struct ibv_context *context,
 	return 0;
 }
 
+#define MLX5_OPAQUE_BUF_LEN 64
+static int reg_opaque_mr(struct ibv_pd *pd)
+{
+	struct mlx5_pd *mpd = to_mpd(pd);
+	int ret = 0;
+
+	pthread_mutex_lock(&mpd->opaque_mr_mutex);
+	if (mpd->opaque_mr)
+		goto out;
+
+	ret = posix_memalign(&mpd->opaque_buf, MLX5_OPAQUE_BUF_LEN,
+			     MLX5_OPAQUE_BUF_LEN);
+	if (ret) {
+		errno = ret;
+		goto out;
+	}
+
+	mpd->opaque_mr =
+		mlx5_reg_mr(&mpd->ibv_pd, mpd->opaque_buf, MLX5_OPAQUE_BUF_LEN,
+			    (uint64_t)mpd->opaque_buf, IBV_ACCESS_LOCAL_WRITE);
+	if (!mpd->opaque_mr) {
+		ret = errno;
+		free(mpd->opaque_buf);
+		mpd->opaque_buf = NULL;
+	}
+
+out:
+	pthread_mutex_unlock(&mpd->opaque_mr_mutex);
+	return ret;
+}
+
+static int qp_init_wr_memcpy(struct mlx5_qp *mqp,
+			     struct ibv_qp_init_attr_ex *attr,
+			     struct mlx5dv_qp_init_attr *mlx5_attr)
+{
+	struct mlx5_context *mctx;
+
+	if (!(attr->comp_mask & IBV_QP_INIT_ATTR_PD)) {
+		errno = EINVAL;
+		return errno;
+	}
+
+	mctx = to_mctx(attr->pd->context);
+	if (!mctx->dma_mmo_caps.dma_mmo_sq && !mctx->dma_mmo_caps.dma_mmo_qp) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
+	if (mctx->dma_mmo_caps.dma_mmo_qp)
+		mqp->need_mmo_enable = 1;
+
+	return reg_opaque_mr(attr->pd);
+}
+
 static struct ibv_qp *create_qp(struct ibv_context *context,
 				struct ibv_qp_init_attr_ex *attr,
 				struct mlx5dv_qp_init_attr *mlx5_qp_attr)
@@ -2388,6 +2453,15 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 			errno = ret;
 			mlx5_dbg(fp, MLX5_DBG_QP, "Failed to handle operations flags (errno %d)\n", errno);
 			goto err;
+		}
+
+		if (mlx5_qp_attr &&
+		    (mlx5_qp_attr->comp_mask &
+		     MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS) &&
+		    (mlx5_qp_attr->send_ops_flags & MLX5DV_QP_EX_WITH_MEMCPY)) {
+			ret = qp_init_wr_memcpy(qp, attr, mlx5_qp_attr);
+			if (ret)
+				goto err;
 		}
 	}
 
@@ -2833,6 +2907,23 @@ static int modify_dct(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	return 0;
 }
 
+static int qp_enable_mmo(struct ibv_qp *qp)
+{
+	uint32_t in[DEVX_ST_SZ_DW(init2init_qp_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(init2init_qp_out)] = {};
+	void *qpce = DEVX_ADDR_OF(init2init_qp_in, in, qpc_data_ext);
+
+	DEVX_SET(init2init_qp_in, in, opcode, MLX5_CMD_OP_INIT2INIT_QP);
+	DEVX_SET(init2init_qp_in, in, qpc_ext, 1);
+	DEVX_SET(init2init_qp_in, in, qpn, qp->qp_num);
+	DEVX_SET(init2init_qp_in, in, opt_param_mask,
+		 MLX5_QPC_OPT_MASK_INIT2INIT_MMO);
+
+	DEVX_SET(qpc_ext, qpce, mmo, 1);
+
+	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+}
+
 int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		   int attr_mask)
 {
@@ -2939,6 +3030,10 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	    (mqp->flags & MLX5_QP_FLAGS_DRAIN_SIGERR)) {
 		ret = mlx5_modify_qp_drain_sigerr(qp);
 	}
+
+	if (!ret && (attr_mask & IBV_QP_STATE) &&
+	    (attr->qp_state == IBV_QPS_INIT) && mqp->need_mmo_enable)
+		ret = qp_enable_mmo(qp);
 
 	return ret;
 }
@@ -3710,6 +3805,24 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 	if (DEVX_GET(query_hca_cap_out, out,
 		     capability.cmd_hca_cap.hca_cap_2))
 		get_hca_general_caps_2(mctx);
+
+	mctx->dma_mmo_caps.dma_mmo_sq =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.cmd_hca_cap.dma_mmo_sq);
+	mctx->dma_mmo_caps.dma_mmo_qp =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.cmd_hca_cap.dma_mmo_qp);
+
+	if (mctx->dma_mmo_caps.dma_mmo_sq || mctx->dma_mmo_caps.dma_mmo_qp) {
+		uint8_t log_sz;
+
+		log_sz = DEVX_GET(query_hca_cap_out, out,
+				  capability.cmd_hca_cap.log_dma_mmo_max_size);
+		if (log_sz)
+			mctx->dma_mmo_caps.dma_max_size = 1ULL << log_sz;
+		else
+			mctx->dma_mmo_caps.dma_max_size = MLX5_DMA_MMO_MAX_SIZE;
+	}
 }
 
 static void get_qos_caps(struct mlx5_context *mctx)

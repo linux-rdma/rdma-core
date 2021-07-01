@@ -303,6 +303,13 @@ struct mlx5_reserved_qpns {
 
 struct mlx5_dv_context_ops;
 
+#define MLX5_DMA_MMO_MAX_SIZE	(1ULL << 31)
+struct mlx5_dma_mmo_caps {
+	uint8_t dma_mmo_sq:1; /* Indicates that RC and DCI support DMA MMO */
+	uint8_t dma_mmo_qp:1;
+	uint64_t dma_max_size;
+};
+
 struct mlx5_context {
 	struct verbs_context		ibv_ctx;
 	int				max_num_qps;
@@ -384,6 +391,7 @@ struct mlx5_context {
 	uint64_t			general_obj_types_caps;
 	uint8_t				qpc_extension_cap:1;
 	struct mlx5dv_sig_caps		sig_caps;
+	struct mlx5_dma_mmo_caps	dma_mmo_caps;
 	pthread_mutex_t			dyn_bfregs_mutex; /* protects the dynamic bfregs allocation */
 	uint32_t			num_dyn_bfregs;
 	uint32_t			max_num_legacy_dyn_uar_sys_page;
@@ -446,6 +454,11 @@ struct mlx5_pd {
 	uint32_t			pdn;
 	atomic_int			refcount;
 	struct mlx5_pd			*mprotection_domain;
+	struct {
+		void			*opaque_buf;
+		struct ibv_mr		*opaque_mr;
+		pthread_mutex_t		opaque_mr_mutex;
+	};
 };
 
 struct mlx5_parent_domain {
@@ -691,6 +704,8 @@ struct mlx5_qp {
 	 * write to the set_ece will clear this field.
 	 */
 	uint32_t			get_ece;
+
+	uint8_t				need_mmo_enable:1;
 };
 
 struct mlx5_ah {

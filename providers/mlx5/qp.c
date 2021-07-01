@@ -1218,12 +1218,12 @@ static void mlx5_send_wr_abort(struct ibv_qp_ex *ibqp)
 }
 
 static inline void _common_wqe_init_op(struct ibv_qp_ex *ibqp,
-				       enum ibv_wr_opcode ib_op,
+				       int ib_op,
 				       uint8_t mlx5_op)
 				       ALWAYS_INLINE;
-static inline void _common_wqe_init_op(struct ibv_qp_ex *ibqp,
-				       enum ibv_wr_opcode ib_op,
-				       uint8_t mlx5_op) {
+static inline void _common_wqe_init_op(struct ibv_qp_ex *ibqp, int ib_op,
+				       uint8_t mlx5_op)
+{
 	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
 	struct mlx5_wqe_ctrl_seg *ctrl;
 	uint8_t fence;
@@ -1249,6 +1249,8 @@ static inline void _common_wqe_init_op(struct ibv_qp_ex *ibqp,
 		mqp->sq.wr_data[idx] = IBV_WC_LOCAL_INV;
 	else if (ib_op == IBV_WR_DRIVER1)
 		mqp->sq.wr_data[idx] = IBV_WC_DRIVER1;
+	else if (mlx5_op == MLX5_OPCODE_MMO)
+		mqp->sq.wr_data[idx] = IBV_WC_DRIVER3;
 
 	ctrl = mlx5_get_send_wqe(mqp, idx);
 	*(uint32_t *)((void *)ctrl + 8) = 0;
@@ -3015,6 +3017,50 @@ static void mlx5_wr_raw_wqe(struct mlx5dv_qp_ex *mqp_ex, const void *wqe)
 	__wqe_finalize(mqp);
 }
 
+static inline void mlx5_wr_memcpy(struct mlx5dv_qp_ex *mqp_ex,
+				  uint32_t dest_lkey, uint64_t dest_addr,
+				  uint32_t src_lkey, uint64_t src_addr,
+				  size_t length)
+				  ALWAYS_INLINE;
+static inline void mlx5_wr_memcpy(struct mlx5dv_qp_ex *mqp_ex,
+				  uint32_t dest_lkey, uint64_t dest_addr,
+				  uint32_t src_lkey, uint64_t src_addr,
+				  size_t length)
+{
+	struct mlx5_qp *mqp = mqp_from_mlx5dv_qp_ex(mqp_ex);
+	struct ibv_qp_ex *ibqp = &mqp->verbs_qp.qp_ex;
+	struct mlx5_pd *mpd = to_mpd(mqp->ibv_qp->pd);
+	struct mlx5_mmo_wqe *dma_wqe;
+
+	if (unlikely(!length || length > to_mctx(mqp->ibv_qp->context)
+						 ->dma_mmo_caps.dma_max_size)) {
+		if (!mqp->err)
+			mqp->err = EINVAL;
+		return;
+	}
+
+	if (length == MLX5_DMA_MMO_MAX_SIZE)
+		/* 2 Gbyte is represented as 0 in data segment byte count */
+		length = 0;
+
+	_common_wqe_init_op(ibqp, -1, MLX5_OPCODE_MMO);
+	mqp->cur_ctrl->opmod_idx_opcode =
+		htobe32((be32toh(mqp->cur_ctrl->opmod_idx_opcode) & 0xffffff) |
+			(MLX5_OPC_MOD_MMO_DMA << 24));
+
+	dma_wqe = (struct mlx5_mmo_wqe *)mqp->cur_ctrl;
+	dma_wqe->mmo_meta.mmo_control_31_0 = 0;
+	dma_wqe->mmo_meta.local_key = htobe32(mpd->opaque_mr->lkey);
+	dma_wqe->mmo_meta.local_address = htobe64((uint64_t)mpd->opaque_buf);
+
+	mlx5dv_set_data_seg(&dma_wqe->src, length, src_lkey, src_addr);
+	mlx5dv_set_data_seg(&dma_wqe->dest, length, dest_lkey, dest_addr);
+
+	mqp->cur_size = sizeof(*dma_wqe) / 16;
+	mqp->nreq++;
+	_common_wqe_finalize(mqp);
+}
+
 enum {
 	MLX5_SUPPORTED_SEND_OPS_FLAGS_RC =
 		IBV_QP_EX_WITH_SEND |
@@ -3135,7 +3181,8 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 				     MLX5DV_QP_EX_WITH_MR_INTERLEAVED |
 				     MLX5DV_QP_EX_WITH_MR_LIST |
 				     MLX5DV_QP_EX_WITH_MKEY_CONFIGURE |
-				     MLX5DV_QP_EX_WITH_RAW_WQE))
+				     MLX5DV_QP_EX_WITH_RAW_WQE |
+				     MLX5DV_QP_EX_WITH_MEMCPY))
 			return EOPNOTSUPP;
 
 		dv_qp->wr_raw_wqe = mlx5_wr_raw_wqe;
@@ -3162,6 +3209,7 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 				mlx5_send_wr_set_mkey_layout_interleaved;
 			dv_qp->wr_set_mkey_sig_block =
 				mlx5_send_wr_set_mkey_sig_block;
+			dv_qp->wr_memcpy = mlx5_wr_memcpy;
 		}
 
 		break;
@@ -3213,13 +3261,15 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 			return EOPNOTSUPP;
 
 		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_DCI ||
-		    (mlx5_ops & ~MLX5DV_QP_EX_WITH_RAW_WQE))
+		    (mlx5_ops & ~(MLX5DV_QP_EX_WITH_RAW_WQE |
+				  MLX5DV_QP_EX_WITH_MEMCPY)))
 			return EOPNOTSUPP;
 
 		fill_wr_builders_rc_xrc_dc(ibqp);
 		fill_wr_setters_ud_xrc_dc(ibqp);
 		dv_qp->wr_set_dc_addr = mlx5_send_wr_set_dc_addr;
 		dv_qp->wr_set_dc_addr_stream = mlx5_send_wr_set_dc_addr_stream;
+		dv_qp->wr_memcpy = mlx5_wr_memcpy;
 		break;
 
 	default:
@@ -3774,13 +3824,15 @@ static int mlx5dv_qp_cancel_wr(struct mlx5_qp *mqp, unsigned int idx)
 		break;
 	case MLX5_OPCODE_UMR:
 	case MLX5_OPCODE_SET_PSV:
+	case MLX5_OPCODE_MMO:
 		/* wr_data is already set at posting WQE */
 		break;
 	default:
 		return -EINVAL;
 	}
 out:
-	opmod_idx_opcode &= 0xffffff00;
+	/* Reset opcode and opmod to 0 */
+	opmod_idx_opcode &= 0xffff00;
 	opmod_idx_opcode |= MLX5_OPCODE_NOP;
 
 	ctrl->opmod_idx_opcode = htobe32(opmod_idx_opcode);

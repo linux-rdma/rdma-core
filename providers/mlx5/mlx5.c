@@ -920,6 +920,12 @@ static int _mlx5dv_query_device(struct ibv_context *ctx_in,
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD;
 	}
 
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH) {
+		attrs_out->max_wr_memcpy_length =
+			mctx->dma_mmo_caps.dma_max_size;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH;
+	}
+
 	attrs_out->comp_mask = comp_mask_out;
 
 	return 0;
