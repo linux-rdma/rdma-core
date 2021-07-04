@@ -54,6 +54,7 @@
 #define NUM_OF_FLEX_PARSERS	8
 #define DR_STE_MAX_FLEX_0_ID	3
 #define DR_STE_MAX_FLEX_1_ID	7
+#define DR_VPORTS_BUCKETS	256
 
 #define dr_dbg(dmn, arg...) dr_dbg_ctx((dmn)->ctx, ##arg)
 
@@ -790,8 +791,12 @@ struct dr_esw_caps {
 
 struct dr_devx_vport_cap {
 	uint16_t gvmi;
+	uint16_t vhca_gvmi;
 	uint64_t icm_address_rx;
 	uint64_t icm_address_tx;
+	uint16_t num;
+	/* locate vports table */
+	struct dr_devx_vport_cap *next;
 };
 
 struct dr_devx_roce_cap {
@@ -799,6 +804,10 @@ struct dr_devx_roce_cap {
 	bool fl_rc_qp_when_roce_disabled;
 	bool fl_rc_qp_when_roce_enabled;
 	uint8_t qp_ts_format;
+};
+
+struct dr_vports_table {
+	struct dr_devx_vport_cap *buckets[DR_VPORTS_BUCKETS];
 };
 
 struct dr_devx_caps {
@@ -1560,4 +1569,8 @@ int dr_buddy_init(struct dr_icm_buddy_mem *buddy, uint32_t max_order);
 void dr_buddy_cleanup(struct dr_icm_buddy_mem *buddy);
 int dr_buddy_alloc_mem(struct dr_icm_buddy_mem *buddy, int order);
 void dr_buddy_free_mem(struct dr_icm_buddy_mem *buddy, uint32_t seg, int order);
+
+struct dr_vports_table *dr_vports_table_create(struct mlx5dv_dr_domain *dmn);
+void dr_vports_table_destroy(struct dr_vports_table *vports_tbl);
+
 #endif
