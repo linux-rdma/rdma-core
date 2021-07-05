@@ -470,7 +470,7 @@ void dr_icm_free_chunk(struct dr_icm_chunk *chunk)
 	struct dr_icm_pool *pool = buddy->pool;
 
 	/* move the memory to the waiting list AKA "hot" */
-	pthread_spin_lock(&buddy->pool->lock);
+	pthread_spin_lock(&pool->lock);
 	list_del_init(&chunk->chunk_list);
 	list_add_tail(&buddy->hot_list, &chunk->chunk_list);
 	buddy->pool->hot_memory_size += chunk->byte_size;
@@ -479,7 +479,7 @@ void dr_icm_free_chunk(struct dr_icm_chunk *chunk)
 	if (dr_icm_pool_is_sync_required(pool) && !pool->syncing)
 		dr_icm_pool_sync_pool_buddies(buddy->pool);
 
-	pthread_spin_unlock(&buddy->pool->lock);
+	pthread_spin_unlock(&pool->lock);
 }
 
 struct dr_icm_pool *dr_icm_pool_create(struct mlx5dv_dr_domain *dmn,
