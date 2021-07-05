@@ -54,3 +54,18 @@ cdef class Mlx5UAR(PyverbsObject):
 
 cdef class Mlx5DmOpAddr(PyverbsCM):
     cdef void *addr
+
+cdef class WqeSeg(PyverbsCM):
+    cdef void *segment
+    cpdef _copy_to_buffer(self, addr)
+
+cdef class WqeCtrlSeg(WqeSeg):
+    pass
+
+cdef class WqeDataSeg(WqeSeg):
+    pass
+
+cdef class Wqe(PyverbsCM):
+    cdef void *addr
+    cdef int is_user_addr
+    cdef object segments

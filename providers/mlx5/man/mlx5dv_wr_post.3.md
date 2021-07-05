@@ -13,6 +13,8 @@ title: MLX5DV_WR
 
 mlx5dv_wr_set_dc_addr - Attach a DC info to the last work request
 
+mlx5dv_wr_raw_wqe - Build a raw work request
+
 # SYNOPSIS
 
 ```c
@@ -42,6 +44,8 @@ static inline void mlx5dv_wr_mr_list(struct mlx5dv_qp_ex *mqp,
 				      uint32_t access_flags, /* use enum ibv_access_flags */
 				      uint16_t num_sges,
 				      struct ibv_sge *sge);
+
+static inline int mlx5dv_wr_raw_wqe(struct mlx5dv_qp_ex *mqp, const void *wqe);
 ```
 
 # DESCRIPTION
@@ -101,6 +105,17 @@ man for ibv_wr_post and mlx5dv_qp with its available builders and setters.
     In case *ibv_qp_ex->wr_flags* turns on IBV_SEND_SIGNALED, the reported WC opcode will be MLX5DV_WC_UMR.
     Unregister the *mkey* to enable other pattern registration should be done via ibv_post_send with IBV_WR_LOCAL_INV opcode.
 
+## Raw WQE builders
+
+*mlx5dv_wr_raw_wqe()*
+:   It is used to build a custom work request (WQE) and post it on a normal QP. The caller needs to set all details
+    of the WQE (except the "ctrl.wqe_index" and "ctrl.signature" fields, which is the driver's responsibility to set).
+    The MLX5DV_QP_EX_WITH_RAW_WQE flag in mlx5_qp_attr.send_ops_flags needs to be set.
+
+    The wr_flags are ignored as it's the caller's responsibility to set flags in WQE.
+
+    No matter what the send opcode is, the work completion opcode for a raw WQE is IBV_WC_DRIVER2.
+
 ## QP Specific setters
 
 *DCI* QPs
@@ -148,3 +163,5 @@ ret = ibv_wr_complete(qpx);
 # AUTHOR
 
 Guy Levi <guyle@mellanox.com>
+
+Mark Zhang <markzhang@nvidia.com>

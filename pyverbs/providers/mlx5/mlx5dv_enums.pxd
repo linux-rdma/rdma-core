@@ -5,6 +5,31 @@
 
 cdef extern from 'infiniband/mlx5dv.h':
 
+    cpdef enum:
+        MLX5_OPCODE_NOP
+        MLX5_OPCODE_SEND_INVAL
+        MLX5_OPCODE_RDMA_WRITE
+        MLX5_OPCODE_RDMA_WRITE_IMM
+        MLX5_OPCODE_SEND
+        MLX5_OPCODE_SEND_IMM
+        MLX5_OPCODE_TSO
+        MLX5_OPCODE_RDMA_READ
+        MLX5_OPCODE_ATOMIC_CS
+        MLX5_OPCODE_ATOMIC_FA
+        MLX5_OPCODE_ATOMIC_MASKED_CS
+        MLX5_OPCODE_ATOMIC_MASKED_FA
+        MLX5_OPCODE_FMR
+        MLX5_OPCODE_LOCAL_INVAL
+        MLX5_OPCODE_CONFIG_CMD
+        MLX5_OPCODE_UMR
+        MLX5_OPCODE_TAG_MATCHING
+
+    cpdef enum:
+        MLX5_WQE_CTRL_CQ_UPDATE
+        MLX5_WQE_CTRL_SOLICITED
+        MLX5_WQE_CTRL_FENCE
+        MLX5_WQE_CTRL_INITIATOR_SMALL_FENCE
+
     cpdef enum  mlx5dv_context_attr_flags:
         MLX5DV_CONTEXT_FLAGS_DEVX
 
@@ -125,6 +150,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_QP_EX_WITH_MR_INTERLEAVED    = 1 << 0
         MLX5DV_QP_EX_WITH_MR_LIST           = 1 << 1
         MLX5DV_QP_EX_WITH_MKEY_CONFIGURE    = 1 << 2
+        MLX5DV_QP_EX_WITH_RAW_WQE           = 1 << 3
 
     cpdef enum mlx5dv_cq_init_attr_mask:
         MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE = 1 << 0

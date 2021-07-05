@@ -279,6 +279,7 @@ enum mlx5dv_qp_create_send_ops_flags {
 	MLX5DV_QP_EX_WITH_MR_INTERLEAVED	= 1 << 0,
 	MLX5DV_QP_EX_WITH_MR_LIST		= 1 << 1,
 	MLX5DV_QP_EX_WITH_MKEY_CONFIGURE	= 1 << 2,
+	MLX5DV_QP_EX_WITH_RAW_WQE		= 1 << 3,
 };
 
 struct mlx5dv_qp_init_attr {
@@ -361,6 +362,7 @@ struct mlx5dv_mkey_conf_attr {
 
 enum mlx5dv_wc_opcode {
 	MLX5DV_WC_UMR = IBV_WC_DRIVER1,
+	MLX5DV_WC_RAW_WQE = IBV_WC_DRIVER2,
 };
 
 struct mlx5dv_qp_ex {
@@ -398,6 +400,7 @@ struct mlx5dv_qp_ex {
 				const struct mlx5dv_mr_interleaved *data);
 	void (*wr_set_mkey_sig_block)(struct mlx5dv_qp_ex *mqp,
 				      const struct mlx5dv_sig_block_attr *attr);
+	void (*wr_raw_wqe)(struct mlx5dv_qp_ex *mqp, const void *wqe);
 };
 
 struct mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(struct ibv_qp_ex *qp);
@@ -497,6 +500,11 @@ static inline int mlx5dv_mkey_check(struct mlx5dv_mkey *mkey,
 }
 
 int mlx5dv_qp_cancel_posted_send_wrs(struct mlx5dv_qp_ex *mqp, uint64_t wr_id);
+
+static inline void mlx5dv_wr_raw_wqe(struct mlx5dv_qp_ex *mqp, const void *wqe)
+{
+	mqp->wr_raw_wqe(mqp, wqe);
+}
 
 enum mlx5dv_flow_action_esp_mask {
 	MLX5DV_FLOW_ACTION_ESP_MASK_FLAGS	= 1 << 0,

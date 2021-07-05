@@ -1278,11 +1278,10 @@ static inline void _common_wqe_init(struct ibv_qp_ex *ibqp,
 {
 	_common_wqe_init_op(ibqp, ib_op, mlx5_ib_opcode[ib_op]);
 }
-
-static inline void _common_wqe_finalize(struct mlx5_qp *mqp)
+static inline void __wqe_finalize(struct mlx5_qp *mqp)
+				  ALWAYS_INLINE;
+static inline void __wqe_finalize(struct mlx5_qp *mqp)
 {
-	mqp->cur_ctrl->qpn_ds = htobe32(mqp->cur_size | (mqp->ibv_qp->qp_num << 8));
-
 	if (unlikely(mqp->wq_sig))
 		mqp->cur_ctrl->signature = wq_sig(mqp->cur_ctrl);
 
@@ -1295,6 +1294,14 @@ static inline void _common_wqe_finalize(struct mlx5_qp *mqp)
 #endif
 
 	mqp->sq.cur_post += DIV_ROUND_UP(mqp->cur_size, 4);
+
+}
+
+static inline void _common_wqe_finalize(struct mlx5_qp *mqp)
+{
+	mqp->cur_ctrl->qpn_ds = htobe32(mqp->cur_size |
+					(mqp->ibv_qp->qp_num << 8));
+	__wqe_finalize(mqp);
 }
 
 static inline void _mlx5_send_wr_send(struct ibv_qp_ex *ibqp,
@@ -2943,6 +2950,59 @@ static void mlx5_send_wr_set_dc_addr(struct mlx5dv_qp_ex *dv_qp,
 		mqp->cur_setters_cnt++;
 }
 
+static inline void raw_wqe_init(struct ibv_qp_ex *ibqp, const void *wqe)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+	uint32_t idx;
+
+	if (unlikely(mlx5_wq_overflow(&mqp->sq, mqp->nreq,
+				      to_mcq(ibqp->qp_base.send_cq)))) {
+		FILE *fp = to_mctx(((struct ibv_qp *)ibqp)->context)->dbg_fp;
+
+		mlx5_dbg(fp, MLX5_DBG_QP_SEND, "Work queue overflow\n");
+
+		if (!mqp->err)
+			mqp->err = ENOMEM;
+
+		return;
+	}
+
+	idx = mqp->sq.cur_post & (mqp->sq.wqe_cnt - 1);
+	mqp->sq.wrid[idx] = ibqp->wr_id;
+	mqp->sq.wqe_head[idx] = mqp->sq.head + mqp->nreq;
+	mqp->sq.wr_data[idx] = IBV_WC_DRIVER2;
+
+	mqp->fm_cache = 0;
+	mqp->cur_ctrl = mlx5_get_send_wqe(mqp, idx);
+}
+
+static void mlx5_wr_raw_wqe(struct mlx5dv_qp_ex *mqp_ex, const void *wqe)
+{
+	struct mlx5_wqe_ctrl_seg *ctrl = (struct mlx5_wqe_ctrl_seg *)wqe;
+	struct mlx5_qp *mqp = mqp_from_mlx5dv_qp_ex(mqp_ex);
+	struct ibv_qp_ex *ibqp = ibv_qp_to_qp_ex(mqp->ibv_qp);
+	uint8_t ds = be32toh(ctrl->qpn_ds) & 0x3f;
+	int wq_left;
+
+	raw_wqe_init(ibqp, wqe);
+
+	wq_left = mqp->sq.qend - (void *)mqp->cur_ctrl;
+	if (likely(wq_left >= ds << 4)) {
+		memcpy(mqp->cur_ctrl, wqe, ds << 4);
+	} else {
+		memcpy(mqp->cur_ctrl, wqe, wq_left);
+		memcpy(mlx5_get_send_wqe(mqp, 0), wqe + wq_left,
+		       (ds << 4) - wq_left);
+	}
+	mqp->cur_ctrl->opmod_idx_opcode =
+		htobe32((be32toh(ctrl->opmod_idx_opcode) & 0xff0000ff) |
+			((mqp->sq.cur_post & 0xffff) << 8));
+
+	mqp->cur_size = ds;
+	mqp->nreq++;
+	__wqe_finalize(mqp);
+}
+
 enum {
 	MLX5_SUPPORTED_SEND_OPS_FLAGS_RC =
 		IBV_QP_EX_WITH_SEND |
@@ -3041,8 +3101,8 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 			 const struct mlx5dv_qp_init_attr *mlx5_attr)
 {
 	struct ibv_qp_ex *ibqp = &mqp->verbs_qp.qp_ex;
+	struct mlx5dv_qp_ex *dv_qp = &mqp->dv_qp;
 	uint64_t ops = attr->send_ops_flags;
-	struct mlx5dv_qp_ex *dv_qp;
 	uint64_t mlx5_ops = 0;
 
 	ibqp->wr_start = mlx5_send_wr_start;
@@ -3058,6 +3118,17 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 	    mlx5_attr->comp_mask & MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS)
 		mlx5_ops = mlx5_attr->send_ops_flags;
 
+	if (mlx5_ops) {
+		if (!check_comp_mask(mlx5_ops,
+				     MLX5DV_QP_EX_WITH_MR_INTERLEAVED |
+				     MLX5DV_QP_EX_WITH_MR_LIST |
+				     MLX5DV_QP_EX_WITH_MKEY_CONFIGURE |
+				     MLX5DV_QP_EX_WITH_RAW_WQE))
+			return EOPNOTSUPP;
+
+		dv_qp->wr_raw_wqe = mlx5_wr_raw_wqe;
+	}
+
 	/* Set all supported micro-functions regardless user request */
 	switch (attr->qp_type) {
 	case IBV_QPT_RC:
@@ -3068,13 +3139,6 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 		fill_wr_setters_rc_uc(ibqp);
 
 		if (mlx5_ops) {
-			if (!check_comp_mask(mlx5_ops,
-					     MLX5DV_QP_EX_WITH_MR_INTERLEAVED |
-					     MLX5DV_QP_EX_WITH_MR_LIST |
-					     MLX5DV_QP_EX_WITH_MKEY_CONFIGURE))
-				return EOPNOTSUPP;
-
-			dv_qp = &mqp->dv_qp;
 			dv_qp->wr_mr_interleaved = mlx5_send_wr_mr_interleaved;
 			dv_qp->wr_mr_list = mlx5_send_wr_mr_list;
 			dv_qp->wr_mkey_configure = mlx5_send_wr_mkey_configure;
@@ -3091,7 +3155,8 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 		break;
 
 	case IBV_QPT_UC:
-		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_UC || mlx5_ops)
+		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_UC ||
+		    (mlx5_ops & ~MLX5DV_QP_EX_WITH_RAW_WQE))
 			return EOPNOTSUPP;
 
 		fill_wr_builders_uc(ibqp);
@@ -3099,7 +3164,8 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 		break;
 
 	case IBV_QPT_XRC_SEND:
-		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_XRC || mlx5_ops)
+		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_XRC ||
+		    (mlx5_ops & ~MLX5DV_QP_EX_WITH_RAW_WQE))
 			return EOPNOTSUPP;
 
 		fill_wr_builders_rc_xrc_dc(ibqp);
@@ -3108,7 +3174,8 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 		break;
 
 	case IBV_QPT_UD:
-		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_UD || mlx5_ops)
+		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_UD ||
+		    (mlx5_ops & ~MLX5DV_QP_EX_WITH_RAW_WQE))
 			return EOPNOTSUPP;
 
 		if (mqp->flags & MLX5_QP_FLAGS_USE_UNDERLAY)
@@ -3120,7 +3187,8 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 		break;
 
 	case IBV_QPT_RAW_PACKET:
-		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_RAW_PACKET || mlx5_ops)
+		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_RAW_PACKET ||
+		    (mlx5_ops & ~MLX5DV_QP_EX_WITH_RAW_WQE))
 			return EOPNOTSUPP;
 
 		fill_wr_builders_eth(ibqp);
@@ -3128,13 +3196,12 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 		break;
 
 	case IBV_QPT_DRIVER:
-		dv_qp = &mqp->dv_qp;
-
 		if (!(mlx5_attr->comp_mask & MLX5DV_QP_INIT_ATTR_MASK_DC &&
 		      mlx5_attr->dc_init_attr.dc_type == MLX5DV_DCTYPE_DCI))
 			return EOPNOTSUPP;
 
-		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_DCI || mlx5_ops)
+		if (ops & ~MLX5_SUPPORTED_SEND_OPS_FLAGS_DCI ||
+		    (mlx5_ops & ~MLX5DV_QP_EX_WITH_RAW_WQE))
 			return EOPNOTSUPP;
 
 		fill_wr_builders_rc_xrc_dc(ibqp);
@@ -3666,6 +3733,9 @@ static int mlx5dv_qp_cancel_wr(struct mlx5_qp *mqp, unsigned int idx)
 
 	opmod_idx_opcode = be32toh(ctrl->opmod_idx_opcode);
 
+	if (unlikely(*wr_data == IBV_WC_DRIVER2))
+		goto out;
+
 	/* Save the original opcode to return it in the work completion. */
 	switch (opmod_idx_opcode & 0xff) {
 	case MLX5_OPCODE_RDMA_WRITE_IMM:
@@ -3696,6 +3766,7 @@ static int mlx5dv_qp_cancel_wr(struct mlx5_qp *mqp, unsigned int idx)
 	default:
 		return -EINVAL;
 	}
+out:
 	opmod_idx_opcode &= 0xffffff00;
 	opmod_idx_opcode |= MLX5_OPCODE_NOP;
 

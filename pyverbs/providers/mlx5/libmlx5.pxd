@@ -3,7 +3,7 @@
 
 include 'mlx5dv_enums.pxd'
 
-from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
+from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t, uintptr_t
 from libcpp cimport bool
 
 cimport pyverbs.libibverbs as v
@@ -200,6 +200,23 @@ cdef extern from 'infiniband/mlx5dv.h':
         mlx5dv_mkey_err_type err_type
         err err
 
+    cdef struct mlx5_wqe_data_seg:
+        uint32_t    byte_count
+        uint32_t    lkey
+        uint64_t    addr
+
+    cdef struct mlx5_wqe_ctrl_seg:
+        uint32_t    opmod_idx_opcode
+        uint32_t    qpn_ds
+        uint8_t     signature
+        uint8_t     fm_ce_se
+        uint32_t    imm
+
+    void mlx5dv_set_ctrl_seg(mlx5_wqe_ctrl_seg *seg, uint16_t pi, uint8_t opcode,
+                             uint8_t opmod, uint32_t qp_num, uint8_t fm_ce_se,
+                             uint8_t ds, uint8_t signature, uint32_t imm)
+    void mlx5dv_set_data_seg(mlx5_wqe_data_seg *seg, uint32_t length,
+                             uint32_t lkey, uintptr_t address)
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
@@ -215,7 +232,7 @@ cdef extern from 'infiniband/mlx5dv.h':
     v.ibv_cq_ex *mlx5dv_create_cq(v.ibv_context *context,
                                   v.ibv_cq_init_attr_ex *cq_attr,
                                   mlx5dv_cq_init_attr *mlx5_cq_attr)
-
+    void mlx5dv_wr_raw_wqe(mlx5dv_qp_ex *mqp_ex, const void *wqe)
     mlx5dv_var *mlx5dv_alloc_var(v.ibv_context *context, uint32_t flags)
     void mlx5dv_free_var(mlx5dv_var *dv_var)
     mlx5dv_pp *mlx5dv_pp_alloc(v.ibv_context *context, size_t pp_context_sz,
