@@ -1639,6 +1639,11 @@ struct dr_icm_buddy_mem {
 	 * sync_ste command sets them free.
 	 */
 	struct list_head	hot_list;
+
+	/* Memory optimization */
+	struct dr_ste		*ste_arr;
+	struct list_head	*miss_list;
+	uint8_t			*hw_ste_arr;
 	/* HW STE cache entry size */
 	uint8_t                 hw_ste_sz;
 };

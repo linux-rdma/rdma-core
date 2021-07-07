@@ -170,44 +170,21 @@ get_chunk_icm_type(struct dr_icm_chunk *chunk)
 	return chunk->buddy_mem->pool->icm_type;
 }
 
-static int
-dr_icm_chunk_ste_init(struct dr_icm_chunk *chunk)
+static void dr_icm_chunk_ste_init(struct dr_icm_chunk *chunk, int offset)
 {
 	struct dr_icm_buddy_mem *buddy = chunk->buddy_mem;
+	int index = offset / DR_STE_SIZE;
 
-	chunk->ste_arr = calloc(chunk->num_of_entries, sizeof(struct dr_ste));
-	if (!chunk->ste_arr) {
-		errno = ENOMEM;
-		return errno;
-	}
-
-	chunk->hw_ste_arr = calloc(chunk->num_of_entries, buddy->hw_ste_sz);
-	if (!chunk->hw_ste_arr) {
-		errno = ENOMEM;
-		goto out_free_ste_arr;
-	}
-
-	chunk->miss_list = malloc(chunk->num_of_entries *
-				  sizeof(struct list_head));
-	if (!chunk->miss_list) {
-		errno = ENOMEM;
-		goto out_free_hw_ste_arr;
-	}
-
-	return 0;
-
-out_free_hw_ste_arr:
-	free(chunk->hw_ste_arr);
-out_free_ste_arr:
-	free(chunk->ste_arr);
-	return errno;
+	chunk->ste_arr = &buddy->ste_arr[index];
+	chunk->miss_list = &buddy->miss_list[index];
+	chunk->hw_ste_arr = buddy->hw_ste_arr + index * buddy->hw_ste_sz;
 }
 
 static void dr_icm_chunk_ste_cleanup(struct dr_icm_chunk *chunk)
 {
-	free(chunk->miss_list);
-	free(chunk->hw_ste_arr);
-	free(chunk->ste_arr);
+	struct dr_icm_buddy_mem *buddy = chunk->buddy_mem;
+
+	memset(chunk->hw_ste_arr, 0, chunk->num_of_entries * buddy->hw_ste_sz);
 }
 
 static void dr_icm_chunk_destroy(struct dr_icm_chunk *chunk)
@@ -222,9 +199,51 @@ static void dr_icm_chunk_destroy(struct dr_icm_chunk *chunk)
 	free(chunk);
 }
 
+static int dr_icm_buddy_init_ste_cache(struct dr_icm_buddy_mem *buddy)
+{
+	struct dr_devx_caps *caps = &buddy->pool->dmn->info.caps;
+	int num_of_entries =
+		dr_icm_pool_chunk_size_to_entries(buddy->pool->max_log_chunk_sz);
+
+	buddy->hw_ste_sz = caps->sw_format_ver == MLX5_HW_CONNECTX_5 ?
+		DR_STE_SIZE_REDUCED : DR_STE_SIZE;
+
+	buddy->ste_arr = calloc(num_of_entries, sizeof(struct dr_ste));
+	if (!buddy->ste_arr) {
+		errno = ENOMEM;
+		return ENOMEM;
+	}
+
+	buddy->hw_ste_arr = calloc(num_of_entries, buddy->hw_ste_sz);
+	if (!buddy->hw_ste_arr) {
+		errno = ENOMEM;
+		goto free_ste_arr;
+	}
+
+	buddy->miss_list = malloc(num_of_entries * sizeof(struct list_head));
+	if (!buddy->miss_list) {
+		errno = ENOMEM;
+		goto free_hw_ste_arr;
+	}
+
+	return 0;
+
+free_hw_ste_arr:
+	free(buddy->hw_ste_arr);
+free_ste_arr:
+	free(buddy->ste_arr);
+	return errno;
+}
+
+static void dr_icm_buddy_cleanup_ste_cache(struct dr_icm_buddy_mem *buddy)
+{
+	free(buddy->ste_arr);
+	free(buddy->hw_ste_arr);
+	free(buddy->miss_list);
+}
+
 static int dr_icm_buddy_create(struct dr_icm_pool *pool)
 {
-	struct dr_devx_caps *caps = &pool->dmn->info.caps;
 	struct dr_icm_buddy_mem *buddy;
 	struct dr_icm_mr *icm_mr;
 
@@ -238,22 +257,24 @@ static int dr_icm_buddy_create(struct dr_icm_pool *pool)
 		goto free_mr;
 	}
 
+	buddy->pool = pool;
+	buddy->icm_mr = icm_mr;
+
 	if (dr_buddy_init(buddy, pool->max_log_chunk_sz))
 		goto err_free_buddy;
 
-	buddy->icm_mr = icm_mr;
-	buddy->pool = pool;
-
-	/* Set single entry HW STE cache size */
-	if (pool->icm_type == DR_ICM_TYPE_STE)
-		buddy->hw_ste_sz = caps->sw_format_ver == MLX5_HW_CONNECTX_5 ?
-			DR_STE_SIZE_REDUCED : DR_STE_SIZE;
+	/* Reduce allocations by preallocating and reusing the STE structures */
+	if (pool->icm_type == DR_ICM_TYPE_STE &&
+	    dr_icm_buddy_init_ste_cache(buddy))
+		goto err_cleanup_buddy;
 
 	/* add it to the -start- of the list in order to search in it first */
 	list_add(&pool->buddy_mem_list, &buddy->list_node);
 
 	return 0;
 
+err_cleanup_buddy:
+	dr_buddy_cleanup(buddy);
 err_free_buddy:
 	free(buddy);
 free_mr:
@@ -274,6 +295,9 @@ static void dr_icm_buddy_destroy(struct dr_icm_buddy_mem *buddy)
 	dr_icm_pool_mr_destroy(buddy->icm_mr);
 
 	dr_buddy_cleanup(buddy);
+
+	if (buddy->pool->icm_type == DR_ICM_TYPE_STE)
+		dr_icm_buddy_cleanup_ste_cache(buddy);
 
 	free(buddy);
 }
@@ -303,11 +327,8 @@ dr_icm_chunk_create(struct dr_icm_pool *pool,
 	chunk->byte_size = dr_icm_pool_chunk_size_to_byte(chunk_size, pool->icm_type);
 	chunk->seg = seg;
 
-	if (pool->icm_type == DR_ICM_TYPE_STE && dr_icm_chunk_ste_init(chunk)) {
-		dr_dbg(pool->dmn, "Failed init ste arrays: order: %d\n",
-		       chunk_size)
-		goto out_free_chunk;
-	}
+	if (pool->icm_type == DR_ICM_TYPE_STE)
+		dr_icm_chunk_ste_init(chunk, offset);
 
 	buddy_mem_pool->used_memory += chunk->byte_size;
 	list_node_init(&chunk->chunk_list);
@@ -316,10 +337,6 @@ dr_icm_chunk_create(struct dr_icm_pool *pool,
 	list_add_tail(&buddy_mem_pool->used_list, &chunk->chunk_list);
 
 	return chunk;
-
-out_free_chunk:
-	free(chunk);
-	return NULL;
 }
 
 static bool dr_icm_pool_is_sync_required(struct dr_icm_pool *pool)
