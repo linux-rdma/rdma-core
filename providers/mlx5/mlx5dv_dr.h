@@ -125,6 +125,7 @@ enum dr_ste_ctx_action_cap {
 	DR_STE_CTX_ACTION_CAP_RX_PUSH	= 1 << 1,
 	DR_STE_CTX_ACTION_CAP_RX_ENCAP	= 1 << 3,
 	DR_STE_CTX_ACTION_CAP_POP_MDFY	= 1 << 4,
+	DR_STE_CTX_ACTION_CAP_MODIFY_HDR_INLINE = 1 << 5,
 };
 
 enum {
@@ -367,6 +368,7 @@ struct dr_action_aso {
 struct dr_ste_actions_attr {
 	uint32_t	modify_index;
 	uint16_t	modify_actions;
+	uint8_t		*single_modify_action;
 	uint32_t	decap_index;
 	uint16_t	decap_actions;
 	bool		decap_with_vlan;
@@ -1179,6 +1181,7 @@ struct mlx5dv_dr_action {
 				struct {
 					struct dr_icm_chunk	*chunk;
 					uint8_t			*data;
+					bool			single_action_opt;
 					uint32_t		data_size;
 					uint16_t		num_of_actions;
 					uint32_t		index;

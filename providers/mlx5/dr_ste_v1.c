@@ -574,16 +574,21 @@ static void dr_ste_v1_set_rx_decap_l3(uint8_t *hw_ste_p,
 }
 
 static void dr_ste_v1_set_rewrite_actions(uint8_t *hw_ste_p,
-					  uint8_t *s_action,
+					  uint8_t *action_p,
 					  uint16_t num_of_actions,
-					  uint32_t re_write_index)
+					  uint32_t re_write_index,
+					  uint8_t *action_data)
 {
-	DR_STE_SET(single_action_modify_list_v1, s_action, action_id,
-		   DR_STE_V1_ACTION_ID_MODIFY_LIST);
-	DR_STE_SET(single_action_modify_list_v1, s_action, num_of_modify_actions,
-		   num_of_actions);
-	DR_STE_SET(single_action_modify_list_v1, s_action, modify_actions_ptr,
-		   re_write_index);
+	if (action_data) {
+		memcpy(action_p, action_data, DR_MODIFY_ACTION_SIZE);
+	} else {
+		DR_STE_SET(single_action_modify_list_v1, action_p, action_id,
+			   DR_STE_V1_ACTION_ID_MODIFY_LIST);
+		DR_STE_SET(single_action_modify_list_v1, action_p, num_of_modify_actions,
+			   num_of_actions);
+		DR_STE_SET(single_action_modify_list_v1, action_p, modify_actions_ptr,
+			   re_write_index);
+	}
 
 	dr_ste_v1_set_reparse(hw_ste_p);
 }
@@ -758,7 +763,8 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 		}
 		dr_ste_v1_set_rewrite_actions(last_ste, action,
 					      attr->modify_actions,
-					      attr->modify_index);
+					      attr->modify_index,
+					      attr->single_modify_action);
 		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
 		action += DR_STE_ACTION_DOUBLE_SZ;
 		allow_encap = false;
@@ -936,7 +942,8 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 		}
 		dr_ste_v1_set_rewrite_actions(last_ste, action,
 					      attr->modify_actions,
-					      attr->modify_index);
+					      attr->modify_index,
+					      attr->single_modify_action);
 		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
 		action += DR_STE_ACTION_DOUBLE_SZ;
 	}
@@ -3504,7 +3511,8 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	.actions_caps			= DR_STE_CTX_ACTION_CAP_TX_POP |
 					  DR_STE_CTX_ACTION_CAP_RX_PUSH |
 					  DR_STE_CTX_ACTION_CAP_RX_ENCAP |
-					  DR_STE_CTX_ACTION_CAP_POP_MDFY,
+					  DR_STE_CTX_ACTION_CAP_POP_MDFY |
+					  DR_STE_CTX_ACTION_CAP_MODIFY_HDR_INLINE,
 	.action_modify_field_arr	= dr_ste_v1_action_modify_field_arr,
 	.action_modify_field_arr_size	= ARRAY_SIZE(dr_ste_v1_action_modify_field_arr),
 	.set_actions_rx			= &dr_ste_v1_set_actions_rx,

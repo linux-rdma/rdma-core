@@ -714,6 +714,10 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			}
 			attr.modify_index = action->rewrite.index;
 			attr.modify_actions = action->rewrite.num_of_actions;
+			if (action->rewrite.single_action_opt)
+				attr.single_modify_action = action->rewrite.data;
+			else
+				attr.modify_index = action->rewrite.index;
 			break;
 		case DR_ACTION_TYP_L2_TO_TNL_L2:
 		case DR_ACTION_TYP_L2_TO_TNL_L3:
@@ -1972,6 +1976,17 @@ static int dr_action_create_modify_action(struct mlx5dv_dr_domain *dmn,
 	if (ret)
 		goto free_hw_actions;
 
+	action->rewrite.data = (uint8_t *)hw_actions;
+	action->rewrite.num_of_actions = num_hw_actions;
+
+	if (num_hw_actions == 1 &&
+	    (dmn->ste_ctx->actions_caps &
+	     DR_STE_CTX_ACTION_CAP_MODIFY_HDR_INLINE)) {
+		action->rewrite.single_action_opt = true;
+		return 0;
+	}
+
+	action->rewrite.single_action_opt = false;
 	dynamic_chunck_size = ilog32(num_hw_actions - 1);
 
 	/* HW modify action index granularity is at least 64B */
@@ -1983,8 +1998,7 @@ static int dr_action_create_modify_action(struct mlx5dv_dr_domain *dmn,
 		goto free_hw_actions;
 
 	action->rewrite.chunk = chunk;
-	action->rewrite.data = (uint8_t *)hw_actions;
-	action->rewrite.num_of_actions = num_hw_actions;
+
 	action->rewrite.index = (chunk->icm_addr -
 				 dmn->info.caps.hdr_modify_icm_addr) /
 				 ACTION_CACHE_LINE_SIZE;
@@ -2826,7 +2840,9 @@ int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action)
 		if (action->rewrite.is_root_level) {
 			mlx5_destroy_flow_action(action->rewrite.flow_action);
 		} else {
-			dr_icm_free_chunk(action->rewrite.chunk);
+			if (!action->rewrite.single_action_opt)
+				dr_icm_free_chunk(action->rewrite.chunk);
+
 			free(action->rewrite.data);
 		}
 		atomic_fetch_sub(&action->rewrite.dmn->refcount, 1);
