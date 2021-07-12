@@ -290,6 +290,7 @@ struct mlx5_vfio_context {
 	struct mlx5_eq async_eq;
 	struct mlx5_vfio_eqs_uar eqs_uar;
 	pthread_mutex_t eq_lock;
+	struct mlx5_dv_context_ops *dv_ctx_ops;
 };
 
 static inline struct mlx5_vfio_device *to_mvfio_dev(struct ibv_device *ibdev)

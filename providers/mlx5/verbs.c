@@ -1169,16 +1169,11 @@ struct ibv_cq_ex *mlx5_create_cq_ex(struct ibv_context *context,
 	return create_cq(context, cq_attr, MLX5_CQ_FLAGS_EXTENDED, NULL);
 }
 
-struct ibv_cq_ex *mlx5dv_create_cq(struct ibv_context *context,
-				      struct ibv_cq_init_attr_ex *cq_attr,
-				      struct mlx5dv_cq_init_attr *mlx5_cq_attr)
+static struct ibv_cq_ex *_mlx5dv_create_cq(struct ibv_context *context,
+					   struct ibv_cq_init_attr_ex *cq_attr,
+					   struct mlx5dv_cq_init_attr *mlx5_cq_attr)
 {
 	struct ibv_cq_ex *cq;
-
-	if (!is_mlx5_dev(context->device)) {
-		errno = EOPNOTSUPP;
-		return NULL;
-	}
 
 	cq = create_cq(context, cq_attr, MLX5_CQ_FLAGS_EXTENDED, mlx5_cq_attr);
 	if (!cq)
@@ -1187,6 +1182,20 @@ struct ibv_cq_ex *mlx5dv_create_cq(struct ibv_context *context,
 	verbs_init_cq(ibv_cq_ex_to_cq(cq), context,
 		      cq_attr->channel, cq_attr->cq_context);
 	return cq;
+}
+
+struct ibv_cq_ex *mlx5dv_create_cq(struct ibv_context *context,
+				      struct ibv_cq_init_attr_ex *cq_attr,
+				      struct mlx5dv_cq_init_attr *mlx5_cq_attr)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->create_cq) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->create_cq(context, cq_attr, mlx5_cq_attr);
 }
 
 int mlx5_resize_cq(struct ibv_cq *ibcq, int cqe)
@@ -3128,7 +3137,7 @@ int mlx5_destroy_ah(struct ibv_ah *ah)
 	return 0;
 }
 
-int mlx5dv_map_ah_to_qp(struct ibv_ah *ah, uint32_t qp_num)
+static int _mlx5dv_map_ah_to_qp(struct ibv_ah *ah, uint32_t qp_num)
 {
 	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
 	uint32_t in[DEVX_ST_SZ_DW(create_av_qp_mapping_in)] = {};
@@ -3137,9 +3146,6 @@ int mlx5dv_map_ah_to_qp(struct ibv_ah *ah, uint32_t qp_num)
 	uint8_t sgid_index;
 	void *attr;
 	int ret = 0;
-
-	if (!is_mlx5_dev(ah->context->device))
-		return EOPNOTSUPP;
 
 	if (!(mctx->general_obj_types_caps &
 	      (1ULL << MLX5_OBJ_TYPE_AV_QP_MAPPING)) ||
@@ -3175,6 +3181,16 @@ int mlx5dv_map_ah_to_qp(struct ibv_ah *ah, uint32_t qp_num)
 	return ret;
 }
 
+int mlx5dv_map_ah_to_qp(struct ibv_ah *ah, uint32_t qp_num)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(ah->context);
+
+	if (!dvops || !dvops->map_ah_to_qp)
+		return EOPNOTSUPP;
+
+	return dvops->map_ah_to_qp(ah, qp_num);
+}
+
 int mlx5_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
 {
 	return ibv_cmd_attach_mcast(qp, gid, lid);
@@ -3191,16 +3207,25 @@ struct ibv_qp *mlx5_create_qp_ex(struct ibv_context *context,
 	return create_qp(context, attr, NULL);
 }
 
+static struct ibv_qp *_mlx5dv_create_qp(struct ibv_context *context,
+				struct ibv_qp_init_attr_ex *qp_attr,
+				struct mlx5dv_qp_init_attr *mlx5_qp_attr)
+{
+	return create_qp(context, qp_attr, mlx5_qp_attr);
+}
+
 struct ibv_qp *mlx5dv_create_qp(struct ibv_context *context,
 				struct ibv_qp_init_attr_ex *qp_attr,
 				struct mlx5dv_qp_init_attr *mlx5_qp_attr)
 {
-	if (!is_mlx5_dev(context->device)) {
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->create_qp) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
-	return create_qp(context, qp_attr, mlx5_qp_attr);
+	return dvops->create_qp(context, qp_attr, mlx5_qp_attr);
 }
 
 struct mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(struct ibv_qp_ex *qp)
@@ -4029,16 +4054,25 @@ struct ibv_wq *mlx5_create_wq(struct ibv_context *context,
 	return create_wq(context, attr, NULL);
 }
 
+static struct ibv_wq *_mlx5dv_create_wq(struct ibv_context *context,
+					struct ibv_wq_init_attr *attr,
+					struct mlx5dv_wq_init_attr *mlx5_wq_attr)
+{
+	return create_wq(context, attr, mlx5_wq_attr);
+}
+
 struct ibv_wq *mlx5dv_create_wq(struct ibv_context *context,
 				struct ibv_wq_init_attr *attr,
 				struct mlx5dv_wq_init_attr *mlx5_wq_attr)
 {
-	if (!is_mlx5_dev(context->device)) {
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->create_wq) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
-	return create_wq(context, attr, mlx5_wq_attr);
+	return dvops->create_wq(context, attr, mlx5_wq_attr);
 }
 
 int mlx5_modify_wq(struct ibv_wq *wq, struct ibv_wq_attr *attr)
@@ -4318,9 +4352,10 @@ struct ibv_flow_action *mlx5_create_flow_action_esp(struct ibv_context *ctx,
 	return _mlx5_create_flow_action_esp(ctx, attr, NULL);
 }
 
-struct ibv_flow_action *mlx5dv_create_flow_action_esp(struct ibv_context *ctx,
-						      struct ibv_flow_action_esp_attr *esp,
-						      struct mlx5dv_flow_action_esp *mlx5_attr)
+static struct ibv_flow_action *
+_mlx5dv_create_flow_action_esp(struct ibv_context *ctx,
+			       struct ibv_flow_action_esp_attr *esp,
+			       struct mlx5dv_flow_action_esp *mlx5_attr)
 {
 	DECLARE_COMMAND_BUFFER_LINK(driver_attr, UVERBS_OBJECT_FLOW_ACTION,
 				    UVERBS_METHOD_FLOW_ACTION_ESP_CREATE, 1,
@@ -4345,6 +4380,21 @@ struct ibv_flow_action *mlx5dv_create_flow_action_esp(struct ibv_context *ctx,
 	return _mlx5_create_flow_action_esp(ctx, esp, driver_attr);
 }
 
+struct ibv_flow_action *mlx5dv_create_flow_action_esp(struct ibv_context *ctx,
+						      struct ibv_flow_action_esp_attr *esp,
+						      struct mlx5dv_flow_action_esp *mlx5_attr)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(ctx);
+
+	if (!dvops || !dvops->create_flow_action_esp) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->create_flow_action_esp(ctx, esp,
+						      mlx5_attr);
+}
+
 int mlx5_modify_flow_action_esp(struct ibv_flow_action *action,
 				struct ibv_flow_action_esp_attr *attr)
 {
@@ -4357,10 +4407,11 @@ int mlx5_modify_flow_action_esp(struct ibv_flow_action *action,
 	return ibv_cmd_modify_flow_action_esp(vaction, attr, NULL);
 }
 
-struct ibv_flow_action *mlx5dv_create_flow_action_modify_header(struct ibv_context *ctx,
-								size_t actions_sz,
-								uint64_t actions[],
-								enum mlx5dv_flow_table_type ft_type)
+static struct ibv_flow_action *
+_mlx5dv_create_flow_action_modify_header(struct ibv_context *ctx,
+					 size_t actions_sz,
+					 uint64_t actions[],
+					 enum mlx5dv_flow_table_type ft_type)
 {
 	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_FLOW_ACTION,
 			       MLX5_IB_METHOD_FLOW_ACTION_CREATE_MODIFY_HEADER,
@@ -4395,12 +4446,29 @@ struct ibv_flow_action *mlx5dv_create_flow_action_modify_header(struct ibv_conte
 	return &action->action;
 }
 
-struct ibv_flow_action *
-mlx5dv_create_flow_action_packet_reformat(struct ibv_context *ctx,
-					  size_t data_sz,
-					  void *data,
-					  enum mlx5dv_flow_action_packet_reformat_type reformat_type,
-					  enum mlx5dv_flow_table_type ft_type)
+struct ibv_flow_action *mlx5dv_create_flow_action_modify_header(struct ibv_context *ctx,
+								size_t actions_sz,
+								uint64_t actions[],
+								enum mlx5dv_flow_table_type ft_type)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(ctx);
+
+	if (!dvops || !dvops->create_flow_action_modify_header) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->create_flow_action_modify_header(ctx, actions_sz,
+								actions, ft_type);
+
+}
+
+static struct ibv_flow_action *
+_mlx5dv_create_flow_action_packet_reformat(struct ibv_context *ctx,
+					   size_t data_sz,
+					   void *data,
+					   enum mlx5dv_flow_action_packet_reformat_type reformat_type,
+					   enum mlx5dv_flow_table_type ft_type)
 {
 	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_FLOW_ACTION,
 			       MLX5_IB_METHOD_FLOW_ACTION_CREATE_PACKET_REFORMAT, 4);
@@ -4443,6 +4511,24 @@ mlx5dv_create_flow_action_packet_reformat(struct ibv_context *ctx,
 				       handle);
 
 	return &action->action;
+}
+
+struct ibv_flow_action *
+mlx5dv_create_flow_action_packet_reformat(struct ibv_context *ctx,
+					  size_t data_sz,
+					  void *data,
+					  enum mlx5dv_flow_action_packet_reformat_type reformat_type,
+					  enum mlx5dv_flow_table_type ft_type)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(ctx);
+
+	if (!dvops || !dvops->create_flow_action_packet_reformat) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->create_flow_action_packet_reformat(ctx, data_sz, data,
+								  reformat_type, ft_type);
 }
 
 int mlx5_destroy_flow_action(struct ibv_flow_action *action)
@@ -4522,7 +4608,7 @@ static void *dm_mmap(struct ibv_context *context, struct mlx5_dm *mdm,
 		    context->cmd_fd, page_size * offset);
 }
 
-void *mlx5dv_dm_map_op_addr(struct ibv_dm *dm, uint8_t op)
+static void *_mlx5dv_dm_map_op_addr(struct ibv_dm *dm, uint8_t op)
 {
 	int page_size = to_mdev(dm->context->device)->page_size;
 	struct mlx5_dm *mdm = to_mdm(dm);
@@ -4530,11 +4616,6 @@ void *mlx5dv_dm_map_op_addr(struct ibv_dm *dm, uint8_t op)
 	uint16_t page_idx;
 	void *va;
 	int ret;
-
-	if (!is_mlx5_dev(dm->context->device)) {
-		errno = EOPNOTSUPP;
-		return NULL;
-	}
 
 	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_DM,
 			       MLX5_IB_METHOD_DM_MAP_OP_ADDR, 4);
@@ -4556,6 +4637,18 @@ void *mlx5dv_dm_map_op_addr(struct ibv_dm *dm, uint8_t op)
 		return NULL;
 
 	return va + (start_offset & (page_size - 1));
+}
+
+void *mlx5dv_dm_map_op_addr(struct ibv_dm *dm, uint8_t op)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(dm->context);
+
+	if (!dvops || !dvops->dm_map_op_addr) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->dm_map_op_addr(dm, op);
 }
 
 void mlx5_unimport_dm(struct ibv_dm *ibdm)
@@ -4673,10 +4766,10 @@ static int alloc_dm_steering_sw_icm(struct ibv_context *ctx,
 	return 0;
 }
 
-struct ibv_dm *
-mlx5dv_alloc_dm(struct ibv_context *context,
-		struct ibv_alloc_dm_attr *dm_attr,
-		struct mlx5dv_alloc_dm_attr *mlx5_dm_attr)
+static struct ibv_dm *
+_mlx5dv_alloc_dm(struct ibv_context *context,
+		 struct ibv_alloc_dm_attr *dm_attr,
+		 struct mlx5dv_alloc_dm_attr *mlx5_dm_attr)
 {
 	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_DM, UVERBS_METHOD_DM_ALLOC,
 			       3);
@@ -4724,6 +4817,21 @@ err_free_mem:
 	free(dm);
 
 	return NULL;
+}
+
+struct ibv_dm *
+mlx5dv_alloc_dm(struct ibv_context *context,
+		struct ibv_alloc_dm_attr *dm_attr,
+		struct mlx5dv_alloc_dm_attr *mlx5_dm_attr)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->alloc_dm) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->alloc_dm(context, dm_attr, mlx5_dm_attr);
 }
 
 int mlx5_free_dm(struct ibv_dm *ibdm)
@@ -4865,9 +4973,9 @@ int mlx5_read_counters(struct ibv_counters *counters,
 
 }
 
-struct mlx5dv_flow_matcher *
-mlx5dv_create_flow_matcher(struct ibv_context *context,
-			   struct mlx5dv_flow_matcher_attr *attr)
+static struct mlx5dv_flow_matcher *
+_mlx5dv_create_flow_matcher(struct ibv_context *context,
+			    struct mlx5dv_flow_matcher_attr *attr)
 {
 	DECLARE_COMMAND_BUFFER(cmd, MLX5_IB_OBJECT_FLOW_MATCHER,
 			       MLX5_IB_METHOD_FLOW_MATCHER_CREATE,
@@ -4924,7 +5032,21 @@ err:
 	return NULL;
 }
 
-int mlx5dv_destroy_flow_matcher(struct mlx5dv_flow_matcher *flow_matcher)
+struct mlx5dv_flow_matcher *
+mlx5dv_create_flow_matcher(struct ibv_context *context,
+			   struct mlx5dv_flow_matcher_attr *attr)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->create_flow_matcher) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->create_flow_matcher(context, attr);
+}
+
+static int _mlx5dv_destroy_flow_matcher(struct mlx5dv_flow_matcher *flow_matcher)
 {
 	DECLARE_COMMAND_BUFFER(cmd, MLX5_IB_OBJECT_FLOW_MATCHER,
 			       MLX5_IB_METHOD_FLOW_MATCHER_DESTROY,
@@ -4942,13 +5064,23 @@ int mlx5dv_destroy_flow_matcher(struct mlx5dv_flow_matcher *flow_matcher)
 	return 0;
 }
 
+int mlx5dv_destroy_flow_matcher(struct mlx5dv_flow_matcher *flow_matcher)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(flow_matcher->context);
+
+	if (!dvops || !dvops->destroy_flow_matcher)
+		return EOPNOTSUPP;
+
+	return dvops->destroy_flow_matcher(flow_matcher);
+}
+
 #define CREATE_FLOW_MAX_FLOW_ACTIONS_SUPPORTED 8
 struct ibv_flow *
-__mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
-		     struct mlx5dv_flow_match_parameters *match_value,
-		     size_t num_actions,
-		     struct mlx5dv_flow_action_attr actions_attr[],
-		     struct mlx5_flow_action_attr_aux actions_attr_aux[])
+_mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
+		    struct mlx5dv_flow_match_parameters *match_value,
+		    size_t num_actions,
+		    struct mlx5dv_flow_action_attr actions_attr[],
+		    struct mlx5_flow_action_attr_aux actions_attr_aux[])
 {
 	uint32_t flow_actions[CREATE_FLOW_MAX_FLOW_ACTIONS_SUPPORTED];
 	struct verbs_flow_action *vaction;
@@ -5094,15 +5226,22 @@ mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 		   size_t num_actions,
 		   struct mlx5dv_flow_action_attr actions_attr[])
 {
-	return __mlx5dv_create_flow(flow_matcher,
-				    match_value,
-				    num_actions,
-				    actions_attr,
-				    NULL);
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(flow_matcher->context);
+
+	if (!dvops || !dvops->create_flow) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->create_flow(flow_matcher,
+				  match_value,
+				  num_actions,
+				  actions_attr,
+				  NULL);
 }
 
 static struct mlx5dv_devx_umem *
-_mlx5dv_devx_umem_reg_ex(struct ibv_context *context,
+__mlx5dv_devx_umem_reg_ex(struct ibv_context *context,
 			 struct mlx5dv_devx_umem_in *in,
 			 bool legacy)
 {
@@ -5159,8 +5298,8 @@ err:
 	return NULL;
 }
 
-struct mlx5dv_devx_umem *
-mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint32_t access)
+static struct mlx5dv_devx_umem *
+_mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint32_t access)
 {
 	struct mlx5dv_devx_umem_in umem_in = {};
 
@@ -5170,16 +5309,43 @@ mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint3
 
 	umem_in.pgsz_bitmap = UINT64_MAX & ~(MLX5_ADAPTER_PAGE_SIZE - 1);
 
-	return _mlx5dv_devx_umem_reg_ex(context, &umem_in, true);
+	return __mlx5dv_devx_umem_reg_ex(context, &umem_in, true);
+}
+
+static struct mlx5dv_devx_umem *
+_mlx5dv_devx_umem_reg_ex(struct ibv_context *ctx, struct mlx5dv_devx_umem_in *umem_in)
+{
+	return __mlx5dv_devx_umem_reg_ex(ctx, umem_in, false);
 }
 
 struct mlx5dv_devx_umem *
 mlx5dv_devx_umem_reg_ex(struct ibv_context *ctx, struct mlx5dv_devx_umem_in *umem_in)
 {
-	return _mlx5dv_devx_umem_reg_ex(ctx, umem_in, false);
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(ctx);
+
+	if (!dvops || !dvops->devx_umem_reg_ex) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->devx_umem_reg_ex(ctx, umem_in);
 }
 
-int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *dv_devx_umem)
+struct mlx5dv_devx_umem *
+mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint32_t access)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->devx_umem_reg) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->devx_umem_reg(context, addr, size, access);
+
+}
+
+static int _mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *dv_devx_umem)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_UMEM,
@@ -5197,6 +5363,19 @@ int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *dv_devx_umem)
 	ibv_dofork_range(umem->addr, umem->size);
 	free(umem);
 	return 0;
+}
+
+int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *dv_devx_umem)
+{
+	struct mlx5_devx_umem *umem = container_of(dv_devx_umem, struct mlx5_devx_umem,
+						   dv_devx_umem);
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(umem->context);
+
+	if (!dvops || !dvops->devx_umem_dereg)
+		return EOPNOTSUPP;
+
+	return dvops->devx_umem_dereg(dv_devx_umem);
+
 }
 
 static void set_devx_obj_info(const void *in, const void *out,
@@ -5261,9 +5440,9 @@ static void set_devx_obj_info(const void *in, const void *out,
 	}
 }
 
-struct mlx5dv_devx_obj *
-mlx5dv_devx_obj_create(struct ibv_context *context, const void *in, size_t inlen,
-				void *out, size_t outlen)
+static struct mlx5dv_devx_obj *
+_mlx5dv_devx_obj_create(struct ibv_context *context, const void *in,
+			size_t inlen, void *out, size_t outlen)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_OBJ,
@@ -5290,14 +5469,30 @@ mlx5dv_devx_obj_create(struct ibv_context *context, const void *in, size_t inlen
 	obj->handle = read_attr_obj(MLX5_IB_ATTR_DEVX_OBJ_CREATE_HANDLE, handle);
 	obj->context = context;
 	set_devx_obj_info(in, out, obj);
+
 	return obj;
 err:
 	free(obj);
 	return NULL;
 }
 
-int mlx5dv_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
-				void *out, size_t outlen)
+struct mlx5dv_devx_obj *
+mlx5dv_devx_obj_create(struct ibv_context *context, const void *in,
+			 size_t inlen, void *out, size_t outlen)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->devx_obj_create) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->devx_obj_create(context, in, inlen, out, outlen);
+}
+
+static int
+_mlx5dv_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in,
+		       size_t inlen, void *out, size_t outlen)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_OBJ,
@@ -5311,8 +5506,19 @@ int mlx5dv_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in, size_t in
 	return execute_ioctl(obj->context, cmd);
 }
 
-int mlx5dv_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
-				void *out, size_t outlen)
+int mlx5dv_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in, size_t inlen,
+			  void *out, size_t outlen)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(obj->context);
+
+	if (!dvops || !dvops->devx_obj_query)
+		return EOPNOTSUPP;
+
+	return dvops->devx_obj_query(obj, in, inlen, out, outlen);
+}
+
+static int _mlx5dv_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in,
+				   size_t inlen, void *out, size_t outlen)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_OBJ,
@@ -5326,7 +5532,18 @@ int mlx5dv_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in, size_t i
 	return execute_ioctl(obj->context, cmd);
 }
 
-int mlx5dv_devx_obj_destroy(struct mlx5dv_devx_obj *obj)
+int mlx5dv_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in,
+			   size_t inlen, void *out, size_t outlen)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(obj->context);
+
+	if (!dvops || !dvops->devx_obj_modify)
+		return EOPNOTSUPP;
+
+	return dvops->devx_obj_modify(obj, in, inlen, out, outlen);
+}
+
+static int _mlx5dv_devx_obj_destroy(struct mlx5dv_devx_obj *obj)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_OBJ,
@@ -5343,8 +5560,18 @@ int mlx5dv_devx_obj_destroy(struct mlx5dv_devx_obj *obj)
 	return 0;
 }
 
-int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t inlen,
-			void *out, size_t outlen)
+int mlx5dv_devx_obj_destroy(struct mlx5dv_devx_obj *obj)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(obj->context);
+
+	if (!dvops || !dvops->devx_obj_destroy)
+		return EOPNOTSUPP;
+
+	return dvops->devx_obj_destroy(obj);
+}
+
+static int _mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in,
+				    size_t inlen, void *out, size_t outlen)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX,
@@ -5357,22 +5584,42 @@ int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t 
 	return execute_ioctl(context, cmd);
 }
 
-int _mlx5dv_query_port(struct ibv_context *context,
-		       uint32_t port_num,
-		       struct mlx5dv_port *info, size_t info_len)
+int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t inlen,
+			    void *out, size_t outlen)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->devx_general_cmd)
+		return EOPNOTSUPP;
+
+	return dvops->devx_general_cmd(context, in, inlen, out, outlen);
+}
+
+static int __mlx5dv_query_port(struct ibv_context *context,
+			       uint32_t port_num,
+			       struct mlx5dv_port *info, size_t info_len)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       UVERBS_OBJECT_DEVICE,
 			       MLX5_IB_METHOD_QUERY_PORT,
 			       2);
 
-	if (!is_mlx5_dev(context->device))
-		return EOPNOTSUPP;
-
 	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_QUERY_PORT_PORT_NUM, port_num);
 	fill_attr_out(cmd, MLX5_IB_ATTR_QUERY_PORT, info, info_len);
 
 	return execute_ioctl(context, cmd);
+}
+
+int _mlx5dv_query_port(struct ibv_context *context,
+		       uint32_t port_num,
+		       struct mlx5dv_port *info, size_t info_len)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->query_port)
+		return EOPNOTSUPP;
+
+	return dvops->query_port(context, port_num, info, info_len);
 }
 
 void clean_dyn_uars(struct ibv_context *context)
@@ -5399,8 +5646,8 @@ void clean_dyn_uars(struct ibv_context *context)
 		mlx5_free_uar(context, ctx->nc_uar);
 }
 
-struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
-					      uint32_t flags)
+static struct mlx5dv_devx_uar *
+_mlx5dv_devx_alloc_uar(struct ibv_context *context, uint32_t flags)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX,
@@ -5409,11 +5656,6 @@ struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
 
 	int ret;
 	struct mlx5_bf *bf;
-
-	if (!is_mlx5_dev(context->device)) {
-		errno = EOPNOTSUPP;
-		return NULL;
-	}
 
 	if (!check_comp_mask(flags, MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC)) {
 		errno = EOPNOTSUPP;
@@ -5450,7 +5692,20 @@ struct mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(struct ibv_context *context,
 	return &bf->devx_uar.dv_devx_uar;
 }
 
-void mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *dv_devx_uar)
+struct mlx5dv_devx_uar *
+mlx5dv_devx_alloc_uar(struct ibv_context *context, uint32_t flags)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->devx_alloc_uar) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->devx_alloc_uar(context, flags);
+}
+
+static void _mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *dv_devx_uar)
 {
 	struct mlx5_bf *bf = container_of(dv_devx_uar, struct mlx5_bf,
 					  devx_uar.dv_devx_uar);
@@ -5461,8 +5716,20 @@ void mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *dv_devx_uar)
 	mlx5_detach_dedicated_uar(bf->devx_uar.context, bf);
 }
 
-int mlx5dv_devx_query_eqn(struct ibv_context *context, uint32_t vector,
-			  uint32_t *eqn)
+void mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *dv_devx_uar)
+{
+	struct mlx5_devx_uar *uar = container_of(dv_devx_uar, struct mlx5_devx_uar,
+						 dv_devx_uar);
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(uar->context);
+
+	if (!dvops || !dvops->devx_free_uar)
+		return;
+
+	dvops->devx_free_uar(dv_devx_uar);
+}
+
+static int _mlx5dv_devx_query_eqn(struct ibv_context *context,
+				   uint32_t vector, uint32_t *eqn)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX,
@@ -5475,8 +5742,19 @@ int mlx5dv_devx_query_eqn(struct ibv_context *context, uint32_t vector,
 	return execute_ioctl(context, cmd);
 }
 
-int mlx5dv_devx_cq_query(struct ibv_cq *cq, const void *in, size_t inlen,
-				void *out, size_t outlen)
+int mlx5dv_devx_query_eqn(struct ibv_context *context, uint32_t vector,
+			  uint32_t *eqn)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->devx_query_eqn)
+		return EOPNOTSUPP;
+
+	return dvops->devx_query_eqn(context, vector, eqn);
+}
+
+static int _mlx5dv_devx_cq_query(struct ibv_cq *cq, const void *in,
+				  size_t inlen, void *out, size_t outlen)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_OBJ,
@@ -5490,8 +5768,19 @@ int mlx5dv_devx_cq_query(struct ibv_cq *cq, const void *in, size_t inlen,
 	return execute_ioctl(cq->context, cmd);
 }
 
-int mlx5dv_devx_cq_modify(struct ibv_cq *cq, const void *in, size_t inlen,
+int mlx5dv_devx_cq_query(struct ibv_cq *cq, const void *in, size_t inlen,
 				void *out, size_t outlen)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(cq->context);
+
+	if (!dvops || !dvops->devx_cq_query)
+		return EOPNOTSUPP;
+
+	return dvops->devx_cq_query(cq, in, inlen, out, outlen);
+}
+
+static int _mlx5dv_devx_cq_modify(struct ibv_cq *cq, const void *in,
+				   size_t inlen, void *out, size_t outlen)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_OBJ,
@@ -5505,8 +5794,19 @@ int mlx5dv_devx_cq_modify(struct ibv_cq *cq, const void *in, size_t inlen,
 	return execute_ioctl(cq->context, cmd);
 }
 
-int mlx5dv_devx_qp_query(struct ibv_qp *qp, const void *in, size_t inlen,
+int mlx5dv_devx_cq_modify(struct ibv_cq *cq, const void *in, size_t inlen,
 				void *out, size_t outlen)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(cq->context);
+
+	if (!dvops || !dvops->devx_cq_modify)
+		return EOPNOTSUPP;
+
+	return dvops->devx_cq_modify(cq, in, inlen, out, outlen);
+}
+
+static int _mlx5dv_devx_qp_query(struct ibv_qp *qp, const void *in,
+				  size_t inlen, void *out, size_t outlen)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_OBJ,
@@ -5520,8 +5820,19 @@ int mlx5dv_devx_qp_query(struct ibv_qp *qp, const void *in, size_t inlen,
 	return execute_ioctl(qp->context, cmd);
 }
 
-int mlx5dv_devx_qp_modify(struct ibv_qp *qp, const void *in, size_t inlen,
+int mlx5dv_devx_qp_query(struct ibv_qp *qp, const void *in, size_t inlen,
 				void *out, size_t outlen)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(qp->context);
+
+	if (!dvops || !dvops->devx_qp_query)
+		return EOPNOTSUPP;
+
+	return dvops->devx_qp_query(qp, in, inlen, out, outlen);
+}
+
+static int _mlx5dv_devx_qp_modify(struct ibv_qp *qp, const void *in,
+				   size_t inlen, void *out, size_t outlen)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_OBJ,
@@ -5535,8 +5846,19 @@ int mlx5dv_devx_qp_modify(struct ibv_qp *qp, const void *in, size_t inlen,
 	return execute_ioctl(qp->context, cmd);
 }
 
-int mlx5dv_devx_srq_query(struct ibv_srq *srq, const void *in, size_t inlen,
-				void *out, size_t outlen)
+int mlx5dv_devx_qp_modify(struct ibv_qp *qp, const void *in, size_t inlen,
+			  void *out, size_t outlen)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(qp->context);
+
+	if (!dvops || !dvops->devx_qp_modify)
+		return EOPNOTSUPP;
+
+	return dvops->devx_qp_modify(qp, in, inlen, out, outlen);
+}
+
+static int _mlx5dv_devx_srq_query(struct ibv_srq *srq, const void *in,
+				   size_t inlen, void *out, size_t outlen)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_OBJ,
@@ -5550,8 +5872,19 @@ int mlx5dv_devx_srq_query(struct ibv_srq *srq, const void *in, size_t inlen,
 	return execute_ioctl(srq->context, cmd);
 }
 
-int mlx5dv_devx_srq_modify(struct ibv_srq *srq, const void *in, size_t inlen,
-				void *out, size_t outlen)
+int mlx5dv_devx_srq_query(struct ibv_srq *srq, const void *in, size_t inlen,
+			  void *out, size_t outlen)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(srq->context);
+
+	if (!dvops || !dvops->devx_srq_query)
+		return EOPNOTSUPP;
+
+	return dvops->devx_srq_query(srq, in, inlen, out, outlen);
+}
+
+static int _mlx5dv_devx_srq_modify(struct ibv_srq *srq, const void *in,
+				    size_t inlen, void *out, size_t outlen)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_OBJ,
@@ -5565,8 +5898,19 @@ int mlx5dv_devx_srq_modify(struct ibv_srq *srq, const void *in, size_t inlen,
 	return execute_ioctl(srq->context, cmd);
 }
 
-int mlx5dv_devx_wq_query(struct ibv_wq *wq, const void *in, size_t inlen,
-				void *out, size_t outlen)
+int mlx5dv_devx_srq_modify(struct ibv_srq *srq, const void *in, size_t inlen,
+			   void *out, size_t outlen)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(srq->context);
+
+	if (!dvops || !dvops->devx_srq_modify)
+		return EOPNOTSUPP;
+
+	return dvops->devx_srq_modify(srq, in, inlen, out, outlen);
+}
+
+static int _mlx5dv_devx_wq_query(struct ibv_wq *wq, const void *in, size_t inlen,
+				  void *out, size_t outlen)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_OBJ,
@@ -5580,8 +5924,19 @@ int mlx5dv_devx_wq_query(struct ibv_wq *wq, const void *in, size_t inlen,
 	return execute_ioctl(wq->context, cmd);
 }
 
-int mlx5dv_devx_wq_modify(struct ibv_wq *wq, const void *in, size_t inlen,
-				void *out, size_t outlen)
+int mlx5dv_devx_wq_query(struct ibv_wq *wq, const void *in, size_t inlen,
+			 void *out, size_t outlen)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(wq->context);
+
+	if (!dvops || !dvops->devx_wq_query)
+		return EOPNOTSUPP;
+
+	return dvops->devx_wq_query(wq, in, inlen, out, outlen);
+}
+
+static int _mlx5dv_devx_wq_modify(struct ibv_wq *wq, const void *in,
+				   size_t inlen, void *out, size_t outlen)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_OBJ,
@@ -5595,8 +5950,20 @@ int mlx5dv_devx_wq_modify(struct ibv_wq *wq, const void *in, size_t inlen,
 	return execute_ioctl(wq->context, cmd);
 }
 
-int mlx5dv_devx_ind_tbl_query(struct ibv_rwq_ind_table *ind_tbl, const void *in, size_t inlen,
-				void *out, size_t outlen)
+int mlx5dv_devx_wq_modify(struct ibv_wq *wq, const void *in, size_t inlen,
+			  void *out, size_t outlen)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(wq->context);
+
+	if (!dvops || !dvops->devx_wq_modify)
+		return EOPNOTSUPP;
+
+	return dvops->devx_wq_modify(wq, in, inlen, out, outlen);
+}
+
+static int _mlx5dv_devx_ind_tbl_query(struct ibv_rwq_ind_table *ind_tbl,
+				       const void *in, size_t inlen,
+				       void *out, size_t outlen)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_OBJ,
@@ -5610,8 +5977,21 @@ int mlx5dv_devx_ind_tbl_query(struct ibv_rwq_ind_table *ind_tbl, const void *in,
 	return execute_ioctl(ind_tbl->context, cmd);
 }
 
-int mlx5dv_devx_ind_tbl_modify(struct ibv_rwq_ind_table *ind_tbl, const void *in, size_t inlen,
-				void *out, size_t outlen)
+
+int mlx5dv_devx_ind_tbl_query(struct ibv_rwq_ind_table *ind_tbl, const void *in,
+			      size_t inlen, void *out, size_t outlen)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(ind_tbl->context);
+
+	if (!dvops || !dvops->devx_ind_tbl_query)
+		return EOPNOTSUPP;
+
+	return dvops->devx_ind_tbl_query(ind_tbl, in, inlen, out, outlen);
+}
+
+static int _mlx5dv_devx_ind_tbl_modify(struct ibv_rwq_ind_table *ind_tbl,
+					const void *in, size_t inlen,
+					void *out, size_t outlen)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_OBJ,
@@ -5625,8 +6005,20 @@ int mlx5dv_devx_ind_tbl_modify(struct ibv_rwq_ind_table *ind_tbl, const void *in
 	return execute_ioctl(ind_tbl->context, cmd);
 }
 
-struct mlx5dv_devx_cmd_comp *
-mlx5dv_devx_create_cmd_comp(struct ibv_context *context)
+int mlx5dv_devx_ind_tbl_modify(struct ibv_rwq_ind_table *ind_tbl,
+			       const void *in, size_t inlen,
+			       void *out, size_t outlen)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(ind_tbl->context);
+
+	if (!dvops || !dvops->devx_ind_tbl_modify)
+		return EOPNOTSUPP;
+
+	return dvops->devx_ind_tbl_modify(ind_tbl, in, inlen, out, outlen);
+}
+
+static struct mlx5dv_devx_cmd_comp *
+_mlx5dv_devx_create_cmd_comp(struct ibv_context *context)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_ASYNC_CMD_FD,
@@ -5658,16 +6050,35 @@ err:
 	return NULL;
 }
 
-void mlx5dv_devx_destroy_cmd_comp(
+struct mlx5dv_devx_cmd_comp *
+mlx5dv_devx_create_cmd_comp(struct ibv_context *context)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->devx_create_cmd_comp) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->devx_create_cmd_comp(context);
+}
+
+static void _mlx5dv_devx_destroy_cmd_comp(
 			struct mlx5dv_devx_cmd_comp *cmd_comp)
 {
 	close(cmd_comp->fd);
 	free(cmd_comp);
 }
 
-struct mlx5dv_devx_event_channel *
-mlx5dv_devx_create_event_channel(struct ibv_context *context,
-				 enum mlx5dv_devx_create_event_channel_flags flags)
+void mlx5dv_devx_destroy_cmd_comp(
+			struct mlx5dv_devx_cmd_comp *cmd_comp)
+{
+	_mlx5dv_devx_destroy_cmd_comp(cmd_comp);
+}
+
+static struct mlx5dv_devx_event_channel *
+_mlx5dv_devx_create_event_channel(struct ibv_context *context,
+				   enum mlx5dv_devx_create_event_channel_flags flags)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_ASYNC_EVENT_FD,
@@ -5702,7 +6113,21 @@ err:
 	return NULL;
 }
 
-void mlx5dv_devx_destroy_event_channel(
+struct mlx5dv_devx_event_channel *
+mlx5dv_devx_create_event_channel(struct ibv_context *context,
+				 enum mlx5dv_devx_create_event_channel_flags flags)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->devx_create_event_channel) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->devx_create_event_channel(context, flags);
+}
+
+static void _mlx5dv_devx_destroy_event_channel(
 			struct mlx5dv_devx_event_channel *dv_event_channel)
 {
 	struct mlx5_devx_event_channel *event_channel =
@@ -5713,11 +6138,26 @@ void mlx5dv_devx_destroy_event_channel(
 	free(event_channel);
 }
 
-int mlx5dv_devx_subscribe_devx_event(struct mlx5dv_devx_event_channel *dv_event_channel,
-				     struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
-				     uint16_t events_sz,
-				     uint16_t events_num[],
-				     uint64_t cookie)
+void mlx5dv_devx_destroy_event_channel(
+			struct mlx5dv_devx_event_channel *dv_event_channel)
+{
+	struct mlx5_devx_event_channel *ech =
+			container_of(dv_event_channel, struct mlx5_devx_event_channel,
+				     dv_event_channel);
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(ech->context);
+
+	if (!dvops || !dvops->devx_destroy_event_channel)
+		return;
+
+	return dvops->devx_destroy_event_channel(dv_event_channel);
+}
+
+static int
+_mlx5dv_devx_subscribe_devx_event(struct mlx5dv_devx_event_channel *dv_event_channel,
+				  struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+				  uint16_t events_sz,
+				  uint16_t events_num[],
+				  uint64_t cookie)
 {
 	struct mlx5_devx_event_channel *event_channel =
 			container_of(dv_event_channel, struct mlx5_devx_event_channel,
@@ -5737,10 +6177,26 @@ int mlx5dv_devx_subscribe_devx_event(struct mlx5dv_devx_event_channel *dv_event_
 	return execute_ioctl(event_channel->context, cmd);
 }
 
-int mlx5dv_devx_subscribe_devx_event_fd(struct mlx5dv_devx_event_channel *dv_event_channel,
-					int fd,
-					struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
-					uint16_t event_num)
+int mlx5dv_devx_subscribe_devx_event(struct mlx5dv_devx_event_channel *dv_event_channel,
+				     struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+				     uint16_t events_sz,
+				     uint16_t events_num[],
+				     uint64_t cookie)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(obj->context);
+
+	if (!dvops || !dvops->devx_subscribe_devx_event)
+		return EOPNOTSUPP;
+
+	return dvops->devx_subscribe_devx_event(dv_event_channel, obj,
+							 events_sz, events_num,
+							 cookie);
+}
+
+static int _mlx5dv_devx_subscribe_devx_event_fd(struct mlx5dv_devx_event_channel *dv_event_channel,
+						int fd,
+						struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+						uint16_t event_num)
 {
 	struct mlx5_devx_event_channel *event_channel =
 			container_of(dv_event_channel, struct mlx5_devx_event_channel,
@@ -5760,10 +6216,24 @@ int mlx5dv_devx_subscribe_devx_event_fd(struct mlx5dv_devx_event_channel *dv_eve
 	return execute_ioctl(event_channel->context, cmd);
 }
 
-int mlx5dv_devx_obj_query_async(struct mlx5dv_devx_obj *obj, const void *in,
-				size_t inlen, size_t outlen,
-				uint64_t wr_id,
-				struct mlx5dv_devx_cmd_comp *cmd_comp)
+int mlx5dv_devx_subscribe_devx_event_fd(struct mlx5dv_devx_event_channel *dv_event_channel,
+					int fd,
+					struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
+					uint16_t event_num)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(obj->context);
+
+	if (!dvops || !dvops->devx_subscribe_devx_event_fd)
+		return EOPNOTSUPP;
+
+	return dvops->devx_subscribe_devx_event_fd(dv_event_channel, fd,
+							    obj, event_num);
+}
+
+static int _mlx5dv_devx_obj_query_async(struct mlx5dv_devx_obj *obj, const void *in,
+					size_t inlen, size_t outlen,
+					uint64_t wr_id,
+					struct mlx5dv_devx_cmd_comp *cmd_comp)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_OBJ,
@@ -5779,9 +6249,23 @@ int mlx5dv_devx_obj_query_async(struct mlx5dv_devx_obj *obj, const void *in,
 	return execute_ioctl(obj->context, cmd);
 }
 
-int mlx5dv_devx_get_async_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp,
-				   struct mlx5dv_devx_async_cmd_hdr *cmd_resp,
-				   size_t cmd_resp_len)
+int mlx5dv_devx_obj_query_async(struct mlx5dv_devx_obj *obj, const void *in,
+				size_t inlen, size_t outlen,
+				uint64_t wr_id,
+				struct mlx5dv_devx_cmd_comp *cmd_comp)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(obj->context);
+
+	if (!dvops || !dvops->devx_obj_query_async)
+		return EOPNOTSUPP;
+
+	return dvops->devx_obj_query_async(obj, in, inlen, outlen,
+						    wr_id, cmd_comp);
+}
+
+static int _mlx5dv_devx_get_async_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp,
+					   struct mlx5dv_devx_async_cmd_hdr *cmd_resp,
+					   size_t cmd_resp_len)
 {
 	ssize_t bytes;
 
@@ -5795,24 +6279,12 @@ int mlx5dv_devx_get_async_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp,
 	return 0;
 }
 
-ssize_t mlx5dv_devx_get_event(struct mlx5dv_devx_event_channel *event_channel,
-				   struct mlx5dv_devx_async_event_hdr *event_data,
-				   size_t event_resp_len)
+int mlx5dv_devx_get_async_cmd_comp(struct mlx5dv_devx_cmd_comp *cmd_comp,
+				   struct mlx5dv_devx_async_cmd_hdr *cmd_resp,
+				   size_t cmd_resp_len)
 {
-	ssize_t bytes;
-
-	bytes = read(event_channel->fd, event_data, event_resp_len);
-	if (bytes < 0)
-		return -1;
-
-	/* cookie should be always exist */
-	if (bytes < sizeof(*event_data)) {
-		errno = EINVAL;
-		return -1;
-	}
-
-	/* event data may be omitted in case no EQE data exists (e.g. completion event on a CQ) */
-	return bytes;
+	return _mlx5dv_devx_get_async_cmd_comp(cmd_comp, cmd_resp,
+					       cmd_resp_len);
 }
 
 static int mlx5_destroy_sig_psvs(struct mlx5_sig_ctx *sig)
@@ -5900,7 +6372,37 @@ static int mlx5_destroy_sig_ctx(struct mlx5_sig_ctx *sig)
 	return ret;
 }
 
-struct mlx5dv_mkey *mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
+static ssize_t _mlx5dv_devx_get_event(struct mlx5dv_devx_event_channel *event_channel,
+				      struct mlx5dv_devx_async_event_hdr *event_data,
+				      size_t event_resp_len)
+{
+	ssize_t bytes;
+
+	bytes = read(event_channel->fd, event_data, event_resp_len);
+	if (bytes < 0)
+		return -1;
+
+	/* cookie should be always exist */
+	if (bytes < sizeof(*event_data)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	/* event data may be omitted in case no EQE data exists (e.g. completion event on a CQ) */
+	return bytes;
+}
+
+ssize_t mlx5dv_devx_get_event(struct mlx5dv_devx_event_channel *event_channel,
+			      struct mlx5dv_devx_async_event_hdr *event_data,
+			      size_t event_resp_len)
+{
+	return _mlx5dv_devx_get_event(event_channel,
+				      event_data,
+				      event_resp_len);
+}
+
+static struct mlx5dv_mkey *
+_mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 {
 	uint32_t out[DEVX_ST_SZ_DW(create_mkey_out)] = {};
 	uint32_t in[DEVX_ST_SZ_DW(create_mkey_in)] = {};
@@ -5973,7 +6475,19 @@ err_free_mkey:
 	return NULL;
 }
 
-int mlx5dv_destroy_mkey(struct mlx5dv_mkey *dv_mkey)
+struct mlx5dv_mkey *mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(mkey_init_attr->pd->context);
+
+	if (!dvops || !dvops->create_mkey) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->create_mkey(mkey_init_attr);
+}
+
+static int _mlx5dv_destroy_mkey(struct mlx5dv_mkey *dv_mkey)
 {
 	struct mlx5_mkey *mkey = container_of(dv_mkey, struct mlx5_mkey,
 					  dv_mkey);
@@ -5995,6 +6509,18 @@ int mlx5dv_destroy_mkey(struct mlx5dv_mkey *dv_mkey)
 	mlx5_clear_mkey(mctx, dv_mkey->lkey >> 8);
 	free(mkey);
 	return 0;
+}
+
+int mlx5dv_destroy_mkey(struct mlx5dv_mkey *dv_mkey)
+{
+	struct mlx5_mkey *mkey = container_of(dv_mkey, struct mlx5_mkey,
+					      dv_mkey);
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(mkey->devx_obj->context);
+
+	if (!dvops || !dvops->destroy_mkey)
+		return EOPNOTSUPP;
+
+	return dvops->destroy_mkey(dv_mkey);
 }
 
 enum {
@@ -6108,8 +6634,8 @@ int _mlx5dv_mkey_check(struct mlx5dv_mkey *dv_mkey,
 	return 0;
 }
 
-struct mlx5dv_var *
-mlx5dv_alloc_var(struct ibv_context *context, uint32_t flags)
+static struct mlx5dv_var *
+_mlx5dv_alloc_var(struct ibv_context *context, uint32_t flags)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_VAR,
@@ -6119,11 +6645,6 @@ mlx5dv_alloc_var(struct ibv_context *context, uint32_t flags)
 	struct ib_uverbs_attr *handle;
 	struct mlx5_var_obj *obj;
 	int ret;
-
-	if (!is_mlx5_dev(context->device)) {
-		errno = EOPNOTSUPP;
-		return NULL;
-	}
 
 	if (flags) {
 		errno = EOPNOTSUPP;
@@ -6158,8 +6679,20 @@ err:
 	return NULL;
 }
 
+struct mlx5dv_var *
+mlx5dv_alloc_var(struct ibv_context *context, uint32_t flags)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
 
-void mlx5dv_free_var(struct mlx5dv_var *dv_var)
+	if (!dvops || !dvops->alloc_var) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->alloc_var(context, flags);
+}
+
+static void _mlx5dv_free_var(struct mlx5dv_var *dv_var)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_VAR,
@@ -6176,10 +6709,22 @@ void mlx5dv_free_var(struct mlx5dv_var *dv_var)
 	free(obj);
 }
 
-struct mlx5dv_pp *mlx5dv_pp_alloc(struct ibv_context *context,
-				  size_t pp_context_sz,
-				  const void *pp_context,
-				  uint32_t flags)
+void mlx5dv_free_var(struct mlx5dv_var *dv_var)
+{
+	struct mlx5_var_obj *obj = container_of(dv_var, struct mlx5_var_obj,
+						dv_var);
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(obj->context);
+
+	if (!dvops || !dvops->free_var)
+		return;
+
+	return dvops->free_var(dv_var);
+}
+
+static struct mlx5dv_pp *_mlx5dv_pp_alloc(struct ibv_context *context,
+					  size_t pp_context_sz,
+					  const void *pp_context,
+					  uint32_t flags)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_PP,
@@ -6189,11 +6734,6 @@ struct mlx5dv_pp *mlx5dv_pp_alloc(struct ibv_context *context,
 	struct ib_uverbs_attr *handle;
 	struct mlx5_pp_obj *obj;
 	int ret;
-
-	if (!is_mlx5_dev(context->device)) {
-		errno = EOPNOTSUPP;
-		return NULL;
-	}
 
 	if (!check_comp_mask(flags,
 	    MLX5_IB_UAPI_PP_ALLOC_FLAGS_DEDICATED_INDEX)) {
@@ -6228,7 +6768,23 @@ err:
 	return NULL;
 }
 
-void mlx5dv_pp_free(struct mlx5dv_pp *dv_pp)
+struct mlx5dv_pp *mlx5dv_pp_alloc(struct ibv_context *context,
+				  size_t pp_context_sz,
+				  const void *pp_context,
+				  uint32_t flags)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->pp_alloc) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->pp_alloc(context, pp_context_sz,
+			       pp_context, flags);
+}
+
+static void _mlx5dv_pp_free(struct mlx5dv_pp *dv_pp)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_PP,
@@ -6243,4 +6799,90 @@ void mlx5dv_pp_free(struct mlx5dv_pp *dv_pp)
 		assert(false);
 
 	free(obj);
+}
+
+void mlx5dv_pp_free(struct mlx5dv_pp *dv_pp)
+{
+	struct mlx5_pp_obj *obj = container_of(dv_pp, struct mlx5_pp_obj, dv_pp);
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(obj->context);
+
+	if (!dvops || !dvops->pp_free)
+		return;
+
+	dvops->pp_free(dv_pp);
+}
+
+void mlx5_set_dv_ctx_ops(struct mlx5_dv_context_ops *ops)
+{
+	ops->devx_general_cmd = _mlx5dv_devx_general_cmd;
+
+	ops->devx_obj_create = _mlx5dv_devx_obj_create;
+
+	ops->devx_obj_query = _mlx5dv_devx_obj_query;
+	ops->devx_obj_modify = _mlx5dv_devx_obj_modify;
+	ops->devx_obj_destroy = _mlx5dv_devx_obj_destroy;
+
+	ops->devx_query_eqn = _mlx5dv_devx_query_eqn;
+
+	ops->devx_cq_query = _mlx5dv_devx_cq_query;
+	ops->devx_cq_modify = _mlx5dv_devx_cq_modify;
+
+	ops->devx_qp_query = _mlx5dv_devx_qp_query;
+	ops->devx_qp_modify = _mlx5dv_devx_qp_modify;
+
+	ops->devx_srq_query = _mlx5dv_devx_srq_query;
+	ops->devx_srq_modify = _mlx5dv_devx_srq_modify;
+
+	ops->devx_wq_query = _mlx5dv_devx_wq_query;
+	ops->devx_wq_modify = _mlx5dv_devx_wq_modify;
+
+	ops->devx_ind_tbl_query = _mlx5dv_devx_ind_tbl_query;
+	ops->devx_ind_tbl_modify = _mlx5dv_devx_ind_tbl_modify;
+
+	ops->devx_create_cmd_comp = _mlx5dv_devx_create_cmd_comp;
+	ops->devx_destroy_cmd_comp = _mlx5dv_devx_destroy_cmd_comp;
+
+	ops->devx_create_event_channel = _mlx5dv_devx_create_event_channel;
+	ops->devx_destroy_event_channel = _mlx5dv_devx_destroy_event_channel;
+
+	ops->devx_subscribe_devx_event = _mlx5dv_devx_subscribe_devx_event;
+	ops->devx_subscribe_devx_event_fd = _mlx5dv_devx_subscribe_devx_event_fd;
+
+	ops->devx_obj_query_async = _mlx5dv_devx_obj_query_async;
+	ops->devx_get_async_cmd_comp = _mlx5dv_devx_get_async_cmd_comp;
+
+	ops->devx_get_event = _mlx5dv_devx_get_event;
+
+	ops->devx_alloc_uar = _mlx5dv_devx_alloc_uar;
+	ops->devx_free_uar = _mlx5dv_devx_free_uar;
+
+	ops->devx_umem_reg = _mlx5dv_devx_umem_reg;
+	ops->devx_umem_reg_ex = _mlx5dv_devx_umem_reg_ex;
+	ops->devx_umem_dereg = _mlx5dv_devx_umem_dereg;
+
+	ops->create_mkey = _mlx5dv_create_mkey;
+	ops->destroy_mkey = _mlx5dv_destroy_mkey;
+
+	ops->alloc_var = _mlx5dv_alloc_var;
+	ops->free_var = _mlx5dv_free_var;
+
+	ops->pp_alloc = _mlx5dv_pp_alloc;
+	ops->pp_free = _mlx5dv_pp_free;
+
+	ops->create_cq = _mlx5dv_create_cq;
+	ops->create_qp = _mlx5dv_create_qp;
+	ops->create_wq = _mlx5dv_create_wq;
+
+	ops->alloc_dm = _mlx5dv_alloc_dm;
+	ops->dm_map_op_addr = _mlx5dv_dm_map_op_addr;
+
+	ops->create_flow_action_esp = _mlx5dv_create_flow_action_esp;
+	ops->create_flow_action_modify_header = _mlx5dv_create_flow_action_modify_header;
+	ops->create_flow_action_packet_reformat = _mlx5dv_create_flow_action_packet_reformat;
+	ops->create_flow_matcher = _mlx5dv_create_flow_matcher;
+	ops->destroy_flow_matcher = _mlx5dv_destroy_flow_matcher;
+	ops->create_flow = _mlx5dv_create_flow;
+
+	ops->map_ah_to_qp = _mlx5dv_map_ah_to_qp;
+	ops->query_port = __mlx5dv_query_port;
 }

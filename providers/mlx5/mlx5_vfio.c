@@ -2456,6 +2456,25 @@ end:
 	return NULL;
 }
 
+static struct mlx5dv_devx_obj *
+vfio_devx_obj_create(struct ibv_context *context, const void *in,
+		     size_t inlen, void *out, size_t outlen)
+{
+	errno = EOPNOTSUPP;
+	return NULL;
+}
+
+static int vfio_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in,
+				size_t inlen, void *out, size_t outlen)
+{
+	return EOPNOTSUPP;
+}
+
+static struct mlx5_dv_context_ops mlx5_vfio_dv_ctx_ops = {
+	.devx_obj_create = vfio_devx_obj_create,
+	.devx_obj_query = vfio_devx_obj_query,
+};
+
 static void mlx5_vfio_uninit_context(struct mlx5_vfio_context *ctx)
 {
 	mlx5_close_debug_file(ctx->dbg_fp);
@@ -2521,6 +2540,7 @@ mlx5_vfio_alloc_context(struct ibv_device *ibdev,
 		goto func_teardown;
 
 	verbs_set_ops(&mctx->vctx, &mlx5_vfio_common_ops);
+	mctx->dv_ctx_ops = &mlx5_vfio_dv_ctx_ops;
 	return &mctx->vctx;
 
 func_teardown:
@@ -2725,4 +2745,11 @@ err_get:
 end:
 	free(list);
 	return NULL;
+}
+
+bool is_mlx5_vfio_dev(struct ibv_device *device)
+{
+	struct verbs_device *verbs_device = verbs_get_device(device);
+
+	return verbs_device->ops == &mlx5_vfio_dev_ops;
 }

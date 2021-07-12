@@ -1341,11 +1341,11 @@ dr_rule_create_rule_root(struct mlx5dv_dr_matcher *matcher,
 	if (ret)
 		goto free_attr_aux;
 
-	rule->flow = __mlx5dv_create_flow(matcher->dv_matcher,
-					  value,
-					  num_actions,
-					  attr,
-					  attr_aux);
+	rule->flow = _mlx5dv_create_flow(matcher->dv_matcher,
+					 value,
+					 num_actions,
+					 attr,
+					 attr_aux);
 	if (!rule->flow)
 		goto remove_action_members;
 
