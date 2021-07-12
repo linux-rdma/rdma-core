@@ -2457,14 +2457,6 @@ end:
 	return NULL;
 }
 
-static struct mlx5dv_devx_obj *
-vfio_devx_obj_create(struct ibv_context *context, const void *in,
-		     size_t inlen, void *out, size_t outlen)
-{
-	errno = EOPNOTSUPP;
-	return NULL;
-}
-
 static int vfio_devx_query_eqn(struct ibv_context *ibctx, uint32_t vector,
 			       uint32_t *eqn)
 {
@@ -2679,15 +2671,418 @@ static int vfio_init_obj(struct mlx5dv_obj *obj, uint64_t obj_type)
 	return 0;
 }
 
+static int vfio_devx_general_cmd(struct ibv_context *context, const void *in,
+				 size_t inlen, void *out, size_t outlen)
+{
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(context);
+
+	return mlx5_vfio_cmd_exec(ctx, (void *)in, inlen, out, outlen, 0);
+}
+
+static bool devx_is_obj_create_cmd(const void *in)
+{
+	uint16_t opcode = DEVX_GET(general_obj_in_cmd_hdr, in, opcode);
+
+	switch (opcode) {
+	case MLX5_CMD_OP_CREATE_GENERAL_OBJECT:
+	case MLX5_CMD_OP_CREATE_MKEY:
+	case MLX5_CMD_OP_CREATE_CQ:
+	case MLX5_CMD_OP_ALLOC_PD:
+	case MLX5_CMD_OP_ALLOC_TRANSPORT_DOMAIN:
+	case MLX5_CMD_OP_CREATE_RMP:
+	case MLX5_CMD_OP_CREATE_SQ:
+	case MLX5_CMD_OP_CREATE_RQ:
+	case MLX5_CMD_OP_CREATE_RQT:
+	case MLX5_CMD_OP_CREATE_TIR:
+	case MLX5_CMD_OP_CREATE_TIS:
+	case MLX5_CMD_OP_ALLOC_Q_COUNTER:
+	case MLX5_CMD_OP_CREATE_FLOW_TABLE:
+	case MLX5_CMD_OP_CREATE_FLOW_GROUP:
+	case MLX5_CMD_OP_CREATE_FLOW_COUNTER:
+	case MLX5_CMD_OP_ALLOC_PACKET_REFORMAT_CONTEXT:
+	case MLX5_CMD_OP_ALLOC_MODIFY_HEADER_CONTEXT:
+	case MLX5_CMD_OP_CREATE_SCHEDULING_ELEMENT:
+	case MLX5_CMD_OP_ADD_VXLAN_UDP_DPORT:
+	case MLX5_CMD_OP_SET_L2_TABLE_ENTRY:
+	case MLX5_CMD_OP_CREATE_QP:
+	case MLX5_CMD_OP_CREATE_SRQ:
+	case MLX5_CMD_OP_CREATE_XRC_SRQ:
+	case MLX5_CMD_OP_CREATE_DCT:
+	case MLX5_CMD_OP_CREATE_XRQ:
+	case MLX5_CMD_OP_ATTACH_TO_MCG:
+	case MLX5_CMD_OP_ALLOC_XRCD:
+		return true;
+	case MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY:
+	{
+		uint8_t op_mod = DEVX_GET(set_fte_in, in, op_mod);
+
+		if (op_mod == 0)
+			return true;
+		return false;
+	}
+	case MLX5_CMD_OP_CREATE_PSV:
+	{
+		uint8_t num_psv = DEVX_GET(create_psv_in, in, num_psv);
+
+		if (num_psv == 1)
+			return true;
+		return false;
+	}
+	default:
+		return false;
+	}
+}
+
+static uint32_t devx_get_created_obj_id(const void *in, const void *out,
+					uint16_t opcode)
+{
+	switch (opcode) {
+	case MLX5_CMD_OP_CREATE_GENERAL_OBJECT:
+		return DEVX_GET(general_obj_out_cmd_hdr, out, obj_id);
+	case MLX5_CMD_OP_CREATE_UMEM:
+		return DEVX_GET(create_umem_out, out, umem_id);
+	case MLX5_CMD_OP_CREATE_MKEY:
+		return DEVX_GET(create_mkey_out, out, mkey_index);
+	case MLX5_CMD_OP_CREATE_CQ:
+		return DEVX_GET(create_cq_out, out, cqn);
+	case MLX5_CMD_OP_ALLOC_PD:
+		return DEVX_GET(alloc_pd_out, out, pd);
+	case MLX5_CMD_OP_ALLOC_TRANSPORT_DOMAIN:
+		return DEVX_GET(alloc_transport_domain_out, out,
+				transport_domain);
+	case MLX5_CMD_OP_CREATE_RMP:
+		return DEVX_GET(create_rmp_out, out, rmpn);
+	case MLX5_CMD_OP_CREATE_SQ:
+		return DEVX_GET(create_sq_out, out, sqn);
+	case MLX5_CMD_OP_CREATE_RQ:
+		return DEVX_GET(create_rq_out, out, rqn);
+	case MLX5_CMD_OP_CREATE_RQT:
+		return DEVX_GET(create_rqt_out, out, rqtn);
+	case MLX5_CMD_OP_CREATE_TIR:
+		return DEVX_GET(create_tir_out, out, tirn);
+	case MLX5_CMD_OP_CREATE_TIS:
+		return DEVX_GET(create_tis_out, out, tisn);
+	case MLX5_CMD_OP_ALLOC_Q_COUNTER:
+		return DEVX_GET(alloc_q_counter_out, out, counter_set_id);
+	case MLX5_CMD_OP_CREATE_FLOW_TABLE:
+		return DEVX_GET(create_flow_table_out, out, table_id);
+	case MLX5_CMD_OP_CREATE_FLOW_GROUP:
+		return DEVX_GET(create_flow_group_out, out, group_id);
+	case MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY:
+		return DEVX_GET(set_fte_in, in, flow_index);
+	case MLX5_CMD_OP_CREATE_FLOW_COUNTER:
+		return DEVX_GET(alloc_flow_counter_out, out, flow_counter_id);
+	case MLX5_CMD_OP_ALLOC_PACKET_REFORMAT_CONTEXT:
+		return DEVX_GET(alloc_packet_reformat_context_out, out,
+				packet_reformat_id);
+	case MLX5_CMD_OP_ALLOC_MODIFY_HEADER_CONTEXT:
+		return DEVX_GET(alloc_modify_header_context_out, out,
+				modify_header_id);
+	case MLX5_CMD_OP_CREATE_SCHEDULING_ELEMENT:
+		return DEVX_GET(create_scheduling_element_out, out,
+				scheduling_element_id);
+	case MLX5_CMD_OP_ADD_VXLAN_UDP_DPORT:
+		return DEVX_GET(add_vxlan_udp_dport_in, in, vxlan_udp_port);
+	case MLX5_CMD_OP_SET_L2_TABLE_ENTRY:
+		return DEVX_GET(set_l2_table_entry_in, in, table_index);
+	case MLX5_CMD_OP_CREATE_QP:
+		return DEVX_GET(create_qp_out, out, qpn);
+	case MLX5_CMD_OP_CREATE_SRQ:
+		return DEVX_GET(create_srq_out, out, srqn);
+	case MLX5_CMD_OP_CREATE_XRC_SRQ:
+		return DEVX_GET(create_xrc_srq_out, out, xrc_srqn);
+	case MLX5_CMD_OP_CREATE_DCT:
+		return DEVX_GET(create_dct_out, out, dctn);
+	case MLX5_CMD_OP_CREATE_XRQ:
+		return DEVX_GET(create_xrq_out, out, xrqn);
+	case MLX5_CMD_OP_ATTACH_TO_MCG:
+		return DEVX_GET(attach_to_mcg_in, in, qpn);
+	case MLX5_CMD_OP_ALLOC_XRCD:
+		return DEVX_GET(alloc_xrcd_out, out, xrcd);
+	case MLX5_CMD_OP_CREATE_PSV:
+		return DEVX_GET(create_psv_out, out, psv0_index);
+	default:
+		/* The entry must match to one of the devx_is_obj_create_cmd */
+		assert(false);
+		return 0;
+	}
+}
+
+static void devx_obj_build_destroy_cmd(const void *in, void *out,
+				       void *din, uint32_t *dinlen,
+				       struct mlx5dv_devx_obj *obj)
+{
+	uint16_t opcode = DEVX_GET(general_obj_in_cmd_hdr, in, opcode);
+	uint16_t uid = DEVX_GET(general_obj_in_cmd_hdr, in, uid);
+	uint32_t *obj_id = &obj->object_id;
+
+	*obj_id = devx_get_created_obj_id(in, out, opcode);
+	*dinlen = DEVX_ST_SZ_BYTES(general_obj_in_cmd_hdr);
+	DEVX_SET(general_obj_in_cmd_hdr, din, uid, uid);
+
+	switch (opcode) {
+	case MLX5_CMD_OP_CREATE_GENERAL_OBJECT:
+		DEVX_SET(general_obj_in_cmd_hdr, din, opcode, MLX5_CMD_OP_DESTROY_GENERAL_OBJECT);
+		DEVX_SET(general_obj_in_cmd_hdr, din, obj_id, *obj_id);
+		DEVX_SET(general_obj_in_cmd_hdr, din, obj_type,
+			 DEVX_GET(general_obj_in_cmd_hdr, in, obj_type));
+		break;
+
+	case MLX5_CMD_OP_CREATE_UMEM:
+		DEVX_SET(destroy_umem_in, din, opcode,
+			 MLX5_CMD_OP_DESTROY_UMEM);
+		DEVX_SET(destroy_umem_in, din, umem_id, *obj_id);
+		break;
+	case MLX5_CMD_OP_CREATE_MKEY:
+		DEVX_SET(destroy_mkey_in, din, opcode,
+			 MLX5_CMD_OP_DESTROY_MKEY);
+		DEVX_SET(destroy_mkey_in, din, mkey_index, *obj_id);
+		break;
+	case MLX5_CMD_OP_CREATE_CQ:
+		DEVX_SET(destroy_cq_in, din, opcode, MLX5_CMD_OP_DESTROY_CQ);
+		DEVX_SET(destroy_cq_in, din, cqn, *obj_id);
+		break;
+	case MLX5_CMD_OP_ALLOC_PD:
+		DEVX_SET(dealloc_pd_in, din, opcode, MLX5_CMD_OP_DEALLOC_PD);
+		DEVX_SET(dealloc_pd_in, din, pd, *obj_id);
+		break;
+	case MLX5_CMD_OP_ALLOC_TRANSPORT_DOMAIN:
+		DEVX_SET(dealloc_transport_domain_in, din, opcode,
+			 MLX5_CMD_OP_DEALLOC_TRANSPORT_DOMAIN);
+		DEVX_SET(dealloc_transport_domain_in, din, transport_domain,
+			 *obj_id);
+		break;
+	case MLX5_CMD_OP_CREATE_RMP:
+		DEVX_SET(destroy_rmp_in, din, opcode, MLX5_CMD_OP_DESTROY_RMP);
+		DEVX_SET(destroy_rmp_in, din, rmpn, *obj_id);
+		break;
+	case MLX5_CMD_OP_CREATE_SQ:
+		DEVX_SET(destroy_sq_in, din, opcode, MLX5_CMD_OP_DESTROY_SQ);
+		DEVX_SET(destroy_sq_in, din, sqn, *obj_id);
+		break;
+	case MLX5_CMD_OP_CREATE_RQ:
+		DEVX_SET(destroy_rq_in, din, opcode, MLX5_CMD_OP_DESTROY_RQ);
+		DEVX_SET(destroy_rq_in, din, rqn, *obj_id);
+		break;
+	case MLX5_CMD_OP_CREATE_RQT:
+		DEVX_SET(destroy_rqt_in, din, opcode, MLX5_CMD_OP_DESTROY_RQT);
+		DEVX_SET(destroy_rqt_in, din, rqtn, *obj_id);
+		break;
+	case MLX5_CMD_OP_CREATE_TIR:
+		DEVX_SET(destroy_tir_in, din, opcode, MLX5_CMD_OP_DESTROY_TIR);
+		DEVX_SET(destroy_tir_in, din, tirn, *obj_id);
+		break;
+	case MLX5_CMD_OP_CREATE_TIS:
+		DEVX_SET(destroy_tis_in, din, opcode, MLX5_CMD_OP_DESTROY_TIS);
+		DEVX_SET(destroy_tis_in, din, tisn, *obj_id);
+		break;
+	case MLX5_CMD_OP_ALLOC_Q_COUNTER:
+		DEVX_SET(dealloc_q_counter_in, din, opcode,
+			 MLX5_CMD_OP_DEALLOC_Q_COUNTER);
+		DEVX_SET(dealloc_q_counter_in, din, counter_set_id, *obj_id);
+		break;
+	case MLX5_CMD_OP_CREATE_FLOW_TABLE:
+		*dinlen = DEVX_ST_SZ_BYTES(destroy_flow_table_in);
+		DEVX_SET(destroy_flow_table_in, din, other_vport,
+			 DEVX_GET(create_flow_table_in,  in, other_vport));
+		DEVX_SET(destroy_flow_table_in, din, vport_number,
+			 DEVX_GET(create_flow_table_in,  in, vport_number));
+		DEVX_SET(destroy_flow_table_in, din, table_type,
+			 DEVX_GET(create_flow_table_in,  in, table_type));
+		DEVX_SET(destroy_flow_table_in, din, table_id, *obj_id);
+		DEVX_SET(destroy_flow_table_in, din, opcode,
+			 MLX5_CMD_OP_DESTROY_FLOW_TABLE);
+		break;
+	case MLX5_CMD_OP_CREATE_FLOW_GROUP:
+		*dinlen = DEVX_ST_SZ_BYTES(destroy_flow_group_in);
+		DEVX_SET(destroy_flow_group_in, din, other_vport,
+			 DEVX_GET(create_flow_group_in, in, other_vport));
+		DEVX_SET(destroy_flow_group_in, din, vport_number,
+			 DEVX_GET(create_flow_group_in, in, vport_number));
+		DEVX_SET(destroy_flow_group_in, din, table_type,
+			 DEVX_GET(create_flow_group_in, in, table_type));
+		DEVX_SET(destroy_flow_group_in, din, table_id,
+			 DEVX_GET(create_flow_group_in, in, table_id));
+		DEVX_SET(destroy_flow_group_in, din, group_id, *obj_id);
+		DEVX_SET(destroy_flow_group_in, din, opcode,
+			 MLX5_CMD_OP_DESTROY_FLOW_GROUP);
+		break;
+	case MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY:
+		*dinlen = DEVX_ST_SZ_BYTES(delete_fte_in);
+		DEVX_SET(delete_fte_in, din, other_vport,
+			 DEVX_GET(set_fte_in,  in, other_vport));
+		DEVX_SET(delete_fte_in, din, vport_number,
+			 DEVX_GET(set_fte_in, in, vport_number));
+		DEVX_SET(delete_fte_in, din, table_type,
+			 DEVX_GET(set_fte_in, in, table_type));
+		DEVX_SET(delete_fte_in, din, table_id,
+			 DEVX_GET(set_fte_in, in, table_id));
+		DEVX_SET(delete_fte_in, din, flow_index, *obj_id);
+		DEVX_SET(delete_fte_in, din, opcode,
+			 MLX5_CMD_OP_DELETE_FLOW_TABLE_ENTRY);
+		break;
+	case MLX5_CMD_OP_CREATE_FLOW_COUNTER:
+		DEVX_SET(dealloc_flow_counter_in, din, opcode,
+			 MLX5_CMD_OP_DEALLOC_FLOW_COUNTER);
+		DEVX_SET(dealloc_flow_counter_in, din, flow_counter_id,
+			 *obj_id);
+		break;
+	case MLX5_CMD_OP_ALLOC_PACKET_REFORMAT_CONTEXT:
+		DEVX_SET(dealloc_packet_reformat_context_in, din, opcode,
+			 MLX5_CMD_OP_DEALLOC_PACKET_REFORMAT_CONTEXT);
+		DEVX_SET(dealloc_packet_reformat_context_in, din,
+			 packet_reformat_id, *obj_id);
+		break;
+	case MLX5_CMD_OP_ALLOC_MODIFY_HEADER_CONTEXT:
+		DEVX_SET(dealloc_modify_header_context_in, din, opcode,
+			 MLX5_CMD_OP_DEALLOC_MODIFY_HEADER_CONTEXT);
+		DEVX_SET(dealloc_modify_header_context_in, din,
+			 modify_header_id, *obj_id);
+		break;
+	case MLX5_CMD_OP_CREATE_SCHEDULING_ELEMENT:
+		*dinlen = DEVX_ST_SZ_BYTES(destroy_scheduling_element_in);
+		DEVX_SET(destroy_scheduling_element_in, din,
+			 scheduling_hierarchy,
+			 DEVX_GET(create_scheduling_element_in, in,
+				  scheduling_hierarchy));
+		DEVX_SET(destroy_scheduling_element_in, din,
+			 scheduling_element_id, *obj_id);
+		DEVX_SET(destroy_scheduling_element_in, din, opcode,
+			 MLX5_CMD_OP_DESTROY_SCHEDULING_ELEMENT);
+		break;
+	case MLX5_CMD_OP_ADD_VXLAN_UDP_DPORT:
+		*dinlen = DEVX_ST_SZ_BYTES(delete_vxlan_udp_dport_in);
+		DEVX_SET(delete_vxlan_udp_dport_in, din, vxlan_udp_port, *obj_id);
+		DEVX_SET(delete_vxlan_udp_dport_in, din, opcode,
+			 MLX5_CMD_OP_DELETE_VXLAN_UDP_DPORT);
+		break;
+	case MLX5_CMD_OP_SET_L2_TABLE_ENTRY:
+		*dinlen = DEVX_ST_SZ_BYTES(delete_l2_table_entry_in);
+		DEVX_SET(delete_l2_table_entry_in, din, table_index, *obj_id);
+		DEVX_SET(delete_l2_table_entry_in, din, opcode,
+			 MLX5_CMD_OP_DELETE_L2_TABLE_ENTRY);
+		break;
+	case MLX5_CMD_OP_CREATE_QP:
+		DEVX_SET(destroy_qp_in, din, opcode, MLX5_CMD_OP_DESTROY_QP);
+		DEVX_SET(destroy_qp_in, din, qpn, *obj_id);
+		break;
+	case MLX5_CMD_OP_CREATE_SRQ:
+		DEVX_SET(destroy_srq_in, din, opcode, MLX5_CMD_OP_DESTROY_SRQ);
+		DEVX_SET(destroy_srq_in, din, srqn, *obj_id);
+		break;
+	case MLX5_CMD_OP_CREATE_XRC_SRQ:
+		DEVX_SET(destroy_xrc_srq_in, din, opcode,
+			 MLX5_CMD_OP_DESTROY_XRC_SRQ);
+		DEVX_SET(destroy_xrc_srq_in, din, xrc_srqn, *obj_id);
+		break;
+	case MLX5_CMD_OP_CREATE_DCT:
+		DEVX_SET(destroy_dct_in, din, opcode, MLX5_CMD_OP_DESTROY_DCT);
+		DEVX_SET(destroy_dct_in, din, dctn, *obj_id);
+		break;
+	case MLX5_CMD_OP_CREATE_XRQ:
+		DEVX_SET(destroy_xrq_in, din, opcode, MLX5_CMD_OP_DESTROY_XRQ);
+		DEVX_SET(destroy_xrq_in, din, xrqn, *obj_id);
+		break;
+	case MLX5_CMD_OP_ATTACH_TO_MCG:
+		*dinlen = DEVX_ST_SZ_BYTES(detach_from_mcg_in);
+		DEVX_SET(detach_from_mcg_in, din, qpn,
+			 DEVX_GET(attach_to_mcg_in, in, qpn));
+		memcpy(DEVX_ADDR_OF(detach_from_mcg_in, din, multicast_gid),
+		       DEVX_ADDR_OF(attach_to_mcg_in, in, multicast_gid),
+		       DEVX_FLD_SZ_BYTES(attach_to_mcg_in, multicast_gid));
+		DEVX_SET(detach_from_mcg_in, din, opcode,
+			 MLX5_CMD_OP_DETACH_FROM_MCG);
+		DEVX_SET(detach_from_mcg_in, din, qpn, *obj_id);
+		break;
+	case MLX5_CMD_OP_ALLOC_XRCD:
+		DEVX_SET(dealloc_xrcd_in, din, opcode,
+			 MLX5_CMD_OP_DEALLOC_XRCD);
+		DEVX_SET(dealloc_xrcd_in, din, xrcd, *obj_id);
+		break;
+	case MLX5_CMD_OP_CREATE_PSV:
+		DEVX_SET(destroy_psv_in, din, opcode,
+			 MLX5_CMD_OP_DESTROY_PSV);
+		DEVX_SET(destroy_psv_in, din, psvn, *obj_id);
+		break;
+	default:
+		/* The entry must match to one of the devx_is_obj_create_cmd */
+		assert(false);
+		break;
+	}
+}
+
+static struct mlx5dv_devx_obj *
+vfio_devx_obj_create(struct ibv_context *context, const void *in,
+		     size_t inlen, void *out, size_t outlen)
+{
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(context);
+	struct mlx5_devx_obj *obj;
+	int ret;
+
+	if (!devx_is_obj_create_cmd(in)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	obj = calloc(1, sizeof(*obj));
+	if (!obj) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	ret = mlx5_vfio_cmd_exec(ctx, (void *)in, inlen, out, outlen, 0);
+	if (ret)
+		goto fail;
+
+	devx_obj_build_destroy_cmd(in, out, obj->dinbox,
+				   &obj->dinlen, &obj->dv_obj);
+	obj->dv_obj.context = context;
+
+	return &obj->dv_obj;
+fail:
+	free(obj);
+	return NULL;
+}
+
 static int vfio_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in,
 				size_t inlen, void *out, size_t outlen)
 {
-	return EOPNOTSUPP;
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(obj->context);
+
+	return mlx5_vfio_cmd_exec(ctx, (void *)in, inlen, out, outlen, 0);
+}
+
+static int vfio_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in,
+				size_t inlen, void *out, size_t outlen)
+{
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(obj->context);
+
+	return mlx5_vfio_cmd_exec(ctx, (void *)in, inlen, out, outlen, 0);
+}
+
+static int vfio_devx_obj_destroy(struct mlx5dv_devx_obj *obj)
+{
+	struct mlx5_devx_obj *mobj = container_of(obj,
+						  struct mlx5_devx_obj, dv_obj);
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(obj->context);
+	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)];
+	int ret;
+
+	ret = mlx5_vfio_cmd_exec(ctx, mobj->dinbox, mobj->dinlen,
+				 out, sizeof(out), 0);
+	if (ret)
+		return ret;
+
+	free(mobj);
+	return 0;
 }
 
 static struct mlx5_dv_context_ops mlx5_vfio_dv_ctx_ops = {
+	.devx_general_cmd = vfio_devx_general_cmd,
 	.devx_obj_create = vfio_devx_obj_create,
 	.devx_obj_query = vfio_devx_obj_query,
+	.devx_obj_modify = vfio_devx_obj_modify,
+	.devx_obj_destroy = vfio_devx_obj_destroy,
 	.devx_query_eqn = vfio_devx_query_eqn,
 	.devx_alloc_uar = vfio_devx_alloc_uar,
 	.devx_free_uar = vfio_devx_free_uar,

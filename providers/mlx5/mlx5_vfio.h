@@ -9,6 +9,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include "mlx5.h"
+#include "mlx5_ifc.h"
 
 #include <infiniband/driver.h>
 #include <util/interval_set.h>
@@ -301,6 +302,13 @@ struct mlx5_vfio_context {
 	struct mlx5_vfio_eqs_uar eqs_uar;
 	pthread_mutex_t eq_lock;
 	struct mlx5_dv_context_ops *dv_ctx_ops;
+};
+
+#define MLX5_MAX_DESTROY_INBOX_SIZE_DW	DEVX_ST_SZ_DW(delete_fte_in)
+struct mlx5_devx_obj {
+	struct mlx5dv_devx_obj dv_obj;
+	uint32_t dinbox[MLX5_MAX_DESTROY_INBOX_SIZE_DW];
+	uint32_t dinlen;
 };
 
 static inline struct mlx5_vfio_device *to_mvfio_dev(struct ibv_device *ibdev)
