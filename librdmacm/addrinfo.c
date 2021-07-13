@@ -285,7 +285,7 @@ int rdma_getaddrinfo(const char *node, const char *service,
 
 err:
 	rdma_freeaddrinfo(rai);
-	return ret;
+	return ERR(ret);
 }
 
 void rdma_freeaddrinfo(struct rdma_addrinfo *res)
