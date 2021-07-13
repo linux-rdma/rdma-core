@@ -2950,7 +2950,7 @@ static void mlx5_send_wr_set_dc_addr(struct mlx5dv_qp_ex *dv_qp,
 		mqp->cur_setters_cnt++;
 }
 
-static inline void raw_wqe_init(struct ibv_qp_ex *ibqp, const void *wqe)
+static inline void raw_wqe_init(struct ibv_qp_ex *ibqp)
 {
 	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
 	uint32_t idx;
@@ -2984,7 +2984,7 @@ static void mlx5_wr_raw_wqe(struct mlx5dv_qp_ex *mqp_ex, const void *wqe)
 	uint8_t ds = be32toh(ctrl->qpn_ds) & 0x3f;
 	int wq_left;
 
-	raw_wqe_init(ibqp, wqe);
+	raw_wqe_init(ibqp);
 
 	wq_left = mqp->sq.qend - (void *)mqp->cur_ctrl;
 	if (likely(wq_left >= ds << 4)) {
