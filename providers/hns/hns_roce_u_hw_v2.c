@@ -610,8 +610,8 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 
 		ret = hns_roce_handle_recv_inl_wqe(cqe, cur_qp, wc, opcode);
 		if (ret) {
-			fprintf(stderr,
-				PFX "failed to handle recv inline wqe!\n");
+			verbs_err(verbs_get_ctx(cq->ibv_cq.context),
+				  PFX "failed to handle recv inline wqe!\n");
 			return ret;
 		}
 

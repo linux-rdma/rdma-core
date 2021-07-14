@@ -108,7 +108,6 @@ static void hns_roce_update_cq_cons_index(struct hns_roce_context *ctx,
 static void hns_roce_handle_error_cqe(struct hns_roce_cqe *cqe,
 				      struct ibv_wc *wc)
 {
-	fprintf(stderr, PFX "error cqe!\n");
 	switch (roce_get_field(cqe->cqe_byte_4,
 			       CQE_BYTE_4_STATUS_OF_THE_OPERATION_M,
 			       CQE_BYTE_4_STATUS_OF_THE_OPERATION_S) &
@@ -176,7 +175,9 @@ static struct hns_roce_cqe *next_cqe_sw(struct hns_roce_cq *cq)
 static void *get_recv_wqe(struct hns_roce_qp *qp, int n)
 {
 	if ((n < 0) || (n > qp->rq.wqe_cnt)) {
-		printf("rq wqe index:%d,rq wqe cnt:%d\r\n", n, qp->rq.wqe_cnt);
+		verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+			  "rq wqe index:%d,rq wqe cnt:%d\r\n", n,
+			  qp->rq.wqe_cnt);
 		return NULL;
 	}
 
@@ -186,7 +187,9 @@ static void *get_recv_wqe(struct hns_roce_qp *qp, int n)
 static void *get_send_wqe(struct hns_roce_qp *qp, int n)
 {
 	if ((n < 0) || (n > qp->sq.wqe_cnt)) {
-		printf("sq wqe index:%d,sq wqe cnt:%d\r\n", n, qp->sq.wqe_cnt);
+		verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+			  "sq wqe index:%d,sq wqe cnt:%d\r\n", n,
+			  qp->sq.wqe_cnt);
 		return NULL;
 	}
 
@@ -207,8 +210,9 @@ static int hns_roce_wq_overflow(struct hns_roce_wq *wq, int nreq,
 	cur = wq->head - wq->tail;
 	pthread_spin_unlock(&cq->lock);
 
-	printf("wq:(head = %d, tail = %d, max_post = %d), nreq = 0x%x\n",
-		wq->head, wq->tail, wq->max_post, nreq);
+	verbs_err(verbs_get_ctx(cq->ibv_cq.context),
+		  "wq:(head = %d, tail = %d, max_post = %d), nreq = 0x%x\n",
+		  wq->head, wq->tail, wq->max_post, nreq);
 
 	return cur + nreq >= wq->max_post;
 }
@@ -221,7 +225,7 @@ static struct hns_roce_qp *hns_roce_find_qp(struct hns_roce_context *ctx,
 	if (ctx->qp_table[tind].refcnt) {
 		return ctx->qp_table[tind].table[qpn & ctx->qp_table_mask];
 	} else {
-		printf("hns_roce_find_qp fail!\n");
+		verbs_err(&ctx->ibv_ctx, "hns_roce_find_qp fail!\n");
 		return NULL;
 	}
 }
@@ -273,7 +277,8 @@ static int hns_roce_v1_poll_one(struct hns_roce_cq *cq,
 		*cur_qp = hns_roce_find_qp(to_hr_ctx(cq->ibv_cq.context),
 					   qpn & 0xffffff);
 		if (!*cur_qp) {
-			fprintf(stderr, PFX "can't find qp!\n");
+			verbs_err(verbs_get_ctx(cq->ibv_cq.context),
+				  PFX "can't find qp!\n");
 			return CQ_POLL_ERR;
 		}
 	}
@@ -312,6 +317,8 @@ static int hns_roce_v1_poll_one(struct hns_roce_cq *cq,
 	if (roce_get_field(cqe->cqe_byte_4,
 	    CQE_BYTE_4_STATUS_OF_THE_OPERATION_M,
 	    CQE_BYTE_4_STATUS_OF_THE_OPERATION_S) != HNS_ROCE_CQE_SUCCESS) {
+		verbs_err(verbs_get_ctx(cq->ibv_cq.context),
+			  PFX "error cqe!\n");
 		hns_roce_handle_error_cqe(cqe, wc);
 		return CQ_OK;
 	}
@@ -474,8 +481,9 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		if (wr->num_sge > qp->sq.max_gs) {
 			ret = -1;
 			*bad_wr = wr;
-			printf("wr->num_sge(<=%d) = %d, check failed!\r\n",
-				qp->sq.max_gs, wr->num_sge);
+			verbs_err(verbs_get_ctx(ibvqp->context),
+				  "wr->num_sge(<=%d) = %d, check failed!\r\n",
+				  qp->sq.max_gs, wr->num_sge);
 			goto out;
 		}
 
@@ -544,8 +552,9 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			if (le32toh(ctrl->msg_length) > qp->max_inline_data) {
 				ret = -1;
 				*bad_wr = wr;
-				printf("inline data len(1-32)=%d, send_flags = 0x%x, check failed!\r\n",
-					wr->send_flags, ctrl->msg_length);
+				verbs_err(verbs_get_ctx(ibvqp->context),
+					  "inline data len(1-32)=%d, send_flags = 0x%x, check failed!\r\n",
+					  wr->send_flags, ctrl->msg_length);
 				return ret;
 			}
 
@@ -650,7 +659,8 @@ static int hns_roce_u_v1_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 	if (!ret && (attr_mask & IBV_QP_PORT)) {
 		hr_qp->port_num = attr->port_num;
-		printf("hr_qp->port_num= 0x%x\n", hr_qp->port_num);
+		verbs_err(verbs_get_ctx(qp->context), "hr_qp->port_num= 0x%x\n",
+			  hr_qp->port_num);
 	}
 
 	hr_qp->sl = attr->ah_attr.sl;

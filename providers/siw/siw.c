@@ -17,7 +17,6 @@
 #include "siw_abi.h"
 #include "siw.h"
 
-static const int siw_debug;
 static void siw_free_context(struct ibv_context *ibv_ctx);
 
 static int siw_query_device(struct ibv_context *context,
@@ -150,14 +149,14 @@ static struct ibv_cq *siw_create_cq(struct ibv_context *ctx, int num_cqe,
 			       &cmd.ibv_cmd, sizeof(cmd), &resp.ibv_resp,
 			       sizeof(resp));
 	if (rv) {
-		if (siw_debug)
-			printf("libsiw: CQ creation failed: %d\n", rv);
+		verbs_err(verbs_get_ctx(ctx),
+			  "libsiw: CQ creation failed: %d\n", rv);
 		free(cq);
 		return NULL;
 	}
 	if (resp.cq_key == SIW_INVAL_UOBJ_KEY) {
-		if (siw_debug)
-			printf("libsiw: prepare CQ mapping failed\n");
+		verbs_err(verbs_get_ctx(ctx),
+			  "libsiw: prepare CQ mapping failed\n");
 		goto fail;
 	}
 	pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE);
@@ -171,8 +170,8 @@ static struct ibv_cq *siw_create_cq(struct ibv_context *ctx, int num_cqe,
 			 MAP_SHARED, ctx->cmd_fd, resp.cq_key);
 
 	if (cq->queue == MAP_FAILED) {
-		if (siw_debug)
-			printf("libsiw: CQ mapping failed: %d", errno);
+		verbs_err(verbs_get_ctx(ctx), "libsiw: CQ mapping failed: %d",
+			  errno);
 		goto fail;
 	}
 	cq->ctrl = (struct siw_cq_ctrl *)&cq->queue[cq->num_cqe];
@@ -225,14 +224,14 @@ static struct ibv_srq *siw_create_srq(struct ibv_pd *pd,
 	rv = ibv_cmd_create_srq(pd, &srq->base_srq, attr, &cmd.ibv_cmd,
 				sizeof(cmd), &resp.ibv_resp, sizeof(resp));
 	if (rv) {
-		if (siw_debug)
-			printf("libsiw: creating SRQ failed\n");
+		verbs_err(verbs_get_ctx(pd->context),
+			  "libsiw: creating SRQ failed\n");
 		free(srq);
 		return NULL;
 	}
 	if (resp.srq_key == SIW_INVAL_UOBJ_KEY) {
-		if (siw_debug)
-			printf("libsiw: prepare SRQ mapping failed\n");
+		verbs_err(verbs_get_ctx(pd->context),
+			  "libsiw: prepare SRQ mapping failed\n");
 		goto fail;
 	}
 	pthread_spin_init(&srq->lock, PTHREAD_PROCESS_PRIVATE);
@@ -243,8 +242,8 @@ static struct ibv_srq *siw_create_srq(struct ibv_pd *pd,
 			  MAP_SHARED, ctx->cmd_fd, resp.srq_key);
 
 	if (srq->recvq == MAP_FAILED) {
-		if (siw_debug)
-			printf("libsiw: SRQ mapping failed: %d", errno);
+		verbs_err(verbs_get_ctx(pd->context),
+			  "libsiw: SRQ mapping failed: %d", errno);
 		goto fail;
 	}
 	return &srq->base_srq;
@@ -311,15 +310,15 @@ static struct ibv_qp *siw_create_qp(struct ibv_pd *pd,
 			       sizeof(cmd), &resp.ibv_resp, sizeof(resp));
 
 	if (rv) {
-		if (siw_debug)
-			printf("libsiw: QP creation failed\n");
+		verbs_err(verbs_get_ctx(pd->context),
+			  "libsiw: QP creation failed\n");
 		free(qp);
 		return NULL;
 	}
 	if (resp.sq_key == SIW_INVAL_UOBJ_KEY ||
 	    resp.rq_key == SIW_INVAL_UOBJ_KEY) {
-		if (siw_debug)
-			printf("libsiw: prepare QP mapping failed\n");
+		verbs_err(verbs_get_ctx(pd->context),
+			  "libsiw: prepare QP mapping failed\n");
 		goto fail;
 	}
 	qp->id = resp.qp_id;
@@ -345,8 +344,8 @@ static struct ibv_qp *siw_create_qp(struct ibv_pd *pd,
 			 MAP_SHARED, base_ctx->cmd_fd, resp.sq_key);
 
 	if (qp->sendq == MAP_FAILED) {
-		if (siw_debug)
-			printf("libsiw: SQ mapping failed: %d", errno);
+		verbs_err(verbs_get_ctx(pd->context),
+			  "libsiw: SQ mapping failed: %d", errno);
 
 		qp->sendq = NULL;
 		goto fail;
@@ -360,9 +359,9 @@ static struct ibv_qp *siw_create_qp(struct ibv_pd *pd,
 				 MAP_SHARED, base_ctx->cmd_fd, resp.rq_key);
 
 		if (qp->recvq == MAP_FAILED) {
-			if (siw_debug)
-				printf("libsiw: RQ mapping failed: %d\n",
-				       resp.num_rqe);
+			verbs_err(verbs_get_ctx(pd->context),
+				  "libsiw: RQ mapping failed: %d\n",
+				  resp.num_rqe);
 			qp->recvq = NULL;
 			goto fail;
 		}
@@ -438,23 +437,26 @@ static void siw_async_event(struct ibv_context *ctx,
 
 	switch (event->event_type) {
 	case IBV_EVENT_CQ_ERR:
-		printf("libsiw: CQ[%d] event: error\n",
-		       cq_base2siw(base_cq)->id);
+		verbs_err(verbs_get_ctx(ctx), "libsiw: CQ[%d] event: error\n",
+			  cq_base2siw(base_cq)->id);
 		break;
 
 	case IBV_EVENT_QP_FATAL:
-		printf("libsiw: QP[%d] event: fatal error\n",
-		       qp_base2siw(base_qp)->id);
+		verbs_err(verbs_get_ctx(ctx),
+			  "libsiw: QP[%d] event: fatal error\n",
+			  qp_base2siw(base_qp)->id);
 		break;
 
 	case IBV_EVENT_QP_REQ_ERR:
-		printf("libsiw: QP[%d] event: request error\n",
-		       qp_base2siw(base_qp)->id);
+		verbs_err(verbs_get_ctx(ctx),
+			  "libsiw: QP[%d] event: request error\n",
+			  qp_base2siw(base_qp)->id);
 		break;
 
 	case IBV_EVENT_QP_ACCESS_ERR:
-		printf("libsiw: QP[%d] event: access error\n",
-		       qp_base2siw(base_qp)->id);
+		verbs_err(verbs_get_ctx(ctx),
+			  "libsiw: QP[%d] event: access error\n",
+			  qp_base2siw(base_qp)->id);
 		break;
 
 	case IBV_EVENT_SQ_DRAINED:
@@ -515,7 +517,8 @@ static inline uint16_t map_send_flags(int ibv_flags)
 	return flags;
 }
 
-static inline int push_send_wqe(struct ibv_send_wr *base_wr,
+static inline int push_send_wqe(struct ibv_qp *base_qp,
+				struct ibv_send_wr *base_wr,
 				struct siw_sqe *siw_sqe, int sig_all)
 {
 	uint32_t flags = map_send_flags(base_wr->send_flags);
@@ -528,9 +531,8 @@ static inline int push_send_wqe(struct ibv_send_wr *base_wr,
 
 	siw_sqe->opcode = map_send_opcode[base_wr->opcode].siw;
 	if (siw_sqe->opcode > SIW_NUM_OPCODES) {
-		if (siw_debug)
-			printf("libsiw: opcode %d unsupported\n",
-			       base_wr->opcode);
+		verbs_err(verbs_get_ctx(base_qp->context),
+			  "libsiw: opcode %d unsupported\n", base_wr->opcode);
 		return -EINVAL;
 	}
 	if (sig_all)
@@ -544,9 +546,9 @@ static inline int push_send_wqe(struct ibv_send_wr *base_wr,
 		while (i < base_wr->num_sge) {
 			bytes += base_wr->sg_list[i].length;
 			if (bytes > (int)SIW_MAX_INLINE) {
-				if (siw_debug)
-					printf("libsiw: inline data: %d:%d\n",
-					       bytes, (int)SIW_MAX_INLINE);
+				verbs_err(verbs_get_ctx(base_qp->context),
+					  "libsiw: inline data: %d:%d\n", bytes,
+					  (int)SIW_MAX_INLINE);
 				return -EINVAL;
 			}
 			memcpy(data,
@@ -595,16 +597,16 @@ static int siw_post_send(struct ibv_qp *base_qp, struct ibv_send_wr *wr,
 		sqe_flags = atomic_load(fp);
 
 		if (!(sqe_flags & SIW_WQE_VALID)) {
-			rv = push_send_wqe(wr, sqe, qp->sq_sig_all);
+			rv = push_send_wqe(base_qp, wr, sqe, qp->sq_sig_all);
 			if (rv) {
 				*bad_wr = wr;
 				break;
 			}
 			new_sqe++;
 		} else {
-			if (siw_debug)
-				printf("libsiw: QP[%d]: SQ overflow, idx %d\n",
-				       qp->id, idx);
+			verbs_err(verbs_get_ctx(base_qp->context),
+				  "libsiw: QP[%d]: SQ overflow, idx %d\n",
+				  qp->id, idx);
 			rv = -ENOMEM;
 			*bad_wr = wr;
 			break;
@@ -689,9 +691,9 @@ static int siw_post_recv(struct ibv_qp *base_qp, struct ibv_recv_wr *wr,
 				break;
 			}
 		} else {
-			if (siw_debug)
-				printf("libsiw: QP[%d]: RQ overflow, idx %d\n",
-				       qp->id, idx);
+			verbs_err(verbs_get_ctx(base_qp->context),
+				  "libsiw: QP[%d]: RQ overflow, idx %d\n",
+				  qp->id, idx);
 			rv = -ENOMEM;
 			*bad_wr = wr;
 			break;
@@ -730,8 +732,8 @@ static int siw_post_srq_recv(struct ibv_srq *base_srq, struct ibv_recv_wr *wr,
 				break;
 			}
 		} else {
-			if (siw_debug)
-				printf("libsiw: SRQ[%p]: SRQ overflow\n", srq);
+			verbs_err(verbs_get_ctx(base_srq->context),
+				  "libsiw: SRQ[%p]: SRQ overflow\n", srq);
 			rv = -ENOMEM;
 			*bad_wr = wr;
 			break;
