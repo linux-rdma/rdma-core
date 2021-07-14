@@ -1181,12 +1181,12 @@ struct mlx5dv_dr_action {
 				struct {
 					struct dr_icm_chunk	*chunk;
 					uint8_t			*data;
-					bool			single_action_opt;
 					uint32_t		data_size;
-					uint16_t		num_of_actions;
 					uint32_t		index;
-					bool			allow_rx;
-					bool			allow_tx;
+					uint16_t                num_of_actions;
+					uint8_t			single_action_opt:1;
+					uint8_t			allow_rx:1;
+					uint8_t			allow_tx:1;
 				};
 			};
 		} rewrite;
