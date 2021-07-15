@@ -95,8 +95,8 @@ Description: User space provider drivers for libibverbs
   - efa: Amazon Elastic Fabric Adapter
   - hfi1verbs: Intel Omni-Path HFI
   - hns: HiSilicon Hip06 SoC
-  - i40iw: Intel Ethernet Connection X722 RDMA
   - ipathverbs: QLogic InfiniPath HCAs
+  - irdma: Intel Ethernet Connection RDMA
   - mlx4: Mellanox ConnectX-3 InfiniBand HCAs
   - mlx5: Mellanox Connect-IB/X-4+ InfiniBand HCAs
   - mthca: Mellanox InfiniBand HCAs

@@ -166,14 +166,14 @@ Files: providers/hns/*
 Copyright: 2016, Hisilicon Limited.
 License: BSD-MIT or GPL-2
 
-Files: providers/i40iw/*
-Copyright: 2015-2016, Intel Corporation.
-License: BSD-MIT or GPL-2
-
 Files: providers/ipathverbs/*
 Copyright: 2006-2010, QLogic Corp.
            2005, PathScale, Inc.
            2013, Intel Corporation
+License: BSD-MIT or GPL-2
+
+Files: providers/irdma/*
+Copyright: 2015-2021, Intel Corporation.
 License: BSD-MIT or GPL-2
 
 Files: providers/mlx4/*
