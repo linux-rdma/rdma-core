@@ -2143,15 +2143,24 @@ static void dr_ste_v1_build_src_gvmi_qpn_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v1_build_src_gvmi_qpn_tag;
 }
 
-static void dr_ste_set_flex_parser(uint32_t *misc4_field_id,
+static void dr_ste_set_flex_parser(uint16_t lu_type,
+				   uint32_t *misc4_field_id,
 				   uint32_t *misc4_field_value,
 				   bool *parser_is_used,
 				   uint8_t *tag)
 {
 	uint32_t id = *misc4_field_id;
 	uint8_t *parser_ptr;
+	bool skip_parser;
 
-	if (parser_is_used[id])
+	/* Since this is a shared function to set flex parsers,
+	 * we need to skip it if lookup type and parser ID doesn't match
+	 */
+	skip_parser = id <= DR_STE_MAX_FLEX_0_ID ?
+		      lu_type != DR_STE_V1_LU_TYPE_FLEX_PARSER_0 :
+		      lu_type != DR_STE_V1_LU_TYPE_FLEX_PARSER_1;
+
+	if (skip_parser || parser_is_used[id])
 		return;
 
 	parser_is_used[id] = true;
@@ -2169,22 +2178,45 @@ static int dr_ste_v1_build_felx_parser_tag(struct dr_match_param *value,
 	struct dr_match_misc4 *misc_4_mask = &value->misc4;
 	bool parser_is_used[NUM_OF_FLEX_PARSERS] = {};
 
-	dr_ste_set_flex_parser(&misc_4_mask->prog_sample_field_id_0,
+	dr_ste_set_flex_parser(sb->lu_type,
+			       &misc_4_mask->prog_sample_field_id_0,
 			       &misc_4_mask->prog_sample_field_value_0,
 			       parser_is_used, tag);
 
-	dr_ste_set_flex_parser(&misc_4_mask->prog_sample_field_id_1,
+	dr_ste_set_flex_parser(sb->lu_type,
+			       &misc_4_mask->prog_sample_field_id_1,
 			       &misc_4_mask->prog_sample_field_value_1,
 			       parser_is_used, tag);
 
-	dr_ste_set_flex_parser(&misc_4_mask->prog_sample_field_id_2,
+	dr_ste_set_flex_parser(sb->lu_type,
+			       &misc_4_mask->prog_sample_field_id_2,
 			       &misc_4_mask->prog_sample_field_value_2,
 			       parser_is_used, tag);
 
-	dr_ste_set_flex_parser(&misc_4_mask->prog_sample_field_id_3,
+	dr_ste_set_flex_parser(sb->lu_type,
+			       &misc_4_mask->prog_sample_field_id_3,
 			       &misc_4_mask->prog_sample_field_value_3,
 			       parser_is_used, tag);
 
+	dr_ste_set_flex_parser(sb->lu_type,
+			       &misc_4_mask->prog_sample_field_id_4,
+			       &misc_4_mask->prog_sample_field_value_4,
+			       parser_is_used, tag);
+
+	dr_ste_set_flex_parser(sb->lu_type,
+			       &misc_4_mask->prog_sample_field_id_5,
+			       &misc_4_mask->prog_sample_field_value_5,
+			       parser_is_used, tag);
+
+	dr_ste_set_flex_parser(sb->lu_type,
+			       &misc_4_mask->prog_sample_field_id_6,
+			       &misc_4_mask->prog_sample_field_value_6,
+			       parser_is_used, tag);
+
+	dr_ste_set_flex_parser(sb->lu_type,
+			       &misc_4_mask->prog_sample_field_id_7,
+			       &misc_4_mask->prog_sample_field_value_7,
+			       parser_is_used, tag);
 	return 0;
 }
 

@@ -674,7 +674,21 @@ struct mlx5_ifc_dr_match_set_misc4_bits {
 
 	u8         prog_sample_field_id_3[0x20];
 
-	u8         reserved[0x100];
+	u8         prog_sample_field_value_4[0x20];
+
+	u8         prog_sample_field_id_4[0x20];
+
+	u8         prog_sample_field_value_5[0x20];
+
+	u8         prog_sample_field_id_5[0x20];
+
+	u8         prog_sample_field_value_6[0x20];
+
+	u8         prog_sample_field_id_6[0x20];
+
+	u8         prog_sample_field_value_7[0x20];
+
+	u8         prog_sample_field_id_7[0x20];
 };
 
 struct mlx5_ifc_dr_match_set_misc5_bits {

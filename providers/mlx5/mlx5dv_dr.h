@@ -753,6 +753,14 @@ struct dr_match_misc4 {
 	uint32_t prog_sample_field_id_2;
 	uint32_t prog_sample_field_value_3;
 	uint32_t prog_sample_field_id_3;
+	uint32_t prog_sample_field_value_4;
+	uint32_t prog_sample_field_id_4;
+	uint32_t prog_sample_field_value_5;
+	uint32_t prog_sample_field_id_5;
+	uint32_t prog_sample_field_value_6;
+	uint32_t prog_sample_field_id_6;
+	uint32_t prog_sample_field_value_7;
+	uint32_t prog_sample_field_id_7;
 };
 
 struct dr_match_misc5 {

@@ -375,7 +375,15 @@ static bool dr_mask_is_flex_parser_0_3_set(struct dr_match_misc4 *misc4)
 		dr_mask_is_flex_parser_id_0_3_set(misc4->prog_sample_field_id_2,
 			misc4->prog_sample_field_value_2) ||
 		dr_mask_is_flex_parser_id_0_3_set(misc4->prog_sample_field_id_3,
-			misc4->prog_sample_field_value_3));
+			misc4->prog_sample_field_value_3) ||
+		dr_mask_is_flex_parser_id_0_3_set(misc4->prog_sample_field_id_4,
+			misc4->prog_sample_field_value_4) ||
+		dr_mask_is_flex_parser_id_0_3_set(misc4->prog_sample_field_id_5,
+			misc4->prog_sample_field_value_5) ||
+		dr_mask_is_flex_parser_id_0_3_set(misc4->prog_sample_field_id_6,
+			misc4->prog_sample_field_value_6) ||
+		dr_mask_is_flex_parser_id_0_3_set(misc4->prog_sample_field_id_7,
+			misc4->prog_sample_field_value_7));
 }
 
 static bool dr_mask_is_flex_parser_id_4_7_set(uint32_t flex_parser_id)
@@ -389,7 +397,11 @@ static bool dr_mask_is_flex_parser_4_7_set(struct dr_match_misc4 *misc4)
 	return (dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_0) ||
 		dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_1) ||
 		dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_2) ||
-		dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_3));
+		dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_3) ||
+		dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_4) ||
+		dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_5) ||
+		dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_6) ||
+		dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_7));
 }
 
 static bool dr_mask_is_tunnel_header_0_1_set(struct dr_match_misc5 *misc5)
