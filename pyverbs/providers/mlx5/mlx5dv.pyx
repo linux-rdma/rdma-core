@@ -278,7 +278,8 @@ cdef class Mlx5Context(Context):
                 dve.MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE |\
                 dve.MLX5DV_CONTEXT_MASK_DC_ODP_CAPS |\
                 dve.MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS |\
-                dve.MLX5DV_CONTEXT_MASK_DCI_STREAMS
+                dve.MLX5DV_CONTEXT_MASK_DCI_STREAMS |\
+                dve.MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH
         else:
             dv_attr.comp_mask = comp_mask
         rc = dv.mlx5dv_query_device(self.context, &dv_attr.dv)
@@ -454,6 +455,10 @@ cdef class Mlx5DVContext(PyverbsObject):
     def dci_streams_caps(self):
         return self.dv.dci_streams_caps
 
+    @property
+    def max_wr_memcpy_length(self):
+        return self.dv.max_wr_memcpy_length
+
     def __str__(self):
         print_format = '{:20}: {:<20}\n'
         ident_format = '  {:20}: {:<20}\n'
@@ -498,7 +503,8 @@ cdef class Mlx5DVContext(PyverbsObject):
                print_format.format('Flow action flags',
                                    self.dv.flow_action_flags) +\
                print_format.format('DC ODP caps', self.dv.dc_odp_caps) +\
-               print_format.format('Num LAG ports', self.dv.num_lag_ports)
+               print_format.format('Num LAG ports', self.dv.num_lag_ports) +\
+               print_format.format('Max WR memcpy length', self.dv.max_wr_memcpy_length)
 
 
 cdef class Mlx5DCIStreamInitAttr(PyverbsObject):
@@ -853,6 +859,18 @@ cdef class Mlx5QP(QPEx):
         """
         dv.mlx5dv_wr_set_mkey_sig_block(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
                                         &block_attr.mlx5dv_sig_block_attr)
+
+    def wr_memcpy(self, dest_lkey, dest_addr, src_lkey, src_addr, length):
+        """
+        Copies memory data on PCI bus using DMA functionality of the device.
+        :param dest_lkey: Local key of the mkey to copy data to
+        :param dest_addr: Memory address to copy data to
+        :param src_lkey: Local key of the mkey to copy data from
+        :param src_addr: Memory address to copy data from
+        :param length: Length of data to be copied
+        """
+        dv.mlx5dv_wr_memcpy(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                            dest_lkey, dest_addr, src_lkey, src_addr, length)
 
     def cancel_posted_send_wrs(self, wr_id):
         """

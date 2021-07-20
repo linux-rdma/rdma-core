@@ -49,6 +49,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         unsigned int            flow_action_flags
         unsigned int            dc_odp_caps
         uint8_t                 num_lag_ports
+        size_t                  max_wr_memcpy_length
 
     cdef struct mlx5dv_dci_streams:
         uint8_t       log_num_concurent
@@ -340,6 +341,8 @@ cdef extern from 'infiniband/mlx5dv.h':
                                   uint16_t num_interleaved, mlx5dv_mr_interleaved *data)
     void mlx5dv_wr_mr_list(mlx5dv_qp_ex *mqp, mlx5dv_mkey *mkey,
                            uint32_t access_flags, uint16_t num_sge, v.ibv_sge *sge)
+    void mlx5dv_wr_memcpy(mlx5dv_qp_ex *mqp, uint32_t dest_lkey, uint64_t dest_addr,
+                          uint32_t src_lkey, uint64_t src_addr, uint64_t length)
     mlx5dv_mkey *mlx5dv_create_mkey(mlx5dv_mkey_init_attr *mkey_init_attr)
     int mlx5dv_destroy_mkey(mlx5dv_mkey *mkey)
     mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(v.ibv_qp_ex *qp_ex)
