@@ -100,28 +100,33 @@ struct rs_svc {
 	void *(*run)(void *svc);
 	struct rsocket **rss;
 	void *contexts;
+	char name[16];  /* see man page of pthread_setname_np */
 };
 
 static struct pollfd *udp_svc_fds;
 static void *udp_svc_run(void *arg);
 static struct rs_svc udp_svc = {
 	.context_size = sizeof(*udp_svc_fds),
-	.run = udp_svc_run
+	.run = udp_svc_run,
+	.name = "rsocket_udp"
 };
 static uint64_t *tcp_svc_timeouts;
 static void *tcp_svc_run(void *arg);
 static struct rs_svc tcp_svc = {
 	.context_size = sizeof(*tcp_svc_timeouts),
-	.run = tcp_svc_run
+	.run = tcp_svc_run,
+	.name = "rsocket_tcp"
 };
 static void *cm_svc_run(void *arg);
 static struct rs_svc listen_svc = {
 	.context_size = sizeof(struct pollfd),
-	.run = cm_svc_run
+	.run = cm_svc_run,
+	.name = "rsocket_listen"
 };
 static struct rs_svc connect_svc = {
 	.context_size = sizeof(struct pollfd),
-	.run = cm_svc_run
+	.run = cm_svc_run,
+	.name = "rsocket_connect"
 };
 
 static uint32_t pollcnt;
@@ -485,6 +490,8 @@ static int rs_notify_svc(struct rs_svc *svc, struct rsocket *rs, int cmd)
 			ret = ERR(ret);
 			goto closepair;
 		}
+
+		pthread_setname_np(svc->id, svc->name);
 	}
 
 	msg.cmd = cmd;
