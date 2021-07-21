@@ -624,7 +624,7 @@ int main(int argc, char **argv)
 
 	ai_hints.ai_socktype = SOCK_STREAM;
 	rai_hints.ai_port_space = RDMA_PS_TCP;
-	while ((op = getopt(argc, argv, "s:b:f:B:i:I:C:S:p:k:T:")) != -1) {
+	while ((op = getopt(argc, argv, "s:b:f:B:i:I:C:S:p:k:T:t:")) != -1) {
 		switch (op) {
 		case 's':
 			dst_addr = optarg;
@@ -671,6 +671,9 @@ int main(int argc, char **argv)
 		case 'k':
 			keepalive = atoi(optarg);
 			break;
+		case 't':
+			poll_timeout = atoi(optarg);
+			break;
 		case 'T':
 			if (!set_test_opt(optarg))
 				break;
@@ -689,6 +692,7 @@ int main(int argc, char **argv)
 			printf("\t[-S transfer_size or all]\n");
 			printf("\t[-p port_number]\n");
 			printf("\t[-k keepalive_time]\n");
+			printf("\t[-t poll_timeout\n");
 			printf("\t[-T test_option]\n");
 			printf("\t    s|sockets - use standard tcp/ip sockets\n");
 			printf("\t    a|async - asynchronous operation (use poll)\n");
