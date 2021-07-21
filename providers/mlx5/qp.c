@@ -2182,22 +2182,19 @@ static uint32_t mlx5_umr_crc_bfs(struct mlx5dv_sig_crc *crc)
 	switch (type) {
 	case MLX5DV_SIG_CRC_TYPE_CRC32:
 		block_format_selector = MLX5_BFS_CRC32_BASE;
-		if (crc->seed)
-			block_format_selector |= MLX5_BFS_CRC_SEED_BIT;
 		break;
 	case MLX5DV_SIG_CRC_TYPE_CRC32C:
 		block_format_selector = MLX5_BFS_CRC32C_BASE;
-		if (crc->seed)
-			block_format_selector |= MLX5_BFS_CRC_SEED_BIT;
 		break;
 	case MLX5DV_SIG_CRC_TYPE_CRC64_XP10:
 		block_format_selector = MLX5_BFS_CRC64_XP10_BASE;
-		if (crc->seed)
-			block_format_selector |= MLX5_BFS_CRC_SEED_BIT;
 		break;
 	default:
 		return 0;
 	}
+
+	if (!crc->seed)
+		block_format_selector |= MLX5_BFS_CRC_SEED_BIT;
 
 	block_format_selector |= MLX5_BFS_CRC_REPEAT_BIT;
 
