@@ -3348,8 +3348,10 @@ int rpoll(struct pollfd *fds, nfds_t nfds, int timeout)
 
 		if (timeout >= 0) {
 			timeout -= (int) ((rs_time_us() - start_time) / 1000);
-			if (timeout <= 0)
+			if (timeout <= 0) {
+				rs_poll_stop();
 				return 0;
+			}
 			pollsleep = min(timeout, wake_up_interval);
 		} else {
 			pollsleep = wake_up_interval;
