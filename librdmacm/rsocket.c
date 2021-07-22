@@ -610,6 +610,9 @@ static void rs_configure(void)
 		def_iomap_size = (uint8_t) rs_value_to_scale(
 			(uint16_t) rs_scale_to_value(def_iomap_size, 8), 8);
 	}
+
+	ibv_fork_init();
+
 	init = 1;
 out:
 	pthread_mutex_unlock(&mut);
@@ -744,6 +747,30 @@ static void ds_set_qp_size(struct rsocket *rs)
 		rs->sbuf_size = rs->sq_size * RS_SNDLOWAT;
 }
 
+/* To make rsocket forkable, buffer which is registered as RDMA
+ * memory region should be aligned to page size. And the length
+ * also need be aligned to page size.
+ * Random segment-fault case like this:
+ * 0x7f2764ac5000      -      0x7f2764ac7000
+ * |ptr0 128| ... |ptr1 4096| ... |ptr2 512|
+ *
+ * After ibv_reg_mr(pd, ptr1, 4096, access), the full range of 8K
+ * becomes DONTFORK. And the child process will hit a segment fault
+ * during access ptr0/ptr2.
+ */
+static void *page_aligned_alloc(size_t size)
+{
+	void *tmp;
+	size_t aligned_size, page_size = sysconf(_SC_PAGESIZE);
+
+	aligned_size = (size + page_size - 1) & (~(page_size - 1));
+	if (posix_memalign(&tmp, page_size, aligned_size)) {
+		return NULL;
+	}
+
+	return tmp;
+}
+
 static int rs_init_bufs(struct rsocket *rs)
 {
 	uint32_t total_rbuf_size, total_sbuf_size;
@@ -756,7 +783,7 @@ static int rs_init_bufs(struct rsocket *rs)
 	total_sbuf_size = rs->sbuf_size;
 	if (rs->sq_inline < RS_MAX_CTRL_MSG)
 		total_sbuf_size += RS_MAX_CTRL_MSG * RS_QP_CTRL_SIZE;
-	rs->sbuf = calloc(total_sbuf_size, 1);
+	rs->sbuf = page_aligned_alloc(total_sbuf_size);
 	if (!rs->sbuf)
 		return ERR(ENOMEM);
 
@@ -766,7 +793,7 @@ static int rs_init_bufs(struct rsocket *rs)
 
 	len = sizeof(*rs->target_sgl) * RS_SGL_SIZE +
 	      sizeof(*rs->target_iomap) * rs->target_iomap_size;
-	rs->target_buffer_list = malloc(len);
+	rs->target_buffer_list = page_aligned_alloc(len);
 	if (!rs->target_buffer_list)
 		return ERR(ENOMEM);
 
@@ -782,7 +809,7 @@ static int rs_init_bufs(struct rsocket *rs)
 	total_rbuf_size = rs->rbuf_size;
 	if (rs->opts & RS_OPT_MSG_SEND)
 		total_rbuf_size += rs->rq_size * RS_MSG_SIZE;
-	rs->rbuf = calloc(total_rbuf_size, 1);
+	rs->rbuf = page_aligned_alloc(total_rbuf_size);
 	if (!rs->rbuf)
 		return ERR(ENOMEM);
 
@@ -803,7 +830,9 @@ static int rs_init_bufs(struct rsocket *rs)
 
 static int ds_init_bufs(struct ds_qp *qp)
 {
-	qp->rbuf = calloc(qp->rs->rbuf_size + sizeof(struct ibv_grh), 1);
+	size_t total_rbuf_size = qp->rs->rbuf_size + sizeof(struct ibv_grh);
+
+	qp->rbuf = page_aligned_alloc(total_rbuf_size);
 	if (!qp->rbuf)
 		return ERR(ENOMEM);
 
@@ -1151,7 +1180,7 @@ static int ds_init_ep(struct rsocket *rs)
 
 	ds_set_qp_size(rs);
 
-	rs->sbuf = calloc(rs->sq_size, RS_SNDLOWAT);
+	rs->sbuf = page_aligned_alloc(rs->sq_size * RS_SNDLOWAT);
 	if (!rs->sbuf)
 		return ERR(ENOMEM);
 
