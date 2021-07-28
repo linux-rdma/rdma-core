@@ -19,13 +19,14 @@ from tests.base import XRCResources, DCT_KEY
 from tests.efa_base import SRDResources
 from pyverbs.wr import SGE, SendWR, RecvWR
 from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx
-from tests.mlx5_base import Mlx5DcResources
+from tests.mlx5_base import Mlx5DcResources, Mlx5DcStreamsRes
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.mr import MW, MWBindInfo
 from pyverbs.cq import PollCqAttr
 import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.mr import MR
+import pyverbs.providers.mlx5.mlx5_enums as me
 
 
 MAX_MR_SIZE = 4194304
@@ -472,7 +473,13 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
     if qp_type == e.IBV_QPT_XRC_SEND:
         qp.wr_set_xrc_srqn(agr_obj.remote_srqn)
     if hasattr(agr_obj, 'remote_dct_num'):
-        qp.wr_set_dc_addr(ah, agr_obj.remote_dct_num, DCT_KEY)
+        if isinstance(agr_obj, Mlx5DcStreamsRes):
+            stream_id = agr_obj.generate_stream_id(qp_idx)
+            agr_obj.check_bad_flow(qp_idx)
+            qp.wr_set_dc_addr_stream(ah, agr_obj.remote_dct_num, DCT_KEY,
+                                     stream_id)
+        else:
+            qp.wr_set_dc_addr(ah, agr_obj.remote_dct_num, DCT_KEY)
     qp.wr_set_sge(send_object)
     qp.wr_complete()
 

@@ -44,6 +44,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_CONTEXT_MASK_DC_ODP_CAPS         = 1 << 7
         MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS       = 1 << 9
         MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD   = 1 << 10
+        MLX5DV_CONTEXT_MASK_DCI_STREAMS         = 1 << 11
 
     cpdef enum mlx5dv_context_flags:
         MLX5DV_CONTEXT_FLAGS_CQE_V1                     = 1 << 0
@@ -86,6 +87,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS    = 1 << 0
         MLX5DV_QP_INIT_ATTR_MASK_DC                 = 1 << 1
         MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS     = 1 << 2
+        MLX5DV_QP_INIT_ATTR_MASK_DCI_STREAMS        = 1 << 3
 
     cpdef enum mlx5dv_qp_create_flags:
         MLX5DV_QP_CREATE_TUNNEL_OFFLOADS            = 1 << 0

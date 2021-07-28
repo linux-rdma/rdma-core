@@ -30,6 +30,10 @@ cdef extern from 'infiniband/mlx5dv.h':
         unsigned int    max_single_wqe_log_num_of_strides
         unsigned int    supported_qpts
 
+    cdef struct mlx5dv_dci_streams_caps:
+        uint8_t    max_log_num_concurent
+        uint8_t    max_log_num_errored
+
     cdef struct mlx5dv_context:
         unsigned char           version
         unsigned long           flags
@@ -37,6 +41,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         mlx5dv_cqe_comp_caps    cqe_comp_caps
         mlx5dv_sw_parsing_caps  sw_parsing_caps
         mlx5dv_striding_rq_caps striding_rq_caps
+        mlx5dv_dci_streams_caps dci_streams_caps
         unsigned int            tunnel_offloads_caps
         unsigned int            max_dynamic_bfregs
         unsigned long           max_clock_info_update_nsec
@@ -44,9 +49,14 @@ cdef extern from 'infiniband/mlx5dv.h':
         unsigned int            dc_odp_caps
         uint8_t                 num_lag_ports
 
+    cdef struct mlx5dv_dci_streams:
+        uint8_t       log_num_concurent
+        uint8_t       log_num_errored
+
     cdef struct mlx5dv_dc_init_attr:
         mlx5dv_dc_type      dc_type
         unsigned long       dct_access_key
+        mlx5dv_dci_streams  dci_streams
 
     cdef struct mlx5dv_qp_init_attr:
         unsigned long       comp_mask
@@ -229,6 +239,7 @@ cdef extern from 'infiniband/mlx5dv.h':
                                  uint8_t *active_port_num)
     int mlx5dv_modify_qp_lag_port(v.ibv_qp *qp, uint8_t port_num)
     int mlx5dv_modify_qp_udp_sport(v.ibv_qp *qp, uint16_t udp_sport)
+    int mlx5dv_dci_stream_id_reset(v.ibv_qp *qp, uint16_t stream_id)
     v.ibv_cq_ex *mlx5dv_create_cq(v.ibv_context *context,
                                   v.ibv_cq_init_attr_ex *cq_attr,
                                   mlx5dv_cq_init_attr *mlx5_cq_attr)
@@ -240,6 +251,9 @@ cdef extern from 'infiniband/mlx5dv.h':
     void mlx5dv_pp_free(mlx5dv_pp *pp)
     void mlx5dv_wr_set_dc_addr(mlx5dv_qp_ex *mqp, v.ibv_ah *ah,
                                uint32_t remote_dctn, uint64_t remote_dc_key)
+    void mlx5dv_wr_set_dc_addr_stream(mlx5dv_qp_ex *mqp, v.ibv_ah *ah,
+                                      uint32_t remote_dctn, uint64_t remote_dc_key,
+                                      uint16_t stream_id)
     void mlx5dv_wr_mr_interleaved(mlx5dv_qp_ex *mqp, mlx5dv_mkey *mkey,
                                   uint32_t access_flags, uint32_t repeat_count,
                                   uint16_t num_interleaved, mlx5dv_mr_interleaved *data)

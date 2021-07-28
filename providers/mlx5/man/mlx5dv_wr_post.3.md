@@ -25,6 +25,12 @@ static inline void mlx5dv_wr_set_dc_addr(struct mlx5dv_qp_ex *mqp,
                                          uint32_t remote_dctn,
                                          uint64_t remote_dc_key);
 
+static inline void mlx5dv_wr_set_dc_addr_stream(struct mlx5dv_qp_ex *mqp,
+						struct ibv_ah *ah,
+						uint32_t remote_dctn,
+						uint64_t remote_dc_key,
+						uint16_t stream_id);
+
 struct mlx5dv_mr_interleaved {
 	uint64_t        addr;
 	uint32_t        bytes_count;
@@ -126,6 +132,10 @@ man for ibv_wr_post and mlx5dv_qp with its available builders and setters.
     This setter is available when the QP transport is DCI and send_ops_flags
     in struct ibv_qp_init_attr_ex is set.
     The available builders and setters for DCI QP are the same as RC QP.
+    DCI QP created with MLX5DV_QP_INIT_ATTR_MASK_DCI_STREAMS can call
+    *mlx5dv_wr_set_dc_addr_stream()* to define the *stream_id* of the operation
+    to allow HW to choose one of the multiple concurrent DCI resources.
+    Calls to *mlx5dv_wr_set_dc_addr()* are equivalent to using *stream_id*=0
 
 # EXAMPLE
 

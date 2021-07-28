@@ -40,6 +40,12 @@ uint32_t supported_qpts;
 };
 .PP
 .nf
+struct mlx5dv_dci_streams_caps {
+uint8_t max_log_num_concurent; /* max log number of parallel different streams that could be handled by HW */
+uint8_t max_log_num_errored; /* max DCI error stream channels supported per DCI before a DCI move to an error state */
+};
+.PP
+.nf
 struct mlx5dv_context {
 .in +8
 uint8_t         version;
@@ -91,6 +97,7 @@ MLX5DV_CONTEXT_MASK_DC_ODP_CAPS         = 1 << 7,
 MLX5DV_CONTEXT_MASK_HCA_CORE_CLOCK      = 1 << 8,
 MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS       = 1 << 9,
 MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD   = 1 << 10,
+MLX5DV_CONTEXT_MASK_DCI_STREAMS         = 1 << 11,
 .in -8
 };
 

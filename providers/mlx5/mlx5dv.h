@@ -83,6 +83,7 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_HCA_CORE_CLOCK	= 1 << 8,
 	MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS	= 1 << 9,
 	MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD	= 1 << 10,
+	MLX5DV_CONTEXT_MASK_DCI_STREAMS		= 1 << 11,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -101,6 +102,11 @@ struct mlx5dv_striding_rq_caps {
 	uint32_t min_single_wqe_log_num_of_strides;
 	uint32_t max_single_wqe_log_num_of_strides;
 	uint32_t supported_qpts;
+};
+
+struct mlx5dv_dci_streams_caps {
+	uint8_t max_log_num_concurent;
+	uint8_t max_log_num_errored;
 };
 
 enum mlx5dv_tunnel_offloads {
@@ -192,6 +198,7 @@ struct mlx5dv_context {
 	void		*hca_core_clock;
 	uint8_t		num_lag_ports;
 	struct mlx5dv_sig_caps sig_caps;
+	struct mlx5dv_dci_streams_caps dci_streams_caps;
 };
 
 enum mlx5dv_context_flags {
@@ -263,6 +270,7 @@ enum mlx5dv_qp_init_attr_mask {
 	MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS	= 1 << 0,
 	MLX5DV_QP_INIT_ATTR_MASK_DC			= 1 << 1,
 	MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS		= 1 << 2,
+	MLX5DV_QP_INIT_ATTR_MASK_DCI_STREAMS            = 1 << 3,
 };
 
 enum mlx5dv_dc_type {
@@ -270,9 +278,17 @@ enum mlx5dv_dc_type {
 	MLX5DV_DCTYPE_DCI,
 };
 
+struct mlx5dv_dci_streams {
+	uint8_t log_num_concurent;
+	uint8_t log_num_errored;
+};
+
 struct mlx5dv_dc_init_attr {
 	enum mlx5dv_dc_type	dc_type;
-	uint64_t dct_access_key;
+	union {
+		uint64_t dct_access_key;
+		struct mlx5dv_dci_streams dci_streams;
+	};
 };
 
 enum mlx5dv_qp_create_send_ops_flags {
@@ -401,6 +417,11 @@ struct mlx5dv_qp_ex {
 	void (*wr_set_mkey_sig_block)(struct mlx5dv_qp_ex *mqp,
 				      const struct mlx5dv_sig_block_attr *attr);
 	void (*wr_raw_wqe)(struct mlx5dv_qp_ex *mqp, const void *wqe);
+	void (*wr_set_dc_addr_stream)(struct mlx5dv_qp_ex *mqp,
+				      struct ibv_ah *ah,
+				      uint32_t remote_dctn,
+				      uint64_t remote_dc_key,
+				      uint16_t stream_id);
 };
 
 struct mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(struct ibv_qp_ex *qp);
@@ -411,6 +432,16 @@ static inline void mlx5dv_wr_set_dc_addr(struct mlx5dv_qp_ex *mqp,
 					 uint64_t remote_dc_key)
 {
 	mqp->wr_set_dc_addr(mqp, ah, remote_dctn, remote_dc_key);
+}
+
+static inline void mlx5dv_wr_set_dc_addr_stream(struct mlx5dv_qp_ex *mqp,
+						struct ibv_ah *ah,
+						uint32_t remote_dctn,
+						uint64_t remote_dc_key,
+						uint16_t stream_id)
+{
+	mqp->wr_set_dc_addr_stream(mqp, ah, remote_dctn,
+				   remote_dc_key, stream_id);
 }
 
 static inline void mlx5dv_wr_mr_interleaved(struct mlx5dv_qp_ex *mqp,
@@ -1036,10 +1067,10 @@ struct mlx5_wqe_ctrl_seg {
 	__be32		opmod_idx_opcode;
 	__be32		qpn_ds;
 	uint8_t		signature;
-	uint8_t		rsvd[2];
+	__be16		dci_stream_channel_id;
 	uint8_t		fm_ce_se;
 	__be32		imm;
-};
+} __attribute__((__packed__)) __attribute__((__aligned__(4)));
 
 struct mlx5_mprq_wqe {
 	struct mlx5_wqe_srq_next_seg	nseg;
@@ -1875,6 +1906,8 @@ int mlx5dv_query_qp_lag_port(struct ibv_qp *qp,
 int mlx5dv_modify_qp_lag_port(struct ibv_qp *qp, uint8_t port_num);
 
 int mlx5dv_modify_qp_udp_sport(struct ibv_qp *qp, uint16_t udp_sport);
+
+int mlx5dv_dci_stream_id_reset(struct ibv_qp *qp, uint16_t stream_id);
 
 enum mlx5dv_sched_elem_attr_flags {
 	MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE	= 1 << 0,

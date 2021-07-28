@@ -2079,7 +2079,8 @@ enum {
 enum {
 	MLX5_DV_CREATE_QP_SUP_COMP_MASK = MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS |
 					  MLX5DV_QP_INIT_ATTR_MASK_DC |
-					  MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS
+					  MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS |
+					  MLX5DV_QP_INIT_ATTR_MASK_DCI_STREAMS
 };
 
 enum {
@@ -2316,6 +2317,21 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 				} else if (mlx5_qp_attr->dc_init_attr.dc_type == MLX5DV_DCTYPE_DCI) {
 					mlx5_create_flags |= MLX5_QP_FLAG_TYPE_DCI;
 					qp->dc_type = MLX5DV_DCTYPE_DCI;
+					if (mlx5_qp_attr->comp_mask & MLX5DV_QP_INIT_ATTR_MASK_DCI_STREAMS) {
+						if ((ctx->dci_streams_caps.max_log_num_concurent <
+						     mlx5_qp_attr->dc_init_attr.dci_streams.log_num_concurent) ||
+						    (ctx->dci_streams_caps.max_log_num_errored <
+						     mlx5_qp_attr->dc_init_attr.dci_streams.log_num_errored)) {
+							errno = EINVAL;
+							goto err;
+						}
+
+						mlx5_create_flags |= MLX5_QP_FLAG_DCI_STREAM;
+						cmd.dci_streams.log_num_concurent =
+							mlx5_qp_attr->dc_init_attr.dci_streams.log_num_concurent;
+						cmd.dci_streams.log_num_errored =
+							mlx5_qp_attr->dc_init_attr.dci_streams.log_num_errored;
+					}
 				} else {
 					errno = EINVAL;
 					goto err;
@@ -3815,6 +3831,10 @@ void mlx5_query_device_ctx(struct mlx5_context *mctx)
 		resp.striding_rq_caps.supported_qpts;
 	mctx->tunnel_offloads_caps = resp.tunnel_offloads_caps;
 	mctx->packet_pacing_caps = resp.packet_pacing_caps;
+	mctx->dci_streams_caps.max_log_num_concurent =
+		resp.dci_streams_caps.max_log_num_concurent;
+	mctx->dci_streams_caps.max_log_num_errored =
+		resp.dci_streams_caps.max_log_num_errored;
 
 	if (resp.flags & MLX5_IB_QUERY_DEV_RESP_FLAGS_CQE_128B_COMP)
 		mctx->vendor_cap_flags |= MLX5_VENDOR_CAP_FLAGS_CQE_128B_COMP;

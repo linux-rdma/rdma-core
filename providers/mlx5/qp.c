@@ -2950,6 +2950,18 @@ static void mlx5_send_wr_set_dc_addr(struct mlx5dv_qp_ex *dv_qp,
 		mqp->cur_setters_cnt++;
 }
 
+static void mlx5_send_wr_set_dc_addr_stream(struct mlx5dv_qp_ex *dv_qp,
+					    struct ibv_ah *ah,
+					    uint32_t remote_dctn,
+					    uint64_t remote_dc_key,
+					    uint16_t stream_id)
+{
+	struct mlx5_qp *mqp = mqp_from_mlx5dv_qp_ex(dv_qp);
+
+	mqp->cur_ctrl->dci_stream_channel_id = htobe16(stream_id);
+	mlx5_send_wr_set_dc_addr(dv_qp, ah, remote_dctn, remote_dc_key);
+}
+
 static inline void raw_wqe_init(struct ibv_qp_ex *ibqp, const void *wqe)
 {
 	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
@@ -3207,6 +3219,7 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 		fill_wr_builders_rc_xrc_dc(ibqp);
 		fill_wr_setters_ud_xrc_dc(ibqp);
 		dv_qp->wr_set_dc_addr = mlx5_send_wr_set_dc_addr;
+		dv_qp->wr_set_dc_addr_stream = mlx5_send_wr_set_dc_addr_stream;
 		break;
 
 	default:

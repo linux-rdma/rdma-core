@@ -22,6 +22,9 @@ cdef class Mlx5DVContext(PyverbsObject):
 cdef class Mlx5DVPortAttr(PyverbsObject):
     cdef dv.mlx5dv_port attr
 
+cdef class Mlx5DCIStreamInitAttr(PyverbsObject):
+    cdef dv.mlx5dv_dci_streams dci_streams
+
 cdef class Mlx5DVDCInitAttr(PyverbsObject):
     cdef dv.mlx5dv_dc_init_attr attr
 
