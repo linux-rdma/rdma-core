@@ -912,6 +912,7 @@ struct dr_domain_info {
 	uint32_t		max_send_wr;
 	uint32_t		max_log_sw_icm_sz;
 	uint32_t		max_log_action_icm_sz;
+	uint32_t		max_send_size;
 	struct dr_domain_rx_tx	rx;
 	struct dr_domain_rx_tx	tx;
 	struct ibv_device_attr_ex attr;
@@ -1426,7 +1427,7 @@ struct dr_send_ring {
 	pthread_spinlock_t	lock;
 	void			*buf;
 	uint32_t		buf_size;
-	uint8_t			sync_buff[MIN_READ_SYNC];
+	void			*sync_buff;
 	struct ibv_mr		*sync_mr;
 };
 

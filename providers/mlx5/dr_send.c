@@ -611,15 +611,10 @@ static void dr_fill_data_segs(struct dr_send_ring *send_ring,
 
 	send_ring->pending_wqe++;
 	send_info->read.length = send_info->write.length;
-	if (inline_flag) {
-		/* Read into dedicated buffer */
-		send_info->read.addr = (uintptr_t)send_ring->sync_buff;
-		send_info->read.lkey = send_ring->sync_mr->lkey;
-	} else {
-		/* Read into the same write area */
-		send_info->read.addr = (uintptr_t)send_info->write.addr;
-		send_info->read.lkey = send_ring->mr->lkey;
-	}
+
+	/* Read into dedicated buffer */
+	send_info->read.addr = (uintptr_t)send_ring->sync_buff;
+	send_info->read.lkey = send_ring->sync_mr->lkey;
 
 	if (send_ring->pending_wqe % send_ring->signal_th == 0)
 		send_info->read.send_flags = IBV_SEND_SIGNALED;
@@ -929,6 +924,10 @@ int dr_send_ring_alloc(struct mlx5dv_dr_domain *dmn)
 			   IBV_ACCESS_REMOTE_READ;
 	int ret;
 
+	dmn->info.max_send_size =
+		dr_icm_pool_chunk_size_to_byte(DR_CHUNK_SIZE_1K,
+					       DR_ICM_TYPE_STE);
+
 	dmn->send_ring = calloc(1, sizeof(*dmn->send_ring));
 	if (!dmn->send_ring) {
 		dr_dbg(dmn, "Couldn't allocate send-ring\n");
@@ -1029,19 +1028,29 @@ int dr_send_ring_alloc(struct mlx5dv_dr_domain *dmn)
 		goto free_mem;
 	}
 
+	ret = posix_memalign(&dmn->send_ring->sync_buff, page_size,
+			     dmn->info.max_send_size);
+	if (ret) {
+		dr_dbg(dmn, "Couldn't allocate send-ring sync_buf.\n");
+		errno = ret;
+		goto clean_mr;
+	}
+
 	dmn->send_ring->sync_mr = ibv_reg_mr(dmn->pd, dmn->send_ring->sync_buff,
-					     MIN_READ_SYNC,
+					     dmn->info.max_send_size,
 					     IBV_ACCESS_LOCAL_WRITE |
 					     IBV_ACCESS_REMOTE_READ |
 					     IBV_ACCESS_REMOTE_WRITE);
 	if (!dmn->send_ring->sync_mr) {
 		dr_dbg(dmn, "Couldn't register sync mr\n");
 		ret = errno;
-		goto clean_mr;
+		goto clean_sync_buf;
 	}
 
 	return 0;
 
+clean_sync_buf:
+	free(dmn->send_ring->sync_buff);
 clean_mr:
 	ibv_dereg_mr(dmn->send_ring->mr);
 free_mem:
@@ -1062,6 +1071,7 @@ void dr_send_ring_free(struct dr_send_ring *send_ring)
 	ibv_destroy_cq(send_ring->cq.ibv_cq);
 	ibv_dereg_mr(send_ring->sync_mr);
 	ibv_dereg_mr(send_ring->mr);
+	free(send_ring->sync_buff);
 	free(send_ring->buf);
 	free(send_ring);
 }
