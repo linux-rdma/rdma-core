@@ -412,14 +412,14 @@ dr_ste_conv_modify_hdr_sw_field(struct dr_ste_ctx *ste_ctx,
 
 struct dr_ste_ctx *dr_ste_get_ctx(uint8_t version);
 void dr_ste_free(struct dr_ste *ste,
-		 struct mlx5dv_dr_matcher *matcher,
-		 struct dr_matcher_rx_tx *nic_matcher);
+		 struct mlx5dv_dr_rule *rule,
+		 struct dr_rule_rx_tx *nic_rule);
 static inline void dr_ste_put(struct dr_ste *ste,
-			      struct mlx5dv_dr_matcher *matcher,
-			      struct dr_matcher_rx_tx *nic_matcher)
+			      struct mlx5dv_dr_rule *rule,
+			      struct dr_rule_rx_tx *nic_rule)
 {
 	if (atomic_fetch_sub(&ste->refcount, 1) == 1)
-		dr_ste_free(ste, matcher, nic_matcher);
+		dr_ste_free(ste, rule, nic_rule);
 }
 
 /* initial as 0, increased only when ste appears in a new rule */
@@ -438,7 +438,8 @@ int dr_ste_create_next_htbl(struct mlx5dv_dr_matcher *matcher,
 			    struct dr_matcher_rx_tx *nic_matcher,
 			    struct dr_ste *ste,
 			    uint8_t *cur_hw_ste,
-			    enum dr_icm_chunk_size log_table_size);
+			    enum dr_icm_chunk_size log_table_size,
+			    uint8_t send_ring_idx);
 
 /* STE build functions */
 int dr_ste_build_pre_check(struct mlx5dv_dr_domain *dmn,
@@ -1438,7 +1439,8 @@ int dr_ste_htbl_init_and_postsend(struct mlx5dv_dr_domain *dmn,
 				  struct dr_domain_rx_tx *nic_dmn,
 				  struct dr_ste_htbl *htbl,
 				  struct dr_htbl_connect_info *connect_info,
-				  bool update_hw_ste);
+				  bool update_hw_ste,
+				  uint8_t send_ring_idx);
 void dr_ste_set_formated_ste(struct dr_ste_ctx *ste_ctx,
 			     uint16_t gvmi,
 			     enum dr_domain_nic_type nic_type,
@@ -1517,13 +1519,16 @@ void dr_send_ring_free(struct mlx5dv_dr_domain *dmn);
 int dr_send_ring_force_drain(struct mlx5dv_dr_domain *dmn);
 bool dr_send_allow_fl(struct dr_devx_caps *caps);
 int dr_send_postsend_ste(struct mlx5dv_dr_domain *dmn, struct dr_ste *ste,
-			 uint8_t *data, uint16_t size, uint16_t offset);
+			 uint8_t *data, uint16_t size, uint16_t offset,
+			 uint8_t ring_idx);
 int dr_send_postsend_htbl(struct mlx5dv_dr_domain *dmn, struct dr_ste_htbl *htbl,
-			  uint8_t *formated_ste, uint8_t *mask);
+			  uint8_t *formated_ste, uint8_t *mask,
+			  uint8_t send_ring_idx);
 int dr_send_postsend_formated_htbl(struct mlx5dv_dr_domain *dmn,
 				   struct dr_ste_htbl *htbl,
 				   uint8_t *ste_init_data,
-				   bool update_hw_ste);
+				   bool update_hw_ste,
+				   uint8_t send_ring_idx);
 int dr_send_postsend_action(struct mlx5dv_dr_domain *dmn,
 			    struct mlx5dv_dr_action *action);
 /* buddy functions & structure */

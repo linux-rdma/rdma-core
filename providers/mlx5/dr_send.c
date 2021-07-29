@@ -699,7 +699,8 @@ static int dr_get_tbl_copy_details(struct mlx5dv_dr_domain *dmn,
  * Return: 0 on success.
  */
 int dr_send_postsend_ste(struct mlx5dv_dr_domain *dmn, struct dr_ste *ste,
-			 uint8_t *data, uint16_t size, uint16_t offset)
+			 uint8_t *data, uint16_t size, uint16_t offset,
+			 uint8_t ring_idx)
 {
 	struct postsend_info send_info = {};
 
@@ -711,11 +712,12 @@ int dr_send_postsend_ste(struct mlx5dv_dr_domain *dmn, struct dr_ste *ste,
 	send_info.remote_addr   = dr_ste_get_mr_addr(ste) + offset;
 	send_info.rkey          = ste->htbl->chunk->rkey;
 
-	return dr_postsend_icm_data(dmn, &send_info, 0);
+	return dr_postsend_icm_data(dmn, &send_info, ring_idx);
 }
 
 int dr_send_postsend_htbl(struct mlx5dv_dr_domain *dmn, struct dr_ste_htbl *htbl,
-			  uint8_t *formated_ste, uint8_t *mask)
+			  uint8_t *formated_ste, uint8_t *mask,
+			  uint8_t send_ring_idx)
 {
 	bool legacy_htbl = htbl->type == DR_STE_HTBL_TYPE_LEGACY;
 	uint32_t byte_size = htbl->chunk->byte_size;
@@ -764,7 +766,7 @@ int dr_send_postsend_htbl(struct mlx5dv_dr_domain *dmn, struct dr_ste_htbl *htbl
 		send_info.remote_addr	= dr_ste_get_mr_addr(htbl->ste_arr + ste_index);
 		send_info.rkey		= htbl->chunk->rkey;
 
-		ret = dr_postsend_icm_data(dmn, &send_info, 0);
+		ret = dr_postsend_icm_data(dmn, &send_info, send_ring_idx);
 		if (ret)
 			goto out_free;
 	}
@@ -778,7 +780,8 @@ out_free:
 int dr_send_postsend_formated_htbl(struct mlx5dv_dr_domain *dmn,
 				   struct dr_ste_htbl *htbl,
 				   uint8_t *ste_init_data,
-				   bool update_hw_ste)
+				   bool update_hw_ste,
+				   uint8_t send_ring_idx)
 {
 	uint32_t byte_size = htbl->chunk->byte_size;
 	int i, num_stes, iterations, ret;
@@ -817,7 +820,7 @@ int dr_send_postsend_formated_htbl(struct mlx5dv_dr_domain *dmn,
 		send_info.remote_addr	= dr_ste_get_mr_addr(htbl->ste_arr + ste_index);
 		send_info.rkey		= htbl->chunk->rkey;
 
-		ret = dr_postsend_icm_data(dmn, &send_info, 0);
+		ret = dr_postsend_icm_data(dmn, &send_info, send_ring_idx);
 		if (ret)
 			goto out_free;
 	}
@@ -831,6 +834,10 @@ int dr_send_postsend_action(struct mlx5dv_dr_domain *dmn,
 			    struct mlx5dv_dr_action *action)
 {
 	struct postsend_info send_info = {};
+	int num_qps;
+	int i, ret;
+
+	num_qps = dmn->info.use_mqs ? DR_MAX_SEND_RINGS : 1;
 
 	send_info.write.addr	= (uintptr_t) action->rewrite.data;
 	send_info.write.length	= action->rewrite.num_of_actions *
@@ -839,7 +846,16 @@ int dr_send_postsend_action(struct mlx5dv_dr_domain *dmn,
 	send_info.remote_addr	= action->rewrite.chunk->mr_addr;
 	send_info.rkey		= action->rewrite.chunk->rkey;
 
-	return dr_postsend_icm_data(dmn, &send_info, 0);
+	/* To avoid race between action creation and its use in other QP
+	 * write it in all QP's.
+	 */
+	for (i = 0; i < num_qps; i++) {
+		ret = dr_postsend_icm_data(dmn, &send_info, i);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
 
 bool dr_send_allow_fl(struct dr_devx_caps *caps)
@@ -1113,7 +1129,7 @@ int dr_send_ring_force_drain(struct mlx5dv_dr_domain *dmn)
 	int num_qps;
 	int ret;
 
-	num_qps = dr_domain_is_mq_enable(dmn) ? DR_MAX_SEND_RINGS : 1;
+	num_qps = dmn->info.use_mqs ? DR_MAX_SEND_RINGS : 1;
 
 	/* Sending this amount of requests makes sure we will get drain */
 	num_of_sends_req = send_ring->signal_th * TH_NUMS_TO_DRAIN / 2;

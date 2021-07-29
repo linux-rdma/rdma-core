@@ -943,7 +943,7 @@ static int dr_matcher_connect(struct mlx5dv_dr_domain *dmn,
 	}
 	ret = dr_ste_htbl_init_and_postsend(dmn, nic_dmn,
 					    curr_nic_matcher->e_anchor,
-					    &info, info.type == CONNECT_HIT);
+					    &info, info.type == CONNECT_HIT, 0);
 	if (ret)
 		return ret;
 
@@ -952,7 +952,7 @@ static int dr_matcher_connect(struct mlx5dv_dr_domain *dmn,
 	info.miss_icm_addr = curr_nic_matcher->e_anchor->chunk->icm_addr;
 	ret = dr_ste_htbl_init_and_postsend(dmn, nic_dmn,
 					    curr_nic_matcher->s_htbl,
-					    &info, false);
+					    &info, false, 0);
 	if (ret)
 		return ret;
 
@@ -965,7 +965,7 @@ static int dr_matcher_connect(struct mlx5dv_dr_domain *dmn,
 	info.type = CONNECT_HIT;
 	info.hit_next_htbl = curr_nic_matcher->s_htbl;
 	ret = dr_ste_htbl_init_and_postsend(dmn, nic_dmn, prev_htbl,
-					    &info, true);
+					    &info, true, 0);
 	if (ret)
 		return ret;
 
@@ -1169,6 +1169,11 @@ static int dr_matcher_init_root(struct mlx5dv_dr_matcher *matcher,
 	return 0;
 }
 
+static bool dr_matcher_is_fixed_size(struct mlx5dv_dr_matcher *matcher)
+{
+	return (matcher->rx.fixed_size || matcher->tx.fixed_size);
+}
+
 static int dr_matcher_init(struct mlx5dv_dr_matcher *matcher,
 			   struct mlx5dv_flow_match_parameters *mask)
 {
@@ -1213,6 +1218,12 @@ static int dr_matcher_init(struct mlx5dv_dr_matcher *matcher,
 		errno = EINVAL;
 		return errno;
 	}
+
+	/* Drain QP to resolve possible race between new multi QP rules
+	 * and matcher hash table initial creation.
+	 */
+	if (dr_matcher_is_fixed_size(matcher))
+		dr_send_ring_force_drain(dmn);
 
 	return ret;
 }
@@ -1383,7 +1394,7 @@ static int dr_matcher_disconnect(struct mlx5dv_dr_domain *dmn,
 	}
 
 	return dr_ste_htbl_init_and_postsend(dmn, nic_dmn, prev_anchor,
-					     &info, true);
+					     &info, true, 0);
 }
 
 static int dr_matcher_remove_from_tbl(struct mlx5dv_dr_matcher *matcher)

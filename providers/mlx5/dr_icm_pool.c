@@ -348,6 +348,9 @@ static int dr_icm_pool_sync_pool_buddies(struct dr_icm_pool *pool)
 
 	pthread_spin_unlock(&pool->lock);
 
+	/* Avoid race between delete resource to its reuse on other QP */
+	dr_send_ring_force_drain(pool->dmn);
+
 	if (pool->dmn->flags & DR_DOMAIN_FLAG_MEMORY_RECLAIM)
 		need_reclaim = true;
 
