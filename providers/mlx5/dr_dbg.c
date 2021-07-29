@@ -699,7 +699,7 @@ static int dr_dump_domain(FILE *f, struct mlx5dv_dr_domain *dmn)
 	enum mlx5dv_dr_domain_type dmn_type = dmn->type;
 	char *dev_name = dmn->ctx->device->dev_name;
 	uint64_t domain_id;
-	int ret;
+	int ret, i;
 
 	domain_id = dr_domain_id_calc(dmn_type);
 
@@ -719,9 +719,11 @@ static int dr_dump_domain(FILE *f, struct mlx5dv_dr_domain *dmn)
 		return ret;
 
 	if (dmn->info.supp_sw_steering) {
-		ret = dr_dump_send_ring(f, dmn->send_ring, domain_id);
-		if (ret < 0)
-			return ret;
+		for (i = 0; i < DR_MAX_SEND_RINGS; i++) {
+			ret = dr_dump_send_ring(f, dmn->send_ring[i], domain_id);
+			if (ret < 0)
+				return ret;
+		}
 	}
 
 	return 0;

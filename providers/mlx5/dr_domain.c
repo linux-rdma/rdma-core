@@ -106,7 +106,7 @@ clean_pd:
 
 static void dr_free_resources(struct mlx5dv_dr_domain *dmn)
 {
-	dr_send_ring_free(dmn->send_ring);
+	dr_send_ring_free(dmn);
 	dr_icm_pool_destroy(dmn->action_icm_pool);
 	dr_icm_pool_destroy(dmn->ste_icm_pool);
 	mlx5dv_devx_free_uar(dmn->uar);

@@ -912,7 +912,6 @@ struct dr_domain_rx_tx {
 struct dr_domain_info {
 	bool			supp_sw_steering;
 	uint32_t		max_inline_size;
-	uint32_t		max_send_wr;
 	uint32_t		max_log_sw_icm_sz;
 	uint32_t		max_log_action_icm_sz;
 	uint32_t		max_send_size;
@@ -937,7 +936,7 @@ struct mlx5dv_dr_domain {
 	atomic_int			refcount;
 	struct dr_icm_pool		*ste_icm_pool;
 	struct dr_icm_pool		*action_icm_pool;
-	struct dr_send_ring		*send_ring;
+	struct dr_send_ring		*send_ring[DR_MAX_SEND_RINGS];
 	struct dr_domain_info		info;
 	struct list_head		tbl_list;
 	uint32_t			flags;
@@ -1493,7 +1492,6 @@ struct dr_cq {
 };
 
 #define MAX_SEND_CQE		64
-#define MIN_READ_SYNC		64
 
 struct dr_send_ring {
 	struct dr_cq		cq;
@@ -1503,8 +1501,7 @@ struct dr_send_ring {
 	uint32_t		pending_wqe;
 	/* Signal request per this trash hold value */
 	uint16_t		signal_th;
-	/* Each post_send_size less than max_post_send_size */
-	uint32_t		max_post_send_size;
+	uint32_t                max_inline_size;
 	/* manage the send queue */
 	uint32_t		tx_head;
 	/* protect QP/CQ operations */
@@ -1516,7 +1513,7 @@ struct dr_send_ring {
 };
 
 int dr_send_ring_alloc(struct mlx5dv_dr_domain *dmn);
-void dr_send_ring_free(struct dr_send_ring *send_ring);
+void dr_send_ring_free(struct mlx5dv_dr_domain *dmn);
 int dr_send_ring_force_drain(struct mlx5dv_dr_domain *dmn);
 bool dr_send_allow_fl(struct dr_devx_caps *caps);
 int dr_send_postsend_ste(struct mlx5dv_dr_domain *dmn, struct dr_ste *ste,
