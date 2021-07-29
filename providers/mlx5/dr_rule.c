@@ -304,7 +304,8 @@ static struct dr_ste *dr_rule_rehash_copy_ste(struct mlx5dv_dr_matcher *matcher,
 		if (!ste_info) {
 			dr_dbg(matcher->tbl->dmn, "Failed allocating ste_info\n");
 			errno = ENOMEM;
-			goto err_exit;
+			dr_htbl_put(new_ste->htbl);
+			return NULL;
 		}
 		dr_send_fill_and_append_ste_send_info(new_ste, DR_STE_SIZE, 0,
 						      hw_ste, ste_info,
@@ -314,10 +315,6 @@ static struct dr_ste *dr_rule_rehash_copy_ste(struct mlx5dv_dr_matcher *matcher,
 	dr_rule_rehash_copy_ste_ctrl(matcher, nic_matcher, cur_ste, new_ste);
 
 	return new_ste;
-
-err_exit:
-	dr_ste_free(new_ste, matcher, nic_matcher);
-	return NULL;
 }
 
 static int dr_rule_rehash_copy_miss_list(struct mlx5dv_dr_matcher *matcher,
