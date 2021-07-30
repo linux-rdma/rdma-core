@@ -264,7 +264,7 @@ create_nl_socket_exit:
  */
 void destroy_iwpm_socket(int pm_sock)
 {
-	if (pm_sock > 0)
+	if (pm_sock >= 0)
 		close(pm_sock);
 	pm_sock = -1;
 }
