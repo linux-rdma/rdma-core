@@ -139,6 +139,10 @@ cdef class PD(PyverbsCM):
     def handle(self):
         return self.pd.handle
 
+    @property
+    def pd(self):
+        return <object>self.pd
+
 
 cdef void *pd_alloc(v.ibv_pd *pd, void *pd_context, size_t size,
                   size_t alignment, v.uint64_t resource_type):

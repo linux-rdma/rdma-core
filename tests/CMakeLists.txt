@@ -8,6 +8,7 @@ rdma_python_test(tests
   base_rdmacm.py
   efa_base.py
   mlx5_base.py
+  mlx5_prm_structs.py
   rdmacm_utils.py
   test_addr.py
   test_cq.py
@@ -20,6 +21,7 @@ rdma_python_test(tests
   test_fork.py
   test_mlx5_cq.py
   test_mlx5_dc.py
+  test_mlx5_devx.py
   test_mlx5_dm_ops.py
   test_mlx5_dr.py
   test_mlx5_flow.py
@@ -34,6 +36,7 @@ rdma_python_test(tests
   test_mlx5_uar.py
   test_mlx5_udp_sport.py
   test_mlx5_var.py
+  test_mlx5_vfio.py
   test_mr.py
   test_odp.py
   test_pd.py

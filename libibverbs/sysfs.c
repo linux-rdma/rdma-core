@@ -127,6 +127,11 @@ int ibv_read_ibdev_sysfs_file(char *buf, size_t size,
 	va_list va;
 	int res;
 
+	if (!sysfs_dev) {
+		errno = EINVAL;
+		return -1;
+	}
+
 	va_start(va, fnfmt);
 	if (vasprintf(&path, fnfmt, va) < 0) {
 		va_end(va);

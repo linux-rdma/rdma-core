@@ -4,6 +4,7 @@
 include 'mlx5dv_enums.pxd'
 
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t, uintptr_t
+from posix.types cimport off_t
 from libcpp cimport bool
 
 cimport pyverbs.libibverbs as v
@@ -222,11 +223,91 @@ cdef extern from 'infiniband/mlx5dv.h':
         uint8_t     fm_ce_se
         uint32_t    imm
 
+    cdef struct mlx5dv_devx_umem:
+        uint32_t umem_id;
+
+    cdef struct mlx5dv_devx_umem_in:
+        void        *addr
+        size_t      size
+        uint32_t    access
+        uint64_t    pgsz_bitmap
+        uint64_t    comp_mask
+
+    cdef struct mlx5dv_vfio_context_attr:
+        const char  *pci_name
+        uint32_t    flags
+        uint64_t    comp_mask
+
+    cdef struct mlx5dv_pd:
+        uint32_t    pdn
+        uint64_t    comp_mask
+
+    cdef struct mlx5dv_cq:
+        void        *buf
+        uint32_t    *dbrec
+        uint32_t    cqe_cnt
+        uint32_t    cqe_size
+        void        *cq_uar
+        uint32_t    cqn
+        uint64_t    comp_mask
+
+    cdef struct mlx5dv_qp:
+        uint64_t    comp_mask
+        off_t       uar_mmap_offset
+        uint32_t    tirn
+        uint32_t    tisn
+        uint32_t    rqn
+        uint32_t    sqn
+
+    cdef struct mlx5dv_srq:
+        uint32_t    stride
+        uint32_t    head
+        uint32_t    tail
+        uint64_t    comp_mask
+        uint32_t    srqn
+
+    cdef struct pd:
+        v.ibv_pd    *in_ "in"
+        mlx5dv_pd   *out
+
+    cdef struct cq:
+        v.ibv_cq    *in_ "in"
+        mlx5dv_cq   *out
+
+    cdef struct qp:
+        v.ibv_qp    *in_ "in"
+        mlx5dv_qp   *out
+
+    cdef struct srq:
+        v.ibv_srq   *in_ "in"
+        mlx5dv_srq  *out
+
+    cdef struct mlx5dv_obj:
+        pd  pd
+        cq  cq
+        qp  qp
+        srq srq
+
+    cdef struct mlx5_cqe64:
+        uint16_t    wqe_id
+        uint32_t    imm_inval_pkey
+        uint32_t    byte_cnt
+        uint64_t    timestamp
+        uint16_t    wqe_counter
+        uint8_t     signature
+        uint8_t     op_own
+
+
     void mlx5dv_set_ctrl_seg(mlx5_wqe_ctrl_seg *seg, uint16_t pi, uint8_t opcode,
                              uint8_t opmod, uint32_t qp_num, uint8_t fm_ce_se,
                              uint8_t ds, uint8_t signature, uint32_t imm)
     void mlx5dv_set_data_seg(mlx5_wqe_data_seg *seg, uint32_t length,
                              uint32_t lkey, uintptr_t address)
+    uint8_t mlx5dv_get_cqe_owner(mlx5_cqe64 *cqe)
+    void mlx5dv_set_cqe_owner(mlx5_cqe64 *cqe, uint8_t val)
+    uint8_t mlx5dv_get_cqe_se(mlx5_cqe64 *cqe)
+    uint8_t mlx5dv_get_cqe_format(mlx5_cqe64 *cqe)
+    uint8_t mlx5dv_get_cqe_opcode(mlx5_cqe64 *cqe)
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
@@ -310,13 +391,29 @@ cdef extern from 'infiniband/mlx5dv.h':
                              uint64_t device_timestamp)
     int mlx5dv_get_clock_info(v.ibv_context *ctx_in, mlx5dv_clock_info *clock_info)
     int mlx5dv_map_ah_to_qp(v.ibv_ah *ah, uint32_t qp_num)
+    v.ibv_device **mlx5dv_get_vfio_device_list(mlx5dv_vfio_context_attr *attr)
+    int mlx5dv_vfio_get_events_fd(v.ibv_context *ibctx)
+    int mlx5dv_vfio_process_events(v.ibv_context *context)
 
     # DevX APIs
-    mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context,
-                                           uint32_t flags)
+    mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context, uint32_t flags)
     void mlx5dv_devx_free_uar(mlx5dv_devx_uar *devx_uar)
     int mlx5dv_devx_general_cmd(v.ibv_context *context, const void *in_,
-                                size_t inlen, void *out, size_t outlen);
+                                size_t inlen, void *out, size_t outlen)
+    mlx5dv_devx_umem *mlx5dv_devx_umem_reg(v.ibv_context *ctx, void *addr,
+                                           size_t size, unsigned long access)
+    mlx5dv_devx_umem *mlx5dv_devx_umem_reg_ex(v.ibv_context *ctx,
+                                              mlx5dv_devx_umem_in *umem_in)
+    int mlx5dv_devx_umem_dereg(mlx5dv_devx_umem *umem)
+    int mlx5dv_devx_query_eqn(v.ibv_context *context, uint32_t vector, uint32_t *eqn)
+    mlx5dv_devx_obj *mlx5dv_devx_obj_create(v.ibv_context *context, const void *_in,
+                                            size_t inlen, void *out, size_t outlen)
+    int mlx5dv_devx_obj_query(mlx5dv_devx_obj *obj, const void *in_,
+                              size_t inlen, void *out, size_t outlen)
+    int mlx5dv_devx_obj_modify(mlx5dv_devx_obj *obj, const void *in_,
+                               size_t inlen, void *out, size_t outlen)
+    int mlx5dv_devx_obj_destroy(mlx5dv_devx_obj *obj)
+    int mlx5dv_init_obj(mlx5dv_obj *obj, uint64_t obj_type)
 
     # Mkey setters
     void mlx5dv_wr_mkey_configure(mlx5dv_qp_ex *mqp, mlx5dv_mkey *mkey,

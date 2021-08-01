@@ -1505,6 +1505,27 @@ struct mlx5dv_context_attr {
 
 bool mlx5dv_is_supported(struct ibv_device *device);
 
+enum mlx5dv_vfio_context_attr_flags {
+	MLX5DV_VFIO_CTX_FLAGS_INIT_LINK_DOWN = 1 << 0,
+};
+
+struct mlx5dv_vfio_context_attr {
+	const char *pci_name;
+	uint32_t flags; /* Use enum mlx5dv_vfio_context_attr_flags */
+	uint64_t comp_mask;
+};
+
+struct ibv_device **
+mlx5dv_get_vfio_device_list(struct mlx5dv_vfio_context_attr *attr);
+
+int mlx5dv_vfio_get_events_fd(struct ibv_context *ibctx);
+
+/* This API should run from application thread and maintain device events.
+ * The application is responsible to get the events FD by calling mlx5dv_vfio_get_events_fd
+ * and once the FD is pollable call the API to let driver process the ready events.
+ */
+int mlx5dv_vfio_process_events(struct ibv_context *context);
+
 struct ibv_context *
 mlx5dv_open_device(struct ibv_device *device, struct mlx5dv_context_attr *attr);
 
@@ -1704,6 +1725,10 @@ static inline uint64_t _devx_get64(const void *p, size_t bit_off)
 }
 
 #define DEVX_GET64(typ, p, fld) _devx_get64(p, __devx_bit_off(typ, fld))
+
+#define DEVX_ARRAY_SET64(typ, p, fld, idx, v) do { \
+	DEVX_SET64(typ, p, fld[idx], v); \
+} while (0)
 
 struct mlx5dv_dr_domain;
 struct mlx5dv_dr_table;

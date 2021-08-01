@@ -30,6 +30,7 @@ PATH_MTU = e.IBV_MTU_1024
 MAX_DEST_RD_ATOMIC = 1
 NUM_OF_PROCESSES = 2
 MC_IP_PREFIX = '230'
+MAX_RDMA_ATOMIC = 20
 MAX_RD_ATOMIC = 1
 MIN_RNR_TIMER =12
 RETRY_CNT = 7
@@ -131,6 +132,7 @@ class RDMATestCase(unittest.TestCase):
         self.pkey_index = pkey_index
         self.gid_type = gid_type if gid_index is None else None
         self.ip_addr = None
+        self.mac_addr = None
         self.pre_environment = {}
         self.server = None
         self.client = None
@@ -168,13 +170,14 @@ class RDMATestCase(unittest.TestCase):
         return out.decode().split('\n')[0]
 
     @staticmethod
-    def get_ip_address(ifname):
+    def get_ip_mac_address(ifname):
         out = subprocess.check_output(['ip', '-j', 'addr', 'show', ifname])
         loaded_json = json.loads(out.decode())
         interface = loaded_json[0]['addr_info'][0]['local']
+        mac = loaded_json[0]['address']
         if 'fe80::' in interface:
             interface = interface + '%' + ifname
-        return interface
+        return interface, mac
 
     def setUp(self):
         """
@@ -242,11 +245,11 @@ class RDMATestCase(unittest.TestCase):
                 continue
             net_name = self.get_net_name(dev)
             try:
-                ip_addr = self.get_ip_address(net_name)
+                ip_addr, mac_addr = self.get_ip_mac_address(net_name)
             except (KeyError, IndexError):
-                self.args.append([dev, port, idx, None])
+                self.args.append([dev, port, idx, None, None])
             else:
-                self.args.append([dev, port, idx, ip_addr])
+                self.args.append([dev, port, idx, ip_addr, mac_addr])
 
     def _add_gids_per_device(self, ctx, dev):
         self._add_gids_per_port(ctx, dev, self.ib_port)
@@ -264,6 +267,7 @@ class RDMATestCase(unittest.TestCase):
         self.ib_port = args[1]
         self.gid_index = args[2]
         self.ip_addr = args[3]
+        self.mac_addr = args[4]
 
     def set_env_variable(self, var, value):
         """
