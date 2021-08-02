@@ -855,9 +855,11 @@ class Mlx5DevxTrafficBase(Mlx5RDMATestCase):
 
 
 class Mlx5RcResources(RCResources):
-    def __init__(self, dev_name, ib_port, gid_index):
+    def __init__(self, dev_name, ib_port, gid_index, **kwargs):
+        self.dv_send_ops_flags = 0
+        self.send_ops_flags = 0
         self.create_send_ops_flags()
-        super().__init__(dev_name, ib_port, gid_index)
+        super().__init__(dev_name, ib_port, gid_index, **kwargs)
 
     def create_send_ops_flags(self):
         self.dv_send_ops_flags = 0
