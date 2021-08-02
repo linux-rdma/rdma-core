@@ -437,4 +437,24 @@ static inline void bnxt_re_change_cq_phase(struct bnxt_re_cq *cq)
 	if (!cq->cqq.head)
 		cq->phase = (~cq->phase & BNXT_RE_BCQE_PH_MASK);
 }
+
+static inline void *bnxt_re_get_swqe(struct bnxt_re_joint_queue *jqq,
+				     uint32_t *wqe_idx)
+{
+	if (wqe_idx)
+		*wqe_idx = jqq->start_idx;
+	return &jqq->swque[jqq->start_idx];
+}
+
+static inline void bnxt_re_jqq_mod_start(struct bnxt_re_joint_queue *jqq,
+					 uint32_t idx)
+{
+	jqq->start_idx = jqq->swque[idx].next_idx;
+}
+
+static inline void bnxt_re_jqq_mod_last(struct bnxt_re_joint_queue *jqq,
+					uint32_t idx)
+{
+	jqq->last_idx = jqq->swque[idx].next_idx;
+}
 #endif
