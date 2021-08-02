@@ -81,8 +81,10 @@ int efa_query_device_ex(struct ibv_context *context,
 
 	err = ibv_cmd_query_device_any(context, input, attr, attr_size,
 				       &resp.ibv_resp, &resp_size);
-	if (err)
+	if (err) {
+		verbs_err(verbs_get_ctx(context), "ibv_cmd_query_device_any failed\n");
 		return err;
+	}
 
 	a->max_qp_wr = min_t(int, a->max_qp_wr,
 			     ctx->max_llq_size / sizeof(struct efa_io_tx_wqe));
@@ -106,8 +108,11 @@ int efa_query_device_ctx(struct efa_context *ctx)
 		err = ibv_cmd_query_device_any(&ctx->ibvctx.context, NULL,
 					       &attr, sizeof(attr),
 					       &resp.ibv_resp, &resp_size);
-		if (err)
+		if (err) {
+			verbs_err(&ctx->ibvctx,
+				  "ibv_cmd_query_device_any failed\n");
 			return err;
+		}
 
 		ctx->device_caps = resp.device_caps;
 		ctx->max_sq_wr = resp.max_sq_wr;
@@ -119,8 +124,11 @@ int efa_query_device_ctx(struct efa_context *ctx)
 		err = ibv_cmd_query_device_any(&ctx->ibvctx.context, NULL,
 					       &attr, sizeof(attr.orig_attr),
 					       NULL, NULL);
-		if (err)
+		if (err) {
+			verbs_err(&ctx->ibvctx,
+				  "ibv_cmd_query_device_any failed\n");
 			return err;
+		}
 	}
 
 	ctx->max_wr_rdma_sge = attr.orig_attr.max_sge_rd;
@@ -139,11 +147,15 @@ int efadv_query_device(struct ibv_context *ibvctx,
 	struct efa_context *ctx = to_efa_context(ibvctx);
 	uint64_t comp_mask_out = 0;
 
-	if (!is_efa_dev(ibvctx->device))
+	if (!is_efa_dev(ibvctx->device)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Not an EFA device\n");
 		return EOPNOTSUPP;
+	}
 
-	if (!vext_field_avail(typeof(*attr), inline_buf_size, inlen))
+	if (!vext_field_avail(typeof(*attr), inline_buf_size, inlen)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Compatibility issues\n");
 		return EINVAL;
+	}
 
 	memset(attr, 0, inlen);
 	attr->max_sq_wr = ctx->max_sq_wr;
@@ -180,8 +192,10 @@ struct ibv_pd *efa_alloc_pd(struct ibv_context *ibvctx)
 
 	err = ibv_cmd_alloc_pd(ibvctx, &pd->ibvpd, &cmd, sizeof(cmd),
 			       &resp.ibv_resp, sizeof(resp));
-	if (err)
+	if (err) {
+		verbs_err(verbs_get_ctx(ibvctx), "Failed to allocate PD\n");
 		goto out;
+	}
 
 	pd->pdn = resp.pdn;
 
@@ -199,8 +213,11 @@ int efa_dealloc_pd(struct ibv_pd *ibvpd)
 	int err;
 
 	err = ibv_cmd_dealloc_pd(ibvpd);
-	if (err)
+	if (err) {
+		verbs_err(verbs_get_ctx(ibvpd->context),
+			  "Failed to deallocate PD\n");
 		return err;
+	}
 	free(pd);
 
 	return 0;
@@ -221,6 +238,8 @@ struct ibv_mr *efa_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
 	err = ibv_cmd_reg_mr(ibvpd, sva, len, hca_va, access, &mr->vmr,
 			     &cmd, sizeof(cmd), &resp, sizeof(resp));
 	if (err) {
+		verbs_err(verbs_get_ctx(ibvpd->context),
+			  "Failed to register MR\n");
 		free(mr);
 		errno = err;
 		return NULL;
@@ -235,8 +254,11 @@ int efa_dereg_mr(struct verbs_mr *vmr)
 	int err;
 
 	err = ibv_cmd_dereg_mr(vmr);
-	if (err)
+	if (err) {
+		verbs_err(verbs_get_ctx(vmr->ibv_mr.context),
+			  "Failed to deregister MR\n");
 		return err;
+	}
 	free(mr);
 
 	return 0;
@@ -419,8 +441,12 @@ static inline int efa_poll_sub_cq(struct efa_cq *cq, struct efa_sub_cq *sub_cq,
 		 * from the table.
 		 */
 		*cur_qp = ctx->qp_table[qpn & ctx->qp_table_sz_m1];
-		if (!*cur_qp)
+		if (!*cur_qp) {
+			verbs_err(&ctx->ibvctx,
+				  "QP[%u] does not exist in QP table\n",
+				  qpn);
 			return EINVAL;
+		}
 	}
 
 	if (extended) {
@@ -485,8 +511,12 @@ static int efa_start_poll(struct ibv_cq_ex *ibvcqx,
 	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
 	int ret;
 
-	if (unlikely(attr->comp_mask))
+	if (unlikely(attr->comp_mask)) {
+		verbs_err(verbs_get_ctx(ibvcqx->context),
+			  "Invalid comp_mask %u\n",
+			  attr->comp_mask);
 		return EINVAL;
+	}
 
 	pthread_spin_lock(&cq->lock);
 
@@ -700,6 +730,7 @@ err_destroy_cq:
 	ibv_cmd_destroy_cq(&cq->verbs_cq.cq);
 err_free_cq:
 	free(cq);
+	verbs_err(verbs_get_ctx(ibvctx), "Failed to create CQ\n");
 	return NULL;
 }
 
@@ -723,6 +754,8 @@ struct ibv_cq_ex *efa_create_cq_ex(struct ibv_context *ibvctx,
 {
 	if (!check_comp_mask(attr_ex->comp_mask, 0) ||
 	    !check_comp_mask(attr_ex->wc_flags, IBV_WC_STANDARD_FLAGS)) {
+		verbs_err(verbs_get_ctx(ibvctx),
+			  "Invalid comp_mask or wc_flags\n");
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -740,8 +773,11 @@ int efa_destroy_cq(struct ibv_cq *ibvcq)
 	pthread_spin_destroy(&cq->lock);
 
 	err = ibv_cmd_destroy_cq(ibvcq);
-	if (err)
+	if (err) {
+		verbs_err(verbs_get_ctx(ibvcq->context),
+			  "Failed to destroy CQ[%u]\n", cq->cqn);
 		return err;
+	}
 
 	free(cq);
 
@@ -848,8 +884,11 @@ static int efa_sq_initialize(struct efa_qp *qp,
 	};
 
 	err = efa_wq_initialize(&qp->sq.wq, &wq_attr);
-	if (err)
+	if (err) {
+		verbs_err(&ctx->ibvctx, "SQ[%u] efa_wq_initialize failed\n",
+			  qp->verbs_qp.qp.qp_num);
 		return err;
+	}
 
 	sq->desc_offset = resp->llq_desc_offset;
 	desc_ring_size = sq->wq.wqe_cnt * sizeof(struct efa_io_tx_wqe);
@@ -867,6 +906,7 @@ static int efa_sq_initialize(struct efa_qp *qp,
 			MAP_SHARED, qp->verbs_qp.qp.context->cmd_fd,
 			resp->llq_desc_mmap_key);
 	if (sq->desc == MAP_FAILED) {
+		verbs_err(&ctx->ibvctx, "SQ buffer mmap failed\n");
 		err = errno;
 		goto err_free_local_queue;
 	}
@@ -924,13 +964,18 @@ static int efa_rq_initialize(struct efa_qp *qp, struct efa_create_qp_resp *resp)
 	};
 
 	err = efa_wq_initialize(&qp->rq.wq, &wq_attr);
-	if (err)
+	if (err) {
+		verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+			  "RQ efa_wq_initialize failed\n");
 		return err;
+	}
 
 	rq->buf_size = resp->rq_mmap_size;
 	rq->buf = mmap(NULL, rq->buf_size, PROT_WRITE, MAP_SHARED,
 		       qp->verbs_qp.qp.context->cmd_fd, resp->rq_mmap_key);
 	if (rq->buf == MAP_FAILED) {
+		verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+			  "RQ buffer mmap failed\n");
 		err = errno;
 		goto err_terminate_wq;
 	}
@@ -1021,14 +1066,22 @@ static int efa_check_qp_attr(struct efa_context *ctx,
 	(IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)
 
 	if (attr->qp_type == IBV_QPT_DRIVER &&
-	    efa_attr->driver_qp_type != EFADV_QP_DRIVER_TYPE_SRD)
+	    efa_attr->driver_qp_type != EFADV_QP_DRIVER_TYPE_SRD) {
+		verbs_err(&ctx->ibvctx, "Driver QP type must be SRD\n");
 		return EOPNOTSUPP;
+	}
 
-	if (!check_comp_mask(attr->comp_mask, EFA_CREATE_QP_SUPP_ATTR_MASK))
+	if (!check_comp_mask(attr->comp_mask, EFA_CREATE_QP_SUPP_ATTR_MASK)) {
+		verbs_err(&ctx->ibvctx,
+			  "Unsupported comp_mask[%#x] supported[%#x]\n",
+			  attr->comp_mask, EFA_CREATE_QP_SUPP_ATTR_MASK);
 		return EOPNOTSUPP;
+	}
 
-	if (!(attr->comp_mask & IBV_QP_INIT_ATTR_PD))
+	if (!(attr->comp_mask & IBV_QP_INIT_ATTR_PD)) {
+		verbs_err(&ctx->ibvctx, "Does not support PD in init attr\n");
 		return EINVAL;
+	}
 
 	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS) {
 		switch (attr->qp_type) {
@@ -1039,18 +1092,29 @@ static int efa_check_qp_attr(struct efa_context *ctx,
 			supp_send_ops_mask = supp_srd_send_ops_mask;
 			break;
 		default:
+			verbs_err(&ctx->ibvctx, "Invalid QP type %u\n",
+				  attr->qp_type);
 			return EOPNOTSUPP;
 		}
 
-		if (!check_comp_mask(attr->send_ops_flags, supp_send_ops_mask))
+		if (!check_comp_mask(attr->send_ops_flags,
+				     supp_send_ops_mask)) {
+			verbs_err(&ctx->ibvctx,
+				  "Unsupported send_ops_flags[%" PRIx64 "] supported [%" PRIx64 "]\n",
+				  attr->send_ops_flags, supp_send_ops_mask);
 			return EOPNOTSUPP;
+		}
 	}
 
-	if (!attr->recv_cq || !attr->send_cq)
+	if (!attr->recv_cq || !attr->send_cq) {
+		verbs_err(&ctx->ibvctx, "Send/Receive CQ not provided\n");
 		return EINVAL;
+	}
 
-	if (attr->srq)
+	if (attr->srq) {
+		verbs_err(&ctx->ibvctx, "SRQ is not supported\n");
 		return EINVAL;
+	}
 
 	return 0;
 }
@@ -1058,17 +1122,33 @@ static int efa_check_qp_attr(struct efa_context *ctx,
 static int efa_check_qp_limits(struct efa_context *ctx,
 			       struct ibv_qp_init_attr_ex *attr)
 {
-	if (attr->cap.max_send_sge > ctx->max_sq_sge)
+	if (attr->cap.max_send_sge > ctx->max_sq_sge) {
+		verbs_err(&ctx->ibvctx,
+			  "Max send SGE %u > %u\n", attr->cap.max_send_sge,
+			  ctx->max_sq_sge);
 		return EINVAL;
+	}
 
-	if (attr->cap.max_recv_sge > ctx->max_rq_sge)
+	if (attr->cap.max_recv_sge > ctx->max_rq_sge) {
+		verbs_err(&ctx->ibvctx,
+			  "Max receive SGE %u > %u\n", attr->cap.max_recv_sge,
+			  ctx->max_rq_sge);
 		return EINVAL;
+	}
 
-	if (attr->cap.max_send_wr > ctx->max_sq_wr)
+	if (attr->cap.max_send_wr > ctx->max_sq_wr) {
+		verbs_err(&ctx->ibvctx,
+			  "Max send WR %u > %u\n", attr->cap.max_send_wr,
+			  ctx->max_sq_wr);
 		return EINVAL;
+	}
 
-	if (attr->cap.max_recv_wr > ctx->max_rq_wr)
+	if (attr->cap.max_recv_wr > ctx->max_rq_wr) {
+		verbs_err(&ctx->ibvctx,
+			  "Max receive WR %u > %u\n", attr->cap.max_recv_wr,
+			  ctx->max_rq_wr);
 		return EINVAL;
+	}
 
 	return 0;
 }
@@ -1160,6 +1240,7 @@ err_free_qp:
 	free(qp);
 err_out:
 	errno = err;
+	verbs_err(verbs_get_ctx(ibvctx), "Failed to create QP\n");
 	return NULL;
 }
 
@@ -1170,6 +1251,8 @@ struct ibv_qp *efa_create_qp(struct ibv_pd *ibvpd,
 	struct ibv_qp *ibvqp;
 
 	if (attr->qp_type != IBV_QPT_UD) {
+		verbs_err(verbs_get_ctx(ibvpd->context),
+			  "Unsupported QP type %d\n", attr->qp_type);
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -1189,6 +1272,7 @@ struct ibv_qp *efa_create_qp_ex(struct ibv_context *ibvctx,
 				struct ibv_qp_init_attr_ex *attr_ex)
 {
 	if (attr_ex->qp_type != IBV_QPT_UD) {
+		verbs_err(verbs_get_ctx(ibvctx), "Unsupported QP type\n");
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -1205,11 +1289,14 @@ struct ibv_qp *efadv_create_driver_qp(struct ibv_pd *ibvpd,
 	struct ibv_qp *ibvqp;
 
 	if (!is_efa_dev(ibvpd->context->device)) {
+		verbs_err(verbs_get_ctx(ibvpd->context), "Not an EFA device\n");
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
 	if (attr->qp_type != IBV_QPT_DRIVER) {
+		verbs_err(verbs_get_ctx(ibvpd->context),
+			  "QP type not IBV_QPT_DRIVER\n");
 		errno = EINVAL;
 		return NULL;
 	}
@@ -1232,6 +1319,7 @@ struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
 				  uint32_t inlen)
 {
 	if (!is_efa_dev(ibvctx->device)) {
+		verbs_err(verbs_get_ctx(ibvctx), "Not an EFA device\n");
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -1242,6 +1330,7 @@ struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
 	    efa_attr->comp_mask ||
 	    !is_reserved_cleared(efa_attr->reserved) ||
 	    (inlen > sizeof(*efa_attr) && !is_ext_cleared(efa_attr, inlen))) {
+		verbs_err(verbs_get_ctx(ibvctx), "Compatibility issues\n");
 		errno = EINVAL;
 		return NULL;
 	}
@@ -1257,8 +1346,11 @@ int efa_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 	int err;
 
 	err = ibv_cmd_modify_qp(ibvqp, attr, attr_mask, &cmd, sizeof(cmd));
-	if (err)
+	if (err) {
+		verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+			  "Failed to modify QP[%u]\n", qp->verbs_qp.qp.qp_num);
 		return err;
+	}
 
 	if (attr_mask & IBV_QP_STATE) {
 		qp->verbs_qp.qp.state = attr->qp_state;
@@ -1300,8 +1392,11 @@ int efa_destroy_qp(struct ibv_qp *ibvqp)
 	efa_rq_terminate(qp);
 
 	err = ibv_cmd_destroy_qp(ibvqp);
-	if (err)
+	if (err) {
+		verbs_err(&ctx->ibvctx, "Failed to destroy QP[%u]\n",
+			  ibvqp->qp_num);
 		return err;
+	}
 
 	free(qp);
 	return 0;
@@ -1411,18 +1506,36 @@ static int efa_post_send_validate(struct efa_qp *qp,
 				  unsigned int wr_flags)
 {
 	if (unlikely(qp->verbs_qp.qp.state != IBV_QPS_RTS &&
-		     qp->verbs_qp.qp.state != IBV_QPS_SQD))
+		     qp->verbs_qp.qp.state != IBV_QPS_SQD)) {
+		verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+			  "SQ[%u] is in invalid state\n",
+			  qp->verbs_qp.qp.qp_num);
 		return EINVAL;
+	}
 
-	if (unlikely(!(wr_flags & IBV_SEND_SIGNALED) && !qp->sq_sig_all))
+	if (unlikely(!(wr_flags & IBV_SEND_SIGNALED) && !qp->sq_sig_all)) {
+		verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+			  "SQ[%u] Non signaled WRs not supported\n",
+			  qp->verbs_qp.qp.qp_num);
 		return EINVAL;
+	}
 
-	if (unlikely(wr_flags & ~(IBV_SEND_SIGNALED | IBV_SEND_INLINE)))
+	if (unlikely(wr_flags & ~(IBV_SEND_SIGNALED | IBV_SEND_INLINE))) {
+		verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+			  "SQ[%u] Unsupported wr_flags[%#x] supported[%#x]\n",
+			  qp->verbs_qp.qp.qp_num, wr_flags,
+			  ~(IBV_SEND_SIGNALED | IBV_SEND_INLINE));
 		return EINVAL;
+	}
 
 	if (unlikely(qp->sq.wq.wqe_posted - qp->sq.wq.wqe_completed ==
-		     qp->sq.wq.wqe_cnt))
+		     qp->sq.wq.wqe_cnt)) {
+		verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+			  "SQ[%u] is full wqe_posted[%u] wqe_completed[%u] wqe_cnt[%u]\n",
+			  qp->verbs_qp.qp.qp_num, qp->sq.wq.wqe_posted,
+			  qp->sq.wq.wqe_completed, qp->sq.wq.wqe_cnt);
 		return ENOMEM;
+	}
 
 	return 0;
 }
@@ -1437,16 +1550,32 @@ static int efa_post_send_validate_wr(struct efa_qp *qp,
 		return err;
 
 	if (unlikely(wr->opcode != IBV_WR_SEND &&
-		     wr->opcode != IBV_WR_SEND_WITH_IMM))
+		     wr->opcode != IBV_WR_SEND_WITH_IMM)) {
+		verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+			  "SQ[%u] unsupported opcode %d\n",
+			  qp->verbs_qp.qp.qp_num, wr->opcode);
 		return EINVAL;
+	}
 
 	if (wr->send_flags & IBV_SEND_INLINE) {
 		if (unlikely(efa_sge_total_bytes(wr->sg_list, wr->num_sge) >
-			     qp->sq.max_inline_data))
+			     qp->sq.max_inline_data)) {
+			verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+				  "SQ[%u] WR total bytes %zu > %zu\n",
+				  qp->verbs_qp.qp.qp_num,
+				  efa_sge_total_bytes(wr->sg_list,
+						      wr->num_sge),
+				  qp->sq.max_inline_data);
 			return EINVAL;
+		}
 	} else {
-		if (unlikely(wr->num_sge > qp->sq.wq.max_sge))
+		if (unlikely(wr->num_sge > qp->sq.wq.max_sge)) {
+			verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+				  "SQ[%u] WR num_sge %d > %d\n",
+				  qp->verbs_qp.qp.qp_num, wr->num_sge,
+				  qp->sq.wq.max_sge);
 			return EINVAL;
+	}
 	}
 
 	return 0;
@@ -1652,6 +1781,10 @@ static void efa_send_wr_set_sge_list(struct ibv_qp_ex *ibvqpx, size_t num_sge,
 	switch (op_type) {
 	case EFA_IO_SEND:
 		if (unlikely(num_sge > sq->wq.max_sge)) {
+			verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+				  "SQ[%u] num_sge[%zu] > max_sge[%u]\n",
+				  ibvqpx->qp_base.qp_num, num_sge,
+				  sq->wq.max_sge);
 			qp->wr_session_err = EINVAL;
 			return;
 		}
@@ -1659,6 +1792,10 @@ static void efa_send_wr_set_sge_list(struct ibv_qp_ex *ibvqpx, size_t num_sge,
 		break;
 	case EFA_IO_RDMA_READ:
 		if (unlikely(num_sge > sq->max_wr_rdma_sge)) {
+			verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+				  "SQ[%u] num_sge[%zu] > max_rdma_sge[%zu]\n",
+				  ibvqpx->qp_base.qp_num, num_sge,
+				  sq->max_wr_rdma_sge);
 			qp->wr_session_err = EINVAL;
 			return;
 		}
@@ -1684,6 +1821,10 @@ static void efa_send_wr_set_inline_data(struct ibv_qp_ex *ibvqpx, void *addr,
 		return;
 
 	if (unlikely(length > qp->sq.max_inline_data)) {
+		verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+			  "SQ[%u] WR inline length %zu > %zu\n",
+			  ibvqpx->qp_base.qp_num, length,
+			  qp->sq.max_inline_data);
 		qp->wr_session_err = EINVAL;
 		return;
 	}
@@ -1709,6 +1850,11 @@ efa_send_wr_set_inline_data_list(struct ibv_qp_ex *ibvqpx,
 
 	if (unlikely(efa_buf_list_total_bytes(buf_list, num_buf) >
 		     qp->sq.max_inline_data)) {
+		verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+			  "SQ[%u] WR inline length %zu > %zu\n",
+			  ibvqpx->qp_base.qp_num,
+			  efa_buf_list_total_bytes(buf_list, num_buf),
+			  qp->sq.max_inline_data);
 		qp->wr_session_err = EINVAL;
 		return;
 	}
@@ -1754,8 +1900,12 @@ static void efa_send_wr_start(struct ibv_qp_ex *ibvqpx)
 
 static inline void efa_sq_roll_back(struct efa_sq *sq)
 {
+	struct efa_qp *qp = container_of(sq, struct efa_qp, sq);
 	struct efa_wq *wq = &sq->wq;
 
+	verbs_debug(verbs_get_ctx(qp->verbs_qp.qp.context),
+		    "SQ[%u] Rollback num_wqe_pending = %u\n",
+		    qp->verbs_qp.qp.qp_num, sq->num_wqe_pending);
 	wq->wqe_posted -= sq->num_wqe_pending;
 	wq->pc -= sq->num_wqe_pending;
 	wq->wrid_idx_pool_next -= sq->num_wqe_pending;
@@ -1859,15 +2009,29 @@ static void efa_qp_fill_wr_pfns(struct ibv_qp_ex *ibvqpx,
 static int efa_post_recv_validate(struct efa_qp *qp, struct ibv_recv_wr *wr)
 {
 	if (unlikely(qp->verbs_qp.qp.state == IBV_QPS_RESET ||
-		     qp->verbs_qp.qp.state == IBV_QPS_ERR))
+		     qp->verbs_qp.qp.state == IBV_QPS_ERR)) {
+		verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+			  "RQ[%u] Invalid QP state\n",
+			  qp->verbs_qp.qp.qp_num);
 		return EINVAL;
+	}
 
-	if (unlikely(wr->num_sge > qp->rq.wq.max_sge))
+	if (unlikely(wr->num_sge > qp->rq.wq.max_sge)) {
+		verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+			  "RQ[%u] WR num_sge %d > %d\n",
+			  qp->verbs_qp.qp.qp_num, wr->num_sge,
+			  qp->rq.wq.max_sge);
 		return EINVAL;
+	}
 
 	if (unlikely(qp->rq.wq.wqe_posted - qp->rq.wq.wqe_completed ==
-		     qp->rq.wq.wqe_cnt))
+		     qp->rq.wq.wqe_cnt)) {
+		verbs_err(verbs_get_ctx(qp->verbs_qp.qp.context),
+			  "RQ[%u] is full wqe_posted[%u] wqe_completed[%u] wqe_cnt[%u]\n",
+			  qp->verbs_qp.qp.qp_num, qp->rq.wq.wqe_posted,
+			  qp->rq.wq.wqe_completed, qp->rq.wq.wqe_cnt);
 		return ENOMEM;
+	}
 
 	return 0;
 }
@@ -1943,11 +2107,16 @@ int efadv_query_ah(struct ibv_ah *ibvah, struct efadv_ah_attr *attr,
 {
 	uint64_t comp_mask_out = 0;
 
-	if (!is_efa_dev(ibvah->context->device))
+	if (!is_efa_dev(ibvah->context->device)) {
+		verbs_err(verbs_get_ctx(ibvah->context), "Not an EFA device\n");
 		return EOPNOTSUPP;
+	}
 
-	if (!vext_field_avail(typeof(*attr), ahn, inlen))
+	if (!vext_field_avail(typeof(*attr), ahn, inlen)) {
+		verbs_err(verbs_get_ctx(ibvah->context),
+			  "Compatibility issues\n");
 		return EINVAL;
+	}
 
 	memset(attr, 0, inlen);
 	attr->ahn = to_efa_ah(ibvah)->efa_ah;
@@ -1970,6 +2139,8 @@ struct ibv_ah *efa_create_ah(struct ibv_pd *ibvpd, struct ibv_ah_attr *attr)
 	err = ibv_cmd_create_ah(ibvpd, &ah->ibvah, attr,
 				&resp.ibv_resp, sizeof(resp));
 	if (err) {
+		verbs_err(verbs_get_ctx(ibvpd->context),
+			  "Failed to create AH\n");
 		free(ah);
 		errno = err;
 		return NULL;
@@ -1987,8 +2158,11 @@ int efa_destroy_ah(struct ibv_ah *ibvah)
 
 	ah = to_efa_ah(ibvah);
 	err = ibv_cmd_destroy_ah(ibvah);
-	if (err)
+	if (err) {
+		verbs_err(verbs_get_ctx(ibvah->context),
+			  "Failed to destroy AH\n");
 		return err;
+	}
 	free(ah);
 
 	return 0;
