@@ -563,32 +563,34 @@ def poll_cq_ex(cqex, count=1, data=None):
                  to be compared after poll
     :return: None
     """
-    poll_attr = PollCqAttr()
-    ret = cqex.start_poll(poll_attr)
-    while ret == 2: # ENOENT
+    try:
+        poll_attr = PollCqAttr()
         ret = cqex.start_poll(poll_attr)
-    if ret != 0:
-        raise PyverbsRDMAErrno('Failed to poll CQ')
-    count -= 1
-    if cqex.status != e.IBV_WC_SUCCESS:
-        raise PyverbsRDMAErrno('Completion status is {s}'.
-                               format(s=cqex.status))
-    if data:
-        assert data == socket.ntohl(cqex.read_imm_data())
-    # Now poll the rest of the packets
-    while count > 0:
-        ret = cqex.poll_next()
-        while ret == 2:
-            ret = cqex.poll_next()
+        while ret == 2: # ENOENT
+            ret = cqex.start_poll(poll_attr)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to poll CQ')
+        count -= 1
         if cqex.status != e.IBV_WC_SUCCESS:
             raise PyverbsRDMAErrno('Completion status is {s}'.
                                    format(s=cqex.status))
         if data:
             assert data == socket.ntohl(cqex.read_imm_data())
-        count -= 1
-    cqex.end_poll()
+        # Now poll the rest of the packets
+        while count > 0:
+            ret = cqex.poll_next()
+            while ret == 2:
+                ret = cqex.poll_next()
+            if ret != 0:
+                raise PyverbsRDMAErrno('Failed to poll CQ')
+            if cqex.status != e.IBV_WC_SUCCESS:
+                raise PyverbsRDMAErrno('Completion status is {s}'.
+                                       format(s=cqex.status))
+            if data:
+                assert data == socket.ntohl(cqex.read_imm_data())
+            count -= 1
+    finally:
+        cqex.end_poll()
 
 
 def validate(received_str, is_server, msg_size):
