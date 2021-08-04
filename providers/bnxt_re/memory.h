@@ -57,6 +57,8 @@ struct bnxt_re_queue {
 	 * and the consumer indices in the queue
 	 */
 	uint32_t diff;
+	uint32_t esize;
+	uint32_t max_slots;
 	pthread_spinlock_t qlock;
 };
 
@@ -82,9 +84,25 @@ int bnxt_re_alloc_aligned(struct bnxt_re_queue *que, uint32_t pg_size);
 void bnxt_re_free_aligned(struct bnxt_re_queue *que);
 
 /* Basic queue operation */
-static inline uint32_t bnxt_re_is_que_full(struct bnxt_re_queue *que)
+static inline void *bnxt_re_get_hwqe(struct bnxt_re_queue *que, uint32_t idx)
 {
-	return (((que->diff + que->tail) & (que->depth - 1)) == que->head);
+	idx += que->tail;
+	if (idx >= que->depth)
+		idx -= que->depth;
+	return (void *)(que->va + (idx << 4));
+}
+
+static inline uint32_t bnxt_re_is_que_full(struct bnxt_re_queue *que,
+					   uint32_t slots)
+{
+	int32_t avail, head, tail;
+
+	head = que->head;
+	tail = que->tail;
+	avail = head - tail;
+	if (head <= tail)
+		avail += que->depth;
+	return avail <= (slots + que->diff);
 }
 
 static inline uint32_t bnxt_re_is_que_empty(struct bnxt_re_queue *que)
@@ -92,19 +110,18 @@ static inline uint32_t bnxt_re_is_que_empty(struct bnxt_re_queue *que)
 	return que->tail == que->head;
 }
 
-static inline uint32_t bnxt_re_incr(uint32_t val, uint32_t max)
+static inline void bnxt_re_incr_tail(struct bnxt_re_queue *que, uint8_t cnt)
 {
-	return (++val & (max - 1));
+	que->tail += cnt;
+	if (que->tail >= que->depth)
+		que->tail %= que->depth;
 }
 
-static inline void bnxt_re_incr_tail(struct bnxt_re_queue *que)
+static inline void bnxt_re_incr_head(struct bnxt_re_queue *que, uint8_t cnt)
 {
-	que->tail = bnxt_re_incr(que->tail, que->depth);
-}
-
-static inline void bnxt_re_incr_head(struct bnxt_re_queue *que)
-{
-	que->head = bnxt_re_incr(que->head, que->depth);
+	que->head += cnt;
+	if (que->head >= que->depth)
+		que->head %= que->depth;
 }
 
 #endif
