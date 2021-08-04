@@ -241,7 +241,7 @@ class RDMATestCase(unittest.TestCase):
                     self.gid_type:
                 continue
             if not os.path.exists('/sys/class/infiniband/{}/device/net/'.format(dev)):
-                self.args.append([dev, port, idx, None])
+                self.args.append([dev, port, idx, None, None])
                 continue
             net_name = self.get_net_name(dev)
             try:
