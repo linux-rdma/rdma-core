@@ -84,6 +84,10 @@ dr_icm_allocate_aligned_dm(struct dr_icm_pool *pool,
 		/* Align base is 64B */
 		log_align_base = ilog32(DR_ICM_MODIFY_HDR_ALIGN_BASE - 1);
 		break;
+	case DR_ICM_TYPE_ENCAP:
+		mlx5_dm_attr.type = MLX5_IB_UAPI_DM_TYPE_ENCAP_SW_ICM;
+		log_align_base = DR_SW_ENCAP_ENTRY_LOG_SIZE;
+		break;
 	default:
 		assert(false);
 		errno = EINVAL;
@@ -574,6 +578,11 @@ struct dr_icm_pool *dr_icm_pool_create(struct mlx5dv_dr_domain *dmn,
 		break;
 	case DR_ICM_TYPE_MODIFY_HDR_PTRN:
 		pool->max_log_chunk_sz = dmn->info.max_log_modify_hdr_pattern_icm_sz;
+		pool->th = dr_icm_pool_chunk_size_to_byte(pool->max_log_chunk_sz,
+							  pool->icm_type) / 2;
+		break;
+	case DR_ICM_TYPE_ENCAP:
+		pool->max_log_chunk_sz = dmn->info.max_log_sw_encap_icm_sz;
 		pool->th = dr_icm_pool_chunk_size_to_byte(pool->max_log_chunk_sz,
 							  pool->icm_type) / 2;
 		break;

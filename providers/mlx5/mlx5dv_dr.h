@@ -98,6 +98,7 @@ enum dr_icm_type {
 	DR_ICM_TYPE_STE,
 	DR_ICM_TYPE_MODIFY_ACTION,
 	DR_ICM_TYPE_MODIFY_HDR_PTRN,
+	DR_ICM_TYPE_ENCAP,
 	DR_ICM_TYPE_MAX,
 };
 
@@ -137,6 +138,11 @@ enum dr_ste_ctx_action_cap {
 enum {
 	DR_MODIFY_ACTION_SIZE	= 8,
 	DR_MODIFY_ACTION_LOG_SIZE	= 3,
+};
+
+enum {
+	DR_SW_ENCAP_ENTRY_SIZE		= 64,
+	DR_SW_ENCAP_ENTRY_LOG_SIZE	= 6,
 };
 
 enum dr_matcher_criteria {
@@ -941,6 +947,9 @@ struct dr_devx_caps {
 	uint64_t			hdr_modify_icm_addr;
 	uint32_t			log_modify_pattern_icm_size;
 	uint64_t			hdr_modify_pattern_icm_addr;
+	uint64_t			indirect_encap_icm_base;
+	uint32_t			log_sw_encap_icm_size;
+	uint16_t			max_encap_size;
 	uint32_t			flex_protocols;
 	uint8_t				flex_parser_header_modify;
 	uint8_t				flex_parser_id_icmp_dw0;
@@ -1051,6 +1060,7 @@ struct dr_domain_info {
 	uint32_t		max_log_action_icm_sz;
 	uint32_t		max_log_modify_hdr_pattern_icm_sz;
 	uint32_t                max_log_sw_icm_rehash_sz;
+	uint32_t		max_log_sw_encap_icm_sz;
 	uint32_t                max_send_size;
 	struct dr_domain_rx_tx	rx;
 	struct dr_domain_rx_tx	tx;
@@ -1076,6 +1086,7 @@ struct mlx5dv_dr_domain {
 	struct dr_icm_pool		*action_icm_pool;
 	struct dr_ptrn_mngr		*modify_header_ptrn_mngr;
 	struct dr_arg_mngr		*modify_header_arg_mngr;
+	struct dr_icm_pool		*encap_icm_pool;
 	struct dr_send_ring		*send_ring[DR_MAX_SEND_RINGS];
 	struct dr_domain_info		info;
 	struct list_head		tbl_list;
@@ -1424,6 +1435,8 @@ dr_icm_pool_dm_type_to_entry_size(enum dr_icm_type icm_type)
 {
 	if (icm_type == DR_ICM_TYPE_STE)
 		return DR_STE_SIZE;
+	else if (icm_type == DR_ICM_TYPE_ENCAP)
+		return DR_SW_ENCAP_ENTRY_SIZE;
 
 	return DR_MODIFY_ACTION_SIZE;
 }
@@ -1759,6 +1772,7 @@ struct dr_arg_obj *dr_arg_get_obj(struct dr_arg_mngr *mngr,
 				  uint8_t *data);
 void dr_arg_put_obj(struct dr_arg_mngr *mngr, struct dr_arg_obj *arg_obj);
 uint32_t dr_arg_get_object_id(struct dr_arg_obj *arg_obj);
+bool dr_domain_is_support_sw_encap(struct mlx5dv_dr_domain *dmn);
 
 int dr_buddy_init(struct dr_icm_buddy_mem *buddy, uint32_t max_order);
 void dr_buddy_cleanup(struct dr_icm_buddy_mem *buddy);
