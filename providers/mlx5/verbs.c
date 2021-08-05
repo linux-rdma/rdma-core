@@ -5009,6 +5009,7 @@ _mlx5dv_alloc_dm(struct ibv_context *context,
 	int err;
 
 	if ((mlx5_dm_attr->type != MLX5DV_DM_TYPE_MEMIC) &&
+	    (mlx5_dm_attr->type != MLX5DV_DM_TYPE_ENCAP_SW_ICM) &&
 	    (mlx5_dm_attr->type != MLX5DV_DM_TYPE_STEERING_SW_ICM) &&
 	    (mlx5_dm_attr->type != MLX5DV_DM_TYPE_HEADER_MODIFY_SW_ICM) &&
 	    (mlx5_dm_attr->type != MLX5DV_DM_TYPE_HEADER_MODIFY_PATTERN_SW_ICM)) {
