@@ -693,6 +693,8 @@ int dr_actions_build_attr(struct mlx5dv_dr_matcher *matcher,
 			  struct mlx5dv_flow_action_attr *attr,
 			  struct mlx5_flow_action_attr_aux *attr_aux);
 
+uint32_t dr_actions_reformat_get_id(struct mlx5dv_dr_action *action);
+
 struct dr_match_spec {
 	uint32_t smac_47_16;	/* Source MAC address of incoming packet */
 	uint32_t smac_15_0:16;	/* Source MAC address of incoming packet */
@@ -1279,6 +1281,9 @@ struct mlx5dv_dr_action {
 				struct ibv_flow_action	*flow_action; /* root*/
 				struct {
 					struct mlx5dv_devx_obj	*dvo;
+					uint8_t			*data;
+					uint32_t		index;
+					struct dr_icm_chunk	*chunk;
 					uint32_t		reformat_size;
 				};
 			};
@@ -1781,6 +1786,8 @@ void dr_buddy_free_mem(struct dr_icm_buddy_mem *buddy, uint32_t seg, int order);
 
 void dr_ste_free_modify_hdr(struct mlx5dv_dr_action *action);
 int dr_ste_alloc_modify_hdr(struct mlx5dv_dr_action *action);
+int dr_ste_alloc_encap(struct mlx5dv_dr_action *action);
+void dr_ste_free_encap(struct mlx5dv_dr_action *action);
 
 void dr_vports_table_add_wire(struct dr_devx_vports *vports);
 void dr_vports_table_del_wire(struct dr_devx_vports *vports);

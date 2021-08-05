@@ -732,6 +732,42 @@ void dr_ste_free_modify_hdr(struct mlx5dv_dr_action *action)
 	return dr_dealloc_modify_hdr_chunk(action);
 }
 
+int dr_ste_alloc_encap(struct mlx5dv_dr_action *action)
+{
+	struct mlx5dv_dr_domain *dmn = action->reformat.dmn;
+	uint32_t dynamic_chunck_size;
+	int ret;
+
+	dynamic_chunck_size = ilog32((action->reformat.reformat_size - 1) /
+				     DR_SW_ENCAP_ENTRY_SIZE);
+	action->reformat.chunk = dr_icm_alloc_chunk(dmn->encap_icm_pool,
+						    dynamic_chunck_size);
+	if (!action->reformat.chunk)
+		return errno;
+
+	action->reformat.index = (dr_icm_pool_get_chunk_icm_addr(action->reformat.chunk) -
+				  dmn->info.caps.indirect_encap_icm_base) /
+				  DR_SW_ENCAP_ENTRY_SIZE;
+
+	ret = dr_send_postsend_action(dmn, action);
+	if (ret)
+		goto postsend_err;
+
+	return 0;
+
+postsend_err:
+	dr_icm_free_chunk(action->reformat.chunk);
+	action->reformat.chunk = NULL;
+	action->reformat.index = 0;
+
+	return ret;
+}
+
+void dr_ste_free_encap(struct mlx5dv_dr_action *action)
+{
+	dr_icm_free_chunk(action->reformat.chunk);
+}
+
 static int dr_ste_build_pre_check_spec(struct mlx5dv_dr_domain *dmn,
 				       struct dr_match_spec *m_spec,
 				       struct dr_match_spec *v_spec)
