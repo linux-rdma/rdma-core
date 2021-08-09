@@ -1004,7 +1004,7 @@ static void wr_set_inline_data(struct ibv_qp_ex *ibqp, void *addr,
 
 	memcpy(wqe->dma.inline_data, addr, length);
 	wqe->dma.length = length;
-	wqe->dma.resid = 0;
+	wqe->dma.resid = length;
 }
 
 static void wr_set_inline_data_list(struct ibv_qp_ex *ibqp, size_t num_buf,
@@ -1035,6 +1035,7 @@ static void wr_set_inline_data_list(struct ibv_qp_ex *ibqp, size_t num_buf,
 	}
 
 	wqe->dma.length = tot_length;
+	wqe->dma.resid = tot_length;
 }
 
 static void wr_set_sge(struct ibv_qp_ex *ibqp, uint32_t lkey, uint64_t addr,
@@ -1472,8 +1473,6 @@ static int init_send_wqe(struct rxe_qp *qp, struct rxe_wq *sq,
 
 	if (ibwr->send_flags & IBV_SEND_INLINE) {
 		uint8_t *inline_data = wqe->dma.inline_data;
-
-		wqe->dma.resid = 0;
 
 		for (i = 0; i < num_sge; i++) {
 			memcpy(inline_data,
