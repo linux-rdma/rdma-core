@@ -177,8 +177,9 @@ class QpExTestCase(RDMATestCase):
             server = self.qp_dict[qp_type](self.dev_name, self.ib_port,
                                            self.gid_index)
         except PyverbsRDMAError as ex:
-           if ex.error_code == errno.EOPNOTSUPP:
+            if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Create player with {} is not supported'.format(qp_type))
+            raise ex
         client.pre_run(server.psns, server.qps_num)
         server.pre_run(client.psns, client.qps_num)
         return client, server
