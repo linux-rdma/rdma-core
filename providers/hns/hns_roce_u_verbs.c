@@ -905,9 +905,21 @@ static int calc_qp_buff_size(struct hns_roce_device *hr_dev,
 	return 0;
 }
 
-static inline bool check_qp_support_dca(bool pool_en, enum ibv_qp_type qp_type)
+static inline bool check_qp_support_dca(struct hns_roce_dca_ctx *dca_ctx,
+					struct ibv_qp_init_attr_ex *attr,
+					struct hnsdv_qp_init_attr *hns_attr)
 {
-	if (pool_en && (qp_type == IBV_QPT_RC || qp_type == IBV_QPT_XRC_SEND))
+	/* DCA pool disable */
+	if (!dca_ctx->unit_size)
+		return false;
+
+	/* Unsupport type */
+	if (attr->qp_type != IBV_QPT_RC && attr->qp_type != IBV_QPT_XRC_SEND)
+		return false;
+
+	if (hns_attr &&
+	    (hns_attr->comp_mask & HNSDV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS) &&
+	    (hns_attr->create_flags & HNSDV_QP_CREATE_ENABLE_DCA_MODE))
 		return true;
 
 	return false;
@@ -925,6 +937,7 @@ static void qp_free_wqe(struct hns_roce_qp *qp)
 }
 
 static int qp_alloc_wqe(struct ibv_qp_init_attr_ex *attr,
+			struct hnsdv_qp_init_attr *hns_attr,
 			struct hns_roce_qp *qp, struct hns_roce_context *ctx)
 {
 	struct hns_roce_device *hr_dev = to_hr_dev(ctx->ibv_ctx.context.device);
@@ -947,7 +960,7 @@ static int qp_alloc_wqe(struct ibv_qp_init_attr_ex *attr,
 			goto err_alloc;
 	}
 
-	if (check_qp_support_dca(ctx->dca_ctx.max_size != 0, attr->qp_type)) {
+	if (check_qp_support_dca(&ctx->dca_ctx, attr, hns_attr)) {
 		/* when DCA is enabled, use a buffer list to store page addr */
 		qp->buf.buf = NULL;
 		qp->dca_wqe.max_cnt = hr_hw_page_count(qp->buf_size);
@@ -1187,6 +1200,7 @@ void hns_roce_free_qp_buf(struct hns_roce_qp *qp, struct hns_roce_context *ctx)
 }
 
 static int hns_roce_alloc_qp_buf(struct ibv_qp_init_attr_ex *attr,
+				 struct hnsdv_qp_init_attr *hns_attr,
 				 struct hns_roce_qp *qp,
 				 struct hns_roce_context *ctx)
 {
@@ -1196,7 +1210,7 @@ static int hns_roce_alloc_qp_buf(struct ibv_qp_init_attr_ex *attr,
 	    pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE))
 		return -ENOMEM;
 
-	ret = qp_alloc_wqe(attr, qp, ctx);
+	ret = qp_alloc_wqe(attr, hns_attr, qp, ctx);
 	if (ret)
 		return ret;
 
@@ -1208,7 +1222,8 @@ static int hns_roce_alloc_qp_buf(struct ibv_qp_init_attr_ex *attr,
 }
 
 static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
-				struct ibv_qp_init_attr_ex *attr)
+				struct ibv_qp_init_attr_ex *attr,
+				struct hnsdv_qp_init_attr *hns_attr)
 {
 	struct hns_roce_context *context = to_hr_ctx(ibv_ctx);
 	struct hns_roce_qp *qp;
@@ -1226,7 +1241,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 
 	hns_roce_set_qp_params(attr, qp, context);
 
-	ret = hns_roce_alloc_qp_buf(attr, qp, context);
+	ret = hns_roce_alloc_qp_buf(attr, hns_attr, qp, context);
 	if (ret)
 		goto err_buf;
 
@@ -1266,7 +1281,7 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 	attrx.comp_mask = IBV_QP_INIT_ATTR_PD;
 	attrx.pd = pd;
 
-	qp = create_qp(pd->context, &attrx);
+	qp = create_qp(pd->context, &attrx, NULL);
 	if (qp)
 		memcpy(attr, &attrx, sizeof(*attr));
 
@@ -1276,7 +1291,19 @@ struct ibv_qp *hns_roce_u_create_qp(struct ibv_pd *pd,
 struct ibv_qp *hns_roce_u_create_qp_ex(struct ibv_context *context,
 				       struct ibv_qp_init_attr_ex *attr)
 {
-	return create_qp(context, attr);
+	return create_qp(context, attr, NULL);
+}
+
+struct ibv_qp *hnsdv_create_qp(struct ibv_context *context,
+			       struct ibv_qp_init_attr_ex *qp_attr,
+			       struct hnsdv_qp_init_attr *hns_attr)
+{
+	if (!is_hns_dev(context->device)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return create_qp(context, qp_attr, hns_attr);
 }
 
 struct ibv_qp *hns_roce_u_open_qp(struct ibv_context *context,

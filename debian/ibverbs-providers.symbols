@@ -146,3 +146,9 @@ libefa.so.1 ibverbs-providers #MINVER#
  efadv_create_qp_ex@EFA_1.1 26
  efadv_query_device@EFA_1.1 26
  efadv_query_ah@EFA_1.1 26
+libhns.so.1 ibverbs-providers #MINVER#
+* Build-Depends-Package: libibverbs-dev
+ HNS_1.0@HNS_1.0 36
+ hnsdv_is_supported@HNS_1.0 36
+ hnsdv_open_device@HNS_1.0 36
+ hnsdv_create_qp@HNS_1.0 36

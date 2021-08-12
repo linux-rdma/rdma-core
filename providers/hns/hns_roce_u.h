@@ -430,6 +430,8 @@ static inline void clear_bit_unlock(atomic_bitmap_t *p, uint32_t nr)
 	atomic_fetch_and(p, ~HNS_ROCE_BIT_MASK(nr));
 }
 
+bool is_hns_dev(struct ibv_device *device);
+
 int hns_roce_u_query_device(struct ibv_context *context,
 			    const struct ibv_query_device_ex_input *input,
 			    struct ibv_device_attr_ex *attr, size_t attr_size);

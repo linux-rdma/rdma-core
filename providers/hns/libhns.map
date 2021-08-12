@@ -1,0 +1,9 @@
+/* Export symbols should be added below according to
+   Documentation/versioning.md document. */
+HNS_1.0 {
+	global:
+		hnsdv_is_supported;
+		hnsdv_open_device;
+		hnsdv_create_qp;
+	local: *;
+};

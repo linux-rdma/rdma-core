@@ -94,7 +94,7 @@ Description: User space provider drivers for libibverbs
   - cxgb4: Chelsio T4 iWARP HCAs
   - efa: Amazon Elastic Fabric Adapter
   - hfi1verbs: Intel Omni-Path HFI
-  - hns: HiSilicon Hip06 SoC
+  - hns: HiSilicon+ Hip06 SoC
   - ipathverbs: QLogic InfiniPath HCAs
   - irdma: Intel Ethernet Connection RDMA
   - mlx4: Mellanox ConnectX-3 InfiniBand HCAs

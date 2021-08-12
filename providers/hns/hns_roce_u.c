@@ -133,23 +133,67 @@ static int mmap_dca(struct hns_roce_dca_ctx *dca_ctx, int cmd_fd, int page_size,
 	return 0;
 }
 
+bool hnsdv_is_supported(struct ibv_device *device)
+{
+	return is_hns_dev(device);
+}
+
+struct ibv_context *hnsdv_open_device(struct ibv_device *device,
+				      struct hnsdv_context_attr *attr)
+{
+	if (!is_hns_dev(device)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return verbs_open_device(device, attr);
+}
+
+static void set_dca_pool_param(struct hnsdv_context_attr *attr, int page_size,
+			       struct hns_roce_dca_ctx *ctx)
+{
+	if (attr->comp_mask & HNSDV_CONTEXT_MASK_DCA_UNIT_SIZE)
+		ctx->unit_size = align(attr->dca_unit_size, page_size);
+	else
+		ctx->unit_size = page_size * HNS_DCA_DEFAULT_UNIT_PAGES;
+
+	/* The memory pool cannot be expanded, only init the DCA context. */
+	if (ctx->unit_size == 0)
+		return;
+
+	/* If not set, the memory pool can be expanded unlimitedly. */
+	if (attr->comp_mask & HNSDV_CONTEXT_MASK_DCA_MAX_SIZE)
+		ctx->max_size = DIV_ROUND_UP(attr->dca_max_size,
+					ctx->unit_size) * ctx->unit_size;
+	else
+		ctx->max_size = HNS_DCA_MAX_MEM_SIZE;
+
+	/* If not set, the memory pool cannot be shrunk. */
+	if (attr->comp_mask & HNSDV_CONTEXT_MASK_DCA_MIN_SIZE)
+		ctx->min_size = DIV_ROUND_UP(attr->dca_min_size,
+					ctx->unit_size) * ctx->unit_size;
+	else
+		ctx->min_size = HNS_DCA_MAX_MEM_SIZE;
+}
+
 static int init_dca_context(struct hns_roce_context *ctx, int cmd_fd,
-			    int page_size, int max_qps, int mmap_size)
+			    int page_size, struct hnsdv_context_attr *attr,
+			    int max_qps, int mmap_size)
 {
 	struct hns_roce_dca_ctx *dca_ctx = &ctx->dca_ctx;
 	int ret;
 
-	if (!(ctx->cap_flags & HNS_ROCE_CAP_FLAG_DCA_MODE))
-		return 0;
-
+	dca_ctx->unit_size = 0;
+	dca_ctx->mem_cnt = 0;
 	list_head_init(&dca_ctx->mem_list);
 	ret = pthread_spin_init(&dca_ctx->lock, PTHREAD_PROCESS_PRIVATE);
 	if (ret)
 		return ret;
 
-	dca_ctx->unit_size = page_size * HNS_DCA_DEFAULT_UNIT_PAGES;
-	dca_ctx->max_size = HNS_DCA_MAX_MEM_SIZE;
-	dca_ctx->mem_cnt = 0;
+	if (!attr || !(attr->flags & HNSDV_CONTEXT_FLAGS_DCA))
+		return 0;
+
+	set_dca_pool_param(attr, page_size, dca_ctx);
 
 	if (mmap_size > 0) {
 		const unsigned int bits_per_qp = 2 * HNS_DCA_BITS_PER_STATUS;
@@ -214,16 +258,22 @@ db_free:
 	return -EINVAL;
 }
 
-static void ucontext_set_cmd(struct hns_roce_alloc_ucontext *cmd, int page_size)
+static void ucontext_set_cmd(struct hns_roce_alloc_ucontext *cmd,
+			     struct hnsdv_context_attr *attr)
 {
-	cmd->comp = HNS_ROCE_ALLOC_UCTX_COMP_DCA_MAX_QPS;
-	cmd->dca_max_qps = page_size * 8 / 2 * HNS_DCA_BITS_PER_STATUS;
+	if (!attr || !(attr->flags & HNSDV_CONTEXT_FLAGS_DCA))
+		return;
+
+	if (attr->comp_mask & HNSDV_CONTEXT_MASK_DCA_PRIME_QPS) {
+		cmd->comp = HNS_ROCE_ALLOC_UCTX_COMP_DCA_MAX_QPS;
+		cmd->dca_max_qps = attr->dca_prime_qps;
+	}
 }
 
-static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
-						    int cmd_fd,
-						    void *private_data)
+static struct verbs_context *
+hns_roce_alloc_context(struct ibv_device *ibdev, int cmd_fd, void *private_data)
 {
+	struct hnsdv_context_attr *ctx_attr = private_data;
 	struct hns_roce_device *hr_dev = to_hr_dev(ibdev);
 	struct hns_roce_alloc_ucontext_resp resp = {};
 	struct hns_roce_alloc_ucontext cmd = {};
@@ -236,7 +286,7 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	if (!context)
 		return NULL;
 
-	ucontext_set_cmd(&cmd, hr_dev->page_size);
+	ucontext_set_cmd(&cmd, ctx_attr);
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
 		goto err_free;
@@ -286,8 +336,8 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	verbs_set_ops(&context->ibv_ctx, &hns_common_ops);
 	verbs_set_ops(&context->ibv_ctx, &hr_dev->u_hw->hw_ops);
 
-	if (init_dca_context(context, cmd_fd, hr_dev->page_size, resp.dca_qps,
-			     resp.dca_mmap_size))
+	if (init_dca_context(context, cmd_fd, hr_dev->page_size, ctx_attr,
+			     resp.dca_qps, resp.dca_mmap_size))
 		goto err_free;
 
 	if (hns_roce_mmap(hr_dev, context, cmd_fd))
@@ -349,4 +399,11 @@ static const struct verbs_device_ops hns_roce_dev_ops = {
 	.uninit_device = hns_uninit_device,
 	.alloc_context = hns_roce_alloc_context,
 };
+
+bool is_hns_dev(struct ibv_device *device)
+{
+	struct verbs_device *verbs_device = verbs_get_device(device);
+
+	return verbs_device->ops == &hns_roce_dev_ops;
+}
 PROVIDER_DRIVER(hns, hns_roce_dev_ops);

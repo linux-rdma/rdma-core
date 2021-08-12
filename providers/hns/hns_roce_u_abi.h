@@ -36,6 +36,7 @@
 #include <infiniband/kern-abi.h>
 #include <rdma/hns-abi.h>
 #include <kernel-abi/hns-abi.h>
+#include "hnsdv.h"
 
 DECLARE_DRV_CMD(hns_roce_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
 		empty, hns_roce_ib_alloc_pd_resp);
