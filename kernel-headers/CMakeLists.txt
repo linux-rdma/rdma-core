@@ -26,6 +26,11 @@ publish_internal_headers(rdma
   rdma/vmw_pvrdma-abi.h
   )
 
+publish_internal_headers(rdma/hfi
+  rdma/hfi/hfi1_ioctl.h
+  rdma/hfi/hfi1_user.h
+  )
+
 publish_internal_headers(linux
   linux/vfio.h
   )
