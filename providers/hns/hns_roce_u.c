@@ -95,6 +95,40 @@ static const struct verbs_context_ops hns_common_ops = {
 	.get_srq_num = hns_roce_u_get_srq_num,
 };
 
+static int init_dca_context(struct hns_roce_context *ctx, int page_size)
+{
+	struct hns_roce_dca_ctx *dca_ctx = &ctx->dca_ctx;
+	int ret;
+
+	if (!(ctx->cap_flags & HNS_ROCE_CAP_FLAG_DCA_MODE))
+		return 0;
+
+	list_head_init(&dca_ctx->mem_list);
+	ret = pthread_spin_init(&dca_ctx->lock, PTHREAD_PROCESS_PRIVATE);
+	if (ret)
+		return ret;
+
+	dca_ctx->unit_size = page_size * HNS_DCA_DEFAULT_UNIT_PAGES;
+	dca_ctx->max_size = HNS_DCA_MAX_MEM_SIZE;
+	dca_ctx->mem_cnt = 0;
+
+	return 0;
+}
+
+static void uninit_dca_context(struct hns_roce_context *ctx)
+{
+	struct hns_roce_dca_ctx *dca_ctx = &ctx->dca_ctx;
+
+	if (!(ctx->cap_flags & HNS_ROCE_CAP_FLAG_DCA_MODE))
+		return;
+
+	pthread_spin_lock(&dca_ctx->lock);
+	hns_roce_cleanup_dca_mem(ctx);
+	pthread_spin_unlock(&dca_ctx->lock);
+
+	pthread_spin_destroy(&dca_ctx->lock);
+}
+
 static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 						    int cmd_fd,
 						    void *private_data)
@@ -122,6 +156,8 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 		context->cqe_size = resp.cqe_size;
 	else
 		context->cqe_size = HNS_ROCE_V3_CQE_SIZE;
+
+	context->cap_flags = resp.cap_flags;
 
 	context->num_qps = resp.qp_tab_size;
 	context->num_srqs = resp.srq_tab_size;
@@ -178,7 +214,14 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	verbs_set_ops(&context->ibv_ctx, &hns_common_ops);
 	verbs_set_ops(&context->ibv_ctx, &hr_dev->u_hw->hw_ops);
 
+	if (init_dca_context(context, hr_dev->page_size))
+		goto tptr_free;
+
 	return &context->ibv_ctx;
+
+tptr_free:
+	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
+		munmap(context->cq_tptr_base, HNS_ROCE_CQ_DB_BUF_SIZE);
 
 db_free:
 	munmap(context->uar, hr_dev->page_size);
@@ -198,6 +241,8 @@ static void hns_roce_free_context(struct ibv_context *ibctx)
 	munmap(context->uar, hr_dev->page_size);
 	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
 		munmap(context->cq_tptr_base, HNS_ROCE_CQ_DB_BUF_SIZE);
+
+	uninit_dca_context(context);
 
 	verbs_uninit_context(&context->ibv_ctx);
 	free(context);

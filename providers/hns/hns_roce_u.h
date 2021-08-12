@@ -146,8 +146,21 @@ struct hns_roce_db_page {
 	bitmap			*bitmap;
 };
 
+#define HNS_DCA_MAX_MEM_SIZE ~0UL
+#define HNS_DCA_DEFAULT_UNIT_PAGES 16
+
+struct hns_roce_dca_ctx {
+	struct list_head mem_list;
+	pthread_spinlock_t lock;
+	int mem_cnt;
+	unsigned int unit_size;
+	uint64_t max_size;
+	uint64_t curr_size;
+};
+
 struct hns_roce_context {
 	struct verbs_context		ibv_ctx;
+	uint32_t			cap_flags;
 	void				*uar;
 	pthread_spinlock_t		uar_lock;
 
@@ -180,6 +193,8 @@ struct hns_roce_context {
 	unsigned int			max_srq_sge;
 	int				max_cqe;
 	unsigned int			cqe_size;
+
+	struct hns_roce_dca_ctx		dca_ctx;
 };
 
 struct hns_roce_pd {
@@ -423,6 +438,9 @@ int hns_roce_alloc_buf(struct hns_roce_buf *buf, unsigned int size,
 void hns_roce_free_buf(struct hns_roce_buf *buf);
 
 void hns_roce_free_qp_buf(struct hns_roce_qp *qp, struct hns_roce_context *ctx);
+
+void hns_roce_cleanup_dca_mem(struct hns_roce_context *ctx);
+int hns_roce_add_dca_mem(struct hns_roce_context *ctx, uint32_t size);
 
 void hns_roce_init_qp_indices(struct hns_roce_qp *qp);
 
