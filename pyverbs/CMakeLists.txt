@@ -51,4 +51,5 @@ rdma_python_module(pyverbs
 if (HAVE_COHERENT_DMA)
 add_subdirectory(providers/mlx5)
 add_subdirectory(providers/efa)
+add_subdirectory(providers/hns)
 endif()
