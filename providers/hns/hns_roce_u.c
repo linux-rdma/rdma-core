@@ -95,7 +95,46 @@ static const struct verbs_context_ops hns_common_ops = {
 	.get_srq_num = hns_roce_u_get_srq_num,
 };
 
-static int init_dca_context(struct hns_roce_context *ctx, int page_size)
+/* command value is offset[15:8] */
+static void hns_roce_mmap_set_command(int command, off_t *offset)
+{
+	*offset |= (command & 0xff) << 8;
+}
+
+/* index value is offset[63:16] | offset[7:0] */
+static void hns_roce_mmap_set_index(unsigned long index, off_t *offset)
+{
+	*offset |= (index & 0xff) | ((index >> 8) << 16);
+}
+
+static off_t get_uar_mmap_offset(unsigned long idx, int page_size, int cmd)
+{
+	off_t offset = 0;
+
+	hns_roce_mmap_set_command(cmd, &offset);
+	hns_roce_mmap_set_index(idx, &offset);
+
+	return offset * page_size;
+}
+
+static int mmap_dca(struct hns_roce_dca_ctx *dca_ctx, int cmd_fd, int page_size,
+		    size_t size)
+{
+	void *addr;
+
+	addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, cmd_fd,
+		    get_uar_mmap_offset(0, page_size, HNS_ROCE_MMAP_DCA_PAGE));
+	if (addr == MAP_FAILED)
+		return -EINVAL;
+
+	dca_ctx->buf_status = addr;
+	dca_ctx->sync_status = addr + size / 2;
+
+	return 0;
+}
+
+static int init_dca_context(struct hns_roce_context *ctx, int cmd_fd,
+			    int page_size, int max_qps, int mmap_size)
 {
 	struct hns_roce_dca_ctx *dca_ctx = &ctx->dca_ctx;
 	int ret;
@@ -112,6 +151,16 @@ static int init_dca_context(struct hns_roce_context *ctx, int page_size)
 	dca_ctx->max_size = HNS_DCA_MAX_MEM_SIZE;
 	dca_ctx->mem_cnt = 0;
 
+	if (mmap_size > 0) {
+		const unsigned int bits_per_qp = 2 * HNS_DCA_BITS_PER_STATUS;
+
+		if (!mmap_dca(dca_ctx, cmd_fd, page_size, mmap_size)) {
+			dca_ctx->status_size = mmap_size;
+			dca_ctx->max_qps = min_t(int, max_qps,
+						 mmap_size *  8 / bits_per_qp);
+		}
+	}
+
 	return 0;
 }
 
@@ -126,7 +175,49 @@ static void uninit_dca_context(struct hns_roce_context *ctx)
 	hns_roce_cleanup_dca_mem(ctx);
 	pthread_spin_unlock(&dca_ctx->lock);
 
+	if (dca_ctx->buf_status)
+		munmap(dca_ctx->buf_status, dca_ctx->status_size);
+
 	pthread_spin_destroy(&dca_ctx->lock);
+}
+
+static int hns_roce_mmap(struct hns_roce_device *hr_dev,
+			 struct hns_roce_context *context, int cmd_fd)
+{
+	int page_size = hr_dev->page_size;
+	off_t offset;
+
+	offset = get_uar_mmap_offset(0, page_size, HNS_ROCE_MMAP_REGULAR_PAGE);
+	context->uar = mmap(NULL, page_size, PROT_READ | PROT_WRITE,
+			    MAP_SHARED, cmd_fd, offset);
+	if (context->uar == MAP_FAILED)
+		return -EINVAL;
+
+	offset = get_uar_mmap_offset(1, page_size, HNS_ROCE_MMAP_REGULAR_PAGE);
+	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
+		/*
+		 * when vma->vm_pgoff is 1, the cq_tptr_base includes 64K CQ,
+		 * a pointer of CQ need 2B size
+		 */
+		context->cq_tptr_base = mmap(NULL, HNS_ROCE_CQ_DB_BUF_SIZE,
+					     PROT_READ | PROT_WRITE, MAP_SHARED,
+					     cmd_fd, offset);
+		if (context->cq_tptr_base == MAP_FAILED)
+			goto db_free;
+	}
+
+	return 0;
+
+db_free:
+	munmap(context->uar, hr_dev->page_size);
+
+	return -EINVAL;
+}
+
+static void ucontext_set_cmd(struct hns_roce_alloc_ucontext *cmd, int page_size)
+{
+	cmd->comp = HNS_ROCE_ALLOC_UCTX_COMP_DCA_MAX_QPS;
+	cmd->dca_max_qps = page_size * 8 / 2 * HNS_DCA_BITS_PER_STATUS;
 }
 
 static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
@@ -135,10 +226,9 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 {
 	struct hns_roce_device *hr_dev = to_hr_dev(ibdev);
 	struct hns_roce_alloc_ucontext_resp resp = {};
+	struct hns_roce_alloc_ucontext cmd = {};
 	struct ibv_device_attr dev_attrs;
 	struct hns_roce_context *context;
-	struct ibv_get_context cmd;
-	int offset = 0;
 	int i;
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
@@ -146,7 +236,8 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	if (!context)
 		return NULL;
 
-	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof(cmd),
+	ucontext_set_cmd(&cmd, hr_dev->page_size);
+	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
 		goto err_free;
 
@@ -190,42 +281,22 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	context->max_srq_wr = dev_attrs.max_srq_wr;
 	context->max_srq_sge = dev_attrs.max_srq_sge;
 
-	context->uar = mmap(NULL, hr_dev->page_size, PROT_READ | PROT_WRITE,
-			    MAP_SHARED, cmd_fd, offset);
-	if (context->uar == MAP_FAILED)
-		goto err_free;
-
-	offset += hr_dev->page_size;
-
-	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
-		/*
-		 * when vma->vm_pgoff is 1, the cq_tptr_base includes 64K CQ,
-		 * a pointer of CQ need 2B size
-		 */
-		context->cq_tptr_base = mmap(NULL, HNS_ROCE_CQ_DB_BUF_SIZE,
-					     PROT_READ | PROT_WRITE, MAP_SHARED,
-					     cmd_fd, offset);
-		if (context->cq_tptr_base == MAP_FAILED)
-			goto db_free;
-	}
-
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
 
 	verbs_set_ops(&context->ibv_ctx, &hns_common_ops);
 	verbs_set_ops(&context->ibv_ctx, &hr_dev->u_hw->hw_ops);
 
-	if (init_dca_context(context, hr_dev->page_size))
-		goto tptr_free;
+	if (init_dca_context(context, cmd_fd, hr_dev->page_size, resp.dca_qps,
+			     resp.dca_mmap_size))
+		goto err_free;
+
+	if (hns_roce_mmap(hr_dev, context, cmd_fd))
+		goto dca_free;
 
 	return &context->ibv_ctx;
 
-tptr_free:
-	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
-		munmap(context->cq_tptr_base, HNS_ROCE_CQ_DB_BUF_SIZE);
-
-db_free:
-	munmap(context->uar, hr_dev->page_size);
-	context->uar = NULL;
+dca_free:
+	uninit_dca_context(context);
 
 err_free:
 	verbs_uninit_context(&context->ibv_ctx);

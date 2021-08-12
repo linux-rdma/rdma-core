@@ -39,10 +39,11 @@
 
 DECLARE_DRV_CMD(hns_roce_alloc_pd, IB_USER_VERBS_CMD_ALLOC_PD,
 		empty, hns_roce_ib_alloc_pd_resp);
+
 DECLARE_DRV_CMD(hns_roce_create_cq, IB_USER_VERBS_CMD_CREATE_CQ,
 		hns_roce_ib_create_cq, hns_roce_ib_create_cq_resp);
 DECLARE_DRV_CMD(hns_roce_alloc_ucontext, IB_USER_VERBS_CMD_GET_CONTEXT,
-		empty, hns_roce_ib_alloc_ucontext_resp);
+		hns_roce_ib_alloc_ucontext, hns_roce_ib_alloc_ucontext_resp);
 
 DECLARE_DRV_CMD(hns_roce_create_qp, IB_USER_VERBS_CMD_CREATE_QP,
 		hns_roce_ib_create_qp, hns_roce_ib_create_qp_resp);

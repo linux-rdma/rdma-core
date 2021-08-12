@@ -35,6 +35,7 @@
 
 #include <stddef.h>
 #include <endian.h>
+#include <stdatomic.h>
 #include <util/compiler.h>
 
 #include <infiniband/driver.h>
@@ -44,6 +45,8 @@
 #include <ccan/array_size.h>
 #include <ccan/bitmap.h>
 #include <ccan/container_of.h>
+#include <ccan/minmax.h>
+
 #include <linux/if_ether.h>
 #include "hns_roce_u_abi.h"
 
@@ -53,6 +56,8 @@
 #define HNS_ROCE_HW_VER3		0x130
 
 #define PFX				"hns: "
+
+typedef _Atomic(uint64_t) atomic_bitmap_t;
 
 /* The minimum page size is 4K for hardware */
 #define HNS_HW_PAGE_SHIFT 12
@@ -157,6 +162,12 @@ struct hns_roce_dca_ctx {
 	uint64_t max_size;
 	uint64_t min_size;
 	uint64_t curr_size;
+
+#define HNS_DCA_BITS_PER_STATUS 1
+	unsigned int max_qps;
+	unsigned int status_size;
+	atomic_bitmap_t *buf_status;
+	atomic_bitmap_t *sync_status;
 };
 
 struct hns_roce_context {
