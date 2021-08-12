@@ -533,6 +533,7 @@ static int dca_attach_qp_buf(struct hns_roce_context *ctx,
 			     struct hns_roce_qp *qp)
 {
 	struct hns_roce_dca_attach_attr attr = {};
+	bool enable_detach;
 	uint32_t idx;
 	int ret;
 
@@ -554,9 +555,16 @@ static int dca_attach_qp_buf(struct hns_roce_context *ctx,
 		attr.rq_offset = idx << qp->rq.wqe_shift;
 	}
 
+	enable_detach = check_dca_detach_enable(qp);
+	if (enable_detach &&
+	    !hns_roce_dca_start_post(&ctx->dca_ctx, qp->dca_wqe.dcan))
+		/* Force attach if failed to sync dca status */
+		attr.force = true;
 
 	ret = hns_roce_attach_dca_mem(ctx, qp->verbs_qp.qp.handle, &attr,
-								  qp->buf_size, &qp->dca_wqe);
+				      qp->buf_size, &qp->dca_wqe);
+	if (ret && enable_detach)
+		hns_roce_dca_stop_post(&ctx->dca_ctx, qp->dca_wqe.dcan);
 
 	pthread_spin_unlock(&qp->rq.lock);
 	pthread_spin_unlock(&qp->sq.lock);
@@ -1368,6 +1376,9 @@ out:
 
 	pthread_spin_unlock(&qp->sq.lock);
 
+	if (check_dca_detach_enable(qp))
+		hns_roce_dca_stop_post(&ctx->dca_ctx, qp->dca_wqe.dcan);
+
 	if (ibvqp->state == IBV_QPS_ERR) {
 		attr.qp_state = IBV_QPS_ERR;
 
@@ -1475,6 +1486,9 @@ out:
 
 	pthread_spin_unlock(&qp->rq.lock);
 
+	if (check_dca_detach_enable(qp))
+		hns_roce_dca_stop_post(&ctx->dca_ctx, qp->dca_wqe.dcan);
+
 	if (ibvqp->state == IBV_QPS_ERR) {
 		attr.qp_state = IBV_QPS_ERR;
 		hns_roce_u_v2_modify_qp(ibvqp, &attr, IBV_QP_STATE);
@@ -1563,8 +1577,9 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 				   int attr_mask)
 {
 	int ret;
-	struct ibv_modify_qp cmd;
+	struct hns_roce_modify_qp_ex cmd_ex = {};
 	struct hns_roce_qp *hr_qp = to_hr_qp(qp);
+	struct hns_roce_modify_qp_ex_resp resp_ex = {};
 	bool flag = false; /* modify qp to error */
 	struct hns_roce_context *ctx = to_hr_ctx(qp->context);
 
@@ -1574,7 +1589,9 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		flag = true;
 	}
 
-	ret = ibv_cmd_modify_qp(qp, attr, attr_mask, &cmd, sizeof(cmd));
+	ret = ibv_cmd_modify_qp_ex(qp, attr, attr_mask, &cmd_ex.ibv_cmd,
+				   sizeof(cmd_ex), &resp_ex.ibv_resp,
+				   sizeof(resp_ex));
 
 	if (flag) {
 		pthread_spin_unlock(&hr_qp->rq.lock);
@@ -1584,8 +1601,11 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	if (ret)
 		return ret;
 
-	if (attr_mask & IBV_QP_STATE)
+	if (attr_mask & IBV_QP_STATE) {
 		qp->state = attr->qp_state;
+		if (attr->qp_state == IBV_QPS_RTR)
+			hr_qp->dca_wqe.dcan = resp_ex.drv_payload.dcan;
+	}
 
 	if ((attr_mask & IBV_QP_STATE) && attr->qp_state == IBV_QPS_RESET) {
 		if (qp->recv_cq)

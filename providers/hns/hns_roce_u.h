@@ -298,6 +298,7 @@ struct hns_roce_dca_buf {
 	void **bufs;
 	unsigned int max_cnt;
 	unsigned int shift;
+	unsigned int dcan;
 };
 
 struct hns_roce_qp {
@@ -349,6 +350,7 @@ struct hns_roce_dca_attach_attr {
 	uint32_t sq_offset;
 	uint32_t sge_offset;
 	uint32_t rq_offset;
+	bool force;
 };
 
 struct hns_roce_dca_detach_attr {
@@ -400,6 +402,32 @@ static inline struct hns_roce_qp *to_hr_qp(struct ibv_qp *ibv_qp)
 static inline struct hns_roce_ah *to_hr_ah(struct ibv_ah *ibv_ah)
 {
 	return container_of(ibv_ah, struct hns_roce_ah, ibv_ah);
+}
+
+#define HNS_ROCE_BIT_MASK(nr) (1UL << ((nr) % 64))
+#define HNS_ROCE_BIT_WORD(nr) ((nr) / 64)
+
+static inline bool atomic_test_bit(atomic_bitmap_t *p, uint32_t nr)
+{
+	p += HNS_ROCE_BIT_WORD(nr);
+	return !!(atomic_load(p) & HNS_ROCE_BIT_MASK(nr));
+}
+
+static inline bool test_and_set_bit_lock(atomic_bitmap_t *p, uint32_t nr)
+{
+	uint64_t mask = HNS_ROCE_BIT_MASK(nr);
+
+	p += HNS_ROCE_BIT_WORD(nr);
+	if (atomic_load(p) & mask)
+		return true;
+
+	return (atomic_fetch_or(p, mask) & mask) != 0;
+}
+
+static inline void clear_bit_unlock(atomic_bitmap_t *p, uint32_t nr)
+{
+	p += HNS_ROCE_BIT_WORD(nr);
+	atomic_fetch_and(p, ~HNS_ROCE_BIT_MASK(nr));
 }
 
 int hns_roce_u_query_device(struct ibv_context *context,
@@ -474,6 +502,9 @@ int hns_roce_attach_dca_mem(struct hns_roce_context *ctx, uint32_t handle,
 			    uint32_t size, struct hns_roce_dca_buf *buf);
 void hns_roce_detach_dca_mem(struct hns_roce_context *ctx, uint32_t handle,
 			     struct hns_roce_dca_detach_attr *attr);
+bool hns_roce_dca_start_post(struct hns_roce_dca_ctx *ctx, uint32_t dcan);
+void hns_roce_dca_stop_post(struct hns_roce_dca_ctx *ctx, uint32_t dcan);
+
 void hns_roce_shrink_dca_mem(struct hns_roce_context *ctx);
 void hns_roce_cleanup_dca_mem(struct hns_roce_context *ctx);
 

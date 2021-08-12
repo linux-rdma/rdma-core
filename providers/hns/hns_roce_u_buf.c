@@ -402,6 +402,45 @@ static int setup_dca_buf(struct hns_roce_context *ctx, uint32_t handle,
 	return (idx >= page_count) ? 0 : -ENOMEM;
 }
 
+#define DCAN_TO_SYNC_BIT(n) ((n) * HNS_DCA_BITS_PER_STATUS)
+#define DCAN_TO_STAT_BIT(n) DCAN_TO_SYNC_BIT(n)
+
+#define MAX_DCA_TRY_LOCK_TIMES 10
+bool hns_roce_dca_start_post(struct hns_roce_dca_ctx *ctx, uint32_t dcan)
+{
+	atomic_bitmap_t *st = ctx->sync_status;
+	int try_times = 0;
+
+	if (!st || dcan >= ctx->max_qps)
+		return true;
+
+	while (test_and_set_bit_lock(st, DCAN_TO_SYNC_BIT(dcan)))
+		if (try_times++ > MAX_DCA_TRY_LOCK_TIMES)
+			return false;
+
+	return true;
+}
+
+void hns_roce_dca_stop_post(struct hns_roce_dca_ctx *ctx, uint32_t dcan)
+{
+	atomic_bitmap_t *st = ctx->sync_status;
+
+	if (!st || dcan >= ctx->max_qps)
+		return;
+
+	clear_bit_unlock(st, DCAN_TO_SYNC_BIT(dcan));
+}
+
+static bool check_dca_is_attached(struct hns_roce_dca_ctx *ctx, uint32_t dcan)
+{
+	atomic_bitmap_t *st = ctx->buf_status;
+
+	if (!st || dcan >= ctx->max_qps)
+		return false;
+
+	return atomic_test_bit(st, DCAN_TO_STAT_BIT(dcan));
+}
+
 #define DCA_EXPAND_MEM_TRY_TIMES	3
 int hns_roce_attach_dca_mem(struct hns_roce_context *ctx, uint32_t handle,
 			    struct hns_roce_dca_attach_attr *attr,
@@ -412,6 +451,9 @@ int hns_roce_attach_dca_mem(struct hns_roce_context *ctx, uint32_t handle,
 	bool is_new_buf = true;
 	int try_times = 0;
 	int ret = 0;
+
+	if (!attr->force && check_dca_is_attached(&ctx->dca_ctx, buf->dcan))
+		return 0;
 
 	do {
 		resp.alloc_pages = 0;
