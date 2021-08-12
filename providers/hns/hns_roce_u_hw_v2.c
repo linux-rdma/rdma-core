@@ -654,6 +654,10 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 
 	pthread_spin_unlock(&cq->lock);
 
+	/* Try to shrink the DCA mem */
+	if (ctx->dca_ctx.mem_cnt > 0)
+		hns_roce_shrink_dca_mem(ctx);
+
 	return err == V2_CQ_POLL_ERR ? err : npolled;
 }
 
@@ -1562,6 +1566,9 @@ static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 	hns_roce_free_qp_buf(qp, ctx);
 
 	free(qp);
+
+	if (ctx->dca_ctx.mem_cnt > 0)
+		hns_roce_shrink_dca_mem(ctx);
 
 	return ret;
 }

@@ -101,6 +101,20 @@ static inline uint64_t dca_mem_to_key(struct hns_roce_dca_mem *dca_mem)
 	return (uintptr_t)dca_mem;
 }
 
+static struct hns_roce_dca_mem *key_to_dca_mem(struct hns_roce_dca_ctx *ctx,
+					       uint64_t key)
+{
+	struct hns_roce_dca_mem *mem;
+	struct hns_roce_dca_mem *tmp;
+
+	list_for_each_safe(&ctx->mem_list, mem, tmp, entry) {
+		if (dca_mem_to_key(mem) == key)
+			return mem;
+	}
+
+	return NULL;
+}
+
 static inline void *dca_mem_addr(struct hns_roce_dca_mem *dca_mem, int offset)
 {
 	return dca_mem->buf.buf + offset;
@@ -147,6 +161,25 @@ void hns_roce_cleanup_dca_mem(struct hns_roce_context *ctx)
 		deregister_dca_mem(ctx, mem->handle);
 }
 
+struct hns_dca_mem_shrink_resp {
+	uint32_t free_mems;
+	uint64_t free_key;
+};
+
+static int shrink_dca_mem(struct hns_roce_context *ctx, uint32_t handle,
+			  uint64_t size, struct hns_dca_mem_shrink_resp *resp)
+{
+	DECLARE_COMMAND_BUFFER(cmd, HNS_IB_OBJECT_DCA_MEM,
+			       HNS_IB_METHOD_DCA_MEM_SHRINK, 4);
+	fill_attr_in_obj(cmd, HNS_IB_ATTR_DCA_MEM_SHRINK_HANDLE, handle);
+	fill_attr_in_uint64(cmd, HNS_IB_ATTR_DCA_MEM_SHRINK_RESERVED_SIZE, size);
+	fill_attr_out(cmd, HNS_IB_ATTR_DCA_MEM_SHRINK_OUT_FREE_KEY,
+		      &resp->free_key, sizeof(resp->free_key));
+	fill_attr_out(cmd, HNS_IB_ATTR_DCA_MEM_SHRINK_OUT_FREE_MEMS,
+		      &resp->free_mems, sizeof(resp->free_mems));
+
+	return execute_ioctl(&ctx->ibv_ctx.context, cmd);
+}
 static bool add_dca_mem_enabled(struct hns_roce_dca_ctx *ctx,
 				uint32_t alloc_size)
 {
@@ -161,6 +194,17 @@ static bool add_dca_mem_enabled(struct hns_roce_dca_ctx *ctx,
 	else /* Pool size doesn't exceed max size */
 		enable = (ctx->curr_size + alloc_size) < ctx->max_size;
 
+	pthread_spin_unlock(&ctx->lock);
+
+	return enable;
+}
+
+static bool shrink_dca_mem_enabled(struct hns_roce_dca_ctx *ctx)
+{
+	bool enable;
+
+	pthread_spin_lock(&ctx->lock);
+	enable = ctx->mem_cnt > 0 && ctx->min_size < ctx->max_size;
 	pthread_spin_unlock(&ctx->lock);
 
 	return enable;
@@ -197,4 +241,56 @@ int hns_roce_add_dca_mem(struct hns_roce_context *ctx, uint32_t size)
 	pthread_spin_unlock(&dca_ctx->lock);
 
 	return 0;
+}
+
+void hns_roce_shrink_dca_mem(struct hns_roce_context *ctx)
+{
+	struct hns_roce_dca_ctx *dca_ctx = &ctx->dca_ctx;
+	struct hns_dca_mem_shrink_resp resp = {};
+	struct hns_roce_dca_mem *mem;
+	int dca_mem_cnt;
+	uint32_t handle;
+	int ret;
+
+	pthread_spin_lock(&dca_ctx->lock);
+	dca_mem_cnt = ctx->dca_ctx.mem_cnt;
+	pthread_spin_unlock(&dca_ctx->lock);
+	while (dca_mem_cnt > 0 && shrink_dca_mem_enabled(dca_ctx)) {
+		resp.free_mems = 0;
+		/* Step 1: Use any DCA mem uobject to shrink pool */
+		pthread_spin_lock(&dca_ctx->lock);
+		mem = list_tail(&dca_ctx->mem_list,
+				struct hns_roce_dca_mem, entry);
+		handle = mem ? mem->handle : 0;
+		pthread_spin_unlock(&dca_ctx->lock);
+		if (!mem)
+			break;
+
+		ret = shrink_dca_mem(ctx, handle, dca_ctx->min_size, &resp);
+		if (ret || likely(resp.free_mems < 1))
+			break;
+
+		/* Step 2: Remove shrunk DCA mem node from pool */
+		pthread_spin_lock(&dca_ctx->lock);
+		mem = key_to_dca_mem(dca_ctx, resp.free_key);
+		if (mem) {
+			list_del(&mem->entry);
+			dca_ctx->mem_cnt--;
+			dca_ctx->curr_size -= mem->buf.length;
+		}
+
+		handle = mem ? mem->handle : 0;
+		pthread_spin_unlock(&dca_ctx->lock);
+		if (!mem)
+			break;
+
+		/* Step 3: Destroy DCA mem uobject */
+		deregister_dca_mem(ctx, handle);
+		free_dca_mem(ctx, mem);
+		/* No any free memory after deregister 1 DCA mem */
+		if (resp.free_mems <= 1)
+			break;
+
+		dca_mem_cnt--;
+	}
 }

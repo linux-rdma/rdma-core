@@ -155,6 +155,7 @@ struct hns_roce_dca_ctx {
 	int mem_cnt;
 	unsigned int unit_size;
 	uint64_t max_size;
+	uint64_t min_size;
 	uint64_t curr_size;
 };
 
@@ -439,6 +440,7 @@ void hns_roce_free_buf(struct hns_roce_buf *buf);
 
 void hns_roce_free_qp_buf(struct hns_roce_qp *qp, struct hns_roce_context *ctx);
 
+void hns_roce_shrink_dca_mem(struct hns_roce_context *ctx);
 void hns_roce_cleanup_dca_mem(struct hns_roce_context *ctx);
 int hns_roce_add_dca_mem(struct hns_roce_context *ctx, uint32_t size);
 
