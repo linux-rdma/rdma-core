@@ -283,11 +283,18 @@ struct hns_roce_rinl_buf {
 	unsigned int			wqe_cnt;
 };
 
+struct hns_roce_dca_buf {
+	void **bufs;
+	unsigned int max_cnt;
+	unsigned int shift;
+};
+
 struct hns_roce_qp {
 	struct verbs_qp			verbs_qp;
 	struct hns_roce_buf		buf;
+	struct hns_roce_dca_buf		dca_wqe;
 	int				max_inline_data;
-	int				buf_size;
+	unsigned int			buf_size;
 	unsigned int			sq_signal_bits;
 	struct hns_roce_wq		sq;
 	struct hns_roce_wq		rq;
@@ -327,11 +334,22 @@ struct hns_roce_u_hw {
 	struct verbs_context_ops hw_ops;
 };
 
+struct hns_roce_dca_attach_attr {
+	uint32_t sq_offset;
+	uint32_t sge_offset;
+	uint32_t rq_offset;
+};
+
+struct hns_roce_dca_detach_attr {
+	uint32_t sq_index;
+};
+
 /*
  * The entries's buffer should be aligned to a multiple of the hardware's
  * minimum page size.
  */
 #define hr_hw_page_align(x) align(x, HNS_HW_PAGE_SIZE)
+#define hr_hw_page_count(x) (hr_hw_page_align(x) / HNS_HW_PAGE_SIZE)
 
 static inline unsigned int to_hr_hem_entries_size(int count, int buf_shift)
 {
@@ -440,9 +458,13 @@ void hns_roce_free_buf(struct hns_roce_buf *buf);
 
 void hns_roce_free_qp_buf(struct hns_roce_qp *qp, struct hns_roce_context *ctx);
 
+int hns_roce_attach_dca_mem(struct hns_roce_context *ctx, uint32_t handle,
+			    struct hns_roce_dca_attach_attr *attr,
+			    uint32_t size, struct hns_roce_dca_buf *buf);
+void hns_roce_detach_dca_mem(struct hns_roce_context *ctx, uint32_t handle,
+			     struct hns_roce_dca_detach_attr *attr);
 void hns_roce_shrink_dca_mem(struct hns_roce_context *ctx);
 void hns_roce_cleanup_dca_mem(struct hns_roce_context *ctx);
-int hns_roce_add_dca_mem(struct hns_roce_context *ctx, uint32_t size);
 
 void hns_roce_init_qp_indices(struct hns_roce_qp *qp);
 

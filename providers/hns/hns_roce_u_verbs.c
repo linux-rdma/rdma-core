@@ -905,6 +905,14 @@ static int calc_qp_buff_size(struct hns_roce_device *hr_dev,
 	return 0;
 }
 
+static inline bool check_qp_support_dca(bool pool_en, enum ibv_qp_type qp_type)
+{
+	if (pool_en && (qp_type == IBV_QPT_RC || qp_type == IBV_QPT_XRC_SEND))
+		return true;
+
+	return false;
+}
+
 static void qp_free_wqe(struct hns_roce_qp *qp)
 {
 	qp_free_recv_inl_buf(qp);
@@ -916,8 +924,8 @@ static void qp_free_wqe(struct hns_roce_qp *qp)
 	hns_roce_free_buf(&qp->buf);
 }
 
-static int qp_alloc_wqe(struct ibv_qp_cap *cap, struct hns_roce_qp *qp,
-			struct hns_roce_context *ctx)
+static int qp_alloc_wqe(struct ibv_qp_init_attr_ex *attr,
+			struct hns_roce_qp *qp, struct hns_roce_context *ctx)
 {
 	struct hns_roce_device *hr_dev = to_hr_dev(ctx->ibv_ctx.context.device);
 
@@ -935,12 +943,24 @@ static int qp_alloc_wqe(struct ibv_qp_cap *cap, struct hns_roce_qp *qp,
 	}
 
 	if (qp->rq_rinl_buf.wqe_cnt) {
-		if (qp_alloc_recv_inl_buf(cap, qp))
+		if (qp_alloc_recv_inl_buf(&attr->cap, qp))
 			goto err_alloc;
 	}
 
-	if (hns_roce_alloc_buf(&qp->buf, qp->buf_size, HNS_HW_PAGE_SIZE))
-		goto err_alloc;
+	if (check_qp_support_dca(ctx->dca_ctx.max_size != 0, attr->qp_type)) {
+		/* when DCA is enabled, use a buffer list to store page addr */
+		qp->buf.buf = NULL;
+		qp->dca_wqe.max_cnt = hr_hw_page_count(qp->buf_size);
+		qp->dca_wqe.shift = HNS_HW_PAGE_SHIFT;
+		qp->dca_wqe.bufs = calloc(qp->dca_wqe.max_cnt,
+					    sizeof(void *));
+		if (!qp->dca_wqe.bufs)
+			goto err_alloc;
+	} else {
+		if (hns_roce_alloc_buf(&qp->buf, qp->buf_size,
+				       HNS_HW_PAGE_SIZE))
+			goto err_alloc;
+	}
 
 	return 0;
 
@@ -1176,7 +1196,7 @@ static int hns_roce_alloc_qp_buf(struct ibv_qp_init_attr_ex *attr,
 	    pthread_spin_init(&qp->rq.lock, PTHREAD_PROCESS_PRIVATE))
 		return -ENOMEM;
 
-	ret = qp_alloc_wqe(&attr->cap, qp, ctx);
+	ret = qp_alloc_wqe(attr, qp, ctx);
 	if (ret)
 		return ret;
 

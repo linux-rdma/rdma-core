@@ -239,6 +239,13 @@ struct hns_roce_rc_sq_wqe {
 
 #define RC_SQ_WQE_BYTE_4_RDMA_WRITE_S 22
 
+#define RC_SQ_WQE_BYTE_4_SQPN_L_W 2
+#define RC_SQ_WQE_BYTE_4_SQPN_L_S 5
+#define RC_SQ_WQE_BYTE_4_SQPN_L_M GENMASK(6, 5)
+
+#define RC_SQ_WQE_BYTE_4_SQPN_H_S 13
+#define RC_SQ_WQE_BYTE_4_SQPN_H_M GENMASK(30, 13)
+
 #define RC_SQ_WQE_BYTE_16_XRC_SRQN_S 0
 #define RC_SQ_WQE_BYTE_16_XRC_SRQN_M \
 	(((1UL << 24) - 1) << RC_SQ_WQE_BYTE_16_XRC_SRQN_S)

@@ -227,19 +227,35 @@ static struct hns_roce_v2_cqe *next_cqe_sw_v2(struct hns_roce_cq *cq)
 	return get_sw_cqe_v2(cq, cq->cons_index);
 }
 
+static inline bool check_qp_dca_enable(struct hns_roce_qp *qp)
+{
+	return !!qp->dca_wqe.bufs;
+}
+
+static inline void *get_wqe(struct hns_roce_qp *qp, unsigned int offset)
+{
+	if (likely(qp->buf.buf))
+		return qp->buf.buf + offset;
+	else if (unlikely(check_qp_dca_enable(qp)))
+		return qp->dca_wqe.bufs[offset >> qp->dca_wqe.shift] +
+			(offset & ((1 << qp->dca_wqe.shift) - 1));
+	else
+		return NULL;
+}
+
 static void *get_recv_wqe_v2(struct hns_roce_qp *qp, unsigned int n)
 {
-	return qp->buf.buf + qp->rq.offset + (n << qp->rq.wqe_shift);
+	return get_wqe(qp, qp->rq.offset + (n << qp->rq.wqe_shift));
 }
 
 static void *get_send_wqe(struct hns_roce_qp *qp, unsigned int n)
 {
-	return qp->buf.buf + qp->sq.offset + (n << qp->sq.wqe_shift);
+	return get_wqe(qp, qp->sq.offset + (n << qp->sq.wqe_shift));
 }
 
 static void *get_send_sge_ex(struct hns_roce_qp *qp, unsigned int n)
 {
-	return qp->buf.buf + qp->ex_sge.offset + (n << qp->ex_sge.sge_shift);
+	return get_wqe(qp, qp->ex_sge.offset + (n << qp->ex_sge.sge_shift));
 }
 
 static void *get_srq_wqe(struct hns_roce_srq *srq, unsigned int n)
@@ -502,6 +518,72 @@ static int hns_roce_handle_recv_inl_wqe(struct hns_roce_v2_cqe *cqe,
 	return V2_CQ_OK;
 }
 
+static bool check_dca_attach_enable(struct hns_roce_qp *qp)
+{
+	return check_qp_dca_enable(qp) &&
+	       (qp->flags & HNS_ROCE_QP_CAP_DYNAMIC_CTX_ATTACH);
+}
+static bool check_dca_detach_enable(struct hns_roce_qp *qp)
+{
+	return check_qp_dca_enable(qp) &&
+	       (qp->flags & HNS_ROCE_QP_CAP_DYNAMIC_CTX_DETACH);
+}
+
+static int dca_attach_qp_buf(struct hns_roce_context *ctx,
+			     struct hns_roce_qp *qp)
+{
+	struct hns_roce_dca_attach_attr attr = {};
+	uint32_t idx;
+	int ret;
+
+	pthread_spin_lock(&qp->sq.lock);
+	pthread_spin_lock(&qp->rq.lock);
+
+	if (qp->sq.wqe_cnt > 0) {
+		idx = qp->sq.head & (qp->sq.wqe_cnt - 1);
+		attr.sq_offset = idx << qp->sq.wqe_shift;
+	}
+
+	if (qp->ex_sge.sge_cnt > 0) {
+		idx = qp->next_sge & (qp->ex_sge.sge_cnt - 1);
+		attr.sge_offset = idx << qp->ex_sge.sge_shift;
+	}
+
+	if (qp->rq.wqe_cnt > 0) {
+		idx = qp->rq.head & (qp->rq.wqe_cnt - 1);
+		attr.rq_offset = idx << qp->rq.wqe_shift;
+	}
+
+
+	ret = hns_roce_attach_dca_mem(ctx, qp->verbs_qp.qp.handle, &attr,
+								  qp->buf_size, &qp->dca_wqe);
+
+	pthread_spin_unlock(&qp->rq.lock);
+	pthread_spin_unlock(&qp->sq.lock);
+
+	return ret;
+}
+
+static void dca_detach_qp_buf(struct hns_roce_context *ctx,
+			      struct hns_roce_qp *qp)
+{
+	struct hns_roce_dca_detach_attr attr;
+	bool is_empty;
+
+	pthread_spin_lock(&qp->sq.lock);
+	pthread_spin_lock(&qp->rq.lock);
+
+	is_empty = qp->sq.head == qp->sq.tail && qp->rq.head == qp->rq.tail;
+	if (is_empty && qp->sq.wqe_cnt > 0)
+		attr.sq_index = qp->sq.head & (qp->sq.wqe_cnt - 1);
+
+	pthread_spin_unlock(&qp->rq.lock);
+	pthread_spin_unlock(&qp->sq.lock);
+
+	if (is_empty)
+		hns_roce_detach_dca_mem(ctx, qp->verbs_qp.qp.handle, &attr);
+}
+
 static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 				struct hns_roce_qp **cur_qp, struct ibv_wc *wc)
 {
@@ -641,6 +723,9 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 
 	for (npolled = 0; npolled < ne; ++npolled) {
 		err = hns_roce_v2_poll_one(cq, &qp, wc + npolled);
+		if (qp && check_dca_detach_enable(qp))
+			dca_detach_qp_buf(ctx, qp);
+
 		if (err != V2_CQ_OK)
 			break;
 	}
@@ -690,17 +775,22 @@ static int hns_roce_u_v2_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	return 0;
 }
 
-static int check_qp_send(struct ibv_qp *qp, struct hns_roce_context *ctx)
+static int check_qp_send(struct hns_roce_qp *qp, struct hns_roce_context *ctx)
 {
-	if (unlikely(qp->qp_type != IBV_QPT_RC &&
-		     qp->qp_type != IBV_QPT_UD) &&
-		     qp->qp_type != IBV_QPT_XRC_SEND)
+	struct ibv_qp *ibvqp = &qp->verbs_qp.qp;
+
+	if (unlikely(ibvqp->qp_type != IBV_QPT_RC &&
+		     ibvqp->qp_type != IBV_QPT_UD) &&
+		     ibvqp->qp_type != IBV_QPT_XRC_SEND)
 		return -EINVAL;
 
-	if (unlikely(qp->state == IBV_QPS_RESET ||
-		     qp->state == IBV_QPS_INIT ||
-		     qp->state == IBV_QPS_RTR))
+	if (unlikely(ibvqp->state == IBV_QPS_RESET ||
+		     ibvqp->state == IBV_QPS_INIT ||
+		     ibvqp->state == IBV_QPS_RTR))
 		return -EINVAL;
+
+	if (check_dca_attach_enable(qp))
+		return dca_attach_qp_buf(ctx, qp);
 
 	return 0;
 }
@@ -1058,6 +1148,16 @@ static int set_rc_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
 	return 0;
 }
 
+static inline void fill_rc_dca_fields(uint32_t qp_num,
+				      struct hns_roce_rc_sq_wqe *wqe)
+{
+	roce_set_field(wqe->byte_4, RC_SQ_WQE_BYTE_4_SQPN_L_M,
+		       RC_SQ_WQE_BYTE_4_SQPN_L_S, qp_num);
+	roce_set_field(wqe->byte_4, RC_SQ_WQE_BYTE_4_SQPN_H_M,
+		       RC_SQ_WQE_BYTE_4_SQPN_H_S,
+		       qp_num >> RC_SQ_WQE_BYTE_4_SQPN_L_W);
+}
+
 static void set_bind_mw_seg(struct hns_roce_rc_sq_wqe *wqe,
 			    const struct ibv_send_wr *wr)
 {
@@ -1173,6 +1273,9 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 		return ret;
 
 wqe_valid:
+	if (check_qp_dca_enable(qp))
+		fill_rc_dca_fields(qp->verbs_qp.qp.qp_num, rc_sq_wqe);
+
 	/*
 	 * The pipeline can sequentially post all valid WQEs into WQ buffer,
 	 * including new WQEs waiting for the doorbell to update the PI again.
@@ -1199,7 +1302,7 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	struct ibv_qp_attr attr;
 	int ret;
 
-	ret = check_qp_send(ibvqp, ctx);
+	ret = check_qp_send(qp, ctx);
 	if (unlikely(ret)) {
 		*bad_wr = wr;
 		return ret;
@@ -1274,14 +1377,19 @@ out:
 	return ret;
 }
 
-static int check_qp_recv(struct ibv_qp *qp, struct hns_roce_context *ctx)
+static int check_qp_recv(struct hns_roce_qp *qp, struct hns_roce_context *ctx)
 {
-	if (unlikely(qp->qp_type != IBV_QPT_RC &&
-		     qp->qp_type != IBV_QPT_UD))
+	struct ibv_qp *ibvqp = &qp->verbs_qp.qp;
+
+	if (unlikely(ibvqp->qp_type != IBV_QPT_RC &&
+		     ibvqp->qp_type != IBV_QPT_UD))
 		return -EINVAL;
 
-	if (qp->state == IBV_QPS_RESET || qp->srq)
+	if (ibvqp->state == IBV_QPS_RESET || ibvqp->srq)
 		return -EINVAL;
+
+	if (check_dca_attach_enable(qp))
+		return dca_attach_qp_buf(ctx, qp);
 
 	return 0;
 }
@@ -1325,7 +1433,7 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	struct ibv_qp_attr attr;
 	int ret;
 
-	ret = check_qp_recv(ibvqp, ctx);
+	ret = check_qp_recv(qp, ctx);
 	if (unlikely(ret)) {
 		*bad_wr = wr;
 		return ret;
@@ -1458,6 +1566,7 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	struct ibv_modify_qp cmd;
 	struct hns_roce_qp *hr_qp = to_hr_qp(qp);
 	bool flag = false; /* modify qp to error */
+	struct hns_roce_context *ctx = to_hr_ctx(qp->context);
 
 	if ((attr_mask & IBV_QP_STATE) && (attr->qp_state == IBV_QPS_ERR)) {
 		pthread_spin_lock(&hr_qp->sq.lock);
@@ -1489,6 +1598,10 @@ static int hns_roce_u_v2_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 
 		hns_roce_init_qp_indices(to_hr_qp(qp));
 	}
+
+	/* Try to shrink the DCA mem */
+	if (ctx->dca_ctx.mem_cnt > 0)
+		hns_roce_shrink_dca_mem(ctx);
 
 	record_qp_attr(qp, attr, attr_mask);
 
