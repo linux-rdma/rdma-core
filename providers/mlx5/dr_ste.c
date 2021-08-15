@@ -341,10 +341,12 @@ static void dr_ste_remove_middle_ste(struct dr_ste_ctx *ste_ctx,
 }
 
 void dr_ste_free(struct dr_ste *ste,
-		 struct mlx5dv_dr_matcher *matcher,
-		 struct dr_matcher_rx_tx *nic_matcher)
+		 struct mlx5dv_dr_rule *rule,
+		 struct dr_rule_rx_tx *nic_rule)
 {
+	struct dr_matcher_rx_tx *nic_matcher = nic_rule->nic_matcher;
 	struct dr_ste_send_info *cur_ste_info, *tmp_ste_info;
+	struct mlx5dv_dr_matcher *matcher = rule->matcher;
 	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
 	struct dr_ste_ctx *ste_ctx = dmn->ste_ctx;
 	struct dr_ste_send_info ste_info_head;
@@ -387,8 +389,10 @@ void dr_ste_free(struct dr_ste *ste,
 	list_for_each_safe(&send_ste_list, cur_ste_info, tmp_ste_info, send_list) {
 		list_del(&cur_ste_info->send_list);
 		dr_send_postsend_ste(dmn, cur_ste_info->ste,
-				     cur_ste_info->data, cur_ste_info->size,
-				     cur_ste_info->offset);
+				     cur_ste_info->data,
+				     cur_ste_info->size,
+				     cur_ste_info->offset,
+				     nic_rule->lock_index);
 	}
 
 	if (put_on_origin_table)
@@ -443,7 +447,8 @@ int dr_ste_htbl_init_and_postsend(struct mlx5dv_dr_domain *dmn,
 				  struct dr_domain_rx_tx *nic_dmn,
 				  struct dr_ste_htbl *htbl,
 				  struct dr_htbl_connect_info *connect_info,
-				  bool update_hw_ste)
+				  bool update_hw_ste,
+				  uint8_t send_ring_idx)
 {
 	uint8_t formated_ste[DR_STE_SIZE] = {};
 
@@ -454,14 +459,16 @@ int dr_ste_htbl_init_and_postsend(struct mlx5dv_dr_domain *dmn,
 				formated_ste,
 				connect_info);
 
-	return dr_send_postsend_formated_htbl(dmn, htbl, formated_ste, update_hw_ste);
+	return dr_send_postsend_formated_htbl(dmn, htbl, formated_ste,
+					      update_hw_ste, send_ring_idx);
 }
 
 int dr_ste_create_next_htbl(struct mlx5dv_dr_matcher *matcher,
 			    struct dr_matcher_rx_tx *nic_matcher,
 			    struct dr_ste *ste,
 			    uint8_t *cur_hw_ste,
-			    enum dr_icm_chunk_size log_table_size)
+			    enum dr_icm_chunk_size log_table_size,
+			    uint8_t send_ring_idx)
 {
 	struct dr_domain_rx_tx *nic_dmn = nic_matcher->nic_tbl->nic_dmn;
 	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
@@ -490,7 +497,7 @@ int dr_ste_create_next_htbl(struct mlx5dv_dr_matcher *matcher,
 		info.type = CONNECT_MISS;
 		info.miss_icm_addr = nic_matcher->e_anchor->chunk->icm_addr;
 		if (dr_ste_htbl_init_and_postsend(dmn, nic_dmn, next_htbl,
-						  &info, false)) {
+						  &info, false, send_ring_idx)) {
 			dr_dbg(dmn, "Failed writing table to HW\n");
 			goto free_table;
 		}

@@ -97,6 +97,7 @@ rdma_alias_man_pages(
  mlx5dv_dr_flow.3 mlx5dv_dr_domain_set_reclaim_device_memory.3
  mlx5dv_dr_flow.3 mlx5dv_dr_matcher_create.3
  mlx5dv_dr_flow.3 mlx5dv_dr_matcher_destroy.3
+ mlx5dv_dr_flow.3 mlx5dv_dr_matcher_set_layout.3
  mlx5dv_dr_flow.3 mlx5dv_dr_rule_create.3
  mlx5dv_dr_flow.3 mlx5dv_dr_rule_destroy.3
  mlx5dv_dr_flow.3 mlx5dv_dr_table_create.3

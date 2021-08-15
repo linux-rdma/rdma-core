@@ -348,6 +348,9 @@ static int dr_icm_pool_sync_pool_buddies(struct dr_icm_pool *pool)
 
 	pthread_spin_unlock(&pool->lock);
 
+	/* Avoid race between delete resource to its reuse on other QP */
+	dr_send_ring_force_drain(pool->dmn);
+
 	if (pool->dmn->flags & DR_DOMAIN_FLAG_MEMORY_RECLAIM)
 		need_reclaim = true;
 
@@ -440,12 +443,13 @@ struct dr_icm_chunk *dr_icm_alloc_chunk(struct dr_icm_pool *pool,
 	int ret;
 	int seg;
 
+	pthread_spin_lock(&pool->lock);
+
 	if (chunk_size > pool->max_log_chunk_sz) {
 		errno = EINVAL;
-		return NULL;
+		goto out;
 	}
 
-	pthread_spin_lock(&pool->lock);
 	/* find mem, get back the relevant buddy pool and seg in that mem */
 	ret = dr_icm_handle_buddies_get_mem(pool, chunk_size, &buddy, &seg);
 	if (ret)
@@ -470,7 +474,7 @@ void dr_icm_free_chunk(struct dr_icm_chunk *chunk)
 	struct dr_icm_pool *pool = buddy->pool;
 
 	/* move the memory to the waiting list AKA "hot" */
-	pthread_spin_lock(&buddy->pool->lock);
+	pthread_spin_lock(&pool->lock);
 	list_del_init(&chunk->chunk_list);
 	list_add_tail(&buddy->hot_list, &chunk->chunk_list);
 	buddy->pool->hot_memory_size += chunk->byte_size;
@@ -479,7 +483,15 @@ void dr_icm_free_chunk(struct dr_icm_chunk *chunk)
 	if (dr_icm_pool_is_sync_required(pool) && !pool->syncing)
 		dr_icm_pool_sync_pool_buddies(buddy->pool);
 
-	pthread_spin_unlock(&buddy->pool->lock);
+	pthread_spin_unlock(&pool->lock);
+}
+
+void dr_icm_pool_set_pool_max_log_chunk_sz(struct dr_icm_pool *pool,
+					   enum dr_icm_chunk_size max_log_chunk_sz)
+{
+	pthread_spin_lock(&pool->lock);
+	pool->max_log_chunk_sz = max_log_chunk_sz;
+	pthread_spin_unlock(&pool->lock);
 }
 
 struct dr_icm_pool *dr_icm_pool_create(struct mlx5dv_dr_domain *dmn,

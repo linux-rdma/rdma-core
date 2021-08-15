@@ -43,6 +43,9 @@
 
 #define DR_RULE_MAX_STES	20
 #define DR_ACTION_MAX_STES	7
+/* Use up to 14 send rings. This number provided the best performance */
+#define DR_MAX_SEND_RINGS	14
+#define NUM_OF_LOCKS		DR_MAX_SEND_RINGS
 #define WIRE_PORT		0xFFFF
 #define DR_STE_SVLAN		0x1
 #define DR_STE_CVLAN		0x2
@@ -409,14 +412,14 @@ dr_ste_conv_modify_hdr_sw_field(struct dr_ste_ctx *ste_ctx,
 
 struct dr_ste_ctx *dr_ste_get_ctx(uint8_t version);
 void dr_ste_free(struct dr_ste *ste,
-		 struct mlx5dv_dr_matcher *matcher,
-		 struct dr_matcher_rx_tx *nic_matcher);
+		 struct mlx5dv_dr_rule *rule,
+		 struct dr_rule_rx_tx *nic_rule);
 static inline void dr_ste_put(struct dr_ste *ste,
-			      struct mlx5dv_dr_matcher *matcher,
-			      struct dr_matcher_rx_tx *nic_matcher)
+			      struct mlx5dv_dr_rule *rule,
+			      struct dr_rule_rx_tx *nic_rule)
 {
 	if (atomic_fetch_sub(&ste->refcount, 1) == 1)
-		dr_ste_free(ste, matcher, nic_matcher);
+		dr_ste_free(ste, rule, nic_rule);
 }
 
 /* initial as 0, increased only when ste appears in a new rule */
@@ -435,7 +438,8 @@ int dr_ste_create_next_htbl(struct mlx5dv_dr_matcher *matcher,
 			    struct dr_matcher_rx_tx *nic_matcher,
 			    struct dr_ste *ste,
 			    uint8_t *cur_hw_ste,
-			    enum dr_icm_chunk_size log_table_size);
+			    enum dr_icm_chunk_size log_table_size,
+			    uint8_t send_ring_idx);
 
 /* STE build functions */
 int dr_ste_build_pre_check(struct mlx5dv_dr_domain *dmn,
@@ -903,19 +907,20 @@ struct dr_domain_rx_tx {
 	uint64_t		default_icm_addr;
 	enum dr_domain_nic_type	type;
 	/* protect rx/tx domain */
-	pthread_spinlock_t	lock;
+	pthread_spinlock_t	locks[NUM_OF_LOCKS];
 };
 
 struct dr_domain_info {
 	bool			supp_sw_steering;
 	uint32_t		max_inline_size;
-	uint32_t		max_send_wr;
 	uint32_t		max_log_sw_icm_sz;
 	uint32_t		max_log_action_icm_sz;
+	uint32_t		max_send_size;
 	struct dr_domain_rx_tx	rx;
 	struct dr_domain_rx_tx	tx;
 	struct ibv_device_attr_ex attr;
 	struct dr_devx_caps	caps;
+	bool			use_mqs;
 };
 
 enum dr_domain_flags {
@@ -932,20 +937,57 @@ struct mlx5dv_dr_domain {
 	atomic_int			refcount;
 	struct dr_icm_pool		*ste_icm_pool;
 	struct dr_icm_pool		*action_icm_pool;
-	struct dr_send_ring		*send_ring;
+	struct dr_send_ring		*send_ring[DR_MAX_SEND_RINGS];
 	struct dr_domain_info		info;
 	struct list_head		tbl_list;
 	uint32_t			flags;
+	/* protect debug lists of all tracked objects */
+	pthread_spinlock_t		debug_lock;
 };
+
+static inline int dr_domain_nic_lock_init(struct dr_domain_rx_tx *nic_dmn)
+{
+	int ret;
+	int i;
+
+	for (i = 0; i < NUM_OF_LOCKS; i++) {
+		ret = pthread_spin_init(&nic_dmn->locks[i], PTHREAD_PROCESS_PRIVATE);
+		if (ret) {
+			errno = ret;
+			goto destroy_locks;
+		}
+	}
+	return 0;
+
+destroy_locks:
+	while (i--)
+		pthread_spin_destroy(&nic_dmn->locks[i]);
+
+	return ret;
+}
+
+static inline void dr_domain_nic_lock_uninit(struct dr_domain_rx_tx *nic_dmn)
+{
+	int i;
+
+	for (i = 0; i < NUM_OF_LOCKS; i++)
+		pthread_spin_destroy(&nic_dmn->locks[i]);
+}
 
 static inline void dr_domain_nic_lock(struct dr_domain_rx_tx *nic_dmn)
 {
-	pthread_spin_lock(&nic_dmn->lock);
+	int i;
+
+	for (i = 0; i < NUM_OF_LOCKS; i++)
+		pthread_spin_lock(&nic_dmn->locks[i]);
 }
 
 static inline void dr_domain_nic_unlock(struct dr_domain_rx_tx *nic_dmn)
 {
-	pthread_spin_unlock(&nic_dmn->lock);
+	int i;
+
+	for (i = 0; i < NUM_OF_LOCKS; i++)
+		pthread_spin_unlock(&nic_dmn->locks[i]);
 }
 
 static inline void dr_domain_lock(struct mlx5dv_dr_domain *dmn)
@@ -984,6 +1026,7 @@ struct dr_matcher_rx_tx {
 	uint8_t				num_of_builders;
 	uint64_t			default_icm_addr;
 	struct dr_table_rx_tx		*nic_tbl;
+	bool				fixed_size;
 };
 
 struct mlx5dv_dr_matcher {
@@ -1127,6 +1170,7 @@ struct dr_htbl_connect_info {
 struct dr_rule_rx_tx {
 	struct dr_matcher_rx_tx		*nic_matcher;
 	struct dr_ste			*last_rule_ste;
+	uint8_t				lock_index;
 };
 
 struct mlx5dv_dr_rule {
@@ -1142,6 +1186,36 @@ struct mlx5dv_dr_rule {
 	struct mlx5dv_dr_action	**actions;
 	uint16_t		num_actions;
 };
+
+static inline void
+dr_rule_lock(struct dr_rule_rx_tx *nic_rule, uint8_t *hw_ste)
+{
+	struct dr_matcher_rx_tx *nic_matcher = nic_rule->nic_matcher;
+	struct dr_domain_rx_tx *nic_dmn = nic_matcher->nic_tbl->nic_dmn;
+	uint32_t index;
+
+	if (nic_matcher->fixed_size) {
+		if (hw_ste) {
+			index = dr_ste_calc_hash_index(hw_ste, nic_matcher->s_htbl);
+			nic_rule->lock_index = index % NUM_OF_LOCKS;
+		}
+		pthread_spin_lock(&nic_dmn->locks[nic_rule->lock_index]);
+	} else {
+		pthread_spin_lock(&nic_dmn->locks[0]);
+	}
+}
+
+static inline void
+dr_rule_unlock(struct dr_rule_rx_tx *nic_rule)
+{
+	struct dr_matcher_rx_tx *nic_matcher = nic_rule->nic_matcher;
+	struct dr_domain_rx_tx *nic_dmn = nic_matcher->nic_tbl->nic_dmn;
+
+	if (nic_matcher->fixed_size)
+		pthread_spin_unlock(&nic_dmn->locks[nic_rule->lock_index]);
+	else
+		pthread_spin_unlock(&nic_dmn->locks[0]);
+}
 
 void dr_rule_set_last_member(struct dr_rule_rx_tx *nic_rule,
 			     struct dr_ste *ste,
@@ -1198,6 +1272,9 @@ dr_icm_pool_chunk_size_to_byte(enum dr_icm_chunk_size chunk_size,
 
 	return entry_size * num_of_entries;
 }
+
+void dr_icm_pool_set_pool_max_log_chunk_sz(struct dr_icm_pool *pool,
+					   enum dr_icm_chunk_size max_log_chunk_sz);
 
 static inline int
 dr_ste_htbl_increase_threshold(struct dr_ste_htbl *htbl)
@@ -1340,6 +1417,14 @@ static inline bool dr_is_root_table(struct mlx5dv_dr_table *tbl)
 	return tbl->level == 0;
 }
 
+bool dr_domain_is_support_ste_icm_size(struct mlx5dv_dr_domain *dmn,
+				       uint32_t req_log_icm_sz);
+bool dr_domain_set_max_ste_icm_size(struct mlx5dv_dr_domain *dmn,
+				    uint32_t req_log_icm_sz);
+int dr_rule_rehash_matcher_s_anchor(struct mlx5dv_dr_matcher *matcher,
+				    struct dr_matcher_rx_tx *nic_matcher,
+				    enum dr_icm_chunk_size new_size);
+
 struct dr_icm_pool *dr_icm_pool_create(struct mlx5dv_dr_domain *dmn,
 				       enum dr_icm_type icm_type);
 void dr_icm_pool_destroy(struct dr_icm_pool *pool);
@@ -1354,7 +1439,8 @@ int dr_ste_htbl_init_and_postsend(struct mlx5dv_dr_domain *dmn,
 				  struct dr_domain_rx_tx *nic_dmn,
 				  struct dr_ste_htbl *htbl,
 				  struct dr_htbl_connect_info *connect_info,
-				  bool update_hw_ste);
+				  bool update_hw_ste,
+				  uint8_t send_ring_idx);
 void dr_ste_set_formated_ste(struct dr_ste_ctx *ste_ctx,
 			     uint16_t gvmi,
 			     enum dr_domain_nic_type nic_type,
@@ -1408,7 +1494,6 @@ struct dr_cq {
 };
 
 #define MAX_SEND_CQE		64
-#define MIN_READ_SYNC		64
 
 struct dr_send_ring {
 	struct dr_cq		cq;
@@ -1418,31 +1503,32 @@ struct dr_send_ring {
 	uint32_t		pending_wqe;
 	/* Signal request per this trash hold value */
 	uint16_t		signal_th;
-	/* Each post_send_size less than max_post_send_size */
-	uint32_t		max_post_send_size;
+	uint32_t                max_inline_size;
 	/* manage the send queue */
 	uint32_t		tx_head;
 	/* protect QP/CQ operations */
 	pthread_spinlock_t	lock;
 	void			*buf;
 	uint32_t		buf_size;
-	struct ibv_wc		wc[MAX_SEND_CQE];
-	uint8_t			sync_buff[MIN_READ_SYNC];
+	void			*sync_buff;
 	struct ibv_mr		*sync_mr;
 };
 
 int dr_send_ring_alloc(struct mlx5dv_dr_domain *dmn);
-void dr_send_ring_free(struct dr_send_ring *send_ring);
+void dr_send_ring_free(struct mlx5dv_dr_domain *dmn);
 int dr_send_ring_force_drain(struct mlx5dv_dr_domain *dmn);
 bool dr_send_allow_fl(struct dr_devx_caps *caps);
 int dr_send_postsend_ste(struct mlx5dv_dr_domain *dmn, struct dr_ste *ste,
-			 uint8_t *data, uint16_t size, uint16_t offset);
+			 uint8_t *data, uint16_t size, uint16_t offset,
+			 uint8_t ring_idx);
 int dr_send_postsend_htbl(struct mlx5dv_dr_domain *dmn, struct dr_ste_htbl *htbl,
-			  uint8_t *formated_ste, uint8_t *mask);
+			  uint8_t *formated_ste, uint8_t *mask,
+			  uint8_t send_ring_idx);
 int dr_send_postsend_formated_htbl(struct mlx5dv_dr_domain *dmn,
 				   struct dr_ste_htbl *htbl,
 				   uint8_t *ste_init_data,
-				   bool update_hw_ste);
+				   bool update_hw_ste,
+				   uint8_t send_ring_idx);
 int dr_send_postsend_action(struct mlx5dv_dr_domain *dmn,
 			    struct mlx5dv_dr_action *action);
 /* buddy functions & structure */

@@ -1808,6 +1808,19 @@ mlx5dv_dr_matcher_create(struct mlx5dv_dr_table *table,
 
 int mlx5dv_dr_matcher_destroy(struct mlx5dv_dr_matcher *matcher);
 
+enum mlx5dv_dr_matcher_layout_flags {
+	MLX5DV_DR_MATCHER_LAYOUT_RESIZABLE = 1 << 0,
+	MLX5DV_DR_MATCHER_LAYOUT_NUM_RULE = 1 << 1,
+};
+
+struct mlx5dv_dr_matcher_layout {
+	uint32_t flags; /* use enum mlx5dv_dr_matcher_layout_flags */
+	uint32_t log_num_of_rules_hint;
+};
+
+int mlx5dv_dr_matcher_set_layout(struct mlx5dv_dr_matcher *matcher,
+				 struct mlx5dv_dr_matcher_layout *layout);
+
 struct mlx5dv_dr_rule *
 mlx5dv_dr_rule_create(struct mlx5dv_dr_matcher *matcher,
 		      struct mlx5dv_flow_match_parameters *value,

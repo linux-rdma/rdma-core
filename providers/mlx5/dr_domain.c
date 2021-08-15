@@ -106,7 +106,7 @@ clean_pd:
 
 static void dr_free_resources(struct mlx5dv_dr_domain *dmn)
 {
-	dr_send_ring_free(dmn->send_ring);
+	dr_send_ring_free(dmn);
 	dr_icm_pool_destroy(dmn->action_icm_pool);
 	dr_icm_pool_destroy(dmn->ste_icm_pool);
 	mlx5dv_devx_free_uar(dmn->uar);
@@ -281,6 +281,29 @@ static void dr_domain_caps_uninit(struct mlx5dv_dr_domain *dmn)
 		free(dmn->info.caps.vports_caps);
 }
 
+bool dr_domain_is_support_ste_icm_size(struct mlx5dv_dr_domain *dmn,
+				       uint32_t req_log_icm_sz)
+{
+	if (dmn->info.caps.log_icm_size < req_log_icm_sz + DR_STE_LOG_SIZE)
+		return false;
+
+	return true;
+}
+
+bool dr_domain_set_max_ste_icm_size(struct mlx5dv_dr_domain *dmn,
+				    uint32_t req_log_icm_sz)
+{
+	if (!dr_domain_is_support_ste_icm_size(dmn, req_log_icm_sz))
+		return false;
+
+	if (dmn->info.max_log_sw_icm_sz < req_log_icm_sz) {
+		dmn->info.max_log_sw_icm_sz = req_log_icm_sz;
+		dr_icm_pool_set_pool_max_log_chunk_sz(dmn->ste_icm_pool,
+						      dmn->info.max_log_sw_icm_sz);
+	}
+	return true;
+}
+
 static int dr_domain_check_icm_memory_caps(struct mlx5dv_dr_domain *dmn)
 {
 	uint32_t max_req_bytes_log, max_req_chunks_log;
@@ -342,20 +365,23 @@ mlx5dv_dr_domain_create(struct ibv_context *ctx,
 	atomic_init(&dmn->refcount, 1);
 	list_head_init(&dmn->tbl_list);
 
-	ret = pthread_spin_init(&dmn->info.rx.lock, PTHREAD_PROCESS_PRIVATE);
+	ret = pthread_spin_init(&dmn->debug_lock, PTHREAD_PROCESS_PRIVATE);
 	if (ret) {
 		errno = ret;
 		goto free_domain;
 	}
-	ret = pthread_spin_init(&dmn->info.tx.lock, PTHREAD_PROCESS_PRIVATE);
-	if (ret) {
-		errno = ret;
-		goto free_rx_spin_locks;
-	}
+
+	ret = dr_domain_nic_lock_init(&dmn->info.rx);
+	if (ret)
+		goto free_debug_lock;
+
+	ret = dr_domain_nic_lock_init(&dmn->info.tx);
+	if (ret)
+		goto uninit_rx_locks;
 
 	if (dr_domain_caps_init(ctx, dmn)) {
 		dr_dbg(dmn, "Failed init domain, no caps\n");
-		goto free_tx_spin_locks;
+		goto uninit_tx_locks;
 	}
 
 	/* Allocate resources */
@@ -378,10 +404,12 @@ mlx5dv_dr_domain_create(struct ibv_context *ctx,
 
 uninit_caps:
 	dr_domain_caps_uninit(dmn);
-free_tx_spin_locks:
-	pthread_spin_destroy(&dmn->info.tx.lock);
-free_rx_spin_locks:
-	pthread_spin_destroy(&dmn->info.rx.lock);
+uninit_tx_locks:
+	dr_domain_nic_lock_uninit(&dmn->info.tx);
+uninit_rx_locks:
+	dr_domain_nic_lock_uninit(&dmn->info.rx);
+free_debug_lock:
+	pthread_spin_destroy(&dmn->debug_lock);
 free_domain:
 	free(dmn);
 	return NULL;
@@ -462,8 +490,9 @@ int mlx5dv_dr_domain_destroy(struct mlx5dv_dr_domain *dmn)
 
 	dr_domain_caps_uninit(dmn);
 
-	pthread_spin_destroy(&dmn->info.rx.lock);
-	pthread_spin_destroy(&dmn->info.tx.lock);
+	dr_domain_nic_lock_uninit(&dmn->info.tx);
+	dr_domain_nic_lock_uninit(&dmn->info.rx);
+	pthread_spin_destroy(&dmn->debug_lock);
 
 	free(dmn);
 	return 0;
