@@ -206,6 +206,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_WC_RECV
         IBV_WC_RECV_RDMA_WITH_IMM
         IBV_WC_DRIVER2
+        IBV_WC_DRIVER3
 
     cpdef enum ibv_create_cq_wc_flags:
         IBV_WC_EX_WITH_BYTE_LEN

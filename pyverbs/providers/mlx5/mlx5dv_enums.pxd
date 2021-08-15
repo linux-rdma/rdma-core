@@ -23,6 +23,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5_OPCODE_CONFIG_CMD
         MLX5_OPCODE_UMR
         MLX5_OPCODE_TAG_MATCHING
+        MLX5_OPCODE_MMO
 
     cpdef enum:
         MLX5_WQE_CTRL_CQ_UPDATE
@@ -45,6 +46,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS       = 1 << 9
         MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD   = 1 << 10
         MLX5DV_CONTEXT_MASK_DCI_STREAMS         = 1 << 11
+        MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH    = 1 << 12
 
     cpdef enum mlx5dv_context_flags:
         MLX5DV_CONTEXT_FLAGS_CQE_V1                     = 1 << 0
@@ -153,6 +155,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_QP_EX_WITH_MR_LIST           = 1 << 1
         MLX5DV_QP_EX_WITH_MKEY_CONFIGURE    = 1 << 2
         MLX5DV_QP_EX_WITH_RAW_WQE           = 1 << 3
+        MLX5DV_QP_EX_WITH_MEMCPY            = 1 << 4
 
     cpdef enum mlx5dv_cq_init_attr_mask:
         MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE = 1 << 0
@@ -219,6 +222,11 @@ cdef extern from 'infiniband/mlx5dv.h':
 
     cpdef enum mlx5dv_vfio_context_attr_flags:
         MLX5DV_VFIO_CTX_FLAGS_INIT_LINK_DOWN
+
+    cpdef enum mlx5dv_wc_opcode:
+        MLX5DV_WC_UMR
+        MLX5DV_WC_RAW_WQE
+        MLX5DV_WC_MEMCPY
 
     cpdef unsigned long long MLX5DV_RES_TYPE_QP
     cpdef unsigned long long MLX5DV_RES_TYPE_RWQ

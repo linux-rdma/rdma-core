@@ -796,7 +796,9 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 
 	u8         reserved_at_60[0x2];
 	u8         qp_data_in_order[0x1];
-	u8         reserved_at_63[0x1d];
+	u8         reserved_at_63[0x8];
+	u8         log_dma_mmo_max_size[0x5];
+	u8         reserved_at_70[0x10];
 
 	u8         log_max_srq_sz[0x8];
 	u8         log_max_qp_sz[0x8];
@@ -857,7 +859,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         reserved_at_150[0x1];
 	u8         rts2rts_qp_udp_sport[0x1];
 	u8         rts2rts_lag_tx_port_affinity[0x1];
-	u8         reserved_at_153[0x7];
+	u8         dma_mmo_sq[0x1];
+	u8         reserved_at_154[0x6];
 	u8         log_max_ra_res_qp[0x6];
 
 	u8         end_pad[0x1];
@@ -1198,7 +1201,13 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         flex_parser_id_gtpu_first_ext_dw_0[0x4];
 	u8         reserved_at_708[0x18];
 
-	u8         reserved_at_720[0xa0];
+	u8         reserved_at_720[0x20];
+
+	u8         reserved_at_740[0x8];
+	u8         dma_mmo_qp[0x1];
+	u8         reserved_at_749[0x17];
+
+	u8         reserved_at_760[0x60];
 
 	u8         match_definer_format_supported[0x40];
 };
@@ -3476,8 +3485,9 @@ struct mlx5_ifc_qpc_bits {
 };
 
 struct mlx5_ifc_qpc_ext_bits {
-	u8         reserved_at_0[0x10];
-
+	u8         reserved_at_0[0x2];
+	u8         mmo[0x1];
+	u8         reserved_at_3[0xd];
 	u8	   dci_stream_channel_id[0x10];
 
 	u8         qos_queue_group_id_requester[0x20];
@@ -3569,6 +3579,7 @@ enum mlx5_qpc_opt_mask_32 {
 enum mlx5_qpc_opt_mask {
 	MLX5_QPC_OPT_MASK_INIT2INIT_DRAIN_SIGERR = 1 << 11,
 	MLX5_QPC_OPT_MASK_RTS2RTS_LAG_TX_PORT_AFFINITY = 1 << 15,
+	MLX5_QPC_OPT_MASK_INIT2INIT_MMO = 1 << 25,
 };
 
 struct mlx5_ifc_init2init_qp_out_bits {

@@ -60,6 +60,7 @@ uint32_t        flow_action_flags; /* use enum mlx5dv_flow_action_cap_flags */
 uint32_t        dc_odp_caps; /* use enum ibv_odp_transport_cap_bits */
 void		*hca_core_clock; /* points to a memory location that is mapped to the HCA's core clock */
 struct mlx5dv_sig_caps sig_caps;
+size_t max_wr_memcpy_length; /* max length that is supported by the DMA memcpy WR */
 .in -8
 };
 
@@ -98,6 +99,7 @@ MLX5DV_CONTEXT_MASK_HCA_CORE_CLOCK      = 1 << 8,
 MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS       = 1 << 9,
 MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD   = 1 << 10,
 MLX5DV_CONTEXT_MASK_DCI_STREAMS         = 1 << 11,
+MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH    = 1 << 12,
 .in -8
 };
 

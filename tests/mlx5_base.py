@@ -12,16 +12,18 @@ import sys
 
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, \
     Mlx5DVQPInitAttr, Mlx5QP, Mlx5DVDCInitAttr, Mlx5DCIStreamInitAttr, \
-    Mlx5DevxObj, Mlx5UMEM, Mlx5UAR, WqeDataSeg, WqeCtrlSeg, Wqe, Mlx5Cqe64
+    Mlx5DevxObj, Mlx5UMEM, Mlx5UAR, WqeDataSeg, WqeCtrlSeg, Wqe, Mlx5Cqe64, \
+    Mlx5DVCQInitAttr, Mlx5CQ
 from tests.base import TrafficResources, set_rnr_attributes, DCT_KEY, \
     RDMATestCase, PyverbsAPITestCase, RDMACMBaseTest, BaseResources, PATH_MTU, \
-    RNR_RETRY, RETRY_CNT, MIN_RNR_TIMER, TIMEOUT, MAX_RDMA_ATOMIC
+    RNR_RETRY, RETRY_CNT, MIN_RNR_TIMER, TIMEOUT, MAX_RDMA_ATOMIC, RCResources
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError, \
     PyverbsError
 from pyverbs.providers.mlx5.mlx5dv_objects import Mlx5DvObj
 from pyverbs.qp import QPCap, QPInitAttrEx, QPAttr
 import pyverbs.providers.mlx5.mlx5_enums as dve
 from pyverbs.addr import AHAttr, GlobalRoute
+from pyverbs.cq import CqInitAttrEx
 import pyverbs.mem_alloc as mem
 import pyverbs.dma_util as dma
 import pyverbs.device as d
@@ -850,3 +852,61 @@ class Mlx5DevxTrafficBase(Mlx5RDMATestCase):
             self.assertEqual(imm_inval_pkey, self.client.imm + cons_idx)
             self.server.mr.write('s' * self.server.msg_size,
                                  self.server.msg_size)
+
+
+class Mlx5RcResources(RCResources):
+    def __init__(self, dev_name, ib_port, gid_index, **kwargs):
+        self.dv_send_ops_flags = 0
+        self.send_ops_flags = 0
+        self.create_send_ops_flags()
+        super().__init__(dev_name, ib_port, gid_index, **kwargs)
+
+    def create_send_ops_flags(self):
+        self.dv_send_ops_flags = 0
+        self.send_ops_flags = e.IBV_QP_EX_WITH_SEND
+
+    def create_context(self):
+        mlx5dv_attr = Mlx5DVContextAttr()
+        try:
+            self.ctx = Mlx5Context(mlx5dv_attr, name=self.dev_name)
+        except PyverbsUserError as ex:
+            raise unittest.SkipTest(f'Could not open mlx5 context ({ex})')
+        except PyverbsRDMAError:
+            raise unittest.SkipTest('Opening mlx5 context is not supported')
+
+    def create_qp_init_attr(self):
+        comp_mask = e.IBV_QP_INIT_ATTR_PD | e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
+        return QPInitAttrEx(cap=self.create_qp_cap(), pd=self.pd, scq=self.cq,
+                            rcq=self.cq, qp_type=e.IBV_QPT_RC,
+                            send_ops_flags=self.send_ops_flags,
+                            comp_mask=comp_mask)
+
+    def create_qps(self):
+        try:
+            qp_init_attr = self.create_qp_init_attr()
+            comp_mask = dve.MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS
+            if self.dv_send_ops_flags:
+                comp_mask |= dve.MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS
+            attr = Mlx5DVQPInitAttr(comp_mask=comp_mask,
+                                    send_ops_flags=self.dv_send_ops_flags)
+            qp = Mlx5QP(self.ctx, qp_init_attr, attr)
+            self.qps.append(qp)
+            self.qps_num.append(qp.qp_num)
+            self.psns.append(random.getrandbits(24))
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Create Mlx5DV QP is not supported')
+            raise ex
+
+    def create_cq(self):
+        """
+        Initializes self.cq with a dv_cq
+        :return: None
+        """
+        dvcq_init_attr = Mlx5DVCQInitAttr()
+        try:
+            self.cq = Mlx5CQ(self.ctx, CqInitAttrEx(), dvcq_init_attr)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Create Mlx5DV CQ is not supported')
+            raise ex
