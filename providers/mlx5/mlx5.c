@@ -1336,7 +1336,7 @@ int mlx5dv_dci_stream_id_reset(struct ibv_qp *qp, uint16_t stream_id)
 	void *qpce = DEVX_ADDR_OF(rts2rts_qp_in, in, qpc_data_ext);
 
 	if (!is_mlx5_dev(qp->context->device) ||
-	    !mctx->dci_streams_caps.max_log_num_concurent ||
+	    !mctx->dci_streams_caps.max_log_num_errored ||
 	    !mctx->qpc_extension_cap ||
 	    qp->state != IBV_QPS_RTS)
 		return EOPNOTSUPP;
