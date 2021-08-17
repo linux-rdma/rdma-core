@@ -1367,15 +1367,17 @@ dr_rule_create_rule_nic(struct mlx5dv_dr_rule *rule,
 	if (ret)
 		return ret;
 
+	/* Set the lock index, and use the relative lock  */
+	dr_rule_lock(nic_rule, hw_ste_arr);
+
 	/* Set the actions values/addresses inside the ste array */
 	ret = dr_actions_build_ste_arr(matcher, nic_matcher, actions,
 				       num_actions, hw_ste_arr,
 				       &new_hw_ste_arr_sz,
-				       &cross_dmn_p);
+				       &cross_dmn_p,
+				       nic_rule->lock_index);
 	if (ret)
-		return ret;
-
-	dr_rule_lock(nic_rule, hw_ste_arr);
+		goto out_unlock;
 
 	cur_htbl = nic_matcher->s_htbl;
 

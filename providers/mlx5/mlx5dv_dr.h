@@ -679,7 +679,8 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			     uint32_t num_actions,
 			     uint8_t *ste_arr,
 			     uint32_t *new_hw_ste_arr_sz,
-			     struct cross_dmn_params *cross_dmn_p);
+			     struct cross_dmn_params *cross_dmn_p,
+			     uint8_t send_ring_idx);
 int dr_actions_build_attr(struct mlx5dv_dr_matcher *matcher,
 			  struct mlx5dv_dr_action *actions[],
 			  size_t num_actions,
@@ -1245,6 +1246,7 @@ struct mlx5dv_dr_action {
 		struct {
 			struct mlx5dv_dr_domain	*dmn;
 			bool			is_root_level;
+			uint32_t		args_send_qp;
 			union {
 				struct ibv_flow_action	*flow_action; /* root*/
 				struct {
@@ -1703,7 +1705,8 @@ int dr_send_postsend_pattern(struct mlx5dv_dr_domain *dmn,
 			     uint16_t num_of_actions,
 			     uint8_t *data);
 int dr_send_postsend_args(struct mlx5dv_dr_domain *dmn, uint64_t arg_id,
-			  uint16_t num_of_actions, uint8_t *actions_data);
+			  uint16_t num_of_actions, uint8_t *actions_data,
+			  uint32_t ring_index);
 
 /* buddy functions & structure */
 struct dr_icm_mr;
