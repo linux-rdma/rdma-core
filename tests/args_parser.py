@@ -24,6 +24,8 @@ class ArgsParser(object):
         parser.add_argument('--port',
                             help='Use port <port> of RDMA device', type=int,
                             default=1)
+        parser.add_argument('--gid',
+                            help='Use gid index <gid> of RDMA device', type=int)
         parser.add_argument('--gpu', nargs='?', type=int, const=0, default=0,
                             help='GPU unit to allocate dmabuf from')
         parser.add_argument('--gtt', action='store_true', default=False,
