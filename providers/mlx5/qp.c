@@ -3051,7 +3051,7 @@ static inline void mlx5_wr_memcpy(struct mlx5dv_qp_ex *mqp_ex,
 	dma_wqe = (struct mlx5_mmo_wqe *)mqp->cur_ctrl;
 	dma_wqe->mmo_meta.mmo_control_31_0 = 0;
 	dma_wqe->mmo_meta.local_key = htobe32(mpd->opaque_mr->lkey);
-	dma_wqe->mmo_meta.local_address = htobe64((uint64_t)mpd->opaque_buf);
+	dma_wqe->mmo_meta.local_address = htobe64((uint64_t)(uintptr_t)mpd->opaque_buf);
 
 	mlx5dv_set_data_seg(&dma_wqe->src, length, src_lkey, src_addr);
 	mlx5dv_set_data_seg(&dma_wqe->dest, length, dest_lkey, dest_addr);

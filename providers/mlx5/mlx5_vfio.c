@@ -1297,7 +1297,7 @@ static void init_eq_buf(struct mlx5_eq *eq)
 
 static uint64_t uar2iova(struct mlx5_vfio_context *ctx, uint32_t index)
 {
-	return (uint64_t)((void *)ctx->bar_map + (index * MLX5_ADAPTER_PAGE_SIZE));
+	return (uint64_t)(uintptr_t)((void *)ctx->bar_map + (index * MLX5_ADAPTER_PAGE_SIZE));
 }
 
 static int mlx5_vfio_alloc_uar(struct mlx5_vfio_context *ctx, uint32_t *uarn)
@@ -1408,7 +1408,7 @@ create_map_eq(struct mlx5_vfio_context *ctx, struct mlx5_eq *eq,
 
 	eq->vecidx = vecidx;
 	eq->eqn = DEVX_GET(create_eq_out, out, eq_number);
-	eq->doorbell = (void *)ctx->eqs_uar.iova + MLX5_EQ_DOORBEL_OFFSET;
+	eq->doorbell = (void *)(uintptr_t)ctx->eqs_uar.iova + MLX5_EQ_DOORBEL_OFFSET;
 
 	free(in);
 	return 0;
@@ -2354,7 +2354,7 @@ static struct ibv_mr *mlx5_vfio_reg_mr(struct ibv_pd *pd, void *addr, size_t len
 		return NULL;
 	}
 
-	if (((uint64_t)addr & (ctx->iova_min_page_size - 1)) !=
+	if (((uint64_t)(uintptr_t)addr & (ctx->iova_min_page_size - 1)) !=
 	    (hca_va & (ctx->iova_min_page_size - 1))) {
 		errno = EOPNOTSUPP;
 		return NULL;
@@ -2374,7 +2374,7 @@ static struct ibv_mr *mlx5_vfio_reg_mr(struct ibv_pd *pd, void *addr, size_t len
 	if (ret)
 		goto end;
 
-	aligned_va = (void *)((unsigned long)addr & ~(ctx->iova_min_page_size - 1));
+	aligned_va = (void *)(uintptr_t)((unsigned long)addr & ~(ctx->iova_min_page_size - 1));
 	page_shift = ilog32(mr->iova_page_size - 1);
 	iova_min_page_shift = ilog32(ctx->iova_min_page_size - 1);
 	if (page_shift > iova_min_page_shift)
@@ -2488,7 +2488,7 @@ vfio_devx_alloc_uar(struct ibv_context *ibctx, uint32_t flags)
 	}
 
 	uar->dv_devx_uar.page_id = ctx->eqs_uar.uarn;
-	uar->dv_devx_uar.base_addr = (void *)ctx->eqs_uar.iova;
+	uar->dv_devx_uar.base_addr = (void *)(uintptr_t)ctx->eqs_uar.iova;
 	uar->dv_devx_uar.reg_addr = uar->dv_devx_uar.base_addr + MLX5_BF_OFFSET;
 	uar->context = ibctx;
 
@@ -2531,7 +2531,7 @@ _vfio_devx_umem_reg(struct ibv_context *context,
 	}
 
 	/* Page size that encloses the start and end of the umem range */
-	iova_size = max(roundup_pow_of_two(size + ((uint64_t) addr & (ctx->iova_min_page_size - 1))),
+	iova_size = max(roundup_pow_of_two(size + ((uint64_t)(uintptr_t)addr & (ctx->iova_min_page_size - 1))),
 			ctx->iova_min_page_size);
 
 	if (!(iova_size & pgsz_bitmap)) {
@@ -2558,7 +2558,7 @@ _vfio_devx_umem_reg(struct ibv_context *context,
 		goto err_alloc;
 
 	/* The registration's arguments have to reflect real VA presently mapped into the process */
-	aligned_va = (void *) ((unsigned long) addr & ~(ctx->iova_min_page_size - 1));
+	aligned_va = (void *)(uintptr_t)((unsigned long) addr & ~(ctx->iova_min_page_size - 1));
 	vfio_umem->iova_reg_size = align((addr + size) - aligned_va, ctx->iova_min_page_size);
 	ret = mlx5_vfio_register_mem(ctx, aligned_va, vfio_umem->iova, vfio_umem->iova_reg_size);
 	if (ret)

@@ -2212,7 +2212,7 @@ static int reg_opaque_mr(struct ibv_pd *pd)
 
 	mpd->opaque_mr =
 		mlx5_reg_mr(&mpd->ibv_pd, mpd->opaque_buf, MLX5_OPAQUE_BUF_LEN,
-			    (uint64_t)mpd->opaque_buf, IBV_ACCESS_LOCAL_WRITE);
+			    (uint64_t)(uintptr_t)mpd->opaque_buf, IBV_ACCESS_LOCAL_WRITE);
 	if (!mpd->opaque_mr) {
 		ret = errno;
 		free(mpd->opaque_buf);
