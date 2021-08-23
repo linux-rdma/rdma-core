@@ -191,14 +191,6 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
         qp_attr = QPAttr(qp_state=e.IBV_QPS_RESET)
         self.qps[qp_idx].modify(qp_attr, e.IBV_QP_STATE)
         self.qps[qp_idx].to_rts(qp_attr)
-        err_mask = self.qp_stream_errors[qp_idx][0]
-        index = 0
-        # Clear all set dci
-        while err_mask != 0:
-            if (err_mask & 0x1) == 0x1:
-                Mlx5QP.modify_dci_stream_channel_id(self.qps[qp_idx], index)
-            index += 1
-            err_mask >>= 1
         self.qp_stream_errors[qp_idx][0] = 0
 
     def get_stream_id(self, qp_idx):
@@ -239,10 +231,6 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
                         raise PyverbsError(msg)
                     self.reset_qp(qp_idx)
                     self.qp_stream_errors[qp_idx][2] = True
-                if qp_attr.cur_qp_state == e.IBV_QPS_RTS:
-                    if (self.qp_stream_errors[qp_idx][0] & bt_stream) == 0:
-                        msg = f'WQE flushed for wrong stream id {str_id}'
-                        raise PyverbsError(msg)
         return True
 
     def bad_flow_handling(self, qp_idx, ex, reset=False):
@@ -260,6 +248,9 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
     def set_bad_flow(self, bad_flow):
         self.bad_flow = bad_flow
         if self.bad_flow:
+            if bad_flow == DCI_TEST_BAD_FLOW_WITH_RESET and self.log_dci_errored == 0:
+                raise unittest.SkipTest('DCS test of bad flow with reset is not '
+                                        'supported when HCA_CAP.log_dci_errored is 0')
             self.pd_bad = PD(self.ctx)
             self.mr_bad_flow = False
         if bad_flow == DCI_TEST_BAD_FLOW_WITH_RESET:
