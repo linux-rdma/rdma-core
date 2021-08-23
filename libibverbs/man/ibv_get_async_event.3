@@ -29,6 +29,7 @@ union {
 struct ibv_cq  *cq;             /* CQ that got the event */
 struct ibv_qp  *qp;             /* QP that got the event */
 struct ibv_srq *srq;            /* SRQ that got the event */
+struct ibv_wq  *wq;             /* WQ that got the event */
 int             port_num;       /* port number that got the event */
 .in -8
 } element;
@@ -68,6 +69,10 @@ following events:
 .B IBV_EVENT_SRQ_ERR \fR Error occurred on an SRQ
 .TP
 .B IBV_EVENT_SRQ_LIMIT_REACHED \fR SRQ limit was reached
+.PP
+.I WQ events:
+.TP
+.B IBV_EVENT_WQ_FATAL \fR Error occurred on a WQ and it transitioned to error state
 .PP
 .I Port events:
 .TP
