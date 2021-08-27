@@ -45,6 +45,10 @@ resources:
     - container: leap
       image: ucfconsort.azurecr.io/rdma-core/opensuse-15.0:25.0
       endpoint: ucfconsort_registry
+    - container: i386
+      image: ucfconsort.azurecr.io/rdma-core/debian-11-i386:37.0
+      options: --platform linux/386
+      endpoint: ucfconsort_registry
 
 stages:
   - stage: Build
@@ -96,14 +100,6 @@ stages:
 
           - bash: |
               set -e
-              mkdir build-clang
-              cd build-clang
-              CC=clang-12 CFLAGS="-m32" cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
-              ninja
-            displayName: clang 12.0 32-bit Compile
-
-          - bash: |
-              set -e
               mv util/udma_barrier.h util/udma_barrier.h.old
               echo "#error Fail" >> util/udma_barrier.h
               cd build-gcc11
@@ -142,6 +138,20 @@ stages:
               set -e
               lintian ../*.deb
             displayName: Debian Lintian for .deb packages
+
+      - job: Compile32
+        displayName: Compile Tests 32 bit
+        pool:
+          vmImage: 'ubuntu-latest'
+        container: i386
+        steps:
+          - bash: |
+              set -e
+              mkdir build-i386
+              cd build-i386
+              cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_WERROR=1
+              ninja
+            displayName: gcc 10.2 i386 Compile
 
       - job: SrcPrep
         displayName: Build Source Tar
