@@ -11,7 +11,7 @@ trigger:
 resources:
   containers:
     - container: azp
-      image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:29.0
+      image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:37.0
       endpoint: ucfconsort_registry
 
 stages:
@@ -20,7 +20,7 @@ stages:
       - job: SrcPrep
         displayName: Build Source Tar
         pool:
-          vmImage: 'Ubuntu-16.04'
+          vmImage: 'ubuntu-latest'
         container: azp
         steps:
           - checkout: self
@@ -30,7 +30,7 @@ stages:
               set -e
               mkdir build-pandoc artifacts
               cd build-pandoc
-              CC=gcc-10 cmake -GNinja ..
+              CC=gcc-11 cmake -GNinja ..
               ninja docs
 
               cd ..
