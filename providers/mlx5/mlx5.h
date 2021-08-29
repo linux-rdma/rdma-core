@@ -860,6 +860,10 @@ struct mlx5_mkey {
 	struct mlx5_sig_ctx *sig;
 };
 
+struct mlx5dv_dek {
+	struct mlx5dv_devx_obj *devx_obj;
+};
+
 struct mlx5_devx_event_channel {
 	struct ibv_context *context;
 	struct mlx5dv_devx_event_channel dv_event_channel;
@@ -1447,6 +1451,12 @@ struct mlx5_dv_context_ops {
 	int (*crypto_login_query_state)(struct ibv_context *context,
 					enum mlx5dv_crypto_login_state *state);
 	int (*crypto_logout)(struct ibv_context *context);
+
+	struct mlx5dv_dek *(*dek_create)(struct ibv_context *context,
+					 struct mlx5dv_dek_init_attr *init_attr);
+	int (*dek_query)(struct mlx5dv_dek *dek,
+			 struct mlx5dv_dek_attr *dek_attr);
+	int (*dek_destroy)(struct mlx5dv_dek *dek);
 
 	struct mlx5dv_var *(*alloc_var)(struct ibv_context *context, uint32_t flags);
 	void (*free_var)(struct mlx5dv_var *dv_var);

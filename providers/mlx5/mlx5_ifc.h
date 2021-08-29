@@ -3102,6 +3102,7 @@ struct mlx5_ifc_dealloc_flow_counter_in_bits {
 
 enum {
 	MLX5_OBJ_TYPE_FLOW_METER = 0x000a,
+	MLX5_OBJ_TYPE_DEK = 0x000C,
 	MLX5_OBJ_TYPE_MATCH_DEFINER = 0x0018,
 	MLX5_OBJ_TYPE_CRYPTO_LOGIN = 0x001F,
 	MLX5_OBJ_TYPE_FLOW_SAMPLER = 0x0020,
@@ -5403,6 +5404,54 @@ struct mlx5_ifc_create_crypto_login_obj_in_bits {
 struct mlx5_ifc_query_crypto_login_obj_out_bits {
 	struct mlx5_ifc_general_obj_out_cmd_hdr_bits    hdr;
 	struct mlx5_ifc_crypto_login_obj_bits           obj;
+};
+
+enum {
+	MLX5_ENCRYPTION_KEY_OBJ_STATE_READY  = 0x0,
+	MLX5_ENCRYPTION_KEY_OBJ_STATE_ERROR  = 0x1,
+};
+
+enum {
+	MLX5_ENCRYPTION_KEY_OBJ_KEY_SIZE_SIZE_128  = 0x0,
+	MLX5_ENCRYPTION_KEY_OBJ_KEY_SIZE_SIZE_256  = 0x1,
+};
+
+enum {
+	MLX5_ENCRYPTION_KEY_OBJ_KEY_PURPOSE_AES_XTS  = 0x3,
+};
+
+struct mlx5_ifc_encryption_key_obj_bits {
+	u8         modify_field_select[0x40];
+
+	u8         state[0x8];
+	u8         reserved_at_48[0xc];
+	u8         key_size[0x4];
+	u8         has_keytag[0x1];
+	u8         reserved_at_59[0x3];
+	u8         key_purpose[0x4];
+
+	u8         reserved_at_60[0x8];
+	u8         pd[0x18];
+
+	u8         reserved_at_80[0x100];
+
+	u8         opaque[0x40];
+
+	u8         reserved_at_1c0[0x40];
+
+	u8         key[32][0x20];
+
+	u8         reserved_at_600[0x200];
+};
+
+struct mlx5_ifc_create_encryption_key_obj_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits     hdr;
+	struct mlx5_ifc_encryption_key_obj_bits         key_obj;
+};
+
+struct mlx5_ifc_query_encryption_key_obj_out_bits {
+	struct mlx5_ifc_general_obj_out_cmd_hdr_bits    hdr;
+	struct mlx5_ifc_encryption_key_obj_bits         obj;
 };
 
 #endif /* MLX5_IFC_H */

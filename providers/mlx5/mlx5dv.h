@@ -574,6 +574,45 @@ int mlx5dv_crypto_login_query_state(struct ibv_context *context,
 
 int mlx5dv_crypto_logout(struct ibv_context *context);
 
+enum mlx5dv_crypto_key_size {
+	MLX5DV_CRYPTO_KEY_SIZE_128,
+	MLX5DV_CRYPTO_KEY_SIZE_256,
+};
+
+enum mlx5dv_crypto_key_purpose {
+	MLX5DV_CRYPTO_KEY_PURPOSE_AES_XTS,
+};
+
+enum mlx5dv_dek_state {
+	MLX5DV_DEK_STATE_READY,
+	MLX5DV_DEK_STATE_ERROR,
+};
+
+struct mlx5dv_dek_init_attr {
+	enum mlx5dv_crypto_key_size key_size;
+	bool has_keytag;
+	enum mlx5dv_crypto_key_purpose key_purpose;
+	struct ibv_pd *pd;
+	char opaque[8];
+	char key[128];
+	uint64_t comp_mask;
+};
+
+struct mlx5dv_dek_attr {
+	enum mlx5dv_dek_state state;
+	char opaque[8];
+	uint64_t comp_mask;
+};
+
+struct mlx5dv_dek;
+
+struct mlx5dv_dek *mlx5dv_dek_create(struct ibv_context *context,
+				     struct mlx5dv_dek_init_attr *init_attr);
+
+int mlx5dv_dek_query(struct mlx5dv_dek *dek, struct mlx5dv_dek_attr *attr);
+
+int mlx5dv_dek_destroy(struct mlx5dv_dek *dek);
+
 enum mlx5dv_flow_action_esp_mask {
 	MLX5DV_FLOW_ACTION_ESP_MASK_FLAGS	= 1 << 0,
 };

@@ -138,6 +138,9 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_crypto_login_query_state@MLX5_1.21 37
  mlx5dv_crypto_logout@MLX5_1.21 37
  mlx5dv_dci_stream_id_reset@MLX5_1.21 37
+ mlx5dv_dek_create@MLX5_1.21 37
+ mlx5dv_dek_destroy@MLX5_1.21 37
+ mlx5dv_dek_query@MLX5_1.21 37
  mlx5dv_dr_action_create_dest_ib_port@MLX5_1.21 37
  mlx5dv_dr_matcher_set_layout@MLX5_1.21 37
  mlx5dv_get_vfio_device_list@MLX5_1.21 37
