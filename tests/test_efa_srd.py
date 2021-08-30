@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
-# Copyright 2020 Amazon.com, Inc. or its affiliates. All rights reserved.
+# Copyright 2020-2021 Amazon.com, Inc. or its affiliates. All rights reserved.
 
 import unittest
 import errno
@@ -63,3 +63,11 @@ class QPSRDTestCase(EfaRDMATestCase):
         self.create_players()
         u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port,
                   new_send=False, is_imm=True)
+
+    def test_qp_ex_srd_zero_size(self):
+        send_op = e.IBV_QP_EX_WITH_SEND
+        self.create_players(send_op)
+        self.client.msg_size = 0
+        self.server.msg_size = 0
+        u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port,
+                  new_send=True, send_op=send_op)
