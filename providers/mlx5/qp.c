@@ -2683,9 +2683,20 @@ static void umr_wqe_finalize(struct mlx5_qp *mqp)
 		seg = mlx5_get_send_wqe(mqp, 0);
 	mk = seg;
 
+	block = &mkey->sig->block;
+	/* Disable BSF for the MKEY if the block signature is not configured. */
+	if (block->state != MLX5_MKEY_BSF_STATE_UPDATED &&
+	    block->state != MLX5_MKEY_BSF_STATE_SET) {
+		/*
+		 * Set bsf_enable bit in the mask to update the
+		 * corresponding bit in the MKEY context. The new value
+		 * is 0 (BSF is disabled) because the MKEY context
+		 * segment was zeroed in the mkey conf builder.
+		 */
+		umr_ctrl->mkey_mask |= htobe64(MLX5_WQE_UMR_CTRL_MKEY_MASK_BSF_ENABLE);
+	}
 	set_mkc_sig_err_cnt(mkey, umr_ctrl, mk);
 
-	block = &mkey->sig->block;
 	if (block->state != MLX5_MKEY_BSF_STATE_UPDATED)
 		goto umr_finalize;
 
@@ -2789,13 +2800,6 @@ static void mlx5_send_wr_mkey_configure(struct mlx5dv_qp_ex *dv_qp,
 			mkey->sig->block.attr.wire.sig_type =
 				MLX5_SIG_TYPE_NONE;
 			mkey->sig->block.state = MLX5_MKEY_BSF_STATE_RESET;
-			/*
-			 * Set bsf_enable bit in the mask to update the
-			 * corresponding bit in the MKEY context. The new value
-			 * is 0 (BSF is disabled) because the MKEY context
-			 * segment (*mk) was zeroed in few lines above.
-			 */
-			mkey_mask |= MLX5_WQE_UMR_CTRL_MKEY_MASK_BSF_ENABLE;
 		} else {
 			if (mkey->sig->block.state ==
 			    MLX5_MKEY_BSF_STATE_UPDATED)
