@@ -9,7 +9,7 @@ cimport pyverbs.libibverbs as v
 from pyverbs.addr cimport AH
 from libc.stdlib cimport free, malloc
 from libc.string cimport memcpy
-
+from libc.stdint cimport uintptr_t
 
 cdef class SGE(PyverbsCM):
     """
@@ -51,7 +51,7 @@ cdef class SGE(PyverbsCM):
         """
         cdef char *sg_data
         cdef int off = offset
-        sg_data = <char*>(self.sge.addr + off)
+        sg_data = <char*>(<uintptr_t>self.sge.addr + off)
         return sg_data[:length]
 
     def __str__(self):

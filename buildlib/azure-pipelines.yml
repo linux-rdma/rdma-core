@@ -22,7 +22,7 @@ pr:
 resources:
   containers:
     - container: azp
-      image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:29.0
+      image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:37.0
       endpoint: ucfconsort_registry
     - container: centos6
       image: ucfconsort.azurecr.io/rdma-core/centos6:25.0
@@ -45,6 +45,10 @@ resources:
     - container: leap
       image: ucfconsort.azurecr.io/rdma-core/opensuse-15.0:25.0
       endpoint: ucfconsort_registry
+    - container: i386
+      image: ucfconsort.azurecr.io/rdma-core/debian-11-i386:37.0
+      options: --platform linux/386
+      endpoint: ucfconsort_registry
 
 stages:
   - stage: Build
@@ -64,18 +68,18 @@ stages:
 
           - bash: |
               set -e
-              mkdir build-gcc10
-              cd build-gcc10
-              CC=gcc-10 cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_STATIC=1 -DENABLE_WERROR=1
+              mkdir build-gcc11
+              cd build-gcc11
+              CC=gcc-11 cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_STATIC=1 -DENABLE_WERROR=1
               ninja
-            displayName: gcc 10.0 Compile
+            displayName: gcc 11.1 Compile
 
           - task: PythonScript@0
             displayName: Check Build Script
             inputs:
               scriptPath: buildlib/check-build
-              arguments: --src .. --cc gcc-10
-              workingDirectory: build-gcc10
+              arguments: --src .. --cc gcc-11
+              workingDirectory: build-gcc11
               pythonInterpreter: /usr/bin/python3
 
           # Run sparse on the subdirectories which are sparse clean
@@ -96,19 +100,11 @@ stages:
 
           - bash: |
               set -e
-              mkdir build-clang
-              cd build-clang
-              CC=clang-10 CFLAGS="-m32" cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
-              ninja
-            displayName: clang 10.0 32-bit Compile
-
-          - bash: |
-              set -e
               mv util/udma_barrier.h util/udma_barrier.h.old
               echo "#error Fail" >> util/udma_barrier.h
-              cd build-gcc10
+              cd build-gcc11
               rm CMakeCache.txt
-              CC=gcc-10 cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_WERROR=1
+              CC=gcc-11 cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_WERROR=1
               ninja
               mv ../util/udma_barrier.h.old ../util/udma_barrier.h
             displayName: Simulate non-coherent DMA Platform Compile
@@ -132,16 +128,30 @@ stages:
           - bash: |
               set -e
               sed -i -e 's/ninja \(.*\)-v/ninja \1/g' debian/rules
-              debian/rules CC=clang-10 EXTRA_CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1" build
-            displayName: clang 10.0 Bionic Build
+              debian/rules CC=clang-12 EXTRA_CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1" build
+            displayName: clang 12.0 Bionic Build
           - bash: |
               set -e
               fakeroot debian/rules binary
-            displayName: clang 10.0 Bionic .deb Build
+            displayName: clang 12.0 Bionic .deb Build
           - bash: |
               set -e
               lintian ../*.deb
             displayName: Debian Lintian for .deb packages
+
+      - job: Compile32
+        displayName: Compile Tests 32 bit
+        pool:
+          vmImage: 'ubuntu-latest'
+        container: i386
+        steps:
+          - bash: |
+              set -e
+              mkdir build-i386
+              cd build-i386
+              cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_WERROR=1
+              ninja
+            displayName: gcc 10.2 i386 Compile
 
       - job: SrcPrep
         displayName: Build Source Tar
@@ -156,7 +166,7 @@ stages:
               set -e
               mkdir build-pandoc artifacts
               cd build-pandoc
-              CC=gcc-10 cmake -GNinja ..
+              CC=gcc-11 cmake -GNinja ..
               ninja docs
               cd ../artifacts
               # FIXME: Check Build.SourceBranch for tag consistency

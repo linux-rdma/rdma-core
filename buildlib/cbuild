@@ -80,6 +80,7 @@ class Environment(object):
     use_make = False;
     proxy = True;
     build_pyverbs = True;
+    docker_opts = []
 
     to_azp = False;
 
@@ -356,6 +357,57 @@ class stretch(APTEnvironment):
     name = "debian-9";
     aliases = {"stretch"};
 
+class bullseye(APTEnvironment):
+    docker_parent = "debian:11"
+    pkgs = {
+        'build-essential',
+        'cmake',
+        'debhelper',
+        'fakeroot', # for AZP
+        'gcc',
+        'libnl-3-dev',
+        'libnl-route-3-dev',
+        'libsystemd-dev',
+        'libudev-dev',
+        'make',
+        'ninja-build',
+        'pandoc',
+        'pkg-config',
+        'python3',
+        'python3-docutils',
+        'valgrind',
+    };
+    name = "debian-11";
+    aliases = {"bullseye"};
+
+class bullseye_i386(APTEnvironment):
+    docker_parent = "debian:11"
+    pkgs = bullseye.pkgs | {"nodejs"}
+    name = "debian-11-i386";
+    aliases = {"bullseye_i386"};
+    docker_opts = ["--platform","linux/386"]
+    to_azp = True
+
+    def get_docker_file(self,tmpdir):
+        res = json.loads(docker_cmd_str(args,"manifest","inspect",self.docker_parent))
+
+        # Docker is somewhat obnoxious in how it handles the multi-platform
+        # images since it does not store the manifest locally and thus
+        # overwrites the local tag.  Figure out the tag we want by hash and
+        # use it directly. Docker will cache this.
+        for image in res["manifests"]:
+            platform = image["platform"]
+            if platform["architecture"] == "386" and platform["os"] == "linux":
+                base = f"{self.docker_parent}@{image['digest']}"
+                break
+        else:
+            raise RuntimeError("Docker manifest failed");
+        res = DockerFile(base);
+        res.lines.append("RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends %s && apt-get clean && rm -rf /usr/share/doc/ /usr/lib/debug /var/lib/apt/lists/"%(
+            " ".join(sorted(self.pkgs))));
+        res.lines.append('LABEL "com.azure.dev.pipelines.agent.handler.node.path"="/usr/bin/node"')
+        return res;
+
 class debian_experimental(APTEnvironment):
     docker_parent = "debian:experimental"
     pkgs = (stretch.pkgs ^ {"gcc"}) | {"gcc-9"};
@@ -421,7 +473,7 @@ class azure_pipelines(APTEnvironment):
         "abi-compliance-checker",
         "abi-dumper",
         "ca-certificates",
-        "clang-10",
+        "clang-12",
         "cmake",
         "cython3",
         "debhelper",
@@ -429,7 +481,7 @@ class azure_pipelines(APTEnvironment):
         "dh-systemd",
         "dpkg-dev",
         "fakeroot",
-        "gcc-10",
+        "gcc-11",
         "git",
         "libc6-dev",
         "libnl-3-dev",
@@ -448,14 +500,6 @@ class azure_pipelines(APTEnvironment):
         "python3-yaml",
         "sparse",
         "valgrind",
-    } | {
-        # 32 bit build support
-        "libgcc-10-dev:i386",
-        "libc6-dev:i386",
-        "libnl-3-dev:i386",
-        "libnl-route-3-dev:i386",
-        "libsystemd-dev:i386",
-        "libudev-dev:i386",
     } | {
         # ARM 64 cross compiler
         "gcc-9-aarch64-linux-gnu",
@@ -486,7 +530,7 @@ class azure_pipelines(APTEnvironment):
                      "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu focal main",
                      "60C317803A41BA51845E371A1E9377A2BA9EF27F");
         self.add_ppa(tmpdir,
-                     "deb [arch=amd64] https://apt.llvm.org/focal/ llvm-toolchain-focal-10 main",
+                     "deb [arch=amd64] https://apt.llvm.org/focal/ llvm-toolchain-focal-12 main",
                      "15CF4D18AF4F7421");
         self.add_source_list(tmpdir,"arm64.list",
                              """deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ focal main universe
@@ -494,17 +538,15 @@ deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ focal-security main universe
 deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ focal-updates main universe""");
 
         res.lines.insert(1,"ADD etc/ /etc/");
-        res.lines.insert(1,"RUN dpkg --add-architecture i386 &&"
-                         "dpkg --add-architecture ppc64el &&"
+        res.lines.insert(1,"RUN dpkg --add-architecture ppc64el &&"
                          "dpkg --add-architecture arm64 &&"
-                         "sed -i -e 's/^deb /deb [arch=amd64,i386] /g' /etc/apt/sources.list");
-
+                         "sed -i -e 's/^deb /deb [arch=amd64] /g' /etc/apt/sources.list")
 
         # There is some bug in APT where it doesn't order the install
         # properly. Probably related to multi-arch..  Resolve it by early
         # installing these two packages.
         res.lines[-1] = res.lines[-1].replace("update && DEBIAN_FRONTEND=noninteractive apt-get",
-                                              "update && apt-get install -y --no-install-recommends libgcc-s1:i386 libgcc-s1:ppc64el && DEBIAN_FRONTEND=noninteractive apt-get")
+                                              "update && apt-get install -y --no-install-recommends libgcc-s1:ppc64el && DEBIAN_FRONTEND=noninteractive apt-get")
 
         return res;
 
@@ -526,6 +568,8 @@ environments = [centos6(),
                 tumbleweed(),
                 debian_experimental(),
                 azure_pipelines(),
+                bullseye(),
+                bullseye_i386(),
 ];
 
 class ToEnvActionPkg(argparse.Action):
@@ -1008,6 +1052,7 @@ def cmd_make(args):
                 "-e","HOME=%s"%(home),
                 "-w",BUILD_r,
         ];
+        opts.extend(env.docker_opts)
         for I in dirs:
             opts.append("-v");
             opts.append("%s:%s"%(I,I));
@@ -1075,9 +1120,11 @@ def cmd_build_images(args):
                     print(ln, file=F);
             opts = (["build"] +
                     get_build_args(args,env) +
+                    env.docker_opts +
                     ["-f",fn,
                      "-t",env.image_name(),
                      tmpdir]);
+            print(opts)
             docker_cmd(args,*opts);
 
 # -------------------------------------------------------------------------
