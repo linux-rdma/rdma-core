@@ -949,6 +949,22 @@ static void dr_ste_copy_mask_misc4(char *mask, struct dr_match_misc4 *spec)
 		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_3);
 	spec->prog_sample_field_value_3 =
 		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_3);
+	spec->prog_sample_field_id_4 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_4);
+	spec->prog_sample_field_value_4 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_4);
+	spec->prog_sample_field_id_5 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_5);
+	spec->prog_sample_field_value_5 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_5);
+	spec->prog_sample_field_id_6 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_6);
+	spec->prog_sample_field_value_6 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_6);
+	spec->prog_sample_field_id_7 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_7);
+	spec->prog_sample_field_value_7 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_7);
 }
 
 static void dr_ste_copy_mask_misc5(char *mask, struct dr_match_misc5 *spec)

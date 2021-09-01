@@ -744,7 +744,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			}
 			if (rx_rule) {
 				/* Loopback on WIRE vport is not supported */
-				if (action->vport.num == WIRE_PORT)
+				if (action->vport.caps->num == WIRE_PORT)
 					goto out_invalid_arg;
 
 				attr.final_icm_addr = action->vport.caps->icm_address_rx;
@@ -2075,7 +2075,14 @@ struct mlx5dv_dr_action
 		return NULL;
 	}
 
-	vport_cap = dr_get_vport_cap(&dmn->info.caps, vport);
+	/* vport number is limited to 16 bit */
+	if (vport > WIRE_PORT) {
+		dr_dbg(dmn, "The vport number is out of range\n");
+		errno = EINVAL;
+		return NULL;
+	}
+
+	vport_cap = dr_vports_table_get_vport_cap(&dmn->info.caps, vport);
 	if (!vport_cap) {
 		dr_dbg(dmn, "Failed to get vport %d caps\n", vport);
 		return NULL;
@@ -2086,7 +2093,37 @@ struct mlx5dv_dr_action
 		return NULL;
 
 	action->vport.dmn = dmn;
-	action->vport.num = vport;
+	action->vport.caps = vport_cap;
+
+	return action;
+}
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_ib_port(struct mlx5dv_dr_domain *dmn,
+				     uint32_t ib_port)
+{
+	struct dr_devx_vport_cap *vport_cap;
+	struct mlx5dv_dr_action *action;
+
+	if (!dmn->info.supp_sw_steering ||
+	    dmn->type != MLX5DV_DR_DOMAIN_TYPE_FDB) {
+		dr_dbg(dmn, "Domain doesn't support ib_port actions\n");
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	vport_cap = dr_vports_table_get_ib_port_cap(&dmn->info.caps, ib_port);
+	if (!vport_cap) {
+		dr_dbg(dmn, "Failed to get ib_port %d caps\n", ib_port);
+		errno = EINVAL;
+		return NULL;
+	}
+
+	action = dr_action_create_generic(DR_ACTION_TYP_VPORT);
+	if (!action)
+		return NULL;
+
+	action->vport.dmn = dmn;
 	action->vport.caps = vport_cap;
 
 	return action;
@@ -2115,7 +2152,7 @@ dr_action_convert_to_fte_dest(struct mlx5dv_dr_domain *dmn,
 
 		fte_attr->action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
 		dest_info->type = MLX5_FLOW_DEST_TYPE_VPORT;
-		dest_info->vport_num = dest->vport.num;
+		dest_info->vport_num = dest->vport.caps->num;
 		break;
 	case DR_ACTION_TYP_QP:
 		fte_attr->action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;

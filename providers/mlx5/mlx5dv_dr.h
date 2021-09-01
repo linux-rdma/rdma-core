@@ -47,6 +47,7 @@
 #define DR_MAX_SEND_RINGS	14
 #define NUM_OF_LOCKS		DR_MAX_SEND_RINGS
 #define WIRE_PORT		0xFFFF
+#define ECPF_PORT		0xFFFE
 #define DR_STE_SVLAN		0x1
 #define DR_STE_CVLAN		0x2
 #define CVLAN_ETHERTYPE	0x8100
@@ -54,6 +55,7 @@
 #define NUM_OF_FLEX_PARSERS	8
 #define DR_STE_MAX_FLEX_0_ID	3
 #define DR_STE_MAX_FLEX_1_ID	7
+#define DR_VPORTS_BUCKETS	256
 
 #define dr_dbg(dmn, arg...) dr_dbg_ctx((dmn)->ctx, ##arg)
 
@@ -751,6 +753,14 @@ struct dr_match_misc4 {
 	uint32_t prog_sample_field_id_2;
 	uint32_t prog_sample_field_value_3;
 	uint32_t prog_sample_field_id_3;
+	uint32_t prog_sample_field_value_4;
+	uint32_t prog_sample_field_id_4;
+	uint32_t prog_sample_field_value_5;
+	uint32_t prog_sample_field_id_5;
+	uint32_t prog_sample_field_value_6;
+	uint32_t prog_sample_field_id_6;
+	uint32_t prog_sample_field_value_7;
+	uint32_t prog_sample_field_id_7;
 };
 
 struct dr_match_misc5 {
@@ -789,9 +799,15 @@ struct dr_esw_caps {
 };
 
 struct dr_devx_vport_cap {
-	uint16_t gvmi;
+	uint16_t vport_gvmi;
+	uint16_t vhca_gvmi;
 	uint64_t icm_address_rx;
 	uint64_t icm_address_tx;
+	uint16_t num;
+	uint32_t metadata_c;
+	uint32_t metadata_c_mask;
+	/* locate vports table */
+	struct dr_devx_vport_cap *next;
 };
 
 struct dr_devx_roce_cap {
@@ -801,7 +817,27 @@ struct dr_devx_roce_cap {
 	uint8_t qp_ts_format;
 };
 
+struct dr_vports_table {
+	struct dr_devx_vport_cap *buckets[DR_VPORTS_BUCKETS];
+};
+
+struct dr_devx_vports {
+	/* E-Switch manager */
+	struct dr_devx_vport_cap	esw_mngr;
+	/* Uplink */
+	struct dr_devx_vport_cap	wire;
+	/* PF + VFS + SF */
+	struct dr_vports_table		*vports;
+	/* IB ports to vport + other_vports */
+	struct dr_devx_vport_cap	**ib_ports;
+	/* Number of vports PF + VFS + SFS + WIRE */
+	uint32_t			num_ports;
+	/* Protect vport query and add*/
+	pthread_spinlock_t		lock;
+};
+
 struct dr_devx_caps {
+	struct mlx5dv_dr_domain		*dmn;
 	uint16_t			gvmi;
 	uint64_t			nic_rx_drop_address;
 	uint64_t			nic_tx_drop_address;
@@ -835,11 +871,11 @@ struct dr_devx_caps {
 	bool				rx_sw_owner_v2;
 	bool				tx_sw_owner_v2;
 	bool				fdb_sw_owner_v2;
-	uint32_t			num_vports;
-	struct dr_devx_vport_cap	*vports_caps;
 	struct dr_devx_roce_cap		roce_caps;
 	uint64_t			definer_format_sup;
 	bool				prio_tag_required;
+	bool				is_ecpf;
+	struct dr_devx_vports		vports;
 };
 
 struct dr_devx_flow_table_attr {
@@ -1131,7 +1167,6 @@ struct mlx5dv_dr_action {
 		struct {
 			struct mlx5dv_dr_domain		*dmn;
 			struct dr_devx_vport_cap	*caps;
-			uint32_t			num;
 		} vport;
 		struct {
 			uint32_t	vlan_hdr;
@@ -1294,18 +1329,6 @@ dr_ste_htbl_may_grow(struct dr_ste_htbl *htbl)
 		return false;
 
 	return true;
-}
-
-static inline struct dr_devx_vport_cap
-*dr_get_vport_cap(struct dr_devx_caps *caps, uint32_t vport)
-{
-	if (!caps->vports_caps ||
-	    (vport >= caps->num_vports && vport != WIRE_PORT)) {
-		errno = EINVAL;
-		return NULL;
-	}
-
-	return &caps->vports_caps[vport == WIRE_PORT ? caps->num_vports : vport];
 }
 
 /* internal API functions */
@@ -1560,4 +1583,14 @@ int dr_buddy_init(struct dr_icm_buddy_mem *buddy, uint32_t max_order);
 void dr_buddy_cleanup(struct dr_icm_buddy_mem *buddy);
 int dr_buddy_alloc_mem(struct dr_icm_buddy_mem *buddy, int order);
 void dr_buddy_free_mem(struct dr_icm_buddy_mem *buddy, uint32_t seg, int order);
+
+void dr_vports_table_add_wire(struct dr_devx_vports *vports);
+void dr_vports_table_del_wire(struct dr_devx_vports *vports);
+struct dr_devx_vport_cap *dr_vports_table_get_vport_cap(struct dr_devx_caps *caps,
+							uint16_t vport);
+struct dr_devx_vport_cap *dr_vports_table_get_ib_port_cap(struct dr_devx_caps *caps,
+							  uint32_t ib_port);
+struct dr_vports_table *dr_vports_table_create(struct mlx5dv_dr_domain *dmn);
+void dr_vports_table_destroy(struct dr_vports_table *vports_tbl);
+
 #endif

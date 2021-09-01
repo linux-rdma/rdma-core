@@ -142,7 +142,7 @@ static int dr_dump_rule_action(FILE *f, const uint64_t rule_id,
 	case DR_ACTION_TYP_VPORT:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
 			      DR_DUMP_REC_TYPE_ACTION_VPORT, action_id, rule_id,
-			      action->vport.num);
+			      action->vport.caps->num);
 		break;
 	case DR_ACTION_TYP_TNL_L2_TO_L2:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 "\n",
@@ -616,10 +616,39 @@ static int dr_dump_domain_info_flex_parser(FILE *f, const char *flex_parser_name
 	return 0;
 }
 
+static int dr_dump_vports_table(FILE *f, struct dr_vports_table *vports_tbl,
+				const uint64_t domain_id)
+{
+	struct dr_devx_vport_cap *vport_cap;
+	int i, ret;
+
+	if (!vports_tbl)
+		return 0;
+
+	for (i = 0; i < DR_VPORTS_BUCKETS; i++) {
+		vport_cap = vports_tbl->buckets[i];
+		while (vport_cap) {
+			ret = fprintf(f, "%d,0x%" PRIx64 ",%d,0x%x,0x%" PRIx64 ",0x%" PRIx64 "\n",
+				      DR_DUMP_REC_TYPE_DOMAIN_INFO_VPORT,
+				      domain_id,
+				      vport_cap->num,
+				      vport_cap->vport_gvmi,
+				      vport_cap->icm_address_rx,
+				      vport_cap->icm_address_tx);
+			if (ret < 0)
+				return ret;
+
+			vport_cap = vport_cap->next;
+		}
+	}
+
+	return 0;
+}
+
 static int dr_dump_domain_info_caps(FILE *f, struct dr_devx_caps *caps,
 					 const uint64_t domain_id)
 {
-	int i, ret;
+	int ret;
 
 	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%x,0x%" PRIx64 ",0x%" PRIx64 ",0x%x,%d,%d\n",
 		      DR_DUMP_REC_TYPE_DOMAIN_INFO_CAPS,
@@ -628,22 +657,15 @@ static int dr_dump_domain_info_caps(FILE *f, struct dr_devx_caps *caps,
 		      caps->nic_rx_drop_address,
 		      caps->nic_tx_drop_address,
 		      caps->flex_protocols,
-		      caps->num_vports,
+		      caps->vports.num_ports,
 		      caps->eswitch_manager);
 	if (ret < 0)
 		return ret;
 
-	for (i = 0; i < caps->num_vports; i++) {
-		ret = fprintf(f, "%d,0x%" PRIx64 ",%d,0x%x,0x%" PRIx64 ",0x%" PRIx64 "\n",
-			      DR_DUMP_REC_TYPE_DOMAIN_INFO_VPORT,
-			      domain_id,
-			      i,
-			      caps->vports_caps[i].gvmi,
-			      caps->vports_caps[i].icm_address_rx,
-			      caps->vports_caps[i].icm_address_tx);
-		if (ret < 0)
-			return ret;
-	}
+	ret = dr_dump_vports_table(f, caps->vports.vports, domain_id);
+	if (ret < 0)
+		return ret;
+
 	return 0;
 }
 
@@ -655,7 +677,7 @@ static int dr_dump_domain_info_dev_attr(FILE *f, struct dr_domain_info *info,
 	ret = fprintf(f, "%d,0x%" PRIx64 ",%u,%s\n",
 		      DR_DUMP_REC_TYPE_DOMAIN_INFO_DEV_ATTR,
 		      domain_id,
-		      info->caps.num_vports + 1,
+		      info->caps.vports.num_ports,
 		      info->attr.orig_attr.fw_ver);
 	if (ret < 0)
 		return ret;

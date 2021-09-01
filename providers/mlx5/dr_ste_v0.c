@@ -1708,12 +1708,13 @@ static int dr_ste_v0_build_src_gvmi_qpn_tag(struct dr_match_param *value,
 
 	source_gvmi_set = DR_STE_GET(src_gvmi_qp, bit_mask, source_gvmi);
 	if (source_gvmi_set) {
-		vport_cap = dr_get_vport_cap(sb->caps, misc->source_port);
+		vport_cap = dr_vports_table_get_vport_cap(sb->caps,
+							  misc->source_port);
 		if (!vport_cap)
 			return errno;
 
-		if (vport_cap->gvmi)
-			DR_STE_SET(src_gvmi_qp, tag, source_gvmi, vport_cap->gvmi);
+		if (vport_cap->vport_gvmi)
+			DR_STE_SET(src_gvmi_qp, tag, source_gvmi, vport_cap->vport_gvmi);
 
 		misc->source_port = 0;
 	}
@@ -1731,15 +1732,24 @@ static void dr_ste_v0_build_src_gvmi_qpn_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v0_build_src_gvmi_qpn_tag;
 }
 
-static void dr_ste_set_flex_parser(uint32_t *misc4_field_id,
+static void dr_ste_set_flex_parser(uint16_t lu_type,
+				   uint32_t *misc4_field_id,
 				   uint32_t *misc4_field_value,
 				   bool *parser_is_used,
 				   uint8_t *tag)
 {
 	uint32_t id = *misc4_field_id;
 	uint8_t *parser_ptr;
+	bool skip_parser;
 
-	if (parser_is_used[id])
+	/* Since this is a shared function to set flex parsers,
+	 * we need to skip it if lookup type and parser ID doesn't match
+	 */
+	skip_parser = id <= DR_STE_MAX_FLEX_0_ID ?
+		      lu_type != DR_STE_V0_LU_TYPE_FLEX_PARSER_0 :
+		      lu_type != DR_STE_V0_LU_TYPE_FLEX_PARSER_1;
+
+	if (skip_parser || parser_is_used[id])
 		return;
 
 	parser_is_used[id] = true;
@@ -1757,22 +1767,45 @@ static int dr_ste_v0_build_flex_parser_tag(struct dr_match_param *value,
 	struct dr_match_misc4 *misc_4_mask = &value->misc4;
 	bool parser_is_used[NUM_OF_FLEX_PARSERS] = {};
 
-	dr_ste_set_flex_parser(&misc_4_mask->prog_sample_field_id_0,
+	dr_ste_set_flex_parser(sb->lu_type,
+			       &misc_4_mask->prog_sample_field_id_0,
 			       &misc_4_mask->prog_sample_field_value_0,
 			       parser_is_used, tag);
 
-	dr_ste_set_flex_parser(&misc_4_mask->prog_sample_field_id_1,
+	dr_ste_set_flex_parser(sb->lu_type,
+			       &misc_4_mask->prog_sample_field_id_1,
 			       &misc_4_mask->prog_sample_field_value_1,
 			       parser_is_used, tag);
 
-	dr_ste_set_flex_parser(&misc_4_mask->prog_sample_field_id_2,
+	dr_ste_set_flex_parser(sb->lu_type,
+			       &misc_4_mask->prog_sample_field_id_2,
 			       &misc_4_mask->prog_sample_field_value_2,
 			       parser_is_used, tag);
 
-	dr_ste_set_flex_parser(&misc_4_mask->prog_sample_field_id_3,
+	dr_ste_set_flex_parser(sb->lu_type,
+			       &misc_4_mask->prog_sample_field_id_3,
 			       &misc_4_mask->prog_sample_field_value_3,
 			       parser_is_used, tag);
 
+	dr_ste_set_flex_parser(sb->lu_type,
+			       &misc_4_mask->prog_sample_field_id_4,
+			       &misc_4_mask->prog_sample_field_value_4,
+			       parser_is_used, tag);
+
+	dr_ste_set_flex_parser(sb->lu_type,
+			       &misc_4_mask->prog_sample_field_id_5,
+			       &misc_4_mask->prog_sample_field_value_5,
+			       parser_is_used, tag);
+
+	dr_ste_set_flex_parser(sb->lu_type,
+			       &misc_4_mask->prog_sample_field_id_6,
+			       &misc_4_mask->prog_sample_field_value_6,
+			       parser_is_used, tag);
+
+	dr_ste_set_flex_parser(sb->lu_type,
+			       &misc_4_mask->prog_sample_field_id_7,
+			       &misc_4_mask->prog_sample_field_value_7,
+			       parser_is_used, tag);
 	return 0;
 }
 
