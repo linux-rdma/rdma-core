@@ -61,6 +61,10 @@ cdef class ConnParam(PyverbsObject):
     def qpn(self, val):
         self.conn_param.qp_num = val
 
+    @property
+    def private_data(self):
+        return <object>self.conn_param.private_data
+
     def __str__(self):
         print_format  = '{:<4}: {:<4}\n'
         return '{}: {}\n'.format('Connection parameters', "") +\
@@ -254,6 +258,10 @@ cdef class CMEvent(PyverbsObject):
         if self.event == NULL:
             return ''
         return (<bytes>cm.rdma_event_str(self.event_type)).decode()
+
+    @property
+    def private_data(self):
+        return <object>self.event.param.conn.private_data
 
 
 cdef class CMEventChannel(PyverbsObject):
@@ -771,3 +779,13 @@ cdef class CMID(PyverbsCM):
         ret = cm.rdma_set_option(self.id, level, optname, <void*>&value, optlen)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to set option')
+
+    def reject(self, private_data=None, private_data_len=0):
+        """
+        Reject a connection or datagram service lookup request.
+        :param private_data: Optional private data to send with the reject message.
+        :param private_data_len: Size (in bytes) of the private data being sent.
+        """
+        ret = cm.rdma_reject(self.id, <const void*>private_data, private_data_len)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to Reject Connection')
