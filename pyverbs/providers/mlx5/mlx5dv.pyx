@@ -10,6 +10,7 @@ import weakref
 
 from pyverbs.providers.mlx5.mlx5dv_mkey cimport Mlx5MrInterleaved, Mlx5Mkey, \
     Mlx5MkeyConfAttr, Mlx5SigBlockAttr
+from pyverbs.providers.mlx5.mlx5dv_crypto cimport Mlx5CryptoLoginAttr, Mlx5CryptoAttr
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError, PyverbsError
 from pyverbs.providers.mlx5.mlx5dv_sched cimport Mlx5dvSchedLeaf
 cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
@@ -279,7 +280,8 @@ cdef class Mlx5Context(Context):
                 dve.MLX5DV_CONTEXT_MASK_DC_ODP_CAPS |\
                 dve.MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS |\
                 dve.MLX5DV_CONTEXT_MASK_DCI_STREAMS |\
-                dve.MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH
+                dve.MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH |\
+                dve.MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD
         else:
             dv_attr.comp_mask = comp_mask
         rc = dv.mlx5dv_query_device(self.context, &dv_attr.dv)
@@ -318,6 +320,42 @@ cdef class Mlx5Context(Context):
         rc = dv.mlx5dv_reserved_qpn_dealloc(ctx.context, qpn)
         if rc != 0:
             raise PyverbsRDMAError(f'Failed to dealloc QP number {qpn}.', rc)
+
+    @staticmethod
+    def crypto_login(Context ctx, Mlx5CryptoLoginAttr login_attr):
+        """
+        Creates a crypto login session
+        :param ctx: The device context to issue the action on.
+        :param login_attr: Mlx5CryptoLoginAttr object which contains the
+                           credential to login with and the import KEK to be
+                           used for secured communications.
+        """
+        rc = dv.mlx5dv_crypto_login(ctx.context, &login_attr.mlx5dv_crypto_login_attr)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to create crypto login session.', rc)
+
+    @staticmethod
+    def query_login_state(Context ctx):
+        """
+        Queries the state of the current crypto login session.
+        :param ctx: The device context to issue the action on.
+        :return: The login state.
+        """
+        cdef dv.mlx5dv_crypto_login_state state
+        rc = dv.mlx5dv_crypto_login_query_state(ctx.context, &state)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to query the crypto login session state.', rc)
+        return state
+
+    @staticmethod
+    def crypto_logout(Context ctx):
+        """
+        Logs out from the current crypto login session.
+        :param ctx: The device context to issue the action on.
+        """
+        rc = dv.mlx5dv_crypto_logout(ctx.context)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to logout from crypto login session.', rc)
 
     def devx_general_cmd(self, in_, outlen):
         """
@@ -446,6 +484,10 @@ cdef class Mlx5DVContext(PyverbsObject):
     @property
     def dc_odp_caps(self):
         return self.dv.dc_odp_caps
+
+    @property
+    def crypto_caps(self):
+        return self.dv.crypto_caps
 
     @property
     def num_lag_ports(self):
@@ -851,6 +893,14 @@ cdef class Mlx5QP(QPEx):
                                                  repeat_count, num_interleaved,
                                                  mr_interleaved_p)
         free(mr_interleaved_p)
+
+    def wr_set_mkey_crypto(self, Mlx5CryptoAttr attr):
+        """
+        Configure a MKey for crypto operation.
+        :param attr: crypto attributes to set for the mkey.
+        """
+        dv.mlx5dv_wr_set_mkey_crypto(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                     &attr.mlx5dv_crypto_attr)
 
     def wr_set_mkey_sig_block(self, Mlx5SigBlockAttr block_attr):
         """

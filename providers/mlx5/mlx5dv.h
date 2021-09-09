@@ -85,6 +85,7 @@ enum mlx5dv_context_comp_mask {
 	MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD	= 1 << 10,
 	MLX5DV_CONTEXT_MASK_DCI_STREAMS		= 1 << 11,
 	MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH	= 1 << 12,
+	MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD	= 1 << 13,
 };
 
 struct mlx5dv_cqe_comp_caps {
@@ -181,6 +182,33 @@ struct mlx5dv_sig_caps {
 	uint16_t crc_type; /* use enum mlx5dv_sig_crc_type_caps */
 };
 
+enum mlx5dv_crypto_engines_caps {
+	MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS = 1 << 0,
+};
+
+enum mlx5dv_crypto_wrapped_import_method_caps {
+	MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS = 1 << 0,
+};
+
+enum mlx5dv_crypto_caps_flags {
+	MLX5DV_CRYPTO_CAPS_CRYPTO = 1 << 0,
+	MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL = 1 << 1,
+	MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_GOING_TO_COMMISSIONING = 1 << 2,
+};
+
+struct mlx5dv_crypto_caps {
+	/*
+	 * if failed_selftests != 0 it means there are some self tests errors
+	 * that may render specific crypto engines unusable. Exact code meaning
+	 * should be consulted with NVIDIA.
+	 */
+	uint16_t failed_selftests;
+	uint8_t crypto_engines; /* use enum mlx5dv_crypto_engines_caps */
+	uint8_t wrapped_import_method; /* use enum mlx5dv_crypto_wrapped_import_method_caps */
+	uint8_t log_max_num_deks;
+	uint32_t flags; /* use enum mlx5dv_crypto_caps_flags */
+};
+
 /*
  * Direct verbs device-specific attributes
  */
@@ -201,6 +229,7 @@ struct mlx5dv_context {
 	struct mlx5dv_sig_caps sig_caps;
 	struct mlx5dv_dci_streams_caps dci_streams_caps;
 	size_t max_wr_memcpy_length;
+	struct mlx5dv_crypto_caps crypto_caps;
 };
 
 enum mlx5dv_context_flags {
@@ -252,6 +281,7 @@ enum mlx5dv_qp_create_flags {
 enum mlx5dv_mkey_init_attr_flags {
 	MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT = 1 << 0,
 	MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE = 1 << 1,
+	MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO = 1 << 2,
 };
 
 struct mlx5dv_mkey_init_attr {
@@ -370,6 +400,26 @@ struct mlx5dv_sig_block_attr {
 	uint64_t comp_mask;
 };
 
+enum mlx5dv_crypto_standard {
+	MLX5DV_CRYPTO_STANDARD_AES_XTS,
+};
+
+enum mlx5dv_signature_crypto_order {
+	MLX5DV_SIGNATURE_CRYPTO_ORDER_SIGNATURE_AFTER_CRYPTO_ON_TX,
+	MLX5DV_SIGNATURE_CRYPTO_ORDER_SIGNATURE_BEFORE_CRYPTO_ON_TX,
+};
+
+struct mlx5dv_crypto_attr {
+	enum mlx5dv_crypto_standard crypto_standard;
+	bool encrypt_on_tx;
+	enum mlx5dv_signature_crypto_order signature_crypto_order;
+	enum mlx5dv_block_size data_unit_size;
+	char initial_tweak[16];
+	struct mlx5dv_dek *dek;
+	char keytag[8];
+	uint64_t comp_mask;
+};
+
 enum mlx5dv_mkey_conf_flags {
 	MLX5DV_MKEY_CONF_FLAG_RESET_SIG_ATTR = 1 << 0,
 };
@@ -430,6 +480,8 @@ struct mlx5dv_qp_ex {
 			  uint32_t dest_lkey, uint64_t dest_addr,
 			  uint32_t src_lkey, uint64_t src_addr,
 			  size_t length);
+	void (*wr_set_mkey_crypto)(struct mlx5dv_qp_ex *mqp,
+				   const struct mlx5dv_crypto_attr *attr);
 };
 
 struct mlx5dv_qp_ex *mlx5dv_qp_ex_from_ibv_qp_ex(struct ibv_qp_ex *qp);
@@ -508,6 +560,13 @@ static inline void mlx5dv_wr_set_mkey_sig_block(struct mlx5dv_qp_ex *mqp,
 	mqp->wr_set_mkey_sig_block(mqp, attr);
 }
 
+static inline void
+mlx5dv_wr_set_mkey_crypto(struct mlx5dv_qp_ex *mqp,
+			  const struct mlx5dv_crypto_attr *attr)
+{
+	mqp->wr_set_mkey_crypto(mqp, attr);
+}
+
 static inline void mlx5dv_wr_memcpy(struct mlx5dv_qp_ex *mqp,
 				    uint32_t dest_lkey, uint64_t dest_addr,
 				    uint32_t src_lkey, uint64_t src_addr,
@@ -552,6 +611,66 @@ static inline void mlx5dv_wr_raw_wqe(struct mlx5dv_qp_ex *mqp, const void *wqe)
 {
 	mqp->wr_raw_wqe(mqp, wqe);
 }
+
+struct mlx5dv_crypto_login_attr {
+	uint32_t credential_id;
+	uint32_t import_kek_id;
+	char credential[48];
+	uint64_t comp_mask;
+};
+
+enum mlx5dv_crypto_login_state {
+	MLX5DV_CRYPTO_LOGIN_STATE_VALID,
+	MLX5DV_CRYPTO_LOGIN_STATE_NO_LOGIN,
+	MLX5DV_CRYPTO_LOGIN_STATE_INVALID,
+};
+
+int mlx5dv_crypto_login(struct ibv_context *context,
+			struct mlx5dv_crypto_login_attr *login_attr);
+
+int mlx5dv_crypto_login_query_state(struct ibv_context *context,
+				    enum mlx5dv_crypto_login_state *state);
+
+int mlx5dv_crypto_logout(struct ibv_context *context);
+
+enum mlx5dv_crypto_key_size {
+	MLX5DV_CRYPTO_KEY_SIZE_128,
+	MLX5DV_CRYPTO_KEY_SIZE_256,
+};
+
+enum mlx5dv_crypto_key_purpose {
+	MLX5DV_CRYPTO_KEY_PURPOSE_AES_XTS,
+};
+
+enum mlx5dv_dek_state {
+	MLX5DV_DEK_STATE_READY,
+	MLX5DV_DEK_STATE_ERROR,
+};
+
+struct mlx5dv_dek_init_attr {
+	enum mlx5dv_crypto_key_size key_size;
+	bool has_keytag;
+	enum mlx5dv_crypto_key_purpose key_purpose;
+	struct ibv_pd *pd;
+	char opaque[8];
+	char key[128];
+	uint64_t comp_mask;
+};
+
+struct mlx5dv_dek_attr {
+	enum mlx5dv_dek_state state;
+	char opaque[8];
+	uint64_t comp_mask;
+};
+
+struct mlx5dv_dek;
+
+struct mlx5dv_dek *mlx5dv_dek_create(struct ibv_context *context,
+				     struct mlx5dv_dek_init_attr *init_attr);
+
+int mlx5dv_dek_query(struct mlx5dv_dek *dek, struct mlx5dv_dek_attr *attr);
+
+int mlx5dv_dek_destroy(struct mlx5dv_dek *dek);
 
 enum mlx5dv_flow_action_esp_mask {
 	MLX5DV_FLOW_ACTION_ESP_MASK_FLAGS	= 1 << 0,

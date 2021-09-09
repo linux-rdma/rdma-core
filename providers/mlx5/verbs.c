@@ -3802,6 +3802,13 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 
 	get_hca_sig_caps(out, mctx);
 
+	if (DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.crypto))
+		mctx->crypto_caps.flags |= MLX5DV_CRYPTO_CAPS_CRYPTO;
+
+	if (DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.aes_xts))
+		mctx->crypto_caps.crypto_engines |=
+			MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS;
+
 	if (DEVX_GET(query_hca_cap_out, out,
 		     capability.cmd_hca_cap.hca_cap_2))
 		get_hca_general_caps_2(mctx);
@@ -3861,6 +3868,46 @@ static void get_qos_caps(struct mlx5_context *mctx)
 	mctx->qos_caps.nic_tsar_type =
 		DEVX_GET(query_hca_cap_out, out,
 			 capability.qos_caps.nic_tsar_type);
+}
+
+static void get_crypto_caps(struct mlx5_context *mctx)
+{
+	uint16_t opmod = MLX5_SET_HCA_CAP_OP_MOD_CRYPTO | HCA_CAP_OPMOD_GET_CUR;
+	uint32_t out[DEVX_ST_SZ_DW(query_hca_cap_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(query_hca_cap_in)] = {};
+	int ret;
+
+	DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
+	DEVX_SET(query_hca_cap_in, in, op_mod, opmod);
+
+	ret = mlx5dv_devx_general_cmd(&mctx->ibv_ctx.context, in, sizeof(in),
+				      out, sizeof(out));
+	if (ret)
+		return;
+
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.crypto_caps.wrapped_crypto_operational))
+		mctx->crypto_caps.flags |=
+			MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL;
+
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.crypto_caps
+			     .wrapped_crypto_going_to_commissioning))
+		mctx->crypto_caps.flags |=
+			MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_GOING_TO_COMMISSIONING;
+
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.crypto_caps.wrapped_import_method) &
+	    MLX5_CRYPTO_CAPS_WRAPPED_IMPORT_METHOD_AES)
+		mctx->crypto_caps.wrapped_import_method |=
+			MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS;
+
+	mctx->crypto_caps.log_max_num_deks =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.crypto_caps.log_max_num_deks);
+	mctx->crypto_caps.failed_selftests =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.crypto_caps.failed_selftests);
 }
 
 int mlx5_query_device_ex(struct ibv_context *context,
@@ -3933,6 +3980,9 @@ void mlx5_query_device_ctx(struct mlx5_context *mctx)
 
 	if (mctx->qos_caps.qos)
 		get_qos_caps(mctx);
+
+	if (mctx->crypto_caps.flags & MLX5DV_CRYPTO_CAPS_CRYPTO)
+		get_crypto_caps(mctx);
 
 	if (ibv_cmd_query_device_any(&mctx->ibv_ctx.context, NULL, &device_attr,
 				     sizeof(device_attr), &resp.ibv_resp,
@@ -6521,13 +6571,16 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 	uint32_t in[DEVX_ST_SZ_DW(create_mkey_in)] = {};
 	struct mlx5_mkey *mkey;
 	bool sig_mkey;
+	bool crypto_mkey;
 	struct ibv_pd *pd = mkey_init_attr->pd;
+	size_t bsf_size = 0;
 	void *mkc;
 
 	if (!mkey_init_attr->create_flags ||
 	    !check_comp_mask(mkey_init_attr->create_flags,
 			     MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
-			     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE)) {
+			     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE |
+			     MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO)) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -6545,6 +6598,29 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 		mkey->sig = mlx5_create_sig_ctx(pd, mkey_init_attr);
 		if (!mkey->sig)
 			goto err_free_mkey;
+
+		bsf_size += sizeof(struct mlx5_bsf);
+	}
+
+	crypto_mkey = mkey_init_attr->create_flags &
+		      MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO;
+
+	if (crypto_mkey) {
+		if (!(to_mctx(pd->context)->crypto_caps.crypto_engines &
+		      MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS) ||
+		    !(to_mctx(pd->context)->crypto_caps.flags &
+		      MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL)) {
+			errno = EOPNOTSUPP;
+			goto err_destroy_sig_ctx;
+		}
+
+		mkey->crypto = calloc(1, sizeof(*mkey->crypto));
+		if (!mkey->crypto) {
+			errno = ENOMEM;
+			goto err_destroy_sig_ctx;
+		}
+
+		bsf_size += sizeof(struct mlx5_crypto_bsf);
 	}
 
 	mkey->num_desc = align(mkey_init_attr->max_entries, 4);
@@ -6558,15 +6634,17 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 	DEVX_SET(mkc, mkc, lr, 1);
 	DEVX_SET(mkc, mkc, qpn, 0xffffff);
 	DEVX_SET(mkc, mkc, mkey_7_0, 0);
-	if (sig_mkey) {
+	if (crypto_mkey)
+		DEVX_SET(mkc, mkc, crypto_en, 1);
+	if (sig_mkey || crypto_mkey) {
 		DEVX_SET(mkc, mkc, bsf_en, 1);
-		DEVX_SET(mkc, mkc, bsf_octword_size, sizeof(struct mlx5_bsf) / 16);
+		DEVX_SET(mkc, mkc, bsf_octword_size, bsf_size / 16);
 	}
 
 	mkey->devx_obj = mlx5dv_devx_obj_create(pd->context, in, sizeof(in),
 						out, sizeof(out));
 	if (!mkey->devx_obj)
-		goto err_destroy_sig_ctx;
+		goto err_free_crypto;
 
 	mkey_init_attr->max_entries = mkey->num_desc;
 	mkey->dv_mkey.lkey = (DEVX_GET(create_mkey_out, out, mkey_index) << 8) | 0;
@@ -6580,6 +6658,9 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 	return &mkey->dv_mkey;
 err_destroy_mkey_obj:
 	mlx5dv_devx_obj_destroy(mkey->devx_obj);
+err_free_crypto:
+	if (crypto_mkey)
+		free(mkey->crypto);
 err_destroy_sig_ctx:
 	if (sig_mkey)
 		mlx5_destroy_sig_ctx(mkey->sig);
@@ -6618,6 +6699,9 @@ static int _mlx5dv_destroy_mkey(struct mlx5dv_mkey *dv_mkey)
 	ret = mlx5dv_devx_obj_destroy(mkey->devx_obj);
 	if (ret)
 		return ret;
+
+	if (mkey->crypto)
+		free(mkey->crypto);
 
 	mlx5_clear_mkey(mctx, dv_mkey->lkey >> 8);
 	free(mkey);
@@ -6745,6 +6829,325 @@ int _mlx5dv_mkey_check(struct mlx5dv_mkey *dv_mkey,
 	sig_ctx->err_exists = false;
 
 	return 0;
+}
+
+static int _mlx5dv_crypto_login(struct ibv_context *context,
+				struct mlx5dv_crypto_login_attr *login_attr)
+{
+	uint32_t in[DEVX_ST_SZ_DW(create_crypto_login_obj_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
+	struct mlx5_context *mctx = to_mctx(context);
+	int ret = 0;
+	void *attr;
+
+	if (!(mctx->crypto_caps.flags & MLX5DV_CRYPTO_CAPS_CRYPTO) ||
+	    !(mctx->crypto_caps.flags &
+	      MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL))
+		return EOPNOTSUPP;
+
+	if (!(mctx->general_obj_types_caps &
+	      (1ULL << MLX5_OBJ_TYPE_CRYPTO_LOGIN)))
+		return EOPNOTSUPP;
+
+	if (login_attr->comp_mask)
+		return EINVAL;
+
+	if (login_attr->credential_id & 0xff000000 ||
+	    login_attr->import_kek_id & 0xff000000)
+		return EINVAL;
+
+	pthread_mutex_lock(&mctx->crypto_login_mutex);
+	if (mctx->crypto_login) {
+		ret = EEXIST;
+		goto out;
+	}
+
+	attr = DEVX_ADDR_OF(create_crypto_login_obj_in, in, hdr);
+	DEVX_SET(general_obj_in_cmd_hdr, attr, opcode,
+		 MLX5_CMD_OP_CREATE_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr, attr, obj_type,
+		 MLX5_OBJ_TYPE_CRYPTO_LOGIN);
+
+	attr = DEVX_ADDR_OF(create_crypto_login_obj_in, in, login_obj);
+	DEVX_SET(crypto_login_obj, attr, credential_pointer,
+		 login_attr->credential_id);
+	DEVX_SET(crypto_login_obj, attr, session_import_kek_ptr,
+		 login_attr->import_kek_id);
+	memcpy(DEVX_ADDR_OF(crypto_login_obj, attr, credential),
+	       login_attr->credential, sizeof(login_attr->credential));
+
+	mctx->crypto_login = mlx5dv_devx_obj_create(context, in, sizeof(in),
+						    out, sizeof(out));
+	if (!mctx->crypto_login)
+		ret = errno;
+
+out:
+	pthread_mutex_unlock(&mctx->crypto_login_mutex);
+	return ret;
+}
+
+int mlx5dv_crypto_login(struct ibv_context *context,
+			struct mlx5dv_crypto_login_attr *login_attr)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->crypto_login)
+		return EOPNOTSUPP;
+
+	return dvops->crypto_login(context, login_attr);
+}
+
+static int
+_mlx5dv_crypto_login_query_state(struct ibv_context *context,
+				 enum mlx5dv_crypto_login_state *state)
+{
+	uint32_t out[DEVX_ST_SZ_DW(query_crypto_login_obj_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(general_obj_in_cmd_hdr)] = {};
+	struct mlx5_context *mctx = to_mctx(context);
+	uint8_t crypto_login_state;
+	void *attr;
+	int ret;
+
+	pthread_mutex_lock(&mctx->crypto_login_mutex);
+	if (!mctx->crypto_login) {
+		*state = MLX5DV_CRYPTO_LOGIN_STATE_NO_LOGIN;
+		ret = 0;
+		goto out;
+	}
+
+	DEVX_SET(general_obj_in_cmd_hdr, in, opcode,
+		 MLX5_CMD_OP_QUERY_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr, in, obj_type,
+		 MLX5_OBJ_TYPE_CRYPTO_LOGIN);
+	DEVX_SET(general_obj_in_cmd_hdr, in, obj_id,
+		 mctx->crypto_login->object_id);
+
+	ret = mlx5dv_devx_obj_query(mctx->crypto_login, in, sizeof(in), out,
+				    sizeof(out));
+	if (ret)
+		goto out;
+
+	attr = DEVX_ADDR_OF(query_crypto_login_obj_out, out, obj);
+	crypto_login_state = DEVX_GET(crypto_login_obj, attr, state);
+
+	switch (crypto_login_state) {
+	case MLX5_CRYPTO_LOGIN_OBJ_STATE_VALID:
+		*state = MLX5DV_CRYPTO_LOGIN_STATE_VALID;
+		break;
+	case MLX5_CRYPTO_LOGIN_OBJ_STATE_INVALID:
+		*state = MLX5DV_CRYPTO_LOGIN_STATE_INVALID;
+		break;
+	default:
+		ret = EINVAL;
+		break;
+	}
+
+out:
+	pthread_mutex_unlock(&mctx->crypto_login_mutex);
+	return ret;
+}
+
+int mlx5dv_crypto_login_query_state(struct ibv_context *context,
+				    enum mlx5dv_crypto_login_state *state)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->crypto_login_query_state)
+		return EOPNOTSUPP;
+
+	return dvops->crypto_login_query_state(context, state);
+}
+
+static int _mlx5dv_crypto_logout(struct ibv_context *context)
+{
+	struct mlx5_context *mctx = to_mctx(context);
+	int ret;
+
+	pthread_mutex_lock(&mctx->crypto_login_mutex);
+	if (!mctx->crypto_login) {
+		ret = ENOENT;
+		goto out;
+	}
+
+	ret = mlx5dv_devx_obj_destroy(mctx->crypto_login);
+	if (ret)
+		goto out;
+
+	mctx->crypto_login = NULL;
+
+out:
+	pthread_mutex_unlock(&mctx->crypto_login_mutex);
+	return ret;
+}
+
+int mlx5dv_crypto_logout(struct ibv_context *context)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->crypto_logout)
+		return EOPNOTSUPP;
+
+	return dvops->crypto_logout(context);
+}
+
+static struct mlx5dv_dek *
+_mlx5dv_dek_create(struct ibv_context *context,
+		   struct mlx5dv_dek_init_attr *init_attr)
+{
+	uint32_t in[DEVX_ST_SZ_DW(create_encryption_key_obj_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
+	struct mlx5_context *mctx = to_mctx(context);
+	struct mlx5dv_devx_obj *obj;
+	struct mlx5dv_dek *dek;
+	uint8_t key_size;
+	void *attr;
+
+	if (!(mctx->general_obj_types_caps & (1ULL << MLX5_OBJ_TYPE_DEK))) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	if (init_attr->key_purpose != MLX5DV_CRYPTO_KEY_PURPOSE_AES_XTS) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	switch (init_attr->key_size) {
+	case MLX5DV_CRYPTO_KEY_SIZE_128:
+		key_size = MLX5_ENCRYPTION_KEY_OBJ_KEY_SIZE_SIZE_128;
+		break;
+	case MLX5DV_CRYPTO_KEY_SIZE_256:
+		key_size = MLX5_ENCRYPTION_KEY_OBJ_KEY_SIZE_SIZE_256;
+		break;
+	default:
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (init_attr->comp_mask) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	dek = calloc(1, sizeof(*dek));
+	if (!dek) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	attr = DEVX_ADDR_OF(create_encryption_key_obj_in, in, hdr);
+	DEVX_SET(general_obj_in_cmd_hdr, attr, opcode,
+		 MLX5_CMD_OP_CREATE_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr, attr, obj_type, MLX5_OBJ_TYPE_DEK);
+
+	attr = DEVX_ADDR_OF(create_encryption_key_obj_in, in, key_obj);
+	DEVX_SET(encryption_key_obj, attr, key_size, key_size);
+	DEVX_SET(encryption_key_obj, attr, has_keytag, !!init_attr->has_keytag);
+	DEVX_SET(encryption_key_obj, attr, key_purpose,
+		 MLX5_ENCRYPTION_KEY_OBJ_KEY_PURPOSE_AES_XTS);
+	DEVX_SET(encryption_key_obj, attr, pd, to_mpd(init_attr->pd)->pdn);
+	memcpy(DEVX_ADDR_OF(encryption_key_obj, attr, opaque),
+	       init_attr->opaque, sizeof(init_attr->opaque));
+	memcpy(DEVX_ADDR_OF(encryption_key_obj, attr, key), init_attr->key,
+	       sizeof(init_attr->key));
+
+	obj = mlx5dv_devx_obj_create(context, in, sizeof(in), out, sizeof(out));
+	if (!obj) {
+		free(dek);
+		return NULL;
+	}
+
+	dek->devx_obj = obj;
+
+	return dek;
+}
+
+struct mlx5dv_dek *mlx5dv_dek_create(struct ibv_context *context,
+				     struct mlx5dv_dek_init_attr *init_attr)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->dek_create) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->dek_create(context, init_attr);
+}
+
+static int _mlx5dv_dek_query(struct mlx5dv_dek *dek,
+			     struct mlx5dv_dek_attr *dek_attr)
+{
+	uint32_t out[DEVX_ST_SZ_DW(query_encryption_key_obj_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(general_obj_in_cmd_hdr)] = {};
+	uint8_t dek_state;
+	void *attr;
+	int ret;
+
+	if (dek_attr->comp_mask)
+		return EINVAL;
+
+	DEVX_SET(general_obj_in_cmd_hdr, in, opcode,
+		 MLX5_CMD_OP_QUERY_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr, in, obj_type, MLX5_OBJ_TYPE_DEK);
+	DEVX_SET(general_obj_in_cmd_hdr, in, obj_id, dek->devx_obj->object_id);
+
+	ret = mlx5dv_devx_obj_query(dek->devx_obj, in, sizeof(in), out,
+				    sizeof(out));
+	if (ret)
+		return ret;
+
+	attr = DEVX_ADDR_OF(query_encryption_key_obj_out, out, obj);
+	dek_state = DEVX_GET(encryption_key_obj, attr, state);
+	switch (dek_state) {
+	case MLX5_ENCRYPTION_KEY_OBJ_STATE_READY:
+		dek_attr->state = MLX5DV_DEK_STATE_READY;
+		break;
+	case MLX5_ENCRYPTION_KEY_OBJ_STATE_ERROR:
+		dek_attr->state = MLX5DV_DEK_STATE_ERROR;
+		break;
+	default:
+		return EINVAL;
+	}
+	memcpy(dek_attr->opaque, DEVX_ADDR_OF(encryption_key_obj, attr, opaque),
+	       sizeof(dek_attr->opaque));
+
+	return 0;
+}
+
+int mlx5dv_dek_query(struct mlx5dv_dek *dek, struct mlx5dv_dek_attr *dek_attr)
+{
+	struct mlx5_dv_context_ops *dvops =
+		mlx5_get_dv_ops(dek->devx_obj->context);
+
+	if (!dvops || !dvops->dek_query)
+		return EOPNOTSUPP;
+
+	return dvops->dek_query(dek, dek_attr);
+}
+
+static int _mlx5dv_dek_destroy(struct mlx5dv_dek *dek)
+{
+	int ret;
+
+	ret = mlx5dv_devx_obj_destroy(dek->devx_obj);
+	if (ret)
+		return ret;
+
+	free(dek);
+
+	return 0;
+}
+
+int mlx5dv_dek_destroy(struct mlx5dv_dek *dek)
+{
+	struct mlx5_dv_context_ops *dvops =
+		mlx5_get_dv_ops(dek->devx_obj->context);
+
+	if (!dvops || !dvops->dek_destroy)
+		return EOPNOTSUPP;
+
+	return dvops->dek_destroy(dek);
 }
 
 static struct mlx5dv_var *
@@ -6975,6 +7378,14 @@ void mlx5_set_dv_ctx_ops(struct mlx5_dv_context_ops *ops)
 
 	ops->create_mkey = _mlx5dv_create_mkey;
 	ops->destroy_mkey = _mlx5dv_destroy_mkey;
+
+	ops->crypto_login = _mlx5dv_crypto_login;
+	ops->crypto_login_query_state = _mlx5dv_crypto_login_query_state;
+	ops->crypto_logout = _mlx5dv_crypto_logout;
+
+	ops->dek_create = _mlx5dv_dek_create;
+	ops->dek_query = _mlx5dv_dek_query;
+	ops->dek_destroy = _mlx5dv_dek_destroy;
 
 	ops->alloc_var = _mlx5dv_alloc_var;
 	ops->free_var = _mlx5dv_free_var;

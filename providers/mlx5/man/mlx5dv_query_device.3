@@ -61,6 +61,7 @@ uint32_t        dc_odp_caps; /* use enum ibv_odp_transport_cap_bits */
 void		*hca_core_clock; /* points to a memory location that is mapped to the HCA's core clock */
 struct mlx5dv_sig_caps sig_caps;
 size_t max_wr_memcpy_length; /* max length that is supported by the DMA memcpy WR */
+struct mlx5dv_crypto_caps crypto_caps;
 .in -8
 };
 
@@ -100,6 +101,7 @@ MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS       = 1 << 9,
 MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD   = 1 << 10,
 MLX5DV_CONTEXT_MASK_DCI_STREAMS         = 1 << 11,
 MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH    = 1 << 12,
+MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD      = 1 << 13,
 .in -8
 };
 
@@ -175,6 +177,52 @@ MLX5DV_BLOCK_SIZE_CAP_520 = 1 << MLX5DV_BLOCK_SIZE_520,
 MLX5DV_BLOCK_SIZE_CAP_4048 = 1 << MLX5DV_BLOCK_SIZE_4048,
 MLX5DV_BLOCK_SIZE_CAP_4096 = 1 << MLX5DV_BLOCK_SIZE_4096,
 MLX5DV_BLOCK_SIZE_CAP_4160 = 1 << MLX5DV_BLOCK_SIZE_4160,
+.in -8
+};
+
+.PP
+.nf
+struct mlx5dv_crypto_caps {
+.in +8
+/*
+ * if failed_selftests != 0 it means there are some self tests errors
+ * that may render specific crypto engines unusable. Exact code meaning
+ * should be consulted with NVIDIA.
+ */
+uint16_t failed_selftests;
+uint8_t crypto_engines; /* use enum mlx5dv_crypto_engines_caps */
+uint8_t wrapped_import_method; /* use enum mlx5dv_crypto_wrapped_import_method_caps */
+uint8_t log_max_num_deks;
+uint32_t flags; /* use enum mlx5dv_crypto_caps_flags */
+.in -8
+};
+
+enum mlx5dv_crypto_engines_caps {
+.in +8
+	MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS = 1 << 0,
+.in -8
+};
+
+enum mlx5dv_crypto_wrapped_import_method_caps {
+.in +8
+	MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS = 1 << 0,
+.in -8
+};
+
+enum mlx5dv_crypto_caps_flags {
+.in +8
+	/* Indicates whether crypto capabilities are enabled on the device. */
+	MLX5DV_CRYPTO_CAPS_CRYPTO = 1 << 0,
+
+	/* Indicates whether crypto engines that are in wrapped import method are operational. */
+	MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL = 1 << 1,
+
+	/*
+	 * If set, indicates that after the next FW reset the device will go back to
+	 * commissioning mode, meaning that MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL
+	 * will be set to 0.
+	 */
+	MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_GOING_TO_COMMISSIONING = 1 << 2,
 .in -8
 };
 

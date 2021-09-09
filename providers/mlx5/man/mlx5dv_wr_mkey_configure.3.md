@@ -280,6 +280,21 @@ reset the signature attributes without invalidating the MKEY, use the
 	See dedicated man page for **mlx5dv_wr_set_mkey_sig_block**(3).
 
 
+## Crypto setter
+
+The crypto attributes of the MKey allow encryption and decryption of transmitted
+data from memory to network and when receiving data from network to memory.
+
+Use the crypto setter to set/update the crypto attributes of the MKey. When
+the MKey is created with **MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO** it must be
+configured with crypto attributes before the MKey can be used.
+
+**mlx5dv_wr_set_mkey_crypto()**
+
+:	Set MKey crypto attributes. If the MKey is already configured with
+	crypto attributes, the setter overrides the previous value.
+	see dedicated man page for **mlx5dv_wr_set_mkey_crypto**(3).
+
 # EXAMPLES
 
 ## Create QP and MKEY

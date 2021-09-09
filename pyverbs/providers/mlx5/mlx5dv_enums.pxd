@@ -47,6 +47,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD   = 1 << 10
         MLX5DV_CONTEXT_MASK_DCI_STREAMS         = 1 << 11
         MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH    = 1 << 12
+        MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD      = 1 << 13
 
     cpdef enum mlx5dv_context_flags:
         MLX5DV_CONTEXT_FLAGS_CQE_V1                     = 1 << 0
@@ -107,6 +108,7 @@ cdef extern from 'infiniband/mlx5dv.h':
     cpdef enum mlx5dv_mkey_init_attr_flags:
         MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT
         MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE
+        MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO
 
     cpdef enum mlx5dv_mkey_err_type:
         MLX5DV_MKEY_NO_ERR
@@ -227,6 +229,40 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_WC_UMR
         MLX5DV_WC_RAW_WQE
         MLX5DV_WC_MEMCPY
+
+    cpdef enum mlx5dv_crypto_standard:
+        MLX5DV_CRYPTO_STANDARD_AES_XTS
+
+    cpdef enum mlx5dv_signature_crypto_order:
+        MLX5DV_SIGNATURE_CRYPTO_ORDER_SIGNATURE_AFTER_CRYPTO_ON_TX
+        MLX5DV_SIGNATURE_CRYPTO_ORDER_SIGNATURE_BEFORE_CRYPTO_ON_TX
+
+    cpdef enum mlx5dv_crypto_login_state:
+        MLX5DV_CRYPTO_LOGIN_STATE_VALID
+        MLX5DV_CRYPTO_LOGIN_STATE_NO_LOGIN
+        MLX5DV_CRYPTO_LOGIN_STATE_INVALID
+
+    cpdef enum mlx5dv_crypto_key_size:
+        MLX5DV_CRYPTO_KEY_SIZE_128
+        MLX5DV_CRYPTO_KEY_SIZE_256
+
+    cpdef enum mlx5dv_crypto_key_purpose:
+        MLX5DV_CRYPTO_KEY_PURPOSE_AES_XTS
+
+    cpdef enum mlx5dv_dek_state:
+        MLX5DV_DEK_STATE_READY
+        MLX5DV_DEK_STATE_ERROR
+
+    cpdef enum mlx5dv_crypto_engines_caps:
+        MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS
+
+    cpdef enum mlx5dv_crypto_wrapped_import_method_caps:
+        MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS
+
+    cpdef enum mlx5dv_crypto_caps_flags:
+        MLX5DV_CRYPTO_CAPS_CRYPTO
+        MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL
+        MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_GOING_TO_COMMISSIONING
 
     cpdef unsigned long long MLX5DV_RES_TYPE_QP
     cpdef unsigned long long MLX5DV_RES_TYPE_RWQ

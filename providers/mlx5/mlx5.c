@@ -926,6 +926,11 @@ static int _mlx5dv_query_device(struct ibv_context *ctx_in,
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH;
 	}
 
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD) {
+		attrs_out->crypto_caps = mctx->crypto_caps;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD;
+	}
+
 	attrs_out->comp_mask = comp_mask_out;
 
 	return 0;
@@ -2377,6 +2382,7 @@ static int mlx5_set_context(struct mlx5_context *context,
 	pthread_mutex_init(&context->uidx_table_mutex, NULL);
 	pthread_mutex_init(&context->mkey_table_mutex, NULL);
 	pthread_mutex_init(&context->dyn_bfregs_mutex, NULL);
+	pthread_mutex_init(&context->crypto_login_mutex, NULL);
 	for (i = 0; i < MLX5_QP_TABLE_SIZE; ++i)
 		context->qp_table[i].refcnt = 0;
 

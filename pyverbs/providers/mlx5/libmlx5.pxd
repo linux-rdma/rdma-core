@@ -35,6 +35,13 @@ cdef extern from 'infiniband/mlx5dv.h':
         uint8_t    max_log_num_concurent
         uint8_t    max_log_num_errored
 
+    cdef struct mlx5dv_crypto_caps:
+        uint16_t failed_selftests
+        uint8_t crypto_engines
+        uint8_t wrapped_import_method
+        uint8_t log_max_num_deks
+        uint32_t flags
+
     cdef struct mlx5dv_context:
         unsigned char           version
         unsigned long           flags
@@ -49,6 +56,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         unsigned int            flow_action_flags
         unsigned int            dc_odp_caps
         uint8_t                 num_lag_ports
+        mlx5dv_crypto_caps      crypto_caps
         size_t                  max_wr_memcpy_length
 
     cdef struct mlx5dv_dci_streams:
@@ -309,6 +317,40 @@ cdef extern from 'infiniband/mlx5dv.h':
     uint8_t mlx5dv_get_cqe_se(mlx5_cqe64 *cqe)
     uint8_t mlx5dv_get_cqe_format(mlx5_cqe64 *cqe)
     uint8_t mlx5dv_get_cqe_opcode(mlx5_cqe64 *cqe)
+
+    cdef struct mlx5dv_dek:
+        pass
+
+    cdef struct mlx5dv_crypto_login_attr:
+        uint32_t credential_id
+        uint32_t import_kek_id
+        char *credential
+        uint64_t comp_mask
+
+    cdef struct mlx5dv_crypto_attr:
+        mlx5dv_crypto_standard crypto_standard
+        bool encrypt_on_tx
+        mlx5dv_signature_crypto_order signature_crypto_order
+        mlx5dv_block_size data_unit_size
+        char *initial_tweak
+        mlx5dv_dek *dek
+        char *keytag
+        uint64_t comp_mask
+
+    cdef struct mlx5dv_dek_init_attr:
+        mlx5dv_crypto_key_size key_size
+        bool has_keytag
+        mlx5dv_crypto_key_purpose key_purpose
+        v.ibv_pd *pd
+        char *opaque
+        char *key
+        uint64_t comp_mask
+
+    cdef struct mlx5dv_dek_attr:
+        mlx5dv_dek_state state
+        char *opaque
+        uint64_t comp_mask
+
     bool mlx5dv_is_supported(v.ibv_device *device)
     v.ibv_context* mlx5dv_open_device(v.ibv_device *device,
                                       mlx5dv_context_attr *attr)
@@ -429,3 +471,12 @@ cdef extern from 'infiniband/mlx5dv.h':
     void mlx5dv_wr_set_mkey_sig_block(mlx5dv_qp_ex *mqp, mlx5dv_sig_block_attr *attr)
     int mlx5dv_mkey_check(mlx5dv_mkey *mkey, mlx5dv_mkey_err *err_info)
     int mlx5dv_qp_cancel_posted_send_wrs(mlx5dv_qp_ex *mqp, uint64_t wr_id)
+    void mlx5dv_wr_set_mkey_crypto(mlx5dv_qp_ex *mqp, mlx5dv_crypto_attr *attr)
+
+    # Crypto APIs
+    int mlx5dv_crypto_login(v.ibv_context *context, mlx5dv_crypto_login_attr *login_attr)
+    int mlx5dv_crypto_login_query_state(v.ibv_context *context, mlx5dv_crypto_login_state *state)
+    int mlx5dv_crypto_logout(v.ibv_context *context)
+    mlx5dv_dek *mlx5dv_dek_create(v.ibv_context *context, mlx5dv_dek_init_attr *init_attr)
+    int mlx5dv_dek_query(mlx5dv_dek *dek, mlx5dv_dek_attr *attr)
+    int mlx5dv_dek_destroy(mlx5dv_dek *dek)

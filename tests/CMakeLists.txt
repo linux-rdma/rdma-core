@@ -20,6 +20,7 @@ rdma_python_test(tests
   test_flow.py
   test_fork.py
   test_mlx5_cq.py
+  test_mlx5_crypto.py
   test_mlx5_dc.py
   test_mlx5_devx.py
   test_mlx5_dm_ops.py

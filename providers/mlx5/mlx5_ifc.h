@@ -1136,7 +1136,10 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         steering_format_version[0x4];
 	u8         create_qp_start_hint[0x18];
 
-	u8         reserved_at_460[0x10];
+	u8         reserved_at_460[0x8];
+	u8         aes_xts[0x1];
+	u8         crypto[0x1];
+	u8         reserved_at_46a[0x6];
 	u8         max_num_eqs[0x10];
 
 	u8         sigerr_domain_and_sig_type[0x1];
@@ -1424,6 +1427,30 @@ struct mlx5_ifc_cmd_hca_cap_2_bits {
 	u8         reserved_at_a0[0x760];
 };
 
+enum {
+	MLX5_CRYPTO_CAPS_WRAPPED_IMPORT_METHOD_AES = 0x4,
+};
+
+struct mlx5_ifc_crypto_caps_bits {
+	u8         wrapped_crypto_operational[0x1];
+	u8         wrapped_crypto_going_to_commissioning[0x1];
+	u8         reserved_at_2[0x16];
+	u8         wrapped_import_method[0x8];
+
+	u8         reserved_at_20[0xb];
+	u8         log_max_num_deks[0x5];
+	u8         reserved_at_30[0x3];
+	u8         log_max_num_import_keks[0x5];
+	u8         reserved_at_38[0x3];
+	u8         log_max_num_creds[0x5];
+
+	u8         failed_selftests[0x10];
+	u8         num_nv_import_keks[0x8];
+	u8         num_nv_credentials[0x8];
+
+	u8         reserved_at_60[0x7a0];
+};
+
 union mlx5_ifc_hca_cap_union_bits {
 	struct mlx5_ifc_atomic_caps_bits atomic_caps;
 	struct mlx5_ifc_cmd_hca_cap_bits cmd_hca_cap;
@@ -1435,6 +1462,7 @@ union mlx5_ifc_hca_cap_union_bits {
 	struct mlx5_ifc_roce_cap_bits roce_caps;
 	struct mlx5_ifc_qos_cap_bits qos_caps;
 	struct mlx5_ifc_cmd_hca_cap_2_bits cmd_hca_cap_2;
+	struct mlx5_ifc_crypto_caps_bits crypto_caps;
 	u8         reserved_at_0[0x8000];
 };
 
@@ -1479,6 +1507,7 @@ enum {
 	MLX5_SET_HCA_CAP_OP_MOD_QOS                   = 0xc << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_ESW                   = 0x9 << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_DEVICE_MEMORY         = 0xf << 1,
+	MLX5_SET_HCA_CAP_OP_MOD_CRYPTO                = 0x1a << 1,
 	MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE_CAP_2  = 0x20 << 1,
 };
 
@@ -1534,7 +1563,9 @@ struct mlx5_ifc_mkc_bits {
 	u8         reserved_at_1d9[0x1];
 	u8         log_page_size[0x5];
 
-	u8         reserved_at_1e0[0x20];
+	u8         reserved_at_1e0[0x3];
+	u8         crypto_en[0x2];
+	u8         reserved_at_1e5[0x1b];
 };
 
 struct mlx5_ifc_create_mkey_out_bits {
@@ -3102,7 +3133,9 @@ struct mlx5_ifc_dealloc_flow_counter_in_bits {
 
 enum {
 	MLX5_OBJ_TYPE_FLOW_METER = 0x000a,
+	MLX5_OBJ_TYPE_DEK = 0x000C,
 	MLX5_OBJ_TYPE_MATCH_DEFINER = 0x0018,
+	MLX5_OBJ_TYPE_CRYPTO_LOGIN = 0x001F,
 	MLX5_OBJ_TYPE_FLOW_SAMPLER = 0x0020,
 	MLX5_OBJ_TYPE_ASO_FLOW_METER = 0x0024,
 	MLX5_OBJ_TYPE_ASO_FIRST_HIT = 0x0025,
@@ -5369,4 +5402,98 @@ struct mlx5_ifc_dealloc_xrcd_in_bits {
 
 	u8         reserved_at_60[0x20];
 };
+
+enum {
+	MLX5_CRYPTO_LOGIN_OBJ_STATE_VALID    = 0x0,
+	MLX5_CRYPTO_LOGIN_OBJ_STATE_INVALID  = 0x1,
+};
+
+struct mlx5_ifc_crypto_login_obj_bits {
+	u8         modify_field_select[0x40];
+
+	u8         reserved_at_40[0x40];
+
+	u8         reserved_at_80[0x4];
+	u8         state[0x4];
+	u8         credential_pointer[0x18];
+
+	u8         reserved_at_a0[0x8];
+	u8         session_import_kek_ptr[0x18];
+
+	u8         reserved_at_c0[0x140];
+
+	u8         credential[12][0x20];
+
+	u8         reserved_at_380[0x480];
+};
+
+struct mlx5_ifc_create_crypto_login_obj_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits     hdr;
+	struct mlx5_ifc_crypto_login_obj_bits           login_obj;
+};
+
+struct mlx5_ifc_query_crypto_login_obj_out_bits {
+	struct mlx5_ifc_general_obj_out_cmd_hdr_bits    hdr;
+	struct mlx5_ifc_crypto_login_obj_bits           obj;
+};
+
+enum {
+	MLX5_ENCRYPTION_KEY_OBJ_STATE_READY  = 0x0,
+	MLX5_ENCRYPTION_KEY_OBJ_STATE_ERROR  = 0x1,
+};
+
+enum {
+	MLX5_ENCRYPTION_KEY_OBJ_KEY_SIZE_SIZE_128  = 0x0,
+	MLX5_ENCRYPTION_KEY_OBJ_KEY_SIZE_SIZE_256  = 0x1,
+};
+
+enum {
+	MLX5_ENCRYPTION_KEY_OBJ_KEY_PURPOSE_AES_XTS  = 0x3,
+};
+
+struct mlx5_ifc_encryption_key_obj_bits {
+	u8         modify_field_select[0x40];
+
+	u8         state[0x8];
+	u8         reserved_at_48[0xc];
+	u8         key_size[0x4];
+	u8         has_keytag[0x1];
+	u8         reserved_at_59[0x3];
+	u8         key_purpose[0x4];
+
+	u8         reserved_at_60[0x8];
+	u8         pd[0x18];
+
+	u8         reserved_at_80[0x100];
+
+	u8         opaque[0x40];
+
+	u8         reserved_at_1c0[0x40];
+
+	u8         key[32][0x20];
+
+	u8         reserved_at_600[0x200];
+};
+
+struct mlx5_ifc_create_encryption_key_obj_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits     hdr;
+	struct mlx5_ifc_encryption_key_obj_bits         key_obj;
+};
+
+struct mlx5_ifc_query_encryption_key_obj_out_bits {
+	struct mlx5_ifc_general_obj_out_cmd_hdr_bits    hdr;
+	struct mlx5_ifc_encryption_key_obj_bits         obj;
+};
+
+enum {
+	MLX5_ENCRYPTION_ORDER_ENCRYPTED_WIRE_SIGNATURE    = 0x0,
+	MLX5_ENCRYPTION_ORDER_ENCRYPTED_MEMORY_SIGNATURE  = 0x1,
+	MLX5_ENCRYPTION_ORDER_ENCRYPTED_RAW_WIRE          = 0x2,
+	MLX5_ENCRYPTION_ORDER_ENCRYPTED_RAW_MEMORY        = 0x3,
+};
+
+enum {
+	MLX5_ENCRYPTION_STANDARD_AES_XTS  = 0x0,
+};
+
 #endif /* MLX5_IFC_H */

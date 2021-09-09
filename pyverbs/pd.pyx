@@ -63,6 +63,7 @@ cdef class PD(PyverbsCM):
         self.qps = weakref.WeakSet()
         self.parent_domains = weakref.WeakSet()
         self.mkeys = weakref.WeakSet()
+        self.deks = weakref.WeakSet()
 
     def advise_mr(self, advise, uint32_t flags, sg_list not None):
         """
@@ -104,8 +105,8 @@ cdef class PD(PyverbsCM):
         """
         if self.pd != NULL:
             self.logger.debug('Closing PD')
-            close_weakrefs([self.mkeys, self.parent_domains, self.qps, self.ahs,
-                            self.mws, self.mrs, self.srqs])
+            close_weakrefs([self.deks, self.mkeys, self.parent_domains, self.qps,
+                            self.ahs, self.mws, self.mrs, self.srqs])
             if not self._is_imported:
                 rc = v.ibv_dealloc_pd(self.pd)
                 if rc != 0:

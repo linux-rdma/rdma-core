@@ -134,6 +134,8 @@ enum {
 	MLX5_BSF_SIZE_BASIC = 0,
 	MLX5_BSF_SIZE_EXTENDED = 1,
 	MLX5_BSF_SIZE_WITH_INLINE = 2,
+	MLX5_BSF_SIZE_SIG_AND_CRYPTO = 3,
+	MLX5_BSF_TYPE_CRYPTO = 1,
 	MLX5_BSF_SIZE_SHIFT = 6,
 	MLX5_BSF_SBS_SHIFT = 4,
 
@@ -168,6 +170,21 @@ struct mlx5_bsf_inl {
 	uint8_t rsvd[3];
 	uint8_t dif_inc_ref_guard_check;
 	__be16 dif_app_bitmask_check;
+};
+
+struct mlx5_crypto_bsf {
+	uint8_t bsf_size_type;
+	uint8_t enc_order;
+	uint8_t rsvd0;
+	uint8_t enc_standard;
+	__be32 raw_data_size;
+	uint8_t bs_pointer;
+	uint8_t rsvd1[7];
+	__be32 xts_init_tweak[4];
+	__be32 rsvd_dek_ptr;
+	uint8_t rsvd2[4];
+	uint8_t keytag[8];
+	uint8_t rsvd3[16];
 };
 
 struct mlx5_bsf {

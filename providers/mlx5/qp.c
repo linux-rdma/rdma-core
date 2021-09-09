@@ -2287,8 +2287,9 @@ static bool mlx5_umr_block_t10dif_sbs(struct mlx5_sig_block_domain *block_mem,
 	return true;
 }
 
-static int mlx5_umr_fill_bsf(struct mlx5_bsf *bsf,
-			     struct mlx5_sig_block *block)
+static int mlx5_umr_fill_sig_bsf(struct mlx5_bsf *bsf,
+				 struct mlx5_sig_block *block,
+				 bool have_crypto_bsf)
 {
 	struct mlx5_bsf_basic *basic = &bsf->basic;
 	struct mlx5_sig_block_domain *block_mem = &block->attr.mem;
@@ -2300,7 +2301,9 @@ static int mlx5_umr_fill_bsf(struct mlx5_bsf *bsf,
 
 	memset(bsf, 0, sizeof(*bsf));
 
-	basic->bsf_size_sbs |= MLX5_BSF_SIZE_WITH_INLINE << MLX5_BSF_SIZE_SHIFT;
+	basic->bsf_size_sbs |= (have_crypto_bsf ? MLX5_BSF_SIZE_SIG_AND_CRYPTO :
+						  MLX5_BSF_SIZE_WITH_INLINE)
+			       << MLX5_BSF_SIZE_SHIFT;
 	basic->raw_data_size = htobe32(UINT32_MAX);
 	if (block_wire->sig_type != MLX5_SIG_TYPE_NONE ||
 	    block_mem->sig_type != MLX5_SIG_TYPE_NONE)
@@ -2354,6 +2357,68 @@ static int mlx5_umr_fill_bsf(struct mlx5_bsf *bsf,
 				bs_to_bs_selector(block_wire->block_size);
 		}
 	}
+
+	return 0;
+}
+
+static int get_crypto_order(bool encrypt_on_tx,
+			    enum mlx5dv_signature_crypto_order sig_crypto_order,
+			    struct mlx5_sig_block *block)
+{
+	int order = -1;
+
+	if (encrypt_on_tx) {
+		if (sig_crypto_order ==
+		    MLX5DV_SIGNATURE_CRYPTO_ORDER_SIGNATURE_AFTER_CRYPTO_ON_TX)
+			order = MLX5_ENCRYPTION_ORDER_ENCRYPTED_RAW_WIRE;
+		else
+			order = MLX5_ENCRYPTION_ORDER_ENCRYPTED_WIRE_SIGNATURE;
+	} else {
+		if (sig_crypto_order ==
+		    MLX5DV_SIGNATURE_CRYPTO_ORDER_SIGNATURE_AFTER_CRYPTO_ON_TX)
+			order = MLX5_ENCRYPTION_ORDER_ENCRYPTED_MEMORY_SIGNATURE;
+		else
+			order = MLX5_ENCRYPTION_ORDER_ENCRYPTED_RAW_MEMORY;
+	}
+
+	/*
+	 * The combination of RAW_WIRE or RAW_MEMORY with signature configured
+	 * in both memory and wire domains is not yet supported by the device.
+	 * Return error if the user has mistakenly configured it.
+	 */
+	if (order == MLX5_ENCRYPTION_ORDER_ENCRYPTED_RAW_WIRE ||
+	    order == MLX5_ENCRYPTION_ORDER_ENCRYPTED_RAW_MEMORY)
+		if (block && block->attr.mem.sig_type != MLX5_SIG_TYPE_NONE &&
+		    block->attr.wire.sig_type != MLX5_SIG_TYPE_NONE)
+			return -1;
+
+	return order;
+}
+
+static int mlx5_umr_fill_crypto_bsf(struct mlx5_crypto_bsf *crypto_bsf,
+				    struct mlx5_crypto_attr *attr,
+				    struct mlx5_sig_block *block)
+{
+	int order;
+
+	memset(crypto_bsf, 0, sizeof(*crypto_bsf));
+
+	crypto_bsf->bsf_size_type |= MLX5_BSF_SIZE_WITH_INLINE
+				     << MLX5_BSF_SIZE_SHIFT;
+	crypto_bsf->bsf_size_type |= MLX5_BSF_TYPE_CRYPTO;
+	order = get_crypto_order(attr->encrypt_on_tx,
+				 attr->signature_crypto_order, block);
+	if (order < 0)
+		return EINVAL;
+	crypto_bsf->enc_order = order;
+	crypto_bsf->enc_standard = MLX5_ENCRYPTION_STANDARD_AES_XTS;
+	crypto_bsf->raw_data_size = htobe32(UINT32_MAX);
+	crypto_bsf->bs_pointer = bs_to_bs_selector(attr->data_unit_size);
+	memcpy(crypto_bsf->xts_init_tweak, attr->initial_tweak,
+	       sizeof(crypto_bsf->xts_init_tweak));
+	crypto_bsf->rsvd_dek_ptr =
+		htobe32(attr->dek->devx_obj->object_id & 0x00FFFFFF);
+	memcpy(crypto_bsf->keytag, attr->keytag, sizeof(crypto_bsf->keytag));
 
 	return 0;
 }
@@ -2426,84 +2491,54 @@ static uint64_t psv_transient_signature(enum mlx5_sig_type type,
 	return ts;
 }
 
-static void umr_wqe_finalize(struct mlx5_qp *mqp)
+static inline void set_mkc_sig_err_cnt(struct mlx5_mkey *mkey,
+				       struct mlx5_wqe_umr_ctrl_seg *umr_ctrl,
+				       struct mlx5_wqe_mkey_context_seg *mk)
 {
-	struct mlx5_mkey *mkey = mqp->cur_mkey;
-	struct mlx5_sig_block *block;
-	void *seg;
-	void *qend = mqp->sq.qend;
-	struct mlx5_wqe_umr_ctrl_seg *umr_ctrl;
-	struct mlx5_wqe_mkey_context_seg *mk;
-	size_t cur_data_size;
-	size_t max_data_size;
-	size_t bsf_size = sizeof(struct mlx5_bsf);
-	struct mlx5_wqe_ctrl_seg *wqe_ctrl;
-	bool mem_sig;
-	bool wire_sig;
-	uint64_t ts;
-	int ret;
-
-	if (!mkey->sig)
-		goto umr_finalize;
-
-	seg = (void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg);
-	umr_ctrl = seg;
-	seg += sizeof(struct mlx5_wqe_umr_ctrl_seg);
-	if (unlikely(seg == qend))
-		seg = mlx5_get_send_wqe(mqp, 0);
-	mk = seg;
-
 	umr_ctrl->mkey_mask |= htobe64(MLX5_WQE_UMR_CTRL_MKEY_MASK_SIG_ERR);
 	mk->flags_pd |= htobe32(
 		(mkey->sig->err_count & MLX5_WQE_MKEY_CONTEXT_SIG_ERR_CNT_MASK)
 		<< MLX5_WQE_MKEY_CONTEXT_SIG_ERR_CNT_SHIFT);
+}
 
-	block = &mkey->sig->block;
-	if (!(block->updated))
-		goto umr_finalize;
+static inline void suppress_umr_completion(struct mlx5_qp *mqp)
+{
+	struct mlx5_wqe_ctrl_seg *wqe_ctrl;
 
-	cur_data_size = be16toh(umr_ctrl->klm_octowords) * 16;
-	max_data_size = mqp->max_inline_data + sizeof(struct mlx5_wqe_inl_data_seg);
-	if (unlikely((cur_data_size + bsf_size) > max_data_size)) {
-		mqp->err = ENOMEM;
-		return;
-	}
+	/*
+	 * Up to 3 WQEs can be posted to configure an MKEY with the signature
+	 * attributes: 1 UMR + 1 or 2 SET_PSV. The MKEY is ready to use when the
+	 * last WQE is completed. There is no reason to report 3 completions.
+	 * One completion for the last SET_PSV WQE is enough. Reset the signal
+	 * flag to suppress a completion for UMR WQE.
+	 */
+	wqe_ctrl = (void *)mqp->cur_ctrl;
+	wqe_ctrl->fm_ce_se &= ~MLX5_WQE_CTRL_CQ_UPDATE;
+}
 
-	/* The length must fit the raw_data_size of the BSF. */
-	if (unlikely(mkey->length > UINT32_MAX)) {
-		mqp->err = EINVAL;
-		return;
-	}
-
-	seg = mqp->cur_data + cur_data_size;
-	if (unlikely(seg >= qend))
-		seg = qend - seg + mlx5_get_send_wqe(mqp, 0);
-
-	ret = mlx5_umr_fill_bsf(seg, block);
-	if (ret) {
-		mqp->err = ret;
-		return;
-	}
+static inline void
+sig_crypto_umr_wqe_finalize(struct mlx5_qp *mqp, size_t bsf_size,
+			    struct mlx5_wqe_umr_ctrl_seg *umr_ctrl,
+			    struct mlx5_wqe_mkey_context_seg *mk)
+{
 	mqp->cur_size += bsf_size / 16;
 
 	umr_ctrl->bsf_octowords = htobe16(bsf_size / 16);
 	umr_ctrl->mkey_mask |= htobe64(MLX5_WQE_UMR_CTRL_MKEY_MASK_BSF_ENABLE);
 	mk->flags_pd |= htobe32(MLX5_WQE_MKEY_CONTEXT_FLAGS_BSF_ENABLE);
 
-	/*
-	 * Up to 3 WQEs can be posted to configure an MKEY with the signature
-	 * attributes: 1 UMR + 1 or 2 SET_PSV. The MKEY is ready to use when
-	 * the last WQE is completed. There is no reason to report 3
-	 * completions. One completion for the last SET_PSV WQE is enough.
-	 * Reset the signal flag to suppress a completion for UMR WQE.
-	 */
-	wqe_ctrl = (void *)mqp->cur_ctrl;
-	wqe_ctrl->fm_ce_se &= ~MLX5_WQE_CTRL_CQ_UPDATE;
-
 	mqp->nreq++;
 	mqp->fm_cache = MLX5_WQE_CTRL_INITIATOR_SMALL_FENCE;
 	_common_wqe_finalize(mqp);
 	mqp->cur_mkey = NULL;
+}
+
+static inline void mlx5_umr_set_psvs(struct mlx5_qp *mqp,
+				     struct mlx5_sig_block *block)
+{
+	uint64_t ts;
+	bool mem_sig;
+	bool wire_sig;
 
 	mem_sig = block->attr.mem.sig_type != MLX5_SIG_TYPE_NONE;
 	wire_sig = block->attr.wire.sig_type != MLX5_SIG_TYPE_NONE;
@@ -2519,6 +2554,171 @@ static void umr_wqe_finalize(struct mlx5_qp *mqp)
 					     &block->attr.wire.sig);
 		mlx5_umr_set_psv(mqp, block->wire_psv->index, ts, false);
 	}
+}
+
+static void crypto_umr_wqe_finalize(struct mlx5_qp *mqp)
+{
+	struct mlx5_mkey *mkey = mqp->cur_mkey;
+	void *seg;
+	void *qend = mqp->sq.qend;
+	struct mlx5_wqe_umr_ctrl_seg *umr_ctrl;
+	struct mlx5_wqe_mkey_context_seg *mk;
+	size_t cur_data_size;
+	size_t max_data_size;
+	size_t bsf_size = 0;
+	bool set_crypto_bsf = false;
+	bool set_psv = false;
+	int ret;
+
+	seg = (void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg);
+	umr_ctrl = seg;
+	seg += sizeof(struct mlx5_wqe_umr_ctrl_seg);
+	if (unlikely(seg == qend))
+		seg = mlx5_get_send_wqe(mqp, 0);
+	mk = seg;
+
+	if (mkey->sig)
+		set_mkc_sig_err_cnt(mkey, umr_ctrl, mk);
+
+	if (!(mkey->sig &&
+	      mkey->sig->block.state == MLX5_MKEY_BSF_STATE_UPDATED) &&
+	    !(mkey->crypto->state == MLX5_MKEY_BSF_STATE_UPDATED) &&
+	    !(mkey->sig && mkey->sig->block.state == MLX5_MKEY_BSF_STATE_RESET))
+		goto umr_finalize;
+
+	if (mkey->sig) {
+		bsf_size += sizeof(struct mlx5_bsf);
+
+		if (mkey->sig->block.state == MLX5_MKEY_BSF_STATE_UPDATED ||
+		    mkey->sig->block.state == MLX5_MKEY_BSF_STATE_SET)
+			set_psv = true;
+	}
+
+	if (mkey->crypto->state == MLX5_MKEY_BSF_STATE_UPDATED ||
+	    mkey->crypto->state == MLX5_MKEY_BSF_STATE_SET) {
+		bsf_size += sizeof(struct mlx5_crypto_bsf);
+		set_crypto_bsf = true;
+	}
+
+	cur_data_size = be16toh(umr_ctrl->klm_octowords) * 16;
+	max_data_size =
+		mqp->max_inline_data + sizeof(struct mlx5_wqe_inl_data_seg);
+	if (unlikely((cur_data_size + bsf_size) > max_data_size)) {
+		mqp->err = ENOMEM;
+		return;
+	}
+
+	/* The length must fit the raw_data_size of the BSF. */
+	if (unlikely(mkey->length > UINT32_MAX)) {
+		mqp->err = EINVAL;
+		return;
+	}
+
+	seg = mqp->cur_data + cur_data_size;
+	if (unlikely(seg >= qend))
+		seg = qend - seg + mlx5_get_send_wqe(mqp, 0);
+
+	if (mkey->sig) {
+		/* If sig and crypto are enabled, sig BSF must be set */
+		ret = mlx5_umr_fill_sig_bsf(seg, &mkey->sig->block,
+					    set_crypto_bsf);
+		if (ret) {
+			mqp->err = ret;
+			return;
+		}
+
+		if (set_psv)
+			suppress_umr_completion(mqp);
+
+		seg += sizeof(struct mlx5_bsf);
+		if (unlikely(seg == qend))
+			seg = mlx5_get_send_wqe(mqp, 0);
+	}
+
+	if (set_crypto_bsf) {
+		ret = mlx5_umr_fill_crypto_bsf(seg, mkey->crypto,
+					       mkey->sig ? &mkey->sig->block :
+							   NULL);
+		if (ret) {
+			mqp->err = ret;
+			return;
+		}
+	}
+
+	sig_crypto_umr_wqe_finalize(mqp, bsf_size, umr_ctrl, mk);
+
+	if (set_psv)
+		mlx5_umr_set_psvs(mqp, &mkey->sig->block);
+
+	return;
+
+umr_finalize:
+	mqp->nreq++;
+	_common_wqe_finalize(mqp);
+	mqp->cur_mkey = NULL;
+}
+
+static void umr_wqe_finalize(struct mlx5_qp *mqp)
+{
+	struct mlx5_mkey *mkey = mqp->cur_mkey;
+	struct mlx5_sig_block *block;
+	void *seg;
+	void *qend = mqp->sq.qend;
+	struct mlx5_wqe_umr_ctrl_seg *umr_ctrl;
+	struct mlx5_wqe_mkey_context_seg *mk;
+	size_t cur_data_size;
+	size_t max_data_size;
+	size_t bsf_size = sizeof(struct mlx5_bsf);
+	int ret;
+
+	if (!mkey->sig && !mkey->crypto)
+		goto umr_finalize;
+
+	if (mkey->crypto) {
+		crypto_umr_wqe_finalize(mqp);
+		return;
+	}
+
+	seg = (void *)mqp->cur_ctrl + sizeof(struct mlx5_wqe_ctrl_seg);
+	umr_ctrl = seg;
+	seg += sizeof(struct mlx5_wqe_umr_ctrl_seg);
+	if (unlikely(seg == qend))
+		seg = mlx5_get_send_wqe(mqp, 0);
+	mk = seg;
+
+	set_mkc_sig_err_cnt(mkey, umr_ctrl, mk);
+
+	block = &mkey->sig->block;
+	if (block->state != MLX5_MKEY_BSF_STATE_UPDATED)
+		goto umr_finalize;
+
+	cur_data_size = be16toh(umr_ctrl->klm_octowords) * 16;
+	max_data_size =
+		mqp->max_inline_data + sizeof(struct mlx5_wqe_inl_data_seg);
+	if (unlikely((cur_data_size + bsf_size) > max_data_size)) {
+		mqp->err = ENOMEM;
+		return;
+	}
+
+	/* The length must fit the raw_data_size of the BSF. */
+	if (unlikely(mkey->length > UINT32_MAX)) {
+		mqp->err = EINVAL;
+		return;
+	}
+
+	seg = mqp->cur_data + cur_data_size;
+	if (unlikely(seg >= qend))
+		seg = qend - seg + mlx5_get_send_wqe(mqp, 0);
+
+	ret = mlx5_umr_fill_sig_bsf(seg, &mkey->sig->block, false);
+	if (ret) {
+		mqp->err = ret;
+		return;
+	}
+
+	suppress_umr_completion(mqp);
+	sig_crypto_umr_wqe_finalize(mqp, bsf_size, umr_ctrl, mk);
+	mlx5_umr_set_psvs(mqp, block);
 
 	return;
 umr_finalize:
@@ -2586,19 +2786,35 @@ static void mlx5_send_wr_mkey_configure(struct mlx5dv_qp_ex *dv_qp,
 	mqp->cur_data = seg;
 	umr_ctrl->flags = MLX5_WQE_UMR_CTRL_FLAG_INLINE;
 
-	if (attr->conf_flags & MLX5DV_MKEY_CONF_FLAG_RESET_SIG_ATTR)
-		/*
-		 * Set bsf_enable bit in the mask to update the corresponding
-		 * bit in the MKEY context. The new value is 0(BSF is disabled)
-		 * because the MKEY context segment (*mk) was zeroed in few
-		 * lines above.
-		 */
-		mkey_mask |= MLX5_WQE_UMR_CTRL_MKEY_MASK_BSF_ENABLE;
+	if (mkey->sig) {
+		if (attr->conf_flags & MLX5DV_MKEY_CONF_FLAG_RESET_SIG_ATTR) {
+			mkey->sig->block.attr.mem.sig_type = MLX5_SIG_TYPE_NONE;
+			mkey->sig->block.attr.wire.sig_type =
+				MLX5_SIG_TYPE_NONE;
+			mkey->sig->block.state = MLX5_MKEY_BSF_STATE_RESET;
+			/*
+			 * Set bsf_enable bit in the mask to update the
+			 * corresponding bit in the MKEY context. The new value
+			 * is 0 (BSF is disabled) because the MKEY context
+			 * segment (*mk) was zeroed in few lines above.
+			 */
+			mkey_mask |= MLX5_WQE_UMR_CTRL_MKEY_MASK_BSF_ENABLE;
+		} else {
+			if (mkey->sig->block.state ==
+			    MLX5_MKEY_BSF_STATE_UPDATED)
+				mkey->sig->block.state =
+					MLX5_MKEY_BSF_STATE_SET;
+			else if (mkey->sig->block.state ==
+				 MLX5_MKEY_BSF_STATE_RESET)
+				mkey->sig->block.state =
+					MLX5_MKEY_BSF_STATE_INIT;
+		}
+	}
+
+	if (mkey->crypto && mkey->crypto->state == MLX5_MKEY_BSF_STATE_UPDATED)
+		mkey->crypto->state = MLX5_MKEY_BSF_STATE_SET;
 
 	umr_ctrl->mkey_mask = htobe64(mkey_mask);
-
-	if (mkey->sig)
-		mkey->sig->block.updated = false;
 
 	mqp->fm_cache = MLX5_WQE_CTRL_INITIATOR_SMALL_FENCE;
 	mqp->inl_wqe = 1;
@@ -2883,7 +3099,7 @@ static void mlx5_send_wr_set_mkey_sig_block(struct mlx5dv_qp_ex *dv_qp,
 
 	/* Check whether the setter is already called for the current UMR WQE. */
 	sig_block = &mkey->sig->block;
-	if (unlikely(sig_block->updated)) {
+	if (unlikely(sig_block->state == MLX5_MKEY_BSF_STATE_UPDATED)) {
 		mqp->err = EINVAL;
 		return;
 	}
@@ -2925,7 +3141,78 @@ static void mlx5_send_wr_set_mkey_sig_block(struct mlx5dv_qp_ex *dv_qp,
 	sig_block->attr.check_mask = dv_attr->check_mask;
 	sig_block->attr.copy_mask = dv_attr->copy_mask;
 
-	sig_block->updated = true;
+	sig_block->state = MLX5_MKEY_BSF_STATE_UPDATED;
+
+	mqp->cur_setters_cnt++;
+	if (mqp->cur_setters_cnt == mqp->num_mkey_setters)
+		umr_wqe_finalize(mqp);
+}
+
+static void
+mlx5_send_wr_set_mkey_crypto(struct mlx5dv_qp_ex *dv_qp,
+			     const struct mlx5dv_crypto_attr *dv_attr)
+{
+	struct mlx5_qp *mqp = mqp_from_mlx5dv_qp_ex(dv_qp);
+	struct mlx5_mkey *mkey = mqp->cur_mkey;
+	struct mlx5_crypto_attr *crypto_attr;
+
+	if (unlikely(mqp->err))
+		return;
+
+	if (unlikely(!mkey)) {
+		mqp->err = EINVAL;
+		return;
+	}
+
+	if (unlikely(!mkey->crypto)) {
+		mqp->err = EINVAL;
+		return;
+	}
+
+	/* Check whether the setter is already called for the current UMR WQE */
+	crypto_attr = mkey->crypto;
+	if (unlikely(crypto_attr->state == MLX5_MKEY_BSF_STATE_UPDATED)) {
+		mqp->err = EINVAL;
+		return;
+	}
+
+	if (unlikely(dv_attr->comp_mask)) {
+		mqp->err = EINVAL;
+		return;
+	}
+
+	if (unlikely(dv_attr->crypto_standard !=
+		     MLX5DV_CRYPTO_STANDARD_AES_XTS)) {
+		mqp->err = EINVAL;
+		return;
+	}
+
+	if (unlikely(
+		    dv_attr->signature_crypto_order !=
+			    MLX5DV_SIGNATURE_CRYPTO_ORDER_SIGNATURE_AFTER_CRYPTO_ON_TX &&
+		    dv_attr->signature_crypto_order !=
+			    MLX5DV_SIGNATURE_CRYPTO_ORDER_SIGNATURE_BEFORE_CRYPTO_ON_TX)) {
+		mqp->err = EINVAL;
+		return;
+	}
+
+	if (unlikely(dv_attr->data_unit_size < MLX5DV_BLOCK_SIZE_512 ||
+		     dv_attr->data_unit_size > MLX5DV_BLOCK_SIZE_4160)) {
+		mqp->err = EINVAL;
+		return;
+	}
+
+	crypto_attr->crypto_standard = dv_attr->crypto_standard;
+	crypto_attr->encrypt_on_tx = dv_attr->encrypt_on_tx;
+	crypto_attr->signature_crypto_order = dv_attr->signature_crypto_order;
+	crypto_attr->data_unit_size = dv_attr->data_unit_size;
+	crypto_attr->dek = dv_attr->dek;
+	memcpy(crypto_attr->initial_tweak, dv_attr->initial_tweak,
+	       sizeof(crypto_attr->initial_tweak));
+	memcpy(crypto_attr->keytag, dv_attr->keytag,
+	       sizeof(crypto_attr->keytag));
+
+	crypto_attr->state = MLX5_MKEY_BSF_STATE_UPDATED;
 
 	mqp->cur_setters_cnt++;
 	if (mqp->cur_setters_cnt == mqp->num_mkey_setters)
@@ -3209,6 +3496,8 @@ int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 				mlx5_send_wr_set_mkey_layout_interleaved;
 			dv_qp->wr_set_mkey_sig_block =
 				mlx5_send_wr_set_mkey_sig_block;
+			dv_qp->wr_set_mkey_crypto =
+				mlx5_send_wr_set_mkey_crypto;
 			dv_qp->wr_memcpy = mlx5_wr_memcpy;
 		}
 
