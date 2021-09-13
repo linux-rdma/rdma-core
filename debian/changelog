@@ -1,3 +1,12 @@
+rdma-core (36.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Bump Standards-Version to 4.6.0
+  * Install systemd services in /usr/lib/systemd/system
+  * Mark libraries as Multi-Arch: same
+
+ -- Benjamin Drung <benjamin.drung@ionos.com>  Mon, 13 Sep 2021 14:09:01 +0200
+
 rdma-core (33.2-1) unstable; urgency=medium
 
   * New upstream bug-fix release:
