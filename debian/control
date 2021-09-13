@@ -362,6 +362,7 @@ Description: InfiniBand diagnostic programs
 Package: libibmad5
 Section: libs
 Architecture: linux-any
+Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: Infiniband Management Datagram (MAD) library
@@ -390,6 +391,7 @@ Description: Debug symbols for Infiniband Management Datagram (MAD) library
 Package: libibmad-dev
 Section: libdevel
 Architecture: linux-any
+Multi-Arch: same
 Depends: libibmad5 (= ${binary:Version}), ${misc:Depends}
 Description: Development files for libibmad
  libibmad provides low layer Infiniband functions for use by the
@@ -404,6 +406,7 @@ Description: Development files for libibmad
 Package: libibnetdisc5
 Section: libs
 Architecture: linux-any
+Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: InfiniBand diagnostics library
@@ -433,6 +436,7 @@ Description: Debug symbols for the libibnetdisc library
 Package: libibnetdisc-dev
 Section: libdevel
 Architecture: linux-any
+Multi-Arch: same
 Depends: libibnetdisc5 (= ${binary:Version}), ${misc:Depends}
 Breaks: infiniband-diags (<< 2.0.0)
 Replaces: infiniband-diags (<< 2.0.0)
