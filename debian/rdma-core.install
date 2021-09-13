@@ -9,10 +9,6 @@ etc/rdma/modules/opa.conf
 etc/rdma/modules/rdma.conf
 etc/rdma/modules/roce.conf
 etc/udev/rules.d/70-persistent-ipoib.rules
-lib/systemd/system/iwpmd.service
-lib/systemd/system/rdma-hw.target
-lib/systemd/system/rdma-load-modules@.service
-lib/systemd/system/rdma-ndd.service
 lib/udev/rdma_rename
 lib/udev/rules.d/60-rdma-ndd.rules
 lib/udev/rules.d/60-rdma-persistent-naming.rules
@@ -21,6 +17,10 @@ lib/udev/rules.d/90-iwpmd.rules
 lib/udev/rules.d/90-rdma-hw-modules.rules
 lib/udev/rules.d/90-rdma-ulp-modules.rules
 lib/udev/rules.d/90-rdma-umad.rules
+usr/lib/systemd/system/iwpmd.service
+usr/lib/systemd/system/rdma-hw.target
+usr/lib/systemd/system/rdma-load-modules@.service
+usr/lib/systemd/system/rdma-ndd.service
 usr/lib/truescale-serdes.cmds
 usr/sbin/iwpmd
 usr/sbin/rdma-ndd
