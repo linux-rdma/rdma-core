@@ -121,8 +121,8 @@ After=dev-infiniband-umad0.device
 BindsTo=dev-infiniband-umad0.device
 
 [Install]
-# Schedual the unit to be runnable when RDMA hardware is present, but
-# it will only start once the requested device actuall appears.
+# Schedule the unit to be runnable when RDMA hardware is present, but
+# it will only start once the requested device actually appears.
 WantedBy=rdma-hw.target
 ```
 
