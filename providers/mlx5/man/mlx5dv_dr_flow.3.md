@@ -10,7 +10,7 @@ footer: mlx5
 
 # NAME
 
-mlx5dv_dr_domain_create, mlx5dv_dr_domain_sync, mlx5dv_dr_domain_destroy, mlx5dv_dr_domain_set_reclaim_device_memory - Manage flow domains
+mlx5dv_dr_domain_create, mlx5dv_dr_domain_sync, mlx5dv_dr_domain_destroy, mlx5dv_dr_domain_set_reclaim_device_memory, mlx5dv_dr_domain_allow_duplicate_rules - Manage flow domains
 
 mlx5dv_dr_table_create, mlx5dv_dr_table_destroy - Manage flow tables
 
@@ -64,6 +64,8 @@ int mlx5dv_dr_domain_destroy(struct mlx5dv_dr_domain *domain);
 void mlx5dv_dr_domain_set_reclaim_device_memory(
 		struct mlx5dv_dr_domain *dmn,
 		bool enable);
+
+void mlx5dv_dr_domain_allow_duplicate_rules(struct mlx5dv_dr_domain *dmn, bool allow);
 
 struct mlx5dv_dr_table *mlx5dv_dr_table_create(
 		struct mlx5dv_dr_domain *domain,
@@ -197,6 +199,8 @@ Default behavior: Forward packet to eSwitch manager vport.
 
 *mlx5dv_dr_domain_set_reclaim_device_memory()* is used to enable the reclaiming of device memory back to the system when not in use, by default this feature is disabled.
 
+*mlx5dv_dr_domain_allow_duplicate_rules()* is used to allow or prevent insertion of rules matching on same fields(duplicates) on non root tables, by default this feature is allowed.
+
 ## Table
 *mlx5dv_dr_table_create()* creates a DR table in the **domain**, at the appropriate **level**, and can be used with *mlx5dv_dr_matcher_create()* and *mlx5dv_dr_action_create_dest_table()*.
 All packets start traversing the steering domain tree at table **level** zero (0).
@@ -252,12 +256,14 @@ After a packet hits the rule with the ASO object the value of the ASO object wil
 *mlx5dv_dr_action_modify_aso* modifies ASO action **action** with new values for **offset**, **return_reg_c** and **flags**.
 Only new DR rules using this **action** will use the modified values. Existing DR rules do not change the HW action values stored.
 
-**flags** can be set to one of the types of *mlx5dv_dr_action_aso_first_hit_flags* or *mlx5dv_dr_action_aso_flow_meter_flags*:
+**flags** can be set to one of the types of *mlx5dv_dr_action_aso_first_hit_flags* or *mlx5dv_dr_action_aso_flow_meter_flags* or *mlx5dv_dr_action_aso_ct_flags*:
 **MLX5DV_DR_ACTION_ASO_FIRST_HIT_FLAGS_SET**: is used to set the ASO first hit object context, else the context is only copied to the return_reg_c.
 **MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_RED**: is used to indicate to update the initial color in ASO flow meter object value to red.
 **MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_YELLOW**: is used to indicate to update the initial color in ASO flow meter object value to yellow.
 **MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_GREEN**: is used to indicate to update the initial color in ASO flow meter object value to green.
 **MLX5DV_DR_ACTION_FLAGS_ASO_FLOW_METER_UNDEFINED**: is used to indicate to update the initial color in ASO flow meter object value to undefined.
+**MLX5DV_DR_ACTION_FLAGS_ASO_CT_DIRECTION_INITIATOR**: is used to indicate the TCP connection direction the SYN packet was sent on.
+**MLX5DV_DR_ACTION_FLAGS_ASO_CT_DIRECTION_RESPONDER**: is used to indicate the TCP connection direction the SYN-ACK packet was sent on.
 
 Action: Meter
 *mlx5dv_dr_action_create_flow_meter* creates a meter action based on the flow meter parameters. The paramertes are according to the device specification.

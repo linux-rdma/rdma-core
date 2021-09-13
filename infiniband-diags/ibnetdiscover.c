@@ -2,7 +2,7 @@
  * Copyright (c) 2004-2009 Voltaire Inc.  All rights reserved.
  * Copyright (c) 2007 Xsigo Systems Inc.  All rights reserved.
  * Copyright (c) 2008 Lawrence Livermore National Lab.  All rights reserved.
- * Copyright (c) 2010,2011 Mellanox Technologies LTD.  All rights reserved.
+ * Copyright (c) 2010-2020 Mellanox Technologies LTD.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -114,6 +114,8 @@ static const char *dump_linkspeedext_compat(uint32_t espeed, uint32_t speed,
 	case 4:
 		return ("HDR");
 		break;
+	case 8:
+		return ("NDR");
 	}
 	return ("???");
 }

@@ -23,7 +23,7 @@
 
 %define         git_ver %{nil}
 Name:           rdma-core
-Version:        33.2
+Version:        36.0
 Release:        0
 Summary:        RDMA core userspace libraries and daemons
 License:        GPL-2.0-only OR BSD-2-Clause
@@ -105,7 +105,7 @@ Obsoletes:      ofed < %{version}
 # To force build without the use of curl-mini, --without=curlmini
 # should be passed to rpmbuild
 %bcond_without curlmini
-%if 0%{?suse_version} >= 1330
+%if 0%{?suse_version} >= 1330 && 0%{?suse_version} < 1550
 %if %{with curlmini}
 BuildRequires:  curl-mini
 %endif
@@ -416,7 +416,7 @@ easy, object-oriented access to IB verbs.
          -DCMAKE_INSTALL_MANDIR:PATH=%{_mandir} \
          -DCMAKE_INSTALL_SYSCONFDIR:PATH=%{_sysconfdir} \
          -DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=%{_unitdir} \
-         -DCMAKE_INSTALL_SYSTEMD_BINDIR:PATH=%{_libexecdir}/systemd \
+         -DCMAKE_INSTALL_SYSTEMD_BINDIR:PATH=%{_prefix}/lib/systemd \
          -DCMAKE_INSTALL_INITDDIR:PATH=%{_initddir} \
          -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
          -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version} \

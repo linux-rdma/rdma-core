@@ -136,14 +136,14 @@ static int dr_domain_query_fdb_caps(struct ibv_context *ctx,
 				    struct mlx5dv_dr_domain *dmn)
 {
 	struct dr_esw_caps esw_caps = {};
-	int num_vports;
+	uint32_t num_vports;
 	int ret;
 	int i;
 
 	if (!dmn->info.caps.eswitch_manager)
 		return 0;
 
-	num_vports = dmn->info.attr.phys_port_cnt - 1;
+	num_vports = dmn->info.attr.phys_port_cnt_ex - 1;
 	dmn->info.caps.vports_caps = calloc(num_vports + 1,
 					    sizeof(struct dr_devx_vport_cap));
 	if (!dmn->info.caps.vports_caps) {
@@ -198,7 +198,7 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 		return errno;
 	}
 
-	ret = ibv_query_device(ctx, &dmn->info.attr);
+	ret = ibv_query_device_ex(ctx, NULL, &dmn->info.attr);
 	if (ret)
 		return ret;
 
@@ -228,7 +228,7 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 			return 0;
 
 		dmn->info.supp_sw_steering = true;
-		dmn->info.rx.ste_type = DR_STE_TYPE_RX;
+		dmn->info.rx.type = DR_DOMAIN_NIC_TYPE_RX;
 		dmn->info.rx.default_icm_addr = dmn->info.caps.nic_rx_drop_address;
 		dmn->info.rx.drop_icm_addr = dmn->info.caps.nic_rx_drop_address;
 		break;
@@ -239,7 +239,7 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 			return 0;
 
 		dmn->info.supp_sw_steering = true;
-		dmn->info.tx.ste_type = DR_STE_TYPE_TX;
+		dmn->info.tx.type = DR_DOMAIN_NIC_TYPE_TX;
 		dmn->info.tx.default_icm_addr = dmn->info.caps.nic_tx_allow_address;
 		dmn->info.tx.drop_icm_addr = dmn->info.caps.nic_tx_drop_address;
 		break;
@@ -252,8 +252,8 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 		      dmn->info.caps.sw_format_ver <= MLX5_HW_CONNECTX_6DX))
 			return 0;
 
-		dmn->info.rx.ste_type = DR_STE_TYPE_RX;
-		dmn->info.tx.ste_type = DR_STE_TYPE_TX;
+		dmn->info.rx.type = DR_DOMAIN_NIC_TYPE_RX;
+		dmn->info.tx.type = DR_DOMAIN_NIC_TYPE_TX;
 		vport_cap = dr_get_vport_cap(&dmn->info.caps, 0);
 		if (!vport_cap) {
 			dr_dbg(dmn, "Failed to get eswitch manager vport\n");
@@ -341,12 +341,21 @@ mlx5dv_dr_domain_create(struct ibv_context *ctx,
 	dmn->type = type;
 	atomic_init(&dmn->refcount, 1);
 	list_head_init(&dmn->tbl_list);
-	pthread_mutex_init(&dmn->info.rx.mutex, NULL);
-	pthread_mutex_init(&dmn->info.tx.mutex, NULL);
+
+	ret = pthread_spin_init(&dmn->info.rx.lock, PTHREAD_PROCESS_PRIVATE);
+	if (ret) {
+		errno = ret;
+		goto free_domain;
+	}
+	ret = pthread_spin_init(&dmn->info.tx.lock, PTHREAD_PROCESS_PRIVATE);
+	if (ret) {
+		errno = ret;
+		goto free_rx_spin_locks;
+	}
 
 	if (dr_domain_caps_init(ctx, dmn)) {
 		dr_dbg(dmn, "Failed init domain, no caps\n");
-		goto free_domain;
+		goto free_tx_spin_locks;
 	}
 
 	/* Allocate resources */
@@ -369,6 +378,10 @@ mlx5dv_dr_domain_create(struct ibv_context *ctx,
 
 uninit_caps:
 	dr_domain_caps_uninit(dmn);
+free_tx_spin_locks:
+	pthread_spin_destroy(&dmn->info.tx.lock);
+free_rx_spin_locks:
+	pthread_spin_destroy(&dmn->info.rx.lock);
 free_domain:
 	free(dmn);
 	return NULL;
@@ -425,6 +438,17 @@ void mlx5dv_dr_domain_set_reclaim_device_memory(struct mlx5dv_dr_domain *dmn,
 	dr_domain_unlock(dmn);
 }
 
+void mlx5dv_dr_domain_allow_duplicate_rules(struct mlx5dv_dr_domain *dmn,
+					    bool allow)
+{
+	dr_domain_lock(dmn);
+	if (allow)
+		dmn->flags &= ~DR_DOMAIN_FLAG_DISABLE_DUPLICATE_RULES;
+	else
+		dmn->flags |= DR_DOMAIN_FLAG_DISABLE_DUPLICATE_RULES;
+	dr_domain_unlock(dmn);
+}
+
 int mlx5dv_dr_domain_destroy(struct mlx5dv_dr_domain *dmn)
 {
 	if (atomic_load(&dmn->refcount) > 1)
@@ -437,6 +461,9 @@ int mlx5dv_dr_domain_destroy(struct mlx5dv_dr_domain *dmn)
 	}
 
 	dr_domain_caps_uninit(dmn);
+
+	pthread_spin_destroy(&dmn->info.rx.lock);
+	pthread_spin_destroy(&dmn->info.tx.lock);
 
 	free(dmn);
 	return 0;

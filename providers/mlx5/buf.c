@@ -42,50 +42,50 @@
 #include "mlx5.h"
 #include "bitmap.h"
 
-static int mlx5_bitmap_init(struct mlx5_bitmap *bitmap, uint32_t num,
+static int mlx5_bitmap_init(struct mlx5_bitmap *bmp, uint32_t num,
 			    uint32_t mask)
 {
-	bitmap->last = 0;
-	bitmap->top  = 0;
-	bitmap->max  = num;
-	bitmap->avail = num;
-	bitmap->mask = mask;
-	bitmap->avail = bitmap->max;
-	bitmap->table = calloc(BITS_TO_LONGS(bitmap->max), sizeof(*bitmap->table));
-	if (!bitmap->table)
+	bmp->last = 0;
+	bmp->top  = 0;
+	bmp->max  = num;
+	bmp->avail = num;
+	bmp->mask = mask;
+	bmp->avail = bmp->max;
+	bmp->table = calloc(BITS_TO_LONGS(bmp->max), sizeof(*bmp->table));
+	if (!bmp->table)
 		return -ENOMEM;
 
 	return 0;
 }
 
-static void bitmap_free_range(struct mlx5_bitmap *bitmap, uint32_t obj,
+static void bitmap_free_range(struct mlx5_bitmap *bmp, uint32_t obj,
 			      int cnt)
 {
 	int i;
 
-	obj &= bitmap->max - 1;
+	obj &= bmp->max - 1;
 
 	for (i = 0; i < cnt; i++)
-		mlx5_clear_bit(obj + i, bitmap->table);
-	bitmap->last = min(bitmap->last, obj);
-	bitmap->top = (bitmap->top + bitmap->max) & bitmap->mask;
-	bitmap->avail += cnt;
+		mlx5_clear_bit(obj + i, bmp->table);
+	bmp->last = min(bmp->last, obj);
+	bmp->top = (bmp->top + bmp->max) & bmp->mask;
+	bmp->avail += cnt;
 }
 
-static int bitmap_empty(struct mlx5_bitmap *bitmap)
+static int mlx5_bitmap_empty(struct mlx5_bitmap *bmp)
 {
-	return (bitmap->avail == bitmap->max) ? 1 : 0;
+	return (bmp->avail == bmp->max) ? 1 : 0;
 }
 
-static int bitmap_avail(struct mlx5_bitmap *bitmap)
+static int bitmap_avail(struct mlx5_bitmap *bmp)
 {
-	return bitmap->avail;
+	return bmp->avail;
 }
 
-static void mlx5_bitmap_cleanup(struct mlx5_bitmap *bitmap)
+static void mlx5_bitmap_cleanup(struct mlx5_bitmap *bmp)
 {
-	if (bitmap->table)
-		free(bitmap->table);
+	if (bmp->table)
+		free(bmp->table);
 }
 
 static void free_huge_mem(struct mlx5_hugetlb_mem *hmem)
@@ -97,29 +97,29 @@ static void free_huge_mem(struct mlx5_hugetlb_mem *hmem)
 	free(hmem);
 }
 
-static int mlx5_bitmap_alloc(struct mlx5_bitmap *bitmap)
+static int mlx5_bitmap_alloc(struct mlx5_bitmap *bmp)
 {
 	uint32_t obj;
 	int ret;
 
-	obj = mlx5_find_first_zero_bit(bitmap->table, bitmap->max);
-	if (obj < bitmap->max) {
-		mlx5_set_bit(obj, bitmap->table);
-		bitmap->last = (obj + 1);
-		if (bitmap->last == bitmap->max)
-			bitmap->last = 0;
-		obj |= bitmap->top;
+	obj = mlx5_find_first_zero_bit(bmp->table, bmp->max);
+	if (obj < bmp->max) {
+		mlx5_set_bit(obj, bmp->table);
+		bmp->last = (obj + 1);
+		if (bmp->last == bmp->max)
+			bmp->last = 0;
+		obj |= bmp->top;
 		ret = obj;
 	} else
 		ret = -1;
 
 	if (ret != -1)
-		--bitmap->avail;
+		--bmp->avail;
 
 	return ret;
 }
 
-static uint32_t find_aligned_range(unsigned long *bitmap,
+static uint32_t find_aligned_range(unsigned long *bmp,
 				   uint32_t start, uint32_t nbits,
 				   int len, int alignment)
 {
@@ -128,7 +128,7 @@ static uint32_t find_aligned_range(unsigned long *bitmap,
 again:
 	start = align(start, alignment);
 
-	while ((start < nbits) && mlx5_test_bit(start, bitmap))
+	while ((start < nbits) && mlx5_test_bit(start, bmp))
 		start += alignment;
 
 	if (start >= nbits)
@@ -139,7 +139,7 @@ again:
 		return -1;
 
 	for (i = start + 1; i < end; i++) {
-		if (mlx5_test_bit(i, bitmap)) {
+		if (mlx5_test_bit(i, bmp)) {
 			start = i + 1;
 			goto again;
 		}
@@ -148,41 +148,41 @@ again:
 	return start;
 }
 
-static int bitmap_alloc_range(struct mlx5_bitmap *bitmap, int cnt,
+static int bitmap_alloc_range(struct mlx5_bitmap *bmp, int cnt,
 			      int align)
 {
 	uint32_t obj;
 	int ret, i;
 
 	if (cnt == 1 && align == 1)
-		return mlx5_bitmap_alloc(bitmap);
+		return mlx5_bitmap_alloc(bmp);
 
-	if (cnt > bitmap->max)
+	if (cnt > bmp->max)
 		return -1;
 
-	obj = find_aligned_range(bitmap->table, bitmap->last,
-				 bitmap->max, cnt, align);
-	if (obj >= bitmap->max) {
-		bitmap->top = (bitmap->top + bitmap->max) & bitmap->mask;
-		obj = find_aligned_range(bitmap->table, 0, bitmap->max,
+	obj = find_aligned_range(bmp->table, bmp->last,
+				 bmp->max, cnt, align);
+	if (obj >= bmp->max) {
+		bmp->top = (bmp->top + bmp->max) & bmp->mask;
+		obj = find_aligned_range(bmp->table, 0, bmp->max,
 					 cnt, align);
 	}
 
-	if (obj < bitmap->max) {
+	if (obj < bmp->max) {
 		for (i = 0; i < cnt; i++)
-			mlx5_set_bit(obj + i, bitmap->table);
-		if (obj == bitmap->last) {
-			bitmap->last = (obj + cnt);
-			if (bitmap->last >= bitmap->max)
-				bitmap->last = 0;
+			mlx5_set_bit(obj + i, bmp->table);
+		if (obj == bmp->last) {
+			bmp->last = (obj + cnt);
+			if (bmp->last >= bmp->max)
+				bmp->last = 0;
 		}
-		obj |= bitmap->top;
+		obj |= bmp->top;
 		ret = obj;
 	} else
 		ret = -1;
 
 	if (ret != -1)
-		bitmap->avail -= cnt;
+		bmp->avail -= cnt;
 
 	return obj;
 }
@@ -296,7 +296,7 @@ static int alloc_huge_buf(struct mlx5_context *mctx, struct mlx5_buf *buf,
 out_fork:
 	mlx5_spin_lock(&mctx->hugetlb_lock);
 	bitmap_free_range(&hmem->bitmap, buf->base, nchunk);
-	if (bitmap_empty(&hmem->bitmap)) {
+	if (mlx5_bitmap_empty(&hmem->bitmap)) {
 		list_del(&hmem->entry);
 		mlx5_spin_unlock(&mctx->hugetlb_lock);
 		free_huge_mem(hmem);
@@ -316,7 +316,7 @@ static void free_huge_buf(struct mlx5_context *ctx, struct mlx5_buf *buf)
 
 	mlx5_spin_lock(&ctx->hugetlb_lock);
 	bitmap_free_range(&buf->hmem->bitmap, buf->base, nchunk);
-	if (bitmap_empty(&buf->hmem->bitmap)) {
+	if (mlx5_bitmap_empty(&buf->hmem->bitmap)) {
 		list_del(&buf->hmem->entry);
 		mlx5_spin_unlock(&ctx->hugetlb_lock);
 		free_huge_mem(buf->hmem);

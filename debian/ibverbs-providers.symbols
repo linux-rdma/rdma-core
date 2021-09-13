@@ -25,6 +25,9 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  MLX5_1.15@MLX5_1.15 31
  MLX5_1.16@MLX5_1.16 32
  MLX5_1.17@MLX5_1.17 33
+ MLX5_1.18@MLX5_1.18 34
+ MLX5_1.19@MLX5_1.19 35
+ MLX5_1.20@MLX5_1.20 36
  mlx5dv_init_obj@MLX5_1.0 13
  mlx5dv_init_obj@MLX5_1.2 15
  mlx5dv_query_device@MLX5_1.0 13
@@ -121,6 +124,15 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_sched_node_create@MLX5_1.17 33
  mlx5dv_sched_node_destroy@MLX5_1.17 33
  mlx5dv_sched_node_modify@MLX5_1.17 33
+ mlx5dv_reserved_qpn_alloc@MLX5_1.18 34
+ mlx5dv_reserved_qpn_dealloc@MLX5_1.18 34
+ mlx5dv_devx_umem_reg_ex@MLX5_1.19 35
+ mlx5dv_dm_map_op_addr@MLX5_1.19 35
+ _mlx5dv_query_port@MLX5_1.19 35
+ mlx5dv_dr_domain_allow_duplicate_rules@MLX5_1.20 36
+ mlx5dv_map_ah_to_qp@MLX5_1.20 36
+ mlx5dv_qp_cancel_posted_send_wrs@MLX5_1.20 36
+ _mlx5dv_mkey_check@MLX5_1.20 36
 libefa.so.1 ibverbs-providers #MINVER#
 * Build-Depends-Package: libibverbs-dev
  EFA_1.0@EFA_1.0 24

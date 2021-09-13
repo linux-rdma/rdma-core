@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved.  See COPYING file
+# Copyright (c) 2020 Intel Corporation. All rights reserved. See COPYING file
 """
 Provide some useful helper function for pyverbs' tests.
 """
@@ -8,6 +9,8 @@ import errno
 import unittest
 import random
 import socket
+import struct
+import string
 import os
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
@@ -40,6 +43,53 @@ GRH_SIZE = 40
 IMM_DATA = 1234
 
 
+class MatchCriteriaEnable:
+    NONE = 0
+    OUTER = 1
+    MISC = 1 << 1
+    INNER = 1 << 2
+    MISC_2 = 1 << 3
+    MISC_3 = 1 << 4
+
+
+class PacketConsts:
+    """
+    Class to hold constant packets' values.
+    """
+    ETHER_HEADER_SIZE = 14
+    IPV4_HEADER_SIZE = 20
+    IPV6_HEADER_SIZE = 40
+    UDP_HEADER_SIZE = 8
+    TCP_HEADER_SIZE = 20
+    TCP_HEADER_SIZE_WORDS = 5
+    IP_V4 = 4
+    IP_V6 = 6
+    TCP_PROTO = 'tcp'
+    UDP_PROTO = 'udp'
+    IP_V4_FLAGS = 2  # Don't fragment is set
+    TTL_HOP_LIMIT = 64
+    IHL = 5
+    # Hardcoded values for flow matchers
+    ETHER_TYPE_IPV4 = 0x800
+    MAC_MASK = "ff:ff:ff:ff:ff:ff"
+    ETHER_TYPE_IPV6 = 0x86DD
+    SRC_MAC = "24:8a:07:a5:28:c8"
+    # DST mac must be multicast
+    DST_MAC = "01:50:56:19:20:a7"
+    SRC_IP = "1.1.1.1"
+    DST_IP = "2.2.2.2"
+    SRC_PORT = 1234
+    DST_PORT = 5678
+    SRC_IP6 = "a0a1::a2a3:a4a5:a6a7:a8a9"
+    DST_IP6 = "b0b1::b2b3:b4b5:b6b7:b8b9"
+    SEQ_NUM = 1
+    WINDOW_SIZE = 65535
+    VXLAN_PORT = 4789
+    VXLAN_VNI = 7777777
+    VXLAN_FLAGS = 0x8
+    VXLAN_HEADER_SIZE = 8
+
+
 def get_mr_length():
     """
     Provide a random value for MR length. We avoid large buffers as these
@@ -57,8 +107,8 @@ def filter_illegal_access_flags(element):
     :param element: A list of access flags to check
     :return: True if this list is legal, else False
     """
-    if e.IBV_ACCESS_REMOTE_ATOMIC in element or e.IBV_ACCESS_REMOTE_WRITE:
-        if e.IBV_ACCESS_LOCAL_WRITE:
+    if e.IBV_ACCESS_REMOTE_ATOMIC in element or e.IBV_ACCESS_REMOTE_WRITE in element:
+        if not e.IBV_ACCESS_LOCAL_WRITE in element:
             return False
     return True
 
@@ -82,6 +132,31 @@ def get_access_flags(ctx):
         vals.remove(e.IBV_ACCESS_ON_DEMAND)
     if not attr.device_cap_flags & e.IBV_DEVICE_MEM_WINDOW:
         vals.remove(e.IBV_ACCESS_MW_BIND)
+    if not attr.atomic_caps & e.IBV_ATOMIC_HCA:
+        vals.remove(e.IBV_ACCESS_REMOTE_ATOMIC)
+    arr = []
+    for i in range(1, len(vals)):
+        tmp = list(com(vals, i))
+        tmp = filter(filter_illegal_access_flags, tmp)
+        for t in tmp:  # Iterate legal combinations and bitwise OR them
+            val = 0
+            for flag in t:
+                val += flag.value
+            arr.append(val)
+    return arr
+
+
+def get_dmabuf_access_flags(ctx):
+    """
+    Similar to get_access_flags, except that dma-buf MR only support
+    a subset of the flags.
+    :param ctx: Device Context to check capabilities
+    :return: A random legal value for MR flags
+    """
+    attr = ctx.query_device()
+    vals = [e.IBV_ACCESS_LOCAL_WRITE, e.IBV_ACCESS_REMOTE_WRITE,
+            e.IBV_ACCESS_REMOTE_READ, e.IBV_ACCESS_REMOTE_ATOMIC,
+            e.IBV_ACCESS_RELAXED_ORDERING]
     if not attr.atomic_caps & e.IBV_ATOMIC_HCA:
         vals.remove(e.IBV_ACCESS_REMOTE_ATOMIC)
     arr = []
@@ -132,8 +207,7 @@ def random_qp_cap(attr):
     recv_wr = random.randint(1, int(attr.max_qp_wr / 8))
     send_sge = random.randint(1, int(attr.max_sge / 2))
     recv_sge = random.randint(1, int(attr.max_sge / 2))
-    inline = random.randint(0, 16)
-    return QPCap(send_wr, recv_wr, send_sge, recv_sge, inline)
+    return QPCap(send_wr, recv_wr, send_sge, recv_sge)
 
 
 def random_qp_create_mask(qpt, attr_ex):
@@ -347,6 +421,8 @@ def get_global_route(ctx, gid_index=0, port_num=1):
     :param port_num: Number of the port to query. Default: 1
     :return: GlobalRoute object
     """
+    if ctx.query_port(port_num).gid_tbl_len == 0:
+        raise unittest.SkipTest(f'Not supported without GID table')
     gid = ctx.query_gid(port_num, gid_index)
     gr = GlobalRoute(dgid=gid, sgid_index=gid_index)
     return gr
@@ -395,13 +471,13 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
         qp.wr_set_ud_addr(ah, agr_obj.rqps_num[qp_idx], agr_obj.SRD_QKEY)
     if qp_type == e.IBV_QPT_XRC_SEND:
         qp.wr_set_xrc_srqn(agr_obj.remote_srqn)
-    if isinstance(agr_obj, Mlx5DcResources):
+    if hasattr(agr_obj, 'remote_dct_num'):
         qp.wr_set_dc_addr(ah, agr_obj.remote_dct_num, DCT_KEY)
     qp.wr_set_sge(send_object)
     qp.wr_complete()
 
 
-def post_send(agr_obj, send_wr, qp_idx=0, ah=None):
+def post_send(agr_obj, send_wr, qp_idx=0, ah=None, is_imm=False):
     """
     Post a single send WR to the QP. Post_send's second parameter (send bad wr)
     is ignored for simplicity. For UD traffic an address vector is added as
@@ -409,11 +485,17 @@ def post_send(agr_obj, send_wr, qp_idx=0, ah=None):
     :param agr_obj: aggregation object which contains all resources necessary
     :param send_wr: Send work request to post send
     :param qp_idx: QP index to use
+    :param ah: The destination address handle
+    :param is_imm: If True, send with imm_data, relevant for old post send API
     :return: None
     """
     qp_type = agr_obj.qp.qp_type
+    if is_imm:
+        send_wr.imm_data = socket.htonl(IMM_DATA)
     if qp_type == e.IBV_QPT_UD:
         send_wr.set_wr_ud(ah, agr_obj.rqps_num[qp_idx], agr_obj.UD_QKEY)
+    if isinstance(agr_obj, SRDResources):
+        send_wr.set_wr_ud(ah, agr_obj.rqps_num[qp_idx], agr_obj.SRD_QKEY)
     agr_obj.qps[qp_idx].post_send(send_wr, None)
 
 
@@ -526,14 +608,14 @@ def validate(received_str, is_server, msg_size):
                 format(exp=expected_str, rcv=received_str))
 
 
-def send(agr_obj, send_object, send_op=None, new_send=False, qp_idx=0, ah=None):
+def send(agr_obj, send_object, send_op=None, new_send=False, qp_idx=0, ah=None, is_imm=False):
     if new_send:
         return post_send_ex(agr_obj, send_object, send_op, qp_idx, ah)
-    return post_send(agr_obj, send_object, qp_idx, ah)
+    return post_send(agr_obj, send_object, qp_idx, ah, is_imm)
 
 
 def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
-            new_send=False):
+            new_send=False, is_imm=False):
     """
     Runs basic traffic between two sides
     :param client: client side, clients base class is BaseTraffic
@@ -544,6 +626,7 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
     :param is_cq_ex: If True, use poll_cq_ex() rather than poll_cq()
     :param send_op: The send_wr opcode.
     :param new_send: If True use new post send API.
+    :param is_imm: If True, send with imm_data, relevant for old post send API.
     :return:
     """
     if is_datagram_qp(client):
@@ -554,7 +637,8 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
         ah_server = None
     poll = poll_cq_ex if is_cq_ex else poll_cq
     if send_op == e.IBV_QP_EX_WITH_SEND_WITH_IMM or \
-       send_op == e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM:
+       send_op == e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM or \
+       is_imm:
         imm_data = IMM_DATA
     else:
         imm_data = None
@@ -567,7 +651,10 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
     read_offset = GRH_SIZE if client.qp.qp_type == e.IBV_QPT_UD else 0
     for _ in range(iters):
         for qp_idx in range(server.qp_count):
-            c_send_wr, c_sg = get_send_elements(client, False)
+            if imm_data:
+                c_send_wr, c_sg = get_send_elements(client, False, opcode=e.IBV_WR_SEND_WITH_IMM)
+            else:
+                c_send_wr, c_sg = get_send_elements(client, False)
             if client.use_mr_prefetch:
                 flags = e._IBV_ADVISE_MR_FLAG_FLUSH
                 if client.use_mr_prefetch == 'async':
@@ -576,13 +663,16 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
                              flags=flags)
             c_send_object = c_sg if send_op else c_send_wr
             send(client, c_send_object, send_op, new_send, qp_idx,
-                 ah_client)
+                 ah_client, is_imm=is_imm)
             poll(client.cq)
             poll(server.cq, data=imm_data)
             post_recv(server, s_recv_wr, qp_idx=qp_idx)
             msg_received = server.mr.read(server.msg_size, read_offset)
             validate(msg_received, True, server.msg_size)
-            s_send_wr, s_sg = get_send_elements(server, True)
+            if imm_data:
+                s_send_wr, s_sg = get_send_elements(server, True, opcode=e.IBV_WR_SEND_WITH_IMM)
+            else:
+                s_send_wr, s_sg = get_send_elements(server, True)
             if server.use_mr_prefetch:
                 flags = e._IBV_ADVISE_MR_FLAG_FLUSH
                 if server.use_mr_prefetch == 'async':
@@ -591,12 +681,159 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
                              flags=flags)
             s_send_object = s_sg if send_op else s_send_wr
             send(server, s_send_object, send_op, new_send, qp_idx,
-                 ah_server)
+                 ah_server, is_imm=is_imm)
             poll(server.cq)
             poll(client.cq, data=imm_data)
             post_recv(client, c_recv_wr, qp_idx=qp_idx)
             msg_received = client.mr.read(client.msg_size, read_offset)
             validate(msg_received, False, client.msg_size)
+
+
+def gen_outer_headers(msg_size):
+    """
+    Generates outer headers for encapsulation with VXLAN: Ethernet, IPv4, UDP
+    and VXLAN using the values from the PacketConst class.
+    :param msg_size: The size of the inner message
+    :return: Outer headers
+    """
+    # Ethernet Header
+    outer = struct.pack('!6s6s',
+                        bytes.fromhex(PacketConsts.DST_MAC.replace(':', '')),
+                        bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+    outer += PacketConsts.ETHER_TYPE_IPV4.to_bytes(2, 'big')
+    # IPv4 Header
+    ip_total_len = msg_size + PacketConsts.UDP_HEADER_SIZE + \
+                   PacketConsts.IPV4_HEADER_SIZE + \
+                   PacketConsts.VXLAN_HEADER_SIZE
+    outer += struct.pack('!2B3H2BH4s4s', (PacketConsts.IP_V4 << 4) +
+                         PacketConsts.IHL, 0, ip_total_len, 0,
+                         PacketConsts.IP_V4_FLAGS << 13,
+                         PacketConsts.TTL_HOP_LIMIT, socket.IPPROTO_UDP, 0,
+                         socket.inet_aton(PacketConsts.SRC_IP),
+                         socket.inet_aton(PacketConsts.DST_IP))
+    # UDP Header
+    outer += struct.pack('!4H', PacketConsts.SRC_PORT, PacketConsts.VXLAN_PORT,
+                         msg_size + PacketConsts.UDP_HEADER_SIZE + 8, 0)
+    # VXLAN Header
+    outer += struct.pack('!II', PacketConsts.VXLAN_FLAGS << 24,
+                         PacketConsts.VXLAN_VNI << 8)
+    return outer
+
+
+def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO):
+    """
+    Generates a Eth | IPv4 or IPv6 | UDP or TCP packet with hardcoded values in
+    the headers and randomized payload.
+    :param msg_size: total packet size
+    :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
+    :param l4: Packet layer 4 type: 'tcp' or 'udp'
+    :return: packet
+    """
+    l3_header_size = getattr(PacketConsts, f'IPV{str(l3)}_HEADER_SIZE')
+    l4_header_size = getattr(PacketConsts, f'{l4.upper()}_HEADER_SIZE')
+    payload_size = max(0, msg_size - l3_header_size - l4_header_size -
+                       PacketConsts.ETHER_HEADER_SIZE)
+    next_hdr = getattr(socket, f'IPPROTO_{l4.upper()}')
+    ip_total_len = msg_size - PacketConsts.ETHER_HEADER_SIZE
+
+    # Ethernet header
+    packet = struct.pack('!6s6s',
+                         bytes.fromhex(PacketConsts.DST_MAC.replace(':', '')),
+                         bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+    if l3 == PacketConsts.IP_V4:
+        packet += PacketConsts.ETHER_TYPE_IPV4.to_bytes(2, 'big')
+    else:
+        packet += PacketConsts.ETHER_TYPE_IPV6.to_bytes(2, 'big')
+
+    if l3 == PacketConsts.IP_V4:
+        # IPv4 header
+        packet += struct.pack('!2B3H2BH4s4s', (PacketConsts.IP_V4 << 4) +
+                              PacketConsts.IHL, 0, ip_total_len, 0,
+                              PacketConsts.IP_V4_FLAGS << 13,
+                              PacketConsts.TTL_HOP_LIMIT, next_hdr, 0,
+                              socket.inet_aton(PacketConsts.SRC_IP),
+                              socket.inet_aton(PacketConsts.DST_IP))
+    else:
+        # IPv6 header
+        packet += struct.pack('!IH2B16s16s', (PacketConsts.IP_V6 << 28),
+                       ip_total_len, next_hdr, PacketConsts.TTL_HOP_LIMIT,
+                       socket.inet_pton(socket.AF_INET6, PacketConsts.SRC_IP6),
+                       socket.inet_pton(socket.AF_INET6, PacketConsts.DST_IP6))
+
+    if l4 == PacketConsts.UDP_PROTO:
+        # UDP header
+        packet += struct.pack('!4H', PacketConsts.SRC_PORT,
+                              PacketConsts.DST_PORT,
+                              payload_size + PacketConsts.UDP_HEADER_SIZE, 0)
+    else:
+        # TCP header
+        packet += struct.pack('!2H2I4H', PacketConsts.SRC_PORT,
+                              PacketConsts.DST_PORT, 0, 0,
+                              PacketConsts.TCP_HEADER_SIZE_WORDS << 12,
+                              PacketConsts.WINDOW_SIZE, 0, 0)
+    # Payload
+    packet += str.encode('a' * payload_size)
+    return packet
+
+
+def get_send_elements_raw_qp(agr_obj, l3=PacketConsts.IP_V4,
+                             l4=PacketConsts.UDP_PROTO):
+    """
+    Creates a single SGE and a single Send WR for agr_obj's RAW QP type. The
+    content of the message is Eth | Ipv4 | UDP packet.
+    :param agr_obj: Aggregation object which contains all resources necessary
+    :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
+    :param l4: Packet layer 4 type: 'tcp' or 'udp'
+    :return: send wr, its SGE, and message
+    """
+    mr = agr_obj.mr
+    msg = gen_packet(agr_obj.msg_size, l3, l4)
+    mr.write(msg, agr_obj.msg_size)
+    sge = SGE(mr.buf, agr_obj.msg_size, mr.lkey)
+    send_wr = SendWR(opcode=e.IBV_WR_SEND, num_sge=1, sg=[sge])
+    return send_wr, sge, msg
+
+
+def validate_raw(msg_received, msg_expected, skip_idxs):
+    size = len(msg_expected)
+    for i in range(size):
+        if (msg_received[i] != msg_expected[i]) and i not in skip_idxs:
+            err_msg = f'Data validation failure:\nexpected {msg_expected}\n\nreceived {msg_received}'
+            raise PyverbsError(err_msg)
+
+
+def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
+                l4=PacketConsts.UDP_PROTO, expected_packet=None, skip_idxs=[]):
+    """
+    Runs raw ethernet traffic between two sides
+    :param client: client side, clients base class is BaseTraffic
+    :param server: server side, servers base class is BaseTraffic
+    :param iters: number of traffic iterations
+    :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
+    :param l4: Packet layer 4 type: 'tcp' or 'udp'
+    :param expected_packet: Expected packet for validation (when different from
+                            the originally sent).
+    :param skip_idxs: indexes to skip during packet validation
+    :return:
+    """
+    s_recv_wr = get_recv_wr(server)
+    c_recv_wr = get_recv_wr(client)
+    for qp_idx in range(server.qp_count):
+        # prepare the receive queue with RecvWR
+        post_recv(client, c_recv_wr, qp_idx=qp_idx)
+        post_recv(server, s_recv_wr, qp_idx=qp_idx)
+    read_offset = 0
+    for _ in range(iters):
+        for qp_idx in range(server.qp_count):
+            c_send_wr, c_sg, msg = get_send_elements_raw_qp(client, l3, l4)
+            send(client, c_send_wr, e.IBV_WR_SEND, False, qp_idx)
+            poll_cq(client.cq)
+            poll_cq(server.cq)
+            post_recv(server, s_recv_wr, qp_idx=qp_idx)
+            msg_received = server.mr.read(server.msg_size, read_offset)
+            # Validate received packet
+            validate_raw(msg_received,
+                         expected_packet if expected_packet else msg, skip_idxs)
 
 
 def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
@@ -614,7 +851,8 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
     :return:
     """
     # Using the new post send API, we need the SGE, not the SendWR
-    if isinstance(client, Mlx5DcResources):
+    if isinstance(client, Mlx5DcResources) or \
+       isinstance(client, SRDResources):
         ah_client = get_global_ah(client, gid_idx, port)
         ah_server = get_global_ah(server, gid_idx, port)
     else:
@@ -766,6 +1004,17 @@ def requires_huge_pages():
             return func(instance)
         return inner
     return outer
+
+
+def skip_unsupported(func):
+    def func_wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except PyverbsRDMAError as ex:
+            if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                raise unittest.SkipTest(f'Operation not supported ({str(ex)})')
+            raise ex
+    return func_wrapper
 
 
 def huge_pages_supported():

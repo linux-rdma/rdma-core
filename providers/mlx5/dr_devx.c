@@ -179,6 +179,12 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 					capability.cmd_hca_cap.flex_parser_protocols);
 	caps->isolate_vl_tc = DEVX_GET(query_hca_cap_out, out,
 				       capability.cmd_hca_cap.isolate_vl_tc_new);
+	caps->flex_parser_header_modify =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.cmd_hca_cap.flex_parser_header_modify);
+	caps->definer_format_sup =
+		DEVX_GET64(query_hca_cap_out, out,
+			   capability.cmd_hca_cap.match_definer_format_supported);
 	roce = DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.roce);
 
 	caps->sw_format_ver = DEVX_GET(query_hca_cap_out, out,
@@ -224,6 +230,30 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 				 out,
 				 capability.cmd_hca_cap.flex_parser_id_outer_first_mpls_over_udp_label);
 
+	if (caps->flex_protocols & MLX5_FLEX_PARSER_GTPU_DW_0_ENABLED)
+		caps->flex_parser_id_gtpu_dw_0 =
+			DEVX_GET(query_hca_cap_out,
+				 out,
+				 capability.cmd_hca_cap.flex_parser_id_gtpu_dw_0);
+
+	if (caps->flex_protocols & MLX5_FLEX_PARSER_GTPU_TEID_ENABLED)
+		caps->flex_parser_id_gtpu_teid =
+			DEVX_GET(query_hca_cap_out,
+				 out,
+				 capability.cmd_hca_cap.flex_parser_id_gtpu_teid);
+
+	if (caps->flex_protocols & MLX5_FLEX_PARSER_GTPU_DW_2_ENABLED)
+		caps->flex_parser_id_gtpu_dw_2 =
+			DEVX_GET(query_hca_cap_out,
+				 out,
+				 capability.cmd_hca_cap.flex_parser_id_gtpu_dw_2);
+
+	if (caps->flex_protocols & MLX5_FLEX_PARSER_GTPU_FIRST_EXT_DW_0_ENABLED)
+		caps->flex_parser_id_gtpu_first_ext_dw_0 =
+			DEVX_GET(query_hca_cap_out,
+				 out,
+				 capability.cmd_hca_cap.flex_parser_id_gtpu_first_ext_dw_0);
+
 	DEVX_SET(query_hca_cap_in, in, op_mod,
 		 MLX5_SET_HCA_CAP_OP_MOD_NIC_FLOW_TABLE |
 		 HCA_CAP_OPMOD_GET_CUR);
@@ -260,6 +290,15 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 	caps->max_ft_level = DEVX_GET(query_hca_cap_out, out,
 				      capability.flow_table_nic_cap.
 				      flow_table_properties_nic_receive.max_ft_level);
+
+	/* l4_csum_ok is the indication for definer support csum and ok bits.
+	 * Since we don't have definer versions we rely on new field support
+	 */
+	caps->definer_supp_checksum = DEVX_GET(query_hca_cap_out, out,
+					       capability.flow_table_nic_cap.
+					       ft_field_bitmask_support_2_nic_receive.
+					       outer_l4_checksum_ok);
+
 	DEVX_SET(query_hca_cap_in, in, op_mod,
 		 MLX5_SET_HCA_CAP_OP_MOD_DEVICE_MEMORY |
 		 HCA_CAP_OPMOD_GET_CUR);
@@ -298,6 +337,8 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 					      capability.roce_caps.fl_rc_qp_when_roce_disabled);
 		caps->roce_caps.fl_rc_qp_when_roce_enabled = DEVX_GET(query_hca_cap_out, out,
 					      capability.roce_caps.fl_rc_qp_when_roce_enabled);
+		caps->roce_caps.qp_ts_format = DEVX_GET(query_hca_cap_out, out,
+					      capability.roce_caps.qp_ts_format);
 	}
 
 	return 0;
@@ -462,6 +503,9 @@ dr_devx_set_fte(struct ibv_context *ctx,
 				break;
 			case MLX5_FLOW_DEST_TYPE_TIR:
 				id = fte_attr->dest_arr[i].tir_num;
+				break;
+			case MLX5_FLOW_DEST_TYPE_FT:
+				id = fte_attr->dest_arr[i].ft_id;
 				break;
 			default:
 				errno = EOPNOTSUPP;
@@ -633,6 +677,28 @@ int dr_devx_query_flow_sampler(struct mlx5dv_devx_obj *obj,
 	return 0;
 }
 
+struct mlx5dv_devx_obj *dr_devx_create_definer(struct ibv_context *ctx,
+					       uint16_t format_id,
+					       uint8_t *match_mask)
+{
+	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_definer_in)] = {};
+	void *ptr;
+
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 in, opcode, MLX5_CMD_OP_CREATE_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 in, obj_type, MLX5_OBJ_TYPE_MATCH_DEFINER);
+
+	ptr = DEVX_ADDR_OF(create_definer_in, in, definer);
+	DEVX_SET(definer, ptr, format_id, format_id);
+
+	ptr = DEVX_ADDR_OF(definer, ptr, match_mask_dw_7_0);
+	memcpy(ptr, match_mask, DEVX_FLD_SZ_BYTES(definer, match_mask_dw_7_0));
+
+	return mlx5dv_devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
+}
+
 struct mlx5dv_devx_obj *dr_devx_create_reformat_ctx(struct ibv_context *ctx,
 						    enum reformat_type rt,
 						    size_t reformat_size,
@@ -788,6 +854,7 @@ struct mlx5dv_devx_obj *dr_devx_create_qp(struct ibv_context *ctx,
 	DEVX_SET(qpc, qpc, log_rq_size, ilog32(attr->rq_wqe_cnt - 1));
 	DEVX_SET(qpc, qpc, dbr_umem_id, attr->db_umem_id);
 	DEVX_SET(qpc, qpc, isolate_vl_tc, attr->isolate_vl_tc);
+	DEVX_SET(qpc, qpc, ts_format, attr->qp_ts_format);
 
 	DEVX_SET(create_qp_in, in, wq_umem_id, attr->buff_umem_id);
 

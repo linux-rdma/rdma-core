@@ -59,6 +59,7 @@ static const struct verbs_match_ent hca_table[] = {
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA226, &hns_roce_u_hw_v2),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA227, &hns_roce_u_hw_v2),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA228, &hns_roce_u_hw_v2),
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA22F, &hns_roce_u_hw_v2),
 	{}
 };
 
@@ -69,6 +70,7 @@ static const struct verbs_context_ops hns_common_ops = {
 	.cq_event = hns_roce_u_cq_event,
 	.create_cq = hns_roce_u_create_cq,
 	.create_qp = hns_roce_u_create_qp,
+	.create_qp_ex = hns_roce_u_create_qp_ex,
 	.dealloc_mw = hns_roce_u_dealloc_mw,
 	.dealloc_pd = hns_roce_u_free_pd,
 	.dereg_mr = hns_roce_u_dereg_mr,
@@ -80,12 +82,17 @@ static const struct verbs_context_ops hns_common_ops = {
 	.reg_mr = hns_roce_u_reg_mr,
 	.rereg_mr = hns_roce_u_rereg_mr,
 	.create_srq = hns_roce_u_create_srq,
+	.create_srq_ex = hns_roce_u_create_srq_ex,
 	.modify_srq = hns_roce_u_modify_srq,
 	.query_srq = hns_roce_u_query_srq,
 	.destroy_srq = hns_roce_u_destroy_srq,
 	.free_context = hns_roce_free_context,
 	.create_ah = hns_roce_u_create_ah,
 	.destroy_ah = hns_roce_u_destroy_ah,
+	.open_xrcd = hns_roce_u_open_xrcd,
+	.close_xrcd = hns_roce_u_close_xrcd,
+	.open_qp = hns_roce_u_open_qp,
+	.get_srq_num = hns_roce_u_get_srq_num,
 };
 
 static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
@@ -109,21 +116,29 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 				&resp.ibv_resp, sizeof(resp)))
 		goto err_free;
 
-	context->num_qps = resp.qp_tab_size;
-	context->qp_table_shift = ffs(context->num_qps) - 1 -
-				  HNS_ROCE_QP_TABLE_BITS;
-	context->qp_table_mask = (1 << context->qp_table_shift) - 1;
-
-	pthread_mutex_init(&context->qp_table_mutex, NULL);
-	for (i = 0; i < HNS_ROCE_QP_TABLE_SIZE; ++i)
-		context->qp_table[i].refcnt = 0;
-
 	if (!resp.cqe_size)
 		context->cqe_size = HNS_ROCE_CQE_SIZE;
 	else if (resp.cqe_size <= HNS_ROCE_V3_CQE_SIZE)
 		context->cqe_size = resp.cqe_size;
 	else
 		context->cqe_size = HNS_ROCE_V3_CQE_SIZE;
+
+	context->num_qps = resp.qp_tab_size;
+	context->num_srqs = resp.srq_tab_size;
+
+	context->qp_table_shift = ffs(context->num_qps) - 1 -
+				  HNS_ROCE_QP_TABLE_BITS;
+	context->qp_table_mask = (1 << context->qp_table_shift) - 1;
+	pthread_mutex_init(&context->qp_table_mutex, NULL);
+	for (i = 0; i < HNS_ROCE_QP_TABLE_SIZE; ++i)
+		context->qp_table[i].refcnt = 0;
+
+	context->srq_table_shift = ffs(context->num_srqs) - 1 -
+				       HNS_ROCE_SRQ_TABLE_BITS;
+	context->srq_table_mask = (1 << context->srq_table_shift) - 1;
+	pthread_mutex_init(&context->srq_table_mutex, NULL);
+	for (i = 0; i < HNS_ROCE_SRQ_TABLE_SIZE; ++i)
+		context->srq_table[i].refcnt = 0;
 
 	if (hns_roce_u_query_device(&context->ibv_ctx.context, NULL,
 				    container_of(&dev_attrs,
@@ -136,6 +151,8 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	context->max_qp_wr = dev_attrs.max_qp_wr;
 	context->max_sge = dev_attrs.max_sge;
 	context->max_cqe = dev_attrs.max_cqe;
+	context->max_srq_wr = dev_attrs.max_srq_wr;
+	context->max_srq_sge = dev_attrs.max_srq_sge;
 
 	context->uar = mmap(NULL, hr_dev->page_size, PROT_READ | PROT_WRITE,
 			    MAP_SHARED, cmd_fd, offset);

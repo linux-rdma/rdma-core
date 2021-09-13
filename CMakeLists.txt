@@ -53,7 +53,12 @@
 #      (without man pages) when neither pandoc/rst2man nor the pandoc-prebuilt
 #      directory are available.
 
-cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
+if (${CMAKE_VERSION} VERSION_LESS "3.18.1")
+	# Centos 6 support
+	cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
+else()
+	cmake_minimum_required(VERSION 3.18.1 FATAL_ERROR)
+endif()
 project(rdma-core C)
 
 # CMake likes to use -rdynamic too much, they fixed it in 3.4.
@@ -72,11 +77,11 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "33.2")
+set(PACKAGE_VERSION "36.0")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
-set(IBVERBS_PABI_VERSION "33")
+set(IBVERBS_PABI_VERSION "34")
 set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 #-------------------------
@@ -221,7 +226,7 @@ RDMA_EnableCStd()
 # but turn off some that are not terribly useful for this source.
 # FIXME: I wonder how many of the signed compares are bugs?
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WARNINGS
-  "-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter")
+  "-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wno-stringop-overread")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WMISSING_PROTOTYPES "-Wmissing-prototypes")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WMISSING_DECLARATIONS "-Wmissing-declarations")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WWRITE_STRINGS "-Wwrite-strings")
@@ -506,6 +511,24 @@ find_package(Systemd)
 include_directories(${SYSTEMD_INCLUDE_DIRS})
 RDMA_DoFixup("${SYSTEMD_FOUND}" "systemd/sd-daemon.h")
 
+# drm headers
+
+# Check if the headers have been installed by kernel-headers
+find_path(DRM_INCLUDE_DIRS "drm.h" PATH_SUFFIXES "drm")
+
+# Alternatively the headers could have been installed by libdrm
+if (NOT DRM_INCLUDE_DIRS)
+  pkg_check_modules(DRM libdrm)
+endif()
+
+if (DRM_INCLUDE_DIRS)
+  if (EXISTS ${DRM_INCLUDE_DIRS}/i915_drm.h AND EXISTS ${DRM_INCLUDE_DIRS}/amdgpu_drm.h)
+    include_directories(${DRM_INCLUDE_DIRS})
+  else()
+    unset(DRM_INCLUDE_DIRS CACHE)
+  endif()
+endif()
+
 #-------------------------
 # Apply fixups
 
@@ -578,6 +601,13 @@ CHECK_C_SOURCE_COMPILES("
  int main(int argc,const char *argv[]) {char buf[64]; return getrandom(buf, 64, GRND_NONBLOCK);}"
  HAVE_GLIBC_GETRANDOM)
 RDMA_DoFixup("${HAVE_GLIBC_GETRANDOM}" "sys/random.h")
+
+# glibc 2.33 and newer stopped to properly declare __fxstat in sys/stat.h
+RDMA_Check_C_Compiles(HAVE_GLIBC_FXSTAT "
+ #include <sys/stat.h>
+ int main(int argc,const char *argv[]) {
+ struct stat stat = {};  __fxstat(0, 0, &stat);  return 0;}")
+RDMA_DoFixup("${HAVE_GLIBC_FXSTAT}" "sys/stat.h")
 
 #-------------------------
 # Build Prep
@@ -772,4 +802,7 @@ if (NOT HAVE_GLIBC_UAPI_COMPAT)
 endif()
 if (NOT HAVE_TARGET_SSE)
   message(STATUS " attribute(target(\"sse\")) does NOT work")
+endif()
+if (NOT DRM_INCLUDE_DIRS)
+  message(STATUS " DMABUF NOT supported (disabling some tests)")
 endif()

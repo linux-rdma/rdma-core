@@ -3,6 +3,7 @@
  * Copyright (c) 2004, 2011-2012 Intel Corporation.  All rights reserved.
  * Copyright (c) 2005, 2006, 2007 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
+ * Copyright (c) 2020 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -138,6 +139,12 @@ enum ibv_device_cap_flags {
 	IBV_DEVICE_MANAGED_FLOW_STEERING = 1 << 29
 };
 
+enum ibv_fork_status {
+	IBV_FORK_DISABLED,
+	IBV_FORK_ENABLED,
+	IBV_FORK_UNNEEDED,
+};
+
 /*
  * Can't extended above ibv_device_cap_flags enum as in some systems/compilers
  * enum range is limited to 4 bytes.
@@ -157,6 +164,10 @@ struct ibv_alloc_dm_attr {
 	uint32_t comp_mask;
 };
 
+enum ibv_dm_mask {
+	IBV_DM_MASK_HANDLE = 1 << 0,
+};
+
 struct ibv_dm {
 	struct ibv_context *context;
 	int (*memcpy_to_dm)(struct ibv_dm *dm, uint64_t dm_offset,
@@ -164,6 +175,8 @@ struct ibv_dm {
 	int (*memcpy_from_dm)(void *host_addr, struct ibv_dm *dm,
 			      uint64_t dm_offset, size_t length);
 	uint32_t comp_mask;
+
+	uint32_t handle;
 };
 
 struct ibv_device_attr {
@@ -345,6 +358,7 @@ struct ibv_device_attr_ex {
 	uint64_t max_dm_size;
 	struct ibv_pci_atomic_caps pci_atomic_caps;
 	uint32_t xrc_odp_caps;
+	uint32_t phys_port_cnt_ex;
 };
 
 enum ibv_mtu {
@@ -515,6 +529,7 @@ enum ibv_wc_opcode {
 	IBV_WC_TM_RECV,
 	IBV_WC_TM_NO_TAG,
 	IBV_WC_DRIVER1,
+	IBV_WC_DRIVER2,
 };
 
 enum {
@@ -2283,6 +2298,16 @@ struct ibv_mr *ibv_import_mr(struct ibv_pd *pd, uint32_t mr_handle);
 void ibv_unimport_mr(struct ibv_mr *mr);
 
 /**
+ * ibv_import_dm - Import a device memory
+ */
+struct ibv_dm *ibv_import_dm(struct ibv_context *context, uint32_t dm_handle);
+
+/**
+ * ibv_unimport_dm - Unimport a device memory
+ */
+void ibv_unimport_dm(struct ibv_dm *dm);
+
+/**
  * ibv_get_async_event - Get next async event
  * @event: Pointer to use to return async event
  *
@@ -2535,6 +2560,12 @@ __ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length, uint64_t iova,
 	__ibv_reg_mr_iova(pd, addr, length, iova, access,                      \
 			  __builtin_constant_p(                                \
 				  ((access) & IBV_ACCESS_OPTIONAL_RANGE) == 0))
+
+/**
+ * ibv_reg_dmabuf_mr - Register a dambuf-based memory region
+ */
+struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
+				 uint64_t iova, int fd, int access);
 
 enum ibv_rereg_mr_err_code {
 	/* Old MR is valid, invalid input */
@@ -3118,6 +3149,20 @@ ibv_modify_qp_rate_limit(struct ibv_qp *qp,
 }
 
 /**
+ * ibv_query_qp_data_in_order - Checks whether the data is guaranteed to be
+ *   written in-order.
+ * @qp: The QP to query.
+ * @op: Operation type.
+ * @flags: Extra field for future input. For now must be 0.
+ *
+ * Return Value
+ * ibv_query_qp_data_in_order() returns 1 if the data is guaranteed to be
+ *   written in-order, 0 otherwise.
+ */
+int ibv_query_qp_data_in_order(struct ibv_qp *qp, enum ibv_wr_opcode op,
+			       uint32_t flags);
+
+/**
  * ibv_query_qp - Returns the attribute list and current values for the
  *   specified QP.
  * @qp: The QP to query.
@@ -3347,6 +3392,12 @@ int ibv_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid);
  * effect of an application calling fork() is undefined.
  */
 int ibv_fork_init(void);
+
+/**
+ * ibv_is_fork_initialized - Check if fork support
+ * (ibv_fork_init) was enabled.
+ */
+enum ibv_fork_status ibv_is_fork_initialized(void);
 
 /**
  * ibv_node_type_str - Return string describing node_type enum value

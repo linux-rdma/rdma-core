@@ -117,15 +117,15 @@ int mad_register_client_via(int mgmt, uint8_t rmpp_version,
 }
 
 int mad_register_server(int mgmt, uint8_t rmpp_version,
-			long method_mask[], uint32_t class_oui)
+			long method_mask[16 / sizeof(long)], uint32_t class_oui)
 {
 	return mad_register_server_via(mgmt, rmpp_version, method_mask,
 				       class_oui, ibmp);
 }
 
 int mad_register_server_via(int mgmt, uint8_t rmpp_version,
-			    long method_mask[], uint32_t class_oui,
-			    struct ibmad_port *srcport)
+			    long method_mask[16 / sizeof(long)],
+			    uint32_t class_oui, struct ibmad_port *srcport)
 {
 	long class_method_mask[16 / sizeof(long)];
 	uint8_t oui[3];

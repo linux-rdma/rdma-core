@@ -1,5 +1,5 @@
 Name: rdma-core
-Version: 33.2
+Version: 36.0
 Release: 1%{?dist}
 Summary: RDMA core userspace libraries and daemons
 
@@ -92,7 +92,6 @@ scripts, dracut rules, and the rdma-ndd utility.
 
 %package devel
 Summary: RDMA core development libraries and headers
-Requires: %{name}%{?_isa} = %{version}-%{release}
 Requires: libibverbs%{?_isa} = %{version}-%{release}
 Provides: libibverbs-devel = %{version}-%{release}
 Obsoletes: libibverbs-devel < %{version}-%{release}
@@ -146,7 +145,6 @@ compatibility reasons.
 Summary: A library and drivers for direct userspace use of RDMA (InfiniBand/iWARP/RoCE) hardware
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
-Requires: %{name}%{?_isa} = %{version}-%{release}
 Provides: libcxgb4 = %{version}-%{release}
 Obsoletes: libcxgb4 < %{version}-%{release}
 Provides: libefa = %{version}-%{release}
@@ -205,7 +203,6 @@ Summary: InfiniBand Communication Manager Assistant
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
-Requires: %{name}%{?_isa} = %{version}-%{release}
 
 %description -n ibacm
 The ibacm daemon helps reduce the load of managing path record lookups on
@@ -222,7 +219,6 @@ Summary: iWarp Port Mapper userspace daemon
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
-Requires: %{name}%{?_isa} = %{version}-%{release}
 
 %description -n iwpmd
 iwpmd provides a userspace service for iWarp drivers to claim
@@ -230,7 +226,6 @@ tcp ports through the standard socket interface.
 
 %package -n libibumad
 Summary: OpenFabrics Alliance InfiniBand umad (userspace management datagram) library
-Requires: %{name}%{?_isa} = %{version}-%{release}
 
 %description -n libibumad
 libibumad provides the userspace management datagram (umad) library
@@ -239,7 +234,6 @@ are used by the IB diagnostic and management tools, including OpenSM.
 
 %package -n librdmacm
 Summary: Userspace RDMA Connection Manager
-Requires: %{name}%{?_isa} = %{version}-%{release}
 
 %description -n librdmacm
 librdmacm provides a userspace RDMA Communication Management API.
@@ -259,7 +253,6 @@ Obsoletes: openib-srptools <= 0.0.6
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
-Requires: %{name}%{?_isa} = %{version}-%{release}
 
 %description -n srp_daemon
 In conjunction with the kernel ib_srp driver, srp_daemon allows you to

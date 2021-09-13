@@ -53,6 +53,8 @@ int ibv_cmd_alloc_dm(struct ibv_context *ctx,
 		return errno;
 
 	dm->handle = read_attr_obj(UVERBS_ATTR_ALLOC_DM_HANDLE, handle);
+	dm->dm.handle = dm->handle;
+	dm->dm.comp_mask = IBV_DM_MASK_HANDLE;
 	dm->dm.context = ctx;
 
 	return 0;

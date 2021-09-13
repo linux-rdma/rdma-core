@@ -1861,8 +1861,13 @@ int rdma_get_request(struct rdma_cm_id *listen, struct rdma_cm_id **id)
 	if (ret)
 		return ret;
 
+	if (event->event == RDMA_CM_EVENT_REJECTED) {
+		ret = ERR(ECONNREFUSED);
+		goto err;
+	}
+
 	if (event->status) {
-		ret = ERR(event->status);
+		ret = ERR(-event->status);
 		goto err;
 	}
 

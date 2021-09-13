@@ -1,21 +1,111 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 
-from libc.stdint cimport uintptr_t, uint8_t, uint16_t
+from libc.stdint cimport uintptr_t, uint8_t, uint16_t, uint32_t
+from libc.stdlib cimport calloc, free, malloc
+from libc.string cimport memcpy
+from posix.mman cimport munmap
 import logging
 
-from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError
+from pyverbs.providers.mlx5.mlx5dv_mkey cimport Mlx5MrInterleaved, Mlx5Mkey, \
+    Mlx5MkeyConfAttr, Mlx5SigBlockAttr
+from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError, PyverbsError
 from pyverbs.providers.mlx5.mlx5dv_sched cimport Mlx5dvSchedLeaf
 cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
 cimport pyverbs.providers.mlx5.libmlx5 as dv
 from pyverbs.qp cimport QPInitAttrEx, QPEx
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
+from pyverbs.wr cimport copy_sg_array
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.cq cimport CqInitAttrEx
 cimport pyverbs.libibverbs as v
+from pyverbs.device cimport DM
 from pyverbs.addr cimport AH
 from pyverbs.pd cimport PD
+
+
+cdef extern from 'endian.h':
+    unsigned long htobe16(unsigned long host_16bits)
+    unsigned long be16toh(unsigned long network_16bits)
+    unsigned long htobe32(unsigned long host_32bits)
+    unsigned long be32toh(unsigned long network_32bits)
+    unsigned long htobe64(unsigned long host_64bits)
+    unsigned long be64toh(unsigned long network_64bits)
+
+
+cdef char* _prepare_devx_inbox(in_bytes):
+    """
+    Auxiliary function that allocates inboxes for DevX commands, and fills them
+    the bytes input.
+    The allocated box must be freed when it's no longer needed.
+    :param in_bytes: Stream of bytes of the command's input
+    :return: The C allocated inbox
+    """
+    cdef char *in_bytes_c = in_bytes
+    cdef char* in_mailbox = <char*>calloc(1, len(in_bytes))
+    if in_mailbox == NULL:
+        raise MemoryError('Failed to allocate memory')
+    memcpy(in_mailbox, in_bytes_c, len(in_bytes))
+    return in_mailbox
+
+
+cdef char* _prepare_devx_outbox(outlen):
+    """
+    Auxiliary function that allocates the outboxes for DevX commands.
+    The allocated box must be freed when it's no longer needed.
+    :param outlen: Output command's length in bytes
+    :return: The C allocated outbox
+    """
+    cdef char* out_mailbox = <char*>calloc(1, outlen)
+    if out_mailbox == NULL:
+        raise MemoryError('Failed to allocate memory')
+    return out_mailbox
+
+
+cdef class Mlx5DVPortAttr(PyverbsObject):
+    """
+    Represents mlx5dv_port struct, which exposes mlx5-specific capabilities,
+    reported by mlx5dv_query_port()
+    """
+    def __init__(self):
+        super().__init__()
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return print_format.format('flags', hex(self.attr.flags))
+
+    @property
+    def flags(self):
+        return self.attr.flags
+
+    @property
+    def vport(self):
+        return self.attr.vport
+
+    @property
+    def vport_vhca_id(self):
+        return self.attr.vport_vhca_id
+
+    @property
+    def esw_owner_vhca_id(self):
+        return self.attr.esw_owner_vhca_id
+
+    @property
+    def vport_steering_icm_rx(self):
+        return self.attr.vport_steering_icm_rx
+
+    @property
+    def vport_steering_icm_tx(self):
+        return self.attr.vport_steering_icm_tx
+
+    @property
+    def reg_c0_value(self):
+        return self.attr.reg_c0.value
+
+    @property
+    def reg_c0_mask(self):
+        return self.attr.reg_c0.mask
 
 
 cdef class Mlx5DVContextAttr(PyverbsObject):
@@ -84,14 +174,90 @@ cdef class Mlx5Context(Context):
                 dve.MLX5DV_CONTEXT_MASK_TUNNEL_OFFLOADS |\
                 dve.MLX5DV_CONTEXT_MASK_DYN_BFREGS |\
                 dve.MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE |\
+                dve.MLX5DV_CONTEXT_MASK_DC_ODP_CAPS |\
                 dve.MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS
         else:
             dv_attr.comp_mask = comp_mask
         rc = dv.mlx5dv_query_device(self.context, &dv_attr.dv)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to query mlx5 device {name}, got {rc}'.
-                                   format(name=self.name, rc=rc))
+            raise PyverbsRDMAError(f'Failed to query mlx5 device {self.name}.', rc)
         return dv_attr
+
+    @staticmethod
+    def query_mlx5_port(Context ctx, port_num):
+        dv_attr = Mlx5DVPortAttr()
+        rc = dv.mlx5dv_query_port(ctx.context, port_num, &dv_attr.attr)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to query dv port mlx5 {ctx.name} port {port_num}.', rc)
+        return dv_attr
+
+    @staticmethod
+    def reserved_qpn_alloc(Context ctx):
+        """
+        Allocate a reserved QP number from firmware.
+        :param ctx: The device context to issue the action on.
+        :return: The reserved QP number.
+        """
+        cdef uint32_t qpn
+        rc = dv.mlx5dv_reserved_qpn_alloc(ctx.context, &qpn)
+        if rc != 0:
+            raise PyverbsRDMAError('Failed to alloc reserved QP number.', rc)
+        return qpn
+
+    @staticmethod
+    def reserved_qpn_dealloc(Context ctx, qpn):
+        """
+        Release the reserved QP number to firmware.
+        :param ctx: The device context to issue the action on.
+        :param qpn: The QP number to be deallocated.
+        """
+        rc = dv.mlx5dv_reserved_qpn_dealloc(ctx.context, qpn)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to dealloc QP number {qpn}.', rc)
+
+    def devx_general_cmd(self, in_, outlen):
+        """
+        Executes a DevX general command according to the input mailbox.
+        :param in_: Bytes of the general command's input data provided in a
+                    device specification format.
+                    (Stream of bytes or __bytes__ is implemented)
+        :param outlen: Expected output length in bytes
+        :return out: Bytes of the general command's output data provided in a
+                     device specification format
+        """
+        in_bytes = bytes(in_)
+        cdef char *in_mailbox = _prepare_devx_inbox(in_bytes)
+        cdef char *out_mailbox = _prepare_devx_outbox(outlen)
+        rc = dv.mlx5dv_devx_general_cmd(self.context, in_mailbox, len(in_bytes),
+                                        out_mailbox, outlen)
+        try:
+            if rc:
+                raise PyverbsRDMAError("DevX general command failed", rc)
+            out = <bytes>out_mailbox[:outlen]
+        finally:
+            free(in_mailbox)
+            free(out_mailbox)
+        return out
+
+    @staticmethod
+    def device_timestamp_to_ns(Context ctx, device_timestamp):
+        """
+        Convert device timestamp from HCA core clock units to the corresponding
+        nanosecond units. The function uses mlx5dv_get_clock_info to get the
+        device clock information.
+        :param ctx: The device context to issue the action on.
+        :param device_timestamp: The device timestamp to convert.
+        :return: Timestamp in nanoseconds
+        """
+        cdef dv.mlx5dv_clock_info *clock_info
+        clock_info = <dv.mlx5dv_clock_info *>calloc(1, sizeof(dv.mlx5dv_clock_info))
+        rc = dv.mlx5dv_get_clock_info(ctx.context, clock_info)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to get the clock info', rc)
+
+        ns_time = dv.mlx5dv_ts_to_ns(clock_info, device_timestamp)
+        free(clock_info)
+        return ns_time
 
     def __dealloc__(self):
         self.close()
@@ -309,6 +475,22 @@ cdef class Mlx5DVQPInitAttr(PyverbsObject):
     def dct_access_key(self, val):
         self.attr.dc_init_attr.dct_access_key = val
 
+cdef copy_mr_interleaved_array(dv.mlx5dv_mr_interleaved *mr_interleaved_p,
+                               mr_interleaved_lst):
+    """
+    Build C array from the C objects of Mlx5MrInterleaved list and set the
+    mr_interleaved_p to this array address. The mr_interleaved_p should be
+    allocated with enough size for those objects.
+    :param mr_interleaved_p: Pointer to array of mlx5dv_mr_interleaved.
+    :param mr_interleaved_lst: List of Mlx5MrInterleaved.
+    """
+    num_interleaved = len(mr_interleaved_lst)
+    cdef dv.mlx5dv_mr_interleaved *tmp
+    for i in range(num_interleaved):
+        tmp = &(<Mlx5MrInterleaved>mr_interleaved_lst[i]).mlx5dv_mr_interleaved
+        memcpy(mr_interleaved_p, tmp, sizeof(dv.mlx5dv_mr_interleaved))
+        mr_interleaved_p += 1
+
 
 cdef class Mlx5QP(QPEx):
     def __init__(self, Context context, QPInitAttrEx init_attr,
@@ -368,6 +550,123 @@ cdef class Mlx5QP(QPEx):
         dv.mlx5dv_wr_set_dc_addr(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
                                  ah.ah, remote_dctn, remote_dc_key)
 
+    def wr_raw_wqe(self, wqe):
+        """
+        Build a raw work request
+        :param wqe: A Wqe object
+        """
+        cdef void *wqe_ptr = <void *> <uintptr_t> wqe.address
+        dv.mlx5dv_wr_raw_wqe(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex), wqe_ptr)
+
+    def wr_mr_interleaved(self, Mlx5Mkey mkey, access_flags, repeat_count,
+                          mr_interleaved_lst):
+        """
+        Registers an interleaved memory layout by using an indirect mkey and
+        some interleaved data.
+        :param mkey: A Mlx5Mkey instance to reg this memory.
+        :param access_flags: The mkey access flags.
+        :param repeat_count: Number of times to repeat the interleaved layout.
+        :param mr_interleaved_lst: List of Mlx5MrInterleaved.
+        """
+        num_interleaved = len(mr_interleaved_lst)
+        cdef dv.mlx5dv_mr_interleaved *mr_interleaved_p = \
+            <dv.mlx5dv_mr_interleaved*>calloc(1, num_interleaved * sizeof(dv.mlx5dv_mr_interleaved))
+        if mr_interleaved_p == NULL:
+            raise MemoryError('Failed to calloc mr interleaved buffers')
+        copy_mr_interleaved_array(mr_interleaved_p, mr_interleaved_lst)
+        dv.mlx5dv_wr_mr_interleaved(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                    mkey.mlx5dv_mkey, access_flags, repeat_count,
+                                    num_interleaved, mr_interleaved_p)
+        free(mr_interleaved_p)
+
+    def wr_mr_list(self, Mlx5Mkey mkey, access_flags, sge_list):
+        """
+        Registers a memory layout based on list of SGE.
+        :param mkey: A Mlx5Mkey instance to reg this memory.
+        :param access_flags: The mkey access flags.
+        :param sge_list: List of SGE.
+        """
+        num_sges = len(sge_list)
+        cdef v.ibv_sge *sge_p = <v.ibv_sge*>calloc(1, num_sges * sizeof(v.ibv_sge))
+        if sge_p == NULL:
+            raise MemoryError('Failed to calloc sge buffers')
+        copy_sg_array(sge_p, sge_list, num_sges)
+        dv.mlx5dv_wr_mr_list(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                             mkey.mlx5dv_mkey, access_flags, num_sges, sge_p)
+        free(sge_p)
+
+    def wr_mkey_configure(self, Mlx5Mkey mkey, num_setters, Mlx5MkeyConfAttr mkey_config):
+        """
+        Create a work request to configure an Mkey
+        :param mkey: A Mlx5Mkey instance to configure.
+        :param num_setters: The number of setters that must be called after
+                            this function.
+        :param attr: The Mkey configuration attributes.
+        """
+        dv.mlx5dv_wr_mkey_configure(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                    mkey.mlx5dv_mkey, num_setters,
+                                    &mkey_config.mlx5dv_mkey_conf_attr)
+
+    def wr_set_mkey_access_flags(self, access_flags):
+        """
+        Set the memory protection attributes for an Mkey
+        :param access_flags: The mkey access flags.
+        """
+        dv.mlx5dv_wr_set_mkey_access_flags(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                           access_flags)
+
+    def wr_set_mkey_layout_list(self, sge_list):
+        """
+        Set a memory layout for an Mkey based on SGE list.
+        :param sge_list: List of SGE.
+        """
+        num_sges = len(sge_list)
+        cdef v.ibv_sge *sge_p = <v.ibv_sge*>calloc(1, num_sges * sizeof(v.ibv_sge))
+        if sge_p == NULL:
+            raise MemoryError('Failed to calloc sge buffers')
+        copy_sg_array(sge_p, sge_list, num_sges)
+        dv.mlx5dv_wr_set_mkey_layout_list(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                          num_sges, sge_p)
+        free(sge_p)
+
+    def wr_set_mkey_layout_interleaved(self, repeat_count, mr_interleaved_lst):
+        """
+        Set an interleaved memory layout for an Mkey
+        :param repeat_count: Number of times to repeat the interleaved layout.
+        :param mr_interleaved_lst: List of Mlx5MrInterleaved.
+        """
+        num_interleaved = len(mr_interleaved_lst)
+        cdef dv.mlx5dv_mr_interleaved *mr_interleaved_p = \
+            <dv.mlx5dv_mr_interleaved*>calloc(1, num_interleaved * sizeof(dv.mlx5dv_mr_interleaved))
+        if mr_interleaved_p == NULL:
+            raise MemoryError('Failed to calloc mr interleaved buffers')
+        copy_mr_interleaved_array(mr_interleaved_p, mr_interleaved_lst)
+        dv.mlx5dv_wr_set_mkey_layout_interleaved(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                                 repeat_count, num_interleaved,
+                                                 mr_interleaved_p)
+        free(mr_interleaved_p)
+
+    def wr_set_mkey_sig_block(self, Mlx5SigBlockAttr block_attr):
+        """
+        Configure a MKEY for block signature (data integrity) operation.
+        :param block_attr: Block signature attributes to set for the mkey.
+        """
+        dv.mlx5dv_wr_set_mkey_sig_block(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                        &block_attr.mlx5dv_sig_block_attr)
+
+    def cancel_posted_send_wrs(self, wr_id):
+        """
+        Cancel all pending send work requests with supplied wr_id in a QP in
+        SQD state.
+        :param wr_id: The WRID to cancel.
+        :return: Number of work requests that were canceled.
+        """
+        rc = dv.mlx5dv_qp_cancel_posted_send_wrs(dv.mlx5dv_qp_ex_from_ibv_qp_ex(self.qp_ex),
+                                                 wr_id)
+        if rc < 0:
+            raise PyverbsRDMAError(f'Failed to cancel send WRs', -rc)
+        return rc
+
     @staticmethod
     def query_lag_port(QP qp):
         """
@@ -421,6 +720,18 @@ cdef class Mlx5QP(QPEx):
         if rc != 0:
             raise PyverbsRDMAError(f'Failed to modify UDP source port of QP '
                                    f'#{qp.qp.qp_num}', rc)
+
+    @staticmethod
+    def map_ah_to_qp(AH ah, qp_num):
+        """
+        Map the destination path information in ah to the information extracted
+        from the qp.
+        :param ah: The target’s address handle.
+        :param qp_num: The traffic initiator QP number.
+        """
+        rc = dv.mlx5dv_map_ah_to_qp(ah.ah, qp_num)
+        if rc != 0:
+            raise PyverbsRDMAError(f'Failed to map AH to QP #{qp_num}', rc)
 
 
 cdef class Mlx5DVCQInitAttr(PyverbsObject):
@@ -628,13 +939,15 @@ def qp_create_flags_to_str(flags):
          dve.MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE: 'Disable scatter to CQE',
          dve.MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE: 'Allow scatter to CQE',
          dve.MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE:
-             'Packet based credit mode'}
+             'Packet based credit mode',
+         dve.MLX5DV_QP_CREATE_SIG_PIPELINING: 'Support signature pipeline support'}
     return bitmask_to_str(flags, l)
 
 
 def send_ops_flags_to_str(flags):
     l = {dve.MLX5DV_QP_EX_WITH_MR_INTERLEAVED: 'With MR interleaved',
-         dve.MLX5DV_QP_EX_WITH_MR_LIST: 'With MR list'}
+         dve.MLX5DV_QP_EX_WITH_MR_LIST: 'With MR list',
+         dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE: 'With Mkey configure'}
     return bitmask_to_str(flags, l)
 
 
@@ -754,3 +1067,243 @@ cdef class Mlx5UAR(PyverbsObject):
     @property
     def comp_mask(self):
         return self.uar.comp_mask
+
+
+cdef class Mlx5DmOpAddr(PyverbsCM):
+    def __init__(self, DM dm not None, op=0):
+        """
+        Wraps mlx5dv_dm_map_op_addr.
+        Gets operation address of a device memory (DM), which must be munmapped by
+        the user when it's no longer needed.
+        :param dm: Device Memory instance
+        :param op: DM operation type
+        :return: An mmaped address to the DM for the requested operation (op).
+        """
+        self.addr = dv.mlx5dv_dm_map_op_addr(dm.dm, op)
+        if self.addr == NULL:
+            raise PyverbsRDMAErrno('Failed to get DM operation address')
+
+    def unmap(self, length):
+        munmap(self.addr, length)
+
+    def write(self, data):
+        """
+        Writes data (bytes) to the DM operation address using memcpy.
+        :param data: Bytes of data
+        """
+        memcpy(<char *>self.addr, <char *>data, len(data))
+
+    def read(self, length):
+        """
+        Reads 'length' bytes from the DM operation address using memcpy.
+        :param length: Data length to read (in bytes)
+        :return: Read data in bytes
+        """
+        cdef char *data = <char*> calloc(length, sizeof(char))
+        if data == NULL:
+            raise PyverbsError('Failed to allocate memory')
+        memcpy(<char *>data, <char *>self.addr, length)
+        res = data[:length]
+        free(data)
+        return res
+
+    cpdef close(self):
+        self.addr = NULL
+
+    @property
+    def addr(self):
+        return <uintptr_t>self.addr
+
+
+cdef class WqeSeg(PyverbsCM):
+    """
+    An abstract class for WQE segments.
+    Each WQE segment (such as control segment, data segment, etc.) should
+    inherit from this class.
+    """
+
+    @staticmethod
+    def sizeof():
+        return 0
+
+    cpdef _copy_to_buffer(self, addr):
+        memcpy(<void *><uintptr_t>addr, <void *>self.segment, self.sizeof())
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.segment != NULL:
+            free(self.segment)
+            self.segment = NULL
+
+
+cdef class WqeCtrlSeg(WqeSeg):
+    """
+    Wrapper class for dv.mlx5_wqe_ctrl_seg
+    """
+
+    def __init__(self, pi=0, opcode=0, opmod=0, qp_num=0, fm_ce_se=0, ds=0,
+                 signature=0, imm=0):
+        """
+        Create a WqeCtrlSeg by creating a mlx5_wqe_ctrl_seg and
+        using mlx5dv_set_ctrl_seg, segment values are accessed
+        through the getters/setters.
+        """
+        self.segment = calloc(sizeof(dv.mlx5_wqe_ctrl_seg), 1)
+        self.set_ctrl_seg(pi, opcode, opmod, qp_num, fm_ce_se, ds, signature, imm)
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return print_format.format('opcode',
+                                   (<dv.mlx5_wqe_ctrl_seg *>self.segment).opmod_idx_opcode) + \
+               print_format.format('qpn_ds',
+                                   (<dv.mlx5_wqe_ctrl_seg *>self.segment).qpn_ds) + \
+               print_format.format('signature',
+                                   (<dv.mlx5_wqe_ctrl_seg *>self.segment).signature) + \
+               print_format.format('fm_ce_se',
+                                   (<dv.mlx5_wqe_ctrl_seg *>self.segment).fm_ce_se) + \
+               print_format.format('imm',
+                                   (<dv.mlx5_wqe_ctrl_seg *>self.segment).imm)
+
+    def set_ctrl_seg(self, pi, opcode, opmod, qp_num, fm_ce_se, ds, signature, imm):
+        dv.mlx5dv_set_ctrl_seg(<dv.mlx5_wqe_ctrl_seg *>self.segment, pi, opcode,
+                               opmod, qp_num, fm_ce_se, ds, signature, imm)
+
+    @staticmethod
+    def sizeof():
+        return sizeof(dv.mlx5_wqe_ctrl_seg)
+
+    @property
+    def addr(self):
+        return <uintptr_t>self.segment
+
+    @property
+    def opmod_idx_opcode(self):
+        return be32toh((<dv.mlx5_wqe_ctrl_seg *>self.segment).opmod_idx_opcode)
+    @opmod_idx_opcode.setter
+    def opmod_idx_opcode(self, val):
+        (<dv.mlx5_wqe_ctrl_seg *>self.segment).opmod_idx_opcode = htobe32(val)
+
+    @property
+    def qpn_ds(self):
+        return be32toh((<dv.mlx5_wqe_ctrl_seg *>self.segment).qpn_ds)
+    @qpn_ds.setter
+    def qpn_ds(self, val):
+        (<dv.mlx5_wqe_ctrl_seg *>self.segment).qpn_ds = htobe32(val)
+
+    @property
+    def signature(self):
+        return (<dv.mlx5_wqe_ctrl_seg *>self.segment).signature
+    @signature.setter
+    def signature(self, val):
+        (<dv.mlx5_wqe_ctrl_seg *>self.segment).signature = val
+
+    @property
+    def fm_ce_se(self):
+        return (<dv.mlx5_wqe_ctrl_seg *>self.segment).fm_ce_se
+    @fm_ce_se.setter
+    def fm_ce_se(self, val):
+        (<dv.mlx5_wqe_ctrl_seg *>self.segment).fm_ce_se = val
+
+    @property
+    def imm(self):
+        return be32toh((<dv.mlx5_wqe_ctrl_seg *>self.segment).imm)
+    @imm.setter
+    def imm(self, val):
+        (<dv.mlx5_wqe_ctrl_seg *>self.segment).imm = htobe32(val)
+
+
+cdef class WqeDataSeg(WqeSeg):
+
+    def __init__(self, length=0, lkey=0, addr=0):
+        """
+        Create a dv.mlx5_wqe_data_seg by allocating it and using
+        dv.mlx5dv_set_data_seg with the values received in init
+        """
+        self.segment = calloc(sizeof(dv.mlx5_wqe_data_seg), 1)
+        self.set_data_seg(length, lkey, addr)
+
+    @staticmethod
+    def sizeof():
+        return sizeof(dv.mlx5_wqe_data_seg)
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return print_format.format('byte_count',
+                                   (<dv.mlx5_wqe_data_seg *>self.segment).byte_count) + \
+               print_format.format('lkey', (<dv.mlx5_wqe_data_seg *>self.segment).lkey) + \
+               print_format.format('addr', (<dv.mlx5_wqe_data_seg *>self.segment).addr)
+
+    def set_data_seg(self, length, lkey, addr):
+        dv.mlx5dv_set_data_seg(<dv.mlx5_wqe_data_seg *>self.segment,
+                               length, lkey, addr)
+
+    @property
+    def byte_count(self):
+        return be32toh((<dv.mlx5_wqe_data_seg *>self.segment).byte_count)
+    @byte_count.setter
+    def byte_count(self, val):
+        (<dv.mlx5_wqe_data_seg *>self.segment).byte_count = htobe32(val)
+
+    @property
+    def lkey(self):
+        return be32toh((<dv.mlx5_wqe_data_seg *>self.segment).lkey)
+    @lkey.setter
+    def lkey(self, val):
+        (<dv.mlx5_wqe_data_seg *>self.segment).lkey = htobe32(val)
+
+    @property
+    def addr(self):
+        return be64toh((<dv.mlx5_wqe_data_seg *>self.segment).addr)
+    @addr.setter
+    def addr(self, val):
+        (<dv.mlx5_wqe_data_seg *>self.segment).addr = htobe64(val)
+
+
+cdef class Wqe(PyverbsCM):
+    """
+    The Wqe class represents a WQE, which is one or more chained WQE segments.
+    """
+
+    def __init__(self, segments, addr=0):
+        """
+        Create a Wqe with <segments>, in case an address <addr> was not passed
+        by the user, memory would be allocated according to the size needed and
+        the segments are copied over to the buffer.
+        :param segments: The segments (ctrl, data) of the Wqe
+        :param addr: User address to write the WQE on (Optional)
+        """
+        self.segments = segments
+        if addr:
+            self.is_user_addr = True
+            self.addr = <void*><uintptr_t> addr
+        else:
+            self.is_user_addr = False
+            allocation_size = sum(map(lambda x: x.sizeof(), self.segments))
+            self.addr = calloc(allocation_size, 1)
+        addr = <uintptr_t>self.addr
+        for seg in self.segments:
+            seg._copy_to_buffer(addr)
+            addr += seg.sizeof()
+
+    @property
+    def address(self):
+        return <uintptr_t>self.addr
+
+    def __str__(self):
+        ret_str = ''
+        i = 0
+        for segment in self.segments:
+            ret_str += f'Segment type {type(segment)} #{i}:\n' + str(segment)
+            i += 1
+        return ret_str
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.addr != NULL:
+            if not self.is_user_addr:
+                free(self.addr)
+            self.addr = NULL

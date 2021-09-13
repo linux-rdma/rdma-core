@@ -168,3 +168,24 @@ MLX5_1.17 {
 		mlx5dv_sched_node_destroy;
 		mlx5dv_sched_node_modify;
 } MLX5_1.16;
+
+MLX5_1.18 {
+	global:
+		mlx5dv_reserved_qpn_alloc;
+		mlx5dv_reserved_qpn_dealloc;
+} MLX5_1.17;
+
+MLX5_1.19 {
+        global:
+		mlx5dv_devx_umem_reg_ex;
+		mlx5dv_dm_map_op_addr;
+		_mlx5dv_query_port;
+} MLX5_1.18;
+
+MLX5_1.20 {
+	global:
+		mlx5dv_dr_domain_allow_duplicate_rules;
+		mlx5dv_map_ah_to_qp;
+		mlx5dv_qp_cancel_posted_send_wrs;
+		_mlx5dv_mkey_check;
+} MLX5_1.19;

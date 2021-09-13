@@ -70,6 +70,7 @@ static int dr_table_init_nic(struct mlx5dv_dr_domain *dmn,
 
 	nic_tbl->s_anchor = dr_ste_htbl_alloc(dmn->ste_icm_pool,
 					      DR_CHUNK_SIZE_1,
+					      DR_STE_HTBL_TYPE_LEGACY,
 					      DR_STE_LU_TYPE_DONT_CARE,
 					      0);
 	if (!nic_tbl->s_anchor)

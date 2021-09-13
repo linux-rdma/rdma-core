@@ -666,7 +666,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
 	attr->cqe = roundup_pow_of_two(attr->cqe);
 	err = ibv_cmd_create_cq_ex(ibvctx, attr, &cq->verbs_cq,
 				   &cmd.ibv_cmd, sizeof(cmd),
-				   &resp.ibv_resp, sizeof(resp));
+				   &resp.ibv_resp, sizeof(resp), 0);
 	if (err) {
 		errno = err;
 		goto err_free_cq;

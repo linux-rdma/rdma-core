@@ -666,6 +666,15 @@ int ibv_cmd_query_device_any(struct ibv_context *context,
 
 	if (CAN_COPY(xrc_odp_caps, xrc_odp_caps))
 		attr->xrc_odp_caps = resp->xrc_odp_caps;
+
+	if (attr_size >= offsetofend(struct ibv_device_attr_ex, phys_port_cnt_ex)) {
+		struct verbs_sysfs_dev *sysfs_dev = verbs_get_device(context->device)->sysfs;
+
+		if (sysfs_dev->num_ports)
+			attr->phys_port_cnt_ex = sysfs_dev->num_ports;
+		else
+			attr->phys_port_cnt_ex = attr->orig_attr.phys_port_cnt;
+	}
 #undef CAN_COPY
 
 	return 0;

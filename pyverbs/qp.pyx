@@ -12,6 +12,7 @@ from pyverbs.mr cimport MW, MWBindInfo, MWBind
 from pyverbs.wr cimport RecvWR, SendWR, SGE
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.addr cimport AHAttr, GID, AH
+from pyverbs.flow cimport FlowAttr, Flow
 from pyverbs.base cimport close_weakrefs
 cimport pyverbs.libibverbs_enums as e
 from pyverbs.addr cimport GlobalRoute
@@ -943,6 +944,8 @@ cdef class QP(PyverbsCM):
         cdef Context ctx
         super().__init__()
         self.mws = weakref.WeakSet()
+        self.flows = weakref.WeakSet()
+        self.dr_actions = weakref.WeakSet()
         self.update_cqs(init_attr)
         # QP initialization was not done by the provider, we should do it here
         if self.qp == NULL:
@@ -1016,6 +1019,8 @@ cdef class QP(PyverbsCM):
     cdef add_ref(self, obj):
         if isinstance(obj, MW):
             self.mws.add(obj)
+        elif isinstance(obj, Flow):
+            self.flows.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 
@@ -1025,7 +1030,7 @@ cdef class QP(PyverbsCM):
     cpdef close(self):
         if self.qp != NULL:
             self.logger.debug('Closing QP')
-            close_weakrefs([self.mws])
+            close_weakrefs([self.mws, self.flows, self.dr_actions])
             rc = v.ibv_destroy_qp(self.qp)
             if rc:
                 raise PyverbsRDMAError('Failed to destroy QP', rc)
@@ -1223,6 +1228,15 @@ cdef class QP(PyverbsCM):
         rc = v.ibv_bind_mw(self.qp, mw.mw, &mw_bind.mw_bind)
         if rc != 0:
             raise PyverbsRDMAError('Failed to Bind MW', rc)
+
+    def query_data_in_order(self, op, flags=0):
+        """
+        Query if QP data is guaranteed to be in order.
+        :param op: Operation type.
+        :param flags: Extra field for future input. For now must be 0.
+        :return: 1 in case the data is guaranteed to be in order, 0 otherwise.
+        """
+        return v.ibv_query_qp_data_in_order(self.qp, op, flags)
 
     @property
     def qp_type(self):

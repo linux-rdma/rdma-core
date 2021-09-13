@@ -90,7 +90,7 @@ struct Switch {
 	int linearFDBtop;
 	int fdb_base;
 	int enhsp0;
-	int8_t fdb[64];
+	uint8_t fdb[64];
 	char switchinfo[64];
 };
 

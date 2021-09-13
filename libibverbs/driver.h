@@ -2,6 +2,7 @@
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
  * Copyright (c) 2005, 2006 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
+ * Copyright (c) 2020 Intel Corporation. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -53,6 +54,10 @@ enum verbs_xrcd_mask {
 	VERBS_XRCD_RESERVED	= 1 << 1
 };
 
+enum create_cq_cmd_flags {
+	CREATE_CQ_CMD_FLAGS_TS_IGNORED_EX = 1 << 0,
+};
+
 struct verbs_xrcd {
 	struct ibv_xrcd		xrcd;
 	uint32_t		comp_mask;
@@ -87,6 +92,7 @@ enum ibv_mr_type {
 	IBV_MR_TYPE_MR,
 	IBV_MR_TYPE_NULL_MR,
 	IBV_MR_TYPE_IMPORTED_MR,
+	IBV_MR_TYPE_DMABUF_MR,
 };
 
 struct verbs_mr {
@@ -204,6 +210,7 @@ struct verbs_sysfs_dev {
 	uint32_t driver_id;
 	enum ibv_node_type node_type;
 	int ibdev_idx;
+	uint32_t num_ports;
 	uint32_t abi_ver;
 	struct timespec time_created;
 };
@@ -324,6 +331,8 @@ struct verbs_context_ops {
 	void (*free_context)(struct ibv_context *context);
 	int (*free_dm)(struct ibv_dm *dm);
 	int (*get_srq_num)(struct ibv_srq *srq, uint32_t *srq_num);
+	struct ibv_dm *(*import_dm)(struct ibv_context *context,
+				    uint32_t dm_handle);
 	struct ibv_mr *(*import_mr)(struct ibv_pd *pd,
 				    uint32_t mr_handle);
 	struct ibv_pd *(*import_pd)(struct ibv_context *context,
@@ -361,6 +370,8 @@ struct verbs_context_ops {
 			  struct ibv_port_attr *port_attr);
 	int (*query_qp)(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 			int attr_mask, struct ibv_qp_init_attr *init_attr);
+	int (*query_qp_data_in_order)(struct ibv_qp *qp, enum ibv_wr_opcode op,
+				      uint32_t flags);
 	int (*query_rt_values)(struct ibv_context *context,
 			       struct ibv_values_ex *values);
 	int (*query_srq)(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
@@ -371,6 +382,9 @@ struct verbs_context_ops {
 	struct ibv_mr *(*reg_dm_mr)(struct ibv_pd *pd, struct ibv_dm *dm,
 				    uint64_t dm_offset, size_t length,
 				    unsigned int access);
+	struct ibv_mr *(*reg_dmabuf_mr)(struct ibv_pd *pd, uint64_t offset,
+					size_t length, uint64_t iova,
+					int fd, int access);
 	struct ibv_mr *(*reg_mr)(struct ibv_pd *pd, void *addr, size_t length,
 				 uint64_t hca_va, int access);
 	int (*req_notify_cq)(struct ibv_cq *cq, int solicited_only);
@@ -378,6 +392,7 @@ struct verbs_context_ops {
 			void *addr, size_t length, int access);
 	int (*resize_cq)(struct ibv_cq *cq, int cqe);
 	int (*set_ece)(struct ibv_qp *qp, struct ibv_ece *ece);
+	void (*unimport_dm)(struct ibv_dm *dm);
 	void (*unimport_mr)(struct ibv_mr *mr);
 	void (*unimport_pd)(struct ibv_pd *pd);
 };
@@ -489,6 +504,9 @@ int ibv_cmd_advise_mr(struct ibv_pd *pd,
 		      uint32_t flags,
 		      struct ibv_sge *sg_list,
 		      uint32_t num_sge);
+int ibv_cmd_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
+			  uint64_t iova, int fd, int access,
+			  struct verbs_mr *vmr);
 int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
 		     struct ibv_mw *mw, struct ibv_alloc_mw *cmd,
 		     size_t cmd_size,
@@ -500,12 +518,13 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 		      struct ibv_create_cq *cmd, size_t cmd_size,
 		      struct ib_uverbs_create_cq_resp *resp, size_t resp_size);
 int ibv_cmd_create_cq_ex(struct ibv_context *context,
-			 struct ibv_cq_init_attr_ex *cq_attr,
+			 const struct ibv_cq_init_attr_ex *cq_attr,
 			 struct verbs_cq *cq,
 			 struct ibv_create_cq_ex *cmd,
 			 size_t cmd_size,
 			 struct ib_uverbs_ex_create_cq_resp *resp,
-			 size_t resp_size);
+			 size_t resp_size,
+			 uint32_t cmd_flags);
 int ibv_cmd_poll_cq(struct ibv_cq *cq, int ne, struct ibv_wc *wc);
 int ibv_cmd_req_notify_cq(struct ibv_cq *cq, int solicited_only);
 int ibv_cmd_resize_cq(struct ibv_cq *cq, int cqe,

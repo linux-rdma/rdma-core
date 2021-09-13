@@ -9,6 +9,9 @@ libibverbs.so.1 libibverbs1 #MINVER#
  IBVERBS_1.9@IBVERBS_1.9 30
  IBVERBS_1.10@IBVERBS_1.10 31
  IBVERBS_1.11@IBVERBS_1.11 32
+ IBVERBS_1.12@IBVERBS_1.12 34
+ IBVERBS_1.13@IBVERBS_1.13 35
+ IBVERBS_1.14@IBVERBS_1.14 36
  _ibv_query_gid_ex@IBVERBS_1.11 32
  _ibv_query_gid_table@IBVERBS_1.11 32
  ibv_ack_async_event@IBVERBS_1.0 1.1.6
@@ -70,9 +73,11 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_get_pkey_index@IBVERBS_1.5 20
  ibv_get_sysfs_path@IBVERBS_1.0 1.1.6
  ibv_import_device@IBVERBS_1.10 31
+ ibv_import_dm@IBVERBS_1.13 35
  ibv_import_mr@IBVERBS_1.10 31
  ibv_import_pd@IBVERBS_1.10 31
  ibv_init_ah_from_wc@IBVERBS_1.1 1.1.6
+ ibv_is_fork_initialized@IBVERBS_1.13 35
  ibv_modify_qp@IBVERBS_1.0 1.1.6
  ibv_modify_qp@IBVERBS_1.1 1.1.6
  ibv_modify_srq@IBVERBS_1.0 1.1.6
@@ -93,11 +98,13 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_query_port@IBVERBS_1.1 1.1.6
  ibv_query_qp@IBVERBS_1.0 1.1.6
  ibv_query_qp@IBVERBS_1.1 1.1.6
+ ibv_query_qp_data_in_order@IBVERBS_1.14 36
  ibv_query_srq@IBVERBS_1.0 1.1.6
  ibv_query_srq@IBVERBS_1.1 1.1.6
  ibv_rate_to_mbps@IBVERBS_1.1 1.1.8
  ibv_rate_to_mult@IBVERBS_1.0 1.1.6
  ibv_read_sysfs_file@IBVERBS_1.0 1.1.6
+ ibv_reg_dmabuf_mr@IBVERBS_1.12 34
  ibv_reg_mr@IBVERBS_1.0 1.1.6
  ibv_reg_mr@IBVERBS_1.1 1.1.6
  ibv_reg_mr_iova@IBVERBS_1.7 25
@@ -108,6 +115,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  ibv_resize_cq@IBVERBS_1.1 1.1.6
  ibv_resolve_eth_l2_from_gid@IBVERBS_1.1 1.2.0
  ibv_set_ece@IBVERBS_1.10 31
+ ibv_unimport_dm@IBVERBS_1.13 35
  ibv_unimport_mr@IBVERBS_1.10 31
  ibv_unimport_pd@IBVERBS_1.10 31
  ibv_wc_status_str@IBVERBS_1.1 1.1.6

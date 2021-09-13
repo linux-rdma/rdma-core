@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012 Mellanox Technologies, Inc.  All rights reserved.
+ * Copyright (c) 2020 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -628,6 +629,27 @@ struct ibv_mr *mlx5_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	return &mr->vmr.ibv_mr;
 }
 
+struct ibv_mr *mlx5_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
+				  uint64_t iova, int fd, int acc)
+{
+	struct mlx5_mr *mr;
+	int ret;
+
+	mr = calloc(1, sizeof(*mr));
+	if (!mr)
+		return NULL;
+
+	ret = ibv_cmd_reg_dmabuf_mr(pd, offset, length, iova, fd, acc,
+				    &mr->vmr);
+	if (ret) {
+		free(mr);
+		return NULL;
+	}
+	mr->alloc_flags = acc;
+
+	return &mr->vmr.ibv_mr;
+}
+
 struct ibv_mr *mlx5_alloc_null_mr(struct ibv_pd *pd)
 {
 	struct mlx5_mr *mr;
@@ -916,8 +938,6 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 				   int cq_alloc_flags,
 				   struct mlx5dv_cq_init_attr *mlx5cq_attr)
 {
-	struct mlx5_create_cq		cmd = {};
-	struct mlx5_create_cq_resp	resp = {};
 	struct mlx5_create_cq_ex	cmd_ex = {};
 	struct mlx5_create_cq_ex_resp	resp_ex = {};
 	struct mlx5_ib_create_cq       *cmd_drv;
@@ -929,7 +949,6 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	int				rc;
 	struct mlx5_context *mctx = to_mctx(context);
 	FILE *fp = to_mctx(context)->dbg_fp;
-	bool				use_ex = false;
 
 	if (!cq_attr->cqe) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "CQE invalid\n");
@@ -976,9 +995,8 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 	if (cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS) {
 		if (cq_attr->flags & IBV_CREATE_CQ_ATTR_SINGLE_THREADED)
 			cq->flags |= MLX5_CQ_FLAGS_SINGLE_THREADED;
-		if (cq_attr->flags & IBV_CREATE_CQ_ATTR_IGNORE_OVERRUN)
-			use_ex = true;
 	}
+
 	if (cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_PD) {
 		if (!(to_mparent_domain(cq_attr->parent_domain))) {
 			errno = EINVAL;
@@ -986,9 +1004,6 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		}
 		cq->parent_domain = cq_attr->parent_domain;
 	}
-
-	cmd_drv = use_ex ? &cmd_ex.drv_payload : &cmd.drv_payload;
-	resp_drv = use_ex ? &resp_ex.drv_payload : &resp.drv_payload;
 
 	if (cq_alloc_flags & MLX5_CQ_FLAGS_EXTENDED) {
 		rc = mlx5_cq_fill_pfns(cq, cq_attr, mctx);
@@ -998,6 +1013,8 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		}
 	}
 
+	cmd_drv = &cmd_ex.drv_payload;
+	resp_drv = &resp_ex.drv_payload;
 	cq->cons_index = 0;
 
 	if (mlx5_spinlock_init(&cq->lock, !mlx5_single_threaded))
@@ -1077,26 +1094,25 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *context,
 		}
 	}
 
+	if (mctx->flags & MLX5_CTX_FLAGS_REAL_TIME_TS_SUPPORTED &&
+	    !(cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP) &&
+	    cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK)
+		cmd_drv->flags |= MLX5_IB_CREATE_CQ_FLAGS_REAL_TIME_TS;
+
 	if (mctx->nc_uar) {
 		cmd_drv->flags |= MLX5_IB_CREATE_CQ_FLAGS_UAR_PAGE_INDEX;
 		cmd_drv->uar_page_index = mctx->nc_uar->page_id;
 	}
 
-	if (use_ex) {
+	{
 		struct ibv_cq_init_attr_ex cq_attr_ex = *cq_attr;
 
 		cq_attr_ex.cqe = ncqe - 1;
 		ret = ibv_cmd_create_cq_ex(context, &cq_attr_ex, &cq->verbs_cq,
 					   &cmd_ex.ibv_cmd, sizeof(cmd_ex),
-					   &resp_ex.ibv_resp, sizeof(resp_ex));
-	} else {
-		ret = ibv_cmd_create_cq(context, ncqe - 1, cq_attr->channel,
-					cq_attr->comp_vector,
-					&cq->verbs_cq.cq,
-					&cmd.ibv_cmd, sizeof(cmd),
-					&resp.ibv_resp, sizeof(resp));
+					   &resp_ex.ibv_resp, sizeof(resp_ex),
+					   CREATE_CQ_CMD_FLAGS_TS_IGNORED_EX);
 	}
-
 
 	if (ret) {
 		mlx5_dbg(fp, MLX5_DBG_CQ, "ret %d\n", ret);
@@ -2080,7 +2096,8 @@ enum {
 		 MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_MC |
 		 MLX5DV_QP_CREATE_DISABLE_SCATTER_TO_CQE |
 		 MLX5DV_QP_CREATE_ALLOW_SCATTER_TO_CQE |
-		 MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE),
+		 MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE |
+		 MLX5DV_QP_CREATE_SIG_PIPELINING),
 };
 
 static int create_dct(struct ibv_context *context,
@@ -2275,6 +2292,16 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 			if (mlx5_qp_attr->create_flags &
 			    MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE)
 				mlx5_create_flags |= MLX5_QP_FLAG_PACKET_BASED_CREDIT_MODE;
+
+			if (mlx5_qp_attr->create_flags &
+			    MLX5DV_QP_CREATE_SIG_PIPELINING) {
+				if (!(to_mctx(context)->flags &
+				      MLX5_CTX_FLAGS_SQD2RTS_SUPPORTED)) {
+					errno = EOPNOTSUPP;
+					goto err;
+				}
+				qp->flags |= MLX5_QP_FLAGS_DRAIN_SIGERR;
+			}
 
 		}
 
@@ -2652,6 +2679,50 @@ free:
 	return 0;
 }
 
+static int query_dct_in_order(struct ibv_qp *qp)
+{
+	uint32_t in_dct[DEVX_ST_SZ_DW(query_dct_in)] = {};
+	uint32_t out_dct[DEVX_ST_SZ_DW(query_dct_out)] = {};
+	int ret;
+
+	DEVX_SET(query_dct_in, in_dct, opcode, MLX5_CMD_OP_QUERY_DCT);
+	DEVX_SET(query_dct_in, in_dct, dctn, qp->qp_num);
+	ret = mlx5dv_devx_qp_query(qp, in_dct, sizeof(in_dct), out_dct,
+				   sizeof(out_dct));
+	if (ret)
+		return 0;
+
+	return DEVX_GET(query_dct_out, out_dct, dctc.data_in_order);
+}
+
+int mlx5_query_qp_data_in_order(struct ibv_qp *qp, enum ibv_wr_opcode op,
+				uint32_t flags)
+{
+	uint32_t in_qp[DEVX_ST_SZ_DW(query_qp_in)] = {};
+	uint32_t out_qp[DEVX_ST_SZ_DW(query_qp_out)] = {};
+	struct mlx5_context *mctx = to_mctx(qp->context);
+	struct mlx5_qp *mqp = to_mqp(qp);
+	int ret;
+
+	if (flags || !mctx->qp_data_in_order_cap)
+		return 0;
+
+	if (mqp->dc_type == MLX5DV_DCTYPE_DCT)
+		return query_dct_in_order(qp);
+
+	if (qp->state != IBV_QPS_RTS)
+		return 0;
+
+	DEVX_SET(query_qp_in, in_qp, opcode, MLX5_CMD_OP_QUERY_QP);
+	DEVX_SET(query_qp_in, in_qp, qpn, qp->qp_num);
+	ret = mlx5dv_devx_qp_query(qp, in_qp, sizeof(in_qp), out_qp,
+				   sizeof(out_qp));
+	if (ret)
+		return 0;
+
+	return DEVX_GET(query_qp_out, out_qp, qpc.data_in_order);
+}
+
 int mlx5_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
 		  int attr_mask, struct ibv_qp_init_attr *init_attr)
 {
@@ -2837,6 +2908,13 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 		mlx5_spin_unlock(&mqp->rq.lock);
 	}
 
+	if (!ret &&
+	    (attr_mask & IBV_QP_STATE) &&
+	    attr->qp_state == IBV_QPS_INIT &&
+	    (mqp->flags & MLX5_QP_FLAGS_DRAIN_SIGERR)) {
+		ret = mlx5_modify_qp_drain_sigerr(qp);
+	}
+
 	return ret;
 }
 
@@ -3007,6 +3085,9 @@ struct ibv_ah *mlx5_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		}
 	}
 
+	pthread_mutex_init(&ah->mutex, NULL);
+	ah->is_global = attr->is_global;
+
 	return &ah->ibv_ah;
 err:
 	free(ah);
@@ -3024,8 +3105,58 @@ int mlx5_destroy_ah(struct ibv_ah *ah)
 			return err;
 	}
 
+	if (mah->ah_qp_mapping)
+		mlx5dv_devx_obj_destroy(mah->ah_qp_mapping);
+
 	free(mah);
 	return 0;
+}
+
+int mlx5dv_map_ah_to_qp(struct ibv_ah *ah, uint32_t qp_num)
+{
+	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_av_qp_mapping_in)] = {};
+	struct mlx5_context *mctx = to_mctx(ah->context);
+	struct mlx5_ah *mah = to_mah(ah);
+	uint8_t sgid_index;
+	void *attr;
+	int ret = 0;
+
+	if (!is_mlx5_dev(ah->context->device))
+		return EOPNOTSUPP;
+
+	if (!(mctx->general_obj_types_caps &
+	      (1ULL << MLX5_OBJ_TYPE_AV_QP_MAPPING)) ||
+	    !mah->is_global)
+		return EOPNOTSUPP;
+
+	attr = DEVX_ADDR_OF(create_av_qp_mapping_in, in, hdr);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, opcode, MLX5_CMD_OP_CREATE_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, obj_type, MLX5_OBJ_TYPE_AV_QP_MAPPING);
+
+	sgid_index = (be32toh(mah->av.grh_gid_fl) >> 20) & 0xff;
+	attr = DEVX_ADDR_OF(create_av_qp_mapping_in, in, mapping);
+	DEVX_SET(av_qp_mapping, attr, qpn, qp_num);
+	DEVX_SET(av_qp_mapping, attr, remote_address_vector.sl_or_eth_prio,
+		 mah->av.stat_rate_sl);
+	DEVX_SET(av_qp_mapping, attr, remote_address_vector.src_addr_index,
+		 sgid_index);
+	memcpy(DEVX_ADDR_OF(av_qp_mapping, attr,
+			    remote_address_vector.rgid_or_rip),
+	       mah->av.rgid, sizeof(mah->av.rgid));
+
+	pthread_mutex_lock(&mah->mutex);
+	if (!mah->ah_qp_mapping) {
+		mah->ah_qp_mapping = mlx5dv_devx_obj_create(
+			ah->context, in, sizeof(in), out, sizeof(out));
+		if (!mah->ah_qp_mapping)
+			ret = errno;
+	}
+	pthread_mutex_unlock(&mah->mutex);
+
+	return ret;
 }
 
 int mlx5_attach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid)
@@ -3430,6 +3561,62 @@ static void get_pci_atomic_caps(struct ibv_context *context,
 	}
 }
 
+static void get_hca_general_caps_2(struct mlx5_context *mctx)
+{
+	uint16_t opmod = MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE_CAP_2 |
+		HCA_CAP_OPMOD_GET_CUR;
+	uint32_t out[DEVX_ST_SZ_DW(query_hca_cap_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(query_hca_cap_in)] = {};
+	int ret;
+
+	DEVX_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
+	DEVX_SET(query_hca_cap_in, in, op_mod, opmod);
+
+	ret = mlx5dv_devx_general_cmd(&mctx->ibv_ctx.context, in, sizeof(in),
+				      out, sizeof(out));
+	if (ret)
+		return;
+
+	mctx->hca_cap_2_caps.log_reserved_qpns_per_obj =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.cmd_hca_cap_2.log_reserved_qpn_granularity);
+}
+
+static void get_hca_sig_caps(uint32_t *hca_caps, struct mlx5_context *mctx)
+{
+	if (!DEVX_GET(query_hca_cap_out, hca_caps,
+		      capability.cmd_hca_cap.sho) ||
+	    !DEVX_GET(query_hca_cap_out, hca_caps,
+		      capability.cmd_hca_cap.sigerr_domain_and_sig_type))
+		return;
+
+	/* Basic signature offload features */
+	mctx->sig_caps.block_prot =
+		MLX5DV_SIG_PROT_CAP_T10DIF | MLX5DV_SIG_PROT_CAP_CRC;
+
+	mctx->sig_caps.block_size =
+		MLX5DV_BLOCK_SIZE_CAP_512 | MLX5DV_BLOCK_SIZE_CAP_520 |
+		MLX5DV_BLOCK_SIZE_CAP_4096 | MLX5DV_BLOCK_SIZE_CAP_4160;
+
+	mctx->sig_caps.t10dif_bg =
+		MLX5DV_SIG_T10DIF_BG_CAP_CRC | MLX5DV_SIG_T10DIF_BG_CAP_CSUM;
+
+	mctx->sig_caps.crc_type = MLX5DV_SIG_CRC_TYPE_CAP_CRC32;
+
+	/* Optional signature offload features */
+	if (DEVX_GET(query_hca_cap_out, hca_caps,
+		     capability.cmd_hca_cap.sig_block_4048))
+		mctx->sig_caps.block_size |= MLX5DV_BLOCK_SIZE_CAP_4048;
+
+	if (DEVX_GET(query_hca_cap_out, hca_caps,
+		     capability.cmd_hca_cap.sig_crc32c))
+		mctx->sig_caps.crc_type |= MLX5DV_SIG_CRC_TYPE_CAP_CRC32C;
+
+	if (DEVX_GET(query_hca_cap_out, hca_caps,
+		     capability.cmd_hca_cap.sig_crc64_xp10))
+		mctx->sig_caps.crc_type |= MLX5DV_SIG_CRC_TYPE_CAP_CRC64_XP10;
+}
+
 static void get_hca_general_caps(struct mlx5_context *mctx)
 {
 	uint16_t opmod = MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE |
@@ -3445,6 +3632,10 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 				      out, sizeof(out));
 	if (ret)
 		return;
+
+	mctx->qp_data_in_order_cap =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.cmd_hca_cap.qp_data_in_order);
 
 	mctx->entropy_caps.num_lag_ports =
 		DEVX_GET(query_hca_cap_out, out,
@@ -3468,6 +3659,16 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 	mctx->qpc_extension_cap =
 		DEVX_GET(query_hca_cap_out, out,
 			 capability.cmd_hca_cap.qpc_extension);
+
+	mctx->general_obj_types_caps =
+		DEVX_GET64(query_hca_cap_out, out,
+			   capability.cmd_hca_cap.general_obj_types);
+
+	get_hca_sig_caps(out, mctx);
+
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.cmd_hca_cap.hca_cap_2))
+		get_hca_general_caps_2(mctx);
 }
 
 static void get_qos_caps(struct mlx5_context *mctx)
@@ -4288,16 +4489,121 @@ static inline int mlx5_memcpy_from_dm(void *host_addr, struct ibv_dm *ibdm,
 	return mlx5_access_dm(ibdm, dm_offset, host_addr, length, 1);
 }
 
+static void *dm_mmap(struct ibv_context *context, struct mlx5_dm *mdm,
+		     uint16_t page_idx, size_t length)
+{
+	int page_size = to_mdev(context->device)->page_size;
+	uint64_t act_size = align(length, page_size);
+	off_t offset = 0;
+
+	set_command(MLX5_IB_MMAP_DEVICE_MEM, &offset);
+	set_extended_index(page_idx, &offset);
+	return mmap(NULL, act_size, PROT_READ | PROT_WRITE, MAP_SHARED,
+		    context->cmd_fd, page_size * offset);
+}
+
+void *mlx5dv_dm_map_op_addr(struct ibv_dm *dm, uint8_t op)
+{
+	int page_size = to_mdev(dm->context->device)->page_size;
+	struct mlx5_dm *mdm = to_mdm(dm);
+	uint64_t start_offset;
+	uint16_t page_idx;
+	void *va;
+	int ret;
+
+	if (!is_mlx5_dev(dm->context->device)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	DECLARE_COMMAND_BUFFER(cmdb, UVERBS_OBJECT_DM,
+			       MLX5_IB_METHOD_DM_MAP_OP_ADDR, 4);
+	fill_attr_in_obj(cmdb, MLX5_IB_ATTR_DM_MAP_OP_ADDR_REQ_HANDLE,
+			 mdm->verbs_dm.handle);
+	fill_attr_in(cmdb, MLX5_IB_ATTR_DM_MAP_OP_ADDR_REQ_OP, &op, sizeof(op));
+
+	fill_attr_out(cmdb, MLX5_IB_ATTR_DM_MAP_OP_ADDR_RESP_START_OFFSET,
+		      &start_offset, sizeof(start_offset));
+	fill_attr_out(cmdb, MLX5_IB_ATTR_DM_MAP_OP_ADDR_RESP_PAGE_INDEX,
+		      &page_idx, sizeof(page_idx));
+
+	ret = execute_ioctl(dm->context, cmdb);
+	if (ret)
+		return NULL;
+
+	va = dm_mmap(dm->context, mdm, page_idx, mdm->length);
+	if (va == MAP_FAILED)
+		return NULL;
+
+	return va + (start_offset & (page_size - 1));
+}
+
+void mlx5_unimport_dm(struct ibv_dm *ibdm)
+{
+	struct mlx5_dm *dm = to_mdm(ibdm);
+	size_t act_size = align(dm->length,
+				to_mdev(ibdm->context->device)->page_size);
+
+	munmap(dm->mmap_va, act_size);
+	free(dm);
+}
+
+struct ibv_dm *mlx5_import_dm(struct ibv_context *context,
+			      uint32_t dm_handle)
+{
+	DECLARE_COMMAND_BUFFER(cmd, UVERBS_OBJECT_DM, MLX5_IB_METHOD_DM_QUERY,
+			       4);
+	int page_size = to_mdev(context->device)->page_size;
+	uint64_t start_offset, length;
+	struct mlx5_dm *dm;
+	uint16_t page_idx;
+	void *va;
+	int ret;
+
+	dm = calloc(1, sizeof(*dm));
+	if (!dm) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_QUERY_DM_REQ_HANDLE, dm_handle);
+	fill_attr_out(cmd, MLX5_IB_ATTR_QUERY_DM_RESP_START_OFFSET,
+		      &start_offset, sizeof(start_offset));
+	fill_attr_out(cmd, MLX5_IB_ATTR_QUERY_DM_RESP_PAGE_INDEX,
+		      &page_idx, sizeof(page_idx));
+	fill_attr_out(cmd, MLX5_IB_ATTR_QUERY_DM_RESP_LENGTH, &length,
+		      sizeof(length));
+
+	ret = execute_ioctl(context, cmd);
+	if (ret)
+		goto free_dm;
+
+	va = dm_mmap(context, dm, page_idx, length);
+	if (va == MAP_FAILED)
+		goto free_dm;
+
+	dm->mmap_va = va;
+	dm->length = length;
+	dm->start_va = va + (start_offset & (page_size - 1));
+	dm->verbs_dm.dm.memcpy_to_dm = mlx5_memcpy_to_dm;
+	dm->verbs_dm.dm.memcpy_from_dm = mlx5_memcpy_from_dm;
+	dm->verbs_dm.dm.context = context;
+	dm->verbs_dm.handle = dm->verbs_dm.dm.handle = dm_handle;
+
+	return &dm->verbs_dm.dm;
+free_dm:
+	free(dm);
+	return NULL;
+}
+
 static int alloc_dm_memic(struct ibv_context *ctx,
 			  struct mlx5_dm *dm,
 			  struct ibv_alloc_dm_attr *dm_attr,
 			  struct ibv_command_buffer *cmdb)
 {
 	int page_size = to_mdev(ctx->device)->page_size;
-	uint64_t act_size = align(dm_attr->length, page_size);
 	uint64_t start_offset;
 	uint16_t page_idx;
-	off_t offset = 0;
 	void *va;
 
 	if (dm_attr->length > to_mctx(ctx)->max_dm_size) {
@@ -4314,11 +4620,7 @@ static int alloc_dm_memic(struct ibv_context *ctx,
 	if (ibv_cmd_alloc_dm(ctx, dm_attr, &dm->verbs_dm, cmdb))
 		return EINVAL;
 
-	set_command(MLX5_IB_MMAP_DEVICE_MEM, &offset);
-	set_extended_index(page_idx, &offset);
-	va = mmap(NULL, act_size, PROT_READ | PROT_WRITE,
-		  MAP_SHARED, ctx->cmd_fd,
-		  page_size * offset);
+	va = dm_mmap(ctx, dm, page_idx, dm_attr->length);
 	if (va == MAP_FAILED) {
 		ibv_cmd_free_dm(&dm->verbs_dm);
 		return ENOMEM;
@@ -4779,16 +5081,24 @@ mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 				    NULL);
 }
 
-struct mlx5dv_devx_umem *
-mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint32_t access)
+static struct mlx5dv_devx_umem *
+_mlx5dv_devx_umem_reg_ex(struct ibv_context *context,
+			 struct mlx5dv_devx_umem_in *in,
+			 bool legacy)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_UMEM,
 			       MLX5_IB_METHOD_DEVX_UMEM_REG,
-			       5);
+			       6);
+	struct ib_uverbs_attr *pgsz_bitmap;
 	struct ib_uverbs_attr *handle;
 	struct mlx5_devx_umem *umem;
 	int ret;
+
+	if (!check_comp_mask(in->comp_mask, 0)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	umem = calloc(1, sizeof(*umem));
 	if (!umem) {
@@ -4796,12 +5106,16 @@ mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint3
 		return NULL;
 	}
 
-	if (ibv_dontfork_range(addr, size))
+	if (ibv_dontfork_range(in->addr, in->size))
 		goto err;
 
-	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ADDR, (intptr_t)addr);
-	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_LEN, size);
-	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ACCESS, access);
+	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ADDR, (intptr_t)in->addr);
+	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_LEN, in->size);
+	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ACCESS, in->access);
+	pgsz_bitmap = fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_PGSZ_BITMAP,
+					 in->pgsz_bitmap);
+	if (legacy)
+		attr_optional(pgsz_bitmap);
 	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_OUT_ID,
 		      &umem->dv_devx_umem.umem_id,
 		      sizeof(umem->dv_devx_umem.umem_id));
@@ -4813,16 +5127,36 @@ mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint3
 
 	umem->handle = read_attr_obj(MLX5_IB_ATTR_DEVX_UMEM_REG_HANDLE, handle);
 	umem->context = context;
-	umem->addr = addr;
-	umem->size = size;
+	umem->addr = in->addr;
+	umem->size = in->size;
 
 	return &umem->dv_devx_umem;
 
 err_umem_reg_cmd:
-	ibv_dofork_range(addr, size);
+	ibv_dofork_range(in->addr, in->size);
 err:
 	free(umem);
 	return NULL;
+}
+
+struct mlx5dv_devx_umem *
+mlx5dv_devx_umem_reg(struct ibv_context *context, void *addr, size_t size, uint32_t access)
+{
+	struct mlx5dv_devx_umem_in umem_in = {};
+
+	umem_in.access = access;
+	umem_in.addr = addr;
+	umem_in.size = size;
+
+	umem_in.pgsz_bitmap = UINT64_MAX & ~(MLX5_ADAPTER_PAGE_SIZE - 1);
+
+	return _mlx5dv_devx_umem_reg_ex(context, &umem_in, true);
+}
+
+struct mlx5dv_devx_umem *
+mlx5dv_devx_umem_reg_ex(struct ibv_context *ctx, struct mlx5dv_devx_umem_in *umem_in)
+{
+	return _mlx5dv_devx_umem_reg_ex(ctx, umem_in, false);
 }
 
 int mlx5dv_devx_umem_dereg(struct mlx5dv_devx_umem *dv_devx_umem)
@@ -4880,6 +5214,8 @@ static void set_devx_obj_info(const void *in, const void *out,
 			obj->type = MLX5_DEVX_ASO_FIRST_HIT;
 		else if (obj_type == MLX5_OBJ_TYPE_ASO_FLOW_METER)
 			obj->type = MLX5_DEVX_ASO_FLOW_METER;
+		else if (obj_type == MLX5_OBJ_TYPE_ASO_CT)
+			obj->type = MLX5_DEVX_ASO_CT;
 
 		obj->log_obj_range = DEVX_GET(general_obj_in_cmd_hdr, in, log_obj_range);
 		obj->object_id = DEVX_GET(general_obj_out_cmd_hdr, out, obj_id);
@@ -4997,6 +5333,24 @@ int mlx5dv_devx_general_cmd(struct ibv_context *context, const void *in, size_t 
 
 	fill_attr_in(cmd, MLX5_IB_ATTR_DEVX_OTHER_CMD_IN, in, inlen);
 	fill_attr_out(cmd, MLX5_IB_ATTR_DEVX_OTHER_CMD_OUT, out, outlen);
+
+	return execute_ioctl(context, cmd);
+}
+
+int _mlx5dv_query_port(struct ibv_context *context,
+		       uint32_t port_num,
+		       struct mlx5dv_port *info, size_t info_len)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       UVERBS_OBJECT_DEVICE,
+			       MLX5_IB_METHOD_QUERY_PORT,
+			       2);
+
+	if (!is_mlx5_dev(context->device))
+		return EOPNOTSUPP;
+
+	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_QUERY_PORT_PORT_NUM, port_num);
+	fill_attr_out(cmd, MLX5_IB_ATTR_QUERY_PORT, info, info_len);
 
 	return execute_ioctl(context, cmd);
 }
@@ -5441,16 +5795,104 @@ ssize_t mlx5dv_devx_get_event(struct mlx5dv_devx_event_channel *event_channel,
 	return bytes;
 }
 
+static int mlx5_destroy_sig_psvs(struct mlx5_sig_ctx *sig)
+{
+	int ret = 0;
+
+	if (sig->block.mem_psv) {
+		ret = mlx5_destroy_psv(sig->block.mem_psv);
+		if (!ret)
+			sig->block.mem_psv = NULL;
+	}
+	if (!ret && sig->block.wire_psv) {
+		ret = mlx5_destroy_psv(sig->block.wire_psv);
+		if (!ret)
+			sig->block.wire_psv = NULL;
+	}
+
+	return ret;
+}
+
+static int mlx5_create_sig_psvs(struct ibv_pd *pd,
+				struct mlx5dv_mkey_init_attr *attr,
+				struct mlx5_sig_ctx *sig)
+{
+	int err;
+
+	if (attr->create_flags & MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE) {
+		sig->block.mem_psv = mlx5_create_psv(pd);
+		if (!sig->block.mem_psv)
+			return errno;
+
+		sig->block.wire_psv = mlx5_create_psv(pd);
+		if (!sig->block.wire_psv) {
+			err = errno;
+			goto err_destroy_psvs;
+		}
+	}
+
+	return 0;
+err_destroy_psvs:
+	mlx5_destroy_sig_psvs(sig);
+	return err;
+}
+
+static struct mlx5_sig_ctx *mlx5_create_sig_ctx(struct ibv_pd *pd,
+						struct mlx5dv_mkey_init_attr *attr)
+{
+	struct mlx5_sig_ctx *sig;
+	int err;
+
+	if (!to_mctx(pd->context)->sig_caps.block_prot) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	sig = calloc(1, sizeof(*sig));
+	if (!sig) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	err = mlx5_create_sig_psvs(pd, attr, sig);
+	if (err) {
+		errno = err;
+		goto err_free_sig;
+	}
+
+	sig->err_exists = false;
+	sig->err_count = 1;
+
+	return sig;
+err_free_sig:
+	free(sig);
+	return NULL;
+}
+
+static int mlx5_destroy_sig_ctx(struct mlx5_sig_ctx *sig)
+{
+	int ret;
+
+	ret = mlx5_destroy_sig_psvs(sig);
+	if (!ret)
+		free(sig);
+
+	return ret;
+}
+
 struct mlx5dv_mkey *mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 {
 	uint32_t out[DEVX_ST_SZ_DW(create_mkey_out)] = {};
 	uint32_t in[DEVX_ST_SZ_DW(create_mkey_in)] = {};
 	struct mlx5_mkey *mkey;
+	bool sig_mkey;
+	struct ibv_pd *pd = mkey_init_attr->pd;
 	void *mkc;
 
 	if (!mkey_init_attr->create_flags ||
 	    !check_comp_mask(mkey_init_attr->create_flags,
-			     MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT)) {
+			     MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+			     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE)) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -5461,29 +5903,52 @@ struct mlx5dv_mkey *mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_a
 		return NULL;
 	}
 
+	sig_mkey = mkey_init_attr->create_flags &
+		   MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE;
+
+	if (sig_mkey) {
+		mkey->sig = mlx5_create_sig_ctx(pd, mkey_init_attr);
+		if (!mkey->sig)
+			goto err_free_mkey;
+	}
+
 	mkey->num_desc = align(mkey_init_attr->max_entries, 4);
 	DEVX_SET(create_mkey_in, in, opcode, MLX5_CMD_OP_CREATE_MKEY);
 	mkc = DEVX_ADDR_OF(create_mkey_in, in, memory_key_mkey_entry);
 	DEVX_SET(mkc, mkc, access_mode_1_0, MLX5_MKC_ACCESS_MODE_KLMS);
 	DEVX_SET(mkc, mkc, free, 1);
 	DEVX_SET(mkc, mkc, umr_en, 1);
-	DEVX_SET(mkc, mkc, pd, to_mpd(mkey_init_attr->pd)->pdn);
+	DEVX_SET(mkc, mkc, pd, to_mpd(pd)->pdn);
 	DEVX_SET(mkc, mkc, translations_octword_size, mkey->num_desc);
 	DEVX_SET(mkc, mkc, lr, 1);
 	DEVX_SET(mkc, mkc, qpn, 0xffffff);
 	DEVX_SET(mkc, mkc, mkey_7_0, 0);
+	if (sig_mkey) {
+		DEVX_SET(mkc, mkc, bsf_en, 1);
+		DEVX_SET(mkc, mkc, bsf_octword_size, sizeof(struct mlx5_bsf) / 16);
+	}
 
-	mkey->devx_obj = mlx5dv_devx_obj_create(mkey_init_attr->pd->context,
-						in, sizeof(in), out, sizeof(out));
+	mkey->devx_obj = mlx5dv_devx_obj_create(pd->context, in, sizeof(in),
+						out, sizeof(out));
 	if (!mkey->devx_obj)
-		goto end;
+		goto err_destroy_sig_ctx;
 
 	mkey_init_attr->max_entries = mkey->num_desc;
 	mkey->dv_mkey.lkey = (DEVX_GET(create_mkey_out, out, mkey_index) << 8) | 0;
 	mkey->dv_mkey.rkey = mkey->dv_mkey.lkey;
 
+	if (mlx5_store_mkey(to_mctx(pd->context), mkey->dv_mkey.lkey >> 8, mkey)) {
+		errno = ENOMEM;
+		goto err_destroy_mkey_obj;
+	}
+
 	return &mkey->dv_mkey;
-end:
+err_destroy_mkey_obj:
+	mlx5dv_devx_obj_destroy(mkey->devx_obj);
+err_destroy_sig_ctx:
+	if (sig_mkey)
+		mlx5_destroy_sig_ctx(mkey->sig);
+err_free_mkey:
 	free(mkey);
 	return NULL;
 }
@@ -5492,13 +5957,134 @@ int mlx5dv_destroy_mkey(struct mlx5dv_mkey *dv_mkey)
 {
 	struct mlx5_mkey *mkey = container_of(dv_mkey, struct mlx5_mkey,
 					  dv_mkey);
+	struct mlx5_context *mctx = to_mctx(mkey->devx_obj->context);
 	int ret;
+
+	if (mkey->sig) {
+		ret = mlx5_destroy_sig_ctx(mkey->sig);
+		if (ret)
+			return ret;
+
+		mkey->sig = NULL;
+	}
 
 	ret = mlx5dv_devx_obj_destroy(mkey->devx_obj);
 	if (ret)
 		return ret;
 
+	mlx5_clear_mkey(mctx, dv_mkey->lkey >> 8);
 	free(mkey);
+	return 0;
+}
+
+enum {
+	MLX5_SIGERR_CQE_SYNDROME_REFTAG = 1 << 11,
+	MLX5_SIGERR_CQE_SYNDROME_APPTAG = 1 << 12,
+	MLX5_SIGERR_CQE_SYNDROME_GUARD = 1 << 13,
+
+	MLX5_SIGERR_CQE_SIG_TYPE_BLOCK = 0,
+	MLX5_SIGERR_CQE_SIG_TYPE_TRANSACTION = 1,
+
+	MLX5_SIGERR_CQE_DOMAIN_WIRE = 0,
+	MLX5_SIGERR_CQE_DOMAIN_MEMORY = 1,
+};
+
+static void mlx5_decode_sigerr(struct mlx5_sig_err *mlx5_err,
+			       struct mlx5_sig_block_domain *bd,
+			       struct mlx5dv_mkey_err *err_info)
+{
+	struct mlx5dv_sig_err *dv_err = &err_info->err.sig;
+
+	dv_err->offset = mlx5_err->offset;
+
+	if (mlx5_err->syndrome & MLX5_SIGERR_CQE_SYNDROME_REFTAG) {
+		err_info->err_type = MLX5DV_MKEY_SIG_BLOCK_BAD_REFTAG;
+		dv_err->expected_value = mlx5_err->expected & 0xffffffff;
+		dv_err->actual_value = mlx5_err->actual & 0xffffffff;
+
+	} else if (mlx5_err->syndrome & MLX5_SIGERR_CQE_SYNDROME_APPTAG) {
+		err_info->err_type = MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG;
+		dv_err->expected_value = (mlx5_err->expected >> 32) & 0xffff;
+		dv_err->actual_value = (mlx5_err->actual >> 32) & 0xffff;
+
+	} else {
+		err_info->err_type = MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD;
+
+		if (bd->sig_type == MLX5_SIG_TYPE_T10DIF) {
+			dv_err->expected_value = mlx5_err->expected >> 48;
+			dv_err->actual_value = mlx5_err->actual >> 48;
+
+		} else if (bd->sig.crc.type == MLX5DV_SIG_CRC_TYPE_CRC64_XP10) {
+			dv_err->expected_value = mlx5_err->expected;
+			dv_err->actual_value = mlx5_err->actual;
+
+		} else {
+			/* CRC32 or CRC32C */
+			dv_err->expected_value = mlx5_err->expected >> 32;
+			dv_err->actual_value = mlx5_err->actual >> 32;
+		}
+	}
+}
+
+int _mlx5dv_mkey_check(struct mlx5dv_mkey *dv_mkey,
+		       struct mlx5dv_mkey_err *err_info,
+		       size_t err_info_size)
+{
+	struct mlx5_mkey *mkey = container_of(dv_mkey, struct mlx5_mkey,
+					      dv_mkey);
+	struct mlx5_sig_ctx *sig_ctx = mkey->sig;
+	FILE *fp = to_mctx(mkey->devx_obj->context)->dbg_fp;
+	struct mlx5_sig_err *sig_err;
+	struct mlx5_sig_block_domain *domain;
+
+	if (!sig_ctx)
+		return EINVAL;
+
+	if (!sig_ctx->err_exists) {
+		err_info->err_type = MLX5DV_MKEY_NO_ERR;
+		return 0;
+	}
+
+	sig_err = &sig_ctx->err_info;
+
+	if (!(sig_err->syndrome & (MLX5_SIGERR_CQE_SYNDROME_REFTAG |
+				   MLX5_SIGERR_CQE_SYNDROME_APPTAG |
+				   MLX5_SIGERR_CQE_SYNDROME_GUARD))) {
+		mlx5_dbg(fp, MLX5_DBG_CQ,
+			 "unknown signature error, syndrome 0x%x\n",
+			 sig_err->syndrome);
+		return EINVAL;
+	}
+
+	if (sig_err->sig_type != MLX5_SIGERR_CQE_SIG_TYPE_BLOCK) {
+		mlx5_dbg(fp, MLX5_DBG_CQ,
+			 "not supported signature type 0x%x\n",
+			 sig_err->sig_type);
+		return EINVAL;
+	}
+
+	switch (sig_err->domain) {
+	case MLX5_SIGERR_CQE_DOMAIN_WIRE:
+		domain = &sig_ctx->block.attr.wire;
+		break;
+	case MLX5_SIGERR_CQE_DOMAIN_MEMORY:
+		domain = &sig_ctx->block.attr.mem;
+		break;
+	default:
+		mlx5_dbg(fp, MLX5_DBG_CQ, "unknown signature domain 0x%x\n",
+			 sig_err->domain);
+		return EINVAL;
+	}
+
+	if (domain->sig_type == MLX5_SIG_TYPE_NONE) {
+		mlx5_dbg(fp, MLX5_DBG_CQ,
+			 "unexpected signature error for non-signature domain\n");
+		return EINVAL;
+	}
+
+	mlx5_decode_sigerr(sig_err, domain, err_info);
+	sig_ctx->err_exists = false;
+
 	return 0;
 }
 

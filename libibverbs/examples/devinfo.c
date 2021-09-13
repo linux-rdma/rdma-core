@@ -606,6 +606,8 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		if (device_attr.max_dm_size)
 			printf("\tmaximum available device memory:\t%" PRIu64"Bytes\n\n",
 			      device_attr.max_dm_size);
+
+		printf("\tnum_comp_vectors:\t\t%d\n", ctx->num_comp_vectors);
 	}
 
 	for (port = 1; port <= device_attr.orig_attr.phys_port_cnt; ++port) {
@@ -759,14 +761,16 @@ int main(int argc, char *argv[])
 
 		if (!*dev_list) {
 			fprintf(stderr, "IB device '%s' wasn't found\n", ib_devname);
-			return -1;
+			ret = -1;
+			goto out;
 		}
 
 		ret |= print_hca_cap(*dev_list, ib_port);
 	} else {
 		if (!*dev_list) {
 			fprintf(stderr, "No IB devices found\n");
-			return -1;
+			ret = -1;
+			goto out;
 		}
 
 		while (*dev_list) {
@@ -775,6 +779,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+out:
 	if (ib_devname)
 		free(ib_devname);
 

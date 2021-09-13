@@ -92,6 +92,7 @@ flag.
 .SH "RETURN VALUE"
 .B ibv_alloc_dm()
 returns a pointer to an ibv_dm struct or NULL if the request fails.
+The output dm contains the handle which could be used by user to import this device memory.
 .PP
 .B ibv_free_dm()
 returns 0 on success, or the value of errno on failure (which indicates the failure reason).

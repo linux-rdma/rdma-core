@@ -27,6 +27,7 @@
  * NAME_PCI - based on PCI/slot/function location
  * NAME_GUID - based on node GUID
  * NAME_ONBOARD - based on-board device index
+ * NAME_FIXED - rename the device to the fixed named in the next argument
  *
  * The stable names are combination of device type technology and rename mode.
  * Infiniband - ib*
@@ -484,6 +485,19 @@ out:
 	return 0;
 }
 
+static int set_fixed_name(struct data *d, char *name)
+{
+	int ret;
+
+	ret = asprintf(&d->name, "%s", name);
+	if (ret == -1) {
+		d->name = NULL;
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
 static int device_rename(struct nl_sock *nl, struct data *d)
 {
 	struct nlmsghdr *hdr;
@@ -549,6 +563,7 @@ enum name_policy {
 	NAME_PCI = 1 << 1,
 	NAME_GUID = 1 << 2,
 	NAME_ONBOARD = 1 << 3,
+	NAME_FIXED = 1 << 4,
 	NAME_ERROR = 1 << 8
 };
 
@@ -562,6 +577,8 @@ static int str2policy(const char *np)
 		return NAME_GUID;
 	if (!strcmp(np, "NAME_ONBOARD"))
 		return NAME_ONBOARD;
+	if (!strcmp(np, "NAME_FIXED"))
+		return NAME_FIXED;
 	if (!strcmp(np, "NAME_FALLBACK"))
 		return NAME_ONBOARD | NAME_PCI;
 	return NAME_ERROR;
@@ -598,6 +615,11 @@ int main(int argc, char **argv)
 		goto err;
 	}
 
+	if (np & NAME_FIXED && argc < 3) {
+		pr_err("%s: No name specified\n", d.curr);
+		goto err;
+	}
+
 	pr_dbg("%s: Requested policy is %s\n", d.curr, argv[1]);
 
 	if (np & NAME_KERNEL) {
@@ -630,6 +652,8 @@ int main(int argc, char **argv)
 		ret = by_pci(&d);
 	if (ret && (np & NAME_GUID))
 		ret = by_guid(&d);
+	if (ret && (np & NAME_FIXED))
+		ret = set_fixed_name(&d, argv[2]);
 	if (ret)
 		goto out;
 

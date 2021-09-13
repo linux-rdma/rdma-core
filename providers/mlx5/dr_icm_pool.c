@@ -40,9 +40,10 @@ struct dr_icm_pool {
 	struct mlx5dv_dr_domain	*dmn;
 	enum dr_icm_chunk_size	max_log_chunk_sz;
 	/* memory management */
-	pthread_mutex_t		mutex;
+	pthread_spinlock_t	lock;
 	struct list_head	buddy_mem_list;
 	uint64_t		hot_memory_size;
+	bool			syncing;
 };
 
 struct dr_icm_mr {
@@ -54,7 +55,8 @@ struct dr_icm_mr {
 static int
 dr_icm_allocate_aligned_dm(struct dr_icm_pool *pool,
 			   struct dr_icm_mr *icm_mr,
-			   struct ibv_alloc_dm_attr *dm_attr)
+			   struct ibv_alloc_dm_attr *dm_attr,
+			   uint64_t *ofsset_in_dm)
 {
 	struct mlx5dv_alloc_dm_attr mlx5_dm_attr = {};
 	size_t log_align_base = 0;
@@ -77,6 +79,7 @@ dr_icm_allocate_aligned_dm(struct dr_icm_pool *pool,
 	}
 
 	dm_attr->length = size;
+	*ofsset_in_dm = 0;
 
 alloc_dm:
 	icm_mr->dm = mlx5dv_alloc_dm(pool->dmn->ctx, dm_attr, &mlx5_dm_attr);
@@ -101,6 +104,9 @@ alloc_dm:
 			/* increase the address to start from aligned size */
 			icm_mr->icm_start_addr = icm_mr->icm_start_addr +
 				(align_base - align_diff);
+			*ofsset_in_dm = align_base - align_diff;
+			/* return the size to its original val */
+			dm_attr->length = size;
 			return 0;
 		}
 
@@ -118,6 +124,7 @@ static struct dr_icm_mr *
 dr_icm_pool_mr_create(struct dr_icm_pool *pool)
 {
 	struct ibv_alloc_dm_attr dm_attr = {};
+	uint64_t align_offset_in_dm;
 	struct dr_icm_mr *icm_mr;
 
 	icm_mr = calloc(1, sizeof(struct dr_icm_mr));
@@ -126,11 +133,11 @@ dr_icm_pool_mr_create(struct dr_icm_pool *pool)
 		return NULL;
 	}
 
-	if (dr_icm_allocate_aligned_dm(pool, icm_mr, &dm_attr))
+	if (dr_icm_allocate_aligned_dm(pool, icm_mr, &dm_attr, &align_offset_in_dm))
 		goto free_icm_mr;
 
 	/* Register device memory */
-	icm_mr->mr = ibv_reg_dm_mr(pool->dmn->pd, icm_mr->dm, 0,
+	icm_mr->mr = ibv_reg_dm_mr(pool->dmn->pd, icm_mr->dm, align_offset_in_dm,
 				   dm_attr.length,
 				   IBV_ACCESS_ZERO_BASED |
 				   IBV_ACCESS_REMOTE_WRITE |
@@ -163,15 +170,18 @@ get_chunk_icm_type(struct dr_icm_chunk *chunk)
 	return chunk->buddy_mem->pool->icm_type;
 }
 
-static int dr_icm_chunk_ste_init(struct dr_icm_chunk *chunk)
+static int
+dr_icm_chunk_ste_init(struct dr_icm_chunk *chunk)
 {
+	struct dr_icm_buddy_mem *buddy = chunk->buddy_mem;
+
 	chunk->ste_arr = calloc(chunk->num_of_entries, sizeof(struct dr_ste));
 	if (!chunk->ste_arr) {
 		errno = ENOMEM;
 		return errno;
 	}
 
-	chunk->hw_ste_arr = calloc(chunk->num_of_entries, DR_STE_SIZE_REDUCED);
+	chunk->hw_ste_arr = calloc(chunk->num_of_entries, buddy->hw_ste_sz);
 	if (!chunk->hw_ste_arr) {
 		errno = ENOMEM;
 		goto out_free_ste_arr;
@@ -214,6 +224,7 @@ static void dr_icm_chunk_destroy(struct dr_icm_chunk *chunk)
 
 static int dr_icm_buddy_create(struct dr_icm_pool *pool)
 {
+	struct dr_devx_caps *caps = &pool->dmn->info.caps;
 	struct dr_icm_buddy_mem *buddy;
 	struct dr_icm_mr *icm_mr;
 
@@ -232,6 +243,11 @@ static int dr_icm_buddy_create(struct dr_icm_pool *pool)
 
 	buddy->icm_mr = icm_mr;
 	buddy->pool = pool;
+
+	/* Set single entry HW STE cache size */
+	if (pool->icm_type == DR_ICM_TYPE_STE)
+		buddy->hw_ste_sz = caps->sw_format_ver == MLX5_HW_CONNECTX_5 ?
+			DR_STE_SIZE_REDUCED : DR_STE_SIZE;
 
 	/* add it to the -start- of the list in order to search in it first */
 	list_add(&pool->buddy_mem_list, &buddy->list_node);
@@ -279,6 +295,7 @@ dr_icm_chunk_create(struct dr_icm_pool *pool,
 
 	offset = dr_icm_pool_dm_type_to_entry_size(pool->icm_type) * seg;
 
+	chunk->buddy_mem = buddy_mem_pool;
 	chunk->rkey = buddy_mem_pool->icm_mr->mr->rkey;
 	chunk->mr_addr = (uintptr_t)buddy_mem_pool->icm_mr->mr->addr + offset;
 	chunk->icm_addr = (uintptr_t)buddy_mem_pool->icm_mr->icm_start_addr + offset;
@@ -293,7 +310,6 @@ dr_icm_chunk_create(struct dr_icm_pool *pool,
 	}
 
 	buddy_mem_pool->used_memory += chunk->byte_size;
-	chunk->buddy_mem = buddy_mem_pool;
 	list_node_init(&chunk->chunk_list);
 
 	/* chunk now is part of the used_list */
@@ -314,43 +330,59 @@ static bool dr_icm_pool_is_sync_required(struct dr_icm_pool *pool)
 	return false;
 }
 
+/* In order to gain performance FW command is done out of the lock */
 static int dr_icm_pool_sync_pool_buddies(struct dr_icm_pool *pool)
 {
 	struct dr_icm_buddy_mem *buddy, *tmp_buddy;
+	struct dr_icm_chunk *chunk, *tmp_chunk;
+	struct list_head sync_list;
+	bool need_reclaim = false;
 	int err;
 
+	list_head_init(&sync_list);
+
+	list_for_each_safe(&pool->buddy_mem_list, buddy, tmp_buddy, list_node)
+		list_append_list(&sync_list, &buddy->hot_list);
+
+	pool->syncing = true;
+
+	pthread_spin_unlock(&pool->lock);
+
+	if (pool->dmn->flags & DR_DOMAIN_FLAG_MEMORY_RECLAIM)
+		need_reclaim = true;
+
 	err = dr_devx_sync_steering(pool->dmn->ctx);
-	if (err) {
+	if (err) /* Unexpected state, add debug note and continue */
 		dr_dbg(pool->dmn, "Failed devx sync hw\n");
-		return err;
+
+	pthread_spin_lock(&pool->lock);
+	list_for_each_safe(&sync_list, chunk, tmp_chunk, chunk_list) {
+		buddy = chunk->buddy_mem;
+		dr_buddy_free_mem(buddy, chunk->seg,
+				  ilog32(chunk->num_of_entries - 1));
+		buddy->used_memory -= chunk->byte_size;
+		pool->hot_memory_size -= chunk->byte_size;
+		dr_icm_chunk_destroy(chunk);
 	}
 
-	list_for_each_safe(&pool->buddy_mem_list, buddy, tmp_buddy, list_node) {
-		struct dr_icm_chunk *chunk, *tmp_chunk;
-
-		list_for_each_safe(&buddy->hot_list, chunk, tmp_chunk, chunk_list) {
-			dr_buddy_free_mem(buddy, chunk->seg,
-					  ilog32(chunk->num_of_entries - 1));
-			buddy->used_memory -= chunk->byte_size;
-			pool->hot_memory_size -= chunk->byte_size;
-			dr_icm_chunk_destroy(chunk);
-		}
-
-		if ((pool->dmn->flags & DR_DOMAIN_FLAG_MEMORY_RECLAIM) &&
-		    !buddy->used_memory)
-			dr_icm_buddy_destroy(buddy);
+	if (need_reclaim) {
+		list_for_each_safe(&pool->buddy_mem_list, buddy, tmp_buddy, list_node)
+			if (!buddy->used_memory)
+				dr_icm_buddy_destroy(buddy);
 	}
 
-	return 0;
+	pool->syncing = false;
+	return err;
 }
 
 int dr_icm_pool_sync_pool(struct dr_icm_pool *pool)
 {
-	int ret;
+	int ret = 0;
 
-	pthread_mutex_lock(&pool->mutex);
-	ret = dr_icm_pool_sync_pool_buddies(pool);
-	pthread_mutex_unlock(&pool->mutex);
+	pthread_spin_lock(&pool->lock);
+	if (!pool->syncing)
+		ret = dr_icm_pool_sync_pool_buddies(pool);
+	pthread_spin_unlock(&pool->lock);
 
 	return ret;
 }
@@ -413,7 +445,7 @@ struct dr_icm_chunk *dr_icm_alloc_chunk(struct dr_icm_pool *pool,
 		return NULL;
 	}
 
-	pthread_mutex_lock(&pool->mutex);
+	pthread_spin_lock(&pool->lock);
 	/* find mem, get back the relevant buddy pool and seg in that mem */
 	ret = dr_icm_handle_buddies_get_mem(pool, chunk_size, &buddy, &seg);
 	if (ret)
@@ -428,25 +460,26 @@ struct dr_icm_chunk *dr_icm_alloc_chunk(struct dr_icm_pool *pool,
 out_err:
 	dr_buddy_free_mem(buddy, seg, chunk_size);
 out:
-	pthread_mutex_unlock(&pool->mutex);
+	pthread_spin_unlock(&pool->lock);
 	return chunk;
 }
 
 void dr_icm_free_chunk(struct dr_icm_chunk *chunk)
 {
 	struct dr_icm_buddy_mem *buddy = chunk->buddy_mem;
+	struct dr_icm_pool *pool = buddy->pool;
 
 	/* move the memory to the waiting list AKA "hot" */
-	pthread_mutex_lock(&buddy->pool->mutex);
+	pthread_spin_lock(&buddy->pool->lock);
 	list_del_init(&chunk->chunk_list);
 	list_add_tail(&buddy->hot_list, &chunk->chunk_list);
 	buddy->pool->hot_memory_size += chunk->byte_size;
 
 	/* Check if we have chunks that are waiting for sync-ste */
-	if (dr_icm_pool_is_sync_required(buddy->pool))
+	if (dr_icm_pool_is_sync_required(pool) && !pool->syncing)
 		dr_icm_pool_sync_pool_buddies(buddy->pool);
 
-	pthread_mutex_unlock(&buddy->pool->mutex);
+	pthread_spin_unlock(&buddy->pool->lock);
 }
 
 struct dr_icm_pool *dr_icm_pool_create(struct mlx5dv_dr_domain *dmn,
@@ -454,6 +487,7 @@ struct dr_icm_pool *dr_icm_pool_create(struct mlx5dv_dr_domain *dmn,
 {
 	enum dr_icm_chunk_size max_log_chunk_sz;
 	struct dr_icm_pool *pool;
+	int ret;
 
 	if (icm_type == DR_ICM_TYPE_STE)
 		max_log_chunk_sz = dmn->info.max_log_sw_icm_sz;
@@ -472,9 +506,17 @@ struct dr_icm_pool *dr_icm_pool_create(struct mlx5dv_dr_domain *dmn,
 
 	list_head_init(&pool->buddy_mem_list);
 
-	pthread_mutex_init(&pool->mutex, NULL);
+	ret = pthread_spin_init(&pool->lock, PTHREAD_PROCESS_PRIVATE);
+	if (ret) {
+		errno = ret;
+		goto free_pool;
+	}
 
 	return pool;
+
+free_pool:
+	free(pool);
+	return NULL;
 }
 
 void dr_icm_pool_destroy(struct dr_icm_pool *pool)
@@ -484,7 +526,7 @@ void dr_icm_pool_destroy(struct dr_icm_pool *pool)
 	list_for_each_safe(&pool->buddy_mem_list, buddy, tmp_buddy, list_node)
 		dr_icm_buddy_destroy(buddy);
 
-	pthread_mutex_destroy(&pool->mutex);
+	pthread_spin_destroy(&pool->lock);
 
 	free(pool);
 }

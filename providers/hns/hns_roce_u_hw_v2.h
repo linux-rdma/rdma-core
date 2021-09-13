@@ -112,6 +112,7 @@ enum {
 	HNS_ROCE_V2_CQE_TRANSPORT_RETRY_EXC_ERR		= 0x15,
 	HNS_ROCE_V2_CQE_RNR_RETRY_EXC_ERR		= 0x16,
 	HNS_ROCE_V2_CQE_REMOTE_ABORTED_ERR		= 0x22,
+	HNS_ROCE_V2_CQE_XRC_VIOLATION_ERR		= 0x24,
 };
 
 enum {
@@ -272,11 +273,23 @@ struct hns_roce_wqe_atomic_seg {
 int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			    struct ibv_send_wr **bad_wr);
 
-#define DATA_TYPE_NUM 2
-#define STANDARD_ATOMIC_U_BYTE_8 0x8
-#define EXTEND_ATOMIC_U_BYTE_16 0x10
-#define EXTEND_ATOMIC_U_BYTE_32 0x20
-#define EXTEND_ATOMIC_U_BYTE_64 0x40
+static inline unsigned int is_std_atomic(unsigned int len)
+{
+	return len == 8;
+}
+
+static inline unsigned int is_ext_atomic(unsigned int len)
+{
+	return len == 16 || len == 32 || len == 64;
+}
+
+static inline unsigned int is_atomic(unsigned int len)
+{
+	return is_std_atomic(len) || is_ext_atomic(len);
+}
+
+#define ATOMIC_DATA_LEN_MAX 64
+#define ATOMIC_BUF_NUM_MAX 2
 
 struct hns_roce_ud_sq_wqe {
 	__le32 rsv_opcode;
@@ -348,6 +361,18 @@ struct hns_roce_ud_sq_wqe {
 #define UD_SQ_WQE_VLAN_EN_S 30
 
 #define UD_SQ_WQE_LBI_S 31
+
+#define UD_SQ_WQE_BYTE_4_INL_S 12
+#define UD_SQ_WQE_BYTE_20_INL_TYPE_S 31
+
+#define UD_SQ_WQE_BYTE_8_INL_DATE_15_0_S 16
+#define UD_SQ_WQE_BYTE_8_INL_DATE_15_0_M GENMASK(31, 16)
+#define UD_SQ_WQE_BYTE_16_INL_DATA_23_16_S 24
+#define UD_SQ_WQE_BYTE_16_INL_DATA_23_16_M GENMASK(31, 24)
+#define UD_SQ_WQE_BYTE_20_INL_DATA_47_24_S 0
+#define UD_SQ_WQE_BYTE_20_INL_DATA_47_24_M GENMASK(23, 0)
+#define UD_SQ_WQE_BYTE_24_INL_DATA_63_48_S 0
+#define UD_SQ_WQE_BYTE_24_INL_DATA_63_48_M GENMASK(15, 0)
 
 #define MAX_SERVICE_LEVEL 0x7
 

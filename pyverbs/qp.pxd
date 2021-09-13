@@ -39,6 +39,8 @@ cdef class QP(PyverbsCM):
     cdef object rcq
     cdef object mws
     cdef object srq
+    cdef object flows
+    cdef object dr_actions
     cdef add_ref(self, obj)
 
 cdef class DataBuffer(PyverbsCM):

@@ -39,7 +39,7 @@
 #include <infiniband/driver.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <rdma/rdma_user_rxe.h> /* struct rxe_av */
+#include <rdma/rdma_user_rxe.h>
 #include "rxe-abi.h"
 
 struct rxe_device {
@@ -51,11 +51,17 @@ struct rxe_context {
 	struct verbs_context	ibv_ctx;
 };
 
+/* common between cq and cq_ex */
 struct rxe_cq {
-	struct ibv_cq		ibv_cq;
+	struct verbs_cq		vcq;
 	struct mminfo		mmap_info;
-	struct rxe_queue		*queue;
+	struct rxe_queue_buf	*queue;
 	pthread_spinlock_t	lock;
+
+	/* new API support */
+	struct ib_uverbs_wc	*wc;
+	size_t			wc_size;
+	uint32_t		cur_index;
 };
 
 struct rxe_ah {
@@ -64,22 +70,26 @@ struct rxe_ah {
 };
 
 struct rxe_wq {
-	struct rxe_queue	*queue;
+	struct rxe_queue_buf	*queue;
 	pthread_spinlock_t	lock;
 	unsigned int		max_sge;
 	unsigned int		max_inline;
 };
 
 struct rxe_qp {
-	struct ibv_qp		ibv_qp;
+	struct verbs_qp		vqp;
 	struct mminfo		rq_mmap_info;
 	struct rxe_wq		rq;
 	struct mminfo		sq_mmap_info;
 	struct rxe_wq		sq;
 	unsigned int		ssn;
+
+	/* new API support */
+	uint32_t		cur_index;
+	int			err;
 };
 
-#define qp_type(qp)		((qp)->ibv_qp.qp_type)
+#define qp_type(qp)		((qp)->vqp.qp.qp_type)
 
 struct rxe_srq {
 	struct ibv_srq		ibv_srq;
@@ -102,12 +112,12 @@ static inline struct rxe_device *to_rdev(struct ibv_device *ibdev)
 
 static inline struct rxe_cq *to_rcq(struct ibv_cq *ibcq)
 {
-	return to_rxxx(cq, cq);
+	return container_of(ibcq, struct rxe_cq, vcq.cq);
 }
 
 static inline struct rxe_qp *to_rqp(struct ibv_qp *ibqp)
 {
-	return to_rxxx(qp, qp);
+	return container_of(ibqp, struct rxe_qp, vqp.qp);
 }
 
 static inline struct rxe_srq *to_rsrq(struct ibv_srq *ibsrq)

@@ -1,15 +1,46 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright 2020 Amazon.com, Inc. or its affiliates. All rights reserved.
 
+import unittest
+import random
 import errno
-import pyverbs.enums as e
-import pyverbs.providers.efa.efadv as efa
-import pyverbs.providers.efa.efa_enums as efa_e
+
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.qp import QPAttr, QPCap, QPInitAttrEx
-import random
+import pyverbs.providers.efa.efa_enums as efa_e
+import pyverbs.providers.efa.efadv as efa
+import pyverbs.device as d
+import pyverbs.enums as e
+
+from tests.base import PyverbsAPITestCase
 from tests.base import TrafficResources
-import unittest
+from tests.base import RDMATestCase
+import tests.utils
+
+
+AMAZON_VENDOR_ID = 0x1d0f
+
+
+def is_efa_dev(ctx):
+    dev_attrs = ctx.query_device()
+    return dev_attrs.vendor_id == AMAZON_VENDOR_ID
+
+
+def skip_if_not_efa_dev(ctx):
+    if not is_efa_dev(ctx):
+        raise unittest.SkipTest('Can not run the test over non EFA device')
+
+
+class EfaAPITestCase(PyverbsAPITestCase):
+    def setUp(self):
+        super().setUp()
+        skip_if_not_efa_dev(self.ctx)
+
+
+class EfaRDMATestCase(RDMATestCase):
+    def setUp(self):
+        super().setUp()
+        skip_if_not_efa_dev(d.Context(name=self.dev_name))
 
 
 class SRDResources(TrafficResources):
@@ -41,10 +72,12 @@ class SRDResources(TrafficResources):
     def create_qps(self):
         qp_cap = QPCap(max_recv_wr=self.num_msgs, max_send_wr=self.num_msgs, max_recv_sge=1,
                        max_send_sge=1)
+        comp_mask = e.IBV_QP_INIT_ATTR_PD
+        if self.send_ops_flags:
+            comp_mask |= e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
         qp_init_attr_ex = QPInitAttrEx(cap=qp_cap, qp_type=e.IBV_QPT_DRIVER, scq=self.cq,
                                        rcq=self.cq, pd=self.pd, send_ops_flags=self.send_ops_flags,
-                                       comp_mask=e.IBV_QP_INIT_ATTR_PD |
-                                       e.IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)
+                                       comp_mask=comp_mask)
         efa_init_attr_ex = efa.EfaQPInitAttr()
         efa_init_attr_ex.driver_qp_type = efa_e.EFADV_QP_DRIVER_TYPE_SRD
         try:
@@ -57,3 +90,9 @@ class SRDResources(TrafficResources):
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Extended SRD QP is not supported on this device')
             raise ex
+
+    def create_mr(self):
+        if self.send_ops_flags == e.IBV_QP_EX_WITH_RDMA_READ:
+            self.mr = tests.utils.create_custom_mr(self, e.IBV_ACCESS_REMOTE_READ)
+        else:
+            self.mr = tests.utils.create_custom_mr(self)

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved. See COPYING file
+# Copyright (c) 2020, Intel Corporation. All rights reserved. See COPYING file
 
 #cython: language_level=3
 
@@ -33,3 +34,8 @@ cdef class MW(PyverbsCM):
 
 cdef class DMMR(MR):
     cdef object dm
+
+cdef class DmaBufMR(MR):
+    cdef object dmabuf
+    cdef unsigned long offset
+    cdef object is_dmabuf_internal

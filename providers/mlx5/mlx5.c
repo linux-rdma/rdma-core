@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012 Mellanox Technologies, Inc.  All rights reserved.
+ * Copyright (c) 2020 Intel Corporation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -95,6 +96,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.async_event   = mlx5_async_event,
 	.dealloc_pd    = mlx5_free_pd,
 	.reg_mr	       = mlx5_reg_mr,
+	.reg_dmabuf_mr = mlx5_reg_dmabuf_mr,
 	.rereg_mr      = mlx5_rereg_mr,
 	.dereg_mr      = mlx5_dereg_mr,
 	.alloc_mw      = mlx5_alloc_mw,
@@ -144,6 +146,7 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.destroy_wq = mlx5_destroy_wq,
 	.free_dm = mlx5_free_dm,
 	.get_srq_num = mlx5_get_srq_num,
+	.import_dm = mlx5_import_dm,
 	.import_mr = mlx5_import_mr,
 	.import_pd = mlx5_import_pd,
 	.modify_cq = mlx5_modify_cq,
@@ -161,8 +164,10 @@ static const struct verbs_context_ops mlx5_ctx_common_ops = {
 	.alloc_null_mr = mlx5_alloc_null_mr,
 	.free_context = mlx5_free_context,
 	.set_ece = mlx5_set_ece,
+	.unimport_dm = mlx5_unimport_dm,
 	.unimport_mr = mlx5_unimport_mr,
 	.unimport_pd = mlx5_unimport_pd,
+	.query_qp_data_in_order = mlx5_query_qp_data_in_order,
 };
 
 static const struct verbs_context_ops mlx5_ctx_cqev1_ops = {
@@ -256,6 +261,95 @@ void mlx5_clear_uidx(struct mlx5_context *ctx, uint32_t uidx)
 		ctx->uidx_table[tind].table[uidx & MLX5_UIDX_TABLE_MASK] = NULL;
 
 	pthread_mutex_unlock(&ctx->uidx_table_mutex);
+}
+
+struct mlx5_mkey *mlx5_find_mkey(struct mlx5_context *ctx, uint32_t mkey)
+{
+	int tind = mkey >> MLX5_MKEY_TABLE_SHIFT;
+
+	if (ctx->mkey_table[tind].refcnt)
+		return ctx->mkey_table[tind].table[mkey & MLX5_MKEY_TABLE_MASK];
+	else
+		return NULL;
+}
+
+int mlx5_store_mkey(struct mlx5_context *ctx, uint32_t mkey,
+		    struct mlx5_mkey *mlx5_mkey)
+{
+	int tind = mkey >> MLX5_MKEY_TABLE_SHIFT;
+	int ret = 0;
+
+	pthread_mutex_lock(&ctx->mkey_table_mutex);
+
+	if (!ctx->mkey_table[tind].refcnt) {
+		ctx->mkey_table[tind].table = calloc(MLX5_MKEY_TABLE_MASK + 1,
+				sizeof(struct mlx5_mkey *));
+		if (!ctx->mkey_table[tind].table) {
+			ret = -1;
+			goto out;
+		}
+	}
+
+	++ctx->mkey_table[tind].refcnt;
+	ctx->mkey_table[tind].table[mkey & MLX5_MKEY_TABLE_MASK] = mlx5_mkey;
+
+out:
+	pthread_mutex_unlock(&ctx->mkey_table_mutex);
+	return ret;
+}
+
+void mlx5_clear_mkey(struct mlx5_context *ctx, uint32_t mkey)
+{
+	int tind = mkey >> MLX5_MKEY_TABLE_SHIFT;
+
+	pthread_mutex_lock(&ctx->mkey_table_mutex);
+
+	if (!--ctx->mkey_table[tind].refcnt)
+		free(ctx->mkey_table[tind].table);
+	else
+		ctx->mkey_table[tind].table[mkey & MLX5_MKEY_TABLE_MASK] = NULL;
+
+	pthread_mutex_unlock(&ctx->mkey_table_mutex);
+}
+
+struct mlx5_psv *mlx5_create_psv(struct ibv_pd *pd)
+{
+	uint32_t out[DEVX_ST_SZ_DW(create_psv_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_psv_in)] = {};
+	struct mlx5_psv *psv;
+
+	psv = calloc(1, sizeof(*psv));
+	if (!psv) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	DEVX_SET(create_psv_in, in, opcode, MLX5_CMD_OP_CREATE_PSV);
+	DEVX_SET(create_psv_in, in, pd, to_mpd(pd)->pdn);
+	DEVX_SET(create_psv_in, in, num_psv, 1);
+
+	psv->devx_obj = mlx5dv_devx_obj_create(pd->context, in, sizeof(in),
+					       out, sizeof(out));
+	if (!psv->devx_obj)
+		goto err_free_psv;
+
+	psv->index = DEVX_GET(create_psv_out, out, psv0_index);
+
+	return psv;
+err_free_psv:
+	free(psv);
+	return NULL;
+}
+
+int mlx5_destroy_psv(struct mlx5_psv *psv)
+{
+	int ret;
+
+	ret = mlx5dv_devx_obj_destroy(psv->devx_obj);
+	if (!ret)
+		free(psv);
+
+	return ret;
 }
 
 static int mlx5_is_sandy_bridge(int *num_cores)
@@ -749,6 +843,9 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 	if (mctx->vendor_cap_flags & MLX5_VENDOR_CAP_FLAGS_CQE_128B_PAD)
 		attrs_out->flags |= MLX5DV_CONTEXT_FLAGS_CQE_128B_PAD;
 
+	if (mctx->flags & MLX5_CTX_FLAGS_REAL_TIME_TS_SUPPORTED)
+		attrs_out->flags |= MLX5DV_CONTEXT_FLAGS_REAL_TIME_TS;
+
 	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_CQE_COMPRESION) {
 		attrs_out->cqe_comp_caps = mctx->cqe_comp_caps;
 		comp_mask_out |= MLX5DV_CONTEXT_MASK_CQE_COMPRESION;
@@ -812,6 +909,11 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 				mctx->entropy_caps.num_lag_ports;
 			comp_mask_out |= MLX5DV_CONTEXT_MASK_NUM_LAG_PORTS;
 		}
+	}
+
+	if (attrs_out->comp_mask & MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD) {
+		attrs_out->sig_caps = mctx->sig_caps;
+		comp_mask_out |= MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD;
 	}
 
 	attrs_out->comp_mask = comp_mask_out;
@@ -1557,6 +1659,176 @@ int mlx5dv_modify_qp_sched_elem(struct ibv_qp *qp,
 	}
 }
 
+int mlx5_modify_qp_drain_sigerr(struct ibv_qp *qp)
+{
+	uint64_t mask = MLX5_QPC_OPT_MASK_INIT2INIT_DRAIN_SIGERR;
+	uint32_t in[DEVX_ST_SZ_DW(init2init_qp_in)] = {};
+	uint32_t out[DEVX_ST_SZ_DW(init2init_qp_out)] = {};
+	void *qpc = DEVX_ADDR_OF(init2init_qp_in, in, qpc);
+
+	DEVX_SET(init2init_qp_in, in, opcode, MLX5_CMD_OP_INIT2INIT_QP);
+	DEVX_SET(init2init_qp_in, in, qpn, qp->qp_num);
+	DEVX_SET(init2init_qp_in, in, opt_param_mask, mask);
+
+	DEVX_SET(qpc, qpc, drain_sigerr, 1);
+
+	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+}
+
+static struct reserved_qpn_blk *reserved_qpn_blk_alloc(struct mlx5_context *mctx)
+{
+	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_reserved_qpn_in)] = {};
+	struct reserved_qpn_blk *blk;
+	void *attr;
+
+	blk = calloc(1, sizeof(*blk));
+	if (!blk) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	blk->bmp = bitmap_alloc0(1 << mctx->hca_cap_2_caps.log_reserved_qpns_per_obj);
+	if (!blk->bmp) {
+		errno = ENOMEM;
+		goto bmp_alloc_fail;
+	}
+
+	attr = DEVX_ADDR_OF(create_reserved_qpn_in, in, hdr);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, opcode, MLX5_CMD_OP_CREATE_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, obj_type, MLX5_OBJ_TYPE_RESERVED_QPN);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, log_obj_range, mctx->hca_cap_2_caps.log_reserved_qpns_per_obj);
+
+	blk->obj = mlx5dv_devx_obj_create(&mctx->ibv_ctx.context,
+					  in, sizeof(in), out, sizeof(out));
+	if (!blk->obj)
+		goto obj_alloc_fail;
+
+	blk->first_qpn = blk->obj->object_id;
+	blk->next_avail_slot = 0;
+
+	return blk;
+
+obj_alloc_fail:
+	free(blk->bmp);
+
+bmp_alloc_fail:
+	free(blk);
+	return NULL;
+}
+
+static void reserved_qpn_blk_dealloc(struct reserved_qpn_blk *blk)
+{
+	if (mlx5dv_devx_obj_destroy(blk->obj))
+		assert(false);
+
+	free(blk->bmp);
+	free(blk);
+}
+
+static void reserved_qpn_blks_free(struct mlx5_context *mctx)
+{
+	struct reserved_qpn_blk *blk, *tmp;
+
+	pthread_mutex_lock(&mctx->reserved_qpns.mutex);
+
+	list_for_each_safe(&mctx->reserved_qpns.blk_list,
+			   blk, tmp, entry) {
+		list_del(&blk->entry);
+		reserved_qpn_blk_dealloc(blk);
+	}
+
+	pthread_mutex_unlock(&mctx->reserved_qpns.mutex);
+}
+
+/**
+ * Allocate a reserved QPN either from the last FW object allocated,
+ * or by allocating a new one. When find a free QPN in an object, it
+ * always starts from last allocation position, to make sure the QPN
+ * always move forward to prevent stale QPN.
+ */
+int mlx5dv_reserved_qpn_alloc(struct ibv_context *ctx, uint32_t *qpn)
+{
+	struct mlx5_context *mctx = to_mctx(ctx);
+	struct reserved_qpn_blk *blk;
+	uint32_t qpns_per_obj;
+	int ret = 0;
+
+	if (!is_mlx5_dev(ctx->device) ||
+	    !(mctx->general_obj_types_caps & (1ULL << MLX5_OBJ_TYPE_RESERVED_QPN)))
+		return EOPNOTSUPP;
+
+	qpns_per_obj = 1 << mctx->hca_cap_2_caps.log_reserved_qpns_per_obj;
+
+	pthread_mutex_lock(&mctx->reserved_qpns.mutex);
+
+	blk = list_tail(&mctx->reserved_qpns.blk_list,
+			struct reserved_qpn_blk, entry);
+	if (!blk ||
+	    (blk->next_avail_slot >= qpns_per_obj)) {
+		blk = reserved_qpn_blk_alloc(mctx);
+		if (!blk) {
+			ret = errno;
+			goto end;
+		}
+		list_add_tail(&mctx->reserved_qpns.blk_list, &blk->entry);
+	}
+
+	*qpn = blk->first_qpn + blk->next_avail_slot;
+	bitmap_set_bit(blk->bmp, blk->next_avail_slot);
+	blk->next_avail_slot++;
+
+end:
+	pthread_mutex_unlock(&mctx->reserved_qpns.mutex);
+	return ret;
+}
+
+/**
+ * Deallocate a reserved QPN. The FW object is destroyed only when all QPNs
+ * in this object were used and freed.
+ */
+int mlx5dv_reserved_qpn_dealloc(struct ibv_context *ctx, uint32_t qpn)
+{
+	struct mlx5_context *mctx = to_mctx(ctx);
+	struct reserved_qpn_blk *blk, *tmp;
+	uint32_t qpns_per_obj;
+	bool found = false;
+	int ret = 0;
+
+	qpns_per_obj = 1 << mctx->hca_cap_2_caps.log_reserved_qpns_per_obj;
+
+	pthread_mutex_lock(&mctx->reserved_qpns.mutex);
+
+	list_for_each_safe(&mctx->reserved_qpns.blk_list,
+			   blk, tmp, entry) {
+		if ((qpn >= blk->first_qpn) &&
+		    (qpn < blk->first_qpn + qpns_per_obj)) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found || !bitmap_test_bit(blk->bmp, qpn - blk->first_qpn)) {
+		errno = EINVAL;
+		ret = errno;
+		goto end;
+	}
+
+	bitmap_clear_bit(blk->bmp, qpn - blk->first_qpn);
+	if ((blk->next_avail_slot >= qpns_per_obj) &&
+	    (bitmap_empty(blk->bmp, qpns_per_obj))) {
+		list_del(&blk->entry);
+		reserved_qpn_blk_dealloc(blk);
+	}
+
+end:
+	pthread_mutex_unlock(&mctx->reserved_qpns.mutex);
+	return ret;
+}
+
 LATEST_SYMVER_FUNC(mlx5dv_init_obj, 1_2, "MLX5_1.2",
 		   int,
 		   struct mlx5dv_obj *obj, uint64_t obj_type)
@@ -1673,9 +1945,14 @@ int mlx5dv_get_clock_info(struct ibv_context *ctx_in,
 			  struct mlx5dv_clock_info *clock_info)
 {
 	struct mlx5_context *ctx = to_mctx(ctx_in);
-	const struct mlx5_ib_clock_info *ci = ctx->clock_info_page;
+	const struct mlx5_ib_clock_info *ci;
 	uint32_t retry, tmp_sig;
 	atomic_uint32_t *sig;
+
+	if (!is_mlx5_dev(ctx_in->device))
+		return EOPNOTSUPP;
+
+	ci = ctx->clock_info_page;
 
 	if (!ci)
 		return EINVAL;
@@ -1827,6 +2104,12 @@ static int mlx5_set_context(struct mlx5_context *context,
 	if (resp->comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_ECE)
 		context->flags |= MLX5_CTX_FLAGS_ECE_SUPPORTED;
 
+	if (resp->comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_SQD2RTS)
+		context->flags |= MLX5_CTX_FLAGS_SQD2RTS_SUPPORTED;
+
+	if (resp->comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_REAL_TIME_TS)
+		context->flags |= MLX5_CTX_FLAGS_REAL_TIME_TS_SUPPORTED;
+
 	if (resp->comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_DUMP_FILL_MKEY) {
 		context->dump_fill_mkey = resp->dump_fill_mkey;
 		/* Have the BE value ready to be used in data path */
@@ -1857,12 +2140,16 @@ static int mlx5_set_context(struct mlx5_context *context,
 	pthread_mutex_init(&context->qp_table_mutex, NULL);
 	pthread_mutex_init(&context->srq_table_mutex, NULL);
 	pthread_mutex_init(&context->uidx_table_mutex, NULL);
+	pthread_mutex_init(&context->mkey_table_mutex, NULL);
 	pthread_mutex_init(&context->dyn_bfregs_mutex, NULL);
 	for (i = 0; i < MLX5_QP_TABLE_SIZE; ++i)
 		context->qp_table[i].refcnt = 0;
 
 	for (i = 0; i < MLX5_QP_TABLE_SIZE; ++i)
 		context->uidx_table[i].refcnt = 0;
+
+	for (i = 0; i < MLX5_MKEY_TABLE_SIZE; ++i)
+		context->mkey_table[i].refcnt = 0;
 
 	context->db_list = NULL;
 
@@ -1960,6 +2247,9 @@ bf_done:
 
 	mlx5_set_singleton_nc_uar(&v_ctx->context);
 	context->cq_uar_reg = context->nc_uar ? context->nc_uar->uar : context->uar[0].reg;
+
+	pthread_mutex_init(&context->reserved_qpns.mutex, NULL);
+	list_head_init(&context->reserved_qpns.blk_list);
 
 	return 0;
 
@@ -2089,6 +2379,7 @@ static void mlx5_free_context(struct ibv_context *ibctx)
 		munmap((void *)context->clock_info_page, page_size);
 	close_debug_file(context);
 	clean_dyn_uars(ibctx);
+	reserved_qpn_blks_free(context);
 
 	verbs_uninit_context(&context->ibv_ctx);
 	free(context);

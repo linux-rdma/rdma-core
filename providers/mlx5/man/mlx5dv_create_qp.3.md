@@ -76,6 +76,19 @@ struct mlx5dv_qp_init_attr {
 		instead of the default message-based credits (IB spec. section 9.7.7.2). \
 		It is the applications responsibility to make sure that the peer QP is configured with same mode.
 
+	MLX5DV_QP_CREATE_SIG_PIPELINING:
+		If the flag is set, the QP is moved to SQD state upon
+		encountering a signature error, and IBV_EVENT_SQ_DRAINED is
+		generated to inform about the new state. The signature
+		pipelining feature is a performance optimization, which reduces
+		latency for read operations in the storage protocols. The
+		feature is optional. Creating the QP fails if the kernel or
+		device does not support the feature. In this case, an
+		application should fallback to backward compatibility mode
+		and handle read operations without the pipelining. See details
+		about the signature pipelining in
+		**mlx5dv_qp_cancel_posted_send_wrs**(3).
+
 *dc_init_attr*
 :	DC init attributes.
 
@@ -106,6 +119,10 @@ struct mlx5dv_dc_init_attr {
 
 	MLX5DV_QP_EX_WITH_MR_LIST:
 		Enables the mlx5dv_wr_mr_list() work requset on this QP.
+
+	MLX5DV_QP_EX_WITH_MKEY_CONFIGURE:
+		Enables the mlx5dv_wr_mkey_configure() work request and the
+		related setters on this QP.
 
 # NOTES
 

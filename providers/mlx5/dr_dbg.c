@@ -79,6 +79,8 @@ enum dr_dump_rec_type {
 	DR_DUMP_REC_TYPE_ACTION_DEST_ARRAY = 3416,
 	DR_DUMP_REC_TYPE_ACTION_ASO_FIRST_HIT = 3417,
 	DR_DUMP_REC_TYPE_ACTION_ASO_FLOW_METER = 3418,
+	DR_DUMP_REC_TYPE_ACTION_ASO_CT = 3419,
+	DR_DUMP_REC_TYPE_ACTION_MISS = 3423,
 };
 
 static uint64_t dr_dump_icm_to_idx(uint64_t icm_addr)
@@ -94,10 +96,9 @@ static void dump_hex_print(char *dest, char *src, uint32_t size)
 		sprintf(&dest[2 * i], "%02x", (uint8_t)src[i]);
 }
 
-static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
-				   struct dr_rule_action_member *action_mem)
+static int dr_dump_rule_action(FILE *f, const uint64_t rule_id,
+			       struct mlx5dv_dr_action *action)
 {
-	struct mlx5dv_dr_action *action = action_mem->action;
 	const uint64_t action_id = (uint64_t) (uintptr_t) action;
 	int ret;
 
@@ -213,6 +214,15 @@ static int dr_dump_rule_action_mem(FILE *f, const uint64_t rule_id,
 			      DR_DUMP_REC_TYPE_ACTION_ASO_FLOW_METER, action_id,
 			      rule_id, action->aso.devx_obj->object_id);
 		break;
+	case DR_ACTION_TYP_ASO_CT:
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
+			      DR_DUMP_REC_TYPE_ACTION_ASO_CT, action_id,
+			      rule_id, action->aso.devx_obj->object_id);
+		break;
+	case DR_ACTION_TYP_MISS:
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 "\n",
+			      DR_DUMP_REC_TYPE_ACTION_MISS, action_id, rule_id);
+		break;
 	default:
 		return 0;
 	}
@@ -239,7 +249,7 @@ static int dr_dump_rule_mem(FILE *f, struct dr_ste *ste,
 				       DR_DUMP_REC_TYPE_RULE_TX_ENTRY_V1;
 	}
 
-	dump_hex_print(hw_ste_dump, (char *)ste->hw_ste, DR_STE_SIZE_REDUCED);
+	dump_hex_print(hw_ste_dump, (char *)ste->hw_ste, ste->size);
 	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",%s\n",
 		      mem_rec_type,
 		      dr_dump_icm_to_idx(dr_ste_get_icm_addr(ste)),
@@ -274,10 +284,10 @@ static int dr_dump_rule(FILE *f, struct mlx5dv_dr_rule *rule)
 {
 	const uint64_t rule_id = (uint64_t) (uintptr_t) rule;
 	enum mlx5_ifc_steering_format_version format_ver;
-	struct dr_rule_action_member *action_mem;
 	struct dr_rule_rx_tx *rx = &rule->rx;
 	struct dr_rule_rx_tx *tx = &rule->tx;
 	int ret;
+	int i;
 
 	format_ver = rule->matcher->tbl->dmn->info.caps.sw_format_ver;
 
@@ -304,29 +314,13 @@ static int dr_dump_rule(FILE *f, struct mlx5dv_dr_rule *rule)
 		}
 	}
 
-	list_for_each(&rule->rule_actions_list, action_mem, list) {
-		ret = dr_dump_rule_action_mem(f, rule_id, action_mem);
+	for (i = 0; i < rule->num_actions; i++) {
+		ret = dr_dump_rule_action(f, rule_id, rule->actions[i]);
 		if (ret < 0)
 			return ret;
 	}
 
 	return 0;
-}
-
-int mlx5dv_dump_dr_rule(FILE *fout, struct mlx5dv_dr_rule *rule)
-{
-	int ret;
-
-	if (!fout || !rule)
-		return -EINVAL;
-
-	dr_domain_lock(rule->matcher->tbl->dmn);
-
-	ret = dr_dump_rule(fout, rule);
-
-	dr_domain_unlock(rule->matcher->tbl->dmn);
-
-	return ret;
 }
 
 static int dr_dump_matcher_mask(FILE *f, struct dr_match_param *mask,
@@ -382,6 +376,20 @@ static int dr_dump_matcher_mask(FILE *f, struct dr_match_param *mask,
 
 	if (criteria & DR_MATCHER_CRITERIA_MISC3) {
 		dump_hex_print(dump, (char *)&mask->misc3, sizeof(mask->misc3));
+		ret = fprintf(f, "%s,", dump);
+	} else {
+		ret = fprintf(f, ",");
+	}
+
+	if (criteria & DR_MATCHER_CRITERIA_MISC4) {
+		dump_hex_print(dump, (char *)&mask->misc4, sizeof(mask->misc4));
+		ret = fprintf(f, "%s,", dump);
+	} else {
+		ret = fprintf(f, ",");
+	}
+
+	if (criteria & DR_MATCHER_CRITERIA_MISC5) {
+		dump_hex_print(dump, (char *)&mask->misc5, sizeof(mask->misc5));
 		ret = fprintf(f, "%s\n", dump);
 	} else {
 		ret = fprintf(f, ",\n");
@@ -397,14 +405,16 @@ static int dr_dump_matcher_builder(FILE *f, struct dr_ste_build *builder,
 				   uint32_t index, bool is_rx,
 				   const uint64_t matcher_id)
 {
+	bool is_match = builder->htbl_type == DR_STE_HTBL_TYPE_MATCH;
 	int ret;
 
-	ret = fprintf(f, "%d,0x%" PRIx64 "%d,%d,0x%x\n",
+	ret = fprintf(f, "%d,0x%" PRIx64 "%d,%d,0x%x,%d\n",
 		      DR_DUMP_REC_TYPE_MATCHER_BUILDER,
 		      matcher_id,
 		      index,
 		      is_rx,
-		      builder->lu_type);
+		      builder->lu_type,
+		      is_match ? builder->format_id : -1);
 	if (ret < 0)
 		return ret;
 
@@ -498,22 +508,6 @@ static int dr_dump_matcher_all(FILE *fout, struct mlx5dv_dr_matcher *matcher)
 	return 0;
 }
 
-int mlx5dv_dump_dr_matcher(FILE *fout, struct mlx5dv_dr_matcher *matcher)
-{
-	int ret;
-
-	if (!fout || !matcher)
-		return -EINVAL;
-
-	dr_domain_lock(matcher->tbl->dmn);
-
-	ret = dr_dump_matcher_all(fout, matcher);
-
-	dr_domain_unlock(matcher->tbl->dmn);
-
-	return ret;
-}
-
 static uint64_t dr_domain_id_calc(enum mlx5dv_dr_domain_type type)
 {
 	return (getpid() << 8) | (type & 0xff);
@@ -588,22 +582,6 @@ static int dr_dump_table_all(FILE *fout, struct mlx5dv_dr_table *tbl)
 	return 0;
 }
 
-int mlx5dv_dump_dr_table(FILE *fout, struct mlx5dv_dr_table *tbl)
-{
-	int ret;
-
-	if (!fout || !tbl)
-		return -EINVAL;
-
-	dr_domain_lock(tbl->dmn);
-
-	ret = dr_dump_table_all(fout, tbl);
-
-	dr_domain_unlock(tbl->dmn);
-
-	return ret;
-}
-
 static int dr_dump_send_ring(FILE *f, struct dr_send_ring *ring,
 			     const uint64_t domain_id)
 {
@@ -669,16 +647,16 @@ static int dr_dump_domain_info_caps(FILE *f, struct dr_devx_caps *caps,
 	return 0;
 }
 
-static int dr_dump_domain_info_dev_attr(FILE *f, struct ibv_device_attr *attr,
+static int dr_dump_domain_info_dev_attr(FILE *f, struct dr_domain_info *info,
 					const uint64_t domain_id)
 {
 	int ret;
 
-	ret = fprintf(f, "%d,0x%" PRIx64 ",%d,%s\n",
+	ret = fprintf(f, "%d,0x%" PRIx64 ",%u,%s\n",
 		      DR_DUMP_REC_TYPE_DOMAIN_INFO_DEV_ATTR,
 		      domain_id,
-		      attr->phys_port_cnt,
-		      attr->fw_ver);
+		      info->caps.num_vports + 1,
+		      info->attr.orig_attr.fw_ver);
 	if (ret < 0)
 		return ret;
 
@@ -689,7 +667,7 @@ static int dr_dump_domain_info(FILE *f, struct dr_domain_info *info,
 {
 	int ret;
 
-	ret = dr_dump_domain_info_dev_attr(f, &info->attr, domain_id);
+	ret = dr_dump_domain_info_dev_attr(f, info, domain_id);
 	if (ret < 0)
 		return ret;
 
@@ -780,6 +758,72 @@ int mlx5dv_dump_dr_domain(FILE *fout, struct mlx5dv_dr_domain *dmn)
 
 	dr_domain_unlock(dmn);
 
+	return ret;
+}
+
+int mlx5dv_dump_dr_table(FILE *fout, struct mlx5dv_dr_table *tbl)
+{
+	int ret;
+
+	if (!fout || !tbl)
+		return -EINVAL;
+
+	dr_domain_lock(tbl->dmn);
+	ret = dr_dump_domain(fout, tbl->dmn);
+	if (ret < 0)
+		goto out;
+
+	ret = dr_dump_table_all(fout, tbl);
+out:
+	dr_domain_unlock(tbl->dmn);
+	return ret;
+}
+
+int mlx5dv_dump_dr_matcher(FILE *fout, struct mlx5dv_dr_matcher *matcher)
+{
+	int ret;
+
+	if (!fout || !matcher)
+		return -EINVAL;
+
+	dr_domain_lock(matcher->tbl->dmn);
+	ret = dr_dump_domain(fout, matcher->tbl->dmn);
+	if (ret < 0)
+		goto out;
+
+	ret = dr_dump_table(fout, matcher->tbl);
+	if (ret < 0)
+		goto out;
+
+	ret = dr_dump_matcher_all(fout, matcher);
+out:
+	dr_domain_unlock(matcher->tbl->dmn);
+	return ret;
+}
+
+int mlx5dv_dump_dr_rule(FILE *fout, struct mlx5dv_dr_rule *rule)
+{
+	int ret;
+
+	if (!fout || !rule)
+		return -EINVAL;
+
+	dr_domain_lock(rule->matcher->tbl->dmn);
+	ret = dr_dump_domain(fout, rule->matcher->tbl->dmn);
+	if (ret < 0)
+		goto out;
+
+	ret = dr_dump_table(fout, rule->matcher->tbl);
+	if (ret < 0)
+		goto out;
+
+	ret = dr_dump_matcher(fout, rule->matcher);
+	if (ret < 0)
+		goto out;
+
+	ret = dr_dump_rule(fout, rule);
+out:
+	dr_domain_unlock(rule->matcher->tbl->dmn);
 	return ret;
 }
 

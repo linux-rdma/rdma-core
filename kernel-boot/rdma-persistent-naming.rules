@@ -7,6 +7,7 @@
 # NAME_KERNEL - leave name as kernel provided
 # NAME_PCI - based on PCI/slot/function location
 # NAME_GUID - based on system image GUID
+# NAME_FIXED - rename the device to the fixed named in the next argument
 #
 # The stable names are combination of device type technology and rename mode.
 # Infiniband - ib*
@@ -26,3 +27,9 @@
 #   mlx5_0 -> rocex525400c0fe123455
 #
 ACTION=="add", SUBSYSTEM=="infiniband", PROGRAM="rdma_rename %k NAME_FALLBACK"
+
+# Example:
+# * NAME_FIXED 
+#   fixed name for specific board_id
+#
+#ACTION=="add", ATTR{board_id}=="MSF0010110035", SUBSYSTEM=="infiniband", PROGRAM="rdma_rename %k NAME_FIXED myib"

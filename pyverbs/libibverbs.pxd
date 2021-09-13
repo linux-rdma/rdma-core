@@ -3,6 +3,7 @@
 
 include 'libibverbs_enums.pxd'
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
+from posix.time cimport timespec
 
 cdef extern from 'infiniband/verbs.h':
 
@@ -140,6 +141,7 @@ cdef extern from 'infiniband/verbs.h':
         unsigned long           max_dm_size
         ibv_pci_atomic_caps     pci_atomic_caps
         uint32_t                xrc_odp_caps
+        uint32_t                phys_port_cnt_ex
 
     cdef struct ibv_mw:
         ibv_context     *context
@@ -156,6 +158,7 @@ cdef extern from 'infiniband/verbs.h':
     cdef struct ibv_dm:
         ibv_context     *context
         unsigned int    comp_mask
+        uint32_t        handle
 
     cdef struct ibv_port_attr:
         ibv_port_state     state
@@ -490,6 +493,87 @@ cdef extern from 'infiniband/verbs.h':
         uint32_t gid_type
         uint32_t ndev_ifindex
 
+    cdef struct ibv_flow:
+        uint32_t    comp_mask
+        ibv_context *context
+        uint32_t    handle
+
+    cdef struct ibv_flow_attr:
+        uint32_t           comp_mask
+        ibv_flow_attr_type type
+        uint16_t           size
+        uint16_t           priority
+        uint8_t            num_of_specs
+        uint8_t            port
+        uint32_t           flags
+
+    cdef struct ibv_flow_eth_filter:
+        uint8_t  dst_mac[6]
+        uint8_t  src_mac[6]
+        uint16_t ether_type
+        uint16_t vlan_tag
+
+    cdef struct ibv_flow_spec_eth:
+        ibv_flow_spec_type  type
+        uint16_t            size
+        ibv_flow_eth_filter val
+        ibv_flow_eth_filter mask
+
+    cdef struct ibv_flow_ipv4_ext_filter:
+        uint32_t  src_ip
+        uint32_t  dst_ip
+        uint8_t   proto
+        uint8_t   tos
+        uint8_t   ttl
+        uint8_t   flags
+
+    cdef struct ibv_flow_spec_ipv4_ext:
+        ibv_flow_spec_type       type
+        uint16_t                 size
+        ibv_flow_ipv4_ext_filter val
+        ibv_flow_ipv4_ext_filter mask
+
+    cdef struct ibv_flow_tcp_udp_filter:
+        uint16_t dst_port
+        uint16_t src_port
+
+    cdef struct ibv_flow_spec_tcp_udp:
+        ibv_flow_spec_type      type
+        uint16_t                size
+        ibv_flow_tcp_udp_filter val
+        ibv_flow_tcp_udp_filter mask
+
+    cdef struct ibv_flow_ipv6_filter:
+        uint8_t  src_ip[16]
+        uint8_t  dst_ip[16]
+        uint32_t flow_label
+        uint8_t  next_hdr
+        uint8_t  traffic_class
+        uint8_t  hop_limit
+
+    cdef struct ibv_flow_spec_ipv6:
+        ibv_flow_spec_type   type
+        uint16_t             size
+        ibv_flow_ipv6_filter val
+        ibv_flow_ipv6_filter mask
+
+    cdef struct ibv_flow_action:
+        ibv_context *context
+
+    cdef struct ibv_values_ex:
+        uint32_t comp_mask
+        timespec raw_clock
+
+    cdef union ibv_async_event_element:
+        ibv_cq  *cq;
+        ibv_qp  *qp;
+        ibv_srq *srq;
+        int     port_num;
+
+    cdef struct ibv_async_event:
+        ibv_async_event_element element
+        ibv_event_type event_type
+
     ibv_device **ibv_get_device_list(int *n)
     int ibv_get_device_index(ibv_device *device);
     void ibv_free_device_list(ibv_device **list)
@@ -507,6 +591,10 @@ cdef extern from 'infiniband/verbs.h':
     ibv_pd *ibv_alloc_pd(ibv_context *context)
     int ibv_dealloc_pd(ibv_pd *pd)
     ibv_mr *ibv_reg_mr(ibv_pd *pd, void *addr, size_t length, int access)
+    ibv_mr *ibv_reg_dmabuf_mr(ibv_pd *pd, uint64_t offset, size_t length,
+                              uint64_t iova, int fd, int access)
+    int ibv_rereg_mr(ibv_mr *mr, int flags, ibv_pd *pd, void *addr,
+                     size_t length, int access)
     int ibv_dereg_mr(ibv_mr *mr)
     int ibv_advise_mr(ibv_pd *pd, uint32_t advice, uint32_t flags,
                       ibv_sge *sg_list, uint32_t num_sge)
@@ -621,12 +709,22 @@ cdef extern from 'infiniband/verbs.h':
     void ibv_unimport_mr(ibv_mr *mr)
     ibv_pd *ibv_import_pd(ibv_context *context, uint32_t handle)
     void ibv_unimport_pd(ibv_pd *pd)
+    ibv_dm *ibv_import_dm(ibv_context *context, uint32_t dm_handle)
+    void ibv_unimport_dm(ibv_dm *dm)
     int ibv_query_gid_ex(ibv_context *context, uint32_t port_num,
                          uint32_t gid_index, ibv_gid_entry *entry,
                          uint32_t flags)
     ssize_t ibv_query_gid_table(ibv_context *context,
                                 ibv_gid_entry *entries, size_t max_entries,
                                 uint32_t flags)
+    ibv_flow *ibv_create_flow(ibv_qp *qp, ibv_flow_attr *flow)
+    int ibv_destroy_flow(ibv_flow *flow_id)
+    int ibv_query_rt_values_ex(ibv_context *context, ibv_values_ex *values)
+    int ibv_get_async_event(ibv_context *context, ibv_async_event *event)
+    void ibv_ack_async_event(ibv_async_event *event)
+    int ibv_query_qp_data_in_order(ibv_qp *qp, ibv_wr_opcode op, uint32_t flags)
+    int ibv_fork_init()
+    ibv_fork_status ibv_is_fork_initialized()
 
 
 cdef extern from 'infiniband/driver.h':

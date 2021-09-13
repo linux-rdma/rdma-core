@@ -84,7 +84,6 @@ class CQEXAPITest(PyverbsAPITestCase):
     """
     def setUp(self):
         super().setUp()
-        self.ctx, self.attr, self.attr_ex = self.devices[0]
         self.max_cqe = self.attr.max_cqe
 
     def test_create_cq_ex(self):

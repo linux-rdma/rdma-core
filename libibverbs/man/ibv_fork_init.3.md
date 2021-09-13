@@ -33,7 +33,9 @@ always blocked until all child processes end or change address spaces via an
 # RETURN VALUE
 
 **ibv_fork_init()** returns 0 on success, or the value of errno on failure
-(which indicates the failure reason).
+(which indicates the failure reason). An error value of EINVAL indicates that
+there had been RDMA memory registration already and it is therefore not
+safe anymore to fork.
 
 # NOTES
 

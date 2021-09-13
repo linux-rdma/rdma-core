@@ -50,6 +50,8 @@ Create an indirect mkey to enable application uses its specific device functiona
 *create_flags*
 :	MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT:
 		Indirect mkey is being created.
+	MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE:
+		Enable block signature offload support for mkey.
 
 *max_entries*
 :	Requested max number of pointed entries by this indirect mkey.

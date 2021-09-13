@@ -40,11 +40,9 @@ class CQAPITest(PyverbsAPITestCase):
     """
     def setUp(self):
         super().setUp()
-        self.ctx, attr, _ = self.devices[0]
-        self.max_cqe = attr.max_cqe
 
     def test_create_cq(self):
-        for cq_size in [1, self.max_cqe/2, self.max_cqe]:
+        for cq_size in [1, self.attr.max_cqe/2, self.attr.max_cqe]:
             for comp_vector in range(0, min(2, self.ctx.num_comp_vectors)):
                 try:
                     cq = CQ(self.ctx, cq_size, None, None, comp_vector)
@@ -59,7 +57,7 @@ class CQAPITest(PyverbsAPITestCase):
 
 
     def test_create_cq_with_comp_channel(self):
-        for cq_size in [1, self.max_cqe/2, self.max_cqe]:
+        for cq_size in [1, self.attr.max_cqe/2, self.attr.max_cqe]:
             cc = CompChannel(self.ctx)
             CQ(self.ctx, cq_size, None, cc, 0)
             cc.close()
@@ -69,7 +67,7 @@ class CQAPITest(PyverbsAPITestCase):
         Test ibv_create_cq() with wrong comp_vector / number of cqes
         """
         with self.assertRaises(PyverbsRDMAError) as ex:
-            CQ(self.ctx, self.max_cqe + 1, None, None, 0)
+            CQ(self.ctx, self.attr.max_cqe + 1, None, None, 0)
         self.assertEqual(ex.exception.error_code, errno.EINVAL)
 
         with self.assertRaises(PyverbsRDMAError) as ex:

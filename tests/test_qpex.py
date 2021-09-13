@@ -146,10 +146,12 @@ class QpExRCAtomicFetchAdd(RCResources):
 
 class QpExRCBindMw(RCResources):
     def create_qps(self):
-        create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_BIND_MW)
+        create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_RDMA_WRITE |
+                     e.IBV_QP_EX_WITH_BIND_MW)
 
     def create_mr(self):
-        self.mr = u.create_custom_mr(self, e.IBV_ACCESS_REMOTE_WRITE)
+        self.mr = u.create_custom_mr(self, e.IBV_ACCESS_REMOTE_WRITE |
+                                     e.IBV_ACCESS_MW_BIND)
 
 
 class QpExTestCase(RDMATestCase):
@@ -260,3 +262,46 @@ class QpExTestCase(RDMATestCase):
         server.mr.write('s' * 8, 8)
         u.rdma_traffic(client, server, self.iters, self.gid_index, self.ib_port,
                        new_send=True, send_op=e.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD)
+
+    def test_qp_ex_rc_bind_mw(self):
+        """
+        Verify bind memory window operation using the new post_send API.
+        Instead of checking through regular pingpong style traffic, we'll
+        do as follows:
+        - Register an MR with remote write access
+        - Bind a MW without remote write permission to the MR
+        - Verify that remote write fails
+        Since it's a unique flow, it's an integral part of that test rather
+        than a utility method.
+        """
+        client, server = self.create_players('rc_bind_mw')
+        client_sge = u.get_send_elements(client, False)[1]
+        # Create a MW and bind it
+        server.qp.wr_start()
+        server.qp.wr_id = 0x123
+        server.qp.wr_flags = e.IBV_SEND_SIGNALED
+        bind_info = MWBindInfo(server.mr, server.mr.buf, server.mr.length,
+                               e.IBV_ACCESS_LOCAL_WRITE)
+        try:
+            mw = MW(server.pd, mw_type=e.IBV_MW_TYPE_2)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Memory Window allocation is not supported')
+            raise ex
+        new_key = inc_rkey(server.mr.rkey)
+        server.qp.wr_bind_mw(mw, new_key, bind_info)
+        server.qp.wr_complete()
+        u.poll_cq(server.cq)
+        # Verify that remote write fails
+        client.qp.wr_start()
+        client.qp.wr_id = 0x124
+        client.qp.wr_flags = e.IBV_SEND_SIGNALED
+        client.qp.wr_rdma_write(new_key, server.mr.buf)
+        client.qp.wr_set_sge(client_sge)
+        client.qp.wr_complete()
+        try:
+            u.poll_cq(client.cq)
+        except PyverbsRDMAError as ex:
+            if ex.error_code != e.IBV_WC_REM_ACCESS_ERR:
+                raise ex
+

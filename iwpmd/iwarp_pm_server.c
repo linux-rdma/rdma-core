@@ -36,7 +36,6 @@
 #include <getopt.h>
 #include "iwarp_pm.h"
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 
 static const char iwpm_ulib_name [] = "iWarpPortMapperUser";

@@ -1003,7 +1003,7 @@ int umad_get_fd(int fd)
 }
 
 int umad_register_oui(int fd, int mgmt_class, uint8_t rmpp_version,
-		      uint8_t oui[3], long method_mask[])
+		      uint8_t oui[3], long method_mask[16 / sizeof(long)])
 {
 	struct ib_user_mad_reg_req req;
 
@@ -1042,7 +1042,7 @@ int umad_register_oui(int fd, int mgmt_class, uint8_t rmpp_version,
 }
 
 int umad_register(int fd, int mgmt_class, int mgmt_version,
-		  uint8_t rmpp_version, long method_mask[])
+		  uint8_t rmpp_version, long method_mask[16 / sizeof(long)])
 {
 	struct ib_user_mad_reg_req req;
 	__be32 oui = htobe32(IB_OPENIB_OUI);

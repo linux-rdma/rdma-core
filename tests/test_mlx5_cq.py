@@ -4,10 +4,11 @@ import errno
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, \
     Mlx5DVCQInitAttr, Mlx5CQ, context_flags_to_str, cqe_comp_to_str
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
-from tests.base import RDMATestCase, RCResources
 import pyverbs.providers.mlx5.mlx5_enums as dve
+from tests.mlx5_base import Mlx5RDMATestCase
 from tests.mlx5_base import Mlx5DcResources
 from pyverbs.cq import CqInitAttrEx
+from tests.base import RCResources
 import pyverbs.enums as e
 import tests.utils as u
 
@@ -106,7 +107,7 @@ class Mlx5DvCqDcRes(Mlx5DcResources):
         create_dv_cq(self)
 
 
-class DvCqTest(RDMATestCase):
+class DvCqTest(Mlx5RDMATestCase):
     def setUp(self):
         super().setUp()
         self.iters = 10

@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2005 Topspin Communications.  All rights reserved.
  * Copyright (c) 2006, 2007 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2020 Intel Corperation.  All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -370,6 +371,40 @@ void ibv_unimport_mr(struct ibv_mr *mr)
 	get_ops(mr->context)->unimport_mr(mr);
 }
 
+/**
+ * ibv_import_dm - Import a device memory
+ */
+struct ibv_dm *ibv_import_dm(struct ibv_context *context, uint32_t dm_handle)
+{
+	return get_ops(context)->import_dm(context, dm_handle);
+}
+
+/**
+ * ibv_unimport_dm - Unimport a device memory
+ */
+void ibv_unimport_dm(struct ibv_dm *dm)
+{
+	get_ops(dm->context)->unimport_dm(dm);
+}
+
+struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
+				 size_t length, uint64_t iova, int fd,
+				 int access)
+{
+	struct ibv_mr *mr;
+
+	mr = get_ops(pd->context)->reg_dmabuf_mr(pd, offset, length, iova,
+						 fd, access);
+	if (!mr)
+		return NULL;
+
+	mr->context = pd->context;
+	mr->pd = pd;
+	mr->addr = (void *)(uintptr_t)offset;
+	mr->length = length;
+	return mr;
+}
+
 LATEST_SYMVER_FUNC(ibv_rereg_mr, 1_1, "IBVERBS_1.1",
 		   int,
 		   struct ibv_mr *mr, int flags,
@@ -647,6 +682,19 @@ LATEST_SYMVER_FUNC(ibv_query_qp, 1_1, "IBVERBS_1.1",
 		qp->state = attr->qp_state;
 
 	return 0;
+}
+
+int ibv_query_qp_data_in_order(struct ibv_qp *qp, enum ibv_wr_opcode op,
+			       uint32_t flags)
+{
+#if !defined(__i386__) && !defined(__x86_64__)
+	/* Currently this API is only supported for x86 architectures since most
+	 * non-x86 platforms are known to be OOO and need to do a per-platform study.
+	 */
+	return 0;
+#else
+	return get_ops(qp->context)->query_qp_data_in_order(qp, op, flags);
+#endif
 }
 
 LATEST_SYMVER_FUNC(ibv_modify_qp, 1_1, "IBVERBS_1.1",

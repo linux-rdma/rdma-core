@@ -76,7 +76,7 @@ NOTE: Systemd requires an extra \(aq%\(aq.
 \fB\-f, \-\-foreground\fP
 Run in the foreground instead of as a daemon
 .sp
-\fB\-d, \-\-debugging\fP
+\fB\-d, \-\-debug\fP
 Log additional debugging information to syslog
 .sp
 \fB\-\-systemd\fP

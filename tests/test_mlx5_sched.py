@@ -3,14 +3,15 @@ import errno
 
 from pyverbs.providers.mlx5.mlx5dv_sched import Mlx5dvSchedAttr, \
     Mlx5dvSchedNode, Mlx5dvSchedLeaf
-from tests.base import RDMATestCase, RCResources, PyverbsAPITestCase
+from tests.mlx5_base import Mlx5RDMATestCase, Mlx5PyverbsAPITestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.providers.mlx5.mlx5dv import Mlx5QP
 import pyverbs.providers.mlx5.mlx5_enums as dve
+from tests.base import RCResources
 import tests.utils as u
 
 
-class Mlx5SchedTest(PyverbsAPITestCase):
+class Mlx5SchedTest(Mlx5PyverbsAPITestCase):
     def test_create_sched_tree(self):
         """
         Create schedule elements tree. Test the schedule elements API, this
@@ -18,25 +19,24 @@ class Mlx5SchedTest(PyverbsAPITestCase):
         them with schedule leaves. In addition, modify some nodes with
         different BW share and max BW.
         """
-        ctx, _, _ = self.devices[0]
         try:
-            root_node = Mlx5dvSchedNode(ctx, Mlx5dvSchedAttr())
+            root_node = Mlx5dvSchedNode(self.ctx, Mlx5dvSchedAttr())
             # Create a node with only max_avg_bw argument.
             max_sched_attr = Mlx5dvSchedAttr(root_node, max_avg_bw=10,
                                              flags=dve.MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW)
-            max_bw_node = Mlx5dvSchedNode(ctx, max_sched_attr)
+            max_bw_node = Mlx5dvSchedNode(self.ctx, max_sched_attr)
 
             # Create a node with only bw_share argument.
             weighed_sched_attr = Mlx5dvSchedAttr(root_node, bw_share=10,
                                                  flags=dve.MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE)
-            max_bw_node = Mlx5dvSchedNode(ctx, weighed_sched_attr)
+            max_bw_node = Mlx5dvSchedNode(self.ctx, weighed_sched_attr)
 
             # Create a node with max_avg_bw and bw_share arguments.
             mixed_flags = dve.MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW | \
                 dve.MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE
             mixed_sched_attr = Mlx5dvSchedAttr(root_node, max_avg_bw=10, bw_share=2,
                                                flags=mixed_flags)
-            mixed_bw_node = Mlx5dvSchedNode(ctx, mixed_sched_attr)
+            mixed_bw_node = Mlx5dvSchedNode(self.ctx, mixed_sched_attr)
 
             # Modify a node.
             modify_sched_attr = Mlx5dvSchedAttr(root_node, max_avg_bw=4, bw_share=1,
@@ -45,7 +45,7 @@ class Mlx5SchedTest(PyverbsAPITestCase):
 
             # Attach sched leaf to mixed_bw_node
             max_sched_attr = Mlx5dvSchedAttr(mixed_bw_node)
-            sched_leaf = Mlx5dvSchedLeaf(ctx, max_sched_attr)
+            sched_leaf = Mlx5dvSchedLeaf(self.ctx, max_sched_attr)
 
             # Modify a leaf.
             modify_sched_attr = Mlx5dvSchedAttr(mixed_bw_node, max_avg_bw=3, bw_share=3,
@@ -57,7 +57,7 @@ class Mlx5SchedTest(PyverbsAPITestCase):
             raise ex
 
 
-class Mlx5SchedTrafficTest(RDMATestCase):
+class Mlx5SchedTrafficTest(Mlx5RDMATestCase):
     def setUp(self):
         super().setUp()
         self.iters = 10

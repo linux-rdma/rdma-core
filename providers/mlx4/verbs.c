@@ -463,7 +463,8 @@ static int mlx4_cmd_create_cq_ex(struct ibv_context *context,
 				   &cq->verbs_cq, &cmd.ibv_cmd,
 				   sizeof(cmd),
 				   &resp.ibv_resp,
-				   sizeof(resp));
+				   sizeof(resp),
+				   0);
 	if (!ret)
 		cq->cqn = resp.cqn;
 

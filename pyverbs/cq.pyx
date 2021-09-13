@@ -611,7 +611,7 @@ def cqe_opcode_to_str(opcode):
                 0x81: "Receive RDMA with immediate",
                 0x82: "Tag matching - add", 0x83: "Tag matching - delete",
                 0x84: "Tag matching - sync", 0x85: "Tag matching - receive",
-                0x86: "Tag matching - no tag"}[opcode]
+                0x86: "Tag matching - no tag", 0x87: "Driver WR"}[opcode]
     except KeyError:
         return "Unknown CQE opcode {op}".format(op=opcode)
 

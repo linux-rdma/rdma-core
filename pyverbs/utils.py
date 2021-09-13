@@ -4,6 +4,7 @@
 import struct
 
 from pyverbs.pyverbs_error import PyverbsUserError
+import pyverbs.enums as e
 
 be64toh = lambda num: struct.unpack('Q', struct.pack('!Q', num))[0]
 
@@ -79,3 +80,16 @@ def mig_state_to_str(mig):
         return mig_states[mig]
     except KeyError:
         return 'Unknown ({m})'.format(m=mig)
+
+def rereg_error_to_str(error):
+    error_map = {e.IBV_REREG_MR_ERR_INPUT: 'IBV_REREG_MR_ERR_INPUT',
+                 e.IBV_REREG_MR_ERR_DONT_FORK_NEW: \
+                     'IBV_REREG_MR_ERR_DONT_FORK_NEW',
+                 e.IBV_REREG_MR_ERR_DO_FORK_OLD: 'IBV_REREG_MR_ERR_DO_FORK_OLD',
+                 e.IBV_REREG_MR_ERR_CMD: 'IBV_REREG_MR_ERR_CMD',
+                 e.IBV_REREG_MR_ERR_CMD_AND_DO_FORK_NEW: \
+                     'IBV_REREG_MR_ERR_CMD_AND_DO_FORK_NEW'}
+    try:
+        return error_map[error]
+    except KeyError:
+        return f'Unknown error ({error})'

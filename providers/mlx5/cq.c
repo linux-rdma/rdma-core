@@ -59,6 +59,22 @@ enum {
 	MLX5_CQ_MODIFY_MAPPING = 2,
 };
 
+struct mlx5_sigerr_cqe {
+	uint8_t rsvd0[16];
+	__be32 expected_trans_sig;
+	__be32 actual_trans_sig;
+	__be32 expected_ref_tag;
+	__be32 actual_ref_tag;
+	__be16 syndrome;
+	uint8_t sig_type;
+	uint8_t domain;
+	__be32 mkey;
+	__be64 sig_err_offset;
+	uint8_t rsvd30[14];
+	uint8_t signature;
+	uint8_t op_own;
+};
+
 enum {
 	MLX5_CQE_APP_TAG_MATCHING = 1,
 };
@@ -91,7 +107,8 @@ static inline bool mlx5_cqe_app_op_tm_is_complete(int op)
 enum {
 	MLX5_CQ_LAZY_FLAGS =
 		MLX5_CQ_FLAGS_RX_CSUM_VALID |
-		MLX5_CQ_FLAGS_TM_SYNC_REQ
+		MLX5_CQ_FLAGS_TM_SYNC_REQ |
+		MLX5_CQ_FLAGS_RAW_WQE
 };
 
 int mlx5_stall_num_loop = 60;
@@ -173,12 +190,17 @@ static inline void handle_good_req(struct ibv_wc *wc, struct mlx5_cqe64 *cqe, st
 		wc->byte_len  = 8;
 		break;
 	case MLX5_OPCODE_UMR:
+	case MLX5_OPCODE_SET_PSV:
+	case MLX5_OPCODE_NOP:
 		wc->opcode = wq->wr_data[idx];
 		break;
 	case MLX5_OPCODE_TSO:
 		wc->opcode    = IBV_WC_TSO;
 		break;
 	}
+
+	if (unlikely(wq->wr_data[idx] == IBV_WC_DRIVER2)) /* raw WQE */
+		wc->opcode = IBV_WC_DRIVER2;
 }
 
 static inline int handle_responder_lazy(struct mlx5_cq *cq, struct mlx5_cqe64 *cqe,
@@ -659,6 +681,19 @@ static int handle_tag_matching(struct mlx5_cq *cq,
 	return CQ_OK;
 }
 
+static inline void get_sig_err_info(struct mlx5_sigerr_cqe *cqe,
+				    struct mlx5_sig_err *err)
+{
+	err->syndrome = be16toh(cqe->syndrome);
+	err->expected = (uint64_t)be32toh(cqe->expected_trans_sig) << 32 |
+			be32toh(cqe->expected_ref_tag);
+	err->actual = (uint64_t)be32toh(cqe->actual_trans_sig) << 32 |
+		      be32toh(cqe->actual_ref_tag);
+	err->offset = be64toh(cqe->sig_err_offset);
+	err->sig_type = cqe->sig_type;
+	err->domain = cqe->domain;
+}
+
 static inline int is_odp_pfault_err(struct mlx5_err_cqe *ecqe)
 {
 	return ecqe->syndrome == MLX5_CQE_SYNDROME_REMOTE_ABORTED_ERR &&
@@ -688,6 +723,8 @@ static inline int mlx5_parse_cqe(struct mlx5_cq *cq,
 	int idx;
 	uint8_t opcode;
 	struct mlx5_err_cqe *ecqe;
+	struct mlx5_sigerr_cqe *sigerr_cqe;
+	struct mlx5_mkey *mkey;
 	int err;
 	struct mlx5_qp *mqp;
 	struct mlx5_context *mctx;
@@ -724,7 +761,9 @@ again:
 
 			switch (be32toh(cqe64->sop_drop_qpn) >> 24) {
 			case MLX5_OPCODE_UMR:
-				cq->umr_opcode = wq->wr_data[idx];
+			case MLX5_OPCODE_SET_PSV:
+			case MLX5_OPCODE_NOP:
+				cq->cached_opcode = wq->wr_data[idx];
 				break;
 
 			case MLX5_OPCODE_RDMA_READ:
@@ -746,6 +785,9 @@ again:
 
 			cq->verbs_cq.cq_ex.wr_id = wq->wrid[idx];
 			cq->verbs_cq.cq_ex.status = err;
+
+			if (unlikely(wq->wr_data[idx] == IBV_WC_DRIVER2))
+				cq->flags |= MLX5_CQ_FLAGS_RAW_WQE;
 		} else {
 			handle_good_req(wc, cqe64, wq, idx);
 
@@ -804,6 +846,31 @@ again:
 		if (unlikely(err))
 			return CQ_POLL_ERR;
 		break;
+
+	case MLX5_CQE_SIG_ERR:
+		sigerr_cqe = (struct mlx5_sigerr_cqe *)cqe64;
+
+		pthread_mutex_lock(&mctx->mkey_table_mutex);
+		mkey = mlx5_find_mkey(mctx, be32toh(sigerr_cqe->mkey) >> 8);
+		if (!mkey) {
+			pthread_mutex_unlock(&mctx->mkey_table_mutex);
+			return CQ_POLL_ERR;
+		}
+
+		mkey->sig->err_exists = true;
+		mkey->sig->err_count++;
+		get_sig_err_info(sigerr_cqe, &mkey->sig->err_info);
+		pthread_mutex_unlock(&mctx->mkey_table_mutex);
+
+		err = mlx5_get_next_cqe(cq, &cqe64, &cqe);
+		/*
+		 * CQ_POLL_NODATA indicates that CQ was not empty but the polled
+		 * CQE was handled internally and should not processed by the
+		 * caller.
+		 */
+		if (err == CQ_EMPTY)
+			return CQ_POLL_NODATA;
+		goto again;
 
 	case MLX5_CQE_RESIZE_CQ:
 		break;
@@ -1363,6 +1430,9 @@ static inline enum ibv_wc_opcode mlx5_cq_read_wc_opcode(struct ibv_cq_ex *ibcq)
 		}
 		break;
 	case MLX5_CQE_REQ:
+		if (unlikely(cq->flags & MLX5_CQ_FLAGS_RAW_WQE))
+			return IBV_WC_DRIVER2;
+
 		switch (be32toh(cq->cqe64->sop_drop_qpn) >> 24) {
 		case MLX5_OPCODE_RDMA_WRITE_IMM:
 		case MLX5_OPCODE_RDMA_WRITE:
@@ -1378,7 +1448,9 @@ static inline enum ibv_wc_opcode mlx5_cq_read_wc_opcode(struct ibv_cq_ex *ibcq)
 		case MLX5_OPCODE_ATOMIC_FA:
 			return IBV_WC_FETCH_ADD;
 		case MLX5_OPCODE_UMR:
-			return cq->umr_opcode;
+		case MLX5_OPCODE_SET_PSV:
+		case MLX5_OPCODE_NOP:
+			return cq->cached_opcode;
 		case MLX5_OPCODE_TSO:
 			return IBV_WC_TSO;
 		}
@@ -1541,8 +1613,6 @@ static inline void mlx5_cq_read_wc_tm_info(struct ibv_cq_ex *ibcq,
 	tm_info->priv = be32toh(cq->cqe64->tmh.app_ctx);
 }
 
-#define BIT(i) (1UL << (i))
-
 #define SINGLE_THREADED BIT(0)
 #define STALL BIT(1)
 #define V1 BIT(2)
@@ -1636,10 +1706,16 @@ int mlx5_cq_fill_pfns(struct mlx5_cq *cq,
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_TM_INFO)
 		cq->verbs_cq.cq_ex.read_tm_info = mlx5_cq_read_wc_tm_info;
 	if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK) {
-		if (!mctx->clock_info_page)
-			return EOPNOTSUPP;
-		cq->verbs_cq.cq_ex.read_completion_wallclock_ns =
-		    mlx5_cq_read_wc_completion_wallclock_ns;
+		if (mctx->flags & MLX5_CTX_FLAGS_REAL_TIME_TS_SUPPORTED &&
+		    !(cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP))
+			cq->verbs_cq.cq_ex.read_completion_wallclock_ns =
+				mlx5_cq_read_wc_completion_ts;
+		else {
+			if (!mctx->clock_info_page)
+				return EOPNOTSUPP;
+			cq->verbs_cq.cq_ex.read_completion_wallclock_ns =
+				mlx5_cq_read_wc_completion_wallclock_ns;
+		}
 	}
 
 	return 0;
