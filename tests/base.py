@@ -506,6 +506,11 @@ class TrafficResources(BaseResources):
     def qp(self):
         return self.qps[0]
 
+    @property
+    def mr_lkey(self):
+        if self.mr:
+            return self.mr.lkey
+
     def init_resources(self):
         """
         Initializes a CQ, MR and an RC QP.
@@ -686,8 +691,10 @@ class XRCResources(TrafficResources):
             attr_ex = QPInitAttrEx(qp_type=e.IBV_QPT_XRC_RECV,
                                    comp_mask=e.IBV_QP_INIT_ATTR_XRCD,
                                    xrcd=self.xrcd)
-            qp_attr.qp_access_flags = e.IBV_ACCESS_REMOTE_WRITE | \
-                                      e.IBV_ACCESS_REMOTE_READ
+            qp_attr.qp_access_flags = e.IBV_ACCESS_LOCAL_WRITE | \
+                                      e.IBV_ACCESS_REMOTE_READ | \
+                                      e.IBV_ACCESS_REMOTE_WRITE | \
+                                      e.IBV_ACCESS_REMOTE_ATOMIC
             recv_qp = QP(self.ctx, attr_ex, qp_attr)
             self.rqp_lst.append(recv_qp)
 
@@ -740,6 +747,8 @@ class XRCResources(TrafficResources):
         ah_attr = AHAttr(port_num=self.ib_port, is_global=True,
                          gr=gr, dlid=self.port_attr.lid)
         qp_attr = QPAttr()
+        qp_attr.max_rd_atomic = MAX_RD_ATOMIC
+        qp_attr.max_dest_rd_atomic = MAX_DEST_RD_ATOMIC
         qp_attr.path_mtu = PATH_MTU
         set_rnr_attributes(qp_attr)
         qp_attr.ah_attr = ah_attr
