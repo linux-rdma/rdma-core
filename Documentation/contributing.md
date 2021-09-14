@@ -119,7 +119,7 @@ $ kernel-headers/update ~/linux.git <commit ID> --amend
 The updated commits should be force pushed to GitHub.
 
 Newer kernels should always work with older rdma-core and newer rdma-core
-should alwaus work with older kernels. Changes forcing the simultaneous
+should always work with older kernels. Changes forcing the simultaneous
 upgrade of the kernel and rdma-core are forbidden.
 
 # Participating in the Mailing List

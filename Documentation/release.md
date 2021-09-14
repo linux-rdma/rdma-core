@@ -2,7 +2,7 @@
 
 Release process of rdma-core library consists from three stages
 
-1. Change library version, according to [Overall Pacakge Version](versioning.md) guide.
+1. Change library version, according to [Overall Package Version](versioning.md) guide.
 2. Push the change above to master branch and ensure that Travis CI reports successful build.
 3. Create local annotated signed tag vX.X.X (`git tag vX.X.X -a -s`).
 4. Issue `git release` command which will push tag, trigger Travis CI to upload
@@ -10,7 +10,7 @@ Release process of rdma-core library consists from three stages
 
 ## git release
 
-There are many implmentations of different `git release` commands. We recommend you to use
+There are many implementations of different `git release` commands. We recommend you to use
 the command from [this](https://github.com/mpalmer/github-release) repository due to its simplicity.
 
 ---
