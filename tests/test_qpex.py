@@ -189,6 +189,13 @@ class QpExTestCase(RDMATestCase):
         u.traffic(client, server, self.iters, self.gid_index, self.ib_port,
                   new_send=True, send_op=e.IBV_QP_EX_WITH_SEND)
 
+    def test_qp_ex_ud_zero_size(self):
+        client, server = self.create_players('ud_send')
+        client.msg_size = 0
+        server.msg_size = 0
+        u.traffic(client, server, self.iters, self.gid_index, self.ib_port,
+                  new_send=True, send_op=e.IBV_QP_EX_WITH_SEND)
+
     def test_qp_ex_rc_send(self):
         client, server = self.create_players('rc_send')
         u.traffic(client, server, self.iters, self.gid_index, self.ib_port,
