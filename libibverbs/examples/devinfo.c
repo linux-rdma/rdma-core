@@ -654,7 +654,8 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 				printf("\t\t\tphys_state:\t\t%s (%d)\n",
 				       port_phy_state_str(port_attr.phys_state), port_attr.phys_state);
 
-			if (print_all_port_gids(ctx, &port_attr, port))
+			rc = print_all_port_gids(ctx, &port_attr, port);
+			if (rc)
 				goto cleanup;
 		}
 		printf("\n");
