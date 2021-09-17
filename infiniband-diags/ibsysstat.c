@@ -41,7 +41,7 @@
 
 #include "ibdiag_common.h"
 
-#define MAX_CPUS 8
+#define MAX_CPUS 256
 
 static struct ibmad_port *srcport;
 
