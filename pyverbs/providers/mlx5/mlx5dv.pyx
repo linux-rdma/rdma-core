@@ -234,6 +234,10 @@ cdef class Mlx5DevxObj(PyverbsCM):
     def out_view(self):
         return self.out_view
 
+    @property
+    def obj(self):
+        return <object>self.obj
+
     def __dealloc__(self):
         self.close()
 

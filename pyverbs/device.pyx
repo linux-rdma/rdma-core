@@ -178,6 +178,10 @@ cdef class Context(PyverbsCM):
             self.context = NULL
 
     @property
+    def context(self):
+        return <object>self.context
+
+    @property
     def num_comp_vectors(self):
         return self.context.num_comp_vectors
 
