@@ -126,7 +126,7 @@ function check_node(lid, port)
 /iberror:/	{print $0}
 
 END {
-	printf "\n*** WARNING ***: this command is deprecated; Please use \"ibqueryerrors -f\""
+	printf "\n*** WARNING ***: this command is deprecated; Please use \"ibqueryerrors\""
 	printf "\n## Summary: %d nodes checked, %d bad nodes found\n", nnodes, ne
 	printf "##          %d ports checked, %d bad ports found\n", nports, pe
 	printf "##          %d ports have errors beyond threshold\n", pcnterr
