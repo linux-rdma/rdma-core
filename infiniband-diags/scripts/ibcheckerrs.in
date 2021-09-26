@@ -140,7 +140,7 @@ else
 fi
 
 if [ "$suppress_deprecated" = "no" ]; then
-echo "*** WARNING ***: this command is deprecated; Please use \"ibqueryerrors\"\n\n" 1>&2
+/usr/bin/echo -e "*** WARNING ***: this command is deprecated; Please use \"ibqueryerrors\"\n\n" 1>&2
 fi
 
 if [ "$guid_addr" ]; then
