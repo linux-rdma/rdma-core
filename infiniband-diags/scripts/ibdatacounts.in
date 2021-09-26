@@ -113,7 +113,7 @@ fi
 nodename=`$IBPATH/smpquery $ca_info nodedesc $lid | sed -e "s/^Node Description:\.*\(.*\)/\1/"`
 
 if [ "$suppress_deprecated" = "no" ]; then
-echo "*** WARNING ***: this command is deprecated; Please use \"ibqueryerrors --counters\"\n\n" 1>&2
+/usr/bin/echo -e "*** WARNING ***: this command is deprecated; Please use \"ibqueryerrors --counters\"\n\n" 1>&2
 fi
 
 text="`eval $IBPATH/perfquery $ca_info $lid $portnum`"
