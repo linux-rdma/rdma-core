@@ -569,7 +569,8 @@ static struct dr_ste_htbl *dr_rule_rehash(struct mlx5dv_dr_rule *rule,
 	enum dr_icm_chunk_size new_size;
 
 	new_size = dr_icm_next_higher_chunk(cur_htbl->chunk_size);
-	new_size = min_t(uint32_t, new_size, dmn->info.max_log_sw_icm_sz);
+	new_size = min_t(uint32_t, new_size,
+			 dmn->info.max_log_sw_icm_rehash_sz);
 
 	if (new_size == cur_htbl->chunk_size)
 		return NULL; /* Skip rehash, we already at the max size */

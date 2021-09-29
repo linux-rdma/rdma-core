@@ -435,6 +435,7 @@ static int dr_domain_check_icm_memory_caps(struct mlx5dv_dr_domain *dmn)
 	max_req_chunks_log = max_req_bytes_log - DR_STE_LOG_SIZE;
 	dmn->info.max_log_sw_icm_sz =
 		min_t(uint32_t, DR_CHUNK_SIZE_1024K, max_req_chunks_log);
+	dmn->info.max_log_sw_icm_rehash_sz = dmn->info.max_log_sw_icm_sz;
 
 	if (dmn->info.caps.sw_format_ver >= MLX5_HW_CONNECTX_6DX) {
 		if (dmn->info.caps.log_modify_pattern_icm_size < DR_CHUNK_SIZE_4K +

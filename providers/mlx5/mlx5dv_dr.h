@@ -88,6 +88,9 @@ enum dr_icm_chunk_size {
 	DR_CHUNK_SIZE_512K,
 	DR_CHUNK_SIZE_1024K,
 	DR_CHUNK_SIZE_2048K,
+	DR_CHUNK_SIZE_4096K,
+	DR_CHUNK_SIZE_8192K,
+	DR_CHUNK_SIZE_16384K,
 	DR_CHUNK_SIZE_MAX,
 };
 
@@ -1039,7 +1042,8 @@ struct dr_domain_info {
 	uint32_t		max_log_sw_icm_sz;
 	uint32_t		max_log_action_icm_sz;
 	uint32_t		max_log_modify_hdr_pattern_icm_sz;
-	uint32_t		max_send_size;
+	uint32_t                max_log_sw_icm_rehash_sz;
+	uint32_t                max_send_size;
 	struct dr_domain_rx_tx	rx;
 	struct dr_domain_rx_tx	tx;
 	struct ibv_device_attr_ex attr;
