@@ -483,12 +483,13 @@ static int ucma_init_all(void)
 		if (dev->is_device_dead)
 			continue;
 
-		ret = ucma_init_device(dev);
-		if (ret)
-			break;
+		if (ucma_init_device(dev)) {
+			/* Couldn't initialize the device: mark it dead and continue */
+			dev->is_device_dead = true;
+		}
 	}
 	pthread_mutex_unlock(&mut);
-	return ret;
+	return 0;
 }
 
 struct ibv_context **rdma_get_devices(int *num_devices)
@@ -511,12 +512,9 @@ struct ibv_context **rdma_get_devices(int *num_devices)
 
 		/* reinit newly added devices */
 		if (ucma_init_device(dev)) {
-			cma_dev_cnt = 0;
-			/*
-			 * There is no need to uninit already
-			 * initialized devices, due to an error to other device.
-			 */
-			goto out;
+			/* Couldn't initialize the device: mark it dead and continue */
+			dev->is_device_dead = true;
+			continue;
 		}
 		cma_dev_cnt++;
 	}
