@@ -104,7 +104,7 @@ static struct ibv_pd *rxe_alloc_pd(struct ibv_context *context)
 	struct ib_uverbs_alloc_pd_resp resp;
 	struct ibv_pd *pd;
 
-	pd = malloc(sizeof(*pd));
+	pd = calloc(1, sizeof(*pd));
 	if (!pd)
 		return NULL;
 
@@ -225,7 +225,7 @@ static struct ibv_mr *rxe_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	struct ib_uverbs_reg_mr_resp resp;
 	int ret;
 
-	vmr = malloc(sizeof(*vmr));
+	vmr = calloc(1, sizeof(*vmr));
 	if (!vmr)
 		return NULL;
 
@@ -382,7 +382,7 @@ static struct ibv_cq *rxe_create_cq(struct ibv_context *context, int cqe,
 	struct urxe_create_cq_resp resp = {};
 	int ret;
 
-	cq = malloc(sizeof(*cq));
+	cq = calloc(1, sizeof(*cq));
 	if (!cq)
 		return NULL;
 
@@ -594,7 +594,7 @@ static struct ibv_srq *rxe_create_srq(struct ibv_pd *pd,
 	struct urxe_create_srq_resp resp;
 	int ret;
 
-	srq = malloc(sizeof(*srq));
+	srq = calloc(1, sizeof(*srq));
 	if (srq == NULL)
 		return NULL;
 
@@ -1167,7 +1167,7 @@ static struct ibv_qp *rxe_create_qp(struct ibv_pd *ibpd,
 	struct rxe_qp *qp;
 	int ret;
 
-	qp = malloc(sizeof(*qp));
+	qp = calloc(1, sizeof(*qp));
 	if (!qp)
 		goto err;
 
@@ -1659,7 +1659,7 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		return NULL;
 	}
 
-	ah = malloc(sizeof(*ah));
+	ah = calloc(1, sizeof(*ah));
 	if (ah == NULL)
 		return NULL;
 
