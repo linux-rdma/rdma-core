@@ -12,7 +12,7 @@ title: IBV_IS_FORK_INITIALIZED
 
 ibv_is_fork_initialized - check if fork support (ibv_fork_init) is enabled
 
-# SYNOPSYS
+# SYNOPSIS
 
 ```c
 #include <infiniband/verbs.h>
