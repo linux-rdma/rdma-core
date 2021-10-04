@@ -184,6 +184,7 @@ struct dr_ste_ctx {
 	dr_ste_builder_void_init build_def25_init;
 	dr_ste_builder_void_init build_def26_init;
 	dr_ste_builder_void_init build_def28_init;
+	dr_ste_builder_void_init build_def33_init;
 
 	/* Getters and Setters */
 	void (*ste_init)(uint8_t *hw_ste_p, uint16_t lu_type,

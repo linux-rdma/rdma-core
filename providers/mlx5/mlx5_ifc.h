@@ -2951,6 +2951,48 @@ struct mlx5_ifc_ste_def28_v1_bits {
 	u8         functional_lb_dup[0x1];
 };
 
+struct mlx5_ifc_ste_def33_v1_bits {
+	u8         outer_ip_src_addr[0x20];
+
+	u8         outer_ip_dst_addr[0x20];
+
+	u8         outer_l4_sport[0x10];
+	u8         outer_l4_dport[0x10];
+
+	u8         reserved_at_60[0x1];
+	u8         sx_sniffer[0x1];
+	u8         functional_loopback[0x1];
+	u8         outer_ip_frag[0x1];
+	u8         qp_type[0x2];
+	u8         encapsulation_type[0x2];
+	u8         port[0x2];
+	u8         outer_l3_type[0x2];
+	u8         outer_l4_type[0x2];
+	u8         outer_first_vlan_type[0x2];
+	u8         outer_first_vlan_prio[0x3];
+	u8         outer_first_vlan_cfi[0x1];
+	u8         outer_first_vlan_vid[0xc];
+
+	u8         reserved_at_80[0x20];
+
+	u8         reserved_at_a0[0x20];
+
+	u8         reserved_at_c0[0x20];
+
+	u8         outer_ip_version[0x4];
+	u8         outer_ip_ihl[0x4];
+	u8         inner_ipv4_checksum_ok[0x1];
+	u8         inner_l4_checksum_ok[0x1];
+	u8         outer_ipv4_checksum_ok[0x1];
+	u8         outer_l4_checksum_ok[0x1];
+	u8         inner_l3_ok[0x1];
+	u8         inner_l4_ok[0x1];
+	u8         outer_l3_ok[0x1];
+	u8         outer_l4_ok[0x1];
+	u8         outer_ip_ttl[0x8];
+	u8         outer_ip_protocol[0x8];
+};
+
 struct mlx5_ifc_set_action_in_bits {
 	u8         action_type[0x4];
 	u8         field[0xc];

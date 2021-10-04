@@ -3063,6 +3063,85 @@ static void dr_ste_v1_build_def28_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v1_build_def28_tag;
 }
 
+static int dr_ste_v1_build_def33_tag(struct dr_match_param *value,
+				     struct dr_ste_build *sb,
+				     uint8_t *tag)
+{
+	struct dr_match_spec *outer = &value->outer;
+	struct dr_match_spec *inner = &value->inner;
+
+	if (outer->ip_version == IP_VERSION_IPV4) {
+		DR_STE_SET_TAG(def33_v1, tag, outer_ip_src_addr, outer, src_ip_31_0);
+		DR_STE_SET_TAG(def33_v1, tag, outer_ip_dst_addr, outer, dst_ip_31_0);
+	}
+
+	DR_STE_SET_TAG(def33_v1, tag, outer_l4_sport, outer, tcp_sport);
+	DR_STE_SET_TAG(def33_v1, tag, outer_l4_sport, outer, udp_sport);
+	DR_STE_SET_TAG(def33_v1, tag, outer_l4_dport, outer, tcp_dport);
+	DR_STE_SET_TAG(def33_v1, tag, outer_l4_dport, outer, udp_dport);
+
+	DR_STE_SET_TAG(def33_v1, tag, outer_ip_frag, outer, frag);
+
+	if (outer->ip_version == IP_VERSION_IPV4) {
+		DR_STE_SET(def33_v1, tag, outer_l3_type, STE_IPV4);
+		outer->ip_version = 0;
+	} else if (outer->ip_version == IP_VERSION_IPV6) {
+		DR_STE_SET(def33_v1, tag, outer_l3_type, STE_IPV6);
+		outer->ip_version = 0;
+	}
+
+	if (outer->cvlan_tag) {
+		DR_STE_SET(def33_v1, tag, outer_first_vlan_type, DR_STE_CVLAN);
+		outer->cvlan_tag = 0;
+	} else if (outer->svlan_tag) {
+		DR_STE_SET(def33_v1, tag, outer_first_vlan_type, DR_STE_SVLAN);
+		outer->svlan_tag = 0;
+	}
+
+	DR_STE_SET_TAG(def33_v1, tag, outer_first_vlan_prio, outer, first_prio);
+	DR_STE_SET_TAG(def33_v1, tag, outer_first_vlan_cfi, outer, first_cfi);
+	DR_STE_SET_TAG(def33_v1, tag, outer_first_vlan_vid, outer, first_vid);
+
+	DR_STE_SET_TAG(def33_v1, tag, outer_ip_version, outer, ip_version);
+	DR_STE_SET_TAG(def33_v1, tag, outer_ip_ihl, outer, ipv4_ihl);
+
+	DR_STE_SET_TAG(def33_v1, tag, outer_l3_ok, outer, l3_ok);
+	DR_STE_SET_TAG(def33_v1, tag, outer_l4_ok, outer, l4_ok);
+	DR_STE_SET_TAG(def33_v1, tag, inner_l3_ok, inner, l3_ok);
+	DR_STE_SET_TAG(def33_v1, tag, inner_l4_ok, inner, l4_ok);
+	DR_STE_SET_TAG(def33_v1, tag, outer_ipv4_checksum_ok, outer, ipv4_checksum_ok);
+	DR_STE_SET_TAG(def33_v1, tag, outer_l4_checksum_ok, outer, l4_checksum_ok);
+	DR_STE_SET_TAG(def33_v1, tag, inner_ipv4_checksum_ok, inner, ipv4_checksum_ok);
+	DR_STE_SET_TAG(def33_v1, tag, inner_l4_checksum_ok, inner, l4_checksum_ok);
+
+	DR_STE_SET_TAG(def33_v1, tag, outer_ip_ttl, outer, ip_ttl_hoplimit);
+	DR_STE_SET_TAG(def33_v1, tag, outer_ip_protocol, outer, ip_protocol);
+	return 0;
+}
+
+static void dr_ste_v1_build_def33_mask(struct dr_match_param *value,
+				       struct dr_ste_build *sb)
+{
+	struct dr_match_spec *outer = &value->outer;
+	uint8_t *tag = sb->match;
+
+	if (outer->svlan_tag || outer->cvlan_tag) {
+		DR_STE_SET(def33_v1, tag, outer_first_vlan_type, -1);
+		outer->cvlan_tag = 0;
+		outer->svlan_tag = 0;
+	}
+
+	dr_ste_v1_build_def33_tag(value, sb, tag);
+}
+
+static void dr_ste_v1_build_def33_init(struct dr_ste_build *sb,
+				       struct dr_match_param *mask)
+{
+	sb->lu_type = DR_STE_V1_LU_TYPE_MATCH;
+	dr_ste_v1_build_def33_mask(mask, sb);
+	sb->ste_build_tag_func = &dr_ste_v1_build_def33_tag;
+}
+
 static struct dr_ste_ctx ste_ctx_v1 = {
 	/* Builders */
 	.build_eth_l2_src_dst_init	= &dr_ste_v1_build_eth_l2_src_dst_init,
@@ -3102,6 +3181,7 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	.build_def25_init		= &dr_ste_v1_build_def25_init,
 	.build_def26_init		= &dr_ste_v1_build_def26_init,
 	.build_def28_init		= &dr_ste_v1_build_def28_init,
+	.build_def33_init		= &dr_ste_v1_build_def33_init,
 	/* Getters and Setters */
 	.ste_init			= &dr_ste_v1_init,
 	.set_next_lu_type		= &dr_ste_v1_set_next_lu_type,

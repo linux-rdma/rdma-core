@@ -151,7 +151,8 @@ enum dr_matcher_definer {
 	DR_MATCHER_DEFINER_24	= 24,
 	DR_MATCHER_DEFINER_25	= 25,
 	DR_MATCHER_DEFINER_26	= 26,
-	DR_MATCHER_DEFINER_28   = 28
+	DR_MATCHER_DEFINER_28   = 28,
+	DR_MATCHER_DEFINER_33   = 33,
 };
 
 enum dr_action_type {
@@ -607,6 +608,10 @@ int dr_ste_build_def26(struct dr_ste_ctx *ste_ctx,
 		       struct dr_match_param *mask,
 		       bool inner, bool rx);
 int dr_ste_build_def28(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       bool inner, bool rx);
+int dr_ste_build_def33(struct dr_ste_ctx *ste_ctx,
 		       struct dr_ste_build *sb,
 		       struct dr_match_param *mask,
 		       bool inner, bool rx);
