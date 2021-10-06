@@ -23,3 +23,19 @@ cdef class WQ(PyverbsCM):
     cdef Context context
     cdef PD pd
     cdef CQ cq
+    cdef object rwq_ind_tables
+    cpdef add_ref(self, obj)
+
+cdef class RwqIndTableInitAttr(PyverbsObject):
+    cdef v.ibv_rwq_ind_table_init_attr attr
+    cdef object wqs_list
+
+cdef class RwqIndTable(PyverbsCM):
+    cdef v.ibv_rwq_ind_table *rwq_ind_table
+    cdef Context context
+    cdef object wqs
+    cdef object qps
+    cpdef add_ref(self, obj)
+
+cdef class RxHashConf(PyverbsObject):
+    cdef v.ibv_rx_hash_conf rx_hash_conf

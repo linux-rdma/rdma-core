@@ -13,6 +13,7 @@ from pyverbs.cq cimport CQEX, CQ, CompChannel
 from .pyverbs_error import PyverbsUserError
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
+from pyverbs.wq cimport WQ, RwqIndTable
 cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.libibverbs as v
 cimport pyverbs.librdmacm as cm
@@ -22,7 +23,6 @@ from pyverbs.addr cimport GID
 from pyverbs.mr import DMMR
 from pyverbs.pd cimport PD
 from pyverbs.qp cimport QP
-from pyverbs.wq cimport WQ
 from libc.stdlib cimport free, malloc
 from libc.string cimport memset
 from libc.stdint cimport uint64_t
@@ -120,6 +120,7 @@ cdef class Context(PyverbsCM):
         self.sched_leafs = weakref.WeakSet()
         self.dr_domains = weakref.WeakSet()
         self.wqs = weakref.WeakSet()
+        self.rwq_ind_tbls = weakref.WeakSet()
 
         self.name = kwargs.get('name')
         provider_attr = kwargs.get('attr')
@@ -171,8 +172,8 @@ cdef class Context(PyverbsCM):
     cpdef close(self):
         if self.context != NULL:
             self.logger.debug('Closing Context')
-            close_weakrefs([self.qps, self.wqs, self.ccs, self.cqs, self.dms, self.pds,
-                            self.xrcds, self.vars, self.sched_leafs,
+            close_weakrefs([self.qps, self.rwq_ind_tbls, self.wqs, self.ccs, self.cqs,
+                            self.dms, self.pds, self.xrcds, self.vars, self.sched_leafs,
                             self.sched_nodes, self.dr_domains])
             rc = v.ibv_close_device(self.context)
             if rc != 0:
@@ -332,6 +333,8 @@ cdef class Context(PyverbsCM):
             self.xrcds.add(obj)
         elif isinstance(obj, WQ):
             self.wqs.add(obj)
+        elif isinstance(obj, RwqIndTable):
+            self.rwq_ind_tbls.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 

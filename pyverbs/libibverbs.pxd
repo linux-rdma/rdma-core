@@ -391,10 +391,16 @@ cdef extern from 'infiniband/verbs.h':
         unsigned int    events_completed
 
     cdef struct ibv_rwq_ind_table:
-        pass
+        ibv_context *context
+        int         ind_tbl_handle
+        int         ind_tbl_num
+        uint32_t    comp_mask
 
     cdef struct ibv_rx_hash_conf:
-        pass
+        uint8_t  rx_hash_function
+        uint8_t  rx_hash_key_len
+        uint8_t  *rx_hash_key
+        uint64_t rx_hash_fields_mask
 
     cdef struct ibv_qp_init_attr_ex:
         void                *qp_context
@@ -603,6 +609,11 @@ cdef extern from 'infiniband/verbs.h':
         uint32_t    flags
         uint32_t    flags_mask
 
+    cdef struct ibv_rwq_ind_table_init_attr:
+        uint32_t log_ind_tbl_size
+        ibv_wq   **ind_tbl
+        uint32_t comp_mask
+
     ibv_device **ibv_get_device_list(int *n)
     int ibv_get_device_index(ibv_device *device);
     void ibv_free_device_list(ibv_device **list)
@@ -758,6 +769,8 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_modify_wq(ibv_wq *wq, ibv_wq_attr *wq_attr)
     int ibv_destroy_wq(ibv_wq *wq)
     int ibv_post_wq_recv(ibv_wq *wq, ibv_recv_wr *recv_wr, ibv_recv_wr **bad_recv_wr)
+    ibv_rwq_ind_table *ibv_create_rwq_ind_table(ibv_context *context, ibv_rwq_ind_table_init_attr *init_attr)
+    int ibv_destroy_rwq_ind_table(ibv_rwq_ind_table *rwq_ind_table)
 
 
 cdef extern from 'infiniband/driver.h':
