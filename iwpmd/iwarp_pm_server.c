@@ -645,7 +645,7 @@ static int process_iwpm_wire_request(iwpm_msg_parms *msg_parms, int nl_sock,
 	iwpm_mapping_request iwpm_copy_req;
 	iwpm_send_msg *send_msg = NULL;
 	struct sockaddr_storage local_addr, mapped_loc_addr;
-	struct sockaddr_storage remote_addr, mapped_rem_addr;
+	struct sockaddr_storage remote_addr = {}, mapped_rem_addr = {};
 	__u16 nlmsg_type;
 	int not_mapped = 1;
 	int ret = 0;
