@@ -10,6 +10,8 @@ cimport pyverbs.libibverbs_enums as e
 from pyverbs.device cimport Context
 from pyverbs.srq cimport SRQ
 from pyverbs.qp cimport QP
+from pyverbs.wq cimport WQ
+
 
 cdef class CompChannel(PyverbsCM):
     """
@@ -101,6 +103,7 @@ cdef class CQ(PyverbsCM):
         context.add_ref(self)
         self.qps = weakref.WeakSet()
         self.srqs = weakref.WeakSet()
+        self.wqs = weakref.WeakSet()
         self.num_events = 0
         self.logger.debug('Created a CQ')
 
@@ -109,6 +112,8 @@ cdef class CQ(PyverbsCM):
             self.qps.add(obj)
         elif isinstance(obj, SRQ):
             self.srqs.add(obj)
+        elif isinstance(obj, WQ):
+            self.wqs.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 
@@ -118,7 +123,7 @@ cdef class CQ(PyverbsCM):
     cpdef close(self):
         if self.cq != NULL:
             self.logger.debug('Closing CQ')
-            close_weakrefs([self.qps, self.srqs])
+            close_weakrefs([self.qps, self.srqs, self.wqs])
             if self.num_events:
                 self.ack_events(self.num_events)
             rc = v.ibv_destroy_cq(self.cq)

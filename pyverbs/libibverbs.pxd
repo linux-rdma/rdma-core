@@ -574,6 +574,35 @@ cdef extern from 'infiniband/verbs.h':
         ibv_async_event_element element
         ibv_event_type event_type
 
+    cdef struct ibv_wq:
+        ibv_context *context
+        void         *wq_context
+        ibv_pd       *pd
+        ibv_cq       *cq
+        uint32_t     wq_num
+        uint32_t     handle
+        ibv_wq_state state
+        ibv_wq_type  wq_type
+        uint32_t     events_completed
+        uint32_t     comp_mask
+
+    cdef struct ibv_wq_init_attr:
+        void        *wq_context
+        ibv_wq_type wq_type
+        uint32_t    max_wr
+        uint32_t    max_sge
+        ibv_pd      *pd
+        ibv_cq      *cq
+        uint32_t    comp_mask
+        uint32_t    create_flags
+
+    cdef struct ibv_wq_attr:
+        uint32_t    attr_mask
+        ibv_wq_state wq_state
+        ibv_wq_state curr_wq_state
+        uint32_t    flags
+        uint32_t    flags_mask
+
     ibv_device **ibv_get_device_list(int *n)
     int ibv_get_device_index(ibv_device *device);
     void ibv_free_device_list(ibv_device **list)
@@ -725,6 +754,10 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_query_qp_data_in_order(ibv_qp *qp, ibv_wr_opcode op, uint32_t flags)
     int ibv_fork_init()
     ibv_fork_status ibv_is_fork_initialized()
+    ibv_wq *ibv_create_wq(ibv_context *context, ibv_wq_init_attr *wq_init_attr)
+    int ibv_modify_wq(ibv_wq *wq, ibv_wq_attr *wq_attr)
+    int ibv_destroy_wq(ibv_wq *wq)
+    int ibv_post_wq_recv(ibv_wq *wq, ibv_recv_wr *recv_wr, ibv_recv_wr **bad_recv_wr)
 
 
 cdef extern from 'infiniband/driver.h':
