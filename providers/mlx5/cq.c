@@ -861,6 +861,7 @@ again:
 
 		mkey->sig->err_exists = true;
 		mkey->sig->err_count++;
+		mkey->sig->err_count_updated = true;
 		get_sig_err_info(sigerr_cqe, &mkey->sig->err_info);
 		pthread_mutex_unlock(&mctx->mkey_table_mutex);
 

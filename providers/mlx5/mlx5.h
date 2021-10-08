@@ -870,6 +870,7 @@ struct mlx5_sig_ctx {
 	struct mlx5_sig_err err_info;
 	uint32_t err_count;
 	bool err_exists;
+	bool err_count_updated;
 };
 
 struct mlx5_crypto_attr {
