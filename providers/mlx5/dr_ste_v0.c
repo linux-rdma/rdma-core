@@ -269,6 +269,11 @@ static uint8_t dr_ste_v0_get_entry_type(uint8_t *hw_ste_p)
 	return DR_STE_GET(general, hw_ste_p, entry_type);
 }
 
+static void dr_ste_v0_set_hit_gvmi(uint8_t *hw_ste_p, uint16_t gvmi)
+{
+	DR_STE_SET(general, hw_ste_p, next_table_base_63_48, gvmi);
+}
+
 static void dr_ste_v0_set_miss_addr(uint8_t *hw_ste_p, uint64_t miss_addr)
 {
 	uint64_t index = miss_addr >> 6;
@@ -509,6 +514,7 @@ static void dr_ste_v0_set_actions_tx(uint8_t *action_type_set,
 	if (action_type_set[DR_ACTION_TYP_CTR])
 		dr_ste_v0_set_counter_id(last_ste, attr->ctr_id);
 
+	dr_ste_v0_set_hit_gvmi(last_ste, attr->hit_gvmi);
 	dr_ste_v0_set_hit_addr(last_ste, attr->final_icm_addr, 1);
 }
 
@@ -571,6 +577,7 @@ static void dr_ste_v0_set_actions_rx(uint8_t *action_type_set,
 		dr_ste_v0_set_rx_flow_tag(last_ste, attr->flow_tag);
 	}
 
+	dr_ste_v0_set_hit_gvmi(last_ste, attr->hit_gvmi);
 	dr_ste_v0_set_hit_addr(last_ste, attr->final_icm_addr, 1);
 }
 
@@ -1687,9 +1694,13 @@ static void dr_ste_v0_build_register_1_init(struct dr_ste_build *sb,
 }
 
 static void dr_ste_v0_build_src_gvmi_qpn_bit_mask(struct dr_match_param *value,
-						  uint8_t *bit_mask)
+						  struct dr_ste_build *sb)
 {
 	struct dr_match_misc *misc_mask = &value->misc;
+	uint8_t *bit_mask = sb->bit_mask;
+
+	if (sb->rx && misc_mask->source_port)
+		DR_STE_SET(src_gvmi_qp, bit_mask, functional_lb, 1);
 
 	DR_STE_SET_ONES(src_gvmi_qp, bit_mask, source_gvmi, misc_mask, source_port);
 	DR_STE_SET_ONES(src_gvmi_qp, bit_mask, source_qp, misc_mask, source_sqn);
@@ -1716,6 +1727,12 @@ static int dr_ste_v0_build_src_gvmi_qpn_tag(struct dr_match_param *value,
 		if (vport_cap->vport_gvmi)
 			DR_STE_SET(src_gvmi_qp, tag, source_gvmi, vport_cap->vport_gvmi);
 
+		/* Make sure that this packet is not coming from the wire since
+		 * wire GVMI is set to 0 and can be aliased with another port
+		 */
+		if (sb->rx && misc->source_port != WIRE_PORT)
+			DR_STE_SET(src_gvmi_qp, tag, functional_lb, 1);
+
 		misc->source_port = 0;
 	}
 
@@ -1725,7 +1742,7 @@ static int dr_ste_v0_build_src_gvmi_qpn_tag(struct dr_match_param *value,
 static void dr_ste_v0_build_src_gvmi_qpn_init(struct dr_ste_build *sb,
 					      struct dr_match_param *mask)
 {
-	dr_ste_v0_build_src_gvmi_qpn_bit_mask(mask, sb->bit_mask);
+	dr_ste_v0_build_src_gvmi_qpn_bit_mask(mask, sb);
 
 	sb->lu_type = DR_STE_V0_LU_TYPE_SRC_GVMI_AND_QP;
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);

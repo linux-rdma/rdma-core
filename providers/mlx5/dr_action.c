@@ -612,6 +612,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 	int i;
 
 	attr.gvmi = dmn->info.caps.gvmi;
+	attr.hit_gvmi = dmn->info.caps.gvmi;
 	attr.final_icm_addr = nic_dmn->default_icm_addr;
 	action_domain = dr_action_get_action_domain(dmn->type, nic_dmn->type);
 
@@ -742,6 +743,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				dr_dbg(dmn, "Destination vport belongs to a different domain\n");
 				goto out_invalid_arg;
 			}
+			attr.hit_gvmi = action->vport.caps->vhca_gvmi;
 			if (rx_rule) {
 				/* Loopback on WIRE vport is not supported */
 				if (action->vport.caps->num == WIRE_PORT)
