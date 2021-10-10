@@ -58,9 +58,13 @@ class CQAPITest(PyverbsAPITestCase):
 
     def test_create_cq_with_comp_channel(self):
         for cq_size in [1, self.attr.max_cqe/2, self.attr.max_cqe]:
-            cc = CompChannel(self.ctx)
-            CQ(self.ctx, cq_size, None, cc, 0)
-            cc.close()
+            try:
+                cc = CompChannel(self.ctx)
+                CQ(self.ctx, cq_size, None, cc, 0)
+                cc.close()
+            except PyverbsRDMAError as ex:
+                if ex.error_code == errno.EOPNOTSUPP:
+                    raise unittest.SkipTest(f'CQ with completion channel is not supported')
 
     def test_create_cq_bad_flow(self):
         """

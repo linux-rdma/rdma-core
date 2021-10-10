@@ -31,6 +31,7 @@ static const struct verbs_context_ops efa_ctx_ops = {
 	.create_cq_ex = efa_create_cq_ex,
 	.create_qp = efa_create_qp,
 	.create_qp_ex = efa_create_qp_ex,
+	.cq_event = efa_cq_event,
 	.dealloc_pd = efa_dealloc_pd,
 	.dereg_mr = efa_dereg_mr,
 	.destroy_ah = efa_destroy_ah,
@@ -44,6 +45,7 @@ static const struct verbs_context_ops efa_ctx_ops = {
 	.query_port = efa_query_port,
 	.query_qp = efa_query_qp,
 	.reg_mr = efa_reg_mr,
+	.req_notify_cq = efa_arm_cq,
 	.free_context = efa_free_context,
 };
 

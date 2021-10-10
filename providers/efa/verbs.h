@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019-2020 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2021 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFA_VERBS_H__
@@ -27,6 +27,8 @@ struct ibv_cq_ex *efa_create_cq_ex(struct ibv_context *uctx,
 				   struct ibv_cq_init_attr_ex *attr_ex);
 int efa_destroy_cq(struct ibv_cq *ibvcq);
 int efa_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc);
+int efa_arm_cq(struct ibv_cq *ibvcq, int solicited_only);
+void efa_cq_event(struct ibv_cq *ibvcq);
 
 struct ibv_qp *efa_create_qp(struct ibv_pd *ibvpd,
 			     struct ibv_qp_init_attr *attr);

@@ -19,6 +19,7 @@
 #include <util/util.h>
 
 #include "efa.h"
+#include "efa_io_regs_defs.h"
 #include "efadv.h"
 #include "verbs.h"
 
@@ -307,6 +308,31 @@ efa_sub_cq_get_cqe(struct efa_sub_cq *sub_cq, int entry)
 					      (entry * sub_cq->cqe_size));
 }
 
+static void efa_update_cq_doorbell(struct efa_cq *cq, bool arm)
+{
+	uint32_t db = 0;
+
+	EFA_SET(&db, EFA_IO_REGS_CQ_DB_CONSUMER_INDEX, cq->cc);
+	EFA_SET(&db, EFA_IO_REGS_CQ_DB_CMD_SN, cq->cmd_sn & 0x3);
+	EFA_SET(&db, EFA_IO_REGS_CQ_DB_ARM, arm);
+
+	mmio_write32(cq->db, db);
+}
+
+void efa_cq_event(struct ibv_cq *ibvcq)
+{
+	to_efa_cq(ibvcq)->cmd_sn++;
+}
+
+int efa_arm_cq(struct ibv_cq *ibvcq, int solicited_only)
+{
+	if (unlikely(solicited_only))
+		return EOPNOTSUPP;
+
+	efa_update_cq_doorbell(to_efa_cq(ibvcq), true);
+	return 0;
+}
+
 static struct efa_io_cdesc_common *
 cq_next_sub_cqe_get(struct efa_sub_cq *sub_cq)
 {
@@ -478,8 +504,10 @@ static inline int efa_poll_sub_cqs(struct efa_cq *cq, struct ibv_wc *wc,
 			continue;
 
 		err = efa_poll_sub_cq(cq, sub_cq, &qp, wc, extended);
-		if (err != ENOENT)
+		if (err != ENOENT) {
+			cq->cc++;
 			break;
+		}
 	}
 
 	return err;
@@ -500,6 +528,9 @@ int efa_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 			break;
 		}
 	}
+
+	if (i && cq->db)
+		efa_update_cq_doorbell(cq, false);
 	pthread_spin_unlock(&cq->lock);
 
 	return i ?: -ret;
@@ -542,8 +573,11 @@ static void efa_end_poll(struct ibv_cq_ex *ibvcqx)
 {
 	struct efa_cq *cq = to_efa_cq_ex(ibvcqx);
 
-	if (cq->cur_cqe)
+	if (cq->cur_cqe) {
 		efa_wq_put_wrid_idx_unlocked(cq->cur_wq, cq->cur_cqe->req_id);
+		if (cq->db)
+			efa_update_cq_doorbell(cq, false);
+	}
 
 	pthread_spin_unlock(&cq->lock);
 }
@@ -684,6 +718,12 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
 	int err;
 	int i;
 
+	if (attr->channel &&
+	    !EFA_DEV_CAP(ctx, CQ_NOTIFICATIONS)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
 	cq = calloc(1, sizeof(*cq) +
 		       sizeof(*cq->sub_cq_arr) * ctx->sub_cqs_per_cq);
 	if (!cq)
@@ -692,6 +732,8 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
 	num_sub_cqs = ctx->sub_cqs_per_cq;
 	cmd.num_sub_cqs = num_sub_cqs;
 	cmd.cq_entry_size = ctx->cqe_size;
+	if (attr->channel)
+		cmd.flags |= EFA_CREATE_CQ_WITH_COMPLETION_CHANNEL;
 
 	attr->cqe = roundup_pow_of_two(attr->cqe);
 	err = ibv_cmd_create_cq_ex(ibvctx, attr, &cq->verbs_cq,
@@ -721,11 +763,23 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
 		buf += sub_buf_size;
 	}
 
+	if (resp.comp_mask & EFA_CREATE_CQ_RESP_DB_OFF) {
+		cq->db = mmap(NULL,
+			      to_efa_dev(ibvctx->device)->pg_sz, PROT_WRITE,
+			      MAP_SHARED, ibvctx->cmd_fd, resp.db_mmap_key);
+		if (cq->db == MAP_FAILED)
+			goto err_unmap_cq;
+
+		cq->db = (uint32_t *)((uint8_t *)cq->db + resp.db_off);
+	}
+
 	efa_cq_fill_pfns(&cq->verbs_cq.cq_ex, attr);
 	pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE);
 
 	return &cq->verbs_cq.cq_ex;
 
+err_unmap_cq:
+	munmap(cq->buf, cq->buf_size);
 err_destroy_cq:
 	ibv_cmd_destroy_cq(&cq->verbs_cq.cq);
 err_free_cq:
@@ -768,6 +822,7 @@ int efa_destroy_cq(struct ibv_cq *ibvcq)
 	struct efa_cq *cq = to_efa_cq(ibvcq);
 	int err;
 
+	munmap(cq->db, to_efa_dev(cq->verbs_cq.cq.context->device)->pg_sz);
 	munmap(cq->buf, cq->buf_size);
 
 	pthread_spin_destroy(&cq->lock);
