@@ -3,6 +3,7 @@
 """
 Provide some useful helper function for pyverbs rdmacm' tests.
 """
+import sys
 from tests.utils import validate, poll_cq, get_send_elements, get_recv_wr
 from tests.base_rdmacm import AsyncCMResources, SyncCMResources
 from pyverbs.cmid import CMEvent, AddrInfo, JoinMCAttrEx
@@ -15,6 +16,8 @@ import errno
 
 GRH_SIZE = 40
 MULTICAST_QPN = 0xffffff
+REJECT_MSG = 'connection rejected'
+
 
 class CMConnection(abc.ABC):
     """
@@ -202,6 +205,9 @@ class CMConnection(abc.ABC):
         if expected_event and expected_event != cm_event.event_type:
             raise PyverbsError('Expected this event: {}, got this event: {}'.
                                 format(expected_event, cm_event.event_str()))
+        if expected_event == ce.RDMA_CM_EVENT_REJECTED:
+            assert cm_event.private_data == REJECT_MSG, \
+                f'CM event data ({cm_event.private_data}) is different than the expected ({REJECT_MSG})'
         cm_event.ack_cm_event()
 
     @abc.abstractmethod
@@ -219,7 +225,7 @@ class CMAsyncConnection(CMConnection):
     connection establishment, disconnection and other methods such as traffic.
     """
     def __init__(self, ip_addr, syncer=None, notifier=None, passive=False,
-                 num_conns=1, qp_timeout=-1, **kwargs):
+                 num_conns=1, qp_timeout=-1, reject_conn=False, **kwargs):
         """
         Init the CMConnection and then init the AsyncCMResources.
         :param ip_addr: IP address to use.
@@ -229,6 +235,7 @@ class CMAsyncConnection(CMConnection):
         :param passive: Indicate if it's a passive side.
         :param num_conns: Number of connections.
         :param qp_timeout: Value of the QP timeout.
+        :param reject_conn: True if the server will reject the connection.
         :param kwargs: Arguments used to initialize the CM resources. For more
                        info please check CMResources.
         """
@@ -236,6 +243,7 @@ class CMAsyncConnection(CMConnection):
         self.num_conns = num_conns
         self.create_cm_res(ip_addr, passive=passive, **kwargs)
         self.qp_timeout = qp_timeout
+        self.reject_conn = reject_conn
 
     def create_cm_res(self, ip_addr, passive, **kwargs):
         self.cm_res = AsyncCMResources(addr=ip_addr, passive=passive, **kwargs)
@@ -297,6 +305,9 @@ class CMAsyncConnection(CMConnection):
                     self.cm_res.modify_ext_qp_to_rts(conn_idx=conn_idx)
                     self.set_cmid_ece(self.cm_res.passive)
                 child_id = self.cm_res.child_ids[conn_idx]
+                if self.reject_conn:
+                    child_id.reject(REJECT_MSG, sys.getsizeof(REJECT_MSG))
+                    return
                 child_id.accept(self.cm_res.create_conn_param(conn_idx=conn_idx))
                 if self.qp_timeout >= 0:
                     attr, _ = child_id.query_qp(e.IBV_QP_TIMEOUT)
@@ -323,6 +334,9 @@ class CMAsyncConnection(CMConnection):
                     self.cm_res.modify_ext_qp_to_rts(conn_idx=conn_idx)
                     cmid.establish()
                 else:
+                    if self.reject_conn:
+                        self.event_handler(expected_event=ce.RDMA_CM_EVENT_REJECTED)
+                        return
                     self.event_handler(expected_event=ce.RDMA_CM_EVENT_ESTABLISHED)
                 if self.qp_timeout >= 0:
                     attr, _ = self.cm_res.cmid.query_qp(e.IBV_QP_TIMEOUT)

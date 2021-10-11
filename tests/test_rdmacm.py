@@ -33,6 +33,10 @@ class CMTestCase(RDMACMBaseTest):
         self.two_nodes_rdmacm_traffic(CMAsyncConnection, self.rdmacm_traffic,
                                       qp_timeout=21)
 
+    def test_rdmacm_async_reject_traffic(self):
+        self.two_nodes_rdmacm_traffic(CMAsyncConnection, self.rdmacm_traffic,
+                                      reject_conn=True)
+
     @requires_mcast_support()
     def test_rdmacm_async_multicast_traffic(self):
         self.two_nodes_rdmacm_traffic(CMAsyncConnection,
