@@ -6,11 +6,13 @@ Provide some useful helper function for pyverbs' tests.
 """
 from itertools import combinations as com
 import errno
+import subprocess
 import unittest
 import random
 import socket
 import struct
 import string
+import glob
 import os
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
@@ -1129,6 +1131,29 @@ def odp_implicit_supported(ctx):
     has_odp_implicit = odp_caps.general_caps & e.IBV_ODP_SUPPORT_IMPLICIT
     if has_odp_implicit == 0:
         raise unittest.SkipTest('ODP implicit is not supported')
+
+
+def requires_eswitch_on(func):
+    def inner(instance):
+        if not (is_eth(d.Context(name=instance.dev_name), instance.ib_port)
+                and eswitch_mode_check(instance.dev_name)):
+            raise unittest.SkipTest('Must be run on Ethernet link layer with Eswitch on')
+        return func(instance)
+    return inner
+
+
+def eswitch_mode_check(dev_name):
+    pci_name = glob.glob(f'/sys/bus/pci/devices/*/infiniband/{dev_name}')
+    if not pci_name:
+        raise unittest.SkipTest(f'Could not find the PCI device of {dev_name}')
+    pci_name = pci_name[0].split('/')[5]
+    try:
+        subprocess.check_output(['devlink', 'dev', 'eswitch', 'show', f'pci/{pci_name}'],
+                                stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        raise unittest.SkipTest(f'ESwitch is off on device {dev_name}')
+    return True
+
 
 
 def requires_huge_pages():

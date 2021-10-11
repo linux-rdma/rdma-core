@@ -12,9 +12,10 @@ import errno
 from pyverbs.providers.mlx5.dr_action import DrActionQp, DrActionModify, \
     DrActionFlowCounter, DrActionDrop, DrActionTag, DrActionDestTable, \
     DrActionPopVLan, DrActionPushVLan, DrActionDestAttr, DrActionDestArray, \
-    DrActionDefMiss
+    DrActionDefMiss, DrActionVPort, DrActionIBPort
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, Mlx5Context, Mlx5DVContextAttr
-from tests.utils import skip_unsupported, requires_root_on_eth, PacketConsts
+from tests.utils import skip_unsupported, requires_root_on_eth, requires_eswitch_on, \
+    PacketConsts
 from pyverbs.providers.mlx5.mlx5dv_flow import Mlx5FlowMatchParameters
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
 from tests.mlx5_base import Mlx5RDMATestCase, PyverbsAPITestCase
@@ -35,6 +36,7 @@ OUT_SMAC_15_0_FIELD_ID = 0x2
 OUT_SMAC_15_0_FIELD_LENGTH = 16
 SET_ACTION = 0x1
 MAX_MATCH_PARAM_SIZE = 0x180
+PF_VPORT = 0x0
 
 
 class Mlx5DrResources(RawResources):
@@ -193,6 +195,65 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         for _ in range(iters):
             u.send(self.client, c_send_wr, e.IBV_WR_SEND)
             u.poll_cq_ex(self.client.cq)
+
+    def send_server_fdb_to_nic_packets(self, iters):
+        """
+        Server sends and receives raw packets.
+        :param iters: Number of packets to send.
+        """
+        s_recv_wr = u.get_recv_wr(self.server)
+        u.post_recv(self.server, s_recv_wr, qp_idx=0)
+        c_send_wr, _, msg = u.get_send_elements_raw_qp(self.server)
+        for _ in range(iters):
+            u.send(self.server, c_send_wr, e.IBV_WR_SEND)
+            u.poll_cq_ex(self.server.cq)
+            u.post_recv(self.server, s_recv_wr, qp_idx=0)
+            msg_received = self.server.mr.read(self.server.msg_size, 0)
+            u.validate_raw(msg_received, msg, [])
+
+    def dest_port(self, is_vport=True):
+        """
+        Creates FDB domain, root table with matcher on source mac on the server
+        side. Create a rule to forward all traffic to the non-root table.
+        On this table apply VPort/IBPort action goto PF.
+        Validate RX side of FDB:
+        On the server open another RX domain on PF with QP action and validate
+        packets by sending traffic from client, catch all traffic with
+        VPort/IBPort action goto PF, open another RX domain on PF with QP
+        action and validate packets.
+        Validate TX side of FDB:
+        Send traffic from server and validate packets on servers' QP
+        with the same rules.
+        :param is_vport: A flag to indicate if to use VPort or IBPort action.
+        """
+        self.client = Mlx5DrResources(**self.dev_info)
+        self.server = Mlx5DrResources(**self.dev_info)
+        self.domain_fdb = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_FDB)
+        port_action = DrActionVPort(self.domain_fdb, PF_VPORT) if is_vport \
+            else DrActionIBPort(self.domain_fdb, self.ib_port)
+        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        self.fdb_table, self.fdb_dest_act = self.create_rx_recv_qp_rule(smac_value, [port_action],
+                                                                        domain=self.domain_fdb)
+        self.domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        rx_table = DrTable(self.domain_rx, 0)
+        qp_action = DrActionQp(self.server.qp)
+        smac_mask = bytes([0xff] * 6)
+        mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
+        rx_matcher = DrMatcher(rx_table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
+        value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
+        self.rules.append(DrRule(rx_matcher, value_param, [qp_action]))
+        # Validate traffic on RX
+        u.raw_traffic(self.client, self.server, self.iters)
+        # Validate traffic on TX
+        self.send_server_fdb_to_nic_packets(self.iters)
+
+    @requires_eswitch_on
+    def test_dest_vport(self):
+        self.dest_port()
+
+    @requires_eswitch_on
+    def test_dest_ib_port(self):
+        self.dest_port(False)
 
     @skip_unsupported
     def test_tbl_qp_rule(self):
