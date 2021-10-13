@@ -340,6 +340,15 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 					       ft_field_bitmask_support_2_nic_receive.
 					       outer_l4_checksum_ok);
 
+	/* geneve_tlv_option_0_exist is the indication for STE support for
+	 * lookup type flex_parser_ok.
+	 */
+	caps->flex_parser_ok_bits_supp = DEVX_GET(query_hca_cap_out, out,
+						  capability.flow_table_nic_cap.
+						  flow_table_properties_nic_receive.
+						  ft_field_support.
+						  geneve_tlv_option_0_exist);
+
 	if (sf_supp && caps->eswitch_manager) {
 		DEVX_SET(query_hca_cap_in, in, op_mod,
 			 MLX5_SET_HCA_CAP_OP_MOD_ESW | HCA_CAP_OPMOD_GET_CUR);

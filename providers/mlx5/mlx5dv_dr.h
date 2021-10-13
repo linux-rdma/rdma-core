@@ -549,6 +549,11 @@ void dr_ste_build_tnl_geneve_tlv_opt(struct dr_ste_ctx *ste_ctx,
 				     struct dr_match_param *mask,
 				     struct dr_devx_caps *caps,
 				     bool inner, bool rx);
+void dr_ste_build_tnl_geneve_tlv_opt_exist(struct dr_ste_ctx *ste_ctx,
+					   struct dr_ste_build *sb,
+					   struct dr_match_param *mask,
+					   struct dr_devx_caps *caps,
+					   bool inner, bool rx);
 void dr_ste_build_tnl_gtpu(struct dr_ste_ctx *ste_ctx,
 			   struct dr_ste_build *sb,
 			   struct dr_match_param *mask,
@@ -716,7 +721,8 @@ struct dr_match_misc {
 	uint32_t vxlan_vni:24;			/* VXLAN VNI (outer) */
 	uint32_t reserved_at_b8:8;
 	uint32_t geneve_vni:24;			/* GENEVE VNI field (outer) */
-	uint32_t reserved_at_e4:7;
+	uint32_t reserved_at_e4:6;
+	uint32_t geneve_tlv_option_0_exist:1;
 	uint32_t geneve_oam:1;			/* GENEVE OAM field (outer) */
 	uint32_t reserved_at_ec:12;
 	uint32_t outer_ipv6_flow_label:20;	/* Flow label of incoming IPv6 packet (outer) */
@@ -908,6 +914,7 @@ struct dr_devx_caps {
 	uint8_t				flex_parser_id_gtpu_teid;
 	uint8_t				flex_parser_id_gtpu_dw_2;
 	uint8_t				flex_parser_id_gtpu_first_ext_dw_0;
+	uint8_t				flex_parser_ok_bits_supp;
 	uint8_t				definer_supp_checksum;
 	uint8_t				max_ft_level;
 	uint8_t				sw_format_ver;

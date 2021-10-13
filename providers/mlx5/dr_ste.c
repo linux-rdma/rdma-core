@@ -796,6 +796,8 @@ static void dr_ste_copy_mask_misc(char *mask, struct dr_match_misc *spec, bool c
 
 	spec->geneve_vni = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, geneve_vni, clear);
 	spec->geneve_oam = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, geneve_oam, clear);
+	spec->geneve_tlv_option_0_exist =
+		DEVX_GET(dr_match_set_misc, mask, geneve_tlv_option_0_exist);
 
 	spec->outer_ipv6_flow_label =
 		DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, outer_ipv6_flow_label, clear);
@@ -1238,6 +1240,21 @@ void dr_ste_build_tnl_mpls_over_udp(struct dr_ste_ctx *ste_ctx,
 	sb->inner = inner;
 	sb->caps = caps;
 	ste_ctx->build_tnl_mpls_over_udp_init(sb, mask);
+}
+
+void dr_ste_build_tnl_geneve_tlv_opt_exist(struct dr_ste_ctx *ste_ctx,
+					   struct dr_ste_build *sb,
+					   struct dr_match_param *mask,
+					   struct dr_devx_caps *caps,
+					   bool inner, bool rx)
+{
+	if (!ste_ctx->build_tnl_geneve_tlv_opt_exist_init)
+		return;
+
+	sb->rx = rx;
+	sb->inner = inner;
+	sb->caps = caps;
+	ste_ctx->build_tnl_geneve_tlv_opt_exist_init(sb, mask);
 }
 
 void dr_ste_build_icmp(struct dr_ste_ctx *ste_ctx,

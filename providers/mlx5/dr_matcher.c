@@ -404,6 +404,18 @@ static bool dr_mask_is_flex_parser_4_7_set(struct dr_match_misc4 *misc4)
 		dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_7));
 }
 
+static bool dr_matcher_supp_flex_parser_ok(struct dr_devx_caps *caps)
+{
+	return caps->flex_parser_ok_bits_supp;
+}
+
+static bool dr_mask_is_tnl_geneve_tlv_opt_exist_set(struct dr_match_misc *misc,
+						    struct mlx5dv_dr_domain *dmn)
+{
+	return dr_matcher_supp_flex_parser_ok(&dmn->info.caps) &&
+	       misc->geneve_tlv_option_0_exist;
+}
+
 static bool dr_mask_is_tunnel_header_0_1_set(struct dr_match_misc5 *misc5)
 {
 	return misc5->tunnel_header_0 || misc5->tunnel_header_1;
@@ -834,6 +846,11 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 				dr_ste_build_tnl_geneve_tlv_opt(ste_ctx, &sb[idx++],
 								&mask, &dmn->info.caps,
 								inner, rx);
+
+			if (dr_mask_is_tnl_geneve_tlv_opt_exist_set(&mask.misc, dmn))
+				dr_ste_build_tnl_geneve_tlv_opt_exist(ste_ctx, &sb[idx++],
+								      &mask, &dmn->info.caps,
+								      inner, rx);
 		} else if (dr_mask_is_tnl_gtpu_any(&mask, dmn)) {
 			if (dr_mask_is_tnl_gtpu_flex_parser_0(&mask, dmn))
 				dr_ste_build_tnl_gtpu_flex_parser_0(ste_ctx, &sb[idx++],
