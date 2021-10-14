@@ -1817,7 +1817,7 @@ static void dr_ste_set_flex_parser(uint32_t *misc4_field_id,
 	uint32_t id = *misc4_field_id;
 	uint8_t *parser_ptr;
 
-	if (parser_is_used[id])
+	if (id >= NUM_OF_FLEX_PARSERS || parser_is_used[id])
 		return;
 
 	parser_is_used[id] = true;
