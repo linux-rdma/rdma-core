@@ -2177,6 +2177,8 @@ static void dr_ste_set_flex_parser(uint16_t lu_type,
 		      lu_type != DR_STE_V1_LU_TYPE_FLEX_PARSER_0 :
 		      lu_type != DR_STE_V1_LU_TYPE_FLEX_PARSER_1;
 
+	skip_parser = skip_parser || (id >= NUM_OF_FLEX_PARSERS);
+
 	if (skip_parser || parser_is_used[id])
 		return;
 
