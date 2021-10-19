@@ -12,7 +12,7 @@ import errno
 from pyverbs.providers.mlx5.dr_action import DrActionQp, DrActionModify, \
     DrActionFlowCounter, DrActionDrop, DrActionTag, DrActionDestTable, \
     DrActionPopVLan, DrActionPushVLan, DrActionDestAttr, DrActionDestArray, \
-    DrActionDefMiss, DrActionVPort, DrActionIBPort, DrActionDestTir
+    DrActionDefMiss, DrActionVPort, DrActionIBPort, DrActionDestTir, DrActionPacketReformat
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, Mlx5Context, Mlx5DVContextAttr
 from tests.utils import skip_unsupported, requires_root_on_eth, requires_eswitch_on, \
     PacketConsts
@@ -25,6 +25,7 @@ from pyverbs.providers.mlx5.dr_table import DrTable
 from pyverbs.providers.mlx5.dr_rule import DrRule
 import pyverbs.providers.mlx5.mlx5_enums as dve
 
+from tests.test_mlx5_flow import requires_reformat_support
 from pyverbs.cq import CqInitAttrEx, CQEX, CQ
 from pyverbs.wq import WQInitAttr, WQ, WQAttr
 from tests.base import RawResources
@@ -524,6 +525,43 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         tir_action = DrActionDestTir(self.server.tir)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         self.create_rx_recv_rules(smac_value, [tir_action])
+        u.raw_traffic(self.client, self.server, self.iters)
+
+    @requires_reformat_support
+    @skip_unsupported
+    def test_packet_reformat(self):
+        """
+        Creates packet reformat actions on TX (encap) and on RX (decap).
+        """
+        self.create_players(Mlx5DrResources)
+        smac_mask = bytes([0xff] * 6) + bytes(2)
+        mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
+        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
+
+        # TX steering
+        domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        tx_table = DrTable(domain_tx, 0)
+        tx_matcher = DrMatcher(tx_table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
+        # Create encap action
+        outer = u.gen_outer_headers(self.client.msg_size)
+        tx_reformat_type = dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL_
+        reformat_action_tx = DrActionPacketReformat(domain=domain_tx, data=outer,
+                                                    flags=dve.MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL,
+                                                    reformat_type=tx_reformat_type)
+        self.rules.append(DrRule(tx_matcher, value_param, [reformat_action_tx]))
+
+        # RX steering
+        domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        # Create decap action
+        rx_reformat_type = dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TUNNEL_TO_L2_
+        reformat_action_rx = DrActionPacketReformat(domain=domain_rx,
+                                                    reformat_type=rx_reformat_type)
+        qp_action = DrActionQp(self.server.qp)
+        self.create_rx_recv_rules(smac_value, [reformat_action_rx, qp_action],
+                                    domain=domain_rx)
+
+        # Send traffic and validate packet
         u.raw_traffic(self.client, self.server, self.iters)
 
 
