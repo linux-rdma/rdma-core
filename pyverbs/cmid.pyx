@@ -1,4 +1,4 @@
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, uint8_t
 from libc.string cimport memset
 import weakref
 
@@ -60,6 +60,10 @@ cdef class ConnParam(PyverbsObject):
     @qpn.setter
     def qpn(self, val):
         self.conn_param.qp_num = val
+
+    @property
+    def private_data(self):
+        return <object>self.conn_param.private_data
 
     def __str__(self):
         print_format  = '{:<4}: {:<4}\n'
@@ -254,6 +258,10 @@ cdef class CMEvent(PyverbsObject):
         if self.event == NULL:
             return ''
         return (<bytes>cm.rdma_event_str(self.event_type)).decode()
+
+    @property
+    def private_data(self):
+        return <object>self.event.param.conn.private_data
 
 
 cdef class CMEventChannel(PyverbsObject):
@@ -756,3 +764,28 @@ cdef class CMID(PyverbsCM):
                   imm_data=wc.imm_data, wc_flags=wc.wc_flags,
                   pkey_index=wc.pkey_index, slid=wc.slid, sl=wc.sl,
                   dlid_path_bits=wc.dlid_path_bits)
+
+    def set_option(self, level, optname, optval, optlen):
+        """
+        Set communication options for a CMID.
+        :param level: The protocol level of the option to set.
+        :param optname: The name of the option to set.
+        :param optval: The option data.
+        :param optlen: The size of the data.
+        """
+        if optname != ce.RDMA_OPTION_ID_ACK_TIMEOUT:
+            raise PyverbsUserError('Currently only RDMA_OPTION_ID_ACK_TIMEOUT is supported in Pyverbs.')
+        cdef uint8_t value = optval
+        ret = cm.rdma_set_option(self.id, level, optname, <void*>&value, optlen)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to set option')
+
+    def reject(self, private_data=None, private_data_len=0):
+        """
+        Reject a connection or datagram service lookup request.
+        :param private_data: Optional private data to send with the reject message.
+        :param private_data_len: Size (in bytes) of the private data being sent.
+        """
+        ret = cm.rdma_reject(self.id, <const void*>private_data, private_data_len)
+        if ret != 0:
+            raise PyverbsRDMAErrno('Failed to Reject Connection')

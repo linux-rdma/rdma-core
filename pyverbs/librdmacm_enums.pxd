@@ -44,3 +44,9 @@ cdef extern from '<rdma/rdma_cma.h>':
     cpdef enum rdma_cm_mc_join_flags:
         RDMA_MC_JOIN_FLAG_FULLMEMBER
         RDMA_MC_JOIN_FLAG_SENDONLY_FULLMEMBER
+
+    cpdef enum:
+        RDMA_OPTION_ID
+
+    cpdef enum:
+        RDMA_OPTION_ID_ACK_TIMEOUT

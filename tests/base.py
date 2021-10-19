@@ -376,6 +376,7 @@ class RDMACMBaseTest(RDMATestCase):
         Run RDMACM traffic between two CMIDs.
         :param connection_resources: The connection resources to use.
         :param passive: Indicate if this CMID is this the passive side.
+        :param kwargs: Arguments to be passed to the connection_resources.
         :return: None
         """
         try:
@@ -384,6 +385,8 @@ class RDMACMBaseTest(RDMATestCase):
                                           notifier=self.notifier,
                                           passive=passive, **kwargs)
             player.establish_connection()
+            if kwargs.get('reject_conn'):
+                return
             player.rdmacm_traffic()
             player.disconnect()
         except Exception as ex:

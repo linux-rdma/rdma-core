@@ -128,6 +128,9 @@ cdef extern from '<rdma/rdma_cma.h>':
     int rdma_create_qp(rdma_cm_id *id, ibv_pd *pd,
                        ibv_qp_init_attr *qp_init_attr)
     void rdma_destroy_qp(rdma_cm_id *id)
+    int rdma_set_option(rdma_cm_id *id, int level, int optname,
+                        void *optval, size_t optlen)
+    int rdma_reject(rdma_cm_id *id, const void *private_data, uint8_t private_data_len)
 
 cdef extern from '<rdma/rdma_verbs.h>':
     int rdma_post_recv(rdma_cm_id *id, void *context, void *addr,
