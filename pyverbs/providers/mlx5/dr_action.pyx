@@ -355,3 +355,40 @@ cdef class DrActionDestTir(DrAction):
             raise PyverbsRDMAErrno('Failed to create TIR action')
         self.devx_obj = devx_tir
         devx_tir.add_ref(self)
+
+
+cdef class DrActionPacketReformat(DrAction):
+    def __init__(self, DrDomain domain, flags=0,
+                 reformat_type=dv.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TUNNEL_TO_L2,
+                 data=None):
+        """
+        Create DR Packet Reformat action.
+        :param domain: DrDomain object where the action should be placed.
+        :param flags: Packet reformat action flags.
+        :param reformat_type: L2 or L3 encap or decap.
+        :param data: Encap headers (optional).
+        """
+        super().__init__()
+        cdef char *reformat_data = NULL
+        data_len = 0 if data is None else len(data)
+        if data:
+            arr = bytearray(data)
+            reformat_data = <char *>calloc(1, data_len)
+            for i in range(data_len):
+                reformat_data[i] = arr[i]
+        self.action = dv.mlx5dv_dr_action_create_packet_reformat(
+                        domain.domain, flags, reformat_type, data_len, reformat_data)
+        if data:
+            free(reformat_data)
+        if self.action == NULL:
+            raise PyverbsRDMAErrno('Failed to create dr action packet reformat')
+        self.domain = domain
+        domain.dr_actions.add(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.action != NULL:
+            super(DrActionPacketReformat, self).close()
+            self.domain = None

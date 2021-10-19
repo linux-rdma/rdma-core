@@ -468,6 +468,10 @@ cdef extern from 'infiniband/mlx5dv.h':
                                                          uint32_t vport)
     mlx5dv_dr_action *mlx5dv_dr_action_create_dest_ib_port(mlx5dv_dr_domain *dmn,
                                                            uint32_t ib_port)
+    mlx5dv_dr_action *mlx5dv_dr_action_create_packet_reformat(mlx5dv_dr_domain *domain,
+                                                              uint32_t flags,
+                                                              unsigned char reformat_type,
+                                                              size_t data_sz, void *data)
     int mlx5dv_dr_rule_destroy(mlx5dv_dr_rule *rule)
     void mlx5dv_dr_domain_allow_duplicate_rules(mlx5dv_dr_domain *dmn, bool allow)
 
