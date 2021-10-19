@@ -2916,8 +2916,8 @@ static int qp_enable_mmo(struct ibv_qp *qp)
 	DEVX_SET(init2init_qp_in, in, opcode, MLX5_CMD_OP_INIT2INIT_QP);
 	DEVX_SET(init2init_qp_in, in, qpc_ext, 1);
 	DEVX_SET(init2init_qp_in, in, qpn, qp->qp_num);
-	DEVX_SET(init2init_qp_in, in, opt_param_mask,
-		 MLX5_QPC_OPT_MASK_INIT2INIT_MMO);
+	DEVX_SET64(init2init_qp_in, in, opt_param_mask_95_32,
+		   MLX5_QPC_OPT_MASK_32_INIT2INIT_MMO);
 
 	DEVX_SET(qpc_ext, qpce, mmo, 1);
 
