@@ -6346,7 +6346,10 @@ int mlx5dv_devx_subscribe_devx_event(struct mlx5dv_devx_event_channel *dv_event_
 				     uint16_t events_num[],
 				     uint64_t cookie)
 {
-	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(obj->context);
+	struct mlx5_devx_event_channel *event_channel =
+			container_of(dv_event_channel, struct mlx5_devx_event_channel,
+				     dv_event_channel);
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(event_channel->context);
 
 	if (!dvops || !dvops->devx_subscribe_devx_event)
 		return EOPNOTSUPP;
@@ -6384,7 +6387,10 @@ int mlx5dv_devx_subscribe_devx_event_fd(struct mlx5dv_devx_event_channel *dv_eve
 					struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
 					uint16_t event_num)
 {
-	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(obj->context);
+	struct mlx5_devx_event_channel *event_channel =
+			container_of(dv_event_channel, struct mlx5_devx_event_channel,
+				     dv_event_channel);
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(event_channel->context);
 
 	if (!dvops || !dvops->devx_subscribe_devx_event_fd)
 		return EOPNOTSUPP;
