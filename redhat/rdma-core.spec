@@ -485,6 +485,10 @@ fi
 %{_sbindir}/ibprintrt.pl
 %{_mandir}/man8/ibprintrt*
 %{_sbindir}/set_nodedesc.sh
+%{_sbindir}/ibclearerrors
+%{_mandir}/man8/ibclearerrors*
+%{_sbindir}/ibclearcounters
+%{_mandir}/man8/ibclearcounters*
 
 %files -n infiniband-diags
 %{_sbindir}/ibaddr
@@ -545,10 +549,6 @@ fi
 %{_mandir}/man8/dump_lfts*
 %{_sbindir}/dump_mfts.sh
 %{_mandir}/man8/dump_mfts*
-%{_sbindir}/ibclearerrors
-%{_mandir}/man8/ibclearerrors*
-%{_sbindir}/ibclearcounters
-%{_mandir}/man8/ibclearcounters*
 %{_sbindir}/ibstatus
 %{_mandir}/man8/ibstatus*
 %{_mandir}/man8/infiniband-diags*
