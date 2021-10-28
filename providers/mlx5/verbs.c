@@ -2916,8 +2916,8 @@ static int qp_enable_mmo(struct ibv_qp *qp)
 	DEVX_SET(init2init_qp_in, in, opcode, MLX5_CMD_OP_INIT2INIT_QP);
 	DEVX_SET(init2init_qp_in, in, qpc_ext, 1);
 	DEVX_SET(init2init_qp_in, in, qpn, qp->qp_num);
-	DEVX_SET(init2init_qp_in, in, opt_param_mask,
-		 MLX5_QPC_OPT_MASK_INIT2INIT_MMO);
+	DEVX_SET64(init2init_qp_in, in, opt_param_mask_95_32,
+		   MLX5_QPC_OPT_MASK_32_INIT2INIT_MMO);
 
 	DEVX_SET(qpc_ext, qpce, mmo, 1);
 
@@ -6346,7 +6346,10 @@ int mlx5dv_devx_subscribe_devx_event(struct mlx5dv_devx_event_channel *dv_event_
 				     uint16_t events_num[],
 				     uint64_t cookie)
 {
-	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(obj->context);
+	struct mlx5_devx_event_channel *event_channel =
+			container_of(dv_event_channel, struct mlx5_devx_event_channel,
+				     dv_event_channel);
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(event_channel->context);
 
 	if (!dvops || !dvops->devx_subscribe_devx_event)
 		return EOPNOTSUPP;
@@ -6384,7 +6387,10 @@ int mlx5dv_devx_subscribe_devx_event_fd(struct mlx5dv_devx_event_channel *dv_eve
 					struct mlx5dv_devx_obj *obj, /* can be NULL for unaffiliated events */
 					uint16_t event_num)
 {
-	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(obj->context);
+	struct mlx5_devx_event_channel *event_channel =
+			container_of(dv_event_channel, struct mlx5_devx_event_channel,
+				     dv_event_channel);
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(event_channel->context);
 
 	if (!dvops || !dvops->devx_subscribe_devx_event_fd)
 		return EOPNOTSUPP;
