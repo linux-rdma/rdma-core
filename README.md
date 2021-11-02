@@ -21,6 +21,7 @@ is included:
  - hns-roce.ko
  - irdma.ko
  - ib_qib.ko
+ - mana_ib.ko
  - mlx4_ib.ko
  - mlx5_ib.ko
  - ib_mthca.ko

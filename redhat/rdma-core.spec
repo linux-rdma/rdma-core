@@ -158,6 +158,8 @@ Provides: libipathverbs = %{version}-%{release}
 Obsoletes: libipathverbs < %{version}-%{release}
 Provides: libirdma = %{version}-%{release}
 Obsoletes: libirdma < %{version}-%{release}
+Provides: libmana = %{version}-%{release}
+Obsoletes: libmana < %{version}-%{release}
 Provides: libmlx4 = %{version}-%{release}
 Obsoletes: libmlx4 < %{version}-%{release}
 Provides: libmlx5 = %{version}-%{release}
@@ -185,6 +187,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 - libhns: HiSilicon Hip06 SoC
 - libipathverbs: QLogic InfiniPath HCA
 - libirdma: Intel Ethernet Connection RDMA
+- libmana: Microsoft Azure Network Adapter
 - libmlx4: Mellanox ConnectX-3 InfiniBand HCA
 - libmlx5: Mellanox Connect-IB/X-4+ InfiniBand HCA
 - libmthca: Mellanox InfiniBand HCA
@@ -446,9 +449,11 @@ fi
 %{_mandir}/man3/umad*
 %{_mandir}/man3/*_to_ibv_rate.*
 %{_mandir}/man7/rdma_cm.*
+%{_mandir}/man3/manadv*
 %{_mandir}/man3/mlx5dv*
 %{_mandir}/man3/mlx4dv*
 %{_mandir}/man7/efadv*
+%{_mandir}/man7/manadv*
 %{_mandir}/man7/mlx5dv*
 %{_mandir}/man7/mlx4dv*
 %{_mandir}/man3/ibnd_*
@@ -568,6 +573,7 @@ fi
 %{_libdir}/libefa.so.*
 %{_libdir}/libibverbs*.so.*
 %{_libdir}/libibverbs/*.so
+%{_libdir}/libmana.so.*
 %{_libdir}/libmlx5.so.*
 %{_libdir}/libmlx4.so.*
 %config(noreplace) %{_sysconfdir}/libibverbs.d/*.driver
