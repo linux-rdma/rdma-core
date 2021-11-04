@@ -2182,22 +2182,19 @@ static uint32_t mlx5_umr_crc_bfs(struct mlx5dv_sig_crc *crc)
 	switch (type) {
 	case MLX5DV_SIG_CRC_TYPE_CRC32:
 		block_format_selector = MLX5_BFS_CRC32_BASE;
-		if (crc->seed)
-			block_format_selector |= MLX5_BFS_CRC_SEED_BIT;
 		break;
 	case MLX5DV_SIG_CRC_TYPE_CRC32C:
 		block_format_selector = MLX5_BFS_CRC32C_BASE;
-		if (crc->seed)
-			block_format_selector |= MLX5_BFS_CRC_SEED_BIT;
 		break;
 	case MLX5DV_SIG_CRC_TYPE_CRC64_XP10:
 		block_format_selector = MLX5_BFS_CRC64_XP10_BASE;
-		if (crc->seed)
-			block_format_selector |= MLX5_BFS_CRC_SEED_BIT;
 		break;
 	default:
 		return 0;
 	}
+
+	if (!crc->seed)
+		block_format_selector |= MLX5_BFS_CRC_SEED_BIT;
 
 	block_format_selector |= MLX5_BFS_CRC_REPEAT_BIT;
 
@@ -2491,14 +2488,21 @@ static uint64_t psv_transient_signature(enum mlx5_sig_type type,
 	return ts;
 }
 
-static inline void set_mkc_sig_err_cnt(struct mlx5_mkey *mkey,
-				       struct mlx5_wqe_umr_ctrl_seg *umr_ctrl,
-				       struct mlx5_wqe_mkey_context_seg *mk)
+static inline int upd_mkc_sig_err_cnt(struct mlx5_mkey *mkey,
+				      struct mlx5_wqe_umr_ctrl_seg *umr_ctrl,
+				      struct mlx5_wqe_mkey_context_seg *mk)
 {
+	if (!mkey->sig->err_count_updated)
+		return 0;
+
 	umr_ctrl->mkey_mask |= htobe64(MLX5_WQE_UMR_CTRL_MKEY_MASK_SIG_ERR);
 	mk->flags_pd |= htobe32(
 		(mkey->sig->err_count & MLX5_WQE_MKEY_CONTEXT_SIG_ERR_CNT_MASK)
 		<< MLX5_WQE_MKEY_CONTEXT_SIG_ERR_CNT_SHIFT);
+
+	mkey->sig->err_count_updated = false;
+
+	return 1;
 }
 
 static inline void suppress_umr_completion(struct mlx5_qp *mqp)
@@ -2516,29 +2520,34 @@ static inline void suppress_umr_completion(struct mlx5_qp *mqp)
 	wqe_ctrl->fm_ce_se &= ~MLX5_WQE_CTRL_CQ_UPDATE;
 }
 
-static inline void
-sig_crypto_umr_wqe_finalize(struct mlx5_qp *mqp, size_t bsf_size,
-			    struct mlx5_wqe_umr_ctrl_seg *umr_ctrl,
-			    struct mlx5_wqe_mkey_context_seg *mk)
+static inline void umr_enable_bsf(struct mlx5_qp *mqp, size_t bsf_size,
+				  struct mlx5_wqe_umr_ctrl_seg *umr_ctrl,
+				  struct mlx5_wqe_mkey_context_seg *mk)
 {
 	mqp->cur_size += bsf_size / 16;
 
 	umr_ctrl->bsf_octowords = htobe16(bsf_size / 16);
 	umr_ctrl->mkey_mask |= htobe64(MLX5_WQE_UMR_CTRL_MKEY_MASK_BSF_ENABLE);
 	mk->flags_pd |= htobe32(MLX5_WQE_MKEY_CONTEXT_FLAGS_BSF_ENABLE);
+}
 
+static inline void umr_finalize_common(struct mlx5_qp *mqp)
+{
 	mqp->nreq++;
-	mqp->fm_cache = MLX5_WQE_CTRL_INITIATOR_SMALL_FENCE;
 	_common_wqe_finalize(mqp);
 	mqp->cur_mkey = NULL;
 }
 
-static inline void mlx5_umr_set_psvs(struct mlx5_qp *mqp,
-				     struct mlx5_sig_block *block)
+static inline void umr_finalize_and_set_psvs(struct mlx5_qp *mqp,
+					     struct mlx5_sig_block *block)
 {
 	uint64_t ts;
 	bool mem_sig;
 	bool wire_sig;
+
+	suppress_umr_completion(mqp);
+
+	umr_finalize_common(mqp);
 
 	mem_sig = block->attr.mem.sig_type != MLX5_SIG_TYPE_NONE;
 	wire_sig = block->attr.wire.sig_type != MLX5_SIG_TYPE_NONE;
@@ -2577,8 +2586,9 @@ static void crypto_umr_wqe_finalize(struct mlx5_qp *mqp)
 		seg = mlx5_get_send_wqe(mqp, 0);
 	mk = seg;
 
-	if (mkey->sig)
-		set_mkc_sig_err_cnt(mkey, umr_ctrl, mk);
+	if (mkey->sig && upd_mkc_sig_err_cnt(mkey, umr_ctrl, mk) &&
+	    mkey->sig->block.state == MLX5_MKEY_BSF_STATE_SET)
+		set_psv = true;
 
 	if (!(mkey->sig &&
 	      mkey->sig->block.state == MLX5_MKEY_BSF_STATE_UPDATED) &&
@@ -2589,8 +2599,7 @@ static void crypto_umr_wqe_finalize(struct mlx5_qp *mqp)
 	if (mkey->sig) {
 		bsf_size += sizeof(struct mlx5_bsf);
 
-		if (mkey->sig->block.state == MLX5_MKEY_BSF_STATE_UPDATED ||
-		    mkey->sig->block.state == MLX5_MKEY_BSF_STATE_SET)
+		if (mkey->sig->block.state == MLX5_MKEY_BSF_STATE_UPDATED)
 			set_psv = true;
 	}
 
@@ -2627,9 +2636,6 @@ static void crypto_umr_wqe_finalize(struct mlx5_qp *mqp)
 			return;
 		}
 
-		if (set_psv)
-			suppress_umr_completion(mqp);
-
 		seg += sizeof(struct mlx5_bsf);
 		if (unlikely(seg == qend))
 			seg = mlx5_get_send_wqe(mqp, 0);
@@ -2645,17 +2651,12 @@ static void crypto_umr_wqe_finalize(struct mlx5_qp *mqp)
 		}
 	}
 
-	sig_crypto_umr_wqe_finalize(mqp, bsf_size, umr_ctrl, mk);
-
-	if (set_psv)
-		mlx5_umr_set_psvs(mqp, &mkey->sig->block);
-
-	return;
-
+	umr_enable_bsf(mqp, bsf_size, umr_ctrl, mk);
 umr_finalize:
-	mqp->nreq++;
-	_common_wqe_finalize(mqp);
-	mqp->cur_mkey = NULL;
+	if (set_psv)
+		umr_finalize_and_set_psvs(mqp, &mkey->sig->block);
+	else
+		umr_finalize_common(mqp);
 }
 
 static void umr_wqe_finalize(struct mlx5_qp *mqp)
@@ -2666,13 +2667,16 @@ static void umr_wqe_finalize(struct mlx5_qp *mqp)
 	void *qend = mqp->sq.qend;
 	struct mlx5_wqe_umr_ctrl_seg *umr_ctrl;
 	struct mlx5_wqe_mkey_context_seg *mk;
+	bool set_psv = false;
 	size_t cur_data_size;
 	size_t max_data_size;
 	size_t bsf_size = sizeof(struct mlx5_bsf);
 	int ret;
 
-	if (!mkey->sig && !mkey->crypto)
-		goto umr_finalize;
+	if (!mkey->sig && !mkey->crypto) {
+		umr_finalize_common(mqp);
+		return;
+	}
 
 	if (mkey->crypto) {
 		crypto_umr_wqe_finalize(mqp);
@@ -2686,11 +2690,30 @@ static void umr_wqe_finalize(struct mlx5_qp *mqp)
 		seg = mlx5_get_send_wqe(mqp, 0);
 	mk = seg;
 
-	set_mkc_sig_err_cnt(mkey, umr_ctrl, mk);
-
 	block = &mkey->sig->block;
-	if (block->state != MLX5_MKEY_BSF_STATE_UPDATED)
-		goto umr_finalize;
+	/* Disable BSF for the MKEY if the block signature is not configured. */
+	if (block->state != MLX5_MKEY_BSF_STATE_UPDATED &&
+	    block->state != MLX5_MKEY_BSF_STATE_SET) {
+		/*
+		 * Set bsf_enable bit in the mask to update the
+		 * corresponding bit in the MKEY context. The new value
+		 * is 0 (BSF is disabled) because the MKEY context
+		 * segment was zeroed in the mkey conf builder.
+		 */
+		umr_ctrl->mkey_mask |= htobe64(MLX5_WQE_UMR_CTRL_MKEY_MASK_BSF_ENABLE);
+	}
+
+	if (upd_mkc_sig_err_cnt(mkey, umr_ctrl, mk) &&
+	    block->state == MLX5_MKEY_BSF_STATE_SET)
+		set_psv = true;
+
+	if (block->state != MLX5_MKEY_BSF_STATE_UPDATED) {
+		if (set_psv)
+			umr_finalize_and_set_psvs(mqp, block);
+		else
+			umr_finalize_common(mqp);
+		return;
+	}
 
 	cur_data_size = be16toh(umr_ctrl->klm_octowords) * 16;
 	max_data_size =
@@ -2716,15 +2739,8 @@ static void umr_wqe_finalize(struct mlx5_qp *mqp)
 		return;
 	}
 
-	suppress_umr_completion(mqp);
-	sig_crypto_umr_wqe_finalize(mqp, bsf_size, umr_ctrl, mk);
-	mlx5_umr_set_psvs(mqp, block);
-
-	return;
-umr_finalize:
-	mqp->nreq++;
-	_common_wqe_finalize(mqp);
-	mqp->cur_mkey = NULL;
+	umr_enable_bsf(mqp, bsf_size, umr_ctrl, mk);
+	umr_finalize_and_set_psvs(mqp, block);
 }
 
 static void mlx5_send_wr_mkey_configure(struct mlx5dv_qp_ex *dv_qp,
@@ -2792,13 +2808,6 @@ static void mlx5_send_wr_mkey_configure(struct mlx5dv_qp_ex *dv_qp,
 			mkey->sig->block.attr.wire.sig_type =
 				MLX5_SIG_TYPE_NONE;
 			mkey->sig->block.state = MLX5_MKEY_BSF_STATE_RESET;
-			/*
-			 * Set bsf_enable bit in the mask to update the
-			 * corresponding bit in the MKEY context. The new value
-			 * is 0 (BSF is disabled) because the MKEY context
-			 * segment (*mk) was zeroed in few lines above.
-			 */
-			mkey_mask |= MLX5_WQE_UMR_CTRL_MKEY_MASK_BSF_ENABLE;
 		} else {
 			if (mkey->sig->block.state ==
 			    MLX5_MKEY_BSF_STATE_UPDATED)

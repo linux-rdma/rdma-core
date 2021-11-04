@@ -6523,6 +6523,7 @@ static struct mlx5_sig_ctx *mlx5_create_sig_ctx(struct ibv_pd *pd,
 
 	sig->err_exists = false;
 	sig->err_count = 1;
+	sig->err_count_updated = true;
 
 	return sig;
 err_free_sig:
