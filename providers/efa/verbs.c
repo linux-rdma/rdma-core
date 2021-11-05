@@ -224,6 +224,27 @@ int efa_dealloc_pd(struct ibv_pd *ibvpd)
 	return 0;
 }
 
+struct ibv_mr *efa_reg_dmabuf_mr(struct ibv_pd *ibvpd, uint64_t offset,
+				 size_t length, uint64_t iova, int fd, int acc)
+{
+	struct efa_mr *mr;
+	int err;
+
+	mr = calloc(1, sizeof(*mr));
+	if (!mr)
+		return NULL;
+
+	err = ibv_cmd_reg_dmabuf_mr(ibvpd, offset, length, iova, fd, acc,
+				    &mr->vmr);
+	if (err) {
+		free(mr);
+		errno = err;
+		return NULL;
+	}
+
+	return &mr->vmr.ibv_mr;
+}
+
 struct ibv_mr *efa_reg_mr(struct ibv_pd *ibvpd, void *sva, size_t len,
 			  uint64_t hca_va, int access)
 {
