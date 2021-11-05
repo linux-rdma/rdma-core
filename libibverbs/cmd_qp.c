@@ -382,8 +382,13 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 	struct ibv_qp_init_attr_ex attr_ex = {};
 	int ret;
 
-	memcpy(&attr_ex, attr, sizeof(*attr));
-	attr_ex.comp_mask |= IBV_QP_INIT_ATTR_PD;
+	attr_ex.qp_context = attr->qp_context;
+	attr_ex.send_cq = attr->send_cq;
+	attr_ex.recv_cq = attr->recv_cq;
+	attr_ex.cap = attr->cap;
+	attr_ex.qp_type = attr->qp_type;
+	attr_ex.sq_sig_all = attr->sq_sig_all;
+	attr_ex.comp_mask = IBV_QP_INIT_ATTR_PD;
 	attr_ex.pd = pd;
 	ret = ibv_icmd_create_qp(pd->context, NULL, qp, &attr_ex, cmdb);
 	if (!ret)
