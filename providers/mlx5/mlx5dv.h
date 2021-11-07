@@ -2127,6 +2127,15 @@ int mlx5dv_modify_qp_sched_elem(struct ibv_qp *qp,
 int mlx5dv_reserved_qpn_alloc(struct ibv_context *ctx, uint32_t *qpn);
 int mlx5dv_reserved_qpn_dealloc(struct ibv_context *ctx, uint32_t qpn);
 
+int mlx5dv_dr_aso_other_domain_link(struct mlx5dv_devx_obj *devx_obj,
+				    struct mlx5dv_dr_domain *peer_dmn,
+				    struct mlx5dv_dr_domain *dmn,
+				    uint32_t flags,
+				    uint8_t return_reg_c);
+int mlx5dv_dr_aso_other_domain_unlink(struct mlx5dv_devx_obj *devx_obj,
+				      struct mlx5dv_dr_domain *dmn);
+
+
 #ifdef __cplusplus
 }
 #endif

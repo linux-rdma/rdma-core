@@ -54,6 +54,8 @@ mlx5dv_dr_action_create_push_vlan- Create push vlan action
 
 mlx5dv_dr_action_destroy - Destroy actions
 
+mlx5dv_dr_aso_other_domain_link, mlx5dv_dr_aso_other_domain_unlink - link/unlink ASO devx object to work with different domains
+
 # SYNOPSIS
 
 ```c
@@ -174,6 +176,15 @@ struct mlx5dv_dr_action *mlx5dv_dr_action_create_push_vlan(
 		__be32 vlan_hdr)
 
 int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
+
+int mlx5dv_dr_aso_other_domain_link(struct mlx5dv_devx_obj *devx_obj,
+				    struct mlx5dv_dr_domain *peer_dmn,
+				    struct mlx5dv_dr_domain *dmn,
+				    uint32_t flags,
+				    uint8_t return_reg_c);
+
+int mlx5dv_dr_aso_other_domain_unlink(struct mlx5dv_devx_obj *devx_obj,
+				      struct mlx5dv_dr_domain *dmn);
 ```
 
 # DESCRIPTION
@@ -312,6 +323,16 @@ Action: Push Vlan
 HW will perform the set of **num_actions** from the **action** array of type *struct mlx5dv_dr_action*, once a packet matches the exact **value** of the rule (referred to as a 'hit').
 
 *mlx5dv_dr_rule_destroy()* destroys the rule.
+
+## Other
+*mlx5dv_dr_aso_other_domain_link()* links the ASO devx object, **devx_obj** to a domain **dmn**, this will allow to create a rule with ASO action using the given object on the linked domain **dmn**.
+**peer_dmn** is the domain that the ASO devx object was created on.
+**dmn** is the domain that ASO devx object will be linked to.
+**flags** choose the specific wanted behavior of this object according to the flags, same as for ASO action creation flags.
+**regc_index** After a packet hits the rule with the ASO object the value of the ASO object will be copied into the regc register indicated by this param, and then we can use the value for matching in the following DR rules.
+
+*mlx5dv_dr_aso_other_domain_unlink()* will unlink the **devx_obj** from the linked **dmn**.
+**dmn** is the domain that ASO devx object is linked to.
 
 # RETURN VALUE
 The create API calls will return a pointer to the relevant object: table, matcher, action, rule. on failure, NULL will be returned and errno will be set.

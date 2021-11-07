@@ -98,6 +98,8 @@ rdma_alias_man_pages(
  mlx5dv_dr_flow.3 mlx5dv_dr_action_destroy.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_modify_aso.3
  mlx5dv_dr_flow.3 mlx5dv_dr_action_modify_flow_meter.3
+ mlx5dv_dr_flow.3 mlx5dv_dr_aso_other_domain_link.3
+ mlx5dv_dr_flow.3 mlx5dv_dr_aso_other_domain_unlink.3
  mlx5dv_dr_flow.3 mlx5dv_dr_domain_allow_duplicate_rules.3
  mlx5dv_dr_flow.3 mlx5dv_dr_domain_create.3
  mlx5dv_dr_flow.3 mlx5dv_dr_domain_destroy.3

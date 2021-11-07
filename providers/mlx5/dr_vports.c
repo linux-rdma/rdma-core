@@ -111,7 +111,6 @@ dr_vports_table_query_and_add_ib_port(struct ibv_context *ctx,
 	int ret;
 
 	wire_flags = MLX5DV_QUERY_PORT_VPORT |
-		     MLX5DV_QUERY_PORT_VPORT_REG_C0 |
 		     MLX5DV_QUERY_PORT_ESW_OWNER_VHCA_ID |
 		     MLX5DV_QUERY_PORT_VPORT_STEERING_ICM_TX;
 

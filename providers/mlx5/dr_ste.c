@@ -30,6 +30,7 @@
  * SOFTWARE.
  */
 
+#include "mlx5dv_dr.h"
 #include "dr_ste.h"
 
 struct dr_hw_ste_format {
@@ -139,6 +140,12 @@ void dr_ste_set_hit_addr(struct dr_ste_ctx *ste_ctx, uint8_t *hw_ste_p,
 			 uint64_t icm_addr, uint32_t ht_size)
 {
 	ste_ctx->set_hit_addr(hw_ste_p, icm_addr, ht_size);
+}
+
+void dr_ste_set_hit_gvmi(struct dr_ste_ctx *ste_ctx, uint8_t *hw_ste_p,
+			 uint16_t gvmi)
+{
+	ste_ctx->set_hit_gvmi(hw_ste_p, gvmi);
 }
 
 uint64_t dr_ste_get_icm_addr(struct dr_ste *ste)
@@ -1555,6 +1562,23 @@ int dr_ste_build_def28(struct dr_ste_ctx *ste_ctx,
 	return 0;
 }
 
+int dr_ste_build_def33(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       bool inner, bool rx)
+{
+	if (!ste_ctx->build_def33_init) {
+		errno = ENOTSUP;
+		return errno;
+	}
+
+	sb->rx = rx;
+	sb->inner = inner;
+	sb->format_id = DR_MATCHER_DEFINER_33;
+	ste_ctx->build_def33_init(sb, mask);
+	return 0;
+}
+
 struct dr_ste_ctx *dr_ste_get_ctx(uint8_t version)
 {
 	if (version == MLX5_HW_CONNECTX_5)
@@ -1565,4 +1589,37 @@ struct dr_ste_ctx *dr_ste_get_ctx(uint8_t version)
 	errno = EOPNOTSUPP;
 
 	return NULL;
+}
+
+int mlx5dv_dr_aso_other_domain_link(struct mlx5dv_devx_obj *devx_obj,
+				    struct mlx5dv_dr_domain *peer_dmn,
+				    struct mlx5dv_dr_domain *dmn,
+				    uint32_t flags,
+				    uint8_t return_reg_c)
+{
+	struct dr_ste_ctx *ste_ctx = dmn->ste_ctx;
+
+	if (devx_obj->type != MLX5_DEVX_ASO_CT)
+		goto out;
+
+	if (ste_ctx->aso_other_domain_link)
+		return ste_ctx->aso_other_domain_link(devx_obj, peer_dmn,
+						      dmn, flags,
+						      return_reg_c);
+
+out:
+	errno = EOPNOTSUPP;
+	return errno;
+}
+
+int mlx5dv_dr_aso_other_domain_unlink(struct mlx5dv_devx_obj *devx_obj,
+				      struct mlx5dv_dr_domain *dmn)
+{
+	struct dr_ste_ctx *ste_ctx = dmn->ste_ctx;
+
+	if (ste_ctx->aso_other_domain_unlink)
+		return ste_ctx->aso_other_domain_unlink(devx_obj);
+
+	errno = EOPNOTSUPP;
+	return errno;
 }

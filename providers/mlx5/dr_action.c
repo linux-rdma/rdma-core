@@ -599,10 +599,12 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			     struct mlx5dv_dr_action *actions[],
 			     uint32_t num_actions,
 			     uint8_t *ste_arr,
-			     uint32_t *new_hw_ste_arr_sz)
+			     uint32_t *new_hw_ste_arr_sz,
+			     struct cross_dmn_params *cross_dmn_p)
 {
 	struct dr_domain_rx_tx *nic_dmn = nic_matcher->nic_tbl->nic_dmn;
 	bool rx_rule = nic_dmn->type == DR_DOMAIN_NIC_TYPE_RX;
+	struct mlx5dv_dr_action *cross_dmn_action = NULL;
 	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
 	uint8_t action_type_set[DR_ACTION_TYP_MAX] = {};
 	uint32_t state = DR_ACTION_STATE_NO_ACTION;
@@ -615,6 +617,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 	attr.hit_gvmi = dmn->info.caps.gvmi;
 	attr.final_icm_addr = nic_dmn->default_icm_addr;
 	action_domain = dr_action_get_action_domain(dmn->type, nic_dmn->type);
+	attr.aso_ste_loc = -1;
 
 	for (i = 0; i < num_actions; i++) {
 		struct mlx5dv_dr_action *action;
@@ -657,6 +660,29 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				action->ctr.offset;
 			break;
 		case DR_ACTION_TYP_ASO_CT:
+			if (dmn != action->aso.dmn) {
+				if (!action->aso.devx_obj->priv) {
+					dr_dbg(dmn, "ASO CT devx priv object is not initialized\n");
+					goto out_invalid_arg;
+				}
+
+				struct dr_aso_cross_dmn_arrays *cross_dmn_arrays =
+					(struct dr_aso_cross_dmn_arrays *) action->aso.devx_obj->priv;
+
+				if (atomic_fetch_add(&cross_dmn_arrays->rule_htbl[action->aso.offset]->ste_arr->refcount, 1) > 1) {
+					dr_dbg(dmn, "ASO CT cross GVMI action is in use by another rule\n");
+					atomic_fetch_sub(&cross_dmn_arrays->rule_htbl[action->aso.offset]->ste_arr->refcount, 1);
+					errno = EBUSY;
+					goto out_errno;
+				}
+
+				dr_ste_get(cross_dmn_arrays->action_htbl[action->aso.offset]->ste_arr);
+				cross_dmn_p->cross_dmn_action = action;
+				cross_dmn_action = action;
+			}
+
+			attr.aso = &action->aso;
+			break;
 		case DR_ACTION_TYP_ASO_FLOW_METER:
 		case DR_ACTION_TYP_ASO_FIRST_HIT:
 			if (dmn->ctx != action->aso.devx_obj->context) {
@@ -819,11 +845,20 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			 &attr,
 			 new_hw_ste_arr_sz);
 
+	if (attr.aso_ste_loc != -1)
+		cross_dmn_p->cross_dmn_loc = attr.aso_ste_loc;
+
 	return 0;
 
 out_invalid_arg:
 	errno = EINVAL;
 out_errno:
+	if (cross_dmn_action) {
+		struct dr_aso_cross_dmn_arrays *cross_dmn_arrays = (struct dr_aso_cross_dmn_arrays *) cross_dmn_action->aso.devx_obj->priv;
+
+		atomic_fetch_sub(&cross_dmn_arrays->rule_htbl[cross_dmn_action->aso.offset]->ste_arr->refcount, 1);
+		atomic_fetch_sub(&cross_dmn_arrays->action_htbl[cross_dmn_action->aso.offset]->ste_arr->refcount, 1);
+	}
 	return errno;
 }
 
@@ -1178,11 +1213,47 @@ mlx5dv_dr_action_create_aso(struct mlx5dv_dr_domain *dmn,
 		return NULL;
 	}
 
+	action->aso.dmn = dmn;
+
 	return action;
 
 out_free:
 	free(action);
 	return NULL;
+}
+
+static int
+dr_action_aso_ct_modify(struct mlx5dv_dr_action *action,
+			uint32_t offset,
+			uint32_t flags,
+			uint8_t return_reg_c)
+{
+	if (action->aso.devx_obj->priv == NULL)
+		return dr_action_aso_ct_init(action, offset,
+					     flags, return_reg_c);
+
+	if (action->aso.dest_reg_id != return_reg_c) {
+		dr_dbg(action->aso.dmn, "Invalid parameters for a cross gvmi action\n");
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
+	if (flags > MLX5DV_DR_ACTION_FLAGS_ASO_CT_DIRECTION_RESPONDER) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
+	if ((flags == MLX5DV_DR_ACTION_FLAGS_ASO_CT_DIRECTION_INITIATOR &&
+	    action->aso.ct.direction != MLX5_IFC_ASO_CT_DIRECTION_INITIATOR) ||
+	    (flags == MLX5DV_DR_ACTION_FLAGS_ASO_CT_DIRECTION_RESPONDER &&
+	    action->aso.ct.direction != MLX5_IFC_ASO_CT_DIRECTION_RESPONDER)) {
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
+	action->aso.offset = offset;
+
+	return 0;
 }
 
 int mlx5dv_dr_action_modify_aso(struct mlx5dv_dr_action *action,
@@ -1197,8 +1268,8 @@ int mlx5dv_dr_action_modify_aso(struct mlx5dv_dr_action *action,
 		return dr_action_aso_flow_meter_init(action, offset,
 						     flags, return_reg_c);
 	else if (action->action_type == DR_ACTION_TYP_ASO_CT)
-		return dr_action_aso_ct_init(action, offset,
-					     flags, return_reg_c);
+		return dr_action_aso_ct_modify(action, offset,
+					       flags, return_reg_c);
 
 	errno = EINVAL;
 	return errno;
