@@ -12,7 +12,7 @@ from pyverbs.providers.mlx5.mlx5dv_mkey cimport Mlx5MrInterleaved, Mlx5Mkey, \
     Mlx5MkeyConfAttr, Mlx5SigBlockAttr
 from pyverbs.providers.mlx5.mlx5dv_crypto cimport Mlx5CryptoLoginAttr, Mlx5CryptoAttr
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError, PyverbsError
-from pyverbs.providers.mlx5.dr_action cimport DrActionFlowCounter
+from pyverbs.providers.mlx5.dr_action cimport DrActionFlowCounter, DrActionDestTir
 from pyverbs.providers.mlx5.mlx5dv_sched cimport Mlx5dvSchedLeaf
 cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
 cimport pyverbs.providers.mlx5.libmlx5 as dv
@@ -177,6 +177,7 @@ cdef class Mlx5DevxObj(PyverbsCM):
         self.context = context
         self.context.add_ref(self)
         self.flow_counter_actions = weakref.WeakSet()
+        self.dest_tir_actions = weakref.WeakSet()
 
     def query(self, in_, outlen):
         """
@@ -227,6 +228,8 @@ cdef class Mlx5DevxObj(PyverbsCM):
     cdef add_ref(self, obj):
         if isinstance(obj, DrActionFlowCounter):
             self.flow_counter_actions.add(obj)
+        elif isinstance(obj, DrActionDestTir):
+            self.dest_tir_actions.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 
@@ -244,7 +247,7 @@ cdef class Mlx5DevxObj(PyverbsCM):
     cpdef close(self):
         if self.obj != NULL:
             self.logger.debug('Closing Mlx5DvexObj')
-            close_weakrefs([self.flow_counter_actions])
+            close_weakrefs([self.flow_counter_actions, self.dest_tir_actions])
             rc = dv.mlx5dv_devx_obj_destroy(self.obj)
             if rc:
                 raise PyverbsRDMAError('Failed to destroy a DevX object', rc)

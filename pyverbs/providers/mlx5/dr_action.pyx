@@ -342,3 +342,16 @@ cdef class DrActionIBPort(DrAction):
         if self.action != NULL:
             super(DrActionIBPort, self).close()
             self.domain = None
+
+cdef class DrActionDestTir(DrAction):
+    def __init__(self, Mlx5DevxObj devx_tir):
+        """
+        Create DR dest devx tir action.
+        :param devx_tir: Destination Mlx5DevxObj tir.
+        """
+        super().__init__()
+        self.action = dv.mlx5dv_dr_action_create_dest_devx_tir(devx_tir.obj)
+        if self.action == NULL:
+            raise PyverbsRDMAErrno('Failed to create TIR action')
+        self.devx_obj = devx_tir
+        devx_tir.add_ref(self)

@@ -478,6 +478,7 @@ cdef extern from 'infiniband/mlx5dv.h':
     v.ibv_device **mlx5dv_get_vfio_device_list(mlx5dv_vfio_context_attr *attr)
     int mlx5dv_vfio_get_events_fd(v.ibv_context *ibctx)
     int mlx5dv_vfio_process_events(v.ibv_context *context)
+    mlx5dv_dr_action *mlx5dv_dr_action_create_dest_devx_tir(mlx5dv_devx_obj *devx_obj)
 
     # DevX APIs
     mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context, uint32_t flags)
