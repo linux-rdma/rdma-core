@@ -21,7 +21,7 @@ from pyverbs.addr import AHAttr, AH, GlobalRoute
 from tests.base import XRCResources, DCT_KEY
 from tests.efa_base import SRDResources
 from pyverbs.wr import SGE, SendWR, RecvWR
-from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx, QPAttr, QPEx
+from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx, QPAttr, QPEx, QP
 from tests.mlx5_base import Mlx5DcResources, Mlx5DcStreamsRes
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.cq import PollCqAttr, CQEX
@@ -405,7 +405,7 @@ def get_recv_wr(agr_obj):
     :return: recv wr
     """
     qp_type = agr_obj.rqp_lst[0].qp_type if isinstance(agr_obj, XRCResources) \
-                else agr_obj.qp.qp_type
+        else agr_obj.qp.qp_type if isinstance(agr_obj.qp, QP) else None
     mr = agr_obj.mr
     length = agr_obj.msg_size + GRH_SIZE if qp_type == e.IBV_QPT_UD \
              else agr_obj.msg_size

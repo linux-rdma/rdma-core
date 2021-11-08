@@ -12,7 +12,7 @@ import errno
 from pyverbs.providers.mlx5.dr_action import DrActionQp, DrActionModify, \
     DrActionFlowCounter, DrActionDrop, DrActionTag, DrActionDestTable, \
     DrActionPopVLan, DrActionPushVLan, DrActionDestAttr, DrActionDestArray, \
-    DrActionDefMiss, DrActionVPort, DrActionIBPort
+    DrActionDefMiss, DrActionVPort, DrActionIBPort, DrActionDestTir
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, Mlx5Context, Mlx5DVContextAttr
 from tests.utils import skip_unsupported, requires_root_on_eth, requires_eswitch_on, \
     PacketConsts
@@ -25,7 +25,8 @@ from pyverbs.providers.mlx5.dr_table import DrTable
 from pyverbs.providers.mlx5.dr_rule import DrRule
 import pyverbs.providers.mlx5.mlx5_enums as dve
 
-from pyverbs.cq import CqInitAttrEx, CQEX
+from pyverbs.cq import CqInitAttrEx, CQEX, CQ
+from pyverbs.wq import WQInitAttr, WQ, WQAttr
 from tests.base import RawResources
 import pyverbs.enums as e
 import tests.utils as u
@@ -93,6 +94,28 @@ class Mlx5DrResources(RawResources):
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Create Extended CQ is not supported')
             raise ex
+
+
+class Mlx5DrTirResources(Mlx5DrResources):
+    def __init__(self, dev_name, ib_port, gid_index=0, wc_flags=0, msg_size=1024,
+                 qp_count=1, server=False):
+        self.server = server
+        super().__init__(dev_name=dev_name, ib_port=ib_port, gid_index=gid_index,
+                         wc_flags=wc_flags, msg_size=msg_size, qp_count=qp_count)
+
+    def create_cq(self):
+        self.cq = CQ(self.ctx, cqe=self.num_msgs)
+
+    @requires_root_on_eth()
+    def create_qps(self):
+        if not self.server:
+            super().create_qps()
+        else:
+            from tests.mlx5_prm_structs import Tirc, CreateTirIn, CreateTirOut
+            self.qps = [WQ(self.ctx, WQInitAttr(wq_pd=self.pd, wq_cq=self.cq))]
+            self.qps[0].modify(WQAttr(attr_mask=e.IBV_WQ_ATTR_STATE, wq_state=e.IBV_WQS_RDY))
+            tir_ctx = Tirc(inline_rqn=self.qps[0].wqn)
+            self.tir = Mlx5DevxObj(self.ctx, CreateTirIn(tir_context=tir_ctx), len(CreateTirOut()))
 
 
 class Mlx5DrTest(Mlx5RDMATestCase):
@@ -492,6 +515,15 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         smac_value += bytes(2)
         value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
         self.rules.append(DrRule(matcher_tx2, value_param, [tx_drop_action]))
+        u.raw_traffic(self.client, self.server, self.iters)
+
+    @skip_unsupported
+    def test_dest_tir(self):
+        self.client = Mlx5DrTirResources(**self.dev_info)
+        self.server = Mlx5DrTirResources(**self.dev_info, server=True)
+        tir_action = DrActionDestTir(self.server.tir)
+        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        self.create_rx_recv_rules(smac_value, [tir_action])
         u.raw_traffic(self.client, self.server, self.iters)
 
 
