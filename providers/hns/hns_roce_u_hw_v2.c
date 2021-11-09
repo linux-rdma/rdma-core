@@ -1375,9 +1375,9 @@ static void __hns_roce_v2_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 {
 	int nfreed = 0;
 	bool is_recv_cqe;
+	uint8_t owner_bit;
 	uint16_t wqe_index;
 	uint32_t prod_index;
-	uint8_t owner_bit = 0;
 	struct hns_roce_v2_cqe *cqe, *dest;
 	struct hns_roce_context *ctx = to_hr_ctx(cq->ibv_cq.context);
 
