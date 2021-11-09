@@ -42,9 +42,6 @@
 
 static void hns_roce_free_context(struct ibv_context *ibctx);
 
-#define HID_LEN			15
-#define DEV_MATCH_LEN		128
-
 #ifndef PCI_VENDOR_ID_HUAWEI
 #define PCI_VENDOR_ID_HUAWEI			0x19E5
 #endif
