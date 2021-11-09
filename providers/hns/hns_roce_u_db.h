@@ -30,12 +30,12 @@
  * SOFTWARE.
  */
 
+#ifndef _HNS_ROCE_U_DB_H
+#define _HNS_ROCE_U_DB_H
+
 #include <linux/types.h>
 
 #include "hns_roce_u.h"
-
-#ifndef _HNS_ROCE_U_DB_H
-#define _HNS_ROCE_U_DB_H
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define HNS_ROCE_PAIR_TO_64(val) ((uint64_t) val[1] << 32 | val[0])
