@@ -115,6 +115,10 @@ cdef extern from 'infiniband/verbs.h':
         unsigned int    max_ops
         unsigned int    max_sge
 
+    cdef struct ibv_tm_cap:
+        uint32_t        max_num_tags
+        uint32_t        max_ops
+
     cdef struct ibv_cq_moderation_caps:
         unsigned int    max_cq_count
         unsigned int    max_cq_period
@@ -280,6 +284,25 @@ cdef extern from 'infiniband/verbs.h':
         ibv_sge         *sg_list
         int             num_sge
 
+    cdef struct _add:
+        uint64_t        recv_wr_id
+        ibv_sge         *sg_list
+        int             num_sge
+        uint64_t        tag
+        uint64_t        mask
+
+    cdef struct _tm:
+        uint32_t        unexpected_cnt
+        uint32_t        handle
+        _add             add
+
+    cdef struct ibv_ops_wr:
+        uint64_t            wr_id
+        ibv_ops_wr          *next
+        ibv_ops_wr_opcode   opcode
+        int                 flags
+        _tm                  tm
+
     cdef struct rdma:
         unsigned long   remote_addr
         unsigned int    rkey
@@ -381,7 +404,7 @@ cdef extern from 'infiniband/verbs.h':
         ibv_pd          *pd
         ibv_xrcd        *xrcd
         ibv_cq          *cq
-        ibv_tm_caps      tm_cap
+        ibv_tm_cap      tm_cap
 
     cdef struct ibv_srq:
         ibv_context     *context
@@ -711,6 +734,7 @@ cdef extern from 'infiniband/verbs.h':
     int ibv_destroy_srq(ibv_srq *srq)
     int ibv_post_srq_recv(ibv_srq *srq, ibv_recv_wr *recv_wr,
                           ibv_recv_wr **bad_recv_wr)
+    int ibv_post_srq_ops(ibv_srq *srq, ibv_ops_wr *op, ibv_ops_wr **bad_op)
     ibv_pd *ibv_alloc_parent_domain(ibv_context *context,
                                     ibv_parent_domain_init_attr *attr)
     uint32_t ibv_inc_rkey(uint32_t rkey)

@@ -18,6 +18,9 @@ cdef class SrqInitAttrEx(PyverbsObject):
     cdef object _pd
     cdef object _xrcd
 
+cdef class OpsWr(PyverbsCM):
+    cdef v.ibv_ops_wr ops_wr
+
 cdef class SRQ(PyverbsCM):
     cdef v.ibv_srq *srq
     cdef object cq
