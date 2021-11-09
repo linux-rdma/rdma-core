@@ -1,3 +1,10 @@
+rdma-core (36.0-2) unstable; urgency=medium
+
+  * Revert installing systemd services in /usr/lib/systemd/system.
+    See #994388 for more details. (Closes: #997727)
+
+ -- Benjamin Drung <benjamin.drung@ionos.com>  Tue, 09 Nov 2021 11:13:56 +0100
+
 rdma-core (36.0-1) unstable; urgency=medium
 
   * New upstream release.
