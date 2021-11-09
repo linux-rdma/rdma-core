@@ -41,9 +41,6 @@
 #include "hns_roce_u.h"
 #include "hns_roce_u_abi.h"
 
-#define HID_LEN			15
-#define DEV_MATCH_LEN		128
-
 #ifndef PCI_VENDOR_ID_HUAWEI
 #define PCI_VENDOR_ID_HUAWEI			0x19E5
 #endif
