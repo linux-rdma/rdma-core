@@ -1,1 +1,1 @@
-/usr/lib/systemd/system/srp_daemon.service /usr/lib/systemd/system/srptools.service
+/lib/systemd/system/srp_daemon.service /lib/systemd/system/srptools.service
