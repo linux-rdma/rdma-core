@@ -539,7 +539,6 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			ctrl->flag |= htole32(ps_opcode);
 			wqe  += sizeof(struct hns_roce_wqe_raddr_seg);
 			break;
-		case IBV_QPT_UC:
 		case IBV_QPT_UD:
 		default:
 			break;
