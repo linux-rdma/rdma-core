@@ -368,9 +368,9 @@ int hns_roce_u_free_pd(struct ibv_pd *pd);
 
 struct ibv_mr *hns_roce_u_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 				 uint64_t hca_va, int access);
-int hns_roce_u_rereg_mr(struct verbs_mr *mr, int flags, struct ibv_pd *pd,
+int hns_roce_u_rereg_mr(struct verbs_mr *vmr, int flags, struct ibv_pd *pd,
 			void *addr, size_t length, int access);
-int hns_roce_u_dereg_mr(struct verbs_mr *mr);
+int hns_roce_u_dereg_mr(struct verbs_mr *vmr);
 
 struct ibv_mw *hns_roce_u_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type);
 int hns_roce_u_dealloc_mw(struct ibv_mw *mw);
