@@ -247,7 +247,7 @@ static void *get_srq_wqe(struct hns_roce_srq *srq, unsigned int n)
 	return srq->wqe_buf.buf + (n << srq->wqe_shift);
 }
 
-static void *get_idx_buf(struct hns_roce_idx_que *idx_que, int n)
+static void *get_idx_buf(struct hns_roce_idx_que *idx_que, unsigned int n)
 {
 	return idx_que->buf.buf + (n << idx_que->entry_shift);
 }
@@ -331,7 +331,7 @@ static void hns_roce_v2_update_cq_cons_index(struct hns_roce_context *ctx,
 static struct hns_roce_qp *hns_roce_v2_find_qp(struct hns_roce_context *ctx,
 					       uint32_t qpn)
 {
-	int tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
+	uint32_t tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
 
 	if (ctx->qp_table[tind].refcnt)
 		return ctx->qp_table[tind].table[qpn & ctx->qp_table_mask];
@@ -961,9 +961,8 @@ static int fill_ud_data_seg(struct hns_roce_ud_sq_wqe *ud_sq_wqe,
 	return ret;
 }
 
-static int set_ud_wqe(void *wqe, struct hns_roce_qp *qp,
-		      struct ibv_send_wr *wr, int nreq,
-		      struct hns_roce_sge_info *sge_info)
+static int set_ud_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
+		      unsigned int nreq, struct hns_roce_sge_info *sge_info)
 {
 	struct hns_roce_ah *ah = to_hr_ah(wr->wr.ud.ah);
 	struct hns_roce_ud_sq_wqe *ud_sq_wqe = wqe;
@@ -1119,7 +1118,7 @@ static int check_rc_opcode(struct hns_roce_rc_sq_wqe *wqe,
 }
 
 static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
-		      int nreq, struct hns_roce_sge_info *sge_info)
+		      unsigned int nreq, struct hns_roce_sge_info *sge_info)
 {
 	struct hns_roce_rc_sq_wqe *rc_sq_wqe = wqe;
 	struct hns_roce_v2_wqe_data_seg *dseg;

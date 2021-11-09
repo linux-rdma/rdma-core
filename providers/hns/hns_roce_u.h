@@ -99,7 +99,7 @@
 #define roce_set_bit(origin, shift, val) \
 	roce_set_field((origin), (1ul << (shift)), (shift), (val))
 
-#define hr_ilog32(n)		ilog32((n) - 1)
+#define hr_ilog32(n)		ilog32((unsigned int)(n) - 1)
 
 enum {
 	HNS_ROCE_QP_TABLE_BITS		= 8,
@@ -203,7 +203,7 @@ struct hns_roce_cq {
 
 struct hns_roce_idx_que {
 	struct hns_roce_buf		buf;
-	int				entry_shift;
+	unsigned int			entry_shift;
 	unsigned long			*bitmap;
 	int				bitmap_cnt;
 	unsigned int			head;
@@ -249,7 +249,7 @@ struct hns_roce_sge_info {
 struct hns_roce_sge_ex {
 	int				offset;
 	unsigned int			sge_cnt;
-	int				sge_shift;
+	unsigned int			sge_shift;
 };
 
 struct hns_roce_rinl_sge {
