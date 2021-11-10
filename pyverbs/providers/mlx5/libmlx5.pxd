@@ -6,6 +6,7 @@ include 'mlx5dv_enums.pxd'
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t, uintptr_t
 from posix.types cimport off_t
 from libcpp cimport bool
+cimport libc.stdio as s
 
 cimport pyverbs.libibverbs as v
 
@@ -153,9 +154,22 @@ cdef extern from 'infiniband/mlx5dv.h':
 
     cdef struct mlx5dv_dr_matcher
 
+    cdef struct mlx5dv_dr_matcher_layout:
+        uint32_t flags
+        uint32_t log_num_of_rules_hint
+
     cdef struct mlx5dv_dr_action
 
     cdef struct mlx5dv_dr_rule
+
+    cdef struct mlx5dv_dr_action_dest_reformat:
+        mlx5dv_dr_action *reformat
+        mlx5dv_dr_action *dest
+
+    cdef struct mlx5dv_dr_action_dest_attr:
+        mlx5dv_dr_action_dest_type type
+        mlx5dv_dr_action *dest
+        mlx5dv_dr_action_dest_reformat *dest_reformat
 
     cdef struct mlx5dv_clock_info:
         pass
@@ -416,7 +430,11 @@ cdef extern from 'infiniband/mlx5dv.h':
                                                                  void *data,
                                                                  unsigned char reformat_type,
                                                                  unsigned char ft_type)
+
+    # Direct rules verbs
     mlx5dv_dr_domain *mlx5dv_dr_domain_create(v.ibv_context *ctx, mlx5dv_dr_domain_type type)
+    int mlx5dv_dr_domain_sync(mlx5dv_dr_domain *domain, uint32_t flags)
+    int mlx5dv_dump_dr_domain(s.FILE *fout, mlx5dv_dr_domain *domain)
     int mlx5dv_dr_domain_destroy(mlx5dv_dr_domain *dmn)
     mlx5dv_dr_table *mlx5dv_dr_table_create(mlx5dv_dr_domain *dmn, uint32_t level)
     int mlx5dv_dr_table_destroy(mlx5dv_dr_table *tbl)
@@ -424,14 +442,35 @@ cdef extern from 'infiniband/mlx5dv.h':
                                                 uint16_t priority,
                                                 uint8_t match_criteria_enable,
                                                 mlx5dv_flow_match_parameters *mask)
+    int mlx5dv_dr_matcher_set_layout(mlx5dv_dr_matcher *matcher, mlx5dv_dr_matcher_layout *layout)
     int mlx5dv_dr_matcher_destroy(mlx5dv_dr_matcher *matcher)
     mlx5dv_dr_action *mlx5dv_dr_action_create_dest_ibv_qp(v.ibv_qp *ibqp)
+    mlx5dv_dr_action *mlx5dv_dr_action_create_tag(uint32_t tag_value)
+    mlx5dv_dr_action *mlx5dv_dr_action_create_dest_table(mlx5dv_dr_table *tbl)
+    mlx5dv_dr_action *mlx5dv_dr_action_create_pop_vlan()
+    mlx5dv_dr_action *mlx5dv_dr_action_create_push_vlan(mlx5dv_dr_domain *dmn,
+                                                        uint32_t vlan_hdr)
+    mlx5dv_dr_action *mlx5dv_dr_action_create_dest_array(
+            mlx5dv_dr_domain *domain, size_t num_dest,
+            mlx5dv_dr_action_dest_attr *dests[])
     int mlx5dv_dr_action_destroy(mlx5dv_dr_action *action)
     mlx5dv_dr_rule *mlx5dv_dr_rule_create(mlx5dv_dr_matcher *matcher,
                                           mlx5dv_flow_match_parameters *value,
                                           size_t num_actions,
                                           mlx5dv_dr_action *actions[])
+    mlx5dv_dr_action *mlx5dv_dr_action_create_modify_header(mlx5dv_dr_domain *dmn, uint32_t flags,
+                                                            size_t actions_sz, uint64_t actions[])
+    mlx5dv_dr_action *mlx5dv_dr_action_create_flow_counter(mlx5dv_devx_obj *devx_obj,
+                                                           uint32_t offset)
+    mlx5dv_dr_action *mlx5dv_dr_action_create_drop()
+    mlx5dv_dr_action *mlx5dv_dr_action_create_default_miss()
+    mlx5dv_dr_action *mlx5dv_dr_action_create_dest_vport(mlx5dv_dr_domain *dmn,
+                                                         uint32_t vport)
+    mlx5dv_dr_action *mlx5dv_dr_action_create_dest_ib_port(mlx5dv_dr_domain *dmn,
+                                                           uint32_t ib_port)
     int mlx5dv_dr_rule_destroy(mlx5dv_dr_rule *rule)
+    void mlx5dv_dr_domain_allow_duplicate_rules(mlx5dv_dr_domain *dmn, bool allow)
+
     uint64_t mlx5dv_ts_to_ns(mlx5dv_clock_info *clock_info,
                              uint64_t device_timestamp)
     int mlx5dv_get_clock_info(v.ibv_context *ctx_in, mlx5dv_clock_info *clock_info)

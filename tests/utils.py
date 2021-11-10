@@ -6,11 +6,13 @@ Provide some useful helper function for pyverbs' tests.
 """
 from itertools import combinations as com
 import errno
+import subprocess
 import unittest
 import random
 import socket
 import struct
 import string
+import glob
 import os
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
@@ -21,8 +23,8 @@ from pyverbs.wr import SGE, SendWR, RecvWR
 from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx
 from tests.mlx5_base import Mlx5DcResources, Mlx5DcStreamsRes
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.cq import PollCqAttr, CQEX
 from pyverbs.mr import MW, MWBindInfo
-from pyverbs.cq import PollCqAttr
 import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.mr import MR
@@ -62,6 +64,7 @@ class PacketConsts:
     IPV6_HEADER_SIZE = 40
     UDP_HEADER_SIZE = 8
     TCP_HEADER_SIZE = 20
+    VLAN_HEADER_SIZE = 4
     TCP_HEADER_SIZE_WORDS = 5
     IP_V4 = 4
     IP_V6 = 6
@@ -89,6 +92,10 @@ class PacketConsts:
     VXLAN_VNI = 7777777
     VXLAN_FLAGS = 0x8
     VXLAN_HEADER_SIZE = 8
+    VLAN_TPID = 0x8100
+    VLAN_PRIO = 5
+    VLAN_CFI = 1
+    VLAN_ID = 0xc0c
 
 
 def get_mr_length():
@@ -731,13 +738,17 @@ def gen_outer_headers(msg_size):
     return outer
 
 
-def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO):
+def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO, with_vlan=False, **kwargs):
     """
     Generates a Eth | IPv4 or IPv6 | UDP or TCP packet with hardcoded values in
     the headers and randomized payload.
     :param msg_size: total packet size
     :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
     :param l4: Packet layer 4 type: 'tcp' or 'udp'
+    :param with_vlan: if True add VLAN header to the packet
+    :param kwargs: Arguments:
+            * *src_mac*
+                Source MAC address to use in the packet.
     :return: packet
     """
     l3_header_size = getattr(PacketConsts, f'IPV{str(l3)}_HEADER_SIZE')
@@ -748,9 +759,15 @@ def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO):
     ip_total_len = msg_size - PacketConsts.ETHER_HEADER_SIZE
 
     # Ethernet header
+    src_mac = kwargs.get('src_mac', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
     packet = struct.pack('!6s6s',
-                         bytes.fromhex(PacketConsts.DST_MAC.replace(':', '')),
-                         bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+                         bytes.fromhex(PacketConsts.DST_MAC.replace(':', '')), src_mac)
+    if with_vlan:
+        packet += struct.pack('!HH', PacketConsts.VLAN_TPID, (PacketConsts.VLAN_PRIO << 13) +
+                              (PacketConsts.VLAN_CFI << 12) + PacketConsts.VLAN_ID)
+        payload_size -= PacketConsts.VLAN_HEADER_SIZE
+        ip_total_len -= PacketConsts.VLAN_HEADER_SIZE
+
     if l3 == PacketConsts.IP_V4:
         packet += PacketConsts.ETHER_TYPE_IPV4.to_bytes(2, 'big')
     else:
@@ -788,17 +805,19 @@ def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO):
 
 
 def get_send_elements_raw_qp(agr_obj, l3=PacketConsts.IP_V4,
-                             l4=PacketConsts.UDP_PROTO):
+                             l4=PacketConsts.UDP_PROTO, with_vlan=False, **packet_args):
     """
     Creates a single SGE and a single Send WR for agr_obj's RAW QP type. The
     content of the message is Eth | Ipv4 | UDP packet.
     :param agr_obj: Aggregation object which contains all resources necessary
     :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
     :param l4: Packet layer 4 type: 'tcp' or 'udp'
+    :param with_vlan: if True add VLAN header to the packet
+    :param packet_args: Pass packet_args to gen_packets method.
     :return: send wr, its SGE, and message
     """
     mr = agr_obj.mr
-    msg = gen_packet(agr_obj.msg_size, l3, l4)
+    msg = gen_packet(agr_obj.msg_size, l3, l4, with_vlan, **packet_args)
     mr.write(msg, agr_obj.msg_size)
     sge = SGE(mr.buf, agr_obj.msg_size, mr.lkey)
     send_wr = SendWR(opcode=e.IBV_WR_SEND, num_sge=1, sg=[sge])
@@ -814,7 +833,7 @@ def validate_raw(msg_received, msg_expected, skip_idxs):
 
 
 def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
-                l4=PacketConsts.UDP_PROTO, expected_packet=None, skip_idxs=[]):
+                l4=PacketConsts.UDP_PROTO, with_vlan=False, expected_packet=None, skip_idxs=[]):
     """
     Runs raw ethernet traffic between two sides
     :param client: client side, clients base class is BaseTraffic
@@ -822,6 +841,7 @@ def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
     :param iters: number of traffic iterations
     :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
     :param l4: Packet layer 4 type: 'tcp' or 'udp'
+    :param with_vlan: if True add VLAN header to the packet
     :param expected_packet: Expected packet for validation (when different from
                             the originally sent).
     :param skip_idxs: indexes to skip during packet validation
@@ -834,12 +854,13 @@ def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
         post_recv(client, c_recv_wr, qp_idx=qp_idx)
         post_recv(server, s_recv_wr, qp_idx=qp_idx)
     read_offset = 0
+    poll = poll_cq_ex if isinstance(client.cq, CQEX) else poll_cq
     for _ in range(iters):
         for qp_idx in range(server.qp_count):
-            c_send_wr, c_sg, msg = get_send_elements_raw_qp(client, l3, l4)
+            c_send_wr, c_sg, msg = get_send_elements_raw_qp(client, l3, l4, with_vlan)
             send(client, c_send_wr, e.IBV_WR_SEND, False, qp_idx)
-            poll_cq(client.cq)
-            poll_cq(server.cq)
+            poll(client.cq)
+            poll(server.cq)
             post_recv(server, s_recv_wr, qp_idx=qp_idx)
             msg_received = server.mr.read(server.msg_size, read_offset)
             # Validate received packet
@@ -1110,6 +1131,29 @@ def odp_implicit_supported(ctx):
     has_odp_implicit = odp_caps.general_caps & e.IBV_ODP_SUPPORT_IMPLICIT
     if has_odp_implicit == 0:
         raise unittest.SkipTest('ODP implicit is not supported')
+
+
+def requires_eswitch_on(func):
+    def inner(instance):
+        if not (is_eth(d.Context(name=instance.dev_name), instance.ib_port)
+                and eswitch_mode_check(instance.dev_name)):
+            raise unittest.SkipTest('Must be run on Ethernet link layer with Eswitch on')
+        return func(instance)
+    return inner
+
+
+def eswitch_mode_check(dev_name):
+    pci_name = glob.glob(f'/sys/bus/pci/devices/*/infiniband/{dev_name}')
+    if not pci_name:
+        raise unittest.SkipTest(f'Could not find the PCI device of {dev_name}')
+    pci_name = pci_name[0].split('/')[5]
+    try:
+        subprocess.check_output(['devlink', 'dev', 'eswitch', 'show', f'pci/{pci_name}'],
+                                stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        raise unittest.SkipTest(f'ESwitch is off on device {dev_name}')
+    return True
+
 
 
 def requires_huge_pages():

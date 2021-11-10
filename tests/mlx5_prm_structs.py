@@ -10,9 +10,10 @@ try:
     import logging
     logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
     from scapy.packet import Packet
-    from scapy.fields import BitField, ByteField, IntField, \
+    from scapy.fields import BitField, ByteField, IntField, IPField, \
         ShortField, LongField, StrFixedLenField, PacketField, \
         PacketListField, ConditionalField, PadField, FieldListField, MACField
+    from scapy.layers.inet6 import IP6Field
 except ImportError:
     raise unittest.SkipTest('scapy package is needed in order to run DevX tests')
 
@@ -33,6 +34,9 @@ class DevxOps:
     MLX5_QPC_ST_RC = 0X0
     MLX5_QPC_PM_STATE_MIGRATED = 0x3
     MLX5_CMD_OP_QUERY_HCA_CAP = 0x100
+    MLX5_CMD_OP_ALLOC_FLOW_COUNTER = 0x939
+    MLX5_CMD_OP_DEALLOC_FLOW_COUNTER = 0x93a
+    MLX5_CMD_OP_QUERY_FLOW_COUNTER = 0x93b
 
 
 # Common
@@ -1043,4 +1047,293 @@ class QueryCmdHcaCapOut(Packet):
         IntField('syndrome', 0),
         StrFixedLenField('reserved2', None, length=8),
         PadField(PacketField('capability', CmdHcaCap(), CmdHcaCap), 2048, padwith=b"\x00"),
+    ]
+
+
+class FlowTableEntryMatchSetMisc(Packet):
+    fields_desc = [
+        BitField('gre_c_present', 0, 1),
+        BitField('reserved1', 0, 1),
+        BitField('gre_k_present', 0, 1),
+        BitField('gre_s_present', 0, 1),
+        BitField('source_vhca_port', 0, 4),
+        BitField('source_sqn', 0, 24),
+        ShortField('src_esw_owner_vhca_id', 0),
+        ShortField('source_port', 0),
+        BitField('outer_second_prio', 0, 3),
+        BitField('outer_second_cfi', 0, 1),
+        BitField('outer_second_vid', 0, 12),
+        BitField('inner_second_prio', 0, 3),
+        BitField('inner_second_cfi', 0, 1),
+        BitField('inner_second_vid', 0, 12),
+        BitField('outer_second_cvlan_tag', 0, 1),
+        BitField('inner_second_cvlan_tag', 0, 1),
+        BitField('outer_second_svlan_tag', 0, 1),
+        BitField('inner_second_svlan_tag', 0, 1),
+        BitField('outer_emd_tag', 0, 1),
+        BitField('reserved2', 0, 11),
+        ShortField('gre_protocol', 0),
+        BitField('gre_key_h', 0, 24),
+        ByteField('gre_key_l', 0),
+        BitField('vxlan_vni', 0, 24),
+        ByteField('reserved3', 0),
+        BitField('geneve_vni', 0, 24),
+        BitField('reserved4', 0, 7),
+        BitField('geneve_oam', 0, 1),
+        BitField('reserved5', 0, 12),
+        BitField('outer_ipv6_flow_label', 0, 20),
+        BitField('reserved6', 0, 12),
+        BitField('inner_ipv6_flow_label', 0, 20),
+        BitField('reserved7', 0, 10),
+        BitField('geneve_opt_len', 0, 6),
+        ShortField('geneve_protocol_type', 0),
+        ByteField('reserved8', 0),
+        BitField('bth_dst_qp', 0, 24),
+        IntField('inner_esp_spi', 0),
+        IntField('outer_esp_spi', 0),
+        StrFixedLenField('reserved9', None, length=4),
+        IntField('outer_emd_tag_data_47_16', 0),
+        ShortField('outer_emd_tag_data_15_0', 0),
+        ShortField('reserved10', 0),
+    ]
+
+
+class FlowTableEntryMatchSetMisc2(Packet):
+    fields_desc = [
+        BitField('outer_first_mpls_label', 0, 20),
+        BitField('outer_first_mpls_exp', 0, 3),
+        BitField('outer_first_mpls_s_bos', 0, 1),
+        ByteField('outer_first_mpls_ttl', 0),
+        BitField('inner_first_mpls_label', 0, 20),
+        BitField('inner_first_mpls_exp', 0, 3),
+        BitField('inner_first_mpls_s_bos', 0, 1),
+        ByteField('inner_first_mpls_ttl', 0),
+        BitField('outer_last_mpls_over_gre_label', 0, 20),
+        BitField('outer_last_mpls_over_gre_exp', 0, 3),
+        BitField('outer_last_mpls_over_gre_s_bos', 0, 1),
+        ByteField('outer_last_mpls_over_gre_ttl', 0),
+        BitField('outer_last_mpls_over_udp_label', 0, 20),
+        BitField('outer_last_mpls_over_udp_exp', 0, 3),
+        BitField('outer_last_mpls_over_udp_s_bos', 0, 1),
+        ByteField('outer_last_mpls_over_udp_ttl', 0),
+        IntField('metadata_reg_c_7', 0),
+        IntField('metadata_reg_c_6', 0),
+        IntField('metadata_reg_c_5', 0),
+        IntField('metadata_reg_c_4', 0),
+        IntField('metadata_reg_c_3', 0),
+        IntField('metadata_reg_c_2', 0),
+        IntField('metadata_reg_c_1', 0),
+        IntField('metadata_reg_c_0', 0),
+        IntField('metadata_reg_a', 0),
+        IntField('metadata_reg_b', 0),
+        StrFixedLenField('reserved1', None, length=8),
+    ]
+
+
+class FlowTableEntryMatchSetMisc3(Packet):
+    fields_desc = [
+        IntField('inner_tcp_seq_num', 0),
+        IntField('outer_tcp_seq_num', 0),
+        IntField('inner_tcp_ack_num', 0),
+        IntField('outer_tcp_ack_num', 0),
+        ByteField('reserved1', 0),
+        BitField('outer_vxlan_gpe_vni', 0, 24),
+        ByteField('outer_vxlan_gpe_next_protocol', 0),
+        ByteField('outer_vxlan_gpe_flags', 0),
+        ShortField('reserved2', 0),
+        IntField('icmp_header_data', 0),
+        IntField('icmpv6_header_data', 0),
+        ByteField('icmp_type', 0),
+        ByteField('icmp_code', 0),
+        ByteField('icmpv6_type', 0),
+        ByteField('icmpv6_code', 0),
+        IntField('geneve_tlv_option_0_data', 0),
+        IntField('gtpu_teid', 0),
+        ByteField('gtpu_msg_type', 0),
+        BitField('reserved3', 0, 5),
+        BitField('gtpu_flags', 0, 3),
+        ShortField('reserved4', 0),
+        IntField('gtpu_dw_2', 0),
+        IntField('gtpu_first_ext_dw_0', 0),
+        IntField('gtpu_dw_0', 0),
+        StrFixedLenField('reserved5', None, length=4),
+    ]
+
+
+class FlowTableEntryMatchSetLyr24(Packet):
+    fields_desc = [
+        MACField('smac', '00:00:00:00:00:00'),
+        ShortField('ethertype', 0),
+        MACField('dmac', '00:00:00:00:00:00'),
+        BitField('first_prio', 0, 3),
+        BitField('first_cfi', 0, 1),
+        BitField('first_vid', 0, 12),
+        ByteField('ip_protocol', 0),
+        BitField('ip_dscp', 0, 6),
+        BitField('ip_ecn', 0, 2),
+        BitField('cvlan_tag', 0, 1),
+        BitField('svlan_tag', 0, 1),
+        BitField('frag', 0, 1),
+        BitField('ip_version', 0, 4),
+        BitField('tcp_flags', 0, 9),
+        ShortField('tcp_sport', 0),
+        ShortField('tcp_dport', 0),
+        BitField('reserved1', 0, 16),
+        BitField('ipv4_ihl', 0, 4),
+        BitField('l3_ok', 0, 1),
+        BitField('l4_ok', 0, 1),
+        BitField('ipv4_checksum_ok', 0, 1),
+        BitField('l4_checksum_ok', 0, 1),
+        ByteField('ip_ttl_hoplimit', 0),
+        ShortField('udp_sport', 0),
+        ShortField('udp_dport', 0),
+        # Ipv4 and IPv6 fields are edited manually:
+        # Added lambda conditioning
+        # Field names must be different
+        ConditionalField(BitField('src_ip_mask', 0, 128),
+                        lambda pkt: pkt.ip_version != 4 and pkt.ip_version != 6),
+        ConditionalField(BitField('reserved', 0, 96),
+                         lambda pkt: pkt.ip_version == 4),
+        ConditionalField(IPField("src_ip4", "0.0.0.0"),
+                         lambda pkt: pkt.ip_version == 4),
+        ConditionalField(IP6Field("src_ip6", "::"),
+                         lambda pkt: pkt.ip_version == 6),
+        ConditionalField(BitField('dst_ip_mask', 0, 128),
+                        lambda pkt: pkt.ip_version != 4 and pkt.ip_version != 6),
+        ConditionalField(BitField('reserved', 0, 96),
+                         lambda pkt: pkt.ip_version == 4),
+        ConditionalField(IPField("dst_ip4", "0.0.0.0"),
+                         lambda pkt: pkt.ip_version == 4),
+        ConditionalField(IP6Field("dst_ip6", "::"),
+                         lambda pkt: pkt.ip_version == 6),
+    ]
+
+
+class ProgSampleField(Packet):
+    fields_desc = [
+        IntField('prog_sample_field_value', 0),
+        IntField('prog_sample_field_id', 0),
+    ]
+
+
+class FlowTableEntryMatchSetMisc4(Packet):
+    fields_desc = [
+        PacketListField('prog_sample_field', [ProgSampleField() for x in range(4)], ProgSampleField, count_from=lambda pkt:4),
+        StrFixedLenField('reserved1', None, length=32),
+    ]
+
+
+class FlowTableEntryMatchSetMisc5(Packet):
+    fields_desc = [
+        IntField('macsec_tag_0', 0),
+        IntField('macsec_tag_1', 0),
+        IntField('macsec_tag_2', 0),
+        IntField('macsec_tag_3', 0),
+        IntField('tunnel_header_0', 0),
+        IntField('tunnel_header_1', 0),
+        IntField('tunnel_header_2', 0),
+        IntField('tunnel_header_3', 0),
+        StrFixedLenField('reserved1', None, length=32),
+    ]
+
+
+class FlowTableEntryMatchParam(Packet):
+    fields_desc = [
+        PacketField('outer_headers', FlowTableEntryMatchSetLyr24(), FlowTableEntryMatchSetLyr24),
+        PacketField('misc_parameters', FlowTableEntryMatchSetMisc(), FlowTableEntryMatchSetMisc),
+        PacketField('inner_headers', FlowTableEntryMatchSetLyr24(), FlowTableEntryMatchSetLyr24),
+        PacketField('misc_parameters_2', FlowTableEntryMatchSetMisc2(), FlowTableEntryMatchSetMisc2),
+        PacketField('misc_parameters_3', FlowTableEntryMatchSetMisc3(), FlowTableEntryMatchSetMisc3),
+        PacketField('misc_parameters_4', FlowTableEntryMatchSetMisc4(), FlowTableEntryMatchSetMisc4),
+        PacketField('misc_parameters_5', FlowTableEntryMatchSetMisc5(), FlowTableEntryMatchSetMisc5),
+        # Keep reserved commented out since SW steering checks the size with
+        # supported fields only.
+        # StrFixedLenField('reserved1', None, length=128),
+    ]
+
+
+class SetActionIn(Packet):
+    fields_desc = [
+        BitField('action_type', 0, 4),
+        BitField('field', 0, 12),
+        BitField('reserved1', 0, 3),
+        BitField('offset', 0, 5),
+        BitField('reserved2', 0, 3),
+        BitField('length', 0, 5),
+        IntField('data', 0),
+    ]
+
+
+class AllocFlowCounterIn(Packet):
+    fields_desc = [
+        ShortField('opcode', DevxOps.MLX5_CMD_OP_ALLOC_FLOW_COUNTER),
+        ShortField('uid', 0),
+        ShortField('reserved1', 0),
+        ShortField('op_mod', 0),
+        IntField('flow_counter_id', 0),
+        BitField('reserved2', 0, 24),
+        ByteField('flow_counter_bulk', 0),
+    ]
+
+
+class AllocFlowCounterOut(Packet):
+    fields_desc = [
+        ByteField('status', 0),
+        BitField('reserved1', 0, 24),
+        IntField('syndrome', 0),
+        IntField('flow_counter_id', 0),
+        StrFixedLenField('reserved2', None, length=4),
+    ]
+
+
+class DeallocFlowCounterIn(Packet):
+    fields_desc = [
+        ShortField('opcode', DevxOps.MLX5_CMD_OP_DEALLOC_FLOW_COUNTER),
+        ShortField('uid', 0),
+        ShortField('reserved1', 0),
+        ShortField('op_mod', 0),
+        IntField('flow_counter_id', 0),
+        StrFixedLenField('reserved2', None, length=4),
+    ]
+
+
+class DeallocFlowCounterOut(Packet):
+    fields_desc = [
+        ByteField('status', 0),
+        BitField('reserved1', 0, 24),
+        IntField('syndrome', 0),
+        StrFixedLenField('reserved2', None, length=8),
+    ]
+
+
+class QueryFlowCounterIn(Packet):
+    fields_desc = [
+        ShortField('opcode', DevxOps.MLX5_CMD_OP_QUERY_FLOW_COUNTER),
+        ShortField('uid', 0),
+        ShortField('reserved1', 0),
+        ShortField('op_mod', 0),
+        StrFixedLenField('reserved2', None, length=4),
+        IntField('mkey', 0),
+        LongField('address', 0),
+        BitField('clear', 0, 1),
+        BitField('dump_to_memory', 0, 1),
+        BitField('num_of_counters', 0, 30),
+        IntField('flow_counter_id', 0),
+    ]
+
+
+class TrafficCounter(Packet):
+    fields_desc = [
+        LongField('packets', 0),
+        LongField('octets', 0),
+    ]
+
+
+class QueryFlowCounterOut(Packet):
+    fields_desc = [
+        ByteField('status', 0),
+        BitField('reserved1', 0, 24),
+        IntField('syndrome', 0),
+        StrFixedLenField('reserved2', None, length=8),
+        PacketField('flow_statistics', TrafficCounter(), TrafficCounter),
     ]

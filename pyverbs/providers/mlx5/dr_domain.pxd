@@ -9,4 +9,6 @@ from pyverbs.base cimport PyverbsCM
 cdef class DrDomain(PyverbsCM):
     cdef dv.mlx5dv_dr_domain *domain
     cdef object dr_tables
+    cdef object context
+    cdef object dr_actions
     cdef add_ref(self, obj)

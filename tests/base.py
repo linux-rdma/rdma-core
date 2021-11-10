@@ -128,7 +128,7 @@ class RDMATestCase(unittest.TestCase):
         dev = self.config['dev']
         self.dev_name = dev_name if dev_name else dev
         self.ib_port = ib_port if ib_port else self.config['port']
-        self.gid_index = gid_index
+        self.gid_index = gid_index if gid_index else self.config['gid']
         self.pkey_index = pkey_index
         self.gid_type = gid_type if gid_index is None else None
         self.ip_addr = None
@@ -194,8 +194,7 @@ class RDMATestCase(unittest.TestCase):
             ctx = d.Context(name=self.dev_name)
             if self.ib_port is not None:
                 if self.gid_index is not None:
-                    # We have all we need, return
-                    return
+                    self._get_ip_mac(self.dev_name, self.ib_port, self.gid_index)
                 else:
                     # Add avaiable GIDs of the given dev_name + port
                     self._add_gids_per_port(ctx, self.dev_name, self.ib_port)
@@ -240,19 +239,22 @@ class RDMATestCase(unittest.TestCase):
             if self.gid_type is not None and ctx.query_gid_type(port, idx) != \
                     self.gid_type:
                 continue
-            if not os.path.exists('/sys/class/infiniband/{}/device/net/'.format(dev)):
-                self.args.append([dev, port, idx, None, None])
-                continue
-            net_name = self.get_net_name(dev)
-            try:
-                ip_addr, mac_addr = self.get_ip_mac_address(net_name)
-            except (KeyError, IndexError):
-                self.args.append([dev, port, idx, None, None])
-            else:
-                self.args.append([dev, port, idx, ip_addr, mac_addr])
+            self._get_ip_mac(dev, port, idx)
 
     def _add_gids_per_device(self, ctx, dev):
         self._add_gids_per_port(ctx, dev, self.ib_port)
+
+    def _get_ip_mac(self, dev, port, idx):
+        if not os.path.exists('/sys/class/infiniband/{}/device/net/'.format(dev)):
+            self.args.append([dev, port, idx, None, None])
+            return
+        net_name = self.get_net_name(dev)
+        try:
+            ip_addr, mac_addr = self.get_ip_mac_address(net_name)
+        except (KeyError, IndexError):
+            self.args.append([dev, port, idx, None, None])
+        else:
+            self.args.append([dev, port, idx, ip_addr, mac_addr])
 
     def _select_config(self):
         args_with_inet_ip = []

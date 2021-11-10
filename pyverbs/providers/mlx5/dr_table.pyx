@@ -4,6 +4,7 @@
 from pyverbs.base import PyverbsRDMAErrno, PyverbsRDMAError
 from pyverbs.providers.mlx5.dr_matcher import DrMatcher
 from pyverbs.providers.mlx5.dr_domain cimport DrDomain
+from pyverbs.providers.mlx5.dr_action cimport DrAction
 from pyverbs.pyverbs_error import PyverbsError
 from pyverbs.base cimport close_weakrefs
 import weakref
@@ -23,10 +24,13 @@ cdef class DrTable(PyverbsCM):
         domain.add_ref(self)
         self.dr_domain = domain
         self.dr_matchers = weakref.WeakSet()
+        self.dr_actions = weakref.WeakSet()
 
     cdef add_ref(self, obj):
         if isinstance(obj, DrMatcher):
             self.dr_matchers.add(obj)
+        elif isinstance(obj, DrAction):
+            self.dr_actions.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 
@@ -36,9 +40,10 @@ cdef class DrTable(PyverbsCM):
     cpdef close(self):
         if self.table != NULL:
             self.logger.debug('Closing DrTable.')
-            close_weakrefs([self.dr_matchers])
+            close_weakrefs([self.dr_matchers, self.dr_actions])
             rc = dv.mlx5dv_dr_table_destroy(self.table)
             if rc:
                 raise PyverbsRDMAError('Failed to destroy DrTable.', rc)
             self.table = NULL
             self.dr_domain = None
+            self.dr_actions = None

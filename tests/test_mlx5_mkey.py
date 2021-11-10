@@ -56,7 +56,7 @@ class Mlx5MkeyResources(RCResources):
         try:
             self.mkey = Mlx5Mkey(self.pd, self.mkey_create_flags, 3)
         except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
+            if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
                 raise unittest.SkipTest('Create Mkey is not supported')
             raise ex
 
