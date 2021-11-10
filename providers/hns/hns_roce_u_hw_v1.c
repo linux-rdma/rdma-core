@@ -220,7 +220,7 @@ static int hns_roce_wq_overflow(struct hns_roce_wq *wq, int nreq,
 static struct hns_roce_qp *hns_roce_find_qp(struct hns_roce_context *ctx,
 					    uint32_t qpn)
 {
-	int tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
+	uint32_t tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
 
 	if (ctx->qp_table[tind].refcnt) {
 		return ctx->qp_table[tind].table[qpn & ctx->qp_table_mask];
@@ -232,7 +232,7 @@ static struct hns_roce_qp *hns_roce_find_qp(struct hns_roce_context *ctx,
 
 static void hns_roce_clear_qp(struct hns_roce_context *ctx, uint32_t qpn)
 {
-	int tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
+	uint32_t tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
 
 	if (!--ctx->qp_table[tind].refcnt)
 		free(ctx->qp_table[tind].table);
@@ -539,7 +539,6 @@ static int hns_roce_u_v1_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			ctrl->flag |= htole32(ps_opcode);
 			wqe  += sizeof(struct hns_roce_wqe_raddr_seg);
 			break;
-		case IBV_QPT_UC:
 		case IBV_QPT_UD:
 		default:
 			break;
@@ -740,7 +739,7 @@ static int hns_roce_u_v1_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 				   struct ibv_recv_wr **bad_wr)
 {
 	int ret = 0;
-	int nreq;
+	unsigned int nreq;
 	struct ibv_sge *sg;
 	struct hns_roce_rc_rq_wqe *rq_wqe;
 	struct hns_roce_qp *qp = to_hr_qp(ibvqp);

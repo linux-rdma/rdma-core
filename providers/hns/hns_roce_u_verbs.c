@@ -73,7 +73,7 @@ int hns_roce_u_query_device(struct ibv_context *context,
 	sub_minor = raw_fw_ver & 0xffff;
 
 	snprintf(attr->orig_attr.fw_ver, sizeof(attr->orig_attr.fw_ver),
-		 "%d.%d.%03d", major, minor, sub_minor);
+		 "%u.%u.%03u", major, minor, sub_minor);
 
 	return 0;
 }
