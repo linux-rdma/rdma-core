@@ -66,7 +66,7 @@ static void hns_roce_update_rq_head(struct hns_roce_context *ctx,
 
 	udma_to_device_barrier();
 
-	hns_roce_write64((uint32_t *)&rq_db, ctx, ROCEE_DB_OTHERS_L_0_REG);
+	hns_roce_write64(ctx->uar + ROCEE_DB_OTHERS_L_0_REG, (__le32 *)&rq_db);
 }
 
 static void hns_roce_update_sq_head(struct hns_roce_context *ctx,
@@ -85,7 +85,7 @@ static void hns_roce_update_sq_head(struct hns_roce_context *ctx,
 
 	udma_to_device_barrier();
 
-	hns_roce_write64((uint32_t *)&sq_db, ctx, ROCEE_DB_SQ_L_0_REG);
+	hns_roce_write64(ctx->uar + ROCEE_DB_SQ_L_0_REG, (__le32 *)&sq_db);
 }
 
 static void hns_roce_update_cq_cons_index(struct hns_roce_context *ctx,
@@ -103,7 +103,7 @@ static void hns_roce_update_cq_cons_index(struct hns_roce_context *ctx,
 		       CQ_DB_U32_4_CONS_IDX_S,
 		       cq->cons_index & ((cq->cq_depth << 1) - 1));
 
-	hns_roce_write64((uint32_t *)&cq_db, ctx, ROCEE_DB_OTHERS_L_0_REG);
+	hns_roce_write64(ctx->uar + ROCEE_DB_OTHERS_L_0_REG, (__le32 *)&cq_db);
 }
 
 static void hns_roce_handle_error_cqe(struct hns_roce_cqe *cqe,
@@ -424,10 +424,11 @@ static int hns_roce_u_v1_poll_cq(struct ibv_cq *ibvcq, int ne,
  */
 static int hns_roce_u_v1_arm_cq(struct ibv_cq *ibvcq, int solicited)
 {
-	uint32_t ci;
-	uint32_t solicited_flag;
-	struct hns_roce_cq_db cq_db = {};
+	struct hns_roce_context *ctx = to_hr_ctx(ibvcq->context);
 	struct hns_roce_cq *cq = to_hr_cq(ibvcq);
+	struct hns_roce_cq_db cq_db = {};
+	uint32_t solicited_flag;
+	uint32_t ci;
 
 	ci  = cq->cons_index & ((cq->cq_depth << 1) - 1);
 	solicited_flag = solicited ? HNS_ROCE_CQ_DB_REQ_SOL :
@@ -443,8 +444,8 @@ static int hns_roce_u_v1_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	roce_set_field(cq_db.u32_4, CQ_DB_U32_4_CONS_IDX_M,
 		       CQ_DB_U32_4_CONS_IDX_S, ci);
 
-	hns_roce_write64((uint32_t *)&cq_db, to_hr_ctx(ibvcq->context),
-			  ROCEE_DB_OTHERS_L_0_REG);
+	hns_roce_write64(ctx->uar + ROCEE_DB_OTHERS_L_0_REG, (__le32 *)&cq_db);
+
 	return 0;
 }
 
