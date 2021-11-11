@@ -293,7 +293,7 @@ static void hns_roce_update_rq_db(struct hns_roce_context *ctx,
 		       HNS_ROCE_V2_RQ_DB);
 	rq_db.parameter = htole32(rq_head);
 
-	hns_roce_write64((uint32_t *)&rq_db, ctx, ROCEE_VF_DB_CFG0_OFFSET);
+	hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET, (__le32 *)&rq_db);
 }
 
 static void hns_roce_update_sq_db(struct hns_roce_context *ctx,
@@ -308,7 +308,7 @@ static void hns_roce_update_sq_db(struct hns_roce_context *ctx,
 	sq_db.parameter = htole32(sq_head);
 	roce_set_field(sq_db.parameter, DB_PARAM_SL_M, DB_PARAM_SL_S, sl);
 
-	hns_roce_write64((uint32_t *)&sq_db, ctx, ROCEE_VF_DB_CFG0_OFFSET);
+	hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET, (__le32 *)&sq_db);
 }
 
 static void hns_roce_v2_update_cq_cons_index(struct hns_roce_context *ctx,
@@ -325,7 +325,7 @@ static void hns_roce_v2_update_cq_cons_index(struct hns_roce_context *ctx,
 	roce_set_field(cq_db.parameter, DB_PARAM_CQ_CMD_SN_M,
 		       DB_PARAM_CQ_CMD_SN_S, 1);
 
-	hns_roce_write64((uint32_t *)&cq_db, ctx, ROCEE_VF_DB_CFG0_OFFSET);
+	hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET, (__le32 *)&cq_db);
 }
 
 static struct hns_roce_qp *hns_roce_v2_find_qp(struct hns_roce_context *ctx,
@@ -659,11 +659,12 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 
 static int hns_roce_u_v2_arm_cq(struct ibv_cq *ibvcq, int solicited)
 {
-	uint32_t ci;
-	uint32_t cmd_sn;
-	uint32_t solicited_flag;
-	struct hns_roce_db cq_db = {};
+	struct hns_roce_context *ctx = to_hr_ctx(ibvcq->context);
 	struct hns_roce_cq *cq = to_hr_cq(ibvcq);
+	struct hns_roce_db cq_db = {};
+	uint32_t solicited_flag;
+	uint32_t cmd_sn;
+	uint32_t ci;
 
 	ci = cq->cons_index & ((cq->cq_depth << 1) - 1);
 	cmd_sn = cq->arm_sn & HNS_ROCE_CMDSN_MASK;
@@ -681,8 +682,8 @@ static int hns_roce_u_v2_arm_cq(struct ibv_cq *ibvcq, int solicited)
 		       DB_PARAM_CQ_CMD_SN_S, cmd_sn);
 	roce_set_bit(cq_db.parameter, DB_PARAM_CQ_NOTIFY_S, solicited_flag);
 
-	hns_roce_write64((uint32_t *)&cq_db, to_hr_ctx(ibvcq->context),
-			  ROCEE_VF_DB_CFG0_OFFSET);
+	hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET, (__le32 *)&cq_db);
+
 	return 0;
 }
 
@@ -1620,8 +1621,8 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 		srq_db.parameter =
 			htole32(srq->head & DB_PARAM_SRQ_PRODUCER_COUNTER_M);
 
-		hns_roce_write64((uint32_t *)&srq_db, ctx,
-				 ROCEE_VF_DB_CFG0_OFFSET);
+		hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET,
+				 (__le32 *)&srq_db);
 	}
 
 	pthread_spin_unlock(&srq->lock);
