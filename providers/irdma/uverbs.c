@@ -206,18 +206,29 @@ int irdma_ubind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 		   struct ibv_mw_bind *mw_bind)
 {
 	struct ibv_mw_bind_info	*bind_info = &mw_bind->bind_info;
-	struct verbs_mr *vmr = verbs_get_mr(bind_info->mr);
-	struct irdma_umr *umr = container_of(vmr, struct irdma_umr, vmr);
+	struct verbs_mr *vmr;
+	struct irdma_umr *umr;
 
 	struct ibv_send_wr wr = {};
 	struct ibv_send_wr *bad_wr;
 	int err;
 
-	if (vmr->mr_type != IBV_MR_TYPE_MR || mw->type != IBV_MW_TYPE_1)
-		return ENOTSUP;
-
-	if (umr->acc_flags & IBV_ACCESS_ZERO_BASED)
+	if (!bind_info->mr && (bind_info->addr || bind_info->length))
 		return EINVAL;
+
+	if (bind_info->mr) {
+		vmr = verbs_get_mr(bind_info->mr);
+		umr = container_of(vmr, struct irdma_umr, vmr);
+
+		if (vmr->mr_type != IBV_MR_TYPE_MR || mw->type != IBV_MW_TYPE_1)
+			return ENOTSUP;
+
+		if (umr->acc_flags & IBV_ACCESS_ZERO_BASED)
+			return EINVAL;
+
+		if (mw->pd != bind_info->mr->pd)
+			return EPERM;
+	}
 
 	wr.opcode = IBV_WR_BIND_MW;
 	wr.bind_mw.bind_info = mw_bind->bind_info;
