@@ -121,7 +121,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.server = resource(**self.dev_info, **resource_arg)
 
     @skip_unsupported
-    def create_rx_recv_qp_rule(self, smac_value, actions, log_matcher_size=None, domain=None):
+    def create_rx_recv_rules(self, smac_value, actions, log_matcher_size=None, domain=None):
         """
         Creates a rule on RX domain that forwards packets that match the smac in the matcher
         to the SW steering flow table and another rule on that table with provided actions.
@@ -232,8 +232,8 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         port_action = DrActionVPort(self.domain_fdb, PF_VPORT) if is_vport \
             else DrActionIBPort(self.domain_fdb, self.ib_port)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.fdb_table, self.fdb_dest_act = self.create_rx_recv_qp_rule(smac_value, [port_action],
-                                                                        domain=self.domain_fdb)
+        self.fdb_table, self.fdb_dest_act = self.create_rx_recv_rules(smac_value, [port_action],
+                                                                      domain=self.domain_fdb)
         self.domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         rx_table = DrTable(self.domain_rx, 0)
         qp_action = DrActionQp(self.server.qp)
@@ -264,7 +264,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.create_players(Mlx5DrResources)
         self.qp_action = DrActionQp(self.server.qp)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.create_rx_recv_qp_rule(smac_value, [self.qp_action])
+        self.create_rx_recv_rules(smac_value, [self.qp_action])
         u.raw_traffic(self.client, self.server, self.iters)
 
     @skip_unsupported
@@ -278,7 +278,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.create_tx_modify_rule()
         src_mac = struct.pack('!6s', bytes.fromhex("88:88:88:88:88:88".replace(':', '')))
         self.qp_action = DrActionQp(self.server.qp)
-        self.create_rx_recv_qp_rule(src_mac, [self.qp_action])
+        self.create_rx_recv_rules(src_mac, [self.qp_action])
         exp_packet = u.gen_packet(self.client.msg_size, src_mac=src_mac)
         u.raw_traffic(self.client, self.server, self.iters, expected_packet=exp_packet)
 
@@ -294,7 +294,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.server_counter_action = DrActionFlowCounter(self.server.counter)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         self.qp_action = DrActionQp(self.server.qp)
-        self.create_rx_recv_qp_rule(smac_value, [self.qp_action, self.server_counter_action])
+        self.create_rx_recv_rules(smac_value, [self.qp_action, self.server_counter_action])
         u.raw_traffic(self.client, self.server, self.iters)
         recv_packets = self.server.query_counter_packets()
         self.assertEqual(recv_packets, self.iters, 'Counter missed some recv packets')
@@ -369,7 +369,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         tag = 0x123
         tag_action = DrActionTag(tag)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.create_rx_recv_qp_rule(smac_value, [tag_action, qp_action])
+        self.create_rx_recv_rules(smac_value, [tag_action, qp_action])
         self.domain_rx.sync()
         u.raw_traffic(self.client, self.server, self.iters)
         # Verify tag
@@ -385,7 +385,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.create_players(Mlx5DrResources)
         self.qp_action = DrActionQp(self.server.qp)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.create_rx_recv_qp_rule(smac_value, [self.qp_action], log_matcher_size)
+        self.create_rx_recv_rules(smac_value, [self.qp_action], log_matcher_size)
         self.matcher.set_layout(log_matcher_size + 1)
         u.raw_traffic(self.client, self.server, self.iters)
         self.matcher.set_layout(flags=dve.MLX5DV_DR_MATCHER_LAYOUT_RESIZABLE)
@@ -407,11 +407,11 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         push_action = DrActionPushVLan(self.domain_tx, struct.unpack('I', vlan_hdr)[0])
-        self.tx_table, self.tx_dest_act = self.create_rx_recv_qp_rule(smac_value, [push_action],
-                                                                      domain=self.domain_tx)
+        self.tx_table, self.tx_dest_act = self.create_rx_recv_rules(smac_value, [push_action],
+                                                                    domain=self.domain_tx)
         self.domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         qp_action = DrActionQp(self.server.qp)
-        self.create_rx_recv_qp_rule(smac_value, [qp_action], domain=self.domain_rx)
+        self.create_rx_recv_rules(smac_value, [qp_action], domain=self.domain_rx)
         exp_packet = u.gen_packet(self.client.msg_size + PacketConsts.VLAN_HEADER_SIZE,
                                   with_vlan=True)
         u.raw_traffic(self.client, self.server, self.iters, expected_packet=exp_packet)
@@ -430,7 +430,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         qp_action = DrActionQp(self.server.qp)
         pop_action = DrActionPopVLan()
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.create_rx_recv_qp_rule(smac_value, [pop_action, qp_action])
+        self.create_rx_recv_rules(smac_value, [pop_action, qp_action])
         u.raw_traffic(self.client, self.server, self.iters, with_vlan=True, expected_packet=exp_packet)
 
     @skip_unsupported
@@ -465,7 +465,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.rules.append(DrRule(last_matcher, value_param, [last_qp_action]))
         multi_dest_a = DrActionDestArray(self.domain_rx, len(dest_attrs), dest_attrs)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.create_rx_recv_qp_rule(smac_value, [multi_dest_a], domain=self.domain_rx)
+        self.create_rx_recv_rules(smac_value, [multi_dest_a], domain=self.domain_rx)
         u.raw_traffic(self.client, self.server, self.iters)
 
     @skip_unsupported
@@ -482,10 +482,10 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         tx_def_miss = DrActionDefMiss()
         tx_drop_action = DrActionDrop()
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.tx_table, self.tx_dest_act = self.create_rx_recv_qp_rule(smac_value, [tx_def_miss],
-                                                                      domain=self.domain_tx)
+        self.tx_table, self.tx_dest_act = self.create_rx_recv_rules(smac_value, [tx_def_miss],
+                                                                    domain=self.domain_tx)
         qp_action = DrActionQp(self.server.qp)
-        self.create_rx_recv_qp_rule(smac_value, [qp_action])
+        self.create_rx_recv_rules(smac_value, [qp_action])
         smac_mask = bytes([0xff] * 6) + bytes(2)
         mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
         matcher_tx2 = DrMatcher(self.tx_table, 2, u.MatchCriteriaEnable.OUTER, mask_param)
