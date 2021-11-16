@@ -982,7 +982,7 @@ static void wr_set_ud_addr(struct ibv_qp_ex *ibqp, struct ibv_ah *ibah,
 	if (qp->err)
 		return;
 
-	memcpy(&wqe->av, &ah->av, sizeof(ah->av));
+	memcpy(&wqe->wr.wr.ud.av, &ah->av, sizeof(ah->av));
 	wqe->wr.wr.ud.remote_qpn = remote_qpn;
 	wqe->wr.wr.ud.remote_qkey = remote_qkey;
 }
@@ -1468,7 +1468,7 @@ static int init_send_wqe(struct rxe_qp *qp, struct rxe_wq *sq,
 	convert_send_wr(&wqe->wr, ibwr);
 
 	if (qp_type(qp) == IBV_QPT_UD)
-		memcpy(&wqe->av, &to_rah(ibwr->wr.ud.ah)->av,
+		memcpy(&wqe->wr.wr.ud.av, &to_rah(ibwr->wr.ud.ah)->av,
 		       sizeof(struct rxe_av));
 
 	if (ibwr->send_flags & IBV_SEND_INLINE) {
