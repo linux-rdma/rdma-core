@@ -1525,7 +1525,7 @@ void dr_ste_set_formated_ste(struct dr_ste_ctx *ste_ctx,
 			     struct dr_htbl_connect_info *connect_info);
 void dr_ste_copy_param(uint8_t match_criteria,
 		       struct dr_match_param *set_param,
-		       struct mlx5dv_flow_match_parameters *mask);
+		       uint64_t *mask_buf, size_t mask_sz, bool clear);
 
 void dr_crc32_init_table(void);
 uint32_t dr_crc32_slice8_calc(const void *input_data, size_t length);

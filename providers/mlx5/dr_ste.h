@@ -61,6 +61,13 @@ enum {
 	HDR_MPLS_OFFSET_TTL	= 0,
 };
 
+#define DR_DEVX_GET_CLEAR(typ, p, fld, clear) ({ \
+	uint32_t ___t = DEVX_GET(typ, p, fld); \
+	if (clear) \
+		DEVX_SET(typ, p, fld, 0); \
+	___t; \
+})
+
 /* Read from layout struct */
 #define DR_STE_GET(typ, p, fld) DEVX_GET(ste_##typ, p, fld)
 
