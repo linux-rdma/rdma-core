@@ -33,7 +33,7 @@ cdef class QP(PyverbsCM):
     cdef object pd
     cdef object context
     cdef object xrcd
-    cpdef close(self)
+    cdef close(self)
     cdef update_cqs(self, init_attr)
     cdef object scq
     cdef object rcq

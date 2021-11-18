@@ -64,7 +64,7 @@ cdef class XRCD(PyverbsCM):
         """
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         """
         Closes the underlying C object of the XRCD.
         :return: None

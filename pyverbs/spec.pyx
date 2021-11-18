@@ -19,7 +19,7 @@ cdef class Spec(PyverbsObject):
     def size(self):
         return self.size
 
-    cpdef _copy_data(self, unsigned long ptr):
+    cdef _copy_data(self, unsigned long ptr):
         """
         memcpy the spec to the provided address in proper order.
         This function must be implemented in each subclass.
@@ -195,7 +195,7 @@ cdef class EthSpec(Spec):
            f"{'Vlan tag':<16}: {self.val.vlan_tag:<20} " \
            f"{self.mask.vlan_tag:<20}\n"
 
-    cpdef _copy_data(self, unsigned long ptr):
+    cdef _copy_data(self, unsigned long ptr):
         cdef v.ibv_flow_spec_eth eth
         eth.size = self.size
         eth.type = self.spec_type
@@ -359,7 +359,7 @@ cdef class Ipv4ExtSpec(Spec):
            f"{'TTL':<16}: {self.val.ttl:<20} {self.mask.ttl:<20}\n" \
            f"{'Flags':<16}: {self.val.flags:<20} {self.mask.flags:<20}\n"
 
-    cpdef _copy_data(self, unsigned long ptr):
+    cdef _copy_data(self, unsigned long ptr):
         cdef v.ibv_flow_spec_ipv4_ext ipv4
         ipv4.size = self.size
         ipv4.type = self.spec_type
@@ -434,7 +434,7 @@ cdef class TcpUdpSpec(Spec):
            f"{'Src port':<16}: {self.src_port:<20} {self.src_port_mask:<20}\n" \
            f"{'Dst port':<16}: {self.dst_port:<20} {self.dst_port_mask:<20}\n"
 
-    cpdef _copy_data(self, unsigned long ptr):
+    cdef _copy_data(self, unsigned long ptr):
         cdef v.ibv_flow_spec_tcp_udp tcp_udp
         tcp_udp.size = self.size
         tcp_udp.type = self.spec_type
@@ -595,7 +595,7 @@ cdef class Ipv6Spec(Spec):
            f"{'Traffic class':<16}: {self.traffic_class:<20} {self.traffic_class_mask:<20}\n" \
            f"{'Hop limit':<16}: {self.hop_limit:<20} {self.hop_limit_mask:<20}\n"
 
-    cpdef _copy_data(self, unsigned long ptr):
+    cdef _copy_data(self, unsigned long ptr):
         cdef v.ibv_flow_spec_ipv6 ipv6
         ipv6.size = self.size
         ipv6.type = self.spec_type

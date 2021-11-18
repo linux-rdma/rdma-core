@@ -166,7 +166,7 @@ cdef class Context(PyverbsCM):
         """
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.context != NULL:
             self.logger.debug('Closing Context')
             close_weakrefs([self.qps, self.ccs, self.cqs, self.dms, self.pds,
@@ -788,7 +788,7 @@ cdef class DM(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         """
         Closes the underlying C object of the DM.
         In case of an imported DM, the DM won't be freed, and it's kept for the

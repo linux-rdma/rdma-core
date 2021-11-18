@@ -23,4 +23,4 @@ cdef class SRQ(PyverbsCM):
     cdef object cq
     cdef object qps
     cdef add_ref(self, obj)
-    cpdef close(self)
+    cdef close(self)

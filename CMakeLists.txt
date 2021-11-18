@@ -428,10 +428,10 @@ if (CYTHON_EXECUTABLE)
 
  # Get a default installation path
   execute_process(COMMAND "${PYTHON_EXECUTABLE}" -c
-    "from distutils.sysconfig import get_python_lib; print(get_python_lib(True, False, '${CMAKE_INSTALL_PREFIX}'))"
+    "import sysconfig; print(sysconfig.get_path(\"platstdlib\"))"
   OUTPUT_VARIABLE py_path)
   string(STRIP ${py_path} py_path)
-  set(CMAKE_INSTALL_PYTHON_ARCH_LIB "${py_path}"
+  set(CMAKE_INSTALL_PYTHON_ARCH_LIB "${CMAKE_INSTALL_PREFIX}${py_path}"
   CACHE PATH "Location for architecture specific python libraries")
 
  # See PEP3149

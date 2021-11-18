@@ -234,7 +234,7 @@ cdef class Mlx5DEK(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.mlx5dv_dek != NULL:
             rc = dv.mlx5dv_dek_destroy(self.mlx5dv_dek)
             if rc:

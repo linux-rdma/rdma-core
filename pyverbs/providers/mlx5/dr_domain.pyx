@@ -78,7 +78,7 @@ cdef class DrDomain(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.domain != NULL:
             self.logger.debug('Closing DrDomain.')
             close_weakrefs([self.dr_actions, self.dr_tables])
