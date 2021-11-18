@@ -32,6 +32,7 @@ publish_internal_headers(rdma/hfi
   )
 
 publish_internal_headers(linux
+  linux/stddef.h
   linux/vfio.h
   )
 

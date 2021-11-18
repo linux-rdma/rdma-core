@@ -261,6 +261,7 @@ allowed_uapi_headers = {
     # This header is installed in all supported distributions
     "rdma/ib_user_sa.h",
     "rdma/ib_user_verbs.h",
+    "linux/stddef.h",
 }
 
 non_cxx_headers = {
