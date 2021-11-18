@@ -33,7 +33,10 @@
 #ifndef _HNS_ROCE_U_HW_V2_H
 #define _HNS_ROCE_U_HW_V2_H
 
-#define HNS_ROCE_V2_CQE_IS_SQ			0
+enum {
+	CQE_FOR_SQ,
+	CQE_FOR_RQ,
+};
 
 #define HNS_ROCE_V2_CQ_DB_REQ_SOL		1
 #define HNS_ROCE_V2_CQ_DB_REQ_NEXT		0
@@ -90,11 +93,6 @@ enum {
 	V2_CQ_OK			=  0,
 	V2_CQ_EMPTY			= -1,
 	V2_CQ_POLL_ERR			= -2,
-};
-
-enum {
-	HNS_ROCE_V2_CQE_STATUS_MASK	= 0xff,
-	HNS_ROCE_V2_CQE_OPCODE_MASK	= 0x1f,
 };
 
 enum {
