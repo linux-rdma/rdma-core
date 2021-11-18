@@ -14,7 +14,7 @@ cdef class Mlx5Context(Context):
     cdef object devx_umems
     cdef object devx_objs
     cdef add_ref(self, obj)
-    cpdef close(self)
+    cdef close(self)
 
 cdef class Mlx5DVContextAttr(PyverbsObject):
     cdef dv.mlx5dv_context_attr attr
@@ -46,24 +46,24 @@ cdef class Mlx5CQ(CQEX):
 cdef class Mlx5VAR(PyverbsObject):
     cdef dv.mlx5dv_var *var
     cdef object context
-    cpdef close(self)
+    cdef close(self)
 
 cdef class Mlx5PP(PyverbsObject):
     cdef dv.mlx5dv_pp *pp
     cdef object context
-    cpdef close(self)
+    cdef close(self)
 
 cdef class Mlx5UAR(PyverbsObject):
     cdef dv.mlx5dv_devx_uar *uar
     cdef object context
-    cpdef close(self)
+    cdef close(self)
 
 cdef class Mlx5DmOpAddr(PyverbsCM):
     cdef void *addr
 
 cdef class WqeSeg(PyverbsCM):
     cdef void *segment
-    cpdef _copy_to_buffer(self, addr)
+    cdef _copy_to_buffer(self, addr)
 
 cdef class WqeCtrlSeg(WqeSeg):
     pass

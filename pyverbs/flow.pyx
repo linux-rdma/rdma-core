@@ -118,7 +118,7 @@ cdef class Flow(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.flow != NULL:
             self.logger.debug('Closing Flow')
             rc = v.ibv_destroy_flow(self.flow)

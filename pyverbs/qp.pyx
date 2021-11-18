@@ -1027,7 +1027,7 @@ cdef class QP(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.qp != NULL:
             self.logger.debug('Closing QP')
             close_weakrefs([self.mws, self.flows, self.dr_actions])

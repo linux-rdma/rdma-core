@@ -103,7 +103,7 @@ cdef class Mlx5dvSchedNode(PyverbsObject):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.sched_node != NULL:
             rc = dv.mlx5dv_sched_node_destroy(self.sched_node)
             if rc != 0:
@@ -159,7 +159,7 @@ cdef class Mlx5dvSchedLeaf(PyverbsObject):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.sched_leaf != NULL:
             rc = dv.mlx5dv_sched_leaf_destroy(self.sched_leaf)
             if rc != 0:

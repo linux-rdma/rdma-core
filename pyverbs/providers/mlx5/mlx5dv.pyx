@@ -237,7 +237,7 @@ cdef class Mlx5DevxObj(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.obj != NULL:
             self.logger.debug('Closing Mlx5DvexObj')
             close_weakrefs([self.flow_counter_actions])
@@ -436,7 +436,7 @@ cdef class Mlx5Context(Context):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.context != NULL:
             close_weakrefs([self.pps, self.devx_objs, self.devx_umems])
             super(Mlx5Context, self).close()
@@ -1264,7 +1264,7 @@ cdef class Mlx5VAR(PyverbsObject):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.var != NULL:
             dv.mlx5dv_free_var(self.var)
             self.var = NULL
@@ -1317,7 +1317,7 @@ cdef class Mlx5PP(PyverbsObject):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.pp != NULL:
             dv.mlx5dv_pp_free(self.pp)
             self.pp = NULL
@@ -1337,7 +1337,7 @@ cdef class Mlx5UAR(PyverbsObject):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.uar != NULL:
             dv.mlx5dv_devx_free_uar(self.uar)
             self.uar = NULL
@@ -1409,7 +1409,7 @@ cdef class Mlx5DmOpAddr(PyverbsCM):
         free(data)
         return res
 
-    cpdef close(self):
+    cdef close(self):
         self.addr = NULL
 
     @property
@@ -1428,13 +1428,13 @@ cdef class WqeSeg(PyverbsCM):
     def sizeof():
         return 0
 
-    cpdef _copy_to_buffer(self, addr):
+    cdef _copy_to_buffer(self, addr):
         memcpy(<void *><uintptr_t>addr, <void *>self.segment, self.sizeof())
 
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.segment != NULL:
             free(self.segment)
             self.segment = NULL
@@ -1604,7 +1604,7 @@ cdef class Wqe(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.addr != NULL:
             if not self.is_user_addr:
                 free(self.addr)
@@ -1658,7 +1658,7 @@ cdef class Mlx5UMEM(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.umem != NULL:
             self.logger.debug('Closing Mlx5UMEM')
             rc = dv.mlx5dv_devx_umem_dereg(self.umem)

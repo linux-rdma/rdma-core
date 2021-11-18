@@ -15,10 +15,10 @@ cdef class Mlx5dvSchedNode(PyverbsObject):
     cdef dv.mlx5dv_sched_node *sched_node
     cdef object context
     cdef object sched_attr
-    cpdef close(self)
+    cdef close(self)
 
 cdef class Mlx5dvSchedLeaf(PyverbsObject):
     cdef dv.mlx5dv_sched_leaf *sched_leaf
     cdef object context
     cdef object sched_attr
-    cpdef close(self)
+    cdef close(self)

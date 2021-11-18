@@ -41,7 +41,7 @@ cdef class DmaBuf:
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.dmabuf == NULL:
             return None
         close_weakrefs([self.dmabuf_mrs])

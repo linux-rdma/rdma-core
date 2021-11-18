@@ -93,7 +93,7 @@ cdef class PD(PyverbsCM):
         """
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         """
         Closes the underlying C object of the PD.
         PD may be deleted directly or indirectly by closing its context, which
@@ -260,7 +260,7 @@ cdef class ParentDomain(PD):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.pd != NULL:
             self.logger.debug('Closing ParentDomain')
             close_weakrefs([self.cqs])

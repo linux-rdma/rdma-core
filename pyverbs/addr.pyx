@@ -414,7 +414,7 @@ cdef class AH(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.ah != NULL:
             self.logger.debug('Closing AH')
             rc = v.ibv_destroy_ah(self.ah)

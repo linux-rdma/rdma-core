@@ -32,7 +32,7 @@ cdef class DrAction(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.action != NULL:
             self.logger.debug('Closing DrAction.')
             close_weakrefs([self.dr_rules])
@@ -54,7 +54,7 @@ cdef class DrActionQp(DrAction):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.action != NULL:
             super(DrActionQp, self).close()
             self.qp = None
@@ -77,7 +77,7 @@ cdef class DrActionFlowCounter(DrAction):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.action != NULL:
             super(DrActionFlowCounter, self).close()
             self.devx_obj = None
@@ -124,7 +124,7 @@ cdef class DrActionModify(DrAction):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.action != NULL:
             super(DrActionModify, self).close()
             self.domain = None
@@ -158,7 +158,7 @@ cdef class DrActionDestTable(DrAction):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.action != NULL:
             super(DrActionDestTable, self).close()
             self.table = None
@@ -193,7 +193,7 @@ cdef class DrActionPushVLan(DrAction):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.action != NULL:
             super(DrActionPushVLan, self).close()
             self.domain = None
@@ -233,7 +233,7 @@ cdef class DrActionDestAttr(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         super(DrActionDestAttr, self).close()
         self.logger.debug('Closing DrActionDestAttr')
         if self.action_dest_attr != NULL:
@@ -278,7 +278,7 @@ cdef class DrActionDestArray(DrAction):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.action != NULL:
             super(DrActionDestArray, self).close()
             self.domain = None
@@ -314,7 +314,7 @@ cdef class DrActionVPort(DrAction):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.action != NULL:
             super(DrActionVPort, self).close()
             self.domain = None
@@ -338,7 +338,7 @@ cdef class DrActionIBPort(DrAction):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.action != NULL:
             super(DrActionIBPort, self).close()
             self.domain = None

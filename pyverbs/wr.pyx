@@ -38,10 +38,10 @@ cdef class SGE(PyverbsCM):
     def __dealloc(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         free(self.sge)
 
-    cpdef read(self, length, offset):
+    cdef read(self, length, offset):
         """
         Reads <length> bytes of data starting at <offset> bytes from the
         SGE's address.
@@ -110,7 +110,7 @@ cdef class RecvWR(PyverbsCM):
     def __dealloc(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         free(self.recv_wr.sg_list)
 
     def __str__(self):
@@ -182,7 +182,7 @@ cdef class SendWR(PyverbsCM):
     def __dealloc(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         free(self.send_wr.sg_list)
 
     def __str__(self):

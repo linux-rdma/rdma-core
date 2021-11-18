@@ -14,22 +14,22 @@ cdef class CMID(PyverbsCM):
     cdef object pd
     cdef object mrs
     cdef add_ref(self, obj)
-    cpdef close(self)
+    cdef close(self)
 
 
 cdef class CMEventChannel(PyverbsObject):
     cdef cm.rdma_event_channel *event_channel
-    cpdef close(self)
+    cdef close(self)
 
 
 cdef class CMEvent(PyverbsObject):
     cdef cm.rdma_cm_event *event
-    cpdef close(self)
+    cdef close(self)
 
 
 cdef class AddrInfo(PyverbsObject):
     cdef cm.rdma_addrinfo *addr_info
-    cpdef close(self)
+    cdef close(self)
 
 
 cdef class ConnParam(PyverbsObject):

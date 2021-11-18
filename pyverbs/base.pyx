@@ -12,7 +12,7 @@ def inc_rkey(rkey):
     return v.ibv_inc_rkey(rkey)
 
 
-cpdef PyverbsRDMAErrno(str msg):
+cdef PyverbsRDMAErrno(str msg):
     return PyverbsRDMAError(msg, errno)
 
 
@@ -66,5 +66,5 @@ cdef class PyverbsCM(PyverbsObject):
     def __exit__(self, exc_type, exc_value, traceback):
         return self.close()
 
-    cpdef close(self):
+    cdef close(self):
         pass
