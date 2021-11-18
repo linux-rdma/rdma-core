@@ -22,7 +22,7 @@ pr:
 resources:
   containers:
     - container: azp
-      image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:37.0
+      image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:38.0
       endpoint: ucfconsort_registry
     - container: centos6
       image: ucfconsort.azurecr.io/rdma-core/centos6:25.0
