@@ -128,12 +128,12 @@ stages:
           - bash: |
               set -e
               sed -i -e 's/ninja \(.*\)-v/ninja \1/g' debian/rules
-              debian/rules CC=clang-12 EXTRA_CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1" build
-            displayName: clang 12.0 Bionic Build
+              debian/rules CC=clang-13 EXTRA_CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1" build
+            displayName: clang 13.0 Bionic Build
           - bash: |
               set -e
               fakeroot debian/rules binary
-            displayName: clang 12.0 Bionic .deb Build
+            displayName: clang 13.0 Bionic .deb Build
           - bash: |
               set -e
               lintian ../*.deb

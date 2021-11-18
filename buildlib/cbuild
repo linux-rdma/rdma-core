@@ -473,7 +473,7 @@ class azure_pipelines(APTEnvironment):
         "abi-compliance-checker",
         "abi-dumper",
         "ca-certificates",
-        "clang-12",
+        "clang-13",
         "cmake",
         "cython3",
         "debhelper",
@@ -530,7 +530,7 @@ class azure_pipelines(APTEnvironment):
                      "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu focal main",
                      "60C317803A41BA51845E371A1E9377A2BA9EF27F");
         self.add_ppa(tmpdir,
-                     "deb [arch=amd64] https://apt.llvm.org/focal/ llvm-toolchain-focal-12 main",
+                     "deb [arch=amd64] https://apt.llvm.org/focal/ llvm-toolchain-focal-13 main",
                      "15CF4D18AF4F7421");
         self.add_source_list(tmpdir,"arm64.list",
                              """deb [arch=arm64,ppc64el] http://ports.ubuntu.com/ focal main universe
