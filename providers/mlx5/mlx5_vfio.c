@@ -587,7 +587,7 @@ static int mlx5_vfio_poll_timeout(struct mlx5_cmd_layout *cmd_lay)
 	do {
 		if (!(mmio_read8(&cmd_lay->status_own) & 0x1))
 			return 0;
-		pthread_yield();
+		sched_yield();
 		gettimeofday(&curr, NULL);
 		ms_curr = (uint64_t)curr.tv_sec * 1000 + curr.tv_usec / 1000;
 	} while (ms_curr - ms_start < MLX5_CMD_TIMEOUT_MSEC);
