@@ -6,11 +6,13 @@ Provide some useful helper function for pyverbs' tests.
 """
 from itertools import combinations as com
 import errno
+import subprocess
 import unittest
 import random
 import socket
 import struct
 import string
+import glob
 import os
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
@@ -19,13 +21,14 @@ from tests.base import XRCResources, DCT_KEY
 from tests.efa_base import SRDResources
 from pyverbs.wr import SGE, SendWR, RecvWR
 from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx
-from tests.mlx5_base import Mlx5DcResources
+from tests.mlx5_base import Mlx5DcResources, Mlx5DcStreamsRes
 from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.cq import PollCqAttr, CQEX
 from pyverbs.mr import MW, MWBindInfo
-from pyverbs.cq import PollCqAttr
 import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.mr import MR
+import pyverbs.providers.mlx5.mlx5_enums as me
 
 
 MAX_MR_SIZE = 4194304
@@ -61,6 +64,7 @@ class PacketConsts:
     IPV6_HEADER_SIZE = 40
     UDP_HEADER_SIZE = 8
     TCP_HEADER_SIZE = 20
+    VLAN_HEADER_SIZE = 4
     TCP_HEADER_SIZE_WORDS = 5
     IP_V4 = 4
     IP_V6 = 6
@@ -88,6 +92,10 @@ class PacketConsts:
     VXLAN_VNI = 7777777
     VXLAN_FLAGS = 0x8
     VXLAN_HEADER_SIZE = 8
+    VLAN_TPID = 0x8100
+    VLAN_PRIO = 5
+    VLAN_CFI = 1
+    VLAN_ID = 0xc0c
 
 
 def get_mr_length():
@@ -382,7 +390,7 @@ def get_send_elements(agr_obj, is_server, opcode=e.IBV_WR_SEND):
     offset = GRH_SIZE if qp_type == e.IBV_QPT_UD else 0
     msg = (agr_obj.msg_size + offset) * ('s' if is_server else 'c')
     mr.write(msg, agr_obj.msg_size + offset)
-    sge = SGE(mr.buf + offset, agr_obj.msg_size, mr.lkey)
+    sge = SGE(mr.buf + offset, agr_obj.msg_size, agr_obj.mr_lkey)
     send_wr = SendWR(opcode=opcode, num_sge=1, sg=[sge])
     if opcode in [e.IBV_WR_RDMA_WRITE, e.IBV_WR_RDMA_READ]:
         send_wr.set_wr_rdma(int(agr_obj.rkey), int(agr_obj.remote_addr))
@@ -453,11 +461,11 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
     elif send_op == e.IBV_QP_EX_WITH_RDMA_READ:
         qp.wr_rdma_read(agr_obj.rkey, agr_obj.raddr)
     elif send_op == e.IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP:
-        # We're checking the returned value (remote's content), so cmp/swp
-        # values are of no importance.
-        qp.wr_atomic_cmp_swp(agr_obj.rkey, agr_obj.raddr, 42, 43)
+        qp.wr_atomic_cmp_swp(agr_obj.rkey, agr_obj.raddr,
+                             int8b_from_int(2), int8b_from_int(0))
     elif send_op == e.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD:
-        qp.wr_atomic_fetch_add(agr_obj.rkey, agr_obj.raddr, 1)
+        qp.wr_atomic_fetch_add(agr_obj.rkey, agr_obj.raddr,
+                               int8b_from_int(2))
     elif send_op == e.IBV_QP_EX_WITH_BIND_MW:
         bind_info = MWBindInfo(agr_obj.mr, agr_obj.mr.buf, agr_obj.mr.rkey,
                                e.IBV_ACCESS_REMOTE_WRITE)
@@ -472,7 +480,13 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
     if qp_type == e.IBV_QPT_XRC_SEND:
         qp.wr_set_xrc_srqn(agr_obj.remote_srqn)
     if hasattr(agr_obj, 'remote_dct_num'):
-        qp.wr_set_dc_addr(ah, agr_obj.remote_dct_num, DCT_KEY)
+        if isinstance(agr_obj, Mlx5DcStreamsRes):
+            stream_id = agr_obj.generate_stream_id(qp_idx)
+            agr_obj.check_bad_flow(qp_idx)
+            qp.wr_set_dc_addr_stream(ah, agr_obj.remote_dct_num, DCT_KEY,
+                                     stream_id)
+        else:
+            qp.wr_set_dc_addr(ah, agr_obj.remote_dct_num, DCT_KEY)
     qp.wr_set_sge(send_object)
     qp.wr_complete()
 
@@ -556,32 +570,34 @@ def poll_cq_ex(cqex, count=1, data=None):
                  to be compared after poll
     :return: None
     """
-    poll_attr = PollCqAttr()
-    ret = cqex.start_poll(poll_attr)
-    while ret == 2: # ENOENT
+    try:
+        poll_attr = PollCqAttr()
         ret = cqex.start_poll(poll_attr)
-    if ret != 0:
-        raise PyverbsRDMAErrno('Failed to poll CQ')
-    count -= 1
-    if cqex.status != e.IBV_WC_SUCCESS:
-        raise PyverbsRDMAErrno('Completion status is {s}'.
-                               format(s=cqex.status))
-    if data:
-        assert data == socket.ntohl(cqex.read_imm_data())
-    # Now poll the rest of the packets
-    while count > 0:
-        ret = cqex.poll_next()
-        while ret == 2:
-            ret = cqex.poll_next()
+        while ret == 2: # ENOENT
+            ret = cqex.start_poll(poll_attr)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to poll CQ')
+        count -= 1
         if cqex.status != e.IBV_WC_SUCCESS:
             raise PyverbsRDMAErrno('Completion status is {s}'.
                                    format(s=cqex.status))
         if data:
             assert data == socket.ntohl(cqex.read_imm_data())
-        count -= 1
-    cqex.end_poll()
+        # Now poll the rest of the packets
+        while count > 0:
+            ret = cqex.poll_next()
+            while ret == 2:
+                ret = cqex.poll_next()
+            if ret != 0:
+                raise PyverbsRDMAErrno('Failed to poll CQ')
+            if cqex.status != e.IBV_WC_SUCCESS:
+                raise PyverbsRDMAErrno('Completion status is {s}'.
+                                       format(s=cqex.status))
+            if data:
+                assert data == socket.ntohl(cqex.read_imm_data())
+            count -= 1
+    finally:
+        cqex.end_poll()
 
 
 def validate(received_str, is_server, msg_size):
@@ -609,6 +625,8 @@ def validate(received_str, is_server, msg_size):
 
 
 def send(agr_obj, send_object, send_op=None, new_send=False, qp_idx=0, ah=None, is_imm=False):
+    if isinstance(agr_obj, XRCResources):
+        agr_obj.qps = agr_obj.sqp_lst
     if new_send:
         return post_send_ex(agr_obj, send_object, send_op, qp_idx, ah)
     return post_send(agr_obj, send_object, qp_idx, ah, is_imm)
@@ -720,13 +738,17 @@ def gen_outer_headers(msg_size):
     return outer
 
 
-def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO):
+def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO, with_vlan=False, **kwargs):
     """
     Generates a Eth | IPv4 or IPv6 | UDP or TCP packet with hardcoded values in
     the headers and randomized payload.
     :param msg_size: total packet size
     :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
     :param l4: Packet layer 4 type: 'tcp' or 'udp'
+    :param with_vlan: if True add VLAN header to the packet
+    :param kwargs: Arguments:
+            * *src_mac*
+                Source MAC address to use in the packet.
     :return: packet
     """
     l3_header_size = getattr(PacketConsts, f'IPV{str(l3)}_HEADER_SIZE')
@@ -737,9 +759,15 @@ def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO):
     ip_total_len = msg_size - PacketConsts.ETHER_HEADER_SIZE
 
     # Ethernet header
+    src_mac = kwargs.get('src_mac', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
     packet = struct.pack('!6s6s',
-                         bytes.fromhex(PacketConsts.DST_MAC.replace(':', '')),
-                         bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+                         bytes.fromhex(PacketConsts.DST_MAC.replace(':', '')), src_mac)
+    if with_vlan:
+        packet += struct.pack('!HH', PacketConsts.VLAN_TPID, (PacketConsts.VLAN_PRIO << 13) +
+                              (PacketConsts.VLAN_CFI << 12) + PacketConsts.VLAN_ID)
+        payload_size -= PacketConsts.VLAN_HEADER_SIZE
+        ip_total_len -= PacketConsts.VLAN_HEADER_SIZE
+
     if l3 == PacketConsts.IP_V4:
         packet += PacketConsts.ETHER_TYPE_IPV4.to_bytes(2, 'big')
     else:
@@ -777,17 +805,19 @@ def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO):
 
 
 def get_send_elements_raw_qp(agr_obj, l3=PacketConsts.IP_V4,
-                             l4=PacketConsts.UDP_PROTO):
+                             l4=PacketConsts.UDP_PROTO, with_vlan=False, **packet_args):
     """
     Creates a single SGE and a single Send WR for agr_obj's RAW QP type. The
     content of the message is Eth | Ipv4 | UDP packet.
     :param agr_obj: Aggregation object which contains all resources necessary
     :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
     :param l4: Packet layer 4 type: 'tcp' or 'udp'
+    :param with_vlan: if True add VLAN header to the packet
+    :param packet_args: Pass packet_args to gen_packets method.
     :return: send wr, its SGE, and message
     """
     mr = agr_obj.mr
-    msg = gen_packet(agr_obj.msg_size, l3, l4)
+    msg = gen_packet(agr_obj.msg_size, l3, l4, with_vlan, **packet_args)
     mr.write(msg, agr_obj.msg_size)
     sge = SGE(mr.buf, agr_obj.msg_size, mr.lkey)
     send_wr = SendWR(opcode=e.IBV_WR_SEND, num_sge=1, sg=[sge])
@@ -803,7 +833,7 @@ def validate_raw(msg_received, msg_expected, skip_idxs):
 
 
 def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
-                l4=PacketConsts.UDP_PROTO, expected_packet=None, skip_idxs=[]):
+                l4=PacketConsts.UDP_PROTO, with_vlan=False, expected_packet=None, skip_idxs=[]):
     """
     Runs raw ethernet traffic between two sides
     :param client: client side, clients base class is BaseTraffic
@@ -811,6 +841,7 @@ def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
     :param iters: number of traffic iterations
     :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
     :param l4: Packet layer 4 type: 'tcp' or 'udp'
+    :param with_vlan: if True add VLAN header to the packet
     :param expected_packet: Expected packet for validation (when different from
                             the originally sent).
     :param skip_idxs: indexes to skip during packet validation
@@ -823,12 +854,13 @@ def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
         post_recv(client, c_recv_wr, qp_idx=qp_idx)
         post_recv(server, s_recv_wr, qp_idx=qp_idx)
     read_offset = 0
+    poll = poll_cq_ex if isinstance(client.cq, CQEX) else poll_cq
     for _ in range(iters):
         for qp_idx in range(server.qp_count):
-            c_send_wr, c_sg, msg = get_send_elements_raw_qp(client, l3, l4)
+            c_send_wr, c_sg, msg = get_send_elements_raw_qp(client, l3, l4, with_vlan)
             send(client, c_send_wr, e.IBV_WR_SEND, False, qp_idx)
-            poll_cq(client.cq)
-            poll_cq(server.cq)
+            poll(client.cq)
+            poll(server.cq)
             post_recv(server, s_recv_wr, qp_idx=qp_idx)
             msg_received = server.mr.read(server.msg_size, read_offset)
             # Validate received packet
@@ -886,6 +918,110 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
                  client.msg_size)
         if same_side_check:
             server.mr.write('s' * server.msg_size, server.msg_size)
+
+
+def atomic_traffic(client, server, iters, gid_idx, port, new_send=False,
+                   send_op=None, receiver_val=1, sender_val=2):
+    """
+    Runs atomic traffic between two sides.
+    :param client: Client side, clients base class is BaseTraffic
+    :param server: Server side, servers base class is BaseTraffic
+    :param iters: Number of traffic iterations
+    :param gid_idx: Local gid index
+    :param port: IB port
+    :param new_send: If True use new post send API.
+    :param send_op: The send_wr opcode.
+    :param receiver_val: The requested value on the reciver MR.
+    :param sender_val: The requested value on the sender SendWR.
+    """
+    send_element_idx = 1 if new_send else 0
+    for _ in range(iters):
+        client.mr.write(int.to_bytes(sender_val, 1, byteorder='big') * 8, 8)
+        server.mr.write(int.to_bytes(receiver_val, 1, byteorder='big') * 8, 8)
+        c_send_wr = get_atomic_send_elements(client, send_op,
+                                             cmp_add=sender_val,
+                                             swap=0)[send_element_idx]
+        if isinstance(server, XRCResources):
+            c_send_wr.set_qp_type_xrc(server.srq.get_srq_num())
+        send(client, c_send_wr, send_op, new_send)
+        poll_cq(client.cq)
+        validate_atomic(send_op, server, client, receiver_val=receiver_val,
+                        send_cmp_add=sender_val, send_swp=0)
+        server.mr.write(int.to_bytes(sender_val, 1, byteorder='big') * 8, 8)
+        client.mr.write(int.to_bytes(receiver_val, 1, byteorder='big') * 8, 8)
+        s_send_wr = get_atomic_send_elements(server, send_op,
+                                             cmp_add=sender_val,
+                                             swap=0)[send_element_idx]
+        if isinstance(client, XRCResources):
+            s_send_wr.set_qp_type_xrc(client.srq.get_srq_num())
+        send(server, s_send_wr, send_op, new_send)
+        poll_cq(server.cq)
+        validate_atomic(send_op, client, server, receiver_val=receiver_val,
+                        send_cmp_add=sender_val, send_swp=0)
+
+
+def validate_atomic(opcode, recv_player, send_player, receiver_val,
+                    send_cmp_add, send_swp):
+    """
+    Validate the data after atomic operations. The expected data in each side of
+    traffic depends on the atomic type and the sender SendWR values.
+    :param opcode: The atomic opcode.
+    :param recv_player: The receiver player.
+    :param send_player: The sender player.
+    :param receiver_val: The value on the receiver MR before the atomic action.
+    :param send_cmp_add: The send WR compare/add value depende on the atomic
+                         type.
+    :param send_swp: The send WR swap value, used only in atomic compare and
+                     swap.
+    """
+    send_expected = receiver_val
+    if opcode in [e.IBV_WR_ATOMIC_CMP_AND_SWP,
+                  e.IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP]:
+        recv_expected = send_swp if receiver_val == send_cmp_add \
+            else receiver_val
+    if opcode in [e.IBV_WR_ATOMIC_FETCH_AND_ADD,
+                  e.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD]:
+        recv_expected = receiver_val + send_cmp_add
+    send_actual = int.from_bytes(send_player.mr.read(length=8, offset=0),
+                                 byteorder='big')
+    recv_actual = int.from_bytes(recv_player.mr.read(length=8, offset=0),
+                                 byteorder='big')
+    if send_actual != int8b_from_int(send_expected):
+        raise PyverbsError(
+            'Atomic sender data validation failed: expected {exp}, received {rcv}'.
+                format(exp=int8b_from_int(send_expected), rcv=send_actual))
+    if recv_actual != int8b_from_int(recv_expected):
+        raise PyverbsError(
+            'Atomic reciver data validation failed: expected {exp}, received {rcv}'.
+                format(exp=int8b_from_int(recv_expected), rcv=recv_actual))
+
+
+def int8b_from_int(num):
+    """
+    Duplicate one-byte value int to 8 bytes.
+    e.g. 1 => b'\x01\x01\x01\x01\x01\x01\x01\x01' == 72340172838076673
+    :param num: One byte int number (0 <= num < 256).
+    :return: The new number in int format.
+    """
+    num_multi_8_str = int.to_bytes(num, 1, byteorder='big') * 8
+    return int.from_bytes(num_multi_8_str, byteorder='big')
+
+
+def get_atomic_send_elements(agr_obj, opcode, cmp_add=0, swap=0):
+    """
+    Creates a single SGE and a single Send WR for atomic operations.
+    :param agr_obj: Aggregation object which contains all resources necessary
+    :param opcode: The send opcode
+    :param cmp_add: The compare or add value (depends on the opcode).
+    :param swap: The swap value.
+    :return: Send WR and its SGE
+    """
+    sge = SGE(agr_obj.mr.buf, 8, agr_obj.mr_lkey)
+    send_wr = SendWR(opcode=opcode, num_sge=1, sg=[sge])
+    send_wr.set_wr_atomic(rkey=int(agr_obj.rkey), addr=int(agr_obj.raddr),
+                          compare_add=int8b_from_int(cmp_add),
+                          swap=int8b_from_int(swap))
+    return send_wr, sge
 
 
 def xrc_traffic(client, server, is_cq_ex=False, send_op=None):
@@ -995,6 +1131,29 @@ def odp_implicit_supported(ctx):
     has_odp_implicit = odp_caps.general_caps & e.IBV_ODP_SUPPORT_IMPLICIT
     if has_odp_implicit == 0:
         raise unittest.SkipTest('ODP implicit is not supported')
+
+
+def requires_eswitch_on(func):
+    def inner(instance):
+        if not (is_eth(d.Context(name=instance.dev_name), instance.ib_port)
+                and eswitch_mode_check(instance.dev_name)):
+            raise unittest.SkipTest('Must be run on Ethernet link layer with Eswitch on')
+        return func(instance)
+    return inner
+
+
+def eswitch_mode_check(dev_name):
+    pci_name = glob.glob(f'/sys/bus/pci/devices/*/infiniband/{dev_name}')
+    if not pci_name:
+        raise unittest.SkipTest(f'Could not find the PCI device of {dev_name}')
+    pci_name = pci_name[0].split('/')[5]
+    try:
+        subprocess.check_output(['devlink', 'dev', 'eswitch', 'show', f'pci/{pci_name}'],
+                                stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        raise unittest.SkipTest(f'ESwitch is off on device {dev_name}')
+    return True
+
 
 
 def requires_huge_pages():

@@ -30,6 +30,7 @@
  * SOFTWARE.
  */
 
+#include "mlx5dv_dr.h"
 #include "dr_ste.h"
 
 struct dr_hw_ste_format {
@@ -139,6 +140,12 @@ void dr_ste_set_hit_addr(struct dr_ste_ctx *ste_ctx, uint8_t *hw_ste_p,
 			 uint64_t icm_addr, uint32_t ht_size)
 {
 	ste_ctx->set_hit_addr(hw_ste_p, icm_addr, ht_size);
+}
+
+void dr_ste_set_hit_gvmi(struct dr_ste_ctx *ste_ctx, uint8_t *hw_ste_p,
+			 uint16_t gvmi)
+{
+	ste_ctx->set_hit_gvmi(hw_ste_p, gvmi);
 }
 
 uint64_t dr_ste_get_icm_addr(struct dr_ste *ste)
@@ -341,10 +348,12 @@ static void dr_ste_remove_middle_ste(struct dr_ste_ctx *ste_ctx,
 }
 
 void dr_ste_free(struct dr_ste *ste,
-		 struct mlx5dv_dr_matcher *matcher,
-		 struct dr_matcher_rx_tx *nic_matcher)
+		 struct mlx5dv_dr_rule *rule,
+		 struct dr_rule_rx_tx *nic_rule)
 {
+	struct dr_matcher_rx_tx *nic_matcher = nic_rule->nic_matcher;
 	struct dr_ste_send_info *cur_ste_info, *tmp_ste_info;
+	struct mlx5dv_dr_matcher *matcher = rule->matcher;
 	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
 	struct dr_ste_ctx *ste_ctx = dmn->ste_ctx;
 	struct dr_ste_send_info ste_info_head;
@@ -387,8 +396,10 @@ void dr_ste_free(struct dr_ste *ste,
 	list_for_each_safe(&send_ste_list, cur_ste_info, tmp_ste_info, send_list) {
 		list_del(&cur_ste_info->send_list);
 		dr_send_postsend_ste(dmn, cur_ste_info->ste,
-				     cur_ste_info->data, cur_ste_info->size,
-				     cur_ste_info->offset);
+				     cur_ste_info->data,
+				     cur_ste_info->size,
+				     cur_ste_info->offset,
+				     nic_rule->lock_index);
 	}
 
 	if (put_on_origin_table)
@@ -443,7 +454,8 @@ int dr_ste_htbl_init_and_postsend(struct mlx5dv_dr_domain *dmn,
 				  struct dr_domain_rx_tx *nic_dmn,
 				  struct dr_ste_htbl *htbl,
 				  struct dr_htbl_connect_info *connect_info,
-				  bool update_hw_ste)
+				  bool update_hw_ste,
+				  uint8_t send_ring_idx)
 {
 	uint8_t formated_ste[DR_STE_SIZE] = {};
 
@@ -454,14 +466,16 @@ int dr_ste_htbl_init_and_postsend(struct mlx5dv_dr_domain *dmn,
 				formated_ste,
 				connect_info);
 
-	return dr_send_postsend_formated_htbl(dmn, htbl, formated_ste, update_hw_ste);
+	return dr_send_postsend_formated_htbl(dmn, htbl, formated_ste,
+					      update_hw_ste, send_ring_idx);
 }
 
 int dr_ste_create_next_htbl(struct mlx5dv_dr_matcher *matcher,
 			    struct dr_matcher_rx_tx *nic_matcher,
 			    struct dr_ste *ste,
 			    uint8_t *cur_hw_ste,
-			    enum dr_icm_chunk_size log_table_size)
+			    enum dr_icm_chunk_size log_table_size,
+			    uint8_t send_ring_idx)
 {
 	struct dr_domain_rx_tx *nic_dmn = nic_matcher->nic_tbl->nic_dmn;
 	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
@@ -490,7 +504,7 @@ int dr_ste_create_next_htbl(struct mlx5dv_dr_matcher *matcher,
 		info.type = CONNECT_MISS;
 		info.miss_icm_addr = nic_matcher->e_anchor->chunk->icm_addr;
 		if (dr_ste_htbl_init_and_postsend(dmn, nic_dmn, next_htbl,
-						  &info, false)) {
+						  &info, false, send_ring_idx)) {
 			dr_dbg(dmn, "Failed writing table to HW\n");
 			goto free_table;
 		}
@@ -942,6 +956,22 @@ static void dr_ste_copy_mask_misc4(char *mask, struct dr_match_misc4 *spec)
 		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_3);
 	spec->prog_sample_field_value_3 =
 		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_3);
+	spec->prog_sample_field_id_4 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_4);
+	spec->prog_sample_field_value_4 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_4);
+	spec->prog_sample_field_id_5 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_5);
+	spec->prog_sample_field_value_5 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_5);
+	spec->prog_sample_field_id_6 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_6);
+	spec->prog_sample_field_value_6 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_6);
+	spec->prog_sample_field_id_7 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_id_7);
+	spec->prog_sample_field_value_7 =
+		DEVX_GET(dr_match_set_misc4, mask, prog_sample_field_value_7);
 }
 
 static void dr_ste_copy_mask_misc5(char *mask, struct dr_match_misc5 *spec)
@@ -1532,6 +1562,23 @@ int dr_ste_build_def28(struct dr_ste_ctx *ste_ctx,
 	return 0;
 }
 
+int dr_ste_build_def33(struct dr_ste_ctx *ste_ctx,
+		       struct dr_ste_build *sb,
+		       struct dr_match_param *mask,
+		       bool inner, bool rx)
+{
+	if (!ste_ctx->build_def33_init) {
+		errno = ENOTSUP;
+		return errno;
+	}
+
+	sb->rx = rx;
+	sb->inner = inner;
+	sb->format_id = DR_MATCHER_DEFINER_33;
+	ste_ctx->build_def33_init(sb, mask);
+	return 0;
+}
+
 struct dr_ste_ctx *dr_ste_get_ctx(uint8_t version)
 {
 	if (version == MLX5_HW_CONNECTX_5)
@@ -1542,4 +1589,37 @@ struct dr_ste_ctx *dr_ste_get_ctx(uint8_t version)
 	errno = EOPNOTSUPP;
 
 	return NULL;
+}
+
+int mlx5dv_dr_aso_other_domain_link(struct mlx5dv_devx_obj *devx_obj,
+				    struct mlx5dv_dr_domain *peer_dmn,
+				    struct mlx5dv_dr_domain *dmn,
+				    uint32_t flags,
+				    uint8_t return_reg_c)
+{
+	struct dr_ste_ctx *ste_ctx = dmn->ste_ctx;
+
+	if (devx_obj->type != MLX5_DEVX_ASO_CT)
+		goto out;
+
+	if (ste_ctx->aso_other_domain_link)
+		return ste_ctx->aso_other_domain_link(devx_obj, peer_dmn,
+						      dmn, flags,
+						      return_reg_c);
+
+out:
+	errno = EOPNOTSUPP;
+	return errno;
+}
+
+int mlx5dv_dr_aso_other_domain_unlink(struct mlx5dv_devx_obj *devx_obj,
+				      struct mlx5dv_dr_domain *dmn)
+{
+	struct dr_ste_ctx *ste_ctx = dmn->ste_ctx;
+
+	if (ste_ctx->aso_other_domain_unlink)
+		return ste_ctx->aso_other_domain_unlink(devx_obj);
+
+	errno = EOPNOTSUPP;
+	return errno;
 }

@@ -645,7 +645,7 @@ static int process_iwpm_wire_request(iwpm_msg_parms *msg_parms, int nl_sock,
 	iwpm_mapping_request iwpm_copy_req;
 	iwpm_send_msg *send_msg = NULL;
 	struct sockaddr_storage local_addr, mapped_loc_addr;
-	struct sockaddr_storage remote_addr, mapped_rem_addr;
+	struct sockaddr_storage remote_addr = {}, mapped_rem_addr = {};
 	__u16 nlmsg_type;
 	int not_mapped = 1;
 	int ret = 0;
@@ -1416,10 +1416,14 @@ static int iwarp_port_mapper(void)
 			/* initialize the file sets for select */
 			FD_ZERO(&select_fdset);
 			/* add the UDP and Netlink sockets to the file set */
-			FD_SET(pmv4_sock, &select_fdset);
-			FD_SET(pmv4_client_sock, &select_fdset);
-			FD_SET(pmv6_sock, &select_fdset);
-			FD_SET(pmv6_client_sock, &select_fdset);
+			if (pmv4_sock >= 0) {
+				FD_SET(pmv4_sock, &select_fdset);
+				FD_SET(pmv4_client_sock, &select_fdset);
+			}
+			if (pmv6_sock >= 0) {
+				FD_SET(pmv6_sock, &select_fdset);
+				FD_SET(pmv6_client_sock, &select_fdset);
+			}
 			FD_SET(netlink_sock, &select_fdset);
 
 			/* set the timeout for select */
@@ -1438,25 +1442,25 @@ static int iwarp_port_mapper(void)
 			goto iwarp_port_mapper_exit;
 		}
 
-		if (FD_ISSET(pmv4_sock, &select_fdset)) {
-			ret = process_iwpm_msg(pmv4_sock);
+		if (pmv4_sock >= 0) {
+			if (FD_ISSET(pmv4_sock, &select_fdset))
+				ret = process_iwpm_msg(pmv4_sock);
+
+			if (FD_ISSET(pmv4_client_sock, &select_fdset))
+				ret = process_iwpm_msg(pmv4_client_sock);
 		}
 
-		if (FD_ISSET(pmv6_sock, &select_fdset)) {
-			ret = process_iwpm_msg(pmv6_sock);
+		if (pmv6_sock >= 0) {
+			if (FD_ISSET(pmv6_sock, &select_fdset))
+				ret = process_iwpm_msg(pmv6_sock);
+
+			if (FD_ISSET(pmv6_client_sock, &select_fdset))
+				ret = process_iwpm_msg(pmv6_client_sock);
 		}
 
-		if (FD_ISSET(pmv4_client_sock, &select_fdset)) {
-			ret = process_iwpm_msg(pmv4_client_sock);
-		}
-
-		if (FD_ISSET(pmv6_client_sock, &select_fdset)) {
-			ret = process_iwpm_msg(pmv6_client_sock);
-		}
-
-		if (FD_ISSET(netlink_sock, &select_fdset)) {
+		if (FD_ISSET(netlink_sock, &select_fdset))
 			ret = process_iwpm_netlink_msg(netlink_sock);
-		}
+
 	} while (1);
 
 iwarp_port_mapper_exit:
@@ -1516,26 +1520,38 @@ int main(int argc, char *argv[])
 		fclose(fp);
 	}
 	memset(client_list, 0, sizeof(client_list));
+	pmv4_client_sock = -1;
+	pmv6_sock = -1;
+	pmv6_client_sock = pmv6_sock;
 
 	pmv4_sock = create_iwpm_socket_v4(IWARP_PM_PORT);
-	if (pmv4_sock < 0)
-		goto error_exit_v4;
-
-	pmv4_client_sock = create_iwpm_socket_v4(0);
-	if (pmv4_client_sock < 0)
-		goto error_exit_v4_client;
+	if (pmv4_sock < 0 && pmv4_sock != -EAFNOSUPPORT)
+		goto error_exit_sock;
 
 	pmv6_sock = create_iwpm_socket_v6(IWARP_PM_PORT);
-	if (pmv6_sock < 0)
-		goto error_exit_v6;
+	if (pmv6_sock < 0 && pmv6_sock != -EAFNOSUPPORT)
+		goto error_exit_sock;
 
-	pmv6_client_sock = create_iwpm_socket_v6(0);
-	if (pmv6_client_sock < 0)
-		goto error_exit_v6_client;
+	/* If neither IPv4 nor IPv6 is supported, exit */
+	if (pmv4_sock < 0 && pmv6_sock < 0)
+		goto error_exit_sock;
+
+	if (pmv4_sock >= 0) {
+		pmv4_client_sock = create_iwpm_socket_v4(0);
+
+		if (pmv4_client_sock < 0)
+			goto error_exit_sock;
+	}
+	if (pmv6_sock >= 0) {
+		pmv6_client_sock = create_iwpm_socket_v6(0);
+
+		if (pmv6_client_sock < 0)
+			goto error_exit_sock;
+	}
 
 	netlink_sock = create_netlink_socket();
 	if (netlink_sock < 0)
-		goto error_exit_nl;
+		goto error_exit_sock;
 
 	signal(SIGHUP, iwpm_signal_handler);
 	signal(SIGTERM, iwpm_signal_handler);
@@ -1566,15 +1582,11 @@ int main(int argc, char *argv[])
 
 error_exit:
 	destroy_iwpm_socket(netlink_sock);
-error_exit_nl:
-	destroy_iwpm_socket(pmv6_client_sock);
-error_exit_v6_client:
-	destroy_iwpm_socket(pmv6_sock);
-error_exit_v6:
+error_exit_sock:
 	destroy_iwpm_socket(pmv4_client_sock);
-error_exit_v4_client:
+	destroy_iwpm_socket(pmv6_client_sock);
 	destroy_iwpm_socket(pmv4_sock);
-error_exit_v4:
+	destroy_iwpm_socket(pmv6_sock);
 	syslog(LOG_WARNING, "main: Couldn't start iWarp Port Mapper.\n");
 	return ret;
 }

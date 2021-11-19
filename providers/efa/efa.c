@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
- * Copyright 2019-2020 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2021 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #include <stdio.h>
@@ -31,6 +31,7 @@ static const struct verbs_context_ops efa_ctx_ops = {
 	.create_cq_ex = efa_create_cq_ex,
 	.create_qp = efa_create_qp,
 	.create_qp_ex = efa_create_qp_ex,
+	.cq_event = efa_cq_event,
 	.dealloc_pd = efa_dealloc_pd,
 	.dereg_mr = efa_dereg_mr,
 	.destroy_ah = efa_destroy_ah,
@@ -43,7 +44,9 @@ static const struct verbs_context_ops efa_ctx_ops = {
 	.query_device_ex = efa_query_device_ex,
 	.query_port = efa_query_port,
 	.query_qp = efa_query_qp,
+	.reg_dmabuf_mr = efa_reg_dmabuf_mr,
 	.reg_mr = efa_reg_mr,
+	.req_notify_cq = efa_arm_cq,
 	.free_context = efa_free_context,
 };
 
@@ -64,8 +67,10 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 		return NULL;
 
 	if (ibv_cmd_get_context(&ctx->ibvctx, &cmd.ibv_cmd, sizeof(cmd),
-				&resp.ibv_resp, sizeof(resp)))
+				&resp.ibv_resp, sizeof(resp))) {
+		verbs_err(&ctx->ibvctx, "ibv_cmd_get_context failed\n");
 		goto err_free_ctx;
+	}
 
 	ctx->sub_cqs_per_cq = resp.sub_cqs_per_cq;
 	ctx->cmds_supp_udata_mask = resp.cmds_supp_udata_mask;
@@ -77,8 +82,10 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 	pthread_spin_init(&ctx->qp_table_lock, PTHREAD_PROCESS_PRIVATE);
 
 	/* ah udata is mandatory for ah number retrieval */
-	if (!(ctx->cmds_supp_udata_mask & EFA_USER_CMDS_SUPP_UDATA_CREATE_AH))
+	if (!(ctx->cmds_supp_udata_mask & EFA_USER_CMDS_SUPP_UDATA_CREATE_AH)) {
+		verbs_err(&ctx->ibvctx, "Kernel does not support AH udata\n");
 		goto err_free_spinlock;
+	}
 
 	verbs_set_ops(&ctx->ibvctx, &efa_ctx_ops);
 

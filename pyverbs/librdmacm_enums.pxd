@@ -6,7 +6,7 @@
 
 cdef extern from '<rdma/rdma_cma.h>':
 
-    cpdef enum rdma_cm_event_type:
+    cdef enum rdma_cm_event_type:
         RDMA_CM_EVENT_ADDR_RESOLVED
         RDMA_CM_EVENT_ADDR_ERROR
         RDMA_CM_EVENT_ROUTE_RESOLVED
@@ -24,23 +24,29 @@ cdef extern from '<rdma/rdma_cma.h>':
         RDMA_CM_EVENT_ADDR_CHANGE
         RDMA_CM_EVENT_TIMEWAIT_EXIT
 
-    cpdef enum rdma_port_space:
+    cdef enum rdma_port_space:
         RDMA_PS_IPOIB
         RDMA_PS_TCP
         RDMA_PS_UDP
         RDMA_PS_IB
 
     # Hint flags which control the operation.
-    cpdef enum:
+    cdef enum:
         RAI_PASSIVE
         RAI_NUMERICHOST
         RAI_NOROUTE
         RAI_FAMILY
 
-    cpdef enum rdma_cm_join_mc_attr_mask:
+    cdef enum rdma_cm_join_mc_attr_mask:
         RDMA_CM_JOIN_MC_ATTR_ADDRESS
         RDMA_CM_JOIN_MC_ATTR_JOIN_FLAGS
 
-    cpdef enum rdma_cm_mc_join_flags:
+    cdef enum rdma_cm_mc_join_flags:
         RDMA_MC_JOIN_FLAG_FULLMEMBER
         RDMA_MC_JOIN_FLAG_SENDONLY_FULLMEMBER
+
+    cdef enum:
+        RDMA_OPTION_ID
+
+    cdef enum:
+        RDMA_OPTION_ID_ACK_TIMEOUT

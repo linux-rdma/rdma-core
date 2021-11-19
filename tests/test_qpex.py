@@ -177,14 +177,22 @@ class QpExTestCase(RDMATestCase):
             server = self.qp_dict[qp_type](self.dev_name, self.ib_port,
                                            self.gid_index)
         except PyverbsRDMAError as ex:
-           if ex.error_code == errno.EOPNOTSUPP:
+            if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Create player with {} is not supported'.format(qp_type))
+            raise ex
         client.pre_run(server.psns, server.qps_num)
         server.pre_run(client.psns, client.qps_num)
         return client, server
 
     def test_qp_ex_ud_send(self):
         client, server = self.create_players('ud_send')
+        u.traffic(client, server, self.iters, self.gid_index, self.ib_port,
+                  new_send=True, send_op=e.IBV_QP_EX_WITH_SEND)
+
+    def test_qp_ex_ud_zero_size(self):
+        client, server = self.create_players('ud_send')
+        client.msg_size = 0
+        server.msg_size = 0
         u.traffic(client, server, self.iters, self.gid_index, self.ib_port,
                   new_send=True, send_op=e.IBV_QP_EX_WITH_SEND)
 
@@ -248,8 +256,9 @@ class QpExTestCase(RDMATestCase):
         client.raddr = server.mr.buf
         server.raddr = client.mr.buf
         server.mr.write('s' * 8, 8)
-        u.rdma_traffic(client, server, self.iters, self.gid_index, self.ib_port,
-                       new_send=True, send_op=e.IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP)
+        u.atomic_traffic(client, server, self.iters, self.gid_index,
+                         self.ib_port, new_send=True,
+                         send_op=e.IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP)
 
     def test_qp_ex_rc_atomic_fetch_add(self):
         client, server = self.create_players('rc_fetch_add')
@@ -260,8 +269,9 @@ class QpExTestCase(RDMATestCase):
         client.raddr = server.mr.buf
         server.raddr = client.mr.buf
         server.mr.write('s' * 8, 8)
-        u.rdma_traffic(client, server, self.iters, self.gid_index, self.ib_port,
-                       new_send=True, send_op=e.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD)
+        u.atomic_traffic(client, server, self.iters, self.gid_index,
+                         self.ib_port, new_send=True,
+                         send_op=e.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD)
 
     def test_qp_ex_rc_bind_mw(self):
         """

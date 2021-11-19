@@ -14,7 +14,7 @@ mlx5dv_dr_domain_create, mlx5dv_dr_domain_sync, mlx5dv_dr_domain_destroy, mlx5dv
 
 mlx5dv_dr_table_create, mlx5dv_dr_table_destroy - Manage flow tables
 
-mlx5dv_dr_matcher_create, mlx5dv_dr_matcher_destroy - Manage flow matchers
+mlx5dv_dr_matcher_create, mlx5dv_dr_matcher_destroy, mlx5dv_dr_matcher_set_layout - Manage flow matchers
 
 mlx5dv_dr_rule_create, mlx5dv_dr_rule_destroy - Manage flow rules
 
@@ -24,7 +24,15 @@ mlx5dv_dr_action_create_default_miss - Create default miss action
 
 mlx5dv_dr_action_create_tag - Create tag actions
 
-mlx5dv_dr_action_create_dest_ibv_qp, mlx5dv_dr_action_create_dest_table, mlx5dv_dr_action_create_dest_vport, mlx5dv_dr_action_create_dest_devx_tir - Create packet destination actions
+mlx5dv_dr_action_create_dest_ibv_qp - Create packet destination QP action
+
+mlx5dv_dr_action_create_dest_table  - Create packet destination dr table action
+
+mlx5dv_dr_action_create_dest_vport - Create packet destination vport action
+
+mlx5dv_dr_action_create_dest_ib_port - Create packet destination IB port action
+
+mlx5dv_dr_action_create_dest_devx_tir - Create packet destination TIR action
 
 mlx5dv_dr_action_create_dest_array - Create destination array action
 
@@ -45,6 +53,8 @@ mlx5dv_dr_action_create_pop_vlan - Create pop vlan action
 mlx5dv_dr_action_create_push_vlan- Create push vlan action
 
 mlx5dv_dr_action_destroy - Destroy actions
+
+mlx5dv_dr_aso_other_domain_link, mlx5dv_dr_aso_other_domain_unlink - link/unlink ASO devx object to work with different domains
 
 # SYNOPSIS
 
@@ -81,6 +91,9 @@ struct mlx5dv_dr_matcher *mlx5dv_dr_matcher_create(
 
 int mlx5dv_dr_matcher_destroy(struct mlx5dv_dr_matcher *matcher);
 
+
+int mlx5dv_dr_matcher_set_layout(struct mlx5dv_dr_matcher *matcher, struct mlx5dv_dr_matcher_layout *matcher_layout);
+
 struct mlx5dv_dr_rule *mlx5dv_dr_rule_create(
 		struct mlx5dv_dr_matcher *matcher,
 		struct mlx5dv_flow_match_parameters *value,
@@ -105,6 +118,10 @@ struct mlx5dv_dr_action *mlx5dv_dr_action_create_dest_table(
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_dest_vport(
 		struct mlx5dv_dr_domain *domain,
 		uint32_t vport);
+
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_dest_ib_port(
+		struct mlx5dv_dr_domain *domain,
+		uint32_t ib_port);
 
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_dest_devx_tir(
 		struct mlx5dv_devx_obj *devx_obj);
@@ -159,6 +176,15 @@ struct mlx5dv_dr_action *mlx5dv_dr_action_create_push_vlan(
 		__be32 vlan_hdr)
 
 int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
+
+int mlx5dv_dr_aso_other_domain_link(struct mlx5dv_devx_obj *devx_obj,
+				    struct mlx5dv_dr_domain *peer_dmn,
+				    struct mlx5dv_dr_domain *dmn,
+				    uint32_t flags,
+				    uint8_t return_reg_c);
+
+int mlx5dv_dr_aso_other_domain_unlink(struct mlx5dv_devx_obj *devx_obj,
+				      struct mlx5dv_dr_domain *dmn);
 ```
 
 # DESCRIPTION
@@ -213,6 +239,12 @@ A table should be destroyed by calling *mlx5dv_dr_table_destroy()* once all depe
 
 A matcher should be destroyed by calling *mlx5dv_dr_matcher_destroy()* once all depended resources are released.
 
+*mlx5dv_dr_matcher_set_layout()* is used to set specific layout parameters of a matcher, on some conditions setting some attributes might not be supported, in such cases ENOTSUP will be returned. **flags** should be a set of type *enum mlx5dv_dr_matcher_layout_flags*:
+
+**MLX5DV_DR_MATCHER_LAYOUT_RESIZABLE**: The matcher can resize its scale and resources according to the rules that are inserted or removed.
+
+**MLX5DV_DR_MATCHER_LAYOUT_NUM_RULE**: Indicates a hint from the application about the number of the rules the matcher is expected to handle. This allows preallocation of matcher resources for faster rule updates when using with non-resizable layout mode.
+
 ## Actions
 A set of action create API are defined by *mlx5dv_dr_action_create_\*()*. All action are created as *struct mlx5dv_dr_action*.
 An action should be destroyed by calling *mlx5dv_dr_action_destroy()* once all depended rules are destroyed.
@@ -232,6 +264,7 @@ Action: Destination
 *mlx5dv_dr_action_create_dest_ibv_qp* creates a terminating action delivering the packet to a QP, defined by **ibqp**. Valid only on domain type NIC_RX.
 *mlx5dv_dr_action_create_dest_table* creates a forwarding action to another flow table, defined by **table**. The destination **table** must be from the same domain with a level higher than zero.
 *mlx5dv_dr_action_create_dest_vport* creates a forwarding action to a **vport** on the same **domain**. Valid only on domain type FDB.
+*mlx5dv_dr_action_create_dest_ib_port* creates a forwarding action to a **ib_port** on the same **domain**. The valid range of ports is a based on the capability phys_port_cnt_ex provided by ibq_query_device_ex and it is possible to query the ports details using mlx5dv_query_port. Action is supported only on domain type FDB.
 *mlx5dv_dr_action_create_dest_devx_tir* creates a terminating action delivering the packet to a TIR, defined by **devx_obj**. Valid only on domain type NIC_RX.
 
 Action: Array
@@ -290,6 +323,16 @@ Action: Push Vlan
 HW will perform the set of **num_actions** from the **action** array of type *struct mlx5dv_dr_action*, once a packet matches the exact **value** of the rule (referred to as a 'hit').
 
 *mlx5dv_dr_rule_destroy()* destroys the rule.
+
+## Other
+*mlx5dv_dr_aso_other_domain_link()* links the ASO devx object, **devx_obj** to a domain **dmn**, this will allow to create a rule with ASO action using the given object on the linked domain **dmn**.
+**peer_dmn** is the domain that the ASO devx object was created on.
+**dmn** is the domain that ASO devx object will be linked to.
+**flags** choose the specific wanted behavior of this object according to the flags, same as for ASO action creation flags.
+**regc_index** After a packet hits the rule with the ASO object the value of the ASO object will be copied into the regc register indicated by this param, and then we can use the value for matching in the following DR rules.
+
+*mlx5dv_dr_aso_other_domain_unlink()* will unlink the **devx_obj** from the linked **dmn**.
+**dmn** is the domain that ASO devx object is linked to.
 
 # RETURN VALUE
 The create API calls will return a pointer to the relevant object: table, matcher, action, rule. on failure, NULL will be returned and errno will be set.

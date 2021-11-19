@@ -73,7 +73,7 @@ int hns_roce_u_query_device(struct ibv_context *context,
 	sub_minor = raw_fw_ver & 0xffff;
 
 	snprintf(attr->orig_attr.fw_ver, sizeof(attr->orig_attr.fw_ver),
-		 "%d.%d.%03d", major, minor, sub_minor);
+		 "%u.%u.%03u", major, minor, sub_minor);
 
 	return 0;
 }
@@ -164,12 +164,14 @@ struct ibv_mr *hns_roce_u_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	struct ib_uverbs_reg_mr_resp resp;
 
 	if (!addr) {
-		fprintf(stderr, "2nd parm addr is NULL!\n");
+		verbs_err(verbs_get_ctx(pd->context),
+			  "2nd parm addr is NULL!\n");
 		return NULL;
 	}
 
 	if (!length) {
-		fprintf(stderr, "3st parm length is 0!\n");
+		verbs_err(verbs_get_ctx(pd->context),
+			  "3st parm length is 0!\n");
 		return NULL;
 	}
 

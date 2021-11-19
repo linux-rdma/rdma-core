@@ -530,6 +530,7 @@ enum ibv_wc_opcode {
 	IBV_WC_TM_NO_TAG,
 	IBV_WC_DRIVER1,
 	IBV_WC_DRIVER2,
+	IBV_WC_DRIVER3,
 };
 
 enum {
@@ -2209,8 +2210,8 @@ extern const struct verbs_device_ops verbs_provider_cxgb4;
 extern const struct verbs_device_ops verbs_provider_efa;
 extern const struct verbs_device_ops verbs_provider_hfi1verbs;
 extern const struct verbs_device_ops verbs_provider_hns;
-extern const struct verbs_device_ops verbs_provider_i40iw;
 extern const struct verbs_device_ops verbs_provider_ipathverbs;
+extern const struct verbs_device_ops verbs_provider_irdma;
 extern const struct verbs_device_ops verbs_provider_mlx4;
 extern const struct verbs_device_ops verbs_provider_mlx5;
 extern const struct verbs_device_ops verbs_provider_mthca;

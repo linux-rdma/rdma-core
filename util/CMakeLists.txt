@@ -1,6 +1,7 @@
 publish_internal_headers(util
   cl_qmap.h
   compiler.h
+  interval_set.h
   node_name_map.h
   rdma_nl.h
   symver.h
@@ -9,6 +10,7 @@ publish_internal_headers(util
 
 set(C_FILES
   cl_map.c
+  interval_set.c
   node_name_map.c
   open_cdev.c
   rdma_nl.c

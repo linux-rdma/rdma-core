@@ -1,5 +1,5 @@
 Name: rdma-core
-Version: 36.0
+Version: 38.0
 Release: 1%{?dist}
 Summary: RDMA core userspace libraries and daemons
 
@@ -101,7 +101,6 @@ Obsoletes: libibumad-devel < %{version}-%{release}
 Requires: librdmacm%{?_isa} = %{version}-%{release}
 Provides: librdmacm-devel = %{version}-%{release}
 Obsoletes: librdmacm-devel < %{version}-%{release}
-Requires: ibacm%{?_isa} = %{version}-%{release}
 Provides: ibacm-devel = %{version}-%{release}
 Obsoletes: ibacm-devel < %{version}-%{release}
 Requires: infiniband-diags%{?_isa} = %{version}-%{release}
@@ -151,10 +150,10 @@ Provides: libefa = %{version}-%{release}
 Obsoletes: libefa < %{version}-%{release}
 Provides: libhfi1 = %{version}-%{release}
 Obsoletes: libhfi1 < %{version}-%{release}
-Provides: libi40iw = %{version}-%{release}
-Obsoletes: libi40iw < %{version}-%{release}
 Provides: libipathverbs = %{version}-%{release}
 Obsoletes: libipathverbs < %{version}-%{release}
+Provides: libirdma = %{version}-%{release}
+Obsoletes: libirdma < %{version}-%{release}
 Provides: libmlx4 = %{version}-%{release}
 Obsoletes: libmlx4 < %{version}-%{release}
 Provides: libmlx5 = %{version}-%{release}
@@ -179,8 +178,8 @@ Device-specific plug-in ibverbs userspace drivers are included:
 - libefa: Amazon Elastic Fabric Adapter
 - libhfi1: Intel Omni-Path HFI
 - libhns: HiSilicon Hip06 SoC
-- libi40iw: Intel Ethernet Connection X722 RDMA
 - libipathverbs: QLogic InfiniPath HCA
+- libirdma: Intel Ethernet Connection RDMA
 - libmlx4: Mellanox ConnectX-3 InfiniBand HCA
 - libmlx5: Mellanox Connect-IB/X-4+ InfiniBand HCA
 - libmthca: Mellanox InfiniBand HCA
@@ -486,6 +485,10 @@ fi
 %{_sbindir}/ibprintrt.pl
 %{_mandir}/man8/ibprintrt*
 %{_sbindir}/set_nodedesc.sh
+%{_sbindir}/ibclearerrors
+%{_mandir}/man8/ibclearerrors*
+%{_sbindir}/ibclearcounters
+%{_mandir}/man8/ibclearcounters*
 
 %files -n infiniband-diags
 %{_sbindir}/ibaddr
@@ -546,10 +549,6 @@ fi
 %{_mandir}/man8/dump_lfts*
 %{_sbindir}/dump_mfts.sh
 %{_mandir}/man8/dump_mfts*
-%{_sbindir}/ibclearerrors
-%{_mandir}/man8/ibclearerrors*
-%{_sbindir}/ibclearcounters
-%{_mandir}/man8/ibclearcounters*
 %{_sbindir}/ibstatus
 %{_mandir}/man8/ibstatus*
 %{_mandir}/man8/infiniband-diags*

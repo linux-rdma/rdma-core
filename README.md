@@ -18,7 +18,7 @@ is included:
  - iw_cxgb4.ko
  - hfi1.ko
  - hns-roce.ko
- - i40iw.ko
+ - irdma.ko
  - ib_qib.ko
  - mlx4_ib.ko
  - mlx5_ib.ko
@@ -46,9 +46,6 @@ $ bash build.sh
 shared libraries. The build is configured to run all the programs 'in-place'
 and cannot be installed.
 
-NOTE: It is not currently easy to run from the build directory, the plugins
-only load from the system path.
-
 ### Debian Derived
 
 ```sh
@@ -60,10 +57,10 @@ Supported releases:
 * Debian 9 (stretch) or newer
 * Ubuntu 16.04 LTS (xenial) or newer
 
-### Fedora
+### Fedora, CentOS 8
 
 ```sh
-$ dnf install cmake gcc libnl3-devel libudev-devel pkgconfig valgrind-devel ninja-build python3-devel python3-Cython python3-docutils pandoc
+$ dnf builddep redhat/rdma-core.spec
 ```
 
 NOTE: Fedora Core uses the name 'ninja-build' for the 'ninja' command.

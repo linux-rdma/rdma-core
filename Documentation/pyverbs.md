@@ -745,3 +745,37 @@ Below is the output when printing the spec.
     Dst mac         : de:de:de:00:de:de    mask: ff:ff:ff:ff:ff:ff
     Ether type      : 8451                 mask: 65535
     Vlan tag        : 8961                 mask: 65535
+
+
+##### MLX5 DevX Objects
+A DevX object represents some underlay firmware object, the input command to
+create it is some raw data given by the user application which should match the
+device specification.
+Upon successful creation, the output buffer includes the raw data from the device
+according to its specification and is stored in the Mlx5DevxObj instance. This
+data can be used as part of related firmware commands to this object.
+In addition to creation, the user can query/modify and destroy the object.
+
+Although weakrefs and DevX objects closure are added and handled by
+Pyverbs, the users must manually close these objects when finished, and
+should not let them be handled by the GC, or by closing the Mlx5Context directly,
+since there's no guarantee that the DevX objects are closed in the correct order,
+because Mlx5DevxObj is a general class that can be any of the device's available
+objects.
+But Pyverbs does guarantee to close DevX UARs and UMEMs in order, and after
+closing the other DevX objects.
+
+The following code snippet shows how to allocate and destroy a PD object over DevX.
+```python
+from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, Mlx5DevxObj
+import pyverbs.providers.mlx5.mlx5_enums as dve
+import struct
+
+attr = Mlx5DVContextAttr(dve.MLX5DV_CONTEXT_FLAGS_DEVX)
+ctx = Mlx5Context(attr, 'rocep8s0f0')
+MLX5_CMD_OP_ALLOC_PD = 0x800
+MLX5_CMD_OP_ALLOC_PD_OUTLEN = 0x10
+cmd_in = struct.pack('!H14s', MLX5_CMD_OP_ALLOC_PD, bytes(0))
+pd = Mlx5DevxObj(ctx, cmd_in, MLX5_CMD_OP_ALLOC_PD_OUTLEN)
+pd.close()
+```

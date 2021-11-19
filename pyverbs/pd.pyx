@@ -63,6 +63,7 @@ cdef class PD(PyverbsCM):
         self.qps = weakref.WeakSet()
         self.parent_domains = weakref.WeakSet()
         self.mkeys = weakref.WeakSet()
+        self.deks = weakref.WeakSet()
 
     def advise_mr(self, advise, uint32_t flags, sg_list not None):
         """
@@ -92,7 +93,7 @@ cdef class PD(PyverbsCM):
         """
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         """
         Closes the underlying C object of the PD.
         PD may be deleted directly or indirectly by closing its context, which
@@ -104,8 +105,8 @@ cdef class PD(PyverbsCM):
         """
         if self.pd != NULL:
             self.logger.debug('Closing PD')
-            close_weakrefs([self.mkeys, self.parent_domains, self.qps, self.ahs,
-                            self.mws, self.mrs, self.srqs])
+            close_weakrefs([self.deks, self.mkeys, self.parent_domains, self.qps,
+                            self.ahs, self.mws, self.mrs, self.srqs])
             if not self._is_imported:
                 rc = v.ibv_dealloc_pd(self.pd)
                 if rc != 0:
@@ -138,6 +139,10 @@ cdef class PD(PyverbsCM):
     @property
     def handle(self):
         return self.pd.handle
+
+    @property
+    def pd(self):
+        return <object>self.pd
 
 
 cdef void *pd_alloc(v.ibv_pd *pd, void *pd_context, size_t size,
@@ -255,7 +260,7 @@ cdef class ParentDomain(PD):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.pd != NULL:
             self.logger.debug('Closing ParentDomain')
             close_weakrefs([self.cqs])

@@ -192,6 +192,7 @@ static inline void handle_good_req(struct ibv_wc *wc, struct mlx5_cqe64 *cqe, st
 	case MLX5_OPCODE_UMR:
 	case MLX5_OPCODE_SET_PSV:
 	case MLX5_OPCODE_NOP:
+	case MLX5_OPCODE_MMO:
 		wc->opcode = wq->wr_data[idx];
 		break;
 	case MLX5_OPCODE_TSO:
@@ -763,6 +764,7 @@ again:
 			case MLX5_OPCODE_UMR:
 			case MLX5_OPCODE_SET_PSV:
 			case MLX5_OPCODE_NOP:
+			case MLX5_OPCODE_MMO:
 				cq->cached_opcode = wq->wr_data[idx];
 				break;
 
@@ -859,6 +861,7 @@ again:
 
 		mkey->sig->err_exists = true;
 		mkey->sig->err_count++;
+		mkey->sig->err_count_updated = true;
 		get_sig_err_info(sigerr_cqe, &mkey->sig->err_info);
 		pthread_mutex_unlock(&mctx->mkey_table_mutex);
 
@@ -1450,6 +1453,7 @@ static inline enum ibv_wc_opcode mlx5_cq_read_wc_opcode(struct ibv_cq_ex *ibcq)
 		case MLX5_OPCODE_UMR:
 		case MLX5_OPCODE_SET_PSV:
 		case MLX5_OPCODE_NOP:
+		case MLX5_OPCODE_MMO:
 			return cq->cached_opcode;
 		case MLX5_OPCODE_TSO:
 			return IBV_WC_TSO;

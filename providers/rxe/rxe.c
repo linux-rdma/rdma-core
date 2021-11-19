@@ -104,7 +104,7 @@ static struct ibv_pd *rxe_alloc_pd(struct ibv_context *context)
 	struct ib_uverbs_alloc_pd_resp resp;
 	struct ibv_pd *pd;
 
-	pd = malloc(sizeof(*pd));
+	pd = calloc(1, sizeof(*pd));
 	if (!pd)
 		return NULL;
 
@@ -225,7 +225,7 @@ static struct ibv_mr *rxe_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	struct ib_uverbs_reg_mr_resp resp;
 	int ret;
 
-	vmr = malloc(sizeof(*vmr));
+	vmr = calloc(1, sizeof(*vmr));
 	if (!vmr)
 		return NULL;
 
@@ -382,7 +382,7 @@ static struct ibv_cq *rxe_create_cq(struct ibv_context *context, int cqe,
 	struct urxe_create_cq_resp resp = {};
 	int ret;
 
-	cq = malloc(sizeof(*cq));
+	cq = calloc(1, sizeof(*cq));
 	if (!cq)
 		return NULL;
 
@@ -594,7 +594,7 @@ static struct ibv_srq *rxe_create_srq(struct ibv_pd *pd,
 	struct urxe_create_srq_resp resp;
 	int ret;
 
-	srq = malloc(sizeof(*srq));
+	srq = calloc(1, sizeof(*srq));
 	if (srq == NULL)
 		return NULL;
 
@@ -982,7 +982,7 @@ static void wr_set_ud_addr(struct ibv_qp_ex *ibqp, struct ibv_ah *ibah,
 	if (qp->err)
 		return;
 
-	memcpy(&wqe->av, &ah->av, sizeof(ah->av));
+	memcpy(&wqe->wr.wr.ud.av, &ah->av, sizeof(ah->av));
 	wqe->wr.wr.ud.remote_qpn = remote_qpn;
 	wqe->wr.wr.ud.remote_qkey = remote_qkey;
 }
@@ -1004,7 +1004,7 @@ static void wr_set_inline_data(struct ibv_qp_ex *ibqp, void *addr,
 
 	memcpy(wqe->dma.inline_data, addr, length);
 	wqe->dma.length = length;
-	wqe->dma.resid = 0;
+	wqe->dma.resid = length;
 }
 
 static void wr_set_inline_data_list(struct ibv_qp_ex *ibqp, size_t num_buf,
@@ -1035,6 +1035,7 @@ static void wr_set_inline_data_list(struct ibv_qp_ex *ibqp, size_t num_buf,
 	}
 
 	wqe->dma.length = tot_length;
+	wqe->dma.resid = tot_length;
 }
 
 static void wr_set_sge(struct ibv_qp_ex *ibqp, uint32_t lkey, uint64_t addr,
@@ -1166,7 +1167,7 @@ static struct ibv_qp *rxe_create_qp(struct ibv_pd *ibpd,
 	struct rxe_qp *qp;
 	int ret;
 
-	qp = malloc(sizeof(*qp));
+	qp = calloc(1, sizeof(*qp));
 	if (!qp)
 		goto err;
 
@@ -1467,13 +1468,11 @@ static int init_send_wqe(struct rxe_qp *qp, struct rxe_wq *sq,
 	convert_send_wr(&wqe->wr, ibwr);
 
 	if (qp_type(qp) == IBV_QPT_UD)
-		memcpy(&wqe->av, &to_rah(ibwr->wr.ud.ah)->av,
+		memcpy(&wqe->wr.wr.ud.av, &to_rah(ibwr->wr.ud.ah)->av,
 		       sizeof(struct rxe_av));
 
 	if (ibwr->send_flags & IBV_SEND_INLINE) {
 		uint8_t *inline_data = wqe->dma.inline_data;
-
-		wqe->dma.resid = 0;
 
 		for (i = 0; i < num_sge; i++) {
 			memcpy(inline_data,
@@ -1660,7 +1659,7 @@ static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
 		return NULL;
 	}
 
-	ah = malloc(sizeof(*ah));
+	ah = calloc(1, sizeof(*ah));
 	if (ah == NULL)
 		return NULL;
 

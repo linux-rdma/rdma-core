@@ -18,7 +18,7 @@ cdef class MR(PyverbsCM):
     cdef object is_user_addr
     cdef void *buf
     cdef object _is_imported
-    cpdef read(self, length, offset)
+    cdef read(self, length, offset)
 
 cdef class MWBindInfo(PyverbsCM):
     cdef v.ibv_mw_bind_info info

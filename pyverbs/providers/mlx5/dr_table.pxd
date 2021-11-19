@@ -10,4 +10,5 @@ cdef class DrTable(PyverbsCM):
     cdef dv.mlx5dv_dr_table *table
     cdef object dr_domain
     cdef object dr_matchers
+    cdef object dr_actions
     cdef add_ref(self, obj)

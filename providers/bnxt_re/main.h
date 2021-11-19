@@ -44,6 +44,7 @@
 #include <stddef.h>
 #include <endian.h>
 #include <pthread.h>
+#include <sys/param.h>
 
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>
@@ -96,7 +97,10 @@ struct bnxt_re_wrid {
 	uint64_t wrid;
 	uint32_t bytes;
 	int next_idx;
+	uint32_t st_slot_idx;
+	uint8_t slots;
 	uint8_t sig;
+
 };
 
 struct bnxt_re_qpcap {
@@ -146,6 +150,7 @@ struct bnxt_re_qp {
 	uint64_t wqe_cnt;
 	uint16_t mtu;
 	uint16_t qpst;
+	uint32_t qpmode;
 	uint8_t qptyp;
 	/* irdord? */
 };
@@ -178,6 +183,7 @@ struct bnxt_re_context {
 	uint32_t max_srq;
 	struct bnxt_re_dpi udpi;
 	void *shpg;
+	uint32_t wqe_mode;
 	pthread_mutex_t shlock;
 	pthread_spinlock_t fqlock;
 };
@@ -431,5 +437,25 @@ static inline void bnxt_re_change_cq_phase(struct bnxt_re_cq *cq)
 {
 	if (!cq->cqq.head)
 		cq->phase = (~cq->phase & BNXT_RE_BCQE_PH_MASK);
+}
+
+static inline void *bnxt_re_get_swqe(struct bnxt_re_joint_queue *jqq,
+				     uint32_t *wqe_idx)
+{
+	if (wqe_idx)
+		*wqe_idx = jqq->start_idx;
+	return &jqq->swque[jqq->start_idx];
+}
+
+static inline void bnxt_re_jqq_mod_start(struct bnxt_re_joint_queue *jqq,
+					 uint32_t idx)
+{
+	jqq->start_idx = jqq->swque[idx].next_idx;
+}
+
+static inline void bnxt_re_jqq_mod_last(struct bnxt_re_joint_queue *jqq,
+					uint32_t idx)
+{
+	jqq->last_idx = jqq->swque[idx].next_idx;
 }
 #endif

@@ -40,7 +40,7 @@ cdef class DrRule(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.rule != NULL:
             self.logger.debug('Closing DrRule.')
             rc = dv.mlx5dv_dr_rule_destroy(self.rule)

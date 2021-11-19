@@ -343,6 +343,14 @@ The last operation posted on the supplied QP should be
 **mlx5dv_wr_mkey_configure**(3), or one of its related setters, and the
 operation must still be open (no doorbell issued).
 
+In case of **ibv_wr_complete()** failure or calling to **ibv_wr_abort()**, the
+MKey may be left in an unknown state. The next configuration of it should not
+assume any previous state of the MKey, i.e. signature/crypto should be
+re-configured or reset, as required. For example, assuming
+**mlx5dv_wr_set_mkey_sig_block()** and then **ibv_wr_abort()** were called,
+then on the next configuration of the MKey, if signature is not needed, it
+should be reset using **MLX5DV_MKEY_CONF_FLAG_RESET_SIG_ATTR**.
+
 # SEE ALSO
 
 **mlx5dv_wr_mkey_configure**(3), **mlx5dv_create_mkey**(3),

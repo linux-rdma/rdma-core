@@ -36,7 +36,7 @@ cdef class CompChannel(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.cc != NULL:
             self.logger.debug('Closing completion channel')
             close_weakrefs([self.cqs])
@@ -115,7 +115,7 @@ cdef class CQ(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.cq != NULL:
             self.logger.debug('Closing CQ')
             close_weakrefs([self.qps, self.srqs])
@@ -335,7 +335,7 @@ cdef class CQEX(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.cq != NULL:
             self.logger.debug('Closing CQEx')
             close_weakrefs([self.srqs, self.qps])

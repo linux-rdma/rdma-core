@@ -30,6 +30,7 @@ PATH_MTU = e.IBV_MTU_1024
 MAX_DEST_RD_ATOMIC = 1
 NUM_OF_PROCESSES = 2
 MC_IP_PREFIX = '230'
+MAX_RDMA_ATOMIC = 20
 MAX_RD_ATOMIC = 1
 MIN_RNR_TIMER =12
 RETRY_CNT = 7
@@ -127,10 +128,11 @@ class RDMATestCase(unittest.TestCase):
         dev = self.config['dev']
         self.dev_name = dev_name if dev_name else dev
         self.ib_port = ib_port if ib_port else self.config['port']
-        self.gid_index = gid_index
+        self.gid_index = gid_index if gid_index else self.config['gid']
         self.pkey_index = pkey_index
         self.gid_type = gid_type if gid_index is None else None
         self.ip_addr = None
+        self.mac_addr = None
         self.pre_environment = {}
         self.server = None
         self.client = None
@@ -168,13 +170,14 @@ class RDMATestCase(unittest.TestCase):
         return out.decode().split('\n')[0]
 
     @staticmethod
-    def get_ip_address(ifname):
+    def get_ip_mac_address(ifname):
         out = subprocess.check_output(['ip', '-j', 'addr', 'show', ifname])
         loaded_json = json.loads(out.decode())
         interface = loaded_json[0]['addr_info'][0]['local']
+        mac = loaded_json[0]['address']
         if 'fe80::' in interface:
             interface = interface + '%' + ifname
-        return interface
+        return interface, mac
 
     def setUp(self):
         """
@@ -191,8 +194,7 @@ class RDMATestCase(unittest.TestCase):
             ctx = d.Context(name=self.dev_name)
             if self.ib_port is not None:
                 if self.gid_index is not None:
-                    # We have all we need, return
-                    return
+                    self._get_ip_mac(self.dev_name, self.ib_port, self.gid_index)
                 else:
                     # Add avaiable GIDs of the given dev_name + port
                     self._add_gids_per_port(ctx, self.dev_name, self.ib_port)
@@ -237,19 +239,22 @@ class RDMATestCase(unittest.TestCase):
             if self.gid_type is not None and ctx.query_gid_type(port, idx) != \
                     self.gid_type:
                 continue
-            if not os.path.exists('/sys/class/infiniband/{}/device/net/'.format(dev)):
-                self.args.append([dev, port, idx, None])
-                continue
-            net_name = self.get_net_name(dev)
-            try:
-                ip_addr = self.get_ip_address(net_name)
-            except (KeyError, IndexError):
-                self.args.append([dev, port, idx, None])
-            else:
-                self.args.append([dev, port, idx, ip_addr])
+            self._get_ip_mac(dev, port, idx)
 
     def _add_gids_per_device(self, ctx, dev):
         self._add_gids_per_port(ctx, dev, self.ib_port)
+
+    def _get_ip_mac(self, dev, port, idx):
+        if not os.path.exists('/sys/class/infiniband/{}/device/net/'.format(dev)):
+            self.args.append([dev, port, idx, None, None])
+            return
+        net_name = self.get_net_name(dev)
+        try:
+            ip_addr, mac_addr = self.get_ip_mac_address(net_name)
+        except (KeyError, IndexError):
+            self.args.append([dev, port, idx, None, None])
+        else:
+            self.args.append([dev, port, idx, ip_addr, mac_addr])
 
     def _select_config(self):
         args_with_inet_ip = []
@@ -264,6 +269,7 @@ class RDMATestCase(unittest.TestCase):
         self.ib_port = args[1]
         self.gid_index = args[2]
         self.ip_addr = args[3]
+        self.mac_addr = args[4]
 
     def set_env_variable(self, var, value):
         """
@@ -372,6 +378,7 @@ class RDMACMBaseTest(RDMATestCase):
         Run RDMACM traffic between two CMIDs.
         :param connection_resources: The connection resources to use.
         :param passive: Indicate if this CMID is this the passive side.
+        :param kwargs: Arguments to be passed to the connection_resources.
         :return: None
         """
         try:
@@ -380,6 +387,8 @@ class RDMACMBaseTest(RDMATestCase):
                                           notifier=self.notifier,
                                           passive=passive, **kwargs)
             player.establish_connection()
+            if kwargs.get('reject_conn'):
+                return
             player.rdmacm_traffic()
             player.disconnect()
         except Exception as ex:
@@ -501,6 +510,11 @@ class TrafficResources(BaseResources):
     @property
     def qp(self):
         return self.qps[0]
+
+    @property
+    def mr_lkey(self):
+        if self.mr:
+            return self.mr.lkey
 
     def init_resources(self):
         """
@@ -682,8 +696,10 @@ class XRCResources(TrafficResources):
             attr_ex = QPInitAttrEx(qp_type=e.IBV_QPT_XRC_RECV,
                                    comp_mask=e.IBV_QP_INIT_ATTR_XRCD,
                                    xrcd=self.xrcd)
-            qp_attr.qp_access_flags = e.IBV_ACCESS_REMOTE_WRITE | \
-                                      e.IBV_ACCESS_REMOTE_READ
+            qp_attr.qp_access_flags = e.IBV_ACCESS_LOCAL_WRITE | \
+                                      e.IBV_ACCESS_REMOTE_READ | \
+                                      e.IBV_ACCESS_REMOTE_WRITE | \
+                                      e.IBV_ACCESS_REMOTE_ATOMIC
             recv_qp = QP(self.ctx, attr_ex, qp_attr)
             self.rqp_lst.append(recv_qp)
 
@@ -736,6 +752,8 @@ class XRCResources(TrafficResources):
         ah_attr = AHAttr(port_num=self.ib_port, is_global=True,
                          gr=gr, dlid=self.port_attr.lid)
         qp_attr = QPAttr()
+        qp_attr.max_rd_atomic = MAX_RD_ATOMIC
+        qp_attr.max_dest_rd_atomic = MAX_DEST_RD_ATOMIC
         qp_attr.path_mtu = PATH_MTU
         set_rnr_attributes(qp_attr)
         qp_attr.ah_attr = ah_attr

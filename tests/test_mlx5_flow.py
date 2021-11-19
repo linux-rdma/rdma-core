@@ -41,15 +41,23 @@ def requires_reformat_support(func):
         cmd_in = struct.pack('!HIH8s', MLX5_CMD_OP_QUERY_HCA_CAP, 0,
                              MLX5_CMD_MOD_NIC_FLOW_TABLE_CAP << 1 | 0x1,
                              bytes(8))
-        cmd_out = Mlx5Context.devx_general_cmd(ctx, cmd_in,
-                                               MLX5_CMD_OP_QUERY_HCA_CAP_OUT_LEN)
+        try:
+            cmd_out = Mlx5Context.devx_general_cmd(ctx, cmd_in,
+                                                   MLX5_CMD_OP_QUERY_HCA_CAP_OUT_LEN)
+        except PyverbsRDMAError as ex:
+            if ex.error_code in [errno.EOPNOTSUPP, errno.EPROTONOSUPPORT]:
+                raise unittest.SkipTest('DevX general command is not supported')
+            raise ex
         cmd_view = memoryview(cmd_out)
         status = cmd_view[0]
         if status:
             raise PyverbsRDMAError('Query NIC Flow Table CAPs failed with status'
                                    f' ({status})')
-        # Verify that both NIC RX and TX support reformat actions
-        if not (cmd_view[80] & 0x1 and cmd_view[272] & 0x1):
+        # Verify that both NIC RX and TX support reformat actions by checking
+        # the following PRM fields: encap_general_header,
+        # log_max_packet_reformat, and reformat (for both RX and TX).
+        if not (cmd_view[20] & 0x80 and cmd_view[21] & 0x1f and
+                cmd_view[80] & 0x1 and cmd_view[272] & 0x1):
             raise unittest.SkipTest('NIC flow table does not support reformat')
         return func(instance)
     return func_wrapper

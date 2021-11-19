@@ -9,7 +9,7 @@ cimport pyverbs.libibverbs as v
 from pyverbs.addr cimport AH
 from libc.stdlib cimport free, malloc
 from libc.string cimport memcpy
-
+from libc.stdint cimport uintptr_t
 
 cdef class SGE(PyverbsCM):
     """
@@ -38,10 +38,10 @@ cdef class SGE(PyverbsCM):
     def __dealloc(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         free(self.sge)
 
-    cpdef read(self, length, offset):
+    cdef read(self, length, offset):
         """
         Reads <length> bytes of data starting at <offset> bytes from the
         SGE's address.
@@ -51,7 +51,7 @@ cdef class SGE(PyverbsCM):
         """
         cdef char *sg_data
         cdef int off = offset
-        sg_data = <char*>(self.sge.addr + off)
+        sg_data = <char*>(<uintptr_t>self.sge.addr + off)
         return sg_data[:length]
 
     def __str__(self):
@@ -110,7 +110,7 @@ cdef class RecvWR(PyverbsCM):
     def __dealloc(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         free(self.recv_wr.sg_list)
 
     def __str__(self):
@@ -182,7 +182,7 @@ cdef class SendWR(PyverbsCM):
     def __dealloc(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         free(self.send_wr.sg_list)
 
     def __str__(self):

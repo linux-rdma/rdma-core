@@ -3,12 +3,12 @@ publish_internal_headers(rdma
   rdma/cxgb4-abi.h
   rdma/efa-abi.h
   rdma/hns-abi.h
-  rdma/i40iw-abi.h
   rdma/ib_user_ioctl_cmds.h
   rdma/ib_user_ioctl_verbs.h
   rdma/ib_user_mad.h
   rdma/ib_user_sa.h
   rdma/ib_user_verbs.h
+  rdma/irdma-abi.h
   rdma/mlx4-abi.h
   rdma/mlx5-abi.h
   rdma/mlx5_user_ioctl_cmds.h
@@ -29,6 +29,11 @@ publish_internal_headers(rdma
 publish_internal_headers(rdma/hfi
   rdma/hfi/hfi1_ioctl.h
   rdma/hfi/hfi1_user.h
+  )
+
+publish_internal_headers(linux
+  linux/stddef.h
+  linux/vfio.h
   )
 
 function(rdma_kernel_provider_abi)
@@ -61,8 +66,8 @@ rdma_kernel_provider_abi(
   rdma/cxgb4-abi.h
   rdma/efa-abi.h
   rdma/hns-abi.h
-  rdma/i40iw-abi.h
   rdma/ib_user_verbs.h
+  rdma/irdma-abi.h
   rdma/mlx4-abi.h
   rdma/mlx5-abi.h
   rdma/mthca-abi.h

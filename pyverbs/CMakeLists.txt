@@ -12,6 +12,12 @@ else()
   set(DMABUF_ALLOC dmabuf_alloc_stub.c)
 endif()
 
+if (HAVE_COHERENT_DMA)
+  set(DMA_UTIL dma_util.pyx)
+else()
+  set(DMA_UTIL "")
+endif()
+
 rdma_cython_module(pyverbs ""
   addr.pyx
   base.pyx
@@ -19,6 +25,7 @@ rdma_cython_module(pyverbs ""
   cmid.pyx
   cq.pyx
   device.pyx
+  ${DMA_UTIL}
   dmabuf.pyx
   ${DMABUF_ALLOC}
   enums.pyx

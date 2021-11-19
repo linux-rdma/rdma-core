@@ -1,7 +1,7 @@
 # Azure Pipelines Continuous Integration
 
 rdma-core uses Azure Pipelines to run a variety of compile tests on every pull
-request. These tests are intented to run through a variety of distribution
+request. These tests are intended to run through a variety of distribution
 configurations with the goal to have rdma-core build and work on a wide range
 of distributions.
 
@@ -32,7 +32,7 @@ cbuild has definitions for a wide range of platforms that are interesting to tes
 
 Containers that are used by Azure Pipelines are prefixed with
 ucfconsort.azurecr.io/rdma-core/ to indicate they are served from that docker
-registry (which is implemented as a Azure Cotnainer Registry service).
+registry (which is implemented as a Azure Container Registry service).
 
 Once built the container should be uploaded with:
 

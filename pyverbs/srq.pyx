@@ -147,7 +147,7 @@ cdef class SRQ(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.srq != NULL:
             self.logger.debug('Closing SRQ')
             close_weakrefs([self.qps])

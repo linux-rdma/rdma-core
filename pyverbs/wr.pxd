@@ -9,7 +9,7 @@ from pyverbs cimport libibverbs as v
 
 cdef class SGE(PyverbsCM):
     cdef v.ibv_sge *sge
-    cpdef read(self, length, offset)
+    cdef read(self, length, offset)
 
 cdef class RecvWR(PyverbsCM):
     cdef v.ibv_recv_wr recv_wr

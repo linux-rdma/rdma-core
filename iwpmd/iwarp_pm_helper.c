@@ -173,83 +173,6 @@ int send_iwpm_msg(void (*form_msg_type)(iwpm_wire_msg *, iwpm_msg_parms *),
 }
 
 /**
- * check_iwpm_ip_addr - Check if the local IP address is valid
- * @local_addr:  local IP address to verify
- *
- * Check if the local IP address is used by the host ethernet interfaces
- */
-static int check_iwpm_ip_addr(struct sockaddr_storage *local_addr)
-{
-	struct ifaddrs ifa;
-	struct ifaddrs *ifap = &ifa;
-	struct ifaddrs **ifa_list = &ifap;
-	struct ifaddrs *ifa_current;
-	int found_addr = 0;
-	int ret = -EINVAL;
-
-	/* get a list of host ethernet interfaces */
-	if ((ret = getifaddrs(ifa_list)) < 0) {
-		syslog(LOG_WARNING, "check_iwpm_ip_addr: Unable to get the list of interfaces (%s).\n",
-				strerror(errno));
-		return ret;
-	}
-	/* go through the list to make sure local IP address is valid */
-	ifa_current = *ifa_list;
-	while (ifa_current != NULL && !found_addr) {
-		if (local_addr->ss_family == ifa_current->ifa_addr->sa_family) {
-			switch (ifa_current->ifa_addr->sa_family) {
-			case AF_INET: {
-				if (!memcmp(&((struct sockaddr_in *)
-					ifa_current->ifa_addr)->sin_addr.s_addr,
-				   	&((struct sockaddr_in *)local_addr)->sin_addr.s_addr,
-					IWARP_PM_IPV4_ADDR)) {
-
-					found_addr = 1;
-				}
-				break;
-			}
-			case AF_INET6: {
-				if (!memcmp(&((struct sockaddr_in6 *)
-					ifa_current->ifa_addr)->sin6_addr.s6_addr,
-				    	&((struct sockaddr_in6 *)local_addr)->sin6_addr.s6_addr,
-					INET6_ADDRSTRLEN))
-
-					found_addr = 1;
-				break;
-			}
-			default:
-				break;
-			}
-		}
-		ifa_current = ifa_current->ifa_next;
-	}
-	if (found_addr)
-		ret = 0;
-
-	freeifaddrs(*ifa_list);
-	return ret;
-}
-
-/**
- * get_iwpm_ip_addr - Get a mapped IP address
- * @local_addr:  local IP address to map
- * @mapped_addr: to store the mapped local IP address
- *
- * Currently, don't map the local IP address
- */
-static int get_iwpm_ip_addr(struct sockaddr_storage *local_addr,
-					struct sockaddr_storage *mapped_addr)
-{
-	int ret = check_iwpm_ip_addr(local_addr);
-	if (!ret)
-		memcpy(mapped_addr, local_addr, sizeof(struct sockaddr_storage));
-	else
-		iwpm_debug(IWARP_PM_ALL_DBG, "get_iwpm_ip_addr: Invalid local IP address.\n");
-
-	return ret;
-}
-
-/**
  * get_iwpm_tcp_port - Get a new TCP port from the host stack
  * @addr_family: should be valid AF_INET or AF_INET6
  * @requested_port: set only if reopening of mapped port
@@ -358,18 +281,14 @@ iwpm_mapped_port *create_iwpm_mapped_port(struct sockaddr_storage *local_addr, i
 	struct sockaddr_storage mapped_addr;
 	int new_sd;
 
-	/* check the local IP address */
-	if (get_iwpm_ip_addr(local_addr, &mapped_addr))
-		goto create_mapped_port_error;
+	memcpy(&mapped_addr, local_addr, sizeof(mapped_addr));
 	/* get a tcp port from the host net stack */
 	if (flags & IWPM_FLAGS_NO_PORT_MAP) {
-		mapped_addr = *local_addr;
 		new_sd = -1;
 	} else {
 		if (get_iwpm_tcp_port(local_addr->ss_family, 0, &mapped_addr, &new_sd))
 			goto create_mapped_port_error;
 	}
-
 	iwpm_port = get_iwpm_port(client_idx, local_addr, &mapped_addr, new_sd);
 	return iwpm_port;
 
@@ -391,11 +310,7 @@ iwpm_mapped_port *reopen_iwpm_mapped_port(struct sockaddr_storage *local_addr,
 	iwpm_mapped_port *iwpm_port;
 	int new_sd = -1;
 	const char *str_err = "";
-	int ret = check_iwpm_ip_addr(local_addr);
-	if (ret) {
-		str_err = "Invalid local IP address";
-		goto reopen_mapped_port_error;
-	}
+
 	if (local_addr->ss_family != mapped_addr->ss_family) {
 		str_err = "Different local and mapped sockaddr families";
 		goto reopen_mapped_port_error;

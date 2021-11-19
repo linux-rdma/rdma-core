@@ -137,6 +137,10 @@ class CMResources(abc.ABC):
     def create_child_id(self, cm_event=None):
         pass
 
+    @property
+    def mr_lkey(self):
+        return self.mr.lkey
+
 
 class AsyncCMResources(CMResources):
     """

@@ -24,4 +24,4 @@ cdef class AHAttr(PyverbsObject):
 cdef class AH(PyverbsCM):
     cdef v.ibv_ah *ah
     cdef object pd
-    cpdef close(self)
+    cdef close(self)

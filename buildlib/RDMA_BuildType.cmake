@@ -39,4 +39,8 @@ function(RDMA_BuildType)
 	    CACHE STRING "Default flags for RelWithDebInfo configuration" FORCE)
     endif()
   endforeach()
+
+  if (CMAKE_BUILD_TYPE STREQUAL Debug OR CMAKE_BUILD_TYPE STREQUAL RelWithDebInfo)
+    add_definitions("-DVERBS_DEBUG")
+  endif()
 endfunction()

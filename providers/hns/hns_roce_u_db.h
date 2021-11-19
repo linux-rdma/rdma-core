@@ -30,25 +30,19 @@
  * SOFTWARE.
  */
 
-#include <linux/types.h>
-
-#include "hns_roce_u.h"
-
 #ifndef _HNS_ROCE_U_DB_H
 #define _HNS_ROCE_U_DB_H
 
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-#define HNS_ROCE_PAIR_TO_64(val) ((uint64_t) val[1] << 32 | val[0])
-#elif __BYTE_ORDER == __BIG_ENDIAN
-#define HNS_ROCE_PAIR_TO_64(val) ((uint64_t) val[0] << 32 | val[1])
-#else
-#error __BYTE_ORDER not defined
-#endif
+#include <linux/types.h>
+#include <util/mmio.h>
 
-static inline void hns_roce_write64(uint32_t val[2],
-				    struct hns_roce_context *ctx, int offset)
+#include "hns_roce_u.h"
+
+#define HNS_ROCE_WORD_NUM	2
+
+static inline void hns_roce_write64(void *dest, __le32 val[HNS_ROCE_WORD_NUM])
 {
-	*(volatile uint64_t *) (ctx->uar + offset) = HNS_ROCE_PAIR_TO_64(val);
+	mmio_write64_le(dest, *(__le64 *)val);
 }
 
 void *hns_roce_alloc_db(struct hns_roce_context *ctx,

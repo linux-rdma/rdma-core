@@ -79,7 +79,7 @@ static int dr_table_init_nic(struct mlx5dv_dr_domain *dmn,
 	info.type = CONNECT_MISS;
 	info.miss_icm_addr = nic_dmn->default_icm_addr;
 	ret = dr_ste_htbl_init_and_postsend(dmn, nic_dmn, nic_tbl->s_anchor,
-					    &info, true);
+					    &info, true, 0);
 	if (ret)
 		goto free_s_anchor;
 

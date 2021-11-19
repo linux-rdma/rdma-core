@@ -117,6 +117,7 @@ cdef class Context(PyverbsCM):
         self.pps = weakref.WeakSet()
         self.sched_nodes = weakref.WeakSet()
         self.sched_leafs = weakref.WeakSet()
+        self.dr_domains = weakref.WeakSet()
 
         self.name = kwargs.get('name')
         provider_attr = kwargs.get('attr')
@@ -165,12 +166,12 @@ cdef class Context(PyverbsCM):
         """
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         if self.context != NULL:
             self.logger.debug('Closing Context')
             close_weakrefs([self.qps, self.ccs, self.cqs, self.dms, self.pds,
                             self.xrcds, self.vars, self.sched_leafs,
-                            self.sched_nodes])
+                            self.sched_nodes, self.dr_domains])
             rc = v.ibv_close_device(self.context)
             if rc != 0:
                 raise PyverbsRDMAErrno(f'Failed to close device {self.name}')
@@ -787,7 +788,7 @@ cdef class DM(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cpdef close(self):
+    cdef close(self):
         """
         Closes the underlying C object of the DM.
         In case of an imported DM, the DM won't be freed, and it's kept for the

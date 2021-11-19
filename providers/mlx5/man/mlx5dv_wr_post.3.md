@@ -15,6 +15,8 @@ mlx5dv_wr_set_dc_addr - Attach a DC info to the last work request
 
 mlx5dv_wr_raw_wqe - Build a raw work request
 
+mlx5dv_wr_memcpy - Build a DMA memcpy work request
+
 # SYNOPSIS
 
 ```c
@@ -24,6 +26,12 @@ static inline void mlx5dv_wr_set_dc_addr(struct mlx5dv_qp_ex *mqp,
                                          struct ibv_ah *ah,
                                          uint32_t remote_dctn,
                                          uint64_t remote_dc_key);
+
+static inline void mlx5dv_wr_set_dc_addr_stream(struct mlx5dv_qp_ex *mqp,
+						struct ibv_ah *ah,
+						uint32_t remote_dctn,
+						uint64_t remote_dc_key,
+						uint16_t stream_id);
 
 struct mlx5dv_mr_interleaved {
 	uint64_t        addr;
@@ -46,6 +54,12 @@ static inline void mlx5dv_wr_mr_list(struct mlx5dv_qp_ex *mqp,
 				      struct ibv_sge *sge);
 
 static inline int mlx5dv_wr_raw_wqe(struct mlx5dv_qp_ex *mqp, const void *wqe);
+
+static inline void mlx5dv_wr_memcpy(struct mlx5dv_qp_ex *mqp_ex,
+				    uint32_t dest_lkey, uint64_t dest_addr,
+				    uint32_t src_lkey, uint64_t src_addr,
+				    size_t length)
+
 ```
 
 # DESCRIPTION
@@ -105,6 +119,21 @@ man for ibv_wr_post and mlx5dv_qp with its available builders and setters.
     In case *ibv_qp_ex->wr_flags* turns on IBV_SEND_SIGNALED, the reported WC opcode will be MLX5DV_WC_UMR.
     Unregister the *mkey* to enable other pattern registration should be done via ibv_post_send with IBV_WR_LOCAL_INV opcode.
 
+*RC* or *DCI* QPs
+:   *mlx5dv_wr_memcpy()*
+
+    Builds a DMA memcpy work request to copy data of length *length* from *src_addr* to *dest_addr*. The copy operation will be
+    done using the DMA MMO functionality of the device to copy data on PCI bus.
+
+    The MLX5DV_QP_EX_WITH_MEMCPY flag in *mlx5dv_qp_init_attr.send_ops_flags* needs to be set during QP creation.
+    If the device or QP doesn't support it then QP creation will fail.
+    The maximum memcpy length that is supported by the device is reported in *mlx5dv_context->max_wr_memcpy_length*.
+    A zero value in *mlx5dv_context->max_wr_memcpy_length* means the device doesn't support memcpy operations.
+
+    IBV_SEND_FENCE indicator should be used on a following send request which is dependent on *dest_addr* of the memcpy operation.
+
+    In case *ibv_qp_ex->wr_flags* turns on IBV_SEND_SIGNALED, the reported WC opcode will be MLX5DV_WC_MEMCPY.
+
 ## Raw WQE builders
 
 *mlx5dv_wr_raw_wqe()*
@@ -126,6 +155,10 @@ man for ibv_wr_post and mlx5dv_qp with its available builders and setters.
     This setter is available when the QP transport is DCI and send_ops_flags
     in struct ibv_qp_init_attr_ex is set.
     The available builders and setters for DCI QP are the same as RC QP.
+    DCI QP created with MLX5DV_QP_INIT_ATTR_MASK_DCI_STREAMS can call
+    *mlx5dv_wr_set_dc_addr_stream()* to define the *stream_id* of the operation
+    to allow HW to choose one of the multiple concurrent DCI resources.
+    Calls to *mlx5dv_wr_set_dc_addr()* are equivalent to using *stream_id*=0
 
 # EXAMPLE
 

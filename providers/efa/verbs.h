@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2019-2020 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2021 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef __EFA_VERBS_H__
@@ -17,6 +17,8 @@ int efa_query_device_ex(struct ibv_context *context,
 			struct ibv_device_attr_ex *attr, size_t attr_size);
 struct ibv_pd *efa_alloc_pd(struct ibv_context *uctx);
 int efa_dealloc_pd(struct ibv_pd *ibvpd);
+struct ibv_mr *efa_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset,
+				 size_t length, uint64_t iova, int fd, int acc);
 struct ibv_mr *efa_reg_mr(struct ibv_pd *ibvpd, void *buf, size_t len,
 			  uint64_t hca_va, int ibv_access_flags);
 int efa_dereg_mr(struct verbs_mr *vmr);
@@ -27,6 +29,8 @@ struct ibv_cq_ex *efa_create_cq_ex(struct ibv_context *uctx,
 				   struct ibv_cq_init_attr_ex *attr_ex);
 int efa_destroy_cq(struct ibv_cq *ibvcq);
 int efa_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc);
+int efa_arm_cq(struct ibv_cq *ibvcq, int solicited_only);
+void efa_cq_event(struct ibv_cq *ibvcq);
 
 struct ibv_qp *efa_create_qp(struct ibv_pd *ibvpd,
 			     struct ibv_qp_init_attr *attr);
