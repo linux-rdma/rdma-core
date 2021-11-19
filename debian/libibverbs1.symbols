@@ -123,6 +123,7 @@ libibverbs.so.1 libibverbs1 #MINVER#
  mult_to_ibv_rate@IBVERBS_1.0 1.1.6
  IBVERBS_PRIVATE_34@IBVERBS_PRIVATE_34 34
  __ioctl_final_num_attrs@IBVERBS_PRIVATE_34 34
+ __verbs_log@IBVERBS_PRIVATE_34 38
  _verbs_init_and_alloc_context@IBVERBS_PRIVATE_34 34
  execute_ioctl@IBVERBS_PRIVATE_34 34
  ibv_cmd_advise_mr@IBVERBS_PRIVATE_34 34
