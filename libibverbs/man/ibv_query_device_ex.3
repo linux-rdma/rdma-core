@@ -43,7 +43,7 @@ struct ibv_cq_moderation_caps  cq_mod_caps;        /* CQ moderation max capabili
 uint64_t     	       max_dm_size;		   /* Max Device Memory size (in bytes) available for allocation */
 struct ibv_pci_atomic_caps atomic_caps;            /* PCI atomic operations capabilities, use enum ibv_pci_atomic_op_size */
 uint32_t               xrc_odp_caps;               /* Mask with enum ibv_odp_transport_cap_bits to know which operations are supported. */
-uint32_t	       phys_port_cnt_ex		   /* Extended number of physical port count, allows to expose more than 255 ports device */
+uint32_t	       phys_port_cnt_ex		   /* Extended number of physical port count, allows exposing more than 255 ports device */
 .in -8
 };
 
