@@ -55,7 +55,7 @@ signature offload.
 These APIs are intended to be used to access additional functionality beyond
 what is provided by **mlx5dv_wr_mr_list**() and **mlx5dv_wr_mr_interleaved**().
 The MKEY features can be optionally enabled using the mkey configure setters.
-It allows to use different features in the same MKEY.
+It allows using different features in the same MKEY.
 
 # USAGE
 

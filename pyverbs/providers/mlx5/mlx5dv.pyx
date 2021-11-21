@@ -535,7 +535,7 @@ cdef class Mlx5DVContext(PyverbsObject):
                ident_format.format('supported QP types',
                                    qpts_to_str(self.dv.striding_rq_caps.supported_qpts))
         stream = 'DCI stream caps:\n' +\
-                  ident_format.format('max log num concurent streams',
+                  ident_format.format('max log num concurrent streams',
                                       self.dv.dci_streams_caps.max_log_num_concurent) +\
                   ident_format.format('max log num errored streams',
                                       self.dv.dci_streams_caps.max_log_num_errored)

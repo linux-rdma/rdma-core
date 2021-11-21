@@ -137,8 +137,8 @@ cdef class Mlx5PacketReformatFlowAction(FlowAction):
                  ft_type=dv.MLX5DV_FLOW_TABLE_TYPE_NIC_RX):
         """
         Initialize a Mlx5PacketReformatFlowAction object derived from FlowAction
-        class and represents reformat flow steering action that allows to
-        add/remove packet headers.
+        class and represents reformat flow steering action that allows
+        adding/removing packet headers.
         :param context: Context object
         :param data: Encap headers (if needed)
         :param reformat_type: L2 or L3 encap or decap

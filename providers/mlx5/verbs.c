@@ -384,7 +384,7 @@ static struct mlx5_bf *mlx5_get_qp_uar(struct ibv_context *context)
 				break;
 		}
 
-		/* Looking for a shared uuar with the less concurent usage */
+		/* Looking for a shared uuar with the less concurrent usage */
 		list_for_each(&ctx->dyn_uar_qp_shared_list, bf_entry, uar_entry) {
 			if (!bf) {
 				bf = bf_entry;

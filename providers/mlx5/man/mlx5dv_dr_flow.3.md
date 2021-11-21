@@ -325,7 +325,7 @@ HW will perform the set of **num_actions** from the **action** array of type *st
 *mlx5dv_dr_rule_destroy()* destroys the rule.
 
 ## Other
-*mlx5dv_dr_aso_other_domain_link()* links the ASO devx object, **devx_obj** to a domain **dmn**, this will allow to create a rule with ASO action using the given object on the linked domain **dmn**.
+*mlx5dv_dr_aso_other_domain_link()* links the ASO devx object, **devx_obj** to a domain **dmn**, this will allow creating a rule with ASO action using the given object on the linked domain **dmn**.
 **peer_dmn** is the domain that the ASO devx object was created on.
 **dmn** is the domain that ASO devx object will be linked to.
 **flags** choose the specific wanted behavior of this object according to the flags, same as for ASO action creation flags.
