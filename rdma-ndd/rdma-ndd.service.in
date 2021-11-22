@@ -20,5 +20,9 @@ Before=rdma-hw.target
 Type=notify
 Restart=always
 ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/rdma-ndd --systemd
+ProtectSystem=full
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelLogs=true
 
 # rdma-ndd is automatically wanted by udev when an RDMA device with a node description is present
