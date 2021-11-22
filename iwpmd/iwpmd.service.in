@@ -24,5 +24,9 @@ Before=rdma-hw.target
 Type=notify
 ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/iwpmd --systemd
 LimitNOFILE=102400
+ProtectSystem=full
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelLogs=true
 
 # iwpmd is automatically wanted by udev when an iWarp RDMA device is present
