@@ -17,6 +17,10 @@ After=rdma-hw.target
 [Service]
 Type=notify
 ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/ibacm --systemd
+ProtectSystem=full
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelLogs=true
 
 [Install]
 Also=ibacm.socket
