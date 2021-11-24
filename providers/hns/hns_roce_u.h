@@ -276,6 +276,11 @@ static inline unsigned int to_hr_hem_entries_size(int count, int buf_shift)
 	return align(count << buf_shift, HNS_HW_PAGE_SIZE);
 }
 
+static inline unsigned int hr_ilog32(unsigned int count)
+{
+	return ilog32(count - 1);
+}
+
 static inline struct hns_roce_device *to_hr_dev(struct ibv_device *ibv_dev)
 {
 	return container_of(ibv_dev, struct hns_roce_device, ibv_dev.device);
