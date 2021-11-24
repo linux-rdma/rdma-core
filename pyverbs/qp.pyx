@@ -1385,8 +1385,7 @@ cdef class QPEx(QP):
     def wr_complete(self):
         rc = v.ibv_wr_complete(self.qp_ex)
         if rc != 0:
-            raise PyverbsRDMAErrno('ibv_wr_complete failed , returned {}'.
-                                   format(rc))
+            raise PyverbsRDMAError('ibv_wr_complete failed.', rc)
 
     def wr_abort(self):
         v.ibv_wr_abort(self.qp_ex)
