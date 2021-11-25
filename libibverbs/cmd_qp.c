@@ -381,6 +381,7 @@ int ibv_cmd_create_qp(struct ibv_pd *pd,
 	attr_ex.qp_context = attr->qp_context;
 	attr_ex.send_cq = attr->send_cq;
 	attr_ex.recv_cq = attr->recv_cq;
+	attr_ex.srq = attr->srq;
 	attr_ex.cap = attr->cap;
 	attr_ex.qp_type = attr->qp_type;
 	attr_ex.sq_sig_all = attr->sq_sig_all;
