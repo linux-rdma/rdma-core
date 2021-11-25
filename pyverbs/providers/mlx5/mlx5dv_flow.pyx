@@ -42,7 +42,7 @@ cdef class Mlx5FlowMatchParameters(PyverbsObject):
     def __dealloc__(self):
         self.close()
 
-    cdef close(self):
+    cpdef close(self):
         if self.params != NULL:
             self.logger.debug('Closing Mlx5FlowMatchParameters')
             free(self.params)
@@ -121,7 +121,7 @@ cdef class Mlx5FlowMatcher(PyverbsObject):
     def __dealloc__(self):
         self.close()
 
-    cdef close(self):
+    cpdef close(self):
         if self.flow_matcher != NULL:
             self.logger.debug('Closing Mlx5FlowMatcher')
             close_weakrefs([self.flows])

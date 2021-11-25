@@ -124,7 +124,7 @@ cdef class MR(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cdef close(self):
+    cpdef close(self):
         """
         Closes the underlying C object of the MR and frees the memory allocated.
         MR may be deleted directly or indirectly by closing its context, which
@@ -168,7 +168,7 @@ cdef class MR(PyverbsCM):
             data = data.encode()
         memcpy(<char*>(self.buf + off), <char *>data, length)
 
-    cdef read(self, length, offset):
+    cpdef read(self, length, offset):
         """
         Reads data from the MR's buffer
         :param length: Length of data to read
@@ -311,7 +311,7 @@ cdef class MW(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cdef close(self):
+    cpdef close(self):
         """
         Closes the underlaying C MW object.
         MW may be deleted directly or by deleting its PD, which leaves the
@@ -381,7 +381,7 @@ cdef class DMMR(MR):
             data = data.encode()
         return self.dm.copy_to_dm(offset, data, length)
 
-    cdef read(self, length, offset):
+    cpdef read(self, length, offset):
         return self.dm.copy_from_dm(offset, length)
 
 cdef class DmaBufMR(MR):
@@ -417,7 +417,7 @@ cdef class DmaBufMR(MR):
     def __dealloc__(self):
         self.close()
 
-    cdef close(self):
+    cpdef close(self):
         """
         Closes the underlying C object of the MR and frees the memory allocated.
         :return: None
@@ -462,7 +462,7 @@ cdef class DmaBufMR(MR):
         memcpy(<char*>(buf + off), <char *>data, length)
         munmap(buf, length + off)
 
-    cdef read(self, length, offset):
+    cpdef read(self, length, offset):
         """
         Reads data from the dma-buf backing the MR
         :param length: Length of data to read
