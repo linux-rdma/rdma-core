@@ -60,7 +60,7 @@ cdef class DrMatcher(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cdef close(self):
+    cpdef close(self):
         if self.matcher != NULL:
             self.logger.debug('Closing Matcher.')
             close_weakrefs([self.dr_rules])

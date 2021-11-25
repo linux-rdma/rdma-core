@@ -8,6 +8,6 @@ cdef class PyverbsObject(object):
     cdef object logger
 
 cdef class PyverbsCM(PyverbsObject):
-    cdef close(self)
+    cpdef close(self)
 
 cdef close_weakrefs(iterables)

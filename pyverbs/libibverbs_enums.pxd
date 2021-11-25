@@ -6,14 +6,14 @@
 
 cdef extern from '<infiniband/verbs.h>':
 
-    cdef enum ibv_transport_type:
+    cpdef enum ibv_transport_type:
         IBV_TRANSPORT_UNKNOWN
         IBV_TRANSPORT_IB
         IBV_TRANSPORT_IWARP
         IBV_TRANSPORT_USNIC
         IBV_TRANSPORT_USNIC_UDP
 
-    cdef enum ibv_node_type:
+    cpdef enum ibv_node_type:
         IBV_NODE_UNKNOWN
         IBV_NODE_CA
         IBV_NODE_SWITCH
@@ -23,17 +23,17 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_NODE_USNIC_UDP
         IBV_NODE_UNSPECIFIED
 
-    cdef enum:
+    cpdef enum:
         IBV_LINK_LAYER_UNSPECIFIED
         IBV_LINK_LAYER_INFINIBAND
         IBV_LINK_LAYER_ETHERNET
 
-    cdef enum ibv_atomic_cap:
+    cpdef enum ibv_atomic_cap:
         IBV_ATOMIC_NONE
         IBV_ATOMIC_HCA
         IBV_ATOMIC_GLOB
 
-    cdef enum ibv_port_state:
+    cpdef enum ibv_port_state:
         IBV_PORT_NOP
         IBV_PORT_DOWN
         IBV_PORT_INIT
@@ -41,7 +41,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_PORT_ACTIVE
         IBV_PORT_ACTIVE_DEFER
 
-    cdef enum ibv_port_cap_flags:
+    cpdef enum ibv_port_cap_flags:
         IBV_PORT_SM
         IBV_PORT_NOTICE_SUP
         IBV_PORT_TRAP_SUP
@@ -67,7 +67,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_PORT_CLIENT_REG_SUP
         IBV_PORT_IP_BASED_GIDS
 
-    cdef enum ibv_port_cap_flags2:
+    cpdef enum ibv_port_cap_flags2:
         IBV_PORT_SET_NODE_DESC_SUP
         IBV_PORT_INFO_EXT_SUP
         IBV_PORT_VIRT_SUP
@@ -75,14 +75,14 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_PORT_LINK_WIDTH_2X_SUP
         IBV_PORT_LINK_SPEED_HDR_SUP
 
-    cdef enum ibv_mtu:
+    cpdef enum ibv_mtu:
         IBV_MTU_256
         IBV_MTU_512
         IBV_MTU_1024
         IBV_MTU_2048
         IBV_MTU_4096
 
-    cdef enum ibv_event_type:
+    cpdef enum ibv_event_type:
         IBV_EVENT_CQ_ERR
         IBV_EVENT_QP_FATAL
         IBV_EVENT_QP_REQ_ERR
@@ -104,7 +104,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_EVENT_GID_CHANGE
         IBV_EVENT_WQ_FATAL
 
-    cdef enum ibv_access_flags:
+    cpdef enum ibv_access_flags:
         IBV_ACCESS_LOCAL_WRITE
         IBV_ACCESS_REMOTE_WRITE
         IBV_ACCESS_REMOTE_READ
@@ -115,19 +115,19 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_ACCESS_HUGETLB
         IBV_ACCESS_RELAXED_ORDERING
 
-    cdef enum ibv_rereg_mr_flags:
+    cpdef enum ibv_rereg_mr_flags:
         IBV_REREG_MR_CHANGE_TRANSLATION
         IBV_REREG_MR_CHANGE_PD
         IBV_REREG_MR_CHANGE_ACCESS
 
-    cdef enum ibv_rereg_mr_err_code:
+    cpdef enum ibv_rereg_mr_err_code:
         IBV_REREG_MR_ERR_INPUT
         IBV_REREG_MR_ERR_DONT_FORK_NEW
         IBV_REREG_MR_ERR_DO_FORK_OLD
         IBV_REREG_MR_ERR_CMD
         IBV_REREG_MR_ERR_CMD_AND_DO_FORK_NEW
 
-    cdef enum ibv_wr_opcode:
+    cpdef enum ibv_wr_opcode:
         IBV_WR_RDMA_WRITE
         IBV_WR_RDMA_WRITE_WITH_IMM
         IBV_WR_SEND
@@ -140,14 +140,14 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_WR_SEND_WITH_INV
         IBV_WR_TSO
 
-    cdef enum ibv_send_flags:
+    cpdef enum ibv_send_flags:
         IBV_SEND_FENCE
         IBV_SEND_SIGNALED
         IBV_SEND_SOLICITED
         IBV_SEND_INLINE
         IBV_SEND_IP_CSUM
 
-    cdef enum ibv_qp_type:
+    cpdef enum ibv_qp_type:
         IBV_QPT_RC
         IBV_QPT_UC
         IBV_QPT_UD
@@ -156,7 +156,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_QPT_XRC_RECV
         IBV_QPT_DRIVER
 
-    cdef enum ibv_qp_state:
+    cpdef enum ibv_qp_state:
         IBV_QPS_RESET
         IBV_QPS_INIT
         IBV_QPS_RTR
@@ -166,11 +166,11 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_QPS_ERR
         IBV_QPS_UNKNOWN
 
-    cdef enum ibv_mw_type:
+    cpdef enum ibv_mw_type:
         IBV_MW_TYPE_1
         IBV_MW_TYPE_2
 
-    cdef enum ibv_wc_status:
+    cpdef enum ibv_wc_status:
         IBV_WC_SUCCESS
         IBV_WC_LOC_LEN_ERR
         IBV_WC_LOC_QP_OP_ERR
@@ -194,7 +194,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_WC_RESP_TIMEOUT_ERR
         IBV_WC_GENERAL_ERR
 
-    cdef enum ibv_wc_opcode:
+    cpdef enum ibv_wc_opcode:
         IBV_WC_SEND
         IBV_WC_RDMA_WRITE
         IBV_WC_RDMA_READ
@@ -208,7 +208,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_WC_DRIVER2
         IBV_WC_DRIVER3
 
-    cdef enum ibv_create_cq_wc_flags:
+    cpdef enum ibv_create_cq_wc_flags:
         IBV_WC_EX_WITH_BYTE_LEN
         IBV_WC_EX_WITH_IMM
         IBV_WC_EX_WITH_QP_NUM
@@ -221,32 +221,32 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_WC_EX_WITH_FLOW_TAG
         IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK
 
-    cdef enum ibv_wc_flags:
+    cpdef enum ibv_wc_flags:
         IBV_WC_GRH
         IBV_WC_WITH_IMM
         IBV_WC_IP_CSUM_OK
         IBV_WC_WITH_INV
 
-    cdef enum ibv_srq_attr_mask:
+    cpdef enum ibv_srq_attr_mask:
         IBV_SRQ_MAX_WR
         IBV_SRQ_LIMIT
 
-    cdef enum ibv_srq_type:
+    cpdef enum ibv_srq_type:
         IBV_SRQT_BASIC
         IBV_SRQT_XRC
 
-    cdef enum ibv_srq_init_attr_mask:
+    cpdef enum ibv_srq_init_attr_mask:
         IBV_SRQ_INIT_ATTR_TYPE
         IBV_SRQ_INIT_ATTR_PD
         IBV_SRQ_INIT_ATTR_XRCD
         IBV_SRQ_INIT_ATTR_CQ
 
-    cdef enum ibv_mig_state:
+    cpdef enum ibv_mig_state:
         IBV_MIG_MIGRATED
         IBV_MIG_REARM
         IBV_MIG_ARMED
 
-    cdef enum ibv_qp_init_attr_mask:
+    cpdef enum ibv_qp_init_attr_mask:
         IBV_QP_INIT_ATTR_PD
         IBV_QP_INIT_ATTR_XRCD
         IBV_QP_INIT_ATTR_CREATE_FLAGS
@@ -255,14 +255,14 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_QP_INIT_ATTR_RX_HASH
         IBV_QP_INIT_ATTR_SEND_OPS_FLAGS
 
-    cdef enum ibv_qp_create_flags:
+    cpdef enum ibv_qp_create_flags:
         IBV_QP_CREATE_BLOCK_SELF_MCAST_LB
         IBV_QP_CREATE_SCATTER_FCS
         IBV_QP_CREATE_CVLAN_STRIPPING
         IBV_QP_CREATE_SOURCE_QPN
         IBV_QP_CREATE_PCI_WRITE_END_PADDING
 
-    cdef enum ibv_qp_attr_mask:
+    cpdef enum ibv_qp_attr_mask:
         IBV_QP_STATE
         IBV_QP_CUR_STATE
         IBV_QP_EN_SQD_ASYNC_NOTIFY
@@ -286,33 +286,33 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_QP_DEST_QPN
         IBV_QP_RATE_LIMIT
 
-    cdef enum ibv_wq_type:
+    cpdef enum ibv_wq_type:
         IBV_WQT_RQ
 
-    cdef enum ibv_wq_init_attr_mask:
+    cpdef enum ibv_wq_init_attr_mask:
         IBV_WQ_INIT_ATTR_FLAGS
 
-    cdef enum ibv_wq_flags:
+    cpdef enum ibv_wq_flags:
         IBV_WQ_FLAGS_CVLAN_STRIPPING
         IBV_WQ_FLAGS_SCATTER_FCS
         IBV_WQ_FLAGS_DELAY_DROP
         IBV_WQ_FLAGS_PCI_WRITE_END_PADDING
 
-    cdef enum ibv_wq_state:
+    cpdef enum ibv_wq_state:
         IBV_WQS_RESET
         IBV_WQS_RDY
         IBV_WQS_ERR
         IBV_WQS_UNKNOWN
 
-    cdef enum ibv_wq_attr_mask:
+    cpdef enum ibv_wq_attr_mask:
         IBV_WQ_ATTR_STATE
         IBV_WQ_ATTR_CURR_STATE
         IBV_WQ_ATTR_FLAGS
 
-    cdef enum ibv_rx_hash_function_flags:
+    cpdef enum ibv_rx_hash_function_flags:
         IBV_RX_HASH_FUNC_TOEPLITZ
 
-    cdef enum ibv_rx_hash_fields:
+    cpdef enum ibv_rx_hash_fields:
         IBV_RX_HASH_SRC_IPV4
         IBV_RX_HASH_DST_IPV4
         IBV_RX_HASH_SRC_IPV6
@@ -322,17 +322,17 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_RX_HASH_SRC_PORT_UDP
         IBV_RX_HASH_DST_PORT_UDP
 
-    cdef enum ibv_flow_flags:
+    cpdef enum ibv_flow_flags:
         IBV_FLOW_ATTR_FLAGS_DONT_TRAP
         IBV_FLOW_ATTR_FLAGS_EGRESS
 
-    cdef enum ibv_flow_attr_type:
+    cpdef enum ibv_flow_attr_type:
         IBV_FLOW_ATTR_NORMAL
         IBV_FLOW_ATTR_ALL_DEFAULT
         IBV_FLOW_ATTR_MC_DEFAULT
         IBV_FLOW_ATTR_SNIFFER
 
-    cdef enum ibv_flow_spec_type:
+    cpdef enum ibv_flow_spec_type:
         IBV_FLOW_SPEC_ETH
         IBV_FLOW_SPEC_IPV4
         IBV_FLOW_SPEC_IPV6
@@ -349,29 +349,29 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_FLOW_SPEC_ACTION_HANDLE
         IBV_FLOW_SPEC_ACTION_COUNT
 
-    cdef enum:
+    cpdef enum:
         IBV_QPF_GRH_REQUIRED
 
-    cdef enum ibv_counter_description:
+    cpdef enum ibv_counter_description:
         IBV_COUNTER_PACKETS
         IBV_COUNTER_BYTES
 
-    cdef enum ibv_read_counters_flags:
+    cpdef enum ibv_read_counters_flags:
         IBV_READ_COUNTERS_ATTR_PREFER_CACHED
 
-    cdef enum ibv_cq_init_attr_mask:
+    cpdef enum ibv_cq_init_attr_mask:
         IBV_CQ_INIT_ATTR_MASK_FLAGS
         IBV_CQ_INIT_ATTR_MASK_PD
 
-    cdef enum ibv_create_cq_attr_flags:
+    cpdef enum ibv_create_cq_attr_flags:
         IBV_CREATE_CQ_ATTR_SINGLE_THREADED
         IBV_CREATE_CQ_ATTR_IGNORE_OVERRUN
 
-    cdef enum ibv_odp_general_caps:
+    cpdef enum ibv_odp_general_caps:
         IBV_ODP_SUPPORT
         IBV_ODP_SUPPORT_IMPLICIT
 
-    cdef enum ibv_odp_transport_cap_bits:
+    cpdef enum ibv_odp_transport_cap_bits:
         IBV_ODP_SUPPORT_SEND
         IBV_ODP_SUPPORT_RECV
         IBV_ODP_SUPPORT_WRITE
@@ -379,7 +379,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_ODP_SUPPORT_ATOMIC
         IBV_ODP_SUPPORT_SRQ_RECV
 
-    cdef enum ibv_device_cap_flags:
+    cpdef enum ibv_device_cap_flags:
         IBV_DEVICE_RESIZE_MAX_WR
         IBV_DEVICE_BAD_PKEY_CNTR
         IBV_DEVICE_BAD_QKEY_CNTR
@@ -405,24 +405,24 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_DEVICE_RAW_IP_CSUM
         IBV_DEVICE_MANAGED_FLOW_STEERING
 
-    cdef enum ibv_raw_packet_caps:
+    cpdef enum ibv_raw_packet_caps:
         IBV_RAW_PACKET_CAP_CVLAN_STRIPPING
         IBV_RAW_PACKET_CAP_SCATTER_FCS
         IBV_RAW_PACKET_CAP_IP_CSUM
         IBV_RAW_PACKET_CAP_DELAY_DROP
 
-    cdef enum ibv_xrcd_init_attr_mask:
+    cpdef enum ibv_xrcd_init_attr_mask:
         IBV_XRCD_INIT_ATTR_FD
         IBV_XRCD_INIT_ATTR_OFLAGS
         IBV_XRCD_INIT_ATTR_RESERVED
 
-    cdef enum:
+    cpdef enum:
         IBV_WC_STANDARD_FLAGS
 
-    cdef enum ibv_values_mask:
+    cpdef enum ibv_values_mask:
         IBV_VALUES_MASK_RAW_CLOCK
 
-    cdef enum ibv_qp_create_send_ops_flags:
+    cpdef enum ibv_qp_create_send_ops_flags:
         IBV_QP_EX_WITH_RDMA_WRITE
         IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM
         IBV_QP_EX_WITH_SEND
@@ -438,18 +438,18 @@ cdef extern from '<infiniband/verbs.h>':
     cdef unsigned long long IBV_DEVICE_RAW_SCATTER_FCS
     cdef unsigned long long IBV_DEVICE_PCI_WRITE_END_PADDING
 
-    cdef enum ibv_parent_domain_init_attr_mask:
+    cpdef enum ibv_parent_domain_init_attr_mask:
         IBV_PARENT_DOMAIN_INIT_ATTR_ALLOCATORS
         IBV_PARENT_DOMAIN_INIT_ATTR_PD_CONTEXT
 
     cdef void *IBV_ALLOCATOR_USE_DEFAULT
 
-    cdef enum ibv_gid_type:
+    cpdef enum ibv_gid_type:
         IBV_GID_TYPE_IB
         IBV_GID_TYPE_ROCE_V1
         IBV_GID_TYPE_ROCE_V2
 
-    cdef enum ibv_fork_status:
+    cpdef enum ibv_fork_status:
         IBV_FORK_DISABLED
         IBV_FORK_ENABLED
         IBV_FORK_UNNEEDED
@@ -472,6 +472,6 @@ _IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT = IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT
 
 
 cdef extern from '<infiniband/driver.h>':
-    cdef enum ibv_gid_type_sysfs:
+    cpdef enum ibv_gid_type_sysfs:
         IBV_GID_TYPE_SYSFS_IB_ROCE_V1
         IBV_GID_TYPE_SYSFS_ROCE_V2

@@ -5,8 +5,8 @@
 
 cdef extern from 'infiniband/efadv.h':
 
-    cdef enum:
+    cpdef enum:
         EFADV_DEVICE_ATTR_CAPS_RDMA_READ
 
-    cdef enum:
+    cpdef enum:
         EFADV_QP_DRIVER_TYPE_SRD
