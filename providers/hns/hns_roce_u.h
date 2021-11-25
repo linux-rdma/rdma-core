@@ -99,8 +99,6 @@
 #define roce_set_bit(origin, shift, val) \
 	roce_set_field((origin), (1ul << (shift)), (shift), (val))
 
-#define hr_ilog32(n)		ilog32((unsigned int)(n) - 1)
-
 enum {
 	HNS_ROCE_QP_TABLE_BITS		= 8,
 	HNS_ROCE_QP_TABLE_SIZE		= 1 << HNS_ROCE_QP_TABLE_BITS,
@@ -320,6 +318,11 @@ struct hns_roce_u_hw {
 static inline unsigned int to_hr_hem_entries_size(int count, int buf_shift)
 {
 	return hr_hw_page_align(count << buf_shift);
+}
+
+static inline unsigned int hr_ilog32(unsigned int count)
+{
+	return ilog32(count - 1);
 }
 
 static inline struct hns_roce_device *to_hr_dev(struct ibv_device *ibv_dev)
