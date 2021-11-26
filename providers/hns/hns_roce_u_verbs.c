@@ -744,12 +744,22 @@ static int check_qp_create_mask(struct hns_roce_context *ctx,
 	return 0;
 }
 
+static int hns_roce_qp_has_rq(struct ibv_qp_init_attr_ex *attr)
+{
+	if (attr->qp_type == IBV_QPT_XRC_SEND ||
+	    attr->qp_type == IBV_QPT_XRC_RECV || attr->srq)
+		return 0;
+
+	return 1;
+}
+
 static int verify_qp_create_cap(struct hns_roce_context *ctx,
 				struct ibv_qp_init_attr_ex *attr)
 {
 	struct hns_roce_device *hr_dev = to_hr_dev(ctx->ibv_ctx.context.device);
 	struct ibv_qp_cap *cap = &attr->cap;
 	uint32_t min_wqe_num;
+	int has_rq;
 
 	if (!cap->max_send_wr && attr->qp_type != IBV_QPT_XRC_RECV)
 		return -EINVAL;
@@ -760,7 +770,8 @@ static int verify_qp_create_cap(struct hns_roce_context *ctx,
 	    cap->max_recv_sge > ctx->max_sge)
 		return -EINVAL;
 
-	if (attr->srq) {
+	has_rq = hns_roce_qp_has_rq(attr);
+	if (!has_rq) {
 		cap->max_recv_wr = 0;
 		cap->max_recv_sge = 0;
 	}
