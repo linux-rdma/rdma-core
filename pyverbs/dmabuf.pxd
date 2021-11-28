@@ -12,4 +12,4 @@ cdef class DmaBuf:
     cdef void *dmabuf
     cdef object dmabuf_mrs
     cdef add_ref(self, obj)
-    cdef close(self)
+    cpdef close(self)
