@@ -180,6 +180,9 @@ struct hns_roce_v2_cqe {
 #define CQE_BYTE_16_LCL_QPN_S 0
 #define CQE_BYTE_16_LCL_QPN_M   (((1UL << 24) - 1) << CQE_BYTE_16_LCL_QPN_S)
 
+#define CQE_BYTE_16_SUB_STATUS_S 24
+#define CQE_BYTE_16_SUB_STATUS_M (((1UL << 8) - 1) << CQE_BYTE_16_SUB_STATUS_S)
+
 #define CQE_BYTE_28_SMAC_S 0
 #define CQE_BYTE_28_SMAC_M   (((1UL << 16) - 1) << CQE_BYTE_28_SMAC_S)
 

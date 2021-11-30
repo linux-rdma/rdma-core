@@ -185,6 +185,9 @@ static void handle_error_cqe(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
 			break;
 		}
 	}
+
+	wc->vendor_err = roce_get_field(cqe->byte_16, CQE_BYTE_16_SUB_STATUS_M,
+					CQE_BYTE_16_SUB_STATUS_S);
 }
 
 static struct hns_roce_v2_cqe *get_cqe_v2(struct hns_roce_cq *cq, int entry)
