@@ -85,6 +85,7 @@ BuildRequires:  pkgconfig(systemd)
 Requires:       kmod
 Requires:       systemd
 Requires:       udev
+Recommends:     rdma-ndd
 
 # SUSE previously shipped rdma as a stand-alone
 # package which we're supplanting here.
