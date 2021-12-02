@@ -186,7 +186,6 @@ Obsoletes:      libcxgb4-rdmav2 < %{version}-%{release}
 Obsoletes:      libefa-rdmav2 < %{version}-%{release}
 Obsoletes:      libhfi1verbs-rdmav2 < %{version}-%{release}
 Obsoletes:      libipathverbs-rdmav2 < %{version}-%{release}
-Obsoletes:      libirdma-rdmav2 < %{version}-%{release}
 Obsoletes:      libmlx4-rdmav2 < %{version}-%{release}
 Obsoletes:      libmlx5-rdmav2 < %{version}-%{release}
 Obsoletes:      libmthca-rdmav2 < %{version}-%{release}
