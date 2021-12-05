@@ -178,7 +178,7 @@ class QPTest(PyverbsAPITestCase):
         self.create_qp_common_test(e.IBV_QPT_RAW_PACKET, e.IBV_QPS_RTS, True, True)
 
     def verify_qp_attrs(self, orig_cap, state, init_attr, attr):
-        self.assertEqual(state, attr.cur_qp_state)
+        self.assertEqual(state, attr.qp_state)
         self.assertLessEqual(orig_cap.max_send_wr, init_attr.cap.max_send_wr)
         self.assertLessEqual(orig_cap.max_recv_wr, init_attr.cap.max_recv_wr)
         self.assertLessEqual(orig_cap.max_send_sge, init_attr.cap.max_send_sge)
