@@ -855,8 +855,6 @@ static int set_ud_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
 	if (!check_inl_data_len(qp, sge_info->total_len))
 		return -EINVAL;
 
-	roce_set_bit(ud_sq_wqe->rsv_opcode, UD_SQ_WQE_BYTE_4_INL_S, 1);
-
 	if (sge_info->total_len <= HNS_ROCE_MAX_UD_INL_INN_SZ) {
 		roce_set_bit(ud_sq_wqe->rsv_msg_start_sge_idx,
 			     UD_SQ_WQE_BYTE_20_INL_TYPE_S, 0);
@@ -972,6 +970,8 @@ static int set_ud_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 		     !!(wr->send_flags & IBV_SEND_SIGNALED));
 	roce_set_bit(ud_sq_wqe->rsv_opcode, UD_SQ_WQE_SE_S,
 		     !!(wr->send_flags & IBV_SEND_SOLICITED));
+	roce_set_bit(ud_sq_wqe->rsv_opcode, UD_SQ_WQE_BYTE_4_INL_S,
+		     !!(wr->send_flags & IBV_SEND_INLINE));
 
 	ret = check_ud_opcode(ud_sq_wqe, wr);
 	if (ret)
@@ -1022,8 +1022,6 @@ static int set_rc_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
 		return EINVAL;
 
 	dseg += sizeof(struct hns_roce_rc_sq_wqe);
-
-	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_INLINE_S, 1);
 
 	if (sge_info->total_len <= HNS_ROCE_MAX_RC_INL_INN_SZ) {
 		roce_set_bit(rc_sq_wqe->byte_20, RC_SQ_WQE_BYTE_20_INL_TYPE_S,
@@ -1129,13 +1127,13 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 		return ret;
 
 	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_CQE_S,
-		     (wr->send_flags & IBV_SEND_SIGNALED) ? 1 : 0);
-
+		     !!(wr->send_flags & IBV_SEND_SIGNALED));
 	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_FENCE_S,
-		     (wr->send_flags & IBV_SEND_FENCE) ? 1 : 0);
-
+		     !!(wr->send_flags & IBV_SEND_FENCE));
 	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_SE_S,
-		     (wr->send_flags & IBV_SEND_SOLICITED) ? 1 : 0);
+		     !!(wr->send_flags & IBV_SEND_SOLICITED));
+	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_INLINE_S,
+		     !!(wr->send_flags & IBV_SEND_INLINE));
 
 	roce_set_field(rc_sq_wqe->byte_20,
 		       RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_M,
