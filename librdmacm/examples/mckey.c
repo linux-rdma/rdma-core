@@ -80,6 +80,7 @@ static int message_size = 100;
 static int message_count = 10;
 static int is_sender;
 static int send_only;
+static int loopback = 1;
 static int unmapped_addr;
 static char *dst_addr;
 static char *src_addr;
@@ -132,7 +133,7 @@ static int verify_test_params(struct cmatest_node *node)
 
 static int init_node(struct cmatest_node *node)
 {
-	struct ibv_qp_init_attr init_qp_attr;
+	struct ibv_qp_init_attr_ex init_qp_attr_ex;
 	int cqe, ret;
 
 	node->pd = ibv_alloc_pd(node->cma_id->verbs);
@@ -150,17 +151,23 @@ static int init_node(struct cmatest_node *node)
 		goto out;
 	}
 
-	memset(&init_qp_attr, 0, sizeof init_qp_attr);
-	init_qp_attr.cap.max_send_wr = message_count ? message_count : 1;
-	init_qp_attr.cap.max_recv_wr = message_count ? message_count : 1;
-	init_qp_attr.cap.max_send_sge = 1;
-	init_qp_attr.cap.max_recv_sge = 1;
-	init_qp_attr.qp_context = node;
-	init_qp_attr.sq_sig_all = 0;
-	init_qp_attr.qp_type = IBV_QPT_UD;
-	init_qp_attr.send_cq = node->cq;
-	init_qp_attr.recv_cq = node->cq;
-	ret = rdma_create_qp(node->cma_id, node->pd, &init_qp_attr);
+	memset(&init_qp_attr_ex, 0, sizeof init_qp_attr_ex);
+	init_qp_attr_ex.cap.max_send_wr = message_count ? message_count : 1;
+	init_qp_attr_ex.cap.max_recv_wr = message_count ? message_count : 1;
+	init_qp_attr_ex.cap.max_send_sge = 1;
+	init_qp_attr_ex.cap.max_recv_sge = 1;
+	init_qp_attr_ex.qp_context = node;
+	init_qp_attr_ex.sq_sig_all = 0;
+	init_qp_attr_ex.qp_type = IBV_QPT_UD;
+	init_qp_attr_ex.send_cq = node->cq;
+	init_qp_attr_ex.recv_cq = node->cq;
+
+	init_qp_attr_ex.comp_mask = IBV_QP_INIT_ATTR_CREATE_FLAGS|IBV_QP_INIT_ATTR_PD;
+	init_qp_attr_ex.pd = node->pd;
+	if (!loopback)
+		init_qp_attr_ex.create_flags = IBV_QP_CREATE_BLOCK_SELF_MCAST_LB;
+
+	ret = rdma_create_qp_ex(node->cma_id, &init_qp_attr_ex);
 	if (ret) {
 		perror("mckey: unable to create QP");
 		goto out;
@@ -566,7 +573,7 @@ int main(int argc, char **argv)
 {
 	int op, ret;
 
-	while ((op = getopt(argc, argv, "m:M:sb:c:C:S:p:o")) != -1) {
+	while ((op = getopt(argc, argv, "m:M:sb:c:C:S:p:ol")) != -1) {
 		switch (op) {
 		case 'm':
 			dst_addr = optarg;
@@ -597,6 +604,9 @@ int main(int argc, char **argv)
 		case 'o':
 			send_only = 1;
 			break;
+		case 'l':
+			loopback = 0;
+			break;
 
 		default:
 			printf("usage: %s\n", argv[0]);
@@ -611,6 +621,7 @@ int main(int argc, char **argv)
 			printf("\t[-p port_space - %#x for UDP (default), "
 			       "%#x for IPOIB]\n", RDMA_PS_UDP, RDMA_PS_IPOIB);
 			printf("\t[-o join as a send-only full-member]\n");
+			printf("\t[-l join without multicast loopback]\n");
 			exit(1);
 		}
 	}
