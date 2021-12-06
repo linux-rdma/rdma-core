@@ -2725,6 +2725,14 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 
 	qelr_print_qp_init_attr(cxt, attrx);
 
+#define QELR_CREATE_QP_SUPP_ATTR_MASK \
+	(IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_XRCD)
+
+	if (!check_comp_mask(attrx->comp_mask, QELR_CREATE_QP_SUPP_ATTR_MASK)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
 	qp = calloc(1, sizeof(*qp));
 	if (!qp)
 		return NULL;
