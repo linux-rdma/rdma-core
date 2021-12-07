@@ -67,6 +67,7 @@ struct rxe_cq {
 struct rxe_ah {
 	struct ibv_ah		ibv_ah;
 	struct rxe_av		av;
+	int			ah_num;
 };
 
 struct rxe_wq {
@@ -88,8 +89,6 @@ struct rxe_qp {
 	uint32_t		cur_index;
 	int			err;
 };
-
-#define qp_type(qp)		((qp)->vqp.qp.qp_type)
 
 struct rxe_srq {
 	struct ibv_srq		ibv_srq;
@@ -128,6 +127,11 @@ static inline struct rxe_srq *to_rsrq(struct ibv_srq *ibsrq)
 static inline struct rxe_ah *to_rah(struct ibv_ah *ibah)
 {
 	return to_rxxx(ah, ah);
+}
+
+static inline enum ibv_qp_type qp_type(struct rxe_qp *qp)
+{
+	return qp->vqp.qp.qp_type;
 }
 
 #endif /* RXE_H */
