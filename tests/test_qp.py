@@ -14,6 +14,7 @@ from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.qp import QPInitAttr, QPAttr, QP
 from tests.base import PyverbsAPITestCase
 import pyverbs.utils as pu
+import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.pd import PD
 from pyverbs.cq import CQ
@@ -177,6 +178,11 @@ class QPTest(PyverbsAPITestCase):
         self.assertLessEqual(orig_cap.max_recv_sge, init_attr.cap.max_recv_sge)
         self.assertLessEqual(orig_cap.max_inline_data, init_attr.cap.max_inline_data)
 
+    def get_node_type(self):
+        for dev in d.get_device_list():
+            if dev.name.decode() == self.ctx.name:
+                return dev.node_type
+
     def query_qp_common_test(self, qp_type):
         with PD(self.ctx) as pd:
             with CQ(self.ctx, 100, None, None, 0) as cq:
@@ -190,14 +196,20 @@ class QPTest(PyverbsAPITestCase):
                 caps = qia.cap
                 qp = self.create_qp(pd, qia, False, False, self.ib_port)
                 qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE | e.IBV_QP_CAP)
-                self.verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr, qp_attr)
+                if self.get_node_type() == e.IBV_NODE_RNIC:
+                    self.verify_qp_attrs(caps, e.IBV_QPS_INIT, qp_init_attr, qp_attr)
+                else:
+                    self.verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr, qp_attr)
 
                 # Extended QP
                 qia = get_qp_init_attr_ex(cq, pd, self.attr, self.attr_ex, qp_type)
                 caps = qia.cap # Save them to verify values later
                 qp = self.create_qp(self.ctx, qia, True, False, self.ib_port)
                 qp_attr, qp_init_attr = qp.query(e.IBV_QP_STATE | e.IBV_QP_CAP)
-                self.verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr, qp_attr)
+                if self.get_node_type() == e.IBV_NODE_RNIC:
+                    self.verify_qp_attrs(caps, e.IBV_QPS_INIT, qp_init_attr, qp_attr)
+                else:
+                    self.verify_qp_attrs(caps, e.IBV_QPS_RESET, qp_init_attr, qp_attr)
 
     def test_query_rc_qp(self):
         """
