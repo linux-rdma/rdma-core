@@ -1070,10 +1070,6 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 
 	memset(rc_sq_wqe, 0, sizeof(struct hns_roce_rc_sq_wqe));
 
-	ret = check_rc_opcode(rc_sq_wqe, wr);
-	if (ret)
-		return ret;
-
 	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_CQE_S,
 		     !!(wr->send_flags & IBV_SEND_SIGNALED));
 	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_FENCE_S,
@@ -1082,6 +1078,11 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 		     !!(wr->send_flags & IBV_SEND_SOLICITED));
 	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_INLINE_S,
 		     !!(wr->send_flags & IBV_SEND_INLINE));
+	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_SO_S, 0);
+
+	ret = check_rc_opcode(rc_sq_wqe, wr);
+	if (ret)
+		return ret;
 
 	roce_set_field(rc_sq_wqe->byte_20,
 		       RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_M,
