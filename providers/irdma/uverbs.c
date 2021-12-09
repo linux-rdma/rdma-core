@@ -213,7 +213,7 @@ int irdma_ubind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 	struct ibv_send_wr *bad_wr;
 	int err;
 
-	if (vmr->mr_type != IBV_MR_TYPE_MR || mw->type != IBV_MW_TYPE_1)
+	if (vmr->mr_type != IBV_MR_TYPE_MR)
 		return ENOTSUP;
 
 	if (umr->acc_flags & IBV_ACCESS_ZERO_BASED)
