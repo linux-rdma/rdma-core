@@ -2634,8 +2634,16 @@ static inline uint32_t ibv_inc_rkey(uint32_t rkey)
 static inline int ibv_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 			      struct ibv_mw_bind *mw_bind)
 {
+	struct ibv_mw_bind_info *bind_info = &mw_bind->bind_info;
+
 	if (mw->type != IBV_MW_TYPE_1)
 		return EINVAL;
+
+	if (!bind_info->mr && (bind_info->addr || bind_info->length))
+		return EINVAL;
+
+	if (bind_info->mr && (mw->pd != bind_info->mr->pd))
+		return EPERM;
 
 	return mw->context->ops.bind_mw(qp, mw, mw_bind);
 }

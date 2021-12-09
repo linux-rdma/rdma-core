@@ -177,21 +177,9 @@ static int rxe_bind_mw(struct ibv_qp *ibqp, struct ibv_mw *ibmw,
 	struct ibv_send_wr ibwr;
 	struct ibv_send_wr *bad_wr;
 
-	if (!bind_info->mr && (bind_info->addr || bind_info->length)) {
-		ret = EINVAL;
-		goto err;
-	}
-
 	if (bind_info->mw_access_flags & IBV_ACCESS_ZERO_BASED) {
 		ret = EINVAL;
 		goto err;
-	}
-
-	if (bind_info->mr) {
-		if (ibmw->pd != bind_info->mr->pd) {
-			ret = EPERM;
-			goto err;
-		}
 	}
 
 	memset(&ibwr, 0, sizeof(ibwr));
