@@ -2873,6 +2873,9 @@ static inline int ibv_poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc 
  */
 static inline int ibv_req_notify_cq(struct ibv_cq *cq, int solicited_only)
 {
+	if (!cq->channel)
+		return EINVAL;
+
 	return cq->context->ops.req_notify_cq(cq, solicited_only);
 }
 
