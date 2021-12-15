@@ -210,8 +210,33 @@ static inline void mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)
 {
 	s390_mmio_write(dest, src, bytecnt);
 }
-#else
 
+#elif defined(__aarch64__) || defined(__arm__)
+#include <arm_neon.h>
+
+static inline void _mmio_memcpy_x64_64b(void *dest, const void *src)
+{
+	vst4q_u64(dest, vld4q_u64(src));
+}
+
+static inline void _mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)
+{
+	do {
+		_mmio_memcpy_x64_64b(dest, src);
+		bytecnt -= sizeof(uint64x2x4_t);
+		src += sizeof(uint64x2x4_t);
+	} while (bytecnt > 0);
+}
+
+#define mmio_memcpy_x64(dest, src, bytecount)                                  \
+	({                                                                     \
+		if (__builtin_constant_p((bytecount) == 64))                   \
+			_mmio_memcpy_x64_64b((dest), (src));                   \
+		else                                                           \
+			_mmio_memcpy_x64((dest), (src), (bytecount));          \
+	})
+
+#else
 /* Transfer is some multiple of 64 bytes */
 static inline void mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)
 {

@@ -1130,7 +1130,8 @@ static int hns_roce_store_qp(struct hns_roce_context *ctx,
 
 static int qp_exec_create_cmd(struct ibv_qp_init_attr_ex *attr,
 			      struct hns_roce_qp *qp,
-			      struct hns_roce_context *ctx)
+			      struct hns_roce_context *ctx,
+			      uint64_t *dwqe_mmap_key)
 {
 	struct hns_roce_create_qp_ex_resp resp_ex = {};
 	struct hns_roce_create_qp_ex cmd_ex = {};
@@ -1147,6 +1148,7 @@ static int qp_exec_create_cmd(struct ibv_qp_init_attr_ex *attr,
 				    &resp_ex.ibv_resp, sizeof(resp_ex));
 
 	qp->flags = resp_ex.drv_payload.cap_flags;
+	*dwqe_mmap_key = resp_ex.drv_payload.dwqe_mmap_key;
 
 	return ret;
 }
@@ -1198,11 +1200,23 @@ static int hns_roce_alloc_qp_buf(struct ibv_qp_init_attr_ex *attr,
 	return ret;
 }
 
+static int mmap_dwqe(struct ibv_context *ibv_ctx, struct hns_roce_qp *qp,
+		     uint64_t dwqe_mmap_key)
+{
+	qp->dwqe_page = mmap(NULL, HNS_ROCE_DWQE_PAGE_SIZE, PROT_WRITE,
+			     MAP_SHARED, ibv_ctx->cmd_fd, dwqe_mmap_key);
+	if (qp->dwqe_page == MAP_FAILED)
+		return -EINVAL;
+
+	return 0;
+}
+
 static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 				struct ibv_qp_init_attr_ex *attr)
 {
 	struct hns_roce_context *context = to_hr_ctx(ibv_ctx);
 	struct hns_roce_qp *qp;
+	uint64_t dwqe_mmap_key;
 	int ret;
 
 	ret = verify_qp_create_attr(context, attr);
@@ -1221,7 +1235,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 	if (ret)
 		goto err_buf;
 
-	ret = qp_exec_create_cmd(attr, qp, context);
+	ret = qp_exec_create_cmd(attr, qp, context, &dwqe_mmap_key);
 	if (ret)
 		goto err_cmd;
 
@@ -1229,10 +1243,18 @@ static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 	if (ret)
 		goto err_store;
 
+	if (qp->flags & HNS_ROCE_QP_CAP_DIRECT_WQE) {
+		ret = mmap_dwqe(ibv_ctx, qp, dwqe_mmap_key);
+		if (ret)
+			goto err_dwqe;
+	}
+
 	qp_setup_config(attr, qp, context);
 
 	return &qp->verbs_qp.qp;
 
+err_dwqe:
+	hns_roce_v2_clear_qp(context, qp);
 err_store:
 	ibv_cmd_destroy_qp(&qp->verbs_qp.qp);
 err_cmd:

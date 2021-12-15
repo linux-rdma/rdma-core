@@ -33,6 +33,7 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
+#include <sys/mman.h>
 #include "hns_roce_u.h"
 #include "hns_roce_u_db.h"
 #include "hns_roce_u_hw_v2.h"
@@ -299,18 +300,38 @@ static void hns_roce_update_rq_db(struct hns_roce_context *ctx,
 }
 
 static void hns_roce_update_sq_db(struct hns_roce_context *ctx,
-				  unsigned int qpn, unsigned int sl,
-				  unsigned int sq_head)
+				  struct hns_roce_qp *qp)
 {
 	struct hns_roce_db sq_db = {};
 
-	sq_db.byte_4 = htole32(qpn);
+	sq_db.byte_4 = htole32(qp->verbs_qp.qp.qp_num);
 	roce_set_field(sq_db.byte_4, DB_BYTE_4_CMD_M, DB_BYTE_4_CMD_S,
 		       HNS_ROCE_V2_SQ_DB);
-	sq_db.parameter = htole32(sq_head);
-	roce_set_field(sq_db.parameter, DB_PARAM_SL_M, DB_PARAM_SL_S, sl);
+	sq_db.parameter = htole32(qp->sq.head);
+	roce_set_field(sq_db.parameter, DB_PARAM_SL_M, DB_PARAM_SL_S, qp->sl);
 
 	hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET, (__le32 *)&sq_db);
+}
+
+static void hns_roce_write512(uint64_t *dest, uint64_t *val)
+{
+	mmio_memcpy_x64(dest, val, sizeof(struct hns_roce_rc_sq_wqe));
+}
+
+static void hns_roce_write_dwqe(struct hns_roce_qp *qp, void *wqe)
+{
+	struct hns_roce_rc_sq_wqe *rc_sq_wqe = wqe;
+
+	/* All kinds of DirectWQE have the same header field layout */
+	roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_FLAG_S, 1);
+	roce_set_field(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_DB_SL_L_M,
+		       RC_SQ_WQE_BYTE_4_DB_SL_L_S, qp->sl);
+	roce_set_field(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_DB_SL_H_M,
+		       RC_SQ_WQE_BYTE_4_DB_SL_H_S, qp->sl >> HNS_ROCE_SL_SHIFT);
+	roce_set_field(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_WQE_INDEX_M,
+		       RC_SQ_WQE_BYTE_4_WQE_INDEX_S, qp->sq.head);
+
+	hns_roce_write512(qp->dwqe_page, wqe);
 }
 
 static void update_cq_db(struct hns_roce_context *ctx, struct hns_roce_cq *cq)
@@ -340,8 +361,7 @@ static struct hns_roce_qp *hns_roce_v2_find_qp(struct hns_roce_context *ctx,
 		return NULL;
 }
 
-static void hns_roce_v2_clear_qp(struct hns_roce_context *ctx,
-				 struct hns_roce_qp *qp)
+void hns_roce_v2_clear_qp(struct hns_roce_context *ctx, struct hns_roce_qp *qp)
 {
 	uint32_t qpn = qp->verbs_qp.qp.qp_num;
 	uint32_t tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
@@ -1232,6 +1252,7 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 			break;
 		case IBV_QPT_UD:
 			ret = set_ud_wqe(wqe, qp, wr, nreq, &sge_info);
+			qp->sl = to_hr_ah(wr->wr.ud.ah)->av.sl;
 			break;
 		default:
 			ret = EINVAL;
@@ -1250,7 +1271,10 @@ out:
 
 		udma_to_device_barrier();
 
-		hns_roce_update_sq_db(ctx, ibvqp->qp_num, qp->sl, qp->sq.head);
+		if (nreq == 1 && (qp->flags & HNS_ROCE_QP_CAP_DIRECT_WQE))
+			hns_roce_write_dwqe(qp, wqe);
+		else
+			hns_roce_update_sq_db(ctx, qp);
 
 		if (qp->flags & HNS_ROCE_QP_CAP_SQ_RECORD_DB)
 			*(qp->sdb) = qp->sq.head & 0xffff;
@@ -1541,6 +1565,9 @@ static int hns_roce_u_v2_destroy_qp(struct ibv_qp *ibqp)
 	ret = ibv_cmd_destroy_qp(ibqp);
 	if (ret)
 		return ret;
+
+	if (qp->flags & HNS_ROCE_QP_CAP_DIRECT_WQE)
+		munmap(qp->dwqe_page, HNS_ROCE_DWQE_PAGE_SIZE);
 
 	hns_roce_v2_clear_qp(ctx, qp);
 

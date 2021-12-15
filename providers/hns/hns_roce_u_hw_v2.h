@@ -43,6 +43,8 @@ enum {
 
 #define HNS_ROCE_CMDSN_MASK			0x3
 
+#define HNS_ROCE_SL_SHIFT 2
+
 /* V2 REG DEFINITION */
 #define ROCEE_VF_DB_CFG0_OFFSET			0x0230
 
@@ -131,6 +133,8 @@ struct hns_roce_db {
 #define DB_BYTE_4_CMD_S 24
 #define DB_BYTE_4_CMD_M GENMASK(27, 24)
 
+#define DB_BYTE_4_FLAG_S 31
+
 #define DB_PARAM_SRQ_PRODUCER_COUNTER_S 0
 #define DB_PARAM_SRQ_PRODUCER_COUNTER_M GENMASK(15, 0)
 
@@ -217,8 +221,16 @@ struct hns_roce_rc_sq_wqe {
 };
 
 #define RC_SQ_WQE_BYTE_4_OPCODE_S 0
-#define RC_SQ_WQE_BYTE_4_OPCODE_M \
-	(((1UL << 5) - 1) << RC_SQ_WQE_BYTE_4_OPCODE_S)
+#define RC_SQ_WQE_BYTE_4_OPCODE_M GENMASK(4, 0)
+
+#define RC_SQ_WQE_BYTE_4_DB_SL_L_S 5
+#define RC_SQ_WQE_BYTE_4_DB_SL_L_M GENMASK(6, 5)
+
+#define RC_SQ_WQE_BYTE_4_DB_SL_H_S 13
+#define RC_SQ_WQE_BYTE_4_DB_SL_H_M GENMASK(14, 13)
+
+#define RC_SQ_WQE_BYTE_4_WQE_INDEX_S 15
+#define RC_SQ_WQE_BYTE_4_WQE_INDEX_M GENMASK(30, 15)
 
 #define RC_SQ_WQE_BYTE_4_OWNER_S 7
 
@@ -239,6 +251,8 @@ struct hns_roce_rc_sq_wqe {
 #define RC_SQ_WQE_BYTE_4_RDMA_READ_S 21
 
 #define RC_SQ_WQE_BYTE_4_RDMA_WRITE_S 22
+
+#define RC_SQ_WQE_BYTE_4_FLAG_S 31
 
 #define RC_SQ_WQE_BYTE_16_XRC_SRQN_S 0
 #define RC_SQ_WQE_BYTE_16_XRC_SRQN_M \
@@ -312,22 +326,11 @@ struct hns_roce_ud_sq_wqe {
 #define UD_SQ_WQE_OPCODE_S 0
 #define UD_SQ_WQE_OPCODE_M GENMASK(4, 0)
 
-#define UD_SQ_WQE_DB_SL_L_S 5
-#define UD_SQ_WQE_DB_SL_L_M GENMASK(6, 5)
-
-#define UD_SQ_WQE_DB_SL_H_S 13
-#define UD_SQ_WQE_DB_SL_H_M GENMASK(14, 13)
-
-#define UD_SQ_WQE_INDEX_S 15
-#define UD_SQ_WQE_INDEX_M GENMASK(30, 15)
-
 #define UD_SQ_WQE_OWNER_S 7
 
 #define UD_SQ_WQE_CQE_S 8
 
 #define UD_SQ_WQE_SE_S 11
-
-#define UD_SQ_WQE_FLAG_S 31
 
 #define UD_SQ_WQE_PD_S 0
 #define UD_SQ_WQE_PD_M GENMASK(23, 0)
@@ -376,5 +379,7 @@ struct hns_roce_ud_sq_wqe {
 #define UD_SQ_WQE_BYTE_24_INL_DATA_63_48_M GENMASK(15, 0)
 
 #define MAX_SERVICE_LEVEL 0x7
+
+void hns_roce_v2_clear_qp(struct hns_roce_context *ctx, struct hns_roce_qp *qp);
 
 #endif /* _HNS_ROCE_U_HW_V2_H */
