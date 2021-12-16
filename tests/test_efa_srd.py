@@ -71,3 +71,13 @@ class QPSRDTestCase(EfaRDMATestCase):
         self.server.msg_size = 0
         u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port,
                   new_send=True, send_op=send_op)
+
+    def test_post_receive_qp_state_bad_flow(self):
+        send_op = e.IBV_QP_EX_WITH_SEND
+        self.create_players(send_op, qp_count=1)
+        u.post_rq_state_bad_flow(self)
+
+    def test_post_send_qp_state_bad_flow(self):
+        send_op = e.IBV_QP_EX_WITH_SEND
+        self.create_players(send_op, qp_count=1)
+        u.post_sq_state_bad_flow(self)

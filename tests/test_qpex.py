@@ -182,6 +182,8 @@ class QpExTestCase(RDMATestCase):
             raise ex
         client.pre_run(server.psns, server.qps_num)
         server.pre_run(client.psns, client.qps_num)
+        self.client = client
+        self.server = server
         return client, server
 
     def test_qp_ex_ud_send(self):
@@ -315,3 +317,10 @@ class QpExTestCase(RDMATestCase):
             if ex.error_code != e.IBV_WC_REM_ACCESS_ERR:
                 raise ex
 
+    def test_post_receive_qp_state_bad_flow(self):
+        self.create_players(qp_type='ud_send')
+        u.post_rq_state_bad_flow(self)
+
+    def test_post_send_qp_state_bad_flow(self):
+        self.create_players(qp_type='ud_send')
+        u.post_sq_state_bad_flow(self)

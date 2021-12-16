@@ -20,7 +20,7 @@ from pyverbs.addr import AHAttr, AH, GlobalRoute
 from tests.base import XRCResources, DCT_KEY
 from tests.efa_base import SRDResources
 from pyverbs.wr import SGE, SendWR, RecvWR
-from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx
+from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx, QPAttr
 from tests.mlx5_base import Mlx5DcResources, Mlx5DcStreamsRes
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.cq import PollCqAttr, CQEX
@@ -1227,3 +1227,38 @@ def is_datagram_qp(agr_obj):
 
 def is_root():
     return os.geteuid() == 0
+
+
+def post_rq_state_bad_flow(test_obj):
+    """
+    Check post_recive on rq while qp is in invalid state.
+    - Change qp's state to IBV_QPS_RESET
+    - Verify post receive on qp fails
+    :param test_obj: An instance of RDMATestCase
+    :return: None.
+    """
+    qp_attr = QPAttr(qp_state=e.IBV_QPS_RESET, cur_qp_state=e.IBV_QPS_RTS)
+    test_obj.server.qps[0].modify(qp_attr, e.IBV_QP_STATE)
+    recv_wr = get_recv_wr(test_obj.server)
+    with test_obj.assertRaises(PyverbsRDMAError) as ex:
+        post_recv(test_obj.server, recv_wr, qp_idx=0)
+    test_obj.assertEqual(ex.exception.error_code, errno.EINVAL)
+
+
+def post_sq_state_bad_flow(test_obj):
+    """
+    Check post_send on sq while qp is in invalid state.
+    - Change qp's state to IBV_QPS_RESET
+    - Verify post send on qp fails
+    :param test_obj: An instance of RDMATestCase
+    :return: None.
+    """
+    qp_idx = 0
+    qp_attr = QPAttr(qp_state=e.IBV_QPS_RESET, cur_qp_state=e.IBV_QPS_RTS)
+    test_obj.client.qps[qp_idx].modify(qp_attr, e.IBV_QP_STATE)
+    ah = get_global_ah(test_obj.client, test_obj.gid_index, test_obj.ib_port)
+    _, sg = get_send_elements(test_obj.client, False)
+    with test_obj.assertRaises(PyverbsRDMAError) as ex:
+        send(test_obj.client, sg, e.IBV_QP_EX_WITH_SEND, new_send=True,
+             qp_idx=qp_idx, ah=ah)
+    test_obj.assertEqual(ex.exception.error_code, errno.EINVAL)
