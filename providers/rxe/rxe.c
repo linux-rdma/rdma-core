@@ -1528,7 +1528,8 @@ static int post_one_send(struct rxe_qp *qp, struct rxe_wq *sq,
 
 	err = validate_send_wr(qp, ibwr, length);
 	if (err) {
-		printf("validate send failed\n");
+		verbs_err(verbs_get_ctx(qp->vqp.qp.context),
+			  "validate send failed\n");
 		return err;
 	}
 
