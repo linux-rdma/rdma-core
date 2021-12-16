@@ -922,6 +922,31 @@ static void wr_rdma_write(struct ibv_qp_ex *ibqp, uint32_t rkey,
 	advance_qp_cur_index(qp);
 }
 
+static void wr_flush(struct ibv_qp_ex *ibqp, uint32_t rkey,
+		     uint64_t remote_addr, size_t length,
+		     uint8_t type, uint8_t level)
+{
+	struct rxe_qp *qp = container_of(ibqp, struct rxe_qp, vqp.qp_ex);
+	struct rxe_send_wqe *wqe = addr_from_index(qp->sq.queue, qp->cur_index);
+
+	if (check_qp_queue_full(qp))
+		return;
+
+	memset(wqe, 0, sizeof(*wqe));
+
+	wqe->wr.wr_id = qp->vqp.qp_ex.wr_id;
+	wqe->wr.opcode = IBV_WR_FLUSH;
+	wqe->wr.send_flags = qp->vqp.qp_ex.wr_flags;
+	wqe->wr.wr.flush.remote_addr = remote_addr;
+	wqe->wr.wr.flush.rkey = rkey;
+	wqe->wr.wr.flush.type = type;
+	wqe->wr.wr.flush.level = level;
+	wqe->iova = remote_addr;
+	wqe->ssn = qp->ssn++;
+
+	advance_qp_cur_index(qp);
+}
+
 static void wr_atomic_write(struct ibv_qp_ex *ibqp, uint32_t rkey,
 			    uint64_t remote_addr, const void *atomic_wr)
 {
@@ -1266,7 +1291,7 @@ enum {
 		IBV_QP_EX_WITH_RDMA_READ | IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP |
 		IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD | IBV_QP_EX_WITH_LOCAL_INV |
 		IBV_QP_EX_WITH_BIND_MW | IBV_QP_EX_WITH_SEND_WITH_INV |
-		IBV_QP_EX_WITH_ATOMIC_WRITE,
+		IBV_QP_EX_WITH_FLUSH | IBV_QP_EX_WITH_ATOMIC_WRITE,
 
 	RXE_SUP_UC_QP_SEND_OPS_FLAGS =
 		IBV_QP_EX_WITH_RDMA_WRITE | IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM |
@@ -1333,6 +1358,9 @@ static void set_qp_send_ops(struct rxe_qp *qp, uint64_t flags)
 
 	if (flags & IBV_QP_EX_WITH_RDMA_WRITE)
 		qp->vqp.qp_ex.wr_rdma_write = wr_rdma_write;
+
+	if (flags & IBV_QP_EX_WITH_FLUSH)
+		qp->vqp.qp_ex.wr_flush = wr_flush;
 
 	if (flags & IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM)
 		qp->vqp.qp_ex.wr_rdma_write_imm = wr_rdma_write_imm;
