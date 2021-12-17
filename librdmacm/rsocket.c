@@ -1345,6 +1345,10 @@ int raccept(int socket, struct sockaddr *addr, socklen_t *addrlen)
 
 	if (addr && addrlen)
 		rgetpeername(new_rs->index, addr, addrlen);
+	/* The app can still drive the CM state on failure */
+	int save_errno = errno;
+	rs_notify_svc(&connect_svc, new_rs, RS_SVC_ADD_CM);
+	errno = save_errno;
 	return new_rs->index;
 }
 
