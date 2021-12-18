@@ -81,6 +81,8 @@
 
 #define INVALID_SGE_LENGTH 0x80000000
 
+#define HNS_ROCE_DWQE_PAGE_SIZE 65536
+
 #define HNS_ROCE_ADDRESS_MASK 0xFFFFFFFF
 #define HNS_ROCE_ADDRESS_SHIFT 32
 
@@ -278,13 +280,14 @@ struct hns_roce_qp {
 	struct hns_roce_sge_ex		ex_sge;
 	unsigned int			next_sge;
 	int				port_num;
-	int				sl;
+	uint8_t				sl;
 	unsigned int			qkey;
 	enum ibv_mtu			path_mtu;
 
 	struct hns_roce_rinl_buf	rq_rinl_buf;
 	unsigned long			flags;
 	int				refcnt; /* specially used for XRC */
+	void				*dwqe_page;
 };
 
 struct hns_roce_av {
