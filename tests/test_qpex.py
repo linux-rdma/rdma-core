@@ -328,3 +328,7 @@ class QpExTestCase(RDMATestCase):
     def test_full_rq_bad_flow(self):
         self.create_players(qp_type='ud_send')
         u.full_rq_bad_flow(self)
+
+    def test_rq_with_larger_sgl_bad_flow(self):
+        self.create_players(qp_type='ud_send')
+        u.create_rq_with_larger_sgl_bad_flow(self)

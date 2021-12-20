@@ -108,3 +108,8 @@ class QPSRDTestCase(EfaRDMATestCase):
         send_op = e.IBV_QP_EX_WITH_SEND
         self.create_players(send_op, qp_count=1)
         self.full_sq_bad_flow()
+
+    def test_rq_with_larger_sgl_bad_flow(self):
+        send_op = e.IBV_QP_EX_WITH_SEND
+        self.create_players(send_op, qp_count=1)
+        u.create_rq_with_larger_sgl_bad_flow(self)
