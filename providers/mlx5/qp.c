@@ -871,6 +871,7 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 		seg += sizeof *ctrl;
 		size = sizeof *ctrl / 16;
+		qp->sq.wr_data[idx] = 0;
 
 		switch (ibqp->qp_type) {
 		case IBV_QPT_XRC_SEND:
@@ -1249,6 +1250,8 @@ static inline void _common_wqe_init_op(struct ibv_qp_ex *ibqp,
 		mqp->sq.wr_data[idx] = IBV_WC_LOCAL_INV;
 	else if (ib_op == IBV_WR_DRIVER1)
 		mqp->sq.wr_data[idx] = IBV_WC_DRIVER1;
+	else
+		mqp->sq.wr_data[idx] = 0;
 
 	ctrl = mlx5_get_send_wqe(mqp, idx);
 	*(uint32_t *)((void *)ctrl + 8) = 0;
