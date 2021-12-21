@@ -237,6 +237,7 @@ struct hns_roce_wq {
 	unsigned int			wqe_shift;
 	unsigned int			shift; /* wq size is 2^shift */
 	int				offset;
+	void				*db_reg;
 };
 
 /* record the result of sge process */
