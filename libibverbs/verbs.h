@@ -418,6 +418,7 @@ enum ibv_port_cap_flags2 {
 	IBV_PORT_SWITCH_PORT_STATE_TABLE_SUP	= 1 << 3,
 	IBV_PORT_LINK_WIDTH_2X_SUP		= 1 << 4,
 	IBV_PORT_LINK_SPEED_HDR_SUP		= 1 << 5,
+	IBV_PORT_LINK_SPEED_NDR_SUP		= 1 << 10,
 };
 
 struct ibv_port_attr {
@@ -721,6 +722,8 @@ enum ibv_rate {
 	IBV_RATE_50_GBPS  = 20,
 	IBV_RATE_400_GBPS = 21,
 	IBV_RATE_600_GBPS = 22,
+	IBV_RATE_800_GBPS = 23,
+	IBV_RATE_1200_GBPS = 24,
 };
 
 /**
