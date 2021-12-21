@@ -749,6 +749,7 @@ typedef struct {
 #define IB_PORT_CAP2_IS_SWITCH_PORT_STATE_TBL_SUPP htobe16(0x0008)
 #define IB_PORT_CAP2_IS_LINK_WIDTH_2X_SUPPORTED htobe16(0x0010)
 #define IB_PORT_CAP2_IS_LINK_SPEED_HDR_SUPPORTED htobe16(0x0020)
+#define IB_PORT_CAP2_IS_LINK_SPEED_NDR_SUPPORTED htobe16(0x0400)
 typedef struct {
 	__be32 cap_mask;
 	__be16 fec_mode_active;
@@ -803,6 +804,8 @@ typedef struct {
 #define IB_PATH_RECORD_RATE_50_GBS 20
 #define IB_PATH_RECORD_RATE_400_GBS 21
 #define IB_PATH_RECORD_RATE_600_GBS 22
+#define IB_PATH_RECORD_RATE_800_GBS 23
+#define IB_PATH_RECORD_RATE_1200_GBS 24
 #define FDR10 0x01
 typedef struct {
 	uint8_t resvd1[3];

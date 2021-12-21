@@ -353,7 +353,13 @@ static void validate_speed(int peerspeed, int lsa)
 
 static void validate_extended_speed(int peerespeed, int lsea)
 {
-	if ((espeed & peerespeed & 0x4)) {
+
+	if ((espeed & peerespeed & 0x8)) {
+		if (lsea != 8)
+			IBWARN
+			    ("Peer ports operating at active extended speed %d rather than 8 (106.25 Gbps)",
+			     lsea);
+	} else if ((espeed & peerespeed & 0x4)) {
 		if (lsea != 4)
 			IBWARN
 			    ("Peer ports operating at active extended speed %d rather than 4 (53.125 Gbps)",
