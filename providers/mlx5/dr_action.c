@@ -1353,8 +1353,6 @@ out_err:
 	return errno;
 }
 
-#define ACTION_CACHE_LINE_SIZE 64
-
 static int
 dr_action_create_reformat_action(struct mlx5dv_dr_domain *dmn,
 				 size_t data_sz, void *data,

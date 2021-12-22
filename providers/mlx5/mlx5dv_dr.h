@@ -57,6 +57,7 @@
 #define DR_STE_MAX_FLEX_0_ID	3
 #define DR_STE_MAX_FLEX_1_ID	7
 #define DR_VPORTS_BUCKETS	256
+#define ACTION_CACHE_LINE_SIZE	64
 
 #define dr_dbg(dmn, arg...) dr_dbg_ctx((dmn)->ctx, ##arg)
 
@@ -193,6 +194,7 @@ struct dr_rule_rx_tx;
 struct dr_matcher_rx_tx;
 struct dr_ste_ctx;
 struct dr_ptrn_mngr;
+struct dr_ptrn_obj;
 
 struct dr_data_seg {
 	uint64_t	addr;
@@ -1190,6 +1192,12 @@ struct dr_rewrite_param {
 	uint32_t index;
 };
 
+struct dr_ptrn_obj {
+	struct dr_rewrite_param rewrite_param;
+	atomic_int refcount;
+	struct list_node list;
+};
+
 struct mlx5dv_dr_action {
 	enum dr_action_type		action_type;
 	atomic_int			refcount;
@@ -1204,6 +1212,9 @@ struct mlx5dv_dr_action {
 					uint8_t			single_action_opt:1;
 					uint8_t			allow_rx:1;
 					uint8_t			allow_tx:1;
+					struct {
+						struct dr_ptrn_obj *ptrn;
+					} ptrn_arg;
 				};
 			};
 		} rewrite;
@@ -1638,6 +1649,11 @@ int dr_send_postsend_formated_htbl(struct mlx5dv_dr_domain *dmn,
 				   uint8_t send_ring_idx);
 int dr_send_postsend_action(struct mlx5dv_dr_domain *dmn,
 			    struct mlx5dv_dr_action *action);
+int dr_send_postsend_pattern(struct mlx5dv_dr_domain *dmn,
+			     struct dr_icm_chunk *chunk,
+			     uint16_t num_of_actions,
+			     uint8_t *data);
+
 /* buddy functions & structure */
 struct dr_icm_mr;
 
@@ -1672,6 +1688,12 @@ bool dr_domain_is_support_modify_hdr_cache(struct mlx5dv_dr_domain *dmn);
 struct dr_ptrn_mngr *
 dr_ptrn_mngr_create(struct mlx5dv_dr_domain *dmn);
 void dr_ptrn_mngr_destroy(struct dr_ptrn_mngr *mngr);
+struct dr_ptrn_obj *
+dr_ptrn_cache_get_pattern(struct dr_ptrn_mngr *mngr,
+			  uint16_t num_of_actions,
+			  uint8_t *data);
+void dr_ptrn_cache_put_pattern(struct dr_ptrn_mngr *mngr,
+			       struct dr_ptrn_obj *pattern);
 
 int dr_buddy_init(struct dr_icm_buddy_mem *buddy, uint32_t max_order);
 void dr_buddy_cleanup(struct dr_icm_buddy_mem *buddy);

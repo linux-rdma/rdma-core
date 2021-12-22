@@ -871,6 +871,36 @@ int dr_send_postsend_action(struct mlx5dv_dr_domain *dmn,
 	return 0;
 }
 
+int dr_send_postsend_pattern(struct mlx5dv_dr_domain *dmn,
+			     struct dr_icm_chunk *chunk,
+			     uint16_t num_of_actions,
+			     uint8_t *data)
+{
+	struct postsend_info send_info = {};
+	int num_qps;
+	int i, ret;
+
+	num_qps = dmn->info.use_mqs ? DR_MAX_SEND_RINGS : 1;
+
+	send_info.write.addr = (uintptr_t)data;
+	send_info.write.length = num_of_actions * DR_MODIFY_ACTION_SIZE;
+	send_info.remote_addr = chunk->mr_addr;
+	send_info.rkey = chunk->rkey;
+
+	/* To avoid race between action creation and its use in other QP
+	 * write it in all QP's.
+	 */
+	for (i = 0; i < num_qps; i++) {
+		ret = dr_postsend_icm_data(dmn, &send_info, i);
+		if (ret) {
+			errno = ret;
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 bool dr_send_allow_fl(struct dr_devx_caps *caps)
 {
 	return ((caps->roce_caps.roce_en &&
