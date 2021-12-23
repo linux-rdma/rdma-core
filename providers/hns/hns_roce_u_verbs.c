@@ -1171,6 +1171,11 @@ static void qp_setup_config(struct ibv_qp_init_attr_ex *attr,
 	}
 
 	qp->max_inline_data = attr->cap.max_inline_data;
+
+	if (qp->flags & HNS_ROCE_QP_CAP_DIRECT_WQE)
+		qp->sq.db_reg = qp->dwqe_page;
+	else
+		qp->sq.db_reg = ctx->uar + ROCEE_VF_DB_CFG0_OFFSET;
 }
 
 void hns_roce_free_qp_buf(struct hns_roce_qp *qp, struct hns_roce_context *ctx)

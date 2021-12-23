@@ -310,7 +310,7 @@ static void hns_roce_update_sq_db(struct hns_roce_context *ctx,
 	sq_db.parameter = htole32(qp->sq.head);
 	roce_set_field(sq_db.parameter, DB_PARAM_SL_M, DB_PARAM_SL_S, qp->sl);
 
-	hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET, (__le32 *)&sq_db);
+	hns_roce_write64(qp->sq.db_reg, (__le32 *)&sq_db);
 }
 
 static void hns_roce_write512(uint64_t *dest, uint64_t *val)
@@ -331,7 +331,7 @@ static void hns_roce_write_dwqe(struct hns_roce_qp *qp, void *wqe)
 	roce_set_field(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_WQE_INDEX_M,
 		       RC_SQ_WQE_BYTE_4_WQE_INDEX_S, qp->sq.head);
 
-	hns_roce_write512(qp->dwqe_page, wqe);
+	hns_roce_write512(qp->sq.db_reg, wqe);
 }
 
 static void update_cq_db(struct hns_roce_context *ctx, struct hns_roce_cq *cq)
