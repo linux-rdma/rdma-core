@@ -20,6 +20,7 @@ set(C_FILES
 if (HAVE_COHERENT_DMA)
   publish_internal_headers(util
     mmio.h
+    s390_mmio_insn.h
     udma_barrier.h
     )
 
