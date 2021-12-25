@@ -289,10 +289,9 @@ static void hns_roce_update_rq_db(struct hns_roce_context *ctx,
 {
 	struct hns_roce_db rq_db = {};
 
-	rq_db.byte_4 = htole32(qpn);
-	roce_set_field(rq_db.byte_4, DB_BYTE_4_CMD_M, DB_BYTE_4_CMD_S,
-		       HNS_ROCE_V2_RQ_DB);
-	rq_db.parameter = htole32(rq_head);
+	hr_reg_write(&rq_db, DB_TAG, qpn);
+	hr_reg_write(&rq_db, DB_CMD, HNS_ROCE_V2_RQ_DB);
+	hr_reg_write(&rq_db, DB_PI, rq_head);
 
 	hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET, (__le32 *)&rq_db);
 }
@@ -302,11 +301,10 @@ static void hns_roce_update_sq_db(struct hns_roce_context *ctx,
 {
 	struct hns_roce_db sq_db = {};
 
-	sq_db.byte_4 = htole32(qp->verbs_qp.qp.qp_num);
-	roce_set_field(sq_db.byte_4, DB_BYTE_4_CMD_M, DB_BYTE_4_CMD_S,
-		       HNS_ROCE_V2_SQ_DB);
-	sq_db.parameter = htole32(qp->sq.head);
-	roce_set_field(sq_db.parameter, DB_PARAM_SL_M, DB_PARAM_SL_S, qp->sl);
+	hr_reg_write(&sq_db, DB_TAG, qp->verbs_qp.qp.qp_num);
+	hr_reg_write(&sq_db, DB_CMD, HNS_ROCE_V2_SQ_DB);
+	hr_reg_write(&sq_db, DB_PI, qp->sq.head);
+	hr_reg_write(&sq_db, DB_SL, qp->sl);
 
 	hns_roce_write64(qp->sq.db_reg, (__le32 *)&sq_db);
 }
@@ -336,14 +334,10 @@ static void update_cq_db(struct hns_roce_context *ctx, struct hns_roce_cq *cq)
 {
 	struct hns_roce_db cq_db = {};
 
-	roce_set_field(cq_db.byte_4, DB_BYTE_4_TAG_M, DB_BYTE_4_TAG_S, cq->cqn);
-	roce_set_field(cq_db.byte_4, DB_BYTE_4_CMD_M, DB_BYTE_4_CMD_S,
-		       HNS_ROCE_V2_CQ_DB_PTR);
-
-	roce_set_field(cq_db.parameter, DB_PARAM_CQ_CONSUMER_IDX_M,
-		       DB_PARAM_CQ_CONSUMER_IDX_S, cq->cons_index);
-	roce_set_field(cq_db.parameter, DB_PARAM_CQ_CMD_SN_M,
-		       DB_PARAM_CQ_CMD_SN_S, 1);
+	hr_reg_write(&cq_db, DB_TAG, cq->cqn);
+	hr_reg_write(&cq_db, DB_CMD, HNS_ROCE_V2_CQ_DB_PTR);
+	hr_reg_write(&cq_db, DB_CQ_CI, cq->cons_index);
+	hr_reg_write(&cq_db, DB_CQ_CMD_SN, 1);
 
 	hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET, (__le32 *)&cq_db);
 }
@@ -653,7 +647,7 @@ static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 
 	if (npolled || err == V2_CQ_POLL_ERR) {
 		if (cq->flags & HNS_ROCE_CQ_FLAG_RECORD_DB)
-			*cq->db = cq->cons_index & DB_PARAM_CQ_CONSUMER_IDX_M;
+			*cq->db = cq->cons_index & RECORD_DB_CI_MASK;
 		else
 			update_cq_db(ctx, cq);
 	}
@@ -669,24 +663,17 @@ static int hns_roce_u_v2_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	struct hns_roce_cq *cq = to_hr_cq(ibvcq);
 	struct hns_roce_db cq_db = {};
 	uint32_t solicited_flag;
-	uint32_t cmd_sn;
 	uint32_t ci;
 
 	ci = cq->cons_index & ((cq->cq_depth << 1) - 1);
-	cmd_sn = cq->arm_sn & HNS_ROCE_CMDSN_MASK;
 	solicited_flag = solicited ? HNS_ROCE_V2_CQ_DB_REQ_SOL :
 				     HNS_ROCE_V2_CQ_DB_REQ_NEXT;
 
-	roce_set_field(cq_db.byte_4, DB_BYTE_4_TAG_M, DB_BYTE_4_TAG_S, cq->cqn);
-	roce_set_field(cq_db.byte_4, DB_BYTE_4_CMD_M, DB_BYTE_4_CMD_S,
-		       HNS_ROCE_V2_CQ_DB_NTR);
-
-	roce_set_field(cq_db.parameter, DB_PARAM_CQ_CONSUMER_IDX_M,
-		       DB_PARAM_CQ_CONSUMER_IDX_S, ci);
-
-	roce_set_field(cq_db.parameter, DB_PARAM_CQ_CMD_SN_M,
-		       DB_PARAM_CQ_CMD_SN_S, cmd_sn);
-	roce_set_bit(cq_db.parameter, DB_PARAM_CQ_NOTIFY_S, solicited_flag);
+	hr_reg_write(&cq_db, DB_TAG, cq->cqn);
+	hr_reg_write(&cq_db, DB_CMD, HNS_ROCE_V2_CQ_DB_NTR);
+	hr_reg_write(&cq_db, DB_CQ_CI, ci);
+	hr_reg_write(&cq_db, DB_CQ_CMD_SN, cq->arm_sn);
+	hr_reg_write(&cq_db, DB_CQ_NOTIFY, solicited_flag);
 
 	hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET, (__le32 *)&cq_db);
 
@@ -1655,6 +1642,13 @@ static void fill_wqe_idx(struct hns_roce_srq *srq, unsigned int wqe_idx)
 	idx_que->head++;
 }
 
+static void update_srq_db(struct hns_roce_db *db, struct hns_roce_srq *srq)
+{
+	hr_reg_write(db, DB_TAG, srq->srqn);
+	hr_reg_write(db, DB_CMD, HNS_ROCE_V2_SRQ_DB);
+	hr_reg_write(db, DB_PI, srq->idx_que.head);
+}
+
 static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 				       struct ibv_recv_wr *wr,
 				       struct ibv_recv_wr **bad_wr)
@@ -1694,10 +1688,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 		 */
 		udma_to_device_barrier();
 
-		srq_db.byte_4 = htole32(HNS_ROCE_V2_SRQ_DB << DB_BYTE_4_CMD_S |
-					srq->srqn);
-		srq_db.parameter = htole32(srq->idx_que.head &
-					   DB_PARAM_SRQ_PRODUCER_COUNTER_M);
+		update_srq_db(&srq_db, srq);
 
 		hns_roce_write64(ctx->uar + ROCEE_VF_DB_CFG0_OFFSET,
 				 (__le32 *)&srq_db);

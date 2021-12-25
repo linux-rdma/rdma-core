@@ -41,8 +41,6 @@ enum {
 #define HNS_ROCE_V2_CQ_DB_REQ_SOL		1
 #define HNS_ROCE_V2_CQ_DB_REQ_NEXT		0
 
-#define HNS_ROCE_CMDSN_MASK			0x3
-
 #define HNS_ROCE_SL_SHIFT 2
 
 /* V2 REG DEFINITION */
@@ -127,27 +125,19 @@ struct hns_roce_db {
 	__le32	byte_4;
 	__le32	parameter;
 };
-#define DB_BYTE_4_TAG_S 0
-#define DB_BYTE_4_TAG_M GENMASK(23, 0)
 
-#define DB_BYTE_4_CMD_S 24
-#define DB_BYTE_4_CMD_M GENMASK(27, 24)
+#define DB_FIELD_LOC(h, l) FIELD_LOC(struct hns_roce_db, h, l)
 
-#define DB_BYTE_4_FLAG_S 31
+#define DB_TAG DB_FIELD_LOC(23, 0)
+#define DB_CMD DB_FIELD_LOC(27, 24)
+#define DB_FLAG DB_FIELD_LOC(31, 31)
+#define DB_PI DB_FIELD_LOC(47, 32)
+#define DB_SL DB_FIELD_LOC(50, 48)
+#define DB_CQ_CI DB_FIELD_LOC(55, 32)
+#define DB_CQ_NOTIFY DB_FIELD_LOC(56, 56)
+#define DB_CQ_CMD_SN DB_FIELD_LOC(58, 57)
 
-#define DB_PARAM_SRQ_PRODUCER_COUNTER_S 0
-#define DB_PARAM_SRQ_PRODUCER_COUNTER_M GENMASK(15, 0)
-
-#define DB_PARAM_SL_S 16
-#define DB_PARAM_SL_M GENMASK(18, 16)
-
-#define DB_PARAM_CQ_CONSUMER_IDX_S 0
-#define DB_PARAM_CQ_CONSUMER_IDX_M GENMASK(23, 0)
-
-#define DB_PARAM_CQ_NOTIFY_S 24
-
-#define DB_PARAM_CQ_CMD_SN_S 25
-#define DB_PARAM_CQ_CMD_SN_M GENMASK(26, 25)
+#define RECORD_DB_CI_MASK GENMASK(23, 0)
 
 struct hns_roce_v2_cqe {
 	__le32	byte_4;
