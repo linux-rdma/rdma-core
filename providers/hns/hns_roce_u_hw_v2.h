@@ -164,47 +164,31 @@ struct hns_roce_v2_cqe {
 	__le32	rsv[8];
 };
 
-#define CQE_BYTE_4_OPCODE_S 0
-#define CQE_BYTE_4_OPCODE_M   (((1UL << 5) - 1) << CQE_BYTE_4_OPCODE_S)
+#define CQE_FIELD_LOC(h, l) FIELD_LOC(struct hns_roce_v2_cqe, h, l)
 
-#define CQE_BYTE_4_RQ_INLINE_S 5
-
-#define CQE_BYTE_4_S_R_S 6
-#define CQE_BYTE_4_OWNER_S 7
-
-#define CQE_BYTE_4_STATUS_S 8
-#define CQE_BYTE_4_STATUS_M   (((1UL << 8) - 1) << CQE_BYTE_4_STATUS_S)
-
-#define CQE_BYTE_4_WQE_IDX_S 16
-#define CQE_BYTE_4_WQE_IDX_M   (((1UL << 16) - 1) << CQE_BYTE_4_WQE_IDX_S)
-
-#define CQE_BYTE_12_XRC_SRQN_S 0
-#define CQE_BYTE_12_XRC_SRQN_M   (((1UL << 24) - 1) << CQE_BYTE_12_XRC_SRQN_S)
-
-#define CQE_BYTE_16_LCL_QPN_S 0
-#define CQE_BYTE_16_LCL_QPN_M   (((1UL << 24) - 1) << CQE_BYTE_16_LCL_QPN_S)
-
-#define CQE_BYTE_16_SUB_STATUS_S 24
-#define CQE_BYTE_16_SUB_STATUS_M (((1UL << 8) - 1) << CQE_BYTE_16_SUB_STATUS_S)
-
-#define CQE_BYTE_28_SMAC_S 0
-#define CQE_BYTE_28_SMAC_M   (((1UL << 16) - 1) << CQE_BYTE_28_SMAC_S)
-
-#define CQE_BYTE_28_PORT_TYPE_S 16
-#define CQE_BYTE_28_PORT_TYPE_M   (((1UL << 2) - 1) << CQE_BYTE_28_PORT_TYPE_S)
-
-#define CQE_BYTE_32_RMT_QPN_S 0
-#define CQE_BYTE_32_RMT_QPN_M   (((1UL << 24) - 1) << CQE_BYTE_32_RMT_QPN_S)
-
-#define CQE_BYTE_32_SL_S 24
-#define CQE_BYTE_32_SL_M   (((1UL << 3) - 1) << CQE_BYTE_32_SL_S)
-
-#define CQE_BYTE_32_PORTN_S 27
-#define CQE_BYTE_32_PORTN_M   (((1UL << 3) - 1) << CQE_BYTE_32_PORTN_S)
-
-#define CQE_BYTE_32_GRH_S 30
-
-#define CQE_BYTE_32_LPK_S 31
+#define CQE_OPCODE CQE_FIELD_LOC(4, 0)
+#define CQE_RQ_INLINE CQE_FIELD_LOC(5, 5)
+#define CQE_S_R CQE_FIELD_LOC(6, 6)
+#define CQE_OWNER CQE_FIELD_LOC(7, 7)
+#define CQE_STATUS CQE_FIELD_LOC(15, 8)
+#define CQE_WQE_IDX CQE_FIELD_LOC(31, 16)
+#define CQE_RKEY_IMMTDATA CQE_FIELD_LOC(63, 32)
+#define CQE_XRC_SRQN CQE_FIELD_LOC(87, 64)
+#define CQE_RSV0 CQE_FIELD_LOC(95, 88)
+#define CQE_LCL_QPN CQE_FIELD_LOC(119, 96)
+#define CQE_SUB_STATUS CQE_FIELD_LOC(127, 120)
+#define CQE_BYTE_CNT CQE_FIELD_LOC(159, 128)
+#define CQE_SMAC CQE_FIELD_LOC(207, 160)
+#define CQE_PORT_TYPE CQE_FIELD_LOC(209, 208)
+#define CQE_VID CQE_FIELD_LOC(221, 210)
+#define CQE_VID_VLD CQE_FIELD_LOC(222, 222)
+#define CQE_RSV2 CQE_FIELD_LOC(223, 223)
+#define CQE_RMT_QPN CQE_FIELD_LOC(247, 224)
+#define CQE_SL CQE_FIELD_LOC(250, 248)
+#define CQE_PORTN CQE_FIELD_LOC(253, 251)
+#define CQE_GRH CQE_FIELD_LOC(254, 254)
+#define CQE_LPK CQE_FIELD_LOC(255, 255)
+#define CQE_RSV3 CQE_FIELD_LOC(511, 256)
 
 struct hns_roce_rc_sq_wqe {
 	__le32	byte_4;
