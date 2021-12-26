@@ -101,6 +101,59 @@
 #define roce_set_bit(origin, shift, val) \
 	roce_set_field((origin), (1ul << (shift)), (shift), (val))
 
+#define FIELD_LOC(field_type, field_h, field_l)                                \
+	field_type, field_h,                                                   \
+		field_l + BUILD_ASSERT_OR_ZERO(((field_h) / 32) ==             \
+					       ((field_l) / 32))
+
+#define _hr_reg_enable(ptr, field_type, field_h, field_l)                      \
+	({                                                                     \
+		const field_type *_ptr = ptr;                                  \
+		BUILD_ASSERT((field_h) == (field_l));                          \
+		*((__le32 *)_ptr + (field_h) / 32) |=                          \
+			htole32(BIT((field_l) % 32));                          \
+	})
+
+#define hr_reg_enable(ptr, field) _hr_reg_enable(ptr, field)
+
+#define _hr_reg_clear(ptr, field_type, field_h, field_l)                       \
+	({                                                                     \
+		const field_type *_ptr = ptr;                                  \
+		BUILD_ASSERT((field_h) >= (field_l));                          \
+		*((__le32 *)_ptr + (field_h) / 32) &=                          \
+			~htole32(GENMASK((field_h) % 32, (field_l) % 32));     \
+	})
+
+#define hr_reg_clear(ptr, field) _hr_reg_clear(ptr, field)
+
+#define _hr_reg_write_bool(ptr, field_type, field_h, field_l, val)             \
+	({                                                                     \
+		(val) ? _hr_reg_enable(ptr, field_type, field_h, field_l) :    \
+			      _hr_reg_clear(ptr, field_type, field_h, field_l);\
+	})
+
+#define hr_reg_write_bool(ptr, field, val) _hr_reg_write_bool(ptr, field, val)
+
+#define _hr_reg_write(ptr, field_type, field_h, field_l, val)                  \
+	({                                                                     \
+		const uint32_t _val = val;                                     \
+		_hr_reg_clear(ptr, field_type, field_h, field_l);              \
+		*((__le32 *)ptr + (field_h) / 32) |= htole32(FIELD_PREP(       \
+			GENMASK((field_h) % 32, (field_l) % 32), _val));       \
+	})
+
+#define hr_reg_write(ptr, field, val) _hr_reg_write(ptr, field, val)
+
+#define _hr_reg_read(ptr, field_type, field_h, field_l)                        \
+	({                                                                     \
+		const field_type *_ptr = ptr;                                  \
+		BUILD_ASSERT((field_h) >= (field_l));                          \
+		FIELD_GET(GENMASK((field_h) % 32, (field_l) % 32),             \
+			  le32toh(*((__le32 *)_ptr + (field_h) / 32)));        \
+	})
+
+#define hr_reg_read(ptr, field) _hr_reg_read(ptr, field)
+
 enum {
 	HNS_ROCE_QP_TABLE_BITS		= 8,
 	HNS_ROCE_QP_TABLE_SIZE		= 1 << HNS_ROCE_QP_TABLE_BITS,
