@@ -195,6 +195,8 @@ struct dr_matcher_rx_tx;
 struct dr_ste_ctx;
 struct dr_ptrn_mngr;
 struct dr_ptrn_obj;
+struct dr_arg_mngr;
+struct dr_arg_obj;
 
 struct dr_data_seg {
 	uint64_t	addr;
@@ -945,6 +947,7 @@ struct dr_devx_caps {
 	struct dr_devx_roce_cap		roce_caps;
 	uint64_t			definer_format_sup;
 	uint16_t			log_header_modify_argument_granularity;
+	uint16_t			log_header_modify_argument_max_alloc;
 	bool				support_modify_argument;
 	bool				prio_tag_required;
 	bool				is_ecpf;
@@ -1043,12 +1046,14 @@ struct mlx5dv_dr_domain {
 	struct ibv_context		*ctx;
 	struct dr_ste_ctx		*ste_ctx;
 	struct ibv_pd			*pd;
+	int				pd_num;
 	struct mlx5dv_devx_uar		*uar;
 	enum mlx5dv_dr_domain_type	type;
 	atomic_int			refcount;
 	struct dr_icm_pool		*ste_icm_pool;
 	struct dr_icm_pool		*action_icm_pool;
 	struct dr_ptrn_mngr		*modify_header_ptrn_mngr;
+	struct dr_arg_mngr		*modify_header_arg_mngr;
 	struct dr_send_ring		*send_ring[DR_MAX_SEND_RINGS];
 	struct dr_domain_info		info;
 	struct list_head		tbl_list;
@@ -1196,6 +1201,13 @@ struct dr_ptrn_obj {
 	struct dr_rewrite_param rewrite_param;
 	atomic_int refcount;
 	struct list_node list;
+};
+
+struct dr_arg_obj {
+	struct mlx5dv_devx_obj *obj;
+	uint32_t obj_offset;
+	struct list_node list_node;
+	uint32_t log_chunk_size;
 };
 
 struct mlx5dv_dr_action {
@@ -1696,6 +1708,11 @@ dr_ptrn_cache_get_pattern(struct dr_ptrn_mngr *mngr,
 			  uint8_t *data);
 void dr_ptrn_cache_put_pattern(struct dr_ptrn_mngr *mngr,
 			       struct dr_ptrn_obj *pattern);
+struct dr_arg_mngr*
+dr_arg_mngr_create(struct mlx5dv_dr_domain *dmn);
+void dr_arg_mngr_destroy(struct dr_arg_mngr *mngr);
+struct dr_arg_obj *dr_arg_get_obj(struct dr_arg_mngr *mngr, uint32_t size);
+void dr_arg_put_obj(struct dr_arg_mngr *mngr, struct dr_arg_obj *arg_obj);
 
 int dr_buddy_init(struct dr_icm_buddy_mem *buddy, uint32_t max_order);
 void dr_buddy_cleanup(struct dr_icm_buddy_mem *buddy);

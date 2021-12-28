@@ -240,10 +240,15 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 			capability.cmd_hca_cap.general_obj_types) &
 			(1LL << MLX5_OBJ_TYPE_HEADER_MODIFY_ARGUMENT);
 
-	if (caps->support_modify_argument)
+	if (caps->support_modify_argument) {
 		caps->log_header_modify_argument_granularity =
 			DEVX_GET(query_hca_cap_out, out,
 			capability.cmd_hca_cap.log_header_modify_argument_granularity);
+
+		caps->log_header_modify_argument_max_alloc =
+			DEVX_GET(query_hca_cap_out, out,
+			capability.cmd_hca_cap.log_header_modify_argument_max_alloc);
+	}
 
 	if (caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V4_ENABLED) {
 		caps->flex_parser_id_icmp_dw0 =

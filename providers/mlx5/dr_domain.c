@@ -95,15 +95,24 @@ static int dr_domain_init_resources(struct mlx5dv_dr_domain *dmn)
 		goto free_action_icm_pool;
 	}
 
-	ret = dr_send_ring_alloc(dmn);
-	if (ret) {
-		dr_dbg(dmn, "Couldn't create send-ring for %s\n",
+	dmn->modify_header_arg_mngr = dr_arg_mngr_create(dmn);
+	if (!dmn->modify_header_arg_mngr) {
+		dr_dbg(dmn, "Couldn't create modify_header_arg_mngr for %s\n",
 		       ibv_get_device_name(dmn->ctx->device));
 		goto free_modify_header_ptrn_mngr;
 	}
 
+	ret = dr_send_ring_alloc(dmn);
+	if (ret) {
+		dr_dbg(dmn, "Couldn't create send-ring for %s\n",
+		       ibv_get_device_name(dmn->ctx->device));
+		goto free_modify_header_arg_mngr;
+	}
+
 	return 0;
 
+free_modify_header_arg_mngr:
+	dr_arg_mngr_destroy(dmn->modify_header_arg_mngr);
 free_modify_header_ptrn_mngr:
 	dr_ptrn_mngr_destroy(dmn->modify_header_ptrn_mngr);
 free_action_icm_pool:
@@ -122,6 +131,7 @@ static void dr_free_resources(struct mlx5dv_dr_domain *dmn)
 {
 	dr_send_ring_free(dmn);
 	dr_ptrn_mngr_destroy(dmn->modify_header_ptrn_mngr);
+	dr_arg_mngr_destroy(dmn->modify_header_arg_mngr);
 	dr_icm_pool_destroy(dmn->action_icm_pool);
 	dr_icm_pool_destroy(dmn->ste_icm_pool);
 	mlx5dv_devx_free_uar(dmn->uar);
