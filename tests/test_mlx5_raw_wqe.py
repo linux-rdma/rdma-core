@@ -23,7 +23,7 @@ class Mlx5RawWqeResources(Mlx5RcResources):
         than the max_send_wr.
         :return:
         """
-        return QPCap(max_send_wr=4, max_recv_wr=4, max_recv_sge=2, max_send_sge=2)
+        return QPCap(max_send_wr=1, max_recv_wr=4, max_recv_sge=2, max_send_sge=2)
 
 
 class RawWqeTest(Mlx5RDMATestCase):
@@ -79,10 +79,11 @@ class RawWqeTest(Mlx5RDMATestCase):
             u.poll_cq_ex(self.client.cq)
             u.poll_cq_ex(self.server.cq)
             u.post_recv(self.server, s_recv_wr)
+            expected_opcode = e.IBV_WC_SEND if i % 2 else e.IBV_WC_DRIVER2
 
-            if not i % 2 and self.client.cq.read_opcode() != e.IBV_WC_DRIVER2:
+            if self.client.cq.read_opcode() != expected_opcode:
                 raise PyverbsError('Opcode validation failed: expected '
-                                   f'{e.IBV_WC_DRIVER2}, received {self.client.cq.read_opcode()}')
+                                   f'{expected_opcode}, received {self.client.cq.read_opcode()}')
 
             act_buffer = self.server.mr.read(self.server.mr.length, 0)
             u.validate(act_buffer, i % 2, self.server.mr.length)
