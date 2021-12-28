@@ -381,6 +381,7 @@ struct dr_ste_actions_attr {
 	uint32_t	modify_index;
 	uint16_t	modify_actions;
 	uint8_t		*single_modify_action;
+	uint32_t	args_index;
 	uint32_t	decap_index;
 	uint16_t	decap_actions;
 	bool		decap_with_vlan;

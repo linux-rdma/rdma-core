@@ -713,11 +713,20 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				goto out_invalid_arg;
 			}
 
-			attr.modify_actions = action->rewrite.param.num_of_actions;
-			if (action->rewrite.single_action_opt)
+			if (action->rewrite.single_action_opt) {
+				attr.modify_actions = action->rewrite.param.num_of_actions;
 				attr.single_modify_action = action->rewrite.param.data;
-			else
-				attr.modify_index = action->rewrite.param.index;
+			} else {
+				if (action->rewrite.ptrn_arg.ptrn &&
+				    action->rewrite.ptrn_arg.arg) {
+					attr.args_index = dr_arg_get_object_id(action->rewrite.ptrn_arg.arg);
+					attr.modify_index = action->rewrite.ptrn_arg.ptrn->rewrite_param.index;
+					attr.modify_actions = action->rewrite.ptrn_arg.ptrn->rewrite_param.num_of_actions;
+				} else {
+					attr.modify_actions = action->rewrite.param.num_of_actions;
+					attr.modify_index = action->rewrite.param.index;
+				}
+			}
 			break;
 		case DR_ACTION_TYP_L2_TO_TNL_L2:
 		case DR_ACTION_TYP_L2_TO_TNL_L3:
@@ -2818,9 +2827,8 @@ int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action)
 			mlx5_destroy_flow_action(action->rewrite.flow_action);
 		} else {
 			if (!action->rewrite.single_action_opt)
-				dr_icm_free_chunk(action->rewrite.param.chunk);
+				dr_ste_free_modify_hdr(action);
 
-			dr_ste_free_modify_hdr(action);
 			free(action->rewrite.param.data);
 		}
 		atomic_fetch_sub(&action->rewrite.dmn->refcount, 1);
