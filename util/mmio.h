@@ -225,6 +225,7 @@ static inline void _mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)
 		_mmio_memcpy_x64_64b(dest, src);
 		bytecnt -= sizeof(uint64x2x4_t);
 		src += sizeof(uint64x2x4_t);
+		dest += sizeof(uint64x2x4_t);
 	} while (bytecnt > 0);
 }
 
