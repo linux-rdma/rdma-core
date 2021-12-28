@@ -172,12 +172,51 @@ static void dr_arg_pool_destroy(struct dr_arg_pool *pool)
 	free(pool);
 }
 
-struct dr_arg_obj *dr_arg_get_obj(struct dr_arg_mngr *mngr, uint32_t size)
+static enum dr_arg_chunk_size
+dr_arg_get_chunk_size(uint16_t num_of_actions)
 {
+	if (num_of_actions <= 8)
+		return DR_ARG_CHUNK_SIZE_1;
+	if (num_of_actions <= 16)
+		return DR_ARG_CHUNK_SIZE_2;
+	return DR_ARG_CHUNK_SIZE_MAX;
+}
+
+uint32_t dr_arg_get_object_id(struct dr_arg_obj *arg_obj)
+{
+	return (arg_obj->obj->object_id + arg_obj->obj_offset);
+}
+
+struct dr_arg_obj *dr_arg_get_obj(struct dr_arg_mngr *mngr,
+				  uint16_t num_of_actions,
+				  uint8_t *data)
+{
+	uint32_t size = dr_arg_get_chunk_size(num_of_actions);
+	struct dr_arg_obj *arg_obj;
+	int ret;
+
 	if (size >= DR_ARG_CHUNK_SIZE_MAX)
 		return NULL;
 
-	return dr_arg_pool_get_arg_obj(mngr->pools[size]);
+	arg_obj = dr_arg_pool_get_arg_obj(mngr->pools[size]);
+	if (!arg_obj) {
+		dr_dbg(mngr->dmn, "Failed allocating args object for modify header\n");
+		return NULL;
+	}
+
+	/* write it into the hw */
+	ret = dr_send_postsend_args(mngr->dmn, dr_arg_get_object_id(arg_obj),
+				    num_of_actions, data);
+	if (ret) {
+		dr_dbg(mngr->dmn, "Failed writing args object\n");
+		goto put_obj;
+	}
+
+	return arg_obj;
+
+put_obj:
+	dr_arg_put_obj(mngr, arg_obj);
+	return NULL;
 }
 
 void dr_arg_put_obj(struct dr_arg_mngr *mngr, struct dr_arg_obj *arg_obj)

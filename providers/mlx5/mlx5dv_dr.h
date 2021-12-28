@@ -1227,7 +1227,7 @@ struct mlx5dv_dr_action {
 					uint8_t			allow_tx:1;
 					struct {
 						struct dr_ptrn_obj *ptrn;
-						struct dr_arg_object *arg;
+						struct dr_arg_obj *arg;
 					} ptrn_arg;
 				};
 			};
@@ -1715,8 +1715,11 @@ void dr_ptrn_cache_put_pattern(struct dr_ptrn_mngr *mngr,
 struct dr_arg_mngr*
 dr_arg_mngr_create(struct mlx5dv_dr_domain *dmn);
 void dr_arg_mngr_destroy(struct dr_arg_mngr *mngr);
-struct dr_arg_obj *dr_arg_get_obj(struct dr_arg_mngr *mngr, uint32_t size);
+struct dr_arg_obj *dr_arg_get_obj(struct dr_arg_mngr *mngr,
+				  uint16_t num_of_actions,
+				  uint8_t *data);
 void dr_arg_put_obj(struct dr_arg_mngr *mngr, struct dr_arg_obj *arg_obj);
+uint32_t dr_arg_get_object_id(struct dr_arg_obj *arg_obj);
 
 int dr_buddy_init(struct dr_icm_buddy_mem *buddy, uint32_t max_order);
 void dr_buddy_cleanup(struct dr_icm_buddy_mem *buddy);

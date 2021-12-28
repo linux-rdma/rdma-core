@@ -3465,21 +3465,37 @@ static int dr_ste_v1_alloc_modify_hdr_ptrn_arg(struct mlx5dv_dr_action *action,
 	if (!ptrn_mngr)
 		return ENOTSUP;
 
+	action->rewrite.ptrn_arg.arg = dr_arg_get_obj(action->rewrite.dmn->modify_header_arg_mngr,
+						      action->rewrite.param.num_of_actions,
+						      action->rewrite.param.data);
+	if (!action->rewrite.ptrn_arg.arg) {
+		dr_dbg(action->rewrite.dmn,
+		       "Failed allocating args for modify header\n");
+		return errno;
+	}
+
 	action->rewrite.ptrn_arg.ptrn = dr_ptrn_cache_get_pattern(ptrn_mngr,
 								  action->rewrite.param.num_of_actions,
 								  action->rewrite.param.data);
 	if (!action->rewrite.ptrn_arg.ptrn) {
 		dr_dbg(action->rewrite.dmn, "Failed to get pattern\n");
-		return errno;
+		goto put_arg;
 	}
 
 	return 0;
+
+put_arg:
+	dr_arg_put_obj(action->rewrite.dmn->modify_header_arg_mngr,
+		       action->rewrite.ptrn_arg.arg);
+	return errno;
 }
 
 static void dr_ste_v1_dealloc_modify_hdr_ptrn_arg(struct mlx5dv_dr_action *action)
 {
 	dr_ptrn_cache_put_pattern(action->rewrite.dmn->modify_header_ptrn_mngr,
 				  action->rewrite.ptrn_arg.ptrn);
+	dr_arg_put_obj(action->rewrite.dmn->modify_header_arg_mngr,
+		       action->rewrite.ptrn_arg.arg);
 }
 
 static struct dr_ste_ctx ste_ctx_v1 = {
