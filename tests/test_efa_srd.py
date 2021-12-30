@@ -31,6 +31,23 @@ class QPSRDTestCase(EfaRDMATestCase):
         self.client.pre_run(self.server.psns, self.server.qps_num)
         self.server.pre_run(self.client.psns, self.client.qps_num)
 
+    def full_sq_bad_flow(self):
+        """
+        Check post_send while qp's sq is full.
+        - Find qp's sq length
+        - Fill the qp with work requests until overflow
+        """
+        qp_idx = 0
+        send_op = e.IBV_QP_EX_WITH_SEND
+        ah = u.get_global_ah(self.client, self.gid_index, self.ib_port)
+        qp_attr, _ = self.client.qps[qp_idx].query(e.IBV_QP_CAP)
+        max_send_wr = qp_attr.cap.max_send_wr
+        with self.assertRaises(PyverbsRDMAError) as ex:
+            for _ in range (max_send_wr + 1):
+                _, c_sg = u.get_send_elements(self.client, False)
+                u.send(self.client, c_sg, send_op, new_send=True, qp_idx=qp_idx, ah=ah)
+        self.assertEqual(ex.exception.error_code, errno.ENOMEM)
+
     def test_qp_ex_srd_send(self):
         send_op = e.IBV_QP_EX_WITH_SEND
         self.create_players(send_op)
@@ -86,3 +103,8 @@ class QPSRDTestCase(EfaRDMATestCase):
         send_op = e.IBV_QP_EX_WITH_SEND
         self.create_players(send_op, qp_count=1)
         u.full_rq_bad_flow(self)
+
+    def test_full_sq_bad_flow(self):
+        send_op = e.IBV_QP_EX_WITH_SEND
+        self.create_players(send_op, qp_count=1)
+        self.full_sq_bad_flow()
