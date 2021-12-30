@@ -1262,3 +1262,20 @@ def post_sq_state_bad_flow(test_obj):
         send(test_obj.client, sg, e.IBV_QP_EX_WITH_SEND, new_send=True,
              qp_idx=qp_idx, ah=ah)
     test_obj.assertEqual(ex.exception.error_code, errno.EINVAL)
+
+
+def full_rq_bad_flow(test_obj):
+    """
+    Check post_recive while qp's rq is full.
+    - Find qp's rq length.
+    - Fill the qp with work requests until overflow.
+    :param test_obj: An instance of RDMATestCase
+    :return: None.
+    """
+    qp_attr, _ = test_obj.server.qps[0].query(e.IBV_QP_CAP)
+    max_recv_wr = qp_attr.cap.max_recv_wr
+    with test_obj.assertRaises(PyverbsRDMAError) as ex:
+        for _ in range (max_recv_wr + 1):
+            s_recv_wr = get_recv_wr(test_obj.server)
+            post_recv(test_obj.server, s_recv_wr, qp_idx=0)
+    test_obj.assertEqual(ex.exception.error_code, errno.ENOMEM)
