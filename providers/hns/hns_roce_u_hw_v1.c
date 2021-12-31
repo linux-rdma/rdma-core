@@ -220,7 +220,7 @@ static int hns_roce_wq_overflow(struct hns_roce_wq *wq, int nreq,
 static struct hns_roce_qp *hns_roce_find_qp(struct hns_roce_context *ctx,
 					    uint32_t qpn)
 {
-	int tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
+	uint32_t tind = to_hr_qp_table_index(qpn, ctx);
 
 	if (ctx->qp_table[tind].refcnt) {
 		return ctx->qp_table[tind].table[qpn & ctx->qp_table_mask];
@@ -232,7 +232,7 @@ static struct hns_roce_qp *hns_roce_find_qp(struct hns_roce_context *ctx,
 
 static void hns_roce_clear_qp(struct hns_roce_context *ctx, uint32_t qpn)
 {
-	int tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
+	uint32_t tind = to_hr_qp_table_index(qpn, ctx);
 
 	if (!--ctx->qp_table[tind].refcnt)
 		free(ctx->qp_table[tind].table);

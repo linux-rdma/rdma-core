@@ -431,8 +431,7 @@ int hns_roce_u_destroy_cq(struct ibv_cq *cq)
 static int hns_roce_store_srq(struct hns_roce_context *ctx,
 			      struct hns_roce_srq *srq)
 {
-	uint32_t tind = (srq->srqn & (ctx->num_srqs - 1)) >>
-			ctx->srq_table_shift;
+	uint32_t tind = to_hr_srq_table_index(srq->srqn, ctx);
 
 	pthread_mutex_lock(&ctx->srq_table_mutex);
 
@@ -457,7 +456,7 @@ static int hns_roce_store_srq(struct hns_roce_context *ctx,
 struct hns_roce_srq *hns_roce_find_srq(struct hns_roce_context *ctx,
 				       uint32_t srqn)
 {
-	uint32_t tind = (srqn & (ctx->num_srqs - 1)) >> ctx->srq_table_shift;
+	uint32_t tind = to_hr_srq_table_index(srqn, ctx);
 
 	if (ctx->srq_table[tind].refcnt)
 		return ctx->srq_table[tind].table[srqn & ctx->srq_table_mask];
@@ -467,7 +466,7 @@ struct hns_roce_srq *hns_roce_find_srq(struct hns_roce_context *ctx,
 
 static void hns_roce_clear_srq(struct hns_roce_context *ctx, uint32_t srqn)
 {
-	uint32_t tind = (srqn & (ctx->num_srqs - 1)) >> ctx->srq_table_shift;
+	uint32_t tind = to_hr_srq_table_index(srqn, ctx);
 
 	pthread_mutex_lock(&ctx->srq_table_mutex);
 
@@ -1108,7 +1107,7 @@ static int hns_roce_store_qp(struct hns_roce_context *ctx,
 			     struct hns_roce_qp *qp)
 {
 	uint32_t qpn = qp->verbs_qp.qp.qp_num;
-	uint32_t tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
+	uint32_t tind = to_hr_qp_table_index(qpn, ctx);
 
 	pthread_mutex_lock(&ctx->qp_table_mutex);
 	if (!ctx->qp_table[tind].refcnt) {
