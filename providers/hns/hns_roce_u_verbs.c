@@ -822,7 +822,7 @@ static int qp_alloc_db(struct ibv_qp_init_attr *attr, struct hns_roce_qp *qp,
 static int hns_roce_store_qp(struct hns_roce_context *ctx, uint32_t qpn,
 			     struct hns_roce_qp *qp)
 {
-	uint32_t tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
+	uint32_t tind = to_hr_qp_table_index(qpn, ctx);
 
 	pthread_mutex_lock(&ctx->qp_table_mutex);
 	if (!ctx->qp_table[tind].refcnt) {
