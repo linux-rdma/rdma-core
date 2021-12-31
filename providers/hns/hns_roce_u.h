@@ -36,6 +36,7 @@
 #include <stddef.h>
 #include <endian.h>
 #include <util/compiler.h>
+#include <util/util.h>
 
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>
@@ -91,12 +92,8 @@
 #define roce_set_bit(origin, shift, val) \
 	roce_set_field((origin), (1ul << (shift)), (shift), (val))
 
-#define hr_ilog32(n)		ilog32((n) - 1)
-
-enum {
-	HNS_ROCE_QP_TABLE_BITS		= 8,
-	HNS_ROCE_QP_TABLE_SIZE		= 1 << HNS_ROCE_QP_TABLE_BITS,
-};
+#define HNS_ROCE_QP_TABLE_BITS 8
+#define HNS_ROCE_QP_TABLE_SIZE BIT(HNS_ROCE_QP_TABLE_BITS)
 
 /* operation type list */
 enum {
@@ -149,7 +146,6 @@ struct hns_roce_context {
 
 	pthread_mutex_t			qp_table_mutex;
 
-	int				num_qps;
 	int				qp_table_shift;
 	int				qp_table_mask;
 
@@ -279,6 +275,12 @@ static inline unsigned int to_hr_hem_entries_size(int count, int buf_shift)
 static inline unsigned int hr_ilog32(unsigned int count)
 {
 	return ilog32(count - 1);
+}
+
+static inline uint32_t to_hr_qp_table_index(uint32_t qpn,
+					    struct hns_roce_context *ctx)
+{
+	return (qpn >> ctx->qp_table_shift) & (HNS_ROCE_QP_TABLE_SIZE - 1);
 }
 
 static inline struct hns_roce_device *to_hr_dev(struct ibv_device *ibv_dev)

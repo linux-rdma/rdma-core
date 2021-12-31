@@ -802,7 +802,7 @@ static int get_rq_db_addr(struct ibv_pd *pd, struct ibv_qp_init_attr *attr,
 static int hns_roce_store_qp(struct hns_roce_context *ctx, uint32_t qpn,
 			     struct hns_roce_qp *qp)
 {
-	int tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
+	uint32_t tind = to_hr_qp_table_index(qpn, ctx);
 
 	if (!ctx->qp_table[tind].refcnt) {
 		ctx->qp_table[tind].table = calloc(ctx->qp_table_mask + 1,
