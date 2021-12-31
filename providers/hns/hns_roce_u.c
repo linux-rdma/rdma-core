@@ -92,6 +92,13 @@ static const struct verbs_context_ops hns_common_ops = {
 	.get_srq_num = hns_roce_u_get_srq_num,
 };
 
+static uint32_t calc_table_shift(uint32_t entry_count, uint32_t size_shift)
+{
+	uint32_t count_shift = hr_ilog32(entry_count);
+
+	return count_shift > size_shift ? count_shift - size_shift : 0;
+}
+
 static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 						    int cmd_fd,
 						    void *private_data)
@@ -120,18 +127,15 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	else
 		context->cqe_size = HNS_ROCE_V3_CQE_SIZE;
 
-	context->num_qps = resp.qp_tab_size;
-	context->num_srqs = resp.srq_tab_size;
-
-	context->qp_table_shift = ffs(context->num_qps) - 1 -
-				  HNS_ROCE_QP_TABLE_BITS;
+	context->qp_table_shift = calc_table_shift(resp.qp_tab_size,
+						   HNS_ROCE_QP_TABLE_BITS);
 	context->qp_table_mask = (1 << context->qp_table_shift) - 1;
 	pthread_mutex_init(&context->qp_table_mutex, NULL);
 	for (i = 0; i < HNS_ROCE_QP_TABLE_SIZE; ++i)
 		context->qp_table[i].refcnt = 0;
 
-	context->srq_table_shift = ffs(context->num_srqs) - 1 -
-				       HNS_ROCE_SRQ_TABLE_BITS;
+	context->srq_table_shift = calc_table_shift(resp.srq_tab_size,
+						    HNS_ROCE_SRQ_TABLE_BITS);
 	context->srq_table_mask = (1 << context->srq_table_shift) - 1;
 	pthread_mutex_init(&context->srq_table_mutex, NULL);
 	for (i = 0; i < HNS_ROCE_SRQ_TABLE_SIZE; ++i)
