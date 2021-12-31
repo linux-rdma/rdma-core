@@ -331,7 +331,7 @@ static void hns_roce_v2_update_cq_cons_index(struct hns_roce_context *ctx,
 static struct hns_roce_qp *hns_roce_v2_find_qp(struct hns_roce_context *ctx,
 					       uint32_t qpn)
 {
-	int tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
+	uint32_t tind = to_hr_qp_table_index(qpn, ctx);
 
 	if (ctx->qp_table[tind].refcnt)
 		return ctx->qp_table[tind].table[qpn & ctx->qp_table_mask];
@@ -343,7 +343,7 @@ static void hns_roce_v2_clear_qp(struct hns_roce_context *ctx,
 				 struct hns_roce_qp *qp)
 {
 	uint32_t qpn = qp->verbs_qp.qp.qp_num;
-	uint32_t tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
+	uint32_t tind = to_hr_qp_table_index(qpn, ctx);
 
 	pthread_mutex_lock(&ctx->qp_table_mutex);
 
