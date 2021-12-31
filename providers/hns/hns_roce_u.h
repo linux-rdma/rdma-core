@@ -154,10 +154,8 @@
 
 #define hr_reg_read(ptr, field) _hr_reg_read(ptr, field)
 
-enum {
-	HNS_ROCE_QP_TABLE_BITS		= 8,
-	HNS_ROCE_QP_TABLE_SIZE		= 1 << HNS_ROCE_QP_TABLE_BITS,
-};
+#define HNS_ROCE_QP_TABLE_BITS 8
+#define HNS_ROCE_QP_TABLE_SIZE BIT(HNS_ROCE_QP_TABLE_BITS)
 
 #define HNS_ROCE_SRQ_TABLE_BITS 8
 #define HNS_ROCE_SRQ_TABLE_SIZE BIT(HNS_ROCE_SRQ_TABLE_BITS)
@@ -211,7 +209,6 @@ struct hns_roce_context {
 		int			refcnt;
 	} qp_table[HNS_ROCE_QP_TABLE_SIZE];
 	pthread_mutex_t			qp_table_mutex;
-	uint32_t			num_qps;
 	uint32_t			qp_table_shift;
 	uint32_t			qp_table_mask;
 
@@ -220,7 +217,6 @@ struct hns_roce_context {
 		int			refcnt;
 	} srq_table[HNS_ROCE_SRQ_TABLE_SIZE];
 	pthread_mutex_t			srq_table_mutex;
-	uint32_t			num_srqs;
 	uint32_t			srq_table_shift;
 	uint32_t			srq_table_mask;
 
@@ -380,6 +376,18 @@ static inline unsigned int to_hr_hem_entries_size(int count, int buf_shift)
 static inline unsigned int hr_ilog32(unsigned int count)
 {
 	return ilog32(count - 1);
+}
+
+static inline uint32_t to_hr_qp_table_index(uint32_t qpn,
+					    struct hns_roce_context *ctx)
+{
+	return (qpn >> ctx->qp_table_shift) & (HNS_ROCE_QP_TABLE_SIZE - 1);
+}
+
+static inline uint32_t to_hr_srq_table_index(uint32_t srqn,
+					     struct hns_roce_context *ctx)
+{
+	return (srqn >> ctx->srq_table_shift) & (HNS_ROCE_SRQ_TABLE_SIZE - 1);
 }
 
 static inline struct hns_roce_device *to_hr_dev(struct ibv_device *ibv_dev)
