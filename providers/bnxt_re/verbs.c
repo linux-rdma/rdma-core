@@ -1215,7 +1215,7 @@ static int bnxt_re_calc_posted_wqe_slots(struct bnxt_re_queue *que, void *wr,
 	if (!is_rq && (swr->send_flags & IBV_SEND_INLINE)) {
 		ilsize = bnxt_re_calc_inline_len(swr, max_ils);
 		wqe_byte = get_aligned(ilsize, sizeof(struct bnxt_re_sge));
-		wqe_byte += sizeof(struct bnxt_re_bsqe);
+		wqe_byte += bnxt_re_get_sqe_hdr_sz();
 	}
 
 	return (wqe_byte / que->stride);
