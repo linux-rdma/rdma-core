@@ -95,7 +95,19 @@ application performance.
 :	In one of the following:
 	o The PD is invalid.
 	o The flags are invalid.
+	o The requested address doesn't belong to a MR, but a MW or something.
 
+*EPERM*
+:	In one of the following:
+	o Referencing a valid lkey outside the caller's security scope.
+	o The advice is IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE but the specified
+	  MR in the scatter gather list is not registered as writable access.
+
+*ENOENT*
+:	The providing lkeys aren't consistent with the MR's.
+
+*ENOMEM*
+:	Not enough memory.
 # NOTES
 
 An application may pre-fetch any address range within an ODP MR when using the
