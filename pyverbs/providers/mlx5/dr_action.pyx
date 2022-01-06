@@ -34,7 +34,8 @@ cdef class DrAction(PyverbsCM):
 
     cpdef close(self):
         if self.action != NULL:
-            self.logger.debug('Closing DrAction.')
+            if self.logger:
+                self.logger.debug('Closing DrAction.')
             close_weakrefs([self.dr_rules])
             rc = dv.mlx5dv_dr_action_destroy(self.action)
             if rc:
@@ -235,7 +236,8 @@ cdef class DrActionDestAttr(PyverbsCM):
 
     cpdef close(self):
         super(DrActionDestAttr, self).close()
-        self.logger.debug('Closing DrActionDestAttr')
+        if self.logger:
+            self.logger.debug('Closing DrActionDestAttr')
         if self.action_dest_attr != NULL:
             free(self.action_dest_attr)
             self.action_dest_attr = NULL

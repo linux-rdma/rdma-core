@@ -246,7 +246,8 @@ cdef class Mlx5DevxObj(PyverbsCM):
 
     cpdef close(self):
         if self.obj != NULL:
-            self.logger.debug('Closing Mlx5DvexObj')
+            if self.logger:
+                self.logger.debug('Closing Mlx5DvexObj')
             close_weakrefs([self.flow_counter_actions, self.dest_tir_actions])
             rc = dv.mlx5dv_devx_obj_destroy(self.obj)
             if rc:
@@ -1667,7 +1668,8 @@ cdef class Mlx5UMEM(PyverbsCM):
 
     cpdef close(self):
         if self.umem != NULL:
-            self.logger.debug('Closing Mlx5UMEM')
+            if self.logger:
+                self.logger.debug('Closing Mlx5UMEM')
             rc = dv.mlx5dv_devx_umem_dereg(self.umem)
             try:
                 if rc:

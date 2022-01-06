@@ -56,7 +56,8 @@ cdef class PD(PyverbsCM):
             raise PyverbsUserError('Cannot create PD from {type}'
                                    .format(type=type(creator)))
         self.ctx.add_ref(self)
-        self.logger.debug('Created PD')
+        if self.logger:
+            self.logger.debug('Created PD')
         self.srqs = weakref.WeakSet()
         self.mrs = weakref.WeakSet()
         self.mws = weakref.WeakSet()
@@ -106,7 +107,8 @@ cdef class PD(PyverbsCM):
         :return: None
         """
         if self.pd != NULL:
-            self.logger.debug('Closing PD')
+            if self.logger:
+                self.logger.debug('Closing PD')
             close_weakrefs([self.deks, self.mkeys, self.parent_domains, self.qps,
                             self.wqs, self.ahs, self.mws, self.mrs, self.srqs])
             if not self._is_imported:
@@ -266,7 +268,8 @@ cdef class ParentDomain(PD):
 
     cpdef close(self):
         if self.pd != NULL:
-            self.logger.debug('Closing ParentDomain')
+            if self.logger:
+                self.logger.debug('Closing ParentDomain')
             close_weakrefs([self.cqs])
             super(ParentDomain, self).close()
 

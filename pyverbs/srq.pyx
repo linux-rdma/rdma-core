@@ -149,7 +149,8 @@ cdef class SRQ(PyverbsCM):
 
     cpdef close(self):
         if self.srq != NULL:
-            self.logger.debug('Closing SRQ')
+            if self.logger:
+                self.logger.debug('Closing SRQ')
             close_weakrefs([self.qps])
             rc = v.ibv_destroy_srq(self.srq)
             if rc != 0:

@@ -188,7 +188,8 @@ cdef class WQ(PyverbsCM):
         :return: None
         """
         if self.wq != NULL:
-            self.logger.debug('Closing WQ')
+            if self.logger:
+                self.logger.debug('Closing WQ')
             close_weakrefs([self.rwq_ind_tables])
             rc = v.ibv_destroy_wq(self.wq)
             if rc != 0:
@@ -274,7 +275,8 @@ cdef class RwqIndTable(PyverbsCM):
         :return: None
         """
         if self.rwq_ind_table != NULL:
-            self.logger.debug('Closing RWQ IND TBL')
+            if self.logger:
+                self.logger.debug('Closing RWQ IND TBL')
             close_weakrefs([self.qps])
             rc = v.ibv_destroy_rwq_ind_table(self.rwq_ind_table)
             if rc != 0:

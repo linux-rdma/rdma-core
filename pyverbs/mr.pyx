@@ -135,7 +135,8 @@ cdef class MR(PyverbsCM):
         :return: None
         """
         if self.mr != NULL:
-            self.logger.debug('Closing MR')
+            if self.logger:
+                self.logger.debug('Closing MR')
             if not self._is_imported:
                 rc = v.ibv_dereg_mr(self.mr)
                 if rc != 0:
@@ -320,7 +321,8 @@ cdef class MW(PyverbsCM):
         :return: None
         """
         if self.mw is not NULL:
-            self.logger.debug('Closing MW')
+            if self.logger:
+                self.logger.debug('Closing MW')
             rc = v.ibv_dealloc_mw(self.mw)
             if rc != 0:
                 raise PyverbsRDMAError('Failed to dealloc MW', rc)
@@ -423,7 +425,8 @@ cdef class DmaBufMR(MR):
         :return: None
         """
         if self.mr != NULL:
-            self.logger.debug('Closing dma-buf MR')
+            if self.logger:
+                self.logger.debug('Closing dma-buf MR')
             rc = v.ibv_dereg_mr(self.mr)
             if rc != 0:
                 raise PyverbsRDMAError('Failed to dereg dma-buf MR', rc)

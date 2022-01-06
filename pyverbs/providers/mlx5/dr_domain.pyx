@@ -80,7 +80,8 @@ cdef class DrDomain(PyverbsCM):
 
     cpdef close(self):
         if self.domain != NULL:
-            self.logger.debug('Closing DrDomain.')
+            if self.logger:
+                self.logger.debug('Closing DrDomain.')
             close_weakrefs([self.dr_actions, self.dr_tables])
             rc = dv.mlx5dv_dr_domain_destroy(self.domain)
             if rc:

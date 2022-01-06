@@ -171,7 +171,8 @@ cdef class Context(PyverbsCM):
 
     cpdef close(self):
         if self.context != NULL:
-            self.logger.debug('Closing Context')
+            if self.logger:
+                self.logger.debug('Closing Context')
             close_weakrefs([self.qps, self.rwq_ind_tbls, self.wqs, self.ccs, self.cqs,
                             self.dms, self.pds, self.xrcds, self.vars, self.sched_leafs,
                             self.sched_nodes, self.dr_domains])
@@ -806,7 +807,8 @@ cdef class DM(PyverbsCM):
         original DM object, in order to prevent double free by Python GC.
         """
         if self.dm != NULL:
-            self.logger.debug('Closing DM')
+            if self.logger:
+                self.logger.debug('Closing DM')
             close_weakrefs([self.dm_mrs])
             if not self._is_imported:
                 rc = v.ibv_free_dm(self.dm)

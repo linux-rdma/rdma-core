@@ -42,7 +42,8 @@ cdef class DrRule(PyverbsCM):
 
     cpdef close(self):
         if self.rule != NULL:
-            self.logger.debug('Closing DrRule.')
+            if self.logger:
+                self.logger.debug('Closing DrRule.')
             rc = dv.mlx5dv_dr_rule_destroy(self.rule)
             if rc:
                 raise PyverbsRDMAError('Failed to destroy DrRule.', rc)

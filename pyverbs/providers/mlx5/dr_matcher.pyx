@@ -62,7 +62,8 @@ cdef class DrMatcher(PyverbsCM):
 
     cpdef close(self):
         if self.matcher != NULL:
-            self.logger.debug('Closing Matcher.')
+            if self.logger:
+                self.logger.debug('Closing Matcher.')
             close_weakrefs([self.dr_rules])
             if dv.mlx5dv_dr_matcher_destroy(self.matcher):
                 raise PyverbsRDMAErrno('Failed to destroy DrMatcher.')

@@ -40,7 +40,8 @@ cdef class CompChannel(PyverbsCM):
 
     cpdef close(self):
         if self.cc != NULL:
-            self.logger.debug('Closing completion channel')
+            if self.logger:
+                self.logger.debug('Closing completion channel')
             close_weakrefs([self.cqs])
             rc = v.ibv_destroy_comp_channel(self.cc)
             if rc != 0:
@@ -122,7 +123,8 @@ cdef class CQ(PyverbsCM):
 
     cpdef close(self):
         if self.cq != NULL:
-            self.logger.debug('Closing CQ')
+            if self.logger:
+                self.logger.debug('Closing CQ')
             close_weakrefs([self.qps, self.srqs, self.wqs])
             if self.num_events:
                 self.ack_events(self.num_events)
@@ -342,7 +344,8 @@ cdef class CQEX(PyverbsCM):
 
     cpdef close(self):
         if self.cq != NULL:
-            self.logger.debug('Closing CQEx')
+            if self.logger:
+                self.logger.debug('Closing CQEx')
             close_weakrefs([self.srqs, self.qps])
             rc = v.ibv_destroy_cq(<v.ibv_cq*>self.cq)
             if rc != 0:

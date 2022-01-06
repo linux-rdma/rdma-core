@@ -1038,7 +1038,8 @@ cdef class QP(PyverbsCM):
 
     cpdef close(self):
         if self.qp != NULL:
-            self.logger.debug('Closing QP')
+            if self.logger:
+                self.logger.debug('Closing QP')
             close_weakrefs([self.mws, self.flows, self.dr_actions])
             rc = v.ibv_destroy_qp(self.qp)
             if rc:
