@@ -770,15 +770,9 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				goto out_invalid_arg;
 			}
 			attr.hit_gvmi = action->vport.caps->vhca_gvmi;
-			if (rx_rule) {
-				/* Loopback on WIRE vport is not supported */
-				if (action->vport.caps->num == WIRE_PORT)
-					goto out_invalid_arg;
-
-				attr.final_icm_addr = action->vport.caps->icm_address_rx;
-			} else {
-				attr.final_icm_addr = action->vport.caps->icm_address_tx;
-			}
+			attr.final_icm_addr = rx_rule ?
+				action->vport.caps->icm_address_rx :
+				action->vport.caps->icm_address_tx;
 			break;
 		case DR_ACTION_TYP_DEST_ARRAY:
 			if (action->dest_array.dmn != dmn) {
