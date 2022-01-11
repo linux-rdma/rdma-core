@@ -74,6 +74,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_PORT_SWITCH_PORT_STATE_TABLE_SUP
         IBV_PORT_LINK_WIDTH_2X_SUP
         IBV_PORT_LINK_SPEED_HDR_SUP
+        IBV_PORT_LINK_SPEED_NDR_SUP
 
     cpdef enum ibv_mtu:
         IBV_MTU_256
