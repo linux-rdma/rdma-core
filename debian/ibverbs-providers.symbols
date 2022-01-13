@@ -151,6 +151,8 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_dr_aso_other_domain_link@MLX5_1.22 38
  mlx5dv_dr_aso_other_domain_unlink@MLX5_1.22 38
  mlx5dv_devx_alloc_msi_vector@MLX5_1.23 40
+ mlx5dv_devx_create_eq@MLX5_1.23 40
+ mlx5dv_devx_destroy_eq@MLX5_1.23 40
  mlx5dv_devx_free_msi_vector@MLX5_1.23 40
 libefa.so.1 ibverbs-providers #MINVER#
 * Build-Depends-Package: libibverbs-dev

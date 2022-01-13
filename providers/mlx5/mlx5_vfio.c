@@ -3185,6 +3185,116 @@ out:
 	return ret;
 }
 
+static struct mlx5dv_devx_eq *
+vfio_devx_create_eq(struct ibv_context *ibctx, const void *in, size_t inlen,
+		    void *out, size_t outlen)
+{
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(ibctx);
+	struct mlx5_devx_eq *eq;
+	void *eqc, *in_pas;
+	size_t inlen_pas;
+	uint64_t size;
+	__be64 *pas;
+	int err;
+
+	eqc = DEVX_ADDR_OF(create_eq_in, in, eq_context_entry);
+	if ((inlen < DEVX_ST_SZ_BYTES(create_eq_in)) ||
+	    (DEVX_GET(create_eq_in, in, opcode) != MLX5_CMD_OP_CREATE_EQ) ||
+	    (DEVX_GET(eqc, eqc, intr) == MLX5_VFIO_CMD_VEC_IDX)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	size = max(roundup_pow_of_two(
+			   (1ULL << DEVX_GET(eqc, eqc, log_eq_size)) * MLX5_EQE_SIZE),
+		   ctx->iova_min_page_size);
+	if (size > SIZE_MAX) {
+		errno = ERANGE;
+		return NULL;
+	}
+
+	eq = calloc(1, sizeof(*eq));
+	if (!eq) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	eq->size = size;
+	err = posix_memalign(&eq->dv_eq.vaddr,
+			     MLX5_ADAPTER_PAGE_SIZE, eq->size);
+	if (err) {
+		errno = err;
+		goto err_va;
+	}
+
+	err = iset_alloc_range(ctx->iova_alloc, eq->size, &eq->iova);
+	if (err)
+		goto err_range;
+
+	err = mlx5_vfio_register_mem(ctx, eq->dv_eq.vaddr, eq->iova, eq->size);
+	if (err)
+		goto err_reg;
+
+	inlen_pas = inlen + DEVX_FLD_SZ_BYTES(create_eq_in, pas[0]) * 1;
+	in_pas = calloc(1, inlen_pas);
+	if (!in_pas) {
+		errno = ENOMEM;
+		goto err_inpas;
+	}
+
+	memcpy(in_pas, in, inlen);
+	eqc = DEVX_ADDR_OF(create_eq_in, in_pas, eq_context_entry);
+	DEVX_SET(eqc, eqc, log_page_size,
+		 ilog32(eq->size - 1) - MLX5_ADAPTER_PAGE_SHIFT);
+
+	pas = (__be64 *)DEVX_ADDR_OF(create_eq_in, in_pas, pas);
+	pas[0] = htobe64(eq->iova);
+
+	err = mlx5_vfio_cmd_exec(ctx, in_pas, inlen_pas, out, outlen, 0);
+	if (err)
+		goto err_cmd;
+
+	free(in_pas);
+	eq->ibctx = ibctx;
+	eq->eqn = DEVX_GET(create_eq_out, out, eq_number);
+	return &eq->dv_eq;
+
+err_cmd:
+	free(in_pas);
+err_inpas:
+	mlx5_vfio_unregister_mem(ctx, eq->iova, eq->size);
+err_reg:
+	iset_insert_range(ctx->iova_alloc, eq->iova, eq->size);
+err_range:
+	free(eq->dv_eq.vaddr);
+err_va:
+	free(eq);
+	return NULL;
+}
+
+static int vfio_devx_destroy_eq(struct mlx5dv_devx_eq *dveq)
+{
+	struct mlx5_devx_eq *eq =
+		container_of(dveq, struct mlx5_devx_eq, dv_eq);
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(eq->ibctx);
+	uint32_t out[DEVX_ST_SZ_DW(destroy_eq_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(destroy_eq_in)] = {};
+	int err;
+
+	DEVX_SET(destroy_eq_in, in, opcode, MLX5_CMD_OP_DESTROY_EQ);
+	DEVX_SET(destroy_eq_in, in, eq_number, eq->eqn);
+
+	err = mlx5_vfio_cmd_exec(ctx, in, sizeof(in), out, sizeof(out), 0);
+	if (err)
+		return err;
+
+	mlx5_vfio_unregister_mem(ctx, eq->iova, eq->size);
+	iset_insert_range(ctx->iova_alloc, eq->iova, eq->size);
+	free(eq);
+
+	return 0;
+}
+
 static struct mlx5_dv_context_ops mlx5_vfio_dv_ctx_ops = {
 	.devx_general_cmd = vfio_devx_general_cmd,
 	.devx_obj_create = vfio_devx_obj_create,
@@ -3200,6 +3310,8 @@ static struct mlx5_dv_context_ops mlx5_vfio_dv_ctx_ops = {
 	.init_obj = vfio_init_obj,
 	.devx_alloc_msi_vector = vfio_devx_alloc_msi_vector,
 	.devx_free_msi_vector = vfio_devx_free_msi_vector,
+	.devx_create_eq = vfio_devx_create_eq,
+	.devx_destroy_eq = vfio_devx_destroy_eq,
 };
 
 static void mlx5_vfio_uninit_context(struct mlx5_vfio_context *ctx)

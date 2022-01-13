@@ -14,6 +14,7 @@ rdma_man_pages(
   mlx5dv_devx_alloc_msi_vector.3.md
   mlx5dv_devx_alloc_uar.3.md
   mlx5dv_devx_create_cmd_comp.3.md
+  mlx5dv_devx_create_eq.3.md
   mlx5dv_devx_create_event_channel.3.md
   mlx5dv_devx_get_event.3.md
   mlx5dv_devx_obj_create.3.md
@@ -61,6 +62,7 @@ rdma_alias_man_pages(
  mlx5dv_devx_alloc_msi_vector.3 mlx5dv_devx_free_msi_vector.3
  mlx5dv_devx_alloc_uar.3 mlx5dv_devx_free_uar.3
  mlx5dv_devx_create_cmd_comp.3 mlx5dv_devx_destroy_cmd_comp.3
+ mlx5dv_devx_create_eq.3 mlx5dv_devx_destroy_eq.3
  mlx5dv_devx_create_event_channel.3 mlx5dv_devx_destroy_event_channel.3
  mlx5dv_devx_create_cmd_comp.3 mlx5dv_devx_get_async_cmd_comp.3
  mlx5dv_devx_obj_create.3 mlx5dv_devx_general_cmd.3
