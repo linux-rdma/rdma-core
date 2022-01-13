@@ -2135,6 +2135,16 @@ int mlx5dv_dr_aso_other_domain_link(struct mlx5dv_devx_obj *devx_obj,
 int mlx5dv_dr_aso_other_domain_unlink(struct mlx5dv_devx_obj *devx_obj,
 				      struct mlx5dv_dr_domain *dmn);
 
+struct mlx5dv_devx_msi_vector {
+	int vector;
+	int fd;
+};
+
+struct mlx5dv_devx_msi_vector *
+mlx5dv_devx_alloc_msi_vector(struct ibv_context *ibctx);
+
+int mlx5dv_devx_free_msi_vector(struct mlx5dv_devx_msi_vector *msi);
+
 
 #ifdef __cplusplus
 }

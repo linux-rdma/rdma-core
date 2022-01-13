@@ -7335,6 +7335,31 @@ void mlx5dv_pp_free(struct mlx5dv_pp *dv_pp)
 	dvops->pp_free(dv_pp);
 }
 
+struct mlx5dv_devx_msi_vector *
+mlx5dv_devx_alloc_msi_vector(struct ibv_context *ibctx)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(ibctx);
+
+	if (!dvops || !dvops->devx_alloc_msi_vector) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->devx_alloc_msi_vector(ibctx);
+}
+
+int mlx5dv_devx_free_msi_vector(struct mlx5dv_devx_msi_vector *dvmsi)
+{
+	struct mlx5_devx_msi_vector *msi =
+		container_of(dvmsi, struct mlx5_devx_msi_vector, dv_msi);
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(msi->ibctx);
+
+	if (!dvops || !dvops->devx_free_msi_vector)
+		return EOPNOTSUPP;
+
+	return dvops->devx_free_msi_vector(dvmsi);
+}
+
 void mlx5_set_dv_ctx_ops(struct mlx5_dv_context_ops *ops)
 {
 	ops->devx_general_cmd = _mlx5dv_devx_general_cmd;

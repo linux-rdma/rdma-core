@@ -211,3 +211,9 @@ MLX5_1.22 {
 		mlx5dv_dr_aso_other_domain_link;
 		mlx5dv_dr_aso_other_domain_unlink;
 } MLX5_1.21;
+
+MLX5_1.23 {
+	global:
+		mlx5dv_devx_alloc_msi_vector;
+		mlx5dv_devx_free_msi_vector;
+} MLX5_1.22;

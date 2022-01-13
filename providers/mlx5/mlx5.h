@@ -913,6 +913,11 @@ struct mlx5dv_sched_leaf {
 	struct mlx5dv_devx_obj *obj;
 };
 
+struct mlx5_devx_msi_vector {
+	struct mlx5dv_devx_msi_vector dv_msi;
+	struct ibv_context *ibctx;
+};
+
 struct ibv_flow *
 _mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 		    struct mlx5dv_flow_match_parameters *match_value,
@@ -1561,6 +1566,8 @@ struct mlx5_dv_context_ops {
 	int (*query_port)(struct ibv_context *context, uint32_t port_num,
 			  struct mlx5dv_port *info, size_t info_len);
 	int (*map_ah_to_qp)(struct ibv_ah *ah, uint32_t qp_num);
+	struct mlx5dv_devx_msi_vector *(*devx_alloc_msi_vector)(struct ibv_context *ibctx);
+	int (*devx_free_msi_vector)(struct mlx5dv_devx_msi_vector *msi);
 };
 
 struct mlx5_dv_context_ops *mlx5_get_dv_ops(struct ibv_context *context);
