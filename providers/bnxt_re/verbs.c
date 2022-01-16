@@ -820,10 +820,14 @@ static int bnxt_re_check_qp_limits(struct bnxt_re_context *cntx,
 
 static void bnxt_re_free_queue_ptr(struct bnxt_re_qp *qp)
 {
-	free(qp->jrqq->hwque);
-	free(qp->jrqq);
-	free(qp->jsqq->hwque);
-	free(qp->jsqq);
+	if (qp->jrqq) {
+		free(qp->jrqq->hwque);
+		free(qp->jrqq);
+	}
+	if (qp->jsqq) {
+		free(qp->jsqq->hwque);
+		free(qp->jsqq);
+	}
 }
 
 static int bnxt_re_alloc_queue_ptr(struct bnxt_re_qp *qp,
