@@ -48,8 +48,7 @@
 #include "hns_roce_u_abi.h"
 
 #define HNS_ROCE_HW_VER1		('h' << 24 | 'i' << 16 | '0' << 8 | '6')
-
-#define HNS_ROCE_HW_VER2		('h' << 24 | 'i' << 16 | '0' << 8 | '8')
+#define HNS_ROCE_HW_VER2		0x100
 #define HNS_ROCE_HW_VER3		0x130
 
 #define PFX				"hns: "
