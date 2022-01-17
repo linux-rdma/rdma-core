@@ -271,8 +271,8 @@ the work request.
 **IBV_SEND_SIGNALED**
 :   A completion will be generated in the completion queue for the operation.
 
-**IBV_SEND_SOLICTED**
-:   Set the solicted bit in the RDMA packet. This informs the other side to
+**IBV_SEND_SOLICITED**
+:   Set the solicited bit in the RDMA packet. This informs the other side to
     generate a completion event upon receiving the RDMA operation.
 
 # CONCURRENCY
