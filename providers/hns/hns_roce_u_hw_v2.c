@@ -781,21 +781,43 @@ static int fill_ext_sge_inl_data(struct hns_roce_qp *qp,
 				 struct hns_roce_sge_info *sge_info)
 {
 	unsigned int sge_sz = sizeof(struct hns_roce_v2_wqe_data_seg);
-	void *dseg;
+	unsigned int sge_mask = qp->ex_sge.sge_cnt - 1;
+	void *dst_addr, *src_addr, *tail_bound_addr;
+	uint32_t src_len, tail_len;
 	int i;
+
 
 	if (sge_info->total_len > qp->sq.max_gs * sge_sz)
 		return EINVAL;
 
-	dseg = get_send_sge_ex(qp, sge_info->start_idx);
+	dst_addr = get_send_sge_ex(qp, sge_info->start_idx & sge_mask);
+	tail_bound_addr = get_send_sge_ex(qp, qp->ex_sge.sge_cnt & sge_mask);
 
 	for (i = 0; i < wr->num_sge; i++) {
-		memcpy(dseg, (void *)(uintptr_t)wr->sg_list[i].addr,
-		       wr->sg_list[i].length);
-		dseg += wr->sg_list[i].length;
+		tail_len = (uintptr_t)tail_bound_addr - (uintptr_t)dst_addr;
+
+		src_addr = (void *)(uintptr_t)wr->sg_list[i].addr;
+		src_len = wr->sg_list[i].length;
+
+		if (src_len < tail_len) {
+			memcpy(dst_addr, src_addr, src_len);
+			dst_addr += src_len;
+		} else if (src_len == tail_len) {
+			memcpy(dst_addr, src_addr, src_len);
+			dst_addr = get_send_sge_ex(qp, 0);
+		} else {
+			memcpy(dst_addr, src_addr, tail_len);
+			dst_addr = get_send_sge_ex(qp, 0);
+			src_addr += tail_len;
+			src_len -= tail_len;
+
+			memcpy(dst_addr, src_addr, src_len);
+			dst_addr += src_len;
+		}
 	}
 
-	sge_info->start_idx += DIV_ROUND_UP(sge_info->total_len, sge_sz);
+	sge_info->valid_num = DIV_ROUND_UP(sge_info->total_len, sge_sz);
+	sge_info->start_idx += sge_info->valid_num;
 
 	return 0;
 }
@@ -851,7 +873,6 @@ static int set_ud_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
 		      struct hns_roce_ud_sq_wqe *ud_sq_wqe,
 		      struct hns_roce_sge_info *sge_info)
 {
-	unsigned int sge_idx = sge_info->start_idx;
 	int ret;
 
 	if (!check_inl_data_len(qp, sge_info->total_len))
@@ -869,8 +890,6 @@ static int set_ud_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
 		ret = fill_ext_sge_inl_data(qp, wr, sge_info);
 		if (ret)
 			return ret;
-
-		sge_info->valid_num = sge_info->start_idx - sge_idx;
 
 		roce_set_field(ud_sq_wqe->sge_num_pd, UD_SQ_WQE_SGE_NUM_M,
 			       UD_SQ_WQE_SGE_NUM_S, sge_info->valid_num);
@@ -1013,7 +1032,6 @@ static int set_rc_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
 		      struct hns_roce_rc_sq_wqe *rc_sq_wqe,
 		      struct hns_roce_sge_info *sge_info)
 {
-	unsigned int sge_idx = sge_info->start_idx;
 	void *dseg = rc_sq_wqe;
 	int ret;
 	int i;
@@ -1042,8 +1060,6 @@ static int set_rc_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
 		ret = fill_ext_sge_inl_data(qp, wr, sge_info);
 		if (ret)
 			return ret;
-
-		sge_info->valid_num = sge_info->start_idx - sge_idx;
 
 		roce_set_field(rc_sq_wqe->byte_16, RC_SQ_WQE_BYTE_16_SGE_NUM_M,
 			       RC_SQ_WQE_BYTE_16_SGE_NUM_S,
