@@ -4474,8 +4474,10 @@ static void *udp_svc_run(void *arg)
 			udp_svc_fds[i].revents = 0;
 
 		poll(udp_svc_fds, svc->cnt + 1, -1);
-		if (udp_svc_fds[0].revents)
+		if (udp_svc_fds[0].revents) {
 			udp_svc_process_sock(svc);
+			udp_svc_fds = svc->contexts;
+		}
 
 		for (i = 1; i <= svc->cnt; i++) {
 			if (udp_svc_fds[i].revents)
@@ -4566,8 +4568,10 @@ static void *tcp_svc_run(void *arg)
 	timeout = -1;
 	do {
 		poll(&fds, 1, timeout * 1000);
-		if (fds.revents)
+		if (fds.revents) {
 			tcp_svc_process_sock(svc);
+			tcp_svc_timeouts = svc->contexts;
+		}
 
 		now = rs_get_time();
 		next_timeout = ~0;
@@ -4656,8 +4660,10 @@ static void *cm_svc_run(void *arg)
 			fds[i].revents = 0;
 
 		poll(fds, svc->cnt + 1, -1);
-		if (fds[0].revents)
+		if (fds[0].revents) {
 			cm_svc_process_sock(svc);
+			fds = svc->contexts;
+		}
 
 		for (i = 1; i <= svc->cnt; i++) {
 			if (!fds[i].revents)
