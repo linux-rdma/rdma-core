@@ -442,6 +442,25 @@ static void read_all(int fd, void *msg, size_t len)
 	assert(rc == len);
 }
 
+/**
+ * Allocates entire pages for registered allocations so that MADV_DONTFORK will
+ * not unmap valid memory in the child process when IBV_FORKSAFE is enabled.
+ */
+static void* forksafe_alloc(size_t len)
+{
+    void* ptr;
+    long pagesize = sysconf(_SC_PAGESIZE);
+
+    len = ((len + pagesize - 1) / pagesize) * pagesize;
+
+    if (posix_memalign(&ptr, pagesize, len) != 0) {
+        return NULL;
+    } else {
+        memset(ptr, 0, len);
+    }
+    return ptr;
+}
+
 static uint64_t rs_time_us(void)
 {
 	struct timespec now;
@@ -749,7 +768,7 @@ static int rs_init_bufs(struct rsocket *rs)
 	total_sbuf_size = rs->sbuf_size;
 	if (rs->sq_inline < RS_MAX_CTRL_MSG)
 		total_sbuf_size += RS_MAX_CTRL_MSG * RS_QP_CTRL_SIZE;
-	rs->sbuf = calloc(total_sbuf_size, 1);
+	rs->sbuf = forksafe_alloc(total_sbuf_size);
 	if (!rs->sbuf)
 		return ERR(ENOMEM);
 
@@ -759,7 +778,7 @@ static int rs_init_bufs(struct rsocket *rs)
 
 	len = sizeof(*rs->target_sgl) * RS_SGL_SIZE +
 	      sizeof(*rs->target_iomap) * rs->target_iomap_size;
-	rs->target_buffer_list = malloc(len);
+	rs->target_buffer_list = forksafe_alloc(len);
 	if (!rs->target_buffer_list)
 		return ERR(ENOMEM);
 
@@ -767,7 +786,6 @@ static int rs_init_bufs(struct rsocket *rs)
 	if (!rs->target_mr)
 		return -1;
 
-	memset(rs->target_buffer_list, 0, len);
 	rs->target_sgl = rs->target_buffer_list;
 	if (rs->target_iomap_size)
 		rs->target_iomap = (struct rs_iomap *) (rs->target_sgl + RS_SGL_SIZE);
@@ -775,7 +793,7 @@ static int rs_init_bufs(struct rsocket *rs)
 	total_rbuf_size = rs->rbuf_size;
 	if (rs->opts & RS_OPT_MSG_SEND)
 		total_rbuf_size += rs->rq_size * RS_MSG_SIZE;
-	rs->rbuf = calloc(total_rbuf_size, 1);
+	rs->rbuf = forksafe_alloc(total_rbuf_size);
 	if (!rs->rbuf)
 		return ERR(ENOMEM);
 
@@ -796,7 +814,7 @@ static int rs_init_bufs(struct rsocket *rs)
 
 static int ds_init_bufs(struct ds_qp *qp)
 {
-	qp->rbuf = calloc(qp->rs->rbuf_size + sizeof(struct ibv_grh), 1);
+	qp->rbuf = forksafe_alloc(qp->rs->rbuf_size + sizeof(struct ibv_grh));
 	if (!qp->rbuf)
 		return ERR(ENOMEM);
 
