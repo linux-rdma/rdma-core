@@ -1,0 +1,24 @@
+.\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+.TH "IB2ROCE" 7 "2021-11-15" "IBACM" "IB2ROCE User Guide" IB2ROCE
+.SH NAME
+ib2roce \- Bridge RDMA traffic between infiniband and ROCE
+.SH "DESCRIPTION"
+ib2roce is used to bridge traffic between Infiniband nodes and Ethernet nodes using ROCE to
+enable RDMA native communication between devices on Infiniband with devices on ROCE.
+
+At this point only multicast bridging is supported. The bridge will simply
+replicate multicast traffic between the two fabrics by joining the multicast
+group on either interface and forwarding it to the other.
+
+IB2ROCE prevents multicast loop back through a couple of measures including
+a filter on incoming traffic. Multicast loop back is switched off. If that
+measure is not sufficient, because that feature is not supported or
+local clients need loop back, then
+the filter will do its task.
+.SH "NOTES"
+The Infiniband to ROCE bridge does not support true RDMA memory transfers
+but only messaging in UDP / UD frames. Those are supported in both
+unicast and multicast modes. However, unicast mode is not supported yet
+as of January 2022.
+.SH "SEE ALSO"
+ib2roce(1)

@@ -701,6 +701,7 @@ endif()
 # Binaries
 if (NOT NL_KIND EQUAL 0)
   add_subdirectory(ibacm) # NO SPARSE
+  add_subdirectory(ib2roce)
 endif()
 
 if (NOT NL_KIND EQUAL 0)

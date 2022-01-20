@@ -1,0 +1,19 @@
+include_directories("linux")
+include_directories(${NL_INCLUDE_DIRS})
+
+rdma_executable(ib2roce
+  ib2roce.c
+  )
+target_link_libraries(ib2roce LINK_PRIVATE
+  ibverbs
+  ibumad
+  rdmacm
+  ${NL_LIBRARIES}
+  ${SYSTEMD_LIBRARIES}
+  ${CMAKE_THREAD_LIBS_INIT}
+  ${CMAKE_DL_LIBS}
+  )
+rdma_man_pages(
+  man/ib2roce.1
+  man/ib2roce.7
+  )
