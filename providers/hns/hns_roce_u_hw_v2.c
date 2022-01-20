@@ -85,14 +85,6 @@ static inline void set_data_seg_v2(struct hns_roce_v2_wqe_data_seg *dseg,
 	dseg->len = htole32(sg->length);
 }
 
-/* Fill an ending sge to make hw stop reading the remaining sges in wqe */
-static inline void set_ending_data_seg(struct hns_roce_v2_wqe_data_seg *dseg)
-{
-	dseg->lkey = htole32(0x0);
-	dseg->addr = 0;
-	dseg->len = htole32(INVALID_SGE_LENGTH);
-}
-
 static void set_extend_atomic_seg(struct hns_roce_qp *qp, unsigned int sge_cnt,
 				  struct hns_roce_sge_info *sge_info, void *buf)
 {
@@ -771,21 +763,43 @@ static int fill_ext_sge_inl_data(struct hns_roce_qp *qp,
 				 struct hns_roce_sge_info *sge_info)
 {
 	unsigned int sge_sz = sizeof(struct hns_roce_v2_wqe_data_seg);
-	void *dseg;
+	unsigned int sge_mask = qp->ex_sge.sge_cnt - 1;
+	void *dst_addr, *src_addr, *tail_bound_addr;
+	uint32_t src_len, tail_len;
 	int i;
+
 
 	if (sge_info->total_len > qp->sq.max_gs * sge_sz)
 		return EINVAL;
 
-	dseg = get_send_sge_ex(qp, sge_info->start_idx);
+	dst_addr = get_send_sge_ex(qp, sge_info->start_idx & sge_mask);
+	tail_bound_addr = get_send_sge_ex(qp, qp->ex_sge.sge_cnt & sge_mask);
 
 	for (i = 0; i < wr->num_sge; i++) {
-		memcpy(dseg, (void *)(uintptr_t)wr->sg_list[i].addr,
-		       wr->sg_list[i].length);
-		dseg += wr->sg_list[i].length;
+		tail_len = (uintptr_t)tail_bound_addr - (uintptr_t)dst_addr;
+
+		src_addr = (void *)(uintptr_t)wr->sg_list[i].addr;
+		src_len = wr->sg_list[i].length;
+
+		if (src_len < tail_len) {
+			memcpy(dst_addr, src_addr, src_len);
+			dst_addr += src_len;
+		} else if (src_len == tail_len) {
+			memcpy(dst_addr, src_addr, src_len);
+			dst_addr = get_send_sge_ex(qp, 0);
+		} else {
+			memcpy(dst_addr, src_addr, tail_len);
+			dst_addr = get_send_sge_ex(qp, 0);
+			src_addr += tail_len;
+			src_len -= tail_len;
+
+			memcpy(dst_addr, src_addr, src_len);
+			dst_addr += src_len;
+		}
 	}
 
-	sge_info->start_idx += DIV_ROUND_UP(sge_info->total_len, sge_sz);
+	sge_info->valid_num = DIV_ROUND_UP(sge_info->total_len, sge_sz);
+	sge_info->start_idx += sge_info->valid_num;
 
 	return 0;
 }
@@ -827,7 +841,6 @@ static int set_ud_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
 		      struct hns_roce_ud_sq_wqe *ud_sq_wqe,
 		      struct hns_roce_sge_info *sge_info)
 {
-	unsigned int sge_idx = sge_info->start_idx;
 	int ret;
 
 	if (!check_inl_data_len(qp, sge_info->total_len))
@@ -843,8 +856,6 @@ static int set_ud_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
 		ret = fill_ext_sge_inl_data(qp, wr, sge_info);
 		if (ret)
 			return ret;
-
-		sge_info->valid_num = sge_info->start_idx - sge_idx;
 
 		hr_reg_write(ud_sq_wqe, UDWQE_SGE_NUM, sge_info->valid_num);
 	}
@@ -968,7 +979,6 @@ static int set_rc_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
 		      struct hns_roce_rc_sq_wqe *rc_sq_wqe,
 		      struct hns_roce_sge_info *sge_info)
 {
-	unsigned int sge_idx = sge_info->start_idx;
 	void *dseg = rc_sq_wqe;
 	int ret;
 	int i;
@@ -995,8 +1005,6 @@ static int set_rc_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
 		ret = fill_ext_sge_inl_data(qp, wr, sge_info);
 		if (ret)
 			return ret;
-
-		sge_info->valid_num = sge_info->start_idx - sge_idx;
 
 		hr_reg_write(rc_sq_wqe, RCWQE_SGE_NUM, sge_info->valid_num);
 	}
@@ -1230,23 +1238,43 @@ static int check_qp_recv(struct ibv_qp *qp, struct hns_roce_context *ctx)
 	return 0;
 }
 
-static void fill_rq_wqe(struct hns_roce_qp *qp, struct ibv_recv_wr *wr,
-			unsigned int wqe_idx)
+static void fill_recv_sge_to_wqe(struct ibv_recv_wr *wr, void *wqe,
+				 unsigned int max_sge, bool rsv)
 {
-	struct hns_roce_v2_wqe_data_seg *dseg;
-	struct hns_roce_rinl_sge *sge_list;
-	int i;
+	struct hns_roce_v2_wqe_data_seg *dseg = wqe;
+	unsigned int i, cnt;
 
-	dseg = get_recv_wqe_v2(qp, wqe_idx);
-	for (i = 0; i < wr->num_sge; i++) {
+	for (i = 0, cnt = 0; i < wr->num_sge; i++) {
+		/* Skip zero-length sge */
 		if (!wr->sg_list[i].length)
 			continue;
-		set_data_seg_v2(dseg, wr->sg_list + i);
-		dseg++;
+
+		set_data_seg_v2(dseg + cnt, wr->sg_list + i);
+		cnt++;
 	}
 
-	if (qp->rq.rsv_sge)
-		set_ending_data_seg(dseg);
+	/* Fill a reserved sge to make ROCEE stop reading remaining segments */
+	if (rsv) {
+		dseg[cnt].lkey = 0;
+		dseg[cnt].addr = 0;
+		dseg[cnt].len = htole32(INVALID_SGE_LENGTH);
+	} else {
+		/* Clear remaining segments to make ROCEE ignore sges */
+		if (cnt < max_sge)
+			memset(dseg + cnt, 0,
+			       (max_sge - cnt) * HNS_ROCE_SGE_SIZE);
+	}
+}
+
+static void fill_rq_wqe(struct hns_roce_qp *qp, struct ibv_recv_wr *wr,
+			unsigned int wqe_idx, unsigned int max_sge)
+{
+	struct hns_roce_rinl_sge *sge_list;
+	unsigned int i;
+	void *wqe;
+
+	wqe = get_recv_wqe_v2(qp, wqe_idx);
+	fill_recv_sge_to_wqe(wr, wqe, max_sge, qp->rq.rsv_sge);
 
 	if (!qp->rq_rinl_buf.wqe_cnt)
 		return;
@@ -1293,7 +1321,7 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 		}
 
 		wqe_idx = (qp->rq.head + nreq) & (qp->rq.wqe_cnt - 1);
-		fill_rq_wqe(qp, wr, wqe_idx);
+		fill_rq_wqe(qp, wr, wqe_idx, max_sge);
 		qp->rq.wrid[wqe_idx] = wr->wr_id;
 	}
 
@@ -1519,10 +1547,8 @@ static int hns_roce_v2_srqwq_overflow(struct hns_roce_srq *srq)
 }
 
 static int check_post_srq_valid(struct hns_roce_srq *srq,
-				struct ibv_recv_wr *wr)
+				struct ibv_recv_wr *wr, unsigned int max_sge)
 {
-	unsigned int max_sge = srq->max_gs - srq->rsv_sge;
-
 	if (hns_roce_v2_srqwq_overflow(srq))
 		return -ENOMEM;
 
@@ -1558,28 +1584,6 @@ static int get_wqe_idx(struct hns_roce_srq *srq, unsigned int *wqe_idx)
 	return 0;
 }
 
-static void fill_srq_wqe(struct hns_roce_srq *srq, unsigned int wqe_idx,
-			 struct ibv_recv_wr *wr)
-{
-	struct hns_roce_v2_wqe_data_seg *dseg;
-	int i;
-
-	dseg = get_srq_wqe(srq, wqe_idx);
-
-	for (i = 0; i < wr->num_sge; ++i) {
-		dseg[i].len = htole32(wr->sg_list[i].length);
-		dseg[i].lkey = htole32(wr->sg_list[i].lkey);
-		dseg[i].addr = htole64(wr->sg_list[i].addr);
-	}
-
-	/* hw stop reading when identify the last one */
-	if (srq->rsv_sge) {
-		dseg[i].len = htole32(INVALID_SGE_LENGTH);
-		dseg[i].lkey = htole32(0x0);
-		dseg[i].addr = 0;
-	}
-}
-
 static void fill_wqe_idx(struct hns_roce_srq *srq, unsigned int wqe_idx)
 {
 	struct hns_roce_idx_que *idx_que = &srq->idx_que;
@@ -1607,15 +1611,16 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 {
 	struct hns_roce_context *ctx = to_hr_ctx(ib_srq->context);
 	struct hns_roce_srq *srq = to_hr_srq(ib_srq);
+	unsigned int wqe_idx, max_sge, nreq;
 	struct hns_roce_db srq_db;
-	unsigned int wqe_idx;
 	int ret = 0;
-	int nreq;
+	void *wqe;
 
 	pthread_spin_lock(&srq->lock);
 
+	max_sge = srq->max_gs - srq->rsv_sge;
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
-		ret = check_post_srq_valid(srq, wr);
+		ret = check_post_srq_valid(srq, wr, max_sge);
 		if (ret) {
 			*bad_wr = wr;
 			break;
@@ -1627,7 +1632,8 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 			break;
 		}
 
-		fill_srq_wqe(srq, wqe_idx, wr);
+		wqe = get_srq_wqe(srq, wqe_idx);
+		fill_recv_sge_to_wqe(wr, wqe, max_sge, srq->rsv_sge);
 		fill_wqe_idx(srq, wqe_idx);
 
 		srq->wrid[wqe_idx] = wr->wr_id;
