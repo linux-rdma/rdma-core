@@ -64,6 +64,16 @@ Description: InfiniBand Communication Manager Assistant (ACM)
  needed to establish a connection, but does not implement the CM protocol.
  A primary user of the ibacm service is the librdmacm library.
 
+Package: ib2roce
+Architecture: linux-any
+Depends: lsb-base (>= 3.2-14~),
+         rdma-core (>= 15),
+         ${misc:Depends},
+         ${shlibs:Depends}
+Description: Infiniband to ROCE bridge (ib2roce)
+ ib2roce implements a forwarder between Infiniband and ROCE with limited
+ functionality.
+
 Package: ibverbs-providers
 Architecture: linux-any
 Multi-Arch: same

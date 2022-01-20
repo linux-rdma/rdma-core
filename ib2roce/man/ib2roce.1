@@ -1,0 +1,111 @@
+.\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+.\"
+.\" Copyright (C) 2022 Christoph Lameter <cl@linux.com>
+.\"
+.TH "ib2roce" 1 "2022-01-20" "ib2roce" "ib2roce" ib2roce
+.SH NAME
+ib2roce \- Infiniband to ROCE gateway
+.SH SYNOPSIS
+.sp
+.nf
+\fIib2roce\fR [-d <infiniband device] [-r <roce device>] [-m <multicast address>] [<other options>]
+.fi
+.SH "DESCRIPTION"
+ib2roce is a bridging tool that monitors and forwards RDMA packets
+between an Infiniband fabric and a Ethernet fabric. On the Ethernet
+side ROCE v2 is used for RDMA communication.
+
+ib2roce currently only supports multicast operations. It is planned
+to add unicast messaging. However, true RDMA operations are not considered
+necessary since the primary role of ib2roce is to support multicast
+messaging on RDMA fabrics that need unicast only as a recovery
+control channel. ib2roce is optimized to provide the highest
+throughput for multicast messaging.
+.SH "OPTIONS"
+.TP
+\-b, --beacon
+ib2roce will sent its status every second on the multicast group
+239.1.2.3:999 on every interface and will log any beacons encountered
+from other instances of ib2roce. At some point ib2roce will gain
+the functionality to operate in a redundant setup and the beacons
+will be used to communicate between ib2roce instances.
+.TP
+\-d, --device  <infiniband-device[:port]>
+Specifies the Infiniband device to use with an optional port number.
+The port defaults to one if not specified.
+
+ib2roce will scan all devices on startup and will use the first
+Infiniband device that is suitable by default. If there are
+multiple Infiniband fabric attached then this option is necessary
+to specify which one to use.
+.TP
+\-i, --inbound <ipv4 multicast address[:port][/<mgid-format]
+A multicast address that should be forwarded from Infiniband
+to ROCE. Traffic in the other direction is ignored.
+.TP
+\-l, --mgid [<format>]
+Specifies which MGID format to use on Infiniband. There are a
+couple of standards on how to encode ipv4 addresses in the
+MGID on Infiniband. This selects
+the method to use and its use is depending on the type of traffic
+that needs to be forwarded between the fabrics.
+
+If no format is specified then ib2roce will display the available
+formats. If no custom mgid format is set for a multicast group
+(the default) then ib2roce will
+perform a join using IPv4 conventions on Infiniband
+and rely on the RDMA subsystem to construct the MGID.
+
+The CLLM MGID format relies on the use of a port number to construct
+the MGID. This means that the port number needs to be correctly
+configured otherwise the MGID will not match and traffic will not
+flow to and from CLLM based applications. Other MGID encoding
+schemes do not include the port. However, the port number is still
+set while interacting with the RDMA subsystem. The number seems
+to be irrelevant at this time for RDMA subsystem functionality.
+.TP
+\-m, --multicast <ipv4 multicast address[:port][/<mgid-format]>
+Specify a multicast address that should be forwarded in both directions.
+The port specification is optional since it is often not relevant for multicast
+traffic forwarding. The mgid format can be specified to override
+the global setting. See the -l option for more details.
+.TP
+\-n, --nobridge
+Run ib2roce without actually forwarding any packets. This is useful
+for debugging since the packet statistics and ib2roce logs will
+show useful information about multicast groups and the amount
+of traffic that may have to be forwarded.
+.TP
+\-o, --outbound <ipv4 multicast address[:port][/<mgid-format]
+A multicast address that should be forwarded from ROCE
+to Infiniband. Traffic in the other direction is ignored. Sendonly joins
+occur to avoid additional traffic on the fabric.
+.TP
+\-p, --port <number>
+Set the default port number. This is used when binding to ROCE and Infiniband
+devices and for multicast groups that do not have a port specified.
+Currently these port numbers seem to be ignored by the RDMA subsystem.
+However, the port number is relevant when an CLLM MGID needs to be
+constructed.
+.TP
+\-r, --roce  <roce-device[:port]>
+Specifies the ROCE Ethernet device to use with an optional port number.
+The port defaults to one if not specified.
+
+ib2roce will scan all devices on startup and will use the first
+Ethernet device that supports ROCE by default. If there are
+multiple ROCE fabrics attached then this option is necessary
+to specify which one to use.
+.TP
+\-x, --debug
+Switches ib2roce into debug mode. ib2roce does not daemonize but
+keeps logging diagnostic output to stderr.
+.SH "NOTES"
+ib2roce creates files in either the current directory or in /var/lib/ib2roce. These
+are the ib2roce.pid file to be able to detect the presence of an already running
+ib2roce instance and the ib2roce-status file that is updated in regular
+intervals with ib2roce information.
+.SH "SEE ALSO"
+roce2ib(7)
+.SH AUTHORS
+Christoph Lameter <cl@linux.com>
