@@ -79,13 +79,14 @@ static enum bool bridging = true;		/* Allow briding */
 struct mgid_signature {		/* Manage different MGID formats used */
 	unsigned short signature;
 	const char *id;
-	enum bool port_in_mgid;
-	enum bool full_ipv4;
+	enum bool port;		/* Port field is used in MGID */
+	enum bool full_ipv4;	/* Full IP address */
+	enum bool pkey;		/* Pkey in MGID */
 } mgid_signatures[nr_mgid_signatures] = {
-	{	0x401B,	"IPv4",	false, false },
-	{	0x601B,	"IPv6",	false, false },
-	{	0xA01B,	"CLLM", true, true },
-	{	0x4001, "IB",	false, false }
+	{	0x401B,	"IPv4",	false, false, true },
+	{	0x601B,	"IPv6",	false, false, true },
+	{	0xA01B,	"CLLM", true, true, false },
+	{	0x4001, "IB",	false, false, false }
 };
 
 struct mgid_signature *mgid_mode;
@@ -474,21 +475,25 @@ static int new_mc_addr(char *arg,
 		struct sockaddr_ib *saib	= calloc(1, sizeof(struct sockaddr_ib));
 		unsigned short *mgid_header	= (unsigned short *)saib->sib_addr.sib_raw;
 		unsigned short *mgid_signature	= (unsigned short *)(saib->sib_addr.sib_raw + 2);
+		unsigned short *mgid_pkey	= (unsigned short *)(saib->sib_addr.sib_raw + 4);
 		unsigned short *mgid_port	= (unsigned short *)(saib->sib_addr.sib_raw + 10);
 		unsigned int *mgid_ipv4	= (unsigned int *)(saib->sib_addr.sib_raw + 12);
 		unsigned int  multicast = ntohl(m->addr.s_addr);
+		struct mgid_signature *mg = m->mgid_mode;
 
 		saib->sib_family = AF_IB,
 		saib->sib_sid = si->sin_port;
 
 		*mgid_header = htons(0xff15);
+		*mgid_signature = htons(mg->signature);
 
-		*mgid_signature = htons(m->mgid_mode->signature);
+		if (mg->pkey)
+			*mgid_pkey = id(INFINIBAND)->route.addr.addr.ibaddr.pkey;
 
-		if (m->mgid_mode->port_in_mgid)
+		if (mg->port)
 			*mgid_port = si->sin_port;
 
-		if (!m->mgid_mode->full_ipv4)
+		if (!mg->full_ipv4)
 			/* Strip to 28 bits according to RFC */
 			multicast &= 0x0fffffff;
 
@@ -1150,7 +1155,7 @@ static int recv_buf(struct i2r_interface *i,
 
 		if (m->mgid_mode) {
 			if (signature == m->mgid_mode->signature) {
-				if (m->mgid_mode->port_in_mgid)
+				if (m->mgid_mode->port)
 					port = ntohs(*((unsigned short *)(mgid + 10)));
 			} else {
 				syslog(LOG_WARNING, "Discard Packet: MGID multicast signature(%x)  mismatch. MGID=%s\n",
@@ -1652,7 +1657,7 @@ int main(int argc, char **argv)
 				struct mgid_signature *m = mgid_signatures + n;
 
 				printf("%7s|    0x%x | %s\n",
-					m->id, m->signature, m->port_in_mgid ? "true" : "false");
+					m->id, m->signature, m->port ? "true" : "false");
 			}
 			exit(1);
 			break;
