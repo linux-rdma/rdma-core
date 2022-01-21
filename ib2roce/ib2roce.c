@@ -132,6 +132,7 @@ static struct i2r_interface {
 	unsigned mtu;
 	char if_name[IFNAMSIZ];
 	struct sockaddr_in if_addr;
+	struct sockaddr_in if_netmask;
 	struct sockaddr *bindaddr;
 	unsigned ifindex;
 	unsigned gid_index;
@@ -722,6 +723,9 @@ have_name:
 		goto err2;
 
 	memcpy(&i->if_addr, &ifr.ifr_addr, sizeof(struct sockaddr_in));
+
+	ioctl(fh, SIOCGIFNETMASK, &ifr);
+	memcpy(&i->if_netmask, &ifr.ifr_netmask, sizeof(struct sockaddr_in));
 	goto out;
 
 err:
