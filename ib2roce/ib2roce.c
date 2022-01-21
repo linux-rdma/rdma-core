@@ -1402,8 +1402,8 @@ static void beacon_setup(void)
 		syslog(LOG_ERR, "Beacon MC already in use.\n");
 		beacon = false;
 		free(sin);
-	}
-	beacon_mc = m;
+	} else
+		beacon_mc = m;
 }
 
 
@@ -1421,7 +1421,7 @@ static int event_loop(void)
 	int events;
 	int i;
 
-	for(i = 0; i < 2; i++) {
+	for(i = 0; i < NR_INTERFACES; i++) {
 		/* Receive Buffers */
 		post_receive_buffers(i2r + i);
 		/* And request notifications if something happens */
@@ -1438,6 +1438,7 @@ loop:
 		syslog(LOG_WARNING, "Poll failed with error=%d\n", errno);
 		goto out;
 	}
+
 	if (events == 0) {
 
 		/* Maintenance tasks */
@@ -1588,6 +1589,7 @@ static void pid_open(void)
 		syslog(LOG_CRIT, "Cannot truncate pidfile. Error %d\n", errno);
 		abort();
 	}
+
 	n = snprintf(buf, sizeof(buf), "%ld", (long) getpid());
 
 	if (write(pid_fd, buf, n) != n) {
