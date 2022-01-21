@@ -477,8 +477,8 @@ static int new_mc_addr(char *arg,
 		unsigned short *mgid_signature	= (unsigned short *)(saib->sib_addr.sib_raw + 2);
 		unsigned short *mgid_pkey	= (unsigned short *)(saib->sib_addr.sib_raw + 4);
 		unsigned short *mgid_port	= (unsigned short *)(saib->sib_addr.sib_raw + 10);
-		unsigned int *mgid_ipv4	= (unsigned int *)(saib->sib_addr.sib_raw + 12);
-		unsigned int  multicast = ntohl(m->addr.s_addr);
+		unsigned int *mgid_ipv4		= (unsigned int *)(saib->sib_addr.sib_raw + 12);
+		unsigned int multicast = ntohl(m->addr.s_addr);
 		struct mgid_signature *mg = m->mgid_mode;
 
 		saib->sib_family = AF_IB,
@@ -1378,7 +1378,7 @@ static void beacon_send(void)
 			memcpy(buf->payload, &b, sizeof(b));
 			send_buf(i2r + i, buf, sizeof(b), beacon_mc->ai + i);
 		} else
-			send_inline(i2r + i, &b, sizeof(b), beacon_mc->ai + INFINIBAND);
+			send_inline(i2r + i, &b, sizeof(b), beacon_mc->ai + i);
 	}
 }
 
