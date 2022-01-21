@@ -205,7 +205,7 @@ static inline int check_qp_queue_full(struct rxe_qp *qp)
 	if (qp->err)
 		goto err;
 
-	if (cons == ((qp->cur_index + 1) % q->index_mask))
+	if (cons == ((qp->cur_index + 1) & q->index_mask))
 		qp->err = ENOSPC;
 err:
 	return qp->err;
