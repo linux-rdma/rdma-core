@@ -70,6 +70,7 @@ static enum bool terminated = false;		/* Daemon received a signal to terminate *
 static enum bool update_requested = false;	/* Received SIGUSR1. Dump all MC data details */
 static enum bool beacon = false;		/* Announce our presence (and possibly coordinate between multiple instances in the future */
 static enum bool bridging = true;		/* Allow briding */
+static enum bool unicast = false;		/* Bridge unicast packets */
 
 /*
  * Handling of special Multicast Group MGID encodings on Infiniband
@@ -1109,6 +1110,148 @@ static int send_buf(struct i2r_interface *i, struct buf *buf, unsigned len, stru
 	return ret;
 }
 
+static unsigned int lookup_ip_from_gid(union ibv_gid *v)
+{
+	/* This is something like a mac address lookup ?? */
+}
+
+#define ROCE_PORT 4791
+
+int sysfs_read_int(char *s)
+{
+	int fh = open(s, O_RDONLY);
+	static char b[10];
+	if (fh < 2)
+		return -1;
+
+	if (read(fh, b, 10) < 1) {
+		close(fh);
+		return -1;
+	}
+
+	close(fh);
+
+	return atoi(b);
+}
+
+void setup_flow(enum interfaces in)
+{
+	struct i2r_interface *i = i2r + in;
+	struct i2r_interface *di = i2r + (in ^ 1);
+	struct ibv_flow *f;
+	enum bool err = false;
+	char name[100];
+	unsigned netmask = di->if_netmask.sin_addr.s_addr;
+	struct {
+		struct ibv_flow_attr attr;
+		struct ibv_flow_spec_ipv4 ipv4;
+		struct ibv_flow_spec_tcp_udp udp;
+	} flattr = {
+		{
+			0, IBV_FLOW_ATTR_ALL_DEFAULT, sizeof(struct ibv_flow_spec),
+			1, 2, i->port, 0
+		},
+		{
+			IBV_FLOW_SPEC_IPV4, sizeof(struct ibv_flow_spec_ipv4),
+			{ 0, di->if_addr.sin_addr.s_addr & netmask },
+			{ 0, netmask }
+		},
+		{
+			IBV_FLOW_SPEC_UDP, sizeof(struct ibv_flow_spec_tcp_udp),
+			{ ROCE_PORT, ROCE_PORT},
+			{ 0xffff, 0xffff}
+		}
+	};
+
+	if (!bridging)
+		return;
+
+	/* Check system config for unicast setup */
+	if (sysfs_read_int("/proc/sys/net/ipv4/ip_forward") != 1) {
+		err = true;
+		syslog(LOG_CRIT, "unicast mode requires ip_forwarding to be active\n");
+	}
+
+	for (enum interfaces in = 0; in < NR_INTERFACES; in++) {
+		snprintf(name, 100, "/proc/sys/net/ipv4/conf/%s/proxy_arp", interfaces_text[in]);
+		if (sysfs_read_int(name) != 1) {
+			err = true;
+			syslog(LOG_CRIT,"unicast mode requires a proxyarp setup on interface %s",
+				interfaces_text[in]);
+		}
+	}
+
+	f = ibv_create_flow(i->id->qp, &flattr.attr);
+	if (!f) {
+		err = true;
+		syslog(LOG_ERR, "unicast mode: Cannot create required flow on %s. Errno %d\n", interfaces_text[i - i2r], errno);
+	}
+
+	if (err)
+		abort();
+}
+
+static int unicast_packet(struct i2r_interface *i, struct buf *buf, struct in_addr source_addr, struct in_addr dest_addr)
+{
+	char xbuf[INET6_ADDRSTRLEN];
+	char xbuf2[INET6_ADDRSTRLEN];
+	enum interfaces in = i - i2r;
+	unsigned port = 0; /* How do I get that??? Is it needed? */
+
+	if (in == ROCE) {
+
+		unsigned int iaddr = ntohl(i2r[INFINIBAND].if_addr.sin_addr.s_addr);
+		unsigned int netmask = ntohl(i2r[INFINIBAND].if_netmask.sin_addr.s_addr);
+		unsigned int daddr = ntohl(dest_addr.s_addr);
+
+		if ((daddr & netmask) == (iaddr & netmask)) {
+			/* Unicast ROCE packet destined for Infiniband */
+			syslog(LOG_NOTICE, "Packet destination Infiniband from %s to %s port %d\n",
+				inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
+				inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
+				port);
+		}
+
+	} else {
+
+		unsigned int iaddr = ntohl(i2r[ROCE].if_addr.sin_addr.s_addr);
+		unsigned int netmask = ntohl(i2r[ROCE].if_netmask.sin_addr.s_addr);
+		unsigned int daddr = ntohl(lookup_ip_from_gid(&buf->grh.dgid));
+
+		if ((daddr & netmask) == (iaddr & netmask)) {
+			/* Unicast Infiniband packet destined for ROCE */
+			syslog(LOG_NOTICE, "Packet destination Roce from %s to %s port %d\n",
+				inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
+				inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
+				port);
+		}
+	}
+
+	/* Dump GRH and the beginning of the packet */
+	syslog(LOG_NOTICE, "Unicast GRH flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s Packet="
+	       	"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+			ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
+			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
+			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
+			buf->payload[0], buf->payload[1], buf->payload[2], buf->payload[3],
+		        buf->payload[4], buf->payload[5], buf->payload[6], buf->payload[7],
+			buf->payload[8], buf->payload[9], buf->payload[10], buf->payload[11],
+			buf->payload[12], buf->payload[13], buf->payload[14], buf->payload[15],
+			buf->payload[16], buf->payload[17], buf->payload[18], buf->payload[19],
+			buf->payload[20], buf->payload[21], buf->payload[22], buf->payload[23],
+			buf->payload[24], buf->payload[25], buf->payload[26], buf->payload[27],
+			buf->payload[28], buf->payload[29], buf->payload[30], buf->payload[31],
+			buf->payload[32], buf->payload[33], buf->payload[34], buf->payload[35],
+			buf->payload[36], buf->payload[37], buf->payload[38], buf->payload[39],
+			buf->payload[40], buf->payload[41], buf->payload[42], buf->payload[43],
+			buf->payload[44], buf->payload[45], buf->payload[46], buf->payload[47]);
+
+	return 1;
+}
+
+
 static int recv_buf(struct i2r_interface *i,
 			struct buf *buf, struct ibv_wc *w)
 {
@@ -1125,6 +1268,9 @@ static int recv_buf(struct i2r_interface *i,
 			inet_ntoa(dest_addr), interfaces_text[in]);
 		return -EINVAL;
 	}
+
+	if (unicast && buf->grh.dgid.raw[0] != 0xff)
+		return unicast_packet(i, buf, source_addr, dest_addr);
 
 	m = hash_lookup_mc(dest_addr);
 
@@ -1618,6 +1764,7 @@ struct option opts[] = {
 	{ "debug", no_argument, NULL, 'x' },
 	{ "nobridge", no_argument, NULL, 'n' },
 	{ "port", required_argument, NULL, 'p' },
+	{ "unicast", no_argument, NULL, 'u' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -1684,6 +1831,10 @@ int main(int argc, char **argv)
 			default_port = atoi(optarg);
 			break;
 
+		case 'u':
+			unicast = true;
+			break;
+
 		default:
 			printf("%s " VERSION " Jan19,2021 (C) 2022 Christoph Lameter <cl@linux.com>\n", argv[0]);
 			printf("Usage: ib2roce [<option>] ...\n");
@@ -1698,7 +1849,8 @@ int main(int argc, char **argv)
 			printf("-p|--port >number>			Set default port number\n");
 			printf("-b|--beacon				Send beacon every second\n");
 			printf("-n|--nobridge				Do everything but do not bridge packets\n");
-                        exit(1);
+			printf("-u|--unicast		*experimental*	Forward unicast packages via proxyarp\n");
+			exit(1);
 		}
 	}
 
@@ -1727,6 +1879,11 @@ int main(int argc, char **argv)
 
 	if (beacon)
 		beacon_setup();
+
+	if (unicast) {
+		setup_flow(ROCE);
+		setup_flow(INFINIBAND);
+	}
 
 	event_loop();
 
