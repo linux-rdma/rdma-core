@@ -1175,11 +1175,13 @@ static void setup_flow(enum interfaces in)
 	}
 
 	for (j = 0; j < NR_INTERFACES; j++) {
-		snprintf(name, 100, "/proc/sys/net/ipv4/conf/%s/proxy_arp", interfaces_text[j]);
+		const char *interface = i2r[in].if_name;
+
+		snprintf(name, 100, "/proc/sys/net/ipv4/conf/%s/proxy_arp", interface);
 		if (sysfs_read_int(name) != 1) {
 			err = true;
 			syslog(LOG_CRIT,"unicast mode requires a proxyarp setup on interface %s",
-				interfaces_text[j]);
+				interface);
 		}
 	}
 
