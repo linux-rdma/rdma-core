@@ -1174,7 +1174,7 @@ static void setup_flow(enum interfaces in)
 		syslog(LOG_CRIT, "unicast mode requires ip_forwarding to be active\n");
 	}
 
-	for (enum interfaces j = 0; j < NR_INTERFACES; j++) {
+	for (j = 0; j < NR_INTERFACES; j++) {
 		snprintf(name, 100, "/proc/sys/net/ipv4/conf/%s/proxy_arp", interfaces_text[j]);
 		if (sysfs_read_int(name) != 1) {
 			err = true;
@@ -1775,7 +1775,7 @@ int main(int argc, char **argv)
 	int op, ret = 0;
 	int n;
 
-	while ((op = getopt_long(argc, argv, "nbxl::i:r:m:o:d:p:",
+	while ((op = getopt_long(argc, argv, "unbxl::i:r:m:o:d:p:",
 					opts, NULL)) != -1) {
                 switch (op) {
 		case 'd':
