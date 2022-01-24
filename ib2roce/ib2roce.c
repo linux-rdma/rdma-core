@@ -1113,11 +1113,12 @@ static int send_buf(struct i2r_interface *i, struct buf *buf, unsigned len, stru
 static unsigned int lookup_ip_from_gid(union ibv_gid *v)
 {
 	/* This is something like a mac address lookup ?? */
+	return 0;
 }
 
 #define ROCE_PORT 4791
 
-int sysfs_read_int(char *s)
+static int sysfs_read_int(const char *s)
 {
 	int fh = open(s, O_RDONLY);
 	static char b[10];
@@ -1134,10 +1135,11 @@ int sysfs_read_int(char *s)
 	return atoi(b);
 }
 
-void setup_flow(enum interfaces in)
+static void setup_flow(enum interfaces in)
 {
 	struct i2r_interface *i = i2r + in;
 	struct i2r_interface *di = i2r + (in ^ 1);
+	enum interfaces j;
 	struct ibv_flow *f;
 	enum bool err = false;
 	char name[100];
@@ -1172,19 +1174,19 @@ void setup_flow(enum interfaces in)
 		syslog(LOG_CRIT, "unicast mode requires ip_forwarding to be active\n");
 	}
 
-	for (enum interfaces in = 0; in < NR_INTERFACES; in++) {
-		snprintf(name, 100, "/proc/sys/net/ipv4/conf/%s/proxy_arp", interfaces_text[in]);
+	for (enum interfaces j = 0; j < NR_INTERFACES; j++) {
+		snprintf(name, 100, "/proc/sys/net/ipv4/conf/%s/proxy_arp", interfaces_text[j]);
 		if (sysfs_read_int(name) != 1) {
 			err = true;
 			syslog(LOG_CRIT,"unicast mode requires a proxyarp setup on interface %s",
-				interfaces_text[in]);
+				interfaces_text[j]);
 		}
 	}
 
 	f = ibv_create_flow(i->id->qp, &flattr.attr);
 	if (!f) {
 		err = true;
-		syslog(LOG_ERR, "unicast mode: Cannot create required flow on %s. Errno %d\n", interfaces_text[i - i2r], errno);
+		syslog(LOG_ERR, "unicast mode: Cannot create required flow on %s. Errno %d\n", interfaces_text[in], errno);
 	}
 
 	if (err)
