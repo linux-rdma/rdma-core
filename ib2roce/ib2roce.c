@@ -58,7 +58,10 @@
 #include <infiniband/verbs.h>
 #include <poll.h>
 
-#define VERSION "2022.0120"
+#include <libmnl/libmnl.h>
+#include <linux/rtnetlink.h>
+
+#define VERSION "2022.0125"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
@@ -131,6 +134,8 @@ static struct i2r_interface {
 	unsigned int nr_cq;
 	unsigned port;
 	unsigned mtu;
+	unsigned macoffset;
+	unsigned maclen;
 	char if_name[IFNAMSIZ];
 	struct sockaddr_in if_addr;
 	struct sockaddr_in if_netmask;
@@ -331,7 +336,7 @@ static struct mc {
  */
 static struct mc *mc_hash[0x100];
 
-static unsigned sockaddr_hash(unsigned a)
+static unsigned ip_hash(unsigned a)
 {
 	unsigned low = a & 0xff;
 	unsigned middle = (a & 0xff00) >> 8;
@@ -356,7 +361,7 @@ static struct mc *hash_lookup_mc(struct in_addr addr)
 	struct in_addr x = {
 		.s_addr = htonl(a)
 	};
-	unsigned index = sockaddr_hash(a);
+	unsigned index = ip_hash(a);
 
 	return __hash_lookup_mc(x, index);
 }
@@ -364,7 +369,7 @@ static struct mc *hash_lookup_mc(struct in_addr addr)
 static int hash_add_mc(struct mc *m)
 {
 	unsigned a = htonl(m->addr.s_addr);
-	unsigned index = sockaddr_hash(a);
+	unsigned index = ip_hash(a);
 
 	if (__hash_lookup_mc(m->addr, index))
 		return -EEXIST;
@@ -759,6 +764,14 @@ static void setup_interface(enum interfaces in)
 	struct sockaddr_in *sin;
 	int ret;
 
+	if (in == INFINIBAND) {
+		i->macoffset = 4;
+		i->maclen = 16;
+	} else {
+		i->macoffset = 0;
+		i->maclen = 6;
+	}
+
 	if (!i->context)
 		return;
 
@@ -1142,6 +1155,196 @@ static int sysfs_read_int(const char *s)
 	return atoi(b);
 }
 
+/* Unicast handling */
+
+struct rdma_ah {
+	struct i2r_interface *i;
+	char mac[16];
+	struct in_addr addr;
+	struct rdma_ah *next_addr;	/* Hash Collision addr hash */
+	struct rdma_ah *next_mac;	/* Hash Collision mac hash */
+};
+
+struct rdma_ah *hash_addr[0xff];
+struct rdma_ah *hash_mac[0xff];
+
+static int nr_rdma_ah = 0;
+
+static unsigned mac_hash(struct i2r_interface *i, char *mac)
+{
+	int z = i->macoffset;
+	unsigned hash = mac[z++];
+
+	while (z < i->maclen)
+		hash += mac[z++];
+
+	return hash & 0xff;
+}
+
+
+static struct rdma_ah *hash_addr_lookup(struct in_addr addr, unsigned addr_hash)
+{
+	struct rdma_ah *ra = hash_addr[addr_hash];
+
+	while (ra && ra->addr.s_addr != addr.s_addr)
+		ra = ra->next_addr;
+
+	return ra;
+}
+
+static struct rdma_ah *hash_mac_lookup(struct i2r_interface *i, char *mac, unsigned mac_hash)
+{
+	struct rdma_ah *ra = hash_mac[mac_hash];
+
+	while (ra && memcmp(mac + i->macoffset, ra->mac, i->maclen) != 0)
+		ra = ra->next_mac;
+
+	return ra;
+}
+
+static char hexbyte(unsigned x)
+{
+	if (x < 10)
+		return '0' + x;
+
+	return x - 10 + 'a';
+}
+
+static char *hexbytes(unsigned char *x, unsigned len)
+{
+	static char b[100];
+	unsigned i;
+	char *p = b;
+
+	for(i =0; i < len; i++) {
+		unsigned n = *x++;
+		*p++ = hexbyte( n >> 4 );
+		*p++ = hexbyte( n & 0xf);
+		*p++ = ':';
+	}
+	p--;
+	*p = 0;
+	return b;
+}
+
+
+static void hash_add_unicast_rdma_ah(struct i2r_interface *i, struct rdma_ah *ra)
+{
+	unsigned ha = ip_hash(ntohl(ra->addr.s_addr));
+	unsigned hm = mac_hash(i, ra->mac);
+
+	if (hash_addr_lookup(ra->addr, ha)) {
+		syslog(LOG_CRIT, "Duplicate IP address in Hash Interface=%s addr=%s\n",
+				i->if_name, inet_ntoa(ra->addr));
+		abort();
+	}
+
+	if (hash_mac_lookup(i, ra->mac, hm)) {
+		syslog(LOG_CRIT, "Duplicate MAC Address in Hash Interface=%s mac=%s\n",
+				i->if_name, hexbytes(ra->mac+ i->macoffset, i->maclen));
+		abort();
+	}
+
+	ra->next_addr = hash_addr[ha];
+	ra->next_mac = hash_mac[hm];
+
+	hash_addr[ha] = ra;
+	hash_mac[hm] = ra;
+}
+
+static int data_attr_callback(const struct nlattr *attr, void *data)
+{
+	const struct nlattr **tb = data;
+	int type = mnl_attr_get_type(attr);
+
+	if (mnl_attr_type_valid(attr, NDA_MAX) < 0)
+		return MNL_CB_OK;
+
+	switch (type) {
+		case  NDA_DST:
+		case NDA_LLADDR:
+			if (mnl_attr_validate(attr, MNL_TYPE_BINARY) < 0) {
+				perror("mnl_attr_validate");
+				return MNL_CB_ERROR;
+			}
+			break;
+	}
+	tb[type] = attr;
+	return MNL_CB_OK;
+}
+
+static int data_callback(const struct nlmsghdr *nlh, void *p)
+{
+	struct nlattr *tb[NDA_MAX + 1] = {};
+	struct ndmsg *ndm = mnl_nlmsg_get_payload(nlh);
+	struct rdma_ah *ra = malloc(sizeof(struct rdma_ah));
+	struct i2r_interface *i = p;
+
+	mnl_attr_parse(nlh, sizeof(*ndm), data_attr_callback, tb);
+
+	if (tb[NDA_DST])
+		ra->addr = * ((struct in_addr *)mnl_attr_get_payload(tb[NDA_DST]));
+
+	mnl_attr_parse(nlh, sizeof(*ndm), data_attr_callback, tb);
+	if (tb[NDA_LLADDR])
+		memcpy(ra->mac, mnl_attr_get_payload(tb[NDA_LLADDR]) + i->macoffset, i->maclen);
+
+	hash_add_unicast_rdma_ah(i, ra);
+
+	return MNL_CB_OK;
+}
+
+static int get_routing_table(struct i2r_interface *i)
+{
+	struct mnl_socket *nl;
+	struct rtgenmsg *rt;
+	struct nlmsghdr *nlh;
+	char buf[MNL_SOCKET_DUMP_SIZE];
+	unsigned int seq, portid;
+	int ret;
+
+	nlh = mnl_nlmsg_put_header(buf);
+	nlh->nlmsg_type	= RTM_GETNEIGH;
+	nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+	nlh->nlmsg_seq = seq = time(NULL);
+
+	rt = mnl_nlmsg_put_extra_header(nlh, sizeof(struct rtgenmsg));
+	rt->rtgen_family = AF_INET;
+
+	nl = mnl_socket_open(NETLINK_ROUTE);
+	if (nl == NULL) {
+		perror("mnl_socket_open");
+		exit(EXIT_FAILURE);
+	}
+
+	if (mnl_socket_bind(nl, 0, MNL_SOCKET_AUTOPID) < 0) {
+		perror("mnl_socket_bind");
+		exit(EXIT_FAILURE);
+	}
+
+	portid = mnl_socket_get_portid(nl);
+
+	if (mnl_socket_sendto(nl, nlh, nlh->nlmsg_len) < 0) {
+		perror("mnl_socket_sendto");
+		exit(EXIT_FAILURE);
+	}
+
+	ret = mnl_socket_recvfrom(nl, buf, sizeof(buf));
+	while (ret > 0) {
+		ret = mnl_cb_run(buf, ret, seq, portid, data_callback, i);
+		if (ret <= MNL_CB_STOP)
+			break;
+		ret = mnl_socket_recvfrom(nl, buf, sizeof(buf));
+	}
+
+	if (ret == -1) {
+		perror("error");
+		exit(EXIT_FAILURE);
+	}
+	mnl_socket_close(nl);
+}
+
+
 static void setup_flow(enum interfaces in)
 {
 	struct i2r_interface *i = i2r + in;
@@ -1197,6 +1400,8 @@ static void setup_flow(enum interfaces in)
 		err = true;
 		syslog(LOG_ERR, "unicast mode: Cannot create required flow on %s. Errno %d\n", interfaces_text[in], errno);
 	}
+
+	get_routing_table(i);
 
 	if (err)
 		abort();
