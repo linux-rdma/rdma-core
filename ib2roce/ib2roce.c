@@ -39,6 +39,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/types.h>
@@ -59,18 +60,17 @@
 
 #define VERSION "2022.0120"
 
-enum bool { false, true };
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
 /* Globals */
 
 static unsigned default_port = 4711;		/* Port to use to bind to devices and for MC groups that do not have a port (if a port is required) */
-static enum bool debug = false;			/* Stay in foreground, print more details */
-static enum bool terminated = false;		/* Daemon received a signal to terminate */
-static enum bool update_requested = false;	/* Received SIGUSR1. Dump all MC data details */
-static enum bool beacon = false;		/* Announce our presence (and possibly coordinate between multiple instances in the future */
-static enum bool bridging = true;		/* Allow briding */
-static enum bool unicast = false;		/* Bridge unicast packets */
+static bool debug = false;			/* Stay in foreground, print more details */
+static bool terminated = false;		/* Daemon received a signal to terminate */
+static bool update_requested = false;	/* Received SIGUSR1. Dump all MC data details */
+static bool beacon = false;		/* Announce our presence (and possibly coordinate between multiple instances in the future */
+static bool bridging = true;		/* Allow briding */
+static bool unicast = false;		/* Bridge unicast packets */
 
 /*
  * Handling of special Multicast Group MGID encodings on Infiniband
@@ -80,9 +80,9 @@ static enum bool unicast = false;		/* Bridge unicast packets */
 struct mgid_signature {		/* Manage different MGID formats used */
 	unsigned short signature;
 	const char *id;
-	enum bool port;		/* Port field is used in MGID */
-	enum bool full_ipv4;	/* Full IP address */
-	enum bool pkey;		/* Pkey in MGID */
+	bool port;		/* Port field is used in MGID */
+	bool full_ipv4;	/* Full IP address */
+	bool pkey;		/* Pkey in MGID */
 } mgid_signatures[nr_mgid_signatures] = {
 	{	0x401B,	"IPv4",	false, false, true },
 	{	0x601B,	"IPv6",	false, false, true },
@@ -315,8 +315,8 @@ const char *mc_text[NR_MC_STATUS] = { "Inactive", "Joining", "Joined", "Error" }
 static struct mc {
 	struct in_addr addr;
 	enum mc_status status[2];
-	enum bool sendonly[2];
-	enum bool beacon;
+	bool sendonly[2];
+	bool beacon;
 	struct ah_info ai[2];
 	struct mc *next;	/* For the hash */
 	struct sockaddr *sa[2];
@@ -391,8 +391,8 @@ static struct mgid_signature *find_mgid_mode(char *p)
 
 /* Multicast group specifications on the command line */
 static int new_mc_addr(char *arg,
-	       enum bool sendonly_infiniband,
-	      enum bool sendonly_roce)
+	bool sendonly_infiniband,
+	bool sendonly_roce)
 {
 	struct addrinfo *res;
 	char *service;
@@ -516,7 +516,7 @@ out:
 
 static int _join_mc(struct in_addr addr, struct sockaddr *sa,
 				unsigned port,enum interfaces i,
-				enum bool sendonly, void *private)
+				bool sendonly, void *private)
 {
 	struct rdma_cm_join_mc_attr_ex mc_attr = {
 		.comp_mask = RDMA_CM_JOIN_MC_ATTR_ADDRESS | RDMA_CM_JOIN_MC_ATTR_JOIN_FLAGS,
@@ -587,7 +587,7 @@ static int leave_mc(enum interfaces i)
 
 struct buf {
 	struct buf *next;	/* Next buffer */
-	enum bool free;
+	bool free;
 	/* Add more metadata here */
 	struct ibv_grh grh;	/* GRH header as included in UD connections */
 	uint8_t payload[buf_size];	/* I wish this was page aligned at some point */
@@ -1141,7 +1141,7 @@ static void setup_flow(enum interfaces in)
 	struct i2r_interface *di = i2r + (in ^ 1);
 	enum interfaces j;
 	struct ibv_flow *f;
-	enum bool err = false;
+	bool err = false;
 	char name[100];
 	unsigned netmask = di->if_netmask.sin_addr.s_addr;
 	struct {
