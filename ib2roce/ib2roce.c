@@ -695,7 +695,7 @@ static int qp_destroy(struct i2r_interface *i)
 }
 
 /* Retrieve Kernel Stack info about the interface */
-static void get_if_info(struct i2r_interface *i, int ifindex)
+static void get_if_info(struct i2r_interface *i)
 {
 	int fh = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
 	struct ifreq ifr;
@@ -703,25 +703,36 @@ static void get_if_info(struct i2r_interface *i, int ifindex)
 	if (fh < 0)
 		goto err;
 
-	if (!ifindex) {
-		/* RDMA subsystem did not give us Interface info */
-		if (i->if_name[0]) {
-			memcpy(ifr.ifr_name, i->if_name, IFNAMSIZ);
-			goto have_name;
-		}
-		goto err;
+	/*
+	 * Work around the quirk of ifindex always being zero for
+	 * INFINIBAND interfaces. Just assume its ib0.
+	 */
+	if (!i->ifindex && i - i2r == INFINIBAND) {
+
+		syslog(LOG_WARNING, "Assuming ib0 is the IP device name for %s\n",
+		     ibv_get_device_name(i->context->device));
+		strcpy(i->if_name, "ib0");
+
+		memcpy(ifr.ifr_name, i->if_name, IFNAMSIZ);
+
+		/* Find if_index */
+		if (ioctl(fh, SIOCGIFINDEX, &ifr) < 0)
+			goto err;
+
+		i->ifindex = ifr.ifr_ifindex;
+
+	} else {
+
+		ifr.ifr_ifindex = i->ifindex;
+
+		if (ioctl(fh, SIOCGIFNAME, &ifr) < 0)
+			goto err;
+
+		memcpy(i->if_name, ifr.ifr_name, IFNAMSIZ);
 	}
 
-	ifr.ifr_ifindex = ifindex;
-
-	if (ioctl(fh, SIOCGIFNAME, &ifr) < 0)
-		goto err;
-
-	memcpy(i->if_name, ifr.ifr_name, IFNAMSIZ);
-
-have_name:
 	if (ioctl(fh, SIOCGIFADDR, &ifr) < 0)
-		goto err2;
+		goto err;
 
 	memcpy(&i->if_addr, &ifr.ifr_addr, sizeof(struct sockaddr_in));
 
@@ -730,9 +741,11 @@ have_name:
 	goto out;
 
 err:
-	strcpy(i->if_name, "-");
-err2:
-	memset(&i->if_addr, 0, sizeof(i->if_addr));
+	syslog(LOG_CRIT, "Cannot determine IP interface setup for %s",
+		     ibv_get_device_name(i->context->device));
+
+	abort();
+
 out:
 	close(fh);
 }
@@ -796,14 +809,7 @@ static void setup_interface(enum interfaces in)
 	i->gid_index = e->gid_index;
 	i->ifindex = e->ndev_ifindex;
 
-	/*
-	 * Work around the quirk of ifindex always being zero for
-	 * INFINIBAND interfaces. Just assume its ib0.
-	 */
-	if (!i->ifindex && in == INFINIBAND)
-		strcpy(i->if_name,"ib0");
-
-	get_if_info(i, i->ifindex);
+	get_if_info(i);
 
 	sin = calloc(1, sizeof(struct sockaddr_in));
 	sin->sin_family = AF_INET;
@@ -872,7 +878,8 @@ static void setup_interface(enum interfaces in)
 
 	syslog(LOG_NOTICE, "%s interface %s/%s port %d GID=%s/%d IPv4=%s CQs=%u MTU=%u ready.\n",
 		interfaces_text[in],
-		ibv_get_device_name(i->context->device),i->if_name,
+		ibv_get_device_name(i->context->device),
+		i->if_name,
 		i->port,
 		inet_ntop(AF_INET6, e->gid.raw, buf, INET6_ADDRSTRLEN),i->gid_index,
 		inet_ntoa(i->if_addr.sin_addr),
@@ -1666,6 +1673,7 @@ static void daemonize(void)
 	pid_t pid;
 
 	if (debug) {
+		chdir("/var/lib/ib2roce");
 		openlog("ib2roce", LOG_PERROR, LOG_USER);
 		return;
 	}
