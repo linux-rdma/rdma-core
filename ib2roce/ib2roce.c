@@ -1250,6 +1250,7 @@ static void hash_add_unicast_rdma_ah(struct i2r_interface *i, struct rdma_ah *ra
 
 	hash_addr[ha] = ra;
 	hash_mac[hm] = ra;
+	nr_rdma_ah++;
 }
 
 static int data_attr_callback(const struct nlattr *attr, void *data)
@@ -1385,7 +1386,7 @@ static void setup_flow(enum interfaces in)
 	}
 
 	for (j = 0; j < NR_INTERFACES; j++) {
-		const char *interface = i2r[in].if_name;
+		const char *interface = i2r[j].if_name;
 
 		snprintf(name, 100, "/proc/sys/net/ipv4/conf/%s/proxy_arp", interface);
 		if (sysfs_read_int(name) != 1) {
