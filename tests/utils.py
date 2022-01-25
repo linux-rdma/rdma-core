@@ -1148,11 +1148,13 @@ def eswitch_mode_check(dev_name):
         raise unittest.SkipTest(f'Could not find the PCI device of {dev_name}')
     pci_name = pci_name[0].split('/')[5]
     try:
-        subprocess.check_output(['devlink', 'dev', 'eswitch', 'show', f'pci/{pci_name}'],
-                                stderr=subprocess.DEVNULL)
+        output = subprocess.check_output(['devlink', 'dev', 'eswitch', 'show', f'pci/{pci_name}'],
+                                         stderr=subprocess.DEVNULL).decode()
     except subprocess.CalledProcessError:
         raise unittest.SkipTest(f'ESwitch is off on device {dev_name}')
-    return True
+    if 'switchdev' in output:
+        return True
+    return False
 
 
 
