@@ -1160,7 +1160,7 @@ static int sysfs_read_int(const char *s)
 
 struct rdma_ah {
 	struct i2r_interface *i;
-	char mac[16];
+	char mac[20];
 	struct in_addr addr;
 	short state;
 	short flags;
@@ -1169,8 +1169,8 @@ struct rdma_ah {
 	struct rdma_ah *next_mac;	/* Hash Collision mac hash */
 };
 
-struct rdma_ah *hash_addr[0xff];
-struct rdma_ah *hash_mac[0xff];
+struct rdma_ah *hash_addr[0x100];
+struct rdma_ah *hash_mac[0x100];
 
 static int nr_rdma_ah = 0;
 
@@ -1179,7 +1179,7 @@ static unsigned mac_hash(struct i2r_interface *i, char *mac)
 	int z = i->macoffset;
 	unsigned hash = mac[z++];
 
-	while (z < i->maclen)
+	while (z < i->maclen + i->macoffset)
 		hash += mac[z++];
 
 	return hash & 0xff;
@@ -1200,7 +1200,7 @@ static struct rdma_ah *hash_mac_lookup(struct i2r_interface *i, char *mac, unsig
 {
 	struct rdma_ah *ra = hash_mac[mac_hash];
 
-	while (ra && memcmp(mac + i->macoffset, ra->mac, i->maclen) != 0)
+	while (ra && memcmp(mac + i->macoffset, ra->mac + i->macoffset, i->maclen) != 0)
 		ra = ra->next_mac;
 
 	return ra;
@@ -1216,7 +1216,7 @@ static char hexbyte(unsigned x)
 
 static char *hexbytes(char *x, unsigned len)
 {
-	uint8_t *q = x;
+	uint8_t *q = (uint8_t *)x;
 	static char b[100];
 	unsigned i;
 	char *p = b;
@@ -1231,7 +1231,6 @@ static char *hexbytes(char *x, unsigned len)
 	*p = 0;
 	return b;
 }
-
 
 struct neigh {
 	struct nlmsghdr nlh;
@@ -1248,7 +1247,7 @@ static void handle_neigh_event(struct i2r_interface *i, struct neigh *n)
 	bool have_lladdr = false;
 	struct rdma_ah *ra, *r;
 	unsigned ha, hm;
-	char *action = "New";
+	const char *action = "New";
 
 	if (i->ifindex != n->nd.ndm_ifindex)
 		/* Not interested in that interface */
@@ -1293,7 +1292,7 @@ static void handle_neigh_event(struct i2r_interface *i, struct neigh *n)
 
 	if (i->maclen + i->macoffset != maclen) {
 		syslog(LOG_ERR, "netlink message mac length does not match. Expected %d got %d\n",
-				i->maclen, maclen);
+				i->maclen + i->macoffset, maclen);
 		goto err;
 	}
 
