@@ -1395,7 +1395,13 @@ static void setup_flow(enum interfaces in)
 		}
 	};
 
-	if (!bridging)
+	f = ibv_create_flow(i->id->qp, &flattr.attr);
+	if (!f) {
+		syslog(LOG_ERR, "unicast mode: Cannot create flow on %s. Errno %d\n", interfaces_text[in], errno);
+		err = true;
+	}
+
+	if (!bridging || err)
 		return;
 
 	/* Check system config for unicast setup */
@@ -1415,14 +1421,6 @@ static void setup_flow(enum interfaces in)
 		}
 	}
 
-	f = ibv_create_flow(i->id->qp, &flattr.attr);
-	if (!f) {
-		err = true;
-		syslog(LOG_ERR, "unicast mode: Cannot create required flow on %s. Errno %d\n", interfaces_text[in], errno);
-	}
-
-	if (err)
-		abort();
 }
 
 static int unicast_packet(struct i2r_interface *i, struct buf *buf, struct in_addr source_addr, struct in_addr dest_addr)
