@@ -1331,8 +1331,9 @@ static int send_netlink_message(struct i2r_interface *i, struct nlmsghdr *nlh)
 	return ret;
 }
 
-static int netlink_setup(struct i2r_interface *i)
+static int setup_netlink(enum interfaces in)
 {
+	struct i2r_interface *i = i2r + in;
 	static struct sockaddr_nl sal = {
 		.nl_family = AF_NETLINK,
 		.nl_groups = RTMGRP_NEIGH	/* Subscribe to changes to the ARP cache */
@@ -1789,22 +1790,35 @@ static void beacon_setup(void)
 		beacon_mc = m;
 }
 
+#define NR_EVENT_TYPES 4
+
+static void (*event_callvec[NR_EVENT_TYPES])(enum interfaces) = {
+		handle_rdma_event,
+		handle_comp_event,
+		handle_async_event,
+		handle_netlink_event
+};
 
 static int event_loop(void)
 {
 	unsigned timeout = 1000;
-	struct pollfd pfd[8] = {
-		{ i2r[INFINIBAND].rdma_events->fd, POLLIN|POLLOUT, 0},
-		{ i2r[ROCE].rdma_events->fd, POLLIN|POLLOUT, 0},
-		{ i2r[INFINIBAND].comp_events->fd, POLLIN|POLLOUT, 0},
-		{ i2r[ROCE].comp_events->fd, POLLIN|POLLOUT,0},
-		{ i2r[INFINIBAND].context->async_fd, POLLIN|POLLOUT, 0},
-		{ i2r[ROCE].context->async_fd, POLLIN|POLLOUT, 0},
-		{ i2r[INFINIBAND].sock_nl, POLLIN|POLLOUT, 0},
-		{ i2r[ROCE].sock_nl, POLLIN|POLLOUT, 0}
+	struct pollfd pfd[ 2* NR_EVENT_TYPES] = {
+		{ i2r[INFINIBAND].rdma_events->fd, POLLIN, 0},
+		{ i2r[ROCE].rdma_events->fd, POLLIN, 0},
+		{ i2r[INFINIBAND].comp_events->fd, POLLIN, 0},
+		{ i2r[ROCE].comp_events->fd, POLLIN,0},
+		{ i2r[INFINIBAND].context->async_fd, POLLIN, 0},
+		{ i2r[ROCE].context->async_fd, POLLIN, 0},
+		{ i2r[INFINIBAND].sock_nl, POLLIN, 0},
+		{ i2r[ROCE].sock_nl, POLLIN, 0}
 	};
+	unsigned nr_types = NR_EVENT_TYPES;
 	int events;
 	int i;
+
+	if (!unicast)
+		/* No netlink events */
+		nr_types--;
 
 	for(i = 0; i < NR_INTERFACES; i++) {
 		/* Receive Buffers */
@@ -1814,7 +1828,7 @@ static int event_loop(void)
 	}
 
 loop:
-	events = poll(pfd, 8, timeout);
+	events = poll(pfd, 2 * nr_types, timeout);
 
 	if (terminated)
 		goto out;
@@ -1854,29 +1868,13 @@ loop:
 	if (timeout > 5000)
 		timeout = 5000;
 
-	if (pfd[0].revents & (POLLIN|POLLOUT))
-		handle_rdma_event(INFINIBAND);
+	for(i = 0; i < nr_types; i++) {
+		enum interfaces j;
 
-	if (pfd[1].revents & (POLLIN|POLLOUT))
-		handle_rdma_event(ROCE);
-
-	if (pfd[2].revents & (POLLIN|POLLOUT))
-		handle_comp_event(INFINIBAND);
-
-	if (pfd[3].revents & (POLLIN|POLLOUT))
-		handle_comp_event(ROCE);
-
-	if (pfd[4].revents & (POLLIN|POLLOUT))
-		handle_async_event(INFINIBAND);
-
-	if (pfd[5].revents & (POLLIN|POLLOUT))
-		handle_async_event(ROCE);
-
-	if (pfd[6].revents & (POLLIN|POLLOUT))
-		handle_netlink_event(INFINIBAND);
-
-	if (pfd[7].revents & (POLLIN|POLLOUT))
-		handle_netlink_event(ROCE);
+		for(j = 0; j < NR_INTERFACES; j++) 
+			if (pfd[i * 2 + j].revents & POLLIN)
+			event_callvec[i](j);
+	}
 
 	goto loop;
 out:
@@ -2123,8 +2121,12 @@ int main(int argc, char **argv)
 		beacon_setup();
 
 	if (unicast) {
-		setup_flow(ROCE);
-		setup_flow(INFINIBAND);
+		enum interfaces j;
+
+		for(j = 0; j < NR_INTERFACES; j++) {
+			setup_flow(j);
+			setup_netlink(j);
+		}
 	}
 
 	event_loop();
