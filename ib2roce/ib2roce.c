@@ -1356,11 +1356,13 @@ static int setup_netlink(enum interfaces in)
 		abort();
 	}
 
-	sal.nl_pid = getpid();
+	sal.nl_pid = getpid() + in;
 	if (bind(i->sock_nl, (struct sockaddr *)&sal, sizeof(sal)) < 0) {
 		syslog(LOG_CRIT, "Failed to bind to netlink socket %d\n", errno);
 		abort();
 	};
+
+	memcpy(&i->nladdr, &sal, sizeof(struct sockaddr_nl));
 
 	send_netlink_message(i, &nlr.nlh);
 }
