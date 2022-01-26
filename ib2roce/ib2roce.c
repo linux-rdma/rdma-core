@@ -1214,14 +1214,15 @@ static char hexbyte(unsigned x)
 	return x - 10 + 'a';
 }
 
-static char *hexbytes(unsigned char *x, unsigned len)
+static char *hexbytes(char *x, unsigned len)
 {
+	uint8_t *q = x;
 	static char b[100];
 	unsigned i;
 	char *p = b;
 
 	for(i =0; i < len; i++) {
-		unsigned n = *x++;
+		unsigned n = *q++;
 		*p++ = hexbyte( n >> 4 );
 		*p++ = hexbyte( n & 0xf);
 		*p++ = ':';
@@ -1243,10 +1244,11 @@ static void handle_neigh_event(struct i2r_interface *i, struct neigh *n)
 	int len = n->nlh.nlmsg_len - NLMSG_LENGTH(sizeof(struct ndmsg));
 	unsigned maclen = 0;
 	struct rtattr *rta;
-	bool have_dst;
-	bool have_lladdr;
+	bool have_dst = false;
+	bool have_lladdr = false;
 	struct rdma_ah *ra, *r;
 	unsigned ha, hm;
+	char *action = "New";
 
 	if (i->ifindex != n->nd.ndm_ifindex)
 		/* Not interested in that interface */
@@ -1289,7 +1291,7 @@ static void handle_neigh_event(struct i2r_interface *i, struct neigh *n)
 		goto err;
 	}
 
-	if (i->maclen != maclen) {
+	if (i->maclen + i->macoffset != maclen) {
 		syslog(LOG_ERR, "netlink message mac length does not match. Expected %d got %d\n",
 				i->maclen, maclen);
 		goto err;
@@ -1303,6 +1305,7 @@ static void handle_neigh_event(struct i2r_interface *i, struct neigh *n)
 		/* Update existing */
 		free(ra);
 		ra = r;
+		action = "Update";
 	}
 
 	ra->flags = n->nd.ndm_flags;
@@ -1324,7 +1327,8 @@ static void handle_neigh_event(struct i2r_interface *i, struct neigh *n)
 	hash_mac[hm] = ra;
 	nr_rdma_ah++;
 
-	syslog(LOG_NOTICE, "New ARP entry via netlink for %s: IP=%s MAC=%s Flags=%x State=%x\n",
+	syslog(LOG_NOTICE, "%s ARP entry via netlink for %s: IP=%s MAC=%s Flags=%x State=%x\n",
+		action,
 		i->if_name,
 		inet_ntoa(ra->addr),
 		hexbytes(ra->mac, maclen),
@@ -1344,30 +1348,32 @@ out:
 static void handle_netlink_event(enum interfaces in)
 {
 	struct i2r_interface *i = i2r + in;
-	char buf[1000];
+	char buf[8192];
 	struct nlmsghdr *h = (void *)buf;
 	struct sockaddr_nl nladdr;
 	struct iovec iov = { buf, sizeof(buf) };
 	struct msghdr msg = { (void *)&nladdr, sizeof(struct sockaddr_nl), &iov, 1 };
-	int ret;
+	int len;
 
-	ret = recvmsg(i->sock_nl, &msg, 0);
-	if (ret < 9) {
-		perror("Netlink recvmsg");
+	len = recvmsg(i->sock_nl, &msg, 0);
+	if (len < 0) {
+		syslog(LOG_CRIT, "Netlink recvmsg error. Errno %d\n", errno);
 		return;
 	}
 
-	switch(h->nlmsg_type) {
-		case RTM_NEWNEIGH:
-		case RTM_GETNEIGH:
-		case RTM_DELNEIGH:
-		    handle_neigh_event(i, (struct neigh *)h);
-		    break;
+	for( ; NLMSG_OK(h, len); h = NLMSG_NEXT(h, len)) {
+		switch(h->nlmsg_type) {
+			case RTM_NEWNEIGH:
+			case RTM_GETNEIGH:
+			case RTM_DELNEIGH:
+			    handle_neigh_event(i, (struct neigh *)h);
+			    break;
 
-		default:
-		    syslog(LOG_NOTICE, "Unhandled Netlink Message type %u Len=%u flag=%x seq=%x PID=%d\n",
-				  h->nlmsg_type,  h->nlmsg_len, h->nlmsg_flags, h->nlmsg_seq, h->nlmsg_pid);
-		    break;
+			default:
+			    syslog(LOG_NOTICE, "Unhandled Netlink Message type %u Len=%u flag=%x seq=%x PID=%d\n",
+					  h->nlmsg_type,  h->nlmsg_len, h->nlmsg_flags, h->nlmsg_seq, h->nlmsg_pid);
+			    break;
+		}
 	}
 
 }
@@ -1388,7 +1394,7 @@ static void setup_netlink(enum interfaces in)
 	struct i2r_interface *i = i2r + in;
 	static struct sockaddr_nl sal = {
 		.nl_family = AF_NETLINK,
-		.nl_groups = RTMGRP_NEIGH	/* Subscribe to changes to the ARP cache */
+		.nl_groups = RTMGRP_NEIGH | RTMGRP_NOTIFY	/* Subscribe to changes to the ARP cache */
 	};
 	struct {
 		struct nlmsghdr nlh;
@@ -1399,7 +1405,9 @@ static void setup_netlink(enum interfaces in)
 			.nlmsg_len = sizeof(nlr),
 			.nlmsg_seq = time(NULL)
 		}, {
-			.ndm_ifindex = i->ifindex,
+			.ndm_family = AF_INET,
+//			.ndm_ifindex = i->ifindex,
+			.ndm_state = NUD_REACHABLE
 		} };
 	
 	i->sock_nl = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
