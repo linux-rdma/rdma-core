@@ -1245,7 +1245,14 @@ static void handle_neigh_event(struct i2r_interface *i, struct neigh *n)
 	struct rtattr *rta;
 	bool have_dst;
 	bool have_lladdr;
-	struct rdma_ah *ra = calloc(1, sizeof(struct rdma_ah));
+	struct rdma_ah *ra, *r;
+	unsigned ha, hm;
+
+	if (i->ifindex != n->nd.ndm_ifindex)
+		/* Not interested in that interface */
+       		return;
+
+	ra = calloc(1, sizeof(struct rdma_ah));
 
 	for(rta = (struct rtattr *)n->attrbuf; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
 		switch (rta->rta_type) {
@@ -1288,15 +1295,8 @@ static void handle_neigh_event(struct i2r_interface *i, struct neigh *n)
 		goto err;
 	}
 
-	if (i->ifindex != n->nd.ndm_ifindex) {
-		syslog(LOG_ERR, "netlink ifindex does not natch. Expected %d got %d\n",
-		i->ifindex, n->nd.ndm_ifindex);
-		goto err;
-	}
-
-	unsigned ha = ip_hash(ntohl(ra->addr.s_addr));
-	unsigned hm = mac_hash(i, ra->mac);
-	struct rdma_ah *r;
+	ha = ip_hash(ntohl(ra->addr.s_addr));
+	hm = mac_hash(i, ra->mac);
 
 	r = hash_mac_lookup(i, ra->mac, hm);
 	if (r) {
@@ -1337,6 +1337,7 @@ err:
 				 i->if_name, n->nlh.nlmsg_type,  n->nlh.nlmsg_len, n->nlh.nlmsg_flags,
 				 n->nd.ndm_flags, n->nd.ndm_state,
 				 inet_ntoa(ra->addr), hexbytes(ra->mac, maclen));
+out:
 	free(ra);
 }
 
