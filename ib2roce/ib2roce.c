@@ -1272,53 +1272,72 @@ static void handle_neigh_event(struct i2r_interface *i, struct neigh *n)
 		}
 	};
 
-	if (have_dst && have_lladdr && i->maclen == maclen && i->ifindex == n->nd.ndm_ifindex) {
-
-		unsigned ha = ip_hash(ntohl(ra->addr.s_addr));
-		unsigned hm = mac_hash(i, ra->mac);
-		struct rdma_ah *r;
-
-		r = hash_mac_lookup(i, ra->mac, hm);
-		if (r) {
-			/* Update existing */
-			free(ra);
-			ra = r;
-		}
-
-		ra->flags = n->nd.ndm_flags;
-		ra->state = n->nd.ndm_state;
-
-		r = hash_addr_lookup(ra->addr, ha);
-
-		if (r) {
-		       if (r != ra)
-				syslog(LOG_WARNING, "Duplicate IP address Interface=%s addr=%s\n",
-					i->if_name, inet_ntoa(ra->addr));
-
-		}
-
-		ra->next_addr = hash_addr[ha];
-		ra->next_mac = hash_mac[hm];
-
-		hash_addr[ha] = ra;
-		hash_mac[hm] = ra;
-		nr_rdma_ah++;
-
-		syslog(LOG_NOTICE, "New ARP entry via netlink for %s: IP=%s MAC=%s Flags=%x State=%x\n",
-			i->if_name,
-			inet_ntoa(ra->addr),
-			hexbytes(ra->mac, maclen),
-			ra->flags, ra->state);
-
-	} else {
-		syslog(LOG_ERR, "Netlink info without DST, LLDR or mismatching LLADDR length or interface. Interface=%s mac=%s\n",
-				i->if_name, hexbytes(ra->mac, maclen));
-		free(ra);
+	if (!have_dst) {
+		syslog(LOG_ERR, "netlink message without DST\n");
+		goto err;
 	}
 
-	syslog(LOG_NOTICE, "Neigh Event type %u Len=%u flag=%x seq=%x PID=%d\n",
-				  n->nlh.nlmsg_type,  n->nlh.nlmsg_len, n->nlh.nlmsg_flags, n->nlh.nlmsg_seq, n->nlh.nlmsg_pid);
+	if (!have_lladdr) {
+		syslog(LOG_ERR, "netlink message without LLADDR\n");
+		goto err;
+	}
 
+	if (i->maclen != maclen) {
+		syslog(LOG_ERR, "netlink message mac length does not match. Expected %d got %d\n",
+				i->maclen, maclen);
+		goto err;
+	}
+
+	if (i->ifindex != n->nd.ndm_ifindex) {
+		syslog(LOG_ERR, "netlink ifindex does not natch. Expected %d got %d\n",
+		i->ifindex, n->nd.ndm_ifindex);
+		goto err;
+	}
+
+	unsigned ha = ip_hash(ntohl(ra->addr.s_addr));
+	unsigned hm = mac_hash(i, ra->mac);
+	struct rdma_ah *r;
+
+	r = hash_mac_lookup(i, ra->mac, hm);
+	if (r) {
+		/* Update existing */
+		free(ra);
+		ra = r;
+	}
+
+	ra->flags = n->nd.ndm_flags;
+	ra->state = n->nd.ndm_state;
+
+	r = hash_addr_lookup(ra->addr, ha);
+
+	if (r) {
+	       if (r != ra)
+			syslog(LOG_WARNING, "Duplicate IP address Interface=%s addr=%s\n",
+				i->if_name, inet_ntoa(ra->addr));
+
+	}
+
+	ra->next_addr = hash_addr[ha];
+	ra->next_mac = hash_mac[hm];
+
+	hash_addr[ha] = ra;
+	hash_mac[hm] = ra;
+	nr_rdma_ah++;
+
+	syslog(LOG_NOTICE, "New ARP entry via netlink for %s: IP=%s MAC=%s Flags=%x State=%x\n",
+		i->if_name,
+		inet_ntoa(ra->addr),
+		hexbytes(ra->mac, maclen),
+		ra->flags, ra->state);
+
+	return;
+
+err:
+	syslog(LOG_NOTICE, "Neigh Event interface=%s type %u Len=%u NL flags=%x ND flags=%x state=%x IP=%s MAC=%s\n",
+				 i->if_name, n->nlh.nlmsg_type,  n->nlh.nlmsg_len, n->nlh.nlmsg_flags,
+				 n->nd.ndm_flags, n->nd.ndm_state,
+				 inet_ntoa(ra->addr), hexbytes(ra->mac, maclen));
+	free(ra);
 }
 
 static void handle_netlink_event(enum interfaces in)
