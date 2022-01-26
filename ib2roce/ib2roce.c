@@ -1162,6 +1162,9 @@ struct rdma_ah {
 	struct i2r_interface *i;
 	char mac[16];
 	struct in_addr addr;
+	short state;
+	short flags;
+	struct ibv_ah *ah;
 	struct rdma_ah *next_addr;	/* Hash Collision addr hash */
 	struct rdma_ah *next_mac;	/* Hash Collision mac hash */
 };
@@ -1229,31 +1232,6 @@ static char *hexbytes(unsigned char *x, unsigned len)
 }
 
 
-static void hash_add_unicast_rdma_ah(struct i2r_interface *i, struct rdma_ah *ra)
-{
-	unsigned ha = ip_hash(ntohl(ra->addr.s_addr));
-	unsigned hm = mac_hash(i, ra->mac);
-
-	if (hash_addr_lookup(ra->addr, ha)) {
-		syslog(LOG_CRIT, "Duplicate IP address in Hash Interface=%s addr=%s\n",
-				i->if_name, inet_ntoa(ra->addr));
-		abort();
-	}
-
-	if (hash_mac_lookup(i, ra->mac, hm)) {
-		syslog(LOG_CRIT, "Duplicate MAC Address in Hash Interface=%s mac=%s\n",
-				i->if_name, hexbytes(ra->mac+ i->macoffset, i->maclen));
-		abort();
-	}
-
-	ra->next_addr = hash_addr[ha];
-	ra->next_mac = hash_mac[hm];
-
-	hash_addr[ha] = ra;
-	hash_mac[hm] = ra;
-	nr_rdma_ah++;
-}
-
 struct neigh {
 	struct nlmsghdr nlh;
 	struct ndmsg nd;
@@ -1265,28 +1243,80 @@ static void handle_neigh_event(struct i2r_interface *i, struct neigh *n)
 	int len = n->nlh.nlmsg_len - NLMSG_LENGTH(sizeof(struct ndmsg));
 	unsigned maclen = 0;
 	struct rtattr *rta;
+	bool have_dst;
+	bool have_lladdr;
 	struct rdma_ah *ra = calloc(1, sizeof(struct rdma_ah));
-
 
 	for(rta = (struct rtattr *)n->attrbuf; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
 		switch (rta->rta_type) {
+
 			case NDA_DST:
 				memcpy(&ra->addr, RTA_DATA(rta), RTA_PAYLOAD(rta));
+				have_dst = true;
 				break;
+
 			case NDA_LLADDR:
+				have_lladdr = true;
 				maclen = RTA_PAYLOAD(rta);
 				memcpy(&ra->mac, RTA_DATA(rta), RTA_PAYLOAD(rta));
 				break;
-			default:
-				syslog(LOG_NOTICE, "Netlink; invalid RTA type=%d\n", rta->rta_type);
+
+			case NDA_CACHEINFO:
+			case NDA_PROBES:
 				break;
+
+			default:
+				syslog(LOG_NOTICE, "Netlink; unrecognized RTA type=%d\n", rta->rta_type);
+				break;
+
 		}
 	};
 
-	/* Code to check for removal and changes omitted for now */
-	hash_add_unicast_rdma_ah(i, ra);
+	if (have_dst && have_lladdr && i->maclen == maclen && i->ifindex == n->nd.ndm_ifindex) {
 
-	syslog(LOG_NOTICE, "Neigh Even type %u Len=%u flag=%x seq=%x PID=%d\n",
+		unsigned ha = ip_hash(ntohl(ra->addr.s_addr));
+		unsigned hm = mac_hash(i, ra->mac);
+		struct rdma_ah *r;
+
+		r = hash_mac_lookup(i, ra->mac, hm);
+		if (r) {
+			/* Update existing */
+			free(ra);
+			ra = r;
+		}
+
+		ra->flags = n->nd.ndm_flags;
+		ra->state = n->nd.ndm_state;
+
+		r = hash_addr_lookup(ra->addr, ha);
+
+		if (r) {
+		       if (r != ra)
+				syslog(LOG_WARNING, "Duplicate IP address Interface=%s addr=%s\n",
+					i->if_name, inet_ntoa(ra->addr));
+
+		}
+
+		ra->next_addr = hash_addr[ha];
+		ra->next_mac = hash_mac[hm];
+
+		hash_addr[ha] = ra;
+		hash_mac[hm] = ra;
+		nr_rdma_ah++;
+
+		syslog(LOG_NOTICE, "New ARP entry via netlink for %s: IP=%s MAC=%s Flags=%x State=%x\n",
+			i->if_name,
+			inet_ntoa(ra->addr),
+			hexbytes(ra->mac, maclen),
+			ra->flags, ra->state);
+
+	} else {
+		syslog(LOG_ERR, "Netlink info without DST, LLDR or mismatching LLADDR length or interface. Interface=%s mac=%s\n",
+				i->if_name, hexbytes(ra->mac, maclen));
+		free(ra);
+	}
+
+	syslog(LOG_NOTICE, "Neigh Event type %u Len=%u flag=%x seq=%x PID=%d\n",
 				  n->nlh.nlmsg_type,  n->nlh.nlmsg_len, n->nlh.nlmsg_flags, n->nlh.nlmsg_seq, n->nlh.nlmsg_pid);
 
 }
@@ -1309,6 +1339,7 @@ static void handle_netlink_event(enum interfaces in)
 
 	switch(h->nlmsg_type) {
 		case RTM_NEWNEIGH:
+		case RTM_GETNEIGH:
 		case RTM_DELNEIGH:
 		    handle_neigh_event(i, (struct neigh *)h);
 		    break;
@@ -1331,7 +1362,7 @@ static int send_netlink_message(struct i2r_interface *i, struct nlmsghdr *nlh)
 	return ret;
 }
 
-static int setup_netlink(enum interfaces in)
+static void setup_netlink(enum interfaces in)
 {
 	struct i2r_interface *i = i2r + in;
 	static struct sockaddr_nl sal = {
@@ -1397,10 +1428,15 @@ static void setup_flow(enum interfaces in)
 		}
 	};
 
-	f = ibv_create_flow(i->id->qp, &flattr.attr);
-	if (!f) {
-		syslog(LOG_ERR, "unicast mode: Cannot create flow on %s. Errno %d\n", interfaces_text[in], errno);
-		err = true;
+	if (in == ROCE) {
+		f = ibv_create_flow(i->id->qp, &flattr.attr);
+		if (!f) {
+			syslog(LOG_ERR, "unicast mode: Cannot create flow on %s. Errno %d\n", interfaces_text[in], errno);
+			err = true;
+		}
+	} else {
+		/* Need to open some sort of RAW IB socket that gets us the datagrams */
+		syslog(LOG_WARNING, "Unicast mode. Reception on Infiniband not implemented yet.\n");
 	}
 
 	if (!bridging || err)
