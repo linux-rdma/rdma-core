@@ -1372,14 +1372,15 @@ static void handle_netlink_event(enum interfaces in)
 
 }
 
-static int send_netlink_message(struct i2r_interface *i, struct nlmsghdr *nlh)
+static void send_netlink_message(struct i2r_interface *i, struct nlmsghdr *nlh)
 {
 	struct iovec iov = { (void *)nlh, nlh->nlmsg_len};
 	struct msghdr msg = { (void *)&i->nladdr, sizeof(struct sockaddr_nl), &iov, 1 };
 	int ret;
 
 	ret = sendmsg(i->sock_nl, &msg, 0);
-	return ret;
+	if (ret < 0)
+		syslog(LOG_ERR, "Netlink Send error %s %d\n", i->if_name, errno);
 }
 
 static void setup_netlink(enum interfaces in)
@@ -1391,14 +1392,14 @@ static void setup_netlink(enum interfaces in)
 	};
 	struct {
 		struct nlmsghdr nlh;
-		struct rtgenmsg r;
+		struct ndmsg nd;
 	} nlr = { {
 			.nlmsg_type = RTM_GETNEIGH,
 			.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP,
 			.nlmsg_len = sizeof(nlr),
 			.nlmsg_seq = time(NULL)
 		}, {
-			.rtgen_family = AF_INET,
+			.ndm_ifindex = i->ifindex,
 		} };
 	
 	i->sock_nl = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
