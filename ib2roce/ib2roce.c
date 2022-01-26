@@ -58,7 +58,6 @@
 #include <infiniband/verbs.h>
 #include <poll.h>
 
-#include <libmnl/libmnl.h>
 #include <linux/rtnetlink.h>
 
 #define VERSION "2022.0125"
@@ -140,6 +139,8 @@ static struct i2r_interface {
 	struct sockaddr_in if_addr;
 	struct sockaddr_in if_netmask;
 	struct sockaddr *bindaddr;
+	struct sockaddr_nl nladdr;
+	int sock_nl;
 	unsigned ifindex;
 	unsigned gid_index;
 	union ibv_gid gid;
@@ -1253,98 +1254,115 @@ static void hash_add_unicast_rdma_ah(struct i2r_interface *i, struct rdma_ah *ra
 	nr_rdma_ah++;
 }
 
-static int data_attr_callback(const struct nlattr *attr, void *data)
+struct neigh {
+	struct nlmsghdr nlh;
+	struct ndmsg nd;
+	char	attrbuf[512];
+};
+
+static void handle_neigh_event(struct i2r_interface *i, struct neigh *n)
 {
-	const struct nlattr **tb = data;
-	int type = mnl_attr_get_type(attr);
+	int len = n->nlh.nlmsg_len - NLMSG_LENGTH(sizeof(struct ndmsg));
+	unsigned maclen = 0;
+	struct rtattr *rta;
+	struct rdma_ah *ra = calloc(1, sizeof(struct rdma_ah));
 
-	if (mnl_attr_type_valid(attr, NDA_MAX) < 0)
-		return MNL_CB_OK;
 
-	switch (type) {
-		case  NDA_DST:
-		case NDA_LLADDR:
-			if (mnl_attr_validate(attr, MNL_TYPE_BINARY) < 0) {
-				perror("mnl_attr_validate");
-				return MNL_CB_ERROR;
-			}
-			break;
-	}
-	tb[type] = attr;
-	return MNL_CB_OK;
-}
+	for(rta = (struct rtattr *)n->attrbuf; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
+		switch (rta->rta_type) {
+			case NDA_DST:
+				memcpy(&ra->addr, RTA_DATA(rta), RTA_PAYLOAD(rta));
+				break;
+			case NDA_LLADDR:
+				maclen = RTA_PAYLOAD(rta);
+				memcpy(&ra->mac, RTA_DATA(rta), RTA_PAYLOAD(rta));
+				break;
+			default:
+				syslog(LOG_NOTICE, "Netlink; invalid RTA type=%d\n", rta->rta_type);
+				break;
+		}
+	};
 
-static int data_callback(const struct nlmsghdr *nlh, void *p)
-{
-	struct nlattr *tb[NDA_MAX + 1] = {};
-	struct ndmsg *ndm = mnl_nlmsg_get_payload(nlh);
-	struct rdma_ah *ra = malloc(sizeof(struct rdma_ah));
-	struct i2r_interface *i = p;
-
-	mnl_attr_parse(nlh, sizeof(*ndm), data_attr_callback, tb);
-
-	if (tb[NDA_DST])
-		ra->addr = * ((struct in_addr *)mnl_attr_get_payload(tb[NDA_DST]));
-
-	mnl_attr_parse(nlh, sizeof(*ndm), data_attr_callback, tb);
-	if (tb[NDA_LLADDR])
-		memcpy(ra->mac, mnl_attr_get_payload(tb[NDA_LLADDR]) + i->macoffset, i->maclen);
-
+	/* Code to check for removal and changes omitted for now */
 	hash_add_unicast_rdma_ah(i, ra);
 
-	return MNL_CB_OK;
+	syslog(LOG_NOTICE, "Neigh Even type %u Len=%u flag=%x seq=%x PID=%d\n",
+				  n->nlh.nlmsg_type,  n->nlh.nlmsg_len, n->nlh.nlmsg_flags, n->nlh.nlmsg_seq, n->nlh.nlmsg_pid);
+
 }
 
-static int get_routing_table(struct i2r_interface *i)
+static void handle_netlink_event(enum interfaces in)
 {
-	struct mnl_socket *nl;
-	struct rtgenmsg *rt;
-	struct nlmsghdr *nlh;
-	char buf[MNL_SOCKET_DUMP_SIZE];
-	unsigned int seq, portid;
+	struct i2r_interface *i = i2r + in;
+	char buf[1000];
+	struct nlmsghdr *h = (void *)buf;
+	struct sockaddr_nl nladdr;
+	struct iovec iov = { buf, sizeof(buf) };
+	struct msghdr msg = { (void *)&nladdr, sizeof(struct sockaddr_nl), &iov, 1 };
 	int ret;
 
-	nlh = mnl_nlmsg_put_header(buf);
-	nlh->nlmsg_type	= RTM_GETNEIGH;
-	nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
-	nlh->nlmsg_seq = seq = time(NULL);
-
-	rt = mnl_nlmsg_put_extra_header(nlh, sizeof(struct rtgenmsg));
-	rt->rtgen_family = AF_INET;
-
-	nl = mnl_socket_open(NETLINK_ROUTE);
-	if (nl == NULL) {
-		perror("mnl_socket_open");
-		exit(EXIT_FAILURE);
+	ret = recvmsg(i->sock_nl, &msg, 0);
+	if (ret < 9) {
+		perror("Netlink recvmsg");
+		return;
 	}
 
-	if (mnl_socket_bind(nl, 0, MNL_SOCKET_AUTOPID) < 0) {
-		perror("mnl_socket_bind");
-		exit(EXIT_FAILURE);
+	switch(h->nlmsg_type) {
+		case RTM_NEWNEIGH:
+		case RTM_DELNEIGH:
+		    handle_neigh_event(i, (struct neigh *)h);
+		    break;
+
+		default:
+		    syslog(LOG_NOTICE, "Unhandled Netlink Message type %u Len=%u flag=%x seq=%x PID=%d\n",
+				  h->nlmsg_type,  h->nlmsg_len, h->nlmsg_flags, h->nlmsg_seq, h->nlmsg_pid);
+		    break;
 	}
 
-	portid = mnl_socket_get_portid(nl);
-
-	if (mnl_socket_sendto(nl, nlh, nlh->nlmsg_len) < 0) {
-		perror("mnl_socket_sendto");
-		exit(EXIT_FAILURE);
-	}
-
-	ret = mnl_socket_recvfrom(nl, buf, sizeof(buf));
-	while (ret > 0) {
-		ret = mnl_cb_run(buf, ret, seq, portid, data_callback, i);
-		if (ret <= MNL_CB_STOP)
-			break;
-		ret = mnl_socket_recvfrom(nl, buf, sizeof(buf));
-	}
-
-	if (ret == -1) {
-		perror("error");
-		exit(EXIT_FAILURE);
-	}
-	mnl_socket_close(nl);
 }
 
+static int send_netlink_message(struct i2r_interface *i, struct nlmsghdr *nlh)
+{
+	struct iovec iov = { (void *)nlh, nlh->nlmsg_len};
+	struct msghdr msg = { (void *)&i->nladdr, sizeof(struct sockaddr_nl), &iov, 1 };
+	int ret;
+
+	ret = sendmsg(i->sock_nl, &msg, 0);
+	return ret;
+}
+
+static int netlink_setup(struct i2r_interface *i)
+{
+	static struct sockaddr_nl sal = {
+		.nl_family = AF_NETLINK,
+		.nl_groups = RTMGRP_NEIGH	/* Subscribe to changes to the ARP cache */
+	};
+	struct {
+		struct nlmsghdr nlh;
+		struct rtgenmsg r;
+	} nlr = { {
+			.nlmsg_type = RTM_GETNEIGH,
+			.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP,
+			.nlmsg_len = sizeof(nlr),
+			.nlmsg_seq = time(NULL)
+		}, {
+			.rtgen_family = AF_INET,
+		} };
+	
+	i->sock_nl = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+	if (i->sock_nl < 0) {
+		syslog(LOG_CRIT, "Failed to open netlink socket %d.\n", errno);
+		abort();
+	}
+
+	sal.nl_pid = getpid();
+	if (bind(i->sock_nl, (struct sockaddr *)&sal, sizeof(sal)) < 0) {
+		syslog(LOG_CRIT, "Failed to bind to netlink socket %d\n", errno);
+		abort();
+	};
+
+	send_netlink_message(i, &nlr.nlh);
+}
 
 static void setup_flow(enum interfaces in)
 {
@@ -1401,8 +1419,6 @@ static void setup_flow(enum interfaces in)
 		err = true;
 		syslog(LOG_ERR, "unicast mode: Cannot create required flow on %s. Errno %d\n", interfaces_text[in], errno);
 	}
-
-	get_routing_table(i);
 
 	if (err)
 		abort();
@@ -1777,13 +1793,15 @@ static void beacon_setup(void)
 static int event_loop(void)
 {
 	unsigned timeout = 1000;
-	struct pollfd pfd[6] = {
+	struct pollfd pfd[8] = {
 		{ i2r[INFINIBAND].rdma_events->fd, POLLIN|POLLOUT, 0},
 		{ i2r[ROCE].rdma_events->fd, POLLIN|POLLOUT, 0},
 		{ i2r[INFINIBAND].comp_events->fd, POLLIN|POLLOUT, 0},
 		{ i2r[ROCE].comp_events->fd, POLLIN|POLLOUT,0},
 		{ i2r[INFINIBAND].context->async_fd, POLLIN|POLLOUT, 0},
 		{ i2r[ROCE].context->async_fd, POLLIN|POLLOUT, 0},
+		{ i2r[INFINIBAND].sock_nl, POLLIN|POLLOUT, 0},
+		{ i2r[ROCE].sock_nl, POLLIN|POLLOUT, 0}
 	};
 	int events;
 	int i;
@@ -1796,7 +1814,7 @@ static int event_loop(void)
 	}
 
 loop:
-	events = poll(pfd, 6, timeout);
+	events = poll(pfd, 8, timeout);
 
 	if (terminated)
 		goto out;
@@ -1853,6 +1871,12 @@ loop:
 
 	if (pfd[5].revents & (POLLIN|POLLOUT))
 		handle_async_event(ROCE);
+
+	if (pfd[6].revents & (POLLIN|POLLOUT))
+		handle_netlink_event(INFINIBAND);
+
+	if (pfd[7].revents & (POLLIN|POLLOUT))
+		handle_netlink_event(ROCE);
 
 	goto loop;
 out:
