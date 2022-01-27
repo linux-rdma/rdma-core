@@ -866,7 +866,6 @@ static void setup_interface(enum interfaces in)
 	struct i2r_interface *i = i2r + in;
 	struct ibv_gid_entry *e;
 	char buf[INET6_ADDRSTRLEN];
-	struct sockaddr_in *sin;
 
 	if (in == INFINIBAND) {
 		i->macoffset = 4;
@@ -932,8 +931,10 @@ static void setup_interface(enum interfaces in)
 				MIN(i->device_attr.max_cqe, nr_buffers / 2),
 				IBV_QP_CREATE_BLOCK_SELF_MCAST_LB);
 
-	i->raw = setup_channel(i, i->if_addr.sin_addr, 0, IBV_QPT_RAW_PACKET, 100, 0);
-
+	if (in != INFINIBAND)
+		i->raw = setup_channel(i, i->if_addr.sin_addr, 0, IBV_QPT_RAW_PACKET, 100, 0);
+	else
+		syslog(LOG_WARNING, "RAW QP currently not supported for Infiniband\n");
 
 	syslog(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s CQs=%u MTU=%u ready.\n",
 		interfaces_text[in],
