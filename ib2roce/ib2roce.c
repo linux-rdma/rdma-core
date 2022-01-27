@@ -129,6 +129,7 @@ struct rdma_channel {
 	struct ibv_mr *mr;
 	unsigned int active_receive_buffers;
 	unsigned int nr_cq;
+	struct sockaddr_in bindaddr;
 };
 
 static struct i2r_interface {
@@ -144,7 +145,6 @@ static struct i2r_interface {
 	char if_name[IFNAMSIZ];
 	struct sockaddr_in if_addr;
 	struct sockaddr_in if_netmask;
-	struct sockaddr *bindaddr;
 	unsigned ifindex;
 	unsigned gid_index;
 	union ibv_gid gid;
@@ -787,7 +787,7 @@ out:
 }
 
 
-static struct rdma_channel *setup_channel(struct i2r_interface *i, unsigned qp_type, unsigned nr_cq, unsigned create_flags)
+static struct rdma_channel *setup_channel(struct i2r_interface *i, struct in_addr addr, unsigned port, unsigned qp_type, unsigned nr_cq, unsigned create_flags)
 {
 	struct rdma_channel *c = calloc(1, sizeof(struct rdma_channel));
 	enum interfaces in = i - i2r;
@@ -796,6 +796,10 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, unsigned qp_t
 
 	c->i = i;
 
+	c->bindaddr.sin_family = AF_INET;
+	c->bindaddr.sin_addr = addr;
+	c->bindaddr.sin_port = htons(port);
+
 	ret = rdma_create_id(i->rdma_events, &c->id, i, RDMA_PS_UDP);
 	if (ret) {
 		syslog(LOG_CRIT, "Failed to allocate RDMA CM ID for %s failed (%d).\n",
@@ -803,7 +807,7 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, unsigned qp_t
 		abort();
 	}
 
-	ret = rdma_bind_addr(c->id, i->bindaddr);
+	ret = rdma_bind_addr(c->id, (struct sockaddr *)&c->bindaddr);
 	if (ret) {
 		syslog(LOG_CRIT, "Failed to bind %s interface. Error %d\n",
 			interfaces_text[in], errno);
@@ -910,12 +914,6 @@ static void setup_interface(enum interfaces in)
 
 	get_if_info(i);
 
-	sin = calloc(1, sizeof(struct sockaddr_in));
-	sin->sin_family = AF_INET;
-	*sin = i->if_addr;
-	sin->sin_port = htons(default_port);
-	i->bindaddr = (struct sockaddr *)sin;
-
 	i->rdma_events = rdma_create_event_channel();
 	if (!i->rdma_events) {
 		syslog(LOG_CRIT, "rdma_create_event_channel() for %s failed (%d).\n",
@@ -930,11 +928,11 @@ static void setup_interface(enum interfaces in)
 		abort();
 	}
 
-	i->multicast = setup_channel(i, IBV_QPT_UD,
+	i->multicast = setup_channel(i, i->if_addr.sin_addr, default_port, IBV_QPT_UD,
 				MIN(i->device_attr.max_cqe, nr_buffers / 2),
 				IBV_QP_CREATE_BLOCK_SELF_MCAST_LB);
 
-	i->raw = setup_channel(i, IBV_QPT_RAW_PACKET, 100, 0);
+	i->raw = setup_channel(i, i->if_addr.sin_addr, 0, IBV_QPT_RAW_PACKET, 100, 0);
 
 
 	syslog(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s CQs=%u MTU=%u ready.\n",
@@ -1682,7 +1680,7 @@ static int recv_buf(struct i2r_interface *i,
 		}
 
 	} else { /* ROCE */
-		struct in_addr local_addr = ((struct sockaddr_in *)i->bindaddr)->sin_addr;
+		struct in_addr local_addr = i->multicast->bindaddr.sin_addr;
 
 		if (source_addr.s_addr == local_addr.s_addr) {
 			syslog(LOG_WARNING, "Discard Packet: Loopback from this host. %s/%s\n",
