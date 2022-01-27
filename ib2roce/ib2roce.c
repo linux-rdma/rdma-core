@@ -722,7 +722,7 @@ static void channel_destroy(struct rdma_channel *c)
 	free(c);
 }
 
-static int qp_destroy(struct i2r_interface *i)
+static void qp_destroy(struct i2r_interface *i)
 {
 	channel_destroy(i->multicast);
 	i->multicast = NULL;
@@ -854,6 +854,7 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, unsigned qp_t
 			interfaces_text[in]);
 		abort();
 	}
+	return c;
 }
 
 static void setup_interface(enum interfaces in)
@@ -862,7 +863,6 @@ static void setup_interface(enum interfaces in)
 	struct ibv_gid_entry *e;
 	char buf[INET6_ADDRSTRLEN];
 	struct sockaddr_in *sin;
-	int ret;
 
 	if (in == INFINIBAND) {
 		i->macoffset = 4;
@@ -1111,7 +1111,7 @@ static void handle_rdma_event(enum interfaces in)
  *
  * Space in the WR is limited, so it only works for very small packets.
  */
-static int send_inline(struct rdma_channel *c, void *buf, unsigned len, struct ah_info *ai)
+static int send_inline(struct rdma_channel *c, void *buf, unsigned len, struct ah_info *ai, int port)
 {
 	struct ibv_sge sge = {
 		.length = len,
@@ -1146,7 +1146,7 @@ static int send_inline(struct rdma_channel *c, void *buf, unsigned len, struct a
 	return ret;
 }
 
-static int send_buf(struct rdma_channel *c, struct buf *buf, unsigned len, struct ah_info *ai)
+static int send_buf(struct rdma_channel *c, struct buf *buf, unsigned len, struct ah_info *ai, int port)
 {
 	struct ibv_send_wr wr, *bad_send_wr;
 	struct ibv_sge sge;
@@ -1300,18 +1300,14 @@ static void handle_neigh_event(struct neigh *n)
 	struct rtattr *rta;
 	bool have_dst = false;
 	bool have_lladdr = false;
-	struct rdma_ah *ra, *r;
+	struct rdma_ah *ra = calloc(1, sizeof(struct rdma_ah));
+	struct rdma_ah *r;
 	unsigned ha, hm;
 	const char *action = "New";
 
 	for(i = i2r;  i < i2r + NR_INTERFACES; i++)
 		if (i->ifindex == n->nd.ndm_ifindex)
 			break;
-
-	if (i >= i2r + NR_INTERFACES)
-		goto err;
-
-	ra = calloc(1, sizeof(struct rdma_ah));
 
 	for(rta = (struct rtattr *)n->attrbuf; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
 		switch (rta->rta_type) {
@@ -1337,6 +1333,9 @@ static void handle_neigh_event(struct neigh *n)
 
 		}
 	};
+
+	if (i >= i2r + NR_INTERFACES)
+		goto err;
 
 	if (!have_dst) {
 		syslog(LOG_ERR, "netlink message without DST\n");
@@ -1399,7 +1398,7 @@ err:
 				n->nd.ndm_flags, n->nd.ndm_state,
 				inet_ntoa(ra->addr), hexbytes(ra->mac, maclen),
 				n->nd.ndm_ifindex);
-out:
+
 	free(ra);
 }
 
@@ -1694,7 +1693,7 @@ static int recv_buf(struct i2r_interface *i,
 		return -ENOSYS;
 
 	len = w->byte_len - sizeof(struct ibv_grh);
-	return send_buf(i2r[in ^ 1].multicast, buf, len, m->ai + (in ^ 1));
+	return send_buf(i2r[in ^ 1].multicast, buf, len, m->ai + (in ^ 1), port);
 }
 
 static void handle_comp_event(enum interfaces in)
@@ -1886,9 +1885,9 @@ static void beacon_send(void)
 		if (sizeof(b) > MAX_INLINE_DATA) {
 			buf = alloc_buffer();
 			memcpy(buf->payload, &b, sizeof(b));
-			send_buf(i2r[i].multicast, buf, sizeof(b), beacon_mc->ai + i);
+			send_buf(i2r[i].multicast, buf, sizeof(b), beacon_mc->ai + i, 999);
 		} else
-			send_inline(i2r[i].multicast, &b, sizeof(b), beacon_mc->ai + i);
+			send_inline(i2r[i].multicast, &b, sizeof(b), beacon_mc->ai + i, 999);
 	}
 }
 
