@@ -847,8 +847,9 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, struct in_add
 
 	ret = rdma_create_qp_ex(c->id, &init_qp_attr_ex);
 	if (ret) {
-		syslog(LOG_CRIT, "rdma_create_qp_ex failed for %s. Error %d.\n",
-			interfaces_text[in], errno);
+		syslog(LOG_CRIT, "rdma_create_qp_ex failed for %s. Error %d. IP=%s Port=%d QP_TYPE=%d CREATE_FLAGS=%x #CQ=%d\n",
+				interfaces_text[in], errno, inet_ntoa(addr), port,
+				qp_type, create_flags, nr_cq);
 		abort();
 	}
 
