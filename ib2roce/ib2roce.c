@@ -139,8 +139,6 @@ static struct i2r_interface {
 	struct sockaddr_in if_addr;
 	struct sockaddr_in if_netmask;
 	struct sockaddr *bindaddr;
-	struct sockaddr_nl nladdr;
-	int sock_nl;
 	unsigned ifindex;
 	unsigned gid_index;
 	union ibv_gid gid;
@@ -1232,14 +1230,24 @@ static char *hexbytes(char *x, unsigned len)
 	return b;
 }
 
+/*
+ * Netlink interface
+ */
+
+enum netlink_channel { nl_monitor, nl_command, nr_netlink_channels };
+
+static struct sockaddr_nl nladdr[nr_netlink_channels];
+static int sock_nl[nr_netlink_channels];
+
 struct neigh {
 	struct nlmsghdr nlh;
 	struct ndmsg nd;
 	char	attrbuf[512];
 };
 
-static void handle_neigh_event(struct i2r_interface *i, struct neigh *n)
+static void handle_neigh_event(struct neigh *n)
 {
+	struct i2r_interface *i;
 	int len = n->nlh.nlmsg_len - NLMSG_LENGTH(sizeof(struct ndmsg));
 	unsigned maclen = 0;
 	struct rtattr *rta;
@@ -1249,8 +1257,11 @@ static void handle_neigh_event(struct i2r_interface *i, struct neigh *n)
 	unsigned ha, hm;
 	const char *action = "New";
 
-	if (i->ifindex != n->nd.ndm_ifindex)
-		/* Not interested in that interface */
+	for(i = i2r;  i < i2r + NR_INTERFACES; i++)
+		if (i->ifindex == n->nd.ndm_ifindex)
+			break;
+
+	if (i >= i2r + NR_INTERFACES)
        		return;
 
 	ra = calloc(1, sizeof(struct rdma_ah));
@@ -1344,9 +1355,8 @@ out:
 	free(ra);
 }
 
-static void handle_netlink_event(enum interfaces in)
+static void handle_netlink_event(enum netlink_channel c)
 {
-	struct i2r_interface *i = i2r + in;
 	char buf[8192];
 	struct nlmsghdr *h = (void *)buf;
 	struct sockaddr_nl nladdr;
@@ -1354,7 +1364,7 @@ static void handle_netlink_event(enum interfaces in)
 	struct msghdr msg = { (void *)&nladdr, sizeof(struct sockaddr_nl), &iov, 1 };
 	int len;
 
-	len = recvmsg(i->sock_nl, &msg, 0);
+	len = recvmsg(sock_nl[c], &msg, 0);
 	if (len < 0) {
 		syslog(LOG_CRIT, "Netlink recvmsg error. Errno %d\n", errno);
 		return;
@@ -1365,7 +1375,7 @@ static void handle_netlink_event(enum interfaces in)
 			case RTM_NEWNEIGH:
 			case RTM_GETNEIGH:
 			case RTM_DELNEIGH:
-			    handle_neigh_event(i, (struct neigh *)h);
+			    handle_neigh_event((struct neigh *)h);
 			    break;
 
 			default:
@@ -1377,20 +1387,19 @@ static void handle_netlink_event(enum interfaces in)
 
 }
 
-static void send_netlink_message(struct i2r_interface *i, struct nlmsghdr *nlh)
+static void send_netlink_message(enum netlink_channel c, struct nlmsghdr *nlh)
 {
 	struct iovec iov = { (void *)nlh, nlh->nlmsg_len};
-	struct msghdr msg = { (void *)&i->nladdr, sizeof(struct sockaddr_nl), &iov, 1 };
+	struct msghdr msg = { (void *)&nladdr, sizeof(struct sockaddr_nl), &iov, 1 };
 	int ret;
 
-	ret = sendmsg(i->sock_nl, &msg, 0);
+	ret = sendmsg(sock_nl[c], &msg, 0);
 	if (ret < 0)
-		syslog(LOG_ERR, "Netlink Send error %s %d\n", i->if_name, errno);
+		syslog(LOG_ERR, "Netlink Send error %d\n", errno);
 }
 
-static void setup_netlink(enum interfaces in)
+static void setup_netlink(enum netlink_channel c)
 {
-	struct i2r_interface *i = i2r + in;
 	static struct sockaddr_nl sal = {
 		.nl_family = AF_NETLINK,
 		.nl_groups = RTMGRP_NEIGH | RTMGRP_NOTIFY	/* Subscribe to changes to the ARP cache */
@@ -1405,25 +1414,28 @@ static void setup_netlink(enum interfaces in)
 			.nlmsg_seq = time(NULL)
 		}, {
 			.ndm_family = AF_INET,
-//			.ndm_ifindex = i->ifindex,
 			.ndm_state = NUD_REACHABLE
 		} };
 	
-	i->sock_nl = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
-	if (i->sock_nl < 0) {
+	sock_nl[c] = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+	if (sock_nl[c] < 0) {
 		syslog(LOG_CRIT, "Failed to open netlink socket %d.\n", errno);
 		abort();
 	}
 
-	sal.nl_pid = getpid() + in;
-	if (bind(i->sock_nl, (struct sockaddr *)&sal, sizeof(sal)) < 0) {
+	sal.nl_pid = getpid() + c;
+	if (c != nl_monitor)
+		sal.nl_groups = 0;
+
+	if (bind(sock_nl[c], (struct sockaddr *)&sal, sizeof(sal)) < 0) {
 		syslog(LOG_CRIT, "Failed to bind to netlink socket %d\n", errno);
 		abort();
 	};
 
-	memcpy(&i->nladdr, &sal, sizeof(struct sockaddr_nl));
+	memcpy(&nladdr[c], &sal, sizeof(struct sockaddr_nl));
 
-	send_netlink_message(i, &nlr.nlh);
+	if (c != nl_monitor)
+		send_netlink_message(c, &nlr.nlh);
 }
 
 static void setup_flow(enum interfaces in)
@@ -1856,7 +1868,7 @@ static void beacon_setup(void)
 
 #define NR_EVENT_TYPES 4
 
-static void (*event_callvec[NR_EVENT_TYPES])(enum interfaces) = {
+static void (*event_callvec[NR_EVENT_TYPES])(unsigned) = {
 		handle_rdma_event,
 		handle_comp_event,
 		handle_async_event,
@@ -1873,8 +1885,8 @@ static int event_loop(void)
 		{ i2r[ROCE].comp_events->fd, POLLIN,0},
 		{ i2r[INFINIBAND].context->async_fd, POLLIN, 0},
 		{ i2r[ROCE].context->async_fd, POLLIN, 0},
-		{ i2r[INFINIBAND].sock_nl, POLLIN, 0},
-		{ i2r[ROCE].sock_nl, POLLIN, 0}
+		{ sock_nl[nl_monitor], POLLIN, 0},
+		{ sock_nl[nl_command], POLLIN, 0}
 	};
 	unsigned nr_types = NR_EVENT_TYPES;
 	int events;
@@ -1933,11 +1945,11 @@ loop:
 		timeout = 5000;
 
 	for(i = 0; i < nr_types; i++) {
-		enum interfaces j;
+		int j;
 
 		for(j = 0; j < NR_INTERFACES; j++) 
 			if (pfd[i * 2 + j].revents & POLLIN)
-			event_callvec[i](j);
+				event_callvec[i](j);
 	}
 
 	goto loop;
