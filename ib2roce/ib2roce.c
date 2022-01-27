@@ -937,10 +937,10 @@ static void setup_interface(enum interfaces in)
 	i->raw = setup_channel(i, IBV_QPT_RAW_PACKET, 100, 0);
 
 
-	syslog(LOG_NOTICE, "%s interface %s/%s port %d GID=%s/%d IPv4=%s CQs=%u MTU=%u ready.\n",
+	syslog(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s CQs=%u MTU=%u ready.\n",
 		interfaces_text[in],
 		ibv_get_device_name(i->context->device),
-		i->if_name,
+		i->if_name, i->ifindex,
 		i->port,
 		inet_ntop(AF_INET6, e->gid.raw, buf, INET6_ADDRSTRLEN),i->gid_index,
 		inet_ntoa(i->if_addr.sin_addr),
@@ -1309,7 +1309,7 @@ static void handle_neigh_event(struct neigh *n)
 			break;
 
 	if (i >= i2r + NR_INTERFACES)
-       		return;
+		goto err;
 
 	ra = calloc(1, sizeof(struct rdma_ah));
 
@@ -1394,10 +1394,11 @@ static void handle_neigh_event(struct neigh *n)
 	return;
 
 err:
-	syslog(LOG_NOTICE, "Neigh Event interface=%s type %u Len=%u NL flags=%x ND flags=%x state=%x IP=%s MAC=%s\n",
-				 i->if_name, n->nlh.nlmsg_type,  n->nlh.nlmsg_len, n->nlh.nlmsg_flags,
-				 n->nd.ndm_flags, n->nd.ndm_state,
-				 inet_ntoa(ra->addr), hexbytes(ra->mac, maclen));
+	syslog(LOG_NOTICE, "Neigh Event interface=%s type %u Len=%u NL flags=%x ND flags=%x state=%x IP=%s MAC=%s ifindex=%d\n",
+				i->if_name, n->nlh.nlmsg_type,  n->nlh.nlmsg_len, n->nlh.nlmsg_flags,
+				n->nd.ndm_flags, n->nd.ndm_state,
+				inet_ntoa(ra->addr), hexbytes(ra->mac, maclen),
+				n->nd.ndm_ifindex);
 out:
 	free(ra);
 }
@@ -1487,6 +1488,7 @@ static void setup_netlink(enum netlink_channel c)
 
 static void setup_flow(enum interfaces in)
 {
+#if 0
 	struct i2r_interface *i = i2r + in;
 	struct i2r_interface *di = i2r + (in ^ 1);
 	enum interfaces j;
@@ -1529,6 +1531,7 @@ static void setup_flow(enum interfaces in)
 	if (!bridging || err)
 		return;
 
+
 	/* Check system config for unicast setup */
 	if (sysfs_read_int("/proc/sys/net/ipv4/ip_forward") != 1) {
 		err = true;
@@ -1545,7 +1548,7 @@ static void setup_flow(enum interfaces in)
 				interface);
 		}
 	}
-
+#endif
 }
 
 static int unicast_packet(struct i2r_interface *i, struct buf *buf, struct in_addr source_addr, struct in_addr dest_addr)
