@@ -5,7 +5,7 @@
 
 cdef extern from 'infiniband/mlx5dv.h':
 
-    cdef enum:
+    cpdef enum:
         MLX5_OPCODE_NOP
         MLX5_OPCODE_SEND_INVAL
         MLX5_OPCODE_RDMA_WRITE
@@ -25,16 +25,16 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5_OPCODE_TAG_MATCHING
         MLX5_OPCODE_MMO
 
-    cdef enum:
+    cpdef enum:
         MLX5_WQE_CTRL_CQ_UPDATE
         MLX5_WQE_CTRL_SOLICITED
         MLX5_WQE_CTRL_FENCE
         MLX5_WQE_CTRL_INITIATOR_SMALL_FENCE
 
-    cdef enum  mlx5dv_context_attr_flags:
+    cpdef enum  mlx5dv_context_attr_flags:
         MLX5DV_CONTEXT_FLAGS_DEVX
 
-    cdef enum mlx5dv_context_comp_mask:
+    cpdef enum mlx5dv_context_comp_mask:
         MLX5DV_CONTEXT_MASK_CQE_COMPRESION      = 1 << 0
         MLX5DV_CONTEXT_MASK_SWP                 = 1 << 1
         MLX5DV_CONTEXT_MASK_STRIDING_RQ         = 1 << 2
@@ -49,7 +49,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH    = 1 << 12
         MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD      = 1 << 13
 
-    cdef enum mlx5dv_context_flags:
+    cpdef enum mlx5dv_context_flags:
         MLX5DV_CONTEXT_FLAGS_CQE_V1                     = 1 << 0
         MLX5DV_CONTEXT_FLAGS_MPW_ALLOWED                = 1 << 2
         MLX5DV_CONTEXT_FLAGS_ENHANCED_MPW               = 1 << 3
@@ -58,41 +58,41 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_CONTEXT_FLAGS_PACKET_BASED_CREDIT_MODE   = 1 << 6
         MLX5DV_CONTEXT_FLAGS_REAL_TIME_TS               = 1 << 7
 
-    cdef enum mlx5dv_sw_parsing_offloads:
+    cpdef enum mlx5dv_sw_parsing_offloads:
         MLX5DV_SW_PARSING       = 1 << 0
         MLX5DV_SW_PARSING_CSUM  = 1 << 1
         MLX5DV_SW_PARSING_LSO   = 1 << 2
 
-    cdef enum mlx5dv_cqe_comp_res_format:
+    cpdef enum mlx5dv_cqe_comp_res_format:
         MLX5DV_CQE_RES_FORMAT_HASH          = 1 << 0
         MLX5DV_CQE_RES_FORMAT_CSUM          = 1 << 1
         MLX5DV_CQE_RES_FORMAT_CSUM_STRIDX   = 1 << 2
 
-    cdef enum mlx5dv_sched_elem_attr_flags:
+    cpdef enum mlx5dv_sched_elem_attr_flags:
         MLX5DV_SCHED_ELEM_ATTR_FLAGS_BW_SHARE    = 1 << 0
         MLX5DV_SCHED_ELEM_ATTR_FLAGS_MAX_AVG_BW  = 1 << 1
 
-    cdef enum mlx5dv_tunnel_offloads:
+    cpdef enum mlx5dv_tunnel_offloads:
         MLX5DV_RAW_PACKET_CAP_TUNNELED_OFFLOAD_VXLAN            = 1 << 0
         MLX5DV_RAW_PACKET_CAP_TUNNELED_OFFLOAD_GRE              = 1 << 1
         MLX5DV_RAW_PACKET_CAP_TUNNELED_OFFLOAD_GENEVE           = 1 << 2
         MLX5DV_RAW_PACKET_CAP_TUNNELED_OFFLOAD_CW_MPLS_OVER_GRE = 1 << 3
         MLX5DV_RAW_PACKET_CAP_TUNNELED_OFFLOAD_CW_MPLS_OVER_UDP = 1 << 4
 
-    cdef enum mlx5dv_flow_action_cap_flags:
+    cpdef enum mlx5dv_flow_action_cap_flags:
         MLX5DV_FLOW_ACTION_FLAGS_ESP_AES_GCM                = 1 << 0
         MLX5DV_FLOW_ACTION_FLAGS_ESP_AES_GCM_REQ_METADATA   = 1 << 1
         MLX5DV_FLOW_ACTION_FLAGS_ESP_AES_GCM_SPI_STEERING   = 1 << 2
         MLX5DV_FLOW_ACTION_FLAGS_ESP_AES_GCM_FULL_OFFLOAD   = 1 << 3
         MLX5DV_FLOW_ACTION_FLAGS_ESP_AES_GCM_TX_IV_IS_ESN   = 1 << 4
 
-    cdef enum mlx5dv_qp_init_attr_mask:
+    cpdef enum mlx5dv_qp_init_attr_mask:
         MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS    = 1 << 0
         MLX5DV_QP_INIT_ATTR_MASK_DC                 = 1 << 1
         MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS     = 1 << 2
         MLX5DV_QP_INIT_ATTR_MASK_DCI_STREAMS        = 1 << 3
 
-    cdef enum mlx5dv_qp_create_flags:
+    cpdef enum mlx5dv_qp_create_flags:
         MLX5DV_QP_CREATE_TUNNEL_OFFLOADS            = 1 << 0
         MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_UC = 1 << 1
         MLX5DV_QP_CREATE_TIR_ALLOW_SELF_LOOPBACK_MC = 1 << 2
@@ -101,47 +101,47 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_QP_CREATE_PACKET_BASED_CREDIT_MODE   = 1 << 5
         MLX5DV_QP_CREATE_SIG_PIPELINING             = 1 << 6
 
-    cdef enum mlx5dv_dc_type:
+    cpdef enum mlx5dv_dc_type:
         MLX5DV_DCTYPE_DCT   = 1
         MLX5DV_DCTYPE_DCI   = 2
 
-    cdef enum mlx5dv_mkey_init_attr_flags:
+    cpdef enum mlx5dv_mkey_init_attr_flags:
         MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT
         MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE
         MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO
 
-    cdef enum mlx5dv_mkey_err_type:
+    cpdef enum mlx5dv_mkey_err_type:
         MLX5DV_MKEY_NO_ERR
         MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD
         MLX5DV_MKEY_SIG_BLOCK_BAD_REFTAG
         MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG
 
-    cdef enum mlx5dv_sig_type:
+    cpdef enum mlx5dv_sig_type:
         MLX5DV_SIG_TYPE_T10DIF
         MLX5DV_SIG_TYPE_CRC
 
-    cdef enum mlx5dv_sig_t10dif_bg_type:
+    cpdef enum mlx5dv_sig_t10dif_bg_type:
         MLX5DV_SIG_T10DIF_CRC
         MLX5DV_SIG_T10DIF_CSUM
 
-    cdef enum mlx5dv_sig_t10dif_flags:
+    cpdef enum mlx5dv_sig_t10dif_flags:
         MLX5DV_SIG_T10DIF_FLAG_REF_REMAP
         MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE
         MLX5DV_SIG_T10DIF_FLAG_APP_REF_ESCAPE
 
-    cdef enum mlx5dv_sig_crc_type:
+    cpdef enum mlx5dv_sig_crc_type:
         MLX5DV_SIG_CRC_TYPE_CRC32
         MLX5DV_SIG_CRC_TYPE_CRC32C
         MLX5DV_SIG_CRC_TYPE_CRC64_XP10
 
-    cdef enum mlx5dv_block_size:
+    cpdef enum mlx5dv_block_size:
         MLX5DV_BLOCK_SIZE_512
         MLX5DV_BLOCK_SIZE_520
         MLX5DV_BLOCK_SIZE_4048
         MLX5DV_BLOCK_SIZE_4096
         MLX5DV_BLOCK_SIZE_4160
 
-    cdef enum mlx5dv_sig_mask:
+    cpdef enum mlx5dv_sig_mask:
         MLX5DV_SIG_MASK_T10DIF_GUARD
         MLX5DV_SIG_MASK_T10DIF_APPTAG
         MLX5DV_SIG_MASK_T10DIF_REFTAG
@@ -149,26 +149,26 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_SIG_MASK_CRC32C
         MLX5DV_SIG_MASK_CRC64_XP10
 
-    cdef enum mlx5dv_sig_block_attr_flags:
+    cpdef enum mlx5dv_sig_block_attr_flags:
         MLX5DV_SIG_BLOCK_ATTR_FLAG_COPY_MASK
 
-    cdef enum mlx5dv_qp_create_send_ops_flags:
+    cpdef enum mlx5dv_qp_create_send_ops_flags:
         MLX5DV_QP_EX_WITH_MR_INTERLEAVED    = 1 << 0
         MLX5DV_QP_EX_WITH_MR_LIST           = 1 << 1
         MLX5DV_QP_EX_WITH_MKEY_CONFIGURE    = 1 << 2
         MLX5DV_QP_EX_WITH_RAW_WQE           = 1 << 3
         MLX5DV_QP_EX_WITH_MEMCPY            = 1 << 4
 
-    cdef enum mlx5dv_cq_init_attr_mask:
+    cpdef enum mlx5dv_cq_init_attr_mask:
         MLX5DV_CQ_INIT_ATTR_MASK_COMPRESSED_CQE = 1 << 0
         MLX5DV_CQ_INIT_ATTR_MASK_FLAGS          = 1 << 1
         MLX5DV_CQ_INIT_ATTR_MASK_CQE_SIZE       = 1 << 2
 
-    cdef enum mlx5dv_cq_init_attr_flags:
+    cpdef enum mlx5dv_cq_init_attr_flags:
         MLX5DV_CQ_INIT_ATTR_FLAGS_CQE_PAD   = 1 << 0
         MLX5DV_CQ_INIT_ATTR_FLAGS_RESERVED  = 1 << 1
 
-    cdef enum mlx5dv_flow_action_type:
+    cpdef enum mlx5dv_flow_action_type:
         MLX5DV_FLOW_ACTION_DEST_IBV_QP
         MLX5DV_FLOW_ACTION_DROP
         MLX5DV_FLOW_ACTION_IBV_COUNTER
@@ -178,20 +178,20 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_FLOW_ACTION_COUNTERS_DEVX
         MLX5DV_FLOW_ACTION_DEFAULT_MISS
 
-    cdef enum mlx5dv_dr_domain_type:
+    cpdef enum mlx5dv_dr_domain_type:
         MLX5DV_DR_DOMAIN_TYPE_NIC_RX
         MLX5DV_DR_DOMAIN_TYPE_NIC_TX
         MLX5DV_DR_DOMAIN_TYPE_FDB
 
-    cdef enum mlx5dv_qp_comp_mask:
+    cpdef enum mlx5dv_qp_comp_mask:
         MLX5DV_QP_MASK_UAR_MMAP_OFFSET
         MLX5DV_QP_MASK_RAW_QP_HANDLES
         MLX5DV_QP_MASK_RAW_QP_TIR_ADDR
 
-    cdef enum mlx5dv_srq_comp_mask:
+    cpdef enum mlx5dv_srq_comp_mask:
         MLX5DV_SRQ_MASK_SRQN
 
-    cdef enum mlx5dv_obj_type:
+    cpdef enum mlx5dv_obj_type:
         MLX5DV_OBJ_QP
         MLX5DV_OBJ_CQ
         MLX5DV_OBJ_SRQ
@@ -200,11 +200,11 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_OBJ_AH
         MLX5DV_OBJ_PD
 
-    cdef enum:
+    cpdef enum:
         MLX5_RCV_DBR
         MLX5_SND_DBR
 
-    cdef enum:
+    cpdef enum:
         MLX5_CQE_OWNER_MASK
         MLX5_CQE_REQ
         MLX5_CQE_RESP_WR_IMM
@@ -218,65 +218,65 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5_CQE_RESP_ERR
         MLX5_CQE_INVALID
 
-    cdef enum:
+    cpdef enum:
         MLX5_SEND_WQE_BB
         MLX5_SEND_WQE_SHIFT
 
-    cdef enum mlx5dv_vfio_context_attr_flags:
+    cpdef enum mlx5dv_vfio_context_attr_flags:
         MLX5DV_VFIO_CTX_FLAGS_INIT_LINK_DOWN
 
-    cdef enum mlx5dv_wc_opcode:
+    cpdef enum mlx5dv_wc_opcode:
         MLX5DV_WC_UMR
         MLX5DV_WC_RAW_WQE
         MLX5DV_WC_MEMCPY
 
-    cdef enum mlx5dv_crypto_standard:
+    cpdef enum mlx5dv_crypto_standard:
         MLX5DV_CRYPTO_STANDARD_AES_XTS
 
-    cdef enum mlx5dv_signature_crypto_order:
+    cpdef enum mlx5dv_signature_crypto_order:
         MLX5DV_SIGNATURE_CRYPTO_ORDER_SIGNATURE_AFTER_CRYPTO_ON_TX
         MLX5DV_SIGNATURE_CRYPTO_ORDER_SIGNATURE_BEFORE_CRYPTO_ON_TX
 
-    cdef enum mlx5dv_crypto_login_state:
+    cpdef enum mlx5dv_crypto_login_state:
         MLX5DV_CRYPTO_LOGIN_STATE_VALID
         MLX5DV_CRYPTO_LOGIN_STATE_NO_LOGIN
         MLX5DV_CRYPTO_LOGIN_STATE_INVALID
 
-    cdef enum mlx5dv_crypto_key_size:
+    cpdef enum mlx5dv_crypto_key_size:
         MLX5DV_CRYPTO_KEY_SIZE_128
         MLX5DV_CRYPTO_KEY_SIZE_256
 
-    cdef enum mlx5dv_crypto_key_purpose:
+    cpdef enum mlx5dv_crypto_key_purpose:
         MLX5DV_CRYPTO_KEY_PURPOSE_AES_XTS
 
-    cdef enum mlx5dv_dek_state:
+    cpdef enum mlx5dv_dek_state:
         MLX5DV_DEK_STATE_READY
         MLX5DV_DEK_STATE_ERROR
 
-    cdef enum mlx5dv_crypto_engines_caps:
+    cpdef enum mlx5dv_crypto_engines_caps:
         MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS
 
-    cdef enum mlx5dv_crypto_wrapped_import_method_caps:
+    cpdef enum mlx5dv_crypto_wrapped_import_method_caps:
         MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS
 
-    cdef enum mlx5dv_crypto_caps_flags:
+    cpdef enum mlx5dv_crypto_caps_flags:
         MLX5DV_CRYPTO_CAPS_CRYPTO
         MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL
         MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_GOING_TO_COMMISSIONING
 
-    cdef enum mlx5dv_dr_action_flags:
+    cpdef enum mlx5dv_dr_action_flags:
         MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL
 
-    cdef enum mlx5dv_dr_domain_sync_flags:
+    cpdef enum mlx5dv_dr_domain_sync_flags:
         MLX5DV_DR_DOMAIN_SYNC_FLAGS_SW
         MLX5DV_DR_DOMAIN_SYNC_FLAGS_HW
         MLX5DV_DR_DOMAIN_SYNC_FLAGS_MEM
 
-    cdef enum mlx5dv_dr_matcher_layout_flags:
+    cpdef enum mlx5dv_dr_matcher_layout_flags:
        MLX5DV_DR_MATCHER_LAYOUT_RESIZABLE
        MLX5DV_DR_MATCHER_LAYOUT_NUM_RULE
 
-    cdef enum mlx5dv_dr_action_dest_type:
+    cpdef enum mlx5dv_dr_action_dest_type:
         MLX5DV_DR_ACTION_DEST
         MLX5DV_DR_ACTION_DEST_REFORMAT
 

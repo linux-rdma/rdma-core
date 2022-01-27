@@ -166,7 +166,7 @@ cdef class Context(PyverbsCM):
         """
         self.close()
 
-    cdef close(self):
+    cpdef close(self):
         if self.context != NULL:
             self.logger.debug('Closing Context')
             close_weakrefs([self.qps, self.ccs, self.cqs, self.dms, self.pds,
@@ -788,7 +788,7 @@ cdef class DM(PyverbsCM):
     def __dealloc__(self):
         self.close()
 
-    cdef close(self):
+    cpdef close(self):
         """
         Closes the underlying C object of the DM.
         In case of an imported DM, the DM won't be freed, and it's kept for the
@@ -1091,7 +1091,8 @@ def translate_port_cap_flags2(flags):
          e.IBV_PORT_VIRT_SUP: 'IBV_PORT_VIRT_SUP',
          e.IBV_PORT_SWITCH_PORT_STATE_TABLE_SUP: 'IBV_PORT_SWITCH_PORT_STATE_TABLE_SUP',
          e.IBV_PORT_LINK_WIDTH_2X_SUP: 'IBV_PORT_LINK_WIDTH_2X_SUP',
-         e.IBV_PORT_LINK_SPEED_HDR_SUP: 'IBV_PORT_LINK_SPEED_HDR_SUP'}
+         e.IBV_PORT_LINK_SPEED_HDR_SUP: 'IBV_PORT_LINK_SPEED_HDR_SUP',
+         e.IBV_PORT_LINK_SPEED_NDR_SUP: 'IBV_PORT_LINK_SPEED_NDR_SUP'}
     return str_from_flags(flags, l)
 
 

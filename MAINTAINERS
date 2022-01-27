@@ -47,7 +47,7 @@ S:	Supported
 F:	debian/
 
 BNXT_RE USERSPACE PROVIDER (for bnxt_re.ko)
-M:	Devesh Sharma  <Devesh.sharma@broadcom.com>
+M:	Selvin Xavier <selvin.xavier@broadcom.com>
 S:	Supported
 F:	providers/bnxt_re/
 
@@ -143,7 +143,7 @@ S:	Supported
 F:	providers/mthca/
 
 OCRDMA USERSPACE PROVIDER (for ocrdma.ko)
-M:	Devesh Sharma <Devesh.sharma@broadcom.com>
+M:	Selvin Xavier <selvin.xavier@broadcom.com>
 S:	Supported
 F:	providers/ocrdma/
 

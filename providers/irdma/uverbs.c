@@ -213,7 +213,7 @@ int irdma_ubind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 	struct ibv_send_wr *bad_wr;
 	int err;
 
-	if (vmr->mr_type != IBV_MR_TYPE_MR || mw->type != IBV_MW_TYPE_1)
+	if (vmr->mr_type != IBV_MR_TYPE_MR)
 		return ENOTSUP;
 
 	if (umr->acc_flags & IBV_ACCESS_ZERO_BASED)
@@ -556,6 +556,10 @@ static enum ibv_wc_status irdma_flush_err_to_ib_wc_status(enum irdma_flush_opcod
 		return IBV_WC_LOC_LEN_ERR;
 	case FLUSH_GENERAL_ERR:
 		return IBV_WC_WR_FLUSH_ERR;
+	case FLUSH_RETRY_EXC_ERR:
+		return IBV_WC_RETRY_EXC_ERR;
+	case FLUSH_MW_BIND_ERR:
+		return IBV_WC_MW_BIND_ERR;
 	case FLUSH_FATAL_ERR:
 	default:
 		return IBV_WC_FATAL_ERR;

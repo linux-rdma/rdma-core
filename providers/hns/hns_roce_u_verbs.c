@@ -221,18 +221,6 @@ int hns_roce_u_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 	struct ibv_send_wr wr = {};
 	int ret;
 
-	if (!bind_info->mr && bind_info->length)
-		return EINVAL;
-
-	if (mw->pd != qp->pd)
-		return EINVAL;
-
-	if (bind_info->mr && (mw->pd != bind_info->mr->pd))
-		return EINVAL;
-
-	if (mw->type != IBV_MW_TYPE_1)
-		return EINVAL;
-
 	if (bind_info->mw_access_flags & ~(IBV_ACCESS_REMOTE_WRITE |
 	    IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_ATOMIC))
 		return EINVAL;
@@ -431,8 +419,7 @@ int hns_roce_u_destroy_cq(struct ibv_cq *cq)
 static int hns_roce_store_srq(struct hns_roce_context *ctx,
 			      struct hns_roce_srq *srq)
 {
-	uint32_t tind = (srq->srqn & (ctx->num_srqs - 1)) >>
-			ctx->srq_table_shift;
+	uint32_t tind = to_hr_srq_table_index(srq->srqn, ctx);
 
 	pthread_mutex_lock(&ctx->srq_table_mutex);
 
@@ -457,7 +444,7 @@ static int hns_roce_store_srq(struct hns_roce_context *ctx,
 struct hns_roce_srq *hns_roce_find_srq(struct hns_roce_context *ctx,
 				       uint32_t srqn)
 {
-	uint32_t tind = (srqn & (ctx->num_srqs - 1)) >> ctx->srq_table_shift;
+	uint32_t tind = to_hr_srq_table_index(srqn, ctx);
 
 	if (ctx->srq_table[tind].refcnt)
 		return ctx->srq_table[tind].table[srqn & ctx->srq_table_mask];
@@ -467,7 +454,7 @@ struct hns_roce_srq *hns_roce_find_srq(struct hns_roce_context *ctx,
 
 static void hns_roce_clear_srq(struct hns_roce_context *ctx, uint32_t srqn)
 {
-	uint32_t tind = (srqn & (ctx->num_srqs - 1)) >> ctx->srq_table_shift;
+	uint32_t tind = to_hr_srq_table_index(srqn, ctx);
 
 	pthread_mutex_lock(&ctx->srq_table_mutex);
 
@@ -774,12 +761,22 @@ static int check_qp_create_mask(struct hns_roce_context *ctx,
 	return 0;
 }
 
+static int hns_roce_qp_has_rq(struct ibv_qp_init_attr_ex *attr)
+{
+	if (attr->qp_type == IBV_QPT_XRC_SEND ||
+	    attr->qp_type == IBV_QPT_XRC_RECV || attr->srq)
+		return 0;
+
+	return 1;
+}
+
 static int verify_qp_create_cap(struct hns_roce_context *ctx,
 				struct ibv_qp_init_attr_ex *attr)
 {
 	struct hns_roce_device *hr_dev = to_hr_dev(ctx->ibv_ctx.context.device);
 	struct ibv_qp_cap *cap = &attr->cap;
 	uint32_t min_wqe_num;
+	int has_rq;
 
 	if (!cap->max_send_wr && attr->qp_type != IBV_QPT_XRC_RECV)
 		return -EINVAL;
@@ -790,7 +787,8 @@ static int verify_qp_create_cap(struct hns_roce_context *ctx,
 	    cap->max_recv_sge > ctx->max_sge)
 		return -EINVAL;
 
-	if (attr->srq) {
+	has_rq = hns_roce_qp_has_rq(attr);
+	if (!has_rq) {
 		cap->max_recv_wr = 0;
 		cap->max_recv_sge = 0;
 	}
@@ -1097,7 +1095,7 @@ static int hns_roce_store_qp(struct hns_roce_context *ctx,
 			     struct hns_roce_qp *qp)
 {
 	uint32_t qpn = qp->verbs_qp.qp.qp_num;
-	uint32_t tind = (qpn & (ctx->num_qps - 1)) >> ctx->qp_table_shift;
+	uint32_t tind = to_hr_qp_table_index(qpn, ctx);
 
 	pthread_mutex_lock(&ctx->qp_table_mutex);
 	if (!ctx->qp_table[tind].refcnt) {
@@ -1119,7 +1117,8 @@ static int hns_roce_store_qp(struct hns_roce_context *ctx,
 
 static int qp_exec_create_cmd(struct ibv_qp_init_attr_ex *attr,
 			      struct hns_roce_qp *qp,
-			      struct hns_roce_context *ctx)
+			      struct hns_roce_context *ctx,
+			      uint64_t *dwqe_mmap_key)
 {
 	struct hns_roce_create_qp_ex_resp resp_ex = {};
 	struct hns_roce_create_qp_ex cmd_ex = {};
@@ -1136,6 +1135,7 @@ static int qp_exec_create_cmd(struct ibv_qp_init_attr_ex *attr,
 				    &resp_ex.ibv_resp, sizeof(resp_ex));
 
 	qp->flags = resp_ex.drv_payload.cap_flags;
+	*dwqe_mmap_key = resp_ex.drv_payload.dwqe_mmap_key;
 
 	return ret;
 }
@@ -1158,6 +1158,11 @@ static void qp_setup_config(struct ibv_qp_init_attr_ex *attr,
 	}
 
 	qp->max_inline_data = attr->cap.max_inline_data;
+
+	if (qp->flags & HNS_ROCE_QP_CAP_DIRECT_WQE)
+		qp->sq.db_reg = qp->dwqe_page;
+	else
+		qp->sq.db_reg = ctx->uar + ROCEE_VF_DB_CFG0_OFFSET;
 }
 
 void hns_roce_free_qp_buf(struct hns_roce_qp *qp, struct hns_roce_context *ctx)
@@ -1187,11 +1192,23 @@ static int hns_roce_alloc_qp_buf(struct ibv_qp_init_attr_ex *attr,
 	return ret;
 }
 
+static int mmap_dwqe(struct ibv_context *ibv_ctx, struct hns_roce_qp *qp,
+		     uint64_t dwqe_mmap_key)
+{
+	qp->dwqe_page = mmap(NULL, HNS_ROCE_DWQE_PAGE_SIZE, PROT_WRITE,
+			     MAP_SHARED, ibv_ctx->cmd_fd, dwqe_mmap_key);
+	if (qp->dwqe_page == MAP_FAILED)
+		return -EINVAL;
+
+	return 0;
+}
+
 static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 				struct ibv_qp_init_attr_ex *attr)
 {
 	struct hns_roce_context *context = to_hr_ctx(ibv_ctx);
 	struct hns_roce_qp *qp;
+	uint64_t dwqe_mmap_key;
 	int ret;
 
 	ret = verify_qp_create_attr(context, attr);
@@ -1210,7 +1227,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 	if (ret)
 		goto err_buf;
 
-	ret = qp_exec_create_cmd(attr, qp, context);
+	ret = qp_exec_create_cmd(attr, qp, context, &dwqe_mmap_key);
 	if (ret)
 		goto err_cmd;
 
@@ -1218,10 +1235,18 @@ static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 	if (ret)
 		goto err_store;
 
+	if (qp->flags & HNS_ROCE_QP_CAP_DIRECT_WQE) {
+		ret = mmap_dwqe(ibv_ctx, qp, dwqe_mmap_key);
+		if (ret)
+			goto err_dwqe;
+	}
+
 	qp_setup_config(attr, qp, context);
 
 	return &qp->verbs_qp.qp;
 
+err_dwqe:
+	hns_roce_v2_clear_qp(context, qp);
 err_store:
 	ibv_cmd_destroy_qp(&qp->verbs_qp.qp);
 err_cmd:

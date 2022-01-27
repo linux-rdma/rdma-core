@@ -177,21 +177,9 @@ static int rxe_bind_mw(struct ibv_qp *ibqp, struct ibv_mw *ibmw,
 	struct ibv_send_wr ibwr;
 	struct ibv_send_wr *bad_wr;
 
-	if (!bind_info->mr && (bind_info->addr || bind_info->length)) {
-		ret = EINVAL;
-		goto err;
-	}
-
 	if (bind_info->mw_access_flags & IBV_ACCESS_ZERO_BASED) {
 		ret = EINVAL;
 		goto err;
-	}
-
-	if (bind_info->mr) {
-		if (ibmw->pd != bind_info->mr->pd) {
-			ret = EPERM;
-			goto err;
-		}
 	}
 
 	memset(&ibwr, 0, sizeof(ibwr));
@@ -975,16 +963,20 @@ static void wr_set_ud_addr(struct ibv_qp_ex *ibqp, struct ibv_ah *ibah,
 			   uint32_t remote_qpn, uint32_t remote_qkey)
 {
 	struct rxe_qp *qp = container_of(ibqp, struct rxe_qp, vqp.qp_ex);
-	struct rxe_ah *ah = container_of(ibah, struct rxe_ah, ibv_ah);
+	struct rxe_ah *ah = to_rah(ibah);
 	struct rxe_send_wqe *wqe = addr_from_index(qp->sq.queue,
 						   qp->cur_index - 1);
 
 	if (qp->err)
 		return;
 
-	memcpy(&wqe->wr.wr.ud.av, &ah->av, sizeof(ah->av));
 	wqe->wr.wr.ud.remote_qpn = remote_qpn;
 	wqe->wr.wr.ud.remote_qkey = remote_qkey;
+	wqe->wr.wr.ud.ah_num = ah->ah_num;
+
+	if (!ah->ah_num)
+		/* old kernels only */
+		memcpy(&wqe->wr.wr.ud.av, &ah->av, sizeof(ah->av));
 }
 
 static void wr_set_inline_data(struct ibv_qp_ex *ibqp, void *addr,
@@ -1405,7 +1397,8 @@ static int validate_send_wr(struct rxe_qp *qp, struct ibv_send_wr *ibwr,
 	return 0;
 }
 
-static void convert_send_wr(struct rxe_send_wr *kwr, struct ibv_send_wr *uwr)
+static void convert_send_wr(struct rxe_qp *qp, struct rxe_send_wr *kwr,
+					struct ibv_send_wr *uwr)
 {
 	struct ibv_mw *ibmw;
 	struct ibv_mr *ibmr;
@@ -1428,8 +1421,13 @@ static void convert_send_wr(struct rxe_send_wr *kwr, struct ibv_send_wr *uwr)
 
 	case IBV_WR_SEND:
 	case IBV_WR_SEND_WITH_IMM:
-		kwr->wr.ud.remote_qpn		= uwr->wr.ud.remote_qpn;
-		kwr->wr.ud.remote_qkey		= uwr->wr.ud.remote_qkey;
+		if (qp_type(qp) == IBV_QPT_UD) {
+			struct rxe_ah *ah = to_rah(uwr->wr.ud.ah);
+
+			kwr->wr.ud.remote_qpn	= uwr->wr.ud.remote_qpn;
+			kwr->wr.ud.remote_qkey	= uwr->wr.ud.remote_qkey;
+			kwr->wr.ud.ah_num	= ah->ah_num;
+		}
 		break;
 
 	case IBV_WR_ATOMIC_CMP_AND_SWP:
@@ -1465,11 +1463,15 @@ static int init_send_wqe(struct rxe_qp *qp, struct rxe_wq *sq,
 	int i;
 	unsigned int opcode = ibwr->opcode;
 
-	convert_send_wr(&wqe->wr, ibwr);
+	convert_send_wr(qp, &wqe->wr, ibwr);
 
-	if (qp_type(qp) == IBV_QPT_UD)
-		memcpy(&wqe->wr.wr.ud.av, &to_rah(ibwr->wr.ud.ah)->av,
-		       sizeof(struct rxe_av));
+	if (qp_type(qp) == IBV_QPT_UD) {
+		struct rxe_ah *ah = to_rah(ibwr->wr.ud.ah);
+
+		if (!ah->ah_num)
+			/* old kernels only */
+			memcpy(&wqe->wr.wr.ud.av, &ah->av, sizeof(struct rxe_av));
+	}
 
 	if (ibwr->send_flags & IBV_SEND_INLINE) {
 		uint8_t *inline_data = wqe->dma.inline_data;
@@ -1514,7 +1516,8 @@ static int post_one_send(struct rxe_qp *qp, struct rxe_wq *sq,
 
 	err = validate_send_wr(qp, ibwr, length);
 	if (err) {
-		printf("validate send failed\n");
+		verbs_err(verbs_get_ctx(qp->vqp.qp.context),
+			  "validate send failed\n");
 		return err;
 	}
 
@@ -1644,59 +1647,82 @@ static inline int rdma_gid2ip(sockaddr_union_t *out, union ibv_gid *gid)
 	return 0;
 }
 
-static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
+static int rxe_create_av(struct rxe_ah *ah, struct ibv_pd *pd,
+			 struct ibv_ah_attr *attr)
 {
-	int err;
-	struct rxe_ah *ah;
-	struct rxe_av *av;
+	struct rxe_av *av = &ah->av;
 	union ibv_gid sgid;
-	struct ib_uverbs_create_ah_resp resp;
+	int ret;
 
-	err = ibv_query_gid(pd->context, attr->port_num, attr->grh.sgid_index,
-			    &sgid);
-	if (err) {
-		fprintf(stderr, "rxe: Failed to query sgid.\n");
-		return NULL;
-	}
+	ret = ibv_query_gid(pd->context, attr->port_num,
+			attr->grh.sgid_index, &sgid);
+	if (ret)
+		return ret;
 
-	ah = calloc(1, sizeof(*ah));
-	if (ah == NULL)
-		return NULL;
-
-	av = &ah->av;
 	av->port_num = attr->port_num;
 	memcpy(&av->grh, &attr->grh, sizeof(attr->grh));
-	av->network_type =
-		ipv6_addr_v4mapped((struct in6_addr *)attr->grh.dgid.raw) ?
-		RXE_NETWORK_TYPE_IPV4 : RXE_NETWORK_TYPE_IPV6;
+
+	ret = ipv6_addr_v4mapped((struct in6_addr *)attr->grh.dgid.raw);
+	av->network_type = ret ? RXE_NETWORK_TYPE_IPV4 :
+				 RXE_NETWORK_TYPE_IPV6;
 
 	rdma_gid2ip(&av->sgid_addr, &sgid);
 	rdma_gid2ip(&av->dgid_addr, &attr->grh.dgid);
-	if (ibv_resolve_eth_l2_from_gid(pd->context, attr, av->dmac, NULL)) {
-		free(ah);
-		return NULL;
-	}
 
-	memset(&resp, 0, sizeof(resp));
-	if (ibv_cmd_create_ah(pd, &ah->ibv_ah, attr, &resp, sizeof(resp))) {
-		free(ah);
+	ret = ibv_resolve_eth_l2_from_gid(pd->context, attr,
+					  av->dmac, NULL);
+
+	return ret;
+}
+
+/*
+ * Newer kernels will return a non-zero AH index in resp.ah_num
+ * which can be returned in UD send WQEs.
+ * Older kernels will leave ah_num == 0. For these create an AV and use
+ * in UD send WQEs.
+ */
+static struct ibv_ah *rxe_create_ah(struct ibv_pd *pd,
+					struct ibv_ah_attr *attr)
+{
+	struct rxe_ah *ah;
+	struct urxe_create_ah_resp resp = {};
+	int ret;
+
+	ah = calloc(1, sizeof(*ah));
+	if (!ah)
 		return NULL;
+
+	ret = ibv_cmd_create_ah(pd, &ah->ibv_ah, attr,
+				&resp.ibv_resp, sizeof(resp));
+	if (ret)
+		goto err_free;
+
+	ah->ah_num = resp.ah_num;
+
+	if (!ah->ah_num) {
+		/* old kernels only */
+		ret = rxe_create_av(ah, pd, attr);
+		if (ret)
+			goto err_free;
 	}
 
 	return &ah->ibv_ah;
+
+err_free:
+	free(ah);
+	return NULL;
 }
 
 static int rxe_destroy_ah(struct ibv_ah *ibah)
 {
-	int ret;
 	struct rxe_ah *ah = to_rah(ibah);
+	int ret;
 
 	ret = ibv_cmd_destroy_ah(&ah->ibv_ah);
-	if (ret)
-		return ret;
+	if (!ret)
+		free(ah);
 
-	free(ah);
-	return 0;
+	return ret;
 }
 
 static const struct verbs_context_ops rxe_ctx_ops = {

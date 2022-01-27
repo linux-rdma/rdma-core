@@ -106,7 +106,7 @@ cdef class Mlx5VfioContext(Mlx5Context):
         if rc:
             raise PyverbsRDMAError('VFIO process events failed', rc)
 
-    cdef close(self):
+    cpdef close(self):
         if self.context != NULL:
             self.logger.debug('Closing Mlx5VfioContext')
             close_weakrefs([self.pds, self.devx_objs, self.devx_umems, self.uars])

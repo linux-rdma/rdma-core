@@ -48,8 +48,7 @@
 #include "hns_roce_u_abi.h"
 
 #define HNS_ROCE_HW_VER1		('h' << 24 | 'i' << 16 | '0' << 8 | '6')
-
-#define HNS_ROCE_HW_VER2		('h' << 24 | 'i' << 16 | '0' << 8 | '8')
+#define HNS_ROCE_HW_VER2		0x100
 #define HNS_ROCE_HW_VER3		0x130
 
 #define PFX				"hns: "
@@ -81,6 +80,8 @@
 
 #define INVALID_SGE_LENGTH 0x80000000
 
+#define HNS_ROCE_DWQE_PAGE_SIZE 65536
+
 #define HNS_ROCE_ADDRESS_MASK 0xFFFFFFFF
 #define HNS_ROCE_ADDRESS_SHIFT 32
 
@@ -99,12 +100,61 @@
 #define roce_set_bit(origin, shift, val) \
 	roce_set_field((origin), (1ul << (shift)), (shift), (val))
 
-#define hr_ilog32(n)		ilog32((unsigned int)(n) - 1)
+#define FIELD_LOC(field_type, field_h, field_l)                                \
+	field_type, field_h,                                                   \
+		field_l + BUILD_ASSERT_OR_ZERO(((field_h) / 32) ==             \
+					       ((field_l) / 32))
 
-enum {
-	HNS_ROCE_QP_TABLE_BITS		= 8,
-	HNS_ROCE_QP_TABLE_SIZE		= 1 << HNS_ROCE_QP_TABLE_BITS,
-};
+#define _hr_reg_enable(ptr, field_type, field_h, field_l)                      \
+	({                                                                     \
+		const field_type *_ptr = ptr;                                  \
+		BUILD_ASSERT((field_h) == (field_l));                          \
+		*((__le32 *)_ptr + (field_h) / 32) |=                          \
+			htole32(BIT((field_l) % 32));                          \
+	})
+
+#define hr_reg_enable(ptr, field) _hr_reg_enable(ptr, field)
+
+#define _hr_reg_clear(ptr, field_type, field_h, field_l)                       \
+	({                                                                     \
+		const field_type *_ptr = ptr;                                  \
+		BUILD_ASSERT((field_h) >= (field_l));                          \
+		*((__le32 *)_ptr + (field_h) / 32) &=                          \
+			~htole32(GENMASK((field_h) % 32, (field_l) % 32));     \
+	})
+
+#define hr_reg_clear(ptr, field) _hr_reg_clear(ptr, field)
+
+#define _hr_reg_write_bool(ptr, field_type, field_h, field_l, val)             \
+	({                                                                     \
+		(val) ? _hr_reg_enable(ptr, field_type, field_h, field_l) :    \
+			      _hr_reg_clear(ptr, field_type, field_h, field_l);\
+	})
+
+#define hr_reg_write_bool(ptr, field, val) _hr_reg_write_bool(ptr, field, val)
+
+#define _hr_reg_write(ptr, field_type, field_h, field_l, val)                  \
+	({                                                                     \
+		const uint32_t _val = val;                                     \
+		_hr_reg_clear(ptr, field_type, field_h, field_l);              \
+		*((__le32 *)ptr + (field_h) / 32) |= htole32(FIELD_PREP(       \
+			GENMASK((field_h) % 32, (field_l) % 32), _val));       \
+	})
+
+#define hr_reg_write(ptr, field, val) _hr_reg_write(ptr, field, val)
+
+#define _hr_reg_read(ptr, field_type, field_h, field_l)                        \
+	({                                                                     \
+		const field_type *_ptr = ptr;                                  \
+		BUILD_ASSERT((field_h) >= (field_l));                          \
+		FIELD_GET(GENMASK((field_h) % 32, (field_l) % 32),             \
+			  le32toh(*((__le32 *)_ptr + (field_h) / 32)));        \
+	})
+
+#define hr_reg_read(ptr, field) _hr_reg_read(ptr, field)
+
+#define HNS_ROCE_QP_TABLE_BITS 8
+#define HNS_ROCE_QP_TABLE_SIZE BIT(HNS_ROCE_QP_TABLE_BITS)
 
 #define HNS_ROCE_SRQ_TABLE_BITS 8
 #define HNS_ROCE_SRQ_TABLE_SIZE BIT(HNS_ROCE_SRQ_TABLE_BITS)
@@ -158,7 +208,6 @@ struct hns_roce_context {
 		int			refcnt;
 	} qp_table[HNS_ROCE_QP_TABLE_SIZE];
 	pthread_mutex_t			qp_table_mutex;
-	uint32_t			num_qps;
 	uint32_t			qp_table_shift;
 	uint32_t			qp_table_mask;
 
@@ -167,7 +216,6 @@ struct hns_roce_context {
 		int			refcnt;
 	} srq_table[HNS_ROCE_SRQ_TABLE_SIZE];
 	pthread_mutex_t			srq_table_mutex;
-	uint32_t			num_srqs;
 	uint32_t			srq_table_shift;
 	uint32_t			srq_table_mask;
 
@@ -237,6 +285,7 @@ struct hns_roce_wq {
 	unsigned int			wqe_shift;
 	unsigned int			shift; /* wq size is 2^shift */
 	int				offset;
+	void				*db_reg;
 };
 
 /* record the result of sge process */
@@ -280,13 +329,14 @@ struct hns_roce_qp {
 	struct hns_roce_sge_ex		ex_sge;
 	unsigned int			next_sge;
 	int				port_num;
-	int				sl;
+	uint8_t				sl;
 	unsigned int			qkey;
 	enum ibv_mtu			path_mtu;
 
 	struct hns_roce_rinl_buf	rq_rinl_buf;
 	unsigned long			flags;
 	int				refcnt; /* specially used for XRC */
+	void				*dwqe_page;
 };
 
 struct hns_roce_av {
@@ -320,6 +370,23 @@ struct hns_roce_u_hw {
 static inline unsigned int to_hr_hem_entries_size(int count, int buf_shift)
 {
 	return hr_hw_page_align(count << buf_shift);
+}
+
+static inline unsigned int hr_ilog32(unsigned int count)
+{
+	return ilog32(count - 1);
+}
+
+static inline uint32_t to_hr_qp_table_index(uint32_t qpn,
+					    struct hns_roce_context *ctx)
+{
+	return (qpn >> ctx->qp_table_shift) & (HNS_ROCE_QP_TABLE_SIZE - 1);
+}
+
+static inline uint32_t to_hr_srq_table_index(uint32_t srqn,
+					     struct hns_roce_context *ctx)
+{
+	return (srqn >> ctx->srq_table_shift) & (HNS_ROCE_SRQ_TABLE_SIZE - 1);
 }
 
 static inline struct hns_roce_device *to_hr_dev(struct ibv_device *ibv_dev)

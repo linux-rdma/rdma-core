@@ -871,6 +871,7 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 
 		seg += sizeof *ctrl;
 		size = sizeof *ctrl / 16;
+		qp->sq.wr_data[idx] = 0;
 
 		switch (ibqp->qp_type) {
 		case IBV_QPT_XRC_SEND:
@@ -1251,6 +1252,8 @@ static inline void _common_wqe_init_op(struct ibv_qp_ex *ibqp, int ib_op,
 		mqp->sq.wr_data[idx] = IBV_WC_DRIVER1;
 	else if (mlx5_op == MLX5_OPCODE_MMO)
 		mqp->sq.wr_data[idx] = IBV_WC_DRIVER3;
+	else
+		mqp->sq.wr_data[idx] = 0;
 
 	ctrl = mlx5_get_send_wqe(mqp, idx);
 	*(uint32_t *)((void *)ctrl + 8) = 0;
@@ -3585,11 +3588,6 @@ int mlx5_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 	struct ibv_send_wr *bad_wr = NULL;
 	int ret;
 
-	if (!bind_info->mr && (bind_info->addr || bind_info->length)) {
-		errno = EINVAL;
-		return errno;
-	}
-
 	if (bind_info->mw_access_flags & IBV_ACCESS_ZERO_BASED) {
 		errno = EINVAL;
 		return errno;
@@ -3606,10 +3604,6 @@ int mlx5_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 			return errno;
 		}
 
-		if (mw->pd != bind_info->mr->pd) {
-			errno = EPERM;
-			return errno;
-		}
 	}
 
 	wr.opcode = IBV_WR_BIND_MW;

@@ -45,6 +45,12 @@ than the MTU of the underlying RDMA transport, or an error will occur.
 Join the multicast group as a send-only full-member. Otherwise the group is
 joined as a full-member.
 .TP
+.TP
+\-l
+Prevent multicast message loopback. Other receivers on the local system will not receive
+the multicast messages. Otherwise all multicast messages are also send to the host they
+originated from and local listeners (and probably the sending process itself) will receive
+the messages.
 \-p port_space
 The port space of the datagram communication.  May be either the RDMA
 UDP (0x0111) or IPoIB (0x0002) port space.  (default RDMA_PS_UDP)
