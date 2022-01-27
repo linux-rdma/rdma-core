@@ -1,3 +1,13 @@
+rdma-core (39.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Remove i40iw provider conffile (Closes: #1000562)
+  * Update overrides for lintian 2.114
+  * Override obsolete-command-in-modprobe.d-file lintian error
+  * Override spare-manual-page lintian complaint
+
+ -- Benjamin Drung <benjamin.drung@ionos.com>  Thu, 27 Jan 2022 19:57:04 +0100
+
 rdma-core (38.0-1) unstable; urgency=medium
 
   * New upstream release.
