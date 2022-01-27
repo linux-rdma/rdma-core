@@ -1184,6 +1184,7 @@ static unsigned int lookup_ip_from_gid(union ibv_gid *v)
 
 #define ROCE_PORT 4791
 
+#if 0
 static int sysfs_read_int(const char *s)
 {
 	int fh = open(s, O_RDONLY);
@@ -1200,6 +1201,7 @@ static int sysfs_read_int(const char *s)
 
 	return atoi(b);
 }
+#endif
 
 /* Unicast handling */
 
@@ -1406,9 +1408,9 @@ static void handle_netlink_event(enum netlink_channel c)
 {
 	char buf[8192];
 	struct nlmsghdr *h = (void *)buf;
-	struct sockaddr_nl nladdr;
+	struct sockaddr_nl addr;
 	struct iovec iov = { buf, sizeof(buf) };
-	struct msghdr msg = { (void *)&nladdr, sizeof(struct sockaddr_nl), &iov, 1 };
+	struct msghdr msg = { (void *)&addr, sizeof(struct sockaddr_nl), &iov, 1 };
 	int len;
 
 	len = recvmsg(sock_nl[c], &msg, 0);
@@ -1617,10 +1619,15 @@ static int recv_buf(struct i2r_interface *i,
 	struct mc *m;
 	enum interfaces in = i - i2r;
 	unsigned len;
-	struct in_addr source_addr = *(struct in_addr *)(buf->grh.sgid.raw + 12);
-	struct in_addr dest_addr = *(struct in_addr *)(buf->grh.dgid.raw + 12);
+	struct ib_addr *sgid = (struct ib_addr *)&buf->grh.sgid.raw;
+	struct ib_addr *dgid = (struct ib_addr *)&buf->grh.dgid.raw;
+	struct in_addr source_addr;
+	struct in_addr dest_addr;
 	unsigned port = 0;
 	char xbuf[INET6_ADDRSTRLEN];
+
+	source_addr.s_addr = sgid->sib_addr32[3];
+	dest_addr.s_addr = dgid->sib_addr32[3];
 
 	if (!(w->wc_flags & IBV_WC_GRH)) {
 		syslog(LOG_WARNING, "Discard Packet: No GRH provided %s/%s\n",
@@ -1766,7 +1773,7 @@ exit:
 
 static void handle_async_event(enum interfaces in)
 {
-	struct i2r_interface *i = i2r + in;
+//	struct i2r_interface *i = i2r + in;
 	struct ibv_async_event event;
 
 	if (!ibv_get_async_event(i2r[in].context, &event))
