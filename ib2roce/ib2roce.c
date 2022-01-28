@@ -1409,7 +1409,8 @@ static void handle_neigh_event(struct neigh *n)
 
 err:
 	syslog(LOG_NOTICE, "Neigh Event interface=%s type %u Len=%u NL flags=%x ND flags=%x state=%x IP=%s MAC=%s ifindex=%d\n",
-				i->if_name, n->nlh.nlmsg_type,  n->nlh.nlmsg_len, n->nlh.nlmsg_flags,
+				i ? i->if_name: "N/A",
+			       	n->nlh.nlmsg_type,  n->nlh.nlmsg_len, n->nlh.nlmsg_flags,
 				n->nd.ndm_flags, n->nd.ndm_state,
 				inet_ntoa(ra->addr), hexbytes(ra->mac, maclen),
 				n->nd.ndm_ifindex);
