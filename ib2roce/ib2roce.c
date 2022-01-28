@@ -944,10 +944,7 @@ static void setup_interface(enum interfaces in)
 	if (!i->multicast)
 		abort();
 
-	if (in != INFINIBAND)
-		i->raw = setup_channel(i, i->if_addr.sin_addr, 0, IBV_QPT_RAW_PACKET, 100, 0);
-	else
-		syslog(LOG_WARNING, "RAW QP currently not supported for Infiniband\n");
+	i->raw = setup_channel(i, i->if_addr.sin_addr, 0, IBV_QPT_RAW_PACKET, 100, 0);
 
 	syslog(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s CQs=%u MTU=%u ready.\n",
 		interfaces_text[in],
@@ -1505,7 +1502,6 @@ static void setup_netlink(enum netlink_channel c)
 
 static void setup_flow(enum interfaces in)
 {
-#if 0
 	struct i2r_interface *i = i2r + in;
 	struct i2r_interface *di = i2r + (in ^ 1);
 	enum interfaces j;
@@ -1534,38 +1530,9 @@ static void setup_flow(enum interfaces in)
 		}
 	};
 
-	if (in == ROCE) {
-		f = ibv_create_flow(i->raw->id->qp, &flattr.attr);
-		if (!f) {
-			syslog(LOG_ERR, "unicast mode: Cannot create flow on %s. Errno %s\n", interfaces_text[in], errname());
-			err = true;
-		}
-	} else {
-		/* Need to open some sort of RAW IB socket that gets us the datagrams */
-		syslog(LOG_WARNING, "Unicast mode. Reception on Infiniband not implemented yet.\n");
-	}
-
-	if (!bridging || err)
-		return;
-
-
-	/* Check system config for unicast setup */
-	if (sysfs_read_int("/proc/sys/net/ipv4/ip_forward") != 1) {
-		err = true;
-		syslog(LOG_CRIT, "unicast mode requires ip_forwarding to be active\n");
-	}
-
-	for (j = 0; j < NR_INTERFACES; j++) {
-		const char *interface = i2r[j].if_name;
-
-		snprintf(name, 100, "/proc/sys/net/ipv4/conf/%s/proxy_arp", interface);
-		if (sysfs_read_int(name) != 1) {
-			err = true;
-			syslog(LOG_CRIT,"unicast mode requires a proxyarp setup on interface %s",
-				interface);
-		}
-	}
-#endif
+	f = ibv_create_flow(i->raw->id->qp, &flattr.attr);
+	if (!f)
+		syslog(LOG_ERR, "unicast mode: Cannot create flow on %s. Errno %s\n", interfaces_text[in], errname());
 }
 
 static int unicast_packet(struct i2r_interface *i, struct buf *buf, struct in_addr source_addr, struct in_addr dest_addr)
