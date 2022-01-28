@@ -125,13 +125,22 @@ static int cq_high = 0;	/* Largest batch of CQs encountered */
 
 struct rdma_channel {
 	struct i2r_interface *i;
-	struct rdma_cm_id *id;
 	struct ibv_cq *cq;
 	struct ibv_pd *pd;
 	struct ibv_mr *mr;
 	unsigned int active_receive_buffers;
 	unsigned int nr_cq;
-	struct sockaddr_in bindaddr;
+	bool rdmacm;
+	union {
+		struct { /* RDMACM status */
+			struct rdma_cm_id *id;
+			struct sockaddr_in bindaddr;
+		};
+		struct { /* Basic RDMA channel without RDMACM */
+			struct ibv_qp *qp;
+			struct ibv_qp_attr attr;
+		};
+	};
 };
 
 static struct i2r_interface {
@@ -677,7 +686,7 @@ static int post_receive(struct rdma_channel *c, int limit)
 		/* Use the buffer address for the completion handler */
 		recv_wr.wr_id = (uint64_t)buf;
 		sge.addr = (uint64_t)&buf->grh;
-		ret = ibv_post_recv(c->id->qp, &recv_wr, &recv_failure);
+		ret = ibv_post_recv(c->qp, &recv_wr, &recv_failure);
 		if (ret) {
 			free_buffer(buf);
 			syslog(LOG_WARNING, "ibv_post_recv failed: %d\n", ret);
@@ -708,18 +717,30 @@ static void channel_destroy(struct rdma_channel *c)
 	if (!c)
 		return;
 
-	if (c->id->qp)
-		rdma_destroy_qp(c->id);
+	if (c->rdmacm) {
 
-	if (c->cq)
-		ibv_destroy_cq(c->cq);
+		if (c->qp)
+			rdma_destroy_qp(c->id);
 
-	ibv_dereg_mr(c->mr);
-	if (c->pd)
-		ibv_dealloc_pd(c->pd);
+		if (c->cq)
+			ibv_destroy_cq(c->cq);
 
-	rdma_destroy_id(c->id);
+		ibv_dereg_mr(c->mr);
+		if (c->pd)
+			ibv_dealloc_pd(c->pd);
 
+		rdma_destroy_id(c->id);
+	} else {
+		ibv_destroy_qp(c->qp);
+
+		if (c->cq)
+			ibv_destroy_cq(c->cq);
+	
+		ibv_dereg_mr(c->mr);
+		if (c->pd)
+			ibv_dealloc_pd(c->pd);
+
+	}
 	free(c);
 }
 
@@ -788,32 +809,59 @@ out:
 	close(fh);
 }
 
+static void start_channel(struct rdma_channel *c)
+{
+	if (c->rdmacm) {
+		/* kick off if necessary */
+	} else {
+		int ret;
 
-static struct rdma_channel *setup_channel(struct i2r_interface *i, struct in_addr addr, unsigned port, unsigned qp_type, unsigned nr_cq, unsigned create_flags)
+		c->attr.qp_state = IBV_QPS_RTR;
+		ret = ibv_modify_qp(c->qp, &c->attr, IBV_QP_STATE);
+		if (ret) {
+			errno = -ret;
+			syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to RTR state. %s", errname());
+		}
+
+		c->attr.qp_state = IBV_QPS_RTS;
+		ret = ibv_modify_qp(c->qp, &c->attr, IBV_QP_STATE);
+		if (ret) {
+			errno = -ret;
+			syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to RTS state. %s", errname());
+		}
+	}
+}
+
+static struct rdma_channel *setup_channel(struct i2r_interface *i, int rdmacm, struct in_addr addr, unsigned port, unsigned qp_type, unsigned nr_cq, unsigned create_flags)
 {
 	struct rdma_channel *c = calloc(1, sizeof(struct rdma_channel));
 	enum interfaces in = i - i2r;
 	struct ibv_qp_init_attr_ex init_qp_attr_ex;
 	int ret;
+	struct ibv_context *context = i->context;
 
 	c->i = i;
+	c->rdmacm = rdmacm;
 
-	c->bindaddr.sin_family = AF_INET;
-	c->bindaddr.sin_addr = addr;
-	c->bindaddr.sin_port = htons(port);
+	if (rdmacm) {
+		c->bindaddr.sin_family = AF_INET;
+		c->bindaddr.sin_addr = addr;
+		c->bindaddr.sin_port = htons(port);
 
-	ret = rdma_create_id(i->rdma_events, &c->id, c, RDMA_PS_UDP);
-	if (ret) {
-		syslog(LOG_CRIT, "Failed to allocate RDMA CM ID for %s failed (%s).\n",
-			interfaces_text[in], errname());
-		return NULL;
-	}
+		ret = rdma_create_id(i->rdma_events, &c->id, c, RDMA_PS_UDP);
+		if (ret) {
+			syslog(LOG_CRIT, "Failed to allocate RDMA CM ID for %s failed (%s).\n",
+				interfaces_text[in], errname());
+			return NULL;
+		}
 
-	ret = rdma_bind_addr(c->id, (struct sockaddr *)&c->bindaddr);
-	if (ret) {
-		syslog(LOG_CRIT, "Failed to bind %s interface. Error %s\n",
-			interfaces_text[in], errname());
-		return NULL;
+		ret = rdma_bind_addr(c->id, (struct sockaddr *)&c->bindaddr);
+		if (ret) {
+			syslog(LOG_CRIT, "Failed to bind %s interface. Error %s\n",
+				interfaces_text[in], errname());
+			return NULL;
+		}
+		context = c->id->verbs;
 	}
 
 	/*
@@ -821,7 +869,7 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, struct in_add
 	 * There a multiple struct ibv_context *s around . Need to use the right one
 	 * since rdma_create_qp validates the alloc pd ibv_context pointer.
 	 */
-	c->pd = ibv_alloc_pd(c->id->verbs);
+	c->pd = ibv_alloc_pd(context);
 	if (!c->pd) {
 		syslog(LOG_CRIT, "ibv_alloc_pd failed for %s.\n",
 			interfaces_text[in]);
@@ -829,7 +877,7 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, struct in_add
 	}
 
 	c->nr_cq = nr_cq;
-	c->cq = ibv_create_cq(c->id->verbs, nr_cq, i, i->comp_events, 0);
+	c->cq = ibv_create_cq(context, nr_cq, i, i->comp_events, 0);
 	if (!c->cq) {
 		syslog(LOG_CRIT, "ibv_create_cq failed for %s.\n",
 			interfaces_text[in]);
@@ -852,12 +900,32 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, struct in_add
 	init_qp_attr_ex.pd = c->pd;
 	init_qp_attr_ex.create_flags = create_flags;
 
-	ret = rdma_create_qp_ex(c->id, &init_qp_attr_ex);
-	if (ret) {
-		syslog(LOG_CRIT, "rdma_create_qp_ex failed for %s. Error %s. IP=%s Port=%d QP_TYPE=%d CREATE_FLAGS=%x #CQ=%d\n",
-				interfaces_text[in], errname(), inet_ntoa(addr), port,
-				qp_type, create_flags, nr_cq);
-		return NULL;
+	if (rdmacm) {
+		ret = rdma_create_qp_ex(c->id, &init_qp_attr_ex);
+		if (ret) {
+			syslog(LOG_CRIT, "rdma_create_qp_ex failed for %s. Error %s. IP=%s Port=%d QP_TYPE=%d CREATE_FLAGS=%x #CQ=%d\n",
+					interfaces_text[in], errname(), inet_ntoa(addr), port,
+					qp_type, create_flags, nr_cq);
+			return NULL;
+		}
+
+		/* Copy to convenient location that is shared by both types of channels */
+		c->qp = c->id->qp;
+	} else {
+		c->qp = ibv_create_qp_ex(context, &init_qp_attr_ex);
+		if (!c->qp)
+			syslog(LOG_CRIT, "ibv_create_qp_ex failed for %s. Error %s. Port=%d QP_TYPE=%d CREATE_FLAGS=%x #CQ=%d\n",
+					interfaces_text[in], errname(), port,
+					qp_type, create_flags, nr_cq);
+			return NULL;
+
+		c->attr.port_num = port;
+		c->attr.qp_state = IBV_QPS_INIT;
+		ret = ibv_modify_qp(c->qp, &c->attr, IBV_QP_STATE | IBV_QP_PORT);
+		if (ret < 0) {
+			syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to Init state. %s", errname());
+			return NULL;
+		}
 	}
 
 	c->mr = ibv_reg_mr(c->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
@@ -937,14 +1005,14 @@ static void setup_interface(enum interfaces in)
 		abort();
 	}
 
-	i->multicast = setup_channel(i, i->if_addr.sin_addr, default_port, IBV_QPT_UD,
+	i->multicast = setup_channel(i, true, i->if_addr.sin_addr, default_port, IBV_QPT_UD,
 				MIN(i->device_attr.max_cqe, nr_buffers / 2),
 				IBV_QP_CREATE_BLOCK_SELF_MCAST_LB);
 
 	if (!i->multicast)
 		abort();
 
-	i->raw = setup_channel(i, i->if_addr.sin_addr, 0, IBV_QPT_RAW_PACKET, 100, 0);
+	i->raw = setup_channel(i, false, i->if_addr.sin_addr, i->port, IBV_QPT_RAW_PACKET, 100, 0);
 
 	syslog(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s CQs=%u MTU=%u ready.\n",
 		interfaces_text[in],
@@ -1131,7 +1199,7 @@ static int send_inline(struct rdma_channel *c, void *buf, unsigned len, struct a
 		.num_sge = 1,
 		.opcode = IBV_WR_SEND_WITH_IMM,
 		.send_flags = IBV_SEND_INLINE,
-		.imm_data = htobe32(c->id->qp->qp_num),
+		.imm_data = htobe32(c->qp->qp_num),
 		.wr = {
 			/* Get addr info  */
 			.ud = {
@@ -1148,7 +1216,7 @@ static int send_inline(struct rdma_channel *c, void *buf, unsigned len, struct a
 	if (len > MAX_INLINE_DATA)
 		return -E2BIG;
 
-	ret = ibv_post_send(c->id->qp, &wr, &bad_send_wr);
+	ret = ibv_post_send(c->qp, &wr, &bad_send_wr);
 	if (ret)
 		syslog(LOG_WARNING, "Failed to post inline send: %d\n", ret);
 
@@ -1167,7 +1235,7 @@ static int send_buf(struct rdma_channel *c, struct buf *buf, unsigned len, struc
 	wr.opcode = IBV_WR_SEND_WITH_IMM;
 	wr.send_flags = IBV_SEND_SIGNALED;
 	wr.wr_id = (uint64_t)buf;
-	wr.imm_data = htobe32(c->id->qp->qp_num);
+	wr.imm_data = htobe32(c->qp->qp_num);
 
 	/* Get addr info  */
 	wr.wr.ud.ah = ai->ah;
@@ -1178,7 +1246,7 @@ static int send_buf(struct rdma_channel *c, struct buf *buf, unsigned len, struc
 	sge.lkey = c->mr->lkey;
 	sge.addr = (uint64_t)buf->payload;
 
-	ret = ibv_post_send(c->id->qp, &wr, &bad_send_wr);
+	ret = ibv_post_send(c->qp, &wr, &bad_send_wr);
 	if (ret)
 		syslog(LOG_WARNING, "Failed to post send: %d\n", ret);
 
