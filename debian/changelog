@@ -2,7 +2,55 @@ rdma-core (40.0-1) unstable; urgency=medium
 
   * New upstream release.
 
- -- Jason Gunthorpe <jgg@obsidianresearch.com>  Tue, 27 Apr 2021 10:20:08 +0200
+ -- Jason Gunthorpe <jgg@obsidianresearch.com>  Thu, 27 Jan 2022 20:08:33 +0100
+
+rdma-core (39.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Remove i40iw provider conffile (Closes: #1000562)
+  * Update overrides for lintian 2.114
+  * Override obsolete-command-in-modprobe.d-file lintian error
+  * Override spare-manual-page lintian complaint
+
+ -- Benjamin Drung <benjamin.drung@ionos.com>  Thu, 27 Jan 2022 19:57:04 +0100
+
+rdma-core (38.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * debian: Add __verbs_log to private libibverbs symbols
+
+ -- Benjamin Drung <benjamin.drung@ionos.com>  Fri, 19 Nov 2021 17:57:18 +0100
+
+rdma-core (36.0-2) unstable; urgency=medium
+
+  * Revert installing systemd services in /usr/lib/systemd/system.
+    See #994388 for more details. (Closes: #997727)
+
+ -- Benjamin Drung <benjamin.drung@ionos.com>  Tue, 09 Nov 2021 11:13:56 +0100
+
+rdma-core (36.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Bump Standards-Version to 4.6.0
+  * Install systemd services in /usr/lib/systemd/system
+  * Mark libraries as Multi-Arch: same
+
+ -- Benjamin Drung <benjamin.drung@ionos.com>  Mon, 13 Sep 2021 14:09:01 +0200
+
+rdma-core (33.2-1) unstable; urgency=medium
+
+  * New upstream bug-fix release:
+    - libhns: Fix wrong range of a mask
+    - verbs: Fix attr_optional() when 'IOCTL_MODE=write' is used
+    - mlx4: Fix mlx4_read_clock returned errno value
+    - efa: Fix use of uninitialized query device response
+    - libhns: Avoid accessing NULL pointer when locking/unlocking CQ
+    - mlx5: Fix mlx5_read_clock returned errno value
+    - bnxt_re/lib: Check AH handler validity before use
+    - iwpmd: Check returned value of parse_iwpm_msg
+    - libhns: Bugfix for calculation of extended sge
+
+ -- Benjamin Drung <benjamin.drung@ionos.com>  Thu, 03 Jun 2021 11:19:24 +0200
 
 rdma-core (33.1+git20210317-1) unstable; urgency=medium
 
