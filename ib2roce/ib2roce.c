@@ -60,6 +60,8 @@
 
 #include <linux/rtnetlink.h>
 
+#include "errno.c"
+
 #define VERSION "2022.0125"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
@@ -539,10 +541,10 @@ static int _join_mc(struct in_addr addr, struct sockaddr *sa,
 	ret = rdma_join_multicast_ex(id(i), &mc_attr, private);
 
 	if (ret) {
-		syslog(LOG_ERR, "Failed to create join request %s:%d on %s. Error %d\n",
+		syslog(LOG_ERR, "Failed to create join request %s:%d on %s. Error %s\n",
 			inet_ntoa(addr), port,
 			interfaces_text[i],
-			errno);
+			errname());
 		return 1;
 	}
 	syslog(LOG_NOTICE, "Join Request %sMC group %s:%d on %s .\n",
@@ -802,15 +804,15 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, struct in_add
 
 	ret = rdma_create_id(i->rdma_events, &c->id, c, RDMA_PS_UDP);
 	if (ret) {
-		syslog(LOG_CRIT, "Failed to allocate RDMA CM ID for %s failed (%d).\n",
-			interfaces_text[in], errno);
+		syslog(LOG_CRIT, "Failed to allocate RDMA CM ID for %s failed (%s).\n",
+			interfaces_text[in], errname());
 		return NULL;
 	}
 
 	ret = rdma_bind_addr(c->id, (struct sockaddr *)&c->bindaddr);
 	if (ret) {
-		syslog(LOG_CRIT, "Failed to bind %s interface. Error %d\n",
-			interfaces_text[in], errno);
+		syslog(LOG_CRIT, "Failed to bind %s interface. Error %s\n",
+			interfaces_text[in], errname());
 		return NULL;
 	}
 
@@ -852,8 +854,8 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, struct in_add
 
 	ret = rdma_create_qp_ex(c->id, &init_qp_attr_ex);
 	if (ret) {
-		syslog(LOG_CRIT, "rdma_create_qp_ex failed for %s. Error %d. IP=%s Port=%d QP_TYPE=%d CREATE_FLAGS=%x #CQ=%d\n",
-				interfaces_text[in], errno, inet_ntoa(addr), port,
+		syslog(LOG_CRIT, "rdma_create_qp_ex failed for %s. Error %s. IP=%s Port=%d QP_TYPE=%d CREATE_FLAGS=%x #CQ=%d\n",
+				interfaces_text[in], errname(), inet_ntoa(addr), port,
 				qp_type, create_flags, nr_cq);
 		return NULL;
 	}
@@ -923,8 +925,8 @@ static void setup_interface(enum interfaces in)
 	/* Create RDMA interface setup */
 	i->rdma_events = rdma_create_event_channel();
 	if (!i->rdma_events) {
-		syslog(LOG_CRIT, "rdma_create_event_channel() for %s failed (%d).\n",
-			interfaces_text[in], errno);
+		syslog(LOG_CRIT, "rdma_create_event_channel() for %s failed (%s).\n",
+			interfaces_text[in], errname());
 		abort();
 	}
 
@@ -1039,7 +1041,7 @@ static void handle_rdma_event(enum interfaces in)
 
 	ret = rdma_get_cm_event(i->rdma_events, &event);
 	if (ret) {
-		syslog(LOG_WARNING, "rdma_get_cm_event()_ failed. Error = %d\n", errno);
+		syslog(LOG_WARNING, "rdma_get_cm_event()_ failed. Error = %s\n", errname());
 		return;
 	}
 
@@ -1429,7 +1431,7 @@ static void handle_netlink_event(enum netlink_channel c)
 
 	len = recvmsg(sock_nl[c], &msg, 0);
 	if (len < 0) {
-		syslog(LOG_CRIT, "Netlink recvmsg error. Errno %d\n", errno);
+		syslog(LOG_CRIT, "Netlink recvmsg error. Errno %s\n", errname());
 		return;
 	}
 
@@ -1458,7 +1460,7 @@ static void send_netlink_message(enum netlink_channel c, struct nlmsghdr *nlh)
 
 	ret = sendmsg(sock_nl[c], &msg, 0);
 	if (ret < 0)
-		syslog(LOG_ERR, "Netlink Send error %d\n", errno);
+		syslog(LOG_ERR, "Netlink Send error %s\n", errname());
 }
 
 static void setup_netlink(enum netlink_channel c)
@@ -1482,7 +1484,7 @@ static void setup_netlink(enum netlink_channel c)
 	
 	sock_nl[c] = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 	if (sock_nl[c] < 0) {
-		syslog(LOG_CRIT, "Failed to open netlink socket %d.\n", errno);
+		syslog(LOG_CRIT, "Failed to open netlink socket %s.\n", errname());
 		abort();
 	}
 
@@ -1491,7 +1493,7 @@ static void setup_netlink(enum netlink_channel c)
 		sal.nl_groups = 0;
 
 	if (bind(sock_nl[c], (struct sockaddr *)&sal, sizeof(sal)) < 0) {
-		syslog(LOG_CRIT, "Failed to bind to netlink socket %d\n", errno);
+		syslog(LOG_CRIT, "Failed to bind to netlink socket %s\n", errname());
 		abort();
 	};
 
@@ -1535,7 +1537,7 @@ static void setup_flow(enum interfaces in)
 	if (in == ROCE) {
 		f = ibv_create_flow(i->raw->id->qp, &flattr.attr);
 		if (!f) {
-			syslog(LOG_ERR, "unicast mode: Cannot create flow on %s. Errno %d\n", interfaces_text[in], errno);
+			syslog(LOG_ERR, "unicast mode: Cannot create flow on %s. Errno %s\n", interfaces_text[in], errname());
 			err = true;
 		}
 	} else {
@@ -1742,8 +1744,8 @@ redo:
 	/* Retrieve completion events and process incoming data */
 	cqs = ibv_poll_cq(cq, 100, wc);
 	if (cqs < 0) {
-		syslog(LOG_WARNING, "CQ polling failed with: %d on %s\n",
-			errno, interfaces_text[i - i2r]);
+		syslog(LOG_WARNING, "CQ polling failed with: %s on %s\n",
+			errname(), interfaces_text[i - i2r]);
 		goto exit;
 	}
 
@@ -1984,7 +1986,7 @@ loop:
 		goto out;
 
 	if (events < 0) {
-		syslog(LOG_WARNING, "Poll failed with error=%d\n", errno);
+		syslog(LOG_WARNING, "Poll failed with error=%s\n", errname());
 		goto out;
 	}
 
@@ -2116,7 +2118,7 @@ static void pid_open(void)
 	pid_fd = open("ib2roce.pid", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 
 	if (pid_fd < 0) {
-		syslog(LOG_CRIT, "Cannot open pidfile. Error %d\n", errno);
+		syslog(LOG_CRIT, "Cannot open pidfile. Error %s\n", errname());
 		abort();
 	}
 
@@ -2126,14 +2128,14 @@ static void pid_open(void)
 	}
 
 	if (ftruncate(pid_fd, 0) < 0) {
-		syslog(LOG_CRIT, "Cannot truncate pidfile. Error %d\n", errno);
+		syslog(LOG_CRIT, "Cannot truncate pidfile. Error %s\n", errname());
 		abort();
 	}
 
 	n = snprintf(buf, sizeof(buf), "%ld", (long) getpid());
 
 	if (write(pid_fd, buf, n) != n) {
-		syslog(LOG_CRIT, "Cannot write pidfile. Error %d\n", errno);
+		syslog(LOG_CRIT, "Cannot write pidfile. Error %s\n", errname());
 		abort();
 	}
 }
