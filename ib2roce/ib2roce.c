@@ -2013,8 +2013,10 @@ static int event_loop(void)
 		/* And request notifications if something happens */
 		if (i->multicast)
 			ibv_req_notify_cq(i->multicast->cq, 0);
-		if (i->raw)
+		if (i->raw) {
+			start_channel(i->raw);
 			ibv_req_notify_cq(i->raw->cq, 0);
+		}
 	}
 
 loop:
