@@ -1306,9 +1306,6 @@ struct neigh {
 
 static void handle_neigh_event(struct neigh *n)
 {
-	struct ifreq ifr = {
-		.ifr_ifindex = n->nd.ndm_ifindex
-	};
 	struct i2r_interface *i;
 	int len = n->nlh.nlmsg_len - NLMSG_LENGTH(sizeof(struct ndmsg));
 	unsigned maclen = 0;
@@ -1319,7 +1316,6 @@ static void handle_neigh_event(struct neigh *n)
 	struct rdma_ah *r;
 	unsigned ha, hm;
 	const char *action = "New";
-	char *ifname;
 
 
 	for(i = i2r;  i < i2r + NR_INTERFACES; i++)
@@ -1353,11 +1349,8 @@ static void handle_neigh_event(struct neigh *n)
 
 	if (i >= i2r + NR_INTERFACES) {
 		i = NULL;
-		ifname = ifr.ifr_name;
-		ioctl(sock_nl[nl_monitor], SIOCGIFNAME, &ifr);
 		goto err;
-	} else
-		ifname = i->if_name;
+	}
 
 	if (!have_dst) {
 		syslog(LOG_ERR, "netlink message without DST\n");
@@ -1416,7 +1409,7 @@ static void handle_neigh_event(struct neigh *n)
 
 err:
 	syslog(LOG_NOTICE, "Neigh Event interface=%s type %u Len=%u NL flags=%x ND flags=%x state=%x IP=%s MAC=%s ifindex=%d\n",
-				ifname, n->nlh.nlmsg_type,  n->nlh.nlmsg_len, n->nlh.nlmsg_flags,
+				i->if_name, n->nlh.nlmsg_type,  n->nlh.nlmsg_len, n->nlh.nlmsg_flags,
 				n->nd.ndm_flags, n->nd.ndm_state,
 				inet_ntoa(ra->addr), hexbytes(ra->mac, maclen),
 				n->nd.ndm_ifindex);
