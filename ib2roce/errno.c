@@ -6,7 +6,7 @@
  * available in the distro I am using at this point.
  */
 
-char const * errname(void)
+static char const * errname(void)
 {
     static char buf[5];
     static char const * const names[] =
