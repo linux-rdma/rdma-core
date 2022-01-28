@@ -1504,10 +1504,7 @@ static void setup_flow(enum interfaces in)
 {
 	struct i2r_interface *i = i2r + in;
 	struct i2r_interface *di = i2r + (in ^ 1);
-	enum interfaces j;
 	struct ibv_flow *f;
-	bool err = false;
-	char name[100];
 	unsigned netmask = di->if_netmask.sin_addr.s_addr;
 	struct {
 		struct ibv_flow_attr attr;
@@ -1530,9 +1527,15 @@ static void setup_flow(enum interfaces in)
 		}
 	};
 
+	if (!i->raw) {
+		syslog(LOG_ERR, "Cannot create flow due to failure to setup RAW QP on %s\n",
+				interfaces_text[in]);
+		return;
+	}
+
 	f = ibv_create_flow(i->raw->id->qp, &flattr.attr);
 	if (!f)
-		syslog(LOG_ERR, "unicast mode: Cannot create flow on %s. Errno %s\n", interfaces_text[in], errname());
+		syslog(LOG_ERR, "Failure to create flow on %s. Errno %s\n", interfaces_text[in], errname());
 }
 
 static int unicast_packet(struct i2r_interface *i, struct buf *buf, struct in_addr source_addr, struct in_addr dest_addr)
