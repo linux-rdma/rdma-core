@@ -124,9 +124,7 @@ static int cq_high = 0;	/* Largest batch of CQs encountered */
 struct rdma_channel {
 	struct i2r_interface *i;
 	struct rdma_cm_id *id;
-	struct ibv_pd *pd;
 	struct ibv_cq *cq;
-	struct ibv_mr *mr;
 	unsigned int active_receive_buffers;
 	unsigned int nr_cq;
 	struct sockaddr_in bindaddr;
@@ -136,6 +134,8 @@ static struct i2r_interface {
 	struct ibv_context *context;
 	struct rdma_event_channel *rdma_events;
 	struct ibv_comp_channel *comp_events;
+	struct ibv_pd *pd;
+	struct ibv_mr *mr;
 	struct rdma_channel *multicast;
 	struct rdma_channel *raw;
 	unsigned port;
@@ -659,7 +659,7 @@ static int post_receive(struct rdma_channel *c, int limit)
 	recv_wr.num_sge = 1;
 
 	sge.length = c->i->mtu + sizeof(struct ibv_grh);
-	sge.lkey = c->mr->lkey;
+	sge.lkey = c->i->mr->lkey;
 
 	while (c->active_receive_buffers < limit) {
 
@@ -712,10 +712,6 @@ static void channel_destroy(struct rdma_channel *c)
 	if (c->cq)
 		ibv_destroy_cq(c->cq);
 
-	ibv_dereg_mr(c->mr);
-
-	if (c->pd)
-		ibv_dealloc_pd(c->pd);
 
 	rdma_destroy_id(c->id);
 
@@ -728,6 +724,11 @@ static void qp_destroy(struct i2r_interface *i)
 	i->multicast = NULL;
 	channel_destroy(i->raw);
 	i->raw = NULL;
+
+	ibv_dereg_mr(i->mr);
+	if (i->pd)
+		ibv_dealloc_pd(i->pd);
+
 }
 
 /* Retrieve Kernel Stack info about the interface */
@@ -804,36 +805,29 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, struct in_add
 	if (ret) {
 		syslog(LOG_CRIT, "Failed to allocate RDMA CM ID for %s failed (%d).\n",
 			interfaces_text[in], errno);
-		abort();
+		return NULL;
 	}
 
 	ret = rdma_bind_addr(c->id, (struct sockaddr *)&c->bindaddr);
 	if (ret) {
 		syslog(LOG_CRIT, "Failed to bind %s interface. Error %d\n",
 			interfaces_text[in], errno);
-		abort();
-	}
-
-	c->pd = ibv_alloc_pd(c->id->verbs);
-	if (!c->pd) {
-		syslog(LOG_CRIT, "ibv_alloc_pd failed for %s.\n",
-			interfaces_text[in]);
-		abort();
+		return NULL;
 	}
 
 	c->nr_cq = nr_cq;
-	c->cq = ibv_create_cq(c->id->verbs, c->nr_cq, i, i->comp_events, 0);
+	c->cq = ibv_create_cq(i->context, c->nr_cq, i, i->comp_events, 0);
 	if (!c->cq) {
 		syslog(LOG_CRIT, "ibv_create_cq failed for %s.\n",
 			interfaces_text[in]);
-		abort();
+		return NULL;
 	}
 
 	memset(&init_qp_attr_ex, 0, sizeof(init_qp_attr_ex));
 	init_qp_attr_ex.cap.max_send_wr = c->nr_cq;
 	init_qp_attr_ex.cap.max_recv_wr = c->nr_cq;
-	init_qp_attr_ex.cap.max_send_sge = 1;
-	init_qp_attr_ex.cap.max_recv_sge = 1;
+	init_qp_attr_ex.cap.max_send_sge = 10;
+	init_qp_attr_ex.cap.max_recv_sge = 10;
 	init_qp_attr_ex.cap.max_inline_data = MAX_INLINE_DATA;
 	init_qp_attr_ex.qp_context = c;
 	init_qp_attr_ex.sq_sig_all = 0;
@@ -842,7 +836,7 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, struct in_add
 	init_qp_attr_ex.recv_cq = c->cq;
 
 	init_qp_attr_ex.comp_mask = IBV_QP_INIT_ATTR_CREATE_FLAGS|IBV_QP_INIT_ATTR_PD;
-	init_qp_attr_ex.pd = c->pd;
+	init_qp_attr_ex.pd = i->pd;
 	init_qp_attr_ex.create_flags = create_flags;
 
 	ret = rdma_create_qp_ex(c->id, &init_qp_attr_ex);
@@ -850,15 +844,9 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, struct in_add
 		syslog(LOG_CRIT, "rdma_create_qp_ex failed for %s. Error %d. IP=%s Port=%d QP_TYPE=%d CREATE_FLAGS=%x #CQ=%d\n",
 				interfaces_text[in], errno, inet_ntoa(addr), port,
 				qp_type, create_flags, nr_cq);
-		abort();
+		return NULL;
 	}
 
-	c->mr = ibv_reg_mr(c->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
-	if (!c->mr) {
-		syslog(LOG_CRIT, "ibv_reg_mr failed for %s.\n",
-			interfaces_text[in]);
-		abort();
-	}
 	return c;
 }
 
@@ -924,6 +912,20 @@ static void setup_interface(enum interfaces in)
 	i->comp_events = ibv_create_comp_channel(i->context);
 	if (!i->comp_events) {
 		syslog(LOG_CRIT, "ibv_create_comp_channel failed for %s.\n",
+			interfaces_text[in]);
+		abort();
+	}
+
+	i->pd = ibv_alloc_pd(i->context);
+	if (!i->pd) {
+		syslog(LOG_CRIT, "ibv_alloc_pd failed for %s.\n",
+			interfaces_text[in]);
+		abort();
+	}
+
+	i->mr = ibv_reg_mr(i->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
+	if (!i->mr) {
+		syslog(LOG_CRIT, "ibv_reg_mr failed for %s.\n",
 			interfaces_text[in]);
 		abort();
 	}
@@ -1044,7 +1046,7 @@ static void handle_rdma_event(enum interfaces in)
 
 				a->remote_qpn = param->qp_num;
 				a->remote_qkey = param->qkey;
-				a->ah = ibv_create_ah(i->multicast->pd, &param->ah_attr);
+				a->ah = ibv_create_ah(i->pd, &param->ah_attr);
 				if (!a->ah) {
 					syslog(LOG_ERR, "Failed to create AH for Multicast group %s on %s \n",
 						m->text, interfaces_text[in]);
@@ -1166,7 +1168,7 @@ static int send_buf(struct rdma_channel *c, struct buf *buf, unsigned len, struc
 	wr.wr.ud.remote_qkey = ai->remote_qkey;
 
 	sge.length = len;
-	sge.lkey = c->mr->lkey;
+	sge.lkey = c->i->mr->lkey;
 	sge.addr = (uint64_t)buf->payload;
 
 	ret = ibv_post_send(c->id->qp, &wr, &bad_send_wr);
