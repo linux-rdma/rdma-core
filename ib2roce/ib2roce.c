@@ -130,6 +130,7 @@ struct rdma_channel {
 	struct ibv_mr *mr;
 	unsigned int active_receive_buffers;
 	unsigned int nr_cq;
+	unsigned long stats[nr_stats];
 	bool rdmacm;
 	union {
 		struct { /* RDMACM status */
@@ -159,16 +160,15 @@ static struct i2r_interface {
 	unsigned ifindex;
 	unsigned gid_index;
 	union ibv_gid gid;
-	unsigned long stats[nr_stats];
 	struct ibv_device_attr device_attr;
 	struct ibv_port_attr port_attr;
 	int iges;
 	struct ibv_gid_entry ige[MAX_GID];
 } i2r[NR_INTERFACES];
 
-static inline void st(struct i2r_interface *i, enum stats s)
+static inline void st(struct rdma_channel *c, enum stats s)
 {
-	i->stats[s]++;
+	c->stats[s]++;
 }
 
 static inline struct rdma_cm_id *id(enum interfaces i)
@@ -560,7 +560,7 @@ static int _join_mc(struct in_addr addr, struct sockaddr *sa,
 		sendonly ? "Sendonly " : "",
 		inet_ntoa(addr), port,
 		interfaces_text[i]);
-	st(i2r + i, join_requests);
+	st(i2r[i].multicast, join_requests);
 	return 0;
 }
 
@@ -576,7 +576,7 @@ static int _leave_mc(struct in_addr addr,struct sockaddr *si, enum interfaces i)
 	syslog(LOG_NOTICE, "Leaving MC group %s on %s .\n",
 		inet_ntoa(addr),
 		interfaces_text[i]);
-	st(i2r + i, leave_requests);
+	st(i2r[i].multicast, leave_requests);
 	return 0;
 }
 
@@ -1139,7 +1139,7 @@ static void handle_rdma_event(enum interfaces in)
 					param->ah_attr.dlid,
 					param->ah_attr.sl,
 					interfaces_text[in]);
-				st(i, join_success);
+				st(i->multicast, join_success);
 			}
 			break;
 
@@ -1156,7 +1156,7 @@ static void handle_rdma_event(enum interfaces in)
 				       active_mc--;
 
 				m->status[in] = MC_ERROR;
-				st(i, join_failure);
+				st(i->multicast, join_failure);
 			}
 			break;
 
@@ -1800,16 +1800,16 @@ redo:
 		if (w->status == IBV_WC_SUCCESS && w->opcode == IBV_WC_RECV) {
 
 			c->active_receive_buffers--;
-			st(i, packets_received);
+			st(c, packets_received);
 
 			if (recv_buf(i, buf, w))
 				free_buffer(buf);
 			else
-				st(i, packets_bridged);
+				st(c, packets_bridged);
 
 		} else {
 			if (w->status == IBV_WC_SUCCESS && w->opcode == IBV_WC_SEND)
-				st(i, packets_sent);
+				st(c, packets_sent);
 			else
 				syslog(LOG_NOTICE, "Strange CQ Entry %d/%d: Status:%x Opcode:%x Len:%u QP=%u SRC_QP=%u Flags=%x\n",
 					j, cqs, w->status, w->opcode, w->byte_len, w->qp_num, w->src_qp, w->wc_flags);
@@ -1848,10 +1848,25 @@ static void handle_async_event(enum interfaces in)
 
 static int status_fd;
 
+static int channel_stats(char *b, struct rdma_channel *c, const char *interface, const char *type)
+{
+	int n = 0;
+	int j;
+
+	n += sprintf(b + n, "\nPacket Statistics for %s(%s):\n", interface, type);
+
+	for(j =0; j < nr_stats; j++)
+		if (c->stats[j]) {
+			n += sprintf(b + n, "%s=%lu\n", stats_text[j], c->stats[j]);
+	}
+	return n;
+}
+
+
 static void status_write(void)
 {
 	static char b[10000];
-	int i,j;
+	struct i2r_interface *i;
 	int n = 0;
 	int free = 0;
 	struct buf *buf;
@@ -1891,14 +1906,14 @@ static void status_write(void)
 			mc_text[m->status[ROCE]],
 			m->sendonly[ROCE] ? "Sendonly" : "");
 
-	for(i = 0; i < 2; i++) {
-		n += sprintf(b + n, "\nPacket Statistics for %s:\n", interfaces_text[i]);
+	for(i = i2r; i < i2r + NR_INTERFACES; i++) {
 
-		for(j =0; j < nr_stats; j++) {
-			n += sprintf(b + n, "%s=%lu\n", stats_text[j], i2r[i].stats[j]);
-		}
+		if (i->multicast)
+			n += channel_stats(b + n, i->multicast, interfaces_text[i - i2r], "Multicast");
+		if (i->raw)
+			n += channel_stats(b + n, i->raw, interfaces_text[i - i2r], "Raw");
+
 	}
-
 	n += sprintf(n + b, "\n\n\n\n\n\n\n\n");
 	write(fd, b, n);
 
