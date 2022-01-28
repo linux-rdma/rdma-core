@@ -837,8 +837,8 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, struct in_add
 	memset(&init_qp_attr_ex, 0, sizeof(init_qp_attr_ex));
 	init_qp_attr_ex.cap.max_send_wr = nr_cq;
 	init_qp_attr_ex.cap.max_recv_wr = nr_cq;
-	init_qp_attr_ex.cap.max_send_sge = 10;
-	init_qp_attr_ex.cap.max_recv_sge = 10;
+	init_qp_attr_ex.cap.max_send_sge = 1;	/* Highly sensitive settings that can cause -EINVAL if too large (10 f.e.) */
+	init_qp_attr_ex.cap.max_recv_sge = 1;
 	init_qp_attr_ex.cap.max_inline_data = MAX_INLINE_DATA;
 	init_qp_attr_ex.qp_context = c;
 	init_qp_attr_ex.sq_sig_all = 0;
@@ -1956,18 +1956,21 @@ static int event_loop(void)
 	};
 	unsigned nr_types = NR_EVENT_TYPES;
 	int events;
-	int i;
+	struct i2r_interface *i;
+	int t;
 
 	if (!unicast)
 		/* No netlink events */
 		nr_types--;
 
-	for(i = 0; i < NR_INTERFACES; i++) {
+	for(i = i2r; i <= i2r + NR_INTERFACES; i++) {
 		/* Receive Buffers */
-		post_receive_buffers(i2r + i);
+		post_receive_buffers(i);
 		/* And request notifications if something happens */
-		ibv_req_notify_cq(i2r[i].multicast->cq, 0);
-		ibv_req_notify_cq(i2r[i].raw->cq, 0);
+		if (i->multicast)
+			ibv_req_notify_cq(i->multicast->cq, 0);
+		if (i->raw)
+			ibv_req_notify_cq(i->raw->cq, 0);
 	}
 
 loop:
@@ -2011,12 +2014,12 @@ loop:
 	if (timeout > 5000)
 		timeout = 5000;
 
-	for(i = 0; i < nr_types; i++) {
+	for(t = 0; t < nr_types; t++) {
 		int j;
 
 		for(j = 0; j < NR_INTERFACES; j++) 
-			if (pfd[i * 2 + j].revents & POLLIN)
-				event_callvec[i](j);
+			if (pfd[t * 2 + j].revents & POLLIN)
+				event_callvec[t](j);
 	}
 
 	goto loop;
