@@ -814,14 +814,6 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, struct in_add
 		return NULL;
 	}
 
-	c->nr_cq = nr_cq;
-	c->cq = ibv_create_cq(i->context, c->nr_cq, i, i->comp_events, 0);
-	if (!c->cq) {
-		syslog(LOG_CRIT, "ibv_create_cq failed for %s.\n",
-			interfaces_text[in]);
-		return NULL;
-	}
-
 	/*
 	 * Must alloc pd for each rdma_cm_id due to limitation in rdma_create_qp
 	 * There a multiple struct ibv_context *s around . Need to use the right one
@@ -834,16 +826,17 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, struct in_add
 		return NULL;
 	}
 
-	c->mr = ibv_reg_mr(c->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
-	if (!c->mr) {
-		syslog(LOG_CRIT, "ibv_reg_mr failed for %s.\n",
+	c->nr_cq = nr_cq;
+	c->cq = ibv_create_cq(c->id->verbs, nr_cq, i, i->comp_events, 0);
+	if (!c->cq) {
+		syslog(LOG_CRIT, "ibv_create_cq failed for %s.\n",
 			interfaces_text[in]);
 		return NULL;
 	}
 
 	memset(&init_qp_attr_ex, 0, sizeof(init_qp_attr_ex));
-	init_qp_attr_ex.cap.max_send_wr = c->nr_cq;
-	init_qp_attr_ex.cap.max_recv_wr = c->nr_cq;
+	init_qp_attr_ex.cap.max_send_wr = nr_cq;
+	init_qp_attr_ex.cap.max_recv_wr = nr_cq;
 	init_qp_attr_ex.cap.max_send_sge = 10;
 	init_qp_attr_ex.cap.max_recv_sge = 10;
 	init_qp_attr_ex.cap.max_inline_data = MAX_INLINE_DATA;
@@ -865,6 +858,12 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, struct in_add
 		return NULL;
 	}
 
+	c->mr = ibv_reg_mr(c->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
+	if (!c->mr) {
+		syslog(LOG_CRIT, "ibv_reg_mr failed for %s.\n",
+			interfaces_text[in]);
+		return NULL;
+	}
 	return c;
 }
 
