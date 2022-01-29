@@ -109,14 +109,14 @@ enum interfaces { INFINIBAND, ROCE, NR_INTERFACES };
 
 static const char *interfaces_text[NR_INTERFACES] = { "Infiniband", "ROCE" };
 
-enum stats { packets_received, packets_sent, packets_bridged,
+enum stats { packets_received, packets_sent, packets_bridged, packets_invalid,
 		join_requests, join_failure, join_success,
 	        leave_requests,
 		nr_stats
 };
 
 static const char *stats_text[nr_stats] = {
-	"PacketsReceived", "PacketsSent", "PacketsBridged",
+	"PacketsReceived", "PacketsSent", "PacketsBridged", "PacketsInvalid",
 	"JoinRequests", "JoinFailures", "JoinSuccess",
 	"LeaveRequests"
 };
@@ -1634,6 +1634,34 @@ static void setup_flow(enum interfaces in)
 		syslog(LOG_ERR, "Failure to create flow on %s. Errno %s\n", interfaces_text[in], errname());
 }
 
+/* Dump GRH and the beginning of the packet */
+void dump_buf_grh(struct buf *buf)
+{
+	char xbuf[INET6_ADDRSTRLEN];
+	char xbuf2[INET6_ADDRSTRLEN];
+
+	syslog(LOG_NOTICE, "Unicast GRH flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s Packet="
+	       	"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+			ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
+			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
+			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
+			buf->payload[0], buf->payload[1], buf->payload[2], buf->payload[3],
+		        buf->payload[4], buf->payload[5], buf->payload[6], buf->payload[7],
+			buf->payload[8], buf->payload[9], buf->payload[10], buf->payload[11],
+			buf->payload[12], buf->payload[13], buf->payload[14], buf->payload[15],
+			buf->payload[16], buf->payload[17], buf->payload[18], buf->payload[19],
+			buf->payload[20], buf->payload[21], buf->payload[22], buf->payload[23],
+			buf->payload[24], buf->payload[25], buf->payload[26], buf->payload[27],
+			buf->payload[28], buf->payload[29], buf->payload[30], buf->payload[31],
+			buf->payload[32], buf->payload[33], buf->payload[34], buf->payload[35],
+			buf->payload[36], buf->payload[37], buf->payload[38], buf->payload[39],
+			buf->payload[40], buf->payload[41], buf->payload[42], buf->payload[43],
+			buf->payload[44], buf->payload[45], buf->payload[46], buf->payload[47]);
+}
+
+
 static int unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_addr source_addr, struct in_addr dest_addr)
 {
 	char xbuf[INET6_ADDRSTRLEN];
@@ -1669,15 +1697,16 @@ static int unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_add
 				port);
 		}
 	}
+	dump_buf_grh(buf);
+	return 1;
+}
 
-	/* Dump GRH and the beginning of the packet */
-	syslog(LOG_NOTICE, "Unicast GRH flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s Packet="
+void dump_buf(struct buf *buf)
+{
+	syslog(LOG_NOTICE, "Packet="
 	       	"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
 		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
 		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-			ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
-			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
-			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
 			buf->payload[0], buf->payload[1], buf->payload[2], buf->payload[3],
 		        buf->payload[4], buf->payload[5], buf->payload[6], buf->payload[7],
 			buf->payload[8], buf->payload[9], buf->payload[10], buf->payload[11],
@@ -1690,10 +1719,7 @@ static int unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_add
 			buf->payload[36], buf->payload[37], buf->payload[38], buf->payload[39],
 			buf->payload[40], buf->payload[41], buf->payload[42], buf->payload[43],
 			buf->payload[44], buf->payload[45], buf->payload[46], buf->payload[47]);
-
-	return 1;
 }
-
 
 static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 {
@@ -1711,8 +1737,10 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 	dest_addr.s_addr = dgid->sib_addr32[3];
 
 	if (!(w->wc_flags & IBV_WC_GRH)) {
-		syslog(LOG_WARNING, "Discard Packet: No GRH provided %s/%s\n",
-			inet_ntoa(dest_addr), c->text);
+		syslog(LOG_WARNING, "Discard Packet from %s: No GRH provided. Status=%d Opcode=%d Len=%d QP=%d SRC_QP=%d Flags=%x PKEY_INDEX=%d SLID=%d\n",
+			c->text, w->status, w->opcode, w->byte_len, w->qp_num, w->src_qp, w->wc_flags, w->pkey_index, w->slid);
+		dump_buf(buf);
+		st(c, packets_invalid);
 		return -EINVAL;
 	}
 
@@ -1724,6 +1752,8 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 	if (!m) {
 		syslog(LOG_WARNING, "Discard Packet: Multicast group %s not found\n",
 			inet_ntoa(dest_addr));
+		dump_buf_grh(buf);
+		st(c, packets_invalid);
 		return -ENODATA;
 	}
 
@@ -1731,6 +1761,8 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 
 		syslog(LOG_WARNING, "Discard Packet: Received data from Sendonly MC group %s from %s\n",
 			m->text, c->text);
+		dump_buf_grh(buf);
+		st(c, packets_invalid);
 		return -EPERM;
 	}
 
@@ -1741,12 +1773,15 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 		if (mgid[0] != 0xff) {
 			syslog(LOG_WARNING, "Discard Packet: Not multicast. MGID=%s/%s\n",
 				inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN), c->text);
+			dump_buf_grh(buf);
+			st(c, packets_invalid);
 			return -EINVAL;
 		}
 
 		if (memcmp(&buf->grh.sgid, &c->i->gid, sizeof(union ibv_gid)) == 0) {
 			syslog(LOG_WARNING, "Discard Packet: Loopback from this host. MGID=%s/%s\n",
 				inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN), c->text);
+			st(c, packets_invalid);
 			return -EINVAL;
 		}
 
@@ -1758,6 +1793,8 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 				syslog(LOG_WARNING, "Discard Packet: MGID multicast signature(%x)  mismatch. MGID=%s\n",
 						signature,
 						inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN));
+				dump_buf_grh(buf);
+				st(c, packets_invalid);
 				return -EINVAL;
 			}
 		}
@@ -1768,6 +1805,7 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 		if (source_addr.s_addr == local_addr.s_addr) {
 			syslog(LOG_WARNING, "Discard Packet: Loopback from this host. %s/%s\n",
 				inet_ntoa(source_addr), c->text);
+			st(c, packets_invalid);
 			return -EINVAL;
 		}
 	}
