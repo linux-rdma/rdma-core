@@ -925,11 +925,11 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *t
 		c->attr.port_num = port;
 		c->attr.qp_state = IBV_QPS_INIT;
 		ret = ibv_modify_qp(c->qp, &c->attr, IBV_QP_STATE | IBV_QP_PORT);
-		if (ret < 0) {
+		if (ret) {
 			syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to Init state. %s", errname());
 			return NULL;
 		}
-		syslog(LOG_NOTICE, "Channel %s set moved to state INIT\n", errname());
+		syslog(LOG_NOTICE, "Channel %s set moved to state INIT\n", c->text);
 	}
 
 	c->mr = ibv_reg_mr(c->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
@@ -1629,7 +1629,7 @@ static void setup_flow(enum interfaces in)
 		return;
 	}
 
-	f = ibv_create_flow(i->raw->id->qp, &flattr.attr);
+	f = ibv_create_flow(i->raw->qp, &flattr.attr);
 	if (!f)
 		syslog(LOG_ERR, "Failure to create flow on %s. Errno %s\n", interfaces_text[in], errname());
 }
