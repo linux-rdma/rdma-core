@@ -828,6 +828,7 @@ static void start_channel(struct rdma_channel *c)
 			errno = -ret;
 			syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to RTS state. %s", errname());
 		}
+		syslog(LOG_NOTICE, "Interface %s set to RTS/RTR\n", c->text);
 	}
 }
 
@@ -873,7 +874,7 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *t
 	c->pd = ibv_alloc_pd(context);
 	if (!c->pd) {
 		syslog(LOG_CRIT, "ibv_alloc_pd failed for %s.\n",
-			interfaces_text[in]);
+			c->text);
 		return NULL;
 	}
 
@@ -881,7 +882,7 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *t
 	c->cq = ibv_create_cq(context, nr_cq, i, i->comp_events, 0);
 	if (!c->cq) {
 		syslog(LOG_CRIT, "ibv_create_cq failed for %s.\n",
-			interfaces_text[in]);
+			c->text);
 		return NULL;
 	}
 
@@ -927,6 +928,7 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *t
 			syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to Init state. %s", errname());
 			return NULL;
 		}
+		syslog(LOG_NOTICE, "Channel %s set moved to state INIT\n", errname());
 	}
 
 	c->mr = ibv_reg_mr(c->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
@@ -1011,7 +1013,7 @@ static void setup_interface(enum interfaces in)
 
 	i->raw = setup_channel(i, "raw", false, i->if_addr.sin_addr, i->port, IBV_QPT_RAW_PACKET, 100, 0);
 
-	syslog(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s CQs=%u MTU=%u ready.\n",
+	syslog(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s CQs=%u/%u MTU=%u.\n",
 		interfaces_text[in],
 		ibv_get_device_name(i->context->device),
 		i->if_name, i->ifindex,
@@ -1019,6 +1021,7 @@ static void setup_interface(enum interfaces in)
 		inet_ntop(AF_INET6, e->gid.raw, buf, INET6_ADDRSTRLEN),i->gid_index,
 		inet_ntoa(i->if_addr.sin_addr),
 		i->multicast->nr_cq,
+		i->raw ? i->raw->nr_cq : 999999,
 		i->mtu
 	);
 }
@@ -1354,8 +1357,6 @@ static char *hexbytes(char *x, unsigned len)
 
 static long lookup_ip_from_gid(struct rdma_channel *c, union ibv_gid *v)
 {
-	struct rdma_ah *ah;
-
 	unsigned hash;
 	struct rdma_ah *ra;
 	char mac[20];
