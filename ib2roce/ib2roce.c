@@ -132,6 +132,7 @@ struct rdma_channel {
 	unsigned int nr_cq;
 	unsigned long stats[nr_stats];
 	bool rdmacm;
+	char *text;
 	union {
 		struct { /* RDMACM status */
 			struct rdma_cm_id *id;
@@ -152,7 +153,6 @@ static struct i2r_interface {
 	struct rdma_channel *raw;
 	unsigned port;
 	unsigned mtu;
-	unsigned macoffset;
 	unsigned maclen;
 	char if_name[IFNAMSIZ];
 	struct sockaddr_in if_addr;
@@ -832,7 +832,8 @@ static void start_channel(struct rdma_channel *c)
 	}
 }
 
-static struct rdma_channel *setup_channel(struct i2r_interface *i, int rdmacm, struct in_addr addr, unsigned port, unsigned qp_type, unsigned nr_cq, unsigned create_flags)
+static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *text, int rdmacm,
+		struct in_addr addr, unsigned port, unsigned qp_type, unsigned nr_cq, unsigned create_flags)
 {
 	struct rdma_channel *c = calloc(1, sizeof(struct rdma_channel));
 	enum interfaces in = i - i2r;
@@ -842,6 +843,7 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, int rdmacm, s
 
 	c->i = i;
 	c->rdmacm = rdmacm;
+	asprintf(&c->text, "%s-%s", interfaces_text[in], text);
 
 	if (rdmacm) {
 		c->bindaddr.sin_family = AF_INET;
@@ -904,7 +906,7 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, int rdmacm, s
 		ret = rdma_create_qp_ex(c->id, &init_qp_attr_ex);
 		if (ret) {
 			syslog(LOG_CRIT, "rdma_create_qp_ex failed for %s. Error %s. IP=%s Port=%d QP_TYPE=%d CREATE_FLAGS=%x #CQ=%d\n",
-					interfaces_text[in], errname(), inet_ntoa(addr), port,
+					c->text, errname(), inet_ntoa(addr), port,
 					qp_type, create_flags, nr_cq);
 			return NULL;
 		}
@@ -915,7 +917,7 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, int rdmacm, s
 		c->qp = ibv_create_qp_ex(context, &init_qp_attr_ex);
 		if (!c->qp)
 			syslog(LOG_CRIT, "ibv_create_qp_ex failed for %s. Error %s. Port=%d QP_TYPE=%d CREATE_FLAGS=%x #CQ=%d\n",
-					interfaces_text[in], errname(), port,
+					c->text, errname(), port,
 					qp_type, create_flags, nr_cq);
 			return NULL;
 
@@ -930,8 +932,7 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, int rdmacm, s
 
 	c->mr = ibv_reg_mr(c->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
 	if (!c->mr) {
-		syslog(LOG_CRIT, "ibv_reg_mr failed for %s.\n",
-			interfaces_text[in]);
+		syslog(LOG_CRIT, "ibv_reg_mr failed for %s.\n", c->text);
 		return NULL;
 	}
 	return c;
@@ -944,10 +945,8 @@ static void setup_interface(enum interfaces in)
 	char buf[INET6_ADDRSTRLEN];
 
 	if (in == INFINIBAND) {
-		i->macoffset = 4;
-		i->maclen = 16;
+		i->maclen = 20;
 	} else {
-		i->macoffset = 0;
 		i->maclen = 6;
 	}
 
@@ -1005,14 +1004,14 @@ static void setup_interface(enum interfaces in)
 		abort();
 	}
 
-	i->multicast = setup_channel(i, true, i->if_addr.sin_addr, default_port, IBV_QPT_UD,
+	i->multicast = setup_channel(i, "multicast", true, i->if_addr.sin_addr, default_port, IBV_QPT_UD,
 				MIN(i->device_attr.max_cqe, nr_buffers / 2),
 				IBV_QP_CREATE_BLOCK_SELF_MCAST_LB);
 
 	if (!i->multicast)
 		abort();
 
-	i->raw = setup_channel(i, false, i->if_addr.sin_addr, i->port, IBV_QPT_RAW_PACKET, 100, 0);
+	i->raw = setup_channel(i, "raw", false, i->if_addr.sin_addr, i->port, IBV_QPT_RAW_PACKET, 100, 0);
 
 	syslog(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s CQs=%u MTU=%u ready.\n",
 		interfaces_text[in],
@@ -1217,8 +1216,10 @@ static int send_inline(struct rdma_channel *c, void *buf, unsigned len, struct a
 		return -E2BIG;
 
 	ret = ibv_post_send(c->qp, &wr, &bad_send_wr);
-	if (ret)
-		syslog(LOG_WARNING, "Failed to post inline send: %d\n", ret);
+	if (ret) {
+		errno = -ret;
+		syslog(LOG_WARNING, "Failed to post inline send: %s on %s\n", errname(), c->text);
+	}
 
 	return ret;
 }
@@ -1247,16 +1248,12 @@ static int send_buf(struct rdma_channel *c, struct buf *buf, unsigned len, struc
 	sge.addr = (uint64_t)buf->payload;
 
 	ret = ibv_post_send(c->qp, &wr, &bad_send_wr);
-	if (ret)
-		syslog(LOG_WARNING, "Failed to post send: %d\n", ret);
+	if (ret) {
+		errno = - ret;
+		syslog(LOG_WARNING, "Failed to post send: %s on %s\n", errname(), c->text);
+	}
 
 	return ret;
-}
-
-static unsigned int lookup_ip_from_gid(union ibv_gid *v)
-{
-	/* This is something like a mac address lookup ?? */
-	return 0;
 }
 
 #define ROCE_PORT 4791
@@ -1281,10 +1278,11 @@ static int sysfs_read_int(const char *s)
 #endif
 
 /* Unicast handling */
+#define MAX_MACLEN 20
 
 struct rdma_ah {
 	struct i2r_interface *i;
-	char mac[20];
+	char mac[MAX_MACLEN];
 	struct in_addr addr;
 	short state;
 	short flags;
@@ -1298,12 +1296,12 @@ struct rdma_ah *hash_mac[0x100];
 
 static int nr_rdma_ah = 0;
 
-static unsigned mac_hash(struct i2r_interface *i, char *mac)
+static unsigned mac_hash(int maclen, char *mac)
 {
-	int z = i->macoffset;
+	int z = 0;
 	unsigned hash = mac[z++];
 
-	while (z < i->maclen + i->macoffset)
+	while (z < maclen)
 		hash += mac[z++];
 
 	return hash & 0xff;
@@ -1320,11 +1318,11 @@ static struct rdma_ah *hash_addr_lookup(struct in_addr addr, unsigned addr_hash)
 	return ra;
 }
 
-static struct rdma_ah *hash_mac_lookup(struct i2r_interface *i, char *mac, unsigned mac_hash)
+static struct rdma_ah *hash_mac_lookup(int maclen, char *mac, unsigned mac_hash)
 {
 	struct rdma_ah *ra = hash_mac[mac_hash];
 
-	while (ra && memcmp(mac + i->macoffset, ra->mac + i->macoffset, i->maclen) != 0)
+	while (ra && memcmp(mac, ra->mac, maclen) != 0)
 		ra = ra->next_mac;
 
 	return ra;
@@ -1354,6 +1352,33 @@ static char *hexbytes(char *x, unsigned len)
 	p--;
 	*p = 0;
 	return b;
+}
+
+static long lookup_ip_from_gid(struct rdma_channel *c, union ibv_gid *v)
+{
+	struct rdma_ah *ah;
+
+	unsigned hash;
+	struct rdma_ah *ra;
+	char mac[20];
+	char buf[100];
+
+	/* compose macfrom GID etc. Depends on LLM GID use. Not sure how to do it */
+	memcpy(mac + 4, &v, 16);
+
+	hash = mac_hash(c->i->maclen, mac);
+	ra = hash_mac_lookup(c->i->maclen, mac, hash);
+	if (ah)
+		return ah->addr.s_addr;
+
+	/*
+	 * Could do ARP for GID -> IP resolution but the GID
+	 * should be already be in the ARP cache
+	 */
+	syslog(LOG_ERR, "Could not find AH for %s on %s\n",
+		inet_ntop(AF_INET6, v->raw, buf, INET6_ADDRSTRLEN), c->text);
+
+	return 0;
 }
 
 /*
@@ -1400,7 +1425,7 @@ static void handle_neigh_event(struct neigh *n)
 			case NDA_LLADDR:
 				have_lladdr = true;
 				maclen = RTA_PAYLOAD(rta);
-				memcpy(&ra->mac, RTA_DATA(rta), RTA_PAYLOAD(rta));
+				memcpy(&ra->mac, RTA_DATA(rta), maclen);
 				break;
 
 			case NDA_CACHEINFO:
@@ -1429,16 +1454,16 @@ static void handle_neigh_event(struct neigh *n)
 		goto err;
 	}
 
-	if (i->maclen + i->macoffset != maclen) {
+	if (i->maclen != maclen) {
 		syslog(LOG_ERR, "netlink message mac length does not match. Expected %d got %d\n",
-				i->maclen + i->macoffset, maclen);
+				i->maclen, maclen);
 		goto err;
 	}
 
 	ha = ip_hash(ntohl(ra->addr.s_addr));
-	hm = mac_hash(i, ra->mac);
+	hm = mac_hash(maclen, ra->mac);
 
-	r = hash_mac_lookup(i, ra->mac, hm);
+	r = hash_mac_lookup(maclen, ra->mac, hm);
 	if (r) {
 		/* Update existing */
 		free(ra);
@@ -1606,11 +1631,11 @@ static void setup_flow(enum interfaces in)
 		syslog(LOG_ERR, "Failure to create flow on %s. Errno %s\n", interfaces_text[in], errname());
 }
 
-static int unicast_packet(struct i2r_interface *i, struct buf *buf, struct in_addr source_addr, struct in_addr dest_addr)
+static int unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_addr source_addr, struct in_addr dest_addr)
 {
 	char xbuf[INET6_ADDRSTRLEN];
 	char xbuf2[INET6_ADDRSTRLEN];
-	enum interfaces in = i - i2r;
+	enum interfaces in = c->i - i2r;
 	unsigned port = 0; /* How do I get that??? Is it needed? */
 
 	if (in == ROCE) {
@@ -1631,7 +1656,7 @@ static int unicast_packet(struct i2r_interface *i, struct buf *buf, struct in_ad
 
 		unsigned int iaddr = ntohl(i2r[ROCE].if_addr.sin_addr.s_addr);
 		unsigned int netmask = ntohl(i2r[ROCE].if_netmask.sin_addr.s_addr);
-		unsigned int daddr = ntohl(lookup_ip_from_gid(&buf->grh.dgid));
+		unsigned int daddr = ntohl(lookup_ip_from_gid(c, &buf->grh.dgid));
 
 		if ((daddr & netmask) == (iaddr & netmask)) {
 			/* Unicast Infiniband packet destined for ROCE */
@@ -1667,11 +1692,10 @@ static int unicast_packet(struct i2r_interface *i, struct buf *buf, struct in_ad
 }
 
 
-static int recv_buf(struct i2r_interface *i,
-			struct buf *buf, struct ibv_wc *w)
+static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 {
 	struct mc *m;
-	enum interfaces in = i - i2r;
+	enum interfaces in = c->i - i2r;
 	unsigned len;
 	struct ib_addr *sgid = (struct ib_addr *)&buf->grh.sgid.raw;
 	struct ib_addr *dgid = (struct ib_addr *)&buf->grh.dgid.raw;
@@ -1685,12 +1709,12 @@ static int recv_buf(struct i2r_interface *i,
 
 	if (!(w->wc_flags & IBV_WC_GRH)) {
 		syslog(LOG_WARNING, "Discard Packet: No GRH provided %s/%s\n",
-			inet_ntoa(dest_addr), interfaces_text[in]);
+			inet_ntoa(dest_addr), c->text);
 		return -EINVAL;
 	}
 
 	if (unicast && buf->grh.dgid.raw[0] != 0xff)
-		return unicast_packet(i, buf, source_addr, dest_addr);
+		return unicast_packet(c, buf, source_addr, dest_addr);
 
 	m = hash_lookup_mc(dest_addr);
 
@@ -1703,7 +1727,7 @@ static int recv_buf(struct i2r_interface *i,
 	if (m->sendonly[in]) {
 
 		syslog(LOG_WARNING, "Discard Packet: Received data from Sendonly MC group %s from %s\n",
-			m->text, interfaces_text[in]);
+			m->text, c->text);
 		return -EPERM;
 	}
 
@@ -1713,13 +1737,13 @@ static int recv_buf(struct i2r_interface *i,
 
 		if (mgid[0] != 0xff) {
 			syslog(LOG_WARNING, "Discard Packet: Not multicast. MGID=%s/%s\n",
-				inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN), interfaces_text[in]);
+				inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN), c->text);
 			return -EINVAL;
 		}
 
-		if (memcmp(&buf->grh.sgid, &i->gid, sizeof(union ibv_gid)) == 0) {
+		if (memcmp(&buf->grh.sgid, &c->i->gid, sizeof(union ibv_gid)) == 0) {
 			syslog(LOG_WARNING, "Discard Packet: Loopback from this host. MGID=%s/%s\n",
-				inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN), interfaces_text[in]);
+				inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN), c->text);
 			return -EINVAL;
 		}
 
@@ -1736,11 +1760,11 @@ static int recv_buf(struct i2r_interface *i,
 		}
 
 	} else { /* ROCE */
-		struct in_addr local_addr = i->multicast->bindaddr.sin_addr;
+		struct in_addr local_addr = c->bindaddr.sin_addr;
 
 		if (source_addr.s_addr == local_addr.s_addr) {
 			syslog(LOG_WARNING, "Discard Packet: Loopback from this host. %s/%s\n",
-				inet_ntoa(source_addr), interfaces_text[in]);
+				inet_ntoa(source_addr), c->text);
 			return -EINVAL;
 		}
 	}
@@ -1802,7 +1826,7 @@ redo:
 			c->active_receive_buffers--;
 			st(c, packets_received);
 
-			if (recv_buf(i, buf, w))
+			if (recv_buf(c, buf, w))
 				free_buffer(buf);
 			else
 				st(c, packets_bridged);
