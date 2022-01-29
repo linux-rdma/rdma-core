@@ -828,7 +828,7 @@ static void start_channel(struct rdma_channel *c)
 			errno = -ret;
 			syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to RTS state. %s", errname());
 		}
-		syslog(LOG_NOTICE, "Interface %s set to RTS/RTR\n", c->text);
+		syslog(LOG_NOTICE, "QP %s moved to state RTS/RTR\n", c->text);
 	}
 }
 
@@ -879,7 +879,7 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *t
 	}
 
 	c->nr_cq = nr_cq;
-	c->cq = ibv_create_cq(context, nr_cq, i, i->comp_events, 0);
+	c->cq = ibv_create_cq(context, nr_cq, c, i->comp_events, 0);
 	if (!c->cq) {
 		syslog(LOG_CRIT, "ibv_create_cq failed for %s.\n",
 			c->text);
@@ -929,7 +929,7 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *t
 			syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to Init state. %s", errname());
 			return NULL;
 		}
-		syslog(LOG_NOTICE, "Channel %s set moved to state INIT\n", c->text);
+		syslog(LOG_NOTICE, "QP %s moved to state INIT\n", c->text);
 	}
 
 	c->mr = ibv_reg_mr(c->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
@@ -1795,7 +1795,8 @@ static void handle_comp_event(enum interfaces in)
 
 	ibv_get_cq_event(i->comp_events, &cq, (void **)&c);
 	if (cq != c->cq) {
-		syslog(LOG_CRIT, "ibv_get_cq_event: CQ mismatch\n");
+		syslog(LOG_CRIT, "ibv_get_cq_event on %s: CQ mismatch C=%px CQ=%px\n",
+				interfaces_text[in], cq, c);
 		abort();
 	}
 
