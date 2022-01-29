@@ -125,6 +125,7 @@ static int cq_high = 0;	/* Largest batch of CQs encountered */
 
 struct rdma_channel {
 	struct i2r_interface *i;
+			struct ibv_qp *qp;
 	struct ibv_cq *cq;
 	struct ibv_pd *pd;
 	struct ibv_mr *mr;
@@ -138,10 +139,8 @@ struct rdma_channel {
 			struct rdma_cm_id *id;
 			struct sockaddr_in bindaddr;
 		};
-		struct { /* Basic RDMA channel without RDMACM */
-			struct ibv_qp *qp;
-			struct ibv_qp_attr attr;
-		};
+		/* Basic RDMA channel without RDMACM */
+		struct ibv_qp_attr attr;
 	};
 };
 
@@ -944,11 +943,10 @@ static void setup_interface(enum interfaces in)
 	struct ibv_gid_entry *e;
 	char buf[INET6_ADDRSTRLEN];
 
-	if (in == INFINIBAND) {
+	if (in == INFINIBAND)
 		i->maclen = 20;
-	} else {
+	else
 		i->maclen = 6;
-	}
 
 	if (!i->context)
 		return;
@@ -1368,8 +1366,8 @@ static long lookup_ip_from_gid(struct rdma_channel *c, union ibv_gid *v)
 
 	hash = mac_hash(c->i->maclen, mac);
 	ra = hash_mac_lookup(c->i->maclen, mac, hash);
-	if (ah)
-		return ah->addr.s_addr;
+	if (ra)
+		return ra->addr.s_addr;
 
 	/*
 	 * Could do ARP for GID -> IP resolution but the GID
