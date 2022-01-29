@@ -1602,13 +1602,18 @@ static void setup_flow(enum interfaces in)
 	struct i2r_interface *di = i2r + (in ^ 1);
 	struct ibv_flow *f;
 	unsigned netmask = di->if_netmask.sin_addr.s_addr;
+	struct ibv_flow_attr flattr_all = {
+			0, IBV_FLOW_ATTR_SNIFFER, sizeof(struct ibv_flow_spec),
+			1, 0, i->port, 0
+	};
+
 	struct {
 		struct ibv_flow_attr attr;
 		struct ibv_flow_spec_ipv4 ipv4;
 		struct ibv_flow_spec_tcp_udp udp;
-	} flattr = {
+	} flattr_filter = {
 		{
-			0, IBV_FLOW_ATTR_ALL_DEFAULT, sizeof(struct ibv_flow_spec),
+			0, IBV_FLOW_ATTR_SNIFFER, sizeof(flattr_filter),
 			1, 2, i->port, 0
 		},
 		{
@@ -1623,16 +1628,13 @@ static void setup_flow(enum interfaces in)
 		}
 	};
 
-	if (!flow_steering)
-		return;
-
 	if (!i->raw) {
 		syslog(LOG_ERR, "Cannot create flow due to failure to setup RAW QP on %s\n",
 				interfaces_text[in]);
 		return;
 	}
 
-	f = ibv_create_flow(i->raw->qp, &flattr.attr);
+	f = ibv_create_flow(i->raw->qp, flow_steering ? &flattr_filter.attr : &flattr_all);
 	if (!f)
 		syslog(LOG_ERR, "Failure to create flow on %s. Errno %s\n", interfaces_text[in], errname());
 }
