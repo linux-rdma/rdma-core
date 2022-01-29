@@ -57,6 +57,7 @@
 #include <infiniband/ib.h>
 #include <infiniband/verbs.h>
 #include <poll.h>
+#include <sys/mman.h>
 
 #include <linux/rtnetlink.h>
 
@@ -599,23 +600,29 @@ static int leave_mc(enum interfaces i)
  * to the next free element at the beginning of the free buffer
  */
 
-// static const unsigned buf_size = 4096;
-// static const unsigned nr_buffers = 20000;
+static unsigned nr_buffers = 20000;
+static bool huge = false;
 
-#define buf_size 4096
-#define nr_buffers 20000
-
+/*
+ * Buf is page aligned and contains 2 pages. The layout attempts to put critical components
+ * at page boundaries
+ */
 struct buf {
-	struct buf *next;	/* Next buffer */
-	bool free;
-	/* Add more metadata here */
-	struct ibv_grh grh;	/* GRH header as included in UD connections */
-	uint8_t payload[buf_size];	/* I wish this was page aligned at some point */
+	uint8_t payload[4096];
+	union {
+		struct {
+			struct ibv_grh grh;	/* GRH header as included in UD connections */
+			struct buf *next;	/* Next buffer */
+			bool free;
+			/* Add more metadata here */
+		};
+		uint8_t meta[4096];
+	};
 };
 
 static void beacon_received(struct buf *buf);
 
-static struct buf buffers[nr_buffers];
+static struct buf *buffers;
 
 static struct buf *nextbuffer;	/* Pointer to next available RDMA buffer */
 
@@ -629,6 +636,23 @@ static void free_buffer(struct buf *buf)
 static void init_buf(void)
 {
 	int i;
+	unsigned flags;
+
+	if (sizeof(struct buf) != 8192) {
+		syslog(LOG_CRIT, "struct buf is not 8k as required\n");
+		abort();
+	}
+
+	flags = MAP_PRIVATE | MAP_ANONYMOUS;
+	if (huge)
+		flags |= MAP_HUGETLB;
+
+	buffers = mmap(0, nr_buffers * 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
+	if (!buffers) {
+		syslog(LOG_CRIT, "Cannot allocate %d KB of memory required for %d buffers. Error %s\n",
+				nr_buffers *8, nr_buffers, errname());
+		abort();
+	}
 
 	/*
 	 * Free in reverse so that we have a linked list
@@ -924,7 +948,15 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *t
 
 		c->attr.port_num = port;
 		c->attr.qp_state = IBV_QPS_INIT;
-		ret = ibv_modify_qp(c->qp, &c->attr, IBV_QP_STATE | IBV_QP_PORT);
+		c->attr.pkey_index = 0;
+		c->attr.qkey = 0x12345;		/* Default QKEY from ibdump source code */
+
+		ret = ibv_modify_qp(c->qp, &c->attr,
+			       in == ROCE ?
+					(IBV_QP_STATE | IBV_QP_PORT) :
+					( IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_QKEY)
+		);
+
 		if (ret) {
 			syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to Init state. %s", errname());
 			return NULL;
@@ -1012,7 +1044,7 @@ static void setup_interface(enum interfaces in)
 	if (!i->multicast)
 		abort();
 
-	i->raw = setup_channel(i, "raw", false, i->if_addr.sin_addr, i->port, IBV_QPT_RAW_PACKET, 100, 0);
+	i->raw = setup_channel(i, "raw", false, i->if_addr.sin_addr, i->port, in == ROCE ? IBV_QPT_RAW_PACKET : IBV_QPT_UD, 100, 0);
 
 	syslog(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s CQs=%u/%u MTU=%u.\n",
 		interfaces_text[in],
