@@ -604,20 +604,28 @@ static int leave_mc(enum interfaces i)
 static unsigned nr_buffers = 20000;
 static bool huge = false;
 
+#define BUFFER_SIZE 8192
+#define META_SIZE 1024
+#define DATA_SIZE (BUFFER_SIZE - META_SIZE)
 /*
  * Buf is page aligned and contains 2 pages. The layout attempts to put critical components
  * at page boundaries
  */
 struct buf {
-	uint8_t payload[4096];
+	union {
+		struct { /* The case of a valid GRH header */
+			struct ibv_grh grh;	/* GRH header as included in UD connections */
+			uint8_t payload[DATA_SIZE - sizeof(struct ibv_grh)];
+		};
+		uint8_t data[DATA_SIZE];	/* No GRH */
+	};
 	union {
 		struct {
-			struct ibv_grh grh;	/* GRH header as included in UD connections */
 			struct buf *next;	/* Next buffer */
 			bool free;
 			/* Add more metadata here */
 		};
-		uint8_t meta[4096];
+		uint8_t meta[META_SIZE];
 	};
 };
 
@@ -639,7 +647,7 @@ static void init_buf(void)
 	int i;
 	unsigned flags;
 
-	if (sizeof(struct buf) != 8192) {
+	if (sizeof(struct buf) != BUFFER_SIZE) {
 		syslog(LOG_CRIT, "struct buf is not 8k as required\n");
 		abort();
 	}
@@ -648,10 +656,10 @@ static void init_buf(void)
 	if (huge)
 		flags |= MAP_HUGETLB;
 
-	buffers = mmap(0, nr_buffers * 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
+	buffers = mmap(0, nr_buffers * BUFFER_SIZE, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
 	if (!buffers) {
 		syslog(LOG_CRIT, "Cannot allocate %d KB of memory required for %d buffers. Error %s\n",
-				nr_buffers *8, nr_buffers, errname());
+				nr_buffers * (BUFFER_SIZE / 1024), nr_buffers, errname());
 		abort();
 	}
 
@@ -693,7 +701,7 @@ static int post_receive(struct rdma_channel *c, int limit)
 	recv_wr.sg_list = &sge;
 	recv_wr.num_sge = 1;
 
-	sge.length = c->i->mtu + sizeof(struct ibv_grh);
+	sge.length = DATA_SIZE;
 	sge.lkey = c->mr->lkey;
 
 	while (c->active_receive_buffers < limit) {
@@ -709,7 +717,7 @@ static int post_receive(struct rdma_channel *c, int limit)
 
 		/* Use the buffer address for the completion handler */
 		recv_wr.wr_id = (uint64_t)buf;
-		sge.addr = (uint64_t)&buf->grh;
+		sge.addr = (uint64_t)buf->data;
 		ret = ibv_post_recv(c->qp, &recv_wr, &recv_failure);
 		if (ret) {
 			free_buffer(buf);
@@ -851,7 +859,7 @@ static void start_channel(struct rdma_channel *c)
 			if (ret)
 				syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to RTS state. %s", errname());
 		}
-		syslog(LOG_NOTICE, "QP %s moved to state RTS/RTR\n", c->text);
+		syslog(LOG_NOTICE, "QP %s moved to state %s RTS/RTR\n", c->text,  send ? "RTS/RTR" : "RTR" );
 	}
 }
 
@@ -1746,18 +1754,18 @@ static void dump_buf(struct buf *buf)
 	       	"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
 		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
 		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-			buf->payload[0], buf->payload[1], buf->payload[2], buf->payload[3],
-		        buf->payload[4], buf->payload[5], buf->payload[6], buf->payload[7],
-			buf->payload[8], buf->payload[9], buf->payload[10], buf->payload[11],
-			buf->payload[12], buf->payload[13], buf->payload[14], buf->payload[15],
-			buf->payload[16], buf->payload[17], buf->payload[18], buf->payload[19],
-			buf->payload[20], buf->payload[21], buf->payload[22], buf->payload[23],
-			buf->payload[24], buf->payload[25], buf->payload[26], buf->payload[27],
-			buf->payload[28], buf->payload[29], buf->payload[30], buf->payload[31],
-			buf->payload[32], buf->payload[33], buf->payload[34], buf->payload[35],
-			buf->payload[36], buf->payload[37], buf->payload[38], buf->payload[39],
-			buf->payload[40], buf->payload[41], buf->payload[42], buf->payload[43],
-			buf->payload[44], buf->payload[45], buf->payload[46], buf->payload[47]);
+			buf->data[0], buf->data[1], buf->data[2], buf->data[3],
+		        buf->data[4], buf->data[5], buf->data[6], buf->data[7],
+			buf->data[8], buf->data[9], buf->data[10], buf->data[11],
+			buf->data[12], buf->data[13], buf->data[14], buf->data[15],
+			buf->data[16], buf->data[17], buf->data[18], buf->data[19],
+			buf->data[20], buf->data[21], buf->data[22], buf->data[23],
+			buf->data[24], buf->data[25], buf->data[26], buf->data[27],
+			buf->data[28], buf->data[29], buf->data[30], buf->data[31],
+			buf->data[32], buf->data[33], buf->data[34], buf->data[35],
+			buf->data[36], buf->data[37], buf->data[38], buf->data[39],
+			buf->data[40], buf->data[41], buf->data[42], buf->data[43],
+			buf->data[44], buf->data[45], buf->data[46], buf->data[47]);
 }
 
 static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
