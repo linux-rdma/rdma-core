@@ -1529,8 +1529,11 @@ static void handle_netlink_event(enum netlink_channel c)
 			case RTM_NEWNEIGH:
 			case RTM_GETNEIGH:
 			case RTM_DELNEIGH:
-			    handle_neigh_event((struct neigh *)h);
-			    break;
+				if (!(h->nlmsg_flags & NLM_F_REQUEST)) {
+					handle_neigh_event((struct neigh *)h);
+					break;
+				}
+				/* Fall through */
 
 			default:
 			    syslog(LOG_NOTICE, "Unhandled Netlink Message type %u Len=%u flag=%x seq=%x PID=%d\n",
