@@ -1422,7 +1422,12 @@ struct mlx5_ifc_e_switch_cap_bits {
 	u8         reserved_at_0[0x4b];
 	u8         log_max_esw_sf[0x5];
 	u8         esw_sf_base_id[0x10];
-	u8         reserved_at_60[0x7a0];
+
+	u8         esw_manager_vport_number_valid[0x1];
+	u8         reserved_at_61[0xf];
+	u8         esw_manager_vport_number[0x10];
+
+	u8         reserved_at_80[0x780];
 };
 
 enum {

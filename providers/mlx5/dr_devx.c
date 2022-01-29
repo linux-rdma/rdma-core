@@ -396,11 +396,18 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 
 	if (caps->eswitch_manager) {
 		/* Check if ECPF */
-		err = dr_devx_query_esw_func(ctx, max_sfs,
-					     &host_pf_vhca_id_valid,
-					     &host_pf_vhca_id);
-		if (!err && host_pf_vhca_id_valid && host_pf_vhca_id != caps->gvmi)
-			caps->is_ecpf = true;
+		if (DEVX_GET(query_hca_cap_out, out,
+			     capability.e_switch_cap.esw_manager_vport_number_valid)) {
+			if (DEVX_GET(query_hca_cap_out, out,
+				     capability.e_switch_cap.esw_manager_vport_number) == ECPF_PORT)
+				caps->is_ecpf = true;
+		} else {
+			err = dr_devx_query_esw_func(ctx, max_sfs,
+						     &host_pf_vhca_id_valid,
+						     &host_pf_vhca_id);
+			if (!err && host_pf_vhca_id_valid && host_pf_vhca_id != caps->gvmi)
+				caps->is_ecpf = true;
+		}
 	}
 
 	DEVX_SET(query_hca_cap_in, in, op_mod,
