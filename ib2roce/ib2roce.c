@@ -133,7 +133,8 @@ struct rdma_channel {
 	unsigned int active_receive_buffers;
 	unsigned int nr_cq;
 	unsigned long stats[nr_stats];
-	bool rdmacm;
+	bool rdmacm;		/* Channel uses RDMACM calls */
+	bool send;		/* Allow sending data */
 	char *text;
 	union {
 		struct { /* RDMACM status */
@@ -841,22 +842,20 @@ static void start_channel(struct rdma_channel *c)
 
 		c->attr.qp_state = IBV_QPS_RTR;
 		ret = ibv_modify_qp(c->qp, &c->attr, IBV_QP_STATE);
-		if (ret) {
-			errno = -ret;
+		if (ret)
 			syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to RTR state. %s", errname());
-		}
 
-		c->attr.qp_state = IBV_QPS_RTS;
-		ret = ibv_modify_qp(c->qp, &c->attr, IBV_QP_STATE);
-		if (ret) {
-			errno = -ret;
-			syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to RTS state. %s", errname());
+		if (c->send) {
+			c->attr.qp_state = IBV_QPS_RTS;
+			ret = ibv_modify_qp(c->qp, &c->attr, IBV_QP_STATE);
+			if (ret)
+				syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to RTS state. %s", errname());
 		}
 		syslog(LOG_NOTICE, "QP %s moved to state RTS/RTR\n", c->text);
 	}
 }
 
-static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *text, int rdmacm,
+static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *text, int rdmacm, int send,
 		struct in_addr addr, unsigned port, unsigned qp_type, unsigned nr_cq, unsigned create_flags)
 {
 	struct rdma_channel *c = calloc(1, sizeof(struct rdma_channel));
@@ -867,6 +866,7 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *t
 
 	c->i = i;
 	c->rdmacm = rdmacm;
+	c->send = send;
 	asprintf(&c->text, "%s-%s", interfaces_text[in], text);
 
 	if (rdmacm) {
@@ -961,7 +961,6 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *t
 			syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to Init state. %s", errname());
 			return NULL;
 		}
-		syslog(LOG_NOTICE, "QP %s moved to state INIT\n", c->text);
 	}
 
 	c->mr = ibv_reg_mr(c->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
@@ -1037,14 +1036,17 @@ static void setup_interface(enum interfaces in)
 		abort();
 	}
 
-	i->multicast = setup_channel(i, "multicast", true, i->if_addr.sin_addr, default_port, IBV_QPT_UD,
-				MIN(i->device_attr.max_cqe, nr_buffers / 2),
-				IBV_QP_CREATE_BLOCK_SELF_MCAST_LB);
+	i->multicast = setup_channel(i, "multicast", true, true,
+			i->if_addr.sin_addr, default_port, IBV_QPT_UD,
+			MIN(i->device_attr.max_cqe, nr_buffers / 2),
+			IBV_QP_CREATE_BLOCK_SELF_MCAST_LB);
 
 	if (!i->multicast)
 		abort();
 
-	i->raw = setup_channel(i, "raw", false, i->if_addr.sin_addr, i->port, in == ROCE ? IBV_QPT_RAW_PACKET : IBV_QPT_UD, 100, 0);
+	i->raw = setup_channel(i, "raw", false, in == ROCE,
+			i->if_addr.sin_addr, i->port, in == ROCE ? IBV_QPT_RAW_PACKET : IBV_QPT_UD,
+			100, 0);
 
 	syslog(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s CQs=%u/%u MTU=%u.\n",
 		interfaces_text[in],
@@ -1053,7 +1055,7 @@ static void setup_interface(enum interfaces in)
 		i->port,
 		inet_ntop(AF_INET6, e->gid.raw, buf, INET6_ADDRSTRLEN),i->gid_index,
 		inet_ntoa(i->if_addr.sin_addr),
-		i->multicast->nr_cq,
+		i->multicast ? i->multicast->nr_cq: 999999,
 		i->raw ? i->raw->nr_cq : 999999,
 		i->mtu
 	);
