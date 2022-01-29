@@ -75,7 +75,7 @@ static bool update_requested = false;	/* Received SIGUSR1. Dump all MC data deta
 static bool beacon = false;		/* Announce our presence (and possibly coordinate between multiple instances in the future */
 static bool bridging = true;		/* Allow briding */
 static bool unicast = false;		/* Bridge unicast packets */
-
+static bool flow_steering = false;	/* Use flow steering to filter packets */
 /*
  * Handling of special Multicast Group MGID encodings on Infiniband
  */
@@ -1623,6 +1623,9 @@ static void setup_flow(enum interfaces in)
 		}
 	};
 
+	if (!flow_steering)
+		return;
+
 	if (!i->raw) {
 		syslog(LOG_ERR, "Cannot create flow due to failure to setup RAW QP on %s\n",
 				interfaces_text[in]);
@@ -1635,7 +1638,7 @@ static void setup_flow(enum interfaces in)
 }
 
 /* Dump GRH and the beginning of the packet */
-void dump_buf_grh(struct buf *buf)
+static void dump_buf_grh(struct buf *buf)
 {
 	char xbuf[INET6_ADDRSTRLEN];
 	char xbuf2[INET6_ADDRSTRLEN];
@@ -1701,7 +1704,7 @@ static int unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_add
 	return 1;
 }
 
-void dump_buf(struct buf *buf)
+static void dump_buf(struct buf *buf)
 {
 	syslog(LOG_NOTICE, "Packet="
 	       	"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
@@ -2277,7 +2280,7 @@ struct option opts[] = {
 	{ "debug", no_argument, NULL, 'x' },
 	{ "nobridge", no_argument, NULL, 'n' },
 	{ "port", required_argument, NULL, 'p' },
-	{ "unicast", no_argument, NULL, 'u' },
+	{ "flow", no_argument, NULL, 'f' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -2286,7 +2289,7 @@ int main(int argc, char **argv)
 	int op, ret = 0;
 	int n;
 
-	while ((op = getopt_long(argc, argv, "unbxl::i:r:m:o:d:p:",
+	while ((op = getopt_long(argc, argv, "funbxl::i:r:m:o:d:p:",
 					opts, NULL)) != -1) {
                 switch (op) {
 		case 'd':
@@ -2348,6 +2351,10 @@ int main(int argc, char **argv)
 			unicast = true;
 			break;
 
+		case 'f':
+			flow_steering = true;
+			break;
+
 		default:
 			printf("%s " VERSION " Jan19,2021 (C) 2022 Christoph Lameter <cl@linux.com>\n", argv[0]);
 			printf("Usage: ib2roce [<option>] ...\n");
@@ -2362,7 +2369,8 @@ int main(int argc, char **argv)
 			printf("-p|--port >number>			Set default port number\n");
 			printf("-b|--beacon				Send beacon every second\n");
 			printf("-n|--nobridge				Do everything but do not bridge packets\n");
-			printf("-u|--unicast		*experimental*	Forward unicast packages via proxyarp\n");
+			printf("-u|--unicast		*experimental*	Unicast forwarding support\n");
+			printf("-f|--flow		*experimental*	Enable flow steering to do hardware filtering of packets\n");
 			exit(1);
 		}
 	}
