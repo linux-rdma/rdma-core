@@ -2398,7 +2398,7 @@ int main(int argc, char **argv)
 	setup_interface(INFINIBAND);
 	setup_interface(ROCE);
 
-	status_fd = open("ib2roce-status", O_CREAT | O_RDWR,  S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	status_fd = open("ib2roce-status", O_CREAT | O_RDWR | O_TRUNC,  S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
 	if (beacon)
 		beacon_setup();
