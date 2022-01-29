@@ -915,11 +915,12 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *t
 		c->qp = c->id->qp;
 	} else {
 		c->qp = ibv_create_qp_ex(context, &init_qp_attr_ex);
-		if (!c->qp)
+		if (!c->qp) {
 			syslog(LOG_CRIT, "ibv_create_qp_ex failed for %s. Error %s. Port=%d QP_TYPE=%d CREATE_FLAGS=%x #CQ=%d\n",
 					c->text, errname(), port,
 					qp_type, create_flags, nr_cq);
 			return NULL;
+		}
 
 		c->attr.port_num = port;
 		c->attr.qp_state = IBV_QPS_INIT;
@@ -1531,8 +1532,8 @@ static void handle_netlink_event(enum netlink_channel c)
 			case RTM_DELNEIGH:
 				if (!(h->nlmsg_flags & NLM_F_REQUEST)) {
 					handle_neigh_event((struct neigh *)h);
-					break;
 				}
+				break;
 				/* Fall through */
 
 			default:
