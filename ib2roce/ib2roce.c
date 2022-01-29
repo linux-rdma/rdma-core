@@ -859,7 +859,7 @@ static void start_channel(struct rdma_channel *c)
 			if (ret)
 				syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to RTS state. %s", errname());
 		}
-		syslog(LOG_NOTICE, "QP %s moved to state %s RTS/RTR\n", c->text,  send ? "RTS/RTR" : "RTR" );
+		syslog(LOG_NOTICE, "QP %s moved to state %s RTS/RTR\n", c->text,  c->send ? "RTS/RTR" : "RTR" );
 	}
 }
 
