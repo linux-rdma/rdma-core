@@ -30,7 +30,7 @@
 #if !HAVE_WORKING_IF_H
 /* We need this decl from net/if.h but old systems do not let use co-include
    net/if.h and netlink/route/link.h */
-extern unsigned int if_nametoindex(__const char *__ifname) __THROW;
+extern unsigned int if_nametoindex(__const char *__ifname);
 #endif
 
 /* for PFX */
