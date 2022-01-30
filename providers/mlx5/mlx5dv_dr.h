@@ -595,10 +595,11 @@ void dr_ste_build_flex_parser_1(struct dr_ste_ctx *ste_ctx,
 				struct dr_ste_build *sb,
 				struct dr_match_param *mask,
 				bool inner, bool rx);
-void dr_ste_build_tunnel_header_0_1(struct dr_ste_ctx *ste_ctx,
-				    struct dr_ste_build *sb,
-				    struct dr_match_param *mask,
-				    bool inner, bool rx);
+void dr_ste_build_tunnel_header(struct dr_ste_ctx *ste_ctx,
+				struct dr_ste_build *sb,
+				struct dr_match_param *mask,
+				struct dr_devx_caps *caps,
+				bool inner, bool rx);
 int dr_ste_build_def0(struct dr_ste_ctx *ste_ctx,
 		      struct dr_ste_build *sb,
 		      struct dr_match_param *mask,

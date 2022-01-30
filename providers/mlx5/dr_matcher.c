@@ -416,9 +416,10 @@ static bool dr_mask_is_tnl_geneve_tlv_opt_exist_set(struct dr_match_misc *misc,
 	       misc->geneve_tlv_option_0_exist;
 }
 
-static bool dr_mask_is_tunnel_header_0_1_set(struct dr_match_misc5 *misc5)
+static bool dr_mask_is_tunnel_header_set(struct dr_match_misc5 *misc5)
 {
-	return misc5->tunnel_header_0 || misc5->tunnel_header_1;
+	return misc5->tunnel_header_0 || misc5->tunnel_header_1 ||
+	       misc5->tunnel_header_2 || misc5->tunnel_header_3;
 }
 
 static int dr_matcher_supp_tnl_mpls_over_gre(struct dr_devx_caps *caps)
@@ -865,9 +866,10 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 			if (dr_mask_is_tnl_gtpu(&mask, dmn))
 				dr_ste_build_tnl_gtpu(ste_ctx, &sb[idx++],
 						      &mask, inner, rx);
-		} else if (dr_mask_is_tunnel_header_0_1_set(&mask.misc5)) {
-			dr_ste_build_tunnel_header_0_1(ste_ctx, &sb[idx++],
-						       &mask, false, rx);
+		} else if (dr_mask_is_tunnel_header_set(&mask.misc5)) {
+			dr_ste_build_tunnel_header(ste_ctx, &sb[idx++],
+						   &mask, &dmn->info.caps,
+						   false, rx);
 		}
 
 		if (DR_MASK_IS_ETH_L4_MISC_SET(mask.misc3, outer))

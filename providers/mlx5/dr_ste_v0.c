@@ -1899,7 +1899,7 @@ static struct dr_ste_ctx ste_ctx_v0 = {
 	.build_src_gvmi_qpn_init	= &dr_ste_v0_build_src_gvmi_qpn_init,
 	.build_flex_parser_0_init	= &dr_ste_v0_build_flex_parser_0_init,
 	.build_flex_parser_1_init	= &dr_ste_v0_build_flex_parser_1_init,
-	.build_tunnel_header_0_1	= &dr_ste_v0_build_tunnel_header_0_1_init,
+	.build_tunnel_header_init	= &dr_ste_v0_build_tunnel_header_0_1_init,
 	/* Getters and Setters */
 	.ste_init			= &dr_ste_v0_init,
 	.set_next_lu_type		= &dr_ste_v0_set_next_lu_type,
