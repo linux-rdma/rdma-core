@@ -1249,7 +1249,10 @@ struct mlx5_ifc_header_modify_cap_properties_bits {
 };
 
 struct mlx5_ifc_flow_table_fields_supported_2_bits {
-	u8         reserved_at_0[0x17];
+	u8         reserved_at_0[0xf];
+	u8         tunnel_header_2_3[0x1];
+	u8         tunnel_header_0_1[0x1];
+	u8         reserved_at_11[0x6];
 	u8         inner_l3_ok[0x1];
 	u8         inner_l4_ok[0x1];
 	u8         outer_l3_ok[0x1];
@@ -2549,7 +2552,9 @@ struct mlx5_ifc_ste_tunnel_header_v1_bits {
 
 	u8	tunnel_header_1[0x20];
 
-	u8	reserved_at_40[0x40];
+	u8	tunnel_header_2[0x20];
+
+	u8	tunnel_header_3[0x20];
 };
 
 struct mlx5_ifc_ste_flex_parser_tnl_vxlan_gpe_bits {

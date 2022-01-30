@@ -933,6 +933,7 @@ struct dr_devx_caps {
 	bool				prio_tag_required;
 	bool				is_ecpf;
 	struct dr_devx_vports		vports;
+	bool				support_full_tnl_hdr;
 };
 
 struct dr_devx_flow_table_attr {
