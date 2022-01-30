@@ -130,6 +130,7 @@ struct rdma_channel {
 	struct ibv_cq *cq;
 	struct ibv_pd *pd;
 	struct ibv_mr *mr;
+	struct ibv_flow *flow;
 	unsigned int active_receive_buffers;
 	unsigned int nr_cq;
 	unsigned long stats[nr_stats];
@@ -1638,47 +1639,51 @@ static void setup_netlink(enum netlink_channel c)
 		send_netlink_message(c, &nlr.nlh);
 }
 
-static void setup_flow(enum interfaces in)
+static void setup_flow(struct rdma_channel *c)
 {
-	struct i2r_interface *i = i2r + in;
-	struct i2r_interface *di = i2r + (in ^ 1);
-	struct ibv_flow *f;
-	unsigned netmask = di->if_netmask.sin_addr.s_addr;
-	struct ibv_flow_attr flattr_all = {
-			0, IBV_FLOW_ATTR_SNIFFER, sizeof(struct ibv_flow_spec),
-			1, 0, i->port, 0
-	};
-
-	struct {
-		struct ibv_flow_attr attr;
-		struct ibv_flow_spec_ipv4 ipv4;
-		struct ibv_flow_spec_tcp_udp udp;
-	} flattr_filter = {
-		{
-			0, IBV_FLOW_ATTR_SNIFFER, sizeof(flattr_filter),
-			1, 2, i->port, 0
-		},
-		{
-			IBV_FLOW_SPEC_IPV4, sizeof(struct ibv_flow_spec_ipv4),
-			{ 0, di->if_addr.sin_addr.s_addr & netmask },
-			{ 0, netmask }
-		},
-		{
-			IBV_FLOW_SPEC_UDP, sizeof(struct ibv_flow_spec_tcp_udp),
-			{ ROCE_PORT, ROCE_PORT},
-			{ 0xffff, 0xffff}
-		}
-	};
-
-	if (!i->raw) {
-		syslog(LOG_ERR, "Cannot create flow due to failure to setup RAW QP on %s\n",
-				interfaces_text[in]);
+	if (!c)
 		return;
+
+	if (flow_steering) {
+			struct i2r_interface *i = c->i;
+			enum interfaces in = i - i2r;
+			struct i2r_interface *di = i2r + (in ^ 1);
+			unsigned netmask = di->if_netmask.sin_addr.s_addr;
+			struct {
+				struct ibv_flow_attr attr;
+				struct ibv_flow_spec_ipv4 ipv4;
+				struct ibv_flow_spec_tcp_udp udp;
+			} flattr = {
+				{
+					0, IBV_FLOW_ATTR_SNIFFER, sizeof(flattr),
+					0, 2, i->port, 0
+				},
+				{
+					IBV_FLOW_SPEC_IPV4, sizeof(struct ibv_flow_spec_ipv4),
+					{ 0, di->if_addr.sin_addr.s_addr & netmask },
+					{ 0, netmask }
+				},
+				{
+					IBV_FLOW_SPEC_UDP, sizeof(struct ibv_flow_spec_tcp_udp),
+					{ ROCE_PORT, ROCE_PORT},
+					{ 0xffff, 0xffff}
+				}
+			};
+
+			c->flow = ibv_create_flow(c->qp, &flattr.attr);
+
+	} else {
+
+		struct ibv_flow_attr flattr = {
+				0, IBV_FLOW_ATTR_SNIFFER, sizeof(struct ibv_flow_spec),
+				0, 0, c->i->port, 0
+		};
+
+		c->flow = ibv_create_flow(c->qp, &flattr);
 	}
 
-	f = ibv_create_flow(i->raw->qp, flow_steering ? &flattr_filter.attr : &flattr_all);
-	if (!f)
-		syslog(LOG_ERR, "Failure to create flow on %s. Errno %s\n", interfaces_text[in], errname());
+	if (!c->flow)
+		syslog(LOG_ERR, "Failure to create flow on %s. Errno %s\n", c->text, errname());
 }
 
 /* Dump GRH and the beginning of the packet */
@@ -2144,6 +2149,8 @@ static int event_loop(void)
 		if (i->raw) {
 			start_channel(i->raw);
 			ibv_req_notify_cq(i->raw->cq, 0);
+
+			setup_flow(i->raw);
 		}
 	}
 
@@ -2446,12 +2453,8 @@ int main(int argc, char **argv)
 		beacon_setup();
 
 	if (unicast) {
-		enum interfaces j;
-
-		for(j = 0; j < NR_INTERFACES; j++) {
-			setup_flow(j);
-			setup_netlink(j);
-		}
+		setup_netlink(nl_monitor);
+		setup_netlink(nl_command);
 	}
 
 	event_loop();
