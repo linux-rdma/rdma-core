@@ -60,6 +60,9 @@
 #include <sys/mman.h>
 
 #include <linux/rtnetlink.h>
+#include <net/ethernet.h>
+#include <linux/ip.h>
+#include <linux/if_arp.h>
 
 #include "errno.c"
 
@@ -619,6 +622,16 @@ struct buf {
 			uint8_t payload[DATA_SIZE - sizeof(struct ibv_grh)];
 		};
 		uint8_t data[DATA_SIZE];	/* No GRH */
+		struct { /* Ethernet frame defs */
+			struct ether_header e;
+			union {
+				struct {
+					struct iphdr h;
+					uint8_t ip_payload[1500];
+				};
+				struct arphdr a;
+			};
+		};
 	};
 	union {
 		struct {
@@ -685,6 +698,146 @@ static struct buf *alloc_buffer(void)
 	return buf;
 }
 
+static char hexbyte(unsigned x)
+{
+	if (x < 10)
+		return '0' + x;
+
+	return x - 10 + 'a';
+}
+
+static char *hexbytes(char *x, unsigned len)
+{
+	uint8_t *q = (uint8_t *)x;
+	static char b[100];
+	unsigned i;
+	char *p = b;
+
+	for(i =0; i < len; i++) {
+		unsigned n = *q++;
+		*p++ = hexbyte( n >> 4 );
+		*p++ = hexbyte( n & 0xf);
+		*p++ = ':';
+	}
+	p--;
+	*p = 0;
+	return b;
+}
+
+static void dump_buf_ethernet(struct buf *buf)
+{
+	char dmac[20], smac[20];
+	char dip[30], sip[30];
+	char sendmac[50], targetmac[50];
+	char sendip[30], targetip[30];
+	struct in_addr daddr, saddr;
+	struct in_addr sendaddr, targetaddr;
+	char *p;
+
+	strcpy(dmac, hexbytes(buf->e.ether_dhost, ETH_ALEN));
+	strcpy(smac, hexbytes(buf->e.ether_dhost, ETH_ALEN));
+
+	switch (buf->e.ether_type) {
+
+		case ETHERTYPE_ARP:
+
+			p = ((char *)&buf->a) + sizeof(struct arphdr);
+
+			strcpy(sendmac, hexbytes(p, buf->a.ar_hln));
+			p += buf->a.ar_hln;
+			sendaddr.s_addr = *((unsigned *)p);
+			p += buf->a.ar_pln;
+			strcpy(targetmac, hexbytes(p, buf->a.ar_hln));
+			p += buf->a.ar_pln;
+			targetaddr.s_addr = *((unsigned *)p);
+
+			strcpy(sendip, inet_ntoa(sendaddr));
+			strcpy(targetip, inet_ntoa(targetaddr));
+
+			syslog(LOG_NOTICE, "D=%s S=%s ARP HRD=%d PRO=%d HLN=%d PLN=%d Opcode=%x SenderHW=%s SenderIP=%s TargetHW=%s TargetIP=%s\n",
+				dmac, smac, buf->a.ar_hrd, buf->a.ar_pro, buf->a.ar_hln, buf->a.ar_pln, buf->a.ar_op,
+				sendmac, sendip, targetmac, targetip);
+
+			break;
+
+		case ETHERTYPE_IP:
+			daddr.s_addr = buf->h.daddr;
+			saddr.s_addr = buf->h.saddr;
+			strcpy(dip, inet_ntoa(daddr));
+			strcpy(sip, inet_ntoa(saddr));
+
+			syslog(LOG_NOTICE, "D=%s(%s) S=%s(%s) ether_type=%d ihl=%d version=%d tos=%d tot_len=%d ID=%x fragoff=%d ttl=%d protocol=%d check=%x payload:"
+		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+		dmac, dip, smac, sip, buf->e.ether_type,
+		buf->h.ihl, buf->h.version, buf->h.tos, buf->h.tot_len, buf->h.id, buf->h.frag_off, buf->h.ttl, buf->h.protocol, buf->h.check,
+		buf->ip_payload[0], buf->ip_payload[1], buf->ip_payload[2], buf->ip_payload[3],
+	        buf->ip_payload[4], buf->ip_payload[5], buf->ip_payload[6], buf->ip_payload[7],
+		buf->ip_payload[8], buf->ip_payload[9], buf->ip_payload[10], buf->ip_payload[11],
+		buf->ip_payload[12], buf->ip_payload[13], buf->ip_payload[14], buf->ip_payload[15],
+		buf->ip_payload[16], buf->ip_payload[17], buf->ip_payload[18], buf->ip_payload[19],
+		buf->ip_payload[20], buf->ip_payload[21], buf->ip_payload[22], buf->ip_payload[23],
+		buf->ip_payload[24], buf->ip_payload[25], buf->ip_payload[26], buf->ip_payload[27],
+		buf->ip_payload[28], buf->ip_payload[29], buf->ip_payload[30], buf->ip_payload[31],
+		buf->ip_payload[32], buf->ip_payload[33], buf->ip_payload[34], buf->ip_payload[35],
+		buf->ip_payload[36], buf->ip_payload[37], buf->ip_payload[38], buf->ip_payload[39],
+		buf->ip_payload[40], buf->ip_payload[41], buf->ip_payload[42], buf->ip_payload[43],
+		buf->ip_payload[44], buf->ip_payload[45], buf->ip_payload[46], buf->ip_payload[47]);
+			break;
+
+
+		default:
+
+	syslog(LOG_NOTICE, "D=%s(%s) S=%s(%s) ether_type=%d ihl=%d version=%d tos=%d tot_len=%d ID=%x fragoff=%d ttl=%d protocol=%d check=%x payload:"
+		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+		dmac, dip, smac, sip, buf->e.ether_type,
+		buf->h.ihl, buf->h.version, buf->h.tos, buf->h.tot_len, buf->h.id, buf->h.frag_off, buf->h.ttl, buf->h.protocol, buf->h.check,
+		buf->ip_payload[0], buf->ip_payload[1], buf->ip_payload[2], buf->ip_payload[3],
+	        buf->ip_payload[4], buf->ip_payload[5], buf->ip_payload[6], buf->ip_payload[7],
+		buf->ip_payload[8], buf->ip_payload[9], buf->ip_payload[10], buf->ip_payload[11],
+		buf->ip_payload[12], buf->ip_payload[13], buf->ip_payload[14], buf->ip_payload[15],
+		buf->ip_payload[16], buf->ip_payload[17], buf->ip_payload[18], buf->ip_payload[19],
+		buf->ip_payload[20], buf->ip_payload[21], buf->ip_payload[22], buf->ip_payload[23],
+		buf->ip_payload[24], buf->ip_payload[25], buf->ip_payload[26], buf->ip_payload[27],
+		buf->ip_payload[28], buf->ip_payload[29], buf->ip_payload[30], buf->ip_payload[31],
+		buf->ip_payload[32], buf->ip_payload[33], buf->ip_payload[34], buf->ip_payload[35],
+		buf->ip_payload[36], buf->ip_payload[37], buf->ip_payload[38], buf->ip_payload[39],
+		buf->ip_payload[40], buf->ip_payload[41], buf->ip_payload[42], buf->ip_payload[43],
+		buf->ip_payload[44], buf->ip_payload[45], buf->ip_payload[46], buf->ip_payload[47]);
+
+			break;
+	}
+}
+
+/* Dump GRH and the beginning of the packet */
+static void dump_buf_grh(struct buf *buf)
+{
+	char xbuf[INET6_ADDRSTRLEN];
+	char xbuf2[INET6_ADDRSTRLEN];
+
+	syslog(LOG_NOTICE, "Unicast GRH flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s Packet="
+		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+			ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
+			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
+			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
+			buf->payload[0], buf->payload[1], buf->payload[2], buf->payload[3],
+		        buf->payload[4], buf->payload[5], buf->payload[6], buf->payload[7],
+			buf->payload[8], buf->payload[9], buf->payload[10], buf->payload[11],
+			buf->payload[12], buf->payload[13], buf->payload[14], buf->payload[15],
+			buf->payload[16], buf->payload[17], buf->payload[18], buf->payload[19],
+			buf->payload[20], buf->payload[21], buf->payload[22], buf->payload[23],
+			buf->payload[24], buf->payload[25], buf->payload[26], buf->payload[27],
+			buf->payload[28], buf->payload[29], buf->payload[30], buf->payload[31],
+			buf->payload[32], buf->payload[33], buf->payload[34], buf->payload[35],
+			buf->payload[36], buf->payload[37], buf->payload[38], buf->payload[39],
+			buf->payload[40], buf->payload[41], buf->payload[42], buf->payload[43],
+			buf->payload[44], buf->payload[45], buf->payload[46], buf->payload[47]);
+}
 
 /*
  * Handling of RDMA work requests
@@ -1372,33 +1525,6 @@ static struct rdma_ah *hash_mac_lookup(int maclen, char *mac, unsigned mac_hash)
 
 	return ra;
 }
-
-static char hexbyte(unsigned x)
-{
-	if (x < 10)
-		return '0' + x;
-
-	return x - 10 + 'a';
-}
-
-static char *hexbytes(char *x, unsigned len)
-{
-	uint8_t *q = (uint8_t *)x;
-	static char b[100];
-	unsigned i;
-	char *p = b;
-
-	for(i =0; i < len; i++) {
-		unsigned n = *q++;
-		*p++ = hexbyte( n >> 4 );
-		*p++ = hexbyte( n & 0xf);
-		*p++ = ':';
-	}
-	p--;
-	*p = 0;
-	return b;
-}
-
 static long lookup_ip_from_gid(struct rdma_channel *c, union ibv_gid *v)
 {
 	unsigned hash;
@@ -1686,34 +1812,6 @@ static void setup_flow(struct rdma_channel *c)
 		syslog(LOG_ERR, "Failure to create flow on %s. Errno %s\n", c->text, errname());
 }
 
-/* Dump GRH and the beginning of the packet */
-static void dump_buf_grh(struct buf *buf)
-{
-	char xbuf[INET6_ADDRSTRLEN];
-	char xbuf2[INET6_ADDRSTRLEN];
-
-	syslog(LOG_NOTICE, "Unicast GRH flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s Packet="
-	       	"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
-		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
-		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-			ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
-			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
-			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
-			buf->payload[0], buf->payload[1], buf->payload[2], buf->payload[3],
-		        buf->payload[4], buf->payload[5], buf->payload[6], buf->payload[7],
-			buf->payload[8], buf->payload[9], buf->payload[10], buf->payload[11],
-			buf->payload[12], buf->payload[13], buf->payload[14], buf->payload[15],
-			buf->payload[16], buf->payload[17], buf->payload[18], buf->payload[19],
-			buf->payload[20], buf->payload[21], buf->payload[22], buf->payload[23],
-			buf->payload[24], buf->payload[25], buf->payload[26], buf->payload[27],
-			buf->payload[28], buf->payload[29], buf->payload[30], buf->payload[31],
-			buf->payload[32], buf->payload[33], buf->payload[34], buf->payload[35],
-			buf->payload[36], buf->payload[37], buf->payload[38], buf->payload[39],
-			buf->payload[40], buf->payload[41], buf->payload[42], buf->payload[43],
-			buf->payload[44], buf->payload[45], buf->payload[46], buf->payload[47]);
-}
-
-
 static int unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_addr source_addr, struct in_addr dest_addr)
 {
 	char xbuf[INET6_ADDRSTRLEN];
@@ -1753,26 +1851,6 @@ static int unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_add
 	return 1;
 }
 
-static void dump_buf(struct buf *buf)
-{
-	syslog(LOG_NOTICE, "Packet="
-	       	"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
-		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
-		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-			buf->data[0], buf->data[1], buf->data[2], buf->data[3],
-		        buf->data[4], buf->data[5], buf->data[6], buf->data[7],
-			buf->data[8], buf->data[9], buf->data[10], buf->data[11],
-			buf->data[12], buf->data[13], buf->data[14], buf->data[15],
-			buf->data[16], buf->data[17], buf->data[18], buf->data[19],
-			buf->data[20], buf->data[21], buf->data[22], buf->data[23],
-			buf->data[24], buf->data[25], buf->data[26], buf->data[27],
-			buf->data[28], buf->data[29], buf->data[30], buf->data[31],
-			buf->data[32], buf->data[33], buf->data[34], buf->data[35],
-			buf->data[36], buf->data[37], buf->data[38], buf->data[39],
-			buf->data[40], buf->data[41], buf->data[42], buf->data[43],
-			buf->data[44], buf->data[45], buf->data[46], buf->data[47]);
-}
-
 static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 {
 	struct mc *m;
@@ -1791,7 +1869,7 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 	if (!(w->wc_flags & IBV_WC_GRH)) {
 		syslog(LOG_WARNING, "Discard Packet from %s: No GRH provided. Status=%d Opcode=%d Len=%d QP=%d SRC_QP=%d Flags=%x PKEY_INDEX=%d SLID=%d\n",
 			c->text, w->status, w->opcode, w->byte_len, w->qp_num, w->src_qp, w->wc_flags, w->pkey_index, w->slid);
-		dump_buf(buf);
+		dump_buf_ethernet(buf);
 		st(c, packets_invalid);
 		return -EINVAL;
 	}
