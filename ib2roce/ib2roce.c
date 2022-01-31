@@ -629,7 +629,7 @@ struct buf {
 					uint8_t ip_payload[1500];
 				};
 				struct arphdr a;
-				int8_t eth_payload[1500];
+				uint8_t eth_payload[1500];
 			};
 		};
 	};
@@ -793,7 +793,7 @@ static void dump_buf_ethernet(struct buf *buf)
 
 		default:
 
-	syslog(LOG_NOTICE, " DMAC=%s SMAC=%s Ether_type=%x Packet="
+	syslog(LOG_NOTICE, " DMAC=%s SMAC=%s Ether_type=%d Packet="
 		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
 		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
 		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
