@@ -891,7 +891,7 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
 			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
 			udp_dump( &buf->udp), bth_dump(&buf->bth), 
-			payload_dump(((char *)&buf->bth) + sizeof(struct bth)));
+			payload_dump(((uint8_t *)&buf->bth) + sizeof(struct bth)));
 	return 1;
 }
 
@@ -1723,7 +1723,8 @@ static void handle_neigh_event(struct neigh *n)
 	return;
 
 err:
-	syslog(LOG_NOTICE, "Neigh Event interface=%s type %u Len=%u NL flags=%x ND flags=%x state=%x IP=%s MAC=%s ifindex=%d\n",
+	if (log_packets)
+		syslog(LOG_NOTICE, "Neigh Event interface=%s type %u Len=%u NL flags=%x ND flags=%x state=%x IP=%s MAC=%s ifindex=%d\n",
 				i ? i->if_name: "N/A",
 			       	n->nlh.nlmsg_type,  n->nlh.nlmsg_len, n->nlh.nlmsg_flags,
 				n->nd.ndm_flags, n->nd.ndm_state,
@@ -1760,8 +1761,9 @@ static void handle_netlink_event(enum netlink_channel c)
 				/* Fall through */
 
 			default:
-			    syslog(LOG_NOTICE, "Unhandled Netlink Message type %u Len=%u flag=%x seq=%x PID=%d\n",
-					  h->nlmsg_type,  h->nlmsg_len, h->nlmsg_flags, h->nlmsg_seq, h->nlmsg_pid);
+				if (log_packets)
+					syslog(LOG_NOTICE, "Unhandled Netlink Message type %u Len=%u flag=%x seq=%x PID=%d\n",
+						h->nlmsg_type,  h->nlmsg_len, h->nlmsg_flags, h->nlmsg_seq, h->nlmsg_pid);
 			    break;
 		}
 	}
@@ -2564,6 +2566,10 @@ int main(int argc, char **argv)
 
 		case 'f':
 			flow_steering = true;
+			break;
+
+		case 'v':
+			log_packets = true;
 			break;
 
 		default:
