@@ -734,6 +734,7 @@ static void dump_buf_ethernet(struct buf *buf)
 	char dip[30], sip[30];
 	char sendmac[50], targetmac[50];
 	char sendip[30], targetip[30];
+	char etype[30];
 	struct in_addr daddr, saddr;
 	struct in_addr sendaddr, targetaddr;
 	char *p;
@@ -793,11 +794,17 @@ static void dump_buf_ethernet(struct buf *buf)
 
 		default:
 
-	syslog(LOG_NOTICE, " DMAC=%s SMAC=%s Ether_type=%d Packet="
-		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
-		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
-		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-			dmac, smac, ntohs(buf->e.ether_type),
+			if (ntohs(buf->e.ether_type) <= 1500) {
+				snprintf(etype, sizeof(etype), "IEEE801.3 len=%d", ntohs(buf->e.ether_type));
+			} else {
+				snprintf(etype, sizeof(etype), "Ether_type=%x", buf->e.ether_type);
+			}
+
+		syslog(LOG_NOTICE, " DMAC=%s SMAC=%s %s Packet="
+			"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+			"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+			"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+			dmac, smac, etype,
 			buf->eth_payload[0], buf->eth_payload[1], buf->eth_payload[2], buf->eth_payload[3],
 		        buf->eth_payload[4], buf->eth_payload[5], buf->eth_payload[6], buf->eth_payload[7],
 			buf->eth_payload[8], buf->eth_payload[9], buf->eth_payload[10], buf->eth_payload[11],
