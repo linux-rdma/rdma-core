@@ -797,7 +797,7 @@ static void dump_buf_ethernet(struct buf *buf)
 		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
 		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
 		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-			dmac, smac, buf->e.ether_type,
+			dmac, smac, ntohs(buf->e.ether_type),
 			buf->eth_payload[0], buf->eth_payload[1], buf->eth_payload[2], buf->eth_payload[3],
 		        buf->eth_payload[4], buf->eth_payload[5], buf->eth_payload[6], buf->eth_payload[7],
 			buf->eth_payload[8], buf->eth_payload[9], buf->eth_payload[10], buf->eth_payload[11],
