@@ -738,11 +738,12 @@ static void dump_buf_ethernet(struct buf *buf)
 	struct in_addr daddr, saddr;
 	struct in_addr sendaddr, targetaddr;
 	char *p;
+	int ethertype = ntohs(buf->e.ether_type);
 
 	strcpy(dmac, __hexbytes(buf->e.ether_dhost, ETH_ALEN));
 	strcpy(smac, __hexbytes(buf->e.ether_dhost, ETH_ALEN));
 
-	switch (buf->e.ether_type) {
+	switch (ethertype) {
 
 		case ETHERTYPE_ARP:
 
@@ -794,10 +795,10 @@ static void dump_buf_ethernet(struct buf *buf)
 
 		default:
 
-			if (ntohs(buf->e.ether_type) <= 1500) {
-				snprintf(etype, sizeof(etype), "IEEE801.3 len=%d", ntohs(buf->e.ether_type));
+			if (ethertype <= 1500) {
+				snprintf(etype, sizeof(etype), "IEEE801.3 len=%d", ethertype);
 			} else {
-				snprintf(etype, sizeof(etype), "Ether_type=%x", buf->e.ether_type);
+				snprintf(etype, sizeof(etype), "Ether_type=%x", ethertype);
 			}
 
 		syslog(LOG_NOTICE, " DMAC=%s SMAC=%s %s Packet="
