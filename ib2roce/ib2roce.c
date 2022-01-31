@@ -705,9 +705,8 @@ static char hexbyte(unsigned x)
 	return x - 10 + 'a';
 }
 
-static char *__hexbytes(char *x, unsigned len)
+static char *__hexbytes(uint8_t *q, unsigned len)
 {
-	uint8_t *q = (uint8_t *)x;
 	static char b[100];
 	unsigned i;
 	char *p = b;
