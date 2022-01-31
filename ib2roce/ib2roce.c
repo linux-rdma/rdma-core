@@ -629,6 +629,7 @@ struct buf {
 					uint8_t ip_payload[1500];
 				};
 				struct arphdr a;
+				int8_t eth_payload[1500];
 			};
 		};
 	};
@@ -792,22 +793,23 @@ static void dump_buf_ethernet(struct buf *buf)
 
 		default:
 
-	syslog(LOG_NOTICE, "Packet="
-	       	"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+	syslog(LOG_NOTICE, " DMAC=%s SMAC=%s Ether_type=%x Packet="
+		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
 		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
 		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-			buf->data[0], buf->data[1], buf->data[2], buf->data[3],
-		        buf->data[4], buf->data[5], buf->data[6], buf->data[7],
-			buf->data[8], buf->data[9], buf->data[10], buf->data[11],
-			buf->data[12], buf->data[13], buf->data[14], buf->data[15],
-			buf->data[16], buf->data[17], buf->data[18], buf->data[19],
-			buf->data[20], buf->data[21], buf->data[22], buf->data[23],
-			buf->data[24], buf->data[25], buf->data[26], buf->data[27],
-			buf->data[28], buf->data[29], buf->data[30], buf->data[31],
-			buf->data[32], buf->data[33], buf->data[34], buf->data[35],
-			buf->data[36], buf->data[37], buf->data[38], buf->data[39],
-			buf->data[40], buf->data[41], buf->data[42], buf->data[43],
-			buf->data[44], buf->data[45], buf->data[46], buf->data[47]);
+			dmac, smac, buf->e.ether_type,
+			buf->eth_payload[0], buf->eth_payload[1], buf->eth_payload[2], buf->eth_payload[3],
+		        buf->eth_payload[4], buf->eth_payload[5], buf->eth_payload[6], buf->eth_payload[7],
+			buf->eth_payload[8], buf->eth_payload[9], buf->eth_payload[10], buf->eth_payload[11],
+			buf->eth_payload[12], buf->eth_payload[13], buf->eth_payload[14], buf->eth_payload[15],
+			buf->eth_payload[16], buf->eth_payload[17], buf->eth_payload[18], buf->eth_payload[19],
+			buf->eth_payload[20], buf->eth_payload[21], buf->eth_payload[22], buf->eth_payload[23],
+			buf->eth_payload[24], buf->eth_payload[25], buf->eth_payload[26], buf->eth_payload[27],
+			buf->eth_payload[28], buf->eth_payload[29], buf->eth_payload[30], buf->eth_payload[31],
+			buf->eth_payload[32], buf->eth_payload[33], buf->eth_payload[34], buf->eth_payload[35],
+			buf->eth_payload[36], buf->eth_payload[37], buf->eth_payload[38], buf->eth_payload[39],
+			buf->eth_payload[40], buf->eth_payload[41], buf->eth_payload[42], buf->eth_payload[43],
+			buf->eth_payload[44], buf->eth_payload[45], buf->eth_payload[46], buf->eth_payload[47]);
 		break;
 	}
 }
