@@ -724,7 +724,7 @@ static char *__hexbytes(uint8_t *q, unsigned len)
 
 static char *hexbytes(char *x, unsigned len)
 {
-	return hexbytes( (uint8_t *)x, len);
+	return __hexbytes( (uint8_t *)x, len);
 }
 
 static void dump_buf_ethernet(struct buf *buf)
