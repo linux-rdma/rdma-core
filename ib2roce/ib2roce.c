@@ -792,26 +792,23 @@ static void dump_buf_ethernet(struct buf *buf)
 
 		default:
 
-	syslog(LOG_NOTICE, "D=%s(%s) S=%s(%s) ether_type=%d ihl=%d version=%d tos=%d tot_len=%d ID=%x fragoff=%d ttl=%d protocol=%d check=%x payload:"
-		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+	syslog(LOG_NOTICE, "Packet="
+	       	"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
 		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
 		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-		dmac, dip, smac, sip, buf->e.ether_type,
-		buf->h.ihl, buf->h.version, buf->h.tos, buf->h.tot_len, buf->h.id, buf->h.frag_off, buf->h.ttl, buf->h.protocol, buf->h.check,
-		buf->ip_payload[0], buf->ip_payload[1], buf->ip_payload[2], buf->ip_payload[3],
-	        buf->ip_payload[4], buf->ip_payload[5], buf->ip_payload[6], buf->ip_payload[7],
-		buf->ip_payload[8], buf->ip_payload[9], buf->ip_payload[10], buf->ip_payload[11],
-		buf->ip_payload[12], buf->ip_payload[13], buf->ip_payload[14], buf->ip_payload[15],
-		buf->ip_payload[16], buf->ip_payload[17], buf->ip_payload[18], buf->ip_payload[19],
-		buf->ip_payload[20], buf->ip_payload[21], buf->ip_payload[22], buf->ip_payload[23],
-		buf->ip_payload[24], buf->ip_payload[25], buf->ip_payload[26], buf->ip_payload[27],
-		buf->ip_payload[28], buf->ip_payload[29], buf->ip_payload[30], buf->ip_payload[31],
-		buf->ip_payload[32], buf->ip_payload[33], buf->ip_payload[34], buf->ip_payload[35],
-		buf->ip_payload[36], buf->ip_payload[37], buf->ip_payload[38], buf->ip_payload[39],
-		buf->ip_payload[40], buf->ip_payload[41], buf->ip_payload[42], buf->ip_payload[43],
-		buf->ip_payload[44], buf->ip_payload[45], buf->ip_payload[46], buf->ip_payload[47]);
-
-			break;
+			buf->data[0], buf->data[1], buf->data[2], buf->data[3],
+		        buf->data[4], buf->data[5], buf->data[6], buf->data[7],
+			buf->data[8], buf->data[9], buf->data[10], buf->data[11],
+			buf->data[12], buf->data[13], buf->data[14], buf->data[15],
+			buf->data[16], buf->data[17], buf->data[18], buf->data[19],
+			buf->data[20], buf->data[21], buf->data[22], buf->data[23],
+			buf->data[24], buf->data[25], buf->data[26], buf->data[27],
+			buf->data[28], buf->data[29], buf->data[30], buf->data[31],
+			buf->data[32], buf->data[33], buf->data[34], buf->data[35],
+			buf->data[36], buf->data[37], buf->data[38], buf->data[39],
+			buf->data[40], buf->data[41], buf->data[42], buf->data[43],
+			buf->data[44], buf->data[45], buf->data[46], buf->data[47]);
+		break;
 	}
 }
 
