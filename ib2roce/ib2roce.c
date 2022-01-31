@@ -52,7 +52,6 @@
 #include <netdb.h>
 #include <getopt.h>
 #include <sys/ioctl.h>
-#include <net/if.h>
 #include <rdma/rdma_cma.h>
 #include <infiniband/ib.h>
 #include <infiniband/verbs.h>
@@ -706,7 +705,7 @@ static char hexbyte(unsigned x)
 	return x - 10 + 'a';
 }
 
-static char *hexbytes(char *x, unsigned len)
+static char *__hexbytes(char *x, unsigned len)
 {
 	uint8_t *q = (uint8_t *)x;
 	static char b[100];
@@ -724,6 +723,11 @@ static char *hexbytes(char *x, unsigned len)
 	return b;
 }
 
+static char *hexbytes(char *x, unsigned len)
+{
+	return hexbytes( (uint8_t *)x, len);
+}
+
 static void dump_buf_ethernet(struct buf *buf)
 {
 	char dmac[20], smac[20];
@@ -734,8 +738,8 @@ static void dump_buf_ethernet(struct buf *buf)
 	struct in_addr sendaddr, targetaddr;
 	char *p;
 
-	strcpy(dmac, hexbytes(buf->e.ether_dhost, ETH_ALEN));
-	strcpy(smac, hexbytes(buf->e.ether_dhost, ETH_ALEN));
+	strcpy(dmac, __hexbytes(buf->e.ether_dhost, ETH_ALEN));
+	strcpy(smac, __hexbytes(buf->e.ether_dhost, ETH_ALEN));
 
 	switch (buf->e.ether_type) {
 
