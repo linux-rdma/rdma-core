@@ -726,13 +726,12 @@ static char hexbyte(unsigned x)
 	return x - 10 + 'a';
 }
 
-static char *__hexbytes(uint8_t *q, unsigned len)
+static char *__hexbytes(char *b, uint8_t *q, unsigned len)
 {
-	static char b[100];
 	unsigned i;
 	char *p = b;
 
-	for(i =0; i < len; i++) {
+	for(i = 0; i < len; i++) {
 		unsigned n = *q++;
 		*p++ = hexbyte( n >> 4 );
 		*p++ = hexbyte( n & 0xf);
@@ -743,31 +742,23 @@ static char *__hexbytes(uint8_t *q, unsigned len)
 	return b;
 }
 
+static char *_hexbytes(uint8_t *q, unsigned len)
+{
+	static char b[150];
+
+	return __hexbytes(b, q, len);
+}
+
 static char *hexbytes(char *x, unsigned len)
 {
-	return __hexbytes( (uint8_t *)x, len);
+	return _hexbytes((uint8_t *)x, len);
 }
 
 static char *payload_dump(uint8_t *p)
 {
 	static char buf[150];
 
-	snprintf(buf, sizeof(buf), "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
-		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
-		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-			p[0], p[1], p[2], p[3],
-		        p[4], p[5], p[6], p[7],
-			p[8], p[9], p[10], p[11],
-			p[12], p[13], p[14], p[15],
-			p[16], p[17], p[18], p[19],
-			p[20], p[21], p[22], p[23],
-			p[24], p[25], p[26], p[27],
-			p[28], p[29], p[30], p[31],
-			p[32], p[33], p[34], p[35],
-			p[36], p[37], p[38], p[39],
-			p[40], p[41], p[42], p[43],
-			p[44], p[45], p[46], p[47]);
-
+	__hexbytes(buf, p, 48);
 	return buf;
 }
 
@@ -780,23 +771,23 @@ static void dump_buf_ethernet(struct buf *buf)
 	char etype[30];
 	struct in_addr daddr, saddr;
 	struct in_addr sendaddr, targetaddr;
-	char *p;
+	uint8_t *p;
 	int ethertype = ntohs(buf->e.ether_type);
 
-	strcpy(dmac, __hexbytes(buf->e.ether_dhost, ETH_ALEN));
-	strcpy(smac, __hexbytes(buf->e.ether_dhost, ETH_ALEN));
+	__hexbytes(dmac, buf->e.ether_dhost, ETH_ALEN);
+	__hexbytes(smac, buf->e.ether_shost, ETH_ALEN);
 
 	switch (ethertype) {
 
 		case ETHERTYPE_ARP:
 
-			p = ((char *)&buf->a) + sizeof(struct arphdr);
+			p = ((uint8_t *)&buf->a) + sizeof(struct arphdr);
 
-			strcpy(sendmac, hexbytes(p, buf->a.ar_hln));
+			__hexbytes(sendmac, p, buf->a.ar_hln);
 			p += buf->a.ar_hln;
 			sendaddr.s_addr = *((unsigned *)p);
 			p += buf->a.ar_pln;
-			strcpy(targetmac, hexbytes(p, buf->a.ar_hln));
+			__hexbytes(targetmac, p, buf->a.ar_hln);
 			p += buf->a.ar_pln;
 			targetaddr.s_addr = *((unsigned *)p);
 
@@ -816,7 +807,7 @@ static void dump_buf_ethernet(struct buf *buf)
 			strcpy(sip, inet_ntoa(saddr));
 
 			syslog(LOG_NOTICE, "D=%s(%s) S=%s(%s) ether_type=%d ihl=%d version=%d tos=%d tot_len=%d ID=%x fragoff=%d ttl=%d protocol=%d check=%x payload:%s\n",
-				dmac, dip, smac, sip, buf->e.ether_type,
+				dmac, dip, smac, sip, ethertype,
 				buf->h.ihl, buf->h.version, buf->h.tos, buf->h.tot_len, buf->h.id, buf->h.frag_off, buf->h.ttl, buf->h.protocol, buf->h.check,
 				payload_dump(buf->ip_payload));
 			break;
@@ -828,7 +819,7 @@ static void dump_buf_ethernet(struct buf *buf)
 			else
 				snprintf(etype, sizeof(etype), "Ether_type=%x", ethertype);
  
-			syslog(LOG_NOTICE, " MAC=%s SMAC=%s %s:%s\n", dmac, smac, etype, payload_dump(buf->eth_payload));
+			syslog(LOG_NOTICE, "MAC=%s SMAC=%s %s:%s\n", dmac, smac, etype, payload_dump(buf->eth_payload));
 
 		break;
 	}
@@ -871,8 +862,8 @@ static int roce_v1(struct rdma_channel *c, struct buf *buf)
 {
 	char dmac[20], smac[20];
 
-	strcpy(dmac, __hexbytes(buf->e.ether_dhost, ETH_ALEN));
-	strcpy(smac, __hexbytes(buf->e.ether_dhost, ETH_ALEN));
+	__hexbytes(dmac, buf->e.ether_dhost, ETH_ALEN);
+	__hexbytes(smac, buf->e.ether_shost, ETH_ALEN);
 
 	syslog(LOG_NOTICE, "DMAC=%s SMAC=%s ROCEv1 BTH=%s Data=%s\n",
 		dmac, smac, bth_dump(&buf->bth),
