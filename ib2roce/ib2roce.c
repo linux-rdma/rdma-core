@@ -61,13 +61,18 @@
 #include <linux/rtnetlink.h>
 #include <net/ethernet.h>
 #include <linux/ip.h>
+#include <linux/udp.h>
 #include <linux/if_arp.h>
 
 #include "errno.c"
+#include "bth_hdr.h"
 
 #define VERSION "2022.0125"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
+
+#define ROCE_PORT 4791
+#define ETHERTYPE_ROCE 0x8915
 
 /* Globals */
 
@@ -79,6 +84,8 @@ static bool beacon = false;		/* Announce our presence (and possibly coordinate b
 static bool bridging = true;		/* Allow briding */
 static bool unicast = false;		/* Bridge unicast packets */
 static bool flow_steering = false;	/* Use flow steering to filter packets */
+static bool log_packets = false;	/* Show details on discarded packets */
+
 /*
  * Handling of special Multicast Group MGID encodings on Infiniband
  */
@@ -620,18 +627,31 @@ struct buf {
 			struct ibv_grh grh;	/* GRH header as included in UD connections */
 			uint8_t payload[DATA_SIZE - sizeof(struct ibv_grh)];
 		};
-		uint8_t data[DATA_SIZE];	/* No GRH */
 		struct { /* Ethernet frame defs */
 			struct ether_header e;
 			union {
 				struct {
 					struct iphdr h;
-					uint8_t ip_payload[1500];
+					union {
+						struct {
+							struct {
+								struct udphdr udp;
+								struct bth bth;
+							};
+							uint8_t udp_payload[1500 - sizeof(struct ether_header) - sizeof(struct iphdr) - sizeof(struct udphdr)];
+						};
+						uint8_t ip_payload[1500 - sizeof(struct ether_header) - sizeof(struct iphdr)];
+					};
 				};
 				struct arphdr a;
-				uint8_t eth_payload[1500];
+				struct {
+					struct ibv_grh roce_v1_grh;
+					struct bth roce_v1_bth;
+				};
+				uint8_t eth_payload[1500 - sizeof(struct ether_header)];
 			};
 		};
+		uint8_t raw[DATA_SIZE];		/* Raw Frame */
 	};
 	union {
 		struct {
@@ -728,6 +748,29 @@ static char *hexbytes(char *x, unsigned len)
 	return __hexbytes( (uint8_t *)x, len);
 }
 
+static char *payload_dump(uint8_t *p)
+{
+	static char buf[150];
+
+	snprintf(buf, sizeof(buf), "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+			p[0], p[1], p[2], p[3],
+		        p[4], p[5], p[6], p[7],
+			p[8], p[9], p[10], p[11],
+			p[12], p[13], p[14], p[15],
+			p[16], p[17], p[18], p[19],
+			p[20], p[21], p[22], p[23],
+			p[24], p[25], p[26], p[27],
+			p[28], p[29], p[30], p[31],
+			p[32], p[33], p[34], p[35],
+			p[36], p[37], p[38], p[39],
+			p[40], p[41], p[42], p[43],
+			p[44], p[45], p[46], p[47]);
+
+	return buf;
+}
+
 static void dump_buf_ethernet(struct buf *buf)
 {
 	char dmac[20], smac[20];
@@ -772,52 +815,21 @@ static void dump_buf_ethernet(struct buf *buf)
 			strcpy(dip, inet_ntoa(daddr));
 			strcpy(sip, inet_ntoa(saddr));
 
-			syslog(LOG_NOTICE, "D=%s(%s) S=%s(%s) ether_type=%d ihl=%d version=%d tos=%d tot_len=%d ID=%x fragoff=%d ttl=%d protocol=%d check=%x payload:"
-		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
-		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
-		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-		dmac, dip, smac, sip, buf->e.ether_type,
-		buf->h.ihl, buf->h.version, buf->h.tos, buf->h.tot_len, buf->h.id, buf->h.frag_off, buf->h.ttl, buf->h.protocol, buf->h.check,
-		buf->ip_payload[0], buf->ip_payload[1], buf->ip_payload[2], buf->ip_payload[3],
-	        buf->ip_payload[4], buf->ip_payload[5], buf->ip_payload[6], buf->ip_payload[7],
-		buf->ip_payload[8], buf->ip_payload[9], buf->ip_payload[10], buf->ip_payload[11],
-		buf->ip_payload[12], buf->ip_payload[13], buf->ip_payload[14], buf->ip_payload[15],
-		buf->ip_payload[16], buf->ip_payload[17], buf->ip_payload[18], buf->ip_payload[19],
-		buf->ip_payload[20], buf->ip_payload[21], buf->ip_payload[22], buf->ip_payload[23],
-		buf->ip_payload[24], buf->ip_payload[25], buf->ip_payload[26], buf->ip_payload[27],
-		buf->ip_payload[28], buf->ip_payload[29], buf->ip_payload[30], buf->ip_payload[31],
-		buf->ip_payload[32], buf->ip_payload[33], buf->ip_payload[34], buf->ip_payload[35],
-		buf->ip_payload[36], buf->ip_payload[37], buf->ip_payload[38], buf->ip_payload[39],
-		buf->ip_payload[40], buf->ip_payload[41], buf->ip_payload[42], buf->ip_payload[43],
-		buf->ip_payload[44], buf->ip_payload[45], buf->ip_payload[46], buf->ip_payload[47]);
+			syslog(LOG_NOTICE, "D=%s(%s) S=%s(%s) ether_type=%d ihl=%d version=%d tos=%d tot_len=%d ID=%x fragoff=%d ttl=%d protocol=%d check=%x payload:%s\n",
+				dmac, dip, smac, sip, buf->e.ether_type,
+				buf->h.ihl, buf->h.version, buf->h.tos, buf->h.tot_len, buf->h.id, buf->h.frag_off, buf->h.ttl, buf->h.protocol, buf->h.check,
+				payload_dump(buf->ip_payload));
 			break;
-
 
 		default:
 
-			if (ethertype <= 1500) {
+			if (ethertype <= 1500)
 				snprintf(etype, sizeof(etype), "IEEE801.3 len=%d", ethertype);
-			} else {
+			else
 				snprintf(etype, sizeof(etype), "Ether_type=%x", ethertype);
-			}
+ 
+			syslog(LOG_NOTICE, " MAC=%s SMAC=%s %s:%s\n", dmac, smac, etype, payload_dump(buf->eth_payload));
 
-		syslog(LOG_NOTICE, " DMAC=%s SMAC=%s %s Packet="
-			"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
-			"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
-			"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-			dmac, smac, etype,
-			buf->eth_payload[0], buf->eth_payload[1], buf->eth_payload[2], buf->eth_payload[3],
-		        buf->eth_payload[4], buf->eth_payload[5], buf->eth_payload[6], buf->eth_payload[7],
-			buf->eth_payload[8], buf->eth_payload[9], buf->eth_payload[10], buf->eth_payload[11],
-			buf->eth_payload[12], buf->eth_payload[13], buf->eth_payload[14], buf->eth_payload[15],
-			buf->eth_payload[16], buf->eth_payload[17], buf->eth_payload[18], buf->eth_payload[19],
-			buf->eth_payload[20], buf->eth_payload[21], buf->eth_payload[22], buf->eth_payload[23],
-			buf->eth_payload[24], buf->eth_payload[25], buf->eth_payload[26], buf->eth_payload[27],
-			buf->eth_payload[28], buf->eth_payload[29], buf->eth_payload[30], buf->eth_payload[31],
-			buf->eth_payload[32], buf->eth_payload[33], buf->eth_payload[34], buf->eth_payload[35],
-			buf->eth_payload[36], buf->eth_payload[37], buf->eth_payload[38], buf->eth_payload[39],
-			buf->eth_payload[40], buf->eth_payload[41], buf->eth_payload[42], buf->eth_payload[43],
-			buf->eth_payload[44], buf->eth_payload[45], buf->eth_payload[46], buf->eth_payload[47]);
 		break;
 	}
 }
@@ -828,25 +840,59 @@ static void dump_buf_grh(struct buf *buf)
 	char xbuf[INET6_ADDRSTRLEN];
 	char xbuf2[INET6_ADDRSTRLEN];
 
-	syslog(LOG_NOTICE, "Unicast GRH flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s Packet="
-		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
-		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
-		"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+	syslog(LOG_NOTICE, "Unicast GRH flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s Packet=%s\n",
 			ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
 			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
 			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
-			buf->payload[0], buf->payload[1], buf->payload[2], buf->payload[3],
-		        buf->payload[4], buf->payload[5], buf->payload[6], buf->payload[7],
-			buf->payload[8], buf->payload[9], buf->payload[10], buf->payload[11],
-			buf->payload[12], buf->payload[13], buf->payload[14], buf->payload[15],
-			buf->payload[16], buf->payload[17], buf->payload[18], buf->payload[19],
-			buf->payload[20], buf->payload[21], buf->payload[22], buf->payload[23],
-			buf->payload[24], buf->payload[25], buf->payload[26], buf->payload[27],
-			buf->payload[28], buf->payload[29], buf->payload[30], buf->payload[31],
-			buf->payload[32], buf->payload[33], buf->payload[34], buf->payload[35],
-			buf->payload[36], buf->payload[37], buf->payload[38], buf->payload[39],
-			buf->payload[40], buf->payload[41], buf->payload[42], buf->payload[43],
-			buf->payload[44], buf->payload[45], buf->payload[46], buf->payload[47]);
+			payload_dump(buf->payload));
+}
+
+static char *bth_dump(struct bth *b)
+{
+	static char buf[150];
+
+	snprintf(buf, sizeof(buf), "Opcode=%x Flags=%x Pkey=%x QPN=%d APSN=%x",
+			b->opcode, b->flags, b->pkey, b->qpn, b->apsn);
+
+	return buf;
+}
+
+static char *udp_dump(struct udphdr *u)
+{
+	static char buf[150];
+
+	snprintf(buf, sizeof(buf), "SPORT=%d DPORT=%d LEN=%d Check=%x",
+			ntohs(u->source), ntohs(u->dest), ntohs(u->len), ntohs(u->check));
+
+	return buf;
+}
+
+static int roce_v1(struct rdma_channel *c, struct buf *buf)
+{
+	char dmac[20], smac[20];
+
+	strcpy(dmac, __hexbytes(buf->e.ether_dhost, ETH_ALEN));
+	strcpy(smac, __hexbytes(buf->e.ether_dhost, ETH_ALEN));
+
+	syslog(LOG_NOTICE, "DMAC=%s SMAC=%s ROCEv1 BTH=%s Data=%s\n",
+		dmac, smac, bth_dump(&buf->bth),
+		payload_dump(((uint8_t *)&buf->bth) + sizeof(struct bth)));
+
+	return 1;
+}
+
+static int roce_v2(struct rdma_channel *c, struct buf *buf)
+{
+	char xbuf[INET6_ADDRSTRLEN];
+	char xbuf2[INET6_ADDRSTRLEN];
+
+	syslog(LOG_NOTICE, "ROCEv2 flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s UDP=%s BTH=%s Data=%s\n",
+			ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
+			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
+			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
+			udp_dump( &buf->udp), bth_dump(&buf->bth), 
+			payload_dump(((char *)&buf->bth) + sizeof(struct bth)));
+	return 1;
 }
 
 /*
@@ -881,7 +927,7 @@ static int post_receive(struct rdma_channel *c, int limit)
 
 		/* Use the buffer address for the completion handler */
 		recv_wr.wr_id = (uint64_t)buf;
-		sge.addr = (uint64_t)buf->data;
+		sge.addr = (uint64_t)buf->raw;
 		ret = ibv_post_recv(c->qp, &recv_wr, &recv_failure);
 		if (ret) {
 			free_buffer(buf);
@@ -1464,8 +1510,6 @@ static int send_buf(struct rdma_channel *c, struct buf *buf, unsigned len, struc
 	return ret;
 }
 
-#define ROCE_PORT 4791
-
 #if 0
 static int sysfs_read_int(const char *s)
 {
@@ -1877,31 +1921,50 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 	dest_addr.s_addr = dgid->sib_addr32[3];
 
 	if (!(w->wc_flags & IBV_WC_GRH)) {
-		syslog(LOG_WARNING, "Discard Packet from %s: No GRH provided. Status=%d Opcode=%d Len=%d QP=%d SRC_QP=%d Flags=%x PKEY_INDEX=%d SLID=%d\n",
-			c->text, w->status, w->opcode, w->byte_len, w->qp_num, w->src_qp, w->wc_flags, w->pkey_index, w->slid);
-		dump_buf_ethernet(buf);
+		unsigned ethertype = ntohs(buf->e.ether_type);
+	
+		/* Path usually taken by the RAW Ethernet QP */
+		if (ethertype == ETHERTYPE_ROCE)
+
+	       		return roce_v1(c, buf);
+
+		else if (ethertype == ETHERTYPE_IP && buf->h.protocol == IPPROTO_UDP && ntohs(buf->udp.dest) == ROCE_PORT)
+
+			return roce_v2(c, buf);
+
+		if (log_packets) {
+			syslog(LOG_WARNING, "Discard Packet from %s: No GRH provided. Status=%d Opcode=%d Len=%d QP=%d SRC_QP=%d Flags=%x PKEY_INDEX=%d SLID=%d\n",
+				c->text, w->status, w->opcode, w->byte_len, w->qp_num, w->src_qp, w->wc_flags, w->pkey_index, w->slid);
+
+			dump_buf_ethernet(buf);
+		}
 		st(c, packets_invalid);
 		return -EINVAL;
 	}
 
 	if (unicast && buf->grh.dgid.raw[0] != 0xff)
+		/* Potential Path for Infiniband Unicast packets */
 		return unicast_packet(c, buf, source_addr, dest_addr);
 
 	m = hash_lookup_mc(dest_addr);
 
 	if (!m) {
-		syslog(LOG_WARNING, "Discard Packet: Multicast group %s not found\n",
-			inet_ntoa(dest_addr));
-		dump_buf_grh(buf);
+		if (log_packets) {
+			syslog(LOG_WARNING, "Discard Packet: Multicast group %s not found\n",
+				inet_ntoa(dest_addr));
+			dump_buf_grh(buf);
+		}
 		st(c, packets_invalid);
 		return -ENODATA;
 	}
 
 	if (m->sendonly[in]) {
 
-		syslog(LOG_WARNING, "Discard Packet: Received data from Sendonly MC group %s from %s\n",
-			m->text, c->text);
-		dump_buf_grh(buf);
+		if (log_packets) {
+			syslog(LOG_WARNING, "Discard Packet: Received data from Sendonly MC group %s from %s\n",
+				m->text, c->text);
+			dump_buf_grh(buf);
+		}
 		st(c, packets_invalid);
 		return -EPERM;
 	}
@@ -1911,16 +1974,21 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 		unsigned short signature = ntohs(*(unsigned short*)(mgid + 2));
 
 		if (mgid[0] != 0xff) {
-			syslog(LOG_WARNING, "Discard Packet: Not multicast. MGID=%s/%s\n",
-				inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN), c->text);
-			dump_buf_grh(buf);
+			if (log_packets) {
+				syslog(LOG_WARNING, "Discard Packet: Not multicast. MGID=%s/%s\n",
+					inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN), c->text);
+				dump_buf_grh(buf);
+			}
 			st(c, packets_invalid);
 			return -EINVAL;
 		}
 
 		if (memcmp(&buf->grh.sgid, &c->i->gid, sizeof(union ibv_gid)) == 0) {
-			syslog(LOG_WARNING, "Discard Packet: Loopback from this host. MGID=%s/%s\n",
-				inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN), c->text);
+
+			if (log_packets)
+				syslog(LOG_WARNING, "Discard Packet: Loopback from this host. MGID=%s/%s\n",
+					inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN), c->text);
+
 			st(c, packets_invalid);
 			return -EINVAL;
 		}
@@ -1930,10 +1998,12 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 				if (m->mgid_mode->port)
 					port = ntohs(*((unsigned short *)(mgid + 10)));
 			} else {
-				syslog(LOG_WARNING, "Discard Packet: MGID multicast signature(%x)  mismatch. MGID=%s\n",
-						signature,
-						inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN));
-				dump_buf_grh(buf);
+				if (log_packets) {
+					syslog(LOG_WARNING, "Discard Packet: MGID multicast signature(%x)  mismatch. MGID=%s\n",
+							signature,
+							inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN));
+					dump_buf_grh(buf);
+				}
 				st(c, packets_invalid);
 				return -EINVAL;
 			}
@@ -1943,8 +2013,9 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 		struct in_addr local_addr = c->bindaddr.sin_addr;
 
 		if (source_addr.s_addr == local_addr.s_addr) {
-			syslog(LOG_WARNING, "Discard Packet: Loopback from this host. %s/%s\n",
-				inet_ntoa(source_addr), c->text);
+			if (log_packets)
+				syslog(LOG_WARNING, "Discard Packet: Loopback from this host. %s/%s\n",
+					inet_ntoa(source_addr), c->text);
 			st(c, packets_invalid);
 			return -EINVAL;
 		}
@@ -2420,6 +2491,7 @@ struct option opts[] = {
 	{ "nobridge", no_argument, NULL, 'n' },
 	{ "port", required_argument, NULL, 'p' },
 	{ "flow", no_argument, NULL, 'f' },
+	{ "log-packets", no_argument, NULL, 'v' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -2428,7 +2500,7 @@ int main(int argc, char **argv)
 	int op, ret = 0;
 	int n;
 
-	while ((op = getopt_long(argc, argv, "funbxl::i:r:m:o:d:p:",
+	while ((op = getopt_long(argc, argv, "vfunbxl::i:r:m:o:d:p:",
 					opts, NULL)) != -1) {
                 switch (op) {
 		case 'd':
@@ -2495,7 +2567,7 @@ int main(int argc, char **argv)
 			break;
 
 		default:
-			printf("%s " VERSION " Jan19,2021 (C) 2022 Christoph Lameter <cl@linux.com>\n", argv[0]);
+			printf("%s " VERSION " Jan31,2021 (C) 2022 Christoph Lameter <cl@linux.com>\n", argv[0]);
 			printf("Usage: ib2roce [<option>] ...\n");
                         printf("-d|--device <if[:portnumber]>		Infiniband interface\n");
                         printf("-r|--roce <if[:portnumber]>		ROCE interface\n");
@@ -2510,6 +2582,7 @@ int main(int argc, char **argv)
 			printf("-n|--nobridge				Do everything but do not bridge packets\n");
 			printf("-u|--unicast		*experimental*	Unicast forwarding support\n");
 			printf("-f|--flow		*experimental*	Enable flow steering to do hardware filtering of packets\n");
+			printf("-v|--log-packets			Show detailed information about discarded packets\n");
 			exit(1);
 		}
 	}
