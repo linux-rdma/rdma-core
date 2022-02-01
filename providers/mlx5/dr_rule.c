@@ -1162,7 +1162,8 @@ static bool dr_rule_verify(struct mlx5dv_dr_matcher *matcher,
 		return false;
 	}
 
-	dr_ste_copy_param(matcher->match_criteria, param, value);
+	dr_ste_copy_param(matcher->match_criteria, param, value->match_buf,
+			  value->match_sz, false);
 
 	if (match_criteria & DR_MATCHER_CRITERIA_OUTER) {
 		s_idx = offsetof(struct dr_match_param, outer);

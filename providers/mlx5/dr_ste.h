@@ -61,6 +61,13 @@ enum {
 	HDR_MPLS_OFFSET_TTL	= 0,
 };
 
+#define DR_DEVX_GET_CLEAR(typ, p, fld, clear) ({ \
+	uint32_t ___t = DEVX_GET(typ, p, fld); \
+	if (clear) \
+		DEVX_SET(typ, p, fld, 0); \
+	___t; \
+})
+
 /* Read from layout struct */
 #define DR_STE_GET(typ, p, fld) DEVX_GET(ste_##typ, p, fld)
 
@@ -166,6 +173,7 @@ struct dr_ste_ctx {
 	dr_ste_builder_void_init build_tnl_vxlan_gpe_init;
 	dr_ste_builder_void_init build_tnl_geneve_init;
 	dr_ste_builder_void_init build_tnl_geneve_tlv_opt_init;
+	dr_ste_builder_void_init build_tnl_geneve_tlv_opt_exist_init;
 	dr_ste_builder_void_init build_tnl_gtpu_init;
 	dr_ste_builder_void_init build_tnl_gtpu_flex_parser_0;
 	dr_ste_builder_void_init build_tnl_gtpu_flex_parser_1;

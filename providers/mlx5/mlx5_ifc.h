@@ -438,7 +438,9 @@ struct mlx5_ifc_flow_table_fields_supported_bits {
 	u8         metadata_reg_b[0x1];
 	u8         metadata_reg_a[0x1];
 
-	u8         reserved_at_40[0x5];
+	u8         geneve_tlv_option_0_data[0x1];
+	u8         geneve_tlv_option_0_exist[0x1];
+	u8         reserved_at_42[0x3];
 	u8         outer_first_mpls_over_udp_ttl[0x1];
 	u8         outer_first_mpls_over_udp_s_bos[0x1];
 	u8         outer_first_mpls_over_udp_exp[0x1];
@@ -556,7 +558,8 @@ struct mlx5_ifc_dr_match_set_misc_bits {
 	u8         reserved_at_b8[0x8];
 
 	u8         geneve_vni[0x18];
-	u8         reserved_at_e4[0x7];
+	u8         reserved_at_e4[0x6];
+	u8         geneve_tlv_option_0_exist[0x1];
 	u8         geneve_oam[0x1];
 
 	u8         reserved_at_ec[0xc];
@@ -610,9 +613,8 @@ struct mlx5_ifc_dr_match_set_misc2_bits {
 	u8         metadata_reg_c_0[0x20];
 
 	u8         metadata_reg_a[0x20];
-	u8         metadata_reg_b[0x20];
 
-	u8         reserved_at_260[0x40];
+	u8         reserved_at_1a0[0x60];
 };
 
 struct mlx5_ifc_dr_match_set_misc3_bits {
@@ -2520,6 +2522,17 @@ struct mlx5_ifc_ste_flex_parser_1_bits {
 	u8         flex_parser_5[0x20];
 
 	u8         flex_parser_4[0x20];
+};
+
+struct mlx5_ifc_ste_flex_parser_ok_bits {
+	u8         flex_parser_3[0x20];
+
+	u8         flex_parser_2[0x20];
+
+	u8         flex_parsers_ok[0x8];
+	u8         reserved_at_48[0x18];
+
+	u8         flex_parser_0[0x20];
 };
 
 struct mlx5_ifc_ste_tunnel_header_bits {

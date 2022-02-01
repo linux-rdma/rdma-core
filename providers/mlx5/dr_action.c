@@ -770,15 +770,9 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				goto out_invalid_arg;
 			}
 			attr.hit_gvmi = action->vport.caps->vhca_gvmi;
-			if (rx_rule) {
-				/* Loopback on WIRE vport is not supported */
-				if (action->vport.caps->num == WIRE_PORT)
-					goto out_invalid_arg;
-
-				attr.final_icm_addr = action->vport.caps->icm_address_rx;
-			} else {
-				attr.final_icm_addr = action->vport.caps->icm_address_tx;
-			}
+			attr.final_icm_addr = rx_rule ?
+				action->vport.caps->icm_address_rx :
+				action->vport.caps->icm_address_tx;
 			break;
 		case DR_ACTION_TYP_DEST_ARRAY:
 			if (action->dest_array.dmn != dmn) {
@@ -798,7 +792,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			}
 
 			max_actions_type = MAX_VLANS;
-			attr.vlans.count++;
+			attr.vlans.count_pop++;
 			break;
 		case DR_ACTION_TYP_PUSH_VLAN:
 			if (rx_rule && !(dmn->ste_ctx->actions_caps &
@@ -808,12 +802,12 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			}
 
 			max_actions_type = MAX_VLANS;
-			if (attr.vlans.count == MAX_VLANS) {
+			if (attr.vlans.count_push == MAX_VLANS) {
 				errno = ENOTSUP;
 				return ENOTSUP;
 			}
 
-			attr.vlans.headers[attr.vlans.count++] = action->push_vlan.vlan_hdr;
+			attr.vlans.headers[attr.vlans.count_push++] = action->push_vlan.vlan_hdr;
 			break;
 		default:
 			goto out_invalid_arg;

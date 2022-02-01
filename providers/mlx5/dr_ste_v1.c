@@ -78,6 +78,7 @@ enum dr_ste_v1_lu_type {
 	DR_STE_V1_LU_TYPE_ETHL3_IPV4_MISC_I		= 0x000f,
 	DR_STE_V1_LU_TYPE_STEERING_REGISTERS_0		= 0x010f,
 	DR_STE_V1_LU_TYPE_STEERING_REGISTERS_1		= 0x0110,
+	DR_STE_V1_LU_TYPE_FLEX_PARSER_OK		= 0x0011,
 	DR_STE_V1_LU_TYPE_FLEX_PARSER_0			= 0x0111,
 	DR_STE_V1_LU_TYPE_FLEX_PARSER_1			= 0x0112,
 	DR_STE_V1_LU_TYPE_ETHL4_MISC_O			= 0x0113,
@@ -709,7 +710,7 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 			action_sz = DR_STE_ACTION_TRIPLE_SZ;
 			ste_loc++;
 		}
-		dr_ste_v1_set_pop_vlan(last_ste, action, attr->vlans.count);
+		dr_ste_v1_set_pop_vlan(last_ste, action, attr->vlans.count_pop);
 		action_sz -= DR_STE_ACTION_SINGLE_SZ;
 		action += DR_STE_ACTION_SINGLE_SZ;
 		allow_modify_hdr = false;
@@ -761,7 +762,7 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 	if (action_type_set[DR_ACTION_TYP_PUSH_VLAN]) {
 		int i;
 
-		for (i = 0; i < attr->vlans.count; i++) {
+		for (i = 0; i < attr->vlans.count_push; i++) {
 			if (action_sz < DR_STE_ACTION_DOUBLE_SZ || !allow_encap) {
 				dr_ste_v1_arr_init_next_match(&last_ste, added_stes, attr->gvmi);
 				action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste, action);
@@ -888,7 +889,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 			ste_loc++;
 		}
 
-		dr_ste_v1_set_pop_vlan(last_ste, action, attr->vlans.count);
+		dr_ste_v1_set_pop_vlan(last_ste, action, attr->vlans.count_pop);
 		action_sz -= DR_STE_ACTION_SINGLE_SZ;
 		action += DR_STE_ACTION_SINGLE_SZ;
 	}
@@ -934,7 +935,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 	if (action_type_set[DR_ACTION_TYP_PUSH_VLAN]) {
 		int i;
 
-		for (i = 0; i < attr->vlans.count; i++) {
+		for (i = 0; i < attr->vlans.count_push; i++) {
 			if (action_sz < DR_STE_ACTION_DOUBLE_SZ ||
 			    !allow_modify_hdr) {
 				dr_ste_v1_arr_init_next_match(&last_ste,
@@ -1992,6 +1993,33 @@ dr_ste_v1_build_flex_parser_tnl_geneve_tlv_opt_init(struct dr_ste_build *sb,
 
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
 	sb->ste_build_tag_func = &dr_ste_v1_build_flex_parser_tnl_geneve_tlv_opt_tag;
+}
+
+static int
+dr_ste_v1_build_flex_parser_tnl_geneve_tlv_opt_exist_tag(struct dr_match_param *value,
+							 struct dr_ste_build *sb,
+							 uint8_t *tag)
+{
+	uint8_t parser_id = sb->caps->flex_parser_id_geneve_opt_0;
+	struct dr_match_misc *misc = &value->misc;
+
+	if (misc->geneve_tlv_option_0_exist) {
+		DR_STE_SET(flex_parser_ok, tag, flex_parsers_ok,
+			   1 << parser_id);
+		misc->geneve_tlv_option_0_exist = 0;
+	}
+
+	return 0;
+}
+
+static void
+dr_ste_v1_build_flex_parser_tnl_geneve_tlv_opt_exist_init(struct dr_ste_build *sb,
+							  struct dr_match_param *mask)
+{
+	sb->lu_type = DR_STE_V1_LU_TYPE_FLEX_PARSER_OK;
+	dr_ste_v1_build_flex_parser_tnl_geneve_tlv_opt_exist_tag(mask, sb, sb->bit_mask);
+	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
+	sb->ste_build_tag_func = &dr_ste_v1_build_flex_parser_tnl_geneve_tlv_opt_exist_tag;
 }
 
 static int dr_ste_v1_build_flex_parser_tnl_gtpu_tag(struct dr_match_param *value,
@@ -3422,6 +3450,7 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	.build_tnl_vxlan_gpe_init	= &dr_ste_v1_build_flex_parser_tnl_vxlan_gpe_init,
 	.build_tnl_geneve_init		= &dr_ste_v1_build_flex_parser_tnl_geneve_init,
 	.build_tnl_geneve_tlv_opt_init	= &dr_ste_v1_build_flex_parser_tnl_geneve_tlv_opt_init,
+	.build_tnl_geneve_tlv_opt_exist_init = &dr_ste_v1_build_flex_parser_tnl_geneve_tlv_opt_exist_init,
 	.build_tnl_gtpu_init		= &dr_ste_v1_build_flex_parser_tnl_gtpu_init,
 	.build_tnl_gtpu_flex_parser_0	= &dr_ste_v1_build_tnl_gtpu_flex_parser_0_init,
 	.build_tnl_gtpu_flex_parser_1	= &dr_ste_v1_build_tnl_gtpu_flex_parser_1_init,
