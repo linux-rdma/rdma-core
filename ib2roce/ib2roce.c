@@ -622,46 +622,35 @@ static bool huge = false;
  * at page boundaries
  */
 struct buf {
-	union {
-		struct { /* The case of a valid GRH header */
-			struct ibv_grh grh;	/* GRH header as included in UD connections */
-			uint8_t payload[DATA_SIZE - sizeof(struct ibv_grh)];
-		};
-		struct { /* Ethernet frame defs */
-			struct ether_header e;
-			union {
-				struct {
-					struct iphdr h;
-					union {
-						struct {
-							struct {
-								struct udphdr udp;
-								struct bth bth;
-							};
-							uint8_t udp_payload[1500 - sizeof(struct ether_header) - sizeof(struct iphdr) - sizeof(struct udphdr)];
-						};
-						uint8_t ip_payload[1500 - sizeof(struct ether_header) - sizeof(struct iphdr)];
-					};
-				};
-				struct arphdr a;
-				struct {
-					struct ibv_grh roce_v1_grh;
-					struct bth roce_v1_bth;
-				};
-				uint8_t eth_payload[1500 - sizeof(struct ether_header)];
-			};
-		};
-		uint8_t raw[DATA_SIZE];		/* Raw Frame */
-	};
+	uint8_t raw[DATA_SIZE];		/* Raw Frame */
 	union {
 		struct {
 			struct buf *next;	/* Next buffer */
 			bool free;
-			/* Add more metadata here */
+
+			void *cur;		/* Current position in the packets */
+			void *end;		/* Pointer to the last byte in the packet + 1 */
+
+			unsigned ethertype;
+
+			/* Structs pulled out of the frame */
+			struct ether_header e;
+			struct ibv_grh grh;
+			struct iphdr ip;
+			struct udphdr udp;
+			struct bth bth;
 		};
 		uint8_t meta[META_SIZE];
 	};
 };
+
+static void pull(struct buf *buf, void *dest, unsigned length)
+{
+	memcpy(dest, buf->cur, length);
+	buf->cur += length;
+}
+
+#define PULL(__BUF, __VAR) pull(__BUF, &(__VAR), sizeof(__VAR))
 
 static void beacon_received(struct buf *buf);
 
@@ -771,55 +760,57 @@ static void dump_buf_ethernet(struct buf *buf)
 	char etype[30];
 	struct in_addr daddr, saddr;
 	struct in_addr sendaddr, targetaddr;
-	uint8_t *p;
-	int ethertype = ntohs(buf->e.ether_type);
+	struct arphdr arp;
 
 	__hexbytes(dmac, buf->e.ether_dhost, ETH_ALEN);
 	__hexbytes(smac, buf->e.ether_shost, ETH_ALEN);
 
-	switch (ethertype) {
+	switch (buf->ethertype) {
 
 		case ETHERTYPE_ARP:
 
-			p = ((uint8_t *)&buf->a) + sizeof(struct arphdr);
+			PULL(buf, arp);
 
-			__hexbytes(sendmac, p, buf->a.ar_hln);
-			p += buf->a.ar_hln;
-			sendaddr.s_addr = *((unsigned *)p);
-			p += buf->a.ar_pln;
-			__hexbytes(targetmac, p, buf->a.ar_hln);
-			p += buf->a.ar_pln;
-			targetaddr.s_addr = *((unsigned *)p);
+			__hexbytes(sendmac, buf->cur, arp.ar_hln);
+			buf->cur += arp.ar_hln;
+
+			PULL(buf, sendaddr.s_addr);
+			__hexbytes(targetmac, buf->cur, arp.ar_hln);
+
+			buf->cur += arp.ar_pln;
+			PULL(buf, targetaddr.s_addr);
 
 			strcpy(sendip, inet_ntoa(sendaddr));
 			strcpy(targetip, inet_ntoa(targetaddr));
 
 			syslog(LOG_NOTICE, "D=%s S=%s ARP HRD=%d PRO=%d HLN=%d PLN=%d Opcode=%x SenderHW=%s SenderIP=%s TargetHW=%s TargetIP=%s\n",
-				dmac, smac, buf->a.ar_hrd, buf->a.ar_pro, buf->a.ar_hln, buf->a.ar_pln, buf->a.ar_op,
+				dmac, smac, arp.ar_hrd, arp.ar_pro, arp.ar_hln, arp.ar_pln, arp.ar_op,
 				sendmac, sendip, targetmac, targetip);
 
 			break;
 
 		case ETHERTYPE_IP:
-			daddr.s_addr = buf->h.daddr;
-			saddr.s_addr = buf->h.saddr;
+
+			PULL(buf, buf->ip);
+			daddr.s_addr = buf->ip.daddr;
+			saddr.s_addr = buf->ip.saddr;
 			strcpy(dip, inet_ntoa(daddr));
 			strcpy(sip, inet_ntoa(saddr));
 
 			syslog(LOG_NOTICE, "D=%s(%s) S=%s(%s) ether_type=%d ihl=%d version=%d tos=%d tot_len=%d ID=%x fragoff=%d ttl=%d protocol=%d check=%x payload:%s\n",
-				dmac, dip, smac, sip, ethertype,
-				buf->h.ihl, buf->h.version, buf->h.tos, buf->h.tot_len, buf->h.id, buf->h.frag_off, buf->h.ttl, buf->h.protocol, buf->h.check,
-				payload_dump(buf->ip_payload));
+				dmac, dip, smac, sip, buf->ethertype,
+				buf->ip.ihl, buf->ip.version, buf->ip.tos, buf->ip.tot_len, buf->ip.id, buf->ip.frag_off, buf->ip.ttl, buf->ip.protocol, buf->ip.check,
+				payload_dump(buf->cur));
 			break;
 
 		default:
 
-			if (ethertype <= 1500)
-				snprintf(etype, sizeof(etype), "IEEE801.3 len=%d", ethertype);
+			if (buf->ethertype <= 1500)
+				snprintf(etype, sizeof(etype), "IEEE801.3 len=%d", buf->ethertype);
 			else
-				snprintf(etype, sizeof(etype), "Ether_type=%x", ethertype);
+				snprintf(etype, sizeof(etype), "Ether_type=%x", buf->ethertype);
  
-			syslog(LOG_NOTICE, "MAC=%s SMAC=%s %s:%s\n", dmac, smac, etype, payload_dump(buf->eth_payload));
+			syslog(LOG_NOTICE, "MAC=%s SMAC=%s %s:%s\n", dmac, smac, etype, payload_dump(buf->cur));
 
 		break;
 	}
@@ -835,7 +826,7 @@ static void dump_buf_grh(struct buf *buf)
 			ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
 			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
 			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
-			payload_dump(buf->payload));
+			payload_dump(buf->cur));
 }
 
 static char *bth_dump(struct bth *b)
@@ -862,12 +853,14 @@ static int roce_v1(struct rdma_channel *c, struct buf *buf)
 {
 	char dmac[20], smac[20];
 
+	PULL(buf, buf->bth);
+
 	__hexbytes(dmac, buf->e.ether_dhost, ETH_ALEN);
 	__hexbytes(smac, buf->e.ether_shost, ETH_ALEN);
 
 	syslog(LOG_NOTICE, "DMAC=%s SMAC=%s ROCEv1 BTH=%s Data=%s\n",
 		dmac, smac, bth_dump(&buf->bth),
-		payload_dump(((uint8_t *)&buf->bth) + sizeof(struct bth)));
+		payload_dump(buf->cur));
 
 	return 1;
 }
@@ -877,12 +870,14 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 	char xbuf[INET6_ADDRSTRLEN];
 	char xbuf2[INET6_ADDRSTRLEN];
 
+	PULL(buf, buf->bth);
+
 	syslog(LOG_NOTICE, "ROCEv2 flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s UDP=%s BTH=%s Data=%s\n",
 			ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
 			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
 			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
 			udp_dump( &buf->udp), bth_dump(&buf->bth), 
-			payload_dump(((uint8_t *)&buf->bth) + sizeof(struct bth)));
+			payload_dump(buf->cur));
 	return 1;
 }
 
@@ -1490,7 +1485,7 @@ static int send_buf(struct rdma_channel *c, struct buf *buf, unsigned len, struc
 
 	sge.length = len;
 	sge.lkey = c->mr->lkey;
-	sge.addr = (uint64_t)buf->payload;
+	sge.addr = (uint64_t)buf->raw;
 
 	ret = ibv_post_send(c->qp, &wr, &bad_send_wr);
 	if (ret) {
@@ -1914,16 +1909,30 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 	dest_addr.s_addr = dgid->sib_addr32[3];
 
 	if (!(w->wc_flags & IBV_WC_GRH)) {
-		unsigned ethertype = ntohs(buf->e.ether_type);
-	
+
+		pull(buf, &buf->e, sizeof(struct ether_header));
+		buf->ethertype = ntohs(buf->e.ether_type);
+
 		/* Path usually taken by the RAW Ethernet QP */
-		if (ethertype == ETHERTYPE_ROCE)
+		if (buf->ethertype == ETHERTYPE_ROCE)
 
 	       		return roce_v1(c, buf);
 
-		else if (ethertype == ETHERTYPE_IP && buf->h.protocol == IPPROTO_UDP && ntohs(buf->udp.dest) == ROCE_PORT)
+		else if (buf->ethertype == ETHERTYPE_IP) {
+		       
+			pull(buf, &buf->ip, sizeof(struct iphdr));
+		
+			if (buf->ip.protocol == IPPROTO_UDP) {
 
-			return roce_v2(c, buf);
+				pull(buf, &buf->udp, sizeof(struct udphdr));
+
+				if (ntohs(buf->udp.dest) == ROCE_PORT)
+
+					return roce_v2(c, buf);
+			}
+		}
+
+		buf->cur = buf->raw;
 
 		if (log_packets) {
 			syslog(LOG_WARNING, "Discard Packet from %s: No GRH provided. Status=%d Opcode=%d Len=%d QP=%d SRC_QP=%d Flags=%x PKEY_INDEX=%d SLID=%d\n",
@@ -1934,6 +1943,8 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 		st(c, packets_invalid);
 		return -EINVAL;
 	}
+
+	pull(buf, &buf->grh, sizeof(struct ibv_grh));
 
 	if (unicast && buf->grh.dgid.raw[0] != 0xff)
 		/* Potential Path for Infiniband Unicast packets */
@@ -2071,6 +2082,9 @@ redo:
 
 			c->active_receive_buffers--;
 			st(c, packets_received);
+
+			buf->cur = buf->raw;
+			buf->end = buf->raw + w->byte_len;
 
 			if (recv_buf(c, buf, w))
 				free_buffer(buf);
@@ -2230,7 +2244,7 @@ static void beacon_send(void)
 	if (i2r[i].context && beacon_mc->status[i] == MC_JOINED) {
 		if (sizeof(b) > MAX_INLINE_DATA) {
 			buf = alloc_buffer();
-			memcpy(buf->payload, &b, sizeof(b));
+			memcpy(buf->raw, &b, sizeof(b));
 			send_buf(i2r[i].multicast, buf, sizeof(b), beacon_mc->ai + i, 999);
 		} else
 			send_inline(i2r[i].multicast, &b, sizeof(b), beacon_mc->ai + i, 999);
