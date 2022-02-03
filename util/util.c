@@ -1,5 +1,6 @@
 /* GPLv2 or OpenIB.org BSD (MIT) See COPYING file */
 #include <stdlib.h>
+#include <string.h>
 #include <sys/random.h>
 #include <sys/types.h>
 #include <time.h>
@@ -44,4 +45,11 @@ unsigned int get_random(void)
 	}
 
 	return rand_r(&seed);
+}
+
+bool check_env(const char *var)
+{
+	const char *env_value = getenv(var);
+
+	return env_value && (strcmp(env_value, "0") != 0);
 }
