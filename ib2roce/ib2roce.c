@@ -715,7 +715,7 @@ static char hexbyte(unsigned x)
 	return x - 10 + 'a';
 }
 
-static char *__hexbytes(char *b, uint8_t *q, unsigned len)
+static char *__hexbytes(char *b, uint8_t *q, unsigned len, char separator)
 {
 	unsigned i;
 	char *p = b;
@@ -724,7 +724,7 @@ static char *__hexbytes(char *b, uint8_t *q, unsigned len)
 		unsigned n = *q++;
 		*p++ = hexbyte( n >> 4 );
 		*p++ = hexbyte( n & 0xf);
-		*p++ = ':';
+		*p++ = separator;
 	}
 	p--;
 	*p = 0;
@@ -735,7 +735,7 @@ static char *_hexbytes(uint8_t *q, unsigned len)
 {
 	static char b[150];
 
-	return __hexbytes(b, q, len);
+	return __hexbytes(b, q, len, ' ');
 }
 
 static char *hexbytes(char *x, unsigned len)
@@ -747,8 +747,13 @@ static char *payload_dump(uint8_t *p)
 {
 	static char buf[150];
 
-	__hexbytes(buf, p, 48);
+	__hexbytes(buf, p, 48, ' ');
 	return buf;
+}
+
+static void mac_hexbytes(char *b, uint8_t *p, unsigned len)
+{
+	__hexbytes(b, p, len, ':');
 }
 
 static void dump_buf_ethernet(struct buf *buf)
@@ -762,8 +767,8 @@ static void dump_buf_ethernet(struct buf *buf)
 	struct in_addr sendaddr, targetaddr;
 	struct arphdr arp;
 
-	__hexbytes(dmac, buf->e.ether_dhost, ETH_ALEN);
-	__hexbytes(smac, buf->e.ether_shost, ETH_ALEN);
+	mac_hexbytes(dmac, buf->e.ether_dhost, ETH_ALEN);
+	mac_hexbytes(smac, buf->e.ether_shost, ETH_ALEN);
 
 	switch (buf->ethertype) {
 
@@ -771,11 +776,11 @@ static void dump_buf_ethernet(struct buf *buf)
 
 			PULL(buf, arp);
 
-			__hexbytes(sendmac, buf->cur, arp.ar_hln);
+			mac_hexbytes(sendmac, buf->cur, arp.ar_hln);
 			buf->cur += arp.ar_hln;
 
 			PULL(buf, sendaddr.s_addr);
-			__hexbytes(targetmac, buf->cur, arp.ar_hln);
+			mac_hexbytes(targetmac, buf->cur, arp.ar_hln);
 
 			buf->cur += arp.ar_pln;
 			PULL(buf, targetaddr.s_addr);
@@ -810,7 +815,7 @@ static void dump_buf_ethernet(struct buf *buf)
 			else
 				snprintf(etype, sizeof(etype), "Ether_type=%x", buf->ethertype);
  
-			syslog(LOG_NOTICE, "MAC=%s SMAC=%s %s:%s\n", dmac, smac, etype, payload_dump(buf->cur));
+			syslog(LOG_NOTICE, "MAC=%s SMAC=%s %s %s\n", dmac, smac, etype, payload_dump(buf->cur));
 
 		break;
 	}
@@ -855,8 +860,8 @@ static int roce_v1(struct rdma_channel *c, struct buf *buf)
 
 	PULL(buf, buf->bth);
 
-	__hexbytes(dmac, buf->e.ether_dhost, ETH_ALEN);
-	__hexbytes(smac, buf->e.ether_shost, ETH_ALEN);
+	mac_hexbytes(dmac, buf->e.ether_dhost, ETH_ALEN);
+	mac_hexbytes(smac, buf->e.ether_shost, ETH_ALEN);
 
 	syslog(LOG_NOTICE, "DMAC=%s SMAC=%s ROCEv1 BTH=%s Data=%s\n",
 		dmac, smac, bth_dump(&buf->bth),
