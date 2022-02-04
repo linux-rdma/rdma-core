@@ -630,6 +630,7 @@ struct buf {
 
 			void *cur;		/* Current position in the packets */
 			void *end;		/* Pointer to the last byte in the packet + 1 */
+			unsigned imm;		/* Immediate data from the WC */
 
 			unsigned ethertype;
 
@@ -854,6 +855,9 @@ static char *udp_dump(struct udphdr *u)
 	return buf;
 }
 
+static int send_inline(struct rdma_channel *c, void *buf, unsigned len, struct ah_info *ai, int port);
+static int send_buf(struct rdma_channel *c, struct buf *buf, unsigned len, struct ah_info *ai, int port);
+
 static int roce_v1(struct rdma_channel *c, struct buf *buf)
 {
 	char dmac[20], smac[20];
@@ -863,27 +867,69 @@ static int roce_v1(struct rdma_channel *c, struct buf *buf)
 	mac_hexbytes(dmac, buf->e.ether_dhost, ETH_ALEN);
 	mac_hexbytes(smac, buf->e.ether_shost, ETH_ALEN);
 
-	syslog(LOG_NOTICE, "DMAC=%s SMAC=%s ROCEv1 BTH=%s Data=%s\n",
+	syslog(LOG_NOTICE, "ROCE v1 support is not implemented. DMAC=%s SMAC=%s ROCEv1 BTH=%s Data=%s\n",
 		dmac, smac, bth_dump(&buf->bth),
 		payload_dump(buf->cur));
 
 	return 1;
 }
 
+/*
+ * Process ROCE v2 packet from Ethernet and send the data out to the Infiniband Interface
+ * 
+ * The caller has pulled the ether_header, iphdr and the udphdr from the packet
+ */
 static int roce_v2(struct rdma_channel *c, struct buf *buf)
 {
 	char xbuf[INET6_ADDRSTRLEN];
 	char xbuf2[INET6_ADDRSTRLEN];
+	unsigned payload_len;
+	struct ah_info *ai;
+	unsigned port;
+	int ret;
+	struct rdma_channel *dc = i2r[INFINIBAND].multicast;
+	struct ibv_ah_attr ah_attr;
+	struct ibv_ah ah;
 
 	PULL(buf, buf->bth);
 
-	syslog(LOG_NOTICE, "ROCEv2 flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s UDP=%s BTH=%s Data=%s\n",
-			ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
+	/* Ok the payload should be follwing the BTH */
+
+	/* TBD: Strip the ICRC and FCS */
+
+	/* Reuse the buffer to send the payload to the destination */
+	payload_len = buf->end - buf->cur;
+	memcpy(buf->raw, buf->cur, payload_len);
+
+	/* Determine address */
+
+	/* Do we need to do address resolution before we can send ? */
+
+	ai->ah = ibv_create_ah(dc->pd, &ah_attr);
+	ai->remote_qpn = 7;
+	ai->remote_qkey = 7777;
+
+	if (payload_len < MAX_INLINE_DATA) {
+
+		ret = send_inline(dc, buf, payload_len, ai, port);
+		if (!ret)
+			free_buffer(buf);
+
+	} else
+
+		ret = send_buf(dc, buf, payload_len, ai, port);
+
+	if (!ret)
+		return 0;
+
+
+	syslog(LOG_NOTICE, "ROCEv2 send failed %s flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s UDP=%s BTH=%s Data=%s\n",
+			errname(), ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
 			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
 			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
 			udp_dump( &buf->udp), bth_dump(&buf->bth), 
 			payload_dump(buf->cur));
-	return 1;
+	return ret;
 }
 
 /*
@@ -1913,10 +1959,19 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 	source_addr.s_addr = sgid->sib_addr32[3];
 	dest_addr.s_addr = dgid->sib_addr32[3];
 
+	if (!(w->wc_flags & IBV_WC_WITH_IMM))
+			buf->imm = w->imm_data;
+	else
+			buf->imm = 0;
+
+
 	if (!(w->wc_flags & IBV_WC_GRH)) {
 
 		pull(buf, &buf->e, sizeof(struct ether_header));
 		buf->ethertype = ntohs(buf->e.ether_type);
+
+		if (!(w->wc_flags & IBV_WC_IP_CSUM_OK))
+			syslog(LOG_NOTICE, "TCP/UDP CSUM not valid\n");
 
 		/* Path usually taken by the RAW Ethernet QP */
 		if (buf->ethertype == ETHERTYPE_ROCE)
