@@ -98,6 +98,8 @@
 #define udma_to_device_barrier() asm volatile("" ::: "memory")
 #elif defined(__loongarch__)
 #define udma_to_device_barrier() asm volatile("dbar 0" ::: "memory")
+#elif defined(__riscv)
+#define udma_to_device_barrier() asm volatile("fence ow,ow" ::: "memory")
 #else
 #error No architecture specific memory barrier defines found!
 #endif
@@ -132,6 +134,8 @@
 #define udma_from_device_barrier() asm volatile("" ::: "memory")
 #elif defined(__loongarch__)
 #define udma_from_device_barrier() asm volatile("dbar 0" ::: "memory")
+#elif defined(__riscv)
+#define udma_from_device_barrier() asm volatile("fence ir,ir" ::: "memory")
 #else
 #error No architecture specific memory barrier defines found!
 #endif
@@ -198,6 +202,8 @@
 #define mmio_flush_writes() asm volatile("" ::: "memory")
 #elif defined(__loongarch__)
 #define mmio_flush_writes() asm volatile("dbar 0" ::: "memory")
+#elif defined(__riscv)
+#define mmio_flush_writes() asm volatile("fence ow,ow" ::: "memory")
 #else
 #error No architecture specific memory barrier defines found!
 #endif
