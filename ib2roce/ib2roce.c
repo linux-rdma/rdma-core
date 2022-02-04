@@ -640,6 +640,7 @@ struct buf {
 			struct iphdr ip;
 			struct udphdr udp;
 			struct bth bth;
+			struct deth deth;
 		};
 		uint8_t meta[META_SIZE];
 	};
@@ -853,83 +854,6 @@ static char *udp_dump(struct udphdr *u)
 			ntohs(u->source), ntohs(u->dest), ntohs(u->len), ntohs(u->check));
 
 	return buf;
-}
-
-static int send_inline(struct rdma_channel *c, void *buf, unsigned len, struct ah_info *ai, int port);
-static int send_buf(struct rdma_channel *c, struct buf *buf, unsigned len, struct ah_info *ai, int port);
-
-static int roce_v1(struct rdma_channel *c, struct buf *buf)
-{
-	char dmac[20], smac[20];
-
-	PULL(buf, buf->bth);
-
-	mac_hexbytes(dmac, buf->e.ether_dhost, ETH_ALEN);
-	mac_hexbytes(smac, buf->e.ether_shost, ETH_ALEN);
-
-	syslog(LOG_NOTICE, "ROCE v1 support is not implemented. DMAC=%s SMAC=%s ROCEv1 BTH=%s Data=%s\n",
-		dmac, smac, bth_dump(&buf->bth),
-		payload_dump(buf->cur));
-
-	return 1;
-}
-
-/*
- * Process ROCE v2 packet from Ethernet and send the data out to the Infiniband Interface
- * 
- * The caller has pulled the ether_header, iphdr and the udphdr from the packet
- */
-static int roce_v2(struct rdma_channel *c, struct buf *buf)
-{
-	char xbuf[INET6_ADDRSTRLEN];
-	char xbuf2[INET6_ADDRSTRLEN];
-	unsigned payload_len;
-	struct ah_info *ai;
-	unsigned port;
-	int ret;
-	struct rdma_channel *dc = i2r[INFINIBAND].multicast;
-	struct ibv_ah_attr ah_attr;
-	struct ibv_ah ah;
-
-	PULL(buf, buf->bth);
-
-	/* Ok the payload should be follwing the BTH */
-
-	/* TBD: Strip the ICRC and FCS */
-
-	/* Reuse the buffer to send the payload to the destination */
-	payload_len = buf->end - buf->cur;
-	memcpy(buf->raw, buf->cur, payload_len);
-
-	/* Determine address */
-
-	/* Do we need to do address resolution before we can send ? */
-
-	ai->ah = ibv_create_ah(dc->pd, &ah_attr);
-	ai->remote_qpn = 7;
-	ai->remote_qkey = 7777;
-
-	if (payload_len < MAX_INLINE_DATA) {
-
-		ret = send_inline(dc, buf, payload_len, ai, port);
-		if (!ret)
-			free_buffer(buf);
-
-	} else
-
-		ret = send_buf(dc, buf, payload_len, ai, port);
-
-	if (!ret)
-		return 0;
-
-
-	syslog(LOG_NOTICE, "ROCEv2 send failed %s flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s UDP=%s BTH=%s Data=%s\n",
-			errname(), ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
-			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
-			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
-			udp_dump( &buf->udp), bth_dump(&buf->bth), 
-			payload_dump(buf->cur));
-	return ret;
 }
 
 /*
@@ -1575,7 +1499,7 @@ struct rdma_ah {
 	struct in_addr addr;
 	short state;
 	short flags;
-	struct ibv_ah *ah;
+	struct ah_info ai;
 	struct rdma_ah *next_addr;	/* Hash Collision addr hash */
 	struct rdma_ah *next_mac;	/* Hash Collision mac hash */
 };
@@ -1661,13 +1585,14 @@ static void handle_neigh_event(struct neigh *n)
 	struct i2r_interface *i;
 	int len = n->nlh.nlmsg_len - NLMSG_LENGTH(sizeof(struct ndmsg));
 	unsigned maclen = 0;
+	char mac[20];
+	struct in_addr addr;
 	struct rtattr *rta;
 	bool have_dst = false;
 	bool have_lladdr = false;
-	struct rdma_ah *ra = calloc(1, sizeof(struct rdma_ah));
-	struct rdma_ah *r;
+	struct rdma_ah *ra;
 	unsigned ha, hm;
-	const char *action = "New";
+	const char *action;
 
 
 	for(i = i2r;  i < i2r + NR_INTERFACES; i++)
@@ -1678,14 +1603,14 @@ static void handle_neigh_event(struct neigh *n)
 		switch (rta->rta_type) {
 
 			case NDA_DST:
-				memcpy(&ra->addr, RTA_DATA(rta), RTA_PAYLOAD(rta));
+				memcpy(&addr, RTA_DATA(rta), RTA_PAYLOAD(rta));
 				have_dst = true;
 				break;
 
 			case NDA_LLADDR:
 				have_lladdr = true;
 				maclen = RTA_PAYLOAD(rta);
-				memcpy(&ra->mac, RTA_DATA(rta), maclen);
+				memcpy(mac, RTA_DATA(rta), maclen);
 				break;
 
 			case NDA_CACHEINFO:
@@ -1720,35 +1645,42 @@ static void handle_neigh_event(struct neigh *n)
 		goto err;
 	}
 
-	ha = ip_hash(ntohl(ra->addr.s_addr));
-	hm = mac_hash(maclen, ra->mac);
+	ha = ip_hash(ntohl(addr.s_addr));
+	hm = mac_hash(maclen, mac);
 
-	r = hash_mac_lookup(maclen, ra->mac, hm);
-	if (r) {
-		/* Update existing */
-		free(ra);
-		ra = r;
+	ra = hash_addr_lookup(ra->addr, ha);
+	if (ra) {
+		/* Already existing entry retrieved by IP address  */
 		action = "Update";
+		memcpy(ra->mac, mac, maclen);
+
+	} else {
+		ra = hash_mac_lookup(maclen, ra->mac, hm);
+		if (ra) {
+			/* Update existing entry retrieved by MAC address */
+			action = "Update";
+			ra->addr = addr;
+
+		} else {
+			/* We truly have a new entry */
+			ra = calloc(1, sizeof(struct rdma_ah));
+			nr_rdma_ah++;
+			action = "New";
+		}
 	}
 
 	ra->flags = n->nd.ndm_flags;
 	ra->state = n->nd.ndm_state;
 
-	r = hash_addr_lookup(ra->addr, ha);
-
-	if (r) {
-	       if (r != ra)
-			syslog(LOG_WARNING, "Duplicate IP address Interface=%s addr=%s\n",
-				i->if_name, inet_ntoa(ra->addr));
-
+	if (!ra->next_addr) {	
+		ra->next_addr = hash_addr[ha];
+		hash_addr[ha] = ra;
 	}
 
-	ra->next_addr = hash_addr[ha];
-	ra->next_mac = hash_mac[hm];
-
-	hash_addr[ha] = ra;
-	hash_mac[hm] = ra;
-	nr_rdma_ah++;
+	if (!ra->next_mac) {
+		ra->next_mac = hash_mac[hm];
+		hash_mac[hm] = ra;
+	}
 
 	syslog(LOG_NOTICE, "%s ARP entry via netlink for %s: IP=%s MAC=%s Flags=%x State=%x\n",
 		action,
@@ -1943,6 +1875,109 @@ static int unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_add
 	dump_buf_grh(buf);
 	return 1;
 }
+
+static int roce_v1(struct rdma_channel *c, struct buf *buf)
+{
+	char dmac[20], smac[20];
+
+	PULL(buf, buf->bth);
+
+	mac_hexbytes(dmac, buf->e.ether_dhost, ETH_ALEN);
+	mac_hexbytes(smac, buf->e.ether_shost, ETH_ALEN);
+
+	syslog(LOG_NOTICE, "ROCE v1 support is not implemented. DMAC=%s SMAC=%s ROCEv1 BTH=%s Data=%s\n",
+		dmac, smac, bth_dump(&buf->bth),
+		payload_dump(buf->cur));
+
+	return 1;
+}
+
+/*
+ * Process ROCE v2 packet from Ethernet and send the data out to the Infiniband Interface
+ * 
+ * The caller has pulled the ether_header, iphdr and the udphdr from the packet
+ */
+static int roce_v2(struct rdma_channel *c, struct buf *buf)
+{
+	char xbuf[INET6_ADDRSTRLEN];
+	char xbuf2[INET6_ADDRSTRLEN];
+	unsigned payload_len;
+	struct ah_info *ai;
+	unsigned port;
+	int ret;
+	struct rdma_channel *dc = i2r[INFINIBAND].multicast;
+	struct ibv_ah_attr ah_attr;
+	struct ibv_ah ah;
+	struct rdma_ah *ra;
+	struct in_addr dest;
+	unsigned hash;
+
+	PULL(buf, buf->bth);
+
+	/* Ok the payload should be follwing the BTH: TODO deal with the dynamic size of the bth */
+
+	/* BTH must have correct type and be followed by a deth */
+
+	/* TBD: Strip the ICRC and FCS */
+
+	/* Reuse the buffer to send the payload to the destination */
+	payload_len = buf->end - buf->cur;
+	memcpy(buf->raw, buf->cur, payload_len);
+
+	dest.s_addr = buf->ip.daddr;
+
+	/* Determine address */
+	hash = ip_hash(ntohl(dest.s_addr)); 
+	ra = hash_addr_lookup(dest, hash);
+	if (!ra) {
+		/*
+		 * Create address info on the fly. We have the IP address after all.
+		 * This is a skeleton entry with only the IP address. The
+		 * MAC address is going to be filled in by the netlink interface
+		 * when an ARP resolution completes.
+		 */
+		ra = calloc(1, sizeof(struct rdma_ah));
+
+		ra->addr = dest;
+
+		ra->next_addr = hash_addr[hash];
+		hash_addr[hash] = ra;
+		nr_rdma_ah++;
+	}
+
+	if (!ra->ai.ah) {
+		/* Infiniband routing information missing */
+		/* Do we need to do address resolution before we can send?
+		 * TBD: Need ah_attr to be setup
+		*/
+		ra->ai.ah = ibv_create_ah(dc->pd, &ah_attr);
+		ra->ai.remote_qpn = BTH_QPN_MASK & ntohl(buf->bth.qpn);
+		ra->ai.remote_qkey = ntohl(buf->deth.qkey);
+
+	}
+	if (payload_len < MAX_INLINE_DATA) {
+
+		ret = send_inline(dc, buf, payload_len, &ra->ai, port);
+		if (!ret)
+			free_buffer(buf);
+
+	} else
+
+		ret = send_buf(dc, buf, payload_len, &ra->ai, port);
+
+	if (!ret)
+		return 0;
+
+
+	syslog(LOG_NOTICE, "ROCEv2 send failed %s flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s UDP=%s BTH=%s Data=%s\n",
+			errname(), ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
+			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
+			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
+			udp_dump( &buf->udp), bth_dump(&buf->bth), 
+			payload_dump(buf->cur));
+	return ret;
+}
+
 
 static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 {
