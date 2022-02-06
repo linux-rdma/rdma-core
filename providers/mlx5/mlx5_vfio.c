@@ -1236,7 +1236,7 @@ static int mlx5_vfio_open_fds(struct mlx5_vfio_context *ctx,
 	if (ioctl(ctx->container_fd, VFIO_GET_API_VERSION) != VFIO_API_VERSION)
 		goto close_cont;
 
-	if (!ioctl(ctx->container_fd, VFIO_CHECK_EXTENSION, VFIO_TYPE1_IOMMU))
+	if (!ioctl(ctx->container_fd, VFIO_CHECK_EXTENSION, VFIO_TYPE1v2_IOMMU))
 		/* Doesn't support the IOMMU driver we want. */
 		goto close_cont;
 
@@ -1260,7 +1260,7 @@ static int mlx5_vfio_open_fds(struct mlx5_vfio_context *ctx,
 		goto close_group;
 
 	/* Enable the IOMMU model we want */
-	if (ioctl(ctx->container_fd, VFIO_SET_IOMMU, VFIO_TYPE1_IOMMU))
+	if (ioctl(ctx->container_fd, VFIO_SET_IOMMU, VFIO_TYPE1v2_IOMMU))
 		goto close_group;
 
 	/* Get a file descriptor for the device */
