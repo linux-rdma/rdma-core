@@ -1648,14 +1648,14 @@ static void handle_neigh_event(struct neigh *n)
 	ha = ip_hash(ntohl(addr.s_addr));
 	hm = mac_hash(maclen, mac);
 
-	ra = hash_addr_lookup(ra->addr, ha);
+	ra = hash_addr_lookup(addr, ha);
 	if (ra) {
 		/* Already existing entry retrieved by IP address  */
 		action = "Update";
 		memcpy(ra->mac, mac, maclen);
 
 	} else {
-		ra = hash_mac_lookup(maclen, ra->mac, hm);
+		ra = hash_mac_lookup(maclen, mac, hm);
 		if (ra) {
 			/* Update existing entry retrieved by MAC address */
 			action = "Update";
@@ -1664,6 +1664,8 @@ static void handle_neigh_event(struct neigh *n)
 		} else {
 			/* We truly have a new entry */
 			ra = calloc(1, sizeof(struct rdma_ah));
+			ra->addr = addr;
+			memcpy(ra->mac, mac, maclen);
 			nr_rdma_ah++;
 			action = "New";
 		}
@@ -1685,8 +1687,8 @@ static void handle_neigh_event(struct neigh *n)
 	syslog(LOG_NOTICE, "%s ARP entry via netlink for %s: IP=%s MAC=%s Flags=%x State=%x\n",
 		action,
 		i->if_name,
-		inet_ntoa(ra->addr),
-		hexbytes(ra->mac, maclen),
+		inet_ntoa(addr),
+		hexbytes(mac, maclen),
 		ra->flags, ra->state);
 
 	return;
@@ -1697,10 +1699,9 @@ err:
 				i ? i->if_name: "N/A",
 			       	n->nlh.nlmsg_type,  n->nlh.nlmsg_len, n->nlh.nlmsg_flags,
 				n->nd.ndm_flags, n->nd.ndm_state,
-				inet_ntoa(ra->addr), hexbytes(ra->mac, maclen),
+				inet_ntoa(addr), hexbytes(mac, maclen),
 				n->nd.ndm_ifindex);
 
-	free(ra);
 }
 
 static void handle_netlink_event(enum netlink_channel c)
@@ -1902,12 +1903,10 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 	char xbuf[INET6_ADDRSTRLEN];
 	char xbuf2[INET6_ADDRSTRLEN];
 	unsigned payload_len;
-	struct ah_info *ai;
 	unsigned port;
 	int ret;
 	struct rdma_channel *dc = i2r[INFINIBAND].multicast;
 	struct ibv_ah_attr ah_attr;
-	struct ibv_ah ah;
 	struct rdma_ah *ra;
 	struct in_addr dest;
 	unsigned hash;
