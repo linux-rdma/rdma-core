@@ -169,7 +169,7 @@ set(DISTRO_FLAVOUR "None" CACHE
 
 #-------------------------
 # Load CMake components
-set(BUILDLIB "${CMAKE_SOURCE_DIR}/buildlib")
+set(BUILDLIB "${PROJECT_SOURCE_DIR}/buildlib")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${BUILDLIB}")
 
 include(CMakeParseArguments)
@@ -759,14 +759,14 @@ if (NO_MAN_PAGES)
   message(STATUS " man pages NOT built")
 else()
   if (NOT PANDOC_FOUND)
-    if (NOT EXISTS "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt")
+    if (NOT EXISTS "${PROJECT_SOURCE_DIR}/buildlib/pandoc-prebuilt")
       message(STATUS " pandoc NOT found and NO prebuilt man pages. 'install' disabled")
     else()
       message(STATUS " pandoc NOT found (using prebuilt man pages)")
     endif()
   endif()
   if (NOT RST2MAN_FOUND)
-    if (NOT EXISTS "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt")
+    if (NOT EXISTS "${PROJECT_SOURCE_DIR}/buildlib/pandoc-prebuilt")
       message(STATUS " rst2man NOT found and NO prebuilt man pages. 'install' disabled")
     else()
       message(STATUS " rst2man NOT found (using prebuilt man pages)")
