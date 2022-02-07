@@ -89,26 +89,26 @@ set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 # Override the CMAKE_INSTALL_ dirs to be under the build/ directory
 if (IN_PLACE)
-  set(CMAKE_INSTALL_SYSCONFDIR "${CMAKE_BINARY_DIR}/etc")
-  set(CMAKE_INSTALL_BINDIR "${CMAKE_BINARY_DIR}/bin")
-  set(CMAKE_INSTALL_SBINDIR "${CMAKE_BINARY_DIR}/bin")
-  set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}")
+  set(CMAKE_INSTALL_SYSCONFDIR "${PROJECT_BINARY_DIR}/etc")
+  set(CMAKE_INSTALL_BINDIR "${PROJECT_BINARY_DIR}/bin")
+  set(CMAKE_INSTALL_SBINDIR "${PROJECT_BINARY_DIR}/bin")
+  set(CMAKE_INSTALL_PREFIX "${PROJECT_BINARY_DIR}")
   set(CMAKE_INSTALL_LIBDIR "lib")
   set(CMAKE_INSTALL_INCLUDEDIR "include")
 endif()
 
 include(GNUInstallDirs)
 # C include root
-set(BUILD_INCLUDE ${CMAKE_BINARY_DIR}/include)
+set(BUILD_INCLUDE ${PROJECT_BINARY_DIR}/include)
 # Executables
-set(BUILD_BIN ${CMAKE_BINARY_DIR}/bin)
+set(BUILD_BIN ${PROJECT_BINARY_DIR}/bin)
 # Libraries
-set(BUILD_LIB ${CMAKE_BINARY_DIR}/lib)
+set(BUILD_LIB ${PROJECT_BINARY_DIR}/lib)
 # Static library pre-processing
-set(BUILD_STATIC_LIB ${CMAKE_BINARY_DIR}/lib/statics)
+set(BUILD_STATIC_LIB ${PROJECT_BINARY_DIR}/lib/statics)
 # Used for IN_PLACE configuration
-set(BUILD_ETC ${CMAKE_BINARY_DIR}/etc)
-set(BUILD_PYTHON ${CMAKE_BINARY_DIR}/python)
+set(BUILD_ETC ${PROJECT_BINARY_DIR}/etc)
+set(BUILD_PYTHON ${PROJECT_BINARY_DIR}/python)
 
 set(IBDIAG_CONFIG_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/infiniband-diags")
 set(IBDIAG_NODENAME_MAP_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/rdma/ib-node-name-map")
@@ -614,7 +614,7 @@ RDMA_DoFixup("${HAVE_GLIBC_FXSTAT}" "sys/stat.h")
 # Write out a git ignore file to the build directory if it isn't the source
 # directory. For developer convenience
 if (NOT ${CMAKE_CURRENT_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
-  file(WRITE ${CMAKE_BINARY_DIR}/.gitignore "*")
+  file(WRITE ${PROJECT_BINARY_DIR}/.gitignore "*")
 endif()
 
 if ("${IOCTL_MODE}" STREQUAL "both")
