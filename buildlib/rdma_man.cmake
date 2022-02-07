@@ -1,7 +1,7 @@
 # COPYRIGHT (c) 2017-2018 Mellanox Technologies Ltd
 # Licensed under BSD (MIT variant) or GPLv2. See COPYING.
 
-rdma_make_dir("${CMAKE_BINARY_DIR}/pandoc-prebuilt")
+rdma_make_dir("${PROJECT_BINARY_DIR}/pandoc-prebuilt")
 add_custom_target("docs" ALL DEPENDS "${OBJ}")
 
 function(rdma_man_get_prebuilt SRC OUT)
@@ -10,7 +10,7 @@ function(rdma_man_get_prebuilt SRC OUT)
   # made the man pages are pre-built and included. This is done via install
   # so that ./build.sh never depends on pandoc, only 'ninja install'.
   execute_process(
-    COMMAND "${PYTHON_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt.py" --retrieve "${CMAKE_SOURCE_DIR}" "${SRC}"
+    COMMAND "${PYTHON_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/buildlib/pandoc-prebuilt.py" --retrieve "${PROJECT_SOURCE_DIR}" "${SRC}"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     OUTPUT_VARIABLE OBJ
     RESULT_VARIABLE retcode)
@@ -26,7 +26,7 @@ function(rdma_md_man_page SRC MAN_SECT MANFN)
   if (PANDOC_EXECUTABLE)
     add_custom_command(
       OUTPUT "${OBJ}"
-      COMMAND "${PYTHON_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt.py" --build "${CMAKE_BINARY_DIR}" --pandoc "${PANDOC_EXECUTABLE}" "${SRC}" "${OBJ}"
+      COMMAND "${PYTHON_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/buildlib/pandoc-prebuilt.py" --build "${PROJECT_BINARY_DIR}" --pandoc "${PANDOC_EXECUTABLE}" "${SRC}" "${OBJ}"
       MAIN_DEPENDENCY "${SRC}"
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
       COMMENT "Creating man page ${MANFN}"
@@ -48,7 +48,7 @@ function(rdma_rst_man_page SRC MAN_SECT MANFN)
   if (RST2MAN_EXECUTABLE)
     add_custom_command(
       OUTPUT "${OBJ}"
-      COMMAND "${PYTHON_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt.py" --build "${CMAKE_BINARY_DIR}" --rst "${RST2MAN_EXECUTABLE}" "${SRC}" "${OBJ}"
+      COMMAND "${PYTHON_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/buildlib/pandoc-prebuilt.py" --build "${PROJECT_BINARY_DIR}" --rst "${RST2MAN_EXECUTABLE}" "${SRC}" "${OBJ}"
       MAIN_DEPENDENCY "${SRC}"
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
       COMMENT "Creating man page ${MANFN}"
