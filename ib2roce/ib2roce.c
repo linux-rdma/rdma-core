@@ -641,6 +641,7 @@ struct buf {
 			struct udphdr udp;
 			struct bth bth;
 			struct deth deth;
+			struct immdt immdt;
 		};
 		uint8_t meta[META_SIZE];
 	};
@@ -1910,14 +1911,25 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 	struct rdma_ah *ra;
 	struct in_addr dest;
 	unsigned hash;
+	const char *reason;
 
 	PULL(buf, buf->bth);
 
-	/* Ok the payload should be follwing the BTH: TODO deal with the dynamic size of the bth */
+	/* We only support SEND and SEND IMMEDIATE */
+	if (buf->bth.opcode != IB_OPCODE_UD_SEND_ONLY &&
+		buf->bth.opcode !=  IB_OPCODE_UD_SEND_ONLY_WITH_IMMEDIATE) {
+			reason = "Only UD Sends are supported";
+			goto err;
+	}
 
-	/* BTH must have correct type and be followed by a deth */
+	PULL(buf, buf->deth);
 
-	/* TBD: Strip the ICRC and FCS */
+	if (buf->bth.opcode == IB_OPCODE_UD_SEND_ONLY_WITH_IMMEDIATE)
+		PULL(buf, buf->immdt);
+
+	buf->end -=  ICRC_SIZE;
+
+	/* Ok we got the payload starting at buf->cur to buf->end */
 
 	/* Reuse the buffer to send the payload to the destination */
 	payload_len = buf->end - buf->cur;
@@ -1975,6 +1987,16 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 			udp_dump( &buf->udp), bth_dump(&buf->bth), 
 			payload_dump(buf->cur));
 	return ret;
+
+err:
+	syslog(LOG_NOTICE, "ROCEv2 %s flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s UDP=%s BTH=%s Data=%s\n",
+			reason, ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
+			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
+			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
+			udp_dump( &buf->udp), bth_dump(&buf->bth), 
+			payload_dump(buf->cur));
+	return ret;
+
 }
 
 
