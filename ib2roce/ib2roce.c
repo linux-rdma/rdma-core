@@ -2004,10 +2004,14 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 		pull(buf, &buf->e, sizeof(struct ether_header));
 		buf->ethertype = ntohs(buf->e.ether_type);
 
-		if (!(w->wc_flags & IBV_WC_IP_CSUM_OK))
-			syslog(LOG_NOTICE, "TCP/UDP CSUM not valid\n");
+		if (c->rdmacm)
+			/* Not a raw frame */
+			goto discard;
 
-		/* Path usually taken by the RAW Ethernet QP */
+		buf->end -= 4;		/* Remove Ethernet FCS */
+
+		/* buf->cur .. buf->end is the ethernet payload */
+
 		if (buf->ethertype == ETHERTYPE_ROCE)
 
 	       		return roce_v1(c, buf);
@@ -2016,6 +2020,9 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 		       
 			pull(buf, &buf->ip, sizeof(struct iphdr));
 		
+			if (!(w->wc_flags & IBV_WC_IP_CSUM_OK))
+				syslog(LOG_NOTICE, "TCP/UDP CSUM not valid on raw RDMA channel %s\n", c->text);
+
 			if (buf->ip.protocol == IPPROTO_UDP) {
 
 				pull(buf, &buf->udp, sizeof(struct udphdr));
@@ -2028,6 +2035,7 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 
 		buf->cur = buf->raw;
 
+discard:
 		if (log_packets) {
 			syslog(LOG_WARNING, "Discard Packet from %s: No GRH provided. Status=%d Opcode=%d Len=%d QP=%d SRC_QP=%d Flags=%x PKEY_INDEX=%d SLID=%d\n",
 				c->text, w->status, w->opcode, w->byte_len, w->qp_num, w->src_qp, w->wc_flags, w->pkey_index, w->slid);
