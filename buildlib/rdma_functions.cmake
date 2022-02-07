@@ -105,7 +105,7 @@ function(rdma_library DEST VERSION_SCRIPT SOVERSION VERSION)
   # Create a static library
   if (ENABLE_STATIC)
     add_library(${DEST}-static STATIC ${ARGN})
-    target_link_libraries(${DEST}-static LINK ${COMMON_LIBS})
+    target_link_libraries(${DEST}-static LINK_PRIVATE ${COMMON_LIBS})
     rdma_public_static_lib(${DEST} ${DEST}-static ${VERSION_SCRIPT})
   endif()
 
