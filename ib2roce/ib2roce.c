@@ -95,7 +95,7 @@ struct mgid_signature {		/* Manage different MGID formats used */
 	unsigned short signature;
 	const char *id;
 	bool port;		/* Port field is used in MGID */
-	bool full_ipv4;	/* Full IP address */
+	bool full_ipv4;		/* Full IP address */
 	bool pkey;		/* Pkey in MGID */
 } mgid_signatures[nr_mgid_signatures] = {
 	{	0x401B,	"IPv4",	false, false, true },
@@ -162,6 +162,7 @@ static struct i2r_interface {
 	struct ibv_comp_channel *comp_events;
 	struct rdma_channel *multicast;
 	struct rdma_channel *raw;
+	struct rdma_channel *resolver;
 	unsigned port;
 	unsigned mtu;
 	unsigned maclen;
@@ -175,6 +176,7 @@ static struct i2r_interface {
 	struct ibv_port_attr port_attr;
 	int iges;
 	struct ibv_gid_entry ige[MAX_GID];
+	struct buf *resolve_queue;		/* List of send buffers with unresolved addresses */
 } i2r[NR_INTERFACES];
 
 static inline void st(struct rdma_channel *c, enum stats s)
@@ -625,8 +627,10 @@ struct buf {
 	uint8_t raw[DATA_SIZE];		/* Raw Frame */
 	union {
 		struct {
-			struct buf *next;	/* Next buffer */
+			struct buf *next;	/* Next free buffer */
 			bool free;
+			struct buf *next_resolv;	/* Next buffer that needs address resolution */
+
 			bool ether_valid;	/* Ethernet header valid */
 			bool ip_valid;		/* IP header valid */
 			bool udp_valid;		/* Valid UDP header */
@@ -634,11 +638,11 @@ struct buf {
 			bool grh_valid;		/* Valid GRH header */
 			bool imm_valid;		/* unsigned imm is valid */
 
-			void *cur;		/* Current position in the packets */
+			void *cur;		/* Current position in the buffer */
 			void *end;		/* Pointer to the last byte in the packet + 1 */
 			unsigned imm;		/* Immediate data from the WC */
 
-			unsigned ethertype;
+			unsigned ethertype;	/* Frame type */
 
 			/* Structs pulled out of the frame */
 			struct ether_header e;
@@ -1234,6 +1238,9 @@ static void setup_interface(enum interfaces in)
 			i->if_addr.sin_addr, i->port, in == ROCE ? IBV_QPT_RAW_PACKET : IBV_QPT_UD,
 			100, 0);
 
+	i->resolver = setup_channel(i, "resolver", true, true,
+			i->if_addr.sin_addr, 0, IBV_QPT_UD, 10, 0);
+
 	syslog(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s CQs=%u/%u MTU=%u.\n",
 		interfaces_text[in],
 		ibv_get_device_name(i->context->device),
@@ -1613,10 +1620,14 @@ static struct rdma_ah *find_in_hash(enum hashes type, void *p)
 	return find_key_in_chain(type, hash_table[type][hash], key);
 }
 
-static struct rdma_ah *new_rdma_ah(void)
+static struct rdma_ah *new_rdma_ah(struct i2r_interface *i)
 {
+	struct rdma_ah *ra = calloc(1, sizeof(struct rdma_ah));
+
 	nr_rdma_ah++;
-	return calloc(1, sizeof(struct rdma_ah));
+	ra->i = i;
+
+	return ra;
 }
 
 static long lookup_ip_from_gid(struct rdma_channel *c, union ibv_gid *v)
@@ -1744,9 +1755,8 @@ static void handle_neigh_event(struct neigh *n)
 
 		} else {
 			/* We truly have a new entry */
-			ra = new_rdma_ah();
+			ra = new_rdma_ah(i);
 
-			nr_rdma_ah++;
 			action = "New";
 		}
 	}
@@ -2024,7 +2034,7 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 		 * MAC address is going to be filled in by the netlink interface
 		 * when an ARP resolution completes.
 		 */
-		ra = new_rdma_ah();
+		ra = new_rdma_ah(c->i);
 		add_to_hash(ra, hash_ip, &dest);
 	}
 
@@ -2104,7 +2114,7 @@ static void learn_source_address(struct rdma_channel *c, struct buf *buf, struct
 
 		if (!ra) {
 			/* Ok new Infiniband endpoint */
-			ra = new_rdma_ah();
+			ra = new_rdma_ah(c->i);
 		}
 
 		if (!ra->hash[hash_gid].member && buf->grh_valid)
@@ -2127,7 +2137,7 @@ static void learn_source_address(struct rdma_channel *c, struct buf *buf, struct
 
 		if  (!ra) {
 			/* New ROCE endpoint */
-			ra = new_rdma_ah();
+			ra = new_rdma_ah(c->i);
 		}
 
 		if (!ra->hash[hash_mac].member)
@@ -2140,8 +2150,8 @@ static void learn_source_address(struct rdma_channel *c, struct buf *buf, struct
 
 	/* Construct handle that is used by the RDMA subsystem to send datagrams to the endpoint */
 	ra->ai.ah = ibv_create_ah_from_wc(c->pd, w, &buf->grh, c->i->port);
-	ra->remote_qpn = w->src_qp;
-	ra->remote_qkey = 0;		/* Should there be a value from somewhere ? */
+	ra->ai.remote_qpn = w->src_qp;
+	ra->ai.remote_qkey = 0;		/* Should there be a value from somewhere ? */
 }
 
 static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
