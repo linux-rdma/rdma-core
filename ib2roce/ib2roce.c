@@ -627,6 +627,12 @@ struct buf {
 		struct {
 			struct buf *next;	/* Next buffer */
 			bool free;
+			bool ether_valid;	/* Ethernet header valid */
+			bool ip_valid;		/* IP header valid */
+			bool udp_valid;		/* Valid UDP header */
+			bool bth_valid;		/* Valid BTH header */
+			bool grh_valid;		/* Valid GRH header */
+			bool imm_valid;		/* unsigned imm is valid */
 
 			void *cur;		/* Current position in the packets */
 			void *end;		/* Pointer to the last byte in the packet + 1 */
@@ -640,8 +646,8 @@ struct buf {
 			struct iphdr ip;
 			struct udphdr udp;
 			struct bth bth;
-			struct deth deth;
-			struct immdt immdt;
+			struct deth deth;	/* BTH subheader */
+			struct immdt immdt;	/* BTH subheader */
 		};
 		uint8_t meta[META_SIZE];
 	};
@@ -1403,7 +1409,7 @@ static void handle_rdma_event(enum interfaces in)
  *
  * Space in the WR is limited, so it only works for very small packets.
  */
-static int send_inline(struct rdma_channel *c, void *buf, unsigned len, struct ah_info *ai, int port)
+static int send_inline(struct rdma_channel *c, void *buf, unsigned len, struct ah_info *ai, int port, uint32_t imm)
 {
 	struct ibv_sge sge = {
 		.length = len,
@@ -1412,9 +1418,9 @@ static int send_inline(struct rdma_channel *c, void *buf, unsigned len, struct a
 	struct ibv_send_wr wr = {
 		.sg_list = &sge,
 		.num_sge = 1,
-		.opcode = IBV_WR_SEND_WITH_IMM,
+		.opcode = imm ? IBV_WR_SEND_WITH_IMM : IBV_WR_SEND,
 		.send_flags = IBV_SEND_INLINE,
-		.imm_data = htobe32(c->qp->qp_num),
+		.imm_data = imm,
 		.wr = {
 			/* Get addr info  */
 			.ud = {
@@ -1449,10 +1455,10 @@ static int send_buf(struct rdma_channel *c, struct buf *buf, unsigned len, struc
 	memset(&wr, 0, sizeof(wr));
 	wr.sg_list = &sge;
 	wr.num_sge = 1;
-	wr.opcode = IBV_WR_SEND_WITH_IMM;
+	wr.opcode = buf->imm_valid ? IBV_WR_SEND_WITH_IMM: IBV_WR_SEND;
 	wr.send_flags = IBV_SEND_SIGNALED;
 	wr.wr_id = (uint64_t)buf;
-	wr.imm_data = htobe32(c->qp->qp_num);
+	wr.imm_data = buf->imm;
 
 	/* Get addr info  */
 	wr.wr.ud.ah = ai->ah;
@@ -1494,67 +1500,137 @@ static int sysfs_read_int(const char *s)
 /* Unicast handling */
 #define MAX_MACLEN 20
 
-struct rdma_ah {
-	struct i2r_interface *i;
-	char mac[MAX_MACLEN];
-	struct in_addr addr;
-	short state;
-	short flags;
-	struct ah_info ai;
-	struct rdma_ah *next_addr;	/* Hash Collision addr hash */
-	struct rdma_ah *next_mac;	/* Hash Collision mac hash */
+/*
+ * Crazy address resolution structure where we can find items according to
+ * 1. IPv4 address
+ * 2. MAC address (on ROCE 6 bytes, on IB PartID + GID plus more = 20 bytes)
+ * 3. LID on Infiniband
+ */
+
+enum hashes { hash_ip, hash_mac, hash_gid, hash_lid, nr_hashes };
+static unsigned keylength[nr_hashes] = { 4, 6, 16, 2 };
+
+/* Enough to fit a MAC address from IPoIB */
+#define hash_max_keylen 16
+
+struct hash_item {
+	bool member;
+	unsigned hash;
+	uint8_t key[hash_max_keylen];
+	struct rdma_ah *next;	/* Linked list to avoid collisions */
 };
 
-struct rdma_ah *hash_addr[0x100];
-struct rdma_ah *hash_mac[0x100];
+struct rdma_ah {
+	struct i2r_interface *i;
+	short state;		/* Last netlink state */
+	short flags;		/* Last netlink flags */
+	struct ah_info ai;
+	struct hash_item hash[nr_hashes];
+};
+
+struct rdma_ah *hash_table[nr_hashes][0x100];
 
 static int nr_rdma_ah = 0;
 
-static unsigned mac_hash(int maclen, char *mac)
+static unsigned generate_hash_key(enum hashes type, uint8_t *key, void *p)
 {
-	int z = 0;
-	unsigned hash = mac[z++];
+	int i;
+	unsigned sum = 0;
 
-	while (z < maclen)
-		hash += mac[z++];
+	memcpy(key, p, keylength[type]);
 
-	return hash & 0xff;
+	for (i = 0; i < keylength[type]; i++)
+		sum += key[i];
+
+	return sum & 0xff;
 }
 
-
-static struct rdma_ah *hash_addr_lookup(struct in_addr addr, unsigned addr_hash)
+static struct rdma_ah *find_key_in_chain(enum hashes type,
+	struct rdma_ah *next, uint8_t *key)
 {
-	struct rdma_ah *ra = hash_addr[addr_hash];
+	for ( ; next != NULL; next = next->hash[type].next)
+		if (memcmp(key, next->hash[type].key, keylength[type]) == 0)
+			break;
 
-	while (ra && ra->addr.s_addr != addr.s_addr)
-		ra = ra->next_addr;
-
-	return ra;
+	return next;
 }
 
-static struct rdma_ah *hash_mac_lookup(int maclen, char *mac, unsigned mac_hash)
+static void add_to_hash(struct rdma_ah *ra, enum hashes type, void *p)
 {
-	struct rdma_ah *ra = hash_mac[mac_hash];
+	struct hash_item *h = &ra->hash[type];
 
-	while (ra && memcmp(mac, ra->mac, maclen) != 0)
-		ra = ra->next_mac;
+	if (h->member)
+		abort();	/* Already a member of the hash */
 
-	return ra;
+	h->hash = generate_hash_key(type, h->key, p);
+
+	/* Duplicate key ? */
+	if (find_key_in_chain(type, hash_table[type][h->hash], h->key))
+		abort();
+
+	h->next = hash_table[type][h->hash];
+	hash_table[type][h->hash] = ra;
+
+	h->member = true;
 }
+
+static void remove_from_hash(struct rdma_ah *ra, enum hashes type)
+{
+	struct hash_item *h = &ra->hash[type];
+	unsigned hash = h->hash;
+	struct rdma_ah *next = hash_table[type][hash];
+	struct rdma_ah *prior = NULL;
+
+	for( ; next; next = next->hash[hash].next) {
+
+		if (next == ra)
+			break;
+
+		prior = next;
+
+	}
+
+	if (!next)
+		abort();	/* Not a in the chain */
+
+	if (!prior) {
+		/* This is the only item in the chain */
+		hash_table[type][hash] = NULL;
+		return;
+	}
+
+	prior->hash[type].next = h->next;
+	h->member = false;
+}
+
+static struct rdma_ah *find_in_hash(enum hashes type, void *p)
+{
+	uint8_t key[hash_max_keylen];
+	unsigned hash;
+
+	hash = generate_hash_key(type, key, p);
+
+	return find_key_in_chain(type, hash_table[type][hash], key);
+}
+
+static struct rdma_ah *new_rdma_ah(void)
+{
+	nr_rdma_ah++;
+	return calloc(1, sizeof(struct rdma_ah));
+}
+
 static long lookup_ip_from_gid(struct rdma_channel *c, union ibv_gid *v)
 {
-	unsigned hash;
 	struct rdma_ah *ra;
-	char mac[20];
 	char buf[100];
 
-	/* compose macfrom GID etc. Depends on LLM GID use. Not sure how to do it */
-	memcpy(mac + 4, &v, 16);
+	ra = find_in_hash(hash_gid, v);
 
-	hash = mac_hash(c->i->maclen, mac);
-	ra = hash_mac_lookup(c->i->maclen, mac, hash);
-	if (ra)
-		return ra->addr.s_addr;
+	if (ra && ra->hash[hash_ip].member) {
+		struct in_addr *in = (struct in_addr *)ra->hash[hash_ip].key;
+
+		return ntohl(in->s_addr);
+	}
 
 	/*
 	 * Could do ARP for GID -> IP resolution but the GID
@@ -1592,13 +1668,22 @@ static void handle_neigh_event(struct neigh *n)
 	bool have_dst = false;
 	bool have_lladdr = false;
 	struct rdma_ah *ra;
-	unsigned ha, hm;
 	const char *action;
+	enum hashes mac_hash;
+	unsigned offset;
 
 
 	for(i = i2r;  i < i2r + NR_INTERFACES; i++)
 		if (i->ifindex == n->nd.ndm_ifindex)
 			break;
+
+	if (i == i2r + INFINIBAND) {
+		mac_hash = hash_gid;
+		offset = 6;
+	} else {
+		mac_hash = hash_mac;
+		offset = 0;
+	}
 
 	for(rta = (struct rtattr *)n->attrbuf; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
 		switch (rta->rta_type) {
@@ -1646,27 +1731,21 @@ static void handle_neigh_event(struct neigh *n)
 		goto err;
 	}
 
-	ha = ip_hash(ntohl(addr.s_addr));
-	hm = mac_hash(maclen, mac);
-
-	ra = hash_addr_lookup(addr, ha);
+	ra = find_in_hash(hash_ip, &addr);
 	if (ra) {
 		/* Already existing entry retrieved by IP address  */
 		action = "Update";
-		memcpy(ra->mac, mac, maclen);
 
 	} else {
-		ra = hash_mac_lookup(maclen, mac, hm);
+		ra = find_in_hash(mac_hash, mac + offset);
 		if (ra) {
 			/* Update existing entry retrieved by MAC address */
 			action = "Update";
-			ra->addr = addr;
 
 		} else {
 			/* We truly have a new entry */
-			ra = calloc(1, sizeof(struct rdma_ah));
-			ra->addr = addr;
-			memcpy(ra->mac, mac, maclen);
+			ra = new_rdma_ah();
+
 			nr_rdma_ah++;
 			action = "New";
 		}
@@ -1675,15 +1754,11 @@ static void handle_neigh_event(struct neigh *n)
 	ra->flags = n->nd.ndm_flags;
 	ra->state = n->nd.ndm_state;
 
-	if (!ra->next_addr) {	
-		ra->next_addr = hash_addr[ha];
-		hash_addr[ha] = ra;
-	}
+	if (!ra->hash[mac_hash].member)
+		add_to_hash(ra, mac_hash, mac + offset);
 
-	if (!ra->next_mac) {
-		ra->next_mac = hash_mac[hm];
-		hash_mac[hm] = ra;
-	}
+	if (!ra->hash[hash_ip].member)
+		add_to_hash(ra, hash_ip, &addr);
 
 	syslog(LOG_NOTICE, "%s ARP entry via netlink for %s: IP=%s MAC=%s Flags=%x State=%x\n",
 		action,
@@ -1910,7 +1985,6 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 	struct ibv_ah_attr ah_attr;
 	struct rdma_ah *ra;
 	struct in_addr dest;
-	unsigned hash;
 	const char *reason;
 
 	PULL(buf, buf->bth);
@@ -1924,8 +1998,13 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 
 	PULL(buf, buf->deth);
 
-	if (buf->bth.opcode == IB_OPCODE_UD_SEND_ONLY_WITH_IMMEDIATE)
+	if (buf->bth.opcode == IB_OPCODE_UD_SEND_ONLY_WITH_IMMEDIATE) {
 		PULL(buf, buf->immdt);
+		buf->imm_valid = true;
+		buf->imm = buf->immdt.imm;
+	}
+
+	buf->cur += __bth_pad(&buf->bth);
 
 	buf->end -=  ICRC_SIZE;
 
@@ -1937,9 +2016,7 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 
 	dest.s_addr = buf->ip.daddr;
 
-	/* Determine address */
-	hash = ip_hash(ntohl(dest.s_addr)); 
-	ra = hash_addr_lookup(dest, hash);
+	ra = find_in_hash(hash_ip, &dest);
 	if (!ra) {
 		/*
 		 * Create address info on the fly. We have the IP address after all.
@@ -1947,20 +2024,21 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 		 * MAC address is going to be filled in by the netlink interface
 		 * when an ARP resolution completes.
 		 */
-		ra = calloc(1, sizeof(struct rdma_ah));
-
-		ra->addr = dest;
-
-		ra->next_addr = hash_addr[hash];
-		hash_addr[hash] = ra;
-		nr_rdma_ah++;
+		ra = new_rdma_ah();
+		add_to_hash(ra, hash_ip, &dest);
 	}
 
 	if (!ra->ai.ah) {
-		/* Infiniband routing information missing */
-		/* Do we need to do address resolution before we can send?
-		 * TBD: Need ah_attr to be setup
-		*/
+		/*
+ 		 * There are two ways in which we can construct the required ibv_attr
+ 		 * 1. Construct the global route from information in the rdma_ah struct
+ 		 *
+ 		 * 2. Do not use the global route and just provide the DLID.
+ 		 *
+ 		 * In any case we may have to delay sending until we have figured out
+ 		 * from the SM what the DLID is.
+ 		 *
+		 */
 		ra->ai.ah = ibv_create_ah(dc->pd, &ah_attr);
 		ra->ai.remote_qpn = BTH_QPN_MASK & ntohl(buf->bth.qpn);
 		ra->ai.remote_qkey = ntohl(buf->deth.qkey);
@@ -1968,7 +2046,7 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 	}
 	if (payload_len < MAX_INLINE_DATA) {
 
-		ret = send_inline(dc, buf, payload_len, &ra->ai, port);
+		ret = send_inline(dc, buf, payload_len, &ra->ai, port, buf->imm_valid ? buf->imm : 0);
 		if (!ret)
 			free_buffer(buf);
 
@@ -1999,6 +2077,72 @@ err:
 
 }
 
+/*
+ * Populate address cache to avoid expensive lookups.
+ *
+ * This is also used on the senders to multicast groups because the recover channels
+ * for multicast connections will connect later and then we already have the
+ * addresses cached
+ */
+static void learn_source_address(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
+{
+	struct rdma_ah *ra;
+
+	if (c->i == i2r + INFINIBAND) {
+		/* Infiniband. Thus able to lean LID, GID and potentially IP */
+
+		ra = find_in_hash(hash_lid, &w->slid);
+		if (!ra) {
+			if (buf->grh_valid) {
+				/* Lookup entry through SGID */
+				ra = find_in_hash(hash_gid, &buf->grh.sgid);
+				
+				if (ra)	/* LID must be invalid */
+					remove_from_hash(ra, hash_lid);
+			} 
+		}
+
+		if (!ra) {
+			/* Ok new Infiniband endpoint */
+			ra = new_rdma_ah();
+		}
+
+		if (!ra->hash[hash_gid].member && buf->grh_valid)
+			add_to_hash(ra, hash_gid, &buf->grh.sgid);
+
+		if (!ra->hash[hash_lid].member)
+			add_to_hash(ra, hash_lid, &w->slid);
+
+
+	} else { /* ROCE so a MAC and IP address */
+
+		ra = find_in_hash(hash_mac, buf->e.ether_shost);
+
+		if (!ra) {
+			ra = find_in_hash(hash_ip, &buf->ip.saddr);
+
+			if (ra) /* MAC was invalid */
+				remove_from_hash(ra, hash_mac);
+		}
+
+		if  (!ra) {
+			/* New ROCE endpoint */
+			ra = new_rdma_ah();
+		}
+
+		if (!ra->hash[hash_mac].member)
+			add_to_hash(ra, hash_mac, &buf->e.ether_shost);
+
+		if (!ra->hash[hash_ip].member)
+			add_to_hash(ra, hash_ip, &buf->ip.saddr);
+
+	}
+
+	/* Construct handle that is used by the RDMA subsystem to send datagrams to the endpoint */
+	ra->ai.ah = ibv_create_ah_from_wc(c->pd, w, &buf->grh, c->i->port);
+	ra->remote_qpn = w->src_qp;
+	ra->remote_qkey = 0;		/* Should there be a value from somewhere ? */
+}
 
 static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 {
@@ -2015,16 +2159,19 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 	source_addr.s_addr = sgid->sib_addr32[3];
 	dest_addr.s_addr = dgid->sib_addr32[3];
 
-	if (!(w->wc_flags & IBV_WC_WITH_IMM))
+	if (!(w->wc_flags & IBV_WC_WITH_IMM)) {
 			buf->imm = w->imm_data;
-	else
+			buf->imm_valid = true;
+	} else {
 			buf->imm = 0;
-
+			buf->imm_valid = false;
+	}
 
 	if (!(w->wc_flags & IBV_WC_GRH)) {
 
 		pull(buf, &buf->e, sizeof(struct ether_header));
 		buf->ethertype = ntohs(buf->e.ether_type);
+		buf->ether_valid = true;
 
 		if (c->rdmacm)
 			/* Not a raw frame */
@@ -2041,6 +2188,7 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 		else if (buf->ethertype == ETHERTYPE_IP) {
 		       
 			pull(buf, &buf->ip, sizeof(struct iphdr));
+			buf->ip_valid = true;
 		
 			if (!(w->wc_flags & IBV_WC_IP_CSUM_OK))
 				syslog(LOG_NOTICE, "TCP/UDP CSUM not valid on raw RDMA channel %s\n", c->text);
@@ -2048,6 +2196,7 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 			if (buf->ip.protocol == IPPROTO_UDP) {
 
 				pull(buf, &buf->udp, sizeof(struct udphdr));
+				buf->udp_valid = true;
 
 				if (ntohs(buf->udp.dest) == ROCE_PORT)
 
@@ -2069,8 +2218,12 @@ discard:
 	}
 
 	pull(buf, &buf->grh, sizeof(struct ibv_grh));
+	buf->grh_valid = true;
+
+	learn_source_address(c, buf, w);
 
 	if (unicast && buf->grh.dgid.raw[0] != 0xff)
+
 		/* Potential Path for Infiniband Unicast packets */
 		return unicast_packet(c, buf, source_addr, dest_addr);
 
@@ -2371,7 +2524,7 @@ static void beacon_send(void)
 			memcpy(buf->raw, &b, sizeof(b));
 			send_buf(i2r[i].multicast, buf, sizeof(b), beacon_mc->ai + i, 999);
 		} else
-			send_inline(i2r[i].multicast, &b, sizeof(b), beacon_mc->ai + i, 999);
+			send_inline(i2r[i].multicast, &b, sizeof(b), beacon_mc->ai + i, 999, 0);
 	}
 }
 
