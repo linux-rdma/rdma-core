@@ -31,6 +31,23 @@ class QPSRDTestCase(EfaRDMATestCase):
         self.client.pre_run(self.server.psns, self.server.qps_num)
         self.server.pre_run(self.client.psns, self.client.qps_num)
 
+    def full_sq_bad_flow(self):
+        """
+        Check post_send while qp's sq is full.
+        - Find qp's sq length
+        - Fill the qp with work requests until overflow
+        """
+        qp_idx = 0
+        send_op = e.IBV_QP_EX_WITH_SEND
+        ah = u.get_global_ah(self.client, self.gid_index, self.ib_port)
+        qp_attr, _ = self.client.qps[qp_idx].query(e.IBV_QP_CAP)
+        max_send_wr = qp_attr.cap.max_send_wr
+        with self.assertRaises(PyverbsRDMAError) as ex:
+            for _ in range (max_send_wr + 1):
+                _, c_sg = u.get_send_elements(self.client, False)
+                u.send(self.client, c_sg, send_op, new_send=True, qp_idx=qp_idx, ah=ah)
+        self.assertEqual(ex.exception.error_code, errno.ENOMEM)
+
     def test_qp_ex_srd_send(self):
         send_op = e.IBV_QP_EX_WITH_SEND
         self.create_players(send_op)
@@ -71,3 +88,28 @@ class QPSRDTestCase(EfaRDMATestCase):
         self.server.msg_size = 0
         u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port,
                   new_send=True, send_op=send_op)
+
+    def test_post_receive_qp_state_bad_flow(self):
+        send_op = e.IBV_QP_EX_WITH_SEND
+        self.create_players(send_op, qp_count=1)
+        u.post_rq_state_bad_flow(self)
+
+    def test_post_send_qp_state_bad_flow(self):
+        send_op = e.IBV_QP_EX_WITH_SEND
+        self.create_players(send_op, qp_count=1)
+        u.post_sq_state_bad_flow(self)
+
+    def test_full_rq_bad_flow(self):
+        send_op = e.IBV_QP_EX_WITH_SEND
+        self.create_players(send_op, qp_count=1)
+        u.full_rq_bad_flow(self)
+
+    def test_full_sq_bad_flow(self):
+        send_op = e.IBV_QP_EX_WITH_SEND
+        self.create_players(send_op, qp_count=1)
+        self.full_sq_bad_flow()
+
+    def test_rq_with_larger_sgl_bad_flow(self):
+        send_op = e.IBV_QP_EX_WITH_SEND
+        self.create_players(send_op, qp_count=1)
+        u.create_rq_with_larger_sgl_bad_flow(self)

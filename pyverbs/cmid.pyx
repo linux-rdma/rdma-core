@@ -2,7 +2,7 @@ from libc.stdint cimport uintptr_t, uint8_t
 from libc.string cimport memset
 import weakref
 
-from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError
+from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError, PyverbsRDMAError
 from pyverbs.qp cimport QPInitAttr, QPAttr, ECE
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
@@ -598,7 +598,7 @@ cdef class CMID(PyverbsCM):
         init_attr = QPInitAttr()
         rc = v.ibv_query_qp(self.id.qp, &attr.attr, attr_mask, &init_attr.attr)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to query QP')
+            raise PyverbsRDMAError('Failed to query QP', rc)
         return attr, init_attr
 
     def init_qp_attr(self, qp_state):

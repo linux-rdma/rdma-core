@@ -20,7 +20,7 @@ from pyverbs.addr import AHAttr, AH, GlobalRoute
 from tests.base import XRCResources, DCT_KEY
 from tests.efa_base import SRDResources
 from pyverbs.wr import SGE, SendWR, RecvWR
-from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx
+from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx, QPAttr
 from tests.mlx5_base import Mlx5DcResources, Mlx5DcStreamsRes
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.cq import PollCqAttr, CQEX
@@ -1227,3 +1227,82 @@ def is_datagram_qp(agr_obj):
 
 def is_root():
     return os.geteuid() == 0
+
+
+def post_rq_state_bad_flow(test_obj):
+    """
+    Check post_recive on rq while qp is in invalid state.
+    - Change qp's state to IBV_QPS_RESET
+    - Verify post receive on qp fails
+    :param test_obj: An instance of RDMATestCase
+    :return: None.
+    """
+    qp_attr = QPAttr(qp_state=e.IBV_QPS_RESET, cur_qp_state=e.IBV_QPS_RTS)
+    test_obj.server.qps[0].modify(qp_attr, e.IBV_QP_STATE)
+    recv_wr = get_recv_wr(test_obj.server)
+    with test_obj.assertRaises(PyverbsRDMAError) as ex:
+        post_recv(test_obj.server, recv_wr, qp_idx=0)
+    test_obj.assertEqual(ex.exception.error_code, errno.EINVAL)
+
+
+def post_sq_state_bad_flow(test_obj):
+    """
+    Check post_send on sq while qp is in invalid state.
+    - Change qp's state to IBV_QPS_RESET
+    - Verify post send on qp fails
+    :param test_obj: An instance of RDMATestCase
+    :return: None.
+    """
+    qp_idx = 0
+    qp_attr = QPAttr(qp_state=e.IBV_QPS_RESET, cur_qp_state=e.IBV_QPS_RTS)
+    test_obj.client.qps[qp_idx].modify(qp_attr, e.IBV_QP_STATE)
+    ah = get_global_ah(test_obj.client, test_obj.gid_index, test_obj.ib_port)
+    _, sg = get_send_elements(test_obj.client, False)
+    with test_obj.assertRaises(PyverbsRDMAError) as ex:
+        send(test_obj.client, sg, e.IBV_QP_EX_WITH_SEND, new_send=True,
+             qp_idx=qp_idx, ah=ah)
+    test_obj.assertEqual(ex.exception.error_code, errno.EINVAL)
+
+
+def full_rq_bad_flow(test_obj):
+    """
+    Check post_recive while qp's rq is full.
+    - Find qp's rq length.
+    - Fill the qp with work requests until overflow.
+    :param test_obj: An instance of RDMATestCase
+    :return: None.
+    """
+    qp_attr, _ = test_obj.server.qps[0].query(e.IBV_QP_CAP)
+    max_recv_wr = qp_attr.cap.max_recv_wr
+    with test_obj.assertRaises(PyverbsRDMAError) as ex:
+        for _ in range (max_recv_wr + 1):
+            s_recv_wr = get_recv_wr(test_obj.server)
+            post_recv(test_obj.server, s_recv_wr, qp_idx=0)
+    test_obj.assertEqual(ex.exception.error_code, errno.ENOMEM)
+
+
+def create_rq_with_larger_sgl_bad_flow(test_obj):
+    """
+    Check post_receive on qp while wr sgl is bigger than
+    max sge allowed for the qp
+    - Find max sge allowed for the qp
+    - Create wr with sgl bigger than the max
+    - Verify post receive on qp fails
+    :param test_obj: An instance of RDMATestCase
+    :return: None.
+    """
+    qp_idx = 0
+    server_mr = test_obj.server.mr
+    server_mr_buf = server_mr.buf
+    qp_attr, _ = test_obj.server.qps[qp_idx].query(e.IBV_QP_CAP)
+    max_recv_sge = qp_attr.cap.max_recv_sge
+    length = test_obj.server.msg_size // (max_recv_sge + 1)
+    sgl = []
+    offset = 0
+    for _ in range(max_recv_sge + 1):
+        sgl.append(SGE(server_mr_buf + offset, length, server_mr.lkey))
+        offset = offset + length
+    s_recv_wr = RecvWR(sg=sgl, num_sge=max_recv_sge + 1)
+    with test_obj.assertRaises(PyverbsRDMAError) as ex:
+        post_recv(test_obj.server, s_recv_wr, qp_idx=qp_idx)
+    test_obj.assertEqual(ex.exception.error_code, errno.EINVAL)

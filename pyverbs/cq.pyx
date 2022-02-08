@@ -152,7 +152,7 @@ cdef class CQ(PyverbsCM):
         while npolled < num_entries:
             rc = v.ibv_poll_cq(self.cq, 1, &wc)
             if rc < 0:
-                raise PyverbsRDMAErrno('Failed to poll CQ')
+                raise PyverbsRDMAError('Failed to poll CQ', -rc)
             if rc == 0:
                 break;
             npolled += 1
