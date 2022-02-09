@@ -1174,7 +1174,9 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *t
 		c->attr.port_num = port;
 		c->attr.qp_state = IBV_QPS_INIT;
 		c->attr.pkey_index = 0;
-		c->attr.qkey = 0x12345;		/* Default QKEY from ibdump source code */
+		c->attr.qkey = RDMA_UDP_QKEY;
+
+//		c->attr.qkey = 0x12345;		/* Default QKEY from ibdump source code */
 
 		ret = ibv_modify_qp(c->qp, &c->attr,
 			       in == ROCE ?
@@ -2189,7 +2191,7 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 	buf->sin.sin_addr.s_addr = buf->ip.daddr;
 
 	/* Hmmm qpnum and qkey depend on port. So this kind of hashing may not work */
-	ra = find_in_hash(hash_ip, &dest);
+	ra = find_in_hash(hash_ip, &buf->ip.daddr);
 	if (!ra) {
 		/*
 		 * Create address info on the fly. We have the IP address after all.
@@ -2298,7 +2300,7 @@ static void learn_source_address(struct rdma_channel *c, struct buf *buf, struct
 	/* Construct handle that is used by the RDMA subsystem to send datagrams to the endpoint */
 	ra->ai.ah = ibv_create_ah_from_wc(c->pd, w, &buf->grh, c->i->port);
 	ra->ai.remote_qpn = w->src_qp;
-	ra->ai.remote_qkey = 0;		/* Should there be a value from somewhere ? */
+	ra->ai.remote_qkey = RDMA_UDP_QKEY;
 }
 #endif
 
