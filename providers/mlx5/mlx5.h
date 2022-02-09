@@ -44,9 +44,8 @@
 #include <util/udma_barrier.h>
 #include <util/util.h>
 #include "mlx5-abi.h"
-#include <ccan/bitmap.h>
+#include <util/bitmap.h>
 #include <ccan/list.h>
-#include "bitmap.h"
 #include <ccan/minmax.h>
 #include "mlx5dv.h"
 
@@ -289,7 +288,7 @@ struct mlx5_hca_cap_2_caps {
 };
 
 struct reserved_qpn_blk {
-	bitmap *bmp;
+	unsigned long *bmp;
 	uint32_t first_qpn;
 	struct list_node entry;
 	unsigned int next_avail_slot;
@@ -419,19 +418,11 @@ struct mlx5_context {
 	pthread_mutex_t			crypto_login_mutex;
 };
 
-struct mlx5_bitmap {
-	uint32_t		last;
-	uint32_t		top;
-	uint32_t		max;
-	uint32_t		avail;
-	uint32_t		mask;
-	unsigned long	       *table;
-};
-
 struct mlx5_hugetlb_mem {
 	int			shmid;
 	void		       *shmaddr;
-	struct mlx5_bitmap	bitmap;
+	unsigned long		*bitmap;
+	unsigned long		bmp_size;
 	struct list_node	entry;
 };
 
