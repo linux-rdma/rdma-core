@@ -42,7 +42,7 @@
 #include <util/util.h>
 #include <infiniband/verbs.h>
 #include <ccan/array_size.h>
-#include <ccan/bitmap.h>
+#include <util/bitmap.h>
 #include <ccan/container_of.h>
 #include <linux/if_ether.h>
 #include "hns_roce_u_abi.h"
@@ -193,7 +193,7 @@ struct hns_roce_db_page {
 	struct hns_roce_buf	buf;
 	unsigned int		num_db;
 	unsigned int		use_cnt;
-	bitmap			*bitmap;
+	unsigned long		*bitmap;
 };
 
 struct hns_roce_context {
