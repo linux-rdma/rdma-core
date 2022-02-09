@@ -54,8 +54,6 @@
 #define MLX5_SHMAT_FLAGS 0
 #endif
 
-#define BITS_TO_LONGS(nr)	DIV_ROUND_UP(nr, BITS_PER_LONG)
-
 #ifndef HPAGE_SIZE
 #define HPAGE_SIZE		(2UL * 1024 * 1024)
 #endif
