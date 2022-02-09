@@ -206,7 +206,7 @@ struct rdma_ah {
 	struct i2r_interface *i;
 	short state;		/* Last netlink state */
 	short flags;		/* Last netlink flags */
-	struct ah_info ai;
+	struct ah_info ai;	/* If ai.ah != NULL then the address info is valid */
 	struct hash_item hash[nr_hashes];
 };
 
@@ -1356,7 +1356,7 @@ static void join_processing(void)
 static void resolve_start(struct buf *);
 
 /* Drop the first entry from the list of items to resolve */
-static void finish_resolve(struct buf *buf)
+static void resolve_end(struct buf *buf)
 {
 	struct i2r_interface *i = buf->c->i;
 
@@ -1377,7 +1377,6 @@ static void finish_resolve(struct buf *buf)
 
 static void resolve_start(struct buf *buf)
 {
-	struct rdma_ah *ra = buf->ra;
 	struct rdma_channel *c = buf->c;
 	struct i2r_interface *i = c->i;
 
@@ -1390,14 +1389,13 @@ static void resolve_start(struct buf *buf)
 	syslog(LOG_ERR, "rdma_resolve_addr error %s on %s for %s:%d\n",
 		errname(), c->text, inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port));
 
-	finish_resolve(buf);
+	resolve_end(buf);
 	free_buffer(buf);
 }
 
-/* Resolve Address */
+/* Resolve Address and send buffer when done */
 static void resolve(struct buf *buf)
 {
-	struct rdma_ah *ra = buf->ra;
 	struct rdma_channel *c = buf->c;
 	struct i2r_interface *i = c->i;
 
@@ -1485,7 +1483,7 @@ static void handle_rdma_event(enum interfaces in)
 					inet_ntoa(buf->sin.sin_addr),
 					ntohs(buf->sin.sin_port));
 
-				finish_resolve(buf);
+				resolve_end(buf);
 				free_buffer(buf);
 			}
 			break;
@@ -1499,7 +1497,7 @@ static void handle_rdma_event(enum interfaces in)
 					inet_ntoa(buf->sin.sin_addr),
 					ntohs(buf->sin.sin_port));
 
-				finish_resolve(buf);
+				resolve_end(buf);
 				free_buffer(buf);
 			}
 			break;
@@ -1516,7 +1514,7 @@ static void handle_rdma_event(enum interfaces in)
 						inet_ntoa(buf->sin.sin_addr),
 						ntohs(buf->sin.sin_port));
 
-					finish_resolve(buf);
+					resolve_end(buf);
 					free_buffer(buf);
 				}
 			}
@@ -1531,7 +1529,7 @@ static void handle_rdma_event(enum interfaces in)
 					inet_ntoa(buf->sin.sin_addr),
 					ntohs(buf->sin.sin_port));
 
-				finish_resolve(buf);
+				resolve_end(buf);
 				free_buffer(buf);
 			}
 			break;
@@ -1547,7 +1545,7 @@ static void handle_rdma_event(enum interfaces in)
 
 				/* Start sending packet data */
 
-				finish_resolve(buf);
+				resolve_end(buf);
 			}
 			break;
 
@@ -1560,7 +1558,7 @@ static void handle_rdma_event(enum interfaces in)
 					inet_ntoa(buf->sin.sin_addr),
 					ntohs(buf->sin.sin_port));
 
-				finish_resolve(buf);
+				resolve_end(buf);
 				free_buffer(buf);
 			}
 			break;
@@ -1582,16 +1580,16 @@ static void handle_rdma_event(enum interfaces in)
  *
  * Space in the WR is limited, so it only works for very small packets.
  */
-static int send_inline(struct rdma_channel *c, void *buf, unsigned len, struct ah_info *ai, int port, uint32_t imm)
+static int send_inline(struct rdma_channel *c, void *addr, unsigned len, struct ah_info *ai, bool imm_used, unsigned imm)
 {
 	struct ibv_sge sge = {
 		.length = len,
-		.addr = (uint64_t)buf
+		.addr = (uint64_t)addr
 	};
 	struct ibv_send_wr wr = {
 		.sg_list = &sge,
 		.num_sge = 1,
-		.opcode = imm ? IBV_WR_SEND_WITH_IMM : IBV_WR_SEND,
+		.opcode = imm_used ? IBV_WR_SEND_WITH_IMM : IBV_WR_SEND,
 		.send_flags = IBV_SEND_INLINE,
 		.imm_data = imm,
 		.wr = {
@@ -1619,19 +1617,29 @@ static int send_inline(struct rdma_channel *c, void *buf, unsigned len, struct a
 	return ret;
 }
 
-static int send_buf(struct rdma_channel *c, struct buf *buf, unsigned len, struct ah_info *ai, int port)
+/*
+ * Send data to a target. No metadata is used in struct buf. However, the buffer must be passed to the wc in order
+ * to be able to free up resources when done.
+ */
+static int send_to(struct rdma_channel *c,
+	void *addr, unsigned len, struct ah_info *ai,
+	bool imm_used, unsigned imm,
+	struct buf *buf)
 {
 	struct ibv_send_wr wr, *bad_send_wr;
 	struct ibv_sge sge;
 	int ret;
 
+	if (!ai->ah)
+		abort();	/* Send without a route */
+
 	memset(&wr, 0, sizeof(wr));
 	wr.sg_list = &sge;
 	wr.num_sge = 1;
-	wr.opcode = buf->imm_valid ? IBV_WR_SEND_WITH_IMM: IBV_WR_SEND;
+	wr.opcode = imm_used ? IBV_WR_SEND_WITH_IMM: IBV_WR_SEND;
 	wr.send_flags = IBV_SEND_SIGNALED;
 	wr.wr_id = (uint64_t)buf;
-	wr.imm_data = buf->imm;
+	wr.imm_data = imm;
 
 	/* Get addr info  */
 	wr.wr.ud.ah = ai->ah;
@@ -1640,13 +1648,29 @@ static int send_buf(struct rdma_channel *c, struct buf *buf, unsigned len, struc
 
 	sge.length = len;
 	sge.lkey = c->mr->lkey;
-	sge.addr = (uint64_t)buf->raw;
+	sge.addr = (uint64_t)addr;
 
 	ret = ibv_post_send(c->qp, &wr, &bad_send_wr);
 	if (ret) {
 		errno = - ret;
 		syslog(LOG_WARNING, "Failed to post send: %s on %s\n", errname(), c->text);
 	}
+
+	return ret;
+}
+
+/* Send buffer based on state in struct buf. Unicast only */
+static int send_buf(struct buf *buf)
+{
+	unsigned len = buf->end - buf->cur;
+	int ret;
+
+	if (len < MAX_INLINE_DATA) {
+		ret = send_inline(buf->c, buf->cur, len, &buf->ra->ai, buf->imm_valid, buf->imm);
+		if (ret == 0)
+			free_buffer(buf);
+	} else 
+		ret = send_to(buf->c, buf->cur, len, &buf->ra->ai, buf->imm_valid, buf->imm, buf);
 
 	return ret;
 }
@@ -1669,16 +1693,6 @@ static int sysfs_read_int(const char *s)
 	return atoi(b);
 }
 #endif
-
-/* Unicast handling */
-#define MAX_MACLEN 20
-
-/*
- * Crazy address resolution structure where we can find items according to
- * 1. IPv4 address
- * 2. MAC address (on ROCE 6 bytes, on IB PartID + GID plus more = 20 bytes)
- * 3. LID on Infiniband
- */
 
 static unsigned generate_hash_key(enum hashes type, uint8_t *key, void *p)
 {
@@ -2129,11 +2143,9 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 {
 	char xbuf[INET6_ADDRSTRLEN];
 	char xbuf2[INET6_ADDRSTRLEN];
-	unsigned payload_len;
-	unsigned port;
+	unsigned port = 10000;
 	int ret;
 	struct rdma_channel *dc = i2r[INFINIBAND].multicast;
-	struct ibv_ah_attr ah_attr;
 	struct rdma_ah *ra;
 	struct in_addr dest;
 	const char *reason;
@@ -2157,16 +2169,20 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 
 	buf->cur += __bth_pad(&buf->bth);
 
+	buf->bth_valid = true;
+
 	buf->end -=  ICRC_SIZE;
 
 	/* Ok we got the payload starting at buf->cur to buf->end */
 
-	/* Reuse the buffer to send the payload to the destination */
-	payload_len = buf->end - buf->cur;
-	memcpy(buf->raw, buf->cur, payload_len);
-
 	dest.s_addr = buf->ip.daddr;
 
+	/* Where do we get the port from ? */
+	buf->sin.sin_family = AF_INET;
+	buf->sin.sin_port = htons(port);
+	buf->sin.sin_addr.s_addr = buf->ip.daddr;
+
+	/* Hmmm qpnum and qkey depend on port. So this kind of hashing may not work */
 	ra = find_in_hash(hash_ip, &dest);
 	if (!ra) {
 		/*
@@ -2179,25 +2195,19 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 		add_to_hash(ra, hash_ip, &dest);
 	}
 
+	buf->ra = ra;
+	buf->c = dc;
+
 	if (!ra->ai.ah) {
-		buf->ra = ra;
-		buf->c = dc;
+		/* No address handle yet. We need to do an address resolution */
 		resolve(buf);
 		return 1;
 	}
-	if (payload_len < MAX_INLINE_DATA) {
 
-		ret = send_inline(dc, buf, payload_len, &ra->ai, port, buf->imm_valid ? buf->imm : 0);
-		if (!ret)
-			free_buffer(buf);
-
-	} else
-
-		ret = send_buf(dc, buf, payload_len, &ra->ai, port);
+	ret = send_buf(buf);
 
 	if (!ret)
 		return 0;
-
 
 	syslog(LOG_NOTICE, "ROCEv2 send failed %s flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s UDP=%s BTH=%s Data=%s\n",
 			errname(), ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
@@ -2294,13 +2304,13 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 	struct ib_addr *dgid = (struct ib_addr *)&buf->grh.dgid.raw;
 	struct in_addr source_addr;
 	struct in_addr dest_addr;
-	unsigned port = 0;
+	unsigned port;
 	char xbuf[INET6_ADDRSTRLEN];
 
 	source_addr.s_addr = sgid->sib_addr32[3];
 	dest_addr.s_addr = dgid->sib_addr32[3];
 
-	if (!(w->wc_flags & IBV_WC_WITH_IMM)) {
+	if (w->wc_flags & IBV_WC_WITH_IMM) {
 			buf->imm = w->imm_data;
 			buf->imm_valid = true;
 	} else {
@@ -2318,6 +2328,10 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 			/* Not a raw frame */
 			goto discard;
 
+		if (buf->e.ether_dhost[0] & 0x1)
+			/* Multicast */
+			goto discard;
+
 		buf->end -= 4;		/* Remove Ethernet FCS */
 
 		/* buf->cur .. buf->end is the ethernet payload */
@@ -2331,10 +2345,10 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 			pull(buf, &buf->ip, sizeof(struct iphdr));
 			buf->ip_valid = true;
 		
-			if (!(w->wc_flags & IBV_WC_IP_CSUM_OK))
-				syslog(LOG_NOTICE, "TCP/UDP CSUM not valid on raw RDMA channel %s\n", c->text);
-
 			if (buf->ip.protocol == IPPROTO_UDP) {
+
+				if (!(w->wc_flags & IBV_WC_IP_CSUM_OK))
+					syslog(LOG_NOTICE, "TCP/UDP CSUM not valid on raw RDMA channel %s\n", c->text);
 
 				pull(buf, &buf->udp, sizeof(struct udphdr));
 				buf->udp_valid = true;
@@ -2452,7 +2466,7 @@ discard:
 		return -ENOSYS;
 
 	len = w->byte_len - sizeof(struct ibv_grh);
-	return send_buf(i2r[in ^ 1].multicast, buf, len, m->ai + (in ^ 1), port);
+	return send_to(i2r[in ^ 1].multicast, buf, len, m->ai + (in ^ 1), false, 0, buf);
 }
 
 static void handle_comp_event(enum interfaces in)
@@ -2663,9 +2677,9 @@ static void beacon_send(void)
 		if (sizeof(b) > MAX_INLINE_DATA) {
 			buf = alloc_buffer();
 			memcpy(buf->raw, &b, sizeof(b));
-			send_buf(i2r[i].multicast, buf, sizeof(b), beacon_mc->ai + i, 999);
+			send_to(i2r[i].multicast, buf, sizeof(b), beacon_mc->ai + i, false, 0, buf);
 		} else
-			send_inline(i2r[i].multicast, &b, sizeof(b), beacon_mc->ai + i, 999, 0);
+			send_inline(i2r[i].multicast, &b, sizeof(b), beacon_mc->ai + i, false, 0);
 	}
 }
 
