@@ -75,6 +75,8 @@
 #define ETHERTYPE_ROCE 0x8915
 
 // #define NETLINK_SUPPORT
+// #define LEARN
+
 /* Globals */
 
 static unsigned default_port = 4711;		/* Port to use to bind to devices and for MC groups that do not have a port (if a port is required) */
@@ -2235,6 +2237,7 @@ err:
 
 }
 
+#ifdef LEARN
 /*
  * Populate address cache to avoid expensive lookups.
  *
@@ -2301,6 +2304,7 @@ static void learn_source_address(struct rdma_channel *c, struct buf *buf, struct
 	ra->ai.remote_qpn = w->src_qp;
 	ra->ai.remote_qkey = 0;		/* Should there be a value from somewhere ? */
 }
+#endif
 
 static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 {
@@ -2382,7 +2386,9 @@ discard:
 	pull(buf, &buf->grh, sizeof(struct ibv_grh));
 	buf->grh_valid = true;
 
+#ifdef LEARN
 	learn_source_address(c, buf, w);
+#endif
 
 	if (unicast && buf->grh.dgid.raw[0] != 0xff)
 
