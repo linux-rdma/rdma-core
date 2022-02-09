@@ -162,7 +162,6 @@ static struct i2r_interface {
 	struct ibv_comp_channel *comp_events;
 	struct rdma_channel *multicast;
 	struct rdma_channel *raw;
-	struct rdma_channel *resolver;
 	unsigned port;
 	unsigned mtu;
 	unsigned maclen;
@@ -177,7 +176,39 @@ static struct i2r_interface {
 	int iges;
 	struct ibv_gid_entry ige[MAX_GID];
 	struct buf *resolve_queue;		/* List of send buffers with unresolved addresses */
+	struct buf *resolve_last;		/* Last item on resolve queue */
 } i2r[NR_INTERFACES];
+
+enum hashes { hash_ip, hash_mac, hash_gid, hash_lid, nr_hashes };
+static unsigned keylength[nr_hashes] = { 4, 6, 16, 2 };
+
+struct rdma_ah *hash_table[nr_hashes][0x100];
+
+static int nr_rdma_ah = 0;
+
+/* Enough to fit a MAC address from IPoIB */
+#define hash_max_keylen 16
+
+struct hash_item {
+	bool member;
+	unsigned hash;
+	uint8_t key[hash_max_keylen];
+	struct rdma_ah *next;	/* Linked list to avoid collisions */
+};
+
+struct ah_info {
+	struct ibv_ah *ah;
+	unsigned remote_qpn;
+	unsigned remote_qkey;
+};
+
+struct rdma_ah {
+	struct i2r_interface *i;
+	short state;		/* Last netlink state */
+	short flags;		/* Last netlink flags */
+	struct ah_info ai;
+	struct hash_item hash[nr_hashes];
+};
 
 static inline void st(struct rdma_channel *c, enum stats s)
 {
@@ -335,12 +366,6 @@ static int find_rdma_devices(void)
 
 static unsigned nr_mc;
 static unsigned active_mc;	/* MC groups actively briding */
-
-struct ah_info {
-	struct ibv_ah *ah;
-	unsigned remote_qpn;
-	unsigned remote_qkey;
-};
 
 enum mc_status { MC_OFF, MC_JOINING, MC_JOINED, MC_ERROR, NR_MC_STATUS };
 
@@ -629,7 +654,6 @@ struct buf {
 		struct {
 			struct buf *next;	/* Next free buffer */
 			bool free;
-			struct buf *next_resolv;	/* Next buffer that needs address resolution */
 
 			bool ether_valid;	/* Ethernet header valid */
 			bool ip_valid;		/* IP header valid */
@@ -643,6 +667,12 @@ struct buf {
 			unsigned imm;		/* Immediate data from the WC */
 
 			unsigned ethertype;	/* Frame type */
+
+			/* Information used for delayed processing due to address resolution */
+			struct sockaddr_in sin;	/* Destination address, port */
+			struct rdma_channel *c;	/* Channel for sending */
+			struct rdma_ah *ra;	/* Routing information */
+			struct buf *next_resolve;	/* Next buffer that needs address resolution */
 
 			/* Structs pulled out of the frame */
 			struct ether_header e;
@@ -1238,9 +1268,6 @@ static void setup_interface(enum interfaces in)
 			i->if_addr.sin_addr, i->port, in == ROCE ? IBV_QPT_RAW_PACKET : IBV_QPT_UD,
 			100, 0);
 
-	i->resolver = setup_channel(i, "resolver", true, true,
-			i->if_addr.sin_addr, 0, IBV_QPT_UD, 10, 0);
-
 	syslog(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s CQs=%u/%u MTU=%u.\n",
 		interfaces_text[in],
 		ibv_get_device_name(i->context->device),
@@ -1326,6 +1353,67 @@ static void join_processing(void)
 	}
 }
 
+static void resolve_start(struct buf *);
+
+/* Drop the first entry from the list of items to resolve */
+static void finish_resolve(struct buf *buf)
+{
+	struct i2r_interface *i = buf->c->i;
+
+	if (buf != i->resolve_queue)
+		abort();
+
+	i->resolve_queue = buf->next_resolve;
+
+	if (!i->resolve_queue) {
+		/* Queue is empty */
+		i->resolve_last = NULL;
+		return;
+	}
+
+	/* Start work on next item */
+	resolve_start(i->resolve_queue);
+}
+
+static void resolve_start(struct buf *buf)
+{
+	struct rdma_ah *ra = buf->ra;
+	struct rdma_channel *c = buf->c;
+	struct i2r_interface *i = c->i;
+
+
+	/* Compose destination addr */
+
+	if (rdma_resolve_addr(i->multicast->id, NULL, (struct sockaddr *)&buf->sin, 2000) == 0)
+		return;
+
+	syslog(LOG_ERR, "rdma_resolve_addr error %s on %s for %s:%d\n",
+		errname(), c->text, inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port));
+
+	finish_resolve(buf);
+	free_buffer(buf);
+}
+
+/* Resolve Address */
+static void resolve(struct buf *buf)
+{
+	struct rdma_ah *ra = buf->ra;
+	struct rdma_channel *c = buf->c;
+	struct i2r_interface *i = c->i;
+
+	if (i->resolve_queue) {
+		/* Resolver is busy. Queue item */
+		buf->next_resolve = NULL;
+		i->resolve_last->next_resolve = buf;
+		i->resolve_last = buf;
+		return;
+	}
+
+	/* Resolver is idle, so start working on this entry */
+	i->resolve_last = i->resolve_queue = buf;
+	resolve_start(buf);
+}
+
 static void handle_rdma_event(enum interfaces in)
 {
 	struct rdma_cm_event *event;
@@ -1389,16 +1477,94 @@ static void handle_rdma_event(enum interfaces in)
 			break;
 
 		case RDMA_CM_EVENT_ADDR_RESOLVED:
-			syslog(LOG_ERR, "Unexpected event ADDR_RESOLVED\n");
+			if (rdma_resolve_route(i->multicast->id, 2000) < 0) {
+				struct buf *buf = i->resolve_queue;
+
+				syslog(LOG_ERR, "rdma_resolve_route error %s on %s  %s:%d. Packet dropped.\n",
+					errname(), buf->c->text,
+					inet_ntoa(buf->sin.sin_addr),
+					ntohs(buf->sin.sin_port));
+
+				finish_resolve(buf);
+				free_buffer(buf);
+			}
+			break;
+	
+		case RDMA_CM_EVENT_ADDR_ERROR:
+			{
+				struct buf *buf = i->resolve_queue;
+
+				syslog(LOG_ERR, "Address resolution error %d on %s  %s:%d. Packet dropped.\n",
+					event->status, buf->c->text,
+					inet_ntoa(buf->sin.sin_addr),
+					ntohs(buf->sin.sin_port));
+
+				finish_resolve(buf);
+				free_buffer(buf);
+			}
 			break;
 
 		/* Disconnection events */
-		case RDMA_CM_EVENT_ADDR_ERROR:
-		case RDMA_CM_EVENT_ROUTE_ERROR:
-		case RDMA_CM_EVENT_ADDR_CHANGE:
-			syslog(LOG_ERR, "RDMA Event handler:%s status: %d\n",
-				rdma_event_str(event->event), event->status);
+		case RDMA_CM_EVENT_ROUTE_RESOLVED:
+			{
+				struct buf *buf = i->resolve_queue;
+				struct rdma_conn_param rcp = { };
+
+				if (rdma_connect(i->multicast->id, &rcp) < 0) {
+					syslog(LOG_ERR, "rdma_connecte error %s on %s  %s:%d. Packet dropped.\n",
+						errname(), buf->c->text,
+						inet_ntoa(buf->sin.sin_addr),
+						ntohs(buf->sin.sin_port));
+
+					finish_resolve(buf);
+					free_buffer(buf);
+				}
+			}
 			break;
+
+		case RDMA_CM_EVENT_ROUTE_ERROR:
+			{
+				struct buf *buf = i->resolve_queue;
+
+				syslog(LOG_ERR, "Route resolution error %d on %s  %s:%d. Packet dropped.\n",
+					event->status, buf->c->text,
+					inet_ntoa(buf->sin.sin_addr),
+					ntohs(buf->sin.sin_port));
+
+				finish_resolve(buf);
+				free_buffer(buf);
+			}
+			break;
+
+		case RDMA_CM_EVENT_ESTABLISHED:
+			{
+				struct buf *buf = i->resolve_queue;
+				struct ah_info *ai = &buf->ra->ai;
+
+				ai->ah = ibv_create_ah(buf->c->pd, &event->param.ud.ah_attr);
+				ai->remote_qpn = event->param.ud.qp_num;
+				ai->remote_qkey = event->param.ud.qkey;
+
+				/* Start sending packet data */
+
+				finish_resolve(buf);
+			}
+			break;
+
+		case RDMA_CM_EVENT_UNREACHABLE:
+			{
+				struct buf *buf = i->resolve_queue;
+
+				syslog(LOG_ERR, "Unreachable Port error %d on %s  %s:%d. Packet dropped.\n",
+					event->status, buf->c->text,
+					inet_ntoa(buf->sin.sin_addr),
+					ntohs(buf->sin.sin_port));
+
+				finish_resolve(buf);
+				free_buffer(buf);
+			}
+			break;
+
 		default:
 			syslog(LOG_NOTICE, "RDMA Event handler:%s status: %d\n",
 				rdma_event_str(event->event), event->status);
@@ -1513,31 +1679,6 @@ static int sysfs_read_int(const char *s)
  * 2. MAC address (on ROCE 6 bytes, on IB PartID + GID plus more = 20 bytes)
  * 3. LID on Infiniband
  */
-
-enum hashes { hash_ip, hash_mac, hash_gid, hash_lid, nr_hashes };
-static unsigned keylength[nr_hashes] = { 4, 6, 16, 2 };
-
-/* Enough to fit a MAC address from IPoIB */
-#define hash_max_keylen 16
-
-struct hash_item {
-	bool member;
-	unsigned hash;
-	uint8_t key[hash_max_keylen];
-	struct rdma_ah *next;	/* Linked list to avoid collisions */
-};
-
-struct rdma_ah {
-	struct i2r_interface *i;
-	short state;		/* Last netlink state */
-	short flags;		/* Last netlink flags */
-	struct ah_info ai;
-	struct hash_item hash[nr_hashes];
-};
-
-struct rdma_ah *hash_table[nr_hashes][0x100];
-
-static int nr_rdma_ah = 0;
 
 static unsigned generate_hash_key(enum hashes type, uint8_t *key, void *p)
 {
@@ -2039,20 +2180,10 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 	}
 
 	if (!ra->ai.ah) {
-		/*
- 		 * There are two ways in which we can construct the required ibv_attr
- 		 * 1. Construct the global route from information in the rdma_ah struct
- 		 *
- 		 * 2. Do not use the global route and just provide the DLID.
- 		 *
- 		 * In any case we may have to delay sending until we have figured out
- 		 * from the SM what the DLID is.
- 		 *
-		 */
-		ra->ai.ah = ibv_create_ah(dc->pd, &ah_attr);
-		ra->ai.remote_qpn = BTH_QPN_MASK & ntohl(buf->bth.qpn);
-		ra->ai.remote_qkey = ntohl(buf->deth.qkey);
-
+		buf->ra = ra;
+		buf->c = dc;
+		resolve(buf);
+		return 1;
 	}
 	if (payload_len < MAX_INLINE_DATA) {
 
