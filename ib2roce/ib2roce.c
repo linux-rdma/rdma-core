@@ -2156,7 +2156,6 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 	int ret;
 	struct rdma_channel *dc = i2r[INFINIBAND].multicast;
 	struct rdma_ah *ra;
-	struct in_addr dest;
 	const char *reason;
 
 	PULL(buf, buf->bth);
@@ -2184,8 +2183,6 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 
 	/* Ok we got the payload starting at buf->cur to buf->end */
 
-	dest.s_addr = buf->ip.daddr;
-
 	/* Where do we get the port from ? */
 	buf->sin.sin_family = AF_INET;
 	buf->sin.sin_port = htons(port);
@@ -2196,12 +2193,11 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 	if (!ra) {
 		/*
 		 * Create address info on the fly. We have the IP address after all.
-		 * This is a skeleton entry with only the IP address. The
-		 * MAC address is going to be filled in by the netlink interface
+		 * This is a skeleton entry with only the IP address.
 		 * when an ARP resolution completes.
 		 */
 		ra = new_rdma_ah(c->i);
-		add_to_hash(ra, hash_ip, &dest);
+		add_to_hash(ra, hash_ip, &buf->ip.daddr);
 	}
 
 	buf->ra = ra;
@@ -2340,7 +2336,10 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 			goto discard;
 
 		if (buf->e.ether_dhost[0] & 0x1)
-			/* Multicast */
+			/*
+ 			 * Multicast is handled via the multicast channel.
+ 			 * Any echos should be discarded.
+ 			 */
 			goto discard;
 
 		buf->end -= 4;		/* Remove Ethernet FCS */
