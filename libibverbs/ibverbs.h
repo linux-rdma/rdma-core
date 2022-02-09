@@ -37,7 +37,7 @@
 #include <pthread.h>
 
 #include <infiniband/driver.h>
-#include <ccan/bitmap.h>
+#include <util/bitmap.h>
 
 #define INIT		__attribute__((constructor))
 
@@ -70,7 +70,7 @@ void load_drivers(void);
 #endif
 
 struct verbs_ex_private {
-	BITMAP_DECLARE(unsupported_ioctls, VERBS_OPS_NUM);
+	BMP_DECLARE(unsupported_ioctls, VERBS_OPS_NUM);
 	uint32_t driver_id;
 	bool use_ioctl_write;
 	struct verbs_context_ops ops;
