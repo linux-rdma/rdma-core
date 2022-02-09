@@ -74,6 +74,7 @@
 #define ROCE_PORT 4791
 #define ETHERTYPE_ROCE 0x8915
 
+// #define NETLINK_SUPPORT
 /* Globals */
 
 static unsigned default_port = 4711;		/* Port to use to bind to devices and for MC groups that do not have a port (if a port is required) */
@@ -204,8 +205,10 @@ struct ah_info {
 
 struct rdma_ah {
 	struct i2r_interface *i;
+#ifdef NETLINK_SUPPORT
 	short state;		/* Last netlink state */
 	short flags;		/* Last netlink flags */
+#endif
 	struct ah_info ai;	/* If ai.ah != NULL then the address info is valid */
 	struct hash_item hash[nr_hashes];
 };
@@ -1808,6 +1811,7 @@ static long lookup_ip_from_gid(struct rdma_channel *c, union ibv_gid *v)
 	return 0;
 }
 
+#ifdef NETLINK_SUPPORT
 /*
  * Netlink interface
  */
@@ -2031,6 +2035,9 @@ static void setup_netlink(enum netlink_channel c)
 	if (c != nl_monitor)
 		send_netlink_message(c, &nlr.nlh);
 }
+#else
+#endif
+
 
 static void setup_flow(struct rdma_channel *c)
 {
@@ -2707,13 +2714,19 @@ static void beacon_setup(void)
 		beacon_mc = m;
 }
 
+#ifdef NETLINK_SUPPORT
 #define NR_EVENT_TYPES 4
+#else
+#define NR_EVENT_TYPES 3
+#endif
 
 static void (*event_callvec[NR_EVENT_TYPES])(unsigned) = {
 		handle_rdma_event,
 		handle_comp_event,
 		handle_async_event,
+#ifdef NETLINK_SUPPORT
 		handle_netlink_event
+#endif
 };
 
 static int event_loop(void)
@@ -2726,17 +2739,21 @@ static int event_loop(void)
 		{ i2r[ROCE].comp_events->fd, POLLIN,0},
 		{ i2r[INFINIBAND].context->async_fd, POLLIN, 0},
 		{ i2r[ROCE].context->async_fd, POLLIN, 0},
+#ifdef NETLINK_SUPPORT
 		{ sock_nl[nl_monitor], POLLIN, 0},
 		{ sock_nl[nl_command], POLLIN, 0}
+#endif
 	};
 	unsigned nr_types = NR_EVENT_TYPES;
 	int events;
 	struct i2r_interface *i;
 	int t;
 
+#ifdef NETLINK_SUPPORT
 	if (!unicast)
 		/* No netlink events */
 		nr_types--;
+#endif
 
 	for(i = i2r; i < i2r + NR_INTERFACES; i++) {
 		/* Receive Buffers */
@@ -3056,10 +3073,12 @@ int main(int argc, char **argv)
 	if (beacon)
 		beacon_setup();
 
+#ifdef NETLINK_SUPPORT
 	if (unicast) {
 		setup_netlink(nl_monitor);
 		setup_netlink(nl_command);
 	}
+#endif
 
 	event_loop();
 
