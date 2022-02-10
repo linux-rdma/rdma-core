@@ -2817,7 +2817,7 @@ static int event_loop(void)
 	unsigned nr_types = NR_EVENT_TYPES;
 	int events;
 	struct i2r_interface *i;
-	int t;
+	unsigned long t;
 
 #ifdef NETLINK_SUPPORT
 	if (!unicast)
@@ -2841,11 +2841,11 @@ static int event_loop(void)
 
 	t = timestamp();
 	if (beacon)
-		add_event(t + 60000, beacon_send);
+		add_event(t + 10000, beacon_send);
 
 	logging();
 	add_event(t + 30000, status_write);
-	add_event(t + 10000, check_joins);
+	add_event(t + 100, check_joins);
 
 loop:
 	timeout = 10000;
