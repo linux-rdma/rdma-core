@@ -2512,7 +2512,6 @@ static void handle_comp_event(enum interfaces in)
 
 	/* Retrieve completion events and process incoming data */
 	cqs = ibv_poll_cq(cq, 100, wc);
-	printf("CQs=%d %s\n", cqs, c->text);
 	if (cqs < 0) {
 		syslog(LOG_WARNING, "CQ polling failed with: %s on %s\n",
 			errname(), interfaces_text[i - i2r]);
@@ -2561,7 +2560,6 @@ exit:
 
 static void handle_async_event(enum interfaces in)
 {
-//	struct i2r_interface *i = i2r + in;
 	struct ibv_async_event event;
 
 	if (!ibv_get_async_event(i2r[in].context, &event))
@@ -2785,14 +2783,6 @@ loop:
 
 	if (terminated)
 		goto out;
-
-	printf("Events #%d REV=%d %d %d %d %d %d\n", events,
-	pfd[0].revents,
-	pfd[1].revents,
-	pfd[2].revents,
-	pfd[3].revents,
-	pfd[4].revents,
-	pfd[5].revents);
 
 	if (events < 0) {
 		syslog(LOG_WARNING, "Poll failed with error=%s\n", errname());
