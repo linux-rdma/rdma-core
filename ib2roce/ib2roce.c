@@ -2801,7 +2801,7 @@ static void check_joins(void)
 static void logging(void)
 {
 	syslog(LOG_NOTICE, "ib2roce: %d/%d MC Active.\n", active_mc, nr_mc);
-	add_event(timestamp() + 60000, logging);
+	add_event(timestamp() + 5000, logging);
 }
 
 static int event_loop(void)
@@ -2849,13 +2849,10 @@ static int event_loop(void)
 		add_event(t + 10000, beacon_send);
 
 	logging();
-	timer_show();
 	add_event(t + 30000, status_write);
-	timer_show();
 	add_event(t + 100, check_joins);
 
 loop:
-	timer_show();
 	timeout = 10000;
 
 	if (next_event) {
@@ -2876,7 +2873,15 @@ loop:
 			timeout = waitms;
 	}
 
+	timer_show();
 	events = poll(pfd, 2 * nr_types, timeout);
+	printf("Events #%d REV=%d %d %d %d %d %d\n", events,
+		pfd[0].revents,
+		pfd[1].revents,
+		pfd[2].revents,
+		pfd[3].revents,
+		pfd[4].revents,
+		pfd[5].revents);
 
 	if (terminated)
 		goto out;
