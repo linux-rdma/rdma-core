@@ -2849,7 +2849,7 @@ static int event_loop(void)
 
 loop:
 	printf("Event Loop=");
-	for(struct timed_event *z; z; z = z->next)
+	for(struct timed_event *z = next_event; z; z = z->next)
 		printf("%ld ms", z->time - timestamp());
 	printf("\n");
 
