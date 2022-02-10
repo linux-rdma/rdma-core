@@ -89,6 +89,17 @@ static bool unicast = false;		/* Bridge unicast packets */
 static bool flow_steering = false;	/* Use flow steering to filter packets */
 static bool log_packets = false;	/* Show details on discarded packets */
 
+
+/* Timestamp in milliseconds */
+static unsigned long timestamp(void)
+{
+	struct timespec t;
+
+	clock_gettime(CLOCK_REALTIME, &t);
+	return t.tv_sec * 1000 + (t.tv_nsec + 500000) / 1000000;
+}
+
+static void add_event(unsigned long time_in_ms, void (*callback));
 /*
  * Handling of special Multicast Group MGID encodings on Infiniband
  */
@@ -2653,6 +2664,7 @@ static void status_write(void)
 		close(fd);
 		update_requested = false;
 	}
+	add_event(timestamp() + 60000, status_write);
 }
 
 /*
@@ -2697,6 +2709,7 @@ static void beacon_send(void)
 		} else
 			send_inline(i2r[i].multicast, &b, sizeof(b), beacon_mc->ai + i, false, 0);
 	}
+	add_event(timestamp() + 60000, beacon_send);
 }
 
 static void beacon_setup(void)
@@ -2738,9 +2751,57 @@ static void (*event_callvec[NR_EVENT_TYPES])(unsigned) = {
 #endif
 };
 
+/* Events are timed according to milliseconds in the current epoch */
+struct timed_event {
+	unsigned long time;		/* When should it occur */
+	void (*callback)();		/* function to run */
+	struct timed_event *next;	/* The following event */
+};
+
+static struct timed_event *next_event;
+
+static void add_event(unsigned long time, void (*callback))
+{
+	struct timed_event *t;
+	struct timed_event *prior = NULL;
+	struct timed_event *new_event;
+
+	for(t = next_event; t; t = t->next) {
+		if (time > t->time)
+			break;
+		prior = t;
+	}
+
+	new_event = calloc(1, sizeof(struct timed_event));
+	new_event->time = time;
+	new_event->callback = callback;
+
+	if (!prior)
+		next_event = new_event;
+	else {
+		new_event->next = prior->next;
+		prior->next = new_event;
+	}
+}
+
+static void check_joins(void)
+{
+	/* Maintenance tasks */
+	if (nr_mc > active_mc)
+		join_processing();
+
+	add_event(timestamp() + 10000, check_joins);
+}
+
+static void logging(void)
+{
+	syslog(LOG_NOTICE, "ib2roce: %d/%d MC Active.\n", active_mc, nr_mc);
+	add_event(timestamp() + 60000, logging);
+}
+
 static int event_loop(void)
 {
-	unsigned timeout = 1000;
+	unsigned timeout;
 	struct pollfd pfd[ 2* NR_EVENT_TYPES] = {
 		{ i2r[INFINIBAND].rdma_events->fd, POLLIN, 0},
 		{ i2r[ROCE].rdma_events->fd, POLLIN, 0},
@@ -2778,7 +2839,35 @@ static int event_loop(void)
 		}
 	}
 
+	t = timestamp();
+	if (beacon)
+		add_event(t + 60000, beacon_send);
+
+	logging();
+	add_event(t + 30000, status_write);
+	add_event(t + 10000, check_joins);
+
 loop:
+	timeout = 10000;
+
+	if (next_event) {
+		/* Time till next event */
+		int waitms = next_event->time - timestamp();
+
+		if (waitms <= 0) {
+			/* Time is up for an event */
+			struct timed_event *t;
+
+			t = next_event;
+			next_event = next_event->next;
+			t->callback();
+			free(t);
+			goto loop;
+		}
+		if (waitsec < 10)
+			timeout = waitsec * 1000;
+	}
+
 	events = poll(pfd, 2 * nr_types, timeout);
 
 	if (terminated)
@@ -2789,35 +2878,8 @@ loop:
 		goto out;
 	}
 
-	if (events == 0) {
-
-		/* Maintenance tasks */
-		if (nr_mc > active_mc) {
-			join_processing();
-			timeout = 1000;
-		} else {
-			/*
-			 * Gradually increase timeout
-			 * if nothing is really going
-			 * on
-			*/
-			if (!beacon && timeout < 60*60*100)
-				timeout *= 2;
-		}
-
-		status_write();
-
-		syslog(LOG_NOTICE, "ib2roce: %d/%d MC Active. Next Wakeup in %u ms.\n",
-			active_mc, nr_mc, timeout);
-
-		if (beacon)
-			beacon_send();
-
-		goto loop;
-	}
-
-	if (timeout > 5000)
-		timeout = 5000;
+	if (events == 0)
+       		goto loop;
 
 	for(t = 0; t < nr_types; t++) {
 		int j;
