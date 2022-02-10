@@ -2754,7 +2754,7 @@ static void (*event_callvec[NR_EVENT_TYPES])(unsigned) = {
 /* Events are timed according to milliseconds in the current epoch */
 struct timed_event {
 	unsigned long time;		/* When should it occur */
-	void (*callback)();		/* function to run */
+	void (*callback)(void);		/* function to run */
 	struct timed_event *next;	/* The following event */
 };
 
@@ -2856,16 +2856,16 @@ loop:
 
 		if (waitms <= 0) {
 			/* Time is up for an event */
-			struct timed_event *t;
+			struct timed_event *te;
 
-			t = next_event;
+			te = next_event;
 			next_event = next_event->next;
-			t->callback();
-			free(t);
+			te->callback();
+			free(te);
 			goto loop;
 		}
-		if (waitsec < 10)
-			timeout = waitsec * 1000;
+		if (waitms < 100000)
+			timeout = waitms;
 	}
 
 	events = poll(pfd, 2 * nr_types, timeout);
