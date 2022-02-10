@@ -2767,7 +2767,7 @@ static void add_event(unsigned long time, void (*callback))
 	struct timed_event *new_event;
 
 	for(t = next_event; t; t = t->next) {
-		if (time > t->time)
+		if (time < t->time)
 			break;
 		prior = t;
 	}
@@ -2782,6 +2782,14 @@ static void add_event(unsigned long time, void (*callback))
 		new_event->next = prior->next;
 		prior->next = new_event;
 	}
+}
+
+static void timer_show(void)
+{
+	printf("Event Loop=");
+	for(struct timed_event *z = next_event; z; z = z->next)
+		printf("%ld ms,", z->time - timestamp());
+	printf("\n");
 }
 
 static void check_joins(void)
@@ -2844,15 +2852,13 @@ static int event_loop(void)
 		add_event(t + 10000, beacon_send);
 
 	logging();
+	timer_show();
 	add_event(t + 30000, status_write);
+	timer_show();
 	add_event(t + 100, check_joins);
 
 loop:
-	printf("Event Loop=");
-	for(struct timed_event *z = next_event; z; z = z->next)
-		printf("%ld ms", z->time - timestamp());
-	printf("\n");
-
+	timer_show();
 	timeout = 10000;
 
 	if (next_event) {
