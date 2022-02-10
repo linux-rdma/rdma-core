@@ -2766,22 +2766,19 @@ static void add_event(unsigned long time, void (*callback))
 	struct timed_event *prior = NULL;
 	struct timed_event *new_event;
 
-	for(t = next_event; t; t = t->next) {
-		if (time < t->time)
-			break;
-		prior = t;
-	}
-
 	new_event = calloc(1, sizeof(struct timed_event));
 	new_event->time = time;
 	new_event->callback = callback;
 
-	if (!prior)
-		next_event = new_event;
-	else {
-		new_event->next = prior->next;
+	for(t = next_event; t && time > t->time; t = t->next)
+		prior = t;
+
+	new_event->next = t;
+
+	if (prior)
 		prior->next = new_event;
-	}
+	else
+		next_event = new_event;
 }
 
 static void timer_show(void)
