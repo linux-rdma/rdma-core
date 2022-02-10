@@ -2848,6 +2848,11 @@ static int event_loop(void)
 	add_event(t + 100, check_joins);
 
 loop:
+	printf("Event Loop=");
+	for(struct timed_event *z; z; z = z->next)
+		printf("%ld ms", z->time - timestamp());
+	printf("\n");
+
 	timeout = 10000;
 
 	if (next_event) {
