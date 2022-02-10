@@ -1271,7 +1271,8 @@ static void setup_interface(enum interfaces in)
 	if (!i->multicast)
 		abort();
 
-	i->raw = setup_channel(i, "raw", false, in == ROCE,
+	if (unicast)
+		i->raw = setup_channel(i, "raw", false, in == ROCE,
 			i->if_addr.sin_addr, i->port, in == ROCE ? IBV_QPT_RAW_PACKET : IBV_QPT_UD,
 			100, 0);
 
@@ -2309,15 +2310,13 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 	struct mc *m;
 	enum interfaces in = c->i - i2r;
 	unsigned len;
-	struct ib_addr *sgid = (struct ib_addr *)&buf->grh.sgid.raw;
-	struct ib_addr *dgid = (struct ib_addr *)&buf->grh.dgid.raw;
+	struct ib_addr *sgid;
+	struct ib_addr *dgid;
 	struct in_addr source_addr;
 	struct in_addr dest_addr;
 	unsigned port;
 	char xbuf[INET6_ADDRSTRLEN];
-
-	source_addr.s_addr = sgid->sib_addr32[3];
-	dest_addr.s_addr = dgid->sib_addr32[3];
+	const char *reason = "No GRH";
 
 	if (w->wc_flags & IBV_WC_WITH_IMM) {
 			buf->imm = w->imm_data;
@@ -2333,16 +2332,15 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 		buf->ethertype = ntohs(buf->e.ether_type);
 		buf->ether_valid = true;
 
-		if (c->rdmacm)
-			/* Not a raw frame */
+		if (c->rdmacm) {
+			reason = "No GRH on RDMACM channel";
 			goto discard;
+		}
 
-		if (buf->e.ether_dhost[0] & 0x1)
-			/*
- 			 * Multicast is handled via the multicast channel.
- 			 * Any echos should be discarded.
- 			 */
+		if (buf->e.ether_dhost[0] & 0x1) {
+			reason = "Multicast on RAW channel";
 			goto discard;
+		}
 
 		buf->end -= 4;		/* Remove Ethernet FCS */
 
@@ -2372,11 +2370,12 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 		}
 
 		buf->cur = buf->raw;
+		reason = "Not an ROCE frame on RAW channel";
 
 discard:
 		if (log_packets) {
-			syslog(LOG_WARNING, "Discard Packet from %s: No GRH provided. Status=%d Opcode=%d Len=%d QP=%d SRC_QP=%d Flags=%x PKEY_INDEX=%d SLID=%d\n",
-				c->text, w->status, w->opcode, w->byte_len, w->qp_num, w->src_qp, w->wc_flags, w->pkey_index, w->slid);
+			syslog(LOG_WARNING, "Discard Packet from %s: %s. Status=%d Opcode=%d Len=%d QP=%d SRC_QP=%d Flags=%x PKEY_INDEX=%d SLID=%d\n",
+				c->text, reason, w->status, w->opcode, w->byte_len, w->qp_num, w->src_qp, w->wc_flags, w->pkey_index, w->slid);
 
 			dump_buf_ethernet(buf);
 		}
@@ -2386,6 +2385,12 @@ discard:
 
 	pull(buf, &buf->grh, sizeof(struct ibv_grh));
 	buf->grh_valid = true;
+
+	sgid = (struct ib_addr *)&buf->grh.sgid.raw;
+	dgid = (struct ib_addr *)&buf->grh.dgid.raw;
+	source_addr.s_addr = sgid->sib_addr32[3];
+	dest_addr.s_addr = dgid->sib_addr32[3];
+
 
 #ifdef LEARN
 	learn_source_address(c, buf, w);
@@ -2505,9 +2510,9 @@ static void handle_comp_event(enum interfaces in)
 		abort();
 	}
 
-redo:
 	/* Retrieve completion events and process incoming data */
 	cqs = ibv_poll_cq(cq, 100, wc);
+	printf("CQs=%d %s\n", cqs, c->text);
 	if (cqs < 0) {
 		syslog(LOG_WARNING, "CQ polling failed with: %s on %s\n",
 			errname(), interfaces_text[i - i2r]);
@@ -2547,7 +2552,6 @@ redo:
 			free_buffer(buf);
 		}
 	}
-	goto redo;
 
 exit:
 
@@ -2628,7 +2632,7 @@ static void status_write(void)
 
 	for(m = mcs; m < mcs + nr_mc; m++)
 
-		n += sprintf(n + b, "%s INFINIBAND: %s%s%s ROCE: %s%s\n",
+		n += sprintf(n + b, "%s INFINIBAND: %s %s%s ROCE: %s %s\n",
 			inet_ntoa(m->addr),
 			mc_text[m->status[INFINIBAND]],
 			m->sendonly[INFINIBAND] ? "Sendonly " : "",
@@ -2781,6 +2785,14 @@ loop:
 
 	if (terminated)
 		goto out;
+
+	printf("Events #%d REV=%d %d %d %d %d %d\n", events,
+	pfd[0].revents,
+	pfd[1].revents,
+	pfd[2].revents,
+	pfd[3].revents,
+	pfd[4].revents,
+	pfd[5].revents);
 
 	if (events < 0) {
 		syslog(LOG_WARNING, "Poll failed with error=%s\n", errname());

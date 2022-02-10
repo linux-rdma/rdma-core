@@ -48,7 +48,9 @@ Specifies which MGID format to use on Infiniband. There are a
 couple of standards on how to encode ipv4 addresses in the
 MGID on Infiniband. This selects
 the method to use and its use is depending on the type of traffic
-that needs to be forwarded between the fabrics.
+that needs to be forwarded between the fabrics. Note that -l
+only affects the multicast groups specified on the command line
+after the option was specified.
 
 If no format is specified then ib2roce will display the available
 formats. If no custom mgid format is set for a multicast group
