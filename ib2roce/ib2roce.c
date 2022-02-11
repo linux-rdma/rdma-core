@@ -103,7 +103,7 @@ static void add_event(unsigned long time_in_ms, void (*callback));
 /*
  * Handling of special Multicast Group MGID encodings on Infiniband
  */
-#define nr_mgid_signatures 4
+#define nr_mgid_signatures 5
 
 struct mgid_signature {		/* Manage different MGID formats used */
 	unsigned short signature;
@@ -112,13 +112,14 @@ struct mgid_signature {		/* Manage different MGID formats used */
 	bool full_ipv4;		/* Full IP address */
 	bool pkey;		/* Pkey in MGID */
 } mgid_signatures[nr_mgid_signatures] = {
+	{	0x0000, "RDMA", false, false, true },
 	{	0x401B,	"IPv4",	false, false, true },
 	{	0x601B,	"IPv6",	false, false, true },
 	{	0xA01B,	"CLLM", true, true, false },
 	{	0x4001, "IB",	false, false, false }
 };
 
-struct mgid_signature *mgid_mode;
+struct mgid_signature *mgid_mode = mgid_signatures + 3;		/* CLLM is the default */
 
 /*
  * Basic RDMA interface management
@@ -541,7 +542,7 @@ static int new_mc_addr(char *arg,
 	memcpy(m->sa[ROCE], si, sizeof(struct sockaddr_in));
 	m->sa[INFINIBAND] = m->sa[ROCE];
 
-	if (m->mgid_mode) {
+	if (m->mgid_mode->signature) {
 		/*
 		 * MGID is build according to according to RFC 4391 Section 4
 		 * by taking 28 bits and putting them into the mgid
@@ -2463,7 +2464,7 @@ discard:
 			return -EINVAL;
 		}
 
-		if (m->mgid_mode) {
+		if (m->mgid_mode->signature) {
 			if (signature == m->mgid_mode->signature) {
 				if (m->mgid_mode->port)
 					port = ntohs(*((unsigned short *)(mgid + 10)));
@@ -2499,8 +2500,9 @@ discard:
 	if (!bridging)
 		return -ENOSYS;
 
+//	syslog(LOG_NOTICE, "Bridged Multicast packet from %s %s to %s %s len=%d\n");
 	len = w->byte_len - sizeof(struct ibv_grh);
-	return send_to(i2r[in ^ 1].multicast, buf, len, m->ai + (in ^ 1), false, 0, buf);
+	return send_to(i2r[in ^ 1].multicast, buf->cur, len, m->ai + (in ^ 1), false, 0, buf);
 }
 
 static void handle_comp_event(enum interfaces in)
@@ -2649,7 +2651,7 @@ static void status_write(void)
 			inet_ntoa(m->addr),
 			mc_text[m->status[INFINIBAND]],
 			m->sendonly[INFINIBAND] ? "Sendonly " : "",
-			m->mgid_mode ? m->mgid_mode->id : "",
+			m->mgid_mode->id,
 			mc_text[m->status[ROCE]],
 			m->sendonly[ROCE] ? "Sendonly" : "");
 
@@ -3159,7 +3161,7 @@ int main(int argc, char **argv)
 			i2r[ROCE].context ? ibv_get_device_name(i2r[ROCE].context->device) : "-",
 			i2r[ROCE].port,
 			nr_mc,
-			mgid_mode ? mgid_mode->id : "Default",
+			mgid_mode->id,
 			nr_buffers);
 
 	setup_interface(INFINIBAND);
