@@ -2781,14 +2781,6 @@ static void add_event(unsigned long time, void (*callback))
 		next_event = new_event;
 }
 
-static void timer_show(void)
-{
-	printf("Event Loop=");
-	for(struct timed_event *z = next_event; z; z = z->next)
-		printf("%ld ms,", z->time - timestamp());
-	printf("\n");
-}
-
 static void check_joins(void)
 {
 	/* Maintenance tasks */
@@ -2800,7 +2792,18 @@ static void check_joins(void)
 
 static void logging(void)
 {
-	syslog(LOG_NOTICE, "ib2roce: %d/%d MC Active.\n", active_mc, nr_mc);
+	char buf[100];
+	unsigned n = 0;
+
+	for(struct timed_event *z = next_event; z; z = z->next)
+		n += sprintf(buf + n, "%ld ms,", z->time - timestamp());
+
+	if (n > 0)
+		buf[n -1] = 0;
+	else
+		buf[0] = 0;
+
+	syslog(LOG_NOTICE, "ib2roce: %d/%d MC Active. Events in %s.\n", active_mc, nr_mc, buf);
 	add_event(timestamp() + 5000, logging);
 }
 
@@ -2873,7 +2876,6 @@ loop:
 			timeout = waitms;
 	}
 
-	timer_show();
 	events = poll(pfd, 2 * nr_types, timeout);
 	printf("Events #%d REV=%d %d %d %d %d %d\n", events,
 		pfd[0].revents,
