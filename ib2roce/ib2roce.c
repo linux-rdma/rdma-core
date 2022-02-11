@@ -87,7 +87,7 @@ static bool beacon = false;		/* Announce our presence (and possibly coordinate b
 static bool bridging = true;		/* Allow briding */
 static bool unicast = false;		/* Bridge unicast packets */
 static bool flow_steering = false;	/* Use flow steering to filter packets */
-static bool log_packets = false;	/* Show details on discarded packets */
+static int log_packets = 0;		/* Show details on discarded packets */
 
 
 /* Timestamp in milliseconds */
@@ -1638,8 +1638,9 @@ static int send_inline(struct rdma_channel *c, void *addr, unsigned len, struct 
 		errno = -ret;
 		syslog(LOG_WARNING, "Failed to post inline send: %s on %s\n", errname(), c->text);
 	} else
-		syslog(LOG_NOTICE, "Inline Send to QPN=%d QKEY=%x %d bytes\n",
-			wr.wr.ud.remote_qpn, wr.wr.ud.remote_qkey, len);
+		if (log_packets)
+			syslog(LOG_NOTICE, "Inline Send to QPN=%d QKEY=%x %d bytes\n",
+				wr.wr.ud.remote_qpn, wr.wr.ud.remote_qkey, len);
 
 	return ret;
 }
@@ -1682,8 +1683,9 @@ static int send_to(struct rdma_channel *c,
 		errno = - ret;
 		syslog(LOG_WARNING, "Failed to post send: %s on %s\n", errname(), c->text);
 	} else
-		syslog(LOG_NOTICE, "RDMA Send to QPN=%d QKEY=%x %d bytes\n",
-			wr.wr.ud.remote_qpn, wr.wr.ud.remote_qkey, len);
+		if (log_packets)
+			syslog(LOG_NOTICE, "RDMA Send to QPN=%d QKEY=%x %d bytes\n",
+				wr.wr.ud.remote_qpn, wr.wr.ud.remote_qkey, len);
 
 	return ret;
 }
@@ -1965,7 +1967,7 @@ static void handle_neigh_event(struct neigh *n)
 	return;
 
 err:
-	if (log_packets)
+	if (log_packets > 1)
 		syslog(LOG_NOTICE, "Neigh Event interface=%s type %u Len=%u NL flags=%x ND flags=%x state=%x IP=%s MAC=%s ifindex=%d\n",
 				i ? i->if_name: "N/A",
 			       	n->nlh.nlmsg_type,  n->nlh.nlmsg_len, n->nlh.nlmsg_flags,
@@ -2002,7 +2004,7 @@ static void handle_netlink_event(enum netlink_channel c)
 				/* Fall through */
 
 			default:
-				if (log_packets)
+				if (log_packets > 1)
 					syslog(LOG_NOTICE, "Unhandled Netlink Message type %u Len=%u flag=%x seq=%x PID=%d\n",
 						h->nlmsg_type,  h->nlmsg_len, h->nlmsg_flags, h->nlmsg_seq, h->nlmsg_pid);
 			    break;
@@ -2358,12 +2360,19 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 			goto discard;
 		}
 
-		if (memcmp(c->i->if_mac, buf->e.ether_shost, ETH_ALEN) == 0)
-			/* Loopback Message from this host. Silent Ignore */
-			goto silent_discard;
+		if (memcmp(c->i->if_mac, buf->e.ether_shost, ETH_ALEN) == 0) {
+
+			reason = "Loopback";
+			if (log_packets < 2)
+				goto silent_discard;
+
+			goto discard;
+		}
 
 		if (buf->e.ether_dhost[0] & 0x1) {
 			reason = "Multicast on RAW channel";
+			if (log_packets < 2)
+				goto silent_discard;
 			goto discard;
 		}
 
@@ -3130,7 +3139,7 @@ int main(int argc, char **argv)
 			break;
 
 		case 'v':
-			log_packets = true;
+			log_packets++;
 			break;
 
 		default:
