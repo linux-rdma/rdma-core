@@ -2420,7 +2420,9 @@ static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 	struct in_addr dest_addr;
 	int ret;
 
-	if (unicast && buf->grh.dgid.raw[1] != 0xff) {
+	if (unicast &&
+		((in == INFINIBAND && buf->grh.dgid.raw[0] != 0xff) ||
+		((in == ROCE && (buf->grh.dgid.raw[13] & 0x1))))) {
 
 		unicast_packet(c, buf, dest_addr);
 		return;
