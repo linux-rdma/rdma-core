@@ -181,6 +181,7 @@ static struct i2r_interface {
 	unsigned mtu;
 	unsigned maclen;
 	char if_name[IFNAMSIZ];
+	uint8_t if_mac[ETH_ALEN];
 	struct sockaddr_in if_addr;
 	struct sockaddr_in if_netmask;
 	unsigned ifindex;
@@ -611,7 +612,7 @@ static int _join_mc(struct in_addr addr, struct sockaddr *sa,
 			errname());
 		return 1;
 	}
-	syslog(LOG_NOTICE, "Join Request %sMC group %s:%d on %s .\n",
+	syslog(LOG_NOTICE, "Join Request %sMC group %s:%d on %s.\n",
 		sendonly ? "Sendonly " : "",
 		inet_ntoa(addr), port,
 		interfaces_text[i]);
@@ -1058,6 +1059,8 @@ static void get_if_info(struct i2r_interface *i)
 
 	ioctl(fh, SIOCGIFNETMASK, &ifr);
 	memcpy(&i->if_netmask, &ifr.ifr_netmask, sizeof(struct sockaddr_in));
+	ioctl(fh, SIOCGIFHWADDR, &ifr);
+	memcpy(&i->if_mac, &ifr.ifr_hwaddr.sa_data, ETH_ALEN);
 	goto out;
 
 err:
@@ -1468,8 +1471,10 @@ static void handle_rdma_event(enum interfaces in)
 				if (!bridging || m->status[in ^ 1] == MC_JOINED)
 					active_mc++;
 
-				syslog(LOG_NOTICE, "Joined %s MLID 0x%x sl %u on %s\n",
+				syslog(LOG_NOTICE, "Joined %s QP=%d QKEY=%x MLID 0x%x sl %u on %s\n",
 					inet_ntop(AF_INET6, param->ah_attr.grh.dgid.raw, buf, 40),
+					param->qp_num,
+					param->qkey,
 					param->ah_attr.dlid,
 					param->ah_attr.sl,
 					interfaces_text[in]);
@@ -2353,6 +2358,10 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 			goto discard;
 		}
 
+		if (memcmp(c->i->if_mac, buf->e.ether_shost, ETH_ALEN) == 0)
+			/* Loopback Message from this host. Silent Ignore */
+			goto silent_discard;
+
 		if (buf->e.ether_dhost[0] & 0x1) {
 			reason = "Multicast on RAW channel";
 			goto discard;
@@ -2361,7 +2370,6 @@ static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
 		buf->end -= 4;		/* Remove Ethernet FCS */
 
 		/* buf->cur .. buf->end is the ethernet payload */
-
 		if (buf->ethertype == ETHERTYPE_ROCE)
 
 	       		return roce_v1(c, buf);
@@ -2395,6 +2403,7 @@ discard:
 
 			dump_buf_ethernet(buf);
 		}
+silent_discard:
 		st(c, packets_invalid);
 		return -EINVAL;
 	}
@@ -2500,7 +2509,6 @@ discard:
 	if (!bridging)
 		return -ENOSYS;
 
-//	syslog(LOG_NOTICE, "Bridged Multicast packet from %s %s to %s %s len=%d\n");
 	len = w->byte_len - sizeof(struct ibv_grh);
 	return send_to(i2r[in ^ 1].multicast, buf->cur, len, m->ai + (in ^ 1), false, 0, buf);
 }
@@ -2858,7 +2866,7 @@ static int event_loop(void)
 	if (beacon)
 		add_event(t + 10000, beacon_send);
 
-	logging();
+	add_event(t + 1000, logging);
 	add_event(t + 30000, status_write);
 	add_event(t + 100, check_joins);
 
