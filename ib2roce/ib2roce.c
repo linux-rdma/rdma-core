@@ -2532,7 +2532,7 @@ static void recv_buf(struct rdma_channel *c, struct buf *buf)
 	if (c->rdmacm) {
 		/* No GRH but using RDMACM channel. This is not supported for now */
 		if (log_packets)
-			syslog(LOG_WARNING, "No GRH on %s. Packet discarded: %s.\n", payload_dump(buf->cur));
+			syslog(LOG_WARNING, "No GRH on %s. Packet discarded: %s.\n", c->text, payload_dump(buf->cur));
 
 		st(c, packets_invalid);
 		free_buffer(buf);
