@@ -2823,7 +2823,8 @@ static int event_loop(void)
 #endif
 	};
 	unsigned nr_types = NR_EVENT_TYPES;
-	int events;
+	int events = 0;
+	int waitms;
 	struct i2r_interface *i;
 	unsigned long t;
 
@@ -2860,9 +2861,13 @@ loop:
 
 	if (next_event) {
 		/* Time till next event */
-		int waitms = next_event->time - timestamp();
+		waitms = next_event->time - timestamp();
 
-		if (waitms <= 0) {
+		/*
+		 * If we come from processing poll events then
+		 * give priority to more poll event processing
+		 */
+		if ((waitms <= 0 && events == 0) || waitms < -10) {
 			/* Time is up for an event */
 			struct timed_event *te;
 
@@ -2872,18 +2877,29 @@ loop:
 			free(te);
 			goto loop;
 		}
-		if (waitms < 100000)
-			timeout = waitms;
+		if (waitms < 1)
+			/* There is a pending event but we are processing
+			 * poll events.
+			 * Make sure we check for more and come back soon
+			 * after processing additional poll actions
+			*/
+			timeout = 3;
+		else
+			/* Maximum timeout is 10 seconds */
+			if (waitms < 10000)
+				timeout = waitms;
 	}
 
 	events = poll(pfd, 2 * nr_types, timeout);
-	printf("Events #%d REV=%d %d %d %d %d %d\n", events,
-		pfd[0].revents,
-		pfd[1].revents,
-		pfd[2].revents,
-		pfd[3].revents,
-		pfd[4].revents,
-		pfd[5].revents);
+
+	if (events)
+		printf("Events #%d REV=%d %d %d %d %d %d\n", events,
+			pfd[0].revents,
+			pfd[1].revents,
+			pfd[2].revents,
+			pfd[3].revents,
+			pfd[4].revents,
+			pfd[5].revents);
 
 	if (terminated)
 		goto out;
