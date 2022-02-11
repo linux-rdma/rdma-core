@@ -2394,7 +2394,7 @@ static void recv_buf_ethernet(struct rdma_channel *c, struct buf *buf)
 
 discard:
 	if (log_packets) {
-		syslog(LOG_WARNING, "Discard Packet from %s: %s. Len=%d\n",
+		syslog(LOG_WARNING, "Discard Packet from %s: %s. Len=%ld\n",
 			c->text, reason, buf->cur - buf->raw);
 
 		dump_buf_ethernet(buf);
@@ -2542,8 +2542,8 @@ static void recv_buf(struct rdma_channel *c, struct buf *buf)
 	/* So the packet came in on a raw channel. We need to parse the headers */
 	if (c->i == INFINIBAND)
 		recv_buf_infiniband(c, buf);
-
-	recv_buf_ethernet(c, buf);
+	else
+		recv_buf_ethernet(c, buf);
 }
 
 
@@ -2594,6 +2594,7 @@ static void handle_comp_event(enum interfaces in)
 
 			buf->cur = buf->raw;
 			buf->end = buf->raw + w->byte_len;
+			memset(&buf->ether_valid, 0, (void *)&buf->ip_csum_ok - (void *)buf->ether_valid);
 
 			if (w->wc_flags & IBV_WC_WITH_IMM) {
 
@@ -2608,9 +2609,10 @@ static void handle_comp_event(enum interfaces in)
 			if (w->wc_flags & IBV_WC_GRH) {
 				pull(buf, &buf->grh, sizeof(struct ibv_grh));
 				buf->grh_valid = true;
-			}
+			} else
+				buf->grh_valid = false;
 			
-			buf->ip_csum_ok =  (w->wc_flags & IBV_WC_IP_CSUM_OK) != 0;
+			buf->ip_csum_ok = (w->wc_flags & IBV_WC_IP_CSUM_OK) != 0;
 
 			recv_buf(c, buf);
 
@@ -2627,7 +2629,6 @@ static void handle_comp_event(enum interfaces in)
 	}
 
 exit:
-
 	/* Since we freed some buffers up we may be able to post more of them */
 	post_receive_buffers(i);
 }
