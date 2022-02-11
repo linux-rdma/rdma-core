@@ -134,14 +134,14 @@ enum interfaces { INFINIBAND, ROCE, NR_INTERFACES };
 
 static const char *interfaces_text[NR_INTERFACES] = { "Infiniband", "ROCE" };
 
-enum stats { packets_received, packets_sent, packets_bridged, packets_invalid,
+enum stats { packets_received, packets_sent, packets_bridged_mc, packets_bridged_uc, packets_invalid,
 		join_requests, join_failure, join_success,
 	        leave_requests,
 		nr_stats
 };
 
 static const char *stats_text[nr_stats] = {
-	"PacketsReceived", "PacketsSent", "PacketsBridged", "PacketsInvalid",
+	"PacketsReceived", "PacketsSent", "PacketsBridgedMC", "PacketsBridgedUC", "PacketsInvalid",
 	"JoinRequests", "JoinFailures", "JoinSuccess",
 	"LeaveRequests"
 };
@@ -679,9 +679,10 @@ struct buf {
 			bool bth_valid;		/* Valid BTH header */
 			bool grh_valid;		/* Valid GRH header */
 			bool imm_valid;		/* unsigned imm is valid */
+			bool ip_csum_ok;	/* Hardware check if IP CSUM was ok */
 
-			void *cur;		/* Current position in the buffer */
-			void *end;		/* Pointer to the last byte in the packet + 1 */
+			uint8_t *cur;		/* Current position in the buffer */
+			uint8_t *end;		/* Pointer to the last byte in the packet + 1 */
 			unsigned imm;		/* Immediate data from the WC */
 
 			unsigned ethertype;	/* Frame type */
@@ -2114,7 +2115,7 @@ static void setup_flow(struct rdma_channel *c)
 		syslog(LOG_ERR, "Failure to create flow on %s. Errno %s\n", c->text, errname());
 }
 
-static int unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_addr source_addr, struct in_addr dest_addr)
+static int unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_addr dest_addr)
 {
 	char xbuf[INET6_ADDRSTRLEN];
 	char xbuf2[INET6_ADDRSTRLEN];
@@ -2328,113 +2329,104 @@ static void learn_source_address(struct rdma_channel *c, struct buf *buf, struct
 }
 #endif
 
-static int recv_buf(struct rdma_channel *c, struct buf *buf, struct ibv_wc *w)
+static void recv_buf_infiniband(struct rdma_channel *c, struct buf *buf)
+{
+	/* Native IB parsing does not work yet */
+	syslog(LOG_WARNING, "Cannot parse native infiniband packet %s\n",payload_dump(buf->raw));
+	free_buffer(buf);
+}
+
+static void recv_buf_ethernet(struct rdma_channel *c, struct buf *buf)
+{
+	const char *reason;
+
+	pull(buf, &buf->e, sizeof(struct ether_header));
+	buf->ethertype = ntohs(buf->e.ether_type);
+	buf->ether_valid = true;
+
+	if (memcmp(c->i->if_mac, buf->e.ether_shost, ETH_ALEN) == 0) {
+
+		reason = "Loopback";
+		if (log_packets < 2)
+			goto silent_discard;
+
+		goto discard;
+	}
+
+	if (buf->e.ether_dhost[0] & 0x1) {
+		reason = "Multicast on RAW channel";
+		if (log_packets < 2)
+			goto silent_discard;
+		goto discard;
+	}
+
+	buf->end -= 4;		/* Remove Ethernet FCS */
+
+	/* buf->cur .. buf->end is the ethernet payload */
+	if (buf->ethertype == ETHERTYPE_ROCE) {
+
+		roce_v1(c, buf);
+		return;
+
+	} else if (buf->ethertype == ETHERTYPE_IP) {
+		       
+		pull(buf, &buf->ip, sizeof(struct iphdr));
+		buf->ip_valid = true;
+		
+		if (buf->ip.protocol == IPPROTO_UDP) {
+
+			if (!buf->ip_csum_ok)
+				syslog(LOG_NOTICE, "TCP/UDP CSUM not valid on raw RDMA channel %s\n", c->text);
+
+			pull(buf, &buf->udp, sizeof(struct udphdr));
+			buf->udp_valid = true;
+
+			if (ntohs(buf->udp.dest) == ROCE_PORT) {
+
+				roce_v2(c, buf);
+				return;
+			}
+		}
+	}
+
+	buf->cur = buf->raw;
+	reason = "Not an ROCE frame on RAW channel";
+
+discard:
+	if (log_packets) {
+		syslog(LOG_WARNING, "Discard Packet from %s: %s. Len=%d\n",
+			c->text, reason, buf->cur - buf->raw);
+
+		dump_buf_ethernet(buf);
+	}
+silent_discard:
+	st(c, packets_invalid);
+	free_buffer(buf);
+}
+
+
+/*
+ * We have an GRH header so the packet has been processed by the RDMA 
+ * Subsystem and we can take care of it using the RDMA calls
+ */
+static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 {
 	struct mc *m;
 	enum interfaces in = c->i - i2r;
-	unsigned len;
-	struct ib_addr *sgid;
-	struct ib_addr *dgid;
-	struct in_addr source_addr;
-	struct in_addr dest_addr;
+	struct ib_addr *sgid = (struct ib_addr *)&buf->grh.sgid.raw;
+	struct ib_addr *dgid = (struct ib_addr *)&buf->grh.dgid.raw;
 	unsigned port;
 	char xbuf[INET6_ADDRSTRLEN];
-	const char *reason = "No GRH";
+	struct in_addr dest_addr;
+	int ret;
 
-	if (w->wc_flags & IBV_WC_WITH_IMM) {
-			buf->imm = w->imm_data;
-			buf->imm_valid = true;
-	} else {
-			buf->imm = 0;
-			buf->imm_valid = false;
+	if (unicast && buf->grh.dgid.raw[1] != 0xff) {
+
+		unicast_packet(c, buf, dest_addr);
+		return;
 	}
-
-	if (!(w->wc_flags & IBV_WC_GRH)) {
-
-		pull(buf, &buf->e, sizeof(struct ether_header));
-		buf->ethertype = ntohs(buf->e.ether_type);
-		buf->ether_valid = true;
-
-		if (c->rdmacm) {
-			reason = "No GRH on RDMACM channel";
-			goto discard;
-		}
-
-		if (memcmp(c->i->if_mac, buf->e.ether_shost, ETH_ALEN) == 0) {
-
-			reason = "Loopback";
-			if (log_packets < 2)
-				goto silent_discard;
-
-			goto discard;
-		}
-
-		if (buf->e.ether_dhost[0] & 0x1) {
-			reason = "Multicast on RAW channel";
-			if (log_packets < 2)
-				goto silent_discard;
-			goto discard;
-		}
-
-		buf->end -= 4;		/* Remove Ethernet FCS */
-
-		/* buf->cur .. buf->end is the ethernet payload */
-		if (buf->ethertype == ETHERTYPE_ROCE)
-
-	       		return roce_v1(c, buf);
-
-		else if (buf->ethertype == ETHERTYPE_IP) {
-		       
-			pull(buf, &buf->ip, sizeof(struct iphdr));
-			buf->ip_valid = true;
-		
-			if (buf->ip.protocol == IPPROTO_UDP) {
-
-				if (!(w->wc_flags & IBV_WC_IP_CSUM_OK))
-					syslog(LOG_NOTICE, "TCP/UDP CSUM not valid on raw RDMA channel %s\n", c->text);
-
-				pull(buf, &buf->udp, sizeof(struct udphdr));
-				buf->udp_valid = true;
-
-				if (ntohs(buf->udp.dest) == ROCE_PORT)
-
-					return roce_v2(c, buf);
-			}
-		}
-
-		buf->cur = buf->raw;
-		reason = "Not an ROCE frame on RAW channel";
-
-discard:
-		if (log_packets) {
-			syslog(LOG_WARNING, "Discard Packet from %s: %s. Status=%d Opcode=%d Len=%d QP=%d SRC_QP=%d Flags=%x PKEY_INDEX=%d SLID=%d\n",
-				c->text, reason, w->status, w->opcode, w->byte_len, w->qp_num, w->src_qp, w->wc_flags, w->pkey_index, w->slid);
-
-			dump_buf_ethernet(buf);
-		}
-silent_discard:
-		st(c, packets_invalid);
-		return -EINVAL;
-	}
-
-	pull(buf, &buf->grh, sizeof(struct ibv_grh));
-	buf->grh_valid = true;
-
-	sgid = (struct ib_addr *)&buf->grh.sgid.raw;
-	dgid = (struct ib_addr *)&buf->grh.dgid.raw;
-	source_addr.s_addr = sgid->sib_addr32[3];
+	
 	dest_addr.s_addr = dgid->sib_addr32[3];
-
-
-#ifdef LEARN
-	learn_source_address(c, buf, w);
-#endif
-
-	if (unicast && buf->grh.dgid.raw[0] != 0xff)
-
-		/* Potential Path for Infiniband Unicast packets */
-		return unicast_packet(c, buf, source_addr, dest_addr);
-
 	m = hash_lookup_mc(dest_addr);
 
 	if (!m) {
@@ -2443,8 +2435,7 @@ silent_discard:
 				inet_ntoa(dest_addr));
 			dump_buf_grh(buf);
 		}
-		st(c, packets_invalid);
-		return -ENODATA;
+		goto invalid_packet;
 	}
 
 	if (m->sendonly[in]) {
@@ -2454,8 +2445,7 @@ silent_discard:
 				m->text, c->text);
 			dump_buf_grh(buf);
 		}
-		st(c, packets_invalid);
-		return -EPERM;
+		goto invalid_packet;
 	}
 
 	if (in == INFINIBAND) {
@@ -2468,8 +2458,7 @@ silent_discard:
 					inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN), c->text);
 				dump_buf_grh(buf);
 			}
-			st(c, packets_invalid);
-			return -EINVAL;
+			goto invalid_packet;
 		}
 
 		if (memcmp(&buf->grh.sgid, &c->i->gid, sizeof(union ibv_gid)) == 0) {
@@ -2478,8 +2467,7 @@ silent_discard:
 				syslog(LOG_WARNING, "Discard Packet: Loopback from this host. MGID=%s/%s\n",
 					inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN), c->text);
 
-			st(c, packets_invalid);
-			return -EINVAL;
+			goto invalid_packet;
 		}
 
 		if (m->mgid_mode->signature) {
@@ -2493,34 +2481,69 @@ silent_discard:
 							inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN));
 					dump_buf_grh(buf);
 				}
-				st(c, packets_invalid);
-				return -EINVAL;
+				goto invalid_packet;
 			}
 		}
 
 	} else { /* ROCE */
+		struct in_addr source_addr; 
 		struct in_addr local_addr = c->bindaddr.sin_addr;
+
+		source_addr.s_addr = sgid->sib_addr32[3];
 
 		if (source_addr.s_addr == local_addr.s_addr) {
 			if (log_packets)
 				syslog(LOG_WARNING, "Discard Packet: Loopback from this host. %s/%s\n",
 					inet_ntoa(source_addr), c->text);
-			st(c, packets_invalid);
-			return -EINVAL;
+			goto invalid_packet;
 		}
 	}
 
-	if (m->beacon)	{
+	if (m->beacon)
 		beacon_received(buf);
-		return 1;
-	}
 
 	if (!bridging)
-		return -ENOSYS;
+		goto free_out;
 
-	len = w->byte_len - sizeof(struct ibv_grh);
-	return send_to(i2r[in ^ 1].multicast, buf->cur, len, m->ai + (in ^ 1), false, 0, buf);
+	ret = send_to(i2r[in ^ 1].multicast, buf->cur, buf->end - buf->cur, m->ai + (in ^ 1), false, 0, buf);
+
+	if (ret)
+		goto free_out;
+
+	st(c, packets_bridged_mc);
+	return;
+
+invalid_packet:
+	st(c, packets_invalid);
+free_out:
+	free_buffer(buf);
 }
+
+/* Figure out what to do with the packet we got */
+static void recv_buf(struct rdma_channel *c, struct buf *buf)
+{
+	if (buf->grh_valid) {
+		recv_buf_grh(c, buf);
+		return;
+	}
+
+	if (c->rdmacm) {
+		/* No GRH but using RDMACM channel. This is not supported for now */
+		if (log_packets)
+			syslog(LOG_WARNING, "No GRH on %s. Packet discarded: %s.\n", payload_dump(buf->cur));
+
+		st(c, packets_invalid);
+		free_buffer(buf);
+		return;
+	}
+
+	/* So the packet came in on a raw channel. We need to parse the headers */
+	if (c->i == INFINIBAND)
+		recv_buf_infiniband(c, buf);
+
+	recv_buf_ethernet(c, buf);
+}
+
 
 static void handle_comp_event(enum interfaces in)
 {
@@ -2570,19 +2593,34 @@ static void handle_comp_event(enum interfaces in)
 			buf->cur = buf->raw;
 			buf->end = buf->raw + w->byte_len;
 
-			if (recv_buf(c, buf, w))
-				free_buffer(buf);
-			else
-				st(c, packets_bridged);
+			if (w->wc_flags & IBV_WC_WITH_IMM) {
+
+				buf->imm = w->imm_data;
+				buf->imm_valid = true;
+
+			} else {
+				buf->imm = 0;
+				buf->imm_valid = false;
+			}
+
+			if (w->wc_flags & IBV_WC_GRH) {
+				pull(buf, &buf->grh, sizeof(struct ibv_grh));
+				buf->grh_valid = true;
+			}
+			
+			buf->ip_csum_ok =  (w->wc_flags & IBV_WC_IP_CSUM_OK) != 0;
+
+			recv_buf(c, buf);
 
 		} else {
-			if (w->status == IBV_WC_SUCCESS && w->opcode == IBV_WC_SEND)
+			if (w->status == IBV_WC_SUCCESS && w->opcode == IBV_WC_SEND) {
+				/* Completion entry */
 				st(c, packets_sent);
-			else
+				free_buffer(buf);
+			} else
 				syslog(LOG_NOTICE, "Strange CQ Entry %d/%d: Status:%x Opcode:%x Len:%u QP=%u SRC_QP=%u Flags=%x\n",
 					j, cqs, w->status, w->opcode, w->byte_len, w->qp_num, w->src_qp, w->wc_flags);
 
-			free_buffer(buf);
 		}
 	}
 
