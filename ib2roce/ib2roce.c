@@ -2594,7 +2594,7 @@ static void handle_comp_event(enum interfaces in)
 
 			buf->cur = buf->raw;
 			buf->end = buf->raw + w->byte_len;
-			memset(&buf->ether_valid, 0, (void *)&buf->ip_csum_ok - (void *)buf->ether_valid);
+			memset(&buf->ether_valid, 0, (void *)&buf->ip_csum_ok - (void *)&buf->ether_valid);
 
 			if (w->wc_flags & IBV_WC_WITH_IMM) {
 
