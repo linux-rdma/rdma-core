@@ -1631,7 +1631,9 @@ static int send_inline(struct rdma_channel *c, void *addr, unsigned len, struct 
 	if (ret) {
 		errno = -ret;
 		syslog(LOG_WARNING, "Failed to post inline send: %s on %s\n", errname(), c->text);
-	}
+	} else
+		syslog(LOG_NOTICE, "Inline Send to QPN=%d QKEY=%x %d bytes\n",
+			wr.wr.ud.remote_qpn, wr.wr.ud.remote_qkey, len);
 
 	return ret;
 }
@@ -1673,7 +1675,9 @@ static int send_to(struct rdma_channel *c,
 	if (ret) {
 		errno = - ret;
 		syslog(LOG_WARNING, "Failed to post send: %s on %s\n", errname(), c->text);
-	}
+	} else
+		syslog(LOG_NOTICE, "RDMA Send to QPN=%d QKEY=%x %d bytes\n",
+			wr.wr.ud.remote_qpn, wr.wr.ud.remote_qkey, len);
 
 	return ret;
 }
