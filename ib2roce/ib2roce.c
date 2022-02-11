@@ -100,6 +100,8 @@ static unsigned long timestamp(void)
 }
 
 static void add_event(unsigned long time_in_ms, void (*callback));
+
+
 /*
  * Handling of special Multicast Group MGID encodings on Infiniband
  */
@@ -149,8 +151,8 @@ static const char *stats_text[nr_stats] = {
 static int cq_high = 0;	/* Largest batch of CQs encountered */
 
 struct rdma_channel {
-	struct i2r_interface *i;
-			struct ibv_qp *qp;
+	struct i2r_interface *i;	/* The network interface of this channel */
+	struct ibv_qp *qp;
 	struct ibv_cq *cq;
 	struct ibv_pd *pd;
 	struct ibv_mr *mr;
@@ -196,28 +198,35 @@ static struct i2r_interface {
 } i2r[NR_INTERFACES];
 
 enum hashes { hash_ip, hash_mac, hash_gid, hash_lid, nr_hashes };
+
 static unsigned keylength[nr_hashes] = { 4, 6, 16, 2 };
 
 struct rdma_ah *hash_table[nr_hashes][0x100];
 
 static int nr_rdma_ah = 0;
 
-/* Enough to fit a MAC address from IPoIB */
+/* Enough to fit a GID */
 #define hash_max_keylen 16
 
 struct hash_item {
-	bool member;
-	unsigned hash;
-	uint8_t key[hash_max_keylen];
 	struct rdma_ah *next;	/* Linked list to avoid collisions */
+	unsigned hash;
+	bool member;
+	uint8_t key[hash_max_keylen];
 };
 
+/*
+ * Information provide by RDMA subsystem for how
+ * to establish a stream to and endpoint that
+ * maybe multicast or unicast.
+ */
 struct ah_info {
-	struct ibv_ah *ah;
-	unsigned remote_qpn;
+	struct ibv_ah *ah;	/* Endpoint Identification */
+	unsigned remote_qpn;	/* Address on the Endpoint */
 	unsigned remote_qkey;
 };
 
+/* A Destination consisting of an EP and port number */
 struct rdma_ah {
 	struct i2r_interface *i;
 #ifdef NETLINK_SUPPORT
@@ -389,6 +398,11 @@ enum mc_status { MC_OFF, MC_JOINING, MC_JOINED, MC_ERROR, NR_MC_STATUS };
 
 const char *mc_text[NR_MC_STATUS] = { "Inactive", "Joining", "Joined", "Error" };
 
+/* A multicast group.
+ * ah_info points to multicast address and QP number in use
+ * for the stream. There are no "ports" unless they are
+ * embedded in the GID (like done by CLLM).
+ */
 static struct mc {
 	struct in_addr addr;
 	enum mc_status status[2];
