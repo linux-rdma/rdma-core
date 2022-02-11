@@ -2796,7 +2796,7 @@ static void logging(void)
 	unsigned n = 0;
 
 	for(struct timed_event *z = next_event; z; z = z->next)
-		n += sprintf(buf + n, "%ld ms,", z->time - timestamp());
+		n += sprintf(buf + n, "%ldms,", z->time - timestamp());
 
 	if (n > 0)
 		buf[n -1] = 0;
@@ -2891,15 +2891,6 @@ loop:
 	}
 
 	events = poll(pfd, 2 * nr_types, timeout);
-
-	if (events)
-		printf("Events #%d REV=%d %d %d %d %d %d\n", events,
-			pfd[0].revents,
-			pfd[1].revents,
-			pfd[2].revents,
-			pfd[3].revents,
-			pfd[4].revents,
-			pfd[5].revents);
 
 	if (terminated)
 		goto out;
