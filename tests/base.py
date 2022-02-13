@@ -325,13 +325,14 @@ class RDMACMBaseTest(RDMATestCase):
                                     .format(self.dev_name))
         is_gid_available(self.gid_index)
 
-    def two_nodes_rdmacm_traffic(self, connection_resources, test_flow,
+    def two_nodes_rdmacm_traffic(self, connection_resources, test_flow, bad_flow=False,
                                  **resource_kwargs):
         """
         Init and manage the rdmacm test processes. If needed, terminate those
         processes and raise an exception.
         :param connection_resources: The CMConnection resources to use.
         :param test_flow: The target RDMACM flow method to run.
+        :param bad_flow: If true, traffic is expected to fail.
         :param resource_kwargs: Dict of args that specify the CMResources
                                 specific attributes. Each test case can pass
                                 here as key words the specific CMResources
@@ -354,11 +355,12 @@ class RDMACMBaseTest(RDMATestCase):
         passive.start()
         active.start()
         proc_raised_ex = False
-        for i in range(15):
+        repeat_times=150 if not bad_flow else 3
+        for _ in range(repeat_times):
             if proc_raised_ex:
                 break
             for proc in [passive, active]:
-                proc.join(1)
+                proc.join(0.1)
                 if not proc.is_alive() and not self.notifier.empty():
                     proc_raised_ex = True
                     break
@@ -386,7 +388,9 @@ class RDMACMBaseTest(RDMATestCase):
                 raise(res)
             raise PyverbsError(res)
         # Raise exeption if the test proceses was terminate.
-        if proc_killed:
+        if bad_flow and not proc_killed:
+            raise Exception('Bad flow: traffic passed which is not expected')
+        if not bad_flow and proc_killed:
             raise Exception('RDMA CM test procces is stuck, kill the test')
 
     def rdmacm_traffic(self, connection_resources=None, passive=None, **kwargs):
@@ -412,13 +416,15 @@ class RDMACMBaseTest(RDMATestCase):
             self.notifier.put((ex, side))
 
     def rdmacm_multicast_traffic(self, connection_resources=None, passive=None,
-                                 extended=False, **kwargs):
+                                 extended=False, leave_test=False, **kwargs):
         """
         Run RDMACM multicast traffic between two CMIDs.
         :param connection_resources: The connection resources to use.
         :param passive: Indicate if this CMID is the passive side.
         :param extended: Use exteneded multicast join request. This request
                          allows CMID to join with specific join flags.
+        :param leave_test: Perform traffic after leaving the multicast group to
+                           ensure leave works.
         :param kwargs: Arguments to be passed to the connection_resources.
         :return: None
         """
@@ -431,6 +437,8 @@ class RDMACMBaseTest(RDMATestCase):
                                      extended=extended)
             player.rdmacm_traffic(server=passive, multicast=True)
             player.leave_multicast(mc_addr=mc_addr)
+            if leave_test:
+                player.rdmacm_traffic(server=passive, multicast=True)
         except Exception as ex:
             side = 'passive' if passive else 'active'
             self.notifier.put((ex, side))

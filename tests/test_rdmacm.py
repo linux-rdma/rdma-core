@@ -49,6 +49,13 @@ class CMTestCase(RDMACMBaseTest):
                                       self.rdmacm_multicast_traffic,
                                       port_space=self.get_port_space(), extended=True)
 
+    @requires_mcast_support()
+    def test_rdmacm_async_ex_leave_multicast_traffic(self):
+        self.two_nodes_rdmacm_traffic(CMAsyncConnection,
+                                      self.rdmacm_multicast_traffic,
+                                      port_space=self.get_port_space(), extended=True,
+                                      leave_test=True, bad_flow=True)
+
     def test_rdmacm_async_traffic_external_qp(self):
         self.two_nodes_rdmacm_traffic(CMAsyncConnection, self.rdmacm_traffic,
                                       with_ext_qp=True)
