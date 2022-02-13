@@ -52,11 +52,16 @@ class CMConnection(abc.ABC):
                 self._ext_qp_server_traffic()
             else:
                 self._ext_qp_client_traffic()
+        elif multicast:
+            if server:
+                self._cmid_server_multicast_traffic()
+            else:
+                self._cmid_client_multicast_traffic()
         else:
             if server:
-                self._cmid_server_traffic(multicast)
+                self._cmid_server_traffic()
             else:
-                self._cmid_client_traffic(multicast)
+                self._cmid_client_traffic()
 
     def remote_traffic(self, passive, remote_op='write'):
         """
@@ -128,7 +133,7 @@ class CMConnection(abc.ABC):
             msg_received = self.cm_res.mr.read(self.cm_res.msg_size, 0)
             validate(msg_received, self.cm_res.passive, self.cm_res.msg_size)
 
-    def _cmid_server_traffic(self, multicast=False):
+    def _cmid_server_traffic(self):
         """
         RDMACM server side traffic function which sends and receives a message,
         and then validates the received message. This traffic method uses the
@@ -137,7 +142,7 @@ class CMConnection(abc.ABC):
         """
         grh_offset = GRH_SIZE if self.cm_res.qp_type == e.IBV_QPT_UD else 0
         send_msg = (self.cm_res.msg_size + grh_offset) * 's'
-        cmid = self.cm_res.child_id if not multicast else self.cm_res.cmid
+        cmid = self.cm_res.child_id
         for _ in range(self.cm_res.num_msgs):
             cmid.post_recv(self.cm_res.mr)
             self.syncer.wait()
@@ -149,19 +154,15 @@ class CMConnection(abc.ABC):
                 self.cm_res.mr.write(send_msg, self.cm_res.msg_size)
                 cmid.post_send(self.cm_res.mr)
             else:
-                if multicast:
-                    ah = AH(cmid.pd, attr=self.cm_res.ud_params.ah_attr)
-                    rqpn = MULTICAST_QPN
-                else:
-                    ah = AH(cmid.pd, wc=wc, port_num=1, grh=self.cm_res.mr.buf)
-                    rqpn = self.cm_res.remote_qpn
+                ah = AH(cmid.pd, wc=wc, port_num=1, grh=self.cm_res.mr.buf)
+                rqpn = self.cm_res.remote_qpn
                 self.cm_res.mr.write(send_msg, self.cm_res.msg_size + GRH_SIZE)
                 cmid.post_ud_send(self.cm_res.mr, ah, rqpn=rqpn,
                                   length=self.cm_res.msg_size)
             cmid.get_send_comp()
             self.syncer.wait()
 
-    def _cmid_client_traffic(self, multicast=False):
+    def _cmid_client_traffic(self):
         """
         RDMACM client side traffic function which sends and receives a message,
         and then validates the received message. This traffic method uses the
@@ -178,8 +179,7 @@ class CMConnection(abc.ABC):
                 cmid.post_send(self.cm_res.mr)
             else:
                 ah = AH(cmid.pd, attr=self.cm_res.ud_params.ah_attr)
-                rqpn = MULTICAST_QPN if multicast else self.cm_res.ud_params.qp_num
-                cmid.post_ud_send(self.cm_res.mr, ah, rqpn=rqpn,
+                cmid.post_ud_send(self.cm_res.mr, ah, rqpn=self.cm_res.ud_params.qp_num,
                                   length=self.cm_res.msg_size)
             cmid.get_send_comp()
             cmid.post_recv(self.cm_res.mr)
@@ -188,6 +188,34 @@ class CMConnection(abc.ABC):
             cmid.get_recv_comp()
             msg_received = self.cm_res.mr.read(self.cm_res.msg_size, grh_offset)
             validate(msg_received, False, self.cm_res.msg_size)
+
+    def _cmid_server_multicast_traffic(self):
+        """
+        RDMACM server side multicast traffic function which receives a message,
+        and then validates its data.
+        """
+        for _ in range(self.cm_res.num_msgs):
+            self.cm_res.cmid.post_recv(self.cm_res.mr)
+            self.syncer.wait()
+            self.syncer.wait()
+            self.cm_res.cmid.get_recv_comp()
+            msg_received = self.cm_res.mr.read(self.cm_res.msg_size, GRH_SIZE)
+            validate(msg_received, True, self.cm_res.msg_size)
+
+    def _cmid_client_multicast_traffic(self):
+        """
+        RDMACM client side multicast traffic function which sends a message to
+        the multicast group.
+        """
+        send_msg = (self.cm_res.msg_size + GRH_SIZE) * 'c'
+        for _ in range(self.cm_res.num_msgs):
+            self.cm_res.mr.write(send_msg, self.cm_res.msg_size + GRH_SIZE)
+            self.syncer.wait()
+            ah = AH(self.cm_res.cmid.pd, attr=self.cm_res.ud_params.ah_attr)
+            self.cm_res.cmid.post_ud_send(self.cm_res.mr, ah, rqpn=MULTICAST_QPN,
+                                          length=self.cm_res.msg_size)
+            self.cm_res.cmid.get_send_comp()
+            self.syncer.wait()
 
     def event_handler(self, expected_event=None):
         """
