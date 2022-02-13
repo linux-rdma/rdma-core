@@ -794,6 +794,7 @@ enum {
 enum mlx5_ifc_steering_format_version {
 	MLX5_HW_CONNECTX_5 = 0x0,
 	MLX5_HW_CONNECTX_6DX = 0x1,
+	MLX5_HW_CONNECTX_7 = 0x2,
 };
 
 enum mlx5_ifc_ste_v1_modify_hdr_offset {
