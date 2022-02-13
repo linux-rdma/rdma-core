@@ -1600,6 +1600,8 @@ struct dr_ste_ctx *dr_ste_get_ctx(uint8_t version)
 		return dr_ste_get_ctx_v0();
 	else if (version == MLX5_HW_CONNECTX_6DX)
 		return dr_ste_get_ctx_v1();
+	else if (version == MLX5_HW_CONNECTX_7)
+		return dr_ste_get_ctx_v2();
 
 	errno = EOPNOTSUPP;
 
