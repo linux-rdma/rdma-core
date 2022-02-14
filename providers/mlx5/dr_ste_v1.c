@@ -687,7 +687,6 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 			action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste,
 					      action);
 			action_sz = DR_STE_ACTION_TRIPLE_SZ;
-			allow_pop_vlan = false;
 			ste_loc++;
 		}
 
@@ -699,6 +698,7 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 
 		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
 		action += DR_STE_ACTION_DOUBLE_SZ;
+		allow_pop_vlan = false;
 	}
 
 	if (action_type_set[DR_ACTION_TYP_POP_VLAN]) {
@@ -713,7 +713,6 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 		dr_ste_v1_set_pop_vlan(last_ste, action, attr->vlans.count_pop);
 		action_sz -= DR_STE_ACTION_SINGLE_SZ;
 		action += DR_STE_ACTION_SINGLE_SZ;
-		allow_modify_hdr = false;
 	}
 
 	if (action_type_set[DR_ACTION_TYP_ASO_CT]) {
@@ -884,14 +883,13 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 			dr_ste_v1_arr_init_next_match(&last_ste, added_stes, attr->gvmi);
 			action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste, action);
 			action_sz = DR_STE_ACTION_TRIPLE_SZ;
-			allow_modify_hdr = false;
-			allow_ctr = false;
 			ste_loc++;
 		}
 
 		dr_ste_v1_set_pop_vlan(last_ste, action, attr->vlans.count_pop);
 		action_sz -= DR_STE_ACTION_SINGLE_SZ;
 		action += DR_STE_ACTION_SINGLE_SZ;
+		allow_ctr = false;
 	}
 
 	if (action_type_set[DR_ACTION_TYP_ASO_FIRST_HIT]) {
@@ -960,7 +958,6 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 			action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste,
 					      action);
 			action_sz = DR_STE_ACTION_TRIPLE_SZ;
-			allow_modify_hdr = false;
 			allow_ctr = true;
 			ste_loc++;
 		}
@@ -972,6 +969,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 
 		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
 		action += DR_STE_ACTION_DOUBLE_SZ;
+		allow_modify_hdr = false;
 	}
 
 	if (action_type_set[DR_ACTION_TYP_ASO_CT]) {
@@ -1006,9 +1004,9 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 			action = DEVX_ADDR_OF(ste_mask_and_match_v1, last_ste, action);
 			action_sz = DR_STE_ACTION_TRIPLE_SZ;
 			allow_modify_hdr = true;
-			allow_ctr = false;
 		}
 		dr_ste_v1_set_counter_id(last_ste, attr->ctr_id);
+		allow_ctr = false;
 	}
 
 	if (action_type_set[DR_ACTION_TYP_L2_TO_TNL_L2]) {
