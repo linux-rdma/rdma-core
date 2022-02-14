@@ -161,7 +161,6 @@ struct rdma_channel {
 	unsigned int nr_cq;
 	unsigned long stats[nr_stats];
 	bool rdmacm;		/* Channel uses RDMACM calls */
-	bool send;		/* Allow sending data */
 	char *text;
 	union {
 		struct { /* RDMACM status */
@@ -1094,25 +1093,26 @@ static void start_channel(struct rdma_channel *c)
 		/* kick off if necessary */
 	} else {
 		int ret;
+		bool send = c->i == i2r + ROCE;
 
 		c->attr.qp_state = IBV_QPS_RTR;
+		/* Only Ethernet can send on a raw socket */
 		ret = ibv_modify_qp(c->qp, &c->attr, IBV_QP_STATE);
 		if (ret)
 			syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to RTR state. %s", errname());
 
-		if (c->send) {
+		if (send) {
 			c->attr.qp_state = IBV_QPS_RTS;
 			ret = ibv_modify_qp(c->qp, &c->attr, IBV_QP_STATE);
 			if (ret)
 				syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to RTS state. %s", errname());
 		}
-		syslog(LOG_NOTICE, "QP %s moved to state %s\n", c->text,  c->send ? "RTS/RTR" : "RTR" );
+		syslog(LOG_NOTICE, "QP %s moved to state %s\n", c->text,  send ? "RTS/RTR" : "RTR" );
 	}
 }
 
 
-static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *text, int rdmacm, int send,
-		struct sockaddr *sa, int port, unsigned qp_type, unsigned nr_cq, unsigned create_flags)
+static struct rdma_channel *create_ud_channel(struct i2r_interface *i, struct sockaddr *sa, unsigned nr_cq)
 {
 	struct rdma_channel *c = calloc(1, sizeof(struct rdma_channel));
 	enum interfaces in = i - i2r;
@@ -1121,27 +1121,24 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *t
 	struct ibv_context *context = i->context;
 
 	c->i = i;
-	c->rdmacm = rdmacm;
-	c->send = send;
-	asprintf(&c->text, "%s-%s", interfaces_text[in], text);
+	c->rdmacm = true;
+	asprintf(&c->text, "%s-ud", interfaces_text[in]);
 
-	if (rdmacm) {
-		c->bindaddr = sa;
-		ret = rdma_create_id(i->rdma_events, &c->id, c, RDMA_PS_UDP);
-		if (ret) {
-			syslog(LOG_CRIT, "Failed to allocate RDMA CM ID for %s failed (%s).\n",
-				interfaces_text[in], errname());
-			return NULL;
-		}
-
-		ret = rdma_bind_addr(c->id, c->bindaddr);
-		if (ret) {
-			syslog(LOG_CRIT, "Failed to bind %s interface. Error %s\n",
-				interfaces_text[in], errname());
-			return NULL;
-		}
-		context = c->id->verbs;
+	c->bindaddr = sa;
+	ret = rdma_create_id(i->rdma_events, &c->id, c, RDMA_PS_UDP);
+	if (ret) {
+		syslog(LOG_CRIT, "Failed to allocate RDMA CM ID for %s failed (%s).\n",
+			interfaces_text[in], errname());
+		return NULL;
 	}
+
+	ret = rdma_bind_addr(c->id, c->bindaddr);
+	if (ret) {
+		syslog(LOG_CRIT, "Failed to bind %s interface. Error %s\n",
+			interfaces_text[in], errname());
+		return NULL;
+	}
+	context = c->id->verbs;
 
 	/*
 	 * Must alloc pd for each rdma_cm_id due to limitation in rdma_create_qp
@@ -1171,51 +1168,101 @@ static struct rdma_channel *setup_channel(struct i2r_interface *i, const char *t
 	init_qp_attr_ex.cap.max_inline_data = MAX_INLINE_DATA;
 	init_qp_attr_ex.qp_context = c;
 	init_qp_attr_ex.sq_sig_all = 0;
-	init_qp_attr_ex.qp_type = qp_type;
+	init_qp_attr_ex.qp_type = IBV_QPT_UD;
 	init_qp_attr_ex.send_cq = c->cq;
 	init_qp_attr_ex.recv_cq = c->cq;
 
 	init_qp_attr_ex.comp_mask = IBV_QP_INIT_ATTR_CREATE_FLAGS|IBV_QP_INIT_ATTR_PD;
 	init_qp_attr_ex.pd = c->pd;
-	init_qp_attr_ex.create_flags = create_flags;
+	init_qp_attr_ex.create_flags = IBV_QP_CREATE_BLOCK_SELF_MCAST_LB;
+	ret = rdma_create_qp_ex(c->id, &init_qp_attr_ex);
+	if (ret) {
+		syslog(LOG_CRIT, "rdma_create_qp_ex failed for %s. Error %s. #CQ=%d\n",
+				c->text, errname(), nr_cq);
+		return NULL;
+	}
 
-	if (rdmacm) {
-		ret = rdma_create_qp_ex(c->id, &init_qp_attr_ex);
-		if (ret) {
-			syslog(LOG_CRIT, "rdma_create_qp_ex failed for %s. Error %s. QP_TYPE=%d CREATE_FLAGS=%x #CQ=%d\n",
-					c->text, errname(),
-					qp_type, create_flags, nr_cq);
-			return NULL;
-		}
+	/* Copy to convenient location that is shared by both types of channels */
+	c->qp = c->id->qp;
+	c->mr = ibv_reg_mr(c->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
+	if (!c->mr) {
+		syslog(LOG_CRIT, "ibv_reg_mr failed for %s.\n", c->text);
+		return NULL;
+	}
+	return c;
+}
 
-		/* Copy to convenient location that is shared by both types of channels */
-		c->qp = c->id->qp;
-	} else {
-		c->qp = ibv_create_qp_ex(context, &init_qp_attr_ex);
-		if (!c->qp) {
-			syslog(LOG_CRIT, "ibv_create_qp_ex failed for %s. Error %s. Port=%d QP_TYPE=%d CREATE_FLAGS=%x #CQ=%d\n",
-					c->text, errname(), port,
-					qp_type, create_flags, nr_cq);
-			return NULL;
-		}
+static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port, unsigned nr_cq)
+{
+	struct rdma_channel *c = calloc(1, sizeof(struct rdma_channel));
+	enum interfaces in = i - i2r;
+	struct ibv_qp_init_attr_ex init_qp_attr_ex;
+	int ret;
+	struct ibv_context *context = i->context;
 
-		c->attr.port_num = port;
-		c->attr.qp_state = IBV_QPS_INIT;
-		c->attr.pkey_index = 0;
-		c->attr.qkey = RDMA_UDP_QKEY;
+	c->i = i;
+	c->rdmacm = false;
+	asprintf(&c->text, "%s-raw", interfaces_text[in]);
 
-//		c->attr.qkey = 0x12345;		/* Default QKEY from ibdump source code */
+	/*
+	 * Must alloc pd for each rdma_cm_id due to limitation in rdma_create_qp
+	 * There a multiple struct ibv_context *s around . Need to use the right one
+	 * since rdma_create_qp validates the alloc pd ibv_context pointer.
+	 */
+	c->pd = ibv_alloc_pd(context);
+	if (!c->pd) {
+		syslog(LOG_CRIT, "ibv_alloc_pd failed for %s.\n",
+			c->text);
+		return NULL;
+	}
 
-		ret = ibv_modify_qp(c->qp, &c->attr,
-			       in == ROCE ?
-					(IBV_QP_STATE | IBV_QP_PORT) :
-					( IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_QKEY)
-		);
+	c->nr_cq = nr_cq;
+	c->cq = ibv_create_cq(context, nr_cq, c, i->comp_events, 0);
+	if (!c->cq) {
+		syslog(LOG_CRIT, "ibv_create_cq failed for %s.\n",
+			c->text);
+		return NULL;
+	}
 
-		if (ret) {
-			syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to Init state. %s", errname());
-			return NULL;
-		}
+	memset(&init_qp_attr_ex, 0, sizeof(init_qp_attr_ex));
+	init_qp_attr_ex.cap.max_send_wr = nr_cq;
+	init_qp_attr_ex.cap.max_recv_wr = nr_cq;
+	init_qp_attr_ex.cap.max_send_sge = 1;	/* Highly sensitive settings that can cause -EINVAL if too large (10 f.e.) */
+	init_qp_attr_ex.cap.max_recv_sge = 1;
+	init_qp_attr_ex.cap.max_inline_data = MAX_INLINE_DATA;
+	init_qp_attr_ex.qp_context = c;
+	init_qp_attr_ex.sq_sig_all = 0;
+	init_qp_attr_ex.qp_type = (in == ROCE ? IBV_QPT_RAW_PACKET : IBV_QPT_UD),
+	init_qp_attr_ex.send_cq = c->cq;
+	init_qp_attr_ex.recv_cq = c->cq;
+
+	init_qp_attr_ex.comp_mask = IBV_QP_INIT_ATTR_CREATE_FLAGS|IBV_QP_INIT_ATTR_PD;
+	init_qp_attr_ex.pd = c->pd;
+	init_qp_attr_ex.create_flags = 0;
+
+	c->qp = ibv_create_qp_ex(context, &init_qp_attr_ex);
+	if (!c->qp) {
+		syslog(LOG_CRIT, "ibv_create_qp_ex failed for %s. Error %s. Port=%d #CQ=%d\n",
+				c->text, errname(), port, nr_cq);
+		return NULL;
+	}
+
+	c->attr.port_num = port;
+	c->attr.qp_state = IBV_QPS_INIT;
+	c->attr.pkey_index = 0;
+	c->attr.qkey = RDMA_UDP_QKEY;
+
+//	c->attr.qkey = 0x12345;		/* Default QKEY from ibdump source code */
+
+	ret = ibv_modify_qp(c->qp, &c->attr,
+		       in == ROCE ?
+				(IBV_QP_STATE | IBV_QP_PORT) :
+				( IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_QKEY)
+	);
+
+	if (ret) {
+		syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to Init state. %s", errname());
+		return NULL;
 	}
 
 	c->mr = ibv_reg_mr(c->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
@@ -1297,18 +1344,13 @@ static void setup_interface(enum interfaces in)
 	sin->sin_addr = i->if_addr.sin_addr;
 	sin->sin_port = htons(default_port);
 
-	i->multicast = setup_channel(i, "multicast", true, true,
-			(struct sockaddr *)sin, 0, IBV_QPT_UD,
-			MIN(i->device_attr.max_cqe, nr_buffers / 2),
-			IBV_QP_CREATE_BLOCK_SELF_MCAST_LB);
+	i->multicast = create_ud_channel(i, (struct sockaddr *)sin, MIN(i->device_attr.max_cqe, nr_buffers / 2));
 
 	if (!i->multicast)
 		abort();
 
 	if (unicast)
-		i->raw = setup_channel(i, "raw", false, in == ROCE,
-			NULL, i->port, in == ROCE ? IBV_QPT_RAW_PACKET : IBV_QPT_UD,
-			100, 0);
+		i->raw = create_raw_channel(i, i->port, 100);
 
 	syslog(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s CQs=%u/%u MTU=%u.\n",
 		interfaces_text[in],
