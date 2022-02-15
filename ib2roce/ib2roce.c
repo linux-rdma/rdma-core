@@ -64,6 +64,7 @@
 #include <linux/udp.h>
 #include <linux/if_arp.h>
 
+#include "packet.h"
 #include "errno.c"
 #include "bth_hdr.h"
 
@@ -708,13 +709,14 @@ struct buf {
 			struct buf *next_resolve;	/* Next buffer that needs address resolution */
 
 			/* Structs pulled out of the frame */
-			struct ether_header e;
+			struct immdt immdt;	/* BTH subheader */
 			struct ibv_grh grh;
+			struct ether_header e;
 			struct iphdr ip;
 			struct udphdr udp;
 			struct bth bth;
 			struct deth deth;	/* BTH subheader */
-			struct immdt immdt;	/* BTH subheader */
+			struct pgm_header pgm;	/* RFC3208 header */
 		};
 		uint8_t meta[META_SIZE];
 	};
@@ -927,6 +929,16 @@ static char *udp_dump(struct udphdr *u)
 	snprintf(buf, sizeof(buf), "SPORT=%d DPORT=%d LEN=%d Check=%x",
 			ntohs(u->source), ntohs(u->dest), ntohs(u->len), ntohs(u->check));
 
+	return buf;
+}
+
+static char *pgm_dump(struct pgm_header *p)
+{
+	static char buf[150];
+
+	snprintf(buf, sizeof(buf), "PGM SPORT=%d DPORT=%d PGM-Type=%x Opt=%x Checksum=%x GSI=%s TSDU=%d\n",
+			p->pgm_sport, p->pgm_dport, p->pgm_type, p->pgm_options, p->pgm_checksum,
+			hexbytes(p->pgm_gsi, 6), p->pgm_tsdu_length);
 	return buf;
 }
 
@@ -2495,6 +2507,7 @@ static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 	char xbuf[INET6_ADDRSTRLEN];
 	struct in_addr dest_addr;
 	int ret;
+	struct pgm_header pgm;
 
 	if (unicast &&
 		((in == INFINIBAND && buf->grh.dgid.raw[0] != 0xff) ||
@@ -2503,9 +2516,14 @@ static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 		unicast_packet(c, buf, dest_addr);
 		return;
 	}
-	
+
 	dest_addr.s_addr = dgid->sib_addr32[3];
 	m = hash_lookup_mc(dest_addr);
+
+	if (log_packets) {
+		memcpy(&pgm, buf->cur, sizeof(struct pgm_header));
+		syslog(LOG_NOTICE, "From %s: MC=%s\n", interfaces_text[in], inet_ntoa(dest_addr),pgm_dump(&pgm));
+	}
 
 	if (!m) {
 		if (log_packets) {
