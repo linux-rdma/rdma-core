@@ -584,6 +584,11 @@ struct mlx5_wq {
 	unsigned			tail;
 	unsigned			cur_post;
 	int				max_gs;
+	/*
+	 * Equal to max_gs when qp is in RTS state for sq, or in INIT state for
+	 * rq, equal to -1 otherwise, used to verify qp_state in data path.
+	 */
+	int				qp_state_max_gs;
 	int				wqe_shift;
 	int				offset;
 	void			       *qend;
@@ -1275,6 +1280,8 @@ void mlx5_unimport_mr(struct ibv_mr *mr);
 struct ibv_pd *mlx5_import_pd(struct ibv_context *context,
 			      uint32_t pd_handle);
 void mlx5_unimport_pd(struct ibv_pd *pd);
+void mlx5_qp_fill_wr_complete_error(struct mlx5_qp *mqp);
+void mlx5_qp_fill_wr_complete_real(struct mlx5_qp *mqp);
 int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 			 const struct ibv_qp_init_attr_ex *attr,
 			 const struct mlx5dv_qp_init_attr *mlx5_attr);
