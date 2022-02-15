@@ -1699,7 +1699,7 @@ static int send_inline(struct rdma_channel *c, void *addr, unsigned len, struct 
 		errno = -ret;
 		syslog(LOG_WARNING, "Failed to post inline send: %s on %s\n", errname(), c->text);
 	} else
-		if (log_packets)
+		if (log_packets > 1)
 			syslog(LOG_NOTICE, "Inline Send to QPN=%d QKEY=%x %d bytes\n",
 				wr.wr.ud.remote_qpn, wr.wr.ud.remote_qkey, len);
 
@@ -1744,7 +1744,7 @@ static int send_to(struct rdma_channel *c,
 		errno = - ret;
 		syslog(LOG_WARNING, "Failed to post send: %s on %s\n", errname(), c->text);
 	} else
-		if (log_packets)
+		if (log_packets > 1)
 			syslog(LOG_NOTICE, "RDMA Send to QPN=%d QKEY=%x %d bytes\n",
 				wr.wr.ud.remote_qpn, wr.wr.ud.remote_qkey, len);
 
@@ -2290,6 +2290,14 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 	buf->ra = ra;
 	buf->c = dc;
 
+	syslog(LOG_NOTICE, "ROCEv2 package parsed (%s): flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s UDP=%s BTH=%s Data=%s\n",
+			ra->ai.ah ? "Dest Known" : "Need Res",
+			ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
+			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
+			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
+			udp_dump( &buf->udp), bth_dump(&buf->bth), 
+			payload_dump(buf->cur));
+
 	if (!ra->ai.ah) {
 		/* No address handle yet. We need to do an address resolution */
 		resolve(buf);
@@ -2301,12 +2309,10 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 	if (!ret)
 		return 0;
 
-	syslog(LOG_NOTICE, "ROCEv2 send failed %s flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s UDP=%s BTH=%s Data=%s\n",
-			errname(), ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
+	syslog(LOG_NOTICE, "ROCEv2 send failed %s SGID=%s DGID:%s\n",
+			errname(),
 			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
-			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
-			udp_dump( &buf->udp), bth_dump(&buf->bth), 
-			payload_dump(buf->cur));
+			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN));
 	return ret;
 
 err:
