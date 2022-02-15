@@ -703,6 +703,7 @@ struct buf {
 			/* Information used for delayed processing due to address resolution */
 			struct sockaddr_in sin;	/* Destination address, port */
 			struct rdma_channel *c;	/* Channel for sending */
+			struct rdma_cm_id *id;  /* Temporary ID for address resolution */
 			struct rdma_ah *ra;	/* Routing information */
 			struct buf *next_resolve;	/* Next buffer that needs address resolution */
 
@@ -1449,6 +1450,9 @@ static void resolve_end(struct buf *buf)
 
 	i->resolve_queue = buf->next_resolve;
 
+	rdma_destroy_id(buf->id);
+	buf->id = NULL;
+
 	if (!i->resolve_queue) {
 		/* Queue is empty */
 		i->resolve_last = NULL;
@@ -1464,15 +1468,20 @@ static void resolve_start(struct buf *buf)
 	struct rdma_channel *c = buf->c;
 	struct i2r_interface *i = c->i;
 
+	if (rdma_create_id(i->rdma_events, &buf->id, c, RDMA_PS_UDP)) {
+		syslog(LOG_ERR, "rdma_create_id error %s on %s for %s:%d\n",
+			errname(), c->text, inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port));
+		goto out;
+	}
+		
 
-	/* Compose destination addr */
-
-	if (rdma_resolve_addr(i->multicast->id, NULL, (struct sockaddr *)&buf->sin, 2000) == 0)
+	if (rdma_resolve_addr(buf->id, c->bindaddr, (struct sockaddr *)&buf->sin, 2000) == 0)
 		return;
 
 	syslog(LOG_ERR, "rdma_resolve_addr error %s on %s for %s:%d\n",
 		errname(), c->text, inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port));
 
+out:
 	resolve_end(buf);
 	free_buffer(buf);
 }
@@ -1561,8 +1570,9 @@ static void handle_rdma_event(enum interfaces in)
 			break;
 
 		case RDMA_CM_EVENT_ADDR_RESOLVED:
-			if (rdma_resolve_route(i->multicast->id, 2000) < 0) {
-				struct buf *buf = i->resolve_queue;
+			struct buf *buf = i->resolve_queue;
+
+			if (rdma_resolve_route(buf->id, 2000) < 0) {
 
 				syslog(LOG_ERR, "rdma_resolve_route error %s on %s  %s:%d. Packet dropped.\n",
 					errname(), buf->c->text,
@@ -1594,7 +1604,7 @@ static void handle_rdma_event(enum interfaces in)
 				struct buf *buf = i->resolve_queue;
 				struct rdma_conn_param rcp = { };
 
-				if (rdma_connect(i->multicast->id, &rcp) < 0) {
+				if (rdma_connect(buf->id, &rcp) < 0) {
 					syslog(LOG_ERR, "rdma_connecte error %s on %s  %s:%d. Packet dropped.\n",
 						errname(), buf->c->text,
 						inet_ntoa(buf->sin.sin_addr),
