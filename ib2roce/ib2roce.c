@@ -380,7 +380,7 @@ static int find_rdma_devices(void)
 			else {
 				if (!bridging) {
 					syslog(LOG_CRIT, "No RDMA Device available.\n");
-					return;
+					return 1;
 				}
 				/* We only have a ROCE device */
 				bridging = false;
@@ -548,7 +548,7 @@ static struct sockaddr_in *parse_addr(char *arg, int default_port,
 }
 
 /* Setup the addreses for ROCE and INFINIBAND based on a ipaddr:port spec */
-static setup_mc_addrs(struct mc *m, struct sockaddr_in *si)
+static void setup_mc_addrs(struct mc *m, struct sockaddr_in *si)
 {
 	m->sa[ROCE] = (struct sockaddr  *)si;
 	m->sa[INFINIBAND] = m->sa[ROCE];
@@ -2896,7 +2896,7 @@ static void beacon_send(void)
 	add_event(timestamp() + 60000, beacon_send);
 }
 
-static void beacon_setup(opt_arg)
+static void beacon_setup(char *opt_arg)
 {
 	struct mc *m = mcs + nr_mc++;
 	struct sockaddr_in *sin;
@@ -3234,6 +3234,7 @@ int main(int argc, char **argv)
 {
 	int op, ret = 0;
 	int n;
+	char *beacon_arg = NULL;
 
 	while ((op = getopt_long(argc, argv, "vfunbxl::i:r:m:o:d:p:",
 					opts, NULL)) != -1) {
@@ -3249,19 +3250,19 @@ int main(int argc, char **argv)
 		case 'm':
 			ret = new_mc_addr(optarg, false, false);
 			if (ret)
-				return;
+				return 1;
 			break;
 
 		case 'i':
 			ret = new_mc_addr(optarg, false, true);
 			if (ret)
-				return;
+				return 1;
 			break;
 
 		case 'o':
 			ret =  new_mc_addr(optarg, true, false);
 			if (ret)
-				return;
+				return 1;
 			break;
 
 		case 'l':
@@ -3289,6 +3290,7 @@ int main(int argc, char **argv)
 
 		case 'b':
 			beacon = true;
+			beacon_arg = optarg;
 			break;
 
 		case 'n':
@@ -3356,7 +3358,7 @@ int main(int argc, char **argv)
 	status_fd = open("ib2roce-status", O_CREAT | O_RDWR | O_TRUNC,  S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
 	if (beacon)
-		beacon_setup();
+		beacon_setup(beacon_arg);
 
 #ifdef NETLINK_SUPPORT
 	if (unicast) {
