@@ -13,8 +13,8 @@ from pyverbs.cq import CQ
 
 
 class LagRawQP(BaseResources):
-    def __init__(self, dev_name):
-        super().__init__(dev_name, None, None)
+    def __init__(self, dev_name, ib_port):
+        super().__init__(dev_name, ib_port, None)
         self.cq = self.create_cq()
         self.qp = self.create_qp()
 
@@ -31,7 +31,7 @@ class LagRawQP(BaseResources):
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest("Create Raw Packet QP is not supported")
             raise ex
-        qp.to_init(QPAttr())
+        qp.to_init(QPAttr(port_num=self.ib_port))
         return qp
 
 
@@ -56,7 +56,7 @@ class LagPortTestCase(Mlx5RDMATestCase):
             raise ex
 
     def test_raw_modify_lag_port(self):
-        qp = LagRawQP(self.dev_name)
+        qp = LagRawQP(self.dev_name, self.ib_port)
         self.modify_lag(qp)
 
     def create_players(self, resource, **resource_arg):
