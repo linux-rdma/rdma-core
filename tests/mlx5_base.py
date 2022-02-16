@@ -14,9 +14,10 @@ from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, \
     Mlx5DVQPInitAttr, Mlx5QP, Mlx5DVDCInitAttr, Mlx5DCIStreamInitAttr, \
     Mlx5DevxObj, Mlx5UMEM, Mlx5UAR, WqeDataSeg, WqeCtrlSeg, Wqe, Mlx5Cqe64, \
     Mlx5DVCQInitAttr, Mlx5CQ
-from tests.base import TrafficResources, set_rnr_attributes, DCT_KEY, \
+from tests.base import RoCETrafficResources, set_rnr_attributes, DCT_KEY, \
     RDMATestCase, PyverbsAPITestCase, RDMACMBaseTest, BaseResources, PATH_MTU, \
-    RNR_RETRY, RETRY_CNT, MIN_RNR_TIMER, TIMEOUT, MAX_RDMA_ATOMIC, RCResources
+    RNR_RETRY, RETRY_CNT, MIN_RNR_TIMER, TIMEOUT, MAX_RDMA_ATOMIC, RCResources, \
+    is_gid_available
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError, \
     PyverbsError
 from pyverbs.providers.mlx5.mlx5dv_objects import Mlx5DvObj
@@ -109,7 +110,7 @@ class Mlx5RDMACMBaseTest(RDMACMBaseTest):
         skip_if_not_mlx5_dev(d.Context(name=self.dev_name))
 
 
-class Mlx5DcResources(TrafficResources):
+class Mlx5DcResources(RoCETrafficResources):
     def __init__(self, dev_name, ib_port, gid_index, send_ops_flags,
                  qp_count=1, create_flags=0):
         self.send_ops_flags = send_ops_flags
@@ -546,6 +547,7 @@ class Mlx5DevxRcResources(BaseResources):
         if not self.is_eth():
             self.query_lid()
         else:
+            is_gid_available(self.gid_index)
             self.query_gid()
         self.create_pd()
         self.create_mr()
