@@ -361,26 +361,30 @@ static int find_rdma_devices(void)
 		if (roce_name[0] == '-')
 			bridging = false;
 		else {
-			if (roce_name)
+			if (roce_name) {
 				syslog(LOG_CRIT, "ROCE device %s not found\n", roce_name);
-			else
-				syslog(LOG_CRIT,  "No ROCE device available.\n");
-
-			return 1;
+				return 1;
+			}
+				bridging = false;
 		}
 	}
 
 	if (!i2r[INFINIBAND].context) {
 
-		if (ib_name[0] == '-' && i2r[ROCE].context)
+		if (ib_name[0] == '-' && bridging)
+			/* Switch IB support off */
 			bridging = false;
 		else {
 			if (ib_name)
 				syslog(LOG_CRIT, "Infiniband device %s not found.\n", ib_name);
-			else
-				syslog(LOG_CRIT, "No Infiniband device available.\n");
-
-			return 1;
+			else {
+				if (!bridging) {
+					syslog(LOG_CRIT, "No RDMA Device available.\n");
+					return;
+				}
+				/* We only have a ROCE device */
+				bridging = false;
+			}
 		}
 	}
 	return 0;
@@ -480,10 +484,11 @@ static struct mgid_signature *find_mgid_mode(char *p)
 	return g;
 }
 
-/* Multicast group specifications on the command line */
-static int new_mc_addr(char *arg,
-	bool sendonly_infiniband,
-	bool sendonly_roce)
+/*
+ * Parse an address with port number [:xxx] and/or mgid format [/YYYY]
+ */
+static struct sockaddr_in *parse_addr(char *arg, int default_port,
+	struct mgid_signature **p_mgid_mode, bool mc_only)
 {
 	struct addrinfo *res;
 	char *service;
@@ -493,18 +498,10 @@ static int new_mc_addr(char *arg,
 		.ai_protocol = IPPROTO_UDP
 	};
 	struct sockaddr_in *si;
-	struct mc *m = mcs + nr_mc;
 	char *p;
 	int ret;
-
-	if (nr_mc == MAX_MC) {
-		fprintf(stderr, "Too many multicast groups\n");
-		return 1;
-	}
-
-	m->sendonly[INFINIBAND] = sendonly_infiniband;
-	m->sendonly[ROCE] = sendonly_roce;
-	m->text = strdup(arg);
+	struct mgid_signature *mgid_mode;
+	struct in_addr addr;
 
 	service = strchr(arg, ':');
 
@@ -524,37 +521,36 @@ static int new_mc_addr(char *arg,
 	p = strchr(p, '/');
 	if (p) {
 		*p++ = 0;
-		m->mgid_mode = find_mgid_mode(p);
+		mgid_mode = find_mgid_mode(p);
 
-		if (!m->mgid_mode)
-			return -EINVAL;
-	} else
-		m->mgid_mode = mgid_mode;
+		if (!mgid_mode)
+			return NULL;
+	}
 
 	ret = getaddrinfo(arg, service, &hints, &res);
 	if (ret) {
 		fprintf(stderr, "getaddrinfo() failed (%s) - invalid IP address.\n", gai_strerror(ret));
-		return ret;
+		return NULL;
 	}
 
-	ret = 1;
+	si = malloc(sizeof(struct sockaddr_in));
+	memcpy(si, res->ai_addr, sizeof(struct sockaddr_in));
+	freeaddrinfo(res);
 
-	si = (struct sockaddr_in *)res->ai_addr;
-
-	m->addr = si->sin_addr;
-	if (!IN_MULTICAST(ntohl(m->addr.s_addr))) {
+	addr = si->sin_addr;
+	if (mc_only && !IN_MULTICAST(ntohl(addr.s_addr))) {
 		fprintf(stderr, "Not a multicast address (%s)\n", arg);
-		goto out;
+		return NULL;
 	}
 
-	ret = hash_add_mc(m);
-	if (ret) {
-		fprintf(stderr, "Duplicate multicast address (%s)\n", arg);
-		goto out;
-	}
+	*p_mgid_mode = mgid_mode;
+	return si;
+}
 
-	m->sa[ROCE] = malloc(sizeof(struct sockaddr_in));
-	memcpy(m->sa[ROCE], si, sizeof(struct sockaddr_in));
+/* Setup the addreses for ROCE and INFINIBAND based on a ipaddr:port spec */
+static setup_mc_addrs(struct mc *m, struct sockaddr_in *si)
+{
+	m->sa[ROCE] = (struct sockaddr  *)si;
 	m->sa[INFINIBAND] = m->sa[ROCE];
 
 	if (m->mgid_mode->signature) {
@@ -581,6 +577,7 @@ static int new_mc_addr(char *arg,
 		*mgid_signature = htons(mg->signature);
 
 		if (mg->pkey)
+			/* WTF? */
 			*mgid_pkey = id(INFINIBAND)->route.addr.addr.ibaddr.pkey;
 
 		if (mg->port)
@@ -594,14 +591,42 @@ static int new_mc_addr(char *arg,
 
 		m->sa[INFINIBAND] = (struct sockaddr *)saib;
 	}
+}
 
+/* Multicast group specifications on the command line */
+static int new_mc_addr(char *arg,
+	bool sendonly_infiniband,
+	bool sendonly_roce)
+{
+	struct sockaddr_in *si;
+	struct mc *m = mcs + nr_mc;
+	int ret;
 
+	if (nr_mc == MAX_MC) {
+		fprintf(stderr, "Too many multicast groups\n");
+		return 1;
+	}
+
+	m->sendonly[INFINIBAND] = sendonly_infiniband;
+	m->sendonly[ROCE] = sendonly_roce;
+	m->text = strdup(arg);
+
+	si = parse_addr(arg, default_port, &m->mgid_mode, true);
+	if (!si)
+		return 1;
+
+	m->addr = si->sin_addr;
+	ret = hash_add_mc(m);
+	if (ret) {
+		fprintf(stderr, "Duplicate multicast address (%s)\n", arg);
+		goto out;
+	}
+
+	setup_mc_addrs(m, si);
 	nr_mc++;
 	ret = 0;
 
 out:
-
-	freeaddrinfo(res);
 	return ret;
 }
 
@@ -1485,7 +1510,6 @@ static void resolve_start(struct buf *buf)
 			errname(), c->text, inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port));
 		goto out;
 	}
-		
 
 	if (rdma_resolve_addr(buf->id, c->bindaddr, (struct sockaddr *)&buf->sin, 2000) == 0)
 		return;
@@ -2861,7 +2885,7 @@ static void beacon_send(void)
 	b.nr_mc = nr_mc;
 
 	for(i = 0; i < NR_INTERFACES; i++)
-	if (i2r[i].context && beacon_mc->status[i] == MC_JOINED) {
+	   if (i2r[i].context && beacon_mc->status[i] == MC_JOINED) {
 		if (sizeof(b) > MAX_INLINE_DATA) {
 			buf = alloc_buffer();
 			memcpy(buf->raw, &b, sizeof(b));
@@ -2872,22 +2896,24 @@ static void beacon_send(void)
 	add_event(timestamp() + 60000, beacon_send);
 }
 
-static void beacon_setup(void)
+static void beacon_setup(opt_arg)
 {
 	struct mc *m = mcs + nr_mc++;
 	struct sockaddr_in *sin;
+	char *p;
+	char *service;
 
-	sin = calloc(1, sizeof(struct sockaddr_in));
-
-	sin->sin_family = AF_INET,
-	sin->sin_port = htons(999);
-	sin->sin_addr.s_addr = inet_addr("239.1.2.3");
+	if (!opt_arg)
+		optarg = "239.1.2.3";
 
 	memset(m, 0, sizeof(*m));
 	m->beacon = true;
-	m->text = "239.1.2.3:999";
+	m->text = strdup(optarg);
+
+	sin = parse_addr(optarg, 999, &m->mgid_mode, true);
 	m->addr = sin->sin_addr;
-	m->sa[INFINIBAND] = m->sa[ROCE] = (struct sockaddr *)sin;
+	setup_mc_addrs(m, sin);
+
 	if (hash_add_mc(m)) {
 		syslog(LOG_ERR, "Beacon MC already in use.\n");
 		beacon = false;
@@ -3222,14 +3248,20 @@ int main(int argc, char **argv)
 
 		case 'm':
 			ret = new_mc_addr(optarg, false, false);
+			if (ret)
+				return;
 			break;
 
 		case 'i':
 			ret = new_mc_addr(optarg, false, true);
+			if (ret)
+				return;
 			break;
 
 		case 'o':
 			ret =  new_mc_addr(optarg, true, false);
+			if (ret)
+				return;
 			break;
 
 		case 'l':
