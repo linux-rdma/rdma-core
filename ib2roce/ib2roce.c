@@ -487,7 +487,7 @@ static struct mgid_signature *find_mgid_mode(char *p)
 /*
  * Parse an address with port number [:xxx] and/or mgid format [/YYYY]
  */
-static struct sockaddr_in *parse_addr(char *arg, int default_port,
+static struct sockaddr_in *parse_addr(const char *arg, int port,
 	struct mgid_signature **p_mgid_mode, bool mc_only)
 {
 	struct addrinfo *res;
@@ -500,10 +500,11 @@ static struct sockaddr_in *parse_addr(char *arg, int default_port,
 	struct sockaddr_in *si;
 	char *p;
 	int ret;
-	struct mgid_signature *mgid_mode;
+	struct mgid_signature *mgid;
 	struct in_addr addr;
+	char *a = strdupa(arg);
 
-	service = strchr(arg, ':');
+	service = strchr(a, ':');
 
 	if (service) {
 
@@ -513,19 +514,20 @@ static struct sockaddr_in *parse_addr(char *arg, int default_port,
 	} else {
 		char *s = alloca(10);
 
-		snprintf(s, 10, "%d", default_port);
+		snprintf(s, 10, "%d", port);
 		service = s;
-		p = arg;
+		p = a;
 	}
 
 	p = strchr(p, '/');
 	if (p) {
 		*p++ = 0;
-		mgid_mode = find_mgid_mode(p);
+		mgid = find_mgid_mode(p);
 
-		if (!mgid_mode)
+		if (!mgid)
 			return NULL;
-	}
+	} else
+		mgid = mgid_mode;
 
 	ret = getaddrinfo(arg, service, &hints, &res);
 	if (ret) {
@@ -543,7 +545,7 @@ static struct sockaddr_in *parse_addr(char *arg, int default_port,
 		return NULL;
 	}
 
-	*p_mgid_mode = mgid_mode;
+	*p_mgid_mode = mgid;
 	return si;
 }
 
@@ -827,10 +829,9 @@ static char *__hexbytes(char *b, uint8_t *q, unsigned len, char separator)
 		unsigned n = *q++;
 		*p++ = hexbyte( n >> 4 );
 		*p++ = hexbyte( n & 0xf);
-		*p++ = separator;
+		if (i < len - 1)
+			*p++ = separator;
 	}
-	p--;
-	*p = 0;
 	return b;
 }
 
@@ -959,11 +960,11 @@ static char *udp_dump(struct udphdr *u)
 
 static char *pgm_dump(struct pgm_header *p)
 {
-	static char buf[150];
+	static char buf[250];
 
 	snprintf(buf, sizeof(buf), "PGM SPORT=%d DPORT=%d PGM-Type=%x Opt=%x Checksum=%x GSI=%s TSDU=%d\n",
 			p->pgm_sport, p->pgm_dport, p->pgm_type, p->pgm_options, p->pgm_checksum,
-			hexbytes(p->pgm_gsi, 6), p->pgm_tsdu_length);
+			_hexbytes(p->pgm_gsi, 6), p->pgm_tsdu_length);
 	return buf;
 }
 
@@ -1606,17 +1607,19 @@ static void handle_rdma_event(enum interfaces in)
 			break;
 
 		case RDMA_CM_EVENT_ADDR_RESOLVED:
-			struct buf *buf = i->resolve_queue;
+		       	{
+				struct buf *buf = i->resolve_queue;
 
-			if (rdma_resolve_route(buf->id, 2000) < 0) {
+				if (rdma_resolve_route(buf->id, 2000) < 0) {
 
-				syslog(LOG_ERR, "rdma_resolve_route error %s on %s  %s:%d. Packet dropped.\n",
-					errname(), buf->c->text,
-					inet_ntoa(buf->sin.sin_addr),
-					ntohs(buf->sin.sin_port));
+					syslog(LOG_ERR, "rdma_resolve_route error %s on %s  %s:%d. Packet dropped.\n",
+						errname(), buf->c->text,
+						inet_ntoa(buf->sin.sin_addr),
+						ntohs(buf->sin.sin_port));
 
-				resolve_end(buf);
-				free_buffer(buf);
+					resolve_end(buf);
+					free_buffer(buf);
+				}
 			}
 			break;
 	
@@ -2527,7 +2530,6 @@ static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 	enum interfaces in = c->i - i2r;
 	struct ib_addr *sgid = (struct ib_addr *)&buf->grh.sgid.raw;
 	struct ib_addr *dgid = (struct ib_addr *)&buf->grh.dgid.raw;
-	unsigned port;
 	char xbuf[INET6_ADDRSTRLEN];
 	struct in_addr dest_addr;
 	int ret;
@@ -2546,7 +2548,7 @@ static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 
 	if (log_packets) {
 		memcpy(&pgm, buf->cur, sizeof(struct pgm_header));
-		syslog(LOG_NOTICE, "From %s: MC=%s\n", interfaces_text[in], inet_ntoa(dest_addr),pgm_dump(&pgm));
+		syslog(LOG_NOTICE, "From %s: MC=%s %s\n", interfaces_text[in], inet_ntoa(dest_addr), pgm_dump(&pgm));
 	}
 
 	if (!m) {
@@ -2592,8 +2594,8 @@ static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 
 		if (m->mgid_mode->signature) {
 			if (signature == m->mgid_mode->signature) {
-				if (m->mgid_mode->port)
-					port = ntohs(*((unsigned short *)(mgid + 10)));
+//				if (m->mgid_mode->port)
+//					port = ntohs(*((unsigned short *)(mgid + 10)));
 			} else {
 				if (log_packets) {
 					syslog(LOG_WARNING, "Discard Packet: MGID multicast signature(%x)  mismatch. MGID=%s\n",
@@ -2804,13 +2806,13 @@ static void status_write(void)
 
 		char name[40];
 		time_t t = time(NULL);
-		struct tm tm;
+		struct tm *tm;
 
-		localtime(&t);
+		tm = localtime(&t);
 
 		snprintf(name, 40, "ib2roce-%d%02d%02dT%02d%02d%02d",
-				tm.tm_year + 1900, tm.tm_mon +1, tm.tm_mday,
-				tm.tm_hour, tm.tm_min, tm.tm_sec);
+				tm->tm_year + 1900, tm->tm_mon +1, tm->tm_mday,
+				tm->tm_hour, tm->tm_min, tm->tm_sec);
 		fd = open(name, O_CREAT | O_RDWR,  S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
 	} else
@@ -2896,21 +2898,19 @@ static void beacon_send(void)
 	add_event(timestamp() + 60000, beacon_send);
 }
 
-static void beacon_setup(char *opt_arg)
+static void beacon_setup(const char *opt_arg)
 {
 	struct mc *m = mcs + nr_mc++;
 	struct sockaddr_in *sin;
-	char *p;
-	char *service;
 
 	if (!opt_arg)
-		optarg = "239.1.2.3";
+		opt_arg = "239.1.2.3";
 
 	memset(m, 0, sizeof(*m));
 	m->beacon = true;
-	m->text = strdup(optarg);
+	m->text = strdup(opt_arg);
 
-	sin = parse_addr(optarg, 999, &m->mgid_mode, true);
+	sin = parse_addr(opt_arg, 999, &m->mgid_mode, true);
 	m->addr = sin->sin_addr;
 	setup_mc_addrs(m, sin);
 
