@@ -40,6 +40,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdarg.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/types.h>
@@ -99,6 +100,18 @@ static unsigned long timestamp(void)
 
 	clock_gettime(CLOCK_REALTIME, &t);
 	return t.tv_sec * 1000 + (t.tv_nsec + 500000) / 1000000;
+}
+
+static void logg(int prio, const char *fmt, ...)
+{
+	va_list valist;
+
+	va_start(valist, fmt);
+
+	if (background)
+		vsyslog(prio, fmt, valist);
+	else
+		vprintf(fmt, valist);
 }
 
 static void add_event(unsigned long time_in_ms, void (*callback));
@@ -301,7 +314,7 @@ static int find_rdma_devices(void)
 	list = ibv_get_device_list(&nr);
 
 	if (nr <= 0) {
-		syslog(LOG_CRIT, "No RDMA devices present.\n");
+		logg(LOG_CRIT, "No RDMA devices present.\n");
 		return 1;
 	}
 
@@ -320,12 +333,12 @@ static int find_rdma_devices(void)
 
 		c = ibv_open_device(d);
 		if (!c) {
-			syslog(LOG_CRIT, "Cannot open device %s\n", ibv_get_device_name(d));
+			logg(LOG_CRIT, "Cannot open device %s\n", ibv_get_device_name(d));
 			return 1;
 		}
 
 		if (ibv_query_device(c, &dattr)) {
-			syslog(LOG_CRIT, "Cannot query device %s\n", ibv_get_device_name(d));
+			logg(LOG_CRIT, "Cannot query device %s\n", ibv_get_device_name(d));
 			return 1;
 		}
 
@@ -333,7 +346,7 @@ static int find_rdma_devices(void)
 			struct ibv_port_attr attr;
 
 			if (ibv_query_port(c, port, &attr)) {
-				syslog(LOG_CRIT, "Cannot query port %s:%d\n", ibv_get_device_name(d), port);
+				logg(LOG_CRIT, "Cannot query port %s:%d\n", ibv_get_device_name(d), port);
 				return 1;
 			}
 
@@ -364,7 +377,7 @@ static int find_rdma_devices(void)
 			bridging = false;
 		else {
 			if (roce_name) {
-				syslog(LOG_CRIT, "ROCE device %s not found\n", roce_name);
+				logg(LOG_CRIT, "ROCE device %s not found\n", roce_name);
 				return 1;
 			}
 			/* There is no ROCE device so we cannot bridge */
@@ -380,10 +393,10 @@ static int find_rdma_devices(void)
 		else {
 			if (ib_name)
 				/* User specd IB device */
-				syslog(LOG_CRIT, "Infiniband device %s not found.\n", ib_name);
+				logg(LOG_CRIT, "Infiniband device %s not found.\n", ib_name);
 			else {
 				if (!bridging) {
-					syslog(LOG_CRIT, "No RDMA Devices available.\n");
+					logg(LOG_CRIT, "No RDMA Devices available.\n");
 					return 1;
 				}
 				/* We only have a ROCE device but we cannot bridge */
@@ -651,13 +664,13 @@ static int _join_mc(struct in_addr addr, struct sockaddr *sa,
 	ret = rdma_join_multicast_ex(id(i), &mc_attr, private);
 
 	if (ret) {
-		syslog(LOG_ERR, "Failed to create join request %s:%d on %s. Error %s\n",
+		logg(LOG_ERR, "Failed to create join request %s:%d on %s. Error %s\n",
 			inet_ntoa(addr), port,
 			interfaces_text[i],
 			errname());
 		return 1;
 	}
-	syslog(LOG_NOTICE, "Join Request %sMC group %s:%d on %s.\n",
+	logg(LOG_NOTICE, "Join Request %sMC group %s:%d on %s.\n",
 		sendonly ? "Sendonly " : "",
 		inet_ntoa(addr), port,
 		interfaces_text[i]);
@@ -674,7 +687,7 @@ static int _leave_mc(struct in_addr addr,struct sockaddr *si, enum interfaces i)
 		perror("Failure to leave");
 		return 1;
 	}
-	syslog(LOG_NOTICE, "Leaving MC group %s on %s .\n",
+	logg(LOG_NOTICE, "Leaving MC group %s on %s .\n",
 		inet_ntoa(addr),
 		interfaces_text[i]);
 	st(i2r[i].multicast, leave_requests);
@@ -780,7 +793,7 @@ static void init_buf(void)
 	unsigned flags;
 
 	if (sizeof(struct buf) != BUFFER_SIZE) {
-		syslog(LOG_CRIT, "struct buf is not 8k as required\n");
+		logg(LOG_CRIT, "struct buf is not 8k as required\n");
 		abort();
 	}
 
@@ -790,7 +803,7 @@ static void init_buf(void)
 
 	buffers = mmap(0, nr_buffers * BUFFER_SIZE, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
 	if (!buffers) {
-		syslog(LOG_CRIT, "Cannot allocate %d KB of memory required for %d buffers. Error %s\n",
+		logg(LOG_CRIT, "Cannot allocate %d KB of memory required for %d buffers. Error %s\n",
 				nr_buffers * (BUFFER_SIZE / 1024), nr_buffers, errname());
 		abort();
 	}
@@ -896,7 +909,7 @@ static void dump_buf_ethernet(struct buf *buf)
 			strcpy(sendip, inet_ntoa(sendaddr));
 			strcpy(targetip, inet_ntoa(targetaddr));
 
-			syslog(LOG_NOTICE, "D=%s S=%s ARP HRD=%d PRO=%d HLN=%d PLN=%d Opcode=%x SenderHW=%s SenderIP=%s TargetHW=%s TargetIP=%s\n",
+			logg(LOG_NOTICE, "D=%s S=%s ARP HRD=%d PRO=%d HLN=%d PLN=%d Opcode=%x SenderHW=%s SenderIP=%s TargetHW=%s TargetIP=%s\n",
 				dmac, smac, arp.ar_hrd, arp.ar_pro, arp.ar_hln, arp.ar_pln, arp.ar_op,
 				sendmac, sendip, targetmac, targetip);
 
@@ -910,7 +923,7 @@ static void dump_buf_ethernet(struct buf *buf)
 			strcpy(dip, inet_ntoa(daddr));
 			strcpy(sip, inet_ntoa(saddr));
 
-			syslog(LOG_NOTICE, "D=%s(%s) S=%s(%s) ether_type=%d ihl=%d version=%d tos=%d tot_len=%d ID=%x fragoff=%d ttl=%d protocol=%d check=%x payload:%s\n",
+			logg(LOG_NOTICE, "D=%s(%s) S=%s(%s) ether_type=%d ihl=%d version=%d tos=%d tot_len=%d ID=%x fragoff=%d ttl=%d protocol=%d check=%x payload:%s\n",
 				dmac, dip, smac, sip, buf->ethertype,
 				buf->ip.ihl, buf->ip.version, buf->ip.tos, buf->ip.tot_len, buf->ip.id, buf->ip.frag_off, buf->ip.ttl, buf->ip.protocol, buf->ip.check,
 				payload_dump(buf->cur));
@@ -923,7 +936,7 @@ static void dump_buf_ethernet(struct buf *buf)
 			else
 				snprintf(etype, sizeof(etype), "Ether_type=%x", buf->ethertype);
  
-			syslog(LOG_NOTICE, "MAC=%s SMAC=%s %s %s\n", dmac, smac, etype, payload_dump(buf->cur));
+			logg(LOG_NOTICE, "MAC=%s SMAC=%s %s %s\n", dmac, smac, etype, payload_dump(buf->cur));
 
 		break;
 	}
@@ -935,7 +948,7 @@ static void dump_buf_grh(struct buf *buf)
 	char xbuf[INET6_ADDRSTRLEN];
 	char xbuf2[INET6_ADDRSTRLEN];
 
-	syslog(LOG_NOTICE, "Unicast GRH flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s Packet=%s\n",
+	logg(LOG_NOTICE, "Unicast GRH flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s Packet=%s\n",
 			ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
 			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
 			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
@@ -997,7 +1010,7 @@ static int post_receive(struct rdma_channel *c, int limit)
 
 
 		if (!buf) {
-			syslog(LOG_NOTICE, "No free buffers left\n");
+			logg(LOG_NOTICE, "No free buffers left\n");
 			ret = -ENOMEM;
 			break;
 		}
@@ -1008,7 +1021,7 @@ static int post_receive(struct rdma_channel *c, int limit)
 		ret = ibv_post_recv(c->qp, &recv_wr, &recv_failure);
 		if (ret) {
 			free_buffer(buf);
-			syslog(LOG_WARNING, "ibv_post_recv failed: %d\n", ret);
+			logg(LOG_WARNING, "ibv_post_recv failed: %d\n", ret);
 			break;
                 }
 		c->active_receive_buffers++;
@@ -1087,7 +1100,7 @@ static void get_if_info(struct i2r_interface *i)
 	 */
 	if (!i->ifindex && i - i2r == INFINIBAND) {
 
-		syslog(LOG_WARNING, "Assuming ib0 is the IP device name for %s\n",
+		logg(LOG_WARNING, "Assuming ib0 is the IP device name for %s\n",
 		     ibv_get_device_name(i->context->device));
 		strcpy(i->if_name, "ib0");
 
@@ -1121,7 +1134,7 @@ static void get_if_info(struct i2r_interface *i)
 	goto out;
 
 err:
-	syslog(LOG_CRIT, "Cannot determine IP interface setup for %s",
+	logg(LOG_CRIT, "Cannot determine IP interface setup for %s",
 		     ibv_get_device_name(i->context->device));
 
 	abort();
@@ -1142,15 +1155,15 @@ static void start_channel(struct rdma_channel *c)
 		/* Only Ethernet can send on a raw socket */
 		ret = ibv_modify_qp(c->qp, &c->attr, IBV_QP_STATE);
 		if (ret)
-			syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to RTR state. %s", errname());
+			logg(LOG_CRIT, "ibv_modify_qp: Error when moving to RTR state. %s", errname());
 
 		if (send) {
 			c->attr.qp_state = IBV_QPS_RTS;
 			ret = ibv_modify_qp(c->qp, &c->attr, IBV_QP_STATE);
 			if (ret)
-				syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to RTS state. %s", errname());
+				logg(LOG_CRIT, "ibv_modify_qp: Error when moving to RTS state. %s", errname());
 		}
-		syslog(LOG_NOTICE, "QP %s moved to state %s\n", c->text,  send ? "RTS/RTR" : "RTR" );
+		logg(LOG_NOTICE, "QP %s moved to state %s\n", c->text,  send ? "RTS/RTR" : "RTR" );
 	}
 }
 
@@ -1170,14 +1183,14 @@ static struct rdma_channel *create_ud_channel(struct i2r_interface *i, struct so
 	c->bindaddr = sa;
 	ret = rdma_create_id(i->rdma_events, &c->id, c, RDMA_PS_UDP);
 	if (ret) {
-		syslog(LOG_CRIT, "Failed to allocate RDMA CM ID for %s failed (%s).\n",
+		logg(LOG_CRIT, "Failed to allocate RDMA CM ID for %s failed (%s).\n",
 			interfaces_text[in], errname());
 		return NULL;
 	}
 
 	ret = rdma_bind_addr(c->id, c->bindaddr);
 	if (ret) {
-		syslog(LOG_CRIT, "Failed to bind %s interface. Error %s\n",
+		logg(LOG_CRIT, "Failed to bind %s interface. Error %s\n",
 			interfaces_text[in], errname());
 		return NULL;
 	}
@@ -1190,7 +1203,7 @@ static struct rdma_channel *create_ud_channel(struct i2r_interface *i, struct so
 	 */
 	c->pd = ibv_alloc_pd(context);
 	if (!c->pd) {
-		syslog(LOG_CRIT, "ibv_alloc_pd failed for %s.\n",
+		logg(LOG_CRIT, "ibv_alloc_pd failed for %s.\n",
 			c->text);
 		return NULL;
 	}
@@ -1198,7 +1211,7 @@ static struct rdma_channel *create_ud_channel(struct i2r_interface *i, struct so
 	c->nr_cq = nr_cq;
 	c->cq = ibv_create_cq(context, nr_cq, c, i->comp_events, 0);
 	if (!c->cq) {
-		syslog(LOG_CRIT, "ibv_create_cq failed for %s.\n",
+		logg(LOG_CRIT, "ibv_create_cq failed for %s.\n",
 			c->text);
 		return NULL;
 	}
@@ -1220,7 +1233,7 @@ static struct rdma_channel *create_ud_channel(struct i2r_interface *i, struct so
 	init_qp_attr_ex.create_flags = IBV_QP_CREATE_BLOCK_SELF_MCAST_LB;
 	ret = rdma_create_qp_ex(c->id, &init_qp_attr_ex);
 	if (ret) {
-		syslog(LOG_CRIT, "rdma_create_qp_ex failed for %s. Error %s. #CQ=%d\n",
+		logg(LOG_CRIT, "rdma_create_qp_ex failed for %s. Error %s. #CQ=%d\n",
 				c->text, errname(), nr_cq);
 		return NULL;
 	}
@@ -1229,7 +1242,7 @@ static struct rdma_channel *create_ud_channel(struct i2r_interface *i, struct so
 	c->qp = c->id->qp;
 	c->mr = ibv_reg_mr(c->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
 	if (!c->mr) {
-		syslog(LOG_CRIT, "ibv_reg_mr failed for %s.\n", c->text);
+		logg(LOG_CRIT, "ibv_reg_mr failed for %s.\n", c->text);
 		return NULL;
 	}
 	return c;
@@ -1254,7 +1267,7 @@ static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port
 	 */
 	c->pd = ibv_alloc_pd(context);
 	if (!c->pd) {
-		syslog(LOG_CRIT, "ibv_alloc_pd failed for %s.\n",
+		logg(LOG_CRIT, "ibv_alloc_pd failed for %s.\n",
 			c->text);
 		return NULL;
 	}
@@ -1262,7 +1275,7 @@ static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port
 	c->nr_cq = nr_cq;
 	c->cq = ibv_create_cq(context, nr_cq, c, i->comp_events, 0);
 	if (!c->cq) {
-		syslog(LOG_CRIT, "ibv_create_cq failed for %s.\n",
+		logg(LOG_CRIT, "ibv_create_cq failed for %s.\n",
 			c->text);
 		return NULL;
 	}
@@ -1285,7 +1298,7 @@ static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port
 
 	c->qp = ibv_create_qp_ex(context, &init_qp_attr_ex);
 	if (!c->qp) {
-		syslog(LOG_CRIT, "ibv_create_qp_ex failed for %s. Error %s. Port=%d #CQ=%d\n",
+		logg(LOG_CRIT, "ibv_create_qp_ex failed for %s. Error %s. Port=%d #CQ=%d\n",
 				c->text, errname(), port, nr_cq);
 		return NULL;
 	}
@@ -1304,13 +1317,13 @@ static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port
 	);
 
 	if (ret) {
-		syslog(LOG_CRIT, "ibv_modify_qp: Error when moving to Init state. %s", errname());
+		logg(LOG_CRIT, "ibv_modify_qp: Error when moving to Init state. %s", errname());
 		return NULL;
 	}
 
 	c->mr = ibv_reg_mr(c->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
 	if (!c->mr) {
-		syslog(LOG_CRIT, "ibv_reg_mr failed for %s.\n", c->text);
+		logg(LOG_CRIT, "ibv_reg_mr failed for %s.\n", c->text);
 		return NULL;
 	}
 	return c;
@@ -1335,7 +1348,7 @@ static void setup_interface(enum interfaces in)
 	i->iges = ibv_query_gid_table(i->context, i->ige, MAX_GID, 0);
 
 	if (i->iges <= 0) {
-		syslog(LOG_CRIT, "Error %s. Failed to obtain GID table for %s\n",
+		logg(LOG_CRIT, "Error %s. Failed to obtain GID table for %s\n",
 			errname(), interfaces_text[in]);
 		abort();
 	}
@@ -1354,7 +1367,7 @@ static void setup_interface(enum interfaces in)
 	}
 
 	if (e >= i->ige + i->iges) {
-		syslog(LOG_CRIT, "Failed to find GIDs in GID table for %s\n",
+		logg(LOG_CRIT, "Failed to find GIDs in GID table for %s\n",
 			interfaces_text[in]);
 		abort();
 	}
@@ -1370,14 +1383,14 @@ static void setup_interface(enum interfaces in)
 	/* Create RDMA interface setup */
 	i->rdma_events = rdma_create_event_channel();
 	if (!i->rdma_events) {
-		syslog(LOG_CRIT, "rdma_create_event_channel() for %s failed (%s).\n",
+		logg(LOG_CRIT, "rdma_create_event_channel() for %s failed (%s).\n",
 			interfaces_text[in], errname());
 		abort();
 	}
 
 	i->comp_events = ibv_create_comp_channel(i->context);
 	if (!i->comp_events) {
-		syslog(LOG_CRIT, "ibv_create_comp_channel failed for %s.\n",
+		logg(LOG_CRIT, "ibv_create_comp_channel failed for %s.\n",
 			interfaces_text[in]);
 		abort();
 	}
@@ -1395,7 +1408,7 @@ static void setup_interface(enum interfaces in)
 	if (unicast)
 		i->raw = create_raw_channel(i, i->port, 100);
 
-	syslog(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s CQs=%u/%u MTU=%u.\n",
+	logg(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s CQs=%u/%u MTU=%u.\n",
 		interfaces_text[in],
 		ibv_get_device_name(i->context->device),
 		i->if_name, i->ifindex,
@@ -1460,7 +1473,7 @@ static void join_processing(void)
 
 					_leave_mc(m->addr, m->sa[in], in);
 					m->status[in] = MC_OFF;
-					syslog(LOG_WARNING, "Left Multicast group %s on %s due to MC_ERROR\n",
+					logg(LOG_WARNING, "Left Multicast group %s on %s due to MC_ERROR\n",
 						m->text, interfaces_text[in]);
 					break;
 
@@ -1468,7 +1481,7 @@ static void join_processing(void)
 					break;
 
 				default:
-					syslog(LOG_ERR, "Bad MC status %d MC %s on %s\n",
+					logg(LOG_ERR, "Bad MC status %d MC %s on %s\n",
 					       m->status[in], m->text, interfaces_text[in]);
 					break;
 			}
@@ -1513,7 +1526,7 @@ static void resolve_start(struct buf *buf)
 	struct i2r_interface *i = c->i;
 
 	if (rdma_create_id(i->rdma_events, &buf->id, c, RDMA_PS_UDP)) {
-		syslog(LOG_ERR, "rdma_create_id error %s on %s for %s:%d\n",
+		logg(LOG_ERR, "rdma_create_id error %s on %s for %s:%d\n",
 			errname(), c->text, inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port));
 		goto out;
 	}
@@ -1521,7 +1534,7 @@ static void resolve_start(struct buf *buf)
 	if (rdma_resolve_addr(buf->id, c->bindaddr, (struct sockaddr *)&buf->sin, 2000) == 0)
 		return;
 
-	syslog(LOG_ERR, "rdma_resolve_addr error %s on %s for %s:%d\n",
+	logg(LOG_ERR, "rdma_resolve_addr error %s on %s for %s:%d\n",
 		errname(), c->text, inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port));
 
 out:
@@ -1556,7 +1569,7 @@ static void handle_rdma_event(enum interfaces in)
 
 	ret = rdma_get_cm_event(i->rdma_events, &event);
 	if (ret) {
-		syslog(LOG_WARNING, "rdma_get_cm_event()_ failed. Error = %s\n", errname());
+		logg(LOG_WARNING, "rdma_get_cm_event()_ failed. Error = %s\n", errname());
 		return;
 	}
 
@@ -1573,7 +1586,7 @@ static void handle_rdma_event(enum interfaces in)
 				a->remote_qkey = param->qkey;
 				a->ah = ibv_create_ah(i->multicast->pd, &param->ah_attr);
 				if (!a->ah) {
-					syslog(LOG_ERR, "Failed to create AH for Multicast group %s on %s \n",
+					logg(LOG_ERR, "Failed to create AH for Multicast group %s on %s \n",
 						m->text, interfaces_text[in]);
 					m->status[in] = MC_ERROR;
 					break;
@@ -1584,7 +1597,7 @@ static void handle_rdma_event(enum interfaces in)
 				if (!bridging || m->status[in ^ 1] == MC_JOINED)
 					active_mc++;
 
-				syslog(LOG_NOTICE, "Joined %s QP=%x QKEY=%x MLID 0x%x sl %u on %s\n",
+				logg(LOG_NOTICE, "Joined %s QP=%x QKEY=%x MLID 0x%x sl %u on %s\n",
 					inet_ntop(AF_INET6, param->ah_attr.grh.dgid.raw, buf, 40),
 					param->qp_num,
 					param->qkey,
@@ -1600,7 +1613,7 @@ static void handle_rdma_event(enum interfaces in)
 				struct rdma_ud_param *param = &event->param.ud;
 				struct mc *m = (struct mc *)param->private_data;
 
-				syslog(LOG_ERR, "Multicast Error. Group %s on %s\n",
+				logg(LOG_ERR, "Multicast Error. Group %s on %s\n",
 					m->text, interfaces_text[in]);
 
 				/* If already joined then the bridging may no longer work */
@@ -1618,7 +1631,7 @@ static void handle_rdma_event(enum interfaces in)
 
 				if (rdma_resolve_route(buf->id, 2000) < 0) {
 
-					syslog(LOG_ERR, "rdma_resolve_route error %s on %s  %s:%d. Packet dropped.\n",
+					logg(LOG_ERR, "rdma_resolve_route error %s on %s  %s:%d. Packet dropped.\n",
 						errname(), buf->c->text,
 						inet_ntoa(buf->sin.sin_addr),
 						ntohs(buf->sin.sin_port));
@@ -1633,7 +1646,7 @@ static void handle_rdma_event(enum interfaces in)
 			{
 				struct buf *buf = i->resolve_queue;
 
-				syslog(LOG_ERR, "Address resolution error %d on %s  %s:%d. Packet dropped.\n",
+				logg(LOG_ERR, "Address resolution error %d on %s  %s:%d. Packet dropped.\n",
 					event->status, buf->c->text,
 					inet_ntoa(buf->sin.sin_addr),
 					ntohs(buf->sin.sin_port));
@@ -1650,7 +1663,7 @@ static void handle_rdma_event(enum interfaces in)
 				struct rdma_conn_param rcp = { };
 
 				if (rdma_connect(buf->id, &rcp) < 0) {
-					syslog(LOG_ERR, "rdma_connecte error %s on %s  %s:%d. Packet dropped.\n",
+					logg(LOG_ERR, "rdma_connecte error %s on %s  %s:%d. Packet dropped.\n",
 						errname(), buf->c->text,
 						inet_ntoa(buf->sin.sin_addr),
 						ntohs(buf->sin.sin_port));
@@ -1665,7 +1678,7 @@ static void handle_rdma_event(enum interfaces in)
 			{
 				struct buf *buf = i->resolve_queue;
 
-				syslog(LOG_ERR, "Route resolution error %d on %s  %s:%d. Packet dropped.\n",
+				logg(LOG_ERR, "Route resolution error %d on %s  %s:%d. Packet dropped.\n",
 					event->status, buf->c->text,
 					inet_ntoa(buf->sin.sin_addr),
 					ntohs(buf->sin.sin_port));
@@ -1694,7 +1707,7 @@ static void handle_rdma_event(enum interfaces in)
 			{
 				struct buf *buf = i->resolve_queue;
 
-				syslog(LOG_ERR, "Unreachable Port error %d on %s  %s:%d. Packet dropped.\n",
+				logg(LOG_ERR, "Unreachable Port error %d on %s  %s:%d. Packet dropped.\n",
 					event->status, buf->c->text,
 					inet_ntoa(buf->sin.sin_addr),
 					ntohs(buf->sin.sin_port));
@@ -1705,7 +1718,7 @@ static void handle_rdma_event(enum interfaces in)
 			break;
 
 		default:
-			syslog(LOG_NOTICE, "RDMA Event handler:%s status: %d\n",
+			logg(LOG_NOTICE, "RDMA Event handler:%s status: %d\n",
 				rdma_event_str(event->event), event->status);
 			break;
 	}
@@ -1752,10 +1765,10 @@ static int send_inline(struct rdma_channel *c, void *addr, unsigned len, struct 
 	ret = ibv_post_send(c->qp, &wr, &bad_send_wr);
 	if (ret) {
 		errno = -ret;
-		syslog(LOG_WARNING, "Failed to post inline send: %s on %s\n", errname(), c->text);
+		logg(LOG_WARNING, "Failed to post inline send: %s on %s\n", errname(), c->text);
 	} else
 		if (log_packets > 1)
-			syslog(LOG_NOTICE, "Inline Send to QPN=%x QKEY=%x %d bytes\n",
+			logg(LOG_NOTICE, "Inline Send to QPN=%x QKEY=%x %d bytes\n",
 				wr.wr.ud.remote_qpn, wr.wr.ud.remote_qkey, len);
 
 	return ret;
@@ -1797,10 +1810,10 @@ static int send_to(struct rdma_channel *c,
 	ret = ibv_post_send(c->qp, &wr, &bad_send_wr);
 	if (ret) {
 		errno = - ret;
-		syslog(LOG_WARNING, "Failed to post send: %s on %s\n", errname(), c->text);
+		logg(LOG_WARNING, "Failed to post send: %s on %s\n", errname(), c->text);
 	} else
 		if (log_packets > 1)
-			syslog(LOG_NOTICE, "RDMA Send to QPN=%x QKEY=%x %d bytes\n",
+			logg(LOG_NOTICE, "RDMA Send to QPN=%x QKEY=%x %d bytes\n",
 				wr.wr.ud.remote_qpn, wr.wr.ud.remote_qkey, len);
 
 	return ret;
@@ -1949,7 +1962,7 @@ static long lookup_ip_from_gid(struct rdma_channel *c, union ibv_gid *v)
 	 * Could do ARP for GID -> IP resolution but the GID
 	 * should be already be in the ARP cache
 	 */
-	syslog(LOG_ERR, "Could not find AH for %s on %s\n",
+	logg(LOG_ERR, "Could not find AH for %s on %s\n",
 		inet_ntop(AF_INET6, v->raw, buf, INET6_ADDRSTRLEN), c->text);
 
 	return 0;
@@ -2018,7 +2031,7 @@ static void handle_neigh_event(struct neigh *n)
 				break;
 
 			default:
-				syslog(LOG_NOTICE, "Netlink; unrecognized RTA type=%d\n", rta->rta_type);
+				logg(LOG_NOTICE, "Netlink; unrecognized RTA type=%d\n", rta->rta_type);
 				break;
 
 		}
@@ -2030,17 +2043,17 @@ static void handle_neigh_event(struct neigh *n)
 	}
 
 	if (!have_dst) {
-		syslog(LOG_ERR, "netlink message without DST\n");
+		logg(LOG_ERR, "netlink message without DST\n");
 		goto err;
 	}
 
 	if (!have_lladdr) {
-		syslog(LOG_ERR, "netlink message without LLADDR\n");
+		logg(LOG_ERR, "netlink message without LLADDR\n");
 		goto err;
 	}
 
 	if (i->maclen != maclen) {
-		syslog(LOG_ERR, "netlink message mac length does not match. Expected %d got %d\n",
+		logg(LOG_ERR, "netlink message mac length does not match. Expected %d got %d\n",
 				i->maclen, maclen);
 		goto err;
 	}
@@ -2073,7 +2086,7 @@ static void handle_neigh_event(struct neigh *n)
 	if (!ra->hash[hash_ip].member)
 		add_to_hash(ra, hash_ip, &addr);
 
-	syslog(LOG_NOTICE, "%s ARP entry via netlink for %s: IP=%s MAC=%s Flags=%x State=%x\n",
+	logg(LOG_NOTICE, "%s ARP entry via netlink for %s: IP=%s MAC=%s Flags=%x State=%x\n",
 		action,
 		i->if_name,
 		inet_ntoa(addr),
@@ -2084,7 +2097,7 @@ static void handle_neigh_event(struct neigh *n)
 
 err:
 	if (log_packets > 1)
-		syslog(LOG_NOTICE, "Neigh Event interface=%s type %u Len=%u NL flags=%x ND flags=%x state=%x IP=%s MAC=%s ifindex=%d\n",
+		logg(LOG_NOTICE, "Neigh Event interface=%s type %u Len=%u NL flags=%x ND flags=%x state=%x IP=%s MAC=%s ifindex=%d\n",
 				i ? i->if_name: "N/A",
 			       	n->nlh.nlmsg_type,  n->nlh.nlmsg_len, n->nlh.nlmsg_flags,
 				n->nd.ndm_flags, n->nd.ndm_state,
@@ -2104,7 +2117,7 @@ static void handle_netlink_event(enum netlink_channel c)
 
 	len = recvmsg(sock_nl[c], &msg, 0);
 	if (len < 0) {
-		syslog(LOG_CRIT, "Netlink recvmsg error. Errno %s\n", errname());
+		logg(LOG_CRIT, "Netlink recvmsg error. Errno %s\n", errname());
 		return;
 	}
 
@@ -2121,7 +2134,7 @@ static void handle_netlink_event(enum netlink_channel c)
 
 			default:
 				if (log_packets > 1)
-					syslog(LOG_NOTICE, "Unhandled Netlink Message type %u Len=%u flag=%x seq=%x PID=%d\n",
+					logg(LOG_NOTICE, "Unhandled Netlink Message type %u Len=%u flag=%x seq=%x PID=%d\n",
 						h->nlmsg_type,  h->nlmsg_len, h->nlmsg_flags, h->nlmsg_seq, h->nlmsg_pid);
 			    break;
 		}
@@ -2137,7 +2150,7 @@ static void send_netlink_message(enum netlink_channel c, struct nlmsghdr *nlh)
 
 	ret = sendmsg(sock_nl[c], &msg, 0);
 	if (ret < 0)
-		syslog(LOG_ERR, "Netlink Send error %s\n", errname());
+		logg(LOG_ERR, "Netlink Send error %s\n", errname());
 }
 
 static void setup_netlink(enum netlink_channel c)
@@ -2161,7 +2174,7 @@ static void setup_netlink(enum netlink_channel c)
 	
 	sock_nl[c] = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 	if (sock_nl[c] < 0) {
-		syslog(LOG_CRIT, "Failed to open netlink socket %s.\n", errname());
+		logg(LOG_CRIT, "Failed to open netlink socket %s.\n", errname());
 		abort();
 	}
 
@@ -2170,7 +2183,7 @@ static void setup_netlink(enum netlink_channel c)
 		sal.nl_groups = 0;
 
 	if (bind(sock_nl[c], (struct sockaddr *)&sal, sizeof(sal)) < 0) {
-		syslog(LOG_CRIT, "Failed to bind to netlink socket %s\n", errname());
+		logg(LOG_CRIT, "Failed to bind to netlink socket %s\n", errname());
 		abort();
 	};
 
@@ -2227,7 +2240,7 @@ static void setup_flow(struct rdma_channel *c)
 	}
 
 	if (!c->flow)
-		syslog(LOG_ERR, "Failure to create flow on %s. Errno %s\n", c->text, errname());
+		logg(LOG_ERR, "Failure to create flow on %s. Errno %s\n", c->text, errname());
 }
 
 static int unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_addr dest_addr)
@@ -2245,7 +2258,7 @@ static int unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_add
 
 		if ((daddr & netmask) == (iaddr & netmask)) {
 			/* Unicast ROCE packet destined for Infiniband */
-			syslog(LOG_NOTICE, "Packet destination Infiniband from %s to %s port %d\n",
+			logg(LOG_NOTICE, "Packet destination Infiniband from %s to %s port %d\n",
 				inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
 				inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
 				port);
@@ -2259,7 +2272,7 @@ static int unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_add
 
 		if ((daddr & netmask) == (iaddr & netmask)) {
 			/* Unicast Infiniband packet destined for ROCE */
-			syslog(LOG_NOTICE, "Packet destination Roce from %s to %s port %d\n",
+			logg(LOG_NOTICE, "Packet destination Roce from %s to %s port %d\n",
 				inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
 				inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
 				port);
@@ -2278,7 +2291,7 @@ static int roce_v1(struct rdma_channel *c, struct buf *buf)
 	mac_hexbytes(dmac, buf->e.ether_dhost, ETH_ALEN);
 	mac_hexbytes(smac, buf->e.ether_shost, ETH_ALEN);
 
-	syslog(LOG_NOTICE, "ROCE v1 support is not implemented. DMAC=%s SMAC=%s ROCEv1 BTH=%s Data=%s\n",
+	logg(LOG_NOTICE, "ROCE v1 support is not implemented. DMAC=%s SMAC=%s ROCEv1 BTH=%s Data=%s\n",
 		dmac, smac, bth_dump(&buf->bth),
 		payload_dump(buf->cur));
 
@@ -2345,7 +2358,7 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 	buf->ra = ra;
 	buf->c = dc;
 
-	syslog(LOG_NOTICE, "ROCEv2 package parsed (%s): flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s UDP=%s BTH=%s Data=%s\n",
+	logg(LOG_NOTICE, "ROCEv2 package parsed (%s): flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s UDP=%s BTH=%s Data=%s\n",
 			ra->ai.ah ? "Dest Known" : "Need Res",
 			ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
 			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
@@ -2364,14 +2377,14 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 	if (!ret)
 		return 0;
 
-	syslog(LOG_NOTICE, "ROCEv2 send failed %s SGID=%s DGID:%s\n",
+	logg(LOG_NOTICE, "ROCEv2 send failed %s SGID=%s DGID:%s\n",
 			errname(),
 			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
 			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN));
 	return ret;
 
 err:
-	syslog(LOG_NOTICE, "ROCEv2 %s flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s UDP=%s BTH=%s Data=%s\n",
+	logg(LOG_NOTICE, "ROCEv2 %s flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s UDP=%s BTH=%s Data=%s\n",
 			reason, ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
 			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
 			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
@@ -2453,7 +2466,7 @@ static void learn_source_address(struct rdma_channel *c, struct buf *buf, struct
 static void recv_buf_infiniband(struct rdma_channel *c, struct buf *buf)
 {
 	/* Native IB parsing does not work yet */
-	syslog(LOG_WARNING, "Cannot parse native infiniband packet %s\n",payload_dump(buf->raw));
+	logg(LOG_WARNING, "Cannot parse native infiniband packet %s\n",payload_dump(buf->raw));
 	free_buffer(buf);
 }
 
@@ -2497,7 +2510,7 @@ static void recv_buf_ethernet(struct rdma_channel *c, struct buf *buf)
 		if (buf->ip.protocol == IPPROTO_UDP) {
 
 			if (!buf->ip_csum_ok)
-				syslog(LOG_NOTICE, "TCP/UDP CSUM not valid on raw RDMA channel %s\n", c->text);
+				logg(LOG_NOTICE, "TCP/UDP CSUM not valid on raw RDMA channel %s\n", c->text);
 
 			pull(buf, &buf->udp, sizeof(struct udphdr));
 			buf->udp_valid = true;
@@ -2515,7 +2528,7 @@ static void recv_buf_ethernet(struct rdma_channel *c, struct buf *buf)
 
 discard:
 	if (log_packets) {
-		syslog(LOG_WARNING, "Discard Packet from %s: %s. Len=%ld\n",
+		logg(LOG_WARNING, "Discard Packet from %s: %s. Len=%ld\n",
 			c->text, reason, buf->cur - buf->raw);
 
 		dump_buf_ethernet(buf);
@@ -2554,12 +2567,12 @@ static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 
 	if (log_packets) {
 		memcpy(&pgm, buf->cur, sizeof(struct pgm_header));
-		syslog(LOG_NOTICE, "From %s: MC=%s %s\n", interfaces_text[in], inet_ntoa(dest_addr), pgm_dump(&pgm));
+		logg(LOG_NOTICE, "From %s: MC=%s %s\n", interfaces_text[in], inet_ntoa(dest_addr), pgm_dump(&pgm));
 	}
 
 	if (!m) {
 		if (log_packets) {
-			syslog(LOG_WARNING, "Discard Packet: Multicast group %s not found\n",
+			logg(LOG_WARNING, "Discard Packet: Multicast group %s not found\n",
 				inet_ntoa(dest_addr));
 			dump_buf_grh(buf);
 		}
@@ -2569,7 +2582,7 @@ static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 	if (m->sendonly[in]) {
 
 		if (log_packets) {
-			syslog(LOG_WARNING, "Discard Packet: Received data from Sendonly MC group %s from %s\n",
+			logg(LOG_WARNING, "Discard Packet: Received data from Sendonly MC group %s from %s\n",
 				m->text, c->text);
 			dump_buf_grh(buf);
 		}
@@ -2582,7 +2595,7 @@ static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 
 		if (mgid[0] != 0xff) {
 			if (log_packets) {
-				syslog(LOG_WARNING, "Discard Packet: Not multicast. MGID=%s/%s\n",
+				logg(LOG_WARNING, "Discard Packet: Not multicast. MGID=%s/%s\n",
 					inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN), c->text);
 				dump_buf_grh(buf);
 			}
@@ -2592,7 +2605,7 @@ static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 		if (memcmp(&buf->grh.sgid, &c->i->gid, sizeof(union ibv_gid)) == 0) {
 
 			if (log_packets)
-				syslog(LOG_WARNING, "Discard Packet: Loopback from this host. MGID=%s/%s\n",
+				logg(LOG_WARNING, "Discard Packet: Loopback from this host. MGID=%s/%s\n",
 					inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN), c->text);
 
 			goto invalid_packet;
@@ -2604,7 +2617,7 @@ static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 //					port = ntohs(*((unsigned short *)(mgid + 10)));
 			} else {
 				if (log_packets) {
-					syslog(LOG_WARNING, "Discard Packet: MGID multicast signature(%x)  mismatch. MGID=%s\n",
+					logg(LOG_WARNING, "Discard Packet: MGID multicast signature(%x)  mismatch. MGID=%s\n",
 							signature,
 							inet_ntop(AF_INET6, mgid, xbuf, INET6_ADDRSTRLEN));
 					dump_buf_grh(buf);
@@ -2623,7 +2636,7 @@ static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 
 		if (source_addr.s_addr == local_addr.s_addr) {
 			if (log_packets)
-				syslog(LOG_WARNING, "Discard Packet: Loopback from this host. %s/%s\n",
+				logg(LOG_WARNING, "Discard Packet: Loopback from this host. %s/%s\n",
 					inet_ntoa(source_addr), c->text);
 			goto invalid_packet;
 		}
@@ -2660,7 +2673,7 @@ static void recv_buf(struct rdma_channel *c, struct buf *buf)
 	if (c->rdmacm) {
 		/* No GRH but using RDMACM channel. This is not supported for now */
 		if (log_packets)
-			syslog(LOG_WARNING, "No GRH on %s. Packet discarded: %s.\n", c->text, payload_dump(buf->cur));
+			logg(LOG_WARNING, "No GRH on %s. Packet discarded: %s.\n", c->text, payload_dump(buf->cur));
 
 		st(c, packets_invalid);
 		free_buffer(buf);
@@ -2686,21 +2699,21 @@ static void handle_comp_event(enum interfaces in)
 
 	ibv_get_cq_event(i->comp_events, &cq, (void **)&c);
 	if (cq != c->cq) {
-		syslog(LOG_CRIT, "ibv_get_cq_event on %s: CQ mismatch C=%px CQ=%px\n",
+		logg(LOG_CRIT, "ibv_get_cq_event on %s: CQ mismatch C=%px CQ=%px\n",
 				interfaces_text[in], cq, c);
 		abort();
 	}
 
 	ibv_ack_cq_events(cq, 1);
 	if (ibv_req_notify_cq(cq, 0)) {
-		syslog(LOG_CRIT, "ibv_req_notify_cq: Failed\n");
+		logg(LOG_CRIT, "ibv_req_notify_cq: Failed\n");
 		abort();
 	}
 
 	/* Retrieve completion events and process incoming data */
 	cqs = ibv_poll_cq(cq, 100, wc);
 	if (cqs < 0) {
-		syslog(LOG_WARNING, "CQ polling failed with: %s on %s\n",
+		logg(LOG_WARNING, "CQ polling failed with: %s on %s\n",
 			errname(), interfaces_text[i - i2r]);
 		goto exit;
 	}
@@ -2750,7 +2763,7 @@ static void handle_comp_event(enum interfaces in)
 				st(c, packets_sent);
 				free_buffer(buf);
 			} else
-				syslog(LOG_NOTICE, "Strange CQ Entry %d/%d: Status:%x Opcode:%x Len:%u QP=%x SRC_QP=%x Flags=%x\n",
+				logg(LOG_NOTICE, "Strange CQ Entry %d/%d: Status:%x Opcode:%x Len:%u QP=%x SRC_QP=%x Flags=%x\n",
 					j, cqs, w->status, w->opcode, w->byte_len, w->qp_num, w->src_qp, w->wc_flags);
 
 		}
@@ -2766,9 +2779,9 @@ static void handle_async_event(enum interfaces in)
 	struct ibv_async_event event;
 
 	if (!ibv_get_async_event(i2r[in].context, &event))
-		syslog(LOG_ALERT, "Async event retrieval failed.\n");
+		logg(LOG_ALERT, "Async event retrieval failed.\n");
 	else
-		syslog(LOG_ALERT, "Async RDMA EVENT %d\n", event.event_type);
+		logg(LOG_ALERT, "Async RDMA EVENT %d\n", event.event_type);
 
 	/*
 	 * Regardless of what the cause is the first approach here
@@ -2897,7 +2910,7 @@ static void beacon_received(struct buf *buf)
 	struct timespec now;
 
 	if (b->signature != BEACON_SIGNATURE) {
-		syslog(LOG_ERR, "Received non beacon traffic on beacon MC group %s\n", beacon_mc->text);
+		logg(LOG_ERR, "Received non beacon traffic on beacon MC group %s\n", beacon_mc->text);
 		return;
 	}
 
@@ -2905,7 +2918,7 @@ static void beacon_received(struct buf *buf)
 	strcpy(ib, inet_ntoa(b->infiniband));
 	timespec_diff(&b->t, &now, &diff);
 
-	syslog(LOG_NOTICE, "Received Beacon on %s Version %s IB=%s, ROCE=%s MC groups=%u. Latency %ld ns\n",
+	logg(LOG_NOTICE, "Received Beacon on %s Version %s IB=%s, ROCE=%s MC groups=%u. Latency %ld ns\n",
 		beacon_mc->text, b->version, ib, inet_ntoa(b->roce), b->nr_mc, diff.tv_sec * 1000000000 + diff.tv_nsec);
 }
 
@@ -2952,7 +2965,7 @@ static void beacon_setup(const char *opt_arg)
 		setup_mc_addrs(m, sin);
 
 		if (hash_add_mc(m)) {
-			syslog(LOG_ERR, "Beacon MC already in use.\n");
+			logg(LOG_ERR, "Beacon MC already in use.\n");
 			beacon = false;
 			free(sin);
 		} else
@@ -3012,7 +3025,7 @@ static void logging(void)
 	else
 		buf[0] = 0;
 
-	syslog(LOG_NOTICE, "ib2roce: %d/%d MC Active. Events in %s.\n", active_mc, nr_mc, buf);
+	logg(LOG_NOTICE, "ib2roce: %d/%d MC Active. Events in %s.\n", active_mc, nr_mc, buf);
 	add_event(timestamp() + 5000, logging);
 }
 
@@ -3141,7 +3154,7 @@ loop:
 		goto out;
 
 	if (events < 0) {
-		syslog(LOG_WARNING, "Poll failed with error=%s\n", errname());
+		logg(LOG_WARNING, "Poll failed with error=%s\n", errname());
 		goto out;
 	}
 
@@ -3236,24 +3249,24 @@ static void pid_open(void)
 	pid_fd = open("ib2roce.pid", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 
 	if (pid_fd < 0) {
-		syslog(LOG_CRIT, "Cannot open pidfile. Error %s\n", errname());
+		logg(LOG_CRIT, "Cannot open pidfile. Error %s\n", errname());
 		abort();
 	}
 
 	if (fcntl(pid_fd, F_SETLK, &fl) < 0) {
-		syslog(LOG_CRIT, "ib2roce already running.\n");
+		logg(LOG_CRIT, "ib2roce already running.\n");
 		abort();
 	}
 
 	if (ftruncate(pid_fd, 0) < 0) {
-		syslog(LOG_CRIT, "Cannot truncate pidfile. Error %s\n", errname());
+		logg(LOG_CRIT, "Cannot truncate pidfile. Error %s\n", errname());
 		abort();
 	}
 
 	n = snprintf(buf, sizeof(buf), "%ld", (long) getpid());
 
 	if (write(pid_fd, buf, n) != n) {
-		syslog(LOG_CRIT, "Cannot write pidfile. Error %s\n", errname());
+		logg(LOG_CRIT, "Cannot write pidfile. Error %s\n", errname());
 		abort();
 	}
 }
