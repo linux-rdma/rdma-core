@@ -358,31 +358,34 @@ static int find_rdma_devices(void)
 
 	if (!i2r[ROCE].context) {
 
-		if (roce_name[0] == '-')
+		if (roce_name && roce_name[0] == '-')
+			/* Disabled on the command line */
 			bridging = false;
 		else {
 			if (roce_name) {
 				syslog(LOG_CRIT, "ROCE device %s not found\n", roce_name);
 				return 1;
 			}
-				bridging = false;
+			/* There is no ROCE device so we cannot bridge */
+			bridging = false;
 		}
 	}
 
 	if (!i2r[INFINIBAND].context) {
 
-		if (ib_name[0] == '-' && bridging)
-			/* Switch IB support off */
+		if ((ib_name && ib_name[0] == '-') && bridging)
+			/* Disabled on the command line */
 			bridging = false;
 		else {
 			if (ib_name)
+				/* User specd IB device */
 				syslog(LOG_CRIT, "Infiniband device %s not found.\n", ib_name);
 			else {
 				if (!bridging) {
-					syslog(LOG_CRIT, "No RDMA Device available.\n");
+					syslog(LOG_CRIT, "No RDMA Devices available.\n");
 					return 1;
 				}
-				/* We only have a ROCE device */
+				/* We only have a ROCE device but we cannot bridge */
 				bridging = false;
 			}
 		}
@@ -2922,21 +2925,6 @@ static void beacon_setup(const char *opt_arg)
 		beacon_mc = m;
 }
 
-#ifdef NETLINK_SUPPORT
-#define NR_EVENT_TYPES 4
-#else
-#define NR_EVENT_TYPES 3
-#endif
-
-static void (*event_callvec[NR_EVENT_TYPES])(unsigned) = {
-		handle_rdma_event,
-		handle_comp_event,
-		handle_async_event,
-#ifdef NETLINK_SUPPORT
-		handle_netlink_event
-#endif
-};
-
 /* Events are timed according to milliseconds in the current epoch */
 struct timed_event {
 	unsigned long time;		/* When should it occur */
@@ -2993,32 +2981,59 @@ static void logging(void)
 	add_event(timestamp() + 5000, logging);
 }
 
+/*
+ * Logic to support building a pollfd table for the event loop
+ */
+#define MAX_POLL_ITEMS 20
+
+unsigned poll_items = 0;
+
+struct pollfd pfd[MAX_POLL_ITEMS];
+static void (*poll_callback[MAX_POLL_ITEMS])(unsigned);
+unsigned poll_private[MAX_POLL_ITEMS];
+
+static void register_callback(void (*callback)(unsigned), int fd, unsigned val)
+{
+	struct pollfd e = { fd, POLLIN, 0};
+
+	if (poll_items == MAX_POLL_ITEMS)
+		abort();
+
+	poll_callback[poll_items] = callback;
+	pfd[poll_items] = e;
+	poll_private[poll_items] = val;
+	poll_items++;
+}
+
+static void register_events(void)
+{
+	if (i2r[INFINIBAND].context) {
+		register_callback(handle_rdma_event, i2r[INFINIBAND].rdma_events->fd, INFINIBAND);
+		register_callback(handle_comp_event, i2r[INFINIBAND].comp_events->fd, INFINIBAND);
+		register_callback(handle_async_event, i2r[INFINIBAND].context->async_fd, INFINIBAND);
+	}
+
+	if (i2r[ROCE].context) {
+		register_callback(handle_rdma_event, i2r[ROCE].rdma_events->fd, ROCE);
+		register_callback(handle_comp_event, i2r[ROCE].comp_events->fd, ROCE);
+		register_callback(handle_async_event, i2r[ROCE].context->async_fd, ROCE);
+	}
+
+#ifdef NETLINK_SUPPORT
+	if (unicast) {
+		register_callback(handle_netlink_event, sock_nl[nl_monitor], nl_monitor);
+		register_callback(handle_netlink_event, sock_nl[nl_command], nl_command);
+	}
+#endif
+}
+
 static int event_loop(void)
 {
 	unsigned timeout;
-	struct pollfd pfd[ 2* NR_EVENT_TYPES] = {
-		{ i2r[INFINIBAND].rdma_events->fd, POLLIN, 0},
-		{ i2r[ROCE].rdma_events->fd, POLLIN, 0},
-		{ i2r[INFINIBAND].comp_events->fd, POLLIN, 0},
-		{ i2r[ROCE].comp_events->fd, POLLIN,0},
-		{ i2r[INFINIBAND].context->async_fd, POLLIN, 0},
-		{ i2r[ROCE].context->async_fd, POLLIN, 0},
-#ifdef NETLINK_SUPPORT
-		{ sock_nl[nl_monitor], POLLIN, 0},
-		{ sock_nl[nl_command], POLLIN, 0}
-#endif
-	};
-	unsigned nr_types = NR_EVENT_TYPES;
 	int events = 0;
 	int waitms;
 	struct i2r_interface *i;
 	unsigned long t;
-
-#ifdef NETLINK_SUPPORT
-	if (!unicast)
-		/* No netlink events */
-		nr_types--;
-#endif
 
 	for(i = i2r; i < i2r + NR_INTERFACES; i++) {
 		/* Receive Buffers */
@@ -3076,7 +3091,7 @@ loop:
 				timeout = waitms;
 	}
 
-	events = poll(pfd, 2 * nr_types, timeout);
+	events = poll(pfd, poll_items, timeout);
 
 	if (terminated)
 		goto out;
@@ -3089,13 +3104,9 @@ loop:
 	if (events == 0)
        		goto loop;
 
-	for(t = 0; t < nr_types; t++) {
-		int j;
-
-		for(j = 0; j < NR_INTERFACES; j++) 
-			if (pfd[t * 2 + j].revents & POLLIN)
-				event_callvec[t](j);
-	}
+	for(t = 0; t < poll_items; t++)
+		if (pfd[t].revents & POLLIN)
+			poll_callback[t](poll_private[t]);
 
 	goto loop;
 out:
@@ -3366,6 +3377,8 @@ int main(int argc, char **argv)
 		setup_netlink(nl_command);
 	}
 #endif
+
+	register_events();
 
 	event_loop();
 
