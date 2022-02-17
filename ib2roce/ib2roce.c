@@ -3167,12 +3167,6 @@ static void daemonize(void)
 {
 	pid_t pid;
 
-	if (debug) {
-		chdir("/var/lib/ib2roce");
-		openlog("ib2roce", LOG_PERROR, LOG_USER);
-		return;
-	}
-
 	pid = fork();
 
 	if (pid < 0)
@@ -3382,7 +3376,10 @@ int main(int argc, char **argv)
 
 	init_buf();
 
-	if (bridging)
+
+	if (debug || !bridging)
+		openlog("ib2roce", LOG_PERROR, LOG_USER);
+	else
 		daemonize();
 
 	pid_open();
