@@ -3035,7 +3035,8 @@ static int event_loop(void)
 	struct i2r_interface *i;
 	unsigned long t;
 
-	for(i = i2r; i < i2r + NR_INTERFACES; i++) {
+	for(i = i2r; i < i2r + NR_INTERFACES; i++)
+       	   if (i->context) {
 		/* Receive Buffers */
 		post_receive_buffers(i);
 		/* And request notifications if something happens */
