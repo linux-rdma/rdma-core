@@ -2311,22 +2311,26 @@ static int roce_v1(struct rdma_channel *c, struct buf *buf)
 	return 1;
 }
 
+static void send_buf_to(struct i2r_interface *i, struct buf *buf, struct sockaddr_in *sin);
+
 /*
  * Process ROCE v2 packet from Ethernet and send the data out to the Infiniband Interface
  * 
  * The caller has pulled the ether_header, iphdr and the udphdr from the packet
  */
-static int roce_v2(struct rdma_channel *c, struct buf *buf)
+static void roce_v2(struct rdma_channel *c, struct buf *buf)
 {
-	char xbuf[INET6_ADDRSTRLEN];
-	char xbuf2[INET6_ADDRSTRLEN];
-	unsigned port = 10000;
-	int ret;
-	struct rdma_channel *dc = i2r[INFINIBAND].multicast;
-	struct rdma_ah *ra;
+	char source_str[30];
+	char dest_str[30];
 	const char *reason;
+	struct in_addr source,dest;
 
 	PULL(buf, buf->bth);
+
+	source.s_addr = buf->ip.saddr;
+	dest.s_addr = buf->ip.daddr;
+	strcpy(source_str, inet_ntoa(source));
+	strcpy(dest_str, inet_ntoa(dest));
 
 	/* We only support SEND and SEND IMMEDIATE */
 	if (buf->bth.opcode != IB_OPCODE_UD_SEND_ONLY &&
@@ -2349,61 +2353,28 @@ static int roce_v2(struct rdma_channel *c, struct buf *buf)
 
 	buf->end -=  ICRC_SIZE;
 
-	/* Ok we got the payload starting at buf->cur to buf->end */
-
-	/* Where do we get the port from ? */
-	buf->sin.sin_family = AF_INET;
-	buf->sin.sin_port = htons(port);
-	buf->sin.sin_addr.s_addr = buf->ip.daddr;
-
-	/* Hmmm qpnum and qkey depend on port. So this kind of hashing may not work */
-	ra = find_in_hash(hash_ip, &buf->ip.daddr);
-	if (!ra) {
-		/*
-		 * Create address info on the fly. We have the IP address after all.
-		 * This is a skeleton entry with only the IP address.
-		 * when an ARP resolution completes.
-		 */
-		ra = new_rdma_ah(c->i);
-		add_to_hash(ra, hash_ip, &buf->ip.daddr);
-	}
-
-	buf->ra = ra;
-	buf->c = dc;
-
-	logg(LOG_NOTICE, "ROCEv2 package parsed (%s): flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s UDP=%s BTH=%s Data=%s\n",
-			ra->ai.ah ? "Dest Known" : "Need Res",
-			ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
-			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
-			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
-			udp_dump( &buf->udp), bth_dump(&buf->bth), 
+	logg(LOG_NOTICE, "ROCEv2 SRC=%s DST=%s UDP=%s BTH=%s Data=%s\n",
+			source_str, dest_str,
+			udp_dump(&buf->udp), bth_dump(&buf->bth), 
 			payload_dump(buf->cur));
 
-	if (!ra->ai.ah) {
-		/* No address handle yet. We need to do an address resolution */
-		resolve(buf);
-		return 1;
+	if (bridging) {
+		struct sockaddr_in sin;
+
+		memset(&sin, 0, sizeof(sin));
+		sin.sin_family = AF_INET;
+		sin.sin_addr = dest;
+		sin.sin_port = htons(ROCE_PORT);
+
+		send_buf_to(i2r + INFINIBAND, buf, &sin);
 	}
-
-	ret = send_buf(buf);
-
-	if (!ret)
-		return 0;
-
-	logg(LOG_NOTICE, "ROCEv2 send failed %s SGID=%s DGID:%s\n",
-			errname(),
-			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
-			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN));
-	return ret;
+	return;
 
 err:
-	logg(LOG_NOTICE, "ROCEv2 %s flow=%ux Len=%u next_hdr=%u hop_limit=%u SGID=%s DGID:%s UDP=%s BTH=%s Data=%s\n",
-			reason, ntohl(buf->grh.version_tclass_flow), ntohs(buf->grh.paylen), buf->grh.next_hdr, buf->grh.hop_limit,
-			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
-			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
+	logg(LOG_NOTICE, "ROCEv2 %s SRC=%s DST=%s UDP=%s BTH=%s Data=%s\n",
+			reason, source_str, dest_str,
 			udp_dump( &buf->udp), bth_dump(&buf->bth), 
 			payload_dump(buf->cur));
-	return ret;
 
 }
 
