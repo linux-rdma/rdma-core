@@ -80,8 +80,9 @@
 
 /* Globals */
 
-static unsigned default_port = 4711;		/* Port to use to bind to devices and for MC groups that do not have a port (if a port is required) */
-static bool debug = false;			/* Stay in foreground, print more details */
+static unsigned default_port = 4711;	/* Port to use to bind to devices and for MC groups that do not have a port (if a port is required) */
+static bool debug = false;		/* Stay in foreground, print more details */
+static bool background = false;		/* Are we actually running in the background ? */
 static bool terminated = false;		/* Daemon received a signal to terminate */
 static bool update_requested = false;	/* Received SIGUSR1. Dump all MC data details */
 static bool beacon = false;		/* Announce our presence (and possibly coordinate between multiple instances in the future */
@@ -1333,17 +1334,15 @@ static void setup_interface(enum interfaces in)
 	/* Determine the GID */
 	i->iges = ibv_query_gid_table(i->context, i->ige, MAX_GID, 0);
 
-	if (!i->iges) {
-		syslog(LOG_CRIT, "Failed to obtain GID table for %s\n",
-			interfaces_text[in]);
+	if (i->iges <= 0) {
+		syslog(LOG_CRIT, "Error %s. Failed to obtain GID table for %s\n",
+			errname(), interfaces_text[in]);
 		abort();
 	}
 
 	/* Find the correct gid entry */
 	for (e = i->ige; e < i->ige + i->iges; e++) {
 
-		syslog(LOG_NOTICE, "GID Table entry %ld port %d GID_TYPE = %d\n",
-				e - i->ige, e->port_num, e->gid_type);
 		if (e->port_num != i->port)
 			continue;
 
@@ -3063,6 +3062,21 @@ static void register_events(void)
 #endif
 }
 
+static void setup_timed_events(void)
+{
+	unsigned long t;
+
+	t = timestamp();
+	if (beacon)
+		add_event(t + 1000, beacon_send);
+
+	if (background)
+		add_event(t + 30000, status_write);
+
+	add_event(t + 1000, logging);
+	add_event(t + 100, check_joins);
+}
+
 static int event_loop(void)
 {
 	unsigned timeout;
@@ -3086,14 +3100,7 @@ static int event_loop(void)
 		}
 	}
 
-	t = timestamp();
-	if (beacon)
-		add_event(t + 1000, beacon_send);
-
-	add_event(t + 1000, logging);
-	add_event(t + 30000, status_write);
-	add_event(t + 100, check_joins);
-
+	setup_timed_events();
 loop:
 	timeout = 10000;
 
@@ -3381,10 +3388,11 @@ int main(int argc, char **argv)
 
 	if (debug || !bridging)
 		openlog("ib2roce", LOG_PERROR, LOG_USER);
-	else
+	else {
+		background = true;
 		daemonize();
-
-	pid_open();
+		pid_open();
+	}
 
 	ret = find_rdma_devices();
 	if (ret)
@@ -3402,7 +3410,8 @@ int main(int argc, char **argv)
 	setup_interface(INFINIBAND);
 	setup_interface(ROCE);
 
-	status_fd = open("ib2roce-status", O_CREAT | O_RDWR | O_TRUNC,  S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	if (background)
+		status_fd = open("ib2roce-status", O_CREAT | O_RDWR | O_TRUNC,  S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
 	if (beacon)
 		beacon_setup(beacon_arg);
@@ -3418,12 +3427,15 @@ int main(int argc, char **argv)
 
 	event_loop();
 
-	close(status_fd);
+	if (background)
+		close(status_fd);
 
 	shutdown_roce();
 	shutdown_ib();
 
-	pid_close();
+	if (background)
+		pid_close();
+
 	syslog (LOG_NOTICE, "ib2roce terminated.");
 	closelog();
 
