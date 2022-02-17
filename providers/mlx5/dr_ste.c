@@ -591,7 +591,8 @@ void dr_ste_set_actions_tx(struct dr_ste_ctx *ste_ctx,
 			   struct dr_ste_actions_attr *attr,
 			   uint32_t *added_stes)
 {
-	ste_ctx->set_actions_tx(action_type_set, hw_ste_arr, attr, added_stes);
+	ste_ctx->set_actions_tx(action_type_set, ste_ctx->actions_caps,
+				hw_ste_arr, attr, added_stes);
 }
 
 void dr_ste_set_actions_rx(struct dr_ste_ctx *ste_ctx,
@@ -600,7 +601,8 @@ void dr_ste_set_actions_rx(struct dr_ste_ctx *ste_ctx,
 			   struct dr_ste_actions_attr *attr,
 			   uint32_t *added_stes)
 {
-	ste_ctx->set_actions_rx(action_type_set, hw_ste_arr, attr, added_stes);
+	ste_ctx->set_actions_rx(action_type_set, ste_ctx->actions_caps,
+				hw_ste_arr, attr, added_stes);
 }
 
 const struct dr_ste_action_modify_field *
@@ -608,8 +610,7 @@ dr_ste_conv_modify_hdr_sw_field(struct dr_ste_ctx *ste_ctx,
 				struct dr_devx_caps *caps,
 				uint16_t sw_field)
 {
-	return ste_ctx->get_action_hw_field(sw_field, caps);
-
+	return ste_ctx->get_action_hw_field(ste_ctx, sw_field, caps);
 }
 
 void dr_ste_set_action_set(struct dr_ste_ctx *ste_ctx,

@@ -220,11 +220,15 @@ struct dr_ste_ctx {
 
 	/* Actions */
 	uint32_t actions_caps;
+	const struct dr_ste_action_modify_field *action_modify_field_arr;
+	size_t action_modify_field_arr_size;
 	void (*set_actions_rx)(uint8_t *action_type_set,
+			       uint32_t actions_caps,
 			       uint8_t *hw_ste_arr,
 			       struct dr_ste_actions_attr *attr,
 			       uint32_t *added_stes);
 	void (*set_actions_tx)(uint8_t *action_type_set,
+			       uint32_t actions_caps,
 			       uint8_t *hw_ste_arr,
 			       struct dr_ste_actions_attr *attr,
 			       uint32_t *added_stes);
@@ -245,7 +249,8 @@ struct dr_ste_ctx {
 				uint8_t src_hw_field,
 				uint8_t src_shifter);
 	const struct dr_ste_action_modify_field *
-		(*get_action_hw_field)(uint16_t sw_field,
+		(*get_action_hw_field)(struct dr_ste_ctx *ste_ctx,
+				       uint16_t sw_field,
 				       struct dr_devx_caps *caps);
 	int (*set_action_decap_l3_list)(void *data, uint32_t data_sz,
 					uint8_t *hw_action, uint32_t hw_action_sz,
