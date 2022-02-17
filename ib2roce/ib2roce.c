@@ -1531,7 +1531,7 @@ static void resolve_start(struct buf *buf)
 		goto out;
 	}
 
-	if (rdma_resolve_addr(buf->id, c->bindaddr, (struct sockaddr *)&buf->sin, 2000) == 0)
+	if (rdma_resolve_addr(buf->id, NULL, (struct sockaddr *)&buf->sin, 2000) == 0)
 		return;
 
 	logg(LOG_ERR, "rdma_resolve_addr error %s on %s for %s:%d\n",
@@ -1646,7 +1646,7 @@ static void handle_rdma_event(enum interfaces in)
 			{
 				struct buf *buf = i->resolve_queue;
 
-				logg(LOG_ERR, "Address resolution error %d on %s  %s:%d. Packet dropped.\n",
+				loggAddress resolution error %d on %s  %s:%d. Packet dropped.\n",
 					event->status, buf->c->text,
 					inet_ntoa(buf->sin.sin_addr),
 					ntohs(buf->sin.sin_port));
@@ -2687,6 +2687,10 @@ static void recv_buf(struct rdma_channel *c, struct buf *buf)
 		recv_buf_ethernet(c, buf);
 }
 
+static void reset_flags(struct buf *buf)
+{
+	memset(&buf->ether_valid, 0, (void *)&buf->ip_csum_ok - (void *)&buf->ether_valid);
+}
 
 static void handle_comp_event(enum interfaces in)
 {
@@ -2735,8 +2739,7 @@ static void handle_comp_event(enum interfaces in)
 
 			buf->cur = buf->raw;
 			buf->end = buf->raw + w->byte_len;
-			memset(&buf->ether_valid, 0, (void *)&buf->ip_csum_ok - (void *)&buf->ether_valid);
-
+			reset_flags(buf);
 			if (w->wc_flags & IBV_WC_WITH_IMM) {
 
 				buf->imm = w->imm_data;
@@ -2930,7 +2933,8 @@ static struct i2r_interface *find_interface(struct sockaddr_in *sin)
 {
 	struct i2r_interface *i;
 
-	for(i = i2r; i < i2r + NR_INTERFACES; i++) {
+	for(i = i2r; i < i2r + NR_INTERFACES; i++)
+	    if (i->context) {
 		unsigned netmask = i->if_netmask.sin_addr.s_addr;
 
 		if ((sin->sin_addr.s_addr & netmask) ==  (i->if_addr.sin_addr.s_addr & netmask))
@@ -2946,22 +2950,23 @@ static void send_buf_to(struct i2r_interface *i, struct buf *buf, struct sockadd
 	struct rdma_ah *ra;
 	int ret;
 
+	buf->c = i->multicast;
+	buf->sin = *sin;
 	/* Find address */
-	ra = find_in_hash(hash_ip, &beacon_sin->sin_addr);
+	ra = find_in_hash(hash_ip, &buf->sin.sin_addr);
 	if (!ra) {
 		ra = new_rdma_ah(i);
-		add_to_hash(ra, hash_ip, &sin->sin_addr);
+		add_to_hash(ra, hash_ip, &buf->sin.sin_addr);
 	}
 
 	buf->ra = ra;
-	buf->c = i->multicast;
-
-	if (ra->ai.ah)
+	if (!ra->ai.ah)
 		resolve(buf);
 	else {
 		ret = send_buf(buf);
 		if (!ret)
-			logg(LOG_ERR, "Failed to send to %s:%d\n", inet_ntoa(sin->sin_addr), ntohs(sin->sin_port));
+			logg(LOG_ERR, "Failed to send to %s:%d\n",
+				inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port));
 	}
 }
 
@@ -3000,6 +3005,11 @@ static void beacon_send(void)
 		}
 		buf = alloc_buffer();
 		memcpy(buf->raw, &b, sizeof(b));
+
+		reset_flags(buf);
+		buf->cur = buf->raw;
+		buf->end = buf->cur + sizeof(b);
+
 		send_buf_to(i, buf, beacon_sin);
 	
 	}
