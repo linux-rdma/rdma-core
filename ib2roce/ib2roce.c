@@ -2890,7 +2890,7 @@ static void timespec_diff(struct timespec *start, struct timespec *stop,
 
 static void beacon_received(struct buf *buf)
 {
-	struct beacon_info *b = (struct beacon_info *)buf;
+	struct beacon_info *b = (struct beacon_info *)buf->cur;
 	char ib[40];
 	struct timespec diff;
 	struct timespec now;
@@ -3366,7 +3366,7 @@ int main(int argc, char **argv)
                         printf("-r|--roce <if[:portnumber]>		ROCE interface\n");
                         printf("-m|--multicast <multicast address>[:port][/mgidformat] (bidirectional)\n");
                         printf("-i|--inbound <multicast address>	Incoming multicast only (ib traffic in, roce traffic out)\n");
-                        printf("-o|--outbound <multicast address>	Outgoing multicast only / sendonly (ib trafic out, roce traffic in)\n");
+                        printf("-o|--outbound <multicast address>	Outgoing multicast only / sendonly /(ib trafic out, roce traffic in)\n");
 			printf("-l|--mgid				List availabe MGID formats for Infiniband\n");
 			printf("-l|--mgid <format>			Set default MGID format\n");
 			printf("-x|--debug				Do not daemonize, enter debug mode\n");
@@ -3382,7 +3382,9 @@ int main(int argc, char **argv)
 
 	init_buf();
 
-	daemonize();
+	if (bridging)
+		daemonize();
+
 	pid_open();
 
 	ret = find_rdma_devices();
