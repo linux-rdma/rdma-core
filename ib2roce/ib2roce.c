@@ -776,6 +776,8 @@ static void pull(struct buf *buf, void *dest, unsigned length)
 
 static void beacon_received(struct buf *buf);
 
+static int send_buf(struct buf *buf);
+
 static struct buf *buffers;
 
 static struct buf *nextbuffer;	/* Pointer to next available RDMA buffer */
@@ -1636,8 +1638,10 @@ static void handle_rdma_event(enum interfaces in)
 						inet_ntoa(buf->sin.sin_addr),
 						ntohs(buf->sin.sin_port));
 
+					rdma_ack_cm_event(event);
 					resolve_end(buf);
 					free_buffer(buf);
+					return;
 				}
 			}
 			break;
@@ -1646,13 +1650,15 @@ static void handle_rdma_event(enum interfaces in)
 			{
 				struct buf *buf = i->resolve_queue;
 
-				loggAddress resolution error %d on %s  %s:%d. Packet dropped.\n",
+				logg(LOG_ERR, "Address resolution error %d on %s  %s:%d. Packet dropped.\n",
 					event->status, buf->c->text,
 					inet_ntoa(buf->sin.sin_addr),
 					ntohs(buf->sin.sin_port));
 
+				rdma_ack_cm_event(event);
 				resolve_end(buf);
 				free_buffer(buf);
+				return;
 			}
 			break;
 
@@ -1668,8 +1674,10 @@ static void handle_rdma_event(enum interfaces in)
 						inet_ntoa(buf->sin.sin_addr),
 						ntohs(buf->sin.sin_port));
 
+					rdma_ack_cm_event(event);
 					resolve_end(buf);
 					free_buffer(buf);
+					return;
 				}
 			}
 			break;
@@ -1683,8 +1691,10 @@ static void handle_rdma_event(enum interfaces in)
 					inet_ntoa(buf->sin.sin_addr),
 					ntohs(buf->sin.sin_port));
 
+				rdma_ack_cm_event(event);
 				resolve_end(buf);
 				free_buffer(buf);
+				return;
 			}
 			break;
 
@@ -1697,9 +1707,10 @@ static void handle_rdma_event(enum interfaces in)
 				ai->remote_qpn = event->param.ud.qp_num;
 				ai->remote_qkey = event->param.ud.qkey;
 
-				/* Start sending packet data */
-
+				rdma_ack_cm_event(event);
 				resolve_end(buf);
+				send_buf(buf);
+				return;
 			}
 			break;
 
@@ -1712,8 +1723,10 @@ static void handle_rdma_event(enum interfaces in)
 					inet_ntoa(buf->sin.sin_addr),
 					ntohs(buf->sin.sin_port));
 
+				rdma_ack_cm_event(event);
 				resolve_end(buf);
 				free_buffer(buf);
+				return;
 			}
 			break;
 
