@@ -683,12 +683,12 @@ static int rxe_post_one_recv(struct rxe_wq *rq, struct ibv_recv_wr *recv_wr)
 	int rc = 0;
 
 	if (queue_full(q)) {
-		rc  = -ENOMEM;
+		rc  = ENOMEM;
 		goto out;
 	}
 
 	if (recv_wr->num_sge > rq->max_sge) {
-		rc = -EINVAL;
+		rc = EINVAL;
 		goto out;
 	}
 
@@ -1608,6 +1608,10 @@ static int rxe_post_recv(struct ibv_qp *ibqp,
 	*bad_wr = NULL;
 
 	if (!rq || !recv_wr || !rq->queue)
+		return EINVAL;
+
+	/* see C10-97.2.1 */
+	if (ibqp->state == IBV_QPS_RESET)
 		return EINVAL;
 
 	pthread_spin_lock(&rq->lock);
