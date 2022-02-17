@@ -1410,15 +1410,15 @@ static void setup_interface(enum interfaces in)
 	if (unicast)
 		i->raw = create_raw_channel(i, i->port, 100);
 
-	logg(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s CQs=%u/%u MTU=%u.\n",
+	logg(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s:%d CQs=%u/%u MTU=%u.\n",
 		interfaces_text[in],
 		ibv_get_device_name(i->context->device),
 		i->if_name, i->ifindex,
 		i->port,
 		inet_ntop(AF_INET6, e->gid.raw, buf, INET6_ADDRSTRLEN),i->gid_index,
-		inet_ntoa(i->if_addr.sin_addr),
-		i->multicast ? i->multicast->nr_cq: 999999,
-		i->raw ? i->raw->nr_cq : 999999,
+		inet_ntoa(i->if_addr.sin_addr), default_port,
+		i->multicast ? i->multicast->nr_cq: 0,
+		i->raw ? i->raw->nr_cq : 0,
 		i->mtu
 	);
 }
@@ -3009,7 +3009,7 @@ static void beacon_setup(const char *opt_arg)
 		opt_arg = "239.1.2.3";
 
 	beacon_mc = NULL;
-	beacon_sin = parse_addr(opt_arg, 999, &mgid, false);
+	beacon_sin = parse_addr(opt_arg, default_port, &mgid, false);
 	addr = beacon_sin->sin_addr;
 	if (IN_MULTICAST(ntohl(addr.s_addr))) {
 		struct mc *m = mcs + nr_mc++;
