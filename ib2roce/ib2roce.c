@@ -2866,18 +2866,38 @@ struct beacon_info {
 	struct in_addr infiniband;
 	struct in_addr roce;
 	unsigned nr_mc;
+	struct timespec t;
 };
 
 struct mc *beacon_mc;
+
+static void timespec_diff(struct timespec *start, struct timespec *stop,
+                   struct timespec *result)
+{
+    if ((stop->tv_nsec - start->tv_nsec) < 0) {
+        result->tv_sec = stop->tv_sec - start->tv_sec - 1;
+        result->tv_nsec = stop->tv_nsec - start->tv_nsec + 1000000000;
+    } else {
+        result->tv_sec = stop->tv_sec - start->tv_sec;
+        result->tv_nsec = stop->tv_nsec - start->tv_nsec;
+    }
+
+    return;
+}
 
 static void beacon_received(struct buf *buf)
 {
 	struct beacon_info *b = (struct beacon_info *)buf;
 	char ib[40];
+	struct timespec diff;
+	struct timespec now;
 
+	clock_gettime(CLOCK_REALTIME, &now);
 	strcpy(ib, inet_ntoa(b->infiniband));
-	syslog(LOG_NOTICE, "Received Beacon on %s Version %s IB=%s, ROCE=%s MC groups=%u\n",
-		beacon_mc->text, b->version, ib, inet_ntoa(b->roce), b->nr_mc);
+	timespec_diff(&b->t, &now, &diff);
+
+	syslog(LOG_NOTICE, "Received Beacon on %s Version %s IB=%s, ROCE=%s MC groups=%u. Latency %ld ns\n",
+		beacon_mc->text, b->version, ib, inet_ntoa(b->roce), b->nr_mc, diff.tv_sec * 1000000000 + diff.tv_nsec);
 }
 
 static void beacon_send(void)
@@ -2890,6 +2910,7 @@ static void beacon_send(void)
 	b.infiniband = i2r[INFINIBAND].if_addr.sin_addr;
 	b.roce = i2r[ROCE].if_addr.sin_addr;
 	b.nr_mc = nr_mc;
+	clock_gettime(CLOCK_REALTIME, &b.t);
 
 	for(i = 0; i < NR_INTERFACES; i++)
 	   if (i2r[i].context && beacon_mc->status[i] == MC_JOINED) {
@@ -2900,7 +2921,7 @@ static void beacon_send(void)
 		} else
 			send_inline(i2r[i].multicast, &b, sizeof(b), beacon_mc->ai + i, false, 0);
 	}
-	add_event(timestamp() + 60000, beacon_send);
+	add_event(timestamp() + 1000, beacon_send);
 }
 
 static void beacon_setup(const char *opt_arg)
@@ -3054,7 +3075,7 @@ static int event_loop(void)
 
 	t = timestamp();
 	if (beacon)
-		add_event(t + 10000, beacon_send);
+		add_event(t + 1000, beacon_send);
 
 	add_event(t + 1000, logging);
 	add_event(t + 30000, status_write);
