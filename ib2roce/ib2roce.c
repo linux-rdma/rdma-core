@@ -945,7 +945,7 @@ static char *bth_dump(struct bth *b)
 {
 	static char buf[150];
 
-	snprintf(buf, sizeof(buf), "Opcode=%x Flags=%x Pkey=%x QPN=%d APSN=%x",
+	snprintf(buf, sizeof(buf), "Opcode=%x Flags=%x Pkey=%x QPN=%x APSN=%x",
 			b->opcode, b->flags, b->pkey, b->qpn, b->apsn);
 
 	return buf;
@@ -1583,7 +1583,7 @@ static void handle_rdma_event(enum interfaces in)
 				if (!bridging || m->status[in ^ 1] == MC_JOINED)
 					active_mc++;
 
-				syslog(LOG_NOTICE, "Joined %s QP=%d QKEY=%x MLID 0x%x sl %u on %s\n",
+				syslog(LOG_NOTICE, "Joined %s QP=%x QKEY=%x MLID 0x%x sl %u on %s\n",
 					inet_ntop(AF_INET6, param->ah_attr.grh.dgid.raw, buf, 40),
 					param->qp_num,
 					param->qkey,
@@ -1754,7 +1754,7 @@ static int send_inline(struct rdma_channel *c, void *addr, unsigned len, struct 
 		syslog(LOG_WARNING, "Failed to post inline send: %s on %s\n", errname(), c->text);
 	} else
 		if (log_packets > 1)
-			syslog(LOG_NOTICE, "Inline Send to QPN=%d QKEY=%x %d bytes\n",
+			syslog(LOG_NOTICE, "Inline Send to QPN=%x QKEY=%x %d bytes\n",
 				wr.wr.ud.remote_qpn, wr.wr.ud.remote_qkey, len);
 
 	return ret;
@@ -1799,7 +1799,7 @@ static int send_to(struct rdma_channel *c,
 		syslog(LOG_WARNING, "Failed to post send: %s on %s\n", errname(), c->text);
 	} else
 		if (log_packets > 1)
-			syslog(LOG_NOTICE, "RDMA Send to QPN=%d QKEY=%x %d bytes\n",
+			syslog(LOG_NOTICE, "RDMA Send to QPN=%x QKEY=%x %d bytes\n",
 				wr.wr.ud.remote_qpn, wr.wr.ud.remote_qkey, len);
 
 	return ret;
@@ -2749,7 +2749,7 @@ static void handle_comp_event(enum interfaces in)
 				st(c, packets_sent);
 				free_buffer(buf);
 			} else
-				syslog(LOG_NOTICE, "Strange CQ Entry %d/%d: Status:%x Opcode:%x Len:%u QP=%u SRC_QP=%u Flags=%x\n",
+				syslog(LOG_NOTICE, "Strange CQ Entry %d/%d: Status:%x Opcode:%x Len:%u QP=%x SRC_QP=%x Flags=%x\n",
 					j, cqs, w->status, w->opcode, w->byte_len, w->qp_num, w->src_qp, w->wc_flags);
 
 		}
@@ -2930,7 +2930,7 @@ static void beacon_send(void)
 		} else
 			send_inline(i2r[i].multicast, &b, sizeof(b), beacon_mc->ai + i, false, 0);
 	}
-	add_event(timestamp() + 1000, beacon_send);
+	add_event(timestamp() + 10000, beacon_send);
 }
 
 static void beacon_setup(const char *opt_arg)
