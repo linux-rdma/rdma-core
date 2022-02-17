@@ -2878,15 +2878,18 @@ static void status_write(void)
 struct beacon_info {
 	unsigned long signature;
 	char version[10];
+	struct in_addr destination;
 	struct in_addr infiniband;
 	struct in_addr roce;
+	unsigned port;
 	unsigned nr_mc;
 	struct timespec t;
 };
 
 #define BEACON_SIGNATURE 0xD3ADB33F
 
-struct mc *beacon_mc;
+struct mc *beacon_mc;		/* == NULL if unicast */
+struct sockaddr_in *beacon_sin;
 
 static void timespec_diff(struct timespec *start, struct timespec *stop,
                    struct timespec *result)
@@ -2918,56 +2921,118 @@ static void beacon_received(struct buf *buf)
 	strcpy(ib, inet_ntoa(b->infiniband));
 	timespec_diff(&b->t, &now, &diff);
 
-	logg(LOG_NOTICE, "Received Beacon on %s Version %s IB=%s, ROCE=%s MC groups=%u. Latency %ld ns\n",
-		beacon_mc->text, b->version, ib, inet_ntoa(b->roce), b->nr_mc, diff.tv_sec * 1000000000 + diff.tv_nsec);
+	logg(LOG_NOTICE, "Received Beacon on %s Port %d Version %s IB=%s, ROCE=%s MC groups=%u. Latency %ld ns\n",
+		beacon_mc->text, ntohs(b->port), b->version, ib, inet_ntoa(b->roce), b->nr_mc, diff.tv_sec * 1000000000 + diff.tv_nsec);
+}
+
+/* A mini router follows */
+static struct i2r_interface *find_interface(struct sockaddr_in *sin)
+{
+	struct i2r_interface *i;
+
+	for(i = i2r; i < i2r + NR_INTERFACES; i++) {
+		unsigned netmask = i->if_netmask.sin_addr.s_addr;
+
+		if ((sin->sin_addr.s_addr & netmask) ==  (i->if_addr.sin_addr.s_addr & netmask))
+			return i;
+	}
+
+	return NULL;
+}
+
+/* Ship a unicast datagram to an IP address .... */
+static void send_buf_to(struct i2r_interface *i, struct buf *buf, struct sockaddr_in *sin)
+{
+	struct rdma_ah *ra;
+	int ret;
+
+	/* Find address */
+	ra = find_in_hash(hash_ip, &beacon_sin->sin_addr);
+	if (!ra) {
+		ra = new_rdma_ah(i);
+		add_to_hash(ra, hash_ip, &sin->sin_addr);
+	}
+
+	buf->ra = ra;
+	buf->c = i->multicast;
+
+	if (ra->ai.ah)
+		resolve(buf);
+	else {
+		ret = send_buf(buf);
+		if (!ret)
+			logg(LOG_ERR, "Failed to send to %s:%d\n", inet_ntoa(sin->sin_addr), ntohs(sin->sin_port));
+	}
 }
 
 static void beacon_send(void)
 {
 	struct beacon_info b;
 	struct buf *buf;
-	int i;
 
 	b.signature = BEACON_SIGNATURE;
 	memcpy(b.version, VERSION, 10);
+	b.destination = beacon_sin->sin_addr;
+	b.port = beacon_sin->sin_port;
 	b.infiniband = i2r[INFINIBAND].if_addr.sin_addr;
 	b.roce = i2r[ROCE].if_addr.sin_addr;
 	b.nr_mc = nr_mc;
 	clock_gettime(CLOCK_REALTIME, &b.t);
 
-	for(i = 0; i < NR_INTERFACES; i++)
-	   if (i2r[i].context && beacon_mc->status[i] == MC_JOINED) {
-		if (sizeof(b) > MAX_INLINE_DATA) {
-			buf = alloc_buffer();
-			memcpy(buf->raw, &b, sizeof(b));
-			send_to(i2r[i].multicast, buf, sizeof(b), beacon_mc->ai + i, false, 0, buf);
-		} else
-			send_inline(i2r[i].multicast, &b, sizeof(b), beacon_mc->ai + i, false, 0);
+	if (beacon_mc) {
+		int i;
+		for(i = 0; i < NR_INTERFACES; i++)
+		   if (i2r[i].context && beacon_mc->status[i] == MC_JOINED) {
+			if (sizeof(b) > MAX_INLINE_DATA) {
+				buf = alloc_buffer();
+				memcpy(buf->raw, &b, sizeof(b));
+				send_to(i2r[i].multicast, buf, sizeof(b), beacon_mc->ai + i, false, 0, buf);
+			} else
+				send_inline(i2r[i].multicast, &b, sizeof(b), beacon_mc->ai + i, false, 0);
+		}
+	} else {
+		struct i2r_interface *i = find_interface(beacon_sin);
+
+		if (!i) {
+			logg(LOG_ERR, "Beacon IP %s unreachable\n", inet_ntoa(beacon_sin->sin_addr));
+			beacon = false;
+			return;
+		}
+		buf = alloc_buffer();
+		memcpy(buf->raw, &b, sizeof(b));
+		send_buf_to(i, buf, beacon_sin);
+	
 	}
 	add_event(timestamp() + 10000, beacon_send);
 }
 
 static void beacon_setup(const char *opt_arg)
 {
-	struct mc *m = mcs + nr_mc++;
-	struct sockaddr_in *sin;
+	struct mgid_signature *mgid;
+	struct in_addr addr;
 
 	if (!opt_arg)
 		opt_arg = "239.1.2.3";
 
-	memset(m, 0, sizeof(*m));
-	m->beacon = true;
-	m->text = strdup(opt_arg);
+	beacon_mc = NULL;
+	beacon_sin = parse_addr(opt_arg, 999, &mgid, false);
+	addr = beacon_sin->sin_addr;
+	if (IN_MULTICAST(ntohl(addr.s_addr))) {
+		struct mc *m = mcs + nr_mc++;
 
-	sin = parse_addr(opt_arg, 999, &m->mgid_mode, true);
-	m->addr = sin->sin_addr;
-	if (IN_MULTICAST(ntohl(m->addr.s_addr))) {
-		setup_mc_addrs(m, sin);
+		memset(m, 0, sizeof(*m));
+		m->beacon = true;
+		m->text = strdup(opt_arg);
+		m->mgid_mode = mgid;
+		m->addr = addr;
+
+		setup_mc_addrs(m, beacon_sin);
 
 		if (hash_add_mc(m)) {
 			logg(LOG_ERR, "Beacon MC already in use.\n");
 			beacon = false;
-			free(sin);
+			free(beacon_sin);
+			beacon_sin = NULL;
 		} else
 			beacon_mc = m;
 	}
