@@ -3221,7 +3221,7 @@ struct option opts[] = {
 	{ "multicast", required_argument, NULL, 'm' },
 	{ "inbound", required_argument, NULL, 'i' },
 	{ "mgid", optional_argument, NULL, 'l' },
-	{ "beacon", no_argument, NULL, 'b' },
+	{ "beacon", optional_argument, NULL, 'b' },
 	{ "debug", no_argument, NULL, 'x' },
 	{ "nobridge", no_argument, NULL, 'n' },
 	{ "port", required_argument, NULL, 'p' },
@@ -3236,7 +3236,7 @@ int main(int argc, char **argv)
 	int n;
 	char *beacon_arg = NULL;
 
-	while ((op = getopt_long(argc, argv, "vfunbxl::i:r:m:o:d:p:",
+	while ((op = getopt_long(argc, argv, "vfunb::xl::i:r:m:o:d:p:",
 					opts, NULL)) != -1) {
                 switch (op) {
 		case 'd':
@@ -3314,7 +3314,7 @@ int main(int argc, char **argv)
 			break;
 
 		default:
-			printf("%s " VERSION " Jan31,2021 (C) 2022 Christoph Lameter <cl@linux.com>\n", argv[0]);
+			printf("%s " VERSION " Feb 16,2022 (C) 2022 Christoph Lameter <cl@linux.com>\n", argv[0]);
 			printf("Usage: ib2roce [<option>] ...\n");
                         printf("-d|--device <if[:portnumber]>		Infiniband interface\n");
                         printf("-r|--roce <if[:portnumber]>		ROCE interface\n");
@@ -3325,7 +3325,7 @@ int main(int argc, char **argv)
 			printf("-l|--mgid <format>			Set default MGID format\n");
 			printf("-x|--debug				Do not daemonize, enter debug mode\n");
 			printf("-p|--port >number>			Set default port number\n");
-			printf("-b|--beacon				Send beacon every second\n");
+			printf("-b|--beacon <multicast address>		Send beacon every second\n");
 			printf("-n|--nobridge				Do everything but do not bridge packets\n");
 			printf("-u|--unicast		*experimental*	Unicast forwarding support\n");
 			printf("-f|--flow		*experimental*	Enable flow steering to do hardware filtering of packets\n");

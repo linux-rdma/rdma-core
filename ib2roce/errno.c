@@ -8,7 +8,7 @@
 
 static char const * errname(void)
 {
-    static char buf[5];
+    static char buf[12];
     static char const * const names[] =
     {
     #ifdef E2BIG
@@ -1029,6 +1029,6 @@ static char const * errname(void)
 	if(errno >= 0 && errno < (sizeof(names) / sizeof(*names)) && names[errno])
 		return names[errno];
 
-	snprintf(buf,5, "%d", errno);
+	snprintf(buf, sizeof(buf), "%d", errno);
 	return buf;
 }
