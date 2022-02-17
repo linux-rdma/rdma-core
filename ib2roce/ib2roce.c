@@ -68,7 +68,7 @@
 #include "errno.c"
 #include "bth_hdr.h"
 
-#define VERSION "2022.0125"
+#define VERSION "2022.0217"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
@@ -2862,12 +2862,15 @@ static void status_write(void)
  * Beacon processing
  */
 struct beacon_info {
+	unsigned long signature;
 	char version[10];
 	struct in_addr infiniband;
 	struct in_addr roce;
 	unsigned nr_mc;
 	struct timespec t;
 };
+
+#define BEACON_SIGNATURE 0xD3ADB33F
 
 struct mc *beacon_mc;
 
@@ -2892,6 +2895,11 @@ static void beacon_received(struct buf *buf)
 	struct timespec diff;
 	struct timespec now;
 
+	if (b->signature != BEACON_SIGNATURE) {
+		syslog(LOG_ERR, "Received non beacon traffic on beacon MC group %s\n", beacon_mc->text);
+		return;
+	}
+
 	clock_gettime(CLOCK_REALTIME, &now);
 	strcpy(ib, inet_ntoa(b->infiniband));
 	timespec_diff(&b->t, &now, &diff);
@@ -2906,6 +2914,7 @@ static void beacon_send(void)
 	struct buf *buf;
 	int i;
 
+	b.signature = BEACON_SIGNATURE;
 	memcpy(b.version, VERSION, 10);
 	b.infiniband = i2r[INFINIBAND].if_addr.sin_addr;
 	b.roce = i2r[ROCE].if_addr.sin_addr;
@@ -2938,14 +2947,16 @@ static void beacon_setup(const char *opt_arg)
 
 	sin = parse_addr(opt_arg, 999, &m->mgid_mode, true);
 	m->addr = sin->sin_addr;
-	setup_mc_addrs(m, sin);
+	if (IN_MULTICAST(ntohl(m->addr.s_addr))) {
+		setup_mc_addrs(m, sin);
 
-	if (hash_add_mc(m)) {
-		syslog(LOG_ERR, "Beacon MC already in use.\n");
-		beacon = false;
-		free(sin);
-	} else
-		beacon_mc = m;
+		if (hash_add_mc(m)) {
+			syslog(LOG_ERR, "Beacon MC already in use.\n");
+			beacon = false;
+			free(sin);
+		} else
+			beacon_mc = m;
+	}
 }
 
 /* Events are timed according to milliseconds in the current epoch */
