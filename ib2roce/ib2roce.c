@@ -1447,28 +1447,30 @@ static void join_processing(void)
 			continue;
 
 		for(in = 0; in < 2; in++)
-			switch(m->status[in]) {
+			if (i2r[in].context) {
+				switch(m->status[in]) {
 
-			case MC_OFF:
-				if (_join_mc(m->addr, m->sa[in], port, in, m->sendonly[in], m) == 0)
-					m->status[in] = MC_JOINING;
-				break;
+				case MC_OFF:
+					if (_join_mc(m->addr, m->sa[in], port, in, m->sendonly[in], m) == 0)
+						m->status[in] = MC_JOINING;
+					break;
 
-			case MC_ERROR:
+				case MC_ERROR:
 
-				_leave_mc(m->addr, m->sa[in], in);
-				m->status[in] = MC_OFF;
-				syslog(LOG_WARNING, "Left Multicast group %s on %s due to MC_ERROR\n",
+					_leave_mc(m->addr, m->sa[in], in);
+					m->status[in] = MC_OFF;
+					syslog(LOG_WARNING, "Left Multicast group %s on %s due to MC_ERROR\n",
 						m->text, interfaces_text[in]);
-				break;
+					break;
 
-			case MC_JOINED:
-				break;
+				case MC_JOINED:
+					break;
 
-			default:
-				syslog(LOG_ERR, "Bad MC status %d MC %s on %s\n",
+				default:
+					syslog(LOG_ERR, "Bad MC status %d MC %s on %s\n",
 					       m->status[in], m->text, interfaces_text[in]);
-				break;
+					break;
+			}
 		}
 
 		mcs_per_call++;
