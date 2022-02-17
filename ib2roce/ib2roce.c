@@ -1342,6 +1342,8 @@ static void setup_interface(enum interfaces in)
 	/* Find the correct gid entry */
 	for (e = i->ige; e < i->ige + i->iges; e++) {
 
+		syslog(LOG_NOTICE, "GID Table entry %ld port %d GID_TYPE = %d\n",
+				e - i->ige, e->port_num, e->gid_type);
 		if (e->port_num != i->port)
 			continue;
 
