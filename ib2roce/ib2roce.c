@@ -119,6 +119,59 @@ static void logg(int prio, const char *fmt, ...)
 		vprintf(fmt, valist);
 }
 
+/*
+ * FIFO list management
+ */
+struct fifo_head {
+	struct fifo_item *first;
+	struct fifo_item *tail;
+	int items;
+};
+
+struct fifo_item {
+	struct fifo_item *next;
+};
+
+/* Return true if it is the first item */
+static bool fifo_put(struct fifo_head *head, struct fifo_item *new)
+{
+	head->items++;
+	new->next = NULL;
+
+	if (head->first) {
+		head->tail->next = new;
+		head->tail = new;
+		return false;
+	}
+
+	head->first = head->tail = new;
+	return true;
+}
+
+static struct fifo_item *fifo_get(struct fifo_head *head)
+{
+	struct fifo_item *r = head->first;
+
+	head->items--;
+
+	head->first = head->first->next;
+	if (!head->first)
+		/* Last element */
+		head->tail = NULL;
+
+	return r;
+}
+
+static bool fifo_empty(struct fifo_head *head)
+{
+	return head->first == NULL;
+}
+
+static void fifo_init(struct fifo_head *head)
+{
+	memset(head, 0, sizeof(struct fifo_head));
+}
+
 static void add_event(unsigned long time_in_ms, void (*callback));
 
 
@@ -215,6 +268,7 @@ static struct i2r_interface {
 	struct buf *resolve_queue;		/* List of send buffers with unresolved addresses */
 	struct buf *resolve_last;		/* Last item on resolve queue */
 } i2r[NR_INTERFACES];
+
 
 enum hashes { hash_ip, hash_mac, hash_gid, hash_lid, nr_hashes };
 
