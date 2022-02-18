@@ -3185,8 +3185,10 @@ static int event_loop(void)
 		/* Receive Buffers */
 		post_receive_buffers(i);
 		/* And request notifications if something happens */
-		if (i->multicast)
+		if (i->multicast) {
+			rdma_listen(i->multicast->id, 5);
 			ibv_req_notify_cq(i->multicast->cq, 0);
+		}
 		if (i->raw) {
 			start_channel(i->raw);
 			ibv_req_notify_cq(i->raw->cq, 0);
