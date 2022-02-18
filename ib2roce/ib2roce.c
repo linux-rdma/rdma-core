@@ -65,6 +65,8 @@
 #include <linux/udp.h>
 #include <linux/if_arp.h>
 
+#include <infiniband/umad_cm.h>
+
 #include "packet.h"
 #include "errno.c"
 #include "bth_hdr.h"
@@ -75,6 +77,8 @@
 
 #define ROCE_PORT 4791
 #define ETHERTYPE_ROCE 0x8915
+
+#define BEACON_SIGNATURE 0xD3ADB33F
 
 // #define NETLINK_SUPPORT
 // #define LEARN
@@ -761,6 +765,7 @@ struct buf {
 			struct bth bth;
 			struct deth deth;	/* BTH subheader */
 			struct pgm_header pgm;	/* RFC3208 header */
+			struct umad_packet umad;	/* IB QP1 format packet */
 		};
 		uint8_t meta[META_SIZE];
 	};
@@ -962,7 +967,7 @@ static char *bth_dump(struct bth *b)
 	static char buf[150];
 
 	snprintf(buf, sizeof(buf), "Opcode=%x Flags=%x Pkey=%x QPN=%x APSN=%x",
-			b->opcode, b->flags, b->pkey, b->qpn, b->apsn);
+			b->opcode, b->flags, ntohs(b->pkey), ntohl(b->qpn), ntohl(b->apsn));
 
 	return buf;
 }
@@ -2256,12 +2261,19 @@ static void setup_flow(struct rdma_channel *c)
 		logg(LOG_ERR, "Failure to create flow on %s. Errno %s\n", c->text, errname());
 }
 
-static int unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_addr dest_addr)
+static void unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_addr dest_addr)
 {
 	char xbuf[INET6_ADDRSTRLEN];
 	char xbuf2[INET6_ADDRSTRLEN];
 	enum interfaces in = c->i - i2r;
 	unsigned port = 0; /* How do I get that??? Is it needed? */
+	unsigned long l;
+
+	memcpy(&l, buf->cur, sizeof(long));
+	if (l == BEACON_SIGNATURE) {
+		beacon_received(buf);
+		return;
+	}
 
 	if (in == ROCE) {
 
@@ -2292,7 +2304,6 @@ static int unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_add
 		}
 	}
 	dump_buf_grh(buf);
-	return 1;
 }
 
 static int roce_v1(struct rdma_channel *c, struct buf *buf)
@@ -2353,10 +2364,20 @@ static void roce_v2(struct rdma_channel *c, struct buf *buf)
 
 	buf->end -=  ICRC_SIZE;
 
-	logg(LOG_NOTICE, "ROCEv2 SRC=%s DST=%s UDP=%s BTH=%s Data=%s\n",
+	if (ntohl(buf->bth.qpn) == 1) {
+		PULL(buf, buf->umad);
+		logg(LOG_NOTICE, "MAD to %s from %s mgmt_class=%d method=%s status=%d\n",
 			source_str, dest_str,
-			udp_dump(&buf->udp), bth_dump(&buf->bth), 
+			buf->umad.mad_hdr.mgmt_class, buf->umad.mad_hdr.method, buf->umad.mad_hdr.status);
+
+	} else {
+		/* User payload... */
+
+		logg(LOG_NOTICE, "ROCEv2 SRC=%s DST=%s BTH=%s Data=%s\n",
+			source_str, dest_str,
+			bth_dump(&buf->bth), 
 			payload_dump(buf->cur));
+	}
 
 	if (bridging) {
 		struct sockaddr_in sin;
@@ -2367,7 +2388,8 @@ static void roce_v2(struct rdma_channel *c, struct buf *buf)
 		sin.sin_port = htons(ROCE_PORT);
 
 		send_buf_to(i2r + INFINIBAND, buf, &sin);
-	}
+	} else
+		free_buffer(buf);
 	return;
 
 err:
@@ -2626,8 +2648,10 @@ static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 		}
 	}
 
-	if (m->beacon)
+	if (m->beacon) {
 		beacon_received(buf);
+		goto free_out;
+	}
 
 	if (!bridging)
 		goto free_out;
@@ -2873,8 +2897,6 @@ struct beacon_info {
 	struct timespec t;
 };
 
-#define BEACON_SIGNATURE 0xD3ADB33F
-
 struct mc *beacon_mc;		/* == NULL if unicast */
 struct sockaddr_in *beacon_sin;
 
@@ -2910,6 +2932,7 @@ static void beacon_received(struct buf *buf)
 
 	logg(LOG_NOTICE, "Received Beacon on %s Port %d Version %s IB=%s, ROCE=%s MC groups=%u. Latency %ld ns\n",
 		beacon_mc->text, ntohs(b->port), b->version, ib, inet_ntoa(b->roce), b->nr_mc, diff.tv_sec * 1000000000 + diff.tv_nsec);
+	free_buffer(buf);
 }
 
 /* A mini router follows */
