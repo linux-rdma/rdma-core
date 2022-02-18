@@ -27,8 +27,9 @@ rdma_subst_install(FILES "srp_daemon.sh.in"
   RENAME "srp_daemon.sh"
   PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE)
 
-install(FILES start_on_all_ports
+rdma_subst_install(FILES start_on_all_ports.in
   DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/srp_daemon"
+  RENAME start_on_all_ports
   PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE)
 
 rdma_subst_install(FILES srp_daemon.service.in
@@ -43,7 +44,7 @@ rdma_subst_install(FILES srp_daemon_port@.service.in
 
 install(FILES srp_daemon.conf DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}")
 
-install(FILES "srp_daemon.rules"
+rdma_subst_install(FILES "srp_daemon.rules.in"
   RENAME "60-srp_daemon.rules"
   DESTINATION "${CMAKE_INSTALL_UDEV_RULESDIR}")
 
