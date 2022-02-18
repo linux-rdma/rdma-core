@@ -200,6 +200,8 @@ else()
   set(CYTHON_EXECUTABLE "")
 endif()
 
+find_program(SYSTEMCTL_BIN systemctl HINTS "/usr/bin" "/bin")
+
 RDMA_CheckSparse()
 
 # Require GNU99 mode
