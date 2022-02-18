@@ -106,6 +106,7 @@ static unsigned long timestamp(void)
 	return t.tv_sec * 1000 + (t.tv_nsec + 500000) / 1000000;
 }
 
+__attribute__ ((__format__ (__printf__, 2, 3)))
 static void logg(int prio, const char *fmt, ...)
 {
 	va_list valist;
@@ -1636,6 +1637,9 @@ static void handle_rdma_event(enum interfaces in)
 		       	{
 				struct buf *buf = i->resolve_queue;
 
+				logg(LOG_NOTICE, "RDMA_CM_EVENT_ADDR_RESOLVED for %s:%d buf=%p\n",
+					inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port), buf);
+
 				if (rdma_resolve_route(buf->id, 2000) < 0) {
 
 					logg(LOG_ERR, "rdma_resolve_route error %s on %s  %s:%d. Packet dropped.\n",
@@ -1673,6 +1677,9 @@ static void handle_rdma_event(enum interfaces in)
 				struct buf *buf = i->resolve_queue;
 				struct rdma_conn_param rcp = { };
 
+				logg(LOG_NOTICE, "RDMA_CM_EVENT_ROUTE_RESOLVED for %s:%d buf=%p\n",
+					inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port), buf);
+
 				if (rdma_connect(buf->id, &rcp) < 0) {
 					logg(LOG_ERR, "rdma_connecte error %s on %s  %s:%d. Packet dropped.\n",
 						errname(), buf->c->text,
@@ -1708,6 +1715,9 @@ static void handle_rdma_event(enum interfaces in)
 				struct buf *buf = i->resolve_queue;
 				struct ah_info *ai = &buf->ra->ai;
 
+				logg(LOG_NOTICE, "RDMA_CM_EVENT_ESTABLISHED for %s:%d buf=%p\n",
+					inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port), buf);
+
 				ai->ah = ibv_create_ah(buf->c->pd, &event->param.ud.ah_attr);
 				ai->remote_qpn = event->param.ud.qp_num;
 				ai->remote_qkey = event->param.ud.qkey;
@@ -1735,6 +1745,14 @@ static void handle_rdma_event(enum interfaces in)
 			}
 			break;
 
+		case RDMA_CM_EVENT_CONNECT_REQUEST:
+			{
+				logg(LOG_NOTICE, "RDMA_CM_CONNECT_REQUEST id=%p listen_id=%p\n",
+					event->id, event->listen_id);
+
+
+			}
+			break;
 		default:
 			logg(LOG_NOTICE, "RDMA Event handler:%s status: %d\n",
 				rdma_event_str(event->event), event->status);
