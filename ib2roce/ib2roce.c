@@ -301,23 +301,23 @@ enum hashes { hash_ip, hash_mac, hash_gid, hash_lid, nr_hashes };
 
 static unsigned keylength[nr_hashes] = { 4, 6, 16, 2 };
 
-struct rdma_ah *hash_table[nr_hashes][0x100];
+struct rdma_unicast *hash_table[nr_hashes][0x100];
 
-static int nr_rdma_ah = 0;
+static int nr_rdma_unicast = 0;
 
 /* Enough to fit a GID */
 #define hash_max_keylen 16
 
 struct hash_item {
-	struct rdma_ah *next;	/* Linked list to avoid collisions */
+	struct rdma_unicast *next;	/* Linked list to avoid collisions */
 	unsigned hash;
 	bool member;
 	uint8_t key[hash_max_keylen];
 };
 
 /*
- * Information provide by RDMA subsystem for how
- * to establish a stream to and endpoint that
+ * Information provided by RDMA subsystem for how
+ * to send a stream to an endpoint that
  * maybe multicast or unicast.
  */
 struct ah_info {
@@ -326,15 +326,25 @@ struct ah_info {
 	unsigned remote_qkey;
 };
 
-/* A Destination consisting of an EP and port number */
-struct rdma_ah {
+/*
+ * A Unicastconnection to a certain port and host with
+ * a list of pending I/O items and an rdma channel
+ */
+
+enum uc_state { UC_NONE, UC_ADDR_REQ, UC_ROUTE_REQ, UC_CONN_REQ, UC_RESOLVED, UC_ERROR };
+
+struct rdma_unicast {
 	struct i2r_interface *i;
+	enum uc_state state;
+	struct sockaddr_in *sin;	/* Target address */
+	struct rdma_channel *c;		/* Channel for resolution and I/O */
+	struct fifo pending;		/* Buffers waiting on resolution to complete */
+	struct ah_info ai;		/* If ai.ah != NULL then the address info is valid */
+	struct hash_item hash[nr_hashes];
 #ifdef NETLINK_SUPPORT
 	short state;		/* Last netlink state */
 	short flags;		/* Last netlink flags */
 #endif
-	struct ah_info ai;	/* If ai.ah != NULL then the address info is valid */
-	struct hash_item hash[nr_hashes];
 };
 
 static inline void st(struct rdma_channel *c, enum stats s)
@@ -831,12 +841,6 @@ struct buf {
 
 			unsigned ethertype;	/* Frame type */
 
-			/* Information used for delayed processing due to address resolution */
-			struct sockaddr_in sin;	/* Destination address, port */
-			struct rdma_channel *c;	/* Channel for sending */
-			struct rdma_cm_id *id;  /* Temporary ID for address resolution */
-			struct rdma_ah *ra;	/* Routing information */
-
 			/* Structs pulled out of the frame */
 			struct immdt immdt;	/* BTH subheader */
 			struct ibv_grh grh;
@@ -862,7 +866,7 @@ static void pull(struct buf *buf, void *dest, unsigned length)
 
 static void beacon_received(struct buf *buf);
 
-static int send_buf(struct buf *buf);
+static int send_buf(struct buf *buf, struct rdma_unicast *ra);
 
 static struct buf *buffers;
 
@@ -1583,54 +1587,71 @@ static void join_processing(void)
 	}
 }
 
-static void resolve_start(struct buf *);
+static void resolve_start(struct rdma_unicast *);
 
 /* Drop the first entry from the list of items to resolve */
-static void resolve_end(struct buf *buf)
+static void resolve_end(struct rdma_unicast *ru)
 {
-	struct i2r_interface *i = buf->c->i;
+	struct i2r_interface *i = ru->i;
 
-	if (buf != fifo_get(&i->resolve_queue))
-			abort();
+	if (ru != fifo_get(&i->resolve_queue))
+		abort();
 
-	rdma_destroy_id(buf->id);
-	buf->id = NULL;
+	if (ru->state == UC_RESOLVED) {
+		struct buf *buf;
 
-	buf = fifo_first(&i->resolve_queue);
-	if (buf)
-		resolve_start(buf);
-}
+		while ((buf = fifo_get(&ru->pending)))		/* Send pending I/O */
+			send_buf(buf, ru);
 
-static void resolve_start(struct buf *buf)
-{
-	struct rdma_channel *c = buf->c;
-	struct i2r_interface *i = c->i;
+	} else {
+		struct buf *buf;
 
-	if (rdma_create_id(i->rdma_events, &buf->id, c, RDMA_PS_UDP)) {
-		logg(LOG_ERR, "rdma_create_id error %s on %s for %s:%d\n",
-			errname(), c->text, inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port));
-		goto out;
+		while ((buf = fifo_get(&ru->pending)))		/* Drop pending I/O */
+			free_buffer(buf);
+
+		channel_destroy(ru->c);
+		ru->c = NULL;
+		ru->state = UC_NONE;
 	}
 
-	if (rdma_resolve_addr(buf->id, NULL, (struct sockaddr *)&buf->sin, 2000) == 0)
+	/* Resolve the next address */
+	ru = fifo_first(&i->resolve_queue);
+	if (ru)
+		resolve_start(ru);
+}
+
+static void resolve_start(struct rdma_unicast *ru)
+{
+	struct i2r_interface *i = ru->i;
+
+	if (!ru->c) {
+		struct sockaddr_in *sin;
+
+		sin = calloc(1, sizeof(struct sockaddr_in));
+		sin->sin_family = AF_INET;
+		sin->sin_addr = i->if_addr.sin_addr;
+		sin->sin_port = 0;
+		ru->c = create_ud_channel(i, (struct sockaddr *)sin, 100);
+	}
+
+	if (rdma_resolve_addr(ru->c->id, NULL, (struct sockaddr *)ru->sin, 2000) == 0) {
+		ru->state = UC_ADDR_REQ;
 		return;
+	}
 
 	logg(LOG_ERR, "rdma_resolve_addr error %s on %s for %s:%d\n",
-		errname(), c->text, inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port));
+		errname(), ru->c->text, inet_ntoa(ru->sin->sin_addr), ntohs(ru->sin->sin_port));
 
-out:
-	resolve_end(buf);
-	free_buffer(buf);
+	resolve_end(ru);
 }
 
 /* Resolve Address and send buffer when done */
-static void resolve(struct buf *buf)
+static void resolve(struct rdma_unicast *ru)
 {
-	struct rdma_channel *c = buf->c;
-	struct i2r_interface *i = c->i;
+	struct i2r_interface *i = ru->i;
 
-	if (fifo_put(&i->resolve_queue, buf))
-		resolve_start(buf);
+	if (fifo_put(&i->resolve_queue, ru))
+		resolve_start(ru);
 }
 
 static void handle_rdma_event(enum interfaces in)
@@ -1699,112 +1720,112 @@ static void handle_rdma_event(enum interfaces in)
 
 		case RDMA_CM_EVENT_ADDR_RESOLVED:
 		       	{
-				struct buf *buf = fifo_first(&i->resolve_queue);
+				struct rdma_unicast *ru = fifo_first(&i->resolve_queue);
 
-				logg(LOG_NOTICE, "RDMA_CM_EVENT_ADDR_RESOLVED for %s:%d buf=%p\n",
-					inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port), buf);
+				logg(LOG_NOTICE, "RDMA_CM_EVENT_ADDR_RESOLVED for %s:%d\n",
+					inet_ntoa(ru->sin->sin_addr), ntohs(ru->sin->sin_port));
 
-				if (rdma_resolve_route(buf->id, 2000) < 0) {
+				if (rdma_resolve_route(ru->c->id, 2000) < 0) {
 
 					logg(LOG_ERR, "rdma_resolve_route error %s on %s  %s:%d. Packet dropped.\n",
-						errname(), buf->c->text,
-						inet_ntoa(buf->sin.sin_addr),
-						ntohs(buf->sin.sin_port));
+						errname(), ru->c->text,
+						inet_ntoa(ru->sin->sin_addr),
+						ntohs(ru->sin->sin_port));
 
 					rdma_ack_cm_event(event);
-					resolve_end(buf);
-					free_buffer(buf);
+					resolve_end(ru);
 					return;
 				}
+				ru->state = UC_ROUTE_REQ;
 			}
 			break;
 	
 		case RDMA_CM_EVENT_ADDR_ERROR:
 			{
-				struct buf *buf = fifo_first(&i->resolve_queue);
+				struct rdma_unicast *ru = fifo_first(&i->resolve_queue);
 
 				logg(LOG_ERR, "Address resolution error %d on %s  %s:%d. Packet dropped.\n",
-					event->status, buf->c->text,
-					inet_ntoa(buf->sin.sin_addr),
-					ntohs(buf->sin.sin_port));
+					event->status, ru->c->text,
+					inet_ntoa(ru->sin->sin_addr),
+					ntohs(ru->sin->sin_port));
 
 				rdma_ack_cm_event(event);
-				resolve_end(buf);
-				free_buffer(buf);
+				ru->state = UC_ERROR;
+				resolve_end(ru);
 				return;
 			}
 			break;
 
-		/* Disconnection events */
 		case RDMA_CM_EVENT_ROUTE_RESOLVED:
 			{
-				struct buf *buf = fifo_first(&i->resolve_queue);
+				struct rdma_unicast *ru = fifo_first(&i->resolve_queue);
 				struct rdma_conn_param rcp = { };
 
-				logg(LOG_NOTICE, "RDMA_CM_EVENT_ROUTE_RESOLVED for %s:%d buf=%p\n",
-					inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port), buf);
+				logg(LOG_NOTICE, "RDMA_CM_EVENT_ROUTE_RESOLVED for %s:%d\n",
+					inet_ntoa(ru->sin->sin_addr), ntohs(ru->sin->sin_port));
 
-				if (rdma_connect(buf->id, &rcp) < 0) {
+				if (rdma_connect(ru->c->id, &rcp) < 0) {
 					logg(LOG_ERR, "rdma_connecte error %s on %s  %s:%d. Packet dropped.\n",
-						errname(), buf->c->text,
-						inet_ntoa(buf->sin.sin_addr),
-						ntohs(buf->sin.sin_port));
+						errname(), ru->c->text,
+						inet_ntoa(ru->sin->sin_addr),
+						ntohs(ru->sin->sin_port));
 
 					rdma_ack_cm_event(event);
-					resolve_end(buf);
-					free_buffer(buf);
+					ru->state = UC_ERROR;
+					resolve_end(ru);
 					return;
 				}
+				ru->state = UC_CONN_REQ;
 			}
 			break;
 
 		case RDMA_CM_EVENT_ROUTE_ERROR:
 			{
-				struct buf *buf = fifo_first(&i->resolve_queue);
+				struct rdma_unicast *ru = fifo_first(&i->resolve_queue);
 
 				logg(LOG_ERR, "Route resolution error %d on %s  %s:%d. Packet dropped.\n",
-					event->status, buf->c->text,
-					inet_ntoa(buf->sin.sin_addr),
-					ntohs(buf->sin.sin_port));
+					event->status, ru->c->text,
+					inet_ntoa(ru->sin->sin_addr),
+					ntohs(ru->sin->sin_port));
 
 				rdma_ack_cm_event(event);
-				resolve_end(buf);
-				free_buffer(buf);
+				ru->state = UC_ERROR;
+				resolve_end(ru);
 				return;
 			}
 			break;
 
 		case RDMA_CM_EVENT_ESTABLISHED:
 			{
-				struct buf *buf = fifo_first(&i->resolve_queue);
-				struct ah_info *ai = &buf->ra->ai;
+				struct rdma_unicast *ru = fifo_first(&i->resolve_queue);
+				struct ah_info *ai = &ru->ai;
 
-				logg(LOG_NOTICE, "RDMA_CM_EVENT_ESTABLISHED for %s:%d buf=%p\n",
-					inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port), buf);
+				logg(LOG_NOTICE, "RDMA_CM_EVENT_ESTABLISHED for %s:%d\n",
+					inet_ntoa(ru->sin->sin_addr), ntohs(ru->sin->sin_port));
 
-				ai->ah = ibv_create_ah(buf->c->pd, &event->param.ud.ah_attr);
+				ai->ah = ibv_create_ah(ru->c->pd, &event->param.ud.ah_attr);
 				ai->remote_qpn = event->param.ud.qp_num;
 				ai->remote_qkey = event->param.ud.qkey;
 
 				rdma_ack_cm_event(event);
-				resolve_end(buf);
-				send_buf(buf);
+				ru->state = UC_RESOLVED;
+				resolve_end(ru);
 				return;
 			}
 			break;
 
 		case RDMA_CM_EVENT_UNREACHABLE:
 			{
-				struct buf *buf = fifo_first(&i->resolve_queue);
+				struct rdma_unicast *ru = fifo_first(&i->resolve_queue);
 
 				logg(LOG_ERR, "Unreachable Port error %d on %s  %s:%d. Packet dropped.\n",
-					event->status, buf->c->text,
-					inet_ntoa(buf->sin.sin_addr),
-					ntohs(buf->sin.sin_port));
+					event->status, ru->c->text,
+					inet_ntoa(ru->sin->sin_addr),
+					ntohs(ru->sin->sin_port));
 
 				rdma_ack_cm_event(event);
-				resolve_end(buf);
-				free_buffer(buf);
+				ru->state = UC_ERROR;
+				resolve_end(ru);
 				return;
 			}
 			break;
@@ -1920,17 +1941,17 @@ static int send_to(struct rdma_channel *c,
 }
 
 /* Send buffer based on state in struct buf. Unicast only */
-static int send_buf(struct buf *buf)
+static int send_buf(struct buf *buf, struct rdma_unicast *ra)
 {
 	unsigned len = buf->end - buf->cur;
 	int ret;
 
 	if (len < MAX_INLINE_DATA) {
-		ret = send_inline(buf->c, buf->cur, len, &buf->ra->ai, buf->imm_valid, buf->imm);
+		ret = send_inline(ra->c, buf->cur, len, &ra->ai, buf->imm_valid, buf->imm);
 		if (ret == 0)
 			free_buffer(buf);
 	} else 
-		ret = send_to(buf->c, buf->cur, len, &buf->ra->ai, buf->imm_valid, buf->imm, buf);
+		ret = send_to(ra->c, buf->cur, len, &ra->ai, buf->imm_valid, buf->imm, buf);
 
 	return ret;
 }
@@ -1967,8 +1988,8 @@ static unsigned generate_hash_key(enum hashes type, uint8_t *key, void *p)
 	return sum & 0xff;
 }
 
-static struct rdma_ah *find_key_in_chain(enum hashes type,
-	struct rdma_ah *next, uint8_t *key)
+static struct rdma_unicast *find_key_in_chain(enum hashes type,
+	struct rdma_unicast *next, uint8_t *key)
 {
 	for ( ; next != NULL; next = next->hash[type].next)
 		if (memcmp(key, next->hash[type].key, keylength[type]) == 0)
@@ -1977,7 +1998,7 @@ static struct rdma_ah *find_key_in_chain(enum hashes type,
 	return next;
 }
 
-static void add_to_hash(struct rdma_ah *ra, enum hashes type, void *p)
+static void add_to_hash(struct rdma_unicast *ra, enum hashes type, void *p)
 {
 	struct hash_item *h = &ra->hash[type];
 
@@ -1996,12 +2017,12 @@ static void add_to_hash(struct rdma_ah *ra, enum hashes type, void *p)
 	h->member = true;
 }
 
-static void remove_from_hash(struct rdma_ah *ra, enum hashes type)
+static void remove_from_hash(struct rdma_unicast *ra, enum hashes type)
 {
 	struct hash_item *h = &ra->hash[type];
 	unsigned hash = h->hash;
-	struct rdma_ah *next = hash_table[type][hash];
-	struct rdma_ah *prior = NULL;
+	struct rdma_unicast *next = hash_table[type][hash];
+	struct rdma_unicast *prior = NULL;
 
 	for( ; next; next = next->hash[hash].next) {
 
@@ -2025,7 +2046,7 @@ static void remove_from_hash(struct rdma_ah *ra, enum hashes type)
 	h->member = false;
 }
 
-static struct rdma_ah *find_in_hash(enum hashes type, void *p)
+static struct rdma_unicast *find_in_hash(enum hashes type, void *p)
 {
 	uint8_t key[hash_max_keylen];
 	unsigned hash;
@@ -2035,19 +2056,20 @@ static struct rdma_ah *find_in_hash(enum hashes type, void *p)
 	return find_key_in_chain(type, hash_table[type][hash], key);
 }
 
-static struct rdma_ah *new_rdma_ah(struct i2r_interface *i)
+static struct rdma_unicast *new_rdma_unicast(struct i2r_interface *i, struct sockaddr_in *sin)
 {
-	struct rdma_ah *ra = calloc(1, sizeof(struct rdma_ah));
+	struct rdma_unicast *ra = calloc(1, sizeof(struct rdma_unicast));
 
-	nr_rdma_ah++;
+	nr_rdma_unicast++;
 	ra->i = i;
-
+	ra->sin = sin;
+	fifo_init(&ra->pending);
 	return ra;
 }
 
 static long lookup_ip_from_gid(struct rdma_channel *c, union ibv_gid *v)
 {
-	struct rdma_ah *ra;
+	struct rdma_unicast *ra;
 	char buf[100];
 
 	ra = find_in_hash(hash_gid, v);
@@ -3036,26 +3058,33 @@ static struct i2r_interface *find_interface(struct sockaddr_in *sin)
 /* Ship a unicast datagram to an IP address .... */
 static void send_buf_to(struct i2r_interface *i, struct buf *buf, struct sockaddr_in *sin)
 {
-	struct rdma_ah *ra;
+	struct rdma_unicast *ra;
 	int ret;
 
-	buf->c = i->multicast;
-	buf->sin = *sin;
 	/* Find address */
-	ra = find_in_hash(hash_ip, &buf->sin.sin_addr);
+	ra = find_in_hash(hash_ip, &sin->sin_addr);
 	if (!ra) {
-		ra = new_rdma_ah(i);
-		add_to_hash(ra, hash_ip, &buf->sin.sin_addr);
+		ra = new_rdma_unicast(i, sin);
+		add_to_hash(ra, hash_ip, &sin->sin_addr);
 	}
 
-	buf->ra = ra;
-	if (!ra->ai.ah)
-		resolve(buf);
-	else {
-		ret = send_buf(buf);
-		if (!ret)
-			logg(LOG_ERR, "Failed to send to %s:%d\n",
-				inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port));
+	switch (ra->state) {
+		case UC_NONE:	/* We need to resolve the address. Queue up the buffer and initiate */
+			fifo_put(&ra->pending, buf);
+			resolve(ra);
+			return;
+
+		case UC_RESOLVED: /* Channel is open. We can send now */
+			ret = send_buf(buf, ra);
+			if (!ret)
+				logg(LOG_ERR, "Failed to send to %s:%d\n",
+					inet_ntoa(sin->sin_addr), ntohs(sin->sin_port));
+			return;
+		
+		default:		/* Resolution is in progress. Just queue it up on the address */
+			fifo_put(&ra->pending, buf);
+			return;
+
 	}
 }
 
