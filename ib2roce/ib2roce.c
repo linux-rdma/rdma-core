@@ -2366,7 +2366,7 @@ static void roce_v2(struct rdma_channel *c, struct buf *buf)
 
 	if (ntohl(buf->bth.qpn) == 1) {
 		PULL(buf, buf->umad);
-		logg(LOG_NOTICE, "MAD to %s from %s mgmt_class=%d method=%s status=%d\n",
+		logg(LOG_NOTICE, "MAD to %s from %s mgmt_class=%d method=%d status=%d\n",
 			source_str, dest_str,
 			buf->umad.mad_hdr.mgmt_class, buf->umad.mad_hdr.method, buf->umad.mad_hdr.status);
 
