@@ -106,7 +106,7 @@ static unsigned long timestamp(void)
 	return t.tv_sec * 1000 + (t.tv_nsec + 500000) / 1000000;
 }
 
-__attribute__ ((__format__ (__printf__, 2, 3)))
+__attribute__ ((format (printf, 2, 3)))
 static void logg(int prio, const char *fmt, ...)
 {
 	va_list valist;
@@ -122,54 +122,82 @@ static void logg(int prio, const char *fmt, ...)
 /*
  * FIFO list management
  */
-struct fifo_head {
-	struct fifo_item *first;
-	struct fifo_item *tail;
-	int items;
-};
 
-struct fifo_item {
-	struct fifo_item *next;
+struct fifo {
+	unsigned first;	/* Pointer to first item with data */
+	unsigned free;	/* Pointer to first item that is unused */
+	unsigned items;	/* Number of items in the fifo */
+	unsigned size;	/* Number of items possible to store in the fifo */
+	void **list;	/* Pointers to the items in the fifo */
 };
 
 /* Return true if it is the first item */
-static bool fifo_put(struct fifo_head *head, struct fifo_item *new)
+static bool fifo_put(struct fifo *f, void *new)
 {
-	head->items++;
-	new->next = NULL;
 
-	if (head->first) {
-		head->tail->next = new;
-		head->tail = new;
-		return false;
+	if (f->items == f->size) {
+		/* Need to extend storage capacity. Just double it */
+		uint size_prior = f->size;
+
+		f->size *= 2;
+		f->list = realloc(f->list, f->size * sizeof(void *));
+
+		if (f->first > f->free) {
+			/* There are items at the end of the pointer area that need to stay at the end */
+			unsigned pointers = size_prior - f->first;
+
+			memcpy(f->list + f->size - f->first , f->list + f->first, pointers * sizeof(void *));
+
+			f->first += size_prior;
+		}
 	}
 
-	head->first = head->tail = new;
-	return true;
+	f->items++;
+
+	f->list[f->free++] = new;
+
+	if (f->free == f->size)
+		f->free = 0;
+
+	return f->items == 1;
 }
 
-static struct fifo_item *fifo_get(struct fifo_head *head)
+static void *fifo_get(struct fifo *f)
 {
-	struct fifo_item *r = head->first;
+	struct fifo_item *r;
 
-	head->items--;
+	if (!f->items)
+		/* FIFO empty */
+		return NULL;
 
-	head->first = head->first->next;
-	if (!head->first)
-		/* Last element */
-		head->tail = NULL;
+	f->items--;
+	r = f->list[f->first++];
+
+	/* Wrap around if we were at the last pointer in the list */
+	if (f->first == f->size)
+		f->first = 0;
 
 	return r;
 }
 
-static bool fifo_empty(struct fifo_head *head)
+static bool fifo_empty(struct fifo *f)
 {
-	return head->first == NULL;
+	return f->items == 0;
 }
 
-static void fifo_init(struct fifo_head *head)
+static void fifo_init(struct fifo *f)
 {
-	memset(head, 0, sizeof(struct fifo_head));
+	memset(f, 0, sizeof(struct fifo));
+	f->size = 100;
+	f->list = malloc(f->size * sizeof(void *));
+}
+
+static void *fifo_first(struct fifo *f)
+{
+	if (!f->items)
+		return NULL;
+
+	return f->list[f->first];
 }
 
 static void add_event(unsigned long time_in_ms, void (*callback));
@@ -265,8 +293,7 @@ static struct i2r_interface {
 	struct ibv_port_attr port_attr;
 	int iges;
 	struct ibv_gid_entry ige[MAX_GID];
-	struct buf *resolve_queue;		/* List of send buffers with unresolved addresses */
-	struct buf *resolve_last;		/* Last item on resolve queue */
+	struct fifo resolve_queue;		/* List of send buffers with unresolved addresses */
 } i2r[NR_INTERFACES];
 
 
@@ -809,7 +836,6 @@ struct buf {
 			struct rdma_channel *c;	/* Channel for sending */
 			struct rdma_cm_id *id;  /* Temporary ID for address resolution */
 			struct rdma_ah *ra;	/* Routing information */
-			struct buf *next_resolve;	/* Next buffer that needs address resolution */
 
 			/* Structs pulled out of the frame */
 			struct immdt immdt;	/* BTH subheader */
@@ -1564,22 +1590,15 @@ static void resolve_end(struct buf *buf)
 {
 	struct i2r_interface *i = buf->c->i;
 
-	if (buf != i->resolve_queue)
-		abort();
-
-	i->resolve_queue = buf->next_resolve;
+	if (buf != fifo_get(&i->resolve_queue))
+			abort();
 
 	rdma_destroy_id(buf->id);
 	buf->id = NULL;
 
-	if (!i->resolve_queue) {
-		/* Queue is empty */
-		i->resolve_last = NULL;
-		return;
-	}
-
-	/* Start work on next item */
-	resolve_start(i->resolve_queue);
+	buf = fifo_first(&i->resolve_queue);
+	if (buf)
+		resolve_start(buf);
 }
 
 static void resolve_start(struct buf *buf)
@@ -1610,17 +1629,8 @@ static void resolve(struct buf *buf)
 	struct rdma_channel *c = buf->c;
 	struct i2r_interface *i = c->i;
 
-	if (i->resolve_queue) {
-		/* Resolver is busy. Queue item */
-		buf->next_resolve = NULL;
-		i->resolve_last->next_resolve = buf;
-		i->resolve_last = buf;
-		return;
-	}
-
-	/* Resolver is idle, so start working on this entry */
-	i->resolve_last = i->resolve_queue = buf;
-	resolve_start(buf);
+	if (fifo_put(&i->resolve_queue, buf))
+		resolve_start(buf);
 }
 
 static void handle_rdma_event(enum interfaces in)
@@ -1689,7 +1699,7 @@ static void handle_rdma_event(enum interfaces in)
 
 		case RDMA_CM_EVENT_ADDR_RESOLVED:
 		       	{
-				struct buf *buf = i->resolve_queue;
+				struct buf *buf = fifo_first(&i->resolve_queue);
 
 				logg(LOG_NOTICE, "RDMA_CM_EVENT_ADDR_RESOLVED for %s:%d buf=%p\n",
 					inet_ntoa(buf->sin.sin_addr), ntohs(buf->sin.sin_port), buf);
@@ -1711,7 +1721,7 @@ static void handle_rdma_event(enum interfaces in)
 	
 		case RDMA_CM_EVENT_ADDR_ERROR:
 			{
-				struct buf *buf = i->resolve_queue;
+				struct buf *buf = fifo_first(&i->resolve_queue);
 
 				logg(LOG_ERR, "Address resolution error %d on %s  %s:%d. Packet dropped.\n",
 					event->status, buf->c->text,
@@ -1728,7 +1738,7 @@ static void handle_rdma_event(enum interfaces in)
 		/* Disconnection events */
 		case RDMA_CM_EVENT_ROUTE_RESOLVED:
 			{
-				struct buf *buf = i->resolve_queue;
+				struct buf *buf = fifo_first(&i->resolve_queue);
 				struct rdma_conn_param rcp = { };
 
 				logg(LOG_NOTICE, "RDMA_CM_EVENT_ROUTE_RESOLVED for %s:%d buf=%p\n",
@@ -1750,7 +1760,7 @@ static void handle_rdma_event(enum interfaces in)
 
 		case RDMA_CM_EVENT_ROUTE_ERROR:
 			{
-				struct buf *buf = i->resolve_queue;
+				struct buf *buf = fifo_first(&i->resolve_queue);
 
 				logg(LOG_ERR, "Route resolution error %d on %s  %s:%d. Packet dropped.\n",
 					event->status, buf->c->text,
@@ -1766,7 +1776,7 @@ static void handle_rdma_event(enum interfaces in)
 
 		case RDMA_CM_EVENT_ESTABLISHED:
 			{
-				struct buf *buf = i->resolve_queue;
+				struct buf *buf = fifo_first(&i->resolve_queue);
 				struct ah_info *ai = &buf->ra->ai;
 
 				logg(LOG_NOTICE, "RDMA_CM_EVENT_ESTABLISHED for %s:%d buf=%p\n",
@@ -1785,7 +1795,7 @@ static void handle_rdma_event(enum interfaces in)
 
 		case RDMA_CM_EVENT_UNREACHABLE:
 			{
-				struct buf *buf = i->resolve_queue;
+				struct buf *buf = fifo_first(&i->resolve_queue);
 
 				logg(LOG_ERR, "Unreachable Port error %d on %s  %s:%d. Packet dropped.\n",
 					event->status, buf->c->text,
