@@ -194,7 +194,7 @@ static bool fifo_put(struct fifo *f, void *new)
 
 static void *fifo_get(struct fifo *f)
 {
-	struct fifo_item *r;
+	void *r;
 
 	if (fifo_empty(f))
 		/* FIFO empty */
@@ -895,7 +895,7 @@ static int leave_mc(enum interfaces i)
  * to the next free element at the beginning of the free buffer
  */
 
-static unsigned nr_buffers = 20000;
+static unsigned nr_buffers = 100000;
 static bool huge = false;
 
 #define BUFFER_SIZE 8192
@@ -1863,6 +1863,7 @@ static void handle_rdma_event(enum interfaces in)
 				allocate_ud_qp(ru->c, 100, false);
 
 				post_receive(ru->c, 50);
+				ibv_req_notify_cq(ru->c->cq, 0);
 
 				if (rdma_connect(ru->c->id, &rcp) < 0) {
 					logg(LOG_ERR, "rdma_connecte error %s on %s  %s:%d. Packet dropped.\n",
@@ -1894,13 +1895,15 @@ static void handle_rdma_event(enum interfaces in)
 					event->id, event->listen_id);
 
 				c->id->context = c;
-				c->text = "rdmacm-qp";
+				c->text = "incoming-ud-qp";
 
 				if (allocate_ud_qp(c, 100, false))
 					goto err;
 
 				if (post_receive(c, 50))
 					goto err;
+
+				ibv_req_notify_cq(c->cq, 0);
 
 				rcp.qp_num = c->id->qp->qp_num;
 				if (rdma_accept(c->id, &rcp)) {
@@ -1910,6 +1913,7 @@ static void handle_rdma_event(enum interfaces in)
 				/* Create a structure just for tracking buffers */
 				c->ru = new_rdma_unicast(i, NULL);
 				c->ru->c = c;
+				c->ru->state = UC_CONNECTED;
 
 			}
 			break;
