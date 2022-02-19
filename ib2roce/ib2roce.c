@@ -126,51 +126,54 @@ static void logg(int prio, const char *fmt, ...)
 struct fifo {
 	unsigned first;	/* Pointer to first item with data */
 	unsigned free;	/* Pointer to first item that is unused */
-	unsigned items;	/* Number of items in the fifo */
-	unsigned size;	/* Number of items possible to store in the fifo */
+	unsigned size;	/* Number of items in the fifo */
 	void **list;	/* Pointers to the items in the fifo */
 };
+
+static inline bool fifo_empty(struct fifo *f)
+{
+	return f->free == f->first;
+}
 
 /* Return true if it is the first item */
 static bool fifo_put(struct fifo *f, void *new)
 {
-
-	if (f->items == f->size) {
-		/* Need to extend storage capacity. Just double it */
-		uint size_prior = f->size;
-
-		f->size *= 2;
-		f->list = realloc(f->list, f->size * sizeof(void *));
-
-		if (f->first > f->free) {
-			/* There are items at the end of the pointer area that need to stay at the end */
-			unsigned pointers = size_prior - f->first;
-
-			memcpy(f->list + f->size - f->first , f->list + f->first, pointers * sizeof(void *));
-
-			f->first += size_prior;
-		}
-	}
-
-	f->items++;
+	bool first = fifo_empty(f);
 
 	f->list[f->free++] = new;
 
-	if (f->free == f->size)
+	if (f->free == f->size)	/* Wraparound */
 		f->free = 0;
 
-	return f->items == 1;
+	if (f->free == f->first) {
+		/* FIFO is full. Allocate more space */
+		unsigned old_first = f->first;
+		unsigned pointers_to_move = f->size - old_first;
+
+		/* Update to open a hole of f->size pointers in the middle */
+		f->first += f->size;
+		f->size += f->size;
+
+		/* Adjust size */
+		f->list = realloc(f->list, f->size * sizeof(void *));
+
+		/* Move upper part of the list into the right position */
+		memcpy(f->list + f->first,
+			f->list + old_first,
+			pointers_to_move * sizeof(void *));
+	}
+
+	return first;
 }
 
 static void *fifo_get(struct fifo *f)
 {
 	struct fifo_item *r;
 
-	if (!f->items)
+	if (fifo_empty(f))
 		/* FIFO empty */
 		return NULL;
 
-	f->items--;
 	r = f->list[f->first++];
 
 	/* Wrap around if we were at the last pointer in the list */
@@ -178,11 +181,6 @@ static void *fifo_get(struct fifo *f)
 		f->first = 0;
 
 	return r;
-}
-
-static bool fifo_empty(struct fifo *f)
-{
-	return f->items == 0;
 }
 
 static void fifo_init(struct fifo *f)
@@ -194,10 +192,18 @@ static void fifo_init(struct fifo *f)
 
 static void *fifo_first(struct fifo *f)
 {
-	if (!f->items)
+	if (fifo_empty(f))
 		return NULL;
 
 	return f->list[f->first];
+}
+
+static int fifo_items(struct fifo *f)
+{
+	if (f->free >= f->first)
+		return f->free - f->first;
+
+	return f->free + f->size - f->first;
 }
 
 static void add_event(unsigned long time_in_ms, void (*callback));
@@ -1259,17 +1265,22 @@ static void start_channel(struct rdma_channel *c)
 	}
 }
 
-
-static struct rdma_channel *create_ud_channel(struct i2r_interface *i, struct sockaddr *sa, unsigned nr_cq)
+static struct rdma_channel *new_rdma_channel(struct i2r_interface *i)
 {
 	struct rdma_channel *c = calloc(1, sizeof(struct rdma_channel));
-	enum interfaces in = i - i2r;
-	struct ibv_qp_init_attr_ex init_qp_attr_ex;
-	int ret;
-	struct ibv_context *context = i->context;
 
 	c->i = i;
 	c->rdmacm = true;
+
+	return c;
+}
+
+static struct rdma_channel *create_rdma_id(struct i2r_interface *i, struct sockaddr *sa)
+{
+	struct rdma_channel *c = new_rdma_channel(i);
+	enum interfaces in = i - i2r;
+	int ret;
+
 	asprintf(&c->text, "%s-ud", interfaces_text[in]);
 
 	c->bindaddr = sa;
@@ -1286,6 +1297,15 @@ static struct rdma_channel *create_ud_channel(struct i2r_interface *i, struct so
 			interfaces_text[in], errname());
 		return NULL;
 	}
+	return c;
+}
+
+static int allocate_ud_qp(struct rdma_channel *c, unsigned nr_cq, bool multicast)
+{
+	struct ibv_context *context;
+	struct ibv_qp_init_attr_ex init_qp_attr_ex;
+	int ret;
+
 	context = c->id->verbs;
 
 	/*
@@ -1297,15 +1317,15 @@ static struct rdma_channel *create_ud_channel(struct i2r_interface *i, struct so
 	if (!c->pd) {
 		logg(LOG_CRIT, "ibv_alloc_pd failed for %s.\n",
 			c->text);
-		return NULL;
+		return 1;
 	}
 
 	c->nr_cq = nr_cq;
-	c->cq = ibv_create_cq(context, nr_cq, c, i->comp_events, 0);
+	c->cq = ibv_create_cq(context, nr_cq, c, c->i->comp_events, 0);
 	if (!c->cq) {
 		logg(LOG_CRIT, "ibv_create_cq failed for %s.\n",
 			c->text);
-		return NULL;
+		return 1;
 	}
 
 	memset(&init_qp_attr_ex, 0, sizeof(init_qp_attr_ex));
@@ -1322,41 +1342,40 @@ static struct rdma_channel *create_ud_channel(struct i2r_interface *i, struct so
 
 	init_qp_attr_ex.comp_mask = IBV_QP_INIT_ATTR_CREATE_FLAGS|IBV_QP_INIT_ATTR_PD;
 	init_qp_attr_ex.pd = c->pd;
-	init_qp_attr_ex.create_flags = IBV_QP_CREATE_BLOCK_SELF_MCAST_LB;
+
+	if (multicast)
+		init_qp_attr_ex.create_flags = IBV_QP_CREATE_BLOCK_SELF_MCAST_LB;
+
 	ret = rdma_create_qp_ex(c->id, &init_qp_attr_ex);
 	if (ret) {
 		logg(LOG_CRIT, "rdma_create_qp_ex failed for %s. Error %s. #CQ=%d\n",
 				c->text, errname(), nr_cq);
-		return NULL;
+		return 1;
 	}
 
-	/* Copy to convenient location that is shared by both types of channels */
+	/* Copy QP to convenient location that is shared by all types of channels */
 	c->qp = c->id->qp;
 	c->mr = ibv_reg_mr(c->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
 	if (!c->mr) {
 		logg(LOG_CRIT, "ibv_reg_mr failed for %s.\n", c->text);
-		return NULL;
+		return 1;
 	}
-	return c;
+	return 0;
 }
 
+/* Not using rdmacm so this is easier on the callbacks */
 static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port, unsigned nr_cq)
 {
-	struct rdma_channel *c = calloc(1, sizeof(struct rdma_channel));
+	struct rdma_channel *c = new_rdma_channel(i);
 	enum interfaces in = i - i2r;
-	struct ibv_qp_init_attr_ex init_qp_attr_ex;
 	int ret;
+	struct ibv_qp_init_attr_ex init_qp_attr_ex;
 	struct ibv_context *context = i->context;
 
 	c->i = i;
 	c->rdmacm = false;
 	asprintf(&c->text, "%s-raw", interfaces_text[in]);
 
-	/*
-	 * Must alloc pd for each rdma_cm_id due to limitation in rdma_create_qp
-	 * There a multiple struct ibv_context *s around . Need to use the right one
-	 * since rdma_create_qp validates the alloc pd ibv_context pointer.
-	 */
 	c->pd = ibv_alloc_pd(context);
 	if (!c->pd) {
 		logg(LOG_CRIT, "ibv_alloc_pd failed for %s.\n",
@@ -1492,10 +1511,12 @@ static void setup_interface(enum interfaces in)
 	sin->sin_addr = i->if_addr.sin_addr;
 	sin->sin_port = htons(default_port);
 
-	i->multicast = create_ud_channel(i, (struct sockaddr *)sin, MIN(i->device_attr.max_cqe, nr_buffers / 2));
+	i->multicast = create_rdma_id(i, (struct sockaddr *)sin);
 
 	if (!i->multicast)
 		abort();
+
+	allocate_ud_qp(i->multicast, MIN(i->device_attr.max_cqe, nr_buffers / 2), true);
 
 	if (unicast)
 		i->raw = create_raw_channel(i, i->port, 100);
@@ -1631,7 +1652,7 @@ static void resolve_start(struct rdma_unicast *ru)
 		sin->sin_family = AF_INET;
 		sin->sin_addr = i->if_addr.sin_addr;
 		sin->sin_port = 0;
-		ru->c = create_ud_channel(i, (struct sockaddr *)sin, 100);
+		ru->c = create_rdma_id(i, (struct sockaddr *)sin);
 	}
 
 	if (rdma_resolve_addr(ru->c->id, NULL, (struct sockaddr *)ru->sin, 2000) == 0) {
@@ -1764,6 +1785,10 @@ static void handle_rdma_event(enum interfaces in)
 				logg(LOG_NOTICE, "RDMA_CM_EVENT_ROUTE_RESOLVED for %s:%d\n",
 					inet_ntoa(ru->sin->sin_addr), ntohs(ru->sin->sin_port));
 
+				allocate_ud_qp(ru->c, 100, false);
+
+				post_receive(ru->c, 50);
+
 				if (rdma_connect(ru->c->id, &rcp) < 0) {
 					logg(LOG_ERR, "rdma_connecte error %s on %s  %s:%d. Packet dropped.\n",
 						errname(), ru->c->text,
@@ -1792,6 +1817,27 @@ static void handle_rdma_event(enum interfaces in)
 				ru->state = UC_ERROR;
 				resolve_end(ru);
 				return;
+			}
+			break;
+
+		case RDMA_CM_EVENT_CONNECT_REQUEST:
+			{
+				struct rdma_conn_param rcp = { };
+				struct rdma_channel *c = new_rdma_channel(i);
+	
+				c->id->context = c;
+				asprintf(&c->text, "DYN-qp");
+
+				allocate_ud_qp(c, 100, false);
+
+				post_receive(c, 50);
+
+				rcp.qp_num = c->id->qp->qp_num;
+				rdma_accept(c->id, &rcp);
+
+				logg(LOG_NOTICE, "RDMA_CM_CONNECT_REQUEST id=%p listen_id=%p\n",
+					event->id, event->listen_id);
+
 			}
 			break;
 
@@ -1830,14 +1876,6 @@ static void handle_rdma_event(enum interfaces in)
 			}
 			break;
 
-		case RDMA_CM_EVENT_CONNECT_REQUEST:
-			{
-				logg(LOG_NOTICE, "RDMA_CM_CONNECT_REQUEST id=%p listen_id=%p\n",
-					event->id, event->listen_id);
-
-
-			}
-			break;
 		default:
 			logg(LOG_NOTICE, "RDMA Event handler:%s status: %d\n",
 				rdma_event_str(event->event), event->status);
