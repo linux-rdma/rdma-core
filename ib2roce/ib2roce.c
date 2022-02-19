@@ -95,6 +95,7 @@ static bool bridging = true;		/* Allow briding */
 static bool unicast = false;		/* Bridge unicast packets */
 static bool flow_steering = false;	/* Use flow steering to filter packets */
 static int log_packets = 0;		/* Show details on discarded packets */
+static int testing = false;		/* Run some tests on startup */
 
 
 /* Timestamp in milliseconds */
@@ -144,6 +145,10 @@ struct fifo {
 	unsigned free;	/* Pointer to first item that is unused */
 	unsigned size;	/* Number of items in the fifo */
 	void **list;	/* Pointers to the items in the fifo */
+	void *init_list[12];	/*
+				 * Initial list to get to 2 cache lines
+       				 * and avoid malloc
+				 */
 };
 
 static inline bool fifo_empty(struct fifo *f)
@@ -170,8 +175,13 @@ static bool fifo_put(struct fifo *f, void *new)
 		f->first += f->size;
 		f->size += f->size;
 
-		/* Adjust size */
-		f->list = realloc(f->list, f->size * sizeof(void *));
+		if (f->list == f->init_list) {
+
+			f->list = malloc(f->size * sizeof(void *));
+			memcpy(f->list, f->init_list, sizeof(f->init_list));
+
+		} else
+			f->list = realloc(f->list, f->size * sizeof(void *));
 
 		/* Move upper part of the list into the right position */
 		memcpy(f->list + f->first,
@@ -202,8 +212,8 @@ static void *fifo_get(struct fifo *f)
 static void fifo_init(struct fifo *f)
 {
 	memset(f, 0, sizeof(struct fifo));
-	f->size = 100;
-	f->list = malloc(f->size * sizeof(void *));
+	f->size = 12;
+	f->list = f->init_list;
 }
 
 static void *fifo_first(struct fifo *f)
@@ -222,7 +232,55 @@ static int fifo_items(struct fifo *f)
 	return f->free + f->size - f->first;
 }
 
-static void add_event(unsigned long time_in_ms, void (*callback));
+static void fifo_test(void)
+{
+	struct fifo f;
+	unsigned long out = 0;
+	unsigned long i;
+	unsigned long seed = time(NULL);
+	unsigned int max = rand() % 10000000;
+	unsigned int mod = 3;
+
+	srand(seed);
+	max = rand() % 10000000;
+	printf("FIFO Test with %d items\n", max);
+	fifo_init(&f);
+
+	if (!fifo_empty(&f))
+		abort();
+
+	for(i = 0; i < max; i++) {
+		fifo_put(&f, (void *)i);
+
+		if ((i % mod) == 0) {
+			if (out != (unsigned long) fifo_get(&f))
+				abort();
+			else
+				out++;
+		}
+		if (i % 100)
+			mod = 1 + (rand() & 0x3);
+	}
+	if (fifo_empty(&f))
+		abort();
+
+	printf("%d FIFO items left after awhile. Freeing them\n", fifo_items(&f));
+
+	while (out < max) {
+		if (out != (unsigned long) fifo_get(&f))
+			abort();
+		else
+			out++;
+	}
+
+	if (!fifo_empty(&f))
+		abort();
+
+	if (fifo_get(&f))
+		abort();
+
+	printf("FIFO ok\n");
+}
 
 
 /*
@@ -374,6 +432,10 @@ static inline void st(struct rdma_channel *c, enum stats s)
 {
 	c->stats[s]++;
 }
+
+/* Forwards */
+static void add_event(unsigned long time_in_ms, void (*callback));
+static struct rdma_unicast *new_rdma_unicast(struct i2r_interface *i, struct sockaddr_in *sin);
 
 static inline struct rdma_cm_id *id(enum interfaces i)
 {
@@ -1635,8 +1697,14 @@ static void zap_channel(struct rdma_unicast *ru)
 		free_buffer(buf);
 
 	channel_destroy(ru->c);
-	ru->c = NULL;
-	ru->state = UC_NONE;
+	if (ru->sin) {
+		ru->c = NULL;
+		ru->state = UC_NONE;
+	} else {
+		/* Temporary struct that can go away now */
+		free(ru);
+		nr_rdma_unicast--;
+	}
 }
 
 /* Drop the first entry from the list of items to resolve */
@@ -1839,6 +1907,9 @@ static void handle_rdma_event(enum interfaces in)
 					logg(LOG_ERR, " rdma_accept error %s\n", errname());
 					channel_destroy(c);
 				}
+				/* Create a structure just for tracking buffers */
+				c->ru = new_rdma_unicast(i, NULL);
+				c->ru->c = c;
 
 			}
 			break;
@@ -3536,6 +3607,7 @@ struct option opts[] = {
 	{ "port", required_argument, NULL, 'p' },
 	{ "flow", no_argument, NULL, 'f' },
 	{ "log-packets", no_argument, NULL, 'v' },
+	{ "test", no_argument, NULL, 't' },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -3545,7 +3617,7 @@ int main(int argc, char **argv)
 	int n;
 	char *beacon_arg = NULL;
 
-	while ((op = getopt_long(argc, argv, "vfunb::xl::i:r:m:o:d:p:",
+	while ((op = getopt_long(argc, argv, "vtfunb::xl::i:r:m:o:d:p:",
 					opts, NULL)) != -1) {
                 switch (op) {
 		case 'd':
@@ -3587,7 +3659,7 @@ int main(int argc, char **argv)
 			for (n = 0; n < nr_mgid_signatures; n++) {
 				struct mgid_signature *m = mgid_signatures + n;
 
-				printf("%7s|    0x%x | %s\n",
+				printf("%7s|    0x%04x | %s\n",
 					m->id, m->signature, m->port ? "true" : "false");
 			}
 			exit(1);
@@ -3620,6 +3692,11 @@ int main(int argc, char **argv)
 
 		case 'v':
 			log_packets++;
+			break;
+
+		case 't':
+			fifo_test();
+			testing = true;	
 			break;
 
 		default:
@@ -3655,7 +3732,7 @@ int main(int argc, char **argv)
 	}
 
 	ret = find_rdma_devices();
-	if (ret)
+	if (ret && !testing)
 		return ret;
 
 	syslog (LOG_NOTICE, "ib2roce: Infiniband device = %s:%d, ROCE device = %s:%d. Multicast Groups=%d MGIDs=%s Buffers=%u\n",
