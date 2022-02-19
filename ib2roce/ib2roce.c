@@ -133,7 +133,7 @@ static char *xprintf(const char *fmt, ...)
 	}
 
 	return t;
-}	
+}
 
 /*
  * FIFO list management
@@ -261,7 +261,7 @@ static const char *interfaces_text[NR_INTERFACES] = { "Infiniband", "ROCE" };
 
 enum stats { packets_received, packets_sent, packets_bridged_mc, packets_bridged_uc, packets_invalid,
 		join_requests, join_failure, join_success,
-	        leave_requests,
+		leave_requests,
 		nr_stats
 };
 
@@ -1050,7 +1050,7 @@ static void dump_buf_ethernet(struct buf *buf)
 				snprintf(etype, sizeof(etype), "IEEE801.3 len=%d", buf->ethertype);
 			else
 				snprintf(etype, sizeof(etype), "Ether_type=%x", buf->ethertype);
- 
+
 			logg(LOG_NOTICE, "MAC=%s SMAC=%s %s %s\n", dmac, smac, etype, payload_dump(buf->cur));
 
 		break;
@@ -1182,7 +1182,7 @@ static void channel_destroy(struct rdma_channel *c)
 
 		if (c->cq)
 			ibv_destroy_cq(c->cq);
-	
+
 		ibv_dereg_mr(c->mr);
 		if (c->pd)
 			ibv_dealloc_pd(c->pd);
@@ -1775,7 +1775,7 @@ static void handle_rdma_event(enum interfaces in)
 			}
 			ru->state = UC_ROUTE_REQ;
 			break;
-	
+
 		case RDMA_CM_EVENT_ADDR_ERROR:
 			logg(LOG_ERR, "Address resolution error %d on %s  %s:%d. Packet dropped.\n",
 				event->status, ru->c->text,
@@ -1801,7 +1801,7 @@ static void handle_rdma_event(enum interfaces in)
 						errname(), ru->c->text,
 						inet_ntoa(ru->sin->sin_addr),
 						ntohs(ru->sin->sin_port));
-					
+
 					goto err;
 				}
 				ru->state = UC_CONN_REQ;
@@ -1821,7 +1821,7 @@ static void handle_rdma_event(enum interfaces in)
 			{
 				struct rdma_conn_param rcp = { };
 				struct rdma_channel *c = new_rdma_channel(i);
-	
+
 				logg(LOG_NOTICE, "RDMA_CM_CONNECT_REQUEST id=%p listen_id=%p\n",
 					event->id, event->listen_id);
 
@@ -1893,7 +1893,7 @@ static void handle_rdma_event(enum interfaces in)
 	rdma_ack_cm_event(event);
 	return;
 
-err:	
+err:
 	rdma_ack_cm_event(event);
 	ru->state = UC_ERROR;
 	resolve_end(ru);
@@ -2002,7 +2002,7 @@ static int send_buf(struct buf *buf, struct rdma_unicast *ra)
 		ret = send_inline(ra->c, buf->cur, len, &ra->ai, buf->imm_valid, buf->imm);
 		if (ret == 0)
 			free_buffer(buf);
-	} else 
+	} else
 		ret = send_to(ra->c, buf->cur, len, &ra->ai, buf->imm_valid, buf->imm, buf);
 
 	return ret;
@@ -2345,7 +2345,7 @@ static void setup_netlink(enum netlink_channel c)
 			.ndm_family = AF_INET,
 			.ndm_state = NUD_REACHABLE
 		} };
-	
+
 	sock_nl[c] = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 	if (sock_nl[c] < 0) {
 		logg(LOG_CRIT, "Failed to open netlink socket %s.\n", errname());
@@ -2482,7 +2482,7 @@ static void send_buf_to(struct i2r_interface *i, struct buf *buf, struct sockadd
 
 /*
  * Process ROCE v2 packet from Ethernet and send the data out to the Infiniband Interface
- * 
+ *
  * The caller has pulled the ether_header, iphdr and the udphdr from the packet
  */
 static void roce_v2(struct rdma_channel *c, struct buf *buf)
@@ -2531,7 +2531,7 @@ static void roce_v2(struct rdma_channel *c, struct buf *buf)
 
 		logg(LOG_NOTICE, "ROCEv2 SRC=%s DST=%s BTH=%s Data=%s\n",
 			source_str, dest_str,
-			bth_dump(&buf->bth), 
+			bth_dump(&buf->bth),
 			payload_dump(buf->cur));
 	}
 
@@ -2551,7 +2551,7 @@ static void roce_v2(struct rdma_channel *c, struct buf *buf)
 err:
 	logg(LOG_NOTICE, "ROCEv2 %s SRC=%s DST=%s UDP=%s BTH=%s Data=%s\n",
 			reason, source_str, dest_str,
-			udp_dump( &buf->udp), bth_dump(&buf->bth), 
+			udp_dump( &buf->udp), bth_dump(&buf->bth),
 			payload_dump(buf->cur));
 
 }
@@ -2576,10 +2576,10 @@ static void learn_source_address(struct rdma_channel *c, struct buf *buf, struct
 			if (buf->grh_valid) {
 				/* Lookup entry through SGID */
 				ra = find_in_hash(hash_gid, &buf->grh.sgid);
-				
+
 				if (ra)	/* LID must be invalid */
 					remove_from_hash(ra, hash_lid);
-			} 
+			}
 		}
 
 		if (!ra) {
@@ -2665,10 +2665,10 @@ static void recv_buf_ethernet(struct rdma_channel *c, struct buf *buf)
 		return;
 
 	} else if (buf->ethertype == ETHERTYPE_IP) {
-		       
+
 		pull(buf, &buf->ip, sizeof(struct iphdr));
 		buf->ip_valid = true;
-		
+
 		if (buf->ip.protocol == IPPROTO_UDP) {
 
 			if (!buf->ip_csum_ok)
@@ -2702,7 +2702,7 @@ silent_discard:
 
 
 /*
- * We have an GRH header so the packet has been processed by the RDMA 
+ * We have an GRH header so the packet has been processed by the RDMA
  * Subsystem and we can take care of it using the RDMA calls
  */
 static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
@@ -2789,9 +2789,9 @@ static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 		}
 
 	} else { /* ROCE */
-		struct in_addr source_addr; 
+		struct in_addr source_addr;
 		struct in_addr local_addr;
-	       
+
 		local_addr = c->i->if_addr.sin_addr;
 
 		source_addr.s_addr = sgid->sib_addr32[3];
@@ -2919,7 +2919,7 @@ static void handle_comp_event(enum interfaces in)
 				buf->grh_valid = true;
 			} else
 				buf->grh_valid = false;
-			
+
 			buf->ip_csum_ok = (w->wc_flags & IBV_WC_IP_CSUM_OK) != 0;
 
 			recv_buf(c, buf);
@@ -3132,7 +3132,7 @@ static void send_buf_to(struct i2r_interface *i, struct buf *buf, struct sockadd
 				logg(LOG_ERR, "Failed to send to %s:%d\n",
 					inet_ntoa(sin->sin_addr), ntohs(sin->sin_port));
 			return;
-		
+
 		default:		/* Resolution is in progress. Just queue it up on the address */
 			fifo_put(&ra->pending, buf);
 			return;
@@ -3181,7 +3181,7 @@ static void beacon_send(void)
 		buf->end = buf->cur + sizeof(b);
 
 		send_buf_to(i, buf, beacon_sin);
-	
+
 	}
 	add_event(timestamp() + 10000, beacon_send);
 }
@@ -3445,7 +3445,7 @@ static void daemonize(void)
 		exit(EXIT_SUCCESS);
 
 	if (setsid() < 0)
-	        exit(EXIT_FAILURE);
+		exit(EXIT_FAILURE);
 
 	signal(SIGCHLD, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
