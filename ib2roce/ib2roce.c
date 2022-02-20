@@ -2051,6 +2051,8 @@ static int send_to(struct rdma_channel *c,
 	if (!ai->ah)
 		abort();	/* Send without a route */
 
+	buf->c = c;	/* Change ownership to sending channel */
+
 	memset(&wr, 0, sizeof(wr));
 	wr.sg_list = &sge;
 	wr.num_sge = 1;
