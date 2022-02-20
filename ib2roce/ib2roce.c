@@ -70,8 +70,9 @@
 #include "packet.h"
 #include "errno.c"
 #include "bth_hdr.h"
+#include "util.h"
 
-#define VERSION "2022.0217"
+#define VERSION "2022.0220"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
@@ -135,153 +136,6 @@ static char *xprintf(const char *fmt, ...)
 
 	return t;
 }
-
-/*
- * FIFO list management
- */
-
-struct fifo {
-	unsigned first;	/* Pointer to first item with data */
-	unsigned free;	/* Pointer to first item that is unused */
-	unsigned size;	/* Number of items in the fifo */
-	void **list;	/* Pointers to the items in the fifo */
-	void *init_list[12];	/*
-				 * Initial list to get to 2 cache lines
-       				 * and avoid malloc
-				 */
-};
-
-static inline bool fifo_empty(struct fifo *f)
-{
-	return f->free == f->first;
-}
-
-/* Return true if it is the first item */
-static bool fifo_put(struct fifo *f, void *new)
-{
-	bool first = fifo_empty(f);
-
-	f->list[f->free++] = new;
-
-	if (f->free == f->size)	/* Wraparound */
-		f->free = 0;
-
-	if (f->free == f->first) {
-		/* FIFO is full. Allocate more space */
-		unsigned old_first = f->first;
-		unsigned pointers_to_move = f->size - old_first;
-
-		/* Update to open a hole of f->size pointers in the middle */
-		f->first += f->size;
-		f->size += f->size;
-
-		if (f->list == f->init_list) {
-
-			f->list = malloc(f->size * sizeof(void *));
-			memcpy(f->list, f->init_list, sizeof(f->init_list));
-
-		} else
-			f->list = realloc(f->list, f->size * sizeof(void *));
-
-		/* Move upper part of the list into the right position */
-		memcpy(f->list + f->first,
-			f->list + old_first,
-			pointers_to_move * sizeof(void *));
-	}
-
-	return first;
-}
-
-static void *fifo_get(struct fifo *f)
-{
-	void *r;
-
-	if (fifo_empty(f))
-		/* FIFO empty */
-		return NULL;
-
-	r = f->list[f->first++];
-
-	/* Wrap around if we were at the last pointer in the list */
-	if (f->first == f->size)
-		f->first = 0;
-
-	return r;
-}
-
-static void fifo_init(struct fifo *f)
-{
-	memset(f, 0, sizeof(struct fifo));
-	f->size = 12;
-	f->list = f->init_list;
-}
-
-static void *fifo_first(struct fifo *f)
-{
-	if (fifo_empty(f))
-		return NULL;
-
-	return f->list[f->first];
-}
-
-static int fifo_items(struct fifo *f)
-{
-	if (f->free >= f->first)
-		return f->free - f->first;
-
-	return f->free + f->size - f->first;
-}
-
-static void fifo_test(void)
-{
-	struct fifo f;
-	unsigned long out = 0;
-	unsigned long i;
-	unsigned long seed = time(NULL);
-	unsigned int max = rand() % 10000000;
-	unsigned int mod = 3;
-
-	srand(seed);
-	max = rand() % 10000000;
-	printf("FIFO Test with %d items\n", max);
-	fifo_init(&f);
-
-	if (!fifo_empty(&f))
-		abort();
-
-	for(i = 0; i < max; i++) {
-		fifo_put(&f, (void *)i);
-
-		if ((i % mod) == 0) {
-			if (out != (unsigned long) fifo_get(&f))
-				abort();
-			else
-				out++;
-		}
-		if (i % 100)
-			mod = 1 + (rand() & 0x3);
-	}
-	if (fifo_empty(&f))
-		abort();
-
-	printf("%d FIFO items left after awhile. Freeing them\n", fifo_items(&f));
-
-	while (out < max) {
-		if (out != (unsigned long) fifo_get(&f))
-			abort();
-		else
-			out++;
-	}
-
-	if (!fifo_empty(&f))
-		abort();
-
-	if (fifo_get(&f))
-		abort();
-
-	printf("FIFO ok\n");
-}
-
 
 /*
  * Handling of special Multicast Group MGID encodings on Infiniband
@@ -376,7 +230,6 @@ static struct i2r_interface {
 	struct ibv_gid_entry ige[MAX_GID];
 	struct fifo resolve_queue;		/* List of send buffers with unresolved addresses */
 } i2r[NR_INTERFACES];
-
 
 enum hashes { hash_ip, hash_mac, hash_gid, hash_lid, nr_hashes };
 
@@ -3720,6 +3573,7 @@ int main(int argc, char **argv)
 
 		case 't':
 			fifo_test();
+			hash_test();
 			testing = true;	
 			break;
 

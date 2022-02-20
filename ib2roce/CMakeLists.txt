@@ -3,6 +3,7 @@ include_directories(${NL_INCLUDE_DIRS})
 
 rdma_executable(ib2roce
   ib2roce.c
+  util.c
   )
 target_link_libraries(ib2roce LINK_PRIVATE
   ibverbs
