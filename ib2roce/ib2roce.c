@@ -911,6 +911,7 @@ struct buf {
 		struct {
 			struct buf *next;	/* Next free buffer */
 			bool free;
+			struct rdma_channel *c;	/* Which Channels does this buffer belong to */
 
 			bool ether_valid;	/* Ethernet header valid */
 			bool ip_valid;		/* IP header valid */
@@ -964,6 +965,18 @@ static void free_buffer(struct buf *buf)
 	nextbuffer = buf;
 }
 
+/* Remove all buffers related to a channel */
+static void clear_channel_bufs(struct rdma_channel *c)
+{
+	struct buf *buf;
+
+	for (buf = buffers; buf < buffers + nr_buffers; buf++) {
+
+		if (!buf->free && buf->c == c)
+			free_buffer(buf);
+	}
+}
+
 static void init_buf(void)
 {
 	int i;
@@ -994,7 +1007,7 @@ static void init_buf(void)
 		free_buffer(&buffers[i-1]);
 }
 
-static struct buf *alloc_buffer(void)
+static struct buf *alloc_buffer(struct rdma_channel *c)
 {
 	struct buf *buf = nextbuffer;
 
@@ -1002,7 +1015,7 @@ static struct buf *alloc_buffer(void)
 		nextbuffer = buf->next;
 		buf->free = false;
 	}
-
+	buf->c = c;
 	return buf;
 }
 
@@ -1183,7 +1196,7 @@ static int post_receive(struct rdma_channel *c, int limit)
 
 	while (c->active_receive_buffers < limit) {
 
-		struct buf *buf = alloc_buffer();
+		struct buf *buf = alloc_buffer(c);
 
 
 		if (!buf) {
@@ -1250,6 +1263,7 @@ static void channel_destroy(struct rdma_channel *c)
 			ibv_dealloc_pd(c->pd);
 
 	}
+	clear_channel_bufs(c);
 	free(c);
 }
 
@@ -1687,7 +1701,6 @@ static void join_processing(void)
 }
 
 static void resolve_start(struct rdma_unicast *);
-
 
 static void zap_channel(struct rdma_unicast *ru)
 {
@@ -3230,16 +3243,21 @@ static void beacon_send(void)
 	clock_gettime(CLOCK_REALTIME, &b.t);
 
 	if (beacon_mc) {
-		int i;
-		for(i = 0; i < NR_INTERFACES; i++)
-		   if (i2r[i].context && beacon_mc->status[i] == MC_JOINED) {
-			if (sizeof(b) > MAX_INLINE_DATA) {
-				buf = alloc_buffer();
-				memcpy(buf->raw, &b, sizeof(b));
-				send_to(i2r[i].multicast, buf, sizeof(b), beacon_mc->ai + i, false, 0, buf);
-			} else
-				send_inline(i2r[i].multicast, &b, sizeof(b), beacon_mc->ai + i, false, 0);
+		int in;
+
+		for(in = 0; in < NR_INTERFACES; in++) {
+			struct i2r_interface *i = i2r + in;
+
+			if (i->context && beacon_mc->status[in] == MC_JOINED) {
+				if (sizeof(b) > MAX_INLINE_DATA) {
+					buf = alloc_buffer(i->multicast);
+					memcpy(buf->raw, &b, sizeof(b));
+					send_to(i->multicast, buf, sizeof(b), beacon_mc->ai + in, false, 0, buf);
+				} else
+					send_inline(i->multicast, &b, sizeof(b), beacon_mc->ai + in, false, 0);
+			}
 		}
+
 	} else {
 		struct i2r_interface *i = find_interface(beacon_sin);
 
@@ -3248,7 +3266,7 @@ static void beacon_send(void)
 			beacon = false;
 			return;
 		}
-		buf = alloc_buffer();
+		buf = alloc_buffer(i->multicast);
 		memcpy(buf->raw, &b, sizeof(b));
 
 		reset_flags(buf);
