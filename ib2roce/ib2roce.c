@@ -3229,7 +3229,8 @@ static void check_joins(void)
 		 * All active so start listening. This means we no longer
 		 * are able to subscribe to Multicast groups
 		 */
-		for(i = i2r; i < i2r + NR_INTERFACES; i++) {
+		for(i = i2r; i < i2r + NR_INTERFACES; i++)
+	       	   if (i->context)	{
 			struct rdma_channel *c = i->multicast;
 
 			if (rdma_listen(c->id, 50))
