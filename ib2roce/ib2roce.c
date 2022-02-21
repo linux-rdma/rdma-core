@@ -1479,7 +1479,7 @@ static void setup_interface(enum interfaces in)
 	if (!i->multicast)
 		abort();
 
-	if (allocate_ud_qp(i->multicast, MIN(i->device_attr.max_cqe, nr_buffers / 2), true))
+	if (allocate_ud_qp(i->multicast, 1000, true))
 		abort();
 
 	if (unicast)
