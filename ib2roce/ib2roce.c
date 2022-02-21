@@ -196,6 +196,7 @@ struct rdma_channel {
 	unsigned int nr_cq;
 	unsigned long stats[nr_stats];
 	bool rdmacm;		/* Channel uses RDMACM calls */
+	bool listening;		/* Channel is listening for connections */
 	const char *text;
 	struct rdma_unicast *ru;
 	union {
@@ -580,7 +581,7 @@ static struct sockaddr_in *parse_addr(const char *arg, int port,
 	} else
 		mgid = mgid_mode;
 
-	ret = getaddrinfo(arg, service, &hints, &res);
+	ret = getaddrinfo(a, service, &hints, &res);
 	if (ret) {
 		fprintf(stderr, "getaddrinfo() failed (%s) - invalid IP address.\n", gai_strerror(ret));
 		return NULL;
@@ -3217,11 +3218,26 @@ static void add_event(unsigned long time, void (*callback))
 
 static void check_joins(void)
 {
-	/* Maintenance tasks */
-	if (nr_mc > active_mc)
-		join_processing();
+	struct i2r_interface *i;
 
-	add_event(timestamp() + 10000, check_joins);
+	/* Maintenance tasks */
+	if (nr_mc > active_mc) {
+		join_processing();
+		add_event(timestamp() + 1000, check_joins);
+	} else {
+		/*
+		 * All active so start listening. This means we no longer
+		 * are able to subscribe to Multicast groups
+		 */
+		for(i = i2r; i < i2r + NR_INTERFACES; i++) {
+			struct rdma_channel *c = i->multicast;
+
+			if (rdma_listen(c->id, 50))
+				logg(LOG_ERR, "rdma_listen on %s error %s\n", c->text, errname());
+
+			c->listening = true;
+		}
+	}
 }
 
 static void logging(void)
@@ -3316,7 +3332,6 @@ static int event_loop(void)
 		post_receive_buffers(i);
 		/* And request notifications if something happens */
 		if (i->multicast) {
-			rdma_listen(i->multicast->id, 50);
 			ibv_req_notify_cq(i->multicast->cq, 0);
 		}
 		if (i->raw) {
