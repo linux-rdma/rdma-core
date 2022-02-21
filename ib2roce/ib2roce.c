@@ -1134,6 +1134,7 @@ static void get_if_info(struct i2r_interface *i)
 {
 	int fh = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
 	struct ifreq ifr;
+	const char *reason = "socket(AF_INET, SOCK_DGRAM, IPPROTO_IP)";
 
 	if (fh < 0)
 		goto err;
@@ -1151,6 +1152,7 @@ static void get_if_info(struct i2r_interface *i)
 		memcpy(ifr.ifr_name, i->if_name, IFNAMSIZ);
 
 		/* Find if_index */
+		reason = "ioctl SIOCGIFINDEX";
 		if (ioctl(fh, SIOCGIFINDEX, &ifr) < 0)
 			goto err;
 
@@ -1160,12 +1162,14 @@ static void get_if_info(struct i2r_interface *i)
 
 		ifr.ifr_ifindex = i->ifindex;
 
+		reason= "ioctl SIOGCIFNAME";
 		if (ioctl(fh, SIOCGIFNAME, &ifr) < 0)
 			goto err;
 
 		memcpy(i->if_name, ifr.ifr_name, IFNAMSIZ);
 	}
 
+	reason="ioctl SIOCGIFADDR";
 	if (ioctl(fh, SIOCGIFADDR, &ifr) < 0)
 		goto err;
 
@@ -1178,8 +1182,8 @@ static void get_if_info(struct i2r_interface *i)
 	goto out;
 
 err:
-	logg(LOG_CRIT, "Cannot determine IP interface setup for %s",
-		     ibv_get_device_name(i->context->device));
+	logg(LOG_CRIT, "Cannot determine IP interface setup for %s %s : %s\n",
+		     ibv_get_device_name(i->context->device), reason, errname());
 
 	abort();
 
@@ -1221,13 +1225,25 @@ static struct rdma_channel *new_rdma_channel(struct i2r_interface *i)
 	return c;
 }
 
+static const char *make_ifname(enum interfaces in, const char *x)
+{
+	char *p;
+
+	p = malloc(strlen(interfaces_text[in]) + strlen(x) + 1);
+	strcpy(p, interfaces_text[in]);
+	strcat(p, x);
+	return p;
+}
+
+
 static struct rdma_channel *create_rdma_id(struct i2r_interface *i, struct sockaddr *sa)
 {
 	struct rdma_channel *c = new_rdma_channel(i);
 	enum interfaces in = i - i2r;
 	int ret;
 
-	c->text = xprintf("%s-ud", interfaces_text[in]);
+
+	c->text = make_ifname(in, "-ud");
 
 	c->bindaddr = sa;
 	ret = rdma_create_id(i->rdma_events, &c->id, c, RDMA_PS_UDP);
@@ -1269,8 +1285,8 @@ static int allocate_ud_qp(struct rdma_channel *c, unsigned nr_cq, bool multicast
 	c->nr_cq = nr_cq;
 	c->cq = ibv_create_cq(context, nr_cq, c, c->i->comp_events, 0);
 	if (!c->cq) {
-		logg(LOG_CRIT, "ibv_create_cq failed for %s.\n",
-			c->text);
+		logg(LOG_CRIT, "ibv_create_cq failed for %s : %s.\n",
+			c->text, errname());
 		return 1;
 	}
 
@@ -1320,7 +1336,9 @@ static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port
 
 	c->i = i;
 	c->rdmacm = false;
-	c->text = xprintf("%s-raw", interfaces_text[in]);
+
+	c->text = make_ifname(in, "-raw");
+
 	c->pd = ibv_alloc_pd(context);
 	if (!c->pd) {
 		logg(LOG_CRIT, "ibv_alloc_pd failed for %s.\n",
@@ -1461,7 +1479,8 @@ static void setup_interface(enum interfaces in)
 	if (!i->multicast)
 		abort();
 
-	allocate_ud_qp(i->multicast, MIN(i->device_attr.max_cqe, nr_buffers / 2), true);
+	if (allocate_ud_qp(i->multicast, MIN(i->device_attr.max_cqe, nr_buffers / 2), true))
+		abort();
 
 	if (unicast)
 		i->raw = create_raw_channel(i, i->port, 100);
