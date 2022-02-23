@@ -1265,18 +1265,15 @@ static struct rdma_channel *create_rdma_id(struct i2r_interface *i, struct socka
 
 static int allocate_ud_qp(struct rdma_channel *c, unsigned nr_cq, bool multicast)
 {
-	struct ibv_context *context;
 	struct ibv_qp_init_attr_ex init_qp_attr_ex;
 	int ret;
-
-	context = c->id->verbs;
 
 	/*
 	 * Must alloc pd for each rdma_cm_id due to limitation in rdma_create_qp
 	 * There a multiple struct ibv_context *s around . Need to use the right one
 	 * since rdma_create_qp validates the alloc pd ibv_context pointer.
 	 */
-	c->pd = ibv_alloc_pd(context);
+	c->pd = ibv_alloc_pd(c->id->verbs);
 	if (!c->pd) {
 		logg(LOG_CRIT, "ibv_alloc_pd failed for %s.\n",
 			c->text);
@@ -1284,7 +1281,7 @@ static int allocate_ud_qp(struct rdma_channel *c, unsigned nr_cq, bool multicast
 	}
 
 	c->nr_cq = nr_cq;
-	c->cq = ibv_create_cq(context, nr_cq, c, c->i->comp_events, 0);
+	c->cq = ibv_create_cq(c->id->verbs, nr_cq, c, c->i->comp_events, 0);
 	if (!c->cq) {
 		logg(LOG_CRIT, "ibv_create_cq failed for %s : %s.\n",
 			c->text, errname());
@@ -1333,14 +1330,13 @@ static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port
 	enum interfaces in = i - i2r;
 	int ret;
 	struct ibv_qp_init_attr_ex init_qp_attr_ex;
-	struct ibv_context *context = i->context;
 
 	c->i = i;
 	c->rdmacm = false;
 
 	c->text = make_ifname(in, "-raw");
 
-	c->pd = ibv_alloc_pd(context);
+	c->pd = ibv_alloc_pd(i->context);
 	if (!c->pd) {
 		logg(LOG_CRIT, "ibv_alloc_pd failed for %s.\n",
 			c->text);
@@ -1348,7 +1344,7 @@ static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port
 	}
 
 	c->nr_cq = nr_cq;
-	c->cq = ibv_create_cq(context, nr_cq, c, i->comp_events, 0);
+	c->cq = ibv_create_cq(i->context, nr_cq, c, i->comp_events, 0);
 	if (!c->cq) {
 		logg(LOG_CRIT, "ibv_create_cq failed for %s.\n",
 			c->text);
@@ -1371,7 +1367,7 @@ static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port
 	init_qp_attr_ex.pd = c->pd;
 	init_qp_attr_ex.create_flags = 0;
 
-	c->qp = ibv_create_qp_ex(context, &init_qp_attr_ex);
+	c->qp = ibv_create_qp_ex(i->context, &init_qp_attr_ex);
 	if (!c->qp) {
 		logg(LOG_CRIT, "ibv_create_qp_ex failed for %s. Error %s. Port=%d #CQ=%d\n",
 				c->text, errname(), port, nr_cq);
