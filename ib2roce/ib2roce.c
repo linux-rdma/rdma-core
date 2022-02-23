@@ -187,6 +187,7 @@ static int cq_high = 0;	/* Largest batch of CQs encountered */
 
 struct rdma_channel {
 	struct i2r_interface *i;	/* The network interface of this channel */
+	struct ibv_comp_channel *comp_events;
 	struct ibv_qp *qp;		/* Points to QP regardless of method used */
 	struct ibv_cq *cq;
 	struct ibv_pd *pd;
@@ -203,7 +204,6 @@ struct rdma_channel {
 		struct { /* RDMACM status */
 			struct rdma_cm_id *id;
 			struct sockaddr *bindaddr;
-			struct ibv_comp_channel *comp_events;
 		};
 		/* Basic RDMA channel without RDMACM */
 		struct ibv_qp_attr attr;
@@ -213,7 +213,6 @@ struct rdma_channel {
 static struct i2r_interface {
 	struct ibv_context *context;		/* Not for RDMA CM use */
 	struct rdma_event_channel *rdma_events;
-	struct ibv_comp_channel *comp_events;	/* Not for RDMA CM use */
 	struct rdma_channel *multicast;
 	struct rdma_channel *raw;
 	unsigned port;
@@ -1353,8 +1352,15 @@ static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port
 		return NULL;
 	}
 
+	c->comp_events = ibv_create_comp_channel(c->id->verbs);
+	if (!c->comp_events) {
+		logg(LOG_CRIT, "ibv_create_comp_channel failed for %s : %s.\n",
+		c->text, errname());
+		abort();
+	}
+
 	c->nr_cq = nr_cq;
-	c->cq = ibv_create_cq(i->context, nr_cq, c, i->comp_events, 0);
+	c->cq = ibv_create_cq(i->context, nr_cq, c, c->comp_events, 0);
 	if (!c->cq) {
 		logg(LOG_CRIT, "ibv_create_cq failed for %s.\n",
 			c->text);
@@ -1468,13 +1474,6 @@ static void setup_interface(enum interfaces in)
 	if (!i->rdma_events) {
 		logg(LOG_CRIT, "rdma_create_event_channel() for %s failed (%s).\n",
 			i->text, errname());
-		abort();
-	}
-
-	i->comp_events = ibv_create_comp_channel(i->context);
-	if (!i->comp_events) {
-		logg(LOG_CRIT, "ibv_create_comp_channel failed for %s.\n",
-			i->text);
 		abort();
 	}
 
