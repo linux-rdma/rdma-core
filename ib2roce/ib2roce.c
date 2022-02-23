@@ -187,7 +187,7 @@ static int cq_high = 0;	/* Largest batch of CQs encountered */
 
 struct rdma_channel {
 	struct i2r_interface *i;	/* The network interface of this channel */
-	struct ibv_qp *qp;
+	struct ibv_qp *qp;		/* Points to QP regardless of method used */
 	struct ibv_cq *cq;
 	struct ibv_pd *pd;
 	struct ibv_mr *mr;
@@ -203,6 +203,7 @@ struct rdma_channel {
 		struct { /* RDMACM status */
 			struct rdma_cm_id *id;
 			struct sockaddr *bindaddr;
+			struct ibv_comp_channel *comp_events;
 		};
 		/* Basic RDMA channel without RDMACM */
 		struct ibv_qp_attr attr;
@@ -210,14 +211,15 @@ struct rdma_channel {
 };
 
 static struct i2r_interface {
-	struct ibv_context *context;
+	struct ibv_context *context;		/* Not for RDMA CM use */
 	struct rdma_event_channel *rdma_events;
-	struct ibv_comp_channel *comp_events;
+	struct ibv_comp_channel *comp_events;	/* Not for RDMA CM use */
 	struct rdma_channel *multicast;
 	struct rdma_channel *raw;
 	unsigned port;
 	unsigned mtu;
 	unsigned maclen;
+	const char *text;
 	char if_name[IFNAMSIZ];
 	uint8_t if_mac[ETH_ALEN];
 	struct sockaddr_in if_addr;
@@ -1226,12 +1228,12 @@ static struct rdma_channel *new_rdma_channel(struct i2r_interface *i)
 	return c;
 }
 
-static const char *make_ifname(enum interfaces in, const char *x)
+static const char *make_ifname(struct i2r_interface *i, const char *x)
 {
 	char *p;
 
-	p = malloc(strlen(interfaces_text[in]) + strlen(x) + 1);
-	strcpy(p, interfaces_text[in]);
+	p = malloc(strlen(i->text) + strlen(x) + 1);
+	strcpy(p, i->text);
 	strcat(p, x);
 	return p;
 }
@@ -1240,24 +1242,23 @@ static const char *make_ifname(enum interfaces in, const char *x)
 static struct rdma_channel *create_rdma_id(struct i2r_interface *i, struct sockaddr *sa)
 {
 	struct rdma_channel *c = new_rdma_channel(i);
-	enum interfaces in = i - i2r;
 	int ret;
 
 
-	c->text = make_ifname(in, "-ud");
+	c->text = make_ifname(i, "-ud");
 
 	c->bindaddr = sa;
 	ret = rdma_create_id(i->rdma_events, &c->id, c, RDMA_PS_UDP);
 	if (ret) {
 		logg(LOG_CRIT, "Failed to allocate RDMA CM ID for %s failed (%s).\n",
-			interfaces_text[in], errname());
+			c->text, errname());
 		return NULL;
 	}
 
 	ret = rdma_bind_addr(c->id, c->bindaddr);
 	if (ret) {
 		logg(LOG_CRIT, "Failed to bind %s interface. Error %s\n",
-			interfaces_text[in], errname());
+			c->text, errname());
 		return NULL;
 	}
 	return c;
@@ -1280,8 +1281,19 @@ static int allocate_ud_qp(struct rdma_channel *c, unsigned nr_cq, bool multicast
 		return 1;
 	}
 
+	/*
+	 * Must alloate comp_events channel using the context created by rdmacm
+	 * otherwise ibv_create_cq will fail.
+	 */
+	c->comp_events = ibv_create_comp_channel(c->id->verbs);
+	if (!c->comp_events) {
+		logg(LOG_CRIT, "ibv_create_comp_channel failed for %s : %s.\n",
+			c->text, errname());
+		abort();
+	}
+
 	c->nr_cq = nr_cq;
-	c->cq = ibv_create_cq(c->id->verbs, nr_cq, c, c->i->comp_events, 0);
+	c->cq = ibv_create_cq(c->id->verbs, nr_cq, c, c->comp_events, 0);
 	if (!c->cq) {
 		logg(LOG_CRIT, "ibv_create_cq failed for %s : %s.\n",
 			c->text, errname());
@@ -1327,19 +1339,17 @@ static int allocate_ud_qp(struct rdma_channel *c, unsigned nr_cq, bool multicast
 static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port, unsigned nr_cq)
 {
 	struct rdma_channel *c = new_rdma_channel(i);
-	enum interfaces in = i - i2r;
 	int ret;
 	struct ibv_qp_init_attr_ex init_qp_attr_ex;
 
 	c->i = i;
 	c->rdmacm = false;
 
-	c->text = make_ifname(in, "-raw");
+	c->text = make_ifname(i, "-raw");
 
 	c->pd = ibv_alloc_pd(i->context);
 	if (!c->pd) {
-		logg(LOG_CRIT, "ibv_alloc_pd failed for %s.\n",
-			c->text);
+		logg(LOG_CRIT, "ibv_alloc_pd failed for %s.\n", c->text);
 		return NULL;
 	}
 
@@ -1359,7 +1369,7 @@ static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port
 	init_qp_attr_ex.cap.max_inline_data = MAX_INLINE_DATA;
 	init_qp_attr_ex.qp_context = c;
 	init_qp_attr_ex.sq_sig_all = 0;
-	init_qp_attr_ex.qp_type = (in == ROCE ? IBV_QPT_RAW_PACKET : IBV_QPT_UD),
+	init_qp_attr_ex.qp_type = (i == i2r + ROCE) ? IBV_QPT_RAW_PACKET : IBV_QPT_UD,
 	init_qp_attr_ex.send_cq = c->cq;
 	init_qp_attr_ex.recv_cq = c->cq;
 
@@ -1382,7 +1392,7 @@ static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port
 //	c->attr.qkey = 0x12345;		/* Default QKEY from ibdump source code */
 
 	ret = ibv_modify_qp(c->qp, &c->attr,
-		       in == ROCE ?
+		       (i == i2r + ROCE) ?
 				(IBV_QP_STATE | IBV_QP_PORT) :
 				( IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_QKEY)
 	);
@@ -1415,12 +1425,14 @@ static void setup_interface(enum interfaces in)
 	if (!i->context)
 		return;
 
+	i->text = interfaces_text[in];
+
 	/* Determine the GID */
 	i->iges = ibv_query_gid_table(i->context, i->ige, MAX_GID, 0);
 
 	if (i->iges <= 0) {
 		logg(LOG_CRIT, "Error %s. Failed to obtain GID table for %s\n",
-			errname(), interfaces_text[in]);
+			errname(), i->text);
 		abort();
 	}
 
@@ -1439,7 +1451,7 @@ static void setup_interface(enum interfaces in)
 
 	if (e >= i->ige + i->iges) {
 		logg(LOG_CRIT, "Failed to find GIDs in GID table for %s\n",
-			interfaces_text[in]);
+			i->text);
 		abort();
 	}
 
@@ -1455,14 +1467,14 @@ static void setup_interface(enum interfaces in)
 	i->rdma_events = rdma_create_event_channel();
 	if (!i->rdma_events) {
 		logg(LOG_CRIT, "rdma_create_event_channel() for %s failed (%s).\n",
-			interfaces_text[in], errname());
+			i->text, errname());
 		abort();
 	}
 
 	i->comp_events = ibv_create_comp_channel(i->context);
 	if (!i->comp_events) {
 		logg(LOG_CRIT, "ibv_create_comp_channel failed for %s.\n",
-			interfaces_text[in]);
+			i->text);
 		abort();
 	}
 
@@ -1483,7 +1495,7 @@ static void setup_interface(enum interfaces in)
 		i->raw = create_raw_channel(i, i->port, 100);
 
 	logg(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s:%d CQs=%u/%u MTU=%u.\n",
-		interfaces_text[in],
+		i->text,
 		ibv_get_device_name(i->context->device),
 		i->if_name, i->ifindex,
 		i->port,
@@ -1646,11 +1658,12 @@ static void resolve(struct rdma_unicast *ru)
 		resolve_start(ru);
 }
 
-static void handle_rdma_event(enum interfaces in)
+static void handle_rdma_event(void *private)
 {
+	struct i2r_interface *i = private;
 	struct rdma_cm_event *event;
 	int ret;
-	struct i2r_interface *i = i2r + in;
+	enum interfaces in = i - i2r;
 	struct rdma_unicast *ru = fifo_first(&i->resolve_queue);
 
 	ret = rdma_get_cm_event(i->rdma_events, &event);
@@ -1673,7 +1686,7 @@ static void handle_rdma_event(enum interfaces in)
 				a->ah = ibv_create_ah(i->multicast->pd, &param->ah_attr);
 				if (!a->ah) {
 					logg(LOG_ERR, "Failed to create AH for Multicast group %s on %s \n",
-						m->text, interfaces_text[in]);
+						m->text, i->text);
 					m->status[in] = MC_ERROR;
 					break;
 				}
@@ -1689,7 +1702,7 @@ static void handle_rdma_event(enum interfaces in)
 					param->qkey,
 					param->ah_attr.dlid,
 					param->ah_attr.sl,
-					interfaces_text[in]);
+					i->text);
 				st(i->multicast, join_success);
 			}
 			break;
@@ -1700,7 +1713,7 @@ static void handle_rdma_event(enum interfaces in)
 				struct mc *m = (struct mc *)param->private_data;
 
 				logg(LOG_ERR, "Multicast Error. Group %s on %s\n",
-					m->text, interfaces_text[in]);
+					m->text, i->text);
 
 				/* If already joined then the bridging may no longer work */
 				if (!bridging || (m->status[in] == MC_JOINED && m->status[in ^ 1] == MC_JOINED))
@@ -2688,7 +2701,7 @@ static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 
 	if (log_packets) {
 		memcpy(&pgm, buf->cur, sizeof(struct pgm_header));
-		logg(LOG_NOTICE, "From %s: MC=%s %s\n", interfaces_text[in], inet_ntoa(dest_addr), pgm_dump(&pgm));
+		logg(LOG_NOTICE, "From %s: MC=%s %s\n", c->text, inet_ntoa(dest_addr), pgm_dump(&pgm));
 	}
 
 	if (!m) {
@@ -2815,19 +2828,20 @@ static void reset_flags(struct buf *buf)
 	memset(&buf->ether_valid, 0, (void *)&buf->ip_csum_ok - (void *)&buf->ether_valid);
 }
 
-static void handle_comp_event(enum interfaces in)
+static void handle_comp_event(void *private)
 {
-	struct i2r_interface *i = i2r + in;
+	struct rdma_channel *c = private;
+	struct i2r_interface *i = c->i;
 	struct ibv_cq *cq;
-	struct rdma_channel *c;
 	int cqs;
 	struct ibv_wc wc[100];
 	int j;
+	struct rdma_channel *c2;
 
-	ibv_get_cq_event(i->comp_events, &cq, (void **)&c);
-	if (cq != c->cq) {
+	ibv_get_cq_event(c->comp_events, &cq, (void **)&c2);
+	if (cq != c->cq || c2 != c) {
 		logg(LOG_CRIT, "ibv_get_cq_event on %s: CQ mismatch C=%px CQ=%px\n",
-				interfaces_text[in], cq, c);
+				c->text, cq, c);
 		abort();
 	}
 
@@ -2841,7 +2855,7 @@ static void handle_comp_event(enum interfaces in)
 	cqs = ibv_poll_cq(cq, 100, wc);
 	if (cqs < 0) {
 		logg(LOG_WARNING, "CQ polling failed with: %s on %s\n",
-			errname(), interfaces_text[i - i2r]);
+			errname(), c->text);
 		goto exit;
 	}
 
@@ -2900,14 +2914,15 @@ exit:
 	post_receive_buffers(i);
 }
 
-static void handle_async_event(enum interfaces in)
+static void handle_async_event(void *private)
 {
+	struct i2r_interface *i = private;
 	struct ibv_async_event event;
 
-	if (!ibv_get_async_event(i2r[in].context, &event))
-		logg(LOG_ALERT, "Async event retrieval failed.\n");
+	if (!ibv_get_async_event(i->context, &event))
+		logg(LOG_ALERT, "Async event retrieval failed on %s.\n", i->text);
 	else
-		logg(LOG_ALERT, "Async RDMA EVENT %d\n", event.event_type);
+		logg(LOG_ALERT, "Async RDMA EVENT %d on %s\n", event.event_type, i->text);
 
 	/*
 	 * Regardless of what the cause is the first approach here
@@ -2983,9 +2998,9 @@ static void status_write(void)
 	for(i = i2r; i < i2r + NR_INTERFACES; i++) {
 
 		if (i->multicast)
-			n += channel_stats(b + n, i->multicast, interfaces_text[i - i2r], "Multicast");
+			n += channel_stats(b + n, i->multicast, i->text, "Multicast");
 		if (i->raw)
-			n += channel_stats(b + n, i->raw, interfaces_text[i - i2r], "Raw");
+			n += channel_stats(b + n, i->raw, i->text, "Raw");
 
 	}
 	n += sprintf(n + b, "\n\n\n\n\n\n\n\n");
@@ -3262,10 +3277,10 @@ static void logging(void)
 unsigned poll_items = 0;
 
 struct pollfd pfd[MAX_POLL_ITEMS];
-static void (*poll_callback[MAX_POLL_ITEMS])(unsigned);
-unsigned poll_private[MAX_POLL_ITEMS];
+static void (*poll_callback[MAX_POLL_ITEMS])(void *);
+void *poll_private[MAX_POLL_ITEMS];
 
-static void register_callback(void (*callback)(unsigned), int fd, unsigned val)
+static void register_callback(void (*callback)(void *), int fd, void *private)
 {
 	struct pollfd e = { fd, POLLIN, 0};
 
@@ -3274,22 +3289,24 @@ static void register_callback(void (*callback)(unsigned), int fd, unsigned val)
 
 	poll_callback[poll_items] = callback;
 	pfd[poll_items] = e;
-	poll_private[poll_items] = val;
+	poll_private[poll_items] = private;
 	poll_items++;
 }
 
-static void register_events(void)
+static void register_poll_events(void)
 {
-	if (i2r[INFINIBAND].context) {
-		register_callback(handle_rdma_event, i2r[INFINIBAND].rdma_events->fd, INFINIBAND);
-		register_callback(handle_comp_event, i2r[INFINIBAND].comp_events->fd, INFINIBAND);
-		register_callback(handle_async_event, i2r[INFINIBAND].context->async_fd, INFINIBAND);
-	}
+	struct i2r_interface *i;
 
-	if (i2r[ROCE].context) {
-		register_callback(handle_rdma_event, i2r[ROCE].rdma_events->fd, ROCE);
-		register_callback(handle_comp_event, i2r[ROCE].comp_events->fd, ROCE);
-		register_callback(handle_async_event, i2r[ROCE].context->async_fd, ROCE);
+	for(i = i2r; i < i2r + NR_INTERFACES; i++)
+	   if (i->context) {
+
+		register_callback(handle_rdma_event, i->rdma_events->fd, i);
+		register_callback(handle_comp_event, i->multicast->comp_events->fd, i->multicast);
+		register_callback(handle_async_event, i->context->async_fd, i);
+
+		if (i->raw)
+			register_callback(handle_comp_event, i->raw->comp_events->fd, i->raw);
+
 	}
 
 #ifdef NETLINK_SUPPORT
@@ -3669,7 +3686,7 @@ int main(int argc, char **argv)
 	}
 #endif
 
-	register_events();
+	register_poll_events();
 
 	event_loop();
 
