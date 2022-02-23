@@ -38,24 +38,45 @@ void fifo_test(void);
  * The lower 3 bits are used to indicate collisions. Lookups
  * can then store the colliding points in overflow areas.
  *
- * The lower 3 bits indicate which of the 7 collision avoidance
- * areas are to be used.
+ * 000 Pointer to the hashed object
+ * 001 Number of collision entries at this address followed by the pointers
+ * 010 2 Collision entries at the address pointed to.
+ * 011 3
+ * ...
+ * 111 7 Collision entries at the indicated address
  *
- * The unsigned longs in the collisions avoidance area can also
- * have indications in the lower 3 bits indicating more collision
- * handling to be done
  */
-#define HASH_COLL_BITS 0x7ULL
+#define HASH_COLL_INIT_SIZE 4
 #define HASH_INIT_BITS 4
+
+#define HASH_FLAG_STATISTICS (1 << 0)		/* Statistics are enable */
+#define HASH_FLAG_LOCAL (1 << 1)		/* Local array is being used. No Malloc */
+#define HASH_FLAG_REORG_RUNNING (1 << 2)	/* A Reorg of the hash is in progress */
+#define HASH_FLAG_REORG_FAIL (1 << 3 )		/* Abort the unsuccessful reorg */
+#define HASH_FLAG_CORRUPTED (1 << 4)		/* Unrecoverable Metadata consistency issue */
+#define HASH_FLAG_VERBOSE (1 << 5)		/* Show statistics during reorg */
 
 struct hash {
 	unsigned short key_offset;
 	unsigned short key_length;
-	unsigned short hash_bits;
-	unsigned short flags;
-	unsigned long *table;
-	unsigned long coll[HASH_COLL_BITS + 1];
-	unsigned long local_table[1 << HASH_INIT_BITS];
+	unsigned char hash_bits;		/* Bits of the 32 bit hash to use */
+	unsigned char coll_size;		/* 1 << N size of collision area */
+	unsigned char coll_unit;		/* Size in words of a single allocation */
+	unsigned char flags;			/* Flags */
+	void **table;				/* Colltable follows hash table */
+	union {
+		void *local[(1 << HASH_INIT_BITS) + (1 << HASH_COLL_INIT_SIZE)];
+		struct {
+			unsigned collisions;
+			unsigned hash_free;	/* Unused entries */
+			unsigned items;		/* How many items in the table */
+			unsigned coll_free;	/* How many unit blocks are still available */
+			unsigned coll_max;	/* Maximum Collisions per hash entry */
+			unsigned coll_contig;	/* Maximum Contiguous area in Collision table */
+			unsigned coll_reloc;	/* Relocation of free list */
+			unsigned coll[8];	/* Statistics for collision sizes. 0 = larger collisions */
+		};
+	};
 };
 
 struct hash *hash_create(unsigned offset, unsigned length);
@@ -64,8 +85,8 @@ void hash_del(struct hash *h, void *object);
 void *hash_find(struct hash *h, void *key);
 
 /* Read N objects starting at the mths one */
-int hash_get_objects(struct hash *h, unsigned first, unsigned number, void **objects);
-unsigned long hash_items(struct hash *h);
+unsigned int hash_get_objects(struct hash *h, unsigned first, unsigned number, void **objects);
+unsigned int hash_items(struct hash *h);
 void hash_test(void);
 
 #endif
