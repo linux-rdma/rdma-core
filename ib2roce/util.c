@@ -238,12 +238,16 @@ static void **coll_alloc(struct hash *h, int words)
 	unsigned match = words > h->coll_unit ? words : h->coll_unit;
 	unsigned units = (match + (h->coll_unit - 1)) / h->coll_unit;
 	void **p;
+	unsigned last = 0;
 
+	if (h->flags & HASH_FLAG_STATISTICS)
+		last = h->coll_last;
+retry:
 	/*
 	 * Trivial implementation for now. We should pick up
 	 * at the last address for larger collision tables
 	 */
-	for (p = ct; p < ce; p += h->coll_unit) {
+	for (p = ct + last; p < ce; p += h->coll_unit) {
 		unsigned len = 0;
 		void **q;
 
@@ -251,10 +255,18 @@ static void **coll_alloc(struct hash *h, int words)
 			if (*q)
 				break;
 
-		if (len == units)
+		if (len == units) {
+			if (h->flags & HASH_FLAG_STATISTICS)
+				h->coll_last = p - ct;
 			return p;
+		}
 	}
-
+	if ((h->flags & HASH_FLAG_STATISTICS) && h->coll_last) {
+		/* Search the beginning */
+		ce = ct + h->coll_last;
+		h->coll_last = 0;
+		goto retry;
+	}
 	/* Out of Collision space */
 	return NULL;
 
@@ -947,7 +959,7 @@ void hash_test(void)
 	unsigned n = 0;
 
 	srand(seed);
-	max = rand() % 1000000;
+	max = rand() % 100000;
 	printf("Hash Test with %d items\n", max);
 	h = hash_create(0, sizeof(unsigned long));
 
