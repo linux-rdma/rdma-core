@@ -793,6 +793,17 @@ static unsigned int hash_check(struct hash *h)
 	return errors;
 }
 
+static const char *coll_str[9] = {
+	"More >8 Cl",
+	"No Collis ",
+	"Duplicate ",
+	"Triplicate",
+	"4 Objects ",
+	"5 Objects ",
+	"6 Objects ",
+	"7 Objects ",
+	"8 Objects "
+};
 
 static void hash_expand(struct hash *h)
 {
@@ -809,13 +820,13 @@ static void hash_expand(struct hash *h)
 
 	if (h->flags & HASH_FLAG_VERBOSE) {
 
-		printf("hash_expand entered. Bits=%d ColSize=%d items=%d collisions=%d\n", h->hash_bits, h->coll_size, hash_items(h), hash_colls(h));
+		printf("Expanding Hash. Bits=%d ColSize=%d items=%d collisions=%d\n", h->hash_bits, h->coll_size, hash_items(h), hash_colls(h));
 		if (h->flags & HASH_FLAG_STATISTICS) {
 			printf("Items= %d Collisions=%d MaxColl=%d FreeEntries=%d\n",
 					h->items, h->collisions, h->coll_max, h->hash_free);
 			printf("Relocations=%d\n", h->coll_reloc);
-			for(i=0; i < 9; i++)
-				printf("Coll size %d = %d\n", i, h->coll[i]);
+			for(i=0; i < 9; i++) if (h->coll[i])
+				printf("%s  = %d\n", coll_str[i], h->coll[i]);
 		}
 	}
 redo:
