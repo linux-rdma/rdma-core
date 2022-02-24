@@ -236,6 +236,7 @@ static void **coll_alloc(struct hash *h, int words)
 	void **ct = h->table + (1 << h->hash_bits);
 	void **ce = ct + (1 << h->coll_size);
 	unsigned match = words > h->coll_unit ? words : h->coll_unit;
+	unsigned units = (match + (h->coll_unit - 1)) / h->coll_unit;
 	void **p;
 
 	/*
@@ -246,11 +247,11 @@ static void **coll_alloc(struct hash *h, int words)
 		unsigned len = 0;
 		void **q;
 
-		for (q = p; q < ce && len < match; q++, len++)
+		for (q = p; q < ce && len < units; q += h->coll_unit, len++)
 			if (*q)
 				break;
 
-		if (len == match)
+		if (len == units)
 			return p;
 	}
 
