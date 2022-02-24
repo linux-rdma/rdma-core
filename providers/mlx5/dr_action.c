@@ -706,6 +706,9 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			attr.decap_actions = action->rewrite.param.num_of_actions;
 			attr.decap_with_vlan =
 				attr.decap_actions == WITH_VLAN_NUM_HW_ACTIONS;
+			if (action->rewrite.ptrn_arg.ptrn &&
+			    action->rewrite.ptrn_arg.arg)
+				attr.args_index = dr_arg_get_object_id(action->rewrite.ptrn_arg.arg);
 			break;
 		case DR_ACTION_TYP_MODIFY_HDR:
 			if (action->rewrite.is_root_level) {
@@ -1367,6 +1370,7 @@ dr_action_create_reformat_action(struct mlx5dv_dr_domain *dmn,
 				 struct mlx5dv_dr_action *action)
 {
 	struct mlx5dv_devx_obj *obj;
+	uint8_t *hw_actions;
 
 	switch (action->action_type) {
 	case DR_ACTION_TYP_L2_TO_TNL_L2:
@@ -1393,8 +1397,13 @@ dr_action_create_reformat_action(struct mlx5dv_dr_domain *dmn,
 	}
 	case DR_ACTION_TYP_TNL_L3_TO_L2:
 	{
-		uint8_t hw_actions[ACTION_CACHE_LINE_SIZE] = {};
 		int ret;
+
+		hw_actions = calloc(1, ACTION_CACHE_LINE_SIZE);
+		if (!hw_actions) {
+			errno = ENOMEM;
+			return errno;
+		}
 
 		ret = dr_ste_set_action_decap_l3_list(dmn->ste_ctx,
 						      data, data_sz,
@@ -1403,26 +1412,16 @@ dr_action_create_reformat_action(struct mlx5dv_dr_domain *dmn,
 						      &action->rewrite.param.num_of_actions);
 		if (ret) {
 			dr_dbg(dmn, "Failed creating decap l3 action list\n");
-			return ret;
+			goto free_hw_actions;
 		}
 
-		action->rewrite.param.chunk = dr_icm_alloc_chunk(dmn->action_icm_pool,
-								 DR_CHUNK_SIZE_8);
-		if (!action->rewrite.param.chunk) {
-			dr_dbg(dmn, "Failed allocating modify header chunk\n");
-			return errno;
-		}
+		action->rewrite.param.data = hw_actions;
+		action->rewrite.dmn = dmn;
 
-		action->rewrite.param.data = (void *)hw_actions;
-		action->rewrite.param.index = (action->rewrite.param.chunk->icm_addr -
-					       dmn->info.caps.hdr_modify_icm_addr) /
-					       ACTION_CACHE_LINE_SIZE;
-
-		ret = dr_send_postsend_action(dmn, action);
+		ret = dr_ste_alloc_modify_hdr(action);
 		if (ret) {
-			dr_dbg(dmn, "Writing decap l3 actions to ICM failed\n");
-			dr_icm_free_chunk(action->rewrite.param.chunk);
-			return ret;
+			dr_dbg(dmn, "Failed prepare reformat data\n");
+			goto free_hw_actions;
 		}
 		return 0;
 	}
@@ -1431,6 +1430,9 @@ dr_action_create_reformat_action(struct mlx5dv_dr_domain *dmn,
 		errno = ENOTSUP;
 		return errno;
 	}
+free_hw_actions:
+	free(hw_actions);
+	return errno;
 }
 
 struct mlx5dv_dr_action *
@@ -2808,10 +2810,12 @@ int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action)
 		atomic_fetch_sub(&action->reformat.dmn->refcount, 1);
 		break;
 	case DR_ACTION_TYP_TNL_L3_TO_L2:
-		if (action->reformat.is_root_level)
+		if (action->reformat.is_root_level) {
 			mlx5_destroy_flow_action(action->reformat.flow_action);
-		else
-			dr_icm_free_chunk(action->rewrite.param.chunk);
+		} else {
+			dr_ste_free_modify_hdr(action);
+			free(action->rewrite.param.data);
+		}
 		atomic_fetch_sub(&action->reformat.dmn->refcount, 1);
 		break;
 	case DR_ACTION_TYP_L2_TO_TNL_L2:

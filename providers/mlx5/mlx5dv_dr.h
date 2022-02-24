@@ -1199,6 +1199,11 @@ struct dr_rewrite_param {
 	uint32_t index;
 };
 
+enum dr_ptrn_type {
+	DR_PTRN_TYP_MODIFY_HDR = DR_ACTION_TYP_MODIFY_HDR,
+	DR_PTRN_TYP_TNL_L3_TO_L2 = DR_ACTION_TYP_TNL_L3_TO_L2,
+};
+
 struct dr_ptrn_obj {
 	struct dr_rewrite_param rewrite_param;
 	atomic_int refcount;
@@ -1709,6 +1714,7 @@ dr_ptrn_mngr_create(struct mlx5dv_dr_domain *dmn);
 void dr_ptrn_mngr_destroy(struct dr_ptrn_mngr *mngr);
 struct dr_ptrn_obj *
 dr_ptrn_cache_get_pattern(struct dr_ptrn_mngr *mngr,
+			  enum dr_ptrn_type type,
 			  uint16_t num_of_actions,
 			  uint8_t *data);
 void dr_ptrn_cache_put_pattern(struct dr_ptrn_mngr *mngr,

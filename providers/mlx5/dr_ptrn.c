@@ -48,8 +48,32 @@ static bool dr_ptrn_compare_modify_hdr(size_t cur_num_of_actions,
 	return true;
 }
 
+static bool dr_ptrn_compare_pattern(enum dr_ptrn_type type,
+				    size_t cur_num_of_actions,
+				    __be64 cur_hw_action[],
+				    size_t num_of_actions,
+				    __be64 hw_action[])
+{
+	if (cur_num_of_actions != num_of_actions)
+		return false;
+
+	switch (type) {
+	case DR_PTRN_TYP_MODIFY_HDR:
+		return dr_ptrn_compare_modify_hdr(cur_num_of_actions,
+						  (__be64 *)cur_hw_action,
+						  num_of_actions,
+						  (__be64 *)hw_action);
+	case DR_PTRN_TYP_TNL_L3_TO_L2:
+		return true;
+	default:
+		assert(false);
+		return false;
+	}
+}
+
 static struct dr_ptrn_obj *
 dr_ptrn_find_cached_pattern(struct dr_ptrn_mngr *mngr,
+			    enum dr_ptrn_type type,
 			    size_t num_of_actions,
 			    __be64 hw_actions[])
 {
@@ -57,10 +81,11 @@ dr_ptrn_find_cached_pattern(struct dr_ptrn_mngr *mngr,
 	struct dr_ptrn_obj *cached_pattern;
 
 	list_for_each_safe(&mngr->ptrn_list, cached_pattern, tmp, list) {
-		if (dr_ptrn_compare_modify_hdr(cached_pattern->rewrite_param.num_of_actions,
-					       (__be64 *)cached_pattern->rewrite_param.data,
-					       num_of_actions,
-					       hw_actions)) {
+		if (dr_ptrn_compare_pattern(type,
+					    cached_pattern->rewrite_param.num_of_actions,
+					    (__be64 *)cached_pattern->rewrite_param.data,
+					    num_of_actions,
+					    hw_actions)) {
 			list_del(&cached_pattern->list);
 			list_add(&mngr->ptrn_list, &cached_pattern->list);
 			return cached_pattern;
@@ -105,6 +130,7 @@ free_pattern:
 
 struct dr_ptrn_obj *
 dr_ptrn_cache_get_pattern(struct dr_ptrn_mngr *mngr,
+			  enum dr_ptrn_type type,
 			  uint16_t num_of_actions,
 			  uint8_t *data)
 {
@@ -118,6 +144,7 @@ dr_ptrn_cache_get_pattern(struct dr_ptrn_mngr *mngr,
 
 	pthread_mutex_lock(&mngr->modify_hdr_mutex);
 	pattern = dr_ptrn_find_cached_pattern(mngr,
+					      type,
 					      num_of_actions,
 					      (__be64 *)data);
 	if (!pattern) {

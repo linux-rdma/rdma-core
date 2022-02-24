@@ -3475,6 +3475,7 @@ static int dr_ste_v1_alloc_modify_hdr_ptrn_arg(struct mlx5dv_dr_action *action,
 	}
 
 	action->rewrite.ptrn_arg.ptrn = dr_ptrn_cache_get_pattern(ptrn_mngr,
+								  (enum dr_ptrn_type)action->action_type,
 								  action->rewrite.param.num_of_actions,
 								  action->rewrite.param.data);
 	if (!action->rewrite.ptrn_arg.ptrn) {
