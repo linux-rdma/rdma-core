@@ -195,7 +195,7 @@ struct hash *hash_create(unsigned offset, unsigned length)
 	h->table = h->local;
 	h->flags = HASH_FLAG_LOCAL;
 	h->hash_bits = HASH_INIT_BITS;
-	h->coll_size = HASH_COLL_INIT_SIZE;
+	h->coll_bits = HASH_COLL_INIT_BITS;
 	h->coll_unit = 4;
 	return h;
 }
@@ -234,7 +234,7 @@ static int hash_keycomp_oo(struct hash *h, void *o1, void *o2)
 static void **coll_alloc(struct hash *h, int words)
 {
 	void **ct = h->table + (1 << h->hash_bits);
-	void **ce = ct + (1 << h->coll_size);
+	void **ce = ct + (1 << h->coll_bits);
 	unsigned match = words > h->coll_unit ? words : h->coll_unit;
 	unsigned units = (match + (h->coll_unit - 1)) / h->coll_unit;
 	void **p;
@@ -672,7 +672,7 @@ unsigned int hash_items(struct hash *h)
 static unsigned coll_avail(struct hash *h)
 {
 	void **ct = h->table + (1 << h->hash_bits);
-	void **ce = ct + (1 << h->coll_size);
+	void **ce = ct + (1 << h->coll_bits);
 	void **p;
 	unsigned coll_contig = 0;
 	unsigned coll_free = 0;
@@ -806,6 +806,13 @@ static unsigned int hash_check(struct hash *h)
 	return errors;
 }
 
+static unsigned hash_size(struct hash *h)
+{
+	unsigned words = (1 << h->hash_bits) + (1 << h->coll_bits);
+
+	return words * sizeof(void *);
+}	
+
 static const char *coll_str[9] = {
 	"More >8 Cl",
 	"No Collis ",
@@ -833,11 +840,10 @@ static void hash_expand(struct hash *h)
 
 	if (h->flags & HASH_FLAG_VERBOSE) {
 
-		printf("Expanding Hash. Bits=%d ColSize=%d items=%d collisions=%d\n", h->hash_bits, h->coll_size, hash_items(h), hash_colls(h));
+		printf("Expanding Hash. Bits=%d/%d Size=%d bytes\n", h->hash_bits, h->coll_bits, hash_size(h));
 		if (h->flags & HASH_FLAG_STATISTICS) {
-			printf("Items= %d Collisions=%d MaxColl=%d FreeEntries=%d\n",
-					h->items, h->collisions, h->coll_max, h->hash_free);
-			printf("Relocations=%d\n", h->coll_reloc);
+			printf("Items= %d/%d Longest CollChain=%d FreeCollEntries==%d Relocations=%d\n",
+					h->items, h->collisions, h->coll_max, h->hash_free,  h->coll_reloc);
 			for(i=0; i < 9; i++) if (h->coll[i])
 				printf("%s  = %d\n", coll_str[i], h->coll[i]);
 		}
@@ -864,7 +870,7 @@ redo:
 		/* Have statistics. Make some intelligent decisions here */
 		if (old.items < oldsize / 2)
 			/* Not too dense of a HASH. Increase the collision table size */
-			h->coll_size++;
+			h->coll_bits++;
 		else
 			h->hash_bits++;
 
@@ -878,7 +884,7 @@ redo:
 		abort();
 	}
 
-	size = sizeof(unsigned long) * ((1 << h->hash_bits) + (1 << h->coll_size));
+	size = hash_size(h);
 	h->table = calloc(1, size);
 	if (!h->table) {
 		printf("Hash cannot allocate %lu bytes of memory\n", size);
@@ -925,7 +931,7 @@ redo:
 			 * More than half of the collision area used after a reorg.
 			 * If so retry.
 			 */
-			if (h->coll_free < (1 << (h->coll_size - 1))/ h->coll_unit) {
+			if (h->coll_free < (1 << (h->coll_bits - 1))/ h->coll_unit) {
 			       free(h->table);
 			       goto redo;
 			}
@@ -940,8 +946,8 @@ redo:
 
 	if (h->flags & HASH_FLAG_VERBOSE) {
 		coll_avail(h);
-		printf("Hash Reorg: Keybits=%d Coll=%d Items %d. Capacity %d. Collisions %d. OccRate =%d %% Reloc=%d CollAvail=%d MaxContig=%d\n",
-			h->hash_bits, h->coll_size, hash_items(h), 1 << h->hash_bits, hash_colls(h),
+		printf("Hash Reorg Complete: Size=%d Bits=%d/%d Items %d/%d. Capacity %d/%d.  OccRate =%d %% Reloc=%d CollAvail=%d LargestContigAvail=%d\n",
+			hash_size(h), h->hash_bits, h->coll_bits, hash_items(h), hash_colls(h), 1 << h->hash_bits, 1 << h->coll_bits,
 			hash_items(h) * 100 / (1 << h->hash_bits), h->coll_reloc, h->coll_free, h->coll_contig);
 	}
 

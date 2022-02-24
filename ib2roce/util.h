@@ -46,7 +46,7 @@ void fifo_test(void);
  * 111 7 Collision entries at the indicated address
  *
  */
-#define HASH_COLL_INIT_SIZE 4
+#define HASH_COLL_INIT_BITS 4
 #define HASH_INIT_BITS 4
 
 #define HASH_FLAG_STATISTICS (1 << 0)		/* Statistics are enable */
@@ -60,13 +60,14 @@ struct hash {
 	unsigned short key_offset;
 	unsigned short key_length;
 	unsigned char hash_bits;		/* Bits of the 32 bit hash to use */
-	unsigned char coll_size;		/* 1 << N size of collision area */
+	unsigned char coll_bits;		/* 1 << N size of collision area */
 	unsigned char coll_unit;		/* Size in words of a single allocation */
 	unsigned char flags;			/* Flags */
 	void **table;				/* Colltable follows hash table */
 	union {
-		void *local[(1 << HASH_INIT_BITS) + (1 << HASH_COLL_INIT_SIZE)];
+		void *local[(1 << HASH_INIT_BITS) + (1 << HASH_COLL_INIT_BITS)];
 		struct {
+			unsigned coll_last;	/* Last point of allocation */
 			unsigned collisions;
 			unsigned hash_free;	/* Unused entries */
 			unsigned items;		/* How many items in the table */
