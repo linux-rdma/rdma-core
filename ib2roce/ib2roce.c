@@ -846,7 +846,7 @@ static void init_buf(void)
 	if (huge)
 		flags |= MAP_HUGETLB;
 
-	buffers = mmap(0, nr_buffers * BUFFER_SIZE, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
+	buffers = mmap(0, nr_buffers * BUFFER_SIZE, PROT_READ|PROT_WRITE, flags, -1, 0);
 	if (!buffers) {
 		logg(LOG_CRIT, "Cannot allocate %d KB of memory required for %d buffers. Error %s\n",
 				nr_buffers * (BUFFER_SIZE / 1024), nr_buffers, errname());
