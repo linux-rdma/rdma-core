@@ -43,11 +43,14 @@
 #include <stdarg.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <string.h>
 #include <time.h>
 #include <stdint.h>
+#include <errno.h>
 
 #include "util.h"
+#include "errno.c"
 
 #define COLL_COUNT_IN_TABLE 1
 #define NO_COLLISION 0
@@ -875,8 +878,8 @@ redo:
 
 	size = hash_size(h);
 	h->coll_next = 0;
-	h->table = calloc(1, size);
-	if (!h->table) {
+	h->table =  mmap(0, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
+	if (h->table == MAP_FAILED) {
 		printf("Hash cannot allocate %lu bytes of memory\n", size);
 		abort();
 	}	       
@@ -927,14 +930,14 @@ redo:
 				
 				printf ("Coll table too small. Coll_free = %u. Capacity = %u\n",
 					h->coll_free, 1 << (h->coll_bits - h->coll_ubits));
-				free(h->table);
+				munmap(h->table, hash_size(h));
 				goto redo;
 			}
 		}
 	}
 
 	if (old.table != h->local)
-		free(old.table);
+		munmap(old.table, hash_size(&old));
 	else {
 		h->flags &= ~HASH_FLAG_LOCAL;
 	}
