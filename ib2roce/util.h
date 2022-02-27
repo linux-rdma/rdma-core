@@ -61,19 +61,18 @@ struct hash {
 	unsigned short key_length;
 	unsigned char hash_bits;		/* Bits of the 32 bit hash to use */
 	unsigned char coll_bits;		/* 1 << N size of collision area */
-	unsigned char coll_unit;		/* Size in words of a single allocation */
+	unsigned char coll_ubits;		/* 2^ubits allocations size in words */
 	unsigned char flags;			/* Flags */
+	unsigned coll_next;			/* Next free unit in coll area */
 	void **table;				/* Colltable follows hash table */
 	union {
 		void *local[(1 << HASH_INIT_BITS) + (1 << HASH_COLL_INIT_BITS)];
 		struct {
-			unsigned coll_last;	/* Last point of allocation */
 			unsigned collisions;
 			unsigned hash_free;	/* Unused entries */
 			unsigned items;		/* How many items in the table */
 			unsigned coll_free;	/* How many unit blocks are still available */
 			unsigned coll_max;	/* Maximum Collisions per hash entry */
-			unsigned coll_contig;	/* Maximum Contiguous area in Collision table */
 			unsigned coll_reloc;	/* Relocation of free list */
 			unsigned coll[8];	/* Statistics for collision sizes. 0 = larger collisions */
 		};

@@ -196,7 +196,7 @@ struct hash *hash_create(unsigned offset, unsigned length)
 	h->flags = HASH_FLAG_LOCAL;
 	h->hash_bits = HASH_INIT_BITS;
 	h->coll_bits = HASH_COLL_INIT_BITS;
-	h->coll_unit = 4;
+	h->coll_ubits = 1;	/* Yields about 8 doublett collision entries on the initial config */
 	return h;
 }
 
@@ -233,42 +233,38 @@ static int hash_keycomp_oo(struct hash *h, void *o1, void *o2)
 
 static void **coll_alloc(struct hash *h, int words)
 {
-	void **ct = h->table + (1 << h->hash_bits);
-	void **ce = ct + (1 << h->coll_bits);
-	unsigned match = words > h->coll_unit ? words : h->coll_unit;
-	unsigned units = (match + (h->coll_unit - 1)) / h->coll_unit;
-	void **p;
-	unsigned last = 0;
+	void **collt = h->table + (1 << h->hash_bits);
+	unsigned collt_size = 1 << h->coll_bits;
+	unsigned next = h->coll_next;
+	unsigned end = collt_size;
+	unsigned o,p;
 
-	if (h->flags & HASH_FLAG_STATISTICS)
-		last = h->coll_last;
 retry:
-	/*
-	 * Trivial implementation for now. We should pick up
-	 * at the last address for larger collision tables
-	 */
-	for (p = ct + last; p < ce; p += h->coll_unit) {
-		unsigned len = 0;
-		void **q;
+	for (o = next; o < end; o += (1 << h->coll_ubits)) {
 
-		for (q = p; q < ce && len < units; q += h->coll_unit, len++)
-			if (*q)
+		for (p = 0; o + p < collt_size && p < words; p++)
+			if (collt[o + p])
 				break;
 
-		if (len == units) {
-			if (h->flags & HASH_FLAG_STATISTICS)
-				h->coll_last = p - ct;
-			return p;
+		if (p >= words) {
+			next = o + p;
+			goto done;
 		}
 	}
-	if ((h->flags & HASH_FLAG_STATISTICS) && h->coll_last) {
+
+	if (next) {
 		/* Search the beginning */
-		ce = ct + h->coll_last;
-		h->coll_last = 0;
+		end = next;
+		next = 0;
 		goto retry;
 	}
+
 	/* Out of Collision space */
 	return NULL;
+
+done:
+	h->coll_next = next;
+	return collt + o;
 
 }
 
@@ -360,8 +356,8 @@ void hash_add(struct hash *h, void *object)
 
 		objtable = cp + 1;
 
-		if (nr + 1 >= MAX_COLLISIONS) {
-			printf("Hash chains reached maximum size of 200 elements.\n");
+		if (!nr || nr + 1 >= MAX_COLLISIONS) {
+			printf("Number of collisions incorrect &%d=%ds.\n", hash, nr);
 			abort();
 		}
 
@@ -451,13 +447,15 @@ void hash_add(struct hash *h, void *object)
 
 extend_hash:
 	/* Too many collisions. Table reorg needed */
-	if (!(h->flags & HASH_FLAG_REORG_RUNNING)) {
-		hash_expand(h);
-		hash_add(h, object);
+	if (h->flags & HASH_FLAG_REORG_RUNNING)	{
+		/* This reorg is not going to work out */
+		h->flags |= HASH_FLAG_REORG_FAIL;
+		return;
 	}
-
-	/* This reorg is not going to work out */
-	h->flags |= HASH_FLAG_REORG_FAIL;
+	
+	hash_expand(h);
+	hash_add(h, object);
+	return;
 }
 
 void hash_del(struct hash *h, void *object)
@@ -493,6 +491,9 @@ void hash_del(struct hash *h, void *object)
 		collisions = lower_bits;
 		objtable = cp;
 	}
+
+	if (collisions < 2)
+		printf("Collisions < 2!!!");
 
 	/* Find the key in the list of collision entries */
 	for(i = 0; i < collisions; i++) {
@@ -642,68 +643,6 @@ out:
 	return stored;
 }
 
-unsigned int hash_items(struct hash *h)
-{
-	unsigned i;
-	unsigned items = 0;
-	
-	for(i = 0; i < (1 << h->hash_bits); i++) {
-		void *o = h->table[i];
-		unsigned lower_bits = get_lower(o);
-
-		if (o) {
-			if (!lower_bits)
-				/* Single entry in Hashtable */
-				items++;
-			else if (lower_bits != COLL_COUNT_IN_TABLE)
-				/* N entries in colltable. NR in hash */
-				items += lower_bits;
-			else {
-				/* N entries in colltable. NR in colltable */
-				void **p = (void **)clear_lower(o);
-
-				items += get_u64(p);
-			}
-		}
-	}
-	return items;
-}
-
-static unsigned coll_avail(struct hash *h)
-{
-	void **ct = h->table + (1 << h->hash_bits);
-	void **ce = ct + (1 << h->coll_bits);
-	void **p;
-	unsigned coll_contig = 0;
-	unsigned coll_free = 0;
-
-	for (p = ct; p < ce; p += h->coll_unit) {
-
-		if (!*p) {
-			void **q = p + 1;
-			unsigned length;
-
-			coll_free++;
-			length = 1;
-
-			while (q < ce && !*q++ && length < MAX_COLLISIONS)
-				length++;
-
-			if (length > coll_contig)
-				coll_contig = length;
-		}
-
-	}
-
-	if (h->flags & HASH_FLAG_STATISTICS) {
-		h->coll_contig = coll_contig;
-		h->coll_free = coll_free;
-	}
-
-	return coll_free;
-}
-
-
 static unsigned int hash_colls(struct hash *h)
 {
 	unsigned i;
@@ -766,18 +705,27 @@ static unsigned int hash_check(struct hash *h)
 {
 	unsigned i,j;
 	int errors = 0;
+	uint8_t *ckc;
+	void **collt = h->table + (1 << h->hash_bits);
+	unsigned items = 0;
+	unsigned coll_free = 0;
+
+	ckc = calloc(1, 1 << h->coll_bits);
 
 	for(i = 0; i < (1 << h->hash_bits); i++) {
 		void *o = h->table[i];
 		int nr;
+		unsigned collindex;
 		void **cp;
 		unsigned lower_bits = get_lower(o);
 
 		if (!o)
 			continue;
 
-		if (!lower_bits)
+		if (!lower_bits) {
+			items++;
 			continue;
+		}
 
 		cp = clear_lower(o);
 		if (lower_bits != COLL_COUNT_IN_TABLE)
@@ -797,12 +745,52 @@ static unsigned int hash_check(struct hash *h)
 			cp++;
 		}
 
-		for (j = 0; j < nr; j++)
-			if (!cp[j]) {
-				printf("Entry %d(%d) object=%d == NULL\n", i, lower_bits, j);
+		items += nr;
+
+		collindex = cp - collt;
+		for (j = 0; j < nr; j++) {
+			unsigned long val  = (unsigned long)cp[j];
+
+			if (val < 0x1000000) {
+				printf("Entry %u(%u) object#%u invalid coll cell contents %lx.\n", i, lower_bits, j, val);
 				errors++;
 			}
+
+			if (val && ckc[collindex + j]++) {
+				printf("Entry %u(%u) object#%u points to coll cell (%u) used before (%u times).\n",
+					       i, lower_bits, j, collindex + j , ckc[collindex +j]);
+				errors++;
+			}
+		}
 	}
+
+	for(i = 0; i < (1 << h->coll_bits); i++) {
+		void *o = h->table[(1 << h->hash_bits) + i];
+		uint8_t ck = ckc[i];
+
+		if (!o) {
+       			if (ck) {
+				printf("Reference to zero Coll Cell %u. References %u\n", i, ck);
+				errors++;
+			} else
+				coll_free++;
+
+		} else {
+			if (!ck) {
+				printf("Coll Cell %u has contents without a reference to it.\n", i);
+				errors++;
+			}
+		}
+	}
+	free(ckc);
+	if (h->flags & HASH_FLAG_STATISTICS) {
+		h->coll_free = coll_free;
+		h->items = items;
+	}
+
+	if (errors)
+		printf("Hash Check Bits=%d/%d Capacity=%u/%u collubits=%u items=%u coll_free=%u errors=%u\n",
+			h->hash_bits, h->coll_bits, 1 << h->hash_bits, 1 << h->coll_bits, h->coll_ubits, items, coll_free, errors);
 	return errors;
 }
 
@@ -834,7 +822,7 @@ static void hash_expand(struct hash *h)
 	unsigned long size;
 
 	if (h->flags & HASH_FLAG_REORG_RUNNING)
-		return;
+		abort();
 
 	h->flags |= HASH_FLAG_REORG_RUNNING;
 
@@ -863,6 +851,7 @@ redo:
 			 * the collision table alone.
 			 */
 			h->flags |= HASH_FLAG_STATISTICS;
+			h->coll_ubits = 2;
 		}
 		h->hash_bits++;
 
@@ -885,6 +874,7 @@ redo:
 	}
 
 	size = hash_size(h);
+	h->coll_next = 0;
 	h->table = calloc(1, size);
 	if (!h->table) {
 		printf("Hash cannot allocate %lu bytes of memory\n", size);
@@ -926,14 +916,19 @@ redo:
 			}
 		}
 		if (h->flags & HASH_FLAG_STATISTICS) {
-			coll_avail(h);
+			if (hash_check(h))		/* Update statistics */
+				abort();
+
 			/*
 			 * More than half of the collision area used after a reorg.
 			 * If so retry.
 			 */
-			if (h->coll_free < (1 << (h->coll_bits - 1))/ h->coll_unit) {
-			       free(h->table);
-			       goto redo;
+			if (h->coll_free < (1 << (h->coll_bits - h->coll_ubits -1))) {
+				
+				printf ("Coll table too small. Coll_free = %u. Capacity = %u\n",
+					h->coll_free, 1 << (h->coll_bits - h->coll_ubits));
+				free(h->table);
+				goto redo;
 			}
 		}
 	}
@@ -945,10 +940,10 @@ redo:
 	}
 
 	if (h->flags & HASH_FLAG_VERBOSE) {
-		coll_avail(h);
-		printf("Hash Reorg Complete: Size=%d Bits=%d/%d Items %d/%d. Capacity %d/%d.  OccRate =%d %% Reloc=%d CollAvail=%d LargestContigAvail=%d\n",
-			hash_size(h), h->hash_bits, h->coll_bits, hash_items(h), hash_colls(h), 1 << h->hash_bits, 1 << h->coll_bits,
-			hash_items(h) * 100 / (1 << h->hash_bits), h->coll_reloc, h->coll_free, h->coll_contig);
+
+		printf("Hash Reorg Complete: Size=%d Bits=%d/%d Items %d/%d. Capacity %d/%d.  OccRate =%d %% Reloc=%d CollAvail=%u\n",
+			hash_size(h), h->hash_bits, h->coll_bits, h->items, hash_colls(h), 1 << h->hash_bits, 1 << h->coll_bits,
+			h->items * 100 / (1 << h->hash_bits), h->coll_reloc, h->coll_free);
 	}
 
 	h->flags &= ~HASH_FLAG_REORG_RUNNING;
@@ -957,8 +952,9 @@ redo:
 void hash_test(void)
 {
 	struct hash *h;
-	unsigned long i;
+	unsigned i;
 	unsigned long seed = time(NULL);
+//	unsigned long seed = 123;
 	unsigned int max;
 	unsigned int mod = 3;
 	void *list[50];
@@ -971,6 +967,11 @@ void hash_test(void)
 
 	h->flags |= HASH_FLAG_VERBOSE;
 
+	if (hash_check(h)) {
+		printf("Initial check failed\n");
+		abort();
+	}
+
 	for(i = 0; i < max; i++) {
 		struct entry {
 			unsigned long key;
@@ -979,34 +980,42 @@ void hash_test(void)
 		e = malloc(sizeof(struct entry));
 		e->key = i;
 		hash_add(h, e);
+		if (hash_check(h)) {
+			printf("hash_add %u failed\n", i);
+			abort();
+		}
 		n++;
 
 		if ((i % mod) == 0) {
 			hash_del(h, e);
+			if (hash_check(h)) {
+				printf("Hash del %u check failed\n", i);
+				abort();
+			}
 			n--;
 		}
 		if ((i % 100) == 0)
 			mod = 1 + (rand() & 0x3);
 
-//		if (hash_check(h))
-//			abort();
 	}
 
-	printf("%u(%u) Hash items left after awhile. Freeing them\n", hash_items(h), n);
+	printf("%u(%u) Hash items left after awhile. Freeing them\n", h->items, n);
 
 	while ((i = hash_get_objects(h, 0, 50, list))) {
 		int j;
 
 		for(j = 0; j < i; j++) {
 			hash_del(h, list[j]);
-//			if (hash_check(h))
-//				abort();
+			if (hash_check(h)) {
+				printf("Fail while deleting all objects\n");
+				abort();
+			}
 		}
 
 		n -= i;
 	}
 
-	if (hash_items(h) == 0 && hash_check(h) == 0)
+	if (hash_check(h) == 0 && h->items == 0)
 		printf("Hash testing complete. Everything ok.\n");
 	else
 		printf("Hash test failed\n");
