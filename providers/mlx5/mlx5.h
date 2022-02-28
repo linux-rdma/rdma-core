@@ -42,6 +42,7 @@
 
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>
+#include <util/cl_qmap.h>
 #include <util/util.h>
 #include "mlx5-abi.h"
 #include <util/bitmap.h>
@@ -345,8 +346,9 @@ struct mlx5_context {
 	pthread_mutex_t			mkey_table_mutex;
 
 	struct mlx5_uar_info		uar[MLX5_MAX_UARS];
-	struct mlx5_db_page	       *db_list;
-	pthread_mutex_t			db_list_mutex;
+	struct list_head		dbr_available_pages;
+	cl_qmap_t		        dbr_map;
+	pthread_mutex_t			dbr_map_mutex;
 	int				cache_line_size;
 	int				max_sq_desc_sz;
 	int				max_rq_desc_sz;
