@@ -1,9 +1,12 @@
 include_directories("linux")
+include_directories("/usr/local/include/mstflint")
 include_directories(${NL_INCLUDE_DIRS})
+link_directories("/usr/local/lib/mstflint")
 
 rdma_executable(ib2roce
   ib2roce.c
   util.c
+  ibraw.c
   )
 target_link_libraries(ib2roce LINK_PRIVATE
   ibverbs
@@ -12,6 +15,11 @@ target_link_libraries(ib2roce LINK_PRIVATE
   ${NL_LIBRARIES}
   ${SYSTEMD_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
+  mtcr_ul
+  cmdif
+  reg_access
+  dev_mgt
+  tools_layouts
   ${CMAKE_DL_LIBS}
   )
 rdma_man_pages(

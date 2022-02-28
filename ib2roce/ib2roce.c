@@ -71,6 +71,7 @@
 #include "errno.c"
 #include "bth_hdr.h"
 #include "util.h"
+#include "ibraw.h"
 
 #define VERSION "2022.0220"
 
@@ -119,22 +120,6 @@ static void logg(int prio, const char *fmt, ...)
 		vsyslog(prio, fmt, valist);
 	else
 		vprintf(fmt, valist);
-}
-
-/* Return formatted string */
-__attribute__ ((format (printf, 1, 2)))
-static char *xprintf(const char *fmt, ...)
-{
-	va_list valist;
-	char *t;
-
-	va_start(valist, fmt);
-	if (vasprintf(&t, fmt, valist)) {
-		logg(LOG_CRIT, "String Error %s. Format %s \n", errname(), fmt);
-		return NULL;
-	}
-
-	return t;
 }
 
 /*
@@ -1126,6 +1111,11 @@ static void qp_destroy(struct i2r_interface *i)
 {
 	channel_destroy(i->multicast);
 	i->multicast = NULL;
+
+	if (i == i2r + INFINIBAND) {
+		clear_ib_sniffer(i->port, i->raw->qp);
+	}
+
 	channel_destroy(i->raw);
 	i->raw = NULL;
 
@@ -1294,8 +1284,8 @@ static int allocate_ud_qp(struct rdma_channel *c, unsigned nr_cq, bool multicast
 	c->nr_cq = nr_cq;
 	c->cq = ibv_create_cq(c->id->verbs, nr_cq, c, c->comp_events, 0);
 	if (!c->cq) {
-		logg(LOG_CRIT, "ibv_create_cq failed for %s : %s.\n",
-			c->text, errname());
+		logg(LOG_CRIT, "ibv_create_cq failed for %s : %s nr_cq=%d.\n",
+			c->text, errname(), nr_cq);
 		return 1;
 	}
 
@@ -1328,7 +1318,7 @@ static int allocate_ud_qp(struct rdma_channel *c, unsigned nr_cq, bool multicast
 	c->qp = c->id->qp;
 	c->mr = ibv_reg_mr(c->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
 	if (!c->mr) {
-		logg(LOG_CRIT, "ibv_reg_mr failed for %s.\n", c->text);
+		logg(LOG_CRIT, "ibv_reg_mr failed for %s:%s.\n", c->text, errname());
 		return 1;
 	}
 	return 0;
@@ -1352,7 +1342,7 @@ static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port
 		return NULL;
 	}
 
-	c->comp_events = ibv_create_comp_channel(c->id->verbs);
+	c->comp_events = ibv_create_comp_channel(i->context);
 	if (!c->comp_events) {
 		logg(LOG_CRIT, "ibv_create_comp_channel failed for %s : %s.\n",
 		c->text, errname());
@@ -2345,6 +2335,12 @@ static void setup_flow(struct rdma_channel *c)
 {
 	if (!c)
 		return;
+
+	if (c->i == i2r + INFINIBAND) {
+		if (set_ib_sniffer(ibv_get_device_name(c->i->context->device), c->i->port, c->qp))
+			logg(LOG_ERR, "Failure to set sniffer mode on %s\n", c->text);
+		return;
+	}
 
 	if (flow_steering) {
 			struct i2r_interface *i = c->i;
