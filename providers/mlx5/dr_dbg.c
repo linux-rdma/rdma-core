@@ -432,13 +432,14 @@ static int dr_dump_matcher_rx_tx(FILE *f, bool is_rx,
 	rec_type = is_rx ? DR_DUMP_REC_TYPE_MATCHER_RX :
 			   DR_DUMP_REC_TYPE_MATCHER_TX;
 
-	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",%d,0x%" PRIx64 ",0x%" PRIx64 "\n",
+	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",%d,0x%" PRIx64 ",0x%" PRIx64 ",%d\n",
 		      rec_type,
 		      (uint64_t) (uintptr_t) matcher_rx_tx,
 		      matcher_id,
 		      matcher_rx_tx->num_of_builders,
 		      dr_dump_icm_to_idx(matcher_rx_tx->s_htbl->chunk->icm_addr),
-		      dr_dump_icm_to_idx(matcher_rx_tx->e_anchor->chunk->icm_addr));
+		      dr_dump_icm_to_idx(matcher_rx_tx->e_anchor->chunk->icm_addr),
+		      matcher_rx_tx->fixed_size ? matcher_rx_tx->s_htbl->chunk_size : -1);
 	if (ret < 0)
 		return ret;
 
@@ -675,11 +676,12 @@ static int dr_dump_domain_info_dev_attr(FILE *f, struct dr_domain_info *info,
 {
 	int ret;
 
-	ret = fprintf(f, "%d,0x%" PRIx64 ",%u,%s\n",
+	ret = fprintf(f, "%d,0x%" PRIx64 ",%u,%s,%d\n",
 		      DR_DUMP_REC_TYPE_DOMAIN_INFO_DEV_ATTR,
 		      domain_id,
 		      info->caps.vports.num_ports,
-		      info->attr.orig_attr.fw_ver);
+		      info->attr.orig_attr.fw_ver,
+		      info->use_mqs);
 	if (ret < 0)
 		return ret;
 

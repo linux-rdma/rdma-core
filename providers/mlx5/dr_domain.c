@@ -231,6 +231,14 @@ static int dr_domain_query_fdb_caps(struct ibv_context *ctx,
 	return 0;
 }
 
+static bool dr_domain_caps_is_sw_owner_supported(bool sw_owner,
+						 bool sw_owner_v2,
+						 uint8_t sw_format_ver)
+{
+	return sw_owner ||
+	       (sw_owner_v2 && sw_format_ver <= MLX5_HW_CONNECTX_7);
+}
+
 static int dr_domain_caps_init(struct ibv_context *ctx,
 			       struct mlx5dv_dr_domain *dmn)
 {
@@ -279,9 +287,9 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 
 	switch (dmn->type) {
 	case MLX5DV_DR_DOMAIN_TYPE_NIC_RX:
-		if (!dmn->info.caps.rx_sw_owner &&
-		    !(dmn->info.caps.rx_sw_owner_v2 &&
-		      dmn->info.caps.sw_format_ver <= MLX5_HW_CONNECTX_6DX))
+		if (!dr_domain_caps_is_sw_owner_supported(dmn->info.caps.rx_sw_owner,
+							  dmn->info.caps.rx_sw_owner_v2,
+							  dmn->info.caps.sw_format_ver))
 			return 0;
 
 		dmn->info.supp_sw_steering = true;
@@ -290,9 +298,9 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 		dmn->info.rx.drop_icm_addr = dmn->info.caps.nic_rx_drop_address;
 		break;
 	case MLX5DV_DR_DOMAIN_TYPE_NIC_TX:
-		if (!dmn->info.caps.tx_sw_owner &&
-		    !(dmn->info.caps.tx_sw_owner_v2 &&
-		      dmn->info.caps.sw_format_ver <= MLX5_HW_CONNECTX_6DX))
+		if (!dr_domain_caps_is_sw_owner_supported(dmn->info.caps.tx_sw_owner,
+							  dmn->info.caps.tx_sw_owner_v2,
+							  dmn->info.caps.sw_format_ver))
 			return 0;
 
 		dmn->info.supp_sw_steering = true;
@@ -304,9 +312,9 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 		if (!dmn->info.caps.eswitch_manager)
 			return 0;
 
-		if (!dmn->info.caps.fdb_sw_owner &&
-		    !(dmn->info.caps.fdb_sw_owner_v2 &&
-		      dmn->info.caps.sw_format_ver <= MLX5_HW_CONNECTX_6DX))
+		if (!dr_domain_caps_is_sw_owner_supported(dmn->info.caps.fdb_sw_owner,
+							  dmn->info.caps.fdb_sw_owner_v2,
+							  dmn->info.caps.sw_format_ver))
 			return 0;
 
 		dmn->info.rx.type = DR_DOMAIN_NIC_TYPE_RX;

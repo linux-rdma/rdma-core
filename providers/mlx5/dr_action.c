@@ -1168,7 +1168,7 @@ mlx5dv_dr_action_create_aso(struct mlx5dv_dr_domain *dmn,
 	struct mlx5dv_dr_action *action = NULL;
 
 	if (!dmn->info.supp_sw_steering ||
-	    dmn->info.caps.sw_format_ver != MLX5_HW_CONNECTX_6DX) {
+	    dmn->info.caps.sw_format_ver == MLX5_HW_CONNECTX_5) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}

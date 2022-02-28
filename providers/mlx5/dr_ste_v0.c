@@ -451,6 +451,7 @@ static inline void dr_ste_v0_arr_init_next(uint8_t **last_ste,
 }
 
 static void dr_ste_v0_set_actions_tx(uint8_t *action_type_set,
+				     uint32_t actions_caps,
 				     uint8_t *last_ste,
 				     struct dr_ste_actions_attr *attr,
 				     uint32_t *added_stes)
@@ -519,6 +520,7 @@ static void dr_ste_v0_set_actions_tx(uint8_t *action_type_set,
 }
 
 static void dr_ste_v0_set_actions_rx(uint8_t *action_type_set,
+				     uint32_t actions_caps,
 				     uint8_t *last_ste,
 				     struct dr_ste_actions_attr *attr,
 				     uint32_t *added_stes)
@@ -718,14 +720,15 @@ dr_ste_v0_set_action_decap_l3_list(void *data, uint32_t data_sz,
 }
 
 static const struct dr_ste_action_modify_field
-*dr_ste_v0_get_action_hw_field(uint16_t sw_field, struct dr_devx_caps *caps)
+*dr_ste_v0_get_action_hw_field(struct dr_ste_ctx *ste_ctx,
+			       uint16_t sw_field, struct dr_devx_caps *caps)
 {
 	const struct dr_ste_action_modify_field *hw_field;
 
-	if (sw_field >= ARRAY_SIZE(dr_ste_v0_action_modify_field_arr))
+	if (sw_field >= ste_ctx->action_modify_field_arr_size)
 		goto not_found;
 
-	hw_field = &dr_ste_v0_action_modify_field_arr[sw_field];
+	hw_field = &ste_ctx->action_modify_field_arr[sw_field];
 	if (!hw_field->end && !hw_field->start)
 		goto not_found;
 
@@ -1911,6 +1914,8 @@ static struct dr_ste_ctx ste_ctx_v0 = {
 	.set_hit_gvmi			= &dr_ste_v0_set_hit_gvmi,
 	/* Actions */
 	.actions_caps			= DR_STE_CTX_ACTION_CAP_NONE,
+	.action_modify_field_arr	= dr_ste_v0_action_modify_field_arr,
+	.action_modify_field_arr_size	= ARRAY_SIZE(dr_ste_v0_action_modify_field_arr),
 	.set_actions_rx			= &dr_ste_v0_set_actions_rx,
 	.set_actions_tx			= &dr_ste_v0_set_actions_tx,
 	.set_action_set			= &dr_ste_v0_set_action_set,
