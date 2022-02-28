@@ -405,7 +405,7 @@ void hash_add(struct hash *h, void *object)
 			cp = ncp;
 			objtable = cp + 1;
 
-			if (h->flags & HASH_FLAG_STATISTICS)
+			if (!(h->flags & HASH_FLAG_LOCAL))
 				h->coll_reloc++;
 
 			h->table[hash] = set_lower(cp, COLL_COUNT_IN_TABLE);
@@ -434,7 +434,7 @@ void hash_add(struct hash *h, void *object)
 			memcpy(ncp, objtable, size);
 			memset(objtable, 0, size);
 			objtable = ncp;
-			if (h->flags & HASH_FLAG_STATISTICS)
+			if (!(h->flags & HASH_FLAG_LOCAL))
 				h->coll_reloc++;
 		}
 
@@ -468,7 +468,7 @@ void hash_add(struct hash *h, void *object)
 		set_u64(ncp, 8);
 		h->table[hash] = set_lower(ncp, COLL_COUNT_IN_TABLE);
 
-		if (h->flags & HASH_FLAG_STATISTICS)
+		if (!(h->flags & HASH_FLAG_LOCAL))
 			h->coll_reloc++;
 
 		return;
@@ -486,15 +486,25 @@ extend_hash:
 		return;
 	}
 
-	if (!(h->flags & HASH_FLAG_LOCAL) && h->coll_bits < h->hash_bits) {
+	if (h->flags & HASH_FLAG_LOCAL)
+		goto expand;
+
+
+	unsigned avail = 0;
+	unsigned i;
+	unsigned hashsize = 1 << h->hash_bits;
+
+	for(i = 0; i < hashsize; i++)
+		if (!h->table[i])
+			avail++;	
+	
+	if (avail > hashsize / 2) {
 		unsigned old_size = hash_size(h);
 
 		clear_endmarker(h);
 		h->coll_bits++;
 		/* Ran out of collision table. Just increase it */
 		if (mremap(h->table, old_size, hash_size(h), 0) == h->table) {
-			printf("Collision area extended via mremap from %d to %d bits\n",
-					h->coll_bits - 1, h->coll_bits);
 			set_endmarker(h);
 			goto exit;
 		}
@@ -503,6 +513,8 @@ extend_hash:
 		h->coll_bits--;
 		set_endmarker(h);
 	}
+
+expand:
 
 	hash_expand(h);
 
@@ -544,9 +556,6 @@ void hash_del(struct hash *h, void *object)
 		collisions = lower_bits;
 		objtable = cp;
 	}
-
-	if (collisions < 2)
-		printf("Collisions < 2!!!");
 
 	/* Find the key in the list of collision entries */
 	for(i = 0; i < collisions; i++) {
@@ -700,7 +709,7 @@ static unsigned int hash_check(struct hash *h, bool fast)
 {
 	unsigned i,j;
 	int errors = 0;
-	uint8_t *ckc;
+	uint8_t *ckc = NULL;
 	void **collt = h->table + (1 << h->hash_bits);
 	unsigned items = 0;
 	unsigned hash_free = 0;
@@ -815,7 +824,7 @@ static unsigned int hash_check(struct hash *h, bool fast)
 		}
 	}
 
-	if (h->flags & HASH_FLAG_STATISTICS) {
+	if (!(h->flags & HASH_FLAG_LOCAL)) {
 		h->coll_free = coll_free;
 		h->collisions = collisions;
 		h->items = items;
@@ -844,8 +853,7 @@ static const char *coll_str[9] = {
 
 static void hash_expand(struct hash *h)
 {
-	struct hash old = *h;
-	unsigned oldsize = 1 << h->hash_bits;
+	struct hash new = *h;
 	unsigned n;
 	unsigned i;
 	unsigned long size;
@@ -853,12 +861,12 @@ static void hash_expand(struct hash *h)
 	if (h->flags & HASH_FLAG_REORG_RUNNING)
 		abort();
 
-	h->flags |= HASH_FLAG_REORG_RUNNING;
+	new.flags |= HASH_FLAG_REORG_RUNNING;
 
-	if (h->flags & HASH_FLAG_VERBOSE) {
+	if (new.flags & HASH_FLAG_VERBOSE) {
 
 		printf("Expanding Hash. Bits=%d/%d Size=%d bytes\n", h->hash_bits, h->coll_bits, hash_size(h));
-		if (h->flags & HASH_FLAG_STATISTICS) {
+		if (!(h->flags & HASH_FLAG_LOCAL)) {
 			printf("Items= %d/%d Longest CollChain=%d FreeCollEntries==%d Relocations=%d\n",
 					h->items, h->collisions, h->coll_max, h->hash_free,  h->coll_reloc);
 			for(i=0; i < 9; i++) if (h->coll[i])
@@ -866,62 +874,54 @@ static void hash_expand(struct hash *h)
 		}
 	}
 redo:
-	h->flags &= ~HASH_FLAG_REORG_FAIL;
+	new.flags &= ~HASH_FLAG_REORG_FAIL;
+	new.flags &= ~HASH_FLAG_LOCAL;
 
-	n = 0;
-	if (!(h->flags & HASH_FLAG_STATISTICS)) {
-		if (!(h->flags & HASH_FLAG_LOCAL)) {
-			/*
-			 * First hash_expand will clear FLAG_LOCAL.
-			 * Second hash_expand will start giving us statistics
-			 * Only then can we begin to make decisions on how to
-			 * expand the hash. So the first two expansions will
-			 * always double the size of the hash table and leave
-			 * the collision table alone.
-			 */
-			h->flags |= HASH_FLAG_STATISTICS;
-			/* Use one 4k pages for this stage of the buildout */
-			h->coll_ubits = 2;
-			h->coll_bits = 8;
-			h->hash_bits = 8;
-		} else
-			h->hash_bits++;
+	if (h->flags & HASH_FLAG_LOCAL) {
+		/*
+		 * First hash_expand will clear FLAG_LOCAL.
+		 * Second hash_expand will start giving us statistics
+		 * Only then can we begin to make decisions on how to
+		 * expand the hash. So the first two expansions will
+		 * always double the size of the hash table and leave
+		 * the collision table alone.
+		 */
 
-	} else {
-		/* Have statistics. Make some intelligent decisions here */
-		if (old.items < oldsize / 2)
-			/* Not too dense of a HASH. Increase the collision table size */
-			h->coll_bits++;
-		else
-			h->hash_bits++;
+		/* Use one 4k pages for this stage of the buildout */
+		new.coll_bits = 8;
+		new.hash_bits = 8;
 
-		/* Zap stats */
-		memset(h->local, 0, sizeof(h->local));
-	}
+	} else
+		new.hash_bits++;
 
 
-	if (h->hash_bits > 30) {
+	/* Avoid craziness */
+	if (new.hash_bits > 30) {
 		printf("Hash Cannot grow to have a hash bit size of more than 30 bits\n");
 		abort();
 	}
 
-	size = hash_size(h);
-	h->coll_next = 0;
-	h->table =  mmap(0, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
-	if (h->table == MAP_FAILED) {
+	n = 0;
+	/* Zap stats */
+	memset(new.local, 0, sizeof(new.local));
+	size = hash_size(&new);
+	new.coll_next = 0;
+	new.table =  mmap(0, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
+	if (new.table == MAP_FAILED) {
 		printf("Hash cannot allocate %lu bytes of memory\n", size);
 		abort();
 	}	       
 
-	set_endmarker(h);
-	for(i = 0; i < oldsize; i++) {
-		void *o = old.table[i];
+	set_endmarker(&new);
+
+	for(i = 0; i < (1 << h->hash_bits); i++) {
+		void *o = h->table[i];
 		unsigned lower_bits = get_lower(o);
 
 		if (o) {
 			if (!lower_bits) {
 				n++;
-				hash_add(h, o);
+				hash_add(&new, o);
 			} else {
 				unsigned nr;
 				unsigned j;
@@ -936,11 +936,11 @@ redo:
 				for (j = 0; j < nr; j++) {
 					if (!ct[j]) {
 						printf("NULL in collision chain. Hash integrity is broken\n");
-						h->flags |= HASH_FLAG_CORRUPTED;
+						new.flags |= HASH_FLAG_CORRUPTED;
 					} else
-						hash_add(h, ct[j]);
+						hash_add(&new, ct[j]);
 
-					if (h->flags & HASH_FLAG_REORG_FAIL)
+					if (new.flags & HASH_FLAG_REORG_FAIL)
 						goto redo;
 
 				}
@@ -948,38 +948,25 @@ redo:
 				n += nr;
 			}
 		}
-		if (h->flags & HASH_FLAG_STATISTICS) {
-			if (hash_check(h, true))	/* Update statistics */
-				abort();
-
-			/*
-			 * More than half of the collision area used after a reorg.
-			 * If so retry.
-			 */
-			if (h->coll_free < (1 << (h->coll_bits - h->coll_ubits -1))) {
-				
-				printf ("Coll table too small. Coll_free = %u. Capacity = %u\n",
-					h->coll_free, 1 << (h->coll_bits - h->coll_ubits));
-				munmap(h->table, hash_size(h));
-				goto redo;
-			}
-		}
 	}
 
-	if (old.table != h->local)
-		munmap(old.table, hash_size(&old));
-	else {
-		h->flags &= ~HASH_FLAG_LOCAL;
-	}
+	new.flags &= ~HASH_FLAG_REORG_RUNNING;
+
+	if (hash_check(&new, false))	/* Update statistics */
+		abort();
+
+	if (h->table != h->local)
+		munmap(h->table, hash_size(h));
+
+	*h = new;
 
 	if (h->flags & HASH_FLAG_VERBOSE) {
 
-		printf("Hash Reorg Complete: Size=%d Bits=%d/%d Items %d/%d. Capacity %d/%d.  OccRate =%d %% Reloc=%d CollAvail=%u\n",
-			hash_size(h), h->hash_bits, h->coll_bits, h->items, h->collisions, 1 << h->hash_bits, 1 << h->coll_bits,
+		printf("Hash Reorg Complete: Size=%d Bits=%d/%d Items %d = %d/%d. Capacity %d/%d.  OccRate =%d %% Reloc=%d CollAvail=%u\n",
+			hash_size(h), h->hash_bits, h->coll_bits, n, h->items, h->collisions, 1 << h->hash_bits, 1 << h->coll_bits,
 			h->items * 100 / (1 << h->hash_bits), h->coll_reloc, h->coll_free);
 	}
 
-	h->flags &= ~HASH_FLAG_REORG_RUNNING;
 }
 
 void hash_test(void)
@@ -1048,9 +1035,9 @@ void hash_test(void)
 		n -= i;
 	}
 
-	if (hash_check(h, false) == 0 && h->items == 0)
+	if (hash_check(h, false) == 0 && h->items == 0 && n == 0)
 		printf("Hash testing complete. Everything ok.\n");
 	else
-		printf("Hash test failed\n");
+		printf("Hash test failed n=%u items=%u\n", n, h->items);
 }
 

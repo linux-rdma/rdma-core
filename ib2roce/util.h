@@ -49,7 +49,6 @@ void fifo_test(void);
 #define HASH_COLL_INIT_BITS 4
 #define HASH_INIT_BITS 4
 
-#define HASH_FLAG_STATISTICS (1 << 0)		/* Statistics are enable */
 #define HASH_FLAG_LOCAL (1 << 1)		/* Local array is being used. No Malloc */
 #define HASH_FLAG_REORG_RUNNING (1 << 2)	/* A Reorg of the hash is in progress */
 #define HASH_FLAG_REORG_FAIL (1 << 3 )		/* Abort the unsuccessful reorg */
