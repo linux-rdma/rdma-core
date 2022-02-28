@@ -1112,9 +1112,11 @@ static void qp_destroy(struct i2r_interface *i)
 	channel_destroy(i->multicast);
 	i->multicast = NULL;
 
+#ifdef HAVE_MSTFLINT
 	if (i == i2r + INFINIBAND) {
 		clear_ib_sniffer(i->port, i->raw->qp);
 	}
+#endif
 
 	channel_destroy(i->raw);
 	i->raw = NULL;
@@ -2335,12 +2337,13 @@ static void setup_flow(struct rdma_channel *c)
 {
 	if (!c)
 		return;
-
+#ifdef HAVE_MSTFLINT
 	if (c->i == i2r + INFINIBAND) {
 		if (set_ib_sniffer(ibv_get_device_name(c->i->context->device), c->i->port, c->qp))
 			logg(LOG_ERR, "Failure to set sniffer mode on %s\n", c->text);
 		return;
 	}
+#endif
 
 	if (flow_steering) {
 			struct i2r_interface *i = c->i;

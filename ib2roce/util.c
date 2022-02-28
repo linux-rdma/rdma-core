@@ -52,13 +52,6 @@
 #include "util.h"
 #include "errno.c"
 
-#define COLL_COUNT_IN_TABLE 1
-#define NO_COLLISION 0
-
-#define MAX_COLLISIONS 200
-
-static void hash_expand(struct hash *h);
-
 /* Return true if it is the first item */
 bool fifo_put(struct fifo *f, void *new)
 {
@@ -189,6 +182,13 @@ void fifo_test(void)
  * Dynamic Hash that reorganizes itself to fit the load
  */
 
+#define COLL_COUNT_IN_TABLE 1
+#define NO_COLLISION 0
+
+#define MAX_COLLISIONS 200
+
+static void hash_expand(struct hash *h);
+
 struct hash *hash_create(unsigned offset, unsigned length)
 {
 	struct hash *h = calloc(1, sizeof(struct hash));
@@ -217,13 +217,6 @@ static unsigned hash_calculate(struct hash *h, uint8_t *key)
 	return hash & ((1 << h->hash_bits) - 1);
 }
 
-static inline void *hash_to_pointer(unsigned long x)
-{
-	unsigned long y = x & ~0x07;
-
-	return (void *)y;
-}
-
 static int hash_keycomp_ko(struct hash *h, void *key, void *object)
 {
 	return memcmp(key, object + h->key_offset, h->key_length);
@@ -232,6 +225,30 @@ static int hash_keycomp_ko(struct hash *h, void *key, void *object)
 static int hash_keycomp_oo(struct hash *h, void *o1, void *o2)
 {
 	return memcmp(o1 + h->key_offset, o2 + h->key_offset, h->key_length);
+}
+
+
+/*
+ * The collision area is terminated with END_MAGIC. This
+ * ensures that there are no zeros at the end which could
+ * lead to the expansion of the object beyond the end of
+ * the collision area.
+ *
+ * This also means we need to set the END_MAGIC when the
+ * size of the collision area changes
+ */
+#define END_MAGIC (void *)0xDEADBEEFAAAAAAAA
+
+static void set_endmarker(struct hash *h)
+{
+	/* Set endmarker so that the functions do not write beyond the end of the data */
+	h->table[(1 << h->hash_bits) + (1 << h->coll_bits) - 1] = END_MAGIC;
+}
+
+static void clear_endmarker(struct hash *h)
+{
+	/* Clear endmarker so we can expand the collision table */
+	h->table[(1 << h->hash_bits) + (1 << h->coll_bits) - 1] = NULL;
 }
 
 static void **coll_alloc(struct hash *h, int words)
@@ -245,7 +262,7 @@ static void **coll_alloc(struct hash *h, int words)
 retry:
 	for (o = next; o < end; o += (1 << h->coll_ubits)) {
 
-		for (p = 0; o + p < collt_size && p < words; p++)
+		for (p = 0; p < words; p++)
 			if (collt[o + p])
 				break;
 
@@ -305,6 +322,15 @@ static void set_u64(void **p, unsigned x)
 {
 	*p = (void *)((unsigned long)(x));
 }
+
+static unsigned hash_size(struct hash *h)
+{
+	unsigned words = (1 << h->hash_bits) + (1 << h->coll_bits);
+
+	return words * sizeof(void *);
+}	
+
+
 
 void hash_add(struct hash *h, void *object)
 {
@@ -451,12 +477,36 @@ void hash_add(struct hash *h, void *object)
 extend_hash:
 	/* Too many collisions. Table reorg needed */
 	if (h->flags & HASH_FLAG_REORG_RUNNING)	{
-		/* This reorg is not going to work out */
+		/*
+		 * This reorg is not going to work out
+		 * and we cannot recursively expand
+		 * the collision table
+		 */
 		h->flags |= HASH_FLAG_REORG_FAIL;
 		return;
 	}
-	
+
+	if (!(h->flags & HASH_FLAG_LOCAL) && h->coll_bits < h->hash_bits) {
+		unsigned old_size = hash_size(h);
+
+		clear_endmarker(h);
+		h->coll_bits++;
+		/* Ran out of collision table. Just increase it */
+		if (mremap(h->table, old_size, hash_size(h), 0) == h->table) {
+			printf("Collision area extended via mremap from %d to %d bits\n",
+					h->coll_bits - 1, h->coll_bits);
+			set_endmarker(h);
+			goto exit;
+		}
+
+		/* Restore prior situation and let hash_expand handle it */
+		h->coll_bits--;
+		set_endmarker(h);
+	}
+
 	hash_expand(h);
+
+exit:
 	hash_add(h, object);
 	return;
 }
@@ -646,18 +696,29 @@ out:
 	return stored;
 }
 
-static unsigned int hash_colls(struct hash *h)
+static unsigned int hash_check(struct hash *h, bool fast)
 {
-	unsigned i;
-	unsigned collisions = 0;
+	unsigned i,j;
+	int errors = 0;
+	uint8_t *ckc;
+	void **collt = h->table + (1 << h->hash_bits);
 	unsigned items = 0;
 	unsigned hash_free = 0;
+	unsigned coll_free = 0;
+	unsigned collisions = 0;
 	unsigned coll_max = 0;
 	unsigned coll[8] = { 0, };
+
+	unsigned long *p;
+
+	if (!fast)
+		ckc = calloc(1, 1 << h->coll_bits);
 
 	for(i = 0; i < (1 << h->hash_bits); i++) {
 		void *o = h->table[i];
 		int nr;
+		unsigned collindex;
+		void **cp;
 		unsigned lower_bits = get_lower(o);
 
 		if (!o) {
@@ -667,65 +728,6 @@ static unsigned int hash_colls(struct hash *h)
 
 		if (!lower_bits) {
 			coll[1]++;
-			items++;
-			continue;
-		}
-
-		if (lower_bits != COLL_COUNT_IN_TABLE)
-			/* N entries in colltable. NR in hash */
-			nr = lower_bits;
-		else {
-			/* N entries in colltable. NR in colltable */
-			void **p = (void **)clear_lower(o);
-			nr = get_u64(p);
-		}
-
-		collisions += nr;
-		items+= nr;
-
-		if (nr > coll_max)
-			coll_max = nr;
-
-		if (nr < 8)
-			coll[nr]++;
-		else
-			coll[0]++;	/* Use 0 for extremely large chains */
-	}
-
-	/* Analyse overflow area */
-
-	if (h->flags & HASH_FLAG_STATISTICS) {
-		h->collisions = collisions;
-		h->items = items;
-		h->hash_free = hash_free;
-		h->coll_max = coll_max;
-		memcpy(h->coll, coll, sizeof(coll));
-	}
-	return collisions;
-}
-
-static unsigned int hash_check(struct hash *h)
-{
-	unsigned i,j;
-	int errors = 0;
-	uint8_t *ckc;
-	void **collt = h->table + (1 << h->hash_bits);
-	unsigned items = 0;
-	unsigned coll_free = 0;
-
-	ckc = calloc(1, 1 << h->coll_bits);
-
-	for(i = 0; i < (1 << h->hash_bits); i++) {
-		void *o = h->table[i];
-		int nr;
-		unsigned collindex;
-		void **cp;
-		unsigned lower_bits = get_lower(o);
-
-		if (!o)
-			continue;
-
-		if (!lower_bits) {
 			items++;
 			continue;
 		}
@@ -749,6 +751,17 @@ static unsigned int hash_check(struct hash *h)
 		}
 
 		items += nr;
+		collisions += nr;
+		if (nr > coll_max)
+			coll_max = nr;
+
+		if (nr < 8)
+			coll[nr]++;
+		else
+			coll[0]++;	/* Use 0 for extremely large chains */
+
+		if (fast)
+			continue;
 
 		collindex = cp - collt;
 		for (j = 0; j < nr; j++) {
@@ -767,28 +780,48 @@ static unsigned int hash_check(struct hash *h)
 		}
 	}
 
-	for(i = 0; i < (1 << h->coll_bits); i++) {
-		void *o = h->table[(1 << h->hash_bits) + i];
-		uint8_t ck = ckc[i];
-
-		if (!o) {
-       			if (ck) {
-				printf("Reference to zero Coll Cell %u. References %u\n", i, ck);
-				errors++;
-			} else
+	if (fast) {
+		for(i = (1 << h->hash_bits); i < (1 << h->hash_bits) + (1 << h->coll_bits) - 1; i++)
+			if (!h->table[i])
 				coll_free++;
 
-		} else {
-			if (!ck) {
-				printf("Coll Cell %u has contents without a reference to it.\n", i);
-				errors++;
+	} else {
+		for(i = 0; i < (1 << h->coll_bits) - 1; i++) {
+			uint8_t ck = ckc[i];
+			void *o = h->table[(1 << h->hash_bits) + i];
+
+			if (!o) {
+       				if (ck) {
+					printf("Reference to zero Coll Cell %u. References %u\n", i, ck);
+					errors++;
+				} else
+					coll_free++;
+
+			} else {
+				if (!ck) {
+					printf("Coll Cell %u has contents without a reference to it.\n", i);
+					errors++;
+				}
 			}
 		}
+		free(ckc);
 	}
-	free(ckc);
+
+	if (!(h->flags & HASH_FLAG_LOCAL)) {
+		p = h->table[(1 << h->hash_bits) + (1 << h->coll_bits) - 1];
+		if (p != END_MAGIC) {
+			printf("Endmarker not valid. Value found is %p", p);
+			errors++;
+		}
+	}
+
 	if (h->flags & HASH_FLAG_STATISTICS) {
 		h->coll_free = coll_free;
+		h->collisions = collisions;
 		h->items = items;
+		h->hash_free = hash_free;
+		h->coll_max = coll_max;
+		memcpy(h->coll, coll, sizeof(coll));
 	}
 
 	if (errors)
@@ -796,13 +829,6 @@ static unsigned int hash_check(struct hash *h)
 			h->hash_bits, h->coll_bits, 1 << h->hash_bits, 1 << h->coll_bits, h->coll_ubits, items, coll_free, errors);
 	return errors;
 }
-
-static unsigned hash_size(struct hash *h)
-{
-	unsigned words = (1 << h->hash_bits) + (1 << h->coll_bits);
-
-	return words * sizeof(void *);
-}	
 
 static const char *coll_str[9] = {
 	"More >8 Cl",
@@ -854,9 +880,12 @@ redo:
 			 * the collision table alone.
 			 */
 			h->flags |= HASH_FLAG_STATISTICS;
+			/* Use one 4k pages for this stage of the buildout */
 			h->coll_ubits = 2;
-		}
-		h->hash_bits++;
+			h->coll_bits = 8;
+			h->hash_bits = 8;
+		} else
+			h->hash_bits++;
 
 	} else {
 		/* Have statistics. Make some intelligent decisions here */
@@ -884,6 +913,7 @@ redo:
 		abort();
 	}	       
 
+	set_endmarker(h);
 	for(i = 0; i < oldsize; i++) {
 		void *o = old.table[i];
 		unsigned lower_bits = get_lower(o);
@@ -919,7 +949,7 @@ redo:
 			}
 		}
 		if (h->flags & HASH_FLAG_STATISTICS) {
-			if (hash_check(h))		/* Update statistics */
+			if (hash_check(h, true))	/* Update statistics */
 				abort();
 
 			/*
@@ -945,7 +975,7 @@ redo:
 	if (h->flags & HASH_FLAG_VERBOSE) {
 
 		printf("Hash Reorg Complete: Size=%d Bits=%d/%d Items %d/%d. Capacity %d/%d.  OccRate =%d %% Reloc=%d CollAvail=%u\n",
-			hash_size(h), h->hash_bits, h->coll_bits, h->items, hash_colls(h), 1 << h->hash_bits, 1 << h->coll_bits,
+			hash_size(h), h->hash_bits, h->coll_bits, h->items, h->collisions, 1 << h->hash_bits, 1 << h->coll_bits,
 			h->items * 100 / (1 << h->hash_bits), h->coll_reloc, h->coll_free);
 	}
 
@@ -970,7 +1000,7 @@ void hash_test(void)
 
 	h->flags |= HASH_FLAG_VERBOSE;
 
-	if (hash_check(h)) {
+	if (hash_check(h, false)) {
 		printf("Initial check failed\n");
 		abort();
 	}
@@ -983,7 +1013,7 @@ void hash_test(void)
 		e = malloc(sizeof(struct entry));
 		e->key = i;
 		hash_add(h, e);
-		if (hash_check(h)) {
+		if (hash_check(h, false)) {
 			printf("hash_add %u failed\n", i);
 			abort();
 		}
@@ -991,7 +1021,7 @@ void hash_test(void)
 
 		if ((i % mod) == 0) {
 			hash_del(h, e);
-			if (hash_check(h)) {
+			if (hash_check(h, false)) {
 				printf("Hash del %u check failed\n", i);
 				abort();
 			}
@@ -1009,7 +1039,7 @@ void hash_test(void)
 
 		for(j = 0; j < i; j++) {
 			hash_del(h, list[j]);
-			if (hash_check(h)) {
+			if (hash_check(h, false)) {
 				printf("Fail while deleting all objects\n");
 				abort();
 			}
@@ -1018,7 +1048,7 @@ void hash_test(void)
 		n -= i;
 	}
 
-	if (hash_check(h) == 0 && h->items == 0)
+	if (hash_check(h, false) == 0 && h->items == 0)
 		printf("Hash testing complete. Everything ok.\n");
 	else
 		printf("Hash test failed\n");
