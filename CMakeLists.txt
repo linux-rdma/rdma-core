@@ -504,8 +504,11 @@ check_type_size("long" SIZEOF_LONG BUILTIN_TYPES_ONLY LANGUAGE C)
 # Determine if this arch supports cache coherent DMA. This isn't really an
 # arch specific property, but for our purposes arches that do not support it
 # also do not define wmb/etc which breaks our compile.
+# As a special case s390x always has coherent DMA but needs linking for its wmb
 CHECK_C_SOURCE_COMPILES("
+#if !defined(__s390x__)
 #include \"${CMAKE_CURRENT_SOURCE_DIR}/util/udma_barrier.h\"
+#endif
  int main(int argc,const char *argv[]) {return 0;}"
   HAVE_COHERENT_DMA)
 
@@ -610,6 +613,21 @@ RDMA_Check_C_Compiles(HAVE_GLIBC_FXSTAT "
  int main(int argc,const char *argv[]) {
  struct stat stat = {};  __fxstat(0, 0, &stat);  return 0;}")
 RDMA_DoFixup("${HAVE_GLIBC_FXSTAT}" "sys/stat.h")
+
+
+# glibc before 2.35 does not necesarily define the HWCAP_S390_PCI_MIO hardware
+# capability bit constant. Check for it and if necessary shim it in such that
+# kernel support for PCI MIO instructions can always be checked.
+RDMA_Check_C_Compiles(HAVE_GLIBC_HWCAP_S390_PCI_MIO "
+ #if defined(__s390x__)
+ #include <sys/auxv.h>
+ int main(int argc, const char *argv[]) {
+ return !!(getauxval(AT_HWCAP) & HWCAP_S390_PCI_MIO);}
+ #else
+ int main(int argc, const char *argv[]) {return 0;}
+ #endif
+ ")
+RDMA_DoFixup("${HAVE_GLIBC_HWCAP_S390_PCI_MIO}" "sys/auxv.h")
 
 #-------------------------
 # Build Prep
@@ -807,4 +825,7 @@ if (NOT HAVE_TARGET_SSE)
 endif()
 if (NOT DRM_INCLUDE_DIRS)
   message(STATUS " DMABUF NOT supported (disabling some tests)")
+endif()
+if (NOT HAVE_GLIBC_HWCAP_S390_PCI_MIO )
+  message(STATUS " Glibc version does not contain the HWCAP_S390_PCI_MIO bit, using shim version")
 endif()
