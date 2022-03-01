@@ -68,10 +68,10 @@
 #include <infiniband/umad_cm.h>
 
 #include "packet.h"
-#include "errno.c"
+#include "errno.h"
 #include "bth_hdr.h"
 #include "ib_hdrs.h"
-#include "util.h"
+#include "fifo.h"
 #include "ibraw.h"
 
 #define VERSION "2022.0220"
@@ -3545,7 +3545,6 @@ int main(int argc, char **argv)
 
 		case 't':
 			fifo_test();
-			hash_test();
 			testing = true;	
 			break;
 

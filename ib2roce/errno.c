@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: 0BSD */
 /* Copyright 2019 Alexander Kozhevnikov <mentalisttraceur@gmail.com> */
 
+#include <stdio.h>
+#include <errno.h>
+#include "errno.h"
+
 /* Copied from https://raw.githubusercontent.com/mentalisttraceur/errnoname/master/errnoname.c and modified
  * to be a simple include by cl@linux.com. This should be replaced by strerrorname_np but sadly this is not
  * available in the distro I am using at this point.
  */
 
-static char const * errname(void)
+char const * errname(void)
 {
     static char buf[12];
     static char const * const names[] =

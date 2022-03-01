@@ -1,9 +1,10 @@
 include_directories("linux")
-link_directories("/usr/local/lib/mstflint")
+include_directories(${NL_INCLUDE_DIRS})
 
 rdma_executable(ib2roce
   ib2roce.c
-  util.c
+  fifo.c
+  errno.c
   )
 target_link_libraries(ib2roce LINK_PRIVATE
   ibverbs
