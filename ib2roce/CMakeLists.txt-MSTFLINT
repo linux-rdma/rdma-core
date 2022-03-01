@@ -1,9 +1,7 @@
 include_directories("linux")
 link_directories("/usr/local/lib/mstflint")
-if(HAVE_MSTFLINT)
 include_directories("/usr/local/include/mstflint")
 include_directories(${NL_INCLUDE_DIRS})
-endif()
 
 rdma_executable(ib2roce
   ib2roce.c

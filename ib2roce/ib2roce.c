@@ -70,6 +70,7 @@
 #include "packet.h"
 #include "errno.c"
 #include "bth_hdr.h"
+#include "ib_hdrs.h"
 #include "util.h"
 #include "ibraw.h"
 
@@ -84,6 +85,7 @@
 
 // #define NETLINK_SUPPORT
 // #define LEARN
+#define HAVE_MSTFLINT
 
 /* Globals */
 
@@ -1114,7 +1116,8 @@ static void qp_destroy(struct i2r_interface *i)
 
 #ifdef HAVE_MSTFLINT
 	if (i == i2r + INFINIBAND) {
-		clear_ib_sniffer(i->port, i->raw->qp);
+		if (clear_ib_sniffer(i->port, i->raw->qp))
+			logg(LOG_ERR, "Failed to switch off sniffer mode on %s\n", i->raw->text);
 	}
 #endif
 
@@ -2598,7 +2601,7 @@ static void learn_source_address(struct rdma_channel *c, struct buf *buf, struct
 static void recv_buf_infiniband(struct rdma_channel *c, struct buf *buf)
 {
 	/* Native IB parsing does not work yet */
-	logg(LOG_WARNING, "Cannot parse native infiniband packet %s\n",payload_dump(buf->raw));
+	logg(LOG_WARNING, "Cannot parse native infiniband packet %s\n", payload_dump(buf->raw));
 	free_buffer(buf);
 }
 
@@ -2655,12 +2658,12 @@ static void recv_buf_ethernet(struct rdma_channel *c, struct buf *buf)
 		}
 	}
 
-	buf->cur = buf->raw;
-	reason = "Not an ROCE frame on RAW channel";
+	buf->cur = buf->end;
+	reason = "Not a ROCE frame on RAW channel";
 
 discard:
 	if (log_packets) {
-		logg(LOG_WARNING, "Discard Packet from %s: %s. Len=%ld\n",
+		logg(LOG_WARNING, "Discard %s Packet from %s: %s. Len=%ld\n", c->i->text,
 			c->text, reason, buf->cur - buf->raw);
 
 		dump_buf_ethernet(buf);
@@ -2815,7 +2818,7 @@ static void recv_buf(struct rdma_channel *c, struct buf *buf)
 	}
 
 	/* So the packet came in on a raw channel. We need to parse the headers */
-	if (c->i == INFINIBAND)
+	if (c->i == i2r + INFINIBAND)
 		recv_buf_infiniband(c, buf);
 	else
 		recv_buf_ethernet(c, buf);
@@ -3418,12 +3421,20 @@ out:
 static void terminate(int x)
 {
 	terminated = true;
+	logg(LOG_CRIT, "Terminated by signal\n");
 }
 
 
 static void update_status(int x)
 {
 	update_requested = true;
+}
+
+static void setup_termination_signals(void)
+{
+	signal(SIGINT, terminate);
+	signal(SIGTERM, terminate);
+	signal(SIGHUP, terminate);	/* Future: Reload a potential config file */
 }
 
 static void daemonize(void)
@@ -3468,9 +3479,6 @@ static void daemonize(void)
 
 	openlog ("ib2roce", LOG_PID, LOG_DAEMON);
 
-	signal(SIGINT, terminate);
-	signal(SIGTERM, terminate);
-	signal(SIGHUP, terminate);	/* Future: Reload a potential config file */
 	signal(SIGUSR1, update_status);
 }
 
@@ -3655,14 +3663,16 @@ int main(int argc, char **argv)
 		pid_open();
 	}
 
+	setup_termination_signals();
+
 	ret = find_rdma_devices();
 	if (ret && !testing)
 		return ret;
 
-	syslog (LOG_NOTICE, "ib2roce: Infiniband device = %s:%d, ROCE device = %s:%d. Multicast Groups=%d MGIDs=%s Buffers=%u\n",
-			i2r[INFINIBAND].context ? ibv_get_device_name(i2r[INFINIBAND].context->device) : "-",
+	syslog (LOG_NOTICE, "Infiniband device = %s:%d, ROCE device = %s:%d. Multicast Groups=%d MGIDs=%s Buffers=%u\n",
+			i2r[INFINIBAND].context ? ibv_get_device_name(i2r[INFINIBAND].context->device) : "<disabled>",
 			i2r[INFINIBAND].port,
-			i2r[ROCE].context ? ibv_get_device_name(i2r[ROCE].context->device) : "-",
+			i2r[ROCE].context ? ibv_get_device_name(i2r[ROCE].context->device) : "<disabled>",
 			i2r[ROCE].port,
 			nr_mc,
 			mgid_mode->id,
@@ -3697,7 +3707,7 @@ int main(int argc, char **argv)
 	if (background)
 		pid_close();
 
-	syslog (LOG_NOTICE, "ib2roce terminated.");
+	syslog (LOG_NOTICE, "Shutdown complete.\n");
 	closelog();
 
 	return EXIT_SUCCESS;

@@ -8,22 +8,17 @@
 #include <stdlib.h>
 #include <infiniband/verbs.h>
 
-#ifdef HAVE_MSTFLINT
 #include <tools_layouts/icmd_layouts.h>
 #include <cmdif/icmd_cif_common.h>
 #include <cmdif/icmd_cif_open.h>
 #include <common/compatibility.h>
-#endif
 
 #include "ibraw.h"
 
-#ifdef HAVE_MSTFLINT
 static mfile *mf;
-#endif
 
 static int ib_sniffer(unsigned port, struct ibv_qp *qp, int mode)
 {
-#ifdef HAVE_MSTFLINT
 	struct connectib_icmd_set_port_sniffer set_port_sniffer;
  	int rc;
 
@@ -54,20 +49,17 @@ static int ib_sniffer(unsigned port, struct ibv_qp *qp, int mode)
 err:
 	mclose(mf);
 
-#endif
 	return 1;
 }
 
 int set_ib_sniffer(const char *dev, unsigned port, struct ibv_qp *qp)
 {
-#ifdef HAVE_MSTFLINT
 	mf = mopen(dev);
 
 	if (!mf) {
 		fprintf(stderr, "Failed to open %s for sniffing\n", dev);
 		return 1;
 	}
-#endif
 	return ib_sniffer(port, qp, 1);
 }
 
@@ -75,9 +67,7 @@ int clear_ib_sniffer(unsigned port, struct ibv_qp *qp)
 {
 	int rc = ib_sniffer(port, qp, 0);
 
-#ifdef HAVE_MSTFLINT
 	mclose(mf);
-#endif
 
 	return rc;
 }
