@@ -778,7 +778,7 @@ struct buf {
 			struct bth bth;
 			struct deth deth;	/* BTH subheader */
 			struct pgm_header pgm;	/* RFC3208 header */
-			struct umad_packet umad;	/* IB QP1 format packet */
+			struct umad_hdr umad;	/* IB QP1 format packet */
 		};
 		uint8_t meta[META_SIZE];
 	};
@@ -880,6 +880,8 @@ static char *__hexbytes(char *b, uint8_t *q, unsigned len, char separator)
 		*p++ = hexbyte( n & 0xf);
 		if (i < len - 1)
 			*p++ = separator;
+		else
+			*p++ = 0;
 	}
 	return b;
 }
@@ -2497,7 +2499,7 @@ static void roce_v2(struct rdma_channel *c, struct buf *buf)
 		PULL(buf, buf->umad);
 		logg(LOG_NOTICE, "MAD to %s from %s mgmt_class=%d method=%d status=%d\n",
 			source_str, dest_str,
-			buf->umad.mad_hdr.mgmt_class, buf->umad.mad_hdr.method, buf->umad.mad_hdr.status);
+			buf->umad.mgmt_class, buf->umad.method, buf->umad.status);
 
 	} else {
 		/* User payload... */
@@ -2600,8 +2602,113 @@ static void learn_source_address(struct rdma_channel *c, struct buf *buf, struct
 
 static void recv_buf_infiniband(struct rdma_channel *c, struct buf *buf)
 {
-	/* Native IB parsing does not work yet */
-	logg(LOG_WARNING, "Cannot parse native infiniband packet %s\n", payload_dump(buf->raw));
+	const char *reason;
+	unsigned short dlid;
+	const char *grh;
+	int len;
+	char *payload = alloca(1500);
+	__be16 lrh[4];
+	struct ib_header *ih = (void *)&lrh;
+
+	PULL(buf, lrh);
+
+	len = ntohs(lrh[2]) *4;
+
+	dlid = ib_get_dlid(ih);
+
+	if (ib_get_lnh(ih) < 2) {
+		reason = "IP v4/v6 packet";
+		grh = "N/A";
+		goto discard;
+	}
+
+	if (ib_get_lnh(ih) == 3) {
+		char *xbuf = alloca(40);
+		char *xbuf2 = alloca(40);
+		char *p;
+
+		PULL(buf, buf->grh);
+		buf->grh_valid = true;
+
+		p = alloca(100);
+		snprintf(p, 100, "SGID=%s DGID=%s", 
+			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
+                        inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN));
+
+		grh = p;
+	} else {
+		grh = "<NO GRH>";
+	}
+
+	if ((dlid & 0xf000) == 0xc000) {
+		reason = "Multicast";
+		goto discard;
+	}
+
+	if (dlid == 0xffff) {
+		reason = "Permissive Broadcast";
+		goto discard;
+	}
+
+	PULL(buf, buf->bth);
+	buf->bth_valid = true;
+	
+	if (ntohl(buf->bth.qpn) != 1) {
+		reason = "Packet forwarding for QPN != 1 not implemented yet";
+		goto discard2;
+	}
+
+	if (buf->bth.opcode != IB_OPCODE_UD_SEND_ONLY &&
+ 		buf->bth.opcode !=  IB_OPCODE_UD_SEND_ONLY_WITH_IMMEDIATE) {
+ 			reason = "Only UD Sends are supported";
+                        goto discard2;
+        }
+
+	PULL(buf, buf->deth);
+
+	if (buf->bth.opcode == IB_OPCODE_UD_SEND_ONLY_WITH_IMMEDIATE) {
+		PULL(buf, buf->immdt);
+ 		buf->imm_valid = true;
+		buf->imm = buf->immdt.imm;
+ 	}
+
+	buf->cur += __bth_pad(&buf->bth);
+
+	/* Start MAD payload */
+	PULL(buf, buf->umad);
+
+	if (buf->umad.mgmt_class != UMAD_CLASS_CM) {
+		reason = "Only CM Class MADs are supported";
+		goto discard2;
+	}
+
+	buf->cur = buf->raw;
+	__hexbytes(payload, buf->cur, buf->end - buf->cur, ' ');
+
+	logg(LOG_NOTICE, "MAD: SLID=%x DLID=%x APSN=%x LEN=%d SL=%d LVer=%d %s method=%d status=%x attr_id=%x attr_mod=%x %s\n",
+		ib_get_slid(ih), ib_get_dlid(ih),
+		buf->bth.apsn, len, ib_get_sl(ih),
+		ib_get_lver(ih), grh,
+		buf->umad.method, ntohs(buf->umad.status), ntohs(buf->umad.attr_id), ntohl(buf->umad.attr_mod),
+		payload);
+
+	goto out;
+
+discard:
+	if (log_packets < 2)
+		goto silent_discard;
+
+discard2:
+	__hexbytes(payload, buf->cur, len, ' ');
+
+	logg(LOG_NOTICE, "Discard IB %s: SLID=%x DLID=%x QPN=%x APSN=%x LEN=%d SL=%d LVer=%d %s, %s\n", reason,
+		ib_get_slid(ih), ib_get_dlid(ih), ntohl(buf->bth.qpn),
+		buf->bth.apsn, len, ib_get_sl(ih),
+	       	ib_get_lver(ih), grh, payload);
+
+silent_discard:
+
+out:	
 	free_buffer(buf);
 }
 
@@ -3256,7 +3363,10 @@ static void check_joins(void)
 static void logging(void)
 {
 	char buf[100];
+	char buf2[150];
 	unsigned n = 0;
+	unsigned interval = 5000;
+	const char *events;
 
 	for(struct timed_event *z = next_event; z; z = z->next)
 		n += sprintf(buf + n, "%ldms,", z->time - timestamp());
@@ -3266,8 +3376,16 @@ static void logging(void)
 	else
 		buf[0] = 0;
 
-	logg(LOG_NOTICE, "ib2roce: %d/%d MC Active. Events in %s.\n", active_mc, nr_mc, buf);
-	add_event(timestamp() + 5000, logging);
+	if (n == 0) {
+		events = "No upcoming events";
+		interval = 60000;
+	} else {
+		snprintf(buf2, sizeof(buf2), "Events in %s", buf);
+		events = buf2;
+	}
+
+	logg(LOG_NOTICE, "%d/%d MC Active. %s.\n", active_mc, nr_mc, events);
+	add_event(timestamp() + interval, logging);
 }
 
 /*
