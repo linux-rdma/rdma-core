@@ -108,58 +108,6 @@ struct ib_header {
 	} u;
 } __packed;
 
-/* accessors for unaligned __be64 items */
-
-static inline uint64_t ib_uint64_t_get(__be64 *p)
-{
-	return *p;
-}
-
-static inline void ib_uint64_t_put(uint64_t val, __be64 *p)
-{
-	*p = val;
-}
-
-static inline uint64_t get_ib_reth_vaddr(struct ib_reth *reth)
-{
-	return ib_uint64_t_get(&reth->vaddr);
-}
-
-static inline void put_ib_reth_vaddr(uint64_t val, struct ib_reth *reth)
-{
-	ib_uint64_t_put(val, &reth->vaddr);
-}
-
-static inline uint64_t get_ib_ateth_vaddr(struct ib_atomic_eth *ateth)
-{
-	return ib_uint64_t_get(&ateth->vaddr);
-}
-
-static inline void put_ib_ateth_vaddr(uint64_t val, struct ib_atomic_eth *ateth)
-{
-	ib_uint64_t_put(val, &ateth->vaddr);
-}
-
-static inline uint64_t get_ib_ateth_swap(struct ib_atomic_eth *ateth)
-{
-	return ib_uint64_t_get(&ateth->swap_data);
-}
-
-static inline void put_ib_ateth_swap(uint64_t val, struct ib_atomic_eth *ateth)
-{
-	ib_uint64_t_put(val, &ateth->swap_data);
-}
-
-static inline uint64_t get_ib_ateth_compare(struct ib_atomic_eth *ateth)
-{
-	return ib_uint64_t_get(&ateth->compare_data);
-}
-
-static inline void put_ib_ateth_compare(uint64_t val, struct ib_atomic_eth *ateth)
-{
-	ib_uint64_t_put(val, &ateth->compare_data);
-}
-
 /*
  * 9B/IB Packet Format
  */

@@ -85,7 +85,7 @@
 
 // #define NETLINK_SUPPORT
 // #define LEARN
-#define HAVE_MSTFLINT
+// #define HAVE_MSTFLINT
 
 /* Globals */
 
@@ -893,87 +893,12 @@ static char *_hexbytes(uint8_t *q, unsigned len)
 	return __hexbytes(b, q, len, ' ');
 }
 
-static char *hexbytes(char *x, unsigned len)
-{
-	return _hexbytes((uint8_t *)x, len);
-}
-
 static char *payload_dump(uint8_t *p)
 {
 	static char buf[150];
 
 	__hexbytes(buf, p, 48, ' ');
 	return buf;
-}
-
-static void mac_hexbytes(char *b, uint8_t *p, unsigned len)
-{
-	__hexbytes(b, p, len, ':');
-}
-
-static void dump_buf_ethernet(struct buf *buf)
-{
-	char dmac[20], smac[20];
-	char dip[30], sip[30];
-	char sendmac[50], targetmac[50];
-	char sendip[30], targetip[30];
-	char etype[30];
-	struct in_addr daddr, saddr;
-	struct in_addr sendaddr, targetaddr;
-	struct arphdr arp;
-
-	mac_hexbytes(dmac, buf->e.ether_dhost, ETH_ALEN);
-	mac_hexbytes(smac, buf->e.ether_shost, ETH_ALEN);
-
-	switch (buf->ethertype) {
-
-		case ETHERTYPE_ARP:
-
-			PULL(buf, arp);
-
-			mac_hexbytes(sendmac, buf->cur, arp.ar_hln);
-			buf->cur += arp.ar_hln;
-
-			PULL(buf, sendaddr.s_addr);
-			mac_hexbytes(targetmac, buf->cur, arp.ar_hln);
-
-			buf->cur += arp.ar_pln;
-			PULL(buf, targetaddr.s_addr);
-
-			strcpy(sendip, inet_ntoa(sendaddr));
-			strcpy(targetip, inet_ntoa(targetaddr));
-
-			logg(LOG_NOTICE, "D=%s S=%s ARP HRD=%d PRO=%d HLN=%d PLN=%d Opcode=%x SenderHW=%s SenderIP=%s TargetHW=%s TargetIP=%s\n",
-				dmac, smac, arp.ar_hrd, arp.ar_pro, arp.ar_hln, arp.ar_pln, arp.ar_op,
-				sendmac, sendip, targetmac, targetip);
-
-			break;
-
-		case ETHERTYPE_IP:
-
-			PULL(buf, buf->ip);
-			daddr.s_addr = buf->ip.daddr;
-			saddr.s_addr = buf->ip.saddr;
-			strcpy(dip, inet_ntoa(daddr));
-			strcpy(sip, inet_ntoa(saddr));
-
-			logg(LOG_NOTICE, "D=%s(%s) S=%s(%s) ether_type=%d ihl=%d version=%d tos=%d tot_len=%d ID=%x fragoff=%d ttl=%d protocol=%d check=%x payload:%s\n",
-				dmac, dip, smac, sip, buf->ethertype,
-				buf->ip.ihl, buf->ip.version, buf->ip.tos, buf->ip.tot_len, buf->ip.id, buf->ip.frag_off, buf->ip.ttl, buf->ip.protocol, buf->ip.check,
-				payload_dump(buf->cur));
-			break;
-
-		default:
-
-			if (buf->ethertype <= 1500)
-				snprintf(etype, sizeof(etype), "IEEE801.3 len=%d", buf->ethertype);
-			else
-				snprintf(etype, sizeof(etype), "Ether_type=%x", buf->ethertype);
-
-			logg(LOG_NOTICE, "MAC=%s SMAC=%s %s %s\n", dmac, smac, etype, payload_dump(buf->cur));
-
-		break;
-	}
 }
 
 /* Dump GRH and the beginning of the packet */
@@ -987,26 +912,6 @@ static void dump_buf_grh(struct buf *buf)
 			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
 			inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN),
 			payload_dump(buf->cur));
-}
-
-static char *bth_dump(struct bth *b)
-{
-	static char buf[150];
-
-	snprintf(buf, sizeof(buf), "Opcode=%x Flags=%x Pkey=%x QPN=%x APSN=%x",
-			b->opcode, b->flags, ntohs(b->pkey), ntohl(b->qpn), ntohl(b->apsn));
-
-	return buf;
-}
-
-static char *udp_dump(struct udphdr *u)
-{
-	static char buf[150];
-
-	snprintf(buf, sizeof(buf), "SPORT=%d DPORT=%d LEN=%d Check=%x",
-			ntohs(u->source), ntohs(u->dest), ntohs(u->len), ntohs(u->check));
-
-	return buf;
 }
 
 static char *pgm_dump(struct pgm_header *p)
@@ -2437,99 +2342,7 @@ static void unicast_packet(struct rdma_channel *c, struct buf *buf, struct in_ad
 	dump_buf_grh(buf);
 }
 
-static int roce_v1(struct rdma_channel *c, struct buf *buf)
-{
-	char dmac[20], smac[20];
-
-	PULL(buf, buf->bth);
-
-	mac_hexbytes(dmac, buf->e.ether_dhost, ETH_ALEN);
-	mac_hexbytes(smac, buf->e.ether_shost, ETH_ALEN);
-
-	logg(LOG_NOTICE, "ROCE v1 support is not implemented. DMAC=%s SMAC=%s ROCEv1 BTH=%s Data=%s\n",
-		dmac, smac, bth_dump(&buf->bth),
-		payload_dump(buf->cur));
-
-	return 1;
-}
-
 static void send_buf_to(struct i2r_interface *i, struct buf *buf, struct sockaddr_in *sin);
-
-/*
- * Process ROCE v2 packet from Ethernet and send the data out to the Infiniband Interface
- *
- * The caller has pulled the ether_header, iphdr and the udphdr from the packet
- */
-static void roce_v2(struct rdma_channel *c, struct buf *buf)
-{
-	char source_str[30];
-	char dest_str[30];
-	const char *reason;
-	struct in_addr source,dest;
-
-	PULL(buf, buf->bth);
-
-	source.s_addr = buf->ip.saddr;
-	dest.s_addr = buf->ip.daddr;
-	strcpy(source_str, inet_ntoa(source));
-	strcpy(dest_str, inet_ntoa(dest));
-
-	/* We only support SEND and SEND IMMEDIATE */
-	if (buf->bth.opcode != IB_OPCODE_UD_SEND_ONLY &&
-		buf->bth.opcode !=  IB_OPCODE_UD_SEND_ONLY_WITH_IMMEDIATE) {
-			reason = "Only UD Sends are supported";
-			goto err;
-	}
-
-	PULL(buf, buf->deth);
-
-	if (buf->bth.opcode == IB_OPCODE_UD_SEND_ONLY_WITH_IMMEDIATE) {
-		PULL(buf, buf->immdt);
-		buf->imm_valid = true;
-		buf->imm = buf->immdt.imm;
-	}
-
-	buf->cur += __bth_pad(&buf->bth);
-
-	buf->bth_valid = true;
-
-	buf->end -=  ICRC_SIZE;
-
-	if (ntohl(buf->bth.qpn) == 1) {
-		PULL(buf, buf->umad);
-		logg(LOG_NOTICE, "MAD to %s from %s mgmt_class=%d method=%d status=%d\n",
-			source_str, dest_str,
-			buf->umad.mgmt_class, buf->umad.method, buf->umad.status);
-
-	} else {
-		/* User payload... */
-
-		logg(LOG_NOTICE, "ROCEv2 SRC=%s DST=%s BTH=%s Data=%s\n",
-			source_str, dest_str,
-			bth_dump(&buf->bth),
-			payload_dump(buf->cur));
-	}
-
-	if (bridging) {
-		struct sockaddr_in sin;
-
-		memset(&sin, 0, sizeof(sin));
-		sin.sin_family = AF_INET;
-		sin.sin_addr = dest;
-		sin.sin_port = htons(ROCE_PORT);
-
-		send_buf_to(i2r + INFINIBAND, buf, &sin);
-	} else
-		free_buffer(buf);
-	return;
-
-err:
-	logg(LOG_NOTICE, "ROCEv2 %s SRC=%s DST=%s UDP=%s BTH=%s Data=%s\n",
-			reason, source_str, dest_str,
-			udp_dump( &buf->udp), bth_dump(&buf->bth),
-			payload_dump(buf->cur));
-
-}
 
 #ifdef LEARN
 /*
@@ -2599,187 +2412,6 @@ static void learn_source_address(struct rdma_channel *c, struct buf *buf, struct
 	ra->ai.remote_qkey = RDMA_UDP_QKEY;
 }
 #endif
-
-static void recv_buf_infiniband(struct rdma_channel *c, struct buf *buf)
-{
-	const char *reason;
-	unsigned short dlid;
-	const char *grh;
-	int len;
-	char *payload = alloca(1500);
-	__be16 lrh[4];
-	struct ib_header *ih = (void *)&lrh;
-
-	PULL(buf, lrh);
-
-	len = ntohs(lrh[2]) *4;
-
-	dlid = ib_get_dlid(ih);
-
-	if (ib_get_lnh(ih) < 2) {
-		reason = "IP v4/v6 packet";
-		grh = "N/A";
-		goto discard;
-	}
-
-	if (ib_get_lnh(ih) == 3) {
-		char *xbuf = alloca(40);
-		char *xbuf2 = alloca(40);
-		char *p;
-
-		PULL(buf, buf->grh);
-		buf->grh_valid = true;
-
-		p = alloca(100);
-		snprintf(p, 100, "SGID=%s DGID=%s", 
-			inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
-                        inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN));
-
-		grh = p;
-	} else {
-		grh = "<NO GRH>";
-	}
-
-	if ((dlid & 0xf000) == 0xc000) {
-		reason = "Multicast";
-		goto discard;
-	}
-
-	if (dlid == 0xffff) {
-		reason = "Permissive Broadcast";
-		goto discard;
-	}
-
-	PULL(buf, buf->bth);
-	buf->bth_valid = true;
-	
-	if (ntohl(buf->bth.qpn) != 1) {
-		reason = "Packet forwarding for QPN != 1 not implemented yet";
-		goto discard2;
-	}
-
-	if (buf->bth.opcode != IB_OPCODE_UD_SEND_ONLY &&
- 		buf->bth.opcode !=  IB_OPCODE_UD_SEND_ONLY_WITH_IMMEDIATE) {
- 			reason = "Only UD Sends are supported";
-                        goto discard2;
-        }
-
-	PULL(buf, buf->deth);
-
-	if (buf->bth.opcode == IB_OPCODE_UD_SEND_ONLY_WITH_IMMEDIATE) {
-		PULL(buf, buf->immdt);
- 		buf->imm_valid = true;
-		buf->imm = buf->immdt.imm;
- 	}
-
-	buf->cur += __bth_pad(&buf->bth);
-
-	/* Start MAD payload */
-	PULL(buf, buf->umad);
-
-	if (buf->umad.mgmt_class != UMAD_CLASS_CM) {
-		reason = "Only CM Class MADs are supported";
-		goto discard2;
-	}
-
-	buf->cur = buf->raw;
-	__hexbytes(payload, buf->cur, buf->end - buf->cur, ' ');
-
-	logg(LOG_NOTICE, "MAD: SLID=%x DLID=%x APSN=%x LEN=%d SL=%d LVer=%d %s method=%d status=%x attr_id=%x attr_mod=%x %s\n",
-		ib_get_slid(ih), ib_get_dlid(ih),
-		buf->bth.apsn, len, ib_get_sl(ih),
-		ib_get_lver(ih), grh,
-		buf->umad.method, ntohs(buf->umad.status), ntohs(buf->umad.attr_id), ntohl(buf->umad.attr_mod),
-		payload);
-
-	goto out;
-
-discard:
-	if (log_packets < 2)
-		goto silent_discard;
-
-discard2:
-	__hexbytes(payload, buf->cur, len, ' ');
-
-	logg(LOG_NOTICE, "Discard IB %s: SLID=%x DLID=%x QPN=%x APSN=%x LEN=%d SL=%d LVer=%d %s, %s\n", reason,
-		ib_get_slid(ih), ib_get_dlid(ih), ntohl(buf->bth.qpn),
-		buf->bth.apsn, len, ib_get_sl(ih),
-	       	ib_get_lver(ih), grh, payload);
-
-silent_discard:
-
-out:	
-	free_buffer(buf);
-}
-
-static void recv_buf_ethernet(struct rdma_channel *c, struct buf *buf)
-{
-	const char *reason;
-
-	pull(buf, &buf->e, sizeof(struct ether_header));
-	buf->ethertype = ntohs(buf->e.ether_type);
-	buf->ether_valid = true;
-
-	if (memcmp(c->i->if_mac, buf->e.ether_shost, ETH_ALEN) == 0) {
-
-		reason = "Loopback";
-		if (log_packets < 2)
-			goto silent_discard;
-
-		goto discard;
-	}
-
-	if (buf->e.ether_dhost[0] & 0x1) {
-		reason = "Multicast on RAW channel";
-		if (log_packets < 2)
-			goto silent_discard;
-		goto discard;
-	}
-
-	buf->end -= 4;		/* Remove Ethernet FCS */
-
-	/* buf->cur .. buf->end is the ethernet payload */
-	if (buf->ethertype == ETHERTYPE_ROCE) {
-
-		roce_v1(c, buf);
-		return;
-
-	} else if (buf->ethertype == ETHERTYPE_IP) {
-
-		pull(buf, &buf->ip, sizeof(struct iphdr));
-		buf->ip_valid = true;
-
-		if (buf->ip.protocol == IPPROTO_UDP) {
-
-			if (!buf->ip_csum_ok)
-				logg(LOG_NOTICE, "TCP/UDP CSUM not valid on raw RDMA channel %s\n", c->text);
-
-			pull(buf, &buf->udp, sizeof(struct udphdr));
-			buf->udp_valid = true;
-
-			if (ntohs(buf->udp.dest) == ROCE_PORT) {
-
-				roce_v2(c, buf);
-				return;
-			}
-		}
-	}
-
-	buf->cur = buf->end;
-	reason = "Not a ROCE frame on RAW channel";
-
-discard:
-	if (log_packets) {
-		logg(LOG_WARNING, "Discard %s Packet from %s: %s. Len=%ld\n", c->i->text,
-			c->text, reason, buf->cur - buf->raw);
-
-		dump_buf_ethernet(buf);
-	}
-silent_discard:
-	st(c, packets_invalid);
-	free_buffer(buf);
-}
-
 
 /*
  * We have an GRH header so the packet has been processed by the RDMA
@@ -2909,6 +2541,11 @@ free_out:
 /* Figure out what to do with the packet we got */
 static void recv_buf(struct rdma_channel *c, struct buf *buf)
 {
+	const char *reason;
+	int len = 0;
+	char header[100];
+	char *payload = alloca(1500);
+
 	if (buf->grh_valid) {
 		recv_buf_grh(c, buf);
 		return;
@@ -2925,10 +2562,173 @@ static void recv_buf(struct rdma_channel *c, struct buf *buf)
 	}
 
 	/* So the packet came in on a raw channel. We need to parse the headers */
-	if (c->i == i2r + INFINIBAND)
-		recv_buf_infiniband(c, buf);
-	else
-		recv_buf_ethernet(c, buf);
+
+	if (c->i == i2r + INFINIBAND) {
+		unsigned short dlid;
+		__be16 lrh[4];
+		struct ib_header *ih = (void *)&lrh;
+
+		PULL(buf, lrh);
+
+		len = ntohs(lrh[2]) *4;
+
+		dlid = ib_get_dlid(ih);
+
+		snprintf(header, sizeof(header), "SLID=%x DLID=%x SL=%d LVer=%d",
+			ib_get_slid(ih), ib_get_dlid(ih), ib_get_sl(ih), ib_get_lver(ih));
+	
+		if (ib_get_lnh(ih) < 2) {
+			reason = "IP v4/v6 packet";
+			goto discard;
+		}
+
+		if (ib_get_lnh(ih) == 3) {
+			char *xbuf = alloca(40);
+			char *xbuf2 = alloca(40);
+
+			PULL(buf, buf->grh);
+			buf->grh_valid = true;
+
+			snprintf(header + strlen(header), 100-strlen(header), " SGID=%s DGID=%s", 
+				inet_ntop(AF_INET6, &buf->grh.sgid, xbuf2, INET6_ADDRSTRLEN),
+				inet_ntop(AF_INET6, &buf->grh.dgid, xbuf, INET6_ADDRSTRLEN));
+
+		}
+
+		if ((dlid & 0xf000) == 0xc000) {
+			reason = "Multicast";
+			goto discard;
+		}
+
+		if (dlid == 0xffff) {
+			reason = "Permissive Broadcast";
+			goto discard;
+		}
+
+	} else { /* Ethernet. We expect a ROCE packet */
+
+		pull(buf, &buf->e, sizeof(struct ether_header));
+		buf->ethertype = ntohs(buf->e.ether_type);
+		buf->ether_valid = true;
+
+		if (memcmp(c->i->if_mac, buf->e.ether_shost, ETH_ALEN) == 0) {
+
+			reason = "Loopback";
+			if (log_packets < 2)
+				goto silent_discard;
+
+			goto discard;
+		}
+
+		if (buf->e.ether_dhost[0] & 0x1) {
+			reason = "Multicast on RAW channel";
+			if (log_packets < 2)
+				goto silent_discard;
+			goto discard;
+		}
+
+		buf->end -= 4;		/* Remove Ethernet FCS */
+
+		/* buf->cur .. buf->end is the ethernet payload */
+		if (buf->ethertype == ETHERTYPE_ROCE) {
+
+			reason = "Roce V1 not supported";
+			goto discard;
+
+		} else if (buf->ethertype == ETHERTYPE_IP) {
+
+			char source_str[30];
+			char dest_str[30];
+			struct in_addr source, dest;
+
+			pull(buf, &buf->ip, sizeof(struct iphdr));
+			buf->ip_valid = true;
+			len = ntohs(buf->ip.tot_len);
+
+			source.s_addr = buf->ip.saddr;
+			dest.s_addr = buf->ip.daddr;
+			strcpy(source_str, inet_ntoa(source));
+			strcpy(dest_str, inet_ntoa(dest));
+			snprintf(header, sizeof(header), "%s -> %s", source_str, dest_str);
+
+			if (buf->ip.protocol != IPPROTO_UDP) {
+
+				reason = "Only UDP packets";
+				goto discard;
+
+			}
+
+			if (!buf->ip_csum_ok)
+				logg(LOG_NOTICE, "TCP/UDP CSUM not valid on raw RDMA channel %s\n", c->text);
+
+			pull(buf, &buf->udp, sizeof(struct udphdr));
+			buf->udp_valid = true;
+
+			if (ntohs(buf->udp.dest) != ROCE_PORT) {
+
+				reason = "Not the ROCE UDP port";
+				goto discard;
+
+			}
+		}
+	}
+
+	PULL(buf, buf->bth);
+	buf->bth_valid = true;
+	
+	if (ntohl(buf->bth.qpn) != 1) {
+		reason = "Packet forwarding for QPN != 1 not implemented yet";
+		goto discard2;
+	}
+
+	if (buf->bth.opcode != IB_OPCODE_UD_SEND_ONLY &&
+ 		buf->bth.opcode !=  IB_OPCODE_UD_SEND_ONLY_WITH_IMMEDIATE) {
+ 			reason = "Only UD Sends are supported";
+                        goto discard2;
+        }
+
+	PULL(buf, buf->deth);
+
+	if (buf->bth.opcode == IB_OPCODE_UD_SEND_ONLY_WITH_IMMEDIATE) {
+		PULL(buf, buf->immdt);
+ 		buf->imm_valid = true;
+		buf->imm = buf->immdt.imm;
+ 	}
+
+	buf->cur += __bth_pad(&buf->bth);
+
+	/* Start MAD payload */
+	PULL(buf, buf->umad);
+
+	if (buf->umad.mgmt_class != UMAD_CLASS_CM) {
+		reason = "Only CM Class MADs are supported";
+		goto discard2;
+	}
+
+	buf->cur = buf->raw;
+	__hexbytes(payload, buf->cur, buf->end - buf->cur, ' ');
+
+	logg(LOG_NOTICE, "MAD: %s APSN=%x LEN=%d method=%d status=%x attr_id=%x attr_mod=%x %s\n",
+		header, buf->bth.apsn, len, buf->umad.method,
+	       	ntohs(buf->umad.status), ntohs(buf->umad.attr_id), ntohl(buf->umad.attr_mod),
+		payload);
+
+	/* What now ? */
+	goto out;
+
+discard:
+	if (log_packets < 2)
+		goto silent_discard;
+
+discard2:
+	logg(LOG_NOTICE, "Discard %s %s: %s QPN=%x APSN=%x LEN=%d\n", c->text, reason, header,
+		ntohl(buf->bth.qpn), buf->bth.apsn, len);
+
+silent_discard:
+	st(c, packets_invalid);
+
+out:	
+	free_buffer(buf);
 }
 
 static void reset_flags(struct buf *buf)
