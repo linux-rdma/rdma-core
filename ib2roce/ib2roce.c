@@ -85,7 +85,7 @@
 
 // #define NETLINK_SUPPORT
 // #define LEARN
-#define HAVE_MSTFLINT
+// #define HAVE_MSTFLINT
 
 /* Globals */
 
@@ -3251,13 +3251,9 @@ static void setup_timed_events(void)
 	add_event(t + 100, check_joins);
 }
 
-static int event_loop(void)
+static void arm_channels(void)
 {
-	unsigned timeout;
-	int events = 0;
-	int waitms;
 	struct i2r_interface *i;
-	unsigned long t;
 
 	for(i = i2r; i < i2r + NR_INTERFACES; i++)
        	   if (i->context) {
@@ -3275,6 +3271,17 @@ static int event_loop(void)
 		}
 	}
 
+}
+
+
+static int event_loop(void)
+{
+	unsigned timeout;
+	int events = 0;
+	int waitms;
+	unsigned long t;
+
+	arm_channels();
 	setup_timed_events();
 loop:
 	timeout = 10000;
