@@ -72,6 +72,7 @@
 #include "bth_hdr.h"
 #include "ib_hdrs.h"
 #include "fifo.h"
+#include "hash.h"
 #include "ibraw.h"
 
 #define VERSION "2022.0220"
@@ -453,37 +454,12 @@ static struct mc {
 	bool sendonly[2];
 	bool beacon;
 	struct ah_info ai[2];
-	struct mc *next;	/* For the hash */
 	struct sockaddr *sa[2];
 	struct mgid_signature *mgid_mode;
 	const char *text;
 } mcs[MAX_MC];
 
-/*
- * Lookup of IP / Port via Hashes based on the IPv4 Multicast address.
- * Only 24 bits distinguish the Multicast address so ignore the
- * highest 8 bits
- */
-static struct mc *mc_hash[0x100];
-
-static unsigned ip_hash(unsigned a)
-{
-	unsigned low = a & 0xff;
-	unsigned middle = (a & 0xff00) >> 8;
-	unsigned high = (a & 0xff0000) >> 16;
-
-	return (low + middle + high) & 0xff;
-}
-
-static struct mc *__hash_lookup_mc(struct in_addr addr, unsigned index)
-{
-	struct mc *p = mc_hash[index];
-
-	while (p && (addr.s_addr != p->addr.s_addr))
-		p = p->next;
-
-	return p;
-}
+struct hash *mc_hash;
 
 static struct mc *hash_lookup_mc(struct in_addr addr)
 {
@@ -491,21 +467,16 @@ static struct mc *hash_lookup_mc(struct in_addr addr)
 	struct in_addr x = {
 		.s_addr = htonl(a)
 	};
-	unsigned index = ip_hash(a);
 
-	return __hash_lookup_mc(x, index);
+	return hash_find(mc_hash, &x);
 }
 
 static int hash_add_mc(struct mc *m)
 {
-	unsigned a = htonl(m->addr.s_addr);
-	unsigned index = ip_hash(a);
-
-	if (__hash_lookup_mc(m->addr, index))
+	if (hash_find(mc_hash, &m->addr))
 		return -EEXIST;
 
-	m->next = mc_hash[index];
-	mc_hash[index] = m;
+	hash_add(mc_hash, m);
 	return 0;
 }
 
@@ -3495,6 +3466,8 @@ int main(int argc, char **argv)
 	int n;
 	char *beacon_arg = NULL;
 
+	mc_hash = hash_create(0, sizeof(struct in_addr));
+
 	while ((op = getopt_long(argc, argv, "vtfunb::xl::i:r:m:o:d:p:",
 					opts, NULL)) != -1) {
                 switch (op) {
@@ -3574,6 +3547,7 @@ int main(int argc, char **argv)
 
 		case 't':
 			fifo_test();
+			hash_test();
 			testing = true;	
 			break;
 

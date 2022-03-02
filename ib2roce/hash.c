@@ -49,8 +49,8 @@
 #include <stdint.h>
 #include <errno.h>
 
-#include "util.h"
-#include "errno.c"
+#include "hash.h"
+#include "errno.h"
 
 /*
  * Dynamic Hash that reorganizes itself to fit the load
