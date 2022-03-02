@@ -85,7 +85,7 @@
 
 // #define NETLINK_SUPPORT
 // #define LEARN
-// #define HAVE_MSTFLINT
+#define HAVE_MSTFLINT
 
 /* Globals */
 
@@ -2439,7 +2439,7 @@ static void recv_buf_grh(struct rdma_channel *c, struct buf *buf)
 	dest_addr.s_addr = dgid->sib_addr32[3];
 	m = hash_lookup_mc(dest_addr);
 
-	if (log_packets) {
+	if (log_packets > 1) {
 		memcpy(&pgm, buf->cur, sizeof(struct pgm_header));
 		logg(LOG_NOTICE, "From %s: MC=%s %s\n", c->text, inet_ntoa(dest_addr), pgm_dump(&pgm));
 	}
@@ -2597,7 +2597,7 @@ static void recv_buf(struct rdma_channel *c, struct buf *buf)
 
 		if ((dlid & 0xf000) == 0xc000) {
 			reason = "Multicast";
-			goto discard;
+			goto silent_discard;
 		}
 
 		if (dlid == 0xffff) {
@@ -3339,7 +3339,6 @@ out:
 static void terminate(int x)
 {
 	terminated = true;
-	logg(LOG_CRIT, "Terminated by signal\n");
 }
 
 
