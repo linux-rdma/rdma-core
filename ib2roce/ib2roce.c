@@ -2597,7 +2597,7 @@ static void recv_buf(struct rdma_channel *c, struct buf *buf)
 
 		if ((dlid & 0xf000) == 0xc000) {
 			reason = "Multicast";
-			goto silent_discard;
+			goto discard;
 		}
 
 		if (dlid == 0xffff) {
@@ -2614,16 +2614,11 @@ static void recv_buf(struct rdma_channel *c, struct buf *buf)
 		if (memcmp(c->i->if_mac, buf->e.ether_shost, ETH_ALEN) == 0) {
 
 			reason = "Loopback";
-			if (log_packets < 2)
-				goto silent_discard;
-
 			goto discard;
 		}
 
 		if (buf->e.ether_dhost[0] & 0x1) {
 			reason = "Multicast on RAW channel";
-			if (log_packets < 2)
-				goto silent_discard;
 			goto discard;
 		}
 
@@ -2633,7 +2628,7 @@ static void recv_buf(struct rdma_channel *c, struct buf *buf)
 		if (buf->ethertype == ETHERTYPE_ROCE) {
 
 			reason = "Roce V1 not supported";
-			goto discard;
+			goto discard2;
 
 		} else if (buf->ethertype == ETHERTYPE_IP) {
 
@@ -2667,7 +2662,7 @@ static void recv_buf(struct rdma_channel *c, struct buf *buf)
 			if (ntohs(buf->udp.dest) != ROCE_PORT) {
 
 				reason = "Not the ROCE UDP port";
-				goto discard;
+				goto discard2;
 
 			}
 		}
@@ -2714,6 +2709,8 @@ static void recv_buf(struct rdma_channel *c, struct buf *buf)
 		payload);
 
 	/* What now ? */
+
+	/* Process SIDR REQ and SIDR RESP */
 	goto out;
 
 discard:
@@ -3103,6 +3100,7 @@ static void beacon_setup(const char *opt_arg)
 		} else
 			beacon_mc = m;
 	}
+	add_event(timestamp() + 1000, beacon_send);
 }
 
 /* Events are timed according to milliseconds in the current epoch */
@@ -3241,8 +3239,6 @@ static void setup_timed_events(void)
 	unsigned long t;
 
 	t = timestamp();
-	if (beacon)
-		add_event(t + 1000, beacon_send);
 
 	if (background)
 		add_event(t + 30000, status_write);
