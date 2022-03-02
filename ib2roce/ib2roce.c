@@ -66,7 +66,7 @@
 #include <linux/if_arp.h>
 
 #include <infiniband/umad_cm.h>
-
+#include <infiniband/umad_str.h>
 #include "packet.h"
 #include "errno.h"
 #include "bth_hdr.h"
@@ -778,7 +778,7 @@ struct buf {
 			struct bth bth;
 			struct deth deth;	/* BTH subheader */
 			struct pgm_header pgm;	/* RFC3208 header */
-			struct umad_hdr umad;	/* IB QP1 format packet */
+			struct umad_packet umad;
 		};
 		uint8_t meta[META_SIZE];
 	};
@@ -1942,6 +1942,7 @@ static void add_to_hash(struct rdma_unicast *ra, enum hashes type, void *p)
 	h->member = true;
 }
 
+#if 0
 static void remove_from_hash(struct rdma_unicast *ra, enum hashes type)
 {
 	struct hash_item *h = &ra->hash[type];
@@ -1970,6 +1971,7 @@ static void remove_from_hash(struct rdma_unicast *ra, enum hashes type)
 	prior->hash[type].next = h->next;
 	h->member = false;
 }
+#endif
 
 static struct rdma_unicast *find_in_hash(enum hashes type, void *p)
 {
@@ -2538,13 +2540,41 @@ free_out:
 	free_buffer(buf);
 }
 
+static void sidr_req(struct buf *buf, char *header)
+{
+	char *payload = alloca(1500);
+
+	buf->cur = buf->raw;
+	__hexbytes(payload, buf->cur, buf->end - buf->cur, ' ');
+
+	logg(LOG_NOTICE, "SIDR_REQ: %s APSN=%x method=%s status=%s attr_id=%s attr_mod=%x %s\n",
+		header, buf->bth.apsn, umad_method_str(buf->umad.mad_hdr.mgmt_class, buf->umad.mad_hdr.method),
+	       	umad_common_mad_status_str(buf->umad.mad_hdr.status),
+	       	umad_attribute_str(buf->umad.mad_hdr.mgmt_class, buf->umad.mad_hdr.attr_id), ntohl(buf->umad.mad_hdr.attr_mod),
+		payload);
+
+}
+
+static void sidr_rep(struct buf *buf, char *header)
+{
+	char *payload = alloca(1500);
+
+	buf->cur = buf->raw;
+	__hexbytes(payload, buf->cur, buf->end - buf->cur, ' ');
+
+	logg(LOG_NOTICE, "SIDR_REP: %s APSN=%x method=%s status=%s attr_id=%s attr_mod=%x %s\n",
+		header, buf->bth.apsn, umad_method_str(buf->umad.mad_hdr.mgmt_class, buf->umad.mad_hdr.method),
+	       	umad_common_mad_status_str(buf->umad.mad_hdr.status),
+	       	umad_attribute_str(buf->umad.mad_hdr.mgmt_class, buf->umad.mad_hdr.attr_id), ntohl(buf->umad.mad_hdr.attr_mod),
+		payload);
+
+}
 /* Figure out what to do with the packet we got */
 static void recv_buf(struct rdma_channel *c, struct buf *buf)
 {
 	const char *reason;
 	int len = 0;
 	char header[100];
-	char *payload = alloca(1500);
 
 	if (buf->grh_valid) {
 		recv_buf_grh(c, buf);
@@ -2695,23 +2725,21 @@ static void recv_buf(struct rdma_channel *c, struct buf *buf)
 	/* Start MAD payload */
 	PULL(buf, buf->umad);
 
-	if (buf->umad.mgmt_class != UMAD_CLASS_CM) {
+	if (buf->umad.mad_hdr.mgmt_class != UMAD_CLASS_CM) {
 		reason = "Only CM Class MADs are supported";
 		goto discard2;
 	}
 
-	buf->cur = buf->raw;
-	__hexbytes(payload, buf->cur, buf->end - buf->cur, ' ');
-
-	logg(LOG_NOTICE, "MAD: %s APSN=%x LEN=%d method=%d status=%x attr_id=%x attr_mod=%x %s\n",
-		header, buf->bth.apsn, len, buf->umad.method,
-	       	ntohs(buf->umad.status), ntohs(buf->umad.attr_id), ntohl(buf->umad.attr_mod),
-		payload);
-
-	/* What now ? */
-
-	/* Process SIDR REQ and SIDR RESP */
-	goto out;
+	if (buf->umad.mad_hdr.attr_id == UMAD_CM_ATTR_SIDR_REQ) {
+		sidr_req(buf, header);
+		return;
+	} else if (buf->umad.mad_hdr.attr_id == UMAD_CM_ATTR_SIDR_REP) {
+		sidr_rep(buf, header);
+		return;
+	}
+	
+	reason = "Only SIDR_REQ and SIDR_REP supported\n";
+	goto discard2;
 
 discard:
 	if (log_packets < 2)
@@ -2724,7 +2752,6 @@ discard2:
 silent_discard:
 	st(c, packets_invalid);
 
-out:	
 	free_buffer(buf);
 }
 
