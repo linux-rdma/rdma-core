@@ -176,11 +176,7 @@ static int cq_high = 0;	/* Largest batch of CQs encountered */
 
 struct rdma_channel {
 	struct i2r_interface *i;	/* The network interface of this channel */
-	struct ibv_comp_channel *comp_events;
 	struct ibv_qp *qp;		/* Points to QP regardless of method used */
-	struct ibv_cq *cq;
-	struct ibv_pd *pd;
-	struct ibv_mr *mr;
 	struct ibv_flow *flow;
 	unsigned int active_receive_buffers;
 	unsigned int nr_cq;
@@ -191,19 +187,44 @@ struct rdma_channel {
 	struct rdma_unicast *ru;
 	union {
 		struct { /* RDMACM status */
+			struct ibv_comp_channel *comp_events;
+			struct ibv_pd *pd;
 			struct rdma_cm_id *id;
 			struct sockaddr *bindaddr;
+			struct ibv_cq *cq;
+			struct ibv_mr *mr;
 		};
 		/* Basic RDMA channel without RDMACM */
 		struct ibv_qp_attr attr;
 	};
 };
 
+/* 
+ * Structure for looking up endpoint information.
+ * This allows IP addresses to be translated into GIDs and LIDs
+ */
+struct endpoint_info {
+	struct in_addr addr;
+	union ibv_gid gid;
+	unsigned short lid;
+};
+
+/* Object to describe a connection between two hosts */
+struct connection {
+	struct endpoint_info *e[2];
+	unsigned long qp[2];			/* QP Numbers on thoses endpoints */
+};
+
 static struct i2r_interface {
 	struct ibv_context *context;		/* Not for RDMA CM use */
 	struct rdma_event_channel *rdma_events;
 	struct rdma_channel *multicast;
+	struct rdma_channel *ud;
 	struct rdma_channel *raw;
+	struct ibv_comp_channel *comp_events;
+	struct ibv_cq *cq;
+	struct ibv_pd *pd;
+	struct ibv_mr *mr;
 	unsigned port;
 	unsigned mtu;
 	unsigned maclen;
@@ -220,6 +241,7 @@ static struct i2r_interface {
 	int iges;
 	struct ibv_gid_entry ige[MAX_GID];
 	struct fifo resolve_queue;		/* List of send buffers with unresolved addresses */
+	struct hash *ep;			/* Hash of all endpoints */
 } i2r[NR_INTERFACES];
 
 enum hashes { hash_ip, hash_mac, hash_gid, hash_lid, nr_hashes };
@@ -1118,7 +1140,7 @@ static struct rdma_channel *create_rdma_id(struct i2r_interface *i, struct socka
 	int ret;
 
 
-	c->text = make_ifname(i, "-ud");
+	c->text = make_ifname(i, "-multicast");
 
 	c->bindaddr = sa;
 	ret = rdma_create_id(i->rdma_events, &c->id, c, RDMA_PS_UDP);
@@ -1137,7 +1159,7 @@ static struct rdma_channel *create_rdma_id(struct i2r_interface *i, struct socka
 	return c;
 }
 
-static int allocate_ud_qp(struct rdma_channel *c, unsigned nr_cq, bool multicast)
+static int allocate_rdmacm_qp(struct rdma_channel *c, unsigned nr_cq, bool multicast)
 {
 	struct ibv_qp_init_attr_ex init_qp_attr_ex;
 	int ret;
@@ -1209,7 +1231,7 @@ static int allocate_ud_qp(struct rdma_channel *c, unsigned nr_cq, bool multicast
 }
 
 /* Not using rdmacm so this is easier on the callbacks */
-static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port, unsigned nr_cq)
+static struct rdma_channel *create_channel(struct i2r_interface *i, int port, unsigned nr_cq, const char *text, int qp_type)
 {
 	struct rdma_channel *c = new_rdma_channel(i);
 	int ret;
@@ -1218,23 +1240,10 @@ static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port
 	c->i = i;
 	c->rdmacm = false;
 
-	c->text = make_ifname(i, "-raw");
-
-	c->pd = ibv_alloc_pd(i->context);
-	if (!c->pd) {
-		logg(LOG_CRIT, "ibv_alloc_pd failed for %s.\n", c->text);
-		return NULL;
-	}
-
-	c->comp_events = ibv_create_comp_channel(i->context);
-	if (!c->comp_events) {
-		logg(LOG_CRIT, "ibv_create_comp_channel failed for %s : %s.\n",
-		c->text, errname());
-		abort();
-	}
+	c->text = make_ifname(i, text);
 
 	c->nr_cq = nr_cq;
-	c->cq = ibv_create_cq(i->context, nr_cq, c, c->comp_events, 0);
+	c->cq = ibv_create_cq(i->context, nr_cq, c, i->comp_events, 0);
 	if (!c->cq) {
 		logg(LOG_CRIT, "ibv_create_cq failed for %s.\n",
 			c->text);
@@ -1249,7 +1258,7 @@ static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port
 	init_qp_attr_ex.cap.max_inline_data = MAX_INLINE_DATA;
 	init_qp_attr_ex.qp_context = c;
 	init_qp_attr_ex.sq_sig_all = 0;
-	init_qp_attr_ex.qp_type = (i == i2r + ROCE) ? IBV_QPT_RAW_PACKET : IBV_QPT_UD,
+	init_qp_attr_ex.qp_type = qp_type,
 	init_qp_attr_ex.send_cq = c->cq;
 	init_qp_attr_ex.recv_cq = c->cq;
 
@@ -1282,13 +1291,19 @@ static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port
 		return NULL;
 	}
 
-	c->mr = ibv_reg_mr(c->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
-	if (!c->mr) {
-		logg(LOG_CRIT, "ibv_reg_mr failed for %s.\n", c->text);
-		return NULL;
-	}
 	return c;
 }
+
+static struct rdma_channel *create_ud_channel(struct i2r_interface *i, int port, unsigned nr_cq)
+{
+	return create_channel(i, port, nr_cq, "-ud", IBV_QPT_UD);
+}
+
+static struct rdma_channel *create_raw_channel(struct i2r_interface *i, int port, unsigned nr_cq)
+{
+	return create_channel(i, port, nr_cq, "-raw", i == i2r + ROCE  ? IBV_QPT_RAW_PACKET : IBV_QPT_UD);
+}
+
 
 static void setup_interface(enum interfaces in)
 {
@@ -1361,13 +1376,34 @@ static void setup_interface(enum interfaces in)
 	if (!i->multicast)
 		abort();
 
-	if (allocate_ud_qp(i->multicast, 1000, true))
+	if (allocate_rdmacm_qp(i->multicast, 1000, true))
 		abort();
 
-	if (unicast)
-		i->raw = create_raw_channel(i, i->port, 100);
+	i->pd = ibv_alloc_pd(i->context);
+	if (!i->pd) {
+		logg(LOG_CRIT, "ibv_alloc_pd failed for %s.\n", i->text);
+		abort();
+	}
 
-	logg(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s:%d CQs=%u/%u MTU=%u.\n",
+	i->comp_events = ibv_create_comp_channel(i->context);
+	if (!i->comp_events) {
+		logg(LOG_CRIT, "ibv_create_comp_channel failed for %s : %s.\n",
+					i->text, errname());
+		abort();
+	}
+
+	i->mr = ibv_reg_mr(i->pd, buffers, nr_buffers * sizeof(struct buf), IBV_ACCESS_LOCAL_WRITE);
+	if (!i->mr) {
+		logg(LOG_CRIT, "ibv_reg_mr failed for %s.\n", i->text);
+		abort();
+	}
+
+	if (unicast) {
+		i->ud = create_ud_channel(i, i->port, 100);
+		i->raw = create_raw_channel(i, i->port, 100);
+	}
+
+	logg(LOG_NOTICE, "%s interface %s/%s(%d) port %d GID=%s/%d IPv4=%s:%d CQs=%u/%u/%u MTU=%u.\n",
 		i->text,
 		ibv_get_device_name(i->context->device),
 		i->if_name, i->ifindex,
@@ -1375,6 +1411,7 @@ static void setup_interface(enum interfaces in)
 		inet_ntop(AF_INET6, e->gid.raw, buf, INET6_ADDRSTRLEN),i->gid_index,
 		inet_ntoa(i->if_addr.sin_addr), default_port,
 		i->multicast ? i->multicast->nr_cq: 0,
+		i->ud ? i->ud->nr_cq : 0,
 		i->raw ? i->raw->nr_cq : 0,
 		i->mtu
 	);
@@ -1628,7 +1665,7 @@ static void handle_rdma_event(void *private)
 				logg(LOG_NOTICE, "RDMA_CM_EVENT_ROUTE_RESOLVED for %s:%d\n",
 					inet_ntoa(ru->sin->sin_addr), ntohs(ru->sin->sin_port));
 
-				allocate_ud_qp(ru->c, 100, false);
+				allocate_rdmacm_qp(ru->c, 100, false);
 
 				post_receive(ru->c, 50);
 				ibv_req_notify_cq(ru->c->cq, 0);
@@ -1665,7 +1702,7 @@ static void handle_rdma_event(void *private)
 				c->id->context = c;
 				c->text = "incoming-ud-qp";
 
-				if (allocate_ud_qp(c, 100, false))
+				if (allocate_rdmacm_qp(c, 100, false))
 					goto err;
 
 				if (post_receive(c, 50))
