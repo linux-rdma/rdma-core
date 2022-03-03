@@ -47,6 +47,7 @@
 #include <sys/stat.h>
 #include <syslog.h>
 #include <fcntl.h>
+#include <ctype.h>
 
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -3457,20 +3458,74 @@ struct option opts[] = {
 	{ "flow", no_argument, NULL, 'f' },
 	{ "log-packets", no_argument, NULL, 'v' },
 	{ "test", no_argument, NULL, 't' },
+	{ "config", required_argument, NULL, 'c' },
 	{ NULL, 0, NULL, 0 }
 };
+	
+char *beacon_arg = NULL;
 
-int main(int argc, char **argv)
+static void exec_opt(int op, char *optarg);
+
+static void readconfig(char *file)
 {
-	int op, ret = 0;
+	char *line = NULL;
+	size_t chars = 0;
+	FILE *f = fopen(file, "r");
+
+	if (!f) {
+		fprintf(stderr, "Config file %s not found:%s\n", file, errname());
+		return;
+	}
+
+	while (getline(&line, &chars, f) > 0) {
+		char *p = line;
+		char *q, *optarg;
+		struct option *o;
+
+		while (isspace(*p))
+			p++;
+
+		if (!isalpha(*p))
+			goto skip;
+
+		q = p;
+		while (isalpha(*p))
+			p++;
+
+		*p++ = 0;
+
+		optarg = p;
+		while (!isspace(*p))
+			p++;
+
+		*p = 0;
+
+		for(o = opts; o->name; o++)
+			if (strcasecmp(o->name, q) == 0) {
+				exec_opt(o->val, optarg);
+				goto skip;
+			}
+
+		fprintf(stderr, "Unknown option: %s %s\n", q, optarg);
+		exit(1);
+skip:
+		free(line);
+		line = NULL;
+		chars = 0;
+	}
+	fclose(f);
+}
+
+static void exec_opt(int op, char *optarg)
+{
+	int ret = 0;
 	int n;
-	char *beacon_arg = NULL;
 
-	mc_hash = hash_create(0, sizeof(struct in_addr));
+	switch (op) {
+		case 'c':
+			readconfig(optarg);
+			break;
 
-	while ((op = getopt_long(argc, argv, "vtfunb::xl::i:r:m:o:d:p:",
-					opts, NULL)) != -1) {
-                switch (op) {
 		case 'd':
 			ib_name = optarg;
 			break;
@@ -3482,19 +3537,19 @@ int main(int argc, char **argv)
 		case 'm':
 			ret = new_mc_addr(optarg, false, false);
 			if (ret)
-				return 1;
+				exit(1);
 			break;
 
 		case 'i':
 			ret = new_mc_addr(optarg, false, true);
 			if (ret)
-				return 1;
+				exit(1);
 			break;
 
 		case 'o':
 			ret =  new_mc_addr(optarg, true, false);
 			if (ret)
-				return 1;
+				exit(1);
 			break;
 
 		case 'l':
@@ -3552,7 +3607,7 @@ int main(int argc, char **argv)
 			break;
 
 		default:
-			printf("%s " VERSION " Feb 16,2022 (C) 2022 Christoph Lameter <cl@linux.com>\n", argv[0]);
+			printf("ib2roce " VERSION " Mar 3,2022 (C) 2022 Christoph Lameter <cl@linux.com>\n");
 			printf("Usage: ib2roce [<option>] ...\n");
                         printf("-d|--device <if[:portnumber]>		Infiniband interface\n");
                         printf("-r|--roce <if[:portnumber]>		ROCE interface\n");
@@ -3568,12 +3623,23 @@ int main(int argc, char **argv)
 			printf("-u|--unicast		*experimental*	Unicast forwarding support\n");
 			printf("-f|--flow		*experimental*	Enable flow steering to do hardware filtering of packets\n");
 			printf("-v|--log-packets			Show detailed information about discarded packets\n");
+			printf("-c|--config <file>			Read config from file\n");
 			exit(1);
-		}
 	}
+}
+
+
+int main(int argc, char **argv)
+{
+	int op, ret = 0;
+
+	mc_hash = hash_create(offsetof(struct mc, addr), sizeof(struct in_addr));
+
+	while ((op = getopt_long(argc, argv, "vtfunb::xl::i:r:m:o:d:p:c:",
+					opts, NULL)) != -1)
+       		exec_opt(op, optarg);
 
 	init_buf();
-
 
 	if (debug || !bridging)
 		openlog("ib2roce", LOG_PERROR, LOG_USER);
