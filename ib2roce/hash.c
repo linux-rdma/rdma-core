@@ -63,6 +63,29 @@
 
 static void hash_expand(struct hash *h);
 
+/*
+ * The collision area is terminated with END_MAGIC. This
+ * ensures that there are no zeros at the end which could
+ * lead to the expansion of the object beyond the end of
+ * the collision area.
+ *
+ * This also means we need to set the END_MAGIC when the
+ * size of the collision area changes
+ */
+#define END_MAGIC (void *)0xDEADBEEFAAAAAAAA
+
+static void set_endmarker(struct hash *h)
+{
+	/* Set endmarker so that the functions do not write beyond the end of the data */
+	h->table[(1 << h->hash_bits) + (1 << h->coll_bits) - 1] = END_MAGIC;
+}
+
+static void clear_endmarker(struct hash *h)
+{
+	/* Clear endmarker so we can expand the collision table */
+	h->table[(1 << h->hash_bits) + (1 << h->coll_bits) - 1] = NULL;
+}
+
 struct hash *hash_create(unsigned offset, unsigned length)
 {
 	struct hash *h = calloc(1, sizeof(struct hash));
@@ -74,6 +97,7 @@ struct hash *hash_create(unsigned offset, unsigned length)
 	h->hash_bits = HASH_INIT_BITS;
 	h->coll_bits = HASH_COLL_INIT_BITS;
 	h->coll_ubits = 1;	/* Yields about 8 doublett collision entries on the initial config */
+	set_endmarker(h);
 	return h;
 }
 
@@ -101,29 +125,6 @@ static int hash_keycomp_oo(struct hash *h, void *o1, void *o2)
 	return memcmp(o1 + h->key_offset, o2 + h->key_offset, h->key_length);
 }
 
-
-/*
- * The collision area is terminated with END_MAGIC. This
- * ensures that there are no zeros at the end which could
- * lead to the expansion of the object beyond the end of
- * the collision area.
- *
- * This also means we need to set the END_MAGIC when the
- * size of the collision area changes
- */
-#define END_MAGIC (void *)0xDEADBEEFAAAAAAAA
-
-static void set_endmarker(struct hash *h)
-{
-	/* Set endmarker so that the functions do not write beyond the end of the data */
-	h->table[(1 << h->hash_bits) + (1 << h->coll_bits) - 1] = END_MAGIC;
-}
-
-static void clear_endmarker(struct hash *h)
-{
-	/* Clear endmarker so we can expand the collision table */
-	h->table[(1 << h->hash_bits) + (1 << h->coll_bits) - 1] = NULL;
-}
 
 static void **coll_alloc(struct hash *h, int words)
 {
