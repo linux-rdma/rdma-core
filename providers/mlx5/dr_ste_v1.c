@@ -83,6 +83,7 @@ enum dr_ste_v1_lu_type {
 	DR_STE_V1_LU_TYPE_FLEX_PARSER_1			= 0x0112,
 	DR_STE_V1_LU_TYPE_ETHL4_MISC_O			= 0x0113,
 	DR_STE_V1_LU_TYPE_ETHL4_MISC_I			= 0x0114,
+	DR_STE_V1_LU_TYPE_TNL_HEADER			= 0x0117,
 	DR_STE_V1_LU_TYPE_MATCH				= 0x0400,
 	DR_STE_V1_LU_TYPE_INVALID			= 0x00ff,
 	DR_STE_V1_LU_TYPE_DONT_CARE			= DR_STE_LU_TYPE_DONT_CARE,
@@ -573,16 +574,21 @@ static void dr_ste_v1_set_rx_decap_l3(uint8_t *hw_ste_p,
 }
 
 static void dr_ste_v1_set_rewrite_actions(uint8_t *hw_ste_p,
-					  uint8_t *s_action,
+					  uint8_t *action_p,
 					  uint16_t num_of_actions,
-					  uint32_t re_write_index)
+					  uint32_t re_write_index,
+					  uint8_t *action_data)
 {
-	DR_STE_SET(single_action_modify_list_v1, s_action, action_id,
-		   DR_STE_V1_ACTION_ID_MODIFY_LIST);
-	DR_STE_SET(single_action_modify_list_v1, s_action, num_of_modify_actions,
-		   num_of_actions);
-	DR_STE_SET(single_action_modify_list_v1, s_action, modify_actions_ptr,
-		   re_write_index);
+	if (action_data) {
+		memcpy(action_p, action_data, DR_MODIFY_ACTION_SIZE);
+	} else {
+		DR_STE_SET(single_action_modify_list_v1, action_p, action_id,
+			   DR_STE_V1_ACTION_ID_MODIFY_LIST);
+		DR_STE_SET(single_action_modify_list_v1, action_p, num_of_modify_actions,
+			   num_of_actions);
+		DR_STE_SET(single_action_modify_list_v1, action_p, modify_actions_ptr,
+			   re_write_index);
+	}
 
 	dr_ste_v1_set_reparse(hw_ste_p);
 }
@@ -757,7 +763,8 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 		}
 		dr_ste_v1_set_rewrite_actions(last_ste, action,
 					      attr->modify_actions,
-					      attr->modify_index);
+					      attr->modify_index,
+					      attr->single_modify_action);
 		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
 		action += DR_STE_ACTION_DOUBLE_SZ;
 		allow_encap = false;
@@ -935,7 +942,8 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 		}
 		dr_ste_v1_set_rewrite_actions(last_ste, action,
 					      attr->modify_actions,
-					      attr->modify_index);
+					      attr->modify_index,
+					      attr->single_modify_action);
 		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
 		action += DR_STE_ACTION_DOUBLE_SZ;
 	}
@@ -2332,25 +2340,31 @@ static void dr_ste_v1_build_flex_parser_1_init(struct dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v1_build_felx_parser_tag;
 }
 
-static int dr_ste_v1_build_tunnel_header_0_1_tag(struct dr_match_param *value,
-						 struct dr_ste_build *sb,
-						 uint8_t *tag)
+static int dr_ste_v1_build_tunnel_header_tag(struct dr_match_param *value,
+					     struct dr_ste_build *sb,
+					     uint8_t *tag)
 {
 	struct dr_match_misc5 *misc5 = &value->misc5;
 
 	DR_STE_SET_TAG(tunnel_header_v1, tag, tunnel_header_0, misc5, tunnel_header_0);
 	DR_STE_SET_TAG(tunnel_header_v1, tag, tunnel_header_1, misc5, tunnel_header_1);
+	if (sb->caps->support_full_tnl_hdr) {
+		DR_STE_SET_TAG(tunnel_header_v1, tag, tunnel_header_2, misc5, tunnel_header_2);
+		DR_STE_SET_TAG(tunnel_header_v1, tag, tunnel_header_3, misc5, tunnel_header_3);
+	}
 
 	return 0;
 }
 
-static void dr_ste_v1_build_tunnel_header_0_1_init(struct dr_ste_build *sb,
-						   struct dr_match_param *mask)
+static void dr_ste_v1_build_tunnel_header_init(struct dr_ste_build *sb,
+					       struct dr_match_param *mask)
 {
-	sb->lu_type = DR_STE_V1_LU_TYPE_FLEX_PARSER_TNL_HEADER;
-	dr_ste_v1_build_tunnel_header_0_1_tag(mask, sb, sb->bit_mask);
+	sb->lu_type = sb->caps->support_full_tnl_hdr ?
+		      DR_STE_V1_LU_TYPE_TNL_HEADER :
+		      DR_STE_V1_LU_TYPE_FLEX_PARSER_TNL_HEADER;
+	dr_ste_v1_build_tunnel_header_tag(mask, sb, sb->bit_mask);
 	sb->byte_mask = dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
-	sb->ste_build_tag_func = &dr_ste_v1_build_tunnel_header_0_1_tag;
+	sb->ste_build_tag_func = &dr_ste_v1_build_tunnel_header_tag;
 }
 
 static int dr_ste_v1_build_def0_tag(struct dr_match_param *value,
@@ -3468,7 +3482,7 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	.build_src_gvmi_qpn_init	= &dr_ste_v1_build_src_gvmi_qpn_init,
 	.build_flex_parser_0_init	= &dr_ste_v1_build_flex_parser_0_init,
 	.build_flex_parser_1_init	= &dr_ste_v1_build_flex_parser_1_init,
-	.build_tunnel_header_0_1        = &dr_ste_v1_build_tunnel_header_0_1_init,
+	.build_tunnel_header_init	= &dr_ste_v1_build_tunnel_header_init,
 	.build_def0_init		= &dr_ste_v1_build_def0_init,
 	.build_def2_init		= &dr_ste_v1_build_def2_init,
 	.build_def6_init		= &dr_ste_v1_build_def6_init,
@@ -3497,7 +3511,8 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	.actions_caps			= DR_STE_CTX_ACTION_CAP_TX_POP |
 					  DR_STE_CTX_ACTION_CAP_RX_PUSH |
 					  DR_STE_CTX_ACTION_CAP_RX_ENCAP |
-					  DR_STE_CTX_ACTION_CAP_POP_MDFY,
+					  DR_STE_CTX_ACTION_CAP_POP_MDFY |
+					  DR_STE_CTX_ACTION_CAP_MODIFY_HDR_INLINE,
 	.action_modify_field_arr	= dr_ste_v1_action_modify_field_arr,
 	.action_modify_field_arr_size	= ARRAY_SIZE(dr_ste_v1_action_modify_field_arr),
 	.set_actions_rx			= &dr_ste_v1_set_actions_rx,

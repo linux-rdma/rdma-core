@@ -125,6 +125,7 @@ enum dr_ste_ctx_action_cap {
 	DR_STE_CTX_ACTION_CAP_RX_PUSH	= 1 << 1,
 	DR_STE_CTX_ACTION_CAP_RX_ENCAP	= 1 << 3,
 	DR_STE_CTX_ACTION_CAP_POP_MDFY	= 1 << 4,
+	DR_STE_CTX_ACTION_CAP_MODIFY_HDR_INLINE = 1 << 5,
 };
 
 enum {
@@ -367,6 +368,7 @@ struct dr_action_aso {
 struct dr_ste_actions_attr {
 	uint32_t	modify_index;
 	uint16_t	modify_actions;
+	uint8_t		*single_modify_action;
 	uint32_t	decap_index;
 	uint16_t	decap_actions;
 	bool		decap_with_vlan;
@@ -595,10 +597,11 @@ void dr_ste_build_flex_parser_1(struct dr_ste_ctx *ste_ctx,
 				struct dr_ste_build *sb,
 				struct dr_match_param *mask,
 				bool inner, bool rx);
-void dr_ste_build_tunnel_header_0_1(struct dr_ste_ctx *ste_ctx,
-				    struct dr_ste_build *sb,
-				    struct dr_match_param *mask,
-				    bool inner, bool rx);
+void dr_ste_build_tunnel_header(struct dr_ste_ctx *ste_ctx,
+				struct dr_ste_build *sb,
+				struct dr_match_param *mask,
+				struct dr_devx_caps *caps,
+				bool inner, bool rx);
 int dr_ste_build_def0(struct dr_ste_ctx *ste_ctx,
 		      struct dr_ste_build *sb,
 		      struct dr_match_param *mask,
@@ -933,6 +936,7 @@ struct dr_devx_caps {
 	bool				prio_tag_required;
 	bool				is_ecpf;
 	struct dr_devx_vports		vports;
+	bool				support_full_tnl_hdr;
 };
 
 struct dr_devx_flow_table_attr {
@@ -1178,10 +1182,11 @@ struct mlx5dv_dr_action {
 					struct dr_icm_chunk	*chunk;
 					uint8_t			*data;
 					uint32_t		data_size;
-					uint16_t		num_of_actions;
 					uint32_t		index;
-					bool			allow_rx;
-					bool			allow_tx;
+					uint16_t                num_of_actions;
+					uint8_t			single_action_opt:1;
+					uint8_t			allow_rx:1;
+					uint8_t			allow_tx:1;
 				};
 			};
 		} rewrite;
@@ -1637,6 +1642,11 @@ struct dr_icm_buddy_mem {
 	 * sync_ste command sets them free.
 	 */
 	struct list_head	hot_list;
+
+	/* Memory optimization */
+	struct dr_ste		*ste_arr;
+	struct list_head	*miss_list;
+	uint8_t			*hw_ste_arr;
 	/* HW STE cache entry size */
 	uint8_t                 hw_ste_sz;
 };

@@ -348,6 +348,14 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 						  flow_table_properties_nic_receive.
 						  ft_field_support.
 						  geneve_tlv_option_0_exist);
+	caps->support_full_tnl_hdr = (DEVX_GET(query_hca_cap_out, out,
+					       capability.flow_table_nic_cap.
+					       ft_field_bitmask_support_2_nic_receive.
+					       tunnel_header_0_1) &&
+				      DEVX_GET(query_hca_cap_out, out,
+					       capability.flow_table_nic_cap.
+					       ft_field_bitmask_support_2_nic_receive.
+					       tunnel_header_2_3));
 
 	if (sf_supp && caps->eswitch_manager) {
 		DEVX_SET(query_hca_cap_in, in, op_mod,

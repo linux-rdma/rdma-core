@@ -564,6 +564,9 @@ struct dr_ste_htbl *dr_ste_htbl_alloc(struct dr_icm_pool *pool,
 		atomic_init(&ste->refcount, 0);
 		list_node_init(&ste->miss_list_node);
 		list_head_init(&htbl->miss_list[i]);
+		ste->next_htbl = NULL;
+		ste->rule_rx_tx = NULL;
+		ste->ste_chain_location = 0;
 	}
 
 	htbl->chunk_size = chunk_size;
@@ -1408,14 +1411,17 @@ void dr_ste_build_flex_parser_1(struct dr_ste_ctx *ste_ctx,
 	ste_ctx->build_flex_parser_1_init(sb, mask);
 }
 
-void dr_ste_build_tunnel_header_0_1(struct dr_ste_ctx *ste_ctx,
-				    struct dr_ste_build *sb,
-				    struct dr_match_param *mask,
-				    bool inner, bool rx)
+void dr_ste_build_tunnel_header(struct dr_ste_ctx *ste_ctx,
+				struct dr_ste_build *sb,
+				struct dr_match_param *mask,
+				struct dr_devx_caps *caps,
+				bool inner, bool rx)
 {
 	sb->rx = rx;
 	sb->inner = inner;
-	ste_ctx->build_tunnel_header_0_1(sb, mask);
+	sb->caps = caps;
+
+	ste_ctx->build_tunnel_header_init(sb, mask);
 }
 
 int dr_ste_build_def0(struct dr_ste_ctx *ste_ctx,

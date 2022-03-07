@@ -136,9 +136,10 @@ static int dr_dump_rule_action(FILE *f, const uint64_t rule_id,
 			      action->flow_tag);
 		break;
 	case DR_ACTION_TYP_MODIFY_HDR:
-		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x,%d\n",
 			      DR_DUMP_REC_TYPE_ACTION_MODIFY_HDR, action_id,
-			      rule_id, action->rewrite.index);
+			      rule_id, action->rewrite.index,
+			      action->rewrite.single_action_opt);
 		break;
 	case DR_ACTION_TYP_VPORT:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",

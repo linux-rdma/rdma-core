@@ -207,7 +207,8 @@ struct dr_ste_ctx *dr_ste_get_ctx_v2(void)
 		ste_ctx_v2 = *dr_ste_get_ctx_v1();
 		ste_ctx_v2.actions_caps = DR_STE_CTX_ACTION_CAP_TX_POP |
 					  DR_STE_CTX_ACTION_CAP_RX_PUSH |
-					  DR_STE_CTX_ACTION_CAP_RX_ENCAP;
+					  DR_STE_CTX_ACTION_CAP_RX_ENCAP |
+					  DR_STE_CTX_ACTION_CAP_MODIFY_HDR_INLINE;
 		ste_ctx_v2.action_modify_field_arr = dr_ste_v2_action_modify_field_arr;
 		ste_ctx_v2.action_modify_field_arr_size = ARRAY_SIZE(dr_ste_v2_action_modify_field_arr);
 	}
