@@ -247,6 +247,7 @@ struct hns_roce_cq {
 	int				arm_sn;
 	unsigned long			flags;
 	unsigned int			cqe_size;
+	struct hns_roce_v2_cqe		*cqe;
 };
 
 struct hns_roce_idx_que {

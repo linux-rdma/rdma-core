@@ -276,13 +276,21 @@ int hns_roce_u_dealloc_mw(struct ibv_mw *mw)
 	return 0;
 }
 
+enum {
+	CREATE_CQ_SUPPORTED_WC_FLAGS = IBV_WC_STANDARD_FLAGS |
+				       IBV_WC_EX_WITH_CVLAN,
+};
+
 static int verify_cq_create_attr(struct ibv_cq_init_attr_ex *attr,
 				 struct hns_roce_context *context)
 {
 	if (!attr->cqe || attr->cqe > context->max_cqe)
 		return -EINVAL;
 
-	if (attr->comp_mask || attr->wc_flags)
+	if (attr->comp_mask)
+		return -EOPNOTSUPP;
+
+	if (!check_comp_mask(attr->wc_flags, CREATE_CQ_SUPPORTED_WC_FLAGS))
 		return -EOPNOTSUPP;
 
 	attr->cqe = max_t(uint32_t, HNS_ROCE_MIN_CQE_NUM,
@@ -409,7 +417,13 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 struct ibv_cq_ex *hns_roce_u_create_cq_ex(struct ibv_context *context,
 					  struct ibv_cq_init_attr_ex *attr)
 {
-	return create_cq(context, attr);
+	struct ibv_cq_ex *cq;
+
+	cq = create_cq(context, attr);
+	if (cq)
+		hns_roce_attach_cq_ex_ops(cq, attr->wc_flags);
+
+	return cq;
 }
 
 void hns_roce_u_cq_event(struct ibv_cq *cq)

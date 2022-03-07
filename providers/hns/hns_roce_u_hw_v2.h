@@ -337,5 +337,6 @@ struct hns_roce_ud_sq_wqe {
 #define MAX_SERVICE_LEVEL 0x7
 
 void hns_roce_v2_clear_qp(struct hns_roce_context *ctx, struct hns_roce_qp *qp);
+void hns_roce_attach_cq_ex_ops(struct ibv_cq_ex *cq_ex, uint64_t wc_flags);
 
 #endif /* _HNS_ROCE_U_HW_V2_H */
