@@ -189,10 +189,10 @@ static struct hns_roce_v2_cqe *get_cqe_v2(struct hns_roce_cq *cq, int entry)
 
 static void *get_sw_cqe_v2(struct hns_roce_cq *cq, int n)
 {
-	struct hns_roce_v2_cqe *cqe = get_cqe_v2(cq, n & cq->ibv_cq.cqe);
+	struct hns_roce_v2_cqe *cqe = get_cqe_v2(cq, n & cq->verbs_cq.cq.cqe);
 
-	return (hr_reg_read(cqe, CQE_OWNER) ^ !!(n & (cq->ibv_cq.cqe + 1))) ?
-	       cqe : NULL;
+	return (hr_reg_read(cqe, CQE_OWNER) ^
+		!!(n & (cq->verbs_cq.cq.cqe + 1))) ? cqe : NULL;
 }
 
 static struct hns_roce_v2_cqe *next_cqe_sw_v2(struct hns_roce_cq *cq)
@@ -556,7 +556,7 @@ static void parse_cqe_for_req(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
 static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 				struct hns_roce_qp **cur_qp, struct ibv_wc *wc)
 {
-	struct hns_roce_context *ctx = to_hr_ctx(cq->ibv_cq.context);
+	struct hns_roce_context *ctx = to_hr_ctx(cq->verbs_cq.cq.context);
 	struct hns_roce_srq *srq = NULL;
 	struct hns_roce_v2_cqe *cqe;
 	uint8_t opcode;
@@ -1356,15 +1356,15 @@ static void __hns_roce_v2_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 	uint16_t wqe_index;
 	uint32_t prod_index;
 	struct hns_roce_v2_cqe *cqe, *dest;
-	struct hns_roce_context *ctx = to_hr_ctx(cq->ibv_cq.context);
+	struct hns_roce_context *ctx = to_hr_ctx(cq->verbs_cq.cq.context);
 
 	for (prod_index = cq->cons_index; get_sw_cqe_v2(cq, prod_index);
 	     ++prod_index)
-		if (prod_index > cq->cons_index + cq->ibv_cq.cqe)
+		if (prod_index > cq->cons_index + cq->verbs_cq.cq.cqe)
 			break;
 
 	while ((int) --prod_index - (int) cq->cons_index >= 0) {
-		cqe = get_cqe_v2(cq, prod_index & cq->ibv_cq.cqe);
+		cqe = get_cqe_v2(cq, prod_index & cq->verbs_cq.cq.cqe);
 		if (hr_reg_read(cqe, CQE_LCL_QPN) == qpn) {
 			is_recv_cqe = hr_reg_read(cqe, CQE_S_R);
 
@@ -1375,7 +1375,7 @@ static void __hns_roce_v2_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 			++nfreed;
 		} else if (nfreed) {
 			dest = get_cqe_v2(cq,
-				       (prod_index + nfreed) & cq->ibv_cq.cqe);
+				       (prod_index + nfreed) & cq->verbs_cq.cq.cqe);
 			owner_bit = hr_reg_read(dest, CQE_OWNER);
 			memcpy(dest, cqe, cq->cqe_size);
 			hr_reg_write_bool(dest, CQE_OWNER, owner_bit);

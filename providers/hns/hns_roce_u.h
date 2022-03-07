@@ -236,7 +236,7 @@ struct hns_roce_pd {
 };
 
 struct hns_roce_cq {
-	struct ibv_cq			ibv_cq;
+	struct verbs_cq			verbs_cq;
 	struct hns_roce_buf		buf;
 	pthread_spinlock_t		lock;
 	unsigned int			cqn;
@@ -406,7 +406,7 @@ static inline struct hns_roce_pd *to_hr_pd(struct ibv_pd *ibv_pd)
 
 static inline struct hns_roce_cq *to_hr_cq(struct ibv_cq *ibv_cq)
 {
-	return container_of(ibv_cq, struct hns_roce_cq, ibv_cq);
+	return container_of(ibv_cq, struct hns_roce_cq, verbs_cq.cq);
 }
 
 static inline struct hns_roce_srq *to_hr_srq(struct ibv_srq *ibv_srq)
@@ -447,6 +447,8 @@ int hns_roce_u_bind_mw(struct ibv_qp *qp, struct ibv_mw *mw,
 struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 				    struct ibv_comp_channel *channel,
 				    int comp_vector);
+struct ibv_cq_ex *hns_roce_u_create_cq_ex(struct ibv_context *context,
+					  struct ibv_cq_init_attr_ex *cq_attr);
 
 int hns_roce_u_modify_cq(struct ibv_cq *cq, struct ibv_modify_cq_attr *attr);
 int hns_roce_u_destroy_cq(struct ibv_cq *cq);
