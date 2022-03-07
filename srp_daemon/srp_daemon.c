@@ -1902,6 +1902,27 @@ static void umad_resources_destroy(struct umad_resources *umad_res)
 	umad_done();
 }
 
+static int check_link_layer(const char *port_sysfs_path)
+{
+	const char expected_link_layer[] = "InfiniBand";
+	char link_layer[sizeof(expected_link_layer)];
+	int ret;
+
+	ret = srpd_sys_read_string(port_sysfs_path, "link_layer", link_layer,
+				   sizeof(link_layer));
+	if (ret < 0) {
+		pr_err("Couldn't read link layer\n");
+		return ret;
+	}
+
+	if (strcmp(link_layer, expected_link_layer)) {
+		pr_err("Unsupported link layer %s\n", link_layer);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int umad_resources_create(struct umad_resources *umad_res)
 {
 
@@ -1914,6 +1935,10 @@ static int umad_resources_create(struct umad_resources *umad_res)
 		umad_res->port_sysfs_path = NULL;
 		return -ENOMEM;
 	}
+
+	ret = check_link_layer(umad_res->port_sysfs_path);
+	if (ret)
+		return ret;
 
 	umad_res->portid = umad_open_port(config->dev_name, config->port_num);
 	if (umad_res->portid < 0) {
