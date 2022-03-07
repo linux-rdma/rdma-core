@@ -146,13 +146,13 @@ static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	return 0;
 }
 
-static void handle_error_cqe(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
-			     uint8_t status)
+static enum ibv_wc_status get_wc_status(uint8_t status)
 {
 	static const struct {
 		unsigned int cqe_status;
 		enum ibv_wc_status wc_status;
 	} map[] = {
+		{ HNS_ROCE_V2_CQE_SUCCESS, IBV_WC_SUCCESS },
 		{ HNS_ROCE_V2_CQE_LOCAL_LENGTH_ERR, IBV_WC_LOC_LEN_ERR },
 		{ HNS_ROCE_V2_CQE_LOCAL_QP_OP_ERR, IBV_WC_LOC_QP_OP_ERR },
 		{ HNS_ROCE_V2_CQE_LOCAL_PROT_ERR, IBV_WC_LOC_PROT_ERR },
@@ -169,17 +169,12 @@ static void handle_error_cqe(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
 		{ HNS_ROCE_V2_CQE_XRC_VIOLATION_ERR, IBV_WC_REM_INV_RD_REQ_ERR },
 	};
 
-	int i;
-
-	wc->status = IBV_WC_GENERAL_ERR;
-	for (i = 0; i < ARRAY_SIZE(map); i++) {
-		if (status == map[i].cqe_status) {
-			wc->status = map[i].wc_status;
-			break;
-		}
+	for (int i = 0; i < ARRAY_SIZE(map); i++) {
+		if (status == map[i].cqe_status)
+			return map[i].wc_status;
 	}
 
-	wc->vendor_err = hr_reg_read(cqe, CQE_SUB_STATUS);
+	return IBV_WC_GENERAL_ERR;
 }
 
 static struct hns_roce_v2_cqe *get_cqe_v2(struct hns_roce_cq *cq, int entry)
@@ -581,7 +576,6 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 			return V2_CQ_POLL_ERR;
 	}
 
-	status = hr_reg_read(cqe, CQE_STATUS);
 	opcode = hr_reg_read(cqe, CQE_OPCODE);
 	is_send = hr_reg_read(cqe, CQE_S_R) == CQE_FOR_SQ;
 	if (is_send) {
@@ -603,18 +597,18 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 
 	wc->qp_num = qpn;
 
+	status = hr_reg_read(cqe, CQE_STATUS);
+	wc->status = get_wc_status(status);
+	wc->vendor_err = hr_reg_read(cqe, CQE_SUB_STATUS);
+
+	if (status == HNS_ROCE_V2_CQE_SUCCESS)
+		return V2_CQ_OK;
+
 	/*
 	 * once a cqe in error status, the driver needs to help the HW to
 	 * generated flushed cqes for all subsequent wqes
 	 */
-	if (status != HNS_ROCE_V2_CQE_SUCCESS) {
-		handle_error_cqe(cqe, wc, status);
-		return hns_roce_flush_cqe(*cur_qp, status);
-	}
-
-	wc->status = IBV_WC_SUCCESS;
-
-	return V2_CQ_OK;
+	return hns_roce_flush_cqe(*cur_qp, status);
 }
 
 static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
@@ -1706,40 +1700,6 @@ static int cqe_proc_wq(struct hns_roce_context *ctx, struct hns_roce_qp *qp,
 	return 0;
 }
 
-static void handle_error_cqe_ex(struct hns_roce_cq *cq, uint8_t status)
-{
-	int i;
-
-	static const struct {
-		unsigned int cqe_status;
-		enum ibv_wc_status wc_status;
-	} map[] = {
-		{ HNS_ROCE_V2_CQE_LOCAL_LENGTH_ERR, IBV_WC_LOC_LEN_ERR },
-		{ HNS_ROCE_V2_CQE_LOCAL_QP_OP_ERR, IBV_WC_LOC_QP_OP_ERR },
-		{ HNS_ROCE_V2_CQE_LOCAL_PROT_ERR, IBV_WC_LOC_PROT_ERR },
-		{ HNS_ROCE_V2_CQE_WR_FLUSH_ERR, IBV_WC_WR_FLUSH_ERR },
-		{ HNS_ROCE_V2_CQE_MEM_MANAGERENT_OP_ERR, IBV_WC_MW_BIND_ERR },
-		{ HNS_ROCE_V2_CQE_BAD_RESP_ERR, IBV_WC_BAD_RESP_ERR },
-		{ HNS_ROCE_V2_CQE_LOCAL_ACCESS_ERR, IBV_WC_LOC_ACCESS_ERR },
-		{ HNS_ROCE_V2_CQE_REMOTE_INVAL_REQ_ERR, IBV_WC_REM_INV_REQ_ERR },
-		{ HNS_ROCE_V2_CQE_REMOTE_ACCESS_ERR, IBV_WC_REM_ACCESS_ERR },
-		{ HNS_ROCE_V2_CQE_REMOTE_OP_ERR, IBV_WC_REM_OP_ERR },
-		{ HNS_ROCE_V2_CQE_TRANSPORT_RETRY_EXC_ERR,
-		  IBV_WC_RETRY_EXC_ERR },
-		{ HNS_ROCE_V2_CQE_RNR_RETRY_EXC_ERR, IBV_WC_RNR_RETRY_EXC_ERR },
-		{ HNS_ROCE_V2_CQE_REMOTE_ABORTED_ERR, IBV_WC_REM_ABORT_ERR },
-		{ HNS_ROCE_V2_CQE_XRC_VIOLATION_ERR, IBV_WC_REM_INV_RD_REQ_ERR },
-	};
-
-	cq->verbs_cq.cq_ex.status = IBV_WC_GENERAL_ERR;
-	for (i = 0; i < ARRAY_SIZE(map); i++) {
-		if (status == map[i].cqe_status) {
-			cq->verbs_cq.cq_ex.status = map[i].wc_status;
-			break;
-		}
-	}
-}
-
 static int wc_poll_cqe(struct hns_roce_context *ctx, struct hns_roce_cq *cq)
 {
 	struct hns_roce_qp *qp = NULL;
@@ -1765,19 +1725,16 @@ static int wc_poll_cqe(struct hns_roce_context *ctx, struct hns_roce_cq *cq)
 		return V2_CQ_POLL_ERR;
 
 	status = hr_reg_read(cqe, CQE_STATUS);
+	cq->verbs_cq.cq_ex.status = get_wc_status(status);
+
+	if (status == HNS_ROCE_V2_CQE_SUCCESS)
+		return V2_CQ_OK;
 
 	/*
 	 * once a cqe in error status, the driver needs to help the HW to
 	 * generated flushed cqes for all subsequent wqes
 	 */
-	if (status != HNS_ROCE_V2_CQE_SUCCESS) {
-		handle_error_cqe_ex(cq, status);
-		return hns_roce_flush_cqe(qp, status);
-	}
-
-	cq->verbs_cq.cq_ex.status = IBV_WC_SUCCESS;
-
-	return V2_CQ_OK;
+	return hns_roce_flush_cqe(qp, status);
 }
 
 static int wc_start_poll_cq(struct ibv_cq_ex *current,
