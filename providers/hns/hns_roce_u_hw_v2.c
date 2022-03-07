@@ -285,6 +285,7 @@ static void hns_roce_update_rq_db(struct hns_roce_context *ctx,
 
 static void hns_roce_update_sq_db(struct hns_roce_context *ctx,
 				  struct hns_roce_qp *qp)
+
 {
 	struct hns_roce_db sq_db = {};
 
@@ -548,21 +549,101 @@ static void parse_cqe_for_req(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
 	wc->opcode = wc_send_op_map[opcode];
 }
 
-static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
-				struct hns_roce_qp **cur_qp, struct ibv_wc *wc)
+static void cqe_proc_sq(struct hns_roce_qp *hr_qp, uint32_t wqe_idx,
+			struct hns_roce_cq *cq)
 {
-	struct hns_roce_context *ctx = to_hr_ctx(cq->verbs_cq.cq.context);
+	struct hns_roce_wq *wq = &hr_qp->sq;
+
+	if (hr_qp->sq_signal_bits)
+		wq->tail += (wqe_idx - wq->tail) & (wq->wqe_cnt - 1);
+
+	cq->verbs_cq.cq_ex.wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
+	++wq->tail;
+}
+
+static void cqe_proc_srq(struct hns_roce_srq *srq, uint32_t wqe_idx,
+			 struct hns_roce_cq *cq)
+{
+	cq->verbs_cq.cq_ex.wr_id = srq->wrid[wqe_idx & (srq->wqe_cnt - 1)];
+	hns_roce_free_srq_wqe(srq, wqe_idx);
+}
+
+static void cqe_proc_rq(struct hns_roce_wq *wq, struct hns_roce_cq *cq)
+{
+	cq->verbs_cq.cq_ex.wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
+	++wq->tail;
+}
+
+static int cqe_proc_wq(struct hns_roce_context *ctx, struct hns_roce_qp *qp,
+		       struct hns_roce_cq *cq)
+{
+	struct hns_roce_v2_cqe *cqe = cq->cqe;
 	struct hns_roce_srq *srq = NULL;
-	struct hns_roce_v2_cqe *cqe;
+	uint32_t wqe_idx;
+
+	wqe_idx = hr_reg_read(cqe, CQE_WQE_IDX);
+	if (hr_reg_read(cqe, CQE_S_R) == CQE_FOR_SQ) {
+		cqe_proc_sq(qp, wqe_idx, cq);
+	} else {
+		if (get_srq_from_cqe(cqe, ctx, qp, &srq))
+			return V2_CQ_POLL_ERR;
+
+		if (srq)
+			cqe_proc_srq(srq, wqe_idx, cq);
+		else
+			cqe_proc_rq(&qp->rq, cq);
+	}
+
+	return 0;
+}
+
+static int parse_cqe_for_cq(struct hns_roce_context *ctx, struct hns_roce_cq *cq,
+			    struct hns_roce_qp *cur_qp, struct ibv_wc *wc)
+{
+	struct hns_roce_v2_cqe *cqe = cq->cqe;
+	struct hns_roce_srq *srq = NULL;
 	uint8_t opcode;
-	uint8_t status;
+
+	if (!wc) {
+		if (cqe_proc_wq(ctx, cur_qp, cq))
+			return V2_CQ_POLL_ERR;
+
+		return 0;
+	}
+
+	opcode = hr_reg_read(cqe, CQE_OPCODE);
+
+	if (hr_reg_read(cqe, CQE_S_R) == CQE_FOR_SQ) {
+		parse_cqe_for_req(cqe, wc, cur_qp, opcode);
+	} else {
+		wc->byte_len = le32toh(cqe->byte_cnt);
+		get_opcode_for_resp(cqe, wc, opcode);
+
+		if (get_srq_from_cqe(cqe, ctx, cur_qp, &srq))
+			return V2_CQ_POLL_ERR;
+
+		if (srq)
+			parse_cqe_for_srq(cqe, wc, srq);
+		else
+			parse_cqe_for_resp(cqe, wc, cur_qp, opcode);
+	}
+
+	return 0;
+}
+
+static int hns_roce_poll_one(struct hns_roce_context *ctx,
+			     struct hns_roce_qp **cur_qp, struct hns_roce_cq *cq,
+			     struct ibv_wc *wc)
+{
+	struct hns_roce_v2_cqe *cqe;
+	uint8_t status, wc_status;
 	uint32_t qpn;
-	bool is_send;
 
 	cqe = next_cqe_sw_v2(cq);
 	if (!cqe)
-		return V2_CQ_EMPTY;
+		return wc ? V2_CQ_EMPTY : ENOENT;
 
+	cq->cqe = cqe;
 	++cq->cons_index;
 
 	udma_from_device_barrier();
@@ -576,30 +657,19 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 			return V2_CQ_POLL_ERR;
 	}
 
-	opcode = hr_reg_read(cqe, CQE_OPCODE);
-	is_send = hr_reg_read(cqe, CQE_S_R) == CQE_FOR_SQ;
-	if (is_send) {
-		parse_cqe_for_req(cqe, wc, *cur_qp, opcode);
-	} else {
-		wc->byte_len = le32toh(cqe->byte_cnt);
-		get_opcode_for_resp(cqe, wc, opcode);
-
-		if (get_srq_from_cqe(cqe, ctx, *cur_qp, &srq))
-			return V2_CQ_POLL_ERR;
-
-		if (srq) {
-			parse_cqe_for_srq(cqe, wc, srq);
-		} else {
-			if (parse_cqe_for_resp(cqe, wc, *cur_qp, opcode))
-				return V2_CQ_POLL_ERR;
-		}
-	}
-
-	wc->qp_num = qpn;
+	if (parse_cqe_for_cq(ctx, cq, *cur_qp, wc))
+		return V2_CQ_POLL_ERR;
 
 	status = hr_reg_read(cqe, CQE_STATUS);
-	wc->status = get_wc_status(status);
-	wc->vendor_err = hr_reg_read(cqe, CQE_SUB_STATUS);
+	wc_status = get_wc_status(status);
+
+	if (wc) {
+		wc->status = wc_status;
+		wc->vendor_err = hr_reg_read(cqe, CQE_SUB_STATUS);
+		wc->qp_num = qpn;
+	} else {
+		cq->verbs_cq.cq_ex.status = wc_status;
+	}
 
 	if (status == HNS_ROCE_V2_CQE_SUCCESS)
 		return V2_CQ_OK;
@@ -614,16 +684,16 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 				 struct ibv_wc *wc)
 {
-	int npolled;
-	int err = V2_CQ_OK;
-	struct hns_roce_qp *qp = NULL;
-	struct hns_roce_cq *cq = to_hr_cq(ibvcq);
 	struct hns_roce_context *ctx = to_hr_ctx(ibvcq->context);
+	struct hns_roce_cq *cq = to_hr_cq(ibvcq);
+	struct hns_roce_qp *qp = NULL;
+	int err = V2_CQ_OK;
+	int npolled;
 
 	pthread_spin_lock(&cq->lock);
 
 	for (npolled = 0; npolled < ne; ++npolled) {
-		err = hns_roce_v2_poll_one(cq, &qp, wc + npolled);
+		err = hns_roce_poll_one(ctx, &qp, cq, wc + npolled);
 		if (err != V2_CQ_OK)
 			break;
 	}
@@ -1651,97 +1721,12 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 	return ret;
 }
 
-static void cqe_proc_sq(struct hns_roce_qp *hr_qp, uint32_t wqe_idx,
-			struct hns_roce_cq *cq)
-{
-	struct hns_roce_wq *wq = &hr_qp->sq;
-
-	if (hr_qp->sq_signal_bits)
-		wq->tail += (wqe_idx - wq->tail) & (wq->wqe_cnt - 1);
-
-	cq->verbs_cq.cq_ex.wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
-	++wq->tail;
-}
-
-static void cqe_proc_srq(struct hns_roce_srq *srq, uint32_t wqe_idx,
-			 struct hns_roce_cq *cq)
-{
-	cq->verbs_cq.cq_ex.wr_id = srq->wrid[wqe_idx & (srq->wqe_cnt - 1)];
-	hns_roce_free_srq_wqe(srq, wqe_idx);
-}
-
-static void cqe_proc_rq(struct hns_roce_qp *hr_qp, struct hns_roce_cq *cq)
-{
-	struct hns_roce_wq *wq = &hr_qp->rq;
-
-	cq->verbs_cq.cq_ex.wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
-	++wq->tail;
-}
-
-static int cqe_proc_wq(struct hns_roce_context *ctx, struct hns_roce_qp *qp,
-			struct hns_roce_cq *cq)
-{
-	struct hns_roce_v2_cqe *cqe = cq->cqe;
-	struct hns_roce_srq *srq = NULL;
-	uint32_t wqe_idx;
-
-	wqe_idx = hr_reg_read(cqe, CQE_WQE_IDX);
-	if (hr_reg_read(cqe, CQE_S_R) == CQE_FOR_SQ) {
-		cqe_proc_sq(qp, wqe_idx, cq);
-	} else {
-		if (get_srq_from_cqe(cqe, ctx, qp, &srq))
-			return V2_CQ_POLL_ERR;
-
-		if (srq)
-			cqe_proc_srq(srq, wqe_idx, cq);
-		else
-			cqe_proc_rq(qp, cq);
-	}
-	return 0;
-}
-
-static int wc_poll_cqe(struct hns_roce_context *ctx, struct hns_roce_cq *cq)
-{
-	struct hns_roce_qp *qp = NULL;
-	struct hns_roce_v2_cqe *cqe;
-	uint8_t status;
-	uint32_t qpn;
-
-	cqe = next_cqe_sw_v2(cq);
-	if (!cqe)
-		return ENOENT;
-
-	++cq->cons_index;
-	udma_from_device_barrier();
-
-	cq->cqe = cqe;
-	qpn = hr_reg_read(cqe, CQE_LCL_QPN);
-
-	qp = hns_roce_v2_find_qp(ctx, qpn);
-	if (!qp)
-		return V2_CQ_POLL_ERR;
-
-	if (cqe_proc_wq(ctx, qp, cq))
-		return V2_CQ_POLL_ERR;
-
-	status = hr_reg_read(cqe, CQE_STATUS);
-	cq->verbs_cq.cq_ex.status = get_wc_status(status);
-
-	if (status == HNS_ROCE_V2_CQE_SUCCESS)
-		return V2_CQ_OK;
-
-	/*
-	 * once a cqe in error status, the driver needs to help the HW to
-	 * generated flushed cqes for all subsequent wqes
-	 */
-	return hns_roce_flush_cqe(qp, status);
-}
-
 static int wc_start_poll_cq(struct ibv_cq_ex *current,
 			    struct ibv_poll_cq_attr *attr)
 {
 	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
 	struct hns_roce_context *ctx = to_hr_ctx(current->context);
+	struct hns_roce_qp *qp = NULL;
 	int err;
 
 	if (attr->comp_mask)
@@ -1749,7 +1734,7 @@ static int wc_start_poll_cq(struct ibv_cq_ex *current,
 
 	pthread_spin_lock(&cq->lock);
 
-	err = wc_poll_cqe(ctx, cq);
+	err = hns_roce_poll_one(ctx, &qp, cq, NULL);
 	if (err != V2_CQ_OK)
 		pthread_spin_unlock(&cq->lock);
 
@@ -1760,9 +1745,10 @@ static int wc_next_poll_cq(struct ibv_cq_ex *current)
 {
 	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
 	struct hns_roce_context *ctx = to_hr_ctx(current->context);
+	struct hns_roce_qp *qp = NULL;
 	int err;
 
-	err = wc_poll_cqe(ctx, cq);
+	err = hns_roce_poll_one(ctx, &qp, cq, NULL);
 	if (err != V2_CQ_OK)
 		return err;
 
