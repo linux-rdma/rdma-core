@@ -3505,8 +3505,9 @@ struct option opts[] = {
 	{ "nobridge", no_argument, NULL, 'n' },
 	{ "port", required_argument, NULL, 'p' },
 	{ "flow", no_argument, NULL, 'f' },
-	{ "log-packets", no_argument, NULL, 'v' },
+	{ "verbose", no_argument, NULL, 'v' },
 	{ "test", no_argument, NULL, 't' },
+	{ "unicast", no_argument, NULL, 'u' },
 	{ "config", required_argument, NULL, 'c' },
 	{ NULL, 0, NULL, 0 }
 };
