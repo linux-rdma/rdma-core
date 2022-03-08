@@ -460,7 +460,10 @@ class leap(ZypperEnvironment):
 
 class tumbleweed(ZypperEnvironment):
     docker_parent = "opensuse/tumbleweed:latest";
-    pkgs = (leap.pkgs ^ {"valgrind-devel"}) | {"valgrind-client-headers"};
+    pkgs = (leap.pkgs ^ {"valgrind-devel"}) | {
+        "valgrind-client-headers",
+        "perl"
+    };
     name = "tumbleweed";
     specfile = "suse/rdma-core.spec";
     rpmbuild_options = [ "--without=curlmini" ];

@@ -67,6 +67,10 @@ BuildRequires:  binutils
 BuildRequires:  cmake >= 2.8.11
 BuildRequires:  gcc
 BuildRequires:  pandoc
+# perl is needed for the proper rpm macros
+%if %{?suse_version} > 1550
+BuildRequires:  perl
+%endif
 BuildRequires:  pkgconfig
 BuildRequires:  python3-base
 BuildRequires:  python3-docutils
