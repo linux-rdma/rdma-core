@@ -88,6 +88,7 @@
 // #define NETLINK_SUPPORT
 // #define LEARN
 // #define HAVE_MSTFLINT
+// #define DEBUG
 
 /* Globals */
 
@@ -796,6 +797,9 @@ static struct buf *nextbuffer;	/* Pointer to next available RDMA buffer */
 
 static void free_buffer(struct buf *buf)
 {
+#ifdef DEBUG
+	memset(buf->raw, 0, DATA_SIZE);
+#endif
 	buf->free = true;
 	buf->next = nextbuffer;
 	nextbuffer = buf;
@@ -852,6 +856,14 @@ static struct buf *alloc_buffer(struct rdma_channel *c)
 		buf->free = false;
 	}
 	buf->c = c;
+
+#ifdef DEBUG
+	buf->next = NULL;
+
+	for(uint8_t *q = buf->raw; q < buf->raw + DATA_SIZE; q++)
+		if (*q)
+			abort();
+#endif
 	return buf;
 }
 
