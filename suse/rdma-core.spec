@@ -45,7 +45,7 @@ Group:          Productivity/Networking/Other
 %define  mlx4_lname   libmlx4-%{mlx4_so_major}
 %define  mlx5_lname   libmlx5-%{mlx5_so_major}
 
-%ifnarch s390 %arm
+%ifnarch s390 %arm riscv64
 %define dma_coherent 1
 %endif
 
