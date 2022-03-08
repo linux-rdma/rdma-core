@@ -92,7 +92,7 @@
 
 /* Globals */
 
-static unsigned default_port = 4711;	/* Port to use to bind to devices and for MC groups that do not have a port (if a port is required) */
+static unsigned default_port = 0;	/* Port to use to bind to devices and for MC groups that do not have a port (if a port is required) */
 static bool debug = false;		/* Stay in foreground, print more details */
 static bool background = false;		/* Are we actually running in the background ? */
 static bool terminated = false;		/* Daemon received a signal to terminate */
