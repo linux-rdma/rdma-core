@@ -2636,7 +2636,7 @@ static void sidr_req(struct buf *buf, char *header)
 {
 	char *payload = alloca(1500);
 	struct sidr_req sr;
-	struct endpoint *ep = buf->source_ep;
+//	struct endpoint *ep = buf->source_ep;
 	struct in_addr source, dest;
 
 	PULL(buf, sr);
@@ -2650,12 +2650,14 @@ static void sidr_req(struct buf *buf, char *header)
 		return;
 	}
 
+#if 0
 	if (ep->addr.s_addr == 0) {
 		ep->addr = source;
 		hash_add(ep->c->i->ep, ep);
 		logg(LOG_NOTICE, "Supplied IP address %s to Endpoint at LID %d\n",
 				inet_ntoa(source), ep->lid);
 	}
+#endif
 
 	logg(LOG_NOTICE, "SIDR_REQ: %s APSN=%x method=%s status=%s attr_id=%s attr_mod=%x SID=%lx RID=%x pkey=%x %s\n",
 		header, buf->bth.apsn, umad_method_str(buf->umad.mgmt_class, buf->umad.method),
