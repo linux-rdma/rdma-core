@@ -21,6 +21,11 @@
 %define with_static %{?_with_static: 1} %{?!_with_static: 0}
 %define with_pyverbs %{?_with_pyverbs: 1} %{?!_with_pyverbs: 0}
 
+%if 0%{?suse_version} < 1550 && 0%{?sle_version} <= 150300
+# systemd-rpm-macros is wrong in 15.3 and below
+%define _modprobedir /lib/modprobe.d
+%endif
+
 %define         git_ver %{nil}
 Name:           rdma-core
 Version:        40.0
@@ -48,6 +53,8 @@ Group:          Productivity/Networking/Other
 %ifnarch s390 %arm riscv64
 %define dma_coherent 1
 %endif
+
+%global modprobe_d_files 50-libmlx4.conf truescale.conf %{?dma_coherent:mlx4.conf}
 
 # Almost everything is licensed under the OFA dual GPLv2, 2 Clause BSD license
 #  providers/ipathverbs/ Dual licensed using a BSD license with an extra patent clause
@@ -414,6 +421,7 @@ easy, object-oriented access to IB verbs.
          -DCMAKE_INSTALL_INCLUDEDIR:PATH=include \
          -DCMAKE_INSTALL_INFODIR:PATH=%{_infodir} \
          -DCMAKE_INSTALL_MANDIR:PATH=%{_mandir} \
+		 -DCMAKE_INSTALL_MODPROBEDIR:PATH=%{_modprobedir} \
          -DCMAKE_INSTALL_SYSCONFDIR:PATH=%{_sysconfdir} \
          -DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=%{_unitdir} \
          -DCMAKE_INSTALL_SYSTEMD_BINDIR:PATH=%{_prefix}/lib/systemd \
@@ -444,24 +452,23 @@ cd ..
 mkdir -p %{buildroot}/%{_sysconfdir}/rdma
 
 %global dracutlibdir %%{_prefix}/lib/dracut/
-%global sysmodprobedir %%{_sysconfdir}/modprobe.d
 
 mkdir -p %{buildroot}%{_udevrulesdir}
 mkdir -p %{buildroot}%{dracutlibdir}/modules.d/05rdma
-mkdir -p %{buildroot}%{sysmodprobedir}
+mkdir -p %{buildroot}%{_modprobedir}
 mkdir -p %{buildroot}%{_unitdir}
 
 # Port type setup for mlx4 dual port cards
-install -D -m0644 redhat/rdma.mlx4.sys.modprobe %{buildroot}%{sysmodprobedir}/50-libmlx4.conf
+install -D -m0644 redhat/rdma.mlx4.sys.modprobe %{buildroot}%{_modprobedir}/50-libmlx4.conf
 install -D -m0644 redhat/rdma.mlx4.conf %{buildroot}/%{_sysconfdir}/rdma/mlx4.conf
-chmod 0644 %{buildroot}%{sysmodprobedir}/50-libmlx4.conf
+chmod 0644 %{buildroot}%{_modprobedir}/mlx4.conf
 install -D -m0755 redhat/rdma.mlx4-setup.sh %{buildroot}%{_libexecdir}/mlx4-setup.sh
 
 # Dracut file for IB support during boot
 install -D -m0644 suse/module-setup.sh %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
 
 %if "%{_libexecdir}" != "/usr/libexec"
-sed 's-/usr/libexec-%{_libexecdir}-g' -i %{buildroot}%{sysmodprobedir}/50-libmlx4.conf
+sed 's-/usr/libexec-%{_libexecdir}-g' -i %{buildroot}%{_modprobedir}/50-libmlx4.conf
 sed 's-/usr/libexec-%{_libexecdir}-g' -i %{buildroot}%{dracutlibdir}/modules.d/05rdma/module-setup.sh
 %endif
 
@@ -500,10 +507,24 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %post -n libibmad%{mad_major} -p /sbin/ldconfig
 %postun -n libibmad%{mad_major} -p /sbin/ldconfig
 
+%pre
+# Avoid restoring outdated stuff in posttrans
+for _f in %{?modprobe_d_files}; do
+    [ ! -f "/etc/modprobe.d/${_f}.rpmsave" ] || \
+        mv -f "/etc/modprobe.d/${_f}.rpmsave" "/etc/modprobe.d/${_f}.rpmsave.old" || :
+done
+
 %post
 # we ship udev rules, so trigger an update.
 %{_bindir}/udevadm trigger --subsystem-match=infiniband --action=change || true
 %{_bindir}/udevadm trigger --subsystem-match=infiniband_mad --action=change || true
+
+%posttrans
+# Migration of modprobe.conf files to _modprobedir
+for _f in %{?modprobe_d_files}; do
+    [ ! -f "/etc/modprobe.d/${_f}.rpmsave" ] || \
+        mv -fv "/etc/modprobe.d/${_f}.rpmsave" "/etc/modprobe.d/${_f}" || :
+done
 
 #
 # ibacm
@@ -577,7 +598,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %dir %{_udevrulesdir}
 %dir %{_sysconfdir}/udev
 %dir %{_sysconfdir}/udev/rules.d
-%dir %{_sysconfdir}/modprobe.d
+%dir %{_modprobedir}
 %doc %{_docdir}/%{name}-%{version}/README.md
 %doc %{_docdir}/%{name}-%{version}/udev.md
 %config(noreplace) %{_sysconfdir}/rdma/mlx4.conf
@@ -587,9 +608,9 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %config(noreplace) %{_sysconfdir}/rdma/modules/rdma.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/roce.conf
 %if 0%{?dma_coherent}
-%config(noreplace) %{_sysconfdir}/modprobe.d/mlx4.conf
+%{_modprobedir}/mlx4.conf
 %endif
-%config(noreplace) %{_sysconfdir}/modprobe.d/truescale.conf
+%{_modprobedir}/truescale.conf
 %config(noreplace) %{_sysconfdir}/udev/rules.d/70-persistent-ipoib.rules
 %{_unitdir}/rdma-hw.target
 %{_unitdir}/rdma-load-modules@.service
@@ -603,7 +624,7 @@ rm -rf %{buildroot}/%{_sbindir}/srp_daemon.sh
 %{_udevrulesdir}/90-rdma-hw-modules.rules
 %{_udevrulesdir}/90-rdma-ulp-modules.rules
 %{_udevrulesdir}/90-rdma-umad.rules
-%{sysmodprobedir}/50-libmlx4.conf
+%{_modprobedir}/50-libmlx4.conf
 %{_libexecdir}/mlx4-setup.sh
 %{_libexecdir}/truescale-serdes.cmds
 %license COPYING.*
