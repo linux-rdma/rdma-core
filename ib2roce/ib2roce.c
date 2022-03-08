@@ -1101,13 +1101,13 @@ static void start_channel(struct rdma_channel *c)
 		/* Only Ethernet can send on a raw socket */
 		ret = ibv_modify_qp(c->qp, &c->attr, IBV_QP_STATE);
 		if (ret)
-			logg(LOG_CRIT, "ibv_modify_qp: Error when moving to RTR state. %s", errname());
+			logg(LOG_CRIT, "ibv_modify_qp: Error when moving %s to RTR state. %s\n", c->text, errname());
 
 		if (send) {
 			c->attr.qp_state = IBV_QPS_RTS;
 			ret = ibv_modify_qp(c->qp, &c->attr, IBV_QP_STATE);
 			if (ret)
-				logg(LOG_CRIT, "ibv_modify_qp: Error when moving to RTS state. %s", errname());
+				logg(LOG_CRIT, "ibv_modify_qp: Error when moving %s to RTS state. %s\n", c->text, errname());
 		}
 		logg(LOG_NOTICE, "QP %s moved to state %s\n", c->text,  send ? "RTS/RTR" : "RTR" );
 	}
@@ -2829,7 +2829,7 @@ static void handle_comp_event(void *private)
 			}
 
 			if (w->wc_flags & IBV_WC_GRH) {
-				pull(buf, &buf->grh, sizeof(struct ibv_grh));
+				PULL(buf, buf->grh);
 				buf->grh_valid = true;
 			} else
 				buf->grh_valid = false;

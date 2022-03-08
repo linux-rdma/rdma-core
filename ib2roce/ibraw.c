@@ -15,7 +15,7 @@
 
 #include "ibraw.h"
 
-static mfile *mf;
+static mfile *mf = NULL;
 
 static int ib_sniffer(unsigned port, struct ibv_qp *qp, int mode)
 {
@@ -48,6 +48,7 @@ static int ib_sniffer(unsigned port, struct ibv_qp *qp, int mode)
 
 err:
 	mclose(mf);
+	mf = NULL;
 
 	return 1;
 }
@@ -65,7 +66,12 @@ int set_ib_sniffer(const char *dev, unsigned port, struct ibv_qp *qp)
 
 int clear_ib_sniffer(unsigned port, struct ibv_qp *qp)
 {
-	int rc = ib_sniffer(port, qp, 0);
+	int rc;
+       
+	if (!mf)
+		return -EINVAL;
+
+	rc = ib_sniffer(port, qp, 0);
 
 	mclose(mf);
 
