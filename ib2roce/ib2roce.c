@@ -773,7 +773,7 @@ struct buf {
 			struct bth bth;
 			struct deth deth;	/* BTH subheader */
 			struct pgm_header pgm;	/* RFC3208 header */
-			struct umad_packet umad;
+			struct umad_hdr umad;
 		};
 		uint8_t meta[META_SIZE];
 	};
@@ -2561,35 +2561,154 @@ free_out:
 	free_buffer(buf);
 }
 
+/* SIDR handshake with gateway involved
+ *
+ * SIDR REQ from IP to IP sent form QP1 to QP1
+ *
+ * SIDR REQ SIP(1):DIP(1) -> GW -> SIDR REQ SIP(GW-QP):DIP(1)
+ *
+ * SIDR RESP DIP(1):SIP(GW-QP) -> GW- > SIDR RESP DIP(GW-QP):SIP(1)
+ *
+ * Data
+ *
+ * DATA SIP(SQP) -> DIP(GW-QP) -> GW -> DATA SIP(GW_QP) -> DIP(DQP)
+ *
+ * State needed by GW
+ *
+ * 1. Resolution from IP -> ibv_ah and GID->LID to ibv_ah
+ *
+ * 2. Map from IP/QPN ib <-> IP/QPN roce
+ *
+ * SIP:DIP SQP:DQP SQP:DQP
+ *
+ * On the IB side we need to ID the sender by LID also but generally prefer GIDs
+ *
+ * Need the SM to do routing paths and GID->LID etc conversions. 
+ */
+
+/* Could not find a struct anywhere so this may do the trick */
+struct sidr_req {
+	uint32_t	request_id;
+	uint16_t	pkey;
+	uint16_t	reserved;
+	uint64_t	service_id;
+	char private[100];
+} __packed;
+
+static bool scan_private(char *s, struct in_addr *from, struct in_addr *to)
+{
+	struct {
+		struct in_addr x;
+		char ip[4];
+	} addr;
+	unsigned short port;
+	int r;
+	char *p = s;
+	char type[2];
+	
+	while (*p) {
+		/* Find the beginning of the rmmXXX */
+		while (*p != 'r')
+			p++;
+
+		if (!*p)
+			return false;
+
+		r = sscanf(p, "rmm%cx at %hhu.%hhu.%hhu.%hhu|%hu", type, addr.ip, addr.ip + 1, addr.ip + 2, addr.ip + 3, &port);
+
+		logg(LOG_NOTICE, "Scan result = %d Type=%s IP=%s port=%d offset=%ld\n", r, type, inet_ntoa(addr.x), port, p - s);
+
+		if (r != 5)
+			return false;
+
+		if (*type == 'R')
+			*to = addr.x;
+		else if (*type == 'T')
+			*from = addr.x;
+		else
+			return false;
+		p += 10;
+	}
+	return true;
+}
+
 static void sidr_req(struct buf *buf, char *header)
 {
 	char *payload = alloca(1500);
+	struct sidr_req sr;
+	struct endpoint *ep = buf->source_ep;
+	struct in_addr source, dest;
+
+	PULL(buf, sr);
 
 	buf->cur = buf->raw;
 	__hexbytes(payload, buf->cur, buf->end - buf->cur, ' ');
 
-	logg(LOG_NOTICE, "SIDR_REQ: %s APSN=%x method=%s status=%s attr_id=%s attr_mod=%x %s\n",
-		header, buf->bth.apsn, umad_method_str(buf->umad.mad_hdr.mgmt_class, buf->umad.mad_hdr.method),
-	       	umad_common_mad_status_str(buf->umad.mad_hdr.status),
-	       	umad_attribute_str(buf->umad.mad_hdr.mgmt_class, buf->umad.mad_hdr.attr_id), ntohl(buf->umad.mad_hdr.attr_mod),
+	if (!scan_private(sr.private + 36, &source, &dest)) {
+		logg(LOG_ERR, "Dest and Source IP not determined\n");
+		free_buffer(buf);
+		return;
+	}
+
+	if (ep->addr.s_addr == 0) {
+		ep->addr = source;
+		hash_add(ep->c->i->ep, ep);
+		logg(LOG_NOTICE, "Supplied IP address %s to Endpoint at LID %d\n",
+				inet_ntoa(source), ep->lid);
+	}
+
+	logg(LOG_NOTICE, "SIDR_REQ: %s APSN=%x method=%s status=%s attr_id=%s attr_mod=%x SID=%lx RID=%x pkey=%x %s\n",
+		header, buf->bth.apsn, umad_method_str(buf->umad.mgmt_class, buf->umad.method),
+	       	umad_common_mad_status_str(buf->umad.status),
+	       	umad_attribute_str(buf->umad.mgmt_class, buf->umad.attr_id), ntohl(buf->umad.attr_mod),
+		be64toh(sr.service_id), ntohl(sr.request_id), ntohs(sr.pkey),
 		payload);
 
+	if (false && bridging) {
+		struct sockaddr_in sin;
+
+		memset(&sin, 0, sizeof(sin));
+		sin.sin_family = AF_INET;
+		sin.sin_addr = dest;
+		sin.sin_port = htons(ROCE_PORT);
+
+		send_buf_to(i2r + INFINIBAND, buf, &sin);
+	} else
+			free_buffer(buf);
 }
+
+struct sidr_rep {
+	uint32_t request_id;
+	uint8_t	status;
+	uint8_t ail;
+	uint16_t vendorid1;
+	uint32_t qpn;
+	uint64_t service_id;
+	uint32_t q_key;
+	char add_info[72];
+	char private[100];
+} __packed;
 
 static void sidr_rep(struct buf *buf, char *header)
 {
 	char *payload = alloca(1500);
+	struct sidr_rep sr;
+
+	PULL(buf, sr);
 
 	buf->cur = buf->raw;
 	__hexbytes(payload, buf->cur, buf->end - buf->cur, ' ');
 
-	logg(LOG_NOTICE, "SIDR_REP: %s APSN=%x method=%s status=%s attr_id=%s attr_mod=%x %s\n",
-		header, buf->bth.apsn, umad_method_str(buf->umad.mad_hdr.mgmt_class, buf->umad.mad_hdr.method),
-	       	umad_common_mad_status_str(buf->umad.mad_hdr.status),
-	       	umad_attribute_str(buf->umad.mad_hdr.mgmt_class, buf->umad.mad_hdr.attr_id), ntohl(buf->umad.mad_hdr.attr_mod),
+	logg(LOG_NOTICE, "SIDR_REP: %s APSN=%x method=%s status=%s attr_id=%s attr_mod=%x SID=%x RID=%x Q_KEY=%x QPN=%x Status=%x %s\n",
+		header, buf->bth.apsn, umad_method_str(buf->umad.mgmt_class, buf->umad.method),
+	       	umad_common_mad_status_str(buf->umad.status),
+	       	umad_attribute_str(buf->umad.mgmt_class, buf->umad.attr_id), ntohl(buf->umad.attr_mod),
+		ntohl(sr.service_id), ntohl(sr.request_id), ntohs(sr.q_key), ntohl(sr.qpn), sr.status,
 		payload);
 
+	free_buffer(buf);
 }
+
 /* Figure out what to do with the packet we got */
 static void recv_buf(struct rdma_channel *c, struct buf *buf)
 {
@@ -2721,6 +2840,7 @@ static void recv_buf(struct rdma_channel *c, struct buf *buf)
 
 	PULL(buf, buf->bth);
 	buf->bth_valid = true;
+//	buf->end -= ICRC_SIZE;
 	
 	if (ntohl(buf->bth.qpn) != 1) {
 		reason = "Packet forwarding for QPN != 1 not implemented yet";
@@ -2746,15 +2866,15 @@ static void recv_buf(struct rdma_channel *c, struct buf *buf)
 	/* Start MAD payload */
 	PULL(buf, buf->umad);
 
-	if (buf->umad.mad_hdr.mgmt_class != UMAD_CLASS_CM) {
+	if (buf->umad.mgmt_class != UMAD_CLASS_CM) {
 		reason = "Only CM Class MADs are supported";
 		goto discard2;
 	}
 
-	if (buf->umad.mad_hdr.attr_id == UMAD_CM_ATTR_SIDR_REQ) {
+	if (ntohs(buf->umad.attr_id) == UMAD_CM_ATTR_SIDR_REQ) {
 		sidr_req(buf, header);
 		return;
-	} else if (buf->umad.mad_hdr.attr_id == UMAD_CM_ATTR_SIDR_REP) {
+	} else if (ntohs(buf->umad.attr_id) == UMAD_CM_ATTR_SIDR_REP) {
 		sidr_rep(buf, header);
 		return;
 	}
