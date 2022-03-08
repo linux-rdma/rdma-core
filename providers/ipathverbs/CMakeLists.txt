@@ -4,7 +4,7 @@ rdma_provider(ipathverbs
   )
 
 rdma_subst_install(FILES "truescale.conf.in"
-  DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}/modprobe.d/"
+  DESTINATION "${CMAKE_INSTALL_MODPROBEDIR}/"
   RENAME "truescale.conf")
 install(FILES truescale-serdes.cmds
   DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}"

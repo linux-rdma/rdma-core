@@ -115,6 +115,8 @@ set(IBDIAG_NODENAME_MAP_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/rdma/ib-node-name
 
 set(CMAKE_INSTALL_INITDDIR "${CMAKE_INSTALL_SYSCONFDIR}/init.d"
   CACHE PATH "Location for init.d files")
+set(CMAKE_INSTALL_MODPROBEDIR "${CMAKE_INSTALL_SYSCONFDIR}/modprobe.d/"
+  CACHE PATH "Location for modprobe.d files")
 set(CMAKE_INSTALL_SYSTEMD_SERVICEDIR "${CMAKE_INSTALL_PREFIX}/lib/systemd/system"
   CACHE PATH "Location for systemd service files")
 set(CMAKE_INSTALL_SYSTEMD_BINDIR "/lib/systemd"
