@@ -146,13 +146,13 @@ static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	return 0;
 }
 
-static void handle_error_cqe(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
-			     uint8_t status)
+static enum ibv_wc_status get_wc_status(uint8_t status)
 {
 	static const struct {
 		unsigned int cqe_status;
 		enum ibv_wc_status wc_status;
 	} map[] = {
+		{ HNS_ROCE_V2_CQE_SUCCESS, IBV_WC_SUCCESS },
 		{ HNS_ROCE_V2_CQE_LOCAL_LENGTH_ERR, IBV_WC_LOC_LEN_ERR },
 		{ HNS_ROCE_V2_CQE_LOCAL_QP_OP_ERR, IBV_WC_LOC_QP_OP_ERR },
 		{ HNS_ROCE_V2_CQE_LOCAL_PROT_ERR, IBV_WC_LOC_PROT_ERR },
@@ -169,17 +169,12 @@ static void handle_error_cqe(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
 		{ HNS_ROCE_V2_CQE_XRC_VIOLATION_ERR, IBV_WC_REM_INV_RD_REQ_ERR },
 	};
 
-	int i;
-
-	wc->status = IBV_WC_GENERAL_ERR;
-	for (i = 0; i < ARRAY_SIZE(map); i++) {
-		if (status == map[i].cqe_status) {
-			wc->status = map[i].wc_status;
-			break;
-		}
+	for (int i = 0; i < ARRAY_SIZE(map); i++) {
+		if (status == map[i].cqe_status)
+			return map[i].wc_status;
 	}
 
-	wc->vendor_err = hr_reg_read(cqe, CQE_SUB_STATUS);
+	return IBV_WC_GENERAL_ERR;
 }
 
 static struct hns_roce_v2_cqe *get_cqe_v2(struct hns_roce_cq *cq, int entry)
@@ -189,10 +184,10 @@ static struct hns_roce_v2_cqe *get_cqe_v2(struct hns_roce_cq *cq, int entry)
 
 static void *get_sw_cqe_v2(struct hns_roce_cq *cq, int n)
 {
-	struct hns_roce_v2_cqe *cqe = get_cqe_v2(cq, n & cq->ibv_cq.cqe);
+	struct hns_roce_v2_cqe *cqe = get_cqe_v2(cq, n & cq->verbs_cq.cq.cqe);
 
-	return (hr_reg_read(cqe, CQE_OWNER) ^ !!(n & (cq->ibv_cq.cqe + 1))) ?
-	       cqe : NULL;
+	return (hr_reg_read(cqe, CQE_OWNER) ^
+		!!(n & (cq->verbs_cq.cq.cqe + 1))) ? cqe : NULL;
 }
 
 static struct hns_roce_v2_cqe *next_cqe_sw_v2(struct hns_roce_cq *cq)
@@ -290,6 +285,7 @@ static void hns_roce_update_rq_db(struct hns_roce_context *ctx,
 
 static void hns_roce_update_sq_db(struct hns_roce_context *ctx,
 				  struct hns_roce_qp *qp)
+
 {
 	struct hns_roce_db sq_db = {};
 
@@ -553,21 +549,101 @@ static void parse_cqe_for_req(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
 	wc->opcode = wc_send_op_map[opcode];
 }
 
-static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
-				struct hns_roce_qp **cur_qp, struct ibv_wc *wc)
+static void cqe_proc_sq(struct hns_roce_qp *hr_qp, uint32_t wqe_idx,
+			struct hns_roce_cq *cq)
 {
-	struct hns_roce_context *ctx = to_hr_ctx(cq->ibv_cq.context);
+	struct hns_roce_wq *wq = &hr_qp->sq;
+
+	if (hr_qp->sq_signal_bits)
+		wq->tail += (wqe_idx - wq->tail) & (wq->wqe_cnt - 1);
+
+	cq->verbs_cq.cq_ex.wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
+	++wq->tail;
+}
+
+static void cqe_proc_srq(struct hns_roce_srq *srq, uint32_t wqe_idx,
+			 struct hns_roce_cq *cq)
+{
+	cq->verbs_cq.cq_ex.wr_id = srq->wrid[wqe_idx & (srq->wqe_cnt - 1)];
+	hns_roce_free_srq_wqe(srq, wqe_idx);
+}
+
+static void cqe_proc_rq(struct hns_roce_wq *wq, struct hns_roce_cq *cq)
+{
+	cq->verbs_cq.cq_ex.wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
+	++wq->tail;
+}
+
+static int cqe_proc_wq(struct hns_roce_context *ctx, struct hns_roce_qp *qp,
+		       struct hns_roce_cq *cq)
+{
+	struct hns_roce_v2_cqe *cqe = cq->cqe;
 	struct hns_roce_srq *srq = NULL;
-	struct hns_roce_v2_cqe *cqe;
+	uint32_t wqe_idx;
+
+	wqe_idx = hr_reg_read(cqe, CQE_WQE_IDX);
+	if (hr_reg_read(cqe, CQE_S_R) == CQE_FOR_SQ) {
+		cqe_proc_sq(qp, wqe_idx, cq);
+	} else {
+		if (get_srq_from_cqe(cqe, ctx, qp, &srq))
+			return V2_CQ_POLL_ERR;
+
+		if (srq)
+			cqe_proc_srq(srq, wqe_idx, cq);
+		else
+			cqe_proc_rq(&qp->rq, cq);
+	}
+
+	return 0;
+}
+
+static int parse_cqe_for_cq(struct hns_roce_context *ctx, struct hns_roce_cq *cq,
+			    struct hns_roce_qp *cur_qp, struct ibv_wc *wc)
+{
+	struct hns_roce_v2_cqe *cqe = cq->cqe;
+	struct hns_roce_srq *srq = NULL;
 	uint8_t opcode;
-	uint8_t status;
+
+	if (!wc) {
+		if (cqe_proc_wq(ctx, cur_qp, cq))
+			return V2_CQ_POLL_ERR;
+
+		return 0;
+	}
+
+	opcode = hr_reg_read(cqe, CQE_OPCODE);
+
+	if (hr_reg_read(cqe, CQE_S_R) == CQE_FOR_SQ) {
+		parse_cqe_for_req(cqe, wc, cur_qp, opcode);
+	} else {
+		wc->byte_len = le32toh(cqe->byte_cnt);
+		get_opcode_for_resp(cqe, wc, opcode);
+
+		if (get_srq_from_cqe(cqe, ctx, cur_qp, &srq))
+			return V2_CQ_POLL_ERR;
+
+		if (srq)
+			parse_cqe_for_srq(cqe, wc, srq);
+		else
+			parse_cqe_for_resp(cqe, wc, cur_qp, opcode);
+	}
+
+	return 0;
+}
+
+static int hns_roce_poll_one(struct hns_roce_context *ctx,
+			     struct hns_roce_qp **cur_qp, struct hns_roce_cq *cq,
+			     struct ibv_wc *wc)
+{
+	struct hns_roce_v2_cqe *cqe;
+	uint8_t status, wc_status;
 	uint32_t qpn;
-	bool is_send;
 
 	cqe = next_cqe_sw_v2(cq);
 	if (!cqe)
-		return V2_CQ_EMPTY;
+		return wc ? V2_CQ_EMPTY : ENOENT;
 
+	cq->cqe = cqe;
 	++cq->cons_index;
 
 	udma_from_device_barrier();
@@ -581,55 +657,43 @@ static int hns_roce_v2_poll_one(struct hns_roce_cq *cq,
 			return V2_CQ_POLL_ERR;
 	}
 
+	if (parse_cqe_for_cq(ctx, cq, *cur_qp, wc))
+		return V2_CQ_POLL_ERR;
+
 	status = hr_reg_read(cqe, CQE_STATUS);
-	opcode = hr_reg_read(cqe, CQE_OPCODE);
-	is_send = hr_reg_read(cqe, CQE_S_R) == CQE_FOR_SQ;
-	if (is_send) {
-		parse_cqe_for_req(cqe, wc, *cur_qp, opcode);
+	wc_status = get_wc_status(status);
+
+	if (wc) {
+		wc->status = wc_status;
+		wc->vendor_err = hr_reg_read(cqe, CQE_SUB_STATUS);
+		wc->qp_num = qpn;
 	} else {
-		wc->byte_len = le32toh(cqe->byte_cnt);
-		get_opcode_for_resp(cqe, wc, opcode);
-
-		if (get_srq_from_cqe(cqe, ctx, *cur_qp, &srq))
-			return V2_CQ_POLL_ERR;
-
-		if (srq) {
-			parse_cqe_for_srq(cqe, wc, srq);
-		} else {
-			if (parse_cqe_for_resp(cqe, wc, *cur_qp, opcode))
-				return V2_CQ_POLL_ERR;
-		}
+		cq->verbs_cq.cq_ex.status = wc_status;
 	}
 
-	wc->qp_num = qpn;
+	if (status == HNS_ROCE_V2_CQE_SUCCESS)
+		return V2_CQ_OK;
 
 	/*
 	 * once a cqe in error status, the driver needs to help the HW to
 	 * generated flushed cqes for all subsequent wqes
 	 */
-	if (status != HNS_ROCE_V2_CQE_SUCCESS) {
-		handle_error_cqe(cqe, wc, status);
-		return hns_roce_flush_cqe(*cur_qp, status);
-	}
-
-	wc->status = IBV_WC_SUCCESS;
-
-	return V2_CQ_OK;
+	return hns_roce_flush_cqe(*cur_qp, status);
 }
 
 static int hns_roce_u_v2_poll_cq(struct ibv_cq *ibvcq, int ne,
 				 struct ibv_wc *wc)
 {
-	int npolled;
-	int err = V2_CQ_OK;
-	struct hns_roce_qp *qp = NULL;
-	struct hns_roce_cq *cq = to_hr_cq(ibvcq);
 	struct hns_roce_context *ctx = to_hr_ctx(ibvcq->context);
+	struct hns_roce_cq *cq = to_hr_cq(ibvcq);
+	struct hns_roce_qp *qp = NULL;
+	int err = V2_CQ_OK;
+	int npolled;
 
 	pthread_spin_lock(&cq->lock);
 
 	for (npolled = 0; npolled < ne; ++npolled) {
-		err = hns_roce_v2_poll_one(cq, &qp, wc + npolled);
+		err = hns_roce_poll_one(ctx, &qp, cq, wc + npolled);
 		if (err != V2_CQ_OK)
 			break;
 	}
@@ -1356,15 +1420,15 @@ static void __hns_roce_v2_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 	uint16_t wqe_index;
 	uint32_t prod_index;
 	struct hns_roce_v2_cqe *cqe, *dest;
-	struct hns_roce_context *ctx = to_hr_ctx(cq->ibv_cq.context);
+	struct hns_roce_context *ctx = to_hr_ctx(cq->verbs_cq.cq.context);
 
 	for (prod_index = cq->cons_index; get_sw_cqe_v2(cq, prod_index);
 	     ++prod_index)
-		if (prod_index > cq->cons_index + cq->ibv_cq.cqe)
+		if (prod_index > cq->cons_index + cq->verbs_cq.cq.cqe)
 			break;
 
 	while ((int) --prod_index - (int) cq->cons_index >= 0) {
-		cqe = get_cqe_v2(cq, prod_index & cq->ibv_cq.cqe);
+		cqe = get_cqe_v2(cq, prod_index & cq->verbs_cq.cq.cqe);
 		if (hr_reg_read(cqe, CQE_LCL_QPN) == qpn) {
 			is_recv_cqe = hr_reg_read(cqe, CQE_S_R);
 
@@ -1375,7 +1439,7 @@ static void __hns_roce_v2_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 			++nfreed;
 		} else if (nfreed) {
 			dest = get_cqe_v2(cq,
-				       (prod_index + nfreed) & cq->ibv_cq.cqe);
+				       (prod_index + nfreed) & cq->verbs_cq.cq.cqe);
 			owner_bit = hr_reg_read(dest, CQE_OWNER);
 			memcpy(dest, cqe, cq->cqe_size);
 			hr_reg_write_bool(dest, CQE_OWNER, owner_bit);
@@ -1655,6 +1719,204 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 	pthread_spin_unlock(&srq->lock);
 
 	return ret;
+}
+
+static int wc_start_poll_cq(struct ibv_cq_ex *current,
+			    struct ibv_poll_cq_attr *attr)
+{
+	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
+	struct hns_roce_context *ctx = to_hr_ctx(current->context);
+	struct hns_roce_qp *qp = NULL;
+	int err;
+
+	if (attr->comp_mask)
+		return EINVAL;
+
+	pthread_spin_lock(&cq->lock);
+
+	err = hns_roce_poll_one(ctx, &qp, cq, NULL);
+	if (err != V2_CQ_OK)
+		pthread_spin_unlock(&cq->lock);
+
+	return err;
+}
+
+static int wc_next_poll_cq(struct ibv_cq_ex *current)
+{
+	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
+	struct hns_roce_context *ctx = to_hr_ctx(current->context);
+	struct hns_roce_qp *qp = NULL;
+	int err;
+
+	err = hns_roce_poll_one(ctx, &qp, cq, NULL);
+	if (err != V2_CQ_OK)
+		return err;
+
+	if (cq->flags & HNS_ROCE_CQ_FLAG_RECORD_DB)
+		*cq->db = cq->cons_index & RECORD_DB_CI_MASK;
+	else
+		update_cq_db(ctx, cq);
+
+	return 0;
+}
+
+static void wc_end_poll_cq(struct ibv_cq_ex *current)
+{
+	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
+	struct hns_roce_context *ctx = to_hr_ctx(current->context);
+
+	if (cq->flags & HNS_ROCE_CQ_FLAG_RECORD_DB)
+		*cq->db = cq->cons_index & RECORD_DB_CI_MASK;
+	else
+		update_cq_db(ctx, cq);
+
+	pthread_spin_unlock(&cq->lock);
+}
+
+static enum ibv_wc_opcode wc_read_opcode(struct ibv_cq_ex *current)
+{
+	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
+	uint8_t opcode = hr_reg_read(cq->cqe, CQE_OPCODE);
+
+	if (hr_reg_read(cq->cqe, CQE_S_R) == CQE_FOR_SQ)
+		return wc_send_op_map[opcode];
+	else
+		return wc_rcv_op_map[opcode];
+}
+
+static uint32_t wc_read_vendor_err(struct ibv_cq_ex *current)
+{
+	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
+
+	return hr_reg_read(cq->cqe, CQE_SUB_STATUS);
+}
+
+static uint32_t wc_read_byte_len(struct ibv_cq_ex *current)
+{
+	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
+
+	return le32toh(cq->cqe->byte_cnt);
+}
+
+static __be32 wc_read_imm_data(struct ibv_cq_ex *current)
+{
+	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
+
+	if (hr_reg_read(cq->cqe, CQE_OPCODE) == HNS_ROCE_RECV_OP_SEND_WITH_INV)
+		/* This is returning invalidate_rkey which is in host order, see
+		 * ibv_wc_read_invalidated_rkey.
+		 */
+		return (__force __be32)le32toh(cq->cqe->rkey);
+
+	return htobe32(le32toh(cq->cqe->immtdata));
+}
+
+static uint32_t wc_read_qp_num(struct ibv_cq_ex *current)
+{
+	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
+
+	return hr_reg_read(cq->cqe, CQE_LCL_QPN);
+}
+
+static uint32_t wc_read_src_qp(struct ibv_cq_ex *current)
+{
+	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
+
+	return hr_reg_read(cq->cqe, CQE_RMT_QPN);
+}
+
+static unsigned int get_wc_flags_for_sq(uint8_t opcode)
+{
+	switch (opcode) {
+	case HNS_ROCE_SQ_OP_SEND_WITH_IMM:
+	case HNS_ROCE_SQ_OP_RDMA_WRITE_WITH_IMM:
+		return IBV_WC_WITH_IMM;
+	case HNS_ROCE_SQ_OP_LOCAL_INV:
+		return IBV_WC_WITH_INV;
+	default:
+		return 0;
+	}
+}
+
+static unsigned int get_wc_flags_for_rq(uint8_t opcode)
+{
+	switch (opcode) {
+	case HNS_ROCE_RECV_OP_RDMA_WRITE_IMM:
+	case HNS_ROCE_RECV_OP_SEND_WITH_IMM:
+		return IBV_WC_WITH_IMM;
+	case HNS_ROCE_RECV_OP_SEND_WITH_INV:
+		return IBV_WC_WITH_INV;
+	default:
+		return 0;
+	}
+}
+
+static unsigned int wc_read_wc_flags(struct ibv_cq_ex *current)
+{
+	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
+	uint8_t opcode = hr_reg_read(cq->cqe, CQE_OPCODE);
+	unsigned int wc_flags;
+
+	if (hr_reg_read(cq->cqe, CQE_S_R) == CQE_FOR_SQ) {
+		wc_flags = get_wc_flags_for_sq(opcode);
+	} else {
+		wc_flags = get_wc_flags_for_rq(opcode);
+		wc_flags |= hr_reg_read(cq->cqe, CQE_GRH) ? IBV_WC_GRH : 0;
+	}
+
+	return wc_flags;
+}
+
+static uint32_t wc_read_slid(struct ibv_cq_ex *current)
+{
+	return 0;
+}
+
+static uint8_t wc_read_sl(struct ibv_cq_ex *current)
+{
+	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
+
+	return (uint8_t)hr_reg_read(cq->cqe, CQE_SL);
+}
+
+static uint8_t wc_read_dlid_path_bits(struct ibv_cq_ex *current)
+{
+	return 0;
+}
+
+static uint16_t wc_read_cvlan(struct ibv_cq_ex *current)
+{
+	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
+
+	return hr_reg_read(cq->cqe, CQE_VID_VLD) ?
+		hr_reg_read(cq->cqe, CQE_VID) : 0;
+}
+
+void hns_roce_attach_cq_ex_ops(struct ibv_cq_ex *cq_ex, uint64_t wc_flags)
+{
+	cq_ex->start_poll = wc_start_poll_cq;
+	cq_ex->next_poll = wc_next_poll_cq;
+	cq_ex->end_poll = wc_end_poll_cq;
+	cq_ex->read_opcode = wc_read_opcode;
+	cq_ex->read_vendor_err = wc_read_vendor_err;
+	cq_ex->read_wc_flags = wc_read_wc_flags;
+
+	if (wc_flags & IBV_WC_EX_WITH_BYTE_LEN)
+		cq_ex->read_byte_len = wc_read_byte_len;
+	if (wc_flags & IBV_WC_EX_WITH_IMM)
+		cq_ex->read_imm_data = wc_read_imm_data;
+	if (wc_flags & IBV_WC_EX_WITH_QP_NUM)
+		cq_ex->read_qp_num = wc_read_qp_num;
+	if (wc_flags & IBV_WC_EX_WITH_SRC_QP)
+		cq_ex->read_src_qp = wc_read_src_qp;
+	if (wc_flags & IBV_WC_EX_WITH_SLID)
+		cq_ex->read_slid = wc_read_slid;
+	if (wc_flags & IBV_WC_EX_WITH_SL)
+		cq_ex->read_sl = wc_read_sl;
+	if (wc_flags & IBV_WC_EX_WITH_DLID_PATH_BITS)
+		cq_ex->read_dlid_path_bits = wc_read_dlid_path_bits;
+	if (wc_flags & IBV_WC_EX_WITH_CVLAN)
+		cq_ex->read_cvlan = wc_read_cvlan;
 }
 
 const struct hns_roce_u_hw hns_roce_u_hw_v2 = {

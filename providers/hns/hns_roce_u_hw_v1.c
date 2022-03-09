@@ -161,10 +161,10 @@ static struct hns_roce_cqe *get_cqe(struct hns_roce_cq *cq, int entry)
 
 static void *get_sw_cqe(struct hns_roce_cq *cq, int n)
 {
-	struct hns_roce_cqe *cqe = get_cqe(cq, n & cq->ibv_cq.cqe);
+	struct hns_roce_cqe *cqe = get_cqe(cq, n & cq->verbs_cq.cq.cqe);
 
 	return (!!(roce_get_bit(cqe->cqe_byte_4, CQE_BYTE_4_OWNER_S)) ^
-		!!(n & (cq->ibv_cq.cqe + 1))) ? cqe : NULL;
+		!!(n & (cq->verbs_cq.cq.cqe + 1))) ? cqe : NULL;
 }
 
 static struct hns_roce_cqe *next_cqe_sw(struct hns_roce_cq *cq)
@@ -210,7 +210,7 @@ static int hns_roce_wq_overflow(struct hns_roce_wq *wq, int nreq,
 	cur = wq->head - wq->tail;
 	pthread_spin_unlock(&cq->lock);
 
-	verbs_err(verbs_get_ctx(cq->ibv_cq.context),
+	verbs_err(verbs_get_ctx(cq->verbs_cq.cq.context),
 		  "wq:(head = %d, tail = %d, max_post = %d), nreq = 0x%x\n",
 		  wq->head, wq->tail, wq->max_post, nreq);
 
@@ -274,10 +274,10 @@ static int hns_roce_v1_poll_one(struct hns_roce_cq *cq,
 	if (!*cur_qp ||
 	    (local_qpn & HNS_ROCE_CQE_QPN_MASK) != (*cur_qp)->verbs_qp.qp.qp_num) {
 
-		*cur_qp = hns_roce_find_qp(to_hr_ctx(cq->ibv_cq.context),
+		*cur_qp = hns_roce_find_qp(to_hr_ctx(cq->verbs_cq.cq.context),
 					   qpn & 0xffffff);
 		if (!*cur_qp) {
-			verbs_err(verbs_get_ctx(cq->ibv_cq.context),
+			verbs_err(verbs_get_ctx(cq->verbs_cq.cq.context),
 				  PFX "can't find qp!\n");
 			return CQ_POLL_ERR;
 		}
@@ -317,7 +317,7 @@ static int hns_roce_v1_poll_one(struct hns_roce_cq *cq,
 	if (roce_get_field(cqe->cqe_byte_4,
 	    CQE_BYTE_4_STATUS_OF_THE_OPERATION_M,
 	    CQE_BYTE_4_STATUS_OF_THE_OPERATION_S) != HNS_ROCE_CQE_SUCCESS) {
-		verbs_err(verbs_get_ctx(cq->ibv_cq.context),
+		verbs_err(verbs_get_ctx(cq->verbs_cq.cq.context),
 			  PFX "error cqe!\n");
 		hns_roce_handle_error_cqe(cqe, wc);
 		return CQ_OK;
@@ -599,21 +599,21 @@ static void __hns_roce_v1_cq_clean(struct hns_roce_cq *cq, uint32_t qpn,
 	uint32_t prod_index;
 	uint8_t owner_bit = 0;
 	struct hns_roce_cqe *cqe, *dest;
-	struct hns_roce_context *ctx = to_hr_ctx(cq->ibv_cq.context);
+	struct hns_roce_context *ctx = to_hr_ctx(cq->verbs_cq.cq.context);
 
 	for (prod_index = cq->cons_index; get_sw_cqe(cq, prod_index);
 	     ++prod_index)
-		if (prod_index == cq->cons_index + cq->ibv_cq.cqe)
+		if (prod_index == cq->cons_index + cq->verbs_cq.cq.cqe)
 			break;
 
 	while ((int) --prod_index - (int) cq->cons_index >= 0) {
-		cqe = get_cqe(cq, prod_index & cq->ibv_cq.cqe);
+		cqe = get_cqe(cq, prod_index & cq->verbs_cq.cq.cqe);
 		if ((roce_get_field(cqe->cqe_byte_16, CQE_BYTE_16_LOCAL_QPN_M,
 			      CQE_BYTE_16_LOCAL_QPN_S) & 0xffffff) == qpn) {
 			++nfreed;
 		} else if (nfreed) {
 			dest = get_cqe(cq,
-				       (prod_index + nfreed) & cq->ibv_cq.cqe);
+				       (prod_index + nfreed) & cq->verbs_cq.cq.cqe);
 			owner_bit = roce_get_bit(dest->cqe_byte_4,
 						 CQE_BYTE_4_OWNER_S);
 			memcpy(dest, cqe, sizeof(*cqe));
