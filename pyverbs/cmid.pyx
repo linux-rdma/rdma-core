@@ -210,7 +210,8 @@ cdef class AddrInfo(PyverbsObject):
 
     cpdef close(self):
         if self.addr_info != NULL:
-            self.logger.debug('Closing AddrInfo')
+            if self.logger:
+                self.logger.debug('Closing AddrInfo')
             cm.rdma_freeaddrinfo(self.addr_info)
         self.addr_info = NULL
 
@@ -234,7 +235,8 @@ cdef class CMEvent(PyverbsObject):
 
     cpdef close(self):
         if self.event != NULL:
-            self.logger.debug('Closing CMEvent')
+            if self.logger:
+                self.logger.debug('Closing CMEvent')
             self.ack_cm_event()
             self.event = NULL
 
@@ -283,7 +285,8 @@ cdef class CMEventChannel(PyverbsObject):
 
     cpdef close(self):
         if self.event_channel != NULL:
-            self.logger.debug('Closing CMEventChannel')
+            if self.logger:
+                self.logger.debug('Closing CMEventChannel')
             cm.rdma_destroy_event_channel(self.event_channel)
             self.event_channel = NULL
 
@@ -378,7 +381,8 @@ cdef class CMID(PyverbsCM):
 
     cpdef close(self):
         if self.id != NULL:
-            self.logger.debug('Closing CMID')
+            if self.logger:
+                self.logger.debug('Closing CMID')
             if self.event_channel is None:
                 cm.rdma_destroy_ep(self.id)
             else:

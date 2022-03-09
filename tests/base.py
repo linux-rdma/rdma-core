@@ -522,9 +522,9 @@ class TrafficResources(BaseResources):
         :return: None
         """
         self.port_attr = self.ctx.query_port(self.ib_port)
+        self.create_cq()
         if self.with_srq:
             self.create_srq()
-        self.create_cq()
         self.create_mr()
         self.create_qps()
 

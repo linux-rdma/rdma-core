@@ -108,7 +108,8 @@ cdef class Mlx5VfioContext(Mlx5Context):
 
     cpdef close(self):
         if self.context != NULL:
-            self.logger.debug('Closing Mlx5VfioContext')
+            if self.logger:
+                self.logger.debug('Closing Mlx5VfioContext')
             close_weakrefs([self.pds, self.devx_objs, self.devx_umems, self.uars])
             rc = v.ibv_close_device(self.context)
             if rc != 0:

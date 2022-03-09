@@ -13,6 +13,7 @@ from pyverbs.cq cimport CQEX, CQ, CompChannel
 from .pyverbs_error import PyverbsUserError
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
+from pyverbs.wq cimport WQ, RwqIndTable
 cimport pyverbs.libibverbs_enums as e
 cimport pyverbs.libibverbs as v
 cimport pyverbs.librdmacm as cm
@@ -118,6 +119,8 @@ cdef class Context(PyverbsCM):
         self.sched_nodes = weakref.WeakSet()
         self.sched_leafs = weakref.WeakSet()
         self.dr_domains = weakref.WeakSet()
+        self.wqs = weakref.WeakSet()
+        self.rwq_ind_tbls = weakref.WeakSet()
 
         self.name = kwargs.get('name')
         provider_attr = kwargs.get('attr')
@@ -168,14 +171,19 @@ cdef class Context(PyverbsCM):
 
     cpdef close(self):
         if self.context != NULL:
-            self.logger.debug('Closing Context')
-            close_weakrefs([self.qps, self.ccs, self.cqs, self.dms, self.pds,
-                            self.xrcds, self.vars, self.sched_leafs,
+            if self.logger:
+                self.logger.debug('Closing Context')
+            close_weakrefs([self.qps, self.rwq_ind_tbls, self.wqs, self.ccs, self.cqs,
+                            self.dms, self.pds, self.xrcds, self.vars, self.sched_leafs,
                             self.sched_nodes, self.dr_domains])
             rc = v.ibv_close_device(self.context)
             if rc != 0:
                 raise PyverbsRDMAErrno(f'Failed to close device {self.name}')
             self.context = NULL
+
+    @property
+    def context(self):
+        return <object>self.context
 
     @property
     def num_comp_vectors(self):
@@ -324,6 +332,10 @@ cdef class Context(PyverbsCM):
             self.qps.add(obj)
         elif isinstance(obj, XRCD):
             self.xrcds.add(obj)
+        elif isinstance(obj, WQ):
+            self.wqs.add(obj)
+        elif isinstance(obj, RwqIndTable):
+            self.rwq_ind_tbls.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 
@@ -795,7 +807,8 @@ cdef class DM(PyverbsCM):
         original DM object, in order to prevent double free by Python GC.
         """
         if self.dm != NULL:
-            self.logger.debug('Closing DM')
+            if self.logger:
+                self.logger.debug('Closing DM')
             close_weakrefs([self.dm_mrs])
             if not self._is_imported:
                 rc = v.ibv_free_dm(self.dm)

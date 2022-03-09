@@ -87,6 +87,7 @@ cdef class Mlx5DevxObj(PyverbsCM):
     cdef Context context
     cdef object out_view
     cdef object flow_counter_actions
+    cdef object dest_tir_actions
     cdef add_ref(self, obj)
 
 cdef class Mlx5Cqe64(PyverbsObject):

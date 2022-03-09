@@ -20,6 +20,7 @@ cdef class PD(PyverbsCM):
     cdef object ahs
     cdef object qps
     cdef object parent_domains
+    cdef object wqs
     cdef object mkeys
     cdef object deks
     cdef object _is_imported

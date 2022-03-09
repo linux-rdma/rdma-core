@@ -1,16 +1,18 @@
 import weakref
-from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
-from pyverbs.base import PyverbsRDMAErrno
-from pyverbs.base cimport close_weakrefs
-from pyverbs.device cimport Context
-from pyverbs.cq cimport CQEX, CQ
-from pyverbs.xrcd cimport XRCD
-from pyverbs.wr cimport RecvWR
-from pyverbs.qp cimport QP
-from pyverbs.pd cimport PD
 from libc.errno cimport errno
 from libc.string cimport memcpy
-
+from libc.stdlib cimport malloc, free
+from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
+from pyverbs.wr cimport RecvWR, SGE, copy_sg_array
+from pyverbs.base import PyverbsRDMAErrno
+from pyverbs.base cimport close_weakrefs
+cimport pyverbs.libibverbs_enums as e
+from pyverbs.device cimport Context
+from pyverbs.cq cimport CQEX, CQ
+cimport pyverbs.libibverbs as v
+from pyverbs.xrcd cimport XRCD
+from pyverbs.qp cimport QP
+from pyverbs.pd cimport PD
 
 cdef class SrqAttr(PyverbsObject):
     def __init__(self, max_wr=100, max_sge=1, srq_limit=0):
@@ -115,6 +117,20 @@ cdef class SrqInitAttrEx(PyverbsObject):
         self.attr.xrcd = val.xrcd
 
     @property
+    def max_num_tags(self):
+        return self.attr.tm_cap.max_num_tags
+    @max_num_tags.setter
+    def max_num_tags(self, val):
+        self.attr.tm_cap.max_num_tags = val
+
+    @property
+    def max_ops(self):
+        return self.attr.tm_cap.max_ops
+    @max_ops.setter
+    def max_ops(self, val):
+        self.attr.tm_cap.max_ops = val
+
+    @property
     def cq(self):
         return self._cq
     @cq.setter
@@ -125,6 +141,105 @@ cdef class SrqInitAttrEx(PyverbsObject):
         else:
             self.attr.cq = (<CQEX>val).ibv_cq
             self._cq = val
+
+
+cdef class OpsWr(PyverbsCM):
+    def __init__(self, wr_id=0, opcode=e.IBV_WR_TAG_ADD, flags=e.IBV_OPS_SIGNALED,
+                 OpsWr next_wr=None, unexpected_cnt=0, recv_wr_id=0,
+                 num_sge=None, tag=0, mask=0, sg_list=None):
+        self.ops_wr.wr_id = wr_id
+        self.ops_wr.opcode = opcode
+        self.ops_wr.flags = flags
+        self.ops_wr.tm.unexpected_cnt = unexpected_cnt
+        self.ops_wr.tm.add.recv_wr_id = recv_wr_id
+        self.ops_wr.tm.add.tag = tag
+        self.ops_wr.tm.add.mask = mask
+        if next_wr is not None:
+            self.ops_wr.next = &next_wr.ops_wr
+        if num_sge is not None:
+            self.ops_wr.tm.add.num_sge = num_sge
+        cdef v.ibv_sge *dst
+        if sg_list is not None:
+            self.ops_wr.tm.add.sg_list = <v.ibv_sge*>malloc(num_sge * sizeof(v.ibv_sge))
+            if self.ops_wr.tm.add.sg_list == NULL:
+                raise MemoryError('Failed to malloc SG buffer')
+            dst = self.ops_wr.tm.add.sg_list
+            copy_sg_array(dst, sg_list, num_sge)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.ops_wr.tm.add.sg_list != NULL:
+            free(self.ops_wr.tm.add.sg_list)
+            self.ops_wr.tm.add.sg_list = NULL
+
+    @property
+    def wr_id(self):
+        return self.ops_wr.wr_id
+    @wr_id.setter
+    def wr_id(self, val):
+        self.ops_wr.wr_id = val
+
+    @property
+    def next_wr(self):
+        if self.ops_wr.next == NULL:
+            return None
+        val = OpsWr()
+        val.ops_wr = self.ops_wr.next[0]
+        return val
+    @next_wr.setter
+    def next_wr(self, OpsWr val not None):
+        self.ops_wr.next = &val.ops_wr
+
+    @property
+    def opcode(self):
+        return self.ops_wr.opcode
+    @opcode.setter
+    def opcode(self, val):
+        self.ops_wr.opcode = val
+
+    @property
+    def flags(self):
+        return self.ops_wr.flags
+    @flags.setter
+    def flags(self, val):
+        self.ops_wr.flags = val
+
+    @property
+    def unexpected_cnt(self):
+        return self.ops_wr.tm.unexpected_cnt
+    @unexpected_cnt.setter
+    def unexpected_cnt(self, val):
+        self.ops_wr.tm.unexpected_cnt = val
+
+    @property
+    def recv_wr_id(self):
+        return self.ops_wr.tm.add.recv_wr_id
+    @recv_wr_id.setter
+    def recv_wr_id(self, val):
+        self.ops_wr.tm.add.recv_wr_id = val
+
+    @property
+    def tag(self):
+        return self.ops_wr.tm.add.tag
+    @tag.setter
+    def tag(self, val):
+        self.ops_wr.tm.add.tag = val
+
+    @property
+    def handle(self):
+        return self.ops_wr.tm.handle
+    @handle.setter
+    def handle(self, val):
+        self.ops_wr.tm.handle = val
+
+    @property
+    def mask(self):
+        return self.ops_wr.tm.add.mask
+    @mask.setter
+    def mask(self, val):
+        self.ops_wr.tm.add.mask = val
 
 
 cdef class SRQ(PyverbsCM):
@@ -149,7 +264,8 @@ cdef class SRQ(PyverbsCM):
 
     cpdef close(self):
         if self.srq != NULL:
-            self.logger.debug('Closing SRQ')
+            if self.logger:
+                self.logger.debug('Closing SRQ')
             close_weakrefs([self.qps])
             rc = v.ibv_destroy_srq(self.srq)
             if rc != 0:
@@ -198,6 +314,20 @@ cdef class SRQ(PyverbsCM):
         if rc != 0:
             raise PyverbsRDMAError('Failed to query SRQ', rc)
         return attr
+
+    def post_srq_ops(self, OpsWr wr not None, OpsWr bad_wr=None):
+        """
+        Perform on a special shared receive queue (SRQ) configuration manipulations
+        :param wr: Ops Work Requests to be posted to the TM-Shared Receive Queue
+        :param bad_wr: A pointer that will be filled with the first Ops Work Request,
+                       that its processing failed
+        """
+        cdef v.ibv_ops_wr *my_bad_wr
+        rc= v.ibv_post_srq_ops(self.srq, &wr.ops_wr, &my_bad_wr)
+        if rc != 0:
+            if bad_wr:
+                memcpy(&bad_wr.ops_wr, my_bad_wr, sizeof(bad_wr.ops_wr))
+            raise PyverbsRDMAError('post SRQ ops failed.', rc)
 
     def post_recv(self, RecvWR wr not None, RecvWR bad_wr=None):
         cdef v.ibv_recv_wr *my_bad_wr

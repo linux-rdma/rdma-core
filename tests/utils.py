@@ -13,6 +13,7 @@ import socket
 import struct
 import string
 import glob
+import time
 import os
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
@@ -20,7 +21,7 @@ from pyverbs.addr import AHAttr, AH, GlobalRoute
 from tests.base import XRCResources, DCT_KEY
 from tests.efa_base import SRDResources
 from pyverbs.wr import SGE, SendWR, RecvWR
-from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx, QPAttr
+from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx, QPAttr, QPEx, QP
 from tests.mlx5_base import Mlx5DcResources, Mlx5DcStreamsRes
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.cq import PollCqAttr, CQEX
@@ -44,6 +45,7 @@ MAX_DM_LOG_ALIGN = 6
 MAX_RAW_PACKET_SEND_WR = 2500
 GRH_SIZE = 40
 IMM_DATA = 1234
+POLL_CQ_TIMEOUT = 10  # In seconds
 
 
 class MatchCriteriaEnable:
@@ -403,7 +405,7 @@ def get_recv_wr(agr_obj):
     :return: recv wr
     """
     qp_type = agr_obj.rqp_lst[0].qp_type if isinstance(agr_obj, XRCResources) \
-                else agr_obj.qp.qp_type
+        else agr_obj.qp.qp_type if isinstance(agr_obj.qp, QP) else None
     mr = agr_obj.mr
     length = agr_obj.msg_size + GRH_SIZE if qp_type == e.IBV_QPT_UD \
              else agr_obj.msg_size
@@ -524,7 +526,11 @@ def post_recv(agr_obj, recv_wr, qp_idx=0 ,num_wqes=1):
     """
     receive_queue = agr_obj.srq if agr_obj.srq else agr_obj.qps[qp_idx]
     for _ in range(num_wqes):
-        receive_queue.post_recv(recv_wr, None)
+        if isinstance(receive_queue, QPEx) and receive_queue.ind_table:
+            for wq in receive_queue.ind_table.wqs:
+                wq.post_recv(recv_wr, None)
+        else:
+            receive_queue.post_recv(recv_wr, None)
 
 
 def poll_cq(cq, count=1, data=None):
@@ -542,7 +548,8 @@ def poll_cq(cq, count=1, data=None):
     """
     wcs = []
     channel = cq.comp_channel
-    while count > 0:
+    start_poll_t = time.perf_counter()
+    while count > 0 and (time.perf_counter() - start_poll_t < POLL_CQ_TIMEOUT):
         if channel:
             channel.get_cq_event(cq)
             cq.req_notify()
@@ -558,6 +565,10 @@ def poll_cq(cq, count=1, data=None):
                 assert socket.ntohl(wc.imm_data) == data
         count -= nc
         wcs.extend(tmp_wcs)
+
+    if count > 0:
+        raise PyverbsError(f'Got timeout on polling ({count} CQEs remaining)')
+
     return wcs
 
 
@@ -571,9 +582,10 @@ def poll_cq_ex(cqex, count=1, data=None):
     :return: None
     """
     try:
+        start_poll_t = time.perf_counter()
         poll_attr = PollCqAttr()
         ret = cqex.start_poll(poll_attr)
-        while ret == 2: # ENOENT
+        while ret == 2 and (time.perf_counter() - start_poll_t < POLL_CQ_TIMEOUT):
             ret = cqex.start_poll(poll_attr)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to poll CQ')
@@ -584,18 +596,21 @@ def poll_cq_ex(cqex, count=1, data=None):
         if data:
             assert data == socket.ntohl(cqex.read_imm_data())
         # Now poll the rest of the packets
-        while count > 0:
+        while count > 0 and (time.perf_counter() - start_poll_t < POLL_CQ_TIMEOUT):
             ret = cqex.poll_next()
             while ret == 2:
                 ret = cqex.poll_next()
             if ret != 0:
                 raise PyverbsRDMAErrno('Failed to poll CQ')
+            count -= 1
             if cqex.status != e.IBV_WC_SUCCESS:
                 raise PyverbsRDMAErrno('Completion status is {s}'.
                                        format(s=cqex.status))
             if data:
                 assert data == socket.ntohl(cqex.read_imm_data())
             count -= 1
+        if count > 0:
+            raise PyverbsError(f'Got timeout on polling ({count} CQEs remaining)')
     finally:
         cqex.end_poll()
 
@@ -749,6 +764,8 @@ def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO, with_
     :param kwargs: Arguments:
             * *src_mac*
                 Source MAC address to use in the packet.
+            * *src_ipv4*
+                Source IPv4 address to use in the packet.
     :return: packet
     """
     l3_header_size = getattr(PacketConsts, f'IPV{str(l3)}_HEADER_SIZE')
@@ -775,11 +792,12 @@ def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO, with_
 
     if l3 == PacketConsts.IP_V4:
         # IPv4 header
+        src_ipv4 = kwargs.get('src_ipv4', PacketConsts.SRC_IP)
         packet += struct.pack('!2B3H2BH4s4s', (PacketConsts.IP_V4 << 4) +
                               PacketConsts.IHL, 0, ip_total_len, 0,
                               PacketConsts.IP_V4_FLAGS << 13,
                               PacketConsts.TTL_HOP_LIMIT, next_hdr, 0,
-                              socket.inet_aton(PacketConsts.SRC_IP),
+                              socket.inet_aton(src_ipv4),
                               socket.inet_aton(PacketConsts.DST_IP))
     else:
         # IPv6 header
@@ -866,6 +884,51 @@ def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
             # Validate received packet
             validate_raw(msg_received,
                          expected_packet if expected_packet else msg, skip_idxs)
+
+
+def raw_rss_traffic(client, server, iters, l3=PacketConsts.IP_V4,
+                    l4=PacketConsts.UDP_PROTO, with_vlan=False, num_packets=1):
+    """
+    Runs raw ethernet rss traffic between two sides.
+    :param client: client side, clients base class is BaseTraffic
+    :param server: server side, servers base class is BaseTraffic
+    :param iters: number of traffic iterations
+    :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
+    :param l4: Packet layer 4 type: 'tcp' or 'udp'
+    :param with_vlan: if True add VLAN header to the packet
+    :param num_packets: Number of packets to send with different ipv4 src
+                        address in each iteration.
+    :return: None
+    """
+    s_recv_wr = get_recv_wr(server)
+    for qp_idx in range(server.qp_count):
+        # prepare the receive queue with RecvWR
+        post_recv(server, s_recv_wr, qp_idx=qp_idx, num_wqes=num_packets)
+    for _ in range(iters):
+        for qp_idx in range(server.qp_count):
+            for i in range(num_packets):
+                c_send_wr, c_sg, msg = get_send_elements_raw_qp(
+                    client, l3, l4, with_vlan,
+                    src_ipv4='.'.join([str(num) for num in range(i, i + 4)]))
+                send(client, c_send_wr, e.IBV_WR_SEND, False, qp_idx)
+                poll_cq(client.cq)
+            completions = 0
+            start_poll_t = time.perf_counter()
+            while completions < num_packets and \
+                    (time.perf_counter() - start_poll_t < POLL_CQ_TIMEOUT):
+                for cq in server.cqs:
+                    n, wcs = cq.poll()
+                    if n > 0:
+                        if wcs[0].status != e.IBV_WC_SUCCESS:
+                            raise PyverbsRDMAError(
+                                f'Completion status is {wc_status_to_str(wcs[0].status)}',
+                                wcs[0].status)
+                        completions += 1
+                        if completions >= num_packets:
+                            break
+            if completions < num_packets:
+                raise PyverbsError(f'Expected {num_packets} completions - got {completions}')
+            post_recv(server, s_recv_wr, qp_idx=qp_idx, num_wqes=num_packets)
 
 
 def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
