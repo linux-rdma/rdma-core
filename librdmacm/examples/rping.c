@@ -567,6 +567,7 @@ static int rping_create_qp(struct rping_cb *cb)
 	init_attr.qp_type = IBV_QPT_RC;
 	init_attr.send_cq = cb->cq;
 	init_attr.recv_cq = cb->cq;
+	id = cb->server ? cb->child_cm_id : cb->cm_id;
 
 	if (cb->self_create_qp) {
 		cb->qp = ibv_create_qp(cb->pd, &init_attr);
@@ -574,10 +575,25 @@ static int rping_create_qp(struct rping_cb *cb)
 			perror("ibv_create_qp");
 			return -1;
 		}
-		return 0;
+
+		struct ibv_qp_attr attr = {
+			.qp_state = IBV_QPS_INIT,
+			.pkey_index = 0,
+			.port_num = id->port_num,
+			.qp_access_flags = 0,
+		};
+
+		ret = ibv_modify_qp(cb->qp, &attr,
+				    IBV_QP_STATE | IBV_QP_PKEY_INDEX |
+				    IBV_QP_PORT | IBV_QP_ACCESS_FLAGS);
+
+		if (ret) {
+			perror("ibv_modify_qp");
+			ibv_destroy_qp(cb->qp);
+		}
+		return ret ? -1 : 0;
 	}
 
-	id = cb->server ? cb->child_cm_id : cb->cm_id;
 	ret = rdma_create_qp(id, cb->pd, &init_attr);
 	if (!ret)
 		cb->qp = id->qp;
