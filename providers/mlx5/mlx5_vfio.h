@@ -302,6 +302,8 @@ struct mlx5_vfio_context {
 	struct mlx5_vfio_eqs_uar eqs_uar;
 	pthread_mutex_t eq_lock;
 	struct mlx5_dv_context_ops *dv_ctx_ops;
+	int *msix_fds;
+	pthread_mutex_t msix_fds_lock;
 };
 
 #define MLX5_MAX_DESTROY_INBOX_SIZE_DW	DEVX_ST_SZ_DW(delete_fte_in)

@@ -54,3 +54,5 @@ class Mlx5PPTestCase(Mlx5RDMATestCase):
             if ex.error_code == errno.EOPNOTSUPP or ex.error_code == errno.EPROTONOSUPPORT:
                 raise unittest.SkipTest('Packet pacing entry allocation is not supported')
             raise ex
+        finally:
+            self.pp_res.ctx.close()

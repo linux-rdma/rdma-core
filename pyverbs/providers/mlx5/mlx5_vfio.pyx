@@ -71,6 +71,7 @@ cdef class Mlx5VfioContext(Mlx5Context):
         self.devx_umems = weakref.WeakSet()
         self.devx_objs = weakref.WeakSet()
         self.uars = weakref.WeakSet()
+        self.devx_eqs = weakref.WeakSet()
 
         dev_list = dv.mlx5dv_get_vfio_device_list(&attr.attr)
         if dev_list == NULL:
@@ -110,7 +111,7 @@ cdef class Mlx5VfioContext(Mlx5Context):
         if self.context != NULL:
             if self.logger:
                 self.logger.debug('Closing Mlx5VfioContext')
-            close_weakrefs([self.pds, self.devx_objs, self.devx_umems, self.uars])
+            close_weakrefs([self.pds, self.devx_objs, self.devx_umems, self.uars, self.devx_eqs])
             rc = v.ibv_close_device(self.context)
             if rc != 0:
                 raise PyverbsRDMAErrno(f'Failed to close device {self.name}')

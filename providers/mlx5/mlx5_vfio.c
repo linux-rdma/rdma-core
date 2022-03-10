@@ -1160,29 +1160,16 @@ static int mlx5_vfio_init_bar0(struct mlx5_vfio_context *ctx)
 	return 0;
 }
 
-#define MLX5_VFIO_MAX_INTR_VEC_ID 1
-#define MSIX_IRQ_SET_BUF_LEN (sizeof(struct vfio_irq_set) + \
-			      sizeof(int) * (MLX5_VFIO_MAX_INTR_VEC_ID))
-
-/* enable MSI-X interrupts */
-static int
-mlx5_vfio_enable_msix(struct mlx5_vfio_context *ctx)
+static int mlx5_vfio_msix_set_irqs(struct mlx5_vfio_context *ctx,
+				   int start, int count, void *irq_set_buf)
 {
-	char irq_set_buf[MSIX_IRQ_SET_BUF_LEN];
-	struct vfio_irq_set *irq_set;
-	int len;
-	int *fd_ptr;
+	struct vfio_irq_set *irq_set = (struct vfio_irq_set *)irq_set_buf;
 
-	len = sizeof(irq_set_buf);
-
-	irq_set = (struct vfio_irq_set *)irq_set_buf;
-	irq_set->argsz = len;
-	irq_set->count = 1;
+	irq_set->argsz = sizeof(*irq_set) + sizeof(int) * count;
 	irq_set->flags = VFIO_IRQ_SET_DATA_EVENTFD | VFIO_IRQ_SET_ACTION_TRIGGER;
 	irq_set->index = VFIO_PCI_MSIX_IRQ_INDEX;
-	irq_set->start = 0;
-	fd_ptr = (int *)&irq_set->data;
-	fd_ptr[MLX5_VFIO_CMD_VEC_IDX] = ctx->cmd_comp_fd;
+	irq_set->start = start;
+	irq_set->count = count;
 
 	return ioctl(ctx->device_fd, VFIO_DEVICE_SET_IRQS, irq_set);
 }
@@ -1190,6 +1177,8 @@ mlx5_vfio_enable_msix(struct mlx5_vfio_context *ctx)
 static int mlx5_vfio_init_async_fd(struct mlx5_vfio_context *ctx)
 {
 	struct vfio_irq_info irq = { .argsz = sizeof(irq) };
+	struct vfio_irq_set *irq_set_buf;
+	int fdlen, i;
 
 	irq.index = VFIO_PCI_MSIX_IRQ_INDEX;
 	if (ioctl(ctx->device_fd, VFIO_DEVICE_GET_IRQ_INFO, &irq))
@@ -1199,27 +1188,65 @@ static int mlx5_vfio_init_async_fd(struct mlx5_vfio_context *ctx)
 	if ((irq.flags & VFIO_IRQ_INFO_EVENTFD) == 0)
 		return -1;
 
+	fdlen = sizeof(int) * irq.count;
+	ctx->msix_fds = calloc(1, fdlen);
+	if (!ctx->msix_fds) {
+		errno = ENOMEM;
+		return -1;
+	}
+
+	for (i = 0; i < irq.count; i++)
+		ctx->msix_fds[i] = -1;
+
 	/* set up an eventfd for command completion interrupts */
 	ctx->cmd_comp_fd = eventfd(0, EFD_CLOEXEC | O_NONBLOCK);
 	if (ctx->cmd_comp_fd < 0)
-		return -1;
+		goto err_eventfd;
 
-	if (mlx5_vfio_enable_msix(ctx))
+	ctx->msix_fds[MLX5_VFIO_CMD_VEC_IDX] = ctx->cmd_comp_fd;
+
+	irq_set_buf = calloc(1, sizeof(*irq_set_buf) + fdlen);
+	if (!irq_set_buf) {
+		errno = ENOMEM;
+		goto err_irq_set_buf;
+	}
+
+	/* Enable MSI-X interrupts; In the first time it is called, the count
+	 * must be the maximum that we need
+	 */
+	memcpy(irq_set_buf->data, ctx->msix_fds, fdlen);
+	if (mlx5_vfio_msix_set_irqs(ctx, 0, irq.count, irq_set_buf))
 		goto err_msix;
 
+	free(irq_set_buf);
+	pthread_mutex_init(&ctx->msix_fds_lock, NULL);
+	ctx->vctx.context.num_comp_vectors = irq.count;
 	return 0;
 
 err_msix:
+	free(irq_set_buf);
+err_irq_set_buf:
 	close(ctx->cmd_comp_fd);
+err_eventfd:
+	free(ctx->msix_fds);
 	return -1;
 }
 
 static void mlx5_vfio_close_fds(struct mlx5_vfio_context *ctx)
 {
+	int vec;
+
 	close(ctx->device_fd);
 	close(ctx->container_fd);
 	close(ctx->group_fd);
-	close(ctx->cmd_comp_fd);
+
+	pthread_mutex_lock(&ctx->msix_fds_lock);
+	for (vec = 0; vec < ctx->vctx.context.num_comp_vectors; vec++)
+		if (ctx->msix_fds[vec] >= 0)
+			close(ctx->msix_fds[vec]);
+
+	free(ctx->msix_fds);
+	pthread_mutex_unlock(&ctx->msix_fds_lock);
 }
 
 static int mlx5_vfio_open_fds(struct mlx5_vfio_context *ctx,
@@ -1236,7 +1263,7 @@ static int mlx5_vfio_open_fds(struct mlx5_vfio_context *ctx,
 	if (ioctl(ctx->container_fd, VFIO_GET_API_VERSION) != VFIO_API_VERSION)
 		goto close_cont;
 
-	if (!ioctl(ctx->container_fd, VFIO_CHECK_EXTENSION, VFIO_TYPE1_IOMMU))
+	if (!ioctl(ctx->container_fd, VFIO_CHECK_EXTENSION, VFIO_TYPE1v2_IOMMU))
 		/* Doesn't support the IOMMU driver we want. */
 		goto close_cont;
 
@@ -1260,7 +1287,7 @@ static int mlx5_vfio_open_fds(struct mlx5_vfio_context *ctx,
 		goto close_group;
 
 	/* Enable the IOMMU model we want */
-	if (ioctl(ctx->container_fd, VFIO_SET_IOMMU, VFIO_TYPE1_IOMMU))
+	if (ioctl(ctx->container_fd, VFIO_SET_IOMMU, VFIO_TYPE1v2_IOMMU))
 		goto close_group;
 
 	/* Get a file descriptor for the device */
@@ -2463,7 +2490,7 @@ static int vfio_devx_query_eqn(struct ibv_context *ibctx, uint32_t vector,
 {
 	struct mlx5_vfio_context *ctx = to_mvfio_ctx(ibctx);
 
-	if (vector > ibctx->num_comp_vectors - 1)
+	if (vector != MLX5_VFIO_CMD_VEC_IDX)
 		return EINVAL;
 
 	/* For now use the singleton EQN created for async events */
@@ -3078,6 +3105,196 @@ static int vfio_devx_obj_destroy(struct mlx5dv_devx_obj *obj)
 	return 0;
 }
 
+static struct mlx5dv_devx_msi_vector *
+vfio_devx_alloc_msi_vector(struct ibv_context *ibctx)
+{
+	uint8_t buf[sizeof(struct vfio_irq_set) + sizeof(int)] = {};
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(ibctx);
+	struct mlx5_devx_msi_vector *msi;
+	int vector, *fd, err;
+
+	msi = calloc(1, sizeof(*msi));
+	if (!msi) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	pthread_mutex_lock(&ctx->msix_fds_lock);
+	for (vector = 0; vector < ibctx->num_comp_vectors; vector++)
+		if (ctx->msix_fds[vector] < 0)
+			break;
+
+	if (vector == ibctx->num_comp_vectors) {
+		errno = ENOSPC;
+		goto fail;
+	}
+
+	fd = (int *)(buf + sizeof(struct vfio_irq_set));
+	*fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+	if (*fd < 0)
+		goto fail;
+
+	err = mlx5_vfio_msix_set_irqs(ctx, vector, 1, buf);
+	if (err)
+		goto fail_set_irqs;
+
+	ctx->msix_fds[vector] = *fd;
+	msi->dv_msi.vector = vector;
+	msi->dv_msi.fd = *fd;
+	msi->ibctx = ibctx;
+
+	pthread_mutex_unlock(&ctx->msix_fds_lock);
+	return &msi->dv_msi;
+
+fail_set_irqs:
+	close(*fd);
+fail:
+	pthread_mutex_unlock(&ctx->msix_fds_lock);
+	free(msi);
+	return NULL;
+}
+
+static int vfio_devx_free_msi_vector(struct mlx5dv_devx_msi_vector *msi)
+{
+	struct mlx5_devx_msi_vector *msiv =
+		container_of(msi, struct mlx5_devx_msi_vector, dv_msi);
+	uint8_t buf[sizeof(struct vfio_irq_set) + sizeof(int)] = {};
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(msiv->ibctx);
+	int ret;
+
+	pthread_mutex_lock(&ctx->msix_fds_lock);
+	if ((msi->vector >= msiv->ibctx->num_comp_vectors) ||
+	    (msi->vector == MLX5_VFIO_CMD_VEC_IDX) ||
+	    (msi->fd != ctx->msix_fds[msi->vector])) {
+		ret = EINVAL;
+		goto out;
+	}
+
+	*(int *)(buf + sizeof(struct vfio_irq_set)) = -1;
+	ret = mlx5_vfio_msix_set_irqs(ctx, msi->vector, 1, buf);
+	if (ret) {
+		ret = errno;
+		goto out;
+	}
+
+	close(msi->fd);
+	ctx->msix_fds[msi->vector] = -1;
+	free(msiv);
+out:
+	pthread_mutex_unlock(&ctx->msix_fds_lock);
+	return ret;
+}
+
+static struct mlx5dv_devx_eq *
+vfio_devx_create_eq(struct ibv_context *ibctx, const void *in, size_t inlen,
+		    void *out, size_t outlen)
+{
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(ibctx);
+	struct mlx5_devx_eq *eq;
+	void *eqc, *in_pas;
+	size_t inlen_pas;
+	uint64_t size;
+	__be64 *pas;
+	int err;
+
+	eqc = DEVX_ADDR_OF(create_eq_in, in, eq_context_entry);
+	if ((inlen < DEVX_ST_SZ_BYTES(create_eq_in)) ||
+	    (DEVX_GET(create_eq_in, in, opcode) != MLX5_CMD_OP_CREATE_EQ) ||
+	    (DEVX_GET(eqc, eqc, intr) == MLX5_VFIO_CMD_VEC_IDX)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	size = max(roundup_pow_of_two(
+			   (1ULL << DEVX_GET(eqc, eqc, log_eq_size)) * MLX5_EQE_SIZE),
+		   ctx->iova_min_page_size);
+	if (size > SIZE_MAX) {
+		errno = ERANGE;
+		return NULL;
+	}
+
+	eq = calloc(1, sizeof(*eq));
+	if (!eq) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	eq->size = size;
+	err = posix_memalign(&eq->dv_eq.vaddr,
+			     MLX5_ADAPTER_PAGE_SIZE, eq->size);
+	if (err) {
+		errno = err;
+		goto err_va;
+	}
+
+	err = iset_alloc_range(ctx->iova_alloc, eq->size, &eq->iova);
+	if (err)
+		goto err_range;
+
+	err = mlx5_vfio_register_mem(ctx, eq->dv_eq.vaddr, eq->iova, eq->size);
+	if (err)
+		goto err_reg;
+
+	inlen_pas = inlen + DEVX_FLD_SZ_BYTES(create_eq_in, pas[0]) * 1;
+	in_pas = calloc(1, inlen_pas);
+	if (!in_pas) {
+		errno = ENOMEM;
+		goto err_inpas;
+	}
+
+	memcpy(in_pas, in, inlen);
+	eqc = DEVX_ADDR_OF(create_eq_in, in_pas, eq_context_entry);
+	DEVX_SET(eqc, eqc, log_page_size,
+		 ilog32(eq->size - 1) - MLX5_ADAPTER_PAGE_SHIFT);
+
+	pas = (__be64 *)DEVX_ADDR_OF(create_eq_in, in_pas, pas);
+	pas[0] = htobe64(eq->iova);
+
+	err = mlx5_vfio_cmd_exec(ctx, in_pas, inlen_pas, out, outlen, 0);
+	if (err)
+		goto err_cmd;
+
+	free(in_pas);
+	eq->ibctx = ibctx;
+	eq->eqn = DEVX_GET(create_eq_out, out, eq_number);
+	return &eq->dv_eq;
+
+err_cmd:
+	free(in_pas);
+err_inpas:
+	mlx5_vfio_unregister_mem(ctx, eq->iova, eq->size);
+err_reg:
+	iset_insert_range(ctx->iova_alloc, eq->iova, eq->size);
+err_range:
+	free(eq->dv_eq.vaddr);
+err_va:
+	free(eq);
+	return NULL;
+}
+
+static int vfio_devx_destroy_eq(struct mlx5dv_devx_eq *dveq)
+{
+	struct mlx5_devx_eq *eq =
+		container_of(dveq, struct mlx5_devx_eq, dv_eq);
+	struct mlx5_vfio_context *ctx = to_mvfio_ctx(eq->ibctx);
+	uint32_t out[DEVX_ST_SZ_DW(destroy_eq_out)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(destroy_eq_in)] = {};
+	int err;
+
+	DEVX_SET(destroy_eq_in, in, opcode, MLX5_CMD_OP_DESTROY_EQ);
+	DEVX_SET(destroy_eq_in, in, eq_number, eq->eqn);
+
+	err = mlx5_vfio_cmd_exec(ctx, in, sizeof(in), out, sizeof(out), 0);
+	if (err)
+		return err;
+
+	mlx5_vfio_unregister_mem(ctx, eq->iova, eq->size);
+	iset_insert_range(ctx->iova_alloc, eq->iova, eq->size);
+	free(eq);
+
+	return 0;
+}
+
 static struct mlx5_dv_context_ops mlx5_vfio_dv_ctx_ops = {
 	.devx_general_cmd = vfio_devx_general_cmd,
 	.devx_obj_create = vfio_devx_obj_create,
@@ -3091,6 +3308,10 @@ static struct mlx5_dv_context_ops mlx5_vfio_dv_ctx_ops = {
 	.devx_umem_reg_ex = vfio_devx_umem_reg_ex,
 	.devx_umem_dereg = vfio_devx_umem_dereg,
 	.init_obj = vfio_init_obj,
+	.devx_alloc_msi_vector = vfio_devx_alloc_msi_vector,
+	.devx_free_msi_vector = vfio_devx_free_msi_vector,
+	.devx_create_eq = vfio_devx_create_eq,
+	.devx_destroy_eq = vfio_devx_destroy_eq,
 };
 
 static void mlx5_vfio_uninit_context(struct mlx5_vfio_context *ctx)
@@ -3159,9 +3380,6 @@ mlx5_vfio_alloc_context(struct ibv_device *ibdev,
 
 	verbs_set_ops(&mctx->vctx, &mlx5_vfio_common_ops);
 	mctx->dv_ctx_ops = &mlx5_vfio_dv_ctx_ops;
-
-	/* For now only a singelton EQ is supported */
-	mctx->vctx.context.num_comp_vectors = 1;
 
 	return &mctx->vctx;
 
