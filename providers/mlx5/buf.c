@@ -38,153 +38,36 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <sys/mman.h>
+#include <util/bitmap.h>
 
 #include "mlx5.h"
-#include "bitmap.h"
 
-static int mlx5_bitmap_init(struct mlx5_bitmap *bmp, uint32_t num,
-			    uint32_t mask)
-{
-	bmp->last = 0;
-	bmp->top  = 0;
-	bmp->max  = num;
-	bmp->avail = num;
-	bmp->mask = mask;
-	bmp->avail = bmp->max;
-	bmp->table = calloc(BITS_TO_LONGS(bmp->max), sizeof(*bmp->table));
-	if (!bmp->table)
-		return -ENOMEM;
+/* Only ia64 requires this */
+#ifdef __ia64__
+#define MLX5_SHM_ADDR ((void *)0x8000000000000000UL)
+#define MLX5_SHMAT_FLAGS (SHM_RND)
+#else
+#define MLX5_SHM_ADDR NULL
+#define MLX5_SHMAT_FLAGS 0
+#endif
 
-	return 0;
-}
+#ifndef HPAGE_SIZE
+#define HPAGE_SIZE              (2UL * 1024 * 1024)
+#endif
 
-static void bitmap_free_range(struct mlx5_bitmap *bmp, uint32_t obj,
-			      int cnt)
-{
-	int i;
-
-	obj &= bmp->max - 1;
-
-	for (i = 0; i < cnt; i++)
-		mlx5_clear_bit(obj + i, bmp->table);
-	bmp->last = min(bmp->last, obj);
-	bmp->top = (bmp->top + bmp->max) & bmp->mask;
-	bmp->avail += cnt;
-}
-
-static int mlx5_bitmap_empty(struct mlx5_bitmap *bmp)
-{
-	return (bmp->avail == bmp->max) ? 1 : 0;
-}
-
-static int bitmap_avail(struct mlx5_bitmap *bmp)
-{
-	return bmp->avail;
-}
-
-static void mlx5_bitmap_cleanup(struct mlx5_bitmap *bmp)
-{
-	if (bmp->table)
-		free(bmp->table);
-}
+#define MLX5_SHM_LENGTH         HPAGE_SIZE
+#define MLX5_Q_CHUNK_SIZE       32768
 
 static void free_huge_mem(struct mlx5_hugetlb_mem *hmem)
 {
-	mlx5_bitmap_cleanup(&hmem->bitmap);
+	if (hmem->bitmap)
+		free(hmem->bitmap);
+
 	if (shmdt(hmem->shmaddr) == -1)
 		mlx5_dbg(stderr, MLX5_DBG_CONTIG, "%s\n", strerror(errno));
 	shmctl(hmem->shmid, IPC_RMID, NULL);
 	free(hmem);
-}
-
-static int mlx5_bitmap_alloc(struct mlx5_bitmap *bmp)
-{
-	uint32_t obj;
-	int ret;
-
-	obj = mlx5_find_first_zero_bit(bmp->table, bmp->max);
-	if (obj < bmp->max) {
-		mlx5_set_bit(obj, bmp->table);
-		bmp->last = (obj + 1);
-		if (bmp->last == bmp->max)
-			bmp->last = 0;
-		obj |= bmp->top;
-		ret = obj;
-	} else
-		ret = -1;
-
-	if (ret != -1)
-		--bmp->avail;
-
-	return ret;
-}
-
-static uint32_t find_aligned_range(unsigned long *bmp,
-				   uint32_t start, uint32_t nbits,
-				   int len, int alignment)
-{
-	uint32_t end, i;
-
-again:
-	start = align(start, alignment);
-
-	while ((start < nbits) && mlx5_test_bit(start, bmp))
-		start += alignment;
-
-	if (start >= nbits)
-		return -1;
-
-	end = start + len;
-	if (end > nbits)
-		return -1;
-
-	for (i = start + 1; i < end; i++) {
-		if (mlx5_test_bit(i, bmp)) {
-			start = i + 1;
-			goto again;
-		}
-	}
-
-	return start;
-}
-
-static int bitmap_alloc_range(struct mlx5_bitmap *bmp, int cnt,
-			      int align)
-{
-	uint32_t obj;
-	int ret, i;
-
-	if (cnt == 1 && align == 1)
-		return mlx5_bitmap_alloc(bmp);
-
-	if (cnt > bmp->max)
-		return -1;
-
-	obj = find_aligned_range(bmp->table, bmp->last,
-				 bmp->max, cnt, align);
-	if (obj >= bmp->max) {
-		bmp->top = (bmp->top + bmp->max) & bmp->mask;
-		obj = find_aligned_range(bmp->table, 0, bmp->max,
-					 cnt, align);
-	}
-
-	if (obj < bmp->max) {
-		for (i = 0; i < cnt; i++)
-			mlx5_set_bit(obj + i, bmp->table);
-		if (obj == bmp->last) {
-			bmp->last = (obj + cnt);
-			if (bmp->last >= bmp->max)
-				bmp->last = 0;
-		}
-		obj |= bmp->top;
-		ret = obj;
-	} else
-		ret = -1;
-
-	if (ret != -1)
-		bmp->avail -= cnt;
-
-	return obj;
 }
 
 static struct mlx5_hugetlb_mem *alloc_huge_mem(size_t size)
@@ -209,11 +92,13 @@ static struct mlx5_hugetlb_mem *alloc_huge_mem(size_t size)
 		goto out_rmid;
 	}
 
-	if (mlx5_bitmap_init(&hmem->bitmap, shm_len / MLX5_Q_CHUNK_SIZE,
-			     shm_len / MLX5_Q_CHUNK_SIZE - 1)) {
+	hmem->bitmap = bitmap_alloc0(shm_len / MLX5_Q_CHUNK_SIZE);
+	if (!hmem->bitmap) {
 		mlx5_dbg(stderr, MLX5_DBG_CONTIG, "%s\n", strerror(errno));
 		goto out_shmdt;
 	}
+
+	hmem->bmp_size = shm_len / MLX5_Q_CHUNK_SIZE;
 
 	/*
 	 * Marked to be destroyed when process detaches from shmget segment
@@ -250,9 +135,13 @@ static int alloc_huge_buf(struct mlx5_context *mctx, struct mlx5_buf *buf,
 
 	mlx5_spin_lock(&mctx->hugetlb_lock);
 	list_for_each(&mctx->hugetlb_list, hmem, entry) {
-		if (bitmap_avail(&hmem->bitmap)) {
-			buf->base = bitmap_alloc_range(&hmem->bitmap, nchunk, 1);
-			if (buf->base != -1) {
+		if (!bitmap_full(hmem->bitmap, hmem->bmp_size)) {
+			buf->base = bitmap_find_free_region(hmem->bitmap,
+							    hmem->bmp_size,
+							    nchunk);
+			if (buf->base != hmem->bmp_size) {
+				bitmap_fill_region(hmem->bitmap, buf->base,
+						   buf->base + nchunk);
 				buf->hmem = hmem;
 				found = 1;
 				break;
@@ -266,16 +155,14 @@ static int alloc_huge_buf(struct mlx5_context *mctx, struct mlx5_buf *buf,
 		if (!hmem)
 			return -1;
 
-		buf->base = bitmap_alloc_range(&hmem->bitmap, nchunk, 1);
-		if (buf->base == -1) {
-			free_huge_mem(hmem);
-			return -1;
-		}
+		buf->base = 0;
+		assert(nchunk <= hmem->bmp_size);
+		bitmap_fill_region(hmem->bitmap, 0, nchunk);
 
 		buf->hmem = hmem;
 
 		mlx5_spin_lock(&mctx->hugetlb_lock);
-		if (bitmap_avail(&hmem->bitmap))
+		if (nchunk != hmem->bmp_size)
 			list_add(&mctx->hugetlb_list, &hmem->entry);
 		else
 			list_add_tail(&mctx->hugetlb_list, &hmem->entry);
@@ -295,8 +182,8 @@ static int alloc_huge_buf(struct mlx5_context *mctx, struct mlx5_buf *buf,
 
 out_fork:
 	mlx5_spin_lock(&mctx->hugetlb_lock);
-	bitmap_free_range(&hmem->bitmap, buf->base, nchunk);
-	if (mlx5_bitmap_empty(&hmem->bitmap)) {
+	bitmap_zero_region(hmem->bitmap, buf->base, buf->base + nchunk);
+	if (bitmap_empty(hmem->bitmap, hmem->bmp_size)) {
 		list_del(&hmem->entry);
 		mlx5_spin_unlock(&mctx->hugetlb_lock);
 		free_huge_mem(hmem);
@@ -315,8 +202,8 @@ static void free_huge_buf(struct mlx5_context *ctx, struct mlx5_buf *buf)
 		return;
 
 	mlx5_spin_lock(&ctx->hugetlb_lock);
-	bitmap_free_range(&buf->hmem->bitmap, buf->base, nchunk);
-	if (mlx5_bitmap_empty(&buf->hmem->bitmap)) {
+	bitmap_zero_region(buf->hmem->bitmap, buf->base, buf->base + nchunk);
+	if (bitmap_empty(buf->hmem->bitmap, buf->hmem->bmp_size)) {
 		list_del(&buf->hmem->entry);
 		mlx5_spin_unlock(&ctx->hugetlb_lock);
 		free_huge_mem(buf->hmem);

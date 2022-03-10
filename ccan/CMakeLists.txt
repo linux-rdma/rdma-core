@@ -1,6 +1,5 @@
 publish_internal_headers(ccan
   array_size.h
-  bitmap.h
   build_assert.h
   check_type.h
   compiler.h
@@ -13,7 +12,6 @@ publish_internal_headers(ccan
   )
 
 set(C_FILES
-  bitmap.c
   ilog.c
   list.c
   str.c

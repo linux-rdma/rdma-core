@@ -142,7 +142,8 @@ static int mlx5_vfio_alloc_page(struct mlx5_vfio_context *ctx, uint64_t *iova)
 	pthread_mutex_lock(&ctx->mem_alloc.block_list_mutex);
 	while (true) {
 		list_for_each(&ctx->mem_alloc.block_list, page_block, next_block) {
-			pg = bitmap_ffs(page_block->free_pages, 0, MLX5_VFIO_BLOCK_NUM_PAGES);
+			pg = bitmap_find_first_bit(page_block->free_pages, 0,
+						   MLX5_VFIO_BLOCK_NUM_PAGES);
 			if (pg != MLX5_VFIO_BLOCK_NUM_PAGES) {
 				bitmap_clear_bit(page_block->free_pages, pg);
 				*iova = page_block->iova + pg * MLX5_ADAPTER_PAGE_SIZE;

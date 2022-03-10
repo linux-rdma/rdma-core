@@ -163,7 +163,7 @@ struct page_block {
 	void *page_ptr;
 	uint64_t iova;
 	struct list_node next_block;
-	BITMAP_DECLARE(free_pages, MLX5_VFIO_BLOCK_NUM_PAGES);
+	BMP_DECLARE(free_pages, MLX5_VFIO_BLOCK_NUM_PAGES);
 };
 
 struct vfio_mem_allocator {

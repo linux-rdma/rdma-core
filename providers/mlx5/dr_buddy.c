@@ -34,23 +34,23 @@
  */
 
 #include <stdlib.h>
-#include <ccan/bitmap.h>
+#include <util/bitmap.h>
 #include "mlx5dv_dr.h"
 
 struct dr_icm_pool;
 struct dr_icm_buddy_mem;
 
-static int dr_find_first_bit(const bitmap *set_addr,
-			     const bitmap *addr,
+static int dr_find_first_bit(const unsigned long *set_addr,
+			     const unsigned long *addr,
 			     unsigned int size)
 {
 	unsigned int set_size = (size - 1) / BITS_PER_LONG + 1;
 	unsigned long set_idx;
 
 	/* find the first free in the first level */
-	set_idx =  bitmap_ffs(set_addr, 0, set_size);
+	set_idx =  bitmap_find_first_bit(set_addr, 0, set_size);
 	/* find the next level */
-	return bitmap_ffs(addr, set_idx * BITS_PER_LONG, size);
+	return bitmap_find_first_bit(addr, set_idx * BITS_PER_LONG, size);
 }
 
 int dr_buddy_init(struct dr_icm_buddy_mem *buddy, uint32_t max_order)
@@ -161,7 +161,7 @@ static void dr_buddy_update_upper_bitmap(struct dr_icm_buddy_mem *buddy,
 
 	/* clear upper layer of search if needed */
 	dr_buddy_get_seg_borders(seg, &l, &h);
-	m = bitmap_ffs(buddy->bits[order], l, h);
+	m = bitmap_find_first_bit(buddy->bits[order], l, h);
 	if (m == h) /* nothing in the long that includes seg */
 		bitmap_clear_bit(buddy->set_bit[order], seg / BITS_PER_LONG);
 }

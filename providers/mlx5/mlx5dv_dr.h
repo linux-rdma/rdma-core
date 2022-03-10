@@ -35,7 +35,7 @@
 
 #include <ccan/list.h>
 #include <ccan/minmax.h>
-#include <ccan/bitmap.h>
+#include <util/bitmap.h>
 #include <stdatomic.h>
 #include "mlx5dv.h"
 #include "mlx5_ifc.h"
@@ -1625,9 +1625,9 @@ int dr_send_postsend_action(struct mlx5dv_dr_domain *dmn,
 struct dr_icm_mr;
 
 struct dr_icm_buddy_mem {
-	bitmap			**bits;
+	unsigned long		**bits;
 	unsigned int		*num_free;
-	bitmap			**set_bit;
+	unsigned long		**set_bit;
 	uint32_t		max_order;
 	struct list_node	list_node;
 	struct dr_icm_mr	*icm_mr;

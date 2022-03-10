@@ -1,4 +1,5 @@
 publish_internal_headers(util
+  bitmap.h
   cl_qmap.h
   compiler.h
   interval_set.h
@@ -9,6 +10,7 @@ publish_internal_headers(util
   )
 
 set(C_FILES
+  bitmap.c
   cl_map.c
   interval_set.c
   node_name_map.c
