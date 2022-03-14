@@ -2935,6 +2935,7 @@ static int qp_enable_mmo(struct ibv_qp *qp)
 	uint32_t in[DEVX_ST_SZ_DW(init2init_qp_in)] = {};
 	uint32_t out[DEVX_ST_SZ_DW(init2init_qp_out)] = {};
 	void *qpce = DEVX_ADDR_OF(init2init_qp_in, in, qpc_data_ext);
+	int ret;
 
 	DEVX_SET(init2init_qp_in, in, opcode, MLX5_CMD_OP_INIT2INIT_QP);
 	DEVX_SET(init2init_qp_in, in, qpc_ext, 1);
@@ -2944,7 +2945,8 @@ static int qp_enable_mmo(struct ibv_qp *qp)
 
 	DEVX_SET(qpc_ext, qpce, mmo, 1);
 
-	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+	ret = mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+	return ret ? mlx5_get_cmd_status_err(ret, out) : 0;
 }
 
 int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
@@ -3295,7 +3297,7 @@ static int _mlx5dv_map_ah_to_qp(struct ibv_ah *ah, uint32_t qp_num)
 		mah->ah_qp_mapping = mlx5dv_devx_obj_create(
 			ah->context, in, sizeof(in), out, sizeof(out));
 		if (!mah->ah_qp_mapping)
-			ret = errno;
+			ret = mlx5_get_cmd_status_err(errno, out);
 	}
 	pthread_mutex_unlock(&mah->mutex);
 
@@ -6676,8 +6678,10 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 
 	mkey->devx_obj = mlx5dv_devx_obj_create(pd->context, in, sizeof(in),
 						out, sizeof(out));
-	if (!mkey->devx_obj)
+	if (!mkey->devx_obj) {
+		errno = mlx5_get_cmd_status_err(errno, out);
 		goto err_free_crypto;
+	}
 
 	mkey_init_attr->max_entries = mkey->num_desc;
 	mkey->dv_mkey.lkey = (DEVX_GET(create_mkey_out, out, mkey_index) << 8) | 0;
@@ -6912,7 +6916,7 @@ static int _mlx5dv_crypto_login(struct ibv_context *context,
 	mctx->crypto_login = mlx5dv_devx_obj_create(context, in, sizeof(in),
 						    out, sizeof(out));
 	if (!mctx->crypto_login)
-		ret = errno;
+		ret = mlx5_get_cmd_status_err(errno, out);
 
 out:
 	pthread_mutex_unlock(&mctx->crypto_login_mutex);
@@ -6957,8 +6961,10 @@ _mlx5dv_crypto_login_query_state(struct ibv_context *context,
 
 	ret = mlx5dv_devx_obj_query(mctx->crypto_login, in, sizeof(in), out,
 				    sizeof(out));
-	if (ret)
+	if (ret) {
+		ret = mlx5_get_cmd_status_err(ret, out);
 		goto out;
+	}
 
 	attr = DEVX_ADDR_OF(query_crypto_login_obj_out, out, obj);
 	crypto_login_state = DEVX_GET(crypto_login_obj, attr, state);
@@ -7086,6 +7092,7 @@ _mlx5dv_dek_create(struct ibv_context *context,
 
 	obj = mlx5dv_devx_obj_create(context, in, sizeof(in), out, sizeof(out));
 	if (!obj) {
+		errno = mlx5_get_cmd_status_err(errno, out);
 		free(dek);
 		return NULL;
 	}
@@ -7128,7 +7135,7 @@ static int _mlx5dv_dek_query(struct mlx5dv_dek *dek,
 	ret = mlx5dv_devx_obj_query(dek->devx_obj, in, sizeof(in), out,
 				    sizeof(out));
 	if (ret)
-		return ret;
+		return mlx5_get_cmd_status_err(ret, out);
 
 	attr = DEVX_ADDR_OF(query_encryption_key_obj_out, out, obj);
 	dek_state = DEVX_GET(encryption_key_obj, attr, state);

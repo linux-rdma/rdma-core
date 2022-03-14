@@ -4071,8 +4071,10 @@ static int mlx5_qp_query_sqd(struct mlx5_qp *mqp, unsigned int *cur_idx)
 	DEVX_SET(query_qp_in, in, qpn, ibqp->qp_num);
 
 	err = mlx5dv_devx_qp_query(ibqp, in, sizeof(in), out, sizeof(out));
-	if (err)
-		return -errno;
+	if (err) {
+		err = mlx5_get_cmd_status_err(err, out);
+		return -err;
+	}
 
 	qpc = DEVX_ADDR_OF(query_qp_out, out, qpc);
 	if (DEVX_GET(qpc, qpc, state) != MLX5_QPC_STATE_SQDRAINED)

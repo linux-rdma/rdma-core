@@ -184,29 +184,6 @@ end:
 	pthread_mutex_unlock(&ctx->mem_alloc.block_list_mutex);
 }
 
-static int cmd_status_to_err(uint8_t status)
-{
-	switch (status) {
-	case MLX5_CMD_STAT_OK:				return 0;
-	case MLX5_CMD_STAT_INT_ERR:			return EIO;
-	case MLX5_CMD_STAT_BAD_OP_ERR:			return EINVAL;
-	case MLX5_CMD_STAT_BAD_PARAM_ERR:		return EINVAL;
-	case MLX5_CMD_STAT_BAD_SYS_STATE_ERR:		return EIO;
-	case MLX5_CMD_STAT_BAD_RES_ERR:			return EINVAL;
-	case MLX5_CMD_STAT_RES_BUSY:			return EBUSY;
-	case MLX5_CMD_STAT_LIM_ERR:			return ENOMEM;
-	case MLX5_CMD_STAT_BAD_RES_STATE_ERR:		return EINVAL;
-	case MLX5_CMD_STAT_IX_ERR:			return EINVAL;
-	case MLX5_CMD_STAT_NO_RES_ERR:			return EAGAIN;
-	case MLX5_CMD_STAT_BAD_INP_LEN_ERR:		return EIO;
-	case MLX5_CMD_STAT_BAD_OUTP_LEN_ERR:		return EIO;
-	case MLX5_CMD_STAT_BAD_QP_STATE_ERR:		return EINVAL;
-	case MLX5_CMD_STAT_BAD_PKT_ERR:			return EINVAL;
-	case MLX5_CMD_STAT_BAD_SIZE_OUTS_CQES_ERR:	return EINVAL;
-	default:					return EIO;
-	}
-}
-
 static const char *cmd_status_str(uint8_t status)
 {
 	switch (status) {
@@ -319,7 +296,7 @@ static int mlx5_vfio_cmd_check(struct mlx5_vfio_context *ctx, void *in, void *ou
 		 opcode, op_mod,
 		 cmd_status_str(status), status, syndrome);
 
-	errno = cmd_status_to_err(status);
+	errno = mlx5_cmd_status_to_err(status);
 	return errno;
 }
 
