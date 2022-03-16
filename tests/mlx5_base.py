@@ -35,6 +35,7 @@ import tests.utils
 
 MLX5_CQ_SET_CI = 0
 POLL_CQ_TIMEOUT = 5  # In seconds
+PORT_STATE_TIMEOUT = 20  # In seconds
 
 MELLANOX_VENDOR_ID = 0x02c9
 MLX5_DEVS = {
@@ -473,7 +474,7 @@ class Mlx5DevxRcResources(BaseResources):
     The class currently supports post send with immediate, but can be
     easily extended to support other opcodes in the future.
     """
-    def __init__(self, dev_name, ib_port, gid_index, msg_size=1024):
+    def __init__(self, dev_name, ib_port, gid_index, msg_size=1024, activate_port_state=False):
         super().__init__(dev_name, ib_port, gid_index)
         self.umems = {}
         self.msg_size = msg_size
@@ -501,6 +502,23 @@ class Mlx5DevxRcResources(BaseResources):
         self.rmac = None
         self.devx_objs = []
         self.qattr = QueueAttrs()
+        if activate_port_state:
+            start_state_t = time.perf_counter()
+            self.change_port_state_with_registers(PortStatus.MLX5_PORT_UP)
+            admin_status, oper_status = self.query_port_state_with_registers()
+            while admin_status != PortStatus.MLX5_PORT_UP or oper_status != PortStatus.MLX5_PORT_UP:
+                if time.perf_counter() - start_state_t >= PORT_STATE_TIMEOUT:
+                    raise PyverbsRDMAError('Could not change the port state to UP')
+                self.change_port_state_with_registers(PortStatus.MLX5_PORT_UP)
+                admin_status, oper_status = self.query_port_state_with_registers()
+                time.sleep(1)
+
+            mad_port_state = self.query_port_state_with_mads(ib_port)
+            while mad_port_state < PortState.ACTIVE:
+                if time.perf_counter() - start_state_t >= PORT_STATE_TIMEOUT:
+                    raise PyverbsRDMAError('Could not change the port state to UP')
+                time.sleep(1)
+                mad_port_state = self.query_port_state_with_mads(ib_port)
         self.init_resources()
 
     def change_port_state_with_registers(self, state):
