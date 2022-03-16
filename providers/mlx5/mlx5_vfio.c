@@ -678,7 +678,7 @@ static int mlx5_vfio_post_cmd(struct mlx5_vfio_context *ctx, void *in,
 	return 0;
 }
 
-static int mlx5_vfio_cmd_exec(struct mlx5_vfio_context *ctx, void *in,
+static int mlx5_vfio_cmd_do(struct mlx5_vfio_context *ctx, void *in,
 			       int ilen, void *out, int olen,
 			       unsigned int slot)
 {
@@ -706,10 +706,25 @@ static int mlx5_vfio_cmd_exec(struct mlx5_vfio_context *ctx, void *in,
 	if (err)
 		goto end;
 
-	err = mlx5_vfio_cmd_check(ctx, in, out);
+	if (DEVX_GET(mbox_out, out, status) != MLX5_CMD_STAT_OK)
+		err = EREMOTEIO;
+
 end:
 	pthread_mutex_unlock(&ctx->cmd.cmds[slot].lock);
 	return err;
+}
+
+static int mlx5_vfio_cmd_exec(struct mlx5_vfio_context *ctx, void *in,
+			       int ilen, void *out, int olen,
+			       unsigned int slot)
+{
+	int err;
+
+	err = mlx5_vfio_cmd_do(ctx, in, ilen, out, olen, slot);
+	if (err != EREMOTEIO)
+		return err;
+
+	return mlx5_vfio_cmd_check(ctx, in, out);
 }
 
 static int mlx5_vfio_enable_pci_cmd(struct mlx5_vfio_context *ctx)
@@ -2681,7 +2696,7 @@ static int vfio_devx_general_cmd(struct ibv_context *context, const void *in,
 {
 	struct mlx5_vfio_context *ctx = to_mvfio_ctx(context);
 
-	return mlx5_vfio_cmd_exec(ctx, (void *)in, inlen, out, outlen, 0);
+	return mlx5_vfio_cmd_do(ctx, (void *)in, inlen, out, outlen, 0);
 }
 
 static bool devx_is_obj_create_cmd(const void *in)
@@ -3035,9 +3050,11 @@ vfio_devx_obj_create(struct ibv_context *context, const void *in,
 		return NULL;
 	}
 
-	ret = mlx5_vfio_cmd_exec(ctx, (void *)in, inlen, out, outlen, 0);
-	if (ret)
+	ret = mlx5_vfio_cmd_do(ctx, (void *)in, inlen, out, outlen, 0);
+	if (ret) {
+		errno = ret;
 		goto fail;
+	}
 
 	devx_obj_build_destroy_cmd(in, out, obj->dinbox,
 				   &obj->dinlen, &obj->dv_obj);
@@ -3054,7 +3071,7 @@ static int vfio_devx_obj_query(struct mlx5dv_devx_obj *obj, const void *in,
 {
 	struct mlx5_vfio_context *ctx = to_mvfio_ctx(obj->context);
 
-	return mlx5_vfio_cmd_exec(ctx, (void *)in, inlen, out, outlen, 0);
+	return mlx5_vfio_cmd_do(ctx, (void *)in, inlen, out, outlen, 0);
 }
 
 static int vfio_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in,
@@ -3062,7 +3079,7 @@ static int vfio_devx_obj_modify(struct mlx5dv_devx_obj *obj, const void *in,
 {
 	struct mlx5_vfio_context *ctx = to_mvfio_ctx(obj->context);
 
-	return mlx5_vfio_cmd_exec(ctx, (void *)in, inlen, out, outlen, 0);
+	return mlx5_vfio_cmd_do(ctx, (void *)in, inlen, out, outlen, 0);
 }
 
 static int vfio_devx_obj_destroy(struct mlx5dv_devx_obj *obj)
@@ -3227,9 +3244,11 @@ vfio_devx_create_eq(struct ibv_context *ibctx, const void *in, size_t inlen,
 	pas = (__be64 *)DEVX_ADDR_OF(create_eq_in, in_pas, pas);
 	pas[0] = htobe64(eq->iova);
 
-	err = mlx5_vfio_cmd_exec(ctx, in_pas, inlen_pas, out, outlen, 0);
-	if (err)
+	err = mlx5_vfio_cmd_do(ctx, in_pas, inlen_pas, out, outlen, 0);
+	if (err) {
+		errno = err;
 		goto err_cmd;
+	}
 
 	free(in_pas);
 	eq->ibctx = ibctx;
