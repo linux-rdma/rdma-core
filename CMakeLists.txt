@@ -186,6 +186,9 @@ else()
 endif()
 
 find_program(SYSTEMCTL_BIN systemctl HINTS "/usr/bin" "/bin")
+if (NOT SYSTEMCTL_BIN)
+  set (SYSTEMCTL_BIN "/bin/systemctl")
+endif()
 
 RDMA_CheckSparse()
 
