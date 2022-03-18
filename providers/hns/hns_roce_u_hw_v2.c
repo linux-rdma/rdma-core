@@ -166,6 +166,7 @@ static enum ibv_wc_status get_wc_status(uint8_t status)
 		{ HNS_ROCE_V2_CQE_TRANSPORT_RETRY_EXC_ERR, IBV_WC_RETRY_EXC_ERR },
 		{ HNS_ROCE_V2_CQE_RNR_RETRY_EXC_ERR, IBV_WC_RNR_RETRY_EXC_ERR },
 		{ HNS_ROCE_V2_CQE_REMOTE_ABORTED_ERR, IBV_WC_REM_ABORT_ERR },
+		{ HNS_ROCE_V2_CQE_GENERAL_ERR, IBV_WC_GENERAL_ERR },
 		{ HNS_ROCE_V2_CQE_XRC_VIOLATION_ERR, IBV_WC_REM_INV_RD_REQ_ERR },
 	};
 
@@ -671,7 +672,8 @@ static int hns_roce_poll_one(struct hns_roce_context *ctx,
 		cq->verbs_cq.cq_ex.status = wc_status;
 	}
 
-	if (status == HNS_ROCE_V2_CQE_SUCCESS)
+	if (status == HNS_ROCE_V2_CQE_SUCCESS ||
+	    status == HNS_ROCE_V2_CQE_GENERAL_ERR)
 		return V2_CQ_OK;
 
 	/*
