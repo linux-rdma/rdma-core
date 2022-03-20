@@ -1145,7 +1145,7 @@ static bool lag_operation_supported(struct ibv_qp *qp)
 static int _mlx5dv_query_qp_lag_port(struct ibv_qp *qp, uint8_t *port_num,
 				     uint8_t *active_port_num)
 {
-	uint8_t lag_state, tx_remap_affinity_1, tx_remap_affinity_2;
+	uint8_t lag_state = 0, tx_remap_affinity_1 = 0, tx_remap_affinity_2 = 0;
 	uint32_t in_tis[DEVX_ST_SZ_DW(query_tis_in)] = {};
 	uint32_t out_tis[DEVX_ST_SZ_DW(query_tis_out)] = {};
 	uint32_t in_qp[DEVX_ST_SZ_DW(query_qp_in)] = {};

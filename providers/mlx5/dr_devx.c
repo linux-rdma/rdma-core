@@ -193,8 +193,8 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 {
 	uint32_t out[DEVX_ST_SZ_DW(query_hca_cap_out)] = {};
 	uint32_t in[DEVX_ST_SZ_DW(query_hca_cap_in)] = {};
-	bool host_pf_vhca_id_valid;
-	uint16_t host_pf_vhca_id;
+	bool host_pf_vhca_id_valid = false;
+	uint16_t host_pf_vhca_id = 0;
 	uint32_t max_sfs = 0;
 	bool roce, sf_supp;
 	int err;
