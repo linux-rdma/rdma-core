@@ -1893,7 +1893,7 @@ static int mlx5_alloc_qp_buf(struct ibv_context *context,
 	}
 
 	/* compatibility support */
-	qp_huge_key  = qptype2key(qp->ibv_qp->qp_type);
+	qp_huge_key = qptype2key(attr->qp_type);
 	if (mlx5_use_huge(qp_huge_key))
 		default_alloc_type = MLX5_ALLOC_TYPE_HUGE;
 
@@ -2245,6 +2245,27 @@ static int qp_init_wr_memcpy(struct mlx5_qp *mqp,
 		mqp->need_mmo_enable = 1;
 
 	return reg_opaque_mr(attr->pd);
+}
+
+static void set_qp_operational_state(struct mlx5_qp *qp,
+				     enum ibv_qp_state state)
+{
+	switch (state) {
+	case IBV_QPS_RESET:
+		mlx5_qp_fill_wr_complete_error(qp);
+		qp->rq.qp_state_max_gs = -1;
+		qp->sq.qp_state_max_gs = -1;
+		break;
+	case IBV_QPS_INIT:
+		qp->rq.qp_state_max_gs = qp->rq.max_gs;
+		break;
+	case IBV_QPS_RTS:
+		qp->sq.qp_state_max_gs = qp->sq.max_gs;
+		mlx5_qp_fill_wr_complete_real(qp);
+		break;
+	default:
+		break;
+	}
 }
 
 static struct ibv_qp *create_qp(struct ibv_context *context,
@@ -2627,6 +2648,8 @@ static struct ibv_qp *create_qp(struct ibv_context *context,
 
 	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS)
 		qp->verbs_qp.comp_mask |= VERBS_QP_EX;
+
+	set_qp_operational_state(qp, IBV_QPS_RESET);
 
 	return ibqp;
 
@@ -3034,6 +3057,9 @@ int mlx5_modify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr,
 	if (!ret && (attr_mask & IBV_QP_STATE) &&
 	    (attr->qp_state == IBV_QPS_INIT) && mqp->need_mmo_enable)
 		ret = qp_enable_mmo(qp);
+
+	if (!ret && (attr_mask & IBV_QP_STATE))
+		set_qp_operational_state(mqp, attr->qp_state);
 
 	return ret;
 }

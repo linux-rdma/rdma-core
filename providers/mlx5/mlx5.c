@@ -2394,9 +2394,10 @@ static int mlx5_set_context(struct mlx5_context *context,
 	for (i = 0; i < MLX5_MKEY_TABLE_SIZE; ++i)
 		context->mkey_table[i].refcnt = 0;
 
-	context->db_list = NULL;
+	list_head_init(&context->dbr_available_pages);
+	cl_qmap_init(&context->dbr_map);
 
-	pthread_mutex_init(&context->db_list_mutex, NULL);
+	pthread_mutex_init(&context->dbr_map_mutex, NULL);
 
 	context->prefer_bf = get_always_bf();
 	context->shut_up_bf = get_shut_up_bf();
