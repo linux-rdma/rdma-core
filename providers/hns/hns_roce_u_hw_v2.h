@@ -122,6 +122,11 @@ enum {
 	HNS_ROCE_V2_CQ_DB_NTR,
 };
 
+enum hns_roce_wr_buf_type {
+	WR_BUF_TYPE_POST_SEND,
+	WR_BUF_TYPE_SEND_WR_OPS,
+};
+
 struct hns_roce_db {
 	__le32	byte_4;
 	__le32	parameter;
@@ -339,5 +344,7 @@ struct hns_roce_ud_sq_wqe {
 
 void hns_roce_v2_clear_qp(struct hns_roce_context *ctx, struct hns_roce_qp *qp);
 void hns_roce_attach_cq_ex_ops(struct ibv_cq_ex *cq_ex, uint64_t wc_flags);
+int hns_roce_attach_qp_ex_ops(struct ibv_qp_init_attr_ex *attr,
+			      struct hns_roce_qp *qp);
 
 #endif /* _HNS_ROCE_U_HW_V2_H */

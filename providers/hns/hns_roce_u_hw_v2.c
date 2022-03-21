@@ -78,7 +78,7 @@ static inline unsigned int mtu_enum_to_int(enum ibv_mtu mtu)
 static void *get_send_sge_ex(struct hns_roce_qp *qp, unsigned int n);
 
 static inline void set_data_seg_v2(struct hns_roce_v2_wqe_data_seg *dseg,
-				   struct ibv_sge *sg)
+				   const struct ibv_sge *sg)
 {
 	dseg->lkey = htole32(sg->lkey);
 	dseg->addr = htole64(sg->addr);
@@ -824,9 +824,28 @@ static void set_ud_sge(struct hns_roce_v2_wqe_data_seg *dseg,
 	sge_info->total_len = len;
 }
 
+static void get_src_buf_info(void **src_addr, uint32_t *src_len,
+			     const void *buf_list, int buf_idx,
+			     enum hns_roce_wr_buf_type type)
+{
+	if (type == WR_BUF_TYPE_POST_SEND) {
+		const struct ibv_sge *sg_list = buf_list;
+
+		*src_addr = (void *)(uintptr_t)sg_list[buf_idx].addr;
+		*src_len = sg_list[buf_idx].length;
+	} else {
+		const struct ibv_data_buf *bf_list = buf_list;
+
+		*src_addr = bf_list[buf_idx].addr;
+		*src_len = bf_list[buf_idx].length;
+	}
+}
+
 static int fill_ext_sge_inl_data(struct hns_roce_qp *qp,
-				 const struct ibv_send_wr *wr,
-				 struct hns_roce_sge_info *sge_info)
+				 struct hns_roce_sge_info *sge_info,
+				 const void *buf_list,
+				 uint32_t num_buf,
+				 enum hns_roce_wr_buf_type buf_type)
 {
 	unsigned int sge_sz = sizeof(struct hns_roce_v2_wqe_data_seg);
 	unsigned int sge_mask = qp->ex_sge.sge_cnt - 1;
@@ -834,18 +853,15 @@ static int fill_ext_sge_inl_data(struct hns_roce_qp *qp,
 	uint32_t src_len, tail_len;
 	int i;
 
-
 	if (sge_info->total_len > qp->sq.max_gs * sge_sz)
 		return EINVAL;
 
 	dst_addr = get_send_sge_ex(qp, sge_info->start_idx & sge_mask);
 	tail_bound_addr = get_send_sge_ex(qp, qp->ex_sge.sge_cnt & sge_mask);
 
-	for (i = 0; i < wr->num_sge; i++) {
+	for (i = 0; i < num_buf; i++) {
 		tail_len = (uintptr_t)tail_bound_addr - (uintptr_t)dst_addr;
-
-		src_addr = (void *)(uintptr_t)wr->sg_list[i].addr;
-		src_len = wr->sg_list[i].length;
+		get_src_buf_info(&src_addr, &src_len, buf_list, i, buf_type);
 
 		if (src_len < tail_len) {
 			memcpy(dst_addr, src_addr, src_len);
@@ -870,20 +886,11 @@ static int fill_ext_sge_inl_data(struct hns_roce_qp *qp,
 	return 0;
 }
 
-static void fill_ud_inn_inl_data(const struct ibv_send_wr *wr,
-				 struct hns_roce_ud_sq_wqe *ud_sq_wqe)
+static void set_ud_inl_seg(struct hns_roce_ud_sq_wqe *ud_sq_wqe,
+			   uint8_t *data)
 {
-	uint8_t data[HNS_ROCE_MAX_UD_INL_INN_SZ] = {0};
 	uint32_t *loc = (uint32_t *)data;
 	uint32_t tmp_data;
-	void *tmp = data;
-	int i;
-
-	for (i = 0; i < wr->num_sge; i++) {
-		memcpy(tmp, (void *)(uintptr_t)wr->sg_list[i].addr,
-		       wr->sg_list[i].length);
-		tmp += wr->sg_list[i].length;
-	}
 
 	hr_reg_write(ud_sq_wqe, UDWQE_INLINE_DATA_15_0, *loc & 0xffff);
 	hr_reg_write(ud_sq_wqe, UDWQE_INLINE_DATA_23_16, (*loc >> 16) & 0xff);
@@ -894,6 +901,22 @@ static void fill_ud_inn_inl_data(const struct ibv_send_wr *wr,
 
 	hr_reg_write(ud_sq_wqe, UDWQE_INLINE_DATA_47_24, tmp_data);
 	hr_reg_write(ud_sq_wqe, UDWQE_INLINE_DATA_63_48, *loc >> 16);
+}
+
+static void fill_ud_inn_inl_data(const struct ibv_send_wr *wr,
+			     struct hns_roce_ud_sq_wqe *ud_sq_wqe)
+{
+	uint8_t data[HNS_ROCE_MAX_UD_INL_INN_SZ] = {};
+	void *tmp = data;
+	int i;
+
+	for (i = 0; i < wr->num_sge; i++) {
+		memcpy(tmp, (void *)(uintptr_t)wr->sg_list[i].addr,
+		       wr->sg_list[i].length);
+		tmp += wr->sg_list[i].length;
+	}
+
+	set_ud_inl_seg(ud_sq_wqe, data);
 }
 
 static bool check_inl_data_len(struct hns_roce_qp *qp, unsigned int len)
@@ -919,7 +942,9 @@ static int set_ud_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
 	} else {
 		hr_reg_enable(ud_sq_wqe, UDWQE_INLINE_TYPE);
 
-		ret = fill_ext_sge_inl_data(qp, wr, sge_info);
+		ret = fill_ext_sge_inl_data(qp, sge_info,
+					    wr->sg_list, wr->num_sge,
+					    WR_BUF_TYPE_POST_SEND);
 		if (ret)
 			return ret;
 
@@ -995,6 +1020,23 @@ static int fill_ud_data_seg(struct hns_roce_ud_sq_wqe *ud_sq_wqe,
 	return ret;
 }
 
+static inline void enable_wqe(struct hns_roce_qp *qp, void *sq_wqe,
+			      unsigned int index)
+{
+	struct hns_roce_rc_sq_wqe *wqe = sq_wqe;
+
+	/*
+	 * The pipeline can sequentially post all valid WQEs in wq buf,
+	 * including those new WQEs waiting for doorbell to update the PI again.
+	 * Therefore, the valid bit of WQE MUST be updated after all of fields
+	 * and extSGEs have been written into DDR instead of cache.
+	 */
+	if (qp->flags & HNS_ROCE_QP_CAP_OWNER_DB)
+		udma_to_device_barrier();
+
+	hr_reg_write_bool(wqe, RCWQE_OWNER, !(index & BIT(qp->sq.shift)));
+}
+
 static int set_ud_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 		      unsigned int nreq, struct hns_roce_sge_info *sge_info)
 {
@@ -1026,17 +1068,7 @@ static int set_ud_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	if (ret)
 		return ret;
 
-	/*
-	 * The pipeline can sequentially post all valid WQEs in wq buf,
-	 * including those new WQEs waiting for doorbell to update the PI again.
-	 * Therefore, the valid bit of WQE MUST be updated after all of fields
-	 * and extSGEs have been written into DDR instead of cache.
-	 */
-	if (qp->flags & HNS_ROCE_QP_CAP_OWNER_DB)
-		udma_to_device_barrier();
-
-	hr_reg_write_bool(wqe, RCWQE_OWNER,
-			  !((qp->sq.head + nreq) & BIT(qp->sq.shift)));
+	enable_wqe(qp, ud_sq_wqe, qp->sq.head + nreq);
 
 	return ret;
 }
@@ -1068,7 +1100,9 @@ static int set_rc_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
 	} else {
 		hr_reg_enable(rc_sq_wqe, RCWQE_INLINE_TYPE);
 
-		ret = fill_ext_sge_inl_data(qp, wr, sge_info);
+		ret = fill_ext_sge_inl_data(qp, sge_info,
+					    wr->sg_list, wr->num_sge,
+					    WR_BUF_TYPE_POST_SEND);
 		if (ret)
 			return ret;
 
@@ -1189,17 +1223,7 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 		return ret;
 
 wqe_valid:
-	/*
-	 * The pipeline can sequentially post all valid WQEs into WQ buffer,
-	 * including new WQEs waiting for the doorbell to update the PI again.
-	 * Therefore, the owner bit of WQE MUST be updated after all fields
-	 * and extSGEs have been written into DDR instead of cache.
-	 */
-	if (qp->flags & HNS_ROCE_QP_CAP_OWNER_DB)
-		udma_to_device_barrier();
-
-	hr_reg_write_bool(wqe, RCWQE_OWNER,
-			  !((qp->sq.head + nreq) & BIT(qp->sq.shift)));
+	enable_wqe(qp, rc_sq_wqe, qp->sq.head + nreq);
 
 	return 0;
 }
@@ -1919,6 +1943,710 @@ void hns_roce_attach_cq_ex_ops(struct ibv_cq_ex *cq_ex, uint64_t wc_flags)
 		cq_ex->read_dlid_path_bits = wc_read_dlid_path_bits;
 	if (wc_flags & IBV_WC_EX_WITH_CVLAN)
 		cq_ex->read_cvlan = wc_read_cvlan;
+}
+
+static struct hns_roce_rc_sq_wqe *
+init_rc_wqe(struct hns_roce_qp *qp, uint64_t wr_id, unsigned int opcode)
+{
+	unsigned int send_flags = qp->verbs_qp.qp_ex.wr_flags;
+	struct hns_roce_rc_sq_wqe *wqe;
+	unsigned int wqe_idx;
+
+	if (hns_roce_v2_wq_overflow(&qp->sq, 0,
+				    to_hr_cq(qp->verbs_qp.qp.send_cq))) {
+		qp->cur_wqe = NULL;
+		qp->err = ENOMEM;
+		return NULL;
+	}
+
+	wqe_idx = qp->sq.head & (qp->sq.wqe_cnt - 1);
+	wqe = get_send_wqe(qp, wqe_idx);
+
+	hr_reg_write(wqe, RCWQE_OPCODE, opcode);
+	hr_reg_write_bool(wqe, RCWQE_CQE, send_flags & IBV_SEND_SIGNALED);
+	hr_reg_write_bool(wqe, RCWQE_FENCE, send_flags & IBV_SEND_FENCE);
+	hr_reg_write_bool(wqe, RCWQE_SE, send_flags & IBV_SEND_SOLICITED);
+	hr_reg_clear(wqe, RCWQE_INLINE);
+	hr_reg_clear(wqe, RCWQE_SO);
+
+	qp->sq.wrid[wqe_idx] = wr_id;
+	qp->cur_wqe = wqe;
+	qp->sq.head++;
+
+	return wqe;
+}
+
+static void wr_set_sge_rc(struct ibv_qp_ex *ibv_qp, uint32_t lkey,
+			  uint64_t addr, uint32_t length)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_rc_sq_wqe *wqe = qp->cur_wqe;
+
+	if (!wqe)
+		return;
+
+	hr_reg_write(wqe, RCWQE_LKEY0, lkey);
+	hr_reg_write(wqe, RCWQE_VA0_L, addr);
+	hr_reg_write(wqe, RCWQE_VA0_H, addr >> 32);
+
+	wqe->msg_len = htole32(length);
+	hr_reg_write(wqe, RCWQE_LEN0, length);
+	hr_reg_write(wqe, RCWQE_SGE_NUM, !!length);
+	/* ignore ex sge start index */
+
+	enable_wqe(qp, wqe, qp->sq.head);
+}
+
+static void set_sgl_rc(struct hns_roce_v2_wqe_data_seg *dseg,
+		       struct hns_roce_qp *qp, const struct ibv_sge *sge,
+		       size_t num_sge)
+{
+	unsigned int index = qp->sge_info.start_idx;
+	unsigned int mask = qp->ex_sge.sge_cnt - 1;
+	unsigned int msg_len = 0;
+	unsigned int cnt = 0;
+	int i;
+
+	for (i = 0; i < num_sge; i++) {
+		if (!sge[i].length)
+			continue;
+
+		msg_len += sge[i].length;
+		cnt++;
+
+		if (cnt <= HNS_ROCE_SGE_IN_WQE) {
+			set_data_seg_v2(dseg, &sge[i]);
+			dseg++;
+		} else {
+			dseg = get_send_sge_ex(qp, index & mask);
+			set_data_seg_v2(dseg, &sge[i]);
+			index++;
+		}
+	}
+
+	qp->sge_info.start_idx = index;
+	qp->sge_info.valid_num = cnt;
+	qp->sge_info.total_len = msg_len;
+}
+
+static void wr_set_sge_list_rc(struct ibv_qp_ex *ibv_qp, size_t num_sge,
+			       const struct ibv_sge *sg_list)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_rc_sq_wqe *wqe = qp->cur_wqe;
+	struct hns_roce_v2_wqe_data_seg *dseg;
+
+	if (!wqe)
+		return;
+
+	if (num_sge > qp->sq.max_gs) {
+		qp->err = EINVAL;
+		return;
+	}
+
+	hr_reg_write(wqe, RCWQE_MSG_START_SGE_IDX,
+		     qp->sge_info.start_idx & (qp->ex_sge.sge_cnt - 1));
+
+	dseg = (void *)(wqe + 1);
+	set_sgl_rc(dseg, qp, sg_list, num_sge);
+
+	wqe->msg_len = htole32(qp->sge_info.total_len);
+	hr_reg_write(wqe, RCWQE_SGE_NUM, qp->sge_info.valid_num);
+
+	enable_wqe(qp, wqe, qp->sq.head);
+}
+
+static void wr_send_rc(struct ibv_qp_ex *ibv_qp)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+
+	init_rc_wqe(qp, ibv_qp->wr_id, HNS_ROCE_WQE_OP_SEND);
+}
+
+static void wr_send_imm_rc(struct ibv_qp_ex *ibv_qp, __be32 imm_data)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_rc_sq_wqe *wqe;
+
+	wqe = init_rc_wqe(qp, ibv_qp->wr_id, HNS_ROCE_WQE_OP_SEND_WITH_IMM);
+	if (!wqe)
+		return;
+
+	wqe->immtdata = htole32(be32toh(imm_data));
+}
+
+static void wr_send_inv_rc(struct ibv_qp_ex *ibv_qp, uint32_t invalidate_rkey)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_rc_sq_wqe *wqe;
+
+	wqe = init_rc_wqe(qp, ibv_qp->wr_id, HNS_ROCE_WQE_OP_SEND_WITH_INV);
+	if (!wqe)
+		return;
+
+	wqe->inv_key = htole32(invalidate_rkey);
+}
+
+static void wr_local_inv_rc(struct ibv_qp_ex *ibv_qp, uint32_t invalidate_rkey)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_rc_sq_wqe *wqe;
+
+	wqe = init_rc_wqe(qp, ibv_qp->wr_id, HNS_ROCE_WQE_OP_LOCAL_INV);
+	if (!wqe)
+		return;
+
+	hr_reg_enable(wqe, RCWQE_SO);
+	wqe->inv_key = htole32(invalidate_rkey);
+	enable_wqe(qp, wqe, qp->sq.head);
+}
+
+static void wr_set_xrc_srqn(struct ibv_qp_ex *ibv_qp, uint32_t remote_srqn)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_rc_sq_wqe *wqe = qp->cur_wqe;
+
+	if (!wqe)
+		return;
+
+	hr_reg_write(wqe, RCWQE_XRC_SRQN, remote_srqn);
+}
+
+static void wr_rdma_read(struct ibv_qp_ex *ibv_qp, uint32_t rkey,
+			 uint64_t remote_addr)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_rc_sq_wqe *wqe;
+
+	wqe = init_rc_wqe(qp, ibv_qp->wr_id, HNS_ROCE_WQE_OP_RDMA_READ);
+	if (!wqe)
+		return;
+
+	wqe->va = htole64(remote_addr);
+	wqe->rkey = htole32(rkey);
+}
+
+static void wr_rdma_write(struct ibv_qp_ex *ibv_qp, uint32_t rkey,
+			  uint64_t remote_addr)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_rc_sq_wqe *wqe;
+
+	wqe = init_rc_wqe(qp, ibv_qp->wr_id, HNS_ROCE_WQE_OP_RDMA_WRITE);
+	if (!wqe)
+		return;
+
+	wqe->va = htole64(remote_addr);
+	wqe->rkey = htole32(rkey);
+}
+
+static void wr_rdma_write_imm(struct ibv_qp_ex *ibv_qp, uint32_t rkey,
+			      uint64_t remote_addr, __be32 imm_data)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_rc_sq_wqe *wqe;
+
+	wqe = init_rc_wqe(qp, ibv_qp->wr_id,
+			  HNS_ROCE_WQE_OP_RDMA_WRITE_WITH_IMM);
+	if (!wqe)
+		return;
+
+	wqe->va = htole64(remote_addr);
+	wqe->rkey = htole32(rkey);
+	wqe->immtdata = htole32(be32toh(imm_data));
+}
+
+static void set_wr_atomic(struct ibv_qp_ex *ibv_qp, uint32_t rkey,
+			  uint64_t remote_addr, uint64_t compare_add,
+			  uint64_t swap, uint32_t opcode)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_v2_wqe_data_seg *dseg;
+	struct hns_roce_wqe_atomic_seg *aseg;
+	struct hns_roce_rc_sq_wqe *wqe;
+
+	wqe = init_rc_wqe(qp, ibv_qp->wr_id, opcode);
+	if (!wqe)
+		return;
+
+	wqe->va = htole64(remote_addr);
+	wqe->rkey = htole32(rkey);
+
+	dseg = (void *)(wqe + 1);
+	aseg = (void *)(dseg + 1);
+
+	if (opcode == HNS_ROCE_WQE_OP_ATOMIC_COM_AND_SWAP) {
+		aseg->fetchadd_swap_data = htole64(swap);
+		aseg->cmp_data = htole64(compare_add);
+	} else {
+		aseg->fetchadd_swap_data = htole64(compare_add);
+		aseg->cmp_data = 0;
+	}
+}
+
+static void wr_atomic_cmp_swp(struct ibv_qp_ex *ibv_qp, uint32_t rkey,
+			      uint64_t remote_addr, uint64_t compare,
+			      uint64_t swap)
+{
+	set_wr_atomic(ibv_qp, rkey, remote_addr, compare, swap,
+		      HNS_ROCE_WQE_OP_ATOMIC_COM_AND_SWAP);
+}
+
+static void wr_atomic_fetch_add(struct ibv_qp_ex *ibv_qp, uint32_t rkey,
+				uint64_t remote_addr, uint64_t add)
+{
+	set_wr_atomic(ibv_qp, rkey, remote_addr, add, 0,
+		      HNS_ROCE_WQE_OP_ATOMIC_FETCH_AND_ADD);
+}
+
+static void set_inline_data_list_rc(struct hns_roce_qp *qp,
+				    struct hns_roce_rc_sq_wqe *wqe,
+				    size_t num_buf,
+				    const struct ibv_data_buf *buf_list)
+{
+	unsigned int msg_len = qp->sge_info.total_len;
+	void *dseg;
+	int ret;
+	int i;
+
+	hr_reg_enable(wqe, RCWQE_INLINE);
+
+	wqe->msg_len = htole32(msg_len);
+	if (msg_len <= HNS_ROCE_MAX_RC_INL_INN_SZ) {
+		hr_reg_clear(wqe, RCWQE_INLINE_TYPE);
+		/* ignore ex sge start index */
+
+		dseg = wqe + 1;
+		for (i = 0; i < num_buf; i++) {
+			memcpy(dseg, buf_list[i].addr, buf_list[i].length);
+			dseg += buf_list[i].length;
+		}
+		/* ignore sge num */
+	} else {
+		if (!check_inl_data_len(qp, msg_len)) {
+			qp->err = EINVAL;
+			return;
+		}
+
+		hr_reg_enable(wqe, RCWQE_INLINE_TYPE);
+		hr_reg_write(wqe, RCWQE_MSG_START_SGE_IDX,
+			     qp->sge_info.start_idx & (qp->ex_sge.sge_cnt - 1));
+
+		ret = fill_ext_sge_inl_data(qp, &qp->sge_info,
+					    buf_list, num_buf,
+					    WR_BUF_TYPE_SEND_WR_OPS);
+		if (ret) {
+			qp->err = EINVAL;
+			return;
+		}
+
+		hr_reg_write(wqe, RCWQE_SGE_NUM, qp->sge_info.valid_num);
+	}
+}
+
+static void wr_set_inline_data_rc(struct ibv_qp_ex *ibv_qp, void *addr,
+				  size_t length)
+{
+	struct ibv_data_buf buff = { .addr = addr, .length = length };
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_rc_sq_wqe *wqe = qp->cur_wqe;
+
+	if (!wqe)
+		return;
+
+	buff.addr = addr;
+	buff.length = length;
+
+	qp->sge_info.total_len = length;
+	set_inline_data_list_rc(qp, wqe, 1, &buff);
+	enable_wqe(qp, wqe, qp->sq.head);
+}
+
+static void wr_set_inline_data_list_rc(struct ibv_qp_ex *ibv_qp, size_t num_buf,
+				       const struct ibv_data_buf *buf_list)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_rc_sq_wqe *wqe = qp->cur_wqe;
+	int i;
+
+	if (!wqe)
+		return;
+
+	qp->sge_info.total_len = 0;
+	for (i = 0; i < num_buf; i++)
+		qp->sge_info.total_len += buf_list[i].length;
+
+	set_inline_data_list_rc(qp, wqe, num_buf, buf_list);
+	enable_wqe(qp, wqe, qp->sq.head);
+}
+
+static struct hns_roce_ud_sq_wqe *
+init_ud_wqe(struct hns_roce_qp *qp, uint64_t wr_id, unsigned int opcode)
+{
+	unsigned int send_flags = qp->verbs_qp.qp_ex.wr_flags;
+	struct hns_roce_ud_sq_wqe *wqe;
+	unsigned int wqe_idx;
+
+	if (hns_roce_v2_wq_overflow(&qp->sq, 0,
+				    to_hr_cq(qp->verbs_qp.qp.send_cq))) {
+		qp->cur_wqe = NULL;
+		qp->err = ENOMEM;
+		return NULL;
+	}
+
+	wqe_idx = qp->sq.head & (qp->sq.wqe_cnt - 1);
+	wqe = get_send_wqe(qp, wqe_idx);
+
+	hr_reg_write(wqe, UDWQE_OPCODE, opcode);
+	hr_reg_write_bool(wqe, UDWQE_CQE, send_flags & IBV_SEND_SIGNALED);
+	hr_reg_write_bool(wqe, UDWQE_SE, send_flags & IBV_SEND_SOLICITED);
+	hr_reg_clear(wqe, UDWQE_INLINE);
+
+	qp->sq.wrid[wqe_idx] = wr_id;
+	qp->cur_wqe = wqe;
+	qp->sq.head++;
+
+	return wqe;
+}
+
+static void wr_send_ud(struct ibv_qp_ex *ibv_qp)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+
+	init_ud_wqe(qp, ibv_qp->wr_id, HNS_ROCE_WQE_OP_SEND);
+}
+
+static void wr_send_imm_ud(struct ibv_qp_ex *ibv_qp, __be32 imm_data)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_ud_sq_wqe *wqe;
+
+	wqe = init_ud_wqe(qp, ibv_qp->wr_id, HNS_ROCE_WQE_OP_SEND_WITH_IMM);
+	if (!wqe)
+		return;
+
+	wqe->immtdata = htole32(be32toh(imm_data));
+}
+
+static void wr_set_ud_addr(struct ibv_qp_ex *ibv_qp, struct ibv_ah *ah,
+			   uint32_t remote_qpn, uint32_t remote_qkey)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_ud_sq_wqe *wqe = qp->cur_wqe;
+	struct hns_roce_ah *hr_ah = to_hr_ah(ah);
+	int ret;
+
+	if (!wqe)
+		return;
+
+	wqe->qkey = htole32(remote_qkey & 0x80000000 ? qp->qkey : remote_qkey);
+
+	hr_reg_write(wqe, UDWQE_DQPN, remote_qpn);
+
+	ret = fill_ud_av(wqe, hr_ah);
+	if (ret)
+		qp->err = ret;
+
+	qp->sl = hr_ah->av.sl;
+}
+
+static void wr_set_sge_ud(struct ibv_qp_ex *ibv_qp, uint32_t lkey,
+			  uint64_t addr, uint32_t length)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_ud_sq_wqe *wqe = qp->cur_wqe;
+	struct hns_roce_v2_wqe_data_seg *dseg;
+	int sge_idx;
+
+	if (!wqe)
+		return;
+
+	wqe->msg_len = htole32(length);
+	hr_reg_write(wqe, UDWQE_SGE_NUM, 1);
+	sge_idx = qp->sge_info.start_idx & (qp->ex_sge.sge_cnt - 1);
+	hr_reg_write(wqe, UDWQE_MSG_START_SGE_IDX, sge_idx);
+
+	dseg = get_send_sge_ex(qp, sge_idx);
+
+	dseg->lkey = htole32(lkey);
+	dseg->addr = htole64(addr);
+	dseg->len = htole32(length);
+
+	qp->sge_info.start_idx++;
+	enable_wqe(qp, wqe, qp->sq.head);
+}
+
+static void wr_set_sge_list_ud(struct ibv_qp_ex *ibv_qp, size_t num_sge,
+			       const struct ibv_sge *sg_list)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	unsigned int sge_idx = qp->sge_info.start_idx;
+	struct hns_roce_ud_sq_wqe *wqe = qp->cur_wqe;
+	unsigned int mask = qp->ex_sge.sge_cnt - 1;
+	struct hns_roce_v2_wqe_data_seg *dseg;
+	unsigned int msg_len = 0;
+	unsigned int cnt = 0;
+
+	if (!wqe)
+		return;
+
+	if (num_sge > qp->sq.max_gs) {
+		qp->err = EINVAL;
+		return;
+	}
+
+	hr_reg_write(wqe, UDWQE_MSG_START_SGE_IDX, sge_idx & mask);
+	for (int i = 0; i < num_sge; i++) {
+		if (!sg_list[i].length)
+			continue;
+
+		dseg = get_send_sge_ex(qp, sge_idx & mask);
+		set_data_seg_v2(dseg, &sg_list[i]);
+
+		msg_len += sg_list[i].length;
+		cnt++;
+		sge_idx++;
+	}
+
+	wqe->msg_len = htole32(msg_len);
+	hr_reg_write(wqe, UDWQE_SGE_NUM, cnt);
+
+	qp->sge_info.start_idx += cnt;
+	enable_wqe(qp, wqe, qp->sq.head);
+}
+
+static void set_inline_data_list_ud(struct hns_roce_qp *qp,
+				    struct hns_roce_ud_sq_wqe *wqe,
+				    size_t num_buf,
+				    const struct ibv_data_buf *buf_list)
+{
+	uint8_t data[HNS_ROCE_MAX_UD_INL_INN_SZ] = {};
+	unsigned int msg_len = qp->sge_info.total_len;
+	void *tmp;
+	int ret;
+	int i;
+
+	if (!check_inl_data_len(qp, msg_len)) {
+		qp->err = EINVAL;
+		return;
+	}
+
+	hr_reg_enable(wqe, UDWQE_INLINE);
+
+	wqe->msg_len = htole32(msg_len);
+	if (msg_len <= HNS_ROCE_MAX_UD_INL_INN_SZ) {
+		hr_reg_clear(wqe, UDWQE_INLINE_TYPE);
+		/* ignore ex sge start index */
+
+		tmp = data;
+		for (i = 0; i < num_buf; i++) {
+			memcpy(tmp, buf_list[i].addr, buf_list[i].length);
+			tmp += buf_list[i].length;
+		}
+
+		set_ud_inl_seg(wqe, data);
+		/* ignore sge num */
+	} else {
+		hr_reg_enable(wqe, UDWQE_INLINE_TYPE);
+		hr_reg_write(wqe, UDWQE_MSG_START_SGE_IDX,
+			     qp->sge_info.start_idx & (qp->ex_sge.sge_cnt - 1));
+
+		ret = fill_ext_sge_inl_data(qp, &qp->sge_info,
+					    buf_list, num_buf,
+					    WR_BUF_TYPE_SEND_WR_OPS);
+		if (ret) {
+			qp->err = EINVAL;
+			return;
+		}
+
+		hr_reg_write(wqe, UDWQE_SGE_NUM, qp->sge_info.valid_num);
+	}
+}
+
+static void wr_set_inline_data_ud(struct ibv_qp_ex *ibv_qp, void *addr,
+				  size_t length)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_ud_sq_wqe *wqe = qp->cur_wqe;
+	struct ibv_data_buf buff;
+
+	if (!wqe)
+		return;
+
+	buff.addr = addr;
+	buff.length = length;
+
+	qp->sge_info.total_len = length;
+	set_inline_data_list_ud(qp, wqe, 1, &buff);
+	enable_wqe(qp, wqe, qp->sq.head);
+}
+
+static void wr_set_inline_data_list_ud(struct ibv_qp_ex *ibv_qp, size_t num_buf,
+				       const struct ibv_data_buf *buf_list)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	struct hns_roce_ud_sq_wqe *wqe = qp->cur_wqe;
+	int i;
+
+	if (!wqe)
+		return;
+
+	qp->sge_info.total_len = 0;
+	for (i = 0; i < num_buf; i++)
+		qp->sge_info.total_len += buf_list[i].length;
+
+	set_inline_data_list_ud(qp, wqe, num_buf, buf_list);
+	enable_wqe(qp, wqe, qp->sq.head);
+}
+
+static void wr_start(struct ibv_qp_ex *ibv_qp)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	enum ibv_qp_state state = ibv_qp->qp_base.state;
+
+	if (state == IBV_QPS_RESET ||
+	    state == IBV_QPS_INIT ||
+	    state == IBV_QPS_RTR) {
+		qp->err = EINVAL;
+		return;
+	}
+
+	pthread_spin_lock(&qp->sq.lock);
+	qp->sge_info.start_idx = qp->next_sge;
+	qp->rb_sq_head = qp->sq.head;
+	qp->err = 0;
+}
+
+static int wr_complete(struct ibv_qp_ex *ibv_qp)
+{
+	struct hns_roce_context *ctx = to_hr_ctx(ibv_qp->qp_base.context);
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+	unsigned int nreq = qp->sq.head - qp->rb_sq_head;
+	struct ibv_qp_attr attr;
+	int err = qp->err;
+
+	if (err) {
+		qp->sq.head = qp->rb_sq_head;
+		goto out;
+	}
+
+	if (nreq) {
+		qp->next_sge = qp->sge_info.start_idx;
+		udma_to_device_barrier();
+
+		if (nreq == 1 && (qp->flags & HNS_ROCE_QP_CAP_DIRECT_WQE))
+			hns_roce_write_dwqe(qp, qp->cur_wqe);
+		else
+			hns_roce_update_sq_db(ctx, qp);
+
+		if (qp->flags & HNS_ROCE_QP_CAP_SQ_RECORD_DB)
+			*(qp->sdb) = qp->sq.head & 0xffff;
+	}
+
+out:
+	pthread_spin_unlock(&qp->sq.lock);
+	if (ibv_qp->qp_base.state == IBV_QPS_ERR) {
+		attr.qp_state = IBV_QPS_ERR;
+		hns_roce_u_v2_modify_qp(&ibv_qp->qp_base, &attr, IBV_QP_STATE);
+	}
+
+	return err;
+}
+
+static void wr_abort(struct ibv_qp_ex *ibv_qp)
+{
+	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
+
+	qp->sq.head = qp->rb_sq_head;
+
+	pthread_spin_unlock(&qp->sq.lock);
+}
+
+enum {
+	HNS_SUPPORTED_SEND_OPS_FLAGS_RC_XRC =
+		IBV_QP_EX_WITH_SEND |
+		IBV_QP_EX_WITH_SEND_WITH_INV |
+		IBV_QP_EX_WITH_SEND_WITH_IMM |
+		IBV_QP_EX_WITH_RDMA_WRITE |
+		IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM |
+		IBV_QP_EX_WITH_RDMA_READ |
+		IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP |
+		IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD |
+		IBV_QP_EX_WITH_LOCAL_INV,
+	HNS_SUPPORTED_SEND_OPS_FLAGS_UD =
+		IBV_QP_EX_WITH_SEND |
+		IBV_QP_EX_WITH_SEND_WITH_IMM,
+};
+
+static void fill_send_wr_ops_rc_xrc(struct ibv_qp_ex *qp_ex)
+{
+	qp_ex->wr_send = wr_send_rc;
+	qp_ex->wr_send_imm = wr_send_imm_rc;
+	qp_ex->wr_send_inv = wr_send_inv_rc;
+	qp_ex->wr_rdma_read = wr_rdma_read;
+	qp_ex->wr_rdma_write = wr_rdma_write;
+	qp_ex->wr_rdma_write_imm = wr_rdma_write_imm;
+	qp_ex->wr_set_inline_data = wr_set_inline_data_rc;
+	qp_ex->wr_set_inline_data_list = wr_set_inline_data_list_rc;
+	qp_ex->wr_local_inv = wr_local_inv_rc;
+	qp_ex->wr_atomic_cmp_swp = wr_atomic_cmp_swp;
+	qp_ex->wr_atomic_fetch_add = wr_atomic_fetch_add;
+	qp_ex->wr_set_sge = wr_set_sge_rc;
+	qp_ex->wr_set_sge_list = wr_set_sge_list_rc;
+}
+
+static void fill_send_wr_ops_ud(struct ibv_qp_ex *qp_ex)
+{
+	qp_ex->wr_send = wr_send_ud;
+	qp_ex->wr_send_imm = wr_send_imm_ud;
+	qp_ex->wr_set_ud_addr = wr_set_ud_addr;
+	qp_ex->wr_set_inline_data = wr_set_inline_data_ud;
+	qp_ex->wr_set_inline_data_list = wr_set_inline_data_list_ud;
+	qp_ex->wr_set_sge = wr_set_sge_ud;
+	qp_ex->wr_set_sge_list = wr_set_sge_list_ud;
+}
+
+static int fill_send_wr_ops(const struct ibv_qp_init_attr_ex *attr,
+			    struct ibv_qp_ex *qp_ex)
+{
+	uint64_t ops = attr->send_ops_flags;
+
+	qp_ex->wr_start = wr_start;
+	qp_ex->wr_complete = wr_complete;
+	qp_ex->wr_abort = wr_abort;
+
+	switch (attr->qp_type) {
+	case IBV_QPT_XRC_SEND:
+		qp_ex->wr_set_xrc_srqn = wr_set_xrc_srqn;
+		SWITCH_FALLTHROUGH;
+	case IBV_QPT_RC:
+		if (ops & ~HNS_SUPPORTED_SEND_OPS_FLAGS_RC_XRC)
+			return -EOPNOTSUPP;
+		fill_send_wr_ops_rc_xrc(qp_ex);
+		break;
+	case IBV_QPT_UD:
+		if (ops & ~HNS_SUPPORTED_SEND_OPS_FLAGS_UD)
+			return -EOPNOTSUPP;
+		fill_send_wr_ops_ud(qp_ex);
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
+int hns_roce_attach_qp_ex_ops(struct ibv_qp_init_attr_ex *attr,
+			      struct hns_roce_qp *qp)
+{
+	if (attr->comp_mask & IBV_QP_INIT_ATTR_SEND_OPS_FLAGS) {
+		if (fill_send_wr_ops(attr, &qp->verbs_qp.qp_ex))
+			return -EOPNOTSUPP;
+
+		qp->verbs_qp.comp_mask |= VERBS_QP_EX;
+	}
+
+	return 0;
 }
 
 const struct hns_roce_u_hw hns_roce_u_hw_v2 = {

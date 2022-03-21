@@ -768,7 +768,8 @@ int hns_roce_u_destroy_srq(struct ibv_srq *ibv_srq)
 }
 
 enum {
-	CREATE_QP_SUP_COMP_MASK = IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_XRCD,
+	CREATE_QP_SUP_COMP_MASK = IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_XRCD |
+				  IBV_QP_INIT_ATTR_SEND_OPS_FLAGS,
 };
 
 static int check_qp_create_mask(struct hns_roce_context *ctx,
@@ -1270,9 +1271,13 @@ static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 	if (ret)
 		goto err_cmd;
 
+	ret = hns_roce_attach_qp_ex_ops(attr, qp);
+	if (ret)
+		goto err_ops;
+
 	ret = hns_roce_store_qp(context, qp);
 	if (ret)
-		goto err_store;
+		goto err_ops;
 
 	if (qp->flags & HNS_ROCE_QP_CAP_DIRECT_WQE) {
 		ret = mmap_dwqe(ibv_ctx, qp, dwqe_mmap_key);
@@ -1286,7 +1291,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 
 err_dwqe:
 	hns_roce_v2_clear_qp(context, qp);
-err_store:
+err_ops:
 	ibv_cmd_destroy_qp(&qp->verbs_qp.qp);
 err_cmd:
 	hns_roce_free_qp_buf(qp, context);
