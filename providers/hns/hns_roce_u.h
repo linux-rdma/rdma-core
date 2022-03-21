@@ -338,6 +338,12 @@ struct hns_roce_qp {
 	unsigned long			flags;
 	int				refcnt; /* specially used for XRC */
 	void				*dwqe_page;
+
+	/* specific fields for the new post send APIs */
+	int				err;
+	void				*cur_wqe;
+	unsigned int			rb_sq_head; /* roll back sq head */
+	struct hns_roce_sge_info	sge_info;
 };
 
 struct hns_roce_av {
