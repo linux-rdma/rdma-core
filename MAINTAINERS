@@ -29,9 +29,9 @@ Descriptions of section entries:
                 -----------------------------------
 
 * OVERALL PACKAGE
-M:	Doug Ledford <dledford@redhat.com>
 M:	Leon Romanovsky <leon@kernel.org>
 M:	Jason Gunthorpe <jgg@mellanox.com>
+H:	Doug Ledford <dledford@redhat.com>
 S:	Supported
 
 BUILD SYSTEM
@@ -109,9 +109,9 @@ S:	Supported
 F:	libibumad/
 
 LIBIBVERBS USERSPACE LIBRARY FOR RDMA VERBS (/dev/infiniband/uverbsX)
-M:	Doug Ledford <dledford@redhat.com>
 M:	Yishai Hadas <yishaih@dev.mellanox.co.il>
 H:	Michael S. Tsirkin <mst@mellanox.co.il>
+H:	Doug Ledford <dledford@redhat.com>
 H:	Sean Hefty <sean.hefty@intel.com>
 H:	Dotan Barak <dotanba@gmail.com>
 H:	Roland Dreier <roland@topspin.com>
