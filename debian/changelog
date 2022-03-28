@@ -1,3 +1,9 @@
+rdma-core (32.6-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Nicolas Morey-Chaisemartin <nmoreychaisemartin@suse.com>  Mon, 28 Mar 2022 10:12:51 +0200
+
 rdma-core (32.5-1) unstable; urgency=low
 
   * New upstream release.
