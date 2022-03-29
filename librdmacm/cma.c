@@ -419,7 +419,8 @@ err1:
 
 static bool match(struct cma_device *cma_dev, __be64 guid, uint32_t idx)
 {
-	if (idx == UCMA_INVALID_IB_INDEX)
+	if ((idx == UCMA_INVALID_IB_INDEX) ||
+	    (cma_dev->ibv_idx == UCMA_INVALID_IB_INDEX))
 		return cma_dev->guid == guid;
 
 	return cma_dev->ibv_idx == idx && cma_dev->guid == guid;
