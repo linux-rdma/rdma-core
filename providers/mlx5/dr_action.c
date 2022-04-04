@@ -2100,7 +2100,7 @@ struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_flow_meter(struct mlx5dv_dr_flow_meter_attr *attr)
 {
 	struct mlx5dv_dr_domain *dmn = attr->next_table->dmn;
-	uint64_t rx_icm_addr, tx_icm_addr;
+	uint64_t rx_icm_addr = 0, tx_icm_addr = 0;
 	struct mlx5dv_devx_obj *devx_obj;
 	struct mlx5dv_dr_action *action;
 	int ret;
@@ -2410,7 +2410,7 @@ dr_action_create_sampler(struct mlx5dv_dr_domain *dmn,
 {
 	struct dr_devx_flow_sampler_attr sampler_attr = {};
 	struct dr_flow_sampler *sampler;
-	uint64_t icm_rx, icm_tx;
+	uint64_t icm_rx = 0, icm_tx = 0;
 	int ret;
 
 	sampler = calloc(1, sizeof(struct dr_flow_sampler));

@@ -1594,4 +1594,7 @@ struct mlx5_dv_context_ops {
 struct mlx5_dv_context_ops *mlx5_get_dv_ops(struct ibv_context *context);
 void mlx5_set_dv_ctx_ops(struct mlx5_dv_context_ops *ops);
 
+int mlx5_cmd_status_to_err(uint8_t status);
+int mlx5_get_cmd_status_err(int err, void *out);
+
 #endif /* MLX5_H */

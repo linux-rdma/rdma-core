@@ -90,6 +90,8 @@ object via DEVX (e.g. mlx5dv_devx_qp_modify).
 
 Upon success 0 is returned or the value of errno on a failure.
 
+If the error value is EREMOTEIO, outbox.status outbox.syndrome will contain the command failure details.
+
 # SEE ALSO
 
 **mlx5dv_open_device**, **mlx5dv_devx_obj_create**

@@ -74,6 +74,8 @@ On error NULL will be returned and errno will be set.
 
 Upon success *mlx5dv_devx_destroy_eq* will return 0, on error errno will be returned.
 
+If the error value is EREMOTEIO, outbox.status and outbox.syndrome will contain the command failure details.
+
 # SEE ALSO
 
 *mlx5dv_devx_alloc_msi_vector(3)*, *mlx5dv_devx_query_eqn(3)*
