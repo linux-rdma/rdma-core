@@ -6037,15 +6037,46 @@ static int _mlx5dv_devx_qp_modify(struct ibv_qp *qp, const void *in,
 	return execute_ioctl(qp->context, cmd);
 }
 
+static enum ibv_qp_state modify_opcode_to_state(uint16_t opcode)
+{
+	switch (opcode) {
+	case MLX5_CMD_OP_INIT2INIT_QP:
+	case MLX5_CMD_OP_RST2INIT_QP:
+		return IBV_QPS_INIT;
+	case MLX5_CMD_OP_INIT2RTR_QP:
+		return IBV_QPS_RTR;
+	case MLX5_CMD_OP_RTR2RTS_QP:
+	case MLX5_CMD_OP_RTS2RTS_QP:
+	case MLX5_CMD_OP_SQERR2RTS_QP:
+	case MLX5_CMD_OP_SQD_RTS_QP:
+		return IBV_QPS_RTS;
+	case MLX5_CMD_OP_2ERR_QP:
+		return IBV_QPS_ERR;
+	case MLX5_CMD_OP_2RST_QP:
+		return IBV_QPS_RESET;
+	default:
+		return IBV_QPS_UNKNOWN;
+	}
+}
+
 int mlx5dv_devx_qp_modify(struct ibv_qp *qp, const void *in, size_t inlen,
 			  void *out, size_t outlen)
 {
+	int ret;
+	enum ibv_qp_state qp_state;
 	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(qp->context);
 
 	if (!dvops || !dvops->devx_qp_modify)
 		return EOPNOTSUPP;
 
-	return dvops->devx_qp_modify(qp, in, inlen, out, outlen);
+	ret = dvops->devx_qp_modify(qp, in, inlen, out, outlen);
+	if (ret)
+		return ret;
+
+	qp_state = modify_opcode_to_state(DEVX_GET(rtr2rts_qp_in, in, opcode));
+	set_qp_operational_state(to_mqp(qp), qp_state);
+
+	return 0;
 }
 
 static int _mlx5dv_devx_srq_query(struct ibv_srq *srq, const void *in,
