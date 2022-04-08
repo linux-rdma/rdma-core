@@ -746,7 +746,7 @@ static void hns_roce_set_qp_params(struct ibv_pd *pd,
 		qp->rq.wqe_cnt = align_queue_size(attr->cap.max_recv_wr);
 	}
 
-	qp->sq.wqe_shift = hr_ilog32(sizeof(struct hns_roce_rc_send_wqe));
+	qp->sq.wqe_shift = HNS_ROCE_SQWQE_SHIFT;
 	qp->sq.shift = hr_ilog32(qp->sq.wqe_cnt);
 	qp->rq.max_gs = attr->cap.max_recv_sge;
 
