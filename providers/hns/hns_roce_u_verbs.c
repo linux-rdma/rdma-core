@@ -740,7 +740,7 @@ static void hns_roce_set_qp_params(struct ibv_pd *pd,
 		qp->rq_rinl_buf.wqe_cnt = cnt;
 
 	/* SQ WQE */
-	qp->sq.wqe_shift = hr_ilog32(sizeof(struct hns_roce_rc_send_wqe));
+	qp->sq.wqe_shift = HNS_ROCE_SQWQE_SHIFT;
 	cnt = roundup_pow_of_two(attr->cap.max_send_wr);
 	qp->sq.wqe_cnt = cnt;
 	qp->sq.shift = hr_ilog32(cnt);
