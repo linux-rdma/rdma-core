@@ -1,5 +1,5 @@
 Name: rdma-core
-Version: 40.0
+Version: 41.0
 Release: 1%{?dist}
 Summary: RDMA core userspace libraries and daemons
 
