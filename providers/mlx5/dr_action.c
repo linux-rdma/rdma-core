@@ -702,8 +702,8 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				dr_dbg(dmn, "Root decap L3 action cannot be used on current table\n");
 				goto out_invalid_arg;
 			}
-			attr.decap_index = action->rewrite.index;
-			attr.decap_actions = action->rewrite.num_of_actions;
+			attr.decap_index = action->rewrite.param.index;
+			attr.decap_actions = action->rewrite.param.num_of_actions;
 			attr.decap_with_vlan =
 				attr.decap_actions == WITH_VLAN_NUM_HW_ACTIONS;
 			break;
@@ -712,12 +712,13 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				dr_dbg(dmn, "Root modify header action cannot be used on current table\n");
 				goto out_invalid_arg;
 			}
-			attr.modify_index = action->rewrite.index;
-			attr.modify_actions = action->rewrite.num_of_actions;
+
+			attr.modify_index = action->rewrite.param.index;
+			attr.modify_actions = action->rewrite.param.num_of_actions;
 			if (action->rewrite.single_action_opt)
-				attr.single_modify_action = action->rewrite.data;
+				attr.single_modify_action = action->rewrite.param.data;
 			else
-				attr.modify_index = action->rewrite.index;
+				attr.modify_index = action->rewrite.param.index;
 			break;
 		case DR_ACTION_TYP_L2_TO_TNL_L2:
 		case DR_ACTION_TYP_L2_TO_TNL_L3:
@@ -1393,28 +1394,28 @@ dr_action_create_reformat_action(struct mlx5dv_dr_domain *dmn,
 						      data, data_sz,
 						      hw_actions,
 						      ACTION_CACHE_LINE_SIZE,
-						      &action->rewrite.num_of_actions);
+						      &action->rewrite.param.num_of_actions);
 		if (ret) {
 			dr_dbg(dmn, "Failed creating decap l3 action list\n");
 			return ret;
 		}
 
-		action->rewrite.chunk = dr_icm_alloc_chunk(dmn->action_icm_pool,
-							   DR_CHUNK_SIZE_8);
-		if (!action->rewrite.chunk) {
+		action->rewrite.param.chunk = dr_icm_alloc_chunk(dmn->action_icm_pool,
+								 DR_CHUNK_SIZE_8);
+		if (!action->rewrite.param.chunk) {
 			dr_dbg(dmn, "Failed allocating modify header chunk\n");
 			return errno;
 		}
 
-		action->rewrite.data = (void *)hw_actions;
-		action->rewrite.index = (action->rewrite.chunk->icm_addr -
-					 dmn->info.caps.hdr_modify_icm_addr) /
-					 ACTION_CACHE_LINE_SIZE;
+		action->rewrite.param.data = (void *)hw_actions;
+		action->rewrite.param.index = (action->rewrite.param.chunk->icm_addr -
+					       dmn->info.caps.hdr_modify_icm_addr) /
+					       ACTION_CACHE_LINE_SIZE;
 
 		ret = dr_send_postsend_action(dmn, action);
 		if (ret) {
 			dr_dbg(dmn, "Writing decap l3 actions to ICM failed\n");
-			dr_icm_free_chunk(action->rewrite.chunk);
+			dr_icm_free_chunk(action->rewrite.param.chunk);
 			return ret;
 		}
 		return 0;
@@ -1976,8 +1977,8 @@ static int dr_action_create_modify_action(struct mlx5dv_dr_domain *dmn,
 	if (ret)
 		goto free_hw_actions;
 
-	action->rewrite.data = (uint8_t *)hw_actions;
-	action->rewrite.num_of_actions = num_hw_actions;
+	action->rewrite.param.data = (uint8_t *)hw_actions;
+	action->rewrite.param.num_of_actions = num_hw_actions;
 
 	if (num_hw_actions == 1 &&
 	    (dmn->ste_ctx->actions_caps &
@@ -1997,11 +1998,12 @@ static int dr_action_create_modify_action(struct mlx5dv_dr_domain *dmn,
 	if (!chunk)
 		goto free_hw_actions;
 
-	action->rewrite.chunk = chunk;
-
-	action->rewrite.index = (chunk->icm_addr -
-				 dmn->info.caps.hdr_modify_icm_addr) /
-				 ACTION_CACHE_LINE_SIZE;
+	action->rewrite.param.chunk = chunk;
+	action->rewrite.param.data = (uint8_t *)hw_actions;
+	action->rewrite.param.num_of_actions = num_hw_actions;
+	action->rewrite.param.index = (chunk->icm_addr -
+				       dmn->info.caps.hdr_modify_icm_addr) /
+				       ACTION_CACHE_LINE_SIZE;
 
 	ret = dr_send_postsend_action(dmn, action);
 	if (ret)
@@ -2825,7 +2827,7 @@ int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action)
 		if (action->reformat.is_root_level)
 			mlx5_destroy_flow_action(action->reformat.flow_action);
 		else
-			dr_icm_free_chunk(action->rewrite.chunk);
+			dr_icm_free_chunk(action->rewrite.param.chunk);
 		atomic_fetch_sub(&action->reformat.dmn->refcount, 1);
 		break;
 	case DR_ACTION_TYP_L2_TO_TNL_L2:
@@ -2841,9 +2843,9 @@ int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action)
 			mlx5_destroy_flow_action(action->rewrite.flow_action);
 		} else {
 			if (!action->rewrite.single_action_opt)
-				dr_icm_free_chunk(action->rewrite.chunk);
+				dr_icm_free_chunk(action->rewrite.param.chunk);
 
-			free(action->rewrite.data);
+			free(action->rewrite.param.data);
 		}
 		atomic_fetch_sub(&action->rewrite.dmn->refcount, 1);
 		break;

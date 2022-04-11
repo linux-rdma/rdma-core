@@ -1174,6 +1174,14 @@ struct dr_flow_sampler_restore_tbl {
 	uint16_t			num_of_actions;
 };
 
+struct dr_rewrite_param {
+	struct dr_icm_chunk *chunk;
+	uint8_t *data;
+	uint32_t data_size;
+	uint16_t num_of_actions;
+	uint32_t index;
+};
+
 struct mlx5dv_dr_action {
 	enum dr_action_type		action_type;
 	atomic_int			refcount;
@@ -1184,11 +1192,7 @@ struct mlx5dv_dr_action {
 			union {
 				struct ibv_flow_action	*flow_action; /* root*/
 				struct {
-					struct dr_icm_chunk	*chunk;
-					uint8_t			*data;
-					uint32_t		data_size;
-					uint32_t		index;
-					uint16_t                num_of_actions;
+					struct dr_rewrite_param	param;
 					uint8_t			single_action_opt:1;
 					uint8_t			allow_rx:1;
 					uint8_t			allow_tx:1;
