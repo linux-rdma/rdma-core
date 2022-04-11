@@ -207,6 +207,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         for _ in range(iters):
             u.send(self.server, c_send_wr, e.IBV_WR_SEND)
             u.poll_cq_ex(self.server.cq)
+            u.poll_cq_ex(self.server.cq)
             u.post_recv(self.server, s_recv_wr, qp_idx=0)
             msg_received = self.server.mr.read(self.server.msg_size, 0)
             u.validate_raw(msg_received, msg, [])
