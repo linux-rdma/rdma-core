@@ -47,7 +47,6 @@
 #include <linux/if_ether.h>
 #include "hns_roce_u_abi.h"
 
-#define HNS_ROCE_HW_VER1		('h' << 24 | 'i' << 16 | '0' << 8 | '6')
 #define HNS_ROCE_HW_VER2		0x100
 #define HNS_ROCE_HW_VER3		0x130
 
@@ -59,9 +58,7 @@
 
 #define HNS_ROCE_MAX_RC_INL_INN_SZ	32
 #define HNS_ROCE_MAX_UD_INL_INN_SZ	8
-#define HNS_ROCE_MAX_CQ_NUM		0x10000
 #define HNS_ROCE_MIN_CQE_NUM		0x40
-#define HNS_ROCE_V1_MIN_WQE_NUM		0x20
 #define HNS_ROCE_V2_MIN_WQE_NUM		0x40
 #define HNS_ROCE_MIN_SRQ_WQE_NUM	1
 
@@ -74,9 +71,6 @@
 #define HNS_ROCE_SGE_SHIFT		4
 
 #define HNS_ROCE_GID_SIZE		16
-
-#define HNS_ROCE_CQ_DB_BUF_SIZE		((HNS_ROCE_MAX_CQ_NUM >> 11) << 12)
-#define HNS_ROCE_STATIC_RATE		3 /* Gbps */
 
 #define INVALID_SGE_LENGTH 0x80000000
 
@@ -159,13 +153,6 @@
 #define HNS_ROCE_SRQ_TABLE_BITS 8
 #define HNS_ROCE_SRQ_TABLE_SIZE BIT(HNS_ROCE_SRQ_TABLE_BITS)
 
-/* operation type list */
-enum {
-	/* rq&srq operation */
-	HNS_ROCE_OPCODE_SEND_DATA_RECEIVE         = 0x06,
-	HNS_ROCE_OPCODE_RDMA_WITH_IMM_RECEIVE     = 0x07,
-};
-
 struct hns_roce_device {
 	struct verbs_device		ibv_dev;
 	int				page_size;
@@ -200,8 +187,6 @@ struct hns_roce_context {
 	struct verbs_context		ibv_ctx;
 	void				*uar;
 	pthread_spinlock_t		uar_lock;
-
-	void				*cq_tptr_base;
 
 	struct {
 		struct hns_roce_qp	**table;
@@ -502,7 +487,6 @@ void hns_roce_free_qp_buf(struct hns_roce_qp *qp, struct hns_roce_context *ctx);
 
 void hns_roce_init_qp_indices(struct hns_roce_qp *qp);
 
-extern const struct hns_roce_u_hw hns_roce_u_hw_v1;
 extern const struct hns_roce_u_hw hns_roce_u_hw_v2;
 
 #endif /* _HNS_ROCE_U_H */
