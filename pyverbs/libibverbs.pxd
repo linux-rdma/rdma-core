@@ -748,6 +748,9 @@ cdef extern from 'infiniband/verbs.h':
     void ibv_wr_bind_mw(ibv_qp_ex *qp, ibv_mw *mw, uint32_t rkey,
                         ibv_mw_bind_info *bind_info)
     void ibv_wr_local_inv(ibv_qp_ex *qp, uint32_t invalidate_rkey)
+    void ibv_wr_flush(ibv_qp_ex *qp, uint32_t rkey,
+                      uint64_t remote_addr, size_t length,
+                      uint8_t ptype, uint8_t level)
     void ibv_wr_atomic_write(ibv_qp_ex *qp, uint32_t rkey,
                              uint64_t remote_addr, const void *atomic_wr)
     void ibv_wr_rdma_read(ibv_qp_ex *qp, uint32_t rkey, uint64_t remote_addr)

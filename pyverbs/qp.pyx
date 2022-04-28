@@ -1348,6 +1348,9 @@ cdef class QPEx(QP):
         cdef unsigned int imm_data = htobe32(data)
         v.ibv_wr_rdma_write_imm(self.qp_ex, rkey, remote_addr, imm_data)
 
+    def wr_flush(self, rkey, remote_addr, length, ptype, level):
+        v.ibv_wr_flush(self.qp_ex, rkey, remote_addr, length, ptype, level)
+
     def wr_send(self):
         v.ibv_wr_send(self.qp_ex)
 
