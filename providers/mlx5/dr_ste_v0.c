@@ -156,6 +156,9 @@ static const struct dr_ste_action_modify_field dr_ste_v0_action_modify_field_arr
 	[MLX5_ACTION_IN_FIELD_OUT_IP_DSCP] = {
 		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L3_1, .start = 0, .end = 5,
 	},
+	[MLX5_ACTION_IN_FIELD_OUT_IP_ECN] = {
+		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L3_1, .start = 6, .end = 7,
+	},
 	[MLX5_ACTION_IN_FIELD_OUT_TCP_FLAGS] = {
 		.hw_field = DR_STE_V0_ACTION_MDFY_FLD_L4_0, .start = 48, .end = 56,
 		.l4_type = DR_STE_ACTION_MDFY_TYPE_L4_TCP,
