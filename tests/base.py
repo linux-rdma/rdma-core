@@ -9,6 +9,7 @@ import random
 import errno
 import stat
 import json
+import sys
 import os
 
 from pyverbs.qp import QPCap, QPInitAttrEx, QPInitAttr, QPAttr, QP
@@ -328,8 +329,10 @@ class RDMACMBaseTest(RDMATestCase):
     def two_nodes_rdmacm_traffic(self, connection_resources, test_flow, bad_flow=False,
                                  **resource_kwargs):
         """
-        Init and manage the rdmacm test processes. If needed, terminate those
-        processes and raise an exception.
+        Init and manage the rdmacm test processes. The exit code of the
+        test processes indicates if exception was thrown.
+        {0: pass, 2: exception was thrown, 5: skip test}
+        If needed, terminate those processes and raise an exception.
         :param connection_resources: The CMConnection resources to use.
         :param test_flow: The target RDMACM flow method to run.
         :param bad_flow: If true, traffic is expected to fail.
@@ -354,39 +357,33 @@ class RDMACMBaseTest(RDMATestCase):
                                       'passive':False, **resource_kwargs})
         passive.start()
         active.start()
-        proc_raised_ex = False
         repeat_times=150 if not bad_flow else 3
+        proc_res = {}
         for _ in range(repeat_times):
-            if proc_raised_ex:
-                break
             for proc in [passive, active]:
                 proc.join(0.1)
-                if not proc.is_alive() and not self.notifier.empty():
-                    proc_raised_ex = True
-                    break
-
+                # Write the exit code of the proc.
+                if not proc.is_alive():
+                    side = 'passive' if proc == passive else 'active'
+                    if side not in proc_res.keys():
+                        proc_res[side] = proc.exitcode
         # If the processes is still alive kill them and fail the test.
         proc_killed = False
         for proc in [passive, active]:
             if proc.is_alive():
                 proc.terminate()
                 proc_killed = True
+        # Check if need to skip this test
+        for side in proc_res.keys():
+            if proc_res[side] == 5:
+                raise unittest.SkipTest(f'SkipTest occurred on {side} side')
         # Check if the test processes raise exceptions.
-        proc_res = {}
-        while not self.notifier.empty():
-            res, side = self.notifier.get()
-            proc_res[side] = res
-        for ex in proc_res.values():
-            if isinstance(ex, PyverbsRDMAError) and \
-                    ex.error_code == errno.EOPNOTSUPP:
-                        raise unittest.SkipTest(ex)
-            if isinstance(ex, unittest.case.SkipTest):
-                raise(ex)
-        if proc_res:
-            print(f'Received the following exceptions: {proc_res}')
-            if isinstance(res, Exception):
-                raise(res)
-            raise PyverbsError(res)
+        res_exception = False
+        for side in proc_res:
+            if 0 < proc_res[side] < 5:
+                res_exception = True
+        if res_exception:
+            raise Exception('Exception in active/passive side occurred')
         # Raise exeption if the test proceses was terminate.
         if bad_flow and not proc_killed:
             raise Exception('Bad flow: traffic passed which is not expected')
@@ -412,8 +409,7 @@ class RDMACMBaseTest(RDMATestCase):
             player.rdmacm_traffic()
             player.disconnect()
         except Exception as ex:
-            side = 'passive' if passive else 'active'
-            self.notifier.put((ex, side))
+            self._rdmacm_exception_handler(passive, ex)
 
     def rdmacm_multicast_traffic(self, connection_resources=None, passive=None,
                                  extended=False, leave_test=False, **kwargs):
@@ -440,8 +436,7 @@ class RDMACMBaseTest(RDMATestCase):
             if leave_test:
                 player.rdmacm_traffic(server=passive, multicast=True)
         except Exception as ex:
-            side = 'passive' if passive else 'active'
-            self.notifier.put((ex, side))
+            self._rdmacm_exception_handler(passive, ex)
 
     def rdmacm_remote_traffic(self, connection_resources=None, passive=None,
                               remote_op='write', **kwargs):
@@ -463,10 +458,15 @@ class RDMACMBaseTest(RDMATestCase):
             player.remote_traffic(passive=passive, remote_op=remote_op)
             player.disconnect()
         except Exception as ex:
-            while not self.notifier.empty():
-                self.notifier.get()
-            side = 'passive' if passive else 'active'
-            self.notifier.put((ex, side))
+            self._rdmacm_exception_handler(passive, ex)
+
+    @staticmethod
+    def _rdmacm_exception_handler(passive, exception):
+        if isinstance(exception, unittest.case.SkipTest):
+            sys.exit(5)
+        side = 'passive' if passive else 'active'
+        print(f'Player {side} got: {exception}')
+        sys.exit(2)
 
 
 class BaseResources(object):
