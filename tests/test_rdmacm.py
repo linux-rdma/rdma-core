@@ -16,13 +16,10 @@ class CMTestCase(RDMACMBaseTest):
     """
     RDMACM Test class. Include all the native RDMACM functionalities.
     """
-    def get_port_space(self):
-        ctx = d.Context(name=self.dev_name)
-        dev_attrs = ctx.query_port(self.ib_port)
-        port_space = ce.RDMA_PS_IPOIB \
-            if dev_attrs.link_layer == e.IBV_LINK_LAYER_INFINIBAND \
-                else ce.RDMA_PS_UDP
-        return port_space
+    @staticmethod
+    def get_port_space():
+        # IPoIB currently is not supported
+        return ce.RDMA_PS_UDP
 
 
     def test_rdmacm_sync_traffic(self):

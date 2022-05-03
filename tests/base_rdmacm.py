@@ -12,7 +12,8 @@ from pyverbs.cq import CQ
 
 
 GRH_SIZE = 40
-qp_type_per_ps = {ce.RDMA_PS_TCP: e.IBV_QPT_RC, ce.RDMA_PS_UDP: e.IBV_QPT_UD}
+qp_type_per_ps = {ce.RDMA_PS_TCP: e.IBV_QPT_RC, ce.RDMA_PS_UDP: e.IBV_QPT_UD,
+                  ce.RDMA_PS_IPOIB : e.IBV_QPT_UD}
 
 
 class CMResources(abc.ABC):
@@ -95,7 +96,7 @@ class CMResources(abc.ABC):
         return ConnParam(qp_num=qp_num)
 
     def set_ud_params(self, cm_event):
-        if self.port_space == ce.RDMA_PS_UDP:
+        if self.port_space in [ce.RDMA_PS_UDP, ce.RDMA_PS_IPOIB]:
             self.ud_params = UDParam(cm_event)
 
     def my_qp_number(self):
