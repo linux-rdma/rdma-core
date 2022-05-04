@@ -84,8 +84,12 @@ static int test(void)
 	}
 
 	memset(&attr, 0, sizeof attr);
-	attr.cap.max_send_wr = attr.cap.max_recv_wr = 1;
-	attr.cap.max_send_sge = attr.cap.max_recv_sge = 1;
+	attr.cap.max_recv_wr = 1;
+	attr.cap.max_recv_sge = 1;
+	if (hints.ai_qp_type != IBV_QPT_XRC_RECV) {
+		attr.cap.max_send_wr = 1;
+		attr.cap.max_send_sge = 1;
+	}
 	ret = rdma_create_ep(&listen_id, res, NULL, &attr);
 	rdma_freeaddrinfo(res);
 	if (ret) {
