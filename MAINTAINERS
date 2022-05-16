@@ -29,9 +29,9 @@ Descriptions of section entries:
                 -----------------------------------
 
 * OVERALL PACKAGE
-M:	Doug Ledford <dledford@redhat.com>
 M:	Leon Romanovsky <leon@kernel.org>
 M:	Jason Gunthorpe <jgg@mellanox.com>
+H:	Doug Ledford <dledford@redhat.com>
 S:	Supported
 
 BUILD SYSTEM
@@ -62,10 +62,8 @@ S:	Supported
 F:	providers/efa/
 
 HF1 USERSPACE PROVIDER (for hf1.ko)
-M:	Mike Marciniszyn <mike.marciniszyn@intel.com>
-M:	Dennis Dalessandro <dennis.dalessandro@intel.com>
+M:	Dennis Dalessandro <dennis.dalessandro@cornelisnetworks.com>
 S:	Supported
-L:	intel-opa@lists.01.org (moderated for non-subscribers)
 F:	providers/hfi1verbs/
 
 HNS USERSPACE PROVIDER (for hns-roce.ko)
@@ -87,9 +85,7 @@ S:	Supported
 F:	ibacm/*
 
 IPATH/QIB USERSPACE PROVIDER (for ib_qib.ko)
-M:	Mike Marciniszyn <mike.marciniszyn@intel.com>
-M:	Dennis Dalessandro <dennis.dalessandro@intel.com>
-L:	infinipath@intel.com
+M:	Dennis Dalessandro <dennis.dalessandro@cornelisnetworks.com>
 S:	Supported
 F:	providers/ipathverbs/
 
@@ -109,9 +105,9 @@ S:	Supported
 F:	libibumad/
 
 LIBIBVERBS USERSPACE LIBRARY FOR RDMA VERBS (/dev/infiniband/uverbsX)
-M:	Doug Ledford <dledford@redhat.com>
 M:	Yishai Hadas <yishaih@dev.mellanox.co.il>
 H:	Michael S. Tsirkin <mst@mellanox.co.il>
+H:	Doug Ledford <dledford@redhat.com>
 H:	Sean Hefty <sean.hefty@intel.com>
 H:	Dotan Barak <dotanba@gmail.com>
 H:	Roland Dreier <roland@topspin.com>

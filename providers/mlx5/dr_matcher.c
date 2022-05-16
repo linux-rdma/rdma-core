@@ -155,7 +155,7 @@ dr_mask_is_vxlan_gpe_set(struct dr_match_misc3 *misc3)
 static bool
 dr_matcher_supp_vxlan_gpe(struct dr_devx_caps *caps)
 {
-	return (caps->sw_format_ver == MLX5_HW_CONNECTX_6DX) ||
+	return (caps->sw_format_ver >= MLX5_HW_CONNECTX_6DX) ||
 	       (caps->flex_protocols & MLX5_FLEX_PARSER_VXLAN_GPE_ENABLED);
 }
 
@@ -190,7 +190,7 @@ static bool dr_mask_is_tnl_geneve_tlv_opt(struct dr_match_param *mask,
 static bool
 dr_matcher_supp_tnl_geneve(struct dr_devx_caps *caps)
 {
-	return (caps->sw_format_ver == MLX5_HW_CONNECTX_6DX) ||
+	return (caps->sw_format_ver >= MLX5_HW_CONNECTX_6DX) ||
 	       (caps->flex_protocols & MLX5_FLEX_PARSER_GENEVE_ENABLED);
 }
 
@@ -307,13 +307,13 @@ static bool dr_mask_is_tnl_gtpu_any(struct dr_match_param *mask,
 
 static inline int dr_matcher_supp_icmp_v4(struct dr_devx_caps *caps)
 {
-	return (caps->sw_format_ver == MLX5_HW_CONNECTX_6DX) ||
+	return (caps->sw_format_ver >= MLX5_HW_CONNECTX_6DX) ||
 	       (caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V4_ENABLED);
 }
 
 static inline int dr_matcher_supp_icmp_v6(struct dr_devx_caps *caps)
 {
-	return (caps->sw_format_ver == MLX5_HW_CONNECTX_6DX) ||
+	return (caps->sw_format_ver >= MLX5_HW_CONNECTX_6DX) ||
 	       (caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V6_ENABLED);
 }
 
@@ -404,9 +404,22 @@ static bool dr_mask_is_flex_parser_4_7_set(struct dr_match_misc4 *misc4)
 		dr_mask_is_flex_parser_id_4_7_set(misc4->prog_sample_field_id_7));
 }
 
-static bool dr_mask_is_tunnel_header_0_1_set(struct dr_match_misc5 *misc5)
+static bool dr_matcher_supp_flex_parser_ok(struct dr_devx_caps *caps)
 {
-	return misc5->tunnel_header_0 || misc5->tunnel_header_1;
+	return caps->flex_parser_ok_bits_supp;
+}
+
+static bool dr_mask_is_tnl_geneve_tlv_opt_exist_set(struct dr_match_misc *misc,
+						    struct mlx5dv_dr_domain *dmn)
+{
+	return dr_matcher_supp_flex_parser_ok(&dmn->info.caps) &&
+	       misc->geneve_tlv_option_0_exist;
+}
+
+static bool dr_mask_is_tunnel_header_set(struct dr_match_misc5 *misc5)
+{
+	return misc5->tunnel_header_0 || misc5->tunnel_header_1 ||
+	       misc5->tunnel_header_2 || misc5->tunnel_header_3;
 }
 
 static int dr_matcher_supp_tnl_mpls_over_gre(struct dr_devx_caps *caps)
@@ -433,20 +446,55 @@ static bool dr_mask_is_tnl_mpls_over_udp(struct dr_match_param *mask,
 	       dr_matcher_supp_tnl_mpls_over_udp(&dmn->info.caps);
 }
 
-static bool dr_matcher_is_mask_consumed(struct dr_match_param *mask)
+static bool dr_matcher_mask_is_all_zero(uint8_t *mask, uint32_t size)
 {
-	int i;
+	return (*mask == 0) && memcmp(mask, mask + 1, size - 1) == 0;
+}
 
-	for (i = 0; i < sizeof(struct dr_match_param); i++)
-		if (((uint8_t *)mask)[i] != 0)
-			return false;
+static bool dr_matcher_is_mask_consumed(uint8_t *mask, uint8_t match_criteria)
+{
+	/* Check that all mask data was consumed */
+	if (match_criteria & DR_MATCHER_CRITERIA_OUTER &&
+	    !dr_matcher_mask_is_all_zero(mask, DEVX_ST_SZ_BYTES(dr_match_spec)))
+		return false;
+	mask += DEVX_ST_SZ_BYTES(dr_match_spec);
+
+	if (match_criteria & DR_MATCHER_CRITERIA_MISC &&
+	    !dr_matcher_mask_is_all_zero(mask, DEVX_ST_SZ_BYTES(dr_match_set_misc)))
+		return false;
+	mask += DEVX_ST_SZ_BYTES(dr_match_set_misc);
+
+	if (match_criteria & DR_MATCHER_CRITERIA_INNER &&
+	    !dr_matcher_mask_is_all_zero(mask, DEVX_ST_SZ_BYTES(dr_match_spec)))
+		return false;
+	mask += DEVX_ST_SZ_BYTES(dr_match_spec);
+
+	if (match_criteria & DR_MATCHER_CRITERIA_MISC2 &&
+	    !dr_matcher_mask_is_all_zero(mask, DEVX_ST_SZ_BYTES(dr_match_set_misc2)))
+		return false;
+	mask += DEVX_ST_SZ_BYTES(dr_match_set_misc2);
+
+	if (match_criteria & DR_MATCHER_CRITERIA_MISC3 &&
+	    !dr_matcher_mask_is_all_zero(mask, DEVX_ST_SZ_BYTES(dr_match_set_misc3)))
+		return false;
+	mask += DEVX_ST_SZ_BYTES(dr_match_set_misc3);
+
+	if (match_criteria & DR_MATCHER_CRITERIA_MISC4 &&
+	    !dr_matcher_mask_is_all_zero(mask, DEVX_ST_SZ_BYTES(dr_match_set_misc4)))
+		return false;
+	mask += DEVX_ST_SZ_BYTES(dr_match_set_misc4);
+
+	if (match_criteria & DR_MATCHER_CRITERIA_MISC5 &&
+	    !dr_matcher_mask_is_all_zero(mask, DEVX_ST_SZ_BYTES(dr_match_set_misc5)))
+		return false;
 
 	return true;
 }
 
 static void dr_matcher_copy_mask(struct dr_match_param *dst_mask,
 				 struct dr_match_param *src_mask,
-				 uint8_t match_criteria)
+				 uint8_t match_criteria,
+				 bool optimize_rx)
 {
 	if (match_criteria & DR_MATCHER_CRITERIA_OUTER)
 		dst_mask->outer = src_mask->outer;
@@ -468,6 +516,10 @@ static void dr_matcher_copy_mask(struct dr_match_param *dst_mask,
 
 	if (match_criteria & DR_MATCHER_CRITERIA_MISC5)
 		dst_mask->misc5 = src_mask->misc5;
+
+	/* Optimize RX pipe by reducing source port matching */
+	if (optimize_rx && dst_mask->misc.source_port)
+		dst_mask->misc.source_port = 0;
 }
 
 static void dr_matcher_destroy_definer_objs(struct dr_ste_build *sb,
@@ -530,6 +582,7 @@ static int dr_matcher_set_definer_builders(struct mlx5dv_dr_matcher *matcher,
 	struct dr_ste_ctx *ste_ctx = dmn->ste_ctx;
 	struct dr_match_param mask = {};
 	bool src_ipv6, dst_ipv6;
+	bool optimize_rx;
 	uint8_t idx = 0;
 	uint8_t ipv;
 	int ret;
@@ -538,11 +591,14 @@ static int dr_matcher_set_definer_builders(struct mlx5dv_dr_matcher *matcher,
 	src_ipv6 = dr_mask_is_src_addr_set(&matcher->mask.outer);
 	dst_ipv6 = dr_mask_is_dst_addr_set(&matcher->mask.outer);
 
+	optimize_rx = (dmn->type == MLX5DV_DR_DOMAIN_TYPE_FDB &&
+		       nic_dmn->type == DR_DOMAIN_NIC_TYPE_RX);
 
 	if (caps->definer_format_sup & (1 << DR_MATCHER_DEFINER_0)) {
-		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
+		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria,
+				     optimize_rx);
 		ret = dr_ste_build_def0(ste_ctx, &sb[idx++], &mask, caps, false, rx);
-		if (!ret && dr_matcher_is_mask_consumed(&mask))
+		if (!ret && dr_matcher_is_mask_consumed((uint8_t *)&mask, matcher->match_criteria))
 			goto done;
 
 		memset(sb, 0, sizeof(*sb));
@@ -550,9 +606,10 @@ static int dr_matcher_set_definer_builders(struct mlx5dv_dr_matcher *matcher,
 	}
 
 	if (dmn->info.caps.definer_format_sup & (1 << DR_MATCHER_DEFINER_2)) {
-		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
+		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria,
+				     optimize_rx);
 		ret = dr_ste_build_def2(ste_ctx, &sb[idx++], &mask, caps, false, rx);
-		if (!ret && dr_matcher_is_mask_consumed(&mask))
+		if (!ret && dr_matcher_is_mask_consumed((uint8_t *)&mask, matcher->match_criteria))
 			goto done;
 
 		memset(sb, 0, sizeof(*sb));
@@ -560,9 +617,10 @@ static int dr_matcher_set_definer_builders(struct mlx5dv_dr_matcher *matcher,
 	}
 
 	if (caps->definer_format_sup & (1 << DR_MATCHER_DEFINER_16)) {
-		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
+		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria,
+				     optimize_rx);
 		ret = dr_ste_build_def16(ste_ctx, &sb[idx++], &mask, caps, false, rx);
-		if (!ret && dr_matcher_is_mask_consumed(&mask))
+		if (!ret && dr_matcher_is_mask_consumed((uint8_t *)&mask, matcher->match_criteria))
 			goto done;
 
 		memset(sb, 0, sizeof(*sb));
@@ -570,9 +628,10 @@ static int dr_matcher_set_definer_builders(struct mlx5dv_dr_matcher *matcher,
 	}
 
 	if (caps->definer_format_sup & (1 << DR_MATCHER_DEFINER_22)) {
-		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
+		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria,
+				     optimize_rx);
 		ret = dr_ste_build_def22(ste_ctx, &sb[idx++], &mask, false, rx);
-		if (!ret && dr_matcher_is_mask_consumed(&mask))
+		if (!ret && dr_matcher_is_mask_consumed((uint8_t *)&mask, matcher->match_criteria))
 			goto done;
 
 		memset(sb, 0, sizeof(*sb));
@@ -580,9 +639,10 @@ static int dr_matcher_set_definer_builders(struct mlx5dv_dr_matcher *matcher,
 	}
 
 	if (caps->definer_format_sup & (1 << DR_MATCHER_DEFINER_24)) {
-		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
+		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria,
+				     optimize_rx);
 		ret = dr_ste_build_def24(ste_ctx, &sb[idx++], &mask, false, rx);
-		if (!ret && dr_matcher_is_mask_consumed(&mask))
+		if (!ret && dr_matcher_is_mask_consumed((uint8_t *)&mask, matcher->match_criteria))
 			goto done;
 
 		memset(sb, 0, sizeof(*sb));
@@ -590,9 +650,10 @@ static int dr_matcher_set_definer_builders(struct mlx5dv_dr_matcher *matcher,
 	}
 
 	if (caps->definer_format_sup & (1 << DR_MATCHER_DEFINER_25)) {
-		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
+		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria,
+				     optimize_rx);
 		ret = dr_ste_build_def25(ste_ctx, &sb[idx++], &mask, false, rx);
-		if (!ret && dr_matcher_is_mask_consumed(&mask))
+		if (!ret && dr_matcher_is_mask_consumed((uint8_t *)&mask, matcher->match_criteria))
 			goto done;
 
 		memset(sb, 0, sizeof(*sb));
@@ -602,12 +663,13 @@ static int dr_matcher_set_definer_builders(struct mlx5dv_dr_matcher *matcher,
 	if ((ipv == DR_MASK_IP_VERSION_IPV6 && src_ipv6) &&
 	    (caps->definer_format_sup & (1 << DR_MATCHER_DEFINER_6)) &&
 	    (caps->definer_format_sup & (1 << DR_MATCHER_DEFINER_26))) {
-		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
+		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria,
+				     optimize_rx);
 		ret = dr_ste_build_def26(ste_ctx, &sb[idx++], &mask, false, rx);
 		if (!ret && dst_ipv6)
 			ret = dr_ste_build_def6(ste_ctx, &sb[idx++], &mask, false, rx);
 
-		if (!ret && dr_matcher_is_mask_consumed(&mask))
+		if (!ret && dr_matcher_is_mask_consumed((uint8_t *)&mask, matcher->match_criteria))
 			goto done;
 
 		memset(&sb[0], 0, sizeof(*sb));
@@ -616,9 +678,10 @@ static int dr_matcher_set_definer_builders(struct mlx5dv_dr_matcher *matcher,
 	}
 
 	if (dmn->info.caps.definer_format_sup & (1 << DR_MATCHER_DEFINER_28)) {
-		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
+		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria,
+				     optimize_rx);
 		ret = dr_ste_build_def28(ste_ctx, &sb[idx++], &mask, false, rx);
-		if (!ret && dr_matcher_is_mask_consumed(&mask))
+		if (!ret && dr_matcher_is_mask_consumed((uint8_t *)&mask, matcher->match_criteria))
 			goto done;
 
 		memset(sb, 0, sizeof(struct dr_ste_build));
@@ -626,9 +689,10 @@ static int dr_matcher_set_definer_builders(struct mlx5dv_dr_matcher *matcher,
 	}
 
 	if (dmn->info.caps.definer_format_sup & (1ULL << DR_MATCHER_DEFINER_33)) {
-		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
+		dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria,
+				     optimize_rx);
 		ret = dr_ste_build_def33(ste_ctx, &sb[idx++], &mask, false, rx);
-		if (!ret && dr_matcher_is_mask_consumed(&mask))
+		if (!ret && dr_matcher_is_mask_consumed((uint8_t *)&mask, matcher->match_criteria))
 			goto done;
 
 		memset(sb, 0, sizeof(*sb));
@@ -658,7 +722,7 @@ static int dr_matcher_set_large_ste_builders(struct mlx5dv_dr_matcher *matcher,
 	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
 	int ret;
 
-	if (dmn->info.caps.sw_format_ver != MLX5_HW_CONNECTX_6DX ||
+	if (dmn->info.caps.sw_format_ver == MLX5_HW_CONNECTX_5 ||
 	    !dmn->info.caps.definer_format_sup)
 		return ENOTSUP;
 
@@ -695,6 +759,7 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 	struct dr_ste_ctx *ste_ctx = dmn->ste_ctx;
 	struct dr_match_param mask = {};
 	bool allow_empty_match = false;
+	bool optimize_rx;
 	bool inner, rx;
 	uint8_t ipv;
 	int idx = 0;
@@ -710,18 +775,19 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 	if (!ret)
 		return 0;
 
-	/* Create a temporary mask to track and clear used mask fields */
-	dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria);
-
-	/* Optimize RX pipe by reducing source port match, since
-	 * the FDB RX part is connected only to the wire.
-	 */
 	rx = nic_dmn->type == DR_DOMAIN_NIC_TYPE_RX;
-	if (dmn->type == MLX5DV_DR_DOMAIN_TYPE_FDB &&
-	    rx && mask.misc.source_port) {
-		mask.misc.source_port = 0;
+	optimize_rx = (dmn->type == MLX5DV_DR_DOMAIN_TYPE_FDB && rx);
+
+	/* Create a temporary mask to track and clear used mask fields */
+	dr_matcher_copy_mask(&mask, &matcher->mask, matcher->match_criteria,
+			     optimize_rx);
+
+	/* Allow empty match if source port was set in matcher->mask,
+	 * and now is cleared in mask, because it was optimized.
+	 */
+	if (optimize_rx && (matcher->match_criteria & DR_MATCHER_CRITERIA_MISC) &&
+	    matcher->mask.misc.source_port)
 		allow_empty_match = true;
-	}
 
 	/* Outer */
 	if (matcher->match_criteria & (DR_MATCHER_CRITERIA_OUTER |
@@ -800,6 +866,11 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 				dr_ste_build_tnl_geneve_tlv_opt(ste_ctx, &sb[idx++],
 								&mask, &dmn->info.caps,
 								inner, rx);
+
+			if (dr_mask_is_tnl_geneve_tlv_opt_exist_set(&mask.misc, dmn))
+				dr_ste_build_tnl_geneve_tlv_opt_exist(ste_ctx, &sb[idx++],
+								      &mask, &dmn->info.caps,
+								      inner, rx);
 		} else if (dr_mask_is_tnl_gtpu_any(&mask, dmn)) {
 			if (dr_mask_is_tnl_gtpu_flex_parser_0(&mask, dmn))
 				dr_ste_build_tnl_gtpu_flex_parser_0(ste_ctx, &sb[idx++],
@@ -814,9 +885,10 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 			if (dr_mask_is_tnl_gtpu(&mask, dmn))
 				dr_ste_build_tnl_gtpu(ste_ctx, &sb[idx++],
 						      &mask, inner, rx);
-		} else if (dr_mask_is_tunnel_header_0_1_set(&mask.misc5)) {
-			dr_ste_build_tunnel_header_0_1(ste_ctx, &sb[idx++],
-						       &mask, false, rx);
+		} else if (dr_mask_is_tunnel_header_set(&mask.misc5)) {
+			dr_ste_build_tunnel_header(ste_ctx, &sb[idx++],
+						   &mask, &dmn->info.caps,
+						   false, rx);
 		}
 
 		if (DR_MASK_IS_ETH_L4_MISC_SET(mask.misc3, outer))
@@ -933,7 +1005,7 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 	}
 
 	/* Check that all mask fields were consumed */
-	if (!dr_matcher_is_mask_consumed(&mask)) {
+	if (!dr_matcher_is_mask_consumed((uint8_t *)&mask, matcher->match_criteria)) {
 		dr_dbg(dmn, "Mask contains unsupported parameters\n");
 		errno = EOPNOTSUPP;
 		return errno;
@@ -1196,6 +1268,54 @@ static bool dr_matcher_is_fixed_size(struct mlx5dv_dr_matcher *matcher)
 	return (matcher->rx.fixed_size || matcher->tx.fixed_size);
 }
 
+static int dr_matcher_copy_param(struct mlx5dv_dr_matcher *matcher,
+				 struct mlx5dv_flow_match_parameters *mask)
+{
+	struct mlx5dv_dr_domain *dmn = matcher->tbl->dmn;
+	uint8_t match_criteria = matcher->match_criteria;
+	uint64_t *consumed_mask_buf;
+	uint32_t max_mask_sz;
+	int ret = 0;
+
+	if (match_criteria >= DR_MATCHER_CRITERIA_MAX) {
+		dr_dbg(dmn, "Invalid match criteria attribute\n");
+		errno = EINVAL;
+		return errno;
+	}
+
+	if (mask) {
+		max_mask_sz = DEVX_ST_SZ_BYTES(dr_match_param);
+		if (mask->match_sz > max_mask_sz) {
+			dr_dbg(dmn, "Invalid match size attribute\n");
+			errno = EINVAL;
+			return errno;
+		}
+
+		consumed_mask_buf = calloc(1, max_mask_sz);
+		if (!consumed_mask_buf) {
+			errno = ENOMEM;
+			return errno;
+		}
+
+		memcpy(consumed_mask_buf, mask->match_buf, mask->match_sz);
+		dr_ste_copy_param(match_criteria, &matcher->mask,
+				  consumed_mask_buf, max_mask_sz, true);
+
+
+		ret = dr_matcher_is_mask_consumed((uint8_t *)consumed_mask_buf,
+						  match_criteria);
+		if (!ret) {
+			dr_dbg(dmn, "Match param mask contains unsupported parameters\n");
+			errno = EOPNOTSUPP;
+			ret = errno;
+		}
+
+		free(consumed_mask_buf);
+	}
+
+	return 0;
+}
+
 static int dr_matcher_init(struct mlx5dv_dr_matcher *matcher,
 			   struct mlx5dv_flow_match_parameters *mask)
 {
@@ -1206,20 +1326,9 @@ static int dr_matcher_init(struct mlx5dv_dr_matcher *matcher,
 	if (dr_is_root_table(matcher->tbl))
 		return dr_matcher_init_root(matcher, mask);
 
-	if (matcher->match_criteria >= DR_MATCHER_CRITERIA_MAX) {
-		dr_dbg(dmn, "Invalid match criteria attribute\n");
-		errno = EINVAL;
-		return errno;
-	}
-
-	if (mask) {
-		if (mask->match_sz > DEVX_ST_SZ_BYTES(dr_match_param)) {
-			dr_dbg(dmn, "Invalid match size attribute\n");
-			errno = EINVAL;
-			return errno;
-		}
-		dr_ste_copy_param(matcher->match_criteria, &matcher->mask, mask);
-	}
+	ret = dr_matcher_copy_param(matcher, mask);
+	if (ret)
+		return ret;
 
 	switch (dmn->type) {
 	case MLX5DV_DR_DOMAIN_TYPE_NIC_RX:

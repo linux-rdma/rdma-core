@@ -59,3 +59,9 @@ cdef class DrActionVPort(DrAction):
 cdef class DrActionIBPort(DrAction):
     cdef DrDomain domain
     cdef int ib_port
+
+cdef class DrActionDestTir(DrAction):
+    cdef Mlx5DevxObj devx_obj
+
+cdef class DrActionPacketReformat(DrAction):
+    cdef DrDomain domain

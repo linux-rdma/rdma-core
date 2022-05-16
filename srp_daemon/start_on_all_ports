@@ -1,7 +1,0 @@
-#!/bin/bash
-
-for p in /sys/class/infiniband/*/ports/*; do
-    [ -e "$p" ] || continue
-    p=${p#/sys/class/infiniband/}
-    nohup /bin/systemctl start "srp_daemon_port@${p/\/ports\//:}" </dev/null >&/dev/null &
-done

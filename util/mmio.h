@@ -67,58 +67,60 @@
    code is always identical.
 */
 #ifdef __s390x__
-#include <unistd.h>
-#include <sys/syscall.h>
-
-/* s390 requires a privileged instruction to access IO memory, these syscalls
-   perform that instruction using a memory buffer copy semantic.
-*/
-static inline void s390_mmio_write(void *mmio_addr, const void *val,
-				   size_t length)
-{
-	// FIXME: Check for error and call abort?
-	syscall(__NR_s390_pci_mmio_write, mmio_addr, val, length);
-}
-
-static inline void s390_mmio_read(const void *mmio_addr, void *val,
-				  size_t length)
-{
-	// FIXME: Check for error and call abort?
-	syscall(__NR_s390_pci_mmio_read, mmio_addr, val, length);
-}
+#include <util/s390_mmio_insn.h>
 
 #define MAKE_WRITE(_NAME_, _SZ_)                                               \
 	static inline void _NAME_##_be(void *addr, __be##_SZ_ value)           \
 	{                                                                      \
-		s390_mmio_write(addr, &value, sizeof(value));                  \
+		if (s390_is_mio_supported)                                     \
+			s390_pcistgi(addr, value, sizeof(value));              \
+		else                                                           \
+			s390_mmio_write_syscall(addr, &value, sizeof(value));  \
 	}                                                                      \
 	static inline void _NAME_##_le(void *addr, __le##_SZ_ value)           \
 	{                                                                      \
-		s390_mmio_write(addr, &value, sizeof(value));                  \
+		if (s390_is_mio_supported)                                     \
+			s390_pcistgi(addr, value, sizeof(value));              \
+		else                                                           \
+			s390_mmio_write_syscall(addr, &value, sizeof(value));  \
 	}
 #define MAKE_READ(_NAME_, _SZ_)                                                \
 	static inline __be##_SZ_ _NAME_##_be(const void *addr)                 \
 	{                                                                      \
 		__be##_SZ_ res;                                                \
-		s390_mmio_read(addr, &res, sizeof(res));                       \
+		if (s390_is_mio_supported)                                     \
+			res = s390_pcilgi(addr, sizeof(res));                  \
+		else                                                           \
+			s390_mmio_read_syscall(addr, &res, sizeof(res));       \
 		return res;                                                    \
 	}                                                                      \
 	static inline __le##_SZ_ _NAME_##_le(const void *addr)                 \
 	{                                                                      \
 		__le##_SZ_ res;                                                \
-		s390_mmio_read(addr, &res, sizeof(res));                       \
+		if (s390_is_mio_supported)                                     \
+			res = s390_pcilgi(addr, sizeof(res));                  \
+		else                                                           \
+			s390_mmio_read_syscall(addr, &res, sizeof(res));       \
 		return res;                                                    \
 	}
 
 static inline void mmio_write8(void *addr, uint8_t value)
 {
-	s390_mmio_write(addr, &value, sizeof(value));
+	if (s390_is_mio_supported)
+		s390_pcistgi(addr, value, sizeof(value));
+	else
+		s390_mmio_write_syscall(addr, &value, sizeof(value));
 }
 
 static inline uint8_t mmio_read8(const void *addr)
 {
 	uint8_t res;
-	s390_mmio_read(addr, &res, sizeof(res));
+
+	if (s390_is_mio_supported)
+		res = s390_pcilgi(addr, sizeof(res));
+	else
+		s390_mmio_read_syscall(addr, &res, sizeof(res));
+
 	return res;
 }
 
@@ -205,13 +207,7 @@ __le64 mmio_read64_le(const void *addr);
 /* This strictly guarantees the order of TLP generation for the memory copy to
    be in ascending address order.
 */
-#ifdef __s390x__
-static inline void mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)
-{
-	s390_mmio_write(dest, src, bytecnt);
-}
-
-#elif defined(__aarch64__) || defined(__arm__)
+#if defined(__aarch64__) || defined(__arm__)
 #include <arm_neon.h>
 
 static inline void _mmio_memcpy_x64_64b(void *dest, const void *src)
@@ -236,7 +232,8 @@ static inline void _mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)
 		else                                                           \
 			_mmio_memcpy_x64((dest), (src), (bytecount));          \
 	})
-
+#elif defined(__s390x__)
+void mmio_memcpy_x64(void *dst, const void *src, size_t bytecnt);
 #else
 /* Transfer is some multiple of 64 bytes */
 static inline void mmio_memcpy_x64(void *dest, const void *src, size_t bytecnt)

@@ -48,7 +48,9 @@ rdma_python_test(tests
   test_qpex.py
   test_rdmacm.py
   test_relaxed_ordering.py
+  test_rss_traffic.py
   test_shared_pd.py
+  test_tag_matching.py
   utils.py
   )
 

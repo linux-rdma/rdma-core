@@ -13,6 +13,7 @@ from pyverbs.cq cimport CQEX
 cdef class Mlx5Context(Context):
     cdef object devx_umems
     cdef object devx_objs
+    cdef object devx_eqs
     cdef add_ref(self, obj)
     cpdef close(self)
 
@@ -87,6 +88,7 @@ cdef class Mlx5DevxObj(PyverbsCM):
     cdef Context context
     cdef object out_view
     cdef object flow_counter_actions
+    cdef object dest_tir_actions
     cdef add_ref(self, obj)
 
 cdef class Mlx5Cqe64(PyverbsObject):
@@ -94,3 +96,11 @@ cdef class Mlx5Cqe64(PyverbsObject):
 
 cdef class Mlx5VfioAttr(PyverbsObject):
     cdef dv.mlx5dv_vfio_context_attr attr
+
+cdef class Mlx5DevxMsiVector(PyverbsCM):
+    cdef dv.mlx5dv_devx_msi_vector *msi_vector
+
+cdef class Mlx5DevxEq(PyverbsCM):
+    cdef dv.mlx5dv_devx_eq *eq
+    cdef Context context
+    cdef object out_view

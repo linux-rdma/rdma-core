@@ -665,20 +665,14 @@ static void verbs_set_log_file(void)
 
 int ibverbs_init(void)
 {
-	char *env_value;
-
-	if (getenv("RDMAV_FORK_SAFE") || getenv("IBV_FORK_SAFE"))
+	if (check_env("RDMAV_FORK_SAFE") || check_env("IBV_FORK_SAFE"))
 		if (ibv_fork_init())
 			fprintf(stderr, PFX "Warning: fork()-safety requested "
 				"but init failed\n");
 
-	/* Backward compatibility for the mlx4 driver env */
-	env_value = getenv("MLX4_DEVICE_FATAL_CLEANUP");
-	if (env_value)
-		verbs_allow_disassociate_destroy = strcmp(env_value, "0") != 0;
-
-	if (getenv("RDMAV_ALLOW_DISASSOC_DESTROY"))
-		verbs_allow_disassociate_destroy = true;
+	verbs_allow_disassociate_destroy = check_env("RDMAV_ALLOW_DISASSOC_DESTROY")
+		/* Backward compatibility for the mlx4 driver env */
+		|| check_env("MLX4_DEVICE_FATAL_CLEANUP");
 
 	if (!ibv_get_sysfs_path())
 		return -errno;

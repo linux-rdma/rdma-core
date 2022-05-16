@@ -77,7 +77,7 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "39.0")
+set(PACKAGE_VERSION "40.0")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
@@ -89,32 +89,34 @@ set(IBVERBS_PROVIDER_SUFFIX "-rdmav${IBVERBS_PABI_VERSION}.so")
 
 # Override the CMAKE_INSTALL_ dirs to be under the build/ directory
 if (IN_PLACE)
-  set(CMAKE_INSTALL_SYSCONFDIR "${CMAKE_BINARY_DIR}/etc")
-  set(CMAKE_INSTALL_BINDIR "${CMAKE_BINARY_DIR}/bin")
-  set(CMAKE_INSTALL_SBINDIR "${CMAKE_BINARY_DIR}/bin")
-  set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}")
+  set(CMAKE_INSTALL_SYSCONFDIR "${PROJECT_BINARY_DIR}/etc")
+  set(CMAKE_INSTALL_BINDIR "${PROJECT_BINARY_DIR}/bin")
+  set(CMAKE_INSTALL_SBINDIR "${PROJECT_BINARY_DIR}/bin")
+  set(CMAKE_INSTALL_PREFIX "${PROJECT_BINARY_DIR}")
   set(CMAKE_INSTALL_LIBDIR "lib")
   set(CMAKE_INSTALL_INCLUDEDIR "include")
 endif()
 
 include(GNUInstallDirs)
 # C include root
-set(BUILD_INCLUDE ${CMAKE_BINARY_DIR}/include)
+set(BUILD_INCLUDE ${PROJECT_BINARY_DIR}/include)
 # Executables
-set(BUILD_BIN ${CMAKE_BINARY_DIR}/bin)
+set(BUILD_BIN ${PROJECT_BINARY_DIR}/bin)
 # Libraries
-set(BUILD_LIB ${CMAKE_BINARY_DIR}/lib)
+set(BUILD_LIB ${PROJECT_BINARY_DIR}/lib)
 # Static library pre-processing
-set(BUILD_STATIC_LIB ${CMAKE_BINARY_DIR}/lib/statics)
+set(BUILD_STATIC_LIB ${PROJECT_BINARY_DIR}/lib/statics)
 # Used for IN_PLACE configuration
-set(BUILD_ETC ${CMAKE_BINARY_DIR}/etc)
-set(BUILD_PYTHON ${CMAKE_BINARY_DIR}/python)
+set(BUILD_ETC ${PROJECT_BINARY_DIR}/etc)
+set(BUILD_PYTHON ${PROJECT_BINARY_DIR}/python)
 
 set(IBDIAG_CONFIG_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/infiniband-diags")
 set(IBDIAG_NODENAME_MAP_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/rdma/ib-node-name-map")
 
 set(CMAKE_INSTALL_INITDDIR "${CMAKE_INSTALL_SYSCONFDIR}/init.d"
   CACHE PATH "Location for init.d files")
+set(CMAKE_INSTALL_MODPROBEDIR "${CMAKE_INSTALL_SYSCONFDIR}/modprobe.d/"
+  CACHE PATH "Location for modprobe.d files")
 set(CMAKE_INSTALL_SYSTEMD_SERVICEDIR "${CMAKE_INSTALL_PREFIX}/lib/systemd/system"
   CACHE PATH "Location for systemd service files")
 set(CMAKE_INSTALL_SYSTEMD_BINDIR "/lib/systemd"
@@ -169,7 +171,7 @@ set(DISTRO_FLAVOUR "None" CACHE
 
 #-------------------------
 # Load CMake components
-set(BUILDLIB "${CMAKE_SOURCE_DIR}/buildlib")
+set(BUILDLIB "${PROJECT_SOURCE_DIR}/buildlib")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${BUILDLIB}")
 
 include(CMakeParseArguments)
@@ -215,6 +217,11 @@ else()
   # But we still must have python (be it 2) for the build process:
   FIND_PACKAGE(PythonInterp REQUIRED)
   set(CYTHON_EXECUTABLE "")
+endif()
+
+find_program(SYSTEMCTL_BIN systemctl HINTS "/usr/bin" "/bin")
+if (NOT SYSTEMCTL_BIN)
+  set (SYSTEMCTL_BIN "/bin/systemctl")
 endif()
 
 RDMA_CheckSparse()
@@ -502,8 +509,11 @@ check_type_size("long" SIZEOF_LONG BUILTIN_TYPES_ONLY LANGUAGE C)
 # Determine if this arch supports cache coherent DMA. This isn't really an
 # arch specific property, but for our purposes arches that do not support it
 # also do not define wmb/etc which breaks our compile.
+# As a special case s390x always has coherent DMA but needs linking for its wmb
 CHECK_C_SOURCE_COMPILES("
+#if !defined(__s390x__)
 #include \"${CMAKE_CURRENT_SOURCE_DIR}/util/udma_barrier.h\"
+#endif
  int main(int argc,const char *argv[]) {return 0;}"
   HAVE_COHERENT_DMA)
 
@@ -609,12 +619,27 @@ RDMA_Check_C_Compiles(HAVE_GLIBC_FXSTAT "
  struct stat stat = {};  __fxstat(0, 0, &stat);  return 0;}")
 RDMA_DoFixup("${HAVE_GLIBC_FXSTAT}" "sys/stat.h")
 
+
+# glibc before 2.35 does not necesarily define the HWCAP_S390_PCI_MIO hardware
+# capability bit constant. Check for it and if necessary shim it in such that
+# kernel support for PCI MIO instructions can always be checked.
+RDMA_Check_C_Compiles(HAVE_GLIBC_HWCAP_S390_PCI_MIO "
+ #if defined(__s390x__)
+ #include <sys/auxv.h>
+ int main(int argc, const char *argv[]) {
+ return !!(getauxval(AT_HWCAP) & HWCAP_S390_PCI_MIO);}
+ #else
+ int main(int argc, const char *argv[]) {return 0;}
+ #endif
+ ")
+RDMA_DoFixup("${HAVE_GLIBC_HWCAP_S390_PCI_MIO}" "sys/auxv.h")
+
 #-------------------------
 # Build Prep
 # Write out a git ignore file to the build directory if it isn't the source
 # directory. For developer convenience
 if (NOT ${CMAKE_CURRENT_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
-  file(WRITE ${CMAKE_BINARY_DIR}/.gitignore "*")
+  file(WRITE ${PROJECT_BINARY_DIR}/.gitignore "*")
 endif()
 
 if ("${IOCTL_MODE}" STREQUAL "both")
@@ -759,14 +784,14 @@ if (NO_MAN_PAGES)
   message(STATUS " man pages NOT built")
 else()
   if (NOT PANDOC_FOUND)
-    if (NOT EXISTS "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt")
+    if (NOT EXISTS "${PROJECT_SOURCE_DIR}/buildlib/pandoc-prebuilt")
       message(STATUS " pandoc NOT found and NO prebuilt man pages. 'install' disabled")
     else()
       message(STATUS " pandoc NOT found (using prebuilt man pages)")
     endif()
   endif()
   if (NOT RST2MAN_FOUND)
-    if (NOT EXISTS "${CMAKE_SOURCE_DIR}/buildlib/pandoc-prebuilt")
+    if (NOT EXISTS "${PROJECT_SOURCE_DIR}/buildlib/pandoc-prebuilt")
       message(STATUS " rst2man NOT found and NO prebuilt man pages. 'install' disabled")
     else()
       message(STATUS " rst2man NOT found (using prebuilt man pages)")
@@ -805,4 +830,7 @@ if (NOT HAVE_TARGET_SSE)
 endif()
 if (NOT DRM_INCLUDE_DIRS)
   message(STATUS " DMABUF NOT supported (disabling some tests)")
+endif()
+if (NOT HAVE_GLIBC_HWCAP_S390_PCI_MIO )
+  message(STATUS " Glibc version does not contain the HWCAP_S390_PCI_MIO bit, using shim version")
 endif()

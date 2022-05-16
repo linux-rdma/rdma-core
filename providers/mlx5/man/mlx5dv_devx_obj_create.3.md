@@ -118,6 +118,8 @@ mlx5dv_devx_obj* on error NULL will be returned and errno will be set.
 
 Upon success query, modify, destroy, general commands, 0 is returned or the value of errno on a failure.
 
+If the error value is EREMOTEIO, outbox.status and outbox.syndrome will contain the command failure details.
+
 # SEE ALSO
 
 **mlx5dv_open_device**, **mlx5dv_devx_create_cmd_comp**, **mlx5dv_devx_get_async_cmd_comp**

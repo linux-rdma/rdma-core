@@ -74,7 +74,8 @@ cdef class XRCD(PyverbsCM):
         # so during destruction, need to check whether or not the C object
         # exists.
         if self.xrcd != NULL:
-            self.logger.debug('Closing XRCD')
+            if self.logger:
+                self.logger.debug('Closing XRCD')
             close_weakrefs([self.qps, self.srqs])
             rc = v.ibv_close_xrcd(self.xrcd)
             if rc != 0:

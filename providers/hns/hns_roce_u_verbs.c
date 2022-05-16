@@ -276,12 +276,25 @@ int hns_roce_u_dealloc_mw(struct ibv_mw *mw)
 	return 0;
 }
 
-static int hns_roce_verify_cq(int *cqe, struct hns_roce_context *context)
+enum {
+	CREATE_CQ_SUPPORTED_WC_FLAGS = IBV_WC_STANDARD_FLAGS |
+				       IBV_WC_EX_WITH_CVLAN,
+};
+
+static int verify_cq_create_attr(struct ibv_cq_init_attr_ex *attr,
+				 struct hns_roce_context *context)
 {
-	if (*cqe < 1 || *cqe > context->max_cqe)
+	if (!attr->cqe || attr->cqe > context->max_cqe)
 		return -EINVAL;
 
-	*cqe = max((uint64_t)HNS_ROCE_MIN_CQE_NUM, roundup_pow_of_two(*cqe));
+	if (attr->comp_mask)
+		return -EOPNOTSUPP;
+
+	if (!check_comp_mask(attr->wc_flags, CREATE_CQ_SUPPORTED_WC_FLAGS))
+		return -EOPNOTSUPP;
+
+	attr->cqe = max_t(uint32_t, HNS_ROCE_MIN_CQE_NUM,
+			  roundup_pow_of_two(attr->cqe));
 
 	return 0;
 }
@@ -297,25 +310,25 @@ static int hns_roce_alloc_cq_buf(struct hns_roce_cq *cq)
 }
 
 static int exec_cq_create_cmd(struct ibv_context *context,
-			      struct hns_roce_cq *cq, int cqe,
-			      struct ibv_comp_channel *channel, int comp_vector)
+			      struct hns_roce_cq *cq,
+			      struct ibv_cq_init_attr_ex *attr)
 {
+	struct hns_roce_create_cq_ex_resp resp_ex = {};
 	struct hns_roce_ib_create_cq_resp *resp_drv;
-	struct hns_roce_create_cq_resp resp = {};
+	struct hns_roce_create_cq_ex cmd_ex = {};
 	struct hns_roce_ib_create_cq *cmd_drv;
-	struct hns_roce_create_cq cmd = {};
 	int ret;
 
-	cmd_drv = &cmd.drv_payload;
-	resp_drv = &resp.drv_payload;
+	cmd_drv = &cmd_ex.drv_payload;
+	resp_drv = &resp_ex.drv_payload;
 
 	cmd_drv->buf_addr = (uintptr_t)cq->buf.buf;
 	cmd_drv->db_addr = (uintptr_t)cq->db;
 	cmd_drv->cqe_size = (uintptr_t)cq->cqe_size;
 
-	ret = ibv_cmd_create_cq(context, cqe, channel, comp_vector,
-				&cq->ibv_cq, &cmd.ibv_cmd, sizeof(cmd),
-				&resp.ibv_resp, sizeof(resp));
+	ret = ibv_cmd_create_cq_ex(context, attr, &cq->verbs_cq,
+				   &cmd_ex.ibv_cmd, sizeof(cmd_ex),
+				   &resp_ex.ibv_resp, sizeof(resp_ex), 0);
 	if (ret)
 		return ret;
 
@@ -325,16 +338,15 @@ static int exec_cq_create_cmd(struct ibv_context *context,
 	return 0;
 }
 
-struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
-				    struct ibv_comp_channel *channel,
-				    int comp_vector)
+static struct ibv_cq_ex *create_cq(struct ibv_context *context,
+			 struct ibv_cq_init_attr_ex *attr)
 {
 	struct hns_roce_device *hr_dev = to_hr_dev(context->device);
 	struct hns_roce_context *hr_ctx = to_hr_ctx(context);
 	struct hns_roce_cq *cq;
 	int ret;
 
-	ret = hns_roce_verify_cq(&cqe, hr_ctx);
+	ret = verify_cq_create_attr(attr, hr_ctx);
 	if (ret)
 		goto err;
 
@@ -348,7 +360,7 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 	if (ret)
 		goto err_lock;
 
-	cq->cq_depth = cqe;
+	cq->cq_depth = attr->cqe;
 	cq->cqe_size = hr_ctx->cqe_size;
 
 	ret = hns_roce_alloc_cq_buf(cq);
@@ -363,13 +375,13 @@ struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
 
 	*cq->db = 0;
 
-	ret = exec_cq_create_cmd(context, cq, cqe, channel, comp_vector);
+	ret = exec_cq_create_cmd(context, cq, attr);
 	if (ret)
 		goto err_cmd;
 
 	cq->arm_sn = 1;
 
-	return &cq->ibv_cq;
+	return &cq->verbs_cq.cq_ex;
 
 err_cmd:
 	if (hr_dev->hw_version != HNS_ROCE_HW_VER1)
@@ -385,6 +397,33 @@ err:
 
 	errno = ret;
 	return NULL;
+}
+
+struct ibv_cq *hns_roce_u_create_cq(struct ibv_context *context, int cqe,
+				    struct ibv_comp_channel *channel,
+				    int comp_vector)
+{
+	struct ibv_cq_ex *cq;
+	struct ibv_cq_init_attr_ex attr = {
+		.cqe = cqe,
+		.channel = channel,
+		.comp_vector = comp_vector,
+	};
+
+	cq = create_cq(context, &attr);
+	return cq ? ibv_cq_ex_to_cq(cq) : NULL;
+}
+
+struct ibv_cq_ex *hns_roce_u_create_cq_ex(struct ibv_context *context,
+					  struct ibv_cq_init_attr_ex *attr)
+{
+	struct ibv_cq_ex *cq;
+
+	cq = create_cq(context, attr);
+	if (cq)
+		hns_roce_attach_cq_ex_ops(cq, attr->wc_flags);
+
+	return cq;
 }
 
 void hns_roce_u_cq_event(struct ibv_cq *cq)
@@ -729,7 +768,8 @@ int hns_roce_u_destroy_srq(struct ibv_srq *ibv_srq)
 }
 
 enum {
-	CREATE_QP_SUP_COMP_MASK = IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_XRCD,
+	CREATE_QP_SUP_COMP_MASK = IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_XRCD |
+				  IBV_QP_INIT_ATTR_SEND_OPS_FLAGS,
 };
 
 static int check_qp_create_mask(struct hns_roce_context *ctx,
@@ -1231,9 +1271,13 @@ static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 	if (ret)
 		goto err_cmd;
 
+	ret = hns_roce_attach_qp_ex_ops(attr, qp);
+	if (ret)
+		goto err_ops;
+
 	ret = hns_roce_store_qp(context, qp);
 	if (ret)
-		goto err_store;
+		goto err_ops;
 
 	if (qp->flags & HNS_ROCE_QP_CAP_DIRECT_WQE) {
 		ret = mmap_dwqe(ibv_ctx, qp, dwqe_mmap_key);
@@ -1247,7 +1291,7 @@ static struct ibv_qp *create_qp(struct ibv_context *ibv_ctx,
 
 err_dwqe:
 	hns_roce_v2_clear_qp(context, qp);
-err_store:
+err_ops:
 	ibv_cmd_destroy_qp(&qp->verbs_qp.qp);
 err_cmd:
 	hns_roce_free_qp_buf(qp, context);

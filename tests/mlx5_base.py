@@ -62,6 +62,22 @@ MLX5_DEVS = {
 DCI_TEST_GOOD_FLOW = 0
 DCI_TEST_BAD_FLOW_WITH_RESET = 1
 DCI_TEST_BAD_FLOW_WITHOUT_RESET = 2
+IB_SMP_ATTR_PORT_INFO = 0x0015
+IB_MGMT_CLASS_SUBN_LID_ROUTED = 0x01
+IB_MGMT_METHOD_GET = 0x01
+
+
+class PortStatus:
+    MLX5_PORT_UP = 1
+    MLX5_PORT_DOWN = 2
+
+
+class PortState:
+    NO_STATE_CHANGE = 0
+    DOWN = 1
+    INIT = 2
+    ARMED = 3
+    ACTIVE = 4
 
 
 def is_mlx5_dev(ctx):
@@ -468,6 +484,8 @@ class Mlx5DevxRcResources(BaseResources):
         self.pd = None
         self.dv_pd = None
         self.mr = None
+        self.msi_vector = None
+        self.eq = None
         self.cq = None
         self.qp = None
         self.qpn = None
@@ -484,6 +502,46 @@ class Mlx5DevxRcResources(BaseResources):
         self.qattr = QueueAttrs()
         self.init_resources()
 
+    def change_port_state_with_registers(self, state):
+        from tests.mlx5_prm_structs import PaosReg
+        paos_in = PaosReg(local_port=self.ib_port, admin_status=state, ase=1)
+        self.access_paos_register(paos_in)
+
+    def query_port_state_with_registers(self):
+        from tests.mlx5_prm_structs import PaosReg
+        paos_in = PaosReg(local_port=self.ib_port)
+        paos_out = self.access_paos_register(paos_in)
+        return paos_out.admin_status, paos_out.oper_status
+
+    def access_paos_register(self, paos_in, op_mod=0):  # op_mod: 0 - write / 1 - read
+        from tests.mlx5_prm_structs import AccessPaosRegisterIn, \
+            AccessPaosRegisterOut, DevxOps
+        paos_reg_in = AccessPaosRegisterIn(op_mod=op_mod,
+                                           register_id=DevxOps.MLX5_CMD_OP_ACCESS_REGISTER_PAOS,
+                                           data=paos_in)
+        cmd_out = self.ctx.devx_general_cmd(paos_reg_in, len(AccessPaosRegisterOut()))
+        paos_reg_out = AccessPaosRegisterOut(cmd_out)
+        if paos_reg_out.status:
+            raise PyverbsRDMAError(f'Failed to access PAOS register ({paos_reg_out.syndrome})')
+        return paos_reg_out.data
+
+    def query_port_state_with_mads(self, ib_port):
+        from tests.mlx5_prm_structs import IbSmp
+        in_mad = IbSmp(base_version=1, mgmt_class=IB_MGMT_CLASS_SUBN_LID_ROUTED,
+                       class_version=1, method=IB_MGMT_METHOD_GET,
+                       attr_id=IB_SMP_ATTR_PORT_INFO, attr_mod=ib_port)
+        ib_smp_out = IbSmp(self._send_mad_cmd(ib_port, in_mad, 0x3))
+        return ib_smp_out.data[32] & 0xf
+
+    def _send_mad_cmd(self, ib_port, in_mad, op_mod):
+        from tests.mlx5_prm_structs import MadIfcIn, MadIfcOut
+        mad_ifc_in = MadIfcIn(op_mod=op_mod, port=ib_port, mad=in_mad)
+        cmd_out = self.ctx.devx_general_cmd(mad_ifc_in, len(MadIfcOut()))
+        mad_ifc_out = MadIfcOut(cmd_out)
+        if mad_ifc_out.status:
+            raise PyverbsRDMAError(f'Failed to send MAD with syndrome ({mad_ifc_out.syndrome})')
+        return mad_ifc_out.mad
+
     def init_resources(self):
         if not self.is_eth():
             self.query_lid()
@@ -494,10 +552,12 @@ class Mlx5DevxRcResources(BaseResources):
         self.query_eqn()
         self.create_uar()
         self.create_queue_attrs()
+        self.create_eq()
         self.create_cq()
         self.create_qp()
         # Objects closure order is important, and must be done manually in DevX
-        self.devx_objs = [self.qp, self.cq] + list(self.uar.values()) + list(self.umems.values())
+        self.devx_objs = [self.qp, self.cq] + list(self.uar.values()) + list(self.umems.values()) + [self.msi_vector, self.eq]
+
 
     def query_lid(self):
         from tests.mlx5_prm_structs import QueryHcaVportContextIn, \
@@ -634,6 +694,9 @@ class Mlx5DevxRcResources(BaseResources):
                             wq_umem_valid=1)
         self.qp = Mlx5DevxObj(self.ctx, cmd_in, len(CreateQpOut()))
         self.qpn = CreateQpOut(self.qp.out_view).qpn
+
+    def create_eq(self):
+        pass
 
     def to_rts(self):
         """

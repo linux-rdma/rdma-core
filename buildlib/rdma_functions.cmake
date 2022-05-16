@@ -105,7 +105,7 @@ function(rdma_library DEST VERSION_SCRIPT SOVERSION VERSION)
   # Create a static library
   if (ENABLE_STATIC)
     add_library(${DEST}-static STATIC ${ARGN})
-    target_link_libraries(${DEST}-static LINK ${COMMON_LIBS})
+    target_link_libraries(${DEST}-static LINK_PRIVATE ${COMMON_LIBS})
     rdma_public_static_lib(${DEST} ${DEST}-static ${VERSION_SCRIPT})
   endif()
 
@@ -156,7 +156,7 @@ function(rdma_shared_provider DEST VERSION_SCRIPT SOVERSION VERSION)
   install(TARGETS ${DEST} DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
   # Compute a relative symlink from VERBS_PROVIDER_DIR to LIBDIR
-  execute_process(COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/buildlib/relpath
+  execute_process(COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/buildlib/relpath
     "${CMAKE_INSTALL_FULL_LIBDIR}/lib${DEST}.so.${VERSION}"
     "${VERBS_PROVIDER_DIR}"
     OUTPUT_VARIABLE DEST_LINK_PATH OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -284,10 +284,10 @@ function(rdma_finalize_libs)
 
   add_custom_command(
     OUTPUT ${OUTPUTS}
-    COMMAND "${PYTHON_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/buildlib/sanitize_static_lib.py"
+    COMMAND "${PYTHON_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/buildlib/sanitize_static_lib.py"
              --version ${PACKAGE_VERSION}
              --ar "${CMAKE_AR}" --nm "${CMAKE_NM}" --objcopy "${CMAKE_OBJCOPY}" ${ARGS}
-    DEPENDS ${DEPENDS} "${CMAKE_SOURCE_DIR}/buildlib/sanitize_static_lib.py"
+    DEPENDS ${DEPENDS} "${PROJECT_SOURCE_DIR}/buildlib/sanitize_static_lib.py"
     COMMENT "Building distributable static libraries"
     VERBATIM)
   add_custom_target("make_static" ALL DEPENDS ${OUTPUTS})

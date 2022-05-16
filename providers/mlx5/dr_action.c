@@ -714,6 +714,10 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			}
 			attr.modify_index = action->rewrite.index;
 			attr.modify_actions = action->rewrite.num_of_actions;
+			if (action->rewrite.single_action_opt)
+				attr.single_modify_action = action->rewrite.data;
+			else
+				attr.modify_index = action->rewrite.index;
 			break;
 		case DR_ACTION_TYP_L2_TO_TNL_L2:
 		case DR_ACTION_TYP_L2_TO_TNL_L3:
@@ -770,15 +774,9 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 				goto out_invalid_arg;
 			}
 			attr.hit_gvmi = action->vport.caps->vhca_gvmi;
-			if (rx_rule) {
-				/* Loopback on WIRE vport is not supported */
-				if (action->vport.caps->num == WIRE_PORT)
-					goto out_invalid_arg;
-
-				attr.final_icm_addr = action->vport.caps->icm_address_rx;
-			} else {
-				attr.final_icm_addr = action->vport.caps->icm_address_tx;
-			}
+			attr.final_icm_addr = rx_rule ?
+				action->vport.caps->icm_address_rx :
+				action->vport.caps->icm_address_tx;
 			break;
 		case DR_ACTION_TYP_DEST_ARRAY:
 			if (action->dest_array.dmn != dmn) {
@@ -798,7 +796,7 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			}
 
 			max_actions_type = MAX_VLANS;
-			attr.vlans.count++;
+			attr.vlans.count_pop++;
 			break;
 		case DR_ACTION_TYP_PUSH_VLAN:
 			if (rx_rule && !(dmn->ste_ctx->actions_caps &
@@ -808,12 +806,12 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			}
 
 			max_actions_type = MAX_VLANS;
-			if (attr.vlans.count == MAX_VLANS) {
+			if (attr.vlans.count_push == MAX_VLANS) {
 				errno = ENOTSUP;
 				return ENOTSUP;
 			}
 
-			attr.vlans.headers[attr.vlans.count++] = action->push_vlan.vlan_hdr;
+			attr.vlans.headers[attr.vlans.count_push++] = action->push_vlan.vlan_hdr;
 			break;
 		default:
 			goto out_invalid_arg;
@@ -1174,7 +1172,7 @@ mlx5dv_dr_action_create_aso(struct mlx5dv_dr_domain *dmn,
 	struct mlx5dv_dr_action *action = NULL;
 
 	if (!dmn->info.supp_sw_steering ||
-	    dmn->info.caps.sw_format_ver != MLX5_HW_CONNECTX_6DX) {
+	    dmn->info.caps.sw_format_ver == MLX5_HW_CONNECTX_5) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -1978,6 +1976,17 @@ static int dr_action_create_modify_action(struct mlx5dv_dr_domain *dmn,
 	if (ret)
 		goto free_hw_actions;
 
+	action->rewrite.data = (uint8_t *)hw_actions;
+	action->rewrite.num_of_actions = num_hw_actions;
+
+	if (num_hw_actions == 1 &&
+	    (dmn->ste_ctx->actions_caps &
+	     DR_STE_CTX_ACTION_CAP_MODIFY_HDR_INLINE)) {
+		action->rewrite.single_action_opt = true;
+		return 0;
+	}
+
+	action->rewrite.single_action_opt = false;
 	dynamic_chunck_size = ilog32(num_hw_actions - 1);
 
 	/* HW modify action index granularity is at least 64B */
@@ -1989,8 +1998,7 @@ static int dr_action_create_modify_action(struct mlx5dv_dr_domain *dmn,
 		goto free_hw_actions;
 
 	action->rewrite.chunk = chunk;
-	action->rewrite.data = (uint8_t *)hw_actions;
-	action->rewrite.num_of_actions = num_hw_actions;
+
 	action->rewrite.index = (chunk->icm_addr -
 				 dmn->info.caps.hdr_modify_icm_addr) /
 				 ACTION_CACHE_LINE_SIZE;
@@ -2092,7 +2100,7 @@ struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_flow_meter(struct mlx5dv_dr_flow_meter_attr *attr)
 {
 	struct mlx5dv_dr_domain *dmn = attr->next_table->dmn;
-	uint64_t rx_icm_addr, tx_icm_addr;
+	uint64_t rx_icm_addr = 0, tx_icm_addr = 0;
 	struct mlx5dv_devx_obj *devx_obj;
 	struct mlx5dv_dr_action *action;
 	int ret;
@@ -2402,7 +2410,7 @@ dr_action_create_sampler(struct mlx5dv_dr_domain *dmn,
 {
 	struct dr_devx_flow_sampler_attr sampler_attr = {};
 	struct dr_flow_sampler *sampler;
-	uint64_t icm_rx, icm_tx;
+	uint64_t icm_rx = 0, icm_tx = 0;
 	int ret;
 
 	sampler = calloc(1, sizeof(struct dr_flow_sampler));
@@ -2832,7 +2840,9 @@ int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action)
 		if (action->rewrite.is_root_level) {
 			mlx5_destroy_flow_action(action->rewrite.flow_action);
 		} else {
-			dr_icm_free_chunk(action->rewrite.chunk);
+			if (!action->rewrite.single_action_opt)
+				dr_icm_free_chunk(action->rewrite.chunk);
+
 			free(action->rewrite.data);
 		}
 		atomic_fetch_sub(&action->rewrite.dmn->refcount, 1);

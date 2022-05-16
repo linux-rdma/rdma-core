@@ -39,7 +39,8 @@
 #include "mlx5.h"
 
 struct mlx5_db_page {
-	struct mlx5_db_page	       *prev, *next;
+	cl_map_item_t			cl_map;
+	struct list_node		available;
 	struct mlx5_buf			buf;
 	int				num_db;
 	int				use_cnt;
@@ -76,11 +77,9 @@ static struct mlx5_db_page *__add_page(struct mlx5_context *context)
 	for (i = 0; i < nlong; ++i)
 		page->free[i] = ~0;
 
-	page->prev = NULL;
-	page->next = context->db_list;
-	context->db_list = page;
-	if (page->next)
-		page->next->prev = page;
+	cl_qmap_insert(&context->dbr_map, (uintptr_t) page->buf.buf,
+		       &page->cl_map);
+	list_add(&context->dbr_available_pages, &page->available);
 
 	return page;
 }
@@ -110,11 +109,12 @@ __be32 *mlx5_alloc_dbrec(struct mlx5_context *context, struct ibv_pd *pd,
 	}
 
 default_alloc:
-	pthread_mutex_lock(&context->db_list_mutex);
+	pthread_mutex_lock(&context->dbr_map_mutex);
 
-	for (page = context->db_list; page; page = page->next)
-		if (page->use_cnt < page->num_db)
-			goto found;
+	page = list_top(&context->dbr_available_pages, struct mlx5_db_page,
+			available);
+	if (page)
+		goto found;
 
 	page = __add_page(context);
 	if (!page)
@@ -122,6 +122,8 @@ default_alloc:
 
 found:
 	++page->use_cnt;
+	if (page->use_cnt == page->num_db)
+		list_del(&page->available);
 
 	for (i = 0; !page->free[i]; ++i)
 		/* nothing */;
@@ -132,7 +134,7 @@ found:
 	db = page->buf.buf + (i * 8 * sizeof(long) + j) * context->cache_line_size;
 
 out:
-	pthread_mutex_unlock(&context->db_list_mutex);
+	pthread_mutex_unlock(&context->dbr_map_mutex);
 
 	return db;
 }
@@ -142,6 +144,7 @@ void mlx5_free_db(struct mlx5_context *context, __be32 *db, struct ibv_pd *pd,
 {
 	struct mlx5_db_page *page;
 	uintptr_t ps = to_mdev(context->ibv_ctx.context.device)->page_size;
+	cl_map_item_t *item;
 	int i;
 
 	if (custom_alloc) {
@@ -154,25 +157,21 @@ void mlx5_free_db(struct mlx5_context *context, __be32 *db, struct ibv_pd *pd,
 		return;
 	}
 
-	pthread_mutex_lock(&context->db_list_mutex);
+	pthread_mutex_lock(&context->dbr_map_mutex);
 
-	for (page = context->db_list; page; page = page->next)
-		if (((uintptr_t) db & ~(ps - 1)) == (uintptr_t) page->buf.buf)
-			break;
+	item = cl_qmap_get(&context->dbr_map, (uintptr_t) db & ~(ps - 1));
 
-	if (!page)
-		goto out;
+	assert(item != cl_qmap_end(&context->dbr_map));
 
+	page = (container_of(item, struct mlx5_db_page, cl_map));
 	i = ((void *) db - page->buf.buf) / context->cache_line_size;
 	page->free[i / (8 * sizeof(long))] |= 1UL << (i % (8 * sizeof(long)));
+	if (page->use_cnt == page->num_db)
+		list_add(&context->dbr_available_pages, &page->available);
 
 	if (!--page->use_cnt) {
-		if (page->prev)
-			page->prev->next = page->next;
-		else
-			context->db_list = page->next;
-		if (page->next)
-			page->next->prev = page->prev;
+		cl_qmap_remove_item(&context->dbr_map, item);
+		list_del(&page->available);
 
 		if (page->buf.type == MLX5_ALLOC_TYPE_EXTERNAL)
 			mlx5_free_buf_extern(context, &page->buf);
@@ -182,6 +181,5 @@ void mlx5_free_db(struct mlx5_context *context, __be32 *db, struct ibv_pd *pd,
 		free(page);
 	}
 
-out:
-	pthread_mutex_unlock(&context->db_list_mutex);
+	pthread_mutex_unlock(&context->dbr_map_mutex);
 }

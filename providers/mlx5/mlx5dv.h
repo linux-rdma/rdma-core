@@ -2135,6 +2135,25 @@ int mlx5dv_dr_aso_other_domain_link(struct mlx5dv_devx_obj *devx_obj,
 int mlx5dv_dr_aso_other_domain_unlink(struct mlx5dv_devx_obj *devx_obj,
 				      struct mlx5dv_dr_domain *dmn);
 
+struct mlx5dv_devx_msi_vector {
+	int vector;
+	int fd;
+};
+
+struct mlx5dv_devx_msi_vector *
+mlx5dv_devx_alloc_msi_vector(struct ibv_context *ibctx);
+
+int mlx5dv_devx_free_msi_vector(struct mlx5dv_devx_msi_vector *msi);
+
+struct mlx5dv_devx_eq {
+	void *vaddr;
+};
+
+struct mlx5dv_devx_eq *
+mlx5dv_devx_create_eq(struct ibv_context *ibctx, const void *in, size_t inlen,
+		      void *out, size_t outlen);
+
+int mlx5dv_devx_destroy_eq(struct mlx5dv_devx_eq *eq);
 
 #ifdef __cplusplus
 }

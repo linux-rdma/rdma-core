@@ -49,10 +49,11 @@ enum dr_dump_rec_type {
 	DR_DUMP_REC_TYPE_TABLE_TX = 3102,
 
 	DR_DUMP_REC_TYPE_MATCHER = 3200,
-	DR_DUMP_REC_TYPE_MATCHER_MASK = 3201,
+	DR_DUMP_REC_TYPE_MATCHER_MASK_DEPRECATED = 3201,
 	DR_DUMP_REC_TYPE_MATCHER_RX = 3202,
 	DR_DUMP_REC_TYPE_MATCHER_TX = 3203,
 	DR_DUMP_REC_TYPE_MATCHER_BUILDER = 3204,
+	DR_DUMP_REC_TYPE_MATCHER_MASK = 3205,
 
 	DR_DUMP_REC_TYPE_RULE = 3300,
 	DR_DUMP_REC_TYPE_RULE_RX_ENTRY_V0 = 3301,
@@ -135,9 +136,10 @@ static int dr_dump_rule_action(FILE *f, const uint64_t rule_id,
 			      action->flow_tag);
 		break;
 	case DR_ACTION_TYP_MODIFY_HDR:
-		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x,%d\n",
 			      DR_DUMP_REC_TYPE_ACTION_MODIFY_HDR, action_id,
-			      rule_id, action->rewrite.index);
+			      rule_id, action->rewrite.index,
+			      action->rewrite.single_action_opt);
 		break;
 	case DR_ACTION_TYP_VPORT:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
@@ -431,13 +433,14 @@ static int dr_dump_matcher_rx_tx(FILE *f, bool is_rx,
 	rec_type = is_rx ? DR_DUMP_REC_TYPE_MATCHER_RX :
 			   DR_DUMP_REC_TYPE_MATCHER_TX;
 
-	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",%d,0x%" PRIx64 ",0x%" PRIx64 "\n",
+	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",%d,0x%" PRIx64 ",0x%" PRIx64 ",%d\n",
 		      rec_type,
 		      (uint64_t) (uintptr_t) matcher_rx_tx,
 		      matcher_id,
 		      matcher_rx_tx->num_of_builders,
 		      dr_dump_icm_to_idx(matcher_rx_tx->s_htbl->chunk->icm_addr),
-		      dr_dump_icm_to_idx(matcher_rx_tx->e_anchor->chunk->icm_addr));
+		      dr_dump_icm_to_idx(matcher_rx_tx->e_anchor->chunk->icm_addr),
+		      matcher_rx_tx->fixed_size ? matcher_rx_tx->s_htbl->chunk_size : -1);
 	if (ret < 0)
 		return ret;
 
@@ -674,11 +677,12 @@ static int dr_dump_domain_info_dev_attr(FILE *f, struct dr_domain_info *info,
 {
 	int ret;
 
-	ret = fprintf(f, "%d,0x%" PRIx64 ",%u,%s\n",
+	ret = fprintf(f, "%d,0x%" PRIx64 ",%u,%s,%d\n",
 		      DR_DUMP_REC_TYPE_DOMAIN_INFO_DEV_ATTR,
 		      domain_id,
 		      info->caps.vports.num_ports,
-		      info->attr.orig_attr.fw_ver);
+		      info->attr.orig_attr.fw_ver,
+		      info->use_mqs);
 	if (ret < 0)
 		return ret;
 

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2018-2020 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2018-2021 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef _EFA_IO_H_
@@ -52,6 +52,8 @@ enum efa_io_comp_status {
 	EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_LENGTH  = 11,
 	/* Unexpected status returned by responder */
 	EFA_IO_COMP_STATUS_REMOTE_ERROR_BAD_STATUS  = 12,
+	/* Unresponsive remote - detected locally */
+	EFA_IO_COMP_STATUS_LOCAL_ERROR_UNRESP_REMOTE = 13,
 };
 
 struct efa_io_tx_meta_desc {

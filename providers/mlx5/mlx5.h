@@ -42,11 +42,11 @@
 
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>
+#include <util/cl_qmap.h>
 #include <util/util.h>
 #include "mlx5-abi.h"
-#include <ccan/bitmap.h>
+#include <util/bitmap.h>
 #include <ccan/list.h>
-#include "bitmap.h"
 #include <ccan/minmax.h>
 #include "mlx5dv.h"
 
@@ -289,7 +289,7 @@ struct mlx5_hca_cap_2_caps {
 };
 
 struct reserved_qpn_blk {
-	bitmap *bmp;
+	unsigned long *bmp;
 	uint32_t first_qpn;
 	struct list_node entry;
 	unsigned int next_avail_slot;
@@ -346,8 +346,9 @@ struct mlx5_context {
 	pthread_mutex_t			mkey_table_mutex;
 
 	struct mlx5_uar_info		uar[MLX5_MAX_UARS];
-	struct mlx5_db_page	       *db_list;
-	pthread_mutex_t			db_list_mutex;
+	struct list_head		dbr_available_pages;
+	cl_qmap_t		        dbr_map;
+	pthread_mutex_t			dbr_map_mutex;
 	int				cache_line_size;
 	int				max_sq_desc_sz;
 	int				max_rq_desc_sz;
@@ -419,19 +420,11 @@ struct mlx5_context {
 	pthread_mutex_t			crypto_login_mutex;
 };
 
-struct mlx5_bitmap {
-	uint32_t		last;
-	uint32_t		top;
-	uint32_t		max;
-	uint32_t		avail;
-	uint32_t		mask;
-	unsigned long	       *table;
-};
-
 struct mlx5_hugetlb_mem {
 	int			shmid;
 	void		       *shmaddr;
-	struct mlx5_bitmap	bitmap;
+	unsigned long		*bitmap;
+	unsigned long		bmp_size;
 	struct list_node	entry;
 };
 
@@ -591,6 +584,11 @@ struct mlx5_wq {
 	unsigned			tail;
 	unsigned			cur_post;
 	int				max_gs;
+	/*
+	 * Equal to max_gs when qp is in RTS state for sq, or in INIT state for
+	 * rq, equal to -1 otherwise, used to verify qp_state in data path.
+	 */
+	int				qp_state_max_gs;
 	int				wqe_shift;
 	int				offset;
 	void			       *qend;
@@ -920,6 +918,19 @@ struct mlx5dv_sched_node {
 struct mlx5dv_sched_leaf {
 	struct mlx5dv_sched_node *parent;
 	struct mlx5dv_devx_obj *obj;
+};
+
+struct mlx5_devx_msi_vector {
+	struct mlx5dv_devx_msi_vector dv_msi;
+	struct ibv_context *ibctx;
+};
+
+struct mlx5_devx_eq {
+	struct mlx5dv_devx_eq dv_eq;
+	struct ibv_context *ibctx;
+	uint64_t iova;
+	size_t size;
+	int eqn;
 };
 
 struct ibv_flow *
@@ -1269,6 +1280,8 @@ void mlx5_unimport_mr(struct ibv_mr *mr);
 struct ibv_pd *mlx5_import_pd(struct ibv_context *context,
 			      uint32_t pd_handle);
 void mlx5_unimport_pd(struct ibv_pd *pd);
+void mlx5_qp_fill_wr_complete_error(struct mlx5_qp *mqp);
+void mlx5_qp_fill_wr_complete_real(struct mlx5_qp *mqp);
 int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 			 const struct ibv_qp_init_attr_ex *attr,
 			 const struct mlx5dv_qp_init_attr *mlx5_attr);
@@ -1570,9 +1583,18 @@ struct mlx5_dv_context_ops {
 	int (*query_port)(struct ibv_context *context, uint32_t port_num,
 			  struct mlx5dv_port *info, size_t info_len);
 	int (*map_ah_to_qp)(struct ibv_ah *ah, uint32_t qp_num);
+	struct mlx5dv_devx_msi_vector *(*devx_alloc_msi_vector)(struct ibv_context *ibctx);
+	int (*devx_free_msi_vector)(struct mlx5dv_devx_msi_vector *msi);
+	struct mlx5dv_devx_eq *(*devx_create_eq)(struct ibv_context *ibctx,
+						 const void *in, size_t inlen,
+						 void *out, size_t outlen);
+	int (*devx_destroy_eq)(struct mlx5dv_devx_eq *eq);
 };
 
 struct mlx5_dv_context_ops *mlx5_get_dv_ops(struct ibv_context *context);
 void mlx5_set_dv_ctx_ops(struct mlx5_dv_context_ops *ops);
+
+int mlx5_cmd_status_to_err(uint8_t status);
+int mlx5_get_cmd_status_err(int err, void *out);
 
 #endif /* MLX5_H */

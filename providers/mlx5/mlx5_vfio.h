@@ -163,7 +163,7 @@ struct page_block {
 	void *page_ptr;
 	uint64_t iova;
 	struct list_node next_block;
-	BITMAP_DECLARE(free_pages, MLX5_VFIO_BLOCK_NUM_PAGES);
+	BMP_DECLARE(free_pages, MLX5_VFIO_BLOCK_NUM_PAGES);
 };
 
 struct vfio_mem_allocator {
@@ -302,6 +302,8 @@ struct mlx5_vfio_context {
 	struct mlx5_vfio_eqs_uar eqs_uar;
 	pthread_mutex_t eq_lock;
 	struct mlx5_dv_context_ops *dv_ctx_ops;
+	int *msix_fds;
+	pthread_mutex_t msix_fds_lock;
 };
 
 #define MLX5_MAX_DESTROY_INBOX_SIZE_DW	DEVX_ST_SZ_DW(delete_fte_in)

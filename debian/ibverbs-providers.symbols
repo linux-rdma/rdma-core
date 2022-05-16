@@ -30,6 +30,7 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  MLX5_1.20@MLX5_1.20 36
  MLX5_1.21@MLX5_1.21 37
  MLX5_1.22@MLX5_1.22 38
+ MLX5_1.23@MLX5_1.23 40
  mlx5dv_init_obj@MLX5_1.0 13
  mlx5dv_init_obj@MLX5_1.2 15
  mlx5dv_query_device@MLX5_1.0 13
@@ -149,6 +150,10 @@ libmlx5.so.1 ibverbs-providers #MINVER#
  mlx5dv_vfio_process_events@MLX5_1.21 37
  mlx5dv_dr_aso_other_domain_link@MLX5_1.22 38
  mlx5dv_dr_aso_other_domain_unlink@MLX5_1.22 38
+ mlx5dv_devx_alloc_msi_vector@MLX5_1.23 40
+ mlx5dv_devx_create_eq@MLX5_1.23 40
+ mlx5dv_devx_destroy_eq@MLX5_1.23 40
+ mlx5dv_devx_free_msi_vector@MLX5_1.23 40
 libefa.so.1 ibverbs-providers #MINVER#
 * Build-Depends-Package: libibverbs-dev
  EFA_1.0@EFA_1.0 24

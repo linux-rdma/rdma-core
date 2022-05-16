@@ -846,7 +846,7 @@ static inline int _mlx5_post_send(struct ibv_qp *ibqp, struct ibv_send_wr *wr,
 			goto out;
 		}
 
-		if (unlikely(wr->num_sge > qp->sq.max_gs)) {
+		if (unlikely(wr->num_sge > qp->sq.qp_state_max_gs)) {
 			mlx5_dbg(fp, MLX5_DBG_QP_SEND, "max gs exceeded %d (max = %d)\n",
 				 wr->num_sge, qp->sq.max_gs);
 			err = ENOMEM;
@@ -1184,6 +1184,17 @@ static void mlx5_send_wr_start(struct ibv_qp_ex *ibqp)
 	mqp->err = 0;
 	mqp->nreq = 0;
 	mqp->inl_wqe = 0;
+}
+
+static int mlx5_send_wr_complete_error(struct ibv_qp_ex *ibqp)
+{
+	struct mlx5_qp *mqp = to_mqp((struct ibv_qp *)ibqp);
+
+	/* Rolling back */
+	mqp->sq.cur_post = mqp->cur_post_rb;
+	mqp->fm_cache = mqp->fm_cache_rb;
+	mlx5_spin_unlock(&mqp->sq.lock);
+	return EINVAL;
 }
 
 static int mlx5_send_wr_complete(struct ibv_qp_ex *ibqp)
@@ -3453,6 +3464,22 @@ static void fill_wr_setters_eth(struct ibv_qp_ex *ibqp)
 	ibqp->wr_set_inline_data_list = mlx5_send_wr_set_inline_data_list_eth;
 }
 
+void mlx5_qp_fill_wr_complete_error(struct mlx5_qp *mqp)
+{
+	struct ibv_qp_ex *ibqp = &mqp->verbs_qp.qp_ex;
+
+	if (ibqp->wr_complete)
+		ibqp->wr_complete = mlx5_send_wr_complete_error;
+}
+
+void mlx5_qp_fill_wr_complete_real(struct mlx5_qp *mqp)
+{
+	struct ibv_qp_ex *ibqp = &mqp->verbs_qp.qp_ex;
+
+	if (ibqp->wr_complete)
+		ibqp->wr_complete = mlx5_send_wr_complete;
+}
+
 int mlx5_qp_fill_wr_pfns(struct mlx5_qp *mqp,
 			 const struct ibv_qp_init_attr_ex *attr,
 			 const struct mlx5dv_qp_init_attr *mlx5_attr)
@@ -3743,7 +3770,7 @@ int mlx5_post_recv(struct ibv_qp *ibqp, struct ibv_recv_wr *wr,
 			goto out;
 		}
 
-		if (unlikely(wr->num_sge > qp->rq.max_gs)) {
+		if (unlikely(wr->num_sge > qp->rq.qp_state_max_gs)) {
 			err = EINVAL;
 			*bad_wr = wr;
 			goto out;
@@ -4044,8 +4071,10 @@ static int mlx5_qp_query_sqd(struct mlx5_qp *mqp, unsigned int *cur_idx)
 	DEVX_SET(query_qp_in, in, qpn, ibqp->qp_num);
 
 	err = mlx5dv_devx_qp_query(ibqp, in, sizeof(in), out, sizeof(out));
-	if (err)
-		return -errno;
+	if (err) {
+		err = mlx5_get_cmd_status_err(err, out);
+		return -err;
+	}
 
 	qpc = DEVX_ADDR_OF(query_qp_out, out, qpc);
 	if (DEVX_GET(qpc, qpc, state) != MLX5_QPC_STATE_SQDRAINED)

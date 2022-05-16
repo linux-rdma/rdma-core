@@ -1,0 +1,8 @@
+#!/bin/bash
+
+for p in /sys/class/infiniband/*/ports/*; do
+    [ -e "$p" ] || continue
+    [ "$(cat ${p}/link_layer)" == "InfiniBand" ] || continue
+    p=${p#/sys/class/infiniband/}
+    nohup @SYSTEMCTL_BIN@ start "srp_daemon_port@${p/\/ports\//:}" </dev/null >&/dev/null &
+done

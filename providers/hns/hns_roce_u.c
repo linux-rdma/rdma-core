@@ -66,6 +66,7 @@ static const struct verbs_context_ops hns_common_ops = {
 	.bind_mw = hns_roce_u_bind_mw,
 	.cq_event = hns_roce_u_cq_event,
 	.create_cq = hns_roce_u_create_cq,
+	.create_cq_ex = hns_roce_u_create_cq_ex,
 	.create_qp = hns_roce_u_create_qp,
 	.create_qp_ex = hns_roce_u_create_qp_ex,
 	.dealloc_mw = hns_roce_u_dealloc_mw,

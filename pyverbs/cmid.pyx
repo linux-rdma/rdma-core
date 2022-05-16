@@ -2,7 +2,7 @@ from libc.stdint cimport uintptr_t, uint8_t
 from libc.string cimport memset
 import weakref
 
-from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError
+from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError, PyverbsRDMAError
 from pyverbs.qp cimport QPInitAttr, QPAttr, ECE
 from pyverbs.base import PyverbsRDMAErrno
 from pyverbs.base cimport close_weakrefs
@@ -210,7 +210,8 @@ cdef class AddrInfo(PyverbsObject):
 
     cpdef close(self):
         if self.addr_info != NULL:
-            self.logger.debug('Closing AddrInfo')
+            if self.logger:
+                self.logger.debug('Closing AddrInfo')
             cm.rdma_freeaddrinfo(self.addr_info)
         self.addr_info = NULL
 
@@ -234,7 +235,8 @@ cdef class CMEvent(PyverbsObject):
 
     cpdef close(self):
         if self.event != NULL:
-            self.logger.debug('Closing CMEvent')
+            if self.logger:
+                self.logger.debug('Closing CMEvent')
             self.ack_cm_event()
             self.event = NULL
 
@@ -283,7 +285,8 @@ cdef class CMEventChannel(PyverbsObject):
 
     cpdef close(self):
         if self.event_channel != NULL:
-            self.logger.debug('Closing CMEventChannel')
+            if self.logger:
+                self.logger.debug('Closing CMEventChannel')
             cm.rdma_destroy_event_channel(self.event_channel)
             self.event_channel = NULL
 
@@ -378,7 +381,8 @@ cdef class CMID(PyverbsCM):
 
     cpdef close(self):
         if self.id != NULL:
-            self.logger.debug('Closing CMID')
+            if self.logger:
+                self.logger.debug('Closing CMID')
             if self.event_channel is None:
                 cm.rdma_destroy_ep(self.id)
             else:
@@ -598,7 +602,7 @@ cdef class CMID(PyverbsCM):
         init_attr = QPInitAttr()
         rc = v.ibv_query_qp(self.id.qp, &attr.attr, attr_mask, &init_attr.attr)
         if rc != 0:
-            raise PyverbsRDMAErrno('Failed to query QP')
+            raise PyverbsRDMAError('Failed to query QP', rc)
         return attr, init_attr
 
     def init_qp_attr(self, qp_state):

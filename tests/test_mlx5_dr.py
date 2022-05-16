@@ -12,7 +12,7 @@ import errno
 from pyverbs.providers.mlx5.dr_action import DrActionQp, DrActionModify, \
     DrActionFlowCounter, DrActionDrop, DrActionTag, DrActionDestTable, \
     DrActionPopVLan, DrActionPushVLan, DrActionDestAttr, DrActionDestArray, \
-    DrActionDefMiss, DrActionVPort, DrActionIBPort
+    DrActionDefMiss, DrActionVPort, DrActionIBPort, DrActionDestTir, DrActionPacketReformat
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, Mlx5Context, Mlx5DVContextAttr
 from tests.utils import skip_unsupported, requires_root_on_eth, requires_eswitch_on, \
     PacketConsts
@@ -25,7 +25,9 @@ from pyverbs.providers.mlx5.dr_table import DrTable
 from pyverbs.providers.mlx5.dr_rule import DrRule
 import pyverbs.providers.mlx5.mlx5_enums as dve
 
-from pyverbs.cq import CqInitAttrEx, CQEX
+from tests.test_mlx5_flow import requires_reformat_support
+from pyverbs.cq import CqInitAttrEx, CQEX, CQ
+from pyverbs.wq import WQInitAttr, WQ, WQAttr
 from tests.base import RawResources
 import pyverbs.enums as e
 import tests.utils as u
@@ -95,6 +97,28 @@ class Mlx5DrResources(RawResources):
             raise ex
 
 
+class Mlx5DrTirResources(Mlx5DrResources):
+    def __init__(self, dev_name, ib_port, gid_index=0, wc_flags=0, msg_size=1024,
+                 qp_count=1, server=False):
+        self.server = server
+        super().__init__(dev_name=dev_name, ib_port=ib_port, gid_index=gid_index,
+                         wc_flags=wc_flags, msg_size=msg_size, qp_count=qp_count)
+
+    def create_cq(self):
+        self.cq = CQ(self.ctx, cqe=self.num_msgs)
+
+    @requires_root_on_eth()
+    def create_qps(self):
+        if not self.server:
+            super().create_qps()
+        else:
+            from tests.mlx5_prm_structs import Tirc, CreateTirIn, CreateTirOut
+            self.qps = [WQ(self.ctx, WQInitAttr(wq_pd=self.pd, wq_cq=self.cq))]
+            self.qps[0].modify(WQAttr(attr_mask=e.IBV_WQ_ATTR_STATE, wq_state=e.IBV_WQS_RDY))
+            tir_ctx = Tirc(inline_rqn=self.qps[0].wqn)
+            self.tir = Mlx5DevxObj(self.ctx, CreateTirIn(tir_context=tir_ctx), len(CreateTirOut()))
+
+
 class Mlx5DrTest(Mlx5RDMATestCase):
     def setUp(self):
         super().setUp()
@@ -121,7 +145,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.server = resource(**self.dev_info, **resource_arg)
 
     @skip_unsupported
-    def create_rx_recv_qp_rule(self, smac_value, actions, log_matcher_size=None, domain=None):
+    def create_rx_recv_rules(self, smac_value, actions, log_matcher_size=None, domain=None):
         """
         Creates a rule on RX domain that forwards packets that match the smac in the matcher
         to the SW steering flow table and another rule on that table with provided actions.
@@ -232,8 +256,8 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         port_action = DrActionVPort(self.domain_fdb, PF_VPORT) if is_vport \
             else DrActionIBPort(self.domain_fdb, self.ib_port)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.fdb_table, self.fdb_dest_act = self.create_rx_recv_qp_rule(smac_value, [port_action],
-                                                                        domain=self.domain_fdb)
+        self.fdb_table, self.fdb_dest_act = self.create_rx_recv_rules(smac_value, [port_action],
+                                                                      domain=self.domain_fdb)
         self.domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         rx_table = DrTable(self.domain_rx, 0)
         qp_action = DrActionQp(self.server.qp)
@@ -264,7 +288,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.create_players(Mlx5DrResources)
         self.qp_action = DrActionQp(self.server.qp)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.create_rx_recv_qp_rule(smac_value, [self.qp_action])
+        self.create_rx_recv_rules(smac_value, [self.qp_action])
         u.raw_traffic(self.client, self.server, self.iters)
 
     @skip_unsupported
@@ -278,7 +302,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.create_tx_modify_rule()
         src_mac = struct.pack('!6s', bytes.fromhex("88:88:88:88:88:88".replace(':', '')))
         self.qp_action = DrActionQp(self.server.qp)
-        self.create_rx_recv_qp_rule(src_mac, [self.qp_action])
+        self.create_rx_recv_rules(src_mac, [self.qp_action])
         exp_packet = u.gen_packet(self.client.msg_size, src_mac=src_mac)
         u.raw_traffic(self.client, self.server, self.iters, expected_packet=exp_packet)
 
@@ -294,7 +318,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.server_counter_action = DrActionFlowCounter(self.server.counter)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         self.qp_action = DrActionQp(self.server.qp)
-        self.create_rx_recv_qp_rule(smac_value, [self.qp_action, self.server_counter_action])
+        self.create_rx_recv_rules(smac_value, [self.qp_action, self.server_counter_action])
         u.raw_traffic(self.client, self.server, self.iters)
         recv_packets = self.server.query_counter_packets()
         self.assertEqual(recv_packets, self.iters, 'Counter missed some recv packets')
@@ -369,7 +393,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         tag = 0x123
         tag_action = DrActionTag(tag)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.create_rx_recv_qp_rule(smac_value, [tag_action, qp_action])
+        self.create_rx_recv_rules(smac_value, [tag_action, qp_action])
         self.domain_rx.sync()
         u.raw_traffic(self.client, self.server, self.iters)
         # Verify tag
@@ -385,7 +409,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.create_players(Mlx5DrResources)
         self.qp_action = DrActionQp(self.server.qp)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.create_rx_recv_qp_rule(smac_value, [self.qp_action], log_matcher_size)
+        self.create_rx_recv_rules(smac_value, [self.qp_action], log_matcher_size)
         self.matcher.set_layout(log_matcher_size + 1)
         u.raw_traffic(self.client, self.server, self.iters)
         self.matcher.set_layout(flags=dve.MLX5DV_DR_MATCHER_LAYOUT_RESIZABLE)
@@ -407,11 +431,11 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         push_action = DrActionPushVLan(self.domain_tx, struct.unpack('I', vlan_hdr)[0])
-        self.tx_table, self.tx_dest_act = self.create_rx_recv_qp_rule(smac_value, [push_action],
-                                                                      domain=self.domain_tx)
+        self.tx_table, self.tx_dest_act = self.create_rx_recv_rules(smac_value, [push_action],
+                                                                    domain=self.domain_tx)
         self.domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         qp_action = DrActionQp(self.server.qp)
-        self.create_rx_recv_qp_rule(smac_value, [qp_action], domain=self.domain_rx)
+        self.create_rx_recv_rules(smac_value, [qp_action], domain=self.domain_rx)
         exp_packet = u.gen_packet(self.client.msg_size + PacketConsts.VLAN_HEADER_SIZE,
                                   with_vlan=True)
         u.raw_traffic(self.client, self.server, self.iters, expected_packet=exp_packet)
@@ -430,7 +454,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         qp_action = DrActionQp(self.server.qp)
         pop_action = DrActionPopVLan()
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.create_rx_recv_qp_rule(smac_value, [pop_action, qp_action])
+        self.create_rx_recv_rules(smac_value, [pop_action, qp_action])
         u.raw_traffic(self.client, self.server, self.iters, with_vlan=True, expected_packet=exp_packet)
 
     @skip_unsupported
@@ -465,7 +489,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.rules.append(DrRule(last_matcher, value_param, [last_qp_action]))
         multi_dest_a = DrActionDestArray(self.domain_rx, len(dest_attrs), dest_attrs)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.create_rx_recv_qp_rule(smac_value, [multi_dest_a], domain=self.domain_rx)
+        self.create_rx_recv_rules(smac_value, [multi_dest_a], domain=self.domain_rx)
         u.raw_traffic(self.client, self.server, self.iters)
 
     @skip_unsupported
@@ -482,16 +506,62 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         tx_def_miss = DrActionDefMiss()
         tx_drop_action = DrActionDrop()
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.tx_table, self.tx_dest_act = self.create_rx_recv_qp_rule(smac_value, [tx_def_miss],
-                                                                      domain=self.domain_tx)
+        self.tx_table, self.tx_dest_act = self.create_rx_recv_rules(smac_value, [tx_def_miss],
+                                                                    domain=self.domain_tx)
         qp_action = DrActionQp(self.server.qp)
-        self.create_rx_recv_qp_rule(smac_value, [qp_action])
+        self.create_rx_recv_rules(smac_value, [qp_action])
         smac_mask = bytes([0xff] * 6) + bytes(2)
         mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
         matcher_tx2 = DrMatcher(self.tx_table, 2, u.MatchCriteriaEnable.OUTER, mask_param)
         smac_value += bytes(2)
         value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
         self.rules.append(DrRule(matcher_tx2, value_param, [tx_drop_action]))
+        u.raw_traffic(self.client, self.server, self.iters)
+
+    @skip_unsupported
+    def test_dest_tir(self):
+        self.client = Mlx5DrTirResources(**self.dev_info)
+        self.server = Mlx5DrTirResources(**self.dev_info, server=True)
+        tir_action = DrActionDestTir(self.server.tir)
+        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        self.create_rx_recv_rules(smac_value, [tir_action])
+        u.raw_traffic(self.client, self.server, self.iters)
+
+    @requires_reformat_support
+    @skip_unsupported
+    def test_packet_reformat(self):
+        """
+        Creates packet reformat actions on TX (encap) and on RX (decap).
+        """
+        self.create_players(Mlx5DrResources)
+        smac_mask = bytes([0xff] * 6) + bytes(2)
+        mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
+        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
+
+        # TX steering
+        domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        tx_table = DrTable(domain_tx, 0)
+        tx_matcher = DrMatcher(tx_table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
+        # Create encap action
+        outer = u.gen_outer_headers(self.client.msg_size)
+        tx_reformat_type = dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL_
+        reformat_action_tx = DrActionPacketReformat(domain=domain_tx, data=outer,
+                                                    flags=dve.MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL,
+                                                    reformat_type=tx_reformat_type)
+        self.rules.append(DrRule(tx_matcher, value_param, [reformat_action_tx]))
+
+        # RX steering
+        domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        # Create decap action
+        rx_reformat_type = dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TUNNEL_TO_L2_
+        reformat_action_rx = DrActionPacketReformat(domain=domain_rx,
+                                                    reformat_type=rx_reformat_type)
+        qp_action = DrActionQp(self.server.qp)
+        self.create_rx_recv_rules(smac_value, [reformat_action_rx, qp_action],
+                                    domain=domain_rx)
+
+        # Send traffic and validate packet
         u.raw_traffic(self.client, self.server, self.iters)
 
 

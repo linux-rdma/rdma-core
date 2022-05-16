@@ -12,7 +12,8 @@ try:
     from scapy.packet import Packet
     from scapy.fields import BitField, ByteField, IntField, IPField, \
         ShortField, LongField, StrFixedLenField, PacketField, \
-        PacketListField, ConditionalField, PadField, FieldListField, MACField
+        PacketListField, ConditionalField, PadField, FieldListField, MACField, \
+        MultipleTypeField
     from scapy.layers.inet6 import IP6Field
 except ImportError:
     raise unittest.SkipTest('scapy package is needed in order to run DevX tests')
@@ -37,6 +38,11 @@ class DevxOps:
     MLX5_CMD_OP_ALLOC_FLOW_COUNTER = 0x939
     MLX5_CMD_OP_DEALLOC_FLOW_COUNTER = 0x93a
     MLX5_CMD_OP_QUERY_FLOW_COUNTER = 0x93b
+    MLX5_CMD_OP_CREATE_TIR = 0x900
+    MLX5_CMD_OP_CREATE_EQ = 0x301
+    MLX5_CMD_OP_MAD_IFC = 0x50d
+    MLX5_CMD_OP_ACCESS_REGISTER_PAOS = 0x5006
+    MLX5_CMD_OP_ACCESS_REG = 0x805
 
 
 # Common
@@ -423,6 +429,227 @@ class QueryQpOut(Packet):
         StrFixedLenField('reserved4', None, length=8),
         PacketListField('pas', [SwPas() for x in range(0)], SwPas,
                         count_from=lambda pkt: 0),
+    ]
+
+
+# EQ
+class SwEqc(Packet):
+    fields_desc = [
+        BitField('status', 0, 4),
+        BitField('reserved1', 0, 9),
+        BitField('ec', 0, 1),
+        BitField('oi', 0, 1),
+        BitField('reserved2', 0, 5),
+        BitField('st', 0, 4),
+        ByteField('reserved3', 0),
+        StrFixedLenField('reserved4', None, length=4),
+        BitField('reserved5', 0, 20),
+        BitField('page_offset', 0, 6),
+        BitField('reserved6', 0, 6),
+        BitField('reserved7', 0, 3),
+        BitField('log_eq_size', 0, 5),
+        BitField('uar_page', 0, 24),
+        StrFixedLenField('reserved8', None, length=4),
+        BitField('reserved9', 0, 20),
+        BitField('intr', 0, 12),
+        BitField('reserved10', 0, 3),
+        BitField('log_page_size', 0, 5),
+        BitField('reserved11', 0, 24),
+        StrFixedLenField('reserved12', None, length=12),
+        ByteField('reserved13', 0),
+        BitField('consumer_counter', 0, 24),
+        ByteField('reserved14', 0),
+        BitField('producer_counter', 0, 24),
+        StrFixedLenField('reserved15', None, length=16),
+    ]
+
+
+class CreateEqIn(Packet):
+    fields_desc = [
+        ShortField('opcode', DevxOps.MLX5_CMD_OP_CREATE_EQ),
+        ShortField('uid', 0),
+        ShortField('reserved1', 0),
+        ShortField('op_mod', 0),
+        BitField('reserved2', 0, 24),
+        ByteField('eqn', 0),
+        StrFixedLenField('reserved3', None, length=4),
+        PacketField('sw_eqc', SwEqc(), SwEqc),
+        LongField('e_mtt_pointer', 0),
+        LongField('event_bitmask_63_0', 0),
+        LongField('event_bitmask_127_640', 0),
+        LongField('event_bitmask_191_128', 0),
+        LongField('event_bitmask_255_192', 0),
+        StrFixedLenField('reserved4', None, length=152),
+    ]
+
+
+class CreateEqOut(Packet):
+    fields_desc = [
+        ByteField('status', 0),
+        BitField('reserved1', 0, 24),
+        IntField('syndrome', 0),
+        BitField('reserved2', 0, 24),
+        ByteField('eqn', 0),
+        StrFixedLenField('reserved3', None, length=4),
+    ]
+
+
+class IbSmp(Packet):
+    fields_desc = [
+        ByteField('base_version', 0),
+        ByteField('mgmt_class', 0),
+        ByteField('class_version', 0),
+        ByteField('method', 0),
+        ShortField('status', 0),
+        ByteField('hop_ptr', 0),
+        ByteField('hop_cnt', 0),
+        LongField('tid', 0),
+        ShortField('attr_id', 0),
+        ShortField('resv', 0),
+        IntField('attr_mod', 0),
+        LongField('mkey', 0),
+        ShortField('dr_slid', 0),
+        ShortField('dr_dlid', 0),
+        FieldListField('reserved', [0 for x in range(7)], IntField('', 0), count_from=lambda pkt: 7),
+        FieldListField('data', [0 for x in range(64)], ByteField('', 0), count_from=lambda pkt: 64),
+        FieldListField('initial_path', [0 for x in range(64)], ByteField('', 0), count_from=lambda pkt: 64),
+        FieldListField('return_path', [0 for x in range(64)], ByteField('', 0), count_from=lambda pkt: 64),
+
+    ]
+
+
+class MadIfcIn(Packet):
+    fields_desc = [
+        ShortField('opcode', DevxOps.MLX5_CMD_OP_MAD_IFC),
+        ShortField('uid', 0),
+
+        ShortField('reserved1', 0),
+        ShortField('op_mod', 0),
+
+        ShortField('remote_lid', 0),
+        ByteField('reserved2', 0),
+        ByteField('port', 0),
+        StrFixedLenField('reserved3', None, length=4),
+        StrFixedLenField('mad', None, length=256),
+    ]
+
+
+class MadIfcOut(Packet):
+    fields_desc = [
+        ByteField('status', 0),
+        BitField('reserved1', 0, 24),
+        IntField('syndrome', 0),
+        StrFixedLenField('reserved2', None, length=8),
+        StrFixedLenField('mad', None, length=256),
+    ]
+
+
+class PaosReg(Packet):
+    fields_desc = [
+        ByteField('swid', 0),
+        ByteField('local_port', 0),
+        BitField('reserved1', 0, 4),
+        BitField('admin_status', 0, 4),
+        BitField('reserved2', 0, 4),
+        BitField('oper_status', 0, 4),
+        BitField('ase', 0, 1),
+        BitField('ee', 0, 1),
+        BitField('reserved3', 0, 21),
+        BitField('fd', 0, 1),
+        BitField('reserved4', 0, 6),
+        BitField('e', 0, 2),
+        StrFixedLenField('reserved5', None, length=8),
+    ]
+
+
+class AccessPaosRegisterIn(Packet):
+    fields_desc = [
+        ShortField('opcode', DevxOps.MLX5_CMD_OP_ACCESS_REG),
+        ShortField('uid', 0),
+        ShortField('reserved1', 0),
+        ShortField('op_mod', 0),
+        ShortField('reserved2', 0),
+        ShortField('register_id', 0),
+        IntField('argument', 0),
+        PacketField('data', PaosReg(), PaosReg),
+    ]
+
+
+class AccessPaosRegisterOut(Packet):
+    fields_desc = [
+        ByteField('status', 0),
+        BitField('reserved1', 0, 24),
+        IntField('syndrome', 0),
+        StrFixedLenField('reserved2', None, length=8),
+        PacketField('data', PaosReg(), PaosReg),
+    ]
+
+
+# EQE
+class EventType:
+    COMPLETION_EVENTS = 0X0
+    CQ_ERROR = 0X4
+    PORT_STATE_CHANGE = 0X9
+
+
+class AffiliatedEventHeader(Packet):
+    fields_desc = [
+        ShortField('reserved1', 0),
+        ShortField('obj_type', 0),
+        IntField('obj_id', 0),
+    ]
+
+
+class CompEvent(Packet):
+    fields_desc = [
+        StrFixedLenField('reserved1', None, length=24),
+        ByteField('reserved2', 0),
+        BitField('cqn', 0, 24),
+    ]
+
+
+class CqError(Packet):
+    fields_desc = [
+        ByteField('reserved1', 0),
+        BitField('cqn', 0, 24),
+        StrFixedLenField('reserved2', None, length=4),
+        BitField('reserved3', 0, 24),
+        ByteField('syndrome', 0),
+        StrFixedLenField('reserved4', None, length=16),
+    ]
+
+
+class PortStateChangeEvent(Packet):
+    fields_desc = [
+        StrFixedLenField('reserved1', None, length=8),
+        BitField('port_num', 0, 4),
+        BitField('reserved2', 0, 28),
+        StrFixedLenField('reserved3', None, length=16),
+    ]
+
+
+class SwEqe(Packet):
+    fields_desc = [
+        ByteField('reserved1', 0),
+        ByteField('event_type', 0),
+        ByteField('reserved2', 0),
+        ByteField('event_sub_type', 0),
+        StrFixedLenField('reserved3', None, length=28),
+        MultipleTypeField(
+            [
+                (PadField(PacketField('event_data', CompEvent(), CompEvent), 28, padwith=b"\x00"),
+                 lambda pkt: pkt.event_type == EventType.COMPLETION_EVENTS),
+                (PadField(PacketField('event_data', CqError(), CqError), 28, padwith=b"\x00"),
+                 lambda pkt: pkt.event_type == EventType.CQ_ERROR),
+                (PadField(PacketField('event_data', PortStateChangeEvent(), PortStateChangeEvent), 28, padwith=b"\x00"),
+                 lambda pkt: pkt.event_type == EventType.PORT_STATE_CHANGE),
+            ],
+            StrFixedLenField('event_data', None, length=28)  # By default
+        ),
+        ShortField('reserved4', 0),
+        ByteField('signature', 0),
+        BitField('reserved5', 0, 7),
+        BitField('owner', 0, 1),
     ]
 
 
@@ -1336,4 +1563,72 @@ class QueryFlowCounterOut(Packet):
         IntField('syndrome', 0),
         StrFixedLenField('reserved2', None, length=8),
         PacketField('flow_statistics', TrafficCounter(), TrafficCounter),
+    ]
+
+
+class RxHashFieldSelect(Packet):
+    fields_desc = [
+        BitField('l3_prot_type', 0, 1),
+        BitField('l4_prot_type', 0, 1),
+        BitField('selected_fields', 0, 30),
+    ]
+
+
+class Tirc(Packet):
+    fields_desc = [
+        StrFixedLenField('reserved1', None, length=4),
+        BitField('disp_type', 0, 4),
+        BitField('tls_en', 0, 1),
+        BitField('nvmeotcp_zerocopy_en', 0, 1),
+        BitField('nvmeotcp_crc_en', 0, 1),
+        BitField('reserved2', 0, 25),
+        StrFixedLenField('reserved3', None, length=8),
+        BitField('reserved4', 0, 4),
+        BitField('lro_timeout_period_usecs', 0, 16),
+        BitField('lro_enable_mask', 0, 4),
+        ByteField('lro_max_msg_sz', 0),
+        ByteField('reserved5', 0),
+        BitField('afu_id', 0, 24),
+        BitField('inline_rqn_vhca_id_valid', 0, 1),
+        BitField('reserved6', 0, 15),
+        ShortField('inline_rqn_vhca_id', 0),
+        BitField('reserved7', 0, 5),
+        BitField('inline_q_type', 0, 3),
+        BitField('inline_rqn', 0, 24),
+        BitField('rx_hash_symmetric', 0, 1),
+        BitField('reserved8', 0, 1),
+        BitField('tunneled_offload_en', 0, 1),
+        BitField('reserved9', 0, 5),
+        BitField('indirect_table', 0, 24),
+        BitField('rx_hash_fn', 0, 4),
+        BitField('reserved10', 0, 2),
+        BitField('self_lb_en', 0, 2),
+        BitField('transport_domain', 0, 24),
+        FieldListField('rx_hash_toeplitz_key', [0 for x in range(10)], IntField('', 0), count_from=lambda pkt:10),
+        PacketField('rx_hash_field_selector_outer', RxHashFieldSelect(), RxHashFieldSelect),
+        PacketField('rx_hash_field_selector_inner', RxHashFieldSelect(), RxHashFieldSelect),
+        IntField('nvmeotcp_tag_buffer_table_id', 0),
+        StrFixedLenField('reserved11', None, length=148),
+    ]
+
+
+class CreateTirIn(Packet):
+    fields_desc = [
+        ShortField('opcode', DevxOps.MLX5_CMD_OP_CREATE_TIR),
+        ShortField('uid', 0),
+        ShortField('reserved1', 0),
+        ShortField('op_mod', 0),
+        StrFixedLenField('reserved2', None, length=24),
+        PacketField('tir_context', Tirc(), Tirc),
+    ]
+
+
+class CreateTirOut(Packet):
+    fields_desc = [
+        ByteField('status', 0),
+        BitField('icm_address_63_40', 0, 24),
+        IntField('syndrome', 0),
+        ByteField('icm_address_39_32', 0),
+        BitField('tirn', 0, 24),
+        IntField('icm_address_31_0', 0),
     ]

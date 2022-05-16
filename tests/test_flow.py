@@ -80,12 +80,15 @@ class FlowRes(RawResources):
         for spec in specs:
             flow_attr.specs.append(spec)
         try:
-            flow = Flow(self.qp, flow_attr)
+            flow = self._create_flow(flow_attr)
         except PyverbsRDMAError as ex:
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Flow creation is not supported')
             raise ex
         return flow
+
+    def _create_flow(self, flow_attr):
+        return Flow(self.qp, flow_attr)
 
 
 class FlowTest(RDMATestCase):

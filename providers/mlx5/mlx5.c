@@ -82,10 +82,12 @@ const struct verbs_match_ent mlx5_hca_table[] = {
 	HCA(MELLANOX, 0x101e),	/* ConnectX family mlx5Gen Virtual Function */
 	HCA(MELLANOX, 0x101f),	/* ConnectX-6 LX */
 	HCA(MELLANOX, 0x1021),  /* ConnectX-7 */
+	HCA(MELLANOX, 0x1023),  /* ConnectX-8 */
 	HCA(MELLANOX, 0xa2d2),	/* BlueField integrated ConnectX-5 network controller */
 	HCA(MELLANOX, 0xa2d3),	/* BlueField integrated ConnectX-5 network controller VF */
 	HCA(MELLANOX, 0xa2d6),  /* BlueField-2 integrated ConnectX-6 Dx network controller */
 	HCA(MELLANOX, 0xa2dc),  /* BlueField-3 integrated ConnectX-7 network controller */
+	HCA(MELLANOX, 0xa2df),  /* BlueField-4 integrated ConnectX-8 network controller */
 	{}
 };
 
@@ -222,6 +224,36 @@ static int32_t get_free_uidx(struct mlx5_context *ctx)
 	return (tind << MLX5_UIDX_TABLE_SHIFT) | i;
 }
 
+int mlx5_cmd_status_to_err(uint8_t status)
+{
+	switch (status) {
+	case MLX5_CMD_STAT_OK:				return 0;
+	case MLX5_CMD_STAT_INT_ERR:			return EIO;
+	case MLX5_CMD_STAT_BAD_OP_ERR:			return EINVAL;
+	case MLX5_CMD_STAT_BAD_PARAM_ERR:		return EINVAL;
+	case MLX5_CMD_STAT_BAD_SYS_STATE_ERR:		return EIO;
+	case MLX5_CMD_STAT_BAD_RES_ERR:			return EINVAL;
+	case MLX5_CMD_STAT_RES_BUSY:			return EBUSY;
+	case MLX5_CMD_STAT_LIM_ERR:			return ENOMEM;
+	case MLX5_CMD_STAT_BAD_RES_STATE_ERR:		return EINVAL;
+	case MLX5_CMD_STAT_IX_ERR:			return EINVAL;
+	case MLX5_CMD_STAT_NO_RES_ERR:			return EAGAIN;
+	case MLX5_CMD_STAT_BAD_INP_LEN_ERR:		return EIO;
+	case MLX5_CMD_STAT_BAD_OUTP_LEN_ERR:		return EIO;
+	case MLX5_CMD_STAT_BAD_QP_STATE_ERR:		return EINVAL;
+	case MLX5_CMD_STAT_BAD_PKT_ERR:			return EINVAL;
+	case MLX5_CMD_STAT_BAD_SIZE_OUTS_CQES_ERR:	return EINVAL;
+	default:					return EIO;
+	}
+}
+
+int mlx5_get_cmd_status_err(int err, void *out)
+{
+	if (err == EREMOTEIO)
+		err = mlx5_cmd_status_to_err(DEVX_GET(mbox_out, out, status));
+	return err;
+}
+
 int32_t mlx5_store_uidx(struct mlx5_context *ctx, void *rsc)
 {
 	int32_t tind;
@@ -332,8 +364,10 @@ struct mlx5_psv *mlx5_create_psv(struct ibv_pd *pd)
 
 	psv->devx_obj = mlx5dv_devx_obj_create(pd->context, in, sizeof(in),
 					       out, sizeof(out));
-	if (!psv->devx_obj)
+	if (!psv->devx_obj) {
+		errno = mlx5_get_cmd_status_err(errno, out);
 		goto err_free_psv;
+	}
 
 	psv->index = DEVX_GET(create_psv_out, out, psv0_index);
 
@@ -1106,7 +1140,7 @@ static int query_lag(struct ibv_context *ctx, uint8_t *lag_state,
 	ret = mlx5dv_devx_general_cmd(ctx, in_lag, sizeof(in_lag), out_lag,
 				      sizeof(out_lag));
 	if (ret)
-		return ret;
+		return mlx5_get_cmd_status_err(ret, out_lag);
 
 	*lag_state = DEVX_GET(query_lag_out, out_lag, ctx.lag_state);
 	if (tx_remap_affinity_1)
@@ -1143,7 +1177,7 @@ static bool lag_operation_supported(struct ibv_qp *qp)
 static int _mlx5dv_query_qp_lag_port(struct ibv_qp *qp, uint8_t *port_num,
 				     uint8_t *active_port_num)
 {
-	uint8_t lag_state, tx_remap_affinity_1, tx_remap_affinity_2;
+	uint8_t lag_state = 0, tx_remap_affinity_1 = 0, tx_remap_affinity_2 = 0;
 	uint32_t in_tis[DEVX_ST_SZ_DW(query_tis_in)] = {};
 	uint32_t out_tis[DEVX_ST_SZ_DW(query_tis_out)] = {};
 	uint32_t in_qp[DEVX_ST_SZ_DW(query_qp_in)] = {};
@@ -1170,7 +1204,7 @@ static int _mlx5dv_query_qp_lag_port(struct ibv_qp *qp, uint8_t *port_num,
 		ret = mlx5dv_devx_qp_query(qp, in_tis, sizeof(in_tis), out_tis,
 					   sizeof(out_tis));
 		if (ret)
-			return ret;
+			return mlx5_get_cmd_status_err(ret, out_tis);
 
 		*port_num = DEVX_GET(query_tis_out, out_tis,
 				     tis_context.lag_tx_port_affinity);
@@ -1182,7 +1216,7 @@ static int _mlx5dv_query_qp_lag_port(struct ibv_qp *qp, uint8_t *port_num,
 		ret = mlx5dv_devx_qp_query(qp, in_qp, sizeof(in_qp), out_qp,
 					   sizeof(out_qp));
 		if (ret)
-			return ret;
+			return mlx5_get_cmd_status_err(ret, out_qp);
 
 		*port_num = DEVX_GET(query_qp_out, out_qp,
 				     qpc.lag_tx_port_affinity);
@@ -1222,12 +1256,14 @@ static int modify_tis_lag_port(struct ibv_qp *qp, uint8_t port_num)
 	uint32_t out[DEVX_ST_SZ_DW(modify_tis_out)] = {};
 	uint32_t in[DEVX_ST_SZ_DW(modify_tis_in)] = {};
 	struct mlx5_qp *mqp = to_mqp(qp);
+	int ret;
 
 	DEVX_SET(modify_tis_in, in, opcode, MLX5_CMD_OP_MODIFY_TIS);
 	DEVX_SET(modify_tis_in, in, tisn, mqp->tisn);
 	DEVX_SET(modify_tis_in, in, bitmask.lag_tx_port_affinity, 1);
 	DEVX_SET(modify_tis_in, in, ctx.lag_tx_port_affinity, port_num);
-	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+	ret = mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+	return ret ? mlx5_get_cmd_status_err(ret, out) : 0;
 }
 
 static int modify_qp_lag_port(struct ibv_qp *qp, uint8_t port_num)
@@ -1235,6 +1271,7 @@ static int modify_qp_lag_port(struct ibv_qp *qp, uint8_t port_num)
 	uint32_t out[DEVX_ST_SZ_DW(rts2rts_qp_out)] = {};
 	uint32_t in[DEVX_ST_SZ_DW(rts2rts_qp_in)] = {};
 	struct mlx5_context *mctx = to_mctx(qp->context);
+	int ret;
 
 	if (!mctx->entropy_caps.rts2rts_lag_tx_port_affinity ||
 	    qp->state != IBV_QPS_RTS)
@@ -1245,7 +1282,8 @@ static int modify_qp_lag_port(struct ibv_qp *qp, uint8_t port_num)
 	DEVX_SET(rts2rts_qp_in, in, opt_param_mask,
 		 MLX5_QPC_OPT_MASK_RTS2RTS_LAG_TX_PORT_AFFINITY);
 	DEVX_SET(rts2rts_qp_in, in, qpc.lag_tx_port_affinity, port_num);
-	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+	ret = mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+	return ret ? mlx5_get_cmd_status_err(ret, out) : 0;
 }
 
 static int _mlx5dv_modify_qp_lag_port(struct ibv_qp *qp, uint8_t port_num)
@@ -1295,6 +1333,7 @@ static int _mlx5dv_modify_qp_udp_sport(struct ibv_qp *qp, uint16_t udp_sport)
 	uint32_t in[DEVX_ST_SZ_DW(rts2rts_qp_in)] = {};
 	uint32_t out[DEVX_ST_SZ_DW(rts2rts_qp_out)] = {};
 	struct mlx5_context *mctx = to_mctx(qp->context);
+	int ret;
 
 	switch (qp->qp_type) {
 	case IBV_QPT_RC:
@@ -1313,8 +1352,8 @@ static int _mlx5dv_modify_qp_udp_sport(struct ibv_qp *qp, uint16_t udp_sport)
 	DEVX_SET(rts2rts_qp_in, in, qpc.primary_address_path.udp_sport,
 		 udp_sport);
 
-	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out,
-				     sizeof(out));
+	ret = mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+	return ret ? mlx5_get_cmd_status_err(ret, out) : 0;
 }
 
 int mlx5dv_modify_qp_udp_sport(struct ibv_qp *qp, uint16_t udp_sport)
@@ -1334,6 +1373,7 @@ int mlx5dv_dci_stream_id_reset(struct ibv_qp *qp, uint16_t stream_id)
 	struct mlx5_context *mctx = to_mctx(qp->context);
 	struct mlx5_qp *mqp = to_mqp(qp);
 	void *qpce = DEVX_ADDR_OF(rts2rts_qp_in, in, qpc_data_ext);
+	int ret;
 
 	if (!is_mlx5_dev(qp->context->device) ||
 	    !mctx->dci_streams_caps.max_log_num_errored ||
@@ -1352,7 +1392,8 @@ int mlx5dv_dci_stream_id_reset(struct ibv_qp *qp, uint16_t stream_id)
 
 	DEVX_SET(qpc_ext, qpce, dci_stream_channel_id, stream_id);
 
-	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+	ret = mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+	return ret ? mlx5_get_cmd_status_err(ret, out) : 0;
 }
 
 static bool sched_supported(struct ibv_context *ctx)
@@ -1372,6 +1413,7 @@ mlx5dv_sched_nic_create(struct ibv_context *ctx,
 {
 	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
 	uint32_t in[DEVX_ST_SZ_DW(create_sched_elem_in)] = {};
+	struct mlx5dv_devx_obj *obj;
 	uint32_t parent_id;
 	void *attr;
 
@@ -1402,7 +1444,10 @@ mlx5dv_sched_nic_create(struct ibv_context *ctx,
 	DEVX_SET(sched_elem_attr_tsar, attr, tsar_type,
 		 MLX5_SCHED_TSAR_TYPE_DWRR);
 
-	return mlx5dv_devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
+	obj = mlx5dv_devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
+	if (!obj)
+		errno = mlx5_get_cmd_status_err(errno, out);
+	return obj;
 }
 
 static int
@@ -1413,6 +1458,7 @@ mlx5dv_sched_nic_modify(struct mlx5dv_devx_obj *obj,
 	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
 	uint32_t in[DEVX_ST_SZ_DW(create_sched_elem_in)] = {};
 	void *attr;
+	int ret;
 
 	attr = DEVX_ADDR_OF(create_sched_elem_in, in, hdr);
 	DEVX_SET(general_obj_in_cmd_hdr,
@@ -1439,7 +1485,8 @@ mlx5dv_sched_nic_modify(struct mlx5dv_devx_obj *obj,
 	DEVX_SET(sched_elem_attr_tsar, attr, tsar_type,
 		 MLX5_SCHED_TSAR_TYPE_DWRR);
 
-	return mlx5dv_devx_obj_modify(obj, in, sizeof(in), out, sizeof(out));
+	ret = mlx5dv_devx_obj_modify(obj, in, sizeof(in), out, sizeof(out));
+	return ret ? mlx5_get_cmd_status_err(ret, out) : 0;
 }
 
 #define MLX5DV_SCHED_ELEM_ATTR_ALL_FLAGS \
@@ -1682,6 +1729,7 @@ static int modify_ib_qp_sched_elem_init(struct ibv_qp *qp,
 	uint32_t in[DEVX_ST_SZ_DW(init2init_qp_in)] = {};
 	uint32_t out[DEVX_ST_SZ_DW(init2init_qp_out)] = {};
 	void *qpce = DEVX_ADDR_OF(init2init_qp_in, in, qpc_data_ext);
+	int ret;
 
 	DEVX_SET(init2init_qp_in, in, opcode, MLX5_CMD_OP_INIT2INIT_QP);
 	DEVX_SET(init2init_qp_in, in, qpc_ext, 1);
@@ -1691,7 +1739,8 @@ static int modify_ib_qp_sched_elem_init(struct ibv_qp *qp,
 	DEVX_SET(qpc_ext, qpce, qos_queue_group_id_requester, req_id);
 	DEVX_SET(qpc_ext, qpce, qos_queue_group_id_responder, resp_id);
 
-	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+	ret = mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+	return ret ? mlx5_get_cmd_status_err(ret, out) : 0;
 }
 
 static int modify_ib_qp_sched_elem_rts(struct ibv_qp *qp,
@@ -1701,6 +1750,7 @@ static int modify_ib_qp_sched_elem_rts(struct ibv_qp *qp,
 	uint32_t in[DEVX_ST_SZ_DW(rts2rts_qp_in)] = {};
 	uint32_t out[DEVX_ST_SZ_DW(rts2rts_qp_out)] = {};
 	void *qpce = DEVX_ADDR_OF(rts2rts_qp_in, in, qpc_data_ext);
+	int ret;
 
 	DEVX_SET(rts2rts_qp_in, in, opcode, MLX5_CMD_OP_RTS2RTS_QP);
 	DEVX_SET(rts2rts_qp_in, in, qpc_ext, 1);
@@ -1710,7 +1760,8 @@ static int modify_ib_qp_sched_elem_rts(struct ibv_qp *qp,
 	DEVX_SET(qpc_ext, qpce, qos_queue_group_id_requester, req_id);
 	DEVX_SET(qpc_ext, qpce, qos_queue_group_id_responder, resp_id);
 
-	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+	ret = mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+	return ret ? mlx5_get_cmd_status_err(ret, out) : 0;
 }
 
 static int modify_ib_qp_sched_elem(struct ibv_qp *qp,
@@ -1741,6 +1792,7 @@ static int modify_raw_qp_sched_elem(struct ibv_qp *qp, uint32_t qos_id)
 	uint32_t min[DEVX_ST_SZ_DW(modify_sq_in)] = {};
 	struct mlx5_qp *mqp = to_mqp(qp);
 	void *sqc;
+	int ret;
 
 	if (qp->state != IBV_QPS_RTS || !qc->nic_sq_scheduling)
 		return EOPNOTSUPP;
@@ -1754,7 +1806,8 @@ static int modify_raw_qp_sched_elem(struct ibv_qp *qp, uint32_t qos_id)
 	DEVX_SET(sqc, sqc, state, MLX5_SQC_STATE_RDY);
 	DEVX_SET(sqc, sqc, qos_queue_group_id, qos_id);
 
-	return mlx5dv_devx_qp_modify(qp, min, sizeof(min), mout, sizeof(mout));
+	ret = mlx5dv_devx_qp_modify(qp, min, sizeof(min), mout, sizeof(mout));
+	return ret ? mlx5_get_cmd_status_err(ret, mout) : 0;
 }
 
 static int _mlx5dv_modify_qp_sched_elem(struct ibv_qp *qp,
@@ -1804,6 +1857,7 @@ int mlx5_modify_qp_drain_sigerr(struct ibv_qp *qp)
 	uint32_t in[DEVX_ST_SZ_DW(init2init_qp_in)] = {};
 	uint32_t out[DEVX_ST_SZ_DW(init2init_qp_out)] = {};
 	void *qpc = DEVX_ADDR_OF(init2init_qp_in, in, qpc);
+	int ret;
 
 	DEVX_SET(init2init_qp_in, in, opcode, MLX5_CMD_OP_INIT2INIT_QP);
 	DEVX_SET(init2init_qp_in, in, qpn, qp->qp_num);
@@ -1811,7 +1865,8 @@ int mlx5_modify_qp_drain_sigerr(struct ibv_qp *qp)
 
 	DEVX_SET(qpc, qpc, drain_sigerr, 1);
 
-	return mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+	ret = mlx5dv_devx_qp_modify(qp, in, sizeof(in), out, sizeof(out));
+	return ret ? mlx5_get_cmd_status_err(ret, out) : 0;
 }
 
 static struct reserved_qpn_blk *reserved_qpn_blk_alloc(struct mlx5_context *mctx)
@@ -1843,8 +1898,10 @@ static struct reserved_qpn_blk *reserved_qpn_blk_alloc(struct mlx5_context *mctx
 
 	blk->obj = mlx5dv_devx_obj_create(&mctx->ibv_ctx.context,
 					  in, sizeof(in), out, sizeof(out));
-	if (!blk->obj)
+	if (!blk->obj) {
+		errno = mlx5_get_cmd_status_err(errno, out);
 		goto obj_alloc_fail;
+	}
 
 	blk->first_qpn = blk->obj->object_id;
 	blk->next_avail_slot = 0;
@@ -2392,9 +2449,10 @@ static int mlx5_set_context(struct mlx5_context *context,
 	for (i = 0; i < MLX5_MKEY_TABLE_SIZE; ++i)
 		context->mkey_table[i].refcnt = 0;
 
-	context->db_list = NULL;
+	list_head_init(&context->dbr_available_pages);
+	cl_qmap_init(&context->dbr_map);
 
-	pthread_mutex_init(&context->db_list_mutex, NULL);
+	pthread_mutex_init(&context->dbr_map_mutex, NULL);
 
 	context->prefer_bf = get_always_bf();
 	context->shut_up_bf = get_shut_up_bf();

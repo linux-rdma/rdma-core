@@ -12,7 +12,7 @@ from pyverbs.providers.mlx5.mlx5dv_mkey cimport Mlx5MrInterleaved, Mlx5Mkey, \
     Mlx5MkeyConfAttr, Mlx5SigBlockAttr
 from pyverbs.providers.mlx5.mlx5dv_crypto cimport Mlx5CryptoLoginAttr, Mlx5CryptoAttr
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsRDMAError, PyverbsError
-from pyverbs.providers.mlx5.dr_action cimport DrActionFlowCounter
+from pyverbs.providers.mlx5.dr_action cimport DrActionFlowCounter, DrActionDestTir
 from pyverbs.providers.mlx5.mlx5dv_sched cimport Mlx5dvSchedLeaf
 cimport pyverbs.providers.mlx5.mlx5dv_enums as dve
 cimport pyverbs.providers.mlx5.libmlx5 as dv
@@ -177,6 +177,7 @@ cdef class Mlx5DevxObj(PyverbsCM):
         self.context = context
         self.context.add_ref(self)
         self.flow_counter_actions = weakref.WeakSet()
+        self.dest_tir_actions = weakref.WeakSet()
 
     def query(self, in_, outlen):
         """
@@ -227,6 +228,8 @@ cdef class Mlx5DevxObj(PyverbsCM):
     cdef add_ref(self, obj):
         if isinstance(obj, DrActionFlowCounter):
             self.flow_counter_actions.add(obj)
+        elif isinstance(obj, DrActionDestTir):
+            self.dest_tir_actions.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 
@@ -234,13 +237,18 @@ cdef class Mlx5DevxObj(PyverbsCM):
     def out_view(self):
         return self.out_view
 
+    @property
+    def obj(self):
+        return <object>self.obj
+
     def __dealloc__(self):
         self.close()
 
     cpdef close(self):
         if self.obj != NULL:
-            self.logger.debug('Closing Mlx5DvexObj')
-            close_weakrefs([self.flow_counter_actions])
+            if self.logger:
+                self.logger.debug('Closing Mlx5DvexObj')
+            close_weakrefs([self.flow_counter_actions, self.dest_tir_actions])
             rc = dv.mlx5dv_devx_obj_destroy(self.obj)
             if rc:
                 raise PyverbsRDMAError('Failed to destroy a DevX object', rc)
@@ -268,6 +276,7 @@ cdef class Mlx5Context(Context):
                                    .format(dev=self.name))
         self.devx_umems = weakref.WeakSet()
         self.devx_objs = weakref.WeakSet()
+        self.devx_eqs = weakref.WeakSet()
 
     def query_mlx5_device(self, comp_mask=-1):
         """
@@ -430,6 +439,8 @@ cdef class Mlx5Context(Context):
                 self.devx_umems.add(obj)
             elif isinstance(obj, Mlx5DevxObj):
                 self.devx_objs.add(obj)
+            elif isinstance(obj, Mlx5DevxEq):
+                self.devx_eqs.add(obj)
             else:
                 raise PyverbsError('Unrecognized object type')
 
@@ -438,7 +449,7 @@ cdef class Mlx5Context(Context):
 
     cpdef close(self):
         if self.context != NULL:
-            close_weakrefs([self.pps, self.devx_objs, self.devx_umems])
+            close_weakrefs([self.pps, self.devx_objs, self.devx_umems, self.devx_eqs])
             super(Mlx5Context, self).close()
 
 
@@ -1660,7 +1671,8 @@ cdef class Mlx5UMEM(PyverbsCM):
 
     cpdef close(self):
         if self.umem != NULL:
-            self.logger.debug('Closing Mlx5UMEM')
+            if self.logger:
+                self.logger.debug('Closing Mlx5UMEM')
             rc = dv.mlx5dv_devx_umem_dereg(self.umem)
             try:
                 if rc:
@@ -1755,3 +1767,84 @@ cdef class Mlx5Cqe64(PyverbsObject):
 
     def __str__(self):
         return (<dv.mlx5_cqe64>((<dv.mlx5_cqe64*>self.cqe)[0])).__str__()
+
+cdef class Mlx5DevxMsiVector(PyverbsCM):
+    """
+    Represents mlx5dv_devx_msi_vector C struct.
+    """
+    def __init__(self, Context context):
+        super().__init__()
+        self.msi_vector = dv.mlx5dv_devx_alloc_msi_vector(context.context)
+        if self.msi_vector == NULL:
+            raise PyverbsRDMAErrno('Failed to allocate an msi_vector')
+
+    @property
+    def vector(self):
+        return self.msi_vector.vector
+
+    @property
+    def fd(self):
+        return self.msi_vector.fd
+
+    cpdef close(self):
+        if self.msi_vector != NULL:
+            rc = dv.mlx5dv_devx_free_msi_vector(self.msi_vector)
+            if rc:
+                raise PyverbsRDMAError('Failed to free the msi_vector', rc)
+        self.msi_vector = NULL
+
+
+cdef class Mlx5DevxEq(PyverbsCM):
+    """
+    Represents mlx5dv_devx_eq C struct.
+    """
+    def __init__(self, Context context, in_, outlen):
+        """
+        Creates a DevX EQ object.
+        If the object was successfully created, the command's output would be
+        stored as a memoryview in self.out_view.
+        :param in_: Bytes of the obj_create command's input data provided in a
+                    device specification format.
+                    (Stream of bytes or __bytes__ is implemented)
+        :param outlen: Expected output length in bytes
+        """
+        super().__init__()
+        in_bytes = bytes(in_)
+        cdef char *in_mailbox = _prepare_devx_inbox(in_bytes)
+        cdef char *out_mailbox = _prepare_devx_outbox(outlen)
+        self.eq = dv.mlx5dv_devx_create_eq(context.context, in_mailbox,
+                                           len(in_bytes), out_mailbox, outlen)
+        try:
+            if self.eq == NULL:
+                raise PyverbsRDMAErrno('Failed to create async EQ object')
+            self.out_view = memoryview(out_mailbox[:outlen])
+            status = hex(self.out_view[0])
+            syndrome = self.out_view[4:8].hex()
+            if status != hex(0):
+                raise PyverbsRDMAError('Failed to create async EQ object with status'
+                                       f'({status}) and syndrome (0x{syndrome})')
+        finally:
+            free(in_mailbox)
+            free(out_mailbox)
+        self.context = context
+        self.context.add_ref(self)
+
+    @property
+    def out_view(self):
+        return self.out_view
+
+    @property
+    def vaddr(self):
+        return <uintptr_t><void*>self.eq.vaddr
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.eq != NULL:
+            self.logger.debug('Closing Mlx5DevxEq')
+            rc = dv.mlx5dv_devx_destroy_eq(self.eq)
+            if rc:
+                raise PyverbsRDMAError('Failed to destroy a DevX EQ object', rc)
+            self.eq = NULL
+            self.context = None
