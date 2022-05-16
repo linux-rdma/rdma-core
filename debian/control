@@ -1,5 +1,5 @@
 Source: rdma-core
-Maintainer: Benjamin Drung <benjamin.drung@ionos.com>
+Maintainer: Benjamin Drung <bdrung@ubuntu.com>
 Section: net
 Priority: optional
 Build-Depends: cmake (>= 2.8.11),
