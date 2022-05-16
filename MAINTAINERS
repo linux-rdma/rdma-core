@@ -42,7 +42,7 @@ F:	*/lib*.map
 F:	buildlib/
 
 DEBIAN PACKAGING
-M:	Benjamin Drung <benjamin.drung@ionos.com>
+M:	Benjamin Drung <bdrung@ubuntu.com>
 S:	Supported
 F:	debian/
 
