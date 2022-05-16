@@ -1,6 +1,6 @@
 Source: rdma-core
 Maintainer: Linux RDMA Mailing List <linux-rdma@vger.kernel.org>
-Uploaders: Benjamin Drung <benjamin.drung@ionos.com>,
+Uploaders: Benjamin Drung <bdrung@ubuntu.com>,
            Talat Batheesh <talatb@mellanox.com>
 Section: net
 Priority: optional
