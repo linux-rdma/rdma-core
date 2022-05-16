@@ -362,6 +362,9 @@ class RDMACMBaseTest(RDMATestCase):
             res, side = self.notifier.get()
             proc_res[side] = res
         for ex in proc_res.values():
+            if isinstance(ex, PyverbsRDMAError) and \
+                    ex.error_code == errno.EOPNOTSUPP:
+                        raise unittest.SkipTest(ex)
             if isinstance(ex, unittest.case.SkipTest):
                 raise(ex)
         if proc_res:
