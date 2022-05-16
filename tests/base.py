@@ -654,10 +654,15 @@ class UDResources(TrafficResources):
         qp_attr.qkey = self.UD_QKEY
         qp_attr.pkey_index = self.UD_PKEY_INDEX
         for _ in range(self.qp_count):
-            qp = QP(self.pd, qp_init_attr, qp_attr)
-            self.qps.append(qp)
-            self.qps_num.append(qp.qp_num)
-            self.psns.append(random.getrandbits(24))
+            try:
+                qp = QP(self.pd, qp_init_attr, qp_attr)
+                self.qps.append(qp)
+                self.qps_num.append(qp.qp_num)
+                self.psns.append(random.getrandbits(24))
+            except PyverbsRDMAError as ex:
+                if ex.error_code == errno.EOPNOTSUPP:
+                    raise unittest.SkipTest(f'Create QP type {qp_init_attr.qp_type} is not supported')
+                raise ex
 
     def pre_run(self, rpsns, rqps_num):
         self.rpsns = rpsns
