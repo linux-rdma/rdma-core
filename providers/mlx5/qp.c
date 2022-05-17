@@ -633,7 +633,7 @@ static inline int set_bind_wr(struct mlx5_qp *qp, enum ibv_mw_type type,
 	if (!bind_info->length)
 		return 0;
 
-	if (unlikely((seg == qend)))
+	if (unlikely((*seg == qend)))
 		*seg = mlx5_get_send_wqe(qp, 0);
 
 	set_umr_data_seg(qp, type, rkey, bind_info, qpn, seg, size);
