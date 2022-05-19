@@ -288,7 +288,7 @@ class QpExTestCase(RDMATestCase):
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Memory Window allocation is not supported')
             raise ex
-        new_key = inc_rkey(server.mr.rkey)
+        new_key = inc_rkey(mw.rkey)
         server.qp.wr_bind_mw(mw, new_key, bind_info)
         server.qp.wr_complete()
         u.poll_cq(server.cq)
