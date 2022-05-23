@@ -14,9 +14,10 @@ from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, \
     Mlx5DVQPInitAttr, Mlx5QP, Mlx5DVDCInitAttr, Mlx5DCIStreamInitAttr, \
     Mlx5DevxObj, Mlx5UMEM, Mlx5UAR, WqeDataSeg, WqeCtrlSeg, Wqe, Mlx5Cqe64, \
     Mlx5DVCQInitAttr, Mlx5CQ
-from tests.base import TrafficResources, set_rnr_attributes, DCT_KEY, \
+from tests.base import RoCETrafficResources, set_rnr_attributes, DCT_KEY, \
     RDMATestCase, PyverbsAPITestCase, RDMACMBaseTest, BaseResources, PATH_MTU, \
-    RNR_RETRY, RETRY_CNT, MIN_RNR_TIMER, TIMEOUT, MAX_RDMA_ATOMIC, RCResources
+    RNR_RETRY, RETRY_CNT, MIN_RNR_TIMER, TIMEOUT, MAX_RDMA_ATOMIC, RCResources, \
+    is_gid_available
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError, \
     PyverbsError
 from pyverbs.providers.mlx5.mlx5dv_objects import Mlx5DvObj
@@ -34,6 +35,7 @@ import tests.utils
 
 MLX5_CQ_SET_CI = 0
 POLL_CQ_TIMEOUT = 5  # In seconds
+PORT_STATE_TIMEOUT = 20  # In seconds
 
 MELLANOX_VENDOR_ID = 0x02c9
 MLX5_DEVS = {
@@ -109,7 +111,7 @@ class Mlx5RDMACMBaseTest(RDMACMBaseTest):
         skip_if_not_mlx5_dev(d.Context(name=self.dev_name))
 
 
-class Mlx5DcResources(TrafficResources):
+class Mlx5DcResources(RoCETrafficResources):
     def __init__(self, dev_name, ib_port, gid_index, send_ops_flags,
                  qp_count=1, create_flags=0):
         self.send_ops_flags = send_ops_flags
@@ -472,7 +474,7 @@ class Mlx5DevxRcResources(BaseResources):
     The class currently supports post send with immediate, but can be
     easily extended to support other opcodes in the future.
     """
-    def __init__(self, dev_name, ib_port, gid_index, msg_size=1024):
+    def __init__(self, dev_name, ib_port, gid_index, msg_size=1024, activate_port_state=False):
         super().__init__(dev_name, ib_port, gid_index)
         self.umems = {}
         self.msg_size = msg_size
@@ -500,6 +502,23 @@ class Mlx5DevxRcResources(BaseResources):
         self.rmac = None
         self.devx_objs = []
         self.qattr = QueueAttrs()
+        if activate_port_state:
+            start_state_t = time.perf_counter()
+            self.change_port_state_with_registers(PortStatus.MLX5_PORT_UP)
+            admin_status, oper_status = self.query_port_state_with_registers()
+            while admin_status != PortStatus.MLX5_PORT_UP or oper_status != PortStatus.MLX5_PORT_UP:
+                if time.perf_counter() - start_state_t >= PORT_STATE_TIMEOUT:
+                    raise PyverbsRDMAError('Could not change the port state to UP')
+                self.change_port_state_with_registers(PortStatus.MLX5_PORT_UP)
+                admin_status, oper_status = self.query_port_state_with_registers()
+                time.sleep(1)
+
+            mad_port_state = self.query_port_state_with_mads(ib_port)
+            while mad_port_state < PortState.ACTIVE:
+                if time.perf_counter() - start_state_t >= PORT_STATE_TIMEOUT:
+                    raise PyverbsRDMAError('Could not change the port state to UP')
+                time.sleep(1)
+                mad_port_state = self.query_port_state_with_mads(ib_port)
         self.init_resources()
 
     def change_port_state_with_registers(self, state):
@@ -546,6 +565,7 @@ class Mlx5DevxRcResources(BaseResources):
         if not self.is_eth():
             self.query_lid()
         else:
+            is_gid_available(self.gid_index)
             self.query_gid()
         self.create_pd()
         self.create_mr()

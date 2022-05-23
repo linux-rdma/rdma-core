@@ -14,7 +14,8 @@ import time
 import math
 import os
 
-from tests.mlx5_base import Mlx5DevxRcResources, Mlx5DevxTrafficBase, PortState, PortStatus
+from tests.mlx5_base import Mlx5DevxRcResources, Mlx5DevxTrafficBase, PortState, \
+    PortStatus, PORT_STATE_TIMEOUT
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxMsiVector, Mlx5DevxEq, Mlx5UAR
 from pyverbs.providers.mlx5.mlx5_vfio import Mlx5VfioAttr, Mlx5VfioContext
 from pyverbs.pyverbs_error import PyverbsRDMAError
@@ -23,14 +24,12 @@ from pyverbs.base import PyverbsRDMAErrno
 import pyverbs.mem_alloc as mem
 import pyverbs.dma_util as dma
 
-PORT_STATE_TIMEOUT = 20  # In seconds
-
 
 class Mlx5VfioResources(Mlx5DevxRcResources):
-    def __init__(self, ib_port, pci_name, gid_index=None, ctx=None):
+    def __init__(self, ib_port, pci_name, gid_index=None, ctx=None, activate_port_state=False):
         self.pci_name = pci_name
         self.ctx = ctx
-        super().__init__(None, ib_port, gid_index)
+        super().__init__(None, ib_port, gid_index, activate_port_state=activate_port_state)
 
     def create_context(self):
         """
@@ -168,7 +167,8 @@ class Mlx5VfioTrafficTest(Mlx5DevxTrafficBase):
             raise unittest.SkipTest('PCI device must be passed by the user')
 
     def create_players(self):
-        self.server = Mlx5VfioResources(ib_port=self.ib_port, pci_name=self.pci_dev)
+        self.server = Mlx5VfioResources(ib_port=self.ib_port, pci_name=self.pci_dev,
+                                        activate_port_state=True)
         self.client = Mlx5VfioResources(ib_port=self.ib_port, pci_name=self.pci_dev,
                                         ctx=self.server.ctx)
 

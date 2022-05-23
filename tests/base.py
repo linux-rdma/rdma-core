@@ -62,6 +62,11 @@ def set_rnr_attributes(qp_attr):
     qp_attr.rnr_retry = RNR_RETRY
 
 
+def is_gid_available(gid_index):
+    if gid_index is None:
+        raise unittest.SkipTest(f'No relevant GID found')
+
+
 class PyverbsAPITestCase(unittest.TestCase):
     def __init__(self, methodName='runTest'):
         super().__init__(methodName)
@@ -222,6 +227,9 @@ class RDMATestCase(unittest.TestCase):
         port_attrs = ctx.query_port(port)
         if port_attrs.state != e.IBV_PORT_ACTIVE:
             return
+        if not port_attrs.gid_tbl_len:
+            self._get_ip_mac(dev, port, None)
+            return
         dev_attrs = ctx.query_device()
         vendor_id = dev_attrs.vendor_id
         vendor_pid = dev_attrs.vendor_part_id
@@ -311,6 +319,7 @@ class RDMACMBaseTest(RDMATestCase):
         if not self.ip_addr:
             raise unittest.SkipTest('Device {} doesn\'t have net interface'
                                     .format(self.dev_name))
+        is_gid_available(self.gid_index)
 
     def two_nodes_rdmacm_traffic(self, connection_resources, test_flow,
                                  **resource_kwargs):
@@ -602,7 +611,13 @@ class TrafficResources(BaseResources):
         raise NotImplementedError()
 
 
-class RCResources(TrafficResources):
+class RoCETrafficResources(TrafficResources):
+    def __init__(self, dev_name, ib_port, gid_index, **kwargs):
+        is_gid_available(gid_index)
+        super(RoCETrafficResources, self).__init__(dev_name, ib_port, gid_index, **kwargs)
+
+
+class RCResources(RoCETrafficResources):
 
     def to_rts(self):
         """
@@ -638,7 +653,7 @@ class RCResources(TrafficResources):
         self.to_rts()
 
 
-class UDResources(TrafficResources):
+class UDResources(RoCETrafficResources):
     UD_QKEY = 0x11111111
     UD_PKEY_INDEX = 0
     GRH_SIZE = 40
@@ -678,7 +693,7 @@ class RawResources(TrafficResources):
                           rcq=self.cq, srq=self.srq, cap=self.create_qp_cap())
 
 
-class XRCResources(TrafficResources):
+class XRCResources(RoCETrafficResources):
     def __init__(self, dev_name, ib_port, gid_index, qp_count=2):
         self.temp_file = None
         self.xrcd_fd = -1

@@ -231,6 +231,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         for _ in range(iters):
             u.send(self.server, c_send_wr, e.IBV_WR_SEND)
             u.poll_cq_ex(self.server.cq)
+            u.poll_cq_ex(self.server.cq)
             u.post_recv(self.server, s_recv_wr, qp_idx=0)
             msg_received = self.server.mr.read(self.server.msg_size, 0)
             u.validate_raw(msg_received, msg, [])
@@ -270,6 +271,18 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters)
         # Validate traffic on TX
         self.send_server_fdb_to_nic_packets(self.iters)
+
+    @staticmethod
+    def create_dest_mac_params():
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParam
+
+        eth_match_mask = FlowTableEntryMatchParam()
+        eth_match_mask.outer_headers.dmac = PacketConsts.MAC_MASK
+        eth_match_value = FlowTableEntryMatchParam()
+        eth_match_value.outer_headers.dmac = PacketConsts.DST_MAC
+        mask_param = Mlx5FlowMatchParameters(len(eth_match_mask), eth_match_mask)
+        value_param = Mlx5FlowMatchParameters(len(eth_match_value), eth_match_value)
+        return mask_param, value_param
 
     @requires_eswitch_on
     def test_dest_vport(self):
@@ -360,10 +373,11 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         # to the server RX domain and counts them.
         domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         table = DrTable(domain_rx, 0)
-        mask_param = Mlx5FlowMatchParameters(MAX_MATCH_PARAM_SIZE, bytes(MAX_MATCH_PARAM_SIZE))
-        matcher = DrMatcher(table, 0, u.MatchCriteriaEnable.NONE, mask_param)
+        mask_param, value_param = self.create_dest_mac_params()
+        matcher = DrMatcher(table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
         self.rx_drop_action = DrActionDrop()
-        self.rules.append(DrRule(matcher, mask_param, [self.server_counter_action, self.rx_drop_action]))
+        self.rules.append(DrRule(matcher, value_param, [self.server_counter_action,
+                                                        self.rx_drop_action]))
 
         # Create drop action on the client TX on specific smac.
         self.tx_drop_action = DrActionDrop()
