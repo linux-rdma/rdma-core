@@ -67,6 +67,19 @@ cdef char* _prepare_devx_outbox(outlen):
     return out_mailbox
 
 
+cdef uintptr_t copy_data_to_addr(uintptr_t addr, data):
+    """
+    Auxiliary function that copies data to memory at provided address.
+    :param addr: Address to copy the data to
+    :param data: Data to copy
+    :return: The incremented address to the end of the written data
+    """
+    cdef bytes py_bytes = bytes(data)
+    cdef char *tmp = py_bytes
+    memcpy(<void *>addr, tmp, len(data))
+    return addr + len(data)
+
+
 cdef class Mlx5DVPortAttr(PyverbsObject):
     """
     Represents mlx5dv_port struct, which exposes mlx5-specific capabilities,
@@ -1584,7 +1597,8 @@ cdef class Wqe(PyverbsCM):
         Create a Wqe with <segments>, in case an address <addr> was not passed
         by the user, memory would be allocated according to the size needed and
         the segments are copied over to the buffer.
-        :param segments: The segments (ctrl, data) of the Wqe
+        :param segments: The segments (ctrl, data) of the Wqe as PRM format or
+                         WqeSeg instance.
         :param addr: User address to write the WQE on (Optional)
         """
         self.segments = segments
@@ -1593,12 +1607,16 @@ cdef class Wqe(PyverbsCM):
             self.addr = <void*><uintptr_t> addr
         else:
             self.is_user_addr = False
-            allocation_size = sum(map(lambda x: x.sizeof(), self.segments))
+            allocation_size = sum(map(lambda x: x.sizeof() if isinstance(x, WqeSeg) else len(x),
+                                      self.segments))
             self.addr = calloc(allocation_size, 1)
         addr = <uintptr_t>self.addr
         for seg in self.segments:
-            seg._copy_to_buffer(addr)
-            addr += seg.sizeof()
+            if isinstance(seg, WqeSeg):
+                seg._copy_to_buffer(addr)
+                addr += seg.sizeof()
+            else:  # PRM format
+                addr = copy_data_to_addr(addr, seg)
 
     @property
     def address(self):
