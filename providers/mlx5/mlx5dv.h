@@ -613,6 +613,8 @@ static inline void mlx5dv_wr_raw_wqe(struct mlx5dv_qp_ex *mqp, const void *wqe)
 	mqp->wr_raw_wqe(mqp, wqe);
 }
 
+struct mlx5dv_crypto_login_obj;
+
 struct mlx5dv_crypto_login_attr {
 	uint32_t credential_id;
 	uint32_t import_kek_id;
@@ -620,10 +622,22 @@ struct mlx5dv_crypto_login_attr {
 	uint64_t comp_mask;
 };
 
+struct mlx5dv_crypto_login_attr_ex {
+	uint32_t credential_id;
+	uint32_t import_kek_id;
+	const void *credential;
+	size_t credential_len;
+	uint64_t comp_mask;
+};
 enum mlx5dv_crypto_login_state {
 	MLX5DV_CRYPTO_LOGIN_STATE_VALID,
 	MLX5DV_CRYPTO_LOGIN_STATE_NO_LOGIN,
 	MLX5DV_CRYPTO_LOGIN_STATE_INVALID,
+};
+
+struct mlx5dv_crypto_login_query_attr {
+	enum mlx5dv_crypto_login_state state;
+	uint64_t comp_mask;
 };
 
 int mlx5dv_crypto_login(struct ibv_context *context,
@@ -633,6 +647,15 @@ int mlx5dv_crypto_login_query_state(struct ibv_context *context,
 				    enum mlx5dv_crypto_login_state *state);
 
 int mlx5dv_crypto_logout(struct ibv_context *context);
+
+struct mlx5dv_crypto_login_obj *
+mlx5dv_crypto_login_create(struct ibv_context *context,
+			   struct mlx5dv_crypto_login_attr_ex *login_attr);
+
+int mlx5dv_crypto_login_query(struct mlx5dv_crypto_login_obj *crypto_login,
+			      struct mlx5dv_crypto_login_query_attr *query_attr);
+
+int mlx5dv_crypto_login_destroy(struct mlx5dv_crypto_login_obj *crypto_login);
 
 enum mlx5dv_crypto_key_size {
 	MLX5DV_CRYPTO_KEY_SIZE_128,

@@ -308,7 +308,8 @@ When *data_unit_size* = 520B:
 
 **mlx5dv_wr_mkey_configure**(3), **mlx5dv_wr_set_mkey_sig_block**(3),
 **mlx5dv_create_mkey**(3), **mlx5dv_destroy_mkey**(3),
-**mlx5dv_crypto_login**(3), **mlx5dv_dek_create**(3)
+**mlx5dv_crypto_login**(3), **mlx5dv_crypto_login_create**(3),
+**mlx5dv_dek_create**(3)
 
 # AUTHORS
 
