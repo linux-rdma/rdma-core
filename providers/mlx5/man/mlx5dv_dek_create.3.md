@@ -37,17 +37,37 @@ software process needs to re-create all needed DEKs on startup.
 **mlx5dv_dek_create()** creates a new DEK with the attributes specified in
 *init_attr*. A pointer to the newly created dek is returned, which can be used
 for DEK query, DEK destruction and when configuring a MKey for crypto offload
-operations. An active crypto login session must be present in order to create
-a DEK.
+operations.
 
-To use the created DEK in a MKey, a valid or active crypto login session is not
-needed. Revoking the import KEK or credential that were used during the login
-(and therefore rendering the login session invalid) does not prevent using a
-created DEK.
+The DEK can be either wrapped or in plaintext and the format that should be used
+is determined by the specified crypto_login object.
+
+To create a wrapped DEK, the application must have a valid crypto login object
+prior to creating the DEK. Creating a wrapped DEK can be performed in two
+ways:
+1. Call **mlx5dv_crypto_login_create()** to obtain a crypto login object.
+Indicate that the DEK is wrapped by setting
+**MLX5DV_DEK_INIT_ATTR_CRYPTO_LOGIN** value in *comp_mask* and passing the
+crypto login object in *crypto_login* field of *init_attr*. Fill the other DEK
+attributes and create the DEK.
+
+2. Call **mlx5dv_crypto_login()** i.e., the old API.
+Supply credential, import_kek_id
+
+To create a plaintext DEK, the application must indicate that the DEK is in
+plaintext by setting **MLX5DV_DEK_INIT_ATTR_CRYPTO_LOGIN** value in *comp_mask*
+and passing NULL value in *crypto_login* field of *init_attr*, fill the other
+DEK attributes and create the DEK.
+
+To use the created DEK (either wrapped or plaintext) in a MKey, a valid crypto
+login object or session is not needed. Revoking the import KEK or credential
+that were used for the crypto login object or session (and therefore rendering
+the crypto login invalid) does not prevent using a created DEK.
 
 **mlx5dv_dek_query()** queries the DEK specified by *dek* and returns the
-queried attributes in *attr*. An active crypto login session must be present
-in order to query a DEK.
+queried attributes in *attr*. A valid crypto login object or session is not
+required to query a plaintext DEK. On the other hand, to query a wrapped DEK a
+valid crypto login object or session must be present.
 
 **mlx5dv_dek_destroy()** destroys the DEK specified by *dek*.
 
@@ -55,12 +75,15 @@ in order to query a DEK.
 
 ## context
 
-The device context to create the DEK with. *context* must have an active crypto
-login session associated with in order to create the DEK.
+The device context to create the DEK with.
 
 ## init_attr
 
 ```c
+enum mlx5dv_dek_init_attr_mask {
+	MLX5DV_DEK_INIT_ATTR_CRYPTO_LOGIN = 1 << 0,
+};
+
 struct mlx5dv_dek_init_attr {
 	enum mlx5dv_crypto_key_size key_size;
 	bool has_keytag;
@@ -68,10 +91,10 @@ struct mlx5dv_dek_init_attr {
 	struct ibv_pd *pd;
 	char opaque[8];
 	char key[128];
-	uint64_t comp_mask;
+	uint64_t comp_mask; /* Use enum mlx5dv_dek_init_attr_mask */
+	struct mlx5dv_crypto_login_obj *crypto_login;
 };
 ```
-
 *key_size*
 
 :	The size of the key, can be one of the following
@@ -112,31 +135,44 @@ struct mlx5dv_dek_init_attr {
 *key*
 
 :	The key that will be used for encryption and decryption of transmitted
-	data. Must be provided wrapped by the import KEK that was specified
-	for the crypto login session.
+	data.
+	For plaintext DEK *key* must be provided in plaintext.
+	For wrapped DEK *key* must be provided wrapped by the import KEK that
+	was specified in the crypto login.
 	Actual size and layout of this field depend on the provided *key_size*
-	and *has_keytag* fields.
+	and *has_keytag* fields, as well as on the format of the key (plaintext
+	or wrapped).
 	*key* should be constructed according to the following table.
 
 	Table: DEK *key* Field Construction.
 
-	|   Key size   |  Has Keytag  |                      Key Layout                    |
-	| ------------ | ------------ | -------------------------------------------------- |
-	|    128 Bit   |      No      |         ENC(iv_64b + key1_128b + key2_128b)        |
-	|              |              |                                                    |
-	|    256 Bit   |      No      |         ENC(iv_64b + key1_256b + key2_256b)        |
-	|              |              |                                                    |
-	|    128 Bit   |     Yes      |  ENC(iv_64b + key1_128b + key2_128b + 64b_keytag)  |
-	|              |              |                                                    |
-	|    256 Bit   |     Yes      |  ENC(iv_64b + key1_256b + key2_256b + 64b_keytag)  |
+	|  Import Method  |  Has Keytag  |   Key size   |                     Key Layout                   |
+	| --------------- | ------------ | ------------ | ------------------------------------------------ |
+	|    Plaintext    |      No      |    128 Bit   |              key1_128b + key2_128b               |
+	|                 |              |              |                                                  |
+	|    Plaintext    |      No      |    256 Bit   |              key1_256b + key2_256b               |
+	|                 |              |              |                                                  |
+	|    Plaintext    |     Yes      |    128 Bit   |        key1_128b + key2_128b + keytag_64b        |
+	|                 |              |              |                                                  |
+	|    Plaintext    |     Yes      |    256 Bit   |        key1_256b + key2_256b + keytag_64b        |
+	|                 |              |              |                                                  |
+	|     Wrapped     |      No      |    128 Bit   |        ENC(iv_64b + key1_128b + key2_128b)       |
+	|                 |              |              |                                                  |
+	|     Wrapped     |      No      |    256 Bit   |        ENC(iv_64b + key1_256b + key2_256b)       |
+	|                 |              |              |                                                  |
+	|     Wrapped     |     Yes      |    128 Bit   | ENC(iv_64b + key1_128b + key2_128b + keytag_64b) |
+	|                 |              |              |                                                  |
+	|     Wrapped     |     Yes      |    256 Bit   | ENC(iv_64b + key1_256b + key2_256b + keytag_64b) |
 
 	Where ENC() is AES key wrap algorithm and iv_64b is 0xA6A6A6A6A6A6A6A6
-	as per the AES key wrap spec.
+	as per the NIST SP 800-38F AES key wrap spec.
 
 	The following example shows how to wrap a 128 bit key that has keytag
 	using a 128 bit import KEK in OpenSSL:
 
 	```c
+	#include <openssl/evp.h>
+
 	unsigned char import_kek[16]; /* 128 bit import KEK in plaintext for wrapping */
 	unsigned char iv[8] = {0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6};
 
@@ -160,7 +196,21 @@ struct mlx5dv_dek_init_attr {
 
 *comp_mask*
 
-:	Reserved for future extension, must be 0 now.
+:	Currently can be the following value:
+
+	**MLX5DV_DEK_INIT_ATTR_CRYPTO_LOGIN**, which indicates that *crypto_login*
+	field is applicable.
+
+
+*crypto_login*
+
+:	Pointer to a crypto login object. If set to a valid crypto login object,
+	indicates that this is a wrapped DEK that will be created using the
+	given crypto login object. If set to NULL, indicates that this is a
+	plaintext DEK. Must be NULL if **MLX5DV_DEK_INIT_ATTR_CRYPTO_LOGIN** is
+	not set.
+	Only relevant when comp_mask is set with *MLX5DV_DEK_INIT_ATTR_CRYPTO_LOGIN*
+
 
 ## dek
 
@@ -213,7 +263,8 @@ DEK attributes. On error errno value is returned.
 
 # SEE ALSO
 
-**mlx5dv_crypto_login**(3)
+**mlx5dv_crypto_login**(3), **mlx5dv_crypto_login_create**(3),
+**mlx5dv_query_device**(3)
 
 # AUTHORS
 

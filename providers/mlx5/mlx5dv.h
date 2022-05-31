@@ -671,6 +671,10 @@ enum mlx5dv_dek_state {
 	MLX5DV_DEK_STATE_ERROR,
 };
 
+enum mlx5dv_dek_init_attr_mask {
+	MLX5DV_DEK_INIT_ATTR_CRYPTO_LOGIN = 1 << 0,
+};
+
 struct mlx5dv_dek_init_attr {
 	enum mlx5dv_crypto_key_size key_size;
 	bool has_keytag;
@@ -679,6 +683,7 @@ struct mlx5dv_dek_init_attr {
 	char opaque[8];
 	char key[128];
 	uint64_t comp_mask;
+	struct mlx5dv_crypto_login_obj *crypto_login;
 };
 
 struct mlx5dv_dek_attr {

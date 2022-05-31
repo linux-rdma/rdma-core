@@ -6675,9 +6675,7 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 
 	if (crypto_mkey) {
 		if (!(to_mctx(pd->context)->crypto_caps.crypto_engines &
-		      MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK) ||
-		    !(to_mctx(pd->context)->crypto_caps.flags &
-		      MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL)) {
+		      MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK)) {
 			errno = EOPNOTSUPP;
 			goto err_destroy_sig_ctx;
 		}
@@ -7195,6 +7193,40 @@ int mlx5dv_crypto_login_destroy(struct mlx5dv_crypto_login_obj *crypto_login)
 	return dvops->crypto_login_destroy(crypto_login);
 }
 
+static int check_dek_import_method(struct ibv_context *context,
+				   struct mlx5dv_dek_init_attr *init_attr)
+{
+	struct mlx5_context *mctx = to_mctx(context);
+	int err = 0;
+
+	if (init_attr->comp_mask & MLX5DV_DEK_INIT_ATTR_CRYPTO_LOGIN) {
+		if (init_attr->crypto_login) {
+			/*
+			 * User wants to create a wrapped DEK using a crypto
+			 * login object created by mlx5dv_crypto_login_create().
+			 */
+			if (!(mctx->crypto_caps.wrapped_import_method &
+			      MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS))
+				err = EINVAL;
+		} else {
+			/* User wants to create a plaintext DEK. */
+			if (mctx->crypto_caps.wrapped_import_method &
+			    MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS)
+				err = EINVAL;
+		}
+	} else {
+		/*
+		 * User wants to create a wrapped DEK using the global crypto
+		 * login object created by mlx5dv_crypto_login().
+		 */
+		if (!mctx->crypto_login ||
+		    !(mctx->crypto_caps.wrapped_import_method &
+		      MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS))
+			err = EINVAL;
+	}
+
+	return err;
+}
 static struct mlx5dv_dek *
 _mlx5dv_dek_create(struct ibv_context *context,
 		   struct mlx5dv_dek_init_attr *init_attr)
@@ -7235,15 +7267,22 @@ _mlx5dv_dek_create(struct ibv_context *context,
 		return NULL;
 	}
 
-	if (init_attr->comp_mask) {
+	if (!check_comp_mask(init_attr->comp_mask,
+			     MLX5DV_DEK_INIT_ATTR_CRYPTO_LOGIN)) {
 		errno = EINVAL;
 		return NULL;
+	}
+
+	errno = check_dek_import_method(context, init_attr);
+	if (errno) {
+		dek = NULL;
+		goto out;
 	}
 
 	dek = calloc(1, sizeof(*dek));
 	if (!dek) {
 		errno = ENOMEM;
-		return NULL;
+		goto out;
 	}
 
 	attr = DEVX_ADDR_OF(create_encryption_key_obj_in, in, hdr);
@@ -7266,11 +7305,12 @@ _mlx5dv_dek_create(struct ibv_context *context,
 	if (!obj) {
 		errno = mlx5_get_cmd_status_err(errno, out);
 		free(dek);
-		return NULL;
+		dek = NULL;
+		goto out;
 	}
 
 	dek->devx_obj = obj;
-
+out:
 	return dek;
 }
 
