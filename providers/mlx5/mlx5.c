@@ -2407,6 +2407,10 @@ static int mlx5_set_context(struct mlx5_context *context,
 	if (resp->comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_REAL_TIME_TS)
 		context->flags |= MLX5_CTX_FLAGS_REAL_TIME_TS_SUPPORTED;
 
+	if (resp->comp_mask &
+	    MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_MKEY_UPDATE_TAG)
+		context->flags |= MLX5_CTX_FLAGS_MKEY_UPDATE_TAG_SUPPORTED;
+
 	if (resp->comp_mask & MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_DUMP_FILL_MKEY) {
 		context->dump_fill_mkey = resp->dump_fill_mkey;
 		/* Have the BE value ready to be used in data path */

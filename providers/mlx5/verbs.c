@@ -6727,17 +6727,22 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 	uint32_t out[DEVX_ST_SZ_DW(create_mkey_out)] = {};
 	uint32_t in[DEVX_ST_SZ_DW(create_mkey_in)] = {};
 	struct mlx5_mkey *mkey;
+	bool update_tag;
 	bool sig_mkey;
 	bool crypto_mkey;
 	struct ibv_pd *pd = mkey_init_attr->pd;
 	size_t bsf_size = 0;
 	void *mkc;
 
+	update_tag = to_mctx(pd->context)->flags &
+		     MLX5_CTX_FLAGS_MKEY_UPDATE_TAG_SUPPORTED;
 	if (!mkey_init_attr->create_flags ||
 	    !check_comp_mask(mkey_init_attr->create_flags,
 			     MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
 			     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE |
-			     MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO)) {
+			     MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO |
+			     (update_tag ?
+			      MLX5DV_MKEY_INIT_ATTR_FLAGS_UPDATE_TAG : 0))) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
