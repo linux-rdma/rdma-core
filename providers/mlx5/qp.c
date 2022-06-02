@@ -2580,8 +2580,27 @@ static inline void umr_finalize_and_set_psvs(struct mlx5_qp *mqp,
 	}
 }
 
+static inline int block_size_to_bytes(enum mlx5dv_block_size data_unit_size)
+{
+	switch (data_unit_size) {
+	case MLX5DV_BLOCK_SIZE_512:
+		return 512;
+	case MLX5DV_BLOCK_SIZE_520:
+		return 520;
+	case MLX5DV_BLOCK_SIZE_4048:
+		return 4048;
+	case MLX5DV_BLOCK_SIZE_4096:
+		return 4096;
+	case MLX5DV_BLOCK_SIZE_4160:
+		return 4160;
+	default:
+		return -1;
+	}
+}
+
 static void crypto_umr_wqe_finalize(struct mlx5_qp *mqp)
 {
+	struct mlx5_context *ctx = to_mctx(mqp->ibv_qp->context);
 	struct mlx5_mkey *mkey = mqp->cur_mkey;
 	void *seg;
 	void *qend = mqp->sq.qend;
@@ -2604,6 +2623,19 @@ static void crypto_umr_wqe_finalize(struct mlx5_qp *mqp)
 	if (mkey->sig && upd_mkc_sig_err_cnt(mkey, umr_ctrl, mk) &&
 	    mkey->sig->block.state == MLX5_MKEY_BSF_STATE_SET)
 		set_psv = true;
+
+	/* Length must fit block size in single block encryption. */
+	if ((mkey->crypto->state == MLX5_MKEY_BSF_STATE_UPDATED ||
+	     mkey->crypto->state == MLX5_MKEY_BSF_STATE_SET) &&
+	    ctx->crypto_caps.crypto_engines &
+		    MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK) {
+		int block_size =
+			block_size_to_bytes(mkey->crypto->data_unit_size);
+		if (block_size < 0 || mkey->length > block_size) {
+			mqp->err = EINVAL;
+			return;
+		}
+	}
 
 	if (!(mkey->sig &&
 	      mkey->sig->block.state == MLX5_MKEY_BSF_STATE_UPDATED) &&

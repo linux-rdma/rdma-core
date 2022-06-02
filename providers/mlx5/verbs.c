@@ -3833,9 +3833,10 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 	if (DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.crypto))
 		mctx->crypto_caps.flags |= MLX5DV_CRYPTO_CAPS_CRYPTO;
 
-	if (DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.aes_xts))
+	if (DEVX_GET(query_hca_cap_out, out,
+		     capability.cmd_hca_cap.aes_xts_single_block_le_tweak))
 		mctx->crypto_caps.crypto_engines |=
-			MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS;
+			MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK;
 
 	if (DEVX_GET(query_hca_cap_out, out,
 		     capability.cmd_hca_cap.hca_cap_2))
@@ -6674,7 +6675,7 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 
 	if (crypto_mkey) {
 		if (!(to_mctx(pd->context)->crypto_caps.crypto_engines &
-		      MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS) ||
+		      MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK) ||
 		    !(to_mctx(pd->context)->crypto_caps.flags &
 		      MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL)) {
 			errno = EOPNOTSUPP;
@@ -7072,6 +7073,12 @@ _mlx5dv_dek_create(struct ibv_context *context,
 	struct mlx5dv_dek *dek;
 	uint8_t key_size;
 	void *attr;
+
+	if (!(mctx->crypto_caps.crypto_engines &
+	      MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
 
 	if (!(mctx->general_obj_types_caps & (1ULL << MLX5_OBJ_TYPE_DEK))) {
 		errno = EOPNOTSUPP;

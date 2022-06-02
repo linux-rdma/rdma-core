@@ -184,6 +184,7 @@ struct mlx5dv_sig_caps {
 
 enum mlx5dv_crypto_engines_caps {
 	MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS = 1 << 0,
+	MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK = 1 << 1,
 };
 
 enum mlx5dv_crypto_wrapped_import_method_caps {

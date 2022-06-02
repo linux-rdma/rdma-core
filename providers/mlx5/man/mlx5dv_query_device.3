@@ -197,9 +197,16 @@ uint32_t flags; /* use enum mlx5dv_crypto_caps_flags */
 .in -8
 };
 
+/* This bitmap indicates which crypto engines are supported by the device. */
 enum mlx5dv_crypto_engines_caps {
 .in +8
+	/* Deprecated, replaced by MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK */
 	MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS = 1 << 0,
+	/*
+	 * Indicates that AES-XTS only supports encrypting a single block
+	 * at a time.
+	 */
+	MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK = 1 << 1,
 .in -8
 };
 

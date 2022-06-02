@@ -1143,7 +1143,9 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         log_min_hairpin_wq_data_sz[0x5];
 	u8         reserved_at_3e8[0x3];
 	u8         log_max_vlan_list[0x5];
-	u8         reserved_at_3f0[0x3];
+	u8         reserved_at_3f0[0x1];
+	u8         aes_xts_single_block_le_tweak[0x1];
+	u8         reserved_at_3f2[0x1];
 	u8         log_max_current_mc_list[0x5];
 	u8         reserved_at_3f8[0x3];
 	u8         log_max_current_uc_list[0x5];
@@ -1154,8 +1156,7 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         steering_format_version[0x4];
 	u8         create_qp_start_hint[0x18];
 
-	u8         reserved_at_460[0x8];
-	u8         aes_xts[0x1];
+	u8         reserved_at_460[0x9];
 	u8         crypto[0x1];
 	u8         reserved_at_46a[0x6];
 	u8         max_num_eqs[0x10];
