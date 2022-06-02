@@ -241,14 +241,10 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         Creates FDB domain, root table with matcher on source mac on the server
         side. Create a rule to forward all traffic to the non-root table.
         On this table apply VPort/IBPort action goto PF.
-        Validate RX side of FDB:
         On the server open another RX domain on PF with QP action and validate
         packets by sending traffic from client, catch all traffic with
         VPort/IBPort action goto PF, open another RX domain on PF with QP
         action and validate packets.
-        Validate TX side of FDB:
-        Send traffic from server and validate packets on servers' QP
-        with the same rules.
         :param is_vport: A flag to indicate if to use VPort or IBPort action.
         """
         self.client = Mlx5DrResources(**self.dev_info)
@@ -269,8 +265,6 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.rules.append(DrRule(rx_matcher, value_param, [qp_action]))
         # Validate traffic on RX
         u.raw_traffic(self.client, self.server, self.iters)
-        # Validate traffic on TX
-        self.send_server_fdb_to_nic_packets(self.iters)
 
     @staticmethod
     def create_dest_mac_params():
