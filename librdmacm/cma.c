@@ -1705,8 +1705,14 @@ int rdma_create_qp(struct rdma_cm_id *id, struct ibv_pd *pd,
 
 void rdma_destroy_qp(struct rdma_cm_id *id)
 {
+	struct cma_id_private *id_priv;
+
+	id_priv = container_of(id, struct cma_id_private, id);
+
+	pthread_mutex_lock(&id_priv->mut);
 	ibv_destroy_qp(id->qp);
 	id->qp = NULL;
+	pthread_mutex_unlock(&id_priv->mut);
 	ucma_destroy_cqs(id);
 }
 
@@ -2551,6 +2557,7 @@ retry:
 		break;
 	case RDMA_CM_EVENT_CONNECT_RESPONSE:
 		ucma_copy_conn_event(evt, &resp.param.conn);
+		pthread_mutex_lock(&evt->id_priv->mut);
 		if (!evt->id_priv->id.qp) {
 			evt->event.event = RDMA_CM_EVENT_CONNECT_RESPONSE;
 			evt->id_priv->remote_ece.vendor_id = resp.ece.vendor_id;
@@ -2565,6 +2572,7 @@ retry:
 				evt->id_priv->connect_error = 1;
 			}
 		}
+		pthread_mutex_unlock(&evt->id_priv->mut);
 		break;
 	case RDMA_CM_EVENT_ESTABLISHED:
 		if (ucma_is_ud_qp(evt->id_priv->id.qp_type)) {
@@ -2580,7 +2588,9 @@ retry:
 			goto retry;
 		}
 		ucma_copy_conn_event(evt, &resp.param.conn);
+		pthread_mutex_lock(&evt->id_priv->mut);
 		ucma_modify_qp_err(evt->event.id);
+		pthread_mutex_unlock(&evt->id_priv->mut);
 		break;
 	case RDMA_CM_EVENT_DISCONNECTED:
 		if (evt->id_priv->connect_error) {
@@ -2595,7 +2605,9 @@ retry:
 		evt->event.id = &evt->id_priv->id;
 		ucma_copy_ud_event(evt, &resp.param.ud);
 		evt->event.param.ud.private_data = evt->mc->context;
+		pthread_mutex_lock(&evt->id_priv->mut);
 		evt->event.status = ucma_process_join(evt);
+		pthread_mutex_unlock(&evt->id_priv->mut);
 		if (evt->event.status)
 			evt->event.event = RDMA_CM_EVENT_MULTICAST_ERROR;
 		break;
