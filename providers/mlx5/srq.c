@@ -75,9 +75,15 @@ void mlx5_free_srq_wqe(struct mlx5_srq *srq, int ind)
 
 	mlx5_spin_lock(&srq->lock);
 
-	next = get_wqe(srq, srq->tail);
-	next->next_wqe_index = htobe16(ind);
-	srq->tail = ind;
+	if (srq->topo == MLX5_SRQ_TOPO_CYCLIC) {
+		next = get_wqe(srq, ind);
+		/* Mark free */
+		next->free = 1;
+	} else {
+		next = get_wqe(srq, srq->tail);
+		next->next_wqe_index = htobe16(ind);
+		srq->tail = ind;
+	}
 
 	mlx5_spin_unlock(&srq->lock);
 }
@@ -176,7 +182,7 @@ int mlx5_post_srq_recv(struct ibv_srq *ibsrq,
 		       struct ibv_recv_wr **bad_wr)
 {
 	struct mlx5_srq *srq = to_msrq(ibsrq);
-	struct mlx5_wqe_srq_next_seg *next;
+	struct mlx5_wqe_srq_next_seg *next, *cur;
 	struct mlx5_wqe_data_seg *scat;
 	int err = 0;
 	int nreq;
@@ -189,6 +195,16 @@ int mlx5_post_srq_recv(struct ibv_srq *ibsrq,
 			err = EINVAL;
 			*bad_wr = wr;
 			break;
+		}
+
+		if (srq->topo == MLX5_SRQ_TOPO_CYCLIC) {
+			/* Reap adjacent freed wqe */
+			cur  = get_wqe(srq, srq->tail);
+			next = get_wqe(srq, be16toh(cur->next_wqe_index));
+			if (next->free) {
+				srq->tail  = be16toh(cur->next_wqe_index);
+				next->free = 0;
+			}
 		}
 
 		if (srq->head == srq->tail) {

@@ -1306,6 +1306,7 @@ struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 	struct mlx5_context	   *ctx;
 	int			    max_sge;
 	struct ibv_srq		   *ibsrq;
+	char *topo;
 
 	ctx = to_mctx(pd->context);
 	srq = calloc(1, sizeof *srq);
@@ -1391,6 +1392,12 @@ struct ibv_srq *mlx5_create_srq(struct ibv_pd *pd,
 	srq->srqn = resp.srqn;
 	srq->rsc.rsn = resp.srqn;
 	srq->rsc.type = MLX5_RSC_TYPE_SRQ;
+	topo = getenv("MLX5_SRQ_TOPO");
+	if (topo && strcmp(topo, "cyclic") == 0) {
+		srq->topo = MLX5_SRQ_TOPO_CYCLIC;
+	} else {
+		srq->topo = MLX5_SRQ_TOPO_LIST;
+	}
 
 	return ibsrq;
 

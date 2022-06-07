@@ -1190,7 +1190,8 @@ struct mlx5_wqe_srq_next_seg {
 	uint8_t			rsvd0[2];
 	__be16			next_wqe_index;
 	uint8_t			signature;
-	uint8_t			rsvd1[11];
+	uint8_t			free;
+	uint8_t			rsvd1[10];
 };
 
 struct mlx5_wqe_data_seg {

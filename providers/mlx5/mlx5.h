@@ -522,6 +522,12 @@ struct mlx5_tag_entry {
 	int8_t		       expect_cqe;
 };
 
+enum mlx5_srq_topo {
+	MLX5_SRQ_TOPO_LIST,
+	MLX5_SRQ_TOPO_CYCLIC,
+	MLX5_SRQ_TOPO_MAX
+};
+
 struct mlx5_srq_op {
 	struct mlx5_tag_entry *tag;
 	uint64_t	       wr_id;
@@ -556,6 +562,7 @@ struct mlx5_srq {
 	int				op_tail;
 	int				unexp_in;
 	int				unexp_out;
+	enum mlx5_srq_topo topo;
 };
 
 
