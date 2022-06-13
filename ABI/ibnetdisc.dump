@@ -1,0 +1,1145 @@
+$VAR1 = {
+          'ABI_DUMPER_VERSION' => '1.1',
+          'ABI_DUMP_VERSION' => '3.5',
+          'Arch' => 'x86_64',
+          'GccVersion' => '11.1.0',
+          'Headers' => {},
+          'Language' => 'C',
+          'LibraryName' => 'libibnetdisc.so.5.0.41.0',
+          'LibraryVersion' => 'ibnetdisc',
+          'MissedOffsets' => '1',
+          'MissedRegs' => '1',
+          'NameSpaces' => {},
+          'Needed' => {
+                        'libc.so.6' => 1,
+                        'libibmad.so.5' => 1,
+                        'libibumad.so.3' => 1
+                      },
+          'Sources' => {},
+          'SymbolInfo' => {
+                            '17390' => {
+                                         'Header' => undef,
+                                         'Line' => '249',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fabric',
+                                                               'type' => '14049'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'chassisnum',
+                                                               'type' => '92'
+                                                             }
+                                                    },
+                                         'Return' => '277',
+                                         'ShortName' => 'ibnd_get_chassis_guid'
+                                       },
+                            '18351' => {
+                                         'Header' => undef,
+                                         'Line' => '164',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'guid',
+                                                               'type' => '277'
+                                                             }
+                                                    },
+                                         'Return' => '64',
+                                         'ShortName' => 'ibnd_is_xsigo_tca'
+                                       },
+                            '18406' => {
+                                         'Header' => undef,
+                                         'Line' => '155',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'guid',
+                                                               'type' => '277'
+                                                             }
+                                                    },
+                                         'Return' => '64',
+                                         'ShortName' => 'ibnd_is_xsigo_hca'
+                                       },
+                            '18491' => {
+                                         'Header' => undef,
+                                         'Line' => '139',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'guid',
+                                                               'type' => '277'
+                                                             }
+                                                    },
+                                         'Return' => '64',
+                                         'ShortName' => 'ibnd_is_xsigo_guid'
+                                       },
+                            '18630' => {
+                                         'Header' => undef,
+                                         'Line' => '95',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'node',
+                                                               'type' => '6437'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'str',
+                                                               'type' => '199'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'size',
+                                                               'type' => '45'
+                                                             }
+                                                    },
+                                         'Return' => '199',
+                                         'ShortName' => 'ibnd_get_chassis_slot_str'
+                                       },
+                            '18996' => {
+                                         'Header' => undef,
+                                         'Line' => '59',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'node',
+                                                               'type' => '6437'
+                                                             }
+                                                    },
+                                         'Return' => '289',
+                                         'ShortName' => 'ibnd_get_chassis_type'
+                                       },
+                            '31117' => {
+                                         'Header' => undef,
+                                         'Line' => '1006',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fabric',
+                                                               'type' => '14049'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'func',
+                                                               'type' => '29340'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'user_data',
+                                                               'type' => '192'
+                                                             }
+                                                    },
+                                         'Return' => '1',
+                                         'ShortName' => 'ibnd_iter_ports'
+                                       },
+                            '31481' => {
+                                         'Header' => undef,
+                                         'Line' => '966',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fabric',
+                                                               'type' => '14049'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'dr_str',
+                                                               'type' => '199'
+                                                             }
+                                                    },
+                                         'Return' => '6699',
+                                         'ShortName' => 'ibnd_find_port_dr'
+                                       },
+                            '31920' => {
+                                         'Header' => undef,
+                                         'Line' => '949',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fabric',
+                                                               'type' => '14049'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'guid',
+                                                               'type' => '277'
+                                                             }
+                                                    },
+                                         'Return' => '6699',
+                                         'ShortName' => 'ibnd_find_port_guid'
+                                       },
+                            '32144' => {
+                                         'Header' => undef,
+                                         'Line' => '934',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fabric',
+                                                               'type' => '14049'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'lid',
+                                                               'type' => '253'
+                                                             }
+                                                    },
+                                         'Return' => '6699',
+                                         'ShortName' => 'ibnd_find_port_lid'
+                                       },
+                            '32293' => {
+                                         'Header' => undef,
+                                         'Line' => '899',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fabric',
+                                                               'type' => '14049'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'func',
+                                                               'type' => '29306'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'node_type',
+                                                               'type' => '64'
+                                                             },
+                                                      '3' => {
+                                                               'name' => 'user_data',
+                                                               'type' => '192'
+                                                             }
+                                                    },
+                                         'Return' => '1',
+                                         'ShortName' => 'ibnd_iter_nodes_type'
+                                       },
+                            '32774' => {
+                                         'Header' => undef,
+                                         'Line' => '880',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fabric',
+                                                               'type' => '14049'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'func',
+                                                               'type' => '29306'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'user_data',
+                                                               'type' => '192'
+                                                             }
+                                                    },
+                                         'Return' => '1',
+                                         'ShortName' => 'ibnd_iter_nodes'
+                                       },
+                            '33113' => {
+                                         'Header' => undef,
+                                         'Line' => '198',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fabric',
+                                                               'type' => '14049'
+                                                             }
+                                                    },
+                                         'Return' => '1',
+                                         'ShortName' => 'ibnd_destroy_fabric'
+                                       },
+                            '33439' => {
+                                         'Header' => undef,
+                                         'Line' => '767',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'ca_name',
+                                                               'type' => '199'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'ca_port',
+                                                               'type' => '64'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'from',
+                                                               'type' => '30528'
+                                                             },
+                                                      '3' => {
+                                                               'name' => 'cfg',
+                                                               'type' => '29836'
+                                                             }
+                                                    },
+                                         'Return' => '14049',
+                                         'ShortName' => 'ibnd_discover_fabric'
+                                       },
+                            '36127' => {
+                                         'Header' => undef,
+                                         'Line' => '634',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fabric',
+                                                               'type' => '14049'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'dr_str',
+                                                               'type' => '199'
+                                                             }
+                                                    },
+                                         'Return' => '6437',
+                                         'ShortName' => 'ibnd_find_node_dr'
+                                       },
+                            '36253' => {
+                                         'Header' => undef,
+                                         'Line' => '617',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fabric',
+                                                               'type' => '14049'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'guid',
+                                                               'type' => '277'
+                                                             }
+                                                    },
+                                         'Return' => '6437',
+                                         'ShortName' => 'ibnd_find_node_guid'
+                                       },
+                            '49776' => {
+                                         'Header' => undef,
+                                         'Line' => '878',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'fabric',
+                                                               'type' => '14049'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'file',
+                                                               'type' => '289'
+                                                             },
+                                                      '2' => {
+                                                               'name' => 'flags',
+                                                               'type' => '71'
+                                                             }
+                                                    },
+                                         'Return' => '64',
+                                         'ShortName' => 'ibnd_cache_fabric'
+                                       },
+                            '54605' => {
+                                         'Header' => undef,
+                                         'Line' => '620',
+                                         'Param' => {
+                                                      '0' => {
+                                                               'name' => 'file',
+                                                               'type' => '289'
+                                                             },
+                                                      '1' => {
+                                                               'name' => 'flags',
+                                                               'type' => '71'
+                                                             }
+                                                    },
+                                         'Return' => '14049',
+                                         'ShortName' => 'ibnd_load_fabric'
+                                       }
+                          },
+          'SymbolVersion' => {
+                               'ibnd_cache_fabric' => 'ibnd_cache_fabric@@IBNETDISC_1.0',
+                               'ibnd_destroy_fabric' => 'ibnd_destroy_fabric@@IBNETDISC_1.0',
+                               'ibnd_discover_fabric' => 'ibnd_discover_fabric@@IBNETDISC_1.0',
+                               'ibnd_find_node_dr' => 'ibnd_find_node_dr@@IBNETDISC_1.0',
+                               'ibnd_find_node_guid' => 'ibnd_find_node_guid@@IBNETDISC_1.0',
+                               'ibnd_find_port_dr' => 'ibnd_find_port_dr@@IBNETDISC_1.0',
+                               'ibnd_find_port_guid' => 'ibnd_find_port_guid@@IBNETDISC_1.0',
+                               'ibnd_find_port_lid' => 'ibnd_find_port_lid@@IBNETDISC_1.0',
+                               'ibnd_get_chassis_guid' => 'ibnd_get_chassis_guid@@IBNETDISC_1.0',
+                               'ibnd_get_chassis_slot_str' => 'ibnd_get_chassis_slot_str@@IBNETDISC_1.0',
+                               'ibnd_get_chassis_type' => 'ibnd_get_chassis_type@@IBNETDISC_1.0',
+                               'ibnd_is_xsigo_guid' => 'ibnd_is_xsigo_guid@@IBNETDISC_1.0',
+                               'ibnd_is_xsigo_hca' => 'ibnd_is_xsigo_hca@@IBNETDISC_1.0',
+                               'ibnd_is_xsigo_tca' => 'ibnd_is_xsigo_tca@@IBNETDISC_1.0',
+                               'ibnd_iter_nodes' => 'ibnd_iter_nodes@@IBNETDISC_1.0',
+                               'ibnd_iter_nodes_type' => 'ibnd_iter_nodes_type@@IBNETDISC_1.0',
+                               'ibnd_iter_ports' => 'ibnd_iter_ports@@IBNETDISC_1.0',
+                               'ibnd_load_fabric' => 'ibnd_load_fabric@@IBNETDISC_1.0'
+                             },
+          'Symbols' => {
+                         'libibnetdisc.so.5.0.41.0' => {
+                                                         'ibnd_cache_fabric@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_destroy_fabric@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_discover_fabric@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_find_node_dr@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_find_node_guid@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_find_port_dr@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_find_port_guid@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_find_port_lid@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_get_chassis_guid@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_get_chassis_slot_str@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_get_chassis_type@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_is_xsigo_guid@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_is_xsigo_hca@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_is_xsigo_tca@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_iter_nodes@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_iter_nodes_type@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_iter_ports@@IBNETDISC_1.0' => 1,
+                                                         'ibnd_load_fabric@@IBNETDISC_1.0' => 1
+                                                       }
+                       },
+          'Target' => 'unix',
+          'TypeInfo' => {
+                          '1' => {
+                                   'Name' => 'void',
+                                   'Type' => 'Intrinsic'
+                                 },
+                          '1068' => {
+                                      'BaseType' => '943',
+                                      'Header' => undef,
+                                      'Line' => '317',
+                                      'Name' => 'ib_portid_t',
+                                      'Size' => '112',
+                                      'Type' => 'Typedef'
+                                    },
+                          '113' => {
+                                     'BaseType' => '92',
+                                     'Header' => undef,
+                                     'Line' => '38',
+                                     'Name' => '__uint8_t',
+                                     'Size' => '1',
+                                     'Type' => 'Typedef'
+                                   },
+                          '132' => {
+                                     'BaseType' => '99',
+                                     'Header' => undef,
+                                     'Line' => '40',
+                                     'Name' => '__uint16_t',
+                                     'Size' => '2',
+                                     'Type' => 'Typedef'
+                                   },
+                          '14049' => {
+                                       'BaseType' => '6705',
+                                       'Name' => 'ibnd_fabric_t*',
+                                       'Size' => '8',
+                                       'Type' => 'Pointer'
+                                     },
+                          '144' => {
+                                     'BaseType' => '71',
+                                     'Header' => undef,
+                                     'Line' => '42',
+                                     'Name' => '__uint32_t',
+                                     'Size' => '4',
+                                     'Type' => 'Typedef'
+                                   },
+                          '156' => {
+                                     'BaseType' => '57',
+                                     'Header' => undef,
+                                     'Line' => '45',
+                                     'Name' => '__uint64_t',
+                                     'Size' => '8',
+                                     'Type' => 'Typedef'
+                                   },
+                          '192' => {
+                                     'BaseType' => '1',
+                                     'Name' => 'void*',
+                                     'Size' => '8',
+                                     'Type' => 'Pointer'
+                                   },
+                          '199' => {
+                                     'BaseType' => '210',
+                                     'Name' => 'char*',
+                                     'Size' => '8',
+                                     'Type' => 'Pointer'
+                                   },
+                          '210' => {
+                                     'Name' => 'char',
+                                     'Size' => '1',
+                                     'Type' => 'Intrinsic'
+                                   },
+                          '217' => {
+                                     'BaseType' => '210',
+                                     'Name' => 'char const',
+                                     'Size' => '1',
+                                     'Type' => 'Const'
+                                   },
+                          '241' => {
+                                     'BaseType' => '113',
+                                     'Header' => undef,
+                                     'Line' => '24',
+                                     'Name' => 'uint8_t',
+                                     'Size' => '1',
+                                     'Type' => 'Typedef'
+                                   },
+                          '253' => {
+                                     'BaseType' => '132',
+                                     'Header' => undef,
+                                     'Line' => '25',
+                                     'Name' => 'uint16_t',
+                                     'Size' => '2',
+                                     'Type' => 'Typedef'
+                                   },
+                          '265' => {
+                                     'BaseType' => '144',
+                                     'Header' => undef,
+                                     'Line' => '26',
+                                     'Name' => 'uint32_t',
+                                     'Size' => '4',
+                                     'Type' => 'Typedef'
+                                   },
+                          '277' => {
+                                     'BaseType' => '156',
+                                     'Header' => undef,
+                                     'Line' => '27',
+                                     'Name' => 'uint64_t',
+                                     'Size' => '8',
+                                     'Type' => 'Typedef'
+                                   },
+                          '289' => {
+                                     'BaseType' => '217',
+                                     'Name' => 'char const*',
+                                     'Size' => '8',
+                                     'Type' => 'Pointer'
+                                   },
+                          '28929' => {
+                                       'Header' => undef,
+                                       'Line' => '145',
+                                       'Memb' => {
+                                                   '0' => {
+                                                            'name' => 'max_smps',
+                                                            'offset' => '0',
+                                                            'type' => '71'
+                                                          },
+                                                   '1' => {
+                                                            'name' => 'show_progress',
+                                                            'offset' => '4',
+                                                            'type' => '71'
+                                                          },
+                                                   '2' => {
+                                                            'name' => 'max_hops',
+                                                            'offset' => '8',
+                                                            'type' => '71'
+                                                          },
+                                                   '3' => {
+                                                            'name' => 'debug',
+                                                            'offset' => '12',
+                                                            'type' => '71'
+                                                          },
+                                                   '4' => {
+                                                            'name' => 'timeout_ms',
+                                                            'offset' => '16',
+                                                            'type' => '71'
+                                                          },
+                                                   '5' => {
+                                                            'name' => 'retries',
+                                                            'offset' => '20',
+                                                            'type' => '71'
+                                                          },
+                                                   '6' => {
+                                                            'name' => 'flags',
+                                                            'offset' => '24',
+                                                            'type' => '265'
+                                                          },
+                                                   '7' => {
+                                                            'name' => 'mkey',
+                                                            'offset' => '32',
+                                                            'type' => '277'
+                                                          },
+                                                   '8' => {
+                                                            'name' => 'pad',
+                                                            'offset' => '40',
+                                                            'type' => '29060'
+                                                          }
+                                                 },
+                                       'Name' => 'struct ibnd_config',
+                                       'Size' => '88',
+                                       'Type' => 'Struct'
+                                     },
+                          '29060' => {
+                                       'BaseType' => '241',
+                                       'Name' => 'uint8_t[44]',
+                                       'Size' => '44',
+                                       'Type' => 'Array'
+                                     },
+                          '29306' => {
+                                       'BaseType' => '29318',
+                                       'Header' => undef,
+                                       'Line' => '214',
+                                       'Name' => 'ibnd_iter_node_func_t',
+                                       'Size' => '8',
+                                       'Type' => 'Typedef'
+                                     },
+                          '29318' => {
+                                       'Name' => 'void(*)(ibnd_node_t*, void*)',
+                                       'Param' => {
+                                                    '0' => {
+                                                             'type' => '6437'
+                                                           },
+                                                    '1' => {
+                                                             'type' => '192'
+                                                           }
+                                                  },
+                                       'Return' => '1',
+                                       'Size' => '8',
+                                       'Type' => 'FuncPtr'
+                                     },
+                          '29340' => {
+                                       'BaseType' => '29352',
+                                       'Header' => undef,
+                                       'Line' => '227',
+                                       'Name' => 'ibnd_iter_port_func_t',
+                                       'Size' => '8',
+                                       'Type' => 'Typedef'
+                                     },
+                          '29352' => {
+                                       'Name' => 'void(*)(ibnd_port_t*, void*)',
+                                       'Param' => {
+                                                    '0' => {
+                                                             'type' => '6699'
+                                                           },
+                                                    '1' => {
+                                                             'type' => '192'
+                                                           }
+                                                  },
+                                       'Return' => '1',
+                                       'Size' => '8',
+                                       'Type' => 'FuncPtr'
+                                     },
+                          '29836' => {
+                                       'BaseType' => '28929',
+                                       'Name' => 'struct ibnd_config*',
+                                       'Size' => '8',
+                                       'Type' => 'Pointer'
+                                     },
+                          '30528' => {
+                                       'BaseType' => '1068',
+                                       'Name' => 'ib_portid_t*',
+                                       'Size' => '8',
+                                       'Type' => 'Pointer'
+                                     },
+                          '45' => {
+                                    'BaseType' => '57',
+                                    'Header' => undef,
+                                    'Line' => '209',
+                                    'Name' => 'size_t',
+                                    'Size' => '8',
+                                    'Type' => 'Typedef'
+                                  },
+                          '57' => {
+                                    'Name' => 'unsigned long',
+                                    'Size' => '8',
+                                    'Type' => 'Intrinsic'
+                                  },
+                          '5822' => {
+                                      'Header' => undef,
+                                      'Line' => '54',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'next',
+                                                           'offset' => '0',
+                                                           'type' => '6135'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'path_portid',
+                                                           'offset' => '8',
+                                                           'type' => '1068'
+                                                         },
+                                                  '10' => {
+                                                            'name' => 'nodedesc',
+                                                            'offset' => '272',
+                                                            'type' => '6141'
+                                                          },
+                                                  '11' => {
+                                                            'name' => 'ports',
+                                                            'offset' => '336',
+                                                            'type' => '6301'
+                                                          },
+                                                  '12' => {
+                                                            'name' => 'next_chassis_node',
+                                                            'offset' => '344',
+                                                            'type' => '6135'
+                                                          },
+                                                  '13' => {
+                                                            'name' => 'chassis',
+                                                            'offset' => '352',
+                                                            'type' => '6419'
+                                                          },
+                                                  '14' => {
+                                                            'name' => 'ch_type',
+                                                            'offset' => '360',
+                                                            'type' => '92'
+                                                          },
+                                                  '15' => {
+                                                            'name' => 'ch_type_str',
+                                                            'offset' => '361',
+                                                            'type' => '777'
+                                                          },
+                                                  '16' => {
+                                                            'name' => 'ch_anafanum',
+                                                            'offset' => '381',
+                                                            'type' => '92'
+                                                          },
+                                                  '17' => {
+                                                            'name' => 'ch_slotnum',
+                                                            'offset' => '382',
+                                                            'type' => '92'
+                                                          },
+                                                  '18' => {
+                                                            'name' => 'ch_slot',
+                                                            'offset' => '383',
+                                                            'type' => '92'
+                                                          },
+                                                  '19' => {
+                                                            'name' => 'ch_found',
+                                                            'offset' => '384',
+                                                            'type' => '92'
+                                                          },
+                                                  '2' => {
+                                                           'name' => 'smalid',
+                                                           'offset' => '120',
+                                                           'type' => '253'
+                                                         },
+                                                  '20' => {
+                                                            'name' => 'htnext',
+                                                            'offset' => '392',
+                                                            'type' => '6135'
+                                                          },
+                                                  '21' => {
+                                                            'name' => 'type_next',
+                                                            'offset' => '400',
+                                                            'type' => '6135'
+                                                          },
+                                                  '3' => {
+                                                           'name' => 'smalmc',
+                                                           'offset' => '122',
+                                                           'type' => '241'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'smaenhsp0',
+                                                           'offset' => '124',
+                                                           'type' => '64'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'switchinfo',
+                                                           'offset' => '128',
+                                                           'type' => '915'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'guid',
+                                                           'offset' => '192',
+                                                           'type' => '277'
+                                                         },
+                                                  '7' => {
+                                                           'name' => 'type',
+                                                           'offset' => '200',
+                                                           'type' => '64'
+                                                         },
+                                                  '8' => {
+                                                           'name' => 'numports',
+                                                           'offset' => '204',
+                                                           'type' => '64'
+                                                         },
+                                                  '9' => {
+                                                           'name' => 'info',
+                                                           'offset' => '208',
+                                                           'type' => '915'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibnd_node',
+                                      'Size' => '408',
+                                      'Type' => 'Struct'
+                                    },
+                          '6135' => {
+                                      'BaseType' => '5822',
+                                      'Name' => 'struct ibnd_node*',
+                                      'Size' => '8',
+                                      'Type' => 'Pointer'
+                                    },
+                          '6141' => {
+                                      'BaseType' => '210',
+                                      'Name' => 'char[64]',
+                                      'Size' => '64',
+                                      'Type' => 'Array'
+                                    },
+                          '6157' => {
+                                      'Header' => undef,
+                                      'Line' => '104',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'guid',
+                                                           'offset' => '0',
+                                                           'type' => '277'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'portnum',
+                                                           'offset' => '8',
+                                                           'type' => '64'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'ext_portnum',
+                                                           'offset' => '12',
+                                                           'type' => '64'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'node',
+                                                           'offset' => '16',
+                                                           'type' => '6437'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'remoteport',
+                                                           'offset' => '24',
+                                                           'type' => '6307'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'base_lid',
+                                                           'offset' => '32',
+                                                           'type' => '253'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'lmc',
+                                                           'offset' => '34',
+                                                           'type' => '241'
+                                                         },
+                                                  '7' => {
+                                                           'name' => 'info',
+                                                           'offset' => '35',
+                                                           'type' => '915'
+                                                         },
+                                                  '8' => {
+                                                           'name' => 'ext_info',
+                                                           'offset' => '99',
+                                                           'type' => '915'
+                                                         },
+                                                  '9' => {
+                                                           'name' => 'htnext',
+                                                           'offset' => '168',
+                                                           'type' => '6307'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibnd_port',
+                                      'Size' => '176',
+                                      'Type' => 'Struct'
+                                    },
+                          '6301' => {
+                                      'BaseType' => '6307',
+                                      'Name' => 'struct ibnd_port**',
+                                      'Size' => '8',
+                                      'Type' => 'Pointer'
+                                    },
+                          '6307' => {
+                                      'BaseType' => '6157',
+                                      'Name' => 'struct ibnd_port*',
+                                      'Size' => '8',
+                                      'Type' => 'Pointer'
+                                    },
+                          '6313' => {
+                                      'Header' => undef,
+                                      'Line' => '124',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'next',
+                                                           'offset' => '0',
+                                                           'type' => '6419'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'chassisguid',
+                                                           'offset' => '8',
+                                                           'type' => '277'
+                                                         },
+                                                  '2' => {
+                                                           'name' => 'chassisnum',
+                                                           'offset' => '16',
+                                                           'type' => '92'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'nodecount',
+                                                           'offset' => '17',
+                                                           'type' => '92'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'nodes',
+                                                           'offset' => '24',
+                                                           'type' => '6437'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'spinenode',
+                                                           'offset' => '32',
+                                                           'type' => '6455'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'linenode',
+                                                           'offset' => '184',
+                                                           'type' => '6471'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibnd_chassis',
+                                      'Size' => '480',
+                                      'Type' => 'Struct'
+                                    },
+                          '64' => {
+                                    'Name' => 'int',
+                                    'Size' => '4',
+                                    'Type' => 'Intrinsic'
+                                  },
+                          '6419' => {
+                                      'BaseType' => '6313',
+                                      'Name' => 'struct ibnd_chassis*',
+                                      'Size' => '8',
+                                      'Type' => 'Pointer'
+                                    },
+                          '6425' => {
+                                      'BaseType' => '5822',
+                                      'Header' => undef,
+                                      'Line' => '99',
+                                      'Name' => 'ibnd_node_t',
+                                      'Size' => '408',
+                                      'Type' => 'Typedef'
+                                    },
+                          '6437' => {
+                                      'BaseType' => '6425',
+                                      'Name' => 'ibnd_node_t*',
+                                      'Size' => '8',
+                                      'Type' => 'Pointer'
+                                    },
+                          '6443' => {
+                                      'BaseType' => '6157',
+                                      'Header' => undef,
+                                      'Line' => '119',
+                                      'Name' => 'ibnd_port_t',
+                                      'Size' => '176',
+                                      'Type' => 'Typedef'
+                                    },
+                          '6455' => {
+                                      'BaseType' => '6437',
+                                      'Name' => 'ibnd_node_t*[19]',
+                                      'Size' => '152',
+                                      'Type' => 'Array'
+                                    },
+                          '6471' => {
+                                      'BaseType' => '6437',
+                                      'Name' => 'ibnd_node_t*[37]',
+                                      'Size' => '296',
+                                      'Type' => 'Array'
+                                    },
+                          '6487' => {
+                                      'BaseType' => '6313',
+                                      'Header' => undef,
+                                      'Line' => '138',
+                                      'Name' => 'ibnd_chassis_t',
+                                      'Size' => '480',
+                                      'Type' => 'Typedef'
+                                    },
+                          '6499' => {
+                                      'Header' => undef,
+                                      'Line' => '161',
+                                      'Memb' => {
+                                                  '0' => {
+                                                           'name' => 'from_node',
+                                                           'offset' => '0',
+                                                           'type' => '6437'
+                                                         },
+                                                  '1' => {
+                                                           'name' => 'from_portnum',
+                                                           'offset' => '8',
+                                                           'type' => '64'
+                                                         },
+                                                  '10' => {
+                                                            'name' => 'routers',
+                                                            'offset' => '2248',
+                                                            'type' => '6437'
+                                                          },
+                                                  '2' => {
+                                                           'name' => 'nodes',
+                                                           'offset' => '16',
+                                                           'type' => '6437'
+                                                         },
+                                                  '3' => {
+                                                           'name' => 'chassis',
+                                                           'offset' => '24',
+                                                           'type' => '6661'
+                                                         },
+                                                  '4' => {
+                                                           'name' => 'maxhops_discovered',
+                                                           'offset' => '32',
+                                                           'type' => '71'
+                                                         },
+                                                  '5' => {
+                                                           'name' => 'total_mads_used',
+                                                           'offset' => '36',
+                                                           'type' => '71'
+                                                         },
+                                                  '6' => {
+                                                           'name' => 'nodestbl',
+                                                           'offset' => '40',
+                                                           'type' => '6667'
+                                                         },
+                                                  '7' => {
+                                                           'name' => 'portstbl',
+                                                           'offset' => '1136',
+                                                           'type' => '6683'
+                                                         },
+                                                  '8' => {
+                                                           'name' => 'switches',
+                                                           'offset' => '2232',
+                                                           'type' => '6437'
+                                                         },
+                                                  '9' => {
+                                                           'name' => 'ch_adapters',
+                                                           'offset' => '2240',
+                                                           'type' => '6437'
+                                                         }
+                                                },
+                                      'Name' => 'struct ibnd_fabric',
+                                      'Size' => '2256',
+                                      'Type' => 'Struct'
+                                    },
+                          '6661' => {
+                                      'BaseType' => '6487',
+                                      'Name' => 'ibnd_chassis_t*',
+                                      'Size' => '8',
+                                      'Type' => 'Pointer'
+                                    },
+                          '6667' => {
+                                      'BaseType' => '6437',
+                                      'Name' => 'ibnd_node_t*[137]',
+                                      'Size' => '1096',
+                                      'Type' => 'Array'
+                                    },
+                          '6683' => {
+                                      'BaseType' => '6699',
+                                      'Name' => 'ibnd_port_t*[137]',
+                                      'Size' => '1096',
+                                      'Type' => 'Array'
+                                    },
+                          '6699' => {
+                                      'BaseType' => '6443',
+                                      'Name' => 'ibnd_port_t*',
+                                      'Size' => '8',
+                                      'Type' => 'Pointer'
+                                    },
+                          '6705' => {
+                                      'BaseType' => '6499',
+                                      'Header' => undef,
+                                      'Line' => '182',
+                                      'Name' => 'ibnd_fabric_t',
+                                      'Size' => '2256',
+                                      'Type' => 'Typedef'
+                                    },
+                          '71' => {
+                                    'Name' => 'unsigned int',
+                                    'Size' => '4',
+                                    'Type' => 'Intrinsic'
+                                  },
+                          '777' => {
+                                     'BaseType' => '210',
+                                     'Name' => 'char[20]',
+                                     'Size' => '20',
+                                     'Type' => 'Array'
+                                   },
+                          '827' => {
+                                     'BaseType' => '241',
+                                     'Name' => 'uint8_t[16]',
+                                     'Size' => '16',
+                                     'Type' => 'Array'
+                                   },
+                          '843' => {
+                                     'BaseType' => '827',
+                                     'Header' => undef,
+                                     'Line' => '243',
+                                     'Name' => 'ibmad_gid_t',
+                                     'Size' => '16',
+                                     'Type' => 'Typedef'
+                                   },
+                          '915' => {
+                                     'BaseType' => '241',
+                                     'Name' => 'uint8_t[64]',
+                                     'Size' => '64',
+                                     'Type' => 'Array'
+                                   },
+                          '92' => {
+                                    'Name' => 'unsigned char',
+                                    'Size' => '1',
+                                    'Type' => 'Intrinsic'
+                                  },
+                          '943' => {
+                                     'Header' => undef,
+                                     'Line' => '308',
+                                     'Memb' => {
+                                                 '0' => {
+                                                          'name' => 'lid',
+                                                          'offset' => '0',
+                                                          'type' => '64'
+                                                        },
+                                                 '1' => {
+                                                          'name' => 'drpath',
+                                                          'offset' => '4',
+                                                          'type' => '931'
+                                                        },
+                                                 '2' => {
+                                                          'name' => 'grh_present',
+                                                          'offset' => '76',
+                                                          'type' => '64'
+                                                        },
+                                                 '3' => {
+                                                          'name' => 'gid',
+                                                          'offset' => '80',
+                                                          'type' => '843'
+                                                        },
+                                                 '4' => {
+                                                          'name' => 'qp',
+                                                          'offset' => '96',
+                                                          'type' => '265'
+                                                        },
+                                                 '5' => {
+                                                          'name' => 'qkey',
+                                                          'offset' => '100',
+                                                          'type' => '265'
+                                                        },
+                                                 '6' => {
+                                                          'name' => 'sl',
+                                                          'offset' => '104',
+                                                          'type' => '241'
+                                                        },
+                                                 '7' => {
+                                                          'name' => 'pkey_idx',
+                                                          'offset' => '108',
+                                                          'type' => '71'
+                                                        }
+                                               },
+                                     'Name' => 'struct portid',
+                                     'Size' => '112',
+                                     'Type' => 'Struct'
+                                   },
+                          '99' => {
+                                    'Name' => 'unsigned short',
+                                    'Size' => '2',
+                                    'Type' => 'Intrinsic'
+                                  }
+                        },
+          'UndefinedSymbols' => {
+                                  'libibnetdisc.so.5.0.41.0' => {
+                                                                  '_ITM_deregisterTMCloneTable' => 0,
+                                                                  '_ITM_registerTMCloneTable' => 0,
+                                                                  '__cxa_finalize@GLIBC_2.2.5' => 0,
+                                                                  '__errno_location@GLIBC_2.2.5' => 0,
+                                                                  '__fprintf_chk@GLIBC_2.3.4' => 0,
+                                                                  '__gmon_start__' => 0,
+                                                                  '__memset_chk@GLIBC_2.3.4' => 0,
+                                                                  '__printf_chk@GLIBC_2.3.4' => 0,
+                                                                  '__snprintf_chk@GLIBC_2.3.4' => 0,
+                                                                  '__stack_chk_fail@GLIBC_2.4' => 0,
+                                                                  '__xstat@GLIBC_2.2.5' => 0,
+                                                                  'calloc@GLIBC_2.2.5' => 0,
+                                                                  'close@GLIBC_2.2.5' => 0,
+                                                                  'free@GLIBC_2.2.5' => 0,
+                                                                  'ib_resolve_self_via@IBMAD_1.3' => 0,
+                                                                  'ibdebug@IBMAD_1.3' => 0,
+                                                                  'lseek@GLIBC_2.2.5' => 0,
+                                                                  'mad_build_pkt@IBMAD_1.3' => 0,
+                                                                  'mad_decode_field@IBMAD_1.3' => 0,
+                                                                  'mad_dump_node_type@IBMAD_1.3' => 0,
+                                                                  'mad_dump_val@IBMAD_1.3' => 0,
+                                                                  'mad_get_field64@IBMAD_1.3' => 0,
+                                                                  'mad_get_field@IBMAD_1.3' => 0,
+                                                                  'mad_rpc_close_port@IBMAD_1.3' => 0,
+                                                                  'mad_rpc_open_port@IBMAD_1.3' => 0,
+                                                                  'mad_rpc_set_retries@IBMAD_1.3' => 0,
+                                                                  'mad_rpc_set_timeout@IBMAD_1.3' => 0,
+                                                                  'mad_trid@IBMAD_1.3' => 0,
+                                                                  'malloc@GLIBC_2.2.5' => 0,
+                                                                  'open@GLIBC_2.2.5' => 0,
+                                                                  'portid2str@IBMAD_1.3' => 0,
+                                                                  'read@GLIBC_2.2.5' => 0,
+                                                                  'smp_mkey_set@IBMAD_1.3' => 0,
+                                                                  'stderr@GLIBC_2.2.5' => 0,
+                                                                  'str2drpath@IBMAD_1.3' => 0,
+                                                                  'strerror@GLIBC_2.2.5' => 0,
+                                                                  'strncpy@GLIBC_2.2.5' => 0,
+                                                                  'strtol@GLIBC_2.2.5' => 0,
+                                                                  'umad_close_port@IBUMAD_1.0' => 0,
+                                                                  'umad_get_mad@IBUMAD_1.0' => 0,
+                                                                  'umad_init@IBUMAD_1.0' => 0,
+                                                                  'umad_open_port@IBUMAD_1.0' => 0,
+                                                                  'umad_recv@IBUMAD_1.0' => 0,
+                                                                  'umad_register@IBUMAD_1.0' => 0,
+                                                                  'umad_send@IBUMAD_1.0' => 0,
+                                                                  'umad_size@IBUMAD_1.0' => 0,
+                                                                  'umad_status@IBUMAD_1.0' => 0,
+                                                                  'unlink@GLIBC_2.2.5' => 0,
+                                                                  'write@GLIBC_2.2.5' => 0
+                                                                }
+                                },
+          'WordSize' => '8'
+        };
