@@ -2414,7 +2414,8 @@ static int mlx5_umr_fill_crypto_bsf(struct mlx5_crypto_bsf *crypto_bsf,
 
 	memset(crypto_bsf, 0, sizeof(*crypto_bsf));
 
-	crypto_bsf->bsf_size_type |= MLX5_BSF_SIZE_WITH_INLINE
+	crypto_bsf->bsf_size_type |= (block ? MLX5_BSF_SIZE_SIG_AND_CRYPTO :
+					      MLX5_BSF_SIZE_WITH_INLINE)
 				     << MLX5_BSF_SIZE_SHIFT;
 	crypto_bsf->bsf_size_type |= MLX5_BSF_TYPE_CRYPTO;
 	order = get_crypto_order(attr->encrypt_on_tx,
