@@ -3455,6 +3455,50 @@ static int dr_ste_v1_aso_other_domain_unlink(struct mlx5dv_devx_obj *devx_obj)
 	return 0;
 }
 
+static int dr_ste_v1_alloc_modify_hdr_ptrn_arg(struct mlx5dv_dr_action *action,
+					       uint32_t chunck_size)
+{
+	struct dr_ptrn_mngr *ptrn_mngr;
+
+	ptrn_mngr = action->rewrite.dmn->modify_header_ptrn_mngr;
+
+	if (!ptrn_mngr)
+		return ENOTSUP;
+
+	action->rewrite.ptrn_arg.arg = dr_arg_get_obj(action->rewrite.dmn->modify_header_arg_mngr,
+						      action->rewrite.param.num_of_actions,
+						      action->rewrite.param.data);
+	if (!action->rewrite.ptrn_arg.arg) {
+		dr_dbg(action->rewrite.dmn,
+		       "Failed allocating args for modify header\n");
+		return errno;
+	}
+
+	action->rewrite.ptrn_arg.ptrn = dr_ptrn_cache_get_pattern(ptrn_mngr,
+								  (enum dr_ptrn_type)action->action_type,
+								  action->rewrite.param.num_of_actions,
+								  action->rewrite.param.data);
+	if (!action->rewrite.ptrn_arg.ptrn) {
+		dr_dbg(action->rewrite.dmn, "Failed to get pattern\n");
+		goto put_arg;
+	}
+
+	return 0;
+
+put_arg:
+	dr_arg_put_obj(action->rewrite.dmn->modify_header_arg_mngr,
+		       action->rewrite.ptrn_arg.arg);
+	return errno;
+}
+
+static void dr_ste_v1_dealloc_modify_hdr_ptrn_arg(struct mlx5dv_dr_action *action)
+{
+	dr_ptrn_cache_put_pattern(action->rewrite.dmn->modify_header_ptrn_mngr,
+				  action->rewrite.ptrn_arg.ptrn);
+	dr_arg_put_obj(action->rewrite.dmn->modify_header_arg_mngr,
+		       action->rewrite.ptrn_arg.arg);
+}
+
 static struct dr_ste_ctx ste_ctx_v1 = {
 	/* Builders */
 	.build_eth_l2_src_dst_init	= &dr_ste_v1_build_eth_l2_src_dst_init,
@@ -3526,6 +3570,8 @@ static struct dr_ste_ctx ste_ctx_v1 = {
 	.get_action_hw_field		= &dr_ste_v1_get_action_hw_field,
 	.set_action_decap_l3_list	= &dr_ste_v1_set_action_decap_l3_list,
 	.set_aso_ct_cross_dmn		= &dr_ste_v1_set_aso_ct_cross_dmn,
+	.alloc_modify_hdr_chunk		= &dr_ste_v1_alloc_modify_hdr_ptrn_arg,
+	.dealloc_modify_hdr_chunk	= &dr_ste_v1_dealloc_modify_hdr_ptrn_arg,
 	/* Send */
 	.prepare_for_postsend		= &dr_ste_v1_prepare_for_postsend,
 };

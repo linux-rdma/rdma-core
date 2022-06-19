@@ -667,6 +667,60 @@ int dr_ste_set_action_decap_l3_list(struct dr_ste_ctx *ste_ctx,
 						 used_hw_action_num);
 }
 
+static int dr_ste_alloc_modify_hdr_chunk(struct mlx5dv_dr_action *action,
+					 uint32_t chunck_size)
+{
+	int ret;
+
+	action->rewrite.param.chunk = dr_icm_alloc_chunk(action->rewrite.dmn->action_icm_pool,
+							 chunck_size);
+	if (!action->rewrite.param.chunk)
+		return ENOMEM;
+
+	action->rewrite.param.index = (action->rewrite.param.chunk->icm_addr -
+		action->rewrite.dmn->info.caps.hdr_modify_icm_addr) /
+		ACTION_CACHE_LINE_SIZE;
+
+	ret = dr_send_postsend_action(action->rewrite.dmn, action);
+	if (ret)
+		goto free_chunk;
+
+	return 0;
+
+free_chunk:
+	dr_icm_free_chunk(action->rewrite.param.chunk);
+	return ret;
+}
+
+static void dr_dealloc_modify_hdr_chunk(struct mlx5dv_dr_action *action)
+{
+	dr_icm_free_chunk(action->rewrite.param.chunk);
+}
+
+int dr_ste_alloc_modify_hdr(struct mlx5dv_dr_action *action)
+{
+	uint32_t dynamic_chunck_size;
+
+	dynamic_chunck_size = ilog32(action->rewrite.param.num_of_actions - 1);
+
+	/* HW modify action index granularity is at least 64B */
+	dynamic_chunck_size = max_t(uint32_t, dynamic_chunck_size,
+				    DR_CHUNK_SIZE_8);
+
+	if (action->rewrite.dmn->modify_header_ptrn_mngr)
+		return action->rewrite.dmn->ste_ctx->alloc_modify_hdr_chunk(action, dynamic_chunck_size);
+
+	return dr_ste_alloc_modify_hdr_chunk(action, dynamic_chunck_size);
+}
+
+void dr_ste_free_modify_hdr(struct mlx5dv_dr_action *action)
+{
+	if (action->rewrite.dmn->modify_header_ptrn_mngr)
+		return action->rewrite.dmn->ste_ctx->dealloc_modify_hdr_chunk(action);
+
+	return dr_dealloc_modify_hdr_chunk(action);
+}
+
 static int dr_ste_build_pre_check_spec(struct mlx5dv_dr_domain *dmn,
 				       struct dr_match_spec *m_spec,
 				       struct dr_match_spec *v_spec)

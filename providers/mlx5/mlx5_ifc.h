@@ -184,6 +184,10 @@ enum {
 	MLX5_EQ_DOORBEL_OFFSET = 0x40,
 };
 
+enum {
+	OPCODE_MOD_UPDATE_HEADER_MODIFY_ARGUMENT = 0x1,
+};
+
 struct mlx5_ifc_atomic_caps_bits {
 	u8         reserved_at_0[0x40];
 
@@ -376,9 +380,16 @@ struct mlx5_ifc_device_mem_cap_bits {
 	u8         log_sw_icm_alloc_granularity[0x6];
 	u8         log_steering_sw_icm_size[0x8];
 
-	u8         reserved_at_120[0x20];
+	u8         reserved_at_120[0x18];
+	u8         log_header_modify_pattern_sw_icm_size[0x8];
 
 	u8         header_modify_sw_icm_start_address[0x40];
+
+	u8         reserved_at_180[0x40];
+
+	u8         header_modify_pattern_sw_icm_start_address[0x40];
+
+	u8         reserved_at_200[0x600];
 };
 
 struct mlx5_ifc_flow_table_fields_supported_bits {
@@ -1233,7 +1244,15 @@ struct mlx5_ifc_cmd_hca_cap_bits {
 	u8         dma_mmo_qp[0x1];
 	u8         reserved_at_749[0x17];
 
-	u8         reserved_at_760[0x60];
+	u8         reserved_at_760[0x3];
+	u8         log_max_num_header_modify_argument[0x5];
+	u8         reserved_at_768[0x4];
+	u8         log_header_modify_argument_granularity[0x4];
+	u8         reserved_at_770[0x3];
+	u8         log_header_modify_argument_max_alloc[0x5];
+	u8         reserved_at_778[0x8];
+
+	u8         reserved_at_780[0x40];
 
 	u8         match_definer_format_supported[0x40];
 };
@@ -3203,6 +3222,7 @@ enum {
 	MLX5_OBJ_TYPE_MATCH_DEFINER = 0x0018,
 	MLX5_OBJ_TYPE_CRYPTO_LOGIN = 0x001F,
 	MLX5_OBJ_TYPE_FLOW_SAMPLER = 0x0020,
+	MLX5_OBJ_TYPE_HEADER_MODIFY_ARGUMENT = 0x0023,
 	MLX5_OBJ_TYPE_ASO_FLOW_METER = 0x0024,
 	MLX5_OBJ_TYPE_ASO_FIRST_HIT = 0x0025,
 	MLX5_OBJ_TYPE_SCHEDULING_ELEMENT = 0x0026,
@@ -3296,6 +3316,18 @@ struct mlx5_ifc_create_flow_sampler_in_bits {
 struct mlx5_ifc_query_flow_sampler_out_bits {
 	struct mlx5_ifc_general_obj_out_cmd_hdr_bits  hdr;
 	struct mlx5_ifc_flow_sampler_bits             obj;
+};
+
+struct mlx5_ifc_modify_header_arg_bits {
+	u8         reserved_at_0[0x80];
+
+	u8         reserved_at_80[0x8];
+	u8         access_pd[0x18];
+};
+
+struct mlx5_ifc_create_modify_header_arg_in_bits {
+	struct mlx5_ifc_general_obj_in_cmd_hdr_bits hdr;
+	struct mlx5_ifc_modify_header_arg_bits      arg;
 };
 
 struct mlx5_ifc_definer_bits {

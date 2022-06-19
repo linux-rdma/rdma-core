@@ -236,6 +236,19 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 
 	caps->sw_format_ver = DEVX_GET(query_hca_cap_out, out,
 				       capability.cmd_hca_cap.steering_format_version);
+	caps->support_modify_argument = DEVX_GET64(query_hca_cap_out, out,
+			capability.cmd_hca_cap.general_obj_types) &
+			(1LL << MLX5_OBJ_TYPE_HEADER_MODIFY_ARGUMENT);
+
+	if (caps->support_modify_argument) {
+		caps->log_header_modify_argument_granularity =
+			DEVX_GET(query_hca_cap_out, out,
+			capability.cmd_hca_cap.log_header_modify_argument_granularity);
+
+		caps->log_header_modify_argument_max_alloc =
+			DEVX_GET(query_hca_cap_out, out,
+			capability.cmd_hca_cap.log_header_modify_argument_max_alloc);
+	}
 
 	if (caps->flex_protocols & MLX5_FLEX_PARSER_ICMP_V4_ENABLED) {
 		caps->flex_parser_id_icmp_dw0 =
@@ -405,6 +418,14 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 					       header_modify_sw_icm_start_address);
 	caps->log_modify_hdr_icm_size = DEVX_GET(query_hca_cap_out, out,
 						 capability.device_mem_cap.log_header_modify_sw_icm_size);
+
+	caps->log_modify_pattern_icm_size =
+		DEVX_GET(query_hca_cap_out, out,
+			 capability.device_mem_cap.log_header_modify_pattern_sw_icm_size);
+
+	caps->hdr_modify_pattern_icm_addr =
+		DEVX_GET64(query_hca_cap_out, out,
+			   capability.device_mem_cap.header_modify_pattern_sw_icm_start_address);
 
 	/* RoCE caps */
 	if (roce) {
@@ -1096,4 +1117,25 @@ int dr_devx_query_gid(struct ibv_context *ctx, uint8_t vhca_port_num,
 		attr->roce_ver = MLX5_ROCE_VERSION_1;
 
 	return 0;
+}
+
+struct mlx5dv_devx_obj *dr_devx_create_modify_header_arg(struct ibv_context *ctx,
+							 uint16_t log_obj_range,
+							 uint32_t pd)
+{
+	uint32_t out[DEVX_ST_SZ_DW(general_obj_out_cmd_hdr)] = {};
+	uint32_t in[DEVX_ST_SZ_DW(create_modify_header_arg_in)] = {};
+	void *attr;
+
+	attr = DEVX_ADDR_OF(create_modify_header_arg_in, in, hdr);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, opcode, MLX5_CMD_OP_CREATE_GENERAL_OBJECT);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, obj_type, MLX5_OBJ_TYPE_HEADER_MODIFY_ARGUMENT);
+	DEVX_SET(general_obj_in_cmd_hdr,
+		 attr, log_obj_range, log_obj_range);
+	attr = DEVX_ADDR_OF(create_modify_header_arg_in, in, arg);
+	DEVX_SET(modify_header_arg, attr, access_pd, pd);
+
+	return mlx5dv_devx_obj_create(ctx, in, sizeof(in), out, sizeof(out));
 }

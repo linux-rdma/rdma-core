@@ -138,7 +138,7 @@ static int dr_dump_rule_action(FILE *f, const uint64_t rule_id,
 	case DR_ACTION_TYP_MODIFY_HDR:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x,%d\n",
 			      DR_DUMP_REC_TYPE_ACTION_MODIFY_HDR, action_id,
-			      rule_id, action->rewrite.index,
+			      rule_id, action->rewrite.param.index,
 			      action->rewrite.single_action_opt);
 		break;
 	case DR_ACTION_TYP_VPORT:
@@ -154,7 +154,7 @@ static int dr_dump_rule_action(FILE *f, const uint64_t rule_id,
 	case DR_ACTION_TYP_TNL_L3_TO_L2:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
 			      DR_DUMP_REC_TYPE_ACTION_DECAP_L3, action_id,
-			      rule_id, action->rewrite.index);
+			      rule_id, action->rewrite.param.index);
 		break;
 	case DR_ACTION_TYP_L2_TO_TNL_L2:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",

@@ -258,6 +258,9 @@ struct dr_ste_ctx {
 	void (*set_aso_ct_cross_dmn)(uint8_t *hw_ste, uint32_t object_id,
 				     uint32_t offset, uint8_t dest_reg_id,
 				     bool direction);
+	int (*alloc_modify_hdr_chunk)(struct mlx5dv_dr_action *action,
+				      uint32_t chunck_size);
+	void (*dealloc_modify_hdr_chunk)(struct mlx5dv_dr_action *action);
 
 	/* Send */
 	void (*prepare_for_postsend)(uint8_t *hw_ste_p, uint32_t ste_size);

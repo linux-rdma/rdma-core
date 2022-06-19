@@ -68,14 +68,26 @@ dr_icm_allocate_aligned_dm(struct dr_icm_pool *pool,
 	size = dr_icm_pool_chunk_size_to_byte(pool->max_log_chunk_sz,
 					      pool->icm_type);
 
-	if (pool->icm_type == DR_ICM_TYPE_STE) {
+	switch (pool->icm_type) {
+	case DR_ICM_TYPE_STE:
 		mlx5_dm_attr.type = MLX5_IB_UAPI_DM_TYPE_STEERING_SW_ICM;
 		/* Align base is the biggest chunk size */
 		log_align_base = ilog32(size - 1);
-	} else if (pool->icm_type == DR_ICM_TYPE_MODIFY_ACTION) {
+		break;
+	case DR_ICM_TYPE_MODIFY_ACTION:
 		mlx5_dm_attr.type = MLX5_IB_UAPI_DM_TYPE_HEADER_MODIFY_SW_ICM;
 		/* Align base is 64B */
 		log_align_base = ilog32(DR_ICM_MODIFY_HDR_ALIGN_BASE - 1);
+		break;
+	case DR_ICM_TYPE_MODIFY_HDR_PTRN:
+		mlx5_dm_attr.type = MLX5DV_DM_TYPE_HEADER_MODIFY_PATTERN_SW_ICM;
+		/* Align base is 64B */
+		log_align_base = ilog32(DR_ICM_MODIFY_HDR_ALIGN_BASE - 1);
+		break;
+	default:
+		assert(false);
+		errno = EINVAL;
+		return errno;
 	}
 
 	dm_attr->length = size;
@@ -514,14 +526,8 @@ void dr_icm_pool_set_pool_max_log_chunk_sz(struct dr_icm_pool *pool,
 struct dr_icm_pool *dr_icm_pool_create(struct mlx5dv_dr_domain *dmn,
 				       enum dr_icm_type icm_type)
 {
-	enum dr_icm_chunk_size max_log_chunk_sz;
 	struct dr_icm_pool *pool;
 	int ret;
-
-	if (icm_type == DR_ICM_TYPE_STE)
-		max_log_chunk_sz = dmn->info.max_log_sw_icm_sz;
-	else
-		max_log_chunk_sz = dmn->info.max_log_action_icm_sz;
 
 	pool = calloc(1, sizeof(struct dr_icm_pool));
 	if (!pool) {
@@ -529,9 +535,22 @@ struct dr_icm_pool *dr_icm_pool_create(struct mlx5dv_dr_domain *dmn,
 		return NULL;
 	}
 
+	switch (icm_type) {
+	case DR_ICM_TYPE_STE:
+		pool->max_log_chunk_sz = dmn->info.max_log_sw_icm_sz;
+		break;
+	case DR_ICM_TYPE_MODIFY_ACTION:
+		pool->max_log_chunk_sz = dmn->info.max_log_action_icm_sz;
+		break;
+	case DR_ICM_TYPE_MODIFY_HDR_PTRN:
+		pool->max_log_chunk_sz = dmn->info.max_log_modify_hdr_pattern_icm_sz;
+		break;
+	default:
+		assert(false);
+	}
+
 	pool->dmn = dmn;
 	pool->icm_type = icm_type;
-	pool->max_log_chunk_sz = max_log_chunk_sz;
 
 	list_head_init(&pool->buddy_mem_list);
 
