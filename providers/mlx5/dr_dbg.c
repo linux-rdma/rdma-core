@@ -371,7 +371,7 @@ static int dr_dump_matcher_builder(FILE *f, struct dr_ste_build *builder,
 {
 	int ret;
 
-	ret = fprintf(f, "%d,0x%" PRIx64 "%d,%d,0x%x\n",
+	ret = fprintf(f, "%d,0x%" PRIx64 ",%d,%d,0x%x\n",
 		      DR_DUMP_REC_TYPE_MATCHER_BUILDER,
 		      matcher_id,
 		      index,
