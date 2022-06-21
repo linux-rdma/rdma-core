@@ -409,7 +409,7 @@ static int dr_dump_matcher_builder(FILE *f, struct dr_ste_build *builder,
 	bool is_match = builder->htbl_type == DR_STE_HTBL_TYPE_MATCH;
 	int ret;
 
-	ret = fprintf(f, "%d,0x%" PRIx64 "%d,%d,0x%x,%d\n",
+	ret = fprintf(f, "%d,0x%" PRIx64 ",%d,%d,0x%x,%d\n",
 		      DR_DUMP_REC_TYPE_MATCHER_BUILDER,
 		      matcher_id,
 		      index,
