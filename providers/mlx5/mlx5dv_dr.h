@@ -181,6 +181,7 @@ enum dr_action_type {
 	DR_ACTION_TYP_ASO_FIRST_HIT,
 	DR_ACTION_TYP_ASO_FLOW_METER,
 	DR_ACTION_TYP_ASO_CT,
+	DR_ACTION_TYP_ROOT_FT,
 	DR_ACTION_TYP_MAX,
 };
 
@@ -1288,6 +1289,13 @@ struct mlx5dv_dr_action {
 				struct ibv_qp           *qp;
 			};
 		} dest_qp;
+		struct {
+			struct mlx5dv_dr_table *tbl;
+			struct dr_devx_tbl *devx_tbl;
+			struct mlx5dv_steering_anchor *sa;
+			uint64_t rx_icm_addr;
+			uint64_t tx_icm_addr;
+		} root_tbl;
 		struct dr_action_aso	aso;
 		struct mlx5dv_devx_obj	*devx_obj;
 		uint32_t		flow_tag;

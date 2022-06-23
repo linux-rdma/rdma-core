@@ -2104,6 +2104,10 @@ struct mlx5dv_dr_action *
 mlx5dv_dr_action_create_push_vlan(struct mlx5dv_dr_domain *domain,
 				  __be32 vlan_hdr);
 
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_root_table(struct mlx5dv_dr_table *table,
+					uint16_t priority);
+
 int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action);
 
 int mlx5dv_dump_dr_domain(FILE *fout, struct mlx5dv_dr_domain *domain);
