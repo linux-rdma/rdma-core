@@ -96,7 +96,7 @@ Verbose mode provides the reason for skipping the test (if one was provided by
 the test developer).
 
 ### Customized Execution
-tests/__init__.py defines a `_load_tests` function that returns an array with
+tests/\_\_init\_\_.py defines a `_load_tests` function that returns an array with
 the tests that will be executed.
 The default implementation collects all test_* methods from all the classes that
 inherit from `unittest.TestCase` (or `RDMATestCase`) and located in files under
