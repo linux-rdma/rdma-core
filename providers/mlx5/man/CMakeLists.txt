@@ -8,6 +8,7 @@ rdma_man_pages(
   mlx5dv_create_flow_matcher.3.md
   mlx5dv_create_mkey.3.md
   mlx5dv_create_qp.3.md
+  mlx5dv_create_steering_anchor.3.md
   mlx5dv_crypto_login.3.md
   mlx5dv_crypto_login_create.3.md
   mlx5dv_dci_stream_id_reset.3.md
@@ -56,6 +57,7 @@ rdma_man_pages(
 rdma_alias_man_pages(
  mlx5dv_alloc_var.3 mlx5dv_free_var.3
  mlx5dv_create_mkey.3 mlx5dv_destroy_mkey.3
+ mlx5dv_create_steering_anchor.3 mlx5dv_destroy_steering_anchor.3
  mlx5dv_crypto_login.3 mlx5dv_crypto_login_query_state.3
  mlx5dv_crypto_login.3 mlx5dv_crypto_logout.3
  mlx5dv_crypto_login_create.3 mlx5dv_crypto_login_destroy.3

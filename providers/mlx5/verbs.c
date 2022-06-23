@@ -5433,6 +5433,95 @@ mlx5dv_create_flow(struct mlx5dv_flow_matcher *flow_matcher,
 				  NULL);
 }
 
+static struct mlx5dv_steering_anchor *
+_mlx5dv_create_steering_anchor(struct ibv_context *context,
+			       struct mlx5dv_steering_anchor_attr *attr)
+{
+	DECLARE_COMMAND_BUFFER(cmd, MLX5_IB_OBJECT_STEERING_ANCHOR,
+			       MLX5_IB_METHOD_STEERING_ANCHOR_CREATE,
+			       4);
+	struct mlx5_steering_anchor *steering_anchor;
+	struct ib_uverbs_attr *handle;
+	int err;
+
+	if (!check_comp_mask(attr->comp_mask, 0)) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	steering_anchor = calloc(1, sizeof(*steering_anchor));
+	if (!steering_anchor) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	handle = fill_attr_out_obj(cmd,
+				   MLX5_IB_ATTR_STEERING_ANCHOR_CREATE_HANDLE);
+	fill_attr_const_in(cmd, MLX5_IB_ATTR_STEERING_ANCHOR_FT_TYPE,
+			   attr->ft_type);
+	fill_attr_in(cmd, MLX5_IB_ATTR_STEERING_ANCHOR_PRIORITY,
+		     &attr->priority, sizeof(attr->priority));
+	fill_attr_out(cmd, MLX5_IB_ATTR_STEERING_ANCHOR_FT_ID,
+		      &steering_anchor->sa.id, sizeof(steering_anchor->sa.id));
+
+	err = execute_ioctl(context, cmd);
+	if (err) {
+		free(steering_anchor);
+		return NULL;
+	}
+	steering_anchor->context = context;
+	steering_anchor->handle =
+		read_attr_obj(MLX5_IB_ATTR_STEERING_ANCHOR_CREATE_HANDLE,
+			      handle);
+
+	return &steering_anchor->sa;
+}
+
+static int _mlx5dv_destroy_steering_anchor(struct mlx5_steering_anchor *anchor)
+{
+	DECLARE_COMMAND_BUFFER(cmd, MLX5_IB_OBJECT_STEERING_ANCHOR,
+			       MLX5_IB_METHOD_STEERING_ANCHOR_DESTROY,
+			       1);
+	int ret;
+
+	fill_attr_in_obj(cmd, MLX5_IB_ATTR_STEERING_ANCHOR_DESTROY_HANDLE,
+			 anchor->handle);
+	ret = execute_ioctl(anchor->context, cmd);
+	if (ret)
+		return ret;
+
+	free(anchor);
+	return 0;
+}
+
+struct mlx5dv_steering_anchor *
+mlx5dv_create_steering_anchor(struct ibv_context *context,
+			      struct mlx5dv_steering_anchor_attr *attr)
+{
+	struct mlx5_dv_context_ops *dvops = mlx5_get_dv_ops(context);
+
+	if (!dvops || !dvops->create_steering_anchor) {
+		errno = EOPNOTSUPP;
+		return NULL;
+	}
+
+	return dvops->create_steering_anchor(context, attr);
+}
+
+int mlx5dv_destroy_steering_anchor(struct mlx5dv_steering_anchor *sa)
+{
+	struct mlx5_steering_anchor *anchor;
+	struct mlx5_dv_context_ops *dvops;
+
+	anchor = container_of(sa, struct mlx5_steering_anchor, sa);
+	dvops = mlx5_get_dv_ops(anchor->context);
+
+	if (!dvops || !dvops->destroy_steering_anchor)
+		return EOPNOTSUPP;
+
+	return dvops->destroy_steering_anchor(anchor);
+}
+
 static struct mlx5dv_devx_umem *
 __mlx5dv_devx_umem_reg_ex(struct ibv_context *context,
 			 struct mlx5dv_devx_umem_in *in,
@@ -7716,4 +7805,7 @@ void mlx5_set_dv_ctx_ops(struct mlx5_dv_context_ops *ops)
 
 	ops->map_ah_to_qp = _mlx5dv_map_ah_to_qp;
 	ops->query_port = __mlx5dv_query_port;
+
+	ops->create_steering_anchor = _mlx5dv_create_steering_anchor;
+	ops->destroy_steering_anchor = _mlx5dv_destroy_steering_anchor;
 }

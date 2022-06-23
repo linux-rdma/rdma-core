@@ -737,6 +737,21 @@ mlx5dv_create_flow_matcher(struct ibv_context *context,
 
 int mlx5dv_destroy_flow_matcher(struct mlx5dv_flow_matcher *matcher);
 
+struct mlx5dv_steering_anchor_attr {
+	enum mlx5dv_flow_table_type ft_type;
+	uint16_t priority;
+	uint64_t comp_mask;
+};
+
+struct mlx5dv_steering_anchor {
+	uint32_t id;
+};
+
+struct mlx5dv_steering_anchor *
+mlx5dv_create_steering_anchor(struct ibv_context *context,
+			      struct mlx5dv_steering_anchor_attr *attr);
+int mlx5dv_destroy_steering_anchor(struct mlx5dv_steering_anchor *sa);
+
 enum mlx5dv_flow_action_type {
 	MLX5DV_FLOW_ACTION_DEST_IBV_QP,
 	MLX5DV_FLOW_ACTION_DROP,

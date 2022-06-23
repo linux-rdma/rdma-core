@@ -756,6 +756,12 @@ struct mlx5dv_flow_matcher {
 	uint32_t handle;
 };
 
+struct mlx5_steering_anchor {
+	struct ibv_context *context;
+	uint32_t handle;
+	struct mlx5dv_steering_anchor sa;
+};
+
 enum mlx5_devx_obj_type {
 	MLX5_DEVX_FLOW_TABLE		= 1,
 	MLX5_DEVX_FLOW_COUNTER		= 2,
@@ -1567,6 +1573,9 @@ struct mlx5_dv_context_ops {
 					struct mlx5dv_flow_action_attr actions_attr[],
 					struct mlx5_flow_action_attr_aux actions_attr_aux[]);
 
+	struct mlx5dv_steering_anchor *(*create_steering_anchor)(struct ibv_context *conterxt,
+								 struct mlx5dv_steering_anchor_attr *attr);
+	int (*destroy_steering_anchor)(struct mlx5_steering_anchor *sa);
 	int (*query_device)(struct ibv_context *ctx_in, struct mlx5dv_context *attrs_out);
 
 	int (*query_qp_lag_port)(struct ibv_qp *qp, uint8_t *port_num,
