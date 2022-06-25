@@ -103,8 +103,6 @@ cdef class QPInitAttr(PyverbsObject):
                  SRQ srq=None, QPCap cap=None, sq_sig_all=1):
         """
         Initializes a QpInitAttr object representing ibv_qp_init_attr struct.
-        Note that SRQ object is not yet supported in pyverbs so can't be passed
-        as a parameter. None should be used until such support is added.
         :param qp_type: The desired QP type (see enum ibv_qp_type)
         :param qp_context: Associated QP context
         :param scq: Send CQ to be used for this QP
