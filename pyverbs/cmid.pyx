@@ -70,7 +70,11 @@ cdef class ConnParam(PyverbsObject):
 
     @property
     def private_data(self):
-        return <object>self.conn_param.private_data
+        data_array = bytearray(self.conn_param.private_data_len)
+        cdef const unsigned char *p = <const unsigned char*>self.conn_param.private_data
+        for i in range(self.conn_param.private_data_len):
+            data_array[i] = p[i]
+        return bytes(data_array)
 
     def set_private_data(self, data):
         if (min(len(self.data), len(data)) == 0):
@@ -284,7 +288,11 @@ cdef class CMEvent(PyverbsObject):
 
     @property
     def private_data(self):
-        return <object>self.event.param.conn.private_data
+        data_array = bytearray(self.event.param.conn.private_data_len)
+        cdef const unsigned char *p = <const unsigned char*>self.event.param.conn.private_data
+        for i in range(self.event.param.conn.private_data_len):
+            data_array[i] = p[i]
+        return bytes(data_array)
 
 
 cdef class CMEventChannel(PyverbsObject):
