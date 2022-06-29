@@ -640,6 +640,7 @@ cdef extern from 'infiniband/verbs.h':
     ibv_device **ibv_get_device_list(int *n)
     int ibv_get_device_index(ibv_device *device);
     void ibv_free_device_list(ibv_device **list)
+    const char *ibv_get_device_name(ibv_device *device)
     ibv_context *ibv_open_device(ibv_device *device)
     int ibv_close_device(ibv_context *context)
     int ibv_query_device(ibv_context *context, ibv_device_attr *device_attr)
