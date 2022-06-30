@@ -359,6 +359,14 @@ cdef class CMID(PyverbsCM):
             raise PyverbsError('Unrecognized object type')
 
     @property
+    def dev_name(self):
+        return str(v.ibv_get_device_name(self.id.verbs.device).decode('utf-8'))
+
+    @property
+    def port_num(self):
+        return self.id.port_num
+
+    @property
     def event_channel(self):
         return self.event_channel
 

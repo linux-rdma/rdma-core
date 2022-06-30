@@ -128,12 +128,14 @@ cdef class Context(PyverbsCM):
         cmd_fd = kwargs.get('cmd_fd')
         if cmid is not None:
             self.context = cmid.id.verbs
+            self.name = str(v.ibv_get_device_name(self.context.device).decode('utf-8'))
             cmid.ctx = self
             return
         if cmd_fd is not None:
             self.context = v.ibv_import_device(cmd_fd)
             if self.context == NULL:
                 raise PyverbsRDMAErrno('Failed to import device')
+            self.name = str(v.ibv_get_device_name(self.context.device).decode('utf-8'))
             return
 
         if self.name is None:
