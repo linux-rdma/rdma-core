@@ -821,12 +821,18 @@ cdef class CMID(PyverbsCM):
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to set option')
 
-    def reject(self, private_data=None, private_data_len=0):
+    def reject(self, private_data=None):
         """
         Reject a connection or datagram service lookup request.
         :param private_data: Optional private data to send with the reject message.
         :param private_data_len: Size (in bytes) of the private data being sent.
         """
-        ret = cm.rdma_reject(self.id, <const void*>private_data, private_data_len)
+        data_len = len(private_data) if private_data else 0
+        buffer = ctypes.create_string_buffer(data_len)
+        if (private_data):
+            buffer.value = private_data
+        cdef size_t data_ptr = ctypes.addressof(buffer)
+
+        ret = cm.rdma_reject(self.id, <const void*>data_ptr, data_len)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to Reject Connection')
