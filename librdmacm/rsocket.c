@@ -3173,7 +3173,7 @@ static struct pollfd *rs_fds_alloc(nfds_t nfds)
 		else if (rs_pollinit())
 			return NULL;
 
-		rfds = malloc(sizeof(*rfds) * nfds + 1);
+		rfds = malloc(sizeof(*rfds) * (nfds + 1));
 		rnfds = rfds ? nfds + 1 : 0;
 	}
 
