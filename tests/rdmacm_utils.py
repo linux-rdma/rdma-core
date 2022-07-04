@@ -206,7 +206,7 @@ class CMConnection(abc.ABC):
             raise PyverbsError('Expected this event: {}, got this event: {}'.
                                 format(expected_event, cm_event.event_str()))
         if expected_event == ce.RDMA_CM_EVENT_REJECTED:
-            assert cm_event.private_data == REJECT_MSG, \
+            assert cm_event.private_data[:len(REJECT_MSG)].decode() == REJECT_MSG, \
                 f'CM event data ({cm_event.private_data}) is different than the expected ({REJECT_MSG})'
         cm_event.ack_cm_event()
 
@@ -306,7 +306,7 @@ class CMAsyncConnection(CMConnection):
                     self.set_cmid_ece(self.cm_res.passive)
                 child_id = self.cm_res.child_ids[conn_idx]
                 if self.reject_conn:
-                    child_id.reject(REJECT_MSG, sys.getsizeof(REJECT_MSG))
+                    child_id.reject(REJECT_MSG.encode())
                     return
                 child_id.accept(self.cm_res.create_conn_param(conn_idx=conn_idx))
                 if self.qp_timeout >= 0:
