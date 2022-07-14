@@ -253,8 +253,12 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_DEK_STATE_READY
         MLX5DV_DEK_STATE_ERROR
 
+    cpdef enum mlx5dv_dek_init_attr_mask:
+        MLX5DV_DEK_INIT_ATTR_CRYPTO_LOGIN
+
     cpdef enum mlx5dv_crypto_engines_caps:
         MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS
+        MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK
 
     cpdef enum mlx5dv_crypto_wrapped_import_method_caps:
         MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS

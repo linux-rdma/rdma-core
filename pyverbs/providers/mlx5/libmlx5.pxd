@@ -342,10 +342,24 @@ cdef extern from 'infiniband/mlx5dv.h':
     cdef struct mlx5dv_dek:
         pass
 
+    cdef struct mlx5dv_crypto_login_obj:
+        pass
+
     cdef struct mlx5dv_crypto_login_attr:
         uint32_t credential_id
         uint32_t import_kek_id
         char *credential
+        uint64_t comp_mask
+
+    cdef struct mlx5dv_crypto_login_attr_ex:
+        uint32_t credential_id
+        uint32_t import_kek_id
+        const void *credential
+        size_t credential_len
+        uint64_t comp_mask
+
+    cdef struct mlx5dv_crypto_login_query_attr:
+        mlx5dv_crypto_login_state state
         uint64_t comp_mask
 
     cdef struct mlx5dv_crypto_attr:
@@ -366,6 +380,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         char *opaque
         char *key
         uint64_t comp_mask
+        mlx5dv_crypto_login_obj *crypto_login
 
     cdef struct mlx5dv_dek_attr:
         mlx5dv_dek_state state
@@ -536,3 +551,8 @@ cdef extern from 'infiniband/mlx5dv.h':
     mlx5dv_dek *mlx5dv_dek_create(v.ibv_context *context, mlx5dv_dek_init_attr *init_attr)
     int mlx5dv_dek_query(mlx5dv_dek *dek, mlx5dv_dek_attr *attr)
     int mlx5dv_dek_destroy(mlx5dv_dek *dek)
+    mlx5dv_crypto_login_obj *mlx5dv_crypto_login_create(v.ibv_context *context,
+                                                        mlx5dv_crypto_login_attr_ex *login_attr)
+    int mlx5dv_crypto_login_query(mlx5dv_crypto_login_obj *crypto_login,
+                                  mlx5dv_crypto_login_query_attr *query_attr)
+    int mlx5dv_crypto_login_destroy(mlx5dv_crypto_login_obj *crypto_login)

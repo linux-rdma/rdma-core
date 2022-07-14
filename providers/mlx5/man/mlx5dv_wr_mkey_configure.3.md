@@ -386,7 +386,7 @@ A DEVX context should be opened by using **mlx5dv_open_device**(3).
 # SEE ALSO
 
 **mlx5dv_create_mkey**(3), **mlx5dv_create_qp**(3),
-**mlx5dv_wr_set_mkey_sig_block**(3)
+**mlx5dv_wr_set_mkey_sig_block**(3), **mlx5dv_wr_set_mkey_crypto**(3)
 
 # AUTHORS
 

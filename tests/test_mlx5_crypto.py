@@ -7,7 +7,7 @@ import os
 from pyverbs.providers.mlx5.mlx5dv_mkey import Mlx5Mkey, Mlx5MrInterleaved, \
     Mlx5MkeyConfAttr, Mlx5SigCrc, Mlx5SigBlockDomain, Mlx5SigBlockAttr
 from pyverbs.providers.mlx5.mlx5dv_crypto import Mlx5CryptoLoginAttr, Mlx5DEK, \
-    Mlx5DEKInitAttr, Mlx5CryptoAttr
+    Mlx5DEKInitAttr, Mlx5CryptoAttr, Mlx5CryptoLogin, Mlx5CryptoExtLoginAttr
 from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr, \
     Mlx5DVQPInitAttr, Mlx5QP
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
@@ -44,15 +44,18 @@ Example of content of such file:
 [{"credential": [8704278040424473809, 4403447855848063568, 13892768337045135232,
 5942481448427925932, 171338997253969038, 5703425261028721211],
 "wrapped_key": [contains 5 integers of 64bits each],
+"plaintext_key": [contains 8 integers of 32bits each],
+"plaintext_256_bits_key": [contains 16 integers of 32bits each],
 "encrypted_data_for_512_c": [contains 64 integers of 64bits each],
 "wrapped_256_bits_key": [contains 9 integers of 64bits each]}]
 """
 
 
-def check_crypto_caps(dev_name):
+def check_crypto_caps(dev_name, is_wrapped_dek_mode):
     """
     Check that this device support crypto actions.
     :param dev_name: The device name.
+    :param is_wrapped_dek_mode: True when wrapped_dek and False when plaintext .
     """
     mlx5dv_attr = Mlx5DVContextAttr()
     ctx = Mlx5Context(mlx5dv_attr, name=dev_name)
@@ -60,8 +63,16 @@ def check_crypto_caps(dev_name):
     failed_selftests = crypto_caps['failed_selftests']
     if failed_selftests:
         raise unittest.SkipTest(f'The device crypto selftest failed ({failed_selftests})')
-    if not dve.MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS & crypto_caps['crypto_engines']:
+    if not dve.MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK  & crypto_caps['crypto_engines']:
         raise unittest.SkipTest('The device crypto engines does not support AES')
+    dev_wrapped_import_method = crypto_caps['wrapped_import_method']
+    if is_wrapped_dek_mode:
+        if not dve.MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS & dev_wrapped_import_method or \
+                not dve.MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL & crypto_caps['flags']:
+            raise unittest.SkipTest('The device does not support wrapped DEK')
+    elif dve.MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS & dev_wrapped_import_method and \
+                dve.MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL & crypto_caps['flags']:
+        raise unittest.SkipTest('The device does not support plaintext DEK')
 
 
 def require_crypto_login_details(instance):
@@ -86,11 +97,14 @@ def require_crypto_login_details(instance):
         raise unittest.SkipTest(f'Crypto login details must be supplied in {crypto_file}')
 
 
-def requires_crypto_support():
+def requires_crypto_support(is_wrapped_dek_mode):
+    """
+    :param is_wrapped_dek_mode: True when wapped_dek and False when plaintext .
+    """
     def outer(func):
         def inner(instance):
             require_crypto_login_details(instance)
-            check_crypto_caps(instance.dev_name)
+            check_crypto_caps(instance.dev_name, is_wrapped_dek_mode)
             return func(instance)
         return inner
     return outer
@@ -178,12 +192,12 @@ class Mlx5CryptoAPITest(Mlx5PyverbsAPITestCase):
         dek_attr = self.dek.query()
         self.assertEqual(dek_attr.opaque, DEK_OPAQUE)
 
-    @requires_crypto_support()
+    @requires_crypto_support(is_wrapped_dek_mode=True)
     def test_mlx5_dek_management(self):
         """
         Test crypto login and DEK management APIs.
         The test checks also that invalid actions are not permited, e.g, create
-        DEK not in login session.
+        DEK not in login session on wrapped DEK mode.
         """
         try:
             self.pd = PD(self.ctx)
@@ -247,12 +261,49 @@ class Mlx5CryptoTrafficTest(Mlx5RDMATestCase):
         cred_bytes = struct.pack('!6Q', *self.crypto_details['credential'])
         log_attr = Mlx5CryptoLoginAttr(cred_bytes)
         Mlx5Context.crypto_login(self.client.ctx, log_attr)
+        self._create_wrapped_dek()
+
+    def create_client_wrapped_dek_login_obj(self):
+        """
+        Create CryptoExtLoginAttr and crypto login object
+        """
+        cred_bytes = struct.pack('!6Q', *self.crypto_details['credential'])
+        log_attr = Mlx5CryptoExtLoginAttr(cred_bytes, 48)
+        crypto_login_obj = Mlx5CryptoLogin(self.client.ctx, log_attr)
+        comp_mask=dve.MLX5DV_DEK_INIT_ATTR_CRYPTO_LOGIN
+        self._create_wrapped_dek(comp_mask, crypto_login_obj)
+
+    def _create_wrapped_dek(self, comp_mask=0, crypto_login_obj=None):
+        """
+        Create wrapped DEK using the client resources.
+        """
         key = struct.pack('!5Q', *self.crypto_details['wrapped_key'])
         if self.key_size == dve.MLX5DV_CRYPTO_KEY_SIZE_256:
             key = struct.pack('!9Q', *self.crypto_details['wrapped_256_bits_key'])
-        self.dek_attr = Mlx5DEKInitAttr(self.client.pd, key=key,
+
+        if comp_mask == dve.MLX5DV_DEK_INIT_ATTR_CRYPTO_LOGIN:
+            self.dek_attr = Mlx5DEKInitAttr(self.client.pd, key=key,
+                                            key_size=self.key_size,
+                                            key_purpose=dve.MLX5DV_CRYPTO_KEY_PURPOSE_AES_XTS,
+                                            comp_mask=comp_mask, crypto_login=crypto_login_obj)
+        else:
+            self.dek_attr = Mlx5DEKInitAttr(self.client.pd, key=key,
+                                            key_size=self.key_size,
+                                            key_purpose=dve.MLX5DV_CRYPTO_KEY_PURPOSE_AES_XTS)
+
+        self.dek = Mlx5DEK(self.client.ctx, self.dek_attr)
+
+    def create_client_plaintext_dek(self):
+        """
+        Create DEK using the client resources.
+        """
+        key = struct.pack('8I',*self.crypto_details['plaintext_key'])
+        if self.key_size == dve.MLX5DV_CRYPTO_KEY_SIZE_256:
+            key = struct.pack('16I', *self.crypto_details['plaintext_256_bits_key'])
+        self.dek_attr = Mlx5DEKInitAttr(self.client.pd,key=key,
                                         key_size=self.key_size,
-                                        key_purpose=dve.MLX5DV_CRYPTO_KEY_PURPOSE_AES_XTS)
+                                        comp_mask=dve.MLX5DV_DEK_INIT_ATTR_CRYPTO_LOGIN,
+                                        crypto_login=None)
         self.dek = Mlx5DEK(self.client.ctx, self.dek_attr)
 
     def reg_client_mkey(self, signature=False):
@@ -334,11 +385,11 @@ class Mlx5CryptoTrafficTest(Mlx5RDMATestCase):
             if self.validate_data:
                 self.validate_crypto_data()
 
-    @requires_crypto_support()
-    def test_mlx5_crypto_mkey(self):
+    def run_crypto_dek_test(self, create_dek_func):
         """
-        Create Mkeys, register a memory layout using the mkeys, configure
-        crypto attributes on it and then perform traffic.
+        Creates player and DEK, using the give function, for different test
+        cases, and runs traffic.
+        :param create_dek_func: Function that creates a DEK.
         """
         if 'encrypted_data_for_512_c' in self.crypto_details:
             self.validate_data = True
@@ -347,11 +398,39 @@ class Mlx5CryptoTrafficTest(Mlx5RDMATestCase):
         self.create_players(Mlx5CryptoResources,
                             dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE,
                             mkey_create_flags=mkey_flags)
-        self.create_client_dek()
+        create_dek_func()
         self.reg_client_mkey()
         self.traffic()
 
-    @requires_crypto_support()
+    @requires_crypto_support(is_wrapped_dek_mode=True)
+    def test_mlx5_crypto_mkey_old_api(self):
+        """
+        Create Mkeys, register a memory layout using the mkeys, configure
+        crypto attributes on it and then run traffic.
+        """
+        self.run_crypto_dek_test(self.create_client_dek)
+
+    @requires_crypto_support(is_wrapped_dek_mode=True)
+    def test_mlx5_crypto_wrapped_dek(self):
+        """
+        Create Mkeys, register a memory layout using the mkeys,
+        configure crypto attributes on it using login object API and then run
+        traffic.
+        Use wrapped DEK with new API.
+        """
+        self.run_crypto_dek_test(self.create_client_wrapped_dek_login_obj)
+
+    @requires_crypto_support(is_wrapped_dek_mode=False)
+    def test_mlx5_crypto_plaintext_dek(self):
+        """
+        Create Mkeys, register a memory layout using the mkeys,
+        configure crypto attributes on it using login object API and then run
+        traffic.
+        Use plaintext DEK.
+        """
+        self.run_crypto_dek_test(self.create_client_plaintext_dek)
+
+    @requires_crypto_support(is_wrapped_dek_mode=True)
     def test_mlx5_crypto_signature_mkey(self):
         """
         Create Mkeys, register a memory layout using this mkey, configure

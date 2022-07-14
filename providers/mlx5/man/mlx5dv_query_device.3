@@ -197,12 +197,29 @@ uint32_t flags; /* use enum mlx5dv_crypto_caps_flags */
 .in -8
 };
 
+/* This bitmap indicates which crypto engines are supported by the device. */
 enum mlx5dv_crypto_engines_caps {
 .in +8
+	/* Deprecated, replaced by MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK */
 	MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS = 1 << 0,
+	/*
+	 * Indicates that AES-XTS only supports encrypting a single block
+	 * at a time.
+	 */
+	MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK = 1 << 1,
 .in -8
 };
 
+/*
+ * This bitmap indicates the import method of each crypto engine.
+ *
+ * If a bit is not set, the corresponding crypto engine is in plaintext import method and the
+ * application must use plaintext DEKs for this crypto engine.
+ *
+ * Otherwise, the corresponding crypto engine is in wrapped import method and the application
+ * must use wrapped DEKs for this crypto engine. To load wrapped DEKs the application must perform
+ * crypto login, which in turn requires MLX5DV_CRYPTO_CAPS_WRAPPED_CRYPTO_OPERATIONAL below to be set.
+ */
 enum mlx5dv_crypto_wrapped_import_method_caps {
 .in +8
 	MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS = 1 << 0,
