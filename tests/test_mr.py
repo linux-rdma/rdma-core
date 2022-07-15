@@ -529,7 +529,7 @@ class DmaBufMRTest(PyverbsAPITestCase):
 
     def test_dmabuf_reg_mr_bad_flags(self):
         """
-        Verify that illegal flags combination fails as expected
+        Verify that DmaBufMR with illegal flags combination fails as expected
         """
         check_dmabuf_support(self.gpu)
         with PD(self.ctx) as pd:
