@@ -41,6 +41,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <sched.h>
+#include <cpuid.h>
 #include <sys/param.h>
 
 #include <util/symver.h>
@@ -178,19 +179,6 @@ static const struct verbs_context_ops mlx5_ctx_cqev1_ops = {
 	.poll_cq = mlx5_poll_cq_v1,
 };
 
-static int read_number_from_line(const char *line, int *value)
-{
-	const char *ptr;
-
-	ptr = strchr(line, ':');
-	if (!ptr)
-		return 1;
-
-	++ptr;
-
-	*value = atoi(ptr);
-	return 0;
-}
 /**
  * The function looks for the first free user-index in all the
  * user-index tables. If all are used, returns -1, otherwise
@@ -388,45 +376,53 @@ int mlx5_destroy_psv(struct mlx5_psv *psv)
 	return ret;
 }
 
-static int mlx5_is_sandy_bridge(int *num_cores)
+/*
+ * startbit and endbit should be between 0 and 31; start bit must be
+ * greater than end bit (as you read a bit-mask just read out the
+ * bits from left to right)
+ */
+static unsigned int get_mask(int startbit, int endbit)
 {
-	char line[128];
-	FILE *fd;
-	int rc = 0;
-	int cur_cpu_family = -1;
-	int cur_cpu_model = -1;
+	int i;
+	int result = 0;
 
-	fd = fopen("/proc/cpuinfo", "r");
-	if (!fd)
+	for (i = startbit; i >= endbit; i--)
+		result |= (1 << i);
+
+	return result;
+}
+
+#define EXTRACT_BITS(val, start, end) (((val) & get_mask((start), (end))) >> (end))
+
+/*
+ * num_cores is ignored by consumers, but we will retain the
+ * the original function signature for now and just return
+ * zero.
+ */
+static int mlx5_is_sandy_bridge(void)
+{
+	unsigned int ax, bx, cx, dx;
+	unsigned int ext_family_id, ext_model_id, family_id, model_id;
+
+	if (!__get_cpuid(1, &ax, &bx, &cx, &dx))
 		return 0;
 
-	*num_cores = 0;
+	ext_family_id = EXTRACT_BITS(ax, 27, 20);
+	ext_model_id = EXTRACT_BITS(ax, 19, 16);
+	family_id = EXTRACT_BITS(ax, 11, 8);
+	model_id = EXTRACT_BITS(ax, 7, 4);
 
-	while (fgets(line, 128, fd)) {
-		int value;
+	if (family_id == 6 || family_id == 15)
+		model_id = (ext_model_id << 4) + model_id;
 
-		/* if this is information on new processor */
-		if (!strncmp(line, "processor", 9)) {
-			++*num_cores;
+	if (family_id == 15)
+		family_id = ext_family_id + family_id;
 
-			cur_cpu_family = -1;
-			cur_cpu_model  = -1;
-		} else if (!strncmp(line, "cpu family", 10)) {
-			if ((cur_cpu_family < 0) && (!read_number_from_line(line, &value)))
-				cur_cpu_family = value;
-		} else if (!strncmp(line, "model", 5)) {
-			if ((cur_cpu_model < 0) && (!read_number_from_line(line, &value)))
-				cur_cpu_model = value;
-		}
+	if (family_id == 6 &&
+		(model_id == 0x2A || model_id == 0x2D))
+		return 1;
 
-		/* if this is a Sandy Bridge CPU */
-		if ((cur_cpu_family == 6) &&
-		    (cur_cpu_model == 0x2A || (cur_cpu_model == 0x2D) ))
-			rc = 1;
-	}
-
-	fclose(fd);
-	return rc;
+	return 0;
 }
 
 /*
@@ -518,9 +514,8 @@ static int mlx5_enable_sandy_bridge_fix(struct ibv_device *ibdev, struct mlx5_co
 	cpu_set_t my_cpus, dev_local_cpus, result_set;
 	int stall_enable;
 	int ret;
-	int num_cores;
 
-	if (!mlx5_is_sandy_bridge(&num_cores))
+	if (!mlx5_is_sandy_bridge())
 		return 0;
 
 	/* by default enable stall on sandy bridge arch */
