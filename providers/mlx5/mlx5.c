@@ -388,7 +388,7 @@ int mlx5_destroy_psv(struct mlx5_psv *psv)
 	return ret;
 }
 
-static int mlx5_is_sandy_bridge(int *num_cores)
+static int mlx5_is_sandy_bridge(void)
 {
 	char line[128];
 	FILE *fd;
@@ -400,15 +400,10 @@ static int mlx5_is_sandy_bridge(int *num_cores)
 	if (!fd)
 		return 0;
 
-	*num_cores = 0;
-
 	while (fgets(line, 128, fd)) {
 		int value;
 
-		/* if this is information on new processor */
 		if (!strncmp(line, "processor", 9)) {
-			++*num_cores;
-
 			cur_cpu_family = -1;
 			cur_cpu_model  = -1;
 		} else if (!strncmp(line, "cpu family", 10)) {
@@ -419,10 +414,14 @@ static int mlx5_is_sandy_bridge(int *num_cores)
 				cur_cpu_model = value;
 		}
 
+		if (cur_cpu_family == -1 || cur_cpu_model == -1)
+			continue;
+
 		/* if this is a Sandy Bridge CPU */
 		if ((cur_cpu_family == 6) &&
 		    (cur_cpu_model == 0x2A || (cur_cpu_model == 0x2D) ))
 			rc = 1;
+		break;
 	}
 
 	fclose(fd);
@@ -518,9 +517,8 @@ static int mlx5_enable_sandy_bridge_fix(struct ibv_device *ibdev, struct mlx5_co
 	cpu_set_t my_cpus, dev_local_cpus, result_set;
 	int stall_enable;
 	int ret;
-	int num_cores;
 
-	if (!mlx5_is_sandy_bridge(&num_cores))
+	if (!mlx5_is_sandy_bridge())
 		return 0;
 
 	/* by default enable stall on sandy bridge arch */
