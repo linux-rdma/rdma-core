@@ -42,7 +42,9 @@
 #include <string.h>
 #include <sched.h>
 #include <sys/param.h>
-
+#if  defined(__i386__)
+#include <cpuid.h>
+#endif /* defined(__i386__) */
 #include <util/symver.h>
 #include <rdma/mlx5_user_ioctl_cmds.h>
 
@@ -178,19 +180,6 @@ static const struct verbs_context_ops mlx5_ctx_cqev1_ops = {
 	.poll_cq = mlx5_poll_cq_v1,
 };
 
-static int read_number_from_line(const char *line, int *value)
-{
-	const char *ptr;
-
-	ptr = strchr(line, ':');
-	if (!ptr)
-		return 1;
-
-	++ptr;
-
-	*value = atoi(ptr);
-	return 0;
-}
 /**
  * The function looks for the first free user-index in all the
  * user-index tables. If all are used, returns -1, otherwise
@@ -388,44 +377,46 @@ int mlx5_destroy_psv(struct mlx5_psv *psv)
 	return ret;
 }
 
-static int mlx5_is_sandy_bridge(void)
+#if defined(__i386__)
+static unsigned int get_mask(int startbit, int endbit)
 {
-	char line[128];
-	FILE *fd;
-	int rc = 0;
-	int cur_cpu_family = -1;
-	int cur_cpu_model = -1;
+	int i;
+	int result = 0;
 
-	fd = fopen("/proc/cpuinfo", "r");
-	if (!fd)
+	for (i = startbit; i >= endbit; i--)
+		result |= (1 << i);
+
+	return result;
+}
+
+#define EXTRACT_BITS(val, start, end) (((val) & get_mask((start), (end))) >> (end))
+#endif
+
+static int mlx5_is_sandy_bridge(int *num_cores)
+{
+#if defined(__i386__)
+	unsigned int ax, bx, cx, dx;
+	unsigned int ext_family_id, ext_model_id, family_id, model_id;
+
+	if (!__get_cpuid(1, &ax, &bx, &cx, &dx))
 		return 0;
 
-	while (fgets(line, 128, fd)) {
-		int value;
+	ext_family_id = EXTRACT_BITS(ax, 27, 20);
+	ext_model_id = EXTRACT_BITS(ax, 19, 16);
+	family_id = EXTRACT_BITS(ax, 11, 8);
+	model_id = EXTRACT_BITS(ax, 7, 4);
 
-		if (!strncmp(line, "processor", 9)) {
-			cur_cpu_family = -1;
-			cur_cpu_model  = -1;
-		} else if (!strncmp(line, "cpu family", 10)) {
-			if ((cur_cpu_family < 0) && (!read_number_from_line(line, &value)))
-				cur_cpu_family = value;
-		} else if (!strncmp(line, "model", 5)) {
-			if ((cur_cpu_model < 0) && (!read_number_from_line(line, &value)))
-				cur_cpu_model = value;
-		}
+	if (family_id == 6 || family_id == 15)
+		model_id = (ext_model_id << 4) + model_id;
 
-		if (cur_cpu_family == -1 || cur_cpu_model == -1)
-			continue;
+	if (family_id == 15)
+		family_id = ext_family_id + family_id;
 
-		/* if this is a Sandy Bridge CPU */
-		if ((cur_cpu_family == 6) &&
-		    (cur_cpu_model == 0x2A || (cur_cpu_model == 0x2D) ))
-			rc = 1;
-		break;
-	}
-
-	fclose(fd);
-	return rc;
+	if (family_id == 6 &&
+		(model_id == 0x2A || model_id == 0x2D))
+	return 1;
+#endif /* defined(__i386__) */
+	return 0;
 }
 
 /*
