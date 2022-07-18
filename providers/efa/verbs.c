@@ -165,14 +165,16 @@ int efadv_query_device(struct ibv_context *ibvctx,
 	attr->max_rq_sge = ctx->max_rq_sge;
 	attr->inline_buf_size = ctx->inline_buf_size;
 
+	if (vext_field_avail(typeof(*attr), device_caps, inlen)) {
+		if (EFA_DEV_CAP(ctx, RNR_RETRY))
+			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_RNR_RETRY;
+	}
+
 	if (vext_field_avail(typeof(*attr), max_rdma_size, inlen)) {
 		attr->max_rdma_size = ctx->max_rdma_size;
 
 		if (EFA_DEV_CAP(ctx, RDMA_READ))
 			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_RDMA_READ;
-
-		if (EFA_DEV_CAP(ctx, RNR_RETRY))
-			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_RNR_RETRY;
 	}
 
 	attr->comp_mask = comp_mask_out;
