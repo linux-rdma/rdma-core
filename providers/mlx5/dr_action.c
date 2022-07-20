@@ -82,6 +82,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_ASO_FLOW_METER]	= DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_ASO_CT]		= DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_MISS]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_DECAP] = {
 			[DR_ACTION_TYP_QP]		= DR_ACTION_STATE_TERM,
@@ -99,6 +100,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_ASO_CT]		= DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]    = DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]    = DR_ACTION_STATE_ENCAP,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_MODIFY_HDR] = {
 			[DR_ACTION_TYP_QP]		= DR_ACTION_STATE_TERM,
@@ -114,6 +116,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_ASO_CT]		= DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]    = DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]    = DR_ACTION_STATE_ENCAP,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_POP_VLAN] = {
 			[DR_ACTION_TYP_QP]		= DR_ACTION_STATE_TERM,
@@ -130,6 +133,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_ASO_CT]		= DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]    = DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]    = DR_ACTION_STATE_ENCAP,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_PUSH_VLAN] = {
 			[DR_ACTION_TYP_QP]		= DR_ACTION_STATE_TERM,
@@ -143,6 +147,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_DEST_ARRAY]	= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]    = DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]    = DR_ACTION_STATE_ENCAP,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_NON_TERM] = {
 			[DR_ACTION_TYP_DROP]		= DR_ACTION_STATE_TERM,
@@ -164,6 +169,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_ASO_CT]		= DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]    = DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]    = DR_ACTION_STATE_ENCAP,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_ASO] = {
 			[DR_ACTION_TYP_QP]              = DR_ACTION_STATE_TERM,
@@ -174,6 +180,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_ASO_FIRST_HIT]   = DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_ASO_FLOW_METER]  = DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_ASO_CT]          = DR_ACTION_STATE_ASO,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_ENCAP] = {
 			[DR_ACTION_TYP_QP]		= DR_ACTION_STATE_TERM,
@@ -184,6 +191,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_TAG]		= DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_ASO_FIRST_HIT]	= DR_ACTION_STATE_ASO,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_TERM] = {
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_TERM,
@@ -204,12 +212,14 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_ASO_FLOW_METER]  = DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_ASO_CT]		= DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_MISS]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_ENCAP] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_ASO_FIRST_HIT]	= DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_MODIFY_HDR] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
@@ -219,6 +229,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_L2_TO_TNL_L2]	= DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_PUSH_VLAN]	= DR_ACTION_STATE_PUSH_VLAN,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_POP_VLAN] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
@@ -230,6 +241,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_MODIFY_HDR]	= DR_ACTION_STATE_MODIFY_HDR,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]	= DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_ENCAP,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_PUSH_VLAN] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
@@ -239,6 +251,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_PUSH_VLAN]	= DR_ACTION_STATE_PUSH_VLAN,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]	= DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_ENCAP,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_NON_TERM] = {
 			[DR_ACTION_TYP_DROP]		= DR_ACTION_STATE_TERM,
@@ -254,6 +267,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_MISS]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_ASO_FLOW_METER]  = DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_ASO_CT]		= DR_ACTION_STATE_ASO,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_ASO] = {
 			[DR_ACTION_TYP_L2_TO_TNL_L2]    = DR_ACTION_STATE_ENCAP,
@@ -267,6 +281,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_DROP]            = DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_FT]              = DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_MISS]            = DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_TERM] = {
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_TERM,
@@ -292,6 +307,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_MISS]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]    = DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]    = DR_ACTION_STATE_ENCAP,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_DECAP] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
@@ -308,6 +324,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_ASO_CT]		= DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]    = DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]    = DR_ACTION_STATE_ENCAP,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_ENCAP] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
@@ -317,6 +334,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_METER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_ASO_FIRST_HIT]	= DR_ACTION_STATE_ASO,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_MODIFY_HDR] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
@@ -331,6 +349,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_ASO_CT]		= DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]    = DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]    = DR_ACTION_STATE_ENCAP,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_POP_VLAN] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
@@ -346,6 +365,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_ASO_CT]		= DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]    = DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]    = DR_ACTION_STATE_ENCAP,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_PUSH_VLAN] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
@@ -359,6 +379,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_ASO_FLOW_METER]  = DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]    = DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]    = DR_ACTION_STATE_ENCAP,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_NON_TERM] = {
 			[DR_ACTION_TYP_DROP]		= DR_ACTION_STATE_TERM,
@@ -379,6 +400,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_ASO_CT]		= DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_L2_TO_TNL_L2]    = DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_L2_TO_TNL_L3]    = DR_ACTION_STATE_ENCAP,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_ASO] = {
 			[DR_ACTION_TYP_VPORT]           = DR_ACTION_STATE_TERM,
@@ -389,6 +411,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_ASO_FIRST_HIT]   = DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_ASO_FLOW_METER]  = DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_ASO_CT]          = DR_ACTION_STATE_ASO,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_TERM] = {
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_TERM,
@@ -412,6 +435,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_ASO_FLOW_METER]  = DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_ASO_CT]		= DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_MISS]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_ENCAP] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
@@ -421,6 +445,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_SAMPLER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_DEST_ARRAY]	= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_MODIFY_HDR] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
@@ -433,6 +458,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_L2_TO_TNL_L3]	= DR_ACTION_STATE_ENCAP,
 			[DR_ACTION_TYP_PUSH_VLAN]	= DR_ACTION_STATE_PUSH_VLAN,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_POP_VLAN] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
@@ -447,6 +473,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_SAMPLER]         = DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_DEST_ARRAY]      = DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_VPORT]           = DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_PUSH_VLAN] = {
 			[DR_ACTION_TYP_FT]		= DR_ACTION_STATE_TERM,
@@ -459,6 +486,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_SAMPLER]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_DEST_ARRAY]	= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_VPORT]		= DR_ACTION_STATE_TERM,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_NON_TERM] = {
 			[DR_ACTION_TYP_DROP]		= DR_ACTION_STATE_TERM,
@@ -477,6 +505,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_MISS]		= DR_ACTION_STATE_TERM,
 			[DR_ACTION_TYP_ASO_FLOW_METER]  = DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_ASO_CT]          = DR_ACTION_STATE_ASO,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_ASO] = {
 			[DR_ACTION_TYP_L2_TO_TNL_L2]    = DR_ACTION_STATE_ENCAP,
@@ -491,6 +520,7 @@ static const enum dr_action_valid_state next_action_state[DR_ACTION_DOMAIN_MAX]
 			[DR_ACTION_TYP_ASO_FIRST_HIT]   = DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_ASO_FLOW_METER]  = DR_ACTION_STATE_ASO,
 			[DR_ACTION_TYP_ASO_CT]          = DR_ACTION_STATE_ASO,
+			[DR_ACTION_TYP_ROOT_FT]		= DR_ACTION_STATE_TERM,
 		},
 		[DR_ACTION_STATE_TERM] = {
 			[DR_ACTION_TYP_CTR]		= DR_ACTION_STATE_TERM,
@@ -643,6 +673,16 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			attr.final_icm_addr = rx_rule ?
 				action->dest_tbl->rx.s_anchor->chunk->icm_addr :
 				action->dest_tbl->tx.s_anchor->chunk->icm_addr;
+			break;
+		case DR_ACTION_TYP_ROOT_FT:
+			if (action->root_tbl.tbl->dmn != dmn) {
+				dr_dbg(dmn, "Destination anchor belongs to a different domain\n");
+				goto out_invalid_arg;
+
+			}
+			attr.final_icm_addr = rx_rule ?
+				action->root_tbl.rx_icm_addr :
+				action->root_tbl.tx_icm_addr;
 			break;
 		case DR_ACTION_TYP_QP:
 			if (action->dest_qp.is_qp)
@@ -1038,6 +1078,112 @@ mlx5dv_dr_action_create_dest_table(struct mlx5dv_dr_table *tbl)
 
 dec_ref:
 	atomic_fetch_sub(&tbl->refcount, 1);
+	return NULL;
+}
+
+static int dr_action_create_dest_root_table(struct mlx5dv_dr_action *action)
+{
+	struct mlx5dv_dr_domain *dmn = action->root_tbl.tbl->dmn;
+	struct dr_devx_flow_dest_info dest_info = {};
+	struct dr_devx_flow_table_attr ft_attr = {};
+	struct dr_devx_flow_group_attr fg_attr = {};
+	struct dr_devx_flow_fte_attr fte_attr = {};
+	int ret;
+
+	switch (dmn->type) {
+	case MLX5DV_DR_DOMAIN_TYPE_FDB:
+		ft_attr.type = FS_FT_FDB;
+		break;
+	case MLX5DV_DR_DOMAIN_TYPE_NIC_RX:
+		ft_attr.type = FS_FT_NIC_RX;
+		break;
+	case MLX5DV_DR_DOMAIN_TYPE_NIC_TX:
+		ft_attr.type = FS_FT_NIC_TX;
+		break;
+	default:
+		errno = EOPNOTSUPP;
+		return errno;
+	}
+
+	fte_attr.dest_arr = &dest_info;
+
+	fte_attr.action |= MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
+	fte_attr.dest_arr[0].type = MLX5_FLOW_DEST_TYPE_FT;
+	fte_attr.dest_arr[0].ft_id = action->root_tbl.sa->id;
+	fte_attr.dest_size = 1;
+
+	action->root_tbl.devx_tbl = dr_devx_create_always_hit_ft(dmn->ctx,
+							       &ft_attr,
+							       &fg_attr,
+							       &fte_attr);
+	if (!action->root_tbl.devx_tbl)
+		return errno;
+
+	ret = dr_devx_query_flow_table(action->root_tbl.devx_tbl->ft_dvo,
+				       ft_attr.type,
+				       &action->root_tbl.rx_icm_addr,
+				       &action->root_tbl.tx_icm_addr);
+	if (ret)
+		goto destroy_devx_tbl;
+
+	return 0;
+
+destroy_devx_tbl:
+	dr_devx_destroy_always_hit_ft(action->root_tbl.devx_tbl);
+
+	return errno;
+}
+
+struct mlx5dv_dr_action *
+mlx5dv_dr_action_create_dest_root_table(struct mlx5dv_dr_table *tbl,
+					uint16_t priority)
+{
+	struct mlx5dv_steering_anchor_attr attr = {};
+	enum mlx5_ib_uapi_flow_table_type ft_type;
+	struct mlx5dv_steering_anchor *sa;
+	struct mlx5dv_dr_action *action;
+	int err;
+
+	if (!dr_is_root_table(tbl)) {
+		dr_dbg(tbl->dmn, "Supported only on root flow tables\n");
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (tbl->dmn->type == MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+		ft_type = MLX5_IB_UAPI_FLOW_TABLE_TYPE_NIC_RX;
+	else if (tbl->dmn->type == MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+		ft_type = MLX5_IB_UAPI_FLOW_TABLE_TYPE_NIC_TX;
+	else
+		ft_type = MLX5_IB_UAPI_FLOW_TABLE_TYPE_FDB;
+
+	attr.priority = priority;
+	attr.ft_type = ft_type;
+
+	sa = mlx5dv_create_steering_anchor(tbl->dmn->ctx, &attr);
+	if (!sa)
+		return NULL;
+
+	action = dr_action_create_generic(DR_ACTION_TYP_ROOT_FT);
+	if (!action)
+		goto free_steering_anchor;
+
+	action->root_tbl.sa = sa;
+	action->root_tbl.tbl = tbl;
+
+	err = dr_action_create_dest_root_table(action);
+	if (err)
+		goto free_action;
+
+	atomic_fetch_add(&tbl->refcount, 1);
+
+	return action;
+
+free_action:
+	free(action);
+free_steering_anchor:
+	mlx5dv_destroy_steering_anchor(sa);
+
 	return NULL;
 }
 
@@ -2854,6 +3000,11 @@ int mlx5dv_dr_action_destroy(struct mlx5dv_dr_action *action)
 		dr_devx_destroy_always_hit_ft(action->dest_array.devx_tbl);
 		dr_action_remove_action_members(&action->dest_array.actions_list);
 		atomic_fetch_sub(&action->dest_array.dmn->refcount, 1);
+		break;
+	case DR_ACTION_TYP_ROOT_FT:
+		dr_devx_destroy_always_hit_ft(action->root_tbl.devx_tbl);
+		mlx5dv_destroy_steering_anchor(action->root_tbl.sa);
+		atomic_fetch_sub(&action->root_tbl.tbl->refcount, 1);
 		break;
 	default:
 		break;

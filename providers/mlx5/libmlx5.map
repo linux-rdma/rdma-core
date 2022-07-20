@@ -222,7 +222,10 @@ MLX5_1.23 {
 
 MLX5_1.24 {
 	global:
+		mlx5dv_create_steering_anchor;
 		mlx5dv_crypto_login_create;
 		mlx5dv_crypto_login_destroy;
 		mlx5dv_crypto_login_query;
+		mlx5dv_destroy_steering_anchor;
+		mlx5dv_dr_action_create_dest_root_table;
 } MLX5_1.23;

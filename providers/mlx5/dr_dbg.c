@@ -82,6 +82,7 @@ enum dr_dump_rec_type {
 	DR_DUMP_REC_TYPE_ACTION_ASO_FLOW_METER = 3418,
 	DR_DUMP_REC_TYPE_ACTION_ASO_CT = 3419,
 	DR_DUMP_REC_TYPE_ACTION_MISS = 3423,
+	DR_DUMP_REC_TYPE_ACTION_ROOT_FT = 3424,
 };
 
 static uint64_t dr_dump_icm_to_idx(uint64_t icm_addr)
@@ -224,6 +225,12 @@ static int dr_dump_rule_action(FILE *f, const uint64_t rule_id,
 	case DR_ACTION_TYP_MISS:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 "\n",
 			      DR_DUMP_REC_TYPE_ACTION_MISS, action_id, rule_id);
+		break;
+	case DR_ACTION_TYP_ROOT_FT:
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
+			      DR_DUMP_REC_TYPE_ACTION_ROOT_FT, action_id,
+			      rule_id,
+			      action->root_tbl.devx_tbl->ft_dvo->object_id);
 		break;
 	default:
 		return 0;
