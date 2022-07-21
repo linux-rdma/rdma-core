@@ -55,10 +55,12 @@ MLX5_DEVS = {
     0x101e,  # ConnectX family mlx5Gen Virtual Function
     0x101f,  # ConnectX-6 LX
     0x1021,  # ConnectX-7
+    0x1023,  # ConnectX-8
     0xa2d2,  # BlueField integrated ConnectX-5 network controller
     0xa2d3,  # BlueField integrated ConnectX-5 network controller VF
     0xa2d6,  # BlueField-2 integrated ConnectX-6 Dx network controller
     0xa2dc,  # BlueField-3 integrated ConnectX-7 network controller
+    0xa2df,  # BlueField-4 integrated ConnectX-8 network controller
 }
 
 DCI_TEST_GOOD_FLOW = 0
