@@ -148,6 +148,8 @@ Provides: libcxgb4 = %{version}-%{release}
 Obsoletes: libcxgb4 < %{version}-%{release}
 Provides: libefa = %{version}-%{release}
 Obsoletes: libefa < %{version}-%{release}
+Provides: liberdma = %{version}-%{release}
+Obsoletes: liberdma < %{version}-%{release}
 Provides: libhfi1 = %{version}-%{release}
 Obsoletes: libhfi1 < %{version}-%{release}
 Provides: libipathverbs = %{version}-%{release}
@@ -176,6 +178,7 @@ Device-specific plug-in ibverbs userspace drivers are included:
 
 - libcxgb4: Chelsio T4 iWARP HCA
 - libefa: Amazon Elastic Fabric Adapter
+- liberdma: Alibaba Elastic RDMA (iWarp) Adapter
 - libhfi1: Intel Omni-Path HFI
 - libhns: HiSilicon Hip06 SoC
 - libipathverbs: QLogic InfiniPath HCA

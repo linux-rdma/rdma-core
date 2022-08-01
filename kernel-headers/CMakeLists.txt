@@ -66,6 +66,7 @@ rdma_kernel_provider_abi(
   rdma/bnxt_re-abi.h
   rdma/cxgb4-abi.h
   rdma/efa-abi.h
+  rdma/erdma-abi.h
   rdma/hns-abi.h
   rdma/ib_user_verbs.h
   rdma/irdma-abi.h
