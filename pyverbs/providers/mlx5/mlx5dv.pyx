@@ -1394,6 +1394,10 @@ cdef class Mlx5UAR(PyverbsObject):
     def comp_mask(self):
         return self.uar.comp_mask
 
+    @property
+    def uar(self):
+        return <uintptr_t>self.uar
+
 
 cdef class Mlx5DmOpAddr(PyverbsCM):
     def __init__(self, DM dm not None, op=0):
