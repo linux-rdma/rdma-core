@@ -42,6 +42,7 @@ struct efa_context {
 	uint16_t max_tx_batch;
 	uint16_t min_sq_wr;
 	size_t cqe_size;
+	size_t ex_cqe_size;
 	struct efa_qp **qp_table;
 	unsigned int qp_table_sz_m1;
 	pthread_spinlock_t qp_table_lock;
@@ -174,6 +175,11 @@ static inline struct efa_cq *to_efa_cq(struct ibv_cq *ibvcq)
 static inline struct efa_cq *to_efa_cq_ex(struct ibv_cq_ex *ibvcqx)
 {
 	return container_of(ibvcqx, struct efa_cq, verbs_cq.cq_ex);
+}
+
+static inline struct efa_cq *efadv_cq_to_efa_cq(struct efadv_cq *efadv_cq)
+{
+	return container_of(efadv_cq, struct efa_cq, dv_cq);
 }
 
 static inline struct efa_qp *to_efa_qp(struct ibv_qp *ibvqp)

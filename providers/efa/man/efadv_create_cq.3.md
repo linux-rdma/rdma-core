@@ -21,6 +21,9 @@ struct ibv_cq_ex *efadv_create_cq(struct ibv_context *context,
 				  struct ibv_cq_init_attr_ex *attr_ex,
 				  struct efadv_cq_init_attr *efa_attr,
 				  uint32_t inlen);
+
+static inline int efadv_wc_read_sgid(struct efadv_cq *efadv_cq,
+				     union ibv_gid *sgid);
 ```
 
 # DESCRIPTION
@@ -54,7 +57,17 @@ struct efadv_cq_init_attr {
 :	Compatibility mask.
 
 *wc_flags*
-:	Required WC fields.
+:       A bitwise OR of the various values described below.
+
+	EFADV_WC_EX_WITH_SGID:
+		if source AH is unknown, require sgid in WC.
+
+
+# Completion iterator functions
+
+*efadv_wc_read_sgid*
+:	Get the source GID field from the current completion.
+	If the AH is known, a negative error value is returned.
 
 
 # RETURN VALUE

@@ -38,6 +38,7 @@ struct ibv_qp *efadv_create_qp_ex(struct ibv_context *ibvctx,
 enum {
 	EFADV_DEVICE_ATTR_CAPS_RDMA_READ = 1 << 0,
 	EFADV_DEVICE_ATTR_CAPS_RNR_RETRY = 1 << 1,
+	EFADV_DEVICE_ATTR_CAPS_CQ_WITH_SGID = 1 << 2,
 };
 
 struct efadv_device_attr {
@@ -67,6 +68,11 @@ int efadv_query_ah(struct ibv_ah *ibvah, struct efadv_ah_attr *attr,
 
 struct efadv_cq {
 	uint64_t comp_mask;
+	int (*wc_read_sgid)(struct efadv_cq *efadv_cq, union ibv_gid *sgid);
+};
+
+enum {
+	EFADV_WC_EX_WITH_SGID = 1 << 0,
 };
 
 struct efadv_cq_init_attr {
@@ -80,6 +86,12 @@ struct ibv_cq_ex *efadv_create_cq(struct ibv_context *ibvctx,
 				  uint32_t inlen);
 
 struct efadv_cq *efadv_cq_from_ibv_cq_ex(struct ibv_cq_ex *ibvcqx);
+
+static inline int efadv_wc_read_sgid(struct efadv_cq *efadv_cq,
+				     union ibv_gid *sgid)
+{
+	return efadv_cq->wc_read_sgid(efadv_cq, sgid);
+}
 
 #ifdef __cplusplus
 }

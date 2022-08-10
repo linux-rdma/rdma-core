@@ -168,6 +168,9 @@ int efadv_query_device(struct ibv_context *ibvctx,
 	if (vext_field_avail(typeof(*attr), device_caps, inlen)) {
 		if (EFA_DEV_CAP(ctx, RNR_RETRY))
 			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_RNR_RETRY;
+
+		if (EFA_DEV_CAP(ctx, CQ_WITH_SGID))
+			attr->device_caps |= EFADV_DEVICE_ATTR_CAPS_CQ_WITH_SGID;
 	}
 
 	if (vext_field_avail(typeof(*attr), max_rdma_size, inlen)) {
@@ -691,9 +694,28 @@ static uint8_t efa_wc_read_dlid_path_bits(struct ibv_cq_ex *ibvcqx)
 	return 0;
 }
 
-static void efa_cq_fill_pfns(struct ibv_cq_ex *ibvcqx,
-			     struct ibv_cq_init_attr_ex *attr)
+static int efa_wc_read_sgid(struct efadv_cq *efadv_cq, union ibv_gid *sgid)
 {
+	struct efa_cq *cq = efadv_cq_to_efa_cq(efadv_cq);
+	struct efa_io_rx_cdesc_ex *rcqex;
+
+	rcqex = container_of(cq->cur_cqe, struct efa_io_rx_cdesc_ex,
+			     rx_cdesc_base.common);
+	if (rcqex->rx_cdesc_base.ah != 0xFFFF) {
+		/* SGID is only available if AH is unknown. */
+		return -ENOENT;
+	}
+	memcpy(sgid->raw, rcqex->src_addr, sizeof(sgid->raw));
+
+	return 0;
+}
+
+static void efa_cq_fill_pfns(struct efa_cq *cq,
+			     struct ibv_cq_init_attr_ex *attr,
+			     struct efadv_cq_init_attr *efa_attr)
+{
+	struct ibv_cq_ex *ibvcqx = &cq->verbs_cq.cq_ex;
+
 	ibvcqx->start_poll = efa_start_poll;
 	ibvcqx->end_poll = efa_end_poll;
 	ibvcqx->next_poll = efa_next_poll;
@@ -716,6 +738,9 @@ static void efa_cq_fill_pfns(struct ibv_cq_ex *ibvcqx,
 		ibvcqx->read_sl = efa_wc_read_sl;
 	if (attr->wc_flags & IBV_WC_EX_WITH_DLID_PATH_BITS)
 		ibvcqx->read_dlid_path_bits = efa_wc_read_dlid_path_bits;
+
+	if (efa_attr && (efa_attr->wc_flags & EFADV_WC_EX_WITH_SGID))
+		cq->dv_cq.wc_read_sgid = efa_wc_read_sgid;
 }
 
 static void efa_sub_cq_initialize(struct efa_sub_cq *sub_cq, uint8_t *buf,
@@ -730,10 +755,12 @@ static void efa_sub_cq_initialize(struct efa_sub_cq *sub_cq, uint8_t *buf,
 }
 
 static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
-				   struct ibv_cq_init_attr_ex *attr)
+				   struct ibv_cq_init_attr_ex *attr,
+				   struct efadv_cq_init_attr *efa_attr)
 {
 	struct efa_context *ctx = to_efa_context(ibvctx);
 	struct efa_create_cq_resp resp = {};
+	uint16_t cqe_size = ctx->cqe_size;
 	struct efa_create_cq cmd = {};
 	uint16_t num_sub_cqs;
 	struct efa_cq *cq;
@@ -762,9 +789,14 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
 	if (!cq)
 		return NULL;
 
+	if (efa_attr && (efa_attr->wc_flags & EFADV_WC_EX_WITH_SGID)) {
+		cmd.flags |= EFA_CREATE_CQ_WITH_SGID;
+		cqe_size = ctx->ex_cqe_size;
+	}
+
 	num_sub_cqs = ctx->sub_cqs_per_cq;
 	cmd.num_sub_cqs = num_sub_cqs;
-	cmd.cq_entry_size = ctx->cqe_size;
+	cmd.cq_entry_size = cqe_size;
 	if (attr->channel)
 		cmd.flags |= EFA_CREATE_CQ_WITH_COMPLETION_CHANNEL;
 
@@ -781,7 +813,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
 	cq->cqn = resp.cq_idx;
 	cq->buf_size = resp.q_mmap_size;
 	cq->num_sub_cqs = num_sub_cqs;
-	cq->cqe_size = ctx->cqe_size;
+	cq->cqe_size = cqe_size;
 
 	cq->buf = mmap(NULL, cq->buf_size, PROT_READ, MAP_SHARED,
 		       ibvctx->cmd_fd, resp.q_mmap_key);
@@ -806,7 +838,7 @@ static struct ibv_cq_ex *create_cq(struct ibv_context *ibvctx,
 		cq->db = (uint32_t *)((uint8_t *)cq->db + resp.db_off);
 	}
 
-	efa_cq_fill_pfns(&cq->verbs_cq.cq_ex, attr);
+	efa_cq_fill_pfns(cq, attr, efa_attr);
 	pthread_spin_init(&cq->lock, PTHREAD_PROCESS_PRIVATE);
 
 	return &cq->verbs_cq.cq_ex;
@@ -831,7 +863,7 @@ struct ibv_cq *efa_create_cq(struct ibv_context *ibvctx, int ncqe,
 	};
 	struct ibv_cq_ex *ibvcqx;
 
-	ibvcqx = create_cq(ibvctx, &attr_ex);
+	ibvcqx = create_cq(ibvctx, &attr_ex, NULL);
 
 	return ibvcqx ? ibv_cq_ex_to_cq(ibvcqx) : NULL;
 }
@@ -839,7 +871,7 @@ struct ibv_cq *efa_create_cq(struct ibv_context *ibvctx, int ncqe,
 struct ibv_cq_ex *efa_create_cq_ex(struct ibv_context *ibvctx,
 				   struct ibv_cq_init_attr_ex *attr_ex)
 {
-	return create_cq(ibvctx, attr_ex);
+	return create_cq(ibvctx, attr_ex, NULL);
 }
 
 struct ibv_cq_ex *efadv_create_cq(struct ibv_context *ibvctx,
@@ -847,6 +879,9 @@ struct ibv_cq_ex *efadv_create_cq(struct ibv_context *ibvctx,
 				  struct efadv_cq_init_attr *efa_attr,
 				  uint32_t inlen)
 {
+	struct efa_context *ctx;
+	uint64_t supp_wc_flags;
+
 	if (!is_efa_dev(ibvctx->device)) {
 		verbs_err(verbs_get_ctx(ibvctx), "Not an EFA device\n");
 		errno = EOPNOTSUPP;
@@ -861,14 +896,16 @@ struct ibv_cq_ex *efadv_create_cq(struct ibv_context *ibvctx,
 		return NULL;
 	}
 
-	if (efa_attr->wc_flags) {
+	ctx = to_efa_context(ibvctx);
+	supp_wc_flags = EFA_DEV_CAP(ctx, CQ_WITH_SGID) ? EFADV_WC_EX_WITH_SGID : 0;
+	if (!check_comp_mask(efa_attr->wc_flags, supp_wc_flags)) {
 		verbs_err(verbs_get_ctx(ibvctx),
 			  "Invalid EFA wc_flags[%#x]\n", efa_attr->wc_flags);
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
-	return create_cq(ibvctx, attr_ex);
+	return create_cq(ibvctx, attr_ex, efa_attr);
 }
 
 struct efadv_cq *efadv_cq_from_ibv_cq_ex(struct ibv_cq_ex *ibvcqx)
