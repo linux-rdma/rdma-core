@@ -63,6 +63,8 @@ Create an indirect mkey to enable application uses its specific device functiona
 		Enable update tag support for mkey.
 		Setting this flag allows an application to set the mkey tag post of creating the mkey.
 		If the kernel does not support updating the mkey tag, mkey creation will fail.
+	MLX5DV_MKEY_INIT_ATTR_FLAGS_REMOTE_INVALIDATE:
+		Enable remote invalidation support for mkey.
 
 *max_entries*
 :	Requested max number of pointed entries by this indirect mkey.
