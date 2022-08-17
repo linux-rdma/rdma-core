@@ -399,7 +399,7 @@ static int bnxt_re_poll_err_rcqe(struct bnxt_re_qp *qp, struct ibv_wc *ibvwc,
 }
 
 static void bnxt_re_fill_ud_cqe(struct ibv_wc *ibvwc,
-				struct bnxt_re_bcqe *hdr, void *cqe)
+				struct bnxt_re_bcqe *hdr, void *cqe, uint8_t flags)
 {
 	struct bnxt_re_ud_cqe *ucqe = cqe;
 	uint32_t qpid;
@@ -410,6 +410,8 @@ static void bnxt_re_fill_ud_cqe(struct ibv_wc *ibvwc,
 		 BNXT_RE_UD_CQE_SRCQPLO_MASK; /*lower 16 of 24 */
 	ibvwc->src_qp = qpid;
 	ibvwc->wc_flags |= IBV_WC_GRH;
+	ibvwc->sl = (flags & BNXT_RE_UD_FLAGS_IP_VER_MASK) >>
+                     BNXT_RE_UD_FLAGS_IP_VER_SFT;
 	/*IB-stack ABI in user do not ask for MAC to be reported. */
 }
 
@@ -420,6 +422,7 @@ static void bnxt_re_poll_success_rcqe(struct bnxt_re_qp *qp,
 	struct bnxt_re_queue *rq;
 	struct bnxt_re_rc_cqe *rcqe;
 	uint8_t flags, is_imm, is_rdma;
+	uint32_t rcqe_len;
 
 	rcqe = cqe;
 	if (!qp->srq) {
@@ -438,7 +441,9 @@ static void bnxt_re_poll_success_rcqe(struct bnxt_re_qp *qp,
 
 	ibvwc->status = IBV_WC_SUCCESS;
 	ibvwc->qp_num = qp->qpid;
-	ibvwc->byte_len = le32toh(rcqe->length);
+	rcqe_len = le32toh(rcqe->length);
+	ibvwc->byte_len = (qp->qptyp == IBV_QPT_UD) ?
+		rcqe_len & BNXT_RE_UD_CQE_LEN_MASK: rcqe_len ;
 	ibvwc->opcode = IBV_WC_RECV;
 
 	flags = (le32toh(hdr->flg_st_typ_ph) >> BNXT_RE_BCQE_FLAGS_SHIFT) &
@@ -461,7 +466,7 @@ static void bnxt_re_poll_success_rcqe(struct bnxt_re_qp *qp,
 	}
 
 	if (qp->qptyp == IBV_QPT_UD)
-		bnxt_re_fill_ud_cqe(ibvwc, hdr, cqe);
+		bnxt_re_fill_ud_cqe(ibvwc, hdr, cqe, flags);
 
 	bnxt_re_incr_head(rq);
 }
