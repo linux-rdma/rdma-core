@@ -29,5 +29,5 @@ install() {
 
 installkernel() {
 	hostonly='' instmods =drivers/infiniband =drivers/net/ethernet/mellanox =drivers/net/ethernet/chelsio =drivers/net/ethernet/cisco =drivers/net/ethernet/emulex =drivers/target
-	hostonly='' instmods crc-t10dif crct10dif_common
+	hostonly='' instmods crc-t10dif crct10dif_common xprtrdma svcrdma
 }
