@@ -211,7 +211,6 @@ struct ibv_cq *bnxt_re_create_cq(struct ibv_context *ibvctx, int ncqe,
 	cq->phase = resp.phase;
 	cq->cqq.tail = resp.tail;
 	cq->udpi = &cntx->udpi;
-	cq->first_arm = true;
 
 	list_head_init(&cq->sfhead);
 	list_head_init(&cq->rfhead);
@@ -278,14 +277,8 @@ int bnxt_re_resize_cq(struct ibv_cq *ibvcq, int ncqe)
 		int dqed = 0;
 
 		dqed = bnxt_re_poll_one(cq, 1, &tmp_wc, &resize);
-		if (resize) {
-			if (cq->deferred_arm) {
-				bnxt_re_ring_cq_arm_db(cq,
-						       cq->deferred_arm_flags);
-				cq->deferred_arm = false;
-			}
+		if (resize)
 			break;
-		}
 		if (dqed) {
 			compl = calloc(1, sizeof(*compl));
 			if (!compl)
@@ -854,11 +847,6 @@ int bnxt_re_poll_cq(struct ibv_cq *ibvcq, int nwc, struct ibv_wc *wc)
 		}
 	}
 	dqed += bnxt_re_poll_one(cq, left, wc + dqed, &resize);
-	if (cq->deferred_arm) {
-		bnxt_re_ring_cq_arm_db(cq, cq->deferred_arm_flags);
-		cq->deferred_arm = false;
-		cq->deferred_arm_flags = 0;
-	}
 	pthread_spin_unlock(&cq->cqq.qlock);
 	left = nwc - dqed;
 	if (left) {
@@ -919,12 +907,7 @@ int bnxt_re_arm_cq(struct ibv_cq *ibvcq, int flags)
 	pthread_spin_lock(&cq->cqq.qlock);
 	flags = !flags ? BNXT_RE_QUE_TYPE_CQ_ARMALL :
 			 BNXT_RE_QUE_TYPE_CQ_ARMSE;
-	if (cq->first_arm) {
-		bnxt_re_ring_cq_arm_db(cq, flags);
-		cq->first_arm = false;
-	}
-	cq->deferred_arm = true;
-	cq->deferred_arm_flags = flags;
+	bnxt_re_ring_cq_arm_db(cq, flags);
 	pthread_spin_unlock(&cq->cqq.qlock);
 
 	return 0;
