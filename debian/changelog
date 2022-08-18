@@ -2,7 +2,26 @@ rdma-core (43.0-1) unstable; urgency=medium
 
   * New upstream release.
 
- -- Jason Gunthorpe <jgg@obsidianresearch.com>  Thu, 27 Jan 2022 20:08:33 +0100
+ -- Jason Gunthorpe <jgg@obsidianresearch.com>  Thu, 18 Aug 2022 16:02:54 +0200
+
+rdma-core (42.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Update overrides for lintian 2.115.2
+  * Bump Standards-Version to 4.6.1
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Thu, 18 Aug 2022 15:24:14 +0200
+
+rdma-core (40.0-1) unstable; urgency=medium
+
+  [ Benjamin Drung ]
+  * New upstream release.
+  * Update my email address to @ubuntu.com
+
+  [ Heinrich Schuchardt ]
+  * Add riscv64 to COHERENT_DMA_ARCHS
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Mon, 16 May 2022 13:55:12 +0200
 
 rdma-core (39.0-1) unstable; urgency=medium
 
