@@ -28,6 +28,8 @@ mlx5dv_dr_action_create_dest_ibv_qp - Create packet destination QP action
 
 mlx5dv_dr_action_create_dest_table  - Create packet destination dr table action
 
+mlx5dv_dr_action_create_dest_root_table  - Create packet destination root table action
+
 mlx5dv_dr_action_create_dest_vport - Create packet destination vport action
 
 mlx5dv_dr_action_create_dest_ib_port - Create packet destination IB port action
@@ -114,6 +116,9 @@ struct mlx5dv_dr_action *mlx5dv_dr_action_create_dest_ibv_qp(
 
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_dest_table(
 		struct mlx5dv_dr_table *table);
+
+struct mlx5dv_dr_action *mlx5dv_dr_action_create_dest_root_table(
+		struct mlx5dv_dr_table *table, uint16_t priority);
 
 struct mlx5dv_dr_action *mlx5dv_dr_action_create_dest_vport(
 		struct mlx5dv_dr_domain *domain,
@@ -228,7 +233,7 @@ Default behavior: Forward packet to eSwitch manager vport.
 *mlx5dv_dr_domain_allow_duplicate_rules()* is used to allow or prevent insertion of rules matching on same fields(duplicates) on non root tables, by default this feature is allowed.
 
 ## Table
-*mlx5dv_dr_table_create()* creates a DR table in the **domain**, at the appropriate **level**, and can be used with *mlx5dv_dr_matcher_create()* and *mlx5dv_dr_action_create_dest_table()*.
+*mlx5dv_dr_table_create()* creates a DR table in the **domain**, at the appropriate **level**, and can be used with *mlx5dv_dr_matcher_create()*, *mlx5dv_dr_action_create_dest_table()* and *mlx5dv_dr_action_create_dest_root_table*.
 All packets start traversing the steering domain tree at table **level** zero (0).
 Using rule and action, packets can by redirected to other tables in the domain.
 
@@ -263,6 +268,7 @@ Action: Tag
 Action: Destination
 *mlx5dv_dr_action_create_dest_ibv_qp* creates a terminating action delivering the packet to a QP, defined by **ibqp**. Valid only on domain type NIC_RX.
 *mlx5dv_dr_action_create_dest_table* creates a forwarding action to another flow table, defined by **table**. The destination **table** must be from the same domain with a level higher than zero.
+*mlx5dv_dr_action_create_dest_root_table* creates a forwarding action to another priority inside a root flow table, defined by **table** and **priority**.
 *mlx5dv_dr_action_create_dest_vport* creates a forwarding action to a **vport** on the same **domain**. Valid only on domain type FDB.
 *mlx5dv_dr_action_create_dest_ib_port* creates a forwarding action to a **ib_port** on the same **domain**. The valid range of ports is a based on the capability phys_port_cnt_ex provided by ibq_query_device_ex and it is possible to query the ports details using mlx5dv_query_port. Action is supported only on domain type FDB.
 *mlx5dv_dr_action_create_dest_devx_tir* creates a terminating action delivering the packet to a TIR, defined by **devx_obj**. Valid only on domain type NIC_RX.

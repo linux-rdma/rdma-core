@@ -46,9 +46,6 @@ static void hns_roce_free_context(struct ibv_context *ibctx);
 #endif
 
 static const struct verbs_match_ent hca_table[] = {
-	VERBS_MODALIAS_MATCH("acpi*:HISI00D1:*", &hns_roce_u_hw_v1),
-	VERBS_MODALIAS_MATCH("of:N*T*Chisilicon,hns-roce-v1C*", &hns_roce_u_hw_v1),
-	VERBS_MODALIAS_MATCH("of:N*T*Chisilicon,hns-roce-v1", &hns_roce_u_hw_v1),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA222, &hns_roce_u_hw_v2),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA223, &hns_roce_u_hw_v2),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_HUAWEI, 0xA224, &hns_roce_u_hw_v2),
@@ -109,7 +106,6 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	struct ibv_device_attr dev_attrs;
 	struct hns_roce_context *context;
 	struct ibv_get_context cmd;
-	int offset = 0;
 	int i;
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
@@ -157,23 +153,9 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	context->max_srq_sge = dev_attrs.max_srq_sge;
 
 	context->uar = mmap(NULL, hr_dev->page_size, PROT_READ | PROT_WRITE,
-			    MAP_SHARED, cmd_fd, offset);
+			    MAP_SHARED, cmd_fd, 0);
 	if (context->uar == MAP_FAILED)
 		goto err_free;
-
-	offset += hr_dev->page_size;
-
-	if (hr_dev->hw_version == HNS_ROCE_HW_VER1) {
-		/*
-		 * when vma->vm_pgoff is 1, the cq_tptr_base includes 64K CQ,
-		 * a pointer of CQ need 2B size
-		 */
-		context->cq_tptr_base = mmap(NULL, HNS_ROCE_CQ_DB_BUF_SIZE,
-					     PROT_READ | PROT_WRITE, MAP_SHARED,
-					     cmd_fd, offset);
-		if (context->cq_tptr_base == MAP_FAILED)
-			goto db_free;
-	}
 
 	pthread_spin_init(&context->uar_lock, PTHREAD_PROCESS_PRIVATE);
 
@@ -181,10 +163,6 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	verbs_set_ops(&context->ibv_ctx, &hr_dev->u_hw->hw_ops);
 
 	return &context->ibv_ctx;
-
-db_free:
-	munmap(context->uar, hr_dev->page_size);
-	context->uar = NULL;
 
 err_free:
 	verbs_uninit_context(&context->ibv_ctx);
@@ -198,9 +176,6 @@ static void hns_roce_free_context(struct ibv_context *ibctx)
 	struct hns_roce_context *context = to_hr_ctx(ibctx);
 
 	munmap(context->uar, hr_dev->page_size);
-	if (hr_dev->hw_version == HNS_ROCE_HW_VER1)
-		munmap(context->cq_tptr_base, HNS_ROCE_CQ_DB_BUF_SIZE);
-
 	verbs_uninit_context(&context->ibv_ctx);
 	free(context);
 }

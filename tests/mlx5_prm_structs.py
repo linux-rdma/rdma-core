@@ -1419,7 +1419,7 @@ class FlowTableEntryMatchSetLyr24(Packet):
         # Field names must be different
         ConditionalField(BitField('src_ip_mask', 0, 128),
                         lambda pkt: pkt.ip_version != 4 and pkt.ip_version != 6),
-        ConditionalField(BitField('reserved', 0, 96),
+        ConditionalField(BitField('reserved2', 0, 96),
                          lambda pkt: pkt.ip_version == 4),
         ConditionalField(IPField("src_ip4", "0.0.0.0"),
                          lambda pkt: pkt.ip_version == 4),
@@ -1427,7 +1427,7 @@ class FlowTableEntryMatchSetLyr24(Packet):
                          lambda pkt: pkt.ip_version == 6),
         ConditionalField(BitField('dst_ip_mask', 0, 128),
                         lambda pkt: pkt.ip_version != 4 and pkt.ip_version != 6),
-        ConditionalField(BitField('reserved', 0, 96),
+        ConditionalField(BitField('reserved3', 0, 96),
                          lambda pkt: pkt.ip_version == 4),
         ConditionalField(IPField("dst_ip4", "0.0.0.0"),
                          lambda pkt: pkt.ip_version == 4),

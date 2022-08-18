@@ -2,6 +2,7 @@ from libc.stdint cimport uintptr_t, uint8_t
 from libc.string cimport memset
 import weakref
 
+import ctypes
 from pyverbs.pyverbs_error import PyverbsUserError, PyverbsError, PyverbsRDMAError
 from pyverbs.qp cimport QPInitAttr, QPAttr, ECE
 from pyverbs.base import PyverbsRDMAErrno
@@ -20,7 +21,7 @@ from pyverbs.cq cimport WC
 cdef class ConnParam(PyverbsObject):
 
     def __init__(self, resources=1, depth=1, flow_control=0, retry=5,
-                 rnr_retry=5, srq=0, qp_num=0):
+                 rnr_retry=5, srq=0, qp_num=0, data_len=0):
         """
         Initialize a ConnParam object over an underlying rdma_conn_param
         C object which contains connection parameters. There are a few types of
@@ -42,6 +43,11 @@ cdef class ConnParam(PyverbsObject):
                     the QP created by CMID.
         :param qp_num: Specifies the QP number, ignored if the QP created by
                        CMID.
+        :param data_len: Specifies the private data length.
+                         RDMA_PS_TCP connect: 56
+                                     accept:  196
+                         RDMA_PS_UDP connect: 180
+                                     accept:  136
         :return: ConnParam object
         """
         super().__init__()
@@ -53,6 +59,7 @@ cdef class ConnParam(PyverbsObject):
         self.conn_param.rnr_retry_count = rnr_retry
         self.conn_param.srq = srq
         self.conn_param.qp_num = qp_num
+        self.data = (ctypes.c_char * data_len)()
 
     @property
     def qpn(self):
@@ -63,7 +70,25 @@ cdef class ConnParam(PyverbsObject):
 
     @property
     def private_data(self):
-        return <object>self.conn_param.private_data
+        data_array = bytearray(self.conn_param.private_data_len)
+        cdef const unsigned char *p = <const unsigned char*>self.conn_param.private_data
+        for i in range(self.conn_param.private_data_len):
+            data_array[i] = p[i]
+        return bytes(data_array)
+
+    def set_private_data(self, data):
+        if (min(len(self.data), len(data)) == 0):
+            return
+
+        for i in range(len(self.data)):
+            self.data[i] = 0
+
+        for i in range(min(len(self.data), len(data))):
+            self.data[i] = data[i]
+
+        cdef size_t ptr = ctypes.addressof(self.data)
+        self.conn_param.private_data = <const void*>ptr
+        self.conn_param.private_data_len = min(len(self.data), len(data))
 
     def __str__(self):
         print_format  = '{:<4}: {:<4}\n'
@@ -263,7 +288,11 @@ cdef class CMEvent(PyverbsObject):
 
     @property
     def private_data(self):
-        return <object>self.event.param.conn.private_data
+        data_array = bytearray(self.event.param.conn.private_data_len)
+        cdef const unsigned char *p = <const unsigned char*>self.event.param.conn.private_data
+        for i in range(self.event.param.conn.private_data_len):
+            data_array[i] = p[i]
+        return bytes(data_array)
 
 
 cdef class CMEventChannel(PyverbsObject):
@@ -357,6 +386,14 @@ cdef class CMID(PyverbsCM):
             self.mrs.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
+
+    @property
+    def dev_name(self):
+        return str(v.ibv_get_device_name(self.id.verbs.device).decode('utf-8'))
+
+    @property
+    def port_num(self):
+        return self.id.port_num
 
     @property
     def event_channel(self):
@@ -784,12 +821,18 @@ cdef class CMID(PyverbsCM):
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to set option')
 
-    def reject(self, private_data=None, private_data_len=0):
+    def reject(self, private_data=None):
         """
         Reject a connection or datagram service lookup request.
         :param private_data: Optional private data to send with the reject message.
         :param private_data_len: Size (in bytes) of the private data being sent.
         """
-        ret = cm.rdma_reject(self.id, <const void*>private_data, private_data_len)
+        data_len = len(private_data) if private_data else 0
+        buffer = ctypes.create_string_buffer(data_len)
+        if (private_data):
+            buffer.value = private_data
+        cdef size_t data_ptr = ctypes.addressof(buffer)
+
+        ret = cm.rdma_reject(self.id, <const void*>data_ptr, data_len)
         if ret != 0:
             raise PyverbsRDMAErrno('Failed to Reject Connection')

@@ -240,7 +240,7 @@ cdef class MR(PyverbsCM):
 
     def __str__(self):
         print_format = '{:22}: {:<20}\n'
-        return 'MR\n' + \
+        return 'MR:\n' + \
                print_format.format('lkey', self.lkey) + \
                print_format.format('rkey', self.rkey) + \
                print_format.format('length', self.length) + \

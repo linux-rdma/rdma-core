@@ -490,7 +490,7 @@ class DmaBufMRTest(PyverbsAPITestCase):
             for f in flags:
                 len = u.get_mr_length()
                 for off in [0, len//2]:
-                    with DmaBufMR(pd, len, f, offset=off, unit=self.gpu,
+                    with DmaBufMR(pd, len, f, offset=off, gpu=self.gpu,
                                   gtt=self.gtt) as mr:
                         pass
 
@@ -505,7 +505,7 @@ class DmaBufMRTest(PyverbsAPITestCase):
             for f in flags:
                 len = u.get_mr_length()
                 for off in [0, len//2]:
-                    with DmaBufMR(pd, len, f, offset=off, unit=self.gpu,
+                    with DmaBufMR(pd, len, f, offset=off, gpu=self.gpu,
                                   gtt=self.gtt) as mr:
                         mr.close()
 
@@ -520,7 +520,7 @@ class DmaBufMRTest(PyverbsAPITestCase):
             for f in flags:
                 len = u.get_mr_length()
                 for off in [0, len//2]:
-                    with DmaBufMR(pd, len, f, offset=off, unit=self.gpu,
+                    with DmaBufMR(pd, len, f, offset=off, gpu=self.gpu,
                                   gtt=self.gtt) as mr:
                         # Pyverbs supports multiple destruction of objects,
                         # we are not expecting an exception here.
@@ -529,7 +529,7 @@ class DmaBufMRTest(PyverbsAPITestCase):
 
     def test_dmabuf_reg_mr_bad_flags(self):
         """
-        Verify that illegal flags combination fails as expected
+        Verify that DmaBufMR with illegal flags combination fails as expected
         """
         check_dmabuf_support(self.gpu)
         with PD(self.ctx) as pd:
@@ -543,7 +543,7 @@ class DmaBufMRTest(PyverbsAPITestCase):
                     mr_flags += i.value
                 try:
                     DmaBufMR(pd, u.get_mr_length(), mr_flags,
-                             unit=self.gpu, gtt=self.gtt)
+                             gpu=self.gpu, gtt=self.gtt)
                 except PyverbsRDMAError as err:
                     assert 'Failed to register a dma-buf MR' in err.args[0]
                 else:
@@ -562,7 +562,7 @@ class DmaBufMRTest(PyverbsAPITestCase):
                 for f in flags:
                     for mr_off in [0, mr_len//2]:
                         with DmaBufMR(pd, mr_len, f, offset=mr_off,
-                                      unit=self.gpu, gtt=self.gtt) as mr:
+                                      gpu=self.gpu, gtt=self.gtt) as mr:
                             write_len = min(random.randint(1, MAX_IO_LEN),
                                             mr_len)
                             mr.write('a' * write_len, write_len)
@@ -580,7 +580,7 @@ class DmaBufMRTest(PyverbsAPITestCase):
                 for f in flags:
                     for mr_off in [0, mr_len//2]:
                         with DmaBufMR(pd, mr_len, f, offset=mr_off,
-                                      unit=self.gpu, gtt=self.gtt) as mr:
+                                      gpu=self.gpu, gtt=self.gtt) as mr:
                             write_len = min(random.randint(1, MAX_IO_LEN),
                                             mr_len)
                             write_str = 'a' * write_len
@@ -600,7 +600,7 @@ class DmaBufMRTest(PyverbsAPITestCase):
             length = u.get_mr_length()
             flags = u.get_dmabuf_access_flags(self.ctx)
             for f in flags:
-                with DmaBufMR(pd, length, f, unit=self.gpu,
+                with DmaBufMR(pd, length, f, gpu=self.gpu,
                               gtt=self.gtt) as mr:
                     mr.lkey
 
@@ -614,7 +614,7 @@ class DmaBufMRTest(PyverbsAPITestCase):
             length = u.get_mr_length()
             flags = u.get_dmabuf_access_flags(self.ctx)
             for f in flags:
-                with DmaBufMR(pd, length, f, unit=self.gpu,
+                with DmaBufMR(pd, length, f, gpu=self.gpu,
                               gtt=self.gtt) as mr:
                     mr.rkey
 

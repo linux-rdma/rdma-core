@@ -6,7 +6,6 @@ from libc.string cimport memcpy
 from pyverbs.pyverbs_error import PyverbsRDMAError
 cimport pyverbs.providers.mlx5.libmlx5 as dv
 from pyverbs.base import PyverbsRDMAErrno
-from pyverbs.device cimport Context
 from pyverbs.pd cimport PD
 
 
@@ -47,13 +46,60 @@ cdef class Mlx5CryptoLoginAttr(PyverbsObject):
         return 'Mlx5CryptoLoginAttr:\n' +\
                print_format.format('Credential id', self.credential_id) +\
                print_format.format('Import KEK id', self.import_kek_id) +\
-               print_format.format('Credential', self.credential) +\
+               print_format.format('Credential', str(self.credential)) +\
+               print_format.format('Comp mask', self.comp_mask)
+
+
+cdef class Mlx5CryptoExtLoginAttr(PyverbsObject):
+    def __init__(self, credential, credential_len, credential_id=0, import_kek_id=0):
+        """
+        Initializes a Mlx5CryptoExtLoginAttr object representing
+        mlx5dv_crypto_login_attr_ex C struct.
+        :param credential: The credential to login with.
+        :param credential_len: The credential length. Must be provided.
+        :param credential_id: The index of credential that stored on the device.
+        :param import_kek_id: The index of import_kek that stored on the device.
+        """
+        cdef char *credential_c = credential
+        self.mlx5dv_crypto_login_attr_ex.credential_id = credential_id
+        self.mlx5dv_crypto_login_attr_ex.import_kek_id = import_kek_id
+        self.mlx5dv_crypto_login_attr_ex.credential = <void*>credential_c
+        self.mlx5dv_crypto_login_attr_ex.credential_len = credential_len
+        self.credential = credential
+
+    @property
+    def credential_id(self):
+        return self.mlx5dv_crypto_login_attr_ex.credential_id
+
+    @property
+    def import_kek_id(self):
+        return self.mlx5dv_crypto_login_attr_ex.import_kek_id
+
+    @property
+    def credential(self):
+        return self.credential
+
+    @property
+    def credential_len(self):
+        return self.mlx5dv_crypto_login_attr_ex.credential_len
+
+    @property
+    def comp_mask(self):
+        return self.mlx5dv_crypto_login_attr_ex.comp_mask
+
+    def __str__(self):
+        print_format = '{:20}: {:<20}\n'
+        return 'Mlx5CryptoExtLoginAttr:\n' +\
+               print_format.format('Credential id', self.credential_id) +\
+               print_format.format('Import KEK id', self.import_kek_id) +\
+               print_format.format('Credential', str(self.credential)) +\
+               print_format.format('credential_len', self.credential_len) +\
                print_format.format('Comp mask', self.comp_mask)
 
 
 cdef class Mlx5DEKInitAttr(PyverbsObject):
     def __init__(self, PD pd, key_size, has_keytag=False, key_purpose=0, opaque=bytes(),
-                 key=bytes(), comp_mask=0):
+                 key=bytes(), comp_mask=0, Mlx5CryptoLogin crypto_login=None):
         """
         Initializes a Mlx5DEKInitAttr object representing mlx5dv_dek_init_attr
         C struct.
@@ -67,6 +113,7 @@ cdef class Mlx5DEKInitAttr(PyverbsObject):
         :param key: The key itself, wrapped by the crypto login session's
                     import KEK.
         :param comp_mask: Reserved for future extension.
+        :param crypto_login: Crypto login object.
         """
         cdef char *opaque_c = opaque
         cdef char *key_c = key
@@ -78,6 +125,7 @@ cdef class Mlx5DEKInitAttr(PyverbsObject):
         memcpy(self.mlx5dv_dek_init_attr.opaque, opaque_c, 8)
         memcpy(self.mlx5dv_dek_init_attr.key, key_c, 128)
         self.mlx5dv_dek_init_attr.comp_mask = comp_mask
+        self.mlx5dv_dek_init_attr.crypto_login = crypto_login.crypto_login_obj if crypto_login else NULL
 
     @property
     def key_size(self):
@@ -241,3 +289,37 @@ cdef class Mlx5DEK(PyverbsCM):
                 raise PyverbsRDMAError('Failed to destroy a DEK', rc)
             self.mlx5dv_dek = NULL
             self.pd = None
+
+
+cdef class Mlx5CryptoLogin(PyverbsCM):
+    def __init__(self, Context context, Mlx5CryptoExtLoginAttr crypto_attr):
+        """
+        Create a Mlx5CryptoLogin object.
+        :param context: Context to create the schedule resources on.
+        :param crypto_ext_login_attr: Mlx5CryptoExtLoginAttr.
+        """
+        self.crypto_login_obj = dv.mlx5dv_crypto_login_create(context.context,
+                                                              &crypto_attr.mlx5dv_crypto_login_attr_ex)
+        if self.crypto_login_obj == NULL:
+            raise PyverbsRDMAErrno('Failed to create CryptoLoginObj')
+
+        self.context = context
+        context.crypto_logins.add(self)
+
+    def query(self):
+        """
+        Queries the state of the current crypto login session.
+        :return: The login state.
+        """
+        cdef dv.mlx5dv_crypto_login_query_attr query_attr
+        return dv.mlx5dv_crypto_login_query(self.crypto_login_obj, &query_attr)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.crypto_login_obj != NULL:
+            rc = dv.mlx5dv_crypto_login_destroy(self.crypto_login_obj)
+            if rc:
+                raise PyverbsRDMAError('Failed to destroy a CryptoLoginObj', rc)
+            self.crypto_login_obj = NULL

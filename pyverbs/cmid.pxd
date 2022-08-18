@@ -34,6 +34,7 @@ cdef class AddrInfo(PyverbsObject):
 
 cdef class ConnParam(PyverbsObject):
     cdef cm.rdma_conn_param conn_param
+    cdef object data
 
 
 cdef class UDParam(PyverbsObject):

@@ -121,6 +121,7 @@ cdef class Context(PyverbsCM):
         self.dr_domains = weakref.WeakSet()
         self.wqs = weakref.WeakSet()
         self.rwq_ind_tbls = weakref.WeakSet()
+        self.crypto_logins = weakref.WeakSet()
 
         self.name = kwargs.get('name')
         provider_attr = kwargs.get('attr')
@@ -128,12 +129,14 @@ cdef class Context(PyverbsCM):
         cmd_fd = kwargs.get('cmd_fd')
         if cmid is not None:
             self.context = cmid.id.verbs
+            self.name = str(v.ibv_get_device_name(self.context.device).decode('utf-8'))
             cmid.ctx = self
             return
         if cmd_fd is not None:
             self.context = v.ibv_import_device(cmd_fd)
             if self.context == NULL:
                 raise PyverbsRDMAErrno('Failed to import device')
+            self.name = str(v.ibv_get_device_name(self.context.device).decode('utf-8'))
             return
 
         if self.name is None:
@@ -173,7 +176,7 @@ cdef class Context(PyverbsCM):
         if self.context != NULL:
             if self.logger:
                 self.logger.debug('Closing Context')
-            close_weakrefs([self.qps, self.rwq_ind_tbls, self.wqs, self.ccs, self.cqs,
+            close_weakrefs([self.qps, self.crypto_logins, self.rwq_ind_tbls, self.wqs, self.ccs, self.cqs,
                             self.dms, self.pds, self.xrcds, self.vars, self.sched_leafs,
                             self.sched_nodes, self.dr_domains])
             rc = v.ibv_close_device(self.context)

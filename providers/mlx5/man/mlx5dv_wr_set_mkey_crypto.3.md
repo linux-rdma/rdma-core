@@ -239,11 +239,12 @@ struct mlx5dv_crypto_attr {
 
 *initial_tweak*
 
-:	A value to be used during encryption of each data unit. This value is
-	incremented by the device for every data unit in the message. For
-	storage encryption, this will normally be the LBA of the first block
-	in the message, so that the increments represent the LBAs of the rest
-	of the blocks in the message.
+:	A value to be used during encryption of each data unit. Must be
+	supplied in little endian. This value is incremented by the device
+	for every data unit in the message.
+	For storage encryption, this will normally be the LBA of the first
+	block in the message, so that the increments represent the LBAs of
+	the rest of the blocks in the message.
 
 *dek*
 
@@ -283,14 +284,37 @@ re-configured or reset, as required. For example, assuming
 then on the next configuration of the MKey, if signature is not needed, it
 should be reset using **MLX5DV_MKEY_CONF_FLAG_RESET_SIG_ATTR**.
 
+When configuring a MKey with AES-XTS crypto offload, and using the former for
+traffic (send/receive), the amount of data to send/receive must meet one
+of the following conditions for successful encryption/decryption process (per
+AES-XTS spec):
+
+Let's refer to the amount of data to send/receive as 'job_size'
+1.job_size % *data_unit_size* == 0
+2.(job_size % 16 == 0) && (job_size % *data_unit_size* <= *data_unit_size* - 16)
+
+For example:
+When *data_unit_size* = 512B:
+1. job_size = 512B is valid (1 holds).
+2. job_size = 128B is valid (2 holds).
+3. job_size = 47B is invalid (neither 1 nor 2 holds).
+
+When *data_unit_size* = 520B:
+1. job_size = 520B is valid (1 holds).
+2. job_size = 496B is valid (2 holds).
+3. job_size = 512B is invalid (neither 1 nor 2 holds).
+
 # SEE ALSO
 
 **mlx5dv_wr_mkey_configure**(3), **mlx5dv_wr_set_mkey_sig_block**(3),
 **mlx5dv_create_mkey**(3), **mlx5dv_destroy_mkey**(3),
-**mlx5dv_crypto_login**(3), **mlx5dv_dek_create**(3)
+**mlx5dv_crypto_login**(3), **mlx5dv_crypto_login_create**(3),
+**mlx5dv_dek_create**(3)
 
 # AUTHORS
 
 Oren Duer  <oren@nvidia.com>
 
 Avihai Horon <avihaih@nvidia.com>
+
+Maher Sanalla <msanalla@nvidia.com>

@@ -57,6 +57,7 @@
 #define DR_STE_MAX_FLEX_0_ID	3
 #define DR_STE_MAX_FLEX_1_ID	7
 #define DR_VPORTS_BUCKETS	256
+#define ACTION_CACHE_LINE_SIZE	64
 
 #define dr_dbg(dmn, arg...) dr_dbg_ctx((dmn)->ctx, ##arg)
 
@@ -93,6 +94,7 @@ enum dr_icm_chunk_size {
 enum dr_icm_type {
 	DR_ICM_TYPE_STE,
 	DR_ICM_TYPE_MODIFY_ACTION,
+	DR_ICM_TYPE_MODIFY_HDR_PTRN,
 };
 
 static inline enum dr_icm_chunk_size
@@ -179,6 +181,7 @@ enum dr_action_type {
 	DR_ACTION_TYP_ASO_FIRST_HIT,
 	DR_ACTION_TYP_ASO_FLOW_METER,
 	DR_ACTION_TYP_ASO_CT,
+	DR_ACTION_TYP_ROOT_FT,
 	DR_ACTION_TYP_MAX,
 };
 
@@ -191,6 +194,10 @@ struct dr_devx_caps;
 struct dr_rule_rx_tx;
 struct dr_matcher_rx_tx;
 struct dr_ste_ctx;
+struct dr_ptrn_mngr;
+struct dr_ptrn_obj;
+struct dr_arg_mngr;
+struct dr_arg_obj;
 
 struct dr_data_seg {
 	uint64_t	addr;
@@ -199,7 +206,13 @@ struct dr_data_seg {
 	unsigned int	send_flags;
 };
 
+enum send_info_type {
+	WRITE_ICM = 0,
+	GTA_ARG   = 1,
+};
+
 struct postsend_info {
+	enum send_info_type	type;
 	struct dr_data_seg	write;
 	struct dr_data_seg	read;
 	uint64_t		remote_addr;
@@ -369,6 +382,7 @@ struct dr_ste_actions_attr {
 	uint32_t	modify_index;
 	uint16_t	modify_actions;
 	uint8_t		*single_modify_action;
+	uint32_t	args_index;
 	uint32_t	decap_index;
 	uint16_t	decap_actions;
 	bool		decap_with_vlan;
@@ -906,6 +920,8 @@ struct dr_devx_caps {
 	uint32_t			log_icm_size;
 	uint8_t				log_modify_hdr_icm_size;
 	uint64_t			hdr_modify_icm_addr;
+	uint32_t			log_modify_pattern_icm_size;
+	uint64_t			hdr_modify_pattern_icm_addr;
 	uint32_t			flex_protocols;
 	uint8_t				flex_parser_header_modify;
 	uint8_t				flex_parser_id_icmp_dw0;
@@ -933,6 +949,9 @@ struct dr_devx_caps {
 	bool				fdb_sw_owner_v2;
 	struct dr_devx_roce_cap		roce_caps;
 	uint64_t			definer_format_sup;
+	uint16_t			log_header_modify_argument_granularity;
+	uint16_t			log_header_modify_argument_max_alloc;
+	bool				support_modify_argument;
 	bool				prio_tag_required;
 	bool				is_ecpf;
 	struct dr_devx_vports		vports;
@@ -1012,6 +1031,7 @@ struct dr_domain_info {
 	uint32_t		max_inline_size;
 	uint32_t		max_log_sw_icm_sz;
 	uint32_t		max_log_action_icm_sz;
+	uint32_t		max_log_modify_hdr_pattern_icm_sz;
 	uint32_t		max_send_size;
 	struct dr_domain_rx_tx	rx;
 	struct dr_domain_rx_tx	tx;
@@ -1029,11 +1049,14 @@ struct mlx5dv_dr_domain {
 	struct ibv_context		*ctx;
 	struct dr_ste_ctx		*ste_ctx;
 	struct ibv_pd			*pd;
+	int				pd_num;
 	struct mlx5dv_devx_uar		*uar;
 	enum mlx5dv_dr_domain_type	type;
 	atomic_int			refcount;
 	struct dr_icm_pool		*ste_icm_pool;
 	struct dr_icm_pool		*action_icm_pool;
+	struct dr_ptrn_mngr		*modify_header_ptrn_mngr;
+	struct dr_arg_mngr		*modify_header_arg_mngr;
 	struct dr_send_ring		*send_ring[DR_MAX_SEND_RINGS];
 	struct dr_domain_info		info;
 	struct list_head		tbl_list;
@@ -1169,6 +1192,32 @@ struct dr_flow_sampler_restore_tbl {
 	uint16_t			num_of_actions;
 };
 
+struct dr_rewrite_param {
+	struct dr_icm_chunk *chunk;
+	uint8_t *data;
+	uint32_t data_size;
+	uint16_t num_of_actions;
+	uint32_t index;
+};
+
+enum dr_ptrn_type {
+	DR_PTRN_TYP_MODIFY_HDR = DR_ACTION_TYP_MODIFY_HDR,
+	DR_PTRN_TYP_TNL_L3_TO_L2 = DR_ACTION_TYP_TNL_L3_TO_L2,
+};
+
+struct dr_ptrn_obj {
+	struct dr_rewrite_param rewrite_param;
+	atomic_int refcount;
+	struct list_node list;
+};
+
+struct dr_arg_obj {
+	struct mlx5dv_devx_obj *obj;
+	uint32_t obj_offset;
+	struct list_node list_node;
+	uint32_t log_chunk_size;
+};
+
 struct mlx5dv_dr_action {
 	enum dr_action_type		action_type;
 	atomic_int			refcount;
@@ -1179,14 +1228,14 @@ struct mlx5dv_dr_action {
 			union {
 				struct ibv_flow_action	*flow_action; /* root*/
 				struct {
-					struct dr_icm_chunk	*chunk;
-					uint8_t			*data;
-					uint32_t		data_size;
-					uint32_t		index;
-					uint16_t                num_of_actions;
+					struct dr_rewrite_param	param;
 					uint8_t			single_action_opt:1;
 					uint8_t			allow_rx:1;
 					uint8_t			allow_tx:1;
+					struct {
+						struct dr_ptrn_obj *ptrn;
+						struct dr_arg_obj *arg;
+					} ptrn_arg;
 				};
 			};
 		} rewrite;
@@ -1240,6 +1289,13 @@ struct mlx5dv_dr_action {
 				struct ibv_qp           *qp;
 			};
 		} dest_qp;
+		struct {
+			struct mlx5dv_dr_table *tbl;
+			struct dr_devx_tbl *devx_tbl;
+			struct mlx5dv_steering_anchor *sa;
+			uint64_t rx_icm_addr;
+			uint64_t tx_icm_addr;
+		} root_tbl;
 		struct dr_action_aso	aso;
 		struct mlx5dv_devx_obj	*devx_obj;
 		uint32_t		flow_tag;
@@ -1501,7 +1557,9 @@ int dr_devx_modify_qp_rtr2rts(struct ibv_context *ctx,
 			      struct dr_devx_qp_rts_attr *attr);
 int dr_devx_query_gid(struct ibv_context *ctx, uint8_t vhca_port_num,
 		      uint16_t index, struct dr_gid_attr *attr);
-
+struct mlx5dv_devx_obj *dr_devx_create_modify_header_arg(struct ibv_context *ctx,
+							 uint16_t log_obj_range,
+							 uint32_t pd);
 static inline bool dr_is_root_table(struct mlx5dv_dr_table *tbl)
 {
 	return tbl->level == 0;
@@ -1621,6 +1679,13 @@ int dr_send_postsend_formated_htbl(struct mlx5dv_dr_domain *dmn,
 				   uint8_t send_ring_idx);
 int dr_send_postsend_action(struct mlx5dv_dr_domain *dmn,
 			    struct mlx5dv_dr_action *action);
+int dr_send_postsend_pattern(struct mlx5dv_dr_domain *dmn,
+			     struct dr_icm_chunk *chunk,
+			     uint16_t num_of_actions,
+			     uint8_t *data);
+int dr_send_postsend_args(struct mlx5dv_dr_domain *dmn, uint64_t arg_id,
+			  uint16_t num_of_actions, uint8_t *actions_data);
+
 /* buddy functions & structure */
 struct dr_icm_mr;
 
@@ -1651,10 +1716,33 @@ struct dr_icm_buddy_mem {
 	uint8_t                 hw_ste_sz;
 };
 
+bool dr_domain_is_support_modify_hdr_cache(struct mlx5dv_dr_domain *dmn);
+struct dr_ptrn_mngr *
+dr_ptrn_mngr_create(struct mlx5dv_dr_domain *dmn);
+void dr_ptrn_mngr_destroy(struct dr_ptrn_mngr *mngr);
+struct dr_ptrn_obj *
+dr_ptrn_cache_get_pattern(struct dr_ptrn_mngr *mngr,
+			  enum dr_ptrn_type type,
+			  uint16_t num_of_actions,
+			  uint8_t *data);
+void dr_ptrn_cache_put_pattern(struct dr_ptrn_mngr *mngr,
+			       struct dr_ptrn_obj *pattern);
+struct dr_arg_mngr*
+dr_arg_mngr_create(struct mlx5dv_dr_domain *dmn);
+void dr_arg_mngr_destroy(struct dr_arg_mngr *mngr);
+struct dr_arg_obj *dr_arg_get_obj(struct dr_arg_mngr *mngr,
+				  uint16_t num_of_actions,
+				  uint8_t *data);
+void dr_arg_put_obj(struct dr_arg_mngr *mngr, struct dr_arg_obj *arg_obj);
+uint32_t dr_arg_get_object_id(struct dr_arg_obj *arg_obj);
+
 int dr_buddy_init(struct dr_icm_buddy_mem *buddy, uint32_t max_order);
 void dr_buddy_cleanup(struct dr_icm_buddy_mem *buddy);
 int dr_buddy_alloc_mem(struct dr_icm_buddy_mem *buddy, int order);
 void dr_buddy_free_mem(struct dr_icm_buddy_mem *buddy, uint32_t seg, int order);
+
+void dr_ste_free_modify_hdr(struct mlx5dv_dr_action *action);
+int dr_ste_alloc_modify_hdr(struct mlx5dv_dr_action *action);
 
 void dr_vports_table_add_wire(struct dr_devx_vports *vports);
 void dr_vports_table_del_wire(struct dr_devx_vports *vports);

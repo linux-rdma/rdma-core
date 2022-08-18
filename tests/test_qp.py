@@ -253,6 +253,7 @@ class QPTest(PyverbsAPITestCase):
                 is_data_in_order = qp.query_data_in_order(e.IBV_WR_SEND)
                 self.assertIn(is_data_in_order, [0, 1], 'Data in order result is not valid')
 
+    @u.skip_unsupported
     def test_modify_ud_qp(self):
         """
         Queries a UD QP after calling modify(). Verifies that its properties are

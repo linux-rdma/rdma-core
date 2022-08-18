@@ -228,6 +228,7 @@ enum mlx5_ib_objects {
 	MLX5_IB_OBJECT_VAR,
 	MLX5_IB_OBJECT_PP,
 	MLX5_IB_OBJECT_UAR,
+	MLX5_IB_OBJECT_STEERING_ANCHOR,
 };
 
 enum mlx5_ib_flow_matcher_create_attrs {
@@ -248,11 +249,27 @@ enum mlx5_ib_flow_matcher_methods {
 	MLX5_IB_METHOD_FLOW_MATCHER_DESTROY,
 };
 
+enum mlx5_ib_flow_steering_anchor_create_attrs {
+	MLX5_IB_ATTR_STEERING_ANCHOR_CREATE_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+	MLX5_IB_ATTR_STEERING_ANCHOR_FT_TYPE,
+	MLX5_IB_ATTR_STEERING_ANCHOR_PRIORITY,
+	MLX5_IB_ATTR_STEERING_ANCHOR_FT_ID,
+};
+
+enum mlx5_ib_flow_steering_anchor_destroy_attrs {
+	MLX5_IB_ATTR_STEERING_ANCHOR_DESTROY_HANDLE = (1U << UVERBS_ID_NS_SHIFT),
+};
+
+enum mlx5_ib_steering_anchor_methods {
+	MLX5_IB_METHOD_STEERING_ANCHOR_CREATE = (1U << UVERBS_ID_NS_SHIFT),
+	MLX5_IB_METHOD_STEERING_ANCHOR_DESTROY,
+};
+
 enum mlx5_ib_device_query_context_attrs {
 	MLX5_IB_ATTR_QUERY_CONTEXT_RESP_UCTX = (1U << UVERBS_ID_NS_SHIFT),
 };
 
-#define MLX5_IB_DW_MATCH_PARAM 0x90
+#define MLX5_IB_DW_MATCH_PARAM 0xA0
 
 struct mlx5_ib_match_params {
 	__u32	match_params[MLX5_IB_DW_MATCH_PARAM];

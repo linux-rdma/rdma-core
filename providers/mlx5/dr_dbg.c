@@ -82,6 +82,7 @@ enum dr_dump_rec_type {
 	DR_DUMP_REC_TYPE_ACTION_ASO_FLOW_METER = 3418,
 	DR_DUMP_REC_TYPE_ACTION_ASO_CT = 3419,
 	DR_DUMP_REC_TYPE_ACTION_MISS = 3423,
+	DR_DUMP_REC_TYPE_ACTION_ROOT_FT = 3424,
 };
 
 static uint64_t dr_dump_icm_to_idx(uint64_t icm_addr)
@@ -138,7 +139,7 @@ static int dr_dump_rule_action(FILE *f, const uint64_t rule_id,
 	case DR_ACTION_TYP_MODIFY_HDR:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x,%d\n",
 			      DR_DUMP_REC_TYPE_ACTION_MODIFY_HDR, action_id,
-			      rule_id, action->rewrite.index,
+			      rule_id, action->rewrite.param.index,
 			      action->rewrite.single_action_opt);
 		break;
 	case DR_ACTION_TYP_VPORT:
@@ -154,7 +155,7 @@ static int dr_dump_rule_action(FILE *f, const uint64_t rule_id,
 	case DR_ACTION_TYP_TNL_L3_TO_L2:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
 			      DR_DUMP_REC_TYPE_ACTION_DECAP_L3, action_id,
-			      rule_id, action->rewrite.index);
+			      rule_id, action->rewrite.param.index);
 		break;
 	case DR_ACTION_TYP_L2_TO_TNL_L2:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
@@ -224,6 +225,12 @@ static int dr_dump_rule_action(FILE *f, const uint64_t rule_id,
 	case DR_ACTION_TYP_MISS:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 "\n",
 			      DR_DUMP_REC_TYPE_ACTION_MISS, action_id, rule_id);
+		break;
+	case DR_ACTION_TYP_ROOT_FT:
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
+			      DR_DUMP_REC_TYPE_ACTION_ROOT_FT, action_id,
+			      rule_id,
+			      action->root_tbl.devx_tbl->ft_dvo->object_id);
 		break;
 	default:
 		return 0;
@@ -410,7 +417,7 @@ static int dr_dump_matcher_builder(FILE *f, struct dr_ste_build *builder,
 	bool is_match = builder->htbl_type == DR_STE_HTBL_TYPE_MATCH;
 	int ret;
 
-	ret = fprintf(f, "%d,0x%" PRIx64 "%d,%d,0x%x,%d\n",
+	ret = fprintf(f, "%d,0x%" PRIx64 ",%d,%d,0x%x,%d\n",
 		      DR_DUMP_REC_TYPE_MATCHER_BUILDER,
 		      matcher_id,
 		      index,
