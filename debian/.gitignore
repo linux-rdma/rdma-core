@@ -1,0 +1,14 @@
+/*.debhelper
+/*.log
+/*.substvars
+/files
+/ibacm/
+/ibverbs-providers/
+/ibverbs-utils/
+/infiniband-diags/
+/lib*/
+/python3-pyverbs/
+/rdma-core/
+/rdmacm-utils/
+/srptools/
+/tmp/
