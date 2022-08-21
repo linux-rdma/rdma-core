@@ -264,6 +264,16 @@ if (NOT HAVE_C_WORKING_MISSING_FIELD_INITIALIZERS)
   RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WNO_MISSING_FIELD_INITIALIZERS "-Wno-missing-field-initializers")
 endif()
 
+# clang doesn't support variable size GCC extension
+RDMA_Check_C_Compiles(HAVE_C_VARIABLE_SIZE "
+ struct c { int a; int b[]; };
+ struct foo { struct c c; int b; };
+ int main(int argc,const char *argv[]) { return 0; }"
+)
+if (NOT HAVE_C_VARIABLE_SIZE)
+	RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WNO_VARIABLE_SIZE "-Wno-gnu-variable-sized-type-not-at-end")
+endif()
+
 # Check that the compiler supports -fno-strict-aliasing.
 # The use of this flag in the source is discouraged
 set(NO_STRICT_ALIASING_FLAGS "")
