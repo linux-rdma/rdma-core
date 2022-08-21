@@ -2796,6 +2796,7 @@ static void mlx5_send_wr_mkey_configure(struct mlx5dv_qp_ex *dv_qp,
 					struct mlx5dv_mkey_conf_attr *attr)
 {
 	struct mlx5_qp *mqp = mqp_from_mlx5dv_qp_ex(dv_qp);
+	struct mlx5_context *mctx = to_mctx(mqp->ibv_qp->context);
 	struct ibv_qp_ex *ibqp = &mqp->verbs_qp.qp_ex;
 	struct mlx5_wqe_umr_ctrl_seg *umr_ctrl;
 	struct mlx5_wqe_mkey_context_seg *mk;
@@ -2838,7 +2839,14 @@ static void mlx5_send_wr_mkey_configure(struct mlx5dv_qp_ex *dv_qp,
 
 	mk = seg;
 	memset(mk, 0, sizeof(*mk));
+	if (unlikely(dv_mkey->lkey & 0xff &&
+		     !(mctx->flags &
+		       MLX5_CTX_FLAGS_MKEY_UPDATE_TAG_SUPPORTED))) {
+		mqp->err = EOPNOTSUPP;
+		return;
+	}
 	mk->qpn_mkey = htobe32(0xffffff00 | (dv_mkey->lkey & 0xff));
+	mkey_mask |= MLX5_WQE_UMR_CTRL_MKEY_MASK_MKEY;
 
 	seg += sizeof(*mk);
 	mqp->cur_size += (sizeof(*mk) / 16);
