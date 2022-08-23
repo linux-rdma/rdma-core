@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
-# Copyright 2020 Amazon.com, Inc. or its affiliates. All rights reserved.
+# Copyright 2020-2022 Amazon.com, Inc. or its affiliates. All rights reserved.
 """
 Test module for efa direct-verbs.
 """
@@ -17,7 +17,7 @@ from pyverbs.cq import CQ
 import pyverbs.enums as e
 from pyverbs.pd import PD
 
-from tests.efa_base import EfaAPITestCase
+from tests.efa_base import EfaAPITestCase, EfaRDMATestCase, EfaCQRes
 import tests.utils as u
 
 
@@ -125,3 +125,38 @@ def get_qp_init_attr_ex(cq, pd, attr):
     qia.recv_cq = cq
     qia.pd = pd
     return qia
+
+
+class EfaCqTest(EfaRDMATestCase):
+    def setUp(self):
+        super().setUp()
+        self.iters = 100
+        self.server = None
+        self.client = None
+
+    def create_players(self, dev_cap, wc_flags, send_ops_flags, qp_count=8):
+        try:
+            self.client = EfaCQRes(self.dev_name, self.ib_port, self.gid_index, send_ops_flags, qp_count,
+                                   dev_cap, wc_flags)
+            self.server = EfaCQRes(self.dev_name, self.ib_port, self.gid_index, send_ops_flags, qp_count,
+                                   dev_cap, wc_flags)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Create EfaCQ Resources is not supported')
+            raise ex
+        self.client.pre_run(self.server.psns, self.server.qps_num)
+        self.server.pre_run(self.client.psns, self.client.qps_num)
+        self.server.remote_gid = self.client.ctx.query_gid(self.client.ib_port, self.client.gid_index)
+
+    def test_dv_cq_ex_with_sgid(self):
+        send_op = e.IBV_QP_EX_WITH_SEND
+        wc_flag = efa_e.EFADV_WC_EX_WITH_SGID
+        dev_cap = efa_e.EFADV_DEVICE_ATTR_CAPS_CQ_WITH_SGID
+        self.create_players(dev_cap, wc_flag, send_op, qp_count=1)
+        recv_wr = u.get_recv_wr(self.server)
+        self.server.qps[0].post_recv(recv_wr)
+        ah_client = u.get_global_ah(self.client, self.gid_index, self.ib_port)
+        _ , sg = u.get_send_elements(self.client, False)
+        u.send(self.client, sg, send_op, new_send=True, qp_idx=0, ah=ah_client)
+        u.poll_cq_ex(self.client.cq)
+        u.poll_cq_ex(self.server.cq, sgid=self.server.remote_gid)

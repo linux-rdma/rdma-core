@@ -20,6 +20,7 @@ from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.addr import AHAttr, AH, GlobalRoute
 from tests.base import XRCResources, DCT_KEY
 from tests.efa_base import SRDResources
+from pyverbs.providers.efa.efadv import EfaCQ
 from pyverbs.wr import SGE, SendWR, RecvWR
 from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx, QPAttr, QPEx, QP
 from tests.mlx5_base import Mlx5DcResources, Mlx5DcStreamsRes
@@ -572,13 +573,15 @@ def poll_cq(cq, count=1, data=None):
     return wcs
 
 
-def poll_cq_ex(cqex, count=1, data=None):
+def poll_cq_ex(cqex, count=1, data=None, sgid=None):
     """
     Poll <count> completions from the extended CQ.
     :param cq: CQEX to poll from
     :param count: How many completions to poll
     :param data: In case of a work request with immediate, the immediate data
                  to be compared after poll
+    :param sgid: In case of EFA receive completion, the sgid to be compared
+                 after poll
     :return: None
     """
     try:
@@ -595,6 +598,10 @@ def poll_cq_ex(cqex, count=1, data=None):
                                    format(s=cqex.status))
         if data:
             assert data == socket.ntohl(cqex.read_imm_data())
+
+        if isinstance(cqex, EfaCQ):
+            if sgid is not None and cqex.read_opcode() == e.IBV_WC_RECV:
+                assert sgid.gid == cqex.read_sgid().gid
         # Now poll the rest of the packets
         while count > 0 and (time.perf_counter() - start_poll_t < POLL_CQ_TIMEOUT):
             ret = cqex.poll_next()
@@ -608,6 +615,10 @@ def poll_cq_ex(cqex, count=1, data=None):
                                        format(s=cqex.status))
             if data:
                 assert data == socket.ntohl(cqex.read_imm_data())
+
+            if isinstance(cqex, EfaCQ):
+                if sgid is not None and cqex.read_opcode() == e.IBV_WC_RECV:
+                    assert sgid.gid == cqex.read_sgid().gid
             count -= 1
         if count > 0:
             raise PyverbsError(f'Got timeout on polling ({count} CQEs remaining)')

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2018-2021 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2018-2022 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef _EFA_IO_H_
@@ -219,9 +219,7 @@ struct efa_io_cdesc_common {
 	 * 2:1 : q_type - enum efa_io_queue_type: send/recv
 	 * 3 : has_imm - indicates that immediate data is
 	 *    present - for RX completions only
-	 * 4 : wide_completion - indicates that wide
-	 *    completion format is used
-	 * 7:5 : reserved29
+	 * 7:4 : reserved28 - MBZ
 	 */
 	uint8_t flags;
 
@@ -253,33 +251,15 @@ struct efa_io_rx_cdesc {
 };
 
 /* Extended Rx Completion Descriptor */
-struct efa_io_rx_cdesc_wide {
+struct efa_io_rx_cdesc_ex {
 	/* Base RX completion info */
 	struct efa_io_rx_cdesc rx_cdesc_base;
 
 	/*
-	 * Word 0 of remote (source) address, needed only for in-band
-	 * ad-hoc AH support
+	 * Valid only in case of unknown AH (0xFFFF) and CQ set_src_addr is
+	 * enabled.
 	 */
-	uint32_t src_addr_0;
-
-	/*
-	 * Word 1 of remote (source) address, needed only for in-band
-	 * ad-hoc AH support
-	 */
-	uint32_t src_addr_1;
-
-	/*
-	 * Word 2 of remote (source) address, needed only for in-band
-	 * ad-hoc AH support
-	 */
-	uint32_t src_addr_2;
-
-	/*
-	 * Word 3 of remote (source) address, needed only for in-band
-	 * ad-hoc AH support
-	 */
-	uint32_t src_addr_3;
+	uint8_t src_addr[16];
 };
 
 /* tx_meta_desc */
@@ -305,6 +285,5 @@ struct efa_io_rx_cdesc_wide {
 #define EFA_IO_CDESC_COMMON_PHASE_MASK                      BIT(0)
 #define EFA_IO_CDESC_COMMON_Q_TYPE_MASK                     GENMASK(2, 1)
 #define EFA_IO_CDESC_COMMON_HAS_IMM_MASK                    BIT(3)
-#define EFA_IO_CDESC_COMMON_WIDE_COMPLETION_MASK            BIT(4)
 
 #endif /* _EFA_IO_H_ */
