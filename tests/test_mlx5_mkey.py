@@ -374,6 +374,37 @@ class Mlx5MkeyTest(RDMATestCase):
             player.qp.post_send(inv_send_wr)
             u.poll_cq(player.cq)
 
+    def invalidate_mkeys_remotely(self):
+        """
+        Client remotely invalidates the server's rkey
+        """
+        sge = SGE(0,0, self.server.mkey.lkey)
+        self.server.qp.post_recv(RecvWR(sg=[sge], num_sge=1))
+        self.client.qp.wr_start()
+        self.client.qp.wr_flags = e.IBV_SEND_SIGNALED
+        self.client.qp.wr_send_inv(self.server.mkey.rkey)
+        sge = SGE(0, 0, self.client.mkey.lkey)
+        self.client.qp.wr_set_sge(sge)
+        self.client.qp.wr_complete()
+        u.poll_cq(self.client.cq)
+        u.poll_cq(self.server.cq)
+
+    def test_mkey_remote_invalidate(self):
+        """
+        Verify remote Mkey invalidation.
+        Create Mkey, traffic using this mkey then the client invalidates
+        the server's mkey remotly.
+        """
+        self.create_players(Mlx5MkeyResources,
+                            mkey_create_flags=dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+                                              dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_REMOTE_INVALIDATE,
+                            dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE)
+        self.reg_mr_list(configure_mkey=True)
+        self.traffic_scattered_data()
+        self.invalidate_mkeys_remotely()
+        with self.assertRaises(PyverbsRDMAError):
+            self.traffic_scattered_data()
+
     def check_mkey(self, player, expected=dve.MLX5DV_MKEY_NO_ERR):
         """
         Check the player's mkey for a signature error.
