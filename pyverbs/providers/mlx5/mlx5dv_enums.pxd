@@ -109,6 +109,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT
         MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE
         MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO
+        MLX5DV_MKEY_INIT_ATTR_FLAGS_REMOTE_INVALIDATE
 
     cpdef enum mlx5dv_mkey_err_type:
         MLX5DV_MKEY_NO_ERR
