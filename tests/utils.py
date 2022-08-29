@@ -18,7 +18,7 @@ import os
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.addr import AHAttr, AH, GlobalRoute
-from tests.base import XRCResources, DCT_KEY
+from tests.base import XRCResources, DCT_KEY, MLNX_VENDOR_ID
 from tests.efa_base import SRDResources
 from pyverbs.providers.efa.efadv import EfaCQ
 from pyverbs.wr import SGE, SendWR, RecvWR
@@ -272,13 +272,17 @@ def get_create_qp_flags_raw_packet(attr_ex):
     return val
 
 
-def random_qp_create_flags(qpt, attr_ex):
+def random_valid_qp_create_flags(qpt, attr, attr_ex):
     """
     Select a random sublist of ibv_qp_create_flags according to the QP type.
     :param qpt: Current QP type
     :param attr_ex: Used for Raw Packet QP to check device capabilities
     :return: A sublist of ibv_qp_create_flags
     """
+     # Most HCAs doesn't support any create_flags so far except mlx4/mlx5
+    if attr.vendor_id != MLNX_VENDOR_ID:
+        return 0
+
     if qpt == e.IBV_QPT_RAW_PACKET:
         return get_create_qp_flags_raw_packet(attr_ex)
     elif qpt == e.IBV_QPT_UD:
@@ -310,7 +314,7 @@ def random_qp_init_attr_ex(attr_ex, attr, qpt=None):
     sig = random.randint(0, 1)
     mask = random_qp_create_mask(qpt, attr_ex)
     if mask & e.IBV_QP_INIT_ATTR_CREATE_FLAGS:
-        cflags = random_qp_create_flags(qpt, attr_ex)
+        cflags = random_valid_qp_create_flags(qpt, attr, attr_ex)
     else:
         cflags = 0
     if mask & e.IBV_QP_INIT_ATTR_MAX_TSO_HEADER:
