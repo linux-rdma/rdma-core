@@ -76,6 +76,7 @@ class PyverbsAPITestCase(unittest.TestCase):
         self.ctx = None
         self.attr = None
         self.attr_ex = None
+        self.gid_index = 0
 
     def setUp(self):
         """
@@ -92,6 +93,9 @@ class PyverbsAPITestCase(unittest.TestCase):
             if not dev_list:
                 raise unittest.SkipTest('No IB devices found')
             self.dev_name = dev_list[0].name.decode()
+
+        if self.config['gid']:
+            self.gid_index = self.config['gid']
 
         self.create_context()
         self.attr = self.ctx.query_device()
