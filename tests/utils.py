@@ -534,7 +534,7 @@ def post_recv(agr_obj, recv_wr, qp_idx=0 ,num_wqes=1):
             receive_queue.post_recv(recv_wr, None)
 
 
-def poll_cq(cq, count=1, data=None):
+def _poll_cq(cq, count=1, data=None):
     """
     Poll <count> completions from the CQ.
     Note: This function calls the blocking poll() method of the CQ
@@ -557,9 +557,8 @@ def poll_cq(cq, count=1, data=None):
         nc, tmp_wcs = cq.poll(count)
         for wc in tmp_wcs:
             if wc.status != e.IBV_WC_SUCCESS:
-                raise PyverbsRDMAError('Completion status is {s}'.
-                                       format(s=wc_status_to_str(wc.status)),
-                                       wc.status)
+                wcs.append(wc)
+                return wcs
             if data:
                 if wc.wc_flags & e.IBV_WC_WITH_IMM == 0:
                     raise PyverbsRDMAError('Completion without immediate')
@@ -569,6 +568,26 @@ def poll_cq(cq, count=1, data=None):
 
     if count > 0:
         raise PyverbsError(f'Got timeout on polling ({count} CQEs remaining)')
+
+    return wcs
+
+
+def poll_cq(cq, count=1, data=None):
+    """
+    Poll <count> completions from the CQ.
+    Note: This function calls the blocking poll() method of the CQ
+    until <count> completions were received. Alternatively, gets a
+    single CQ event when events are used.
+    :param cq: CQ to poll from
+    :param count: How many completions to poll
+    :param data: In case of a work request with immediate, the immediate data
+                 to be compared after poll
+    :return: An array of work completions of length <count>, None
+             when events are used
+    """
+    wcs = _poll_cq(cq, count, data)
+    if wcs[0].status != e.IBV_WC_SUCCESS:
+        raise PyverbsRDMAError(f'Completion status is {wc_status_to_str(wcs[0].status)}')
 
     return wcs
 
