@@ -49,6 +49,9 @@ static bool is_buf_cleared(void *buf, size_t len)
 
 #define is_reserved_cleared(reserved) is_buf_cleared(reserved, sizeof(reserved))
 
+/* Maximum descriptors per QP (due to sizeof(uint32_t) and the fact that it must be a power of 2) */
+#define QP_DESC_COUNT_MAX BIT(31)
+
 struct efa_wq_init_attr {
 	uint64_t db_mmap_key;
 	uint32_t db_off;
@@ -1158,19 +1161,34 @@ static void efa_setup_qp(struct efa_context *ctx,
 			 struct ibv_qp_cap *cap,
 			 size_t page_size)
 {
-	uint16_t rq_desc_cnt;
+	uint32_t rq_desc_cnt_u32;
+	uint64_t sq_desc_cnt;
+	uint64_t rq_desc_cnt;
 
 	efa_qp_init_indices(qp);
 
-	qp->sq.wq.wqe_cnt = roundup_pow_of_two(max_t(uint32_t, cap->max_send_wr,
-						     ctx->min_sq_wr));
+	sq_desc_cnt = roundup_pow_of_two(max_t(uint32_t, cap->max_send_wr, ctx->min_sq_wr));
+	if (sq_desc_cnt > QP_DESC_COUNT_MAX) {
+		sq_desc_cnt = QP_DESC_COUNT_MAX;
+		verbs_warn(verbs_get_ctx(qp->verbs_qp.qp.context),
+			   "sq_desc_cnt (%" PRIu64 ") > (%u), setting to 0x%x\n",
+			   sq_desc_cnt, QP_DESC_COUNT_MAX, QP_DESC_COUNT_MAX);
+	}
+	qp->sq.wq.wqe_cnt = (uint32_t)sq_desc_cnt;
 	qp->sq.wq.max_sge = cap->max_send_sge;
 	qp->sq.wq.desc_mask = qp->sq.wq.wqe_cnt - 1;
 
 	qp->rq.wq.max_sge = cap->max_recv_sge;
 	rq_desc_cnt = roundup_pow_of_two(cap->max_recv_sge * cap->max_recv_wr);
-	qp->rq.wq.desc_mask = rq_desc_cnt - 1;
-	qp->rq.wq.wqe_cnt = rq_desc_cnt / qp->rq.wq.max_sge;
+	if (rq_desc_cnt > QP_DESC_COUNT_MAX) {
+		rq_desc_cnt = QP_DESC_COUNT_MAX;
+		verbs_warn(verbs_get_ctx(qp->verbs_qp.qp.context),
+			   "sq_desc_cnt (%" PRIu64 ") > (%u), setting to 0x%x\n",
+			   rq_desc_cnt, QP_DESC_COUNT_MAX, QP_DESC_COUNT_MAX);
+	}
+	rq_desc_cnt_u32 = (uint32_t)rq_desc_cnt;
+	qp->rq.wq.desc_mask = rq_desc_cnt_u32 - 1;
+	qp->rq.wq.wqe_cnt = rq_desc_cnt_u32 / qp->rq.wq.max_sge;
 
 	qp->page_size = page_size;
 }
