@@ -1416,12 +1416,9 @@ int irdma_umodify_qp(struct ibv_qp *qp, struct ibv_qp_attr *attr, int attr_mask)
 	struct irdma_uvcontext *iwctx;
 	struct irdma_uqp *iwuqp;
 
-
 	iwuqp = container_of(qp, struct irdma_uqp, ibv_qp);
 	iwctx = container_of(qp->context, struct irdma_uvcontext,
 			     ibv_ctx.context);
-	iwuqp->attr_mask = attr_mask;
-	memcpy(&iwuqp->attr, attr, sizeof(iwuqp->attr));
 
 	if (iwuqp->qp.qp_caps & IRDMA_PUSH_MODE &&
 	    attr_mask & IBV_QP_STATE && iwctx->uk_attrs.hw_rev > IRDMA_GEN_1) {
@@ -1464,13 +1461,13 @@ static void irdma_issue_flush(struct ibv_qp *qp, bool sq_flush, bool rq_flush)
 {
 	struct ib_uverbs_ex_modify_qp_resp resp = {};
 	struct irdma_umodify_qp cmd_ex = {};
-	struct irdma_uqp *iwuqp;
+	struct ibv_qp_attr attr = {};
 
+	attr.qp_state = IBV_QPS_ERR;
 	cmd_ex.sq_flush = sq_flush;
 	cmd_ex.rq_flush = rq_flush;
-	iwuqp = container_of(qp, struct irdma_uqp, ibv_qp);
 
-	ibv_cmd_modify_qp_ex(qp, &iwuqp->attr, iwuqp->attr_mask,
+	ibv_cmd_modify_qp_ex(qp, &attr, IBV_QP_STATE,
 			     &cmd_ex.ibv_cmd, sizeof(cmd_ex),
 			     &resp, sizeof(resp));
 }
