@@ -6742,7 +6742,8 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 			     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE |
 			     MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO |
 			     (update_tag ?
-			      MLX5DV_MKEY_INIT_ATTR_FLAGS_UPDATE_TAG : 0))) {
+			     MLX5DV_MKEY_INIT_ATTR_FLAGS_UPDATE_TAG : 0) |
+			     MLX5DV_MKEY_INIT_ATTR_FLAGS_REMOTE_INVALIDATE)) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -6800,6 +6801,10 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 		DEVX_SET(mkc, mkc, bsf_en, 1);
 		DEVX_SET(mkc, mkc, bsf_octword_size, bsf_size / 16);
 	}
+
+	if (mkey_init_attr->create_flags &
+	    MLX5DV_MKEY_INIT_ATTR_FLAGS_REMOTE_INVALIDATE)
+		DEVX_SET(mkc, mkc, en_rinval, 1);
 
 	mkey->devx_obj = mlx5dv_devx_obj_create(pd->context, in, sizeof(in),
 						out, sizeof(out));
