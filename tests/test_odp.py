@@ -2,6 +2,7 @@ from pyverbs.mem_alloc import mmap, munmap, MAP_ANONYMOUS_, MAP_PRIVATE_, \
     MAP_HUGETLB_
 from tests.base import RCResources, UDResources, XRCResources
 from pyverbs.wr import SGE, SendWR, RecvWR
+from pyverbs.qp import QPAttr, QPInitAttr
 from tests.base import RDMATestCase
 from pyverbs.mr import MR
 import pyverbs.enums as e
@@ -54,6 +55,34 @@ class OdpRC(RCResources):
         self.mr = MR(self.pd, self.msg_size, access, address=self.user_addr,
                      implicit=self.is_implicit)
 
+class OdpRdmaRC(RCResources):
+    def __init__(self, dev_name, ib_port, gid_index):
+        """
+        Initialize an OdpRdmaRC Resource object. This is intended to be
+        used with RDMA Write, RDMA Read, and Atomic operations.
+        :param dev_name: Device name to be used
+        :param ib_port: IB port of the device to use
+        :param gid_index: Which GID index to use
+        """
+        self.access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_ON_DEMAND | \
+            e.IBV_ACCESS_REMOTE_ATOMIC
+        super().__init__(dev_name=dev_name, ib_port=ib_port,
+                         gid_index=gid_index)
+        self.new_mr_lkey = None
+
+    @u.requires_odp('rc', e.IBV_ODP_SUPPORT_ATOMIC)
+    def create_mr(self):
+        self.mr = MR(self.pd, self.msg_size, self.access)
+
+    def create_qp_init_attr(self):
+        return QPInitAttr(qp_type=e.IBV_QPT_RC, scq=self.cq, sq_sig_all=0,
+                          rcq=self.cq, srq=self.srq, cap=self.create_qp_cap())
+
+    def create_qp_attr(self):
+        qp_attr = QPAttr(port_num=self.ib_port)
+        qp_attr.qp_access_flags = self.access
+        return qp_attr
+
 
 class OdpSrqRc(RCResources):
     def __init__(self, dev_name, ib_port, gid_index, qp_count=1):
@@ -90,9 +119,20 @@ class OdpTestCase(RDMATestCase):
         self.server = resource(**self.dev_info, **resource_arg)
         self.client.pre_run(self.server.psns, self.server.qps_num)
         self.server.pre_run(self.client.psns, self.client.qps_num)
+        if resource == OdpRdmaRC:
+            self.sync_remote_attr()
         self.traffic_args = {'client': self.client, 'server': self.server,
                              'iters': self.iters, 'gid_idx': self.gid_index,
                              'port': self.ib_port}
+
+    def sync_remote_attr(self):
+        """
+        Sync the MR remote attributes between the server and the client.
+        """
+        self.server.rkey = self.client.mr.rkey
+        self.server.raddr = self.client.mr.buf
+        self.client.rkey = self.server.mr.rkey
+        self.client.raddr = self.server.mr.buf
 
     def tearDown(self):
         if self.user_addr:
@@ -102,6 +142,18 @@ class OdpTestCase(RDMATestCase):
     def test_odp_rc_traffic(self):
         self.create_players(OdpRC)
         u.traffic(**self.traffic_args)
+
+    def test_odp_rc_atomic_cmp_and_swp(self):
+        self.create_players(OdpRdmaRC)
+        u.atomic_traffic(**self.traffic_args,
+                         send_op=e.IBV_WR_ATOMIC_CMP_AND_SWP)
+        u.atomic_traffic(**self.traffic_args, receiver_val=1, sender_val=1,
+                         send_op=e.IBV_WR_ATOMIC_CMP_AND_SWP)
+
+    def test_odp_rc_atomic_fetch_and_add(self):
+        self.create_players(OdpRdmaRC)
+        u.atomic_traffic(**self.traffic_args,
+                         send_op=e.IBV_WR_ATOMIC_FETCH_AND_ADD)
 
     def test_odp_implicit_rc_traffic(self):
         self.create_players(OdpRC, is_implicit=True)

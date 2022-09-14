@@ -1204,7 +1204,7 @@ def requires_mcast_support():
 
 def odp_supported(ctx, qp_type, required_odp_caps):
     """
-    Check device ODP capabilities, support only send/recv so far.
+    Check device ODP capabilities
     :param ctx: Device Context
     :param qp_type: QP type ('rc', 'ud' or 'uc')
     :param required_odp_caps: ODP Capability mask of specified device
@@ -1215,7 +1215,7 @@ def odp_supported(ctx, qp_type, required_odp_caps):
         raise unittest.SkipTest('ODP is not supported - No ODP caps')
     qp_odp_caps = getattr(odp_caps, '{}_odp_caps'.format(qp_type))
     if required_odp_caps & qp_odp_caps != required_odp_caps:
-        raise unittest.SkipTest('ODP is not supported - ODP recv/send is not supported')
+        raise unittest.SkipTest('ODP is unavailable - Operation not supported on this device')
 
 
 def odp_implicit_supported(ctx):
