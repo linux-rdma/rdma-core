@@ -85,13 +85,14 @@ class OdpTestCase(RDMATestCase):
                          BaseResources.
         :param resource_arg: Dict of args that specify the resource specific
                              attributes.
-        :return: The (client, server) resources.
         """
-        client = resource(**self.dev_info, **resource_arg)
-        server = resource(**self.dev_info, **resource_arg)
-        client.pre_run(server.psns, server.qps_num)
-        server.pre_run(client.psns, client.qps_num)
-        return client, server
+        self.client = resource(**self.dev_info, **resource_arg)
+        self.server = resource(**self.dev_info, **resource_arg)
+        self.client.pre_run(self.server.psns, self.server.qps_num)
+        self.server.pre_run(self.client.psns, self.client.qps_num)
+        self.traffic_args = {'client': self.client, 'server': self.server,
+                             'iters': self.iters, 'gid_idx': self.gid_index,
+                             'port': self.ib_port}
 
     def tearDown(self):
         if self.user_addr:
@@ -99,83 +100,81 @@ class OdpTestCase(RDMATestCase):
         super(OdpTestCase, self).tearDown()
 
     def test_odp_rc_traffic(self):
-        client, server = self.create_players(OdpRC)
-        u.traffic(client, server, self.iters, self.gid_index, self.ib_port)
+        self.create_players(OdpRC)
+        u.traffic(**self.traffic_args)
 
     def test_odp_implicit_rc_traffic(self):
-        client, server = self.create_players(OdpRC, is_implicit=True)
-        u.traffic(client, server, self.iters, self.gid_index, self.ib_port)
+        self.create_players(OdpRC, is_implicit=True)
+        u.traffic(**self.traffic_args)
 
     def test_odp_ud_traffic(self):
-        client, server = self.create_players(OdpUD)
+        self.create_players(OdpUD)
         # Implement the traffic here because OdpUD uses two different MRs for
         # send and recv.
-        ah_client = u.get_global_ah(client, self.gid_index, self.ib_port)
-        recv_sge = SGE(server.recv_mr.buf, server.msg_size + u.GRH_SIZE,
-                       server.recv_mr.lkey)
+        ah_client = u.get_global_ah(self.client, self.gid_index, self.ib_port)
+        recv_sge = SGE(self.server.recv_mr.buf, self.server.msg_size +
+                       u.GRH_SIZE, self.server.recv_mr.lkey)
         server_recv_wr = RecvWR(sg=[recv_sge], num_sge=1)
-        send_sge = SGE(client.send_mr.buf + u.GRH_SIZE, client.msg_size,
-                       client.send_mr.lkey)
+        send_sge = SGE(self.client.send_mr.buf + u.GRH_SIZE,
+                       self.client.msg_size, self.client.send_mr.lkey)
         client_send_wr = SendWR(num_sge=1, sg=[send_sge])
         for i in range(self.iters):
-            server.qp.post_recv(server_recv_wr)
-            u.post_send(client, client_send_wr, ah=ah_client)
-            u.poll_cq(client.cq)
-            u.poll_cq(server.cq)
+            self.server.qp.post_recv(server_recv_wr)
+            u.post_send(self.client, client_send_wr, ah=ah_client)
+            u.poll_cq(self.client.cq)
+            u.poll_cq(self.server.cq)
 
     def test_odp_xrc_traffic(self):
-        client, server = self.create_players(OdpXRC)
-        u.xrc_traffic(client, server)
+        self.create_players(OdpXRC)
+        u.xrc_traffic(self.client, self.server)
 
     def test_odp_rc_srq_traffic(self):
-        client, server = self.create_players(OdpSrqRc, qp_count=2)
-        u.traffic(client, server, self.iters, self.gid_index, self.ib_port)
+        self.create_players(OdpSrqRc, qp_count=2)
+        u.traffic(**self.traffic_args)
 
     @u.requires_huge_pages()
     def test_odp_rc_huge_traffic(self):
-        client, server = self.create_players(OdpRC, is_huge=True)
-        u.traffic(client, server, self.iters, self.gid_index, self.ib_port)
+        self.create_players(OdpRC, is_huge=True)
+        u.traffic(**self.traffic_args)
 
     @u.requires_huge_pages()
     def test_odp_rc_huge_user_addr_traffic(self):
         self.user_addr = mmap(length=HUGE_PAGE_SIZE,
                               flags=MAP_ANONYMOUS_| MAP_PRIVATE_| MAP_HUGETLB_)
-        client, server = self.create_players(OdpRC, is_huge=True,
-                                              user_addr=self.user_addr)
-        u.traffic(client, server, self.iters, self.gid_index, self.ib_port)
+        self.create_players(OdpRC, is_huge=True,
+                            user_addr=self.user_addr)
+        u.traffic(**self.traffic_args)
 
     def test_odp_sync_prefetch_rc_traffic(self):
         for advice in [e._IBV_ADVISE_MR_ADVICE_PREFETCH,
                        e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE]:
-            client, server = self.create_players(OdpRC, use_mr_prefetch='sync',
-                                                 prefetch_advice=advice)
-            u.traffic(client, server, self.iters, self.gid_index, self.ib_port)
+            self.create_players(OdpRC, use_mr_prefetch='sync',
+                                prefetch_advice=advice)
+            u.traffic(**self.traffic_args)
 
     def test_odp_async_prefetch_rc_traffic(self):
         for advice in [e._IBV_ADVISE_MR_ADVICE_PREFETCH,
                        e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE]:
-            client, server = self.create_players(OdpRC, use_mr_prefetch='async',
-                                                 prefetch_advice=advice)
-            u.traffic(client, server, self.iters, self.gid_index, self.ib_port)
+            self.create_players(OdpRC, use_mr_prefetch='async',
+                                prefetch_advice=advice)
+            u.traffic(**self.traffic_args)
 
     def test_odp_implicit_sync_prefetch_rc_traffic(self):
-        client, server = self.create_players(OdpRC, use_mr_prefetch='sync', is_implicit=True)
-        u.traffic(client, server, self.iters, self.gid_index, self.ib_port)
+        self.create_players(OdpRC, use_mr_prefetch='sync', is_implicit=True)
+        u.traffic(**self.traffic_args)
 
     def test_odp_implicit_async_prefetch_rc_traffic(self):
-        client, server = self.create_players(OdpRC, use_mr_prefetch='async', is_implicit=True)
-        u.traffic(client, server, self.iters, self.gid_index, self.ib_port)
+        self.create_players(OdpRC, use_mr_prefetch='async', is_implicit=True)
+        u.traffic(**self.traffic_args)
 
     def test_odp_prefetch_sync_no_page_fault_rc_traffic(self):
         prefetch_advice = e._IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT
-        client, server = self.create_players(OdpRC,
-                                             use_mr_prefetch='sync',
-                                             prefetch_advice=prefetch_advice)
-        u.traffic(client, server, self.iters, self.gid_index, self.ib_port)
+        self.create_players(OdpRC, use_mr_prefetch='sync',
+                            prefetch_advice=prefetch_advice)
+        u.traffic(**self.traffic_args)
 
     def test_odp_prefetch_async_no_page_fault_rc_traffic(self):
         prefetch_advice = e._IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT
-        client, server = self.create_players(OdpRC,
-                                             use_mr_prefetch='async',
-                                             prefetch_advice=prefetch_advice)
-        u.traffic(client, server, self.iters, self.gid_index, self.ib_port)
+        self.create_players(OdpRC, use_mr_prefetch='async',
+                            prefetch_advice=prefetch_advice)
+        u.traffic(**self.traffic_args)
