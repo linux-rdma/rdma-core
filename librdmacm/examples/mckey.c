@@ -134,7 +134,8 @@ static int verify_test_params(struct cmatest_node *node)
 static int init_node(struct cmatest_node *node)
 {
 	struct ibv_qp_init_attr_ex init_qp_attr_ex;
-	int cqe, ret;
+	struct ibv_qp_init_attr init_qp_attr;
+	int cqe, ret = 0;
 
 	node->pd = ibv_alloc_pd(node->cma_id->verbs);
 	if (!node->pd) {
@@ -151,23 +152,38 @@ static int init_node(struct cmatest_node *node)
 		goto out;
 	}
 
-	memset(&init_qp_attr_ex, 0, sizeof(init_qp_attr_ex));
-	init_qp_attr_ex.cap.max_send_wr = message_count ? message_count : 1;
-	init_qp_attr_ex.cap.max_recv_wr = message_count ? message_count : 1;
-	init_qp_attr_ex.cap.max_send_sge = 1;
-	init_qp_attr_ex.cap.max_recv_sge = 1;
-	init_qp_attr_ex.qp_context = node;
-	init_qp_attr_ex.sq_sig_all = 0;
-	init_qp_attr_ex.qp_type = IBV_QPT_UD;
-	init_qp_attr_ex.send_cq = node->cq;
-	init_qp_attr_ex.recv_cq = node->cq;
+	memset(&init_qp_attr, 0, sizeof init_qp_attr);
+	init_qp_attr.cap.max_send_wr = message_count ? message_count : 1;
+	init_qp_attr.cap.max_recv_wr = message_count ? message_count : 1;
+	init_qp_attr.cap.max_send_sge = 1;
+	init_qp_attr.cap.max_recv_sge = 1;
+	init_qp_attr.qp_context = node;
+	init_qp_attr.sq_sig_all = 0;
+	init_qp_attr.qp_type = IBV_QPT_UD;
+	init_qp_attr.send_cq = node->cq;
+	init_qp_attr.recv_cq = node->cq;
 
-	init_qp_attr_ex.comp_mask = IBV_QP_INIT_ATTR_CREATE_FLAGS|IBV_QP_INIT_ATTR_PD;
-	init_qp_attr_ex.pd = node->pd;
-	if (!loopback)
+	if (!loopback) {
+		memset(&init_qp_attr_ex, 0, sizeof(init_qp_attr_ex));
+		init_qp_attr_ex.cap.max_send_wr = message_count ? message_count : 1;
+		init_qp_attr_ex.cap.max_recv_wr = message_count ? message_count : 1;
+		init_qp_attr_ex.cap.max_send_sge = 1;
+		init_qp_attr_ex.cap.max_recv_sge = 1;
+		init_qp_attr_ex.qp_context = node;
+		init_qp_attr_ex.sq_sig_all = 0;
+		init_qp_attr_ex.qp_type = IBV_QPT_UD;
+		init_qp_attr_ex.send_cq = node->cq;
+		init_qp_attr_ex.recv_cq = node->cq;
+
+		init_qp_attr_ex.comp_mask = IBV_QP_INIT_ATTR_CREATE_FLAGS|IBV_QP_INIT_ATTR_PD;
+		init_qp_attr_ex.pd = node->pd;
 		init_qp_attr_ex.create_flags = IBV_QP_CREATE_BLOCK_SELF_MCAST_LB;
 
-	ret = rdma_create_qp_ex(node->cma_id, &init_qp_attr_ex);
+		ret = rdma_create_qp_ex(node->cma_id, &init_qp_attr_ex);
+	} else {
+		ret = rdma_create_qp(node->cma_id, node->pd, &init_qp_attr);
+	}
+
 	if (ret) {
 		perror("mckey: unable to create QP");
 		goto out;
