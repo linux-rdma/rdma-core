@@ -113,6 +113,9 @@ as the rkey field of struct ibv_send_wr passed to the ibv_post_send function.
 .B ibv_dereg_mr()
 returns 0 on success, or the value of errno on failure (which indicates the failure reason).
 .SH "NOTES"
+.B ibv_reg_mr() / ibv_reg_mr_iova()
+fails if the address (\fBaddr\fR) or the length (\fBlength\fR) is not aligned to page size once ibv_fork_init() is called.
+.PP
 .B ibv_dereg_mr()
 fails if any memory window is still bound to this MR.
 .SH "SEE ALSO"

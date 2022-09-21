@@ -635,6 +635,18 @@ static int ibv_madvise_range(void *base, size_t size, int advice)
 	else
 		range_page_size = page_size;
 
+	if (mm_root) {
+		/* 0x7f2764ac5000      -      0x7f2764ac7000
+		 * |ptr0 128| ... |ptr1 4096| ... |ptr2 512|
+		 * After ibv_reg_mr(pd, ptr1, 4096, access), the full 8K range
+		 * becomes DONTFORK. And the child process will hit a segment
+		 * fault during access ptr0/ptr2.
+		 */
+		unsigned long page_mask = range_page_size - 1;
+		if ((unsigned long)base & page_mask || (unsigned long)size & page_mask)
+			return -1;
+	}
+
 	start = (uintptr_t) base & ~(range_page_size - 1);
 	end   = ((uintptr_t) (base + size + range_page_size - 1) &
 		 ~(range_page_size - 1)) - 1;
