@@ -900,7 +900,7 @@ struct ibv_cq_ex *efadv_create_cq(struct ibv_context *ibvctx,
 	supp_wc_flags = EFA_DEV_CAP(ctx, CQ_WITH_SGID) ? EFADV_WC_EX_WITH_SGID : 0;
 	if (!check_comp_mask(efa_attr->wc_flags, supp_wc_flags)) {
 		verbs_err(verbs_get_ctx(ibvctx),
-			  "Invalid EFA wc_flags[%#x]\n", efa_attr->wc_flags);
+			  "Invalid EFA wc_flags[%#lx]\n", efa_attr->wc_flags);
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
