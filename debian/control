@@ -93,6 +93,7 @@ Description: User space provider drivers for libibverbs
   - bnxt_re: Broadcom NetXtreme-E RoCE HCAs
   - cxgb4: Chelsio T4 iWARP HCAs
   - efa: Amazon Elastic Fabric Adapter
+  - erdma: Alibaba Elastic RDMA (iWarp) Adapter
   - hfi1verbs: Intel Omni-Path HFI
   - hns: HiSilicon Hip06 SoC
   - ipathverbs: QLogic InfiniPath HCAs

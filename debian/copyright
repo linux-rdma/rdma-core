@@ -156,6 +156,10 @@ Files: providers/efa/*
 Copyright: 2019 Amazon.com, Inc. or its affiliates.
 License: BSD-2-clause or GPL-2
 
+Files: providers/erdma/*
+Copyright: 2020-2021, Alibaba Group
+License: BSD-MIT or GPL-2
+
 Files: providers/hfi1verbs/*
 Copyright: 2005 PathScale, Inc.
            2006-2009 QLogic Corporation
