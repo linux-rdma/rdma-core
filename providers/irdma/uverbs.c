@@ -1616,32 +1616,21 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 					info.op_type = IRDMA_OP_TYPE_SEND_INV;
 				info.stag_to_inv = ib_wr->invalidate_rkey;
 			}
-			if (ib_wr->send_flags & IBV_SEND_INLINE) {
-				info.op.inline_send.data =
-						(void *)(uintptr_t)ib_wr->sg_list[0].addr;
-				info.op.inline_send.len = ib_wr->sg_list[0].length;
-				if (ib_qp->qp_type == IBV_QPT_UD) {
-					struct irdma_uah *ah  = container_of(ib_wr->wr.ud.ah,
-									     struct irdma_uah, ibv_ah);
+			info.op.send.num_sges = ib_wr->num_sge;
+			info.op.send.sg_list = (struct irdma_sge *)ib_wr->sg_list;
+			if (ib_qp->qp_type == IBV_QPT_UD) {
+				struct irdma_uah *ah  = container_of(ib_wr->wr.ud.ah,
+								     struct irdma_uah, ibv_ah);
 
-					info.op.inline_send.ah_id = ah->ah_id;
-					info.op.inline_send.qkey = ib_wr->wr.ud.remote_qkey;
-					info.op.inline_send.dest_qp = ib_wr->wr.ud.remote_qpn;
-				}
-				ret = irdma_uk_inline_send(&iwuqp->qp, &info, false);
-			} else {
-				info.op.send.num_sges = ib_wr->num_sge;
-				info.op.send.sg_list = (struct irdma_sge *)ib_wr->sg_list;
-				if (ib_qp->qp_type == IBV_QPT_UD) {
-					struct irdma_uah *ah  = container_of(ib_wr->wr.ud.ah,
-									     struct irdma_uah, ibv_ah);
-
-					info.op.inline_send.ah_id = ah->ah_id;
-					info.op.inline_send.qkey = ib_wr->wr.ud.remote_qkey;
-					info.op.inline_send.dest_qp = ib_wr->wr.ud.remote_qpn;
-				}
-				ret = irdma_uk_send(&iwuqp->qp, &info, false);
+				info.op.send.ah_id = ah->ah_id;
+				info.op.send.qkey = ib_wr->wr.ud.remote_qkey;
+				info.op.send.dest_qp = ib_wr->wr.ud.remote_qpn;
 			}
+
+			if (ib_wr->send_flags & IBV_SEND_INLINE)
+				ret = irdma_uk_inline_send(&iwuqp->qp, &info, false);
+			else
+				ret = irdma_uk_send(&iwuqp->qp, &info, false);
 			if (ret)
 				err = (ret == IRDMA_ERR_QP_TOOMANY_WRS_POSTED) ? ENOMEM : EINVAL;
 			break;
@@ -1660,21 +1649,14 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 			else
 				info.op_type = IRDMA_OP_TYPE_RDMA_WRITE;
 
-			if (ib_wr->send_flags & IBV_SEND_INLINE) {
-				info.op.inline_rdma_write.data =
-							(void *)(uintptr_t)ib_wr->sg_list[0].addr;
-				info.op.inline_rdma_write.len = ib_wr->sg_list[0].length;
-				info.op.inline_rdma_write.rem_addr.tag_off =
-							ib_wr->wr.rdma.remote_addr;
-				info.op.inline_rdma_write.rem_addr.stag = ib_wr->wr.rdma.rkey;
+			info.op.rdma_write.num_lo_sges = ib_wr->num_sge;
+			info.op.rdma_write.lo_sg_list = (void *)ib_wr->sg_list;
+			info.op.rdma_write.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
+			info.op.rdma_write.rem_addr.stag = ib_wr->wr.rdma.rkey;
+			if (ib_wr->send_flags & IBV_SEND_INLINE)
 				ret = irdma_uk_inline_rdma_write(&iwuqp->qp, &info, false);
-			} else {
-				info.op.rdma_write.lo_sg_list = (void *)ib_wr->sg_list;
-				info.op.rdma_write.num_lo_sges = ib_wr->num_sge;
-				info.op.rdma_write.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
-				info.op.rdma_write.rem_addr.stag = ib_wr->wr.rdma.rkey;
+			else
 				ret = irdma_uk_rdma_write(&iwuqp->qp, &info, false);
-			}
 			if (ret)
 				err = (ret == IRDMA_ERR_QP_TOOMANY_WRS_POSTED) ? ENOMEM : EINVAL;
 			break;
