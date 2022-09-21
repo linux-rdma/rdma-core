@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <malloc.h>
 #include <linux/if_ether.h>
+#include <infiniband/opcode.h>
 
 #include "umain.h"
 #include "abi.h"
@@ -568,6 +569,55 @@ static enum ibv_wc_status irdma_flush_err_to_ib_wc_status(enum irdma_flush_opcod
 	}
 }
 
+static inline void set_ib_wc_op_sq(struct irdma_cq_poll_info *cur_cqe, struct ibv_wc *entry)
+{
+	switch (cur_cqe->op_type) {
+	case IRDMA_OP_TYPE_RDMA_WRITE:
+	case IRDMA_OP_TYPE_RDMA_WRITE_SOL:
+		entry->opcode = IBV_WC_RDMA_WRITE;
+		break;
+	case IRDMA_OP_TYPE_RDMA_READ:
+		entry->opcode = IBV_WC_RDMA_READ;
+		break;
+	case IRDMA_OP_TYPE_SEND_SOL:
+	case IRDMA_OP_TYPE_SEND_SOL_INV:
+	case IRDMA_OP_TYPE_SEND_INV:
+	case IRDMA_OP_TYPE_SEND:
+		entry->opcode = IBV_WC_SEND;
+		break;
+	case IRDMA_OP_TYPE_BIND_MW:
+		entry->opcode = IBV_WC_BIND_MW;
+		break;
+	case IRDMA_OP_TYPE_INV_STAG:
+		entry->opcode = IBV_WC_LOCAL_INV;
+		break;
+	default:
+		entry->status = IBV_WC_GENERAL_ERR;
+	}
+}
+
+static inline void set_ib_wc_op_rq(struct irdma_cq_poll_info *cur_cqe,
+				   struct ibv_wc *entry, bool send_imm_support)
+{
+	/**
+	 * iWARP does not support sendImm, so the presence of Imm data
+	 * must be WriteImm.
+	 */
+	if (!send_imm_support) {
+		entry->opcode = cur_cqe->imm_valid ? IBV_WC_RECV_RDMA_WITH_IMM :
+				IBV_WC_RECV;
+		return;
+	}
+	switch (cur_cqe->op_type) {
+	case IBV_OPCODE_RDMA_WRITE_ONLY_WITH_IMMEDIATE:
+	case IBV_OPCODE_RDMA_WRITE_LAST_WITH_IMMEDIATE:
+		entry->opcode = IBV_WC_RECV_RDMA_WITH_IMM;
+		break;
+	default:
+		entry->opcode = IBV_WC_RECV;
+	}
+}
+
 /**
  * irdma_process_cqe_ext - process current cqe for extended CQ
  * @cur_cqe - current cqe info
@@ -602,9 +652,8 @@ static void irdma_process_cqe(struct ibv_wc *entry, struct irdma_cq_poll_info *c
 	ib_qp = qp->back_qp;
 
 	if (cur_cqe->error) {
-		if (cur_cqe->comp_status == IRDMA_COMPL_STATUS_FLUSHED)
-			entry->status = (cur_cqe->comp_status == IRDMA_COMPL_STATUS_FLUSHED) ?
-					irdma_flush_err_to_ib_wc_status(cur_cqe->minor_err) : IBV_WC_GENERAL_ERR;
+		entry->status = (cur_cqe->comp_status == IRDMA_COMPL_STATUS_FLUSHED) ?
+				irdma_flush_err_to_ib_wc_status(cur_cqe->minor_err) : IBV_WC_GENERAL_ERR;
 		entry->vendor_err = cur_cqe->major_err << 16 |
 				    cur_cqe->minor_err;
 	} else {
@@ -616,47 +665,18 @@ static void irdma_process_cqe(struct ibv_wc *entry, struct irdma_cq_poll_info *c
 		entry->wc_flags |= IBV_WC_WITH_IMM;
 	}
 
-	switch (cur_cqe->op_type) {
-	case IRDMA_OP_TYPE_RDMA_WRITE:
-	case IRDMA_OP_TYPE_RDMA_WRITE_SOL:
-		entry->opcode = IBV_WC_RDMA_WRITE;
-		break;
-	case IRDMA_OP_TYPE_RDMA_READ:
-		entry->opcode = IBV_WC_RDMA_READ;
-		break;
-	case IRDMA_OP_TYPE_SEND_SOL:
-	case IRDMA_OP_TYPE_SEND_SOL_INV:
-	case IRDMA_OP_TYPE_SEND_INV:
-	case IRDMA_OP_TYPE_SEND:
-		entry->opcode = IBV_WC_SEND;
-		break;
-	case IRDMA_OP_TYPE_BIND_MW:
-		entry->opcode = IBV_WC_BIND_MW;
-		break;
-	case IRDMA_OP_TYPE_REC:
-		entry->opcode = IBV_WC_RECV;
+	if (cur_cqe->q_type == IRDMA_CQE_QTYPE_SQ) {
+		set_ib_wc_op_sq(cur_cqe, entry);
+	} else {
+		set_ib_wc_op_rq(cur_cqe, entry,
+				qp->qp_caps & IRDMA_SEND_WITH_IMM ?
+				true : false);
 		if (ib_qp->qp_type != IBV_QPT_UD &&
 		    cur_cqe->stag_invalid_set) {
 			entry->invalidated_rkey = cur_cqe->inv_stag;
 			entry->wc_flags |= IBV_WC_WITH_INV;
 		}
-		break;
-	case IRDMA_OP_TYPE_REC_IMM:
-		entry->opcode = IBV_WC_RECV_RDMA_WITH_IMM;
-		if (ib_qp->qp_type != IBV_QPT_UD &&
-		    cur_cqe->stag_invalid_set) {
-			entry->invalidated_rkey = cur_cqe->inv_stag;
-			entry->wc_flags |= IBV_WC_WITH_INV;
-		}
-		break;
-	case IRDMA_OP_TYPE_INV_STAG:
-		entry->opcode = IBV_WC_LOCAL_INV;
-		break;
-	default:
-		entry->status = IBV_WC_GENERAL_ERR;
-		return;
 	}
-
 
 	if (ib_qp->qp_type == IBV_QPT_UD) {
 		entry->src_qp = cur_cqe->ud_src_qpn;
