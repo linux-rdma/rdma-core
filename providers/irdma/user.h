@@ -254,6 +254,7 @@ struct irdma_cq_poll_info {
 	__u16 ud_vlan;
 	__u8 ud_smac[6];
 	__u8 op_type;
+	__u8 q_type;
 	bool stag_invalid_set:1; /* or L_R_Key set */
 	bool push_dropped:1;
 	bool error:1;
