@@ -1089,7 +1089,7 @@ irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq, struct irdma_cq_poll_info *info)
 	__le64 *cqe;
 	struct irdma_qp_uk *qp;
 	struct irdma_ring *pring = NULL;
-	__u32 wqe_idx, q_type;
+	__u32 wqe_idx;
 	enum irdma_status_code ret_code;
 	bool move_cq_head = true;
 	__u8 polarity;
@@ -1160,7 +1160,7 @@ irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq, struct irdma_cq_poll_info *info)
 		info->ud_vlan_valid = false;
 	}
 
-	q_type = (__u8)FIELD_GET(IRDMA_CQ_SQ, qword3);
+	info->q_type = (__u8)FIELD_GET(IRDMA_CQ_SQ, qword3);
 	info->error = (bool)FIELD_GET(IRDMA_CQ_ERROR, qword3);
 	info->push_dropped = (bool)FIELD_GET(IRDMACQ_PSHDROP, qword3);
 	info->ipv4 = (bool)FIELD_GET(IRDMACQ_IPV4, qword3);
@@ -1199,8 +1199,9 @@ irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq, struct irdma_cq_poll_info *info)
 	}
 	wqe_idx = (__u32)FIELD_GET(IRDMA_CQ_WQEIDX, qword3);
 	info->qp_handle = (irdma_qp_handle)(uintptr_t)qp;
+	info->op_type = (__u8)FIELD_GET(IRDMACQ_OP, qword3);
 
-	if (q_type == IRDMA_CQE_QTYPE_RQ) {
+	if (info->q_type == IRDMA_CQE_QTYPE_RQ) {
 		__u32 array_idx;
 
 		array_idx = wqe_idx / qp->rq_wqe_size_multiplier;
@@ -1275,18 +1276,16 @@ irdma_uk_cq_poll_cmpl(struct irdma_cq_uk *cq, struct irdma_cq_poll_info *info)
 			do {
 				__le64 *sw_wqe;
 				__u64 wqe_qword;
-				__u8 op_type;
 				__u32 tail;
 
 				tail = qp->sq_ring.tail;
 				sw_wqe = qp->sq_base[tail].elem;
 				get_64bit_val(sw_wqe, 24,
 					      &wqe_qword);
-				op_type = (__u8)FIELD_GET(IRDMAQPSQ_OPCODE, wqe_qword);
-				info->op_type = op_type;
+				info->op_type = (__u8)FIELD_GET(IRDMAQPSQ_OPCODE, wqe_qword);
 				IRDMA_RING_SET_TAIL(qp->sq_ring,
 						    tail + qp->sq_wrtrk_array[tail].quanta);
-				if (op_type != IRDMAQP_OP_NOP) {
+				if (info->op_type != IRDMAQP_OP_NOP) {
 					info->wr_id = qp->sq_wrtrk_array[tail].wrid;
 					info->bytes_xfered = qp->sq_wrtrk_array[tail].wr_len;
 					break;
