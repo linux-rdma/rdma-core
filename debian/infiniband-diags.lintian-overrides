@@ -1,2 +1,4 @@
 # The infiniband-diags man page gives an overview of the available commands.
+infiniband-diags: spare-manual-page [usr/share/man/man8/infiniband-diags.8.gz]
+# For lintian < 2.115.2
 infiniband-diags: spare-manual-page usr/share/man/man8/infiniband-diags.8.gz
