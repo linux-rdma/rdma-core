@@ -229,20 +229,6 @@ class Mlx5DrTest(Mlx5RDMATestCase):
                                                                domain, log_matcher_size,
                                                                root_only=root_only)
 
-    @skip_unsupported
-    def create_client_send_rule(self, actions):
-        """
-        Create rule over the client TX domain.
-        :param actions: List of actions to attach to the send rule.
-        """
-        self.domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
-        table = DrTable(self.domain_tx, 0)
-        mask_param = Mlx5FlowMatchParameters(len(bytes([0xff] * 6)), bytes([0xff] * 6))
-        matcher = DrMatcher(table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
-        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
-        self.rules.append(DrRule(matcher, value_param, actions))
-
     def send_client_raw_packets(self, iters, src_mac=None):
         """
         Send raw packets.
@@ -627,41 +613,63 @@ class Mlx5DrTest(Mlx5RDMATestCase):
             self.rules.append(DrRule(matcher, empty_param, [self.drop_action]))
             self.assertEqual(ex.exception.error_code, errno.EEXIST)
 
-    @skip_unsupported
-    def test_root_tbl_drop_action(self):
-        """
-        Create drop action on TX and verify using counter on the server RX that
-        only packets that miss the drop rule arrived to the server RX.
-        """
+    def _drop_action(self, root_only=False):
         self.create_players(Mlx5DrResources)
+        # Initiate the sender side
+        domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        tx_root_table = DrTable(domain_tx, 0)
+        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        if not root_only:
+            tx_non_root_table = DrTable(domain_tx, 1)
+            tx_dest_table_action = self.fwd_packets_to_table(tx_root_table, tx_non_root_table)
+            smac_value += bytes(2)
+        tx_test_table = tx_root_table if root_only else tx_non_root_table
+        mask_param = Mlx5FlowMatchParameters(len(bytes([0xff] * 6)), bytes([0xff] * 6))
+        matcher = DrMatcher(tx_test_table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
+        value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
+        self.tx_drop_action = DrActionDrop()
+        self.rules.append(DrRule(matcher, value_param, [self.tx_drop_action]))
+        # Initiate the receiver side
+        domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        rx_root_table = DrTable(domain_rx, 0)
+        if not root_only:
+            rx_non_root_table = DrTable(domain_rx, 1)
+            rx_dest_table_action = self.fwd_packets_to_table(rx_root_table, rx_non_root_table)
+        rx_test_table = rx_root_table if root_only else rx_non_root_table
         # Create server counter.
         counter, flow_counter_id = self.create_counter(self.server.ctx)
         self.server_counter_action = DrActionFlowCounter(counter)
-
-        # Create rule that attaches all the packets in the server RX, sends them
-        # to the server RX domain and counts them.
-        domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
-        table = DrTable(domain_rx, 0)
         mask_param, value_param = self.create_dest_mac_params()
-        matcher = DrMatcher(table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
+        matcher = DrMatcher(rx_test_table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
         self.rx_drop_action = DrActionDrop()
         self.rules.append(DrRule(matcher, value_param, [self.server_counter_action,
                                                         self.rx_drop_action]))
-
-        # Create drop action on the client TX on specific smac.
-        self.tx_drop_action = DrActionDrop()
-        self.create_client_send_rule([self.tx_drop_action])
-
-        # Send packets with two differet smacs and expect half to be dropped.
+        # Send packets with two different smacs and expect half to be dropped.
         src_mac_drop = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         src_mac_non_drop = struct.pack('!6s', bytes.fromhex("88:88:88:88:88:88".replace(':', '')))
-        self.send_client_raw_packets(int(self.iters/2), src_mac=src_mac_drop)
+        self.send_client_raw_packets(int(self.iters / 2), src_mac=src_mac_drop)
         recv_packets = self.query_counter_packets(counter, flow_counter_id)
         self.assertEqual(recv_packets, 0, 'Drop action did not drop the TX packets')
-        self.send_client_raw_packets(int(self.iters/2), src_mac=src_mac_non_drop)
+        self.send_client_raw_packets(int(self.iters / 2), src_mac=src_mac_non_drop)
         recv_packets = self.query_counter_packets(counter, flow_counter_id)
         self.assertEqual(recv_packets, int(self.iters/2),
                          'Drop action dropped TX packets that not matched the rule')
+
+    @skip_unsupported
+    def test_root_tbl_drop_action(self):
+        """
+        Create root drop actions on TX and RX. Verify using counter on the server RX that
+        only packets which miss the drop rule arrived to the server RX.
+        """
+        self._drop_action(root_only=True)
+
+    @skip_unsupported
+    def test_tbl_drop_action(self):
+        """
+        Create non-root drop actions on TX and RX. Verify using counter on the server RX that
+        only packets that which the drop rule arrived to the server RX.
+        """
+        self._drop_action()
 
     @skip_unsupported
     def add_qp_tag_rule_and_send_pkts(self, root_only=False):
