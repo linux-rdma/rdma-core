@@ -314,10 +314,10 @@ cdef class MW(PyverbsCM):
 
     cpdef close(self):
         """
-        Closes the underlaying C MW object.
+        Closes the underlying C MW object.
         MW may be deleted directly or by deleting its PD, which leaves the
-        Python object without the underlaying MW.
-        Need to check that the underlaying MW wasn't dealloced before.
+        Python object without the underlying MW.
+        Need to check that the underlying MW wasn't dealloced before.
         :return: None
         """
         if self.mw is not NULL:
