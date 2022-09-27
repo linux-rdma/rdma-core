@@ -1,6 +1,7 @@
 # This is a sample udev rules file that demonstrates how to get udev to
-# set the name of IPoIB interfaces to whatever you wish.  There is a
-# 16 character limit on network device names.
+# set the name of IPoIB interfaces to whatever you wish.  Copy this file
+# into @CMAKE_INSTALL_SYSCONFDIR@/udev/rules.d before editing it!  There is a 16 character limit
+# on network device names.
 #
 # Important items to note: ATTR{type}=="32" is IPoIB interfaces, and the
 # ATTR{address} match must start with ?* and only reference the last 8
