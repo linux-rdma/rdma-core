@@ -14,6 +14,7 @@ from pyverbs.qp cimport QP
 cdef class DrAction(PyverbsCM):
     cdef dv.mlx5dv_dr_action *action
     cdef object dr_rules
+    cdef object dr_used_actions
     cdef add_ref(self, obj)
 
 cdef class DrActionQp(DrAction):
@@ -65,3 +66,13 @@ cdef class DrActionDestTir(DrAction):
 
 cdef class DrActionPacketReformat(DrAction):
     cdef DrDomain domain
+
+cdef class DrFlowSamplerAttr(PyverbsCM):
+    cdef dv.mlx5dv_dr_flow_sampler_attr *attr
+    cdef object actions
+    cdef DrTable table
+
+cdef class DrActionFlowSample(DrAction):
+    cdef DrFlowSamplerAttr attr
+    cdef object dr_actions
+    cdef object dr_table
