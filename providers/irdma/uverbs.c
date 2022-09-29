@@ -1291,6 +1291,12 @@ struct ibv_qp *irdma_ucreate_qp(struct ibv_pd *pd,
 		return NULL;
 	}
 
+	if (attr->cap.max_send_wr > uk_attrs->max_hw_wq_quanta ||
+	    attr->cap.max_recv_wr > uk_attrs->max_hw_rq_quanta) {
+		errno = EINVAL;
+		return NULL;
+	}
+
 	irdma_get_wqe_shift(uk_attrs,
 			    uk_attrs->hw_rev > IRDMA_GEN_1 ? attr->cap.max_send_sge + 1 :
 				attr->cap.max_send_sge,
