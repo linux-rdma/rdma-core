@@ -41,6 +41,8 @@
 #include <ctype.h>
 #include <errno.h>
 
+#include <infiniband/mad.h>
+
 #include <ccan/minmax.h>
 
 #include <util/node_name_map.h>
@@ -115,7 +117,7 @@ char *clean_nodedesc(char *nodedesc)
 {
 	int i = 0;
 
-	nodedesc[63] = '\0';
+	nodedesc[IB_SMP_DATA_SIZE] = '\0';
 	while (nodedesc[i]) {
 		if (!isprint(nodedesc[i]))
 			nodedesc[i] = ' ';
