@@ -1135,7 +1135,6 @@ static int dr_send_ring_alloc_one(struct mlx5dv_dr_domain *dmn,
 {
 	struct dr_qp_init_attr init_attr = {};
 	struct dr_send_ring *send_ring;
-	struct mlx5dv_pd mlx5_pd = {};
 	struct mlx5dv_cq mlx5_cq = {};
 	int cq_size, page_size;
 	struct mlx5dv_obj obj;
@@ -1178,15 +1177,8 @@ static int dr_send_ring_alloc_one(struct mlx5dv_dr_domain *dmn,
 	send_ring->cq.ncqe = mlx5_cq.cqe_cnt;
 	send_ring->cq.cqe_sz = mlx5_cq.cqe_size;
 
-	obj.pd.in = dmn->pd;
-	obj.pd.out = &mlx5_pd;
-
-	ret = mlx5dv_init_obj(&obj, MLX5DV_OBJ_PD);
-	if (ret)
-		goto clean_cq;
-
 	init_attr.cqn			= mlx5_cq.cqn;
-	init_attr.pdn			= mlx5_pd.pdn;
+	init_attr.pdn			= dmn->pd_num;
 	init_attr.uar			= dmn->uar;
 	init_attr.cap.max_send_wr	= QUEUE_SIZE;
 	init_attr.cap.max_recv_wr	= 1;
