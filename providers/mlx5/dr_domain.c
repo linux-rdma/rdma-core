@@ -49,6 +49,8 @@ bool dr_domain_is_support_modify_hdr_cache(struct mlx5dv_dr_domain *dmn)
 
 static int dr_domain_init_resources(struct mlx5dv_dr_domain *dmn)
 {
+	struct mlx5dv_pd mlx5_pd = {};
+	struct mlx5dv_obj obj;
 	int ret = -1;
 
 	dmn->ste_ctx = dr_ste_get_ctx(dmn->info.caps.sw_format_ver);
@@ -62,6 +64,14 @@ static int dr_domain_init_resources(struct mlx5dv_dr_domain *dmn)
 		dr_dbg(dmn, "Couldn't allocate PD\n");
 		return ret;
 	}
+
+	obj.pd.in = dmn->pd;
+	obj.pd.out = &mlx5_pd;
+	ret = mlx5dv_init_obj(&obj, MLX5DV_OBJ_PD);
+	if (ret)
+		goto clean_pd;
+
+	dmn->pd_num = mlx5_pd.pdn;
 
 	dmn->uar = mlx5dv_devx_alloc_uar(dmn->ctx,
 					 MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC);
