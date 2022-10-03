@@ -561,39 +561,64 @@ static void dr_ste_v1_set_rx_decap(uint8_t *hw_ste_p, uint8_t *s_action)
 	dr_ste_v1_set_reparse(hw_ste_p);
 }
 
-static void dr_ste_v1_set_rx_decap_l3(uint8_t *hw_ste_p,
-				      uint8_t *s_action,
-				      uint16_t decap_actions,
-				      uint32_t decap_index)
+static void dr_ste_v1_set_accelerated_rewrite_actions(uint8_t *hw_ste_p,
+						     uint8_t *d_action,
+						     uint16_t num_of_actions,
+						     uint32_t re_write_pat,
+						     uint32_t re_write_args,
+						     uint8_t *action_data)
 {
-	DR_STE_SET(single_action_modify_list_v1, s_action, action_id,
+	if (action_data) {
+		memcpy(d_action, action_data, DR_MODIFY_ACTION_SIZE);
+	} else {
+		DR_STE_SET(double_action_accelerated_modify_action_list_v1, d_action,
+			   action_id, DR_STE_V1_ACTION_ID_ACCELERATED_LIST);
+		DR_STE_SET(double_action_accelerated_modify_action_list_v1, d_action,
+			   modify_actions_pattern_pointer, re_write_pat);
+		DR_STE_SET(double_action_accelerated_modify_action_list_v1, d_action,
+			   number_of_modify_actions, num_of_actions);
+		DR_STE_SET(double_action_accelerated_modify_action_list_v1, d_action,
+			   modify_actions_argument_pointer, re_write_args);
+	}
+
+	dr_ste_v1_set_reparse(hw_ste_p);
+}
+
+static void dr_ste_v1_set_basic_rewrite_actions(uint8_t *hw_ste_p,
+						uint8_t *action,
+						uint16_t num_of_actions,
+						uint32_t re_write_index)
+{
+	DR_STE_SET(single_action_modify_list_v1, action, action_id,
 		   DR_STE_V1_ACTION_ID_MODIFY_LIST);
-	DR_STE_SET(single_action_modify_list_v1, s_action, num_of_modify_actions,
-		   decap_actions);
-	DR_STE_SET(single_action_modify_list_v1, s_action, modify_actions_ptr,
-		   decap_index);
+	DR_STE_SET(single_action_modify_list_v1, action, num_of_modify_actions,
+		   num_of_actions);
+	DR_STE_SET(single_action_modify_list_v1, action, modify_actions_ptr,
+		   re_write_index);
 
 	dr_ste_v1_set_reparse(hw_ste_p);
 }
 
 static void dr_ste_v1_set_rewrite_actions(uint8_t *hw_ste_p,
-					  uint8_t *action_p,
+					  uint8_t *d_action,
 					  uint16_t num_of_actions,
-					  uint32_t re_write_index,
+					  uint32_t re_write_pat,
+					  uint32_t re_write_args,
 					  uint8_t *action_data)
 {
-	if (action_data) {
-		memcpy(action_p, action_data, DR_MODIFY_ACTION_SIZE);
-	} else {
-		DR_STE_SET(single_action_modify_list_v1, action_p, action_id,
-			   DR_STE_V1_ACTION_ID_MODIFY_LIST);
-		DR_STE_SET(single_action_modify_list_v1, action_p, num_of_modify_actions,
-			   num_of_actions);
-		DR_STE_SET(single_action_modify_list_v1, action_p, modify_actions_ptr,
-			   re_write_index);
-	}
+	if (re_write_pat != DR_INVALID_PATTERN_INDEX)
+		return dr_ste_v1_set_accelerated_rewrite_actions(hw_ste_p,
+								 d_action,
+								 num_of_actions,
+								 re_write_pat,
+								 re_write_args,
+								 action_data);
 
-	dr_ste_v1_set_reparse(hw_ste_p);
+	/* fall back to the code that doesn't support accelerated modify-header */
+	return dr_ste_v1_set_basic_rewrite_actions(hw_ste_p,
+						   d_action,
+						   num_of_actions,
+						   re_write_args);
 }
 
 static inline void dr_ste_v1_arr_init_next_match(uint8_t **last_ste,
@@ -766,6 +791,7 @@ static void dr_ste_v1_set_actions_tx(uint8_t *action_type_set,
 		}
 		dr_ste_v1_set_rewrite_actions(last_ste, action,
 					      attr->modify_actions,
+					      attr->modify_pat_idx,
 					      attr->modify_index,
 					      attr->single_modify_action);
 		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
@@ -864,9 +890,11 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 	}
 
 	if (action_type_set[DR_ACTION_TYP_TNL_L3_TO_L2]) {
-		dr_ste_v1_set_rx_decap_l3(last_ste, action,
-					  attr->decap_actions,
-					  attr->decap_index);
+		dr_ste_v1_set_rewrite_actions(last_ste, action,
+					      attr->decap_actions,
+					      attr->decap_pat_idx,
+					      attr->decap_index,
+					      NULL);
 		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
 		action += DR_STE_ACTION_DOUBLE_SZ;
 		allow_modify_hdr = false;
@@ -945,6 +973,7 @@ static void dr_ste_v1_set_actions_rx(uint8_t *action_type_set,
 		}
 		dr_ste_v1_set_rewrite_actions(last_ste, action,
 					      attr->modify_actions,
+					      attr->modify_pat_idx,
 					      attr->modify_index,
 					      attr->single_modify_action);
 		action_sz -= DR_STE_ACTION_DOUBLE_SZ;
