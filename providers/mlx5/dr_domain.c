@@ -43,7 +43,7 @@ enum {
 
 bool dr_domain_is_support_modify_hdr_cache(struct mlx5dv_dr_domain *dmn)
 {
-	return dmn->info.caps.sw_format_ver == MLX5_HW_CONNECTX_6DX &&
+	return dmn->info.caps.sw_format_ver >= MLX5_HW_CONNECTX_6DX &&
 	       dmn->info.caps.support_modify_argument;
 }
 
@@ -433,7 +433,7 @@ static int dr_domain_check_icm_memory_caps(struct mlx5dv_dr_domain *dmn)
 	dmn->info.max_log_sw_icm_sz =
 		min_t(uint32_t, DR_CHUNK_SIZE_1024K, max_req_chunks_log);
 
-	if (dmn->info.caps.sw_format_ver == MLX5_HW_CONNECTX_6DX) {
+	if (dmn->info.caps.sw_format_ver >= MLX5_HW_CONNECTX_6DX) {
 		if (dmn->info.caps.log_modify_pattern_icm_size < DR_CHUNK_SIZE_4K +
 		    DR_MODIFY_ACTION_LOG_SIZE) {
 			errno = ENOMEM;
