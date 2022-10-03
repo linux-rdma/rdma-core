@@ -378,12 +378,15 @@ struct dr_action_aso {
 	};
 };
 
+#define DR_INVALID_PATTERN_INDEX 0xffffffff
+
 struct dr_ste_actions_attr {
 	uint32_t	modify_index;
+	uint32_t	modify_pat_idx;
 	uint16_t	modify_actions;
 	uint8_t		*single_modify_action;
-	uint32_t	args_index;
 	uint32_t	decap_index;
+	uint32_t	decap_pat_idx;
 	uint16_t	decap_actions;
 	bool		decap_with_vlan;
 	uint64_t	final_icm_addr;
