@@ -68,7 +68,8 @@ class OdpRdmaRC(RCResources):
         :param odp_caps: ODP capabilities required for the operation
         """
         self.access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_ON_DEMAND | \
-            e.IBV_ACCESS_REMOTE_ATOMIC | e.IBV_ACCESS_REMOTE_READ
+            e.IBV_ACCESS_REMOTE_ATOMIC | e.IBV_ACCESS_REMOTE_READ | \
+            e.IBV_ACCESS_REMOTE_WRITE
         self.odp_caps = odp_caps
         super().__init__(dev_name=dev_name, ib_port=ib_port,
                          gid_index=gid_index)
@@ -164,6 +165,10 @@ class OdpTestCase(RDMATestCase):
         self.create_players(OdpRdmaRC, odp_caps=e.IBV_ODP_SUPPORT_READ)
         self.server.mr.write('s' * self.server.msg_size, self.server.msg_size)
         u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_READ)
+
+    def test_odp_rc_rdma_write(self):
+        self.create_players(OdpRdmaRC, odp_caps=e.IBV_ODP_SUPPORT_WRITE)
+        u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
 
     def test_odp_implicit_rc_traffic(self):
         self.create_players(OdpRC, is_implicit=True)
