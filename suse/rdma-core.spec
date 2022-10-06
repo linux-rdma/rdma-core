@@ -600,9 +600,8 @@ done
 %dir %{_sysconfdir}/rdma/modules
 %dir %{_docdir}/%{name}-%{version}
 %dir %{_udevrulesdir}
-%dir %{_sysconfdir}/udev
-%dir %{_sysconfdir}/udev/rules.d
 %dir %{_modprobedir}
+%doc %{_docdir}/%{name}-%{version}/70-persistent-ipoib.rules
 %doc %{_docdir}/%{name}-%{version}/README.md
 %doc %{_docdir}/%{name}-%{version}/udev.md
 %config(noreplace) %{_sysconfdir}/rdma/mlx4.conf
@@ -615,7 +614,6 @@ done
 %{_modprobedir}/mlx4.conf
 %endif
 %{_modprobedir}/truescale.conf
-%config(noreplace) %{_sysconfdir}/udev/rules.d/70-persistent-ipoib.rules
 %{_unitdir}/rdma-hw.target
 %{_unitdir}/rdma-load-modules@.service
 %dir %{dracutlibdir}

@@ -326,7 +326,6 @@ mkdir -p %{buildroot}/%{_sysconfdir}/rdma
 # Red Hat specific glue
 %global dracutlibdir %{_prefix}/lib/dracut
 %global sysmodprobedir %{_prefix}/lib/modprobe.d
-mkdir -p %{buildroot}%{_sysconfdir}/udev/rules.d
 mkdir -p %{buildroot}%{_libexecdir}
 mkdir -p %{buildroot}%{_udevrulesdir}
 mkdir -p %{buildroot}%{dracutlibdir}/modules.d/05rdma
@@ -390,6 +389,7 @@ fi
 %files
 %dir %{_sysconfdir}/rdma
 %dir %{_docdir}/%{name}
+%doc %{_docdir}/%{name}/70-persistent-ipoib.rules
 %doc %{_docdir}/%{name}/README.md
 %doc %{_docdir}/%{name}/rxe.md
 %doc %{_docdir}/%{name}/udev.md
@@ -400,7 +400,6 @@ fi
 %config(noreplace) %{_sysconfdir}/rdma/modules/opa.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/rdma.conf
 %config(noreplace) %{_sysconfdir}/rdma/modules/roce.conf
-%config(noreplace) %{_sysconfdir}/udev/rules.d/*
 %dir %{_sysconfdir}/modprobe.d
 %config(noreplace) %{_sysconfdir}/modprobe.d/mlx4.conf
 %config(noreplace) %{_sysconfdir}/modprobe.d/truescale.conf

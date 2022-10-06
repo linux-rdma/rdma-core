@@ -36,11 +36,10 @@ install(FILES "rdma-umad.rules"
   RENAME "90-rdma-umad.rules"
   DESTINATION "${CMAKE_INSTALL_UDEV_RULESDIR}")
 
-# This file is intended to be customized by the user, so it is installed in
-# /etc/
-install(FILES "persistent-ipoib.rules"
+rdma_subst_install(FILES "persistent-ipoib.rules.in"
   RENAME "70-persistent-ipoib.rules"
-  DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}/udev/rules.d")
+  DESTINATION "${CMAKE_INSTALL_DOCDIR}"
+  PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 
