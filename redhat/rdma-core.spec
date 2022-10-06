@@ -80,7 +80,7 @@ BuildRequires: make
 %define cmake_install DESTDIR=%{buildroot} make install
 %endif
 
-%if 0%{?fedora} >= 25 || 0%{?rhel} >= 8
+%if 0%{?fedora} >= 25 || 0%{?rhel} == 8
 # pandoc was introduced in FC25, Centos8
 BuildRequires: pandoc
 %endif
