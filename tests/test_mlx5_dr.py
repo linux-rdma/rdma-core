@@ -1275,6 +1275,95 @@ class Mlx5DrTest(Mlx5RDMATestCase):
             self.assertTrue(green_packets > 0, f'No packet of {name} got green color')
             self.assertTrue(red_packets > 0, f'No packet of {name} got red color')
 
+    def fwd_packets_to_table(self, src_table, dst_table):
+        """
+        Forward all traffic from one table to another using empty matcher
+        :param src_table: Source table
+        :param dst_table: Destination table
+        :return: DrActionDestTable used to move the packets from src_table to dst_table
+        """
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParam
+        empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParam()),
+                                              FlowTableEntryMatchParam())
+        matcher = DrMatcher(src_table, 0, u.MatchCriteriaEnable.NONE, empty_param)
+        dest_table_action = DrActionDestTable(dst_table)
+        self.rules.append(DrRule(matcher, empty_param, [dest_table_action]))
+        return dest_table_action
+
+    def gen_two_smac_rules(self, table, actions):
+        """
+        Generate two rules that match over different smacs values.
+        The rules use the same actions and matchers.
+        :param table: The table the rules are applied on
+        :param actions: SMAC rule actions
+        :return: The two generated smacs
+        """
+        smac_mask = bytes([0xff] * 6) + bytes(2)
+        mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
+        matcher = DrMatcher(table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
+        src_mac_1 = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        src_mac_2 = struct.pack('!6s', bytes.fromhex("88:88:88:88:88:88".replace(':', '')))
+        src_mac_1_for_matcher = src_mac_1 + bytes(2)
+        src_mac_2_for_matcher = src_mac_2 + bytes(2)
+        value_param_1 = Mlx5FlowMatchParameters(len(src_mac_1_for_matcher), src_mac_1_for_matcher)
+        value_param_2 = Mlx5FlowMatchParameters(len(src_mac_2_for_matcher), src_mac_2_for_matcher)
+        self.rules.append(DrRule(matcher, value_param_1, actions))
+        self.rules.append(DrRule(matcher, value_param_2, actions))
+        return src_mac_1, src_mac_2
+
+    def reuse_action_and_matcher(self, root_only=False):
+        """
+        Creates rules with same matcher and actions, the rules match over different smacs.
+        Over TX side, creates rule to counter action, over RX side - creates rule to counter and
+        drop actions. Send traffic to match the rules, verify them by querying the counters.
+        :param root_only: If True, rules are created only on root table.
+        """
+        self.create_players(Mlx5DrResources)
+        # Create TX resources
+        self.domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        tx_root_table = DrTable(self.domain_tx, 0)
+        if not root_only:
+            tx_non_root_table = DrTable(self.domain_tx, 1)
+            tx_dest_table_action = self.fwd_packets_to_table(tx_root_table, tx_non_root_table)
+        tx_table = tx_root_table if root_only else tx_non_root_table
+        # Create client counter.
+        client_counter, tx_flow_counter_id = self.create_counter(self.client.ctx)
+        self.client_counter_action = DrActionFlowCounter(client_counter)
+        tx_actions = [self.client_counter_action]
+        self.gen_two_smac_rules(tx_table, tx_actions)
+        # Create RX resources
+        self.domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        rx_root_table = DrTable(self.domain_rx, 0)
+        if not root_only:
+            rx_non_root_table = DrTable(self.domain_rx, 1)
+            rx_dest_table_action = self.fwd_packets_to_table(rx_root_table, rx_non_root_table)
+        rx_table = rx_root_table if root_only else rx_non_root_table
+        # Create server counter.
+        server_counter, rx_flow_counter_id = self.create_counter(self.server.ctx)
+        self.server_counter_action = DrActionFlowCounter(server_counter)
+        self.rx_drop_action = DrActionDrop()
+        actions = [self.server_counter_action, self.rx_drop_action]
+        src_mac_1, src_mac_2 = self.gen_two_smac_rules(rx_table, actions)
+        # Send packets with two different smacs which are used and reused in action and matcher
+        self.send_client_raw_packets(int(self.iters / 2), src_mac=src_mac_1)
+        self.send_client_raw_packets(int(self.iters / 2), src_mac=src_mac_2)
+        matched_packets_tx = self.query_counter_packets(client_counter, tx_flow_counter_id)
+        self.assertEqual(matched_packets_tx, self.iters, 'Reuse action or matcher failed on TX')
+        matched_packets_rx = self.query_counter_packets(server_counter, rx_flow_counter_id)
+        self.assertEqual(matched_packets_rx, self.iters, 'Reuse action or matcher failed on RX')
+
+    def test_root_reuse_action_and_matcher(self):
+        """
+        Create root rules on TX and RX that use the same matcher and actions
+        """
+        self.reuse_action_and_matcher(root_only=True)
+
+    def test_reuse_action_and_matcher(self):
+        """
+        Create non-root rules on TX and RX that use the same matcher and actions
+        """
+        self.reuse_action_and_matcher()
+
 
 class Mlx5DrDumpTest(PyverbsAPITestCase):
     def setUp(self):
