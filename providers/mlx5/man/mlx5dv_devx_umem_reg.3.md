@@ -32,6 +32,7 @@ struct mlx5dv_devx_umem_in {
 	uint32_t access;
 	uint64_t pgsz_bitmap;
 	uint64_t comp_mask;
+	int dmabuf_fd;
 };
 
 struct mlx5dv_devx_umem *
@@ -72,8 +73,20 @@ instead of the physical addresses list, for example upon
 :	The desired memory protection attributes; it is either 0 or the bitwise OR of one or more of *enum ibv_access_flags*.
 
 *umem_in*
-:	A structure holds the legacy arguments in addition to a *pgsz_bitmap* field which represents the required page sizes.
-	A *comp_mask* field was added for future use, for now must be 0.
+:	A structure holds the argument bundle.
+
+*pgsz_bitmap*
+:	Represents the required page sizes. umem creation will fail if it cannot
+be created with these page sizes.
+
+*comp_mask*
+:	Flags indicating the additional fields.
+
+*dmabuf_fd*
+:	If MLX5DV_UMEM_MASK_DMABUF is set in *comp_mask* then this value must be
+a FD of a dmabuf. In this mode the dmabuf is used as the backing memory to
+create the umem out of. The dmabuf must be pinnable. *addr* is interpreted as
+the starting offset of the dmabuf.
 
 # RETURN VALUE
 

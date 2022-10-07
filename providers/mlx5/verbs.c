@@ -5530,13 +5530,13 @@ __mlx5dv_devx_umem_reg_ex(struct ibv_context *context,
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_UMEM,
 			       MLX5_IB_METHOD_DEVX_UMEM_REG,
-			       6);
+			       7);
 	struct ib_uverbs_attr *pgsz_bitmap;
 	struct ib_uverbs_attr *handle;
 	struct mlx5_devx_umem *umem;
 	int ret;
 
-	if (!check_comp_mask(in->comp_mask, 0)) {
+	if (!check_comp_mask(in->comp_mask, MLX5DV_UMEM_MASK_DMABUF)) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -5553,6 +5553,14 @@ __mlx5dv_devx_umem_reg_ex(struct ibv_context *context,
 	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ADDR, (intptr_t)in->addr);
 	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_LEN, in->size);
 	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ACCESS, in->access);
+	if (in->comp_mask & MLX5DV_UMEM_MASK_DMABUF) {
+		if (in->dmabuf_fd == -1) {
+			errno = EBADF;
+			goto err_umem_reg_cmd;
+		}
+		fill_attr_in_fd(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_DMABUF_FD,
+				in->dmabuf_fd);
+	}
 	pgsz_bitmap = fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_PGSZ_BITMAP,
 					 in->pgsz_bitmap);
 	if (legacy)
