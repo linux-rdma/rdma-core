@@ -184,7 +184,7 @@ dr_ptrn_cache_get_pattern(struct dr_ptrn_mngr *mngr,
 		}
 
 		if (dr_send_postsend_pattern(mngr->dmn, chunk, num_of_actions,
-					     data))
+					     pattern->rewrite_param.data))
 			goto put_pattern;
 	}
 	atomic_fetch_add(&pattern->refcount, 1);
