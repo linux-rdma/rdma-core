@@ -764,11 +764,9 @@ static void dr_ste_v0_build_eth_l2_src_dst_bit_mask(struct dr_match_param *value
 	DR_STE_SET_TAG(eth_l2_src_dst, bit_mask, first_priority, mask, first_prio);
 	DR_STE_SET_ONES(eth_l2_src_dst, bit_mask, l3_type, mask, ip_version);
 
-	if (mask->cvlan_tag) {
+	if (mask->cvlan_tag || mask->svlan_tag) {
 		DR_STE_SET(eth_l2_src_dst, bit_mask, first_vlan_qualifier, -1);
 		mask->cvlan_tag = 0;
-	} else if (mask->svlan_tag) {
-		DR_STE_SET(eth_l2_src_dst, bit_mask, first_vlan_qualifier, -1);
 		mask->svlan_tag = 0;
 	}
 }
