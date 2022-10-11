@@ -417,8 +417,10 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
                     if client.bad_flow_handling(qp_idx, e.IBV_WC_SUCCESS, True):
                         continue
                     raise ex
-                if client.bad_flow_handling(qp_idx, wcs[0].status, True):
-                    continue
+                else:
+                    if wcs[0].status != e.IBV_WC_SUCCESS and \
+                            client.bad_flow_handling(qp_idx, wcs[0].status, True):
+                        continue
 
                 u.poll_cq(server.cq)
                 u.post_recv(server, s_recv_wr, qp_idx=qp_idx)
