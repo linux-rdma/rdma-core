@@ -19,9 +19,9 @@ from pyverbs.providers.mlx5.dr_action import DrActionQp, DrActionModify, \
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, Mlx5Context, Mlx5DVContextAttr
 from tests.utils import skip_unsupported, requires_root_on_eth, requires_eswitch_on, \
     PacketConsts
+from tests.mlx5_base import Mlx5RDMATestCase, PyverbsAPITestCase, MELLANOX_VENDOR_ID
 from pyverbs.providers.mlx5.mlx5dv_flow import Mlx5FlowMatchParameters
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsUserError
-from tests.mlx5_base import Mlx5RDMATestCase, PyverbsAPITestCase
 from pyverbs.providers.mlx5.dr_matcher import DrMatcher
 from pyverbs.providers.mlx5.dr_domain import DrDomain
 from pyverbs.providers.mlx5.dr_table import DrTable
@@ -42,9 +42,24 @@ OUT_SMAC_15_0_FIELD_LENGTH = 16
 SET_ACTION = 0x1
 MAX_MATCH_PARAM_SIZE = 0x180
 PF_VPORT = 0x0
+GENEVE_PACKET_OUTER_LENGTH = 50
 
 SAMPLER_ERROR_MARGIN = 0.2
 SAMPLE_RATIO = 4
+
+
+def skip_if_has_geneve_tx_bug(ctx):
+    """
+    Some mlx5 devices such as CX5 and CX6 has a bug matching on Geneve fields
+    on TX side.
+    Raises unittest.SkipTest if that's the case.
+    :param ctx: Mlx5 Context
+    """
+    dev_attrs = ctx.query_device()
+    mlx5_cx5_cx6 = [0x1017, 0x1018, 0x1019, 0x101a, 0x101b]
+    if dev_attrs.vendor_id == MELLANOX_VENDOR_ID and \
+            dev_attrs.vendor_part_id in mlx5_cx5_cx6:
+        raise unittest.SkipTest('This test is not supported on cx5/6')
 
 
 class Mlx5DrResources(RawResources):
@@ -131,6 +146,35 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.server = resource(**self.dev_info, **resource_arg)
 
     @skip_unsupported
+    def create_rx_recv_rules_based_on_match_params(self, mask_param, val_param, actions,
+                                                   match_criteria=u.MatchCriteriaEnable.OUTER,
+                                                   domain=None, log_matcher_size=None):
+        """
+        Creates a rule on RX domain that forwards packets that match on the provided parameters
+        to the SW steering flow table and another rule on that table
+        with provided actions.
+        :param mask_param: The FlowTableEntryMatchParam mask matcher value.
+        :param val_param: The FlowTableEntryMatchParam value matcher value.
+        :param actions: List of actions to attach to the recv rule.
+        :param match_criteria: the match criteria enable flag to match on
+        :param domain: RX DR domain to use if provided, otherwise create default RX domain.
+        :param log_matcher_size: Size of the matcher table
+        :return: Non root table and dest table action to it
+        """
+        self.domain_rx = domain if domain else DrDomain(self.server.ctx,
+                                                        dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        root_table = DrTable(self.domain_rx, 0)
+        table = DrTable(self.domain_rx, 1)
+        root_matcher = DrMatcher(root_table, 0, match_criteria, mask_param)
+        self.matcher = DrMatcher(table, 1, match_criteria, mask_param)
+        if log_matcher_size:
+            self.matcher.set_layout(log_matcher_size)
+        self.dest_table_action = DrActionDestTable(table)
+        self.rules.append(DrRule(root_matcher, val_param, [self.dest_table_action]))
+        self.rules.append(DrRule(self.matcher, val_param, actions))
+        return table, self.dest_table_action
+
+    @skip_unsupported
     def create_rx_recv_rules(self, smac_value, actions, log_matcher_size=None, domain=None):
         """
         Creates a rule on RX domain that forwards packets that match the smac in the matcher
@@ -141,23 +185,14 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         :param domain: RX DR domain to use if provided, otherwise create default RX domain.
         :return: Non root table and dest table action to it
         """
-        self.domain_rx = domain if domain else DrDomain(self.server.ctx,
-                                                        dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
-        root_table = DrTable(self.domain_rx, 0)
-        table = DrTable(self.domain_rx, 1)
         smac_mask = bytes([0xff] * 6) + bytes(2)
         mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
-        root_matcher = DrMatcher(root_table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
-        self.matcher = DrMatcher(table, 1, u.MatchCriteriaEnable.OUTER, mask_param)
-        if log_matcher_size:
-            self.matcher.set_layout(log_matcher_size)
         # Size of the matcher value should be modulo 4
         smac_value += bytes(2)
         value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
-        self.dest_table_action = DrActionDestTable(table)
-        self.rules.append(DrRule(root_matcher, value_param, [self.dest_table_action]))
-        self.rules.append(DrRule(self.matcher, value_param, actions))
-        return table, self.dest_table_action
+        return self.create_rx_recv_rules_based_on_match_params(mask_param, value_param, actions,
+                                                               u.MatchCriteriaEnable.OUTER,
+                                                               domain, log_matcher_size)
 
     @skip_unsupported
     def create_tx_modify_rule(self):
@@ -202,9 +237,10 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         :param src_mac: If set, src mac to set in the packets.
         """
         c_send_wr, _, _ = u.get_send_elements_raw_qp(self.client, src_mac=src_mac)
+        poll_cq = u.poll_cq_ex if isinstance(self.client.cq, CQEX) else u.poll_cq
         for _ in range(iters):
             u.send(self.client, c_send_wr, e.IBV_WR_SEND)
-            u.poll_cq_ex(self.client.cq)
+            poll_cq(self.client.cq)
 
     def send_server_fdb_to_nic_packets(self, iters):
         """
@@ -298,6 +334,29 @@ class Mlx5DrTest(Mlx5RDMATestCase):
                                       next_proto=socket.IPPROTO_GRE)
         mac_header = u.gen_ethernet_header()
         return mac_header + ip_header + gre_header
+
+    @staticmethod
+    def gen_geneve_tunnel_encap_header(msg_size, is_l2_tunnel=True):
+        proto = PacketConsts.ETHER_TYPE_ETH if is_l2_tunnel else PacketConsts.ETHER_TYPE_IPV4
+        geneve_header = u.gen_geneve_header(proto=proto)
+        udp_header = u.gen_udp_header(packet_len=msg_size + len(geneve_header),
+                                      dst_port=PacketConsts.GENEVE_PORT)
+        ip_header = u.gen_ipv4_header(packet_len=msg_size + len(udp_header) + len(geneve_header))
+        mac_header = u.gen_ethernet_header()
+        return mac_header + ip_header + udp_header + geneve_header
+
+    @staticmethod
+    def create_geneve_params():
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParam
+        geneve_mask = FlowTableEntryMatchParam()
+        geneve_mask.misc_parameters.geneve_vni = 0xffffff
+        geneve_mask.misc_parameters.geneve_oam = 1
+        geneve_value = FlowTableEntryMatchParam()
+        geneve_value.misc_parameters.geneve_vni = PacketConsts.GENEVE_VNI
+        geneve_value.misc_parameters.geneve_oam = PacketConsts.GENEVE_OAM
+        mask_param = Mlx5FlowMatchParameters(len(geneve_mask), geneve_mask)
+        value_param = Mlx5FlowMatchParameters(len(geneve_value), geneve_value)
+        return mask_param, value_param
 
     @requires_eswitch_on
     @skip_unsupported
@@ -664,6 +723,76 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.assertEqual(recv_packets_from_default_tbl, self.iters,
                          'Counter on default table missed some recv packets')
 
+    @skip_unsupported
+    def test_geneve_match_rx(self):
+        """
+        Creates matcher on RX to match on Geneve related fields with counter and qp action,
+        sends packets and verifies the matcher.
+        """
+        self.create_players(Mlx5DrResources)
+        geneve_mask, geneve_val = self.create_geneve_params()
+        domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        counter, flow_counter_id = self.create_counter(self.server.ctx)
+        self.server_counter_action = DrActionFlowCounter(counter)
+        self.qp_action = DrActionQp(self.server.qp)
+        self.create_rx_recv_rules_based_on_match_params(geneve_mask, geneve_val,
+                                                        [self.qp_action, self.server_counter_action],
+                                                        match_criteria=u.MatchCriteriaEnable.MISC, domain=domain_rx)
+        inner_msg_size = self.client.msg_size - GENEVE_PACKET_OUTER_LENGTH
+        outer = self.gen_geneve_tunnel_encap_header(inner_msg_size)
+        packet_to_send = outer + u.gen_packet(msg_size=inner_msg_size)
+        # Send traffic and validate packet
+        u.raw_traffic(self.client, self.server, self.iters, packet_to_send=packet_to_send)
+        recv_packets_rx = self.query_counter_packets(counter, flow_counter_id)
+        self.assertEqual(recv_packets_rx, self.iters, 'Counter rx missed some recv packets')
+        src_mac = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        self.send_client_raw_packets(self.iters, src_mac=src_mac)
+        recv_packets_rx = self.query_counter_packets(counter, flow_counter_id)
+        self.assertEqual(recv_packets_rx, self.iters,
+                         'Counter rx counts more than expected recv packets')
+
+    @skip_unsupported
+    def test_geneve_match_tx(self):
+        """
+        Creates matcher on TX to match on Geneve related fields with counter action,
+        sends packets and verifies the matcher.
+        """
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParam
+        self.create_players(Mlx5DrResources)
+        skip_if_has_geneve_tx_bug(self.client.ctx)
+        geneve_mask, geneve_val = self.create_geneve_params()
+        # TX
+        self.domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        tx_root_table = DrTable(self.domain_tx, 0)
+        tx_root_matcher = DrMatcher(tx_root_table, 0, u.MatchCriteriaEnable.MISC, geneve_mask)
+        tx_table = DrTable(self.domain_tx, 1)
+        self.tx_matcher = DrMatcher(tx_table, 1, u.MatchCriteriaEnable.MISC, geneve_mask)
+        counter, flow_counter_id = self.create_counter(self.client.ctx)
+        self.client_counter_action = DrActionFlowCounter(counter)
+        self.dest_table_action_tx = DrActionDestTable(tx_table)
+        self.rules.append(DrRule(tx_root_matcher, geneve_val, [self.dest_table_action_tx]))
+        self.rules.append(DrRule(self.tx_matcher, geneve_val, [self.client_counter_action]))
+        # RX
+        domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        self.qp_action = DrActionQp(self.server.qp)
+        empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParam()),
+                                              FlowTableEntryMatchParam())
+        self.create_rx_recv_rules_based_on_match_params\
+            (empty_param, empty_param, [self.qp_action],
+             match_criteria=u.MatchCriteriaEnable.NONE, domain=domain_rx)
+        inner_msg_size = self.client.msg_size - GENEVE_PACKET_OUTER_LENGTH
+        outer = self.gen_geneve_tunnel_encap_header(inner_msg_size)
+        packet_to_send = outer + u.gen_packet(msg_size=inner_msg_size)
+        # Send traffic and validate packet
+        u.raw_traffic(self.client, self.server, self.iters, packet_to_send=packet_to_send)
+        recv_packets_tx = self.query_counter_packets(counter, flow_counter_id)
+        self.assertEqual(recv_packets_tx, self.iters, 'Counter tx missed some recv packets')
+        src_mac = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        self.send_client_raw_packets(self.iters, src_mac=src_mac)
+        recv_packets_tx = self.query_counter_packets(counter, flow_counter_id)
+        self.assertEqual(recv_packets_tx, self.iters,
+                         'Counter tx counts more than expected recv packets')
+
     @requires_reformat_support
     @skip_unsupported
     def test_packet_reformat_l2_gre(self):
@@ -706,6 +835,50 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         """
         self.create_players(Mlx5DrResources)
         encap_header = self.gen_gre_tunnel_encap_header(self.client.msg_size, is_l2_tunnel=False)
+        self.packet_reformat_actions(outer=encap_header, root_only=True, l2_ref_type=False)
+
+    @requires_reformat_support
+    @skip_unsupported
+    def test_packet_reformat_l2_geneve(self):
+        """
+        Creates Geneve packet with non-root l2 to l2 reformat actions on TX
+        (encap) and on RX (decap).
+        """
+        self.create_players(Mlx5DrResources)
+        encap_header = self.gen_geneve_tunnel_encap_header(self.client.msg_size, is_l2_tunnel=True)
+        self.packet_reformat_actions(outer=encap_header)
+
+    @requires_reformat_support
+    @skip_unsupported
+    def test_packet_reformat_root_l2_geneve(self):
+        """
+        Creates Geneve packet with root l2 to l2 reformat actions on TX (encap)
+        and on RX (decap).
+        """
+        self.create_players(Mlx5DrResources)
+        encap_header = self.gen_geneve_tunnel_encap_header(self.client.msg_size, is_l2_tunnel=True)
+        self.packet_reformat_actions(outer=encap_header, root_only=True)
+
+    @requires_reformat_support
+    @skip_unsupported
+    def test_packet_reformat_l3_geneve(self):
+        """
+        Creates Geneve packet with non-root l2 to l3 tunnel reformat actions on
+        TX (encap) and on RX (decap).
+        """
+        self.create_players(Mlx5DrResources)
+        encap_header = self.gen_geneve_tunnel_encap_header(self.client.msg_size, is_l2_tunnel=False)
+        self.packet_reformat_actions(outer=encap_header, l2_ref_type=False)
+
+    @requires_reformat_support
+    @skip_unsupported
+    def test_packet_reformat_root_l3_geneve(self):
+        """
+        Creates Geneve packet with root l2 to l3 reformat actions on TX (encap)
+        and on RX (decap).
+        """
+        self.create_players(Mlx5DrResources)
+        encap_header = self.gen_geneve_tunnel_encap_header(self.client.msg_size, is_l2_tunnel=False)
         self.packet_reformat_actions(outer=encap_header, root_only=True, l2_ref_type=False)
 
 

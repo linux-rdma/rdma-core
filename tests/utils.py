@@ -103,6 +103,9 @@ class PacketConsts:
     GRE_VER = 1
     GRE_FLAGS = 2
     GRE_KEY = 0x12345678
+    GENEVE_VNI = 2
+    GENEVE_OAM = 0
+    GENEVE_PORT = 6081
 
 
 def get_mr_length():
@@ -835,6 +838,18 @@ def gen_vxlan_header():
     return struct.pack('!II', PacketConsts.VXLAN_FLAGS << 24, PacketConsts.VXLAN_VNI << 8)
 
 
+def gen_geneve_header(vni=PacketConsts.GENEVE_VNI, oam=PacketConsts.GENEVE_OAM,
+                      proto=PacketConsts.ETHER_TYPE_ETH):
+    """
+    Generates Geneve header using the values from the PacketConst class by default.
+    :param vni: geneve vni
+    :param oam: geneve oam
+    :param proto: Ether type of next header inside the tunnel
+    :return: Geneve header
+    """
+    return struct.pack('!BBHL', (0 << 6) + 0, (oam << 7) + (0 << 6) + 0, proto, (vni << 8) + 0)
+
+
 def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO, with_vlan=False, **kwargs):
     """
     Generates a Eth | IPv4 or IPv6 | UDP or TCP packet with hardcoded values in
@@ -905,7 +920,8 @@ def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO, with_
 
 
 def get_send_elements_raw_qp(agr_obj, l3=PacketConsts.IP_V4,
-                             l4=PacketConsts.UDP_PROTO, with_vlan=False, **packet_args):
+                             l4=PacketConsts.UDP_PROTO, with_vlan=False,
+                             packet_to_send=None, **packet_args):
     """
     Creates a single SGE and a single Send WR for agr_obj's RAW QP type. The
     content of the message is Eth | Ipv4 | UDP packet.
@@ -913,11 +929,14 @@ def get_send_elements_raw_qp(agr_obj, l3=PacketConsts.IP_V4,
     :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
     :param l4: Packet layer 4 type: 'tcp' or 'udp'
     :param with_vlan: if True add VLAN header to the packet
+    :param packet_to_send: If passed, the other packet related parameters would
+                           be ignored, and this will be the packet to send.
     :param packet_args: Pass packet_args to gen_packets method.
     :return: send wr, its SGE, and message
     """
     mr = agr_obj.mr
-    msg = gen_packet(agr_obj.msg_size, l3, l4, with_vlan, **packet_args)
+    msg = packet_to_send if packet_to_send is not None else \
+        gen_packet(agr_obj.msg_size, l3, l4, with_vlan, **packet_args)
     mr.write(msg, agr_obj.msg_size)
     sge = SGE(mr.buf, agr_obj.msg_size, mr.lkey)
     send_wr = SendWR(opcode=e.IBV_WR_SEND, num_sge=1, sg=[sge])
@@ -957,7 +976,7 @@ def sampler_traffic(client, server, iters, l3=PacketConsts.IP_V4, l4=PacketConst
 
 def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
                 l4=PacketConsts.UDP_PROTO, with_vlan=False, expected_packet=None,
-                skip_idxs=None):
+                skip_idxs=None, packet_to_send=None):
     """
     Runs raw ethernet traffic between two sides
     :param client: client side, clients base class is BaseTraffic
@@ -969,7 +988,8 @@ def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
     :param expected_packet: Expected packet for validation (when different from
                             the originally sent).
     :param skip_idxs: indexes to skip during packet validation
-    :return:
+    :param packet_to_send: If passed, the other packet related parameters would
+                           be ignored, and this will be the packet to send.
     """
     skip_idxs = [] if skip_idxs is None else skip_idxs
     s_recv_wr = get_recv_wr(server)
@@ -982,7 +1002,8 @@ def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
     poll = poll_cq_ex if isinstance(client.cq, CQEX) else poll_cq
     for _ in range(iters):
         for qp_idx in range(server.qp_count):
-            c_send_wr, c_sg, msg = get_send_elements_raw_qp(client, l3, l4, with_vlan)
+            c_send_wr, c_sg, msg = get_send_elements_raw_qp(client, l3, l4, with_vlan,
+                                                            packet_to_send=packet_to_send)
             send(client, c_send_wr, e.IBV_WR_SEND, False, qp_idx)
             poll(client.cq)
             poll(server.cq)
