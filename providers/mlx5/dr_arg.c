@@ -10,6 +10,8 @@ enum dr_arg_chunk_size {
 	DR_ARG_CHUNK_SIZE_1,
 	DR_ARG_CHUNK_SIZE_MIN = DR_ARG_CHUNK_SIZE_1, /* keep updated when changing */
 	DR_ARG_CHUNK_SIZE_2,
+	DR_ARG_CHUNK_SIZE_3,
+	DR_ARG_CHUNK_SIZE_4,
 	DR_ARG_CHUNK_SIZE_MAX,
 };
 
@@ -179,6 +181,12 @@ dr_arg_get_chunk_size(uint16_t num_of_actions)
 		return DR_ARG_CHUNK_SIZE_1;
 	if (num_of_actions <= 16)
 		return DR_ARG_CHUNK_SIZE_2;
+	if (num_of_actions <= 32)
+		return DR_ARG_CHUNK_SIZE_3;
+	if (num_of_actions <= 64)
+		return DR_ARG_CHUNK_SIZE_4;
+
+	errno = EINVAL;
 	return DR_ARG_CHUNK_SIZE_MAX;
 }
 
