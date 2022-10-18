@@ -21,6 +21,7 @@ static const struct verbs_match_ent efa_table[] = {
 	VERBS_DRIVER_ID(RDMA_DRIVER_EFA),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa0, NULL),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa1, NULL),
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa2, NULL),
 	{}
 };
 
