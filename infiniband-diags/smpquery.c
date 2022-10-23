@@ -75,7 +75,7 @@ static const char *node_desc(ib_portid_t *dest, char **argv, int argc)
 {
 	int node_type, l;
 	uint64_t node_guid;
-	char nd[IB_SMP_DATA_SIZE] = { 0 };
+	char nd[IB_SMP_DATA_SIZE + 1] = { 0 };
 	uint8_t data[IB_SMP_DATA_SIZE] = { 0 };
 	char dots[128];
 	char *nodename = NULL;

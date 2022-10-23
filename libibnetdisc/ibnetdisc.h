@@ -72,7 +72,7 @@ typedef struct ibnd_node {
 	/* use libibmad decoder functions for info */
 	uint8_t info[IB_SMP_DATA_SIZE];
 
-	char nodedesc[IB_SMP_DATA_SIZE];
+	char nodedesc[IB_SMP_DATA_SIZE + 1];
 
 	struct ibnd_port **ports;	/* array of ports, indexed by port number
 					   ports[1] == port 1,
