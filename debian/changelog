@@ -1,3 +1,11 @@
+rdma-core (43.0-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Install 70-persistent-ipoib.rules into docs instead of /etc
+      (Closes: #958385)
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Mon, 24 Oct 2022 18:21:42 +0200
+
 rdma-core (42.0-1) unstable; urgency=medium
 
   * New upstream release.
