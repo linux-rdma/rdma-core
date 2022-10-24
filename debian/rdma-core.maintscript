@@ -1,0 +1,1 @@
+rm_conffile /etc/udev/rules.d/70-persistent-ipoib.rules 43.0 rdma-core
