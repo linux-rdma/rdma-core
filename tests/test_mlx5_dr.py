@@ -8,11 +8,13 @@ import unittest
 import os.path
 import struct
 import errno
+import math
 
 from pyverbs.providers.mlx5.dr_action import DrActionQp, DrActionModify, \
     DrActionFlowCounter, DrActionDrop, DrActionTag, DrActionDestTable, \
     DrActionPopVLan, DrActionPushVLan, DrActionDestAttr, DrActionDestArray, \
-    DrActionDefMiss, DrActionVPort, DrActionIBPort, DrActionDestTir, DrActionPacketReformat
+    DrActionDefMiss, DrActionVPort, DrActionIBPort, DrActionDestTir, DrActionPacketReformat,\
+    DrFlowSamplerAttr, DrActionFlowSample
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, Mlx5Context, Mlx5DVContextAttr
 from tests.utils import skip_unsupported, requires_root_on_eth, requires_eswitch_on, \
     PacketConsts
@@ -39,6 +41,9 @@ OUT_SMAC_15_0_FIELD_LENGTH = 16
 SET_ACTION = 0x1
 MAX_MATCH_PARAM_SIZE = 0x180
 PF_VPORT = 0x0
+
+SAMPLER_ERROR_MARGIN = 0.2
+SAMPLE_RATIO = 4
 
 
 class Mlx5DrResources(RawResources):
@@ -578,6 +583,59 @@ class Mlx5DrTest(Mlx5RDMATestCase):
 
         # Send traffic and validate packet
         u.raw_traffic(self.client, self.server, self.iters)
+
+    @skip_unsupported
+    def test_flow_sampler(self):
+        """
+        Flow sampler has a default table (all the packets are forwarded to it)
+        and a sampler actions (for sampled packets)
+        The default table has counter action.
+        For NIC RX table sampler actions are counter and TIR.
+        Verify that default counter counts all the packets.
+        Verify that sampled packets counter and receiving them on QP(from TIR)
+        """
+        self.client = Mlx5DrTirResources(**self.dev_info)
+        self.server = Mlx5DrTirResources(**self.dev_info, server=True)
+        self.iters = 1000
+        # Create tir & counter actions for sampler attr
+        tir_action = DrActionDestTir(self.server.tir)
+        counter_1, flow_counter_id_1 = self.create_counter(self.server.ctx)
+        self.server_counter_action = DrActionFlowCounter(counter_1)
+        # Create resources
+        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        rx_domain = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        default_tbl = DrTable(rx_domain, 2)
+        # Create sampler action on NIC RX table
+        sample_actions = [self.server_counter_action, tir_action]
+        sampler_attr = DrFlowSamplerAttr(sample_ratio=SAMPLE_RATIO, default_next_table=default_tbl,
+                                         sample_actions=sample_actions)
+        sampler_action = DrActionFlowSample(sampler_attr)
+        tbl, _ = self.create_rx_recv_rules(smac_value, [sampler_action], domain=rx_domain)
+        smac_mask = bytes([0xff] * 6) + bytes(2)
+        mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
+        self.default_matcher = DrMatcher(default_tbl, 1, u.MatchCriteriaEnable.OUTER, mask_param)
+        # Size of the matcher value should be modulo 4
+        smac_value += bytes(2)
+        value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
+        # Create Counter action on default table
+        counter_2, flow_counter_id_2 = self.create_counter(self.server.ctx)
+        self.server_counter_action_2 = DrActionFlowCounter(counter_2)
+        self.rules.append(DrRule(self.default_matcher, value_param, [self.server_counter_action_2]))
+        # Send traffic and validate packet
+        u.sampler_traffic(self.client, self.server, self.iters)
+        recv_packets = self.query_counter_packets(counter=counter_1,
+                                                  flow_counter_id=flow_counter_id_1)
+        exp_packets = math.ceil((self.iters / SAMPLE_RATIO))
+        max_exp_packets = int(exp_packets * (1 + SAMPLER_ERROR_MARGIN))
+        min_exp_packets = int(exp_packets * (1 - SAMPLER_ERROR_MARGIN))
+        is_sampled_packets_in_error_margin = min_exp_packets <= recv_packets <= max_exp_packets
+        self.assertTrue(is_sampled_packets_in_error_margin,
+                        f'Expected sampled packets {exp_packets} is more than '
+                        f'{SAMPLER_ERROR_MARGIN * 100}% \ndiffernt from actual {recv_packets}')
+        recv_packets_from_default_tbl = \
+            self.query_counter_packets(counter=counter_2, flow_counter_id=flow_counter_id_2)
+        self.assertEqual(recv_packets_from_default_tbl, self.iters,
+                         'Counter on default table missed some recv packets')
 
 
 class Mlx5DrDumpTest(PyverbsAPITestCase):

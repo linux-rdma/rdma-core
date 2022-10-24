@@ -890,6 +890,29 @@ def validate_raw(msg_received, msg_expected, skip_idxs):
             raise PyverbsError(err_msg)
 
 
+def sampler_traffic(client, server, iters, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO):
+    """
+    Send raw ethernet traffic
+    :param client: client side, clients base class is BaseTraffic
+    :param server: server side, servers base class is BaseTraffic
+    :param iters: number of traffic iterations
+    :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
+    :param l4: Packet layer 4 type: 'tcp' or 'udp'
+    """
+    s_recv_wr = get_recv_wr(server)
+    c_recv_wr = get_recv_wr(client)
+    for qp_idx in range(server.qp_count):
+        # Prepare the receive queue with RecvWR
+        post_recv(client, c_recv_wr, qp_idx=qp_idx)
+        post_recv(server, s_recv_wr, qp_idx=qp_idx)
+    poll = poll_cq_ex if isinstance(client.cq, CQEX) else poll_cq
+    for _ in range(iters):
+        for qp_idx in range(server.qp_count):
+            c_send_wr, c_sg, msg = get_send_elements_raw_qp(client, l3, l4, False)
+            send(client, c_send_wr, e.IBV_WR_SEND, False, qp_idx)
+            poll(client.cq)
+
+
 def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
                 l4=PacketConsts.UDP_PROTO, with_vlan=False, expected_packet=None, skip_idxs=[]):
     """
