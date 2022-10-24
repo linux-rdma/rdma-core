@@ -88,7 +88,6 @@ struct irdma_ucq {
 
 struct irdma_uqp {
 	struct ibv_qp ibv_qp;
-	struct ibv_qp_attr attr;
 	struct irdma_ucq *send_cq;
 	struct irdma_ucq *recv_cq;
 	struct verbs_mr vmr;
@@ -103,7 +102,6 @@ struct irdma_uqp {
 	struct ibv_recv_wr *pend_rx_wr;
 	struct irdma_qp_uk qp;
 	enum ibv_qp_type qp_type;
-	enum ibv_qp_attr_mask attr_mask;
 	struct irdma_sge *recv_sges;
 };
 

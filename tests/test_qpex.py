@@ -6,6 +6,7 @@ from pyverbs.qp import QPCap, QPInitAttrEx, QPAttr, QPEx, QP
 from pyverbs.pyverbs_error import PyverbsRDMAError
 from pyverbs.mr import MW, MWBindInfo
 from pyverbs.base import inc_rkey
+from tests.utils import wc_status_to_str
 import pyverbs.enums as e
 
 from tests.base import UDResources, RCResources, RDMATestCase, XRCResources
@@ -300,7 +301,7 @@ class QpExTestCase(RDMATestCase):
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Memory Window allocation is not supported')
             raise ex
-        new_key = inc_rkey(server.mr.rkey)
+        new_key = inc_rkey(mw.rkey)
         server.qp.wr_bind_mw(mw, new_key, bind_info)
         server.qp.wr_complete()
         u.poll_cq(server.cq)
@@ -311,11 +312,9 @@ class QpExTestCase(RDMATestCase):
         client.qp.wr_rdma_write(new_key, server.mr.buf)
         client.qp.wr_set_sge(client_sge)
         client.qp.wr_complete()
-        try:
-            u.poll_cq(client.cq)
-        except PyverbsRDMAError as ex:
-            if ex.error_code != e.IBV_WC_REM_ACCESS_ERR:
-                raise ex
+        wcs = u._poll_cq(client.cq)
+        if wcs[0].status != e.IBV_WC_REM_ACCESS_ERR:
+            raise PyverbsRDMAError(f'Completion status is {wc_status_to_str(wcs[0].status)}')
 
     def test_post_receive_qp_state_bad_flow(self):
         self.create_players(qp_type='ud_send')

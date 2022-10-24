@@ -234,26 +234,27 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
             except PyverbsRDMAError as ex:
                 self.stream_check = False
 
-    def bad_flow_handler_qp(self, qp_idx, ex, reset=False):
+    def bad_flow_handler_qp(self, qp_idx, status, reset=False):
         str_id = self.get_stream_id(qp_idx)
         bt_stream = (1 << str_id)
-        if isinstance(ex, PyverbsRDMAError):
-            if ex.error_code == e.IBV_WC_LOC_PROT_ERR:
-                self.qp_stream_errors[qp_idx][1] += 1
-                if (self.qp_stream_errors[qp_idx][0] & bt_stream) != 0:
-                    raise PyverbsError(f'Dublicate error from stream id {str_id}')
-                self.qp_stream_errors[qp_idx][0] |= bt_stream
-            if ex.error_code == e.IBV_WC_WR_FLUSH_ERR:
-                qp_attr, _ = self.qps[qp_idx].query(e.IBV_QP_STATE)
-                if qp_attr.cur_qp_state == e.IBV_QPS_ERR and reset:
-                    if self.qp_stream_errors[qp_idx][1] != self.dcis[qp_idx]['errored']:
-                        msg = f'QP {qp_idx} in ERR state with wrong number of counter'
-                        raise PyverbsError(msg)
-                    self.reset_qp(qp_idx)
-                    self.qp_stream_errors[qp_idx][2] = True
+
+        if status == e.IBV_WC_LOC_PROT_ERR:
+            self.qp_stream_errors[qp_idx][1] += 1
+            if (self.qp_stream_errors[qp_idx][0] & bt_stream) != 0:
+                raise PyverbsError(f'Dublicate error from stream id {str_id}')
+            self.qp_stream_errors[qp_idx][0] |= bt_stream
+        if status == e.IBV_WC_WR_FLUSH_ERR:
+            qp_attr, _ = self.qps[qp_idx].query(e.IBV_QP_STATE)
+            if qp_attr.cur_qp_state == e.IBV_QPS_ERR and reset:
+                if self.qp_stream_errors[qp_idx][1] != self.dcis[qp_idx]['errored']:
+                    msg = f'QP {qp_idx} in ERR state with wrong number of counter'
+                    raise PyverbsError(msg)
+                self.reset_qp(qp_idx)
+                self.qp_stream_errors[qp_idx][2] = True
+
         return True
 
-    def bad_flow_handling(self, qp_idx, ex, reset=False):
+    def bad_flow_handling(self, qp_idx, status, reset=False):
         if self.bad_flow == DCI_TEST_GOOD_FLOW:
             return False
         if self.bad_flow == DCI_TEST_BAD_FLOW_WITH_RESET:
@@ -262,7 +263,7 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
                 self.dci_reset_stream_id(qp_idx)
             return True
         if self.bad_flow == DCI_TEST_BAD_FLOW_WITHOUT_RESET:
-            return self.bad_flow_handler_qp(qp_idx, ex, reset)
+            return self.bad_flow_handler_qp(qp_idx, status, reset)
         return False
 
     def set_bad_flow(self, bad_flow):
@@ -411,11 +412,14 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
                 u.send(client, c_send_object, send_op, True, qp_idx,
                        ah_client, False)
                 try:
-                    u.poll_cq(client.cq)
+                    wcs = u._poll_cq(client.cq)
                 except PyverbsError as ex:
-                    if client.bad_flow_handling(qp_idx, ex, True):
+                    if client.bad_flow_handling(qp_idx, e.IBV_WC_SUCCESS, True):
                         continue
                     raise ex
+                if client.bad_flow_handling(qp_idx, wcs[0].status, True):
+                    continue
+
                 u.poll_cq(server.cq)
                 u.post_recv(server, s_recv_wr, qp_idx=qp_idx)
                 msg_received = server.mr.read(server.msg_size, read_offset)

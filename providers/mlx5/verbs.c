@@ -5530,13 +5530,13 @@ __mlx5dv_devx_umem_reg_ex(struct ibv_context *context,
 	DECLARE_COMMAND_BUFFER(cmd,
 			       MLX5_IB_OBJECT_DEVX_UMEM,
 			       MLX5_IB_METHOD_DEVX_UMEM_REG,
-			       6);
+			       7);
 	struct ib_uverbs_attr *pgsz_bitmap;
 	struct ib_uverbs_attr *handle;
 	struct mlx5_devx_umem *umem;
 	int ret;
 
-	if (!check_comp_mask(in->comp_mask, 0)) {
+	if (!check_comp_mask(in->comp_mask, MLX5DV_UMEM_MASK_DMABUF)) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -5553,6 +5553,14 @@ __mlx5dv_devx_umem_reg_ex(struct ibv_context *context,
 	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ADDR, (intptr_t)in->addr);
 	fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_LEN, in->size);
 	fill_attr_in_uint32(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_ACCESS, in->access);
+	if (in->comp_mask & MLX5DV_UMEM_MASK_DMABUF) {
+		if (in->dmabuf_fd == -1) {
+			errno = EBADF;
+			goto err_umem_reg_cmd;
+		}
+		fill_attr_in_fd(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_DMABUF_FD,
+				in->dmabuf_fd);
+	}
 	pgsz_bitmap = fill_attr_in_uint64(cmd, MLX5_IB_ATTR_DEVX_UMEM_REG_PGSZ_BITMAP,
 					 in->pgsz_bitmap);
 	if (legacy)
@@ -6727,17 +6735,23 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 	uint32_t out[DEVX_ST_SZ_DW(create_mkey_out)] = {};
 	uint32_t in[DEVX_ST_SZ_DW(create_mkey_in)] = {};
 	struct mlx5_mkey *mkey;
+	bool update_tag;
 	bool sig_mkey;
 	bool crypto_mkey;
 	struct ibv_pd *pd = mkey_init_attr->pd;
 	size_t bsf_size = 0;
 	void *mkc;
 
+	update_tag = to_mctx(pd->context)->flags &
+		     MLX5_CTX_FLAGS_MKEY_UPDATE_TAG_SUPPORTED;
 	if (!mkey_init_attr->create_flags ||
 	    !check_comp_mask(mkey_init_attr->create_flags,
 			     MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
 			     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE |
-			     MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO)) {
+			     MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO |
+			     (update_tag ?
+			     MLX5DV_MKEY_INIT_ATTR_FLAGS_UPDATE_TAG : 0) |
+			     MLX5DV_MKEY_INIT_ATTR_FLAGS_REMOTE_INVALIDATE)) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
@@ -6795,6 +6809,10 @@ _mlx5dv_create_mkey(struct mlx5dv_mkey_init_attr *mkey_init_attr)
 		DEVX_SET(mkc, mkc, bsf_en, 1);
 		DEVX_SET(mkc, mkc, bsf_octword_size, bsf_size / 16);
 	}
+
+	if (mkey_init_attr->create_flags &
+	    MLX5DV_MKEY_INIT_ATTR_FLAGS_REMOTE_INVALIDATE)
+		DEVX_SET(mkc, mkc, en_rinval, 1);
 
 	mkey->devx_obj = mlx5dv_devx_obj_create(pd->context, in, sizeof(in),
 						out, sizeof(out));

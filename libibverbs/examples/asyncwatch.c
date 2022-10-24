@@ -36,6 +36,7 @@
 #include <endian.h>
 #include <getopt.h>
 #include <string.h>
+#include <alloca.h>
 
 #include <util/compiler.h>
 #include <infiniband/verbs.h>

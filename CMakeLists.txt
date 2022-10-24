@@ -77,7 +77,7 @@ endif()
 set(PACKAGE_NAME "RDMA")
 
 # See Documentation/versioning.md
-set(PACKAGE_VERSION "42.0")
+set(PACKAGE_VERSION "43.0")
 # When this is changed the values in these files need changing too:
 #   debian/control
 #   debian/libibverbs1.symbols
@@ -262,6 +262,16 @@ RDMA_Check_C_Compiles(HAVE_C_WORKING_MISSING_FIELD_INITIALIZERS "
 )
 if (NOT HAVE_C_WORKING_MISSING_FIELD_INITIALIZERS)
   RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WNO_MISSING_FIELD_INITIALIZERS "-Wno-missing-field-initializers")
+endif()
+
+# clang doesn't support variable size GCC extension
+RDMA_Check_C_Compiles(HAVE_C_VARIABLE_SIZE "
+ struct c { int a; int b[]; };
+ struct foo { struct c c; int b; };
+ int main(int argc,const char *argv[]) { return 0; }"
+)
+if (NOT HAVE_C_VARIABLE_SIZE)
+	RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WNO_VARIABLE_SIZE "-Wno-gnu-variable-sized-type-not-at-end")
 endif()
 
 # Check that the compiler supports -fno-strict-aliasing.
@@ -693,6 +703,7 @@ add_subdirectory(providers/bnxt_re)
 add_subdirectory(providers/cxgb4) # NO SPARSE
 add_subdirectory(providers/efa)
 add_subdirectory(providers/efa/man)
+add_subdirectory(providers/erdma)
 add_subdirectory(providers/hns)
 add_subdirectory(providers/irdma)
 add_subdirectory(providers/mlx4)

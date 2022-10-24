@@ -679,6 +679,7 @@ static int rxe_post_one_recv(struct rxe_wq *rq, struct ibv_recv_wr *recv_wr)
 	int i;
 	struct rxe_recv_wqe *wqe;
 	struct rxe_queue_buf *q = rq->queue;
+	int num_sge = recv_wr->num_sge;
 	int length = 0;
 	int rc = 0;
 
@@ -687,7 +688,7 @@ static int rxe_post_one_recv(struct rxe_wq *rq, struct ibv_recv_wr *recv_wr)
 		goto out;
 	}
 
-	if (recv_wr->num_sge > rq->max_sge) {
+	if (num_sge > rq->max_sge) {
 		rc = EINVAL;
 		goto out;
 	}
@@ -695,18 +696,17 @@ static int rxe_post_one_recv(struct rxe_wq *rq, struct ibv_recv_wr *recv_wr)
 	wqe = (struct rxe_recv_wqe *)producer_addr(q);
 
 	wqe->wr_id = recv_wr->wr_id;
-	wqe->num_sge = recv_wr->num_sge;
 
 	memcpy(wqe->dma.sge, recv_wr->sg_list,
-	       wqe->num_sge*sizeof(*wqe->dma.sge));
+	       num_sge*sizeof(*wqe->dma.sge));
 
-	for (i = 0; i < wqe->num_sge; i++)
+	for (i = 0; i < num_sge; i++)
 		length += wqe->dma.sge[i].length;
 
 	wqe->dma.length = length;
 	wqe->dma.resid = length;
 	wqe->dma.cur_sge = 0;
-	wqe->dma.num_sge = wqe->num_sge;
+	wqe->dma.num_sge = num_sge;
 	wqe->dma.sge_offset = 0;
 
 	advance_producer(q);
@@ -1406,7 +1406,6 @@ static void convert_send_wr(struct rxe_qp *qp, struct rxe_send_wr *kwr,
 	memset(kwr, 0, sizeof(*kwr));
 
 	kwr->wr_id		= uwr->wr_id;
-	kwr->num_sge		= uwr->num_sge;
 	kwr->opcode		= uwr->opcode;
 	kwr->send_flags		= uwr->send_flags;
 	kwr->ex.imm_data	= uwr->imm_data;

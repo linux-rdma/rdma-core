@@ -12,3 +12,10 @@ EFA_1.1 {
 		efadv_query_ah;
 		efadv_query_device;
 } EFA_1.0;
+
+EFA_1.2 {
+	global:
+		efadv_cq_from_ibv_cq_ex;
+		efadv_create_cq;
+		efadv_wc_read_sgid;
+} EFA_1.1;

@@ -1,5 +1,5 @@
 Name: rdma-core
-Version: 42.0
+Version: 43.0
 Release: 1%{?dist}
 Summary: RDMA core userspace libraries and daemons
 
@@ -103,7 +103,6 @@ rm -rf %{buildroot}/%{my_unitdir}/
 %config %{_sysconfdir}/libibverbs.d/*
 %config %{_sysconfdir}/rdma/modules/*
 %{perl_vendorlib}/IBswcountlimits.pm
-%config(noreplace) %{_sysconfdir}/udev/rules.d/*
 %config(noreplace) %{_sysconfdir}/infiniband-diags/error_thresholds
 %config(noreplace) %{_sysconfdir}/infiniband-diags/ibdiag.conf
 %{_sysconfdir}/modprobe.d/*

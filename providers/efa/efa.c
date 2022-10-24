@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
- * Copyright 2019-2021 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2022 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #include <stdio.h>
@@ -21,6 +21,7 @@ static const struct verbs_match_ent efa_table[] = {
 	VERBS_DRIVER_ID(RDMA_DRIVER_EFA),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa0, NULL),
 	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa1, NULL),
+	VERBS_PCI_MATCH(PCI_VENDOR_ID_AMAZON, 0xefa2, NULL),
 	{}
 };
 
@@ -75,6 +76,7 @@ static struct verbs_context *efa_alloc_context(struct ibv_device *vdev,
 	ctx->sub_cqs_per_cq = resp.sub_cqs_per_cq;
 	ctx->cmds_supp_udata_mask = resp.cmds_supp_udata_mask;
 	ctx->cqe_size = sizeof(struct efa_io_rx_cdesc);
+	ctx->ex_cqe_size = sizeof(struct efa_io_rx_cdesc_ex);
 	ctx->inline_buf_size = resp.inline_buf_size;
 	ctx->max_llq_size = resp.max_llq_size;
 	ctx->max_tx_batch = resp.max_tx_batch;

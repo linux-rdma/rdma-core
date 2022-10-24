@@ -18,8 +18,9 @@ import os
 
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.addr import AHAttr, AH, GlobalRoute
-from tests.base import XRCResources, DCT_KEY
+from tests.base import XRCResources, DCT_KEY, MLNX_VENDOR_ID
 from tests.efa_base import SRDResources
+from pyverbs.providers.efa.efadv import EfaCQ
 from pyverbs.wr import SGE, SendWR, RecvWR
 from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx, QPAttr, QPEx, QP
 from tests.mlx5_base import Mlx5DcResources, Mlx5DcStreamsRes
@@ -271,13 +272,17 @@ def get_create_qp_flags_raw_packet(attr_ex):
     return val
 
 
-def random_qp_create_flags(qpt, attr_ex):
+def random_valid_qp_create_flags(qpt, attr, attr_ex):
     """
     Select a random sublist of ibv_qp_create_flags according to the QP type.
     :param qpt: Current QP type
     :param attr_ex: Used for Raw Packet QP to check device capabilities
     :return: A sublist of ibv_qp_create_flags
     """
+     # Most HCAs doesn't support any create_flags so far except mlx4/mlx5
+    if attr.vendor_id != MLNX_VENDOR_ID:
+        return 0
+
     if qpt == e.IBV_QPT_RAW_PACKET:
         return get_create_qp_flags_raw_packet(attr_ex)
     elif qpt == e.IBV_QPT_UD:
@@ -309,7 +314,7 @@ def random_qp_init_attr_ex(attr_ex, attr, qpt=None):
     sig = random.randint(0, 1)
     mask = random_qp_create_mask(qpt, attr_ex)
     if mask & e.IBV_QP_INIT_ATTR_CREATE_FLAGS:
-        cflags = random_qp_create_flags(qpt, attr_ex)
+        cflags = random_valid_qp_create_flags(qpt, attr, attr_ex)
     else:
         cflags = 0
     if mask & e.IBV_QP_INIT_ATTR_MAX_TSO_HEADER:
@@ -533,7 +538,7 @@ def post_recv(agr_obj, recv_wr, qp_idx=0 ,num_wqes=1):
             receive_queue.post_recv(recv_wr, None)
 
 
-def poll_cq(cq, count=1, data=None):
+def _poll_cq(cq, count=1, data=None):
     """
     Poll <count> completions from the CQ.
     Note: This function calls the blocking poll() method of the CQ
@@ -556,9 +561,8 @@ def poll_cq(cq, count=1, data=None):
         nc, tmp_wcs = cq.poll(count)
         for wc in tmp_wcs:
             if wc.status != e.IBV_WC_SUCCESS:
-                raise PyverbsRDMAError('Completion status is {s}'.
-                                       format(s=wc_status_to_str(wc.status)),
-                                       wc.status)
+                wcs.append(wc)
+                return wcs
             if data:
                 if wc.wc_flags & e.IBV_WC_WITH_IMM == 0:
                     raise PyverbsRDMAError('Completion without immediate')
@@ -572,13 +576,35 @@ def poll_cq(cq, count=1, data=None):
     return wcs
 
 
-def poll_cq_ex(cqex, count=1, data=None):
+def poll_cq(cq, count=1, data=None):
+    """
+    Poll <count> completions from the CQ.
+    Note: This function calls the blocking poll() method of the CQ
+    until <count> completions were received. Alternatively, gets a
+    single CQ event when events are used.
+    :param cq: CQ to poll from
+    :param count: How many completions to poll
+    :param data: In case of a work request with immediate, the immediate data
+                 to be compared after poll
+    :return: An array of work completions of length <count>, None
+             when events are used
+    """
+    wcs = _poll_cq(cq, count, data)
+    if wcs[0].status != e.IBV_WC_SUCCESS:
+        raise PyverbsRDMAError(f'Completion status is {wc_status_to_str(wcs[0].status)}')
+
+    return wcs
+
+
+def poll_cq_ex(cqex, count=1, data=None, sgid=None):
     """
     Poll <count> completions from the extended CQ.
     :param cq: CQEX to poll from
     :param count: How many completions to poll
     :param data: In case of a work request with immediate, the immediate data
                  to be compared after poll
+    :param sgid: In case of EFA receive completion, the sgid to be compared
+                 after poll
     :return: None
     """
     try:
@@ -595,6 +621,10 @@ def poll_cq_ex(cqex, count=1, data=None):
                                    format(s=cqex.status))
         if data:
             assert data == socket.ntohl(cqex.read_imm_data())
+
+        if isinstance(cqex, EfaCQ):
+            if sgid is not None and cqex.read_opcode() == e.IBV_WC_RECV:
+                assert sgid.gid == cqex.read_sgid().gid
         # Now poll the rest of the packets
         while count > 0 and (time.perf_counter() - start_poll_t < POLL_CQ_TIMEOUT):
             ret = cqex.poll_next()
@@ -608,6 +638,10 @@ def poll_cq_ex(cqex, count=1, data=None):
                                        format(s=cqex.status))
             if data:
                 assert data == socket.ntohl(cqex.read_imm_data())
+
+            if isinstance(cqex, EfaCQ):
+                if sgid is not None and cqex.read_opcode() == e.IBV_WC_RECV:
+                    assert sgid.gid == cqex.read_sgid().gid
             count -= 1
         if count > 0:
             raise PyverbsError(f'Got timeout on polling ({count} CQEs remaining)')

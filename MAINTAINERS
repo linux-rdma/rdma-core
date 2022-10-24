@@ -61,6 +61,11 @@ M:	Gal Pressman <galpress@amazon.com>
 S:	Supported
 F:	providers/efa/
 
+ERDMA USERSPACE PROVIDER (for erdma.ko)
+M:	Cheng Xu <chengyou@linux.alibaba.com>
+S:	Supported
+F:	providers/erdma/
+
 HF1 USERSPACE PROVIDER (for hf1.ko)
 M:	Dennis Dalessandro <dennis.dalessandro@cornelisnetworks.com>
 S:	Supported

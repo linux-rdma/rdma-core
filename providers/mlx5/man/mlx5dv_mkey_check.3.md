@@ -55,8 +55,10 @@ part provided is the offset in the transfer that caused the error.
 	```
 	*err_type*
 
-	:	What kind of error happened. If several errors are found,
-		only a single error is reported in this priority:
+	:	What kind of error happened. If several errors exist in one
+		block verified by the device, only the first of them is
+		reported, according to the order specified in T10DIF
+		specification, which is:
 		**MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD**,
 		**MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG**,
 		**MLX5DV_MKEY_SIG_BLOCK_BAD_REFTAG**.

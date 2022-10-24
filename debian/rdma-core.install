@@ -8,7 +8,6 @@ etc/rdma/modules/iwpmd.conf
 etc/rdma/modules/opa.conf
 etc/rdma/modules/rdma.conf
 etc/rdma/modules/roce.conf
-etc/udev/rules.d/70-persistent-ipoib.rules
 lib/systemd/system/iwpmd.service
 lib/systemd/system/rdma-hw.target
 lib/systemd/system/rdma-load-modules@.service
@@ -24,6 +23,7 @@ lib/udev/rules.d/90-rdma-umad.rules
 usr/lib/truescale-serdes.cmds
 usr/sbin/iwpmd
 usr/sbin/rdma-ndd
+usr/share/doc/rdma-core/70-persistent-ipoib.rules
 usr/share/doc/rdma-core/MAINTAINERS
 usr/share/doc/rdma-core/README.md
 usr/share/doc/rdma-core/rxe.md

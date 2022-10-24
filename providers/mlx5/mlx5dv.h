@@ -283,6 +283,8 @@ enum mlx5dv_mkey_init_attr_flags {
 	MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT = 1 << 0,
 	MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE = 1 << 1,
 	MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO = 1 << 2,
+	MLX5DV_MKEY_INIT_ATTR_FLAGS_UPDATE_TAG = 1 << 3,
+	MLX5DV_MKEY_INIT_ATTR_FLAGS_REMOTE_INVALIDATE = 1 << 4,
 };
 
 struct mlx5dv_mkey_init_attr {
@@ -1742,12 +1744,17 @@ struct mlx5dv_devx_umem {
 struct mlx5dv_devx_umem *
 mlx5dv_devx_umem_reg(struct ibv_context *ctx, void *addr, size_t size, uint32_t access);
 
+enum  mlx5dv_devx_umem_in_mask {
+	MLX5DV_UMEM_MASK_DMABUF = 1 << 0,
+};
+
 struct mlx5dv_devx_umem_in {
 	void *addr;
 	size_t size;
 	uint32_t access;
 	uint64_t pgsz_bitmap;
 	uint64_t comp_mask;
+	int dmabuf_fd;
 };
 
 struct mlx5dv_devx_umem *
