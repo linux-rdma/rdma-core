@@ -77,6 +77,7 @@ class PacketConsts:
     TTL_HOP_LIMIT = 64
     IHL = 5
     # Hardcoded values for flow matchers
+    ETHER_TYPE_ETH = 0x6558
     ETHER_TYPE_IPV4 = 0x800
     MAC_MASK = "ff:ff:ff:ff:ff:ff"
     ETHER_TYPE_IPV6 = 0x86DD
@@ -99,6 +100,9 @@ class PacketConsts:
     VLAN_PRIO = 5
     VLAN_CFI = 1
     VLAN_ID = 0xc0c
+    GRE_VER = 1
+    GRE_FLAGS = 2
+    GRE_KEY = 0x12345678
 
 
 def get_mr_length():
@@ -811,6 +815,16 @@ def gen_udp_header(packet_len, src_port=PacketConsts.SRC_PORT, dst_port=PacketCo
     """
     udp_total_len = packet_len + PacketConsts.UDP_HEADER_SIZE
     return struct.pack('!4H', src_port, dst_port, udp_total_len, 0)
+
+
+def gen_gre_header(ether_type=PacketConsts.ETHER_TYPE_IPV4):
+    """
+    Generates GRE header using the values from the PacketConst class by default.
+    :param ether_type: Ether type of tunneled next header
+    :return: GRE header
+    """
+    return struct.pack('!2BHI', PacketConsts.GRE_FLAGS << 4, PacketConsts.GRE_VER,
+                       ether_type, PacketConsts.GRE_KEY)
 
 
 def gen_vxlan_header():

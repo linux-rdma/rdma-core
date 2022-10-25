@@ -7,6 +7,7 @@ Test module for pyverbs' mlx5 dr module.
 import unittest
 import os.path
 import struct
+import socket
 import errno
 import math
 
@@ -288,6 +289,16 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         counter_out = QueryFlowCounterOut(counter.query(query_in, len(QueryFlowCounterOut())))
         return counter_out.flow_statistics.packets
 
+    @staticmethod
+    def gen_gre_tunnel_encap_header(msg_size, is_l2_tunnel=True):
+        gre_ether_type = PacketConsts.ETHER_TYPE_ETH if is_l2_tunnel else \
+                PacketConsts.ETHER_TYPE_IPV4
+        gre_header = u.gen_gre_header(ether_type=gre_ether_type)
+        ip_header = u.gen_ipv4_header(packet_len=msg_size + len(gre_header),
+                                      next_proto=socket.IPPROTO_GRE)
+        mac_header = u.gen_ethernet_header()
+        return mac_header + ip_header + gre_header
+
     @requires_eswitch_on
     @skip_unsupported
     def test_dest_vport(self):
@@ -547,40 +558,55 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.create_rx_recv_rules(smac_value, [tir_action])
         u.raw_traffic(self.client, self.server, self.iters)
 
-    @requires_reformat_support
-    @skip_unsupported
-    def test_packet_reformat(self):
+    def packet_reformat_actions(self, outer, root_only=False, l2_ref_type=True):
         """
         Creates packet reformat actions on TX (encap) and on RX (decap).
+        :param outer: The outer header to encap.
+        :param root_only: If True create actions only on root tables
+        :param l2_ref_type: If False use L2 to L3 tunneling reformat
         """
-        self.create_players(Mlx5DrResources)
         smac_mask = bytes([0xff] * 6) + bytes(2)
         mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
-
-        # TX steering
+        reformat_flag = dve.MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL if root_only else 0
+        # TX
         domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
-        tx_table = DrTable(domain_tx, 0)
-        tx_matcher = DrMatcher(tx_table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
+        tx_root_table = DrTable(domain_tx, 0)
+        tx_root_matcher = DrMatcher(tx_root_table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
+        if not root_only:
+            tx_table = DrTable(domain_tx, 1)
+            tx_matcher = DrMatcher(tx_table, 1, u.MatchCriteriaEnable.OUTER, mask_param)
+            dest_table_action_tx = DrActionDestTable(tx_table)
+            self.rules.append(DrRule(tx_root_matcher, value_param, [dest_table_action_tx]))
+        reformat_matcher = tx_root_matcher if root_only else tx_matcher
         # Create encap action
-        from tests.test_mlx5_flow import gen_vxlan_l2_tunnel_encap_header
-        outer = gen_vxlan_l2_tunnel_encap_header(self.client.msg_size)
-        tx_reformat_type = dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL_
-        reformat_action_tx = DrActionPacketReformat(domain=domain_tx, data=outer,
-                                                    flags=dve.MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL,
-                                                    reformat_type=tx_reformat_type)
-        self.rules.append(DrRule(tx_matcher, value_param, [reformat_action_tx]))
-
-        # RX steering
+        tx_reformat_type = dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL_ if \
+            l2_ref_type else dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L3_TUNNEL_
+        reformat_action_tx = DrActionPacketReformat(domain=domain_tx, flags=reformat_flag,
+                                                    reformat_type=tx_reformat_type, data=outer)
+        smac_value_tx = smac_value + bytes(2)
+        value_param = Mlx5FlowMatchParameters(len(smac_value_tx), smac_value_tx)
+        self.rules.append(DrRule(reformat_matcher, value_param, [reformat_action_tx]))
+        # RX
         domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         # Create decap action
-        rx_reformat_type = dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TUNNEL_TO_L2_
-        reformat_action_rx = DrActionPacketReformat(domain=domain_rx,
-                                                    reformat_type=rx_reformat_type)
+        data = struct.pack('!6s6s',
+                           bytes.fromhex(PacketConsts.DST_MAC.replace(':', '')),
+                           bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        data += PacketConsts.ETHER_TYPE_IPV4.to_bytes(2, 'big')
+        rx_reformat_type = dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TUNNEL_TO_L2_ if \
+            l2_ref_type else dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L3_TUNNEL_TO_L2_
+        reformat_action_rx = DrActionPacketReformat(domain=domain_rx, flags=reformat_flag,
+                                                    reformat_type=rx_reformat_type,
+                                                    data=None if l2_ref_type else data)
         qp_action = DrActionQp(self.server.qp)
-        self.create_rx_recv_rules(smac_value, [reformat_action_rx, qp_action],
-                                    domain=domain_rx)
+        if root_only:
+            rx_root_table = DrTable(domain_rx, 0)
+            rx_root_matcher = DrMatcher(rx_root_table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
+            self.rules.append(DrRule(rx_root_matcher, value_param, [reformat_action_rx, qp_action]))
+        else:
+            self.create_rx_recv_rules(smac_value, [reformat_action_rx, qp_action], domain=domain_rx)
 
         # Send traffic and validate packet
         u.raw_traffic(self.client, self.server, self.iters)
@@ -637,6 +663,50 @@ class Mlx5DrTest(Mlx5RDMATestCase):
             self.query_counter_packets(counter=counter_2, flow_counter_id=flow_counter_id_2)
         self.assertEqual(recv_packets_from_default_tbl, self.iters,
                          'Counter on default table missed some recv packets')
+
+    @requires_reformat_support
+    @skip_unsupported
+    def test_packet_reformat_l2_gre(self):
+        """
+        Creates GRE packet with non-root l2 to l2 reformat actions on TX (encap)
+        and on RX (decap).
+        """
+        self.create_players(Mlx5DrResources)
+        encap_header = self.gen_gre_tunnel_encap_header(self.client.msg_size, is_l2_tunnel=True)
+        self.packet_reformat_actions(outer=encap_header)
+
+    @requires_reformat_support
+    @skip_unsupported
+    def test_packet_reformat_root_l2_gre(self):
+        """
+        Creates GRE packet with root l2 to l2 reformat actions on TX (encap) and
+        on RX (decap).
+        """
+        self.create_players(Mlx5DrResources)
+        encap_header = self.gen_gre_tunnel_encap_header(self.client.msg_size, is_l2_tunnel=True)
+        self.packet_reformat_actions(outer=encap_header, root_only=True)
+
+    @requires_reformat_support
+    @skip_unsupported
+    def test_packet_reformat_l3_gre(self):
+        """
+        Creates GRE packet with non-root l2 to l3 reformat actions on TX (encap)
+        and on RX (decap).
+        """
+        self.create_players(Mlx5DrResources)
+        encap_header = self.gen_gre_tunnel_encap_header(self.client.msg_size, is_l2_tunnel=False)
+        self.packet_reformat_actions(outer=encap_header, l2_ref_type=False)
+
+    @requires_reformat_support
+    @skip_unsupported
+    def test_packet_reformat_root_l3_gre(self):
+        """
+        Creates GRE packet with root l2 to l3 reformat actions on TX (encap) and
+        on RX (decap).
+        """
+        self.create_players(Mlx5DrResources)
+        encap_header = self.gen_gre_tunnel_encap_header(self.client.msg_size, is_l2_tunnel=False)
+        self.packet_reformat_actions(outer=encap_header, root_only=True, l2_ref_type=False)
 
 
 class Mlx5DrDumpTest(PyverbsAPITestCase):
