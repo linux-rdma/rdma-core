@@ -564,7 +564,8 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         tx_table = DrTable(domain_tx, 0)
         tx_matcher = DrMatcher(tx_table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
         # Create encap action
-        outer = u.gen_outer_headers(self.client.msg_size)
+        from tests.test_mlx5_flow import gen_vxlan_l2_tunnel_encap_header
+        outer = gen_vxlan_l2_tunnel_encap_header(self.client.msg_size)
         tx_reformat_type = dve.MLX5DV_FLOW_ACTION_PACKET_REFORMAT_TYPE_L2_TO_L2_TUNNEL_
         reformat_action_tx = DrActionPacketReformat(domain=domain_tx, data=outer,
                                                     flags=dve.MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL,

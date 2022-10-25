@@ -766,35 +766,59 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
             validate(msg_received, False, client.msg_size)
 
 
-def gen_outer_headers(msg_size):
+def gen_ethernet_header(dst_mac=PacketConsts.DST_MAC, src_mac=PacketConsts.SRC_MAC,
+                        ether_type=PacketConsts.ETHER_TYPE_IPV4):
     """
-    Generates outer headers for encapsulation with VXLAN: Ethernet, IPv4, UDP
-    and VXLAN using the values from the PacketConst class.
-    :param msg_size: The size of the inner message
-    :return: Outer headers
+    Generates Ethernet header using the values from the PacketConst class by default.
+    :param dst_mac: Destination mac address
+    :param src_mac: Source mac address
+    :param ether_type: Ether type of next header
+    :return: Ethernet header
     """
-    # Ethernet Header
-    outer = struct.pack('!6s6s',
-                        bytes.fromhex(PacketConsts.DST_MAC.replace(':', '')),
-                        bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-    outer += PacketConsts.ETHER_TYPE_IPV4.to_bytes(2, 'big')
-    # IPv4 Header
-    ip_total_len = msg_size + PacketConsts.UDP_HEADER_SIZE + \
-                   PacketConsts.IPV4_HEADER_SIZE + \
-                   PacketConsts.VXLAN_HEADER_SIZE
-    outer += struct.pack('!2B3H2BH4s4s', (PacketConsts.IP_V4 << 4) +
-                         PacketConsts.IHL, 0, ip_total_len, 0,
-                         PacketConsts.IP_V4_FLAGS << 13,
-                         PacketConsts.TTL_HOP_LIMIT, socket.IPPROTO_UDP, 0,
-                         socket.inet_aton(PacketConsts.SRC_IP),
-                         socket.inet_aton(PacketConsts.DST_IP))
-    # UDP Header
-    outer += struct.pack('!4H', PacketConsts.SRC_PORT, PacketConsts.VXLAN_PORT,
-                         msg_size + PacketConsts.UDP_HEADER_SIZE + 8, 0)
-    # VXLAN Header
-    outer += struct.pack('!II', PacketConsts.VXLAN_FLAGS << 24,
-                         PacketConsts.VXLAN_VNI << 8)
-    return outer
+    header = struct.pack('!6s6s',
+                        bytes.fromhex(dst_mac.replace(':', '')),
+                        bytes.fromhex(src_mac.replace(':', '')))
+    header += ether_type.to_bytes(2, 'big')
+    return header
+
+
+def gen_ipv4_header(packet_len, next_proto=socket.IPPROTO_UDP, src_ip=PacketConsts.SRC_IP,
+                    dst_ip=PacketConsts.DST_IP):
+    """
+    Generates IPv4 header using the values from the PacketConst class by default.
+    :param packet_len: Length of all fields following the IP header
+    :param next_proto: protocol type of next header
+    :param src_ip: Source mac address
+    :param dst_ip: Destination mac address
+    :return: IPv4 header
+    """
+    ip_total_len = packet_len + PacketConsts.IPV4_HEADER_SIZE
+    return struct.pack('!2B3H2BH4s4s', (PacketConsts.IP_V4 << 4) +
+                       PacketConsts.IHL, 0, ip_total_len, 0,
+                       PacketConsts.IP_V4_FLAGS << 13,
+                       PacketConsts.TTL_HOP_LIMIT, next_proto, 0,
+                       socket.inet_aton(src_ip),
+                       socket.inet_aton(dst_ip))
+
+
+def gen_udp_header(packet_len, src_port=PacketConsts.SRC_PORT, dst_port=PacketConsts.DST_PORT):
+    """
+    Generates UDP header using the values from the PacketConst class by default.
+    :param packet_len: Length of all fields following the UDP header
+    :param src_port: Source port
+    :param dst_port: Destination port
+    :return: UDP header
+    """
+    udp_total_len = packet_len + PacketConsts.UDP_HEADER_SIZE
+    return struct.pack('!4H', src_port, dst_port, udp_total_len, 0)
+
+
+def gen_vxlan_header():
+    """
+    Generates VXLAN header using the values from the PacketConst class by default.
+    :return: VXLAN header
+    """
+    return struct.pack('!II', PacketConsts.VXLAN_FLAGS << 24, PacketConsts.VXLAN_VNI << 8)
 
 
 def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO, with_vlan=False, **kwargs):
