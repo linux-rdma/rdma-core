@@ -249,10 +249,12 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.send_server_fdb_to_nic_packets(self.iters)
 
     @requires_eswitch_on
+    @skip_unsupported
     def test_dest_vport(self):
         self.dest_port()
 
     @requires_eswitch_on
+    @skip_unsupported
     def test_dest_ib_port(self):
         self.dest_port(False)
 
