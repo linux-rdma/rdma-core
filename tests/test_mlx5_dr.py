@@ -279,10 +279,12 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         return mask_param, value_param
 
     @requires_eswitch_on
+    @skip_unsupported
     def test_dest_vport(self):
         self.dest_port()
 
     @requires_eswitch_on
+    @skip_unsupported
     def test_dest_ib_port(self):
         self.dest_port(False)
 
