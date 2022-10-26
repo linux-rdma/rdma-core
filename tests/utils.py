@@ -1210,13 +1210,15 @@ def eswitch_mode_check(dev_name):
     if not pci_name:
         raise unittest.SkipTest(f'Could not find the PCI device of {dev_name}')
     pci_name = pci_name[0].split('/')[5]
+    eswicth_off_msg = f'Device {dev_name} must be in switchdev mode'
     try:
-        subprocess.check_output(['devlink', 'dev', 'eswitch', 'show', f'pci/{pci_name}'],
-                                stderr=subprocess.DEVNULL)
+        cmd_out = subprocess.check_output(['devlink', 'dev', 'eswitch', 'show', f'pci/{pci_name}'],
+                                          stderr=subprocess.DEVNULL)
+        if 'switchdev' not in str(cmd_out):
+            raise unittest.SkipTest(eswicth_off_msg)
     except subprocess.CalledProcessError:
-        raise unittest.SkipTest(f'ESwitch is off on device {dev_name}')
+        raise unittest.SkipTest(eswicth_off_msg)
     return True
-
 
 
 def requires_huge_pages():
