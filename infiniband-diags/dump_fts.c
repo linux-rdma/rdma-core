@@ -109,7 +109,7 @@ static void dump_multicast_tables(ibnd_node_t *node, unsigned startl,
 				  unsigned endl, struct ibmad_port *mad_port)
 {
 	ib_portid_t *portid = &node->path_portid;
-	char nd[IB_SMP_DATA_SIZE] = { 0 };
+	char nd[IB_SMP_DATA_SIZE + 1] = { 0 };
 	char str[512];
 	char *s;
 	uint64_t nodeguid;
@@ -224,7 +224,7 @@ static int dump_lid(char *str, int str_len, int lid, int valid,
 		    ibnd_fabric_t *fabric, int *last_port_lid,
 		    int *base_port_lid, uint64_t *portguid)
 {
-	char nd[IB_SMP_DATA_SIZE] = { 0 };
+	char nd[IB_SMP_DATA_SIZE + 1] = { 0 };
 
 	ibnd_port_t *port = NULL;
 
@@ -302,7 +302,7 @@ static void dump_unicast_tables(ibnd_node_t *node, int startl, int endl,
 {
 	ib_portid_t * portid = &node->path_portid;
 	char lft[IB_SMP_DATA_SIZE] = { 0 };
-	char nd[IB_SMP_DATA_SIZE] = { 0 };
+	char nd[IB_SMP_DATA_SIZE + 1] = { 0 };
 	char str[200];
 	uint64_t nodeguid;
 	int block, i, e, top;
