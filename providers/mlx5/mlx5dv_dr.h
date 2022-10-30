@@ -95,6 +95,7 @@ enum dr_icm_type {
 	DR_ICM_TYPE_STE,
 	DR_ICM_TYPE_MODIFY_ACTION,
 	DR_ICM_TYPE_MODIFY_HDR_PTRN,
+	DR_ICM_TYPE_MAX,
 };
 
 static inline enum dr_icm_chunk_size
@@ -1066,6 +1067,8 @@ struct mlx5dv_dr_domain {
 	uint32_t			flags;
 	/* protect debug lists of all tracked objects */
 	pthread_spinlock_t		debug_lock;
+	/* statistcs */
+	uint32_t num_buddies[DR_ICM_TYPE_MAX];
 };
 
 static inline int dr_domain_nic_lock_init(struct dr_domain_rx_tx *nic_dmn)
