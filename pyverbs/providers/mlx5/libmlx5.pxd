@@ -255,6 +255,7 @@ cdef extern from 'infiniband/mlx5dv.h':
         uint32_t    access
         uint64_t    pgsz_bitmap
         uint64_t    comp_mask
+        int         dmabuf_fd
 
     cdef struct mlx5dv_vfio_context_attr:
         const char  *pci_name

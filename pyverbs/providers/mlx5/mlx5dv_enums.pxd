@@ -285,6 +285,9 @@ cdef extern from 'infiniband/mlx5dv.h':
         MLX5DV_DR_ACTION_DEST
         MLX5DV_DR_ACTION_DEST_REFORMAT
 
+    cpdef enum:
+        MLX5DV_UMEM_MASK_DMABUF
+
     cdef unsigned long long MLX5DV_RES_TYPE_QP
     cdef unsigned long long MLX5DV_RES_TYPE_RWQ
     cdef unsigned long long MLX5DV_RES_TYPE_DBR

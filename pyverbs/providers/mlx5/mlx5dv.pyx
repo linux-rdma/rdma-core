@@ -1642,7 +1642,7 @@ cdef class Wqe(PyverbsCM):
 
 cdef class Mlx5UMEM(PyverbsCM):
     def __init__(self, Context context not None, size, addr=None, alignment=64,
-                 access=0, pgsz_bitmap=0, comp_mask=0):
+                 access=0, pgsz_bitmap=0, comp_mask=0, dmabuf_fd=0):
         """
         User memory object to be used by the DevX interface.
         If pgsz_bitmap or comp_mask were passed, the extended umem registration
@@ -1657,6 +1657,7 @@ cdef class Mlx5UMEM(PyverbsCM):
         :param access: The desired memory protection attributes (default: 0)
         :param pgsz_bitmap: Represents the required page sizes
         :param comp_mask: Compatibility mask
+        :param dmabuf_fd: FD of a dmabuf
         """
         super().__init__()
         cdef dv.mlx5dv_devx_umem_in umem_in
@@ -1675,6 +1676,7 @@ cdef class Mlx5UMEM(PyverbsCM):
             umem_in.access = access
             umem_in.pgsz_bitmap = pgsz_bitmap
             umem_in.comp_mask = comp_mask
+            umem_in.dmabuf_fd = dmabuf_fd
             self.umem = dv.mlx5dv_devx_umem_reg_ex(context.context, &umem_in)
         else:
             self.umem = dv.mlx5dv_devx_umem_reg(context.context, self.addr,
