@@ -43,6 +43,7 @@ class DevxOps:
     MLX5_CMD_OP_MAD_IFC = 0x50d
     MLX5_CMD_OP_ACCESS_REGISTER_PAOS = 0x5006
     MLX5_CMD_OP_ACCESS_REG = 0x805
+    MLX5_CMD_OP_CREATE_MKEY = 0x200
 
 
 # Common
@@ -1631,4 +1632,90 @@ class CreateTirOut(Packet):
         ByteField('icm_address_39_32', 0),
         BitField('tirn', 0, 24),
         IntField('icm_address_31_0', 0),
+    ]
+
+
+class SwMkc(Packet):
+    fields_desc = [
+        BitField('reserved1', 0, 1),
+        BitField('free', 0, 1),
+        BitField('reserved2', 0, 1),
+        BitField('access_mode_4_2', 0, 3),
+        BitField('alter_pd_to_vhca_id', 0, 1),
+        BitField('crossed_side_mkey', 0, 1),
+        BitField('reserved3', 0, 5),
+        BitField('relaxed_ordering_write', 0, 1),
+        BitField('reserved4', 0, 1),
+        BitField('small_fence_on_rdma_read_response', 0, 1),
+        BitField('umr_en', 0, 1),
+        BitField('a', 0, 1),
+        BitField('rw', 0, 1),
+        BitField('rr', 0, 1),
+        BitField('lw', 0, 1),
+        BitField('lr', 0, 1),
+        BitField('access_mode_1_0', 0, 2),
+        BitField('reserved5', 0, 1),
+        BitField('tunneled_atomic', 0, 1),
+        BitField('ma_translation_mode', 0, 2),
+        BitField('reserved6', 0, 4),
+        BitField('qpn', 0, 24),
+        ByteField('mkey_7_0', 0),
+        ByteField('reserved7', 0),
+        BitField('pasid', 0, 24),
+        BitField('length64', 0, 1),
+        BitField('bsf_en', 0, 1),
+        BitField('sync_umr', 0, 1),
+        BitField('reserved8', 0, 2),
+        BitField('expected_sigerr_count', 0, 1),
+        BitField('reserved9', 0, 1),
+        BitField('en_rinval', 0, 1),
+        BitField('pd', 0, 24),
+        LongField('start_addr', 0),
+        LongField('len', 0),
+        IntField('bsf_octword_size', 0),
+        StrFixedLenField('reserved10', None, length=12),
+        ShortField('crossing_target_vhca_id', 0),
+        ShortField('reserved11', 0),
+        IntField('translations_octword_size', 0),
+        BitField('reserved12', 0, 25),
+        BitField('relaxed_ordering_read', 0, 1),
+        BitField('reserved13', 0, 1),
+        BitField('log_entity_size', 0, 5),
+        BitField('reserved14', 0, 3),
+        BitField('crypto_en', 0, 2),
+        BitField('reserved15', 0, 27),
+    ]
+
+
+class CreateMkeyIn(Packet):
+    fields_desc = [
+        ShortField('opcode', DevxOps.MLX5_CMD_OP_CREATE_MKEY),
+        ShortField('uid', 0),
+        ShortField('reserved1', 0),
+        ShortField('op_mod', 0),
+        ByteField('reserved2', 0),
+        BitField('input_mkey_index', 0, 24),
+        BitField('pg_access', 0, 1),
+        BitField('mkey_umem_valid', 0, 1),
+        BitField('reserved3', 0, 30),
+        PacketField('sw_mkc', SwMkc(), SwMkc),
+        LongField('e_mtt_pointer', 0),
+        LongField('e_bsf_pointer', 0),
+        IntField('translations_octword_actual_size', 0),
+        IntField('mkey_umem_id', 0),
+        LongField('mkey_umem_offset', 0),
+        IntField('bsf_octword_actual_size', 0),
+        StrFixedLenField('reserved4', None, length=156),
+        FieldListField('klm_pas_mtt', [0 for x in range(0)], IntField('', 0), count_from=lambda pkt:0),
+    ]
+
+
+class CreateMkeyOut(Packet):
+    fields_desc = [
+        ByteField('status', 0),
+        BitField('reserved1', 0, 24),
+        IntField('syndrome', 0),
+        ByteField('reserved2', 0),
+        BitField('mkey_index', 0, 24),
+        StrFixedLenField('reserved3', None, length=4),
     ]
