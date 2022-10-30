@@ -391,13 +391,12 @@ def get_send_elements(agr_obj, is_server, opcode=e.IBV_WR_SEND):
     :param is_server: Indicates whether this is server or client side
     :return: send wr and its SGE
     """
-    mr = agr_obj.mr
     qp_type = agr_obj.sqp_lst[0].qp_type if isinstance(agr_obj, XRCResources) \
                 else agr_obj.qp.qp_type
     offset = GRH_SIZE if qp_type == e.IBV_QPT_UD else 0
     msg = (agr_obj.msg_size + offset) * ('s' if is_server else 'c')
-    mr.write(msg, agr_obj.msg_size + offset)
-    sge = SGE(mr.buf + offset, agr_obj.msg_size, agr_obj.mr_lkey)
+    agr_obj.mem_write(msg, agr_obj.msg_size + offset)
+    sge = SGE(agr_obj.mr.buf + offset, agr_obj.msg_size, agr_obj.mr_lkey)
     send_wr = SendWR(opcode=opcode, num_sge=1, sg=[sge])
     if opcode in [e.IBV_WR_RDMA_WRITE, e.IBV_WR_RDMA_READ]:
         send_wr.set_wr_rdma(int(agr_obj.rkey), int(agr_obj.remote_addr))
@@ -997,24 +996,24 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
         send(client, c_send_wr, send_op, new_send, ah=ah_client)
         poll_cq(client.cq)
         if same_side_check:
-            msg_received = client.mr.read(client.msg_size, 0)
+            msg_received = client.mem_read(client.msg_size)
         else:
-            msg_received = server.mr.read(server.msg_size, 0)
+            msg_received = server.mem_read(server.msg_size)
         validate(msg_received, False if same_side_check else True,
                  server.msg_size)
         s_send_wr = get_send_elements(server, True, send_op)[send_element_idx]
         if same_side_check:
-            client.mr.write('c' * client.msg_size, client.msg_size)
+            client.mem_write('c' * client.msg_size, client.msg_size)
         send(server, s_send_wr, send_op, new_send, ah=ah_server)
         poll_cq(server.cq)
         if same_side_check:
-            msg_received = server.mr.read(client.msg_size, 0)
+            msg_received = server.mem_read(client.msg_size)
         else:
-            msg_received = client.mr.read(server.msg_size, 0)
+            msg_received = client.mem_read(server.msg_size)
         validate(msg_received, True if same_side_check else False,
                  client.msg_size)
         if same_side_check:
-            server.mr.write('s' * server.msg_size, server.msg_size)
+            server.mem_write('s' * server.msg_size, server.msg_size)
 
 
 def atomic_traffic(client, server, iters, gid_idx, port, new_send=False,

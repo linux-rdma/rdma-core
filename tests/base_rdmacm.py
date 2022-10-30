@@ -133,6 +133,13 @@ class CMResources(abc.ABC):
         attr, mask = cmid.init_qp_attr(e.IBV_QPS_RTS)
         self.qps[conn_idx].modify(attr, mask)
 
+    def mem_write(self, data, size, offset=0):
+        self.mr.write(data, size, offset)
+
+    def mem_read(self, size=None, offset=0):
+        size_ = self.msg_size if size is None else size
+        return self.mr.read(size_, offset)
+
     @abc.abstractmethod
     def create_child_id(self, cm_event=None):
         pass
