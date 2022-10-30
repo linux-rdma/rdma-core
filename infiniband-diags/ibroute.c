@@ -133,7 +133,7 @@ static __be16 mft[16][IB_MLIDS_IN_BLOCK];
 static const char *dump_multicast_tables(ib_portid_t *portid, unsigned startlid,
 					 unsigned endlid)
 {
-	char nd[IB_SMP_DATA_SIZE] = { 0 };
+	char nd[IB_SMP_DATA_SIZE + 1] = { 0 };
 	uint8_t sw[IB_SMP_DATA_SIZE] = { 0 };
 	char str[512], *s;
 	const char *err;
@@ -245,7 +245,7 @@ static const char *dump_multicast_tables(ib_portid_t *portid, unsigned startlid,
 
 static int dump_lid(char *str, int strlen, int lid, int valid)
 {
-	char nd[IB_SMP_DATA_SIZE] = { 0 };
+	char nd[IB_SMP_DATA_SIZE + 1] = { 0 };
 	uint8_t ni[IB_SMP_DATA_SIZE] = { 0 };
 	uint8_t pi[IB_SMP_DATA_SIZE] = { 0 };
 	ib_portid_t lidport = { 0 };
@@ -322,7 +322,7 @@ static const char *dump_unicast_tables(ib_portid_t *portid, int startlid,
 				       int endlid)
 {
 	uint8_t lft[IB_SMP_DATA_SIZE] = { 0 };
-	char nd[IB_SMP_DATA_SIZE] = { 0 };
+	char nd[IB_SMP_DATA_SIZE + 1] = { 0 };
 	uint8_t sw[IB_SMP_DATA_SIZE] = { 0 };
 	char str[200];
 	const char *s;
