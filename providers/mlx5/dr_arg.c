@@ -250,7 +250,7 @@ dr_arg_mngr_create(struct mlx5dv_dr_domain *dmn)
 
 	pool_mngr->dmn = dmn;
 
-	for (i = 0; i <= DR_ARG_CHUNK_SIZE_MAX - 1; i++) {
+	for (i = 0; i < DR_ARG_CHUNK_SIZE_MAX; i++) {
 		pool_mngr->pools[i] = dr_arg_pool_create(dmn, i);
 		if (!pool_mngr->pools[i])
 			goto clean_pools;
@@ -275,7 +275,7 @@ void dr_arg_mngr_destroy(struct dr_arg_mngr *mngr)
 		return;
 
 	pools = mngr->pools;
-	for (i = 0; i < DR_ARG_CHUNK_SIZE_MAX - 1; i++)
+	for (i = 0; i < DR_ARG_CHUNK_SIZE_MAX; i++)
 		dr_arg_pool_destroy(pools[i]);
 
 	free(mngr);
