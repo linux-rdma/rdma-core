@@ -415,7 +415,7 @@ srq_attr.cq = cq
 srq_attr.comp_mask = e.IBV_SRQ_INIT_ATTR_TYPE | e.IBV_SRQ_INIT_ATTR_PD | \
                      e.IBV_SRQ_INIT_ATTR_CQ | e.IBV_SRQ_INIT_ATTR_XRCD
 srq = SRQ(ctx, srq_attr)
-
+```
 
 ##### Open an mlx5 provider
 A provider is essentially a Context with driver-specific extra features. As
