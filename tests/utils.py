@@ -891,7 +891,8 @@ def validate_raw(msg_received, msg_expected, skip_idxs):
 
 
 def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
-                l4=PacketConsts.UDP_PROTO, with_vlan=False, expected_packet=None, skip_idxs=[]):
+                l4=PacketConsts.UDP_PROTO, with_vlan=False, expected_packet=None,
+                skip_idxs=None):
     """
     Runs raw ethernet traffic between two sides
     :param client: client side, clients base class is BaseTraffic
@@ -905,6 +906,7 @@ def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
     :param skip_idxs: indexes to skip during packet validation
     :return:
     """
+    skip_idxs = [] if skip_idxs is None else skip_idxs
     s_recv_wr = get_recv_wr(server)
     c_recv_wr = get_recv_wr(client)
     for qp_idx in range(server.qp_count):

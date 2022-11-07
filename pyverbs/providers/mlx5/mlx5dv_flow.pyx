@@ -225,7 +225,7 @@ cdef class Mlx5FlowActionAttr(PyverbsObject):
 
 cdef class Mlx5Flow(Flow):
     def __init__(self, Mlx5FlowMatcher matcher,
-                 Mlx5FlowMatchParameters match_value, action_attrs=[],
+                 Mlx5FlowMatchParameters match_value, action_attrs=None,
                  num_actions=0):
         """
         Initialize a Mlx5Flow object derived form Flow class.
@@ -238,6 +238,7 @@ cdef class Mlx5Flow(Flow):
         cdef void *attr_addr
 
         super(Flow, self).__init__()
+        action_attrs = [] if action_attrs is None else action_attrs
         if len(action_attrs) != num_actions:
             self.logger.warn('num_actions is different from actions array length.')
         total_size = num_actions * sizeof(dv.mlx5dv_flow_action_attr)

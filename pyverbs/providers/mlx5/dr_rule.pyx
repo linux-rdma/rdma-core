@@ -12,7 +12,7 @@ from pyverbs.pyverbs_error import PyverbsError
 
 cdef class DrRule(PyverbsCM):
     def __init__(self, DrMatcher matcher, Mlx5FlowMatchParameters value,
-                 actions=[]):
+                 actions=None):
         """
         Initialize DrRule object over underlying mlx5dv_dr_rule C object.
         :param matcher: A matcher with the fields to match on
@@ -21,6 +21,7 @@ cdef class DrRule(PyverbsCM):
         """
         super().__init__()
         cdef dv.mlx5dv_dr_action**actions_arr
+        actions = [] if actions is None else actions
         actions_arr = <dv.mlx5dv_dr_action**>calloc(len(actions),
                                                     sizeof(dv.mlx5dv_dr_action*))
         if actions_arr == NULL:

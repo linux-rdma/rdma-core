@@ -70,12 +70,13 @@ class FlowRes(RawResources):
                           dst_port=PacketConsts.DST_PORT)
         return spec
 
-    def create_flow(self, specs=[]):
+    def create_flow(self, specs=None):
         """
         Creates flow to match on provided specs.
         :param specs: list of specs to match on
         :return: created flow
         """
+        specs = [] if specs is None else specs
         flow_attr = FlowAttr(num_of_specs=len(specs), port=self.ib_port)
         for spec in specs:
             flow_attr.specs.append(spec)
