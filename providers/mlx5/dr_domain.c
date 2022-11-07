@@ -182,6 +182,9 @@ static void dr_domain_vports_uninit(struct mlx5dv_dr_domain *dmn)
 		vports->vports = NULL;
 	}
 	pthread_spin_destroy(&vports->lock);
+
+	if (vports->ib_ports)
+		free(vports->ib_ports);
 }
 
 static int dr_domain_query_esw_mgr(struct mlx5dv_dr_domain *dmn,
@@ -360,7 +363,7 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 	default:
 		dr_dbg(dmn, "Invalid domain\n");
 		ret = EINVAL;
-		break;
+		goto uninit_vports;
 	}
 
 	return ret;
