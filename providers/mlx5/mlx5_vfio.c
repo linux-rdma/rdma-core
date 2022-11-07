@@ -3334,7 +3334,7 @@ mlx5dv_get_vfio_device_list(struct mlx5dv_vfio_context_attr *attr)
 		return NULL;
 	}
 
-	list = calloc(1, sizeof(struct ibv_device *));
+	list = calloc(2, sizeof(struct ibv_device *));
 	if (!list) {
 		errno = ENOMEM;
 		return NULL;
