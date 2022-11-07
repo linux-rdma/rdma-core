@@ -66,7 +66,7 @@ Conflicts: infiniband-diags <= 1.6.7
 # Ninja was introduced in FC23
 BuildRequires: ninja-build
 %define CMAKE_FLAGS -GNinja
-%if 0%{?fedora} >= 33
+%if 0%{?fedora} >= 33 || 0%{?rhel} >= 9
 %define make_jobs ninja-build -C %{_vpath_builddir} -v %{?_smp_mflags}
 %define cmake_install DESTDIR=%{buildroot} ninja-build -C %{_vpath_builddir} install
 %else
