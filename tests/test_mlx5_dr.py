@@ -35,10 +35,6 @@ from tests.base import RawResources
 import pyverbs.enums as e
 import tests.utils as u
 
-OUT_SMAC_47_16_FIELD_ID = 0x1
-OUT_SMAC_47_16_FIELD_LENGTH = 32
-OUT_SMAC_15_0_FIELD_ID = 0x2
-OUT_SMAC_15_0_FIELD_LENGTH = 16
 SET_ACTION = 0x1
 MAX_MATCH_PARAM_SIZE = 0x180
 PF_VPORT = 0x0
@@ -46,6 +42,26 @@ GENEVE_PACKET_OUTER_LENGTH = 50
 
 SAMPLER_ERROR_MARGIN = 0.2
 SAMPLE_RATIO = 4
+REG_C_DATA = 0x1234
+
+
+class ModifyFields:
+    """
+    Supported SW steering modify fields.
+    """
+    OUT_SMAC_47_16 = 0x1
+    OUT_SMAC_15_0 = 0x2
+    META_DATA_REG_C_0 = 0x51
+    META_DATA_REG_C_1 = 0x52
+
+
+class ModifyFieldsLen:
+    """
+    Supported SW steering modify fields length.
+    """
+    MAC_47_16 = 32
+    MAC_15_0 = 16
+    META_DATA_REG_C = 32
 
 
 def skip_if_has_geneve_tx_bug(ctx):
@@ -208,10 +224,10 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         matcher = DrMatcher(table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
-        action1 = SetActionIn(action_type=SET_ACTION, field=OUT_SMAC_47_16_FIELD_ID,
-                              data=0x88888888, length=OUT_SMAC_47_16_FIELD_LENGTH)
-        action2 = SetActionIn(action_type=SET_ACTION, field=OUT_SMAC_15_0_FIELD_ID,
-                              data=0x8888, length=OUT_SMAC_15_0_FIELD_LENGTH)
+        action1 = SetActionIn(action_type=SET_ACTION, field=ModifyFields.OUT_SMAC_47_16,
+                              data=0x88888888, length=ModifyFieldsLen.MAC_47_16)
+        action2 = SetActionIn(action_type=SET_ACTION, field=ModifyFields.OUT_SMAC_15_0,
+                              data=0x8888, length=ModifyFieldsLen.MAC_15_0)
         self.modify_actions = DrActionModify(self.domain_tx, dve.MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL,
                                              [action1, action2])
         self.rules.append(DrRule(matcher, value_param, [self.modify_actions]))
@@ -358,6 +374,20 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         value_param = Mlx5FlowMatchParameters(len(geneve_value), geneve_value)
         return mask_param, value_param
 
+    def create_empty_matcher_go_to_tbl(self, src_tbl, dst_tbl):
+        """
+        Create rule that forward all packets (by empty matcher) from src_tbl to
+        dst_tbl.
+        """
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParam
+
+        empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParam()),
+                                              FlowTableEntryMatchParam())
+        matcher = DrMatcher(src_tbl, 0, u.MatchCriteriaEnable.NONE, empty_param)
+        go_to_tbl_action = DrActionDestTable(dst_tbl)
+        self.rules.append(DrRule(matcher, empty_param, [go_to_tbl_action]))
+        return go_to_tbl_action
+
     @requires_eswitch_on
     @skip_unsupported
     def test_dest_vport(self):
@@ -394,6 +424,80 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.create_rx_recv_rules(src_mac, [self.qp_action])
         exp_packet = u.gen_packet(self.client.msg_size, src_mac=src_mac)
         u.raw_traffic(self.client, self.server, self.iters, expected_packet=exp_packet)
+
+    @skip_unsupported
+    def test_metadata_modify_action_set_copy_match(self):
+        """
+        Verify modify header with set and copy actions.
+        TX and RX:
+        - Root table:
+            Match empty (hit all):
+                Rule: prio 0 - val empty. Action: Go TO Table 1
+        - Table 1:
+            Match empty (hit all):
+                Rule: prio 0 - val empty. Action: Modify Header (set reg_c_0 to REG_C_DATA)
+                                                     + Go TO Table 2
+        - Table 2:
+            Match empty (hit all):
+                Rule: prio 0 - val empty. Action: Modify Header (copy reg_c_0 to reg_c_1)
+                                                  + Go To Table 3
+        TX:
+        - Table 3:
+            Match reg_c_0 and reg_c_1:
+                Rule: prio 0 - val REG_C_DATA. Action: Counter
+        RX:
+        - Table 3:
+            Match reg_c_0 and reg_c_1:
+                Rule: prio 0 - val REG_C_DATA. Action: Go To QP
+        """
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParam, FlowTableEntryMatchSetMisc2, \
+            SetActionIn, CopyActionIn
+
+        self.create_players(Mlx5DrResources)
+        match_param = FlowTableEntryMatchParam()
+        empty_param = Mlx5FlowMatchParameters(len(match_param), match_param)
+        mask_metadata = FlowTableEntryMatchParam(misc_parameters_2=
+                FlowTableEntryMatchSetMisc2(metadata_reg_c_0=0xffff, metadata_reg_c_1=0xffff))
+        mask_param = Mlx5FlowMatchParameters(len(match_param), mask_metadata)
+        value_metadata = FlowTableEntryMatchParam(misc_parameters_2=
+                FlowTableEntryMatchSetMisc2(metadata_reg_c_0=REG_C_DATA,
+                                            metadata_reg_c_1=REG_C_DATA))
+        value_param = Mlx5FlowMatchParameters(len(match_param), value_metadata)
+        self.client.domain = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        self.server.domain = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+        for player in [self.client, self.server]:
+            player.tables = []
+            player.matchers = []
+            for i in range(4):
+                player.tables.append(DrTable(player.domain, i))
+            for i in range(2):
+                player.matchers.append(DrMatcher(player.tables[i + 1], 0,
+                                                 u.MatchCriteriaEnable.NONE, empty_param))
+            player.matchers.append(DrMatcher(player.tables[3], 0,
+                                             u.MatchCriteriaEnable.MISC_2, mask_param))
+            player.go_to_tbl1_action = self.create_empty_matcher_go_to_tbl(player.tables[0],
+                                                                           player.tables[1])
+            set_reg = SetActionIn(field=ModifyFields.META_DATA_REG_C_0,
+                                  length=ModifyFieldsLen.META_DATA_REG_C, data=REG_C_DATA)
+            player.modify_action_set = DrActionModify(player.domain, 0, [set_reg])
+            player.go_to_tbl2_action = DrActionDestTable(player.tables[2])
+            self.rules.append(DrRule(player.matchers[0], empty_param, [player.modify_action_set,
+                                                                       player.go_to_tbl2_action]))
+            copy_reg = CopyActionIn(src_field=ModifyFields.META_DATA_REG_C_0,
+                                    length=ModifyFields.META_DATA_REG_C_0,
+                                    dst_field=ModifyFields.META_DATA_REG_C_1)
+            player.modify_action_copy = DrActionModify(player.domain, 0, [copy_reg])
+            player.go_to_tbl3_action = DrActionDestTable(player.tables[3])
+            self.rules.append(DrRule(player.matchers[1], empty_param, [player.modify_action_copy,
+                                                                       player.go_to_tbl3_action]))
+        counter, flow_counter_id = self.create_counter(self.client.ctx)
+        counter_action = DrActionFlowCounter(counter)
+        self.rules.append(DrRule(self.client.matchers[2], value_param, [counter_action]))
+        qp_action = DrActionQp(self.server.qp)
+        self.rules.append(DrRule(self.server.matchers[2], value_param, [qp_action]))
+        u.raw_traffic(self.client, self.server, self.iters)
+        sent_packets = self.query_counter_packets(counter, flow_counter_id)
+        self.assertEqual(sent_packets, self.iters, 'Counter of metadata missed some sent packets')
 
     @skip_unsupported
     def test_tbl_counter_action(self):
