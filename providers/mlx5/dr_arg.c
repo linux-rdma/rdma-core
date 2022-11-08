@@ -120,7 +120,6 @@ static void dr_arg_pool_put_arg_obj(struct dr_arg_pool *pool,
 				    struct dr_arg_obj *arg_obj)
 {
 	pthread_mutex_lock(&pool->mutex);
-	list_del(&arg_obj->list_node);
 	list_add(&pool->free_list, &arg_obj->list_node);
 	pthread_mutex_unlock(&pool->mutex);
 }
