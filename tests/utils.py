@@ -1622,3 +1622,26 @@ def create_rq_with_larger_sgl_bad_flow(test_obj):
     with test_obj.assertRaises(PyverbsRDMAError) as ex:
         post_recv(test_obj.server, s_recv_wr, qp_idx=qp_idx)
     test_obj.assertEqual(ex.exception.error_code, errno.EINVAL)
+
+
+def high_rate_send(agr_obj, packet, rate_limit, timeout=2):
+    """
+    Sends packet at high rate for 'timeout' seconds.
+    :param agr_obj: Aggregation object which contains all resources necessary
+    :param packet: Packet to send
+    :param rate_limit: Minimal rate limit in MBps
+    :param timeout: Seconds to send the packets
+    """
+    send_sg = SGE(agr_obj.mr.buf, len(packet), agr_obj.mr.lkey)
+    agr_obj.mr.write(packet, len(packet))
+    send_wr = SendWR(num_sge=1, sg=[send_sg])
+    poll = poll_cq_ex if isinstance(agr_obj.cq, CQEX) else poll_cq
+    iterations = 0
+    start_send_t = time.perf_counter()
+    while (time.perf_counter() - start_send_t) < timeout:
+        agr_obj.qp.post_send(send_wr)
+        poll(agr_obj.cq)
+        iterations += 1
+    # Calculate the rate
+    rate = agr_obj.msg_size * iterations / timeout / 1000000
+    assert rate > rate_limit, 'Traffic rate is smaller than minimal rate for the test'

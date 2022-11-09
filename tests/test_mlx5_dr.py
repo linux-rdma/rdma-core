@@ -4,8 +4,8 @@
 Test module for pyverbs' mlx5 dr module.
 """
 
+from os import path, system
 import unittest
-import os.path
 import struct
 import socket
 import errno
@@ -15,7 +15,7 @@ from pyverbs.providers.mlx5.dr_action import DrActionQp, DrActionModify, \
     DrActionFlowCounter, DrActionDrop, DrActionTag, DrActionDestTable, \
     DrActionPopVLan, DrActionPushVLan, DrActionDestAttr, DrActionDestArray, \
     DrActionDefMiss, DrActionVPort, DrActionIBPort, DrActionDestTir, DrActionPacketReformat,\
-    DrFlowSamplerAttr, DrActionFlowSample
+    DrFlowSamplerAttr, DrActionFlowSample, DrFlowMeterAttr, DrActionFlowMeter
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, Mlx5Context, Mlx5DVContextAttr
 from tests.utils import skip_unsupported, requires_root_on_eth, requires_eswitch_on, \
     PacketConsts
@@ -40,9 +40,12 @@ MAX_MATCH_PARAM_SIZE = 0x180
 PF_VPORT = 0x0
 GENEVE_PACKET_OUTER_LENGTH = 50
 ROCE_PACKET_OUTER_LENGTH = 58
-
 SAMPLER_ERROR_MARGIN = 0.2
 SAMPLE_RATIO = 4
+METADATA_C_FIELDS = ['metadata_reg_c_0', 'metadata_reg_c_1', 'metadata_reg_c_2',
+                     'metadata_reg_c_3', 'metadata_reg_c_4', 'metadata_reg_c_5']
+FLOW_METER_GREEN = 2
+FLOW_METER_RED = 0
 REG_C_DATA = 0x1234
 
 
@@ -113,6 +116,23 @@ class Mlx5DrResources(RawResources):
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Create Extended CQ is not supported')
             raise ex
+
+    def get_first_flow_meter_reg_id(self):
+        """
+        Queries hca caps for supported reg C indexes for flow meter.
+        :return: First reg C index that is supported
+        """
+        from tests.mlx5_prm_structs import QueryHcaCapIn, QueryQosCapOut, DevxOps
+        query_cap_in = QueryHcaCapIn(op_mod=DevxOps.MLX5_CMD_OP_QUERY_QOS_CAP << 1)
+        cmd_res = self.ctx.devx_general_cmd(query_cap_in, len(QueryQosCapOut()))
+        query_cap_out = QueryQosCapOut(cmd_res)
+        if query_cap_out.status:
+            raise PyverbsRDMAError(f'QUERY_HCA_CAP has failed with status ({query_cap_out.status}) '
+                                   f'and syndrome ({query_cap_out.syndrome})')
+        bit_regs = query_cap_out.capability.flow_meter_reg_id
+        if bit_regs == 0:
+            raise PyverbsRDMAError(f'Reg C is not supported)')
+        return int(math.log2(bit_regs & -bit_regs))
 
 
 class Mlx5DrTirResources(Mlx5DrResources):
@@ -1069,6 +1089,67 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         encap_header = self.gen_geneve_tunnel_encap_header(self.client.msg_size, is_l2_tunnel=False)
         self.packet_reformat_actions(outer=encap_header, root_only=True, l2_ref_type=False)
 
+    @skip_unsupported
+    def test_flow_meter(self):
+        """
+        Create flow meter actions on TX and RX non-root tables. Add green and
+        red counters to the meter rules to verify the packets split to different
+        colors. Send minimal traffic to see that both counters increased.
+        """
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParam, FlowTableEntryMatchSetMisc2,\
+            FlowMeterParams
+        self.create_players(Mlx5DrResources)
+        # Common resources
+        matcher_len = len(FlowTableEntryMatchParam())
+        empty_param = Mlx5FlowMatchParameters(matcher_len, FlowTableEntryMatchParam())
+        reg_c_idx = self.client.get_first_flow_meter_reg_id()
+        reg_c_field = METADATA_C_FIELDS[reg_c_idx]
+        meter_param = FlowMeterParams(valid=0x1, bucket_overflow=0x1, start_color=0x2,
+                                      cir_mantissa=1, cir_exponent=6)  # 15.625MBps
+        reg_c_mask = Mlx5FlowMatchParameters(matcher_len, FlowTableEntryMatchParam(
+            misc_parameters_2=FlowTableEntryMatchSetMisc2(**{reg_c_field: 0xffffffff})))
+        reg_c_green = Mlx5FlowMatchParameters(matcher_len, FlowTableEntryMatchParam(
+            misc_parameters_2=FlowTableEntryMatchSetMisc2(**{reg_c_field: FLOW_METER_GREEN})))
+        reg_c_red = Mlx5FlowMatchParameters(matcher_len, FlowTableEntryMatchParam(
+            misc_parameters_2=FlowTableEntryMatchSetMisc2(**{reg_c_field: FLOW_METER_RED})))
+
+        self.client.domain = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        self.server.domain = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+
+        for player in [self.client, self.server]:
+            player.root_table = DrTable(player.domain, 0)
+            player.table = DrTable(player.domain, 1)
+            player.next_table = DrTable(player.domain, 2)
+            player.root_matcher = DrMatcher(player.root_table, 0, u.MatchCriteriaEnable.NONE,
+                                            empty_param)
+            player.matcher = DrMatcher(player.table, 0, u.MatchCriteriaEnable.NONE, empty_param)
+            player.reg_c_matcher = DrMatcher(player.next_table, 2, u.MatchCriteriaEnable.MISC_2,
+                                             reg_c_mask)
+            meter_attr = DrFlowMeterAttr(player.next_table, 1, reg_c_idx, meter_param)
+            player.meter_action = DrActionFlowMeter(meter_attr)
+            player.dest_action = DrActionDestTable(player.table)
+            self.rules.append(DrRule(player.root_matcher, empty_param, [player.dest_action]))
+            self.rules.append(DrRule(player.matcher, empty_param, [player.meter_action]))
+            player.counter_green, player.flow_counter_id_green = self.create_counter(player.ctx)
+            player.counter_action_green = DrActionFlowCounter(player.counter_green)
+            player.counter_red, player.flow_counter_id_red = self.create_counter(player.ctx)
+            player.counter_action_red = DrActionFlowCounter(player.counter_red)
+            self.rules.append(DrRule(player.reg_c_matcher, reg_c_green,
+                                     [player.counter_action_green]))
+            self.rules.append(DrRule(player.reg_c_matcher, reg_c_red, [player.counter_action_red]))
+
+        packet = u.gen_packet(self.client.msg_size)
+        # We want to send at least at 30MBps speed
+        rate_limit = 30
+        u.high_rate_send(self.client, packet, rate_limit)
+
+        for name, player in {'client': self.client, 'server': self.server}.items():
+            green_packets = self.query_counter_packets(player.counter_green,
+                                                       player.flow_counter_id_green)
+            red_packets = self.query_counter_packets(player.counter_red, player.flow_counter_id_red)
+            self.assertTrue(green_packets > 0, f'No packet of {name} got green color')
+            self.assertTrue(red_packets > 0, f'No packet of {name} got red color')
+
 
 class Mlx5DrDumpTest(PyverbsAPITestCase):
     def setUp(self):
@@ -1086,5 +1167,5 @@ class Mlx5DrDumpTest(PyverbsAPITestCase):
         self.res = Mlx5DrResources(self.dev_name, self.ib_port)
         self.domain_rx = DrDomain(self.res.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         self.domain_rx.dump(dump_file)
-        self.assertTrue(os.path.isfile(dump_file), 'Dump file does not exist.')
-        self.assertGreater(os.path.getsize(dump_file), 0, 'Dump file is empty')
+        self.assertTrue(path.isfile(dump_file), 'Dump file does not exist.')
+        self.assertGreater(path.getsize(dump_file), 0, 'Dump file is empty')

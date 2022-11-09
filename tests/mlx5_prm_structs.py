@@ -35,6 +35,7 @@ class DevxOps:
     MLX5_QPC_ST_RC = 0X0
     MLX5_QPC_PM_STATE_MIGRATED = 0x3
     MLX5_CMD_OP_QUERY_HCA_CAP = 0x100
+    MLX5_CMD_OP_QUERY_QOS_CAP = 0xc
     MLX5_CMD_OP_ALLOC_FLOW_COUNTER = 0x939
     MLX5_CMD_OP_DEALLOC_FLOW_COUNTER = 0x93a
     MLX5_CMD_OP_QUERY_FLOW_COUNTER = 0x93b
@@ -1876,4 +1877,93 @@ class QueryCmdHcaCap2Out(Packet):
         IntField('syndrome', 0),
         StrFixedLenField('reserved2', None, length=8),
         PadField(PacketField('capability', CmdHcaCap2(), CmdHcaCap2), 2048, padwith=b"\x00"),
+    ]
+
+
+class FlowMeterParams(Packet):
+    fields_desc = [
+        BitField('valid', 0, 1),
+        BitField('bucket_overflow', 0, 1),
+        BitField('start_color', 0, 2),
+        BitField('both_buckets_on_green', 0, 1),
+        BitField('reserved1', 0, 1),
+        BitField('meter_mode', 0, 2),
+        BitField('reserved2', 0, 24),
+        StrFixedLenField('reserved3', None, length=4),
+        ByteField('cbs_exponent', 0),
+        ByteField('cbs_mantissa', 0),
+        BitField('reserved4', 0, 3),
+        BitField('cir_exponent', 0, 5),
+        ByteField('cir_mantissa', 0),
+        StrFixedLenField('reserved5', None, length=4),
+        ByteField('ebs_exponent', 0),
+        ByteField('ebs_mantissa', 0),
+        BitField('reserved6', 0, 3),
+        BitField('eir_exponent', 0, 5),
+        ByteField('eir_mantissa', 0),
+        StrFixedLenField('reserved7', None, length=12),
+    ]
+
+
+class QosCaps(Packet):
+    fields_desc = [
+        BitField('packet_pacing', 0, 1),
+        BitField('esw_scheduling', 0, 1),
+        BitField('esw_bw_share', 0, 1),
+        BitField('esw_rate_limit', 0, 1),
+        BitField('hll', 0, 1),
+        BitField('packet_pacing_burst_bound', 0, 1),
+        BitField('packet_pacing_typical_size', 0, 1),
+        BitField('flow_meter_old', 0, 1),
+        BitField('nic_sq_scheduling', 0, 1),
+        BitField('nic_bw_share', 0, 1),
+        BitField('nic_rate_limit', 0, 1),
+        BitField('packet_pacing_uid', 0, 1),
+        BitField('log_esw_max_sched_depth', 0, 4),
+        ByteField('log_max_flow_meter', 0),
+        ByteField('flow_meter_reg_id', 0),
+        BitField('wqe_rate_pp', 0, 1),
+        BitField('nic_qp_scheduling', 0, 1),
+        BitField('reserved1', 0, 2),
+        BitField('log_nic_max_sched_depth', 0, 4),
+        BitField('flow_meter', 0, 1),
+        BitField('reserved2', 0, 1),
+        BitField('qos_remap_pp', 0, 1),
+        BitField('log_max_qos_nic_queue_group', 0, 5),
+        ShortField('reserved3', 0),
+        IntField('packet_pacing_max_rate', 0),
+        IntField('packet_pacing_min_rate', 0),
+        BitField('reserved4', 0, 11),
+        BitField('log_esw_max_rate_limit', 0, 5),
+        ShortField('packet_pacing_rate_table_size', 0),
+        ShortField('esw_element_type', 0),
+        ShortField('esw_tsar_type', 0),
+        ShortField('max_qos_para_vport', 0),
+        ShortField('max_qos_para_vport_old', 0),
+        IntField('max_tsar_bw_share', 0),
+        ShortField('nic_element_type', 0),
+        ShortField('nic_tsar_type', 0),
+        BitField('reserved5', 0, 3),
+        BitField('log_meter_aso_granularity', 0, 5),
+        BitField('reserved6', 0, 3),
+        BitField('log_meter_aso_max_alloc', 0, 5),
+        BitField('reserved7', 0, 3),
+        BitField('log_max_num_meter_aso', 0, 5),
+        ByteField('reserved8', 0),
+        BitField('reserved9', 0, 3),
+        BitField('log_max_qos_nic_scheduling_element', 0, 5),
+        BitField('reserved10', 0, 3),
+        BitField('log_max_qos_esw_scheduling_element', 0, 5),
+        ShortField('reserved11', 0),
+        StrFixedLenField('reserved12', None, length=212),
+    ]
+
+
+class QueryQosCapOut(Packet):
+    fields_desc = [
+        ByteField('status', 0),
+        BitField('reserved1', 0, 24),
+        IntField('syndrome', 0),
+        StrFixedLenField('reserved2', None, length=8),
+        PadField(PacketField('capability', QosCaps(), QosCaps), 4096, padwith=b"\x00"),
     ]
