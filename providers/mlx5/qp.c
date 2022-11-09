@@ -2638,9 +2638,14 @@ static void crypto_umr_wqe_finalize(struct mlx5_qp *mqp)
 		return;
 	}
 
+	/*
+	 * Handle the case when the size of the previously written data segment
+	 * was bigger than MLX5_SEND_WQE_BB and it overlapped the end of the SQ.
+	 * The BSF segment needs to come just after it for this UMR WQE.
+	 */
 	seg = mqp->cur_data + cur_data_size;
 	if (unlikely(seg >= qend))
-		seg = qend - seg + mlx5_get_send_wqe(mqp, 0);
+		seg = seg - qend + mlx5_get_send_wqe(mqp, 0);
 
 	if (mkey->sig) {
 		/* If sig and crypto are enabled, sig BSF must be set */
@@ -2744,9 +2749,14 @@ static void umr_wqe_finalize(struct mlx5_qp *mqp)
 		return;
 	}
 
+	/*
+	 * Handle the case when the size of the previously written data segment
+	 * was bigger than MLX5_SEND_WQE_BB and it overlapped the end of the SQ.
+	 * The BSF segment needs to come just after it for this UMR WQE.
+	 */
 	seg = mqp->cur_data + cur_data_size;
 	if (unlikely(seg >= qend))
-		seg = qend - seg + mlx5_get_send_wqe(mqp, 0);
+		seg = seg - qend + mlx5_get_send_wqe(mqp, 0);
 
 	ret = mlx5_umr_fill_sig_bsf(seg, &mkey->sig->block, false);
 	if (ret) {
