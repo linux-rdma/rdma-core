@@ -2,11 +2,10 @@ Source: rdma-core
 Maintainer: Benjamin Drung <bdrung@ubuntu.com>
 Section: net
 Priority: optional
-Build-Depends: cmake (>= 2.8.11),
+Build-Depends: cmake,
                cython3,
                debhelper-compat (= 13),
                dh-python,
-               dpkg-dev (>= 1.17),
                libnl-3-dev,
                libnl-route-3-dev,
                libsystemd-dev,
@@ -25,15 +24,13 @@ Homepage: https://github.com/linux-rdma/rdma-core
 
 Package: rdma-core
 Architecture: linux-any
-Depends: lsb-base (>= 3.2-14~),
+Depends: lsb-base,
          udev,
          ${misc:Depends},
          ${perl:Depends},
          ${shlibs:Depends}
 Pre-Depends: ${misc:Pre-Depends}
 Recommends: dmidecode, ethtool, iproute2
-Breaks: infiniband-diags (<< 2.0.0)
-Replaces: infiniband-diags (<< 2.0.0)
 Description: RDMA core userspace infrastructure and documentation
  This package provides the basic boot time support for systems that use the
  Linux kernel's remote direct memory access (RDMA) subystem which includes
@@ -49,8 +46,8 @@ Description: RDMA core userspace infrastructure and documentation
 
 Package: ibacm
 Architecture: linux-any
-Depends: lsb-base (>= 3.2-14~),
-         rdma-core (>= 15),
+Depends: lsb-base,
+         rdma-core,
          ${misc:Depends},
          ${shlibs:Depends}
 Description: InfiniBand Communication Manager Assistant (ACM)
@@ -260,8 +257,8 @@ Description: Examples for the librdmacm library
 
 Package: srptools
 Architecture: linux-any
-Depends: lsb-base (>= 3.2-14~),
-         rdma-core (>= 15),
+Depends: lsb-base,
+         rdma-core,
          udev,
          ${misc:Depends},
          ${shlibs:Depends}
@@ -274,7 +271,7 @@ Description: Tools for Infiniband attached storage (SRP)
 Package: python3-pyverbs
 Section: python
 Architecture: linux-any
-Depends: rdma-core (>= 21),
+Depends: rdma-core,
          ${misc:Depends},
          ${python3:Depends},
          ${shlibs:Depends}
@@ -352,8 +349,6 @@ Section: libdevel
 Architecture: linux-any
 Multi-Arch: same
 Depends: libibnetdisc5 (= ${binary:Version}), ${misc:Depends}
-Breaks: infiniband-diags (<< 2.0.0)
-Replaces: infiniband-diags (<< 2.0.0)
 Description: InfiniBand diagnostics library headers
  InfiniBand is a switched fabric communications link used in
  high-performance computing and enterprise data centers. Its features
