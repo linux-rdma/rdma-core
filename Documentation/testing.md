@@ -128,6 +128,27 @@ Ran 14 tests in 0.152s
 OK
 ```
 
+### GPUDirect RDMA
+Part of the available tests includes GPUDirect RDMA.
+Those tests run RDMA traffic over CUDA-allocated memory.
+In order to run them successfully it's required to have a supported NVIDIA GPU,
+CUDA 11.7 and above with "Open flavor" ("-m kernel-open") Driver 515 or later
+and cuda-python 12.0 and above.
+Running the tests is similar to other tests, with the option to choose which GPU
+unit to use in case there are multiple GPUs on the setup.
+```
+$ build/bin/run_tests.py -v --gpu 0 -k cuda
+test_cuda_dmabuf_rdma_write_traffic (tests.test_cuda_dmabuf.DmabufCudaTest)
+Runs RDMA Write traffic over CUDA allocated memory using DMA BUF and ... ok
+test_mlx_devx_cuda_send_imm_traffic (tests.test_mlx5_cuda_umem.Mlx5GpuDevxRcTrafficTest)
+Creates two DevX RC QPs and runs SEND_IMM traffic over CUDA allocated ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 3.033s
+
+OK
+```
+
 ## Writing Tests
 The following section explains how to add a new test, using tests/test_odp.py
 as an example. It's a simple test that runs ping-pong over a few different

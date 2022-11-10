@@ -494,6 +494,13 @@ class BaseResources(object):
     def create_pd(self):
         self.pd = PD(self.ctx)
 
+    def mem_write(self, data, size, offset=0):
+        self.mr.write(data, size, offset)
+
+    def mem_read(self, size=None, offset=0):
+        size_ = self.msg_size if size is None else size
+        return self.mr.read(size_, offset)
+
 
 class TrafficResources(BaseResources):
     """
