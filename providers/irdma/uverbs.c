@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <malloc.h>
 #include <linux/if_ether.h>
+#include <infiniband/opcode.h>
 
 #include "umain.h"
 #include "abi.h"
@@ -568,6 +569,55 @@ static enum ibv_wc_status irdma_flush_err_to_ib_wc_status(enum irdma_flush_opcod
 	}
 }
 
+static inline void set_ib_wc_op_sq(struct irdma_cq_poll_info *cur_cqe, struct ibv_wc *entry)
+{
+	switch (cur_cqe->op_type) {
+	case IRDMA_OP_TYPE_RDMA_WRITE:
+	case IRDMA_OP_TYPE_RDMA_WRITE_SOL:
+		entry->opcode = IBV_WC_RDMA_WRITE;
+		break;
+	case IRDMA_OP_TYPE_RDMA_READ:
+		entry->opcode = IBV_WC_RDMA_READ;
+		break;
+	case IRDMA_OP_TYPE_SEND_SOL:
+	case IRDMA_OP_TYPE_SEND_SOL_INV:
+	case IRDMA_OP_TYPE_SEND_INV:
+	case IRDMA_OP_TYPE_SEND:
+		entry->opcode = IBV_WC_SEND;
+		break;
+	case IRDMA_OP_TYPE_BIND_MW:
+		entry->opcode = IBV_WC_BIND_MW;
+		break;
+	case IRDMA_OP_TYPE_INV_STAG:
+		entry->opcode = IBV_WC_LOCAL_INV;
+		break;
+	default:
+		entry->status = IBV_WC_GENERAL_ERR;
+	}
+}
+
+static inline void set_ib_wc_op_rq(struct irdma_cq_poll_info *cur_cqe,
+				   struct ibv_wc *entry, bool send_imm_support)
+{
+	/**
+	 * iWARP does not support sendImm, so the presence of Imm data
+	 * must be WriteImm.
+	 */
+	if (!send_imm_support) {
+		entry->opcode = cur_cqe->imm_valid ? IBV_WC_RECV_RDMA_WITH_IMM :
+				IBV_WC_RECV;
+		return;
+	}
+	switch (cur_cqe->op_type) {
+	case IBV_OPCODE_RDMA_WRITE_ONLY_WITH_IMMEDIATE:
+	case IBV_OPCODE_RDMA_WRITE_LAST_WITH_IMMEDIATE:
+		entry->opcode = IBV_WC_RECV_RDMA_WITH_IMM;
+		break;
+	default:
+		entry->opcode = IBV_WC_RECV;
+	}
+}
+
 /**
  * irdma_process_cqe_ext - process current cqe for extended CQ
  * @cur_cqe - current cqe info
@@ -602,9 +652,8 @@ static void irdma_process_cqe(struct ibv_wc *entry, struct irdma_cq_poll_info *c
 	ib_qp = qp->back_qp;
 
 	if (cur_cqe->error) {
-		if (cur_cqe->comp_status == IRDMA_COMPL_STATUS_FLUSHED)
-			entry->status = (cur_cqe->comp_status == IRDMA_COMPL_STATUS_FLUSHED) ?
-					irdma_flush_err_to_ib_wc_status(cur_cqe->minor_err) : IBV_WC_GENERAL_ERR;
+		entry->status = (cur_cqe->comp_status == IRDMA_COMPL_STATUS_FLUSHED) ?
+				irdma_flush_err_to_ib_wc_status(cur_cqe->minor_err) : IBV_WC_GENERAL_ERR;
 		entry->vendor_err = cur_cqe->major_err << 16 |
 				    cur_cqe->minor_err;
 	} else {
@@ -616,47 +665,18 @@ static void irdma_process_cqe(struct ibv_wc *entry, struct irdma_cq_poll_info *c
 		entry->wc_flags |= IBV_WC_WITH_IMM;
 	}
 
-	switch (cur_cqe->op_type) {
-	case IRDMA_OP_TYPE_RDMA_WRITE:
-	case IRDMA_OP_TYPE_RDMA_WRITE_SOL:
-		entry->opcode = IBV_WC_RDMA_WRITE;
-		break;
-	case IRDMA_OP_TYPE_RDMA_READ:
-		entry->opcode = IBV_WC_RDMA_READ;
-		break;
-	case IRDMA_OP_TYPE_SEND_SOL:
-	case IRDMA_OP_TYPE_SEND_SOL_INV:
-	case IRDMA_OP_TYPE_SEND_INV:
-	case IRDMA_OP_TYPE_SEND:
-		entry->opcode = IBV_WC_SEND;
-		break;
-	case IRDMA_OP_TYPE_BIND_MW:
-		entry->opcode = IBV_WC_BIND_MW;
-		break;
-	case IRDMA_OP_TYPE_REC:
-		entry->opcode = IBV_WC_RECV;
+	if (cur_cqe->q_type == IRDMA_CQE_QTYPE_SQ) {
+		set_ib_wc_op_sq(cur_cqe, entry);
+	} else {
+		set_ib_wc_op_rq(cur_cqe, entry,
+				qp->qp_caps & IRDMA_SEND_WITH_IMM ?
+				true : false);
 		if (ib_qp->qp_type != IBV_QPT_UD &&
 		    cur_cqe->stag_invalid_set) {
 			entry->invalidated_rkey = cur_cqe->inv_stag;
 			entry->wc_flags |= IBV_WC_WITH_INV;
 		}
-		break;
-	case IRDMA_OP_TYPE_REC_IMM:
-		entry->opcode = IBV_WC_RECV_RDMA_WITH_IMM;
-		if (ib_qp->qp_type != IBV_QPT_UD &&
-		    cur_cqe->stag_invalid_set) {
-			entry->invalidated_rkey = cur_cqe->inv_stag;
-			entry->wc_flags |= IBV_WC_WITH_INV;
-		}
-		break;
-	case IRDMA_OP_TYPE_INV_STAG:
-		entry->opcode = IBV_WC_LOCAL_INV;
-		break;
-	default:
-		entry->status = IBV_WC_GENERAL_ERR;
-		return;
 	}
-
 
 	if (ib_qp->qp_type == IBV_QPT_UD) {
 		entry->src_qp = cur_cqe->ud_src_qpn;
@@ -1616,32 +1636,21 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 					info.op_type = IRDMA_OP_TYPE_SEND_INV;
 				info.stag_to_inv = ib_wr->invalidate_rkey;
 			}
-			if (ib_wr->send_flags & IBV_SEND_INLINE) {
-				info.op.inline_send.data =
-						(void *)(uintptr_t)ib_wr->sg_list[0].addr;
-				info.op.inline_send.len = ib_wr->sg_list[0].length;
-				if (ib_qp->qp_type == IBV_QPT_UD) {
-					struct irdma_uah *ah  = container_of(ib_wr->wr.ud.ah,
-									     struct irdma_uah, ibv_ah);
+			info.op.send.num_sges = ib_wr->num_sge;
+			info.op.send.sg_list = (struct irdma_sge *)ib_wr->sg_list;
+			if (ib_qp->qp_type == IBV_QPT_UD) {
+				struct irdma_uah *ah  = container_of(ib_wr->wr.ud.ah,
+								     struct irdma_uah, ibv_ah);
 
-					info.op.inline_send.ah_id = ah->ah_id;
-					info.op.inline_send.qkey = ib_wr->wr.ud.remote_qkey;
-					info.op.inline_send.dest_qp = ib_wr->wr.ud.remote_qpn;
-				}
-				ret = irdma_uk_inline_send(&iwuqp->qp, &info, false);
-			} else {
-				info.op.send.num_sges = ib_wr->num_sge;
-				info.op.send.sg_list = (struct irdma_sge *)ib_wr->sg_list;
-				if (ib_qp->qp_type == IBV_QPT_UD) {
-					struct irdma_uah *ah  = container_of(ib_wr->wr.ud.ah,
-									     struct irdma_uah, ibv_ah);
-
-					info.op.inline_send.ah_id = ah->ah_id;
-					info.op.inline_send.qkey = ib_wr->wr.ud.remote_qkey;
-					info.op.inline_send.dest_qp = ib_wr->wr.ud.remote_qpn;
-				}
-				ret = irdma_uk_send(&iwuqp->qp, &info, false);
+				info.op.send.ah_id = ah->ah_id;
+				info.op.send.qkey = ib_wr->wr.ud.remote_qkey;
+				info.op.send.dest_qp = ib_wr->wr.ud.remote_qpn;
 			}
+
+			if (ib_wr->send_flags & IBV_SEND_INLINE)
+				ret = irdma_uk_inline_send(&iwuqp->qp, &info, false);
+			else
+				ret = irdma_uk_send(&iwuqp->qp, &info, false);
 			if (ret)
 				err = (ret == IRDMA_ERR_QP_TOOMANY_WRS_POSTED) ? ENOMEM : EINVAL;
 			break;
@@ -1660,21 +1669,14 @@ int irdma_upost_send(struct ibv_qp *ib_qp, struct ibv_send_wr *ib_wr,
 			else
 				info.op_type = IRDMA_OP_TYPE_RDMA_WRITE;
 
-			if (ib_wr->send_flags & IBV_SEND_INLINE) {
-				info.op.inline_rdma_write.data =
-							(void *)(uintptr_t)ib_wr->sg_list[0].addr;
-				info.op.inline_rdma_write.len = ib_wr->sg_list[0].length;
-				info.op.inline_rdma_write.rem_addr.tag_off =
-							ib_wr->wr.rdma.remote_addr;
-				info.op.inline_rdma_write.rem_addr.stag = ib_wr->wr.rdma.rkey;
+			info.op.rdma_write.num_lo_sges = ib_wr->num_sge;
+			info.op.rdma_write.lo_sg_list = (void *)ib_wr->sg_list;
+			info.op.rdma_write.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
+			info.op.rdma_write.rem_addr.stag = ib_wr->wr.rdma.rkey;
+			if (ib_wr->send_flags & IBV_SEND_INLINE)
 				ret = irdma_uk_inline_rdma_write(&iwuqp->qp, &info, false);
-			} else {
-				info.op.rdma_write.lo_sg_list = (void *)ib_wr->sg_list;
-				info.op.rdma_write.num_lo_sges = ib_wr->num_sge;
-				info.op.rdma_write.rem_addr.tag_off = ib_wr->wr.rdma.remote_addr;
-				info.op.rdma_write.rem_addr.stag = ib_wr->wr.rdma.rkey;
+			else
 				ret = irdma_uk_rdma_write(&iwuqp->qp, &info, false);
-			}
 			if (ret)
 				err = (ret == IRDMA_ERR_QP_TOOMANY_WRS_POSTED) ? ENOMEM : EINVAL;
 			break;

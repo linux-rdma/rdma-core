@@ -9,6 +9,8 @@
 #include <stdatomic.h>
 #include <util/udma_barrier.h>
 #include <util/util.h>
+#include <util/compiler.h>
+#include <ccan/minmax.h>
 #include <linux/types.h>
 #include <inttypes.h>
 #include <pthread.h>
