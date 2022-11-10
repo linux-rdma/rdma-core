@@ -460,6 +460,7 @@ static int erdma_push_one_sqe(struct erdma_qp *qp, struct ibv_send_wr *wr,
 			      uint16_t *sq_pi)
 {
 	uint32_t i, bytes, sgl_off, sgl_idx, wqebb_cnt, opcode, wqe_size = 0;
+	struct erdma_atomic_sqe *atomic_sqe;
 	struct erdma_readreq_sqe *read_sqe;
 	struct erdma_write_sqe *write_sqe;
 	struct erdma_send_sqe *send_sqe;
@@ -540,12 +541,42 @@ static int erdma_push_one_sqe(struct erdma_qp *qp, struct ibv_send_wr *wr,
 
 		sgl_base = get_sq_wqebb(qp, tmp_pi + 1);
 
-		sgl_base->laddr = htole64(wr->wr.rdma.remote_addr);
+		sgl_base->addr = htole64(wr->wr.rdma.remote_addr);
 		sgl_base->length = htole32(wr->sg_list->length);
-		sgl_base->lkey = htole32(wr->wr.rdma.rkey);
+		sgl_base->key = htole32(wr->wr.rdma.rkey);
 
 		wqe_size = sizeof(struct erdma_readreq_sqe);
 
+		goto out;
+	case IBV_WR_ATOMIC_CMP_AND_SWP:
+	case IBV_WR_ATOMIC_FETCH_AND_ADD:
+		atomic_sqe = (struct erdma_atomic_sqe *)sqe;
+
+		if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
+			sqe_hdr |= FIELD_PREP(ERDMA_SQE_HDR_OPCODE_MASK,
+					      ERDMA_OP_ATOMIC_CAS);
+			atomic_sqe->fetchadd_swap_data =
+				htole64(wr->wr.atomic.swap);
+			atomic_sqe->cmp_data =
+				htole64(wr->wr.atomic.compare_add);
+		} else {
+			sqe_hdr |= FIELD_PREP(ERDMA_SQE_HDR_OPCODE_MASK,
+					      ERDMA_OP_ATOMIC_FAD);
+			atomic_sqe->fetchadd_swap_data =
+				htole64(wr->wr.atomic.compare_add);
+		}
+
+		sgl_base = (struct erdma_sge *)get_sq_wqebb(qp, tmp_pi + 1);
+		/* remote SGL fields */
+		sgl_base->addr = htole64(wr->wr.atomic.remote_addr);
+		sgl_base->key = htole32(wr->wr.atomic.rkey);
+
+		/* local SGL fields */
+		sgl_base++;
+		sgl_base->addr = htole64(wr->sg_list[0].addr);
+		sgl_base->length = htole32(wr->sg_list[0].length);
+		sgl_base->key = htole32(wr->sg_list[0].lkey);
+		wqe_size = sizeof(struct erdma_atomic_sqe);
 		goto out;
 	default:
 		return -EINVAL;
@@ -771,6 +802,8 @@ static const enum ibv_wc_opcode wc_mapping_table[ERDMA_NUM_OPCODES] = {
 	[ERDMA_OP_RSP_SEND_IMM] = IBV_WC_RECV,
 	[ERDMA_OP_SEND_WITH_INV] = IBV_WC_SEND,
 	[ERDMA_OP_READ_WITH_INV] = IBV_WC_RDMA_READ,
+	[ERDMA_OP_ATOMIC_CAS] = IBV_WC_COMP_SWAP,
+	[ERDMA_OP_ATOMIC_FAD] = IBV_WC_FETCH_ADD,
 };
 
 static const struct {
