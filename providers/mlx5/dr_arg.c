@@ -253,7 +253,7 @@ dr_arg_mngr_create(struct mlx5dv_dr_domain *dmn)
 	return pool_mngr;
 
 clean_pools:
-	for (; i > 0; i--)
+	for (i--; i >= 0; i--)
 		dr_arg_pool_destroy(pool_mngr->pools[i]);
 
 	free(pool_mngr);
