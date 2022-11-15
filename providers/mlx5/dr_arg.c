@@ -20,7 +20,6 @@ struct dr_arg_pool {
 	enum dr_arg_chunk_size	log_chunk_size;
 	struct mlx5dv_dr_domain	*dmn;
 	struct list_head	free_list;
-	struct list_head	used_list;
 	pthread_mutex_t		mutex;
 };
 
@@ -138,7 +137,6 @@ static struct dr_arg_pool *dr_arg_pool_create(struct mlx5dv_dr_domain *dmn,
 	pool->dmn = dmn;
 
 	list_head_init(&pool->free_list);
-	list_head_init(&pool->used_list);
 	pthread_mutex_init(&pool->mutex, NULL);
 
 	pool->log_chunk_size = chunk_size;
@@ -157,9 +155,6 @@ static void dr_arg_pool_destroy(struct dr_arg_pool *pool)
 {
 	struct dr_arg_obj *tmp_arg;
 	struct dr_arg_obj *arg_obj;
-
-	if (!list_empty(&pool->used_list))
-		assert(false);
 
 	list_for_each_safe(&pool->free_list, arg_obj, tmp_arg, list_node) {
 		list_del(&arg_obj->list_node);
