@@ -690,6 +690,8 @@ static void dr_fill_write_args_segs(struct dr_send_ring *send_ring,
 
 	if (send_ring->pending_wqe % send_ring->signal_th == 0)
 		send_info->write.send_flags |= IBV_SEND_SIGNALED;
+	else
+		send_info->write.send_flags = 0;
 }
 
 static void dr_fill_write_icm_segs(struct mlx5dv_dr_domain *dmn,
