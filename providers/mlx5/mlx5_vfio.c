@@ -2395,7 +2395,7 @@ static struct ibv_mr *mlx5_vfio_reg_mr(struct ibv_pd *pd, void *addr, size_t len
 		goto end;
 
 	aligned_va = (void *)(uintptr_t)((unsigned long)addr & ~(ctx->iova_min_page_size - 1));
-	page_shift = ilog32(mr->iova_page_size - 1);
+	page_shift = ilog64(mr->iova_page_size - 1);
 	iova_min_page_shift = ilog32(ctx->iova_min_page_size - 1);
 	if (page_shift > iova_min_page_shift)
 		/* Ensure the low bis of the mkey VA match the low bits of the IOVA because the mkc
@@ -2429,7 +2429,13 @@ static struct ibv_mr *mlx5_vfio_reg_mr(struct ibv_pd *pd, void *addr, size_t len
 	}
 
 	pas = (__be64 *)DEVX_ADDR_OF(create_mkey_in, in, klm_pas_mtt);
-	mlx5_vfio_populate_pas(mr->iova, num_pas, (1ULL << page_shift), pas, MLX5_MTT_PRESENT);
+	/* if page_shift was greater than MLX5_MAX_PAGE_SHIFT then limiting it
+	 * will cause the starting IOVA to be incorrect, adjust it.
+	 */
+	mlx5_vfio_populate_pas(align_down(mr->iova + mr->iova_aligned_offset,
+					  1ULL << page_shift),
+			       num_pas, (1ULL << page_shift),
+			       pas, MLX5_MTT_PRESENT);
 
 	DEVX_SET(create_mkey_in, in, opcode, MLX5_CMD_OP_CREATE_MKEY);
 	DEVX_SET(create_mkey_in, in, pg_access, 1);
@@ -3549,7 +3555,7 @@ mlx5dv_get_vfio_device_list(struct mlx5dv_vfio_context_attr *attr)
 		return NULL;
 	}
 
-	list = calloc(1, sizeof(struct ibv_device *));
+	list = calloc(2, sizeof(struct ibv_device *));
 	if (!list) {
 		errno = ENOMEM;
 		return NULL;
