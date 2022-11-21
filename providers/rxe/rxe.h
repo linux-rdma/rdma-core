@@ -91,7 +91,7 @@ struct rxe_qp {
 };
 
 struct rxe_srq {
-	struct ibv_srq		ibv_srq;
+	struct verbs_srq	vsrq;
 	struct mminfo		mmap_info;
 	struct rxe_wq		rq;
 	uint32_t		srq_num;
@@ -121,7 +121,7 @@ static inline struct rxe_qp *to_rqp(struct ibv_qp *ibqp)
 
 static inline struct rxe_srq *to_rsrq(struct ibv_srq *ibsrq)
 {
-	return to_rxxx(srq, srq);
+	return container_of(ibsrq, struct rxe_srq, vsrq.srq);
 }
 
 static inline struct rxe_ah *to_rah(struct ibv_ah *ibah)
