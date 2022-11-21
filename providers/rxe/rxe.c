@@ -1415,25 +1415,25 @@ static int validate_send_wr(struct rxe_qp *qp, struct ibv_send_wr *ibwr,
 	enum ibv_wr_opcode opcode = ibwr->opcode;
 
 	if (ibwr->num_sge > sq->max_sge)
-		return -EINVAL;
+		return EINVAL;
 
 	if ((opcode == IBV_WR_ATOMIC_CMP_AND_SWP)
 	    || (opcode == IBV_WR_ATOMIC_FETCH_AND_ADD))
 		if (length < 8 || ibwr->wr.atomic.remote_addr & 0x7)
-			return -EINVAL;
+			return EINVAL;
 
 	if ((ibwr->send_flags & IBV_SEND_INLINE) && (length > sq->max_inline))
-		return -EINVAL;
+		return EINVAL;
 
 	if (ibwr->opcode == IBV_WR_BIND_MW) {
 		if (length)
-			return -EINVAL;
+			return EINVAL;
 		if (ibwr->num_sge)
-			return -EINVAL;
+			return EINVAL;
 		if (ibwr->imm_data)
-			return -EINVAL;
+			return EINVAL;
 		if ((qp_type(qp) != IBV_QPT_RC) && (qp_type(qp) != IBV_QPT_UC))
-			return -EINVAL;
+			return EINVAL;
 	}
 
 	return 0;
@@ -1569,7 +1569,7 @@ static int post_one_send(struct rxe_qp *qp, struct rxe_wq *sq,
 		return err;
 
 	if (queue_full(sq->queue))
-		return -ENOMEM;
+		return ENOMEM;
 
 	advance_producer(sq->queue);
 
