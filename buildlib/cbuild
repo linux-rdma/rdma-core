@@ -236,6 +236,24 @@ class centos8(Environment):
                          (" ".join(sorted(self.pkgs))))
         return res;
 
+class centos9(Environment):
+    docker_parent = "quay.io/centos/centos:stream9"
+    pkgs = centos8.pkgs
+    name = "centos9"
+    specfile = "redhat/rdma-core.spec"
+    ninja_cmd = "ninja-build"
+    is_rpm = True
+    to_azp = True
+    proxy = False
+
+    def get_docker_file(self,tmpdir):
+        res = DockerFile(self.docker_parent);
+        res.lines.append("RUN dnf install -y 'dnf-command(config-manager)' epel-release &&"
+                         "dnf config-manager --set-enabled crb && "
+                         "dnf install -y %s && dnf clean all" %
+                         (" ".join(sorted(self.pkgs))))
+        return res
+
 class fc37(Environment):
     docker_parent = "fedora:37";
     pkgs = centos8.pkgs | {"util-linux"}
@@ -560,6 +578,7 @@ environments = [centos6(),
                 centos7(),
                 centos7_epel(),
                 centos8(),
+                centos9(),
                 amazonlinux1(),
                 amazonlinux2(),
                 xenial(),

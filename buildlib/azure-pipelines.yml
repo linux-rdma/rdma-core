@@ -33,6 +33,9 @@ resources:
     - container: centos8
       image: ucfconsort.azurecr.io/rdma-core/centos8:44.0
       endpoint: ucfconsort_registry
+    - container: centos9
+      image: ucfconsort.azurecr.io/rdma-core/centos9:44.0
+      endpoint: ucfconsort_registry
     - container: fedora
       image: ucfconsort.azurecr.io/rdma-core/fc37:44.0
       endpoint: ucfconsort_registry
@@ -196,6 +199,10 @@ stages:
               RPMBUILD_OPTS:  --define 'EXTRA_CMAKE_FLAGS -DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1'
             centos8:
               CONTAINER: centos8
+              SPEC: redhat/rdma-core.spec
+              RPMBUILD_OPTS:  --define 'EXTRA_CMAKE_FLAGS -DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1'
+            centos9:
+              CONTAINER: centos9
               SPEC: redhat/rdma-core.spec
               RPMBUILD_OPTS:  --define 'EXTRA_CMAKE_FLAGS -DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1'
             fedora37:
