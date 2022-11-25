@@ -81,6 +81,9 @@ def get_symbol_vers(fn,exported=True):
         raise ValueError("Failed to read ELF symbol versions from %r"%(fn));
     return res;
 
+def symver_parse_version(ver):
+    return parse_version(ver.partition("_")[-1])
+
 def check_lib_symver(args,fn):
     g = re.match(r"lib([^.]+)\.so\.(\d+)\.(\d+)\.(.*)",fn);
     if g.group(4) != args.PACKAGE_VERSION:
@@ -113,7 +116,7 @@ def check_lib_symver(args,fn):
                 private,args.PACKAGE_VERSION));
 
     syms = list(syms - private);
-    syms.sort(key=parse_version)
+    syms.sort(key=symver_parse_version)
     if newest_symver != syms[-1]:
         raise ValueError("Symbol version %r implied by filename %r not the newest in ELF (%r)"%(
             newest_symver,fn,syms));
