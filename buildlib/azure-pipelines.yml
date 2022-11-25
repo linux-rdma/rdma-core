@@ -31,7 +31,7 @@ resources:
       image: ucfconsort.azurecr.io/rdma-core/centos7:25.0
       endpoint: ucfconsort_registry
     - container: centos8
-      image: ucfconsort.azurecr.io/rdma-core/centos8:25.0
+      image: ucfconsort.azurecr.io/rdma-core/centos8:44.0
       endpoint: ucfconsort_registry
     - container: fedora
       image: ucfconsort.azurecr.io/rdma-core/fc37:44.0

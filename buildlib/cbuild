@@ -206,7 +206,7 @@ class amazonlinux2(YumEnvironment):
     to_azp = False;
 
 class centos8(Environment):
-    docker_parent = "centos:8";
+    docker_parent = "quay.io/centos/centos:stream8"
     pkgs = {
         "pandoc",
         "perl-generators",
@@ -231,8 +231,9 @@ class centos8(Environment):
 
     def get_docker_file(self,tmpdir):
         res = DockerFile(self.docker_parent);
-        res.lines.append("RUN dnf install --enablerepo=PowerTools -y %s && dnf clean all"%(
-            " ".join(sorted(self.pkgs))));
+        res.lines.append("RUN dnf config-manager --set-enabled powertools && "
+                         "dnf install -y %s && dnf clean all" %
+                         (" ".join(sorted(self.pkgs))))
         return res;
 
 class fc37(Environment):
