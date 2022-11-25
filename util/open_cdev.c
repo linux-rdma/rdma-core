@@ -73,7 +73,7 @@ static int open_cdev_internal(const char *path, dev_t cdev)
 static int open_cdev_robust(const char *devname_hint, dev_t cdev)
 {
 	struct itimerspec ts = { .it_value = { .tv_sec = 5 } };
-	struct inotify_event buf[16];
+	uint64_t buf[sizeof(struct inotify_event) * 16 / sizeof(uint64_t)];
 	struct pollfd fds[2];
 	char *devpath;
 	int res = -1;
