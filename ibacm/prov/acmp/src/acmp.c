@@ -2304,7 +2304,7 @@ static void acmp_parse_hosts_file(struct acmp_ep *ep)
 		if (s[0] == '#')
 			continue;
 
-		if (sscanf(s, "%46s%46s", addr, gid) != 2)
+		if (sscanf(s, "%45s%45s", addr, gid) != 2)
 			continue;
 
 		acm_log(2, "%s", s);
