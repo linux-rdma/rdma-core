@@ -71,7 +71,7 @@ void parse_iwpm_config(FILE *fp)
 	while (str) {
 		if (line_buf[0] == '#' || line_buf[0] == '\n')
 			goto parse_next_line;
-		n = sscanf(line_buf, "%64[^= ] %*[=]%d", param_name, &val);
+		n = sscanf(line_buf, "%63[^= ] %*[=]%d", param_name, &val);
 		if (n != 2) {
 			syslog(LOG_WARNING, "parse_iwpm_config: Couldn't parse a line (n = %d, name = %s, val = %d\n", n, param_name, val);
 			goto parse_next_line;
