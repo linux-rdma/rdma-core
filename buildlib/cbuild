@@ -363,6 +363,14 @@ class focal(APTEnvironment):
     name = "ubuntu-20.04";
     aliases = {"focal", "ubuntu"};
 
+class jammy(APTEnvironment):
+    docker_parent = "ubuntu:22.04"
+    pkgs = (bionic.pkgs ^ {"dh-systemd"}) | {
+        'dh-python',
+    }
+    name = "ubuntu-22.04";
+    aliases = {"jammy", "ubuntu"};
+
 class jessie(APTEnvironment):
     docker_parent = "debian:8"
     pkgs = xenial.pkgs;
@@ -584,6 +592,7 @@ environments = [centos6(),
                 xenial(),
                 bionic(),
                 focal(),
+                jammy(),
                 jessie(),
                 stretch(),
                 fc37(),
