@@ -175,7 +175,7 @@ struct mthca_db_table *mthca_alloc_db_tab(int uarc_size)
 	npages = uarc_size / MTHCA_DB_REC_PAGE_SIZE;
 	db_tab = malloc(sizeof (struct mthca_db_table) +
 			npages * sizeof (struct mthca_db_page));
-	if (!db_tal) {
+	if (!db_tab) {
 		return NULL;
 	}
 
