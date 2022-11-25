@@ -144,7 +144,9 @@ class Lib(object):
         os.makedirs(self.final_objdir)
 
         subprocess.check_call([args.ar, "x", libfn], cwd=self.objdir)
-        self.objects = [I for I in os.listdir(self.objdir)]
+        objlist = os.listdir(self.objdir)
+        objlist.sort()
+        self.objects = [I for I in objlist]
         self.get_syms()
 
     def get_syms(self):
