@@ -1242,13 +1242,13 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg **_msg)
 	ep = acm_get_ep(index - 1, msg->hdr.src_index);
 	if (ep) {
 		msg->hdr.status = ACM_STATUS_SUCCESS;
-		msg->ep_data[0].dev_guid = ep->port->dev->device.dev_guid;
-		msg->ep_data[0].port_num = ep->port->port.port_num;
-		msg->ep_data[0].phys_port_cnt = ep->port->dev->port_cnt;
-		msg->ep_data[0].pkey = htobe16(ep->endpoint.pkey);
-		strncpy((char *)msg->ep_data[0].prov_name, ep->port->prov->name,
+		msg->ep_data.dev_guid = ep->port->dev->device.dev_guid;
+		msg->ep_data.port_num = ep->port->port.port_num;
+		msg->ep_data.phys_port_cnt = ep->port->dev->port_cnt;
+		msg->ep_data.pkey = htobe16(ep->endpoint.pkey);
+		strncpy((char *)msg->ep_data.prov_name, ep->port->prov->name,
 			ACM_MAX_PROV_NAME - 1);
-		msg->ep_data[0].prov_name[ACM_MAX_PROV_NAME - 1] = '\0';
+		msg->ep_data.prov_name[ACM_MAX_PROV_NAME - 1] = '\0';
 		len = ACM_MSG_HDR_LENGTH + sizeof(struct acm_ep_config_data);
 		for (i = 0; i < ep->nmbr_ep_addrs; i++) {
 			if (ep->addr_info[i].addr.type != ACM_ADDRESS_INVALID) {
@@ -1256,12 +1256,12 @@ static int acm_svr_ep_query(struct acmc_client *client, struct acm_msg **_msg)
 				msg = *_msg;
 				if (sts)
 					break;
-				memcpy(msg->ep_data[0].addrs[cnt++].name,
+				memcpy(msg->ep_data.addrs[cnt++].name,
 				       ep->addr_info[i].string_buf,
 				       ACM_MAX_ADDRESS);
 			}
 		}
-		msg->ep_data[0].addr_cnt = htobe16(cnt);
+		msg->ep_data.addr_cnt = htobe16(cnt);
 		len += cnt * ACM_MAX_ADDRESS;
 	} else {
 		msg->hdr.status = ACM_STATUS_EINVAL;
