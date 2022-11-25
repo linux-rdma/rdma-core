@@ -9,8 +9,10 @@
    static flow analysis. If code solicits a warning from 6.x it is almost
    certainly too complex for a human to understand. For some reason powerpc
    uses a different scheme than gcc for flow analysis.
+
+   gcc 12 seems to have regressed badly here and now acts like PPC gcc does.
 */
-#if (__GNUC__ >= 6 && !defined(__powerpc__)) || defined(__clang__)
+#if (__GNUC__ >= 6 && __GNUC__ < 12 && !defined(__powerpc__)) || defined(__clang__)
 #define uninitialized_var(x) x
 #else
 #define uninitialized_var(x) x = x
