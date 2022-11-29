@@ -735,15 +735,18 @@ static int dr_dump_domain(FILE *f, struct mlx5dv_dr_domain *dmn)
 	int ret, i;
 
 	domain_id = dr_domain_id_calc(dmn_type);
-
-	ret = fprintf(f, "%d,0x%" PRIx64 ",%d,0%x,%d,%s,%s\n",
+	ret = fprintf(f, "%d,0x%" PRIx64 ",%d,0%x,%d,%s,%s,%u,%u,%u,%u\n",
 		      DR_DUMP_REC_TYPE_DOMAIN,
 		      domain_id,
 		      dmn_type,
 		      dmn->info.caps.gvmi,
 		      dmn->info.supp_sw_steering,
 		      PACKAGE_VERSION,
-		      dev_name);
+		      dev_name,
+		      dmn->flags,
+		      dmn->num_buddies[DR_ICM_TYPE_STE],
+		      dmn->num_buddies[DR_ICM_TYPE_MODIFY_ACTION],
+		      dmn->num_buddies[DR_ICM_TYPE_MODIFY_HDR_PTRN]);
 	if (ret < 0)
 		return ret;
 
