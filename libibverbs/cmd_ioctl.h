@@ -176,10 +176,12 @@ static inline int _ioctl_init_cmdb(struct ibv_command_buffer *cmd,
 /*
  * sparse enforces kernel rules which forbids VLAs. Make the VLA into a static
  * array when running sparse. Don't actually run the sparse compile result.
+ * Sparse also doesn't like arrays of VLAs
  */
 #define DECLARE_COMMAND_BUFFER_LINK(_name, _object_id, _method_id, _num_attrs, \
 				    _link)                                     \
-	struct ibv_command_buffer _name[10];                                   \
+	uint64_t __##_name##storage[10];                                       \
+	struct ibv_command_buffer *_name = (void *)__##_name##storage[10];     \
 	int __attribute__((unused)) __##_name##dummy =                         \
 		_ioctl_init_cmdb(_name, _object_id, _method_id, 10, _link)
 #endif

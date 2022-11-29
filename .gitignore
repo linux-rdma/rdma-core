@@ -23,6 +23,9 @@ GTAGS
 GRTAGS
 GPATH
 
+# clangd
+.cache/
+
 # cscope
 cscope.files
 cscope.out

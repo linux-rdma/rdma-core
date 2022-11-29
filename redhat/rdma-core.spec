@@ -25,7 +25,9 @@ BuildRequires: pkgconfig(libnl-3.0)
 BuildRequires: pkgconfig(libnl-route-3.0)
 BuildRequires: /usr/bin/rst2man
 BuildRequires: valgrind-devel
+%if 0%{?fedora} < 37
 BuildRequires: systemd
+%endif
 BuildRequires: systemd-devel
 %if 0%{?fedora} >= 32 || 0%{?rhel} >= 8
 %define with_pyverbs %{?_with_pyverbs: 1} %{?!_with_pyverbs: %{?!_without_pyverbs: 1} %{?_without_pyverbs: 0}}

@@ -981,7 +981,6 @@ static inline void ocrdma_srq_inc_tail(struct ocrdma_qp *qp,
 
 static void ocrdma_discard_cqes(struct ocrdma_qp *qp, struct ocrdma_cq *cq)
 {
-	int discard_cnt = 0;
 	uint32_t cur_getp, stop_getp;
 	struct ocrdma_cqe *cqe;
 	uint32_t qpn = 0;
@@ -1029,7 +1028,6 @@ static void ocrdma_discard_cqes(struct ocrdma_qp *qp, struct ocrdma_cq *cq)
 				ocrdma_hwq_inc_tail(&qp->rq);
 		}
 
-		discard_cnt += 1;
 		/* discard by marking qp_id = 0 */
 		cqe->cmn.qpn = 0;
 skip_cqe:

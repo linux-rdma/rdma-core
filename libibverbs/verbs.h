@@ -751,7 +751,7 @@ int __attribute_const ibv_rate_to_mbps(enum ibv_rate rate);
  * mbps_to_ibv_rate - Convert a Mbit/sec value to an IB rate enum.
  * @mbps: value to convert.
  */
-enum ibv_rate __attribute_const mbps_to_ibv_rate(int mbps) __attribute_const;
+enum ibv_rate __attribute_const mbps_to_ibv_rate(int mbps);
 
 struct ibv_ah_attr {
 	struct ibv_global_route	grh;

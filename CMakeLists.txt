@@ -204,6 +204,13 @@ endif()
 RDMA_BuildType()
 include_directories(${BUILD_INCLUDE})
 
+# Working means that the compiler doesn't spew output that confuses cmake's
+# capabilitiy tests. ie cmake will test and succeed a simple program
+RDMA_Check_C_Compiles(HAVE_WORKING_WERROR "int main(int argc,const char *argv[]) { return 0; }" "")
+if (NOT HAVE_WORKING_WERROR)
+  message(FATAL_ERROR "-Werror doesn't work (compiler always creates warnings?). Werror is required for CMake.")
+endif()
+
 # Look for Python. We prefer some variant of python 3 if the system has it.
 FIND_PACKAGE(PythonInterp 3 QUIET)
 if (PythonInterp_FOUND)
@@ -233,7 +240,7 @@ RDMA_EnableCStd()
 # but turn off some that are not terribly useful for this source.
 # FIXME: I wonder how many of the signed compares are bugs?
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WARNINGS
-  "-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wno-stringop-overread")
+  "-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WMISSING_PROTOTYPES "-Wmissing-prototypes")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WMISSING_DECLARATIONS "-Wmissing-declarations")
 RDMA_AddOptCFlag(CMAKE_C_FLAGS HAVE_C_WWRITE_STRINGS "-Wwrite-strings")

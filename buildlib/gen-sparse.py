@@ -146,16 +146,24 @@ def save(fn,outdir):
     flatfn = fn.replace("/","-") + ".diff";
     flatfn = os.path.join(outdir,flatfn);
 
+    includefn = os.path.join(args.INCLUDE,fn)
+    if not os.path.exists(includefn):
+        return
+
+    cwd = os.getcwd()
     with open(flatfn,"wt") as F:
+        os.chdir(os.path.join(args.INCLUDE,".."))
         try:
             subprocess.check_call(["diff","-u",
                                    find_system_header(args,fn),
-                                   os.path.join(args.INCLUDE,fn)],
+                                   os.path.join("include",fn)],
                                   stdout=F);
         except subprocess.CalledProcessError as ex:
             if ex.returncode == 1:
                 return;
             raise;
+        finally:
+            os.chdir(cwd)
 
 parser = argparse.ArgumentParser(description='Produce sparse shim header files')
 parser.add_argument("--out",dest="INCLUDE",required=True,
