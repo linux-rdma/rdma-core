@@ -24,9 +24,6 @@ resources:
     - container: azp
       image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:44.0
       endpoint: ucfconsort_registry
-    - container: centos6
-      image: ucfconsort.azurecr.io/rdma-core/centos6:25.0
-      endpoint: ucfconsort_registry
     - container: centos7
       image: ucfconsort.azurecr.io/rdma-core/centos7:25.0
       endpoint: ucfconsort_registry
@@ -186,10 +183,6 @@ stages:
           vmImage: 'ubuntu-latest'
         strategy:
           matrix:
-            centos6:
-              CONTAINER: centos6
-              SPEC: buildlib/centos6.spec
-              RPMBUILD_OPTS:
             centos7:
               CONTAINER: centos7
               SPEC: redhat/rdma-core.spec
