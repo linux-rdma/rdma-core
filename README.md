@@ -71,7 +71,7 @@ NOTE: Fedora Core uses the name 'ninja-build' for the 'ninja' command.
 $ zypper install cmake gcc libnl3-devel libudev-devel ninja pkg-config valgrind-devel python3-devel python3-Cython python3-docutils pandoc
 ```
 
-## Building on CentOS 6/7, Amazon Linux 1/2
+## Building on CentOS 7, Amazon Linux 2
 
 Install required packages:
 

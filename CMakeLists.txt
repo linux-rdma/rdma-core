@@ -54,10 +54,10 @@
 #      directory are available.
 
 if (${CMAKE_VERSION} VERSION_LESS "3.18.1")
-	# Centos 6 support
-	cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
+   # Centos 7 support
+   cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 else()
-	cmake_minimum_required(VERSION 3.18.1 FATAL_ERROR)
+   cmake_minimum_required(VERSION 3.18.1 FATAL_ERROR)
 endif()
 project(rdma-core C)
 
