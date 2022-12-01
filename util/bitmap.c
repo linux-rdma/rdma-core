@@ -1,37 +1,16 @@
 /* GPLv2 or OpenIB.org BSD (MIT) See COPYING file */
 
+#define _GNU_SOURCE
 #include "bitmap.h"
+#include <string.h>
+#include <strings.h>
+#include <ccan/minmax.h>
 
 #define BMP_WORD_INDEX(n) ((n) / BITS_PER_LONG)
 #define BMP_WORD_OFFSET(n) ((n) % BITS_PER_LONG)
 #define BMP_FIRST_WORD_MASK(start) (~0UL << BMP_WORD_OFFSET(start))
 #define BMP_LAST_WORD_MASK(end) (BMP_WORD_OFFSET(end) == 0 ? ~0UL : \
 				 ~BMP_FIRST_WORD_MASK(end))
-
-static unsigned long __word_ffs(const unsigned long *word)
-{
-	unsigned long i;
-
-	for (i = 0; i < BITS_PER_LONG; i++) {
-		if (bitmap_test_bit(word, i))
-			return i;
-	}
-
-	return i;
-}
-
-static unsigned long word_ffs(const unsigned long *word,
-			      unsigned long bmp_index, unsigned long end)
-{
-	unsigned long set_bit;
-
-	set_bit = __word_ffs(word);
-	set_bit += bmp_index * BITS_PER_LONG;
-	if (set_bit >= end)
-		return end;
-
-	return set_bit;
-}
 
 /*
  * Finds the first set bit in the bitmap starting from
@@ -42,27 +21,18 @@ static unsigned long word_ffs(const unsigned long *word,
 unsigned long bitmap_find_first_bit(const unsigned long *bmp,
 				    unsigned long start, unsigned long end)
 {
-	unsigned long mask;
-	unsigned long first_word;
+	unsigned long curr_offset = BMP_WORD_OFFSET(start);
 	unsigned long curr_idx = BMP_WORD_INDEX(start);
-	unsigned long last_idx = BMP_WORD_INDEX(end - 1);
 
 	assert(start <= end);
 
-	if (start >= end)
-		return end;
+	for (; start < end; curr_idx++) {
+		unsigned long bit = ffsl(bmp[curr_idx] >> curr_offset);
 
-	mask = BMP_FIRST_WORD_MASK(start);
-
-	first_word = bmp[curr_idx] & mask;
-	if (first_word)
-		return word_ffs(&first_word, curr_idx, end);
-
-	for (curr_idx++; curr_idx <= last_idx; curr_idx++) {
-		if (!bmp[curr_idx])
-			continue;
-
-		return word_ffs(&bmp[curr_idx], curr_idx, end);
+		if (bit)
+			return min(end, start + bit - 1);
+		start += BITS_PER_LONG - curr_offset;
+		curr_offset = 0;
 	}
 
 	return end;
