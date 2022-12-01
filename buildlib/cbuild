@@ -113,8 +113,8 @@ class YumEnvironment(Environment):
             " ".join(sorted(self.pkgs))));
         return res;
 
-class centos6(YumEnvironment):
-    docker_parent = "centos:6";
+class centos7(YumEnvironment):
+    docker_parent = "centos:7";
     pkgs = {
         'cmake',
         'gcc',
@@ -126,19 +126,9 @@ class centos6(YumEnvironment):
         'python-argparse',
         'python-docutils',
         'rpm-build',
+        'systemd-devel',
         'valgrind-devel',
-    };
-    name = "centos6";
-    use_make = True;
-    pandoc = False;
-    build_pyverbs = False;
-    specfile = "buildlib/centos6.spec";
-    python_cmd = "python";
-    to_azp = True;
-
-class centos7(YumEnvironment):
-    docker_parent = "centos:7";
-    pkgs = centos6.pkgs | {'systemd-devel'};
+    }
     name = "centos7";
     use_make = True;
     pandoc = False;
@@ -170,29 +160,6 @@ class centos7_epel(centos7):
         res.lines.insert(1,"RUN yum install -y epel-release");
         res.lines.append("RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake && ln -sf /usr/bin/python3.4 /usr/bin/python3");
         return res;
-
-class amazonlinux1(YumEnvironment):
-    docker_parent = "amazonlinux:1";
-    pkgs = {
-        'cmake',
-        'gcc',
-        'libnl3-devel',
-        'libudev-devel',
-        'make',
-        'pkgconfig',
-        'python',
-        'python-argparse',
-        'python27-docutils',
-        'rpm-build',
-        'valgrind-devel',
-    };
-    name = "amazonlinux1";
-    use_make = True;
-    pandoc = False;
-    build_pyverbs = False;
-    specfile = "buildlib/centos6.spec";
-    python_cmd = "python";
-    to_azp = False;
 
 class amazonlinux2(YumEnvironment):
     docker_parent = "amazonlinux:2";
@@ -649,12 +616,10 @@ Architectures: amd64
 
 # -------------------------------------------------------------------------
 
-environments = [centos6(),
-                centos7(),
+environments = [centos7(),
                 centos7_epel(),
                 centos8(),
                 centos9(),
-                amazonlinux1(),
                 amazonlinux2(),
                 xenial(),
                 bionic(),
@@ -681,7 +646,7 @@ class ToEnvActionPkg(argparse.Action):
         for I in values:
             if I == "all":
                 for env in environments:
-                    if env.name != "centos6" and env.name != "centos7_epel":
+                    if env.name != "centos7_epel":
                         res.add(env);
             else:
                 for env in environments:
@@ -866,14 +831,12 @@ with open("/etc/group","a") as F:
 os.setgid({gid:d});
 os.setuid({uid:d});
 
-# For Centos6
-if "check_output" in dir(subprocess):
-    # Get RPM to tell us the expected tar filename.
-    for ln in subprocess.check_output(["rpmspec","-P",{tspec_file!r}]).splitlines():
-       if ln.startswith(b"Source:"):
-          tarfn = ln.strip().partition(b' ')[2].strip();
-    if tarfn != {tarfn!r}:
-        os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
+# Get RPM to tell us the expected tar filename.
+for ln in subprocess.check_output(["rpmspec","-P",{tspec_file!r}]).splitlines():
+    if ln.startswith(b"Source:"):
+        tarfn = ln.strip().partition(b' ')[2].strip();
+if tarfn != {tarfn!r}:
+    os.symlink({tarfn!r},os.path.join(b"SOURCES",tarfn));
 """.format(passwd=":".join(str(I) for I in pwd.getpwuid(os.getuid())),
            group=":".join(str(I) for I in grp.getgrgid(os.getgid())),
            uid=os.getuid(),
