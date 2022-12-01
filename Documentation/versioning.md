@@ -29,26 +29,6 @@ index a2464ec5..cf237904 100644
  # When this is changed the values in these files need changing too:
  #   debian/libibverbs1.symbols
  #   libibverbs/libibverbs.map
-diff --git a/buildlib/centos6.spec b/buildlib/centos6.spec
-index 8631a3544c9a..c537cc54e8be 100644
---- a/buildlib/centos6.spec
-+++ b/buildlib/centos6.spec
-@@ -1,5 +1,5 @@
- Name: rdma-core
--Version: 15.0
-+Version: 16.0
- Release: 1%{?dist}
- Summary: RDMA core userspace libraries and daemons
-diff --git a/debian/changelog b/debian/changelog
-index 86b402f4..9ee7fe16 100644
---- a/debian/changelog
-+++ b/debian/changelog
-@@ -1,4 +1,4 @@
--rdma-core (15-1) unstable; urgency=low
-+rdma-core (16-1) unstable; urgency=low
-
-   * New version.
-   * Adding debian/copyright.
 diff --git a/redhat/rdma-core.spec b/redhat/rdma-core.spec
 index cc0c3ba0..62334730 100644
 --- a/redhat/rdma-core.spec

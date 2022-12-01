@@ -47,17 +47,17 @@
 #      set
 #   -DENABLE_IBDIAGS_COMPAT=True (default False)
 #      Include obsolete scripts. These scripts are replaced by C programs with
-#      a different interface now.
+#      a different interface now.\
 #   -DNO_MAN_PAGES=1 (default 0, build/install the man pages)
 #      Disable man pages. Allows rdma-core to be built and installed
 #      (without man pages) when neither pandoc/rst2man nor the pandoc-prebuilt
 #      directory are available.
 
 if (${CMAKE_VERSION} VERSION_LESS "3.18.1")
-	# Centos 6 support
-	cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
+   # Centos 7 support
+   cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
 else()
-	cmake_minimum_required(VERSION 3.18.1 FATAL_ERROR)
+   cmake_minimum_required(VERSION 3.18.1 FATAL_ERROR)
 endif()
 project(rdma-core C)
 
