@@ -1,0 +1,2 @@
+rdma_test_executable(bitmap_test bitmap_test.c)
+target_link_libraries(bitmap_test LINK_PRIVATE rdma_util)
