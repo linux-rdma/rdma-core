@@ -10,6 +10,7 @@ publish_internal_headers(rdma
   rdma/ib_user_sa.h
   rdma/ib_user_verbs.h
   rdma/irdma-abi.h
+  rdma/mana-abi.h
   rdma/mlx4-abi.h
   rdma/mlx5-abi.h
   rdma/mlx5_user_ioctl_cmds.h
@@ -70,6 +71,7 @@ rdma_kernel_provider_abi(
   rdma/hns-abi.h
   rdma/ib_user_verbs.h
   rdma/irdma-abi.h
+  rdma/mana-abi.h
   rdma/mlx4-abi.h
   rdma/mlx5-abi.h
   rdma/mthca-abi.h

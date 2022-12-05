@@ -172,3 +172,8 @@ libefa.so.1 ibverbs-providers #MINVER#
  efadv_query_ah@EFA_1.1 26
  efadv_cq_from_ibv_cq_ex@EFA_1.2 43
  efadv_create_cq@EFA_1.2 43
+libmana.so.1 ibverbs-providers #MINVER#
+* Build-Depends-Package: libibverbs-dev
+ MANA_1.0@MANA_1.0 41
+ manadv_init_obj@MANA_1.0 41
+ manadv_set_context_attr@MANA_1.0 41

@@ -68,7 +68,7 @@ Package: ibverbs-providers
 Architecture: linux-any
 Multi-Arch: same
 Depends: ${misc:Depends}, ${shlibs:Depends}
-Provides: libefa1, libipathverbs1, libmlx4-1, libmlx5-1, libmthca1
+Provides: libefa1, libipathverbs1, libmana1, libmlx4-1, libmlx5-1, libmthca1
 Replaces: libipathverbs1 (<< 15),
           libmlx4-1 (<< 15),
           libmlx5-1 (<< 15),
@@ -98,6 +98,7 @@ Description: User space provider drivers for libibverbs
   - hns: HiSilicon Hip06 SoC
   - ipathverbs: QLogic InfiniPath HCAs
   - irdma: Intel Ethernet Connection RDMA
+  - mana: Microsoft Azure Network Adapter
   - mlx4: Mellanox ConnectX-3 InfiniBand HCAs
   - mlx5: Mellanox Connect-IB/X-4+ InfiniBand HCAs
   - mthca: Mellanox InfiniBand HCAs
