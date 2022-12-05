@@ -693,6 +693,7 @@ configure_file("${BUILDLIB}/config.h.in" "${BUILD_INCLUDE}/config.h" ESCAPE_QUOT
 # Sub-directories
 add_subdirectory(ccan)
 add_subdirectory(util)
+add_subdirectory(util/tests)
 add_subdirectory(Documentation)
 add_subdirectory(kernel-boot)
 add_subdirectory(kernel-headers)
