@@ -2406,7 +2406,8 @@ static int get_crypto_order(bool encrypt_on_tx,
 	return order;
 }
 
-static int mlx5_umr_fill_crypto_bsf(struct mlx5_crypto_bsf *crypto_bsf,
+static int mlx5_umr_fill_crypto_bsf(struct mlx5_context *ctx,
+				    struct mlx5_crypto_bsf *crypto_bsf,
 				    struct mlx5_crypto_attr *attr,
 				    struct mlx5_sig_block *block)
 {
@@ -2426,8 +2427,23 @@ static int mlx5_umr_fill_crypto_bsf(struct mlx5_crypto_bsf *crypto_bsf,
 	crypto_bsf->enc_standard = MLX5_ENCRYPTION_STANDARD_AES_XTS;
 	crypto_bsf->raw_data_size = htobe32(UINT32_MAX);
 	crypto_bsf->bs_pointer = bs_to_bs_selector(attr->data_unit_size);
-	memcpy(crypto_bsf->xts_init_tweak, attr->initial_tweak,
-	       sizeof(crypto_bsf->xts_init_tweak));
+
+	/*
+	 * Multi-block encryption requires big endian tweak. Thus,
+	 * convert the tweak accordingly.
+	 */
+	if (ctx->crypto_caps.crypto_engines &
+	    MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_MULTI_BLOCK) {
+		int len = sizeof(attr->initial_tweak);
+
+		for (int i = 0; i < len; i++)
+			crypto_bsf->xts_init_tweak[i] =
+				attr->initial_tweak[len - i - 1];
+	} else {
+		memcpy(crypto_bsf->xts_init_tweak, attr->initial_tweak,
+		       sizeof(crypto_bsf->xts_init_tweak));
+	}
+
 	crypto_bsf->rsvd_dek_ptr =
 		htobe32(attr->dek->devx_obj->object_id & 0x00FFFFFF);
 	memcpy(crypto_bsf->keytag, attr->keytag, sizeof(crypto_bsf->keytag));
@@ -2627,8 +2643,10 @@ static void crypto_umr_wqe_finalize(struct mlx5_qp *mqp)
 	/* Length must fit block size in single block encryption. */
 	if ((mkey->crypto->state == MLX5_MKEY_BSF_STATE_UPDATED ||
 	     mkey->crypto->state == MLX5_MKEY_BSF_STATE_SET) &&
-	    ctx->crypto_caps.crypto_engines &
-		    MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK) {
+	    (ctx->crypto_caps.crypto_engines &
+		    MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK) &&
+	    !(ctx->crypto_caps.crypto_engines &
+		    MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_MULTI_BLOCK)) {
 		int block_size =
 			block_size_to_bytes(mkey->crypto->data_unit_size);
 		if (block_size < 0 || mkey->length > block_size) {
@@ -2694,7 +2712,7 @@ static void crypto_umr_wqe_finalize(struct mlx5_qp *mqp)
 	}
 
 	if (set_crypto_bsf) {
-		ret = mlx5_umr_fill_crypto_bsf(seg, mkey->crypto,
+		ret = mlx5_umr_fill_crypto_bsf(ctx, seg, mkey->crypto,
 					       mkey->sig ? &mkey->sig->block :
 							   NULL);
 		if (ret) {

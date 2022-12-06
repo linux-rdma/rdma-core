@@ -207,6 +207,8 @@ enum mlx5dv_crypto_engines_caps {
 	 * at a time.
 	 */
 	MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK = 1 << 1,
+	/* Indicates that AES-XTS supports multi-block encryption. */
+	MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_MULTI_BLOCK = 1 << 2,
 .in -8
 };
 
