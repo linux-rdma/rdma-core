@@ -123,8 +123,6 @@ static bool have_sse(void)
 	return dx & bit_SSE;
 }
 
-#endif /* defined(__i386__) */
-
 typedef void (*write64_fn_t)(void *, __be64);
 
 /* This uses the STT_GNU_IFUNC extension to have the dynamic linker select the
@@ -140,11 +138,18 @@ write64_fn_t resolve_mmio_write64_be(void) __asm__("mmio_write64_be");
 
 write64_fn_t resolve_mmio_write64_be(void)
 {
-#if defined(__i386__)
 	if (have_sse())
 		return &sse_mmio_write64_be;
-#endif
 	return &pthread_mmio_write64_be;
 }
+
+#else
+
+void mmio_write64_be(void *addr, __be64 val)
+{
+	return pthread_mmio_write64_be(addr, val);
+}
+
+#endif /* defined(__i386__) */
 
 #endif /* SIZEOF_LONG != 8 */
