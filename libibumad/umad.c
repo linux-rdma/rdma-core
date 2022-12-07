@@ -361,7 +361,7 @@ static int resolve_ca_name(const char *ca_in, int *best_port,
 	/* Get the list of CA names */
 	device_list = umad_get_ca_device_list();
 	if (!device_list) {
-		if (*ca_name) 
+		if (*ca_name)
 			free(*ca_name);
 		return -1;
 	}
