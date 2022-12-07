@@ -261,6 +261,18 @@ class QpExTestCase(RDMATestCase):
         u.rdma_traffic(client, server, self.iters, self.gid_index, self.ib_port,
                        new_send=True, send_op=e.IBV_QP_EX_WITH_RDMA_READ)
 
+    def test_qp_ex_rc_rdma_read_zero_size(self):
+        client, server = self.create_players('rc_read')
+        client.rkey = server.mr.rkey
+        server.rkey = client.mr.rkey
+        client.raddr = server.mr.buf
+        server.raddr = client.mr.buf
+        client.msg_size = 0
+        server.msg_size = 0
+        server.mr.write('s' * server.msg_size, server.msg_size)
+        u.rdma_traffic(client, server, self.iters, self.gid_index, self.ib_port,
+                       new_send=True, send_op=e.IBV_QP_EX_WITH_RDMA_READ)
+
     def test_qp_ex_rc_atomic_cmp_swp(self):
         client, server = self.create_players('rc_cmp_swp')
         client.msg_size = 8  # Atomic work on 64b operators
