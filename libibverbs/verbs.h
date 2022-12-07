@@ -1315,6 +1315,9 @@ struct ibv_qp_ex {
 	void (*wr_start)(struct ibv_qp_ex *qp);
 	int (*wr_complete)(struct ibv_qp_ex *qp);
 	void (*wr_abort)(struct ibv_qp_ex *qp);
+
+	void (*wr_atomic_write)(struct ibv_qp_ex *qp, uint32_t rkey,
+				uint64_t remote_addr, const void *atomic_wr);
 };
 
 struct ibv_qp_ex *ibv_qp_to_qp_ex(struct ibv_qp *qp);
@@ -1435,6 +1438,12 @@ static inline int ibv_wr_complete(struct ibv_qp_ex *qp)
 static inline void ibv_wr_abort(struct ibv_qp_ex *qp)
 {
 	qp->wr_abort(qp);
+}
+
+static inline void ibv_wr_atomic_write(struct ibv_qp_ex *qp, uint32_t rkey,
+				       uint64_t remote_addr, const void *atomic_wr)
+{
+	qp->wr_atomic_write(qp, rkey, remote_addr, atomic_wr);
 }
 
 struct ibv_ece {
