@@ -5,7 +5,6 @@ import resource
 
 from pyverbs.providers.mlx5.mlx5dv import Mlx5DevxObj, WqeDataSeg, Mlx5UMEM
 from tests.mlx5_base import Mlx5DevxRcResources, Mlx5DevxTrafficBase
-from tests.mlx5_prm_structs import SwMkc, CreateMkeyIn, CreateMkeyOut
 import pyverbs.providers.mlx5.mlx5_enums as dve
 import tests.cuda_utils as cu
 import pyverbs.enums as e
@@ -81,6 +80,7 @@ class CudaDevxRes(Mlx5DevxRcResources):
                              dve.MLX5DV_UMEM_MASK_DMABUF, self.dmabuf_fd)
 
     def create_mkey(self):
+        from tests.mlx5_prm_structs import SwMkc, CreateMkeyIn, CreateMkeyOut
         accesses = [e.IBV_ACCESS_LOCAL_WRITE, e.IBV_ACCESS_REMOTE_READ, e.IBV_ACCESS_REMOTE_WRITE]
         lw, rr, rw = (list(map(lambda access: int(self.mr_access & access != 0), accesses)))
         mkey_ctx = SwMkc(lr=1, lw=lw, rr=rr, rw=rw, access_mode_1_0=0x1,
