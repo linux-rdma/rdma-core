@@ -1883,7 +1883,6 @@ static void umad_resources_init(struct umad_resources *umad_res)
 {
 	umad_res->portid = -1;
 	umad_res->agent = -1;
-	umad_res->agent = -1;
 	umad_res->port_sysfs_path = NULL;
 }
 

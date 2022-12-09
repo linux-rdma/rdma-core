@@ -270,7 +270,6 @@ struct resources {
 	pthread_t trap_thread;
 	pthread_t async_ev_thread;
 	pthread_t reconnect_thread;
-	pthread_t timer_thread;
 };
 
 struct srp_ib_user_mad {
