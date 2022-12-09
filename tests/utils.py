@@ -391,6 +391,10 @@ def get_send_elements(agr_obj, is_server, opcode=e.IBV_WR_SEND):
     :param is_server: Indicates whether this is server or client side
     :return: send wr and its SGE
     """
+    if opcode == e.IBV_QP_EX_WITH_ATOMIC_WRITE:
+        atomic_wr = agr_obj.msg_size * (b's' if is_server else b'c')
+        return None, atomic_wr
+
     qp_type = agr_obj.sqp_lst[0].qp_type if isinstance(agr_obj, XRCResources) \
                 else agr_obj.qp.qp_type
     offset = GRH_SIZE if qp_type == e.IBV_QPT_UD else 0
@@ -464,6 +468,8 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
         qp.wr_send_imm(IMM_DATA)
     elif send_op == e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM:
         qp.wr_rdma_write_imm(agr_obj.rkey, agr_obj.raddr, IMM_DATA)
+    elif send_op == e.IBV_QP_EX_WITH_ATOMIC_WRITE:
+        qp.wr_atomic_write(agr_obj.rkey, agr_obj.raddr, send_object)
     elif send_op == e.IBV_QP_EX_WITH_RDMA_READ:
         qp.wr_rdma_read(agr_obj.rkey, agr_obj.raddr)
     elif send_op == e.IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP:
@@ -493,7 +499,8 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
                                      stream_id)
         else:
             qp.wr_set_dc_addr(ah, agr_obj.remote_dct_num, DCT_KEY)
-    qp.wr_set_sge(send_object)
+    if send_op != e.IBV_QP_EX_WITH_ATOMIC_WRITE:
+        qp.wr_set_sge(send_object)
     qp.wr_complete()
 
 

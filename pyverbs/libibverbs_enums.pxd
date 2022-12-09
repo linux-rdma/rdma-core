@@ -140,6 +140,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_WR_BIND_MW
         IBV_WR_SEND_WITH_INV
         IBV_WR_TSO
+        IBV_WR_ATOMIC_WRITE
 
     cpdef enum ibv_ops_wr_opcode:
         IBV_WR_TAG_ADD
@@ -218,6 +219,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_WC_BIND_MW
         IBV_WC_LOCAL_INV
         IBV_WC_TSO
+        IBV_WC_ATOMIC_WRITE
         IBV_WC_RECV
         IBV_WC_RECV_RDMA_WITH_IMM
         IBV_WC_TM_ADD
@@ -460,6 +462,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_QP_EX_WITH_BIND_MW
         IBV_QP_EX_WITH_SEND_WITH_INV
         IBV_QP_EX_WITH_TSO
+        IBV_QP_EX_WITH_ATOMIC_WRITE
 
     cdef unsigned long long IBV_DEVICE_RAW_SCATTER_FCS
     cdef unsigned long long IBV_DEVICE_PCI_WRITE_END_PADDING

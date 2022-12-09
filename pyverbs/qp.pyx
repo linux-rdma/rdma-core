@@ -1334,6 +1334,10 @@ cdef class QPEx(QP):
     def wr_local_inv(self, invalidate_rkey):
         v.ibv_wr_local_inv(self.qp_ex, invalidate_rkey)
 
+    def wr_atomic_write(self, rkey, remote_addr, atomic_wr):
+        cdef char *atomic_wr_c = atomic_wr
+        v.ibv_wr_atomic_write(self.qp_ex, rkey, remote_addr, atomic_wr_c)
+
     def wr_rdma_read(self, rkey, remote_addr):
         v.ibv_wr_rdma_read(self.qp_ex, rkey, remote_addr)
 
