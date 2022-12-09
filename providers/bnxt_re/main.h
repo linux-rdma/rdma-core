@@ -99,7 +99,7 @@ struct bnxt_re_wrid {
 	uint32_t st_slot_idx;
 	uint8_t slots;
 	uint8_t sig;
-
+	uint8_t wc_opcd;
 };
 
 struct bnxt_re_qpcap {
