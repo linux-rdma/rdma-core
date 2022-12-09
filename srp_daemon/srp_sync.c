@@ -84,11 +84,31 @@ int rescan_scheduled(struct sync_resources *res)
 	return ret;
 }
 
+void raise_catastrophic_error(struct sync_resources *res)
+{
+	pthread_mutex_lock(&res->mutex);
+	res->error = true;
+	pthread_mutex_unlock(&res->mutex);
+	raise(SRP_CATAS_ERR);
+}
+
+bool sync_resources_error(struct sync_resources *res)
+{
+	bool ret;
+
+	pthread_mutex_lock(&res->mutex);
+	ret = res->error;
+	pthread_mutex_unlock(&res->mutex);
+
+	return ret;
+}
+
 int sync_resources_init(struct sync_resources *res)
 {
 	int ret;
 
 	res->stop_threads = 0;
+	res->error = false;
 	__schedule_rescan(res, 0);
 	res->next_task = 0;
 	ret = pthread_mutex_init(&res->mutex, NULL);

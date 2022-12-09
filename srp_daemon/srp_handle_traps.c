@@ -567,9 +567,14 @@ static int poll_cq(struct sync_resources *sync_res, struct ibv_cq *cq,
 		if (ret < 0)
 			return ret;
 
-		if (ret == 0 && channel) {
-			pr_err("Weird poll returned no cqe after CQ event\n");
-			return -1;
+		if (ret == 0) {
+			if (channel) {
+				pr_err("Weird poll returned no cqe after CQ event\n");
+				return -1;
+			}
+
+			if (sync_resources_error(sync_res))
+				return -1;
 		}
 	} while (ret == 0);
 
@@ -862,7 +867,7 @@ void *run_thread_listen_to_events(void *res_in)
 		  /* clean and restart */
 			pr_err("Critical event %d, raising catastrophic "
 			       "error signal\n", event.event_type);
-			raise(SRP_CATAS_ERR);
+			raise_catastrophic_error(res->sync_res);
 			break;
 
  	      	 /*
