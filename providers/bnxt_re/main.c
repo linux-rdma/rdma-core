@@ -162,6 +162,8 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 
 	if (resp.comp_mask & BNXT_RE_UCNTX_CMASK_HAVE_MODE)
 		cntx->wqe_mode = resp.mode;
+	if (resp.comp_mask & BNXT_RE_UCNTX_CMASK_WC_DPI_ENABLED)
+		cntx->comp_mask |= BNXT_RE_COMP_MASK_UCNTX_WC_DPI_ENABLED;
 
 	pthread_spin_init(&cntx->fqlock, PTHREAD_PROCESS_PRIVATE);
 	/* mmap shared page. */
@@ -201,6 +203,10 @@ static void bnxt_re_free_context(struct ibv_context *ibvctx)
 	/* Un-map DPI only for the first PD that was
 	 * allocated in this context.
 	 */
+	if (cntx->udpi.wcdbpg && cntx->udpi.wcdbpg != MAP_FAILED) {
+		munmap(cntx->udpi.wcdbpg, rdev->pg_size);
+		cntx->udpi.wcdbpg = NULL;
+	}
 	if (cntx->udpi.dbpage && cntx->udpi.dbpage != MAP_FAILED) {
 		munmap(cntx->udpi.dbpage, rdev->pg_size);
 		cntx->udpi.dbpage = NULL;
