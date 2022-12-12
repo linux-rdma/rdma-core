@@ -744,8 +744,10 @@ static int get_trap_notices(struct resources *res)
 
 		ret = poll_cq(res->sync_res, res->ud_res->recv_cq, &wc,
 			      res->ud_res->channel);
-		if (ret < 0)
+		if (ret < 0) {
+			srp_sleep(0, 1);
 			continue;
+		}
 
 		pr_debug("get_trap_notices: Got CQE wc.wr_id=%lld\n", (long long int) wc.wr_id);
 		cur_receive = wc.wr_id;
