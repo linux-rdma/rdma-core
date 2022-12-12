@@ -44,6 +44,7 @@
 
 struct bnxt_re_queue {
 	void *va;
+	uint32_t *dbtail;
 	uint32_t bytes; /* for munmap */
 	uint32_t depth; /* no. of entries */
 	uint32_t head;

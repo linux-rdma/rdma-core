@@ -139,14 +139,22 @@ enum bnxt_re_db_que_type {
 	BNXT_RE_QUE_TYPE_CQ_ARMENA	= 0x07,
 	BNXT_RE_QUE_TYPE_SRQ_ARMENA	= 0x08,
 	BNXT_RE_QUE_TYPE_CQ_CUT_ACK	= 0x09,
+	BNXT_RE_PUSH_TYPE_START		= 0x0C,
+	BNXT_RE_PUSH_TYPE_END		= 0x0D,
 	BNXT_RE_QUE_TYPE_NULL		= 0x0F
 };
 
 enum bnxt_re_db_mask {
 	BNXT_RE_DB_INDX_MASK		= 0xFFFFFUL,
+	BNXT_RE_DB_PILO_MASK		= 0x0FFUL,
+	BNXT_RE_DB_PILO_SHIFT		= 0x18,
 	BNXT_RE_DB_QID_MASK		= 0xFFFFFUL,
-	BNXT_RE_DB_TYP_MASK		= 0x0FUL,
-	BNXT_RE_DB_TYP_SHIFT		= 0x1C
+	BNXT_RE_DB_PIHI_MASK            = 0xF00UL,
+	BNXT_RE_DB_PIHI_SHIFT           = 0x0C, /* Because mask is 0xF00 */
+	BNXT_RE_DB_TYP_MASK             = 0x0FUL,
+	BNXT_RE_DB_TYP_SHIFT            = 0x1C,
+	BNXT_RE_DB_VALID_SHIFT          = 0x1A,
+	BNXT_RE_DB_EPOCH_SHIFT          = 0x18
 };
 
 enum bnxt_re_psns_mask {
@@ -199,6 +207,10 @@ enum bnxt_re_ud_cqe_mask {
 	BNXT_RE_UD_CQE_SRCQPLO_MASK	= 0xFFFF,
 	BNXT_RE_UD_CQE_SRCQPLO_SHIFT	= 0x30,
 	BNXT_RE_UD_CQE_LEN_MASK         = 0x3FFFU,
+};
+
+enum {
+	BNXT_RE_COMP_MASK_UCNTX_WC_DPI_ENABLED = 0x01,
 };
 
 enum bnxt_re_modes {
@@ -326,5 +338,9 @@ struct bnxt_re_rqe {
 
 struct bnxt_re_srqe {
 	__le64 rsvd[2];
+};
+
+struct bnxt_re_push_wqe {
+	__u64 addr[32];
 };
 #endif
