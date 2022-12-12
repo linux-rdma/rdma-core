@@ -2502,11 +2502,24 @@ static int dr_ste_v1_build_def2_tag(struct dr_match_param *value,
 	return 0;
 }
 
+static void dr_ste_v1_build_def2_mask(struct dr_match_param *value,
+				      struct dr_ste_build *sb)
+{
+	struct dr_match_spec *outer = &value->outer;
+	uint8_t *tag = sb->match;
+
+	if (outer->ip_version)
+		DR_STE_SET_ONES(def2_v1, tag, outer_ip_version,
+				outer, ip_version);
+
+	dr_ste_v1_build_def2_tag(value, sb, sb->match);
+}
+
 static void dr_ste_v1_build_def2_init(struct dr_ste_build *sb,
 				      struct dr_match_param *mask)
 {
 	sb->lu_type = DR_STE_V1_LU_TYPE_MATCH;
-	dr_ste_v1_build_def2_tag(mask, sb, sb->match);
+	dr_ste_v1_build_def2_mask(mask, sb);
 	sb->ste_build_tag_func = &dr_ste_v1_build_def2_tag;
 }
 
