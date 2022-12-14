@@ -2547,7 +2547,7 @@ __ibv_reg_mr(struct ibv_pd *pd, void *addr, size_t length, unsigned int access,
 	     int is_access_const)
 {
 	if (is_access_const && (access & IBV_ACCESS_OPTIONAL_RANGE) == 0)
-		return ibv_reg_mr(pd, addr, length, access);
+		return ibv_reg_mr(pd, addr, length, (int)access);
 	else
 		return ibv_reg_mr_iova2(pd, addr, length, (uintptr_t)addr,
 					access);
@@ -2570,7 +2570,7 @@ __ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length, uint64_t iova,
 		  unsigned int access, int is_access_const)
 {
 	if (is_access_const && (access & IBV_ACCESS_OPTIONAL_RANGE) == 0)
-		return ibv_reg_mr_iova(pd, addr, length, iova, access);
+		return ibv_reg_mr_iova(pd, addr, length, iova, (int)access);
 	else
 		return ibv_reg_mr_iova2(pd, addr, length, iova, access);
 }
@@ -2932,7 +2932,7 @@ ibv_create_srq_ex(struct ibv_context *context,
 	struct verbs_context *vctx;
 	uint32_t mask = srq_init_attr_ex->comp_mask;
 
-	if (!(mask & ~(IBV_SRQ_INIT_ATTR_PD | IBV_SRQ_INIT_ATTR_TYPE)) &&
+	if (!(mask & ~(uint32_t)(IBV_SRQ_INIT_ATTR_PD | IBV_SRQ_INIT_ATTR_TYPE)) &&
 	    (mask & IBV_SRQ_INIT_ATTR_PD) &&
 	    (!(mask & IBV_SRQ_INIT_ATTR_TYPE) ||
 	     (srq_init_attr_ex->srq_type == IBV_SRQT_BASIC)))
