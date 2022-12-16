@@ -126,7 +126,7 @@ static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	}
 
 	if (!is_ext_atomic(data_len))
-		return -EINVAL;
+		return EINVAL;
 
 	buf_sge_num = data_len >> HNS_ROCE_SGE_SHIFT;
 	aseg->fetchadd_swap_data = 0;
@@ -134,7 +134,7 @@ static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 
 	/* both ext CAS and ext FAA need 2 bufs */
 	if ((buf_sge_num << 1) + HNS_ROCE_SGE_IN_WQE > qp->sq.max_gs)
-		return -EINVAL;
+		return EINVAL;
 
 	if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
 		buf[0] = (void *)(uintptr_t)wr->wr.atomic.swap;
@@ -145,7 +145,7 @@ static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	}
 
 	if (!buf[0] || !buf[1])
-		return -EINVAL;
+		return EINVAL;
 
 	set_extend_atomic_seg(qp, buf_sge_num, sge_info, buf[0]);
 	set_extend_atomic_seg(qp, buf_sge_num, sge_info, buf[1]);
@@ -692,12 +692,12 @@ static int check_qp_send(struct ibv_qp *qp, struct hns_roce_context *ctx)
 	if (unlikely(qp->qp_type != IBV_QPT_RC &&
 		     qp->qp_type != IBV_QPT_UD) &&
 		     qp->qp_type != IBV_QPT_XRC_SEND)
-		return -EINVAL;
+		return EINVAL;
 
 	if (unlikely(qp->state == IBV_QPS_RESET ||
 		     qp->state == IBV_QPS_INIT ||
 		     qp->state == IBV_QPS_RTR))
-		return -EINVAL;
+		return EINVAL;
 
 	return 0;
 }
@@ -876,7 +876,7 @@ static int set_ud_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
 	int ret;
 
 	if (!check_inl_data_len(qp, sge_info->total_len))
-		return -EINVAL;
+		return EINVAL;
 
 	if (sge_info->total_len <= HNS_ROCE_MAX_UD_INL_INN_SZ) {
 		roce_set_bit(ud_sq_wqe->rsv_msg_start_sge_idx,
@@ -1290,10 +1290,10 @@ static int check_qp_recv(struct ibv_qp *qp, struct hns_roce_context *ctx)
 {
 	if (unlikely(qp->qp_type != IBV_QPT_RC &&
 		     qp->qp_type != IBV_QPT_UD))
-		return -EINVAL;
+		return EINVAL;
 
 	if (qp->state == IBV_QPS_RESET || qp->srq)
-		return -EINVAL;
+		return EINVAL;
 
 	return 0;
 }
@@ -1595,10 +1595,10 @@ static int check_post_srq_valid(struct hns_roce_srq *srq,
 	unsigned int max_sge = srq->max_gs - srq->rsv_sge;
 
 	if (hns_roce_v2_srqwq_overflow(srq))
-		return -ENOMEM;
+		return ENOMEM;
 
 	if (wr->num_sge > max_sge)
-		return -EINVAL;
+		return EINVAL;
 
 	return 0;
 }
@@ -1613,7 +1613,7 @@ static int get_wqe_idx(struct hns_roce_srq *srq, unsigned int *wqe_idx)
 	for (i = 0; i < idx_que->bitmap_cnt && idx_que->bitmap[i] == 0; ++i)
 		;
 	if (i == idx_que->bitmap_cnt)
-		return -ENOMEM;
+		return ENOMEM;
 
 	bit_num = ffsl(idx_que->bitmap[i]);
 	idx_que->bitmap[i] &= ~(1ULL << (bit_num - 1));
@@ -1624,7 +1624,7 @@ static int get_wqe_idx(struct hns_roce_srq *srq, unsigned int *wqe_idx)
 	 * than wqe_cnt.
 	 */
 	if (*wqe_idx >= srq->wqe_cnt)
-		return -ENOMEM;
+		return ENOMEM;
 
 	return 0;
 }
