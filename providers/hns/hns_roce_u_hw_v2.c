@@ -817,7 +817,7 @@ static int set_ud_inl(struct hns_roce_qp *qp, const struct ibv_send_wr *wr,
 	int ret;
 
 	if (!check_inl_data_len(qp, sge_info->total_len))
-		return -EINVAL;
+		return EINVAL;
 
 	if (sge_info->total_len <= HNS_ROCE_MAX_UD_INL_INN_SZ) {
 		roce_set_bit(ud_sq_wqe->rsv_msg_start_sge_idx,
@@ -1561,7 +1561,7 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 
 		wqe_idx = find_empty_entry(&srq->idx_que);
 		if (wqe_idx < 0 || wqe_idx >= srq->wqe_cnt) {
-			ret = -ENOMEM;
+			ret = ENOMEM;
 			*bad_wr = wr;
 			break;
 		}
