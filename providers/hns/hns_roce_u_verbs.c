@@ -738,24 +738,24 @@ static int check_qp_create_mask(struct hns_roce_context *ctx,
 	struct hns_roce_device *hr_dev = to_hr_dev(ctx->ibv_ctx.context.device);
 
 	if (!check_comp_mask(attr->comp_mask, CREATE_QP_SUP_COMP_MASK))
-		return -EOPNOTSUPP;
+		return EOPNOTSUPP;
 
 	switch (attr->qp_type) {
 	case IBV_QPT_UD:
 		if (hr_dev->hw_version < HNS_ROCE_HW_VER3)
-			return -EINVAL;
+			return EINVAL;
 		SWITCH_FALLTHROUGH;
 	case IBV_QPT_RC:
 	case IBV_QPT_XRC_SEND:
 		if (!(attr->comp_mask & IBV_QP_INIT_ATTR_PD))
-			return -EINVAL;
+			return EINVAL;
 		break;
 	case IBV_QPT_XRC_RECV:
 		if (!(attr->comp_mask & IBV_QP_INIT_ATTR_XRCD))
-			return -EINVAL;
+			return EINVAL;
 		break;
 	default:
-		return -EINVAL;
+		return EOPNOTSUPP;
 	}
 
 	return 0;
