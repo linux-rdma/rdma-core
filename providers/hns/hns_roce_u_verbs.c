@@ -279,7 +279,7 @@ int hns_roce_u_dealloc_mw(struct ibv_mw *mw)
 static int hns_roce_verify_cq(int *cqe, struct hns_roce_context *context)
 {
 	if (*cqe < 1 || *cqe > context->max_cqe)
-		return -EINVAL;
+		return EINVAL;
 
 	*cqe = max((uint64_t)HNS_ROCE_MIN_CQE_NUM, roundup_pow_of_two(*cqe));
 
