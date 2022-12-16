@@ -86,7 +86,7 @@ static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 		aseg->cmp_data = 0;
 		if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
 			if (!wr->wr.atomic.swap || !wr->wr.atomic.compare_add)
-				return -EINVAL;
+				return EINVAL;
 
 			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
 					      sge_info,
@@ -98,7 +98,7 @@ static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 			uint8_t buf[EXTEND_ATOMIC_U_BYTE_64] = {};
 
 			if (!wr->wr.atomic.compare_add)
-				return -EINVAL;
+				return EINVAL;
 
 			set_extend_atomic_seg(qp, ext_sg_num / DATA_TYPE_NUM,
 					      sge_info,
@@ -107,7 +107,7 @@ static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 					      sge_info, buf);
 		}
 	} else
-		return -EINVAL;
+		return EINVAL;
 
 	return 0;
 }
@@ -760,7 +760,7 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 		break;
 	default:
 		hr_op = HNS_ROCE_WQE_OP_MASK;
-		return -EINVAL;
+		return EINVAL;
 	}
 
 	roce_set_field(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_OPCODE_M,
@@ -805,10 +805,10 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 
 	if (wr->send_flags & IBV_SEND_INLINE) {
 		if (wr->opcode == IBV_WR_RDMA_READ)
-			return -EINVAL;
+			return EINVAL;
 
 		if (sge_info->total_len > qp->max_inline_data)
-			return -EINVAL;
+			return EINVAL;
 
 		for (i = 0; i < wr->num_sge; i++) {
 			memcpy(dseg, (void *)(uintptr_t)(wr->sg_list[i].addr),
@@ -875,7 +875,7 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 		case IBV_QPT_UC:
 		case IBV_QPT_UD:
 		default:
-			ret = -EINVAL;
+			ret = EINVAL;
 			*bad_wr = wr;
 			goto out;
 		}
@@ -934,7 +934,7 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	for (nreq = 0; wr; ++nreq, wr = wr->next) {
 		if (hns_roce_v2_wq_overflow(&qp->rq, nreq,
 					    to_hr_cq(qp->ibv_qp.recv_cq))) {
-			ret = -ENOMEM;
+			ret = ENOMEM;
 			*bad_wr = wr;
 			goto out;
 		}
@@ -942,14 +942,14 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 		wqe_idx = (qp->rq.head + nreq) & (qp->rq.wqe_cnt - 1);
 
 		if (wr->num_sge > qp->rq.max_gs) {
-			ret = -EINVAL;
+			ret = EINVAL;
 			*bad_wr = wr;
 			goto out;
 		}
 
 		wqe = get_recv_wqe_v2(qp, wqe_idx);
 		if (!wqe) {
-			ret = -EINVAL;
+			ret = EINVAL;
 			*bad_wr = wr;
 			goto out;
 		}
