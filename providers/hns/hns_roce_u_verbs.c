@@ -285,13 +285,13 @@ static int verify_cq_create_attr(struct ibv_cq_init_attr_ex *attr,
 				 struct hns_roce_context *context)
 {
 	if (!attr->cqe || attr->cqe > context->max_cqe)
-		return -EINVAL;
+		return EINVAL;
 
 	if (attr->comp_mask)
-		return -EOPNOTSUPP;
+		return EOPNOTSUPP;
 
 	if (!check_comp_mask(attr->wc_flags, CREATE_CQ_SUPPORTED_WC_FLAGS))
-		return -EOPNOTSUPP;
+		return EOPNOTSUPP;
 
 	attr->cqe = max_t(uint32_t, HNS_ROCE_MIN_CQE_NUM,
 			  roundup_pow_of_two(attr->cqe));
