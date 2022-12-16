@@ -413,7 +413,6 @@ static void get_opcode_for_resp(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
 		wc->imm_data = htobe32(le32toh(cqe->immtdata));
 		break;
 	default:
-		wc->status = IBV_WC_GENERAL_ERR;
 		return;
 	}
 
@@ -545,7 +544,6 @@ static void parse_cqe_for_req(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
 		wc->byte_len  = le32toh(cqe->byte_cnt);
 		break;
 	default:
-		wc->status = IBV_WC_GENERAL_ERR;
 		wc->wc_flags = 0;
 		return;
 	}
