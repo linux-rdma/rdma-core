@@ -554,8 +554,14 @@ int mlx5dv_dr_domain_sync(struct mlx5dv_dr_domain *dmn, uint32_t flags)
 				return ret;
 		}
 
-		if (dmn->action_icm_pool)
+		if (dmn->action_icm_pool) {
 			ret = dr_icm_pool_sync_pool(dmn->action_icm_pool);
+			if (ret)
+				return ret;
+		}
+
+		if (dmn->modify_header_ptrn_mngr)
+			ret = dr_ptrn_sync_pool(dmn->modify_header_ptrn_mngr);
 	}
 
 	return ret;
