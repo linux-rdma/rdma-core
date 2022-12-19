@@ -73,8 +73,8 @@ def check_crypto_caps(dev_name, is_wrapped_dek_mode, multi_block_support=False):
     elif multi_block_support and not multi_block_cap:
         raise unittest.SkipTest('The device crypto engines does not support multi blocks')
     elif multi_block_cap:
-        assert(single_block_cap,
-              'The device crypto engines do not support single block but support multi blocks')
+        assert single_block_cap, \
+              'The device crypto engines do not support single block but support multi blocks'
     dev_wrapped_import_method = crypto_caps['wrapped_import_method']
     if is_wrapped_dek_mode:
         if not dve.MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS & dev_wrapped_import_method or \
