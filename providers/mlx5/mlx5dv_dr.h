@@ -1733,6 +1733,8 @@ dr_ptrn_cache_get_pattern(struct dr_ptrn_mngr *mngr,
 			  uint8_t *data);
 void dr_ptrn_cache_put_pattern(struct dr_ptrn_mngr *mngr,
 			       struct dr_ptrn_obj *pattern);
+int dr_ptrn_sync_pool(struct dr_ptrn_mngr *ptrn_mngr);
+
 struct dr_arg_mngr*
 dr_arg_mngr_create(struct mlx5dv_dr_domain *dmn);
 void dr_arg_mngr_destroy(struct dr_arg_mngr *mngr);
