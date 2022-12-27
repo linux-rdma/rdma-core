@@ -2429,6 +2429,7 @@ static int mlx5_set_context(struct mlx5_context *context,
 	context->cmds_supp_uhw = resp->cmds_supp_uhw;
 	context->vendor_cap_flags = 0;
 	list_head_init(&context->dyn_uar_bf_list);
+	list_head_init(&context->dyn_uar_db_list);
 	list_head_init(&context->dyn_uar_qp_shared_list);
 	list_head_init(&context->dyn_uar_qp_dedicated_list);
 

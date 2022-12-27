@@ -40,6 +40,8 @@ driver, the UAR information is needed for few commands as of QP creation.
 		Allocate UAR with Blueflame properties.
 	MLX5DV_UAR_ALLOC_TYPE_NC:
 		Allocate UAR with non-cache properties.
+	MLX5DV_UAR_ALLOC_TYPE_NC_DEDICATED:
+		Allocate a dedicated UAR with non-cache properties.
 
 ## devx_uar
 
