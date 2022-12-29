@@ -78,6 +78,7 @@ class PyverbsAPITestCase(unittest.TestCase):
         self.attr = None
         self.attr_ex = None
         self.gid_index = 0
+        self.pre_environment = {}
 
     def setUp(self):
         """
@@ -105,7 +106,23 @@ class PyverbsAPITestCase(unittest.TestCase):
     def create_context(self):
         self.ctx = d.Context(name=self.dev_name)
 
+    def set_env_variable(self, var, value):
+        """
+        Set environment variable. The current value for each variable is stored
+        and is set back at the end of the test.
+        :param var: The name of the environment variable
+        :param value: The requested new value of this environment variable
+        """
+        if var not in self.pre_environment.keys():
+            self.pre_environment[var] = os.environ.get(var)
+        os.environ[var] = value
+
     def tearDown(self):
+        for k, v in self.pre_environment.items():
+            if v is None:
+                os.environ.pop(k)
+            else:
+                os.environ[k] = v
         self.ctx.close()
 
 
@@ -147,16 +164,6 @@ class RDMATestCase(unittest.TestCase):
         self.server = None
         self.client = None
 
-    def set_env_variable(self, var, value):
-        """
-        Set environment variable. The current value for each variable is stored
-        and is set back at the end of the test.
-        :param var: The name of the environment variable
-        :param value: The requested new value of this environment variable
-        """
-        if var not in self.pre_environment.keys():
-            self.pre_environment[var] = os.environ.get(var)
-        os.environ[var] = value
 
     def is_eth_and_has_roce_hw_bug(self):
         """

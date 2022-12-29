@@ -31,6 +31,7 @@ rdma_python_test(tests
   test_mlx5_dma_memcpy.py
   test_mlx5_dr.py
   test_mlx5_flow.py
+  test_mlx5_huge_page.py
   test_mlx5_lag_affinity.py
   test_mlx5_mkey.py
   test_mlx5_pp.py

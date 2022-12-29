@@ -22,10 +22,13 @@ cdef class DrAction(PyverbsCM):
     def __init__(self):
         super().__init__()
         self.dr_rules = weakref.WeakSet()
+        self.dr_used_actions = weakref.WeakSet()
 
     cdef add_ref(self, obj):
         if isinstance(obj, DrRule):
             self.dr_rules.add(obj)
+        elif isinstance(obj, DrAction):
+            self.dr_used_actions.add(obj)
         else:
             raise PyverbsError('Unrecognized object type')
 
@@ -36,7 +39,7 @@ cdef class DrAction(PyverbsCM):
         if self.action != NULL:
             if self.logger:
                 self.logger.debug('Closing DrAction.')
-            close_weakrefs([self.dr_rules])
+            close_weakrefs([self.dr_rules, self.dr_used_actions])
             rc = dv.mlx5dv_dr_action_destroy(self.action)
             if rc:
                 raise PyverbsRDMAError('Failed to destroy DrAction.', rc)
@@ -394,3 +397,79 @@ cdef class DrActionPacketReformat(DrAction):
         if self.action != NULL:
             super(DrActionPacketReformat, self).close()
             self.domain = None
+
+
+cdef class DrFlowSamplerAttr(PyverbsCM):
+    def __init__(self, sample_ratio, DrTable default_next_table, sample_actions,
+                 action=None):
+        """
+        Create DrFlowSamplerAttr.
+        :param sample_ratio: The probability for a packet to be sampled by the sampler
+         is 1/sample_ratio
+        :param default_next_table: All the packets continue to the default table id destination
+        :param sample_actions: The actions that are being preformed on The replicated sampled
+         packets at sample_table_id destination
+        :param action: If sample table ID is FDB table type, the object will pass RegC0 from
+         input to both sampler and default output destination as SetActionIn
+        """
+        cdef dv.mlx5dv_dr_action **actions_ptr_list = NULL
+        self.attr = <dv.mlx5dv_dr_flow_sampler_attr *>calloc(1,
+                sizeof(dv.mlx5dv_dr_flow_sampler_attr))
+        if self.attr == NULL:
+            raise MemoryError('Failed to allocate memory.')
+        size = len(sample_actions) * sizeof(dv.mlx5dv_dr_action *)
+        actions_ptr_list = <dv.mlx5dv_dr_action **>calloc(1, size)
+        if actions_ptr_list == NULL:
+            raise MemoryError('Failed to allocate memory of size {size}.')
+        self.attr.sample_ratio = <uint32_t>sample_ratio
+        self.attr.default_next_table = default_next_table.table
+        self.attr.num_sample_actions = len(sample_actions)
+        for i in range(self.attr.num_sample_actions):
+            actions_ptr_list[i] = \
+                <dv.mlx5dv_dr_action*>(<DrAction>sample_actions[i]).action
+        self.attr.sample_actions = actions_ptr_list
+        if action is not None:
+            self.attr.action = be64toh(bytes(action))
+        self.actions = sample_actions[:]
+        self.table = default_next_table
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.attr != NULL:
+            if self.attr.sample_actions:
+                free(self.attr.sample_actions)
+            self.attr.sample_actions = NULL
+            self.table = None
+            free(self.attr)
+            self.attr = NULL
+
+
+cdef class DrActionFlowSample(DrAction):
+    def __init__(self, DrFlowSamplerAttr attr):
+        """
+        Create DR Flow Sample action.
+        :param attr: DrFlowSamplerAttr attr
+        """
+        super().__init__()
+        self.action = dv.mlx5dv_dr_action_create_flow_sampler(attr.attr)
+        if self.action == NULL:
+            raise PyverbsRDMAErrno('DrActionTag creation failed.')
+        self.attr = attr
+        self.dr_table = self.attr.table
+        self.attr.table.add_ref(self)
+        self.dr_actions = self.attr.actions
+        for action in self.dr_actions:
+            (<DrAction>action).add_ref(self)
+
+    def __dealloc__(self):
+        self.close()
+
+    cpdef close(self):
+        if self.action != NULL:
+            super(DrActionFlowSample, self).close()
+            self.dr_table = None
+            self.dr_actions = None
+            self.attr = None
+            self.action = NULL

@@ -171,6 +171,13 @@ cdef extern from 'infiniband/mlx5dv.h':
         mlx5dv_dr_action *dest
         mlx5dv_dr_action_dest_reformat *dest_reformat
 
+    cdef struct mlx5dv_dr_flow_sampler_attr:
+        uint32_t        sample_ratio
+        mlx5dv_dr_table    *default_next_table
+        uint32_t        num_sample_actions
+        mlx5dv_dr_action    **sample_actions
+        uint64_t        action
+
     cdef struct mlx5dv_clock_info:
         pass
 
@@ -506,6 +513,7 @@ cdef extern from 'infiniband/mlx5dv.h':
     int mlx5dv_vfio_get_events_fd(v.ibv_context *ibctx)
     int mlx5dv_vfio_process_events(v.ibv_context *context)
     mlx5dv_dr_action *mlx5dv_dr_action_create_dest_devx_tir(mlx5dv_devx_obj *devx_obj)
+    mlx5dv_dr_action *mlx5dv_dr_action_create_flow_sampler(mlx5dv_dr_flow_sampler_attr *attr)
 
     # DevX APIs
     mlx5dv_devx_uar *mlx5dv_devx_alloc_uar(v.ibv_context *context, uint32_t flags)
