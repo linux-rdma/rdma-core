@@ -1,2 +1,4 @@
-version=3
-https://github.com/linux-rdma/rdma-core/releases (?:.*?/)?(?:rdma-core-|v)?(\d[\d.]*)\.tar\.gz
+version=4
+opts="searchmode=plain" \
+  https://api.github.com/repos/linux-rdma/rdma-core/releases?per_page=100 \
+  https://github.com/linux-rdma/rdma-core/releases/download/v[^/]+/rdma-core-@ANY_VERSION@@ARCHIVE_EXT@
