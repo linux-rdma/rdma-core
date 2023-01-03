@@ -414,7 +414,7 @@ class Mlx5MkeyTest(RDMATestCase):
         mkey_err = player.mkey.mkey_check()
         if mkey_err.err_type != expected:
             raise PyverbsRDMAError('MKEY check failed: '
-                    f'expected err_type: {expected_type}, '
+                    f'expected err_type: {expected}, '
                     f'actual err_type: {mkey_err.err_type}')
 
     def test_mkey_interleaved(self):

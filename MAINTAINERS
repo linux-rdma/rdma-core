@@ -124,6 +124,11 @@ M:	Sean Hefty <sean.hefty@intel.com>
 S:	Supported
 F:	librdmacm/
 
+MANA USERSPACE PROVIDER (for mana_ib.ko)
+M:	Long Li <longli@microsoft.com>
+S:	Supported
+F:	providers/mana/
+
 MLX4 USERSPACE PROVIDER (for mlx4_ib.ko)
 M:	Yishai Hadas <yishaih@mellanox.com>
 H:	Roland Dreier <rolandd@cisco.com>

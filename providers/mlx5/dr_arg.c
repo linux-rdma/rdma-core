@@ -10,6 +10,8 @@ enum dr_arg_chunk_size {
 	DR_ARG_CHUNK_SIZE_1,
 	DR_ARG_CHUNK_SIZE_MIN = DR_ARG_CHUNK_SIZE_1, /* keep updated when changing */
 	DR_ARG_CHUNK_SIZE_2,
+	DR_ARG_CHUNK_SIZE_3,
+	DR_ARG_CHUNK_SIZE_4,
 	DR_ARG_CHUNK_SIZE_MAX,
 };
 
@@ -18,7 +20,6 @@ struct dr_arg_pool {
 	enum dr_arg_chunk_size	log_chunk_size;
 	struct mlx5dv_dr_domain	*dmn;
 	struct list_head	free_list;
-	struct list_head	used_list;
 	pthread_mutex_t		mutex;
 };
 
@@ -118,7 +119,6 @@ static void dr_arg_pool_put_arg_obj(struct dr_arg_pool *pool,
 				    struct dr_arg_obj *arg_obj)
 {
 	pthread_mutex_lock(&pool->mutex);
-	list_del(&arg_obj->list_node);
 	list_add(&pool->free_list, &arg_obj->list_node);
 	pthread_mutex_unlock(&pool->mutex);
 }
@@ -137,7 +137,6 @@ static struct dr_arg_pool *dr_arg_pool_create(struct mlx5dv_dr_domain *dmn,
 	pool->dmn = dmn;
 
 	list_head_init(&pool->free_list);
-	list_head_init(&pool->used_list);
 	pthread_mutex_init(&pool->mutex, NULL);
 
 	pool->log_chunk_size = chunk_size;
@@ -156,9 +155,6 @@ static void dr_arg_pool_destroy(struct dr_arg_pool *pool)
 {
 	struct dr_arg_obj *tmp_arg;
 	struct dr_arg_obj *arg_obj;
-
-	if (!list_empty(&pool->used_list))
-		assert(false);
 
 	list_for_each_safe(&pool->free_list, arg_obj, tmp_arg, list_node) {
 		list_del(&arg_obj->list_node);
@@ -179,6 +175,12 @@ dr_arg_get_chunk_size(uint16_t num_of_actions)
 		return DR_ARG_CHUNK_SIZE_1;
 	if (num_of_actions <= 16)
 		return DR_ARG_CHUNK_SIZE_2;
+	if (num_of_actions <= 32)
+		return DR_ARG_CHUNK_SIZE_3;
+	if (num_of_actions <= 64)
+		return DR_ARG_CHUNK_SIZE_4;
+
+	errno = EINVAL;
 	return DR_ARG_CHUNK_SIZE_MAX;
 }
 
@@ -242,7 +244,7 @@ dr_arg_mngr_create(struct mlx5dv_dr_domain *dmn)
 
 	pool_mngr->dmn = dmn;
 
-	for (i = 0; i <= DR_ARG_CHUNK_SIZE_MAX - 1; i++) {
+	for (i = 0; i < DR_ARG_CHUNK_SIZE_MAX; i++) {
 		pool_mngr->pools[i] = dr_arg_pool_create(dmn, i);
 		if (!pool_mngr->pools[i])
 			goto clean_pools;
@@ -251,7 +253,7 @@ dr_arg_mngr_create(struct mlx5dv_dr_domain *dmn)
 	return pool_mngr;
 
 clean_pools:
-	for (; i > 0; i--)
+	for (i--; i >= 0; i--)
 		dr_arg_pool_destroy(pool_mngr->pools[i]);
 
 	free(pool_mngr);
@@ -267,7 +269,7 @@ void dr_arg_mngr_destroy(struct dr_arg_mngr *mngr)
 		return;
 
 	pools = mngr->pools;
-	for (i = 0; i < DR_ARG_CHUNK_SIZE_MAX - 1; i++)
+	for (i = 0; i < DR_ARG_CHUNK_SIZE_MAX; i++)
 		dr_arg_pool_destroy(pools[i]);
 
 	free(mngr);

@@ -180,6 +180,10 @@ Files: providers/irdma/*
 Copyright: 2015-2021, Intel Corporation.
 License: BSD-MIT or GPL-2
 
+Files: providers/mana/*
+Copyright: 2022, Microsoft Corporation.
+License: BSD-MIT or GPL-2
+
 Files: providers/mlx4/*
 Copyright: 2004-2005, Topspin Communications.
            2005-2007, Cisco, Inc.

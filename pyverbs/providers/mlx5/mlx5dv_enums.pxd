@@ -260,6 +260,7 @@ cdef extern from 'infiniband/mlx5dv.h':
     cpdef enum mlx5dv_crypto_engines_caps:
         MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS
         MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK
+        MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_MULTI_BLOCK
 
     cpdef enum mlx5dv_crypto_wrapped_import_method_caps:
         MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS
@@ -284,6 +285,9 @@ cdef extern from 'infiniband/mlx5dv.h':
     cpdef enum mlx5dv_dr_action_dest_type:
         MLX5DV_DR_ACTION_DEST
         MLX5DV_DR_ACTION_DEST_REFORMAT
+
+    cpdef enum:
+        MLX5DV_UMEM_MASK_DMABUF
 
     cdef unsigned long long MLX5DV_RES_TYPE_QP
     cdef unsigned long long MLX5DV_RES_TYPE_RWQ

@@ -32,8 +32,8 @@ the packet.
 A steering anchor allows the user to reinject the packet back into the kernel
 for additional processing.
 
-**mlx5dv_create_steering_anchor()** Creates an anchor which will allow to
-inject the packet back into the kernel steering pipeline.
+**mlx5dv_create_steering_anchor()** Creates an anchor which will allow
+injecting the packet back into the kernel steering pipeline.
 
 **mlx5dv_destroy_steering_anchor()** Destroys a steering anchor.
 

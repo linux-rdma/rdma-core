@@ -9,6 +9,7 @@ import random
 import errno
 import stat
 import json
+import sys
 import os
 
 from pyverbs.qp import QPCap, QPInitAttrEx, QPInitAttr, QPAttr, QP
@@ -77,6 +78,7 @@ class PyverbsAPITestCase(unittest.TestCase):
         self.attr = None
         self.attr_ex = None
         self.gid_index = 0
+        self.pre_environment = {}
 
     def setUp(self):
         """
@@ -104,7 +106,23 @@ class PyverbsAPITestCase(unittest.TestCase):
     def create_context(self):
         self.ctx = d.Context(name=self.dev_name)
 
+    def set_env_variable(self, var, value):
+        """
+        Set environment variable. The current value for each variable is stored
+        and is set back at the end of the test.
+        :param var: The name of the environment variable
+        :param value: The requested new value of this environment variable
+        """
+        if var not in self.pre_environment.keys():
+            self.pre_environment[var] = os.environ.get(var)
+        os.environ[var] = value
+
     def tearDown(self):
+        for k, v in self.pre_environment.items():
+            if v is None:
+                os.environ.pop(k)
+            else:
+                os.environ[k] = v
         self.ctx.close()
 
 
@@ -146,16 +164,6 @@ class RDMATestCase(unittest.TestCase):
         self.server = None
         self.client = None
 
-    def set_env_variable(self, var, value):
-        """
-        Set environment variable. The current value for each variable is stored
-        and is set back at the end of the test.
-        :param var: The name of the environment variable
-        :param value: The requested new value of this environment variable
-        """
-        if var not in self.pre_environment.keys():
-            self.pre_environment[var] = os.environ.get(var)
-        os.environ[var] = value
 
     def is_eth_and_has_roce_hw_bug(self):
         """
@@ -325,13 +333,16 @@ class RDMACMBaseTest(RDMATestCase):
                                     .format(self.dev_name))
         is_gid_available(self.gid_index)
 
-    def two_nodes_rdmacm_traffic(self, connection_resources, test_flow,
+    def two_nodes_rdmacm_traffic(self, connection_resources, test_flow, bad_flow=False,
                                  **resource_kwargs):
         """
-        Init and manage the rdmacm test processes. If needed, terminate those
-        processes and raise an exception.
+        Init and manage the rdmacm test processes. The exit code of the
+        test processes indicates if exception was thrown.
+        {0: pass, 2: exception was thrown, 5: skip test}
+        If needed, terminate those processes and raise an exception.
         :param connection_resources: The CMConnection resources to use.
         :param test_flow: The target RDMACM flow method to run.
+        :param bad_flow: If true, traffic is expected to fail.
         :param resource_kwargs: Dict of args that specify the CMResources
                                 specific attributes. Each test case can pass
                                 here as key words the specific CMResources
@@ -353,40 +364,37 @@ class RDMACMBaseTest(RDMATestCase):
                                       'passive':False, **resource_kwargs})
         passive.start()
         active.start()
-        proc_raised_ex = False
-        for i in range(15):
-            if proc_raised_ex:
-                break
+        repeat_times=150 if not bad_flow else 3
+        proc_res = {}
+        for _ in range(repeat_times):
             for proc in [passive, active]:
-                proc.join(1)
-                if not proc.is_alive() and not self.notifier.empty():
-                    proc_raised_ex = True
-                    break
-
+                proc.join(0.1)
+                # Write the exit code of the proc.
+                if not proc.is_alive():
+                    side = 'passive' if proc == passive else 'active'
+                    if side not in proc_res.keys():
+                        proc_res[side] = proc.exitcode
         # If the processes is still alive kill them and fail the test.
         proc_killed = False
         for proc in [passive, active]:
             if proc.is_alive():
                 proc.terminate()
                 proc_killed = True
+        # Check if need to skip this test
+        for side in proc_res.keys():
+            if proc_res[side] == 5:
+                raise unittest.SkipTest(f'SkipTest occurred on {side} side')
         # Check if the test processes raise exceptions.
-        proc_res = {}
-        while not self.notifier.empty():
-            res, side = self.notifier.get()
-            proc_res[side] = res
-        for ex in proc_res.values():
-            if isinstance(ex, PyverbsRDMAError) and \
-                    ex.error_code == errno.EOPNOTSUPP:
-                        raise unittest.SkipTest(ex)
-            if isinstance(ex, unittest.case.SkipTest):
-                raise(ex)
-        if proc_res:
-            print(f'Received the following exceptions: {proc_res}')
-            if isinstance(res, Exception):
-                raise(res)
-            raise PyverbsError(res)
+        res_exception = False
+        for side in proc_res:
+            if 0 < proc_res[side] < 5:
+                res_exception = True
+        if res_exception:
+            raise Exception('Exception in active/passive side occurred')
         # Raise exeption if the test proceses was terminate.
-        if proc_killed:
+        if bad_flow and not proc_killed:
+            raise Exception('Bad flow: traffic passed which is not expected')
+        if not bad_flow and proc_killed:
             raise Exception('RDMA CM test procces is stuck, kill the test')
 
     def rdmacm_traffic(self, connection_resources=None, passive=None, **kwargs):
@@ -408,17 +416,18 @@ class RDMACMBaseTest(RDMATestCase):
             player.rdmacm_traffic()
             player.disconnect()
         except Exception as ex:
-            side = 'passive' if passive else 'active'
-            self.notifier.put((ex, side))
+            self._rdmacm_exception_handler(passive, ex)
 
     def rdmacm_multicast_traffic(self, connection_resources=None, passive=None,
-                                 extended=False, **kwargs):
+                                 extended=False, leave_test=False, **kwargs):
         """
         Run RDMACM multicast traffic between two CMIDs.
         :param connection_resources: The connection resources to use.
         :param passive: Indicate if this CMID is the passive side.
         :param extended: Use exteneded multicast join request. This request
                          allows CMID to join with specific join flags.
+        :param leave_test: Perform traffic after leaving the multicast group to
+                           ensure leave works.
         :param kwargs: Arguments to be passed to the connection_resources.
         :return: None
         """
@@ -431,9 +440,10 @@ class RDMACMBaseTest(RDMATestCase):
                                      extended=extended)
             player.rdmacm_traffic(server=passive, multicast=True)
             player.leave_multicast(mc_addr=mc_addr)
+            if leave_test:
+                player.rdmacm_traffic(server=passive, multicast=True)
         except Exception as ex:
-            side = 'passive' if passive else 'active'
-            self.notifier.put((ex, side))
+            self._rdmacm_exception_handler(passive, ex)
 
     def rdmacm_remote_traffic(self, connection_resources=None, passive=None,
                               remote_op='write', **kwargs):
@@ -455,10 +465,15 @@ class RDMACMBaseTest(RDMATestCase):
             player.remote_traffic(passive=passive, remote_op=remote_op)
             player.disconnect()
         except Exception as ex:
-            while not self.notifier.empty():
-                self.notifier.get()
-            side = 'passive' if passive else 'active'
-            self.notifier.put((ex, side))
+            self._rdmacm_exception_handler(passive, ex)
+
+    @staticmethod
+    def _rdmacm_exception_handler(passive, exception):
+        if isinstance(exception, unittest.case.SkipTest):
+            sys.exit(5)
+        side = 'passive' if passive else 'active'
+        print(f'Player {side} got: {exception}')
+        sys.exit(2)
 
 
 class BaseResources(object):
@@ -485,6 +500,13 @@ class BaseResources(object):
 
     def create_pd(self):
         self.pd = PD(self.ctx)
+
+    def mem_write(self, data, size, offset=0):
+        self.mr.write(data, size, offset)
+
+    def mem_read(self, size=None, offset=0):
+        size_ = self.msg_size if size is None else size
+        return self.mr.read(size_, offset)
 
 
 class TrafficResources(BaseResources):

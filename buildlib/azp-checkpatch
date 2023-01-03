@@ -5,6 +5,7 @@ import os
 import re
 import tempfile
 import collections
+import copy
 import sys
 
 base = os.environ["SYSTEM_PULLREQUEST_TARGETBRANCH"]
@@ -38,6 +39,8 @@ with tempfile.TemporaryDirectory() as dfn:
         "--emacs", "--mailback", "--quiet", "--no-summary"
     ]
 
+    environ = copy.copy(os.environ)
+    environ["GIT_DIR"] = subprocess.check_output(["git","rev-parse","--absolute-git-dir"]).decode().strip()
     failed = False
     for fn in patches:
         proc = subprocess.run(
@@ -45,6 +48,7 @@ with tempfile.TemporaryDirectory() as dfn:
             cwd=dfn,
             stdout=subprocess.PIPE,
             universal_newlines=True,
+            env=environ,
             stderr=subprocess.STDOUT)
         if proc.returncode == 0:
             assert (not proc.stdout)

@@ -11,7 +11,7 @@ trigger:
 resources:
   containers:
     - container: azp
-      image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:38.0
+      image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:44.0
       endpoint: ucfconsort_registry
 
 stages:
@@ -30,7 +30,7 @@ stages:
               set -e
               mkdir build-pandoc artifacts
               cd build-pandoc
-              CC=gcc-11 cmake -GNinja ..
+              CC=gcc-12 cmake -GNinja ..
               ninja docs
 
               cd ..

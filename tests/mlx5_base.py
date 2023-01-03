@@ -417,8 +417,10 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
                     if client.bad_flow_handling(qp_idx, e.IBV_WC_SUCCESS, True):
                         continue
                     raise ex
-                if client.bad_flow_handling(qp_idx, wcs[0].status, True):
-                    continue
+                else:
+                    if wcs[0].status != e.IBV_WC_SUCCESS and \
+                            client.bad_flow_handling(qp_idx, wcs[0].status, True):
+                        continue
 
                 u.poll_cq(server.cq)
                 u.post_recv(server, s_recv_wr, qp_idx=qp_idx)
@@ -526,6 +528,9 @@ class Mlx5DevxRcResources(BaseResources):
                 time.sleep(1)
                 mad_port_state = self.query_port_state_with_mads(ib_port)
         self.init_resources()
+
+    def get_wqe_data_segment(self):
+        return WqeDataSeg(self.mr.length, self.mr.lkey, self.mr.buf)
 
     def change_port_state_with_registers(self, state):
         from tests.mlx5_prm_structs import PaosReg
@@ -800,9 +805,9 @@ class Mlx5DevxRcResources(BaseResources):
         # Prepare WQE
         imm_be32 = struct.unpack("<I", struct.pack(">I", self.imm + self.qattr.sq.post_idx))[0]
         ctrl_seg = WqeCtrlSeg(imm=imm_be32, fm_ce_se=dve.MLX5_WQE_CTRL_CQ_UPDATE)
-        data_seg = WqeDataSeg(self.mr.length, self.mr.lkey, self.mr.buf)
+        data_seg = self.get_wqe_data_segment()
         ctrl_seg.opmod_idx_opcode = (self.qattr.sq.post_idx & 0xffff) << 8 | dve.MLX5_OPCODE_SEND_IMM
-        size_in_octowords = int((ctrl_seg.sizeof() +  data_seg.sizeof()) / 16)
+        size_in_octowords = int((ctrl_seg.sizeof() + data_seg.sizeof()) / 16)
         ctrl_seg.qpn_ds = self.qpn << 8 | size_in_octowords
         Wqe([ctrl_seg, data_seg], self.umems['qp'].umem_addr + buf_offset)
         self.qattr.sq.post_idx += int((size_in_octowords * 16 +
@@ -824,7 +829,7 @@ class Mlx5DevxRcResources(BaseResources):
         """
         buf_offset = self.qattr.rq.offset + self.qattr.rq.wqe_size * self.qattr.rq.head
         # Prepare WQE
-        data_seg = WqeDataSeg(self.mr.length, self.mr.lkey, self.mr.buf)
+        data_seg = self.get_wqe_data_segment()
         Wqe([data_seg], self.umems['qp'].umem_addr + buf_offset)
         # Update indexes
         self.qattr.rq.post_idx += 1
@@ -909,7 +914,7 @@ class Mlx5DevxTrafficBase(Mlx5RDMATestCase):
                             self.server.lid, self.mac_addr)
 
     def send_imm_traffic(self):
-        self.client.mr.write('c' * self.client.msg_size, self.client.msg_size)
+        self.client.mem_write('c' * self.client.msg_size, self.client.msg_size)
         for _ in range(self.client.num_msgs):
             cons_idx = self.client.qattr.cq.cons_idx
             self.server.post_recv()
@@ -922,7 +927,7 @@ class Mlx5DevxTrafficBase(Mlx5RDMATestCase):
             recv_cqe = self.server.poll_cq()
             self.assertEqual(recv_cqe.opcode, dve.MLX5_CQE_RESP_SEND_IMM,
                              'Unexpected CQE opcode')
-            msg_received = self.server.mr.read(self.server.msg_size, 0)
+            msg_received = self.server.mem_read()
             # Validate data (of received message and immediate value)
             tests.utils.validate(msg_received, True, self.server.msg_size)
             imm_inval_pkey = recv_cqe.imm_inval_pkey
@@ -930,8 +935,7 @@ class Mlx5DevxTrafficBase(Mlx5RDMATestCase):
                 imm_inval_pkey = int.from_bytes(
                     imm_inval_pkey.to_bytes(4, byteorder='big'), 'little')
             self.assertEqual(imm_inval_pkey, self.client.imm + cons_idx)
-            self.server.mr.write('s' * self.server.msg_size,
-                                 self.server.msg_size)
+            self.server.mem_write('s' * self.server.msg_size, self.server.msg_size)
 
 
 class Mlx5RcResources(RCResources):

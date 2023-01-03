@@ -95,6 +95,7 @@ enum dr_icm_type {
 	DR_ICM_TYPE_STE,
 	DR_ICM_TYPE_MODIFY_ACTION,
 	DR_ICM_TYPE_MODIFY_HDR_PTRN,
+	DR_ICM_TYPE_MAX,
 };
 
 static inline enum dr_icm_chunk_size
@@ -378,12 +379,15 @@ struct dr_action_aso {
 	};
 };
 
+#define DR_INVALID_PATTERN_INDEX 0xffffffff
+
 struct dr_ste_actions_attr {
 	uint32_t	modify_index;
+	uint32_t	modify_pat_idx;
 	uint16_t	modify_actions;
 	uint8_t		*single_modify_action;
-	uint32_t	args_index;
 	uint32_t	decap_index;
+	uint32_t	decap_pat_idx;
 	uint16_t	decap_actions;
 	bool		decap_with_vlan;
 	uint64_t	final_icm_addr;
@@ -1063,6 +1067,8 @@ struct mlx5dv_dr_domain {
 	uint32_t			flags;
 	/* protect debug lists of all tracked objects */
 	pthread_spinlock_t		debug_lock;
+	/* statistcs */
+	uint32_t num_buddies[DR_ICM_TYPE_MAX];
 };
 
 static inline int dr_domain_nic_lock_init(struct dr_domain_rx_tx *nic_dmn)

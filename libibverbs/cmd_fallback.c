@@ -231,10 +231,11 @@ static int ioctl_write(struct ibv_context *ctx, unsigned int write_method,
 }
 
 int _execute_cmd_write(struct ibv_context *ctx, unsigned int write_method,
-		       struct ib_uverbs_cmd_hdr *req, size_t core_req_size,
+		       void *vreq, size_t core_req_size,
 		       size_t req_size, void *resp, size_t core_resp_size,
 		       size_t resp_size)
 {
+	struct ib_uverbs_cmd_hdr *req = vreq;
 	struct verbs_ex_private *priv = get_priv(ctx);
 
 	if (!VERBS_WRITE_ONLY && (VERBS_IOCTL_ONLY || priv->use_ioctl_write))
@@ -247,7 +248,7 @@ int _execute_cmd_write(struct ibv_context *ctx, unsigned int write_method,
 	req->in_words = __check_divide(req_size, 4);
 	req->out_words = __check_divide(resp_size, 4);
 
-	if (write(ctx->cmd_fd, req, req_size) != req_size)
+	if (write(ctx->cmd_fd, vreq, req_size) != req_size)
 		return errno;
 
 	if (resp)

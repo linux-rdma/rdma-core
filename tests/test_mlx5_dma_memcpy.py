@@ -49,16 +49,18 @@ class DmaGgaMemcpy(Mlx5RDMATestCase):
         # No need to connect the QPs
         self.server.pre_run([0], [0])
 
-    def dma_memcpy(self, msg_size=1024):
+    def dma_memcpy(self, msg_size=1024, bad_flow=False):
         """
         Creates resources and posts a memcpy WR.
         After posting the WR, the WC opcode and the data are verified.
         :param msg_size: Size of the data to be copied (in Bytes)
+        :param bad_flow: If True, do not fill data in the MRs (default: False)
         :return: None
         """
         self.create_resources(msg_size=msg_size)
-        self.dest_mr.write('0' * msg_size, msg_size)
-        self.server.mr.write('s' * msg_size, msg_size)
+        if not bad_flow:
+            self.dest_mr.write('0' * msg_size, msg_size)
+            self.server.mr.write('s' * msg_size, msg_size)
         self.server.qp.wr_start()
         self.server.qp.wr_flags = e.IBV_SEND_SIGNALED
         self.server.qp.wr_memcpy(self.dest_mr.lkey, self.dest_mr.buf, self.server.mr.lkey,
@@ -117,4 +119,4 @@ class DmaGgaMemcpy(Mlx5RDMATestCase):
         max_size = max_size if max_size else 1024
 
         with self.assertRaises(PyverbsRDMAError):
-            self.dma_memcpy(max_size + 1)
+            self.dma_memcpy(max_size + 1, bad_flow=True)

@@ -6,6 +6,7 @@ rdma_python_test(tests
   args_parser.py
   base.py
   base_rdmacm.py
+  cuda_utils.py
   efa_base.py
   mlx5_base.py
   mlx5_prm_structs.py
@@ -15,6 +16,7 @@ rdma_python_test(tests
   test_cq.py
   test_cq_events.py
   test_cqex.py
+  test_cuda_dmabuf.py
   test_device.py
   test_efa_srd.py
   test_efadv.py
@@ -22,12 +24,14 @@ rdma_python_test(tests
   test_fork.py
   test_mlx5_cq.py
   test_mlx5_crypto.py
+  test_mlx5_cuda_umem.py
   test_mlx5_dc.py
   test_mlx5_devx.py
   test_mlx5_dm_ops.py
   test_mlx5_dma_memcpy.py
   test_mlx5_dr.py
   test_mlx5_flow.py
+  test_mlx5_huge_page.py
   test_mlx5_lag_affinity.py
   test_mlx5_mkey.py
   test_mlx5_pp.py

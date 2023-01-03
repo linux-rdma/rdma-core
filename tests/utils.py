@@ -391,13 +391,16 @@ def get_send_elements(agr_obj, is_server, opcode=e.IBV_WR_SEND):
     :param is_server: Indicates whether this is server or client side
     :return: send wr and its SGE
     """
-    mr = agr_obj.mr
+    if opcode == e.IBV_QP_EX_WITH_ATOMIC_WRITE:
+        atomic_wr = agr_obj.msg_size * (b's' if is_server else b'c')
+        return None, atomic_wr
+
     qp_type = agr_obj.sqp_lst[0].qp_type if isinstance(agr_obj, XRCResources) \
                 else agr_obj.qp.qp_type
     offset = GRH_SIZE if qp_type == e.IBV_QPT_UD else 0
     msg = (agr_obj.msg_size + offset) * ('s' if is_server else 'c')
-    mr.write(msg, agr_obj.msg_size + offset)
-    sge = SGE(mr.buf + offset, agr_obj.msg_size, agr_obj.mr_lkey)
+    agr_obj.mem_write(msg, agr_obj.msg_size + offset)
+    sge = SGE(agr_obj.mr.buf + offset, agr_obj.msg_size, agr_obj.mr_lkey)
     send_wr = SendWR(opcode=opcode, num_sge=1, sg=[sge])
     if opcode in [e.IBV_WR_RDMA_WRITE, e.IBV_WR_RDMA_READ]:
         send_wr.set_wr_rdma(int(agr_obj.rkey), int(agr_obj.remote_addr))
@@ -465,6 +468,8 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
         qp.wr_send_imm(IMM_DATA)
     elif send_op == e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM:
         qp.wr_rdma_write_imm(agr_obj.rkey, agr_obj.raddr, IMM_DATA)
+    elif send_op == e.IBV_QP_EX_WITH_ATOMIC_WRITE:
+        qp.wr_atomic_write(agr_obj.rkey, agr_obj.raddr, send_object)
     elif send_op == e.IBV_QP_EX_WITH_RDMA_READ:
         qp.wr_rdma_read(agr_obj.rkey, agr_obj.raddr)
     elif send_op == e.IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP:
@@ -494,7 +499,8 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
                                      stream_id)
         else:
             qp.wr_set_dc_addr(ah, agr_obj.remote_dct_num, DCT_KEY)
-    qp.wr_set_sge(send_object)
+    if send_op != e.IBV_QP_EX_WITH_ATOMIC_WRITE:
+        qp.wr_set_sge(send_object)
     qp.wr_complete()
 
 
@@ -884,8 +890,32 @@ def validate_raw(msg_received, msg_expected, skip_idxs):
             raise PyverbsError(err_msg)
 
 
+def sampler_traffic(client, server, iters, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO):
+    """
+    Send raw ethernet traffic
+    :param client: client side, clients base class is BaseTraffic
+    :param server: server side, servers base class is BaseTraffic
+    :param iters: number of traffic iterations
+    :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
+    :param l4: Packet layer 4 type: 'tcp' or 'udp'
+    """
+    s_recv_wr = get_recv_wr(server)
+    c_recv_wr = get_recv_wr(client)
+    for qp_idx in range(server.qp_count):
+        # Prepare the receive queue with RecvWR
+        post_recv(client, c_recv_wr, qp_idx=qp_idx)
+        post_recv(server, s_recv_wr, qp_idx=qp_idx)
+    poll = poll_cq_ex if isinstance(client.cq, CQEX) else poll_cq
+    for _ in range(iters):
+        for qp_idx in range(server.qp_count):
+            c_send_wr, c_sg, msg = get_send_elements_raw_qp(client, l3, l4, False)
+            send(client, c_send_wr, e.IBV_WR_SEND, False, qp_idx)
+            poll(client.cq)
+
+
 def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
-                l4=PacketConsts.UDP_PROTO, with_vlan=False, expected_packet=None, skip_idxs=[]):
+                l4=PacketConsts.UDP_PROTO, with_vlan=False, expected_packet=None,
+                skip_idxs=None):
     """
     Runs raw ethernet traffic between two sides
     :param client: client side, clients base class is BaseTraffic
@@ -899,6 +929,7 @@ def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
     :param skip_idxs: indexes to skip during packet validation
     :return:
     """
+    skip_idxs = [] if skip_idxs is None else skip_idxs
     s_recv_wr = get_recv_wr(server)
     c_recv_wr = get_recv_wr(client)
     for qp_idx in range(server.qp_count):
@@ -997,24 +1028,24 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
         send(client, c_send_wr, send_op, new_send, ah=ah_client)
         poll_cq(client.cq)
         if same_side_check:
-            msg_received = client.mr.read(client.msg_size, 0)
+            msg_received = client.mem_read(client.msg_size)
         else:
-            msg_received = server.mr.read(server.msg_size, 0)
+            msg_received = server.mem_read(server.msg_size)
         validate(msg_received, False if same_side_check else True,
                  server.msg_size)
         s_send_wr = get_send_elements(server, True, send_op)[send_element_idx]
         if same_side_check:
-            client.mr.write('c' * client.msg_size, client.msg_size)
+            client.mem_write('c' * client.msg_size, client.msg_size)
         send(server, s_send_wr, send_op, new_send, ah=ah_server)
         poll_cq(server.cq)
         if same_side_check:
-            msg_received = server.mr.read(client.msg_size, 0)
+            msg_received = server.mem_read(client.msg_size)
         else:
-            msg_received = client.mr.read(server.msg_size, 0)
+            msg_received = client.mem_read(server.msg_size)
         validate(msg_received, True if same_side_check else False,
                  client.msg_size)
         if same_side_check:
-            server.mr.write('s' * server.msg_size, server.msg_size)
+            server.mem_write('s' * server.msg_size, server.msg_size)
 
 
 def atomic_traffic(client, server, iters, gid_idx, port, new_send=False,
@@ -1204,7 +1235,7 @@ def requires_mcast_support():
 
 def odp_supported(ctx, qp_type, required_odp_caps):
     """
-    Check device ODP capabilities, support only send/recv so far.
+    Check device ODP capabilities
     :param ctx: Device Context
     :param qp_type: QP type ('rc', 'ud' or 'uc')
     :param required_odp_caps: ODP Capability mask of specified device
@@ -1215,7 +1246,7 @@ def odp_supported(ctx, qp_type, required_odp_caps):
         raise unittest.SkipTest('ODP is not supported - No ODP caps')
     qp_odp_caps = getattr(odp_caps, '{}_odp_caps'.format(qp_type))
     if required_odp_caps & qp_odp_caps != required_odp_caps:
-        raise unittest.SkipTest('ODP is not supported - ODP recv/send is not supported')
+        raise unittest.SkipTest('ODP is unavailable - Operation not supported on this device')
 
 
 def odp_implicit_supported(ctx):
@@ -1244,13 +1275,15 @@ def eswitch_mode_check(dev_name):
     if not pci_name:
         raise unittest.SkipTest(f'Could not find the PCI device of {dev_name}')
     pci_name = pci_name[0].split('/')[5]
+    eswicth_off_msg = f'Device {dev_name} must be in switchdev mode'
     try:
-        subprocess.check_output(['devlink', 'dev', 'eswitch', 'show', f'pci/{pci_name}'],
-                                stderr=subprocess.DEVNULL)
+        cmd_out = subprocess.check_output(['devlink', 'dev', 'eswitch', 'show', f'pci/{pci_name}'],
+                                          stderr=subprocess.DEVNULL)
+        if 'switchdev' not in str(cmd_out):
+            raise unittest.SkipTest(eswicth_off_msg)
     except subprocess.CalledProcessError:
-        raise unittest.SkipTest(f'ESwitch is off on device {dev_name}')
+        raise unittest.SkipTest(eswicth_off_msg)
     return True
-
 
 
 def requires_huge_pages():

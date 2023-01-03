@@ -33,7 +33,6 @@
 #include "mlx5dv_dr.h"
 
 #define DR_ICM_MODIFY_HDR_ALIGN_BASE	64
-#define DR_ICM_SYNC_THRESHOLD_POOL (64 * 1024 * 1024)
 
 struct dr_icm_pool {
 	enum dr_icm_type	icm_type;
@@ -44,6 +43,7 @@ struct dr_icm_pool {
 	struct list_head	buddy_mem_list;
 	uint64_t		hot_memory_size;
 	bool			syncing;
+	size_t			th;
 };
 
 struct dr_icm_mr {
@@ -283,6 +283,8 @@ static int dr_icm_buddy_create(struct dr_icm_pool *pool)
 	/* add it to the -start- of the list in order to search in it first */
 	list_add(&pool->buddy_mem_list, &buddy->list_node);
 
+	pool->dmn->num_buddies[pool->icm_type]++;
+
 	return 0;
 
 err_cleanup_buddy:
@@ -307,6 +309,8 @@ static void dr_icm_buddy_destroy(struct dr_icm_buddy_mem *buddy)
 	dr_icm_pool_mr_destroy(buddy->icm_mr);
 
 	dr_buddy_cleanup(buddy);
+
+	buddy->pool->dmn->num_buddies[buddy->pool->icm_type]--;
 
 	if (buddy->pool->icm_type == DR_ICM_TYPE_STE)
 		dr_icm_buddy_cleanup_ste_cache(buddy);
@@ -353,7 +357,7 @@ dr_icm_chunk_create(struct dr_icm_pool *pool,
 
 static bool dr_icm_pool_is_sync_required(struct dr_icm_pool *pool)
 {
-	if (pool->hot_memory_size > DR_ICM_SYNC_THRESHOLD_POOL)
+	if (pool->hot_memory_size >= pool->th)
 		return true;
 
 	return false;
@@ -535,22 +539,29 @@ struct dr_icm_pool *dr_icm_pool_create(struct mlx5dv_dr_domain *dmn,
 		return NULL;
 	}
 
+	pool->dmn = dmn;
+	pool->icm_type = icm_type;
+
 	switch (icm_type) {
 	case DR_ICM_TYPE_STE:
 		pool->max_log_chunk_sz = dmn->info.max_log_sw_icm_sz;
+		pool->th = dr_icm_pool_chunk_size_to_byte(pool->max_log_chunk_sz,
+							  pool->icm_type) / 2;
 		break;
 	case DR_ICM_TYPE_MODIFY_ACTION:
 		pool->max_log_chunk_sz = dmn->info.max_log_action_icm_sz;
+		/* Use larger (0.9 instead of 0.5) TH to reduce sync on high rate insertion */
+		pool->th = dr_icm_pool_chunk_size_to_byte(pool->max_log_chunk_sz,
+							  pool->icm_type) * 0.9;
 		break;
 	case DR_ICM_TYPE_MODIFY_HDR_PTRN:
 		pool->max_log_chunk_sz = dmn->info.max_log_modify_hdr_pattern_icm_sz;
+		pool->th = dr_icm_pool_chunk_size_to_byte(pool->max_log_chunk_sz,
+							  pool->icm_type) / 2;
 		break;
 	default:
 		assert(false);
 	}
-
-	pool->dmn = dmn;
-	pool->icm_type = icm_type;
 
 	list_head_init(&pool->buddy_mem_list);
 

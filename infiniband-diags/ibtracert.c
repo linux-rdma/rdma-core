@@ -105,7 +105,7 @@ struct Node {
 	int upport;
 	Node *upnode;
 	uint64_t nodeguid;	/* also portguid */
-	char nodedesc[64];
+	char nodedesc[IB_SMP_DATA_SIZE + 1];
 	char nodeinfo[64];
 };
 

@@ -43,12 +43,14 @@ enum {
 
 bool dr_domain_is_support_modify_hdr_cache(struct mlx5dv_dr_domain *dmn)
 {
-	return dmn->info.caps.sw_format_ver == MLX5_HW_CONNECTX_6DX &&
+	return dmn->info.caps.sw_format_ver >= MLX5_HW_CONNECTX_6DX &&
 	       dmn->info.caps.support_modify_argument;
 }
 
 static int dr_domain_init_resources(struct mlx5dv_dr_domain *dmn)
 {
+	struct mlx5dv_pd mlx5_pd = {};
+	struct mlx5dv_obj obj;
 	int ret = -1;
 
 	dmn->ste_ctx = dr_ste_get_ctx(dmn->info.caps.sw_format_ver);
@@ -62,6 +64,14 @@ static int dr_domain_init_resources(struct mlx5dv_dr_domain *dmn)
 		dr_dbg(dmn, "Couldn't allocate PD\n");
 		return ret;
 	}
+
+	obj.pd.in = dmn->pd;
+	obj.pd.out = &mlx5_pd;
+	ret = mlx5dv_init_obj(&obj, MLX5DV_OBJ_PD);
+	if (ret)
+		goto clean_pd;
+
+	dmn->pd_num = mlx5_pd.pdn;
 
 	dmn->uar = mlx5dv_devx_alloc_uar(dmn->ctx,
 					 MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC);
@@ -172,6 +182,9 @@ static void dr_domain_vports_uninit(struct mlx5dv_dr_domain *dmn)
 		vports->vports = NULL;
 	}
 	pthread_spin_destroy(&vports->lock);
+
+	if (vports->ib_ports)
+		free(vports->ib_ports);
 }
 
 static int dr_domain_query_esw_mgr(struct mlx5dv_dr_domain *dmn,
@@ -350,7 +363,7 @@ static int dr_domain_caps_init(struct ibv_context *ctx,
 	default:
 		dr_dbg(dmn, "Invalid domain\n");
 		ret = EINVAL;
-		break;
+		goto uninit_vports;
 	}
 
 	return ret;
@@ -423,7 +436,7 @@ static int dr_domain_check_icm_memory_caps(struct mlx5dv_dr_domain *dmn)
 	dmn->info.max_log_sw_icm_sz =
 		min_t(uint32_t, DR_CHUNK_SIZE_1024K, max_req_chunks_log);
 
-	if (dmn->info.caps.sw_format_ver == MLX5_HW_CONNECTX_6DX) {
+	if (dmn->info.caps.sw_format_ver >= MLX5_HW_CONNECTX_6DX) {
 		if (dmn->info.caps.log_modify_pattern_icm_size < DR_CHUNK_SIZE_4K +
 		    DR_MODIFY_ACTION_LOG_SIZE) {
 			errno = ENOMEM;

@@ -22,7 +22,7 @@ pr:
 resources:
   containers:
     - container: azp
-      image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:38.0
+      image: ucfconsort.azurecr.io/rdma-core/azure_pipelines:44.0
       endpoint: ucfconsort_registry
     - container: centos6
       image: ucfconsort.azurecr.io/rdma-core/centos6:25.0
@@ -31,16 +31,22 @@ resources:
       image: ucfconsort.azurecr.io/rdma-core/centos7:25.0
       endpoint: ucfconsort_registry
     - container: centos8
-      image: ucfconsort.azurecr.io/rdma-core/centos8:25.0
+      image: ucfconsort.azurecr.io/rdma-core/centos8:44.0
+      endpoint: ucfconsort_registry
+    - container: centos9
+      image: ucfconsort.azurecr.io/rdma-core/centos9:44.0
       endpoint: ucfconsort_registry
     - container: fedora
-      image: ucfconsort.azurecr.io/rdma-core/fc35:38.0
+      image: ucfconsort.azurecr.io/rdma-core/fc37:44.0
       endpoint: ucfconsort_registry
     - container: xenial
       image: ucfconsort.azurecr.io/rdma-core/ubuntu-16.04:28.0
       endpoint: ucfconsort_registry
     - container: bionic
       image: ucfconsort.azurecr.io/rdma-core/ubuntu-18.04:29.0
+      endpoint: ucfconsort_registry
+    - container: focal
+      image: ucfconsort.azurecr.io/rdma-core/ubuntu-20.04:44.0
       endpoint: ucfconsort_registry
     - container: leap
       image: ucfconsort.azurecr.io/rdma-core/opensuse-15.0:25.0
@@ -68,18 +74,18 @@ stages:
 
           - bash: |
               set -e
-              mkdir build-gcc11
-              cd build-gcc11
-              CC=gcc-11 cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_STATIC=1 -DENABLE_WERROR=1
+              mkdir build-gcc12
+              cd build-gcc12
+              CC=gcc-12 cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_STATIC=1 -DENABLE_WERROR=1
               ninja
-            displayName: gcc 11.1 Compile
+            displayName: gcc 12.1 Compile
 
           - task: PythonScript@0
             displayName: Check Build Script
             inputs:
               scriptPath: buildlib/check-build
-              arguments: --src .. --cc gcc-11
-              workingDirectory: build-gcc11
+              arguments: --src .. --cc gcc-12
+              workingDirectory: build-gcc12
               pythonInterpreter: /usr/bin/python3
 
           # Run sparse on the subdirectories which are sparse clean
@@ -100,11 +106,19 @@ stages:
 
           - bash: |
               set -e
+              mkdir build-clang
+              cd build-clang
+              CC=clang-15 cmake -GNinja .. -DCMAKE_BUILD_TYPE=Debug -DIOCTL_MODE=both -DENABLE_WERROR=1
+              ninja
+            displayName: clang 15 Compile
+
+          - bash: |
+              set -e
               mv util/udma_barrier.h util/udma_barrier.h.old
               echo "#error Fail" >> util/udma_barrier.h
-              cd build-gcc11
+              cd build-gcc12
               rm CMakeCache.txt
-              CC=gcc-11 cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_WERROR=1
+              CC=gcc-12 cmake -GNinja .. -DIOCTL_MODE=both -DENABLE_WERROR=1
               ninja
               mv ../util/udma_barrier.h.old ../util/udma_barrier.h
             displayName: Simulate non-coherent DMA Platform Compile
@@ -113,31 +127,17 @@ stages:
               set -e
               mkdir build-arm64
               cd build-arm64
-              CC=aarch64-linux-gnu-gcc-9 cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
+              CC=aarch64-linux-gnu-gcc-12 PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig/ cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
               ninja
-            displayName: gcc 9.3 ARM64 Compile
+            displayName: gcc 12.1 ARM64 Compile
 
           - bash: |
               set -e
               mkdir build-ppc64el
               cd build-ppc64el
-              CC=powerpc64le-linux-gnu-gcc-9 cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
+              CC=powerpc64le-linux-gnu-gcc-12 PKG_CONFIG_PATH=/usr/lib/powerpc64le-linux-gnu/pkgconfig/ cmake -GNinja .. -DIOCTL_MODE=both -DNO_PYVERBS=1 -DENABLE_WERROR=1
               ninja
-            displayName: gcc 9.3 PPC64EL Compile
-
-          - bash: |
-              set -e
-              sed -i -e 's/ninja \(.*\)-v/ninja \1/g' debian/rules
-              debian/rules CC=clang-13 EXTRA_CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1" build
-            displayName: clang 13.0 Bionic Build
-          - bash: |
-              set -e
-              fakeroot debian/rules binary
-            displayName: clang 13.0 Bionic .deb Build
-          - bash: |
-              set -e
-              lintian ../*.deb
-            displayName: Debian Lintian for .deb packages
+            displayName: gcc 12.1 PPC64EL Compile
 
       - job: Compile32
         displayName: Compile Tests 32 bit
@@ -166,7 +166,7 @@ stages:
               set -e
               mkdir build-pandoc artifacts
               cd build-pandoc
-              CC=gcc-11 cmake -GNinja ..
+              CC=gcc-12 cmake -GNinja ..
               ninja docs
               cd ../artifacts
               # FIXME: Check Build.SourceBranch for tag consistency
@@ -198,7 +198,11 @@ stages:
               CONTAINER: centos8
               SPEC: redhat/rdma-core.spec
               RPMBUILD_OPTS:  --define 'EXTRA_CMAKE_FLAGS -DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1'
-            fedora35:
+            centos9:
+              CONTAINER: centos9
+              SPEC: redhat/rdma-core.spec
+              RPMBUILD_OPTS:  --define 'EXTRA_CMAKE_FLAGS -DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1'
+            fedora37:
               CONTAINER: fedora
               SPEC: redhat/rdma-core.spec
               RPMBUILD_OPTS:  --define 'EXTRA_CMAKE_FLAGS -DCMAKE_BUILD_TYPE=Debug -DENABLE_WERROR=1'
@@ -235,6 +239,11 @@ stages:
               CONTAINER: xenial
             bionic:
               CONTAINER: bionic
+            focal:
+              CONTAINER: focal
+            jammy:
+              CONTAINER: azp
+              LINTIAN: true
         container: $[ variables['CONTAINER'] ]
         steps:
           - checkout: none
@@ -251,3 +260,8 @@ stages:
               cd rdma-core*/
               dpkg-buildpackage -b -d
             displayName: Perform Package Build
+
+          - bash: |
+              lintian *.deb
+            displayName: Debian Lintian for .deb packages
+            condition: eq(variables['LINTIAN'], 'true')

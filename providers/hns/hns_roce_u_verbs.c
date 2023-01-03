@@ -284,13 +284,13 @@ static int verify_cq_create_attr(struct ibv_cq_init_attr_ex *attr,
 				 struct hns_roce_context *context)
 {
 	if (!attr->cqe || attr->cqe > context->max_cqe)
-		return -EINVAL;
+		return EINVAL;
 
 	if (attr->comp_mask)
-		return -EOPNOTSUPP;
+		return EOPNOTSUPP;
 
 	if (!check_comp_mask(attr->wc_flags, CREATE_CQ_SUPPORTED_WC_FLAGS))
-		return -EOPNOTSUPP;
+		return EOPNOTSUPP;
 
 	attr->cqe = max_t(uint32_t, HNS_ROCE_MIN_CQE_NUM,
 			  roundup_pow_of_two(attr->cqe));
@@ -774,24 +774,24 @@ static int check_qp_create_mask(struct hns_roce_context *ctx,
 	struct hns_roce_device *hr_dev = to_hr_dev(ctx->ibv_ctx.context.device);
 
 	if (!check_comp_mask(attr->comp_mask, CREATE_QP_SUP_COMP_MASK))
-		return -EOPNOTSUPP;
+		return EOPNOTSUPP;
 
 	switch (attr->qp_type) {
 	case IBV_QPT_UD:
 		if (hr_dev->hw_version == HNS_ROCE_HW_VER2)
-			return -EINVAL;
+			return EINVAL;
 		SWITCH_FALLTHROUGH;
 	case IBV_QPT_RC:
 	case IBV_QPT_XRC_SEND:
 		if (!(attr->comp_mask & IBV_QP_INIT_ATTR_PD))
-			return -EINVAL;
+			return EINVAL;
 		break;
 	case IBV_QPT_XRC_RECV:
 		if (!(attr->comp_mask & IBV_QP_INIT_ATTR_XRCD))
-			return -EINVAL;
+			return EINVAL;
 		break;
 	default:
-		return -EINVAL;
+		return EOPNOTSUPP;
 	}
 
 	return 0;

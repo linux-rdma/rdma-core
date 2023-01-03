@@ -51,11 +51,12 @@ Example of content of such file:
 """
 
 
-def check_crypto_caps(dev_name, is_wrapped_dek_mode):
+def check_crypto_caps(dev_name, is_wrapped_dek_mode, multi_block_support=False):
     """
     Check that this device support crypto actions.
     :param dev_name: The device name.
-    :param is_wrapped_dek_mode: True when wrapped_dek and False when plaintext .
+    :param is_wrapped_dek_mode: True when wrapped_dek and False when plaintext.
+    :param multi_block_support: If True, check for multi-block support.
     """
     mlx5dv_attr = Mlx5DVContextAttr()
     ctx = Mlx5Context(mlx5dv_attr, name=dev_name)
@@ -63,8 +64,17 @@ def check_crypto_caps(dev_name, is_wrapped_dek_mode):
     failed_selftests = crypto_caps['failed_selftests']
     if failed_selftests:
         raise unittest.SkipTest(f'The device crypto selftest failed ({failed_selftests})')
-    if not dve.MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK  & crypto_caps['crypto_engines']:
+    single_block_cap = dve.MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_SINGLE_BLOCK \
+                       & crypto_caps['crypto_engines']
+    multi_block_cap = dve.MLX5DV_CRYPTO_ENGINES_CAP_AES_XTS_MULTI_BLOCK \
+                      & crypto_caps['crypto_engines']
+    if not single_block_cap and not multi_block_cap:
         raise unittest.SkipTest('The device crypto engines does not support AES')
+    elif multi_block_support and not multi_block_cap:
+        raise unittest.SkipTest('The device crypto engines does not support multi blocks')
+    elif multi_block_cap:
+        assert single_block_cap, \
+              'The device crypto engines do not support single block but support multi blocks'
     dev_wrapped_import_method = crypto_caps['wrapped_import_method']
     if is_wrapped_dek_mode:
         if not dve.MLX5DV_CRYPTO_WRAPPED_IMPORT_METHOD_CAP_AES_XTS & dev_wrapped_import_method or \
@@ -97,14 +107,15 @@ def require_crypto_login_details(instance):
         raise unittest.SkipTest(f'Crypto login details must be supplied in {crypto_file}')
 
 
-def requires_crypto_support(is_wrapped_dek_mode):
+def requires_crypto_support(is_wrapped_dek_mode, multi_block_support=False):
     """
-    :param is_wrapped_dek_mode: True when wapped_dek and False when plaintext .
+    :param is_wrapped_dek_mode: True when wapped_dek and False when plaintext.
+    :param multi_block_support: If True, check for multi-block support.
     """
     def outer(func):
         def inner(instance):
             require_crypto_login_details(instance)
-            check_crypto_caps(instance.dev_name, is_wrapped_dek_mode)
+            check_crypto_caps(instance.dev_name, is_wrapped_dek_mode, multi_block_support)
             return func(instance)
         return inner
     return outer
@@ -112,12 +123,13 @@ def requires_crypto_support(is_wrapped_dek_mode):
 
 class Mlx5CryptoResources(RCResources):
     def __init__(self, dev_name, ib_port, gid_index, dv_send_ops_flags=0,
-                 mkey_create_flags=dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT):
+                 mkey_create_flags=dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT,
+                 msg_size=1024):
         self.dv_send_ops_flags = dv_send_ops_flags
         self.mkey_create_flags = mkey_create_flags
         self.max_inline_data = 512
         self.send_ops_flags = e.IBV_QP_EX_WITH_SEND
-        super().__init__(dev_name, ib_port, gid_index)
+        super().__init__(dev_name, ib_port, gid_index, msg_size=msg_size)
         self.create_mkeys()
 
     def create_mkeys(self):
@@ -239,6 +251,8 @@ class Mlx5CryptoTrafficTest(Mlx5RDMATestCase):
         self.iters = 10
         self.crypto_details = None
         self.validate_data = False
+        self.is_multi_block = False
+        self.msg_size = 1024
         self.key_size = dve.MLX5DV_CRYPTO_KEY_SIZE_128
 
     def create_players(self, resource, **resource_arg):
@@ -356,18 +370,29 @@ class Mlx5CryptoTrafficTest(Mlx5RDMATestCase):
         return RecvWR(sg=[sge], num_sge=1)
 
     def prepare_validate_data(self):
-        self.client.mr.write('c' * 512, 512)
-        encrypted_data = struct.pack('!64Q', *self.crypto_details['encrypted_data_for_512_c'])
-        self.client.mr.write(encrypted_data, 512, offset=512)
+        data_size = int(self.msg_size / 2)
+        self.client.mr.write('c' * data_size, data_size)
+        if self.is_multi_block:
+            encrypted_data = struct.pack('!128Q', *self.crypto_details['encrypted_data_for_1024_c'])
+        else:
+            encrypted_data = struct.pack('!64Q', *self.crypto_details['encrypted_data_for_512_c'])
+        self.client.mr.write(encrypted_data, data_size, offset=data_size)
 
     def validate_crypto_data(self):
         """
         Validate the server MR data. Verify that the encryption/decryption works well.
         """
-        send_msg = self.client.mr.read(1024, 0)
-        recv_msg = self.server.mr.read(1024, 0)
-        self.assertEqual(send_msg[0:512], recv_msg[512:1024])
-        self.assertEqual(send_msg[512:1024], recv_msg[0:512])
+        data_size= int(self.msg_size / 2)
+        send_msg = self.client.mr.read(self.msg_size, 0)
+        recv_msg = self.server.mr.read(self.msg_size, 0)
+        self.assertEqual(send_msg[0:data_size], recv_msg[data_size:self.msg_size])
+        self.assertEqual(send_msg[data_size:self.msg_size], recv_msg[0:data_size])
+
+    def init_data_validation(self):
+        if 'encrypted_data_for_512_c' in self.crypto_details and not self.is_multi_block:
+            self.validate_data = True
+        elif 'encrypted_data_for_1024_c' in self.crypto_details and self.is_multi_block:
+            self.validate_data = True
 
     def traffic(self):
         """
@@ -391,13 +416,12 @@ class Mlx5CryptoTrafficTest(Mlx5RDMATestCase):
         cases, and runs traffic.
         :param create_dek_func: Function that creates a DEK.
         """
-        if 'encrypted_data_for_512_c' in self.crypto_details:
-            self.validate_data = True
+        self.init_data_validation()
         mkey_flags = dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_CRYPTO | \
             dve.MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT
         self.create_players(Mlx5CryptoResources,
                             dv_send_ops_flags=dve.MLX5DV_QP_EX_WITH_MKEY_CONFIGURE,
-                            mkey_create_flags=mkey_flags)
+                            mkey_create_flags=mkey_flags, msg_size=self.msg_size)
         create_dek_func()
         self.reg_client_mkey()
         self.traffic()
@@ -448,3 +472,15 @@ class Mlx5CryptoTrafficTest(Mlx5RDMATestCase):
         self.create_client_dek()
         self.reg_client_mkey(signature=True)
         self.traffic()
+
+    @requires_crypto_support(is_wrapped_dek_mode=False, multi_block_support=True)
+    def test_mlx5_plaintext_dek_multi_block(self):
+        self.is_multi_block = True
+        self.msg_size = 2048
+        self.run_crypto_dek_test(self.create_client_plaintext_dek)
+
+    @requires_crypto_support(is_wrapped_dek_mode=True, multi_block_support=True)
+    def test_mlx5_wrapped_dek_multi_block(self):
+        self.is_multi_block = True
+        self.msg_size = 2048
+        self.run_crypto_dek_test(self.create_client_wrapped_dek_login_obj)
