@@ -2,7 +2,25 @@ rdma-core (45.0-1) unstable; urgency=medium
 
   * New upstream release.
 
- -- Jason Gunthorpe <jgg@obsidianresearch.com>  Thu, 18 Aug 2022 16:02:54 +0200
+ -- Jason Gunthorpe <jgg@obsidianresearch.com>  Tue, 03 Jan 2023 17:46:57 +0100
+
+rdma-core (44.0-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Add Microsoft Azure Network Adapter (MANA) RDMA provider
+    - util: mmio: fix build on MIPS with binutils >= 2.35
+  * Add 64-bit MIPS architectures to COHERENT_DMA_ARCHS (Closes: #1026088)
+  * debian/watch: Query api.github.com for release tarballs
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Tue, 03 Jan 2023 17:29:32 +0100
+
+rdma-core (43.0-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Install 70-persistent-ipoib.rules into docs instead of /etc
+      (Closes: #958385)
+
+ -- Benjamin Drung <bdrung@ubuntu.com>  Mon, 24 Oct 2022 18:21:42 +0200
 
 rdma-core (42.0-1) unstable; urgency=medium
 
