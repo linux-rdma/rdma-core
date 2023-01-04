@@ -1465,7 +1465,8 @@ static int _sq_overhead(struct mlx5_qp *qp,
 
 	if (ops & (IBV_QP_EX_WITH_BIND_MW | IBV_QP_EX_WITH_LOCAL_INV) ||
 	    (mlx5_ops & (MLX5DV_QP_EX_WITH_MR_INTERLEAVED |
-			 MLX5DV_QP_EX_WITH_MR_LIST)))
+			 MLX5DV_QP_EX_WITH_MR_LIST |
+			 MLX5DV_QP_EX_WITH_MKEY_CONFIGURE)))
 		mw_size = sizeof(struct mlx5_wqe_ctrl_seg) +
 			  sizeof(struct mlx5_wqe_umr_ctrl_seg) +
 			  sizeof(struct mlx5_wqe_mkey_context_seg) +
