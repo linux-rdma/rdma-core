@@ -151,6 +151,29 @@ struct ibv_mr *irdma_ureg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	return &umr->vmr.ibv_mr;
 }
 
+struct ibv_mr *irdma_ureg_mr_dmabuf(struct ibv_pd *pd, uint64_t offset,
+				    size_t length, uint64_t iova, int fd,
+				    int access)
+{
+	struct irdma_umr *umr;
+	int err;
+
+	umr = malloc(sizeof(*umr));
+	if (!umr)
+		return NULL;
+
+	memset(umr, 0, sizeof(*umr));
+	err = ibv_cmd_reg_dmabuf_mr(pd, offset, length, iova, fd, access,
+				    &umr->vmr);
+	if (err) {
+		free(umr);
+		errno = err;
+		return NULL;
+	}
+
+	return &umr->vmr.ibv_mr;
+}
+
 /**
  * irdma_udereg_mr - re-register memory region
  * @vmr: mr that was allocated
