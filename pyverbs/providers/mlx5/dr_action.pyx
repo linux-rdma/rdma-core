@@ -455,7 +455,7 @@ cdef class DrActionFlowSample(DrAction):
         super().__init__()
         self.action = dv.mlx5dv_dr_action_create_flow_sampler(attr.attr)
         if self.action == NULL:
-            raise PyverbsRDMAErrno('DrActionTag creation failed.')
+            raise PyverbsRDMAErrno('DrActionFlowSample creation failed.')
         self.attr = attr
         self.dr_table = self.attr.table
         self.attr.table.add_ref(self)
