@@ -4,7 +4,7 @@ include /usr/share/dpkg/architecture.mk
 
 export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 
-COHERENT_DMA_ARCHS = amd64 arm64 i386 ia64 mips64 mips64el mips64r6 mips64r6el powerpc powerpcspe ppc64 ppc64el riscv64 s390x sparc64 x32
+NON_COHERENT_DMA_ARCHS = alpha arc armel armhf hppa m68k sh4
 
 dh_params = --with python3 --builddirectory=build-deb
 
@@ -58,7 +58,7 @@ override_dh_auto_test:
 
 override_dh_auto_install:
 # Some providers are disabled on architectures that are not able to do coherent DMA
-ifneq (,$(filter-out $(COHERENT_DMA_ARCHS),$(DEB_HOST_ARCH)))
+ifeq (,$(filter-out $(NON_COHERENT_DMA_ARCHS),$(DEB_HOST_ARCH)))
 	for package in ibverbs-providers libibverbs-dev rdma-core; do \
 		test -e debian/$$package.install.backup || cp debian/$$package.install debian/$$package.install.backup; \
 	done
