@@ -1018,7 +1018,10 @@ def flush_traffic(client, server, iters, gid_idx, port, new_send=False,
     rdma_traffic(client, server, iters, gid_idx, port, new_send, e.IBV_QP_EX_WITH_RDMA_WRITE)
     for _ in range(iters):
         send(client, None, send_op, new_send)
-        poll_cq(client.cq)
+        wcs = _poll_cq(client.cq)
+        if (wcs[0].status != e.IBV_WC_SUCCESS):
+            break
+    return wcs
 
 
 def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,

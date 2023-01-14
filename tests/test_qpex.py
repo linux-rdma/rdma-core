@@ -3,7 +3,7 @@ import random
 import errno
 
 from pyverbs.qp import QPCap, QPInitAttrEx, QPAttr, QPEx, QP
-from pyverbs.pyverbs_error import PyverbsRDMAError
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from pyverbs.mr import MW, MWBindInfo
 from pyverbs.base import inc_rkey
 from tests.utils import wc_status_to_str
@@ -251,9 +251,25 @@ class QpExTestCase(RDMATestCase):
         server.rkey = client.mr.rkey
         client.raddr = server.mr.buf
         server.raddr = client.mr.buf
-        u.flush_traffic(client, server, self.iters, self.gid_index,
-                        self.ib_port, new_send=True,
-                        send_op=e.IBV_QP_EX_WITH_FLUSH)
+        wcs = u.flush_traffic(client, server, self.iters, self.gid_index,
+                              self.ib_port, new_send=True,
+                              send_op=e.IBV_QP_EX_WITH_FLUSH)
+        if wcs[0].status != e.IBV_WC_SUCCESS:
+            raise PyverbsError(f'Unexpected {wc_status_to_str(wcs[0].status)}')
+
+    def test_qp_ex_rc_flush_type_violate(self):
+        client, server = self.create_players('rc_flush')
+
+        client.rkey = server.mr.rkey
+        server.rkey = client.mr.rkey
+        client.raddr = server.mr.buf
+        server.raddr = client.mr.buf
+        client.ptype = e.IBV_FLUSH_PERSISTENT
+        wcs = u.flush_traffic(client, server, self.iters, self.gid_index,
+                              self.ib_port, new_send=True,
+                              send_op=e.IBV_QP_EX_WITH_FLUSH)
+        if wcs[0].status != e.IBV_WC_REM_ACCESS_ERR:
+            raise PyverbsError(f'Expected errors {wc_status_to_str(e.IBV_WC_REM_ACCESS_ERR)} - got {wc_status_to_str(wcs[0].status)}')
 
     def test_qp_ex_rc_atomic_write(self):
         client, server = self.create_players('rc_atomic_write')
