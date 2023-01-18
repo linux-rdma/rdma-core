@@ -36,6 +36,7 @@ Additional service daemons are provided for:
  - srp_daemon (ib_srp.ko)
  - iwpmd (for iwarp kernel providers)
  - ibacm (for InfiniBand communication management assistant)
+ - rdma-ndd (RDMA device Node Description update daemon)
 
 # Building
 
