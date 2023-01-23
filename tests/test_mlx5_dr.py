@@ -805,6 +805,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.packet_reformat_actions(outer=encap_header)
 
     @requires_reformat_support
+    @u.requires_encap_disabled_if_eswitch_on
     @skip_unsupported
     def test_packet_reformat_root_l2_gre(self):
         """
@@ -827,6 +828,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.packet_reformat_actions(outer=encap_header, l2_ref_type=False)
 
     @requires_reformat_support
+    @u.requires_encap_disabled_if_eswitch_on
     @skip_unsupported
     def test_packet_reformat_root_l3_gre(self):
         """
@@ -849,6 +851,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.packet_reformat_actions(outer=encap_header)
 
     @requires_reformat_support
+    @u.requires_encap_disabled_if_eswitch_on
     @skip_unsupported
     def test_packet_reformat_root_l2_geneve(self):
         """
@@ -871,6 +874,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.packet_reformat_actions(outer=encap_header, l2_ref_type=False)
 
     @requires_reformat_support
+    @u.requires_encap_disabled_if_eswitch_on
     @skip_unsupported
     def test_packet_reformat_root_l3_geneve(self):
         """

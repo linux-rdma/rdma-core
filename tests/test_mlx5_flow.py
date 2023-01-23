@@ -158,6 +158,7 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters)
 
     @requires_reformat_support
+    @u.requires_encap_disabled_if_eswitch_on
     def test_tx_packet_reformat(self):
         """
         Creates packet reformat (encap) action on TX and with QP action on RX

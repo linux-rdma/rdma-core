@@ -1350,6 +1350,13 @@ def odp_implicit_supported(ctx):
         raise unittest.SkipTest('ODP implicit is not supported')
 
 
+def get_pci_name(dev_name):
+    pci_name = glob.glob(f'/sys/bus/pci/devices/*/infiniband/{dev_name}')
+    if not pci_name:
+        raise unittest.SkipTest(f'Could not find the PCI device of {dev_name}')
+    return pci_name[0].split('/')[5]
+
+
 def requires_eswitch_on(func):
     def inner(instance):
         if not (is_eth(d.Context(name=instance.dev_name), instance.ib_port)
@@ -1360,10 +1367,7 @@ def requires_eswitch_on(func):
 
 
 def eswitch_mode_check(dev_name):
-    pci_name = glob.glob(f'/sys/bus/pci/devices/*/infiniband/{dev_name}')
-    if not pci_name:
-        raise unittest.SkipTest(f'Could not find the PCI device of {dev_name}')
-    pci_name = pci_name[0].split('/')[5]
+    pci_name = get_pci_name(dev_name)
     eswicth_off_msg = f'Device {dev_name} must be in switchdev mode'
     try:
         cmd_out = subprocess.check_output(['devlink', 'dev', 'eswitch', 'show', f'pci/{pci_name}'],
@@ -1374,6 +1378,28 @@ def eswitch_mode_check(dev_name):
         raise unittest.SkipTest(eswicth_off_msg)
     return True
 
+
+def requires_encap_disabled_if_eswitch_on(func):
+    def inner(instance):
+        if not (is_eth(d.Context(name=instance.dev_name), instance.ib_port)
+                and encap_mode_check(instance.dev_name)):
+            raise unittest.SkipTest('Encap must be disabled when Eswitch on')
+        return func(instance)
+    return inner
+
+
+def encap_mode_check(dev_name):
+    pci_name = get_pci_name(dev_name)
+    encap_enable_msg = f'Device {dev_name}: Encap must be disabled over switchdev mode'
+    try:
+        cmd_out = subprocess.check_output(['devlink', 'dev', 'eswitch', 'show', f'pci/{pci_name}'],
+                                          stderr=subprocess.DEVNULL)
+        if 'switchdev' in str(cmd_out):
+            if any([i for i in ['encap enable', 'encap-mode basic'] if i in str(cmd_out)]):
+                raise unittest.SkipTest(encap_enable_msg)
+    except subprocess.CalledProcessError:
+        raise unittest.SkipTest(encap_enable_msg)
+    return True
 
 def requires_huge_pages():
     def outer(func):
