@@ -42,6 +42,10 @@ describes the desired memory protection attributes; it is either 0 or the bitwis
 .TP
 .B IBV_ACCESS_REMOTE_ATOMIC\fR Enable Remote Atomic Operation Access (if supported)
 .TP
+.B IBV_ACCESS_FLUSH_GLOBAL\fR  Enable Remote Flush Operation with global visibility placement type (if supported)
+.TP
+.B IBV_ACCESS_FLUSH_PERSISTENT\fR  Enable Remote Flush Operation with persistence placement type (if supported)
+.TP
 .B IBV_ACCESS_MW_BIND\fR       Enable Memory Window Binding
 .TP
 .B IBV_ACCESS_ZERO_BASED\fR    Use byte offset from beginning of MR to access this MR, instead of a pointer address

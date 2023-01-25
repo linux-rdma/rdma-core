@@ -16,7 +16,7 @@ ibv_wr_atomic_cmp_swp, ibv_wr_atomic_fetch_add - Post remote atomic operation wo
 
 ibv_wr_bind_mw, ibv_wr_local_inv - Post work requests for memory windows
 
-ibv_wr_rdma_read, ibv_wr_rdma_write, ibv_wr_rdma_write_imm - Post RDMA work requests
+ibv_wr_rdma_read, ibv_wr_rdma_write, ibv_wr_rdma_write_imm, ibv_wr_flush - Post RDMA work requests
 
 ibv_wr_send, ibv_wr_send_imm, ibv_wr_send_inv - Post send work requests
 
@@ -73,6 +73,8 @@ void ibv_wr_set_sge_list(struct ibv_qp_ex *qp, size_t num_sge,
 void ibv_wr_set_ud_addr(struct ibv_qp_ex *qp, struct ibv_ah *ah,
                         uint32_t remote_qpn, uint32_t remote_qkey);
 void ibv_wr_set_xrc_srqn(struct ibv_qp_ex *qp, uint32_t remote_srqn);
+void ibv_wr_flush(struct ibv_qp_ex *qp, uint32_t rkey, uint64_t remote_addr,
+                  size_t len, uint8_t type, uint8_t level);
 ```
 
 # DESCRIPTION
@@ -145,6 +147,7 @@ ibv_qp_init_attr_ex* (see the EXAMPLE below).
 | LOCAL_INV            | ibv_wr_local_inv()        | UC, RC, XRC_SEND                 | NONE     |
 | RDMA_READ            | ibv_wr_rdma_read()        | RC, XRC_SEND                     | DATA, QP |
 | RDMA_WRITE           | ibv_wr_rdma_write()       | UC, RC, XRC_SEND                 | DATA, QP |
+| FLUSH                | ibv_wr_flush()            | RC, RD, XRC_SEND                 | DATA, QP |
 | RDMA_WRITE_WITH_IMM  | ibv_wr_rdma_write_imm()   | UC, RC, XRC_SEND                 | DATA, QP |
 | SEND                 | ibv_wr_send()             | UD, UC, RC, XRC_SEND, RAW_PACKET | DATA, QP |
 | SEND_WITH_IMM        | ibv_wr_send_imm()         | UD, UC, RC, SRC SEND             | DATA, QP |

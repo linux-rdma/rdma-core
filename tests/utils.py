@@ -470,6 +470,9 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
         qp.wr_rdma_write_imm(agr_obj.rkey, agr_obj.raddr, IMM_DATA)
     elif send_op == e.IBV_QP_EX_WITH_ATOMIC_WRITE:
         qp.wr_atomic_write(agr_obj.rkey, agr_obj.raddr, send_object)
+    elif send_op == e.IBV_QP_EX_WITH_FLUSH:
+        qp.wr_flush(agr_obj.rkey, agr_obj.raddr, agr_obj.msg_size,
+                    agr_obj.ptype, agr_obj.level)
     elif send_op == e.IBV_QP_EX_WITH_RDMA_READ:
         qp.wr_rdma_read(agr_obj.rkey, agr_obj.raddr)
     elif send_op == e.IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP:
@@ -499,7 +502,8 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
                                      stream_id)
         else:
             qp.wr_set_dc_addr(ah, agr_obj.remote_dct_num, DCT_KEY)
-    if send_op != e.IBV_QP_EX_WITH_ATOMIC_WRITE:
+    if send_op != e.IBV_QP_EX_WITH_ATOMIC_WRITE and \
+            send_op != e.IBV_QP_EX_WITH_FLUSH:
         qp.wr_set_sge(send_object)
     qp.wr_complete()
 
@@ -994,6 +998,30 @@ def raw_rss_traffic(client, server, iters, l3=PacketConsts.IP_V4,
             if completions < num_packets:
                 raise PyverbsError(f'Expected {num_packets} completions - got {completions}')
             post_recv(server, s_recv_wr, qp_idx=qp_idx, num_wqes=num_packets)
+
+
+def flush_traffic(client, server, iters, gid_idx, port, new_send=False,
+                  send_op=None):
+    """
+    Runs basic RDMA FLUSH traffic that client requests a FLUSH to server.
+    Simply, run RDMA WRITE and then follow up by a RDMA FLUSH.
+    No receive WQEs are posted.
+    :param client: client side, clients base class is BaseTraffic
+    :param server: server side, servers base class is BaseTraffic
+    :param iters: number of traffic iterations
+    :param gid_idx: local gid index
+    :param port: IB port
+    :param new_send: If True use new post send API.
+    :param send_op: The send_wr opcode.
+    :return:
+    """
+    rdma_traffic(client, server, iters, gid_idx, port, new_send, e.IBV_QP_EX_WITH_RDMA_WRITE)
+    for _ in range(iters):
+        send(client, None, send_op, new_send)
+        wcs = _poll_cq(client.cq)
+        if (wcs[0].status != e.IBV_WC_SUCCESS):
+            break
+    return wcs
 
 
 def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,

@@ -517,6 +517,7 @@ enum ibv_wc_opcode {
 	IBV_WC_BIND_MW,
 	IBV_WC_LOCAL_INV,
 	IBV_WC_TSO,
+	IBV_WC_FLUSH,
 	IBV_WC_ATOMIC_WRITE = 9,
 /*
  * Set value of IBV_WC_RECV so consumers can test if a completion is a
@@ -614,6 +615,8 @@ enum ibv_access_flags {
 	IBV_ACCESS_ZERO_BASED		= (1<<5),
 	IBV_ACCESS_ON_DEMAND		= (1<<6),
 	IBV_ACCESS_HUGETLB		= (1<<7),
+	IBV_ACCESS_FLUSH_GLOBAL		= (1 << 8),
+	IBV_ACCESS_FLUSH_PERSISTENT	= (1 << 9),
 	IBV_ACCESS_RELAXED_ORDERING	= IBV_ACCESS_OPTIONAL_FIRST,
 };
 
@@ -951,6 +954,7 @@ enum ibv_qp_create_send_ops_flags {
 	IBV_QP_EX_WITH_BIND_MW			= 1 << 8,
 	IBV_QP_EX_WITH_SEND_WITH_INV		= 1 << 9,
 	IBV_QP_EX_WITH_TSO			= 1 << 10,
+	IBV_QP_EX_WITH_FLUSH			= 1 << 11,
 	IBV_QP_EX_WITH_ATOMIC_WRITE		= 1 << 12,
 };
 
@@ -1098,6 +1102,7 @@ enum ibv_wr_opcode {
 	IBV_WR_SEND_WITH_INV,
 	IBV_WR_TSO,
 	IBV_WR_DRIVER1,
+	IBV_WR_FLUSH = 14,
 	IBV_WR_ATOMIC_WRITE = 15,
 };
 
@@ -1107,6 +1112,16 @@ enum ibv_send_flags {
 	IBV_SEND_SOLICITED	= 1 << 2,
 	IBV_SEND_INLINE		= 1 << 3,
 	IBV_SEND_IP_CSUM	= 1 << 4
+};
+
+enum ibv_placement_type {
+	IBV_FLUSH_GLOBAL = 1U << 0,
+	IBV_FLUSH_PERSISTENT = 1U << 1,
+};
+
+enum ibv_selectivity_level {
+	IBV_FLUSH_RANGE = 0,
+	IBV_FLUSH_MR,
 };
 
 struct ibv_data_buf {
@@ -1318,6 +1333,9 @@ struct ibv_qp_ex {
 
 	void (*wr_atomic_write)(struct ibv_qp_ex *qp, uint32_t rkey,
 				uint64_t remote_addr, const void *atomic_wr);
+	void (*wr_flush)(struct ibv_qp_ex *qp, uint32_t rkey,
+			 uint64_t remote_addr, size_t len, uint8_t type,
+			 uint8_t level);
 };
 
 struct ibv_qp_ex *ibv_qp_to_qp_ex(struct ibv_qp *qp);
@@ -1358,6 +1376,13 @@ static inline void ibv_wr_rdma_write(struct ibv_qp_ex *qp, uint32_t rkey,
 				     uint64_t remote_addr)
 {
 	qp->wr_rdma_write(qp, rkey, remote_addr);
+}
+
+static inline void ibv_wr_flush(struct ibv_qp_ex *qp, uint32_t rkey,
+				uint64_t remote_addr, size_t len, uint8_t type,
+				uint8_t level)
+{
+	qp->wr_flush(qp, rkey, remote_addr, len, type, level);
 }
 
 static inline void ibv_wr_rdma_write_imm(struct ibv_qp_ex *qp, uint32_t rkey,

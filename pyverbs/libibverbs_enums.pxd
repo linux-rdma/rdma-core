@@ -114,6 +114,8 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_ACCESS_ZERO_BASED
         IBV_ACCESS_ON_DEMAND
         IBV_ACCESS_HUGETLB
+        IBV_ACCESS_FLUSH_GLOBAL
+        IBV_ACCESS_FLUSH_PERSISTENT
         IBV_ACCESS_RELAXED_ORDERING
 
     cpdef enum ibv_rereg_mr_flags:
@@ -140,6 +142,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_WR_BIND_MW
         IBV_WR_SEND_WITH_INV
         IBV_WR_TSO
+        IBV_WR_FLUSH
         IBV_WR_ATOMIC_WRITE
 
     cpdef enum ibv_ops_wr_opcode:
@@ -219,6 +222,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_WC_BIND_MW
         IBV_WC_LOCAL_INV
         IBV_WC_TSO
+        IBV_WC_FLUSH
         IBV_WC_ATOMIC_WRITE
         IBV_WC_RECV
         IBV_WC_RECV_RDMA_WITH_IMM
@@ -462,6 +466,7 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_QP_EX_WITH_BIND_MW
         IBV_QP_EX_WITH_SEND_WITH_INV
         IBV_QP_EX_WITH_TSO
+        IBV_QP_EX_WITH_FLUSH
         IBV_QP_EX_WITH_ATOMIC_WRITE
 
     cdef unsigned long long IBV_DEVICE_RAW_SCATTER_FCS
@@ -483,6 +488,12 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_FORK_ENABLED
         IBV_FORK_UNNEEDED
 
+    cpdef enum ibv_placement_type:
+        IBV_FLUSH_GLOBAL
+        IBV_FLUSH_PERSISTENT
+    cpdef enum ibv_selectivity_level:
+        IBV_FLUSH_MR
+        IBV_FLUSH_RANGE
 
 cdef extern from "<infiniband/verbs_api.h>":
     cdef unsigned long long IBV_ADVISE_MR_ADVICE_PREFETCH
