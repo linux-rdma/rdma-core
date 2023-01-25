@@ -83,7 +83,6 @@ struct rxe_qp {
 	struct rxe_wq		rq;
 	struct mminfo		sq_mmap_info;
 	struct rxe_wq		sq;
-	unsigned int		ssn;
 
 	/* new API support */
 	uint32_t		cur_index;
