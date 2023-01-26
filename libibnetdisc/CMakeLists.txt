@@ -20,5 +20,6 @@ rdma_pkg_config("ibnetdisc" "libibumad libibmad" "")
 rdma_test_executable(testleaks tests/testleaks.c)
 target_link_libraries(testleaks LINK_PRIVATE
   ibmad
+  ibumad
   ibnetdisc
 )
