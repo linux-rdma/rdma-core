@@ -53,12 +53,7 @@
 #      (without man pages) when neither pandoc/rst2man nor the pandoc-prebuilt
 #      directory are available.
 
-if (${CMAKE_VERSION} VERSION_LESS "3.18.1")
-	# Centos 6 support
-	cmake_minimum_required(VERSION 2.8.11 FATAL_ERROR)
-else()
-	cmake_minimum_required(VERSION 3.18.1 FATAL_ERROR)
-endif()
+cmake_minimum_required(VERSION 3.18.1 FATAL_ERROR)
 project(rdma-core C)
 
 # CMake likes to use -rdynamic too much, they fixed it in 3.4.
