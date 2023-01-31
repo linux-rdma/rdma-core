@@ -188,6 +188,10 @@ enum {
 	OPCODE_MOD_UPDATE_HEADER_MODIFY_ARGUMENT = 0x1,
 };
 
+enum {
+	MLX5_DB_BLUEFLAME_BUFFER_SIZE = 0x100,
+};
+
 struct mlx5_ifc_atomic_caps_bits {
 	u8         reserved_at_0[0x40];
 

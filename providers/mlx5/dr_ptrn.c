@@ -20,6 +20,11 @@ struct dr_ptrn_mngr {
 	pthread_mutex_t modify_hdr_mutex;
 };
 
+int dr_ptrn_sync_pool(struct dr_ptrn_mngr *ptrn_mngr)
+{
+	return dr_icm_pool_sync_pool(ptrn_mngr->ptrn_icm_pool);
+}
+
 /* Cache structure and functions */
 static bool dr_ptrn_compare_modify_hdr(size_t cur_num_of_actions,
 				       __be64 cur_hw_actions[],

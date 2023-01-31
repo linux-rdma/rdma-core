@@ -406,6 +406,7 @@ struct mlx5_context {
 	__be32                          dump_fill_mkey_be;
 	uint32_t			flags;
 	struct list_head		dyn_uar_bf_list;
+	struct list_head		dyn_uar_db_list;
 	struct list_head		dyn_uar_qp_shared_list;
 	struct list_head		dyn_uar_qp_dedicated_list;
 	uint16_t			qp_max_dedicated_uuars;
@@ -617,6 +618,7 @@ struct mlx5_bf {
 	uint8_t				dyn_alloc_uar : 1;
 	uint8_t				mmaped_entry : 1;
 	uint8_t				nc_mode : 1;
+	uint8_t				singleton : 1;
 	uint8_t				qp_dedicated : 1;
 	uint8_t				qp_shared : 1;
 	uint32_t			count;

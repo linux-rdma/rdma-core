@@ -273,39 +273,48 @@ err:
 static void mlx5_insert_dyn_uuars(struct mlx5_context *ctx,
 				 struct mlx5_bf *bf_uar)
 {
+	int num_db_bf_per_uar = MLX5_NUM_NON_FP_BFREGS_PER_UAR;
+	int db_bf_reg_size = ctx->bf_reg_size;
 	int index_in_uar, index_uar_in_page;
-	int num_bfregs_per_page;
+	int num_db_bf_per_page;
 	struct list_head *head;
 	struct mlx5_bf *bf = bf_uar;
 	int j;
 
-	num_bfregs_per_page = ctx->num_uars_per_page * MLX5_NUM_NON_FP_BFREGS_PER_UAR;
+	if (bf_uar->nc_mode) {
+		/* DBs are not limited to the odd/even BF's usage */
+		num_db_bf_per_uar *= 2;
+		db_bf_reg_size = MLX5_DB_BLUEFLAME_BUFFER_SIZE;
+	}
+
+	num_db_bf_per_page = ctx->num_uars_per_page * num_db_bf_per_uar;
 	if (bf_uar->qp_dedicated)
 		head = &ctx->dyn_uar_qp_dedicated_list;
 	else if (bf_uar->qp_shared)
 		head = &ctx->dyn_uar_qp_shared_list;
+	else if (bf_uar->nc_mode)
+		head = &ctx->dyn_uar_db_list;
 	else
 		head = &ctx->dyn_uar_bf_list;
 
-	for (j = 0; j < num_bfregs_per_page; j++) {
+	for (j = 0; j < num_db_bf_per_page; j++) {
 		if (j != 0) {
 			bf = calloc(1, sizeof(*bf));
 			if (!bf)
 				return;
 		}
 
-		index_uar_in_page = (j % num_bfregs_per_page) /
-				    MLX5_NUM_NON_FP_BFREGS_PER_UAR;
-		index_in_uar = j % MLX5_NUM_NON_FP_BFREGS_PER_UAR;
+		index_uar_in_page = j / num_db_bf_per_uar;
+		index_in_uar = j % num_db_bf_per_uar;
 		bf->reg = bf_uar->uar + (index_uar_in_page * MLX5_ADAPTER_PAGE_SIZE) +
-					 MLX5_BF_OFFSET + (index_in_uar * ctx->bf_reg_size);
+					 MLX5_BF_OFFSET + (index_in_uar * db_bf_reg_size);
 		bf->buf_size = bf_uar->nc_mode ? 0 : ctx->bf_reg_size / 2;
 		/* set to non zero is BF entry, will be detected as part of post_send */
 		bf->uuarn = bf_uar->nc_mode ? 0 : 1;
 		list_node_init(&bf->uar_entry);
 		list_add_tail(head, &bf->uar_entry);
 		if (!bf_uar->dyn_alloc_uar)
-			bf->bfreg_dyn_index = (ctx->curr_legacy_dyn_sys_uar_page - 1) * num_bfregs_per_page + j;
+			bf->bfreg_dyn_index = (ctx->curr_legacy_dyn_sys_uar_page - 1) * num_db_bf_per_page + j;
 		bf->dyn_alloc_uar = bf_uar->dyn_alloc_uar;
 		bf->need_lock = bf_uar->qp_shared && !mlx5_single_threaded;
 		mlx5_spinlock_init(&bf->lock, bf->need_lock);
@@ -409,7 +418,8 @@ static struct mlx5_bf *mlx5_attach_dedicated_uar(struct ibv_context *context,
 	struct list_head *head;
 
 	pthread_mutex_lock(&ctx->dyn_bfregs_mutex);
-	head = &ctx->dyn_uar_bf_list;
+	head = (flags == MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC) ?
+		&ctx->dyn_uar_db_list : &ctx->dyn_uar_bf_list;
 	bf = list_pop(head, struct mlx5_bf, uar_entry);
 	if (!bf) {
 		bf = mlx5_alloc_dyn_uar(context, flags);
@@ -427,10 +437,11 @@ end:
 static void mlx5_detach_dedicated_uar(struct ibv_context *context, struct mlx5_bf *bf)
 {
 	struct mlx5_context *ctx = to_mctx(context);
+	struct list_head *head;
 
 	pthread_mutex_lock(&ctx->dyn_bfregs_mutex);
-	list_add_tail(&ctx->dyn_uar_bf_list,
-		      &bf->uar_entry);
+	head = bf->nc_mode ? &ctx->dyn_uar_db_list : &ctx->dyn_uar_bf_list;
+	list_add_tail(head, &bf->uar_entry);
 	pthread_mutex_unlock(&ctx->dyn_bfregs_mutex);
 	return;
 }
@@ -497,6 +508,7 @@ void mlx5_set_singleton_nc_uar(struct ibv_context *context)
 	devx_uar->dv_devx_uar.page_id = ctx->nc_uar->page_id;
 	devx_uar->dv_devx_uar.mmap_off = ctx->nc_uar->uar_mmap_offset;
 	devx_uar->dv_devx_uar.comp_mask = 0;
+	ctx->nc_uar->singleton = true;
 	devx_uar->context = context;
 }
 
@@ -1485,7 +1497,8 @@ static int _sq_overhead(struct mlx5_qp *qp,
 
 	if (ops & (IBV_QP_EX_WITH_BIND_MW | IBV_QP_EX_WITH_LOCAL_INV) ||
 	    (mlx5_ops & (MLX5DV_QP_EX_WITH_MR_INTERLEAVED |
-			 MLX5DV_QP_EX_WITH_MR_LIST)))
+			 MLX5DV_QP_EX_WITH_MR_LIST |
+			 MLX5DV_QP_EX_WITH_MKEY_CONFIGURE)))
 		mw_size = sizeof(struct mlx5_wqe_ctrl_seg) +
 			  sizeof(struct mlx5_wqe_umr_ctrl_seg) +
 			  sizeof(struct mlx5_wqe_mkey_context_seg) +
@@ -5928,6 +5941,11 @@ void clean_dyn_uars(struct ibv_context *context)
 		mlx5_free_uar(context, bf);
 	}
 
+	list_for_each_safe(&ctx->dyn_uar_db_list, bf, tmp_bf, uar_entry) {
+		list_del(&bf->uar_entry);
+		mlx5_free_uar(context, bf);
+	}
+
 	list_for_each_safe(&ctx->dyn_uar_qp_dedicated_list, bf, tmp_bf, uar_entry) {
 		list_del(&bf->uar_entry);
 		mlx5_free_uar(context, bf);
@@ -5953,13 +5971,18 @@ _mlx5dv_devx_alloc_uar(struct ibv_context *context, uint32_t flags)
 	int ret;
 	struct mlx5_bf *bf;
 
-	if (!check_comp_mask(flags, MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC)) {
+	if (!check_comp_mask(flags,
+			     MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC |
+			     MLX5DV_UAR_ALLOC_TYPE_NC_DEDICATED)) {
 		errno = EOPNOTSUPP;
 		return NULL;
 	}
 
 	if (flags & MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC)
 		return mlx5_get_singleton_nc_uar(context);
+
+	if (flags & MLX5DV_UAR_ALLOC_TYPE_NC_DEDICATED)
+		flags = MLX5_IB_UAPI_UAR_ALLOC_TYPE_NC;
 
 	bf = mlx5_attach_dedicated_uar(context, flags);
 	if (!bf)
@@ -6006,7 +6029,7 @@ static void _mlx5dv_devx_free_uar(struct mlx5dv_devx_uar *dv_devx_uar)
 	struct mlx5_bf *bf = container_of(dv_devx_uar, struct mlx5_bf,
 					  devx_uar.dv_devx_uar);
 
-	if (bf->nc_mode)
+	if (bf->singleton)
 		return;
 
 	mlx5_detach_dedicated_uar(bf->devx_uar.context, bf);
