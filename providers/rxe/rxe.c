@@ -941,6 +941,8 @@ static void wr_flush(struct ibv_qp_ex *ibqp, uint32_t rkey,
 	wqe->wr.wr.flush.rkey = rkey;
 	wqe->wr.wr.flush.type = type;
 	wqe->wr.wr.flush.level = level;
+	wqe->dma.length = length;
+	wqe->dma.resid = length;
 	wqe->iova = remote_addr;
 	wqe->ssn = qp->ssn++;
 
