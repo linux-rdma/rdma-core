@@ -806,7 +806,6 @@ static void wr_atomic_cmp_swp(struct ibv_qp_ex *ibqp, uint32_t rkey,
 	wqe->wr.wr.atomic.swap = swap;
 	wqe->wr.wr.atomic.rkey = rkey;
 	wqe->iova = remote_addr;
-	wqe->ssn = qp->ssn++;
 
 	advance_qp_cur_index(qp);
 }
@@ -829,7 +828,6 @@ static void wr_atomic_fetch_add(struct ibv_qp_ex *ibqp, uint32_t rkey,
 	wqe->wr.wr.atomic.compare_add = add;
 	wqe->wr.wr.atomic.rkey = rkey;
 	wqe->iova = remote_addr;
-	wqe->ssn = qp->ssn++;
 
 	advance_qp_cur_index(qp);
 }
@@ -854,7 +852,6 @@ static void wr_bind_mw(struct ibv_qp_ex *ibqp, struct ibv_mw *ibmw,
 	wqe->wr.wr.mw.mw_rkey = ibmw->rkey;
 	wqe->wr.wr.mw.rkey = rkey;
 	wqe->wr.wr.mw.access = info->mw_access_flags;
-	wqe->ssn = qp->ssn++;
 
 	advance_qp_cur_index(qp);
 }
@@ -873,7 +870,6 @@ static void wr_local_inv(struct ibv_qp_ex *ibqp, uint32_t invalidate_rkey)
 	wqe->wr.opcode = IBV_WR_LOCAL_INV;
 	wqe->wr.send_flags = qp->vqp.qp_ex.wr_flags;
 	wqe->wr.ex.invalidate_rkey = invalidate_rkey;
-	wqe->ssn = qp->ssn++;
 
 	advance_qp_cur_index(qp);
 }
@@ -895,7 +891,6 @@ static void wr_rdma_read(struct ibv_qp_ex *ibqp, uint32_t rkey,
 	wqe->wr.wr.rdma.remote_addr = remote_addr;
 	wqe->wr.wr.rdma.rkey = rkey;
 	wqe->iova = remote_addr;
-	wqe->ssn = qp->ssn++;
 
 	advance_qp_cur_index(qp);
 }
@@ -917,7 +912,6 @@ static void wr_rdma_write(struct ibv_qp_ex *ibqp, uint32_t rkey,
 	wqe->wr.wr.rdma.remote_addr = remote_addr;
 	wqe->wr.wr.rdma.rkey = rkey;
 	wqe->iova = remote_addr;
-	wqe->ssn = qp->ssn++;
 
 	advance_qp_cur_index(qp);
 }
@@ -942,7 +936,6 @@ static void wr_flush(struct ibv_qp_ex *ibqp, uint32_t rkey,
 	wqe->wr.wr.flush.type = type;
 	wqe->wr.wr.flush.level = level;
 	wqe->iova = remote_addr;
-	wqe->ssn = qp->ssn++;
 
 	advance_qp_cur_index(qp);
 }
@@ -968,7 +961,6 @@ static void wr_atomic_write(struct ibv_qp_ex *ibqp, uint32_t rkey,
 	wqe->dma.resid = 8;
 
 	wqe->iova = remote_addr;
-	wqe->ssn = qp->ssn++;
 
 	advance_qp_cur_index(qp);
 }
@@ -991,7 +983,6 @@ static void wr_rdma_write_imm(struct ibv_qp_ex *ibqp, uint32_t rkey,
 	wqe->wr.wr.rdma.rkey = rkey;
 	wqe->wr.ex.imm_data = imm_data;
 	wqe->iova = remote_addr;
-	wqe->ssn = qp->ssn++;
 
 	advance_qp_cur_index(qp);
 }
@@ -1009,7 +1000,6 @@ static void wr_send(struct ibv_qp_ex *ibqp)
 	wqe->wr.wr_id = qp->vqp.qp_ex.wr_id;
 	wqe->wr.opcode = IBV_WR_SEND;
 	wqe->wr.send_flags = qp->vqp.qp_ex.wr_flags;
-	wqe->ssn = qp->ssn++;
 
 	advance_qp_cur_index(qp);
 }
@@ -1028,7 +1018,6 @@ static void wr_send_imm(struct ibv_qp_ex *ibqp, __be32 imm_data)
 	wqe->wr.opcode = IBV_WR_SEND_WITH_IMM;
 	wqe->wr.send_flags = qp->vqp.qp_ex.wr_flags;
 	wqe->wr.ex.imm_data = imm_data;
-	wqe->ssn = qp->ssn++;
 
 	advance_qp_cur_index(qp);
 }
@@ -1047,7 +1036,6 @@ static void wr_send_inv(struct ibv_qp_ex *ibqp, uint32_t invalidate_rkey)
 	wqe->wr.opcode = IBV_WR_SEND_WITH_INV;
 	wqe->wr.send_flags = qp->vqp.qp_ex.wr_flags;
 	wqe->wr.ex.invalidate_rkey = invalidate_rkey;
-	wqe->ssn = qp->ssn++;
 
 	advance_qp_cur_index(qp);
 }
@@ -1597,7 +1585,6 @@ static int init_send_wqe(struct rxe_qp *qp, struct rxe_wq *sq,
 	wqe->dma.cur_sge	= 0;
 	wqe->dma.sge_offset	= 0;
 	wqe->state		= 0;
-	wqe->ssn		= qp->ssn++;
 
 	return 0;
 }
