@@ -1,0 +1,63 @@
+.\" Licensed under the OpenIB.org BSD license (FreeBSD Variant) - See COPYING.md
+.TH IBV_RC_WR_PINGPONG 1 "April 30, 2023" "libibverbs" "USER COMMANDS"
+
+.SH NAME
+ibv_rc_wr_pingpong \- simple InfiniBand RC RDMA write transport test
+
+.SH SYNOPSIS
+.B ibv_rc_wr_pingpong
+[\-d device] [\-i ib port] [\-s size]
+[\-n iters] [\-g gid index] [\-c] \fBHOSTNAME\fR
+
+.B ibv_rc_wr_pingpong
+[\-d device] [\-i ib port] [\-s size]
+[\-n iters] [\-g gid index] [\-c]
+
+.SH DESCRIPTION
+.PP
+Run a simple ping-pong test over InfiniBand via the reliable
+connected (RC) RDMA write transport.
+
+.SH OPTIONS
+
+.PP
+.TP
+\fB\-d\fR, \fB\-\-ib\-dev\fR=\fIDEVICE\fR
+use IB device \fIDEVICE\fR (default first device found)
+.TP
+\fB\-i\fR, \fB\-\-ib\-port\fR=\fIPORT\fR
+use IB port \fIPORT\fR (default port 1)
+.TP
+\fB\-s\fR, \fB\-\-size\fR=\fISIZE\fR
+ping-pong messages of size \fISIZE\fR (default 4096)
+.TP
+\fB\-m\fR, \fB\-\-mtu\fR=\fISIZE\fR
+path MTU \fISIZE\fR (default 1024)
+.TP
+\fB\-n\fR, \fB\-\-iters\fR=\fIITERS\fR
+perform \fIITERS\fR message exchanges (default 1000)
+.TP
+\fB\-g\fR, \fB\-\-gid-idx\fR=\fIGIDINDEX\fR
+local port \fIGIDINDEX\fR
+.TP
+\fB\-c\fR, \fB\-\-chk\fR
+validate received buffer
+
+.SH SEE ALSO
+.BR ibv_uc_pingpong (1),
+.BR ibv_ud_pingpong (1),
+.BR ibv_srq_pingpong (1),
+.BR ibv_xsrq_pingpong (1),
+.BR ibv_rc_pingpong (1)
+
+.SH AUTHORS
+.TP
+Animesh Kishore
+.RI < animesh.kishore@gmail.com >
+
+.SH BUGS
+The network synchronization between client and server instances is
+weak, and does not prevent incompatible options from being used on the
+two instances.  The method used for retrieving work completions is not
+strictly correct, and race conditions may cause failures on some
+systems.
