@@ -183,6 +183,7 @@ struct dr_ste_ctx {
 	dr_ste_builder_void_init build_flex_parser_0_init;
 	dr_ste_builder_void_init build_flex_parser_1_init;
 	dr_ste_builder_void_init build_tunnel_header_init;
+	dr_ste_builder_void_init build_ib_l4_init;
 	dr_ste_builder_void_init build_def0_init;
 	dr_ste_builder_void_init build_def2_init;
 	dr_ste_builder_void_init build_def6_init;

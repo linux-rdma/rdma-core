@@ -574,7 +574,7 @@ struct mlx5_ifc_dr_match_set_misc_bits {
 	u8         gre_key_l[0x8];
 
 	u8         vxlan_vni[0x18];
-	u8         reserved_at_b8[0x8];
+	u8         bth_opcode[0x8];
 
 	u8         geneve_vni[0x18];
 	u8         reserved_at_e4[0x6];
@@ -2670,6 +2670,29 @@ struct mlx5_ifc_ste_icmp_v1_bits {
 	u8         icmp_type[0x8];
 	u8         icmp_code[0x8];
 	u8         reserved_at_50[0x10];
+
+	u8         reserved_at_60[0x20];
+};
+
+struct mlx5_ifc_ste_ib_l4_bits {
+	u8         opcode[0x8];
+	u8         qp[0x18];
+
+	u8         se[0x1];
+	u8         migreg[0x1];
+	u8         ackreq[0x1];
+	u8         fecn[0x1];
+	u8         becn[0x1];
+	u8         bth[0x1];
+	u8         deth[0x1];
+	u8         dcceth[0x1];
+	u8         reserved_at_28[0x2];
+	u8         pad_count[0x2];
+	u8         tver[0x4];
+	u8         pkey[0x10];
+
+	u8         reserved_at_40[0x8];
+	u8         deth_source_qp[0x18];
 
 	u8         reserved_at_60[0x20];
 };

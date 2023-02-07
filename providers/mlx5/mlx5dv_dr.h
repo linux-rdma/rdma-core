@@ -620,6 +620,10 @@ void dr_ste_build_tunnel_header(struct dr_ste_ctx *ste_ctx,
 				struct dr_match_param *mask,
 				struct dr_devx_caps *caps,
 				bool inner, bool rx);
+void dr_ste_build_ib_l4(struct dr_ste_ctx *ste_ctx,
+			struct dr_ste_build *sb,
+			struct dr_match_param *mask,
+			bool inner, bool rx);
 int dr_ste_build_def0(struct dr_ste_ctx *ste_ctx,
 		      struct dr_ste_build *sb,
 		      struct dr_match_param *mask,
@@ -742,7 +746,7 @@ struct dr_match_misc {
 	uint32_t gre_key_h:24;			/* GRE Key[31:8] (outer) */
 	uint32_t gre_key_l:8;			/* GRE Key [7:0] (outer) */
 	uint32_t vxlan_vni:24;			/* VXLAN VNI (outer) */
-	uint32_t reserved_at_b8:8;
+	uint32_t bth_opcode:8;			/* Opcode field from BTH header */
 	uint32_t geneve_vni:24;			/* GENEVE VNI field (outer) */
 	uint32_t reserved_at_e4:6;
 	uint32_t geneve_tlv_option_0_exist:1;

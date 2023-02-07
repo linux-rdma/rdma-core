@@ -175,6 +175,11 @@ static bool dr_mask_is_tnl_geneve_set(struct dr_match_misc *misc)
 	       misc->geneve_opt_len;
 }
 
+static bool dr_mask_is_ib_l4_set(struct dr_match_misc *misc)
+{
+	return misc->bth_opcode || misc->bth_dst_qp;
+}
+
 static int dr_matcher_supp_geneve_tlv_option(struct dr_devx_caps *caps)
 {
 	return caps->flex_protocols & MLX5_FLEX_PARSER_GENEVE_OPT_0_ENABLED;
@@ -991,6 +996,12 @@ static int dr_matcher_set_ste_builders(struct mlx5dv_dr_matcher *matcher,
 		if (dr_mask_is_flex_parser_4_7_set(&mask.misc4))
 			dr_ste_build_flex_parser_1(ste_ctx, &sb[idx++],
 						   &mask, false, rx);
+	}
+
+	if (matcher->match_criteria & DR_MATCHER_CRITERIA_MISC) {
+		if (dr_mask_is_ib_l4_set(&mask.misc))
+			dr_ste_build_ib_l4(ste_ctx, &sb[idx++], &mask,
+					   inner, rx);
 	}
 
 	/* Empty matcher, takes all */
