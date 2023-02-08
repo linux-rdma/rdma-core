@@ -110,7 +110,7 @@ class QpExXRCSendImm(XRCResources):
 
 class QpExRCFlush(RCResources):
     ptype = e.IBV_FLUSH_GLOBAL
-    level = e.IBV_FLUSH_MR
+    level = e.IBV_FLUSH_RANGE
     def create_qps(self):
         create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_FLUSH | e.IBV_QP_EX_WITH_RDMA_WRITE)
 
@@ -251,6 +251,13 @@ class QpExTestCase(RDMATestCase):
         server.rkey = client.mr.rkey
         client.raddr = server.mr.buf
         server.raddr = client.mr.buf
+        wcs = u.flush_traffic(client, server, self.iters, self.gid_index,
+                              self.ib_port, new_send=True,
+                              send_op=e.IBV_QP_EX_WITH_FLUSH)
+        if wcs[0].status != e.IBV_WC_SUCCESS:
+            raise PyverbsError(f'Unexpected {wc_status_to_str(wcs[0].status)}')
+
+        client.level = e.IBV_FLUSH_MR
         wcs = u.flush_traffic(client, server, self.iters, self.gid_index,
                               self.ib_port, new_send=True,
                               send_op=e.IBV_QP_EX_WITH_FLUSH)

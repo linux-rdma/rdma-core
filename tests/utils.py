@@ -1016,7 +1016,9 @@ def flush_traffic(client, server, iters, gid_idx, port, new_send=False,
     :return:
     """
     rdma_traffic(client, server, iters, gid_idx, port, new_send, e.IBV_QP_EX_WITH_RDMA_WRITE)
-    for _ in range(iters):
+    for i in range(iters):
+        if client.level == e.IBV_FLUSH_MR:
+            client.msg_size = 0 if i == 0 else random.randint(0, 12345678)
         send(client, None, send_op, new_send)
         wcs = _poll_cq(client.cq)
         if (wcs[0].status != e.IBV_WC_SUCCESS):
