@@ -12,8 +12,7 @@ typedef struct nn_map nn_map_t;
 
 nn_map_t *open_node_name_map(const char *node_name_map);
 void close_node_name_map(nn_map_t *map);
-/* NOTE: parameter "nodedesc" may be modified here. */
-char *remap_node_name(nn_map_t *map, uint64_t target_guid, char *nodedesc);
+char *remap_node_name(nn_map_t *map, uint64_t target_guid, const char *nodedesc);
 char *clean_nodedesc(char *nodedesc);
 
 #endif

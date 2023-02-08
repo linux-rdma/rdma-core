@@ -109,7 +109,6 @@ static void dump_multicast_tables(ibnd_node_t *node, unsigned startl,
 				  unsigned endl, struct ibmad_port *mad_port)
 {
 	ib_portid_t *portid = &node->path_portid;
-	char nd[IB_SMP_DATA_SIZE + 1] = { 0 };
 	char str[512];
 	char *s;
 	uint64_t nodeguid;
@@ -119,7 +118,6 @@ static void dump_multicast_tables(ibnd_node_t *node, unsigned startl,
 	char *mapnd = NULL;
 	int n = 0;
 
-	memcpy(nd, node->nodedesc, strlen(node->nodedesc));
 	nports = node->numports;
 	nodeguid = node->guid;
 
@@ -149,7 +147,7 @@ static void dump_multicast_tables(ibnd_node_t *node, unsigned startl,
 		endl = IB_MAX_MCAST_LID;
 	}
 
-	mapnd = remap_node_name(node_name_map, nodeguid, nd);
+	mapnd = remap_node_name(node_name_map, nodeguid, node->nodedesc);
 
 	printf("Multicast mlids [0x%x-0x%x] of switch %s guid 0x%016" PRIx64
 	       " (%s):\n", startl, endl, portid2str(portid), nodeguid,
@@ -224,8 +222,6 @@ static int dump_lid(char *str, int str_len, int lid, int valid,
 		    ibnd_fabric_t *fabric, int *last_port_lid,
 		    int *base_port_lid, uint64_t *portguid)
 {
-	char nd[IB_SMP_DATA_SIZE + 1] = { 0 };
-
 	ibnd_port_t *port = NULL;
 
 	char ntype[50], sguid[30];
@@ -276,14 +272,12 @@ static int dump_lid(char *str, int str_len, int lid, int valid,
 	baselid = port->base_lid;
 	lmc = port->lmc;
 
-	memcpy(nd, port->node->nodedesc, strlen(port->node->nodedesc));
-
 	if (lmc > 0) {
 		*base_port_lid = baselid;
 		*last_port_lid = baselid + (1 << lmc) - 1;
 	}
 
-	mapnd = remap_node_name(node_name_map, nodeguid, nd);
+	mapnd = remap_node_name(node_name_map, nodeguid, port->node->nodedesc);
  
 	rc = snprintf(str, str_len, ": (%s portguid %s: '%s')",
 		      mad_dump_val(IB_NODE_TYPE_F, ntype, sizeof ntype,
@@ -302,7 +296,6 @@ static void dump_unicast_tables(ibnd_node_t *node, int startl, int endl,
 {
 	ib_portid_t * portid = &node->path_portid;
 	char lft[IB_SMP_DATA_SIZE] = { 0 };
-	char nd[IB_SMP_DATA_SIZE + 1] = { 0 };
 	char str[200];
 	uint64_t nodeguid;
 	int block, i, e, top;
@@ -315,7 +308,6 @@ static void dump_unicast_tables(ibnd_node_t *node, int startl, int endl,
 	mad_decode_field(node->switchinfo, IB_SW_LINEAR_FDB_TOP_F, &top);
 	nodeguid = node->guid;
 	nports = node->numports;
-	memcpy(nd, node->nodedesc, strlen(node->nodedesc));
 
 	if (!endl || endl > top)
 		endl = top;
@@ -326,7 +318,7 @@ static void dump_unicast_tables(ibnd_node_t *node, int startl, int endl,
 		endl = IB_MAX_UCAST_LID;
 	}
 
-	mapnd = remap_node_name(node_name_map, nodeguid, nd);
+	mapnd = remap_node_name(node_name_map, nodeguid, node->nodedesc);
 
 	printf("Unicast lids [0x%x-0x%x] of switch %s guid 0x%016" PRIx64
 	       " (%s):\n", startl, endl, portid2str(portid), nodeguid,
