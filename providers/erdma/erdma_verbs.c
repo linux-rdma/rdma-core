@@ -185,6 +185,13 @@ struct ibv_cq *erdma_create_cq(struct ibv_context *ctx, int num_cqe,
 		return NULL;
 	}
 
+	rv = ibv_dontfork_range(cq->queue, cq_size);
+	if (rv) {
+		free(cq->queue);
+		cq->queue = NULL;
+		goto error_alloc;
+	}
+
 	memset(cq->queue, 0, cq_size);
 
 	db_records = erdma_alloc_dbrecords(ectx);
@@ -226,8 +233,10 @@ error_alloc:
 	if (db_records)
 		erdma_dealloc_dbrecords(ectx, db_records);
 
-	if (cq->queue)
+	if (cq->queue) {
+		ibv_dofork_range(cq->queue, cq_size);
 		free(cq->queue);
+	}
 
 	free(cq);
 
@@ -252,8 +261,10 @@ int erdma_destroy_cq(struct ibv_cq *base_cq)
 	if (cq->db_record)
 		erdma_dealloc_dbrecords(ctx, cq->db_record);
 
-	if (cq->queue)
+	if (cq->queue) {
+		ibv_dofork_range(cq->queue, cq->depth << CQE_SHIFT);
 		free(cq->queue);
+	}
 
 	free(cq);
 
@@ -349,6 +360,12 @@ static int erdma_alloc_qp_buf_and_db(struct erdma_context *ctx,
 		return -1;
 	}
 
+	rv = ibv_dontfork_range(qp->qbuf, queue_size);
+	if (rv) {
+		errno = rv;
+		goto err_dontfork;
+	}
+
 	/* doorbell record allocation. */
 	qp->db_records = erdma_alloc_dbrecords(ctx);
 	if (!qp->db_records) {
@@ -367,6 +384,9 @@ static int erdma_alloc_qp_buf_and_db(struct erdma_context *ctx,
 	return 0;
 
 err_dbrec:
+	ibv_dofork_range(qp->qbuf, queue_size);
+
+err_dontfork:
 	free(qp->qbuf);
 
 	return -1;
@@ -381,6 +401,7 @@ static void erdma_free_qp_buf_and_db(struct erdma_context *ctx,
 	if (qp->db_records)
 		erdma_dealloc_dbrecords(ctx, qp->db_records);
 
+	ibv_dofork_range(qp->qbuf, qp->qbuf_size);
 	free(qp->qbuf);
 }
 
