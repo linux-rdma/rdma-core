@@ -76,6 +76,9 @@ struct efadv_device_attr {
 		Reading source address (SGID) from receive completion descriptors is supported.
 		Valid only for unknown AH.
 
+	EFADV_DEVICE_ATTR_CAPS_RDMA_WRITE:
+		RDMA write is supported
+
 *max_rdma_size*
 :	Maximum RDMA transfer size in bytes.
 

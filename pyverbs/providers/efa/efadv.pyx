@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
-# Copyright 2020-2022 Amazon.com, Inc. or its affiliates. All rights reserved.
+# Copyright 2020-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
 
 cimport pyverbs.providers.efa.efadv_enums as dve
 cimport pyverbs.providers.efa.libefa as dv
@@ -18,6 +18,7 @@ def dev_cap_to_str(flags):
             dve.EFADV_DEVICE_ATTR_CAPS_RDMA_READ: 'RDMA Read',
             dve.EFADV_DEVICE_ATTR_CAPS_RNR_RETRY: 'RNR Retry',
             dve.EFADV_DEVICE_ATTR_CAPS_CQ_WITH_SGID: 'CQ entries with source GID',
+            dve.EFADV_DEVICE_ATTR_CAPS_RDMA_WRITE: 'RDMA Write',
     }
     return bitmask_to_str(flags, l)
 
