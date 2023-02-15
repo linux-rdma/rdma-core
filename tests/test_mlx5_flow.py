@@ -63,6 +63,15 @@ def requires_reformat_support(func):
     return func_wrapper
 
 
+def gen_vxlan_l2_tunnel_encap_header(msg_size):
+    vxlan_header = u.gen_vxlan_header()
+    udp_header = u.gen_udp_header(packet_len=msg_size + len(vxlan_header),
+                                  dst_port=PacketConsts.VXLAN_PORT)
+    ip_header = u.gen_ipv4_header(packet_len=msg_size + len(vxlan_header) + len(udp_header))
+    mac_header = u.gen_ethernet_header()
+    return mac_header + ip_header + udp_header + vxlan_header
+
+
 class Mlx5FlowResources(RawResources):
 
     def create_matcher(self, mask, match_criteria_enable, flags=0,
@@ -149,13 +158,14 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters)
 
     @requires_reformat_support
+    @u.requires_encap_disabled_if_eswitch_on
     def test_tx_packet_reformat(self):
         """
         Creates packet reformat (encap) action on TX and with QP action on RX
         verifies that the packet was encapsulated as expected.
         """
         self.client = Mlx5FlowResources(**self.dev_info)
-        outer = u.gen_outer_headers(self.client.msg_size)
+        outer = gen_vxlan_l2_tunnel_encap_header(self.client.msg_size)
         # Due to encapsulation action Ipv4 and UDP checksum of the outer header
         # will be recalculated, need to skip them during packet validation.
         ipv4_id_idx = [18, 19]

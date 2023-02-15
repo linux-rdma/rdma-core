@@ -46,6 +46,12 @@ class DevxOps:
     MLX5_CMD_OP_CREATE_MKEY = 0x200
 
 
+class ActionType:
+    SET_ACTION = 0x1
+    ADD_ACTION = 0x2
+    COPY_ACTION = 0x3
+
+
 # Common
 class SwPas(Packet):
     fields_desc = [
@@ -1482,13 +1488,29 @@ class FlowTableEntryMatchParam(Packet):
 
 class SetActionIn(Packet):
     fields_desc = [
-        BitField('action_type', 0, 4),
+        BitField('action_type', ActionType.SET_ACTION, 4),
         BitField('field', 0, 12),
         BitField('reserved1', 0, 3),
         BitField('offset', 0, 5),
         BitField('reserved2', 0, 3),
         BitField('length', 0, 5),
         IntField('data', 0),
+    ]
+
+
+class CopyActionIn(Packet):
+    fields_desc = [
+        BitField('action_type', ActionType.COPY_ACTION, 4),
+        BitField('src_field', 0, 12),
+        BitField('reserved1', 0, 3),
+        BitField('src_offset', 0, 5),
+        BitField('reserved2', 0, 3),
+        BitField('length', 0, 5),
+        BitField('reserved3', 0, 4),
+        BitField('dst_field', 0, 12),
+        BitField('reserved4', 0, 3),
+        BitField('dst_offest', 0, 5),
+        ByteField('reserved5', 0),
     ]
 
 

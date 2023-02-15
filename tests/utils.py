@@ -77,6 +77,7 @@ class PacketConsts:
     TTL_HOP_LIMIT = 64
     IHL = 5
     # Hardcoded values for flow matchers
+    ETHER_TYPE_ETH = 0x6558
     ETHER_TYPE_IPV4 = 0x800
     MAC_MASK = "ff:ff:ff:ff:ff:ff"
     ETHER_TYPE_IPV6 = 0x86DD
@@ -99,6 +100,12 @@ class PacketConsts:
     VLAN_PRIO = 5
     VLAN_CFI = 1
     VLAN_ID = 0xc0c
+    GRE_VER = 1
+    GRE_FLAGS = 2
+    GRE_KEY = 0x12345678
+    GENEVE_VNI = 2
+    GENEVE_OAM = 0
+    GENEVE_PORT = 6081
 
 
 def get_mr_length():
@@ -766,35 +773,81 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
             validate(msg_received, False, client.msg_size)
 
 
-def gen_outer_headers(msg_size):
+def gen_ethernet_header(dst_mac=PacketConsts.DST_MAC, src_mac=PacketConsts.SRC_MAC,
+                        ether_type=PacketConsts.ETHER_TYPE_IPV4):
     """
-    Generates outer headers for encapsulation with VXLAN: Ethernet, IPv4, UDP
-    and VXLAN using the values from the PacketConst class.
-    :param msg_size: The size of the inner message
-    :return: Outer headers
+    Generates Ethernet header using the values from the PacketConst class by default.
+    :param dst_mac: Destination mac address
+    :param src_mac: Source mac address
+    :param ether_type: Ether type of next header
+    :return: Ethernet header
     """
-    # Ethernet Header
-    outer = struct.pack('!6s6s',
-                        bytes.fromhex(PacketConsts.DST_MAC.replace(':', '')),
-                        bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-    outer += PacketConsts.ETHER_TYPE_IPV4.to_bytes(2, 'big')
-    # IPv4 Header
-    ip_total_len = msg_size + PacketConsts.UDP_HEADER_SIZE + \
-                   PacketConsts.IPV4_HEADER_SIZE + \
-                   PacketConsts.VXLAN_HEADER_SIZE
-    outer += struct.pack('!2B3H2BH4s4s', (PacketConsts.IP_V4 << 4) +
-                         PacketConsts.IHL, 0, ip_total_len, 0,
-                         PacketConsts.IP_V4_FLAGS << 13,
-                         PacketConsts.TTL_HOP_LIMIT, socket.IPPROTO_UDP, 0,
-                         socket.inet_aton(PacketConsts.SRC_IP),
-                         socket.inet_aton(PacketConsts.DST_IP))
-    # UDP Header
-    outer += struct.pack('!4H', PacketConsts.SRC_PORT, PacketConsts.VXLAN_PORT,
-                         msg_size + PacketConsts.UDP_HEADER_SIZE + 8, 0)
-    # VXLAN Header
-    outer += struct.pack('!II', PacketConsts.VXLAN_FLAGS << 24,
-                         PacketConsts.VXLAN_VNI << 8)
-    return outer
+    header = struct.pack('!6s6s',
+                        bytes.fromhex(dst_mac.replace(':', '')),
+                        bytes.fromhex(src_mac.replace(':', '')))
+    header += ether_type.to_bytes(2, 'big')
+    return header
+
+
+def gen_ipv4_header(packet_len, next_proto=socket.IPPROTO_UDP, src_ip=PacketConsts.SRC_IP,
+                    dst_ip=PacketConsts.DST_IP):
+    """
+    Generates IPv4 header using the values from the PacketConst class by default.
+    :param packet_len: Length of all fields following the IP header
+    :param next_proto: protocol type of next header
+    :param src_ip: Source mac address
+    :param dst_ip: Destination mac address
+    :return: IPv4 header
+    """
+    ip_total_len = packet_len + PacketConsts.IPV4_HEADER_SIZE
+    return struct.pack('!2B3H2BH4s4s', (PacketConsts.IP_V4 << 4) +
+                       PacketConsts.IHL, 0, ip_total_len, 0,
+                       PacketConsts.IP_V4_FLAGS << 13,
+                       PacketConsts.TTL_HOP_LIMIT, next_proto, 0,
+                       socket.inet_aton(src_ip),
+                       socket.inet_aton(dst_ip))
+
+
+def gen_udp_header(packet_len, src_port=PacketConsts.SRC_PORT, dst_port=PacketConsts.DST_PORT):
+    """
+    Generates UDP header using the values from the PacketConst class by default.
+    :param packet_len: Length of all fields following the UDP header
+    :param src_port: Source port
+    :param dst_port: Destination port
+    :return: UDP header
+    """
+    udp_total_len = packet_len + PacketConsts.UDP_HEADER_SIZE
+    return struct.pack('!4H', src_port, dst_port, udp_total_len, 0)
+
+
+def gen_gre_header(ether_type=PacketConsts.ETHER_TYPE_IPV4):
+    """
+    Generates GRE header using the values from the PacketConst class by default.
+    :param ether_type: Ether type of tunneled next header
+    :return: GRE header
+    """
+    return struct.pack('!2BHI', PacketConsts.GRE_FLAGS << 4, PacketConsts.GRE_VER,
+                       ether_type, PacketConsts.GRE_KEY)
+
+
+def gen_vxlan_header():
+    """
+    Generates VXLAN header using the values from the PacketConst class by default.
+    :return: VXLAN header
+    """
+    return struct.pack('!II', PacketConsts.VXLAN_FLAGS << 24, PacketConsts.VXLAN_VNI << 8)
+
+
+def gen_geneve_header(vni=PacketConsts.GENEVE_VNI, oam=PacketConsts.GENEVE_OAM,
+                      proto=PacketConsts.ETHER_TYPE_ETH):
+    """
+    Generates Geneve header using the values from the PacketConst class by default.
+    :param vni: geneve vni
+    :param oam: geneve oam
+    :param proto: Ether type of next header inside the tunnel
+    :return: Geneve header
+    """
+    return struct.pack('!BBHL', (0 << 6) + 0, (oam << 7) + (0 << 6) + 0, proto, (vni << 8) + 0)
 
 
 def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO, with_vlan=False, **kwargs):
@@ -867,7 +920,8 @@ def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO, with_
 
 
 def get_send_elements_raw_qp(agr_obj, l3=PacketConsts.IP_V4,
-                             l4=PacketConsts.UDP_PROTO, with_vlan=False, **packet_args):
+                             l4=PacketConsts.UDP_PROTO, with_vlan=False,
+                             packet_to_send=None, **packet_args):
     """
     Creates a single SGE and a single Send WR for agr_obj's RAW QP type. The
     content of the message is Eth | Ipv4 | UDP packet.
@@ -875,11 +929,14 @@ def get_send_elements_raw_qp(agr_obj, l3=PacketConsts.IP_V4,
     :param l3: Packet layer 3 type: 4 for IPv4 or 6 for IPv6
     :param l4: Packet layer 4 type: 'tcp' or 'udp'
     :param with_vlan: if True add VLAN header to the packet
+    :param packet_to_send: If passed, the other packet related parameters would
+                           be ignored, and this will be the packet to send.
     :param packet_args: Pass packet_args to gen_packets method.
     :return: send wr, its SGE, and message
     """
     mr = agr_obj.mr
-    msg = gen_packet(agr_obj.msg_size, l3, l4, with_vlan, **packet_args)
+    msg = packet_to_send if packet_to_send is not None else \
+        gen_packet(agr_obj.msg_size, l3, l4, with_vlan, **packet_args)
     mr.write(msg, agr_obj.msg_size)
     sge = SGE(mr.buf, agr_obj.msg_size, mr.lkey)
     send_wr = SendWR(opcode=e.IBV_WR_SEND, num_sge=1, sg=[sge])
@@ -919,7 +976,7 @@ def sampler_traffic(client, server, iters, l3=PacketConsts.IP_V4, l4=PacketConst
 
 def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
                 l4=PacketConsts.UDP_PROTO, with_vlan=False, expected_packet=None,
-                skip_idxs=None):
+                skip_idxs=None, packet_to_send=None):
     """
     Runs raw ethernet traffic between two sides
     :param client: client side, clients base class is BaseTraffic
@@ -931,7 +988,8 @@ def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
     :param expected_packet: Expected packet for validation (when different from
                             the originally sent).
     :param skip_idxs: indexes to skip during packet validation
-    :return:
+    :param packet_to_send: If passed, the other packet related parameters would
+                           be ignored, and this will be the packet to send.
     """
     skip_idxs = [] if skip_idxs is None else skip_idxs
     s_recv_wr = get_recv_wr(server)
@@ -944,7 +1002,8 @@ def raw_traffic(client, server, iters, l3=PacketConsts.IP_V4,
     poll = poll_cq_ex if isinstance(client.cq, CQEX) else poll_cq
     for _ in range(iters):
         for qp_idx in range(server.qp_count):
-            c_send_wr, c_sg, msg = get_send_elements_raw_qp(client, l3, l4, with_vlan)
+            c_send_wr, c_sg, msg = get_send_elements_raw_qp(client, l3, l4, with_vlan,
+                                                            packet_to_send=packet_to_send)
             send(client, c_send_wr, e.IBV_WR_SEND, False, qp_idx)
             poll(client.cq)
             poll(server.cq)
@@ -1291,6 +1350,13 @@ def odp_implicit_supported(ctx):
         raise unittest.SkipTest('ODP implicit is not supported')
 
 
+def get_pci_name(dev_name):
+    pci_name = glob.glob(f'/sys/bus/pci/devices/*/infiniband/{dev_name}')
+    if not pci_name:
+        raise unittest.SkipTest(f'Could not find the PCI device of {dev_name}')
+    return pci_name[0].split('/')[5]
+
+
 def requires_eswitch_on(func):
     def inner(instance):
         if not (is_eth(d.Context(name=instance.dev_name), instance.ib_port)
@@ -1301,10 +1367,7 @@ def requires_eswitch_on(func):
 
 
 def eswitch_mode_check(dev_name):
-    pci_name = glob.glob(f'/sys/bus/pci/devices/*/infiniband/{dev_name}')
-    if not pci_name:
-        raise unittest.SkipTest(f'Could not find the PCI device of {dev_name}')
-    pci_name = pci_name[0].split('/')[5]
+    pci_name = get_pci_name(dev_name)
     eswicth_off_msg = f'Device {dev_name} must be in switchdev mode'
     try:
         cmd_out = subprocess.check_output(['devlink', 'dev', 'eswitch', 'show', f'pci/{pci_name}'],
@@ -1315,6 +1378,28 @@ def eswitch_mode_check(dev_name):
         raise unittest.SkipTest(eswicth_off_msg)
     return True
 
+
+def requires_encap_disabled_if_eswitch_on(func):
+    def inner(instance):
+        if not (is_eth(d.Context(name=instance.dev_name), instance.ib_port)
+                and encap_mode_check(instance.dev_name)):
+            raise unittest.SkipTest('Encap must be disabled when Eswitch on')
+        return func(instance)
+    return inner
+
+
+def encap_mode_check(dev_name):
+    pci_name = get_pci_name(dev_name)
+    encap_enable_msg = f'Device {dev_name}: Encap must be disabled over switchdev mode'
+    try:
+        cmd_out = subprocess.check_output(['devlink', 'dev', 'eswitch', 'show', f'pci/{pci_name}'],
+                                          stderr=subprocess.DEVNULL)
+        if 'switchdev' in str(cmd_out):
+            if any([i for i in ['encap enable', 'encap-mode basic'] if i in str(cmd_out)]):
+                raise unittest.SkipTest(encap_enable_msg)
+    except subprocess.CalledProcessError:
+        raise unittest.SkipTest(encap_enable_msg)
+    return True
 
 def requires_huge_pages():
     def outer(func):
