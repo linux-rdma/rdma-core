@@ -49,6 +49,7 @@ struct erdma_qp {
 	struct erdma_queue rq;
 
 	void *qbuf;
+	size_t qbuf_size;
 	uint64_t *db_records;
 };
 
