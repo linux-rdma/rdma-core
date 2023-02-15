@@ -701,7 +701,7 @@ static void dr_fill_write_icm_segs(struct mlx5dv_dr_domain *dmn,
 	unsigned int inline_flag;
 	uint32_t buff_offset;
 
-	if (send_info->write.length > dmn->info.max_inline_size) {
+	if (send_info->write.length > send_ring->max_inline_size) {
 		buff_offset = (send_ring->tx_head & (send_ring->signal_th - 1)) *
 			dmn->info.max_send_size;
 		/* Copy to ring mr */
