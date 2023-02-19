@@ -978,38 +978,84 @@ err_alloc:
 	return -ENOMEM;
 }
 
-static unsigned int get_wqe_ext_sge_cnt(struct hns_roce_qp *qp)
+/**
+ *  Calculated sge num according to attr's max_send_sge
+ */
+static unsigned int get_sge_num_from_max_send_sge(bool is_ud,
+						  uint32_t max_send_sge)
 {
-	if (qp->verbs_qp.qp.qp_type == IBV_QPT_UD)
-		return qp->sq.max_gs;
+	unsigned int std_sge_num;
+	unsigned int min_sge;
 
-	if (qp->sq.max_gs > HNS_ROCE_SGE_IN_WQE)
-		return qp->sq.max_gs - HNS_ROCE_SGE_IN_WQE;
-
-	return 0;
+	std_sge_num = is_ud ? 0 : HNS_ROCE_SGE_IN_WQE;
+	min_sge = is_ud ? 1 : 0;
+	return max_send_sge > std_sge_num ? (max_send_sge - std_sge_num) :
+				min_sge;
 }
 
-static void set_ext_sge_param(struct hns_roce_device *hr_dev,
+/**
+ *  Calculated sge num according to attr's max_inline_data
+ */
+static unsigned int get_sge_num_from_max_inl_data(bool is_ud,
+						  uint32_t max_inline_data)
+{
+	unsigned int inline_sge = 0;
+
+	inline_sge = max_inline_data / HNS_ROCE_SGE_SIZE;
+	/*
+	 * if max_inline_data less than
+	 * HNS_ROCE_SGE_IN_WQE * HNS_ROCE_SGE_SIZE,
+	 * In addition to ud's mode, no need to extend sge.
+	 */
+	if (!is_ud && inline_sge <= HNS_ROCE_SGE_IN_WQE)
+		inline_sge = 0;
+
+	return inline_sge;
+}
+
+static void set_ext_sge_param(struct hns_roce_context *ctx,
 			      struct ibv_qp_init_attr_ex *attr,
 			      struct hns_roce_qp *qp, unsigned int wr_cnt)
 {
+	bool is_ud = (qp->verbs_qp.qp.qp_type == IBV_QPT_UD);
+	unsigned int ext_wqe_sge_cnt;
+	unsigned int inline_ext_sge;
 	unsigned int total_sge_cnt;
-	unsigned int wqe_sge_cnt;
+	unsigned int std_sge_num;
 
 	qp->ex_sge.sge_shift = HNS_ROCE_SGE_SHIFT;
+	std_sge_num = is_ud ? 0 : HNS_ROCE_SGE_IN_WQE;
+	ext_wqe_sge_cnt = get_sge_num_from_max_send_sge(is_ud,
+							attr->cap.max_send_sge);
 
-	qp->sq.max_gs = attr->cap.max_send_sge;
+	if (ctx->config & HNS_ROCE_RSP_EXSGE_FLAGS) {
+		attr->cap.max_inline_data = min_t(uint32_t, roundup_pow_of_two(
+						  attr->cap.max_inline_data),
+						  ctx->max_inline_data);
 
-	wqe_sge_cnt = get_wqe_ext_sge_cnt(qp);
+		inline_ext_sge = max(ext_wqe_sge_cnt,
+				     get_sge_num_from_max_inl_data(is_ud,
+						    attr->cap.max_inline_data));
+		qp->sq.ext_sge_cnt = inline_ext_sge ?
+					roundup_pow_of_two(inline_ext_sge) : 0;
+		qp->sq.max_gs = min((qp->sq.ext_sge_cnt + std_sge_num),
+				    ctx->max_sge);
+
+		ext_wqe_sge_cnt = qp->sq.ext_sge_cnt;
+	} else {
+		qp->sq.max_gs = max(1U, attr->cap.max_send_sge);
+		qp->sq.max_gs = min(qp->sq.max_gs, ctx->max_sge);
+		qp->sq.ext_sge_cnt = qp->sq.max_gs;
+	}
 
 	/* If the number of extended sge is not zero, they MUST use the
 	 * space of HNS_HW_PAGE_SIZE at least.
 	 */
-	if (wqe_sge_cnt) {
-		total_sge_cnt = roundup_pow_of_two(wr_cnt * wqe_sge_cnt);
-		qp->ex_sge.sge_cnt =
-			max(total_sge_cnt,
-			    (unsigned int)HNS_HW_PAGE_SIZE / HNS_ROCE_SGE_SIZE);
+	if (ext_wqe_sge_cnt) {
+		total_sge_cnt = roundup_pow_of_two(wr_cnt * ext_wqe_sge_cnt);
+		qp->ex_sge.sge_cnt = max(total_sge_cnt,
+					 (unsigned int)HNS_HW_PAGE_SIZE /
+					  HNS_ROCE_SGE_SIZE);
 	}
 }
 
@@ -1044,10 +1090,9 @@ static void hns_roce_set_qp_params(struct ibv_qp_init_attr_ex *attr,
 		qp->sq.wqe_cnt = cnt;
 		qp->sq.shift = hr_ilog32(cnt);
 
-		set_ext_sge_param(hr_dev, attr, qp, cnt);
+		set_ext_sge_param(ctx, attr, qp, cnt);
 
 		qp->sq.max_post = min(ctx->max_qp_wr, cnt);
-		qp->sq.max_gs = min(ctx->max_sge, qp->sq.max_gs);
 
 		qp->sq_signal_bits = attr->sq_sig_all ? 0 : 1;
 
