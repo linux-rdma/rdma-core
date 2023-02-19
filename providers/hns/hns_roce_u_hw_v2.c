@@ -719,6 +719,14 @@ static void set_sge(struct hns_roce_v2_wqe_data_seg *dseg,
 	}
 }
 
+static unsigned int get_std_sge_num(struct hns_roce_qp *qp)
+{
+	if (qp->ibv_qp.qp_type == IBV_QPT_UD)
+		return 0;
+
+	return HNS_ROCE_SGE_IN_WQE;
+}
+
 static int fill_ext_sge_inl_data(struct hns_roce_qp *qp,
 				 const struct ibv_send_wr *wr,
 				 struct hns_roce_sge_info *sge_info)
@@ -726,9 +734,12 @@ static int fill_ext_sge_inl_data(struct hns_roce_qp *qp,
 	unsigned int sge_mask = qp->ex_sge.sge_cnt - 1;
 	void *dst_addr, *src_addr, *tail_bound_addr;
 	uint32_t src_len, tail_len;
+	unsigned int std_sge_num;
 	int i;
 
-	if (sge_info->total_len > qp->sq.max_gs * HNS_ROCE_SGE_SIZE)
+	std_sge_num = get_std_sge_num(qp);
+	if (sge_info->total_len >
+	    (qp->sq.max_gs - std_sge_num) * HNS_ROCE_SGE_SIZE)
 		return EINVAL;
 
 	dst_addr = get_send_sge_ex(qp, sge_info->start_idx & sge_mask);
