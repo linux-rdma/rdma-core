@@ -558,10 +558,15 @@ static void cqe_proc_srq(struct hns_roce_srq *srq, uint32_t wqe_idx,
 	hns_roce_free_srq_wqe(srq, wqe_idx);
 }
 
-static void cqe_proc_rq(struct hns_roce_wq *wq, struct hns_roce_cq *cq)
+static void cqe_proc_rq(struct hns_roce_qp *hr_qp, struct hns_roce_cq *cq)
 {
+	struct hns_roce_wq *wq = &hr_qp->rq;
+
 	cq->verbs_cq.cq_ex.wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
 	++wq->tail;
+
+	if (hr_reg_read(cq->cqe, CQE_RQ_INLINE))
+		handle_recv_rq_inl(cq->cqe, hr_qp);
 }
 
 static int cqe_proc_wq(struct hns_roce_context *ctx, struct hns_roce_qp *qp,
@@ -581,7 +586,7 @@ static int cqe_proc_wq(struct hns_roce_context *ctx, struct hns_roce_qp *qp,
 		if (srq)
 			cqe_proc_srq(srq, wqe_idx, cq);
 		else
-			cqe_proc_rq(&qp->rq, cq);
+			cqe_proc_rq(qp, cq);
 	}
 
 	return 0;
