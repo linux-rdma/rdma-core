@@ -845,13 +845,12 @@ static int fill_ext_sge_inl_data(struct hns_roce_qp *qp,
 				 uint32_t num_buf,
 				 enum hns_roce_wr_buf_type buf_type)
 {
-	unsigned int sge_sz = sizeof(struct hns_roce_v2_wqe_data_seg);
 	unsigned int sge_mask = qp->ex_sge.sge_cnt - 1;
 	void *dst_addr, *src_addr, *tail_bound_addr;
 	uint32_t src_len, tail_len;
 	int i;
 
-	if (sge_info->total_len > qp->sq.max_gs * sge_sz)
+	if (sge_info->total_len > qp->sq.max_gs * HNS_ROCE_SGE_SIZE)
 		return EINVAL;
 
 	dst_addr = get_send_sge_ex(qp, sge_info->start_idx & sge_mask);
@@ -878,7 +877,7 @@ static int fill_ext_sge_inl_data(struct hns_roce_qp *qp,
 		}
 	}
 
-	sge_info->valid_num = DIV_ROUND_UP(sge_info->total_len, sge_sz);
+	sge_info->valid_num = DIV_ROUND_UP(sge_info->total_len, HNS_ROCE_SGE_SIZE);
 	sge_info->start_idx += sge_info->valid_num;
 
 	return 0;
