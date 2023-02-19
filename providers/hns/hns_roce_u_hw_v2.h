@@ -157,7 +157,7 @@ struct hns_roce_v2_cqe {
 	__le32	smac;
 	__le32	byte_28;
 	__le32	byte_32;
-	__le32	rsv[8];
+	__le32	payload[8];
 };
 
 #define CQE_FIELD_LOC(h, l) FIELD_LOC(struct hns_roce_v2_cqe, h, l)
@@ -170,7 +170,7 @@ struct hns_roce_v2_cqe {
 #define CQE_WQE_IDX CQE_FIELD_LOC(31, 16)
 #define CQE_RKEY_IMMTDATA CQE_FIELD_LOC(63, 32)
 #define CQE_XRC_SRQN CQE_FIELD_LOC(87, 64)
-#define CQE_RSV0 CQE_FIELD_LOC(95, 88)
+#define CQE_CQE_INLINE CQE_FIELD_LOC(89, 88)
 #define CQE_LCL_QPN CQE_FIELD_LOC(119, 96)
 #define CQE_SUB_STATUS CQE_FIELD_LOC(127, 120)
 #define CQE_BYTE_CNT CQE_FIELD_LOC(159, 128)

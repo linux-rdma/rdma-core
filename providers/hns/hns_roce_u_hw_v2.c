@@ -442,6 +442,28 @@ static void handle_recv_inl_data(struct hns_roce_v2_cqe *cqe,
 		hr_reg_write(cqe, CQE_STATUS, HNS_ROCE_V2_CQE_LOCAL_LENGTH_ERR);
 }
 
+static void handle_recv_cqe_inl_from_rq(struct hns_roce_v2_cqe *cqe,
+					struct hns_roce_qp *cur_qp)
+{
+	uint32_t wr_num;
+
+	wr_num = hr_reg_read(cqe, CQE_WQE_IDX) & (cur_qp->rq.wqe_cnt - 1);
+
+	handle_recv_inl_data(cqe, &cur_qp->rq_rinl_buf, wr_num,
+			     (uint8_t *)cqe->payload);
+}
+
+static void handle_recv_cqe_inl_from_srq(struct hns_roce_v2_cqe *cqe,
+					 struct hns_roce_srq *srq)
+{
+	uint32_t wr_num;
+
+	wr_num = hr_reg_read(cqe, CQE_WQE_IDX) & (srq->wqe_cnt - 1);
+
+	handle_recv_inl_data(cqe, &srq->srq_rinl_buf, wr_num,
+			     (uint8_t *)cqe->payload);
+}
+
 static void handle_recv_rq_inl(struct hns_roce_v2_cqe *cqe,
 			       struct hns_roce_qp *cur_qp)
 {
@@ -471,6 +493,9 @@ static void parse_cqe_for_srq(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
 	wqe_idx = hr_reg_read(cqe, CQE_WQE_IDX);
 	wc->wr_id = srq->wrid[wqe_idx & (srq->wqe_cnt - 1)];
 	hns_roce_free_srq_wqe(srq, wqe_idx);
+
+	if (hr_reg_read(cqe, CQE_CQE_INLINE))
+		handle_recv_cqe_inl_from_srq(cqe, srq);
 }
 
 static int parse_cqe_for_resp(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
@@ -485,7 +510,9 @@ static int parse_cqe_for_resp(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
 	if (hr_qp->verbs_qp.qp.qp_type == IBV_QPT_UD)
 		parse_for_ud_qp(cqe, wc);
 
-	if (hr_reg_read(cqe, CQE_RQ_INLINE))
+	if (hr_reg_read(cqe, CQE_CQE_INLINE))
+		handle_recv_cqe_inl_from_rq(cqe, hr_qp);
+	else if (hr_reg_read(cqe, CQE_RQ_INLINE))
 		handle_recv_rq_inl(cqe, hr_qp);
 
 	return 0;
@@ -556,6 +583,9 @@ static void cqe_proc_srq(struct hns_roce_srq *srq, uint32_t wqe_idx,
 {
 	cq->verbs_cq.cq_ex.wr_id = srq->wrid[wqe_idx & (srq->wqe_cnt - 1)];
 	hns_roce_free_srq_wqe(srq, wqe_idx);
+
+	if (hr_reg_read(cq->cqe, CQE_CQE_INLINE))
+		handle_recv_cqe_inl_from_srq(cq->cqe, srq);
 }
 
 static void cqe_proc_rq(struct hns_roce_qp *hr_qp, struct hns_roce_cq *cq)
@@ -565,7 +595,9 @@ static void cqe_proc_rq(struct hns_roce_qp *hr_qp, struct hns_roce_cq *cq)
 	cq->verbs_cq.cq_ex.wr_id = wq->wrid[wq->tail & (wq->wqe_cnt - 1)];
 	++wq->tail;
 
-	if (hr_reg_read(cq->cqe, CQE_RQ_INLINE))
+	if (hr_reg_read(cq->cqe, CQE_CQE_INLINE))
+		handle_recv_cqe_inl_from_rq(cq->cqe, hr_qp);
+	else if (hr_reg_read(cq->cqe, CQE_RQ_INLINE))
 		handle_recv_rq_inl(cq->cqe, hr_qp);
 }
 
@@ -1722,6 +1754,9 @@ static int hns_roce_u_v2_post_srq_recv(struct ibv_srq *ib_srq,
 
 		wqe = get_srq_wqe(srq, wqe_idx);
 		fill_recv_sge_to_wqe(wr, wqe, max_sge, srq->rsv_sge);
+
+		fill_recv_inl_buf(&srq->srq_rinl_buf, wqe_idx, wr);
+
 		fill_wqe_idx(srq, wqe_idx);
 
 		srq->wrid[wqe_idx] = wr->wr_id;
