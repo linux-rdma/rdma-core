@@ -1078,7 +1078,9 @@ static void hns_roce_set_qp_params(struct ibv_qp_init_attr_ex *attr,
 		cnt = roundup_pow_of_two(attr->cap.max_recv_wr);
 		qp->rq.wqe_cnt = cnt;
 		qp->rq.shift = hr_ilog32(cnt);
-		qp->rq_rinl_buf.wqe_cnt = cnt;
+
+		if (ctx->config & HNS_ROCE_RSP_RQ_INLINE_FLAGS)
+			qp->rq_rinl_buf.wqe_cnt = cnt;
 
 		attr->cap.max_recv_wr = qp->rq.wqe_cnt;
 		attr->cap.max_recv_sge = qp->rq.max_gs;

@@ -113,7 +113,7 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	if (!context)
 		return NULL;
 
-	cmd.config |= HNS_ROCE_EXSGE_FLAGS;
+	cmd.config |= HNS_ROCE_EXSGE_FLAGS | HNS_ROCE_RQ_INLINE_FLAGS;
 	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
 		goto err_free;
