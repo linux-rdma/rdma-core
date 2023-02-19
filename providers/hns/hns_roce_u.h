@@ -213,6 +213,8 @@ struct hns_roce_context {
 	unsigned int			max_srq_sge;
 	int				max_cqe;
 	unsigned int			cqe_size;
+	uint32_t			config;
+	unsigned int			max_inline_data;
 };
 
 struct hns_roce_pd {
@@ -267,6 +269,7 @@ struct hns_roce_wq {
 	unsigned int			head;
 	unsigned int			tail;
 	unsigned int			max_gs;
+	unsigned int			ext_sge_cnt;
 	unsigned int			rsv_sge;
 	unsigned int			wqe_shift;
 	unsigned int			shift; /* wq size is 2^shift */
