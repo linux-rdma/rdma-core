@@ -855,43 +855,44 @@ static int verify_qp_create_attr(struct hns_roce_context *ctx,
 	return verify_qp_create_cap(ctx, attr);
 }
 
-static int qp_alloc_recv_inl_buf(struct ibv_qp_cap *cap,
-				 struct hns_roce_qp *qp)
+static int alloc_recv_rinl_buf(uint32_t max_sge,
+			       struct hns_roce_rinl_buf *rinl_buf)
 {
 	unsigned int cnt;
 	int i;
 
-	cnt = qp->rq_rinl_buf.wqe_cnt;
-	qp->rq_rinl_buf.wqe_list = calloc(cnt,
-					  sizeof(struct hns_roce_rinl_wqe));
-	if (!qp->rq_rinl_buf.wqe_list)
+	cnt = rinl_buf->wqe_cnt;
+	rinl_buf->wqe_list = calloc(cnt, sizeof(struct hns_roce_rinl_wqe));
+	if (!rinl_buf->wqe_list)
 		return ENOMEM;
 
-	qp->rq_rinl_buf.wqe_list[0].sg_list = calloc(cnt * cap->max_recv_sge,
-					sizeof(struct hns_roce_rinl_sge));
-	if (!qp->rq_rinl_buf.wqe_list[0].sg_list)
+	rinl_buf->wqe_list[0].sg_list = calloc(cnt * max_sge,
+					       sizeof(struct ibv_sge));
+	if (!rinl_buf->wqe_list[0].sg_list) {
+		free(rinl_buf->wqe_list);
 		return ENOMEM;
+	}
 
 	for (i = 0; i < cnt; i++) {
-		int wqe_size = i * cap->max_recv_sge;
+		int wqe_size = i * max_sge;
 
-		qp->rq_rinl_buf.wqe_list[i].sg_list =
-			  &(qp->rq_rinl_buf.wqe_list[0].sg_list[wqe_size]);
+		rinl_buf->wqe_list[i].sg_list =
+			  &rinl_buf->wqe_list[0].sg_list[wqe_size];
 	}
 
 	return 0;
 }
 
-static void qp_free_recv_inl_buf(struct hns_roce_qp *qp)
+static void free_recv_rinl_buf(struct hns_roce_rinl_buf *rinl_buf)
 {
-	if (qp->rq_rinl_buf.wqe_list) {
-		if (qp->rq_rinl_buf.wqe_list[0].sg_list) {
-			free(qp->rq_rinl_buf.wqe_list[0].sg_list);
-			qp->rq_rinl_buf.wqe_list[0].sg_list = NULL;
+	if (rinl_buf->wqe_list) {
+		if (rinl_buf->wqe_list[0].sg_list) {
+			free(rinl_buf->wqe_list[0].sg_list);
+			rinl_buf->wqe_list[0].sg_list = NULL;
 		}
 
-		free(qp->rq_rinl_buf.wqe_list);
-		qp->rq_rinl_buf.wqe_list = NULL;
+		free(rinl_buf->wqe_list);
+		rinl_buf->wqe_list = NULL;
 	}
 }
 
@@ -930,7 +931,7 @@ static int calc_qp_buff_size(struct hns_roce_device *hr_dev,
 
 static void qp_free_wqe(struct hns_roce_qp *qp)
 {
-	qp_free_recv_inl_buf(qp);
+	free_recv_rinl_buf(&qp->rq_rinl_buf);
 	if (qp->sq.wqe_cnt)
 		free(qp->sq.wrid);
 
@@ -958,7 +959,7 @@ static int qp_alloc_wqe(struct ibv_qp_cap *cap, struct hns_roce_qp *qp,
 	}
 
 	if (qp->rq_rinl_buf.wqe_cnt) {
-		if (qp_alloc_recv_inl_buf(cap, qp))
+		if (alloc_recv_rinl_buf(cap->max_recv_sge, &qp->rq_rinl_buf))
 			goto err_alloc;
 	}
 
@@ -968,7 +969,7 @@ static int qp_alloc_wqe(struct ibv_qp_cap *cap, struct hns_roce_qp *qp,
 	return 0;
 
 err_alloc:
-	qp_free_recv_inl_buf(qp);
+	free_recv_rinl_buf(&qp->rq_rinl_buf);
 	if (qp->rq.wrid)
 		free(qp->rq.wrid);
 

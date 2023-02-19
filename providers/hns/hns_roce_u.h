@@ -290,13 +290,8 @@ struct hns_roce_sge_ex {
 	unsigned int			sge_shift;
 };
 
-struct hns_roce_rinl_sge {
-	void				*addr;
-	unsigned int			len;
-};
-
 struct hns_roce_rinl_wqe {
-	struct hns_roce_rinl_sge	*sg_list;
+	struct ibv_sge			*sg_list;
 	unsigned int			sge_cnt;
 };
 
