@@ -60,36 +60,42 @@ static struct verbs_context *erdma_alloc_context(struct ibv_device *device,
 		goto err_out;
 
 	verbs_set_ops(&ctx->ibv_ctx, &erdma_context_ops);
+	ctx->page_size = to_edev(device)->page_size;
 	ctx->dev_id = resp.dev_id;
 
 	ctx->sdb_type = resp.sdb_type;
-	ctx->sdb_offset = resp.sdb_offset;
+	ctx->sdb_entid = resp.sdb_entid;
 
-	ctx->sdb = mmap(NULL, ERDMA_PAGE_SIZE, PROT_WRITE, MAP_SHARED, cmd_fd,
+	ctx->sdb = mmap(NULL, ctx->page_size, PROT_WRITE, MAP_SHARED, cmd_fd,
 			resp.sdb);
 	if (ctx->sdb == MAP_FAILED)
 		goto err_out;
 
-	ctx->rdb = mmap(NULL, ERDMA_PAGE_SIZE, PROT_WRITE, MAP_SHARED, cmd_fd,
+	ctx->rdb = mmap(NULL, ctx->page_size, PROT_WRITE, MAP_SHARED, cmd_fd,
 			resp.rdb);
 	if (ctx->rdb == MAP_FAILED)
 		goto err_rdb_map;
 
-	ctx->cdb = mmap(NULL, ERDMA_PAGE_SIZE, PROT_WRITE, MAP_SHARED, cmd_fd,
+	ctx->cdb = mmap(NULL, ctx->page_size, PROT_WRITE, MAP_SHARED, cmd_fd,
 			resp.cdb);
 	if (ctx->cdb == MAP_FAILED)
 		goto err_cdb_map;
 
-	ctx->page_size = ERDMA_PAGE_SIZE;
+	ctx->sdb += resp.sdb_off;
+	ctx->rdb += resp.rdb_off;
+	ctx->cdb += resp.cdb_off;
+
 	list_head_init(&ctx->dbrecord_pages_list);
 	pthread_mutex_init(&ctx->dbrecord_pages_mutex, NULL);
 
 	return &ctx->ibv_ctx;
 
 err_cdb_map:
-	munmap(ctx->rdb, ERDMA_PAGE_SIZE);
+	munmap((void *)align_down((uintptr_t)ctx->rdb, ctx->page_size),
+	       ctx->page_size);
 err_rdb_map:
-	munmap(ctx->sdb, ERDMA_PAGE_SIZE);
+	munmap((void *)align_down((uintptr_t)ctx->sdb, ctx->page_size),
+	       ctx->page_size);
 err_out:
 	verbs_uninit_context(&ctx->ibv_ctx);
 	free(ctx);
@@ -105,6 +111,8 @@ erdma_device_alloc(struct verbs_sysfs_dev *sysfs_dev)
 	dev = calloc(1, sizeof(*dev));
 	if (!dev)
 		return NULL;
+
+	dev->page_size = sysconf(_SC_PAGESIZE);
 
 	return &dev->ibv_dev;
 }

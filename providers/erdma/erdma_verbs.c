@@ -277,7 +277,7 @@ static void __erdma_alloc_dbs(struct erdma_qp *qp, struct erdma_context *ctx)
 	uint32_t db_offset;
 
 	if (ctx->sdb_type == ERDMA_SDB_ENTRY)
-		db_offset = ctx->sdb_offset * ERDMA_NSDB_PER_ENTRY *
+		db_offset = ctx->sdb_entid * ERDMA_NSDB_PER_ENTRY *
 			    ERDMA_SQDB_SIZE;
 	else
 		db_offset = (qpn & ERDMA_SDB_ALLOC_QPN_MASK) * ERDMA_SQDB_SIZE;
@@ -1018,9 +1018,12 @@ void erdma_free_context(struct ibv_context *ibv_ctx)
 	struct erdma_context *ctx = to_ectx(ibv_ctx);
 	int i;
 
-	munmap(ctx->sdb, ERDMA_PAGE_SIZE);
-	munmap(ctx->rdb, ERDMA_PAGE_SIZE);
-	munmap(ctx->cdb, ERDMA_PAGE_SIZE);
+	munmap((void *)align_down((uintptr_t)ctx->sdb, ctx->page_size),
+	       ctx->page_size);
+	munmap((void *)align_down((uintptr_t)ctx->rdb, ctx->page_size),
+	       ctx->page_size);
+	munmap((void *)align_down((uintptr_t)ctx->cdb, ctx->page_size),
+	       ctx->page_size);
 
 	pthread_mutex_lock(&ctx->qp_table_mutex);
 	for (i = 0; i < ERDMA_QP_TABLE_SIZE; ++i) {

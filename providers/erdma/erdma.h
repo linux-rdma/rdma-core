@@ -23,6 +23,7 @@
 
 struct erdma_device {
 	struct verbs_device ibv_dev;
+	uint32_t page_size;
 };
 
 #define ERDMA_QP_TABLE_SIZE 4096
@@ -40,7 +41,7 @@ struct erdma_context {
 	pthread_mutex_t qp_table_mutex;
 
 	uint8_t sdb_type;
-	uint32_t sdb_offset;
+	uint32_t sdb_entid;
 
 	void *sdb;
 	void *rdb;
@@ -54,6 +55,11 @@ struct erdma_context {
 static inline struct erdma_context *to_ectx(struct ibv_context *base)
 {
 	return container_of(base, struct erdma_context, ibv_ctx.context);
+}
+
+static inline struct erdma_device *to_edev(struct ibv_device *ibv_dev)
+{
+	return container_of(ibv_dev, struct erdma_device, ibv_dev.device);
 }
 
 #endif
