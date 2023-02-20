@@ -40,10 +40,13 @@ struct erdma_uresp_alloc_ctx {
 	__u32 dev_id;
 	__u32 pad;
 	__u32 sdb_type;
-	__u32 sdb_offset;
+	__u32 sdb_entid;
 	__aligned_u64 sdb;
 	__aligned_u64 rdb;
 	__aligned_u64 cdb;
+	__u32 sdb_off;
+	__u32 rdb_off;
+	__u32 cdb_off;
 };
 
 #endif
