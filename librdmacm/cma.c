@@ -96,6 +96,7 @@ struct cma_device {
 	uint8_t		    max_responder_resources;
 	int		    ibv_idx;
 	uint8_t		    is_device_dead : 1;
+	uint8_t		    is_device_fail_to_init : 1;
 };
 
 struct cma_id_private {
@@ -514,10 +515,11 @@ struct ibv_context **rdma_get_devices(int *num_devices)
 
 		/* reinit newly added devices */
 		if (ucma_init_device(dev)) {
-			/* Couldn't initialize the device: mark it dead and continue */
-			dev->is_device_dead = true;
+			/* Couldn't initialize the device: mark it unavailable and continue. */
+			dev->is_device_fail_to_init = true;
 			continue;
 		}
+		dev->is_device_fail_to_init = false;
 		cma_dev_cnt++;
 	}
 
@@ -526,7 +528,7 @@ struct ibv_context **rdma_get_devices(int *num_devices)
 		goto out;
 
 	list_for_each(&cma_dev_list, dev, entry) {
-		if (dev->is_device_dead)
+		if (dev->is_device_dead || dev->is_device_fail_to_init)
 			continue;
 		devs[i++] = dev->verbs;
 		dev->refcnt++;
