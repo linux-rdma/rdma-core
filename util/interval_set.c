@@ -152,21 +152,22 @@ static int power_of_two(uint64_t x)
 	return ((x != 0) && !(x & (x - 1)));
 }
 
-int iset_alloc_range(struct iset *iset, uint64_t length, uint64_t *start)
+int iset_alloc_range(struct iset *iset, uint64_t length,
+		     uint64_t *start, uint64_t alignment)
 {
 	struct iset_range *r, *rnew;
 	uint64_t astart, rend;
 	bool found = false;
 	int ret = 0;
 
-	if (!power_of_two(length)) {
+	if (!power_of_two(alignment)) {
 		errno = EINVAL;
 		return errno;
 	}
 
 	pthread_mutex_lock(&iset->lock);
 	list_for_each(&iset->head, r, entry) {
-		astart = align(r->start, length);
+		astart = align(r->start, alignment);
 		/* Check for wrap around */
 		if ((astart + length - 1 >= astart) &&
 		    (astart + length - 1 <= r->start + r->length - 1)) {

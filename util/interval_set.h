@@ -34,8 +34,10 @@ int iset_insert_range(struct iset *iset, uint64_t start, uint64_t length);
  * iset_alloc_range - Allocate a range from the set
  *
  * @iset: The set to be operated
- * @length: The length of the range, must be power of two
- * @start: The start address of the allocated range, aligned with @length
+ * @length: The length of the range
+ * @start: The start address of the allocated range
+ * @alignment: The alignment that @start must be aligned with, must be power
+ *             of two
  *
  * Return 0 if succeeded, errno otherwise
  *
@@ -74,4 +76,5 @@ Case 4: Original range splited
 |     |     |      |
 +-----+     +------+
 */
-int iset_alloc_range(struct iset *iset, uint64_t length, uint64_t *start);
+int iset_alloc_range(struct iset *iset, uint64_t length,
+		     uint64_t *start, uint64_t alignment);

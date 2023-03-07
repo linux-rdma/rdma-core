@@ -100,7 +100,8 @@ static struct page_block *mlx5_vfio_new_block(struct mlx5_vfio_context *ctx)
 		goto err;
 	}
 
-	err = iset_alloc_range(ctx->iova_alloc, MLX5_VFIO_BLOCK_SIZE, &page_block->iova);
+	err = iset_alloc_range(ctx->iova_alloc, MLX5_VFIO_BLOCK_SIZE,
+			       &page_block->iova, MLX5_VFIO_BLOCK_SIZE);
 	if (err)
 		goto err_range;
 
@@ -778,7 +779,8 @@ static struct mlx5_cmd_mailbox *alloc_cmd_box(struct mlx5_vfio_context *ctx)
 
 	memset(mailbox->buf, 0, MLX5_ADAPTER_PAGE_SIZE);
 
-	ret = iset_alloc_range(ctx->iova_alloc, MLX5_ADAPTER_PAGE_SIZE, &mailbox->iova);
+	ret = iset_alloc_range(ctx->iova_alloc, MLX5_ADAPTER_PAGE_SIZE,
+			       &mailbox->iova, MLX5_ADAPTER_PAGE_SIZE);
 	if (ret)
 		goto err_tree;
 
@@ -945,7 +947,8 @@ static int mlx5_vfio_init_cmd_interface(struct mlx5_vfio_context *ctx)
 
 	memset(cmd->vaddr, 0, MLX5_ADAPTER_PAGE_SIZE);
 
-	ret = iset_alloc_range(ctx->iova_alloc, MLX5_ADAPTER_PAGE_SIZE, &cmd->iova);
+	ret = iset_alloc_range(ctx->iova_alloc, MLX5_ADAPTER_PAGE_SIZE,
+			       &cmd->iova, MLX5_ADAPTER_PAGE_SIZE);
 	if (ret)
 		goto err_free;
 
@@ -1400,7 +1403,8 @@ create_map_eq(struct mlx5_vfio_context *ctx, struct mlx5_eq *eq,
 		goto end;
 	}
 
-	err = iset_alloc_range(ctx->iova_alloc, eq->iova_size, &eq->iova);
+	err = iset_alloc_range(ctx->iova_alloc, eq->iova_size,
+			       &eq->iova, eq->iova_size);
 	if (err)
 		goto err_range;
 
@@ -2390,7 +2394,8 @@ static struct ibv_mr *mlx5_vfio_reg_mr(struct ibv_pd *pd, void *addr, size_t len
 	mr->iova_page_size = max(calc_spanning_page_size(hca_va, length),
 				 ctx->iova_min_page_size);
 
-	ret = iset_alloc_range(ctx->iova_alloc, mr->iova_page_size, &mr->iova);
+	ret = iset_alloc_range(ctx->iova_alloc, mr->iova_page_size,
+			       &mr->iova, mr->iova_page_size);
 	if (ret)
 		goto end;
 
@@ -2579,7 +2584,8 @@ _vfio_devx_umem_reg(struct ibv_context *context,
 	if (ibv_dontfork_range(addr, size))
 		goto err;
 
-	ret = iset_alloc_range(ctx->iova_alloc, vfio_umem->iova_size, &vfio_umem->iova);
+	ret = iset_alloc_range(ctx->iova_alloc, vfio_umem->iova_size,
+			       &vfio_umem->iova, vfio_umem->iova_size);
 	if (ret)
 		goto err_alloc;
 
@@ -3227,7 +3233,8 @@ vfio_devx_create_eq(struct ibv_context *ibctx, const void *in, size_t inlen,
 		goto err_va;
 	}
 
-	err = iset_alloc_range(ctx->iova_alloc, eq->size, &eq->iova);
+	err = iset_alloc_range(ctx->iova_alloc, eq->size,
+			       &eq->iova, eq->size);
 	if (err)
 		goto err_range;
 
