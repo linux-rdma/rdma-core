@@ -174,7 +174,8 @@ class Mlx5DrTest(Mlx5RDMATestCase):
     @skip_unsupported
     def create_rx_recv_rules_based_on_match_params(self, mask_param, val_param, actions,
                                                    match_criteria=u.MatchCriteriaEnable.OUTER,
-                                                   domain=None, log_matcher_size=None):
+                                                   domain=None, log_matcher_size=None,
+                                                   root_only=False):
         """
         Creates a rule on RX domain that forwards packets that match on the provided parameters
         to the SW steering flow table and another rule on that table
@@ -185,23 +186,29 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         :param match_criteria: the match criteria enable flag to match on
         :param domain: RX DR domain to use if provided, otherwise create default RX domain.
         :param log_matcher_size: Size of the matcher table
-        :return: Non root table and dest table action to it
+        :param root_only : If True, rules are created only on root table
+        :return: Non-root table and dest table action to it if root=false else root_table
         """
         self.domain_rx = domain if domain else DrDomain(self.server.ctx,
                                                         dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         root_table = DrTable(self.domain_rx, 0)
-        table = DrTable(self.domain_rx, 1)
-        root_matcher = DrMatcher(root_table, 0, match_criteria, mask_param)
+        if not root_only:
+            non_root_table = DrTable(self.domain_rx, 1)
+        table = root_table if root_only else non_root_table
         self.matcher = DrMatcher(table, 1, match_criteria, mask_param)
         if log_matcher_size:
             self.matcher.set_layout(log_matcher_size)
-        self.dest_table_action = DrActionDestTable(table)
-        self.rules.append(DrRule(root_matcher, val_param, [self.dest_table_action]))
         self.rules.append(DrRule(self.matcher, val_param, actions))
-        return table, self.dest_table_action
+        if not root_only:
+            self.root_matcher = DrMatcher(root_table, 0, match_criteria, mask_param)
+            self.dest_table_action = DrActionDestTable(table)
+            self.rules.append(DrRule(self.root_matcher, val_param, [self.dest_table_action]))
+            return table, self.dest_table_action
+        return table
 
     @skip_unsupported
-    def create_rx_recv_rules(self, smac_value, actions, log_matcher_size=None, domain=None):
+    def create_rx_recv_rules(self, smac_value, actions, log_matcher_size=None, domain=None,
+                             root_only=False):
         """
         Creates a rule on RX domain that forwards packets that match the smac in the matcher
         to the SW steering flow table and another rule on that table with provided actions.
@@ -209,16 +216,18 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         :param actions: List of actions to attach to the recv rule.
         :param log_matcher_size: Size of the matcher table
         :param domain: RX DR domain to use if provided, otherwise create default RX domain.
-        :return: Non root table and dest table action to it
+        :param root_only : If True, rules are created only on root table
+        :return: Non-root table and dest table action to it if root=false else root_table
         """
         smac_mask = bytes([0xff] * 6) + bytes(2)
         mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
         # Size of the matcher value should be modulo 4
-        smac_value += bytes(2)
+        smac_value = smac_value if root_only else smac_value + bytes(2)
         value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
         return self.create_rx_recv_rules_based_on_match_params(mask_param, value_param, actions,
                                                                u.MatchCriteriaEnable.OUTER,
-                                                               domain, log_matcher_size)
+                                                               domain, log_matcher_size,
+                                                               root_only=root_only)
 
     @skip_unsupported
     def create_tx_modify_rule(self):
