@@ -217,7 +217,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         :param log_matcher_size: Size of the matcher table
         :param domain: RX DR domain to use if provided, otherwise create default RX domain.
         :param root_only : If True, rules are created only on root table
-        :return: Non-root table and dest table action to it if root=false else root_table
+        :return: Non-root table and dest table action to it if root_only=false else root_table
         """
         smac_mask = bytes([0xff] * 6) + bytes(2)
         mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
@@ -228,28 +228,6 @@ class Mlx5DrTest(Mlx5RDMATestCase):
                                                                u.MatchCriteriaEnable.OUTER,
                                                                domain, log_matcher_size,
                                                                root_only=root_only)
-
-    @skip_unsupported
-    def create_tx_modify_rule(self):
-        """
-        Creares a rule on TX domain that modifies smac in the packet and sends
-        it to the wire.
-        """
-        from tests.mlx5_prm_structs import SetActionIn
-        self.domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
-        table = DrTable(self.domain_tx, 0)
-        smac_mask = bytes([0xff] * 6)
-        mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
-        matcher = DrMatcher(table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
-        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
-        action1 = SetActionIn(action_type=SET_ACTION, field=ModifyFields.OUT_SMAC_47_16,
-                              data=0x88888888, length=ModifyFieldsLen.MAC_47_16)
-        action2 = SetActionIn(action_type=SET_ACTION, field=ModifyFields.OUT_SMAC_15_0,
-                              data=0x8888, length=ModifyFieldsLen.MAC_15_0)
-        self.modify_actions = DrActionModify(self.domain_tx, dve.MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL,
-                                             [action1, action2])
-        self.rules.append(DrRule(matcher, value_param, [self.modify_actions]))
 
     @skip_unsupported
     def create_client_send_rule(self, actions):
@@ -443,16 +421,63 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.dest_port(False)
 
     @skip_unsupported
+    def add_qp_rule_and_send_pkts(self, root_only=False):
+        """
+        :param root_only : If True, rules are created only on root table
+        """
+        self.create_players(Mlx5DrResources)
+        self.qp_action = DrActionQp(self.server.qp)
+        smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        self.create_rx_recv_rules(smac_value, [self.qp_action], root_only=root_only)
+        u.raw_traffic(self.client, self.server, self.iters)
+
     def test_tbl_qp_rule(self):
         """
         Creates RX domain, SW table with matcher on source mac. Creates QP action
         and a rule with this action on the matcher.
         """
+        self.add_qp_rule_and_send_pkts()
+
+    def test_root_tbl_qp_rule(self):
+        """
+        Creates RX domain, SW table with matcher on source mac. Creates QP action
+        and a rule with this action on the matcher.
+        """
+        self.add_qp_rule_and_send_pkts(root_only=True)
+
+    @skip_unsupported
+    def modify_tx_smac_and_send_pkts(self, root_only=False):
+        """
+        Create a rule on TX domain that modifies smac of matched packet and
+        sends it to the wire.
+        :param root_only : If True, rules are created only on root table
+        """
+        from tests.mlx5_prm_structs import SetActionIn
         self.create_players(Mlx5DrResources)
-        self.qp_action = DrActionQp(self.server.qp)
+        self.domain_tx = DrDomain(self.client.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
+        root_table_tx = DrTable(self.domain_tx, 0)
+        if not root_only:
+            non_root_table_tx = DrTable(self.domain_tx, 1)
+            self.move_action = self.create_empty_matcher_go_to_tbl(root_table_tx, non_root_table_tx)
+        table = root_table_tx if root_only else non_root_table_tx
+        smac_mask = bytes([0xff] * 6)
+        mask_param = Mlx5FlowMatchParameters(len(smac_mask), smac_mask)
+        matcher_tx = DrMatcher(table, 0, u.MatchCriteriaEnable.OUTER, mask_param)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.create_rx_recv_rules(smac_value, [self.qp_action])
-        u.raw_traffic(self.client, self.server, self.iters)
+        smac_value += bytes(2)
+        value_param = Mlx5FlowMatchParameters(len(smac_value), smac_value)
+        action1 = SetActionIn(action_type=SET_ACTION, field=ModifyFields.OUT_SMAC_47_16,
+                              data=0x88888888, length=ModifyFieldsLen.MAC_47_16)
+        action2 = SetActionIn(action_type=SET_ACTION, field=ModifyFields.OUT_SMAC_15_0,
+                              data=0x8888, length=ModifyFieldsLen.MAC_15_0)
+        flags = dve.MLX5DV_DR_ACTION_FLAGS_ROOT_LEVEL if root_only else 0
+        self.modify_action_tx = DrActionModify(self.domain_tx, flags, [action1, action2])
+        self.rules.append(DrRule(matcher_tx, value_param, [self.modify_action_tx]))
+        src_mac = struct.pack('!6s', bytes.fromhex("88:88:88:88:88:88".replace(':', '')))
+        self.qp_action = DrActionQp(self.server.qp)
+        self.create_rx_recv_rules(src_mac, [self.qp_action], root_only=root_only)
+        exp_packet = u.gen_packet(self.client.msg_size, src_mac=src_mac)
+        u.raw_traffic(self.client, self.server, self.iters, expected_packet=exp_packet)
 
     @skip_unsupported
     def test_tbl_modify_header_rule(self):
@@ -461,13 +486,16 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         Then creates RX domain and rule that forwards packets with the new smac
         to server QP. Perform traffic that do this flow.
         """
-        self.create_players(Mlx5DrResources)
-        self.create_tx_modify_rule()
-        src_mac = struct.pack('!6s', bytes.fromhex("88:88:88:88:88:88".replace(':', '')))
-        self.qp_action = DrActionQp(self.server.qp)
-        self.create_rx_recv_rules(src_mac, [self.qp_action])
-        exp_packet = u.gen_packet(self.client.msg_size, src_mac=src_mac)
-        u.raw_traffic(self.client, self.server, self.iters, expected_packet=exp_packet)
+        self.modify_tx_smac_and_send_pkts()
+
+    @skip_unsupported
+    def test_root_tbl_modify_header_rule(self):
+        """
+        Creates TX domain, root table with matcher on source mac and modify the smac.
+        Then creates RX domain and rule that forwards packets with the new smac
+        to server QP. Perform traffic that do this flow.
+        """
+        self.modify_tx_smac_and_send_pkts(root_only=True)
 
     @skip_unsupported
     def test_metadata_modify_action_set_copy_match(self):
@@ -544,21 +572,39 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.assertEqual(sent_packets, self.iters, 'Counter of metadata missed some sent packets')
 
     @skip_unsupported
-    def test_tbl_counter_action(self):
+    def add_counter_action_and_send_pkts(self, root_only=False):
         """
-        Create flow counter object, attach it to a rule using counter action
-        and perform traffic that hit this rule. Verify that the counter packets
-        increased.
+        :param root_only : If True, rules are created only on root table
         """
         self.create_players(Mlx5DrResources)
         counter, flow_counter_id = self.create_counter(self.server.ctx)
         self.server_counter_action = DrActionFlowCounter(counter)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
         self.qp_action = DrActionQp(self.server.qp)
-        self.create_rx_recv_rules(smac_value, [self.qp_action, self.server_counter_action])
+        self.create_rx_recv_rules(smac_value, [self.qp_action, self.server_counter_action],
+                                  root_only=root_only)
         u.raw_traffic(self.client, self.server, self.iters)
         recv_packets = self.query_counter_packets(counter, flow_counter_id)
         self.assertEqual(recv_packets, self.iters, 'Counter missed some recv packets')
+
+    @skip_unsupported
+    def test_root_tbl_counter_action(self):
+        """
+        Create flow counter object, on root table attach it to a rule using counter action
+        and perform traffic that hit this rule. Verify that the packets counter
+        increased.
+        """
+        self.add_counter_action_and_send_pkts(root_only=True)
+
+    @skip_unsupported
+    def test_tbl_counter_action(self):
+        """
+        Create flow counter object, on non-root table attach it to a rule using counter action
+        and perform traffic that hit this rule. Verify that the packets counter
+        increased.
+        """
+        self.add_counter_action_and_send_pkts()
+
 
     @skip_unsupported
     def test_prevent_duplicate_rule(self):
@@ -567,7 +613,6 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         try creating duplicate rule. Fail if creation succeeded.
         """
         from tests.mlx5_prm_structs import FlowTableEntryMatchParam
-
         self.server = Mlx5DrResources(**self.dev_info)
         domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
         domain_rx.allow_duplicate_rules(False)
@@ -619,11 +664,12 @@ class Mlx5DrTest(Mlx5RDMATestCase):
                          'Drop action dropped TX packets that not matched the rule')
 
     @skip_unsupported
-    def test_tbl_qp_tag_rule(self):
+    def add_qp_tag_rule_and_send_pkts(self, root_only=False):
         """
         Creates RX domain, table with matcher on source mac. Creates QP action
         and tag action. Creates a rule with those actions on the matcher.
         Verifies traffic and tag.
+        :param root_only : If True, rules are created only on root table
         """
         self.wc_flags = e.IBV_WC_EX_WITH_FLOW_TAG
         self.create_players(Mlx5DrResources,  wc_flags=e.IBV_WC_EX_WITH_FLOW_TAG)
@@ -631,11 +677,29 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         tag = 0x123
         tag_action = DrActionTag(tag)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.create_rx_recv_rules(smac_value, [tag_action, qp_action])
+        self.create_rx_recv_rules(smac_value, [tag_action, qp_action], root_only=root_only)
         self.domain_rx.sync()
         u.raw_traffic(self.client, self.server, self.iters)
         # Verify tag
         self.assertEqual(self.server.cq.read_flow_tag(), tag, 'Wrong tag value')
+
+    @skip_unsupported
+    def test_tbl_qp_tag_rule(self):
+        """
+        Creates RX domain, non-root table with matcher on source mac. Creates QP action
+        and tag action. Creates a rule with those actions on the matcher.
+        Verifies traffic and tag.
+        """
+        self.add_qp_tag_rule_and_send_pkts()
+
+    @skip_unsupported
+    def test_root_tbl_qp_tag_rule(self):
+        """
+        Creates RX domain, root table with matcher on source mac. Creates QP action
+        and tag action. Creates a rule with those actions on the matcher.
+        Verifies traffic and tag.
+        """
+        self.add_qp_tag_rule_and_send_pkts(root_only=True)
 
     @skip_unsupported
     def test_set_matcher_layout(self):
@@ -696,13 +760,14 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters, with_vlan=True, expected_packet=exp_packet)
 
     @skip_unsupported
-    def test_dest_array(self):
+    def dest_array(self, root_only=False):
         """
         Creates RX domain, root table with matcher on source mac. Create a rule
         to forward all traffic to the non-root table. On this table add a rule
         with multi dest array action which include destination QP actions and
         next FT (also with QP action).
         Validate on all QPs the received packets.
+        :param root_only : If True, rules are created only on root table
         """
         max_actions = 8
         self.client = Mlx5DrResources(qp_count=max_actions, **self.dev_info)
@@ -727,8 +792,30 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.rules.append(DrRule(last_matcher, value_param, [last_qp_action]))
         multi_dest_a = DrActionDestArray(self.domain_rx, len(dest_attrs), dest_attrs)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.create_rx_recv_rules(smac_value, [multi_dest_a], domain=self.domain_rx)
+        self.create_rx_recv_rules(smac_value, [multi_dest_a], domain=self.domain_rx,
+                                  root_only=root_only)
         u.raw_traffic(self.client, self.server, self.iters)
+
+    @skip_unsupported
+    def test_root_dest_array(self):
+        """
+        Creates RX domain, root table with matcher on source mac.on root table
+        add a rule with multi dest array action which include destination QP actions and
+        next FT (also with QP action).
+        Validate on all QPs the received packets.
+        """
+        self.dest_array(root_only=True)
+
+    @skip_unsupported
+    def test_dest_array(self):
+        """
+        Creates RX domain, non-root table with matcher on source mac. Create a rule
+        to forward all traffic to the non-root table. On this table add a rule
+        with multi dest array action which include destination QP actions and
+        next FT (also with QP action).
+        Validate on all QPs the received packets.
+        """
+        self.dest_array()
 
     @skip_unsupported
     def test_tx_def_miss_action(self):
@@ -757,13 +844,24 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         u.raw_traffic(self.client, self.server, self.iters)
 
     @skip_unsupported
-    def test_dest_tir(self):
+    def add_dest_tir_action_send_pkts(self, root_only=False):
+        """
+        :param root_only: If True, rules are created only on root table
+        """
         self.client = Mlx5DrTirResources(**self.dev_info)
         self.server = Mlx5DrTirResources(**self.dev_info, server=True)
         tir_action = DrActionDestTir(self.server.tir)
         smac_value = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
-        self.create_rx_recv_rules(smac_value, [tir_action])
+        self.create_rx_recv_rules(smac_value, [tir_action], root_only=root_only)
         u.raw_traffic(self.client, self.server, self.iters)
+
+    @skip_unsupported
+    def test_dest_tir(self):
+        self.add_dest_tir_action_send_pkts()
+
+    @skip_unsupported
+    def test_root_dest_tir(self):
+        self.add_dest_tir_action_send_pkts(root_only=True)
 
     def packet_reformat_actions(self, outer, root_only=False, l2_ref_type=True):
         """
@@ -872,10 +970,11 @@ class Mlx5DrTest(Mlx5RDMATestCase):
                          'Counter on default table missed some recv packets')
 
     @skip_unsupported
-    def test_geneve_match_rx(self):
+    def geneve_match_rx(self, root_only=False):
         """
         Creates matcher on RX to match on Geneve related fields with counter and qp action,
         sends packets and verifies the matcher.
+        :param root_only: If True, rules are created only on root table
         """
         self.create_players(Mlx5DrResources)
         geneve_mask, geneve_val = self.create_geneve_params()
@@ -885,7 +984,8 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.qp_action = DrActionQp(self.server.qp)
         self.create_rx_recv_rules_based_on_match_params(geneve_mask, geneve_val,
                                                         [self.qp_action, self.server_counter_action],
-                                                        match_criteria=u.MatchCriteriaEnable.MISC, domain=domain_rx)
+                                                        match_criteria=u.MatchCriteriaEnable.MISC,
+                                                        domain=domain_rx, root_only=root_only)
         inner_msg_size = self.client.msg_size - GENEVE_PACKET_OUTER_LENGTH
         outer = self.gen_geneve_tunnel_encap_header(inner_msg_size)
         packet_to_send = outer + u.gen_packet(msg_size=inner_msg_size)
@@ -898,6 +998,22 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         recv_packets_rx = self.query_counter_packets(counter, flow_counter_id)
         self.assertEqual(recv_packets_rx, self.iters,
                          'Counter rx counts more than expected recv packets')
+
+    @skip_unsupported
+    def test_root_geneve_match_rx(self):
+        """
+        Creates matcher on RX root table to match on Geneve related fields
+        with counter and qp action, sends packets and verifies the matcher.
+        """
+        self.geneve_match_rx(root_only=True)
+
+    @skip_unsupported
+    def test_geneve_match_rx(self):
+        """
+        Creates matcher on RX non-root table to match on Geneve related
+        fields with counter and qp action, sends packets and verifies the matcher.
+        """
+        self.geneve_match_rx()
 
     @skip_unsupported
     def test_geneve_match_tx(self):
