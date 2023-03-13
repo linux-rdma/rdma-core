@@ -69,6 +69,7 @@ DCI_TEST_BAD_FLOW_WITHOUT_RESET = 2
 IB_SMP_ATTR_PORT_INFO = 0x0015
 IB_MGMT_CLASS_SUBN_LID_ROUTED = 0x01
 IB_MGMT_METHOD_GET = 0x01
+DB_BF_DBR_LESS_BUF_OFFSET = 0x600
 
 
 class PortStatus:
@@ -482,9 +483,12 @@ class Mlx5DevxRcResources(BaseResources):
     The class currently supports post send with immediate, but can be
     easily extended to support other opcodes in the future.
     """
-    def __init__(self, dev_name, ib_port, gid_index, msg_size=1024, activate_port_state=False):
+    def __init__(self, dev_name, ib_port, gid_index, msg_size=1024, activate_port_state=False,
+                 send_dbr_mode=0):
+        from tests.mlx5_prm_structs import SendDbrMode
         super().__init__(dev_name, ib_port, gid_index)
         self.umems = {}
+        self.send_dbr_mode = send_dbr_mode
         self.msg_size = msg_size
         self.num_msgs = 1000
         self.imm = 0x03020100
@@ -527,6 +531,8 @@ class Mlx5DevxRcResources(BaseResources):
                     raise PyverbsRDMAError('Could not change the port state to UP')
                 time.sleep(1)
                 mad_port_state = self.query_port_state_with_mads(ib_port)
+        if self.send_dbr_mode != SendDbrMode.DBR_VALID:
+            self.check_cap_send_dbr_mode()
         self.init_resources()
 
     def get_wqe_data_segment(self):
@@ -571,6 +577,36 @@ class Mlx5DevxRcResources(BaseResources):
         if mad_ifc_out.status:
             raise PyverbsRDMAError(f'Failed to send MAD with syndrome ({mad_ifc_out.syndrome})')
         return mad_ifc_out.mad
+
+    def check_cap_send_dbr_mode(self):
+        """
+        Check the capability of the dbr less.
+        If the HCA cap have HCA cap 2, check if in HCA cap2 0x20(HCA CAP 2) + 0x1(current)
+        have the send_dbr_mode_no_dbr_ext.
+        """
+        from tests.mlx5_prm_structs import QueryCmdHcaCap2Out, \
+            QueryHcaCapIn, QueryCmdHcaCapOut, QueryHcaCapOp, QueryHcaCapMod, SendDbrMode
+        self.create_context()
+        query_cap_in = QueryHcaCapIn(op_mod=0x1)
+        query_cap_out = QueryCmdHcaCapOut(self.ctx.devx_general_cmd(
+            query_cap_in, len(QueryCmdHcaCapOut())))
+        if query_cap_out.status:
+            raise PyverbsRDMAError('Failed to query general HCA CAPs with syndrome '
+                                   f'({query_cap_out.syndrome}')
+
+        if not query_cap_out.capability.hca_cap_2:
+            raise unittest.SkipTest("The device doesn't support general HCA CAPs 2")
+        query_cap2_in = QueryHcaCapIn(op_mod=(QueryHcaCapOp.HCA_CAP_2 << 0x1) | \
+                                              QueryHcaCapMod.CURRENT)
+        query_cap2_out = QueryCmdHcaCap2Out(self.ctx.devx_general_cmd(
+            query_cap2_in, len(QueryCmdHcaCap2Out())))
+        if self.send_dbr_mode == SendDbrMode.NO_DBR_EXT and \
+                not query_cap2_out.capability.send_dbr_mode_no_dbr_ext:
+            raise unittest.SkipTest("The device doesn't support send_dbr_mode_no_dbr_ext cap")
+
+        if self.send_dbr_mode == SendDbrMode.NO_DBR_INT and \
+                not query_cap2_out.capability.send_dbr_mode_no_dbr_int:
+            raise unittest.SkipTest("The device doesn't support send_dbr_mode_no_dbr_int cap")
 
     def init_resources(self):
         if not self.is_eth():
@@ -720,7 +756,7 @@ class Mlx5DevxRcResources(BaseResources):
                     log_rq_size=log_rq_size, log_sq_size=log_sq_size, ts_format=0x1,
                     log_rq_stride=log_rq_stride, uar_page=self.uar['qp'].page_id,
                     cqn_snd=cqn, cqn_rcv=cqn, dbr_umem_id=self.umems['qp_dbr'].umem_id,
-                    dbr_umem_valid=1)
+                    dbr_umem_valid=1, send_dbr_mode=self.send_dbr_mode)
         cmd_in = CreateQpIn(sw_qpc=qpc, wq_umem_id=self.umems['qp'].umem_id,
                             wq_umem_valid=1)
         self.qp = Mlx5DevxObj(self.ctx, cmd_in, len(CreateQpOut()))
@@ -800,6 +836,12 @@ class Mlx5DevxRcResources(BaseResources):
         building the control/data segments, updating and ringing the dbr,
         updating the producer indexes, etc.
         """
+        from tests.mlx5_prm_structs import SendDbrMode
+        buffer_address = self.uar['qp'].reg_addr
+        if self.send_dbr_mode == SendDbrMode.NO_DBR_EXT:
+            # Address of DB blueflame register
+            buffer_address = self.uar['qp'].base_addr + DB_BF_DBR_LESS_BUF_OFFSET
+
         idx = self.qattr.sq.post_idx if self.qattr.sq.post_idx < self.qattr.sq.wqe_num else 0
         buf_offset = self.qattr.sq.offset + (idx << dve.MLX5_SEND_WQE_SHIFT)
         # Prepare WQE
@@ -814,12 +856,13 @@ class Mlx5DevxRcResources(BaseResources):
                                        dve.MLX5_SEND_WQE_BB - 1) / dve.MLX5_SEND_WQE_BB)
         # Make sure descriptors are written
         dma.udma_to_dev_barrier()
-        # Update the doorbell record
-        mem.writebe32(self.umems['qp_dbr'].umem_addr,
-                      self.qattr.sq.post_idx & 0xffff, dve.MLX5_SND_DBR)
-        dma.udma_to_dev_barrier()
+        if not self.send_dbr_mode:
+            # Update the doorbell record
+            mem.writebe32(self.umems['qp_dbr'].umem_addr,
+                          self.qattr.sq.post_idx & 0xffff, dve.MLX5_SND_DBR)
+            dma.udma_to_dev_barrier()
         # Ring the doorbell and post the WQE
-        dma.mmio_write64_as_be(self.uar['qp'].reg_addr, mem.read64(ctrl_seg.addr))
+        dma.mmio_write64_as_be(buffer_address, mem.read64(ctrl_seg.addr))
 
     def post_recv(self):
         """
