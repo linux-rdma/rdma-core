@@ -100,6 +100,7 @@ static const struct verbs_context_ops irdma_uctx_ops = {
 	.query_device_ex = irdma_uquery_device_ex,
 	.query_port = irdma_uquery_port,
 	.query_qp = irdma_uquery_qp,
+	.reg_dmabuf_mr = irdma_ureg_mr_dmabuf,
 	.reg_mr = irdma_ureg_mr,
 	.req_notify_cq = irdma_uarm_cq,
 	.resize_cq = irdma_uresize_cq,
