@@ -106,6 +106,12 @@ class PacketConsts:
     GENEVE_VNI = 2
     GENEVE_OAM = 0
     GENEVE_PORT = 6081
+    BTH_HEADER_SIZE = 16
+    BTH_OPCODE = 0x81
+    BTH_DST_QP = 0xd2
+    BTH_PARTITION_KEY = 0xffff
+    BTH_BECN = 1
+    ROCE_PORT = 4791
 
 
 def get_mr_length():
@@ -855,6 +861,16 @@ def gen_geneve_header(vni=PacketConsts.GENEVE_VNI, oam=PacketConsts.GENEVE_OAM,
     """
     return struct.pack('!BBHL', (0 << 6) + 0, (oam << 7) + (0 << 6) + 0, proto, (vni << 8) + 0)
 
+def gen_bth_header(opcode=PacketConsts.BTH_OPCODE, dst_qp=PacketConsts.BTH_DST_QP):
+    """
+    Generates ROCE BTH header using the values from the PacketConst class by default.
+    :param opcode: BTH opcode
+    :param dst_qp: BTH dst QP
+    :return: ROCE BTH header
+    """
+    return struct.pack('!2BH2BH2L', opcode, 0, PacketConsts.BTH_PARTITION_KEY,
+                       PacketConsts.BTH_BECN << 6, dst_qp >> 16, dst_qp & 0xffff, 0, 0)
+
 
 def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO, with_vlan=False, **kwargs):
     """
@@ -1399,6 +1415,24 @@ def eswitch_mode_check(dev_name):
     except subprocess.CalledProcessError:
         raise unittest.SkipTest(eswicth_off_msg)
     return True
+
+
+def requires_roce_disabled(func):
+    def inner(instance):
+        if is_roce_enabled(instance.dev_name):
+            raise unittest.SkipTest('ROCE must be disabled')
+        return func(instance)
+    return inner
+
+
+def is_roce_enabled(dev_name):
+    pci_name = get_pci_name(dev_name)
+    cmd_out = subprocess.check_output(['devlink', 'dev', 'param', 'show', f'pci/{pci_name}',
+                                       'name', 'enable_roce'],
+                                      stderr=subprocess.DEVNULL)
+    if 'value true' in str(cmd_out):
+        return True
+    return False
 
 
 def requires_encap_disabled_if_eswitch_on(func):
