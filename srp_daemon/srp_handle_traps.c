@@ -567,9 +567,14 @@ static int poll_cq(struct sync_resources *sync_res, struct ibv_cq *cq,
 		if (ret < 0)
 			return ret;
 
-		if (ret == 0 && channel) {
-			pr_err("Weird poll returned no cqe after CQ event\n");
-			return -1;
+		if (ret == 0) {
+			if (channel) {
+				pr_err("Weird poll returned no cqe after CQ event\n");
+				return -1;
+			}
+
+			if (sync_resources_error(sync_res))
+				return -1;
 		}
 	} while (ret == 0);
 
@@ -739,8 +744,10 @@ static int get_trap_notices(struct resources *res)
 
 		ret = poll_cq(res->sync_res, res->ud_res->recv_cq, &wc,
 			      res->ud_res->channel);
-		if (ret < 0)
+		if (ret < 0) {
+			srp_sleep(0, 1);
 			continue;
+		}
 
 		pr_debug("get_trap_notices: Got CQE wc.wr_id=%lld\n", (long long int) wc.wr_id);
 		cur_receive = wc.wr_id;
@@ -862,7 +869,7 @@ void *run_thread_listen_to_events(void *res_in)
 		  /* clean and restart */
 			pr_err("Critical event %d, raising catastrophic "
 			       "error signal\n", event.event_type);
-			raise(SRP_CATAS_ERR);
+			raise_catastrophic_error(res->sync_res);
 			break;
 
  	      	 /*

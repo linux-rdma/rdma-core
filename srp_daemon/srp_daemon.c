@@ -42,7 +42,6 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stddef.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1883,7 +1882,6 @@ static void free_config(struct config_t *conf)
 static void umad_resources_init(struct umad_resources *umad_res)
 {
 	umad_res->portid = -1;
-	umad_res->agent = -1;
 	umad_res->agent = -1;
 	umad_res->port_sysfs_path = NULL;
 }
