@@ -3,7 +3,7 @@
 
 ## General
 
-Current Maintainer: Nicolas Morey-Chaisemartin <NMoreyChaisemartin@suse.de>
+Current Maintainer: Nicolas Morey <NMorey@suse.com>
 
 Upstream rdma-core is considered stable after each mainline release.
 Branched stable releases, off a mainline release, are on as-needed basis and limited to bug fixes only.
