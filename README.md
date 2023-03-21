@@ -139,3 +139,8 @@ In your bug report, please include:
 # Submitting patches
 
 See [Contributing to rdma-core](Documentation/contributing.md).
+
+# Stable branches
+
+Stable versions are released regularly with backported fixes (see Documentation/stable.md)
+The current minimum version still maintained is 'v26.X'

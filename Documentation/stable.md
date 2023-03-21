@@ -3,7 +3,7 @@
 
 ## General
 
-Current Maintainer: Nicolas Morey-Chaisemartin <NMoreyChaisemartin@suse.de>
+Current Maintainer: Nicolas Morey <NMorey@suse.com>
 
 Upstream rdma-core is considered stable after each mainline release.
 Branched stable releases, off a mainline release, are on as-needed basis and limited to bug fixes only.
@@ -14,6 +14,9 @@ Branched stable releases will append an additional release number (e.g. 15.1) an
 
 Regular stable releases will be generated at the same time as mainline releases.
 Additional stable releases can be generated if the need arise (Needed by distributions or OFED).
+
+Stable branches are named stable-vXX where XX is the base version number.
+Once older release are no longer supported, their branch will be deleted but the stable release tags will be kept.
 
 ## Patch Rules
 
