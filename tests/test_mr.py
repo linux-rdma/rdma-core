@@ -665,8 +665,13 @@ class DmaBufTestCase(RDMATestCase):
                              attributes.
         :return: The (client, server) resources.
         """
-        client = resource(**self.dev_info, **resource_arg)
-        server = resource(**self.dev_info, **resource_arg)
+        try:
+            client = resource(**self.dev_info, **resource_arg)
+            server = resource(**self.dev_info, **resource_arg)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EOPNOTSUPP:
+                raise unittest.SkipTest('Create player with resource type is not supported')
+            raise ex
         client.pre_run(server.psns, server.qps_num)
         server.pre_run(client.psns, client.qps_num)
         return client, server
@@ -675,16 +680,14 @@ class DmaBufTestCase(RDMATestCase):
         """
         Test send/recv using dma-buf MR over RC
         """
-        client, server = self.create_players(DmaBufRC, gpu=self.gpu,
-                                             gtt=self.gtt)
+        client, server = self.create_players(DmaBufRC, gpu=self.gpu, gtt=self.gtt)
         u.traffic(client, server, self.iters, self.gid_index, self.ib_port)
 
     def test_dmabuf_rdma_traffic(self):
         """
         Test rdma write using dma-buf MR
         """
-        client, server = self.create_players(DmaBufRC, gpu=self.gpu,
-                                             gtt=self.gtt)
+        client, server = self.create_players(DmaBufRC, gpu=self.gpu, gtt=self.gtt)
         server.rkey = client.mr.rkey
         server.raddr = client.mr.offset
         client.rkey = server.mr.rkey
