@@ -213,6 +213,8 @@ struct hns_roce_context {
 	unsigned int			max_srq_sge;
 	int				max_cqe;
 	unsigned int			cqe_size;
+	uint32_t			config;
+	unsigned int			max_inline_data;
 };
 
 struct hns_roce_pd {
@@ -244,10 +246,21 @@ struct hns_roce_idx_que {
 	unsigned int			tail;
 };
 
+struct hns_roce_rinl_wqe {
+	struct ibv_sge			*sg_list;
+	unsigned int			sge_cnt;
+};
+
+struct hns_roce_rinl_buf {
+	struct hns_roce_rinl_wqe	*wqe_list;
+	unsigned int			wqe_cnt;
+};
+
 struct hns_roce_srq {
 	struct verbs_srq		verbs_srq;
 	struct hns_roce_idx_que		idx_que;
 	struct hns_roce_buf		wqe_buf;
+	struct hns_roce_rinl_buf	srq_rinl_buf;
 	pthread_spinlock_t		lock;
 	unsigned long			*wrid;
 	unsigned int			srqn;
@@ -267,6 +280,7 @@ struct hns_roce_wq {
 	unsigned int			head;
 	unsigned int			tail;
 	unsigned int			max_gs;
+	unsigned int			ext_sge_cnt;
 	unsigned int			rsv_sge;
 	unsigned int			wqe_shift;
 	unsigned int			shift; /* wq size is 2^shift */
@@ -285,21 +299,6 @@ struct hns_roce_sge_ex {
 	int				offset;
 	unsigned int			sge_cnt;
 	unsigned int			sge_shift;
-};
-
-struct hns_roce_rinl_sge {
-	void				*addr;
-	unsigned int			len;
-};
-
-struct hns_roce_rinl_wqe {
-	struct hns_roce_rinl_sge	*sg_list;
-	unsigned int			sge_cnt;
-};
-
-struct hns_roce_rinl_buf {
-	struct hns_roce_rinl_wqe	*wqe_list;
-	unsigned int			wqe_cnt;
 };
 
 struct hns_roce_qp {

@@ -103,9 +103,9 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 {
 	struct hns_roce_device *hr_dev = to_hr_dev(ibdev);
 	struct hns_roce_alloc_ucontext_resp resp = {};
+	struct hns_roce_alloc_ucontext cmd = {};
 	struct ibv_device_attr dev_attrs;
 	struct hns_roce_context *context;
-	struct ibv_get_context cmd;
 	int i;
 
 	context = verbs_init_and_alloc_context(ibdev, cmd_fd, context, ibv_ctx,
@@ -113,7 +113,9 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 	if (!context)
 		return NULL;
 
-	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd, sizeof(cmd),
+	cmd.config |= HNS_ROCE_EXSGE_FLAGS | HNS_ROCE_RQ_INLINE_FLAGS |
+		      HNS_ROCE_CQE_INLINE_FLAGS;
+	if (ibv_cmd_get_context(&context->ibv_ctx, &cmd.ibv_cmd, sizeof(cmd),
 				&resp.ibv_resp, sizeof(resp)))
 		goto err_free;
 
@@ -123,6 +125,10 @@ static struct verbs_context *hns_roce_alloc_context(struct ibv_device *ibdev,
 		context->cqe_size = resp.cqe_size;
 	else
 		context->cqe_size = HNS_ROCE_V3_CQE_SIZE;
+
+	context->config = resp.config;
+	if (resp.config & HNS_ROCE_RSP_EXSGE_FLAGS)
+		context->max_inline_data = resp.max_inline_data;
 
 	context->qp_table_shift = calc_table_shift(resp.qp_tab_size,
 						   HNS_ROCE_QP_TABLE_BITS);
