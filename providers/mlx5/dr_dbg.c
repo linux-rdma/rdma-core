@@ -137,11 +137,37 @@ static int dr_dump_rule_action(FILE *f, const uint64_t rule_id,
 			      action->flow_tag);
 		break;
 	case DR_ACTION_TYP_MODIFY_HDR:
-		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x,%d\n",
+	{
+		struct dr_ptrn_obj *ptrn = action->rewrite.ptrn_arg.ptrn;
+		struct dr_rewrite_param *param = &action->rewrite.param;
+		struct dr_arg_obj *arg = action->rewrite.ptrn_arg.arg;
+		bool ptrn_in_use = false;
+		int i;
+
+		if (!action->rewrite.single_action_opt && ptrn && arg)
+			ptrn_in_use = true;
+
+		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x,%d,0x%x,0x%" PRIx32 ",0x%" PRIx32,
 			      DR_DUMP_REC_TYPE_ACTION_MODIFY_HDR, action_id,
-			      rule_id, action->rewrite.param.index,
-			      action->rewrite.single_action_opt);
+			      rule_id, param->index,
+			      action->rewrite.single_action_opt,
+			      ptrn_in_use ? param->num_of_actions : 0,
+			      ptrn_in_use ? ptrn->rewrite_param.index : 0,
+			      ptrn_in_use ? dr_arg_get_object_id(arg) : 0);
+		if (ret < 0)
+			return ret;
+
+		if (ptrn_in_use) {
+			for (i = 0; i < param->num_of_actions; i++) {
+				ret = fprintf(f, ",0x%016" PRIx64,
+					      be64toh(((__be64 *)param->data)[i]));
+				if (ret < 0)
+					return ret;
+			}
+		}
+		ret = fprintf(f, "\n");
 		break;
+	}
 	case DR_ACTION_TYP_VPORT:
 		ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 ",0x%x\n",
 			      DR_DUMP_REC_TYPE_ACTION_VPORT, action_id, rule_id,
@@ -735,7 +761,7 @@ static int dr_dump_domain(FILE *f, struct mlx5dv_dr_domain *dmn)
 	int ret, i;
 
 	domain_id = dr_domain_id_calc(dmn_type);
-	ret = fprintf(f, "%d,0x%" PRIx64 ",%d,0%x,%d,%s,%s,%u,%u,%u,%u\n",
+	ret = fprintf(f, "%d,0x%" PRIx64 ",%d,0%x,%d,%s,%s,%u,%u,%u,%u,%u\n",
 		      DR_DUMP_REC_TYPE_DOMAIN,
 		      domain_id,
 		      dmn_type,
@@ -746,7 +772,8 @@ static int dr_dump_domain(FILE *f, struct mlx5dv_dr_domain *dmn)
 		      dmn->flags,
 		      dmn->num_buddies[DR_ICM_TYPE_STE],
 		      dmn->num_buddies[DR_ICM_TYPE_MODIFY_ACTION],
-		      dmn->num_buddies[DR_ICM_TYPE_MODIFY_HDR_PTRN]);
+		      dmn->num_buddies[DR_ICM_TYPE_MODIFY_HDR_PTRN],
+		      dmn->info.caps.sw_format_ver);
 	if (ret < 0)
 		return ret;
 

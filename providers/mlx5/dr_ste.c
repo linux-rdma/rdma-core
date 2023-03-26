@@ -851,6 +851,7 @@ static void dr_ste_copy_mask_misc(char *mask, struct dr_match_misc *spec, bool c
 	spec->gre_key_l = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, gre_key_l, clear);
 
 	spec->vxlan_vni = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, vxlan_vni, clear);
+	spec->bth_opcode = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, bth_opcode, clear);
 
 	spec->geneve_vni = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, geneve_vni, clear);
 	spec->geneve_oam = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, geneve_oam, clear);
@@ -1476,6 +1477,19 @@ void dr_ste_build_tunnel_header(struct dr_ste_ctx *ste_ctx,
 	sb->caps = caps;
 
 	ste_ctx->build_tunnel_header_init(sb, mask);
+}
+
+void dr_ste_build_ib_l4(struct dr_ste_ctx *ste_ctx,
+			struct dr_ste_build *sb,
+			struct dr_match_param *mask,
+			bool inner, bool rx)
+{
+	if (!ste_ctx->build_ib_l4_init)
+		return;
+
+	sb->rx = rx;
+	sb->inner = inner;
+	ste_ctx->build_ib_l4_init(sb, mask);
 }
 
 int dr_ste_build_def0(struct dr_ste_ctx *ste_ctx,
