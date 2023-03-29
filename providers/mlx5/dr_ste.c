@@ -152,14 +152,16 @@ uint64_t dr_ste_get_icm_addr(struct dr_ste *ste)
 {
 	uint32_t index = ste - ste->htbl->ste_arr;
 
-	return ste->htbl->chunk->icm_addr + DR_STE_SIZE * index;
+	return dr_icm_pool_get_chunk_icm_addr(ste->htbl->chunk) +
+	       DR_STE_SIZE * index;
 }
 
 uint64_t dr_ste_get_mr_addr(struct dr_ste *ste)
 {
 	uint32_t index = ste - ste->htbl->ste_arr;
 
-	return ste->htbl->chunk->mr_addr + DR_STE_SIZE * index;
+	return dr_icm_pool_get_chunk_mr_addr(ste->htbl->chunk) +
+	       DR_STE_SIZE * index;
 }
 
 struct list_head *dr_ste_get_miss_list(struct dr_ste *ste)
@@ -195,7 +197,7 @@ static void dr_ste_always_hit_htbl(struct dr_ste_ctx *ste_ctx,
 	ste_ctx->set_ctrl_always_hit_htbl(hw_ste,
 					  next_htbl->byte_mask,
 					  next_htbl->lu_type,
-					  chunk->icm_addr,
+					  dr_icm_pool_get_chunk_icm_addr(chunk),
 					  chunk->num_of_entries,
 					  gvmi);
 
@@ -246,7 +248,8 @@ dr_ste_remove_head_ste(struct dr_ste_ctx *ste_ctx,
 	struct dr_htbl_connect_info info;
 
 	info.type = CONNECT_MISS;
-	info.miss_icm_addr = nic_matcher->e_anchor->chunk->icm_addr;
+	info.miss_icm_addr =
+		dr_icm_pool_get_chunk_icm_addr(nic_matcher->e_anchor->chunk);
 	dr_ste_set_formated_ste(ste_ctx,
 				dmn->info.caps.gvmi,
 				nic_dmn->type,
@@ -420,7 +423,9 @@ void dr_ste_set_hit_addr_by_next_htbl(struct dr_ste_ctx *ste_ctx,
 {
 	struct dr_icm_chunk *chunk = next_htbl->chunk;
 
-	ste_ctx->set_hit_addr(hw_ste, chunk->icm_addr, chunk->num_of_entries);
+	ste_ctx->set_hit_addr(hw_ste,
+			      dr_icm_pool_get_chunk_icm_addr(chunk),
+			      chunk->num_of_entries);
 }
 
 void dr_ste_prepare_for_postsend(struct dr_ste_ctx *ste_ctx,
@@ -502,7 +507,8 @@ int dr_ste_create_next_htbl(struct mlx5dv_dr_matcher *matcher,
 
 		/* Write new table to HW */
 		info.type = CONNECT_MISS;
-		info.miss_icm_addr = nic_matcher->e_anchor->chunk->icm_addr;
+		info.miss_icm_addr =
+			dr_icm_pool_get_chunk_icm_addr(nic_matcher->e_anchor->chunk);
 		if (dr_ste_htbl_init_and_postsend(dmn, nic_dmn, next_htbl,
 						  &info, false, send_ring_idx)) {
 			dr_dbg(dmn, "Failed writing table to HW\n");
@@ -677,8 +683,9 @@ static int dr_ste_alloc_modify_hdr_chunk(struct mlx5dv_dr_action *action,
 	if (!action->rewrite.param.chunk)
 		return ENOMEM;
 
-	action->rewrite.param.index = (action->rewrite.param.chunk->icm_addr -
-		action->rewrite.dmn->info.caps.hdr_modify_icm_addr) /
+	action->rewrite.param.index =
+		(dr_icm_pool_get_chunk_icm_addr(action->rewrite.param.chunk) -
+		 action->rewrite.dmn->info.caps.hdr_modify_icm_addr) /
 		ACTION_CACHE_LINE_SIZE;
 
 	ret = dr_send_postsend_action(action->rewrite.dmn, action);

@@ -471,8 +471,8 @@ static int dr_dump_matcher_rx_tx(FILE *f, bool is_rx,
 		      (uint64_t) (uintptr_t) matcher_rx_tx,
 		      matcher_id,
 		      matcher_rx_tx->num_of_builders,
-		      dr_dump_icm_to_idx(matcher_rx_tx->s_htbl->chunk->icm_addr),
-		      dr_dump_icm_to_idx(matcher_rx_tx->e_anchor->chunk->icm_addr),
+		      dr_dump_icm_to_idx(dr_icm_pool_get_chunk_icm_addr(matcher_rx_tx->s_htbl->chunk)),
+		      dr_dump_icm_to_idx(dr_icm_pool_get_chunk_icm_addr(matcher_rx_tx->e_anchor->chunk)),
 		      matcher_rx_tx->fixed_size ? matcher_rx_tx->s_htbl->chunk_size : -1);
 	if (ret < 0)
 		return ret;
@@ -553,6 +553,7 @@ static int dr_dump_table_rx_tx(FILE *f, bool is_rx,
 			       struct dr_table_rx_tx *table_rx_tx,
 			       const uint64_t table_id)
 {
+	struct dr_icm_chunk *chunk = table_rx_tx->s_anchor->chunk;
 	enum dr_dump_rec_type rec_type;
 	int ret;
 
@@ -561,7 +562,7 @@ static int dr_dump_table_rx_tx(FILE *f, bool is_rx,
 	ret = fprintf(f, "%d,0x%" PRIx64 ",0x%" PRIx64 "\n",
 		      rec_type,
 		      table_id,
-		      dr_dump_icm_to_idx(table_rx_tx->s_anchor->chunk->icm_addr));
+		      dr_dump_icm_to_idx(dr_icm_pool_get_chunk_icm_addr(chunk)));
 	if (ret < 0)
 		return ret;
 

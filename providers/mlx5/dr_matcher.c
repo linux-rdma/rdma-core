@@ -1054,7 +1054,8 @@ static int dr_matcher_connect(struct mlx5dv_dr_domain *dmn,
 
 	/* Connect start hash table to end anchor */
 	info.type = CONNECT_MISS;
-	info.miss_icm_addr = curr_nic_matcher->e_anchor->chunk->icm_addr;
+	info.miss_icm_addr =
+		dr_icm_pool_get_chunk_icm_addr(curr_nic_matcher->e_anchor->chunk);
 	ret = dr_ste_htbl_init_and_postsend(dmn, nic_dmn,
 					    curr_nic_matcher->s_htbl,
 					    &info, false, 0);

@@ -822,7 +822,7 @@ int dr_send_postsend_ste(struct mlx5dv_dr_domain *dmn, struct dr_ste *ste,
 	send_info.write.length  = size;
 	send_info.write.lkey    = 0;
 	send_info.remote_addr   = dr_ste_get_mr_addr(ste) + offset;
-	send_info.rkey          = ste->htbl->chunk->rkey;
+	send_info.rkey          = dr_icm_pool_get_chunk_rkey(ste->htbl->chunk);
 
 	return dr_postsend_icm_data(dmn, &send_info, ring_idx);
 }
@@ -876,7 +876,7 @@ int dr_send_postsend_htbl(struct mlx5dv_dr_domain *dmn, struct dr_ste_htbl *htbl
 		send_info.write.length	= byte_size;
 		send_info.write.lkey	= 0;
 		send_info.remote_addr	= dr_ste_get_mr_addr(htbl->ste_arr + ste_index);
-		send_info.rkey		= htbl->chunk->rkey;
+		send_info.rkey		= dr_icm_pool_get_chunk_rkey(htbl->chunk);
 
 		ret = dr_postsend_icm_data(dmn, &send_info, send_ring_idx);
 		if (ret)
@@ -930,7 +930,7 @@ int dr_send_postsend_formated_htbl(struct mlx5dv_dr_domain *dmn,
 		send_info.write.length	= byte_size;
 		send_info.write.lkey	= 0;
 		send_info.remote_addr	= dr_ste_get_mr_addr(htbl->ste_arr + ste_index);
-		send_info.rkey		= htbl->chunk->rkey;
+		send_info.rkey		= dr_icm_pool_get_chunk_rkey(htbl->chunk);
 
 		ret = dr_postsend_icm_data(dmn, &send_info, send_ring_idx);
 		if (ret)
@@ -955,8 +955,8 @@ int dr_send_postsend_action(struct mlx5dv_dr_domain *dmn,
 	send_info.write.length	= action->rewrite.param.num_of_actions *
 				  DR_MODIFY_ACTION_SIZE;
 	send_info.write.lkey	= 0;
-	send_info.remote_addr	= action->rewrite.param.chunk->mr_addr;
-	send_info.rkey		= action->rewrite.param.chunk->rkey;
+	send_info.remote_addr	= dr_icm_pool_get_chunk_mr_addr(action->rewrite.param.chunk);
+	send_info.rkey		= dr_icm_pool_get_chunk_rkey(action->rewrite.param.chunk);
 
 	/* To avoid race between action creation and its use in other QP
 	 * write it in all QP's.
@@ -983,8 +983,8 @@ int dr_send_postsend_pattern(struct mlx5dv_dr_domain *dmn,
 
 	send_info.write.addr = (uintptr_t)data;
 	send_info.write.length = num_of_actions * DR_MODIFY_ACTION_SIZE;
-	send_info.remote_addr = chunk->mr_addr;
-	send_info.rkey = chunk->rkey;
+	send_info.remote_addr = dr_icm_pool_get_chunk_mr_addr(chunk);
+	send_info.rkey = dr_icm_pool_get_chunk_rkey(chunk);
 
 	/* To avoid race between action creation and its use in other QP
 	 * write it in all QP's.

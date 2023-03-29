@@ -119,7 +119,7 @@ dr_ptrn_alloc_pattern(struct dr_ptrn_mngr *mngr,
 		return NULL;
 	}
 
-	index = (chunk->icm_addr -
+	index = (dr_icm_pool_get_chunk_icm_addr(chunk) -
 		 mngr->dmn->info.caps.hdr_modify_pattern_icm_addr) /
 		ACTION_CACHE_LINE_SIZE;
 
