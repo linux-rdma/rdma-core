@@ -189,16 +189,18 @@ dr_ptrn_cache_get_pattern(struct dr_ptrn_mngr *mngr,
 		}
 
 		if (dr_send_postsend_pattern(mngr->dmn, chunk, num_of_actions,
-					     pattern->rewrite_param.data))
-			goto put_pattern;
+					     pattern->rewrite_param.data)) {
+			list_del(&pattern->list);
+			free(pattern->rewrite_param.data);
+			free(pattern);
+			goto clean_chunk;
+		}
 	}
 	atomic_fetch_add(&pattern->refcount, 1);
 	pthread_mutex_unlock(&mngr->modify_hdr_mutex);
 
 	return pattern;
 
-put_pattern:
-	dr_ptrn_cache_put_pattern(mngr, pattern);
 clean_chunk:
 	dr_icm_free_chunk(chunk);
 out_unlock:
