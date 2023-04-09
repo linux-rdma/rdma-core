@@ -765,7 +765,9 @@ struct dr_match_misc {
 	uint32_t bth_dst_qp:24;			/* Destination QP in BTH header */
 	uint32_t inner_esp_spi;
 	uint32_t outer_esp_spi;
-	uint32_t reserved_at_1a0[3];
+	uint32_t reserved_at_1a0;
+	uint32_t reserved_at_1c0;
+	uint32_t reserved_at_1e0;
 };
 
 struct dr_match_misc2 {
@@ -794,11 +796,9 @@ struct dr_match_misc2 {
 	uint32_t metadata_reg_c_1;			/* metadata_reg_c_1 */
 	uint32_t metadata_reg_c_0;			/* metadata_reg_c_0 */
 	uint32_t metadata_reg_a;			/* metadata_reg_a */
-	uint32_t psp_syndrome:8;
-	uint32_t reserved_at_1a8:8;
-	uint32_t ipsec_syndrome:8;
-	uint32_t ipsec_next_header:8;
-	uint32_t reserved_at_260[2];
+	uint32_t reserved_at_1a0;
+	uint32_t reserved_at_1c0;
+	uint32_t reserved_at_1e0;
 };
 
 struct dr_match_misc3 {
@@ -821,11 +821,11 @@ struct dr_match_misc3 {
 	uint32_t gtpu_teid;
 	uint32_t gtpu_msg_type:8;
 	uint32_t gtpu_msg_flags:8;
-	uint32_t reserved_at_150:16;
+	uint32_t reserved_at_170:16;
 	uint32_t gtpu_dw_2;
 	uint32_t gtpu_first_ext_dw_0;
 	uint32_t gtpu_dw_0;
-	uint32_t reserved_at_1c0;
+	uint32_t reserved_at_1e0;
 };
 
 struct dr_match_misc4 {
@@ -856,7 +856,14 @@ struct dr_match_misc5 {
 	uint32_t tunnel_header_1;
 	uint32_t tunnel_header_2;
 	uint32_t tunnel_header_3;
-	uint32_t reserved[0x8];
+	uint32_t reserved_at_100;
+	uint32_t reserved_at_120;
+	uint32_t reserved_at_140;
+	uint32_t reserved_at_160;
+	uint32_t reserved_at_180;
+	uint32_t reserved_at_1a0;
+	uint32_t reserved_at_1c0;
+	uint32_t reserved_at_1e0;
 };
 
 struct dr_match_param {

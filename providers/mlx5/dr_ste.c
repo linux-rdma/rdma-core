@@ -839,6 +839,8 @@ static void dr_ste_copy_mask_misc(char *mask, struct dr_match_misc *spec, bool c
 	spec->source_vhca_port = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, source_vhca_port, clear);
 	spec->source_sqn = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, source_sqn, clear);
 
+	spec->source_eswitch_owner_vhca_id =
+		DEVX_GET(dr_match_set_misc, mask, source_eswitch_owner_vhca_id);
 	spec->source_port = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, source_port, clear);
 
 	spec->outer_second_prio = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, outer_second_prio, clear);
@@ -856,7 +858,8 @@ static void dr_ste_copy_mask_misc(char *mask, struct dr_match_misc *spec, bool c
 		DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, outer_second_svlan_tag, clear);
 	spec->inner_second_svlan_tag =
 		DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, inner_second_svlan_tag, clear);
-
+	spec->outer_emd_tag = DEVX_GET(dr_match_set_misc, mask, outer_emd_tag);
+	spec->reserved_at_65 = DEVX_GET(dr_match_set_misc, mask, reserved_at_65);
 	spec->gre_protocol = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, gre_protocol, clear);
 
 	spec->gre_key_h = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, gre_key_h, clear);
@@ -866,21 +869,33 @@ static void dr_ste_copy_mask_misc(char *mask, struct dr_match_misc *spec, bool c
 	spec->bth_opcode = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, bth_opcode, clear);
 
 	spec->geneve_vni = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, geneve_vni, clear);
+	spec->reserved_at_e4 = DEVX_GET(dr_match_set_misc, mask, reserved_at_e4);
 	spec->geneve_oam = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, geneve_oam, clear);
+	spec->reserved_at_ec = DEVX_GET(dr_match_set_misc, mask, reserved_at_ec);
 	spec->geneve_tlv_option_0_exist =
 		DEVX_GET(dr_match_set_misc, mask, geneve_tlv_option_0_exist);
 
 	spec->outer_ipv6_flow_label =
 		DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, outer_ipv6_flow_label, clear);
 
+	spec->reserved_at_100 = DEVX_GET(dr_match_set_misc, mask, reserved_at_100);
 	spec->inner_ipv6_flow_label =
 		DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, inner_ipv6_flow_label, clear);
 
+	spec->reserved_at_120 = DEVX_GET(dr_match_set_misc, mask, reserved_at_120);
 	spec->geneve_opt_len = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, geneve_opt_len, clear);
 	spec->geneve_protocol_type =
 		DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, geneve_protocol_type, clear);
 
+	spec->reserved_at_140 = DEVX_GET(dr_match_set_misc, mask, reserved_at_140);
 	spec->bth_dst_qp = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, bth_dst_qp, clear);
+
+	spec->inner_esp_spi = DEVX_GET(dr_match_set_misc, mask, inner_esp_spi);
+	spec->outer_esp_spi = DEVX_GET(dr_match_set_misc, mask, outer_esp_spi);
+
+	spec->reserved_at_1a0 = DEVX_GET(dr_match_set_misc, mask, reserved_at_1a0);
+	spec->reserved_at_1c0 = DEVX_GET(dr_match_set_misc, mask, reserved_at_1c0);
+	spec->reserved_at_1e0 = DEVX_GET(dr_match_set_misc, mask, reserved_at_1e0);
 }
 
 static void dr_ste_copy_mask_spec(char *mask, struct dr_match_spec *spec, bool clear)
@@ -908,6 +923,7 @@ static void dr_ste_copy_mask_spec(char *mask, struct dr_match_spec *spec, bool c
 	spec->tcp_sport = DR_DEVX_GET_CLEAR(dr_match_spec, mask, tcp_sport, clear);
 	spec->tcp_dport = DR_DEVX_GET_CLEAR(dr_match_spec, mask, tcp_dport, clear);
 
+	spec->reserved_at_c0 = DEVX_GET(dr_match_spec, mask, reserved_at_c0);
 	spec->ipv4_ihl = DR_DEVX_GET_CLEAR(dr_match_spec, mask, ipv4_ihl, clear);
 	spec->l3_ok = DR_DEVX_GET_CLEAR(dr_match_spec, mask, l3_ok, clear);
 	spec->l4_ok = DR_DEVX_GET_CLEAR(dr_match_spec, mask, l4_ok, clear);
@@ -978,6 +994,9 @@ static void dr_ste_copy_mask_misc2(char *mask, struct dr_match_misc2 *spec, bool
 	spec->metadata_reg_c_1 = DR_DEVX_GET_CLEAR(dr_match_set_misc2, mask, metadata_reg_c_1, clear);
 	spec->metadata_reg_c_0 = DR_DEVX_GET_CLEAR(dr_match_set_misc2, mask, metadata_reg_c_0, clear);
 	spec->metadata_reg_a = DR_DEVX_GET_CLEAR(dr_match_set_misc2, mask, metadata_reg_a, clear);
+	spec->reserved_at_1a0 = DEVX_GET(dr_match_set_misc2, mask, reserved_at_1a0);
+	spec->reserved_at_1c0 = DEVX_GET(dr_match_set_misc2, mask, reserved_at_1c0);
+	spec->reserved_at_1e0 = DEVX_GET(dr_match_set_misc2, mask, reserved_at_1e0);
 }
 
 static void dr_ste_copy_mask_misc3(char *mask, struct dr_match_misc3 *spec, bool clear)
@@ -986,12 +1005,16 @@ static void dr_ste_copy_mask_misc3(char *mask, struct dr_match_misc3 *spec, bool
 	spec->outer_tcp_seq_num = DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, outer_tcp_seq_num, clear);
 	spec->inner_tcp_ack_num = DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, inner_tcp_ack_num, clear);
 	spec->outer_tcp_ack_num = DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, outer_tcp_ack_num, clear);
+
+	spec->reserved_at_80 = DEVX_GET(dr_match_set_misc3, mask, reserved_at_80);
 	spec->outer_vxlan_gpe_vni =
 		DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, outer_vxlan_gpe_vni, clear);
 	spec->outer_vxlan_gpe_next_protocol =
 		DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, outer_vxlan_gpe_next_protocol, clear);
 	spec->outer_vxlan_gpe_flags =
 		DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, outer_vxlan_gpe_flags, clear);
+	spec->reserved_at_b0 = DEVX_GET(dr_match_set_misc3, mask, reserved_at_b0);
+
 	spec->icmpv4_header_data = DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, icmp_header_data, clear);
 	spec->icmpv6_header_data =
 		DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, icmpv6_header_data, clear);
@@ -1001,13 +1024,15 @@ static void dr_ste_copy_mask_misc3(char *mask, struct dr_match_misc3 *spec, bool
 	spec->icmpv6_code = DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, icmpv6_code, clear);
 	spec->geneve_tlv_option_0_data =
 		DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, geneve_tlv_option_0_data, clear);
-	spec->gtpu_msg_flags = DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, gtpu_msg_flags, clear);
-	spec->gtpu_msg_type = DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, gtpu_msg_type, clear);
 	spec->gtpu_teid = DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, gtpu_teid, clear);
-	spec->gtpu_dw_0 = DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, gtpu_dw_0, clear);
+	spec->gtpu_msg_type = DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, gtpu_msg_type, clear);
+	spec->gtpu_msg_flags = DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, gtpu_msg_flags, clear);
+	spec->reserved_at_170 = DEVX_GET(dr_match_set_misc3, mask, reserved_at_170);
 	spec->gtpu_dw_2 = DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, gtpu_dw_2, clear);
 	spec->gtpu_first_ext_dw_0 =
 		DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, gtpu_first_ext_dw_0, clear);
+	spec->gtpu_dw_0 = DR_DEVX_GET_CLEAR(dr_match_set_misc3, mask, gtpu_dw_0, clear);
+	spec->reserved_at_1e0 = DEVX_GET(dr_match_set_misc3, mask, reserved_at_1e0);
 }
 
 static void dr_ste_copy_mask_misc4(char *mask, struct dr_match_misc4 *spec, bool clear)
@@ -1064,6 +1089,22 @@ static void dr_ste_copy_mask_misc5(char *mask, struct dr_match_misc5 *spec, bool
 		DR_DEVX_GET_CLEAR(dr_match_set_misc5, mask, tunnel_header_2, clear);
 	spec->tunnel_header_3 =
 		DR_DEVX_GET_CLEAR(dr_match_set_misc5, mask, tunnel_header_3, clear);
+	spec->reserved_at_100 =
+		DEVX_GET(dr_match_set_misc5, mask, reserved_at_100);
+	spec->reserved_at_120 =
+		DEVX_GET(dr_match_set_misc5, mask, reserved_at_120);
+	spec->reserved_at_140 =
+		DEVX_GET(dr_match_set_misc5, mask, reserved_at_140);
+	spec->reserved_at_160 =
+		DEVX_GET(dr_match_set_misc5, mask, reserved_at_160);
+	spec->reserved_at_180 =
+		DEVX_GET(dr_match_set_misc5, mask, reserved_at_180);
+	spec->reserved_at_1a0 =
+		DEVX_GET(dr_match_set_misc5, mask, reserved_at_1a0);
+	spec->reserved_at_1c0 =
+		DEVX_GET(dr_match_set_misc5, mask, reserved_at_1c0);
+	spec->reserved_at_1e0 =
+		DEVX_GET(dr_match_set_misc5, mask, reserved_at_1e0);
 }
 
 void dr_ste_copy_param(uint8_t match_criteria,
