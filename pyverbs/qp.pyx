@@ -1241,8 +1241,15 @@ cdef class QP(PyverbsCM):
         """
         Query if QP data is guaranteed to be in order.
         :param op: Operation type.
-        :param flags: Extra field for future input. For now must be 0.
-        :return: 1 in case the data is guaranteed to be in order, 0 otherwise.
+        :param flags: Flags are used to select a query type.
+                      For IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS, the function
+                      will return a capabilities vector. If 0, will query for
+                      IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG support and return
+                      0/1 result. (see enum ibv_query_qp_data_in_order_flags)
+        :return: Return value is determined by flags. For each capability bit,
+                 1 is returned if the data is guaranteed to be written in-order
+                 for selected operation and type, 0 otherwise.
+                 (see enum ibv_query_qp_data_in_order_caps)
         """
         return v.ibv_query_qp_data_in_order(self.qp, op, flags)
 

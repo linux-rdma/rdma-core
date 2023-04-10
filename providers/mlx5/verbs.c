@@ -2839,11 +2839,12 @@ int mlx5_query_qp_data_in_order(struct ibv_qp *qp, enum ibv_wr_opcode op,
 	struct mlx5_qp *mqp = to_mqp(qp);
 	int ret;
 
-	if (flags || !mctx->qp_data_in_order_cap)
+	if (!mctx->qp_data_in_order_cap)
 		return 0;
 
 	if (mqp->dc_type == MLX5DV_DCTYPE_DCT)
-		return query_dct_in_order(qp);
+		return query_dct_in_order(qp) ?
+		       IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG : 0;
 
 	if (qp->state != IBV_QPS_RTS)
 		return 0;
@@ -2855,7 +2856,8 @@ int mlx5_query_qp_data_in_order(struct ibv_qp *qp, enum ibv_wr_opcode op,
 	if (ret)
 		return 0;
 
-	return DEVX_GET(query_qp_out, out_qp, qpc.data_in_order);
+	return DEVX_GET(query_qp_out, out_qp, qpc.data_in_order) ?
+	       IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG : 0;
 }
 
 int mlx5_query_qp(struct ibv_qp *ibqp, struct ibv_qp_attr *attr,
