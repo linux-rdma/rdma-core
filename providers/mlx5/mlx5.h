@@ -420,6 +420,8 @@ struct mlx5_context {
 	struct mlx5_dv_context_ops	*dv_ctx_ops;
 	struct mlx5dv_devx_obj		*crypto_login;
 	pthread_mutex_t			crypto_login_mutex;
+	uint64_t			max_dc_rd_atom;
+	uint64_t			max_dc_init_rd_atom;
 };
 
 struct mlx5_hugetlb_mem {

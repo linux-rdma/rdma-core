@@ -3850,6 +3850,14 @@ static void get_hca_general_caps(struct mlx5_context *mctx)
 		DEVX_GET64(query_hca_cap_out, out,
 			   capability.cmd_hca_cap.general_obj_types);
 
+	mctx->max_dc_rd_atom =
+		1 << DEVX_GET(query_hca_cap_out, out,
+				capability.cmd_hca_cap.log_max_ra_req_dc);
+
+	mctx->max_dc_init_rd_atom =
+		1 << DEVX_GET(query_hca_cap_out, out,
+				capability.cmd_hca_cap.log_max_ra_res_dc);
+
 	get_hca_sig_caps(out, mctx);
 
 	if (DEVX_GET(query_hca_cap_out, out, capability.cmd_hca_cap.crypto))
