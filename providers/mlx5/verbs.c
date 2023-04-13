@@ -3735,6 +3735,13 @@ static void get_pci_atomic_caps(struct ibv_context *context,
 		attr->pci_atomic_caps.compare_swap =
 			DEVX_GET(query_hca_cap_out, out,
 			capability.atomic_caps.compare_swap_pci_atomic);
+
+		if (attr->orig_attr.atomic_cap == IBV_ATOMIC_HCA &&
+		    (attr->pci_atomic_caps.fetch_add  &
+		     IBV_PCI_ATOMIC_OPERATION_8_BYTE_SIZE_SUP) &&
+		    (attr->pci_atomic_caps.compare_swap &
+		     IBV_PCI_ATOMIC_OPERATION_8_BYTE_SIZE_SUP))
+			attr->orig_attr.atomic_cap = IBV_ATOMIC_GLOB;
 	}
 }
 
