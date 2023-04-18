@@ -175,7 +175,7 @@ S:	Supported
 F:	srp_daemon/
 
 SUSE PACKAGING
-M:	Nicolas Morey-Chaisemartin <nmoreychaisemartin@suse.de>
+M:	Nicolas Morey-Chaisemartin <nmorey@suse.com>
 S:	Supported
 F:	suse/
 
