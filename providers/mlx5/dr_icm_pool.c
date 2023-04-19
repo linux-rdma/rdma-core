@@ -336,9 +336,6 @@ dr_icm_chunk_create(struct dr_icm_pool *pool,
 	offset = dr_icm_pool_dm_type_to_entry_size(pool->icm_type) * seg;
 
 	chunk->buddy_mem = buddy_mem_pool;
-	chunk->rkey = buddy_mem_pool->icm_mr->mr->rkey;
-	chunk->mr_addr = (uintptr_t)buddy_mem_pool->icm_mr->mr->addr + offset;
-	chunk->icm_addr = (uintptr_t)buddy_mem_pool->icm_mr->icm_start_addr + offset;
 	chunk->num_of_entries = dr_icm_pool_chunk_size_to_entries(chunk_size);
 	chunk->byte_size = dr_icm_pool_chunk_size_to_byte(chunk_size, pool->icm_type);
 	chunk->seg = seg;
@@ -525,6 +522,27 @@ void dr_icm_pool_set_pool_max_log_chunk_sz(struct dr_icm_pool *pool,
 	pthread_spin_lock(&pool->lock);
 	pool->max_log_chunk_sz = max_log_chunk_sz;
 	pthread_spin_unlock(&pool->lock);
+}
+
+uint64_t dr_icm_pool_get_chunk_icm_addr(struct dr_icm_chunk *chunk)
+{
+	enum dr_icm_type icm_type = chunk->buddy_mem->pool->icm_type;
+	int offset = dr_icm_pool_dm_type_to_entry_size(icm_type) * chunk->seg;
+
+	return (uintptr_t)chunk->buddy_mem->icm_mr->icm_start_addr + offset;
+}
+
+uint64_t dr_icm_pool_get_chunk_mr_addr(struct dr_icm_chunk *chunk)
+{
+	enum dr_icm_type icm_type = chunk->buddy_mem->pool->icm_type;
+	int offset = dr_icm_pool_dm_type_to_entry_size(icm_type) * chunk->seg;
+
+	return (uintptr_t)chunk->buddy_mem->icm_mr->mr->addr + offset;
+}
+
+uint32_t dr_icm_pool_get_chunk_rkey(struct dr_icm_chunk *chunk)
+{
+	return chunk->buddy_mem->icm_mr->mr->rkey;
 }
 
 struct dr_icm_pool *dr_icm_pool_create(struct mlx5dv_dr_domain *dmn,

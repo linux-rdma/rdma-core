@@ -662,18 +662,22 @@ int dr_actions_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 			attr.final_icm_addr = nic_dmn->drop_icm_addr;
 			break;
 		case DR_ACTION_TYP_FT:
-			if (action->dest_tbl->dmn != dmn) {
+		{
+			struct mlx5dv_dr_table *dest_tbl = action->dest_tbl;
+
+			if (dest_tbl->dmn != dmn) {
 				dr_dbg(dmn, "Destination table belongs to a different domain\n");
 				goto out_invalid_arg;
 			}
-			if (action->dest_tbl->level <= matcher->tbl->level) {
+			if (dest_tbl->level <= matcher->tbl->level) {
 				dr_dbg(dmn, "Destination table level should be higher than source table\n");
 				goto out_invalid_arg;
 			}
 			attr.final_icm_addr = rx_rule ?
-				action->dest_tbl->rx.s_anchor->chunk->icm_addr :
-				action->dest_tbl->tx.s_anchor->chunk->icm_addr;
+				dr_icm_pool_get_chunk_icm_addr(dest_tbl->rx.s_anchor->chunk) :
+				dr_icm_pool_get_chunk_icm_addr(dest_tbl->tx.s_anchor->chunk);
 			break;
+		}
 		case DR_ACTION_TYP_ROOT_FT:
 			if (action->root_tbl.tbl->dmn != dmn) {
 				dr_dbg(dmn, "Destination anchor belongs to a different domain\n");

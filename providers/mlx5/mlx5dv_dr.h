@@ -1395,14 +1395,9 @@ int dr_rule_send_update_list(struct list_head *send_ste_list,
 struct dr_icm_chunk {
 	struct dr_icm_buddy_mem *buddy_mem;
 	struct list_node	chunk_list;
-	uint32_t		rkey;
 	uint32_t		num_of_entries;
 	uint32_t		byte_size;
-	uint64_t		icm_addr;
-	uint64_t		mr_addr;
-	/* indicates the index of this chunk in the whole memory,
-	 * used for deleting the chunk from the buddy
-	 */
+	/* segment indicates the index of this chunk in its buddy's memory */
 	uint32_t		seg;
 
 	/* Memory optimisation */
@@ -1586,6 +1581,10 @@ struct dr_icm_pool *dr_icm_pool_create(struct mlx5dv_dr_domain *dmn,
 				       enum dr_icm_type icm_type);
 void dr_icm_pool_destroy(struct dr_icm_pool *pool);
 int dr_icm_pool_sync_pool(struct dr_icm_pool *pool);
+
+uint64_t dr_icm_pool_get_chunk_icm_addr(struct dr_icm_chunk *chunk);
+uint64_t dr_icm_pool_get_chunk_mr_addr(struct dr_icm_chunk *chunk);
+uint32_t dr_icm_pool_get_chunk_rkey(struct dr_icm_chunk *chunk);
 
 struct dr_icm_chunk *dr_icm_alloc_chunk(struct dr_icm_pool *pool,
 					enum dr_icm_chunk_size chunk_size);
