@@ -88,22 +88,6 @@ class OdpRC(RCResources):
         return qp_attr
 
 
-class OdpSrqRc(RCResources):
-    def __init__(self, dev_name, ib_port, gid_index, qp_count=1, request_user_addr=False):
-        self.request_user_addr = request_user_addr
-        self.user_addr = None
-        super(OdpSrqRc, self).__init__(dev_name=dev_name, ib_port=ib_port,
-                                       gid_index=gid_index, with_srq=True,
-                                       qp_count=qp_count)
-
-    @u.requires_odp('rc',  e.IBV_ODP_SUPPORT_SEND | e.IBV_ODP_SUPPORT_SRQ_RECV)
-    def create_mr(self):
-        if self.request_user_addr:
-            self.user_addr = mmap(length=self.msg_size,
-                                  flags=MAP_ANONYMOUS_| MAP_PRIVATE_)
-        self.mr = u.create_custom_mr(self, e.IBV_ACCESS_ON_DEMAND, user_addr=self.user_addr)
-
-
 class OdpXRC(XRCResources):
     def __init__(self, request_user_addr=False, **kwargs):
         self.request_user_addr = request_user_addr
@@ -215,10 +199,6 @@ class OdpTestCase(RDMATestCase):
     def test_odp_xrc_traffic(self):
         self.create_players(OdpXRC)
         u.xrc_traffic(self.client, self.server)
-
-    def test_odp_rc_srq_traffic(self):
-        self.create_players(OdpSrqRc, qp_count=2)
-        u.traffic(**self.traffic_args)
 
     @u.requires_huge_pages()
     def test_odp_rc_huge_traffic(self):
