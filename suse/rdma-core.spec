@@ -48,7 +48,7 @@ Group:          Productivity/Networking/Other
 %define  verbs_lname  libibverbs%{verbs_so_major}
 %define  rdmacm_lname librdmacm%{rdmacm_so_major}
 %define  umad_lname   libibumad%{umad_so_major}
-%define  mana_lname   libmana-%{mana_so_major}
+%define  mana_lname   libmana%{mana_so_major}
 %define  mlx4_lname   libmlx4-%{mlx4_so_major}
 %define  mlx5_lname   libmlx5-%{mlx5_so_major}
 
