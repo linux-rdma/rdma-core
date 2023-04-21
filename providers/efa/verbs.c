@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
- * Copyright 2019-2022 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #include <assert.h>
@@ -1522,6 +1522,18 @@ int efa_query_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 
 	return ibv_cmd_query_qp(ibvqp, attr, attr_mask, init_attr,
 				&cmd, sizeof(cmd));
+}
+
+int efa_query_qp_data_in_order(struct ibv_qp *ibvqp, enum ibv_wr_opcode op,
+			       uint32_t flags)
+{
+	struct efa_context *ctx = to_efa_context(ibvqp->context);
+	int caps = 0;
+
+	if (EFA_DEV_CAP(ctx, DATA_POLLING_128))
+		caps |= IBV_QUERY_QP_DATA_IN_ORDER_ALIGNED_128_BYTES;
+
+	return caps;
 }
 
 int efa_destroy_qp(struct ibv_qp *ibvqp)

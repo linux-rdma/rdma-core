@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
- * Copyright 2019-2022 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2019-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #include <stdio.h>
@@ -45,6 +45,7 @@ static const struct verbs_context_ops efa_ctx_ops = {
 	.query_device_ex = efa_query_device_ex,
 	.query_port = efa_query_port,
 	.query_qp = efa_query_qp,
+	.query_qp_data_in_order = efa_query_qp_data_in_order,
 	.reg_dmabuf_mr = efa_reg_dmabuf_mr,
 	.reg_mr = efa_reg_mr,
 	.req_notify_cq = efa_arm_cq,

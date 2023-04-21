@@ -318,6 +318,13 @@ cdef extern from '<infiniband/verbs.h>':
         IBV_QP_DEST_QPN
         IBV_QP_RATE_LIMIT
 
+    cpdef enum ibv_query_qp_data_in_order_flags:
+        IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS
+
+    cpdef enum ibv_query_qp_data_in_order_caps:
+        IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG
+        IBV_QUERY_QP_DATA_IN_ORDER_ALIGNED_128_BYTES
+
     cpdef enum ibv_wq_type:
         IBV_WQT_RQ
 

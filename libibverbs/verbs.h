@@ -1036,6 +1036,15 @@ enum ibv_qp_attr_mask {
 	IBV_QP_RATE_LIMIT		= 1 << 25,
 };
 
+enum ibv_query_qp_data_in_order_flags {
+	IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS = 1 << 0,
+};
+
+enum ibv_query_qp_data_in_order_caps {
+	IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG = 1 << 0,
+	IBV_QUERY_QP_DATA_IN_ORDER_ALIGNED_128_BYTES = 1 << 1,
+};
+
 enum ibv_qp_state {
 	IBV_QPS_RESET,
 	IBV_QPS_INIT,
@@ -3205,11 +3214,15 @@ ibv_modify_qp_rate_limit(struct ibv_qp *qp,
  *   written in-order.
  * @qp: The QP to query.
  * @op: Operation type.
- * @flags: Extra field for future input. For now must be 0.
+ * @flags: Flags are used to select a query type.
+ * For IBV_QUERY_QP_DATA_IN_ORDER_RETURN_CAPS, the function will return a
+ * capabilities vector. If 0, will query for IBV_QUERY_QP_DATA_IN_ORDER_WHOLE_MSG
+ * support and return 0/1 result.
  *
  * Return Value
- * ibv_query_qp_data_in_order() returns 1 if the data is guaranteed to be
- *   written in-order, 0 otherwise.
+ * ibv_query_qp_data_in_order() return value is determined by flags.
+ * For each capability bit, 1 is returned if the data is guaranteed to be
+ * written in-order for selected operation and type, 0 otherwise.
  */
 int ibv_query_qp_data_in_order(struct ibv_qp *qp, enum ibv_wr_opcode op,
 			       uint32_t flags);
