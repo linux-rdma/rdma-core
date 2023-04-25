@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019 Mellanox Technologies, Inc. All rights reserved. See COPYING file
 # Copyright (c) 2020 Intel Corporation. All rights reserved. See COPYING file
+# Copyright 2023 Amazon.com, Inc. or its affiliates. All rights reserved.
 """
 Test module for pyverbs' mr module.
 """
@@ -12,7 +13,7 @@ from tests.base import PyverbsAPITestCase, RCResources, RDMATestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.mr import MR, MW, DMMR, DmaBufMR, MWBindInfo, MWBind
 from pyverbs.mem_alloc import posix_memalign, free
-from pyverbs.dmabuf import DrmDmaBuf
+from pyverbs.dmabuf import DmaBuf, DrmDmaBuf, GpuType
 from pyverbs.qp import QPAttr
 from pyverbs.wr import SendWR
 import pyverbs.device as d
@@ -441,34 +442,58 @@ class DeviceMemoryAPITest(PyverbsAPITestCase):
                 DMMR(PD(self.ctx), dm_size + 4, dm_access, dm, 0)
 
 
-def check_dmabuf_support(gpu=0):
+class DmaBufFactory:
+    def __init__(self, gpu_type: GpuType, drm_gpu=0, drm_gtt=0):
+        gpu_class = {GpuType.drm:DrmDmaBuf}
+        self.gpu_type = gpu_type
+        self.drm_gpu = drm_gpu
+        self.drm_gtt = drm_gtt
+        self.dmabuf_type = gpu_class[gpu_type]
+
+    def get_dmabuf(self, size):
+        if self.gpu_type == GpuType.drm:
+            return DrmDmaBuf(size, self.drm_gpu, self.drm_gtt)
+        raise Exception(f"Unexpected GPU type: {self.gpu_type}")
+
+
+def check_drm_gpu_dmabuf(gpu=0):
     """
-    Check if dma-buf allocation is supported by the system.
-    Skip the test on failure.
+    Check if DRM gpu exists in the system.
     """
     device_num = 128 + gpu
     try:
-        DrmDmaBuf(1, gpu=gpu)
+        return DrmDmaBuf(1, gpu=gpu)
     except PyverbsRDMAError as ex:
-        if ex.error_code == errno.ENOENT:
-            raise unittest.SkipTest(f'Device /dev/dri/renderD{device_num} is not present')
         if ex.error_code == errno.EACCES:
             raise unittest.SkipTest(f'Lack of permission to access /dev/dri/renderD{device_num}')
-        if ex.error_code == errno.EOPNOTSUPP:
-            raise unittest.SkipTest(f'Allocating dmabuf is not supported by /dev/dri/renderD{device_num}')
+        return None
 
-
-def check_dmabuf_mr_support(pd, gpu=0):
+def check_dmabuf_mr_support(pd, dmabuf: DmaBuf):
     """
     Check if dma-buf MR registration is supported by the driver.
     Skip the test on failure
     """
-    dmabuf = DrmDmaBuf(1, gpu=gpu)
     try:
         DmaBufMR(pd, 1, 0, dmabuf)
     except PyverbsRDMAError as ex:
         if ex.error_code == errno.EOPNOTSUPP:
             raise unittest.SkipTest('Reg dma-buf MR is not supported by the RDMA driver')
+
+
+def check_dmabuf_support(pd, drm_gpu=0, drm_gtt=0):
+    """
+    Check if dma-buf allocation is supported by the system and the driver.
+    If so, return DmaBufFactory that creates the supported buf on request.
+    Skip the test on failure.
+    """
+    dmabuf = check_drm_gpu_dmabuf(drm_gpu)
+    if dmabuf:
+        gpu_type = GpuType.drm
+    else:
+        raise unittest.SkipTest(f'There is no gpu available for creating DMA buffer')
+
+    check_dmabuf_mr_support(pd, dmabuf)
+    return DmaBufFactory(gpu_type, drm_gpu, drm_gtt)
 
 
 class DmaBufMRTest(PyverbsAPITestCase):
@@ -477,170 +502,154 @@ class DmaBufMRTest(PyverbsAPITestCase):
     """
     def setUp(self):
         super().setUp()
-        self.gpu = self.config['gpu']
-        self.gtt = self.config['gtt']
+        drm_gpu = self.config['gpu']
+        drm_gtt = self.config['gtt']
+        self.pd = PD(self.ctx)
+        self.dmabuf_factory = check_dmabuf_support(self.pd, drm_gpu, drm_gtt)
 
     def test_dmabuf_reg_mr(self):
         """
         Test ibv_reg_dmabuf_mr()
         """
-        check_dmabuf_support(self.gpu)
-        with PD(self.ctx) as pd:
-            check_dmabuf_mr_support(pd, self.gpu)
-            flags = u.get_dmabuf_access_flags(self.ctx)
-            for f in flags:
-                len = u.get_mr_length()
-                for off in [0, len//2]:
-                    dmabuf = DrmDmaBuf(len + off, self.gpu, self.gtt)
-                    with DmaBufMR(pd, len, f, dmabuf, offset=off) as mr:
-                        pass
+        flags = u.get_dmabuf_access_flags(self.ctx)
+        for f in flags:
+            len = u.get_mr_length()
+            for off in [0, len//2]:
+                dmabuf = self.dmabuf_factory.get_dmabuf(len + off)
+                with DmaBufMR(self.pd, len, f, dmabuf, off) as mr:
+                    pass
 
     def test_dmabuf_dereg_mr(self):
         """
         Test ibv_dereg_mr() with DmaBufMR
         """
-        check_dmabuf_support(self.gpu)
-        with PD(self.ctx) as pd:
-            check_dmabuf_mr_support(pd, self.gpu)
-            flags = u.get_dmabuf_access_flags(self.ctx)
-            for f in flags:
-                len = u.get_mr_length()
-                for off in [0, len//2]:
-                    dmabuf = DrmDmaBuf(len + off, self.gpu, self.gtt)
-                    with DmaBufMR(pd, len, f, dmabuf, offset=off) as mr:
-                        mr.close()
+        flags = u.get_dmabuf_access_flags(self.ctx)
+        for f in flags:
+            len = u.get_mr_length()
+            for off in [0, len//2]:
+                dmabuf = self.dmabuf_factory.get_dmabuf(len + off)
+                with DmaBufMR(self.pd, len, f, dmabuf, off) as mr:
+                    mr.close()
 
     def test_dmabuf_dereg_mr_twice(self):
         """
         Verify that explicit call to DmaBufMR's close() doesn't fail
         """
-        check_dmabuf_support(self.gpu)
-        with PD(self.ctx) as pd:
-            check_dmabuf_mr_support(pd, self.gpu)
-            flags = u.get_dmabuf_access_flags(self.ctx)
-            for f in flags:
-                len = u.get_mr_length()
-                for off in [0, len//2]:
-                    dmabuf = DrmDmaBuf(len + off, self.gpu, self.gtt)
-                    with DmaBufMR(pd, len, f, dmabuf, offset=off) as mr:
-                        # Pyverbs supports multiple destruction of objects,
-                        # we are not expecting an exception here.
-                        mr.close()
-                        mr.close()
+        flags = u.get_dmabuf_access_flags(self.ctx)
+        for f in flags:
+            len = u.get_mr_length()
+            for off in [0, len//2]:
+                dmabuf = self.dmabuf_factory.get_dmabuf(len + off)
+                with DmaBufMR(self.pd, len, f, dmabuf, off) as mr:
+                    # Pyverbs supports multiple destruction of objects,
+                    # we are not expecting an exception here.
+                    mr.close()
+                    mr.close()
 
     def test_dmabuf_reg_mr_bad_flags(self):
         """
         Verify that DmaBufMR with illegal flags combination fails as expected
         """
-        check_dmabuf_support(self.gpu)
-        with PD(self.ctx) as pd:
-            check_dmabuf_mr_support(pd, self.gpu)
-            for i in range(5):
-                flags = random.sample([e.IBV_ACCESS_REMOTE_WRITE,
-                                       e.IBV_ACCESS_REMOTE_ATOMIC],
-                                      random.randint(1, 2))
-                mr_flags = 0
-                for i in flags:
-                    mr_flags += i.value
-                try:
-                    len = u.get_mr_length()
-                    dmabuf = DrmDmaBuf(len, self.gpu, self.gtt)
-                    DmaBufMR(pd, len, mr_flags, dmabuf)
-                except PyverbsRDMAError as err:
-                    assert 'Failed to register a dma-buf MR' in err.args[0]
-                else:
-                    raise PyverbsRDMAError('Registered a dma-buf MR with illegal falgs')
+        for i in range(5):
+            flags = random.sample([e.IBV_ACCESS_REMOTE_WRITE, e.IBV_ACCESS_REMOTE_ATOMIC],
+                                   random.randint(1, 2))
+            mr_flags = 0
+            for i in flags:
+                mr_flags += i.value
+            try:
+                len = u.get_mr_length()
+                dmabuf = self.dmabuf_factory.get_dmabuf(len)
+                DmaBufMR(self.pd, len, mr_flags, dmabuf)
+            except PyverbsRDMAError as err:
+                assert 'Failed to register a dma-buf MR' in err.args[0]
+            else:
+                raise PyverbsRDMAError('Registered a dma-buf MR with illegal falgs')
 
     def test_dmabuf_write(self):
         """
         Test writing to DmaBufMR's buffer
         """
-        check_dmabuf_support(self.gpu)
-        with PD(self.ctx) as pd:
-            check_dmabuf_mr_support(pd, self.gpu)
-            for i in range(10):
-                mr_len = u.get_mr_length()
-                flags = u.get_dmabuf_access_flags(self.ctx)
-                for f in flags:
-                    for mr_off in [0, mr_len//2]:
-                        dmabuf = DrmDmaBuf(mr_len + mr_off, self.gpu, self.gtt)
-                        with DmaBufMR(pd, mr_len, f, dmabuf, offset=mr_off) as mr:
-                            write_len = min(random.randint(1, MAX_IO_LEN),
-                                            mr_len)
+        for i in range(10):
+            mr_len = u.get_mr_length()
+            flags = u.get_dmabuf_access_flags(self.ctx)
+            for f in flags:
+                for mr_off in [0, mr_len//2]:
+                    dmabuf = self.dmabuf_factory.get_dmabuf(mr_len + mr_off)
+                    with DmaBufMR(self.pd, mr_len, f, dmabuf, mr_off) as mr:
+                        write_len = min(random.randint(1, MAX_IO_LEN), mr_len)
+                        try:
                             mr.write('a' * write_len, write_len)
+                        except PyverbsRDMAError as ex:
+                            if ex.error_code == errno.EOPNOTSUPP:
+                                raise unittest.SkipTest("DMA buffer write isn't supported")
 
     def test_dmabuf_read(self):
         """
         Test reading from DmaBufMR's buffer
         """
-        check_dmabuf_support(self.gpu)
-        with PD(self.ctx) as pd:
-            check_dmabuf_mr_support(pd, self.gpu)
-            for i in range(10):
-                mr_len = u.get_mr_length()
-                flags = u.get_dmabuf_access_flags(self.ctx)
-                for f in flags:
-                    for mr_off in [0, mr_len//2]:
-                        dmabuf = DrmDmaBuf(mr_len + mr_off, self.gpu, self.gtt)
-                        with DmaBufMR(pd, mr_len, f, dmabuf, offset=mr_off) as mr:
-                            write_len = min(random.randint(1, MAX_IO_LEN),
-                                            mr_len)
-                            write_str = 'a' * write_len
+        for i in range(10):
+            mr_len = u.get_mr_length()
+            flags = u.get_dmabuf_access_flags(self.ctx)
+            for f in flags:
+                for mr_off in [0, mr_len//2]:
+                    dmabuf = self.dmabuf_factory.get_dmabuf(mr_len + mr_off)
+                    with DmaBufMR(self.pd, mr_len, f, dmabuf, mr_off) as mr:
+                        write_len = min(random.randint(1, MAX_IO_LEN),
+                                        mr_len)
+                        write_str = 'a' * write_len
+                        try:
                             mr.write(write_str, write_len)
-                            read_len = random.randint(1, write_len)
-                            offset = random.randint(0, write_len-read_len)
+                        except PyverbsRDMAError as ex:
+                            if ex.error_code == errno.EOPNOTSUPP:
+                                raise unittest.SkipTest("DMA buffer write isn't supported")
+                        read_len = random.randint(1, write_len)
+                        offset = random.randint(0, write_len-read_len)
+                        try:
                             read_str = mr.read(read_len, offset).decode()
-                            assert read_str in write_str
+                        except PyverbsRDMAError as ex:
+                            if ex.error_code == errno.EOPNOTSUPP:
+                                raise unittest.SkipTest("DMA buffer read isn't supported")
+                        assert read_str in write_str
 
     def test_dmabuf_lkey(self):
         """
         Test reading lkey property
         """
-        check_dmabuf_support(self.gpu)
-        with PD(self.ctx) as pd:
-            check_dmabuf_mr_support(pd, self.gpu)
-            length = u.get_mr_length()
-            flags = u.get_dmabuf_access_flags(self.ctx)
-            for f in flags:
-                dmabuf = DrmDmaBuf(length, self.gpu, self.gtt)
-                with DmaBufMR(pd, length, f, dmabuf) as mr:
-                    mr.lkey
+        length = u.get_mr_length()
+        flags = u.get_dmabuf_access_flags(self.ctx)
+        for f in flags:
+            dmabuf = self.dmabuf_factory.get_dmabuf(length)
+            with DmaBufMR(self.pd, length, f, dmabuf) as mr:
+                mr.lkey
 
     def test_dmabuf_rkey(self):
         """
         Test reading rkey property
         """
-        check_dmabuf_support(self.gpu)
-        with PD(self.ctx) as pd:
-            check_dmabuf_mr_support(pd, self.gpu)
-            length = u.get_mr_length()
-            flags = u.get_dmabuf_access_flags(self.ctx)
-            for f in flags:
-                dmabuf = DrmDmaBuf(length, self.gpu, self.gtt)
-                with DmaBufMR(pd, length, f, dmabuf) as mr:
-                    mr.rkey
+        length = u.get_mr_length()
+        flags = u.get_dmabuf_access_flags(self.ctx)
+        for f in flags:
+            dmabuf = self.dmabuf_factory.get_dmabuf(length)
+            with DmaBufMR(self.pd, length, f, dmabuf) as mr:
+                mr.rkey
 
 
 class DmaBufRC(RCResources):
-    def __init__(self, dev_name, ib_port, gid_index, gpu, gtt):
+    def __init__(self, dev_name, ib_port, gid_index, dmabuf_factory):
         """
         Initialize an DmaBufRC object.
         :param dev_name: Device name to be used
         :param ib_port: IB port of the device to use
-        :param gid_index: Which GID index to use
-        :param gpu: GPU unit to allocate dmabuf from
+        :param dmabuf_factory: Factory for creating dma buffers.
         :gtt: Allocate dmabuf from GTT instead og VRAM
         """
-        self.gpu = gpu
-        self.gtt = gtt
+        self.dmabuf_factory = dmabuf_factory
         super(DmaBufRC, self).__init__(dev_name=dev_name, ib_port=ib_port,
                                        gid_index=gid_index)
 
     def create_mr(self):
-        check_dmabuf_support(self.gpu)
-        check_dmabuf_mr_support(self.pd, self.gpu)
         access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE
-        dmabuf = DrmDmaBuf(self.msg_size, self.gpu, self.gtt)
+        dmabuf = self.dmabuf_factory.get_dmabuf(self.msg_size)
         mr = DmaBufMR(self.pd, self.msg_size, access, dmabuf)
         self.mr = mr
 
@@ -655,8 +664,10 @@ class DmaBufTestCase(RDMATestCase):
     def setUp(self):
         super(DmaBufTestCase, self).setUp()
         self.iters = 100
-        self.gpu = self.config['gpu']
-        self.gtt = self.config['gtt']
+        drm_gpu = self.config['gpu']
+        drm_gtt = self.config['gtt']
+        self.pd = PD(d.Context(name=self.dev_name))
+        self.dmabuf_factory = check_dmabuf_support(self.pd, drm_gpu, drm_gtt)
 
     def create_players(self, resource, **resource_arg):
         """
@@ -682,14 +693,14 @@ class DmaBufTestCase(RDMATestCase):
         """
         Test send/recv using dma-buf MR over RC
         """
-        client, server = self.create_players(DmaBufRC, gpu=self.gpu, gtt=self.gtt)
+        client, server = self.create_players(DmaBufRC, dmabuf_factory=self.dmabuf_factory)
         u.traffic(client, server, self.iters, self.gid_index, self.ib_port)
 
     def test_dmabuf_rdma_traffic(self):
         """
         Test rdma write using dma-buf MR
         """
-        client, server = self.create_players(DmaBufRC, gpu=self.gpu, gtt=self.gtt)
+        client, server = self.create_players(DmaBufRC, dmabuf_factory=self.dmabuf_factory)
         server.rkey = client.mr.rkey
         server.raddr = client.mr.offset
         client.rkey = server.mr.rkey
