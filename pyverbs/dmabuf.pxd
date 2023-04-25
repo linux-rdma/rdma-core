@@ -23,3 +23,7 @@ cdef class DmaBuf:
 
 cdef class DrmDmaBuf(DmaBuf):
     cdef int handle
+
+
+cdef class HabanaLabsDmaBuf(DmaBuf):
+    cdef void *dmabuf_addr

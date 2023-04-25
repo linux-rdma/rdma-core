@@ -12,8 +12,8 @@ import errno
 from tests.base import PyverbsAPITestCase, RCResources, RDMATestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.mr import MR, MW, DMMR, DmaBufMR, MWBindInfo, MWBind
+from pyverbs.dmabuf import DmaBuf, DrmDmaBuf, HabanaLabsDmaBuf, GpuType
 from pyverbs.mem_alloc import posix_memalign, free
-from pyverbs.dmabuf import DmaBuf, DrmDmaBuf, GpuType
 from pyverbs.qp import QPAttr
 from pyverbs.wr import SendWR
 import pyverbs.device as d
@@ -444,7 +444,7 @@ class DeviceMemoryAPITest(PyverbsAPITestCase):
 
 class DmaBufFactory:
     def __init__(self, gpu_type: GpuType, drm_gpu=0, drm_gtt=0):
-        gpu_class = {GpuType.drm:DrmDmaBuf}
+        gpu_class = {GpuType.drm:DrmDmaBuf, GpuType.habana:HabanaLabsDmaBuf}
         self.gpu_type = gpu_type
         self.drm_gpu = drm_gpu
         self.drm_gtt = drm_gtt
@@ -453,6 +453,8 @@ class DmaBufFactory:
     def get_dmabuf(self, size):
         if self.gpu_type == GpuType.drm:
             return DrmDmaBuf(size, self.drm_gpu, self.drm_gtt)
+        elif self.gpu_type == GpuType.habana:
+            return HabanaLabsDmaBuf(size)
         raise Exception(f"Unexpected GPU type: {self.gpu_type}")
 
 
@@ -468,10 +470,37 @@ def check_drm_gpu_dmabuf(gpu=0):
             raise unittest.SkipTest(f'Lack of permission to access /dev/dri/renderD{device_num}')
         return None
 
+
+def check_habana_gpu_dmabuf():
+    """
+    Check if HabanaLabs gpu exists in the system.
+    """
+    try:
+        return HabanaLabsDmaBuf(1)
+    except Exception:
+        return None
+
+
+def check_dmabuf_support(drm_gpu=0):
+    """
+    Check if dma-buf allocation is supported by the system.
+    Skip the test on failure.
+    """
+    dmabuf = check_drm_gpu_dmabuf(drm_gpu)
+    if dmabuf:
+        return dmabuf, GpuType.drm
+
+    dmabuf = check_habana_gpu_dmabuf()
+    if dmabuf:
+        return dmabuf, GpuType.habana
+
+    raise unittest.SkipTest(f'There is no gpu available for creating DMA buffer')
+
+
 def check_dmabuf_mr_support(pd, dmabuf: DmaBuf):
     """
     Check if dma-buf MR registration is supported by the driver.
-    Skip the test on failure
+    Skip the test on failure.
     """
     try:
         DmaBufMR(pd, 1, 0, dmabuf)
@@ -480,18 +509,13 @@ def check_dmabuf_mr_support(pd, dmabuf: DmaBuf):
             raise unittest.SkipTest('Reg dma-buf MR is not supported by the RDMA driver')
 
 
-def check_dmabuf_support(pd, drm_gpu=0, drm_gtt=0):
+def get_dmabuf_factory(pd, drm_gpu=0, drm_gtt=0):
     """
     Check if dma-buf allocation is supported by the system and the driver.
     If so, return DmaBufFactory that creates the supported buf on request.
-    Skip the test on failure.
+    Skip the tests on failure.
     """
-    dmabuf = check_drm_gpu_dmabuf(drm_gpu)
-    if dmabuf:
-        gpu_type = GpuType.drm
-    else:
-        raise unittest.SkipTest(f'There is no gpu available for creating DMA buffer')
-
+    dmabuf, gpu_type = check_dmabuf_support(drm_gpu)
     check_dmabuf_mr_support(pd, dmabuf)
     return DmaBufFactory(gpu_type, drm_gpu, drm_gtt)
 
@@ -505,7 +529,7 @@ class DmaBufMRTest(PyverbsAPITestCase):
         drm_gpu = self.config['gpu']
         drm_gtt = self.config['gtt']
         self.pd = PD(self.ctx)
-        self.dmabuf_factory = check_dmabuf_support(self.pd, drm_gpu, drm_gtt)
+        self.dmabuf_factory = get_dmabuf_factory(self.pd, drm_gpu, drm_gtt)
 
     def test_dmabuf_reg_mr(self):
         """
@@ -667,7 +691,7 @@ class DmaBufTestCase(RDMATestCase):
         drm_gpu = self.config['gpu']
         drm_gtt = self.config['gtt']
         self.pd = PD(d.Context(name=self.dev_name))
-        self.dmabuf_factory = check_dmabuf_support(self.pd, drm_gpu, drm_gtt)
+        self.dmabuf_factory = get_dmabuf_factory(self.pd, drm_gpu, drm_gtt)
 
     def create_players(self, resource, **resource_arg):
         """

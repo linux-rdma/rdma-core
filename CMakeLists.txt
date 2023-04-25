@@ -539,8 +539,9 @@ find_package(Systemd)
 include_directories(${SYSTEMD_INCLUDE_DIRS})
 RDMA_DoFixup("${SYSTEMD_FOUND}" "systemd/sd-daemon.h")
 
+#GPUs support
+set(DMABUF_LINKER_FLAGS "")
 # drm headers
-
 # Check if the headers have been installed by kernel-headers
 find_path(DRM_INCLUDE_DIRS "drm.h" PATH_SUFFIXES "drm")
 
@@ -555,6 +556,20 @@ if (DRM_INCLUDE_DIRS)
   else()
     unset(DRM_INCLUDE_DIRS CACHE)
   endif()
+endif()
+
+# Habana headers
+find_path(HABANA_INCLUDE_DIR NAMES "hlthunk.h" "synapse_api.h" PATHS "/usr/include/habanalabs")
+if (HABANA_INCLUDE_DIR)
+  file(GLOB HABANA_SRC_PATH "/usr/src/habanalabs-*")
+  find_path(HABANA_MISC_DIR NAMES "misc/habanalabs.h" PATHS "${HABANA_SRC_PATH}/uapi")
+  include_directories(${HABANA_INCLUDE_DIR} ${HABANA_MISC_DIR})
+  file(GLOB SO_FILES "/usr/lib/habanalabs/lib*.so")
+  foreach(SO_FILE ${SO_FILES})
+    list(APPEND DMABUF_LINKER_FLAGS ${SO_FILE})
+  endforeach()
+else()
+  unset(HABANA_INCLUDE_DIR CACHE)
 endif()
 
 #-------------------------
@@ -851,7 +866,10 @@ if (NOT HAVE_TARGET_SSE)
   message(STATUS " attribute(target(\"sse\")) does NOT work")
 endif()
 if (NOT DRM_INCLUDE_DIRS)
-  message(STATUS " DMABUF NOT supported (disabling some tests)")
+  message(STATUS " DRM DMABUF NOT supported (disabling some tests)")
+endif()
+if (NOT HABANA_INCLUDE_DIR)
+  message(STATUS " Habanalabs HW accelerator NOT supported")
 endif()
 if (NOT HAVE_GLIBC_HWCAP_S390_PCI_MIO )
   message(STATUS " Glibc version does not contain the HWCAP_S390_PCI_MIO bit, using shim version")

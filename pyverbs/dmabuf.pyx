@@ -19,6 +19,7 @@ from .pyverbs_error import PyverbsRDMAError
 
 class GpuType(Enum):
     drm = 0,
+    habana = 1,
 
 
 cdef extern from "drm_dmabuf_alloc.h":
@@ -29,6 +30,16 @@ cdef extern from "drm_dmabuf_alloc.h":
     int drm_dmabuf_get_buf_fd(drm_dmabuf *dmabuf)
     int drm_dmabuf_get_device_fd(drm_dmabuf *dmabuf)
     unsigned long drm_dmabuf_get_offset(drm_dmabuf *dmabuf)
+
+
+cdef extern from "habana_dmabuf_alloc.h":
+    cdef struct habana_dmabuf:
+        pass
+    habana_dmabuf *habana_dmabuf_alloc(unsigned long size)
+    void habana_dmabuf_free(habana_dmabuf *dmabuf)
+    int habana_dmabuf_get_buf_fd(habana_dmabuf *dmabuf)
+    int habana_dmabuf_get_device_fd(habana_dmabuf *dmabuf)
+    void *habana_dmabuf_get_addr(habana_dmabuf *dmabuf)
 
 
 cdef extern from 'sys/mman.h':
@@ -144,3 +155,24 @@ cdef class DrmDmaBuf(DmaBuf):
     @property
     def handle(self):
         return self.handle
+
+
+cdef class HabanaLabsDmaBuf(DmaBuf):
+    def __init__(self, size):
+        self.dmabuf = habana_dmabuf_alloc(size)
+        if self.dmabuf == NULL:
+            raise PyverbsRDMAErrno(f'Failed to allocate HL dmabuf of size {size}')
+        super().__init__(size)
+        self.dmabuf_addr = habana_dmabuf_get_addr(<habana_dmabuf *>self.dmabuf)
+
+    cdef _get_dmabuf_fd(self):
+        return habana_dmabuf_get_buf_fd(<habana_dmabuf *>self.dmabuf)
+
+    cdef _get_dmabuf_offset(self):
+        return 0
+
+    cdef _get_device_fd(self):
+        return habana_dmabuf_get_device_fd(<habana_dmabuf *>self.dmabuf)
+
+    cdef _free_dmabuf(self):
+        habana_dmabuf_free(<habana_dmabuf *>self.dmabuf)
