@@ -20,7 +20,7 @@ from pyverbs.device cimport DM
 from libc.stdlib cimport free, malloc
 from .cmid cimport CMID
 from .pd cimport PD
-from .dmabuf cimport DrmDmaBuf
+from .dmabuf cimport DmaBuf
 
 cdef extern from 'sys/mman.h':
     cdef void* MAP_FAILED
@@ -388,27 +388,19 @@ cdef class DMMR(MR):
         return self.dm.copy_from_dm(offset, length)
 
 cdef class DmaBufMR(MR):
-    def __init__(self, PD pd not None, length, access, dmabuf=None,
-                 offset=0, gpu=0, gtt=0):
+    def __init__(self, PD pd not None, length, access, DmaBuf dmabuf not None, offset=0):
         """
         Initializes a DmaBufMR (DMA-BUF Memory Region) of the given length
-        and access flags using the given PD and DrmDmaBuf objects.
+        and access flags using the given PD and DmaBuf objects.
         :param pd: A PD object
         :param length: Length in bytes
         :param access: Access flags, see ibv_access_flags enum
-        :param dmabuf: A DrmDmaBuf object or a FD representing a dmabuf.
-                       DrmDmaBuf object will be allocated if None is passed.
+        :param dmabuf: A DmaBuf object.
         :param offset: Byte offset from the beginning of the dma-buf
-        :param gpu: GPU unit for internal dmabuf allocation
-        :param gtt: If true allocate internal dmabuf from GTT instead of VRAM
         :return: The newly created DMABUFMR
         """
         self.logger = logging.getLogger(self.__class__.__name__)
-        if dmabuf is None:
-            self.is_dmabuf_internal = True
-            dmabuf = DrmDmaBuf(length + offset, gpu, gtt)
-        fd = dmabuf.fd if isinstance(dmabuf, DrmDmaBuf) else dmabuf
-        self.mr = v.ibv_reg_dmabuf_mr(pd.pd, offset, length, offset, fd, access)
+        self.mr = v.ibv_reg_dmabuf_mr(pd.pd, offset, length, offset, dmabuf.dmabuf_fd, access)
         if self.mr == NULL:
             raise PyverbsRDMAErrno(f'Failed to register a dma-buf MR. length: {length}, access flags: {access}')
         super().__init__(pd, length, access)
@@ -416,8 +408,7 @@ cdef class DmaBufMR(MR):
         self.dmabuf = dmabuf
         self.offset = offset
         pd.add_ref(self)
-        if isinstance(dmabuf, DrmDmaBuf):
-            dmabuf.add_ref(self)
+        dmabuf.add_ref(self)
         self.logger.debug(f'Registered dma-buf ibv_mr. Length: {length}, access flags {access}')
 
     def __dealloc__(self):
@@ -438,8 +429,6 @@ cdef class DmaBufMR(MR):
             self.mr = NULL
             # Set self.mr to NULL before closing dmabuf because this method is
             # re-entered when close_weakrefs() is called inside dmabuf.close().
-            if self.is_dmabuf_internal:
-                self.dmabuf.close()
             self.dmabuf = None
 
     @property

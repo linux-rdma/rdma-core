@@ -463,8 +463,9 @@ def check_dmabuf_mr_support(pd, gpu=0):
     Check if dma-buf MR registration is supported by the driver.
     Skip the test on failure
     """
+    dmabuf = DrmDmaBuf(1, gpu=gpu)
     try:
-        DmaBufMR(pd, 1, 0, gpu=gpu)
+        DmaBufMR(pd, 1, 0, dmabuf)
     except PyverbsRDMAError as ex:
         if ex.error_code == errno.EOPNOTSUPP:
             raise unittest.SkipTest('Reg dma-buf MR is not supported by the RDMA driver')
@@ -490,8 +491,8 @@ class DmaBufMRTest(PyverbsAPITestCase):
             for f in flags:
                 len = u.get_mr_length()
                 for off in [0, len//2]:
-                    with DmaBufMR(pd, len, f, offset=off, gpu=self.gpu,
-                                  gtt=self.gtt) as mr:
+                    dmabuf = DrmDmaBuf(len + off, self.gpu, self.gtt)
+                    with DmaBufMR(pd, len, f, dmabuf, offset=off) as mr:
                         pass
 
     def test_dmabuf_dereg_mr(self):
@@ -505,8 +506,8 @@ class DmaBufMRTest(PyverbsAPITestCase):
             for f in flags:
                 len = u.get_mr_length()
                 for off in [0, len//2]:
-                    with DmaBufMR(pd, len, f, offset=off, gpu=self.gpu,
-                                  gtt=self.gtt) as mr:
+                    dmabuf = DrmDmaBuf(len + off, self.gpu, self.gtt)
+                    with DmaBufMR(pd, len, f, dmabuf, offset=off) as mr:
                         mr.close()
 
     def test_dmabuf_dereg_mr_twice(self):
@@ -520,8 +521,8 @@ class DmaBufMRTest(PyverbsAPITestCase):
             for f in flags:
                 len = u.get_mr_length()
                 for off in [0, len//2]:
-                    with DmaBufMR(pd, len, f, offset=off, gpu=self.gpu,
-                                  gtt=self.gtt) as mr:
+                    dmabuf = DrmDmaBuf(len + off, self.gpu, self.gtt)
+                    with DmaBufMR(pd, len, f, dmabuf, offset=off) as mr:
                         # Pyverbs supports multiple destruction of objects,
                         # we are not expecting an exception here.
                         mr.close()
@@ -542,8 +543,9 @@ class DmaBufMRTest(PyverbsAPITestCase):
                 for i in flags:
                     mr_flags += i.value
                 try:
-                    DmaBufMR(pd, u.get_mr_length(), mr_flags,
-                             gpu=self.gpu, gtt=self.gtt)
+                    len = u.get_mr_length()
+                    dmabuf = DrmDmaBuf(len, self.gpu, self.gtt)
+                    DmaBufMR(pd, len, mr_flags, dmabuf)
                 except PyverbsRDMAError as err:
                     assert 'Failed to register a dma-buf MR' in err.args[0]
                 else:
@@ -561,8 +563,8 @@ class DmaBufMRTest(PyverbsAPITestCase):
                 flags = u.get_dmabuf_access_flags(self.ctx)
                 for f in flags:
                     for mr_off in [0, mr_len//2]:
-                        with DmaBufMR(pd, mr_len, f, offset=mr_off,
-                                      gpu=self.gpu, gtt=self.gtt) as mr:
+                        dmabuf = DrmDmaBuf(mr_len + mr_off, self.gpu, self.gtt)
+                        with DmaBufMR(pd, mr_len, f, dmabuf, offset=mr_off) as mr:
                             write_len = min(random.randint(1, MAX_IO_LEN),
                                             mr_len)
                             mr.write('a' * write_len, write_len)
@@ -579,8 +581,8 @@ class DmaBufMRTest(PyverbsAPITestCase):
                 flags = u.get_dmabuf_access_flags(self.ctx)
                 for f in flags:
                     for mr_off in [0, mr_len//2]:
-                        with DmaBufMR(pd, mr_len, f, offset=mr_off,
-                                      gpu=self.gpu, gtt=self.gtt) as mr:
+                        dmabuf = DrmDmaBuf(mr_len + mr_off, self.gpu, self.gtt)
+                        with DmaBufMR(pd, mr_len, f, dmabuf, offset=mr_off) as mr:
                             write_len = min(random.randint(1, MAX_IO_LEN),
                                             mr_len)
                             write_str = 'a' * write_len
@@ -600,8 +602,8 @@ class DmaBufMRTest(PyverbsAPITestCase):
             length = u.get_mr_length()
             flags = u.get_dmabuf_access_flags(self.ctx)
             for f in flags:
-                with DmaBufMR(pd, length, f, gpu=self.gpu,
-                              gtt=self.gtt) as mr:
+                dmabuf = DrmDmaBuf(length, self.gpu, self.gtt)
+                with DmaBufMR(pd, length, f, dmabuf) as mr:
                     mr.lkey
 
     def test_dmabuf_rkey(self):
@@ -614,8 +616,8 @@ class DmaBufMRTest(PyverbsAPITestCase):
             length = u.get_mr_length()
             flags = u.get_dmabuf_access_flags(self.ctx)
             for f in flags:
-                with DmaBufMR(pd, length, f, gpu=self.gpu,
-                              gtt=self.gtt) as mr:
+                dmabuf = DrmDmaBuf(length, self.gpu, self.gtt)
+                with DmaBufMR(pd, length, f, dmabuf) as mr:
                     mr.rkey
 
 
@@ -638,8 +640,8 @@ class DmaBufRC(RCResources):
         check_dmabuf_support(self.gpu)
         check_dmabuf_mr_support(self.pd, self.gpu)
         access = e.IBV_ACCESS_LOCAL_WRITE | e.IBV_ACCESS_REMOTE_WRITE
-        mr = DmaBufMR(self.pd, self.msg_size, access, gpu=self.gpu,
-                      gtt=self.gtt)
+        dmabuf = DrmDmaBuf(self.msg_size, self.gpu, self.gtt)
+        mr = DmaBufMR(self.pd, self.msg_size, access, dmabuf)
         self.mr = mr
 
     def create_qp_attr(self):
