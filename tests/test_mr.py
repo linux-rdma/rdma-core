@@ -12,7 +12,7 @@ from tests.base import PyverbsAPITestCase, RCResources, RDMATestCase
 from pyverbs.pyverbs_error import PyverbsRDMAError, PyverbsError
 from pyverbs.mr import MR, MW, DMMR, DmaBufMR, MWBindInfo, MWBind
 from pyverbs.mem_alloc import posix_memalign, free
-from pyverbs.dmabuf import DmaBuf
+from pyverbs.dmabuf import DrmDmaBuf
 from pyverbs.qp import QPAttr
 from pyverbs.wr import SendWR
 import pyverbs.device as d
@@ -448,7 +448,7 @@ def check_dmabuf_support(gpu=0):
     """
     device_num = 128 + gpu
     try:
-        DmaBuf(1, gpu=gpu)
+        DrmDmaBuf(1, gpu=gpu)
     except PyverbsRDMAError as ex:
         if ex.error_code == errno.ENOENT:
             raise unittest.SkipTest(f'Device /dev/dri/renderD{device_num} is not present')

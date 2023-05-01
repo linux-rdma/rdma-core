@@ -6,32 +6,32 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <errno.h>
-#include "dmabuf_alloc.h"
+#include "drm_dmabuf_alloc.h"
 
-struct dmabuf *dmabuf_alloc(uint64_t size, int gpu, int gtt)
+struct drm_dmabuf *drm_dmabuf_alloc(uint64_t size, int gpu, int gtt)
 {
 	errno = EOPNOTSUPP;
 	return NULL;
 }
 
-void dmabuf_free(struct dmabuf *dmabuf)
+void drm_dmabuf_free(struct drm_dmabuf *dmabuf)
 {
 	errno = EOPNOTSUPP;
 }
 
-int dmabuf_get_drm_fd(struct dmabuf *dmabuf)
-{
-	errno = EOPNOTSUPP;
-	return -1;
-}
-
-int dmabuf_get_fd(struct dmabuf *dmabuf)
+int drm_dmabuf_get_buf_fd(struct drm_dmabuf *dmabuf)
 {
 	errno = EOPNOTSUPP;
 	return -1;
 }
 
-uint64_t dmabuf_get_offset(struct dmabuf *dmabuf)
+int drm_dmabuf_get_device_fd(struct drm_dmabuf *dmabuf)
+{
+	errno = EOPNOTSUPP;
+	return -1;
+}
+
+uint64_t drm_dmabuf_get_offset(struct drm_dmabuf *dmabuf)
 {
 	errno = EOPNOTSUPP;
 	return -1;

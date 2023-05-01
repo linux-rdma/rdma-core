@@ -3,13 +3,13 @@
 # Copyright (c) 2020, Intel Corporation. All rights reserved. See COPYING file
 
 publish_internal_headers(""
-  dmabuf_alloc.h
+  drm_dmabuf_alloc.h
 )
 
 if (DRM_INCLUDE_DIRS)
-  set(DMABUF_ALLOC dmabuf_alloc.c)
+  set(DRM_DMABUF_ALLOC drm_dmabuf_alloc.c)
 else()
-  set(DMABUF_ALLOC dmabuf_alloc_stub.c)
+  set(DRM_DMABUF_ALLOC drm_dmabuf_alloc_stub.c)
 endif()
 
 if (HAVE_COHERENT_DMA)
@@ -27,7 +27,7 @@ rdma_cython_module(pyverbs ""
   device.pyx
   ${DMA_UTIL}
   dmabuf.pyx
-  ${DMABUF_ALLOC}
+  ${DRM_DMABUF_ALLOC}
   enums.pyx
   flow.pyx
   fork.pyx

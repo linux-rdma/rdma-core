@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
 # Copyright (c) 2019, Mellanox Technologies. All rights reserved. See COPYING file
 # Copyright (c) 2020, Intel Corporation. All rights reserved. See COPYING file
+# Copyright 2023 Amazon.com, Inc. or its affiliates. All rights reserved.
 
 import resource
 import logging
 
 from posix.mman cimport mmap, munmap, MAP_PRIVATE, PROT_READ, PROT_WRITE, \
-    MAP_ANONYMOUS, MAP_HUGETLB, MAP_SHARED
+    MAP_ANONYMOUS, MAP_HUGETLB
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError, \
     PyverbsUserError
 from libc.stdint cimport uintptr_t, SIZE_MAX
@@ -19,7 +20,7 @@ from pyverbs.device cimport DM
 from libc.stdlib cimport free, malloc
 from .cmid cimport CMID
 from .pd cimport PD
-from .dmabuf cimport DmaBuf
+from .dmabuf cimport DrmDmaBuf
 
 cdef extern from 'sys/mman.h':
     cdef void* MAP_FAILED
@@ -391,12 +392,12 @@ cdef class DmaBufMR(MR):
                  offset=0, gpu=0, gtt=0):
         """
         Initializes a DmaBufMR (DMA-BUF Memory Region) of the given length
-        and access flags using the given PD and DmaBuf objects.
+        and access flags using the given PD and DrmDmaBuf objects.
         :param pd: A PD object
         :param length: Length in bytes
         :param access: Access flags, see ibv_access_flags enum
-        :param dmabuf: A DmaBuf object or a FD representing a dmabuf.
-                       DmaBuf object will be allocated if None is passed.
+        :param dmabuf: A DrmDmaBuf object or a FD representing a dmabuf.
+                       DrmDmaBuf object will be allocated if None is passed.
         :param offset: Byte offset from the beginning of the dma-buf
         :param gpu: GPU unit for internal dmabuf allocation
         :param gtt: If true allocate internal dmabuf from GTT instead of VRAM
@@ -405,8 +406,8 @@ cdef class DmaBufMR(MR):
         self.logger = logging.getLogger(self.__class__.__name__)
         if dmabuf is None:
             self.is_dmabuf_internal = True
-            dmabuf = DmaBuf(length + offset, gpu, gtt)
-        fd = dmabuf.fd if isinstance(dmabuf, DmaBuf) else dmabuf
+            dmabuf = DrmDmaBuf(length + offset, gpu, gtt)
+        fd = dmabuf.fd if isinstance(dmabuf, DrmDmaBuf) else dmabuf
         self.mr = v.ibv_reg_dmabuf_mr(pd.pd, offset, length, offset, fd, access)
         if self.mr == NULL:
             raise PyverbsRDMAErrno(f'Failed to register a dma-buf MR. length: {length}, access flags: {access}')
@@ -415,7 +416,7 @@ cdef class DmaBufMR(MR):
         self.dmabuf = dmabuf
         self.offset = offset
         pd.add_ref(self)
-        if isinstance(dmabuf, DmaBuf):
+        if isinstance(dmabuf, DrmDmaBuf):
             dmabuf.add_ref(self)
         self.logger.debug(f'Registered dma-buf ibv_mr. Length: {length}, access flags {access}')
 
@@ -459,14 +460,7 @@ cdef class DmaBufMR(MR):
         """
         if isinstance(data, str):
             data = data.encode()
-        cdef int off = offset + self.offset
-        cdef void *buf = mmap(NULL, length + off, PROT_READ | PROT_WRITE,
-                              MAP_SHARED, self.dmabuf.drm_fd,
-                              self.dmabuf.map_offset)
-        if buf == MAP_FAILED:
-            raise PyverbsError(f'Failed to map dma-buf of size {length}')
-        memcpy(<char*>(buf + off), <char *>data, length)
-        munmap(buf, length + off)
+        self.dmabuf.write(data, length, self.offset + offset)
 
     cpdef read(self, length, offset):
         """
@@ -475,19 +469,7 @@ cdef class DmaBufMR(MR):
         :param offset: Reading offset
         :return: The data on the buffer in the requested offset
         """
-        cdef int off = offset + self.offset
-        cdef void *buf = mmap(NULL, length + off, PROT_READ | PROT_WRITE,
-                              MAP_SHARED, self.dmabuf.drm_fd,
-                              self.dmabuf.map_offset)
-        if buf == MAP_FAILED:
-            raise PyverbsError(f'Failed to map dma-buf of size {length}')
-        cdef char *data =<char*>malloc(length)
-        memset(data, 0, length)
-        memcpy(data, <char*>(buf + off), length)
-        munmap(buf, length + off)
-        res = data[:length]
-        free(data)
-        return res
+        return self.dmabuf.read(length, self.offset + offset)
 
 
 def mwtype2str(mw_type):

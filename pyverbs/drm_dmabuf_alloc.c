@@ -14,7 +14,7 @@
 #include <drm.h>
 #include <i915_drm.h>
 #include <amdgpu_drm.h>
-#include "dmabuf_alloc.h"
+#include "drm_dmabuf_alloc.h"
 
 /*
  * Abstraction of the buffer allocation mechanism using the DRM interface.
@@ -193,7 +193,7 @@ static int drm_map_buf(struct drm *drm, uint32_t handle, uint64_t *offset)
  * above.
  */
 
-struct dmabuf {
+struct drm_dmabuf {
 	struct drm *drm;
 	int fd;
 	uint32_t handle;
@@ -206,9 +206,9 @@ struct dmabuf {
  * @gpu - the GPU unit to use
  * @gtt - if true, allocate from GTT (Graphics Translation Table) instead of VRAM
  */
-struct dmabuf *dmabuf_alloc(uint64_t size, int gpu, int gtt)
+struct drm_dmabuf *drm_dmabuf_alloc(uint64_t size, int gpu, int gtt)
 {
-	struct dmabuf *dmabuf;
+	struct drm_dmabuf *dmabuf;
 	int err;
 
 	dmabuf = malloc(sizeof(*dmabuf));
@@ -240,7 +240,7 @@ out_free:
 	return NULL;
 }
 
-void dmabuf_free(struct dmabuf *dmabuf)
+void drm_dmabuf_free(struct drm_dmabuf *dmabuf)
 {
 	if (!dmabuf)
 		return;
@@ -251,7 +251,7 @@ void dmabuf_free(struct dmabuf *dmabuf)
 	free(dmabuf);
 }
 
-int dmabuf_get_drm_fd(struct dmabuf *dmabuf)
+int drm_dmabuf_get_buf_fd(struct drm_dmabuf *dmabuf)
 {
 	if (!dmabuf || !dmabuf->drm)
 		return -1;
@@ -259,7 +259,7 @@ int dmabuf_get_drm_fd(struct dmabuf *dmabuf)
 	return dmabuf->drm->fd;
 }
 
-int dmabuf_get_fd(struct dmabuf *dmabuf)
+int drm_dmabuf_get_device_fd(struct drm_dmabuf *dmabuf)
 {
 	if (!dmabuf)
 		return -1;
@@ -267,7 +267,7 @@ int dmabuf_get_fd(struct dmabuf *dmabuf)
 	return dmabuf->fd;
 }
 
-uint64_t dmabuf_get_offset(struct dmabuf *dmabuf)
+uint64_t drm_dmabuf_get_offset(struct drm_dmabuf *dmabuf)
 {
 	if (!dmabuf)
 		return -1;
