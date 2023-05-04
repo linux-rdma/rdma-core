@@ -16,21 +16,21 @@ import glob
 import time
 import os
 
+from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx, QPAttr, QPEx, QP
 from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
-from pyverbs.addr import AHAttr, AH, GlobalRoute
+from tests.mlx5_base import Mlx5DcResources, Mlx5DcStreamsRes
 from tests.base import XRCResources, DCT_KEY, MLNX_VENDOR_ID
-from tests.efa_base import SRDResources
+from pyverbs.addr import AHAttr, AH, GlobalRoute
 from pyverbs.providers.efa.efadv import EfaCQ
 from pyverbs.wr import SGE, SendWR, RecvWR
-from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx, QPAttr, QPEx, QP
-from tests.mlx5_base import Mlx5DcResources, Mlx5DcStreamsRes
 from pyverbs.base import PyverbsRDMAErrno
+from tests.efa_base import SRDResources
 from pyverbs.cq import PollCqAttr, CQEX
 from pyverbs.mr import MW, MWBindInfo
+from pyverbs.mem_alloc import madvise
 import pyverbs.device as d
 import pyverbs.enums as e
 from pyverbs.mr import MR
-import pyverbs.providers.mlx5.mlx5_enums as me
 
 
 MAX_MR_SIZE = 4194304
@@ -106,6 +106,12 @@ class PacketConsts:
     GENEVE_VNI = 2
     GENEVE_OAM = 0
     GENEVE_PORT = 6081
+    BTH_HEADER_SIZE = 16
+    BTH_OPCODE = 0x81
+    BTH_DST_QP = 0xd2
+    BTH_PARTITION_KEY = 0xffff
+    BTH_BECN = 1
+    ROCE_PORT = 4791
 
 
 def get_mr_length():
@@ -370,7 +376,7 @@ def wc_status_to_str(status):
         return 'Unknown WC status ({s})'.format(s=status)
 
 
-def create_custom_mr(agr_obj, additional_access_flags=0, size=None):
+def create_custom_mr(agr_obj, additional_access_flags=0, size=None, user_addr=None):
     """
     Creates a memory region using the aggregation object's PD.
     If size is None, the agr_obj's message size is used to set the MR's size.
@@ -378,11 +384,12 @@ def create_custom_mr(agr_obj, additional_access_flags=0, size=None):
     :param agr_obj: The aggregation object that creates the MR
     :param additional_access_flags: Addition access flags to set in the MR
     :param size: MR's length. If None, agr_obj.msg_size is used.
+    :param user_addr: The MR's buffer address. If None, the buffer will be allocated by pyverbs.
     """
     mr_length = size if size else agr_obj.msg_size
     try:
         return MR(agr_obj.pd, mr_length,
-                  e.IBV_ACCESS_LOCAL_WRITE | additional_access_flags)
+                  e.IBV_ACCESS_LOCAL_WRITE | additional_access_flags, address=user_addr)
     except PyverbsRDMAError as ex:
         if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest(f'Create custom mr with additional access flags {additional_access_flags} is not supported')
@@ -699,7 +706,7 @@ def send(agr_obj, send_object, send_op=None, new_send=False, qp_idx=0, ah=None, 
 
 
 def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
-            new_send=False, is_imm=False):
+            new_send=False, is_imm=False, force_page_faults=False):
     """
     Runs basic traffic between two sides
     :param client: client side, clients base class is BaseTraffic
@@ -711,6 +718,8 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
     :param send_op: The send_wr opcode.
     :param new_send: If True use new post send API.
     :param is_imm: If True, send with imm_data, relevant for old post send API.
+    :param force_page_faults: If True, use madvise to hint that we don't need the MR's buffer to
+                              force page faults (useful for ODP testing).
     :return:
     """
     if is_datagram_qp(client):
@@ -735,6 +744,9 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
     read_offset = GRH_SIZE if client.qp.qp_type == e.IBV_QPT_UD else 0
     for _ in range(iters):
         for qp_idx in range(server.qp_count):
+            if force_page_faults:
+                madvise(client.mr.buf, client.msg_size)
+                madvise(server.mr.buf, server.msg_size)
             if imm_data:
                 c_send_wr, c_sg = get_send_elements(client, False, opcode=e.IBV_WR_SEND_WITH_IMM)
             else:
@@ -848,6 +860,16 @@ def gen_geneve_header(vni=PacketConsts.GENEVE_VNI, oam=PacketConsts.GENEVE_OAM,
     :return: Geneve header
     """
     return struct.pack('!BBHL', (0 << 6) + 0, (oam << 7) + (0 << 6) + 0, proto, (vni << 8) + 0)
+
+def gen_bth_header(opcode=PacketConsts.BTH_OPCODE, dst_qp=PacketConsts.BTH_DST_QP):
+    """
+    Generates ROCE BTH header using the values from the PacketConst class by default.
+    :param opcode: BTH opcode
+    :param dst_qp: BTH dst QP
+    :return: ROCE BTH header
+    """
+    return struct.pack('!2BH2BH2L', opcode, 0, PacketConsts.BTH_PARTITION_KEY,
+                       PacketConsts.BTH_BECN << 6, dst_qp >> 16, dst_qp & 0xffff, 0, 0)
 
 
 def gen_packet(msg_size, l3=PacketConsts.IP_V4, l4=PacketConsts.UDP_PROTO, with_vlan=False, **kwargs):
@@ -1085,8 +1107,15 @@ def flush_traffic(client, server, iters, gid_idx, port, new_send=False,
     return wcs
 
 
+def prepare_validate_data(client=None, server=None):
+    if server:
+        server.mem_write('s' * server.msg_size, server.msg_size)
+    if client:
+        client.mem_write('c' * client.msg_size, client.msg_size)
+
+
 def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
-                 send_op=None):
+                 send_op=None, force_page_faults=False):
     """
     Runs basic RDMA traffic between two sides. No receive WQEs are posted. For
     RDMA send with immediate, use traffic().
@@ -1097,6 +1126,8 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
     :param port: IB port
     :param new_send: If True use new post send API.
     :param send_op: The send_wr opcode.
+    :param force_page_faults: If True, use madvise to hint that we don't need the MR's buffer to
+                              force page faults (useful for ODP testing).
     :return:
     """
     # Using the new post send API, we need the SGE, not the SendWR
@@ -1113,6 +1144,10 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
                                    e.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD,
                                    e.IBV_WR_RDMA_READ]
     for _ in range(iters):
+        if force_page_faults:
+            madvise(client.mr.buf, client.msg_size)
+            madvise(server.mr.buf, server.msg_size)
+        prepare_validate_data(client=client, server=server)
         c_send_wr = get_send_elements(client, False, send_op)[send_element_idx]
         send(client, c_send_wr, send_op, new_send, ah=ah_client)
         poll_cq(client.cq)
@@ -1123,8 +1158,7 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
         validate(msg_received, False if same_side_check else True,
                  server.msg_size)
         s_send_wr = get_send_elements(server, True, send_op)[send_element_idx]
-        if same_side_check:
-            client.mem_write('c' * client.msg_size, client.msg_size)
+        prepare_validate_data(client=client, server=server)
         send(server, s_send_wr, send_op, new_send, ah=ah_server)
         poll_cq(server.cq)
         if same_side_check:
@@ -1133,12 +1167,10 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
             msg_received = client.mem_read(server.msg_size)
         validate(msg_received, True if same_side_check else False,
                  client.msg_size)
-        if same_side_check:
-            server.mem_write('s' * server.msg_size, server.msg_size)
 
 
 def atomic_traffic(client, server, iters, gid_idx, port, new_send=False,
-                   send_op=None, receiver_val=1, sender_val=2):
+                   send_op=None, receiver_val=1, sender_val=2, **kwargs):
     """
     Runs atomic traffic between two sides.
     :param client: Client side, clients base class is BaseTraffic
@@ -1150,6 +1182,7 @@ def atomic_traffic(client, server, iters, gid_idx, port, new_send=False,
     :param send_op: The send_wr opcode.
     :param receiver_val: The requested value on the reciver MR.
     :param sender_val: The requested value on the sender SendWR.
+    :param kwargs: General arguments (shared with other traffic functions).
     """
     send_element_idx = 1 if new_send else 0
     for _ in range(iters):
@@ -1241,7 +1274,7 @@ def get_atomic_send_elements(agr_obj, opcode, cmp_add=0, swap=0):
     return send_wr, sge
 
 
-def xrc_traffic(client, server, is_cq_ex=False, send_op=None):
+def xrc_traffic(client, server, is_cq_ex=False, send_op=None, force_page_faults=False):
     """
     Runs basic xrc traffic, this function assumes that number of QPs, which
     server and client have are equal, server.send_qp[i] is connected to
@@ -1254,6 +1287,8 @@ def xrc_traffic(client, server, is_cq_ex=False, send_op=None):
     of XRCResources class
     :param is_cq_ex: If True, use poll_cq_ex() rather than poll_cq()
     :param send_op: If not None, new post send API is assumed.
+    :param force_page_faults: If True, use madvise to hint that we don't need the MR's buffer to
+                              force page faults (useful for ODP testing).
     :return: None
     """
     poll = poll_cq_ex if is_cq_ex else poll_cq
@@ -1267,6 +1302,9 @@ def xrc_traffic(client, server, is_cq_ex=False, send_op=None):
     send_element_idx = 1 if send_op else 0
     for _ in range(client.num_msgs):
         for i in range(server.qp_count):
+            if force_page_faults:
+                madvise(client.mr.buf, client.msg_size)
+                madvise(server.mr.buf, server.msg_size)
             c_send_wr = get_send_elements(client, False)[send_element_idx]
             if send_op is None:
                 c_send_wr.set_qp_type_xrc(client.remote_srqn)
@@ -1377,6 +1415,24 @@ def eswitch_mode_check(dev_name):
     except subprocess.CalledProcessError:
         raise unittest.SkipTest(eswicth_off_msg)
     return True
+
+
+def requires_roce_disabled(func):
+    def inner(instance):
+        if is_roce_enabled(instance.dev_name):
+            raise unittest.SkipTest('ROCE must be disabled')
+        return func(instance)
+    return inner
+
+
+def is_roce_enabled(dev_name):
+    pci_name = get_pci_name(dev_name)
+    cmd_out = subprocess.check_output(['devlink', 'dev', 'param', 'show', f'pci/{pci_name}',
+                                       'name', 'enable_roce'],
+                                      stderr=subprocess.DEVNULL)
+    if 'value true' in str(cmd_out):
+        return True
+    return False
 
 
 def requires_encap_disabled_if_eswitch_on(func):

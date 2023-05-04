@@ -1326,7 +1326,7 @@ class FlowTableEntryMatchSetMisc(Packet):
         BitField('gre_key_h', 0, 24),
         ByteField('gre_key_l', 0),
         BitField('vxlan_vni', 0, 24),
-        ByteField('reserved3', 0),
+        ByteField('bth_opcode', 0),
         BitField('geneve_vni', 0, 24),
         BitField('reserved4', 0, 7),
         BitField('geneve_oam', 0, 1),

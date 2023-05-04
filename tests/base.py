@@ -180,11 +180,18 @@ class RDMATestCase(unittest.TestCase):
             has_roce_hw_bug(vendor_id, vendor_pid)
 
     @staticmethod
-    def get_net_name(dev):
-        out = subprocess.check_output(['ls',
-                                       '/sys/class/infiniband/{}/device/net/'
-                                      .format(dev)])
-        return out.decode().split('\n')[0]
+    def get_net_name(dev, port=None):
+        if port is not None:
+            out = subprocess.check_output(['rdma', 'link',  'show', '-j'])
+            loaded_json = json.loads(out.decode())
+            for row in loaded_json:
+                if row['ifname'] == dev and row['port'] == port:
+                    net_name = row['netdev']
+                    break
+        else:
+            out = subprocess.check_output(['ls', f'/sys/class/infiniband/{dev}/device/net/'])
+            net_name = out.decode().split('\n')[0]
+        return net_name
 
     @staticmethod
     def get_ip_mac_address(ifname):
@@ -265,10 +272,13 @@ class RDMATestCase(unittest.TestCase):
         self._add_gids_per_port(ctx, dev, self.ib_port)
 
     def _get_ip_mac(self, dev, port, idx):
-        if not os.path.exists('/sys/class/infiniband/{}/device/net/'.format(dev)):
-            self.args.append([dev, port, idx, None, None])
-            return
-        net_name = self.get_net_name(dev)
+        try:
+            net_name = self.get_net_name(dev, port)
+        except KeyError:
+            if not os.path.exists(f'/sys/class/infiniband/{dev}/device/net/'):
+                self.args.append([dev, port, idx, None, None])
+                return
+            net_name = self.get_net_name(dev)
         try:
             ip_addr, mac_addr = self.get_ip_mac_address(net_name)
         except (KeyError, IndexError):

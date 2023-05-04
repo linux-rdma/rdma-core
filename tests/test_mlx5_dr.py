@@ -39,6 +39,7 @@ SET_ACTION = 0x1
 MAX_MATCH_PARAM_SIZE = 0x180
 PF_VPORT = 0x0
 GENEVE_PACKET_OUTER_LENGTH = 50
+ROCE_PACKET_OUTER_LENGTH = 58
 
 SAMPLER_ERROR_MARGIN = 0.2
 SAMPLE_RATIO = 4
@@ -372,6 +373,29 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         geneve_value.misc_parameters.geneve_oam = PacketConsts.GENEVE_OAM
         mask_param = Mlx5FlowMatchParameters(len(geneve_mask), geneve_mask)
         value_param = Mlx5FlowMatchParameters(len(geneve_value), geneve_value)
+        return mask_param, value_param
+
+    @staticmethod
+    def gen_roce_bth_header(msg_size):
+        mac_header = u.gen_ethernet_header()
+        ip_header = u.gen_ipv4_header(packet_len=msg_size + PacketConsts.UDP_HEADER_SIZE +
+                                      PacketConsts.BTH_HEADER_SIZE)
+        udp_header = u.gen_udp_header(packet_len=msg_size + PacketConsts.BTH_HEADER_SIZE,
+                                      dst_port=PacketConsts.ROCE_PORT)
+        bth_header = u.gen_bth_header()
+        return mac_header + ip_header + udp_header + bth_header
+
+    @staticmethod
+    def create_roce_bth_params():
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParam
+        roce_mask = FlowTableEntryMatchParam()
+        roce_mask.misc_parameters.bth_opcode = 0xff
+        roce_mask.misc_parameters.bth_dst_qp = 0xffffff
+        roce_value = FlowTableEntryMatchParam()
+        roce_value.misc_parameters.bth_opcode = PacketConsts.BTH_OPCODE
+        roce_value.misc_parameters.bth_dst_qp = PacketConsts.BTH_DST_QP
+        mask_param = Mlx5FlowMatchParameters(len(roce_mask), roce_mask)
+        value_param = Mlx5FlowMatchParameters(len(roce_value), roce_value)
         return mask_param, value_param
 
     def create_empty_matcher_go_to_tbl(self, src_tbl, dst_tbl):
@@ -896,6 +920,71 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         recv_packets_tx = self.query_counter_packets(counter, flow_counter_id)
         self.assertEqual(recv_packets_tx, self.iters,
                          'Counter tx counts more than expected recv packets')
+
+    def roce_bth_match(self, domain_flag=dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX):
+        """
+        Creates RoCE BTH rule on RX/TX domain. For RX domain, will match on BTH related
+        fields with counter and qp action. For TX domain, will match on BTH relate fields
+        with counter action. And then generate and send RoCE BTH hit and miss traffic according
+        to the matcher and validate the result.
+        :param domain_flag: RX/TX Domain for the test.
+        """
+        from tests.mlx5_prm_structs import FlowTableEntryMatchParam
+        self.create_players(Mlx5DrResources)
+        roce_bth_mask, roce_bth_val = self.create_roce_bth_params()
+        empty_param = Mlx5FlowMatchParameters(len(FlowTableEntryMatchParam()),
+                                              FlowTableEntryMatchParam())
+        self.domain = DrDomain(self.server.ctx, domain_flag)
+        root_table = DrTable(self.domain, 0)
+        root_matcher = DrMatcher(root_table, 0, u.MatchCriteriaEnable.NONE, empty_param)
+        table = DrTable(self.domain, 1)
+        self.matcher = DrMatcher(table, 1, u.MatchCriteriaEnable.MISC, roce_bth_mask)
+        if domain_flag == dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX:
+            counter, flow_counter_id = self.create_counter(self.server.ctx)
+        else:
+            counter, flow_counter_id = self.create_counter(self.client.ctx)
+        self.dest_tbl_action = DrActionDestTable(table)
+        self.qp_action = DrActionQp(self.server.qp)
+        self.counter_action = DrActionFlowCounter(counter)
+        self.rules.append(DrRule(root_matcher, empty_param, [self.dest_tbl_action]))
+        if domain_flag == dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX:
+            self.rules.append(DrRule(self.matcher, roce_bth_val, [self.qp_action, self.counter_action]))
+        else:
+            self.rules.append(DrRule(self.matcher, roce_bth_val, [self.counter_action]))
+        if domain_flag == dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX:
+            domain_rx = DrDomain(self.server.ctx, dve.MLX5DV_DR_DOMAIN_TYPE_NIC_RX)
+            self.create_rx_recv_rules_based_on_match_params\
+                (empty_param, empty_param, [self.qp_action],
+                match_criteria=u.MatchCriteriaEnable.NONE, domain=domain_rx)
+        inner_msg_size = self.client.msg_size - ROCE_PACKET_OUTER_LENGTH
+        outer = self.gen_roce_bth_header(inner_msg_size)
+        packet_to_send = outer + u.gen_packet(msg_size=inner_msg_size)
+        # Send traffic hit the rule and validate by the counter action
+        u.raw_traffic(self.client, self.server, self.iters, packet_to_send=packet_to_send)
+        recv_packets = self.query_counter_packets(counter, flow_counter_id)
+        self.assertEqual(recv_packets, self.iters, 'Counter missed some recv packets')
+        # Send traffic miss the rule and validate by the counter action
+        src_mac = struct.pack('!6s', bytes.fromhex(PacketConsts.SRC_MAC.replace(':', '')))
+        self.send_client_raw_packets(self.iters, src_mac=src_mac)
+        recv_packets = self.query_counter_packets(counter, flow_counter_id)
+        self.assertEqual(recv_packets, self.iters,
+                         'Counter counts more than expected recv packets')
+
+    @u.requires_roce_disabled
+    @skip_unsupported
+    def test_roce_bth_match_rx(self):
+        """
+        Verify RX matching on RoCE BTH.
+        """
+        self.roce_bth_match()
+
+    @u.requires_roce_disabled
+    @skip_unsupported
+    def test_roce_bth_match_tx(self):
+        """
+        Verify TX matching on RoCE BTH.
+        """
+        self.roce_bth_match(domain_flag=dve.MLX5DV_DR_DOMAIN_TYPE_NIC_TX)
 
     @requires_reformat_support
     @skip_unsupported
