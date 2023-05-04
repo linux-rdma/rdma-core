@@ -281,7 +281,7 @@ class DMTest(PyverbsAPITestCase):
         """
         test ibv_alloc_dm()
         """
-        dm_len = random.randrange(u.MIN_DM_SIZE, self.attr_ex.max_dm_size/2,
+        dm_len = random.randrange(u.MIN_DM_SIZE, int(self.attr_ex.max_dm_size/2),
                                   u.DM_ALIGNMENT)
         dm_attrs = u.get_dm_attrs(dm_len)
         with d.DM(self.ctx, dm_attrs):
@@ -291,7 +291,7 @@ class DMTest(PyverbsAPITestCase):
         """
         test ibv_free_dm()
         """
-        dm_len = random.randrange(u.MIN_DM_SIZE, self.attr_ex.max_dm_size/2,
+        dm_len = random.randrange(u.MIN_DM_SIZE, int(self.attr_ex.max_dm_size/2),
                                   u.DM_ALIGNMENT)
         dm_attrs = u.get_dm_attrs(dm_len)
         dm = d.DM(self.ctx, dm_attrs)
@@ -327,7 +327,7 @@ class DMTest(PyverbsAPITestCase):
         """
         Test calling ibv_free_dm() twice
         """
-        dm_len = random.randrange(u.MIN_DM_SIZE, self.attr_ex.max_dm_size/2,
+        dm_len = random.randrange(u.MIN_DM_SIZE, int(self.attr_ex.max_dm_size/2),
                                   u.DM_ALIGNMENT)
         dm_attrs = u.get_dm_attrs(dm_len)
         dm = d.DM(self.ctx, dm_attrs)
@@ -338,7 +338,7 @@ class DMTest(PyverbsAPITestCase):
         """
         Test writing to the device memory
         """
-        dm_len = random.randrange(u.MIN_DM_SIZE, self.attr_ex.max_dm_size/2,
+        dm_len = random.randrange(u.MIN_DM_SIZE, int(self.attr_ex.max_dm_size/2),
                                   u.DM_ALIGNMENT)
         dm_attrs = u.get_dm_attrs(dm_len)
         with d.DM(self.ctx, dm_attrs) as dm:
@@ -352,7 +352,7 @@ class DMTest(PyverbsAPITestCase):
         """
         Test writing to the device memory with bad offset and length
         """
-        dm_len = random.randrange(u.MIN_DM_SIZE, self.attr_ex.max_dm_size/2,
+        dm_len = random.randrange(u.MIN_DM_SIZE, int(self.attr_ex.max_dm_size/2),
                                   u.DM_ALIGNMENT)
         dm_attrs = u.get_dm_attrs(dm_len)
         with d.DM(self.ctx, dm_attrs) as dm:
@@ -373,7 +373,7 @@ class DMTest(PyverbsAPITestCase):
         """
         Test reading from the device memory
         """
-        dm_len = random.randrange(u.MIN_DM_SIZE, self.attr_ex.max_dm_size/2,
+        dm_len = random.randrange(u.MIN_DM_SIZE, int(self.attr_ex.max_dm_size/2),
                                   u.DM_ALIGNMENT)
         dm_attrs = u.get_dm_attrs(dm_len)
         with d.DM(self.ctx, dm_attrs) as dm:
