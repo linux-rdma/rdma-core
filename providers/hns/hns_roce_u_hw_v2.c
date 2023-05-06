@@ -860,7 +860,7 @@ static int fill_ext_sge_inl_data(struct hns_roce_qp *qp,
 		return EINVAL;
 
 	dst_addr = get_send_sge_ex(qp, sge_info->start_idx & sge_mask);
-	tail_bound_addr = get_send_sge_ex(qp, qp->ex_sge.sge_cnt & sge_mask);
+	tail_bound_addr = get_send_sge_ex(qp, qp->ex_sge.sge_cnt);
 
 	for (i = 0; i < num_buf; i++) {
 		tail_len = (uintptr_t)tail_bound_addr - (uintptr_t)dst_addr;
