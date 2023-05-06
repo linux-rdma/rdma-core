@@ -105,6 +105,9 @@ static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	void *buf[ATOMIC_BUF_NUM_MAX];
 	unsigned int buf_sge_num;
 
+	/* There is only one sge in atomic wr, and data_len is the data length
+	 * in the first sge
+	 */
 	if (is_std_atomic(data_len)) {
 		if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
 			aseg->fetchadd_swap_data = htole64(wr->wr.atomic.swap);
@@ -755,16 +758,19 @@ static void set_rc_sge(struct hns_roce_v2_wqe_data_seg *dseg,
 	uint32_t mask = qp->ex_sge.sge_cnt - 1;
 	uint32_t index = sge_info->start_idx;
 	struct ibv_sge *sge = wr->sg_list;
+	int total_sge = wr->num_sge;
+	bool flag = false;
 	uint32_t len = 0;
 	uint32_t cnt = 0;
-	int flag;
 	int i;
 
-	flag = (wr->send_flags & IBV_SEND_INLINE &&
-		wr->opcode != IBV_WR_ATOMIC_FETCH_AND_ADD &&
-		wr->opcode != IBV_WR_ATOMIC_CMP_AND_SWP);
+	if (wr->opcode == IBV_WR_ATOMIC_FETCH_AND_ADD ||
+	    wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP)
+		total_sge = 1;
+	else
+		flag = !!(wr->send_flags & IBV_SEND_INLINE);
 
-	for (i = 0; i < wr->num_sge; i++, sge++) {
+	for (i = 0; i < total_sge; i++, sge++) {
 		if (unlikely(!sge->length))
 			continue;
 
@@ -2043,6 +2049,7 @@ static void wr_set_sge_list_rc(struct ibv_qp_ex *ibv_qp, size_t num_sge,
 	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
 	struct hns_roce_rc_sq_wqe *wqe = qp->cur_wqe;
 	struct hns_roce_v2_wqe_data_seg *dseg;
+	uint32_t opcode;
 
 	if (!wqe)
 		return;
@@ -2052,8 +2059,14 @@ static void wr_set_sge_list_rc(struct ibv_qp_ex *ibv_qp, size_t num_sge,
 		return;
 	}
 
+
 	hr_reg_write(wqe, RCWQE_MSG_START_SGE_IDX,
 		     qp->sge_info.start_idx & (qp->ex_sge.sge_cnt - 1));
+
+	opcode = hr_reg_read(wqe, RCWQE_OPCODE);
+	if (opcode == HNS_ROCE_WQE_OP_ATOMIC_COM_AND_SWAP ||
+	    opcode == HNS_ROCE_WQE_OP_ATOMIC_FETCH_AND_ADD)
+		num_sge = 1;
 
 	dseg = (void *)(wqe + 1);
 	set_sgl_rc(dseg, qp, sg_list, num_sge);
