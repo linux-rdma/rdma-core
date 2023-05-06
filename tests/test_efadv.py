@@ -107,7 +107,9 @@ class EfaQPExTest(EfaAPITestCase):
 def get_random_send_op_flags():
     send_ops_flags = [e.IBV_QP_EX_WITH_SEND,
                       e.IBV_QP_EX_WITH_SEND_WITH_IMM,
-                      e.IBV_QP_EX_WITH_RDMA_READ]
+                      e.IBV_QP_EX_WITH_RDMA_READ,
+                      e.IBV_QP_EX_WITH_RDMA_WRITE,
+                      e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM]
     selected = u.sample(send_ops_flags)
     selected_ops_flags = 0
     for s in selected:
