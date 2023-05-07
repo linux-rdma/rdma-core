@@ -967,17 +967,17 @@ int efa_destroy_cq(struct ibv_cq *ibvcq)
 	struct efa_cq *cq = to_efa_cq(ibvcq);
 	int err;
 
-	munmap(cq->db, to_efa_dev(cq->verbs_cq.cq.context->device)->pg_sz);
-	munmap(cq->buf, cq->buf_size);
-
-	pthread_spin_destroy(&cq->lock);
-
 	err = ibv_cmd_destroy_cq(ibvcq);
 	if (err) {
 		verbs_err(verbs_get_ctx(ibvcq->context),
 			  "Failed to destroy CQ[%u]\n", cq->cqn);
 		return err;
 	}
+
+	munmap(cq->db, to_efa_dev(cq->verbs_cq.cq.context->device)->pg_sz);
+	munmap(cq->buf, cq->buf_size);
+
+	pthread_spin_destroy(&cq->lock);
 
 	free(cq);
 
@@ -1593,6 +1593,13 @@ int efa_destroy_qp(struct ibv_qp *ibvqp)
 	struct efa_qp *qp = to_efa_qp(ibvqp);
 	int err;
 
+	err = ibv_cmd_destroy_qp(ibvqp);
+	if (err) {
+		verbs_err(&ctx->ibvctx, "Failed to destroy QP[%u]\n",
+			  ibvqp->qp_num);
+		return err;
+	}
+
 	pthread_spin_lock(&ctx->qp_table_lock);
 	efa_lock_cqs(ibvqp);
 
@@ -1606,13 +1613,6 @@ int efa_destroy_qp(struct ibv_qp *ibvqp)
 
 	efa_sq_terminate(qp);
 	efa_rq_terminate(qp);
-
-	err = ibv_cmd_destroy_qp(ibvqp);
-	if (err) {
-		verbs_err(&ctx->ibvctx, "Failed to destroy QP[%u]\n",
-			  ibvqp->qp_num);
-		return err;
-	}
 
 	free(qp);
 	return 0;
