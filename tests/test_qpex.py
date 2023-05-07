@@ -115,7 +115,12 @@ class QpExRCFlush(RCResources):
         create_qp_ex(self, e.IBV_QPT_RC, e.IBV_QP_EX_WITH_FLUSH | e.IBV_QP_EX_WITH_RDMA_WRITE)
 
     def create_mr(self):
-        self.mr = u.create_custom_mr(self, e.IBV_ACCESS_FLUSH_GLOBAL | e.IBV_ACCESS_REMOTE_WRITE)
+        try:
+            self.mr = u.create_custom_mr(self, e.IBV_ACCESS_FLUSH_GLOBAL | e.IBV_ACCESS_REMOTE_WRITE)
+        except PyverbsRDMAError as ex:
+            if ex.error_code == errno.EINVAL:
+                    raise unittest.SkipTest('Create mr with IBV_ACCESS_FLUSH_GLOBAL access flag is not supported in kernel')
+            raise ex
 
 
 class QpExRCAtomicWrite(RCResources):
