@@ -185,13 +185,17 @@ class RDMATestCase(unittest.TestCase):
             out = subprocess.check_output(['rdma', 'link',  'show', '-j'])
             loaded_json = json.loads(out.decode())
             for row in loaded_json:
-                if row['ifname'] == dev and row['port'] == port:
-                    net_name = row['netdev']
-                    break
-        else:
-            out = subprocess.check_output(['ls', f'/sys/class/infiniband/{dev}/device/net/'])
-            net_name = out.decode().split('\n')[0]
-        return net_name
+                try:
+                    if row['ifname'] == dev and row['port'] == port:
+                        return row['netdev']
+                except KeyError:
+                    pass
+
+        if not os.path.exists(f'/sys/class/infiniband/{dev}/device/net/'):
+            return None
+
+        out = subprocess.check_output(['ls', f'/sys/class/infiniband/{dev}/device/net/'])
+        return out.decode().split('\n')[0]
 
     @staticmethod
     def get_ip_mac_address(ifname):
@@ -272,13 +276,10 @@ class RDMATestCase(unittest.TestCase):
         self._add_gids_per_port(ctx, dev, self.ib_port)
 
     def _get_ip_mac(self, dev, port, idx):
-        try:
-            net_name = self.get_net_name(dev, port)
-        except KeyError:
-            if not os.path.exists(f'/sys/class/infiniband/{dev}/device/net/'):
-                self.args.append([dev, port, idx, None, None])
-                return
-            net_name = self.get_net_name(dev)
+        net_name = self.get_net_name(dev, port)
+        if net_name is None:
+            self.args.append([dev, port, idx, None, None])
+            return
         try:
             ip_addr, mac_addr = self.get_ip_mac_address(net_name)
         except (KeyError, IndexError):
