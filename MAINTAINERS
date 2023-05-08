@@ -57,7 +57,7 @@ S:	Supported
 F:	providers/cxgb4/
 
 EFA USERSPACE PROVIDER (for efa.ko)
-M:	Gal Pressman <galpress@amazon.com>
+M:	Michael Margolin <mrgolin@amazon.com>
 S:	Supported
 F:	providers/efa/
 
