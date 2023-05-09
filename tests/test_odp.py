@@ -134,9 +134,9 @@ class OdpTestCase(RDMATestCase):
         Sync the MR remote attributes between the server and the client.
         """
         self.server.rkey = self.client.mr.rkey
-        self.server.remote_addr = self.server.raddr = self.client.mr.buf
+        self.server.raddr = self.server.raddr = self.client.mr.buf
         self.client.rkey = self.server.mr.rkey
-        self.client.remote_addr = self.client.raddr = self.server.mr.buf
+        self.client.raddr = self.client.raddr = self.server.mr.buf
 
     def tearDown(self):
         if self.server and self.server.user_addr:

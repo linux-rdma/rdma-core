@@ -93,9 +93,9 @@ class DmabufCudaTest(RDMATestCase):
         Exchange the MR remote attributes between the server and the client.
         """
         self.server.rkey = self.client.mr.rkey
-        self.server.remote_addr = self.client.mr.buf
+        self.server.raddr = self.client.mr.buf
         self.client.rkey = self.server.mr.rkey
-        self.client.remote_addr = self.server.mr.buf
+        self.client.raddr = self.server.mr.buf
 
     def test_cuda_dmabuf_rdma_write_traffic(self):
         """

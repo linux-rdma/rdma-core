@@ -97,9 +97,9 @@ class MRTest(RDMATestCase):
         Exchange the MR remote attributes between the server and the client.
         """
         self.server.rkey = self.client.mr.rkey
-        self.server.remote_addr = self.client.mr.buf
+        self.server.raddr = self.client.mr.buf
         self.client.rkey = self.server.mr.rkey
-        self.client.remote_addr = self.server.mr.buf
+        self.client.raddr = self.server.mr.buf
 
     def restate_qps(self):
         """
@@ -261,9 +261,9 @@ class MWTest(RDMATestCase):
         u.poll_cq(self.server.cq)
         u.poll_cq(self.client.cq)
         self.server.rkey = self.client.mw.rkey
-        self.server.remote_addr = self.client.mr.buf
+        self.server.raddr = self.client.mr.buf
         self.client.rkey = self.server.mw.rkey
-        self.client.remote_addr = self.server.mr.buf
+        self.client.raddr = self.server.mr.buf
 
     def bind_mw_type_2(self):
         client_send_wr = SendWR(opcode=e.IBV_WR_BIND_MW)
@@ -276,9 +276,9 @@ class MWTest(RDMATestCase):
         u.poll_cq(self.server.cq)
         u.poll_cq(self.client.cq)
         self.server.rkey = client_send_wr.rkey
-        self.server.remote_addr = self.client.mr.buf
+        self.server.raddr = self.client.mr.buf
         self.client.rkey = server_send_wr.rkey
-        self.client.remote_addr = self.server.mr.buf
+        self.client.raddr = self.server.mr.buf
 
     def invalidate_mw_type1(self):
         """
@@ -686,9 +686,9 @@ class DmaBufTestCase(RDMATestCase):
         client, server = self.create_players(DmaBufRC, gpu=self.gpu,
                                              gtt=self.gtt)
         server.rkey = client.mr.rkey
-        server.remote_addr = client.mr.offset
+        server.raddr = client.mr.offset
         client.rkey = server.mr.rkey
-        client.remote_addr = server.mr.offset
+        client.raddr = server.mr.offset
         u.rdma_traffic(client, server, self.iters, self.gid_index, self.ib_port,
                        send_op=e.IBV_WR_RDMA_WRITE)
 
@@ -767,9 +767,9 @@ class DeviceMemoryTest(RDMATestCase):
         Exchange the MR remote attributes between the server and the client.
         """
         self.server.rkey = self.client.mr.rkey
-        self.server.remote_addr = self.client.mr.buf
+        self.server.raddr = self.client.mr.buf
         self.client.rkey = self.server.mr.rkey
-        self.client.remote_addr = self.server.mr.buf
+        self.client.raddr = self.server.mr.buf
 
     def test_dm_traffic(self):
         self.create_players(DeviceMemoryRes)

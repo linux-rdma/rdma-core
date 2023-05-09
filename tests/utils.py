@@ -417,7 +417,7 @@ def get_send_elements(agr_obj, is_server, opcode=e.IBV_WR_SEND):
     sge = SGE(agr_obj.mr.buf + offset, agr_obj.msg_size, agr_obj.mr_lkey)
     send_wr = SendWR(opcode=opcode, num_sge=1, sg=[sge])
     if opcode in [e.IBV_WR_RDMA_WRITE, e.IBV_WR_RDMA_WRITE_WITH_IMM, e.IBV_WR_RDMA_READ]:
-        send_wr.set_wr_rdma(int(agr_obj.rkey), int(agr_obj.remote_addr))
+        send_wr.set_wr_rdma(int(agr_obj.rkey), int(agr_obj.raddr))
     return send_wr, sge
 
 def get_recv_wr(agr_obj):
