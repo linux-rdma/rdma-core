@@ -45,7 +45,6 @@ import inspect
 import json
 import multiprocessing
 import os
-import pipes
 import pwd
 import re
 import shutil
