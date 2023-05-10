@@ -50,7 +50,6 @@ static const uint32_t hns_roce_opcode[] = {
 	HR_IBV_OPC_MAP(RDMA_READ,		RDMA_READ),
 	HR_IBV_OPC_MAP(ATOMIC_CMP_AND_SWP,	ATOMIC_COM_AND_SWAP),
 	HR_IBV_OPC_MAP(ATOMIC_FETCH_AND_ADD,	ATOMIC_FETCH_AND_ADD),
-	HR_IBV_OPC_MAP(LOCAL_INV,		LOCAL_INV),
 	HR_IBV_OPC_MAP(BIND_MW,			BIND_MW_TYPE),
 	HR_IBV_OPC_MAP(SEND_WITH_INV,		SEND_WITH_INV),
 };
@@ -106,6 +105,9 @@ static int set_atomic_seg(struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 	void *buf[ATOMIC_BUF_NUM_MAX];
 	unsigned int buf_sge_num;
 
+	/* There is only one sge in atomic wr, and data_len is the data length
+	 * in the first sge
+	 */
 	if (is_std_atomic(data_len)) {
 		if (wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP) {
 			aseg->fetchadd_swap_data = htole64(wr->wr.atomic.swap);
@@ -383,7 +385,6 @@ static const unsigned int wc_send_op_map[] = {
 	[HNS_ROCE_SQ_OP_RDMA_READ] = IBV_WC_RDMA_READ,
 	[HNS_ROCE_SQ_OP_ATOMIC_COMP_AND_SWAP] = IBV_WC_COMP_SWAP,
 	[HNS_ROCE_SQ_OP_ATOMIC_FETCH_AND_ADD] = IBV_WC_FETCH_ADD,
-	[HNS_ROCE_SQ_OP_LOCAL_INV] = IBV_WC_LOCAL_INV,
 	[HNS_ROCE_SQ_OP_BIND_MW] = IBV_WC_BIND_MW,
 };
 
@@ -548,9 +549,6 @@ static void parse_cqe_for_req(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc,
 	case HNS_ROCE_SQ_OP_SEND_WITH_IMM:
 	case HNS_ROCE_SQ_OP_RDMA_WRITE_WITH_IMM:
 		wc->wc_flags = IBV_WC_WITH_IMM;
-		break;
-	case HNS_ROCE_SQ_OP_LOCAL_INV:
-		wc->wc_flags = IBV_WC_WITH_INV;
 		break;
 	case HNS_ROCE_SQ_OP_RDMA_READ:
 	case HNS_ROCE_SQ_OP_ATOMIC_COMP_AND_SWAP:
@@ -783,16 +781,19 @@ static void set_rc_sge(struct hns_roce_v2_wqe_data_seg *dseg,
 	uint32_t mask = qp->ex_sge.sge_cnt - 1;
 	uint32_t index = sge_info->start_idx;
 	struct ibv_sge *sge = wr->sg_list;
+	int total_sge = wr->num_sge;
+	bool flag = false;
 	uint32_t len = 0;
 	uint32_t cnt = 0;
-	int flag;
 	int i;
 
-	flag = (wr->send_flags & IBV_SEND_INLINE &&
-		wr->opcode != IBV_WR_ATOMIC_FETCH_AND_ADD &&
-		wr->opcode != IBV_WR_ATOMIC_CMP_AND_SWP);
+	if (wr->opcode == IBV_WR_ATOMIC_FETCH_AND_ADD ||
+	    wr->opcode == IBV_WR_ATOMIC_CMP_AND_SWP)
+		total_sge = 1;
+	else
+		flag = !!(wr->send_flags & IBV_SEND_INLINE);
 
-	for (i = 0; i < wr->num_sge; i++, sge++) {
+	for (i = 0; i < total_sge; i++, sge++) {
 		if (unlikely(!sge->length))
 			continue;
 
@@ -882,7 +883,7 @@ static int fill_ext_sge_inl_data(struct hns_roce_qp *qp,
 		return EINVAL;
 
 	dst_addr = get_send_sge_ex(qp, sge_info->start_idx & sge_mask);
-	tail_bound_addr = get_send_sge_ex(qp, qp->ex_sge.sge_cnt & sge_mask);
+	tail_bound_addr = get_send_sge_ex(qp, qp->ex_sge.sge_cnt);
 
 	for (i = 0; i < num_buf; i++) {
 		tail_len = (uintptr_t)tail_bound_addr - (uintptr_t)dst_addr;
@@ -1181,9 +1182,6 @@ static int check_rc_opcode(struct hns_roce_rc_sq_wqe *wqe,
 		wqe->rkey = htole32(wr->wr.atomic.rkey);
 		wqe->va = htole64(wr->wr.atomic.remote_addr);
 		break;
-	case IBV_WR_LOCAL_INV:
-		hr_reg_enable(wqe, RCWQE_SO);
-		/* fallthrough */
 	case IBV_WR_SEND_WITH_INV:
 		wqe->inv_key = htole32(wr->invalidate_rkey);
 		break;
@@ -1215,7 +1213,6 @@ static int set_rc_wqe(void *wqe, struct hns_roce_qp *qp, struct ibv_send_wr *wr,
 			  !!(wr->send_flags & IBV_SEND_SOLICITED));
 	hr_reg_write_bool(wqe, RCWQE_INLINE,
 			  !!(wr->send_flags & IBV_SEND_INLINE));
-	hr_reg_clear(wqe, RCWQE_SO);
 
 	ret = check_rc_opcode(rc_sq_wqe, wr);
 	if (ret)
@@ -1890,8 +1887,6 @@ static unsigned int get_wc_flags_for_sq(uint8_t opcode)
 	case HNS_ROCE_SQ_OP_SEND_WITH_IMM:
 	case HNS_ROCE_SQ_OP_RDMA_WRITE_WITH_IMM:
 		return IBV_WC_WITH_IMM;
-	case HNS_ROCE_SQ_OP_LOCAL_INV:
-		return IBV_WC_WITH_INV;
 	default:
 		return 0;
 	}
@@ -2000,7 +1995,6 @@ init_rc_wqe(struct hns_roce_qp *qp, uint64_t wr_id, unsigned int opcode)
 	hr_reg_write_bool(wqe, RCWQE_FENCE, send_flags & IBV_SEND_FENCE);
 	hr_reg_write_bool(wqe, RCWQE_SE, send_flags & IBV_SEND_SOLICITED);
 	hr_reg_clear(wqe, RCWQE_INLINE);
-	hr_reg_clear(wqe, RCWQE_SO);
 
 	qp->sq.wrid[wqe_idx] = wr_id;
 	qp->cur_wqe = wqe;
@@ -2068,6 +2062,7 @@ static void wr_set_sge_list_rc(struct ibv_qp_ex *ibv_qp, size_t num_sge,
 	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
 	struct hns_roce_rc_sq_wqe *wqe = qp->cur_wqe;
 	struct hns_roce_v2_wqe_data_seg *dseg;
+	uint32_t opcode;
 
 	if (!wqe)
 		return;
@@ -2077,8 +2072,14 @@ static void wr_set_sge_list_rc(struct ibv_qp_ex *ibv_qp, size_t num_sge,
 		return;
 	}
 
+
 	hr_reg_write(wqe, RCWQE_MSG_START_SGE_IDX,
 		     qp->sge_info.start_idx & (qp->ex_sge.sge_cnt - 1));
+
+	opcode = hr_reg_read(wqe, RCWQE_OPCODE);
+	if (opcode == HNS_ROCE_WQE_OP_ATOMIC_COM_AND_SWAP ||
+	    opcode == HNS_ROCE_WQE_OP_ATOMIC_FETCH_AND_ADD)
+		num_sge = 1;
 
 	dseg = (void *)(wqe + 1);
 	set_sgl_rc(dseg, qp, sg_list, num_sge);
@@ -2118,20 +2119,6 @@ static void wr_send_inv_rc(struct ibv_qp_ex *ibv_qp, uint32_t invalidate_rkey)
 		return;
 
 	wqe->inv_key = htole32(invalidate_rkey);
-}
-
-static void wr_local_inv_rc(struct ibv_qp_ex *ibv_qp, uint32_t invalidate_rkey)
-{
-	struct hns_roce_qp *qp = to_hr_qp(&ibv_qp->qp_base);
-	struct hns_roce_rc_sq_wqe *wqe;
-
-	wqe = init_rc_wqe(qp, ibv_qp->wr_id, HNS_ROCE_WQE_OP_LOCAL_INV);
-	if (!wqe)
-		return;
-
-	hr_reg_enable(wqe, RCWQE_SO);
-	wqe->inv_key = htole32(invalidate_rkey);
-	enable_wqe(qp, wqe, qp->sq.head);
 }
 
 static void wr_set_xrc_srqn(struct ibv_qp_ex *ibv_qp, uint32_t remote_srqn)
@@ -2604,8 +2591,7 @@ enum {
 		IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM |
 		IBV_QP_EX_WITH_RDMA_READ |
 		IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP |
-		IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD |
-		IBV_QP_EX_WITH_LOCAL_INV,
+		IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD,
 	HNS_SUPPORTED_SEND_OPS_FLAGS_UD =
 		IBV_QP_EX_WITH_SEND |
 		IBV_QP_EX_WITH_SEND_WITH_IMM,
@@ -2621,7 +2607,6 @@ static void fill_send_wr_ops_rc_xrc(struct ibv_qp_ex *qp_ex)
 	qp_ex->wr_rdma_write_imm = wr_rdma_write_imm;
 	qp_ex->wr_set_inline_data = wr_set_inline_data_rc;
 	qp_ex->wr_set_inline_data_list = wr_set_inline_data_list_rc;
-	qp_ex->wr_local_inv = wr_local_inv_rc;
 	qp_ex->wr_atomic_cmp_swp = wr_atomic_cmp_swp;
 	qp_ex->wr_atomic_fetch_add = wr_atomic_fetch_add;
 	qp_ex->wr_set_sge = wr_set_sge_rc;
