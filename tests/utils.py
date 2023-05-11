@@ -745,10 +745,7 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=e.IBV_
             if force_page_faults:
                 madvise(client.mr.buf, client.msg_size)
                 madvise(server.mr.buf, server.msg_size)
-            if imm_data:
-                c_send_wr, c_sg = get_send_elements(client, False, opcode=e.IBV_WR_SEND_WITH_IMM)
-            else:
-                c_send_wr, c_sg = get_send_elements(client, False)
+            c_send_wr, c_sg = get_send_elements(client, False, send_op)
             if client.use_mr_prefetch:
                 flags = e._IBV_ADVISE_MR_FLAG_FLUSH
                 if client.use_mr_prefetch == 'async':
@@ -763,10 +760,7 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=e.IBV_
             post_recv(server, s_recv_wr, qp_idx=qp_idx)
             msg_received = server.mr.read(server.msg_size, read_offset)
             validate(msg_received, True, server.msg_size)
-            if imm_data:
-                s_send_wr, s_sg = get_send_elements(server, True, opcode=e.IBV_WR_SEND_WITH_IMM)
-            else:
-                s_send_wr, s_sg = get_send_elements(server, True)
+            s_send_wr, s_sg = get_send_elements(server, True, send_op)
             if server.use_mr_prefetch:
                 flags = e._IBV_ADVISE_MR_FLAG_FLUSH
                 if server.use_mr_prefetch == 'async':
