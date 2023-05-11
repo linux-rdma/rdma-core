@@ -241,4 +241,4 @@ class DvCqTest(Mlx5RDMATestCase):
                 self.set_env_variable('MLX5_SCATTER_TO_CQE', s2c_env_val)
                 self.create_players(Mlx5DvCqDcRes, create_flags=qp_s2c_value)
                 u.traffic(**self.traffic_args, new_send=True,
-                          send_op=e.IBV_QP_EX_WITH_SEND, is_cq_ex=True)
+                          send_op=e.IBV_WR_SEND, is_cq_ex=True)

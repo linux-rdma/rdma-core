@@ -92,4 +92,4 @@ class SharedPDTestCase(RDMATestCase):
         client.raddr = server_import.mr.buf
         server_import.raddr = client.mr.buf
         u.rdma_traffic(client, server_import, self.iters, self.gid_index,
-                       self.ib_port, send_op=e.IBV_QP_EX_WITH_RDMA_WRITE, new_send=True)
+                       self.ib_port, send_op=e.IBV_WR_RDMA_WRITE, new_send=True)
