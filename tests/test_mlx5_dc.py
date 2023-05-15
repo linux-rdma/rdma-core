@@ -75,6 +75,15 @@ class DCTest(Mlx5RDMATestCase):
         u.traffic(**self.traffic_args, new_send=True,
                   send_op=e.IBV_WR_SEND)
 
+    def test_dc_atomic(self):
+        self.create_players(Mlx5DcResources, qp_count=2,
+                            send_ops_flags=e.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD)
+        client_max_log = self.client.ctx.query_mlx5_device().max_dc_rd_atom
+        server_max_log = self.server.ctx.query_mlx5_device().max_dc_rd_atom
+        u.atomic_traffic(**self.traffic_args, new_send=True,
+                         send_op=e.IBV_WR_ATOMIC_FETCH_AND_ADD,
+                         client_wr=client_max_log, server_wr=server_max_log)
+
     def test_dc_ah_to_qp_mapping(self):
         self.create_players(Mlx5DcResources, qp_count=2,
                             send_ops_flags=e.IBV_QP_EX_WITH_SEND)

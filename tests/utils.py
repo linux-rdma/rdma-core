@@ -1165,7 +1165,8 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
 
 
 def atomic_traffic(client, server, iters, gid_idx, port, new_send=False,
-                   send_op=None, receiver_val=1, sender_val=2, swap=0, **kwargs):
+                   send_op=None, receiver_val=1, sender_val=2, swap=0,
+                   client_wr=1, server_wr=1, **kwargs):
     """
     Runs atomic traffic between two sides.
     :param client: Client side, clients base class is BaseTraffic
@@ -1177,31 +1178,48 @@ def atomic_traffic(client, server, iters, gid_idx, port, new_send=False,
     :param send_op: The send_wr opcode.
     :param receiver_val: The requested value on the reciver MR.
     :param sender_val: The requested value on the sender SendWR.
+    :param client_wr: Number of WR the client will post before polling all of them
+    :param server_wr: Number of WR the server will post before polling all of them
     :param kwargs: General arguments (shared with other traffic functions).
     """
     send_element_idx = 1 if new_send else 0
+    if is_datagram_qp(client):
+        ah_client = get_global_ah(client, gid_idx, port)
+        ah_server = get_global_ah(server, gid_idx, port)
+    else:
+        ah_client = None
+        ah_server = None
+
     for _ in range(iters):
         client.mr.write(int.to_bytes(sender_val, 1, byteorder='big') * 8, 8)
         server.mr.write(int.to_bytes(receiver_val, 1, byteorder='big') * 8, 8)
-        c_send_wr = get_atomic_send_elements(client, send_op,
-                                             cmp_add=sender_val,
-                                             swap=swap)[send_element_idx]
-        if isinstance(server, XRCResources):
-            c_send_wr.set_qp_type_xrc(server.srq.get_srq_num())
-        send(client, c_send_wr, send_op, new_send, cmp_add=sender_val, swap=swap)
-        poll_cq(client.cq)
-        validate_atomic(send_op, server, client, receiver_val=receiver_val,
+        for _ in range(client_wr):
+            c_send_wr = get_atomic_send_elements(client,
+                                                 send_op,
+                                                 cmp_add=sender_val,
+                                                 swap=swap)[send_element_idx]
+            if isinstance(server, XRCResources):
+                c_send_wr.set_qp_type_xrc(server.srq.get_srq_num())
+            send(client, c_send_wr, send_op, new_send, ah=ah_client,
+                 cmp_add=sender_val, swap=swap)
+        poll_cq(client.cq, count=client_wr)
+        validate_atomic(send_op, server, client,
+                        receiver_val=receiver_val + sender_val * (client_wr - 1),
                         send_cmp_add=sender_val, send_swp=swap)
         server.mr.write(int.to_bytes(sender_val, 1, byteorder='big') * 8, 8)
         client.mr.write(int.to_bytes(receiver_val, 1, byteorder='big') * 8, 8)
-        s_send_wr = get_atomic_send_elements(server, send_op,
-                                             cmp_add=sender_val,
-                                             swap=swap)[send_element_idx]
-        if isinstance(client, XRCResources):
-            s_send_wr.set_qp_type_xrc(client.srq.get_srq_num())
-        send(server, s_send_wr, send_op, new_send, cmp_add=sender_val, swap=swap)
-        poll_cq(server.cq)
-        validate_atomic(send_op, client, server, receiver_val=receiver_val,
+        for _ in range(server_wr):
+            s_send_wr = get_atomic_send_elements(server,
+                                                 send_op,
+                                                 cmp_add=sender_val,
+                                                 swap=swap)[send_element_idx]
+            if isinstance(client, XRCResources):
+                s_send_wr.set_qp_type_xrc(client.srq.get_srq_num())
+            send(server, s_send_wr, send_op, new_send, ah=ah_server,
+                 cmp_add=sender_val, swap=swap)
+        poll_cq(server.cq, count=server_wr)
+        validate_atomic(send_op, client, server,
+                        receiver_val=receiver_val + sender_val * (server_wr - 1),
                         send_cmp_add=sender_val, send_swp=swap)
 
 
