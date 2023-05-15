@@ -312,7 +312,8 @@ cdef class Mlx5Context(Context):
                 dve.MLX5DV_CONTEXT_MASK_FLOW_ACTION_FLAGS |\
                 dve.MLX5DV_CONTEXT_MASK_DCI_STREAMS |\
                 dve.MLX5DV_CONTEXT_MASK_WR_MEMCPY_LENGTH |\
-                dve.MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD
+                dve.MLX5DV_CONTEXT_MASK_CRYPTO_OFFLOAD |\
+                dve.MLX5DV_CONTEXT_MASK_MAX_DC_RD_ATOM
         else:
             dv_attr.comp_mask = comp_mask
         rc = dv.mlx5dv_query_device(self.context, &dv_attr.dv)
@@ -534,6 +535,14 @@ cdef class Mlx5DVContext(PyverbsObject):
     def max_wr_memcpy_length(self):
         return self.dv.max_wr_memcpy_length
 
+    @property
+    def max_dc_rd_atom(self):
+        return self.dv.max_dc_rd_atom
+
+    @property
+    def max_dc_init_rd_atom(self):
+        return self.dv.max_dc_init_rd_atom
+
     def __str__(self):
         print_format = '{:20}: {:<20}\n'
         ident_format = '  {:20}: {:<20}\n'
@@ -579,7 +588,9 @@ cdef class Mlx5DVContext(PyverbsObject):
                                    self.dv.flow_action_flags) +\
                print_format.format('DC ODP caps', self.dv.dc_odp_caps) +\
                print_format.format('Num LAG ports', self.dv.num_lag_ports) +\
-               print_format.format('Max WR memcpy length', self.dv.max_wr_memcpy_length)
+               print_format.format('Max WR memcpy length', self.dv.max_wr_memcpy_length) +\
+               print_format.format('Max DC Read Atomic', self.dv.max_dc_rd_atomic) +\
+               print_format.format('Max DC Init Read Atomic', self.dv.max_dc_init_rd_atomic)
 
 
 cdef class Mlx5DCIStreamInitAttr(PyverbsObject):

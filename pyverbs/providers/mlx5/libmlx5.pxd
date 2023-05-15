@@ -59,6 +59,9 @@ cdef extern from 'infiniband/mlx5dv.h':
         uint8_t                 num_lag_ports
         mlx5dv_crypto_caps      crypto_caps
         size_t                  max_wr_memcpy_length
+        uint64_t                max_dc_rd_atom
+        uint64_t                max_dc_init_rd_atom
+
 
     cdef struct mlx5dv_dci_streams:
         uint8_t       log_num_concurent
