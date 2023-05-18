@@ -15,8 +15,6 @@ cimport posix.mman as mm
 
 cdef extern from 'sys/mman.h':
     cdef void* MAP_FAILED
-
-cdef extern from 'bits/mman-linux.h':
     cdef int MADV_DONTNEED
 
 cdef extern from 'endian.h':
