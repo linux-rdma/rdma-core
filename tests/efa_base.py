@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0 OR Linux-OpenIB)
-# Copyright 2020-2022 Amazon.com, Inc. or its affiliates. All rights reserved.
+# Copyright 2020-2023 Amazon.com, Inc. or its affiliates. All rights reserved.
 
 import unittest
 import random
@@ -93,10 +93,12 @@ class SRDResources(TrafficResources):
             raise ex
 
     def create_mr(self):
+        additional_access_flags = 0
         if self.send_ops_flags == e.IBV_QP_EX_WITH_RDMA_READ:
-            self.mr = tests.utils.create_custom_mr(self, e.IBV_ACCESS_REMOTE_READ)
-        else:
-            self.mr = tests.utils.create_custom_mr(self)
+            additional_access_flags = e.IBV_ACCESS_REMOTE_READ
+        elif self.send_ops_flags in [e.IBV_QP_EX_WITH_RDMA_WRITE, e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM]:
+            additional_access_flags = e.IBV_ACCESS_REMOTE_WRITE
+        self.mr = tests.utils.create_custom_mr(self, additional_access_flags)
 
 
 class EfaCQRes(SRDResources):

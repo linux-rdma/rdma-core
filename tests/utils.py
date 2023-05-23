@@ -405,7 +405,7 @@ def get_send_elements(agr_obj, is_server, opcode=e.IBV_WR_SEND):
     :param is_server: Indicates whether this is server or client side
     :return: send wr and its SGE
     """
-    if opcode == e.IBV_QP_EX_WITH_ATOMIC_WRITE:
+    if opcode == e.IBV_WR_ATOMIC_WRITE:
         atomic_wr = agr_obj.msg_size * (b's' if is_server else b'c')
         return None, atomic_wr
 
@@ -416,8 +416,8 @@ def get_send_elements(agr_obj, is_server, opcode=e.IBV_WR_SEND):
     agr_obj.mem_write(msg, agr_obj.msg_size + offset)
     sge = SGE(agr_obj.mr.buf + offset, agr_obj.msg_size, agr_obj.mr_lkey)
     send_wr = SendWR(opcode=opcode, num_sge=1, sg=[sge])
-    if opcode in [e.IBV_WR_RDMA_WRITE, e.IBV_WR_RDMA_READ]:
-        send_wr.set_wr_rdma(int(agr_obj.rkey), int(agr_obj.remote_addr))
+    if opcode in [e.IBV_WR_RDMA_WRITE, e.IBV_WR_RDMA_WRITE_WITH_IMM, e.IBV_WR_RDMA_READ]:
+        send_wr.set_wr_rdma(int(agr_obj.rkey), int(agr_obj.raddr))
     return send_wr, sge
 
 def get_recv_wr(agr_obj):
@@ -474,28 +474,28 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
     qp.wr_start()
     qp.wr_id = 0x123
     qp.wr_flags = e.IBV_SEND_SIGNALED
-    if send_op == e.IBV_QP_EX_WITH_SEND:
+    if send_op == e.IBV_WR_SEND:
         qp.wr_send()
-    elif send_op == e.IBV_QP_EX_WITH_RDMA_WRITE:
+    elif send_op == e.IBV_WR_RDMA_WRITE:
         qp.wr_rdma_write(agr_obj.rkey, agr_obj.raddr)
-    elif send_op == e.IBV_QP_EX_WITH_SEND_WITH_IMM:
+    elif send_op == e.IBV_WR_SEND_WITH_IMM:
         qp.wr_send_imm(IMM_DATA)
-    elif send_op == e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM:
+    elif send_op == e.IBV_WR_RDMA_WRITE_WITH_IMM:
         qp.wr_rdma_write_imm(agr_obj.rkey, agr_obj.raddr, IMM_DATA)
-    elif send_op == e.IBV_QP_EX_WITH_ATOMIC_WRITE:
+    elif send_op == e.IBV_WR_ATOMIC_WRITE:
         qp.wr_atomic_write(agr_obj.rkey, agr_obj.raddr, send_object)
-    elif send_op == e.IBV_QP_EX_WITH_FLUSH:
+    elif send_op == e.IBV_WR_FLUSH:
         qp.wr_flush(agr_obj.rkey, agr_obj.raddr, agr_obj.msg_size,
                     agr_obj.ptype, agr_obj.level)
-    elif send_op == e.IBV_QP_EX_WITH_RDMA_READ:
+    elif send_op == e.IBV_WR_RDMA_READ:
         qp.wr_rdma_read(agr_obj.rkey, agr_obj.raddr)
-    elif send_op == e.IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP:
+    elif send_op == e.IBV_WR_ATOMIC_CMP_AND_SWP:
         qp.wr_atomic_cmp_swp(agr_obj.rkey, agr_obj.raddr,
                              int8b_from_int(2), int8b_from_int(0))
-    elif send_op == e.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD:
+    elif send_op == e.IBV_WR_ATOMIC_FETCH_AND_ADD:
         qp.wr_atomic_fetch_add(agr_obj.rkey, agr_obj.raddr,
                                int8b_from_int(2))
-    elif send_op == e.IBV_QP_EX_WITH_BIND_MW:
+    elif send_op == e.IBV_WR_BIND_MW:
         bind_info = MWBindInfo(agr_obj.mr, agr_obj.mr.buf, agr_obj.mr.rkey,
                                e.IBV_ACCESS_REMOTE_WRITE)
         mw = MW(agr_obj.pd, mw_type=e.IBV_MW_TYPE_2)
@@ -516,8 +516,8 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
                                      stream_id)
         else:
             qp.wr_set_dc_addr(ah, agr_obj.remote_dct_num, DCT_KEY)
-    if send_op != e.IBV_QP_EX_WITH_ATOMIC_WRITE and \
-            send_op != e.IBV_QP_EX_WITH_FLUSH:
+    if send_op != e.IBV_WR_ATOMIC_WRITE and \
+            send_op != e.IBV_WR_FLUSH:
         qp.wr_set_sge(send_object)
     qp.wr_complete()
 
@@ -705,8 +705,8 @@ def send(agr_obj, send_object, send_op=None, new_send=False, qp_idx=0, ah=None, 
     return post_send(agr_obj, send_object, qp_idx, ah, is_imm)
 
 
-def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
-            new_send=False, is_imm=False, force_page_faults=False):
+def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=e.IBV_WR_SEND,
+            new_send=False, force_page_faults=False):
     """
     Runs basic traffic between two sides
     :param client: client side, clients base class is BaseTraffic
@@ -717,7 +717,6 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
     :param is_cq_ex: If True, use poll_cq_ex() rather than poll_cq()
     :param send_op: The send_wr opcode.
     :param new_send: If True use new post send API.
-    :param is_imm: If True, send with imm_data, relevant for old post send API.
     :param force_page_faults: If True, use madvise to hint that we don't need the MR's buffer to
                               force page faults (useful for ODP testing).
     :return:
@@ -729,12 +728,11 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
         ah_client = None
         ah_server = None
     poll = poll_cq_ex if is_cq_ex else poll_cq
-    if send_op == e.IBV_QP_EX_WITH_SEND_WITH_IMM or \
-       send_op == e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM or \
-       is_imm:
+
+    imm_data = None
+    if send_op in [e.IBV_WR_SEND_WITH_IMM, e.IBV_WR_RDMA_WRITE_WITH_IMM]:
         imm_data = IMM_DATA
-    else:
-        imm_data = None
+
     s_recv_wr = get_recv_wr(server)
     c_recv_wr = get_recv_wr(client)
     for qp_idx in range(server.qp_count):
@@ -747,37 +745,31 @@ def traffic(client, server, iters, gid_idx, port, is_cq_ex=False, send_op=None,
             if force_page_faults:
                 madvise(client.mr.buf, client.msg_size)
                 madvise(server.mr.buf, server.msg_size)
-            if imm_data:
-                c_send_wr, c_sg = get_send_elements(client, False, opcode=e.IBV_WR_SEND_WITH_IMM)
-            else:
-                c_send_wr, c_sg = get_send_elements(client, False)
+            c_send_wr, c_sg = get_send_elements(client, False, send_op)
             if client.use_mr_prefetch:
                 flags = e._IBV_ADVISE_MR_FLAG_FLUSH
                 if client.use_mr_prefetch == 'async':
                     flags = 0
                 prefetch_mrs(client, [c_sg], advice=client.prefetch_advice,
                              flags=flags)
-            c_send_object = c_sg if send_op else c_send_wr
+            c_send_object = c_sg if new_send else c_send_wr
             send(client, c_send_object, send_op, new_send, qp_idx,
-                 ah_client, is_imm=is_imm)
+                 ah_client, is_imm=(imm_data != None))
             poll(client.cq)
             poll(server.cq, data=imm_data)
             post_recv(server, s_recv_wr, qp_idx=qp_idx)
             msg_received = server.mr.read(server.msg_size, read_offset)
             validate(msg_received, True, server.msg_size)
-            if imm_data:
-                s_send_wr, s_sg = get_send_elements(server, True, opcode=e.IBV_WR_SEND_WITH_IMM)
-            else:
-                s_send_wr, s_sg = get_send_elements(server, True)
+            s_send_wr, s_sg = get_send_elements(server, True, send_op)
             if server.use_mr_prefetch:
                 flags = e._IBV_ADVISE_MR_FLAG_FLUSH
                 if server.use_mr_prefetch == 'async':
                     flags = 0
                 prefetch_mrs(server, [s_sg], advice=server.prefetch_advice,
                              flags=flags)
-            s_send_object = s_sg if send_op else s_send_wr
+            s_send_object = s_sg if new_send else s_send_wr
             send(server, s_send_object, send_op, new_send, qp_idx,
-                 ah_server, is_imm=is_imm)
+                 ah_server, is_imm=(imm_data != None))
             poll(server.cq)
             poll(client.cq, data=imm_data)
             post_recv(client, c_recv_wr, qp_idx=qp_idx)
@@ -1096,7 +1088,7 @@ def flush_traffic(client, server, iters, gid_idx, port, new_send=False,
     :param send_op: The send_wr opcode.
     :return:
     """
-    rdma_traffic(client, server, iters, gid_idx, port, new_send, e.IBV_QP_EX_WITH_RDMA_WRITE)
+    rdma_traffic(client, server, iters, gid_idx, port, new_send, e.IBV_WR_RDMA_WRITE)
     for i in range(iters):
         if client.level == e.IBV_FLUSH_MR:
             client.msg_size = 0 if i == 0 else random.randint(0, 12345678)
@@ -1139,10 +1131,9 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
         ah_client = None
         ah_server = None
     send_element_idx = 1 if new_send else 0
-    same_side_check =  send_op in [e.IBV_QP_EX_WITH_RDMA_READ,
-                                   e.IBV_QP_EX_WITH_ATOMIC_CMP_AND_SWP,
-                                   e.IBV_QP_EX_WITH_ATOMIC_FETCH_AND_ADD,
-                                   e.IBV_WR_RDMA_READ]
+    same_side_check =  send_op in [e.IBV_WR_RDMA_READ,
+                                   e.IBV_WR_ATOMIC_CMP_AND_SWP,
+                                   e.IBV_WR_ATOMIC_FETCH_AND_ADD]
     for _ in range(iters):
         if force_page_faults:
             madvise(client.mr.buf, client.msg_size)
@@ -1560,7 +1551,7 @@ def post_sq_state_bad_flow(test_obj):
     ah = get_global_ah(test_obj.client, test_obj.gid_index, test_obj.ib_port)
     _, sg = get_send_elements(test_obj.client, False)
     with test_obj.assertRaises(PyverbsRDMAError) as ex:
-        send(test_obj.client, sg, e.IBV_QP_EX_WITH_SEND, new_send=True,
+        send(test_obj.client, sg, e.IBV_WR_SEND, new_send=True,
              qp_idx=qp_idx, ah=ah)
     test_obj.assertEqual(ex.exception.error_code, errno.EINVAL)
 

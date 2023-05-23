@@ -398,7 +398,7 @@ class Mlx5DcStreamsRes(Mlx5DcResources):
         :return: None
         """
         import tests.utils as u
-        send_op = e.IBV_QP_EX_WITH_SEND
+        send_op = e.IBV_WR_SEND
         ah_client = u.get_global_ah(client, gid_idx, port)
         s_recv_wr = u.get_recv_wr(server)
         c_recv_wr = u.get_recv_wr(client)

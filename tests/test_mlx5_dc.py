@@ -67,13 +67,13 @@ class DCTest(Mlx5RDMATestCase):
         self.create_players(Mlx5DcResources, qp_count=2,
                             send_ops_flags=e.IBV_QP_EX_WITH_RDMA_WRITE)
         u.rdma_traffic(**self.traffic_args, new_send=True,
-                       send_op=e.IBV_QP_EX_WITH_RDMA_WRITE)
+                       send_op=e.IBV_WR_RDMA_WRITE)
 
     def test_dc_send(self):
         self.create_players(Mlx5DcResources, qp_count=2,
                             send_ops_flags=e.IBV_QP_EX_WITH_SEND)
         u.traffic(**self.traffic_args, new_send=True,
-                  send_op=e.IBV_QP_EX_WITH_SEND)
+                  send_op=e.IBV_WR_SEND)
 
     def test_dc_ah_to_qp_mapping(self):
         self.create_players(Mlx5DcResources, qp_count=2,
@@ -86,7 +86,7 @@ class DCTest(Mlx5RDMATestCase):
                 raise unittest.SkipTest('Mapping AH to QP is not supported')
             raise ex
         u.traffic(**self.traffic_args, new_send=True,
-                  send_op=e.IBV_QP_EX_WITH_SEND)
+                  send_op=e.IBV_WR_SEND)
 
     def check_odp_dc_support(self):
         """
@@ -103,7 +103,7 @@ class DCTest(Mlx5RDMATestCase):
         self.create_players(OdpDc, qp_count=2, send_ops_flags=send_ops_flag)
         self.check_odp_dc_support()
         u.traffic(**self.traffic_args, new_send=True,
-                  send_op=e.IBV_QP_EX_WITH_SEND)
+                  send_op=e.IBV_WR_SEND)
 
     def test_dc_rdma_write_stream(self):
         """
@@ -117,7 +117,7 @@ class DCTest(Mlx5RDMATestCase):
         self.create_players(Mlx5DcStreamsRes, qp_count=2,
                             send_ops_flags=e.IBV_QP_EX_WITH_RDMA_WRITE)
         u.rdma_traffic(**self.traffic_args, new_send=True,
-                       send_op=e.IBV_QP_EX_WITH_RDMA_WRITE)
+                       send_op=e.IBV_WR_RDMA_WRITE)
 
     def test_dc_send_stream_bad_flow(self):
         """

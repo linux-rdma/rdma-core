@@ -49,7 +49,7 @@ class DcCMConnection(CMAsyncConnection):
         self.syncer.wait()
         for send_idx in range(self.cm_res.num_msgs):
             dci_idx = send_idx % len(self.cm_res.qps)
-            u.post_send_ex(self.cm_res, send_wr, e.IBV_QP_EX_WITH_SEND, ah=ah,
+            u.post_send_ex(self.cm_res, send_wr, e.IBV_WR_SEND, ah=ah,
                            qp_idx=dci_idx)
             u.poll_cq(self.cm_res.cq)
 
