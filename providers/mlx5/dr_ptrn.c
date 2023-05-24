@@ -213,6 +213,13 @@ out_unlock:
 	return NULL;
 }
 
+void
+dr_ptrn_cache_put_pattern(struct dr_ptrn_mngr *mngr,
+			  struct dr_ptrn_obj *pattern)
+{
+	dr_ptrn_free_pattern(pattern);
+}
+
 struct dr_ptrn_mngr *
 dr_ptrn_mngr_create(struct mlx5dv_dr_domain *dmn)
 {
