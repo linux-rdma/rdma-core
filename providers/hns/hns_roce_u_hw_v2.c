@@ -759,13 +759,8 @@ static int hns_roce_u_v2_arm_cq(struct ibv_cq *ibvcq, int solicited)
 	return 0;
 }
 
-static int check_qp_send(struct ibv_qp *qp, struct hns_roce_context *ctx)
+static inline int check_qp_send(struct ibv_qp *qp)
 {
-	if (unlikely(qp->qp_type != IBV_QPT_RC &&
-		     qp->qp_type != IBV_QPT_UD) &&
-		     qp->qp_type != IBV_QPT_XRC_SEND)
-		return EINVAL;
-
 	if (unlikely(qp->state == IBV_QPS_RESET ||
 		     qp->state == IBV_QPS_INIT ||
 		     qp->state == IBV_QPS_RTR))
@@ -1261,7 +1256,7 @@ int hns_roce_u_v2_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 	struct ibv_qp_attr attr;
 	int ret;
 
-	ret = check_qp_send(ibvqp, ctx);
+	ret = check_qp_send(ibvqp);
 	if (unlikely(ret)) {
 		*bad_wr = wr;
 		return ret;
@@ -1338,13 +1333,9 @@ out:
 	return ret;
 }
 
-static int check_qp_recv(struct ibv_qp *qp, struct hns_roce_context *ctx)
+static inline int check_qp_recv(struct ibv_qp *qp)
 {
-	if (unlikely(qp->qp_type != IBV_QPT_RC &&
-		     qp->qp_type != IBV_QPT_UD))
-		return EINVAL;
-
-	if (qp->state == IBV_QPS_RESET || qp->srq)
+	if (qp->state == IBV_QPS_RESET)
 		return EINVAL;
 
 	return 0;
@@ -1414,7 +1405,7 @@ static int hns_roce_u_v2_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	struct ibv_qp_attr attr;
 	int ret;
 
-	ret = check_qp_recv(ibvqp, ctx);
+	ret = check_qp_recv(ibvqp);
 	if (unlikely(ret)) {
 		*bad_wr = wr;
 		return ret;
