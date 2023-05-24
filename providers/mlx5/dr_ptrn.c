@@ -213,20 +213,6 @@ out_unlock:
 	return NULL;
 }
 
-void
-dr_ptrn_cache_put_pattern(struct dr_ptrn_mngr *mngr,
-			  struct dr_ptrn_obj *pattern)
-{
-	pthread_mutex_lock(&mngr->modify_hdr_mutex);
-
-	if (atomic_fetch_sub(&pattern->refcount, 1) != 1)
-		goto out;
-
-	dr_ptrn_free_pattern(pattern);
-out:
-	pthread_mutex_unlock(&mngr->modify_hdr_mutex);
-}
-
 struct dr_ptrn_mngr *
 dr_ptrn_mngr_create(struct mlx5dv_dr_domain *dmn)
 {
