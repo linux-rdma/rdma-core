@@ -112,7 +112,7 @@ unsigned int             mw_access_flags; /* Access flags to the MW. Use ibv_acc
 struct ibv_sge {
 .in +8
 uint64_t                addr;                   /* Start address of the local memory buffer or number of bytes from the
-                                                   start of the MR for MRs which are IBV_ZERO_BASED */
+                                                   start of the MR for MRs which are IBV_ACCESS_ZERO_BASED */
 uint32_t                length;                 /* Length of the buffer */
 uint32_t                lkey;                   /* Key of the local Memory Region */
 .in -8
