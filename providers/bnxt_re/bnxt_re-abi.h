@@ -252,7 +252,10 @@ union lower_shdr {
 
 struct bnxt_re_bsqe {
 	__le32 rsv_ws_fl_wt;
-	__le32 key_immd;
+	union {
+		__be32  imm_data;
+		__le32 key_immd;
+	};
 	union lower_shdr lhdr;
 };
 
