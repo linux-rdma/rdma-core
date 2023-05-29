@@ -1259,9 +1259,11 @@ int bnxt_re_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 			if (qp->qpst == IBV_QPS_RESET) {
 				qp->jsqq->hwque->head = 0;
 				qp->jsqq->hwque->tail = 0;
+				bnxt_re_cleanup_cq(qp, qp->scq);
 				if (qp->jrqq) {
 					qp->jrqq->hwque->head = 0;
 					qp->jrqq->hwque->tail = 0;
+					bnxt_re_cleanup_cq(qp, qp->rcq);
 				}
 			}
 		}
