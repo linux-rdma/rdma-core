@@ -1598,12 +1598,17 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 						  qp->cap.sqsig, wqe_size);
 		switch (wr->opcode) {
 		case IBV_WR_SEND_WITH_IMM:
-			/* Since our h/w is LE and user supplies raw-data in
-			 * BE format. Swapping on incoming data is needed.
+		case IBV_WR_SEND_WITH_INV:
+			/* Since our h/w is LE and for send_with_imm user supplies
+			 * raw-data in  BE format. Swapping on incoming data is needed.
 			 * On a BE platform htole32 will do the swap while on
 			 * LE platform be32toh will do the job.
+			 * For send_with_inv, send the data as BE.
 			 */
-			hdr->key_immd = htole32(be32toh(wr->imm_data));
+			if (wr->opcode == IBV_WR_SEND_WITH_INV)
+				hdr->imm_data = wr->imm_data;
+			else
+				hdr->key_immd = htole32(be32toh(wr->imm_data));
 			SWITCH_FALLTHROUGH;
 		case IBV_WR_SEND:
 			if (qp->qptyp == IBV_QPT_UD) {
