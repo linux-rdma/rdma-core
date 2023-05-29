@@ -65,6 +65,7 @@ struct bnxt_re_chip_ctx {
 	__u16 chip_num;
 	__u8 chip_rev;
 	__u8 chip_metal;
+	__u8 gen_p5;
 };
 
 struct bnxt_re_dpi {
@@ -186,9 +187,6 @@ struct bnxt_re_context {
 	pthread_mutex_t shlock;
 	pthread_spinlock_t fqlock;
 };
-
-/* Chip context related functions */
-bool bnxt_re_is_chip_gen_p5(struct bnxt_re_chip_ctx *cctx);
 
 /* DB ring functions used internally*/
 void bnxt_re_ring_rq_db(struct bnxt_re_qp *qp);

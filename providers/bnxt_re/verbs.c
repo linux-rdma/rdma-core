@@ -1110,9 +1110,8 @@ static int bnxt_re_alloc_queues(struct bnxt_re_dev *dev,
 	que->diff = (diff * que->esize) / que->stride;
 
 	/* psn_depth extra entries of size que->stride */
-	psn_size = bnxt_re_is_chip_gen_p5(qp->cctx) ?
-					sizeof(struct bnxt_re_psns_ext) :
-					sizeof(struct bnxt_re_psns);
+	psn_size = qp->cctx->gen_p5 ? sizeof(struct bnxt_re_psns_ext) :
+				      sizeof(struct bnxt_re_psns);
 	psn_depth = (nswr * psn_size) / que->stride;
 	if ((nswr * psn_size) % que->stride)
 		psn_depth++;
@@ -1140,7 +1139,7 @@ static int bnxt_re_alloc_queues(struct bnxt_re_dev *dev,
 	swque = qp->jsqq->swque;
 	for (indx = 0 ; indx < nswr; indx++, psns++)
 		swque[indx].psns = psns;
-	if (bnxt_re_is_chip_gen_p5(qp->cctx)) {
+	if (qp->cctx->gen_p5) {
 		for (indx = 0 ; indx < nswr; indx++, psns_ext++) {
 			swque[indx].psns_ext = psns_ext;
 			swque[indx].psns = (struct bnxt_re_psns *)psns_ext;
@@ -1434,7 +1433,7 @@ static void bnxt_re_fill_psns(struct bnxt_re_qp *qp, struct bnxt_re_wrid *wrid,
 	memset(psns, 0, sizeof(*psns));
 	psns->opc_spsn = htole32(opc_spsn);
 	psns->flg_npsn = htole32(flg_npsn);
-	if (bnxt_re_is_chip_gen_p5(qp->cctx))
+	if (qp->cctx->gen_p5)
 		psns_ext->st_slot_idx = wrid->st_slot_idx;
 }
 

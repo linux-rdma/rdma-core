@@ -118,7 +118,7 @@ static const struct verbs_context_ops bnxt_re_cntx_ops = {
 	.free_context  = bnxt_re_free_context,
 };
 
-bool bnxt_re_is_chip_gen_p5(struct bnxt_re_chip_ctx *cctx)
+static bool bnxt_re_is_chip_gen_p5(struct bnxt_re_chip_ctx *cctx)
 {
 	return (cctx->chip_num == CHIP_NUM_57508 ||
 		cctx->chip_num == CHIP_NUM_57504 ||
@@ -158,6 +158,7 @@ static struct verbs_context *bnxt_re_alloc_context(struct ibv_device *vdev,
 		cntx->cctx.chip_metal = (resp.chip_id0 >>
 					 BNXT_RE_CHIP_ID0_CHIP_MET_SFT) &
 					 0xFF;
+		cntx->cctx.gen_p5 = bnxt_re_is_chip_gen_p5(&cntx->cctx);
 	}
 
 	if (resp.comp_mask & BNXT_RE_UCNTX_CMASK_HAVE_MODE)
