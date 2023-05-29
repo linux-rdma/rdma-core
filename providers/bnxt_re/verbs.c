@@ -1260,10 +1260,14 @@ int bnxt_re_modify_qp(struct ibv_qp *ibvqp, struct ibv_qp_attr *attr,
 				qp->jsqq->hwque->head = 0;
 				qp->jsqq->hwque->tail = 0;
 				bnxt_re_cleanup_cq(qp, qp->scq);
+				qp->jsqq->start_idx = 0;
+				qp->jsqq->last_idx = 0;
 				if (qp->jrqq) {
 					qp->jrqq->hwque->head = 0;
 					qp->jrqq->hwque->tail = 0;
 					bnxt_re_cleanup_cq(qp, qp->rcq);
+					qp->jrqq->start_idx = 0;
+					qp->jrqq->last_idx = 0;
 				}
 			}
 		}
