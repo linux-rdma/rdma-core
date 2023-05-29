@@ -1573,20 +1573,6 @@ int bnxt_re_post_send(struct ibv_qp *ibvqp, struct ibv_send_wr *wr,
 
 	pthread_spin_lock(&sq->qlock);
 	while (wr) {
-		if ((qp->qpst != IBV_QPS_RTS) && (qp->qpst != IBV_QPS_SQD)) {
-			*bad = wr;
-			ret = EINVAL;
-			goto bad_wr;
-		}
-
-		if ((qp->qptyp == IBV_QPT_UD) &&
-		    (wr->opcode != IBV_WR_SEND &&
-		     wr->opcode != IBV_WR_SEND_WITH_IMM)) {
-			*bad = wr;
-			ret = EINVAL;
-			goto bad_wr;
-		}
-
 		max_ils = qp->cap.max_inline;
 		wqe_size = bnxt_re_calc_posted_wqe_slots(sq, wr, max_ils, false);
 		slots = (qp->qpmode == BNXT_RE_WQE_MODE_STATIC) ? 8 : wqe_size;
@@ -1718,13 +1704,6 @@ int bnxt_re_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 
 	pthread_spin_lock(&rq->qlock);
 	while (wr) {
-		/* check QP state, abort if it is ERR or RST */
-		if (qp->qpst == IBV_QPS_RESET || qp->qpst == IBV_QPS_ERR) {
-			*bad = wr;
-			rc = EINVAL;
-			break;
-		}
-
 		wqe_size = bnxt_re_calc_posted_wqe_slots(rq, wr, 0, true);
 		slots = rq->max_slots;
 		if (bnxt_re_is_que_full(rq, slots) ||
