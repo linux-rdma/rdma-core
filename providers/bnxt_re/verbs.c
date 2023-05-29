@@ -1559,7 +1559,7 @@ static int bnxt_re_build_fna_sqe(struct bnxt_re_qp *qp,
 	len = bnxt_re_build_send_sqe(qp, wr, hdr, false, idx);
 	hdr->key_immd = htole32(wr->wr.atomic.rkey);
 	hdr->lhdr.rva = htole64(wr->wr.atomic.remote_addr);
-	sqe->cmp_dt = htole64(wr->wr.atomic.compare_add);
+	sqe->swp_dt = htole64(wr->wr.atomic.compare_add);
 
 	return len;
 }
