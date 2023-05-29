@@ -615,13 +615,16 @@ static uint8_t bnxt_re_poll_term_cqe(struct bnxt_re_qp *qp,
 	 * SQ and RQ are empty.
 	 */
 	*cnt = 0;
+	/* If the QP is destroyed, avoid handling this QP as flushlist */
+	if (qp->qpst == IBV_QPS_RESET)
+		goto exit;
 	if (qp->qpst != IBV_QPS_ERR)
 		qp->qpst = IBV_QPS_ERR;
 	pthread_spin_lock(&cntx->fqlock);
 	bnxt_re_fque_add_node(&rcq->rfhead, &qp->rnode);
 	bnxt_re_fque_add_node(&scq->sfhead, &qp->snode);
 	pthread_spin_unlock(&cntx->fqlock);
-
+exit:
 	return pcqe;
 }
 
@@ -1301,6 +1304,7 @@ int bnxt_re_destroy_qp(struct ibv_qp *ibvqp)
 	struct bnxt_re_qp *qp = to_bnxt_re_qp(ibvqp);
 	int status;
 
+	qp->qpst = IBV_QPS_RESET;
 	status = ibv_cmd_destroy_qp(ibvqp);
 	if (status)
 		return status;
