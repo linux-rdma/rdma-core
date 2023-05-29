@@ -1711,26 +1711,27 @@ int bnxt_re_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 	struct bnxt_re_brqe *hdr;
 	struct bnxt_re_rqe *rqe;
 	uint32_t slots, swq_idx;
+	bool ring_db = false;
+	int ret = 0, rc = 0;
 	uint32_t wqe_size;
 	uint32_t idx = 0;
-	int ret;
 
 	pthread_spin_lock(&rq->qlock);
 	while (wr) {
 		/* check QP state, abort if it is ERR or RST */
 		if (qp->qpst == IBV_QPS_RESET || qp->qpst == IBV_QPS_ERR) {
 			*bad = wr;
-			pthread_spin_unlock(&rq->qlock);
-			return EINVAL;
+			rc = EINVAL;
+			break;
 		}
 
 		wqe_size = bnxt_re_calc_posted_wqe_slots(rq, wr, 0, true);
 		slots = rq->max_slots;
 		if (bnxt_re_is_que_full(rq, slots) ||
 		    wr->num_sge > qp->cap.max_rsge) {
-			pthread_spin_unlock(&rq->qlock);
 			*bad = wr;
-			return ENOMEM;
+			rc = ENOMEM;
+			break;
 		}
 
 		idx = 0;
@@ -1743,21 +1744,23 @@ int bnxt_re_post_recv(struct ibv_qp *ibvqp, struct ibv_recv_wr *wr,
 
 		ret = bnxt_re_build_rqe(rq, wr, hdr, wqe_size, &idx, swq_idx);
 		if (ret < 0) {
-			pthread_spin_unlock(&rq->qlock);
 			*bad = wr;
-			return ENOMEM;
+			rc = ENOMEM;
+			break;
 		}
 
 		swque = bnxt_re_get_swqe(qp->jrqq, NULL);
 		bnxt_re_fill_wrid(swque, wr->wr_id, ret, 0, rq->tail, slots);
 		bnxt_re_jqq_mod_start(qp->jrqq, swq_idx);
 		bnxt_re_incr_tail(rq, slots);
+		ring_db = true;
 		wr = wr->next;
-		bnxt_re_ring_rq_db(qp);
 	}
+	if (ring_db)
+		bnxt_re_ring_rq_db(qp);
 	pthread_spin_unlock(&rq->qlock);
 
-	return 0;
+	return rc;
 }
 
 static void bnxt_re_srq_free_queue_ptr(struct bnxt_re_srq *srq)
