@@ -301,7 +301,7 @@ class QpExTestCase(RDMATestCase):
         client.raddr = server.mr.buf
         server.raddr = client.mr.buf
         u.rdma_traffic(client, server, self.iters, self.gid_index, self.ib_port,
-                       new_send=True, send_op=e.IBV_WR_ATOMIC_WRITE)
+                       new_send=True, send_op=e.IBV_WR_RDMA_WRITE)
 
     def test_qp_ex_rc_rdma_write_imm(self):
         client, server = self.create_players('rc_write_imm')
