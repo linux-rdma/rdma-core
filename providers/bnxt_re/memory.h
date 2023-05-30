@@ -92,6 +92,11 @@ static inline void *bnxt_re_get_hwqe(struct bnxt_re_queue *que, uint32_t idx)
 	return (void *)(que->va + (idx << 4));
 }
 
+static inline void *bnxt_re_get_hwqe_hdr(struct bnxt_re_queue *que)
+{
+	return (void *)(que->va + ((que->tail) << 4));
+}
+
 static inline uint32_t bnxt_re_is_que_full(struct bnxt_re_queue *que,
 					   uint32_t slots)
 {
