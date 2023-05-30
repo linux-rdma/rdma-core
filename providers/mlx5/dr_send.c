@@ -405,7 +405,7 @@ dr_set_header_modify_arg_update_seg(struct mlx5_wqe_header_modify_argument_updat
 	memcpy(&aseg->argument_list, data, data_size);
 }
 
-static void dr_post_send_db(struct dr_qp *dr_qp, int size, void *ctrl)
+static void dr_post_send_db(struct dr_qp *dr_qp, void *ctrl)
 {
 	/*
 	 * Make sure that descriptors are written before
@@ -585,7 +585,7 @@ static void dr_rdma_segments(struct dr_qp *dr_qp, uint64_t remote_addr,
 	dr_qp->sq.head += 1;
 
 	if (send_now)
-		dr_post_send_db(dr_qp, size, ctrl);
+		dr_post_send_db(dr_qp, ctrl);
 }
 
 static void dr_post_send(struct dr_qp *dr_qp, struct postsend_info *send_info)

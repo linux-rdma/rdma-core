@@ -396,11 +396,18 @@ int dr_devx_query_device(struct ibv_context *ctx, struct dr_devx_caps *caps)
 
 	if (caps->eswitch_manager) {
 		/* Check if ECPF */
-		err = dr_devx_query_esw_func(ctx, max_sfs,
-					     &host_pf_vhca_id_valid,
-					     &host_pf_vhca_id);
-		if (!err && host_pf_vhca_id_valid && host_pf_vhca_id != caps->gvmi)
-			caps->is_ecpf = true;
+		if (DEVX_GET(query_hca_cap_out, out,
+			     capability.e_switch_cap.esw_manager_vport_number_valid)) {
+			if (DEVX_GET(query_hca_cap_out, out,
+				     capability.e_switch_cap.esw_manager_vport_number) == ECPF_PORT)
+				caps->is_ecpf = true;
+		} else {
+			err = dr_devx_query_esw_func(ctx, max_sfs,
+						     &host_pf_vhca_id_valid,
+						     &host_pf_vhca_id);
+			if (!err && host_pf_vhca_id_valid && host_pf_vhca_id != caps->gvmi)
+				caps->is_ecpf = true;
+		}
 	}
 
 	DEVX_SET(query_hca_cap_in, in, op_mod,
@@ -1082,6 +1089,8 @@ int dr_devx_modify_qp_rtr2rts(struct ibv_context *ctx,
 	DEVX_SET(qpc, qpc, log_ack_req_freq, 0);
 	DEVX_SET(qpc, qpc, retry_count, attr->retry_cnt);
 	DEVX_SET(qpc, qpc, rnr_retry, attr->rnr_retry);
+
+	DEVX_SET(qpc, qpc, primary_address_path.ack_timeout, 0x8); /* ~1ms */
 
 	ret = mlx5dv_devx_obj_modify(qp_obj, in, sizeof(in), out, sizeof(out));
 	return ret ? mlx5_get_cmd_status_err(ret, out) : 0;
