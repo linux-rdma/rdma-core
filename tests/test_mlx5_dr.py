@@ -1360,12 +1360,14 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         matched_packets_rx = self.query_counter_packets(server_counter, rx_flow_counter_id)
         self.assertEqual(matched_packets_rx, self.iters, 'Reuse action or matcher failed on RX')
 
+    @skip_unsupported
     def test_root_reuse_action_and_matcher(self):
         """
         Create root rules on TX and RX that use the same matcher and actions
         """
         self.reuse_action_and_matcher(root_only=True)
 
+    @skip_unsupported
     def test_reuse_action_and_matcher(self):
         """
         Create non-root rules on TX and RX that use the same matcher and actions
