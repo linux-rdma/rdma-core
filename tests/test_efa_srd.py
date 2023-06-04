@@ -4,6 +4,7 @@
 import unittest
 import errno
 
+from pyverbs.cq import CQ, CompChannel
 from pyverbs.pyverbs_error import PyverbsRDMAError
 import pyverbs.enums as e
 
@@ -11,6 +12,27 @@ from tests.efa_base import EfaRDMATestCase
 from tests.efa_base import SRDResources
 import tests.utils as u
 
+
+class CqEventsSRD(SRDResources):
+    def __init__(self, dev_name, ib_port, gid_index):
+        super().__init__(dev_name, ib_port, gid_index, e.IBV_QP_EX_WITH_SEND)
+
+    def create_cq(self):
+        self.comp_channel = CompChannel(self.ctx)
+        self.cq = CQ(self.ctx, self.num_msgs, None, self.comp_channel)
+        self.cq.req_notify()
+
+
+class CqEventsSRDTestCase(EfaRDMATestCase):
+    def setUp(self):
+        super().setUp()
+        self.iters = 100
+
+    def test_cq_events_srd(self):
+        for use_new_send in [False, True]:
+            with self.subTest():
+                super().create_players(CqEventsSRD)
+                u.traffic(**self.traffic_args, new_send=use_new_send)
 
 
 class QPSRDTestCase(EfaRDMATestCase):
