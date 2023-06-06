@@ -680,12 +680,19 @@ class TrafficResources(BaseResources):
 
     def pre_run(self, rpsns, rqps_num):
         """
-        Modify the QP's states to RTS and fill receive queue with <num_msgs> work
-        requests.
-        This method is not implemented in this class.
-        :param rpsns: Remote PSNs
+        Configure resources before running traffic and modifies the QP to RTS
+        if required.
+        :param rpsns: Remote PSNs (packet serial numbers)
         :param rqps_num: Remote QPs Number
-        :return: None
+        """
+        self.rpsns = rpsns
+        self.rqps_num = rqps_num
+        self.to_rts()
+
+    def to_rts(self):
+        """
+        Modify the QP's states to RTS and initialize it to be ready for traffic.
+        If not required, can be "passed" but must be implemented.
         """
         raise NotImplementedError()
 
@@ -720,17 +727,6 @@ class RCResources(RoCETrafficResources):
             attr.sq_psn = self.rpsns[i]
             self.qps[i].to_rts(attr)
 
-    def pre_run(self, rpsns, rqps_num):
-        """
-        Configure Resources before running traffic
-        :param rpsns: Remote PSNs (packet serial number)
-        :param rqps_num: Remote QPs number
-        :return: None
-        """
-        self.rpsns = rpsns
-        self.rqps_num = rqps_num
-        self.to_rts()
-
 
 class UDResources(RoCETrafficResources):
     UD_QKEY = 0x11111111
@@ -761,9 +757,8 @@ class UDResources(RoCETrafficResources):
                     raise unittest.SkipTest(f'Create QP type {qp_init_attr.qp_type} is not supported')
                 raise ex
 
-    def pre_run(self, rpsns, rqps_num):
-        self.rpsns = rpsns
-        self.rqps_num = rqps_num
+    def to_rts(self):
+        pass
 
 
 class RawResources(TrafficResources):
@@ -878,8 +873,3 @@ class XRCResources(RoCETrafficResources):
         self.create_xrcd()
         super(XRCResources, self).init_resources()
         self.create_srq()
-
-    def pre_run(self, rpsns, rqps_num):
-        self.rqps_num = rqps_num
-        self.rpsns = rpsns
-        self.to_rts()
