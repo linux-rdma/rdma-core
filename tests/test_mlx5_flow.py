@@ -110,17 +110,6 @@ class Mlx5MatcherTest(Mlx5RDMATestCase):
         self.server = None
         self.client = None
 
-    def create_players(self, resource, **resource_arg):
-        """
-        Init Flow tests resources.
-        :param resource: The RDMA resources to use.
-        :param resource_arg: Dict of args that specify the resource specific
-                             attributes.
-        :return: None
-        """
-        self.client = resource(**self.dev_info, **resource_arg)
-        self.server = resource(**self.dev_info, **resource_arg)
-
     @u.skip_unsupported
     def test_create_empty_matcher(self):
         """

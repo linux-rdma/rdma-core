@@ -36,32 +36,9 @@ class DCTest(Mlx5RDMATestCase):
         """
         Exchange the remote attributes between the server and the client.
         """
-        self.server.rkey = self.client.mr.rkey
-        self.server.raddr = self.client.mr.buf
-        self.client.rkey = self.server.mr.rkey
-        self.client.raddr = self.server.mr.buf
+        super().sync_remote_attr()
         self.client.remote_dct_num = self.server.dct_qp.qp_num
         self.server.remote_dct_num = self.client.dct_qp.qp_num
-
-    def create_players(self, resource, bad_flow=DCI_TEST_GOOD_FLOW, **resource_arg):
-        """
-        Init DC tests resources.
-        :param resource: The RDMA resources to use.
-        :param bad_flow: Test bad flows (relevant for DCS tests only)
-        :param resource_arg: Dict of args that specify the resource specific
-        attributes.
-        :return: None
-        """
-        self.client = resource(**self.dev_info, **resource_arg)
-        self.server = resource(**self.dev_info, **resource_arg)
-        if bad_flow:
-            self.client.set_bad_flow(bad_flow)
-        self.client.pre_run(self.server.psns, self.server.qps_num)
-        self.server.pre_run(self.client.psns, self.client.qps_num)
-        self.sync_remote_attr()
-        self.traffic_args = {'client': self.client, 'server': self.server,
-                             'iters': self.iters, 'gid_idx': self.gid_index,
-                             'port': self.ib_port}
 
     def test_dc_rdma_write(self):
         self.create_players(Mlx5DcResources, qp_count=2,
@@ -126,8 +103,9 @@ class DCTest(Mlx5RDMATestCase):
         In the end, the test verifies that the number of errors is as expected.
         :raises SkipTest: In case DCI is not supported with HW
         """
-        self.create_players(Mlx5DcStreamsRes, bad_flow=DCI_TEST_BAD_FLOW_WITH_RESET,
+        self.create_players(Mlx5DcStreamsRes,
                             qp_count=1, send_ops_flags=e.IBV_QP_EX_WITH_SEND)
+        self.client.set_bad_flow(DCI_TEST_BAD_FLOW_WITH_RESET)
         self.client.traffic_with_bad_flow(**self.traffic_args)
 
     def test_dc_send_stream_bad_flow_qp(self):
@@ -141,6 +119,7 @@ class DCTest(Mlx5RDMATestCase):
         :raises SkipTest: In case DCI is not supported with HW
         """
         self.iters = 20
-        self.create_players(Mlx5DcStreamsRes, bad_flow=DCI_TEST_BAD_FLOW_WITHOUT_RESET,
+        self.create_players(Mlx5DcStreamsRes,
                             qp_count=1, send_ops_flags=e.IBV_QP_EX_WITH_SEND)
+        self.client.set_bad_flow(DCI_TEST_BAD_FLOW_WITHOUT_RESET)
         self.client.traffic_with_bad_flow(**self.traffic_args)

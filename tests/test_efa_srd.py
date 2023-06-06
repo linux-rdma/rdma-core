@@ -21,15 +21,7 @@ class QPSRDTestCase(EfaRDMATestCase):
         self.client = None
 
     def create_players(self, send_ops_flags=0, qp_count=8):
-        try:
-            self.client = SRDResources(self.dev_name, self.ib_port, self.gid_index, send_ops_flags, qp_count)
-            self.server = SRDResources(self.dev_name, self.ib_port, self.gid_index, send_ops_flags, qp_count)
-        except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
-                raise unittest.SkipTest('Create SRD Resources is not supported')
-            raise ex
-        self.client.pre_run(self.server.psns, self.server.qps_num)
-        self.server.pre_run(self.client.psns, self.client.qps_num)
+        super().create_players(SRDResources, send_ops_flags=send_ops_flags, qp_count=qp_count)
 
     def full_sq_bad_flow(self):
         """
@@ -50,58 +42,38 @@ class QPSRDTestCase(EfaRDMATestCase):
 
     def test_qp_ex_srd_send(self):
         self.create_players(e.IBV_QP_EX_WITH_SEND)
-        u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port,
-                  new_send=True, send_op=e.IBV_WR_SEND)
+        u.traffic(**self.traffic_args, new_send=True, send_op=e.IBV_WR_SEND)
 
     def test_qp_ex_srd_send_imm(self):
         self.create_players(e.IBV_QP_EX_WITH_SEND_WITH_IMM)
-        u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port,
-                  new_send=True, send_op=e.IBV_WR_SEND_WITH_IMM)
+        u.traffic(**self.traffic_args, new_send=True, send_op=e.IBV_WR_SEND_WITH_IMM)
 
     def test_qp_ex_srd_rdma_read(self):
         self.create_players(e.IBV_QP_EX_WITH_RDMA_READ)
-        self.client.rkey = self.server.mr.rkey
-        self.server.rkey = self.client.mr.rkey
-        self.client.raddr = self.server.mr.buf
-        self.server.raddr = self.client.mr.buf
         self.server.mr.write('s' * self.server.msg_size, self.server.msg_size)
-        u.rdma_traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port,
-                       new_send=True, send_op=e.IBV_WR_RDMA_READ)
+        u.rdma_traffic(**self.traffic_args, new_send=True, send_op=e.IBV_WR_RDMA_READ)
 
     def test_qp_ex_srd_rdma_write(self):
         self.create_players(e.IBV_QP_EX_WITH_RDMA_WRITE)
-        self.client.rkey = self.server.mr.rkey
-        self.server.rkey = self.client.mr.rkey
-        self.client.raddr = self.server.mr.buf
-        self.server.raddr = self.client.mr.buf
-        u.rdma_traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port,
-                       new_send=True, send_op=e.IBV_WR_RDMA_WRITE)
+        u.rdma_traffic(**self.traffic_args, new_send=True, send_op=e.IBV_WR_RDMA_WRITE)
 
     def test_qp_ex_srd_rdma_write_with_imm(self):
         self.create_players(e.IBV_QP_EX_WITH_RDMA_WRITE_WITH_IMM)
-        self.client.rkey = self.server.mr.rkey
-        self.server.rkey = self.client.mr.rkey
-        self.client.raddr = self.server.mr.buf
-        self.server.raddr = self.client.mr.buf
-        u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port,
-                  new_send=True, send_op=e.IBV_WR_RDMA_WRITE_WITH_IMM)
+        u.traffic(**self.traffic_args, new_send=True, send_op=e.IBV_WR_RDMA_WRITE_WITH_IMM)
 
     def test_qp_ex_srd_old_send(self):
         self.create_players()
-        u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port,
-                  new_send=False)
+        u.traffic(**self.traffic_args, new_send=False)
 
     def test_qp_ex_srd_old_send_imm(self):
         self.create_players()
-        u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port,
-                  new_send=False, send_op=e.IBV_WR_SEND_WITH_IMM)
+        u.traffic(**self.traffic_args, new_send=False, send_op=e.IBV_WR_SEND_WITH_IMM)
 
     def test_qp_ex_srd_zero_size(self):
         self.create_players(e.IBV_QP_EX_WITH_SEND)
         self.client.msg_size = 0
         self.server.msg_size = 0
-        u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port,
-                  new_send=True, send_op=e.IBV_WR_SEND)
+        u.traffic(**self.traffic_args, new_send=True, send_op=e.IBV_WR_SEND)
 
     def test_post_receive_qp_state_bad_flow(self):
         self.create_players(e.IBV_QP_EX_WITH_SEND, qp_count=1)

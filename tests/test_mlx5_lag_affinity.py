@@ -67,17 +67,14 @@ class LagPortTestCase(Mlx5RDMATestCase):
                              specific attributes.
         :return: None
         """
-        self.client = resource(**self.dev_info, **resource_arg)
-        self.server = resource(**self.dev_info, **resource_arg)
-        self.client.pre_run(self.server.psns, self.server.qps_num)
-        self.server.pre_run(self.client.psns, self.client.qps_num)
+        super().create_players(resource, **resource_arg)
         self.modify_lag(self.client)
         self.modify_lag(self.server)
 
     def test_rc_modify_lag_port(self):
         self.create_players(RCResources)
-        u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port)
+        u.traffic(**self.traffic_args)
 
     def test_ud_modify_lag_port(self):
         self.create_players(UDResources)
-        u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port)
+        u.traffic(**self.traffic_args)

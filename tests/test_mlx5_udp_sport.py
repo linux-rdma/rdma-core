@@ -21,19 +21,6 @@ class UdpSportTestCase(Mlx5RDMATestCase):
         self.server = None
         self.client = None
 
-    def create_players(self, resource, **resource_arg):
-        """
-        Initialize tests resources.
-        :param resource: The RDMA resources to use.
-        :param resource_arg: Dictionary of args that specify the resource
-                             specific attributes.
-        :return: None
-        """
-        self.client = resource(**self.dev_info, **resource_arg)
-        self.server = resource(**self.dev_info, **resource_arg)
-        self.client.pre_run(self.server.psns, self.server.qps_num)
-        self.server.pre_run(self.client.psns, self.client.qps_num)
-
     def test_rc_modify_udp_sport(self):
         """
         Create RC resources and change the server QP's UDP source port to an
@@ -47,4 +34,4 @@ class UdpSportTestCase(Mlx5RDMATestCase):
             if ex.error_code == errno.EOPNOTSUPP:
                 raise unittest.SkipTest('Modifying a QP UDP sport is not supported')
             raise ex
-        u.traffic(self.client, self.server, self.iters, self.gid_index, self.ib_port)
+        u.traffic(**self.traffic_args)

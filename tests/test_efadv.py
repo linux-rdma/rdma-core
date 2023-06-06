@@ -137,17 +137,8 @@ class EfaCqTest(EfaRDMATestCase):
         self.client = None
 
     def create_players(self, dev_cap, wc_flags, send_ops_flags, qp_count=8):
-        try:
-            self.client = EfaCQRes(self.dev_name, self.ib_port, self.gid_index, send_ops_flags, qp_count,
-                                   dev_cap, wc_flags)
-            self.server = EfaCQRes(self.dev_name, self.ib_port, self.gid_index, send_ops_flags, qp_count,
-                                   dev_cap, wc_flags)
-        except PyverbsRDMAError as ex:
-            if ex.error_code == errno.EOPNOTSUPP:
-                raise unittest.SkipTest('Create EfaCQ Resources is not supported')
-            raise ex
-        self.client.pre_run(self.server.psns, self.server.qps_num)
-        self.server.pre_run(self.client.psns, self.client.qps_num)
+        super().create_players(EfaCQRes, send_ops_flags=send_ops_flags, qp_count=qp_count,
+                               requested_dev_cap=dev_cap, wc_flags=wc_flags)
         self.server.remote_gid = self.client.ctx.query_gid(self.client.ib_port, self.client.gid_index)
 
     def test_dv_cq_ex_with_sgid(self):

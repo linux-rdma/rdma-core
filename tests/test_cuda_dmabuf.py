@@ -71,31 +71,6 @@ class DmabufCudaTest(RDMATestCase):
     """
     Test RDMA traffic over CUDA memory
     """
-    def create_players(self, resource, **resource_arg):
-        """
-        Init CUDA tests resources.
-        :param resource: The RDMA resources to use.
-        :param resource_arg: Dict of args that specify the resource specific
-        attributes.
-        :return: Non
-        """
-        self.client = resource(**self.dev_info, **resource_arg)
-        self.server = resource(**self.dev_info, **resource_arg)
-        self.client.pre_run(self.server.psns, self.server.qps_num)
-        self.server.pre_run(self.client.psns, self.client.qps_num)
-        self.sync_remote_attr()
-        self.traffic_args = {'client': self.client, 'server': self.server,
-                             'iters': self.iters, 'gid_idx': self.gid_index,
-                             'port': self.ib_port}
-
-    def sync_remote_attr(self):
-        """
-        Exchange the MR remote attributes between the server and the client.
-        """
-        self.server.rkey = self.client.mr.rkey
-        self.server.raddr = self.client.mr.buf
-        self.client.rkey = self.server.mr.rkey
-        self.client.raddr = self.server.mr.buf
 
     def test_cuda_dmabuf_rdma_write_traffic(self):
         """
