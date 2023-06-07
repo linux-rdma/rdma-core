@@ -16,8 +16,9 @@ import glob
 import time
 import os
 
+from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError, PyverbsUserError
+from pyverbs.providers.mlx5.mlx5dv import Mlx5Context, Mlx5DVContextAttr
 from pyverbs.qp import QPCap, QPInitAttr, QPInitAttrEx, QPAttr, QPEx, QP
-from pyverbs.pyverbs_error import PyverbsError, PyverbsRDMAError
 from tests.mlx5_base import Mlx5DcResources, Mlx5DcStreamsRes
 from tests.base import XRCResources, DCT_KEY, MLNX_VENDOR_ID
 from pyverbs.addr import AHAttr, AH, GlobalRoute
@@ -1503,6 +1504,27 @@ def huge_pages_supported():
     with open(huge_path, 'r') as f:
         if not int(f.read()):
             raise unittest.SkipTest('There are no huge pages of size 2M allocated')
+
+
+@skip_unsupported
+def query_nic_flow_table_caps(instance):
+    from tests.mlx5_prm_structs import QueryHcaCapIn, QueryQosCapOut, QueryHcaCapOp, \
+        QueryHcaCapMod, QueryCmdHcaNicFlowTableCapOut
+    try:
+        ctx = Mlx5Context(Mlx5DVContextAttr(), instance.dev_name)
+    except PyverbsUserError as ex:
+        raise unittest.SkipTest(f'Could not open mlx5 context ({ex})')
+    except PyverbsRDMAError:
+        raise unittest.SkipTest('Opening mlx5 context is not supported')
+    # Query NIC Flow Table capabilities
+    query_cap_in = QueryHcaCapIn(op_mod=(QueryHcaCapOp.HCA_NIC_FLOW_TABLE_CAP << 0x1) | \
+                                        QueryHcaCapMod.CURRENT)
+    cmd_res = ctx.devx_general_cmd(query_cap_in, len(QueryQosCapOut()))
+    query_cap_out = QueryCmdHcaNicFlowTableCapOut(cmd_res)
+    if query_cap_out.status:
+        raise PyverbsRDMAError(f'QUERY_HCA_CAP has failed with status ({query_cap_out.status}) '
+                               f'and syndrome ({query_cap_out.syndrome})')
+    return query_cap_out.capability
 
 
 def prefetch_mrs(agr_obj, sg_list, advice=e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE,

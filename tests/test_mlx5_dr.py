@@ -82,6 +82,17 @@ def skip_if_has_geneve_tx_bug(ctx):
         raise unittest.SkipTest('This test is not supported on cx5/6')
 
 
+def requires_geneve_fields_rx_support(func):
+    def func_wrapper(instance):
+        nic_tbl_caps = u.query_nic_flow_table_caps(instance)
+        field_support = nic_tbl_caps.flow_table_properties_nic_receive.ft_field_support
+        if not (field_support.outer_geneve_vni and field_support.outer_geneve_oam and
+                field_support.outer_geneve_protocol_type and field_support.outer_geneve_opt_len):
+            raise unittest.SkipTest('NIC flow table does not support geneve fields')
+        return func(instance)
+    return func_wrapper
+
+
 class Mlx5DrResources(RawResources):
     """
     Test various functionalities of the mlx5 direct rules class.
@@ -1007,7 +1018,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         self.assertEqual(recv_packets_rx, self.iters,
                          'Counter rx counts more than expected recv packets')
 
-    @skip_unsupported
+    @requires_geneve_fields_rx_support
     def test_root_geneve_match_rx(self):
         """
         Creates matcher on RX root table to match on Geneve related fields
@@ -1015,7 +1026,7 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         """
         self.geneve_match_rx(root_only=True)
 
-    @skip_unsupported
+    @requires_geneve_fields_rx_support
     def test_geneve_match_rx(self):
         """
         Creates matcher on RX non-root table to match on Geneve related
