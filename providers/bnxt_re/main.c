@@ -84,6 +84,7 @@ static const struct verbs_match_ent cna_table[] = {
 	CNA(BROADCOM, 0x1804),	/* BCM57504 NPAR */
 	CNA(BROADCOM, 0x1805),	/* BCM57502 NPAR */
 	CNA(BROADCOM, 0x1807),	/* BCM5750x VF */
+	CNA(BROADCOM, 0x1809),  /* BCM5750x Gen P5 VF HV */
 	CNA(BROADCOM, 0xD800),  /* BCM880xx VF */
 	CNA(BROADCOM, 0xD802),  /* BCM58802 */
 	CNA(BROADCOM, 0xD804),  /* BCM8804 SR */
