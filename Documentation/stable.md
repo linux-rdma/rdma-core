@@ -80,7 +80,10 @@ To do that, the creator of the branch should run
 mkdir ABI
 touch ABI/.gitignore
 git add ABI/.gitignore
-git commit -m "ABI Files"
+echo "              changeLogCompareToRelease: lastNonDraftReleaseByTag" >> buildlib/azure-pipelines-release.yml
+echo "              changeLogCompareToReleaseTag: $(git describe HEAD --match="v*.0"  --abbrev=0 | sed 's/0$/*/')" >> buildlib/azure-pipelines-release.yml
+git add buildlib/azure-pipelines-release.yml
+git commit -s -m "stable branch creation" -m "Add ABI files and tune Azure pipeline for changelog generation"
 ./buildlib/cbuild pkg azp
 git add ABI/*
 git commit --amend
