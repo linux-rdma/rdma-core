@@ -546,7 +546,7 @@ struct mlx5_ifc_dr_match_spec_bits {
 
 struct mlx5_ifc_dr_match_set_misc_bits {
 	u8         gre_c_present[0x1];
-	u8         reserved_auto1[0x1];
+	u8         bth_a[0x1];
 	u8         gre_k_present[0x1];
 	u8         gre_s_present[0x1];
 	u8         source_vhca_port[0x4];

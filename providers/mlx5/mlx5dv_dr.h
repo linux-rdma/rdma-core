@@ -723,7 +723,7 @@ struct dr_match_spec {
 
 struct dr_match_misc {
 	uint32_t gre_c_present:1;		/* used with GRE, checksum exist when gre_c_present == 1 */
-	uint32_t reserved_at1:1;
+	uint32_t bth_a:1;
 	uint32_t gre_k_present:1;		/* used with GRE, key exist when gre_k_present == 1 */
 	uint32_t gre_s_present:1;		/* used with GRE, sequence number exist when gre_s_present == 1 */
 	uint32_t source_vhca_port:4;

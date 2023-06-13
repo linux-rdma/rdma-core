@@ -829,6 +829,7 @@ int dr_ste_build_ste_arr(struct mlx5dv_dr_matcher *matcher,
 static void dr_ste_copy_mask_misc(char *mask, struct dr_match_misc *spec, bool clear)
 {
 	spec->gre_c_present = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, gre_c_present, clear);
+	spec->bth_a = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, bth_a, clear);
 	spec->gre_k_present = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, gre_k_present, clear);
 	spec->gre_s_present = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, gre_s_present, clear);
 	spec->source_vhca_port = DR_DEVX_GET_CLEAR(dr_match_set_misc, mask, source_vhca_port, clear);
