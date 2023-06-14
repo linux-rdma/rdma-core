@@ -176,6 +176,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${BUILDLIB}")
 
 include(CMakeParseArguments)
 include(CheckCCompilerFlag)
+include(CheckCSourceCompiles)
 include(CheckIncludeFile)
 include(CheckTypeSize)
 include(RDMA_EnableCStd)
