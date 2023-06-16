@@ -141,7 +141,7 @@ static struct verbs_context *irdma_ualloc_context(struct ibv_device *ibdev,
 {
 	struct ibv_pd *ibv_pd;
 	struct irdma_uvcontext *iwvctx;
-	struct irdma_get_context cmd;
+	struct irdma_get_context cmd = {};
 	struct irdma_get_context_resp resp = {};
 	__u64 mmap_key;
 	__u8 user_ver = IRDMA_ABI_VER;
@@ -151,6 +151,7 @@ static struct verbs_context *irdma_ualloc_context(struct ibv_device *ibdev,
 	if (!iwvctx)
 		return NULL;
 
+	cmd.comp_mask |= IRDMA_ALLOC_UCTX_USE_RAW_ATTR;
 	cmd.userspace_ver = user_ver;
 	if (ibv_cmd_get_context(&iwvctx->ibv_ctx,
 				(struct ibv_get_context *)&cmd, sizeof(cmd),
@@ -183,6 +184,8 @@ static struct verbs_context *irdma_ualloc_context(struct ibv_device *ibdev,
 		iwvctx->uk_attrs.max_hw_cq_size = resp.max_hw_cq_size;
 		iwvctx->uk_attrs.min_hw_cq_size = resp.min_hw_cq_size;
 		iwvctx->abi_ver = user_ver;
+		if (resp.comp_mask & IRDMA_ALLOC_UCTX_USE_RAW_ATTR)
+			iwvctx->use_raw_attrs = true;
 		mmap_key = resp.db_mmap_key;
 	}
 
