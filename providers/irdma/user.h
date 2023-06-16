@@ -311,6 +311,11 @@ enum irdma_status_code irdma_uk_cq_init(struct irdma_cq_uk *cq,
 					struct irdma_cq_uk_init_info *info);
 enum irdma_status_code irdma_uk_qp_init(struct irdma_qp_uk *qp,
 					struct irdma_qp_uk_init_info *info);
+int irdma_uk_calc_depth_shift_sq(struct irdma_qp_uk_init_info *ukinfo,
+				 __u32 *sq_depth, __u8 *sq_shift);
+int irdma_uk_calc_depth_shift_rq(struct irdma_qp_uk_init_info *ukinfo,
+				 __u32 *rq_depth, __u8 *rq_shift);
+
 struct irdma_sq_uk_wr_trk_info {
 	__u64 wrid;
 	__u32 wr_len;
@@ -391,8 +396,12 @@ struct irdma_qp_uk_init_info {
 	__u32 max_sq_frag_cnt;
 	__u32 max_rq_frag_cnt;
 	__u32 max_inline_data;
+	__u32 sq_depth;
+	__u32 rq_depth;
 	__u8 first_sq_wq;
 	__u8 type;
+	__u8 sq_shift;
+	__u8 rq_shift;
 	int abi_ver;
 	bool legacy_mode;
 };
