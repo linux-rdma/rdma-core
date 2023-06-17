@@ -1384,10 +1384,12 @@ void irdma_get_wqe_shift(struct irdma_uk_attrs *uk_attrs, __u32 sge,
 enum irdma_status_code irdma_get_sqdepth(struct irdma_uk_attrs *uk_attrs,
 					 __u32 sq_size, __u8 shift, __u32 *sqdepth)
 {
+	__u32 min_size = (__u32)uk_attrs->min_hw_wq_size << shift;
+
 	*sqdepth = irdma_qp_round_up((sq_size << shift) + IRDMA_SQ_RSVD);
 
-	if (*sqdepth < (IRDMA_QP_SW_MIN_WQSIZE << shift))
-		*sqdepth = IRDMA_QP_SW_MIN_WQSIZE << shift;
+	if (*sqdepth < min_size)
+		*sqdepth = min_size;
 	else if (*sqdepth > uk_attrs->max_hw_wq_quanta)
 		return IRDMA_ERR_INVALID_SIZE;
 
@@ -1404,10 +1406,12 @@ enum irdma_status_code irdma_get_sqdepth(struct irdma_uk_attrs *uk_attrs,
 enum irdma_status_code irdma_get_rqdepth(struct irdma_uk_attrs *uk_attrs,
 					 __u32 rq_size, __u8 shift, __u32 *rqdepth)
 {
+	__u32 min_size = (__u32)uk_attrs->min_hw_wq_size << shift;
+
 	*rqdepth = irdma_qp_round_up((rq_size << shift) + IRDMA_RQ_RSVD);
 
-	if (*rqdepth < (IRDMA_QP_SW_MIN_WQSIZE << shift))
-		*rqdepth = IRDMA_QP_SW_MIN_WQSIZE << shift;
+	if (*rqdepth < min_size)
+		*rqdepth = min_size;
 	else if (*rqdepth > uk_attrs->max_hw_rq_quanta)
 		return IRDMA_ERR_INVALID_SIZE;
 
