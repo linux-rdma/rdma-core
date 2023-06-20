@@ -258,6 +258,8 @@ void bnxt_re_put_pbuf(struct bnxt_re_context *cntx,
 int bnxt_re_alloc_page(struct ibv_context *ibvctx,
 		       struct bnxt_re_mmap_info *minfo,
 		       uint32_t *page_handle);
+int bnxt_re_notify_drv(struct ibv_context *ibvctx);
+
 /* pointer conversion functions*/
 static inline struct bnxt_re_dev *to_bnxt_re_dev(struct ibv_device *ibvdev)
 {

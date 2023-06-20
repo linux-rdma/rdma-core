@@ -102,6 +102,16 @@ static int bnxt_re_map_db_page(struct ibv_context *ibvctx,
 	return 0;
 }
 
+int bnxt_re_notify_drv(struct ibv_context *ibvctx)
+{
+	DECLARE_COMMAND_BUFFER(cmd,
+			       BNXT_RE_OBJECT_NOTIFY_DRV,
+			       BNXT_RE_METHOD_NOTIFY_DRV,
+			       0);
+
+	return execute_ioctl(ibvctx, cmd);
+}
+
 int bnxt_re_alloc_page(struct ibv_context *ibvctx,
 		       struct bnxt_re_mmap_info *minfo,
 		       uint32_t *page_handle)
