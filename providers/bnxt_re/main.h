@@ -222,6 +222,8 @@ struct bnxt_re_context {
 	pthread_spinlock_t fqlock;
 	struct bnxt_re_push_rec *pbrec;
 	uint32_t wc_handle;
+	void *dbr_page;
+	void *bar_map;
 };
 
 struct bnxt_re_mmap_info {
@@ -253,6 +255,9 @@ struct bnxt_re_push_buffer *bnxt_re_get_pbuf(uint8_t *push_st_en,
 					     struct bnxt_re_context *cntx);
 void bnxt_re_put_pbuf(struct bnxt_re_context *cntx,
 		      struct bnxt_re_push_buffer *pbuf);
+int bnxt_re_alloc_page(struct ibv_context *ibvctx,
+		       struct bnxt_re_mmap_info *minfo,
+		       uint32_t *page_handle);
 /* pointer conversion functions*/
 static inline struct bnxt_re_dev *to_bnxt_re_dev(struct ibv_device *ibvdev)
 {

@@ -102,9 +102,9 @@ static int bnxt_re_map_db_page(struct ibv_context *ibvctx,
 	return 0;
 }
 
-static int bnxt_re_alloc_page(struct ibv_context *ibvctx,
-			      struct bnxt_re_mmap_info *minfo,
-			      uint32_t *page_handle)
+int bnxt_re_alloc_page(struct ibv_context *ibvctx,
+		       struct bnxt_re_mmap_info *minfo,
+		       uint32_t *page_handle)
 {
 	DECLARE_COMMAND_BUFFER(cmd,
 			       BNXT_RE_OBJECT_ALLOC_PAGE,
@@ -124,7 +124,8 @@ static int bnxt_re_alloc_page(struct ibv_context *ibvctx,
 
 	if (ret)
 		return ret;
-	*page_handle = read_attr_obj(BNXT_RE_ALLOC_PAGE_HANDLE, handle);
+	if (page_handle)
+		*page_handle = read_attr_obj(BNXT_RE_ALLOC_PAGE_HANDLE, handle);
 	return 0;
 }
 
