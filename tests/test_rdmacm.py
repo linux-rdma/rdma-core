@@ -59,7 +59,7 @@ class CMTestCase(RDMACMBaseTest):
 
     def test_rdmacm_async_udp_traffic(self):
         self.two_nodes_rdmacm_traffic(CMAsyncConnection, self.rdmacm_traffic,
-                                      port_space=self.get_port_space())
+                                      port_space=self.get_port_space(), ib_port=self.ib_port)
 
     def test_rdmacm_async_read(self):
         self.two_nodes_rdmacm_traffic(CMAsyncConnection,
