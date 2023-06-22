@@ -37,6 +37,7 @@ class CMResources(abc.ABC):
         self.passive = passive
         self.with_ext_qp = kwargs.get('with_ext_qp', False)
         self.port = kwargs.get('port') if kwargs.get('port') else '7471'
+        self.ib_port = int(kwargs.get('ib_port', '1'))
         self.port_space = kwargs.get('port_space', ce.RDMA_PS_TCP)
         self.remote_operation = kwargs.get('remote_op')
         self.qp_type = qp_type_per_ps[self.port_space]
