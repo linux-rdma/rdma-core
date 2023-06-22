@@ -154,7 +154,7 @@ class CMConnection(abc.ABC):
                 self.cm_res.mr.write(send_msg, self.cm_res.msg_size)
                 cmid.post_send(self.cm_res.mr)
             else:
-                ah = AH(cmid.pd, wc=wc, port_num=1, grh=self.cm_res.mr.buf)
+                ah = AH(cmid.pd, wc=wc, port_num=self.cm_res.ib_port, grh=self.cm_res.mr.buf)
                 rqpn = self.cm_res.remote_qpn
                 self.cm_res.mr.write(send_msg, self.cm_res.msg_size + GRH_SIZE)
                 cmid.post_ud_send(self.cm_res.mr, ah, rqpn=rqpn,
