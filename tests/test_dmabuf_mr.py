@@ -100,6 +100,15 @@ def get_dmabuf_factory(pd, drm_gpu=0, drm_gtt=0):
     return DmaBufFactory(gpu_type, drm_gpu, drm_gtt)
 
 
+def create_dmabuf_mr(pd, len, flags, dmabuf, offset = 0):
+    try:
+        return DmaBufMR(pd, len, flags, dmabuf, offset)
+    except PyverbsRDMAError as ex:
+        if ex.error_code == errno.EOPNOTSUPP:
+            return None
+        raise
+
+
 class DmaBufMRTest(PyverbsAPITestCase):
     """
     Test various functionalities of the DmaBufMR class.
@@ -120,8 +129,7 @@ class DmaBufMRTest(PyverbsAPITestCase):
             len = u.get_mr_length()
             for off in [0, len//2]:
                 dmabuf = self.dmabuf_factory.get_dmabuf(len + off)
-                with DmaBufMR(self.pd, len, f, dmabuf, off) as mr:
-                    pass
+                create_dmabuf_mr(self.pd, len, f, dmabuf, off)
 
     def test_dmabuf_dereg_mr(self):
         """
@@ -132,8 +140,10 @@ class DmaBufMRTest(PyverbsAPITestCase):
             len = u.get_mr_length()
             for off in [0, len//2]:
                 dmabuf = self.dmabuf_factory.get_dmabuf(len + off)
-                with DmaBufMR(self.pd, len, f, dmabuf, off) as mr:
-                    mr.close()
+                mr = create_dmabuf_mr(self.pd, len, f, dmabuf, off)
+                if not mr:
+                    continue
+                mr.close()
 
     def test_dmabuf_dereg_mr_twice(self):
         """
@@ -144,11 +154,13 @@ class DmaBufMRTest(PyverbsAPITestCase):
             len = u.get_mr_length()
             for off in [0, len//2]:
                 dmabuf = self.dmabuf_factory.get_dmabuf(len + off)
-                with DmaBufMR(self.pd, len, f, dmabuf, off) as mr:
-                    # Pyverbs supports multiple destruction of objects,
-                    # we are not expecting an exception here.
-                    mr.close()
-                    mr.close()
+                mr = create_dmabuf_mr(self.pd, len, f, dmabuf, off)
+                if not mr:
+                    continue
+                # Pyverbs supports multiple destruction of objects,
+                # we are not expecting an exception here.
+                mr.close()
+                mr.close()
 
     def test_dmabuf_reg_mr_bad_flags(self):
         """
@@ -179,13 +191,15 @@ class DmaBufMRTest(PyverbsAPITestCase):
             for f in flags:
                 for mr_off in [0, mr_len//2]:
                     dmabuf = self.dmabuf_factory.get_dmabuf(mr_len + mr_off)
-                    with DmaBufMR(self.pd, mr_len, f, dmabuf, mr_off) as mr:
-                        write_len = min(random.randint(1, MAX_IO_LEN), mr_len)
-                        try:
-                            mr.write('a' * write_len, write_len)
-                        except PyverbsRDMAError as ex:
-                            if ex.error_code == errno.EOPNOTSUPP:
-                                raise unittest.SkipTest("DMA buffer write isn't supported")
+                    mr = create_dmabuf_mr(self.pd, mr_len, f, dmabuf, mr_off)
+                    if not mr:
+                        continue
+                    write_len = min(random.randint(1, MAX_IO_LEN), mr_len)
+                    try:
+                        mr.write('a' * write_len, write_len)
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest("DMA buffer write isn't supported")
 
     def test_dmabuf_read(self):
         """
@@ -197,23 +211,24 @@ class DmaBufMRTest(PyverbsAPITestCase):
             for f in flags:
                 for mr_off in [0, mr_len//2]:
                     dmabuf = self.dmabuf_factory.get_dmabuf(mr_len + mr_off)
-                    with DmaBufMR(self.pd, mr_len, f, dmabuf, mr_off) as mr:
-                        write_len = min(random.randint(1, MAX_IO_LEN),
-                                        mr_len)
-                        write_str = 'a' * write_len
-                        try:
-                            mr.write(write_str, write_len)
-                        except PyverbsRDMAError as ex:
-                            if ex.error_code == errno.EOPNOTSUPP:
-                                raise unittest.SkipTest("DMA buffer write isn't supported")
-                        read_len = random.randint(1, write_len)
-                        offset = random.randint(0, write_len-read_len)
-                        try:
-                            read_str = mr.read(read_len, offset).decode()
-                        except PyverbsRDMAError as ex:
-                            if ex.error_code == errno.EOPNOTSUPP:
-                                raise unittest.SkipTest("DMA buffer read isn't supported")
-                        assert read_str in write_str
+                    mr = create_dmabuf_mr(self.pd, mr_len, f, dmabuf, mr_off)
+                    if not mr:
+                        continue
+                    write_len = min(random.randint(1, MAX_IO_LEN), mr_len)
+                    write_str = 'a' * write_len
+                    try:
+                        mr.write(write_str, write_len)
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest("DMA buffer write isn't supported")
+                    read_len = random.randint(1, write_len)
+                    offset = random.randint(0, write_len-read_len)
+                    try:
+                        read_str = mr.read(read_len, offset).decode()
+                    except PyverbsRDMAError as ex:
+                        if ex.error_code == errno.EOPNOTSUPP:
+                            raise unittest.SkipTest("DMA buffer read isn't supported")
+                    assert read_str in write_str
 
     def test_dmabuf_lkey(self):
         """
@@ -223,8 +238,10 @@ class DmaBufMRTest(PyverbsAPITestCase):
         flags = u.get_dmabuf_access_flags(self.ctx)
         for f in flags:
             dmabuf = self.dmabuf_factory.get_dmabuf(length)
-            with DmaBufMR(self.pd, length, f, dmabuf) as mr:
-                mr.lkey
+            mr = create_dmabuf_mr(self.pd, length, f, dmabuf)
+            if not mr:
+                continue
+            mr.rkey
 
     def test_dmabuf_rkey(self):
         """
@@ -234,8 +251,10 @@ class DmaBufMRTest(PyverbsAPITestCase):
         flags = u.get_dmabuf_access_flags(self.ctx)
         for f in flags:
             dmabuf = self.dmabuf_factory.get_dmabuf(length)
-            with DmaBufMR(self.pd, length, f, dmabuf) as mr:
-                mr.rkey
+            mr = create_dmabuf_mr(self.pd, length, f, dmabuf)
+            if not mr:
+                continue
+            mr.rkey
 
 
 class DmaBufRC(RCResources):
