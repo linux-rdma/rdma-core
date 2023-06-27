@@ -1303,7 +1303,7 @@ class QueryCmdHcaCapOut(Packet):
 class FlowTableEntryMatchSetMisc(Packet):
     fields_desc = [
         BitField('gre_c_present', 0, 1),
-        BitField('reserved1', 0, 1),
+        BitField('bth_a', 0, 1),
         BitField('gre_k_present', 0, 1),
         BitField('gre_s_present', 0, 1),
         BitField('source_vhca_port', 0, 4),

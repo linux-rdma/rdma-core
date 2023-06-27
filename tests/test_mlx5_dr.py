@@ -380,9 +380,11 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         roce_mask = FlowTableEntryMatchParam()
         roce_mask.misc_parameters.bth_opcode = 0xff
         roce_mask.misc_parameters.bth_dst_qp = 0xffffff
+        roce_mask.misc_parameters.bth_a = 0x1
         roce_value = FlowTableEntryMatchParam()
         roce_value.misc_parameters.bth_opcode = PacketConsts.BTH_OPCODE
         roce_value.misc_parameters.bth_dst_qp = PacketConsts.BTH_DST_QP
+        roce_value.misc_parameters.bth_a = PacketConsts.BTH_A
         mask_param = Mlx5FlowMatchParameters(len(roce_mask), roce_mask)
         value_param = Mlx5FlowMatchParameters(len(roce_value), roce_value)
         return mask_param, value_param
