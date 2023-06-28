@@ -18,5 +18,13 @@ IBNETDISC_1.0 {
 		ibnd_find_port_dr;
 		ibnd_find_port_lid;
 		ibnd_iter_ports;
+		ibnd_get_agg_linkspeedext_raw;
+		ibnd_get_agg_linkspeedext;
+		ibnd_get_agg_linkspeedexten;
+		ibnd_get_agg_linkspeedextsup;
+		ibnd_dump_agg_linkspeedext_bits;
+		ibnd_dump_agg_linkspeedext;
+		ibnd_dump_agg_linkspeedexten;
+		ibnd_dump_agg_linkspeedextsup;
 	local: *;
 };
