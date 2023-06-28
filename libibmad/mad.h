@@ -1332,6 +1332,14 @@ enum MAD_FIELDS {
 	IB_PORT_EXT_NDR_FEC_MODE_ENABLED_F,
 	IB_PORT_EXT_NDR_FEC_MODE_LAST_F,
 
+	/*
+	 * More PortInfo fields (XDR)
+	 */
+	IB_PORT_LINK_SPEED_EXT_ACTIVE_2_F,
+	IB_PORT_LINK_SPEED_EXT_SUPPORTED_2_F,
+	IB_PORT_LINK_SPEED_EXT_ENABLED_2_F,
+	IB_PORT_LINK_SPEED_EXT_2_LAST_F,
+
 	IB_FIELD_LAST_		/* must be last */
 };
 
@@ -1668,7 +1676,8 @@ ib_mad_dump_fn mad_dump_int, mad_dump_uint, mad_dump_hex, mad_dump_rhex,
 	mad_dump_cc_congestioncontroltable,
 	mad_dump_cc_congestioncontroltableentry, mad_dump_cc_timestamp,
 	mad_dump_classportinfo, mad_dump_portsamples_result,
-	mad_dump_portinfo_ext, mad_dump_port_ext_speeds_counters_rsfec_active;
+	mad_dump_portinfo_ext, mad_dump_port_ext_speeds_counters_rsfec_active,
+	mad_dump_linkspeedext2, mad_dump_linkspeedextsup2, mad_dump_linkspeedexten2;
 
 void mad_dump_fields(char *buf, int bufsz, void *val, int valsz, int start,
 		     int end);
