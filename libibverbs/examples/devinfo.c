@@ -673,7 +673,7 @@ static void usage(const char *argv0)
 	printf("Usage: %s             print the ca attributes\n", argv0);
 	printf("\n");
 	printf("Options:\n");
-	printf("  -d, --ib-dev=<dev>     use IB device <dev> (default first device found)\n");
+	printf("  -d, --ib-dev=<dev>     use IB device <dev> (default all devices)\n");
 	printf("  -i, --ib-port=<port>   use port <port> of IB device (default all ports)\n");
 	printf("  -l, --list             print only the IB devices names\n");
 	printf("  -v, --verbose          print all the attributes of the IB device(s)\n");
