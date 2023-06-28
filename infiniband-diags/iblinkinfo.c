@@ -111,7 +111,7 @@ static void print_port(ibnd_node_t *node, ibnd_port_t *port,
 	char width_msg[256];
 	char speed_msg[256];
 	char ext_port_str[256];
-	int iwidth, ispeed, fdr10, espeed, istate, iphystate, cap_mask;
+	int iwidth, ispeed, fdr10, espeed, istate, iphystate;
 	int n = 0;
 	uint8_t *info = NULL;
 	int rc;
@@ -132,12 +132,7 @@ static void print_port(ibnd_node_t *node, ibnd_port_t *port,
 		info = (uint8_t *)&port->info;
 
 	if (info) {
-		cap_mask = mad_get_field(info, 0, IB_PORT_CAPMASK_F);
-		if (cap_mask & be32toh(IB_PORT_CAP_HAS_EXT_SPEEDS))
-			espeed = mad_get_field(port->info, 0,
-					       IB_PORT_LINK_SPEED_EXT_ACTIVE_F);
-		else
-			espeed = 0;
+		espeed = ibnd_get_agg_linkspeedext(info, port->info);
 	} else {
 		ispeed = 0;
 		iwidth = 0;
@@ -169,8 +164,7 @@ static void print_port(ibnd_node_t *node, ibnd_port_t *port,
 				mad_dump_val(IB_PORT_LINK_SPEED_ACTIVE_F, speed,
 					     64, &ispeed);
 		} else
-			mad_dump_val(IB_PORT_LINK_SPEED_EXT_ACTIVE_F, speed,
-				     64, &espeed);
+			ibnd_dump_agg_linkspeedext(speed, 64, espeed);
 
 		n = snprintf(link_str, 256, "(%3s %18s %6s/%8s)",
 		     mad_dump_val(IB_PORT_LINK_WIDTH_ACTIVE_F, width, 64,
