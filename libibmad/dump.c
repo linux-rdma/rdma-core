@@ -393,6 +393,58 @@ void mad_dump_linkspeedexten(char *buf, int bufsz, void *val, int valsz)
 	dump_linkspeedext(buf, bufsz, speed);
 }
 
+void mad_dump_linkspeedext2(char *buf, int bufsz, void *val, int valsz)
+{
+	int speed = *(int *) val;
+
+	switch (speed) {
+	case 0:
+		snprintf(buf, bufsz, "No Extended Speed 2");
+		break;
+	case 1:
+		snprintf(buf, bufsz, "212.5 Gbps");
+		break;
+	default:
+		snprintf(buf, bufsz, "undefined (%d)", speed);
+		break;
+	}
+}
+
+static void dump_linkspeedext2(char *buf, int bufsz, int speed)
+{
+	int n = 0;
+
+	if (speed == 0) {
+		snprintf(buf, bufsz, "%d", speed);
+		return;
+	}
+
+	if (speed & 0x1)
+		snprintf(buf, bufsz, "212.5 Gbps");
+
+	if (n >= bufsz)
+		return;
+
+	if (speed >> 1)
+		snprintf(buf + n, bufsz - n, " undefined (%d)", speed);
+}
+
+
+void mad_dump_linkspeedextsup2(char *buf, int bufsz, void *val, int valsz)
+{
+	int speed = *(int *) val;
+
+	dump_linkspeedext2(buf, bufsz, speed);
+}
+
+void mad_dump_linkspeedexten2(char *buf, int bufsz, void *val, int valsz)
+{
+	int speed = *(int *) val;
+
+	dump_linkspeedext2(buf, bufsz, speed);
+}
+
+
 void mad_dump_portstate(char *buf, int bufsz, void *val, int valsz)
 {
 	int state = *(int *)val;

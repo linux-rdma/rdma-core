@@ -1019,6 +1019,14 @@ static const ib_field_t ib_mad_f[] = {
 	{160, 16, "NDRFECModeEnabled", mad_dump_hex},
 	{},			/* IB_PORT_EXT_NDR_FEC_MODE_LAST_F */
 
+	/*
+	 * More PortInfo fields (XDR)
+	 */
+	{ BITSOFFS(449, 2), "LinkSpeedExtActive2", mad_dump_linkspeedext2 },
+	{ BITSOFFS(451, 2), "LinkSpeedExtSupported2", mad_dump_linkspeedextsup2 },
+	{ BITSOFFS(453, 3), "LinkSpeedExtEnabled2", mad_dump_linkspeedexten2 },
+	{ }, /* IB_PORT_LINK_SPEED_EXT_2_LAST_F */
+
 	{}			/* IB_FIELD_LAST_ */
 };
 
