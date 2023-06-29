@@ -331,7 +331,7 @@ static struct ibv_cq_ex *ucreate_cq(struct ibv_context *context,
 		return NULL;
 	}
 
-	if (attr_ex->cqe < IRDMA_MIN_CQ_SIZE || attr_ex->cqe > uk_attrs->max_hw_cq_size) {
+	if (attr_ex->cqe < IRDMA_MIN_CQ_SIZE || attr_ex->cqe > uk_attrs->max_hw_cq_size - 1) {
 		errno = EINVAL;
 		return NULL;
 	}
