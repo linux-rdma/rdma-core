@@ -468,7 +468,7 @@ def xrc_post_send(agr_obj, qp_num, send_object, send_op=None):
         post_send(agr_obj, send_object)
 
 
-def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
+def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None, **kwargs):
     qp = agr_obj.qps[qp_idx]
     qp_type = qp.qp_type
     qp.wr_start()
@@ -490,11 +490,14 @@ def post_send_ex(agr_obj, send_object, send_op=None, qp_idx=0, ah=None):
     elif send_op == e.IBV_WR_RDMA_READ:
         qp.wr_rdma_read(agr_obj.rkey, agr_obj.raddr)
     elif send_op == e.IBV_WR_ATOMIC_CMP_AND_SWP:
+        cmp_add = kwargs.get('cmp_add')
+        swp = kwargs.get('swap')
         qp.wr_atomic_cmp_swp(agr_obj.rkey, agr_obj.raddr,
-                             int8b_from_int(2), int8b_from_int(0))
+                             int8b_from_int(cmp_add), int8b_from_int(swp))
     elif send_op == e.IBV_WR_ATOMIC_FETCH_AND_ADD:
+        cmp_add = kwargs.get('cmp_add')
         qp.wr_atomic_fetch_add(agr_obj.rkey, agr_obj.raddr,
-                               int8b_from_int(2))
+                               int8b_from_int(cmp_add))
     elif send_op == e.IBV_WR_BIND_MW:
         bind_info = MWBindInfo(agr_obj.mr, agr_obj.mr.buf, agr_obj.mr.rkey,
                                e.IBV_ACCESS_REMOTE_WRITE)
@@ -697,11 +700,12 @@ def validate(received_str, is_server, msg_size):
                 format(exp=expected_str, rcv=received_str))
 
 
-def send(agr_obj, send_object, send_op=None, new_send=False, qp_idx=0, ah=None, is_imm=False):
+def send(agr_obj, send_object, send_op=None, new_send=False, qp_idx=0, ah=None, is_imm=False,
+         **kwargs):
     if isinstance(agr_obj, XRCResources):
         agr_obj.qps = agr_obj.sqp_lst
     if new_send:
-        return post_send_ex(agr_obj, send_object, send_op, qp_idx, ah)
+        return post_send_ex(agr_obj, send_object, send_op, qp_idx, ah, **kwargs)
     return post_send(agr_obj, send_object, qp_idx, ah, is_imm)
 
 
@@ -1161,7 +1165,8 @@ def rdma_traffic(client, server, iters, gid_idx, port, new_send=False,
 
 
 def atomic_traffic(client, server, iters, gid_idx, port, new_send=False,
-                   send_op=None, receiver_val=1, sender_val=2, **kwargs):
+                   send_op=None, receiver_val=1, sender_val=2, swap=0,
+                   client_wr=1, server_wr=1, **kwargs):
     """
     Runs atomic traffic between two sides.
     :param client: Client side, clients base class is BaseTraffic
@@ -1173,32 +1178,49 @@ def atomic_traffic(client, server, iters, gid_idx, port, new_send=False,
     :param send_op: The send_wr opcode.
     :param receiver_val: The requested value on the reciver MR.
     :param sender_val: The requested value on the sender SendWR.
+    :param client_wr: Number of WR the client will post before polling all of them
+    :param server_wr: Number of WR the server will post before polling all of them
     :param kwargs: General arguments (shared with other traffic functions).
     """
     send_element_idx = 1 if new_send else 0
+    if is_datagram_qp(client):
+        ah_client = get_global_ah(client, gid_idx, port)
+        ah_server = get_global_ah(server, gid_idx, port)
+    else:
+        ah_client = None
+        ah_server = None
+
     for _ in range(iters):
         client.mr.write(int.to_bytes(sender_val, 1, byteorder='big') * 8, 8)
         server.mr.write(int.to_bytes(receiver_val, 1, byteorder='big') * 8, 8)
-        c_send_wr = get_atomic_send_elements(client, send_op,
-                                             cmp_add=sender_val,
-                                             swap=0)[send_element_idx]
-        if isinstance(server, XRCResources):
-            c_send_wr.set_qp_type_xrc(server.srq.get_srq_num())
-        send(client, c_send_wr, send_op, new_send)
-        poll_cq(client.cq)
-        validate_atomic(send_op, server, client, receiver_val=receiver_val,
-                        send_cmp_add=sender_val, send_swp=0)
+        for _ in range(client_wr):
+            c_send_wr = get_atomic_send_elements(client,
+                                                 send_op,
+                                                 cmp_add=sender_val,
+                                                 swap=swap)[send_element_idx]
+            if isinstance(server, XRCResources):
+                c_send_wr.set_qp_type_xrc(server.srq.get_srq_num())
+            send(client, c_send_wr, send_op, new_send, ah=ah_client,
+                 cmp_add=sender_val, swap=swap)
+        poll_cq(client.cq, count=client_wr)
+        validate_atomic(send_op, server, client,
+                        receiver_val=receiver_val + sender_val * (client_wr - 1),
+                        send_cmp_add=sender_val, send_swp=swap)
         server.mr.write(int.to_bytes(sender_val, 1, byteorder='big') * 8, 8)
         client.mr.write(int.to_bytes(receiver_val, 1, byteorder='big') * 8, 8)
-        s_send_wr = get_atomic_send_elements(server, send_op,
-                                             cmp_add=sender_val,
-                                             swap=0)[send_element_idx]
-        if isinstance(client, XRCResources):
-            s_send_wr.set_qp_type_xrc(client.srq.get_srq_num())
-        send(server, s_send_wr, send_op, new_send)
-        poll_cq(server.cq)
-        validate_atomic(send_op, client, server, receiver_val=receiver_val,
-                        send_cmp_add=sender_val, send_swp=0)
+        for _ in range(server_wr):
+            s_send_wr = get_atomic_send_elements(server,
+                                                 send_op,
+                                                 cmp_add=sender_val,
+                                                 swap=swap)[send_element_idx]
+            if isinstance(client, XRCResources):
+                s_send_wr.set_qp_type_xrc(client.srq.get_srq_num())
+            send(server, s_send_wr, send_op, new_send, ah=ah_server,
+                 cmp_add=sender_val, swap=swap)
+        poll_cq(server.cq, count=server_wr)
+        validate_atomic(send_op, client, server,
+                        receiver_val=receiver_val + sender_val * (server_wr - 1),
+                        send_cmp_add=sender_val, send_swp=swap)
 
 
 def validate_atomic(opcode, recv_player, send_player, receiver_val,
