@@ -89,15 +89,6 @@ class CQTest(RDMATestCase):
         self.server = None
         self.client = None
 
-    def create_players(self, resource, **resource_arg):
-        self.client = resource(**self.dev_info, **resource_arg)
-        self.server = resource(**self.dev_info, **resource_arg)
-        self.client.pre_run(self.server.psns, self.server.qps_num)
-        self.server.pre_run(self.client.psns, self.client.qps_num)
-        self.traffic_args = {'client': self.client, 'server': self.server,
-                             'iters': self.iters, 'gid_idx': self.gid_index,
-                             'port': self.ib_port}
-
     def test_resize_cq(self):
         """
         Test resize CQ, start with specific value and then increase and decrease

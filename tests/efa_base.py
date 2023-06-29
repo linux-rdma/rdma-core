@@ -52,11 +52,6 @@ class SRDResources(TrafficResources):
         self.send_ops_flags = send_ops_flags
         super().__init__(dev_name, ib_port, gid_index, qp_count=qp_count)
 
-    def pre_run(self, rpsns, rqps_num):
-        self.rpsns = rpsns
-        self.rqps_num = rqps_num
-        self.to_rts()
-
     def create_qp_attr(self):
         attr = QPAttr(port_num=self.ib_port)
         attr.qkey = self.SRD_QKEY

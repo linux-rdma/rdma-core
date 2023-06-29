@@ -65,22 +65,6 @@ class Mlx5SchedTrafficTest(Mlx5RDMATestCase):
         self.client = None
         self.traffic_args = None
 
-    def create_players(self, resource, **resource_arg):
-        """
-        Init schedule elements traffic tests resources.
-        :param resource: The RDMA resources to use.
-        :param resource_arg: Dict of args that specify the resource specific
-                             attributes.
-        :return: None
-        """
-        self.client = resource(**self.dev_info, **resource_arg)
-        self.server = resource(**self.dev_info, **resource_arg)
-        self.client.pre_run(self.server.psns, self.server.qps_num)
-        self.server.pre_run(self.client.psns, self.client.qps_num)
-        self.traffic_args = {'client': self.client, 'server': self.server,
-                             'iters': self.iters, 'gid_idx': self.gid_index,
-                             'port': self.ib_port}
-
     def test_sched_per_qp_traffic(self):
         """
         Tests attaching a QP to a sched leaf. The test creates a sched tree

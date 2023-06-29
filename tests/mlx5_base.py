@@ -128,11 +128,6 @@ class Mlx5DcResources(RoCETrafficResources):
             self.qps[i].to_rts(attr)
         self.dct_qp.to_rtr(attr)
 
-    def pre_run(self, rpsns, rqps_num):
-        self.rpsns = rpsns
-        self.rqps_num = rqps_num
-        self.to_rts()
-
     def create_context(self):
         mlx5dv_attr = Mlx5DVContextAttr()
         try:

@@ -151,17 +151,6 @@ class Mlx5DrTest(Mlx5RDMATestCase):
         if self.client:
             self.client.ctx.close()
 
-    def create_players(self, resource, **resource_arg):
-        """
-        Init Dr test resources.
-        :param resource: The RDMA resources to use.
-        :param resource_arg: Dict of args that specify the resource specific
-                             attributes.
-        :return: None
-        """
-        self.client = resource(**self.dev_info, **resource_arg)
-        self.server = resource(**self.dev_info, **resource_arg)
-
     @skip_unsupported
     def create_rx_recv_rules_based_on_match_params(self, mask_param, val_param, actions,
                                                    match_criteria=u.MatchCriteriaEnable.OUTER,

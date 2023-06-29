@@ -117,26 +117,9 @@ class OdpTestCase(RDMATestCase):
         :param resource_arg: Dict of args that specify the resource specific
                              attributes.
         """
-        self.client = resource(**self.dev_info, **resource_arg,
-                               request_user_addr=self.force_page_faults)
-        self.server = resource(**self.dev_info, **resource_arg,
-                               request_user_addr=self.force_page_faults)
-        self.client.pre_run(self.server.psns, self.server.qps_num)
-        self.server.pre_run(self.client.psns, self.client.qps_num)
-        if resource != OdpUD:
-            self.sync_remote_attr()
-        self.traffic_args = {'client': self.client, 'server': self.server,
-                             'iters': self.iters, 'gid_idx': self.gid_index,
-                             'port': self.ib_port, 'force_page_faults': self.force_page_faults}
-
-    def sync_remote_attr(self):
-        """
-        Sync the MR remote attributes between the server and the client.
-        """
-        self.server.rkey = self.client.mr.rkey
-        self.server.raddr = self.server.raddr = self.client.mr.buf
-        self.client.rkey = self.server.mr.rkey
-        self.client.raddr = self.client.raddr = self.server.mr.buf
+        sync_attrs = False if resource == OdpUD else True
+        super().create_players(resource, sync_attrs, **resource_arg)
+        self.traffic_args['force_page_faults'] = self.force_page_faults
 
     def tearDown(self):
         if self.server and self.server.user_addr:
@@ -148,12 +131,13 @@ class OdpTestCase(RDMATestCase):
         super(OdpTestCase, self).tearDown()
 
     def test_odp_rc_traffic(self):
-        self.create_players(OdpRC)
+        self.create_players(OdpRC, request_user_addr=self.force_page_faults)
         u.traffic(**self.traffic_args)
 
     def test_odp_rc_atomic_cmp_and_swp(self):
         self.force_page_faults = False
-        self.create_players(OdpRC, msg_size=8, odp_caps=e.IBV_ODP_SUPPORT_ATOMIC)
+        self.create_players(OdpRC, request_user_addr=self.force_page_faults,
+                            msg_size=8, odp_caps=e.IBV_ODP_SUPPORT_ATOMIC)
         u.atomic_traffic(**self.traffic_args,
                          send_op=e.IBV_WR_ATOMIC_CMP_AND_SWP)
         u.atomic_traffic(**self.traffic_args, receiver_val=1, sender_val=1,
@@ -161,25 +145,29 @@ class OdpTestCase(RDMATestCase):
 
     def test_odp_rc_atomic_fetch_and_add(self):
         self.force_page_faults = False
-        self.create_players(OdpRC, msg_size=8, odp_caps=e.IBV_ODP_SUPPORT_ATOMIC)
+        self.create_players(OdpRC, request_user_addr=self.force_page_faults,
+                            msg_size=8, odp_caps=e.IBV_ODP_SUPPORT_ATOMIC)
         u.atomic_traffic(**self.traffic_args,
                          send_op=e.IBV_WR_ATOMIC_FETCH_AND_ADD)
 
     def test_odp_rc_rdma_read(self):
-        self.create_players(OdpRC, odp_caps=e.IBV_ODP_SUPPORT_READ)
+        self.create_players(OdpRC, request_user_addr=self.force_page_faults,
+                            odp_caps=e.IBV_ODP_SUPPORT_READ)
         self.server.mr.write('s' * self.server.msg_size, self.server.msg_size)
         u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_READ)
 
     def test_odp_rc_rdma_write(self):
-        self.create_players(OdpRC, odp_caps=e.IBV_ODP_SUPPORT_WRITE)
+        self.create_players(OdpRC, request_user_addr=self.force_page_faults,
+                            odp_caps=e.IBV_ODP_SUPPORT_WRITE)
         u.rdma_traffic(**self.traffic_args, send_op=e.IBV_WR_RDMA_WRITE)
 
     def test_odp_implicit_rc_traffic(self):
-        self.create_players(OdpRC, is_implicit=True)
+        self.create_players(OdpRC, request_user_addr=self.force_page_faults,
+                            is_implicit=True)
         u.traffic(**self.traffic_args)
 
     def test_odp_ud_traffic(self):
-        self.create_players(OdpUD)
+        self.create_players(OdpUD, request_user_addr=self.force_page_faults)
         # Implement the traffic here because OdpUD uses two different MRs for
         # send and recv.
         ah_client = u.get_global_ah(self.client, self.gid_index, self.ib_port)
@@ -197,51 +185,55 @@ class OdpTestCase(RDMATestCase):
             u.poll_cq(self.server.cq)
 
     def test_odp_xrc_traffic(self):
-        self.create_players(OdpXRC)
+        self.create_players(OdpXRC, request_user_addr=self.force_page_faults)
         u.xrc_traffic(self.client, self.server)
 
     @u.requires_huge_pages()
     def test_odp_rc_huge_traffic(self):
         self.force_page_faults = False
-        self.create_players(OdpRC, is_huge=True)
+        self.create_players(OdpRC, request_user_addr=self.force_page_faults,
+                            is_huge=True)
         u.traffic(**self.traffic_args)
 
     @u.requires_huge_pages()
     def test_odp_rc_huge_user_addr_traffic(self):
         self.is_huge = True
-        self.create_players(OdpRC, is_huge=True)
+        self.create_players(OdpRC, request_user_addr=self.force_page_faults,
+                            is_huge=True)
         u.traffic(**self.traffic_args)
 
     def test_odp_sync_prefetch_rc_traffic(self):
         for advice in [e._IBV_ADVISE_MR_ADVICE_PREFETCH,
                        e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE]:
-            self.create_players(OdpRC, use_mr_prefetch='sync',
-                                prefetch_advice=advice)
+            self.create_players(OdpRC, request_user_addr=self.force_page_faults,
+                                use_mr_prefetch='sync', prefetch_advice=advice)
             u.traffic(**self.traffic_args)
 
     def test_odp_async_prefetch_rc_traffic(self):
         for advice in [e._IBV_ADVISE_MR_ADVICE_PREFETCH,
                        e._IBV_ADVISE_MR_ADVICE_PREFETCH_WRITE]:
-            self.create_players(OdpRC, use_mr_prefetch='async',
-                                prefetch_advice=advice)
+            self.create_players(OdpRC, request_user_addr=self.force_page_faults,
+                                use_mr_prefetch='async', prefetch_advice=advice)
             u.traffic(**self.traffic_args)
 
     def test_odp_implicit_sync_prefetch_rc_traffic(self):
-        self.create_players(OdpRC, use_mr_prefetch='sync', is_implicit=True)
+        self.create_players(OdpRC, request_user_addr=self.force_page_faults,
+                            use_mr_prefetch='sync', is_implicit=True)
         u.traffic(**self.traffic_args)
 
     def test_odp_implicit_async_prefetch_rc_traffic(self):
-        self.create_players(OdpRC, use_mr_prefetch='async', is_implicit=True)
+        self.create_players(OdpRC, request_user_addr=self.force_page_faults,
+                            use_mr_prefetch='async', is_implicit=True)
         u.traffic(**self.traffic_args)
 
     def test_odp_prefetch_sync_no_page_fault_rc_traffic(self):
         prefetch_advice = e._IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT
-        self.create_players(OdpRC, use_mr_prefetch='sync',
-                            prefetch_advice=prefetch_advice)
+        self.create_players(OdpRC, request_user_addr=self.force_page_faults,
+                            use_mr_prefetch='sync', prefetch_advice=prefetch_advice)
         u.traffic(**self.traffic_args)
 
     def test_odp_prefetch_async_no_page_fault_rc_traffic(self):
         prefetch_advice = e._IBV_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT
-        self.create_players(OdpRC, use_mr_prefetch='async',
-                            prefetch_advice=prefetch_advice)
+        self.create_players(OdpRC, request_user_addr=self.force_page_faults,
+                            use_mr_prefetch='async', prefetch_advice=prefetch_advice)
         u.traffic(**self.traffic_args)
