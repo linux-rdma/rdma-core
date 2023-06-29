@@ -46,6 +46,7 @@
 #include <pthread.h>
 #include <sys/param.h>
 
+#include <util/mmio.h>
 #include <infiniband/driver.h>
 #include <util/udma_barrier.h>
 
@@ -70,7 +71,9 @@ struct bnxt_re_chip_ctx {
 
 struct bnxt_re_dpi {
 	__u32 dpindx;
+	__u32 wcdpi;
 	__u64 *dbpage;
+	__u64 *wcdbpg;
 };
 
 struct bnxt_re_pd {
@@ -89,6 +92,33 @@ struct bnxt_re_cq {
 	struct list_head prev_cq_head;
 	uint32_t cqe_size;
 	uint8_t  phase;
+};
+
+struct bnxt_re_push_buffer {
+	uintptr_t pbuf; /*push wc buffer */
+	uintptr_t  *wqe; /* hwqe addresses */
+	uintptr_t ucdb;
+	__u32 st_idx;
+	__u32 qpid;
+	__u16 wcdpi;
+	__u16 nbit;
+	__u32 tail;
+};
+
+enum bnxt_re_push_info_mask {
+	BNXT_RE_PUSH_SIZE_MASK  = 0x1FUL,
+	BNXT_RE_PUSH_SIZE_SHIFT = 0x18UL
+};
+
+struct bnxt_re_db_ppp_hdr {
+	struct bnxt_re_db_hdr db_hdr;
+	__u64 rsv_psz_pidx;
+};
+
+struct bnxt_re_push_rec {
+	struct bnxt_re_dpi *udpi;
+	struct bnxt_re_push_buffer *pbuf;
+	__u32 pbmap; /* only 16 bits in use */
 };
 
 struct bnxt_re_wrid {
@@ -134,6 +164,7 @@ struct bnxt_re_joint_queue {
 struct bnxt_re_qp {
 	struct ibv_qp ibvqp;
 	struct bnxt_re_chip_ctx *cctx;
+	struct bnxt_re_context *cntx;
 	struct bnxt_re_joint_queue *jsqq;
 	struct bnxt_re_joint_queue *jrqq;
 	struct bnxt_re_srq *srq;
@@ -151,6 +182,8 @@ struct bnxt_re_qp {
 	uint16_t mtu;
 	uint16_t qpst;
 	uint32_t qpmode;
+	uint8_t push_st_en;
+	uint16_t max_push_sz;
 	uint8_t qptyp;
 	/* irdord? */
 };
@@ -180,12 +213,22 @@ struct bnxt_re_context {
 	uint32_t dev_id;
 	uint32_t max_qp;
 	struct bnxt_re_chip_ctx cctx;
+	uint64_t comp_mask;
 	uint32_t max_srq;
 	struct bnxt_re_dpi udpi;
 	void *shpg;
 	uint32_t wqe_mode;
 	pthread_mutex_t shlock;
 	pthread_spinlock_t fqlock;
+	struct bnxt_re_push_rec *pbrec;
+	uint32_t wc_handle;
+};
+
+struct bnxt_re_mmap_info {
+	__u32 type;
+	__u32 dpi;
+	__u64 alloc_offset;
+	__u32 alloc_size;
 };
 
 /* DB ring functions used internally*/
@@ -196,6 +239,20 @@ void bnxt_re_ring_srq_db(struct bnxt_re_srq *srq);
 void bnxt_re_ring_cq_db(struct bnxt_re_cq *cq);
 void bnxt_re_ring_cq_arm_db(struct bnxt_re_cq *cq, uint8_t aflag);
 
+void bnxt_re_ring_pstart_db(struct bnxt_re_qp *qp,
+			    struct bnxt_re_push_buffer *pbuf);
+void bnxt_re_ring_pend_db(struct bnxt_re_qp *qp,
+			  struct bnxt_re_push_buffer *pbuf);
+void bnxt_re_fill_push_wcb(struct bnxt_re_qp *qp,
+			   struct bnxt_re_push_buffer *pbuf,
+			   uint32_t idx);
+
+int bnxt_re_init_pbuf_list(struct bnxt_re_context *cntx);
+void bnxt_re_destroy_pbuf_list(struct bnxt_re_context *cntx);
+struct bnxt_re_push_buffer *bnxt_re_get_pbuf(uint8_t *push_st_en,
+					     struct bnxt_re_context *cntx);
+void bnxt_re_put_pbuf(struct bnxt_re_context *cntx,
+		      struct bnxt_re_push_buffer *pbuf);
 /* pointer conversion functions*/
 static inline struct bnxt_re_dev *to_bnxt_re_dev(struct ibv_device *ibvdev)
 {
@@ -454,5 +511,24 @@ static inline void bnxt_re_jqq_mod_last(struct bnxt_re_joint_queue *jqq,
 					uint32_t idx)
 {
 	jqq->last_idx = jqq->swque[idx].next_idx;
+}
+
+/* Helper function to copy to push buffers */
+static inline void bnxt_re_copy_data_to_pb(struct bnxt_re_push_buffer *pbuf,
+					   uint8_t offset, uint32_t idx)
+{
+	uintptr_t *src;
+	uintptr_t *dst;
+	int indx;
+
+	for (indx = 0; indx < idx; indx++) {
+		dst = (uintptr_t *)(pbuf->pbuf + 2 * (indx + offset));
+		src = (uintptr_t *)(pbuf->wqe[indx]);
+		mmio_write64(dst, *src);
+
+		dst++;
+		src++;
+		mmio_write64(dst, *src);
+	}
 }
 #endif
