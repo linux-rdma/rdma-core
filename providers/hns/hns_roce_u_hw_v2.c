@@ -477,9 +477,17 @@ static void handle_recv_rq_inl(struct hns_roce_v2_cqe *cqe,
 	handle_recv_inl_data(cqe, &cur_qp->rq_rinl_buf, wr_num, wqe_buf);
 }
 
+static const uint8_t pktype_for_ud[] = {
+	HNS_ROCE_PKTYPE_ROCE_V1,
+	HNS_ROCE_PKTYPE_ROCE_V2_IPV4,
+	HNS_ROCE_PKTYPE_ROCE_V2_IPV6
+};
+
 static void parse_for_ud_qp(struct hns_roce_v2_cqe *cqe, struct ibv_wc *wc)
 {
-	wc->sl = hr_reg_read(cqe, CQE_SL);
+	uint8_t port_type =  hr_reg_read(cqe, CQE_PORT_TYPE);
+
+	wc->sl = pktype_for_ud[port_type];
 	wc->src_qp = hr_reg_read(cqe, CQE_RMT_QPN);
 	wc->slid = 0;
 	wc->wc_flags |= hr_reg_read(cqe, CQE_GRH) ? IBV_WC_GRH : 0;
@@ -1920,8 +1928,11 @@ static uint32_t wc_read_slid(struct ibv_cq_ex *current)
 static uint8_t wc_read_sl(struct ibv_cq_ex *current)
 {
 	struct hns_roce_cq *cq = to_hr_cq(ibv_cq_ex_to_cq(current));
+	uint8_t port_type;
 
-	return (uint8_t)hr_reg_read(cq->cqe, CQE_SL);
+	port_type = hr_reg_read(cq->cqe, CQE_PORT_TYPE);
+
+	return pktype_for_ud[port_type];
 }
 
 static uint8_t wc_read_dlid_path_bits(struct ibv_cq_ex *current)

@@ -175,6 +175,12 @@ enum hns_roce_db_type {
 	HNS_ROCE_DB_TYPE_NUM
 };
 
+enum hns_roce_pktype {
+	HNS_ROCE_PKTYPE_ROCE_V1,
+	HNS_ROCE_PKTYPE_ROCE_V2_IPV6,
+	HNS_ROCE_PKTYPE_ROCE_V2_IPV4,
+};
+
 struct hns_roce_db_page {
 	struct hns_roce_db_page	*prev, *next;
 	struct hns_roce_buf	buf;
