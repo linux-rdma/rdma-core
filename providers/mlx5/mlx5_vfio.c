@@ -100,7 +100,8 @@ static struct page_block *mlx5_vfio_new_block(struct mlx5_vfio_context *ctx)
 		goto err;
 	}
 
-	err = iset_alloc_range(ctx->iova_alloc, MLX5_VFIO_BLOCK_SIZE, &page_block->iova);
+	err = iset_alloc_range(ctx->iova_alloc, MLX5_VFIO_BLOCK_SIZE,
+			       &page_block->iova, MLX5_VFIO_BLOCK_SIZE);
 	if (err)
 		goto err_range;
 
@@ -778,7 +779,8 @@ static struct mlx5_cmd_mailbox *alloc_cmd_box(struct mlx5_vfio_context *ctx)
 
 	memset(mailbox->buf, 0, MLX5_ADAPTER_PAGE_SIZE);
 
-	ret = iset_alloc_range(ctx->iova_alloc, MLX5_ADAPTER_PAGE_SIZE, &mailbox->iova);
+	ret = iset_alloc_range(ctx->iova_alloc, MLX5_ADAPTER_PAGE_SIZE,
+			       &mailbox->iova, MLX5_ADAPTER_PAGE_SIZE);
 	if (ret)
 		goto err_tree;
 
@@ -945,7 +947,8 @@ static int mlx5_vfio_init_cmd_interface(struct mlx5_vfio_context *ctx)
 
 	memset(cmd->vaddr, 0, MLX5_ADAPTER_PAGE_SIZE);
 
-	ret = iset_alloc_range(ctx->iova_alloc, MLX5_ADAPTER_PAGE_SIZE, &cmd->iova);
+	ret = iset_alloc_range(ctx->iova_alloc, MLX5_ADAPTER_PAGE_SIZE,
+			       &cmd->iova, MLX5_ADAPTER_PAGE_SIZE);
 	if (ret)
 		goto err_free;
 
@@ -1400,7 +1403,8 @@ create_map_eq(struct mlx5_vfio_context *ctx, struct mlx5_eq *eq,
 		goto end;
 	}
 
-	err = iset_alloc_range(ctx->iova_alloc, eq->iova_size, &eq->iova);
+	err = iset_alloc_range(ctx->iova_alloc, eq->iova_size,
+			       &eq->iova, eq->iova_size);
 	if (err)
 		goto err_range;
 
@@ -2348,8 +2352,19 @@ static uint64_t calc_spanning_page_size(uint64_t start, uint64_t length)
 	 * start & (page_size-1) == (start + length) & (page_size - 1)
 	 */
 	uint64_t diffs = start ^ (start + length - 1);
+	uint64_t page_size = roundup_pow_of_two(diffs + 1);
 
-	return roundup_pow_of_two(diffs + 1);
+	/*
+	 * Don't waste more than 1G of IOVA address space trying to
+	 * minimize MTTs
+	 */
+	while (page_size - length > 1024 * 1024 * 1024) {
+		if (page_size / 2 < length)
+			break;
+		page_size /= 2;
+	}
+
+	return page_size;
 }
 
 static struct ibv_mr *mlx5_vfio_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
@@ -2386,39 +2401,42 @@ static struct ibv_mr *mlx5_vfio_reg_mr(struct ibv_pd *pd, void *addr, size_t len
 		return NULL;
 	}
 
-	/* Page size that encloses the start and end of the mkey's hca_va range */
+	aligned_va = (void *)(uintptr_t)((unsigned long)addr &
+					 ~(ctx->iova_min_page_size - 1));
+	iova_min_page_shift = ilog64(ctx->iova_min_page_size - 1);
+
 	mr->iova_page_size = max(calc_spanning_page_size(hca_va, length),
 				 ctx->iova_min_page_size);
+	page_shift = ilog64(mr->iova_page_size - 1);
 
-	ret = iset_alloc_range(ctx->iova_alloc, mr->iova_page_size, &mr->iova);
+	/* Ensure the low bis of the mkey VA match the low bits of the IOVA
+	 * because the mkc start_addr specifies both the wire VA and the DMA VA.
+	 */
+	mr->iova_aligned_offset =
+		hca_va & GENMASK(page_shift - 1, iova_min_page_shift);
+	mr->iova_reg_size = align(length + hca_va, ctx->iova_min_page_size) -
+		align_down(hca_va, ctx->iova_min_page_size);
+
+	if (page_shift > MLX5_MAX_PAGE_SHIFT) {
+		page_shift = MLX5_MAX_PAGE_SHIFT;
+		mr->iova_page_size = 1ULL << page_shift;
+	}
+	ret = iset_alloc_range(ctx->iova_alloc,
+			       mr->iova_aligned_offset + mr->iova_reg_size,
+			       &mr->iova, mr->iova_page_size);
 	if (ret)
 		goto end;
 
-	aligned_va = (void *)(uintptr_t)((unsigned long)addr & ~(ctx->iova_min_page_size - 1));
-	page_shift = ilog64(mr->iova_page_size - 1);
-	iova_min_page_shift = ilog32(ctx->iova_min_page_size - 1);
-	if (page_shift > iova_min_page_shift)
-		/* Ensure the low bis of the mkey VA match the low bits of the IOVA because the mkc
-		 * start_addr specifies both the wire VA and the DMA VA.
-		 */
-		mr->iova_aligned_offset = hca_va & GENMASK(page_shift - 1, iova_min_page_shift);
+	/* IOVA must be aligned */
+	assert(mr->iova % mr->iova_page_size == 0);
 
-	mr->iova_reg_size = align(length + hca_va, ctx->iova_min_page_size) -
-				  align_down(hca_va, ctx->iova_min_page_size);
-
-	assert(mr->iova_page_size >= mr->iova_aligned_offset + mr->iova_reg_size);
 	ret = mlx5_vfio_register_mem(ctx, aligned_va,
 				     mr->iova + mr->iova_aligned_offset,
 				     mr->iova_reg_size);
-
 	if (ret)
 		goto err_reg;
 
-	num_pas = 1;
-	if (page_shift > MLX5_MAX_PAGE_SHIFT) {
-		page_shift = MLX5_MAX_PAGE_SHIFT;
-		num_pas = calc_num_dma_blocks(hca_va, length, (1ULL << MLX5_MAX_PAGE_SHIFT));
-	}
+	num_pas = calc_num_dma_blocks(hca_va, length, mr->iova_page_size);
 
 	inlen = DEVX_ST_SZ_BYTES(create_mkey_in) + (sizeof(*pas) * align(num_pas, 2));
 
@@ -2433,8 +2451,8 @@ static struct ibv_mr *mlx5_vfio_reg_mr(struct ibv_pd *pd, void *addr, size_t len
 	 * will cause the starting IOVA to be incorrect, adjust it.
 	 */
 	mlx5_vfio_populate_pas(align_down(mr->iova + mr->iova_aligned_offset,
-					  1ULL << page_shift),
-			       num_pas, (1ULL << page_shift),
+					  mr->iova_page_size),
+			       num_pas, mr->iova_page_size,
 			       pas, MLX5_MTT_PRESENT);
 
 	DEVX_SET(create_mkey_in, in, opcode, MLX5_CMD_OP_CREATE_MKEY);
@@ -2579,7 +2597,8 @@ _vfio_devx_umem_reg(struct ibv_context *context,
 	if (ibv_dontfork_range(addr, size))
 		goto err;
 
-	ret = iset_alloc_range(ctx->iova_alloc, vfio_umem->iova_size, &vfio_umem->iova);
+	ret = iset_alloc_range(ctx->iova_alloc, vfio_umem->iova_size,
+			       &vfio_umem->iova, vfio_umem->iova_size);
 	if (ret)
 		goto err_alloc;
 
@@ -3227,7 +3246,8 @@ vfio_devx_create_eq(struct ibv_context *ibctx, const void *in, size_t inlen,
 		goto err_va;
 	}
 
-	err = iset_alloc_range(ctx->iova_alloc, eq->size, &eq->iova);
+	err = iset_alloc_range(ctx->iova_alloc, eq->size,
+			       &eq->iova, eq->size);
 	if (err)
 		goto err_range;
 
