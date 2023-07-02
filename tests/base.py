@@ -349,8 +349,6 @@ class RDMATestCase(unittest.TestCase):
         self.pre_run()
         if sync_attrs:
             self.sync_remote_attr()
-        self.server_qp_attr, _ = self.server.qp.query(0x1ffffff)
-        self.client_qp_attr, _ = self.client.qp.query(0x1ffffff)
         self.traffic_args = {'client': self.client, 'server': self.server,
                              'iters': self.iters, 'gid_idx': self.gid_index,
                              'port': self.ib_port}
