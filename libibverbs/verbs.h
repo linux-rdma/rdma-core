@@ -43,7 +43,6 @@
 #include <errno.h>
 #include <string.h>
 #include <linux/types.h>
-#include <stdint.h>
 #include <sys/types.h>
 #include <infiniband/verbs_api.h>
 
